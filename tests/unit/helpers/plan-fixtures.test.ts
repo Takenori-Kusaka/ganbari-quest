@@ -2,6 +2,7 @@
 // #759 — plan-fixtures ヘルパ自体のユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	makeFamilyContext,
 	makeFreeContext,
@@ -12,7 +13,6 @@ import {
 	type TestSqlite,
 } from '../../helpers/plan-fixtures';
 import { closeDb, createTestDb } from './test-db';
-import { asChildId } from '$lib/domain/ids';
 
 /** ローカル時刻ベースで "YYYY-MM-DD" を返す（helper 側と同じ formatDate） */
 function todayLocalStr(): string {

@@ -141,7 +141,10 @@ describe('message-repo', () => {
 			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage({ childId: asChildId(1), messageType: 'text', body: 'テスト' }, 'test-tenant');
+		await insertMessage(
+			{ childId: asChildId(1), messageType: 'text', body: 'テスト' },
+			'test-tenant',
+		);
 
 		const count = await countUnshownMessages(asChildId(1), 'test-tenant');
 		expect(count).toBe(2);
@@ -181,7 +184,10 @@ describe('message-repo', () => {
 			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage({ childId: asChildId(1), messageType: 'text', body: '2番目' }, 'test-tenant');
+		await insertMessage(
+			{ childId: asChildId(1), messageType: 'text', body: '2番目' },
+			'test-tenant',
+		);
 
 		const messages = await findMessages(asChildId(1), 10, 'test-tenant');
 		expect(messages.length).toBe(2);

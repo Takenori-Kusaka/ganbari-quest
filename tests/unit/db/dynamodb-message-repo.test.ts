@@ -201,7 +201,7 @@ describe('findMessages', () => {
 		});
 		const { findMessages } = await loadRepo();
 		const result = await findMessages(CHILD_ID, 2, TENANT);
-		expect(result.map((m) => m.id)).toEqual([3, 2]);
+		expect(result.map((m) => m.id)).toEqual(['3', '2']);
 	});
 
 	it('LastEvaluatedKey でページングする', async () => {

@@ -1,5 +1,5 @@
-import { asCategoryId } from '$lib/domain/ids';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/child-challenge-service.ts
 // per-child チャレンジ サービス層 (#2362 PR-7、ADR-0055、User §6)
 //

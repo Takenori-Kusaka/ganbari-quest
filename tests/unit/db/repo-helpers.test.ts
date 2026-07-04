@@ -255,7 +255,7 @@ describe('findChildByIdRaw', () => {
 		const child = await findChildByIdRaw(asChildId(1), 'tenant1');
 
 		expect(child).toBeDefined();
-		expect(child?.id).toBe(1);
+		expect(child?.id).toBe('1');
 		expect(child?.nickname).toBe('たろう');
 		expect(child).not.toHaveProperty('PK');
 		expect(child).not.toHaveProperty('SK');

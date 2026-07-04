@@ -1,10 +1,10 @@
 // #2322 (EPIC #2319 ③): activities グループ load + action。
 // 旧 /admin/settings/+page.server.ts から decay / point / defaultChild / sibling 関連を移行。
 
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';

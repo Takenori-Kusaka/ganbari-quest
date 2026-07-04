@@ -156,7 +156,7 @@ describe('upsert', () => {
 		const item = putArg.Item as Record<string, unknown>;
 		expect(item.PK).toBe(`T#${TENANT}#RDS`);
 		expect(item.SK).toBe('2026-05-10#00000005');
-		expect(item.id).toBe('11');
+		expect(item.id).toBe(11);
 		expect(item.activityCount).toBe(4);
 	});
 
@@ -179,7 +179,7 @@ describe('upsert', () => {
 		});
 		expect(mockSend).toHaveBeenCalledTimes(2); // Get + Put のみ (nextId なし)
 		const item = callOf(1).input.Item as Record<string, unknown>;
-		expect(item.id).toBe('77');
+		expect(item.id).toBe(77);
 		expect(item.createdAt).toBe('2026-01-01T00:00:00.000Z');
 		expect(item.activityCount).toBe(9);
 	});

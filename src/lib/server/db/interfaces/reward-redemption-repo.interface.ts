@@ -54,7 +54,10 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow>;
 
-	findRedemptionRequestsByChild(childId: ChildId, tenantId: string): Promise<RedemptionRequestRow[]>;
+	findRedemptionRequestsByChild(
+		childId: ChildId,
+		tenantId: string,
+	): Promise<RedemptionRequestRow[]>;
 
 	findRedemptionRequestsByTenant(
 		tenantId: string,

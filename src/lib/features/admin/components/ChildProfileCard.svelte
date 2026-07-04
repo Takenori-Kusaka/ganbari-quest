@@ -1,8 +1,8 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
 import { CHILD_PROFILE_CARD_LABELS, getAgeTierLabel, getThemeOptions } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import {

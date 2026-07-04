@@ -2,12 +2,7 @@
 // ステータス関連のリポジトリ層
 
 import { and, desc, eq, lt, max, sql } from 'drizzle-orm';
-import {
-	type CategoryId,
-	type ChildId,
-	asCategoryId,
-	asChildId,
-} from '$lib/domain/ids';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';

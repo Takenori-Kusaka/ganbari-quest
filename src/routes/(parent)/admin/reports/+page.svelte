@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';

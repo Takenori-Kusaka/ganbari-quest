@@ -31,10 +31,10 @@ vi.mock('$lib/server/db/client', () => ({
 
 const TENANT = 't-2458-write-zero';
 
+import { asCategoryId } from '$lib/domain/ids';
 // import after mock
 import { children as childrenTable } from '$lib/server/db/schema';
 import * as activityRepo from '$lib/server/db/sqlite/activity-repo';
-import { asCategoryId } from '$lib/domain/ids';
 
 function countActivitiesTable(sqlite: TestSqlite): number {
 	const row = sqlite.prepare('SELECT COUNT(*) as cnt FROM activities').get() as { cnt: number };

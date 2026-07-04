@@ -131,7 +131,7 @@ describe('findTodayBattle', () => {
 		mockSend.mockResolvedValueOnce({ Item: makeBattleItem() });
 		const { findTodayBattle } = await loadRepo();
 		const battle = await findTodayBattle(CHILD_ID, DATE, TENANT);
-		expect(battle?.id).toBe(BATTLE_ID);
+		expect(battle?.id).toBe(String(BATTLE_ID));
 		expect(battle?.date).toBe(DATE);
 		const callArg = mockSend.mock.calls[0]?.[0] as { input: { Key?: { PK: string; SK: string } } };
 		expect(callArg.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
@@ -172,7 +172,7 @@ describe('findRecentBattles', () => {
 		});
 		const { findRecentBattles } = await loadRepo();
 		const battles = await findRecentBattles(CHILD_ID, 10, TENANT);
-		expect(battles.map((b) => b.id)).toEqual([9, 8]);
+		expect(battles.map((b) => b.id)).toEqual(['9', '8']);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: {
 				ScanIndexForward?: boolean;
@@ -198,7 +198,7 @@ describe('findRecentBattles', () => {
 		const { findRecentBattles } = await loadRepo();
 		const battles = await findRecentBattles(CHILD_ID, 2, TENANT);
 		expect(battles).toHaveLength(2);
-		expect(battles.map((b) => b.id)).toEqual([9, 8]);
+		expect(battles.map((b) => b.id)).toEqual(['9', '8']);
 	});
 
 	it('0 件のとき空配列を返す', async () => {
@@ -283,7 +283,7 @@ describe('insertDailyBattle', () => {
 		const stats = { hp: 100, atk: 10, def: 5, spd: 5, rec: 2 };
 		const id = await insertDailyBattle(CHILD_ID, ENEMY_ID, DATE, stats, TENANT);
 
-		expect(id).toBe(101);
+		expect(id).toBe(`101`);
 		const putCall = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
 		expect(putCall.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
 		expect(putCall.input.Item?.SK).toBe(`BATTLE#${DATE}`);
@@ -547,7 +547,7 @@ describe('interface 適合 (IBattleRepo)', () => {
 			TENANT,
 		);
 		// stub なら id=0 を返していた。本実装は counter 値を返す。
-		expect(id).toBe(1);
+		expect(id).toBe(`1`);
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

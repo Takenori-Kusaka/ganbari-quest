@@ -1,7 +1,7 @@
 <script lang="ts">
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';

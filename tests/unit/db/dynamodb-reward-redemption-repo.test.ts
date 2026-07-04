@@ -78,7 +78,7 @@ function makeItem(over: Record<string, unknown> = {}): Record<string, unknown> {
 		SK: `REDEMPT#${String(id).padStart(8, '0')}`,
 		id,
 		childId,
-		rewardId: '7',
+		rewardId: 7,
 		requestedAt: 1700000000,
 		status: 'pending_parent_approval',
 		parentNote: null,
@@ -176,7 +176,7 @@ describe('findRedemptionRequestsByChild', () => {
 		});
 		const { findRedemptionRequestsByChild } = await loadRepo();
 		const rows = await findRedemptionRequestsByChild(CHILD_ID, TENANT);
-		expect(rows.map((r) => r.id)).toEqual([2, 3, 1]);
+		expect(rows.map((r) => r.id)).toEqual(['2', '3', '1']);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: {
 				KeyConditionExpression?: string;
@@ -243,7 +243,7 @@ describe('findRedemptionRequestsByTenant', () => {
 		});
 		const { findRedemptionRequestsByTenant } = await loadRepo();
 		const rows = await findRedemptionRequestsByTenant(TENANT);
-		expect(rows.map((r) => r.id)).toEqual([2, 1]);
+		expect(rows.map((r) => r.id)).toEqual(['2', '1']);
 		// 非正規化 JOIN フィールドが露出する
 		expect(rows[0]).toMatchObject({
 			childName: 'けんた',
@@ -271,7 +271,7 @@ describe('findRedemptionRequestsByTenant', () => {
 			status: 'pending_parent_approval',
 			childId: CHILD_ID,
 		});
-		expect(rows.map((r) => r.id)).toEqual([1]);
+		expect(rows.map((r) => r.id)).toEqual(['1']);
 	});
 
 	it('limit で件数を絞る', async () => {
@@ -284,7 +284,7 @@ describe('findRedemptionRequestsByTenant', () => {
 		});
 		const { findRedemptionRequestsByTenant } = await loadRepo();
 		const rows = await findRedemptionRequestsByTenant(TENANT, { limit: 2 });
-		expect(rows.map((r) => r.id)).toEqual([3, 2]);
+		expect(rows.map((r) => r.id)).toEqual(['3', '2']);
 	});
 });
 
@@ -382,8 +382,8 @@ describe('findPendingByChildAndReward', () => {
 	it('child の REDEMPT# から rewardId + pending 一致を返す', async () => {
 		mockSend.mockResolvedValueOnce({
 			Items: [
-				makeItem({ id: 1, rewardId: '7', status: 'approved' }),
-				makeItem({ id: 2, rewardId: '7', status: 'pending_parent_approval' }),
+				makeItem({ id: 1, rewardId: 7, status: 'approved' }),
+				makeItem({ id: 2, rewardId: 7, status: 'pending_parent_approval' }),
 			],
 		});
 		const { findPendingByChildAndReward } = await loadRepo();
@@ -393,7 +393,7 @@ describe('findPendingByChildAndReward', () => {
 
 	it('pending が無いとき undefined', async () => {
 		mockSend.mockResolvedValueOnce({
-			Items: [makeItem({ id: 1, rewardId: '7', status: 'approved' })],
+			Items: [makeItem({ id: 1, rewardId: 7, status: 'approved' })],
 		});
 		const { findPendingByChildAndReward } = await loadRepo();
 		expect(await findPendingByChildAndReward(CHILD_ID, '7', TENANT)).toBeUndefined();
@@ -510,7 +510,7 @@ describe('expireOldRedemptions', () => {
 describe('hasPendingByReward', () => {
 	it('rewardId に pending があれば true', async () => {
 		mockSend.mockResolvedValueOnce({
-			Items: [makeItem({ id: 1, rewardId: '7', status: 'pending_parent_approval' })],
+			Items: [makeItem({ id: 1, rewardId: 7, status: 'pending_parent_approval' })],
 		});
 		const { hasPendingByReward } = await loadRepo();
 		expect(await hasPendingByReward('7', TENANT)).toBe(true);
@@ -518,7 +518,7 @@ describe('hasPendingByReward', () => {
 
 	it('pending が無ければ false', async () => {
 		mockSend.mockResolvedValueOnce({
-			Items: [makeItem({ id: 1, rewardId: '7', status: 'approved' })],
+			Items: [makeItem({ id: 1, rewardId: 7, status: 'approved' })],
 		});
 		const { hasPendingByReward } = await loadRepo();
 		expect(await hasPendingByReward('7', TENANT)).toBe(false);

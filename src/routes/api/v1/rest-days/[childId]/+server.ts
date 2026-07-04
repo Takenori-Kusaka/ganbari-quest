@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import {
 	countRestDaysInMonth,
 	deleteRestDay,

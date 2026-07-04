@@ -9,10 +9,10 @@
 //
 // 既存 (#2268): CRUD + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除
 
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,

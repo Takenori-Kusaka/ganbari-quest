@@ -136,7 +136,13 @@ describe('deletion-export-service', () => {
 				},
 			]);
 			mockFindStatuses.mockResolvedValue([
-				{ categoryId: asCategoryId(1), totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
+				{
+					categoryId: asCategoryId(1),
+					totalXp: 100,
+					level: 3,
+					peakXp: 100,
+					updatedAt: '2026-04-17',
+				},
 				{ categoryId: asCategoryId(2), totalXp: 50, level: 2, peakXp: 50, updatedAt: '2026-04-17' },
 			]);
 			// たろう: 5件、はなこ: 3件の活動ログ
@@ -182,10 +188,22 @@ describe('deletion-export-service', () => {
 			]);
 			mockFindStatuses
 				.mockResolvedValueOnce([
-					{ categoryId: asCategoryId(1), totalXp: 200, level: 5, peakXp: 200, updatedAt: '2026-04-17' },
+					{
+						categoryId: asCategoryId(1),
+						totalXp: 200,
+						level: 5,
+						peakXp: 200,
+						updatedAt: '2026-04-17',
+					},
 				])
 				.mockResolvedValueOnce([
-					{ categoryId: asCategoryId(1), totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
+					{
+						categoryId: asCategoryId(1),
+						totalXp: 100,
+						level: 3,
+						peakXp: 100,
+						updatedAt: '2026-04-17',
+					},
 				]);
 
 			const result = await generateSiblingComparison('tenant-1');

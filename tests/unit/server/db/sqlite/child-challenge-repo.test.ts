@@ -25,6 +25,7 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	claimReward,
 	copyAcrossChildren,
@@ -40,7 +41,6 @@ import {
 	updateProgress,
 } from '../../../../../src/lib/server/db/sqlite/child-challenge-repo';
 import type { InsertChildChallengeInput } from '../../../../../src/lib/server/db/types';
-import { asChildId, type ChildId } from '$lib/domain/ids';
 
 const TENANT = 'test-tenant';
 
@@ -113,11 +113,21 @@ describe('sqlite/child-challenge-repo', () => {
 
 	it('findActiveByChildId は today が start..end 範囲内かつ active のみ返す', async () => {
 		await insert(
-			buildInput({ childId: asChildId(1), startDate: '2026-05-20', endDate: '2026-05-30', title: 'active' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'active',
+			}),
 			TENANT,
 		);
 		await insert(
-			buildInput({ childId: asChildId(1), startDate: '2026-05-20', endDate: '2026-05-22', title: 'past' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-22',
+				title: 'past',
+			}),
 			TENANT,
 		);
 		const active = await findActiveByChildId(asChildId(1), '2026-05-25', TENANT);
@@ -184,7 +194,12 @@ describe('sqlite/child-challenge-repo', () => {
 	it('findActiveOrUnclaimedByChildId は active + 完成済かつ未請求の instance を返す', async () => {
 		// 3 種類の instance を投入: active / completed+unclaimed / completed+claimed
 		const activeOne = await insert(
-			buildInput({ childId: asChildId(1), startDate: '2026-05-20', endDate: '2026-05-30', title: 'active' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'active',
+			}),
 			TENANT,
 		);
 		const unclaimedCompleted = await insert(

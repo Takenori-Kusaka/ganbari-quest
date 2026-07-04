@@ -123,7 +123,7 @@ describe('findByTenant', () => {
 
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({
-			id: 1,
+			id: '1',
 			tenantId: TENANT_ID,
 			endpoint: ENDPOINT,
 			subscriberRole: 'parent',

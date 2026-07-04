@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { loadBattlePage } from '$lib/features/battle/battle-page-load';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { executeDailyBattle } from '$lib/server/services/battle-service';

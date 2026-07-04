@@ -2,9 +2,9 @@
 // #2323 (EPIC #2319 ④): data グループ — data / cloud / clear (Danger Zone)
 // 旧 /admin/settings/+page.svelte 行 1188 (data) / 1473 (cloud) / 1695 (clear) を移行。
 
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import type { ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
 	ERROR_NOTIFY_LABELS,

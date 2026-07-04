@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, GROWTH_BOOK_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';

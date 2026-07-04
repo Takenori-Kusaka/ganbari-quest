@@ -2,7 +2,7 @@
 // 週次評価関連のリポジトリ層
 
 import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
-import { type ChildId, asCategoryId, asChildId } from '$lib/domain/ids';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import {
 	activityLogs,
@@ -217,10 +217,7 @@ export async function countRestDaysInMonth(
 }
 
 /** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
-export async function findRestDaysByChild(
-	childId: ChildId,
-	_tenantId: string,
-): Promise<RestDay[]> {
+export async function findRestDaysByChild(childId: ChildId, _tenantId: string): Promise<RestDay[]> {
 	return db
 		.select()
 		.from(restDays)

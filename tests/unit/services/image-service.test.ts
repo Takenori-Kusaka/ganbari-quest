@@ -1,4 +1,4 @@
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // tests/unit/services/image-service.test.ts
 // キャラクター画像生成サービスのユニットテスト
 
@@ -97,7 +97,11 @@ beforeEach(() => {
 describe('generateAvatar', () => {
 	it('子供が見つからない → NOT_FOUND', async () => {
 		mockFindChildForImage.mockResolvedValue(null);
-		const result = await generateAvatar(asChildId(999), { characterType: 'beginner', level: 1 }, TENANT);
+		const result = await generateAvatar(
+			asChildId(999),
+			{ characterType: 'beginner', level: 1 },
+			TENANT,
+		);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 

@@ -1,8 +1,8 @@
 // /view/[token] — 閲覧専用リンクのサーバーロード (#371)
 // 認証不要。トークンの有効性のみ検証。
 
-import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
+import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getChildStatus } from '$lib/server/services/status-service';

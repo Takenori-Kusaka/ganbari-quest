@@ -8,7 +8,7 @@
 // - バリデーション (childId/name/timeSlot) は上限チェックより先に走る
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 
 const mockCreateTemplate = vi.fn();
 const mockFindTemplatesByChild = vi.fn();

@@ -1,8 +1,8 @@
 // Dynamic file server for uploaded avatars
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
-import { asChildId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
 import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
 import { getChildById } from '$lib/server/services/child-service';

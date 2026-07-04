@@ -185,21 +185,36 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 
 	it('前週完了 + 大幅超過なら target を上げる (+2)', () => {
 		// 得意週 → 最多カテゴリ1 を決定的に選択。prev も cat1 完了で overshoot 2
-		const prev = makePrev({ categoryId: asCategoryId(1), status: 'completed', targetCount: 5, currentCount: 7 });
+		const prev = makePrev({
+			categoryId: asCategoryId(1),
+			status: 'completed',
+			targetCount: 5,
+			currentCount: 7,
+		});
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
 		expect(p.categoryId).toBe('1');
 		expect(p.targetCount).toBe(7); // max(base3, 5+2)=7
 	});
 
 	it('前週未達 (半分以上) なら据え置き', () => {
-		const prev = makePrev({ categoryId: asCategoryId(1), status: 'expired', targetCount: 5, currentCount: 3 });
+		const prev = makePrev({
+			categoryId: asCategoryId(1),
+			status: 'expired',
+			targetCount: 5,
+			currentCount: 3,
+		});
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
 		expect(p.targetCount).toBe(5); // ratio 0.6 → 据置
 		expect(p.consecutiveMissCount).toBe(1);
 	});
 
 	it('前週未達 (半分未満) なら 1 下げる', () => {
-		const prev = makePrev({ categoryId: asCategoryId(1), status: 'expired', targetCount: 5, currentCount: 1 });
+		const prev = makePrev({
+			categoryId: asCategoryId(1),
+			status: 'expired',
+			targetCount: 5,
+			currentCount: 1,
+		});
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
 		expect(p.targetCount).toBe(4); // ratio 0.2 → -1
 	});
@@ -268,7 +283,7 @@ describe('computeProposal — #3203 item2: childId+weekStart で seed 化し決�
 	it('childId 未指定でも従来通り動作する (Math.random フォールバック、後方互換)', () => {
 		const p = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS);
 		expect(p.mode).toBe('weakness');
-		expect([1, 2, 3, 4, 5]).toContain(p.categoryId);
+		expect(['1', '2', '3', '4', '5']).toContain(p.categoryId);
 	});
 });
 
@@ -293,7 +308,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		expect(input.periodType).toBe('weekly');
 		const cfg = JSON.parse(input.targetConfig);
 		expect(cfg.metric).toBe('count'); // 既存 updateChildChallengeProgress が増分できる形
-		expect(cfg.categoryId).toBeGreaterThanOrEqual(1);
+		expect(Number(cfg.categoryId)).toBeGreaterThanOrEqual(1);
 		expect(typeof cfg.genMode).toBe('string');
 		expect(input.targetValue).toBeGreaterThanOrEqual(2); // MIN_TARGET
 	});
@@ -461,8 +476,16 @@ describe('createChildChallenge / createChildChallengesBulk', () => {
 		expect(result.length).toBe(2);
 		expect(mockInsertBulk).toHaveBeenCalledWith(
 			expect.arrayContaining([
-				expect.objectContaining({ childId: asChildId(902), targetValue: 15, sourceTemplateId: 'src:1' }),
-				expect.objectContaining({ childId: asChildId(903), targetValue: 25, sourceTemplateId: 'src:1' }),
+				expect.objectContaining({
+					childId: asChildId(902),
+					targetValue: 15,
+					sourceTemplateId: 'src:1',
+				}),
+				expect.objectContaining({
+					childId: asChildId(903),
+					targetValue: 25,
+					sourceTemplateId: 'src:1',
+				}),
 			]),
 			TENANT,
 		);
@@ -719,7 +742,12 @@ describe('updateChildChallengeProgress', () => {
 				updatedAt: '',
 			},
 		]);
-		const results = await updateChildChallengeProgress(asChildId(902), asActivityId(999), asCategoryId(1), TENANT);
+		const results = await updateChildChallengeProgress(
+			asChildId(902),
+			asActivityId(999),
+			asCategoryId(1),
+			TENANT,
+		);
 		expect(mockUpdateProgress).toHaveBeenCalledWith('10', 5, TENANT);
 		expect(mockMarkCompleted).toHaveBeenCalledWith('10', TENANT);
 		expect(results[0]?.completed).toBe(true);
@@ -734,7 +762,11 @@ describe('updateChildChallengeProgress', () => {
 				completed: 0,
 				currentValue: 0,
 				targetValue: 5,
-				targetConfig: JSON.stringify({ metric: 'count', categoryId: asCategoryId(2), baseTarget: 5 }),
+				targetConfig: JSON.stringify({
+					metric: 'count',
+					categoryId: asCategoryId(2),
+					baseTarget: 5,
+				}),
 				description: null,
 				rewardConfig: '{}',
 				challengeType: 'cooperative',
@@ -752,7 +784,12 @@ describe('updateChildChallengeProgress', () => {
 			},
 		]);
 		// categoryId=1 で呼ぶ → targetConfig.categoryId=2 と不一致 → スキップ
-		const results = await updateChildChallengeProgress(asChildId(902), asActivityId(999), asCategoryId(1), TENANT);
+		const results = await updateChildChallengeProgress(
+			asChildId(902),
+			asActivityId(999),
+			asCategoryId(1),
+			TENANT,
+		);
 		expect(mockUpdateProgress).not.toHaveBeenCalled();
 		expect(results.length).toBe(0);
 	});
@@ -764,7 +801,12 @@ describe('buildPerChildTargets', () => {
 			{ id: '902', age: 5 },
 			{ id: '903', age: 8 },
 		]);
-		const result = await buildPerChildTargets(10, { '5': 15, '8': 25 }, [asChildId(902), asChildId(903)], TENANT);
+		const result = await buildPerChildTargets(
+			10,
+			{ '5': 15, '8': 25 },
+			[asChildId(902), asChildId(903)],
+			TENANT,
+		);
 		expect(result).toEqual({ 902: 15, 903: 25 });
 	});
 
@@ -885,7 +927,7 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 		expect(result).toHaveLength(1);
 		// siblings は今週分 2 件のみ (先週分 2 件は除外)
 		expect(result[0]?.siblings).toHaveLength(2);
-		expect(result[0]?.siblings.map((s) => s.id).sort()).toEqual([100, 101]);
+		expect(result[0]?.siblings.map((s) => s.id).sort()).toEqual(['100', '101']);
 		// 今週分は誰も完了していない → allCompleted=false (誤 celebration 発火しない)
 		expect(result[0]?.allCompleted).toBe(false);
 	});

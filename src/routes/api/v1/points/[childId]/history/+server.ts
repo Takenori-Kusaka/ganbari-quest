@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { pointHistoryQuerySchema } from '$lib/domain/validation/point';
 import { notFound, validationError } from '$lib/server/errors';
 import { getPointHistory } from '$lib/server/services/point-service';

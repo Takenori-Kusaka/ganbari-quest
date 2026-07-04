@@ -160,7 +160,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalledTimes(2);
 		const callArgs = mockDeleteActivityLogsBeforeDate.mock.calls[0];
 		if (!callArgs) throw new Error('no call recorded');
-		expect(callArgs[0]).toBe(1); // childId
+		expect(callArgs[0]).toBe('1'); // childId
 		const cutoffDate = callArgs[1] as string;
 		expect(cutoffDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		const cutoffDays = Math.round(

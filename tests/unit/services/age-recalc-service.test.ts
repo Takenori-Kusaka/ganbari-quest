@@ -1,4 +1,4 @@
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // tests/unit/services/age-recalc-service.test.ts
 // #1381: 子供の年齢自動インクリメントサービスのユニットテスト
 //
@@ -157,7 +157,7 @@ describe('recalcAllChildrenAges — 基本動作', () => {
 		expect(result.scanned).toBe(1);
 		expect(result.updated).toBe(1);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			{ age: 6, uiMode: 'preschool' }, // uiMode は変化しない
 			't-1',
 		);

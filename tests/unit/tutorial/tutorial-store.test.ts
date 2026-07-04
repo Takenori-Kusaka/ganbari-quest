@@ -138,7 +138,7 @@ describe('tutorial-store (#961 QA)', () => {
 			expect(isQuickModeActive()).toBe(false);
 			// チャプター2 の最初のステップにいる
 			const step = getCurrentStep();
-			expect(step?.chapterId).toBe('2');
+			expect(step?.chapterId).toBe(2);
 		});
 	});
 
@@ -198,7 +198,7 @@ describe('tutorial-store (#961 QA)', () => {
 			}
 			expect(isQuickCompleteShown()).toBe(false);
 			const step = getCurrentStep();
-			expect(step?.chapterId).toBe('2');
+			expect(step?.chapterId).toBe(2);
 		});
 	});
 });

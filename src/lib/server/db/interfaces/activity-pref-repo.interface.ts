@@ -23,7 +23,11 @@ export interface IActivityPrefRepo {
 		pinned: boolean,
 		tenantId: string,
 	): Promise<ChildActivityPreference>;
-	countPinnedInCategory(childId: ChildId, categoryId: CategoryId, tenantId: string): Promise<number>;
+	countPinnedInCategory(
+		childId: ChildId,
+		categoryId: CategoryId,
+		tenantId: string,
+	): Promise<number>;
 	getUsageCounts(
 		childId: ChildId,
 		sinceDate: string,

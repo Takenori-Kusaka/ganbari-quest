@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { notFound } from '$lib/server/errors';
 import { markAsShown } from '$lib/server/services/message-service';
 import type { RequestHandler } from './$types';

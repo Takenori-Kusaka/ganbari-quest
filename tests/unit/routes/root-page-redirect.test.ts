@@ -97,7 +97,10 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 		expect(mockGetDefaultChildId).not.toHaveBeenCalled();
 	});
 
-	it('優先順位1: Cookie が不正値（文字列）なら無視して次のステップへ', async () => {
+	it('優先順位1: Cookie の id が存在しない子なら無視して次のステップへ', async () => {
+		// #3575: id は opaque string になり「数値形式でない = 不正」の事前判定は存在しない。
+		// 'abc' は lookup され (存在しない → null)、旧挙動と同じく次のステップへフォールバックする。
+		mockGetChildById.mockResolvedValue(null);
 		mockGetDefaultChildId.mockResolvedValue(null);
 		mockGetAllChildren.mockResolvedValue([{ id: '1', uiMode: 'preschool' }]);
 
@@ -105,7 +108,7 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 
 		// 1人しかいないので自動選択に進む
 		expect(redirect.location).toBe('/preschool/home');
-		expect(mockGetChildById).not.toHaveBeenCalled();
+		expect(mockGetChildById).toHaveBeenCalledWith('abc', 'test-tenant');
 	});
 
 	it('優先順位1: Cookie の子供が DB に存在しないなら次のステップへ', async () => {
@@ -123,7 +126,7 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	});
 
 	it('優先順位2: 既定の子供 → そのホーム', async () => {
-		mockGetDefaultChildId.mockResolvedValue(5);
+		mockGetDefaultChildId.mockResolvedValue('5');
 		mockGetChildById.mockResolvedValue({ id: '5', uiMode: 'elementary' });
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({})));

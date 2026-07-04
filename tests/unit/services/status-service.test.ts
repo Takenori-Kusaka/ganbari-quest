@@ -104,7 +104,9 @@ describe('status-service', () => {
 	});
 
 	it('ステータス更新が正常に動作する（XP累積）', async () => {
-		const updated = assertSuccess(await updateStatus(asChildId(1), asCategoryId(1), 10, 'activity_record', 'test-tenant'));
+		const updated = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 10, 'activity_record', 'test-tenant'),
+		);
 		expect(updated).toBeDefined();
 
 		const status = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
@@ -140,7 +142,9 @@ describe('status-service', () => {
 		expect(before.statuses[1]?.level).toBe(1);
 
 		// +2 → 16 XP → Lv.2
-		const result = assertSuccess(await updateStatus(asChildId(1), asCategoryId(1), 2, 'activity_record', 'test-tenant'));
+		const result = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 2, 'activity_record', 'test-tenant'),
+		);
 		expect(result.levelUp).not.toBeNull();
 		expect(result.levelUp?.oldLevel).toBe(1);
 		expect(result.levelUp?.newLevel).toBe(2);
@@ -154,7 +158,9 @@ describe('status-service', () => {
 		await updateStatus(asChildId(1), asCategoryId(1), 16, 'activity_record', 'test-tenant');
 
 		// +5 → 21 XP → まだLv.2
-		const result = assertSuccess(await updateStatus(asChildId(1), asCategoryId(1), 5, 'activity_record', 'test-tenant'));
+		const result = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 5, 'activity_record', 'test-tenant'),
+		);
 		expect(result.levelUp).toBeNull();
 	});
 
@@ -183,7 +189,13 @@ describe('status-service', () => {
 	});
 
 	it('存在しない子供のステータス更新はNOT_FOUND', async () => {
-		const result = await updateStatus(asChildId(999), asCategoryId(1), 10, 'activity_record', 'test-tenant');
+		const result = await updateStatus(
+			asChildId(999),
+			asCategoryId(1),
+			10,
+			'activity_record',
+			'test-tenant',
+		);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });

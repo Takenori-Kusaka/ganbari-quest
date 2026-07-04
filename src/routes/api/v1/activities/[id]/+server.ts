@@ -1,5 +1,5 @@
-import { asActivityId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asActivityId } from '$lib/domain/ids';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
 import { notFound, validationError } from '$lib/server/errors';
 import {

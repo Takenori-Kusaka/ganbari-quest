@@ -115,7 +115,7 @@ describe('specialRewardQuerySchema', () => {
 	});
 
 	it('0を拒否する', () => {
-		expect(specialRewardQuerySchema.safeParse({ childId: asChildId(0) }).success).toBe(false);
+		expect(specialRewardQuerySchema.safeParse({ childId: 0 }).success).toBe(false);
 	});
 });
 

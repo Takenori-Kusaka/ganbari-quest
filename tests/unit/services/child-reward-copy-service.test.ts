@@ -287,7 +287,10 @@ describe('copyChildRewardsToSiblings', () => {
 describe('copyChildRewardsToSibling', () => {
 	it('正常系: source の reward 全件を target に複製し件数を返す', async () => {
 		mockFindSpecialRewards
-			.mockResolvedValueOnce([makeReward({ id: '1', title: 'A' }), makeReward({ id: '2', title: 'B' })])
+			.mockResolvedValueOnce([
+				makeReward({ id: '1', title: 'A' }),
+				makeReward({ id: '2', title: 'B' }),
+			])
 			.mockResolvedValueOnce([]);
 
 		const count = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));

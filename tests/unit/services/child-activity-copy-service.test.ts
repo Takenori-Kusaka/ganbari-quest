@@ -167,7 +167,7 @@ describe('copyChildActivitiesToSiblings', () => {
 		});
 
 		for (const call of mockCopyActivitiesAcrossChildren.mock.calls) {
-			expect(call[0]).toBe(999);
+			expect(call[0]).toBe('999');
 		}
 	});
 
@@ -210,6 +210,8 @@ describe('copyChildActivitiesToSibling', () => {
 	it('repo 例外は呼出側に伝播する', async () => {
 		mockCopyActivitiesAcrossChildren.mockRejectedValueOnce(new Error('FK violation'));
 
-		await expect(copyChildActivitiesToSibling(TENANT, SOURCE, asChildId(202))).rejects.toThrow('FK violation');
+		await expect(copyChildActivitiesToSibling(TENANT, SOURCE, asChildId(202))).rejects.toThrow(
+			'FK violation',
+		);
 	});
 });

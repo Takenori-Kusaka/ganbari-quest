@@ -22,6 +22,9 @@ export async function markShown(cheerIds: string[], tenantId: string): Promise<v
 	return getRepos().siblingCheer.markShown(cheerIds, tenantId);
 }
 
-export async function countTodayCheersFrom(fromChildId: ChildId, tenantId: string): Promise<number> {
+export async function countTodayCheersFrom(
+	fromChildId: ChildId,
+	tenantId: string,
+): Promise<number> {
 	return getRepos().siblingCheer.countTodayCheersFrom(fromChildId, tenantId);
 }

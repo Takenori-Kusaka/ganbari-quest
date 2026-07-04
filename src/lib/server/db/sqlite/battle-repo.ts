@@ -3,7 +3,7 @@
 
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type { DailyBattleRow, EnemyCollectionRow } from '../interfaces/battle-repo.interface';
 import { dailyBattles, enemyCollection } from '../schema';

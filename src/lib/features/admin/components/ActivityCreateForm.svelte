@@ -1,7 +1,7 @@
 <script lang="ts">
-import { asCategoryId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { joinIcon } from '$lib/domain/icon-utils';
+import { asCategoryId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { ACTIVITY_FORM_LABELS as L } from '$lib/domain/labels';
 import { type CategoryDef, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';

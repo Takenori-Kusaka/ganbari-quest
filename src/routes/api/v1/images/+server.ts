@@ -1,8 +1,8 @@
 // POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
 
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { notFound, validationError } from '$lib/server/errors';
 import {
 	generateAvatar,

@@ -1,5 +1,5 @@
-import { asActivityId } from '$lib/domain/ids';
 import { describe, expect, it } from 'vitest';
+import { asActivityId } from '$lib/domain/ids';
 import { getDefaultUiMode } from '../../../src/lib/domain/validation/age-tier';
 import { DEMO_CHILDREN, getDemoActivitiesForChild } from '../../../src/lib/server/demo/demo-data';
 
@@ -86,7 +86,9 @@ describe('demo data integrity (#562)', () => {
 					expect(ids.has(asActivityId(id)), `id=${id} は age=${c.age} に含まれるべき`).toBe(true);
 				}
 				for (const id of c.mustExclude) {
-					expect(ids.has(asActivityId(id)), `id=${id} は age=${c.age} に含まれてはいけない`).toBe(false);
+					expect(ids.has(asActivityId(id)), `id=${id} は age=${c.age} に含まれてはいけない`).toBe(
+						false,
+					);
 				}
 			});
 		}

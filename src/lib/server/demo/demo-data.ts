@@ -27,8 +27,15 @@
  */
 
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import { type ActivityId, asActivityId, asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import type {
 	ActivityPackPayload,
 	ChecklistPayload,
@@ -1741,35 +1748,235 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 
 export const DEMO_STATUSES: Status[] = [
 	// 901 たろうくん (baby, Lv.2) — 15 XP 程度
-	{ id: '9011', childId: asChildId(901), categoryId: asCategoryId(1), totalXp: 20, level: 2, peakXp: 20, updatedAt: NOW },
-	{ id: '9012', childId: asChildId(901), categoryId: asCategoryId(2), totalXp: 10, level: 1, peakXp: 10, updatedAt: NOW },
-	{ id: '9013', childId: asChildId(901), categoryId: asCategoryId(3), totalXp: 25, level: 2, peakXp: 25, updatedAt: NOW },
-	{ id: '9014', childId: asChildId(901), categoryId: asCategoryId(4), totalXp: 12, level: 1, peakXp: 12, updatedAt: NOW },
-	{ id: '9015', childId: asChildId(901), categoryId: asCategoryId(5), totalXp: 18, level: 2, peakXp: 18, updatedAt: NOW },
+	{
+		id: '9011',
+		childId: asChildId(901),
+		categoryId: asCategoryId(1),
+		totalXp: 20,
+		level: 2,
+		peakXp: 20,
+		updatedAt: NOW,
+	},
+	{
+		id: '9012',
+		childId: asChildId(901),
+		categoryId: asCategoryId(2),
+		totalXp: 10,
+		level: 1,
+		peakXp: 10,
+		updatedAt: NOW,
+	},
+	{
+		id: '9013',
+		childId: asChildId(901),
+		categoryId: asCategoryId(3),
+		totalXp: 25,
+		level: 2,
+		peakXp: 25,
+		updatedAt: NOW,
+	},
+	{
+		id: '9014',
+		childId: asChildId(901),
+		categoryId: asCategoryId(4),
+		totalXp: 12,
+		level: 1,
+		peakXp: 12,
+		updatedAt: NOW,
+	},
+	{
+		id: '9015',
+		childId: asChildId(901),
+		categoryId: asCategoryId(5),
+		totalXp: 18,
+		level: 2,
+		peakXp: 18,
+		updatedAt: NOW,
+	},
 	// 902 ひなちゃん (preschool, Lv.4) — 80-140 XP
-	{ id: '9021', childId: asChildId(902), categoryId: asCategoryId(1), totalXp: 120, level: 4, peakXp: 120, updatedAt: NOW },
-	{ id: '9022', childId: asChildId(902), categoryId: asCategoryId(2), totalXp: 90, level: 4, peakXp: 90, updatedAt: NOW },
-	{ id: '9023', childId: asChildId(902), categoryId: asCategoryId(3), totalXp: 75, level: 3, peakXp: 75, updatedAt: NOW },
-	{ id: '9024', childId: asChildId(902), categoryId: asCategoryId(4), totalXp: 55, level: 3, peakXp: 55, updatedAt: NOW },
-	{ id: '9025', childId: asChildId(902), categoryId: asCategoryId(5), totalXp: 100, level: 4, peakXp: 100, updatedAt: NOW },
+	{
+		id: '9021',
+		childId: asChildId(902),
+		categoryId: asCategoryId(1),
+		totalXp: 120,
+		level: 4,
+		peakXp: 120,
+		updatedAt: NOW,
+	},
+	{
+		id: '9022',
+		childId: asChildId(902),
+		categoryId: asCategoryId(2),
+		totalXp: 90,
+		level: 4,
+		peakXp: 90,
+		updatedAt: NOW,
+	},
+	{
+		id: '9023',
+		childId: asChildId(902),
+		categoryId: asCategoryId(3),
+		totalXp: 75,
+		level: 3,
+		peakXp: 75,
+		updatedAt: NOW,
+	},
+	{
+		id: '9024',
+		childId: asChildId(902),
+		categoryId: asCategoryId(4),
+		totalXp: 55,
+		level: 3,
+		peakXp: 55,
+		updatedAt: NOW,
+	},
+	{
+		id: '9025',
+		childId: asChildId(902),
+		categoryId: asCategoryId(5),
+		totalXp: 100,
+		level: 4,
+		peakXp: 100,
+		updatedAt: NOW,
+	},
 	// 903 けんたくん (elementary, Lv.7) — 275-500 XP
-	{ id: '9031', childId: asChildId(903), categoryId: asCategoryId(1), totalXp: 450, level: 9, peakXp: 450, updatedAt: NOW },
-	{ id: '9032', childId: asChildId(903), categoryId: asCategoryId(2), totalXp: 350, level: 8, peakXp: 350, updatedAt: NOW },
-	{ id: '9033', childId: asChildId(903), categoryId: asCategoryId(3), totalXp: 300, level: 7, peakXp: 300, updatedAt: NOW },
-	{ id: '9034', childId: asChildId(903), categoryId: asCategoryId(4), totalXp: 200, level: 6, peakXp: 200, updatedAt: NOW },
-	{ id: '9035', childId: asChildId(903), categoryId: asCategoryId(5), totalXp: 280, level: 7, peakXp: 280, updatedAt: NOW },
+	{
+		id: '9031',
+		childId: asChildId(903),
+		categoryId: asCategoryId(1),
+		totalXp: 450,
+		level: 9,
+		peakXp: 450,
+		updatedAt: NOW,
+	},
+	{
+		id: '9032',
+		childId: asChildId(903),
+		categoryId: asCategoryId(2),
+		totalXp: 350,
+		level: 8,
+		peakXp: 350,
+		updatedAt: NOW,
+	},
+	{
+		id: '9033',
+		childId: asChildId(903),
+		categoryId: asCategoryId(3),
+		totalXp: 300,
+		level: 7,
+		peakXp: 300,
+		updatedAt: NOW,
+	},
+	{
+		id: '9034',
+		childId: asChildId(903),
+		categoryId: asCategoryId(4),
+		totalXp: 200,
+		level: 6,
+		peakXp: 200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9035',
+		childId: asChildId(903),
+		categoryId: asCategoryId(5),
+		totalXp: 280,
+		level: 7,
+		peakXp: 280,
+		updatedAt: NOW,
+	},
 	// 904 さくらちゃん (junior, Lv.15+) — 1200-2500 XP
-	{ id: '9041', childId: asChildId(904), categoryId: asCategoryId(1), totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
-	{ id: '9042', childId: asChildId(904), categoryId: asCategoryId(2), totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
-	{ id: '9043', childId: asChildId(904), categoryId: asCategoryId(3), totalXp: 1200, level: 15, peakXp: 1200, updatedAt: NOW },
-	{ id: '9044', childId: asChildId(904), categoryId: asCategoryId(4), totalXp: 800, level: 10, peakXp: 800, updatedAt: NOW },
-	{ id: '9045', childId: asChildId(904), categoryId: asCategoryId(5), totalXp: 1800, level: 17, peakXp: 1800, updatedAt: NOW },
+	{
+		id: '9041',
+		childId: asChildId(904),
+		categoryId: asCategoryId(1),
+		totalXp: 2000,
+		level: 18,
+		peakXp: 2000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9042',
+		childId: asChildId(904),
+		categoryId: asCategoryId(2),
+		totalXp: 2500,
+		level: 20,
+		peakXp: 2500,
+		updatedAt: NOW,
+	},
+	{
+		id: '9043',
+		childId: asChildId(904),
+		categoryId: asCategoryId(3),
+		totalXp: 1200,
+		level: 15,
+		peakXp: 1200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9044',
+		childId: asChildId(904),
+		categoryId: asCategoryId(4),
+		totalXp: 800,
+		level: 10,
+		peakXp: 800,
+		updatedAt: NOW,
+	},
+	{
+		id: '9045',
+		childId: asChildId(904),
+		categoryId: asCategoryId(5),
+		totalXp: 1800,
+		level: 17,
+		peakXp: 1800,
+		updatedAt: NOW,
+	},
 	// 906 けいすけくん (senior, Lv.20+) — 2000-3000 XP
-	{ id: '9061', childId: asChildId(906), categoryId: asCategoryId(1), totalXp: 2800, level: 22, peakXp: 2800, updatedAt: NOW },
-	{ id: '9062', childId: asChildId(906), categoryId: asCategoryId(2), totalXp: 3000, level: 23, peakXp: 3000, updatedAt: NOW },
-	{ id: '9063', childId: asChildId(906), categoryId: asCategoryId(3), totalXp: 2200, level: 19, peakXp: 2200, updatedAt: NOW },
-	{ id: '9064', childId: asChildId(906), categoryId: asCategoryId(4), totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
-	{ id: '9065', childId: asChildId(906), categoryId: asCategoryId(5), totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
+	{
+		id: '9061',
+		childId: asChildId(906),
+		categoryId: asCategoryId(1),
+		totalXp: 2800,
+		level: 22,
+		peakXp: 2800,
+		updatedAt: NOW,
+	},
+	{
+		id: '9062',
+		childId: asChildId(906),
+		categoryId: asCategoryId(2),
+		totalXp: 3000,
+		level: 23,
+		peakXp: 3000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9063',
+		childId: asChildId(906),
+		categoryId: asCategoryId(3),
+		totalXp: 2200,
+		level: 19,
+		peakXp: 2200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9064',
+		childId: asChildId(906),
+		categoryId: asCategoryId(4),
+		totalXp: 2000,
+		level: 18,
+		peakXp: 2000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9065',
+		childId: asChildId(906),
+		categoryId: asCategoryId(5),
+		totalXp: 2500,
+		level: 20,
+		peakXp: 2500,
+		updatedAt: NOW,
+	},
 ];
 
 // ============================================================
@@ -1790,22 +1997,106 @@ export const DEMO_POINT_BALANCES: Record<string, number> = {
 
 export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 	// 902 ひなちゃん (preschool)
-	{ id: '1', childId: asChildId(902), achievementId: '1', milestoneValue: null, unlockedAt: daysAgoISO(20) },
-	{ id: '2', childId: asChildId(902), achievementId: '2', milestoneValue: 10, unlockedAt: daysAgoISO(15) },
+	{
+		id: '1',
+		childId: asChildId(902),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(20),
+	},
+	{
+		id: '2',
+		childId: asChildId(902),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(15),
+	},
 	// 903 けんた (elementary)
-	{ id: '3', childId: asChildId(903), achievementId: '1', milestoneValue: null, unlockedAt: daysAgoISO(60) },
-	{ id: '4', childId: asChildId(903), achievementId: '2', milestoneValue: 10, unlockedAt: daysAgoISO(50) },
-	{ id: '5', childId: asChildId(903), achievementId: '2', milestoneValue: 50, unlockedAt: daysAgoISO(30) },
-	{ id: '6', childId: asChildId(903), achievementId: '3', milestoneValue: null, unlockedAt: daysAgoISO(25) },
-	{ id: '7', childId: asChildId(903), achievementId: '4', milestoneValue: null, unlockedAt: daysAgoISO(10) },
+	{
+		id: '3',
+		childId: asChildId(903),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(60),
+	},
+	{
+		id: '4',
+		childId: asChildId(903),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(50),
+	},
+	{
+		id: '5',
+		childId: asChildId(903),
+		achievementId: '2',
+		milestoneValue: 50,
+		unlockedAt: daysAgoISO(30),
+	},
+	{
+		id: '6',
+		childId: asChildId(903),
+		achievementId: '3',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(25),
+	},
+	{
+		id: '7',
+		childId: asChildId(903),
+		achievementId: '4',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(10),
+	},
 	// 904 さくら (junior)
-	{ id: '8', childId: asChildId(904), achievementId: '1', milestoneValue: null, unlockedAt: daysAgoISO(90) },
-	{ id: '9', childId: asChildId(904), achievementId: '2', milestoneValue: 10, unlockedAt: daysAgoISO(80) },
-	{ id: '10', childId: asChildId(904), achievementId: '2', milestoneValue: 50, unlockedAt: daysAgoISO(60) },
-	{ id: '11', childId: asChildId(904), achievementId: '2', milestoneValue: 100, unlockedAt: daysAgoISO(30) },
-	{ id: '12', childId: asChildId(904), achievementId: '3', milestoneValue: null, unlockedAt: daysAgoISO(70) },
-	{ id: '13', childId: asChildId(904), achievementId: '4', milestoneValue: null, unlockedAt: daysAgoISO(50) },
-	{ id: '14', childId: asChildId(904), achievementId: '5', milestoneValue: null, unlockedAt: daysAgoISO(20) },
+	{
+		id: '8',
+		childId: asChildId(904),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(90),
+	},
+	{
+		id: '9',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(80),
+	},
+	{
+		id: '10',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 50,
+		unlockedAt: daysAgoISO(60),
+	},
+	{
+		id: '11',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 100,
+		unlockedAt: daysAgoISO(30),
+	},
+	{
+		id: '12',
+		childId: asChildId(904),
+		achievementId: '3',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(70),
+	},
+	{
+		id: '13',
+		childId: asChildId(904),
+		achievementId: '4',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(50),
+	},
+	{
+		id: '14',
+		childId: asChildId(904),
+		achievementId: '5',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(20),
+	},
 ];
 
 // ============================================================
@@ -1814,21 +2105,105 @@ export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 
 export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 	// 902 ひなちゃん (preschool, age 5) — 3 missions, 1 done
-	{ id: '1', childId: asChildId(902), missionDate: TODAY, activityId: asActivityId(4), completed: 1, completedAt: NOW }, // からだをうごかした
-	{ id: '2', childId: asChildId(902), missionDate: TODAY, activityId: asActivityId(10), completed: 0, completedAt: null }, // えほんをよんだ
-	{ id: '3', childId: asChildId(902), missionDate: TODAY, activityId: asActivityId(30), completed: 0, completedAt: null }, // あいさつした
+	{
+		id: '1',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(4),
+		completed: 1,
+		completedAt: NOW,
+	}, // からだをうごかした
+	{
+		id: '2',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(10),
+		completed: 0,
+		completedAt: null,
+	}, // えほんをよんだ
+	{
+		id: '3',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(30),
+		completed: 0,
+		completedAt: null,
+	}, // あいさつした
 	// 903 けんた (elementary, age 8) — 3 missions, 2 done
-	{ id: '4', childId: asChildId(903), missionDate: TODAY, activityId: asActivityId(13), completed: 1, completedAt: NOW }, // しゅくだいをした
-	{ id: '5', childId: asChildId(903), missionDate: TODAY, activityId: asActivityId(7), completed: 1, completedAt: NOW }, // うんどうした
-	{ id: '6', childId: asChildId(903), missionDate: TODAY, activityId: asActivityId(40), completed: 0, completedAt: null }, // おえかきした
+	{
+		id: '4',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(13),
+		completed: 1,
+		completedAt: NOW,
+	}, // しゅくだいをした
+	{
+		id: '5',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(7),
+		completed: 1,
+		completedAt: NOW,
+	}, // うんどうした
+	{
+		id: '6',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(40),
+		completed: 0,
+		completedAt: null,
+	}, // おえかきした
 	// 904 さくら (junior, age 14) — 3 missions, all done
-	{ id: '7', childId: asChildId(904), missionDate: TODAY, activityId: asActivityId(7), completed: 1, completedAt: NOW }, // うんどうした
-	{ id: '8', childId: asChildId(904), missionDate: TODAY, activityId: asActivityId(17), completed: 1, completedAt: NOW }, // 受験勉強した
-	{ id: '9', childId: asChildId(904), missionDate: TODAY, activityId: asActivityId(43), completed: 1, completedAt: NOW }, // ピアノれんしゅう
+	{
+		id: '7',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(7),
+		completed: 1,
+		completedAt: NOW,
+	}, // うんどうした
+	{
+		id: '8',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(17),
+		completed: 1,
+		completedAt: NOW,
+	}, // 受験勉強した
+	{
+		id: '9',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(43),
+		completed: 1,
+		completedAt: NOW,
+	}, // ピアノれんしゅう
 	// 906 けいすけくん (senior, age 17) — 3 missions, 2 done (senior 専用: 大学受験 + アルバイト)
-	{ id: '13', childId: asChildId(906), missionDate: TODAY, activityId: asActivityId(50), completed: 1, completedAt: NOW }, // 大学受験勉強した
-	{ id: '14', childId: asChildId(906), missionDate: TODAY, activityId: asActivityId(51), completed: 1, completedAt: NOW }, // アルバイトした
-	{ id: '15', childId: asChildId(906), missionDate: TODAY, activityId: asActivityId(52), completed: 0, completedAt: null }, // 自動車学校
+	{
+		id: '13',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(50),
+		completed: 1,
+		completedAt: NOW,
+	}, // 大学受験勉強した
+	{
+		id: '14',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(51),
+		completed: 1,
+		completedAt: NOW,
+	}, // アルバイトした
+	{
+		id: '15',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(52),
+		completed: 0,
+		completedAt: null,
+	}, // 自動車学校
 ];
 
 // #3213 (EPIC #3193): DEMO_AUTO_CHALLENGES fixture 削除済。週次自動生成チャレンジは

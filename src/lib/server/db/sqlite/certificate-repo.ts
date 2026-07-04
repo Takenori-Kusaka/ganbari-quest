@@ -4,7 +4,7 @@
 // 旧 src/lib/server/db/certificate-repo.ts から移管 (#2262 ADR-0048 factory 化漏れ修正)。
 
 import { and, desc, eq } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { certificates } from '../schema';
 import type { Certificate, InsertCertificateInput } from '../types';

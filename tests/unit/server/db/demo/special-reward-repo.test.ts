@@ -6,9 +6,9 @@
 // - insertSpecialReward: stateless stub (returning input echo)
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as specialRewardRepo from '../../../../../src/lib/server/db/demo/special-reward-repo';
 import { getDemoMarketplaceSpecialRewardsByChild } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発火)', () => {
 	describe('findSpecialRewards: 各子供 reward 件数 (granted / unshown 混在)', () => {
@@ -48,7 +48,7 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 			it(`${childId} で unshown reward を 1 件取得 (childId / shownAt=null 整合)`, async () => {
 				const unshown = await specialRewardRepo.findUnshownReward(asChildId(childId), 'demo');
 				expect(unshown).toBeDefined();
-				expect(unshown?.childId).toBe(childId);
+				expect(unshown?.childId).toBe(asChildId(childId));
 				expect(unshown?.shownAt).toBeNull();
 				expect(unshown?.grantedAt).not.toBeNull();
 				expect(unshown?.title).toBeDefined();
@@ -69,7 +69,9 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 
 	describe('markRewardShown: stateless stub (fixture mutate なし)', () => {
 		it('markRewardShown は undefined を返す (sqlite repo の returning().get() 整合)', async () => {
-			expect(await specialRewardRepo.markRewardShown(asChildId(902), '5000', 'demo')).toBeUndefined();
+			expect(
+				await specialRewardRepo.markRewardShown(asChildId(902), '5000', 'demo'),
+			).toBeUndefined();
 		});
 
 		it('markRewardShown 呼出後も findUnshownReward は同じ unshown reward を返す (stateless)', async () => {
@@ -124,12 +126,19 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 	describe('updateSpecialReward / deleteSpecialReward: stateless stub (#2832)', () => {
 		it('updateSpecialReward は undefined を返す (write no-op、成功偽装しない)', async () => {
 			expect(
-				await specialRewardRepo.updateSpecialReward(asChildId(902), '5000', { title: 'x', points: 1 }, 'demo'),
+				await specialRewardRepo.updateSpecialReward(
+					asChildId(902),
+					'5000',
+					{ title: 'x', points: 1 },
+					'demo',
+				),
 			).toBeUndefined();
 		});
 
 		it('deleteSpecialReward は false を返す (write no-op、成功偽装しない)', async () => {
-			expect(await specialRewardRepo.deleteSpecialReward(asChildId(902), '5000', 'demo')).toBe(false);
+			expect(await specialRewardRepo.deleteSpecialReward(asChildId(902), '5000', 'demo')).toBe(
+				false,
+			);
 		});
 
 		it('呼出後も fixture 件数不変 (stateless)', async () => {

@@ -1,6 +1,6 @@
 <script lang="ts">
-import { asCategoryId } from '$lib/domain/ids';
 import { goto } from '$app/navigation';
+import { asCategoryId } from '$lib/domain/ids';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { getCategoryById } from '$lib/domain/validation/activity';

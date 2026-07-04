@@ -20,7 +20,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import type { Child } from '$lib/server/db/types/index.js';
 import {
@@ -34,7 +34,6 @@ import {
 	ProductionDashboardService,
 } from '$lib/services/production/DashboardService';
 import type { ChildDashboardHomeData } from '$lib/services/types';
-import { asActivityId, asChildId } from '$lib/domain/ids';
 
 const SAMPLE_SEED: ChildDashboardHomeData = {
 	child: null,
@@ -253,7 +252,10 @@ describe('ProductionDashboardService — recordActivity', () => {
 		expect(firstCall[0]).toBe('/api/v1/activity-logs');
 		const callOpts = firstCall[1] as { method: string; body: string };
 		expect(callOpts.method).toBe('POST');
-		expect(JSON.parse(callOpts.body)).toEqual({ childId: asChildId(42), activityId: asActivityId(7) });
+		expect(JSON.parse(callOpts.body)).toEqual({
+			childId: asChildId(42),
+			activityId: asActivityId(7),
+		});
 	});
 
 	it('child 未選択 (child=null) なら NOT_FOUND を返し fetch を呼ばない', async () => {

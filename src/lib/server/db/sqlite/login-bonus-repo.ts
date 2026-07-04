@@ -2,7 +2,7 @@
 // ログインボーナスのリポジトリ層
 
 import { and, desc, eq, lt } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, loginBonuses } from '../schema';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';

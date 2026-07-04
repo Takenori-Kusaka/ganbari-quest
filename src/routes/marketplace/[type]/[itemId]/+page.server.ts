@@ -1,6 +1,6 @@
-import type { ChildId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
+import type { ChildId } from '$lib/domain/ids';
 import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 // #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行した結果、
 // `marketplaceRegistry` / `rulePresetStrategy` / `RulePresetPayload` / `fail` / `redirect` は

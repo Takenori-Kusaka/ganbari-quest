@@ -234,7 +234,12 @@ describe('findAllByTenant', () => {
 		mockSend.mockResolvedValueOnce({
 			Items: [
 				makeItem({ id: 2, title: 'B', createdAt: '2026-06-02T00:00:00.000Z' }),
-				makeItem({ id: 1, title: 'A', childId: asChildId(99), createdAt: '2026-06-01T00:00:00.000Z' }),
+				makeItem({
+					id: 1,
+					title: 'A',
+					childId: asChildId(99),
+					createdAt: '2026-06-01T00:00:00.000Z',
+				}),
 			],
 		});
 		const { findAllByTenant } = await loadRepo();
@@ -400,7 +405,7 @@ describe('insertBulk', () => {
 			TENANT,
 		);
 		expect(result.map((c) => c.title)).toEqual(['A', 'B']);
-		expect(result.map((c) => c.id)).toEqual([1, 2]);
+		expect(result.map((c) => c.id)).toEqual(['1', '2']);
 		// 2 insert = 4 send (nextId + Put × 2)
 		expect(mockSend).toHaveBeenCalledTimes(4);
 	});

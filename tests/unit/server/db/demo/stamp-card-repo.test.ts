@@ -48,25 +48,37 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		// 901 たろう (baby) は ADR-0011 によりスタンプカード非表示 → fixture 対象外
 
 		it.each([902, 903, 904, 906])('childId=%i: 当週 active card が取れる', async (childId) => {
-			const card = await stampCardRepo.findCardByChildAndWeek(asChildId(childId), CURRENT_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(childId),
+				CURRENT_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeDefined();
-			expect(card?.childId).toBe(childId);
+			expect(card?.childId).toBe(asChildId(childId));
 			expect(card?.weekStart).toBe(CURRENT_WEEK_START);
 			expect(card?.status).toBe('collecting');
 			expect(card?.redeemedPoints).toBeNull();
 		});
 
 		it.each([902, 903, 904, 906])('childId=%i: 前週 redeemed card が取れる', async (childId) => {
-			const card = await stampCardRepo.findCardByChildAndWeek(asChildId(childId), PREV_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(childId),
+				PREV_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeDefined();
-			expect(card?.childId).toBe(childId);
+			expect(card?.childId).toBe(asChildId(childId));
 			expect(card?.weekStart).toBe(PREV_WEEK_START);
 			expect(card?.status).toBe('redeemed');
 			expect(card?.redeemedPoints).toBe(100); // 5*10 + 50 complete bonus
 		});
 
 		it('baby (childId=901) はカード未登録 → undefined', async () => {
-			const card = await stampCardRepo.findCardByChildAndWeek(asChildId(901), CURRENT_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(901),
+				CURRENT_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeUndefined();
 		});
 

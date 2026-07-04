@@ -1,9 +1,9 @@
 // /setup/first-adventure — はじめてのがんばり体験 (#0262 G4)
 // セットアップの最終ステップ前に、子供と一緒に最初の活動記録を体験
 
-import { asActivityId, asChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail, redirect } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
 import { getChildActivities } from '$lib/server/services/activity-service';

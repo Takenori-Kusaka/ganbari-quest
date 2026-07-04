@@ -124,7 +124,10 @@ export async function findRestDays(
 	return [];
 }
 
-export async function findRestDaysByChild(_childId: ChildId, _tenantId: string): Promise<RestDay[]> {
+export async function findRestDaysByChild(
+	_childId: ChildId,
+	_tenantId: string,
+): Promise<RestDay[]> {
 	return [];
 }
 

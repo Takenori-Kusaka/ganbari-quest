@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
-import { asChildId } from '$lib/domain/ids';
 
 // テスト用ファクトリ
 function cognitoIdentity(userId = 'user-1', email = 'test@example.com'): Identity {

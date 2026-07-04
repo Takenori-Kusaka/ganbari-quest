@@ -29,7 +29,9 @@ describe('demo/checklist-repo', () => {
 	});
 
 	it('findTodayLog は undefined (fixture なし)', async () => {
-		expect(await checklistRepo.findTodayLog(asChildId(904), '904', '2026-04-01', 'demo')).toBeUndefined();
+		expect(
+			await checklistRepo.findTodayLog(asChildId(904), '904', '2026-04-01', 'demo'),
+		).toBeUndefined();
 	});
 
 	it('insertTemplate は no-op で fixture mutate なし (family master 化)', async () => {

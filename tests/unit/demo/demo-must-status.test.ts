@@ -6,9 +6,9 @@
 // - demo は DB 書き込みなし → granted は常に false。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { DEMO_CHILDREN } from '../../../src/lib/server/demo/demo-data';
 import { getDemoHomeData } from '../../../src/lib/server/demo/demo-service';
-import { asChildId } from '$lib/domain/ids';
 
 describe('#1757 demo mustStatus', () => {
 	it('preschool 子供（901 ではない）の demo home に mustStatus が含まれる', () => {

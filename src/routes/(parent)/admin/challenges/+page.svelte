@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	APP_LABELS,

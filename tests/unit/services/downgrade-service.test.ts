@@ -219,8 +219,8 @@ describe('downgrade-service', () => {
 				expect(result.archivedActivityIds).toEqual(['4']);
 				expect(result.archivedChecklistTemplateIds).toEqual([]);
 			}
-			expect(mockArchiveChildren).toHaveBeenCalledWith([3], 'downgrade_user_selected', TENANT);
-			expect(mockArchiveActivities).toHaveBeenCalledWith([4], 'downgrade_user_selected', TENANT);
+			expect(mockArchiveChildren).toHaveBeenCalledWith(['3'], 'downgrade_user_selected', TENANT);
+			expect(mockArchiveActivities).toHaveBeenCalledWith(['4'], 'downgrade_user_selected', TENANT);
 		});
 
 		it('アーカイブ後も上限を超える場合はエラーを返す（子供）', async () => {

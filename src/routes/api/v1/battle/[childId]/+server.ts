@@ -1,5 +1,5 @@
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { validationError } from '$lib/server/errors';
 import { executeDailyBattle, getTodayBattle } from '$lib/server/services/battle-service';
 import { getChildById } from '$lib/server/services/child-service';

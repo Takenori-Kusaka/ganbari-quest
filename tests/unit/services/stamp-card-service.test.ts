@@ -1,4 +1,4 @@
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // tests/unit/services/stamp-card-service.test.ts
 // スタンプカードサービスのユニットテスト
 
@@ -161,7 +161,7 @@ describe('stamp-card-service', () => {
 		it('各スタンプにid, name, emoji, rarityが含まれる', async () => {
 			const stamps = await getEnabledStamps(TENANT);
 			const first = stamps[0] ?? { id: '0', name: '', emoji: '', rarity: '' };
-			expect(typeof first.id).toBe('number');
+			expect(typeof first.id).toBe('string');
 			expect(typeof first.name).toBe('string');
 			expect(typeof first.emoji).toBe('string');
 			expect(['N', 'R', 'SR', 'UR']).toContain(first.rarity);
@@ -365,9 +365,9 @@ describe('stamp-card-service', () => {
 
 		it('スタンプにはスタンプマスタの情報が含まれる', async () => {
 			const result = assertSuccess(await stampToday(asChildId(1), TENANT));
-			expect(typeof result.stamp.stampMasterId).toBe('number');
-			expect(result.stamp.stampMasterId).toBeGreaterThanOrEqual(1);
-			expect(result.stamp.stampMasterId).toBeLessThanOrEqual(7);
+			expect(typeof result.stamp.stampMasterId).toBe('string');
+			expect(Number(result.stamp.stampMasterId)).toBeGreaterThanOrEqual(1);
+			expect(Number(result.stamp.stampMasterId)).toBeLessThanOrEqual(7);
 			expect(result.stamp.name.length).toBeGreaterThan(0);
 			expect(result.stamp.emoji.length).toBeGreaterThan(0);
 		});

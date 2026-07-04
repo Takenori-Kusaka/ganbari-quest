@@ -215,7 +215,7 @@ describe('read 整合 (insertActivityLog → findActivityLogs / findDailyLog rou
 		expect(summaries).toHaveLength(1);
 		// 非正規化 field が ActivityLogSummary に正しく現れる (read が壊れない)
 		expect(summaries[0]).toMatchObject({
-			id: 55,
+			id: '55',
 			activityName: 'なわとび',
 			activityIcon: '🪢',
 			categoryId: asCategoryId(3),
@@ -235,7 +235,9 @@ describe('read 整合 (insertActivityLog → findActivityLogs / findDailyLog rou
 	it('insert した LOG item を findTodayLogsWithCategory が categoryId 付きで読む', async () => {
 		mockSend
 			.mockResolvedValueOnce({ Attributes: { counter: 60 } })
-			.mockResolvedValueOnce({ Item: makeChildActivityItem({ id: 7, categoryId: asCategoryId(4) }) })
+			.mockResolvedValueOnce({
+				Item: makeChildActivityItem({ id: 7, categoryId: asCategoryId(4) }),
+			})
 			.mockResolvedValueOnce({});
 		const repo = await loadRepo();
 		await repo.insertActivityLog(
@@ -335,7 +337,7 @@ describe('insertActivity (family-master → child_activities)', () => {
 
 		// 最初の child (id 昇順で 42) に bind される
 		expect(activity).toMatchObject({
-			id: 9,
+			id: '9',
 			name: 'すいえい',
 			categoryId: asCategoryId(3),
 			icon: '🏊',
@@ -357,7 +359,14 @@ describe('insertActivity (family-master → child_activities)', () => {
 		const { insertActivity } = await loadRepo();
 		await expect(
 			insertActivity(
-				{ name: 'x', categoryId: asCategoryId(1), icon: '🏃', basePoints: 5, ageMin: null, ageMax: null },
+				{
+					name: 'x',
+					categoryId: asCategoryId(1),
+					icon: '🏃',
+					basePoints: 5,
+					ageMin: null,
+					ageMax: null,
+				},
 				TENANT,
 			),
 		).rejects.toThrow(/child が存在しない/);
@@ -540,7 +549,7 @@ describe('findActivityLogById (#2842 Scan pagination 正パターン)', () => {
 		const log = await findActivityLogById('77', TENANT);
 		// page の Items を走査して最初の match を返す (取りこぼしゼロ)。少なくとも 1 件は返り、
 		// id は page に存在した match のいずれか (76 / 77) であること = 全走査されている証跡。
-		expect([76, 77]).toContain(log?.id);
+		expect(['76', '77']).toContain(log?.id);
 	});
 
 	it('どの page にも match が無い → undefined', async () => {
@@ -689,7 +698,11 @@ describe('#3044 markActivityLogCancelled は tenant partition に束縛して Sc
 describe('#3044 getActivityLogCounts は tenant partition に束縛して Scan する', () => {
 	it('FilterExpression に tenant prefix が含まれ、当該 tenant の LOG のみ集計する', async () => {
 		mockSend.mockResolvedValueOnce({
-			Items: [{ activityId: asActivityId(7) }, { activityId: asActivityId(7) }, { activityId: asActivityId(9) }],
+			Items: [
+				{ activityId: asActivityId(7) },
+				{ activityId: asActivityId(7) },
+				{ activityId: asActivityId(9) },
+			],
 		});
 		const { getActivityLogCounts } = await loadRepo();
 		const counts = await getActivityLogCounts(TENANT);

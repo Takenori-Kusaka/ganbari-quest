@@ -275,7 +275,7 @@ describe('recordActivity: ポイントとXP', () => {
 		const activityEntry = ledger.find((e) => e.type === 'activity');
 		expect(activityEntry).toBeDefined();
 		expect(activityEntry?.amount).toBe(5);
-		expect(activityEntry?.childId).toBe('1');
+		expect(activityEntry?.childId).toBe(1);
 	});
 });
 
@@ -316,7 +316,9 @@ describe('recordActivity: dailyLimit', () => {
 
 		// 5回連続で記録できる
 		for (let i = 0; i < 5; i++) {
-			const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(osouji.id), TENANT));
+			const result = assertSuccess(
+				await recordActivity(asChildId(1), asActivityId(osouji.id), TENANT),
+			);
 			expect(result.activityName).toBe('おそうじ');
 		}
 	});
@@ -399,7 +401,7 @@ describe('recordActivity: 戻り値の構造', () => {
 	it('必須フィールドが全て含まれる', async () => {
 		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		// 必須フィールドの存在確認
-		expect(typeof result.id).toBe('number');
+		expect(typeof result.id).toBe('string');
 		expect(result.childId).toBe('1');
 		expect(result.activityId).toBe('1');
 		expect(typeof result.activityName).toBe('string');
@@ -413,7 +415,7 @@ describe('recordActivity: 戻り値の構造', () => {
 		expect(typeof result.cancelableUntil).toBe('string');
 		expect(Array.isArray(result.unlockedAchievements)).toBe(true);
 		expect(result.xpGain).toBeDefined();
-		expect(typeof result.xpGain.categoryId).toBe('number');
+		expect(typeof result.xpGain.categoryId).toBe('string');
 		expect(typeof result.xpGain.xpBefore).toBe('number');
 		expect(typeof result.xpGain.xpAfter).toBe('number');
 	});

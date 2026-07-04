@@ -2,9 +2,9 @@
 // 認可マトリクスのユニットテスト (#0123: viewer廃止, device廃止)
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
-import { asChildId } from '$lib/domain/ids';
 
 const cognitoIdentity: Identity = {
 	type: 'cognito',

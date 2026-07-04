@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { markRewardShown } from '$lib/server/services/special-reward-service';
 import type { RequestHandler } from './$types';
 

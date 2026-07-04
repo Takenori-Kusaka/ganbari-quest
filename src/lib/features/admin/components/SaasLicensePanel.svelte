@@ -19,13 +19,14 @@
  *
  * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
-import type { ActivityId, ChildId } from '$lib/domain/ids';
+
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import { getActionErrorDisplay } from '$lib/domain/errors';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	ACTION_LABELS,
 	APP_LABELS,

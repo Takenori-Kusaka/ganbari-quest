@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type CategoryId, asCategoryId } from '$lib/domain/ids';
+import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { activityIdSchema, categoryIdSchema, childIdSchema } from './id-schema';
 
 export const CATEGORIES = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
@@ -22,11 +22,46 @@ export interface CategoryDef {
 }
 
 export const CATEGORY_DEFS: readonly CategoryDef[] = [
-	{ id: asCategoryId(1), code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B', accent: '#D32F2F' },
-	{ id: asCategoryId(2), code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4', accent: '#00897B' },
-	{ id: asCategoryId(3), code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#FFE66D', accent: '#F9A825' },
-	{ id: asCategoryId(4), code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#A8E6CF', accent: '#2E7D32' },
-	{ id: asCategoryId(5), code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD', accent: '#7B1FA2' },
+	{
+		id: asCategoryId(1),
+		code: 'undou',
+		name: 'うんどう',
+		icon: '🏃',
+		color: '#FF6B6B',
+		accent: '#D32F2F',
+	},
+	{
+		id: asCategoryId(2),
+		code: 'benkyou',
+		name: 'べんきょう',
+		icon: '📚',
+		color: '#4ECDC4',
+		accent: '#00897B',
+	},
+	{
+		id: asCategoryId(3),
+		code: 'seikatsu',
+		name: 'せいかつ',
+		icon: '🏠',
+		color: '#FFE66D',
+		accent: '#F9A825',
+	},
+	{
+		id: asCategoryId(4),
+		code: 'kouryuu',
+		name: 'こうりゅう',
+		icon: '🤝',
+		color: '#A8E6CF',
+		accent: '#2E7D32',
+	},
+	{
+		id: asCategoryId(5),
+		code: 'souzou',
+		name: 'そうぞう',
+		icon: '🎨',
+		color: '#DDA0DD',
+		accent: '#7B1FA2',
+	},
 ] as const;
 
 export const CATEGORY_IDS = CATEGORY_DEFS.map((c) => c.id) as [CategoryId, ...CategoryId[]];

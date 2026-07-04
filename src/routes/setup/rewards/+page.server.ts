@@ -7,9 +7,9 @@
 // - skip 動線は packs と異なり「auto-import なし」(reward は趣味性が強く、親に選んでほしいため)
 // - 次の遷移先は /setup/rules
 
-import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { asChildId } from '$lib/domain/ids';
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。

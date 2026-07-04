@@ -19,14 +19,14 @@
 //   - ADR-0055 §3.1 per-child primary data model
 //   - docs/design/data-model-resource-scope.md §4.1
 
+import { and, count, eq, gte, sql } from 'drizzle-orm';
 import {
 	type ActivityId,
-	type CategoryId,
-	type ChildId,
 	asActivityId,
 	asChildId,
+	type CategoryId,
+	type ChildId,
 } from '$lib/domain/ids';
-import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { activityLogs, childActivities, childActivityPreferences } from '../schema';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';

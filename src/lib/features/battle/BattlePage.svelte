@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
+import type { ChildId } from '$lib/domain/ids';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import BattleScene from './BattleScene.svelte';
 

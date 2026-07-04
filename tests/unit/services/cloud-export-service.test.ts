@@ -269,7 +269,7 @@ describe('cloud-export-service', () => {
 			// building → ready の 2 回
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenNthCalledWith(
 				1,
-				1,
+				'1',
 				'tenant-1',
 				'building',
 			);
@@ -352,7 +352,7 @@ describe('cloud-export-service', () => {
 			expect(result.ready).toBe(1);
 			// id=1 は failed 遷移 (building → failed) + failureReason
 			const failedCall = mockCloudExportRepo.updateStatus.mock.calls.find((c) => c[2] === 'failed');
-			expect(failedCall?.[0]).toBe(1);
+			expect(failedCall?.[0]).toBe('1');
 			expect((failedCall?.[3] as { failureReason: string }).failureReason).toContain('disk full');
 		});
 
@@ -373,7 +373,7 @@ describe('cloud-export-service', () => {
 
 			expect(result.reclaimed).toBe(1);
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenCalledWith(
-				99,
+				'99',
 				'tenant-1',
 				'failed',
 				expect.objectContaining({
@@ -479,7 +479,7 @@ describe('cloud-export-service', () => {
 			]);
 
 			const ids = (await listCloudExports('tenant-1')).map((e) => e.id).sort();
-			expect(ids).toEqual([1, 2, 3, 6]);
+			expect(ids).toEqual(['1', '2', '3', '6']);
 		});
 	});
 

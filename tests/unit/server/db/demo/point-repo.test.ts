@@ -2,9 +2,9 @@
 // ADR-0048 §決定 §2: demo Point Repo の Fake (read) + Stub (write) hybrid 検証。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as pointRepo from '../../../../../src/lib/server/db/demo/point-repo';
 import { DEMO_POINT_BALANCES } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/point-repo', () => {
 	it('getBalance は fixture の POINT_BALANCES を返す', async () => {
@@ -24,7 +24,11 @@ describe('demo/point-repo', () => {
 	});
 
 	it('findPointHistory は空配列を返す (fixture なし)', async () => {
-		const history = await pointRepo.findPointHistory(asChildId(902), { limit: 10, offset: 0 }, 'demo');
+		const history = await pointRepo.findPointHistory(
+			asChildId(902),
+			{ limit: 10, offset: 0 },
+			'demo',
+		);
 		expect(history).toEqual([]);
 	});
 
@@ -40,6 +44,8 @@ describe('demo/point-repo', () => {
 	});
 
 	it('deletePointLedgerBeforeDate は 0 を返す (stateless)', async () => {
-		expect(await pointRepo.deletePointLedgerBeforeDate(asChildId(902), '2020-01-01', 'demo')).toBe(0);
+		expect(await pointRepo.deletePointLedgerBeforeDate(asChildId(902), '2020-01-01', 'demo')).toBe(
+			0,
+		);
 	});
 });

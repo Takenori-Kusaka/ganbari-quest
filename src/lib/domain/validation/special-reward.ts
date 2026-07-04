@@ -1,6 +1,6 @@
-import { childIdSchema } from './id-schema';
 import { z } from 'zod';
 import { SHOP_CATEGORIES } from '$lib/domain/shop-category';
+import { childIdSchema } from './id-schema';
 
 // 特別報酬カテゴリ
 export const REWARD_CATEGORIES = [

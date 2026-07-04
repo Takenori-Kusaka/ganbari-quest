@@ -3,8 +3,8 @@
 // ファクトリ経由 (getRepos()) でDBアクセスするため、ファクトリをモックしてテストする。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import type { ReportDailySummary } from '$lib/server/db/types';
-import { type ChildId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // ---- モック定義 ----
 
@@ -133,7 +133,11 @@ describe('aggregateDailyReport', () => {
 		mockRepos.activity.findTodayLogsWithCategory.mockImplementation(async () => {
 			if (firstCall) {
 				firstCall = false;
-				return [{ categoryId: asCategoryId(1) }, { categoryId: asCategoryId(1) }, { categoryId: asCategoryId(2) }];
+				return [
+					{ categoryId: asCategoryId(1) },
+					{ categoryId: asCategoryId(1) },
+					{ categoryId: asCategoryId(2) },
+				];
 			}
 			return [];
 		});
@@ -229,7 +233,7 @@ describe('getMonthlyReport', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2026-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-02-01',
 			'2026-02-28',
 			TENANT,
@@ -308,7 +312,9 @@ describe('getSimpleMonthSummary', () => {
 
 	it('集計テーブルが空の場合はリアルタイム計算にフォールバックする', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
-		mockRepos.activity.findTodayLogsWithCategory.mockResolvedValue([{ categoryId: asCategoryId(1) }]);
+		mockRepos.activity.findTodayLogsWithCategory.mockResolvedValue([
+			{ categoryId: asCategoryId(1) },
+		]);
 		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 200, level: 8 }]);
 		mockRepos.achievement.findUnlockedAchievements.mockResolvedValue([]);
 
@@ -396,7 +402,12 @@ describe('computeDetailedMonthlyReport', () => {
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
 
-		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト太郎', '2026-04');
+		const result = await computeDetailedMonthlyReport(
+			TENANT,
+			asChildId(1),
+			'テスト太郎',
+			'2026-04',
+		);
 
 		expect(result.childId).toBe('1');
 		expect(result.childName).toBe('テスト太郎');
@@ -418,7 +429,12 @@ describe('computeDetailedMonthlyReport', () => {
 		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 300, level: 10 }]);
 		mockRepos.achievement.findUnlockedAchievements.mockResolvedValue([]);
 
-		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト太郎', '2026-04');
+		const result = await computeDetailedMonthlyReport(
+			TENANT,
+			asChildId(1),
+			'テスト太郎',
+			'2026-04',
+		);
 
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.currentLevel).toBe(10);
@@ -509,7 +525,7 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2025-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2025-02-01',
 			'2025-02-28',
 			TENANT,
@@ -522,7 +538,7 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2024-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2024-02-01',
 			'2024-02-29',
 			TENANT,
@@ -535,7 +551,7 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2026-01');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-01-01',
 			'2026-01-31',
 			TENANT,
@@ -548,7 +564,7 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2026-04');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-04-01',
 			'2026-04-30',
 			TENANT,
@@ -561,7 +577,7 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 		await getMonthlyReport(TENANT, asChildId(1), '2026-12');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-12-01',
 			'2026-12-31',
 			TENANT,

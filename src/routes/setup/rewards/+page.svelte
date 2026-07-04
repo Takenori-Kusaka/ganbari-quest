@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 

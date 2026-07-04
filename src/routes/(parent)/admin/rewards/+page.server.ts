@@ -1,7 +1,5 @@
 // /admin/rewards — ごほうび管理 (#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加, #2136 MP-1 マーケットプレイス一括追加, #2268 CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除)
 
-import { asChildId, type ChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 // #2558 段階2 横展開: admin 内 marketplace 風 in-page browse UI を撤去し
@@ -10,6 +8,8 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 // 旧 `PRESET_REWARD_GROUPS` の in-page render は撤去済 (本 file の load 出力からも削除)。
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { ADMIN_REWARDS_PAGE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 // #3147: ショップ陳列系統 (physical/money/privilege) の SSOT
 import { SHOP_CATEGORIES } from '$lib/domain/shop-category';

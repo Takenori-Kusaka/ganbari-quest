@@ -172,7 +172,10 @@ export async function checkAndGrantCombo(
 /**
  * コンボ予告ヒントを生成
  */
-function generateComboHints(byCat: Map<CategoryId, Set<ActivityId>>, totalUnique: number): ComboHint[] {
+function generateComboHints(
+	byCat: Map<CategoryId, Set<ActivityId>>,
+	totalUnique: number,
+): ComboHint[] {
 	const hints: ComboHint[] = [];
 
 	// カテゴリコンボのヒント

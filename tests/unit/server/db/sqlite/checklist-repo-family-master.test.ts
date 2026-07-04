@@ -6,9 +6,9 @@
 //   - deleteTemplate: cascade (assignments / items / logs 同時削除)
 //   - NULL is_archived (legacy data 互換) も active 扱いされる (ADR-0031)
 
-import { asChildId } from '$lib/domain/ids';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as schema from '../../../../../src/lib/server/db/schema';
 import {
 	closeDb,

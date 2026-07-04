@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { parentMessages } from '../schema';
 import type { InsertParentMessageInput, ParentMessage } from '../types';

@@ -13,8 +13,8 @@
   localStorage で「閲覧済み」を記録して再表示しない。
 -->
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { browser } from '$app/environment';
+import type { ChildId } from '$lib/domain/ids';
 import { getMilestoneBannerTitle, getMilestoneLabel, MILESTONE_LABELS } from '$lib/domain/labels';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';

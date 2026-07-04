@@ -134,11 +134,23 @@ describe('sqlite/child-activity-repo', () => {
 
 		it('別 child の activity は取得 list に出ない (cross-child isolation)', async () => {
 			await insertActivity(
-				{ childId: asChildId(1), name: 'たろう専用', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: 'たろう専用',
+					categoryId: asCategoryId(1),
+					icon: '🤸',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			await insertActivity(
-				{ childId: asChildId(2), name: 'はなこ専用', categoryId: asCategoryId(1), icon: '🎀', basePoints: 5 },
+				{
+					childId: asChildId(2),
+					name: 'はなこ専用',
+					categoryId: asCategoryId(1),
+					icon: '🎀',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -153,7 +165,13 @@ describe('sqlite/child-activity-repo', () => {
 
 		it('findActivityById は id + childId の 2 軸で取得し、別 child の id は undefined', async () => {
 			const inserted = await insertActivity(
-				{ childId: asChildId(1), name: '本人の活動', categoryId: asCategoryId(1), icon: '⭐', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '本人の活動',
+					categoryId: asCategoryId(1),
+					icon: '⭐',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -173,7 +191,13 @@ describe('sqlite/child-activity-repo', () => {
 	describe('updateActivity + setActivityVisibility + deleteActivity', () => {
 		it('updateActivity は同 child scope の activity のみ更新可能', async () => {
 			const a = await insertActivity(
-				{ childId: asChildId(1), name: '更新前', categoryId: asCategoryId(1), icon: '✏️', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '更新前',
+					categoryId: asCategoryId(1),
+					icon: '✏️',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -181,7 +205,12 @@ describe('sqlite/child-activity-repo', () => {
 			expect(updated?.name).toBe('更新後');
 
 			// 別 child から同 id update は undefined (no-op)
-			const blocked = await updateActivity(a.id, asChildId(2), { name: 'should not update' }, TENANT);
+			const blocked = await updateActivity(
+				a.id,
+				asChildId(2),
+				{ name: 'should not update' },
+				TENANT,
+			);
 			expect(blocked).toBeUndefined();
 
 			const after = await findActivityById(a.id, asChildId(1), TENANT);
@@ -190,7 +219,13 @@ describe('sqlite/child-activity-repo', () => {
 
 		it('setActivityVisibility は child scope で isVisible 切替', async () => {
 			const a = await insertActivity(
-				{ childId: asChildId(1), name: '表示', categoryId: asCategoryId(1), icon: '👁', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '表示',
+					categoryId: asCategoryId(1),
+					icon: '👁',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -203,7 +238,13 @@ describe('sqlite/child-activity-repo', () => {
 
 		it('deleteActivity は child scope で削除し、別 child では削除されない', async () => {
 			const a = await insertActivity(
-				{ childId: asChildId(1), name: '削除予定', categoryId: asCategoryId(1), icon: '🗑', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '削除予定',
+					categoryId: asCategoryId(1),
+					icon: '🗑',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -227,8 +268,20 @@ describe('sqlite/child-activity-repo', () => {
 		it('複数 child に対し 1 回の call で per-child instance 配信できる', async () => {
 			const rows = await insertActivitiesBulk(
 				[
-					{ childId: asChildId(1), name: '一括A', categoryId: asCategoryId(1), icon: '📦', basePoints: 5 },
-					{ childId: asChildId(2), name: '一括A', categoryId: asCategoryId(1), icon: '📦', basePoints: 5 },
+					{
+						childId: asChildId(1),
+						name: '一括A',
+						categoryId: asCategoryId(1),
+						icon: '📦',
+						basePoints: 5,
+					},
+					{
+						childId: asChildId(2),
+						name: '一括A',
+						categoryId: asCategoryId(1),
+						icon: '📦',
+						basePoints: 5,
+					},
 				],
 				TENANT,
 			);
@@ -255,11 +308,23 @@ describe('sqlite/child-activity-repo', () => {
 	describe('copyActivitiesAcrossChildren', () => {
 		it('source child の全活動を target child に複製し、id は別採番される', async () => {
 			await insertActivity(
-				{ childId: asChildId(1), name: 'コピー元A', categoryId: asCategoryId(1), icon: '📚', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: 'コピー元A',
+					categoryId: asCategoryId(1),
+					icon: '📚',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			await insertActivity(
-				{ childId: asChildId(1), name: 'コピー元B', categoryId: asCategoryId(2), icon: '🎨', basePoints: 10 },
+				{
+					childId: asChildId(1),
+					name: 'コピー元B',
+					categoryId: asCategoryId(2),
+					icon: '🎨',
+					basePoints: 10,
+				},
 				TENANT,
 			);
 
@@ -294,7 +359,13 @@ describe('sqlite/child-activity-repo', () => {
 	describe('archiveActivities + restoreArchivedActivities', () => {
 		it('archive 後はデフォルトで find 除外、includeArchived で取得可能', async () => {
 			const a = await insertActivity(
-				{ childId: asChildId(1), name: 'archiveテスト', categoryId: asCategoryId(1), icon: '🗄', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: 'archiveテスト',
+					categoryId: asCategoryId(1),
+					icon: '🗄',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 
@@ -314,7 +385,13 @@ describe('sqlite/child-activity-repo', () => {
 
 		it('restoreArchivedActivities は reason 一致で復活', async () => {
 			const a = await insertActivity(
-				{ childId: asChildId(1), name: 'restoreテスト', categoryId: asCategoryId(1), icon: '♻', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: 'restoreテスト',
+					categoryId: asCategoryId(1),
+					icon: '♻',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
@@ -341,15 +418,35 @@ describe('sqlite/child-activity-repo', () => {
 	describe('countMainQuestActivities', () => {
 		it('isMainQuest=1 かつ visible/active のみカウント (per-child scope)', async () => {
 			await insertActivity(
-				{ childId: asChildId(1), name: 'メイン1', categoryId: asCategoryId(1), icon: '🏆', basePoints: 10, isMainQuest: 1 },
+				{
+					childId: asChildId(1),
+					name: 'メイン1',
+					categoryId: asCategoryId(1),
+					icon: '🏆',
+					basePoints: 10,
+					isMainQuest: 1,
+				},
 				TENANT,
 			);
 			await insertActivity(
-				{ childId: asChildId(1), name: 'メイン2', categoryId: asCategoryId(1), icon: '🏅', basePoints: 10, isMainQuest: 1 },
+				{
+					childId: asChildId(1),
+					name: 'メイン2',
+					categoryId: asCategoryId(1),
+					icon: '🏅',
+					basePoints: 10,
+					isMainQuest: 1,
+				},
 				TENANT,
 			);
 			await insertActivity(
-				{ childId: asChildId(1), name: 'サブ', categoryId: asCategoryId(1), icon: '🔸', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: 'サブ',
+					categoryId: asCategoryId(1),
+					icon: '🔸',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			// 別 child の main quest は別 count
@@ -394,11 +491,23 @@ describe('sqlite/child-activity-repo', () => {
 	describe('findActivitiesByChild visibleOnly option', () => {
 		it('visibleOnly=true で isVisible=1 のみ返す', async () => {
 			const visible = await insertActivity(
-				{ childId: asChildId(1), name: '表示', categoryId: asCategoryId(1), icon: '👁', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '表示',
+					categoryId: asCategoryId(1),
+					icon: '👁',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			const hidden = await insertActivity(
-				{ childId: asChildId(1), name: '非表示', categoryId: asCategoryId(1), icon: '🙈', basePoints: 5 },
+				{
+					childId: asChildId(1),
+					name: '非表示',
+					categoryId: asCategoryId(1),
+					icon: '🙈',
+					basePoints: 5,
+				},
 				TENANT,
 			);
 			await setActivityVisibility(hidden.id, asChildId(1), false, TENANT);

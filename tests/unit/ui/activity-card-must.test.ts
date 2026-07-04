@@ -7,9 +7,9 @@
 
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { asActivityId, asCategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '../../../src/lib/domain/labels';
 import ActivityCard from '../../../src/lib/ui/components/ActivityCard.svelte';
-import { asActivityId, asCategoryId } from '$lib/domain/ids';
 
 const BASE_PROPS = {
 	activityId: asActivityId(100),

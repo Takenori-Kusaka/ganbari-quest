@@ -177,7 +177,11 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 				Attributes: { PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001', id: '1', name: '更新後' },
 			}); // Update ALL_NEW
 
-		const row = await dynamoActivityRepo.updateActivity(asActivityId(1), { name: '更新後' }, TENANT);
+		const row = await dynamoActivityRepo.updateActivity(
+			asActivityId(1),
+			{ name: '更新後' },
+			TENANT,
+		);
 		expect(row?.name).toBe('更新後');
 		const upd = mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK?: string } } };
 		expect(upd.input.Key?.SK).toMatch(/^CHILDACT#/);

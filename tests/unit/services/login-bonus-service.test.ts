@@ -321,13 +321,13 @@ describe('claimLoginBonus', () => {
 		const bonuses = testDb.select().from(schema.loginBonuses).all();
 		expect(bonuses.length).toBe(1);
 		expect(bonuses[0]?.loginDate).toBe('2026-03-10');
-		expect(bonuses[0]?.childId).toBe('1');
+		expect(bonuses[0]?.childId).toBe(1);
 
 		// point_ledger テーブルにレコードがあるか確認
 		const points = testDb.select().from(schema.pointLedger).all();
 		expect(points.length).toBe(1);
 		expect(points[0]?.type).toBe('login_bonus');
-		expect(points[0]?.childId).toBe('1');
+		expect(points[0]?.childId).toBe(1);
 
 		randomSpy.mockRestore();
 	});

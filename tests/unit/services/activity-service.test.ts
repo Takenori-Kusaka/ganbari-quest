@@ -68,11 +68,36 @@ function seedBase() {
 	// ageMin/ageMax は ChildActivity に無いため drop (per-child なので年齢 filter は不要)。
 	seedChildActivities(testDb, 1, [
 		{ name: 'たいそうした', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5, sortOrder: 1 },
-		{ name: 'おそとであそんだ', categoryId: asCategoryId(1), icon: '🏃', basePoints: 5, sortOrder: 2 },
+		{
+			name: 'おそとであそんだ',
+			categoryId: asCategoryId(1),
+			icon: '🏃',
+			basePoints: 5,
+			sortOrder: 2,
+		},
 		{ name: 'すいみんぐ', categoryId: asCategoryId(1), icon: '🏊', basePoints: 10, sortOrder: 3 },
-		{ name: 'ひらがなれんしゅう', categoryId: asCategoryId(2), icon: '✏️', basePoints: 5, sortOrder: 4 },
-		{ name: 'おかたづけした', categoryId: asCategoryId(3), icon: '🧹', basePoints: 5, sortOrder: 5 },
-		{ name: '非表示活動', categoryId: asCategoryId(1), icon: '❌', basePoints: 5, isVisible: 0, sortOrder: 99 },
+		{
+			name: 'ひらがなれんしゅう',
+			categoryId: asCategoryId(2),
+			icon: '✏️',
+			basePoints: 5,
+			sortOrder: 4,
+		},
+		{
+			name: 'おかたづけした',
+			categoryId: asCategoryId(3),
+			icon: '🧹',
+			basePoints: 5,
+			sortOrder: 5,
+		},
+		{
+			name: '非表示活動',
+			categoryId: asCategoryId(1),
+			icon: '❌',
+			basePoints: 5,
+			isVisible: 0,
+			sortOrder: 99,
+		},
 	]);
 }
 
@@ -137,7 +162,11 @@ describe('activity-service', () => {
 
 	// UT-ACT-07: 活動更新（正常）
 	it('UT-ACT-07: 活動更新（正常）', async () => {
-		const updated = await updateActivity(asActivityId(1), { name: 'ラジオたいそう' }, 'test-tenant');
+		const updated = await updateActivity(
+			asActivityId(1),
+			{ name: 'ラジオたいそう' },
+			'test-tenant',
+		);
 		expect(updated).toBeDefined();
 		expect(updated?.name).toBe('ラジオたいそう');
 	});
@@ -169,7 +198,14 @@ describe('activity-service', () => {
 	it('#3484: updateActivity も範囲外 dailyLimit / 巨大 nameKana を service 層で clamp する', async () => {
 		// 前テスト state 非依存にするため fresh に作成してから更新する。
 		const created = await createActivity(
-			{ name: 'こうしん', categoryId: asCategoryId(2), icon: '🔧', basePoints: 5, ageMin: null, ageMax: null },
+			{
+				name: 'こうしん',
+				categoryId: asCategoryId(2),
+				icon: '🔧',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
 			'test-tenant',
 		);
 		const updated = await updateActivity(
@@ -211,8 +247,20 @@ describe('activity-service', () => {
 		// seedBase で child id=1 + 6 activities seed 済。子供 2 (id=2) を追加し独自 activities を seed
 		testDb.insert(schema.children).values({ nickname: 'いもうと', age: 6, theme: 'blue' }).run();
 		seedChildActivities(testDb, 2, [
-			{ name: 'いもうと専用活動A', categoryId: asCategoryId(1), icon: '🎯', basePoints: 5, sortOrder: 1 },
-			{ name: 'いもうと専用活動B', categoryId: asCategoryId(2), icon: '✨', basePoints: 5, sortOrder: 2 },
+			{
+				name: 'いもうと専用活動A',
+				categoryId: asCategoryId(1),
+				icon: '🎯',
+				basePoints: 5,
+				sortOrder: 1,
+			},
+			{
+				name: 'いもうと専用活動B',
+				categoryId: asCategoryId(2),
+				icon: '✨',
+				basePoints: 5,
+				sortOrder: 2,
+			},
 		]);
 
 		// 兄 (id=1) の home から取得すると 5 件 (visible のみ、いもうと活動は含まれない)
@@ -238,11 +286,15 @@ describe('activity-service', () => {
 		expect(visible.length).toBe(5);
 		expect(visible.every((a) => a.isVisible === 1)).toBe(true);
 
-		const includeHidden = await getChildActivities(asChildId(1), 'test-tenant', { includeHidden: true });
+		const includeHidden = await getChildActivities(asChildId(1), 'test-tenant', {
+			includeHidden: true,
+		});
 		expect(includeHidden.length).toBe(6);
 		expect(includeHidden.some((a) => a.isVisible === 0)).toBe(true);
 
-		const cat1 = await getChildActivities(asChildId(1), 'test-tenant', { categoryId: asCategoryId(1) });
+		const cat1 = await getChildActivities(asChildId(1), 'test-tenant', {
+			categoryId: asCategoryId(1),
+		});
 		// うんどう (cat=1) は seed で 3 件 (たいそう / おそと / すいみんぐ)、visible only
 		expect(cat1.length).toBe(3);
 		expect(cat1.every((a) => a.categoryId === '1')).toBe(true);
@@ -566,7 +618,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 
 	// UT-ACT-PRIORITY-BONUS-01: must=0 件 → granted=false / total=0
 	it('UT-ACT-PRIORITY-BONUS-01: must 活動が 0 件のときは付与せず total=0 を返す', async () => {
-		const result = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.total).toBe(0);
 		expect(result.logged).toBe(0);
 		expect(result.allComplete).toBe(false);
@@ -582,7 +639,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		await createMustActivity('おきがえ');
 		recordMust(1, must1.id);
 
-		const result = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.total).toBe(2);
 		expect(result.logged).toBe(1);
 		expect(result.allComplete).toBe(false);
@@ -598,7 +660,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		recordMust(1, must1.id);
 		recordMust(1, must2.id, 9);
 
-		const result = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.allComplete).toBe(true);
 		expect(result.granted).toBe(true);
 		expect(result.points).toBe(5);
@@ -621,11 +688,21 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		const must1 = await createMustActivity('はみがき');
 		recordMust(1, must1.id);
 
-		const first = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'preschool', 'test-tenant');
+		const first = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(first.granted).toBe(true);
 		expect(first.points).toBe(5);
 
-		const second = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'preschool', 'test-tenant');
+		const second = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(second.allComplete).toBe(true);
 		expect(second.granted).toBe(false);
 		expect(second.points).toBe(0);

@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';

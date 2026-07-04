@@ -1355,11 +1355,19 @@ describe('importFamilyData', () => {
 			expect(result.checklistLogsSkipped).toBe(0);
 			// e1 の log → id 50、e2 の log → id 51 (取り違えなし)
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: asChildId(101), templateId: '50', checkedDate: '2026-03-15' }),
+				expect.objectContaining({
+					childId: asChildId(101),
+					templateId: '50',
+					checkedDate: '2026-03-15',
+				}),
 				TENANT,
 			);
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: asChildId(101), templateId: '51', checkedDate: '2026-03-16' }),
+				expect.objectContaining({
+					childId: asChildId(101),
+					templateId: '51',
+					checkedDate: '2026-03-16',
+				}),
 				TENANT,
 			);
 		});
@@ -1501,7 +1509,7 @@ describe('importFamilyData', () => {
 			);
 			// avatarUrl が新 storage key (公開 URL) へ貼り替え
 			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(
-				101,
+				asChildId(101),
 				`/tenants/${TENANT}/avatars/101/abc.png`,
 				TENANT,
 			);

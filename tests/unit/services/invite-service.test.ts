@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import type { Invite, Membership, Tenant } from '../../../src/lib/server/auth/entities';
 import type { IAuthRepo } from '../../../src/lib/server/db/interfaces/auth-repo.interface';
 import { assertError, assertSuccess } from '../helpers/assert-result';

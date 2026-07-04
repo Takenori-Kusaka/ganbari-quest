@@ -3,9 +3,9 @@
 // /demo/lower/battle 等の RPG バトル画面が demo 環境で稼働できることを検証。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as battleRepo from '../../../../../src/lib/server/db/demo/battle-repo';
 import { DEMO_BATTLES, TODAY } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/battle-repo (Phase B-5b)', () => {
 	it('DEMO_BATTLES fixture は battle UI 対象 (903/904/906) で 5 件以上', () => {
@@ -77,14 +77,16 @@ describe('demo/battle-repo (Phase B-5b)', () => {
 			{ hp: 100, atk: 30, def: 20, spd: 25, rec: 15 },
 			'demo',
 		);
-		expect(id).toBe(0);
+		expect(id).toBe('0');
 		// ADR-0048 §決定 §2: fixture immutable
 		expect(DEMO_BATTLES.length).toBe(before);
 	});
 
 	it('completeBattle / upsertCollectionEntry は no-op で例外を投げない', async () => {
 		await expect(battleRepo.completeBattle('1', 'win', 20, 5, 'demo')).resolves.toBeUndefined();
-		await expect(battleRepo.upsertCollectionEntry(asChildId(903), 1, 'demo')).resolves.toBeUndefined();
+		await expect(
+			battleRepo.upsertCollectionEntry(asChildId(903), 1, 'demo'),
+		).resolves.toBeUndefined();
 	});
 
 	it('countConsecutiveLosses は 0 (集計 stub)', async () => {

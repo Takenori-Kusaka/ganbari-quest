@@ -1,4 +1,3 @@
-import { type ChildId } from '$lib/domain/ids';
 // tests/unit/routes/billing-cancel-graduation.test.ts
 // 卒業フロー専用ページ load + form action テスト (#1603 / ADR-0023 §3.8 / §5 I10)
 //
@@ -13,6 +12,7 @@ import { type ChildId } from '$lib/domain/ids';
 // biome-ignore-all lint/suspicious/noExplicitAny: テスト用 load/action の型を最小化
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
 const mockGetBalance = vi.fn();

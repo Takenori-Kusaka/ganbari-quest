@@ -94,7 +94,7 @@ describe('requestRedemption', () => {
 		if ('error' in result) return;
 		expect(result.status).toBe('pending_parent_approval');
 		expect(result.childId).toBe(asChildId(childId));
-		expect(result.rewardId).toBe(rewardId);
+		expect(result.rewardId).toBe(String(rewardId));
 	});
 
 	it('ポイント不足で INSUFFICIENT_POINTS を返す', async () => {
@@ -408,7 +408,7 @@ describe('getRedemptionRequestsForChild', () => {
 
 		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID);
 		expect(requests.length).toBe(1);
-		expect(requests[0]!.childId).toBe(childId);
+		expect(requests[0]!.childId).toBe(String(childId));
 	});
 });
 

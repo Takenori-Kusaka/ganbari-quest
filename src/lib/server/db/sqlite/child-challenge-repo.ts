@@ -14,7 +14,7 @@
 // ADR-0010 Pre-PMF 過剰防衛として採らず、本コメントで非対称の根拠を明示する (#3203 QM follow-up 裁定)。
 
 import { and, eq, gte, inArray, lte } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { childChallenges } from '../schema';
 import type {
@@ -106,7 +106,12 @@ export async function findActiveOrUnclaimedByChildId(
 
 export async function findAllByTenant(_tenantId: string): Promise<ChildChallenge[]> {
 	// SQLite はシングルテナント (#1923 等の整合)。tenant_id 列なし、全件返す。
-	return db.select().from(childChallenges).orderBy(childChallenges.createdAt).all().map(toChallenge);
+	return db
+		.select()
+		.from(childChallenges)
+		.orderBy(childChallenges.createdAt)
+		.all()
+		.map(toChallenge);
 }
 
 export async function findById(id: string, _tenantId: string): Promise<ChildChallenge | undefined> {

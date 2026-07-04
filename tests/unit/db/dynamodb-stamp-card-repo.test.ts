@@ -286,7 +286,13 @@ describe('insertEntry', () => {
 		mockSend.mockResolvedValueOnce({});
 		const { insertEntry } = await loadRepo();
 		await insertEntry(
-			{ cardId: CARD_ID, stampMasterId: '3', omikujiRank: '中吉', slot: 2, loginDate: '2026-06-02' },
+			{
+				cardId: CARD_ID,
+				stampMasterId: '3',
+				omikujiRank: '中吉',
+				slot: 2,
+				loginDate: '2026-06-02',
+			},
 			TENANT,
 		);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
@@ -305,7 +311,13 @@ describe('insertEntry', () => {
 		const { insertEntry } = await loadRepo();
 		await expect(
 			insertEntry(
-				{ cardId: CARD_ID, stampMasterId: '1', omikujiRank: null, slot: 1, loginDate: '2026-06-01' },
+				{
+					cardId: CARD_ID,
+					stampMasterId: '1',
+					omikujiRank: null,
+					slot: 1,
+					loginDate: '2026-06-01',
+				},
 				TENANT,
 			),
 		).resolves.toBeUndefined();
@@ -316,7 +328,13 @@ describe('insertEntry', () => {
 		const { insertEntry } = await loadRepo();
 		await expect(
 			insertEntry(
-				{ cardId: CARD_ID, stampMasterId: '1', omikujiRank: null, slot: 1, loginDate: '2026-06-01' },
+				{
+					cardId: CARD_ID,
+					stampMasterId: '1',
+					omikujiRank: null,
+					slot: 1,
+					loginDate: '2026-06-01',
+				},
 				TENANT,
 			),
 		).rejects.toThrow('throughput exceeded');
@@ -361,7 +379,7 @@ describe('updateCardStatus (#2845 課題①: full composite-key addressing)', ()
 		expect(query.input.KeyConditionExpression).toContain('PK = :pk');
 		expect(query.input.ExpressionAttributeValues?.[':pk']).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
 		expect(query.input.FilterExpression).toContain('id = :id');
-		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(CARD_ID);
+		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(Number(CARD_ID));
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: { UpdateExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
 		};

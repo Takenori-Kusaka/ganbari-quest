@@ -125,7 +125,7 @@ describe('updateSpecialReward (#2832 / #2845 課題①)', () => {
 		expect(query.input.KeyConditionExpression).toContain('PK = :pk');
 		expect(query.input.ExpressionAttributeValues?.[':pk']).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
 		expect(query.input.ExpressionAttributeValues?.[':prefix']).toBe('REWARD#');
-		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(REWARD_ID);
+		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(Number(REWARD_ID));
 
 		// UpdateCommand が title / points のみ SET する (icon / category は含めない)
 		const update = mockSend.mock.calls[1]?.[0] as {
@@ -239,7 +239,7 @@ describe('deleteSpecialReward (#2832 / #2845 課題①)', () => {
 			`T#${TENANT}#CHILD#${CHILD_ID}`,
 		);
 		expect(redemptQuery.input.ExpressionAttributeValues?.[':skPrefix']).toBe('REDEMPT#');
-		expect(redemptQuery.input.ExpressionAttributeValues?.[':rid']).toBe(REWARD_ID);
+		expect(redemptQuery.input.ExpressionAttributeValues?.[':rid']).toBe(Number(REWARD_ID));
 
 		// redemption item → reward item の順で DeleteCommand
 		const delRedemption = mockSend.mock.calls[2]?.[0] as {

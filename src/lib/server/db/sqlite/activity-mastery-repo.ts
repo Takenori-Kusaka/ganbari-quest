@@ -1,8 +1,8 @@
 // src/lib/server/db/sqlite/activity-mastery-repo.ts
 // 活動習熟度リポジトリ（SQLite実装）
 
-import { type ActivityId, type ChildId, asActivityId, asChildId } from '$lib/domain/ids';
 import { and, eq } from 'drizzle-orm';
+import { type ActivityId, asActivityId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { activityMastery } from '../schema';
 import type { ActivityMastery } from '../types';

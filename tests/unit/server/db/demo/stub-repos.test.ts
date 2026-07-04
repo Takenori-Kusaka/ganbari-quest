@@ -3,6 +3,7 @@
 // read API が空 / write API が no-op であり、いずれも例外を投げないことを一括検証。
 
 import { describe, expect, it } from 'vitest';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import * as accountLockoutRepo from '../../../../../src/lib/server/db/demo/account-lockout-repo';
 import * as activityMasteryRepo from '../../../../../src/lib/server/db/demo/activity-mastery-repo';
 import * as activityPrefRepo from '../../../../../src/lib/server/db/demo/activity-pref-repo';
@@ -26,7 +27,6 @@ import * as storageRepo from '../../../../../src/lib/server/db/demo/storage-repo
 import * as trialHistoryRepo from '../../../../../src/lib/server/db/demo/trial-history-repo';
 import * as viewerTokenRepo from '../../../../../src/lib/server/db/demo/viewer-token-repo';
 import * as voiceRepo from '../../../../../src/lib/server/db/demo/voice-repo';
-import { asActivityId, asChildId } from '$lib/domain/ids';
 
 describe('demo/account-lockout-repo', () => {
 	it('getLockout は null を返す (anonymous auth は lockout 不要)', async () => {
@@ -47,7 +47,9 @@ describe('demo/account-lockout-repo', () => {
 describe('demo/activity-mastery-repo', () => {
 	it('findAllByChild / findByChildAndActivity は空', async () => {
 		expect(await activityMasteryRepo.findAllByChild(asChildId(902), 'demo')).toEqual([]);
-		expect(await activityMasteryRepo.findByChildAndActivity(asChildId(902), asActivityId(1), 'demo')).toBeUndefined();
+		expect(
+			await activityMasteryRepo.findByChildAndActivity(asChildId(902), asActivityId(1), 'demo'),
+		).toBeUndefined();
 	});
 	it('upsert は input から ActivityMastery を返す (no-op)', async () => {
 		const r = await activityMasteryRepo.upsert(asChildId(902), asActivityId(1), 10, 2, 'demo');
@@ -72,7 +74,9 @@ describe('demo/battle-repo', () => {
 	// #2097 Phase B-5b: 902 (preschool) はバトル UI 対象外 / 401 はバトル対象外
 	it('未登録 child や別日付なら findTodayBattle は undefined', async () => {
 		expect(await battleRepo.findTodayBattle(asChildId(902), '2026-04-01', 'demo')).toBeUndefined();
-		expect(await battleRepo.findTodayBattle(asChildId(99999), '2026-04-01', 'demo')).toBeUndefined();
+		expect(
+			await battleRepo.findTodayBattle(asChildId(99999), '2026-04-01', 'demo'),
+		).toBeUndefined();
 	});
 	it('battle UI 対象外 child の findRecentBattles は空', async () => {
 		expect(await battleRepo.findRecentBattles(asChildId(902), 5, 'demo')).toEqual([]);
@@ -127,7 +131,9 @@ describe('demo/graduation-consent-repo', () => {
 
 describe('demo/image-repo', () => {
 	it('findCachedImage は undefined', async () => {
-		expect(await imageRepo.findCachedImage(asChildId(902), 'avatar', 'hash', 'demo')).toBeUndefined();
+		expect(
+			await imageRepo.findCachedImage(asChildId(902), 'avatar', 'hash', 'demo'),
+		).toBeUndefined();
 	});
 	it('findChildForImage は demo Child を返す', async () => {
 		const child = await imageRepo.findChildForImage(asChildId(902), 'demo');
@@ -164,7 +170,9 @@ describe('demo/login-bonus-repo', () => {
 		expect(r?.childId).toBe('902');
 	});
 	it('未存在 child + 別 date は undefined', async () => {
-		expect(await loginBonusRepo.findTodayBonus(asChildId(99999), '2020-01-01', 'demo')).toBeUndefined();
+		expect(
+			await loginBonusRepo.findTodayBonus(asChildId(99999), '2020-01-01', 'demo'),
+		).toBeUndefined();
 	});
 });
 
@@ -188,14 +196,21 @@ describe('demo/push-subscription-repo', () => {
 describe('demo/report-daily-summary-repo', () => {
 	it('findByChildAndDateRange は空', async () => {
 		expect(
-			await reportDailySummaryRepo.findByChildAndDateRange(asChildId(902), '2026-01-01', '2026-12-31', 'demo'),
+			await reportDailySummaryRepo.findByChildAndDateRange(
+				asChildId(902),
+				'2026-01-01',
+				'2026-12-31',
+				'demo',
+			),
 		).toEqual([]);
 	});
 });
 
 describe('demo/reward-redemption-repo', () => {
 	it('findRedemptionRequestsByChild / Tenant は空', async () => {
-		expect(await rewardRedemptionRepo.findRedemptionRequestsByChild(asChildId(902), 'demo')).toEqual([]);
+		expect(
+			await rewardRedemptionRepo.findRedemptionRequestsByChild(asChildId(902), 'demo'),
+		).toEqual([]);
 		expect(await rewardRedemptionRepo.findRedemptionRequestsByTenant('demo')).toEqual([]);
 	});
 });

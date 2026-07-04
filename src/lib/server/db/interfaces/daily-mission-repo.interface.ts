@@ -38,8 +38,16 @@ export interface IDailyMissionRepo {
 	// #2362 PR-3 Phase 7b-2c: sqlite は ChildActivity (per-child instance) を返す。
 	// dynamodb / demo 実装は legacy Activity を返す (PR-3 scope 外、#2458 で 統一)。
 	findVisibleActivities(tenantId: string): Promise<Array<Activity | ChildActivity>>;
-	findPreviousDayMissionIds(childId: ChildId, date: string, tenantId: string): Promise<ActivityId[]>;
-	findRecentActivityIds(childId: ChildId, sinceDate: string, tenantId: string): Promise<ActivityId[]>;
+	findPreviousDayMissionIds(
+		childId: ChildId,
+		date: string,
+		tenantId: string,
+	): Promise<ActivityId[]>;
+	findRecentActivityIds(
+		childId: ChildId,
+		sinceDate: string,
+		tenantId: string,
+	): Promise<ActivityId[]>;
 	findAllRecordedActivityIds(childId: ChildId, tenantId: string): Promise<ActivityId[]>;
 	insertDailyMission(
 		childId: ChildId,

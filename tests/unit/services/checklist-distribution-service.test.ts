@@ -69,7 +69,7 @@ describe('listAssignedTemplatesByChild', () => {
 			{ id: '2', templateId: '20', childId: asChildId(5), createdAt: 'T' },
 		]);
 		const result = await listAssignedTemplatesByChild(asChildId(5), TENANT);
-		expect(result).toEqual([10, 20]);
+		expect(result).toEqual(['10', '20']);
 	});
 });
 
@@ -80,8 +80,8 @@ describe('distributeToChildren', () => {
 			{ id: '2', templateId: TEMPLATE_ID, childId: asChildId(20), createdAt: 'T' },
 		]);
 		const result = await distributeToChildren(TEMPLATE_ID, [asChildId(10), asChildId(20)], TENANT);
-		expect(result).toEqual([10, 20]);
-		expect(mockAssign).toHaveBeenCalledWith(TEMPLATE_ID, [10, 20], TENANT);
+		expect(result).toEqual(['10', '20']);
+		expect(mockAssign).toHaveBeenCalledWith(TEMPLATE_ID, [asChildId(10), asChildId(20)], TENANT);
 	});
 
 	it('childIds 空配列なら何もしない', async () => {
@@ -92,14 +92,20 @@ describe('distributeToChildren', () => {
 
 	it('template が存在しなければ throw', async () => {
 		mockFindTemplateById.mockResolvedValue(undefined);
-		await expect(distributeToChildren('999', [asChildId(10)], TENANT)).rejects.toThrow(/見つかりません/);
+		await expect(distributeToChildren('999', [asChildId(10)], TENANT)).rejects.toThrow(
+			/見つかりません/,
+		);
 	});
 });
 
 describe('unassignFromChildren', () => {
 	it('指定 child 群の配信を解除', async () => {
 		await unassignFromChildren(TEMPLATE_ID, [asChildId(10), asChildId(20)], TENANT);
-		expect(mockUnassignFromChildren).toHaveBeenCalledWith(TEMPLATE_ID, [10, 20], TENANT);
+		expect(mockUnassignFromChildren).toHaveBeenCalledWith(
+			TEMPLATE_ID,
+			[asChildId(10), asChildId(20)],
+			TENANT,
+		);
 	});
 
 	it('childIds 空配列なら何もしない', async () => {
@@ -116,14 +122,20 @@ describe('syncDistribution', () => {
 			{ id: '2', templateId: TEMPLATE_ID, childId: asChildId(20), createdAt: 'T' },
 			{ id: '3', templateId: TEMPLATE_ID, childId: asChildId(30), createdAt: 'T' },
 		]);
-		mockAssign.mockResolvedValue([{ id: '4', templateId: TEMPLATE_ID, childId: asChildId(40), createdAt: 'T' }]);
+		mockAssign.mockResolvedValue([
+			{ id: '4', templateId: TEMPLATE_ID, childId: asChildId(40), createdAt: 'T' },
+		]);
 
-		const result = await syncDistribution(TEMPLATE_ID, [asChildId(20), asChildId(30), asChildId(40)], TENANT);
+		const result = await syncDistribution(
+			TEMPLATE_ID,
+			[asChildId(20), asChildId(30), asChildId(40)],
+			TENANT,
+		);
 
-		expect(result.added).toEqual([40]);
-		expect([...result.removed].sort()).toEqual([10]);
-		expect(mockAssign).toHaveBeenCalledWith(TEMPLATE_ID, [40], TENANT);
-		expect(mockUnassignFromChildren).toHaveBeenCalledWith(TEMPLATE_ID, [10], TENANT);
+		expect(result.added).toEqual(['40']);
+		expect([...result.removed].sort()).toEqual(['10']);
+		expect(mockAssign).toHaveBeenCalledWith(TEMPLATE_ID, [asChildId(40)], TENANT);
+		expect(mockUnassignFromChildren).toHaveBeenCalledWith(TEMPLATE_ID, [asChildId(10)], TENANT);
 	});
 
 	it('全 child 配信解除パターン (desiredChildIds 空)', async () => {
@@ -134,7 +146,7 @@ describe('syncDistribution', () => {
 
 		const result = await syncDistribution(TEMPLATE_ID, [], TENANT);
 		expect(result.added).toEqual([]);
-		expect(result.removed).toEqual([10]);
+		expect(result.removed).toEqual(['10']);
 	});
 
 	it('差分なしなら add / remove 共に呼ばない', async () => {
@@ -152,7 +164,9 @@ describe('syncDistribution', () => {
 
 	it('template が存在しなければ throw', async () => {
 		mockFindTemplateById.mockResolvedValue(undefined);
-		await expect(syncDistribution('999', [asChildId(10)], TENANT)).rejects.toThrow(/見つかりません/);
+		await expect(syncDistribution('999', [asChildId(10)], TENANT)).rejects.toThrow(
+			/見つかりません/,
+		);
 	});
 });
 

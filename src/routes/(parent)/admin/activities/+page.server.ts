@@ -1,9 +1,13 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { CATEGORY_DEFS, getCategoryById, sanitizeDailyLimit } from '$lib/domain/validation/activity';
-import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { formIdString } from '$lib/domain/form-value';
+import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+import {
+	CATEGORY_DEFS,
+	getCategoryById,
+	sanitizeDailyLimit,
+} from '$lib/domain/validation/activity';
 // #2767 Fix Round 1 B3 (Adversarial security): indexes query を Zod ベース input validation
 // 経由でパースし、NaN / 負数 / 非整数 / 空文字 / 重複の 4 edge case を回帰固定する。
 import { parseImportIndexes } from '$lib/domain/validation/marketplace-import-params';

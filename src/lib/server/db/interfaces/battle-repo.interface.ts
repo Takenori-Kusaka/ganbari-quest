@@ -1,5 +1,5 @@
-import type { ChildId } from '$lib/domain/ids';
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import type { ChildId } from '$lib/domain/ids';
 
 export interface DailyBattleRow {
 	id: string;

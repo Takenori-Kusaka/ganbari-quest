@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { getDemoBattleData } from '$lib/server/demo/demo-service';
 
 describe('getDemoBattleData', () => {

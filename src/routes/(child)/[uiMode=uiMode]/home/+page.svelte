@@ -1,9 +1,9 @@
 <script lang="ts">
-import { asChildId, type ActivityId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
+import { type ActivityId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
 	CHILD_HOME_LABELS,

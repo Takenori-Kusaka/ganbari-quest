@@ -2,7 +2,7 @@
 // ポイント関連のリポジトリ層
 
 import { and, desc, eq, lt, sum } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';

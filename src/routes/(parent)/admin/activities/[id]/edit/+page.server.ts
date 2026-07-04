@@ -1,9 +1,10 @@
 // #1756 (#1709-B): 親 UI — 活動編集を独立 URL に分離。
 //   /admin/activities/[id]/edit で must トグル + 既存編集項目を扱う。
 //   form action は $lib/server/services/activity-service 経由で priority を含めた更新を行う。
-import { asActivityId, asCategoryId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
+
 import { error, fail, redirect } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
+import { asActivityId, asCategoryId } from '$lib/domain/ids';
 import {
 	CATEGORY_DEFS,
 	getCategoryById,

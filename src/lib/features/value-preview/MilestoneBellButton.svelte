@@ -8,9 +8,9 @@
   - localStorage パターン: `gq:milestone-seen:<childId>:<milestoneId>` (#1600 既存パターン継承)。
 -->
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import type { ChildId } from '$lib/domain/ids';
 import { MILESTONE_LABELS } from '$lib/domain/labels';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
 

@@ -38,11 +38,11 @@ import {
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	type ActivityId,
-	type CategoryId,
-	type ChildId,
 	asActivityId,
 	asCategoryId,
 	asChildId,
+	type CategoryId,
+	type ChildId,
 } from '$lib/domain/ids';
 import { db } from '../client';
 import { activityLogs, childActivities, children, dailyMissions, pointLedger } from '../schema';
@@ -394,7 +394,9 @@ export async function getActivityLogCounts(_tenantId: string): Promise<Record<st
 }
 
 export async function deleteDailyMissionsByActivity(activityId: ActivityId, _tenantId: string) {
-	db.delete(dailyMissions).where(eq(dailyMissions.activityId, Number(activityId))).run();
+	db.delete(dailyMissions)
+		.where(eq(dailyMissions.activityId, Number(activityId)))
+		.run();
 }
 
 // ============================================================

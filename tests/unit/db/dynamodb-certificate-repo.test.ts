@@ -193,7 +193,7 @@ describe('findCertificates', () => {
 		const { findCertificates } = await loadRepo();
 		const result = await findCertificates(CHILD_ID, TENANT);
 
-		expect(result.map((c) => c.id)).toEqual([2, 3, 1]);
+		expect(result.map((c) => c.id)).toEqual(['2', '3', '1']);
 		const call = mockSend.mock.calls[0]?.[0] as {
 			input: { ExpressionAttributeValues?: Record<string, unknown> };
 		};

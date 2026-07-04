@@ -367,7 +367,10 @@ describe('updateStatus (#3504)', () => {
 	it('ready 遷移では fileSizeBytes / description も同 UpdateItem で確定する', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
-		await updateStatus('5', TENANT, 'ready', { fileSizeBytes: 123, description: 'フルバックアップ' });
+		await updateStatus('5', TENANT, 'ready', {
+			fileSizeBytes: 123,
+			description: 'フルバックアップ',
+		});
 		const arg = callOf(0).input;
 		expect(arg.UpdateExpression).toContain('#fs = :fs');
 		expect(arg.UpdateExpression).toContain('#desc = :desc');

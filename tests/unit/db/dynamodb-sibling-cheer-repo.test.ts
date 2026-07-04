@@ -107,8 +107,8 @@ describe('insertCheer', () => {
 
 		expect(result.id).toBe('101');
 		expect(result).toMatchObject({
-			fromChildId: FROM_CHILD,
-			toChildId: TO_CHILD,
+			fromChildId: asChildId(FROM_CHILD),
+			toChildId: asChildId(TO_CHILD),
 			stampCode: 'ganbare',
 			tenantId: TENANT,
 			shownAt: null,

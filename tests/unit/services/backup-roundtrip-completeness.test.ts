@@ -36,6 +36,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import {
 	findActivityLogs,
 	insertActivityLog,
@@ -68,7 +69,6 @@ import { getChildActivities } from '../../../src/lib/server/services/activity-se
 import { clearAllFamilyData } from '../../../src/lib/server/services/data-service';
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 import { importFamilyData } from '../../../src/lib/server/services/import-service';
-import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 const T = 't-complete';
 
@@ -88,7 +88,9 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 	it('活動/ログ/台帳/ステータス/履歴/ログボ/評価/ごほうび が件数一致で復元される', async () => {
 		// --- seed: 1 child + 全 source 実体を 1 件ずつ ---
 		testDb.insert(schema.children).values({ nickname: 'ゆうき', age: 8, theme: 'blue' }).run(); // id=1
-		seedChildActivities(testDb, 1, [{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' }]);
+		seedChildActivities(testDb, 1, [
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' },
+		]);
 		const seededActs = await getChildActivities(asChildId(1), T);
 		const actId = seededActs[0]?.id as ActivityId;
 
@@ -104,10 +106,19 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			},
 			T,
 		);
-		await insertPointLedger({ childId: asChildId(1), amount: 5, type: 'activity', description: 'test' }, T);
+		await insertPointLedger(
+			{ childId: asChildId(1), amount: 5, type: 'activity', description: 'test' },
+			T,
+		);
 		await upsertStatus(asChildId(1), asCategoryId(1), 50, 3, 50, T);
 		await insertStatusHistory(
-			{ childId: asChildId(1), categoryId: asCategoryId(1), value: 50, changeAmount: 5, changeType: 'activity' },
+			{
+				childId: asChildId(1),
+				categoryId: asCategoryId(1),
+				value: 50,
+				changeAmount: 5,
+				changeType: 'activity',
+			},
 			T,
 		);
 		await insertLoginBonus(
@@ -252,7 +263,12 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		// #3329: おやすみ日を 1 件 seed (createdAt 明示)。round-trip 後に reason/createdAt が保全されること。
 		await getRepos().evaluation.insertRestDayForRestore(
-			{ childId: asChildId(1), date: '2026-03-03', reason: 'sick', createdAt: '2026-03-03T00:00:00Z' },
+			{
+				childId: asChildId(1),
+				date: '2026-03-03',
+				reason: 'sick',
+				createdAt: '2026-03-03T00:00:00Z',
+			},
 			T,
 		);
 
@@ -323,11 +339,15 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// --- 全種別の round-trip 件数一致 ---
 		expect((await getChildActivities(asChildId(cid), T)).length, '活動').toBe(1);
 		expect((await findActivityLogs(asChildId(cid), T)).length, '活動ログ').toBe(1);
-		expect((await findPointHistory(asChildId(cid), { limit: 999, offset: 0 }, T)).length, 'ポイント台帳').toBe(
-			1,
-		);
+		expect(
+			(await findPointHistory(asChildId(cid), { limit: 999, offset: 0 }, T)).length,
+			'ポイント台帳',
+		).toBe(1);
 		expect((await findStatuses(asChildId(cid), T)).length, 'ステータス').toBeGreaterThanOrEqual(1);
-		expect((await findRecentStatusHistory(asChildId(cid), asCategoryId(1), T, 999)).length, 'ステータス履歴').toBe(1);
+		expect(
+			(await findRecentStatusHistory(asChildId(cid), asCategoryId(1), T, 999)).length,
+			'ステータス履歴',
+		).toBe(1);
 		expect((await findRecentBonuses(asChildId(cid), T, 999)).length, 'ログインボーナス').toBe(1);
 		expect((await findEvaluationsByChild(asChildId(cid), 999, T)).length, '評価').toBe(1);
 		expect((await findSpecialRewards(asChildId(cid), T)).length, 'ごほうび').toBe(1);
@@ -594,8 +614,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		const restored = await getRepos().siblingCheer.findAllByTenant(T);
 		expect(restored.length, 'おうえん').toBe(1);
-		expect(restored[0]?.fromChildId, 'from 再結合').toBe(brother);
-		expect(restored[0]?.toChildId, 'to 再結合').toBe(sister);
+		expect(restored[0]?.fromChildId, 'from 再結合').toBe(String(brother));
+		expect(restored[0]?.toChildId, 'to 再結合').toBe(String(sister));
 		expect(restored[0]?.sentAt, 'sentAt 保全').toBe('2026-02-15T10:00:00Z');
 		expect(restored[0]?.shownAt, 'shownAt 保全').toBe('2026-02-15T12:00:00Z');
 	});
@@ -832,10 +852,12 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 
 		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
 		const restored = (
-			await getRepos().childActivity.findActivitiesByChild(asChildId(cid), T, { includeArchived: true })
+			await getRepos().childActivity.findActivitiesByChild(asChildId(cid), T, {
+				includeArchived: true,
+			})
 		).find((a) => a.name === 'フィールド網羅活動');
 		expect(restored, '復元された').toBeTruthy();
-		expect(restored?.categoryId, 'categoryCode→categoryId round-trip').toBe(2);
+		expect(restored?.categoryId, 'categoryCode→categoryId round-trip').toBe('2');
 		expect(restored?.basePoints, 'basePoints').toBe(42);
 		expect(restored?.triggerHint, 'triggerHint').toBe('ヒント文');
 		expect(restored?.isMainQuest, 'isMainQuest').toBe(1);

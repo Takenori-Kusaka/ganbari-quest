@@ -3,9 +3,9 @@
 // 週次レポート / グラフ表示が空にならないことを検証。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as evaluationRepo from '../../../../../src/lib/server/db/demo/evaluation-repo';
 import { DEMO_CHILDREN, DEMO_EVALUATIONS } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/evaluation-repo (Phase B-5b)', () => {
 	it('DEMO_EVALUATIONS fixture は全 5 子供 × 4 週分 = 20 件以上', () => {
@@ -59,7 +59,9 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findWeekEvaluation は未該当 weekStart で undefined', async () => {
-		expect(await evaluationRepo.findWeekEvaluation(asChildId(904), '2099-01-01', 'demo')).toBeUndefined();
+		expect(
+			await evaluationRepo.findWeekEvaluation(asChildId(904), '2099-01-01', 'demo'),
+		).toBeUndefined();
 	});
 
 	it('insertEvaluation は input を Evaluation として返す (no-op、fixture immutable)', async () => {
@@ -81,7 +83,12 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 
 	it('countActivitiesByCategory / findLastActivityDateByCategory は空 (別 fixture 対象)', async () => {
 		expect(
-			await evaluationRepo.countActivitiesByCategory(asChildId(904), '2026-03-23', '2026-03-29', 'demo'),
+			await evaluationRepo.countActivitiesByCategory(
+				asChildId(904),
+				'2026-03-23',
+				'2026-03-29',
+				'demo',
+			),
 		).toEqual([]);
 		expect(await evaluationRepo.findLastActivityDateByCategory(asChildId(904), 'demo')).toEqual([]);
 	});
@@ -92,7 +99,12 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('insertRestDay は input を RestDay として返す (no-op)', async () => {
-		const restDay = await evaluationRepo.insertRestDay(asChildId(904), '2026-04-01', 'お休み', 'demo');
+		const restDay = await evaluationRepo.insertRestDay(
+			asChildId(904),
+			'2026-04-01',
+			'お休み',
+			'demo',
+		);
 		expect(restDay).toBeDefined();
 		expect(restDay?.childId).toBe('904');
 		expect(restDay?.date).toBe('2026-04-01');

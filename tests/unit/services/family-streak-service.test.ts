@@ -55,7 +55,7 @@ describe('getFamilyStreak', () => {
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(1);
 		expect(result.hasRecordedToday).toBe(true);
-		expect(result.todayRecorders).toEqual([1]);
+		expect(result.todayRecorders).toEqual(['1']);
 	});
 
 	it('昨日までの連続記録（今日はまだ）', async () => {
@@ -91,7 +91,7 @@ describe('getFamilyStreak', () => {
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(3);
 		expect(result.hasRecordedToday).toBe(true);
-		expect(result.todayRecorders).toEqual([1]);
+		expect(result.todayRecorders).toEqual(['1']);
 	});
 
 	it('連続が途切れた場合は最新の連続のみ', async () => {

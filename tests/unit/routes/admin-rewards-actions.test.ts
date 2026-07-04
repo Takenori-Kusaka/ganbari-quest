@@ -177,7 +177,12 @@ describe('/admin/rewards page.server', () => {
 		it('無料プランでは 403 を返し grantSpecialReward を呼ばない（PlanLimitError 形式 #787）', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			const result = await grantAction({
-				request: makeFormRequest({ childId: asChildId(1), title: 'ごほうび', points: 100, icon: '🎁' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'ごほうび',
+					points: 100,
+					icon: '🎁',
+				}),
 				locals: makeLocals({ licenseStatus: 'none' }),
 			});
 
@@ -197,7 +202,12 @@ describe('/admin/rewards page.server', () => {
 			mockGrantSpecialReward.mockResolvedValue({ id: '1', title: 'ごほうび', points: 100 });
 
 			const result = await grantAction({
-				request: makeFormRequest({ childId: asChildId(1), title: 'ごほうび', points: 100, icon: '🎁' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'ごほうび',
+					points: 100,
+					icon: '🎁',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
 			});
 
@@ -210,7 +220,12 @@ describe('/admin/rewards page.server', () => {
 			mockGrantSpecialReward.mockResolvedValue({ id: '2', title: 'おてつだい', points: 50 });
 
 			const result = await grantAction({
-				request: makeFormRequest({ childId: asChildId(1), title: 'おてつだい', points: 50, icon: '🧹' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'おてつだい',
+					points: 50,
+					icon: '🧹',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'family_monthly' }),
 			});
 
@@ -244,7 +259,12 @@ describe('/admin/rewards page.server', () => {
 			mockGrantSpecialReward.mockResolvedValue({ id: '4', title: 'おやつ', points: 30 });
 
 			await grantAction({
-				request: makeFormRequest({ childId: asChildId(1), title: 'おやつ', points: 30, icon: '🍪' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'おやつ',
+					points: 30,
+					icon: '🍪',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
 			});
 

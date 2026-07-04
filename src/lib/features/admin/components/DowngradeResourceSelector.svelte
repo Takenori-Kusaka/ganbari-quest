@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { ActivityId, ChildId } from '$lib/domain/ids';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	getAgeTierLabel,
 	getPlanLabel,

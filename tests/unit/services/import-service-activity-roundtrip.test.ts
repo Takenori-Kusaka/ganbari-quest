@@ -35,11 +35,11 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { getChildActivities } from '../../../src/lib/server/services/activity-service';
 import { clearAllFamilyData } from '../../../src/lib/server/services/data-service';
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 import { importFamilyData } from '../../../src/lib/server/services/import-service';
-import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-repro';
 
@@ -87,7 +87,9 @@ describe('#3327/#3328 backup round-trip: replace で per-child 活動が復元�
 		expect(children.length, 'children restored').toBe(2);
 
 		// --- 各子の活動を集計 ---
-		const perChild = await Promise.all(children.map((c) => getChildActivities(asChildId(c.id), TENANT)));
+		const perChild = await Promise.all(
+			children.map((c) => getChildActivities(asChildId(c.id), TENANT)),
+		);
 		const total = perChild.reduce((s, a) => s + a.length, 0);
 
 		// 期待: 子1=3 / 子2=2 / 計5 が per-child に正しく復元される。

@@ -1,5 +1,5 @@
-import { childIdSchema } from './id-schema';
 import { z } from 'zod';
+import { childIdSchema } from './id-schema';
 
 /** メッセージ種別 */
 export const MESSAGE_TYPES = ['stamp', 'text', 'reward_notice'] as const;

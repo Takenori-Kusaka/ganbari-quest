@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { getDefaultChildId } from '$lib/server/services/default-child-service';

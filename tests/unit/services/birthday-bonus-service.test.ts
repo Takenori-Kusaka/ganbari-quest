@@ -236,7 +236,7 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect(result.newAge).toBe(3);
 		// age 更新は age-recalc cron に移譲（#1522）。updateChild には uiMode + lastBirthdayBonusYear のみ渡す
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.objectContaining({
 				uiMode: 'preschool',
 				lastBirthdayBonusYear: 2026,
@@ -244,7 +244,7 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 			'tenant-1',
 		);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.not.objectContaining({ age: expect.anything() }),
 			'tenant-1',
 		);
@@ -262,12 +262,12 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect(result.newAge).toBe(6);
 		// age 更新は age-recalc cron に移譲（#1522）。updateChild には uiMode のみ渡す
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.objectContaining({ uiMode: 'elementary' }),
 			'tenant-1',
 		);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.not.objectContaining({ age: expect.anything() }),
 			'tenant-1',
 		);
@@ -285,12 +285,12 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect(result.newAge).toBe(13);
 		// age 更新は age-recalc cron に移譲（#1522）。updateChild には uiMode のみ渡す
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.objectContaining({ uiMode: 'junior' }),
 			'tenant-1',
 		);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.not.objectContaining({ age: expect.anything() }),
 			'tenant-1',
 		);
@@ -308,12 +308,12 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect(result.newAge).toBe(16);
 		// age 更新は age-recalc cron に移譲（#1522）。updateChild には uiMode のみ渡す
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.objectContaining({ uiMode: 'senior' }),
 			'tenant-1',
 		);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.not.objectContaining({ age: expect.anything() }),
 			'tenant-1',
 		);
@@ -331,12 +331,12 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect(result.newAge).toBe(7);
 		// age 更新は age-recalc cron に移譲（#1522）。updateChild には uiMode のみ渡す
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.objectContaining({ uiMode: 'elementary' }),
 			'tenant-1',
 		);
 		expect(mockUpdateChild).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			expect.not.objectContaining({ age: expect.anything() }),
 			'tenant-1',
 		);

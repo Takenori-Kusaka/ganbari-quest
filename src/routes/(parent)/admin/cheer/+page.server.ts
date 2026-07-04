@@ -5,10 +5,10 @@
 // スタンプ/メッセージは P 付与に付随する理由表現」。
 // 旧 /admin/messages はスタンプ/テキストのみ (P 付与なし) で存在意義なし → 本機能に統合。
 
-import { asChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { getErrorMessage } from '$lib/domain/errors';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	CHEER_CATEGORIES,
@@ -61,7 +61,8 @@ function parseAndValidateForm(
 	const stampCodeRaw = String(formData.get('stampCode') ?? '').trim();
 	const bodyRaw = String(formData.get('body') ?? '').trim();
 
-	if (!childId) return { ok: false, status: 400, error: 'こどもを選択してください' };
+	if (!childId || childId === asChildId(0))
+		return { ok: false, status: 400, error: 'こどもを選択してください' };
 	if (!reason) return { ok: false, status: 400, error: '応援の理由を入力してください' };
 	if (reason.length > CHEER_REASON_MAX_LENGTH) {
 		return { ok: false, status: 400, error: REASON_TOO_LONG_MSG };

@@ -73,9 +73,12 @@ describe('export/cloud/[id]/download GET — 認可', () => {
 		expect(r.status).toBe(403);
 	});
 
-	it('無効な id は 400', async () => {
+	it('存在しない opaque id は 404 (#3575: id は opaque string、数値形式チェックは撤去)', async () => {
+		// 旧: Number('abc') = NaN → 400。opaque id 化後は形式判定を持たず、
+		// tenant 束縛 findById が undefined を返して 404 (IDOR 遮断と同一経路) に収束する。
+		mockCloudExportRepo.findById.mockResolvedValue(undefined);
 		const r = await callGet('parent', 'abc');
-		expect(r.status).toBe(400);
+		expect(r.status).toBe(404);
 	});
 
 	it('他 tenant のリソースは findById が undefined → 404 (IDOR 遮断)', async () => {

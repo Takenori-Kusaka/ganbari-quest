@@ -97,7 +97,9 @@ describe('point-service', () => {
 		addPoints(1, 200, 'activity', '活動2');
 		addPoints(1, 50, 'login_bonus', 'ログインボーナス');
 
-		const result = assertSuccess(await getPointHistory(asChildId(1), { limit: 50, offset: 0 }, 'test-tenant'));
+		const result = assertSuccess(
+			await getPointHistory(asChildId(1), { limit: 50, offset: 0 }, 'test-tenant'),
+		);
 		const history = await result.history;
 		expect(history.length).toBe(3);
 	});
@@ -107,7 +109,9 @@ describe('point-service', () => {
 		addPoints(1, 20, 'activity', '2');
 		addPoints(1, 30, 'activity', '3');
 
-		const result = assertSuccess(await getPointHistory(asChildId(1), { limit: 2, offset: 0 }, 'test-tenant'));
+		const result = assertSuccess(
+			await getPointHistory(asChildId(1), { limit: 2, offset: 0 }, 'test-tenant'),
+		);
 		const history = await result.history;
 		expect(history.length).toBe(2);
 	});

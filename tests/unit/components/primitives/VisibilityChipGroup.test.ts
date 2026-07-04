@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import VisibilityChipGroup from '$lib/ui/primitives/VisibilityChipGroup.svelte';
 import { asChildId } from '$lib/domain/ids';
+import VisibilityChipGroup from '$lib/ui/primitives/VisibilityChipGroup.svelte';
 
 describe('VisibilityChipGroup', () => {
 	const threeChildren = [

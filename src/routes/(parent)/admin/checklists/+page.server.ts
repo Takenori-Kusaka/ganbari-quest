@@ -1,10 +1,10 @@
-import { asChildId, type ChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
@@ -64,7 +64,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			const perChildProgress = await Promise.all(
 				assignments.map(async (a) => {
 					const log = await findTodayLog(a.childId, tpl.id, today, tenantId);
-					const checkedIds = log ? (JSON.parse(log.itemsJson) as (number | string)[]).map(String) : [];
+					const checkedIds = log
+						? (JSON.parse(log.itemsJson) as (number | string)[]).map(String)
+						: [];
 					const child = children.find((c) => c.id === a.childId);
 					return {
 						childId: a.childId,
@@ -139,7 +141,7 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 	const childId = asChildId(formIdString(formData.get('childId')));
 	const presetId = String(formData.get('presetId') ?? '').trim();
 
-	if (!childId) return fail(400, { error: 'こどもを選択してください' });
+	if (!childId || childId === asChildId(0)) return fail(400, { error: 'こどもを選択してください' });
 	if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
 
 	// プラン制限 (Free プランのテンプレート数)
@@ -206,7 +208,8 @@ export const actions: Actions = {
 		const name = String(formData.get('name') ?? '').trim();
 		const icon = String(formData.get('icon') ?? '📋').trim();
 
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!childId || childId === asChildId(0))
+			return fail(400, { error: 'こどもを選択してください' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
 
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
@@ -311,7 +314,8 @@ export const actions: Actions = {
 		const itemName = String(formData.get('itemName') ?? '').trim();
 		const icon = String(formData.get('icon') ?? '📦').trim();
 
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!childId || childId === asChildId(0))
+			return fail(400, { error: 'こどもを選択してください' });
 		if (!targetDate) return fail(400, { error: '日付を入力してください' });
 		if (!itemName) return fail(400, { error: 'アイテム名を入力してください' });
 
@@ -325,7 +329,8 @@ export const actions: Actions = {
 		const childId = asChildId(formIdString(formData.get('childId')));
 		const overrideId = formIdString(formData.get('overrideId'));
 
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!childId || childId === asChildId(0))
+			return fail(400, { error: 'こどもを選択してください' });
 		if (!overrideId) return fail(400, { error: 'オーバーライドIDが不正です' });
 
 		// #2845 B1: childId 所有権検証付き (composite key)。不一致なら no-op
@@ -355,7 +360,8 @@ export const actions: Actions = {
 		const templateIcon = String(formData.get('templateIcon') ?? '📋').trim();
 		const itemsJson = String(formData.get('items') ?? '[]');
 
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!childId || childId === asChildId(0))
+			return fail(400, { error: 'こどもを選択してください' });
 		if (!templateName) return fail(400, { error: 'テンプレート名が必要です' });
 
 		// JSON パース + バリデーションを DB 作成前に実行（パース失敗時に空テンプレートが残る問題を防ぐ）

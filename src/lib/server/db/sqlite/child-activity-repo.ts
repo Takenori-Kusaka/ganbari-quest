@@ -17,10 +17,10 @@ import { and, count, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	type ActivityId,
-	type ChildId,
 	asActivityId,
 	asCategoryId,
 	asChildId,
+	type ChildId,
 } from '$lib/domain/ids';
 import { db } from '../client';
 import { childActivities, children } from '../schema';

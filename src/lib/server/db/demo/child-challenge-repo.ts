@@ -14,7 +14,10 @@ import type {
 	UpdateChildChallengeInput,
 } from '../types';
 
-export async function findByChildId(childId: ChildId, _tenantId: string): Promise<ChildChallenge[]> {
+export async function findByChildId(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<ChildChallenge[]> {
 	return DEMO_CHILD_CHALLENGES.filter((c) => c.childId === childId);
 }
 

@@ -19,6 +19,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { asChildId } from '$lib/domain/ids';
 import { getCertificatesForChild } from '../../../src/lib/server/services/certificate-service';
 import { getChildById } from '../../../src/lib/server/services/child-service';
 import type {
@@ -28,7 +29,6 @@ import type {
 import { buildGrowthBook } from '../../../src/lib/server/services/growth-book-service';
 import { computeDetailedMonthlyReport } from '../../../src/lib/server/services/report-service';
 import { getChildStatus } from '../../../src/lib/server/services/status-service';
-import { asChildId } from '$lib/domain/ids';
 
 const TENANT = 'test-tenant';
 const CHILD_ID = asChildId(1);

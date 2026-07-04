@@ -31,8 +31,8 @@
  *   - $lib/server/services/checklist-template-import-service (旧 service、@deprecated)
  */
 
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import * as v from 'valibot';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	type ChecklistPayload,
 	ChecklistPayloadSchema,
@@ -114,7 +114,8 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 		// ctx.childIds 未指定 (空配列含む) の場合は family scope template 作成のみ (assignment 0 件)、
 		// 配信は別途 admin/checklists の ChecklistDistributionDialog から行う想定。
 		// 旧 ctx.childId は本 Phase で受付撤去。
-		const childIds: readonly ChildId[] = ctx.childIds && ctx.childIds.length > 0 ? ctx.childIds : [];
+		const childIds: readonly ChildId[] =
+			ctx.childIds && ctx.childIds.length > 0 ? ctx.childIds : [];
 
 		// dry-run は preview と等価動作 (DB write 禁止)
 		if (ctx.dryRun === true) {

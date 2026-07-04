@@ -2,9 +2,9 @@
 // ADR-0048 §決定 §2: demo Activity Repo の Fake (read) + Stub (write) hybrid 検証。
 
 import { describe, expect, it } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import * as activityRepo from '../../../../../src/lib/server/db/demo/activity-repo';
 import { DEMO_ACTIVITIES, DEMO_ACTIVITY_LOGS } from '../../../../../src/lib/server/demo/demo-data';
-import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 describe('demo/activity-repo', () => {
 	describe('read API', () => {
@@ -66,7 +66,14 @@ describe('demo/activity-repo', () => {
 		it('insertActivity は input から Activity を返すが fixture を mutate しない', async () => {
 			const before = DEMO_ACTIVITIES.length;
 			const created = await activityRepo.insertActivity(
-				{ name: 'test', categoryId: asCategoryId(1), icon: '🧪', basePoints: 5, ageMin: 3, ageMax: 10 },
+				{
+					name: 'test',
+					categoryId: asCategoryId(1),
+					icon: '🧪',
+					basePoints: 5,
+					ageMin: 3,
+					ageMax: 10,
+				},
 				'demo',
 			);
 			expect(created.name).toBe('test');
@@ -98,7 +105,9 @@ describe('demo/activity-repo', () => {
 					'demo',
 				),
 			).resolves.toBeUndefined();
-			await expect(activityRepo.deleteActivity(asActivityId(99999), 'demo')).resolves.toBeUndefined();
+			await expect(
+				activityRepo.deleteActivity(asActivityId(99999), 'demo'),
+			).resolves.toBeUndefined();
 			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で 'test' → 'trial_expired' (ARCHIVED_REASONS SSOT)
 			await expect(
 				activityRepo.archiveActivities([asActivityId(1)], 'trial_expired', 'demo'),
@@ -106,7 +115,11 @@ describe('demo/activity-repo', () => {
 		});
 
 		it('deleteActivityLogsBeforeDate は 0 件削除を返す (stateless)', async () => {
-			const result = await activityRepo.deleteActivityLogsBeforeDate(asChildId(902), '2020-01-01', 'demo');
+			const result = await activityRepo.deleteActivityLogsBeforeDate(
+				asChildId(902),
+				'2020-01-01',
+				'demo',
+			);
 			expect(result).toBe(0);
 		});
 	});

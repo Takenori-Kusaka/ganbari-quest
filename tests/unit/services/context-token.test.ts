@@ -2,13 +2,13 @@
 // Context トークン署名/検証のユニットテスト (#0123: viewer廃止)
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	getContextMaxAge,
 	signContext,
 	verifyContext,
 } from '../../../src/lib/server/auth/context-token';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
-import { asChildId } from '$lib/domain/ids';
 
 const ownerContext: AuthContext = {
 	tenantId: 't-test',

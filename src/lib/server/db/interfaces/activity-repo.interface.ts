@@ -1,5 +1,5 @@
-import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import type {
 	Activity,
 	ActivityFilter,
@@ -78,10 +78,17 @@ export interface IActivityRepo {
 		date: string,
 		tenantId: string,
 	): Promise<{ activityId: ActivityId; count: number }[]>;
-	findTodayRecordedActivityIds(childId: ChildId, today: string, tenantId: string): Promise<ActivityId[]>;
+	findTodayRecordedActivityIds(
+		childId: ChildId,
+		today: string,
+		tenantId: string,
+	): Promise<ActivityId[]>;
 
 	// Aggregation queries
-	findDistinctRecordedDates(childId: ChildId, tenantId: string): Promise<{ recordedDate: string }[]>;
+	findDistinctRecordedDates(
+		childId: ChildId,
+		tenantId: string,
+	): Promise<{ recordedDate: string }[]>;
 	countActiveActivityLogs(childId: ChildId, tenantId: string): Promise<number>;
 	getCategoryCountsByDate(
 		childId: ChildId,

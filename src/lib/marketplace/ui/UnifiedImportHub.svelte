@@ -18,8 +18,8 @@
  *   - DESIGN.md §10 (Hick's Law / EPIC #2253 bridge ルール)
  */
 
-import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { UNIFIED_IMPORT_HUB_LABELS } from '$lib/domain/labels';
 // #2370: browser-safe な client-types のみ import (server services を巻き込まない)
 import {

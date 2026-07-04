@@ -269,7 +269,7 @@ describe('questionnaire-service', () => {
 			);
 			expect(mockAddTemplateItem).toHaveBeenCalledTimes(2);
 			expect(mockAddTemplateItem).toHaveBeenCalledWith(
-				{ templateId: 100, name: 'はみがき', icon: '🪥', sortOrder: 1 },
+				{ templateId: '100', name: 'はみがき', icon: '🪥', sortOrder: 1 },
 				TENANT,
 			);
 

@@ -4,8 +4,8 @@
 // 本画面で承認/却下フローを専用 URL に分離する (CRUD と承認フローの責務分離)。
 // service 層は既存 reward-redemption-service.ts を再利用。
 
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	approveRedemption,

@@ -24,9 +24,9 @@ import { defineMeta } from '@storybook/addon-svelte-csf';
 // `screen` (document.body 起点の Testing Library query) を使う。
 // 参考: Storybook docs "Interaction tests" + Ark UI Portal の仕様。
 import { expect, fn, screen, waitFor } from 'storybook/test';
+import { asChildId } from '$lib/domain/ids';
 import { CHILD_SELECTION_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import ChildSelectionDialog from './ChildSelectionDialog.svelte';
-import { asChildId } from '$lib/domain/ids';
 
 const L = STORYBOOK_LABELS.childSelectionDialog;
 
@@ -36,7 +36,9 @@ const threeChildren = [
 	{ id: asChildId(3), nickname: L.childKenta.split(' ')[0], age: 1, icon: L.childKentaIcon },
 ];
 
-const oneChild = [{ id: asChildId(1), nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon }];
+const oneChild = [
+	{ id: asChildId(1), nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon },
+];
 
 /** @type {Array<{id: import('$lib/domain/ids').ChildId; nickname: string; age?: number; icon?: string}>} */
 const noChildren = [];

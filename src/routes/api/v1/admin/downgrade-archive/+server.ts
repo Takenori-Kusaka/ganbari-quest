@@ -1,7 +1,7 @@
 // POST /api/v1/admin/downgrade-archive — ダウングレード用リソースアーカイブ (#738)
 
-import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
 import { logger } from '$lib/server/logger';

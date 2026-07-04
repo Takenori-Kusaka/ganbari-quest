@@ -7,10 +7,10 @@
  */
 
 import { selectDailyEnemy } from '$lib/domain/battle-enemies';
-import { type ActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleStats, Enemy } from '$lib/domain/battle-types';
+import { type ActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';

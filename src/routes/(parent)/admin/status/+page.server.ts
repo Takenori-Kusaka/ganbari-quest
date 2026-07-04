@@ -1,6 +1,6 @@
-import { asCategoryId, asChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
@@ -47,12 +47,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	//   不正な childId / 該当 child なしの場合は何もしない (デフォルト children[0])。
 	const requestedChildIdRaw = url.searchParams.get('childId');
 	const requestedChildId = requestedChildIdRaw ? asChildId(requestedChildIdRaw) : null;
-	const sortedChildren = requestedChildId !== null
-		? [
-				...childrenWithStatus.filter((c) => c.id === requestedChildId),
-				...childrenWithStatus.filter((c) => c.id !== requestedChildId),
-			]
-		: childrenWithStatus;
+	const sortedChildren =
+		requestedChildId !== null
+			? [
+					...childrenWithStatus.filter((c) => c.id === requestedChildId),
+					...childrenWithStatus.filter((c) => c.id !== requestedChildId),
+				]
+			: childrenWithStatus;
 
 	return { children: sortedChildren, categoryDefs: CATEGORY_DEFS, benchmarks, levelTitles };
 };

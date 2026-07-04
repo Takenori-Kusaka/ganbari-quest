@@ -2,8 +2,15 @@
 // おすすめ活動サービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import type { Activity } from '../../../src/lib/server/db/types';
-import { type ActivityId, type CategoryId, type ChildId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // --- Top-level mocks (Vitest hoists these) ---
 
@@ -12,7 +19,9 @@ const mockSetSetting = vi.fn<(key: string, value: string, tenantId: string) => P
 const mockCountPointLedgerEntriesByTypeAndDate =
 	vi.fn<(childId: ChildId, type: string, date: string, tenantId: string) => Promise<number>>();
 const mockCountTodayActiveRecords =
-	vi.fn<(childId: ChildId, activityId: ActivityId, date: string, tenantId: string) => Promise<number>>();
+	vi.fn<
+		(childId: ChildId, activityId: ActivityId, date: string, tenantId: string) => Promise<number>
+	>();
 const mockInsertPointLedger =
 	vi.fn<
 		(
@@ -422,7 +431,11 @@ describe('checkAndGrantFocusBonus', () => {
 		// 既に付与済み
 		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(1);
 
-		const result = await checkAndGrantFocusBonus(asChildId(1), [asActivityId(1), asActivityId(2), asActivityId(3)], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(1), asActivityId(2), asActivityId(3)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});
@@ -435,7 +448,11 @@ describe('checkAndGrantFocusBonus', () => {
 			.mockResolvedValueOnce(1) // activity 1: completed
 			.mockResolvedValueOnce(0); // activity 2: not completed
 
-		const result = await checkAndGrantFocusBonus(asChildId(1), [asActivityId(1), asActivityId(2), asActivityId(3)], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(1), asActivityId(2), asActivityId(3)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});
@@ -446,7 +463,11 @@ describe('checkAndGrantFocusBonus', () => {
 		mockCountTodayActiveRecords.mockResolvedValue(1); // 全完了
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
-		const result = await checkAndGrantFocusBonus(asChildId(1), [asActivityId(10), asActivityId(20), asActivityId(30)], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 
 		expect(result).toEqual({ bonusPoints: 10 });
 		expect(mockInsertPointLedger).toHaveBeenCalledTimes(1);
@@ -477,7 +498,11 @@ describe('checkAndGrantFocusBonus', () => {
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
-		await checkAndGrantFocusBonus(asChildId(1), [asActivityId(10), asActivityId(20), asActivityId(30)], TENANT);
+		await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 
 		// 各活動IDに対して countTodayActiveRecords が呼ばれる
 		expect(mockCountTodayActiveRecords).toHaveBeenCalledTimes(3);
@@ -494,7 +519,11 @@ describe('checkAndGrantFocusBonus', () => {
 			.mockResolvedValueOnce(1) // activity 20: done
 			.mockResolvedValueOnce(0); // activity 30: not done
 
-		const result = await checkAndGrantFocusBonus(asChildId(1), [asActivityId(10), asActivityId(20), asActivityId(30)], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});

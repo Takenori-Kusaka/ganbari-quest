@@ -9,9 +9,9 @@
 //   選択肢を提示するが取込試行は warning として記録される。setup フローでは敢えて
 //   非表示にして bonus + exchange のみ提示する (Pre-PMF UX 単純化)。
 
-import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { asChildId } from '$lib/domain/ids';
 import type { RulePresetPayload } from '$lib/domain/marketplace-item';
 // #2368 (ADR-0052 P3): Strategy 経由 (Registry 経由) で 4 ruleType sub-dispatcher を呼ぶ
 import { marketplaceRegistry } from '$lib/marketplace';

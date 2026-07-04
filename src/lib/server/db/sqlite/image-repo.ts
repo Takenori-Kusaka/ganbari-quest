@@ -2,7 +2,7 @@
 // キャラクター画像関連のリポジトリ層
 
 import { and, eq } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { characterImages, children } from '../schema';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
@@ -29,10 +29,7 @@ export async function findCachedImage(
 }
 
 /** 画像レコードを挿入 */
-export async function insertCharacterImage(
-	input: InsertCharacterImageInput,
-	_tenantId: string,
-) {
+export async function insertCharacterImage(input: InsertCharacterImageInput, _tenantId: string) {
 	db.insert(characterImages)
 		.values({ ...input, childId: Number(input.childId) })
 		.run();

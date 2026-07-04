@@ -1,5 +1,5 @@
-import { asCategoryId } from '$lib/domain/ids';
 import type { CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/activity-import-service.ts
 // 活動単体インポートサービス（#0224）
 //

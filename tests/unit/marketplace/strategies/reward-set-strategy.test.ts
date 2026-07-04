@@ -32,8 +32,8 @@ vi.mock('$lib/server/logger', () => ({
 
 // ---------- Import after mocks ----------
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { rewardSetStrategy } from '../../../../src/lib/marketplace/strategies/reward-set-strategy';
-import { type ChildId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 'test-tenant-001';
 const PRESET_ID = 'kinder-rewards';
@@ -330,7 +330,11 @@ describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
 		const { narrowChildContext } = await import(
 			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
 		);
-		const ctx = { tenantId: TENANT, presetId: PRESET_ID, childIds: [asChildId(202), asChildId(303)] };
+		const ctx = {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [asChildId(202), asChildId(303)],
+		};
 		const narrowed = narrowChildContext(ctx);
 		expect(narrowed.kind).toBe('child-selection');
 		if (narrowed.kind === 'child-selection') {
@@ -378,9 +382,9 @@ describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
 		const { narrowChildContext } = await import(
 			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
 		);
-		expect(() => narrowChildContext({ tenantId: TENANT, childIds: [asChildId(202)] } as never)).toThrow(
-			/presetId/,
-		);
+		expect(() =>
+			narrowChildContext({ tenantId: TENANT, childIds: [asChildId(202)] } as never),
+		).toThrow(/presetId/);
 	});
 });
 

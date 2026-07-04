@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';

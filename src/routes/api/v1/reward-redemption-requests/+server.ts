@@ -3,8 +3,8 @@
 // POST: 子供が申請作成
 // GET: 親が申請一覧取得
 
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	getRedemptionRequestsForParent,
@@ -32,7 +32,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// #3575: id は opaque string。旧クライアントの number も境界で受けて as* 変換する
 	const isIdLike = (v: unknown): v is string | number =>
 		(typeof v === 'string' && v !== '') || typeof v === 'number';
-	if (typeof body !== 'object' || body === null || !isIdLike(rawRewardId) || !isIdLike(rawChildId)) {
+	if (
+		typeof body !== 'object' ||
+		body === null ||
+		!isIdLike(rawRewardId) ||
+		!isIdLike(rawChildId)
+	) {
 		return json({ error: 'rewardId と childId は必須です' }, { status: 400 });
 	}
 

@@ -109,7 +109,10 @@ export async function findActivityById(
 	return master ? projectToChildActivity(master, childId) : undefined;
 }
 
-export async function countMainQuestActivities(childId: ChildId, tenantId: string): Promise<number> {
+export async function countMainQuestActivities(
+	childId: ChildId,
+	tenantId: string,
+): Promise<number> {
 	const list = await findActivitiesByChild(childId, tenantId, { visibleOnly: true });
 	return list.filter((a) => a.isMainQuest === 1).length;
 }

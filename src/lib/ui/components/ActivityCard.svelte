@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { ActivityId, CategoryId } from '$lib/domain/ids';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
+import type { ActivityId, CategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';

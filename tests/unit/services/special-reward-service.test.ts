@@ -690,7 +690,12 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 	it('存在しない reward の編集は NOT_FOUND', async () => {
 		const { childId } = seedRewardWithBalance();
-		const result = await updateReward('9999', asChildId(childId), { title: 'x', points: 1 }, 'test-tenant');
+		const result = await updateReward(
+			'9999',
+			asChildId(childId),
+			{ title: 'x', points: 1 },
+			'test-tenant',
+		);
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'reward' });
 	});
 });

@@ -6,8 +6,8 @@
 // (client は fire-and-forget なので body 不要、CloudWatch 5xx alarm を抑止)。
 // Pre-PMF 判断: ADR-0010 Bucket B。詳細: docs/rationale/07-usage-log-dynamodb-deferred-rationale.md
 
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { endUsageSession, startUsageSession } from '$lib/server/services/usage-log-service';
 import type { RequestHandler } from './$types';
 

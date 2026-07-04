@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ChildId, asCategoryId } from '$lib/domain/ids';
+import { asCategoryId, type ChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
 const mockGetSetting = vi.fn();
@@ -123,7 +123,10 @@ describe('getWeeklyRanking', () => {
 			{ id: '1', nickname: 'ゆい', age: 5 },
 			{ id: '2', nickname: 'けん', age: 8 },
 		]);
-		const manyLogs = Array.from({ length: 12 }, () => ({ categoryId: asCategoryId(1), points: 10 }));
+		const manyLogs = Array.from({ length: 12 }, () => ({
+			categoryId: asCategoryId(1),
+			points: 10,
+		}));
 		mockFindActivityLogs.mockResolvedValue(manyLogs);
 
 		const result = await getWeeklyRanking(TENANT);

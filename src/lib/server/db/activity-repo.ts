@@ -63,7 +63,12 @@ export async function findChildById(id: ChildId, tenantId: string) {
 }
 
 // Activity Logs
-async function _findDailyLog(childId: ChildId, activityId: ActivityId, date: string, tenantId: string) {
+async function _findDailyLog(
+	childId: ChildId,
+	activityId: ActivityId,
+	date: string,
+	tenantId: string,
+) {
 	return getRepos().activity.findDailyLog(childId, activityId, date, tenantId);
 }
 export async function findStreakLogs(childId: ChildId, activityId: ActivityId, tenantId: string) {
@@ -149,7 +154,11 @@ export async function countPointLedgerEntriesByTypeAndDate(
 
 // #783: archive / restore
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
-export async function archiveActivities(ids: ActivityId[], reason: ArchivedReason, tenantId: string) {
+export async function archiveActivities(
+	ids: ActivityId[],
+	reason: ArchivedReason,
+	tenantId: string,
+) {
 	return getRepos().activity.archiveActivities(ids, reason, tenantId);
 }
 export async function restoreArchivedActivities(reason: ArchivedReason, tenantId: string) {

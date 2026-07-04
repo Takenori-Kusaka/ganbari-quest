@@ -2,7 +2,11 @@ import type { ChildId } from '$lib/domain/ids';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
 
 export interface ILoginBonusRepo {
-	findTodayBonus(childId: ChildId, today: string, tenantId: string): Promise<LoginBonus | undefined>;
+	findTodayBonus(
+		childId: ChildId,
+		today: string,
+		tenantId: string,
+	): Promise<LoginBonus | undefined>;
 	findRecentBonuses(childId: ChildId, tenantId: string, limit?: number): Promise<LoginBonus[]>;
 	insertLoginBonus(input: InsertLoginBonusInput, tenantId: string): Promise<LoginBonus>;
 	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;

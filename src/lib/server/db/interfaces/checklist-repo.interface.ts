@@ -1,5 +1,5 @@
-import type { ChildId } from '$lib/domain/ids';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ChildId } from '$lib/domain/ids';
 import type {
 	ChecklistLog,
 	ChecklistOverride,
@@ -72,7 +72,10 @@ export interface IChecklistRepo {
 		tenantId: string,
 	): Promise<ChecklistTemplateAssignment[]>;
 
-	findAssignmentsByChild(childId: ChildId, tenantId: string): Promise<ChecklistTemplateAssignment[]>;
+	findAssignmentsByChild(
+		childId: ChildId,
+		tenantId: string,
+	): Promise<ChecklistTemplateAssignment[]>;
 
 	/** family checklist を指定 child 群に配信 (既配信は skip)。返り値は actually 追加された assignment 群。 */
 	assignTemplateToChildren(

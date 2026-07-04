@@ -138,6 +138,6 @@ describe('markCheersShown', () => {
 	it('markShown を委譲', async () => {
 		mockMarkShown.mockResolvedValue(undefined);
 		await markCheersShown(['1', '2'], TENANT);
-		expect(mockMarkShown).toHaveBeenCalledWith([1, 2], TENANT);
+		expect(mockMarkShown).toHaveBeenCalledWith(['1', '2'], TENANT);
 	});
 });

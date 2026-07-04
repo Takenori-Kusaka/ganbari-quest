@@ -19,9 +19,9 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { childChallenges, children } from '$lib/server/db/schema';
 import { getOrCreateWeeklyAuto, insert } from '$lib/server/db/sqlite/child-challenge-repo';
-import { type ChildId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-3245';
 const WEEK = '2026-06-22';

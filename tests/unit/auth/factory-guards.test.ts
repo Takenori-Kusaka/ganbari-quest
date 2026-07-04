@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { requireChildAccess, requireRole } from '../../../src/lib/server/auth/guards';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
-import { asChildId } from '$lib/domain/ids';
 
 function makeLocals(context: AuthContext | null): App.Locals {
 	return {

@@ -157,17 +157,19 @@ describe('recordActivitySchema', () => {
 	});
 
 	it('childId が0以下だとエラー', () => {
+		// #3575: 旧クライアント互換の number 入力。0 以下は旧 schema (int().positive()) 同等に拒否
 		const result = recordActivitySchema.safeParse({
-			childId: asChildId(0),
+			childId: 0,
 			activityId: asActivityId(3),
 		});
 		expect(result.success).toBe(false);
 	});
 
 	it('activityId が負数だとエラー', () => {
+		// #3575: 旧クライアント互換の number 入力。負数は旧 schema 同等に拒否
 		const result = recordActivitySchema.safeParse({
 			childId: asChildId(1),
-			activityId: asActivityId(-1),
+			activityId: -1,
 		});
 		expect(result.success).toBe(false);
 	});

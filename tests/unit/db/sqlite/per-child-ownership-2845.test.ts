@@ -25,6 +25,7 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asActivityId, asChildId } from '$lib/domain/ids';
 // import after mock
 import {
 	checklistOverrides,
@@ -37,7 +38,6 @@ import {
 import { deleteOverride, deleteTemplateItem } from '$lib/server/db/sqlite/checklist-repo';
 import { incrementDownloadCount } from '$lib/server/db/sqlite/cloud-export-repo';
 import { markMissionCompleted } from '$lib/server/db/sqlite/daily-mission-repo';
-import { asActivityId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-2845';
 
@@ -178,7 +178,12 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 date を指定すると no-op (影響 0)', async () => {
-			await markMissionCompleted(asChildId(childId), '2026-06-13', asActivityId(activityId), TENANT);
+			await markMissionCompleted(
+				asChildId(childId),
+				'2026-06-13',
+				asActivityId(activityId),
+				TENANT,
+			);
 			const row = dbHolder.db
 				?.select()
 				.from(dailyMissions)

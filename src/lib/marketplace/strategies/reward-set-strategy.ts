@@ -23,8 +23,8 @@
  *   - $lib/server/services/reward-set-import-service (旧 service、@deprecated)
  */
 
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import * as v from 'valibot';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	type RewardSetPayload,
 	RewardSetPayloadSchema,

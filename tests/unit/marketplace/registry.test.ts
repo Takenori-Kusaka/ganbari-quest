@@ -6,6 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { MarketplaceTypeRegistry } from '$lib/marketplace/registry';
 import type {
 	ImportContext,
@@ -16,7 +17,6 @@ import type {
 	MarketplaceTypeDescriptor,
 } from '$lib/marketplace/types';
 import { MARKETPLACE_TYPE_CODES } from '$lib/marketplace/types';
-import { asChildId } from '$lib/domain/ids';
 
 // ── テスト用ダミー Strategy / Descriptor factory ─────────────────
 

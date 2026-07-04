@@ -2,8 +2,8 @@
 // データエクスポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { EXPORT_FORMAT, EXPORT_VERSION } from '../../../src/lib/domain/export-format';
-import { type CategoryId, type ChildId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // モック定義
 vi.mock('$lib/server/logger', () => ({
@@ -167,10 +167,18 @@ const mockStatusHistory = [
 ];
 
 const mockUnlockedAchievements = [
-	{ id: '1', childId: asChildId(1), achievementId: '1', milestoneValue: null, unlockedAt: '2026-03-10T00:00:00Z' },
+	{
+		id: '1',
+		childId: asChildId(1),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: '2026-03-10T00:00:00Z',
+	},
 ];
 
-const mockUnlockedTitles = [{ id: '1', childId: asChildId(1), titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' }];
+const mockUnlockedTitles = [
+	{ id: '1', childId: asChildId(1), titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' },
+];
 
 const mockLoginBonuses = [
 	{

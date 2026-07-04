@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { childCustomVoices } from '../schema';
 import type { ChildCustomVoice } from '../types';

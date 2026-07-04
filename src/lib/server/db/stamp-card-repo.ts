@@ -12,7 +12,11 @@ export async function findEnabledStampMasters(tenantId: string) {
 	return getRepos().stampCard.findEnabledStampMasters(tenantId);
 }
 
-export async function findCardByChildAndWeek(childId: ChildId, weekStart: string, tenantId: string) {
+export async function findCardByChildAndWeek(
+	childId: ChildId,
+	weekStart: string,
+	tenantId: string,
+) {
 	return getRepos().stampCard.findCardByChildAndWeek(childId, weekStart, tenantId);
 }
 

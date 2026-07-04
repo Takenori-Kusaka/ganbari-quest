@@ -1,6 +1,6 @@
 import { eq, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';

@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	avatarKey,
 	childPrefix,
@@ -21,7 +21,9 @@ describe('storage-keys', () => {
 
 	describe('childPrefix', () => {
 		it('avatars タイプの子供プレフィックスを返す', () => {
-			expect(childPrefix(tenantId, asChildId(childId), 'avatars')).toBe('tenants/tenant-abc123/avatars/42/');
+			expect(childPrefix(tenantId, asChildId(childId), 'avatars')).toBe(
+				'tenants/tenant-abc123/avatars/42/',
+			);
 		});
 
 		it('generated タイプの子供プレフィックスを返す', () => {
@@ -31,7 +33,9 @@ describe('storage-keys', () => {
 		});
 
 		it('voices タイプの子供プレフィックスを返す', () => {
-			expect(childPrefix(tenantId, asChildId(childId), 'voices')).toBe('tenants/tenant-abc123/voices/42/');
+			expect(childPrefix(tenantId, asChildId(childId), 'voices')).toBe(
+				'tenants/tenant-abc123/voices/42/',
+			);
 		});
 	});
 

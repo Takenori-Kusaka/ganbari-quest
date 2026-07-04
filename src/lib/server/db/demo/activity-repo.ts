@@ -1,4 +1,10 @@
-import { type ActivityId, asActivityId, asCategoryId, type CategoryId, type ChildId } from '$lib/domain/ids';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 // Demo IActivityRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
@@ -139,7 +145,10 @@ export async function setActivityVisibility(
 	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
-export async function deleteActivity(id: ActivityId, _tenantId: string): Promise<Activity | undefined> {
+export async function deleteActivity(
+	id: ActivityId,
+	_tenantId: string,
+): Promise<Activity | undefined> {
 	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
@@ -306,7 +315,10 @@ export async function findDistinctRecordedDates(
 	return Array.from(dates).map((d) => ({ recordedDate: d }));
 }
 
-export async function countActiveActivityLogs(childId: ChildId, _tenantId: string): Promise<number> {
+export async function countActiveActivityLogs(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	return DEMO_ACTIVITY_LOGS.filter((l) => l.childId === childId && l.cancelled === 0).length;
 }
 
@@ -328,7 +340,10 @@ export async function getCategoryCountsByDate(
 	}));
 }
 
-export async function countDistinctCategories(childId: ChildId, _tenantId: string): Promise<number> {
+export async function countDistinctCategories(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	const categories = new Set<CategoryId>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;

@@ -1,6 +1,6 @@
-import { childIdSchema } from './id-schema';
 import { z } from 'zod';
 import { MS_PER_DAY, MS_PER_MINUTE, SECONDS_PER_DAY } from '$lib/domain/constants/time';
+import { childIdSchema } from './id-schema';
 
 // Cookie名
 export const IDENTITY_COOKIE_NAME = 'identity_token';

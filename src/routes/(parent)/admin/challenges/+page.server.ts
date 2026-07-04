@@ -6,9 +6,9 @@
 // 本 page は「自動生成された子のチャレンジを親が閲覧する」読み取り専用ビュー (削除のみ可)。
 // 全プランに開放 (旧 family 限定 gate を撤去)。
 
-import { asChildId } from '$lib/domain/ids';
-import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	deleteChildChallenge,

@@ -2,7 +2,7 @@
 // SQLite implementation of IStampCardRepo
 
 import { and, eq } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import * as schema from '../schema';
 import type {

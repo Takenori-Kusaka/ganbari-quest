@@ -19,10 +19,10 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asChildId } from '$lib/domain/ids';
 // import after mock
 import { checklistLogs, checklistTemplates, children } from '$lib/server/db/schema';
 import { findLogsByChild } from '$lib/server/db/sqlite/checklist-repo';
-import { asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-3078';
 

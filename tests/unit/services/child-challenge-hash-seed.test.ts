@@ -19,11 +19,15 @@ describe('hashSeed (#3575 string id 決定性)', () => {
 	});
 
 	it('childId が異なれば seed も変わる (child 間独立性)', () => {
-		expect(hashSeed(asChildId('903'), '2026-06-29')).not.toBe(hashSeed(asChildId('904'), '2026-06-29'));
+		expect(hashSeed(asChildId('903'), '2026-06-29')).not.toBe(
+			hashSeed(asChildId('904'), '2026-06-29'),
+		);
 	});
 
 	it('weekStart が異なれば seed も変わる (週間独立性)', () => {
-		expect(hashSeed(asChildId('903'), '2026-06-29')).not.toBe(hashSeed(asChildId('903'), '2026-07-06'));
+		expect(hashSeed(asChildId('903'), '2026-06-29')).not.toBe(
+			hashSeed(asChildId('903'), '2026-07-06'),
+		);
 	});
 
 	it('uuid 形式の childId (DSQL 移行後の値空間) でも決定的に動作する', () => {

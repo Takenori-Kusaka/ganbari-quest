@@ -102,7 +102,7 @@ describe('getTodayMissions', () => {
 		for (const mission of result.missions) {
 			expect(mission.activityName).toBeTypeOf('string');
 			expect(mission.activityIcon).toBeTypeOf('string');
-			expect(mission.categoryId).toBeTypeOf('number');
+			expect(mission.categoryId).toBeTypeOf('string');
 			expect(mission.completed).toBe(false);
 		}
 	});
@@ -243,7 +243,11 @@ describe('checkMissionCompletion', () => {
 		const firstMission = missions.missions[0];
 		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
+		const result = await checkMissionCompletion(
+			asChildId(1),
+			firstMission.activityId,
+			'test-tenant',
+		);
 		expect(result.missionCompleted).toBe(true);
 
 		// 再取得して完了状態を確認
@@ -258,10 +262,16 @@ describe('checkMissionCompletion', () => {
 		// ミッションに含まれない活動を探す
 		// #2362 PR-3 Phase 7b-2c: child_activities を参照
 		const allActivities = testDb.select().from(schema.childActivities).all();
-		const nonMissionActivity = allActivities.find((a) => !missionActivityIds.has(asActivityId(a.id)));
+		const nonMissionActivity = allActivities.find(
+			(a) => !missionActivityIds.has(asActivityId(a.id)),
+		);
 		if (!nonMissionActivity) return; // all activities are in missions
 
-		const result = await checkMissionCompletion(asChildId(1), asActivityId(nonMissionActivity.id), 'test-tenant');
+		const result = await checkMissionCompletion(
+			asChildId(1),
+			asActivityId(nonMissionActivity.id),
+			'test-tenant',
+		);
 		expect(result.missionCompleted).toBe(false);
 	});
 
@@ -295,10 +305,18 @@ describe('checkMissionCompletion', () => {
 		const firstMission = missions.missions[0];
 		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result1 = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
+		const result1 = await checkMissionCompletion(
+			asChildId(1),
+			firstMission.activityId,
+			'test-tenant',
+		);
 		expect(result1.missionCompleted).toBe(true);
 
-		const result2 = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
+		const result2 = await checkMissionCompletion(
+			asChildId(1),
+			firstMission.activityId,
+			'test-tenant',
+		);
 		expect(result2.missionCompleted).toBe(false);
 	});
 });
@@ -321,7 +339,12 @@ describe('insertDailyMission 並行重複挿入 (#2565 flake root cause)', () =>
 		if (!childActivity) throw new Error('Expected at least one child activity');
 
 		// 1 回目の INSERT
-		await insertDailyMission(asChildId(1), '2026-03-08', asActivityId(childActivity.id), 'test-tenant');
+		await insertDailyMission(
+			asChildId(1),
+			'2026-03-08',
+			asActivityId(childActivity.id),
+			'test-tenant',
+		);
 		// 2 回目の INSERT (並行リクエストが同じ mission を再生成したケースを模す)。
 		// fix 前は idx_daily_missions_unique violation で throw していた。
 		await expect(

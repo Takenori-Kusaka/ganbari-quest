@@ -2,8 +2,8 @@
 // チェックリストサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { assertError, assertSuccess } from '../helpers/assert-result';
 import { asChildId } from '$lib/domain/ids';
+import { assertError, assertSuccess } from '../helpers/assert-result';
 
 // --- モック定義 ---
 const mockFindTemplateById = vi.fn();
@@ -224,7 +224,7 @@ describe('getTodayChecklist', () => {
 		expect(result.items).toHaveLength(4);
 		const addedItem = result.items.find((i) => i.name === 'えんぴつ');
 		expect(addedItem).toBeDefined();
-		expect(addedItem?.id).toBe(-200);
+		expect(addedItem?.id).toBe('-200');
 		expect(addedItem?.source).toBe('override');
 	});
 });
@@ -303,7 +303,9 @@ describe('toggleCheckItem', () => {
 	it('存在しないテンプレートで NOT_FOUND', async () => {
 		mockFindTemplateById.mockResolvedValue(null);
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
-		const result = assertError(await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '1', DATE, true, TENANT));
+		const result = assertError(
+			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '1', DATE, true, TENANT),
+		);
 
 		expect(result.error).toBe('NOT_FOUND');
 	});
@@ -389,7 +391,10 @@ describe('createTemplate', () => {
 	it('childIds で複数 child に配信できる (#2362 PR-5)', async () => {
 		mockInsertTemplate.mockResolvedValue({ id: '22' });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
-		await createTemplate({ childIds: [asChildId(10), asChildId(11), asChildId(12)], name: '家族の決まり' }, TENANT);
+		await createTemplate(
+			{ childIds: [asChildId(10), asChildId(11), asChildId(12)], name: '家族の決まり' },
+			TENANT,
+		);
 		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith('22', ['10', '11', '12'], TENANT);
 	});
 

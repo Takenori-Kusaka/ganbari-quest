@@ -11,11 +11,11 @@ vi.mock('$lib/server/storage', () => ({ readFile: vi.fn() }));
 vi.mock('../../../src/lib/server/services/child-service', () => ({ getChildById: vi.fn() }));
 vi.mock('$lib/server/services/child-service', () => ({ getChildById: vi.fn() }));
 
+import { asChildId } from '$lib/domain/ids';
 import { getChildById } from '$lib/server/services/child-service';
 import { readFile } from '$lib/server/storage';
 import { GET as tenantsGET } from '../../../src/routes/tenants/[...path]/+server';
 import { GET as avatarsGET } from '../../../src/routes/uploads/avatars/[filename]/+server';
-import { asChildId } from '$lib/domain/ids';
 
 const readFileMock = vi.mocked(readFile);
 const getChildByIdMock = vi.mocked(getChildById);

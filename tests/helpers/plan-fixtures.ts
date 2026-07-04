@@ -33,9 +33,9 @@
 // 詳細: `src/lib/server/debug-plan.ts` / `.env.example`
 
 import type Database from 'better-sqlite3';
+import type { ChildId } from '$lib/domain/ids';
 import type { AuthContext, Role } from '../../src/lib/server/auth/types';
 import type { TrialSource, TrialTier } from '../../src/lib/server/services/trial-service';
-import { type ChildId } from '$lib/domain/ids';
 
 export type TestSqlite = InstanceType<typeof Database>;
 

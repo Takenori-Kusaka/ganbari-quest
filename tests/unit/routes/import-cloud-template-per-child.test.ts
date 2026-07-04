@@ -13,7 +13,7 @@
 //   - ADR-0055 §3.1 (childId 必須化、cross-child access 防止)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ChildId, asCategoryId, asChildId } from '$lib/domain/ids';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 
 // Mocks (top-level)
 const mockFetchCloudExport = vi.fn();
@@ -142,7 +142,10 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(json.ok).toBe(true);
 			expect(json.preview.activities).toBe(3);
 			expect(json.preview.activitiesByChild).toHaveLength(2);
-			expect(json.preview.activitiesByChild[0]).toMatchObject({ childId: asChildId(99), activityCount: 2 });
+			expect(json.preview.activitiesByChild[0]).toMatchObject({
+				childId: asChildId(99),
+				activityCount: 2,
+			});
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 			// #3376 adversarial: preview は DL を消費しない
 			expect(mockConsumeDownload).not.toHaveBeenCalled();
@@ -209,7 +212,9 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		});
 
 		it('execute は per-child 既存名と衝突する activity をスキップする', async () => {
-			const payload = templateV2Payload([{ childId: asChildId(99), names: ['はしる', 'よむ', 'はみがき'] }]);
+			const payload = templateV2Payload([
+				{ childId: asChildId(99), names: ['はしる', 'よむ', 'はみがき'] },
+			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
 				bytes: enc(JSON.stringify(payload)),

@@ -10,7 +10,7 @@
 // - CWE-598: tenant 外 child は 403 (tenant guard が壊れていない)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ChildId } from '$lib/domain/ids';
+import type { ChildId } from '$lib/domain/ids';
 
 const mockResolveFullPlanTier = vi.fn();
 const mockGetAllChildren = vi.fn();

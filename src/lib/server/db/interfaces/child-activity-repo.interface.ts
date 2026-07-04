@@ -73,7 +73,11 @@ export interface IChildActivityRepo {
 		tenantId: string,
 	): Promise<ChildActivity | undefined>;
 
-	deleteActivity(id: ActivityId, childId: ChildId, tenantId: string): Promise<ChildActivity | undefined>;
+	deleteActivity(
+		id: ActivityId,
+		childId: ChildId,
+		tenantId: string,
+	): Promise<ChildActivity | undefined>;
 
 	// ── 兄弟共通化 UX (ADR-0055 §3.1 兄弟共通化、User §1) ────────
 	/**

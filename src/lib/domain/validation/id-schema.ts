@@ -7,7 +7,9 @@
 import { z } from 'zod';
 import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
-const idLike = z.union([z.string().min(1), z.number()]);
+// number branch は旧クライアント互換入力のみ: 旧 schema (int().positive()) の検証を維持する
+// (0 / 負数 / 小数の拒否は数値入力にのみ意味を持ち、opaque string には適用しない)。
+const idLike = z.union([z.string().min(1), z.number().int().positive()]);
 
 export const childIdSchema = idLike.transform((v) => asChildId(v));
 export const activityIdSchema = idLike.transform((v) => asActivityId(v));

@@ -34,6 +34,7 @@ vi.mock('$lib/server/db/client', () => ({
 
 const TENANT = 't-2458-c1';
 
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 // import after mock
 import {
 	childActivities as childActivitiesTable,
@@ -41,7 +42,6 @@ import {
 	childActivityPreferences as prefsTable,
 } from '$lib/server/db/schema';
 import { countPinnedInCategory } from '$lib/server/db/sqlite/activity-pref-repo';
-import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 function countLegacyActivitiesTable(sqlite: TestSqlite): number {
 	const row = sqlite.prepare('SELECT COUNT(*) as cnt FROM activities').get() as { cnt: number };

@@ -249,7 +249,13 @@ describe('insertActivity', () => {
 
 		const { insertActivity } = await loadRepo();
 		const result = await insertActivity(
-			{ childId: CHILD_ID, name: 'すいえい', categoryId: asCategoryId(1), icon: '🏊', basePoints: 8 },
+			{
+				childId: CHILD_ID,
+				name: 'すいえい',
+				categoryId: asCategoryId(1),
+				icon: '🏊',
+				basePoints: 8,
+			},
 			TENANT,
 		);
 
@@ -324,7 +330,7 @@ describe('insertActivitiesBulk', () => {
 			TENANT,
 		);
 		expect(result.map((a) => a.name)).toEqual(['A', 'B']);
-		expect(result.map((a) => a.id)).toEqual([1, 2]);
+		expect(result.map((a) => a.id)).toEqual(['1', '2']);
 		// 2 insert = 4 send (nextId + Put × 2)
 		expect(mockSend).toHaveBeenCalledTimes(4);
 	});
@@ -340,7 +346,12 @@ describe('updateActivity', () => {
 			Attributes: makeItem({ id: 1, name: 'updated', basePoints: 9 }),
 		});
 		const { updateActivity } = await loadRepo();
-		const result = await updateActivity(asActivityId(1), CHILD_ID, { name: 'updated', basePoints: 9 }, TENANT);
+		const result = await updateActivity(
+			asActivityId(1),
+			CHILD_ID,
+			{ name: 'updated', basePoints: 9 },
+			TENANT,
+		);
 		expect(result?.name).toBe('updated');
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: { UpdateExpression?: string; ConditionExpression?: string };

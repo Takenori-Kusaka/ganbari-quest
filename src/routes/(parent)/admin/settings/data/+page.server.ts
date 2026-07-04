@@ -1,9 +1,9 @@
 // #2323 (EPIC #2319 ④): data グループ load + action。
 // 旧 /admin/settings/+page.server.ts から data / cloud / clear 関連を移行。
 
-import type { ChildId } from '$lib/domain/ids';
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';

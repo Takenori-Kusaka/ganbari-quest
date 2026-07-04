@@ -39,9 +39,9 @@
     AnonymousAuth + DATA_SOURCE=demo 経由で表示する設計に統一 (ADR-0048)。
 -->
 <script lang="ts">
-import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import type { parseDisplayConfig } from '$lib/domain/display-config';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { CHILD_HOME_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';

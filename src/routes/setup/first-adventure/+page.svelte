@@ -1,8 +1,8 @@
 <script lang="ts">
-import type { ActivityId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import type { ActivityId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 

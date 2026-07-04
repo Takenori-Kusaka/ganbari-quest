@@ -105,7 +105,7 @@ describe('archiveExcessResources', () => {
 
 		const result = await archiveExcessResources(TENANT);
 
-		expect(mockArchiveChildren).toHaveBeenCalledWith([3], 'trial_expired', TENANT);
+		expect(mockArchiveChildren).toHaveBeenCalledWith(['3'], 'trial_expired', TENANT);
 		expect(result.archivedChildIds).toEqual(['3']);
 		expect(result.archivedActivityIds).toEqual([]);
 		expect(result.archivedChecklistTemplateIds).toEqual([]);
@@ -126,7 +126,7 @@ describe('archiveExcessResources', () => {
 
 		const result = await archiveExcessResources(TENANT);
 
-		expect(mockArchiveActivities).toHaveBeenCalledWith([4, 5], 'trial_expired', TENANT);
+		expect(mockArchiveActivities).toHaveBeenCalledWith(['4', '5'], 'trial_expired', TENANT);
 		expect(result.archivedActivityIds).toEqual(['4', '5']);
 	});
 
@@ -162,7 +162,7 @@ describe('archiveExcessResources', () => {
 
 		const result = await archiveExcessResources(TENANT);
 
-		expect(mockArchiveChecklistTemplates).toHaveBeenCalledWith([4, 5], 'trial_expired', TENANT);
+		expect(mockArchiveChecklistTemplates).toHaveBeenCalledWith(['4', '5'], 'trial_expired', TENANT);
 		expect(result.archivedChecklistTemplateIds).toEqual(['4', '5']);
 	});
 

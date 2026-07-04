@@ -1,5 +1,5 @@
-import { asChildId } from '$lib/domain/ids';
 import { fail, redirect } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { grantInitialPoints } from '$lib/server/services/point-service';
 import type { Actions, PageServerLoad } from './$types';

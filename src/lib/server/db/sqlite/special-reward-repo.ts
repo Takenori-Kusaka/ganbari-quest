@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import { rewardRedemptionRequests, specialRewards } from '../schema';
@@ -73,7 +73,9 @@ export async function markRewardShown(
 	const row = db
 		.update(specialRewards)
 		.set({ shownAt: new Date().toISOString() })
-		.where(and(eq(specialRewards.id, Number(rewardId)), eq(specialRewards.childId, Number(childId))))
+		.where(
+			and(eq(specialRewards.id, Number(rewardId)), eq(specialRewards.childId, Number(childId))),
+		)
 		.returning()
 		.get();
 	return row ? toReward(row) : undefined;

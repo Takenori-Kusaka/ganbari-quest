@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { ChildId } from '$lib/domain/ids';
 import { invalidateAll } from '$app/navigation';
+import type { ChildId } from '$lib/domain/ids';
 import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';

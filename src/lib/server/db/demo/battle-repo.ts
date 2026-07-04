@@ -28,7 +28,10 @@ export async function findRecentBattles(
 		.slice(0, limit);
 }
 
-export async function countConsecutiveLosses(_childId: ChildId, _tenantId: string): Promise<number> {
+export async function countConsecutiveLosses(
+	_childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	return 0;
 }
 

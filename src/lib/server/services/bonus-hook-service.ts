@@ -1,5 +1,5 @@
-import { asCategoryId } from '$lib/domain/ids';
 import type { CategoryId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/bonus-hook-service.ts
 // #2138 MP-3 / #2895: bonus rule hook の集約 (activity-log-service から呼び出される)
 //

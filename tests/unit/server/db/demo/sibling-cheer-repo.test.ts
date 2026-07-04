@@ -3,9 +3,9 @@
 // 子供画面の SiblingCheerOverlay 等で表示されることを検証。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as siblingCheerRepo from '../../../../../src/lib/server/db/demo/sibling-cheer-repo';
 import { DEMO_SIBLING_CHEERS } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/sibling-cheer-repo (Phase B-5b)', () => {
 	it('DEMO_SIBLING_CHEERS fixture は 5 件以上含む', () => {

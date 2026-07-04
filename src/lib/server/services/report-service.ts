@@ -35,7 +35,11 @@ export async function aggregateDailyReport(tenantId: string, date: string): Prom
 /**
  * 1子供1日分の集計を行いupsert
  */
-async function aggregateChildDaily(tenantId: string, childId: ChildId, date: string): Promise<void> {
+async function aggregateChildDaily(
+	tenantId: string,
+	childId: ChildId,
+	date: string,
+): Promise<void> {
 	const repos = getRepos();
 
 	// 活動ログ集計（categoryId 付きで取得）

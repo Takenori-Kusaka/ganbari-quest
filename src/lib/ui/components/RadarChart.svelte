@@ -1,7 +1,7 @@
 <script lang="ts">
-import type { CategoryId } from '$lib/domain/ids';
 import { cubicOut } from 'svelte/easing';
 import { tweened } from 'svelte/motion';
+import type { CategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 

@@ -25,8 +25,8 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
-import { checkAndGrantCombo } from '../../../src/lib/server/services/combo-service';
 import { asChildId } from '$lib/domain/ids';
+import { checkAndGrantCombo } from '../../../src/lib/server/services/combo-service';
 
 const TODAY = '2026-03-07';
 

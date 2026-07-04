@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import { asChildId } from '$lib/domain/ids';
+import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 
 describe('ChildSelectionDialog', () => {
 	const threeChildren = [

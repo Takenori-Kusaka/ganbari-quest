@@ -37,6 +37,7 @@ vi.mock('$lib/server/storage-keys', () => ({
 
 // --- Imports (after mocks) ---
 
+import { asChildId } from '$lib/domain/ids';
 import {
 	deleteChild,
 	findAllChildren,
@@ -56,7 +57,6 @@ import {
 	removeChild,
 } from '$lib/server/services/child-service';
 import { deleteByPrefix, deleteFile, listFiles } from '$lib/server/storage';
-import { asChildId } from '$lib/domain/ids';
 
 const TENANT = 'tenant-abc';
 
@@ -127,7 +127,7 @@ describe('child-service', () => {
 
 			expect(findChildById).toHaveBeenCalledWith('10', TENANT);
 			expect(updateChild).toHaveBeenCalledWith(
-				10,
+				asChildId(10),
 				{ nickname: 'まさと改', age: 8, uiMode: 'elementary' },
 				TENANT,
 			);
@@ -152,7 +152,7 @@ describe('child-service', () => {
 			// findChildById は呼ばれない（uiMode 明示なのでフラグだけ立てる）
 			expect(findChildById).not.toHaveBeenCalled();
 			expect(updateChild).toHaveBeenCalledWith(
-				10,
+				asChildId(10),
 				{ age: 8, uiMode: 'baby', uiModeManuallySet: 1 },
 				TENANT,
 			);

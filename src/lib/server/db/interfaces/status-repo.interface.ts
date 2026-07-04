@@ -9,7 +9,11 @@ import type {
 
 export interface IStatusRepo {
 	findStatuses(childId: ChildId, tenantId: string): Promise<Status[]>;
-	findStatus(childId: ChildId, categoryId: CategoryId, tenantId: string): Promise<Status | undefined>;
+	findStatus(
+		childId: ChildId,
+		categoryId: CategoryId,
+		tenantId: string,
+	): Promise<Status | undefined>;
 	upsertStatus(
 		childId: ChildId,
 		categoryId: CategoryId,

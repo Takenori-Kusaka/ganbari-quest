@@ -84,9 +84,11 @@ describe('demo/activity-repo — marketplace integration (#2097 B-7)', () => {
 		});
 
 		it('marketplace activities は categoryId 1-5 (CATEGORY_CODES 範囲内)', () => {
-			expect(DEMO_MARKETPLACE_ACTIVITIES.every((a) => Number(a.categoryId) >= 1 && Number(a.categoryId) <= 5)).toBe(
-				true,
-			);
+			expect(
+				DEMO_MARKETPLACE_ACTIVITIES.every(
+					(a) => Number(a.categoryId) >= 1 && Number(a.categoryId) <= 5,
+				),
+			).toBe(true);
 		});
 	});
 });

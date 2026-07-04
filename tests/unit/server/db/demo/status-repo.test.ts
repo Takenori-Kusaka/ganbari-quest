@@ -2,9 +2,9 @@
 // ADR-0048 §決定 §2: demo Status Repo の Fake (read) + Stub (write) hybrid 検証。
 
 import { describe, expect, it } from 'vitest';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 import * as statusRepo from '../../../../../src/lib/server/db/demo/status-repo';
 import { DEMO_STATUSES } from '../../../../../src/lib/server/demo/demo-data';
-import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 describe('demo/status-repo', () => {
 	it('findStatuses は child の 5 軸 Status を返す (fixture: 902)', async () => {
@@ -22,7 +22,14 @@ describe('demo/status-repo', () => {
 
 	it('upsertStatus は input から Status を返すが fixture を mutate しない', async () => {
 		const before = DEMO_STATUSES.length;
-		const upserted = await statusRepo.upsertStatus(asChildId(902), asCategoryId(1), 999, 99, 1000, 'demo');
+		const upserted = await statusRepo.upsertStatus(
+			asChildId(902),
+			asCategoryId(1),
+			999,
+			99,
+			1000,
+			'demo',
+		);
 		expect(upserted.totalXp).toBe(999);
 		expect(upserted.level).toBe(99);
 		// ADR-0048 §決定 §2: fixture は immutable
@@ -39,7 +46,13 @@ describe('demo/status-repo', () => {
 
 	it('insertStatusHistory は input から StatusHistoryEntry を返す (no-op)', async () => {
 		const entry = await statusRepo.insertStatusHistory(
-			{ childId: asChildId(902), categoryId: asCategoryId(1), value: 100, changeAmount: 5, changeType: 'gain' },
+			{
+				childId: asChildId(902),
+				categoryId: asCategoryId(1),
+				value: 100,
+				changeAmount: 5,
+				changeType: 'gain',
+			},
 			'demo',
 		);
 		expect(entry.childId).toBe('902');

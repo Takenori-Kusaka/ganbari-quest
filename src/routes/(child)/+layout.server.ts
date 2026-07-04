@@ -1,6 +1,6 @@
-import { asChildId, type ChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';

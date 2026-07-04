@@ -5,9 +5,9 @@
 // が物理的に発生不可能であることをユニットレベルで担保する。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as childRepo from '../../../../../src/lib/server/db/demo/child-repo';
 import { DEMO_CHILDREN } from '../../../../../src/lib/server/demo/demo-data';
-import { asChildId } from '$lib/domain/ids';
 
 describe('demo/child-repo', () => {
 	describe('read API (Fake — fixture 経由)', () => {

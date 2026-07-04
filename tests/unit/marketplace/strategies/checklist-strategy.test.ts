@@ -39,8 +39,8 @@ vi.mock('$lib/server/logger', () => ({
 
 // ---------- Import after mocks ----------
 
-import { checklistStrategy } from '../../../../src/lib/marketplace/strategies/checklist-strategy';
 import { asChildId } from '$lib/domain/ids';
+import { checklistStrategy } from '../../../../src/lib/marketplace/strategies/checklist-strategy';
 
 const TENANT = 'test-tenant-001';
 const CHILD_ID = asChildId(12345);
@@ -210,7 +210,7 @@ describe('checklistStrategy.preview', () => {
 			childId: CHILD_ID,
 		});
 		// Phase 2: family scope のため childId hint は 0 固定で legacy service へ渡される
-		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, asChildId(0), TENANT);
 	});
 
 	it('ctx.presetId 未指定なら error throw', async () => {
@@ -227,7 +227,7 @@ describe('checklistStrategy.preview', () => {
 			checklistStrategy.preview(payload, { tenantId: TENANT, presetId: PRESET_ID }),
 		).resolves.toBeDefined();
 		// hintChildId=0 で legacy service が呼ばれる
-		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, asChildId(0), TENANT);
 	});
 
 	it('下流 service が preset 未発見で null 返却 -> error throw', async () => {

@@ -1,9 +1,9 @@
 <script lang="ts">
-import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	APP_LABELS,

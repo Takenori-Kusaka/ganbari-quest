@@ -1,5 +1,5 @@
-import { asActivityId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asActivityId } from '$lib/domain/ids';
 import { notFound, validationError } from '$lib/server/errors';
 import { getActivityById, setActivityVisibility } from '$lib/server/services/activity-service';
 import type { RequestHandler } from './$types';

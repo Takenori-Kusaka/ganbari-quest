@@ -1,5 +1,5 @@
-import type { ChildId } from '$lib/domain/ids';
 import { fail } from '@sveltejs/kit';
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';

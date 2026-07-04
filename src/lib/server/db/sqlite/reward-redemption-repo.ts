@@ -2,7 +2,7 @@
 // ごほうびショップ交換申請リポジトリ (#1337)
 
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
-import { type ChildId, asChildId } from '$lib/domain/ids';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type {
 	RedemptionRequestRow,
@@ -284,7 +284,12 @@ export async function findUnshownResultByChild(
 		.limit(1)
 		.get();
 	return row
-		? { ...row, id: String(row.id), childId: asChildId(row.childId), rewardId: String(row.rewardId) }
+		? {
+				...row,
+				id: String(row.id),
+				childId: asChildId(row.childId),
+				rewardId: String(row.rewardId),
+			}
 		: undefined;
 }
 

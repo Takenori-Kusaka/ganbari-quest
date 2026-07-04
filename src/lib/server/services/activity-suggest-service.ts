@@ -1,5 +1,5 @@
-import { asCategoryId } from '$lib/domain/ids';
 import type { CategoryId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/activity-suggest-service.ts
 // 自然言語から活動情報を推定するサービス (#721: Bedrock Claude Haiku)
 

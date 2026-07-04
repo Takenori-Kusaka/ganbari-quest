@@ -277,10 +277,38 @@ async function seedActivities(
 	// カテゴリ: 1=うんどう, 2=せいかつ, 3=がくしゅう, 4=そうぞう, 5=しぜん
 	const activities = [
 		// カテゴリ1: うんどう（baby + kinder）
-		{ name: 'たいそう', icon: '🤸', basePoints: 10, categoryId: asCategoryId(1), ageMin: 0, ageMax: 5 },
-		{ name: 'おさんぽ', icon: '🚶', basePoints: 10, categoryId: asCategoryId(1), ageMin: 0, ageMax: 5 },
-		{ name: 'ボールあそび', icon: '⚽', basePoints: 10, categoryId: asCategoryId(1), ageMin: 3, ageMax: 5 },
-		{ name: 'なわとび', icon: '🤾', basePoints: 15, categoryId: asCategoryId(1), ageMin: 3, ageMax: 5 },
+		{
+			name: 'たいそう',
+			icon: '🤸',
+			basePoints: 10,
+			categoryId: asCategoryId(1),
+			ageMin: 0,
+			ageMax: 5,
+		},
+		{
+			name: 'おさんぽ',
+			icon: '🚶',
+			basePoints: 10,
+			categoryId: asCategoryId(1),
+			ageMin: 0,
+			ageMax: 5,
+		},
+		{
+			name: 'ボールあそび',
+			icon: '⚽',
+			basePoints: 10,
+			categoryId: asCategoryId(1),
+			ageMin: 3,
+			ageMax: 5,
+		},
+		{
+			name: 'なわとび',
+			icon: '🤾',
+			basePoints: 15,
+			categoryId: asCategoryId(1),
+			ageMin: 3,
+			ageMax: 5,
+		},
 		// カテゴリ2: せいかつ
 		{
 			name: 'おさらあらい',
@@ -291,7 +319,14 @@ async function seedActivities(
 			ageMax: 5,
 			dailyLimit: 3,
 		},
-		{ name: 'はみがき', icon: '🪥', basePoints: 10, categoryId: asCategoryId(2), ageMin: 0, ageMax: 5 },
+		{
+			name: 'はみがき',
+			icon: '🪥',
+			basePoints: 10,
+			categoryId: asCategoryId(2),
+			ageMin: 0,
+			ageMax: 5,
+		},
 		{
 			name: 'おきがえ',
 			icon: '👕',
@@ -301,14 +336,56 @@ async function seedActivities(
 			ageMax: 5,
 			dailyLimit: 2,
 		},
-		{ name: 'おかたづけ', icon: '📦', basePoints: 10, categoryId: asCategoryId(2), ageMin: 3, ageMax: 5 },
+		{
+			name: 'おかたづけ',
+			icon: '📦',
+			basePoints: 10,
+			categoryId: asCategoryId(2),
+			ageMin: 3,
+			ageMax: 5,
+		},
 		// カテゴリ3: がくしゅう
-		{ name: 'えほんをよむ', icon: '📖', basePoints: 15, categoryId: asCategoryId(3), ageMin: 0, ageMax: 5 },
-		{ name: 'おえかき', icon: '🎨', basePoints: 10, categoryId: asCategoryId(3), ageMin: 0, ageMax: 5 },
-		{ name: 'すうじ', icon: '🔢', basePoints: 15, categoryId: asCategoryId(3), ageMin: 3, ageMax: 5 },
+		{
+			name: 'えほんをよむ',
+			icon: '📖',
+			basePoints: 15,
+			categoryId: asCategoryId(3),
+			ageMin: 0,
+			ageMax: 5,
+		},
+		{
+			name: 'おえかき',
+			icon: '🎨',
+			basePoints: 10,
+			categoryId: asCategoryId(3),
+			ageMin: 0,
+			ageMax: 5,
+		},
+		{
+			name: 'すうじ',
+			icon: '🔢',
+			basePoints: 15,
+			categoryId: asCategoryId(3),
+			ageMin: 3,
+			ageMax: 5,
+		},
 		// カテゴリ4: そうぞう
-		{ name: 'ねんど', icon: '🏺', basePoints: 10, categoryId: asCategoryId(4), ageMin: 0, ageMax: 5 },
-		{ name: 'おうた', icon: '🎵', basePoints: 10, categoryId: asCategoryId(4), ageMin: 0, ageMax: 5 },
+		{
+			name: 'ねんど',
+			icon: '🏺',
+			basePoints: 10,
+			categoryId: asCategoryId(4),
+			ageMin: 0,
+			ageMax: 5,
+		},
+		{
+			name: 'おうた',
+			icon: '🎵',
+			basePoints: 10,
+			categoryId: asCategoryId(4),
+			ageMin: 0,
+			ageMax: 5,
+		},
 		// カテゴリ5: しぜん
 		{
 			name: '水やりをする',
@@ -318,7 +395,14 @@ async function seedActivities(
 			ageMin: 3,
 			ageMax: 5,
 		},
-		{ name: 'むしをみつける', icon: '🐛', basePoints: 10, categoryId: asCategoryId(5), ageMin: 0, ageMax: 5 },
+		{
+			name: 'むしをみつける',
+			icon: '🐛',
+			basePoints: 10,
+			categoryId: asCategoryId(5),
+			ageMin: 0,
+			ageMax: 5,
+		},
 	];
 
 	let created = 0;

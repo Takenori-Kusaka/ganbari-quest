@@ -7,8 +7,8 @@
 //
 // 復元は admin/rewards の ?/restoreFile action (loadRewardSetFromFile → dispatchImport) で受ける。
 
-import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { RewardSetPayload } from '$lib/marketplace/schemas/reward-set-schema';
