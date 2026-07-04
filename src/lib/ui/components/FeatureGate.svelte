@@ -34,6 +34,15 @@ interface Props {
 	display?: 'inline' | 'section';
 	/** popover のプラン画面リンク先 (§10.2.1、既定 = プラン画面) */
 	planPageHref?: string;
+	/**
+	 * quota ゲート (§10.2.2)。plan-limit-service の `{ allowed, current, max }` をそのまま渡す。
+	 * 指定時は tier ではなく quota で開閉を判定する:
+	 *   - max === null (無制限): ゲート痕跡を一切描画しない (children をそのまま操作可)
+	 *   - allowed (current < max): 操作可
+	 *   - 到達 (!allowed): disabled + popover
+	 * requiredTier は「上限を引き上げる対象プラン名」として popover 文言に使う。
+	 */
+	quota?: { allowed: boolean; current: number; max: number | null };
 }
 
 let {
@@ -44,6 +53,7 @@ let {
 	buttonLabel,
 	display = 'section',
 	planPageHref = '/admin/subscription',
+	quota,
 }: Props = $props();
 
 const TIER_LABELS: Record<PlanTier, string> = {
@@ -59,8 +69,11 @@ const TIER_FULL_LABELS: Record<PlanTier, string> = {
 	family: PLAN_FULL_TERMS.premium,
 };
 
-// requiredTier を満たさない = ロック。tutorial-chapters / page-guide と同じ TIER_ORDER SSOT を共有する。
-const isLocked = $derived(!meetsRequiredTier(currentTier, requiredTier));
+// quota 指定時は quota で判定 (§10.2.2)。max===null は無制限 = 非ロック (ゲート痕跡なし)。
+// quota 未指定時は tier で判定 (tutorial-chapters / page-guide と同じ TIER_ORDER SSOT)。
+const isLocked = $derived(
+	quota ? quota.max !== null && !quota.allowed : !meetsRequiredTier(currentTier, requiredTier),
+);
 const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 </script>
