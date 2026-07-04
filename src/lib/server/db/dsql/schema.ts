@@ -30,6 +30,10 @@ import {
 	CHALLENGE_PERIOD_TYPES,
 	CHILD_CHALLENGE_STATUSES,
 } from '$lib/domain/constants/child-challenge';
+import {
+	CLOUD_EXPORT_STATUSES,
+	type CloudExportStatus,
+} from '$lib/domain/constants/cloud-export-status';
 import { REDEMPTION_STATUSES } from '$lib/domain/constants/redemption-status';
 import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
@@ -925,4 +929,175 @@ export const usageLogs = pgTable(
 		durationSec: integer('duration_sec'),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.logId] })],
+);
+
+// ── Family 系 8 表 (§11.2 #3557 確定 / 調査 SSOT: tmp/research-family-tables-pk-2026-07-03.md、#3424) ──
+// settings のみ自然複合 (anchor (b) KVS 構造的確実性)、他 7 表は UUID surrogate。
+// endpoint/token/pin の global UNIQUE は無 tenant 単点 lookup の機能要件 (§11.2)。
+
+// settings — family KVS (自然複合 (family_id, key)、anchor (b))。
+// ⚠️ sqlite 現行は tenant_id 列なし (key 単独 PK のグローバル KVS) — cutover で family_id を
+// 追加する前提差分 (#3557 PR body で QM 確認済。単一家族 NUC は定数 family_id、§P10)。
+export const settings = pgTable(
+	'settings',
+	{
+		familyId: uuid('family_id').notNull(),
+		key: text('key').notNull(),
+		value: text('value').notNull(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.key] })],
+);
+
+// push_subscriptions — Web Push 購読 (UUID surrogate: endpoint は rotate される mutable)。
+// endpoint は findByEndpoint が tenant 無しで値単独 lookup するため global UNIQUE 必須 (§11.2)。
+export const pushSubscriptions = pgTable(
+	'push_subscriptions',
+	{
+		familyId: uuid('family_id').notNull(),
+		subscriptionId: uuid('subscription_id').notNull().default(sql`gen_random_uuid()`),
+		endpoint: text('endpoint').notNull().unique(),
+		keysP256dh: text('keys_p256dh').notNull(),
+		keysAuth: text('keys_auth').notNull(),
+		userAgent: text('user_agent'),
+		subscriberRole: text('subscriber_role').notNull().default('parent'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.subscriptionId] })],
+);
+
+// notification_logs — 通知送信ログ (UUID surrogate: append-only log)。sent_at は sort 用途。
+export const notificationLogs = pgTable(
+	'notification_logs',
+	{
+		familyId: uuid('family_id').notNull(),
+		logId: uuid('log_id').notNull().default(sql`gen_random_uuid()`),
+		notificationType: text('notification_type').notNull(),
+		title: text('title').notNull(),
+		body: text('body').notNull(),
+		sentAt: timestamp('sent_at', { mode: 'string', withTimezone: true }).notNull().defaultNow(),
+		success: boolean('success').notNull().default(true),
+		errorMessage: text('error_message'),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.logId] })],
+);
+
+// trial_history — トライアル履歴 (UUID surrogate: 1 tenant N 回)。tier/source/upgrade_reason は
+// 増減集合 (plan lookup 方針 §6.6 / campaign 追加あり得る) のため CHECK 対象外。
+// cross-tenant cron (findActiveTrials end_date) 用 secondary は §P5 計測後 (§11.2 #3557)。
+export const trialHistory = pgTable(
+	'trial_history',
+	{
+		familyId: uuid('family_id').notNull(),
+		trialId: uuid('trial_id').notNull().default(sql`gen_random_uuid()`),
+		startDate: text('start_date').notNull(),
+		endDate: text('end_date').notNull(),
+		tier: text('tier').notNull().default('standard'),
+		source: text('source').notNull(),
+		campaignId: text('campaign_id'),
+		stripeSubscriptionId: text('stripe_subscription_id'),
+		upgradeReason: text('upgrade_reason'),
+		trialStartSource: text('trial_start_source'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.trialId] })],
+);
+
+// viewer_tokens — 閲覧専用リンク (UUID surrogate: token は revoke 後再発行あり)。
+// token は findByToken が tenant 無しで値単独 lookup するため global UNIQUE 必須 (§11.2)。
+// 失効判定は app 層述語 (revoked_at/expires_at 素の列、部分 index 不可 spike#2 §3.5.3)。
+export const viewerTokens = pgTable(
+	'viewer_tokens',
+	{
+		familyId: uuid('family_id').notNull(),
+		tokenId: uuid('token_id').notNull().default(sql`gen_random_uuid()`),
+		token: text('token').notNull().unique(),
+		label: text('label'),
+		expiresAt: timestamp('expires_at', { mode: 'string', withTimezone: true }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		revokedAt: timestamp('revoked_at', { mode: 'string', withTimezone: true }),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.tokenId] })],
+);
+
+// cloud_exports — クラウドバックアップ export (UUID surrogate: pin は expire 後再利用)。
+// pin_code は findByPin が tenant 無しで値単独 lookup するため global UNIQUE 必須。
+// status は state machine (pending→building→ready/failed #3504/#3509) で SSOT 生成 CHECK。
+// secondary(status) は cron drainPendingExports 用 (family 非依存の cross-tenant scan、§11.2 #3557)。
+export const cloudExports = pgTable(
+	'cloud_exports',
+	{
+		familyId: uuid('family_id').notNull(),
+		exportId: uuid('export_id').notNull().default(sql`gen_random_uuid()`),
+		exportType: text('export_type').notNull(),
+		pinCode: text('pin_code').notNull().unique(),
+		s3Key: text('s3_key').notNull(),
+		fileSizeBytes: integer('file_size_bytes').notNull(),
+		label: text('label'),
+		description: text('description'),
+		expiresAt: timestamp('expires_at', { mode: 'string', withTimezone: true }).notNull(),
+		downloadCount: integer('download_count').notNull().default(0),
+		maxDownloads: integer('max_downloads').notNull().default(10),
+		status: text('status').notNull().default('pending').$type<CloudExportStatus>(),
+		failureReason: text('failure_reason'),
+		buildStartedAt: timestamp('build_started_at', { mode: 'string', withTimezone: true }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.exportId] }),
+		index('cloud_exports_status_idx').on(t.status),
+		check('cloud_exports_status_ck', enumCheck(t.status, CLOUD_EXPORT_STATUSES)),
+	],
+);
+
+// cancellation_reasons — 解約理由 (UUID surrogate: append-only、PO KPI 分析表)。
+// category は KPI 分類で追加があり得る増減集合のため CHECK 対象外。
+// cross-tenant 分析 secondary は §P5 計測後 (§11.2 #3557。hot path が cross-tenant である点は
+// Family repo 実装 PR で明示)。
+export const cancellationReasons = pgTable(
+	'cancellation_reasons',
+	{
+		familyId: uuid('family_id').notNull(),
+		reasonId: uuid('reason_id').notNull().default(sql`gen_random_uuid()`),
+		category: text('category').notNull(),
+		freeText: text('free_text'),
+		planAtCancellation: text('plan_at_cancellation'),
+		stripeSubscriptionId: text('stripe_subscription_id'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.reasonId] })],
+);
+
+// graduation_consent — 卒業同意 (UUID surrogate: 複数子×複数回で多数行が正)。
+// secondary(consented, consented_at) は publicSamples/aggregate 用 (cross-tenant、§11.2 #3557)。
+export const graduationConsent = pgTable(
+	'graduation_consent',
+	{
+		familyId: uuid('family_id').notNull(),
+		consentId: uuid('consent_id').notNull().default(sql`gen_random_uuid()`),
+		nickname: text('nickname').notNull(),
+		consented: boolean('consented').notNull().default(false),
+		userPoints: integer('user_points').notNull().default(0),
+		usagePeriodDays: integer('usage_period_days').notNull().default(0),
+		message: text('message'),
+		consentedAt: timestamp('consented_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.consentId] }),
+		index('graduation_consent_public_idx').on(t.consented, t.consentedAt),
+	],
 );
