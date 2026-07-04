@@ -149,7 +149,7 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 			const result = await db.execute(sql`
 				SELECT ${HISTORY_COLUMNS} FROM status_history
 				WHERE family_id = ${tenantId} AND child_id = ${childId} AND category_id = ${categoryId}
-				ORDER BY recorded_at DESC
+				ORDER BY recorded_at DESC, hist_id DESC
 				LIMIT ${limit}
 			`);
 			return (result.rows as unknown as HistoryRow[]).map(toHistory);
@@ -160,7 +160,7 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 				SELECT value FROM status_history
 				WHERE family_id = ${tenantId} AND child_id = ${childId} AND category_id = ${categoryId}
 					AND recorded_at < ${beforeDate}::timestamptz
-				ORDER BY recorded_at DESC
+				ORDER BY recorded_at DESC, hist_id DESC
 				LIMIT 1
 			`);
 			const row = result.rows[0] as { value: number } | undefined;
