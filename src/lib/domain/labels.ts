@@ -444,6 +444,15 @@ export const PLAN_GATE_LABELS = {
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 
 	/**
+	 * "メンバー上限（{max}人）に達しています。プランをアップグレードしてください。"
+	 *
+	 * 家族メンバー招待の quota 上限 (maxFamilyMembers) 到達時の 403 文言 (#1111 / EPIC #3533 §10.7)。
+	 * 旧 `api/v1/admin/invites/+server.ts` 内ハードコードを SSOT 経由に是正 (ADR-0045 / P5)。
+	 */
+	memberLimitReached: (max: number | string) =>
+		`メンバー上限（${max}人）に達しています。プランをアップグレードしてください。`,
+
+	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
 	 *
 	 * PlanLimitError (`upgradeUrl='/admin/subscription'`) を受領した admin 取込フローで、
