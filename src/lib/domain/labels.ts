@@ -4188,7 +4188,7 @@ export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
 	sectionTitle: '🎁 ごほうび管理',
-	premiumBadge: '有料限定',
+	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
@@ -4197,10 +4197,8 @@ export const REWARDS_LABELS = {
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',
 	pageDescHintSuffix: 'から送れます',
-	upgradeBannerTitle: 'ごほうび管理はスタンダードプラン以上の機能です',
-	upgradeBannerDesc:
-		'アップグレードすると、子供 shop に並べるごほうびを自由に作成・編集・削除できます。',
-	upgradeButton: 'プランを確認する',
+	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
+	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
 	selectChildTitle: 'こどもを選択',
 	selectTemplateTitle: 'プリセットを選択',
 	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,

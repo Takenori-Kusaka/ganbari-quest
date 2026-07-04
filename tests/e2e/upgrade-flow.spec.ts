@@ -127,19 +127,24 @@ test.describe('#753 PlanStatusCard → /admin/subscription — family', () => {
 test.describe('#753 /admin/rewards → アップグレード導線', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free プランで rewards-upgrade-banner が表示され、CTA が /admin/subscription へリンクする', async ({
+	// EPIC #3533 §10.2.3: 旧 rewards-upgrade-banner + CTA を撤去し、gate 導線を「+ 追加」dropdown の
+	//   manual 項目 (locked-but-active) に集約。free の upgrade 導線 = manual 選択でプラン画面へ遷移する
+	//   goal 完遂を検証する (banner→CTA と等価の非 dead-end 導線、AC6 相当の click-through も本 test が担保)。
+	test('free プランで「+ 追加」manual (locked) 選択が /admin/subscription へ遷移する', async ({
 		page,
 	}) => {
 		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 30_000 });
 
-		const banner = page.getByTestId('rewards-upgrade-banner');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
+		// 旧常設バナーは撤去済
+		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 
-		const cta = page.getByTestId('rewards-upgrade-cta');
-		await expect(cta).toBeVisible();
+		await page.getByTestId('rewards-add-menu').click();
+		const manualItem = page.getByTestId('menu-item-manual');
+		await expect(manualItem).toBeVisible();
+		await expect(manualItem).toContainText('🔒');
 
-		// CTA をクリックすると /admin/subscription に遷移する
-		await cta.click();
+		// locked manual を選択するとプラン画面へ遷移する (dead-end でない)
+		await manualItem.click();
 		await page.waitForURL(/\/admin\/subscription/, { timeout: 30_000 });
 	});
 });
@@ -327,13 +332,15 @@ test.describe('#753 PremiumWelcome モーダル — family', () => {
 test.describe('#753 アップグレード後の機能有効化 — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
-	test('standard プランでカスタムごほうびが有効（rewards-upgrade-banner 非表示）', async ({
+	test('standard プランでカスタムごほうびが有効（manual に lock マーカーなし + 常設バナーなし）', async ({
 		page,
 	}) => {
 		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 30_000 });
 
-		// standard では rewards-upgrade-banner は非表示
+		// EPIC #3533 §10.2.3: 常設バナーは撤去済。standard では manual が gate なし (lock マーカーなし)。
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+		await page.getByTestId('rewards-add-menu').click();
+		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 });
 
