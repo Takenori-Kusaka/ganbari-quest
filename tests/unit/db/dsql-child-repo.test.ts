@@ -1,0 +1,216 @@
+// tests/unit/db/dsql-child-repo.test.ts
+// EPIC #3424 / PR-R1 / 設計 SSOT: dsql-data-model.md §11.1 / §3 / §P9
+//
+// DSQL IChildRepo 実装のテスト。実 schema (pushSchema 適用、dsql-test-db helper) に対して:
+//   [C1] insert → findById round-trip (uuid 採番、entity 0/1 変換)
+//   [C2] compute-on-read: birth_date から age 導出 + 非手動児は年齢で ui_mode 再導出 (§11.1)
+//   [C3] 手動 override 児は stored ui_mode 維持 / birth_date NULL は age=0 + stored
+//   [C4] §P9 tenant 分離: 他 family の child は見えない・更新できない
+//   [C5] update の部分更新 + updated_at 更新
+//   [C6] archive/restore/findArchived (findAll から archived が消える)
+//   [C7] deleteChild = 集約全削除の単一 txn (関連表の行が消え、兄弟 child のデータは残る)
+//   [C8] resetChildProgressData = allowlist 3 表のみ削除 + total_point 0 リセット
+//        (statuses は survive = 契約) + counts が実削除数
+
+import { sql } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '../../../src/lib/domain/ids';
+import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
+import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
+import type { IChildRepo } from '../../../src/lib/server/db/interfaces/child-repo.interface';
+import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
+
+const FAMILY = '00000000-0000-4000-8000-0000000000a1';
+const OTHER_FAMILY = '00000000-0000-4000-8000-0000000000a2';
+
+describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
+	let t: DsqlTestDb;
+	let repo: IChildRepo;
+
+	beforeAll(async () => {
+		t = await createDsqlTestDb();
+		const runner = createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 });
+		repo = createDsqlChildRepo(t.db, runner);
+	}, 60_000);
+	afterAll(async () => {
+		await t.close();
+	});
+
+	it('[C1] insert → findById round-trip (uuid 採番、0/1 数値契約)', async () => {
+		const created = await repo.insertChild(
+			{ nickname: 'けんた', age: 8, birthDate: '2018-01-15', theme: 'blue' },
+			FAMILY,
+		);
+		expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
+		expect(created.nickname).toBe('けんた');
+		expect(created.uiModeManuallySet).toBe(0);
+		expect(created.isArchived).toBe(0);
+
+		const found = await repo.findChildById(created.id, FAMILY);
+		expect(found?.nickname).toBe('けんた');
+		expect(found?.birthDate).toBe('2018-01-15');
+	});
+
+	it('[C2] compute-on-read: age 導出 + 非手動児の ui_mode 年齢再導出 (§11.1)', async () => {
+		// 2018-01-15 生まれ → 今日 (2026-07) 時点で 8 歳 = elementary。
+		// stored ui_mode を意図的に古い値 (preschool 既定) のままにして、read が再導出することを確認。
+		const created = await repo.insertChild(
+			{ nickname: 'さくら', age: 8, birthDate: '2018-01-15' },
+			FAMILY,
+		);
+		const found = await repo.findChildById(created.id, FAMILY);
+		expect(found?.age).toBe(8);
+		expect(found?.uiMode).toBe('elementary'); // stored 'preschool' でなく年齢由来 (§11.1)
+	});
+
+	it('[C3] 手動 override は stored 維持 / birth_date NULL は age=0 + stored', async () => {
+		const manual = await repo.insertChild(
+			{ nickname: 'まなみ', age: 8, birthDate: '2018-01-15', uiMode: 'junior' },
+			FAMILY,
+		);
+		await repo.updateChild(manual.id, { uiModeManuallySet: 1 }, FAMILY);
+		const foundManual = await repo.findChildById(manual.id, FAMILY);
+		expect(foundManual?.uiMode).toBe('junior'); // 手動 override 維持
+
+		const noBirth = await repo.insertChild({ nickname: 'ふめい', age: 5 }, FAMILY);
+		const foundNoBirth = await repo.findChildById(noBirth.id, FAMILY);
+		expect(foundNoBirth?.age).toBe(0); // PO B2: backfill 必須の明示 fallback
+		expect(foundNoBirth?.uiMode).toBe('preschool'); // stored 既定
+	});
+
+	it('[C4] §P9 tenant 分離: 他 family から不可視・更新不能', async () => {
+		const mine = await repo.insertChild({ nickname: 'うち', age: 6 }, FAMILY);
+		expect(await repo.findChildById(mine.id, OTHER_FAMILY)).toBeUndefined();
+		expect(await repo.updateChild(mine.id, { nickname: '乗っ取り' }, OTHER_FAMILY)).toBeUndefined();
+		const intact = await repo.findChildById(mine.id, FAMILY);
+		expect(intact?.nickname).toBe('うち');
+	});
+
+	it('[C5] update: 部分更新 + updated_at 更新', async () => {
+		const c = await repo.insertChild({ nickname: '更新前', age: 6 }, FAMILY);
+		const updated = await repo.updateChild(c.id, { nickname: '更新後', theme: 'green' }, FAMILY);
+		expect(updated?.nickname).toBe('更新後');
+		expect(updated?.theme).toBe('green');
+		expect(updated?.birthDate).toBe(null); // 未指定 field は不変
+		expect(Date.parse(updated?.updatedAt ?? '')).toBeGreaterThanOrEqual(Date.parse(c.updatedAt));
+	});
+
+	it('[C6] archive → findAll から消え、restore で復帰 (reason 束縛)', async () => {
+		const c = await repo.insertChild({ nickname: 'アーカイブ', age: 6 }, FAMILY);
+		await repo.archiveChildren([c.id], 'trial_expired', FAMILY);
+
+		const all = await repo.findAllChildren(FAMILY);
+		expect(all.some((x) => x.id === c.id)).toBe(false);
+		const archived = await repo.findArchivedChildren(FAMILY);
+		expect(archived.some((x) => x.id === c.id && x.archivedReason === 'trial_expired')).toBe(true);
+
+		await repo.restoreArchivedChildren('trial_expired', FAMILY);
+		const restored = await repo.findChildById(c.id, FAMILY);
+		expect(restored?.isArchived).toBe(0);
+		expect(restored?.archivedReason).toBe(null);
+	});
+
+	it('[C7] deleteChild: 集約全削除 (関連表消滅、兄弟の行は残る)', async () => {
+		const target = await repo.insertChild({ nickname: '削除対象', age: 8 }, FAMILY);
+		const sibling = await repo.insertChild({ nickname: '兄弟', age: 10 }, FAMILY);
+
+		const seed = async (childId: string) => {
+			const act = await t.db.execute(sql`
+				INSERT INTO child_activities (family_id, child_id, name, category_id, icon)
+				VALUES (${FAMILY}, ${childId}, 'テスト活動', '1', '🏃') RETURNING activity_id
+			`);
+			const activityId = (act.rows[0] as { activity_id: string }).activity_id;
+			await t.db.execute(sql`
+				INSERT INTO activity_logs (family_id, child_id, activity_id, points, recorded_date, recorded_at)
+				VALUES (${FAMILY}, ${childId}, ${activityId}, 10, '2026-07-04', now())
+			`);
+			await t.db.execute(sql`
+				INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date)
+				VALUES (${FAMILY}, ${childId}, 10, 'activity', '2026-07-04')
+			`);
+			const card = await t.db.execute(sql`
+				INSERT INTO stamp_cards (family_id, child_id, week_start, week_end)
+				VALUES (${FAMILY}, ${childId}, '2026-06-29', '2026-07-05') RETURNING card_id
+			`);
+			await t.db.execute(sql`
+				INSERT INTO stamp_entries (family_id, card_id, slot, login_date)
+				VALUES (${FAMILY}, ${(card.rows[0] as { card_id: string }).card_id}, 1, '2026-07-01')
+			`);
+		};
+		await seed(String(target.id));
+		await seed(String(sibling.id));
+		await t.db.execute(sql`
+			INSERT INTO sibling_cheers (family_id, from_child_id, to_child_id, stamp_code)
+			VALUES (${FAMILY}, ${String(target.id)}, ${String(sibling.id)}, 'star')
+		`);
+
+		await repo.deleteChild(target.id, FAMILY);
+
+		expect(await repo.findChildById(target.id, FAMILY)).toBeUndefined();
+		const countFor = async (table: string, childId: string) =>
+			Number(
+				(
+					(await t.db.execute(
+						sql`SELECT count(*) AS c FROM ${sql.raw(table)} WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+					)) as { rows: { c: unknown }[] }
+				).rows[0]?.c,
+			);
+		for (const table of ['child_activities', 'activity_logs', 'point_ledger', 'stamp_cards']) {
+			expect(await countFor(table, String(target.id)), `${table} 消滅`).toBe(0);
+			expect(await countFor(table, String(sibling.id)), `${table} 兄弟 survive`).toBe(1);
+		}
+		const cheers = await t.db.execute(
+			sql`SELECT count(*) AS c FROM sibling_cheers WHERE family_id = ${FAMILY}`,
+		);
+		expect(Number((cheers.rows[0] as { c: unknown }).c)).toBe(0); // from 側参照でも消える
+		const entries = await t.db.execute(sql`
+			SELECT count(*) AS c FROM stamp_entries WHERE family_id = ${FAMILY}
+		`);
+		expect(Number((entries.rows[0] as { c: unknown }).c)).toBe(1); // 兄弟 card の entry のみ残存
+	});
+
+	it('[C8] resetChildProgressData: allowlist 3 表 + total_point 0 (statuses は survive)', async () => {
+		const c = await repo.insertChild({ nickname: 'リセット', age: 8 }, FAMILY);
+		const id = String(c.id);
+		await t.db.execute(sql`
+			INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date)
+			VALUES (${FAMILY}, ${id}, 30, 'activity', '2026-07-04'), (${FAMILY}, ${id}, 20, 'bonus', '2026-07-04')
+		`);
+		await t.db.execute(
+			sql`UPDATE children SET total_point = 50 WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		await t.db.execute(sql`
+			INSERT INTO login_bonuses (family_id, child_id, login_date, rank, base_points, total_points)
+			VALUES (${FAMILY}, ${id}, '2026-07-04', 'daikichi', 5, 5)
+		`);
+		await t.db.execute(sql`
+			INSERT INTO statuses (family_id, child_id, category_id, total_xp, updated_at)
+			VALUES (${FAMILY}, ${id}, '1', 100, now())
+		`);
+
+		const counts = await repo.resetChildProgressData(c.id, FAMILY);
+		expect(counts).toEqual({
+			activityLogs: 0,
+			pointLedger: 2,
+			loginBonuses: 1,
+			childAchievements: 0,
+			pointBalance: 0,
+		});
+		const status = await t.db.execute(
+			sql`SELECT total_xp FROM statuses WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		expect((status.rows[0] as { total_xp: number }).total_xp).toBe(100); // survive 契約
+		const tp = await t.db.execute(
+			sql`SELECT total_point FROM children WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		expect((tp.rows[0] as { total_point: number }).total_point).toBe(0); // fitness#14 整合
+	});
+
+	it('branded id が repo 境界で維持される (ChildId 受け渡しの型整合)', () => {
+		// compile-time 検証: asChildId 以外の string を渡すと型エラーになる (実行時 assert 不要)
+		const id = asChildId('00000000-0000-4000-8000-00000000ffff');
+		const _catId = asCategoryId('1');
+		const _actId = asActivityId('x');
+		expect(typeof id).toBe('string');
+	});
+});
