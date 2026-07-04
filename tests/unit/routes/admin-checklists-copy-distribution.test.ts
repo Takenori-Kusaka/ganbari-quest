@@ -125,7 +125,7 @@ let liveTargetCount = 0;
 function setTargetInitialCount(n: number) {
 	liveTargetCount = n;
 	mockRepoFindTemplatesByChild.mockImplementation(async () =>
-		Array.from({ length: liveTargetCount }, (_unused, i) => ({ id: '1000' + i })),
+		Array.from({ length: liveTargetCount }, (_unused, i) => ({ id: `1000${i}` })),
 	);
 }
 

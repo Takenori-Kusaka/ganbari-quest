@@ -1,4 +1,4 @@
-import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/daily-mission-service.test.ts
 // デイリーミッションのユニットテスト
 

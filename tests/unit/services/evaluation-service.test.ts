@@ -1,4 +1,4 @@
-import { asCategoryId, asChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/evaluation-service.test.ts
 // 週次評価サービスのユニットテスト
 

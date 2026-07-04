@@ -36,7 +36,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
-import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
+import { type ActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import {
 	findActivityLogs,
 	insertActivityLog,

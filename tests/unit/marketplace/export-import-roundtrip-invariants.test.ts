@@ -16,7 +16,6 @@
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { asCategoryId } from '$lib/domain/ids';
 import { createActivitySchema } from '$lib/domain/validation/activity';
 import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-schema';
 import { ChallengeSetItemSchema } from '$lib/marketplace/schemas/challenge-set-schema';

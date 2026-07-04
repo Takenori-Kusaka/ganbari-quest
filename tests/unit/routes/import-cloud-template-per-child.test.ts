@@ -114,7 +114,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		]);
 		mockFindActivitiesByChild.mockResolvedValue([]);
 		mockInsertActivitiesBulk.mockImplementation(async (inputs: Array<{ name: string }>) =>
-			inputs.map((i, idx) => ({ id: '1000' + idx, name: i.name })),
+			inputs.map((i, idx) => ({ id: `1000${idx}`, name: i.name })),
 		);
 	});
 
