@@ -1,5 +1,5 @@
 <script lang="ts">
-import { FEATURES_LABELS } from '$lib/domain/labels';
+import { FEATURES_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
@@ -34,9 +34,12 @@ const L = FEATURES_LABELS.activitiesHeader;
 //   手動で1つ追加 / AI で提案してもらう / みんなのテンプレートから探す / 別のお子さまからコピー / 複数のお子さまにまとめて追加
 const addMenuItems = $derived<MenuItem[]>([
 	{
+		// EPIC #3533 §10.2.3: quota 上限到達 (!canAdd) 時は disabled でなく locked-but-active。
+		//   lock マーカー付きで活性のまま残し、選択 (onAddSelect('manual')) を page 側で
+		//   プラン画面遷移に振り替える。完全 disabled は NN/G アンチパターン (dead-end) のため回避。
 		id: 'manual',
 		label: L.addManualLabel,
-		icon: L.addManualIcon,
+		icon: canAdd ? L.addManualIcon : PLAN_GATE_LABELS.lockedItemIcon,
 		onSelect: () => onAddSelect('manual'),
 	},
 	{
@@ -119,7 +122,6 @@ const overflowItems = $derived<MenuItem[]>([
 	addMenuAriaLabel={L.addMenuAriaLabel}
 	addMenuTestid="header-add-activity-btn"
 	addMenuDataTutorial="add-activity-btn"
-	addDisabled={!canAdd}
 	overflowItems={overflowItems}
 	overflowTriggerLabel={L.overflowTriggerLabel}
 	overflowMenuAriaLabel={L.overflowMenuAriaLabel}
