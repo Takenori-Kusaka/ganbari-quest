@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/rule-preset-import-service.test.ts
 // #2138 MP-3: rule-preset-import-service unit tests
 //
@@ -44,7 +45,7 @@ import {
 // ---------- Helpers ----------
 
 const TENANT = 'test-tenant-001';
-const CHILD_ID = 101;
+const CHILD_ID = asChildId(101);
 
 function bonusPayload(): RulePresetPayload {
 	return {
@@ -85,7 +86,7 @@ beforeEach(() => {
 	mockGetSetting.mockResolvedValue(null);
 	mockSetSetting.mockResolvedValue(undefined);
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 });
 
 // ==========================================================
@@ -133,7 +134,7 @@ describe('previewRulePresetImport', () => {
 
 	it('exchange + 同一 sourcePresetId reward 存在 -> alreadyImported=true', async () => {
 		mockFindSpecialRewards.mockResolvedValueOnce([
-			{ id: 1, title: 'ゲーム15分', sourcePresetId: 'screen-time-exchange' } as never,
+			{ id: '1', title: 'ゲーム15分', sourcePresetId: 'screen-time-exchange' } as never,
 		]);
 		const r = await previewRulePresetImport(
 			'screen-time-exchange',
@@ -259,7 +260,7 @@ describe('importRulePreset - exchange', () => {
 
 	it('同一 preset + 同一 title 既存 -> skipped カウント', async () => {
 		mockFindSpecialRewards.mockResolvedValueOnce([
-			{ id: 1, title: 'ゲーム15分', sourcePresetId: 'screen-time-exchange' } as never,
+			{ id: '1', title: 'ゲーム15分', sourcePresetId: 'screen-time-exchange' } as never,
 		]);
 		const r = await importRulePreset(
 			'screen-time-exchange',
@@ -277,7 +278,7 @@ describe('importRulePreset - exchange', () => {
 	it('insertSpecialReward 例外 -> errors に記録、処理は続行', async () => {
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('constraint'))
-			.mockResolvedValueOnce({ id: 2 });
+			.mockResolvedValueOnce({ id: '2' });
 		const r = await importRulePreset(
 			'screen-time-exchange',
 			'スクリーンタイム交換',

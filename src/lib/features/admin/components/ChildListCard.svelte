@@ -1,10 +1,11 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { FEATURES_LABELS, getAgeTierLabel, getThemeLabel } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface Props {
 	child: {
-		id: number;
+		id: ChildId;
 		nickname: string;
 		age: number;
 		uiMode: string;

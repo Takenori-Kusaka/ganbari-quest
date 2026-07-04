@@ -58,7 +58,7 @@ describe('shop load — shopCategory 列優先 + fallback (#3147)', () => {
 		mockGetChildSpecialRewards.mockResolvedValue({
 			rewards: [
 				{
-					id: 1,
+					id: '1',
 					title: 'おこづかい100円',
 					points: 100,
 					icon: '🪙',
@@ -78,7 +78,7 @@ describe('shop load — shopCategory 列優先 + fallback (#3147)', () => {
 		mockGetChildSpecialRewards.mockResolvedValue({
 			rewards: [
 				{
-					id: 2,
+					id: '2',
 					title: 'おこづかい100円',
 					points: 100,
 					icon: '🪙',
@@ -97,7 +97,7 @@ describe('shop load — shopCategory 列優先 + fallback (#3147)', () => {
 		mockGetChildSpecialRewards.mockResolvedValue({
 			rewards: [
 				{
-					id: 3,
+					id: '3',
 					title: 'なぞのごほうび',
 					points: 50,
 					icon: '🎁',

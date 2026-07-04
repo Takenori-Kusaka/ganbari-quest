@@ -14,6 +14,7 @@
 -->
 <script lang="ts">
 import { browser } from '$app/environment';
+import type { ChildId } from '$lib/domain/ids';
 import { getMilestoneBannerTitle, getMilestoneLabel, MILESTONE_LABELS } from '$lib/domain/labels';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';
@@ -27,7 +28,7 @@ interface MilestoneAchievement {
 
 interface Props {
 	milestones: MilestoneAchievement[];
-	childId: number;
+	childId: ChildId;
 	/** #2169 ADR-0015: 年齢帯 variant 判定に必須 (preschool = ひらがな / elementary 以上 = 漢字) */
 	uiMode?: string;
 	/**

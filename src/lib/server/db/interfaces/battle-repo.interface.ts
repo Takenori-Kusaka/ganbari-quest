@@ -1,8 +1,9 @@
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import type { ChildId } from '$lib/domain/ids';
 
 export interface DailyBattleRow {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	enemyId: number;
 	date: string;
 	status: 'pending' | 'completed';
@@ -15,8 +16,8 @@ export interface DailyBattleRow {
 }
 
 export interface EnemyCollectionRow {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	enemyId: number;
 	firstDefeatedAt: string;
 	defeatCount: number;
@@ -24,32 +25,32 @@ export interface EnemyCollectionRow {
 
 export interface IBattleRepo {
 	findTodayBattle(
-		childId: number,
+		childId: ChildId,
 		date: string,
 		tenantId: string,
 	): Promise<DailyBattleRow | undefined>;
 
-	findRecentBattles(childId: number, limit: number, tenantId: string): Promise<DailyBattleRow[]>;
+	findRecentBattles(childId: ChildId, limit: number, tenantId: string): Promise<DailyBattleRow[]>;
 
-	countConsecutiveLosses(childId: number, tenantId: string): Promise<number>;
+	countConsecutiveLosses(childId: ChildId, tenantId: string): Promise<number>;
 
 	insertDailyBattle(
-		childId: number,
+		childId: ChildId,
 		enemyId: number,
 		date: string,
 		playerStats: BattleStats,
 		tenantId: string,
-	): Promise<number>;
+	): Promise<string>;
 
 	completeBattle(
-		battleId: number,
+		battleId: string,
 		outcome: BattleOutcome,
 		rewardPoints: number,
 		turnsUsed: number,
 		tenantId: string,
 	): Promise<void>;
 
-	findCollection(childId: number, tenantId: string): Promise<EnemyCollectionRow[]>;
+	findCollection(childId: ChildId, tenantId: string): Promise<EnemyCollectionRow[]>;
 
-	upsertCollectionEntry(childId: number, enemyId: number, tenantId: string): Promise<void>;
+	upsertCollectionEntry(childId: ChildId, enemyId: number, tenantId: string): Promise<void>;
 }

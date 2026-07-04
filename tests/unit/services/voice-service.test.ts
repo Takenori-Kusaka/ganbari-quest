@@ -2,6 +2,7 @@
 // voice-service ユニットテスト — 親の声・カスタム音声管理
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const mockVoiceRepo = {
 	findByChild: vi.fn(),
@@ -65,7 +66,7 @@ function makeFile(size: number, type: string): File {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 const SCENE = 'complete';
 
 describe('voice-service', () => {
@@ -77,7 +78,7 @@ describe('voice-service', () => {
 		it('ボイス一覧を返し isActive を boolean に変換する', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([
 				{
-					id: 1,
+					id: '1',
 					label: 'よくできました',
 					publicUrl: '/voices/1.mp3',
 					durationMs: 3000,
@@ -85,7 +86,7 @@ describe('voice-service', () => {
 					createdAt: '2026-01-01',
 				},
 				{
-					id: 2,
+					id: '2',
 					label: 'がんばったね',
 					publicUrl: '/voices/2.mp3',
 					durationMs: null,
@@ -112,7 +113,7 @@ describe('voice-service', () => {
 		it('正しいフィールドをマッピングする', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([
 				{
-					id: 5,
+					id: '5',
 					label: 'テストラベル',
 					publicUrl: '/voices/5.mp3',
 					durationMs: 1500,
@@ -123,7 +124,7 @@ describe('voice-service', () => {
 
 			const result = await listVoices(CHILD_ID, SCENE, TENANT);
 			expect(result[0]).toEqual({
-				id: 5,
+				id: '5',
 				label: 'テストラベル',
 				publicUrl: '/voices/5.mp3',
 				durationMs: 1500,
@@ -136,12 +137,12 @@ describe('voice-service', () => {
 	describe('uploadVoice', () => {
 		it('有効なファイルをアップロードして id と publicUrl を返す', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-			mockVoiceRepo.insert.mockResolvedValueOnce({ id: 42 });
+			mockVoiceRepo.insert.mockResolvedValueOnce({ id: '42' });
 
 			const file = makeFile(1024, 'audio/mpeg');
 			const result = await uploadVoice(CHILD_ID, TENANT, file, 'テスト音声');
 
-			expect(result).toEqual({ id: 42, publicUrl: '/public/voices/test-key.mp3' });
+			expect(result).toEqual({ id: '42', publicUrl: '/public/voices/test-key.mp3' });
 		});
 
 		it('Fileインスタンスでない場合 INVALID_FILE を返す', async () => {
@@ -163,11 +164,11 @@ describe('voice-service', () => {
 
 		it('5MBちょうどのファイルは受け付ける', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-			mockVoiceRepo.insert.mockResolvedValueOnce({ id: 1 });
+			mockVoiceRepo.insert.mockResolvedValueOnce({ id: '1' });
 
 			const file = makeFile(5 * 1024 * 1024, 'audio/mpeg');
 			const result = await uploadVoice(CHILD_ID, TENANT, file, 'テスト');
-			expect(result).toEqual({ id: 1, publicUrl: '/public/voices/test-key.mp3' });
+			expect(result).toEqual({ id: '1', publicUrl: '/public/voices/test-key.mp3' });
 		});
 
 		it('サポートされていないMIMEタイプは UNSUPPORTED_TYPE を返す', async () => {
@@ -209,17 +210,17 @@ describe('voice-service', () => {
 			for (const type of allowedTypes) {
 				vi.clearAllMocks();
 				mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-				mockVoiceRepo.insert.mockResolvedValueOnce({ id: 1 });
+				mockVoiceRepo.insert.mockResolvedValueOnce({ id: '1' });
 
 				const file = makeFile(1024, type);
 				const result = await uploadVoice(CHILD_ID, TENANT, file, 'テスト');
-				expect(result).toEqual(expect.objectContaining({ id: 1 }));
+				expect(result).toEqual(expect.objectContaining({ id: '1' }));
 			}
 		});
 
 		it('ラベルの前後空白をトリムして保存する', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-			mockVoiceRepo.insert.mockResolvedValueOnce({ id: 1 });
+			mockVoiceRepo.insert.mockResolvedValueOnce({ id: '1' });
 
 			const file = makeFile(1024, 'audio/mpeg');
 			await uploadVoice(CHILD_ID, TENANT, file, '  テスト音声  ');
@@ -231,7 +232,7 @@ describe('voice-service', () => {
 
 		it('durationMsが未指定の場合nullで保存する', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-			mockVoiceRepo.insert.mockResolvedValueOnce({ id: 1 });
+			mockVoiceRepo.insert.mockResolvedValueOnce({ id: '1' });
 
 			const file = makeFile(1024, 'audio/mpeg');
 			await uploadVoice(CHILD_ID, TENANT, file, 'テスト');
@@ -243,7 +244,7 @@ describe('voice-service', () => {
 
 		it('durationMsが指定された場合はその値で保存する', async () => {
 			mockVoiceRepo.findByChild.mockResolvedValueOnce([]);
-			mockVoiceRepo.insert.mockResolvedValueOnce({ id: 1 });
+			mockVoiceRepo.insert.mockResolvedValueOnce({ id: '1' });
 
 			const file = makeFile(1024, 'audio/mpeg');
 			await uploadVoice(CHILD_ID, TENANT, file, 'テスト', 'complete', 5000);
@@ -256,22 +257,22 @@ describe('voice-service', () => {
 
 	describe('activateVoice', () => {
 		it('ボイスが存在し子供IDが一致する場合 true を返す', async () => {
-			mockVoiceRepo.findById.mockResolvedValueOnce({ id: 1, childId: CHILD_ID });
-			const result = await activateVoice(1, CHILD_ID, SCENE, TENANT);
+			mockVoiceRepo.findById.mockResolvedValueOnce({ id: '1', childId: CHILD_ID });
+			const result = await activateVoice('1', CHILD_ID, SCENE, TENANT);
 			expect(result).toBe(true);
-			expect(mockVoiceRepo.setActive).toHaveBeenCalledWith(1, CHILD_ID, SCENE, TENANT);
+			expect(mockVoiceRepo.setActive).toHaveBeenCalledWith('1', CHILD_ID, SCENE, TENANT);
 		});
 
 		it('ボイスが見つからない場合 false を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce(null);
-			const result = await activateVoice(999, CHILD_ID, SCENE, TENANT);
+			const result = await activateVoice('999', CHILD_ID, SCENE, TENANT);
 			expect(result).toBe(false);
 			expect(mockVoiceRepo.setActive).not.toHaveBeenCalled();
 		});
 
 		it('ボイスが別の子供に属する場合 false を返す', async () => {
-			mockVoiceRepo.findById.mockResolvedValueOnce({ id: 1, childId: 999 });
-			const result = await activateVoice(1, CHILD_ID, SCENE, TENANT);
+			mockVoiceRepo.findById.mockResolvedValueOnce({ id: '1', childId: asChildId(999) });
+			const result = await activateVoice('1', CHILD_ID, SCENE, TENANT);
 			expect(result).toBe(false);
 			expect(mockVoiceRepo.setActive).not.toHaveBeenCalled();
 		});
@@ -280,21 +281,21 @@ describe('voice-service', () => {
 	describe('deleteVoice', () => {
 		it('ボイスが存在する場合ファイルとDBレコードを削除して true を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce({
-				id: 1,
+				id: '1',
 				filePath: 'voices/old.mp3',
 			});
 			mockVoiceRepo.deleteById.mockResolvedValueOnce(undefined);
 
-			const result = await deleteVoice(1, TENANT);
+			const result = await deleteVoice('1', TENANT);
 
 			expect(result).toBe(true);
 			expect(deleteFile).toHaveBeenCalledWith('voices/old.mp3');
-			expect(mockVoiceRepo.deleteById).toHaveBeenCalledWith(1, TENANT);
+			expect(mockVoiceRepo.deleteById).toHaveBeenCalledWith('1', TENANT);
 		});
 
 		it('ボイスが見つからない場合 false を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce(null);
-			const result = await deleteVoice(999, TENANT);
+			const result = await deleteVoice('999', TENANT);
 			expect(result).toBe(false);
 			expect(deleteFile).not.toHaveBeenCalled();
 			expect(mockVoiceRepo.deleteById).not.toHaveBeenCalled();
@@ -302,16 +303,16 @@ describe('voice-service', () => {
 
 		it('ファイル削除に失敗してもDBレコードは削除して true を返す', async () => {
 			mockVoiceRepo.findById.mockResolvedValueOnce({
-				id: 1,
+				id: '1',
 				filePath: 'voices/broken.mp3',
 			});
 			vi.mocked(deleteFile).mockRejectedValueOnce(new Error('S3 delete failed'));
 			mockVoiceRepo.deleteById.mockResolvedValueOnce(undefined);
 
-			const result = await deleteVoice(1, TENANT);
+			const result = await deleteVoice('1', TENANT);
 
 			expect(result).toBe(true);
-			expect(mockVoiceRepo.deleteById).toHaveBeenCalledWith(1, TENANT);
+			expect(mockVoiceRepo.deleteById).toHaveBeenCalledWith('1', TENANT);
 		});
 	});
 

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/family-streak-service.ts
 // 家族ストリーク — 家族の誰かが毎日記録していれば維持されるストリーク
 
@@ -8,7 +9,7 @@ import { findAllChildren } from '$lib/server/db/child-repo';
 export interface FamilyStreakInfo {
 	currentStreak: number;
 	hasRecordedToday: boolean;
-	todayRecorders: number[]; // childIds who recorded today
+	todayRecorders: ChildId[]; // childIds who recorded today
 	lastRecordedDate: string | null;
 }
 
@@ -29,7 +30,7 @@ export async function getFamilyStreak(tenantId: string): Promise<FamilyStreakInf
 
 	// 全子供の活動日をマージ
 	const dateSet = new Set<string>();
-	const todayRecorders: number[] = [];
+	const todayRecorders: ChildId[] = [];
 	const today = todayDateJST();
 
 	await Promise.all(

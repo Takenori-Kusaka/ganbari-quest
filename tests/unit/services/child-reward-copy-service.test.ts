@@ -12,6 +12,7 @@
 //   - 単一 convenience (copyChildRewardsToSibling) の正常系 / self-copy 例外
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -35,11 +36,11 @@ import {
 } from '../../../src/lib/server/services/child-reward-copy-service';
 
 const TENANT = 'test-tenant-001';
-const SOURCE = 101;
+const SOURCE = asChildId(101);
 
 function makeReward(overrides: Record<string, unknown> = {}) {
 	return {
-		id: 1,
+		id: '1',
 		childId: SOURCE,
 		grantedBy: null,
 		title: 'アイスクリーム',
@@ -57,7 +58,7 @@ function makeReward(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 999 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '999' });
 });
 
 // ============================================================
@@ -83,7 +84,7 @@ describe('copyChildRewardsToSiblings', () => {
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(0);
@@ -96,9 +97,9 @@ describe('copyChildRewardsToSiblings', () => {
 
 	it('targets 1 件 -> reward 全件 copy + 件数集計', async () => {
 		const rewards = [
-			makeReward({ id: 1, title: 'アイス' }),
-			makeReward({ id: 2, title: 'ケーキ' }),
-			makeReward({ id: 3, title: 'プリン' }),
+			makeReward({ id: '1', title: 'アイス' }),
+			makeReward({ id: '2', title: 'ケーキ' }),
+			makeReward({ id: '3', title: 'プリン' }),
 		];
 		mockFindSpecialRewards
 			.mockResolvedValueOnce(rewards) // source 取得
@@ -107,7 +108,7 @@ describe('copyChildRewardsToSiblings', () => {
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202],
+			targetChildIds: [asChildId(202)],
 		});
 
 		expect(result.totalCopied).toBe(3);
@@ -116,12 +117,12 @@ describe('copyChildRewardsToSiblings', () => {
 		expect(mockInsertSpecialReward).toHaveBeenCalledTimes(3);
 		// childId / tenantId 伝播確認
 		const firstCall = mockInsertSpecialReward.mock.calls[0];
-		expect(firstCall?.[0]).toMatchObject({ childId: 202, title: 'アイス' });
+		expect(firstCall?.[0]).toMatchObject({ childId: asChildId(202), title: 'アイス' });
 		expect(firstCall?.[1]).toBe(TENANT);
 	});
 
 	it('targets 3 件 -> 全 target に reward 複製 + 件数集計', async () => {
-		const rewards = [makeReward({ id: 1, title: 'A' }), makeReward({ id: 2, title: 'B' })];
+		const rewards = [makeReward({ id: '1', title: 'A' }), makeReward({ id: '2', title: 'B' })];
 		mockFindSpecialRewards
 			.mockResolvedValueOnce(rewards) // source
 			.mockResolvedValueOnce([]) // target 202
@@ -131,7 +132,7 @@ describe('copyChildRewardsToSiblings', () => {
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303, 404],
+			targetChildIds: [asChildId(202), asChildId(303), asChildId(404)],
 		});
 
 		expect(result.totalCopied).toBe(6); // 2 reward × 3 target
@@ -143,18 +144,18 @@ describe('copyChildRewardsToSiblings', () => {
 	it('既存 target に同一 title が存在する場合は skip (重複防止)', async () => {
 		mockFindSpecialRewards
 			.mockResolvedValueOnce([
-				makeReward({ id: 1, title: 'アイス' }),
-				makeReward({ id: 2, title: 'ケーキ' }),
+				makeReward({ id: '1', title: 'アイス' }),
+				makeReward({ id: '2', title: 'ケーキ' }),
 			])
 			.mockResolvedValueOnce([
 				// target 202 に既に「アイス」が存在
-				makeReward({ id: 99, childId: 202, title: 'アイス' }),
+				makeReward({ id: '99', childId: asChildId(202), title: 'アイス' }),
 			]);
 
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202],
+			targetChildIds: [asChildId(202)],
 		});
 
 		// アイスは skip、ケーキのみ copy
@@ -181,7 +182,7 @@ describe('copyChildRewardsToSiblings', () => {
 	});
 
 	it('source が target に混在 -> source のみ除外、他は処理継続', async () => {
-		const rewards = [makeReward({ id: 1, title: 'A' })];
+		const rewards = [makeReward({ id: '1', title: 'A' })];
 		mockFindSpecialRewards
 			.mockResolvedValueOnce(rewards) // source
 			.mockResolvedValueOnce([]) // target 202 既存空
@@ -190,7 +191,7 @@ describe('copyChildRewardsToSiblings', () => {
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [SOURCE, 202, 303],
+			targetChildIds: [SOURCE, asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(2);
@@ -200,45 +201,45 @@ describe('copyChildRewardsToSiblings', () => {
 
 	it('1 target の取得が失敗しても他は継続 (partial success)', async () => {
 		mockFindSpecialRewards
-			.mockResolvedValueOnce([makeReward({ id: 1, title: 'A' })]) // source
+			.mockResolvedValueOnce([makeReward({ id: '1', title: 'A' })]) // source
 			.mockRejectedValueOnce(new Error('target=202 not found')) // target 202
 			.mockResolvedValueOnce([]); // target 303 既存空
 
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(1); // 303 のみ成功
 		expect(result.byTargetChild).toEqual({ 303: 1 });
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toMatchObject({
-			targetChildId: 202,
+			targetChildId: asChildId(202),
 			message: expect.stringContaining('not found'),
 		});
 	});
 
 	it('1 reward の insert が失敗しても target 単位で errors に集約', async () => {
-		const rewards = [makeReward({ id: 1, title: 'A' }), makeReward({ id: 2, title: 'B' })];
+		const rewards = [makeReward({ id: '1', title: 'A' }), makeReward({ id: '2', title: 'B' })];
 		mockFindSpecialRewards
 			.mockResolvedValueOnce(rewards) // source
 			.mockResolvedValueOnce([]); // target 202 既存空
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('FK violation')) // 「A」失敗
-			.mockResolvedValueOnce({ id: 2 }); // 「B」成功 — だが実装は try/catch を target 単位で持つため
+			.mockResolvedValueOnce({ id: '2' }); // 「B」成功 — だが実装は try/catch を target 単位で持つため
 		// 注: 現実装は insert 例外で target 全体が catch 句に入り byTargetChild に
 		// 記録されない (errors のみ)。テストはこの仕様を documentation する形にする。
 
 		const result = await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202],
+			targetChildIds: [asChildId(202)],
 		});
 
 		// target 単位 try/catch のため A 失敗で B も到達しない
 		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0]?.targetChildId).toBe(202);
+		expect(result.errors[0]?.targetChildId).toBe('202');
 	});
 
 	it('tenantId が全 insert に伝播する', async () => {
@@ -250,7 +251,7 @@ describe('copyChildRewardsToSiblings', () => {
 		await copyChildRewardsToSiblings({
 			tenantId: 'tenant-x',
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		for (const call of mockInsertSpecialReward.mock.calls) {
@@ -266,13 +267,13 @@ describe('copyChildRewardsToSiblings', () => {
 		await copyChildRewardsToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202],
+			targetChildIds: [asChildId(202)],
 		});
 
 		expect(mockInsertSpecialReward).toHaveBeenCalledWith(
 			expect.objectContaining({
 				sourcePresetId: 'kinder-rewards',
-				childId: 202,
+				childId: asChildId(202),
 			}),
 			TENANT,
 		);
@@ -286,10 +287,13 @@ describe('copyChildRewardsToSiblings', () => {
 describe('copyChildRewardsToSibling', () => {
 	it('正常系: source の reward 全件を target に複製し件数を返す', async () => {
 		mockFindSpecialRewards
-			.mockResolvedValueOnce([makeReward({ id: 1, title: 'A' }), makeReward({ id: 2, title: 'B' })])
+			.mockResolvedValueOnce([
+				makeReward({ id: '1', title: 'A' }),
+				makeReward({ id: '2', title: 'B' }),
+			])
 			.mockResolvedValueOnce([]);
 
-		const count = await copyChildRewardsToSibling(TENANT, SOURCE, 202);
+		const count = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
 
 		expect(count).toBe(2);
 		expect(mockInsertSpecialReward).toHaveBeenCalledTimes(2);
@@ -305,14 +309,14 @@ describe('copyChildRewardsToSibling', () => {
 			.mockResolvedValueOnce([makeReward()]) // source 取得
 			.mockRejectedValueOnce(new Error('target child not found'));
 
-		await expect(copyChildRewardsToSibling(TENANT, SOURCE, 202)).rejects.toThrow(
+		await expect(copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202))).rejects.toThrow(
 			'target child not found',
 		);
 	});
 
 	it('source reward 0 件 -> count=0 で返す (throw しない)', async () => {
 		mockFindSpecialRewards.mockResolvedValueOnce([]); // source 0 件
-		const count = await copyChildRewardsToSibling(TENANT, SOURCE, 202);
+		const count = await copyChildRewardsToSibling(TENANT, SOURCE, asChildId(202));
 		expect(count).toBe(0);
 		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
 	});

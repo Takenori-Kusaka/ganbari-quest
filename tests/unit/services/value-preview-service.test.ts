@@ -230,9 +230,9 @@ describe('getTenantValuePreview - カテゴリ別集計', () => {
 		const preview = await getTenantValuePreview(TENANT);
 		const child = preview.children[0];
 		expect(child?.categoryBreakdown).toHaveLength(2);
-		expect(child?.categoryBreakdown[0]?.categoryId).toBe(1);
+		expect(child?.categoryBreakdown[0]?.categoryId).toBe('1');
 		expect(child?.categoryBreakdown[0]?.count).toBe(3);
-		expect(child?.categoryBreakdown[1]?.categoryId).toBe(2);
+		expect(child?.categoryBreakdown[1]?.categoryId).toBe('2');
 		expect(child?.categoryBreakdown[1]?.count).toBe(1);
 	});
 });

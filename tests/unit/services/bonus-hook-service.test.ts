@@ -9,6 +9,7 @@
 // `allSiblingsActiveToday` ctx field は撤去済 (本番 activity-log-service が常に false 固定だった)。
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -106,7 +107,7 @@ describe('evaluateBonusHooks - 取込なし', () => {
 				recordedAt: SATURDAY_DAY,
 				todayDistinctCategoryCount: 5,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -129,7 +130,7 @@ describe('evaluateBonusHooks - streak-bonus (1/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -146,7 +147,7 @@ describe('evaluateBonusHooks - streak-bonus (1/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -161,7 +162,7 @@ describe('evaluateBonusHooks - streak-bonus (1/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -176,7 +177,7 @@ describe('evaluateBonusHooks - streak-bonus (1/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: false,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -193,7 +194,7 @@ describe('evaluateBonusHooks - early-bird (2/5)', () => {
 				recordedAt: WEDNESDAY_EARLY,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -208,7 +209,7 @@ describe('evaluateBonusHooks - early-bird (2/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -223,7 +224,7 @@ describe('evaluateBonusHooks - early-bird (2/5)', () => {
 				recordedAt: WEDNESDAY_EARLY,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -241,7 +242,7 @@ describe('evaluateBonusHooks - weekend-special (3/5)', () => {
 				recordedAt: SATURDAY_DAY,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -256,7 +257,7 @@ describe('evaluateBonusHooks - weekend-special (3/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -272,7 +273,7 @@ describe('evaluateBonusHooks - weekend-special (3/5)', () => {
 				recordedAt: SATURDAY_DAY,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -292,7 +293,7 @@ describe('evaluateBonusHooks - category-challenge (4/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 3,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -307,7 +308,7 @@ describe('evaluateBonusHooks - category-challenge (4/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 5,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -322,7 +323,7 @@ describe('evaluateBonusHooks - category-challenge (4/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 2,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -339,7 +340,7 @@ describe('evaluateBonusHooks - self-study-reward (5/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 2,
+				categoryId: asCategoryId(2),
 			},
 			TENANT,
 		);
@@ -354,7 +355,7 @@ describe('evaluateBonusHooks - self-study-reward (5/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 2,
+				categoryId: asCategoryId(2),
 			},
 			TENANT,
 		);
@@ -369,7 +370,7 @@ describe('evaluateBonusHooks - self-study-reward (5/5)', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -391,7 +392,7 @@ describe('evaluateBonusHooks - enabled toggle', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -414,7 +415,7 @@ describe('evaluateBonusHooks - 複数 preset 合算', () => {
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 5,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -442,7 +443,7 @@ describe('evaluateBonusHooks - 撤去済 / 未知 preset の graceful skip', () 
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);
@@ -462,7 +463,7 @@ describe('evaluateBonusHooks - 撤去済 / 未知 preset の graceful skip', () 
 				recordedAt: WEEKDAY_NOON,
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 			},
 			TENANT,
 		);

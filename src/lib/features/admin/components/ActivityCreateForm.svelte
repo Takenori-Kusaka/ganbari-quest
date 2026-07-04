@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { joinIcon } from '$lib/domain/icon-utils';
+import { asCategoryId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { ACTIVITY_FORM_LABELS as L } from '$lib/domain/labels';
 import { type CategoryDef, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
@@ -15,7 +16,7 @@ interface Props {
 	categoryDefs: readonly CategoryDef[];
 	/** Pre-filled form values (e.g. from AI suggestion) */
 	initialName?: string;
-	initialCategoryId?: number;
+	initialCategoryId?: CategoryId;
 	initialMainIcon?: string;
 	initialSubIcon?: string;
 	initialPoints?: number;
@@ -25,14 +26,14 @@ interface Props {
 	 * #2902 Phase A: 作成先 child (admin/activities の選択中タブ)。
 	 * 未指定なら server action が一番古い child に fallback する (後方互換)。
 	 */
-	childId?: number;
+	childId?: ChildId;
 	oncreated: () => void;
 }
 
 let {
 	categoryDefs,
 	initialName = '',
-	initialCategoryId = 1,
+	initialCategoryId = asCategoryId(1),
 	initialMainIcon = '🤸',
 	initialSubIcon = '',
 	initialPoints = 5,
@@ -85,7 +86,7 @@ $effect(() => {
 	formNameKanji = initialNameKanji;
 });
 
-function onCategoryChange(catId: number) {
+function onCategoryChange(catId: CategoryId) {
 	formCategoryId = catId;
 	const catDef = getCategoryById(catId);
 	const info = catDef ? CATEGORY_INFO[catDef.name] : undefined;
@@ -96,7 +97,7 @@ function onCategoryChange(catId: number) {
 
 function resetForm() {
 	formName = '';
-	formCategoryId = 1;
+	formCategoryId = asCategoryId(1);
 	formMainIcon = '🤸';
 	formSubIcon = '';
 	formPoints = 5;

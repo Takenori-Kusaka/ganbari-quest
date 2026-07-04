@@ -1,3 +1,4 @@
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/status-service.test.ts
 // ステータスサービスのユニットテスト（新XPスケール対応）
 
@@ -69,13 +70,13 @@ describe('status-service', () => {
 	});
 
 	it('存在しない子供はNOT_FOUND', async () => {
-		const result = await getChildStatus(999, 'test-tenant');
+		const result = await getChildStatus(asChildId(999), 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	it('初期状態で全カテゴリXP=0のステータスを返す', async () => {
-		const result = assertSuccess(await getChildStatus(1, 'test-tenant'));
-		expect(result.childId).toBe(1);
+		const result = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
+		expect(result.childId).toBe('1');
 		expect(result.level).toBe(1); // highestCategoryLevel
 		expect(Object.keys(result.statuses).length).toBe(5);
 		expect(result.statuses[1]?.value).toBe(0);
@@ -85,7 +86,7 @@ describe('status-service', () => {
 	});
 
 	it('ベンチマークなしの場合、偏差値50・星3を返す', async () => {
-		const result = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		const result = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(result.statuses[1]?.deviationScore).toBe(50);
 		expect(result.statuses[1]?.stars).toBe(3);
 	});
@@ -93,9 +94,9 @@ describe('status-service', () => {
 	it('ベンチマークありの場合、偏差値を正しく計算する', async () => {
 		seedBenchmarks();
 		// うんどう = 300 XP, mean = 200, stdDev = 50 → 偏差値 (300-200)/50*10+50 = 70
-		await updateStatus(1, 1, 300, 'test', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 300, 'test', 'test-tenant');
 
-		const result = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		const result = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(result.statuses[1]?.value).toBe(300);
 		expect(result.statuses[1]?.deviationScore).toBe(70);
 		// 300/200 = 1.5 → ratio >= 1.2 → 4 stars
@@ -103,67 +104,73 @@ describe('status-service', () => {
 	});
 
 	it('ステータス更新が正常に動作する（XP累積）', async () => {
-		const updated = assertSuccess(await updateStatus(1, 1, 10, 'activity_record', 'test-tenant'));
+		const updated = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 10, 'activity_record', 'test-tenant'),
+		);
 		expect(updated).toBeDefined();
 
-		const status = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		const status = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(status.statuses[1]?.value).toBe(10);
 
 		// 累積更新
-		await updateStatus(1, 1, 8, 'activity_record', 'test-tenant');
-		const status2 = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		await updateStatus(asChildId(1), asCategoryId(1), 8, 'activity_record', 'test-tenant');
+		const status2 = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(status2.statuses[1]?.value).toBe(18); // 10 + 8
 	});
 
 	it('ステータスXPは0未満にならない', async () => {
-		await updateStatus(1, 1, 10, 'activity_record', 'test-tenant');
-		await updateStatus(1, 1, -100, 'decay', 'test-tenant');
-		const status = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		await updateStatus(asChildId(1), asCategoryId(1), 10, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), -100, 'decay', 'test-tenant');
+		const status = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		// peakXp=10, floor=10*0.7=7 → clampDecayFloor(10, 100, 10) = max(10-100, 7) = 7
 		expect(status.statuses[1]?.value).toBe(7);
 	});
 
 	it('減衰はpeakXpの70%で下限になる', async () => {
 		// 100 XP まで上げる
-		await updateStatus(1, 1, 100, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 100, 'activity_record', 'test-tenant');
 		// 大きな減衰 → peakXp=100, floor=70
-		await updateStatus(1, 1, -80, 'decay', 'test-tenant');
-		const status = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		await updateStatus(asChildId(1), asCategoryId(1), -80, 'decay', 'test-tenant');
+		const status = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(status.statuses[1]?.value).toBe(70); // clamped to 70% of peak
 	});
 
 	it('レベルアップ時にlevelUp情報が返る（Lv.1→2: 15XP境界）', async () => {
 		// 14 XP → Lv.1
-		await updateStatus(1, 1, 14, 'activity_record', 'test-tenant');
-		const before = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		await updateStatus(asChildId(1), asCategoryId(1), 14, 'activity_record', 'test-tenant');
+		const before = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(before.statuses[1]?.level).toBe(1);
 
 		// +2 → 16 XP → Lv.2
-		const result = assertSuccess(await updateStatus(1, 1, 2, 'activity_record', 'test-tenant'));
+		const result = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 2, 'activity_record', 'test-tenant'),
+		);
 		expect(result.levelUp).not.toBeNull();
 		expect(result.levelUp?.oldLevel).toBe(1);
 		expect(result.levelUp?.newLevel).toBe(2);
 		expect(result.levelUp?.newTitle).toBe('がんばりルーキー');
-		expect(result.levelUp?.categoryId).toBe(1);
+		expect(result.levelUp?.categoryId).toBe('1');
 		expect(result.levelUp?.categoryName).toBe('うんどう');
 	});
 
 	it('同一レベル内の変動ではlevelUpはnull', async () => {
 		// 16 XP → Lv.2（Lv.3は40 XP）
-		await updateStatus(1, 1, 16, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 16, 'activity_record', 'test-tenant');
 
 		// +5 → 21 XP → まだLv.2
-		const result = assertSuccess(await updateStatus(1, 1, 5, 'activity_record', 'test-tenant'));
+		const result = assertSuccess(
+			await updateStatus(asChildId(1), asCategoryId(1), 5, 'activity_record', 'test-tenant'),
+		);
 		expect(result.levelUp).toBeNull();
 	});
 
 	it('XPに基づくレベルが正しく計算される', async () => {
 		// 全カテゴリを500 XP → Lv.10（500 XP = Lv.10の必要XP）
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 500, 'test', 'test-tenant');
+			await updateStatus(asChildId(1), asCategoryId(catId), 500, 'test', 'test-tenant');
 		}
 
-		const result = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		const result = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(result.level).toBe(10); // highestCategoryLevel
 		expect(result.highestCategoryLevel).toBe(10);
 		expect(result.statuses[1]?.level).toBe(10);
@@ -174,15 +181,21 @@ describe('status-service', () => {
 		seedBenchmarks();
 		// 全カテゴリを350 XP → mean=200, stdDev=50 → 偏差値 (350-200)/50*10+50=80 → hero
 		for (const catId of [1, 2, 3, 4, 5]) {
-			await updateStatus(1, catId, 350, 'test', 'test-tenant');
+			await updateStatus(asChildId(1), asCategoryId(catId), 350, 'test', 'test-tenant');
 		}
 
-		const result = assertSuccess(await getChildStatus(1, 'test-tenant'));
+		const result = assertSuccess(await getChildStatus(asChildId(1), 'test-tenant'));
 		expect(result.characterType).toBe('hero');
 	});
 
 	it('存在しない子供のステータス更新はNOT_FOUND', async () => {
-		const result = await updateStatus(999, 1, 10, 'activity_record', 'test-tenant');
+		const result = await updateStatus(
+			asChildId(999),
+			asCategoryId(1),
+			10,
+			'activity_record',
+			'test-tenant',
+		);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 });
@@ -232,12 +245,12 @@ describe('getMonthlyComparison', () => {
 	});
 
 	it('存在しない子供はnullを返す', async () => {
-		const result = await getMonthlyComparison(999, 'test-tenant');
+		const result = await getMonthlyComparison(asChildId(999), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('初期状態では全カテゴリcurrent=0, previous=0, changes=0', async () => {
-		const result = await getMonthlyComparison(1, 'test-tenant');
+		const result = await getMonthlyComparison(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(Object.keys(result?.current ?? {}).length).toBe(5);
 
@@ -250,10 +263,10 @@ describe('getMonthlyComparison', () => {
 
 	it('XP追加後にcurrentが反映され、changes = current - previous', async () => {
 		// うんどう=100, べんきょう=50
-		await updateStatus(1, 1, 100, 'activity_record', 'test-tenant');
-		await updateStatus(1, 2, 50, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 100, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(2), 50, 'activity_record', 'test-tenant');
 
-		const result = await getMonthlyComparison(1, 'test-tenant');
+		const result = await getMonthlyComparison(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.current[1]).toBe(100);
 		expect(result?.current[2]).toBe(50);
@@ -263,7 +276,7 @@ describe('getMonthlyComparison', () => {
 	});
 
 	it('全5カテゴリ分のデータが返る', async () => {
-		const result = await getMonthlyComparison(1, 'test-tenant');
+		const result = await getMonthlyComparison(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		const catIds = Object.keys(result?.current ?? {}).map(Number);
 		expect(catIds.sort()).toEqual([1, 2, 3, 4, 5]);
@@ -333,12 +346,12 @@ describe('getCategoryXpSummary', () => {
 	});
 
 	it('存在しない子供はnullを返す', async () => {
-		const result = await getCategoryXpSummary(999, 'test-tenant');
+		const result = await getCategoryXpSummary(asChildId(999), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('初期状態で全カテゴリXP=0, level=1の情報を返す', async () => {
-		const result = await getCategoryXpSummary(1, 'test-tenant');
+		const result = await getCategoryXpSummary(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(Object.keys(result ?? {}).length).toBe(5);
 
@@ -352,9 +365,9 @@ describe('getCategoryXpSummary', () => {
 	});
 
 	it('XP追加後にレベルと称号が正しく反映される', async () => {
-		await updateStatus(1, 1, 50, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 50, 'activity_record', 'test-tenant');
 
-		const result = await getCategoryXpSummary(1, 'test-tenant');
+		const result = await getCategoryXpSummary(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 
 		const undou = result?.[1];
@@ -364,9 +377,9 @@ describe('getCategoryXpSummary', () => {
 
 	it('progressPctとexpToNextLevelが返る', async () => {
 		// Lv.2は15 XP、Lv.3は40 XP。20 XP → Lv.2, progress = (20-15)/(40-15) = 5/25 = 20%
-		await updateStatus(1, 1, 20, 'activity_record', 'test-tenant');
+		await updateStatus(asChildId(1), asCategoryId(1), 20, 'activity_record', 'test-tenant');
 
-		const result = await getCategoryXpSummary(1, 'test-tenant');
+		const result = await getCategoryXpSummary(asChildId(1), 'test-tenant');
 		const undou = result?.[1];
 		expect(undou?.level).toBe(2);
 		expect(undou?.expToNextLevel).toBe(20); // 40 - 20

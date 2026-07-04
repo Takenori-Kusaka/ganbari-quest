@@ -9,6 +9,7 @@
 
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { asChildId } from '$lib/domain/ids';
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
@@ -74,9 +75,9 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const itemIds = formData.getAll('itemIds').map((v) => v.toString());
 		const childIdRaw = formData.get('childId')?.toString();
-		const childId = childIdRaw ? Number(childIdRaw) : NaN;
+		const childId = childIdRaw ? asChildId(childIdRaw) : null;
 
-		if (itemIds.length === 0 || !childId || Number.isNaN(childId)) {
+		if (itemIds.length === 0 || !childId) {
 			// Nothing to import — fall through to next step
 			redirect(302, '/setup/rules?rewardsImported=0&rewardsSkipped=0');
 		}

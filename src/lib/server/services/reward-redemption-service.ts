@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
@@ -32,9 +33,9 @@ export async function isRewardAutoApproveEnabled(tenantId: string): Promise<bool
 export type RedemptionStatus = 'pending_parent_approval' | 'approved' | 'rejected' | 'expired';
 
 export interface RedemptionRequestResult {
-	id: number;
-	childId: number;
-	rewardId: number;
+	id: string;
+	childId: ChildId;
+	rewardId: string;
 	status: RedemptionStatus;
 	requestedAt: number;
 	parentNote: string | null;
@@ -48,10 +49,10 @@ export interface RedemptionRequestResult {
 }
 
 export interface RedemptionRequestWithDetails {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	childName: string;
-	rewardId: number;
+	rewardId: string;
 	rewardTitle: string;
 	rewardIcon: string | null;
 	rewardPoints: number;
@@ -62,9 +63,9 @@ export interface RedemptionRequestWithDetails {
 }
 
 export interface UnshownRedemptionResult {
-	id: number;
-	childId: number;
-	rewardId: number;
+	id: string;
+	childId: ChildId;
+	rewardId: string;
 	rewardTitle: string;
 	rewardIcon: string | null;
 	status: 'approved' | 'rejected';
@@ -81,8 +82,8 @@ export type RequestRedemptionError =
 	| { error: 'REWARD_NOT_FOUND' };
 
 export async function requestRedemption(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<RedemptionRequestResult | RequestRedemptionError> {
 	// 報酬の存在確認（子供に紐付くか）
@@ -154,7 +155,7 @@ export async function requestRedemption(
 // 申請一覧取得（子供向け）
 // ============================================================
 
-export async function getRedemptionRequestsForChild(childId: number, tenantId: string) {
+export async function getRedemptionRequestsForChild(childId: ChildId, tenantId: string) {
 	return findRedemptionRequestsByChild(childId, tenantId);
 }
 
@@ -164,7 +165,7 @@ export async function getRedemptionRequestsForChild(childId: number, tenantId: s
 
 export async function getRedemptionRequestsForParent(
 	tenantId: string,
-	opts?: { status?: string; childId?: number; limit?: number },
+	opts?: { status?: string; childId?: ChildId; limit?: number },
 ) {
 	const rows = await findRedemptionRequestsByTenant(tenantId, opts);
 	return rows.map((r) => ({
@@ -217,8 +218,8 @@ export type ApproveError =
  * @param parentUserId 承認した保護者の認証 userId。即時交換（システム自動承認）では null。
  */
 async function finalizeApproval(args: {
-	childId: number;
-	requestId: number;
+	childId: ChildId;
+	requestId: string;
 	rewardPoints: number;
 	rewardTitle: string;
 	parentUserId: string | null;
@@ -263,7 +264,7 @@ async function finalizeApproval(args: {
 }
 
 export async function approveRedemption(
-	requestId: number,
+	requestId: string,
 	// #3320: 承認した保護者の認証 userId (cognito sub 等)。監査証跡として記録する。
 	// local 実行モード等で identity userId が無い場合は null (= 解決者不明)。
 	parentUserId: string | null,
@@ -294,7 +295,7 @@ export async function approveRedemption(
 export type RejectError = { error: 'INVALID_STATUS' } | { error: 'REQUEST_NOT_FOUND' };
 
 export async function rejectRedemption(
-	requestId: number,
+	requestId: string,
 	parentNote: string | null,
 	tenantId: string,
 	// #3320: 却下した保護者の認証 userId。承認と対称に監査証跡として記録する (null = 解決者不明)。
@@ -347,7 +348,7 @@ export async function expireOldRedemptions(tenantId: string): Promise<number> {
 // ============================================================
 
 export async function getUnshownRedemptionResult(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<UnshownRedemptionResult | null> {
 	const row = await findUnshownResultByChild(childId, tenantId);
@@ -369,6 +370,6 @@ export async function getUnshownRedemptionResult(
  * 未表示通知を表示済みにする。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。
  */
-export async function markRedemptionShown(childId: number, id: number, tenantId: string) {
+export async function markRedemptionShown(childId: ChildId, id: string, tenantId: string) {
 	return markRedemptionResultShown(childId, id, tenantId);
 }

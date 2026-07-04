@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IEvaluationRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 // #2097 Phase B-5b: 週次評価 fixture を返すことで「週次レポート / グラフ用集計が空」のバグを解消。
@@ -13,7 +14,7 @@ import type {
 } from '../types';
 
 export async function countActivitiesByCategory(
-	_childId: number,
+	_childId: ChildId,
 	_weekStart: string,
 	_weekEnd: string,
 	_tenantId: string,
@@ -26,7 +27,7 @@ export async function insertEvaluation(
 	_tenantId: string,
 ): Promise<Evaluation> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		weekStart: input.weekStart,
 		weekEnd: input.weekEnd,
@@ -41,7 +42,7 @@ export async function findAllChildren(_tenantId: string): Promise<Child[]> {
 }
 
 export async function findEvaluationsByChild(
-	childId: number,
+	childId: ChildId,
 	limit: number,
 	_tenantId: string,
 ): Promise<Evaluation[]> {
@@ -53,7 +54,7 @@ export async function findEvaluationsByChild(
 }
 
 export async function hasDecayRunToday(
-	_childId: number,
+	_childId: ChildId,
 	_today: string,
 	_tenantId: string,
 ): Promise<boolean> {
@@ -61,29 +62,29 @@ export async function hasDecayRunToday(
 }
 
 export async function findWeekEvaluation(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	_tenantId: string,
-): Promise<{ id: number } | undefined> {
+): Promise<{ id: string } | undefined> {
 	const found = DEMO_EVALUATIONS.find((e) => e.childId === childId && e.weekStart === weekStart);
 	return found ? { id: found.id } : undefined;
 }
 
 export async function findLastActivityDateByCategory(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<CategoryLastDate[]> {
 	return [];
 }
 
 export async function insertRestDay(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	reason: string,
 	_tenantId: string,
 ): Promise<RestDay | undefined> {
 	return {
-		id: 0,
+		id: '0',
 		childId,
 		date,
 		reason,
@@ -92,7 +93,7 @@ export async function insertRestDay(
 }
 
 export async function deleteRestDay(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_tenantId: string,
 ): Promise<void> {
@@ -100,7 +101,7 @@ export async function deleteRestDay(
 }
 
 export async function isRestDay(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_tenantId: string,
 ): Promise<boolean> {
@@ -108,7 +109,7 @@ export async function isRestDay(
 }
 
 export async function countRestDaysInMonth(
-	_childId: number,
+	_childId: ChildId,
 	_yearMonth: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -116,14 +117,17 @@ export async function countRestDaysInMonth(
 }
 
 export async function findRestDays(
-	_childId: number,
+	_childId: ChildId,
 	_yearMonth: string,
 	_tenantId: string,
 ): Promise<RestDay[]> {
 	return [];
 }
 
-export async function findRestDaysByChild(_childId: number, _tenantId: string): Promise<RestDay[]> {
+export async function findRestDaysByChild(
+	_childId: ChildId,
+	_tenantId: string,
+): Promise<RestDay[]> {
 	return [];
 }
 

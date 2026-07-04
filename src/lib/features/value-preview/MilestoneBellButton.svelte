@@ -10,6 +10,7 @@
 <script lang="ts">
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import type { ChildId } from '$lib/domain/ids';
 import { MILESTONE_LABELS } from '$lib/domain/labels';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
 
@@ -22,7 +23,7 @@ interface MilestoneAchievement {
 
 interface Props {
 	milestones: MilestoneAchievement[];
-	childId: number;
+	childId: ChildId;
 	uiMode: string;
 	/**
 	 * #1893: LP screenshot 撮影時に強制表示 (1 件以上を未閲覧扱いに見せる)。通常運用では false。

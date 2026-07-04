@@ -1,3 +1,5 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
@@ -38,9 +40,9 @@ import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
 // カテゴリコード → ID
-const CATEGORY_CODE_TO_ID: Record<string, number> = {};
+const CATEGORY_CODE_TO_ID: Record<string, CategoryId> = {};
 for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = i + 1;
+	CATEGORY_CODE_TO_ID[code] = asCategoryId(i + 1);
 }
 
 /**
@@ -351,7 +353,7 @@ export async function importFamilyData(
  */
 async function importEvaluationsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -391,7 +393,7 @@ async function importEvaluationsData(
  */
 async function importRewardRedemptionsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -399,8 +401,8 @@ async function importRewardRedemptionsData(
 	if (redemptions.length === 0) return;
 
 	// 取込先 child ごとに reward title → rewardId の lookup を構築する (新規 insert + 既存 dedup 双方を含む)。
-	const rewardIdByChildTitle = new Map<number, Map<string, number>>();
-	async function rewardLookup(childId: number): Promise<Map<string, number>> {
+	const rewardIdByChildTitle = new Map<ChildId, Map<string, string>>();
+	async function rewardLookup(childId: ChildId): Promise<Map<string, string>> {
 		let map = rewardIdByChildTitle.get(childId);
 		if (!map) {
 			const rows = await findSpecialRewards(childId, tenantId);
@@ -487,7 +489,7 @@ async function importSettingsData(
  */
 async function importChildChallengesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -542,7 +544,7 @@ async function importChildChallengesData(
  */
 async function importStampCardsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -553,7 +555,7 @@ async function importStampCardsData(
 			result.stampCardsSkipped++;
 			continue;
 		}
-		let newCardId: number;
+		let newCardId: string;
 		try {
 			const restored = await repo.insertCardForRestore(
 				{
@@ -609,7 +611,7 @@ async function importStampCardsData(
  */
 async function importCertificatesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -648,7 +650,7 @@ async function importCertificatesData(
  */
 async function importParentMessagesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -690,7 +692,7 @@ async function importParentMessagesData(
  */
 async function importSiblingCheersData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -729,8 +731,8 @@ async function importSiblingCheersData(
  */
 async function importActivityPrefsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
-	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	childIdMap: Map<string, ChildId>,
+	activityLookupByChild: Map<ChildId, Map<string, { id: ActivityId; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -773,7 +775,7 @@ async function importActivityPrefsData(
  */
 async function importChecklistOverridesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -813,7 +815,7 @@ async function importChecklistOverridesData(
  */
 async function importRestDaysData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -851,7 +853,7 @@ const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
  */
 async function importChildVoicesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -971,7 +973,7 @@ function createEmptyImportResult(): ImportResult {
  */
 async function importChildActivitiesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -1033,16 +1035,16 @@ async function importChildActivitiesData(
  * activityName の両方で activity を引くことで、各子の正しい activity instance に bind される。
  */
 async function buildActivityLookupByChild(
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
-): Promise<Map<number, Map<string, { id: number; name: string }>>> {
-	const lookup = new Map<number, Map<string, { id: number; name: string }>>();
+): Promise<Map<ChildId, Map<string, { id: ActivityId; name: string }>>> {
+	const lookup = new Map<ChildId, Map<string, { id: ActivityId; name: string }>>();
 	const childActivityRepo = getRepos().childActivity;
 	for (const childId of new Set(childIdMap.values())) {
 		const activities = await childActivityRepo.findActivitiesByChild(childId, tenantId, {
 			includeArchived: true,
 		});
-		const byName = new Map<string, { id: number; name: string }>();
+		const byName = new Map<string, { id: ActivityId; name: string }>();
 		for (const a of activities) {
 			byName.set(a.name, { id: a.id, name: a.name });
 		}
@@ -1055,8 +1057,8 @@ async function importChildrenData(
 	data: ExportData,
 	tenantId: string,
 	result: ImportResult,
-): Promise<Map<string, number>> {
-	const childIdMap = new Map<string, number>();
+): Promise<Map<string, ChildId>> {
+	const childIdMap = new Map<string, ChildId>();
 	for (const exportChild of data.family.children) {
 		try {
 			const child = await insertChild(
@@ -1080,7 +1082,7 @@ async function importChildrenData(
 
 async function importStatusesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -1111,12 +1113,12 @@ async function importStatusesData(
  */
 async function importActivityLogsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
-	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	childIdMap: Map<string, ChildId>,
+	activityLookupByChild: Map<ChildId, Map<string, { id: ActivityId; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingLogKeysByChild = new Map<number, Set<string>>();
+	const existingLogKeysByChild = new Map<ChildId, Set<string>>();
 	// #3327: 「見つからない」warning の dedup は (childId, name) で行う。name のみだと
 	// 子 A で欠落・子 B で存在のケースで正当な warning を抑制してしまう。
 	const missingActivityKeys = new Set<string>();
@@ -1173,9 +1175,9 @@ async function importActivityLogsData(
 }
 
 async function getOrFetchActivityLogKeys(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-	cache: Map<number, Set<string>>,
+	cache: Map<ChildId, Set<string>>,
 ): Promise<Set<string>> {
 	let keys = cache.get(childId);
 	if (!keys) {
@@ -1191,7 +1193,7 @@ async function getOrFetchActivityLogKeys(
  */
 async function importPointLedgerData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -1226,11 +1228,11 @@ async function importPointLedgerData(
  */
 async function importLoginBonusesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingBonusesByChild = new Map<number, Set<string>>();
+	const existingBonusesByChild = new Map<ChildId, Set<string>>();
 
 	for (const lb of data.data.loginBonuses) {
 		const childId = childIdMap.get(lb.childRef);
@@ -1276,9 +1278,9 @@ async function importLoginBonusesData(
 /** checklistLog の再マップに使う、childId 単位の template id 解決マップ群。 */
 export interface ChecklistTemplateIdMaps {
 	/** templateName → templateId (#3078、旧 export の fallback 用) */
-	byName: Map<number, Map<string, number>>;
+	byName: Map<ChildId, Map<string, string>>;
 	/** exportId → templateId (#3107、同名 template 取り違え防止の安定キー) */
-	byExportId: Map<number, Map<string, number>>;
+	byExportId: Map<ChildId, Map<string, string>>;
 }
 
 /** childId 単位の checklist template import 状態 (既存 + 当 import で作成した template の id 解決)。 */
@@ -1292,15 +1294,15 @@ interface ChildChecklistState {
 	/** preExisting + 当 import で作成した template 全ての名 (exportId なし旧 backup の fallback name-dedup 用)。 */
 	names: Set<string>;
 	presetIds: Set<string>;
-	idByName: Map<string, number>;
-	idByPreset: Map<string, number>;
+	idByName: Map<string, string>;
+	idByPreset: Map<string, string>;
 	/** exportId → templateId (#3107 round-trip キー、当 import data の exportId のみ) */
-	exportIdToId: Map<string, number>;
+	exportIdToId: Map<string, string>;
 }
 
 /** child の既存 template から import 状態を初期化する。 */
 async function loadChildChecklistState(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChecklistState> {
 	const rows = await findTemplatesByChild(childId, tenantId, true, true);
@@ -1320,13 +1322,13 @@ async function loadChildChecklistState(
 /** 1 件の checklist template を import (重複スキップ / 新規作成) し、exportId を id に登録する。 */
 async function importOneChecklistTemplate(
 	tpl: ExportData['data']['checklistTemplates'][number],
-	childId: number,
+	childId: ChildId,
 	state: ChildChecklistState,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	// #3107: 解決先 templateId を round-trip キー (exportId) に登録する (スキップ時も既存 id を登録)。
-	const register = (templateId: number) => {
+	const register = (templateId: string) => {
 		if (tpl.exportId) state.exportIdToId.set(tpl.exportId, templateId);
 	};
 
@@ -1411,11 +1413,11 @@ async function importOneChecklistTemplate(
  */
 async function importChecklistTemplatesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<ChecklistTemplateIdMaps> {
-	const stateByChild = new Map<number, ChildChecklistState>();
+	const stateByChild = new Map<ChildId, ChildChecklistState>();
 
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
@@ -1429,8 +1431,8 @@ async function importChecklistTemplatesData(
 		await importOneChecklistTemplate(tpl, childId, state, tenantId, result);
 	}
 
-	const byName = new Map<number, Map<string, number>>();
-	const byExportId = new Map<number, Map<string, number>>();
+	const byName = new Map<ChildId, Map<string, string>>();
+	const byExportId = new Map<ChildId, Map<string, string>>();
 	for (const [childId, state] of stateByChild) {
 		byName.set(childId, state.idByName);
 		byExportId.set(childId, state.exportIdToId);
@@ -1450,12 +1452,12 @@ async function importChecklistTemplatesData(
  */
 async function importChecklistLogsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	templateIdMaps: ChecklistTemplateIdMaps,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingKeysByChild = new Map<number, Set<string>>();
+	const existingKeysByChild = new Map<ChildId, Set<string>>();
 
 	for (const log of data.data.checklistLogs) {
 		const childId = childIdMap.get(log.childRef);
@@ -1516,7 +1518,7 @@ async function importChecklistLogsData(
  */
 async function importStatusHistoryData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -1548,12 +1550,12 @@ async function importStatusHistoryData(
 
 async function importSpecialRewards(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	const { errors, warnings } = result;
-	const existingByChild = new Map<number, { titles: Set<string>; presetIds: Set<string> }>();
+	const existingByChild = new Map<ChildId, { titles: Set<string>; presetIds: Set<string> }>();
 	for (const sr of data.data.specialRewards) {
 		const childId = childIdMap.get(sr.childRef);
 		if (!childId) continue;
@@ -1663,17 +1665,18 @@ function contentTypeFromPath(path: string): string {
  */
 async function importStaticFiles(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	staticFiles: Record<string, Uint8Array>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	// sourceChildId (export 元の数値 id) → 新 childId
-	const oldChildToNew = new Map<number, number>();
+	// sourceChildId (export 元 id、旧 backup は number / 新 backup は string) → 新 childId。
+	// String() 正規化で新旧 backup 双方の key を同一視する。
+	const oldChildToNew = new Map<string, ChildId>();
 	for (const child of data.family.children) {
 		const newId = childIdMap.get(child.exportId);
-		if (typeof child.sourceChildId === 'number' && newId) {
-			oldChildToNew.set(child.sourceChildId, newId);
+		if (child.sourceChildId != null && newId) {
+			oldChildToNew.set(String(child.sourceChildId), newId);
 		}
 	}
 
@@ -1693,7 +1696,7 @@ async function importStaticFiles(
 			continue;
 		}
 		const [, type, oldChildIdStr, rest] = match;
-		const newChildId = oldChildToNew.get(Number(oldChildIdStr));
+		const newChildId = oldChildToNew.get(String(oldChildIdStr));
 		if (!newChildId) {
 			result.staticFilesSkipped++;
 			continue;
@@ -1720,9 +1723,9 @@ async function importStaticFiles(
 
 export interface AvatarRemapState {
 	data: ExportData;
-	childIdMap: Map<string, number>;
+	childIdMap: Map<string, ChildId>;
 	/** sourceChildId (export 元 id) → 新 childId */
-	oldChildToNew: Map<number, number>;
+	oldChildToNew: Map<string, ChildId>;
 	/** 旧 storage 相対パス → 復元済の新相対パス */
 	relativeKeyRemap: Map<string, string>;
 }
@@ -1742,7 +1745,7 @@ export async function remapChildAvatarUrls(
 	const prefix = tenantPrefix(tenantId);
 
 	/** avatarUrl 更新を 1 箇所に集約し、失敗は result.errors に蓄積する。 */
-	const persist = async (childId: number, url: string | null, exportId: string): Promise<void> => {
+	const persist = async (childId: ChildId, url: string | null, exportId: string): Promise<void> => {
 		try {
 			await updateChildAvatarUrl(childId, url, tenantId);
 		} catch (e) {
@@ -1801,8 +1804,8 @@ function resolveNewAvatarRelPath(
 	oldRelPath: string,
 	ctx: {
 		relativeKeyRemap: Map<string, string>;
-		oldChildToNew: Map<number, number>;
-		newChildId: number;
+		oldChildToNew: Map<string, ChildId>;
+		newChildId: ChildId;
 	},
 ): string | null | undefined {
 	const hit = ctx.relativeKeyRemap.get(oldRelPath);
@@ -1814,7 +1817,7 @@ function resolveNewAvatarRelPath(
 	const rest = relMatch?.[3];
 	if (!type || !oldChildIdStr || !rest) return undefined;
 
-	const mappedChildId = ctx.oldChildToNew.get(Number(oldChildIdStr)) ?? ctx.newChildId;
+	const mappedChildId = ctx.oldChildToNew.get(String(oldChildIdStr)) ?? ctx.newChildId;
 	const candidate = `${type}/${mappedChildId}/${rest}`;
 	// unsafe (`..` / 絶対パス) は fileExists で probe (存在オラクル化) / 永続化させない。
 	if (!isSafeRelativePath(candidate)) return null;

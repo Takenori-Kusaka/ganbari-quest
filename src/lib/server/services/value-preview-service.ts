@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 /**
  * value-preview-service — ADR-0023 I9 (#1600) 初月価値プレビュー体験
  *
@@ -48,13 +49,13 @@ export interface MilestoneAchievement {
 
 /** カテゴリ別活動回数（30 日プレビュー bar chart 用） */
 export interface CategoryBreakdown {
-	categoryId: number;
+	categoryId: CategoryId;
 	count: number;
 	points: number;
 }
 
 export interface ChildValuePreview {
-	childId: number;
+	childId: ChildId;
 	nickname: string;
 	signupDate: string; // ISO YYYY-MM-DD（child.createdAt 起点）
 	daysSinceSignup: number;
@@ -175,7 +176,7 @@ export async function getTenantValuePreview(tenantId: string): Promise<TenantVal
 
 			let totalPoints = 0;
 			const recordedDates: string[] = [];
-			const byCategory = new Map<number, { count: number; points: number }>();
+			const byCategory = new Map<CategoryId, { count: number; points: number }>();
 
 			for (const log of logs) {
 				const rowTotal = log.points + log.streakBonus;

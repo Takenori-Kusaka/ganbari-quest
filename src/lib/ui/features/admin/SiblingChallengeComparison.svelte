@@ -8,6 +8,7 @@
 // - 全員完了で簡素な祝福バナーのみ (連続演出禁止)
 // - 同じ sourceTemplateId / (title + 期間) を共有する instance を比較
 
+import type { ChildId } from '$lib/domain/ids';
 import { ADMIN_CHALLENGES_PAGE_LABELS } from '$lib/domain/labels';
 import type { Child, ChildChallengeGroup } from '$lib/server/db/types';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
@@ -19,7 +20,7 @@ interface Props {
 
 const { group, children }: Props = $props();
 
-function childLabel(childId: number): string {
+function childLabel(childId: ChildId): string {
 	const c = children.find((x) => x.id === childId);
 	return c?.nickname ?? `#${childId}`;
 }

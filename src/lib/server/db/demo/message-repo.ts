@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IMessageRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -8,7 +9,7 @@ export async function insertForRestore(
 	_tenantId: string,
 ): Promise<ParentMessage> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0 };
+	return { ...input, id: '0' };
 }
 
 export async function insertMessage(
@@ -16,7 +17,7 @@ export async function insertMessage(
 	_tenantId: string,
 ): Promise<ParentMessage> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		messageType: input.messageType,
 		stampCode: input.stampCode ?? null,
@@ -31,7 +32,7 @@ export async function insertMessage(
 }
 
 export async function findMessages(
-	_childId: number,
+	_childId: ChildId,
 	_limit: number,
 	_tenantId: string,
 ): Promise<ParentMessage[]> {
@@ -39,19 +40,19 @@ export async function findMessages(
 }
 
 export async function findUnshownMessage(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<ParentMessage | undefined> {
 	return undefined;
 }
 
-export async function countUnshownMessages(_childId: number, _tenantId: string): Promise<number> {
+export async function countUnshownMessages(_childId: ChildId, _tenantId: string): Promise<number> {
 	return 0;
 }
 
 export async function markMessageShown(
-	_childId: number,
-	_messageId: number,
+	_childId: ChildId,
+	_messageId: string,
 	_tenantId: string,
 ): Promise<ParentMessage | undefined> {
 	return undefined;

@@ -16,6 +16,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const {
@@ -64,7 +65,7 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 
 /** child partition の DynamoDB item を組み立てる (PK/SK + 属性)。 */
 function makeItem(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -203,7 +204,7 @@ describe('findActivityById', () => {
 	it('child+id key で GetItem する', async () => {
 		mockSend.mockResolvedValueOnce({ Item: makeItem({ id: 7, name: 'X' }) });
 		const { findActivityById } = await loadRepo();
-		const result = await findActivityById(7, CHILD_ID, TENANT);
+		const result = await findActivityById(asActivityId(7), CHILD_ID, TENANT);
 		expect(result?.name).toBe('X');
 		const callArg = mockSend.mock.calls[0]?.[0] as { input: { Key?: { PK: string; SK: string } } };
 		expect(callArg.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
@@ -213,7 +214,7 @@ describe('findActivityById', () => {
 	it('不在のとき undefined を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Item: undefined });
 		const { findActivityById } = await loadRepo();
-		expect(await findActivityById(7, CHILD_ID, TENANT)).toBeUndefined();
+		expect(await findActivityById(asActivityId(7), CHILD_ID, TENANT)).toBeUndefined();
 	});
 });
 
@@ -248,11 +249,17 @@ describe('insertActivity', () => {
 
 		const { insertActivity } = await loadRepo();
 		const result = await insertActivity(
-			{ childId: CHILD_ID, name: 'すいえい', categoryId: 1, icon: '🏊', basePoints: 8 },
+			{
+				childId: CHILD_ID,
+				name: 'すいえい',
+				categoryId: asCategoryId(1),
+				icon: '🏊',
+				basePoints: 8,
+			},
 			TENANT,
 		);
 
-		expect(result.id).toBe(101);
+		expect(result.id).toBe('101');
 		// SQLite schema default が埋まっている
 		expect(result).toMatchObject({
 			childId: CHILD_ID,
@@ -282,7 +289,7 @@ describe('insertActivity', () => {
 			{
 				childId: CHILD_ID,
 				name: 'べんきょう',
-				categoryId: 2,
+				categoryId: asCategoryId(2),
 				icon: '📚',
 				basePoints: 3,
 				isMainQuest: 1,
@@ -317,13 +324,13 @@ describe('insertActivitiesBulk', () => {
 		const { insertActivitiesBulk } = await loadRepo();
 		const result = await insertActivitiesBulk(
 			[
-				{ childId: CHILD_ID, name: 'A', categoryId: 1, icon: '🏃', basePoints: 5 },
-				{ childId: CHILD_ID, name: 'B', categoryId: 1, icon: '📚', basePoints: 5 },
+				{ childId: CHILD_ID, name: 'A', categoryId: asCategoryId(1), icon: '🏃', basePoints: 5 },
+				{ childId: CHILD_ID, name: 'B', categoryId: asCategoryId(1), icon: '📚', basePoints: 5 },
 			],
 			TENANT,
 		);
 		expect(result.map((a) => a.name)).toEqual(['A', 'B']);
-		expect(result.map((a) => a.id)).toEqual([1, 2]);
+		expect(result.map((a) => a.id)).toEqual(['1', '2']);
 		// 2 insert = 4 send (nextId + Put × 2)
 		expect(mockSend).toHaveBeenCalledTimes(4);
 	});
@@ -339,7 +346,12 @@ describe('updateActivity', () => {
 			Attributes: makeItem({ id: 1, name: 'updated', basePoints: 9 }),
 		});
 		const { updateActivity } = await loadRepo();
-		const result = await updateActivity(1, CHILD_ID, { name: 'updated', basePoints: 9 }, TENANT);
+		const result = await updateActivity(
+			asActivityId(1),
+			CHILD_ID,
+			{ name: 'updated', basePoints: 9 },
+			TENANT,
+		);
 		expect(result?.name).toBe('updated');
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: { UpdateExpression?: string; ConditionExpression?: string };
@@ -352,7 +364,7 @@ describe('updateActivity', () => {
 	it('更新 field 0 件のときは現在値を Get して返す (SQLite .set({}) 等価)', async () => {
 		mockSend.mockResolvedValueOnce({ Item: makeItem({ id: 1, name: 'unchanged' }) });
 		const { updateActivity } = await loadRepo();
-		const result = await updateActivity(1, CHILD_ID, {}, TENANT);
+		const result = await updateActivity(asActivityId(1), CHILD_ID, {}, TENANT);
 		expect(result?.name).toBe('unchanged');
 		const callArg = mockSend.mock.calls[0]?.[0] as { input: { Key?: unknown } };
 		expect(callArg.input.Key).toBeDefined(); // GetCommand 経路
@@ -363,7 +375,7 @@ describe('updateActivity', () => {
 		err.name = 'ConditionalCheckFailedException';
 		mockSend.mockRejectedValueOnce(err);
 		const { updateActivity } = await loadRepo();
-		expect(await updateActivity(1, CHILD_ID, { name: 'x' }, TENANT)).toBeUndefined();
+		expect(await updateActivity(asActivityId(1), CHILD_ID, { name: 'x' }, TENANT)).toBeUndefined();
 	});
 });
 
@@ -371,7 +383,7 @@ describe('setActivityVisibility', () => {
 	it('isVisible を 0/1 に更新する', async () => {
 		mockSend.mockResolvedValueOnce({ Attributes: makeItem({ id: 1, isVisible: 0 }) });
 		const { setActivityVisibility } = await loadRepo();
-		const result = await setActivityVisibility(1, CHILD_ID, false, TENANT);
+		const result = await setActivityVisibility(asActivityId(1), CHILD_ID, false, TENANT);
 		expect(result?.isVisible).toBe(0);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: { ExpressionAttributeValues?: Record<string, unknown> };
@@ -384,7 +396,7 @@ describe('setActivityVisibility', () => {
 		err.name = 'ConditionalCheckFailedException';
 		mockSend.mockRejectedValueOnce(err);
 		const { setActivityVisibility } = await loadRepo();
-		expect(await setActivityVisibility(1, CHILD_ID, true, TENANT)).toBeUndefined();
+		expect(await setActivityVisibility(asActivityId(1), CHILD_ID, true, TENANT)).toBeUndefined();
 	});
 });
 
@@ -396,7 +408,7 @@ describe('deleteActivity', () => {
 	it('DeleteItem (ALL_OLD) で削除した row を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Attributes: makeItem({ id: 3, name: 'gone' }) });
 		const { deleteActivity } = await loadRepo();
-		const result = await deleteActivity(3, CHILD_ID, TENANT);
+		const result = await deleteActivity(asActivityId(3), CHILD_ID, TENANT);
 		expect(result?.name).toBe('gone');
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: { Key?: { SK: string }; ReturnValues?: string };
@@ -408,7 +420,7 @@ describe('deleteActivity', () => {
 	it('不在のとき undefined を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Attributes: undefined });
 		const { deleteActivity } = await loadRepo();
-		expect(await deleteActivity(3, CHILD_ID, TENANT)).toBeUndefined();
+		expect(await deleteActivity(asActivityId(3), CHILD_ID, TENANT)).toBeUndefined();
 	});
 });
 
@@ -430,15 +442,15 @@ describe('copyActivitiesAcrossChildren', () => {
 			.mockResolvedValueOnce({});
 
 		const { copyActivitiesAcrossChildren } = await loadRepo();
-		const result = await copyActivitiesAcrossChildren(CHILD_ID, 99, TENANT);
+		const result = await copyActivitiesAcrossChildren(CHILD_ID, asChildId(99), TENANT);
 		expect(result.map((a) => a.name)).toEqual(['A', 'B']);
-		expect(result.every((a) => a.childId === 99)).toBe(true);
+		expect(result.every((a) => a.childId === '99')).toBe(true);
 	});
 
 	it('source 0 件のとき何も insert しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { copyActivitiesAcrossChildren } = await loadRepo();
-		expect(await copyActivitiesAcrossChildren(CHILD_ID, 99, TENANT)).toEqual([]);
+		expect(await copyActivitiesAcrossChildren(CHILD_ID, asChildId(99), TENANT)).toEqual([]);
 		expect(mockSend).toHaveBeenCalledTimes(1); // Query のみ
 	});
 });
@@ -459,7 +471,7 @@ describe('archiveActivities', () => {
 		mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({}); // 2 Update
 
 		const { archiveActivities } = await loadRepo();
-		await archiveActivities([1, 2], 'downgrade_user_selected', TENANT);
+		await archiveActivities([asActivityId(1), asActivityId(2)], 'downgrade_user_selected', TENANT);
 
 		// 1 Scan + 2 Update
 		expect(mockSend).toHaveBeenCalledTimes(3);
@@ -475,7 +487,7 @@ describe('archiveActivities', () => {
 			Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDACT#00000009' }],
 		});
 		const { archiveActivities } = await loadRepo();
-		await archiveActivities([1], 'downgrade_user_selected', TENANT);
+		await archiveActivities([asActivityId(1)], 'downgrade_user_selected', TENANT);
 		// Scan のみ、Update 0 件 (id=9 は対象 [1] に含まれない)
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
@@ -560,7 +572,7 @@ describe('interface 適合 (IChildActivityRepo)', () => {
 		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
 		const { insertActivitiesBulk } = await loadRepo();
 		const result = await insertActivitiesBulk(
-			[{ childId: CHILD_ID, name: 'X', categoryId: 1, icon: '🏃', basePoints: 5 }],
+			[{ childId: CHILD_ID, name: 'X', categoryId: asCategoryId(1), icon: '🏃', basePoints: 5 }],
 			TENANT,
 		);
 		// stub なら throw していた。本実装は row を返す。

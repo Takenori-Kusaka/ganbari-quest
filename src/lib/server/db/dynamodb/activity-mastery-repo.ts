@@ -2,6 +2,8 @@
 // 活動習熟度リポジトリ（DynamoDB実装）
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityMastery } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -14,19 +16,36 @@ function stripKeys<T extends Record<string, unknown>>(
 	return rest;
 }
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+type StoredActivityMastery = Omit<ActivityMastery, 'id' | 'childId' | 'activityId'> & {
+	id: number;
+	childId: number;
+	activityId: number;
+};
+
+function toActivityMastery(item: Record<string, unknown>): ActivityMastery {
+	const raw = stripKeys(item) as unknown as StoredActivityMastery;
+	return {
+		...raw,
+		id: String(raw.id),
+		childId: asChildId(raw.childId),
+		activityId: asActivityId(raw.activityId),
+	};
+}
+
 export async function findByChildAndActivity(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	tenantId: string,
 ): Promise<ActivityMastery | undefined> {
-	const key = activityMasteryKey(childId, activityId, tenantId);
+	const key = activityMasteryKey(Number(childId), Number(activityId), tenantId);
 	const result = await getDocClient().send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item as unknown as Record<string, unknown>) as unknown as ActivityMastery;
+	return toActivityMastery(result.Item as unknown as Record<string, unknown>);
 }
 
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ActivityMastery[]> {
 	const result = await getDocClient().send(
@@ -34,40 +53,40 @@ export async function findAllByChild(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': activityMasteryPrefix(),
 			},
 		}),
 	);
-	return (result.Items ?? []).map(
-		(item) => stripKeys(item as unknown as Record<string, unknown>) as unknown as ActivityMastery,
+	return (result.Items ?? []).map((item) =>
+		toActivityMastery(item as unknown as Record<string, unknown>),
 	);
 }
 
 export async function upsert(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	totalCount: number,
 	level: number,
 	tenantId: string,
 ): Promise<ActivityMastery> {
 	const now = new Date().toISOString();
-	const key = activityMasteryKey(childId, activityId, tenantId);
+	const key = activityMasteryKey(Number(childId), Number(activityId), tenantId);
 	const existing = await findByChildAndActivity(childId, activityId, tenantId);
 
-	const id = existing?.id ?? Date.now();
+	const id = existing ? Number(existing.id) : Date.now();
 	const item: Record<string, unknown> = {
 		...key,
 		id,
-		childId,
-		activityId,
+		childId: Number(childId),
+		activityId: Number(activityId),
 		totalCount,
 		level,
 		updatedAt: now,
 	};
 
 	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
-	return stripKeys(item) as unknown as ActivityMastery;
+	return toActivityMastery(item);
 }
 
 /** テナントの全活動習熟度を削除（CHILD#* パーティション配下の MAST# アイテム） */

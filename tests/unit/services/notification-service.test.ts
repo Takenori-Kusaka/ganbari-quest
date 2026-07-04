@@ -64,7 +64,7 @@ describe('notification-service', () => {
 
 		mockGetSettings.mockResolvedValue({});
 		mockInsertLog.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'T1',
 			notificationType: 'test',
 			title: 'test',
@@ -203,7 +203,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/push1',
 					keysP256dh: 'p1',
@@ -213,7 +213,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/push2',
 					keysP256dh: 'p2',
@@ -236,7 +236,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/stale',
 					keysP256dh: 'p1',
@@ -266,7 +266,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/parent-device',
 					keysP256dh: 'p1',
@@ -276,7 +276,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/child-device',
 					keysP256dh: 'p2',
@@ -308,7 +308,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/unknown-role-device',
 					keysP256dh: 'p1',
@@ -332,7 +332,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/child1',
 					keysP256dh: 'p1',
@@ -342,7 +342,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/child2',
 					keysP256dh: 'p2',
@@ -383,7 +383,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
 					keysP256dh: 'p1',
@@ -393,7 +393,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					// 過去レコード混入 / repo 直 insert で入った allowlist 外 (internal host) endpoint。
 					// subscribe 検証 (#3188) を通らず DB に入った想定。送信側で skip されること。
@@ -423,7 +423,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
 					keysP256dh: 'p1',
@@ -433,7 +433,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					endpoint: 'https://169.254.169.254/latest/meta-data/',
 					keysP256dh: 'p2',
@@ -463,7 +463,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
 					keysP256dh: 'p1',
@@ -473,7 +473,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					// https + 公開だが allowlist 未登録 (= ベンダーが push host を新設/移行した想定)。
 					// 静的 allowlist の網羅漏れにすぎず、allowlist 追記で可逆回復できる正規購読。
@@ -486,7 +486,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 3,
+					id: '3',
 					tenantId: 'T1',
 					// 確定 SSRF (loopback)。これは削除して安全。
 					endpoint: 'https://127.0.0.1/internal',
@@ -528,7 +528,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
 					keysP256dh: 'p1',
@@ -538,7 +538,7 @@ describe('notification-service', () => {
 					createdAt: '',
 				},
 				{
-					id: 2,
+					id: '2',
 					tenantId: 'T1',
 					endpoint: 'https://169.254.169.254/latest/meta-data/',
 					keysP256dh: 'p2',
@@ -568,7 +568,7 @@ describe('notification-service', () => {
 			mockCountTodayLogs.mockResolvedValue(0);
 			mockFindByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: 'T1',
 					endpoint: 'https://169.254.169.254/latest/meta-data/',
 					keysP256dh: 'p1',

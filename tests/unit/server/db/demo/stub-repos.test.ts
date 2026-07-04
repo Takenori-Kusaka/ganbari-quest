@@ -3,6 +3,7 @@
 // read API が空 / write API が no-op であり、いずれも例外を投げないことを一括検証。
 
 import { describe, expect, it } from 'vitest';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import * as accountLockoutRepo from '../../../../../src/lib/server/db/demo/account-lockout-repo';
 import * as activityMasteryRepo from '../../../../../src/lib/server/db/demo/activity-mastery-repo';
 import * as activityPrefRepo from '../../../../../src/lib/server/db/demo/activity-pref-repo';
@@ -45,22 +46,24 @@ describe('demo/account-lockout-repo', () => {
 
 describe('demo/activity-mastery-repo', () => {
 	it('findAllByChild / findByChildAndActivity は空', async () => {
-		expect(await activityMasteryRepo.findAllByChild(902, 'demo')).toEqual([]);
-		expect(await activityMasteryRepo.findByChildAndActivity(902, 1, 'demo')).toBeUndefined();
+		expect(await activityMasteryRepo.findAllByChild(asChildId(902), 'demo')).toEqual([]);
+		expect(
+			await activityMasteryRepo.findByChildAndActivity(asChildId(902), asActivityId(1), 'demo'),
+		).toBeUndefined();
 	});
 	it('upsert は input から ActivityMastery を返す (no-op)', async () => {
-		const r = await activityMasteryRepo.upsert(902, 1, 10, 2, 'demo');
-		expect(r.childId).toBe(902);
+		const r = await activityMasteryRepo.upsert(asChildId(902), asActivityId(1), 10, 2, 'demo');
+		expect(r.childId).toBe('902');
 		expect(r.level).toBe(2);
 	});
 });
 
 describe('demo/activity-pref-repo', () => {
 	it('findPinnedByChild は空', async () => {
-		expect(await activityPrefRepo.findPinnedByChild(902, 'demo')).toEqual([]);
+		expect(await activityPrefRepo.findPinnedByChild(asChildId(902), 'demo')).toEqual([]);
 	});
 	it('togglePin は ChildActivityPreference を返す (no-op)', async () => {
-		const r = await activityPrefRepo.togglePin(902, 1, true, 'demo');
+		const r = await activityPrefRepo.togglePin(asChildId(902), asActivityId(1), true, 'demo');
 		expect(r.isPinned).toBe(1);
 	});
 });
@@ -70,15 +73,17 @@ describe('demo/activity-pref-repo', () => {
 describe('demo/battle-repo', () => {
 	// #2097 Phase B-5b: 902 (preschool) はバトル UI 対象外 / 401 はバトル対象外
 	it('未登録 child や別日付なら findTodayBattle は undefined', async () => {
-		expect(await battleRepo.findTodayBattle(902, '2026-04-01', 'demo')).toBeUndefined();
-		expect(await battleRepo.findTodayBattle(99999, '2026-04-01', 'demo')).toBeUndefined();
+		expect(await battleRepo.findTodayBattle(asChildId(902), '2026-04-01', 'demo')).toBeUndefined();
+		expect(
+			await battleRepo.findTodayBattle(asChildId(99999), '2026-04-01', 'demo'),
+		).toBeUndefined();
 	});
 	it('battle UI 対象外 child の findRecentBattles は空', async () => {
-		expect(await battleRepo.findRecentBattles(902, 5, 'demo')).toEqual([]);
-		expect(await battleRepo.findRecentBattles(99999, 5, 'demo')).toEqual([]);
+		expect(await battleRepo.findRecentBattles(asChildId(902), 5, 'demo')).toEqual([]);
+		expect(await battleRepo.findRecentBattles(asChildId(99999), 5, 'demo')).toEqual([]);
 	});
 	it('findCollection は空 (敵図鑑 fixture は別 Issue)', async () => {
-		expect(await battleRepo.findCollection(902, 'demo')).toEqual([]);
+		expect(await battleRepo.findCollection(asChildId(902), 'demo')).toEqual([]);
 	});
 });
 
@@ -107,13 +112,13 @@ describe('demo/evaluation-repo', () => {
 		expect(children.length).toBeGreaterThan(0);
 	});
 	it('isRestDay は false', async () => {
-		expect(await evaluationRepo.isRestDay(902, '2026-04-01', 'demo')).toBe(false);
+		expect(await evaluationRepo.isRestDay(asChildId(902), '2026-04-01', 'demo')).toBe(false);
 	});
 	// #2097 Phase B-5b: 週次評価 fixture を返す
 	it('findEvaluationsByChild は fixture から件数を返す (902)', async () => {
-		const result = await evaluationRepo.findEvaluationsByChild(902, 10, 'demo');
+		const result = await evaluationRepo.findEvaluationsByChild(asChildId(902), 10, 'demo');
 		expect(result.length).toBeGreaterThan(0);
-		expect(result.every((e) => e.childId === 902)).toBe(true);
+		expect(result.every((e) => e.childId === '902')).toBe(true);
 	});
 });
 
@@ -126,11 +131,13 @@ describe('demo/graduation-consent-repo', () => {
 
 describe('demo/image-repo', () => {
 	it('findCachedImage は undefined', async () => {
-		expect(await imageRepo.findCachedImage(902, 'avatar', 'hash', 'demo')).toBeUndefined();
+		expect(
+			await imageRepo.findCachedImage(asChildId(902), 'avatar', 'hash', 'demo'),
+		).toBeUndefined();
 	});
 	it('findChildForImage は demo Child を返す', async () => {
-		const child = await imageRepo.findChildForImage(902, 'demo');
-		expect(child?.id).toBe(902);
+		const child = await imageRepo.findChildForImage(asChildId(902), 'demo');
+		expect(child?.id).toBe('902');
 	});
 });
 
@@ -158,20 +165,22 @@ describe('demo/inquiry-repo', () => {
 describe('demo/login-bonus-repo', () => {
 	it('findTodayBonus は fixture から該当があれば返す', async () => {
 		// 902 の TODAY (2026-03-27) ボーナスは fixture に存在
-		const r = await loginBonusRepo.findTodayBonus(902, '2026-03-27', 'demo');
+		const r = await loginBonusRepo.findTodayBonus(asChildId(902), '2026-03-27', 'demo');
 		expect(r).toBeDefined();
-		expect(r?.childId).toBe(902);
+		expect(r?.childId).toBe('902');
 	});
 	it('未存在 child + 別 date は undefined', async () => {
-		expect(await loginBonusRepo.findTodayBonus(99999, '2020-01-01', 'demo')).toBeUndefined();
+		expect(
+			await loginBonusRepo.findTodayBonus(asChildId(99999), '2020-01-01', 'demo'),
+		).toBeUndefined();
 	});
 });
 
 describe('demo/message-repo', () => {
 	it('findMessages / findUnshownMessage は空 / undefined', async () => {
-		expect(await messageRepo.findMessages(902, 10, 'demo')).toEqual([]);
-		expect(await messageRepo.findUnshownMessage(902, 'demo')).toBeUndefined();
-		expect(await messageRepo.countUnshownMessages(902, 'demo')).toBe(0);
+		expect(await messageRepo.findMessages(asChildId(902), 10, 'demo')).toEqual([]);
+		expect(await messageRepo.findUnshownMessage(asChildId(902), 'demo')).toBeUndefined();
+		expect(await messageRepo.countUnshownMessages(asChildId(902), 'demo')).toBe(0);
 	});
 });
 
@@ -187,14 +196,21 @@ describe('demo/push-subscription-repo', () => {
 describe('demo/report-daily-summary-repo', () => {
 	it('findByChildAndDateRange は空', async () => {
 		expect(
-			await reportDailySummaryRepo.findByChildAndDateRange(902, '2026-01-01', '2026-12-31', 'demo'),
+			await reportDailySummaryRepo.findByChildAndDateRange(
+				asChildId(902),
+				'2026-01-01',
+				'2026-12-31',
+				'demo',
+			),
 		).toEqual([]);
 	});
 });
 
 describe('demo/reward-redemption-repo', () => {
 	it('findRedemptionRequestsByChild / Tenant は空', async () => {
-		expect(await rewardRedemptionRepo.findRedemptionRequestsByChild(902, 'demo')).toEqual([]);
+		expect(
+			await rewardRedemptionRepo.findRedemptionRequestsByChild(asChildId(902), 'demo'),
+		).toEqual([]);
 		expect(await rewardRedemptionRepo.findRedemptionRequestsByTenant('demo')).toEqual([]);
 	});
 });
@@ -207,32 +223,32 @@ describe('demo/reward-redemption-repo', () => {
 describe('demo/sibling-cheer-repo', () => {
 	// #2097 Phase B-5b: 未表示 cheer fixture が含まれるため findUnshownCheers は件数を返す
 	it('countTodayCheersFrom は 0', async () => {
-		expect(await siblingCheerRepo.countTodayCheersFrom(902, 'demo')).toBe(0);
+		expect(await siblingCheerRepo.countTodayCheersFrom(asChildId(902), 'demo')).toBe(0);
 	});
 });
 
 describe('demo/special-reward-repo', () => {
 	// #2097 Phase B-7: findSpecialRewards は marketplace 由来の pre-granted rewards を返す
 	it('findSpecialRewards は 902 (kinder-rewards) で 5 件返す', async () => {
-		const rewards = await specialRewardRepo.findSpecialRewards(902, 'demo');
+		const rewards = await specialRewardRepo.findSpecialRewards(asChildId(902), 'demo');
 		expect(rewards.length).toBe(5);
-		expect(rewards.every((r) => r.childId === 902)).toBe(true);
+		expect(rewards.every((r) => r.childId === '902')).toBe(true);
 		expect(rewards.every((r) => r.sourcePresetId === 'kinder-rewards')).toBe(true);
 	});
 
 	it('findSpecialRewards は 901 (baby、marketplace 対象外) で空配列', async () => {
-		expect(await specialRewardRepo.findSpecialRewards(901, 'demo')).toEqual([]);
+		expect(await specialRewardRepo.findSpecialRewards(asChildId(901), 'demo')).toEqual([]);
 	});
 
 	it('findUnshownReward は marketplace 由来 idx 0 (shownAt=null) を返す (#2097 B-5a)', async () => {
-		const unshown = await specialRewardRepo.findUnshownReward(902, 'demo');
+		const unshown = await specialRewardRepo.findUnshownReward(asChildId(902), 'demo');
 		expect(unshown).toBeDefined();
-		expect(unshown?.childId).toBe(902);
+		expect(unshown?.childId).toBe('902');
 		expect(unshown?.shownAt).toBeNull();
 	});
 
 	it('findUnshownReward は 901 (baby、marketplace 対象外) で undefined', async () => {
-		expect(await specialRewardRepo.findUnshownReward(901, 'demo')).toBeUndefined();
+		expect(await specialRewardRepo.findUnshownReward(asChildId(901), 'demo')).toBeUndefined();
 	});
 });
 
@@ -273,13 +289,13 @@ describe('demo/viewer-token-repo', () => {
 
 describe('demo/voice-repo', () => {
 	it('findByChild / findActiveVoice / findById は空 / null', async () => {
-		expect(await voiceRepo.findByChild(902, 'wakeup', 'demo')).toEqual([]);
-		expect(await voiceRepo.findActiveVoice(902, 'wakeup', 'demo')).toBeNull();
-		expect(await voiceRepo.findById(1, 'demo')).toBeNull();
+		expect(await voiceRepo.findByChild(asChildId(902), 'wakeup', 'demo')).toEqual([]);
+		expect(await voiceRepo.findActiveVoice(asChildId(902), 'wakeup', 'demo')).toBeNull();
+		expect(await voiceRepo.findById('1', 'demo')).toBeNull();
 	});
 	it('insert は { id: 0 } dummy を返す', async () => {
 		const r = await voiceRepo.insert({
-			childId: 902,
+			childId: asChildId(902),
 			scene: 'wakeup',
 			label: 'test',
 			filePath: '/tmp/x',
@@ -288,6 +304,6 @@ describe('demo/voice-repo', () => {
 			isActive: 1,
 			tenantId: 'demo',
 		});
-		expect(r.id).toBe(0);
+		expect(r.id).toBe('0');
 	});
 });

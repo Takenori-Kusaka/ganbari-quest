@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/certificate-repo.ts — Facade (delegates to factory)
 //
 // 旧実装は `db` を直 import して sqlite を強制参照していた (#2262 root cause)。
@@ -10,14 +11,14 @@ export async function issueCertificate(input: InsertCertificateInput, tenantId: 
 	return getRepos().certificate.issueCertificate(input, tenantId);
 }
 
-export async function findCertificates(childId: number, tenantId: string) {
+export async function findCertificates(childId: ChildId, tenantId: string) {
 	return getRepos().certificate.findCertificates(childId, tenantId);
 }
 
-export async function findCertificateById(id: number, tenantId: string) {
+export async function findCertificateById(id: string, tenantId: string) {
 	return getRepos().certificate.findCertificateById(id, tenantId);
 }
 
-export async function hasCertificate(childId: number, certificateType: string, tenantId: string) {
+export async function hasCertificate(childId: ChildId, certificateType: string, tenantId: string) {
 	return getRepos().certificate.hasCertificate(childId, certificateType, tenantId);
 }

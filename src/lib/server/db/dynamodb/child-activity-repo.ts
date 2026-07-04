@@ -19,6 +19,8 @@
 
 import { DeleteCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import type {
 	Child,
 	ChildActivity,
@@ -37,8 +39,21 @@ const PREFIX = childActivityPrefix();
  * SQLite の schema default と整合させるため、欠落しうる属性を補完する
  * (旧データ / 部分書込みへの防御。本実装の write は常に全属性を埋める)。
  */
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+type StoredChildActivity = Omit<ChildActivity, 'id' | 'childId' | 'categoryId'> & {
+	id: number;
+	childId: number;
+	categoryId: number;
+};
+
 function toChildActivity(item: Record<string, unknown>): ChildActivity {
-	const stripped = stripKeys(item) as unknown as ChildActivity;
+	const raw = stripKeys(item) as unknown as StoredChildActivity;
+	const stripped: ChildActivity = {
+		...raw,
+		id: asActivityId(raw.id),
+		childId: asChildId(raw.childId),
+		categoryId: asCategoryId(raw.categoryId),
+	};
 	// priority backfill (SQLite schema default 'optional' と整合)
 	if (stripped.priority !== 'must' && stripped.priority !== 'optional') {
 		stripped.priority = 'optional';
@@ -51,11 +66,11 @@ function toChildActivity(item: Record<string, unknown>): ChildActivity {
 // ============================================================
 
 export async function findActivitiesByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	options?: { includeArchived?: boolean; visibleOnly?: boolean },
 ): Promise<ChildActivity[]> {
-	const items = await queryAllItems(childPK(childId, tenantId), PREFIX);
+	const items = await queryAllItems(childPK(Number(childId), tenantId), PREFIX);
 	let activities = items.map(toChildActivity);
 
 	// archive filter (SQLite: NULL 互換 — NULL/0 は active 扱い、#962 教訓)
@@ -77,14 +92,14 @@ export async function findActivitiesByChild(
 // ============================================================
 
 export async function findActivityById(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childActivityKey(childId, id, tenantId),
+			Key: childActivityKey(Number(childId), Number(id), tenantId),
 		}),
 	);
 	if (!result.Item) return undefined;
@@ -95,7 +110,10 @@ export async function findActivityById(
 // countMainQuestActivities — per-child main quest 数
 // ============================================================
 
-export async function countMainQuestActivities(childId: number, tenantId: string): Promise<number> {
+export async function countMainQuestActivities(
+	childId: ChildId,
+	tenantId: string,
+): Promise<number> {
 	// SQLite: isMainQuest=1 AND isVisible=1 AND (isArchived=0 OR NULL)
 	const activities = await findActivitiesByChild(childId, tenantId, { visibleOnly: true });
 	return activities.filter((a) => a.isMainQuest === 1).length;
@@ -117,7 +135,7 @@ function buildChildActivity(
 	createdAt: string,
 ): ChildActivity {
 	return {
-		id,
+		id: asActivityId(id),
 		childId: input.childId,
 		name: input.name,
 		categoryId: input.categoryId,
@@ -152,8 +170,12 @@ export async function insertActivity(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...childActivityKey(input.childId, id, tenantId),
+				...childActivityKey(Number(input.childId), id, tenantId),
 				...activity,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
+				categoryId: Number(input.categoryId),
 			},
 		}),
 	);
@@ -185,8 +207,8 @@ export async function insertActivitiesBulk(
 // ============================================================
 
 export async function updateActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	input: UpdateChildActivityInput,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
@@ -211,7 +233,8 @@ export async function updateActivity(
 		if (input[field] !== undefined) {
 			sets.push(`#${field} = :${field}`);
 			names[`#${field}`] = field;
-			values[`:${field}`] = input[field];
+			// categoryId は stored attribute が数値のため境界で int 化する (#3575)
+			values[`:${field}`] = field === 'categoryId' ? Number(input.categoryId) : input[field];
 		}
 	}
 
@@ -224,7 +247,7 @@ export async function updateActivity(
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: childActivityKey(childId, id, tenantId),
+				Key: childActivityKey(Number(childId), Number(id), tenantId),
 				UpdateExpression: `SET ${sets.join(', ')}`,
 				ExpressionAttributeNames: names,
 				ExpressionAttributeValues: values,
@@ -248,8 +271,8 @@ export async function updateActivity(
 // ============================================================
 
 export async function setActivityVisibility(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	visible: boolean,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
@@ -257,7 +280,7 @@ export async function setActivityVisibility(
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: childActivityKey(childId, id, tenantId),
+				Key: childActivityKey(Number(childId), Number(id), tenantId),
 				UpdateExpression: 'SET isVisible = :v',
 				ExpressionAttributeValues: { ':v': visible ? 1 : 0 },
 				ConditionExpression: 'attribute_exists(PK)',
@@ -279,14 +302,14 @@ export async function setActivityVisibility(
 // ============================================================
 
 export async function deleteActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
 	const result = await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: childActivityKey(childId, id, tenantId),
+			Key: childActivityKey(Number(childId), Number(id), tenantId),
 			// SQLite `.returning()` 等価: 削除した行を返す。
 			ReturnValues: 'ALL_OLD',
 		}),
@@ -300,8 +323,8 @@ export async function deleteActivity(
 // ============================================================
 
 export async function copyActivitiesAcrossChildren(
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity[]> {
 	const sourceActivities = await findActivitiesByChild(sourceChildId, tenantId, {
@@ -336,7 +359,7 @@ export async function copyActivitiesAcrossChildren(
  * (ids 件数は通常少数 — プラン降格時の must/optional 整理。Pre-PMF / ADR-0010)。
  */
 export async function archiveActivities(
-	ids: number[],
+	ids: ActivityId[],
 	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
@@ -405,10 +428,10 @@ async function scanChildActivities(
 }
 
 async function findChildActivityKeysByIds(
-	ids: number[],
+	ids: ActivityId[],
 	tenantId: string,
 ): Promise<{ PK: string; SK: string }[]> {
-	const idSet = new Set(ids);
+	const idSet = new Set(ids.map((id) => Number(id)));
 	const all = await scanChildActivities(' AND begins_with(PK, :tenantPrefix)', {
 		':tenantPrefix': tenantPK('CHILD#', tenantId),
 	});
@@ -430,6 +453,6 @@ async function findChildActivityKeysByReason(
 // Child convenience lookup (repo-helpers の共通実装に委譲)
 // ============================================================
 
-export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, tenantId: string): Promise<Child | undefined> {
 	return findChildByIdRaw(id, tenantId);
 }

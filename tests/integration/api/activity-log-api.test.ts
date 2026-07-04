@@ -261,14 +261,14 @@ describe('API-LOG-01: POST /api/v1/activity-logs (normal record)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const res = await POST_LOG(event);
 		expect(res.status).toBe(201);
 
 		const body = await jsonBody(res);
-		expect(body.childId).toBe(1);
-		expect(body.activityId).toBe(1);
+		expect(body.childId).toBe('1');
+		expect(body.activityId).toBe('1');
 		expect(body.activityName).toBe('たいそう');
 		expect(body.basePoints).toBe(5);
 		expect(body.streakDays).toBe(1);
@@ -282,7 +282,7 @@ describe('API-LOG-01: POST /api/v1/activity-logs (normal record)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		await POST_LOG(event);
 
@@ -302,7 +302,7 @@ describe('API-LOG-02: POST /api/v1/activity-logs (duplicate)', () => {
 		const event1 = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const res1 = await POST_LOG(event1);
 		expect(res1.status).toBe(201);
@@ -311,7 +311,7 @@ describe('API-LOG-02: POST /api/v1/activity-logs (duplicate)', () => {
 		const event2 = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const res2 = await POST_LOG(event2);
 		expect(res2.status).toBe(409);
@@ -324,14 +324,14 @@ describe('API-LOG-02: POST /api/v1/activity-logs (duplicate)', () => {
 		const event1 = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		await POST_LOG(event1);
 
 		const event2 = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 2 },
+			body: { childId: '1', activityId: '2' },
 		});
 		const res2 = await POST_LOG(event2);
 		expect(res2.status).toBe(201);
@@ -346,7 +346,7 @@ describe('API-LOG-03: POST /api/v1/activity-logs (validation error)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { activityId: 1 },
+			body: { activityId: '1' },
 		});
 		const res = await POST_LOG(event);
 		expect(res.status).toBe(400);
@@ -356,7 +356,7 @@ describe('API-LOG-03: POST /api/v1/activity-logs (validation error)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1 },
+			body: { childId: '1' },
 		});
 		const res = await POST_LOG(event);
 		expect(res.status).toBe(400);
@@ -366,7 +366,7 @@ describe('API-LOG-03: POST /api/v1/activity-logs (validation error)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 999, activityId: 1 },
+			body: { childId: '999', activityId: '1' },
 		});
 		const res = await POST_LOG(event);
 		expect(res.status).toBe(404);
@@ -376,7 +376,7 @@ describe('API-LOG-03: POST /api/v1/activity-logs (validation error)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 999 },
+			body: { childId: '1', activityId: '999' },
 		});
 		const res = await POST_LOG(event);
 		expect(res.status).toBe(404);
@@ -392,7 +392,7 @@ describe('API-LOG-04: DELETE /api/v1/activity-logs/:id (cancel within window)', 
 		const postEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const postRes = await POST_LOG(postEvent);
 		const postBody = await jsonBody(postRes);
@@ -415,7 +415,7 @@ describe('API-LOG-04: DELETE /api/v1/activity-logs/:id (cancel within window)', 
 		const postEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const postRes = await POST_LOG(postEvent);
 		const postBody = await jsonBody(postRes);
@@ -487,7 +487,7 @@ describe('API-LOG-06: GET /api/v1/activity-logs?childId=1', () => {
 		const postEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		await POST_LOG(postEvent);
 
@@ -509,7 +509,7 @@ describe('API-LOG-06: GET /api/v1/activity-logs?childId=1', () => {
 		const postEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/activity-logs',
-			body: { childId: 1, activityId: 1 },
+			body: { childId: '1', activityId: '1' },
 		});
 		const postRes = await POST_LOG(postEvent);
 		const postBody = await jsonBody(postRes);
@@ -536,14 +536,14 @@ describe('API-LOG-06: GET /api/v1/activity-logs?childId=1', () => {
 			createMockEvent({
 				method: 'POST',
 				url: '/api/v1/activity-logs',
-				body: { childId: 1, activityId: 1 },
+				body: { childId: '1', activityId: '1' },
 			}),
 		);
 		await POST_LOG(
 			createMockEvent({
 				method: 'POST',
 				url: '/api/v1/activity-logs',
-				body: { childId: 1, activityId: 2 },
+				body: { childId: '1', activityId: '2' },
 			}),
 		);
 

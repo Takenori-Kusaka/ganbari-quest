@@ -21,7 +21,7 @@ export async function findByEndpoint(
 
 export async function insert(input: InsertPushSubscriptionInput): Promise<PushSubscriptionRecord> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId: input.tenantId,
 		endpoint: input.endpoint,
 		keysP256dh: input.keysP256dh,
@@ -38,7 +38,7 @@ export async function deleteByEndpoint(_endpoint: string, _tenantId: string): Pr
 
 export async function insertLog(input: InsertNotificationLogInput): Promise<NotificationLog> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId: input.tenantId,
 		notificationType: input.notificationType,
 		title: input.title,

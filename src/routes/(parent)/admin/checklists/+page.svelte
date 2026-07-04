@@ -2,6 +2,7 @@
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay } from '$lib/domain/errors';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
@@ -47,11 +48,11 @@ let { data, form } = $props();
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
 //   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
 //   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
-let childIdOverride = $state<number | undefined>(undefined);
+let childIdOverride = $state<ChildId | undefined>(undefined);
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
@@ -79,7 +80,7 @@ const hasSearchActive = $derived(searchQuery.trim().length > 0);
 // #3098: 兄弟共通化の「別の子から copy」(= その子の配信 template を選択中 child にも配信)。
 //   activity の copyFromChild と同型 (assignments 追加なので template 重複作成は発生しない)。
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 const canCopyFromChild = $derived(data.children.length >= 2);
 
 // #723: Free プランのテンプレート上限（UI ゲート用、per-child quota: 選択中 child の配信済み件数）。
@@ -91,7 +92,7 @@ const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
 // Add item dialog
 let addItemOpen = $state(false);
-let addItemTemplateId = $state(0);
+let addItemTemplateId = $state<string | null>(null);
 let itemName = $state('');
 let itemIcon = $state('🏫');
 let itemFrequency = $state('daily');
@@ -144,7 +145,7 @@ const TIME_SLOT_SELECT_OPTIONS = TIME_SLOT_OPTIONS.map((o) => ({
 	label: `${o.icon} ${o.label}`,
 }));
 
-function getTimeSlot(template: { id: number; timeSlot?: string }): string {
+function getTimeSlot(template: { id: string; timeSlot?: string }): string {
 	return template.timeSlot ?? 'anytime';
 }
 
@@ -207,7 +208,7 @@ const addMenuItems = $derived<MenuItem[]>([
 		: []),
 ]);
 
-function openAddItem(templateId: number) {
+function openAddItem(templateId: string) {
 	if (anyDialogOpen) return;
 	addItemTemplateId = templateId;
 	itemName = '';
@@ -309,7 +310,7 @@ async function handleCopyFromChild() {
 }
 
 // #3098: 各 child に配信済みの template 件数 (copy dialog の選択肢補助表示用)。
-function assignedCountForChild(childId: number): number {
+function assignedCountForChild(childId: ChildId): number {
 	return data.familyTemplates.filter((t) => t.assignedChildIds.includes(childId)).length;
 }
 
@@ -366,8 +367,8 @@ let isImporting = $state(false);
 
 // ChecklistDistributionDialog (template 別の配信先 children 設定)
 let showDistributionDialog = $state(false);
-let distributionTemplateId = $state<number | null>(null);
-let distributionVisibility = $state<Record<number, boolean>>({});
+let distributionTemplateId = $state<string | null>(null);
+let distributionVisibility = $state<Record<string, boolean>>({});
 
 // 「ヘルプ」dialog
 let helpDialogOpen = $state(false);
@@ -563,7 +564,7 @@ async function handleRestoreConfirm() {
 }
 
 // エクスポート — テンプレートを選択して v2 envelope JSON でダウンロード
-function exportTemplate(templateId: number) {
+function exportTemplate(templateId: string) {
 	const a = document.createElement('a');
 	a.href = `/api/v1/checklists/export?templateId=${templateId}`;
 	a.download = 'checklist-export.json';
@@ -579,7 +580,7 @@ function exportTemplate(templateId: number) {
 // `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
 // が返り JSON parse 失敗する。公式 enhance と同じ header を付与 + `deserialize()` で
 // 正しい ActionResult を取得する。
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;
@@ -692,10 +693,10 @@ function handleChildSelectionCancel() {
 }
 
 // ChecklistDistributionDialog open: 既存配信先で visibility を初期化
-function openDistributionDialog(template: { id: number; assignedChildIds: readonly number[] }) {
+function openDistributionDialog(template: { id: string; assignedChildIds: readonly ChildId[] }) {
 	distributionTemplateId = template.id;
 	const assignedSet = new Set(template.assignedChildIds);
-	const initial: Record<number, boolean> = {};
+	const initial: Record<string, boolean> = {};
 	for (const c of data.children) {
 		initial[c.id] = assignedSet.has(c.id);
 	}
@@ -708,7 +709,7 @@ function closeDistributionDialog() {
 	distributionTemplateId = null;
 }
 
-function toggleVisibility(childId: number, visible: boolean) {
+function toggleVisibility(childId: ChildId, visible: boolean) {
 	distributionVisibility = { ...distributionVisibility, [childId]: visible };
 }
 
@@ -757,7 +758,7 @@ async function saveDistribution() {
 	await invalidateAll();
 }
 
-function getChildName(childId: number): string {
+function getChildName(childId: ChildId): string {
 	return data.children.find((c) => c.id === childId)?.nickname ?? `#${childId}`;
 }
 </script>

@@ -2,6 +2,7 @@
 // テナントプレフィックス付きストレージキー生成ユーティリティ
 
 import { randomUUID } from 'node:crypto';
+import type { ChildId } from '$lib/domain/ids';
 
 /** テナントルートプレフィックス（一括削除用） */
 export function tenantPrefix(tenantId: string): string {
@@ -11,21 +12,21 @@ export function tenantPrefix(tenantId: string): string {
 /** 子供単位のプレフィックス（子供削除時の一括削除用） */
 export function childPrefix(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	type: 'avatars' | 'generated' | 'voices',
 ): string {
 	return `tenants/${tenantId}/${type}/${childId}/`;
 }
 
 /** アバターアップロード用キー */
-export function avatarKey(tenantId: string, childId: number, ext: string): string {
+export function avatarKey(tenantId: string, childId: ChildId, ext: string): string {
 	return `tenants/${tenantId}/avatars/${childId}/${randomUUID()}.${ext}`;
 }
 
 /** AI生成画像用キー */
 export function generatedImageKey(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	promptHash: string,
 	ext: string,
 ): string {
@@ -33,7 +34,7 @@ export function generatedImageKey(
 }
 
 /** 音声ファイル用キー（#0157 向け） */
-export function voiceKey(tenantId: string, childId: number, ext: string): string {
+export function voiceKey(tenantId: string, childId: ChildId, ext: string): string {
 	return `tenants/${tenantId}/voices/${childId}/${randomUUID()}.${ext}`;
 }
 

@@ -27,6 +27,8 @@
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/reward-redemption-repo.ts (SSOT)
 
 import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type {
 	IRewardRedemptionRepo,
 	RedemptionRequestRow,
@@ -70,9 +72,9 @@ function normalizeResolvedByParentId(raw: unknown): string | null {
 function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 	const stripped = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: stripped.id as number,
-		childId: stripped.childId as number,
-		rewardId: stripped.rewardId as number,
+		id: String(stripped.id as number),
+		childId: asChildId(stripped.childId as number),
+		rewardId: String(stripped.rewardId as number),
 		requestedAt: stripped.requestedAt as number,
 		status: stripped.status as string,
 		parentNote: (stripped.parentNote ?? null) as string | null,
@@ -98,8 +100,8 @@ function extractDenorm(item: Record<string, unknown>): DenormFields {
  * Query し id 一致を探す (service の findSpecialRewards と同じパターン)。
  */
 async function findRewardFields(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<{ title: string; icon: string | null; points: number } | undefined> {
 	const result = await getDocClient().send(
@@ -108,9 +110,9 @@ async function findRewardFields(
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			FilterExpression: 'id = :rid',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': specialRewardPrefix(),
-				':rid': rewardId,
+				':rid': Number(rewardId),
 			},
 		}),
 	);
@@ -138,7 +140,7 @@ export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionReq
 	const reward = await findRewardFields(input.childId, input.rewardId, tenantId);
 
 	const row: RedemptionRequestRow = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		rewardId: input.rewardId,
 		requestedAt: input.requestedAt,
@@ -161,9 +163,13 @@ export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionReq
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...rewardRedemptionKey(input.childId, id, tenantId),
+				...rewardRedemptionKey(Number(input.childId), id, tenantId),
 				...row,
 				...denorm,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
+				rewardId: Number(input.rewardId),
 			},
 		}),
 	);
@@ -180,7 +186,7 @@ export const insertRedemptionForRestore: IRewardRedemptionRepo['insertRedemption
 		const id = await nextId(ENTITY_NAMES.rewardRedemption, tenantId);
 
 		const row: RedemptionRequestRow = {
-			id,
+			id: String(id),
 			childId: input.childId,
 			rewardId: input.rewardId,
 			requestedAt: input.requestedAt,
@@ -214,11 +220,15 @@ export const insertRedemptionForRestore: IRewardRedemptionRepo['insertRedemption
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...rewardRedemptionKey(input.childId, id, tenantId),
+					...rewardRedemptionKey(Number(input.childId), id, tenantId),
 					...row,
 					// denorm.rewardTitle/Icon/Points は snapshot 優先で解決済 (SQLite の
 					// COALESCE(snapshot, live) 読み出しと等価の表示値を item に非正規化保存)。
 					...denorm,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(input.childId),
+					rewardId: Number(input.rewardId),
 				},
 			}),
 		);
@@ -322,7 +332,7 @@ export const updateRedemptionRequestStatus: IRewardRedemptionRepo['updateRedempt
 			const result = await getDocClient().send(
 				new UpdateCommand({
 					TableName: TABLE_NAME,
-					Key: rewardRedemptionKey(childId, id, tenantId),
+					Key: rewardRedemptionKey(Number(childId), Number(id), tenantId),
 					UpdateExpression: `SET ${sets.join(', ')}`,
 					ConditionExpression: 'attribute_exists(PK)',
 					ExpressionAttributeNames: names,
@@ -346,7 +356,7 @@ export const findPendingByChildAndReward: IRewardRedemptionRepo['findPendingByCh
 	async (childId, rewardId, tenantId): Promise<RedemptionRequestRow | undefined> => {
 		const items = await queryChildRedemptions(childId, tenantId);
 		const match = items.find(
-			(item) => item.rewardId === rewardId && item.status === 'pending_parent_approval',
+			(item) => item.rewardId === Number(rewardId) && item.status === 'pending_parent_approval',
 		);
 		return match ? toRow(match) : undefined;
 	};
@@ -395,7 +405,7 @@ export const markRedemptionResultShown: IRewardRedemptionRepo['markRedemptionRes
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: rewardRedemptionKey(childId, id, tenantId),
+				Key: rewardRedemptionKey(Number(childId), Number(id), tenantId),
 				UpdateExpression: 'SET shownToChildAt = :now',
 				ConditionExpression: 'attribute_exists(PK)',
 				ExpressionAttributeValues: { ':now': now },
@@ -446,7 +456,7 @@ export const hasPendingByReward: IRewardRedemptionRepo['hasPendingByReward'] = a
 ): Promise<boolean> => {
 	const items = await scanTenantRedemptions(tenantId);
 	return items.some(
-		(item) => item.rewardId === rewardId && item.status === 'pending_parent_approval',
+		(item) => item.rewardId === Number(rewardId) && item.status === 'pending_parent_approval',
 	);
 };
 
@@ -467,7 +477,7 @@ export const deleteByTenantId: IRewardRedemptionRepo['deleteByTenantId'] = async
 
 /** 指定 child partition の REDEMPT# item を全件 Query する (ページング対応)。 */
 async function queryChildRedemptions(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -479,7 +489,7 @@ async function queryChildRedemptions(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': PREFIX,
 				},
 				ExclusiveStartKey: lastKey,

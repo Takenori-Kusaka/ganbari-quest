@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/sibling-cheer-service.ts
 // きょうだい間おうえんスタンプ
 
@@ -30,8 +31,8 @@ export function getStampByCode(code: string) {
 
 /** おうえんスタンプ送信 */
 export async function sendCheer(
-	fromChildId: number,
-	toChildId: number,
+	fromChildId: ChildId,
+	toChildId: ChildId,
 	stampCode: string,
 	tenantId: string,
 ): Promise<{ success: true; cheer: SiblingCheer } | { error: string }> {
@@ -57,7 +58,7 @@ export async function sendCheer(
 
 /** 未表示のおうえんを取得 */
 export async function getUnshownCheers(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<(SiblingCheer & { stampLabel: string; stampEmoji: string; fromName: string })[]> {
 	const cheers = await findUnshownCheers(childId, tenantId);
@@ -78,15 +79,15 @@ export async function getUnshownCheers(
 }
 
 /** おうえんを既読にする */
-export async function markCheersShown(cheerIds: number[], tenantId: string): Promise<void> {
+export async function markCheersShown(cheerIds: string[], tenantId: string): Promise<void> {
 	await markShown(cheerIds, tenantId);
 }
 
 /** きょうだい一覧（自分以外）を取得 — スタンプ送信先選択用 */
 async function _getSiblingList(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-): Promise<{ id: number; nickname: string }[]> {
+): Promise<{ id: ChildId; nickname: string }[]> {
 	const children = await findAllChildren(tenantId);
 	return children.filter((c) => c.id !== childId).map((c) => ({ id: c.id, nickname: c.nickname }));
 }

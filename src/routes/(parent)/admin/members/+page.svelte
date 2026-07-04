@@ -1,6 +1,7 @@
 <script lang="ts">
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -12,7 +13,7 @@ let { data } = $props();
 
 let inviteRole = $state<'parent' | 'child'>('parent');
 let inviteEmail = $state('');
-let inviteChildId = $state<number | '' | undefined>(undefined);
+let inviteChildId = $state<ChildId | '' | undefined>(undefined);
 let creating = $state(false);
 let inviteLink = $state('');
 let qrDataUrl = $state('');
@@ -23,7 +24,7 @@ let copyButtonVariant: 'secondary' | 'success' = $derived(copied ? 'secondary' :
 // 紐づけ済みでない子供のみ選択可能
 let availableChildren = $derived(
 	(data.children ?? []).filter(
-		(c: { id: number; nickname: string; userId: string | null }) => !c.userId,
+		(c: { id: ChildId; nickname: string; userId: string | null }) => !c.userId,
 	),
 );
 
@@ -34,7 +35,7 @@ async function createInvite() {
 	qrDataUrl = '';
 	copied = false;
 	try {
-		const body: { role: string; childId?: number; email?: string } = { role: inviteRole };
+		const body: { role: string; childId?: ChildId; email?: string } = { role: inviteRole };
 		if (inviteRole === 'child' && inviteChildId) {
 			body.childId = inviteChildId;
 		}
@@ -131,7 +132,7 @@ async function createViewerLink() {
 	}
 }
 
-async function revokeViewerToken(id: number) {
+async function revokeViewerToken(id: string) {
 	if (!confirm(MEMBERS_LABELS.viewerRevokeConfirm)) return;
 	try {
 		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, {
@@ -148,7 +149,7 @@ async function revokeViewerToken(id: number) {
 	window.location.reload();
 }
 
-async function deleteViewerToken(id: number) {
+async function deleteViewerToken(id: string) {
 	if (!confirm(MEMBERS_LABELS.viewerDeleteConfirm)) return;
 	try {
 		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });

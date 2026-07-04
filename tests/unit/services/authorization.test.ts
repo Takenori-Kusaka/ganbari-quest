@@ -2,6 +2,7 @@
 // 認可マトリクスのユニットテスト (#0123: viewer廃止, device廃止)
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 
@@ -16,7 +17,7 @@ const parentContext: AuthContext = { tenantId: 't-1', role: 'parent', licenseSta
 const childContext: AuthContext = {
 	tenantId: 't-1',
 	role: 'child',
-	childId: 1,
+	childId: asChildId(1),
 	licenseStatus: 'active',
 };
 

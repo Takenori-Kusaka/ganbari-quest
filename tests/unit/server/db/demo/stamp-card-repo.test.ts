@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/server/db/demo/stamp-card-repo.test.ts
 // #2097 Phase B-2: demo Stamp Card Repo の Fake (read) + Stub (write) hybrid 検証。
 // production seed と同じ 16 種マスタを返し、4 子供 (902/903/904/906) に当週 + 前週カードを供給する。
@@ -47,37 +48,49 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		// 901 たろう (baby) は ADR-0011 によりスタンプカード非表示 → fixture 対象外
 
 		it.each([902, 903, 904, 906])('childId=%i: 当週 active card が取れる', async (childId) => {
-			const card = await stampCardRepo.findCardByChildAndWeek(childId, CURRENT_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(childId),
+				CURRENT_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeDefined();
-			expect(card?.childId).toBe(childId);
+			expect(card?.childId).toBe(asChildId(childId));
 			expect(card?.weekStart).toBe(CURRENT_WEEK_START);
 			expect(card?.status).toBe('collecting');
 			expect(card?.redeemedPoints).toBeNull();
 		});
 
 		it.each([902, 903, 904, 906])('childId=%i: 前週 redeemed card が取れる', async (childId) => {
-			const card = await stampCardRepo.findCardByChildAndWeek(childId, PREV_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(childId),
+				PREV_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeDefined();
-			expect(card?.childId).toBe(childId);
+			expect(card?.childId).toBe(asChildId(childId));
 			expect(card?.weekStart).toBe(PREV_WEEK_START);
 			expect(card?.status).toBe('redeemed');
 			expect(card?.redeemedPoints).toBe(100); // 5*10 + 50 complete bonus
 		});
 
 		it('baby (childId=901) はカード未登録 → undefined', async () => {
-			const card = await stampCardRepo.findCardByChildAndWeek(901, CURRENT_WEEK_START, 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(
+				asChildId(901),
+				CURRENT_WEEK_START,
+				'demo',
+			);
 			expect(card).toBeUndefined();
 		});
 
 		it('未登録の週 (2 週前) は undefined', async () => {
-			const card = await stampCardRepo.findCardByChildAndWeek(902, '2026-03-09', 'demo');
+			const card = await stampCardRepo.findCardByChildAndWeek(asChildId(902), '2026-03-09', 'demo');
 			expect(card).toBeUndefined();
 		});
 	});
 
 	describe('findEntriesWithMasterByCardId', () => {
 		it('902 当週カード (cardId=702): 2 件、master 情報付き', async () => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(702, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId('702', 'demo');
 			expect(entries.length).toBe(2);
 			expect(entries[0]?.name).toBeTruthy();
 			expect(entries[0]?.emoji).toBeTruthy();
@@ -87,7 +100,7 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		});
 
 		it('902 前週カード (cardId=802): 5/5 完了', async () => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(802, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId('802', 'demo');
 			expect(entries.length).toBe(5);
 			expect(entries.map((e) => e.slot)).toEqual([1, 2, 3, 4, 5]);
 		});
@@ -97,22 +110,22 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 			[704, 4], // 904 当週
 			[706, 4], // 906 当週
 		])('cardId=%i: %i 件のエントリ', async (cardId, expected) => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(cardId, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId(String(cardId), 'demo');
 			expect(entries.length).toBe(expected);
 		});
 
 		it.each([803, 804, 806])('前週 cardId=%i は 5/5 完了 (redeemable な状態)', async (cardId) => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(cardId, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId(String(cardId), 'demo');
 			expect(entries.length).toBe(5);
 		});
 
 		it('未登録 cardId は空配列', async () => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(99999, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId('99999', 'demo');
 			expect(entries).toEqual([]);
 		});
 
 		it('entries の master join: rarity が N / R / SR / UR のいずれか', async () => {
-			const entries = await stampCardRepo.findEntriesWithMasterByCardId(806, 'demo');
+			const entries = await stampCardRepo.findEntriesWithMasterByCardId('806', 'demo');
 			for (const e of entries) {
 				expect(['N', 'R', 'SR', 'UR']).toContain(e.rarity);
 			}
@@ -137,7 +150,7 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		});
 
 		it('全 card の childId が demo 4 子供 (902/903/904/906) のいずれか', () => {
-			const validChildIds = new Set([902, 903, 904, 906]);
+			const validChildIds = new Set(['902', '903', '904', '906']);
 			for (const card of DEMO_STAMP_CARDS) {
 				expect(validChildIds.has(card.childId)).toBe(true);
 			}
@@ -173,23 +186,23 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		it('insertCard は input をそのまま返す', async () => {
 			const card = await stampCardRepo.insertCard(
 				{
-					childId: 902,
+					childId: asChildId(902),
 					weekStart: '2026-04-13',
 					weekEnd: '2026-04-19',
 					status: 'collecting',
 				},
 				'demo',
 			);
-			expect(card.id).toBe(0);
-			expect(card.childId).toBe(902);
+			expect(card.id).toBe('0');
+			expect(card.childId).toBe('902');
 		});
 
 		it('insertEntry は no-op', async () => {
 			await expect(
 				stampCardRepo.insertEntry(
 					{
-						cardId: 702,
-						stampMasterId: 1,
+						cardId: '702',
+						stampMasterId: '1',
 						omikujiRank: 'kichi',
 						slot: 3,
 						loginDate: '2026-03-25',
@@ -202,8 +215,8 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		it('updateCardStatus / updateCardStatusIfCollecting は no-op / 0', async () => {
 			await expect(
 				stampCardRepo.updateCardStatus(
-					902,
-					702,
+					asChildId(902),
+					'702',
 					{
 						status: 'redeemed',
 						redeemedPoints: 50,
@@ -216,8 +229,8 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 
 			expect(
 				await stampCardRepo.updateCardStatusIfCollecting(
-					902,
-					702,
+					asChildId(902),
+					'702',
 					{
 						status: 'redeemed',
 						redeemedPoints: 50,

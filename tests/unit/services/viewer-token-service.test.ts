@@ -34,7 +34,7 @@ describe('viewer-token-service', () => {
 
 	it('createViewerToken: 30日間トークンを発行', async () => {
 		mockInsert.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'test-tenant',
 			token: 'abc123',
 			label: 'おばあちゃん用',
@@ -55,13 +55,13 @@ describe('viewer-token-service', () => {
 			}),
 			'test-tenant',
 		);
-		expect(result.id).toBe(1);
+		expect(result.id).toBe('1');
 		expect(result.label).toBe('おばあちゃん用');
 	});
 
 	it('createViewerToken: 無期限トークンは expiresAt=null', async () => {
 		mockInsert.mockResolvedValue({
-			id: 2,
+			id: '2',
 			tenantId: 'test-tenant',
 			token: 'xyz',
 			label: null,
@@ -80,8 +80,8 @@ describe('viewer-token-service', () => {
 
 	it('listViewerTokens: テナント一覧を取得', async () => {
 		const tokens = [
-			{ id: 1, tenantId: 'test-tenant', token: 'a' },
-			{ id: 2, tenantId: 'test-tenant', token: 'b' },
+			{ id: '1', tenantId: 'test-tenant', token: 'a' },
+			{ id: '2', tenantId: 'test-tenant', token: 'b' },
 		];
 		mockFindByTenant.mockResolvedValue(tokens);
 
@@ -92,7 +92,7 @@ describe('viewer-token-service', () => {
 
 	it('resolveViewerToken: 有効なトークンを返す', async () => {
 		mockFindByToken.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'test-tenant',
 			token: 'valid-token',
 			revokedAt: null,
@@ -113,7 +113,7 @@ describe('viewer-token-service', () => {
 
 	it('resolveViewerToken: 無効化されたトークンは null', async () => {
 		mockFindByToken.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'test-tenant',
 			token: 'revoked',
 			revokedAt: '2026-04-04T00:00:00.000Z',
@@ -126,7 +126,7 @@ describe('viewer-token-service', () => {
 
 	it('resolveViewerToken: 期限切れトークンは null', async () => {
 		mockFindByToken.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'test-tenant',
 			token: 'expired',
 			revokedAt: null,
@@ -139,13 +139,13 @@ describe('viewer-token-service', () => {
 
 	it('revokeViewerToken: repo.revoke を呼ぶ', async () => {
 		mockRevoke.mockResolvedValue(undefined);
-		await revokeViewerToken(1, 'test-tenant');
-		expect(mockRevoke).toHaveBeenCalledWith(1, 'test-tenant');
+		await revokeViewerToken('1', 'test-tenant');
+		expect(mockRevoke).toHaveBeenCalledWith('1', 'test-tenant');
 	});
 
 	it('deleteViewerToken: repo.deleteById を呼ぶ', async () => {
 		mockDeleteById.mockResolvedValue(undefined);
-		await deleteViewerToken(1, 'test-tenant');
-		expect(mockDeleteById).toHaveBeenCalledWith(1, 'test-tenant');
+		await deleteViewerToken('1', 'test-tenant');
+		expect(mockDeleteById).toHaveBeenCalledWith('1', 'test-tenant');
 	});
 });

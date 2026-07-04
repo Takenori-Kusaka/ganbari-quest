@@ -17,7 +17,7 @@ export async function findByPin(_pinCode: string): Promise<CloudExportRecord | u
 }
 
 export async function findById(
-	_id: number,
+	_id: string,
 	_tenantId: string,
 ): Promise<CloudExportRecord | undefined> {
 	return undefined;
@@ -25,7 +25,7 @@ export async function findById(
 
 export async function insert(input: InsertCloudExportInput): Promise<CloudExportRecord> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId: input.tenantId,
 		exportType: input.exportType,
 		pinCode: input.pinCode,
@@ -43,12 +43,12 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	};
 }
 
-export async function incrementDownloadCount(_id: number, _tenantId: string): Promise<void> {
+export async function incrementDownloadCount(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 export async function updateStatus(
-	_id: number,
+	_id: string,
 	_tenantId: string,
 	_status: CloudExportStatus,
 	_opts?: UpdateCloudExportStatusInput,
@@ -66,7 +66,7 @@ export async function findStaleBuildingExports(
 	return [];
 }
 
-export async function deleteById(_id: number, _tenantId: string): Promise<void> {
+export async function deleteById(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 

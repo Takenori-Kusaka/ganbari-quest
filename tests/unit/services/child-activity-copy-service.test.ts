@@ -9,6 +9,7 @@
 //   - 単一 convenience (copyChildActivitiesToSibling) の正常系 / self-copy 例外
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -35,7 +36,7 @@ import {
 } from '../../../src/lib/server/services/child-activity-copy-service';
 
 const TENANT = 'test-tenant-001';
-const SOURCE = 101;
+const SOURCE = asChildId(101);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -62,33 +63,33 @@ describe('copyChildActivitiesToSiblings', () => {
 
 	it('targets 1 件 -> 1 回 copy、件数集計', async () => {
 		mockCopyActivitiesAcrossChildren.mockResolvedValueOnce([
-			{ id: 1, childId: 202 },
-			{ id: 2, childId: 202 },
-			{ id: 3, childId: 202 },
+			{ id: '1', childId: asChildId(202) },
+			{ id: '2', childId: asChildId(202) },
+			{ id: '3', childId: asChildId(202) },
 		]);
 
 		const result = await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202],
+			targetChildIds: [asChildId(202)],
 		});
 
 		expect(result.totalCopied).toBe(3);
 		expect(result.byTargetChild).toEqual({ 202: 3 });
 		expect(result.errors).toEqual([]);
-		expect(mockCopyActivitiesAcrossChildren).toHaveBeenCalledWith(SOURCE, 202, TENANT);
+		expect(mockCopyActivitiesAcrossChildren).toHaveBeenCalledWith(SOURCE, '202', TENANT);
 	});
 
 	it('targets 3 件 -> 全 target に copy、件数別集計', async () => {
 		mockCopyActivitiesAcrossChildren
-			.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]) // 202: 2 件
-			.mockResolvedValueOnce([{ id: 3 }]) // 303: 1 件
-			.mockResolvedValueOnce([{ id: 4 }, { id: 5 }, { id: 6 }]); // 404: 3 件
+			.mockResolvedValueOnce([{ id: '1' }, { id: '2' }]) // 202: 2 件
+			.mockResolvedValueOnce([{ id: '3' }]) // 303: 1 件
+			.mockResolvedValueOnce([{ id: '4' }, { id: '5' }, { id: '6' }]); // 404: 3 件
 
 		const result = await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303, 404],
+			targetChildIds: [asChildId(202), asChildId(303), asChildId(404)],
 		});
 
 		expect(result.totalCopied).toBe(6);
@@ -112,13 +113,13 @@ describe('copyChildActivitiesToSiblings', () => {
 
 	it('source が target に混在 -> source のみ除外、他は処理継続', async () => {
 		mockCopyActivitiesAcrossChildren
-			.mockResolvedValueOnce([{ id: 1 }])
-			.mockResolvedValueOnce([{ id: 2 }, { id: 3 }]);
+			.mockResolvedValueOnce([{ id: '1' }])
+			.mockResolvedValueOnce([{ id: '2' }, { id: '3' }]);
 
 		const result = await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [SOURCE, 202, 303],
+			targetChildIds: [SOURCE, asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(3);
@@ -129,19 +130,19 @@ describe('copyChildActivitiesToSiblings', () => {
 	it('1 target の copy が失敗しても他は継続 (partial success)', async () => {
 		mockCopyActivitiesAcrossChildren
 			.mockRejectedValueOnce(new Error('child=202 not found'))
-			.mockResolvedValueOnce([{ id: 1 }, { id: 2 }]);
+			.mockResolvedValueOnce([{ id: '1' }, { id: '2' }]);
 
 		const result = await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(2);
 		expect(result.byTargetChild).toEqual({ 303: 2 });
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toMatchObject({
-			targetChildId: 202,
+			targetChildId: asChildId(202),
 			message: expect.stringContaining('not found'),
 		});
 	});
@@ -150,7 +151,7 @@ describe('copyChildActivitiesToSiblings', () => {
 		await copyChildActivitiesToSiblings({
 			tenantId: 'tenant-x',
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		for (const call of mockCopyActivitiesAcrossChildren.mock.calls) {
@@ -161,12 +162,12 @@ describe('copyChildActivitiesToSiblings', () => {
 	it('source は全呼出で固定値', async () => {
 		await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
-			sourceChildId: 999,
-			targetChildIds: [202, 303, 404],
+			sourceChildId: asChildId(999),
+			targetChildIds: [asChildId(202), asChildId(303), asChildId(404)],
 		});
 
 		for (const call of mockCopyActivitiesAcrossChildren.mock.calls) {
-			expect(call[0]).toBe(999);
+			expect(call[0]).toBe('999');
 		}
 	});
 
@@ -178,7 +179,7 @@ describe('copyChildActivitiesToSiblings', () => {
 		const result = await copyChildActivitiesToSiblings({
 			tenantId: TENANT,
 			sourceChildId: SOURCE,
-			targetChildIds: [202, 303],
+			targetChildIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.totalCopied).toBe(0);
@@ -192,13 +193,13 @@ describe('copyChildActivitiesToSiblings', () => {
 
 describe('copyChildActivitiesToSibling', () => {
 	it('正常系: repo に source / target / tenant を渡す', async () => {
-		const expected = [{ id: 1, childId: 202 }];
+		const expected = [{ id: '1', childId: asChildId(202) }];
 		mockCopyActivitiesAcrossChildren.mockResolvedValueOnce(expected);
 
-		const result = await copyChildActivitiesToSibling(TENANT, SOURCE, 202);
+		const result = await copyChildActivitiesToSibling(TENANT, SOURCE, asChildId(202));
 
 		expect(result).toEqual(expected);
-		expect(mockCopyActivitiesAcrossChildren).toHaveBeenCalledWith(SOURCE, 202, TENANT);
+		expect(mockCopyActivitiesAcrossChildren).toHaveBeenCalledWith(SOURCE, '202', TENANT);
 	});
 
 	it('source == target -> Error を throw', async () => {
@@ -209,6 +210,8 @@ describe('copyChildActivitiesToSibling', () => {
 	it('repo 例外は呼出側に伝播する', async () => {
 		mockCopyActivitiesAcrossChildren.mockRejectedValueOnce(new Error('FK violation'));
 
-		await expect(copyChildActivitiesToSibling(TENANT, SOURCE, 202)).rejects.toThrow('FK violation');
+		await expect(copyChildActivitiesToSibling(TENANT, SOURCE, asChildId(202))).rejects.toThrow(
+			'FK violation',
+		);
 	});
 });

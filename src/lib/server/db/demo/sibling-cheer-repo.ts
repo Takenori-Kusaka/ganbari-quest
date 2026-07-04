@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo ISiblingCheerRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 // #2097 Phase B-5b: cheer fixture を返すことで子供画面でのおうえん表示を確認可能化。
@@ -10,7 +11,7 @@ export async function insertCheer(
 	tenantId: string,
 ): Promise<SiblingCheer> {
 	return {
-		id: 0,
+		id: '0',
 		fromChildId: input.fromChildId,
 		toChildId: input.toChildId,
 		stampCode: input.stampCode,
@@ -29,11 +30,11 @@ export async function insertForRestore(
 	tenantId: string,
 ): Promise<SiblingCheer> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0, tenantId };
+	return { ...input, id: '0', tenantId };
 }
 
 export async function findUnshownCheers(
-	toChildId: number,
+	toChildId: ChildId,
 	_tenantId: string,
 ): Promise<SiblingCheer[]> {
 	// #2097 Phase B-5b: 未表示の cheer を返す (受信側 = toChildId)。
@@ -48,18 +49,18 @@ export async function findUnshownCheers(
  * 履歴 / 統計画面で過去のおうえんも見えるようにするための補助メソッド。
  */
 export async function findCheersByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<SiblingCheer[]> {
 	return DEMO_SIBLING_CHEERS.filter((c) => c.toChildId === childId);
 }
 
-export async function markShown(_cheerIds: number[], _tenantId: string): Promise<void> {
+export async function markShown(_cheerIds: string[], _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 export async function countTodayCheersFrom(
-	_fromChildId: number,
+	_fromChildId: ChildId,
 	_tenantId: string,
 ): Promise<number> {
 	return 0;

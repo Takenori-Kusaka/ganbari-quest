@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // Demo IStatusRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -10,13 +11,13 @@ import type {
 	StatusHistoryEntry,
 } from '../types';
 
-export async function findStatuses(childId: number, _tenantId: string): Promise<Status[]> {
+export async function findStatuses(childId: ChildId, _tenantId: string): Promise<Status[]> {
 	return DEMO_STATUSES.filter((s) => s.childId === childId);
 }
 
 export async function findStatus(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<Status | undefined> {
 	return DEMO_STATUSES.find((s) => s.childId === childId && s.categoryId === categoryId);
@@ -24,15 +25,15 @@ export async function findStatus(
 
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertStatus(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	totalXp: number,
 	level: number,
 	peakXp: number,
 	_tenantId: string,
 ): Promise<Status> {
 	return {
-		id: 0,
+		id: '0',
 		childId,
 		categoryId,
 		totalXp,
@@ -47,7 +48,7 @@ export async function insertStatusHistory(
 	_tenantId: string,
 ): Promise<StatusHistoryEntry> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		categoryId: input.categoryId,
 		value: input.value,
@@ -58,8 +59,8 @@ export async function insertStatusHistory(
 }
 
 export async function findRecentStatusHistory(
-	_childId: number,
-	_categoryId: number,
+	_childId: ChildId,
+	_categoryId: CategoryId,
 	_tenantId: string,
 	_limit?: number,
 ): Promise<StatusHistoryEntry[]> {
@@ -67,8 +68,8 @@ export async function findRecentStatusHistory(
 }
 
 export async function findStatusValueAtDate(
-	_childId: number,
-	_categoryId: number,
+	_childId: ChildId,
+	_categoryId: CategoryId,
 	_beforeDate: string,
 	_tenantId: string,
 ): Promise<number | null> {
@@ -77,7 +78,7 @@ export async function findStatusValueAtDate(
 
 export async function findBenchmark(
 	_age: number,
-	_categoryId: number,
+	_categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<MarketBenchmark | undefined> {
 	return undefined;
@@ -90,14 +91,14 @@ export async function findAllBenchmarks(_tenantId: string): Promise<MarketBenchm
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertBenchmark(
 	age: number,
-	categoryId: number,
+	categoryId: CategoryId,
 	mean: number,
 	stdDev: number,
 	source: string,
 	_tenantId: string,
 ): Promise<MarketBenchmark> {
 	return {
-		id: 0,
+		id: '0',
 		age,
 		categoryId,
 		mean,
@@ -107,12 +108,12 @@ export async function upsertBenchmark(
 	};
 }
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }
 
 export async function findLastActivityDates(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<{ category: number; lastDate: string | null }[]> {
 	return [];

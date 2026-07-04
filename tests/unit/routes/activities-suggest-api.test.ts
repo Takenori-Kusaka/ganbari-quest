@@ -2,6 +2,7 @@
 // #727: /api/v1/activities/suggest のプランゲート + 認証チェック
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '$lib/domain/ids';
 
 // --- モック ---
 const mockResolveFullPlanTier = vi.fn();
@@ -100,7 +101,7 @@ describe('POST /api/v1/activities/suggest', () => {
 		mockResolveFullPlanTier.mockResolvedValue('family');
 		mockSuggestActivity.mockResolvedValue({
 			name: '公園で走る',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🏃',
 			basePoints: 5,
 			source: 'ai',

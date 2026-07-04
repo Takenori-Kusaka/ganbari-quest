@@ -36,6 +36,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+import { type ActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import {
 	findActivityLogs,
 	insertActivityLog,
@@ -87,13 +88,15 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 	it('活動/ログ/台帳/ステータス/履歴/ログボ/評価/ごほうび が件数一致で復元される', async () => {
 		// --- seed: 1 child + 全 source 実体を 1 件ずつ ---
 		testDb.insert(schema.children).values({ nickname: 'ゆうき', age: 8, theme: 'blue' }).run(); // id=1
-		seedChildActivities(testDb, 1, [{ name: 'うんどうA', categoryId: 1, icon: '🏃' }]);
-		const seededActs = await getChildActivities(1, T);
-		const actId = seededActs[0]?.id as number;
+		seedChildActivities(testDb, 1, [
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' },
+		]);
+		const seededActs = await getChildActivities(asChildId(1), T);
+		const actId = seededActs[0]?.id as ActivityId;
 
 		await insertActivityLog(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				activityId: actId,
 				points: 5,
 				streakDays: 1,
@@ -103,15 +106,24 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			},
 			T,
 		);
-		await insertPointLedger({ childId: 1, amount: 5, type: 'activity', description: 'test' }, T);
-		await upsertStatus(1, 1, 50, 3, 50, T);
+		await insertPointLedger(
+			{ childId: asChildId(1), amount: 5, type: 'activity', description: 'test' },
+			T,
+		);
+		await upsertStatus(asChildId(1), asCategoryId(1), 50, 3, 50, T);
 		await insertStatusHistory(
-			{ childId: 1, categoryId: 1, value: 50, changeAmount: 5, changeType: 'activity' },
+			{
+				childId: asChildId(1),
+				categoryId: asCategoryId(1),
+				value: 50,
+				changeAmount: 5,
+				changeType: 'activity',
+			},
 			T,
 		);
 		await insertLoginBonus(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				loginDate: '2026-03-01',
 				rank: 'normal',
 				basePoints: 5,
@@ -123,7 +135,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		await insertEvaluation(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				weekStart: '2026-03-01',
 				weekEnd: '2026-03-07',
 				scoresJson: '{}',
@@ -133,7 +145,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		const reward = await insertSpecialReward(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: 'ごほうびX',
 				description: undefined,
 				points: 100,
@@ -147,11 +159,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: ごほうび交換履歴を 1 件 seed し、承認済 (approved) まで進める。
 		// round-trip 後に status=approved と snapshot がそのまま復元されることを検証する。
 		const redemption = await insertRedemptionRequest(
-			{ childId: 1, rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
 			T,
 		);
 		await updateRedemptionRequestStatus(
-			1,
+			asChildId(1),
 			redemption.id,
 			{ status: 'approved', resolvedAt: 1_700_000_100_000, resolvedByParentId: 'parent-1' },
 			T,
@@ -165,7 +177,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: チャレンジを 1 件 seed し進捗を進める。round-trip 後に currentValue/status が保全されることを検証。
 		const challenge = await getRepos().childChallenge.insert(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: 'うんどうチャレンジ',
 				periodType: 'weekly',
 				startDate: '2026-03-01',
@@ -182,7 +194,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// 押印 (omikujiRank/earnedAt) が保全されることを検証する。
 		const stampCard = await getRepos().stampCard.insertCardForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				weekStart: '2026-02-23',
 				weekEnd: '2026-03-01',
 				status: 'redeemed',
@@ -209,7 +221,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// および certificate.child_id (no-cascade) が clear を阻害せず「子復元=1」になることを検証する。
 		await getRepos().certificate.insertForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				certificateType: 'graduation',
 				title: 'そつぎょうしょうめいしょ',
 				description: null,
@@ -222,7 +234,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: 親→子メッセージを 1 件 seed (既読 shownAt 明示)。round-trip 後に sentAt/shownAt が保全されること。
 		await getRepos().message.insertForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				messageType: 'text',
 				stampCode: null,
 				body: 'よくがんばったね',
@@ -239,7 +251,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// isPinned/pinOrder が保全され、activityName で正しい childActivity に再結合されることを検証する。
 		await getRepos().activityPref.insertForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				activityId: actId,
 				isPinned: 1,
 				pinOrder: 1,
@@ -251,7 +263,12 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		// #3329: おやすみ日を 1 件 seed (createdAt 明示)。round-trip 後に reason/createdAt が保全されること。
 		await getRepos().evaluation.insertRestDayForRestore(
-			{ childId: 1, date: '2026-03-03', reason: 'sick', createdAt: '2026-03-03T00:00:00Z' },
+			{
+				childId: asChildId(1),
+				date: '2026-03-03',
+				reason: 'sick',
+				createdAt: '2026-03-03T00:00:00Z',
+			},
 			T,
 		);
 
@@ -259,7 +276,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// createdAt/scene/label が保全され、filePath/publicUrl が新 childId へ remap されることを検証する。
 		await getRepos().voice.insertForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				scene: 'complete',
 				label: 'できたよ',
 				filePath: `tenants/${T}/voices/1/sample.mp3`,
@@ -320,20 +337,24 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const cid = children[0]?.id as number;
 
 		// --- 全種別の round-trip 件数一致 ---
-		expect((await getChildActivities(cid, T)).length, '活動').toBe(1);
-		expect((await findActivityLogs(cid, T)).length, '活動ログ').toBe(1);
-		expect((await findPointHistory(cid, { limit: 999, offset: 0 }, T)).length, 'ポイント台帳').toBe(
-			1,
-		);
-		expect((await findStatuses(cid, T)).length, 'ステータス').toBeGreaterThanOrEqual(1);
-		expect((await findRecentStatusHistory(cid, 1, T, 999)).length, 'ステータス履歴').toBe(1);
-		expect((await findRecentBonuses(cid, T, 999)).length, 'ログインボーナス').toBe(1);
-		expect((await findEvaluationsByChild(cid, 999, T)).length, '評価').toBe(1);
-		expect((await findSpecialRewards(cid, T)).length, 'ごほうび').toBe(1);
+		expect((await getChildActivities(asChildId(cid), T)).length, '活動').toBe(1);
+		expect((await findActivityLogs(asChildId(cid), T)).length, '活動ログ').toBe(1);
+		expect(
+			(await findPointHistory(asChildId(cid), { limit: 999, offset: 0 }, T)).length,
+			'ポイント台帳',
+		).toBe(1);
+		expect((await findStatuses(asChildId(cid), T)).length, 'ステータス').toBeGreaterThanOrEqual(1);
+		expect(
+			(await findRecentStatusHistory(asChildId(cid), asCategoryId(1), T, 999)).length,
+			'ステータス履歴',
+		).toBe(1);
+		expect((await findRecentBonuses(asChildId(cid), T, 999)).length, 'ログインボーナス').toBe(1);
+		expect((await findEvaluationsByChild(asChildId(cid), 999, T)).length, '評価').toBe(1);
+		expect((await findSpecialRewards(asChildId(cid), T)).length, 'ごほうび').toBe(1);
 
 		// #3329: 交換履歴が status / snapshot を保って復元される。
 		const restoredRedemptions = await findRedemptionRequestsByTenant(T, {
-			childId: cid,
+			childId: asChildId(cid),
 			limit: 999,
 		});
 		expect(restoredRedemptions.length, '交換履歴').toBe(1);
@@ -345,44 +366,44 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
 
 		// #3329: チャレンジが進捗 (currentValue) を保って復元される。
-		const restoredChallenges = await getRepos().childChallenge.findByChildId(cid, T);
+		const restoredChallenges = await getRepos().childChallenge.findByChildId(asChildId(cid), T);
 		expect(restoredChallenges.length, 'チャレンジ').toBe(1);
 		expect(restoredChallenges[0]?.currentValue, 'チャレンジ進捗保全').toBe(2);
 		expect(restoredChallenges[0]?.title, 'チャレンジ title 保全').toBe('うんどうチャレンジ');
 
 		// #3329: スタンプカードが status/redeemed を保ち、押印 (omikujiRank) が復元される。
-		const restoredCards = await getRepos().stampCard.findCardsByChild(cid, T);
+		const restoredCards = await getRepos().stampCard.findCardsByChild(asChildId(cid), T);
 		expect(restoredCards.length, 'スタンプカード').toBe(1);
 		expect(restoredCards[0]?.status, 'カード status 保全').toBe('redeemed');
 		expect(restoredCards[0]?.redeemedPoints, 'カード redeemedPoints 保全').toBe(20);
 		const restoredEntries = await getRepos().stampCard.findEntriesByCardId(
-			restoredCards[0]?.id as number,
+			restoredCards[0]?.id as string,
 			T,
 		);
 		expect(restoredEntries.length, '押印').toBe(1);
 		expect(restoredEntries[0]?.omikujiRank, '押印 omikujiRank 保全').toBe('test-rank');
 		// #3329: 証明書が issuedAt を保って復元される (clear の FK 阻害も「子復元=1」で担保済)。
-		const restoredCerts = await getRepos().certificate.findCertificates(cid, T);
+		const restoredCerts = await getRepos().certificate.findCertificates(asChildId(cid), T);
 		expect(restoredCerts.length, '証明書').toBe(1);
 		expect(restoredCerts[0]?.issuedAt, '証明書 issuedAt 保全').toBe('2026-02-01T00:00:00Z');
 		expect(restoredCerts[0]?.certificateType, '証明書 type 保全').toBe('graduation');
 
 		// #3329: 親→子メッセージが sentAt/shownAt を保って復元される。
-		const restoredMsgs = await getRepos().message.findMessages(cid, 999, T);
+		const restoredMsgs = await getRepos().message.findMessages(asChildId(cid), 999, T);
 		expect(restoredMsgs.length, 'メッセージ').toBe(1);
 		expect(restoredMsgs[0]?.sentAt, 'メッセージ sentAt 保全').toBe('2026-02-10T09:00:00Z');
 		expect(restoredMsgs[0]?.shownAt, 'メッセージ shownAt 保全').toBe('2026-02-10T18:00:00Z');
 
 		// #3329: 活動設定が isPinned/pinOrder 保全 + 正しい childActivity に再結合されて復元される。
-		const restoredPrefs = await getRepos().activityPref.findAllByChild(cid, T);
+		const restoredPrefs = await getRepos().activityPref.findAllByChild(asChildId(cid), T);
 		expect(restoredPrefs.length, '活動設定').toBe(1);
 		expect(restoredPrefs[0]?.isPinned, '活動設定 isPinned 保全').toBe(1);
 		expect(restoredPrefs[0]?.pinOrder, '活動設定 pinOrder 保全').toBe(1);
-		const restoredActs2 = await getChildActivities(cid, T);
+		const restoredActs2 = await getChildActivities(asChildId(cid), T);
 		expect(restoredPrefs[0]?.activityId, '活動設定 activityId 再結合').toBe(restoredActs2[0]?.id);
 
 		// #3329: おやすみ日が reason/createdAt 保全で復元される。
-		const restoredRestDays = await getRepos().evaluation.findRestDaysByChild(cid, T);
+		const restoredRestDays = await getRepos().evaluation.findRestDaysByChild(asChildId(cid), T);
 		expect(restoredRestDays.length, 'おやすみ日').toBe(1);
 		expect(restoredRestDays[0]?.reason, 'おやすみ日 reason 保全').toBe('sick');
 		expect(restoredRestDays[0]?.createdAt, 'おやすみ日 createdAt 保全').toBe(
@@ -390,7 +411,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 
 		// #3329: カスタム音声 DB 行が createdAt/scene 保全 + filePath/publicUrl を新 childId へ remap して復元される。
-		const restoredVoices = await getRepos().voice.findAllByChild(cid, T);
+		const restoredVoices = await getRepos().voice.findAllByChild(asChildId(cid), T);
 		expect(restoredVoices.length, '音声').toBe(1);
 		expect(restoredVoices[0]?.scene, '音声 scene 保全').toBe('complete');
 		expect(restoredVoices[0]?.label, '音声 label 保全').toBe('できたよ');
@@ -413,7 +434,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// auto:weekly を get-or-create で seed (sourceTemplateId は既定 'auto:weekly')。
 		const auto = await getRepos().childChallenge.getOrCreateWeeklyAuto(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: '今週のチャレンジ',
 				periodType: 'weekly',
 				startDate: '2026-03-02',
@@ -444,17 +465,17 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const cid = children[0]?.id as number;
 
 		// 復元行: auto:weekly が単一行 + 進捗保全。
-		const restored = await getRepos().childChallenge.findByChildId(cid, T);
+		const restored = await getRepos().childChallenge.findByChildId(asChildId(cid), T);
 		expect(restored.length, '復元後 auto challenge 1 件').toBe(1);
 		expect(restored[0]?.sourceTemplateId, '復元 sourceTemplateId').toBe('auto:weekly');
 		expect(restored[0]?.currentValue, '復元 進捗保全').toBe(4);
-		const restoredId = restored[0]?.id as number;
+		const restoredId = restored[0]?.id as string;
 
 		// 後続 get-or-create(同一週) が **復元行と同一の単一行** を返す (= 復元行が dedup 経路に収まり
 		// 2 個目を生成しない)。重複していれば findByChildId が 2 件になり fail する。
 		const reGot = await getRepos().childChallenge.getOrCreateWeeklyAuto(
 			{
-				childId: cid,
+				childId: asChildId(cid),
 				title: '今週のチャレンジ',
 				periodType: 'weekly',
 				startDate: '2026-03-02',
@@ -467,7 +488,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		expect(reGot.id, 'get-or-create が復元行に収束 (重複生成なし)').toBe(restoredId);
 		expect(reGot.currentValue, 'get-or-create が進捗を破壊しない').toBe(4);
-		const afterReGet = await getRepos().childChallenge.findByChildId(cid, T);
+		const afterReGet = await getRepos().childChallenge.findByChildId(asChildId(cid), T);
 		expect(afterReGet.length, '後続 get-or-create 後も 1 件 (二重生成なし)').toBe(1);
 	});
 
@@ -477,7 +498,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		const ch = await getRepos().childChallenge.insert(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: '完了チャレンジ',
 				periodType: 'weekly',
 				startDate: '2026-03-09',
@@ -510,7 +531,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		const children = testDb.select().from(schema.children).all();
 		const cid = children[0]?.id as number;
-		const restored = (await getRepos().childChallenge.findByChildId(cid, T))[0];
+		const restored = (await getRepos().childChallenge.findByChildId(asChildId(cid), T))[0];
 		expect(restored, '復元 challenge 存在').toBeTruthy();
 
 		// 全フィールドが verbatim 保全される (id / childId は再採番されるため除外して厳格比較)。
@@ -566,8 +587,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		await getRepos().siblingCheer.insertForRestore(
 			{
-				fromChildId: 1,
-				toChildId: 2,
+				fromChildId: asChildId(1),
+				toChildId: asChildId(2),
 				stampCode: 'good-job',
 				sentAt: '2026-02-15T10:00:00Z',
 				shownAt: '2026-02-15T12:00:00Z',
@@ -593,8 +614,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		const restored = await getRepos().siblingCheer.findAllByTenant(T);
 		expect(restored.length, 'おうえん').toBe(1);
-		expect(restored[0]?.fromChildId, 'from 再結合').toBe(brother);
-		expect(restored[0]?.toChildId, 'to 再結合').toBe(sister);
+		expect(restored[0]?.fromChildId, 'from 再結合').toBe(String(brother));
+		expect(restored[0]?.toChildId, 'to 再結合').toBe(String(sister));
 		expect(restored[0]?.sentAt, 'sentAt 保全').toBe('2026-02-15T10:00:00Z');
 		expect(restored[0]?.shownAt, 'shownAt 保全').toBe('2026-02-15T12:00:00Z');
 	});
@@ -610,7 +631,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		seedChildActivities(testDb, 1, [
 			{
 				name: 'おてつだい',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🧹',
 				basePoints: 5,
 				dailyLimit: 3,
@@ -620,7 +641,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			},
 			{
 				name: 'みずをのむ',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '💧',
 				basePoints: 1,
 				dailyLimit: 0, // 無制限
@@ -647,7 +668,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		const children = testDb.select().from(schema.children).all();
 		const cid = children[0]?.id as number;
-		const acts = await getChildActivities(cid, T);
+		const acts = await getChildActivities(asChildId(cid), T);
 		const help = acts.find((a) => a.name === 'おてつだい');
 		const water = acts.find((a) => a.name === 'みずをのむ');
 
@@ -668,11 +689,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		// family master template を作成 → child へ配信 (assignment エッジ作成)。
 		const tpl = await repo.insertTemplate({ name: 'もちものリスト', icon: '📋' }, T);
-		await repo.assignTemplateToChildren(tpl.id, [1], T);
+		await repo.assignTemplateToChildren(tpl.id, [asChildId(1)], T);
 		// 日次 override (特定日に項目追加) を createdAt 明示で seed。
 		await repo.insertOverrideForRestore(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				targetDate: '2026-03-05',
 				action: 'add',
 				itemName: 'すいとう',
@@ -697,11 +718,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const cid = children[0]?.id as number;
 
 		// 配信エッジ再構成: child に template が配信されている (findAssignmentsByChild が 1 件)。
-		const assignments = await repo.findAssignmentsByChild(cid, T);
+		const assignments = await repo.findAssignmentsByChild(asChildId(cid), T);
 		expect(assignments.length, '配信エッジ再構成').toBe(1);
 
 		// 日次 override: createdAt 保全で復元。
-		const overrides = await repo.findOverridesByChild(cid, T);
+		const overrides = await repo.findOverridesByChild(asChildId(cid), T);
 		expect(overrides.length, 'override').toBe(1);
 		expect(overrides[0]?.itemName, 'override itemName 保全').toBe('すいとう');
 		expect(overrides[0]?.createdAt, 'override createdAt 保全').toBe('2026-03-05T07:00:00Z');
@@ -719,7 +740,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			{ name: 'アーカイブ済リスト', icon: '📋', isArchived: 1 },
 			T,
 		);
-		await repo.assignTemplateToChildren(tpl.id, [1], T);
+		await repo.assignTemplateToChildren(tpl.id, [asChildId(1)], T);
 
 		// export は archived template を isArchived:true で出力する (includeArchived=true 取得)。
 		const data = await exportFamilyData({ tenantId: T });
@@ -734,7 +755,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// 復元後も archived のまま (import が isArchived を drop すると default 0 = active 復活 → fail)。
 		const children = testDb.select().from(schema.children).all();
 		const cid = children[0]?.id as number;
-		const restored = (await repo.findTemplatesByChild(cid, T, true, true)).find(
+		const restored = (await repo.findTemplatesByChild(asChildId(cid), T, true, true)).find(
 			(t) => t.name === 'アーカイブ済リスト',
 		);
 		expect(restored, '復元された').toBeTruthy();
@@ -796,7 +817,7 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 		seedChildActivities(testDb, 1, [
 			{
 				name: 'フィールド網羅活動',
-				categoryId: 2, // default 1 以外 (categoryCode='benkyou' で round-trip)
+				categoryId: asCategoryId(2), // default 1 以外 (categoryCode='benkyou' で round-trip)
 				icon: '🎯',
 				basePoints: 42,
 				triggerHint: 'ヒント文',
@@ -831,10 +852,12 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 
 		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
 		const restored = (
-			await getRepos().childActivity.findActivitiesByChild(cid, T, { includeArchived: true })
+			await getRepos().childActivity.findActivitiesByChild(asChildId(cid), T, {
+				includeArchived: true,
+			})
 		).find((a) => a.name === 'フィールド網羅活動');
 		expect(restored, '復元された').toBeTruthy();
-		expect(restored?.categoryId, 'categoryCode→categoryId round-trip').toBe(2);
+		expect(restored?.categoryId, 'categoryCode→categoryId round-trip').toBe('2');
 		expect(restored?.basePoints, 'basePoints').toBe(42);
 		expect(restored?.triggerHint, 'triggerHint').toBe('ヒント文');
 		expect(restored?.isMainQuest, 'isMainQuest').toBe(1);
@@ -863,7 +886,7 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 			},
 			T,
 		);
-		await repo.assignTemplateToChildren(tpl.id, [1], T);
+		await repo.assignTemplateToChildren(tpl.id, [asChildId(1)], T);
 		await repo.insertTemplateItem(
 			{
 				templateId: tpl.id,
@@ -888,7 +911,7 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 		await importFamilyData(data, T);
 
 		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
-		const restored = (await repo.findTemplatesByChild(cid, T, true, true)).find(
+		const restored = (await repo.findTemplatesByChild(asChildId(cid), T, true, true)).find(
 			(t) => t.name === 'フィールド網羅リスト',
 		);
 		expect(restored, '復元された').toBeTruthy();

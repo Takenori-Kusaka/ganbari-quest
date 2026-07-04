@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
 	calcMasteryBonus,
@@ -48,7 +49,7 @@ export type { ActivityLogEntry, ActivityLogSummary };
 
 /** 活動記録時のカテゴリXP変化情報 */
 export interface XpGainInfo {
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	xpBefore: number;
 	xpAfter: number;
@@ -64,9 +65,9 @@ export interface MasteryLevelUpInfo {
 }
 
 export interface RecordActivityResult {
-	id: number;
-	childId: number;
-	activityId: number;
+	id: string;
+	childId: ChildId;
+	activityId: ActivityId;
 	activityName: string;
 	basePoints: number;
 	streakDays: number;
@@ -86,10 +87,10 @@ export interface RecordActivityResult {
 	}[];
 	comboBonus: ComboResult | null;
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
-	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
+	eventMissions: { eventId: string; missionComplete: boolean; eventName: string }[];
 	calendarEvents: { eventCode: string; eventName: string; completed: boolean }[];
 	siblingChallenges: {
-		challengeId: number;
+		challengeId: string;
 		allSiblingsComplete: boolean;
 		challengeTitle: string;
 	}[];
@@ -97,7 +98,7 @@ export interface RecordActivityResult {
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
 	customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[];
-	specialReward: { id: number; title: string; points: number; icon: string | null } | null;
+	specialReward: { id: string; title: string; points: number; icon: string | null } | null;
 }
 
 // ActivityLogEntry / ActivityLogSummary types are defined in activity-log-aggregation.ts
@@ -106,8 +107,8 @@ export interface RecordActivityResult {
 /** Record an activity for a child. Enforces daily limit and streak calculation. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export async function recordActivity(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	tenantId: string,
 ): Promise<
 	| RecordActivityResult
@@ -161,7 +162,7 @@ export async function recordActivity(
 		todayActivityIds.add(activityId);
 		const { getChildActivities } = await import('$lib/server/services/activity-service');
 		const childActivities = await getChildActivities(childId, tenantId, {});
-		const todayCategoryIds = new Set<number>();
+		const todayCategoryIds = new Set<CategoryId>();
 		for (const a of childActivities) {
 			if (todayActivityIds.has(a.id)) {
 				todayCategoryIds.add(a.categoryId);
@@ -304,7 +305,7 @@ export async function recordActivity(
 	// #2295 (EPIC #2294 ①): シーズンイベント / シーズンパス / カレンダーイベント進捗チェック削除済 (2026-05-19)
 	// season-event-service / seasonal-content-service / calendar-event-service とも撤去。
 	// 後続で参照される空配列は型整合のため宣言だけ残す。
-	const eventMissionResults: { eventId: number; missionComplete: boolean; eventName: string }[] =
+	const eventMissionResults: { eventId: string; missionComplete: boolean; eventName: string }[] =
 		[];
 	const calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
 
@@ -315,7 +316,7 @@ export async function recordActivity(
 	// per-child instance では自身の completed のみ判定し、group 全員完了は admin/challenges 側で集計する。
 	// 上流呼び出し (record action UI) では本配列の各要素を「自身が completed したか」のシグナルのみ使用。
 	let siblingChallengeResults: {
-		challengeId: number;
+		challengeId: string;
 		allSiblingsComplete: boolean;
 		challengeTitle: string;
 	}[] = [];
@@ -404,7 +405,7 @@ export async function recordActivity(
 	const customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
 
 	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
-	let specialReward: { id: number; title: string; points: number; icon: string | null } | null =
+	let specialReward: { id: string; title: string; points: number; icon: string | null } | null =
 		null;
 	try {
 		const { checkAndGrantFixedIntervalReward } = await import(
@@ -453,7 +454,7 @@ export async function recordActivity(
 
 /** Cancel an activity record (within cancel window). */
 export async function cancelActivityLog(
-	logId: number,
+	logId: string,
 	tenantId: string,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
 	const log = await findActivityLogById(logId, tenantId);
@@ -501,7 +502,7 @@ export async function cancelActivityLog(
 
 /** Get activity logs for a child with filtering. */
 export async function getActivityLogs(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	options: { from?: string; to?: string } = {},
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
@@ -511,28 +512,31 @@ export async function getActivityLogs(
 
 /** Get today's recorded activity counts for a child (for UI completed/badge state). */
 export async function getTodayRecordedActivityCounts(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-): Promise<{ activityId: number; count: number }[]> {
+): Promise<{ activityId: ActivityId; count: number }[]> {
 	const today = todayDate();
 	return await getTodayActivityCountsByChild(childId, today, tenantId);
 }
 
 /** Get today's recorded activity IDs for a child (backward-compatible wrapper). */
-async function _getTodayRecordedActivityIds(childId: number, tenantId: string): Promise<number[]> {
+async function _getTodayRecordedActivityIds(
+	childId: ChildId,
+	tenantId: string,
+): Promise<ActivityId[]> {
 	return (await getTodayRecordedActivityCounts(childId, tenantId)).map((r) => r.activityId);
 }
 
 /** Check if a child has any activity records (for first-time experience detection). */
-export async function hasAnyActivityRecords(childId: number, tenantId: string): Promise<boolean> {
+export async function hasAnyActivityRecords(childId: ChildId, tenantId: string): Promise<boolean> {
 	const count = await countActiveActivityLogs(childId, tenantId);
 	return count > 0;
 }
 
 /** Calculate streak (consecutive days including today). */
 async function calculateStreak(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	today: string,
 	tenantId: string,
 ): Promise<number> {

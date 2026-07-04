@@ -66,7 +66,7 @@ async function detectAndCleanOrphans(dryRun: boolean): Promise<CleanupResult> {
 		// 子供存在チェック（子供IDがある場合）
 		const childMatch = key.match(/^tenants\/[^/]+\/[^/]+\/(\d+)\//);
 		if (childMatch?.[1]) {
-			const childId = Number(childMatch[1]);
+			const childId = childMatch[1];
 			const cacheKey = `${tenantId}:${childId}`;
 			if (!childCache.has(cacheKey)) {
 				const children = await repos.child.findAllChildren(tenantId);

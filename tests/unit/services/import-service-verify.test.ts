@@ -153,7 +153,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
 	mockChildActivityFindByChild.mockResolvedValue([]);
-	mockChildActivityInsert.mockResolvedValue({ id: 1 });
+	mockChildActivityInsert.mockResolvedValue({ id: '1' });
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
@@ -231,7 +231,7 @@ describe('previewImport duplicates (#1254 G2)', () => {
 				triggerHint: null,
 			},
 		];
-		mockFindActivities.mockResolvedValue([{ id: 1, name: '既存活動' }]);
+		mockFindActivities.mockResolvedValue([{ id: '1', name: '既存活動' }]);
 
 		const preview = await previewImport(data, TENANT);
 
@@ -274,9 +274,9 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 			},
 		];
 
-		mockInsertChild.mockResolvedValue({ id: 101 });
-		mockFindActivities.mockResolvedValue([{ id: 5, name: '運動' }]);
-		mockChildActivityFindByChild.mockResolvedValue([{ id: 5, name: '運動' }]);
+		mockInsertChild.mockResolvedValue({ id: '101' });
+		mockFindActivities.mockResolvedValue([{ id: '5', name: '運動' }]);
+		mockChildActivityFindByChild.mockResolvedValue([{ id: '5', name: '運動' }]);
 		mockFindActivityLogs.mockResolvedValue([
 			{ activityName: '運動', recordedAt: '2026-03-15T08:30:00Z' },
 		]);
@@ -306,7 +306,7 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 			},
 		];
 
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockFindRecentBonuses.mockResolvedValue([{ loginDate: '2026-03-15' }]);
 
 		const result = await importFamilyData(data, TENANT);
@@ -335,8 +335,8 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 				grantedAt: '2026-03-15T00:00:00Z',
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
-		mockFindSpecialRewards.mockResolvedValue([{ id: 10, title: 'おこづかい' }]);
+		mockInsertChild.mockResolvedValue({ id: '101' });
+		mockFindSpecialRewards.mockResolvedValue([{ id: '10', title: 'おこづかい' }]);
 
 		const result = await importFamilyData(data, TENANT);
 
@@ -364,7 +364,7 @@ describe('importFamilyData explicit error reporting (#1254 G2)', () => {
 				createdAt: '2026-03-15T08:30:00Z',
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockInsertPointLedger.mockRejectedValue(new Error('DB failure'));
 
 		const result = await importFamilyData(data, TENANT);
@@ -388,7 +388,7 @@ describe('importFamilyData explicit error reporting (#1254 G2)', () => {
 				recordedAt: '2026-03-15T08:30:00Z',
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockInsertStatusHistory.mockRejectedValue(new Error('DB failure'));
 
 		const result = await importFamilyData(data, TENANT);
@@ -456,8 +456,8 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 			},
 		];
 		mockFindActivities.mockResolvedValue([
-			{ id: 1, name: '既存-プリセットA-別名', sourcePresetId: 'pack-morning-routine' },
-			{ id: 2, name: '名前だけ同じ', sourcePresetId: null },
+			{ id: '1', name: '既存-プリセットA-別名', sourcePresetId: 'pack-morning-routine' },
+			{ id: '2', name: '名前だけ同じ', sourcePresetId: null },
 		]);
 
 		const preview = await previewImport(data, TENANT);
@@ -486,9 +486,9 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 		];
 		// 既存行は 3 件、全て NULL (プリセット非由来)
 		mockFindActivities.mockResolvedValue([
-			{ id: 1, name: 'レガシー1', sourcePresetId: null },
-			{ id: 2, name: 'レガシー2', sourcePresetId: null },
-			{ id: 3, name: 'レガシー3', sourcePresetId: null },
+			{ id: '1', name: 'レガシー1', sourcePresetId: null },
+			{ id: '2', name: 'レガシー2', sourcePresetId: null },
+			{ id: '3', name: 'レガシー3', sourcePresetId: null },
 		]);
 
 		const preview = await previewImport(data, TENANT);
@@ -517,9 +517,9 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 				sourcePresetId: 'reward-pack-money',
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockFindSpecialRewards.mockResolvedValue([
-			{ id: 10, title: '既存おこづかい', sourcePresetId: 'reward-pack-money' },
+			{ id: '10', title: '既存おこづかい', sourcePresetId: 'reward-pack-money' },
 		]);
 
 		const result = await importFamilyData(data, TENANT);
@@ -546,9 +546,9 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 				items: [],
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockFindTemplatesByChild.mockResolvedValue([
-			{ id: 50, name: '既存モーニング', sourcePresetId: 'checklist-morning' },
+			{ id: '50', name: '既存モーニング', sourcePresetId: 'checklist-morning' },
 		]);
 
 		const result = await importFamilyData(data, TENANT);
@@ -572,12 +572,12 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 				items: [],
 			},
 		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
+		mockInsertChild.mockResolvedValue({ id: '101' });
 		mockFindTemplatesByChild.mockResolvedValue([
-			{ id: 1, name: 'レガシー', sourcePresetId: null },
-			{ id: 2, name: 'レガシー2', sourcePresetId: null },
+			{ id: '1', name: 'レガシー', sourcePresetId: null },
+			{ id: '2', name: 'レガシー2', sourcePresetId: null },
 		]);
-		mockInsertTemplate.mockResolvedValue({ id: 999 });
+		mockInsertTemplate.mockResolvedValue({ id: '999' });
 
 		const result = await importFamilyData(data, TENANT);
 

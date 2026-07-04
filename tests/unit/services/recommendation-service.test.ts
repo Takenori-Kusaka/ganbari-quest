@@ -2,6 +2,14 @@
 // おすすめ活動サービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import type { Activity } from '../../../src/lib/server/db/types';
 
 // --- Top-level mocks (Vitest hoists these) ---
@@ -9,13 +17,15 @@ import type { Activity } from '../../../src/lib/server/db/types';
 const mockGetSetting = vi.fn<(key: string, tenantId: string) => Promise<string | undefined>>();
 const mockSetSetting = vi.fn<(key: string, value: string, tenantId: string) => Promise<void>>();
 const mockCountPointLedgerEntriesByTypeAndDate =
-	vi.fn<(childId: number, type: string, date: string, tenantId: string) => Promise<number>>();
+	vi.fn<(childId: ChildId, type: string, date: string, tenantId: string) => Promise<number>>();
 const mockCountTodayActiveRecords =
-	vi.fn<(childId: number, activityId: number, date: string, tenantId: string) => Promise<number>>();
+	vi.fn<
+		(childId: ChildId, activityId: ActivityId, date: string, tenantId: string) => Promise<number>
+	>();
 const mockInsertPointLedger =
 	vi.fn<
 		(
-			input: { childId: number; amount: number; type: string; description: string },
+			input: { childId: ChildId; amount: number; type: string; description: string },
 			tenantId: string,
 		) => Promise<void>
 	>();
@@ -48,7 +58,12 @@ import {
 
 // --- Helper: Activity factory ---
 
-function makeActivity(overrides: Partial<Activity> & { id: number; categoryId: number }): Activity {
+function makeActivity(
+	overrides: Partial<Omit<Activity, 'id' | 'categoryId'>> & {
+		id: ActivityId | number | string;
+		categoryId: CategoryId | number | string;
+	},
+): Activity {
 	return {
 		name: `activity-${overrides.id}`,
 		icon: '🎯',
@@ -72,6 +87,8 @@ function makeActivity(overrides: Partial<Activity> & { id: number; categoryId: n
 		// #1755 (#1709-A): 「今日のおやくそく」優先度
 		priority: 'optional',
 		...overrides,
+		id: asActivityId(overrides.id),
+		categoryId: asCategoryId(overrides.categoryId),
 	};
 }
 
@@ -88,8 +105,8 @@ describe('selectRecommendations', () => {
 
 	it('全て非表示(isVisible=0)の場合は空配列を返す', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1, isVisible: 0 }),
-			makeActivity({ id: 2, categoryId: 2, isVisible: 0 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1), isVisible: 0 }),
+			makeActivity({ id: '2', categoryId: asCategoryId(2), isVisible: 0 }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01');
 		expect(result).toEqual([]);
@@ -97,9 +114,9 @@ describe('selectRecommendations', () => {
 
 	it('表示と非表示が混在する場合は表示のみを対象にする', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1, isVisible: 1 }),
-			makeActivity({ id: 2, categoryId: 1, isVisible: 0 }),
-			makeActivity({ id: 3, categoryId: 2, isVisible: 1 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1), isVisible: 1 }),
+			makeActivity({ id: '2', categoryId: asCategoryId(1), isVisible: 0 }),
+			makeActivity({ id: '3', categoryId: asCategoryId(2), isVisible: 1 }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01');
 		// isVisible=0 のid:2 は選ばれない
@@ -108,19 +125,19 @@ describe('selectRecommendations', () => {
 	});
 
 	it('活動が1件だけの場合は1件だけ返す', () => {
-		const activities = [makeActivity({ id: 10, categoryId: 1 })];
+		const activities = [makeActivity({ id: '10', categoryId: asCategoryId(1) })];
 		const result = selectRecommendations(activities, '2026-04-01');
 		expect(result).toHaveLength(1);
-		expect(result[0]?.activityId).toBe(10);
+		expect(result[0]?.activityId).toBe('10');
 	});
 
 	it('count=3 (デフォルト)で最大3件返す', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1 }),
-			makeActivity({ id: 2, categoryId: 2 }),
-			makeActivity({ id: 3, categoryId: 3 }),
-			makeActivity({ id: 4, categoryId: 4 }),
-			makeActivity({ id: 5, categoryId: 5 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+			makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+			makeActivity({ id: '3', categoryId: asCategoryId(3) }),
+			makeActivity({ id: '4', categoryId: asCategoryId(4) }),
+			makeActivity({ id: '5', categoryId: asCategoryId(5) }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01');
 		expect(result.length).toBeLessThanOrEqual(3);
@@ -129,11 +146,11 @@ describe('selectRecommendations', () => {
 
 	it('count パラメータを指定して件数を制御できる', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1 }),
-			makeActivity({ id: 2, categoryId: 2 }),
-			makeActivity({ id: 3, categoryId: 3 }),
-			makeActivity({ id: 4, categoryId: 4 }),
-			makeActivity({ id: 5, categoryId: 5 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+			makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+			makeActivity({ id: '3', categoryId: asCategoryId(3) }),
+			makeActivity({ id: '4', categoryId: asCategoryId(4) }),
+			makeActivity({ id: '5', categoryId: asCategoryId(5) }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01', 5);
 		expect(result).toHaveLength(5);
@@ -141,9 +158,9 @@ describe('selectRecommendations', () => {
 
 	it('count=1 の場合は1件だけ返す', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1 }),
-			makeActivity({ id: 2, categoryId: 2 }),
-			makeActivity({ id: 3, categoryId: 3 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+			makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+			makeActivity({ id: '3', categoryId: asCategoryId(3) }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01', 1);
 		expect(result).toHaveLength(1);
@@ -151,8 +168,8 @@ describe('selectRecommendations', () => {
 
 	it('活動数がcountより少ない場合は活動数分だけ返す', () => {
 		const activities = [
-			makeActivity({ id: 1, categoryId: 1 }),
-			makeActivity({ id: 2, categoryId: 2 }),
+			makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+			makeActivity({ id: '2', categoryId: asCategoryId(2) }),
 		];
 		const result = selectRecommendations(activities, '2026-04-01', 5);
 		expect(result).toHaveLength(2);
@@ -161,9 +178,9 @@ describe('selectRecommendations', () => {
 	describe('カテゴリ分散', () => {
 		it('複数カテゴリから選択される', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1 }),
-				makeActivity({ id: 2, categoryId: 2 }),
-				makeActivity({ id: 3, categoryId: 3 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(3) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			// 3カテゴリから3件選ばれれば、activityId は重複しない
@@ -173,9 +190,9 @@ describe('selectRecommendations', () => {
 
 		it('単一カテゴリでも指定数まで返す（フォールバック補充）', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1, basePoints: 3 }),
-				makeActivity({ id: 2, categoryId: 1, basePoints: 5 }),
-				makeActivity({ id: 3, categoryId: 1, basePoints: 8 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1), basePoints: 3 }),
+				makeActivity({ id: '2', categoryId: asCategoryId(1), basePoints: 5 }),
+				makeActivity({ id: '3', categoryId: asCategoryId(1), basePoints: 8 }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			expect(result).toHaveLength(3);
@@ -189,9 +206,9 @@ describe('selectRecommendations', () => {
 		it('同一カテゴリ内で basePoints が低いものが優先される', () => {
 			// 同一カテゴリに3件あり、basePoints が異なる
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1, basePoints: 10 }),
-				makeActivity({ id: 2, categoryId: 1, basePoints: 1 }),
-				makeActivity({ id: 3, categoryId: 1, basePoints: 5 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1), basePoints: 10 }),
+				makeActivity({ id: '2', categoryId: asCategoryId(1), basePoints: 1 }),
+				makeActivity({ id: '3', categoryId: asCategoryId(1), basePoints: 5 }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01', 1);
 			// ソート後のグループ内は [id:2(1pt), id:3(5pt), id:1(10pt)]
@@ -233,11 +250,11 @@ describe('selectRecommendations', () => {
 	describe('重複排除', () => {
 		it('同じ activityId が複数回選ばれない', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1 }),
-				makeActivity({ id: 2, categoryId: 2 }),
-				makeActivity({ id: 3, categoryId: 3 }),
-				makeActivity({ id: 4, categoryId: 4 }),
-				makeActivity({ id: 5, categoryId: 5 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(3) }),
+				makeActivity({ id: '4', categoryId: asCategoryId(4) }),
+				makeActivity({ id: '5', categoryId: asCategoryId(5) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01', 5);
 			const ids = result.map((r) => r.activityId);
@@ -248,9 +265,9 @@ describe('selectRecommendations', () => {
 	describe('reason フィールド', () => {
 		it('最初の推薦は category_diversity', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1 }),
-				makeActivity({ id: 2, categoryId: 2 }),
-				makeActivity({ id: 3, categoryId: 3 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(3) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			expect(result[0]?.reason).toBe('category_diversity');
@@ -258,9 +275,9 @@ describe('selectRecommendations', () => {
 
 		it('2番目の推薦は easy_win', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1 }),
-				makeActivity({ id: 2, categoryId: 2 }),
-				makeActivity({ id: 3, categoryId: 3 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(3) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			if (result.length >= 2) {
@@ -270,9 +287,9 @@ describe('selectRecommendations', () => {
 
 		it('3番目以降の推薦は daily_rotation', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1 }),
-				makeActivity({ id: 2, categoryId: 2 }),
-				makeActivity({ id: 3, categoryId: 3 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(2) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(3) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			if (result.length >= 3) {
@@ -283,9 +300,9 @@ describe('selectRecommendations', () => {
 		it('フォールバック補充分は daily_rotation になる', () => {
 			// 1カテゴリだけだと、ラウンドロビンで1件しか選ばれず、残りはフォールバック
 			const activities = [
-				makeActivity({ id: 1, categoryId: 1, basePoints: 3 }),
-				makeActivity({ id: 2, categoryId: 1, basePoints: 5 }),
-				makeActivity({ id: 3, categoryId: 1, basePoints: 8 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(1), basePoints: 3 }),
+				makeActivity({ id: '2', categoryId: asCategoryId(1), basePoints: 5 }),
+				makeActivity({ id: '3', categoryId: asCategoryId(1), basePoints: 8 }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			// フォールバック補充分は全て daily_rotation
@@ -296,7 +313,7 @@ describe('selectRecommendations', () => {
 
 	describe('エッジケース', () => {
 		it('count=0 の場合は空配列を返す', () => {
-			const activities = [makeActivity({ id: 1, categoryId: 1 })];
+			const activities = [makeActivity({ id: '1', categoryId: asCategoryId(1) })];
 			const result = selectRecommendations(activities, '2026-04-01', 0);
 			expect(result).toEqual([]);
 		});
@@ -311,16 +328,16 @@ describe('selectRecommendations', () => {
 		});
 
 		it('空文字の日付でもクラッシュしない', () => {
-			const activities = [makeActivity({ id: 1, categoryId: 1 })];
+			const activities = [makeActivity({ id: '1', categoryId: asCategoryId(1) })];
 			const result = selectRecommendations(activities, '');
 			expect(result).toHaveLength(1);
 		});
 
 		it('カテゴリID が連続でなくても正しく動作する', () => {
 			const activities = [
-				makeActivity({ id: 1, categoryId: 10 }),
-				makeActivity({ id: 2, categoryId: 50 }),
-				makeActivity({ id: 3, categoryId: 100 }),
+				makeActivity({ id: '1', categoryId: asCategoryId(10) }),
+				makeActivity({ id: '2', categoryId: asCategoryId(50) }),
+				makeActivity({ id: '3', categoryId: asCategoryId(100) }),
 			];
 			const result = selectRecommendations(activities, '2026-04-01');
 			expect(result.length).toBeLessThanOrEqual(3);
@@ -335,12 +352,12 @@ describe('selectRecommendations', () => {
 // ============================================================
 describe('isFocusModeActive', () => {
 	it('常に true を返す（デイリークエスト常時有効）', async () => {
-		const result = await isFocusModeActive(1, TENANT);
+		const result = await isFocusModeActive(asChildId(1), TENANT);
 		expect(result).toBe(true);
 	});
 
 	it('どの childId でも true を返す', async () => {
-		const result = await isFocusModeActive(42, TENANT);
+		const result = await isFocusModeActive(asChildId(42), TENANT);
 		expect(result).toBe(true);
 	});
 });
@@ -357,7 +374,7 @@ describe('markFocusModeStart', () => {
 		mockGetSetting.mockResolvedValue(undefined);
 		mockSetSetting.mockResolvedValue(undefined);
 
-		await markFocusModeStart(1, TENANT);
+		await markFocusModeStart(asChildId(1), TENANT);
 
 		expect(mockSetSetting).toHaveBeenCalledTimes(1);
 		const [key, value, tenant] = mockSetSetting.mock.calls[0] ?? [];
@@ -370,7 +387,7 @@ describe('markFocusModeStart', () => {
 	it('既に開始日がある場合は上書きしない', async () => {
 		mockGetSetting.mockResolvedValue('2026-03-28');
 
-		await markFocusModeStart(1, TENANT);
+		await markFocusModeStart(asChildId(1), TENANT);
 
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
@@ -379,7 +396,7 @@ describe('markFocusModeStart', () => {
 		mockGetSetting.mockResolvedValue(undefined);
 		mockSetSetting.mockResolvedValue(undefined);
 
-		await markFocusModeStart(99, TENANT);
+		await markFocusModeStart(asChildId(99), TENANT);
 
 		expect(mockSetSetting).toHaveBeenCalledWith(
 			'focus_mode_start_99',
@@ -398,7 +415,7 @@ describe('checkAndGrantFocusBonus', () => {
 	});
 
 	it('おすすめ活動IDが空なら null を返す', async () => {
-		const result = await checkAndGrantFocusBonus(1, [], TENANT);
+		const result = await checkAndGrantFocusBonus(asChildId(1), [], TENANT);
 		expect(result).toBeNull();
 	});
 
@@ -414,7 +431,11 @@ describe('checkAndGrantFocusBonus', () => {
 		// 既に付与済み
 		mockCountPointLedgerEntriesByTypeAndDate.mockResolvedValue(1);
 
-		const result = await checkAndGrantFocusBonus(1, [1, 2, 3], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(1), asActivityId(2), asActivityId(3)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});
@@ -427,7 +448,11 @@ describe('checkAndGrantFocusBonus', () => {
 			.mockResolvedValueOnce(1) // activity 1: completed
 			.mockResolvedValueOnce(0); // activity 2: not completed
 
-		const result = await checkAndGrantFocusBonus(1, [1, 2, 3], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(1), asActivityId(2), asActivityId(3)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});
@@ -438,13 +463,17 @@ describe('checkAndGrantFocusBonus', () => {
 		mockCountTodayActiveRecords.mockResolvedValue(1); // 全完了
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
-		const result = await checkAndGrantFocusBonus(1, [10, 20, 30], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 
 		expect(result).toEqual({ bonusPoints: 10 });
 		expect(mockInsertPointLedger).toHaveBeenCalledTimes(1);
 		expect(mockInsertPointLedger).toHaveBeenCalledWith(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				amount: 10,
 				type: 'focus_bonus',
 				description: 'きょうのクエスト コンプリート！',
@@ -459,7 +488,7 @@ describe('checkAndGrantFocusBonus', () => {
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
-		const result = await checkAndGrantFocusBonus(1, [1], TENANT);
+		const result = await checkAndGrantFocusBonus(asChildId(1), [asActivityId(1)], TENANT);
 		expect(result?.bonusPoints).toBe(10);
 	});
 
@@ -469,13 +498,17 @@ describe('checkAndGrantFocusBonus', () => {
 		mockCountTodayActiveRecords.mockResolvedValue(1);
 		mockInsertPointLedger.mockResolvedValue(undefined);
 
-		await checkAndGrantFocusBonus(1, [10, 20, 30], TENANT);
+		await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 
 		// 各活動IDに対して countTodayActiveRecords が呼ばれる
 		expect(mockCountTodayActiveRecords).toHaveBeenCalledTimes(3);
-		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith(1, 10, '2026-04-01', TENANT);
-		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith(1, 20, '2026-04-01', TENANT);
-		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith(1, 30, '2026-04-01', TENANT);
+		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith('1', '10', '2026-04-01', TENANT);
+		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith('1', '20', '2026-04-01', TENANT);
+		expect(mockCountTodayActiveRecords).toHaveBeenCalledWith('1', '30', '2026-04-01', TENANT);
 	});
 
 	it('最後の活動だけ未完了でも null を返す', async () => {
@@ -486,7 +519,11 @@ describe('checkAndGrantFocusBonus', () => {
 			.mockResolvedValueOnce(1) // activity 20: done
 			.mockResolvedValueOnce(0); // activity 30: not done
 
-		const result = await checkAndGrantFocusBonus(1, [10, 20, 30], TENANT);
+		const result = await checkAndGrantFocusBonus(
+			asChildId(1),
+			[asActivityId(10), asActivityId(20), asActivityId(30)],
+			TENANT,
+		);
 		expect(result).toBeNull();
 		expect(mockInsertPointLedger).not.toHaveBeenCalled();
 	});

@@ -7,6 +7,7 @@
 // Pre-PMF 判断: ADR-0010 Bucket B。詳細: docs/rationale/07-usage-log-dynamodb-deferred-rationale.md
 
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { endUsageSession, startUsageSession } from '$lib/server/services/usage-log-service';
 import type { RequestHandler } from './$types';
 
@@ -19,10 +20,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { tenantId } = context;
 
 	const body = await request.json().catch(() => null);
-	const childId = body?.childId as number | undefined;
-	if (!childId || typeof childId !== 'number') {
+	const rawChildId: unknown = body?.childId;
+	// #3575: id は opaque string。旧クライアントの number も境界で受けて as* 変換する
+	if (
+		rawChildId == null ||
+		!(typeof rawChildId === 'string' || typeof rawChildId === 'number') ||
+		rawChildId === ''
+	) {
 		return json({ error: 'childId が必要です' }, { status: 400 });
 	}
+	const childId = asChildId(rawChildId);
 
 	const result = await startUsageSession(tenantId, childId);
 	if (result === null) {
@@ -43,10 +50,11 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 	const { tenantId } = context;
 
 	const body = await request.json().catch(() => null);
-	const id = body?.id as number | undefined;
-	if (typeof id !== 'number' || id < 0) {
+	const rawId: unknown = body?.id;
+	if (rawId == null || !(typeof rawId === 'string' || typeof rawId === 'number') || rawId === '') {
 		return json({ error: 'id が必要です' }, { status: 400 });
 	}
+	const id = String(rawId);
 	// #2338: id === 0 は no-op fallback の dummy id (DATA_SOURCE=dynamodb / demo)。
 	// service 層 endUsageSession() 内で no-op 判定し durationSec: 0 を返す。
 	const result = await endUsageSession(id, tenantId);

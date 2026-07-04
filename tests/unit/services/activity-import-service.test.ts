@@ -14,6 +14,7 @@
 // 顧客クレーム (2 人目に同パック取込 → imported:0 退行) を捕捉する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
 
 // ---------- Top-level mocks ----------
@@ -294,12 +295,12 @@ describe('importActivities', () => {
 		});
 
 		it('AC3 正例: child A 成功 / child B 失敗 -> failed は失敗 child 分のみ計上', async () => {
-			const CHILD_A = 11;
-			const CHILD_B = 22;
+			const CHILD_A = asChildId(11);
+			const CHILD_B = asChildId(22);
 			mockFindActivitiesByChild.mockResolvedValue([]);
 			// child A の bulk は成功 (入力 echo)、child B の bulk は throw。
 			mockInsertActivitiesBulk.mockImplementation(
-				async (inputs: Array<{ childId: number; name: string }>) => {
+				async (inputs: Array<{ childId: ChildId; name: string }>) => {
 					const cid = inputs[0]?.childId;
 					if (cid === CHILD_B) throw new Error('child B write failed');
 					return inputs.map((i, idx) => ({ id: idx + 1, ...i }));
@@ -325,7 +326,7 @@ describe('importActivities', () => {
 			const result = await importActivities(
 				[makeItem({ name: 'X', categoryCode: 'undou' })],
 				TENANT,
-				{ childIds: [1, 2] },
+				{ childIds: [asChildId(1), asChildId(2)] },
 			);
 			expect(result.imported).toBe(1);
 			expect(result.failed).toBe(0);
@@ -395,7 +396,7 @@ describe('importActivities', () => {
 		expect(bulkArgs[0]).toMatchObject({
 			childId: FIRST_CHILD_ID,
 			name: 'テスト活動',
-			categoryId: 3, // seikatsu is index 2 + 1 = 3
+			categoryId: asCategoryId(3), // seikatsu is index 2 + 1 = 3
 			icon: '🧹',
 			basePoints: 3,
 			triggerHint: 'おかたづけの後',
@@ -528,7 +529,7 @@ describe('importActivities', () => {
 		const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
 		expect(bulkArgs).toHaveLength(5);
 		for (const [i, [_, expectedId]] of Object.entries(codeToExpectedId).entries()) {
-			expect(bulkArgs[i].categoryId).toBe(expectedId);
+			expect(bulkArgs[i].categoryId).toBe(asCategoryId(expectedId));
 		}
 	});
 
@@ -572,15 +573,23 @@ describe('importActivities', () => {
 				makeItem({ name: 'B', categoryCode: 'benkyou' }),
 			];
 
-			const result = await importActivities(items, TENANT, { childIds: [101] });
+			const result = await importActivities(items, TENANT, { childIds: [asChildId(101)] });
 
 			expect(result.imported).toBe(2);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
 			const [bulkArgs, tenantArg] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
 			expect(tenantArg).toBe(TENANT);
 			expect(bulkArgs).toHaveLength(2);
-			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: 'A', categoryId: 1 });
-			expect(bulkArgs[1]).toMatchObject({ childId: 101, name: 'B', categoryId: 2 });
+			expect(bulkArgs[0]).toMatchObject({
+				childId: asChildId(101),
+				name: 'A',
+				categoryId: asCategoryId(1),
+			});
+			expect(bulkArgs[1]).toMatchObject({
+				childId: asChildId(101),
+				name: 'B',
+				categoryId: asCategoryId(2),
+			});
 			// fallback が使われていないことを確認 (childIds 明示時は findAllChildren 不呼出)
 			expect(mockFindAllChildren).not.toHaveBeenCalled();
 		});
@@ -591,13 +600,15 @@ describe('importActivities', () => {
 				makeItem({ name: 'B', categoryCode: 'benkyou' }),
 			];
 
-			await importActivities(items, TENANT, { childIds: [101, 202, 303] });
+			await importActivities(items, TENANT, {
+				childIds: [asChildId(101), asChildId(202), asChildId(303)],
+			});
 
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
 			const calledChildIds = mockInsertActivitiesBulk.mock.calls
 				.map((c) => (c[0] as { childId: number }[])[0]?.childId)
 				.sort((a, b) => (a ?? 0) - (b ?? 0));
-			expect(calledChildIds).toEqual([101, 202, 303]);
+			expect(calledChildIds).toEqual(['101', '202', '303']);
 		});
 
 		it('1 child の bulk insert が失敗しても他 child で persist 成功すれば imported=1 (partial success)', async () => {
@@ -606,12 +617,14 @@ describe('importActivities', () => {
 			//   返り値は実 row (name 込み) を返すことで imported を実 persist から算出させる。
 			mockInsertActivitiesBulk
 				.mockRejectedValueOnce(new Error('child=101 disk full'))
-				.mockResolvedValueOnce([{ id: 99, name: 'A' }])
-				.mockResolvedValueOnce([{ id: 100, name: 'A' }]);
+				.mockResolvedValueOnce([{ id: '99', name: 'A' }])
+				.mockResolvedValueOnce([{ id: '100', name: 'A' }]);
 
 			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
 
-			const result = await importActivities(items, TENANT, { childIds: [101, 202, 303] });
+			const result = await importActivities(items, TENANT, {
+				childIds: [asChildId(101), asChildId(202), asChildId(303)],
+			});
 
 			// 202/303 で persist 成功したので imported=1 (どこにも持続していない fiction でない)
 			expect(result.imported).toBe(1);
@@ -622,8 +635,8 @@ describe('importActivities', () => {
 
 		it('duplicate でスキップされた activity は per-child 配信からも除外', async () => {
 			// #2558: child 101 に既に「既存」がある -> その child では skip、「新規」のみ配信
-			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
-				cid === 101 ? [{ name: '既存' }] : [],
+			mockFindActivitiesByChild.mockImplementation(async (cid: ChildId) =>
+				cid === asChildId(101) ? [{ name: '既存' }] : [],
 			);
 
 			const items = [
@@ -631,28 +644,28 @@ describe('importActivities', () => {
 				makeItem({ name: '新規', categoryCode: 'benkyou' }),
 			];
 
-			const result = await importActivities(items, TENANT, { childIds: [101] });
+			const result = await importActivities(items, TENANT, { childIds: [asChildId(101)] });
 
 			expect(result.imported).toBe(1);
 			expect(result.skipped).toBe(1);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
 			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
 			expect(bulkArgs).toHaveLength(1);
-			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: '新規' });
+			expect(bulkArgs[0]).toMatchObject({ childId: asChildId(101), name: '新規' });
 		});
 
 		it('per-child input の priority / sourcePresetId は正しく伝播', async () => {
 			const items = [makeItem({ name: 'はみがき', categoryCode: 'seikatsu', mustDefault: true })];
 
 			await importActivities(items, TENANT, {
-				childIds: [101],
+				childIds: [asChildId(101)],
 				presetId: 'kinder-starter',
 				applyMustDefault: true,
 			});
 
 			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
 			expect(bulkArgs[0]).toMatchObject({
-				childId: 101,
+				childId: asChildId(101),
 				name: 'はみがき',
 				priority: 'must',
 				sourcePresetId: 'kinder-starter',
@@ -676,12 +689,12 @@ describe('importActivities', () => {
 			];
 
 			// 101 は全件取込済、202 は未取込
-			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
-				cid === 101 ? packItems.map((p) => ({ name: p.name })) : [],
+			mockFindActivitiesByChild.mockImplementation(async (cid: ChildId) =>
+				cid === asChildId(101) ? packItems.map((p) => ({ name: p.name })) : [],
 			);
 
 			const result = await importActivities(packItems, TENANT, {
-				childIds: [202],
+				childIds: [asChildId(202)],
 				presetId: 'kinder-starter',
 			});
 
@@ -693,7 +706,7 @@ describe('importActivities', () => {
 			expect(tenantArg).toBe(TENANT);
 			expect(bulkArgs).toHaveLength(3);
 			for (const arg of bulkArgs) {
-				expect(arg.childId).toBe(202);
+				expect(arg.childId).toBe('202');
 			}
 			expect(bulkArgs.map((a: { name: string }) => a.name)).toEqual([
 				'からだをうごかした',
@@ -709,11 +722,13 @@ describe('importActivities', () => {
 			];
 
 			// 101 は A のみ取込済、202 は未取込
-			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
-				cid === 101 ? [{ name: 'A' }] : [],
+			mockFindActivitiesByChild.mockImplementation(async (cid: ChildId) =>
+				cid === asChildId(101) ? [{ name: 'A' }] : [],
 			);
 
-			const result = await importActivities(packItems, TENANT, { childIds: [101, 202] });
+			const result = await importActivities(packItems, TENANT, {
+				childIds: [asChildId(101), asChildId(202)],
+			});
 
 			// A は 202 に作られ、B は 101/202 両方に作られる -> どちらも「いずれかの child に新規」
 			// なので imported=2、skip 0 (全 child で既存だった activity は無い)
@@ -721,28 +736,28 @@ describe('importActivities', () => {
 			expect(result.skipped).toBe(0);
 
 			// 101 への配信は B のみ (1 件)、202 への配信は A,B (2 件)
-			const callsByChild = new Map<number, string[]>();
+			const callsByChild = new Map<ChildId, string[]>();
 			for (const call of mockInsertActivitiesBulk.mock.calls) {
-				const inputs = call[0] as Array<{ childId: number; name: string }>;
+				const inputs = call[0] as Array<{ childId: ChildId; name: string }>;
 				if (inputs.length === 0) continue;
-				const cid = inputs[0]?.childId as number;
+				const cid = inputs[0]?.childId as ChildId;
 				callsByChild.set(
 					cid,
 					inputs.map((i) => i.name),
 				);
 			}
-			expect(callsByChild.get(101)).toEqual(['B']);
-			expect(callsByChild.get(202)?.sort()).toEqual(['A', 'B']);
+			expect(callsByChild.get(asChildId(101))).toEqual(['B']);
+			expect(callsByChild.get(asChildId(202))?.sort()).toEqual(['A', 'B']);
 		});
 
 		it('全 target child で既存 -> 全 skip (imported=0)。これは正当な skip であり退行ではない', async () => {
 			const packItems = [makeItem({ name: 'X', categoryCode: 'undou' })];
 			// 唯一の target 101 に X が既存
-			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
-				cid === 101 ? [{ name: 'X' }] : [],
+			mockFindActivitiesByChild.mockImplementation(async (cid: ChildId) =>
+				cid === asChildId(101) ? [{ name: 'X' }] : [],
 			);
 
-			const result = await importActivities(packItems, TENANT, { childIds: [101] });
+			const result = await importActivities(packItems, TENANT, { childIds: [asChildId(101)] });
 
 			expect(result.imported).toBe(0);
 			expect(result.skipped).toBe(1);
@@ -766,7 +781,7 @@ describe('importActivities', () => {
 				makeItem({ name: `活動${i}`, categoryCode: 'undou' }),
 			);
 
-			const result = await importActivities(items, TENANT, { childIds: [101] });
+			const result = await importActivities(items, TENANT, { childIds: [asChildId(101)] });
 
 			// 1 件も persist できていない -> imported=0 が honest
 			expect(result.imported).toBe(0);
@@ -778,8 +793,8 @@ describe('importActivities', () => {
 		it('一部のみ persist 成功 -> imported は persist できた数だけ', async () => {
 			// 3 件計画したが、insertActivitiesBulk は 2 件しか返さない (1 件 silent drop)。
 			mockInsertActivitiesBulk.mockResolvedValueOnce([
-				{ id: 1, name: 'A' },
-				{ id: 2, name: 'B' },
+				{ id: '1', name: 'A' },
+				{ id: '2', name: 'B' },
 			]);
 
 			const items = [
@@ -788,7 +803,7 @@ describe('importActivities', () => {
 				makeItem({ name: 'C', categoryCode: 'seikatsu' }),
 			];
 
-			const result = await importActivities(items, TENANT, { childIds: [101] });
+			const result = await importActivities(items, TENANT, { childIds: [asChildId(101)] });
 
 			// A/B は persist 成功、C は未 persist -> imported=2、C は保存失敗として可視化
 			expect(result.imported).toBe(2);
@@ -803,7 +818,7 @@ describe('importActivities', () => {
 				makeItem({ name: 'B', categoryCode: 'benkyou' }),
 			];
 
-			const result = await importActivities(items, TENANT, { childIds: [101] });
+			const result = await importActivities(items, TENANT, { childIds: [asChildId(101)] });
 
 			expect(result.imported).toBe(2);
 			expect(result.errors).toEqual([]);

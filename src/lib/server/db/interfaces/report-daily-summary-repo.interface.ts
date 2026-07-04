@@ -1,8 +1,9 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { InsertReportDailySummaryInput, ReportDailySummary } from '../types/index.js';
 
 export interface IReportDailySummaryRepo {
 	findByChildAndDateRange(
-		childId: number,
+		childId: ChildId,
 		startDate: string,
 		endDate: string,
 		tenantId: string,

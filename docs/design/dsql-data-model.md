@@ -442,6 +442,7 @@ PK 凍結と共有プリミティブの順序を誤ると下流が手戻るた�
 2. **PR-0b: `runInTransaction` + `withOccRetry` プリミティブ + tx ハンドル引き回し repo 改修（§8）** — recordActivity（#3435 系）と bulk import（#3436）が共有するため両者の前に単独で。
 3. **PR-1: auth リレーショナル DDL（§6.6）** — invites.child_id が children UUID に依存（PR-0 後）。
 4. **PR-2 以降: child-cluster 各表 DDL + repo（insertForRestore/findAllByChild 維持）+ backup R2/R5 + fitness function**。
+5. **PR-R0: repo interface / service / route の id 型を branded string (ChildId/ActivityId/CategoryId) に全面変換**（#3575、PO 決裁 2026-07-04。全 DDL 完備後・repo 実装前に単独実施）。id は opaque token（数値意味依存は hashSeed 1 点のみの実測、調査 SSOT: tmp/research-repo-id-type-strategy-2026-07-04.md）。sqlite/dynamodb は cutover まで実 DB integer のまま **repo 境界で String()/Number() 変換**、demo fixture は同値数値文字列（uuid 化しない）。CategoryId の値空間は backend 内自己一貫の opaque（sqlite='1'..'5' / dsql=categories.code、§12.2 の自然キー再解決で張替え）。
 - **旧 I-2 は解消済**: point_ledger の created_at-in-PK hot-partition 懸念は、§P3「時刻列を PK に入れない」への設計変更（PO 指摘 2026-07-01）で消滅。PK = `(family_id, child_id, ledger_id uuid[v4])` で単調増加列なし → PR-0 凍結の blocker ではなくなった。total_point contention のみ実装後に実データ計測（EPIC spike(a)#3425、可逆）。
 
 ### §12.3 ロールバック / cutover 中止基準

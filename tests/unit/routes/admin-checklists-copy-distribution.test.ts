@@ -10,6 +10,7 @@
 // - CWE-598: tenant 外 child は 403 (tenant guard が壊れていない)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChildId } from '$lib/domain/ids';
 
 const mockResolveFullPlanTier = vi.fn();
 const mockGetAllChildren = vi.fn();
@@ -69,7 +70,7 @@ vi.mock('$lib/server/services/plan-limit-service', async () => {
 		checkChecklistTemplateLimit: async (
 			_tenantId: string,
 			_licenseStatus: string,
-			childId: number,
+			childId: ChildId,
 		) => {
 			const tier = await mockResolveFullPlanTier();
 			if (tier !== 'free') return { allowed: true, current: 0, max: null };
@@ -124,7 +125,7 @@ let liveTargetCount = 0;
 function setTargetInitialCount(n: number) {
 	liveTargetCount = n;
 	mockRepoFindTemplatesByChild.mockImplementation(async () =>
-		Array.from({ length: liveTargetCount }, (_unused, i) => ({ id: 1000 + i })),
+		Array.from({ length: liveTargetCount }, (_unused, i) => ({ id: `1000${i}` })),
 	);
 }
 
@@ -133,15 +134,15 @@ function setTargetInitialCount(n: number) {
  * 実 insert 時は liveTargetCount を +1 し、後続の checkChecklistTemplateLimit re-count に反映させる。 */
 function stubDistribute(assignedTemplateIds: Set<number>) {
 	mockDistributeToChildren.mockImplementation(
-		async (templateId: number, childIds: readonly number[]) => {
-			if (assignedTemplateIds.has(templateId)) return [];
+		async (templateId: string, childIds: readonly ChildId[]) => {
+			if (assignedTemplateIds.has(Number(templateId))) return [];
 			liveTargetCount += 1; // live DB に 1 件追加された
 			return [...childIds]; // = [targetChildId]
 		},
 	);
 }
 
-const TENANT_CHILDREN = [{ id: 1 }, { id: 2 }, { id: 3 }];
+const TENANT_CHILDREN = [{ id: '1' }, { id: '2' }, { id: '3' }];
 
 beforeEach(() => {
 	vi.clearAllMocks();

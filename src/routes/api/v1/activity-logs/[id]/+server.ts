@@ -9,8 +9,8 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const id = Number(params.id);
-	if (Number.isNaN(id)) return validationError('IDが不正です');
+	const id = params.id;
+	if (!id) return validationError('IDが不正です');
 
 	const result = await cancelActivityLog(id, tenantId);
 

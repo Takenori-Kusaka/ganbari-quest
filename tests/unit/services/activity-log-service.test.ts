@@ -1,3 +1,4 @@
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/activity-log-service.test.ts
 // 活動記録サービスのユニットテスト — recordActivity() / cancelActivityLog() を直接呼ぶ
 
@@ -73,8 +74,8 @@ function seedBase() {
 	// #2362 PR-3 Phase 7b-2c: 活動を child_activities (per-child instance) に seed
 	// childId=1 紐付け。カテゴリ1: うんどう / カテゴリ2: べんきょう
 	seedChildActivities(testDb, 1, [
-		{ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5 },
-		{ name: 'えほん', categoryId: 2, icon: '📖', basePoints: 5 },
+		{ name: 'たいそう', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5 },
+		{ name: 'えほん', categoryId: asCategoryId(2), icon: '📖', basePoints: 5 },
 	]);
 }
 
@@ -111,9 +112,9 @@ describe('recordActivity: 初回記録', () => {
 	});
 
 	it('初回記録で streakDays=1、streakBonus=0、ポイント付与', async () => {
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
-		expect(result.childId).toBe(1);
-		expect(result.activityId).toBe(1);
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		expect(result.childId).toBe('1');
+		expect(result.activityId).toBe('1');
 		expect(result.streakDays).toBe(1);
 		expect(result.streakBonus).toBe(0);
 		expect(result.basePoints).toBe(5);
@@ -122,25 +123,25 @@ describe('recordActivity: 初回記録', () => {
 	});
 
 	it('同日同活動の2回目は ALREADY_RECORDED エラー（dailyLimit=null=1回制限）', async () => {
-		assertSuccess(await recordActivity(1, 1, TENANT));
-		const result = await recordActivity(1, 1, TENANT);
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		const result = await recordActivity(asChildId(1), asActivityId(1), TENANT);
 		expect(result).toEqual({ error: 'ALREADY_RECORDED' });
 	});
 
 	it('別活動なら同日に記録可能', async () => {
-		assertSuccess(await recordActivity(1, 1, TENANT));
-		const result2 = assertSuccess(await recordActivity(1, 2, TENANT));
-		expect(result2.activityId).toBe(2);
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		const result2 = assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT));
+		expect(result2.activityId).toBe('2');
 		expect(result2.activityName).toBe('えほん');
 	});
 
 	it('存在しない子供は NOT_FOUND エラー', async () => {
-		const result = await recordActivity(999, 1, TENANT);
+		const result = await recordActivity(asChildId(999), asActivityId(1), TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'child' });
 	});
 
 	it('存在しない活動は NOT_FOUND エラー', async () => {
-		const result = await recordActivity(1, 999, TENANT);
+		const result = await recordActivity(asChildId(1), asActivityId(999), TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'activity' });
 	});
 });
@@ -163,16 +164,16 @@ describe('recordActivity: child 越境ガード (CWE-598)', () => {
 		testDb.insert(schema.children).values({ nickname: 'childB', age: 13, theme: 'green' }).run();
 		// child 1 の activity (id=1) / child 2 の activity (id=2)
 		seedChildActivities(testDb, 1, [
-			{ name: 'A-たいそう', categoryId: 1, icon: '🤸', basePoints: 5 },
+			{ name: 'A-たいそう', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5 },
 		]);
 		seedChildActivities(testDb, 2, [
-			{ name: 'B-べんきょう', categoryId: 2, icon: '📖', basePoints: 5 },
+			{ name: 'B-べんきょう', categoryId: asCategoryId(2), icon: '📖', basePoints: 5 },
 		]);
 	});
 
 	it('child A が child B の activity_id を記録しようとすると NOT_FOUND (越境拒否)', async () => {
 		// activity id=2 は child 2 (childB) に属する。child 1 (childA) で記録 → 越境
-		const result = await recordActivity(1, 2, TENANT);
+		const result = await recordActivity(asChildId(1), asActivityId(2), TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'activity' });
 
 		// child A の activity_logs に child B の activity が混入していないこと
@@ -184,17 +185,17 @@ describe('recordActivity: child 越境ガード (CWE-598)', () => {
 
 	it('child B が child A の activity_id を記録しようとしても NOT_FOUND (逆方向も拒否)', async () => {
 		// activity id=1 は child 1 (childA) に属する。child 2 (childB) で記録 → 越境
-		const result = await recordActivity(2, 1, TENANT);
+		const result = await recordActivity(asChildId(2), asActivityId(1), TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'activity' });
 	});
 
 	it('自分の activity_id なら正常に記録できる (正例で過剰ガードでないことを確認)', async () => {
-		const a = assertSuccess(await recordActivity(1, 1, TENANT));
-		expect(a.childId).toBe(1);
-		expect(a.activityId).toBe(1);
-		const b = assertSuccess(await recordActivity(2, 2, TENANT));
-		expect(b.childId).toBe(2);
-		expect(b.activityId).toBe(2);
+		const a = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		expect(a.childId).toBe('1');
+		expect(a.activityId).toBe('1');
+		const b = assertSuccess(await recordActivity(asChildId(2), asActivityId(2), TENANT));
+		expect(b.childId).toBe('2');
+		expect(b.activityId).toBe('2');
 	});
 });
 
@@ -205,43 +206,43 @@ describe('recordActivity: 連続日数（streak）', () => {
 
 	it('3日連続記録で streak が正しく増加する', async () => {
 		mockToday = '2026-02-18';
-		const day1 = assertSuccess(await recordActivity(1, 1, TENANT));
+		const day1 = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		expect(day1.streakDays).toBe(1);
 		expect(day1.streakBonus).toBe(0);
 
 		mockToday = '2026-02-19';
-		const day2 = assertSuccess(await recordActivity(1, 1, TENANT));
+		const day2 = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		expect(day2.streakDays).toBe(2);
 		expect(day2.streakBonus).toBe(1);
 
 		mockToday = '2026-02-20';
-		const day3 = assertSuccess(await recordActivity(1, 1, TENANT));
+		const day3 = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		expect(day3.streakDays).toBe(3);
 		expect(day3.streakBonus).toBe(2);
 	});
 
 	it('1日空けると streak がリセットされる', async () => {
 		mockToday = '2026-02-18';
-		assertSuccess(await recordActivity(1, 1, TENANT));
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 
 		// 2/19 をスキップ
 		mockToday = '2026-02-20';
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		expect(result.streakDays).toBe(1); // リセット
 		expect(result.streakBonus).toBe(0);
 	});
 
 	it('別活動は独立した streak を持つ', async () => {
 		mockToday = '2026-02-18';
-		assertSuccess(await recordActivity(1, 1, TENANT)); // たいそう day1
-		assertSuccess(await recordActivity(1, 2, TENANT)); // えほん day1
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT)); // たいそう day1
+		assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT)); // えほん day1
 
 		mockToday = '2026-02-19';
-		const taisou = assertSuccess(await recordActivity(1, 1, TENANT)); // たいそう day2
+		const taisou = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT)); // たいそう day2
 		expect(taisou.streakDays).toBe(2);
 		expect(taisou.streakBonus).toBe(1);
 
-		const ehon = assertSuccess(await recordActivity(1, 2, TENANT)); // えほん day2
+		const ehon = assertSuccess(await recordActivity(asChildId(1), asActivityId(2), TENANT)); // えほん day2
 		expect(ehon.streakDays).toBe(2);
 		expect(ehon.streakBonus).toBe(1);
 	});
@@ -254,21 +255,21 @@ describe('recordActivity: ポイントとXP', () => {
 	});
 
 	it('totalPoints はベースポイント + streakBonus + masteryBonus の合計', async () => {
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		// 初回: base=5, streak=0, mastery=0
 		expect(result.totalPoints).toBe(result.basePoints + result.streakBonus + result.masteryBonus);
 	});
 
 	it('XP がカテゴリに蓄積される', async () => {
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		// xpGain.xpAfter > 0
-		expect(result.xpGain.categoryId).toBe(1); // うんどう
+		expect(result.xpGain.categoryId).toBe('1'); // うんどう
 		expect(result.xpGain.xpAfter).toBeGreaterThan(0);
 		expect(result.xpGain.xpAfter).toBe(result.xpGain.xpBefore + result.totalPoints);
 	});
 
 	it('ポイント台帳に activity タイプのエントリが作成される', async () => {
-		await recordActivity(1, 1, TENANT);
+		await recordActivity(asChildId(1), asActivityId(1), TENANT);
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		expect(ledger.length).toBeGreaterThanOrEqual(1);
 		const activityEntry = ledger.find((e) => e.type === 'activity');
@@ -287,27 +288,27 @@ describe('recordActivity: dailyLimit', () => {
 	it('dailyLimit=2 の活動は同日2回まで記録可能', async () => {
 		// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
 		seedChildActivities(testDb, 1, [
-			{ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 },
+			{ name: 'はみがき', categoryId: asCategoryId(3), icon: '🪥', basePoints: 3, dailyLimit: 2 },
 		]);
 		const childActs = testDb.select().from(schema.childActivities).all();
 		const hamigaki = childActs.find((a) => a.name === 'はみがき');
 		if (!hamigaki) throw new Error('はみがき not found');
 
-		const r1 = assertSuccess(await recordActivity(1, hamigaki.id, TENANT));
+		const r1 = assertSuccess(await recordActivity(asChildId(1), asActivityId(hamigaki.id), TENANT));
 		expect(r1.activityName).toBe('はみがき');
 
-		const r2 = assertSuccess(await recordActivity(1, hamigaki.id, TENANT));
+		const r2 = assertSuccess(await recordActivity(asChildId(1), asActivityId(hamigaki.id), TENANT));
 		expect(r2.activityName).toBe('はみがき');
 
 		// 3回目はエラー
-		const r3 = await recordActivity(1, hamigaki.id, TENANT);
+		const r3 = await recordActivity(asChildId(1), asActivityId(hamigaki.id), TENANT);
 		expect(r3).toEqual({ error: 'DAILY_LIMIT_REACHED' });
 	});
 
 	it('dailyLimit=0 の活動は無制限に記録可能', async () => {
 		// #2362 PR-3 Phase 7b-2c: child_activities へ insert
 		seedChildActivities(testDb, 1, [
-			{ name: 'おそうじ', categoryId: 3, icon: '🧹', basePoints: 3, dailyLimit: 0 },
+			{ name: 'おそうじ', categoryId: asCategoryId(3), icon: '🧹', basePoints: 3, dailyLimit: 0 },
 		]);
 		const childActs = testDb.select().from(schema.childActivities).all();
 		const osouji = childActs.find((a) => a.name === 'おそうじ');
@@ -315,7 +316,9 @@ describe('recordActivity: dailyLimit', () => {
 
 		// 5回連続で記録できる
 		for (let i = 0; i < 5; i++) {
-			const result = assertSuccess(await recordActivity(1, osouji.id, TENANT));
+			const result = assertSuccess(
+				await recordActivity(asChildId(1), asActivityId(osouji.id), TENANT),
+			);
 			expect(result.activityName).toBe('おそうじ');
 		}
 	});
@@ -328,7 +331,7 @@ describe('cancelActivityLog', () => {
 	});
 
 	it('キャンセルでポイントが返還される', async () => {
-		const recorded = assertSuccess(await recordActivity(1, 1, TENANT));
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 
 		// CANCEL_WINDOW_MS 内にキャンセル
 		const cancelResult = await cancelActivityLog(recorded.id, TENANT);
@@ -339,7 +342,7 @@ describe('cancelActivityLog', () => {
 	});
 
 	it('キャンセル後にポイント台帳にマイナスエントリが追加される', async () => {
-		const recorded = assertSuccess(await recordActivity(1, 1, TENANT));
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		await cancelActivityLog(recorded.id, TENANT);
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
@@ -349,12 +352,12 @@ describe('cancelActivityLog', () => {
 	});
 
 	it('存在しないログIDは NOT_FOUND エラー', async () => {
-		const result = await cancelActivityLog(9999, TENANT);
+		const result = await cancelActivityLog('9999', TENANT);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	it('キャンセル済みのログは NOT_FOUND エラー', async () => {
-		const recorded = assertSuccess(await recordActivity(1, 1, TENANT));
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		await cancelActivityLog(recorded.id, TENANT);
 
 		const result = await cancelActivityLog(recorded.id, TENANT);
@@ -369,7 +372,7 @@ describe('recordActivity: 習熟度（mastery）', () => {
 
 	it('初回記録で習熟レベル1、習熟ボーナス0', async () => {
 		mockToday = '2026-02-20';
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		expect(result.masteryLevel).toBe(1);
 		expect(result.masteryBonus).toBe(0);
 		expect(result.masteryLeveledUp).toBeNull();
@@ -380,7 +383,7 @@ describe('recordActivity: 習熟度（mastery）', () => {
 		let lastResult: RecordActivityResult | undefined;
 		for (let i = 0; i < 5; i++) {
 			mockToday = `2026-02-${String(20 + i).padStart(2, '0')}`;
-			lastResult = assertSuccess(await recordActivity(1, 1, TENANT));
+			lastResult = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		}
 		if (!lastResult) throw new Error('No result');
 		expect(lastResult.masteryLevel).toBe(2);
@@ -396,11 +399,11 @@ describe('recordActivity: 戻り値の構造', () => {
 	});
 
 	it('必須フィールドが全て含まれる', async () => {
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		// 必須フィールドの存在確認
-		expect(typeof result.id).toBe('number');
-		expect(result.childId).toBe(1);
-		expect(result.activityId).toBe(1);
+		expect(typeof result.id).toBe('string');
+		expect(result.childId).toBe('1');
+		expect(result.activityId).toBe('1');
 		expect(typeof result.activityName).toBe('string');
 		expect(typeof result.basePoints).toBe('number');
 		expect(typeof result.streakDays).toBe('number');
@@ -412,13 +415,13 @@ describe('recordActivity: 戻り値の構造', () => {
 		expect(typeof result.cancelableUntil).toBe('string');
 		expect(Array.isArray(result.unlockedAchievements)).toBe(true);
 		expect(result.xpGain).toBeDefined();
-		expect(typeof result.xpGain.categoryId).toBe('number');
+		expect(typeof result.xpGain.categoryId).toBe('string');
 		expect(typeof result.xpGain.xpBefore).toBe('number');
 		expect(typeof result.xpGain.xpAfter).toBe('number');
 	});
 
 	it('cancelableUntil は recordedAt より後の時刻', async () => {
-		const result = assertSuccess(await recordActivity(1, 1, TENANT));
+		const result = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
 		const recordedTime = new Date(result.recordedAt).getTime();
 		const cancelTime = new Date(result.cancelableUntil).getTime();
 		expect(cancelTime).toBeGreaterThan(recordedTime);

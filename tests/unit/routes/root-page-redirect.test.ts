@@ -86,34 +86,37 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	});
 
 	it('優先順位1: Cookie 有効 → その子供のホーム', async () => {
-		mockGetChildById.mockResolvedValue({ id: 10, uiMode: 'preschool' });
+		mockGetChildById.mockResolvedValue({ id: '10', uiMode: 'preschool' });
 		// defaultChildId は呼ばれないはず
 		mockGetDefaultChildId.mockResolvedValue(null);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({ cookieValue: '10' })));
 
 		expect(redirect.location).toBe('/preschool/home');
-		expect(mockGetChildById).toHaveBeenCalledWith(10, 'test-tenant');
+		expect(mockGetChildById).toHaveBeenCalledWith('10', 'test-tenant');
 		expect(mockGetDefaultChildId).not.toHaveBeenCalled();
 	});
 
-	it('優先順位1: Cookie が不正値（文字列）なら無視して次のステップへ', async () => {
+	it('優先順位1: Cookie の id が存在しない子なら無視して次のステップへ', async () => {
+		// #3575: id は opaque string になり「数値形式でない = 不正」の事前判定は存在しない。
+		// 'abc' は lookup され (存在しない → null)、旧挙動と同じく次のステップへフォールバックする。
+		mockGetChildById.mockResolvedValue(null);
 		mockGetDefaultChildId.mockResolvedValue(null);
-		mockGetAllChildren.mockResolvedValue([{ id: 1, uiMode: 'preschool' }]);
+		mockGetAllChildren.mockResolvedValue([{ id: '1', uiMode: 'preschool' }]);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({ cookieValue: 'abc' })));
 
 		// 1人しかいないので自動選択に進む
 		expect(redirect.location).toBe('/preschool/home');
-		expect(mockGetChildById).not.toHaveBeenCalled();
+		expect(mockGetChildById).toHaveBeenCalledWith('abc', 'test-tenant');
 	});
 
 	it('優先順位1: Cookie の子供が DB に存在しないなら次のステップへ', async () => {
 		mockGetChildById.mockResolvedValue(null); // 削除済み
 		mockGetDefaultChildId.mockResolvedValue(null);
 		mockGetAllChildren.mockResolvedValue([
-			{ id: 1, uiMode: 'preschool' },
-			{ id: 2, uiMode: 'elementary' },
+			{ id: '1', uiMode: 'preschool' },
+			{ id: '2', uiMode: 'elementary' },
 		]);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({ cookieValue: '999' })));
@@ -123,19 +126,19 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	});
 
 	it('優先順位2: 既定の子供 → そのホーム', async () => {
-		mockGetDefaultChildId.mockResolvedValue(5);
-		mockGetChildById.mockResolvedValue({ id: 5, uiMode: 'elementary' });
+		mockGetDefaultChildId.mockResolvedValue('5');
+		mockGetChildById.mockResolvedValue({ id: '5', uiMode: 'elementary' });
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({})));
 
 		expect(redirect.location).toBe('/elementary/home');
-		expect(mockGetChildById).toHaveBeenCalledWith(5, 'test-tenant');
+		expect(mockGetChildById).toHaveBeenCalledWith('5', 'test-tenant');
 	});
 
 	it('優先順位2: 既定 ID が無効（子供が削除済み）→ 次のステップへフォールバック', async () => {
 		mockGetDefaultChildId.mockResolvedValue(999);
 		mockGetChildById.mockResolvedValue(null);
-		mockGetAllChildren.mockResolvedValue([{ id: 1, uiMode: 'junior' }]);
+		mockGetAllChildren.mockResolvedValue([{ id: '1', uiMode: 'junior' }]);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({})));
 
@@ -145,7 +148,7 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 
 	it('優先順位3: 子供が1人 → 自動選択（/switch を経由しない）', async () => {
 		mockGetDefaultChildId.mockResolvedValue(null);
-		mockGetAllChildren.mockResolvedValue([{ id: 7, uiMode: 'senior' }]);
+		mockGetAllChildren.mockResolvedValue([{ id: '7', uiMode: 'senior' }]);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({})));
 
@@ -155,8 +158,8 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	it('優先順位4: 子供が複数 & 既定未設定 → /switch', async () => {
 		mockGetDefaultChildId.mockResolvedValue(null);
 		mockGetAllChildren.mockResolvedValue([
-			{ id: 1, uiMode: 'preschool' },
-			{ id: 2, uiMode: 'elementary' },
+			{ id: '1', uiMode: 'preschool' },
+			{ id: '2', uiMode: 'elementary' },
 		]);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({})));
@@ -174,7 +177,7 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	});
 
 	it('#571 defense: 旧 ui_mode (kinder) を preschool に正規化', async () => {
-		mockGetChildById.mockResolvedValue({ id: 10, uiMode: 'kinder' });
+		mockGetChildById.mockResolvedValue({ id: '10', uiMode: 'kinder' });
 		mockGetDefaultChildId.mockResolvedValue(null);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({ cookieValue: '10' })));
@@ -184,7 +187,7 @@ describe('#576 ルート `/` 優先順位ロジック', () => {
 	});
 
 	it('#571 defense: uiMode が null なら preschool にフォールバック', async () => {
-		mockGetChildById.mockResolvedValue({ id: 10, uiMode: null });
+		mockGetChildById.mockResolvedValue({ id: '10', uiMode: null });
 		mockGetDefaultChildId.mockResolvedValue(null);
 
 		const redirect = await captureAsyncRedirect(() => load(makeEvent({ cookieValue: '10' })));

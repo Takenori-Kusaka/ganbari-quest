@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import { notifyActionError } from '$lib/ui/error-notify';
@@ -14,7 +15,7 @@ const fmtBal = (pts: number) => formatPointValue(pts, ps.mode, ps.currency, ps.r
 const unit = $derived(getUnitLabel(ps.mode, ps.currency));
 const isCurrencyMode = $derived(ps.mode === 'currency');
 
-let selectedChildId = $state(0);
+let selectedChildId = $state<ChildId | 0>(0);
 $effect(() => {
 	const first = data.children[0];
 	if (selectedChildId === 0 && first) {

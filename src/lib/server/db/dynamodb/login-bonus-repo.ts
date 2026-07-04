@@ -2,6 +2,8 @@
 // DynamoDB implementation of ILoginBonusRepo
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { InsertLoginBonusInput, LoginBonus } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -9,33 +11,42 @@ import { nextId } from './counter';
 import { childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix, tenantPK } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+function toLoginBonus(item: Record<string, unknown>): LoginBonus {
+	const raw = stripKeys(item) as unknown as Omit<LoginBonus, 'id' | 'childId'> & {
+		id: number;
+		childId: number;
+	};
+	return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
+}
+
 // biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { findChildByIdRaw as findChildById } from './repo-helpers';
 
 /** 今日のログインボーナスを取得 */
 export async function findTodayBonus(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<LoginBonus | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: loginBonusKey(childId, today, tenantId),
+			Key: loginBonusKey(Number(childId), today, tenantId),
 		}),
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as LoginBonus;
+	return toLoginBonus(result.Item);
 }
 
 /** 直近のログインボーナスを取得（降順） */
 export async function findRecentBonuses(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	limit = 60,
 ): Promise<LoginBonus[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = loginBonusPrefix();
 
 	const result = await getDocClient().send(
@@ -51,7 +62,7 @@ export async function findRecentBonuses(
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as LoginBonus);
+	return (result.Items ?? []).map((item) => toLoginBonus(item));
 }
 
 /** ログインボーナスを挿入 */
@@ -63,7 +74,7 @@ export async function insertLoginBonus(
 	const now = new Date().toISOString();
 
 	const bonus: LoginBonus = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		loginDate: input.loginDate,
 		rank: input.rank,
@@ -74,7 +85,7 @@ export async function insertLoginBonus(
 		createdAt: now,
 	};
 
-	const key = loginBonusKey(input.childId, input.loginDate, tenantId);
+	const key = loginBonusKey(Number(input.childId), input.loginDate, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -82,6 +93,9 @@ export async function insertLoginBonus(
 			Item: {
 				...key,
 				...bonus,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -108,13 +122,13 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  * DynamoDB の KeyCondition では `<` 演算子がサポートされているので、それを使用する。
  */
 export async function deleteLoginBonusesBeforeDate(
-	childId: number,
+	childId: ChildId,
 	cutoffDate: string,
 	tenantId: string,
 ): Promise<number> {
 	const items: Record<string, unknown>[] = [];
 	let lastKey: Record<string, unknown> | undefined;
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const lowerBound = loginBonusPrefix(); // 'LOGIN#'
 	const upperBound = `LOGIN#${cutoffDate}`; // exclusive upper (will use <)
 

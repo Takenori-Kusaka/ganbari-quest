@@ -3,6 +3,7 @@
 
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
@@ -40,7 +41,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// #2362 PR-3 Phase 7b-2: cloud import template (v2.0.0) は targetChildIds 必須
 	// (CWE-639 IDOR 排除 + child 別 export shape の復元先指定)。
 	// ChildSelectionDialog で表示する child 一覧を load 時に取得する。
-	let children: Array<{ id: number; nickname: string; age: number }> = [];
+	let children: Array<{ id: ChildId; nickname: string; age: number }> = [];
 	try {
 		const allChildren = await findAllChildren(tenantId);
 		children = allChildren

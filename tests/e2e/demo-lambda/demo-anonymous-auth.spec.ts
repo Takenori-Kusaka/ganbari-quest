@@ -15,6 +15,7 @@
 //   - admin 系 path も role=owner で通過する (ADR-0048 §決定 P-1.6)
 
 import { expect, test } from '@playwright/test';
+import { asActivityId, asChildId } from '../../../src/lib/domain/ids';
 
 test.describe('Demo Lambda 匿名認証 (AnonymousAuthProvider)', () => {
 	test('素のアクセス / が認証なしで /switch に到達する', async ({ page }) => {
@@ -62,7 +63,7 @@ test.describe('Demo Lambda 匿名認証 (AnonymousAuthProvider)', () => {
 		// /api/v1/* の write は hooks.server の shouldReturnDemoNoop で 200 `{ ok: true, demo: true }` 化。
 		// ここでは適当な write エンドポイントを叩き、503/500 ではなく 200 で返ることだけ確認する。
 		const res = await request.post('/api/v1/activities/log', {
-			data: { activityId: 1, childId: 902 },
+			data: { activityId: asActivityId(1), childId: asChildId(902) },
 			failOnStatusCode: false,
 		});
 		// 200 (no-op) または 404 (route 未マッチ) を許容。500 系は NG。

@@ -2,6 +2,7 @@
 // Context トークン署名/検証のユニットテスト (#0123: viewer廃止)
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	getContextMaxAge,
 	signContext,
@@ -18,7 +19,7 @@ const ownerContext: AuthContext = {
 const childContext: AuthContext = {
 	tenantId: 't-test',
 	role: 'child',
-	childId: 42,
+	childId: asChildId(42),
 	licenseStatus: 'active',
 };
 

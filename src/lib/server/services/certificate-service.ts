@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/certificate-service.ts
 // がんばり証明書サービス — 証明書の発行判定・一覧取得
 
@@ -113,7 +114,7 @@ function getDefinitionForType(certificateType: string): {
 
 /** ストリーク証明書を発行チェック */
 export async function checkAndIssueStreakCertificates(
-	childId: number,
+	childId: ChildId,
 	streakDays: number,
 	tenantId: string,
 ): Promise<Certificate[]> {
@@ -149,7 +150,7 @@ export async function checkAndIssueStreakCertificates(
 
 /** レベルアップ証明書を発行チェック */
 export async function checkAndIssueLevelCertificates(
-	childId: number,
+	childId: ChildId,
 	level: number,
 	tenantId: string,
 ): Promise<Certificate[]> {
@@ -181,7 +182,7 @@ export async function checkAndIssueLevelCertificates(
 /** 月間がんばり証明書を発行（月の活動回数10回以上） */
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function issueMonthlyCertificateIfEligible(
-	childId: number,
+	childId: ChildId,
 	yearMonth: string,
 	activityCount: number,
 	totalPoints: number,
@@ -214,7 +215,7 @@ export async function issueMonthlyCertificateIfEligible(
 
 /** カテゴリマスター証明書を発行 */
 export async function issueCategoryMasterCertificate(
-	childId: number,
+	childId: ChildId,
 	categoryCode: string,
 	categoryName: string,
 	tenantId: string,
@@ -237,7 +238,7 @@ export async function issueCategoryMasterCertificate(
 
 /** 年間がんばり大賞を発行 */
 export async function issueAnnualCertificate(
-	childId: number,
+	childId: ChildId,
 	year: string,
 	stats: { totalActivities: number; totalPoints: number; maxStreak: number; level: number },
 	tenantId: string,
@@ -264,7 +265,7 @@ export async function issueAnnualCertificate(
 
 /** 子供の全証明書を取得（メタデータ付き） */
 export async function getCertificatesForChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<CertificateWithMeta[]> {
 	const certs = await findCertificates(childId, tenantId);
@@ -281,7 +282,7 @@ export async function getCertificatesForChild(
 
 /** 証明書を1件取得 */
 export async function getCertificateDetail(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<CertificateWithMeta | null> {
 	const cert = await findCertificateById(id, tenantId);
@@ -301,7 +302,7 @@ export async function getCertificateDetail(
 // ============================================================
 
 export interface CertificateRenderData {
-	id: number;
+	id: string;
 	childName: string;
 	title: string;
 	description: string;

@@ -2,6 +2,7 @@
 // PINコードによるクラウドインポートAPI
 
 import { json } from '@sveltejs/kit';
+import { asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 
 	// #2362 PR-3 (ADR-0055): template export は child 別 shape を持つ。
 	// 取込時は ChildSelectionDialog で選択された targetChildIds を必須化 (per-child instance binding)。
-	let body: { pinCode?: string; targetChildIds?: number[] };
+	let body: { pinCode?: string; targetChildIds?: unknown[] };
 	try {
 		body = await request.json();
 	} catch {
@@ -56,7 +57,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	}
 
 	const targetChildIds = Array.isArray(body.targetChildIds)
-		? body.targetChildIds.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+		? body.targetChildIds
+				.filter((v): v is string | number => typeof v === 'string' || typeof v === 'number')
+				.map(asChildId)
 		: undefined;
 
 	// PINでクラウドデータ取得（#3376: full は ZIP バイナリになり得るため bytes で取得）
@@ -173,12 +176,12 @@ async function handleTemplateImport(
 	tenantId: string,
 	mode: string,
 	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
-	targetChildIds: number[] | undefined,
+	targetChildIds: ChildId[] | undefined,
 ): Promise<Response> {
 	const description = record.description;
 	type TemplateActivity = {
 		name: string;
-		categoryId: number;
+		categoryId: CategoryId;
 		icon: string;
 		basePoints: number;
 		triggerHint?: string | null;
@@ -186,7 +189,7 @@ async function handleTemplateImport(
 		priority?: 'must' | 'optional';
 	};
 	type TemplateChildBucket = {
-		childId: number;
+		childId: ChildId;
 		childNickname?: string;
 		activities: TemplateActivity[];
 	};

@@ -43,23 +43,23 @@ describe('getFamilyStreak', () => {
 	});
 
 	it('記録なしの場合はストリーク0', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockFindDistinctRecordedDates.mockResolvedValue([]);
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(0);
 	});
 
 	it('今日記録ありの1日ストリーク', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockFindDistinctRecordedDates.mockResolvedValue([{ recordedDate: '2026-04-03' }]);
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(1);
 		expect(result.hasRecordedToday).toBe(true);
-		expect(result.todayRecorders).toEqual([1]);
+		expect(result.todayRecorders).toEqual(['1']);
 	});
 
 	it('昨日までの連続記録（今日はまだ）', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockFindDistinctRecordedDates.mockResolvedValue([
 			{ recordedDate: '2026-04-01' },
 			{ recordedDate: '2026-04-02' },
@@ -70,7 +70,7 @@ describe('getFamilyStreak', () => {
 	});
 
 	it('2日以上前が最終記録だとストリーク0', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockFindDistinctRecordedDates.mockResolvedValue([{ recordedDate: '2026-04-01' }]);
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(0);
@@ -78,8 +78,8 @@ describe('getFamilyStreak', () => {
 
 	it('複数子供の記録をマージ', async () => {
 		mockFindAllChildren.mockResolvedValue([
-			{ id: 1, nickname: '兄' },
-			{ id: 2, nickname: '弟' },
+			{ id: '1', nickname: '兄' },
+			{ id: '2', nickname: '弟' },
 		]);
 		// 兄: 4/1, 4/3 を記録
 		// 弟: 4/2 を記録
@@ -91,11 +91,11 @@ describe('getFamilyStreak', () => {
 		const result = await getFamilyStreak(TENANT);
 		expect(result.currentStreak).toBe(3);
 		expect(result.hasRecordedToday).toBe(true);
-		expect(result.todayRecorders).toEqual([1]);
+		expect(result.todayRecorders).toEqual(['1']);
 	});
 
 	it('連続が途切れた場合は最新の連続のみ', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockFindDistinctRecordedDates.mockResolvedValue([
 			{ recordedDate: '2026-03-28' },
 			{ recordedDate: '2026-03-29' },

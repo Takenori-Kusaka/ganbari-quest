@@ -11,7 +11,7 @@ export async function create(
 	input: CreateCancellationReasonInput,
 ): Promise<CancellationReasonRecord> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId: input.tenantId,
 		category: input.category,
 		freeText: input.freeText ?? null,

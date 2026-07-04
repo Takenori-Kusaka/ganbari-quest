@@ -3,6 +3,7 @@ import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	APP_LABELS,
@@ -43,7 +44,7 @@ const activityLimit = $derived(
 		| undefined,
 );
 
-let filterCategoryId = $state(0);
+let filterCategoryId = $state<CategoryId | 0>(0);
 let searchQuery = $state('');
 let actionMessage = $state('');
 // #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
@@ -67,7 +68,7 @@ let restoreLoading = $state(false);
 // marketplace (ひな選択) → admin/activities 遷移時に「たろうくんタブが active」になる
 // per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
 // svelte-ignore state_referenced_locally
-let childIdOverride = $state<number | undefined>(
+let childIdOverride = $state<ChildId | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId
 		: undefined,
@@ -78,7 +79,7 @@ const selectedChildId = $derived(
 		: data.initialChildIdFromCookie != null &&
 				data.children.some((c) => c.id === data.initialChildIdFromCookie)
 			? data.initialChildIdFromCookie
-			: (data.children[0]?.id ?? 0),
+			: (data.children[0]?.id ?? asChildId('')),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -107,7 +108,7 @@ let isImporting = $state(false);
 
 // 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 
 // 「一括追加」dialog (manual create で複数 child 同時 create)
 let showBulkCreateDialog = $state(false);
@@ -138,7 +139,7 @@ const childOptions = $derived<ChildOption[]>(
 
 // AI プレフィル
 let prefillName = $state('');
-let prefillCategoryId = $state(1);
+let prefillCategoryId = $state<CategoryId>(asCategoryId(1));
 let prefillMainIcon = $state('🤸');
 let prefillSubIcon = $state('');
 let prefillPoints = $state(5);
@@ -229,8 +230,8 @@ function applyImportFailure(failText: string) {
 	showToast(display.message, undefined, 'error');
 }
 
-// ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+// ChildSelectionDialog 確定ハンドラ: 'all' or ChildId[] (選択 child IDs)
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;
@@ -398,9 +399,9 @@ let bulkName = $state('');
 let bulkCategoryId = $state(1);
 let bulkIcon = $state('📝');
 let bulkPoints = $state(5);
-let bulkTargets = $state<'all' | number[]>('all');
+let bulkTargets = $state<'all' | ChildId[]>('all');
 
-async function handleBulkCreate(targets: 'all' | number[]) {
+async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	if (!bulkName.trim()) {
 		actionMessage = '名前を入力してください';
 		return;
@@ -425,7 +426,7 @@ async function handleBulkCreate(targets: 'all' | number[]) {
 }
 
 // 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
-function selectChild(childId: number) {
+function selectChild(childId: ChildId) {
 	childIdOverride = childId;
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);

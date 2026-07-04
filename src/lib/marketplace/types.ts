@@ -17,6 +17,7 @@
  *   - ADR-0010 (Pre-PMF Bucket A: 浪費防止)
  *   - ADR-0014 / #1350 (OSS 先調査)
  */
+import type { ChildId } from '$lib/domain/ids';
 
 import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
 
@@ -82,8 +83,8 @@ export interface ImportContext {
 	tenantId: string;
 	dryRun?: boolean;
 	presetId?: string;
-	childId?: number;
-	childIds?: readonly number[];
+	childId?: ChildId;
+	childIds?: readonly ChildId[];
 	applyMustDefault?: boolean;
 	dedupMode?: 'preset-scope' | 'content';
 }
@@ -187,7 +188,7 @@ export interface MarketplaceTypeDescriptor<
 	 * ChildSelectionDialog (誰に追加 / 全員) を要求するかどうか。
 	 *
 	 * true の type (activity-pack / challenge-set 等) は import 時に
-	 * `ctx.childIds: readonly number[]` が必須となり、配列の各 child に
+	 * `ctx.childIds: readonly ChildId[]` が必須となり、配列の各 child に
 	 * per-child instance を作成する。Marketplace 側に child 情報を露出させない
 	 * (CWE-598 privacy 排除) ため、AdminApp 側で選択結果を `ctx` 経由で注入する。
 	 *

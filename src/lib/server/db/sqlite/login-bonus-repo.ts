@@ -2,48 +2,72 @@
 // ログインボーナスのリポジトリ層
 
 import { and, desc, eq, lt } from 'drizzle-orm';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, loginBonuses } from '../schema';
+import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
+
+type LoginBonusRow = typeof loginBonuses.$inferSelect;
+
+const toLoginBonus = (r: LoginBonusRow): LoginBonus => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
 
 /** 今日のログインボーナスを取得 */
-export async function findTodayBonus(childId: number, today: string, _tenantId: string) {
-	return db
+export async function findTodayBonus(
+	childId: ChildId,
+	today: string,
+	_tenantId: string,
+): Promise<LoginBonus | undefined> {
+	const row = db
 		.select()
 		.from(loginBonuses)
-		.where(and(eq(loginBonuses.childId, childId), eq(loginBonuses.loginDate, today)))
+		.where(and(eq(loginBonuses.childId, Number(childId)), eq(loginBonuses.loginDate, today)))
 		.get();
+	return row ? toLoginBonus(row) : undefined;
 }
 
 /** 直近のログインボーナスを取得（連続日数計算用） */
-export async function findRecentBonuses(childId: number, _tenantId: string, limit = 60) {
+export async function findRecentBonuses(
+	childId: ChildId,
+	_tenantId: string,
+	limit = 60,
+): Promise<LoginBonus[]> {
 	return db
 		.select()
 		.from(loginBonuses)
-		.where(eq(loginBonuses.childId, childId))
+		.where(eq(loginBonuses.childId, Number(childId)))
 		.orderBy(desc(loginBonuses.loginDate))
 		.limit(limit)
-		.all();
+		.all()
+		.map(toLoginBonus);
 }
 
 /** ログインボーナスを挿入（同日重複時は無視） */
 export async function insertLoginBonus(
-	input: {
-		childId: number;
-		loginDate: string;
-		rank: string;
-		basePoints: number;
-		multiplier: number;
-		totalPoints: number;
-		consecutiveDays: number;
-	},
+	input: InsertLoginBonusInput,
 	_tenantId: string,
-) {
-	return db.insert(loginBonuses).values(input).onConflictDoNothing().returning().get();
+): Promise<LoginBonus> {
+	return toLoginBonus(
+		db
+			.insert(loginBonuses)
+			.values({ ...input, childId: Number(input.childId) })
+			.onConflictDoNothing()
+			.returning()
+			.get(),
+	);
 }
 
 /** 子供の存在確認 */
-export async function findChildById(id: number, _tenantId: string) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
+	const row = db
+		.select()
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	return row ? { ...row, id: asChildId(row.id) } : undefined;
 }
 
 /** テナントの全ログインボーナスを削除（SQLite: シングルテナントのため全行削除） */
@@ -57,13 +81,13 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
  * #717, #729
  */
 export async function deleteLoginBonusesBeforeDate(
-	childId: number,
+	childId: ChildId,
 	cutoffDate: string,
 	_tenantId: string,
 ): Promise<number> {
 	const result = db
 		.delete(loginBonuses)
-		.where(and(eq(loginBonuses.childId, childId), lt(loginBonuses.loginDate, cutoffDate)))
+		.where(and(eq(loginBonuses.childId, Number(childId)), lt(loginBonuses.loginDate, cutoffDate)))
 		.run();
 	return result.changes;
 }

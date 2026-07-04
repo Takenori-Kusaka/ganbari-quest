@@ -13,6 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -53,7 +54,7 @@ vi.mock('$lib/server/logger', () => ({
 import { challengeSetStrategy } from '../../../../src/lib/marketplace/strategies/challenge-set-strategy';
 
 const TENANT = 'test-tenant-002';
-const CHILD_IDS = [101, 102] as const;
+const CHILD_IDS = [asChildId(101), asChildId(102)] as const;
 
 function makeChallenge(overrides: Record<string, unknown> = {}) {
 	return {
@@ -81,8 +82,8 @@ beforeEach(() => {
 			Promise.resolve(Object.fromEntries(childIds.map((id) => [id, baseTarget]))),
 	);
 	mockFindAllChildren.mockResolvedValue([
-		{ id: 101, age: 5 },
-		{ id: 102, age: 8 },
+		{ id: '101', age: 5 },
+		{ id: '102', age: 8 },
 	]);
 });
 
@@ -253,8 +254,8 @@ describe('challengeSetStrategy.apply', () => {
 		mockCreateChildChallengesBulk
 			.mockRejectedValueOnce(new Error('DB error'))
 			.mockResolvedValueOnce([
-				{ id: 2, childId: 101 },
-				{ id: 3, childId: 102 },
+				{ id: '2', childId: asChildId(101) },
+				{ id: '3', childId: asChildId(102) },
 			]);
 		const payload = {
 			challenges: [

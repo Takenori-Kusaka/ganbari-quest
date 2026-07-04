@@ -1,4 +1,5 @@
 import { getAllTags, getMarketplaceCounts, getMarketplaceIndex } from '$lib/data/marketplace';
+import { asChildId } from '$lib/domain/ids';
 import { getAgeTierShortLabel, type MarketplaceSortKey } from '$lib/domain/labels';
 import { AGE_BANDS, type AgeBand, type MarketplaceGender } from '$lib/domain/marketplace-item';
 import { isBrowseableMarketplaceType, MARKETPLACE_BROWSE_TYPE_CODES } from '$lib/marketplace/types';
@@ -24,9 +25,9 @@ async function resolveAutoAgeFilter(
 	if (!tenantId) return null;
 	const childIdStr = cookies.get('selectedChildId');
 	if (!childIdStr) return null;
-	const childId = Number(childIdStr);
-	// Fix Round 1 B6: Number.isInteger guard で非整数・NaN・Infinity を一括 reject + logger.warn で観測性確保
-	if (!Number.isInteger(childId) || childId <= 0) {
+	const childId = asChildId(childIdStr);
+	// Fix Round 1 B6 → #3575: id は opaque string 化。空文字のみ reject + logger.warn で観測性確保
+	if (!childId) {
 		logger.warn('[marketplace] selectedChildId cookie が不正値', {
 			service: 'marketplace',
 			tenantId,

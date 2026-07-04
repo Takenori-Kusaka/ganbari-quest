@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/sibling-ranking-service.ts
 // きょうだいランキング — 既存データからリアルタイム算出
 
@@ -6,21 +7,21 @@ import { findAllChildren } from '$lib/server/db/child-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
 
 export interface SiblingRanking {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	totalCount: number;
-	categoryCounts: Record<number, number>;
+	categoryCounts: Record<string, number>;
 }
 
 export interface CategoryChampion {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	value: number;
 }
 
 export interface WeeklyRankingResult {
-	mostActive: { childId: number; childName: string; count: number } | null;
-	categoryChampions: Record<number, CategoryChampion>;
+	mostActive: { childId: ChildId; childName: string; count: number } | null;
+	categoryChampions: Record<string, CategoryChampion>;
 	rankings: SiblingRanking[];
 	encouragement: string;
 }
@@ -84,12 +85,12 @@ export async function getWeeklyRanking(tenantId: string): Promise<WeeklyRankingR
 export interface WeeklyTrendEntry {
 	weekLabel: string;
 	weekStart: string;
-	children: { childId: number; childName: string; count: number }[];
+	children: { childId: ChildId; childName: string; count: number }[];
 }
 
 export interface RankingTrendResult {
 	weeks: WeeklyTrendEntry[];
-	children: { childId: number; childName: string }[];
+	children: { childId: ChildId; childName: string }[];
 }
 
 /** 過去N週のきょうだい活動数推移を取得 */
@@ -188,7 +189,7 @@ async function getRankingForPeriod(
 		const child = children[0];
 		if (child) {
 			const logs = await findActivityLogs(child.id, tenantId, { from, to });
-			const categoryCounts: Record<number, number> = {};
+			const categoryCounts: Record<string, number> = {};
 			for (const log of logs) {
 				categoryCounts[log.categoryId] = (categoryCounts[log.categoryId] ?? 0) + 1;
 			}
@@ -215,7 +216,7 @@ async function getRankingForPeriod(
 	const rankings: SiblingRanking[] = await Promise.all(
 		children.map(async (child) => {
 			const logs = await findActivityLogs(child.id, tenantId, { from, to });
-			const categoryCounts: Record<number, number> = {};
+			const categoryCounts: Record<string, number> = {};
 			for (const log of logs) {
 				categoryCounts[log.categoryId] = (categoryCounts[log.categoryId] ?? 0) + 1;
 			}
@@ -239,7 +240,7 @@ async function getRankingForPeriod(
 				}
 			: null;
 
-	const categoryChampions: Record<number, CategoryChampion> = {};
+	const categoryChampions: Record<string, CategoryChampion> = {};
 	const allCategories = new Set(rankings.flatMap((r) => Object.keys(r.categoryCounts).map(Number)));
 	for (const catId of allCategories) {
 		let best: CategoryChampion | null = null;

@@ -2,6 +2,7 @@
 // データエクスポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { EXPORT_FORMAT, EXPORT_VERSION } from '../../../src/lib/domain/export-format';
 
 // モック定義
@@ -11,7 +12,7 @@ vi.mock('$lib/server/logger', () => ({
 
 const mockChildren = [
 	{
-		id: 1,
+		id: '1',
 		nickname: 'テスト太郎',
 		age: 5,
 		birthDate: '2021-01-15',
@@ -23,7 +24,7 @@ const mockChildren = [
 		updatedAt: '2026-03-01T00:00:00Z',
 	},
 	{
-		id: 2,
+		id: '2',
 		nickname: 'テスト花子',
 		age: 3,
 		birthDate: null,
@@ -38,9 +39,9 @@ const mockChildren = [
 
 const mockActivities = [
 	{
-		id: 1,
+		id: '1',
 		name: 'はいはいした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 5,
 		ageMin: 0,
@@ -59,9 +60,9 @@ const mockActivities = [
 		createdAt: '2025-01-01T00:00:00Z',
 	},
 	{
-		id: 2,
+		id: '2',
 		name: 'ひらがなれんしゅう',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📝',
 		basePoints: 8,
 		ageMin: 3,
@@ -82,7 +83,7 @@ const mockActivities = [
 
 const mockTitles = [
 	{
-		id: 1,
+		id: '1',
 		code: 'undou_master',
 		name: 'うんどうマスター',
 		description: null,
@@ -98,7 +99,7 @@ const mockTitles = [
 
 const mockAchievements = [
 	{
-		id: 1,
+		id: '1',
 		code: 'first_step',
 		name: 'はじめのいっぽ',
 		description: null,
@@ -118,10 +119,10 @@ const mockAchievements = [
 
 const mockActivityLogs = [
 	{
-		id: 1,
+		id: '1',
 		activityName: 'ひらがなれんしゅう',
 		activityIcon: '📝',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		points: 8,
 		streakDays: 3,
 		streakBonus: 2,
@@ -131,21 +132,21 @@ const mockActivityLogs = [
 
 const mockPointHistory = [
 	{
-		id: 1,
-		childId: 1,
+		id: '1',
+		childId: asChildId(1),
 		amount: 10,
 		type: 'earn',
 		description: 'ひらがなれんしゅう を記録',
-		referenceId: 1,
+		referenceId: '1',
 		createdAt: '2026-03-15T08:30:00Z',
 	},
 ];
 
 const mockStatuses = [
 	{
-		id: 1,
-		childId: 1,
-		categoryId: 2,
+		id: '1',
+		childId: asChildId(1),
+		categoryId: asCategoryId(2),
 		totalXp: 43,
 		level: 3,
 		peakXp: 43,
@@ -155,9 +156,9 @@ const mockStatuses = [
 
 const mockStatusHistory = [
 	{
-		id: 1,
-		childId: 1,
-		categoryId: 2,
+		id: '1',
+		childId: asChildId(1),
+		categoryId: asCategoryId(2),
 		value: 42.5,
 		changeAmount: 0.5,
 		changeType: 'activity',
@@ -166,15 +167,23 @@ const mockStatusHistory = [
 ];
 
 const mockUnlockedAchievements = [
-	{ id: 1, childId: 1, achievementId: 1, milestoneValue: null, unlockedAt: '2026-03-10T00:00:00Z' },
+	{
+		id: '1',
+		childId: asChildId(1),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: '2026-03-10T00:00:00Z',
+	},
 ];
 
-const mockUnlockedTitles = [{ id: 1, childId: 1, titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' }];
+const mockUnlockedTitles = [
+	{ id: '1', childId: asChildId(1), titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' },
+];
 
 const mockLoginBonuses = [
 	{
-		id: 1,
-		childId: 1,
+		id: '1',
+		childId: asChildId(1),
 		loginDate: '2026-03-15',
 		rank: 'gold',
 		basePoints: 5,
@@ -187,8 +196,8 @@ const mockLoginBonuses = [
 
 const mockEvaluations = [
 	{
-		id: 1,
-		childId: 1,
+		id: '1',
+		childId: asChildId(1),
 		weekStart: '2026-03-10',
 		weekEnd: '2026-03-16',
 		scoresJson: '{"undou":8}',
@@ -199,8 +208,8 @@ const mockEvaluations = [
 
 const mockSpecialRewards = [
 	{
-		id: 1,
-		childId: 1,
+		id: '1',
+		childId: asChildId(1),
 		grantedBy: null,
 		title: 'よくがんばった！',
 		description: null,
@@ -214,8 +223,8 @@ const mockSpecialRewards = [
 
 const mockChecklistTemplates = [
 	{
-		id: 1,
-		childId: 1,
+		id: '1',
+		childId: asChildId(1),
 		name: 'あさのじゅんび',
 		icon: '🌅',
 		pointsPerItem: 2,
@@ -229,8 +238,8 @@ const mockChecklistTemplates = [
 
 const mockChecklistItems = [
 	{
-		id: 1,
-		templateId: 1,
+		id: '1',
+		templateId: '1',
 		name: 'はみがき',
 		icon: '🦷',
 		frequency: 'daily',
@@ -243,9 +252,9 @@ const mockChecklistItems = [
 // #3078: チェックリスト完了ログ (templateId 1 = あさのじゅんび に紐づく)
 const mockChecklistLogs = [
 	{
-		id: 1,
-		childId: 1,
-		templateId: 1,
+		id: '1',
+		childId: asChildId(1),
+		templateId: '1',
 		checkedDate: '2026-03-15',
 		itemsJson: '{"1":true}',
 		completedAll: 1,
@@ -260,66 +269,66 @@ vi.mock('$lib/server/db/child-repo', () => ({
 }));
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: vi.fn(() => Promise.resolve(mockActivities)),
-	findActivityLogs: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockActivityLogs) : Promise.resolve([]),
+	findActivityLogs: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockActivityLogs) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/title-repo', () => ({
 	findAllTitles: vi.fn(() => Promise.resolve(mockTitles)),
-	findUnlockedTitles: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockUnlockedTitles) : Promise.resolve([]),
+	findUnlockedTitles: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockUnlockedTitles) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/achievement-repo', () => ({
 	findAllAchievements: vi.fn(() => Promise.resolve(mockAchievements)),
-	findUnlockedAchievements: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockUnlockedAchievements) : Promise.resolve([]),
+	findUnlockedAchievements: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockUnlockedAchievements) : Promise.resolve([]),
 	),
 }));
 // #3259 perf-6: export は child を並列収集する (Promise.all) ようになり findLogsByChild /
 // findTemplatesByChild の呼び出し順が child 間で interleave しうる。childId キーの
 // default impl にしておくことで call 順に依存せず決定的になる (production も childId で query)。
-const defaultFindTemplatesByChild = (childId: number) =>
-	childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]);
-const defaultFindLogsByChild = (childId: number) =>
-	childId === 1 ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]);
+const defaultFindTemplatesByChild = (childId: ChildId) =>
+	childId === '1' ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]);
+const defaultFindLogsByChild = (childId: ChildId) =>
+	childId === '1' ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]);
 const mockFindTemplatesByChild = vi.fn(defaultFindTemplatesByChild);
 const mockFindLogsByChild = vi.fn(defaultFindLogsByChild);
 vi.mock('$lib/server/db/checklist-repo', () => ({
-	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...(args as [number])),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...(args as [ChildId])),
 	findTemplateItems: vi.fn(() => Promise.resolve(mockChecklistItems)),
-	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...(args as [number])),
+	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...(args as [ChildId])),
 	// #3329: per-child チェックリスト日次 override (export が呼ぶ)。本 test では空で十分。
 	findOverridesByChild: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('$lib/server/db/evaluation-repo', () => ({
-	findEvaluationsByChild: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockEvaluations) : Promise.resolve([]),
+	findEvaluationsByChild: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockEvaluations) : Promise.resolve([]),
 	),
 	// #3329: per-child おやすみ日 (export が呼ぶ)。本 test では空で十分。
 	findRestDaysByChild: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
-	findRecentBonuses: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockLoginBonuses) : Promise.resolve([]),
+	findRecentBonuses: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockLoginBonuses) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/point-repo', () => ({
-	findPointHistory: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockPointHistory) : Promise.resolve([]),
+	findPointHistory: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockPointHistory) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/special-reward-repo', () => ({
-	findSpecialRewards: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockSpecialRewards) : Promise.resolve([]),
+	findSpecialRewards: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockSpecialRewards) : Promise.resolve([]),
 	),
 }));
 vi.mock('$lib/server/db/status-repo', () => ({
-	findStatuses: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockStatuses) : Promise.resolve([]),
+	findStatuses: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockStatuses) : Promise.resolve([]),
 	),
-	findRecentStatusHistory: vi.fn((childId: number, catId: number) =>
-		childId === 1 && catId === 2 ? Promise.resolve(mockStatusHistory) : Promise.resolve([]),
+	findRecentStatusHistory: vi.fn((childId: ChildId, catId: CategoryId) =>
+		childId === '1' && catId === '2' ? Promise.resolve(mockStatusHistory) : Promise.resolve([]),
 	),
 }));
 
@@ -368,7 +377,7 @@ describe('exportFamilyData', () => {
 	});
 
 	it('childIdsでフィルタリングできる', async () => {
-		const result = await exportFamilyData({ tenantId: 'test-tenant', childIds: [1] });
+		const result = await exportFamilyData({ tenantId: 'test-tenant', childIds: [asChildId(1)] });
 		expect(result.family.children).toHaveLength(1);
 		expect(result.family.children[0]?.nickname).toBe('テスト太郎');
 	});
@@ -483,14 +492,14 @@ describe('exportFamilyData', () => {
 		it('export は findTemplatesByChild を includeInactive=true + includeArchived=true で呼ぶ (AC2)', async () => {
 			await exportFamilyData({ tenantId: 'test-tenant' });
 			// signature: findTemplatesByChild(childId, tenantId, includeInactive, includeArchived)
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, 'test-tenant', true, true);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', 'test-tenant', true, true);
 		});
 
 		it('archive 済 template の checklistLog が backup に含まれる (silent drop しない)', async () => {
 			// archive 済 template (id 2) + その完了ログ + active template (id 1) を返す
 			const archivedTemplate = {
-				id: 2,
-				childId: 1,
+				id: '2',
+				childId: asChildId(1),
 				name: 'むかしのしたく',
 				icon: '📦',
 				pointsPerItem: 1,
@@ -502,19 +511,19 @@ describe('exportFamilyData', () => {
 			};
 			// #3259 perf-6: child 並列収集で call 順が変わりうるため childId キーで override
 			// (child-1 のみ archived template + log を返す。child-2 は default の [])。
-			mockFindTemplatesByChild.mockImplementation((childId: number) =>
-				childId === 1
+			mockFindTemplatesByChild.mockImplementation((childId: ChildId) =>
+				childId === '1'
 					? Promise.resolve([...mockChecklistTemplates, archivedTemplate])
 					: Promise.resolve([]),
 			);
-			mockFindLogsByChild.mockImplementation((childId: number) =>
-				childId === 1
+			mockFindLogsByChild.mockImplementation((childId: ChildId) =>
+				childId === '1'
 					? Promise.resolve([
 							...mockChecklistLogs,
 							{
-								id: 2,
-								childId: 1,
-								templateId: 2, // archive 済 template に紐づく log
+								id: '2',
+								childId: asChildId(1),
+								templateId: '2', // archive 済 template に紐づく log
 								checkedDate: '2026-02-10',
 								itemsJson: '{"9":true}',
 								completedAll: 1,

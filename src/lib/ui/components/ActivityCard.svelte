@@ -1,5 +1,6 @@
 <script lang="ts">
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
+import type { ActivityId, CategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
@@ -12,10 +13,10 @@ const ICON_SIZE_MAP: Record<CardSize, 'md' | 'lg' | 'xl'> = {
 };
 
 interface Props {
-	activityId?: number;
+	activityId?: ActivityId;
 	icon: string;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	cardSize?: CardSize;
 	completed?: boolean;
 	count?: number;

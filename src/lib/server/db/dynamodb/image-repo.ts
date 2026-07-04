@@ -2,6 +2,8 @@
 // DynamoDB implementation of IImageRepo
 
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { CharacterImage, InsertCharacterImageInput } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -14,12 +16,12 @@ export { findChildByIdRaw as findChildForImage } from './repo-helpers';
 
 /** キャッシュされた画像を取得 */
 export async function findCachedImage(
-	childId: number,
+	childId: ChildId,
 	type: string,
 	promptHash: string,
 	tenantId: string,
 ): Promise<CharacterImage | undefined> {
-	const key = characterImageKey(childId, type, promptHash, tenantId);
+	const key = characterImageKey(Number(childId), type, promptHash, tenantId);
 
 	const result = await getDocClient().send(
 		new GetCommand({
@@ -29,7 +31,11 @@ export async function findCachedImage(
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as CharacterImage;
+	const raw = stripKeys(result.Item) as unknown as Omit<CharacterImage, 'id' | 'childId'> & {
+		id: number;
+		childId: number;
+	};
+	return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
 }
 
 /** 画像レコードを挿入 */
@@ -41,7 +47,7 @@ export async function insertCharacterImage(
 	const now = new Date().toISOString();
 
 	const image: CharacterImage = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		type: input.type,
 		filePath: input.filePath,
@@ -49,7 +55,7 @@ export async function insertCharacterImage(
 		generatedAt: now,
 	};
 
-	const key = characterImageKey(input.childId, input.type, input.promptHash, tenantId);
+	const key = characterImageKey(Number(input.childId), input.type, input.promptHash, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -57,6 +63,9 @@ export async function insertCharacterImage(
 			Item: {
 				...key,
 				...image,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -64,7 +73,7 @@ export async function insertCharacterImage(
 
 /** 子供のアバターURLを更新 */
 export async function updateChildAvatarUrl(
-	childId: number,
+	childId: ChildId,
 	avatarUrl: string | null,
 	tenantId: string,
 ): Promise<void> {
@@ -73,7 +82,7 @@ export async function updateChildAvatarUrl(
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(childId, tenantId),
+			Key: childKey(Number(childId), tenantId),
 			UpdateExpression: 'SET #avatarUrl = :avatarUrl, #updatedAt = :updatedAt',
 			ExpressionAttributeNames: {
 				'#avatarUrl': 'avatarUrl',

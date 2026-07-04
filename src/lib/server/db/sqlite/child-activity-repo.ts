@@ -15,6 +15,13 @@
 
 import { and, count, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type ChildId,
+} from '$lib/domain/ids';
 import { db } from '../client';
 import { childActivities, children } from '../schema';
 import type {
@@ -24,16 +31,28 @@ import type {
 	UpdateChildActivityInput,
 } from '../types';
 
+type ChildActivityRow = typeof childActivities.$inferSelect;
+type ChildRow = typeof children.$inferSelect;
+
+const toChildActivity = (r: ChildActivityRow): ChildActivity => ({
+	...r,
+	id: asActivityId(r.id),
+	childId: asChildId(r.childId),
+	categoryId: asCategoryId(r.categoryId),
+});
+
+const toChild = (r: ChildRow): Child => ({ ...r, id: asChildId(r.id) });
+
 // ============================================================
 // findActivitiesByChild — 指定 child の activity 一覧
 // ============================================================
 
 export async function findActivitiesByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	options?: { includeArchived?: boolean; visibleOnly?: boolean },
 ): Promise<ChildActivity[]> {
-	const conditions = [eq(childActivities.childId, childId)];
+	const conditions = [eq(childActivities.childId, Number(childId))];
 
 	if (!options?.includeArchived) {
 		// NULL 互換 (#962 教訓: NULL 既存行も active 扱い)
@@ -55,7 +74,8 @@ export async function findActivitiesByChild(
 		.from(childActivities)
 		.where(and(...conditions))
 		.orderBy(childActivities.sortOrder)
-		.all();
+		.all()
+		.map(toChildActivity);
 }
 
 // ============================================================
@@ -63,15 +83,16 @@ export async function findActivitiesByChild(
 // ============================================================
 
 export async function findActivityById(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(childActivities)
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, Number(childId))))
 		.get();
+	return row ? toChildActivity(row) : undefined;
 }
 
 // ============================================================
@@ -79,7 +100,7 @@ export async function findActivityById(
 // ============================================================
 
 export async function countMainQuestActivities(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<number> {
 	const result = await db
@@ -87,7 +108,7 @@ export async function countMainQuestActivities(
 		.from(childActivities)
 		.where(
 			and(
-				eq(childActivities.childId, childId),
+				eq(childActivities.childId, Number(childId)),
 				eq(childActivities.isMainQuest, 1),
 				eq(childActivities.isVisible, 1),
 				or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)),
@@ -108,9 +129,9 @@ export async function insertActivity(
 	const row = db
 		.insert(childActivities)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			name: input.name,
-			categoryId: input.categoryId,
+			categoryId: Number(input.categoryId),
 			icon: input.icon,
 			basePoints: input.basePoints,
 			triggerHint: input.triggerHint ?? null,
@@ -132,7 +153,7 @@ export async function insertActivity(
 	if (!row) {
 		throw new Error('insertActivity: insert returned no row');
 	}
-	return row;
+	return toChildActivity(row);
 }
 
 // ============================================================
@@ -161,17 +182,22 @@ export async function insertActivitiesBulk(
 // ============================================================
 
 export async function updateActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	input: UpdateChildActivityInput,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
-	return db
+	const { categoryId, ...rest } = input;
+	const row = db
 		.update(childActivities)
-		.set(input)
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.set({
+			...rest,
+			...(categoryId !== undefined ? { categoryId: Number(categoryId) } : {}),
+		})
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, Number(childId))))
 		.returning()
 		.get();
+	return row ? toChildActivity(row) : undefined;
 }
 
 // ============================================================
@@ -179,17 +205,18 @@ export async function updateActivity(
 // ============================================================
 
 export async function setActivityVisibility(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	visible: boolean,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
-	return db
+	const row = db
 		.update(childActivities)
 		.set({ isVisible: visible ? 1 : 0 })
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, Number(childId))))
 		.returning()
 		.get();
+	return row ? toChildActivity(row) : undefined;
 }
 
 // ============================================================
@@ -197,15 +224,16 @@ export async function setActivityVisibility(
 // ============================================================
 
 export async function deleteActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
-	return db
+	const row = db
 		.delete(childActivities)
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, Number(childId))))
 		.returning()
 		.get();
+	return row ? toChildActivity(row) : undefined;
 }
 
 // ============================================================
@@ -216,8 +244,8 @@ export async function deleteActivity(
 // id / createdAt は新規採番、childId のみ差し替え。
 
 export async function copyActivitiesAcrossChildren(
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity[]> {
 	const sourceActivities = await findActivitiesByChild(sourceChildId, tenantId, {
@@ -249,14 +277,14 @@ export async function copyActivitiesAcrossChildren(
 // ============================================================
 
 export async function archiveActivities(
-	ids: number[],
+	ids: ActivityId[],
 	reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	if (ids.length === 0) return;
 	db.update(childActivities)
 		.set({ isArchived: 1, archivedReason: reason })
-		.where(inArray(childActivities.id, ids))
+		.where(inArray(childActivities.id, ids.map(Number)))
 		.run();
 }
 
@@ -274,6 +302,11 @@ export async function restoreArchivedActivities(
 // Child convenience lookup (existing pattern from activity-repo.ts)
 // ============================================================
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
+	const row = db
+		.select()
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	return row ? toChild(row) : undefined;
 }

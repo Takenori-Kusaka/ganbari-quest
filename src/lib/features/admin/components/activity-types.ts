@@ -1,12 +1,13 @@
+import type { ActivityId, CategoryId } from '$lib/domain/ids';
 /**
  * Shared types for admin activity management components.
  * These mirror the server-side Activity type but are safe for client-side use.
  */
 
 export interface ActivityItem {
-	id: number;
+	id: ActivityId;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	// #2362 PR-3 Phase 7b-2c: ChildActivity (per-child instance) は ageMin/ageMax/gradeLevel/
@@ -43,7 +44,7 @@ export interface ActivityPackInfo {
 
 export interface AiPreviewData {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	nameKana: string | null;

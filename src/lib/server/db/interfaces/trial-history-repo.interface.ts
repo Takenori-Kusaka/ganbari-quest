@@ -1,5 +1,5 @@
 export interface TrialHistoryRow {
-	id: number;
+	id: string;
 	tenantId: string;
 	startDate: string;
 	endDate: string;
@@ -23,7 +23,7 @@ export interface InsertTrialHistoryInput {
 }
 
 export interface UpdateTrialConversionInput {
-	id: number;
+	id: string;
 	/**
 	 * #2941 項目 1: trial counter は tenant 別採番のため id は tenant 間で衝突する。
 	 * id 単独解決 (旧 DynamoDB scanKeyById) は cross-tenant の課金情報上書き (IDOR 形状、

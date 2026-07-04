@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo ICertificateRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
@@ -21,7 +22,7 @@ export async function issueCertificate(
 	);
 	if (existing) return null;
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		tenantId,
 		certificateType: input.certificateType,
@@ -32,7 +33,7 @@ export async function issueCertificate(
 	};
 }
 
-export async function findCertificates(childId: number, tenantId: string): Promise<Certificate[]> {
+export async function findCertificates(childId: ChildId, tenantId: string): Promise<Certificate[]> {
 	return DEMO_CERTIFICATES.filter((c) => c.childId === childId && c.tenantId === tenantId).slice();
 }
 
@@ -41,7 +42,7 @@ export async function insertForRestore(
 	tenantId: string,
 ): Promise<Certificate | null> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0, tenantId };
+	return { ...input, id: '0', tenantId };
 }
 
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
@@ -49,14 +50,14 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 }
 
 export async function findCertificateById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<Certificate | undefined> {
 	return DEMO_CERTIFICATES.find((c) => c.id === id && c.tenantId === tenantId);
 }
 
 export async function hasCertificate(
-	childId: number,
+	childId: ChildId,
 	certificateType: string,
 	tenantId: string,
 ): Promise<boolean> {

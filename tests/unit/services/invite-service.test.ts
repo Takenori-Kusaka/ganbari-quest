@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import type { Invite, Membership, Tenant } from '../../../src/lib/server/auth/entities';
 import type { IAuthRepo } from '../../../src/lib/server/db/interfaces/auth-repo.interface';
 import { assertError, assertSuccess } from '../helpers/assert-result';
@@ -103,9 +104,9 @@ describe('createInvite', () => {
 	});
 
 	it('child ロールで招待を作成できる', async () => {
-		const invite = await createInvite('t-test', 'user-owner', 'child', 5);
+		const invite = await createInvite('t-test', 'user-owner', 'child', asChildId(5));
 		expect(invite.role).toBe('child');
-		expect(invite.childId).toBe(5);
+		expect(invite.childId).toBe('5');
 	});
 
 	it('owner ロールでの招待はエラー', async () => {

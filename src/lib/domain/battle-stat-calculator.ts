@@ -7,6 +7,8 @@
 
 import type { BattleStats, StatName } from './battle-types';
 import { CATEGORY_TO_STAT } from './battle-types';
+import { asCategoryId } from './ids';
+import { getCategoryById } from './validation/activity';
 
 /**
  * XP → バトルステータス値に変換する。
@@ -40,7 +42,7 @@ const BASE_STATS: Record<StatName, number> = {
  * @param categoryXp カテゴリID → XP値のマップ（status-service.ts の statuses から取得）
  * @returns RPGバトルステータス
  */
-export function convertToBattleStats(categoryXp: Record<number, number>): BattleStats {
+export function convertToBattleStats(categoryXp: Record<string, number>): BattleStats {
 	const stats: BattleStats = {
 		hp: BASE_STATS.hp,
 		atk: BASE_STATS.atk,
@@ -50,8 +52,8 @@ export function convertToBattleStats(categoryXp: Record<number, number>): Battle
 	};
 
 	for (const [catIdStr, xp] of Object.entries(categoryXp)) {
-		const catId = Number(catIdStr);
-		const statName = CATEGORY_TO_STAT[catId];
+		const catDef = getCategoryById(asCategoryId(catIdStr));
+		const statName = catDef ? CATEGORY_TO_STAT[catDef.code] : undefined;
 		if (statName) {
 			stats[statName] = xpToStatValue(xp, BASE_STATS[statName]);
 		}

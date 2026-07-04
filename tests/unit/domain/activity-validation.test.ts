@@ -1,3 +1,4 @@
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/domain/activity-validation.test.ts
 // 活動バリデーションスキーマのユニットテスト
 
@@ -64,7 +65,7 @@ describe('createActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'たいそうした',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -76,7 +77,7 @@ describe('createActivitySchema', () => {
 	it('name が空文字だとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: '',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -88,7 +89,7 @@ describe('createActivitySchema', () => {
 	it('name が50文字を超えるとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'あ'.repeat(51),
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🤸',
 			basePoints: 5,
 			ageMin: null,
@@ -100,7 +101,7 @@ describe('createActivitySchema', () => {
 	it('不正なカテゴリはエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			categoryId: 99,
+			categoryId: asCategoryId(99),
 			icon: '✨',
 			basePoints: 5,
 			ageMin: null,
@@ -112,7 +113,7 @@ describe('createActivitySchema', () => {
 	it('basePoints が0以下だとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🤸',
 			basePoints: 0,
 			ageMin: null,
@@ -124,7 +125,7 @@ describe('createActivitySchema', () => {
 	it('basePoints が100を超えるとエラー', () => {
 		const result = createActivitySchema.safeParse({
 			name: 'テスト',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🤸',
 			basePoints: 101,
 			ageMin: null,
@@ -149,23 +150,25 @@ describe('updateActivitySchema', () => {
 describe('recordActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {
 		const result = recordActivitySchema.safeParse({
-			childId: 1,
-			activityId: 3,
+			childId: asChildId(1),
+			activityId: asActivityId(3),
 		});
 		expect(result.success).toBe(true);
 	});
 
 	it('childId が0以下だとエラー', () => {
+		// #3575: 旧クライアント互換の number 入力。0 以下は旧 schema (int().positive()) 同等に拒否
 		const result = recordActivitySchema.safeParse({
 			childId: 0,
-			activityId: 3,
+			activityId: asActivityId(3),
 		});
 		expect(result.success).toBe(false);
 	});
 
 	it('activityId が負数だとエラー', () => {
+		// #3575: 旧クライアント互換の number 入力。負数は旧 schema 同等に拒否
 		const result = recordActivitySchema.safeParse({
-			childId: 1,
+			childId: asChildId(1),
 			activityId: -1,
 		});
 		expect(result.success).toBe(false);
@@ -182,12 +185,12 @@ describe('activitiesQuerySchema', () => {
 		const result = activitiesQuerySchema.safeParse({ childId: '1' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe(1);
+			expect(result.data.childId).toBe('1');
 		}
 	});
 
 	it('category フィルタを受け入れる', () => {
-		const result = activitiesQuerySchema.safeParse({ categoryId: 1 });
+		const result = activitiesQuerySchema.safeParse({ categoryId: asCategoryId(1) });
 		expect(result.success).toBe(true);
 	});
 
@@ -210,7 +213,7 @@ describe('activityLogsQuerySchema', () => {
 		const result = activityLogsQuerySchema.safeParse({ childId: '1' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe(1);
+			expect(result.data.childId).toBe('1');
 			expect(result.data.period).toBe('week');
 		}
 	});

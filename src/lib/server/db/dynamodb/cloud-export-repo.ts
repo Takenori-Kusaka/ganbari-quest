@@ -30,8 +30,10 @@ import { nextId } from './counter';
 import { cloudExportKey, cloudExportSKPrefix, cloudExportTenantPK, ENTITY_NAMES } from './keys';
 import { stripKeys } from './repo-helpers';
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で string に変換する。
 function mapItem(item: Record<string, unknown>): CloudExportRecord {
-	return stripKeys(item) as unknown as CloudExportRecord;
+	const raw = stripKeys(item) as unknown as Omit<CloudExportRecord, 'id'> & { id: number };
+	return { ...raw, id: String(raw.id) };
 }
 
 export async function findByTenant(tenantId: string): Promise<CloudExportRecord[]> {
@@ -84,13 +86,13 @@ export async function findByPin(pinCode: string): Promise<CloudExportRecord | un
 }
 
 export async function findById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<CloudExportRecord | undefined> {
 	const res = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: cloudExportKey(id, tenantId),
+			Key: cloudExportKey(Number(id), tenantId),
 		}),
 	);
 	return res.Item ? mapItem(res.Item) : undefined;
@@ -101,7 +103,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	const now = new Date().toISOString();
 
 	const record: CloudExportRecord = {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		exportType: input.exportType,
 		pinCode: input.pinCode,
@@ -121,7 +123,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
-			Item: { ...cloudExportKey(id, input.tenantId), ...record },
+			Item: { ...cloudExportKey(id, input.tenantId), ...record, id },
 		}),
 	);
 
@@ -134,7 +136,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
  * ExpressionAttributeNames で別名化する。不在 (tenant 不一致含む) は silent no-op。
  */
 export async function updateStatus(
-	id: number,
+	id: string,
 	tenantId: string,
 	status: CloudExportStatus,
 	opts?: UpdateCloudExportStatusInput,
@@ -167,7 +169,7 @@ export async function updateStatus(
 		await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: cloudExportKey(id, tenantId),
+				Key: cloudExportKey(Number(id), tenantId),
 				UpdateExpression: `SET ${sets.join(', ')}`,
 				ConditionExpression: 'attribute_exists(PK)',
 				ExpressionAttributeNames: names,
@@ -251,12 +253,12 @@ export async function findStaleBuildingExports(
  * tenantId を追加し exact Key (`cloudExportKey`) で直接 UpdateItem する (Scan 撤去)。
  * `attribute_exists(PK)` で phantom item 生成を防ぎ、不在は旧挙動どおり silent no-op。
  */
-export async function incrementDownloadCount(id: number, tenantId: string): Promise<void> {
+export async function incrementDownloadCount(id: string, tenantId: string): Promise<void> {
 	try {
 		await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: cloudExportKey(id, tenantId),
+				Key: cloudExportKey(Number(id), tenantId),
 				UpdateExpression: 'ADD downloadCount :one',
 				ConditionExpression: 'attribute_exists(PK)',
 				ExpressionAttributeValues: { ':one': 1 },
@@ -269,11 +271,11 @@ export async function incrementDownloadCount(id: number, tenantId: string): Prom
 	}
 }
 
-export async function deleteById(id: number, tenantId: string): Promise<void> {
+export async function deleteById(id: string, tenantId: string): Promise<void> {
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: cloudExportKey(id, tenantId),
+			Key: cloudExportKey(Number(id), tenantId),
 		}),
 	);
 }

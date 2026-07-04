@@ -1,8 +1,18 @@
 import { and, count, eq, gte, isNull } from 'drizzle-orm';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { siblingCheers } from '../schema';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
+
+type CheerRow = typeof siblingCheers.$inferSelect;
+
+const toCheer = (r: CheerRow): SiblingCheer => ({
+	...r,
+	id: String(r.id),
+	fromChildId: asChildId(r.fromChildId),
+	toChildId: asChildId(r.toChildId),
+});
 
 export async function insertCheer(
 	input: InsertSiblingCheerInput,
@@ -12,20 +22,20 @@ export async function insertCheer(
 	const result = db
 		.insert(siblingCheers)
 		.values({
-			fromChildId: input.fromChildId,
-			toChildId: input.toChildId,
+			fromChildId: Number(input.fromChildId),
+			toChildId: Number(input.toChildId),
 			stampCode: input.stampCode,
 			tenantId,
 			sentAt: now,
 		})
 		.returning()
 		.get();
-	return result;
+	return toCheer(result);
 }
 
 /** #3329 backup: テナントの全おうえんスタンプ (from/to/sentAt/shownAt)。 */
 export async function findAllByTenant(_tenantId: string): Promise<SiblingCheer[]> {
-	return db.select().from(siblingCheers).orderBy(siblingCheers.sentAt).all();
+	return db.select().from(siblingCheers).orderBy(siblingCheers.sentAt).all().map(toCheer);
 }
 
 /** #3329 backup restore 用: sentAt / shownAt を保全して復元する (from/to childId は呼び出し側が解決済)。 */
@@ -33,41 +43,47 @@ export async function insertForRestore(
 	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
 	tenantId: string,
 ): Promise<SiblingCheer> {
-	return db
-		.insert(siblingCheers)
-		.values({
-			fromChildId: input.fromChildId,
-			toChildId: input.toChildId,
-			stampCode: input.stampCode,
-			tenantId,
-			sentAt: input.sentAt,
-			shownAt: input.shownAt,
-		})
-		.returning()
-		.get();
+	return toCheer(
+		db
+			.insert(siblingCheers)
+			.values({
+				fromChildId: Number(input.fromChildId),
+				toChildId: Number(input.toChildId),
+				stampCode: input.stampCode,
+				tenantId,
+				sentAt: input.sentAt,
+				shownAt: input.shownAt,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 export async function findUnshownCheers(
-	toChildId: number,
+	toChildId: ChildId,
 	_tenantId: string,
 ): Promise<SiblingCheer[]> {
 	return db
 		.select()
 		.from(siblingCheers)
-		.where(and(eq(siblingCheers.toChildId, toChildId), isNull(siblingCheers.shownAt)))
-		.all();
+		.where(and(eq(siblingCheers.toChildId, Number(toChildId)), isNull(siblingCheers.shownAt)))
+		.all()
+		.map(toCheer);
 }
 
-export async function markShown(cheerIds: number[], _tenantId: string): Promise<void> {
+export async function markShown(cheerIds: string[], _tenantId: string): Promise<void> {
 	if (cheerIds.length === 0) return;
 	const now = new Date().toISOString();
 	for (const id of cheerIds) {
-		db.update(siblingCheers).set({ shownAt: now }).where(eq(siblingCheers.id, id)).run();
+		db.update(siblingCheers)
+			.set({ shownAt: now })
+			.where(eq(siblingCheers.id, Number(id)))
+			.run();
 	}
 }
 
 export async function countTodayCheersFrom(
-	fromChildId: number,
+	fromChildId: ChildId,
 	_tenantId: string,
 ): Promise<number> {
 	const today = todayDateJST();
@@ -76,7 +92,7 @@ export async function countTodayCheersFrom(
 		.from(siblingCheers)
 		.where(
 			and(
-				eq(siblingCheers.fromChildId, fromChildId),
+				eq(siblingCheers.fromChildId, Number(fromChildId)),
 				gte(siblingCheers.sentAt, `${today}T00:00:00`),
 			),
 		)

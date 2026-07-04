@@ -19,6 +19,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { asChildId } from '$lib/domain/ids';
 import { getCertificatesForChild } from '../../../src/lib/server/services/certificate-service';
 import { getChildById } from '../../../src/lib/server/services/child-service';
 import type {
@@ -30,11 +31,11 @@ import { computeDetailedMonthlyReport } from '../../../src/lib/server/services/r
 import { getChildStatus } from '../../../src/lib/server/services/status-service';
 
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 const FISCAL_YEAR = '2025';
 
 const mockChild = {
-	id: 1,
+	id: asChildId(1),
 	nickname: 'テストちゃん',
 	age: 5,
 	theme: 'pink',
@@ -115,7 +116,7 @@ const EXPECTED_MONTHS = [
 
 function makeCert(id: number, type: string) {
 	return {
-		id,
+		id: String(id),
 		childId: CHILD_ID,
 		tenantId: TENANT,
 		certificateType: type,

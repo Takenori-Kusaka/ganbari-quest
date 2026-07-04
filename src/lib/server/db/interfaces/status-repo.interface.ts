@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 import type {
 	Child,
 	InsertStatusHistoryInput,
@@ -7,11 +8,15 @@ import type {
 } from '../types';
 
 export interface IStatusRepo {
-	findStatuses(childId: number, tenantId: string): Promise<Status[]>;
-	findStatus(childId: number, categoryId: number, tenantId: string): Promise<Status | undefined>;
+	findStatuses(childId: ChildId, tenantId: string): Promise<Status[]>;
+	findStatus(
+		childId: ChildId,
+		categoryId: CategoryId,
+		tenantId: string,
+	): Promise<Status | undefined>;
 	upsertStatus(
-		childId: number,
-		categoryId: number,
+		childId: ChildId,
+		categoryId: CategoryId,
 		totalXp: number,
 		level: number,
 		peakXp: number,
@@ -22,34 +27,34 @@ export interface IStatusRepo {
 		tenantId: string,
 	): Promise<StatusHistoryEntry>;
 	findRecentStatusHistory(
-		childId: number,
-		categoryId: number,
+		childId: ChildId,
+		categoryId: CategoryId,
 		tenantId: string,
 		limit?: number,
 	): Promise<StatusHistoryEntry[]>;
 	findStatusValueAtDate(
-		childId: number,
-		categoryId: number,
+		childId: ChildId,
+		categoryId: CategoryId,
 		beforeDate: string,
 		tenantId: string,
 	): Promise<number | null>;
 	findBenchmark(
 		age: number,
-		categoryId: number,
+		categoryId: CategoryId,
 		tenantId: string,
 	): Promise<MarketBenchmark | undefined>;
 	findAllBenchmarks(tenantId: string): Promise<MarketBenchmark[]>;
 	upsertBenchmark(
 		age: number,
-		categoryId: number,
+		categoryId: CategoryId,
 		mean: number,
 		stdDev: number,
 		source: string,
 		tenantId: string,
 	): Promise<MarketBenchmark>;
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	findLastActivityDates(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 	): Promise<{ category: number; lastDate: string | null }[]>;
 	deleteByTenantId(tenantId: string): Promise<void>;

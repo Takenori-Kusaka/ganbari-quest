@@ -19,12 +19,14 @@
  *
  * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
+
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import { getActionErrorDisplay } from '$lib/domain/errors';
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	ACTION_LABELS,
 	APP_LABELS,
@@ -222,9 +224,9 @@ async function fetchDowngradePreview() {
 
 // #738: ダウングレード用リソースアーカイブを実行
 async function executeDowngradeArchive(selection: {
-	childIds: number[];
-	activityIds: number[];
-	checklistTemplateIds: number[];
+	childIds: ChildId[];
+	activityIds: ActivityId[];
+	checklistTemplateIds: string[];
 }) {
 	downgradeLoading = true;
 	downgradeError = null;

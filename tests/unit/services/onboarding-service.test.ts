@@ -1,3 +1,4 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // tests/unit/services/onboarding-service.test.ts
 // onboarding-service ユニットテスト
 
@@ -46,13 +47,13 @@ const BASE_PATH = '/parent/manage';
 
 function setupDefaults(
 	overrides: {
-		children?: { id: number }[];
+		children?: { id: ChildId }[];
 		activities?: { id: number }[];
 		rewardTemplates?: unknown[];
 		pinHash?: string | null;
 		dismissed?: string | null;
 		childScreenVisited?: string | null;
-		templatesByChild?: Record<number, unknown[]>;
+		templatesByChild?: Record<string, unknown[]>;
 	} = {},
 ) {
 	const {
@@ -76,7 +77,7 @@ function setupDefaults(
 		return Promise.resolve(null);
 	});
 
-	mockFindTemplatesByChild.mockImplementation((childId: number) => {
+	mockFindTemplatesByChild.mockImplementation((childId: ChildId) => {
 		return Promise.resolve(templatesByChild[childId] ?? []);
 	});
 
@@ -108,13 +109,13 @@ describe('onboarding-service', () => {
 
 		it('全項目完了 + dismissed', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'hashed-pin-value',
 				dismissed: 'true',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -132,7 +133,7 @@ describe('onboarding-service', () => {
 
 		it('部分的な完了: 子供あり・活動あり・ごほうびなし・PINなし・チェックリストなし・未訪問', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				templatesByChild: {},
 			});
@@ -156,7 +157,7 @@ describe('onboarding-service', () => {
 		it('nextRecommendation は最初の未完了項目を指す', async () => {
 			// children completed, activities incomplete => nextRecommendation = activities
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [],
 			});
 
@@ -169,12 +170,12 @@ describe('onboarding-service', () => {
 
 		it('全完了時は nextRecommendation が null', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'some-hash',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -186,7 +187,7 @@ describe('onboarding-service', () => {
 		it('completedCount と totalCount が正しい', async () => {
 			// 3 items completed: children, activities, pin
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				pinHash: 'hash123',
 			});
@@ -223,8 +224,8 @@ describe('onboarding-service', () => {
 
 		it('子供がテンプレートを持っている場合 checklist は completed', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
-				templatesByChild: { 1: [{ id: 100, name: 'template-1' }] },
+				children: [{ id: asChildId(1) }],
+				templatesByChild: { 1: [{ id: '100', name: 'template-1' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -235,10 +236,10 @@ describe('onboarding-service', () => {
 
 		it('複数の子供: 最初はテンプレートなし・2人目がテンプレートあり → checklist completed', async () => {
 			setupDefaults({
-				children: [{ id: 1 }, { id: 2 }],
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }],
 				templatesByChild: {
 					// child 1: no templates (empty array is default)
-					2: [{ id: 200, name: 'template-for-child-2' }],
+					2: [{ id: '200', name: 'template-for-child-2' }],
 				},
 			});
 
@@ -249,13 +250,13 @@ describe('onboarding-service', () => {
 
 			// findTemplatesByChild should be called for both children
 			expect(mockFindTemplatesByChild).toHaveBeenCalledTimes(2);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, TENANT, false);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(2, TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('2', TENANT, false);
 		});
 
 		it('複数の子供: 全員テンプレートなし → checklist incomplete', async () => {
 			setupDefaults({
-				children: [{ id: 1 }, { id: 2 }, { id: 3 }],
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }, { id: asChildId(3) }],
 				templatesByChild: {},
 			});
 
@@ -268,10 +269,10 @@ describe('onboarding-service', () => {
 
 		it('最初の子供にテンプレートがある場合、2人目はチェックしない（早期break）', async () => {
 			setupDefaults({
-				children: [{ id: 1 }, { id: 2 }],
+				children: [{ id: asChildId(1) }, { id: asChildId(2) }],
 				templatesByChild: {
-					1: [{ id: 100 }],
-					2: [{ id: 200 }],
+					1: [{ id: '100' }],
+					2: [{ id: '200' }],
 				},
 			});
 
@@ -281,7 +282,7 @@ describe('onboarding-service', () => {
 			expect(checklistItem?.completed).toBe(true);
 			// Early break: only child 1 checked since it already had templates
 			expect(mockFindTemplatesByChild).toHaveBeenCalledTimes(1);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', TENANT, false);
 		});
 
 		it('dismissed フラグが settings から正しく読み取られる', async () => {
@@ -358,7 +359,7 @@ describe('onboarding-service', () => {
 
 		it('rewards の nextRecommendation: activities 完了後 rewards が未完なら rewards を指す', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [],
 			});
@@ -397,12 +398,12 @@ describe('onboarding-service', () => {
 
 		it('pin 未設定でも必須項目が全完了なら allCompleted は true (#1360)', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: null,
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -413,12 +414,12 @@ describe('onboarding-service', () => {
 
 		it('completedCount / totalCount は任意アイテムも含む全アイテムを対象とする (#1361)', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'hash',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -429,12 +430,12 @@ describe('onboarding-service', () => {
 
 		it('任意アイテムが全未完でも required アイテムが完了なら allCompleted は true (#1361)', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: null,
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -446,7 +447,7 @@ describe('onboarding-service', () => {
 
 		it('nextRecommendation は未完の必須 → 未完の任意の順で優先する (#1361)', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [],
 				pinHash: null,
 			});
@@ -459,7 +460,7 @@ describe('onboarding-service', () => {
 
 		it('未完の必須アイテムが存在する場合 nextRecommendation は任意より先に必須を指す (#1361)', async () => {
 			setupDefaults({
-				children: [{ id: 1 }],
+				children: [{ id: asChildId(1) }],
 				activities: [{ id: 10 }],
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: null,

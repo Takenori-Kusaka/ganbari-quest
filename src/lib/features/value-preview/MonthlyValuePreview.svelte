@@ -10,6 +10,7 @@
   - インフィニットスクロール / 自動再生 / 通知連打禁止
 -->
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import { getMilestoneLabel, VALUE_PREVIEW_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type {
@@ -42,7 +43,7 @@ function getMilestoneTitle(id: MilestoneId): string {
 	return getMilestoneLabel(id, { ageTier: 'elementary' }).title;
 }
 
-function getCategoryName(categoryId: number): string {
+function getCategoryName(categoryId: CategoryId): string {
 	return getCategoryById(categoryId)?.name ?? `#${categoryId}`;
 }
 

@@ -4,7 +4,7 @@
 import type { CancellationCategory } from '$lib/domain/labels';
 
 export interface CancellationReasonRecord {
-	id: number;
+	id: string;
 	tenantId: string;
 	category: CancellationCategory;
 	freeText: string | null;

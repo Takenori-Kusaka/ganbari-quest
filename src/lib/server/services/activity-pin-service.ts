@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/activity-pin-service.ts
 // 活動ピン留め・使用頻度ソートサービス
 
@@ -22,8 +23,8 @@ const USAGE_DAYS = 30;
  * isVisible / sortOrder` のみ参照するため、共通 subset で型安全に互換化できる。
  */
 export interface SortableActivity {
-	id: number;
-	categoryId: number;
+	id: ActivityId;
+	categoryId: CategoryId;
 	basePoints: number;
 	isVisible: number | boolean;
 	sortOrder: number;
@@ -36,8 +37,8 @@ export type SortedActivity<T extends SortableActivity = Activity | ChildActivity
 
 /** ピン留めトグル */
 export async function toggleActivityPin(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	pinned: boolean,
 	tenantId: string,
 ): Promise<{ isPinned: boolean }> {
@@ -65,7 +66,7 @@ export async function toggleActivityPin(
  */
 export async function sortActivitiesWithPreferences<T extends SortableActivity>(
 	activities: T[],
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SortedActivity<T>[]> {
 	const [pinnedPrefs, usageCounts] = await Promise.all([

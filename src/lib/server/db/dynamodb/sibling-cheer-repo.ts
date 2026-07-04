@@ -24,6 +24,8 @@
 
 import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -36,9 +38,9 @@ const PREFIX = siblingCheerPrefix();
 function toCheer(item: Record<string, unknown>): SiblingCheer {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
-		fromChildId: s.fromChildId as number,
-		toChildId: s.toChildId as number,
+		id: String(s.id as number),
+		fromChildId: asChildId(s.fromChildId as number),
+		toChildId: asChildId(s.toChildId as number),
 		stampCode: s.stampCode as string,
 		tenantId: s.tenantId as string,
 		sentAt: s.sentAt as string,
@@ -56,7 +58,7 @@ export async function insertCheer(
 ): Promise<SiblingCheer> {
 	const id = await nextId(ENTITY_NAMES.siblingCheer, tenantId);
 	const cheer: SiblingCheer = {
-		id,
+		id: String(id),
 		fromChildId: input.fromChildId,
 		toChildId: input.toChildId,
 		stampCode: input.stampCode,
@@ -70,8 +72,12 @@ export async function insertCheer(
 			TableName: TABLE_NAME,
 			Item: {
 				// 受信 child partition に配置 (toChildId 軸)。
-				...siblingCheerKey(input.toChildId, id, tenantId),
+				...siblingCheerKey(Number(input.toChildId), id, tenantId),
 				...cheer,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				fromChildId: Number(input.fromChildId),
+				toChildId: Number(input.toChildId),
 			},
 		}),
 	);
@@ -112,14 +118,18 @@ export async function insertForRestore(
 	tenantId: string,
 ): Promise<SiblingCheer> {
 	const id = await nextId(ENTITY_NAMES.siblingCheer, tenantId);
-	const cheer: SiblingCheer = { ...input, id, tenantId };
+	const cheer: SiblingCheer = { ...input, id: String(id), tenantId };
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
 				// 受信 child partition に配置 (toChildId 軸、insertCheer と同じ)。
-				...siblingCheerKey(input.toChildId, id, tenantId),
+				...siblingCheerKey(Number(input.toChildId), id, tenantId),
 				...cheer,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				fromChildId: Number(input.fromChildId),
+				toChildId: Number(input.toChildId),
 			},
 		}),
 	);
@@ -131,7 +141,7 @@ export async function insertForRestore(
 // ============================================================
 
 export async function findUnshownCheers(
-	toChildId: number,
+	toChildId: ChildId,
 	tenantId: string,
 ): Promise<SiblingCheer[]> {
 	const items = await queryChildCheers(toChildId, tenantId);
@@ -143,10 +153,10 @@ export async function findUnshownCheers(
 // markShown — 指定 id のおうえんを表示済みにする
 // ============================================================
 
-export async function markShown(cheerIds: number[], tenantId: string): Promise<void> {
+export async function markShown(cheerIds: string[], tenantId: string): Promise<void> {
 	if (cheerIds.length === 0) return;
 	const now = new Date().toISOString();
-	const idSet = new Set(cheerIds);
+	const idSet = new Set(cheerIds.map((id) => Number(id)));
 	// cheerId のみ受けるため tenant Scan で対象 item の PK/SK を一括解決する。
 	const targets = await scanCheerKeysByIds(idSet, tenantId);
 	// SQLite: 各 id を UPDATE shown_at。冪等性のため未指定 item は触らない。
@@ -166,7 +176,10 @@ export async function markShown(cheerIds: number[], tenantId: string): Promise<v
 // countTodayCheersFrom — 送信者の本日送信数を取得 (1 日上限チェック)
 // ============================================================
 
-export async function countTodayCheersFrom(fromChildId: number, tenantId: string): Promise<number> {
+export async function countTodayCheersFrom(
+	fromChildId: ChildId,
+	tenantId: string,
+): Promise<number> {
 	const today = todayDateJST();
 	// SQLite: WHERE from_child_id = ? AND sent_at >= `${today}T00:00:00`
 	// sentAt は両実装とも ISO 文字列保存のため辞書順比較で機能等価。
@@ -183,7 +196,7 @@ export async function countTodayCheersFrom(fromChildId: number, tenantId: string
 				ExpressionAttributeValues: {
 					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': PREFIX,
-					':from': fromChildId,
+					':from': Number(fromChildId),
 					':since': since,
 				},
 				ProjectionExpression: 'id',
@@ -211,7 +224,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 
 /** 受信 child partition (PK=CHILD#<toChildId>) の CHEER# item を全件 Query する (ページング対応)。 */
 async function queryChildCheers(
-	toChildId: number,
+	toChildId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -223,7 +236,7 @@ async function queryChildCheers(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': tenantPK(`CHILD#${toChildId}`, tenantId),
+					':pk': tenantPK(`CHILD#${Number(toChildId)}`, tenantId),
 					':prefix': PREFIX,
 				},
 				ExclusiveStartKey: lastKey,

@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/cloud-export-service.ts
 // クラウドエクスポート共有サービス（PIN付きS3保管 + インポート）
 
@@ -77,11 +78,11 @@ async function buildTemplateExportData(tenantId: string): Promise<CloudExportArt
 
 	// 子供別 activity 一覧 (per-child instance)
 	const activitiesByChild: Array<{
-		childId: number;
+		childId: ChildId;
 		childNickname: string;
 		activities: Array<{
 			name: string;
-			categoryId: number;
+			categoryId: CategoryId;
 			icon: string;
 			basePoints: number;
 			triggerHint: string | null;
@@ -363,7 +364,7 @@ export async function listCloudExports(tenantId: string): Promise<CloudExportRec
 }
 
 /** クラウドエクスポートを削除 */
-export async function deleteCloudExport(id: number, tenantId: string): Promise<void> {
+export async function deleteCloudExport(id: string, tenantId: string): Promise<void> {
 	const repos = getRepos();
 	const record = await repos.cloudExport.findById(id, tenantId);
 	if (!record) throw new Error('エクスポートが見つかりません');

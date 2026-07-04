@@ -2,12 +2,13 @@
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
+import type { ActivityId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_FIRST_ADVENTURE_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let submitting = $state(false);
-let selectedActivityId = $state<number | null>(null);
+let selectedActivityId = $state<ActivityId | null>(null);
 
 const child = $derived(data.child);
 
@@ -26,7 +27,7 @@ const resultLevelUp = $derived(
 	} | null) ?? null,
 );
 
-function selectActivity(id: number) {
+function selectActivity(id: ActivityId) {
 	if (!recorded) {
 		selectedActivityId = id;
 	}

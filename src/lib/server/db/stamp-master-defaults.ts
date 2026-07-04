@@ -56,7 +56,7 @@ export const DEFAULT_STAMP_MASTERS_DATA: ReadonlyArray<{
  */
 export function getDefaultStampMasters(now: string = new Date().toISOString()): StampMaster[] {
 	return DEFAULT_STAMP_MASTERS_DATA.map((d) => ({
-		id: d.id,
+		id: String(d.id),
 		name: d.name,
 		emoji: d.emoji,
 		rarity: d.rarity,

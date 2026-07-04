@@ -1,9 +1,10 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
 
 export interface IPointRepo {
-	getBalance(childId: number, tenantId: string): Promise<number>;
+	getBalance(childId: ChildId, tenantId: string): Promise<number>;
 	findPointHistory(
-		childId: number,
+		childId: ChildId,
 		options: { limit: number; offset: number },
 		tenantId: string,
 	): Promise<PointLedgerEntry[]>;
@@ -18,12 +19,12 @@ export interface IPointRepo {
 	 * @returns 成功時は挿入した負値エントリ、残高不足なら `{ error: 'INSUFFICIENT_POINTS' }`
 	 */
 	spendPointsAtomic(
-		childId: number,
+		childId: ChildId,
 		amount: number,
-		entry: { type: string; description: string; referenceId?: number },
+		entry: { type: string; description: string; referenceId?: string },
 		tenantId: string,
 	): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }>;
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	deleteByTenantId(tenantId: string): Promise<void>;
 
 	// Retention cleanup (#717, #729)
@@ -34,7 +35,7 @@ export interface IPointRepo {
 	 * @returns 削除件数
 	 */
 	deletePointLedgerBeforeDate(
-		childId: number,
+		childId: ChildId,
 		cutoffDate: string,
 		tenantId: string,
 	): Promise<number>;

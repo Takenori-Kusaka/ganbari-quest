@@ -15,6 +15,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const { mockSend, MockPutCommand, MockQueryCommand, MockUpdateCommand, MockScanCommand } =
@@ -59,7 +60,7 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 
 /** child partition の DynamoDB message item を組み立てる (PK/SK + 属性)。 */
 function makeItem(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -105,7 +106,7 @@ describe('insertMessage', () => {
 			TENANT,
 		);
 
-		expect(result.id).toBe(101);
+		expect(result.id).toBe('101');
 		expect(result).toMatchObject({
 			childId: CHILD_ID,
 			messageType: 'text',
@@ -200,7 +201,7 @@ describe('findMessages', () => {
 		});
 		const { findMessages } = await loadRepo();
 		const result = await findMessages(CHILD_ID, 2, TENANT);
-		expect(result.map((m) => m.id)).toEqual([3, 2]);
+		expect(result.map((m) => m.id)).toEqual(['3', '2']);
 	});
 
 	it('LastEvaluatedKey でページングする', async () => {
@@ -303,7 +304,7 @@ describe('markMessageShown (#2845 課題①: full composite-key addressing)', ()
 		});
 
 		const { markMessageShown } = await loadRepo();
-		const result = await markMessageShown(CHILD_ID, 7, TENANT);
+		const result = await markMessageShown(CHILD_ID, '7', TENANT);
 		expect(result?.shownAt).toBe('2026-06-04T01:00:00.000Z');
 
 		// UpdateItem 1 回のみ (旧 tenant Scan 逆引きは撤去済)
@@ -332,7 +333,7 @@ describe('markMessageShown (#2845 課題①: full composite-key addressing)', ()
 			}),
 		);
 		const { markMessageShown } = await loadRepo();
-		expect(await markMessageShown(CHILD_ID, 99, TENANT)).toBeUndefined();
+		expect(await markMessageShown(CHILD_ID, '99', TENANT)).toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 
@@ -343,7 +344,7 @@ describe('markMessageShown (#2845 課題①: full composite-key addressing)', ()
 			}),
 		);
 		const { markMessageShown } = await loadRepo();
-		await expect(markMessageShown(CHILD_ID, 7, TENANT)).rejects.toThrow('throughput exceeded');
+		await expect(markMessageShown(CHILD_ID, '7', TENANT)).rejects.toThrow('throughput exceeded');
 	});
 });
 
@@ -405,7 +406,7 @@ describe('interface 適合 (IMessageRepo)', () => {
 		const { insertMessage } = await loadRepo();
 		const result = await insertMessage({ childId: CHILD_ID, messageType: 'stamp' }, TENANT);
 		// stub なら id=0 / send 未呼出だった。本実装は採番 id を返し send する。
-		expect(result.id).toBe(1);
+		expect(result.id).toBe('1');
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

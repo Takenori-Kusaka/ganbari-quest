@@ -20,6 +20,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const { mockSend, store, resetStore } = vi.hoisted(() => {
 	type Item = Record<string, unknown>;
@@ -119,7 +120,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 }));
 
 const TENANT = 'tenant-reset';
-const CHILD_ID = 77;
+const CHILD_ID = asChildId(77);
 
 /**
  * reset 後に partition (pk) に残存する SK を sort 済 list で返す。
@@ -304,7 +305,7 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 			TENANT,
 		);
 		await point.insertPointEntry(
-			{ childId: OTHER, amount: 40, type: 'earn', description: 'y' },
+			{ childId: asChildId(OTHER), amount: 40, type: 'earn', description: 'y' },
 			TENANT,
 		);
 
@@ -313,7 +314,7 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 
 		// reset 対象の子は 0、別の子は残高維持
 		expect(await point.getBalance(CHILD_ID, TENANT)).toBe(0);
-		expect(await point.getBalance(OTHER, TENANT)).toBe(40);
+		expect(await point.getBalance(asChildId(OTHER), TENANT)).toBe(40);
 	});
 
 	// #3485 (reset 完全性 class-lock / ADR-0061 same-class→guard): child partition の全 entity を seed し、

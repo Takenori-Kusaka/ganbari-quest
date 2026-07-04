@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 /**
  * tests/unit/db/dynamodb-sibling-cheer-repo.test.ts
  *
@@ -100,14 +101,14 @@ describe('insertCheer', () => {
 
 		const { insertCheer } = await loadRepo();
 		const result = await insertCheer(
-			{ fromChildId: FROM_CHILD, toChildId: TO_CHILD, stampCode: 'ganbare' },
+			{ fromChildId: asChildId(FROM_CHILD), toChildId: asChildId(TO_CHILD), stampCode: 'ganbare' },
 			TENANT,
 		);
 
-		expect(result.id).toBe(101);
+		expect(result.id).toBe('101');
 		expect(result).toMatchObject({
-			fromChildId: FROM_CHILD,
-			toChildId: TO_CHILD,
+			fromChildId: asChildId(FROM_CHILD),
+			toChildId: asChildId(TO_CHILD),
 			stampCode: 'ganbare',
 			tenantId: TENANT,
 			shownAt: null,
@@ -137,7 +138,7 @@ describe('findUnshownCheers', () => {
 			],
 		});
 		const { findUnshownCheers } = await loadRepo();
-		const result = await findUnshownCheers(TO_CHILD, TENANT);
+		const result = await findUnshownCheers(asChildId(TO_CHILD), TENANT);
 		expect(result.map((c) => c.stampCode)).toEqual(['unshown', 'unshown2']);
 
 		const callArg = mockSend.mock.calls[0]?.[0] as {
@@ -156,13 +157,13 @@ describe('findUnshownCheers', () => {
 			Items: [makeItem({ id: 1, shownAt: '2026-06-04T01:00:00.000Z' })],
 		});
 		const { findUnshownCheers } = await loadRepo();
-		expect(await findUnshownCheers(TO_CHILD, TENANT)).toEqual([]);
+		expect(await findUnshownCheers(asChildId(TO_CHILD), TENANT)).toEqual([]);
 	});
 
 	it('0 件のとき空配列を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { findUnshownCheers } = await loadRepo();
-		expect(await findUnshownCheers(TO_CHILD, TENANT)).toEqual([]);
+		expect(await findUnshownCheers(asChildId(TO_CHILD), TENANT)).toEqual([]);
 	});
 
 	it('LastEvaluatedKey でページングする', async () => {
@@ -173,7 +174,7 @@ describe('findUnshownCheers', () => {
 			})
 			.mockResolvedValueOnce({ Items: [makeItem({ id: 2, shownAt: null })] });
 		const { findUnshownCheers } = await loadRepo();
-		const result = await findUnshownCheers(TO_CHILD, TENANT);
+		const result = await findUnshownCheers(asChildId(TO_CHILD), TENANT);
 		expect(result).toHaveLength(2);
 		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
@@ -181,7 +182,7 @@ describe('findUnshownCheers', () => {
 	it('shownAt 欠落 item は未表示扱い (null backfill)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 1, shownAt: undefined })] });
 		const { findUnshownCheers } = await loadRepo();
-		const result = await findUnshownCheers(TO_CHILD, TENANT);
+		const result = await findUnshownCheers(asChildId(TO_CHILD), TENANT);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.shownAt).toBeNull();
 	});
@@ -205,7 +206,7 @@ describe('markShown', () => {
 		mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 
 		const { markShown } = await loadRepo();
-		await markShown([7, 9], TENANT);
+		await markShown(['7', '9'], TENANT);
 
 		// Scan 1 回 + Update 2 回
 		expect(mockSend).toHaveBeenCalledTimes(3);
@@ -233,7 +234,7 @@ describe('markShown', () => {
 	it('対象 id が存在しないとき Update を呼ばない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 1 })] }); // id=99 は不在
 		const { markShown } = await loadRepo();
-		await markShown([99], TENANT);
+		await markShown(['99'], TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1); // Scan のみ
 	});
 
@@ -253,7 +254,7 @@ describe('markShown', () => {
 		mockSend.mockResolvedValueOnce({});
 
 		const { markShown } = await loadRepo();
-		await markShown([7], TENANT);
+		await markShown(['7'], TENANT);
 
 		// Scan 2 回 + Update 1 回。2 回目の Scan に ExclusiveStartKey が渡り Limit は付かない。
 		expect(mockSend).toHaveBeenCalledTimes(3);
@@ -275,7 +276,7 @@ describe('countTodayCheersFrom', () => {
 			Items: [{ id: 1 }, { id: 2 }, { id: 3 }],
 		});
 		const { countTodayCheersFrom } = await loadRepo();
-		expect(await countTodayCheersFrom(FROM_CHILD, TENANT)).toBe(3);
+		expect(await countTodayCheersFrom(asChildId(FROM_CHILD), TENANT)).toBe(3);
 
 		const scanCall = mockSend.mock.calls[0]?.[0] as {
 			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
@@ -293,7 +294,7 @@ describe('countTodayCheersFrom', () => {
 	it('0 件のとき 0 を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { countTodayCheersFrom } = await loadRepo();
-		expect(await countTodayCheersFrom(FROM_CHILD, TENANT)).toBe(0);
+		expect(await countTodayCheersFrom(asChildId(FROM_CHILD), TENANT)).toBe(0);
 	});
 
 	it('LastEvaluatedKey で全ページを合算する', async () => {
@@ -304,7 +305,7 @@ describe('countTodayCheersFrom', () => {
 			})
 			.mockResolvedValueOnce({ Items: [{ id: 3 }] });
 		const { countTodayCheersFrom } = await loadRepo();
-		expect(await countTodayCheersFrom(FROM_CHILD, TENANT)).toBe(3);
+		expect(await countTodayCheersFrom(asChildId(FROM_CHILD), TENANT)).toBe(3);
 		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
 });
@@ -365,11 +366,11 @@ describe('interface 適合 (ISiblingCheerRepo)', () => {
 		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
 		const { insertCheer } = await loadRepo();
 		const result = await insertCheer(
-			{ fromChildId: FROM_CHILD, toChildId: TO_CHILD, stampCode: 'nice' },
+			{ fromChildId: asChildId(FROM_CHILD), toChildId: asChildId(TO_CHILD), stampCode: 'nice' },
 			TENANT,
 		);
 		// stub なら id=0 / send 未呼出だった。本実装は採番 id を返し send する。
-		expect(result.id).toBe(1);
+		expect(result.id).toBe('1');
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

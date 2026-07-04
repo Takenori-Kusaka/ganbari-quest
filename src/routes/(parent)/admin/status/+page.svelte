@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, STATUS_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
@@ -51,11 +52,11 @@ const hasUnsetBenchmarks = $derived(
 );
 
 // プレビュー用の子供選択（override + $derived パターン）
-let previewChildIdOverride = $state<number | undefined>(undefined);
+let previewChildIdOverride = $state<ChildId | undefined>(undefined);
 const previewChildId = $derived(
 	previewChildIdOverride !== undefined && data.children.some((c) => c.id === previewChildIdOverride)
 		? previewChildIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 const previewChild = $derived(data.children.find((c) => c.id === previewChildId));
 

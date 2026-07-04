@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { glob } from 'glob';
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const ROOT = resolve(__dirname, '../../..');
 
@@ -44,7 +45,7 @@ describe('#3246 (A) export 認可境界 契約テスト', () => {
 
 function childLocals() {
 	return {
-		context: { tenantId: 't-1', role: 'child', childId: 1 },
+		context: { tenantId: 't-1', role: 'child', childId: asChildId(1) },
 	} as unknown as App.Locals;
 }
 function parentLocals() {

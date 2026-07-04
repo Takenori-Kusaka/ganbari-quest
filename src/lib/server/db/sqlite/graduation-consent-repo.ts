@@ -15,7 +15,7 @@ const DEFAULT_PUBLIC_SAMPLE_LIMIT = 20;
 
 function mapRow(row: typeof graduationConsent.$inferSelect): GraduationConsentRecord {
 	return {
-		id: row.id,
+		id: String(row.id),
 		tenantId: row.tenantId,
 		nickname: row.nickname,
 		consented: !!row.consented,
@@ -91,7 +91,7 @@ export async function aggregateRecent(days: number = DEFAULT_AGGREGATION_DAYS): 
 		.limit(DEFAULT_PUBLIC_SAMPLE_LIMIT);
 
 	const publicSamples = publicSampleRows.map((r) => ({
-		id: r.id,
+		id: String(r.id),
 		nickname: r.nickname,
 		userPoints: r.userPoints,
 		usagePeriodDays: r.usagePeriodDays,

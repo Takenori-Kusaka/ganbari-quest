@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, type ChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
 const mockGetSetting = vi.fn();
@@ -51,11 +52,11 @@ describe('getWeeklyRanking', () => {
 	});
 
 	it('1人家庭でも正常にランキング返却', async () => {
-		mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'ゆい', age: 5 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'ゆい', age: 5 }]);
 		mockFindActivityLogs.mockResolvedValue([
-			{ categoryId: 1, points: 10 },
-			{ categoryId: 1, points: 10 },
-			{ categoryId: 2, points: 10 },
+			{ categoryId: asCategoryId(1), points: 10 },
+			{ categoryId: asCategoryId(1), points: 10 },
+			{ categoryId: asCategoryId(2), points: 10 },
 		]);
 
 		const result = await getWeeklyRanking(TENANT);
@@ -67,25 +68,25 @@ describe('getWeeklyRanking', () => {
 
 	it('2人きょうだいでランキング算出', async () => {
 		mockFindAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'ゆい', age: 5 },
-			{ id: 2, nickname: 'けん', age: 8 },
+			{ id: '1', nickname: 'ゆい', age: 5 },
+			{ id: '2', nickname: 'けん', age: 8 },
 		]);
 		// ゆい: 3回（カテゴリ1:2, カテゴリ2:1）
-		mockFindActivityLogs.mockImplementation((childId: number) => {
-			if (childId === 1) {
+		mockFindActivityLogs.mockImplementation((childId: ChildId) => {
+			if (childId === '1') {
 				return Promise.resolve([
-					{ categoryId: 1, points: 10 },
-					{ categoryId: 1, points: 10 },
-					{ categoryId: 2, points: 10 },
+					{ categoryId: asCategoryId(1), points: 10 },
+					{ categoryId: asCategoryId(1), points: 10 },
+					{ categoryId: asCategoryId(2), points: 10 },
 				]);
 			}
 			// けん: 5回（カテゴリ1:1, カテゴリ3:4）
 			return Promise.resolve([
-				{ categoryId: 1, points: 10 },
-				{ categoryId: 3, points: 10 },
-				{ categoryId: 3, points: 10 },
-				{ categoryId: 3, points: 10 },
-				{ categoryId: 3, points: 10 },
+				{ categoryId: asCategoryId(1), points: 10 },
+				{ categoryId: asCategoryId(3), points: 10 },
+				{ categoryId: asCategoryId(3), points: 10 },
+				{ categoryId: asCategoryId(3), points: 10 },
+				{ categoryId: asCategoryId(3), points: 10 },
 			]);
 		});
 
@@ -107,8 +108,8 @@ describe('getWeeklyRanking', () => {
 
 	it('全員0回の場合、mostActive は null', async () => {
 		mockFindAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'ゆい', age: 5 },
-			{ id: 2, nickname: 'けん', age: 8 },
+			{ id: '1', nickname: 'ゆい', age: 5 },
+			{ id: '2', nickname: 'けん', age: 8 },
 		]);
 		mockFindActivityLogs.mockResolvedValue([]);
 
@@ -119,10 +120,13 @@ describe('getWeeklyRanking', () => {
 
 	it('合計20回以上で最高の励ましメッセージ', async () => {
 		mockFindAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'ゆい', age: 5 },
-			{ id: 2, nickname: 'けん', age: 8 },
+			{ id: '1', nickname: 'ゆい', age: 5 },
+			{ id: '2', nickname: 'けん', age: 8 },
 		]);
-		const manyLogs = Array.from({ length: 12 }, () => ({ categoryId: 1, points: 10 }));
+		const manyLogs = Array.from({ length: 12 }, () => ({
+			categoryId: asCategoryId(1),
+			points: 10,
+		}));
 		mockFindActivityLogs.mockResolvedValue(manyLogs);
 
 		const result = await getWeeklyRanking(TENANT);

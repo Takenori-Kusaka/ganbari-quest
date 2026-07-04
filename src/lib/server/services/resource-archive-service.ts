@@ -1,3 +1,4 @@
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/resource-archive-service.ts
 // #783: トライアル終了時の超過リソース archive / アップグレード時の restore
 
@@ -22,6 +23,12 @@ import { getPlanLimits } from './plan-limit-service';
 
 // Phase 7 PR-2a (#2688): ARCHIVED_REASONS SSOT (domain) に整合させ ArchivedReason 型注釈で
 // repo 層の enum 制約と接続。caller 側の文字列 widening を防ぐ。
+// #3575: id は opaque string。10 進文字列 (sqlite/demo backend) では (桁数, 辞書順) 比較が
+// 旧 `a.id - b.id` の numeric 昇順 (= 古い順の proxy) と同値。uuid でも決定的順序を保つ。
+function compareOpaqueIdAsc(a: string, b: string): number {
+	return a.length - b.length || a.localeCompare(b);
+}
+
 const ARCHIVE_REASON: ArchivedReason = 'trial_expired';
 // #738: downgrade-service と同じ値。循環参照を避けるため直接定義
 const DOWNGRADE_ARCHIVE_REASON: ArchivedReason = 'downgrade_user_selected';
@@ -36,15 +43,15 @@ const DOWNGRADE_ARCHIVE_REASON: ArchivedReason = 'downgrade_user_selected';
  * 「古い順に残す」= 最初に作成したリソースを優先保持する
  */
 export async function archiveExcessResources(tenantId: string): Promise<{
-	archivedChildIds: number[];
-	archivedActivityIds: number[];
-	archivedChecklistTemplateIds: number[];
+	archivedChildIds: ChildId[];
+	archivedActivityIds: ActivityId[];
+	archivedChecklistTemplateIds: string[];
 }> {
 	const limits = getPlanLimits('free');
 	const result = {
-		archivedChildIds: [] as number[],
-		archivedActivityIds: [] as number[],
-		archivedChecklistTemplateIds: [] as number[],
+		archivedChildIds: [] as ChildId[],
+		archivedActivityIds: [] as ActivityId[],
+		archivedChecklistTemplateIds: [] as string[],
 	};
 
 	// --- Children ---
@@ -52,7 +59,7 @@ export async function archiveExcessResources(tenantId: string): Promise<{
 		const children = await findAllChildren(tenantId);
 		if (children.length > limits.maxChildren) {
 			// id 昇順 = 古い順にソートし、上限以降を archive
-			const sorted = [...children].sort((a, b) => a.id - b.id);
+			const sorted = [...children].sort((a, b) => compareOpaqueIdAsc(a.id, b.id));
 			const excess = sorted.slice(limits.maxChildren);
 			const ids = excess.map((c) => c.id);
 			await archiveChildren(ids, ARCHIVE_REASON, tenantId);
@@ -65,7 +72,7 @@ export async function archiveExcessResources(tenantId: string): Promise<{
 		const activities = await findActivities(tenantId);
 		const custom = activities.filter((a) => a.source === 'custom');
 		if (custom.length > limits.maxActivities) {
-			const sorted = [...custom].sort((a, b) => a.id - b.id);
+			const sorted = [...custom].sort((a, b) => compareOpaqueIdAsc(a.id, b.id));
 			const excess = sorted.slice(limits.maxActivities);
 			const ids = excess.map((a) => a.id);
 			await archiveActivities(ids, ARCHIVE_REASON, tenantId);
@@ -81,7 +88,7 @@ export async function archiveExcessResources(tenantId: string): Promise<{
 		for (const child of children) {
 			const templates = await findTemplatesByChild(child.id, tenantId, true);
 			if (templates.length > limits.maxChecklistTemplates) {
-				const sorted = [...templates].sort((a, b) => a.id - b.id);
+				const sorted = [...templates].sort((a, b) => compareOpaqueIdAsc(a.id, b.id));
 				const excess = sorted.slice(limits.maxChecklistTemplates);
 				const ids = excess.map((t) => t.id);
 				await archiveChecklistTemplates(ids, ARCHIVE_REASON, tenantId);

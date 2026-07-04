@@ -30,7 +30,7 @@ vi.mock('$lib/server/services/checklist-template-import-service', () => ({
 // activity-pack の Strategy も同時 eager-load されるため activity-repo を mock しておく
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: vi.fn().mockResolvedValue([]),
-	insertActivity: vi.fn().mockResolvedValue({ id: 1 }),
+	insertActivity: vi.fn().mockResolvedValue({ id: '1' }),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -39,10 +39,11 @@ vi.mock('$lib/server/logger', () => ({
 
 // ---------- Import after mocks ----------
 
+import { asChildId } from '$lib/domain/ids';
 import { checklistStrategy } from '../../../../src/lib/marketplace/strategies/checklist-strategy';
 
 const TENANT = 'test-tenant-001';
-const CHILD_ID = 12345;
+const CHILD_ID = asChildId(12345);
 const PRESET_ID = 'event-pool';
 
 function makeItem(overrides: Record<string, unknown> = {}) {
@@ -209,7 +210,7 @@ describe('checklistStrategy.preview', () => {
 			childId: CHILD_ID,
 		});
 		// Phase 2: family scope のため childId hint は 0 固定で legacy service へ渡される
-		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, asChildId(0), TENANT);
 	});
 
 	it('ctx.presetId 未指定なら error throw', async () => {
@@ -226,7 +227,7 @@ describe('checklistStrategy.preview', () => {
 			checklistStrategy.preview(payload, { tenantId: TENANT, presetId: PRESET_ID }),
 		).resolves.toBeDefined();
 		// hintChildId=0 で legacy service が呼ばれる
-		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, asChildId(0), TENANT);
 	});
 
 	it('下流 service が preset 未発見で null 返却 -> error throw', async () => {
@@ -257,13 +258,13 @@ describe('checklistStrategy.apply', () => {
 		const result = await checklistStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childIds: [10, 11],
+			childIds: [asChildId(10), asChildId(11)],
 		});
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
 		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
-			childIds: [10, 11],
+			childIds: [asChildId(10), asChildId(11)],
 		});
 	});
 

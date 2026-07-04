@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/battle-service.ts
 // バトルアドベンチャー サービス層
 
@@ -26,7 +27,7 @@ import type {
 
 export interface TodayBattleInfo {
 	/** バトル ID（DB レコード） */
-	battleId: number;
+	battleId: string;
 	/** 対戦相手の敵 */
 	enemy: Enemy;
 	/** プレイヤーのバトルステータス */
@@ -64,9 +65,9 @@ export interface CollectionEntry {
  * 未登録ならバトルを生成して返す。
  */
 export async function getTodayBattle(
-	childId: number,
+	childId: ChildId,
 	uiMode: string,
-	categoryXp: Record<number, number>,
+	categoryXp: Record<string, number>,
 	tenantId: string,
 ): Promise<TodayBattleInfo> {
 	const today = todayDateJST();
@@ -132,9 +133,9 @@ export async function getTodayBattle(
  * サーバ側で今日の pending バトルを再取得し、battleId/enemyId の整合性を検証する。
  */
 export async function executeDailyBattle(
-	childId: number,
+	childId: ChildId,
 	uiMode: string,
-	categoryXp: Record<number, number>,
+	categoryXp: Record<string, number>,
 	tenantId: string,
 ): Promise<BattleExecutionResult> {
 	const today = todayDateJST();
@@ -186,7 +187,7 @@ export async function executeDailyBattle(
 /**
  * 敵図鑑を取得する。
  */
-async function _getEnemyCollection(childId: number, tenantId: string): Promise<CollectionEntry[]> {
+async function _getEnemyCollection(childId: ChildId, tenantId: string): Promise<CollectionEntry[]> {
 	const rows = await findCollection(childId, tenantId);
 	return rows
 		.map((row: EnemyCollectionRow) => {
@@ -205,7 +206,7 @@ async function _getEnemyCollection(childId: number, tenantId: string): Promise<C
  * バトル履歴を取得する。
  */
 async function _getBattleHistory(
-	childId: number,
+	childId: ChildId,
 	limit: number,
 	tenantId: string,
 ): Promise<

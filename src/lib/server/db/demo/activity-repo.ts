@@ -1,3 +1,10 @@
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 // Demo IActivityRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
@@ -64,7 +71,7 @@ const ALL_DEMO_ACTIVITIES: Activity[] = (() => {
 function filterActivity(a: Activity, filter?: ActivityFilter): boolean {
 	if (!filter) return a.isVisible === 1;
 	if (filter.includeHidden !== true && a.isVisible !== 1) return false;
-	if (typeof filter.categoryId === 'number' && a.categoryId !== filter.categoryId) return false;
+	if (filter.categoryId !== undefined && a.categoryId !== filter.categoryId) return false;
 	if (typeof filter.childAge === 'number') {
 		if (a.ageMin !== null && filter.childAge < a.ageMin) return false;
 		if (a.ageMax !== null && filter.childAge > a.ageMax) return false;
@@ -82,7 +89,7 @@ export async function findActivities(
 }
 
 export async function findActivityById(
-	id: number,
+	id: ActivityId,
 	_tenantId: string,
 ): Promise<Activity | undefined> {
 	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
@@ -95,7 +102,7 @@ export async function insertActivity(
 	// Stub: 入力値で minimal Activity を組み立てて返す
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: asActivityId(0),
 		name: input.name,
 		categoryId: input.categoryId,
 		icon: input.icon,
@@ -122,7 +129,7 @@ export async function insertActivity(
 }
 
 export async function updateActivity(
-	id: number,
+	id: ActivityId,
 	_input: UpdateActivityInput,
 	_tenantId: string,
 ): Promise<Activity | undefined> {
@@ -131,23 +138,26 @@ export async function updateActivity(
 }
 
 export async function setActivityVisibility(
-	id: number,
+	id: ActivityId,
 	_visible: boolean,
 	_tenantId: string,
 ): Promise<Activity | undefined> {
 	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
-export async function deleteActivity(id: number, _tenantId: string): Promise<Activity | undefined> {
+export async function deleteActivity(
+	id: ActivityId,
+	_tenantId: string,
+): Promise<Activity | undefined> {
 	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
-export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
+export async function hasActivityLogs(activityId: ActivityId, _tenantId: string): Promise<boolean> {
 	return DEMO_ACTIVITY_LOGS.some((l) => l.activityId === activityId);
 }
 
-export async function getActivityLogCounts(_tenantId: string): Promise<Record<number, number>> {
-	const counts: Record<number, number> = {};
+export async function getActivityLogCounts(_tenantId: string): Promise<Record<string, number>> {
+	const counts: Record<string, number> = {};
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.cancelled === 1) continue;
 		counts[log.activityId] = (counts[log.activityId] ?? 0) + 1;
@@ -160,7 +170,7 @@ export async function countMainQuestActivities(_tenantId: string): Promise<numbe
 }
 
 export async function deleteDailyMissionsByActivity(
-	_activityId: number,
+	_activityId: ActivityId,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
@@ -168,15 +178,15 @@ export async function deleteDailyMissionsByActivity(
 
 // ---------- Children (convenience lookup) ----------
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }
 
 // ---------- Activity Logs ----------
 
 export async function findDailyLog(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	date: string,
 	_tenantId: string,
 ): Promise<ActivityLog | undefined> {
@@ -186,8 +196,8 @@ export async function findDailyLog(
 }
 
 export async function findStreakLogs(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	_tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	return DEMO_ACTIVITY_LOGS.filter(
@@ -201,7 +211,7 @@ export async function insertActivityLog(
 ): Promise<ActivityLog> {
 	// Stub: 入力値で minimal ActivityLog を返す
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		activityId: input.activityId,
 		points: input.points,
@@ -214,18 +224,18 @@ export async function insertActivityLog(
 }
 
 export async function findActivityLogById(
-	id: number,
+	id: string,
 	_tenantId: string,
 ): Promise<ActivityLog | undefined> {
 	return DEMO_ACTIVITY_LOGS.find((l) => l.id === id);
 }
 
-export async function markActivityLogCancelled(_id: number, _tenantId: string): Promise<void> {
+export async function markActivityLogCancelled(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 export async function findActivityLogs(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	options?: { from?: string; to?: string },
 ): Promise<ActivityLogSummary[]> {
@@ -241,7 +251,7 @@ export async function findActivityLogs(
 			id: l.id,
 			activityName: activity?.name ?? 'unknown',
 			activityIcon: activity?.icon ?? '',
-			categoryId: activity?.categoryId ?? 0,
+			categoryId: activity?.categoryId ?? asCategoryId(0),
 			points: l.points,
 			streakDays: l.streakDays,
 			streakBonus: l.streakBonus,
@@ -251,8 +261,8 @@ export async function findActivityLogs(
 }
 
 export async function countTodayActiveRecords(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	date: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -266,11 +276,11 @@ export async function countTodayActiveRecords(
 }
 
 export async function getTodayActivityCountsByChild(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	_tenantId: string,
-): Promise<{ activityId: number; count: number }[]> {
-	const counts = new Map<number, number>();
+): Promise<{ activityId: ActivityId; count: number }[]> {
+	const counts = new Map<ActivityId, number>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.recordedDate !== date || log.cancelled !== 0) continue;
 		counts.set(log.activityId, (counts.get(log.activityId) ?? 0) + 1);
@@ -279,11 +289,11 @@ export async function getTodayActivityCountsByChild(
 }
 
 export async function findTodayRecordedActivityIds(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
-): Promise<number[]> {
-	const ids = new Set<number>();
+): Promise<ActivityId[]> {
+	const ids = new Set<ActivityId>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId === childId && log.recordedDate === today && log.cancelled === 0) {
 			ids.add(log.activityId);
@@ -295,7 +305,7 @@ export async function findTodayRecordedActivityIds(
 // ---------- Aggregation queries ----------
 
 export async function findDistinctRecordedDates(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	const dates = new Set<string>();
@@ -305,15 +315,18 @@ export async function findDistinctRecordedDates(
 	return Array.from(dates).map((d) => ({ recordedDate: d }));
 }
 
-export async function countActiveActivityLogs(childId: number, _tenantId: string): Promise<number> {
+export async function countActiveActivityLogs(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	return DEMO_ACTIVITY_LOGS.filter((l) => l.childId === childId && l.cancelled === 0).length;
 }
 
 export async function getCategoryCountsByDate(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<{ recordedDate: string; categoryCount: number }[]> {
-	const byDate = new Map<string, Set<number>>();
+	const byDate = new Map<string, Set<CategoryId>>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;
 		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
@@ -327,8 +340,11 @@ export async function getCategoryCountsByDate(
 	}));
 }
 
-export async function countDistinctCategories(childId: number, _tenantId: string): Promise<number> {
-	const categories = new Set<number>();
+export async function countDistinctCategories(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
+	const categories = new Set<CategoryId>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;
 		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
@@ -338,10 +354,10 @@ export async function countDistinctCategories(childId: number, _tenantId: string
 }
 
 export async function findTodayLogsWithCategory(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	_tenantId: string,
-): Promise<{ activityId: number; categoryId: number }[]> {
+): Promise<{ activityId: ActivityId; categoryId: CategoryId }[]> {
 	return DEMO_ACTIVITY_LOGS.filter(
 		(l) => l.childId === childId && l.recordedDate === date && l.cancelled === 0,
 	)
@@ -349,11 +365,11 @@ export async function findTodayLogsWithCategory(
 			const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === l.activityId);
 			return activity ? { activityId: l.activityId, categoryId: activity.categoryId } : null;
 		})
-		.filter((x): x is { activityId: number; categoryId: number } => x !== null);
+		.filter((x): x is { activityId: ActivityId; categoryId: CategoryId } => x !== null);
 }
 
 export async function getComboPointsGranted(
-	_childId: number,
+	_childId: ChildId,
 	_descriptionPrefix: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -361,8 +377,8 @@ export async function getComboPointsGranted(
 }
 
 export async function countActiveActivityLogsByCategory(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<number> {
 	let count = 0;
@@ -375,7 +391,7 @@ export async function countActiveActivityLogsByCategory(
 }
 
 export async function countPointLedgerEntriesByType(
-	_childId: number,
+	_childId: ChildId,
 	_type: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -383,7 +399,7 @@ export async function countPointLedgerEntriesByType(
 }
 
 export async function countPointLedgerEntriesByTypeAndDate(
-	_childId: number,
+	_childId: ChildId,
 	_type: string,
 	_date: string,
 	_tenantId: string,
@@ -394,13 +410,13 @@ export async function countPointLedgerEntriesByTypeAndDate(
 // ---------- Must activities (#1755) ----------
 
 export async function findMustActivitiesWithToday(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<{
 	logged: number;
 	total: number;
-	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+	activities: Array<{ id: ActivityId; name: string; icon: string; loggedToday: number }>;
 }> {
 	const mustActivities = ALL_DEMO_ACTIVITIES.filter(
 		(a) => a.priority === 'must' && a.isVisible === 1,
@@ -424,7 +440,7 @@ export async function findMustActivitiesWithToday(
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveActivities(
-	_ids: number[],
+	_ids: ActivityId[],
 	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
@@ -450,7 +466,7 @@ export async function insertPointLedger(
 // ---------- Retention cleanup ----------
 
 export async function deleteActivityLogsBeforeDate(
-	_childId: number,
+	_childId: ChildId,
 	_cutoffDate: string,
 	_tenantId: string,
 ): Promise<number> {

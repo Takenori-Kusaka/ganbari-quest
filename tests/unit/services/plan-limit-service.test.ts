@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/plan-limit-service.test.ts
 // plan-limit-service ユニットテスト (#0196, #0269, #0270)
 
@@ -496,8 +497,8 @@ describe('plan-limit-service', () => {
 		it('free (cognito): blocked when at limit', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'a' },
-				{ id: 2, nickname: 'b' },
+				{ id: '1', nickname: 'a' },
+				{ id: '2', nickname: 'b' },
 			]);
 			const result = await checkChildLimit('tenant1', 'none');
 			expect(result.allowed).toBe(false);
@@ -528,11 +529,11 @@ describe('plan-limit-service', () => {
 			process.env.AUTH_MODE = 'anonymous';
 			// 仮に findAllChildren が 5 件返す状況でも family tier 早期 return で limit=null
 			mockFindAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'たろう' },
-				{ id: 2, nickname: 'ひな' },
-				{ id: 3, nickname: 'けんた' },
-				{ id: 4, nickname: 'さくら' },
-				{ id: 5, nickname: 'けいすけ' },
+				{ id: '1', nickname: 'たろう' },
+				{ id: '2', nickname: 'ひな' },
+				{ id: '3', nickname: 'けんた' },
+				{ id: '4', nickname: 'さくら' },
+				{ id: '5', nickname: 'けいすけ' },
 			]);
 			const result = await checkChildLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
@@ -551,25 +552,25 @@ describe('plan-limit-service', () => {
 
 		it('free (cognito): allowed when tenant-wide custom count is under limit (per-child sum, #2362)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindAllChildren.mockResolvedValue([{ id: 10 }, { id: 20 }]);
+			mockFindAllChildren.mockResolvedValue([{ id: '10' }, { id: '20' }]);
 			mockFindActivitiesByChild
-				.mockResolvedValueOnce([{ id: 101, source: 'custom' }])
-				.mockResolvedValueOnce([{ id: 201, source: 'custom' }]);
+				.mockResolvedValueOnce([{ id: '101', source: 'custom' }])
+				.mockResolvedValueOnce([{ id: '201', source: 'custom' }]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(2);
 			expect(result.max).toBe(3);
-			expect(mockFindActivitiesByChild).toHaveBeenCalledWith(10, 'tenant1');
-			expect(mockFindActivitiesByChild).toHaveBeenCalledWith(20, 'tenant1');
+			expect(mockFindActivitiesByChild).toHaveBeenCalledWith('10', 'tenant1');
+			expect(mockFindActivitiesByChild).toHaveBeenCalledWith('20', 'tenant1');
 		});
 
 		it('free (cognito): blocked when tenant-wide custom count meets limit (per-child sum, #2362)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindAllChildren.mockResolvedValue([{ id: 10 }, { id: 20 }, { id: 30 }]);
+			mockFindAllChildren.mockResolvedValue([{ id: '10' }, { id: '20' }, { id: '30' }]);
 			mockFindActivitiesByChild
-				.mockResolvedValueOnce([{ id: 101, source: 'custom' }])
-				.mockResolvedValueOnce([{ id: 201, source: 'custom' }])
-				.mockResolvedValueOnce([{ id: 301, source: 'custom' }]);
+				.mockResolvedValueOnce([{ id: '101', source: 'custom' }])
+				.mockResolvedValueOnce([{ id: '201', source: 'custom' }])
+				.mockResolvedValueOnce([{ id: '301', source: 'custom' }]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(3);
@@ -578,11 +579,11 @@ describe('plan-limit-service', () => {
 
 		it('free (cognito): system activities are not counted (per-child loop)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindAllChildren.mockResolvedValue([{ id: 10 }]);
+			mockFindAllChildren.mockResolvedValue([{ id: '10' }]);
 			mockFindActivitiesByChild.mockResolvedValueOnce([
-				{ id: 101, source: 'system' },
-				{ id: 102, source: 'system' },
-				{ id: 103, source: 'custom' },
+				{ id: '101', source: 'system' },
+				{ id: '102', source: 'system' },
+				{ id: '103', source: 'custom' },
 			]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
@@ -609,7 +610,7 @@ describe('plan-limit-service', () => {
 	describe('checkChecklistTemplateLimit (#723)', () => {
 		it('standard: always allowed (max=null)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			const result = await checkChecklistTemplateLimit('tenant1', 'active', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'active', asChildId(1));
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
 			expect(mockFindTemplatesByChild).not.toHaveBeenCalled();
@@ -617,7 +618,7 @@ describe('plan-limit-service', () => {
 
 		it('family: always allowed (max=null)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			const result = await checkChecklistTemplateLimit('tenant1', 'active', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'active', asChildId(1));
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
 		});
@@ -625,7 +626,7 @@ describe('plan-limit-service', () => {
 		it('free (cognito): allowed when under limit (0/3)', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTemplatesByChild.mockResolvedValue([]);
-			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', asChildId(1));
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(0);
 			expect(result.max).toBe(3);
@@ -634,10 +635,10 @@ describe('plan-limit-service', () => {
 		it('free (cognito): allowed at 2/3', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTemplatesByChild.mockResolvedValue([
-				{ id: 1, name: 'あさ', isActive: 1 },
-				{ id: 2, name: 'よる', isActive: 1 },
+				{ id: '1', name: 'あさ', isActive: 1 },
+				{ id: '2', name: 'よる', isActive: 1 },
 			]);
-			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', asChildId(1));
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(2);
 			expect(result.max).toBe(3);
@@ -646,11 +647,11 @@ describe('plan-limit-service', () => {
 		it('free (cognito): blocked at exactly 3/3', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTemplatesByChild.mockResolvedValue([
-				{ id: 1, name: 'あさ', isActive: 1 },
-				{ id: 2, name: 'ひる', isActive: 1 },
-				{ id: 3, name: 'よる', isActive: 1 },
+				{ id: '1', name: 'あさ', isActive: 1 },
+				{ id: '2', name: 'ひる', isActive: 1 },
+				{ id: '3', name: 'よる', isActive: 1 },
 			]);
-			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', asChildId(1));
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(3);
 			expect(result.max).toBe(3);
@@ -661,27 +662,27 @@ describe('plan-limit-service', () => {
 			// findTemplatesByChild は includeInactive=true で呼び出される前提。
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTemplatesByChild.mockResolvedValue([
-				{ id: 1, name: 'あさ', isActive: 0 },
-				{ id: 2, name: 'ひる', isActive: 0 },
-				{ id: 3, name: 'よる', isActive: 1 },
+				{ id: '1', name: 'あさ', isActive: 0 },
+				{ id: '2', name: 'ひる', isActive: 0 },
+				{ id: '3', name: 'よる', isActive: 1 },
 			]);
-			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', asChildId(1));
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(3);
 			// 呼び出しは (childId, tenantId, includeInactive=true) の順
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, 'tenant1', true);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', 'tenant1', true);
 		});
 
 		it('free (cognito): 子ごとにカウントされる (childId をそのまま repo に渡す)', async () => {
 			process.env.AUTH_MODE = 'cognito';
 			mockFindTemplatesByChild.mockResolvedValue([]);
-			await checkChecklistTemplateLimit('tenant1', 'none', 42);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(42, 'tenant1', true);
+			await checkChecklistTemplateLimit('tenant1', 'none', asChildId(42));
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('42', 'tenant1', true);
 		});
 
 		it('local: always allowed (selfhost = family tier)', async () => {
 			process.env.AUTH_MODE = 'local';
-			const result = await checkChecklistTemplateLimit('tenant1', 'none', 1);
+			const result = await checkChecklistTemplateLimit('tenant1', 'none', asChildId(1));
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
 		});

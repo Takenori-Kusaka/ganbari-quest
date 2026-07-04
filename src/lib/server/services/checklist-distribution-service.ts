@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/checklist-distribution-service.ts
 //
 // #2362 PR-5 (ADR-0055 / data-model-resource-scope §4.2):
@@ -27,9 +28,9 @@ import { logger } from '$lib/server/logger';
  * family checklist の配信先 child 一覧を取得。
  */
 export async function listDistribution(
-	templateId: number,
+	templateId: string,
 	tenantId: string,
-): Promise<readonly { childId: number; createdAt: string }[]> {
+): Promise<readonly { childId: ChildId; createdAt: string }[]> {
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) {
 		return [];
@@ -44,9 +45,9 @@ export async function listDistribution(
  * 既存 `findTemplatesByChild` 経由で取得しているので、本 API は新規 UX 用)。
  */
 export async function listAssignedTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-): Promise<readonly number[]> {
+): Promise<readonly string[]> {
 	const rows = await repoFindByChild(childId, tenantId);
 	return rows.map((r) => r.templateId);
 }
@@ -57,10 +58,10 @@ export async function listAssignedTemplatesByChild(
  * @returns 実際に追加された assignment の child id 配列
  */
 export async function distributeToChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	tenantId: string,
-): Promise<readonly number[]> {
+): Promise<readonly ChildId[]> {
 	if (childIds.length === 0) return [];
 
 	const template = await findTemplateById(templateId, tenantId);
@@ -86,8 +87,8 @@ export async function distributeToChildren(
  * 指定 child 群への配信を解除する。child 配列が空なら何もしない。
  */
 export async function unassignFromChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	tenantId: string,
 ): Promise<void> {
 	if (childIds.length === 0) return;
@@ -106,10 +107,10 @@ export async function unassignFromChildren(
  * Phase 2 admin UX の ChecklistDistributionDialog 「保存」ボタンが本 API を呼ぶ想定。
  */
 export async function syncDistribution(
-	templateId: number,
-	desiredChildIds: readonly number[],
+	templateId: string,
+	desiredChildIds: readonly ChildId[],
 	tenantId: string,
-): Promise<{ added: readonly number[]; removed: readonly number[] }> {
+): Promise<{ added: readonly ChildId[]; removed: readonly ChildId[] }> {
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) {
 		throw new Error(
@@ -121,8 +122,8 @@ export async function syncDistribution(
 	const existingSet = new Set(existing.map((a) => a.childId));
 	const desiredSet = new Set(desiredChildIds);
 
-	const toAdd: number[] = desiredChildIds.filter((c) => !existingSet.has(c));
-	const toRemove: number[] = [...existingSet].filter((c) => !desiredSet.has(c));
+	const toAdd: ChildId[] = desiredChildIds.filter((c) => !existingSet.has(c));
+	const toRemove: ChildId[] = [...existingSet].filter((c) => !desiredSet.has(c));
 
 	const inserted = await repoAssign(templateId, toAdd, tenantId);
 	if (toRemove.length > 0) {
@@ -149,7 +150,7 @@ export async function syncDistribution(
  * 既に内部で `checklist_template_assignments` も削除するため、通常は本 API を直接呼ぶ
  * 必要はない (公開しているのは「template を残したまま全配信を解除する」用途のため)。
  */
-export async function unassignAll(templateId: number, tenantId: string): Promise<void> {
+export async function unassignAll(templateId: string, tenantId: string): Promise<void> {
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) return;
 	await repoUnassignAll(templateId, tenantId);

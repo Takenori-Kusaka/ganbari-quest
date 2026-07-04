@@ -2,6 +2,8 @@
 // DynamoDB implementation of IActivityPrefRepo
 
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -14,8 +16,28 @@ function stripKeys<T extends Record<string, unknown>>(
 	return rest;
 }
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+type StoredChildActivityPreference = Omit<
+	ChildActivityPreference,
+	'id' | 'childId' | 'activityId'
+> & {
+	id: number;
+	childId: number;
+	activityId: number;
+};
+
+function toChildActivityPreference(item: Record<string, unknown>): ChildActivityPreference {
+	const raw = stripKeys(item) as unknown as StoredChildActivityPreference;
+	return {
+		...raw,
+		id: String(raw.id),
+		childId: asChildId(raw.childId),
+		activityId: asActivityId(raw.activityId),
+	};
+}
+
 export async function findPinnedByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	const result = await getDocClient().send(
@@ -24,24 +46,21 @@ export async function findPinnedByChild(
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			FilterExpression: 'isPinned = :pinned',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': activityPrefPrefix(),
 				':pinned': 1,
 			},
 		}),
 	);
-	const items = (result.Items ?? []) as unknown as ChildActivityPreference[];
+	const items = (result.Items ?? []) as Record<string, unknown>[];
 	return items
-		.map(
-			(item) =>
-				stripKeys(item as unknown as Record<string, unknown>) as unknown as ChildActivityPreference,
-		)
+		.map((item) => toChildActivityPreference(item))
 		.sort((a, b) => (a.pinOrder ?? 999) - (b.pinOrder ?? 999));
 }
 
 /** #3329 backup: child の全活動設定 (pinned 不問)。 */
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	const result = await getDocClient().send(
@@ -49,14 +68,14 @@ export async function findAllByChild(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': activityPrefPrefix(),
 			},
 		}),
 	);
 	const items = (result.Items ?? []) as Record<string, unknown>[];
 	return items
-		.map((item) => stripKeys(item) as unknown as ChildActivityPreference)
+		.map((item) => toChildActivityPreference(item))
 		.sort((a, b) => (a.pinOrder ?? 999) - (b.pinOrder ?? 999));
 }
 
@@ -65,32 +84,32 @@ export async function insertForRestore(
 	input: Omit<ChildActivityPreference, 'id'>,
 	tenantId: string,
 ): Promise<ChildActivityPreference> {
-	const key = activityPrefKey(input.childId, input.activityId, tenantId);
+	const key = activityPrefKey(Number(input.childId), Number(input.activityId), tenantId);
 	// activityPref の partition key は (childId, activityId) 複合。id は非キー属性のため
 	// togglePin と同様に Date.now() 由来の一意値を採番する (元 id は保全しない)。
 	const id = Date.now();
 	const item: Record<string, unknown> = {
 		...key,
 		id,
-		childId: input.childId,
-		activityId: input.activityId,
+		childId: Number(input.childId),
+		activityId: Number(input.activityId),
 		isPinned: input.isPinned,
 		pinOrder: input.pinOrder,
 		createdAt: input.createdAt,
 		updatedAt: input.updatedAt,
 	};
 	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
-	return stripKeys(item) as unknown as ChildActivityPreference;
+	return toChildActivityPreference(item);
 }
 
 export async function togglePin(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	pinned: boolean,
 	tenantId: string,
 ): Promise<ChildActivityPreference> {
 	const now = new Date().toISOString();
-	const key = activityPrefKey(childId, activityId, tenantId);
+	const key = activityPrefKey(Number(childId), Number(activityId), tenantId);
 
 	// Get existing item
 	const existing = await getDocClient().send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
@@ -106,8 +125,8 @@ export async function togglePin(
 	const item: Record<string, unknown> = {
 		...key,
 		id,
-		childId,
-		activityId,
+		childId: Number(childId),
+		activityId: Number(activityId),
 		isPinned: pinned ? 1 : 0,
 		pinOrder,
 		createdAt: existing.Item?.createdAt ?? now,
@@ -116,12 +135,12 @@ export async function togglePin(
 
 	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
 
-	return stripKeys(item) as unknown as ChildActivityPreference;
+	return toChildActivityPreference(item);
 }
 
 export async function countPinnedInCategory(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	tenantId: string,
 ): Promise<number> {
 	// Get all pinned prefs, then filter by checking activity's category
@@ -130,13 +149,16 @@ export async function countPinnedInCategory(
 	let count = 0;
 	for (const pref of pinnedItems) {
 		const actKey = {
-			PK: tenantPK(`ACTIVITY#${String(pref.activityId).padStart(8, '0')}`, tenantId),
+			PK: tenantPK(`ACTIVITY#${String(Number(pref.activityId)).padStart(8, '0')}`, tenantId),
 			SK: 'MASTER',
 		};
 		const actResult = await getDocClient().send(
 			new GetCommand({ TableName: TABLE_NAME, Key: actKey }),
 		);
-		if (actResult.Item && (actResult.Item as Record<string, unknown>).categoryId === categoryId) {
+		if (
+			actResult.Item &&
+			(actResult.Item as Record<string, unknown>).categoryId === Number(categoryId)
+		) {
 			count++;
 		}
 	}
@@ -144,7 +166,7 @@ export async function countPinnedInCategory(
 }
 
 export async function getUsageCounts(
-	childId: number,
+	childId: ChildId,
 	sinceDate: string,
 	_tenantId: string,
 ): Promise<ActivityUsageCount[]> {
@@ -156,7 +178,7 @@ export async function getUsageCounts(
 			FilterExpression:
 				'recordedDate >= :since AND (attribute_not_exists(cancelled) OR cancelled = :notCancelled)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, _tenantId),
+				':pk': childPK(Number(childId), _tenantId),
 				':prefix': activityLogPrefix(),
 				':since': sinceDate,
 				':notCancelled': 0,
@@ -164,7 +186,7 @@ export async function getUsageCounts(
 		}),
 	);
 
-	// Aggregate by activityId
+	// Aggregate by activityId (stored attr は number)
 	const countMap = new Map<number, number>();
 	for (const item of result.Items ?? []) {
 		const activityId = (item as Record<string, unknown>).activityId as number;
@@ -172,7 +194,7 @@ export async function getUsageCounts(
 	}
 
 	return Array.from(countMap.entries()).map(([activityId, usageCount]) => ({
-		activityId,
+		activityId: asActivityId(activityId),
 		usageCount,
 	}));
 }

@@ -7,6 +7,7 @@
 // `tests/unit/analytics/dynamo-provider.test.ts` に分離。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 
 // Mock the logger to avoid file I/O in tests
 vi.mock('$lib/server/logger', () => ({
@@ -97,11 +98,11 @@ describe('Activation Funnel helpers (#831)', () => {
 		const { trackActivationFirstChildAdded } = await import(
 			'../../../src/lib/server/services/analytics-service'
 		);
-		trackActivationFirstChildAdded('t-2', 42);
+		trackActivationFirstChildAdded('t-2', asChildId(42));
 
 		expect(spy).toHaveBeenCalledWith('activation_first_child_added', {
 			step: 2,
-			childId: 42,
+			childId: asChildId(42),
 			tenantId: 't-2',
 		});
 	});
@@ -115,12 +116,12 @@ describe('Activation Funnel helpers (#831)', () => {
 		const { trackActivationFirstActivityCompleted } = await import(
 			'../../../src/lib/server/services/analytics-service'
 		);
-		trackActivationFirstActivityCompleted('t-3', 10, 5);
+		trackActivationFirstActivityCompleted('t-3', asChildId(10), asActivityId(5));
 
 		expect(spy).toHaveBeenCalledWith('activation_first_activity_completed', {
 			step: 3,
-			childId: 10,
-			activityId: 5,
+			childId: asChildId(10),
+			activityId: asActivityId(5),
 			tenantId: 't-3',
 		});
 	});

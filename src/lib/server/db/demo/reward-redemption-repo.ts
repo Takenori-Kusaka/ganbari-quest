@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IRewardRedemptionRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -8,11 +9,11 @@ import type {
 } from '../interfaces/reward-redemption-repo.interface';
 
 export async function insertRedemptionRequest(
-	input: { childId: number; rewardId: number; requestedAt: number },
+	input: { childId: ChildId; rewardId: string; requestedAt: number },
 	_tenantId: string,
 ): Promise<RedemptionRequestRow> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		rewardId: input.rewardId,
 		requestedAt: input.requestedAt,
@@ -26,8 +27,8 @@ export async function insertRedemptionRequest(
 
 export async function insertRedemptionForRestore(
 	input: {
-		childId: number;
-		rewardId: number;
+		childId: ChildId;
+		rewardId: string;
 		requestedAt: number;
 		status: string;
 		parentNote: string | null;
@@ -42,7 +43,7 @@ export async function insertRedemptionForRestore(
 ): Promise<RedemptionRequestRow> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		rewardId: input.rewardId,
 		requestedAt: input.requestedAt,
@@ -55,7 +56,7 @@ export async function insertRedemptionForRestore(
 }
 
 export async function findRedemptionRequestsByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<RedemptionRequestRow[]> {
 	return [];
@@ -63,21 +64,21 @@ export async function findRedemptionRequestsByChild(
 
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: number; limit?: number },
+	_opts?: { status?: string; childId?: ChildId; limit?: number },
 ): Promise<RedemptionRequestWithDetails[]> {
 	return [];
 }
 
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	_opts?: { status?: string; childId?: number },
+	_opts?: { status?: string; childId?: ChildId },
 ): Promise<number> {
 	return 0;
 }
 
 export async function updateRedemptionRequestStatus(
-	_childId: number,
-	_id: number,
+	_childId: ChildId,
+	_id: string,
 	_updates: {
 		status: string;
 		parentNote?: string | null;
@@ -90,23 +91,23 @@ export async function updateRedemptionRequestStatus(
 }
 
 export async function findPendingByChildAndReward(
-	_childId: number,
-	_rewardId: number,
+	_childId: ChildId,
+	_rewardId: string,
 	_tenantId: string,
 ): Promise<RedemptionRequestRow | undefined> {
 	return undefined;
 }
 
 export async function findUnshownResultByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<RedemptionRequestWithReward | undefined> {
 	return undefined;
 }
 
 export async function markRedemptionResultShown(
-	_childId: number,
-	_id: number,
+	_childId: ChildId,
+	_id: string,
 	_tenantId: string,
 ): Promise<RedemptionRequestRow | undefined> {
 	return undefined;
@@ -116,7 +117,7 @@ export async function expireOldRedemptions(_tenantId: string): Promise<number> {
 	return 0;
 }
 
-export async function hasPendingByReward(_rewardId: number, _tenantId: string): Promise<boolean> {
+export async function hasPendingByReward(_rewardId: string, _tenantId: string): Promise<boolean> {
 	return false;
 }
 

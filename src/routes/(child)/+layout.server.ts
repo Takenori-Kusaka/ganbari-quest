@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
@@ -27,7 +28,7 @@ import type { LayoutServerLoad } from './$types';
  */
 async function loadMilestonesForChild(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 ): Promise<MilestoneAchievement[]> {
 	try {
 		const preview = await getTenantValuePreview(tenantId);
@@ -71,7 +72,7 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		redirect(302, '/switch');
 	}
 
-	const childId = Number(childIdStr);
+	const childId = asChildId(childIdStr);
 	const child = await getChildById(childId, tenantId);
 	if (!child) {
 		cookies.delete('selectedChildId', { path: '/' });

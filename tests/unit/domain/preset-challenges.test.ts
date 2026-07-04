@@ -9,6 +9,7 @@ import {
 	type PresetChallenge,
 	resolvePresetChallengeDates,
 } from '$lib/data/preset-challenges';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 
 describe('PRESET_CHALLENGES — Issue #2298 AC1', () => {
 	it('5-7 件のプリセットが定義されている (AC1)', () => {
@@ -50,10 +51,12 @@ describe('PRESET_CHALLENGES — Issue #2298 AC1', () => {
 	});
 
 	it('categoryId は null または 1-5 (validation/activity.ts CATEGORIES 整合)', () => {
+		// #3575: CategoryId は opaque string。CATEGORY_DEFS (validation/activity.ts) の id 集合との
+		// membership で 1-5 整合を検証する (数値大小比較は string id に不適用)
+		const validIds = new Set(CATEGORY_DEFS.map((c) => c.id));
 		for (const p of PRESET_CHALLENGES) {
 			if (p.categoryId !== null) {
-				expect(p.categoryId).toBeGreaterThanOrEqual(1);
-				expect(p.categoryId).toBeLessThanOrEqual(5);
+				expect(validIds.has(p.categoryId)).toBe(true);
 			}
 		}
 	});

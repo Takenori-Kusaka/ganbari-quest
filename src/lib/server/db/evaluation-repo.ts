@@ -1,10 +1,11 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/evaluation-repo.ts — Facade (delegates to factory)
 
 import { getRepos } from './factory';
 import type { InsertEvaluationInput } from './types';
 
 export async function countActivitiesByCategory(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	weekEnd: string,
 	tenantId: string,
@@ -17,47 +18,47 @@ export async function insertEvaluation(input: InsertEvaluationInput, tenantId: s
 export async function findAllChildren(tenantId: string) {
 	return getRepos().evaluation.findAllChildren(tenantId);
 }
-export async function findEvaluationsByChild(childId: number, limit: number, tenantId: string) {
+export async function findEvaluationsByChild(childId: ChildId, limit: number, tenantId: string) {
 	return getRepos().evaluation.findEvaluationsByChild(childId, limit, tenantId);
 }
-export async function hasDecayRunToday(childId: number, today: string, tenantId: string) {
+export async function hasDecayRunToday(childId: ChildId, today: string, tenantId: string) {
 	return getRepos().evaluation.hasDecayRunToday(childId, today, tenantId);
 }
-export async function findWeekEvaluation(childId: number, weekStart: string, tenantId: string) {
+export async function findWeekEvaluation(childId: ChildId, weekStart: string, tenantId: string) {
 	return getRepos().evaluation.findWeekEvaluation(childId, weekStart, tenantId);
 }
-export async function findLastActivityDateByCategory(childId: number, tenantId: string) {
+export async function findLastActivityDateByCategory(childId: ChildId, tenantId: string) {
 	return getRepos().evaluation.findLastActivityDateByCategory(childId, tenantId);
 }
 export async function insertRestDay(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	reason: string,
 	tenantId: string,
 ) {
 	return getRepos().evaluation.insertRestDay(childId, date, reason, tenantId);
 }
-export async function deleteRestDay(childId: number, date: string, tenantId: string) {
+export async function deleteRestDay(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().evaluation.deleteRestDay(childId, date, tenantId);
 }
-export async function isRestDay(childId: number, date: string, tenantId: string) {
+export async function isRestDay(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().evaluation.isRestDay(childId, date, tenantId);
 }
-export async function countRestDaysInMonth(childId: number, yearMonth: string, tenantId: string) {
+export async function countRestDaysInMonth(childId: ChildId, yearMonth: string, tenantId: string) {
 	return getRepos().evaluation.countRestDaysInMonth(childId, yearMonth, tenantId);
 }
-export async function findRestDays(childId: number, yearMonth: string, tenantId: string) {
+export async function findRestDays(childId: ChildId, yearMonth: string, tenantId: string) {
 	return getRepos().evaluation.findRestDays(childId, yearMonth, tenantId);
 }
 
 /** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
-export async function findRestDaysByChild(childId: number, tenantId: string) {
+export async function findRestDaysByChild(childId: ChildId, tenantId: string) {
 	return getRepos().evaluation.findRestDaysByChild(childId, tenantId);
 }
 
 /** #3329 backup restore 用: createdAt を保全しておやすみ日を復元する。 */
 export async function insertRestDayForRestore(
-	input: { childId: number; date: string; reason: string; createdAt: string },
+	input: { childId: ChildId; date: string; reason: string; createdAt: string },
 	tenantId: string,
 ) {
 	return getRepos().evaluation.insertRestDayForRestore(input, tenantId);

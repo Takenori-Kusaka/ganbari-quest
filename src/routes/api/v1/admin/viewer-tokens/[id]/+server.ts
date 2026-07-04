@@ -11,8 +11,8 @@ export const DELETE: RequestHandler = async ({ params, locals, url }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const id = Number(params.id);
-	if (!Number.isFinite(id)) {
+	const id = params.id;
+	if (!id) {
 		error(400, '不正なID');
 	}
 

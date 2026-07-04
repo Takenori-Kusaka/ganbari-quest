@@ -7,6 +7,8 @@
 
 import { fail } from '@sveltejs/kit';
 import { getErrorMessage } from '$lib/domain/errors';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	CHEER_CATEGORIES,
@@ -51,7 +53,7 @@ function parseAndValidateForm(
 ):
 	| { ok: true; data: Parameters<typeof grantCheer>[0] }
 	| { ok: false; status: 400 | 404; error: string } {
-	const childId = Number(formData.get('childId'));
+	const childId = asChildId(formIdString(formData.get('childId')));
 	const reason = String(formData.get('reason') ?? '').trim();
 	const points = Number(formData.get('points'));
 	const category = String(formData.get('category') ?? '');
@@ -59,7 +61,8 @@ function parseAndValidateForm(
 	const stampCodeRaw = String(formData.get('stampCode') ?? '').trim();
 	const bodyRaw = String(formData.get('body') ?? '').trim();
 
-	if (!childId) return { ok: false, status: 400, error: 'こどもを選択してください' };
+	if (!childId || childId === asChildId(0))
+		return { ok: false, status: 400, error: 'こどもを選択してください' };
 	if (!reason) return { ok: false, status: 400, error: '応援の理由を入力してください' };
 	if (reason.length > CHEER_REASON_MAX_LENGTH) {
 		return { ok: false, status: 400, error: REASON_TOO_LONG_MSG };

@@ -16,9 +16,9 @@ import { requireRole } from '$lib/server/auth/factory';
 import { getActivities } from '$lib/server/services/activity-service';
 import type { RequestHandler } from './$types';
 
-const CATEGORY_ID_TO_CODE: Record<number, string> = {};
+const CATEGORY_ID_TO_CODE: Record<string, string> = {};
 for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_ID_TO_CODE[i + 1] = code;
+	CATEGORY_ID_TO_CODE[String(i + 1)] = code;
 }
 
 export const GET: RequestHandler = async ({ locals }) => {

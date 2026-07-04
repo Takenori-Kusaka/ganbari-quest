@@ -123,7 +123,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 				plan: 'family-monthly',
 			}),
 		]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
 
 		const result = await cleanupExpiredData();
 
@@ -142,7 +142,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 				// stripeSubscriptionId なし = licenseStatus='none' = free
 			}),
 		]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }, { id: '2' }]);
 		mockDeleteActivityLogsBeforeDate.mockResolvedValue(10);
 		mockDeletePointLedgerBeforeDate.mockResolvedValue(5);
 		mockDeleteLoginBonusesBeforeDate.mockResolvedValue(3);
@@ -160,7 +160,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalledTimes(2);
 		const callArgs = mockDeleteActivityLogsBeforeDate.mock.calls[0];
 		if (!callArgs) throw new Error('no call recorded');
-		expect(callArgs[0]).toBe(1); // childId
+		expect(callArgs[0]).toBe('1'); // childId
 		const cutoffDate = callArgs[1] as string;
 		expect(cutoffDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		const cutoffDays = Math.round(
@@ -180,7 +180,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 				plan: 'monthly',
 			}),
 		]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
 		mockDeleteActivityLogsBeforeDate.mockResolvedValue(7);
 
 		const result = await cleanupExpiredData();
@@ -205,7 +205,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 describe('cleanupExpiredData - dry-run', () => {
 	it('dryRun=true → 削除関数を呼ばない、children はカウントする', async () => {
 		mockListAllTenants.mockResolvedValue([makeTenant({ tenantId: 't-free', status: 'active' })]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }, { id: '2' }, { id: '3' }]);
 
 		const result = await cleanupExpiredData({ dryRun: true });
 
@@ -232,7 +232,7 @@ describe('cleanupExpiredData - エラー処理', () => {
 			if (tenantId === 't-error') {
 				throw new Error('DB connection lost');
 			}
-			return [{ id: 1 }];
+			return [{ id: '1' }];
 		});
 		mockDeleteActivityLogsBeforeDate.mockResolvedValue(2);
 
@@ -261,7 +261,7 @@ describe('cleanupExpiredData - エラー処理', () => {
 describe('cleanupExpiredData - licenseStatus 導出', () => {
 	it('stripeSubscriptionId なし → free プラン (licenseStatus=none)', async () => {
 		mockListAllTenants.mockResolvedValue([makeTenant({ tenantId: 't-1', status: 'active' })]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
 
 		await cleanupExpiredData();
 
@@ -284,7 +284,7 @@ describe('cleanupExpiredData - licenseStatus 導出', () => {
 				plan: 'family-monthly',
 			}),
 		]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
 
 		await cleanupExpiredData();
 
@@ -309,7 +309,7 @@ describe('cleanupExpiredData - licenseStatus 導出', () => {
 				plan: 'family-yearly',
 			}),
 		]);
-		mockFindAllChildren.mockResolvedValue([{ id: 1 }]);
+		mockFindAllChildren.mockResolvedValue([{ id: '1' }]);
 
 		const result = await cleanupExpiredData();
 

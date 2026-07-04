@@ -2,6 +2,7 @@
 // GET /api/v1/images?type=favicon - Get favicon path
 
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { notFound, validationError } from '$lib/server/errors';
 import {
 	generateAvatar,
@@ -41,10 +42,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { type } = body as { type?: string };
 
 	if (type === 'avatar') {
-		const { childId } = body as { childId?: number };
-		if (!childId || typeof childId !== 'number') {
+		const rawChildId = (body as { childId?: unknown }).childId;
+		// #3575: id は opaque string。旧クライアントの number も境界で受けて as* 変換する
+		if (
+			rawChildId == null ||
+			!(typeof rawChildId === 'string' || typeof rawChildId === 'number') ||
+			rawChildId === ''
+		) {
 			return validationError('childId を指定してください');
 		}
+		const childId = asChildId(rawChildId);
 
 		const status = await getChildStatus(childId, tenantId);
 		if ('error' in status) {

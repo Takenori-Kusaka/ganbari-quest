@@ -35,7 +35,7 @@ interface GraduationConsentItem {
 function mapItem(item: Record<string, unknown>): GraduationConsentRecord {
 	const i = item as unknown as GraduationConsentItem;
 	return {
-		id: i.id,
+		id: String(i.id),
 		tenantId: i.tenantId,
 		nickname: i.nickname,
 		consented: !!i.consented,
@@ -77,7 +77,7 @@ export async function create(
 	);
 
 	return {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		nickname: input.nickname,
 		consented: input.consented,

@@ -312,7 +312,7 @@ describe('#783 archiveExcessResources（実 DB）', () => {
 
 		const result = await archiveExcessResources(TENANT);
 
-		expect(result.archivedChildIds).toEqual([3, 4]);
+		expect(result.archivedChildIds).toEqual(['3', '4']);
 		expect(getVisibleChildren()).toHaveLength(2);
 		expect(getArchivedChildren()).toHaveLength(2);
 
@@ -329,7 +329,7 @@ describe('#783 archiveExcessResources（実 DB）', () => {
 
 		const result = await archiveExcessResources(TENANT);
 
-		expect(result.archivedActivityIds).toEqual([4, 5]);
+		expect(result.archivedActivityIds).toEqual(['4', '5']);
 		expect(getVisibleCustomActivities()).toHaveLength(3);
 		expect(getArchivedActivities()).toHaveLength(2);
 	});

@@ -3,7 +3,7 @@ import { FEATURES_LABELS } from '$lib/domain/labels';
 
 // Print-friendly certificate template for browser Print-to-PDF
 interface CertificateData {
-	id: number;
+	id: string;
 	childName: string;
 	title: string;
 	description: string;

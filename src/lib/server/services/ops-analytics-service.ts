@@ -104,7 +104,7 @@ export interface OpsAnalyticsData {
 		total: number;
 		breakdown: Array<{ category: string; count: number; percentage: number }>;
 		freeTextSamples: Array<{
-			id: number;
+			id: string;
 			category: string;
 			freeText: string;
 			createdAt: string;
@@ -118,7 +118,7 @@ export interface OpsAnalyticsData {
 		totalCancellations: number;
 		graduationRate: number;
 		publicSamples: Array<{
-			id: number;
+			id: string;
 			nickname: string;
 			userPoints: number;
 			usagePeriodDays: number;

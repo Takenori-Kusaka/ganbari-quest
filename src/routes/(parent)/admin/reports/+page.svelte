@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import SiblingCategoryChart from '$lib/ui/components/SiblingCategoryChart.svelte';
@@ -51,8 +52,8 @@ function navigateMonth(offset: number) {
 }
 
 // 先月との比較データ取得
-function getPrevReport(childId: number) {
-	return data.prevMonthlyReports?.find((r: { childId: number }) => r.childId === childId);
+function getPrevReport(childId: ChildId) {
+	return data.prevMonthlyReports?.find((r: { childId: ChildId }) => r.childId === childId);
 }
 
 function diffLabel(current: number, prev: number | undefined): string {
