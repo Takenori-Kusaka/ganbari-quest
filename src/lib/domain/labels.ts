@@ -451,6 +451,16 @@ export const PLAN_GATE_LABELS = {
 	 * 「どこへ行けば解消できるか」を必ず提示する。
 	 */
 	upgradeLinkLabel: `${UPGRADE_TERMS.actionVerb}する`,
+
+	/**
+	 * dropdown / メニュー内の上限到達 add 項目に付ける lock マーカーアイコン (EPIC #3533 §10.2.2)。
+	 *
+	 * 上限到達時の add 系メニュー項目は完全 disabled にせず locked-but-active にし
+	 * (NN/G: disabled + 説明なしは dead-end アンチパターン)、本アイコンで「制約あり」を最小表現する。
+	 * 選択でプラン画面へ遷移させ、制約詳細はプラン画面に一元化する (P1)。
+	 * standalone button / section の quota ゲートは FeatureGate の popover が担う (§10.2.1)。
+	 */
+	lockedItemIcon: '🔒',
 } as const;
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
@@ -5396,11 +5406,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	deleteButton: '削除',
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
-	limitReachedText: (max: number | string) => `フリープランの上限 (${max}個) に達しました`,
-	limitCountText: (current: number | string, max: number | string) =>
-		`チェックリスト ${current} / ${max}`,
-	upgradeLink: 'アップグレード →',
-	upgradeDesc: 'スタンダード以上にアップグレードすると無制限に作成できます。',
+	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
+	//   §10.2 P1/P3 に基づき撤去 (画面内 quota カウンタ・個別アップセル CTA を廃止、制約詳細はプラン画面へ一元化)。
 	addTemplateButton: '+ テンプレート作成',
 	addOverrideButton: '📅 ワンオフ追加',
 	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
@@ -5427,7 +5434,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addButton: '追加',
 	addItemDialogTitle: 'アイテム追加',
 	overrideDialogTitle: 'ワンオフ追加/除外',
-	premiumBadgeLabel: 'スタンダード以上',
+	// EPIC #3533: 旧 premiumBadgeLabel (ヘッダー「スタンダード以上」バッジ) は §10.2 P3/P4 で撤去
+	//   (tier 表示は header に一本化、画面内の個別プランバッジは非採用)。
 	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション (#2272: UI ラベルは TEMPLATE_TERMS atom 経由)
 	marketplaceSectionTitle: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.userFacing}から一括追加`,
 	marketplaceSectionDesc:
