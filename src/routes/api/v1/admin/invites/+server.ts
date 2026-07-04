@@ -4,6 +4,7 @@
 
 import { error, isHttpError, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { createInviteSchema } from '$lib/domain/validation/auth';
 import { requireRole } from '$lib/server/auth/guards';
 import { validationError } from '$lib/server/errors';
@@ -58,7 +59,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json(
 			{
 				error: 'MEMBER_LIMIT_REACHED',
-				message: `メンバー上限（${memberLimit.max}人）に達しています。プランをアップグレードしてください。`,
+				message: PLAN_GATE_LABELS.memberLimitReached(memberLimit.max ?? 0),
 				current: memberLimit.current,
 				max: memberLimit.max,
 			},
