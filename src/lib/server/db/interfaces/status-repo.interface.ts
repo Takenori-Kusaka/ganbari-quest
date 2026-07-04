@@ -53,9 +53,14 @@ export interface IStatusRepo {
 		tenantId: string,
 	): Promise<MarketBenchmark>;
 	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
+	/**
+	 * カテゴリ別と命名されているが実際は **activityId keyed**（既存命名の歪み、全 backend parity）。
+	 * `category` の型は歴史的に number (sqlite/dynamo の整数 activity id) だが、DSQL backend は
+	 * activity_id が uuid (§P3) のため string を返す (#3424 PR-R4 で widening)。
+	 */
 	findLastActivityDates(
 		childId: ChildId,
 		tenantId: string,
-	): Promise<{ category: number; lastDate: string | null }[]>;
+	): Promise<{ category: number | string; lastDate: string | null }[]>;
 	deleteByTenantId(tenantId: string): Promise<void>;
 }
