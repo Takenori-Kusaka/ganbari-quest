@@ -4,6 +4,8 @@
  * 子供の日々の活動がRPGステータスに反映され、毎日の敵とバトルする機能。
  * カテゴリ別XPをRPGステータスに変換し、ターン制自動バトルで勝敗を決する。
  */
+import type { ChildId } from '$lib/domain/ids';
+import type { CategoryCode } from '$lib/domain/validation/activity';
 
 // ============================================================
 // RPG ステータス
@@ -12,13 +14,13 @@
 /** RPGステータス名 */
 export type StatName = 'hp' | 'atk' | 'def' | 'spd' | 'rec';
 
-/** カテゴリID → RPGステータスのマッピング */
-export const CATEGORY_TO_STAT: Record<number, StatName> = {
-	1: 'hp', // うんどう → HP（体力）
-	2: 'atk', // べんきょう → ATK（攻撃力）
-	3: 'spd', // せいかつ → SPD（素早さ）
-	4: 'def', // こうりゅう → DEF（防御力）
-	5: 'rec', // そうぞう → REC（回復力）
+/** カテゴリ code → RPGステータスのマッピング (#3575: id は opaque のため code を key にする) */
+export const CATEGORY_TO_STAT: Record<CategoryCode, StatName> = {
+	undou: 'hp', // うんどう → HP（体力）
+	benkyou: 'atk', // べんきょう → ATK（攻撃力）
+	seikatsu: 'spd', // せいかつ → SPD（素早さ）
+	kouryuu: 'def', // こうりゅう → DEF（防御力）
+	souzou: 'rec', // そうぞう → REC（回復力）
 };
 
 /** RPGステータスの日本語名 */
@@ -113,8 +115,8 @@ export type DailyBattleStatus = (typeof DAILY_BATTLE_STATUSES)[number];
 
 /** 日次バトル記録 */
 export interface DailyBattle {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	enemyId: number;
 	date: string;
 	status: DailyBattleStatus;

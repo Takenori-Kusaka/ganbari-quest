@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
 import { listVoices, uploadVoice } from '$lib/server/services/voice-service';
 import type { RequestHandler } from './$types';
@@ -9,8 +10,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.id);
-	if (!childId || Number.isNaN(childId)) throw error(400, { message: '不正なIDです' });
+	const childId = asChildId(params.id);
+	if (!childId) throw error(400, { message: '不正なIDです' });
 
 	const scene = url.searchParams.get('scene') ?? 'complete';
 	const voices = await listVoices(childId, scene, tenantId);
@@ -24,8 +25,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.id);
-	if (!childId || Number.isNaN(childId)) throw error(400, { message: '不正なIDです' });
+	const childId = asChildId(params.id);
+	if (!childId) throw error(400, { message: '不正なIDです' });
 
 	const formData = await request.formData();
 	const file = formData.get('file');

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
+import { asChildId } from '$lib/domain/ids';
 
 const cognitoIdentity: Identity = {
 	type: 'cognito',
@@ -16,7 +17,7 @@ const parentContext: AuthContext = { tenantId: 't-1', role: 'parent', licenseSta
 const childContext: AuthContext = {
 	tenantId: 't-1',
 	role: 'child',
-	childId: 1,
+	childId: asChildId(1),
 	licenseStatus: 'active',
 };
 

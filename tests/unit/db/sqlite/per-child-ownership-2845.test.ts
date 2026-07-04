@@ -37,6 +37,7 @@ import {
 import { deleteOverride, deleteTemplateItem } from '$lib/server/db/sqlite/checklist-repo';
 import { incrementDownloadCount } from '$lib/server/db/sqlite/cloud-export-repo';
 import { markMissionCompleted } from '$lib/server/db/sqlite/daily-mission-repo';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-2845';
 
@@ -85,7 +86,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('templateId が一致すれば削除される', async () => {
-			await deleteTemplateItem(templateId, itemId, TENANT);
+			await deleteTemplateItem(String(templateId), String(itemId), TENANT);
 			const rest = dbHolder.db
 				?.select()
 				.from(checklistTemplateItems)
@@ -95,7 +96,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 templateId を指定すると no-op (影響 0)', async () => {
-			await deleteTemplateItem(templateId + 999, itemId, TENANT);
+			await deleteTemplateItem(String(templateId + 999), String(itemId), TENANT);
 			const rest = dbHolder.db
 				?.select()
 				.from(checklistTemplateItems)
@@ -120,7 +121,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('childId が一致すれば削除される', async () => {
-			await deleteOverride(childId, overrideId, TENANT);
+			await deleteOverride(asChildId(childId), String(overrideId), TENANT);
 			const rest = dbHolder.db
 				?.select()
 				.from(checklistOverrides)
@@ -130,7 +131,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 childId を指定すると no-op (影響 0)', async () => {
-			await deleteOverride(otherChildId, overrideId, TENANT);
+			await deleteOverride(asChildId(otherChildId), String(overrideId), TENANT);
 			const rest = dbHolder.db
 				?.select()
 				.from(checklistOverrides)
@@ -156,7 +157,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('(childId, date, activityId) が一致すれば completed=1 に更新される', async () => {
-			await markMissionCompleted(childId, DATE, activityId, TENANT);
+			await markMissionCompleted(asChildId(childId), DATE, asActivityId(activityId), TENANT);
 			const row = dbHolder.db
 				?.select()
 				.from(dailyMissions)
@@ -167,7 +168,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 childId を指定すると no-op (影響 0)', async () => {
-			await markMissionCompleted(otherChildId, DATE, activityId, TENANT);
+			await markMissionCompleted(asChildId(otherChildId), DATE, asActivityId(activityId), TENANT);
 			const row = dbHolder.db
 				?.select()
 				.from(dailyMissions)
@@ -177,7 +178,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 date を指定すると no-op (影響 0)', async () => {
-			await markMissionCompleted(childId, '2026-06-13', activityId, TENANT);
+			await markMissionCompleted(asChildId(childId), '2026-06-13', asActivityId(activityId), TENANT);
 			const row = dbHolder.db
 				?.select()
 				.from(dailyMissions)
@@ -209,7 +210,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('tenantId が一致すれば downloadCount が +1 される', async () => {
-			await incrementDownloadCount(exportId, TENANT);
+			await incrementDownloadCount(String(exportId), TENANT);
 			const row = dbHolder.db
 				?.select()
 				.from(cloudExports)
@@ -219,7 +220,7 @@ describe('#2845 B1: SQLite composite key 所有権検証', () => {
 		});
 
 		it('別 tenantId を指定すると no-op (影響 0)', async () => {
-			await incrementDownloadCount(exportId, 'other-tenant');
+			await incrementDownloadCount(String(exportId), 'other-tenant');
 			const row = dbHolder.db
 				?.select()
 				.from(cloudExports)

@@ -1,3 +1,5 @@
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -40,7 +42,7 @@ export const actions: Actions = {
 	convert: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const amount = Number(formData.get('amount'));
 		const mode = (formData.get('mode') as string) || ConvertMode.PRESET;
 

@@ -16,6 +16,7 @@ import type {
 	MarketplaceTypeDescriptor,
 } from '$lib/marketplace/types';
 import { MARKETPLACE_TYPE_CODES } from '$lib/marketplace/types';
+import { asChildId } from '$lib/domain/ids';
 
 // ── テスト用ダミー Strategy / Descriptor factory ─────────────────
 
@@ -178,11 +179,11 @@ describe('MarketplaceTypeRegistry', () => {
 			const parsed = got.strategy.parse({ items: ['a', 'b'] });
 			const preview = await got.strategy.preview(parsed as DummyPayload, {
 				tenantId: 't1',
-				childId: 42,
+				childId: asChildId(42),
 			});
 			const result = await got.strategy.apply(parsed as DummyPayload, {
 				tenantId: 't1',
-				childId: 42,
+				childId: asChildId(42),
 			});
 
 			expect(preview.total).toBe(2);

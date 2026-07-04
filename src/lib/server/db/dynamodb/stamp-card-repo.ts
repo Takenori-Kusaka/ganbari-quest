@@ -34,6 +34,8 @@
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/stamp-card-repo.ts (SSOT)
 
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import { getDefaultStampMasters } from '../stamp-master-defaults';
 import type {
 	InsertStampCardInput,
@@ -64,8 +66,8 @@ const ENTRY_PREFIX = stampEntryPrefix();
 function toCard(item: Record<string, unknown>): StampCard {
 	const stripped = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: stripped.id as number,
-		childId: stripped.childId as number,
+		id: String(stripped.id as number),
+		childId: asChildId(stripped.childId as number),
 		weekStart: stripped.weekStart as string,
 		weekEnd: stripped.weekEnd as string,
 		status: stripped.status as string,
@@ -95,14 +97,14 @@ export async function findEnabledStampMasters(_tenantId: string): Promise<StampM
 // ============================================================
 
 export async function findCardByChildAndWeek(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	tenantId: string,
 ): Promise<StampCard | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: stampCardKey(childId, weekStart, tenantId),
+			Key: stampCardKey(Number(childId), weekStart, tenantId),
 		}),
 	);
 	if (!result.Item) return undefined;
@@ -120,7 +122,7 @@ export async function insertCard(
 	const id = await nextId(ENTITY_NAMES.stampCard, tenantId);
 	const now = new Date().toISOString();
 	const card: StampCard = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		weekStart: input.weekStart,
 		weekEnd: input.weekEnd,
@@ -136,8 +138,11 @@ export async function insertCard(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...stampCardKey(input.childId, input.weekStart, tenantId),
+				...stampCardKey(Number(input.childId), input.weekStart, tenantId),
 				...card,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -149,7 +154,7 @@ export async function insertCard(
 // findCardsByChild / findEntriesByCardId — backup export 用 (#3329)
 // ============================================================
 
-export async function findCardsByChild(childId: number, tenantId: string): Promise<StampCard[]> {
+export async function findCardsByChild(childId: ChildId, tenantId: string): Promise<StampCard[]> {
 	const doc = getDocClient();
 	const items: Record<string, unknown>[] = [];
 	let lastKey: Record<string, unknown> | undefined;
@@ -159,7 +164,7 @@ export async function findCardsByChild(childId: number, tenantId: string): Promi
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': CARD_PREFIX,
 				},
 				ExclusiveStartKey: lastKey,
@@ -174,11 +179,11 @@ export async function findCardsByChild(childId: number, tenantId: string): Promi
 }
 
 export async function findEntriesByCardId(
-	cardId: number,
+	cardId: string,
 	tenantId: string,
 ): Promise<
 	Array<{
-		stampMasterId: number | null;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -189,7 +194,7 @@ export async function findEntriesByCardId(
 	const rows = items.map((item) => {
 		const stripped = stripKeys(item) as Record<string, unknown>;
 		return {
-			stampMasterId: (stripped.stampMasterId ?? null) as number | null,
+			stampMasterId: stripped.stampMasterId != null ? String(stripped.stampMasterId) : null,
 			omikujiRank: (stripped.omikujiRank ?? null) as string | null,
 			slot: stripped.slot as number,
 			loginDate: stripped.loginDate as string,
@@ -209,13 +214,16 @@ export async function insertCardForRestore(
 	tenantId: string,
 ): Promise<StampCard> {
 	const id = await nextId(ENTITY_NAMES.stampCard, tenantId);
-	const card: StampCard = { ...input, id };
+	const card: StampCard = { ...input, id: String(id) };
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...stampCardKey(input.childId, input.weekStart, tenantId),
+				...stampCardKey(Number(input.childId), input.weekStart, tenantId),
 				...card,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -224,8 +232,8 @@ export async function insertCardForRestore(
 
 export async function insertEntryForRestore(
 	input: {
-		cardId: number;
-		stampMasterId: number | null;
+		cardId: string;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -238,9 +246,9 @@ export async function insertEntryForRestore(
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...stampEntryKey(input.cardId, input.slot, tenantId),
-					cardId: input.cardId,
-					stampMasterId: input.stampMasterId,
+					...stampEntryKey(Number(input.cardId), input.slot, tenantId),
+					cardId: Number(input.cardId),
+					stampMasterId: input.stampMasterId != null ? Number(input.stampMasterId) : null,
 					omikujiRank: input.omikujiRank,
 					slot: input.slot,
 					loginDate: input.loginDate,
@@ -260,18 +268,18 @@ export async function insertEntryForRestore(
 // ============================================================
 
 export async function findEntriesWithMasterByCardId(
-	cardId: number,
+	cardId: string,
 	tenantId: string,
 ): Promise<StampEntryWithMaster[]> {
 	const items = await queryCardEntries(cardId, tenantId);
 
 	// stamp master を id → master の map で in-memory 解決 (SQLite の LEFT JOIN 相当)。
-	const masterById = new Map<number, StampMaster>();
-	for (const m of getDefaultStampMasters()) masterById.set(m.id, m);
+	const masterById = new Map<string, StampMaster>();
+	for (const m of getDefaultStampMasters()) masterById.set(String(m.id), m);
 
 	const entries: StampEntryWithMaster[] = items.map((item) => {
 		const stripped = stripKeys(item) as Record<string, unknown>;
-		const stampMasterId = (stripped.stampMasterId ?? null) as number | null;
+		const stampMasterId = stripped.stampMasterId != null ? String(stripped.stampMasterId) : null;
 		const master = stampMasterId != null ? masterById.get(stampMasterId) : undefined;
 		return {
 			slot: stripped.slot as number,
@@ -300,9 +308,9 @@ export async function insertEntry(input: InsertStampEntryInput, tenantId: string
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...stampEntryKey(input.cardId, input.slot, tenantId),
-					cardId: input.cardId,
-					stampMasterId: input.stampMasterId,
+					...stampEntryKey(Number(input.cardId), input.slot, tenantId),
+					cardId: Number(input.cardId),
+					stampMasterId: Number(input.stampMasterId),
 					omikujiRank: input.omikujiRank,
 					slot: input.slot,
 					loginDate: input.loginDate,
@@ -324,8 +332,8 @@ export async function insertEntry(input: InsertStampEntryInput, tenantId: string
 // ============================================================
 
 export async function updateCardStatus(
-	childId: number,
-	cardId: number,
+	childId: ChildId,
+	cardId: string,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ): Promise<void> {
@@ -353,8 +361,8 @@ export async function updateCardStatus(
 // ============================================================
 
 export async function updateCardStatusIfCollecting(
-	childId: number,
-	cardId: number,
+	childId: ChildId,
+	cardId: string,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ): Promise<number> {
@@ -405,7 +413,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 
 /** card partition (PK=STMPCARD#<cardId>) の STMPENT# item を全件 Query する (ページング対応)。 */
 async function queryCardEntries(
-	cardId: number,
+	cardId: string,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -417,7 +425,7 @@ async function queryCardEntries(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': stampEntryCardPK(cardId, tenantId),
+					':pk': stampEntryCardPK(Number(cardId), tenantId),
 					':prefix': ENTRY_PREFIX,
 				},
 				ExclusiveStartKey: lastKey,
@@ -440,8 +448,8 @@ async function queryCardEntries(
  * 全ページを走査し一致 item を見つけ次第 early return する (paging 正パターン)。
  */
 async function findCardItemByChildAndId(
-	childId: number,
-	cardId: number,
+	childId: ChildId,
+	cardId: string,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
 	const doc = getDocClient();
@@ -453,9 +461,9 @@ async function findCardItemByChildAndId(
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
 				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':skPrefix': CARD_PREFIX,
-					':id': cardId,
+					':id': Number(cardId),
 				},
 				ProjectionExpression: 'PK, SK',
 				ExclusiveStartKey: lastKey,

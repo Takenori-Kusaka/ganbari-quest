@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/questionnaire-service.test.ts
 // questionnaire-service ユニットテスト
 
@@ -28,7 +29,7 @@ import {
 
 const ALL_CATEGORIES = ['undou', 'benkyou', 'seikatsu', 'souzou', 'kouryuu'];
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 
 // ---- Tests ----
 
@@ -249,7 +250,7 @@ describe('questionnaire-service', () => {
 			});
 			vi.stubGlobal('fetch', mockFetch);
 
-			mockCreateTemplate.mockResolvedValue({ id: 100 });
+			mockCreateTemplate.mockResolvedValue({ id: '100' });
 			mockAddTemplateItem.mockResolvedValue({});
 
 			const created = await applyChecklistPresets(CHILD_ID, ['morning-routine'], TENANT);
@@ -314,7 +315,7 @@ describe('questionnaire-service', () => {
 			// 1つ目はエラー、2つ目は成功
 			mockCreateTemplate
 				.mockRejectedValueOnce(new Error('DB error'))
-				.mockResolvedValueOnce({ id: 200 });
+				.mockResolvedValueOnce({ id: '200' });
 			mockAddTemplateItem.mockResolvedValue({});
 
 			const created = await applyChecklistPresets(CHILD_ID, ['preset-a', 'preset-b'], TENANT);

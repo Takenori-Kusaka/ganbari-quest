@@ -1,12 +1,13 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import VisibilityChipGroup from '$lib/ui/primitives/VisibilityChipGroup.svelte';
+import { asChildId } from '$lib/domain/ids';
 
 describe('VisibilityChipGroup', () => {
 	const threeChildren = [
-		{ id: 1, nickname: 'たろう', age: 8, icon: '👦' },
-		{ id: 2, nickname: 'ひな', age: 5, icon: '👧' },
-		{ id: 3, nickname: 'けんた', age: 1, icon: '👶' },
+		{ id: asChildId(1), nickname: 'たろう', age: 8, icon: '👦' },
+		{ id: asChildId(2), nickname: 'ひな', age: 5, icon: '👧' },
+		{ id: asChildId(3), nickname: 'けんた', age: 1, icon: '👶' },
 	];
 
 	it('section title が表示される', () => {
@@ -66,7 +67,7 @@ describe('VisibilityChipGroup', () => {
 			},
 		});
 		await fireEvent.click(getByTestId('visibility-chip-1'));
-		expect(onToggle).toHaveBeenCalledWith(1, false);
+		expect(onToggle).toHaveBeenCalledWith('1', false);
 	});
 
 	it('OFF の chip クリックで onToggle(true) (OFF → ON)', async () => {
@@ -79,7 +80,7 @@ describe('VisibilityChipGroup', () => {
 			},
 		});
 		await fireEvent.click(getByTestId('visibility-chip-1'));
-		expect(onToggle).toHaveBeenCalledWith(1, true);
+		expect(onToggle).toHaveBeenCalledWith('1', true);
 	});
 
 	it('「全員 ON」ボタンクリックで OFF の child に対し onToggle(true) が呼ばれる', async () => {
@@ -93,8 +94,8 @@ describe('VisibilityChipGroup', () => {
 		});
 		await fireEvent.click(getByTestId('visibility-shortcut-all-on'));
 		// 2 / 3 が OFF だったので 2 回呼ばれる
-		expect(onToggle).toHaveBeenCalledWith(2, true);
-		expect(onToggle).toHaveBeenCalledWith(3, true);
+		expect(onToggle).toHaveBeenCalledWith('2', true);
+		expect(onToggle).toHaveBeenCalledWith('3', true);
 		expect(onToggle).toHaveBeenCalledTimes(2);
 	});
 
@@ -108,8 +109,8 @@ describe('VisibilityChipGroup', () => {
 			},
 		});
 		await fireEvent.click(getByTestId('visibility-shortcut-all-off'));
-		expect(onToggle).toHaveBeenCalledWith(1, false);
-		expect(onToggle).toHaveBeenCalledWith(2, false);
+		expect(onToggle).toHaveBeenCalledWith('1', false);
+		expect(onToggle).toHaveBeenCalledWith('2', false);
 		expect(onToggle).toHaveBeenCalledTimes(2);
 	});
 

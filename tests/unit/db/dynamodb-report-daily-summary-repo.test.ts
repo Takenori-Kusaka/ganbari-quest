@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const {
 	mockSend,
@@ -126,9 +127,9 @@ describe('findByChildAndDateRange', () => {
 			Items: [row(1, '2026-05-01'), row(2, '2026-05-01'), row(1, '2026-05-02')],
 		});
 		const { findByChildAndDateRange } = await loadRepo();
-		const result = await findByChildAndDateRange(1, '2026-05-01', '2026-05-02', TENANT);
+		const result = await findByChildAndDateRange(asChildId(1), '2026-05-01', '2026-05-02', TENANT);
 		expect(result).toHaveLength(2);
-		expect(result.every((r) => r.childId === 1)).toBe(true);
+		expect(result.every((r) => r.childId === '1')).toBe(true);
 	});
 });
 
@@ -141,7 +142,7 @@ describe('upsert', () => {
 		const { upsert } = await loadRepo();
 		await upsert({
 			tenantId: TENANT,
-			childId: 5,
+			childId: asChildId(5),
 			date: '2026-05-10',
 			activityCount: 4,
 			categoryBreakdown: '{"a":1}',
@@ -155,7 +156,7 @@ describe('upsert', () => {
 		const item = putArg.Item as Record<string, unknown>;
 		expect(item.PK).toBe(`T#${TENANT}#RDS`);
 		expect(item.SK).toBe('2026-05-10#00000005');
-		expect(item.id).toBe(11);
+		expect(item.id).toBe('11');
 		expect(item.activityCount).toBe(4);
 	});
 
@@ -166,7 +167,7 @@ describe('upsert', () => {
 		const { upsert } = await loadRepo();
 		await upsert({
 			tenantId: TENANT,
-			childId: 5,
+			childId: asChildId(5),
 			date: '2026-05-10',
 			activityCount: 9,
 			categoryBreakdown: '{}',
@@ -178,7 +179,7 @@ describe('upsert', () => {
 		});
 		expect(mockSend).toHaveBeenCalledTimes(2); // Get + Put のみ (nextId なし)
 		const item = callOf(1).input.Item as Record<string, unknown>;
-		expect(item.id).toBe(77);
+		expect(item.id).toBe('77');
 		expect(item.createdAt).toBe('2026-01-01T00:00:00.000Z');
 		expect(item.activityCount).toBe(9);
 	});

@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import * as evaluationRepo from '../../../../../src/lib/server/db/demo/evaluation-repo';
 import { DEMO_CHILDREN, DEMO_EVALUATIONS } from '../../../../../src/lib/server/demo/demo-data';
+import { asChildId } from '$lib/domain/ids';
 
 describe('demo/evaluation-repo (Phase B-5b)', () => {
 	it('DEMO_EVALUATIONS fixture は全 5 子供 × 4 週分 = 20 件以上', () => {
@@ -26,9 +27,9 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findEvaluationsByChild は 904 (junior) で 4 週分を新しい順に返す', async () => {
-		const result = await evaluationRepo.findEvaluationsByChild(904, 10, 'demo');
+		const result = await evaluationRepo.findEvaluationsByChild(asChildId(904), 10, 'demo');
 		expect(result.length).toBeGreaterThanOrEqual(4);
-		expect(result.every((e) => e.childId === 904)).toBe(true);
+		expect(result.every((e) => e.childId === '904')).toBe(true);
 		// weekStart DESC 順
 		for (let i = 0; i < result.length - 1; i++) {
 			const current = result[i];
@@ -40,12 +41,12 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findEvaluationsByChild は limit で件数を絞る', async () => {
-		const result = await evaluationRepo.findEvaluationsByChild(904, 2, 'demo');
+		const result = await evaluationRepo.findEvaluationsByChild(asChildId(904), 2, 'demo');
 		expect(result.length).toBe(2);
 	});
 
 	it('findEvaluationsByChild は未登録 child で空配列', async () => {
-		expect(await evaluationRepo.findEvaluationsByChild(99999, 10, 'demo')).toEqual([]);
+		expect(await evaluationRepo.findEvaluationsByChild(asChildId(99999), 10, 'demo')).toEqual([]);
 	});
 
 	it('findWeekEvaluation は existing (childId, weekStart) で id を返す', async () => {
@@ -58,14 +59,14 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findWeekEvaluation は未該当 weekStart で undefined', async () => {
-		expect(await evaluationRepo.findWeekEvaluation(904, '2099-01-01', 'demo')).toBeUndefined();
+		expect(await evaluationRepo.findWeekEvaluation(asChildId(904), '2099-01-01', 'demo')).toBeUndefined();
 	});
 
 	it('insertEvaluation は input を Evaluation として返す (no-op、fixture immutable)', async () => {
 		const before = DEMO_EVALUATIONS.length;
 		const evaluation = await evaluationRepo.insertEvaluation(
 			{
-				childId: 904,
+				childId: asChildId(904),
 				weekStart: '2026-04-01',
 				weekEnd: '2026-04-07',
 				scoresJson: '{}',
@@ -73,27 +74,27 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 			},
 			'demo',
 		);
-		expect(evaluation.childId).toBe(904);
+		expect(evaluation.childId).toBe('904');
 		expect(evaluation.bonusPoints).toBe(10);
 		expect(DEMO_EVALUATIONS.length).toBe(before);
 	});
 
 	it('countActivitiesByCategory / findLastActivityDateByCategory は空 (別 fixture 対象)', async () => {
 		expect(
-			await evaluationRepo.countActivitiesByCategory(904, '2026-03-23', '2026-03-29', 'demo'),
+			await evaluationRepo.countActivitiesByCategory(asChildId(904), '2026-03-23', '2026-03-29', 'demo'),
 		).toEqual([]);
-		expect(await evaluationRepo.findLastActivityDateByCategory(904, 'demo')).toEqual([]);
+		expect(await evaluationRepo.findLastActivityDateByCategory(asChildId(904), 'demo')).toEqual([]);
 	});
 
 	it('isRestDay は false / countRestDaysInMonth は 0', async () => {
-		expect(await evaluationRepo.isRestDay(904, '2026-04-01', 'demo')).toBe(false);
-		expect(await evaluationRepo.countRestDaysInMonth(904, '2026-04', 'demo')).toBe(0);
+		expect(await evaluationRepo.isRestDay(asChildId(904), '2026-04-01', 'demo')).toBe(false);
+		expect(await evaluationRepo.countRestDaysInMonth(asChildId(904), '2026-04', 'demo')).toBe(0);
 	});
 
 	it('insertRestDay は input を RestDay として返す (no-op)', async () => {
-		const restDay = await evaluationRepo.insertRestDay(904, '2026-04-01', 'お休み', 'demo');
+		const restDay = await evaluationRepo.insertRestDay(asChildId(904), '2026-04-01', 'お休み', 'demo');
 		expect(restDay).toBeDefined();
-		expect(restDay?.childId).toBe(904);
+		expect(restDay?.childId).toBe('904');
 		expect(restDay?.date).toBe('2026-04-01');
 	});
 });

@@ -33,10 +33,11 @@ vi.mock('$lib/server/logger', () => ({
 // ---------- Import after mocks ----------
 
 import { rewardSetStrategy } from '../../../../src/lib/marketplace/strategies/reward-set-strategy';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 'test-tenant-001';
 const PRESET_ID = 'kinder-rewards';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 
 function makeReward(overrides: Record<string, unknown> = {}) {
 	return {
@@ -51,7 +52,7 @@ function makeReward(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 });
 
 // =====================================================
@@ -246,7 +247,7 @@ describe('rewardSetStrategy.apply', () => {
 	it('insertSpecialReward が throw した場合 errors に記録 + 処理継続', async () => {
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('DB error'))
-			.mockResolvedValueOnce({ id: 2 });
+			.mockResolvedValueOnce({ id: '2' });
 		const payload = {
 			rewards: [makeReward({ title: 'failing' }), makeReward({ title: 'ok' })],
 		};
@@ -329,11 +330,11 @@ describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
 		const { narrowChildContext } = await import(
 			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
 		);
-		const ctx = { tenantId: TENANT, presetId: PRESET_ID, childIds: [202, 303] };
+		const ctx = { tenantId: TENANT, presetId: PRESET_ID, childIds: [asChildId(202), asChildId(303)] };
 		const narrowed = narrowChildContext(ctx);
 		expect(narrowed.kind).toBe('child-selection');
 		if (narrowed.kind === 'child-selection') {
-			expect(narrowed.childIds).toEqual([202, 303]);
+			expect(narrowed.childIds).toEqual(['202', '303']);
 			expect(narrowed.presetId).toBe(PRESET_ID);
 		}
 	});
@@ -357,7 +358,7 @@ describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
 		const ctx = {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childIds: [] as readonly number[],
+			childIds: [] as readonly ChildId[],
 			childId: CHILD_ID,
 		};
 		const narrowed = narrowChildContext(ctx);
@@ -377,7 +378,7 @@ describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
 		const { narrowChildContext } = await import(
 			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
 		);
-		expect(() => narrowChildContext({ tenantId: TENANT, childIds: [202] } as never)).toThrow(
+		expect(() => narrowChildContext({ tenantId: TENANT, childIds: [asChildId(202)] } as never)).toThrow(
 			/presetId/,
 		);
 	});
@@ -394,7 +395,7 @@ describe('rewardSetStrategy.apply (per-child fan-out)', () => {
 		const result = await rewardSetStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.imported).toBe(4); // 2 reward × 2 child
@@ -409,12 +410,12 @@ describe('rewardSetStrategy.apply (per-child fan-out)', () => {
 		mockFindSpecialRewards.mockResolvedValue([]);
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('child 202 FK violation'))
-			.mockResolvedValueOnce({ id: 99 });
+			.mockResolvedValueOnce({ id: '99' });
 
 		const result = await rewardSetStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.imported).toBe(1); // 303 のみ成功
@@ -430,7 +431,7 @@ describe('rewardSetStrategy.apply (per-child fan-out)', () => {
 		const result = await rewardSetStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 			dryRun: true,
 		});
 		expect(result.imported).toBe(0);

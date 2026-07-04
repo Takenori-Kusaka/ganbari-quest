@@ -1,3 +1,4 @@
+import { childIdSchema } from './id-schema';
 import { z } from 'zod';
 
 // ================================================================
@@ -354,5 +355,5 @@ export const AGE_MAX_TABLE: { age: number; maxValue: number }[] = [
 
 /** ステータスクエリスキーマ */
 export const statusQuerySchema = z.object({
-	childId: z.coerce.number().int().positive(),
+	childId: childIdSchema,
 });

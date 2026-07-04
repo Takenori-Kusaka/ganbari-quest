@@ -87,7 +87,7 @@ describe('#1377 idempotency — cleanupExpiredData', () => {
 		listAllTenantsMock.mockResolvedValueOnce([
 			{ tenantId: 't-1', plan: null, licenseStatus: 'none' },
 		]);
-		findAllChildrenMock.mockResolvedValueOnce([{ id: 1, tenantId: 't-1' }]);
+		findAllChildrenMock.mockResolvedValueOnce([{ id: '1', tenantId: 't-1' }]);
 		deleteActivityLogsMock.mockResolvedValueOnce(5);
 		deletePointLedgerMock.mockResolvedValueOnce(2);
 		deleteLoginBonusesMock.mockResolvedValueOnce(1);
@@ -96,7 +96,7 @@ describe('#1377 idempotency — cleanupExpiredData', () => {
 		listAllTenantsMock.mockResolvedValueOnce([
 			{ tenantId: 't-1', plan: null, licenseStatus: 'none' },
 		]);
-		findAllChildrenMock.mockResolvedValueOnce([{ id: 1, tenantId: 't-1' }]);
+		findAllChildrenMock.mockResolvedValueOnce([{ id: '1', tenantId: 't-1' }]);
 		deleteActivityLogsMock.mockResolvedValueOnce(0);
 		deletePointLedgerMock.mockResolvedValueOnce(0);
 		deleteLoginBonusesMock.mockResolvedValueOnce(0);
@@ -119,7 +119,7 @@ describe('#1377 idempotency — cleanupExpiredData', () => {
 		listAllTenantsMock.mockResolvedValueOnce([
 			{ tenantId: 't-1', plan: null, licenseStatus: 'none' },
 		]);
-		findAllChildrenMock.mockResolvedValueOnce([{ id: 1, tenantId: 't-1' }]);
+		findAllChildrenMock.mockResolvedValueOnce([{ id: '1', tenantId: 't-1' }]);
 
 		const { cleanupExpiredData } = await import(
 			'../../../src/lib/server/services/retention-cleanup-service'

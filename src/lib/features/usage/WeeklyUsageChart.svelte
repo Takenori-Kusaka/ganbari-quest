@@ -2,6 +2,7 @@
 <!-- #1576: 親ダッシュボード 週次使用時間 bar chart -->
 <!-- OSS 選定: Pure SVG 実装（0KB 追加）。週次7日×子供N人の単純な棒グラフに Chart.js/D3.js は過剰 -->
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { USAGE_TIME_LABELS } from '$lib/domain/labels';
 
 interface DailySummary {
@@ -10,7 +11,7 @@ interface DailySummary {
 }
 
 interface ChildWeeklyData {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	dailySummary: DailySummary[];
 }

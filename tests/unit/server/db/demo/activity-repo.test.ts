@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import * as activityRepo from '../../../../../src/lib/server/db/demo/activity-repo';
 import { DEMO_ACTIVITIES, DEMO_ACTIVITY_LOGS } from '../../../../../src/lib/server/demo/demo-data';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 describe('demo/activity-repo', () => {
 	describe('read API', () => {
@@ -14,9 +15,9 @@ describe('demo/activity-repo', () => {
 		});
 
 		it('findActivities (filter: categoryId=1) は categoryId=1 のみ', async () => {
-			const filtered = await activityRepo.findActivities('demo', { categoryId: 1 });
+			const filtered = await activityRepo.findActivities('demo', { categoryId: asCategoryId(1) });
 			expect(filtered.length).toBeGreaterThan(0);
-			expect(filtered.every((a) => a.categoryId === 1)).toBe(true);
+			expect(filtered.every((a) => a.categoryId === '1')).toBe(true);
 		});
 
 		it('findActivities (filter: childAge=8) は ageRange に合う activity のみ', async () => {
@@ -45,15 +46,15 @@ describe('demo/activity-repo', () => {
 		});
 
 		it('countActiveActivityLogs は cancelled=0 のみカウント', async () => {
-			const count = await activityRepo.countActiveActivityLogs(902, 'demo');
+			const count = await activityRepo.countActiveActivityLogs(asChildId(902), 'demo');
 			const expected = DEMO_ACTIVITY_LOGS.filter(
-				(l) => l.childId === 902 && l.cancelled === 0,
+				(l) => l.childId === '902' && l.cancelled === 0,
 			).length;
 			expect(count).toBe(expected);
 		});
 
 		it('findActivityLogs は ActivityLogSummary で activityName / activityIcon を含む', async () => {
-			const logs = await activityRepo.findActivityLogs(902, 'demo');
+			const logs = await activityRepo.findActivityLogs(asChildId(902), 'demo');
 			expect(logs.length).toBeGreaterThan(0);
 			expect(logs[0]).toHaveProperty('activityName');
 			expect(logs[0]).toHaveProperty('activityIcon');
@@ -65,7 +66,7 @@ describe('demo/activity-repo', () => {
 		it('insertActivity は input から Activity を返すが fixture を mutate しない', async () => {
 			const before = DEMO_ACTIVITIES.length;
 			const created = await activityRepo.insertActivity(
-				{ name: 'test', categoryId: 1, icon: '🧪', basePoints: 5, ageMin: 3, ageMax: 10 },
+				{ name: 'test', categoryId: asCategoryId(1), icon: '🧪', basePoints: 5, ageMin: 3, ageMax: 10 },
 				'demo',
 			);
 			expect(created.name).toBe('test');
@@ -76,8 +77,8 @@ describe('demo/activity-repo', () => {
 			const before = DEMO_ACTIVITY_LOGS.length;
 			const log = await activityRepo.insertActivityLog(
 				{
-					childId: 902,
-					activityId: 1,
+					childId: asChildId(902),
+					activityId: asActivityId(1),
 					points: 5,
 					streakDays: 0,
 					streakBonus: 0,
@@ -93,31 +94,31 @@ describe('demo/activity-repo', () => {
 		it('insertPointLedger / deleteActivity / archiveActivities は no-op で例外を投げない', async () => {
 			await expect(
 				activityRepo.insertPointLedger(
-					{ childId: 902, amount: 10, type: 'test', description: 'noop' },
+					{ childId: asChildId(902), amount: 10, type: 'test', description: 'noop' },
 					'demo',
 				),
 			).resolves.toBeUndefined();
-			await expect(activityRepo.deleteActivity(99999, 'demo')).resolves.toBeUndefined();
+			await expect(activityRepo.deleteActivity(asActivityId(99999), 'demo')).resolves.toBeUndefined();
 			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で 'test' → 'trial_expired' (ARCHIVED_REASONS SSOT)
 			await expect(
-				activityRepo.archiveActivities([1], 'trial_expired', 'demo'),
+				activityRepo.archiveActivities([asActivityId(1)], 'trial_expired', 'demo'),
 			).resolves.toBeUndefined();
 		});
 
 		it('deleteActivityLogsBeforeDate は 0 件削除を返す (stateless)', async () => {
-			const result = await activityRepo.deleteActivityLogsBeforeDate(902, '2020-01-01', 'demo');
+			const result = await activityRepo.deleteActivityLogsBeforeDate(asChildId(902), '2020-01-01', 'demo');
 			expect(result).toBe(0);
 		});
 	});
 
 	describe('aggregation queries (Fake)', () => {
 		it('countDistinctCategories は demo log の category 集合サイズ', async () => {
-			const count = await activityRepo.countDistinctCategories(902, 'demo');
+			const count = await activityRepo.countDistinctCategories(asChildId(902), 'demo');
 			expect(count).toBeGreaterThanOrEqual(0);
 		});
 
 		it('getCategoryCountsByDate は recordedDate → categoryCount mapping', async () => {
-			const result = await activityRepo.getCategoryCountsByDate(902, 'demo');
+			const result = await activityRepo.getCategoryCountsByDate(asChildId(902), 'demo');
 			expect(Array.isArray(result)).toBe(true);
 		});
 	});

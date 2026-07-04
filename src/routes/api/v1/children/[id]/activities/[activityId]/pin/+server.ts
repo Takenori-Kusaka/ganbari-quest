@@ -1,6 +1,7 @@
 // src/routes/api/v1/children/[id]/activities/[activityId]/pin/+server.ts
 // 活動ピン留めトグルAPI
 
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 import { apiError } from '$lib/server/errors';
 import { toggleActivityPin } from '$lib/server/services/activity-pin-service';
@@ -12,10 +13,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.id);
-	const activityId = Number(params.activityId);
+	const childId = asChildId(params.id);
+	const activityId = asActivityId(params.activityId);
 
-	if (Number.isNaN(childId) || Number.isNaN(activityId)) {
+	if (!childId || !activityId) {
 		return apiError('VALIDATION_ERROR', '不正なIDです');
 	}
 
@@ -42,10 +43,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.id);
-	const activityId = Number(params.activityId);
+	const childId = asChildId(params.id);
+	const activityId = asActivityId(params.activityId);
 
-	if (Number.isNaN(childId) || Number.isNaN(activityId)) {
+	if (!childId || !activityId) {
 		return apiError('VALIDATION_ERROR', '不正なIDです');
 	}
 

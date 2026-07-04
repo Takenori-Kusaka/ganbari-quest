@@ -114,8 +114,8 @@ describe('findByTenant', () => {
 
 		expect(result).toHaveLength(2);
 		// createdAt desc → id=2 が先頭
-		expect(result[0]?.id).toBe(2);
-		expect(result[1]?.id).toBe(1);
+		expect(result[0]?.id).toBe('2');
+		expect(result[1]?.id).toBe('1');
 		// PK/SK が stripKeys で除去されている
 		expect((result[0] as unknown as Record<string, unknown>).PK).toBeUndefined();
 		const arg = callOf(0).input;
@@ -155,7 +155,7 @@ describe('findByPin', () => {
 		});
 		const { findByPin } = await loadRepo();
 		const r = await findByPin('9999');
-		expect(r?.id).toBe(7);
+		expect(r?.id).toBe('7');
 		const arg = callOf(0).input;
 		expect(arg.FilterExpression).toContain('pinCode = :pin');
 		expect((arg.ExpressionAttributeValues as Record<string, string>)[':pin']).toBe('9999');
@@ -174,8 +174,8 @@ describe('findById', () => {
 			Item: { id: 3, tenantId: TENANT, createdAt: '2026-05-01T00:00:00.000Z' },
 		});
 		const { findById } = await loadRepo();
-		const r = await findById(3, TENANT);
-		expect(r?.id).toBe(3);
+		const r = await findById('3', TENANT);
+		expect(r?.id).toBe('3');
 		const arg = callOf(0).input;
 		expect((arg.Key as Record<string, string>).PK).toBe(`T#${TENANT}#CEXPORT`);
 		expect((arg.Key as Record<string, string>).SK).toBe('EXPORT#00000003');
@@ -184,7 +184,7 @@ describe('findById', () => {
 	it('不在で undefined', async () => {
 		mockSend.mockResolvedValueOnce({ Item: undefined });
 		const { findById } = await loadRepo();
-		expect(await findById(99, TENANT)).toBeUndefined();
+		expect(await findById('99', TENANT)).toBeUndefined();
 	});
 });
 
@@ -202,7 +202,7 @@ describe('insert', () => {
 			fileSizeBytes: 500,
 			expiresAt: '2026-06-01',
 		});
-		expect(r.id).toBe(42);
+		expect(r.id).toBe('42');
 		expect(r.downloadCount).toBe(0);
 		expect(r.maxDownloads).toBe(10);
 		expect(r.label).toBeNull();
@@ -234,7 +234,7 @@ describe('incrementDownloadCount (#2845 B1: tenant 束縛 exact Key)', () => {
 	it('exact Key (T#<tenant>#CEXPORT / EXPORT#<id>) で直接 UpdateItem する (Scan 不発行)', async () => {
 		mockSend.mockResolvedValueOnce({}); // UpdateCommand
 		const { incrementDownloadCount } = await loadRepo();
-		await incrementDownloadCount(5, TENANT);
+		await incrementDownloadCount('5', TENANT);
 
 		expect(mockSend).toHaveBeenCalledTimes(1);
 		const cmd = mockSend.mock.calls[0]?.[0];
@@ -255,14 +255,14 @@ describe('incrementDownloadCount (#2845 B1: tenant 束縛 exact Key)', () => {
 		});
 		mockSend.mockRejectedValueOnce(err);
 		const { incrementDownloadCount } = await loadRepo();
-		await expect(incrementDownloadCount(999, 'other-tenant')).resolves.toBeUndefined();
+		await expect(incrementDownloadCount('999', 'other-tenant')).resolves.toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 
 	it('ConditionalCheckFailed 以外のエラーは握りつぶさず throw する', async () => {
 		mockSend.mockRejectedValueOnce(Object.assign(new Error('boom'), { name: 'InternalError' }));
 		const { incrementDownloadCount } = await loadRepo();
-		await expect(incrementDownloadCount(5, TENANT)).rejects.toThrow('boom');
+		await expect(incrementDownloadCount('5', TENANT)).rejects.toThrow('boom');
 	});
 });
 
@@ -270,7 +270,7 @@ describe('deleteById', () => {
 	it('DeleteItem で id+tenant の key を削除', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { deleteById } = await loadRepo();
-		await deleteById(8, TENANT);
+		await deleteById('8', TENANT);
 		const arg = callOf(0).input;
 		expect((arg.Key as Record<string, string>).SK).toBe('EXPORT#00000008');
 	});
@@ -335,7 +335,7 @@ describe('updateStatus (#3504)', () => {
 	it('exact Key + #status 別名で status を SET する', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
-		await updateStatus(5, TENANT, 'building');
+		await updateStatus('5', TENANT, 'building');
 		const arg = callOf(0).input;
 		expect(arg.UpdateExpression).toContain('#status = :status');
 		expect((arg.ExpressionAttributeNames as Record<string, string>)['#status']).toBe('status');
@@ -347,7 +347,7 @@ describe('updateStatus (#3504)', () => {
 	it('#3509 QM 是正: building 遷移では buildStartedAt を now() で SET する', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
-		await updateStatus(5, TENANT, 'building');
+		await updateStatus('5', TENANT, 'building');
 		const arg = callOf(0).input;
 		expect(arg.UpdateExpression).toContain('#bsa = :bsa');
 		expect((arg.ExpressionAttributeNames as Record<string, string>)['#bsa']).toBe('buildStartedAt');
@@ -359,7 +359,7 @@ describe('updateStatus (#3504)', () => {
 	it('#3509 QM 是正: ready/failed 遷移では buildStartedAt を null に戻す (残渣防止)', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
-		await updateStatus(5, TENANT, 'ready', { fileSizeBytes: 1, description: 'd' });
+		await updateStatus('5', TENANT, 'ready', { fileSizeBytes: 1, description: 'd' });
 		const arg = callOf(0).input;
 		expect((arg.ExpressionAttributeValues as Record<string, unknown>)[':bsa']).toBeNull();
 	});
@@ -367,7 +367,7 @@ describe('updateStatus (#3504)', () => {
 	it('ready 遷移では fileSizeBytes / description も同 UpdateItem で確定する', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
-		await updateStatus(5, TENANT, 'ready', { fileSizeBytes: 123, description: 'フルバックアップ' });
+		await updateStatus('5', TENANT, 'ready', { fileSizeBytes: 123, description: 'フルバックアップ' });
 		const arg = callOf(0).input;
 		expect(arg.UpdateExpression).toContain('#fs = :fs');
 		expect(arg.UpdateExpression).toContain('#desc = :desc');
@@ -382,7 +382,7 @@ describe('updateStatus (#3504)', () => {
 			Object.assign(new Error('cc'), { name: 'ConditionalCheckFailedException' }),
 		);
 		const { updateStatus } = await loadRepo();
-		await expect(updateStatus(9, 'other', 'ready')).resolves.toBeUndefined();
+		await expect(updateStatus('9', 'other', 'ready')).resolves.toBeUndefined();
 	});
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
+import { asChildId } from '$lib/domain/ids';
 
 // テスト用ファクトリ
 function cognitoIdentity(userId = 'user-1', email = 'test@example.com'): Identity {
@@ -161,7 +162,7 @@ describe('authorizeCognito', () => {
 		});
 
 		describe('child ロール', () => {
-			const ctx = makeContext({ role: 'child', childId: 1 });
+			const ctx = makeContext({ role: 'child', childId: asChildId(1) });
 			const id = cognitoIdentity();
 
 			it('/admin にアクセス不可（→ /switch?reason=admin_forbidden にリダイレクト）', () => {

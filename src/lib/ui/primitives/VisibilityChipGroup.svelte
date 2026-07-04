@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { VISIBILITY_CHIP_LABELS } from '$lib/domain/labels';
 
 /**
@@ -25,7 +26,7 @@ import { VISIBILITY_CHIP_LABELS } from '$lib/domain/labels';
 
 export interface VisibilityChild {
 	/** child の ID (DB primary key 推奨) */
-	id: number;
+	id: ChildId;
 	/** 表示名 (nickname) */
 	nickname: string;
 	/** 年齢 (label 表示用、任意) */
@@ -38,9 +39,9 @@ interface Props {
 	/** 配信先候補の child 配列 */
 	children: VisibilityChild[];
 	/** 各 child ごとの visibility (true = 表示 / false = 非表示)。未定義キーは ON 扱い */
-	visibility: Record<number, boolean>;
+	visibility: Record<string, boolean>;
 	/** chip toggle ハンドラ */
-	onToggle: (childId: number, visible: boolean) => void;
+	onToggle: (childId: ChildId, visible: boolean) => void;
 	/** 「全員 ON」「全員 OFF」ショートカット表示 (default: true) */
 	showShortcuts?: boolean;
 	/** 任意の testid (group wrapper に付与) */
@@ -55,12 +56,12 @@ let {
 	testid = 'visibility-chip-group',
 }: Props = $props();
 
-function isVisible(childId: number): boolean {
+function isVisible(childId: ChildId): boolean {
 	// 未定義キーは ON 扱い (新規 child 追加時の default 表示)
 	return visibility[childId] !== false;
 }
 
-function handleChipClick(childId: number) {
+function handleChipClick(childId: ChildId) {
 	onToggle(childId, !isVisible(childId));
 }
 

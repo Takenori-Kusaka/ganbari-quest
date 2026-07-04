@@ -1,3 +1,4 @@
+import { type ActivityId, asActivityId, type ChildId } from '$lib/domain/ids';
 // src/lib/server/db/demo/child-activity-repo.ts
 // per-child activity instance repository — Demo Lambda 実装 (#2362 PR-3, ADR-0055)
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
@@ -27,9 +28,9 @@ import type {
  * id 衝突を避けるため `child_id * 1_000_000 + activity_id` で擬似 id を生成。
  * 取込元 master id は sourcePresetId に "demo:<originalId>" として保持。
  */
-function projectToChildActivity(master: Activity, childId: number): ChildActivity {
+function projectToChildActivity(master: Activity, childId: ChildId): ChildActivity {
 	return {
-		id: childId * 1_000_000 + master.id,
+		id: asActivityId(Number(childId) * 1_000_000 + Number(master.id)),
 		childId,
 		name: master.name,
 		categoryId: master.categoryId,
@@ -69,7 +70,7 @@ const ALL_DEMO_ACTIVITIES_MASTER: Activity[] = (() => {
 // ============================================================
 
 export async function findActivitiesByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	options?: { includeArchived?: boolean; visibleOnly?: boolean },
 ): Promise<ChildActivity[]> {
@@ -94,8 +95,8 @@ export async function findActivitiesByChild(
 }
 
 export async function findActivityById(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
 	// Phase 6: per-child fixture を優先確認
@@ -103,12 +104,12 @@ export async function findActivityById(
 	if (perChild) return perChild;
 
 	// Legacy fallback: 旧 master id 体系 (childId * 1_000_000 + masterId)
-	const masterId = id - childId * 1_000_000;
+	const masterId = asActivityId(Number(id) - Number(childId) * 1_000_000);
 	const master = ALL_DEMO_ACTIVITIES_MASTER.find((a) => a.id === masterId);
 	return master ? projectToChildActivity(master, childId) : undefined;
 }
 
-export async function countMainQuestActivities(childId: number, tenantId: string): Promise<number> {
+export async function countMainQuestActivities(childId: ChildId, tenantId: string): Promise<number> {
 	const list = await findActivitiesByChild(childId, tenantId, { visibleOnly: true });
 	return list.filter((a) => a.isMainQuest === 1).length;
 }
@@ -123,7 +124,7 @@ export async function insertActivity(
 ): Promise<ChildActivity> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: asActivityId(0),
 		childId: input.childId,
 		name: input.name,
 		categoryId: input.categoryId,
@@ -159,8 +160,8 @@ export async function insertActivitiesBulk(
 }
 
 export async function updateActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	_input: UpdateChildActivityInput,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
@@ -168,8 +169,8 @@ export async function updateActivity(
 }
 
 export async function setActivityVisibility(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	_visible: boolean,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
@@ -177,16 +178,16 @@ export async function setActivityVisibility(
 }
 
 export async function deleteActivity(
-	id: number,
-	childId: number,
+	id: ActivityId,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity | undefined> {
 	return findActivityById(id, childId, tenantId);
 }
 
 export async function copyActivitiesAcrossChildren(
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 	tenantId: string,
 ): Promise<ChildActivity[]> {
 	const sourceList = await findActivitiesByChild(sourceChildId, tenantId, {
@@ -199,7 +200,7 @@ export async function copyActivitiesAcrossChildren(
 
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
-	_ids: number[],
+	_ids: ActivityId[],
 	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
@@ -217,6 +218,6 @@ export async function restoreArchivedActivities(
 // Child convenience lookup
 // ============================================================
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }

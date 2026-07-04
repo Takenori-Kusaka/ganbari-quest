@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import { cubicOut } from 'svelte/easing';
 import { tweened } from 'svelte/motion';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
@@ -12,7 +13,7 @@ import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 const RADAR_ANIMATION_DURATION = getScreenshotMode() ? 0 : 800;
 
 interface CategoryData {
-	categoryId: number;
+	categoryId: CategoryId;
 	name: string;
 	value: number;
 	maxValue: number;
@@ -24,7 +25,7 @@ interface CategoryData {
 
 interface Props {
 	categories: CategoryData[];
-	comparisonValues?: Record<number, number>;
+	comparisonValues?: Record<string, number>;
 	comparisonLabel?: string;
 	size?: number;
 }
@@ -38,7 +39,7 @@ const center = $derived(size / 2);
 const maxRadius = $derived(size * 0.4);
 const labelRadius = $derived(size * 0.52);
 
-const chartColors: Record<number, string> = {
+const chartColors: Record<string, string> = {
 	1: '#4caf50', // うんどう
 	2: '#2196f3', // べんきょう
 	3: '#ff9800', // せいかつ
@@ -199,7 +200,7 @@ function gridPolygon(pct: number): string {
 	<!-- Data points -->
 	{#each polygonValues as val, i}
 		{@const p = getPoint(i, val, maxRadius)}
-		{@const color = chartColors[categories[i]?.categoryId ?? 0] ?? 'var(--theme-primary)'}
+		{@const color = chartColors[categories[i]?.categoryId ?? ''] ?? 'var(--theme-primary)'}
 		<circle cx={p.x} cy={p.y} r="5" fill={color} stroke="white" stroke-width="2" />
 	{/each}
 

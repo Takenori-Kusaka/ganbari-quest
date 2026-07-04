@@ -2,10 +2,47 @@
 // ステータス関連のリポジトリ層
 
 import { and, desc, eq, lt, max, sql } from 'drizzle-orm';
+import {
+	type CategoryId,
+	type ChildId,
+	asCategoryId,
+	asChildId,
+} from '$lib/domain/ids';
 import { db } from '../client';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
 import { activityLogs, children, marketBenchmarks, statuses, statusHistory } from '../schema';
+import type {
+	Child,
+	InsertStatusHistoryInput,
+	MarketBenchmark,
+	Status,
+	StatusHistoryEntry,
+} from '../types';
+
+type StatusRow = typeof statuses.$inferSelect;
+type HistoryRow = typeof statusHistory.$inferSelect;
+type BenchmarkRow = typeof marketBenchmarks.$inferSelect;
+
+const toStatus = (r: StatusRow): Status => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	categoryId: asCategoryId(r.categoryId),
+});
+
+const toHistory = (r: HistoryRow): StatusHistoryEntry => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	categoryId: asCategoryId(r.categoryId),
+});
+
+const toBenchmark = (r: BenchmarkRow): MarketBenchmark => ({
+	...r,
+	id: String(r.id),
+	categoryId: asCategoryId(r.categoryId),
+});
 
 /** SQLite: _sv が未設定のステータスレコードに最新バージョンを書き戻す */
 function writeBackStatusSv(id: number): void {
@@ -19,103 +56,125 @@ function writeBackStatusSv(id: number): void {
 }
 
 /** 子供の全ステータスを取得 */
-export async function findStatuses(childId: number, _tenantId: string) {
-	const rows = db.select().from(statuses).where(eq(statuses.childId, childId)).all();
+export async function findStatuses(childId: ChildId, _tenantId: string): Promise<Status[]> {
+	const rows = db
+		.select()
+		.from(statuses)
+		.where(eq(statuses.childId, Number(childId)))
+		.all();
 	for (const row of rows) {
 		if (row._sv == null || row._sv < ENTITY_VERSIONS.status.latest) {
 			writeBackStatusSv(row.id);
 			row._sv = ENTITY_VERSIONS.status.latest;
 		}
 	}
-	return rows;
+	return rows.map(toStatus);
 }
 
 /** カテゴリ別のステータスを取得 */
-export async function findStatus(childId: number, categoryId: number, _tenantId: string) {
+export async function findStatus(
+	childId: ChildId,
+	categoryId: CategoryId,
+	_tenantId: string,
+): Promise<Status | undefined> {
 	const row = db
 		.select()
 		.from(statuses)
-		.where(and(eq(statuses.childId, childId), eq(statuses.categoryId, categoryId)))
+		.where(and(eq(statuses.childId, Number(childId)), eq(statuses.categoryId, Number(categoryId))))
 		.get();
 	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.status.latest)) {
 		writeBackStatusSv(row.id);
 		row._sv = ENTITY_VERSIONS.status.latest;
 	}
-	return row;
+	return row ? toStatus(row) : undefined;
 }
 
 /** ステータスを更新（upsert） */
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertStatus(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	totalXp: number,
 	level: number,
 	peakXp: number,
 	_tenantId: string,
-) {
+): Promise<Status> {
 	const existing = await findStatus(childId, categoryId, _tenantId);
 	const clampedXp = Math.max(0, totalXp);
 	const now = new Date().toISOString();
 
 	if (existing) {
-		return db
-			.update(statuses)
-			.set({ totalXp: clampedXp, level, peakXp, updatedAt: now })
-			.where(eq(statuses.id, existing.id))
-			.returning()
-			.get();
+		return toStatus(
+			db
+				.update(statuses)
+				.set({ totalXp: clampedXp, level, peakXp, updatedAt: now })
+				.where(eq(statuses.id, Number(existing.id)))
+				.returning()
+				.get(),
+		);
 	}
 
-	return db
-		.insert(statuses)
-		.values({
-			childId,
-			categoryId,
-			totalXp: clampedXp,
-			level,
-			peakXp,
-			updatedAt: now,
-			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.status.latest,
-		})
-		.returning()
-		.get();
+	return toStatus(
+		db
+			.insert(statuses)
+			.values({
+				childId: Number(childId),
+				categoryId: Number(categoryId),
+				totalXp: clampedXp,
+				level,
+				peakXp,
+				updatedAt: now,
+				[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.status.latest,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /** ステータス変動履歴を追加 */
 export async function insertStatusHistory(
-	input: {
-		childId: number;
-		categoryId: number;
-		value: number;
-		changeAmount: number;
-		changeType: string;
-	},
+	input: InsertStatusHistoryInput,
 	_tenantId: string,
-) {
-	return db.insert(statusHistory).values(input).returning().get();
+): Promise<StatusHistoryEntry> {
+	return toHistory(
+		db
+			.insert(statusHistory)
+			.values({
+				...input,
+				childId: Number(input.childId),
+				categoryId: Number(input.categoryId),
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /** 直近のステータス変動を取得 */
 export async function findRecentStatusHistory(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	_tenantId: string,
 	limit = 7,
-) {
+): Promise<StatusHistoryEntry[]> {
 	return db
 		.select()
 		.from(statusHistory)
-		.where(and(eq(statusHistory.childId, childId), eq(statusHistory.categoryId, categoryId)))
+		.where(
+			and(
+				eq(statusHistory.childId, Number(childId)),
+				eq(statusHistory.categoryId, Number(categoryId)),
+			),
+		)
 		.orderBy(desc(statusHistory.recordedAt))
 		.limit(limit)
-		.all();
+		.all()
+		.map(toHistory);
 }
 
 /** 指定日時点のステータス値を取得（その日以前の最新のhistory entry） */
 export async function findStatusValueAtDate(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	beforeDate: string,
 	_tenantId: string,
 ): Promise<number | null> {
@@ -124,8 +183,8 @@ export async function findStatusValueAtDate(
 		.from(statusHistory)
 		.where(
 			and(
-				eq(statusHistory.childId, childId),
-				eq(statusHistory.categoryId, categoryId),
+				eq(statusHistory.childId, Number(childId)),
+				eq(statusHistory.categoryId, Number(categoryId)),
 				lt(statusHistory.recordedAt, beforeDate),
 			),
 		)
@@ -136,75 +195,86 @@ export async function findStatusValueAtDate(
 }
 
 /** 市場ベンチマークを取得 */
-export async function findBenchmark(age: number, categoryId: number, _tenantId: string) {
-	return db
+export async function findBenchmark(
+	age: number,
+	categoryId: CategoryId,
+	_tenantId: string,
+): Promise<MarketBenchmark | undefined> {
+	const row = db
 		.select()
 		.from(marketBenchmarks)
-		.where(and(eq(marketBenchmarks.age, age), eq(marketBenchmarks.categoryId, categoryId)))
+		.where(and(eq(marketBenchmarks.age, age), eq(marketBenchmarks.categoryId, Number(categoryId))))
 		.get();
+	return row ? toBenchmark(row) : undefined;
 }
 
 /** 全ベンチマークを取得（年齢・カテゴリ順） */
-export async function findAllBenchmarks(_tenantId: string) {
+export async function findAllBenchmarks(_tenantId: string): Promise<MarketBenchmark[]> {
 	return db
 		.select()
 		.from(marketBenchmarks)
 		.orderBy(marketBenchmarks.age, marketBenchmarks.categoryId)
-		.all();
+		.all()
+		.map(toBenchmark);
 }
 
 /** ベンチマークをupsert */
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function upsertBenchmark(
 	age: number,
-	categoryId: number,
+	categoryId: CategoryId,
 	mean: number,
 	stdDev: number,
 	source: string,
 	_tenantId: string,
-) {
+): Promise<MarketBenchmark> {
 	const existing = await findBenchmark(age, categoryId, _tenantId);
 	const now = new Date().toISOString();
 	if (existing) {
-		return db
-			.update(marketBenchmarks)
-			.set({ mean, stdDev, source, updatedAt: now })
-			.where(eq(marketBenchmarks.id, existing.id))
-			.returning()
-			.get();
+		return toBenchmark(
+			db
+				.update(marketBenchmarks)
+				.set({ mean, stdDev, source, updatedAt: now })
+				.where(eq(marketBenchmarks.id, Number(existing.id)))
+				.returning()
+				.get(),
+		);
 	}
-	return db
-		.insert(marketBenchmarks)
-		.values({ age, categoryId, mean, stdDev, source })
-		.returning()
-		.get();
+	return toBenchmark(
+		db
+			.insert(marketBenchmarks)
+			.values({ age, categoryId: Number(categoryId), mean, stdDev, source })
+			.returning()
+			.get(),
+	);
 }
 
 /** 子供の存在確認（年齢も取得） */
-export async function findChildById(id: number, _tenantId: string) {
-	const row = db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
+	const idNum = Number(id);
+	const row = db.select().from(children).where(eq(children.id, idNum)).get();
 	if (row && (row._sv == null || row._sv < ENTITY_VERSIONS.child.latest)) {
 		try {
 			db.run(
-				sql`UPDATE children SET _sv = ${ENTITY_VERSIONS.child.latest} WHERE id = ${id} AND (_sv IS NULL OR _sv < ${ENTITY_VERSIONS.child.latest})`,
+				sql`UPDATE children SET _sv = ${ENTITY_VERSIONS.child.latest} WHERE id = ${idNum} AND (_sv IS NULL OR _sv < ${ENTITY_VERSIONS.child.latest})`,
 			);
 		} catch {
 			// Write-back failure is non-fatal
 		}
 		row._sv = ENTITY_VERSIONS.child.latest;
 	}
-	return row;
+	return row ? { ...row, id: asChildId(row.id) } : undefined;
 }
 
 /** カテゴリ別の最終活動日を取得 */
-export async function findLastActivityDates(childId: number, _tenantId: string) {
+export async function findLastActivityDates(childId: ChildId, _tenantId: string) {
 	return db
 		.select({
 			category: activityLogs.activityId,
 			lastDate: max(activityLogs.recordedDate),
 		})
 		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.where(and(eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)))
 		.groupBy(activityLogs.activityId)
 		.all();
 }

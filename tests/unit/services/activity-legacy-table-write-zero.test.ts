@@ -34,6 +34,7 @@ const TENANT = 't-2458-write-zero';
 // import after mock
 import { children as childrenTable } from '$lib/server/db/schema';
 import * as activityRepo from '$lib/server/db/sqlite/activity-repo';
+import { asCategoryId } from '$lib/domain/ids';
 
 function countActivitiesTable(sqlite: TestSqlite): number {
 	const row = sqlite.prepare('SELECT COUNT(*) as cnt FROM activities').get() as { cnt: number };
@@ -86,7 +87,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const result = await activityRepo.insertActivity(
 			{
 				name: 'たいそうした',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -110,7 +111,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const inserted = await activityRepo.insertActivity(
 			{
 				name: '更新前',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -138,7 +139,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const inserted = await activityRepo.insertActivity(
 			{
 				name: '対象活動',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -160,7 +161,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const a = await activityRepo.insertActivity(
 			{
 				name: 'A',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -172,7 +173,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const b = await activityRepo.insertActivity(
 			{
 				name: 'B',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -196,7 +197,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		const inserted = await activityRepo.insertActivity(
 			{
 				name: '削除対象',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -220,7 +221,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		await activityRepo.insertActivity(
 			{
 				name: 'A',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -248,7 +249,7 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 			activityRepo.insertActivity(
 				{
 					name: '失敗',
-					categoryId: 1,
+					categoryId: asCategoryId(1),
 					icon: '🤸',
 					basePoints: 5,
 					ageMin: 3,
@@ -262,6 +263,6 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 
 	// reference: testChildId は test fixture seed 用
 	it('test fixture: testChildId is seeded', () => {
-		expect(testChildId).toBeGreaterThan(0);
+		expect(Number(testChildId)).toBeGreaterThan(0);
 	});
 });

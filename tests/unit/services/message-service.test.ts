@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/message-service.test.ts
 // おうえんメッセージサービスのユニットテスト
 
@@ -108,17 +109,17 @@ describe('message-repo', () => {
 
 	it('スタンプメッセージを送信・取得できる', async () => {
 		const msg = await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		expect(msg.id).toBe(1);
+		expect(msg.id).toBe('1');
 		expect(msg.messageType).toBe('stamp');
 		expect(msg.stampCode).toBe('sugoi');
 	});
 
 	it('テキストメッセージを送信・取得できる', async () => {
 		const msg = await insertMessage(
-			{ childId: 1, messageType: 'text', body: 'がんばってるね！' },
+			{ childId: asChildId(1), messageType: 'text', body: 'がんばってるね！' },
 			'test-tenant',
 		);
 		expect(msg.body).toBe('がんばってるね！');
@@ -126,63 +127,63 @@ describe('message-repo', () => {
 
 	it('未表示メッセージを取得できる', async () => {
 		await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'daisuki', icon: '🤗' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'daisuki', icon: '🤗' },
 			'test-tenant',
 		);
 
-		const unshown = await findUnshownMessage(1, 'test-tenant');
+		const unshown = await findUnshownMessage(asChildId(1), 'test-tenant');
 		expect(unshown).toBeDefined();
 		expect(unshown?.stampCode).toBe('daisuki');
 	});
 
 	it('未表示メッセージ数をカウントできる', async () => {
 		await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage({ childId: 1, messageType: 'text', body: 'テスト' }, 'test-tenant');
+		await insertMessage({ childId: asChildId(1), messageType: 'text', body: 'テスト' }, 'test-tenant');
 
-		const count = await countUnshownMessages(1, 'test-tenant');
+		const count = await countUnshownMessages(asChildId(1), 'test-tenant');
 		expect(count).toBe(2);
 	});
 
 	it('メッセージを表示済みにできる', async () => {
 		const msg = await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
 
-		const shown = await markMessageShown(1, msg.id, 'test-tenant');
+		const shown = await markMessageShown(asChildId(1), msg.id, 'test-tenant');
 		expect(shown?.shownAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 
-		const unshown = await findUnshownMessage(1, 'test-tenant');
+		const unshown = await findUnshownMessage(asChildId(1), 'test-tenant');
 		expect(unshown).toBeUndefined();
 	});
 
 	it('#2845 課題①: 他の childId では表示済みにできない (所有権検証、SQLite backend)', async () => {
 		const msg = await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
 
 		// childId=999 (別の子) を指定して messageId だけ一致させても更新されない
-		const result = await markMessageShown(999, msg.id, 'test-tenant');
+		const result = await markMessageShown(asChildId(999), msg.id, 'test-tenant');
 		expect(result).toBeUndefined();
 
 		// 本来の子の未表示メッセージは残る (silent 越境更新が起きていない)
-		const unshown = await findUnshownMessage(1, 'test-tenant');
+		const unshown = await findUnshownMessage(asChildId(1), 'test-tenant');
 		expect(unshown?.id).toBe(msg.id);
 		expect(unshown?.shownAt).toBeNull();
 	});
 
 	it('メッセージ履歴を降順で取得できる', async () => {
 		await insertMessage(
-			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			{ childId: asChildId(1), messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
 			'test-tenant',
 		);
-		await insertMessage({ childId: 1, messageType: 'text', body: '2番目' }, 'test-tenant');
+		await insertMessage({ childId: asChildId(1), messageType: 'text', body: '2番目' }, 'test-tenant');
 
-		const messages = await findMessages(1, 10, 'test-tenant');
+		const messages = await findMessages(asChildId(1), 10, 'test-tenant');
 		expect(messages.length).toBe(2);
 		// 最新が先（降順）
 		expect(messages[0]?.body).toBe('2番目');
@@ -200,8 +201,8 @@ describe('sendMessage（サービス層）', () => {
 
 	it('存在しない stampCode の場合 icon が設定されない', async () => {
 		const returnedMsg = {
-			id: 1,
-			childId: 1,
+			id: '1',
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'nonexistent_code',
 			body: null,
@@ -212,7 +213,7 @@ describe('sendMessage（サービス層）', () => {
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
 		const input: InsertParentMessageInput = {
-			childId: 1,
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'nonexistent_code',
 		};
@@ -225,8 +226,8 @@ describe('sendMessage（サービス層）', () => {
 
 	it('有効な stampCode の場合 icon がプリセットから設定される', async () => {
 		const returnedMsg = {
-			id: 2,
-			childId: 1,
+			id: '2',
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'arigatou',
 			body: null,
@@ -237,7 +238,7 @@ describe('sendMessage（サービス層）', () => {
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
 		const input: InsertParentMessageInput = {
-			childId: 1,
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'arigatou',
 		};
@@ -252,8 +253,8 @@ describe('sendMessage（サービス層）', () => {
 
 	it('messageType が text の場合はスタンプ処理をスキップする', async () => {
 		const returnedMsg = {
-			id: 3,
-			childId: 1,
+			id: '3',
+			childId: asChildId(1),
 			messageType: 'text',
 			stampCode: null,
 			body: 'テストメッセージ',
@@ -264,7 +265,7 @@ describe('sendMessage（サービス層）', () => {
 		mockInsertMessage.mockResolvedValue(returnedMsg);
 
 		const input: InsertParentMessageInput = {
-			childId: 1,
+			childId: asChildId(1),
 			messageType: 'text',
 			body: 'テストメッセージ',
 		};
@@ -283,16 +284,16 @@ describe('getUnshownMessage（サービス層）', () => {
 	it('未表示メッセージがない場合 undefined を返す', async () => {
 		mockFindUnshownMessage.mockResolvedValue(undefined);
 
-		const result = await getUnshownMessage(1, 'test-tenant');
+		const result = await getUnshownMessage(asChildId(1), 'test-tenant');
 
 		expect(result).toBeUndefined();
-		expect(mockFindUnshownMessage).toHaveBeenCalledWith(1, 'test-tenant');
+		expect(mockFindUnshownMessage).toHaveBeenCalledWith('1', 'test-tenant');
 	});
 
 	it('stampCode がないメッセージの場合 stampLabel は空文字になる', async () => {
 		mockFindUnshownMessage.mockResolvedValue({
-			id: 10,
-			childId: 1,
+			id: '10',
+			childId: asChildId(1),
 			messageType: 'text',
 			stampCode: null,
 			body: 'がんばれ！',
@@ -301,7 +302,7 @@ describe('getUnshownMessage（サービス層）', () => {
 			shownAt: null,
 		});
 
-		const result = await getUnshownMessage(1, 'test-tenant');
+		const result = await getUnshownMessage(asChildId(1), 'test-tenant');
 
 		expect(result).toBeDefined();
 		expect(result?.stampLabel).toBe('');
@@ -310,8 +311,8 @@ describe('getUnshownMessage（サービス層）', () => {
 
 	it('有効な stampCode がある場合 stampLabel にラベルが設定される', async () => {
 		mockFindUnshownMessage.mockResolvedValue({
-			id: 11,
-			childId: 1,
+			id: '11',
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'sugoi',
 			body: null,
@@ -320,7 +321,7 @@ describe('getUnshownMessage（サービス層）', () => {
 			shownAt: null,
 		});
 
-		const result = await getUnshownMessage(1, 'test-tenant');
+		const result = await getUnshownMessage(asChildId(1), 'test-tenant');
 
 		expect(result).toBeDefined();
 		expect(result?.stampLabel).toBe('すごいね！');
@@ -329,8 +330,8 @@ describe('getUnshownMessage（サービス層）', () => {
 
 	it('存在しない stampCode の場合 stampLabel は空文字になる', async () => {
 		mockFindUnshownMessage.mockResolvedValue({
-			id: 12,
-			childId: 1,
+			id: '12',
+			childId: asChildId(1),
 			messageType: 'stamp',
 			stampCode: 'unknown_stamp',
 			body: null,
@@ -339,7 +340,7 @@ describe('getUnshownMessage（サービス層）', () => {
 			shownAt: null,
 		});
 
-		const result = await getUnshownMessage(1, 'test-tenant');
+		const result = await getUnshownMessage(asChildId(1), 'test-tenant');
 
 		expect(result).toBeDefined();
 		expect(result?.stampLabel).toBe('');
@@ -354,23 +355,23 @@ describe('getMessageHistory（サービス層）', () => {
 	it('デフォルトの limit=20 で履歴を取得する', async () => {
 		mockFindMessages.mockResolvedValue([]);
 
-		await getMessageHistory(1, 'test-tenant');
+		await getMessageHistory(asChildId(1), 'test-tenant');
 
-		expect(mockFindMessages).toHaveBeenCalledWith(1, 20, 'test-tenant');
+		expect(mockFindMessages).toHaveBeenCalledWith('1', 20, 'test-tenant');
 	});
 
 	it('カスタム limit を指定できる', async () => {
 		mockFindMessages.mockResolvedValue([]);
 
-		await getMessageHistory(1, 'test-tenant', 5);
+		await getMessageHistory(asChildId(1), 'test-tenant', 5);
 
-		expect(mockFindMessages).toHaveBeenCalledWith(1, 5, 'test-tenant');
+		expect(mockFindMessages).toHaveBeenCalledWith('1', 5, 'test-tenant');
 	});
 
 	it('limit=50 で大きめの履歴を取得できる', async () => {
 		const manyMessages = Array.from({ length: 50 }, (_, i) => ({
 			id: i + 1,
-			childId: 1,
+			childId: asChildId(1),
 			messageType: 'text',
 			stampCode: null,
 			body: `メッセージ ${i + 1}`,
@@ -380,17 +381,17 @@ describe('getMessageHistory（サービス層）', () => {
 		}));
 		mockFindMessages.mockResolvedValue(manyMessages);
 
-		const result = await getMessageHistory(1, 'test-tenant', 50);
+		const result = await getMessageHistory(asChildId(1), 'test-tenant', 50);
 
-		expect(mockFindMessages).toHaveBeenCalledWith(1, 50, 'test-tenant');
+		expect(mockFindMessages).toHaveBeenCalledWith('1', 50, 'test-tenant');
 		expect(result).toHaveLength(50);
 	});
 
 	it('limit=1 で最新メッセージのみ取得できる', async () => {
 		mockFindMessages.mockResolvedValue([
 			{
-				id: 100,
-				childId: 1,
+				id: '100',
+				childId: asChildId(1),
 				messageType: 'stamp',
 				stampCode: 'daisuki',
 				body: null,
@@ -400,9 +401,9 @@ describe('getMessageHistory（サービス層）', () => {
 			},
 		]);
 
-		const result = await getMessageHistory(1, 'test-tenant', 1);
+		const result = await getMessageHistory(asChildId(1), 'test-tenant', 1);
 
-		expect(mockFindMessages).toHaveBeenCalledWith(1, 1, 'test-tenant');
+		expect(mockFindMessages).toHaveBeenCalledWith('1', 1, 'test-tenant');
 		expect(result).toHaveLength(1);
 	});
 });

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/checklist-service.ts
 // チェックリスト サービス層
 
@@ -59,8 +60,8 @@ export function getCurrentTimeSlot(): TimeSlot {
 }
 
 export interface ChecklistItem {
-	/** Template item ID (negative for override-added items) */
-	id: number;
+	/** Template item ID ('-' prefix for override-added items) */
+	id: string;
 	name: string;
 	icon: string;
 	checked: boolean;
@@ -68,7 +69,7 @@ export interface ChecklistItem {
 }
 
 export interface TodayChecklist {
-	templateId: number;
+	templateId: string;
 	templateName: string;
 	templateIcon: string;
 	timeSlot: TimeSlot;
@@ -103,8 +104,8 @@ function getDayOfWeek(dateStr: string): string {
  * チェック記録があれば反映する。
  */
 export async function getTodayChecklist(
-	childId: number,
-	templateId: number,
+	childId: ChildId,
+	templateId: string,
 	date: string,
 	tenantId: string,
 ): Promise<TodayChecklist | { error: 'NOT_FOUND'; target: string }> {
@@ -146,7 +147,7 @@ export async function getTodayChecklist(
 	const addOverrides = overrides.filter((o) => o.action === 'add');
 	for (const ov of addOverrides) {
 		items.push({
-			id: -ov.id,
+			id: `-${ov.id}`,
 			name: ov.itemName,
 			icon: ov.icon,
 			checked: false,
@@ -156,7 +157,10 @@ export async function getTodayChecklist(
 
 	// 5. 本日のチェック記録を照会して反映
 	const log = await findTodayLog(childId, templateId, date, tenantId);
-	const checkedItemIds: number[] = log ? JSON.parse(log.itemsJson) : [];
+	// 旧行の itemsJson は number 配列 (legacy)。String 正規化で新旧どちらの保存形式も照合できる。
+	const checkedItemIds: string[] = log
+		? (JSON.parse(log.itemsJson) as (number | string)[]).map(String)
+		: [];
 	const checkedSet = new Set(checkedItemIds);
 
 	for (const item of items) {
@@ -189,7 +193,7 @@ export async function getTodayChecklist(
  * 現在の時間帯に該当するテンプレートを先頭に、次に「いつでも」、その他を後ろにソートする。
  */
 export async function getChecklistsForChild(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	tenantId: string,
 ): Promise<TodayChecklist[]> {
@@ -234,9 +238,9 @@ export interface CheckItemResult {
  */
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function toggleCheckItem(
-	childId: number,
-	templateId: number,
-	itemId: number,
+	childId: ChildId,
+	templateId: string,
+	itemId: string,
 	date: string,
 	checked: boolean,
 	tenantId: string,
@@ -336,9 +340,9 @@ export async function toggleCheckItem(
 export async function createTemplate(
 	input: {
 		/** legacy 互換: 単一 child binding (内部で childIds=[childId] と等価) */
-		childId?: number;
+		childId?: ChildId;
 		/** family checklist の配信先 child 群 (#2362 PR-5) */
-		childIds?: readonly number[];
+		childIds?: readonly ChildId[];
 		name: string;
 		icon?: string;
 		pointsPerItem?: number;
@@ -361,7 +365,7 @@ export async function createTemplate(
 		tenantId,
 	);
 
-	const distributeTo: readonly number[] = input.childIds ?? (input.childId ? [input.childId] : []);
+	const distributeTo: readonly ChildId[] = input.childIds ?? (input.childId ? [input.childId] : []);
 	if (distributeTo.length > 0) {
 		await assignTemplateToChildren(template.id, distributeTo, tenantId);
 	}
@@ -370,7 +374,7 @@ export async function createTemplate(
 }
 
 export async function editTemplate(
-	id: number,
+	id: string,
 	input: {
 		name?: string;
 		icon?: string;
@@ -385,13 +389,13 @@ export async function editTemplate(
 	return await updateTemplate(id, input, tenantId);
 }
 
-export async function removeTemplate(id: number, tenantId: string) {
+export async function removeTemplate(id: string, tenantId: string) {
 	await deleteTemplate(id, tenantId);
 }
 
 export async function addTemplateItem(
 	input: {
-		templateId: number;
+		templateId: string;
 		name: string;
 		icon?: string;
 		frequency?: string;
@@ -414,13 +418,13 @@ export async function addTemplateItem(
 }
 
 // #2845 B1: templateId 所有権検証付き (composite key)
-export async function removeTemplateItem(templateId: number, id: number, tenantId: string) {
+export async function removeTemplateItem(templateId: string, id: string, tenantId: string) {
 	await deleteTemplateItem(templateId, id, tenantId);
 }
 
 export async function addOverride(
 	input: {
-		childId: number;
+		childId: ChildId;
 		targetDate: string;
 		action: string;
 		itemName: string;
@@ -441,6 +445,6 @@ export async function addOverride(
 }
 
 // #2845 B1: childId 所有権検証付き (composite key)
-export async function removeOverride(childId: number, id: number, tenantId: string) {
+export async function removeOverride(childId: ChildId, id: string, tenantId: string) {
 	await deleteOverride(childId, id, tenantId);
 }

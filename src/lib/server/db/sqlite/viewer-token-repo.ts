@@ -4,7 +4,7 @@ import { viewerTokens } from '../schema';
 import type { InsertViewerTokenInput, ViewerToken } from '../types';
 
 function toRecord(row: typeof viewerTokens.$inferSelect): ViewerToken {
-	return row as unknown as ViewerToken;
+	return { ...row, id: String(row.id) };
 }
 
 export async function findByTenant(tenantId: string): Promise<ViewerToken[]> {
@@ -41,15 +41,15 @@ export async function insert(
 	return toRecord(row);
 }
 
-export async function revoke(id: number, tenantId: string): Promise<void> {
+export async function revoke(id: string, tenantId: string): Promise<void> {
 	db.update(viewerTokens)
 		.set({ revokedAt: new Date().toISOString() })
-		.where(and(eq(viewerTokens.id, id), eq(viewerTokens.tenantId, tenantId)))
+		.where(and(eq(viewerTokens.id, Number(id)), eq(viewerTokens.tenantId, tenantId)))
 		.run();
 }
 
-export async function deleteById(id: number, tenantId: string): Promise<void> {
+export async function deleteById(id: string, tenantId: string): Promise<void> {
 	db.delete(viewerTokens)
-		.where(and(eq(viewerTokens.id, id), eq(viewerTokens.tenantId, tenantId)))
+		.where(and(eq(viewerTokens.id, Number(id)), eq(viewerTokens.tenantId, tenantId)))
 		.run();
 }

@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { assertError, assertSuccess } from '../helpers/assert-result';
+import { asChildId } from '$lib/domain/ids';
 
 // --- モック定義 ---
 const mockFindTemplateById = vi.fn();
@@ -47,8 +48,8 @@ vi.mock('$lib/server/db/point-repo', () => ({
 }));
 
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
-const TEMPLATE_ID = 10;
+const CHILD_ID = asChildId(1);
+const TEMPLATE_ID = '10';
 const DATE = '2026-04-01'; // 火曜日
 
 const baseTemplate = {
@@ -64,7 +65,7 @@ const baseTemplate = {
 
 const baseItems = [
 	{
-		id: 1,
+		id: '1',
 		templateId: TEMPLATE_ID,
 		name: 'ハンカチ',
 		icon: '🤧',
@@ -74,7 +75,7 @@ const baseItems = [
 		tenantId: TENANT,
 	},
 	{
-		id: 2,
+		id: '2',
 		templateId: TEMPLATE_ID,
 		name: 'ティッシュ',
 		icon: '🧻',
@@ -84,7 +85,7 @@ const baseItems = [
 		tenantId: TENANT,
 	},
 	{
-		id: 3,
+		id: '3',
 		templateId: TEMPLATE_ID,
 		name: 'すいとう',
 		icon: '🧴',
@@ -106,7 +107,7 @@ beforeEach(() => {
 	mockFindTemplatesByChild.mockResolvedValue([baseTemplate]);
 	// #2362 PR-5: default は CHILD_ID が TEMPLATE_ID 配信先である状態
 	mockFindAssignmentsByChild.mockResolvedValue([
-		{ id: 1, templateId: TEMPLATE_ID, childId: CHILD_ID, createdAt: 'T' },
+		{ id: '1', templateId: TEMPLATE_ID, childId: CHILD_ID, createdAt: 'T' },
 	]);
 });
 
@@ -149,7 +150,7 @@ describe('getTodayChecklist', () => {
 		// 999 child の assignments は空 (default mock は CHILD_ID 配信先のみ)
 		mockFindAssignmentsByChild.mockResolvedValue([]);
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
-		const result = assertError(await getTodayChecklist(999, TEMPLATE_ID, DATE, TENANT));
+		const result = assertError(await getTodayChecklist(asChildId(999), TEMPLATE_ID, DATE, TENANT));
 
 		expect(result.error).toBe('NOT_FOUND');
 	});
@@ -173,7 +174,7 @@ describe('getTodayChecklist', () => {
 		mockFindTemplateItems.mockResolvedValue([
 			...baseItems,
 			{
-				id: 4,
+				id: '4',
 				templateId: TEMPLATE_ID,
 				name: 'たいいくぎ',
 				icon: '👕',
@@ -183,7 +184,7 @@ describe('getTodayChecklist', () => {
 				tenantId: TENANT,
 			},
 			{
-				id: 5,
+				id: '5',
 				templateId: TEMPLATE_ID,
 				name: 'しゅうじ',
 				icon: '✍️',
@@ -204,7 +205,7 @@ describe('getTodayChecklist', () => {
 
 	it('override の remove でアイテムが除外される', async () => {
 		mockFindOverrides.mockResolvedValue([
-			{ id: 100, action: 'remove', itemName: 'ティッシュ', icon: '🧻' },
+			{ id: '100', action: 'remove', itemName: 'ティッシュ', icon: '🧻' },
 		]);
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
@@ -215,7 +216,7 @@ describe('getTodayChecklist', () => {
 
 	it('override の add でアイテムが追加される（負のID）', async () => {
 		mockFindOverrides.mockResolvedValue([
-			{ id: 200, action: 'add', itemName: 'えんぴつ', icon: '✏️' },
+			{ id: '200', action: 'add', itemName: 'えんぴつ', icon: '✏️' },
 		]);
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
@@ -235,7 +236,7 @@ describe('toggleCheckItem', () => {
 	it('アイテムをチェックし結果を返す', async () => {
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(
-			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, 1, DATE, true, TENANT),
+			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '1', DATE, true, TENANT),
 		);
 
 		expect(result.checkedCount).toBe(1);
@@ -255,7 +256,7 @@ describe('toggleCheckItem', () => {
 		});
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(
-			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, 3, DATE, true, TENANT),
+			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '3', DATE, true, TENANT),
 		);
 
 		expect(result.completedAll).toBe(true);
@@ -282,7 +283,7 @@ describe('toggleCheckItem', () => {
 		});
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(
-			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, 3, DATE, false, TENANT),
+			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '3', DATE, false, TENANT),
 		);
 
 		expect(result.completedAll).toBe(false);
@@ -302,7 +303,7 @@ describe('toggleCheckItem', () => {
 	it('存在しないテンプレートで NOT_FOUND', async () => {
 		mockFindTemplateById.mockResolvedValue(null);
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
-		const result = assertError(await toggleCheckItem(CHILD_ID, TEMPLATE_ID, 1, DATE, true, TENANT));
+		const result = assertError(await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '1', DATE, true, TENANT));
 
 		expect(result.error).toBe('NOT_FOUND');
 	});
@@ -310,7 +311,7 @@ describe('toggleCheckItem', () => {
 	it('存在しないアイテムIDで NOT_FOUND', async () => {
 		const { toggleCheckItem } = await import('$lib/server/services/checklist-service');
 		const result = assertError(
-			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, 999, DATE, true, TENANT),
+			await toggleCheckItem(CHILD_ID, TEMPLATE_ID, '999', DATE, true, TENANT),
 		);
 
 		expect(result.error).toBe('NOT_FOUND');
@@ -348,7 +349,7 @@ describe('createTemplate', () => {
 	});
 
 	it('デフォルト値でテンプレートを作成 + child に assignment 自動付与する (#2362 PR-5)', async () => {
-		mockInsertTemplate.mockResolvedValue({ id: 20 });
+		mockInsertTemplate.mockResolvedValue({ id: '20' });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
 		await createTemplate({ childId: CHILD_ID, name: 'おでかけ' }, TENANT);
 
@@ -363,11 +364,11 @@ describe('createTemplate', () => {
 			TENANT,
 		);
 		// assignment 自動付与
-		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(20, [CHILD_ID], TENANT);
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith('20', [CHILD_ID], TENANT);
 	});
 
 	it('カスタム値でテンプレートを作成する', async () => {
-		mockInsertTemplate.mockResolvedValue({ id: 21 });
+		mockInsertTemplate.mockResolvedValue({ id: '21' });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
 		await createTemplate(
 			{ childId: CHILD_ID, name: 'ならいごと', icon: '🎹', pointsPerItem: 5, completionBonus: 10 },
@@ -382,18 +383,18 @@ describe('createTemplate', () => {
 			}),
 			TENANT,
 		);
-		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(21, [CHILD_ID], TENANT);
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith('21', [CHILD_ID], TENANT);
 	});
 
 	it('childIds で複数 child に配信できる (#2362 PR-5)', async () => {
-		mockInsertTemplate.mockResolvedValue({ id: 22 });
+		mockInsertTemplate.mockResolvedValue({ id: '22' });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
-		await createTemplate({ childIds: [10, 11, 12], name: '家族の決まり' }, TENANT);
-		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(22, [10, 11, 12], TENANT);
+		await createTemplate({ childIds: [asChildId(10), asChildId(11), asChildId(12)], name: '家族の決まり' }, TENANT);
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith('22', ['10', '11', '12'], TENANT);
 	});
 
 	it('childId / childIds どちらも未指定なら assignment 作成なし (#2362 PR-5)', async () => {
-		mockInsertTemplate.mockResolvedValue({ id: 23 });
+		mockInsertTemplate.mockResolvedValue({ id: '23' });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
 		await createTemplate({ name: '空の master' }, TENANT);
 		expect(mockAssignTemplateToChildren).not.toHaveBeenCalled();
@@ -402,7 +403,7 @@ describe('createTemplate', () => {
 
 describe('addTemplateItem', () => {
 	it('デフォルト値でアイテムを追加する', async () => {
-		mockInsertTemplateItem.mockResolvedValue({ id: 50 });
+		mockInsertTemplateItem.mockResolvedValue({ id: '50' });
 		const { addTemplateItem } = await import('$lib/server/services/checklist-service');
 		await addTemplateItem({ templateId: TEMPLATE_ID, name: 'ノート' }, TENANT);
 

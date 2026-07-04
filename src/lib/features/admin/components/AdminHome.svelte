@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { invalidateAll } from '$app/navigation';
 import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
@@ -20,7 +21,7 @@ import OnboardingChecklist from './OnboardingChecklist.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
 
 interface ChildSummary {
-	id: number;
+	id: ChildId;
 	nickname: string;
 	age: number;
 	uiMode: string;
@@ -48,16 +49,16 @@ interface Props {
 	onboarding?: OnboardingProgress | null;
 	mode: 'live' | 'demo';
 	basePath: string;
-	monthlySummaries?: Record<number, MonthSummaryData>;
+	monthlySummaries?: Record<string, MonthSummaryData>;
 	currentMonth?: string;
 	planTier?: 'free' | 'standard' | 'family';
 	showPremiumWelcome?: boolean;
 	// #2295 (EPIC #2294 ①): seasonalInfo 削除済 (2026-05-19)
 	/** #1292: 本日の子供ごとの使用時間サマリー */
-	todayUsage?: { childId: number; childName: string; durationMin: number }[];
+	todayUsage?: { childId: ChildId; childName: string; durationMin: number }[];
 	/** #1576: 週次使用時間サマリー（子供ごとの日別使用時間） */
 	weeklyUsage?: {
-		childId: number;
+		childId: ChildId;
 		childName: string;
 		dailySummary: { date: string; durationMin: number }[];
 	}[];

@@ -40,7 +40,7 @@ export interface IBattleRepo {
 		date: string,
 		playerStats: BattleStats,
 		tenantId: string,
-	): Promise<number>;
+	): Promise<string>;
 
 	completeBattle(
 		battleId: string,

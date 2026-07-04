@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
 import {
@@ -71,7 +72,7 @@ const filteredGroups = $derived.by((): ChildChallengeGroup[] => {
 });
 
 // child 別タブ URL
-function tabHref(childId: number | 'all'): string {
+function tabHref(childId: ChildId | 'all'): string {
 	return childId === 'all' ? '/admin/challenges' : `/admin/challenges?childId=${childId}`;
 }
 </script>

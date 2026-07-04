@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
@@ -38,7 +39,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// reward-set / checklist 両方の CTA で children を共通利用するため、
 	// type 区別せず一括ロード（無駄に大きい呼び出しではないため pre-PMF で問題なし）。
 	const isAuthenticated = !!locals.context;
-	let children: { id: number; nickname: string }[] = [];
+	let children: { id: ChildId; nickname: string }[] = [];
 	// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択用に、
 	// 既存活動の name を集めて preschool 親が「[既存]」ラベルで重複を一目で見分けられるようにする。
 	// per-child / family master 並存期 (ADR-0055) のため tenant aggregate (`findActivities`) で

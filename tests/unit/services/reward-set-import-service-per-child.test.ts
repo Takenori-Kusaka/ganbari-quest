@@ -11,6 +11,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RewardSetItem } from '../../../src/lib/server/services/reward-set-import-service';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -47,7 +48,7 @@ function makeReward(overrides: Partial<RewardSetItem> = {}): RewardSetItem {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 });
 
 // ============================================================
@@ -74,7 +75,7 @@ describe('importRewardSetToChildren', () => {
 
 		const result = await importRewardSetToChildren(rewards, TENANT, {
 			presetId: PRESET_ID,
-			childIds: [202],
+			childIds: [asChildId(202)],
 		});
 
 		expect(result.imported).toBe(2);
@@ -89,7 +90,7 @@ describe('importRewardSetToChildren', () => {
 
 		const result = await importRewardSetToChildren(rewards, TENANT, {
 			presetId: PRESET_ID,
-			childIds: [202, 303, 404],
+			childIds: [asChildId(202), asChildId(303), asChildId(404)],
 		});
 
 		expect(result.imported).toBe(6); // 2 reward × 3 child
@@ -108,8 +109,8 @@ describe('importRewardSetToChildren', () => {
 		mockFindSpecialRewards
 			.mockResolvedValueOnce([
 				{
-					id: 1,
-					childId: 202,
+					id: '1',
+					childId: asChildId(202),
 					title: 'A',
 					sourcePresetId: PRESET_ID,
 					grantedBy: null,
@@ -125,7 +126,7 @@ describe('importRewardSetToChildren', () => {
 
 		const result = await importRewardSetToChildren(rewards, TENANT, {
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		expect(result.imported).toBe(3); // 202: B のみ (A 重複)、303: A+B
@@ -141,11 +142,11 @@ describe('importRewardSetToChildren', () => {
 		mockFindSpecialRewards.mockResolvedValue([]);
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('child 202 FK violation'))
-			.mockResolvedValueOnce({ id: 99 });
+			.mockResolvedValueOnce({ id: '99' });
 
 		const result = await importRewardSetToChildren(rewards, TENANT, {
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		// 202: insert 失敗で errors 1 件、303: 正常 1 件
@@ -165,7 +166,7 @@ describe('importRewardSetToChildren', () => {
 
 		await importRewardSetToChildren(rewards, 'tenant-z', {
 			presetId: PRESET_ID,
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		for (const call of mockInsertSpecialReward.mock.calls) {
@@ -179,12 +180,12 @@ describe('importRewardSetToChildren', () => {
 
 		await importRewardSetToChildren(rewards, TENANT, {
 			presetId: 'school-rewards',
-			childIds: [202, 303],
+			childIds: [asChildId(202), asChildId(303)],
 		});
 
 		const c202 = mockInsertSpecialReward.mock.calls[0]?.[0];
 		const c303 = mockInsertSpecialReward.mock.calls[1]?.[0];
-		expect(c202).toMatchObject({ sourcePresetId: 'school-rewards', childId: 202 });
-		expect(c303).toMatchObject({ sourcePresetId: 'school-rewards', childId: 303 });
+		expect(c202).toMatchObject({ sourcePresetId: 'school-rewards', childId: asChildId(202) });
+		expect(c303).toMatchObject({ sourcePresetId: 'school-rewards', childId: asChildId(303) });
 	});
 });

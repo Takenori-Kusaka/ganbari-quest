@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import BattleScene from './BattleScene.svelte';
@@ -9,9 +10,9 @@ let {
 	loading = false,
 }: {
 	data: {
-		child: { id: number; uiMode: string } | null;
+		child: { id: ChildId; uiMode: string } | null;
 		battle: {
-			battleId: number;
+			battleId: string;
 			enemy: Enemy;
 			playerStats: BattleStats;
 			scaledEnemyMaxHp: number;

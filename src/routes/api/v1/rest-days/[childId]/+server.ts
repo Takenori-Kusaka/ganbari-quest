@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
 import {
 	countRestDaysInMonth,
@@ -17,7 +18,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
+	const childId = asChildId(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
 	const month = url.searchParams.get('month') ?? new Date().toISOString().slice(0, 7);
@@ -34,7 +35,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
+	const childId = asChildId(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
 	const body = await request.json();
@@ -65,7 +66,7 @@ export const DELETE: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
+	const childId = asChildId(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
 	const body = await request.json();

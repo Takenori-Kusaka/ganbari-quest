@@ -34,10 +34,11 @@ import {
 	ProductionDashboardService,
 } from '$lib/services/production/DashboardService';
 import type { ChildDashboardHomeData } from '$lib/services/types';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 
 const SAMPLE_SEED: ChildDashboardHomeData = {
 	child: null,
-	todayRecorded: [{ activityId: 1, count: 2 }],
+	todayRecorded: [{ activityId: asActivityId(1), count: 2 }],
 	pointSettings: DEFAULT_POINT_SETTINGS,
 };
 
@@ -63,10 +64,10 @@ describe('ProductionDashboardService', () => {
 		expect(svc.getHomeData().todayRecorded).toEqual(SAMPLE_SEED.todayRecorded);
 		current = {
 			child: null,
-			todayRecorded: [{ activityId: 99, count: 3 }],
+			todayRecorded: [{ activityId: asActivityId(99), count: 3 }],
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
-		expect(svc.getHomeData().todayRecorded).toEqual([{ activityId: 99, count: 3 }]);
+		expect(svc.getHomeData().todayRecorded).toEqual([{ activityId: asActivityId(99), count: 3 }]);
 	});
 });
 
@@ -102,7 +103,7 @@ describe('DemoDashboardService', () => {
 	it('CSR で sessionStorage に valid なデータがあればそれを返す', () => {
 		const stored: ChildDashboardHomeData = {
 			child: null,
-			todayRecorded: [{ activityId: 9, count: 5 }],
+			todayRecorded: [{ activityId: asActivityId(9), count: 5 }],
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
 		sessionStorage.setItem(DEMO_KEY, JSON.stringify(stored));
@@ -145,7 +146,7 @@ describe('DemoDashboardService', () => {
 	it('persistDemoHomeData → getHomeData の往復で同一データを取得できる', () => {
 		const customSeed: ChildDashboardHomeData = {
 			child: null,
-			todayRecorded: [{ activityId: 42, count: 7 }],
+			todayRecorded: [{ activityId: asActivityId(42), count: 7 }],
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
 		persistDemoHomeData(customSeed);
@@ -156,7 +157,7 @@ describe('DemoDashboardService', () => {
 	it('clearDemoHomeData 後は seed が返る', () => {
 		persistDemoHomeData({
 			child: null,
-			todayRecorded: [{ activityId: 1, count: 99 }],
+			todayRecorded: [{ activityId: asActivityId(1), count: 99 }],
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		});
 		clearDemoHomeData();
@@ -170,10 +171,10 @@ describe('DemoDashboardService', () => {
 		expect(svc.getHomeData().todayRecorded).toEqual(SAMPLE_SEED.todayRecorded);
 		current = {
 			child: null,
-			todayRecorded: [{ activityId: 77, count: 11 }],
+			todayRecorded: [{ activityId: asActivityId(77), count: 11 }],
 			pointSettings: DEFAULT_POINT_SETTINGS,
 		};
-		expect(svc.getHomeData().todayRecorded).toEqual([{ activityId: 77, count: 11 }]);
+		expect(svc.getHomeData().todayRecorded).toEqual([{ activityId: asActivityId(77), count: 11 }]);
 	});
 });
 
@@ -182,7 +183,7 @@ describe('DemoDashboardService', () => {
 // ============================================================
 
 const SAMPLE_CHILD: Child = {
-	id: 42,
+	id: asChildId(42),
 	nickname: 'テスト',
 	age: 7,
 	birthDate: null,
@@ -227,7 +228,7 @@ describe('ProductionDashboardService — recordActivity', () => {
 				ok: true,
 				status: 201,
 				json: async () => ({
-					id: 12345,
+					id: '12345',
 					activityName: 'お皿あらい',
 					totalPoints: 18,
 					streakDays: 5,
@@ -238,11 +239,11 @@ describe('ProductionDashboardService — recordActivity', () => {
 		}) as unknown as typeof fetch;
 
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.recordActivity({ activityId: 7 });
+		const result = await svc.recordActivity({ activityId: asActivityId(7) });
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.logId).toBe(12345);
+			expect(result.logId).toBe('12345');
 			expect(result.activityName).toBe('お皿あらい');
 			expect(result.totalPoints).toBe(18);
 		}
@@ -252,7 +253,7 @@ describe('ProductionDashboardService — recordActivity', () => {
 		expect(firstCall[0]).toBe('/api/v1/activity-logs');
 		const callOpts = firstCall[1] as { method: string; body: string };
 		expect(callOpts.method).toBe('POST');
-		expect(JSON.parse(callOpts.body)).toEqual({ childId: 42, activityId: 7 });
+		expect(JSON.parse(callOpts.body)).toEqual({ childId: asChildId(42), activityId: asActivityId(7) });
 	});
 
 	it('child 未選択 (child=null) なら NOT_FOUND を返し fetch を呼ばない', async () => {
@@ -261,7 +262,7 @@ describe('ProductionDashboardService — recordActivity', () => {
 			() => ({ ...SEED_WITH_CHILD, child: null }),
 			fetchMock as unknown as typeof fetch,
 		);
-		const result = await svc.recordActivity({ activityId: 1 });
+		const result = await svc.recordActivity({ activityId: asActivityId(1) });
 		expect(result).toEqual({ ok: false, error: 'NOT_FOUND' });
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
@@ -271,7 +272,7 @@ describe('ProductionDashboardService — recordActivity', () => {
 			{ ok: false, status: 409, body: { error: 'ALREADY_RECORDED' } },
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.recordActivity({ activityId: 7 });
+		const result = await svc.recordActivity({ activityId: asActivityId(7) });
 		expect(result).toEqual({ ok: false, error: 'ALREADY_RECORDED' });
 	});
 
@@ -280,7 +281,7 @@ describe('ProductionDashboardService — recordActivity', () => {
 			throw new Error('boom');
 		}) as unknown as typeof fetch;
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.recordActivity({ activityId: 7 });
+		const result = await svc.recordActivity({ activityId: asActivityId(7) });
 		expect(result).toEqual({ ok: false, error: 'NETWORK' });
 	});
 });
@@ -291,7 +292,7 @@ describe('ProductionDashboardService — cancelRecord', () => {
 			{ ok: true, status: 200, body: { refundedPoints: 15, message: 'ok' } },
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.cancelRecord({ logId: 999 });
+		const result = await svc.cancelRecord({ logId: '999' });
 		expect(result).toEqual({ ok: true, refundedPoints: 15 });
 		const calls = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls;
 		const firstCall = calls[0];
@@ -305,7 +306,7 @@ describe('ProductionDashboardService — cancelRecord', () => {
 			{ ok: false, status: 410, body: { error: 'CANCEL_EXPIRED' } },
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.cancelRecord({ logId: 1 });
+		const result = await svc.cancelRecord({ logId: '1' });
 		expect(result).toEqual({ ok: false, error: 'CANCEL_EXPIRED' });
 	});
 });
@@ -358,7 +359,7 @@ describe('ProductionDashboardService — toggleActivityPin', () => {
 	it('成功時は isPinned を返す', async () => {
 		const fetchMock = makeFetchMock([{ ok: true, status: 200, body: { isPinned: true } }]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.toggleActivityPin({ activityId: 5, pinned: true });
+		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
 		expect(result).toEqual({ ok: true, isPinned: true });
 		const calls = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls;
 		const firstCall = calls[0];
@@ -375,7 +376,7 @@ describe('ProductionDashboardService — toggleActivityPin', () => {
 			},
 		]);
 		const svc = createProductionDashboardService(() => SEED_WITH_CHILD, fetchMock);
-		const result = await svc.toggleActivityPin({ activityId: 5, pinned: true });
+		const result = await svc.toggleActivityPin({ activityId: asActivityId(5), pinned: true });
 		expect(result).toEqual({ ok: false, error: 'LIMIT_EXCEEDED' });
 	});
 });
@@ -390,35 +391,35 @@ describe('DemoDashboardService — recordActivity', () => {
 
 	it('todayRecorded を increment し sessionStorage に persist する', async () => {
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		const result = await svc.recordActivity({ activityId: 10 });
+		const result = await svc.recordActivity({ activityId: asActivityId(10) });
 		expect(result.ok).toBe(true);
 
 		// sessionStorage に書き戻されている
 		const raw = sessionStorage.getItem('gq:demo:child-dashboard-home-v1');
 		expect(raw).not.toBeNull();
 		const restored = JSON.parse(raw ?? '{}') as ChildDashboardHomeData;
-		expect(restored.todayRecorded).toEqual([{ activityId: 10, count: 1 }]);
+		expect(restored.todayRecorded).toEqual([{ activityId: asActivityId(10), count: 1 }]);
 
 		// 同じ activity をもう一度叩くと count が 2 になる
-		await svc.recordActivity({ activityId: 10 });
+		await svc.recordActivity({ activityId: asActivityId(10) });
 		const raw2 = sessionStorage.getItem('gq:demo:child-dashboard-home-v1');
 		const restored2 = JSON.parse(raw2 ?? '{}') as ChildDashboardHomeData;
-		expect(restored2.todayRecorded).toEqual([{ activityId: 10, count: 2 }]);
+		expect(restored2.todayRecorded).toEqual([{ activityId: asActivityId(10), count: 2 }]);
 	});
 
 	it('複数の activity を independent に increment する', async () => {
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		await svc.recordActivity({ activityId: 10 });
-		await svc.recordActivity({ activityId: 20 });
-		await svc.recordActivity({ activityId: 10 });
+		await svc.recordActivity({ activityId: asActivityId(10) });
+		await svc.recordActivity({ activityId: asActivityId(20) });
+		await svc.recordActivity({ activityId: asActivityId(10) });
 		const restored = JSON.parse(
 			sessionStorage.getItem('gq:demo:child-dashboard-home-v1') ?? '{}',
 		) as ChildDashboardHomeData;
 		// 順不同の expectation のため content マッチ
 		expect(restored.todayRecorded).toEqual(
 			expect.arrayContaining([
-				{ activityId: 10, count: 2 },
-				{ activityId: 20, count: 1 },
+				{ activityId: asActivityId(10), count: 2 },
+				{ activityId: asActivityId(20), count: 1 },
 			]),
 		);
 		expect(restored.todayRecorded).toHaveLength(2);
@@ -428,7 +429,7 @@ describe('DemoDashboardService — recordActivity', () => {
 		vi.stubGlobal('window', undefined);
 		vi.stubGlobal('sessionStorage', undefined);
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		const result = await svc.recordActivity({ activityId: 1 });
+		const result = await svc.recordActivity({ activityId: asActivityId(1) });
 		expect(result.ok).toBe(true);
 	});
 });
@@ -441,8 +442,8 @@ describe('DemoDashboardService — cancelRecord', () => {
 
 	it('record → cancel で count が decrement される', async () => {
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		await svc.recordActivity({ activityId: 10 });
-		const cancelled = await svc.cancelRecord({ logId: 0 });
+		await svc.recordActivity({ activityId: asActivityId(10) });
+		const cancelled = await svc.cancelRecord({ logId: '0' });
 		expect(cancelled.ok).toBe(true);
 		const restored = JSON.parse(
 			sessionStorage.getItem('gq:demo:child-dashboard-home-v1') ?? '{}',
@@ -452,7 +453,7 @@ describe('DemoDashboardService — cancelRecord', () => {
 
 	it('record せずに cancel を呼ぶと NOT_FOUND', async () => {
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		const result = await svc.cancelRecord({ logId: 999 });
+		const result = await svc.cancelRecord({ logId: '999' });
 		expect(result).toEqual({ ok: false, error: 'NOT_FOUND' });
 	});
 });
@@ -470,9 +471,9 @@ describe('DemoDashboardService — claimLoginBonus', () => {
 describe('DemoDashboardService — toggleActivityPin', () => {
 	it('pinned=true / false が in-memory map に反映される', async () => {
 		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
-		const r1 = await svc.toggleActivityPin({ activityId: 1, pinned: true });
+		const r1 = await svc.toggleActivityPin({ activityId: asActivityId(1), pinned: true });
 		expect(r1).toEqual({ ok: true, isPinned: true });
-		const r2 = await svc.toggleActivityPin({ activityId: 1, pinned: false });
+		const r2 = await svc.toggleActivityPin({ activityId: asActivityId(1), pinned: false });
 		expect(r2).toEqual({ ok: true, isPinned: false });
 	});
 });

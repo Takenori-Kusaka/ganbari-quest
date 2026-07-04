@@ -1,8 +1,9 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface RankingData {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	totalCount: number;
 	categoryCounts: Record<number, number>;
@@ -10,7 +11,7 @@ interface RankingData {
 
 interface Props {
 	rankings: RankingData[];
-	childId: number;
+	childId: ChildId;
 }
 
 let { rankings, childId }: Props = $props();

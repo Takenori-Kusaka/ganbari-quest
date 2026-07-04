@@ -4,9 +4,18 @@
 // 旧 src/lib/server/db/certificate-repo.ts から移管 (#2262 ADR-0048 factory 化漏れ修正)。
 
 import { and, desc, eq } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { certificates } from '../schema';
 import type { Certificate, InsertCertificateInput } from '../types';
+
+type CertificateRow = typeof certificates.$inferSelect;
+
+const toCertificate = (r: CertificateRow): Certificate => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
 
 /** 証明書を発行（重複時はスキップ） */
 export async function issueCertificate(
@@ -14,21 +23,20 @@ export async function issueCertificate(
 	tenantId: string,
 ): Promise<Certificate | null> {
 	try {
-		return (
-			db
-				.insert(certificates)
-				.values({
-					childId: input.childId,
-					tenantId,
-					certificateType: input.certificateType,
-					title: input.title,
-					description: input.description ?? null,
-					metadata: input.metadata ?? null,
-				})
-				.onConflictDoNothing()
-				.returning()
-				.get() ?? null
-		);
+		const row = db
+			.insert(certificates)
+			.values({
+				childId: Number(input.childId),
+				tenantId,
+				certificateType: input.certificateType,
+				title: input.title,
+				description: input.description ?? null,
+				metadata: input.metadata ?? null,
+			})
+			.onConflictDoNothing()
+			.returning()
+			.get();
+		return row ? toCertificate(row) : null;
 	} catch {
 		return null;
 	}
@@ -39,22 +47,21 @@ export async function insertForRestore(
 	input: Omit<Certificate, 'id' | 'tenantId'>,
 	tenantId: string,
 ): Promise<Certificate | null> {
-	return (
-		db
-			.insert(certificates)
-			.values({
-				childId: input.childId,
-				tenantId,
-				certificateType: input.certificateType,
-				title: input.title,
-				description: input.description,
-				issuedAt: input.issuedAt,
-				metadata: input.metadata,
-			})
-			.onConflictDoNothing()
-			.returning()
-			.get() ?? null
-	);
+	const row = db
+		.insert(certificates)
+		.values({
+			childId: Number(input.childId),
+			tenantId,
+			certificateType: input.certificateType,
+			title: input.title,
+			description: input.description,
+			issuedAt: input.issuedAt,
+			metadata: input.metadata,
+		})
+		.onConflictDoNothing()
+		.returning()
+		.get();
+	return row ? toCertificate(row) : null;
 }
 
 /** #3329: テナントの全証明書を削除（SQLite: シングルテナントのため全行削除）。 */
@@ -63,30 +70,32 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 }
 
 /** 子供の全証明書を取得（新しい順） */
-export async function findCertificates(childId: number, tenantId: string): Promise<Certificate[]> {
+export async function findCertificates(childId: ChildId, tenantId: string): Promise<Certificate[]> {
 	return db
 		.select()
 		.from(certificates)
-		.where(and(eq(certificates.childId, childId), eq(certificates.tenantId, tenantId)))
+		.where(and(eq(certificates.childId, Number(childId)), eq(certificates.tenantId, tenantId)))
 		.orderBy(desc(certificates.issuedAt))
-		.all();
+		.all()
+		.map(toCertificate);
 }
 
 /** 証明書を1件取得 */
 export async function findCertificateById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<Certificate | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(certificates)
-		.where(and(eq(certificates.id, id), eq(certificates.tenantId, tenantId)))
+		.where(and(eq(certificates.id, Number(id)), eq(certificates.tenantId, tenantId)))
 		.get();
+	return row ? toCertificate(row) : undefined;
 }
 
 /** 特定タイプの証明書が既に発行済みか */
 export async function hasCertificate(
-	childId: number,
+	childId: ChildId,
 	certificateType: string,
 	tenantId: string,
 ): Promise<boolean> {
@@ -95,7 +104,7 @@ export async function hasCertificate(
 		.from(certificates)
 		.where(
 			and(
-				eq(certificates.childId, childId),
+				eq(certificates.childId, Number(childId)),
 				eq(certificates.tenantId, tenantId),
 				eq(certificates.certificateType, certificateType),
 			),

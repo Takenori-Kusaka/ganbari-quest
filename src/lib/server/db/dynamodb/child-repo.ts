@@ -9,6 +9,8 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate, withVersion } from '../migration';
 import { writeBackDynamoDB } from '../migration/writeback';
@@ -26,7 +28,7 @@ import {
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
-import { batchDeleteItems, queryAllItems, stripKeys } from './repo-helpers';
+import { batchDeleteItems, queryAllItems, toChildEntity } from './repo-helpers';
 
 /** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
 async function hydrateChild(
@@ -60,7 +62,7 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 	// #783: archive されたリソースをデフォルトで除外
 	return hydrated
 		.filter((item) => !item.isArchived || item.isArchived === 0)
-		.map((item) => stripKeys(item) as unknown as Child);
+		.map((item) => toChildEntity(item));
 }
 
 /** userIdで子供を取得（招待紐づけ用） */
@@ -83,21 +85,21 @@ export async function findChildByUserId(
 	const item = result.Items?.[0];
 	if (!item) return undefined;
 	const data = await hydrateChild(item, tenantId);
-	return stripKeys(data) as unknown as Child;
+	return toChildEntity(data);
 }
 
 /** IDで子供を取得 */
-export async function findChildById(id: number, tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id, tenantId),
+			Key: childKey(Number(id), tenantId),
 		}),
 	);
 
 	if (!result.Item) return undefined;
 	const data = await hydrateChild(result.Item, tenantId);
-	return stripKeys(data) as unknown as Child;
+	return toChildEntity(data);
 }
 
 /** 子供を作成 */
@@ -106,7 +108,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 	const now = new Date().toISOString();
 
 	const child: Child = {
-		id,
+		id: asChildId(id),
 		nickname: input.nickname,
 		age: input.age,
 		birthDate: input.birthDate ?? null,
@@ -124,7 +126,8 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 		updatedAt: now,
 	};
 
-	const versioned = withVersion('child', { ...childKey(id, tenantId), ...child });
+	// stored attributes は数値 id のまま (storage format 不変、#3575)
+	const versioned = withVersion('child', { ...childKey(id, tenantId), ...child, id });
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
@@ -137,7 +140,7 @@ export async function insertChild(input: InsertChildInput, tenantId: string): Pr
 
 /** 子供を更新 */
 export async function updateChild(
-	id: number,
+	id: ChildId,
 	input: UpdateChildInput,
 	tenantId: string,
 ): Promise<Child | undefined> {
@@ -208,7 +211,7 @@ export async function updateChild(
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: childKey(id, tenantId),
+				Key: childKey(Number(id), tenantId),
 				UpdateExpression: `SET ${expressionParts.join(', ')}`,
 				ExpressionAttributeNames: expressionNames,
 				ExpressionAttributeValues: expressionValues,
@@ -218,7 +221,7 @@ export async function updateChild(
 		);
 
 		if (!result.Attributes) return undefined;
-		return stripKeys(result.Attributes) as unknown as Child;
+		return toChildEntity(result.Attributes);
 	} catch (err: unknown) {
 		if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
 			return undefined;
@@ -228,8 +231,8 @@ export async function updateChild(
 }
 
 /** 子供と関連データをすべて削除 */
-export async function deleteChild(id: number, tenantId: string): Promise<void> {
-	const pk = childPK(id, tenantId);
+export async function deleteChild(id: ChildId, tenantId: string): Promise<void> {
+	const pk = childPK(Number(id), tenantId);
 
 	// Query all items under the child's partition key
 	let lastKey: Record<string, unknown> | undefined;
@@ -257,10 +260,10 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 
 /** #3152: 子供 1 人分の進捗データを削除 (child profile / 関連 master は残す) */
 export async function resetChildProgressData(
-	id: number,
+	id: ChildId,
 	tenantId: string,
 ): Promise<ChildProgressResetCounts> {
-	const pk = childPK(id, tenantId);
+	const pk = childPK(Number(id), tenantId);
 	// 進捗系 4 entity の SK prefix のみを Query → batch 削除する。
 	// #3184 item2: prefix ごとの件数を診断用に集計する (SQLite backend と同 shape)。
 	const prefixByEntity: Array<[keyof ChildProgressResetCounts, string]> = [
@@ -296,7 +299,7 @@ export async function resetChildProgressData(
 	// BALANCE が残存し getBalance() が reset 前残高を返し続ける (子供が phantom spendable
 	// point でごほうび交換できてしまう)。reset の BALANCE clear は不変条件のため、read に
 	// 依存させない (ADR-0006 安全 assertion 後退禁止)。
-	const balanceKey = pointBalanceKey(id, tenantId);
+	const balanceKey = pointBalanceKey(Number(id), tenantId);
 	allKeys.push(balanceKey);
 
 	// #3475: counts.pointBalance を「実際に存在した BALANCE 行数」(他 entity の count と
@@ -321,7 +324,7 @@ export async function resetChildProgressData(
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChildren(
-	ids: number[],
+	ids: ChildId[],
 	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
@@ -329,7 +332,7 @@ export async function archiveChildren(
 		await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: childKey(id, tenantId),
+				Key: childKey(Number(id), tenantId),
 				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
 				ExpressionAttributeValues: {
 					':archived': 1,
@@ -387,5 +390,5 @@ export async function findArchivedChildren(tenantId: string): Promise<Child[]> {
 
 	const items = result.Items ?? [];
 	const hydrated = await Promise.all(items.map((item) => hydrateChild(item, tenantId)));
-	return hydrated.map((item) => stripKeys(item) as unknown as Child);
+	return hydrated.map((item) => toChildEntity(item));
 }

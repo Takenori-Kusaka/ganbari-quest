@@ -40,7 +40,7 @@ export interface IActivityRepo {
 	): Promise<Activity | undefined>;
 	deleteActivity(id: ActivityId, tenantId: string): Promise<Activity | undefined>;
 	hasActivityLogs(activityId: ActivityId, tenantId: string): Promise<boolean>;
-	getActivityLogCounts(tenantId: string): Promise<Record<number, number>>;
+	getActivityLogCounts(tenantId: string): Promise<Record<string, number>>;
 	countMainQuestActivities(tenantId: string): Promise<number>;
 	deleteDailyMissionsByActivity(activityId: ActivityId, tenantId: string): Promise<void>;
 

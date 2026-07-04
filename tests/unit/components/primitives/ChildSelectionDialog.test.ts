@@ -1,12 +1,13 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
+import { asChildId } from '$lib/domain/ids';
 
 describe('ChildSelectionDialog', () => {
 	const threeChildren = [
-		{ id: 1, nickname: 'たろう', age: 8, icon: '👦' },
-		{ id: 2, nickname: 'ひな', age: 5, icon: '👧' },
-		{ id: 3, nickname: 'けんた', age: 1, icon: '👶' },
+		{ id: asChildId(1), nickname: 'たろう', age: 8, icon: '👦' },
+		{ id: asChildId(2), nickname: 'ひな', age: 5, icon: '👧' },
+		{ id: asChildId(3), nickname: 'けんた', age: 1, icon: '👶' },
 	];
 
 	it('open=true で dialog が表示される (title + 全員に追加 option)', async () => {
@@ -76,7 +77,7 @@ describe('ChildSelectionDialog', () => {
 		await fireEvent.change(child2Input, { target: { checked: true } });
 		const confirmBtn = await findByTestId('child-selection-confirm');
 		await fireEvent.click(confirmBtn);
-		expect(onConfirm).toHaveBeenCalledWith([2]);
+		expect(onConfirm).toHaveBeenCalledWith(['2']);
 	});
 
 	it('allowMultiple=true で複数 child を選択できる', async () => {
@@ -95,7 +96,7 @@ describe('ChildSelectionDialog', () => {
 		await fireEvent.change(child3, { target: { checked: true } });
 		const confirmBtn = await findByTestId('child-selection-confirm');
 		await fireEvent.click(confirmBtn);
-		expect(onConfirm).toHaveBeenCalledWith(expect.arrayContaining([1, 3]));
+		expect(onConfirm).toHaveBeenCalledWith(expect.arrayContaining(['1', '3']));
 	});
 
 	it('キャンセルボタンで onCancel が呼ばれる', async () => {

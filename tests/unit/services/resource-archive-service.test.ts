@@ -2,6 +2,7 @@
 // #783: リソース archive / restore サービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // --- モック定義 ---
 const mockFindAllChildren = vi.fn();
@@ -45,7 +46,7 @@ const TENANT = 'test-tenant';
 
 function makeChild(id: number, nickname: string) {
 	return {
-		id,
+		id: asChildId(id),
 		nickname,
 		age: 4,
 		theme: 'pink',
@@ -59,9 +60,9 @@ function makeChild(id: number, nickname: string) {
 
 function makeActivity(id: number, name: string, source = 'custom') {
 	return {
-		id,
+		id: asActivityId(id),
 		name,
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 5,
 		source,
@@ -74,8 +75,8 @@ function makeActivity(id: number, name: string, source = 'custom') {
 
 function makeTemplate(id: number, childId: number, name: string) {
 	return {
-		id,
-		childId,
+		id: String(id),
+		childId: asChildId(childId),
 		name,
 		icon: '📋',
 		pointsPerItem: 2,
@@ -105,7 +106,7 @@ describe('archiveExcessResources', () => {
 		const result = await archiveExcessResources(TENANT);
 
 		expect(mockArchiveChildren).toHaveBeenCalledWith([3], 'trial_expired', TENANT);
-		expect(result.archivedChildIds).toEqual([3]);
+		expect(result.archivedChildIds).toEqual(['3']);
 		expect(result.archivedActivityIds).toEqual([]);
 		expect(result.archivedChecklistTemplateIds).toEqual([]);
 	});
@@ -126,7 +127,7 @@ describe('archiveExcessResources', () => {
 		const result = await archiveExcessResources(TENANT);
 
 		expect(mockArchiveActivities).toHaveBeenCalledWith([4, 5], 'trial_expired', TENANT);
-		expect(result.archivedActivityIds).toEqual([4, 5]);
+		expect(result.archivedActivityIds).toEqual(['4', '5']);
 	});
 
 	it('seed 活動は archive 対象外', async () => {
@@ -162,7 +163,7 @@ describe('archiveExcessResources', () => {
 		const result = await archiveExcessResources(TENANT);
 
 		expect(mockArchiveChecklistTemplates).toHaveBeenCalledWith([4, 5], 'trial_expired', TENANT);
-		expect(result.archivedChecklistTemplateIds).toEqual([4, 5]);
+		expect(result.archivedChecklistTemplateIds).toEqual(['4', '5']);
 	});
 
 	it('上限以内なら何も archive しない', async () => {

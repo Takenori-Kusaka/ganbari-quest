@@ -21,13 +21,14 @@ vi.mock('$lib/server/db/client', () => ({
 
 import { childChallenges, children } from '$lib/server/db/schema';
 import { getOrCreateWeeklyAuto, insert } from '$lib/server/db/sqlite/child-challenge-repo';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-3245';
 const WEEK = '2026-06-22';
 
-function autoInput(childId: number, startDate = WEEK) {
+function autoInput(childId: ChildId | number, startDate = WEEK) {
 	return {
-		childId,
+		childId: asChildId(childId),
 		title: `今週は「うんどう」を3回`,
 		description: 'desc',
 		challengeType: 'cooperative',

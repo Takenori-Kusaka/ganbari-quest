@@ -1,59 +1,82 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import { rewardRedemptionRequests, specialRewards } from '../schema';
+import type { InsertSpecialRewardInput, SpecialReward } from '../types';
+
+type RewardRow = typeof specialRewards.$inferSelect;
+
+const toReward = (r: RewardRow): SpecialReward => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	grantedBy: r.grantedBy === null ? null : String(r.grantedBy),
+});
 
 /** 特別報酬を記録 */
 export async function insertSpecialReward(
-	input: {
-		childId: number;
-		grantedBy?: number | null;
-		title: string;
-		description?: string;
-		points: number;
-		icon?: string;
-		category: string;
-		sourcePresetId?: string | null;
-		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は null で表示側 fallback
-		shopCategory?: string | null;
-	},
+	input: InsertSpecialRewardInput,
 	_tenantId: string,
-) {
-	return db.insert(specialRewards).values(input).returning().get();
+): Promise<SpecialReward> {
+	return toReward(
+		db
+			.insert(specialRewards)
+			.values({
+				...input,
+				childId: Number(input.childId),
+				grantedBy: input.grantedBy == null ? null : Number(input.grantedBy),
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /** 子供の特別報酬履歴を取得（降順） */
-export async function findSpecialRewards(childId: number, _tenantId: string) {
+export async function findSpecialRewards(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<SpecialReward[]> {
 	return db
 		.select()
 		.from(specialRewards)
-		.where(eq(specialRewards.childId, childId))
+		.where(eq(specialRewards.childId, Number(childId)))
 		.orderBy(desc(specialRewards.grantedAt))
-		.all();
+		.all()
+		.map(toReward);
 }
 
 /** 子供の未表示の特別報酬を1件取得 */
-export async function findUnshownReward(childId: number, _tenantId: string) {
-	return db
+export async function findUnshownReward(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<SpecialReward | undefined> {
+	const row = db
 		.select()
 		.from(specialRewards)
-		.where(and(eq(specialRewards.childId, childId), isNull(specialRewards.shownAt)))
+		.where(and(eq(specialRewards.childId, Number(childId)), isNull(specialRewards.shownAt)))
 		.orderBy(desc(specialRewards.grantedAt))
 		.limit(1)
 		.get();
+	return row ? toReward(row) : undefined;
 }
 
 /**
  * 特別報酬を表示済みにする。
  * #2845 課題① / B1: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
  */
-export async function markRewardShown(childId: number, rewardId: number, _tenantId: string) {
-	return db
+export async function markRewardShown(
+	childId: ChildId,
+	rewardId: string,
+	_tenantId: string,
+): Promise<SpecialReward | undefined> {
+	const row = db
 		.update(specialRewards)
 		.set({ shownAt: new Date().toISOString() })
-		.where(and(eq(specialRewards.id, rewardId), eq(specialRewards.childId, childId)))
+		.where(and(eq(specialRewards.id, Number(rewardId)), eq(specialRewards.childId, Number(childId))))
 		.returning()
 		.get();
+	return row ? toReward(row) : undefined;
 }
 
 /**
@@ -62,13 +85,16 @@ export async function markRewardShown(childId: number, rewardId: number, _tenant
  * (reward_redemption_requests.reward_*) で処理されるため、本編集は申請に波及しない。
  */
 export async function updateSpecialReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	updates: UpdateSpecialRewardInput,
 	_tenantId: string,
-) {
+): Promise<SpecialReward | undefined> {
 	// #2845 課題①: childId 所有権検証付き (composite key)
-	const ownership = and(eq(specialRewards.id, rewardId), eq(specialRewards.childId, childId));
+	const ownership = and(
+		eq(specialRewards.id, Number(rewardId)),
+		eq(specialRewards.childId, Number(childId)),
+	);
 	const set: Partial<typeof specialRewards.$inferInsert> = {};
 	if (updates.title !== undefined) set.title = updates.title;
 	if (updates.points !== undefined) set.points = updates.points;
@@ -77,9 +103,11 @@ export async function updateSpecialReward(
 	// #3154: 陳列系統 (physical/money/privilege/null) を編集で変更可能にする
 	if (updates.shopCategory !== undefined) set.shopCategory = updates.shopCategory;
 	if (Object.keys(set).length === 0) {
-		return db.select().from(specialRewards).where(ownership).get();
+		const row = db.select().from(specialRewards).where(ownership).get();
+		return row ? toReward(row) : undefined;
 	}
-	return db.update(specialRewards).set(set).where(ownership).returning().get();
+	const row = db.update(specialRewards).set(set).where(ownership).returning().get();
+	return row ? toReward(row) : undefined;
 }
 
 /**
@@ -89,8 +117,8 @@ export async function updateSpecialReward(
  * 解決済 (approved/rejected/expired) の交換申請履歴行も同一トランザクションで削除する。
  */
 export async function deleteSpecialReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	_tenantId: string,
 ): Promise<boolean> {
 	// #2845 課題①: childId 所有権検証付き (composite key)。reward は per-child のため
@@ -99,14 +127,16 @@ export async function deleteSpecialReward(
 		tx.delete(rewardRedemptionRequests)
 			.where(
 				and(
-					eq(rewardRedemptionRequests.rewardId, rewardId),
-					eq(rewardRedemptionRequests.childId, childId),
+					eq(rewardRedemptionRequests.rewardId, Number(rewardId)),
+					eq(rewardRedemptionRequests.childId, Number(childId)),
 				),
 			)
 			.run();
 		const result = tx
 			.delete(specialRewards)
-			.where(and(eq(specialRewards.id, rewardId), eq(specialRewards.childId, childId)))
+			.where(
+				and(eq(specialRewards.id, Number(rewardId)), eq(specialRewards.childId, Number(childId))),
+			)
 			.run();
 		return result.changes > 0;
 	});

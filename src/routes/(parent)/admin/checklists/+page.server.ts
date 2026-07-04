@@ -1,3 +1,5 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
@@ -62,7 +64,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			const perChildProgress = await Promise.all(
 				assignments.map(async (a) => {
 					const log = await findTodayLog(a.childId, tpl.id, today, tenantId);
-					const checkedIds = log ? (JSON.parse(log.itemsJson) as number[]) : [];
+					const checkedIds = log ? (JSON.parse(log.itemsJson) as (number | string)[]).map(String) : [];
 					const child = children.find((c) => c.id === a.childId);
 					return {
 						childId: a.childId,
@@ -134,7 +136,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 const importMarketplaceChecklistAction: Action = async ({ request, locals }) => {
 	const tenantId = requireTenantId(locals);
 	const formData = await request.formData();
-	const childId = Number(formData.get('childId'));
+	const childId = asChildId(formIdString(formData.get('childId')));
 	const presetId = String(formData.get('presetId') ?? '').trim();
 
 	if (!childId) return fail(400, { error: 'こどもを選択してください' });
@@ -200,7 +202,7 @@ export const actions: Actions = {
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const name = String(formData.get('name') ?? '').trim();
 		const icon = String(formData.get('icon') ?? '📋').trim();
 
@@ -236,7 +238,7 @@ export const actions: Actions = {
 	updateTimeSlot: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
+		const templateId = formIdString(formData.get('templateId'));
 		const timeSlot = String(formData.get('timeSlot') ?? 'anytime').trim();
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
@@ -250,7 +252,7 @@ export const actions: Actions = {
 	toggleTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
+		const templateId = formIdString(formData.get('templateId'));
 		const isActive = Number(formData.get('isActive'));
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
@@ -262,7 +264,7 @@ export const actions: Actions = {
 	deleteTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
+		const templateId = formIdString(formData.get('templateId'));
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 
@@ -273,7 +275,7 @@ export const actions: Actions = {
 	addItem: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
+		const templateId = formIdString(formData.get('templateId'));
 		const name = String(formData.get('name') ?? '').trim();
 		const icon = String(formData.get('icon') ?? '🏫').trim();
 		const frequency = String(formData.get('frequency') ?? 'daily');
@@ -289,8 +291,8 @@ export const actions: Actions = {
 	removeItem: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
-		const itemId = Number(formData.get('itemId'));
+		const templateId = formIdString(formData.get('templateId'));
+		const itemId = formIdString(formData.get('itemId'));
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 		if (!itemId) return fail(400, { error: 'アイテムIDが不正です' });
@@ -303,7 +305,7 @@ export const actions: Actions = {
 	addOverride: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const targetDate = String(formData.get('targetDate') ?? '').trim();
 		const action = String(formData.get('action') ?? 'add');
 		const itemName = String(formData.get('itemName') ?? '').trim();
@@ -320,8 +322,8 @@ export const actions: Actions = {
 	removeOverride: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
-		const overrideId = Number(formData.get('overrideId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
+		const overrideId = formIdString(formData.get('overrideId'));
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!overrideId) return fail(400, { error: 'オーバーライドIDが不正です' });
@@ -348,7 +350,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const templateName = String(formData.get('templateName') ?? '').trim();
 		const templateIcon = String(formData.get('templateIcon') ?? '📋').trim();
 		const itemsJson = String(formData.get('items') ?? '[]');
@@ -436,8 +438,9 @@ export const actions: Actions = {
 					? []
 					: childIdsRaw
 							.split(',')
-							.map((s) => Number(s.trim()))
-							.filter((n) => Number.isInteger(n) && n > 0);
+							.map((s) => s.trim())
+							.filter((v) => v !== '')
+							.map(asChildId);
 		for (const cId of childIdsForLimitCheck) {
 			const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, cId);
 			if (!limit.allowed) {
@@ -453,9 +456,9 @@ export const actions: Actions = {
 			}
 		}
 
-		// childIds: 'all' or comma-separated number list ('' で配信先未指定 = template のみ作成)
+		// childIds: 'all' or comma-separated id list ('' で配信先未指定 = template のみ作成)
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
-		let childIds: number[];
+		let childIds: ChildId[];
 		if (childIdsRaw === 'all') {
 			childIds = tenantChildren.map((c) => c.id);
 		} else if (childIdsRaw === '') {
@@ -463,8 +466,9 @@ export const actions: Actions = {
 		} else {
 			childIds = childIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		}
 
 		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
@@ -522,7 +526,7 @@ export const actions: Actions = {
 	syncDistribution: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const templateId = Number(formData.get('templateId'));
+		const templateId = formIdString(formData.get('templateId'));
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
@@ -530,7 +534,7 @@ export const actions: Actions = {
 		const tenantChildren = await getAllChildren(tenantId);
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
 
-		let desiredChildIds: number[];
+		let desiredChildIds: ChildId[];
 		if (childIdsRaw === 'all') {
 			desiredChildIds = tenantChildren.map((c) => c.id);
 		} else if (childIdsRaw === '') {
@@ -538,8 +542,9 @@ export const actions: Actions = {
 		} else {
 			desiredChildIds = childIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		}
 
 		// CWE-598 guard
@@ -579,8 +584,8 @@ export const actions: Actions = {
 	copyDistributionFromChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const sourceChildId = Number(formData.get('sourceChildId'));
-		const targetChildId = Number(formData.get('targetChildId'));
+		const sourceChildId = asChildId(formIdString(formData.get('sourceChildId')));
+		const targetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId || !targetChildId) {
 			return fail(400, { error: 'お子さまを選択してください' });

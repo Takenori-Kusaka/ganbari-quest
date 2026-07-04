@@ -17,6 +17,7 @@
  */
 
 import { expect, type Locator, test } from '@playwright/test';
+import { asCategoryId } from '../../src/lib/domain/ids';
 
 /**
  * Ark UI Dialog primitive の trigger button を click し dialog が data-state="open" に
@@ -56,7 +57,7 @@ async function createDedicatedActivity(
 			name: `#2744-delete-test-${suffix}-${Date.now()}`,
 			icon: '🗑',
 			basePoints: 1,
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			ageMin: null,
 			ageMax: null,
 		},

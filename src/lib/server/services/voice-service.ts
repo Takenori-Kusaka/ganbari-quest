@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/voice-service.ts
 // 親の声・カスタム音声管理サービス
 
@@ -32,7 +33,7 @@ function extFromMime(mime: string): string {
 }
 
 export interface VoiceListItem {
-	id: number;
+	id: string;
 	label: string;
 	publicUrl: string;
 	durationMs: number | null;
@@ -49,7 +50,7 @@ export type UploadVoiceError =
 
 /** 子供のボイス一覧を取得 */
 export async function listVoices(
-	childId: number,
+	childId: ChildId,
 	scene: string,
 	tenantId: string,
 ): Promise<VoiceListItem[]> {
@@ -67,13 +68,13 @@ export async function listVoices(
 /** ボイスをアップロード */
 // biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
 export async function uploadVoice(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	file: File,
 	label: string,
 	scene = 'complete',
 	durationMs?: number,
-): Promise<{ id: number; publicUrl: string } | { error: UploadVoiceError }> {
+): Promise<{ id: string; publicUrl: string } | { error: UploadVoiceError }> {
 	if (!(file instanceof File) || file.size === 0) {
 		return { error: 'INVALID_FILE' };
 	}
@@ -122,8 +123,8 @@ export async function uploadVoice(
 
 /** ボイスをアクティブに設定 */
 export async function activateVoice(
-	voiceId: number,
-	childId: number,
+	voiceId: string,
+	childId: ChildId,
 	scene: string,
 	tenantId: string,
 ): Promise<boolean> {
@@ -134,18 +135,18 @@ export async function activateVoice(
 }
 
 /** ボイスを非アクティブに（ショップ音に戻す） */
-async function _deactivateVoice(childId: number, scene: string, tenantId: string): Promise<void> {
+async function _deactivateVoice(childId: ChildId, scene: string, tenantId: string): Promise<void> {
 	const voices = await getRepos().voice.findByChild(childId, scene, tenantId);
 	for (const v of voices) {
 		if (v.isActive === 1) {
-			await getRepos().voice.setActive(-1, childId, scene, tenantId);
+			await getRepos().voice.setActive('-1', childId, scene, tenantId);
 			break;
 		}
 	}
 }
 
 /** ボイスを削除（ファイルも削除） */
-export async function deleteVoice(voiceId: number, tenantId: string): Promise<boolean> {
+export async function deleteVoice(voiceId: string, tenantId: string): Promise<boolean> {
 	const voice = await getRepos().voice.findById(voiceId, tenantId);
 	if (!voice) return false;
 
@@ -164,7 +165,7 @@ export async function deleteVoice(voiceId: number, tenantId: string): Promise<bo
 
 /** 子供のアクティブボイスパスを取得（レイアウトから呼ばれる） */
 export async function getActiveVoicePath(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	scene = 'complete',
 ): Promise<string | null> {

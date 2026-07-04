@@ -1,3 +1,4 @@
+import { childIdSchema } from './id-schema';
 import { z } from 'zod';
 
 /** 変換モード */
@@ -10,21 +11,21 @@ export type ConvertMode = (typeof ConvertMode)[keyof typeof ConvertMode];
 
 /** ポイント変換スキーマ（プリセット: 500P単位） */
 export const convertPointsPresetSchema = z.object({
-	childId: z.number().int().positive(),
+	childId: childIdSchema,
 	amount: z.number().int().positive().multipleOf(500),
 	mode: z.literal(ConvertMode.PRESET),
 });
 
 /** ポイント変換スキーマ（自由入力: 1P単位） */
 export const convertPointsManualSchema = z.object({
-	childId: z.number().int().positive(),
+	childId: childIdSchema,
 	amount: z.number().int().min(1),
 	mode: z.literal(ConvertMode.MANUAL),
 });
 
 /** ポイント変換スキーマ（領収書: 1P単位） */
 export const convertPointsReceiptSchema = z.object({
-	childId: z.number().int().positive(),
+	childId: childIdSchema,
 	amount: z.number().int().min(1),
 	mode: z.literal(ConvertMode.RECEIPT),
 });

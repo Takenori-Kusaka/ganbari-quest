@@ -2,40 +2,52 @@
 // 使用時間ログのリポジトリ層 (#1292)
 
 import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { usageLogs } from '../schema';
+
+// #3575: read 境界で integer PK 行を string/branded id に変換して返す。
+function toUsageLog(r: typeof usageLogs.$inferSelect) {
+	return { ...r, id: String(r.id), childId: asChildId(r.childId) };
+}
 
 /** セッション開始を記録 */
 export async function insertUsageLog(input: {
 	tenantId: string;
-	childId: number;
+	childId: ChildId;
 	startedAt: string;
 }) {
-	return db.insert(usageLogs).values(input).returning().get();
+	const row = db
+		.insert(usageLogs)
+		.values({ ...input, childId: Number(input.childId) })
+		.returning()
+		.get();
+	return toUsageLog(row);
 }
 
 /** セッション終了を記録 */
 export async function updateUsageLogEnd(
-	id: number,
+	id: string,
 	endedAt: string,
 	durationSec: number,
 	_tenantId: string,
 ) {
-	return db
+	const row = db
 		.update(usageLogs)
 		.set({ endedAt, durationSec })
-		.where(eq(usageLogs.id, id))
+		.where(eq(usageLogs.id, Number(id)))
 		.returning()
 		.get();
+	return row ? toUsageLog(row) : row;
 }
 
 /** 進行中セッションを終了（cleanup用） */
-export async function closeOpenSessions(childId: number, endedAt: string, _tenantId: string) {
+export async function closeOpenSessions(childId: ChildId, endedAt: string, _tenantId: string) {
 	// 進行中（endedAt = NULL）のセッションをすべて終了させる
 	const openSessions = await db
 		.select()
 		.from(usageLogs)
-		.where(and(eq(usageLogs.childId, childId), isNull(usageLogs.endedAt)))
+		.where(and(eq(usageLogs.childId, Number(childId)), isNull(usageLogs.endedAt)))
 		.all();
 
 	for (const session of openSessions) {
@@ -53,16 +65,17 @@ export async function closeOpenSessions(childId: number, endedAt: string, _tenan
 /** 本日の使用ログ一覧を取得（テナント全子供） */
 export async function findTodayUsageLogs(tenantId: string, datePrefix: string) {
 	// datePrefix = 'YYYY-MM-DD' でマッチする（ISO8601 prefix）
-	return db
+	const rows = db
 		.select()
 		.from(usageLogs)
 		.where(and(eq(usageLogs.tenantId, tenantId), gte(usageLogs.startedAt, datePrefix)))
 		.all();
+	return rows.map(toUsageLog);
 }
 
 /** 指定日範囲の使用ログ一覧を取得（子供別） */
 export async function findUsageLogsByChildAndDateRange(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	fromDate: string,
 	toDate: string,
@@ -73,13 +86,14 @@ export async function findUsageLogsByChildAndDateRange(
 		.where(
 			and(
 				eq(usageLogs.tenantId, tenantId),
-				eq(usageLogs.childId, childId),
+				eq(usageLogs.childId, Number(childId)),
 				gte(usageLogs.startedAt, fromDate),
 				lt(usageLogs.startedAt, toDate),
 			),
 		)
 		.orderBy(desc(usageLogs.startedAt))
-		.all();
+		.all()
+		.map(toUsageLog);
 }
 
 /** テナントの全使用ログを削除（SQLite: シングルテナントのため全行削除） */

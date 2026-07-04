@@ -1,6 +1,7 @@
 // /view/[token] — 閲覧専用リンクのサーバーロード (#371)
 // 認証不要。トークンの有効性のみ検証。
 
+import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { error } from '@sveltejs/kit';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getPointBalance } from '$lib/server/services/point-service';
@@ -30,12 +31,12 @@ export const load: PageServerLoad = async ({ params }) => {
 					age: child.age,
 					totalPoints: balance,
 					totalLevel: 0,
-					statuses: [] as { categoryId: number; level: number; totalXp: number }[],
+					statuses: [] as { categoryId: CategoryId; level: number; totalXp: number }[],
 				};
 			}
 
 			const statusEntries = Object.entries(statusResult.statuses).map(([catId, s]) => ({
-				categoryId: Number(catId),
+				categoryId: asCategoryId(catId),
 				level: s.level,
 				totalXp: s.value,
 			}));

@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/weekly-report-service.ts
 // 親向け週次成長レポート生成サービス
 
@@ -13,7 +14,7 @@ import { getWeekRange } from '$lib/server/services/evaluation-service';
 // ============================================================
 
 export interface CategoryReport {
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	categoryIcon: string;
 	activityCount: number;
@@ -35,7 +36,7 @@ export interface WeeklyAdvice {
 }
 
 export interface WeeklyReport {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	weekStart: string;
 	weekEnd: string;
@@ -53,7 +54,7 @@ export interface WeeklyReport {
 
 /** 指定した週のレポートを生成する */
 export async function generateWeeklyReport(
-	childId: number,
+	childId: ChildId,
 	childName: string,
 	tenantId: string,
 	targetDate?: Date,
@@ -200,7 +201,7 @@ function generateAdvice(categories: CategoryReport[], totalActivities: number): 
 
 /** 前週のレポートを全子供分生成する（ご家族の見守り画面用） */
 export async function generateReportsForChildren(
-	children: { id: number; nickname: string }[],
+	children: { id: ChildId; nickname: string }[],
 	tenantId: string,
 	targetDate?: Date,
 ): Promise<WeeklyReport[]> {

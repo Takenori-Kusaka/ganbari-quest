@@ -1,3 +1,5 @@
+import { asCategoryId, asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
@@ -73,7 +75,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	let selectedChild = null;
 	if (selectedId) {
-		const id = Number(selectedId);
+		const id = asChildId(selectedId);
 		const child = children.find((c) => c.id === id);
 		if (child) {
 			const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
@@ -205,13 +207,13 @@ export const actions: Actions = {
 	editChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const nickname = formData.get('nickname')?.toString().trim();
 		const ageStr = formData.get('age')?.toString();
 		const theme = formData.get('theme')?.toString();
 		const birthDate = formData.get('birthDate')?.toString();
 
-		if (Number.isNaN(childId)) {
+		if (!childId) {
 			return fail(400, { error: 'IDが不正です' });
 		}
 
@@ -249,9 +251,9 @@ export const actions: Actions = {
 	removeChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 
-		if (Number.isNaN(childId)) {
+		if (!childId) {
 			return fail(400, { error: 'IDが不正です' });
 		}
 
@@ -262,8 +264,8 @@ export const actions: Actions = {
 	updateStatus: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const childId = Number(form.get('childId'));
-		const categoryId = Number(form.get('categoryId'));
+		const childId = asChildId(formIdString(form.get('childId')));
+		const categoryId = asCategoryId(formIdString(form.get('categoryId')));
 		const newValue = Number(form.get('value'));
 
 		if (!childId || !categoryId) {
@@ -293,7 +295,7 @@ export const actions: Actions = {
 	uploadVoice: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const file = formData.get('file');
 		const label = String(formData.get('label') ?? '').trim();
 		const durationMs = formData.get('durationMs') ? Number(formData.get('durationMs')) : undefined;
@@ -320,8 +322,8 @@ export const actions: Actions = {
 	activateVoice: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const voiceId = Number(form.get('voiceId'));
-		const childId = Number(form.get('childId'));
+		const voiceId = formIdString(form.get('voiceId'));
+		const childId = asChildId(formIdString(form.get('childId')));
 		if (!voiceId || !childId) return fail(400, { error: 'IDが不正です' });
 
 		await activateVoice(voiceId, childId, 'complete', tenantId);
@@ -331,7 +333,7 @@ export const actions: Actions = {
 	deleteVoice: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const voiceId = Number(form.get('voiceId'));
+		const voiceId = formIdString(form.get('voiceId'));
 		if (!voiceId) return fail(400, { error: 'IDが不正です' });
 
 		await deleteVoice(voiceId, tenantId);
@@ -341,10 +343,10 @@ export const actions: Actions = {
 	updateBirthdayMultiplier: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const childId = Number(form.get('childId'));
+		const childId = asChildId(formIdString(form.get('childId')));
 		const multiplier = Number(form.get('multiplier'));
 
-		if (Number.isNaN(childId)) return fail(400, { error: 'IDが不正です' });
+		if (!childId) return fail(400, { error: 'IDが不正です' });
 		if (Number.isNaN(multiplier) || multiplier < 0.5 || multiplier > 3.0) {
 			return fail(400, { error: '倍率は0.5〜3.0の範囲で設定してください' });
 		}

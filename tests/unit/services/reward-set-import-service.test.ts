@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/reward-set-import-service.test.ts
 // #2136 MP-1: reward-set-import-service unit tests
 //
@@ -31,7 +32,7 @@ import {
 // ---------- Helpers ----------
 
 const TENANT = 'test-tenant-001';
-const CHILD_ID = 101;
+const CHILD_ID = asChildId(101);
 const PRESET_ID = 'kinder-rewards';
 
 function makeReward(overrides: Partial<RewardSetItem> = {}): RewardSetItem {
@@ -47,7 +48,7 @@ function makeReward(overrides: Partial<RewardSetItem> = {}): RewardSetItem {
 
 function makeExistingRow(overrides: Record<string, unknown>) {
 	return {
-		id: 1,
+		id: '1',
 		childId: CHILD_ID,
 		grantedBy: null,
 		title: 'もの',
@@ -67,7 +68,7 @@ function makeExistingRow(overrides: Record<string, unknown>) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 });
 
 // ==========================================================
@@ -214,7 +215,7 @@ describe('importRewardSet', () => {
 	it('insertSpecialReward が例外をスロー -> エラー記録され処理継続', async () => {
 		mockInsertSpecialReward
 			.mockRejectedValueOnce(new Error('DB constraint violation'))
-			.mockResolvedValueOnce({ id: 2 });
+			.mockResolvedValueOnce({ id: '2' });
 
 		const rewards = [
 			makeReward({ title: '失敗する reward' }),

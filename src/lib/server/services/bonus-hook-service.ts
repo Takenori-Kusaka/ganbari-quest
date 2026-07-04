@@ -1,3 +1,5 @@
+import { asCategoryId } from '$lib/domain/ids';
+import type { CategoryId } from '$lib/domain/ids';
 // src/lib/server/services/bonus-hook-service.ts
 // #2138 MP-3 / #2895: bonus rule hook の集約 (activity-log-service から呼び出される)
 //
@@ -48,7 +50,7 @@ export interface BonusHookContext {
 	/** 当日初回記録か (early-bird / streak の条件) */
 	isFirstToday: boolean;
 	/** 活動カテゴリ ID (self-study-reward の判定用、学習系カテゴリで +10) */
-	categoryId: number;
+	categoryId: CategoryId;
 	/** 子供画面で記録される追加メモ (今 phase では未使用、将来枠) */
 	memo?: string;
 }
@@ -206,7 +208,7 @@ export async function evaluateBonusHooks(
 				// 学習系カテゴリ (categoryId === 2 = 勉強) で自主学習 bonus
 				// 仕様簡略化: 学習カテゴリで記録した場合 +10 (本来は memo / 教科判定が必要)
 				// #2895: `しんきかもくボーナス` (新教科判定) は本番判定ロジックがなく死蔵だったため preset から撤去済。
-				if (ctx.categoryId === 2) {
+				if (ctx.categoryId === asCategoryId(2)) {
 					const study = preset.rules.find((r) => r.title === 'じしゅがくしゅうボーナス');
 					if (study) {
 						hits.push({

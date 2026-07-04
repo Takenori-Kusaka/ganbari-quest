@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/report-service.ts
 // 月次レポート・成長分析のサービス層
 
@@ -34,7 +35,7 @@ export async function aggregateDailyReport(tenantId: string, date: string): Prom
 /**
  * 1子供1日分の集計を行いupsert
  */
-async function aggregateChildDaily(tenantId: string, childId: number, date: string): Promise<void> {
+async function aggregateChildDaily(tenantId: string, childId: ChildId, date: string): Promise<void> {
 	const repos = getRepos();
 
 	// 活動ログ集計（categoryId 付きで取得）
@@ -78,7 +79,7 @@ async function aggregateChildDaily(tenantId: string, childId: number, date: stri
 	});
 }
 
-async function calculateStreak(childId: number, date: string, tenantId: string): Promise<number> {
+async function calculateStreak(childId: ChildId, date: string, tenantId: string): Promise<number> {
 	const repos = getRepos();
 	let streak = 0;
 	const d = new Date(date);
@@ -100,7 +101,7 @@ async function calculateStreak(childId: number, date: string, tenantId: string):
 // ============================================================
 
 export interface MonthlySummary {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	month: string;
 	totalActivities: number;
@@ -120,7 +121,7 @@ export interface MonthlySummary {
  */
 export async function getMonthlyReport(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	yearMonth: string,
 ): Promise<MonthlySummary | null> {
 	const repos = getRepos();
@@ -166,7 +167,7 @@ export async function getAllChildrenMonthlyReport(
 	const childMap = new Map(children.map((c) => [c.id, c.nickname]));
 
 	// Group by childId
-	const grouped = new Map<number, ReportDailySummary[]>();
+	const grouped = new Map<ChildId, ReportDailySummary[]>();
 	for (const s of allSummaries) {
 		const arr = grouped.get(s.childId) ?? [];
 		arr.push(s);
@@ -183,7 +184,7 @@ export async function getAllChildrenMonthlyReport(
 
 function buildMonthlySummary(
 	childName: string,
-	childId: number,
+	childId: ChildId,
 	yearMonth: string,
 	summaries: ReportDailySummary[],
 ): MonthlySummary {
@@ -247,7 +248,7 @@ export interface SimpleMonthSummary {
  */
 export async function getSimpleMonthSummary(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	yearMonth: string,
 ): Promise<SimpleMonthSummary> {
 	const repos = getRepos();
@@ -304,10 +305,10 @@ export async function getSimpleMonthSummary(
 export async function getAllChildrenSimpleSummary(
 	tenantId: string,
 	yearMonth: string,
-): Promise<Map<number, SimpleMonthSummary>> {
+): Promise<Map<ChildId, SimpleMonthSummary>> {
 	const repos = getRepos();
 	const children = await repos.child.findAllChildren(tenantId);
-	const result = new Map<number, SimpleMonthSummary>();
+	const result = new Map<ChildId, SimpleMonthSummary>();
 
 	for (const child of children) {
 		try {
@@ -322,7 +323,7 @@ export async function getAllChildrenSimpleSummary(
 
 // 実績システム廃止（#322）— 常に0
 async function countMonthAchievements(
-	_childId: number,
+	_childId: ChildId,
 	_startDate: string,
 	_endDate: string,
 	_tenantId: string,
@@ -335,7 +336,7 @@ async function countMonthAchievements(
 // ============================================================
 
 export interface DetailedMonthlySummary {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	month: string;
 	totalActivities: number;
@@ -354,7 +355,7 @@ export interface DetailedMonthlySummary {
  */
 export async function computeDetailedMonthlyReport(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	childName: string,
 	yearMonth: string,
 ): Promise<DetailedMonthlySummary> {

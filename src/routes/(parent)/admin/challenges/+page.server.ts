@@ -6,6 +6,8 @@
 // 本 page は「自動生成された子のチャレンジを親が閲覧する」読み取り専用ビュー (削除のみ可)。
 // 全プランに開放 (旧 family 限定 gate を撤去)。
 
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
@@ -33,7 +35,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 子供別タブ切替 (?childId=N、未指定なら 'all')
 	const childIdParam = url.searchParams.get('childId');
 	const selectedChildId =
-		childIdParam && childIdParam !== 'all' ? Number(childIdParam) : ('all' as const);
+		childIdParam && childIdParam !== 'all' ? asChildId(childIdParam) : ('all' as const);
 
 	return {
 		challengeGroups,
@@ -48,7 +50,7 @@ export const actions: Actions = {
 	delete: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const fd = await request.formData();
-		const id = Number(fd.get('id'));
+		const id = formIdString(fd.get('id'));
 		if (!id) return fail(400, { error: 'IDが不正です' });
 		await deleteChildChallenge(id, tenantId);
 		return { deleted: true };

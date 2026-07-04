@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
 import { findChildById } from '$lib/server/db/activity-repo';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
@@ -18,8 +19,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.id);
-	if (!childId || Number.isNaN(childId)) {
+	const childId = asChildId(params.id);
+	if (!childId) {
 		throw error(400, { message: '不正なIDです' });
 	}
 

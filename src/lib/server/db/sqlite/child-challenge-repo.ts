@@ -14,6 +14,7 @@
 // ADR-0010 Pre-PMF 過剰防衛として採らず、本コメントで非対称の根拠を明示する (#3203 QM follow-up 裁定)。
 
 import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { childChallenges } from '../schema';
 import type {
@@ -23,17 +24,29 @@ import type {
 } from '../types';
 import { AUTO_WEEKLY_SOURCE_TEMPLATE_ID } from '../types';
 
-export async function findByChildId(childId: number, _tenantId: string): Promise<ChildChallenge[]> {
+type ChallengeRow = typeof childChallenges.$inferSelect;
+
+const toChallenge = (r: ChallengeRow): ChildChallenge => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
+
+export async function findByChildId(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<ChildChallenge[]> {
 	return db
 		.select()
 		.from(childChallenges)
-		.where(eq(childChallenges.childId, childId))
+		.where(eq(childChallenges.childId, Number(childId)))
 		.orderBy(childChallenges.startDate)
-		.all();
+		.all()
+		.map(toChallenge);
 }
 
 export async function findActiveByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -42,14 +55,15 @@ export async function findActiveByChildId(
 		.from(childChallenges)
 		.where(
 			and(
-				eq(childChallenges.childId, childId),
+				eq(childChallenges.childId, Number(childId)),
 				eq(childChallenges.isActive, 1),
 				eq(childChallenges.status, 'active'),
 				lte(childChallenges.startDate, today),
 				gte(childChallenges.endDate, today),
 			),
 		)
-		.all();
+		.all()
+		.map(toChallenge);
 }
 
 /**
@@ -68,7 +82,7 @@ export async function findActiveByChildId(
  *      (status='active' OR (status='completed' AND rewardClaimed=0))
  */
 export async function findActiveOrUnclaimedByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -77,25 +91,31 @@ export async function findActiveOrUnclaimedByChildId(
 		.from(childChallenges)
 		.where(
 			and(
-				eq(childChallenges.childId, childId),
+				eq(childChallenges.childId, Number(childId)),
 				eq(childChallenges.isActive, 1),
 				inArray(childChallenges.status, ['active', 'completed']),
 				lte(childChallenges.startDate, today),
 				gte(childChallenges.endDate, today),
 			),
 		)
-		.all();
+		.all()
+		.map(toChallenge);
 	// status='completed' で rewardClaimed=1 (受取済) は除外
 	return rows.filter((r) => r.status === 'active' || r.rewardClaimed === 0);
 }
 
 export async function findAllByTenant(_tenantId: string): Promise<ChildChallenge[]> {
 	// SQLite はシングルテナント (#1923 等の整合)。tenant_id 列なし、全件返す。
-	return db.select().from(childChallenges).orderBy(childChallenges.createdAt).all();
+	return db.select().from(childChallenges).orderBy(childChallenges.createdAt).all().map(toChallenge);
 }
 
-export async function findById(id: number, _tenantId: string): Promise<ChildChallenge | undefined> {
-	return db.select().from(childChallenges).where(eq(childChallenges.id, id)).get();
+export async function findById(id: string, _tenantId: string): Promise<ChildChallenge | undefined> {
+	const row = db
+		.select()
+		.from(childChallenges)
+		.where(eq(childChallenges.id, Number(id)))
+		.get();
+	return row ? toChallenge(row) : undefined;
 }
 
 export async function insert(
@@ -106,7 +126,7 @@ export async function insert(
 	const row = db
 		.insert(childChallenges)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			title: input.title,
 			description: input.description ?? null,
 			challengeType: input.challengeType ?? 'cooperative',
@@ -126,7 +146,7 @@ export async function insert(
 		.returning()
 		.get();
 	if (!row) throw new Error('insert: insert returned no row');
-	return row;
+	return toChallenge(row);
 }
 
 /**
@@ -141,7 +161,7 @@ export async function insertForRestore(
 	const row = db
 		.insert(childChallenges)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			title: input.title,
 			description: input.description,
 			challengeType: input.challengeType,
@@ -165,7 +185,7 @@ export async function insertForRestore(
 		.returning()
 		.get();
 	if (!row) throw new Error('insertForRestore: insert returned no row');
-	return row;
+	return toChallenge(row);
 }
 
 /**
@@ -181,7 +201,7 @@ export async function getOrCreateWeeklyAuto(
 	const now = new Date().toISOString();
 	db.insert(childChallenges)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			title: input.title,
 			description: input.description ?? null,
 			challengeType: input.challengeType ?? 'cooperative',
@@ -207,7 +227,7 @@ export async function getOrCreateWeeklyAuto(
 		.from(childChallenges)
 		.where(
 			and(
-				eq(childChallenges.childId, input.childId),
+				eq(childChallenges.childId, Number(input.childId)),
 				eq(childChallenges.startDate, input.startDate),
 				eq(
 					childChallenges.sourceTemplateId,
@@ -217,7 +237,7 @@ export async function getOrCreateWeeklyAuto(
 		)
 		.get();
 	if (!row) throw new Error('getOrCreateWeeklyAuto: row not found after upsert');
-	return row;
+	return toChallenge(row);
 }
 
 export async function insertBulk(
@@ -233,22 +253,22 @@ export async function insertBulk(
 }
 
 export async function updateProgress(
-	id: number,
+	id: string,
 	currentValue: number,
 	_tenantId: string,
 ): Promise<void> {
 	const now = new Date().toISOString();
 	db.update(childChallenges)
 		.set({ currentValue, updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(eq(childChallenges.id, Number(id)))
 		.run();
 }
 
-export async function markCompleted(id: number, _tenantId: string): Promise<void> {
+export async function markCompleted(id: string, _tenantId: string): Promise<void> {
 	const now = new Date().toISOString();
 	db.update(childChallenges)
 		.set({ completed: 1, completedAt: now, status: 'completed', updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(eq(childChallenges.id, Number(id)))
 		.run();
 }
 
@@ -263,14 +283,14 @@ export async function markCompleted(id: number, _tenantId: string): Promise<void
  * (markCompleted / updateProgress) と同様に未使用。tenant 越え IDOR は DB 分離 + service の childId
  * 所有権 check で担保する。
  */
-export async function claimReward(id: number, _tenantId: string): Promise<number> {
+export async function claimReward(id: string, _tenantId: string): Promise<number> {
 	const now = new Date().toISOString();
 	const result = db
 		.update(childChallenges)
 		.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
 		.where(
 			and(
-				eq(childChallenges.id, id),
+				eq(childChallenges.id, Number(id)),
 				eq(childChallenges.rewardClaimed, 0),
 				eq(childChallenges.completed, 1),
 			),
@@ -280,19 +300,21 @@ export async function claimReward(id: number, _tenantId: string): Promise<number
 }
 
 export async function update(
-	id: number,
+	id: string,
 	input: UpdateChildChallengeInput,
 	_tenantId: string,
 ): Promise<void> {
 	const now = new Date().toISOString();
 	db.update(childChallenges)
 		.set({ ...input, updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(eq(childChallenges.id, Number(id)))
 		.run();
 }
 
-export async function deleteChallenge(id: number, _tenantId: string): Promise<void> {
-	db.delete(childChallenges).where(eq(childChallenges.id, id)).run();
+export async function deleteChallenge(id: string, _tenantId: string): Promise<void> {
+	db.delete(childChallenges)
+		.where(eq(childChallenges.id, Number(id)))
+		.run();
 }
 
 /**
@@ -300,8 +322,8 @@ export async function deleteChallenge(id: number, _tenantId: string): Promise<vo
  * sourceTemplateId を維持 + 進捗は currentValue=0 にリセット。
  */
 export async function copyAcrossChildren(
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
 	const source = await findByChildId(sourceChildId, tenantId);

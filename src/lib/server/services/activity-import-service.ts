@@ -1,3 +1,5 @@
+import { asCategoryId } from '$lib/domain/ids';
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/activity-import-service.ts
 // 活動単体インポートサービス（#0224）
 //
@@ -28,9 +30,9 @@ import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 
-const CATEGORY_CODE_TO_ID: Record<string, number> = {};
+const CATEGORY_CODE_TO_ID: Record<string, CategoryId> = {};
 for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = i + 1;
+	CATEGORY_CODE_TO_ID[code] = asCategoryId(i + 1);
 }
 
 export interface ActivityImportPreview {
@@ -110,7 +112,7 @@ export async function previewActivityImport(
 export interface ImportActivitiesOptions {
 	presetId?: string;
 	applyMustDefault?: boolean;
-	childIds?: readonly number[];
+	childIds?: readonly ChildId[];
 }
 
 /**
@@ -143,7 +145,7 @@ function resolveActivityMeta(
 ): {
 	ok: boolean;
 	error?: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	priority?: 'must' | 'optional';
 } {
 	const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
@@ -169,12 +171,12 @@ function resolveActivityMeta(
  * read 失敗は空 Set にフォールバックし、import 自体は継続する (errors に記録)。
  */
 async function buildExistingNamesByChild(
-	childIds: readonly number[],
+	childIds: readonly ChildId[],
 	tenantId: string,
 	errors: string[],
-): Promise<Map<number, Set<string>>> {
+): Promise<Map<ChildId, Set<string>>> {
 	const repos = getRepos();
-	const byChild = new Map<number, Set<string>>();
+	const byChild = new Map<ChildId, Set<string>>();
 	for (const cid of childIds) {
 		try {
 			const existing = await repos.childActivity.findActivitiesByChild(cid, tenantId, {
@@ -202,7 +204,7 @@ async function buildExistingNamesByChild(
  * @returns persist に成功した activity 名の集合 (どこか 1 child でも成功した名前を含む)
  */
 async function dispatchPerChildBulk(
-	inputsByChild: Map<number, InsertChildActivityInput[]>,
+	inputsByChild: Map<ChildId, InsertChildActivityInput[]>,
 	tenantId: string,
 	errors: string[],
 ): Promise<Set<string>> {
@@ -230,8 +232,8 @@ async function dispatchPerChildBulk(
  *   honest な失敗数を別途算出する。
  */
 async function persistAndCountImported(
-	childIds: readonly number[],
-	childInputsByChild: Map<number, InsertChildActivityInput[]>,
+	childIds: readonly ChildId[],
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>,
 	plannedNewNames: Set<string>,
 	tenantId: string,
 	errors: string[],
@@ -257,8 +259,8 @@ async function persistAndCountImported(
  */
 async function _fallbackChildIds(
 	tenantId: string,
-	current: readonly number[],
-): Promise<readonly number[]> {
+	current: readonly ChildId[],
+): Promise<readonly ChildId[]> {
 	if (current.length > 0) return current;
 	const all = await findAllChildren(tenantId);
 	if (all.length > 0 && all[0]) return [all[0].id];
@@ -268,9 +270,9 @@ async function _fallbackChildIds(
 /** planActivityForChildren の per-import 共通コンテキスト (param 数削減のため集約)。 */
 interface PlanContext {
 	presetId: string | undefined;
-	childIds: readonly number[];
-	existingNamesByChild: Map<number, Set<string>>;
-	childInputsByChild: Map<number, InsertChildActivityInput[]>;
+	childIds: readonly ChildId[];
+	existingNamesByChild: Map<ChildId, Set<string>>;
+	childInputsByChild: Map<ChildId, InsertChildActivityInput[]>;
 }
 
 /**
@@ -279,7 +281,7 @@ interface PlanContext {
  */
 function planActivityForChildren(
 	a: ActivityPackItem,
-	categoryId: number,
+	categoryId: CategoryId,
 	priority: 'must' | 'optional',
 	ctx: PlanContext,
 ): boolean {
@@ -311,7 +313,7 @@ export async function importActivities(
 ): Promise<ActivityImportResult> {
 	const opts = normalizeOptions(options);
 	const { presetId } = opts;
-	const childIds: readonly number[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
+	const childIds: readonly ChildId[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
 	const applyMustDefault = opts.applyMustDefault === true;
 
 	const errors: string[] = [];
@@ -324,7 +326,7 @@ export async function importActivities(
 	const existingNamesByChild = await buildExistingNamesByChild(childIds, tenantId, errors);
 
 	// #2362 PR-3 (ADR-0055): per-child instance バッチ。
-	const childInputsByChild: Map<number, InsertChildActivityInput[]> = new Map();
+	const childInputsByChild: Map<ChildId, InsertChildActivityInput[]> = new Map();
 	for (const cid of childIds) childInputsByChild.set(cid, []);
 
 	// #2824: 「いずれかの child に新規 instance を生成しようと計画した」名前。
@@ -340,7 +342,7 @@ export async function importActivities(
 		}
 		const planned = planActivityForChildren(
 			a,
-			meta.categoryId as number,
+			meta.categoryId as CategoryId,
 			meta.priority as 'must' | 'optional',
 			planCtx,
 		);

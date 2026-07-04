@@ -1,3 +1,5 @@
+import { asCategoryId } from '$lib/domain/ids';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/child-challenge-service.ts
 // per-child チャレンジ サービス層 (#2362 PR-7、ADR-0055、User §6)
 //
@@ -31,10 +33,10 @@ import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-l
 // ============================================================
 
 /** Category IDs from the categories master table */
-const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
+const ALL_CATEGORY_IDS: readonly CategoryId[] = [1, 2, 3, 4, 5].map(asCategoryId);
 
 /** Category names for display (生成 challenge の view 整形でも再利用) */
-export const CATEGORY_NAMES: Record<number, string> = {
+export const CATEGORY_NAMES: Record<string, string> = {
 	1: 'うんどう',
 	2: 'べんきょう',
 	3: 'せいかつ',
@@ -78,7 +80,7 @@ export interface ChallengePrev {
 	/** 前週生成時点での連続未達週数 */
 	consecutiveMissCount: number;
 	/** 前週のカテゴリ ID (同一カテゴリ回避 / target 据置判定に使う) */
-	categoryId: number;
+	categoryId: CategoryId;
 	/** 前週の目標回数 (翌週適応の Flow 分岐に使う) */
 	targetCount: number;
 	/** 前週の実績回数 (overshoot / reach ratio 計算に使う) */
@@ -86,7 +88,7 @@ export interface ChallengePrev {
 }
 
 export interface ChallengeProposal {
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	targetCount: number;
 	mode: ChallengeProposalMode;
@@ -138,9 +140,9 @@ function weeksBetween(earlier: string, later: string): number {
 
 /** 直近 2 週間のカテゴリ別記録数を集計する。週次自動生成の苦手判定入力に使う。 */
 export async function aggregateCategoryCounts(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-): Promise<Record<number, number>> {
+): Promise<Record<string, number>> {
 	const now = new Date();
 	const twoWeeksAgo = new Date(now);
 	twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -152,7 +154,7 @@ export async function aggregateCategoryCounts(
 		to: toDate,
 	});
 
-	const counts: Record<number, number> = {};
+	const counts: Record<string, number> = {};
 	for (const catId of ALL_CATEGORY_IDS) {
 		counts[catId] = summary.byCategory[catId]?.count ?? 0;
 	}
@@ -160,8 +162,8 @@ export async function aggregateCategoryCounts(
 }
 
 /** 最多記録カテゴリ (得意) を返す。同数は最小 id を優先 (決定的)。 */
-function strongestCategory(counts: Record<number, number>): number {
-	let best = ALL_CATEGORY_IDS[0] ?? 1;
+function strongestCategory(counts: Record<string, number>): CategoryId {
+	let best = ALL_CATEGORY_IDS[0] ?? asCategoryId(1);
 	let max = -1;
 	for (const catId of ALL_CATEGORY_IDS) {
 		const n = counts[catId] ?? 0;
@@ -181,16 +183,19 @@ function strongestCategory(counts: Record<number, number>): number {
 // 生成時 1 回 persist されるため以後 flip-flop しないが、week-boundary/race で初回 insert 前に
 // flip し得た。seed 化で (a) 決定性 (同 child・同週は常に同結果) (b) 親への説明性 (c) test 容易性
 // を得る。childId 未指定時 (既存 test 等) は Math.random にフォールバックし後方互換を保つ。
-function hashSeed(childId: number, weekStart: string): number {
-	let h = 2166136261 ^ childId; // FNV-1a 風
-	for (let i = 0; i < weekStart.length; i++) {
-		h = Math.imul(h ^ weekStart.charCodeAt(i), 16777619);
+export function hashSeed(childId: ChildId, weekStart: string): number {
+	// FNV-1a (文字列イテレーション)。string id 化 (#3575) に伴い `${childId}:${weekStart}` を hash する。
+	// 決定性 (同一入力 → 同一出力) のみが要件で、旧 number 版との分布互換は不要 (§12.2 で id 非保全)。
+	let h = 2166136261;
+	for (const ch of `${childId}:${weekStart}`) {
+		h ^= ch.codePointAt(0) ?? 0;
+		h = Math.imul(h, 16777619);
 	}
 	return h >>> 0;
 }
 
 /** mulberry32: seed から決定的な [0,1) 乱数を返す PRNG を作る。 */
-function makeSeededRand(childId: number, weekStart: string): () => number {
+function makeSeededRand(childId: ChildId, weekStart: string): () => number {
 	let a = hashSeed(childId, weekStart);
 	return () => {
 		a |= 0;
@@ -202,10 +207,10 @@ function makeSeededRand(childId: number, weekStart: string): () => number {
 }
 
 function weightedWeakPick(
-	counts: Record<number, number>,
+	counts: Record<string, number>,
 	rand: () => number,
-	excludeId?: number,
-): number {
+	excludeId?: CategoryId,
+): CategoryId {
 	const cats = ALL_CATEGORY_IDS.filter((c) => c !== excludeId);
 	const sorted = [...cats].sort((a, b) => (counts[a] ?? 0) - (counts[b] ?? 0));
 	const weighted = sorted.map((c, rank) => ({ c, w: Math.max(1, WEAK_BIAS_BASE - rank) }));
@@ -215,7 +220,7 @@ function weightedWeakPick(
 		r -= x.w;
 		if (r <= 0) return x.c;
 	}
-	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? 1;
+	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? asCategoryId(1);
 }
 
 function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
@@ -233,16 +238,16 @@ function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
 
 /** カテゴリ選択 (weighted interleaving §3.4)。explore / rescue-strength / strength / weakness を返す。 */
 function selectCategory(
-	counts: Record<number, number>,
+	counts: Record<string, number>,
 	prev: ChallengePrev | undefined,
 	weekStart: string,
 	consecutiveMissCount: number,
 	rand: () => number,
-): { categoryId: number; mode: ChallengeProposalMode } {
+): { categoryId: CategoryId; mode: ChallengeProposalMode } {
 	const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 	if (totalRecords < MIN_RECORDS_FOR_ANALYSIS) {
 		return {
-			categoryId: ALL_CATEGORY_IDS[Math.floor(rand() * ALL_CATEGORY_IDS.length)] ?? 1,
+			categoryId: ALL_CATEGORY_IDS[Math.floor(rand() * ALL_CATEGORY_IDS.length)] ?? asCategoryId(1),
 			mode: 'explore',
 		};
 	}
@@ -262,9 +267,9 @@ function selectCategory(
 
 /** target 決定 (ability ベース + Flow 3 分岐適応 §3.4)。 */
 function decideTarget(
-	counts: Record<number, number>,
+	counts: Record<string, number>,
 	prev: ChallengePrev | undefined,
-	categoryId: number,
+	categoryId: CategoryId,
 	mode: ChallengeProposalMode,
 ): number {
 	if (mode === 'rescue-strength') return MIN_TARGET; // 必ず達成できる最小目標
@@ -290,10 +295,10 @@ function decideTarget(
  * カテゴリ選択 (weighted interleaving) + target (ability ベース + 前週結果の Flow 適応) を統合する。
  */
 export function computeProposal(
-	counts: Record<number, number>,
+	counts: Record<string, number>,
 	prev: ChallengePrev | undefined,
 	weekStart: string,
-	opts?: { childId?: number; skippedWeeks?: number },
+	opts?: { childId?: ChildId; skippedWeeks?: number },
 ): ChallengeProposal {
 	// #3203 item2: childId 指定時は seed 化した決定的 RNG、未指定 (既存 test) は Math.random。
 	const rand = opts?.childId != null ? makeSeededRand(opts.childId, weekStart) : Math.random;
@@ -341,8 +346,8 @@ function resolveGroupKey(
 
 interface TargetConfig {
 	metric: 'count' | 'xp';
-	categoryId?: number;
-	activityId?: number;
+	categoryId?: CategoryId;
+	activityId?: ActivityId;
 	baseTarget: number;
 	ageAdjustments?: Record<string, number>;
 }
@@ -394,9 +399,9 @@ export async function createChildChallengesBulk(
 	spec: Omit<InsertChildChallengeInput, 'childId' | 'targetValue'> & {
 		sourceTemplateId?: string | null;
 		/** 子供別 target value (age-adjusted)。childId → targetValue マップ */
-		perChildTargets: Record<number, number>;
+		perChildTargets: Record<string, number>;
 	},
-	childIds: readonly number[],
+	childIds: readonly ChildId[],
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
 	const repos = getRepos();
@@ -490,14 +495,15 @@ function weekEndOf(weekStart: string): string {
 
 /** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev 形) に写像する。 */
 function toProposalPrev(row: ChildChallenge): ChallengePrev {
-	let categoryId = 1;
+	let categoryId = asCategoryId(1);
 	let genMissStreak = 0;
 	try {
+		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化する。
 		const cfg = JSON.parse(row.targetConfig) as {
-			categoryId?: number;
+			categoryId?: number | string;
 			genMissStreak?: number;
 		};
-		categoryId = cfg.categoryId ?? 1;
+		categoryId = cfg.categoryId != null ? asCategoryId(cfg.categoryId) : asCategoryId(1);
 		genMissStreak = cfg.genMissStreak ?? 0;
 	} catch {
 		// 破損 JSON は既定値で続行
@@ -516,7 +522,7 @@ function toProposalPrev(row: ChildChallenge): ChallengePrev {
  * load で呼び、バナー等に流す。冪等 (当週分が既にあれば再生成しない)。
  */
 export async function getOrCreateWeeklyChildChallenge(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallenge> {
 	const repos = getRepos();
@@ -582,7 +588,7 @@ export async function getOrCreateWeeklyChildChallenge(
 
 /** 子供画面: 子供自身のアクティブ challenge 一覧 */
 export async function getActiveChildChallenges(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
 	const repos = getRepos();
@@ -596,7 +602,7 @@ export async function getActiveChildChallenges(
  * (home が child_challenges を生成し、challenges ページもこれを読むことで二重生成を防ぐ)。
  */
 export interface ChildChallengeView {
-	id: number;
+	id: string;
 	categoryName: string;
 	targetCount: number;
 	currentCount: number;
@@ -608,10 +614,11 @@ export interface ChildChallengeView {
 
 /** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
 function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
-	let categoryId: number | undefined;
+	let categoryId: CategoryId | undefined;
 	try {
-		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number };
-		categoryId = cfg.categoryId;
+		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化する。
+		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number | string };
+		categoryId = cfg.categoryId != null ? asCategoryId(cfg.categoryId) : undefined;
 	} catch {
 		// 破損 JSON は categoryName 空で続行
 	}
@@ -642,7 +649,7 @@ function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
  * home は常に同一の週次 child_challenge を表示する (一本化、二重生成なし)。
  */
 export async function getOrCreateWeeklyChildChallengeView(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallengeView> {
 	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
@@ -651,7 +658,7 @@ export async function getOrCreateWeeklyChildChallengeView(
 
 /** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
 export async function getChildChallengeHistory(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	limit = 10,
 ): Promise<ChildChallengeView[]> {
@@ -687,7 +694,7 @@ export async function getChildChallengeHistory(
  * 必須化済。自身の childId 以外の child instance は同一 tenant 内のみ含まれる。
  */
 export async function getActiveChildChallengesWithSiblings(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallengeWithSiblings[]> {
 	const repos = getRepos();
@@ -733,20 +740,25 @@ export async function getActiveChildChallengesWithSiblings(
  * 旧 sibling-challenge-service.checkChallengeProgress の per-child 後継。
  */
 export async function updateChildChallengeProgress(
-	childId: number,
-	_activityId: number,
-	categoryId: number,
+	childId: ChildId,
+	_activityId: ActivityId,
+	categoryId: CategoryId,
 	tenantId: string,
-): Promise<{ challengeId: number; completed: boolean; challengeTitle: string }[]> {
+): Promise<{ challengeId: string; completed: boolean; challengeTitle: string }[]> {
 	const repos = getRepos();
 	const today = todayDateJST();
 	const challenges = await repos.childChallenge.findActiveByChildId(childId, today, tenantId);
-	const results: { challengeId: number; completed: boolean; challengeTitle: string }[] = [];
+	const results: { challengeId: string; completed: boolean; challengeTitle: string }[] = [];
 
 	for (const challenge of challenges) {
 		if (challenge.completed === 1) continue;
-		const targetConfig: TargetConfig = JSON.parse(challenge.targetConfig);
-		if (targetConfig.categoryId && targetConfig.categoryId !== categoryId) continue;
+		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化して照合する。
+		const targetConfig = JSON.parse(challenge.targetConfig) as Omit<TargetConfig, 'categoryId'> & {
+			categoryId?: number | string;
+		};
+		const cfgCategoryId =
+			targetConfig.categoryId != null ? asCategoryId(targetConfig.categoryId) : undefined;
+		if (cfgCategoryId && cfgCategoryId !== categoryId) continue;
 
 		if (targetConfig.metric === 'count') {
 			const newValue = challenge.currentValue + 1;
@@ -768,8 +780,8 @@ export async function updateChildChallengeProgress(
 
 /** ごほうび受取 (per-child instance ごと) */
 export async function claimChildChallengeReward(
-	challengeId: number,
-	childId: number,
+	challengeId: string,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<{ points: number; message?: string } | { error: string }> {
 	const repos = getRepos();
@@ -800,7 +812,7 @@ export async function claimChildChallengeReward(
 }
 
 /** 削除 (admin 画面から) */
-export async function deleteChildChallenge(id: number, tenantId: string): Promise<void> {
+export async function deleteChildChallenge(id: string, tenantId: string): Promise<void> {
 	const repos = getRepos();
 	await repos.childChallenge.deleteChallenge(id, tenantId);
 }
@@ -816,12 +828,12 @@ export async function deleteChildChallenge(id: number, tenantId: string): Promis
 export async function buildPerChildTargets(
 	baseTarget: number,
 	ageAdjustments: Record<string, number> | undefined,
-	childIds: readonly number[],
+	childIds: readonly ChildId[],
 	tenantId: string,
-	prefetchedChildren?: readonly { id: number; age: number }[],
-): Promise<Record<number, number>> {
+	prefetchedChildren?: readonly { id: ChildId; age: number }[],
+): Promise<Record<string, number>> {
 	const allChildren = prefetchedChildren ?? (await findAllChildren(tenantId));
-	const result: Record<number, number> = {};
+	const result: Record<string, number> = {};
 	for (const childId of childIds) {
 		const child = allChildren.find((c) => c.id === childId);
 		const age = child?.age ?? 6;

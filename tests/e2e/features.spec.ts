@@ -1,3 +1,4 @@
+import { asCategoryId, asChildId } from '../../src/lib/domain/ids';
 // tests/e2e/features.spec.ts
 // Done チケット機能検証テスト
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
@@ -545,7 +546,7 @@ test.describe('API 正常系: 活動記録', () => {
 
 		const activityId = activities[0].id;
 		const res = await request.post('/api/v1/activity-logs', {
-			data: { childId: 1, activityId },
+			data: { childId: asChildId(1), activityId },
 		});
 		// 201(成功) or 409(既に記録済み)
 		expect([201, 409]).toContain(res.status());
@@ -566,7 +567,7 @@ test.describe('API 正常系: 活動マスタ', () => {
 				name: 'E2Eテスト活動',
 				icon: '🧪',
 				basePoints: 5,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				ageMin: null,
 				ageMax: null,
 			},

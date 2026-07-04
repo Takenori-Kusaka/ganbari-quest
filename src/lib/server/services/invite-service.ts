@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/invite-service.ts
 // 招待リンクサービス (#0129)
 
@@ -14,7 +15,7 @@ export async function createInvite(
 	tenantId: string,
 	invitedBy: string,
 	role: Role,
-	childId?: number,
+	childId?: ChildId,
 	email?: string,
 ): Promise<Invite> {
 	if (role === 'owner') {

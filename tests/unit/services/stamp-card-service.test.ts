@@ -1,3 +1,4 @@
+import { type ChildId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/stamp-card-service.test.ts
 // スタンプカードサービスのユニットテスト
 
@@ -34,7 +35,7 @@ vi.mock('$lib/server/db/client', () => ({
 // insertPointEntry をモックしてDBに直接挿入
 vi.mock('$lib/server/db/point-repo', () => ({
 	insertPointEntry: async (input: {
-		childId: number;
+		childId: ChildId;
 		amount: number;
 		type: string;
 		description: string;
@@ -42,7 +43,7 @@ vi.mock('$lib/server/db/point-repo', () => ({
 		testDb
 			.insert(schema.pointLedger)
 			.values({
-				childId: input.childId,
+				childId: Number(input.childId),
 				amount: input.amount,
 				type: input.type,
 				description: input.description,
@@ -108,8 +109,16 @@ function seedAll() {
 	seedStampMasters();
 }
 
-function insertStampEntry(cardId: number, stampMasterId: number, slot: number, loginDate: string) {
-	testDb.insert(schema.stampEntries).values({ cardId, stampMasterId, slot, loginDate }).run();
+function insertStampEntry(
+	cardId: string | number,
+	stampMasterId: number,
+	slot: number,
+	loginDate: string,
+) {
+	testDb
+		.insert(schema.stampEntries)
+		.values({ cardId: Number(cardId), stampMasterId, slot, loginDate })
+		.run();
 }
 
 const TENANT = 'test-tenant';
@@ -151,7 +160,7 @@ describe('stamp-card-service', () => {
 
 		it('各スタンプにid, name, emoji, rarityが含まれる', async () => {
 			const stamps = await getEnabledStamps(TENANT);
-			const first = stamps[0] ?? { id: 0, name: '', emoji: '', rarity: '' };
+			const first = stamps[0] ?? { id: '0', name: '', emoji: '', rarity: '' };
 			expect(typeof first.id).toBe('number');
 			expect(typeof first.name).toBe('string');
 			expect(typeof first.emoji).toBe('string');
@@ -169,8 +178,8 @@ describe('stamp-card-service', () => {
 		});
 
 		it('新しいカードを作成して返す（今週初回）', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
-			expect(card.childId).toBe(1);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
+			expect(card.childId).toBe('1');
 			expect(card.weekStart).toBe('2026-03-30'); // 月曜
 			expect(card.weekEnd).toBe('2026-04-05'); // 日曜
 			expect(card.status).toBe('collecting');
@@ -182,8 +191,8 @@ describe('stamp-card-service', () => {
 		});
 
 		it('既存のカードがあればそれを返す（2回呼び出し）', async () => {
-			const card1 = await getOrCreateCurrentCard(1, TENANT);
-			const card2 = await getOrCreateCurrentCard(1, TENANT);
+			const card1 = await getOrCreateCurrentCard(asChildId(1), TENANT);
+			const card2 = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(card1.id).toBe(card2.id);
 			expect(card1.weekStart).toBe(card2.weekStart);
 		});
@@ -194,62 +203,62 @@ describe('stamp-card-service', () => {
 				.insert(schema.children)
 				.values({ nickname: 'テスト2号', age: 8, theme: 'green' })
 				.run();
-			const card1 = await getOrCreateCurrentCard(1, TENANT);
-			const card2 = await getOrCreateCurrentCard(2, TENANT);
+			const card1 = await getOrCreateCurrentCard(asChildId(1), TENANT);
+			const card2 = await getOrCreateCurrentCard(asChildId(2), TENANT);
 			expect(card1.id).not.toBe(card2.id);
-			expect(card1.childId).toBe(1);
-			expect(card2.childId).toBe(2);
+			expect(card1.childId).toBe('1');
+			expect(card2.childId).toBe('2');
 		});
 
 		it('週の途中の日付でも正しい週範囲を計算する', async () => {
 			mockToday = '2026-04-02'; // 木曜日
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(card.weekStart).toBe('2026-03-30'); // 同じ週の月曜
 			expect(card.weekEnd).toBe('2026-04-05'); // 同じ週の日曜
 		});
 
 		it('日曜日でも正しい週範囲を計算する', async () => {
 			mockToday = '2026-04-05'; // 日曜日
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(card.weekStart).toBe('2026-03-30');
 			expect(card.weekEnd).toBe('2026-04-05');
 		});
 
 		it('canStampTodayは今日押印済みならfalse', async () => {
 			// カード作成
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			// スタンプ押印
 			insertStampEntry(card.id, 1, 1, '2026-03-30');
 
-			const updated = await getOrCreateCurrentCard(1, TENANT);
+			const updated = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(updated.canStampToday).toBe(false);
 			expect(updated.filledSlots).toBe(1);
 		});
 
 		it('canStampTodayは5枠埋まっている場合はfalse', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			for (let i = 1; i <= 5; i++) {
 				insertStampEntry(card.id, ((i - 1) % 3) + 1, i, `2026-03-${24 + i}`);
 			}
 
-			const updated = await getOrCreateCurrentCard(1, TENANT);
+			const updated = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(updated.canStampToday).toBe(false);
 			expect(updated.filledSlots).toBe(5);
 		});
 
 		it('canStampTodayはredeemedカードではfalse', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			// ステータスを直接更新
 			testDb
 				.update(schema.stampCards)
 				.set({ status: 'redeemed' })
 				.where(
 					// biome-ignore lint/suspicious/noExplicitAny: test code
-					(require('drizzle-orm') as any).eq(schema.stampCards.id, card.id),
+					(require('drizzle-orm') as any).eq(schema.stampCards.id, Number(card.id)),
 				)
 				.run();
 
-			const updated = await getOrCreateCurrentCard(1, TENANT);
+			const updated = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(updated.canStampToday).toBe(false);
 		});
 	});
@@ -264,7 +273,7 @@ describe('stamp-card-service', () => {
 		});
 
 		it('正常にスタンプを押印できる', async () => {
-			const result = assertSuccess(await stampToday(1, TENANT));
+			const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(result.stamp.slot).toBe(1);
 			expect(result.stamp.loginDate).toBe('2026-03-30');
 			expect(['N', 'R', 'SR', 'UR']).toContain(result.stamp.rarity);
@@ -276,7 +285,7 @@ describe('stamp-card-service', () => {
 		});
 
 		it('スタンプにはomikujiRankが含まれる', async () => {
-			const result = assertSuccess(await stampToday(1, TENANT));
+			const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(typeof result.stamp.omikujiRank).toBe('string');
 			expect(result.stamp.omikujiRank).not.toBe('');
 			expect(['daidaikichi', 'daikichi', 'chukichi', 'shokichi', 'kichi', 'suekichi']).toContain(
@@ -286,44 +295,44 @@ describe('stamp-card-service', () => {
 
 		it('連続で2日押印できる', async () => {
 			mockToday = '2026-03-30';
-			assertSuccess(await stampToday(1, TENANT));
+			assertSuccess(await stampToday(asChildId(1), TENANT));
 
 			mockToday = '2026-03-31';
-			const result2 = assertSuccess(await stampToday(1, TENANT));
+			const result2 = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(result2.stamp.slot).toBe(2);
 			expect(result2.cardData.filledSlots).toBe(2);
 		});
 
 		it('同じ日に2回押印するとALREADY_STAMPEDエラー', async () => {
-			await stampToday(1, TENANT);
-			const result = await stampToday(1, TENANT);
+			await stampToday(asChildId(1), TENANT);
+			const result = await stampToday(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'ALREADY_STAMPED' });
 		});
 
 		it('5枠埋まった後はCARD_FULLエラー', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			for (let i = 1; i <= 5; i++) {
 				insertStampEntry(card.id, ((i - 1) % 3) + 1, i, `2026-03-${24 + i}`);
 			}
 
 			// 今日（2026-03-30）はエントリに含まれないがカード満杯
-			const result = await stampToday(1, TENANT);
+			const result = await stampToday(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'CARD_FULL' });
 		});
 
 		it('redeemed済みのカードにはNOT_COLLECTINGエラー', async () => {
 			// カード作成後にステータスを変更
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			testDb
 				.update(schema.stampCards)
 				.set({ status: 'redeemed' })
 				.where(
 					// biome-ignore lint/suspicious/noExplicitAny: test code
-					(require('drizzle-orm') as any).eq(schema.stampCards.id, card.id),
+					(require('drizzle-orm') as any).eq(schema.stampCards.id, Number(card.id)),
 				)
 				.run();
 
-			const result = await stampToday(1, TENANT);
+			const result = await stampToday(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'NOT_COLLECTING' });
 		});
 
@@ -335,13 +344,13 @@ describe('stamp-card-service', () => {
 			// FK 制約のため delete でなく update で「有効な master 0 件」を作る
 			testDb.update(schema.stampMasters).set({ isEnabled: 0 }).run();
 
-			const result = await stampToday(1, TENANT);
+			const result = await stampToday(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'NO_STAMPS_AVAILABLE' });
 		});
 
 		it('stamp_masters 0 件 + 既に押印済み → ALREADY_STAMPED が優先される', async () => {
 			// 既に押印済みの状態を作る (stamp master 削除前)
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-30');
 
 			// FK 制約: stamp_entries → stamp_masters のため masters を削除する前に
@@ -350,12 +359,12 @@ describe('stamp-card-service', () => {
 			testDb.update(schema.stampMasters).set({ isEnabled: 0 }).run();
 
 			// 既存 entry の検出が先に発火するため NO_STAMPS_AVAILABLE より先に ALREADY_STAMPED
-			const result = await stampToday(1, TENANT);
+			const result = await stampToday(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'ALREADY_STAMPED' });
 		});
 
 		it('スタンプにはスタンプマスタの情報が含まれる', async () => {
-			const result = assertSuccess(await stampToday(1, TENANT));
+			const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(typeof result.stamp.stampMasterId).toBe('number');
 			expect(result.stamp.stampMasterId).toBeGreaterThanOrEqual(1);
 			expect(result.stamp.stampMasterId).toBeLessThanOrEqual(7);
@@ -371,7 +380,7 @@ describe('stamp-card-service', () => {
 		it('stampToday で取得されるスタンプのレアリティは有効な値', async () => {
 			seedAll();
 			mockToday = '2026-03-30';
-			const result = assertSuccess(await stampToday(1, TENANT));
+			const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(['N', 'R', 'SR', 'UR']).toContain(result.stamp.rarity);
 		});
 
@@ -382,7 +391,7 @@ describe('stamp-card-service', () => {
 			// roll = 0.599 * 100 = 59.9 → N 範囲内
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.599);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('N');
 			} finally {
 				spy.mockRestore();
@@ -395,7 +404,7 @@ describe('stamp-card-service', () => {
 			// roll = 0.61 * 100 = 61 → N(60) を超え R(25) 範囲内
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.61);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('R');
 			} finally {
 				spy.mockRestore();
@@ -408,7 +417,7 @@ describe('stamp-card-service', () => {
 			// roll = 0.86 * 100 = 86 → N(60)+R(25)=85 を超え SR(12) 範囲内
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.86);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('SR');
 			} finally {
 				spy.mockRestore();
@@ -421,7 +430,7 @@ describe('stamp-card-service', () => {
 			// roll = 0.98 * 100 = 98 → N(60)+R(25)+SR(12)=97 を超え UR(3) 範囲内
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.98);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('UR');
 			} finally {
 				spy.mockRestore();
@@ -433,7 +442,7 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('N');
 				expect(result.instantPoints).toBe(5);
 			} finally {
@@ -446,7 +455,7 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.61);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('R');
 				expect(result.instantPoints).toBe(10);
 			} finally {
@@ -459,7 +468,7 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.86);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('SR');
 				expect(result.instantPoints).toBe(20);
 			} finally {
@@ -472,7 +481,7 @@ describe('stamp-card-service', () => {
 			mockToday = '2026-03-30';
 			const spy = vi.spyOn(Math, 'random').mockReturnValue(0.98);
 			try {
-				const result = assertSuccess(await stampToday(1, TENANT));
+				const result = assertSuccess(await stampToday(asChildId(1), TENANT));
 				expect(result.stamp.rarity).toBe('UR');
 				expect(result.instantPoints).toBe(40);
 			} finally {
@@ -492,19 +501,19 @@ describe('stamp-card-service', () => {
 		it('月・水・金の非連続3日でスタンプが3枠埋まる', async () => {
 			// 月曜
 			mockToday = '2026-03-30';
-			const mon = assertSuccess(await stampToday(1, TENANT));
+			const mon = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(mon.stamp.slot).toBe(1);
 			expect(mon.cardData.filledSlots).toBe(1);
 
 			// 水曜（火曜をスキップ）
 			mockToday = '2026-04-01';
-			const wed = assertSuccess(await stampToday(1, TENANT));
+			const wed = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(wed.stamp.slot).toBe(2);
 			expect(wed.cardData.filledSlots).toBe(2);
 
 			// 金曜（木曜をスキップ）
 			mockToday = '2026-04-03';
-			const fri = assertSuccess(await stampToday(1, TENANT));
+			const fri = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(fri.stamp.slot).toBe(3);
 			expect(fri.cardData.filledSlots).toBe(3);
 
@@ -516,17 +525,17 @@ describe('stamp-card-service', () => {
 		it('火・木・土の非連続3日でも同一カード', async () => {
 			// 火曜
 			mockToday = '2026-03-31';
-			const tue = assertSuccess(await stampToday(1, TENANT));
+			const tue = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(tue.stamp.slot).toBe(1);
 
 			// 木曜
 			mockToday = '2026-04-02';
-			const thu = assertSuccess(await stampToday(1, TENANT));
+			const thu = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(thu.stamp.slot).toBe(2);
 
 			// 土曜
 			mockToday = '2026-04-04';
-			const sat = assertSuccess(await stampToday(1, TENANT));
+			const sat = assertSuccess(await stampToday(asChildId(1), TENANT));
 			expect(sat.stamp.slot).toBe(3);
 
 			// 同一カード
@@ -545,14 +554,14 @@ describe('stamp-card-service', () => {
 		});
 
 		it('5枠コンプリートで正しいポイントを計算する（10*5 + 50 = 100）', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24'); // N
 			insertStampEntry(card.id, 2, 2, '2026-03-25'); // N
 			insertStampEntry(card.id, 3, 3, '2026-03-26'); // N
 			insertStampEntry(card.id, 4, 4, '2026-03-27'); // R
 			insertStampEntry(card.id, 6, 5, '2026-03-28'); // SR
 
-			const result = assertSuccess(await redeemStampCard(1, TENANT));
+			const result = assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 			// 5 stamps * 10pt/stamp = 50 + COMPLETE_BONUS(50) = 100
 			expect(result.stampPoints).toBe(50);
 			expect(result.completeBonus).toBe(50);
@@ -560,11 +569,11 @@ describe('stamp-card-service', () => {
 		});
 
 		it('レア度によらずスタンプ1個は10ポイント固定', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			// UR rarity 1枠のみ (stamp_master id=7 はUR)
 			insertStampEntry(card.id, 7, 1, '2026-03-24');
 
-			const result = assertSuccess(await redeemStampCard(1, TENANT));
+			const result = assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 			// 1 stamp * 10pt = 10, not complete => no bonus
 			expect(result.stampPoints).toBe(10);
 			expect(result.completeBonus).toBe(0);
@@ -572,61 +581,61 @@ describe('stamp-card-service', () => {
 		});
 
 		it('3枠の場合: 30pt（ボーナスなし）', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 			insertStampEntry(card.id, 4, 2, '2026-03-25');
 			insertStampEntry(card.id, 6, 3, '2026-03-26');
 
-			const result = assertSuccess(await redeemStampCard(1, TENANT));
+			const result = assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 			expect(result.stampPoints).toBe(30);
 			expect(result.completeBonus).toBe(0);
 			expect(result.points).toBe(30);
 		});
 
 		it('交換済みカードはALREADY_REDEEMEDエラー', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 
 			// 1回目は成功
-			assertSuccess(await redeemStampCard(1, TENANT));
+			assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 
 			// 2回目はエラー
-			const second = await redeemStampCard(1, TENANT);
+			const second = await redeemStampCard(asChildId(1), TENANT);
 			expect(second).toEqual({ error: 'ALREADY_REDEEMED' });
 		});
 
 		it('スタンプが0枚のカードはEMPTY_CARDエラー', async () => {
-			await getOrCreateCurrentCard(1, TENANT);
+			await getOrCreateCurrentCard(asChildId(1), TENANT);
 
-			const result = await redeemStampCard(1, TENANT);
+			const result = await redeemStampCard(asChildId(1), TENANT);
 			expect(result).toEqual({ error: 'EMPTY_CARD' });
 		});
 
 		it('交換後にカードのステータスがredeemedに変わる', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 
-			await redeemStampCard(1, TENANT);
+			await redeemStampCard(asChildId(1), TENANT);
 
-			const updated = await getOrCreateCurrentCard(1, TENANT);
+			const updated = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(updated.status).toBe('redeemed');
 		});
 
 		it('交換後にredeemedPointsが記録される', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24'); // 10pt
 
-			assertSuccess(await redeemStampCard(1, TENANT));
+			assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 
-			const updated = await getOrCreateCurrentCard(1, TENANT);
+			const updated = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(updated.redeemedPoints).toBe(10);
 		});
 
 		it('交換後にpoint_ledgerにエントリが追加される', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24'); // 10pt
 
-			await redeemStampCard(1, TENANT);
+			await redeemStampCard(asChildId(1), TENANT);
 
 			const ledger = testDb
 				.select()
@@ -652,7 +661,7 @@ describe('stamp-card-service', () => {
 		});
 
 		it('POINTS_PER_STAMP = 10, COMPLETE_BONUS = 50, MAX_SLOTS = 5', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			expect(card.totalSlots).toBe(5); // MAX_SLOTS
 
 			// 5枠すべてで埋める
@@ -662,19 +671,19 @@ describe('stamp-card-service', () => {
 			insertStampEntry(card.id, 1, 4, '2026-03-27');
 			insertStampEntry(card.id, 2, 5, '2026-03-28');
 
-			const result = assertSuccess(await redeemStampCard(1, TENANT));
+			const result = assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 			// 5 * 10 = 50 + 50 (bonus) = 100
 			expect(result.points).toBe(100);
 		});
 
 		it('4枠ではコンプリートボーナスなし', async () => {
-			const card = await getOrCreateCurrentCard(1, TENANT);
+			const card = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(card.id, 1, 1, '2026-03-24');
 			insertStampEntry(card.id, 2, 2, '2026-03-25');
 			insertStampEntry(card.id, 3, 3, '2026-03-26');
 			insertStampEntry(card.id, 1, 4, '2026-03-27');
 
-			const result = assertSuccess(await redeemStampCard(1, TENANT));
+			const result = assertSuccess(await redeemStampCard(asChildId(1), TENANT));
 			expect(result.completeBonus).toBe(0);
 			expect(result.stampPoints).toBe(40); // 4 * 10
 			expect(result.points).toBe(40);
@@ -691,14 +700,14 @@ describe('stamp-card-service', () => {
 		});
 
 		it('正常にカードデータを返す', async () => {
-			const status = await getStampCardStatus(1, TENANT);
+			const status = await getStampCardStatus(asChildId(1), TENANT);
 			expect(status).not.toBeNull();
-			expect(status?.childId).toBe(1);
+			expect(status?.childId).toBe('1');
 			expect(status?.status).toBe('collecting');
 		});
 
 		it('存在しないchildIdではnullを返す', async () => {
-			const status = await getStampCardStatus(999, TENANT);
+			const status = await getStampCardStatus(asChildId(999), TENANT);
 			expect(status).toBeNull();
 		});
 	});
@@ -713,10 +722,10 @@ describe('stamp-card-service', () => {
 
 		it('異なる週は別のカードが作成される', async () => {
 			mockToday = '2026-03-30'; // 第1週の月曜
-			const card1 = await getOrCreateCurrentCard(1, TENANT);
+			const card1 = await getOrCreateCurrentCard(asChildId(1), TENANT);
 
 			mockToday = '2026-04-06'; // 第2週の月曜
-			const card2 = await getOrCreateCurrentCard(1, TENANT);
+			const card2 = await getOrCreateCurrentCard(asChildId(1), TENANT);
 
 			expect(card1.id).not.toBe(card2.id);
 			expect(card1.weekStart).toBe('2026-03-30');
@@ -725,10 +734,10 @@ describe('stamp-card-service', () => {
 
 		it('同じ週の別の日は同じカードを返す', async () => {
 			mockToday = '2026-03-30'; // 月曜
-			const card1 = await getOrCreateCurrentCard(1, TENANT);
+			const card1 = await getOrCreateCurrentCard(asChildId(1), TENANT);
 
 			mockToday = '2026-04-03'; // 金曜（同じ週）
-			const card2 = await getOrCreateCurrentCard(1, TENANT);
+			const card2 = await getOrCreateCurrentCard(asChildId(1), TENANT);
 
 			expect(card1.id).toBe(card2.id);
 		});
@@ -745,14 +754,14 @@ describe('stamp-card-service', () => {
 		it('前週のカードを自動redeemしてポイントを返す', async () => {
 			// 前週（2026-03-23〜2026-03-29）にカードを作成してスタンプ押印
 			mockToday = '2026-03-23';
-			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			const prevCard = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(prevCard.id, 1, 1, '2026-03-23');
 			insertStampEntry(prevCard.id, 2, 2, '2026-03-24');
 			insertStampEntry(prevCard.id, 4, 3, '2026-03-25');
 
 			// 今週の月曜にautoRedeem
 			mockToday = '2026-03-30';
-			const result = await autoRedeemPreviousWeek(1, TENANT);
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
 			expect(result).not.toBeNull();
 			expect(result?.stampPoints).toBe(30); // 3 * 10
 			expect(result?.completeBonus).toBe(0); // 3/5 未完了
@@ -763,30 +772,30 @@ describe('stamp-card-service', () => {
 
 		it('前週のカードがない場合はnullを返す', async () => {
 			mockToday = '2026-03-30';
-			const result = await autoRedeemPreviousWeek(1, TENANT);
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
 			expect(result).toBeNull();
 		});
 
 		it('前週のカードがすでにredeem済みの場合はnullを返す', async () => {
 			mockToday = '2026-03-23';
-			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			const prevCard = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(prevCard.id, 1, 1, '2026-03-23');
-			await redeemStampCard(1, TENANT);
+			await redeemStampCard(asChildId(1), TENANT);
 
 			mockToday = '2026-03-30';
-			const result = await autoRedeemPreviousWeek(1, TENANT);
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
 			expect(result).toBeNull();
 		});
 
 		it('5枠コンプリートでボーナスが付与される', async () => {
 			mockToday = '2026-03-23';
-			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			const prevCard = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			for (let i = 1; i <= 5; i++) {
 				insertStampEntry(prevCard.id, ((i - 1) % 3) + 1, i, `2026-03-${22 + i}`);
 			}
 
 			mockToday = '2026-03-30';
-			const result = await autoRedeemPreviousWeek(1, TENANT);
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT);
 			expect(result).not.toBeNull();
 			expect(result?.stampPoints).toBe(50); // 5 * 10
 			expect(result?.completeBonus).toBe(50);
@@ -796,11 +805,11 @@ describe('stamp-card-service', () => {
 
 		it('loginMultiplierが反映される', async () => {
 			mockToday = '2026-03-23';
-			const prevCard = await getOrCreateCurrentCard(1, TENANT);
+			const prevCard = await getOrCreateCurrentCard(asChildId(1), TENANT);
 			insertStampEntry(prevCard.id, 1, 1, '2026-03-23'); // 10pt
 
 			mockToday = '2026-03-30';
-			const result = await autoRedeemPreviousWeek(1, TENANT, 2);
+			const result = await autoRedeemPreviousWeek(asChildId(1), TENANT, 2);
 			expect(result).not.toBeNull();
 			// 10 * 2 (multiplier) = 20
 			expect(result?.points).toBe(20);

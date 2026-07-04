@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/combo-service.ts
 // コンボボーナスシステム - 同日の複数活動にボーナスを付与
 
@@ -27,7 +28,7 @@ const CROSS_CATEGORY_TABLE = [
 ] as const;
 
 export interface CategoryComboEntry {
-	categoryId: number;
+	categoryId: CategoryId;
 	uniqueCount: number;
 	name: string;
 	bonus: number;
@@ -79,7 +80,7 @@ function calcCrossCategoryBonus(categoryCount: number): CrossCategoryCombo | nul
  * Returns the combo result with only the newly granted bonus amount.
  */
 export async function checkAndGrantCombo(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	tenantId: string,
 ): Promise<ComboResult> {
@@ -87,7 +88,7 @@ export async function checkAndGrantCombo(
 	const todayLogs = await findTodayLogsWithCategory(childId, date, tenantId);
 
 	// Group unique activity IDs by categoryId
-	const byCat = new Map<number, Set<number>>();
+	const byCat = new Map<CategoryId, Set<ActivityId>>();
 	for (const log of todayLogs) {
 		const set = byCat.get(log.categoryId) ?? new Set();
 		set.add(log.activityId);
@@ -171,7 +172,7 @@ export async function checkAndGrantCombo(
 /**
  * コンボ予告ヒントを生成
  */
-function generateComboHints(byCat: Map<number, Set<number>>, totalUnique: number): ComboHint[] {
+function generateComboHints(byCat: Map<CategoryId, Set<ActivityId>>, totalUnique: number): ComboHint[] {
 	const hints: ComboHint[] = [];
 
 	// カテゴリコンボのヒント

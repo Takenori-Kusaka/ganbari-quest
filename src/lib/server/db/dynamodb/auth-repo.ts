@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // src/lib/server/db/dynamodb/auth-repo.ts
 // DynamoDB implementation of IAuthRepo (#0123: DeviceToken 廃止)
 
@@ -575,7 +576,7 @@ function itemToInvite(item: Record<string, unknown>): Invite {
 		tenantId: item.tenantId as string,
 		invitedBy: item.invitedBy as string,
 		role: item.role as Role,
-		childId: item.childId as number | undefined,
+		childId: item.childId != null ? asChildId(item.childId as number | string) : undefined,
 		status: item.status as Invite['status'],
 		createdAt: item.createdAt as string,
 		expiresAt: item.expiresAt as string,

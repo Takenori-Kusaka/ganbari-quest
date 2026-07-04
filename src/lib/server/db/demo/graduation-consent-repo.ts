@@ -11,7 +11,7 @@ export async function create(
 	input: CreateGraduationConsentInput,
 ): Promise<GraduationConsentRecord> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId: input.tenantId,
 		nickname: input.nickname,
 		consented: input.consented,

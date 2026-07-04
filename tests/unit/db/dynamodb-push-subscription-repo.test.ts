@@ -274,7 +274,7 @@ describe('insert', () => {
 			subscriberRole: 'parent',
 		});
 
-		expect(result.id).toBe(42);
+		expect(result.id).toBe('42');
 		expect(result.subscriberRole).toBe('parent');
 
 		// PutCommand の Item に subscriberRole が含まれる
@@ -354,7 +354,7 @@ describe('insertLog', () => {
 			success: true,
 		});
 
-		expect(result.id).toBe(100);
+		expect(result.id).toBe('100');
 		expect(result.success).toBe(1);
 		expect(result.errorMessage).toBeNull();
 

@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/server/db/demo/activity-repo-marketplace.test.ts
 // #2097 Phase B-7: demo Lambda activity-repo の marketplace integration を検証する。
 // per-child default pack 仕様 (docs/research/2097-marketplace-default-import-spec.md §3) の充足を assert。
@@ -12,7 +13,7 @@ import {
 describe('demo/activity-repo — marketplace integration (#2097 B-7)', () => {
 	describe('per-child marketplace pack', () => {
 		it('902 (preschool F): kinder-starter から 30 件以上の activities を取得', () => {
-			const activities = getDemoMarketplaceActivitiesByChild(902);
+			const activities = getDemoMarketplaceActivitiesByChild(asChildId(902));
 			expect(activities.length).toBeGreaterThanOrEqual(30);
 			// preset 由来であること
 			expect(activities.every((a) => a.sourcePresetId === 'kinder-starter')).toBe(true);
@@ -21,32 +22,32 @@ describe('demo/activity-repo — marketplace integration (#2097 B-7)', () => {
 		});
 
 		it('903 (elementary M): elementary-boy から 25 件以上', () => {
-			const activities = getDemoMarketplaceActivitiesByChild(903);
+			const activities = getDemoMarketplaceActivitiesByChild(asChildId(903));
 			expect(activities.length).toBeGreaterThanOrEqual(25);
 			expect(activities.every((a) => a.sourcePresetId === 'elementary-boy')).toBe(true);
 		});
 
 		it('904 (junior F): junior-girl から 20 件以上', () => {
-			const activities = getDemoMarketplaceActivitiesByChild(904);
+			const activities = getDemoMarketplaceActivitiesByChild(asChildId(904));
 			expect(activities.length).toBeGreaterThanOrEqual(20);
 			expect(activities.every((a) => a.sourcePresetId === 'junior-girl')).toBe(true);
 		});
 
 		it('906 (senior M): senior-boy から 20 件以上', () => {
-			const activities = getDemoMarketplaceActivitiesByChild(906);
+			const activities = getDemoMarketplaceActivitiesByChild(asChildId(906));
 			expect(activities.length).toBeGreaterThanOrEqual(20);
 			expect(activities.every((a) => a.sourcePresetId === 'senior-boy')).toBe(true);
 		});
 
 		it('901 (baby M): marketplace 対象外 — 空配列', () => {
-			const activities = getDemoMarketplaceActivitiesByChild(901);
+			const activities = getDemoMarketplaceActivitiesByChild(asChildId(901));
 			expect(activities).toHaveLength(0);
 		});
 	});
 
 	describe('synthetic ID 衝突回避', () => {
 		it('全 marketplace activities は id >= 5000 (既存 DEMO_ACTIVITIES と衝突しない)', () => {
-			expect(DEMO_MARKETPLACE_ACTIVITIES.every((a) => a.id >= 5000)).toBe(true);
+			expect(DEMO_MARKETPLACE_ACTIVITIES.every((a) => Number(a.id) >= 5000)).toBe(true);
 		});
 
 		it('全 marketplace activities の id は unique', () => {
@@ -83,7 +84,7 @@ describe('demo/activity-repo — marketplace integration (#2097 B-7)', () => {
 		});
 
 		it('marketplace activities は categoryId 1-5 (CATEGORY_CODES 範囲内)', () => {
-			expect(DEMO_MARKETPLACE_ACTIVITIES.every((a) => a.categoryId >= 1 && a.categoryId <= 5)).toBe(
+			expect(DEMO_MARKETPLACE_ACTIVITIES.every((a) => Number(a.categoryId) >= 1 && Number(a.categoryId) <= 5)).toBe(
 				true,
 			);
 		});

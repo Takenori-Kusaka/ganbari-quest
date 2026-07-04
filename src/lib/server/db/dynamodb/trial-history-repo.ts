@@ -43,7 +43,7 @@ const PREFIX = trialHistoryPrefix();
 function toRow(item: Record<string, unknown>): TrialHistoryRow {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
+		id: String(s.id as number),
 		tenantId: s.tenantId as string,
 		startDate: s.startDate as string,
 		endDate: s.endDate as string,
@@ -155,7 +155,7 @@ export async function updateConversion(input: UpdateTrialConversionInput): Promi
 		await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: trialHistoryKey(input.id, input.tenantId),
+				Key: trialHistoryKey(Number(input.id), input.tenantId),
 				UpdateExpression: 'SET stripeSubscriptionId = :sub, upgradeReason = :reason',
 				ExpressionAttributeValues: {
 					':sub': input.stripeSubscriptionId,

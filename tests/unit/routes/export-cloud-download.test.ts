@@ -47,7 +47,7 @@ function readyRecord(overrides: Record<string, unknown> = {}) {
 	const future = new Date();
 	future.setDate(future.getDate() + 3);
 	return {
-		id: 1,
+		id: '1',
 		tenantId: 't-1',
 		s3Key: 'exports/t-1/ABC234/backup.zip',
 		status: 'ready',
@@ -83,7 +83,7 @@ describe('export/cloud/[id]/download GET — 認可', () => {
 		const r = await callGet('parent', '999');
 		expect(r.status).toBe(404);
 		// findById は tenantId 束縛で呼ばれる
-		expect(mockCloudExportRepo.findById).toHaveBeenCalledWith(999, 't-1');
+		expect(mockCloudExportRepo.findById).toHaveBeenCalledWith('999', 't-1');
 	});
 });
 
@@ -125,7 +125,7 @@ describe('export/cloud/[id]/download GET — 配信分岐', () => {
 		expect(mockStorageRepo.getDownloadUrl).toHaveBeenCalledWith('exports/t-1/ABC234/backup.zip', {
 			expiresIn: 300,
 		});
-		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 't-1');
+		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith('1', 't-1');
 	});
 
 	it('NUC(proxy): 200 で readFile を stream し attachment + DL 消費', async () => {
@@ -139,7 +139,7 @@ describe('export/cloud/[id]/download GET — 配信分岐', () => {
 		expect(r.status).toBe(200);
 		expect(r.res?.headers.get('content-type')).toBe('application/zip');
 		expect(r.res?.headers.get('content-disposition')).toContain('backup.zip');
-		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 't-1');
+		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith('1', 't-1');
 	});
 
 	it('proxy で実体不在 (readFile null) は 404', async () => {

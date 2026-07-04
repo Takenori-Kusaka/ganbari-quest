@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/status-service.ts
 // ステータス管理サービス層
 
@@ -34,7 +35,7 @@ export interface StatusDetail {
 }
 
 export interface ChildStatus {
-	childId: number;
+	childId: ChildId;
 	/** @deprecated 全体レベルは廃止。カテゴリ別レベルを使用。後方互換のため残存 */
 	level: number;
 	/** @deprecated */
@@ -42,14 +43,14 @@ export interface ChildStatus {
 	/** @deprecated */
 	expToNextLevel: number;
 	maxValue: number;
-	statuses: Record<number, StatusDetail>;
+	statuses: Record<string, StatusDetail>;
 	characterType: string;
 	highestCategoryLevel: number;
 }
 
 /** 子供のステータスを取得 */
 export async function getChildStatus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildStatus | { error: 'NOT_FOUND' }> {
 	const child = await findChildById(childId, tenantId);
@@ -59,7 +60,7 @@ export async function getChildStatus(
 		findStatuses(childId, tenantId),
 		getCustomLevelTitles(tenantId),
 	]);
-	const statusMap: Record<number, StatusDetail> = {};
+	const statusMap: Record<string, StatusDetail> = {};
 
 	let totalDeviation = 0;
 	let categoryCount = 0;
@@ -122,14 +123,14 @@ export async function getChildStatus(
 
 /** 月次比較データ */
 export interface MonthlyComparison {
-	current: Record<number, number>;
-	previous: Record<number, number>;
-	changes: Record<number, number>;
+	current: Record<string, number>;
+	previous: Record<string, number>;
+	changes: Record<string, number>;
 }
 
 /** 先月末時点と現在のステータスを比較 */
 export async function getMonthlyComparison(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<MonthlyComparison | null> {
 	const child = await findChildById(childId, tenantId);
@@ -142,9 +143,9 @@ export async function getMonthlyComparison(
 	const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 	const lastMonthEnd = firstOfMonth.toISOString();
 
-	const current: Record<number, number> = {};
-	const previous: Record<number, number> = {};
-	const changes: Record<number, number> = {};
+	const current: Record<string, number> = {};
+	const previous: Record<string, number> = {};
+	const changes: Record<string, number> = {};
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
@@ -165,8 +166,8 @@ export async function getMonthlyComparison(
 export async function getBenchmarkValues(
 	age: number,
 	tenantId: string,
-): Promise<Record<number, number>> {
-	const result: Record<number, number> = {};
+): Promise<Record<string, number>> {
+	const result: Record<string, number> = {};
 	for (const catDef of CATEGORY_DEFS) {
 		const benchmark = await findBenchmark(age, catDef.id, tenantId);
 		result[catDef.id] = benchmark?.mean ?? 0;
@@ -187,9 +188,9 @@ export interface CategoryXpInfo {
 
 /** カテゴリ別XP情報を取得（ベンチマーク・偏差値を省略した軽量版） */
 export async function getCategoryXpSummary(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-): Promise<Record<number, CategoryXpInfo> | null> {
+): Promise<Record<string, CategoryXpInfo> | null> {
 	const child = await findChildById(childId, tenantId);
 	if (!child) return null;
 
@@ -197,7 +198,7 @@ export async function getCategoryXpSummary(
 		findStatuses(childId, tenantId),
 		getCustomLevelTitles(tenantId),
 	]);
-	const result: Record<number, CategoryXpInfo> = {};
+	const result: Record<string, CategoryXpInfo> = {};
 
 	for (const catDef of CATEGORY_DEFS) {
 		const row = statusRows.find((s) => s.categoryId === catDef.id);
@@ -223,7 +224,7 @@ export interface LevelUpInfo {
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	spGranted: number;
 }
@@ -238,8 +239,8 @@ export interface StatusUpdateResult {
 
 /** ステータスを更新する（活動記録・週次評価・日次減衰から呼ばれる） */
 export async function updateStatus(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	changeAmount: number,
 	changeType: string,
 	tenantId: string,

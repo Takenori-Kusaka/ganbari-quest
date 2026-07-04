@@ -1,6 +1,7 @@
 // #2322 (EPIC #2319 ③): activities グループ load + action。
 // 旧 /admin/settings/+page.server.ts から decay / point / defaultChild / sibling 関連を移行。
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
@@ -21,7 +22,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let decayIntensity = 'normal';
 	let siblingRankingEnabled = 'false';
 	let children: Awaited<ReturnType<typeof getAllChildren>> = [];
-	let defaultChildId: number | null = null;
+	let defaultChildId: ChildId | null = null;
 
 	const planTier = await resolveFullPlanTier(
 		tenantId,
@@ -63,8 +64,8 @@ export const actions = {
 			return { defaultChildUpdated: true };
 		}
 
-		const childId = Number(raw);
-		if (!Number.isFinite(childId) || childId <= 0) {
+		const childId = asChildId(raw);
+		if (!childId) {
 			return fail(400, { defaultChildError: '子供IDが不正です' });
 		}
 

@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 import { notFound, validationError } from '$lib/server/errors';
 import { getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
@@ -9,8 +10,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
-	if (Number.isNaN(childId)) return validationError('IDが不正です');
+	const childId = asChildId(params.childId);
+	if (!childId) return validationError('IDが不正です');
 
 	const result = await getLoginBonusStatus(childId, tenantId);
 	if ('error' in result) {

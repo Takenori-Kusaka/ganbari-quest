@@ -12,6 +12,7 @@ import {
 	type TestSqlite,
 } from '../../helpers/plan-fixtures';
 import { closeDb, createTestDb } from './test-db';
+import { asChildId } from '$lib/domain/ids';
 
 /** ローカル時刻ベースで "YYYY-MM-DD" を返す（helper 側と同じ formatDate） */
 function todayLocalStr(): string {
@@ -48,10 +49,10 @@ describe('plan-fixtures', () => {
 		});
 
 		it('overrides が反映される', () => {
-			const ctx = makeFreeContext({ tenantId: 't-42', role: 'parent', childId: 7 });
+			const ctx = makeFreeContext({ tenantId: 't-42', role: 'parent', childId: asChildId(7) });
 			expect(ctx.tenantId).toBe('t-42');
 			expect(ctx.role).toBe('parent');
-			expect(ctx.childId).toBe(7);
+			expect(ctx.childId).toBe('7');
 		});
 	});
 

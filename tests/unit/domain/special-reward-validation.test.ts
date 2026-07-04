@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/domain/special-reward-validation.test.ts
 // 特別報酬ドメインバリデーションのユニットテスト
 
@@ -34,7 +35,7 @@ describe('rewardCategorySchema', () => {
 
 describe('grantSpecialRewardSchema', () => {
 	const validData = {
-		childId: 1,
+		childId: asChildId(1),
 		title: 'テスト100点',
 		points: 100,
 		category: 'academic',
@@ -61,7 +62,7 @@ describe('grantSpecialRewardSchema', () => {
 		});
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe(3);
+			expect(result.data.childId).toBe('3');
 		}
 	});
 
@@ -102,19 +103,19 @@ describe('grantSpecialRewardSchema', () => {
 
 describe('specialRewardQuerySchema', () => {
 	it('正の整数を受け入れる', () => {
-		expect(specialRewardQuerySchema.safeParse({ childId: 1 }).success).toBe(true);
+		expect(specialRewardQuerySchema.safeParse({ childId: asChildId(1) }).success).toBe(true);
 	});
 
 	it('文字列を数値に変換する', () => {
 		const result = specialRewardQuerySchema.safeParse({ childId: '5' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe(5);
+			expect(result.data.childId).toBe('5');
 		}
 	});
 
 	it('0を拒否する', () => {
-		expect(specialRewardQuerySchema.safeParse({ childId: 0 }).success).toBe(false);
+		expect(specialRewardQuerySchema.safeParse({ childId: asChildId(0) }).success).toBe(false);
 	});
 });
 

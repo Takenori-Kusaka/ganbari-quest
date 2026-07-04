@@ -3,6 +3,7 @@
 // 貼り替え、欠落時は null 化して dangling reference を作らないことを検証する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // storage.fileExists / image-repo.updateChildAvatarUrl を mock（remap の分岐を制御）
 vi.mock('$lib/server/storage', () => ({ fileExists: vi.fn(), saveFile: vi.fn() }));
@@ -29,8 +30,8 @@ function makeState(
 	return {
 		// biome-ignore lint/suspicious/noExplicitAny: remap は data.family.children のみ参照する最小 stub
 		data: { family: { children: [{ exportId: 'c1', avatarUrl }] } } as any,
-		childIdMap: new Map([['c1', 100]]),
-		oldChildToNew: new Map([[5, 100]]),
+		childIdMap: new Map([['c1', asChildId(100)]]),
+		oldChildToNew: new Map([['5', asChildId(100)]]),
 		relativeKeyRemap,
 	};
 }
@@ -49,13 +50,13 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 		fileExistsMock.mockResolvedValue(false);
 		await remapChildAvatarUrls(makeState('/tenants/t-old/avatars/5/abc.png'), TENANT, makeResult());
 		expect(fileExistsMock).toHaveBeenCalledWith('tenants/t-new/avatars/100/abc.png');
-		expect(updateMock).toHaveBeenCalledWith(100, null, TENANT);
+		expect(updateMock).toHaveBeenCalledWith('100', null, TENANT);
 	});
 
 	it('復元ファイルが実在する場合は新 storage key の公開 URL に貼り替える', async () => {
 		fileExistsMock.mockResolvedValue(true);
 		await remapChildAvatarUrls(makeState('/tenants/t-old/avatars/5/abc.png'), TENANT, makeResult());
-		expect(updateMock).toHaveBeenCalledWith(100, '/tenants/t-new/avatars/100/abc.png', TENANT);
+		expect(updateMock).toHaveBeenCalledWith('100', '/tenants/t-new/avatars/100/abc.png', TENANT);
 	});
 
 	it('relativeKeyRemap（ZIP 復元）にヒットしても、実ファイル欠落なら null 化する（dangling 防止）', async () => {
@@ -66,7 +67,7 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 			TENANT,
 			makeResult(),
 		);
-		expect(updateMock).toHaveBeenCalledWith(100, null, TENANT);
+		expect(updateMock).toHaveBeenCalledWith('100', null, TENANT);
 	});
 
 	it('avatarUrl が無い child は更新しない', async () => {
@@ -83,7 +84,7 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 		// unsafe key は決して fileExists で probe されない（存在オラクル化を防ぐ）
 		expect(fileExistsMock).not.toHaveBeenCalled();
 		// dangling→null と同じ挙動で avatarUrl は null 化される
-		expect(updateMock).toHaveBeenCalledWith(100, null, TENANT);
+		expect(updateMock).toHaveBeenCalledWith('100', null, TENANT);
 		// traversed/.. を含む key で更新しない（公開 URL を永続化しない）
 		for (const call of updateMock.mock.calls) {
 			expect(String(call[1])).not.toContain('..');

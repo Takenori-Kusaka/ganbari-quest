@@ -1,3 +1,5 @@
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
@@ -86,7 +88,7 @@ export const actions: Actions = {
 
 		// child ロールは紐づけ済みの自分のプロフィールのみ選択可 (#0156)
 		if (locals.context?.role === 'child' && locals.context.childId) {
-			if (Number(childId) !== locals.context.childId) {
+			if (asChildId(String(childId)) !== locals.context.childId) {
 				return { error: 'このプロフィールは選べません' };
 			}
 		}
@@ -104,7 +106,7 @@ export const actions: Actions = {
 		// 次に子が「ご家族の見守り画面」リンク click した時に再 PIN 要求なしで /admin 即到達 = privacy リスク継続
 		cookies.delete(PARENT_SESSION_COOKIE_NAME, { path: '/' });
 
-		const child = await getChildById(Number(childId), tenantId);
+		const child = await getChildById(asChildId(String(childId)), tenantId);
 		const uiMode = child?.uiMode ?? 'preschool';
 		redirect(303, `/${uiMode}/home`);
 	},
@@ -116,7 +118,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 
 		if (!childId) {
 			return { error: 'Invalid childId' };

@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
@@ -21,7 +22,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	const fiscalYear = url.searchParams.get('year') ?? currentFiscalYear();
 	const childIdParam = url.searchParams.get('childId');
-	const selectedChildId = childIdParam ? Number(childIdParam) : (children[0]?.id ?? 0);
+	const selectedChildId = childIdParam ? asChildId(childIdParam) : (children[0]?.id ?? asChildId(''));
 
 	const [book, isPremium] = await Promise.all([
 		buildGrowthBook(selectedChildId, fiscalYear, tenantId),

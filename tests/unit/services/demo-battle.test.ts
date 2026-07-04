@@ -1,14 +1,15 @@
+import { asChildId } from '$lib/domain/ids';
 import { describe, expect, it } from 'vitest';
 import { getDemoBattleData } from '$lib/server/demo/demo-service';
 
 describe('getDemoBattleData', () => {
 	it('returns null battle for unknown childId', () => {
-		const result = getDemoBattleData(0);
+		const result = getDemoBattleData(asChildId(0));
 		expect(result.battle).toBeNull();
 	});
 
 	it('returns valid battle data for ひなちゃん (preschool)', () => {
-		const result = getDemoBattleData(902);
+		const result = getDemoBattleData(asChildId(902));
 		expect(result.battle).not.toBeNull();
 		if (!result.battle) return;
 
@@ -27,8 +28,8 @@ describe('getDemoBattleData', () => {
 
 	it('returns scaled enemy HP based on age mode', () => {
 		// baby (scaling 0.3) should have lower enemy HP than junior (scaling 1.0)
-		const baby = getDemoBattleData(901);
-		const junior = getDemoBattleData(904);
+		const baby = getDemoBattleData(asChildId(901));
+		const junior = getDemoBattleData(asChildId(904));
 
 		expect(baby.battle).not.toBeNull();
 		expect(junior.battle).not.toBeNull();
@@ -43,7 +44,7 @@ describe('getDemoBattleData', () => {
 		// #703: 5 人構成 — 905 を廃止し、906 (けいすけくん/senior) を追加
 		const childIds = [901, 902, 903, 904, 906];
 		for (const id of childIds) {
-			const result = getDemoBattleData(id);
+			const result = getDemoBattleData(asChildId(id));
 			expect(result.battle).not.toBeNull();
 			if (!result.battle) continue;
 			expect(result.battle.playerStats.hp).toBeGreaterThan(0);
@@ -53,8 +54,8 @@ describe('getDemoBattleData', () => {
 
 	it('playerStats reflect category XP differences between children', () => {
 		// たろう (baby, low XP) vs さくら (junior, high XP)
-		const baby = getDemoBattleData(901);
-		const junior = getDemoBattleData(904);
+		const baby = getDemoBattleData(asChildId(901));
+		const junior = getDemoBattleData(asChildId(904));
 
 		expect(baby.battle).not.toBeNull();
 		expect(junior.battle).not.toBeNull();

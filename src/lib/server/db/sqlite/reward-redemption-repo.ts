@@ -2,8 +2,28 @@
 // ごほうびショップ交換申請リポジトリ (#1337)
 
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
+import type {
+	RedemptionRequestRow,
+	RedemptionRequestWithDetails,
+	RedemptionRequestWithReward,
+} from '../interfaces/reward-redemption-repo.interface';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
+
+type RequestRow = typeof rewardRedemptionRequests.$inferSelect;
+
+const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	rewardId: String(r.rewardId),
+	requestedAt: r.requestedAt,
+	status: r.status,
+	parentNote: r.parentNote,
+	resolvedAt: r.resolvedAt,
+	resolvedByParentId: r.resolvedByParentId,
+	shownToChildAt: r.shownToChildAt,
+});
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
@@ -20,12 +40,12 @@ const snapshotPoints = sql<number>`COALESCE(${rewardRedemptionRequests.rewardPoi
 /** 交換申請を作成（#2832: reward title/points/icon の申請時点 snapshot を保存） */
 export async function insertRedemptionRequest(
 	input: {
-		childId: number;
-		rewardId: number;
+		childId: ChildId;
+		rewardId: string;
 		requestedAt: number;
 	},
 	_tenantId: string,
-) {
+): Promise<RedemptionRequestRow> {
 	const reward = db
 		.select({
 			title: specialRewards.title,
@@ -33,22 +53,24 @@ export async function insertRedemptionRequest(
 			icon: specialRewards.icon,
 		})
 		.from(specialRewards)
-		.where(eq(specialRewards.id, input.rewardId))
+		.where(eq(specialRewards.id, Number(input.rewardId)))
 		.get();
 
-	return db
-		.insert(rewardRedemptionRequests)
-		.values({
-			childId: input.childId,
-			rewardId: input.rewardId,
-			requestedAt: input.requestedAt,
-			status: 'pending_parent_approval',
-			rewardTitle: reward?.title ?? null,
-			rewardPoints: reward?.points ?? null,
-			rewardIcon: reward?.icon ?? null,
-		})
-		.returning()
-		.get();
+	return toRequestRow(
+		db
+			.insert(rewardRedemptionRequests)
+			.values({
+				childId: Number(input.childId),
+				rewardId: Number(input.rewardId),
+				requestedAt: input.requestedAt,
+				status: 'pending_parent_approval',
+				rewardTitle: reward?.title ?? null,
+				rewardPoints: reward?.points ?? null,
+				rewardIcon: reward?.icon ?? null,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /**
@@ -58,8 +80,8 @@ export async function insertRedemptionRequest(
  */
 export async function insertRedemptionForRestore(
 	input: {
-		childId: number;
-		rewardId: number;
+		childId: ChildId;
+		rewardId: string;
 		requestedAt: number;
 		status: string;
 		parentNote: string | null;
@@ -71,47 +93,53 @@ export async function insertRedemptionForRestore(
 		rewardIcon: string | null;
 	},
 	_tenantId: string,
-) {
-	return db
-		.insert(rewardRedemptionRequests)
-		.values({
-			childId: input.childId,
-			rewardId: input.rewardId,
-			requestedAt: input.requestedAt,
-			status: input.status,
-			parentNote: input.parentNote,
-			resolvedAt: input.resolvedAt,
-			resolvedByParentId: input.resolvedByParentId,
-			shownToChildAt: input.shownToChildAt,
-			rewardTitle: input.rewardTitle,
-			rewardPoints: input.rewardPoints,
-			rewardIcon: input.rewardIcon,
-		})
-		.returning()
-		.get();
+): Promise<RedemptionRequestRow> {
+	return toRequestRow(
+		db
+			.insert(rewardRedemptionRequests)
+			.values({
+				childId: Number(input.childId),
+				rewardId: Number(input.rewardId),
+				requestedAt: input.requestedAt,
+				status: input.status,
+				parentNote: input.parentNote,
+				resolvedAt: input.resolvedAt,
+				resolvedByParentId: input.resolvedByParentId,
+				shownToChildAt: input.shownToChildAt,
+				rewardTitle: input.rewardTitle,
+				rewardPoints: input.rewardPoints,
+				rewardIcon: input.rewardIcon,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /** 子供の交換申請一覧を取得（最新順） */
-export async function findRedemptionRequestsByChild(childId: number, _tenantId: string) {
+export async function findRedemptionRequestsByChild(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<RedemptionRequestRow[]> {
 	return db
 		.select()
 		.from(rewardRedemptionRequests)
-		.where(eq(rewardRedemptionRequests.childId, childId))
+		.where(eq(rewardRedemptionRequests.childId, Number(childId)))
 		.orderBy(desc(rewardRedemptionRequests.requestedAt))
-		.all();
+		.all()
+		.map(toRequestRow);
 }
 
 /** 親がご家族の見守り画面で見る申請一覧（子供名・報酬名を含む） */
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; childId?: number; limit?: number },
-) {
+	opts?: { status?: string; childId?: ChildId; limit?: number },
+): Promise<RedemptionRequestWithDetails[]> {
 	const conditions = [];
 	if (opts?.status) {
 		conditions.push(eq(rewardRedemptionRequests.status, opts.status));
 	}
 	if (opts?.childId) {
-		conditions.push(eq(rewardRedemptionRequests.childId, opts.childId));
+		conditions.push(eq(rewardRedemptionRequests.childId, Number(opts.childId)));
 	}
 
 	const rows = await db
@@ -139,7 +167,12 @@ export async function findRedemptionRequestsByTenant(
 		.limit(opts?.limit ?? 50)
 		.all();
 
-	return rows;
+	return rows.map((r) => ({
+		...r,
+		id: String(r.id),
+		childId: asChildId(r.childId),
+		rewardId: String(r.rewardId),
+	}));
 }
 
 /**
@@ -149,14 +182,14 @@ export async function findRedemptionRequestsByTenant(
  */
 export async function countRedemptionRequestsByTenant(
 	_tenantId: string,
-	opts?: { status?: string; childId?: number },
+	opts?: { status?: string; childId?: ChildId },
 ) {
 	const conditions = [];
 	if (opts?.status) {
 		conditions.push(eq(rewardRedemptionRequests.status, opts.status));
 	}
 	if (opts?.childId) {
-		conditions.push(eq(rewardRedemptionRequests.childId, opts.childId));
+		conditions.push(eq(rewardRedemptionRequests.childId, Number(opts.childId)));
 	}
 
 	const row = db
@@ -173,8 +206,8 @@ export async function countRedemptionRequestsByTenant(
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
  */
 export async function updateRedemptionRequestStatus(
-	childId: number,
-	id: number,
+	childId: ChildId,
+	id: string,
 	updates: {
 		status: string;
 		parentNote?: string | null;
@@ -182,38 +215,48 @@ export async function updateRedemptionRequestStatus(
 		resolvedByParentId?: string | null;
 	},
 	_tenantId: string,
-) {
-	return db
+): Promise<RedemptionRequestRow | undefined> {
+	const row = db
 		.update(rewardRedemptionRequests)
 		.set(updates)
-		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
+		.where(
+			and(
+				eq(rewardRedemptionRequests.id, Number(id)),
+				eq(rewardRedemptionRequests.childId, Number(childId)),
+			),
+		)
 		.returning()
 		.get();
+	return row ? toRequestRow(row) : undefined;
 }
 
 /** 子供の特定報酬に対して pending 申請が存在するか確認 */
 export async function findPendingByChildAndReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	_tenantId: string,
-) {
-	return db
+): Promise<RedemptionRequestRow | undefined> {
+	const row = db
 		.select()
 		.from(rewardRedemptionRequests)
 		.where(
 			and(
-				eq(rewardRedemptionRequests.childId, childId),
-				eq(rewardRedemptionRequests.rewardId, rewardId),
+				eq(rewardRedemptionRequests.childId, Number(childId)),
+				eq(rewardRedemptionRequests.rewardId, Number(rewardId)),
 				eq(rewardRedemptionRequests.status, 'pending_parent_approval'),
 			),
 		)
 		.limit(1)
 		.get();
+	return row ? toRequestRow(row) : undefined;
 }
 
 /** 子供の未表示の承認/却下通知を取得 */
-export async function findUnshownResultByChild(childId: number, _tenantId: string) {
-	return db
+export async function findUnshownResultByChild(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<RedemptionRequestWithReward | undefined> {
+	const row = db
 		.select({
 			id: rewardRedemptionRequests.id,
 			childId: rewardRedemptionRequests.childId,
@@ -232,7 +275,7 @@ export async function findUnshownResultByChild(childId: number, _tenantId: strin
 		.innerJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
 		.where(
 			and(
-				eq(rewardRedemptionRequests.childId, childId),
+				eq(rewardRedemptionRequests.childId, Number(childId)),
 				inArray(rewardRedemptionRequests.status, ['approved', 'rejected']),
 				isNull(rewardRedemptionRequests.shownToChildAt),
 			),
@@ -240,20 +283,33 @@ export async function findUnshownResultByChild(childId: number, _tenantId: strin
 		.orderBy(desc(rewardRedemptionRequests.resolvedAt))
 		.limit(1)
 		.get();
+	return row
+		? { ...row, id: String(row.id), childId: asChildId(row.childId), rewardId: String(row.rewardId) }
+		: undefined;
 }
 
 /**
  * 未表示通知を表示済みにする。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
  */
-export async function markRedemptionResultShown(childId: number, id: number, _tenantId: string) {
+export async function markRedemptionResultShown(
+	childId: ChildId,
+	id: string,
+	_tenantId: string,
+): Promise<RedemptionRequestRow | undefined> {
 	const now = Math.floor(Date.now() / 1000);
-	return db
+	const row = db
 		.update(rewardRedemptionRequests)
 		.set({ shownToChildAt: now })
-		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
+		.where(
+			and(
+				eq(rewardRedemptionRequests.id, Number(id)),
+				eq(rewardRedemptionRequests.childId, Number(childId)),
+			),
+		)
 		.returning()
 		.get();
+	return row ? toRequestRow(row) : undefined;
 }
 
 /** 30日以上 pending の申請を expired に移行 */
@@ -274,13 +330,13 @@ export async function expireOldRedemptions(_tenantId: string) {
 }
 
 /** 特定の reward_id に pending 申請が存在するか確認（削除前チェック用） */
-export async function hasPendingByReward(rewardId: number, _tenantId: string) {
+export async function hasPendingByReward(rewardId: string, _tenantId: string) {
 	const row = db
 		.select({ id: rewardRedemptionRequests.id })
 		.from(rewardRedemptionRequests)
 		.where(
 			and(
-				eq(rewardRedemptionRequests.rewardId, rewardId),
+				eq(rewardRedemptionRequests.rewardId, Number(rewardId)),
 				eq(rewardRedemptionRequests.status, 'pending_parent_approval'),
 			),
 		)

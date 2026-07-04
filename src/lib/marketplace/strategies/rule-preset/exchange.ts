@@ -13,6 +13,7 @@
  *   - ADR-0023 archive (tenant isolation 強制)
  */
 
+import type { ChildId } from '$lib/domain/ids';
 import type { RulePresetPayload } from '$lib/marketplace/schemas/rule-preset-schema.js';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 
@@ -36,7 +37,7 @@ export async function previewExchange(
 	presetId: string,
 	payload: RulePresetPayload,
 	tenantId: string,
-	childId?: number,
+	childId?: ChildId,
 ): Promise<ExchangePreviewResult> {
 	const ruleCount = payload.rules.length;
 	if (childId === undefined) {
@@ -56,7 +57,7 @@ export async function applyExchange(
 	presetId: string,
 	payload: RulePresetPayload,
 	tenantId: string,
-	childId: number | undefined,
+	childId: ChildId | undefined,
 ): Promise<ExchangeApplyResult> {
 	const errors: string[] = [];
 	let imported = 0;

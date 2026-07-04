@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 /**
  * ProductionDashboardService — ADR-0046 (Issue #2069 + #2085)
  *
@@ -66,7 +67,7 @@ export class ProductionDashboardService implements ChildDashboardService {
 	/**
 	 * `child.id` を取得 (write API 共通 prerequisite)。未選択時は null を返す。
 	 */
-	#getChildId(): number | null {
+	#getChildId(): ChildId | null {
 		const home = this.#getHomeData();
 		return home.child?.id ?? null;
 	}
@@ -94,7 +95,7 @@ export class ProductionDashboardService implements ChildDashboardService {
 				return { ok: false, error: 'NETWORK' };
 			}
 			const data = (await res.json()) as {
-				id: number;
+				id: string;
 				activityName: string;
 				totalPoints: number;
 				streakDays: number;

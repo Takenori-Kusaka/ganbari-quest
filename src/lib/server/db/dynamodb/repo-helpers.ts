@@ -6,6 +6,8 @@
 // - findChildByIdRaw: 子供プロフィールの直接取得(hydration なし)
 
 import { BatchWriteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { Child } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { childKey } from './keys';
@@ -98,14 +100,28 @@ export async function batchDeleteItems(keys: Array<{ PK: string; SK: string }>):
  * Note: child-repo.ts の findChildById は hydration + write-back を含むため別物。
  * この関数は簡易的な存在確認用途。
  */
-export async function findChildByIdRaw(id: number, tenantId: string): Promise<Child | undefined> {
+export async function findChildByIdRaw(id: ChildId, tenantId: string): Promise<Child | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: childKey(id, tenantId),
+			Key: childKey(Number(id), tenantId),
 		}),
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Child;
+	return toChildEntity(result.Item);
+}
+
+// ============================================================
+// #3575 branded id 境界変換: stored item は数値 id のまま (storage format 不変)。
+// repo 境界で ChildId (branded string) に変換して返す共通 mapper。
+// ============================================================
+
+/** DynamoDB stored Child item (数値 id) の shape。 */
+export type StoredChild = Omit<Child, 'id'> & { id: number };
+
+/** stored Child item → Child entity (branded id) 変換。 */
+export function toChildEntity(item: Record<string, unknown>): Child {
+	const raw = stripKeys(item) as unknown as StoredChild;
+	return { ...raw, id: asChildId(raw.id) };
 }

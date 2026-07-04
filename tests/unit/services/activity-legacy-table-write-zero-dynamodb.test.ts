@@ -23,6 +23,7 @@
 //   - ADR-0055 §3.1 per-child primary data model
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock setup (vi.hoisted で先にモック関数とコマンドクラスを確保)
 const {
@@ -105,7 +106,7 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 	it('insertActivity: child_activities (CHILDACT#) に Put、MASTER partition 不可触', async () => {
 		mockSend
 			// findFirstChild Scan (PROFILE)
-			.mockResolvedValueOnce({ Items: [{ id: 5 }] })
+			.mockResolvedValueOnce({ Items: [{ id: '5' }] })
 			// childActivityRepo.insertActivity nextId
 			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
 			// childActivityRepo.insertActivity Put
@@ -114,7 +115,7 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 		const row = await dynamoActivityRepo.insertActivity(
 			{
 				name: 'たいそうした',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -124,7 +125,7 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 			TENANT,
 		);
 
-		expect(row.id).toBe(1);
+		expect(row.id).toBe('1');
 		const put = mockSend.mock.calls[2]?.[0] as { input: { Item?: { SK?: string } } };
 		expect(put.input.Item?.SK).toMatch(/^CHILDACT#/);
 		expectNoMasterPartitionWrite();
@@ -138,8 +139,8 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 
 		await dynamoActivityRepo.insertActivityLog(
 			{
-				childId: 1,
-				activityId: 100,
+				childId: asChildId(1),
+				activityId: asActivityId(100),
 				points: 5,
 				streakDays: 1,
 				streakBonus: 0,
@@ -160,7 +161,7 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 			.mockResolvedValueOnce({}); // Put
 
 		await dynamoActivityRepo.insertPointLedger(
-			{ childId: 1, amount: 100, type: 'combo_bonus', description: 'test' },
+			{ childId: asChildId(1), amount: 100, type: 'combo_bonus', description: 'test' },
 			TENANT,
 		);
 
@@ -171,12 +172,12 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 
 	it('updateActivity: child_activities を Update、MASTER partition 不可触', async () => {
 		mockSend
-			.mockResolvedValueOnce({ Items: [{ childId: 5 }] }) // resolveChildIdForActivity Scan
+			.mockResolvedValueOnce({ Items: [{ childId: asChildId(5) }] }) // resolveChildIdForActivity Scan
 			.mockResolvedValueOnce({
-				Attributes: { PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001', id: 1, name: '更新後' },
+				Attributes: { PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001', id: '1', name: '更新後' },
 			}); // Update ALL_NEW
 
-		const row = await dynamoActivityRepo.updateActivity(1, { name: '更新後' }, TENANT);
+		const row = await dynamoActivityRepo.updateActivity(asActivityId(1), { name: '更新後' }, TENANT);
 		expect(row?.name).toBe('更新後');
 		const upd = mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK?: string } } };
 		expect(upd.input.Key?.SK).toMatch(/^CHILDACT#/);
@@ -187,7 +188,7 @@ describe('#2824 dynamodb: write は本実装され、旧 activities partition (S
 		mockSend
 			.mockResolvedValueOnce({ Items: [{ PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001' }] })
 			.mockResolvedValueOnce({}); // Update
-		await dynamoActivityRepo.archiveActivities([1], 'trial_expired', TENANT);
+		await dynamoActivityRepo.archiveActivities([asActivityId(1)], 'trial_expired', TENANT);
 		expectNoMasterPartitionWrite();
 	});
 });
@@ -208,7 +209,7 @@ describe('#2824 dynamodb: read 経路は引き続き Scan/Query (write は発生
 
 	it('findActivityById: Get 1 回呼ばれる (write は発生しない)', async () => {
 		mockSend.mockResolvedValueOnce({ Item: undefined });
-		const result = await dynamoActivityRepo.findActivityById(1, TENANT);
+		const result = await dynamoActivityRepo.findActivityById(asActivityId(1), TENANT);
 		expect(result).toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});

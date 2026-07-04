@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
 import { APP_LABELS, GROWTH_BOOK_LABELS, PAGE_TITLES } from '$lib/domain/labels';
@@ -20,7 +21,7 @@ function formatMonth(ym: string): string {
 	return `${Number(m)}月`;
 }
 
-function handleChildChange(childId: number) {
+function handleChildChange(childId: ChildId) {
 	goto(`?childId=${childId}&year=${data.fiscalYear}`, { replaceState: true });
 }
 

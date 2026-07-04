@@ -1,3 +1,4 @@
+import { type ChildId } from '$lib/domain/ids';
 // tests/unit/services/onboarding-service.test.ts
 // onboarding-service ユニットテスト
 
@@ -52,7 +53,7 @@ function setupDefaults(
 		pinHash?: string | null;
 		dismissed?: string | null;
 		childScreenVisited?: string | null;
-		templatesByChild?: Record<number, unknown[]>;
+		templatesByChild?: Record<string, unknown[]>;
 	} = {},
 ) {
 	const {
@@ -76,7 +77,7 @@ function setupDefaults(
 		return Promise.resolve(null);
 	});
 
-	mockFindTemplatesByChild.mockImplementation((childId: number) => {
+	mockFindTemplatesByChild.mockImplementation((childId: ChildId) => {
 		return Promise.resolve(templatesByChild[childId] ?? []);
 	});
 
@@ -114,7 +115,7 @@ describe('onboarding-service', () => {
 				pinHash: 'hashed-pin-value',
 				dismissed: 'true',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -174,7 +175,7 @@ describe('onboarding-service', () => {
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'some-hash',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -224,7 +225,7 @@ describe('onboarding-service', () => {
 		it('子供がテンプレートを持っている場合 checklist は completed', async () => {
 			setupDefaults({
 				children: [{ id: 1 }],
-				templatesByChild: { 1: [{ id: 100, name: 'template-1' }] },
+				templatesByChild: { 1: [{ id: '100', name: 'template-1' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -238,7 +239,7 @@ describe('onboarding-service', () => {
 				children: [{ id: 1 }, { id: 2 }],
 				templatesByChild: {
 					// child 1: no templates (empty array is default)
-					2: [{ id: 200, name: 'template-for-child-2' }],
+					2: [{ id: '200', name: 'template-for-child-2' }],
 				},
 			});
 
@@ -249,8 +250,8 @@ describe('onboarding-service', () => {
 
 			// findTemplatesByChild should be called for both children
 			expect(mockFindTemplatesByChild).toHaveBeenCalledTimes(2);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, TENANT, false);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(2, TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('2', TENANT, false);
 		});
 
 		it('複数の子供: 全員テンプレートなし → checklist incomplete', async () => {
@@ -270,8 +271,8 @@ describe('onboarding-service', () => {
 			setupDefaults({
 				children: [{ id: 1 }, { id: 2 }],
 				templatesByChild: {
-					1: [{ id: 100 }],
-					2: [{ id: 200 }],
+					1: [{ id: '100' }],
+					2: [{ id: '200' }],
 				},
 			});
 
@@ -281,7 +282,7 @@ describe('onboarding-service', () => {
 			expect(checklistItem?.completed).toBe(true);
 			// Early break: only child 1 checked since it already had templates
 			expect(mockFindTemplatesByChild).toHaveBeenCalledTimes(1);
-			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, TENANT, false);
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith('1', TENANT, false);
 		});
 
 		it('dismissed フラグが settings から正しく読み取られる', async () => {
@@ -402,7 +403,7 @@ describe('onboarding-service', () => {
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: null,
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -418,7 +419,7 @@ describe('onboarding-service', () => {
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: 'hash',
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);
@@ -434,7 +435,7 @@ describe('onboarding-service', () => {
 				rewardTemplates: [{ title: 'アイス', points: 30, category: 'food' }],
 				pinHash: null,
 				childScreenVisited: 'true',
-				templatesByChild: { 1: [{ id: 100 }] },
+				templatesByChild: { 1: [{ id: '100' }] },
 			});
 
 			const result = await getOnboardingProgress(TENANT, BASE_PATH);

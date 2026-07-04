@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
 import type { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
@@ -47,7 +48,7 @@ interface LevelUpData {
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	categoryName?: string;
 	spGranted?: number;
 }

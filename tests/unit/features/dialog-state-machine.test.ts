@@ -1,3 +1,4 @@
+import { asActivityId } from '$lib/domain/ids';
 // tests/unit/features/dialog-state-machine.test.ts
 // Dialog State Machine unit tests — #671 combo bonus infinite loop fix
 
@@ -32,7 +33,7 @@ describe('DialogFSM', () => {
 		});
 
 		it('stores payload data when provided', () => {
-			const payload = { activityId: 1, name: 'test' };
+			const payload = { activityId: asActivityId(1), name: 'test' };
 			fsm.transition('confirm', payload);
 			expect(fsm.getData('confirm')).toEqual(payload);
 		});
@@ -157,9 +158,9 @@ describe('DialogFSM', () => {
 	describe('onDataLoad', () => {
 		it('enqueues dialogs in priority order', () => {
 			const triggers: DialogTriggers = {
-				parentMessage: { id: 1, body: 'hi' },
+				parentMessage: { id: '1', body: 'hi' },
 				adventure: true,
-				specialReward: { id: 2, title: 'reward' },
+				specialReward: { id: '2', title: 'reward' },
 			};
 
 			fsm.onDataLoad(triggers);
@@ -193,7 +194,7 @@ describe('DialogFSM', () => {
 		it('re-enqueues same type with different id (processed key: type:id)', () => {
 			// First reward with id=1
 			fsm.onDataLoad({
-				specialReward: { id: 1, title: 'Reward A' },
+				specialReward: { id: '1', title: 'Reward A' },
 			});
 			expect(fsm.current).toBe('specialReward');
 
@@ -202,10 +203,10 @@ describe('DialogFSM', () => {
 
 			// New reward with id=2 should trigger even though type was processed
 			fsm.onDataLoad({
-				specialReward: { id: 2, title: 'Reward B' },
+				specialReward: { id: '2', title: 'Reward B' },
 			});
 			expect(fsm.current).toBe('specialReward');
-			expect(fsm.getData('specialReward')).toEqual({ id: 2, title: 'Reward B' });
+			expect(fsm.getData('specialReward')).toEqual({ id: '2', title: 'Reward B' });
 		});
 
 		it('uses type as key when payload has no id', () => {
@@ -234,7 +235,7 @@ describe('DialogFSM', () => {
 				adventure: undefined,
 				stampPress: null as unknown as undefined,
 				specialReward: false as unknown as undefined,
-				parentMessage: { id: 1 },
+				parentMessage: { id: '1' },
 			};
 
 			fsm.onDataLoad(triggers);
@@ -244,7 +245,7 @@ describe('DialogFSM', () => {
 
 		it('stores data payloads for each triggered dialog', () => {
 			const adventureData = { childName: 'test' };
-			const rewardData = { id: 1, title: 'Special' };
+			const rewardData = { id: '1', title: 'Special' };
 
 			fsm.onDataLoad({
 				adventure: adventureData,
@@ -312,8 +313,8 @@ describe('DialogFSM', () => {
 		});
 
 		it('clears data for a specific type', () => {
-			fsm.transition('confirm', { id: 1 });
-			expect(fsm.getData('confirm')).toEqual({ id: 1 });
+			fsm.transition('confirm', { id: '1' });
+			expect(fsm.getData('confirm')).toEqual({ id: '1' });
 			fsm.clearData('confirm');
 			expect(fsm.getData('confirm')).toBeUndefined();
 		});
@@ -321,7 +322,7 @@ describe('DialogFSM', () => {
 
 	describe('reset', () => {
 		it('resets everything to initial state', () => {
-			fsm.transition('confirm', { id: 1 });
+			fsm.transition('confirm', { id: '1' });
 			fsm.transition('result', { total: 100 });
 			fsm.onDataLoad({ adventure: true });
 
@@ -336,14 +337,14 @@ describe('DialogFSM', () => {
 
 	describe('getState', () => {
 		it('returns a snapshot of the current state', () => {
-			fsm.transition('confirm', { id: 1 });
+			fsm.transition('confirm', { id: '1' });
 			fsm.transition('result');
 
 			const state = fsm.getState();
 
 			expect(state.current).toBe('confirm');
 			expect(state.queue).toEqual(['result']);
-			expect(state.data.get('confirm')).toEqual({ id: 1 });
+			expect(state.data.get('confirm')).toEqual({ id: '1' });
 			expect(state.processed.size).toBe(0);
 		});
 
@@ -381,8 +382,8 @@ describe('DialogFSM', () => {
 			// Simulate page load with all three triggers
 			fsm.onDataLoad({
 				stampPress: { emoji: '⭐' },
-				specialReward: { id: 1, title: 'reward' },
-				parentMessage: { id: 2, body: 'message' },
+				specialReward: { id: '1', title: 'reward' },
+				parentMessage: { id: '2', body: 'message' },
 			});
 
 			expect(fsm.current).toBe('stampPress');
@@ -402,7 +403,7 @@ describe('DialogFSM', () => {
 			// First load
 			fsm.onDataLoad({
 				stampPress: { emoji: '⭐' },
-				specialReward: { id: 1 },
+				specialReward: { id: '1' },
 			});
 
 			// Close both
@@ -412,7 +413,7 @@ describe('DialogFSM', () => {
 			// Simulate invalidateAll → page data reloads with same triggers (same id)
 			fsm.onDataLoad({
 				stampPress: { emoji: '⭐' },
-				specialReward: { id: 1 },
+				specialReward: { id: '1' },
 			});
 
 			// Nothing should happen — both are in processed set (specialReward:1, stampPress)
@@ -423,18 +424,18 @@ describe('DialogFSM', () => {
 		it('onDataLoad after invalidateAll re-triggers with new id', () => {
 			// First load with reward id=1
 			fsm.onDataLoad({
-				specialReward: { id: 1 },
+				specialReward: { id: '1' },
 			});
 			fsm.close(); // idle
 
 			// invalidateAll returns a NEW reward id=2
 			fsm.onDataLoad({
-				specialReward: { id: 2 },
+				specialReward: { id: '2' },
 			});
 
 			// Should re-trigger because id changed
 			expect(fsm.current).toBe('specialReward');
-			expect(fsm.getData('specialReward')).toEqual({ id: 2 });
+			expect(fsm.getData('specialReward')).toEqual({ id: '2' });
 		});
 	});
 });

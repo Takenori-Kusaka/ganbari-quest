@@ -1,3 +1,5 @@
+import { asCategoryId, asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -44,8 +46,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	//   先頭に映してレーダー 5 軸を埋める用途 (ADR-0013 LP truth 整合)。
 	//   不正な childId / 該当 child なしの場合は何もしない (デフォルト children[0])。
 	const requestedChildIdRaw = url.searchParams.get('childId');
-	const requestedChildId = requestedChildIdRaw ? Number.parseInt(requestedChildIdRaw, 10) : NaN;
-	const sortedChildren = Number.isFinite(requestedChildId)
+	const requestedChildId = requestedChildIdRaw ? asChildId(requestedChildIdRaw) : null;
+	const sortedChildren = requestedChildId !== null
 		? [
 				...childrenWithStatus.filter((c) => c.id === requestedChildId),
 				...childrenWithStatus.filter((c) => c.id !== requestedChildId),
@@ -96,7 +98,7 @@ export const actions = {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const age = Number(form.get('age'));
-		const categoryId = Number(form.get('categoryId'));
+		const categoryId = asCategoryId(formIdString(form.get('categoryId')));
 		const mean = Number(form.get('mean'));
 		const stdDev = Number(form.get('stdDev'));
 

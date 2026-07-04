@@ -2,6 +2,8 @@
 // DynamoDB implementation of IEvaluationRepo
 
 import { GetCommand, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 import type {
 	CategoryActivityCount,
 	CategoryLastDate,
@@ -26,12 +28,12 @@ import { queryAllItems, stripKeys } from './repo-helpers';
 
 /** 指定期間のカテゴリ別活動回数を集計 */
 export async function countActivitiesByCategory(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	weekEnd: string,
 	tenantId: string,
 ): Promise<CategoryActivityCount[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = activityLogPrefix();
 
 	const items = await queryAllItems(pk, prefix, {
@@ -61,7 +63,7 @@ export async function countActivitiesByCategory(
 	}
 
 	return Array.from(catMap.entries()).map(([categoryId, data]) => ({
-		categoryId,
+		categoryId: asCategoryId(categoryId),
 		count: data.count,
 		totalPoints: data.totalPoints,
 	}));
@@ -76,7 +78,7 @@ export async function insertEvaluation(
 	const now = new Date().toISOString();
 
 	const evaluation: Evaluation = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		weekStart: input.weekStart,
 		weekEnd: input.weekEnd,
@@ -85,7 +87,7 @@ export async function insertEvaluation(
 		createdAt: now,
 	};
 
-	const key = evaluationKey(input.childId, input.weekStart, tenantId);
+	const key = evaluationKey(Number(input.childId), input.weekStart, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -93,6 +95,9 @@ export async function insertEvaluation(
 			Item: {
 				...key,
 				...evaluation,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -113,18 +118,21 @@ export async function findAllChildren(tenantId: string): Promise<Child[]> {
 		}),
 	);
 
-	return (result.Items ?? []).map(
-		(item) => stripKeys(item as Record<string, unknown>) as unknown as Child,
-	);
+	return (result.Items ?? []).map((item) => {
+		const raw = stripKeys(item as Record<string, unknown>) as unknown as Omit<Child, 'id'> & {
+			id: number;
+		};
+		return { ...raw, id: asChildId(raw.id) };
+	});
 }
 
 /** 子供の評価履歴を取得 */
 export async function findEvaluationsByChild(
-	childId: number,
+	childId: ChildId,
 	limit: number,
 	tenantId: string,
 ): Promise<Evaluation[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = evaluationPrefix();
 
 	const result = await getDocClient().send(
@@ -140,16 +148,22 @@ export async function findEvaluationsByChild(
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as Evaluation);
+	return (result.Items ?? []).map((item) => {
+		const raw = stripKeys(item) as unknown as Omit<Evaluation, 'id' | 'childId'> & {
+			id: number;
+			childId: number;
+		};
+		return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
+	});
 }
 
 /** 指定日にdaily_decayが既に実行されたか確認 */
 export async function hasDecayRunToday(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<boolean> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = statusHistoryPrefix();
 
 	// Query all status history items and filter for daily_decay on today
@@ -177,28 +191,28 @@ export async function hasDecayRunToday(
 
 /** 指定週の評価が存在するか確認 */
 export async function findWeekEvaluation(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	tenantId: string,
-): Promise<{ id: number } | undefined> {
+): Promise<{ id: string } | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: evaluationKey(childId, weekStart, tenantId),
+			Key: evaluationKey(Number(childId), weekStart, tenantId),
 			ProjectionExpression: 'id',
 		}),
 	);
 
 	if (!result.Item) return undefined;
-	return { id: result.Item.id as number };
+	return { id: String(result.Item.id as number) };
 }
 
 /** 子供の最終活動日をカテゴリ別に取得 */
 export async function findLastActivityDateByCategory(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<CategoryLastDate[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = activityLogPrefix();
 
 	const items = await queryAllItems(pk, prefix, {
@@ -220,7 +234,7 @@ export async function findLastActivityDateByCategory(
 	}
 
 	return Array.from(catMaxDate.entries()).map(([categoryId, lastDate]) => ({
-		categoryId,
+		categoryId: asCategoryId(categoryId),
 		lastDate,
 	}));
 }
@@ -231,7 +245,7 @@ export async function findLastActivityDateByCategory(
 // ============================================================
 
 export async function insertRestDay(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_reason: string,
 	_tenantId: string,
@@ -240,13 +254,13 @@ export async function insertRestDay(
 }
 
 export async function deleteRestDay(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_tenantId: string,
 ): Promise<void> {}
 
 export async function isRestDay(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_tenantId: string,
 ): Promise<boolean> {
@@ -254,7 +268,7 @@ export async function isRestDay(
 }
 
 export async function countRestDaysInMonth(
-	_childId: number,
+	_childId: ChildId,
 	_yearMonth: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -262,7 +276,7 @@ export async function countRestDaysInMonth(
 }
 
 export async function findRestDays(
-	_childId: number,
+	_childId: ChildId,
 	_yearMonth: string,
 	_tenantId: string,
 ): Promise<RestDay[]> {
@@ -271,7 +285,10 @@ export async function findRestDays(
 
 // #3329: restDays は DynamoDB に保存されない (insertRestDay も no-op、NUC/SQLite 専用の Pre-PMF
 // fallback)。backup の find/restore も同方針で no-op を返す (DynamoDB 環境では restDays は常に空)。
-export async function findRestDaysByChild(_childId: number, _tenantId: string): Promise<RestDay[]> {
+export async function findRestDaysByChild(
+	_childId: ChildId,
+	_tenantId: string,
+): Promise<RestDay[]> {
 	return [];
 }
 

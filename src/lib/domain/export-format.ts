@@ -1,5 +1,6 @@
 // src/lib/domain/export-format.ts
 // エクスポートファイルのフォーマット型定義
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
@@ -76,7 +77,7 @@ export function isExportableSettingKey(key: string): boolean {
 // ============================================================
 
 export interface ExportCategory {
-	id: number;
+	id: CategoryId;
 	code: string;
 	name: string;
 	icon: string | null;
@@ -158,7 +159,7 @@ export interface ExportChild {
 	 * (`avatars/{childId}/…` / `voices/{childId}/…`) を import 時に
 	 * 新 childId へ再マップするために用いる (v1.3.0+、省略時は静的ファイル再配置スキップ)。
 	 */
-	sourceChildId?: number;
+	sourceChildId?: ChildId;
 }
 
 // ============================================================
@@ -303,7 +304,7 @@ export interface ExportChildChallenge {
  * (import 時に存在しなければ当該 entry を skip)。card status / redeemed / earnedAt を round-trip 復元。
  */
 export interface ExportStampEntry {
-	stampMasterId: number | null;
+	stampMasterId: string | null;
 	omikujiRank: string | null;
 	slot: number;
 	loginDate: string;
@@ -532,7 +533,7 @@ export interface ExportData {
 
 export interface ExportOptions {
 	tenantId: string;
-	childIds?: number[];
+	childIds?: ChildId[];
 	compact?: boolean;
 }
 

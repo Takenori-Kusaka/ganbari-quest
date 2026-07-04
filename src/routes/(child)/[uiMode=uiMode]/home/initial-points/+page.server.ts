@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { fail, redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { grantInitialPoints } from '$lib/server/services/point-service';
@@ -13,8 +14,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 export const actions: Actions = {
 	grant: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const formData = await request.formData();
 		const points = Number(formData.get('points'));

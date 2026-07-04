@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/daily-mission-service.ts
 // デイリーミッション — 毎日3つのミッションを自動生成し、達成でボーナス付与
 
@@ -27,11 +28,11 @@ const MISSION_BONUS: Record<number, number> = {
 };
 
 export interface DailyMission {
-	id: number;
-	activityId: number;
+	id: string;
+	activityId: ActivityId;
 	activityName: string;
 	activityIcon: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	completed: boolean;
 }
 
@@ -46,7 +47,7 @@ export interface DailyMissionStatus {
  * 今日のミッションを取得（未生成なら自動生成）
  */
 export async function getTodayMissions(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<DailyMissionStatus> {
 	const today = todayDateJST();
@@ -88,8 +89,8 @@ export async function getTodayMissions(
  * 活動記録時にミッション達成を判定し、ボーナスを付与
  */
 export async function checkMissionCompletion(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	tenantId: string,
 ): Promise<{ missionCompleted: boolean; allComplete: boolean; bonusAwarded: number }> {
 	const today = todayDateJST();
@@ -156,7 +157,7 @@ export async function checkMissionCompletion(
  * ミッション生成（利用履歴ベースのアルゴリズム）
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-async function generateMissions(childId: number, date: string, tenantId: string): Promise<void> {
+async function generateMissions(childId: ChildId, date: string, tenantId: string): Promise<void> {
 	const child = await findChildForMission(childId, tenantId);
 	if (!child) return;
 
@@ -175,7 +176,7 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 	// 後方互換 fallback として undefined 時は全件通す (Phase 7b-2d で全 repo を per-child 化予定)。
 	const allVisibleActivities = await findVisibleActivities(tenantId);
 	const allActivities = allVisibleActivities.filter((a) => {
-		const aChildId = (a as { childId?: number }).childId;
+		const aChildId = (a as { childId?: ChildId }).childId;
 		return aChildId === undefined || aChildId === childId;
 	});
 
@@ -197,7 +198,7 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 	);
 	const explorerPool = allActivities.filter((a) => !allRecordedIds.has(a.id) && !prevIds.has(a.id));
 
-	const selected: number[] = [];
+	const selected: ActivityId[] = [];
 
 	// 1. 確実枠: 直近7日で記録した活動から
 	if (recentPool.length > 0) {
@@ -221,7 +222,7 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 
 	// フォールバック: 3つに満たない場合、カテゴリ分散でランダム補充
 	if (selected.length < MISSION_COUNT) {
-		const byCategory = new Map<number, typeof allActivities>();
+		const byCategory = new Map<CategoryId, typeof allActivities>();
 		for (const a of allActivities) {
 			if (selected.includes(a.id)) continue;
 			const list = byCategory.get(a.categoryId) ?? [];
@@ -233,7 +234,7 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 		const selectedCategoryIds = new Set(
 			selected
 				.map((id) => allActivities.find((a) => a.id === id)?.categoryId)
-				.filter((v): v is number => v != null),
+				.filter((v): v is CategoryId => v != null),
 		);
 		const allCategoryIds = CATEGORY_DEFS.map((c) => c.id);
 		const unselectedCategories = shuffle(

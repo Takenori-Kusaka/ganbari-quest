@@ -21,6 +21,7 @@ import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-s
 import { ChallengeSetItemSchema } from '$lib/marketplace/schemas/challenge-set-schema';
 import { ChecklistItemSchema } from '$lib/marketplace/schemas/checklist-schema';
 import { RewardSetItemSchema } from '$lib/marketplace/schemas/reward-set-schema';
+import { asCategoryId } from '$lib/domain/ids';
 
 // --- 各 type の代表 valid item (日本語 + 絵文字を含む = 文字種往復も兼ねる) ---
 const activityItem = (over: Record<string, unknown> = {}) => ({
@@ -44,7 +45,7 @@ const challengeItem = (over: Record<string, unknown> = {}) => ({
 	description: '3日間つづけてがんばろう✨',
 	monthDay: '03-03',
 	durationDays: 3,
-	categoryId: 1,
+	categoryId: asCategoryId(1),
 	baseTarget: 10,
 	rewardPoints: 100,
 	icon: '🎎',
@@ -83,7 +84,7 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 			// 「domain が受理する値は export schema も受理」「export schema の上限超過値は domain も拒否」を assert する。
 			const domainActivity = (basePoints: number) => ({
 				name: 'からだをうごかす',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🏃',
 				basePoints,
 				ageMin: null,

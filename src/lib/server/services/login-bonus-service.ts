@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/login-bonus-service.ts
 // ログインボーナスサービス層
 
@@ -23,7 +24,7 @@ const prevDate = prevDateJST;
 
 /** 連続ログイン日数を計算 */
 export async function calculateConsecutiveDays(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<number> {
@@ -49,14 +50,14 @@ export async function calculateConsecutiveDays(
 }
 
 export interface LoginBonusStatus {
-	childId: number;
+	childId: ChildId;
 	claimedToday: boolean;
 	consecutiveLoginDays: number;
 	lastClaimedAt: string | null;
 }
 
 export interface ClaimResult {
-	childId: number;
+	childId: ChildId;
 	rank: string;
 	basePoints: number;
 	consecutiveLoginDays: number;
@@ -67,7 +68,7 @@ export interface ClaimResult {
 
 /** ログインボーナスの状態を取得 */
 export async function getLoginBonusStatus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<LoginBonusStatus | { error: 'NOT_FOUND' }> {
 	const child = await findChildById(childId, tenantId);
@@ -89,7 +90,7 @@ export async function getLoginBonusStatus(
 
 /** ログインボーナスを受け取る */
 export async function claimLoginBonus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ClaimResult | { error: 'NOT_FOUND' } | { error: 'ALREADY_CLAIMED' }> {
 	const child = await findChildById(childId, tenantId);

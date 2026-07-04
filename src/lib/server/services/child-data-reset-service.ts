@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/child-data-reset-service.ts
 // 子供 1 人分の進捗データ (活動ログ / ポイント台帳 / ログインボーナス / 実績解除履歴) を
 // クリアする dev-only デバッグサービス (#3152)。
@@ -23,7 +24,7 @@ import { getChildById } from './child-service';
 export interface ResetChildDataResult {
 	/** 対象 child が tenant に存在し削除を実行したか (cross-tenant / 不在なら false) */
 	reset: boolean;
-	childId: number;
+	childId: ChildId;
 	/** #3184 item2: 削除した各 entity の件数 (dev-only switch reset の診断用)。reset=false 時は undefined。 */
 	deletedCounts?: ChildProgressResetCounts;
 }
@@ -39,7 +40,7 @@ export interface ResetChildDataResult {
  * @returns 削除実行可否と childId。対象 child が tenant に存在しない場合 reset=false
  */
 export async function resetChildData(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ResetChildDataResult> {
 	// cross-tenant の childId に対する削除を防ぐため、child の所属 tenant を検証する。

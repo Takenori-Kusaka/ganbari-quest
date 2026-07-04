@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ActivityId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { formatChildName } from '$lib/domain/child-display';
@@ -7,7 +8,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data, form } = $props();
 let submitting = $state(false);
-let selectedActivityId = $state<number | null>(null);
+let selectedActivityId = $state<ActivityId | null>(null);
 
 const child = $derived(data.child);
 
@@ -26,7 +27,7 @@ const resultLevelUp = $derived(
 	} | null) ?? null,
 );
 
-function selectActivity(id: number) {
+function selectActivity(id: ActivityId) {
 	if (!recorded) {
 		selectedActivityId = id;
 	}

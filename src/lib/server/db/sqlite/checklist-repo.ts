@@ -7,6 +7,7 @@
 
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import {
 	checklistLogs,
@@ -28,6 +29,36 @@ import type {
 	UpsertChecklistLogInput,
 } from '../types';
 
+type TemplateRow = typeof checklistTemplates.$inferSelect;
+type AssignmentRow = typeof checklistTemplateAssignments.$inferSelect;
+type ItemRow = typeof checklistTemplateItems.$inferSelect;
+type LogRow = typeof checklistLogs.$inferSelect;
+type OverrideRow = typeof checklistOverrides.$inferSelect;
+
+const toTemplate = (r: TemplateRow): ChecklistTemplate => ({ ...r, id: String(r.id) });
+const toAssignment = (r: AssignmentRow): ChecklistTemplateAssignment => ({
+	...r,
+	id: String(r.id),
+	templateId: String(r.templateId),
+	childId: asChildId(r.childId),
+});
+const toItem = (r: ItemRow): ChecklistTemplateItem => ({
+	...r,
+	id: String(r.id),
+	templateId: String(r.templateId),
+});
+const toLog = (r: LogRow): ChecklistLog => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	templateId: String(r.templateId),
+});
+const toOverride = (r: OverrideRow): ChecklistOverride => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
+
 // ============================================================
 // Templates (family scope)
 // ============================================================
@@ -45,7 +76,8 @@ export async function findTemplatesByTenant(
 				or(eq(checklistTemplates.isArchived, 0), isNull(checklistTemplates.isArchived)),
 			),
 		)
-		.all();
+		.all()
+		.map(toTemplate);
 	return includeInactive ? rows : rows.filter((r) => r.isActive === 1);
 }
 
@@ -54,7 +86,7 @@ export async function findTemplatesByTenant(
  * Phase 1 既存 callsite (`getChecklistsForChild` 等) との後方互換。
  */
 export async function findTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	includeInactive = false,
 	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
@@ -83,11 +115,12 @@ export async function findTemplatesByChild(
 		)
 		.where(
 			and(
-				eq(checklistTemplateAssignments.childId, childId),
+				eq(checklistTemplateAssignments.childId, Number(childId)),
 				eq(checklistTemplates.tenantId, tenantId),
 			),
 		)
-		.all() as ChecklistTemplate[];
+		.all()
+		.map(toTemplate);
 	// #3106: isArchived / isActive を in-memory で flag 連動 filter (既定は archived + inactive を除外)
 	return rows.filter((r) => {
 		if (!includeArchived && r.isArchived === 1) return false;
@@ -97,41 +130,46 @@ export async function findTemplatesByChild(
 }
 
 export async function findTemplateById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(checklistTemplates)
-		.where(and(eq(checklistTemplates.id, id), eq(checklistTemplates.tenantId, tenantId)))
+		.where(and(eq(checklistTemplates.id, Number(id)), eq(checklistTemplates.tenantId, tenantId)))
 		.get();
+	return row ? toTemplate(row) : undefined;
 }
 
 export async function insertTemplate(
 	input: InsertChecklistTemplateInput,
 	tenantId: string,
 ): Promise<ChecklistTemplate> {
-	return db
-		.insert(checklistTemplates)
-		.values({ ...input, tenantId })
-		.returning()
-		.get();
+	return toTemplate(
+		db
+			.insert(checklistTemplates)
+			.values({ ...input, tenantId })
+			.returning()
+			.get(),
+	);
 }
 
 export async function updateTemplate(
-	id: number,
+	id: string,
 	input: UpdateChecklistTemplateInput,
 	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	return db
+	const row = db
 		.update(checklistTemplates)
 		.set({ ...input, updatedAt: new Date().toISOString() })
-		.where(and(eq(checklistTemplates.id, id), eq(checklistTemplates.tenantId, tenantId)))
+		.where(and(eq(checklistTemplates.id, Number(id)), eq(checklistTemplates.tenantId, tenantId)))
 		.returning()
 		.get();
+	return row ? toTemplate(row) : undefined;
 }
 
-export async function deleteTemplate(id: number, tenantId: string): Promise<void> {
+export async function deleteTemplate(idArg: string, tenantId: string): Promise<void> {
+	const id = Number(idArg);
 	// Cascade: assignments → items → logs → template
 	db.delete(checklistTemplateAssignments)
 		.where(eq(checklistTemplateAssignments.templateId, id))
@@ -148,30 +186,32 @@ export async function deleteTemplate(id: number, tenantId: string): Promise<void
 // ============================================================
 
 export async function findAssignmentsByTemplate(
-	templateId: number,
+	templateId: string,
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	return db
 		.select()
 		.from(checklistTemplateAssignments)
-		.where(eq(checklistTemplateAssignments.templateId, templateId))
-		.all();
+		.where(eq(checklistTemplateAssignments.templateId, Number(templateId)))
+		.all()
+		.map(toAssignment);
 }
 
 export async function findAssignmentsByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	return db
 		.select()
 		.from(checklistTemplateAssignments)
-		.where(eq(checklistTemplateAssignments.childId, childId))
-		.all();
+		.where(eq(checklistTemplateAssignments.childId, Number(childId)))
+		.all()
+		.map(toAssignment);
 }
 
 export async function assignTemplateToChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	if (childIds.length === 0) return [];
@@ -181,46 +221,46 @@ export async function assignTemplateToChildren(
 		.from(checklistTemplateAssignments)
 		.where(
 			and(
-				eq(checklistTemplateAssignments.templateId, templateId),
-				inArray(checklistTemplateAssignments.childId, [...childIds]),
+				eq(checklistTemplateAssignments.templateId, Number(templateId)),
+				inArray(checklistTemplateAssignments.childId, childIds.map(Number)),
 			),
 		)
 		.all();
 	const existingSet = new Set(existing.map((r) => r.childId));
-	const toInsert = childIds.filter((c) => !existingSet.has(c));
+	const toInsert = childIds.filter((c) => !existingSet.has(Number(c)));
 	if (toInsert.length === 0) return [];
 
 	const inserted: ChecklistTemplateAssignment[] = [];
 	for (const childId of toInsert) {
 		const row = db
 			.insert(checklistTemplateAssignments)
-			.values({ templateId, childId })
+			.values({ templateId: Number(templateId), childId: Number(childId) })
 			.returning()
 			.get();
-		inserted.push(row);
+		inserted.push(toAssignment(row));
 	}
 	return inserted;
 }
 
 export async function unassignTemplateFromChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	_tenantId: string,
 ): Promise<void> {
 	if (childIds.length === 0) return;
 	db.delete(checklistTemplateAssignments)
 		.where(
 			and(
-				eq(checklistTemplateAssignments.templateId, templateId),
-				inArray(checklistTemplateAssignments.childId, [...childIds]),
+				eq(checklistTemplateAssignments.templateId, Number(templateId)),
+				inArray(checklistTemplateAssignments.childId, childIds.map(Number)),
 			),
 		)
 		.run();
 }
 
-export async function unassignTemplate(templateId: number, _tenantId: string): Promise<void> {
+export async function unassignTemplate(templateId: string, _tenantId: string): Promise<void> {
 	db.delete(checklistTemplateAssignments)
-		.where(eq(checklistTemplateAssignments.templateId, templateId))
+		.where(eq(checklistTemplateAssignments.templateId, Number(templateId)))
 		.run();
 }
 
@@ -229,33 +269,43 @@ export async function unassignTemplate(templateId: number, _tenantId: string): P
 // ============================================================
 
 export async function findTemplateItems(
-	templateId: number,
+	templateId: string,
 	_tenantId: string,
 ): Promise<ChecklistTemplateItem[]> {
 	return db
 		.select()
 		.from(checklistTemplateItems)
-		.where(eq(checklistTemplateItems.templateId, templateId))
+		.where(eq(checklistTemplateItems.templateId, Number(templateId)))
 		.orderBy(checklistTemplateItems.sortOrder)
-		.all();
+		.all()
+		.map(toItem);
 }
 
 export async function insertTemplateItem(
 	input: InsertChecklistTemplateItemInput,
 	_tenantId: string,
 ): Promise<ChecklistTemplateItem> {
-	return db.insert(checklistTemplateItems).values(input).returning().get();
+	return toItem(
+		db
+			.insert(checklistTemplateItems)
+			.values({ ...input, templateId: Number(input.templateId) })
+			.returning()
+			.get(),
+	);
 }
 
 /** #2845 B1: templateId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
 export async function deleteTemplateItem(
-	templateId: number,
-	id: number,
+	templateId: string,
+	id: string,
 	_tenantId: string,
 ): Promise<void> {
 	db.delete(checklistTemplateItems)
 		.where(
-			and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.templateId, templateId)),
+			and(
+				eq(checklistTemplateItems.id, Number(id)),
+				eq(checklistTemplateItems.templateId, Number(templateId)),
+			),
 		)
 		.run();
 }
@@ -265,22 +315,23 @@ export async function deleteTemplateItem(
 // ============================================================
 
 export async function findTodayLog(
-	childId: number,
-	templateId: number,
+	childId: ChildId,
+	templateId: string,
 	date: string,
 	_tenantId: string,
 ): Promise<ChecklistLog | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(checklistLogs)
 		.where(
 			and(
-				eq(checklistLogs.childId, childId),
-				eq(checklistLogs.templateId, templateId),
+				eq(checklistLogs.childId, Number(childId)),
+				eq(checklistLogs.templateId, Number(templateId)),
 				eq(checklistLogs.checkedDate, date),
 			),
 		)
 		.get();
+	return row ? toLog(row) : undefined;
 }
 
 export async function upsertLog(
@@ -289,30 +340,46 @@ export async function upsertLog(
 ): Promise<ChecklistLog> {
 	const existing = await findTodayLog(input.childId, input.templateId, input.checkedDate, tenantId);
 	if (existing) {
-		return db
-			.update(checklistLogs)
-			.set({
-				itemsJson: input.itemsJson,
-				completedAll: input.completedAll,
-				pointsAwarded: input.pointsAwarded,
-			})
-			.where(eq(checklistLogs.id, existing.id))
-			.returning()
-			.get();
+		return toLog(
+			db
+				.update(checklistLogs)
+				.set({
+					itemsJson: input.itemsJson,
+					completedAll: input.completedAll,
+					pointsAwarded: input.pointsAwarded,
+				})
+				.where(eq(checklistLogs.id, Number(existing.id)))
+				.returning()
+				.get(),
+		);
 	}
-	return db.insert(checklistLogs).values(input).returning().get();
+	return toLog(
+		db
+			.insert(checklistLogs)
+			.values({
+				...input,
+				childId: Number(input.childId),
+				templateId: Number(input.templateId),
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /**
  * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
  */
-export async function findLogsByChild(childId: number, _tenantId: string): Promise<ChecklistLog[]> {
+export async function findLogsByChild(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<ChecklistLog[]> {
 	return db
 		.select()
 		.from(checklistLogs)
-		.where(eq(checklistLogs.childId, childId))
+		.where(eq(checklistLogs.childId, Number(childId)))
 		.orderBy(desc(checklistLogs.checkedDate))
-		.all();
+		.all()
+		.map(toLog);
 }
 
 // ============================================================
@@ -320,35 +387,45 @@ export async function findLogsByChild(childId: number, _tenantId: string): Promi
 // ============================================================
 
 export async function findOverrides(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	_tenantId: string,
 ): Promise<ChecklistOverride[]> {
 	return db
 		.select()
 		.from(checklistOverrides)
-		.where(and(eq(checklistOverrides.childId, childId), eq(checklistOverrides.targetDate, date)))
-		.all();
+		.where(
+			and(eq(checklistOverrides.childId, Number(childId)), eq(checklistOverrides.targetDate, date)),
+		)
+		.all()
+		.map(toOverride);
 }
 
 export async function insertOverride(
 	input: InsertChecklistOverrideInput,
 	_tenantId: string,
 ): Promise<ChecklistOverride> {
-	return db.insert(checklistOverrides).values(input).returning().get();
+	return toOverride(
+		db
+			.insert(checklistOverrides)
+			.values({ ...input, childId: Number(input.childId) })
+			.returning()
+			.get(),
+	);
 }
 
 /** #3329 backup: child の全日次 override (日付不問、export 用)。 */
 export async function findOverridesByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChecklistOverride[]> {
 	return db
 		.select()
 		.from(checklistOverrides)
-		.where(eq(checklistOverrides.childId, childId))
+		.where(eq(checklistOverrides.childId, Number(childId)))
 		.orderBy(checklistOverrides.targetDate)
-		.all();
+		.all()
+		.map(toOverride);
 }
 
 /** #3329 backup restore 用: createdAt を保全して日次 override を復元する (childId は呼び出し側が解決済)。 */
@@ -356,28 +433,32 @@ export async function insertOverrideForRestore(
 	input: Omit<ChecklistOverride, 'id'>,
 	_tenantId: string,
 ): Promise<ChecklistOverride> {
-	return db
-		.insert(checklistOverrides)
-		.values({
-			childId: input.childId,
-			targetDate: input.targetDate,
-			action: input.action,
-			itemName: input.itemName,
-			icon: input.icon,
-			createdAt: input.createdAt,
-		})
-		.returning()
-		.get();
+	return toOverride(
+		db
+			.insert(checklistOverrides)
+			.values({
+				childId: Number(input.childId),
+				targetDate: input.targetDate,
+				action: input.action,
+				itemName: input.itemName,
+				icon: input.icon,
+				createdAt: input.createdAt,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /** #2845 B1: childId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
 export async function deleteOverride(
-	childId: number,
-	id: number,
+	childId: ChildId,
+	id: string,
 	_tenantId: string,
 ): Promise<void> {
 	db.delete(checklistOverrides)
-		.where(and(eq(checklistOverrides.id, id), eq(checklistOverrides.childId, childId)))
+		.where(
+			and(eq(checklistOverrides.id, Number(id)), eq(checklistOverrides.childId, Number(childId))),
+		)
 		.run();
 }
 
@@ -397,7 +478,7 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 // ============================================================
 
 export async function archiveChecklistTemplates(
-	ids: number[],
+	ids: string[],
 	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
@@ -405,7 +486,7 @@ export async function archiveChecklistTemplates(
 	for (const id of ids) {
 		db.update(checklistTemplates)
 			.set({ isArchived: 1, archivedReason: reason, updatedAt: new Date().toISOString() })
-			.where(and(eq(checklistTemplates.id, id), eq(checklistTemplates.tenantId, tenantId)))
+			.where(and(eq(checklistTemplates.id, Number(id)), eq(checklistTemplates.tenantId, tenantId)))
 			.run();
 	}
 }

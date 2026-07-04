@@ -1,5 +1,7 @@
 import { fail } from '@sveltejs/kit';
+import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
+import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -234,10 +236,14 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	// (#2146/#2168 カード演出統合思想)。categoryId は targetConfig JSON 内に格納される。
 	const challengeTargets = activeChallenges
 		.map((c) => {
-			let categoryId: number | null = null;
+			let categoryId: CategoryId | null = null;
 			try {
-				const cfg = JSON.parse(c.targetConfig) as { categoryId?: number };
-				categoryId = typeof cfg.categoryId === 'number' ? cfg.categoryId : null;
+				// #3575: 旧行の targetConfig は numeric categoryId を含むため境界で as* 変換する
+				const cfg = JSON.parse(c.targetConfig) as { categoryId?: string | number };
+				categoryId =
+					typeof cfg.categoryId === 'number' || typeof cfg.categoryId === 'string'
+						? asCategoryId(cfg.categoryId)
+						: null;
 			} catch {
 				categoryId = null;
 			}
@@ -287,10 +293,10 @@ export const actions: Actions = {
 	record: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const activityId = Number(formData.get('activityId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
-		if (Number.isNaN(childId) || Number.isNaN(activityId)) {
+		if (!childId || !activityId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -333,10 +339,10 @@ export const actions: Actions = {
 	cancelRecord: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const logId = Number(formData.get('logId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const logId = formIdString(formData.get('logId'));
 
-		if (Number.isNaN(childId) || Number.isNaN(logId)) {
+		if (!childId || !logId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -353,8 +359,8 @@ export const actions: Actions = {
 
 	claimBonus: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) {
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		if (!childId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -380,11 +386,11 @@ export const actions: Actions = {
 	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
 		// Issue #2097 B-14a: anonymous / demo flow without selectedChildId cookie is expected.
 		// Previously returned fail(400) which triggered client retry storm (17-52 retries observed).
 		// Return a successful no-op shape so client skips stampPress transition without retrying.
-		if (Number.isNaN(childId)) {
+		if (!childId) {
 			return { success: false, loginStamp: false, reason: 'no-child-selected' as const };
 		}
 
@@ -445,11 +451,11 @@ export const actions: Actions = {
 	togglePin: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const activityId = Number(formData.get('activityId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const activityId = asActivityId(formIdString(formData.get('activityId')));
 		const pinned = formData.get('pinned') === 'true';
 
-		if (Number.isNaN(childId) || Number.isNaN(activityId)) {
+		if (!childId || !activityId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -464,8 +470,8 @@ export const actions: Actions = {
 
 	stampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await stampToday(childId, tenantId);
 		if ('error' in result) {
@@ -494,8 +500,8 @@ export const actions: Actions = {
 
 	redeemStampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await redeemStampCard(childId, tenantId);
 		if ('error' in result) {
@@ -514,8 +520,8 @@ export const actions: Actions = {
 
 	claimBirthday: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await claimBirthdayBonus(childId, tenantId);
 		if ('error' in result) {
@@ -539,10 +545,10 @@ export const actions: Actions = {
 	claimChallengeReward: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const challengeId = Number(formData.get('challengeId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const challengeId = formIdString(formData.get('challengeId'));
 
-		if (Number.isNaN(childId) || Number.isNaN(challengeId)) {
+		if (!childId || !challengeId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -567,11 +573,11 @@ export const actions: Actions = {
 	sendCheer: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const toChildId = Number(formData.get('toChildId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const toChildId = asChildId(formIdString(formData.get('toChildId')));
 		const stampCode = formData.get('stampCode')?.toString() ?? '';
 
-		if (Number.isNaN(childId) || Number.isNaN(toChildId) || !stampCode) {
+		if (!childId || !toChildId || !stampCode) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -589,8 +595,8 @@ export const actions: Actions = {
 		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';
 		const cheerIds = cheerIdsStr
 			.split(',')
-			.map(Number)
-			.filter((n) => !Number.isNaN(n));
+			.map((v) => v.trim())
+			.filter((v) => v !== '');
 
 		if (cheerIds.length === 0) {
 			return fail(400, { error: 'パラメータが不正です' });

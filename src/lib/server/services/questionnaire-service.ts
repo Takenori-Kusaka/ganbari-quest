@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -121,7 +122,7 @@ export function getActivityDisplayCount(level: 'few' | 'normal' | 'many'): numbe
  * チェックリストプリセットを子供に自動適用
  */
 export async function applyChecklistPresets(
-	childId: number,
+	childId: ChildId,
 	presetIds: string[],
 	tenantId: string,
 ): Promise<number> {

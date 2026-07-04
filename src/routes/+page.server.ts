@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
@@ -33,8 +34,8 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 	// 1) Cookie 優先
 	const cookieChildIdStr = cookies.get('selectedChildId');
 	if (cookieChildIdStr) {
-		const cookieChildId = Number(cookieChildIdStr);
-		if (Number.isFinite(cookieChildId) && cookieChildId > 0) {
+		const cookieChildId = asChildId(cookieChildIdStr);
+		if (cookieChildId) {
 			const child = await getChildById(cookieChildId, tenantId);
 			if (child) {
 				redirect(302, homeFor(child));

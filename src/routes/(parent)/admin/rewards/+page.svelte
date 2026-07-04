@@ -9,6 +9,7 @@
 //
 // 既存 (#2268): CRUD + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
@@ -50,7 +51,7 @@ const errorMessage = $derived(getErrorMessage(form?.error));
 // #2362 PR-4: 子供タブ切替 UI
 //   `?childId=<n>` query で初期 child 復元、未指定なら最初の child
 // svelte-ignore state_referenced_locally
-let childIdOverride = $state<number | undefined>(
+let childIdOverride = $state<ChildId | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId
 		: undefined,
@@ -58,7 +59,7 @@ let childIdOverride = $state<number | undefined>(
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -80,7 +81,7 @@ let isImporting = $state(false);
 
 // #2362 PR-4: 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 
 // #3079: バックアップから復元 dialog (preview → 実行の 2 段)。resource noun = REWARD_TERMS.canonical
 let showRestoreDialog = $state(false);
@@ -103,7 +104,7 @@ let showDeleteDialog = $state(false);
 let isDeleting = $state(false);
 
 // #2832 AC2: pending redemption が存在する reward か (編集 note / 処理待ちバッジ表示用)
-function hasPendingRedemption(rewardId: number): boolean {
+function hasPendingRedemption(rewardId: string): boolean {
 	return data.pendingRewardIds.includes(rewardId);
 }
 
@@ -534,7 +535,7 @@ async function handleRestoreConfirm() {
 }
 
 // #2362 PR-4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
-function selectChild(childId: number) {
+function selectChild(childId: ChildId) {
 	childIdOverride = childId;
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
@@ -545,13 +546,13 @@ function selectChild(childId: number) {
 	}
 }
 
-// #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
+// #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or ChildId[] (選択 child IDs)
 //
 // #2474 must-2 (Copilot must-1): SvelteKit form action を fetch で直接呼ぶ場合、
 // `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
 // が返ってきて JSON parse 常時 fail し件数が誤表示される (件数=1 固定の旧 bug)。
 // 公式 enhance と同じ header を付与 + `deserialize()` で正しい ActionResult を取得する。
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;

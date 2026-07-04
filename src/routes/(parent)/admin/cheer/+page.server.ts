@@ -5,6 +5,8 @@
 // スタンプ/メッセージは P 付与に付随する理由表現」。
 // 旧 /admin/messages はスタンプ/テキストのみ (P 付与なし) で存在意義なし → 本機能に統合。
 
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { getErrorMessage } from '$lib/domain/errors';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -51,7 +53,7 @@ function parseAndValidateForm(
 ):
 	| { ok: true; data: Parameters<typeof grantCheer>[0] }
 	| { ok: false; status: 400 | 404; error: string } {
-	const childId = Number(formData.get('childId'));
+	const childId = asChildId(formIdString(formData.get('childId')));
 	const reason = String(formData.get('reason') ?? '').trim();
 	const points = Number(formData.get('points'));
 	const category = String(formData.get('category') ?? '');

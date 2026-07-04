@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/point-service.ts
 // ポイント管理サービス層
 
@@ -10,7 +11,7 @@ import {
 } from '$lib/server/db/point-repo';
 
 export interface PointBalance {
-	childId: number;
+	childId: ChildId;
 	balance: number;
 	convertableAmount: number;
 	nextConvertAt: number;
@@ -24,7 +25,7 @@ export interface ConvertResult {
 
 /** ポイント残高を取得 */
 export async function getPointBalance(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<PointBalance | { error: 'NOT_FOUND' }> {
 	const child = await findChildById(childId, tenantId);
@@ -45,7 +46,7 @@ export async function getPointBalance(
 
 /** ポイント履歴を取得 */
 export async function getPointHistory(
-	childId: number,
+	childId: ChildId,
 	options: { limit: number; offset: number },
 	tenantId: string,
 ): Promise<{ history: Awaited<ReturnType<typeof findPointHistory>> } | { error: 'NOT_FOUND' }> {
@@ -66,7 +67,7 @@ function convertDescription(amount: number, mode: ConvertMode): string {
 
 /** baby モードの初期ポイント付与（親が設定した積み立てポイント） */
 export async function grantInitialPoints(
-	childId: number,
+	childId: ChildId,
 	points: number,
 	tenantId: string,
 ): Promise<
@@ -93,7 +94,7 @@ export async function grantInitialPoints(
 
 /** ポイントをお小遣いに変換 */
 export async function convertPoints(
-	childId: number,
+	childId: ChildId,
 	amount: number,
 	tenantId: string,
 	mode: ConvertMode = 'preset',

@@ -16,6 +16,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const {
@@ -64,7 +65,7 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 
 /** child partition の DynamoDB item を組み立てる (PK/SK + 属性)。 */
 function makeItem(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -233,7 +234,7 @@ describe('findAllByTenant', () => {
 		mockSend.mockResolvedValueOnce({
 			Items: [
 				makeItem({ id: 2, title: 'B', createdAt: '2026-06-02T00:00:00.000Z' }),
-				makeItem({ id: 1, title: 'A', childId: 99, createdAt: '2026-06-01T00:00:00.000Z' }),
+				makeItem({ id: 1, title: 'A', childId: asChildId(99), createdAt: '2026-06-01T00:00:00.000Z' }),
 			],
 		});
 		const { findAllByTenant } = await loadRepo();
@@ -268,7 +269,7 @@ describe('findById', () => {
 	it('id 属性で Scan し 1 件返す (#3258: SK 形式非依存解決)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 7, title: 'X' })] });
 		const { findById } = await loadRepo();
-		const result = await findById(7, TENANT);
+		const result = await findById('7', TENANT);
 		expect(result?.title).toBe('X');
 		const scan = mockSend.mock.calls[0]?.[0] as {
 			input: {
@@ -288,7 +289,7 @@ describe('findById', () => {
 	it('不在のとき undefined を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { findById } = await loadRepo();
-		expect(await findById(7, TENANT)).toBeUndefined();
+		expect(await findById('7', TENANT)).toBeUndefined();
 	});
 });
 
@@ -316,7 +317,7 @@ describe('insert', () => {
 			TENANT,
 		);
 
-		expect(result.id).toBe(101);
+		expect(result.id).toBe('101');
 		// SQLite schema default が埋まっている
 		expect(result).toMatchObject({
 			childId: CHILD_ID,
@@ -417,7 +418,7 @@ describe('updateProgress', () => {
 			}) // resolve
 			.mockResolvedValueOnce({}); // Update
 		const { updateProgress } = await loadRepo();
-		await updateProgress(3, 4, TENANT);
+		await updateProgress('3', 4, TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(2);
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: {
@@ -434,7 +435,7 @@ describe('updateProgress', () => {
 	it('id 不在のとき Update を発行しない (Scan のみ)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { updateProgress } = await loadRepo();
-		await updateProgress(999, 1, TENANT);
+		await updateProgress('999', 1, TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
@@ -447,7 +448,7 @@ describe('markCompleted', () => {
 			})
 			.mockResolvedValueOnce({});
 		const { markCompleted } = await loadRepo();
-		await markCompleted(1, TENANT);
+		await markCompleted('1', TENANT);
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: {
 				UpdateExpression?: string;
@@ -470,7 +471,7 @@ describe('claimReward', () => {
 			})
 			.mockResolvedValueOnce({});
 		const { claimReward } = await loadRepo();
-		const changed = await claimReward(1, TENANT);
+		const changed = await claimReward('1', TENANT);
 		expect(changed).toBe(1);
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: {
@@ -498,7 +499,7 @@ describe('claimReward', () => {
 			})
 			.mockRejectedValueOnce(condFail);
 		const { claimReward } = await loadRepo();
-		const changed = await claimReward(1, TENANT);
+		const changed = await claimReward('1', TENANT);
 		expect(changed).toBe(0);
 	});
 });
@@ -515,7 +516,7 @@ describe('update', () => {
 			})
 			.mockResolvedValueOnce({});
 		const { update } = await loadRepo();
-		await update(1, { title: 'updated', status: 'expired', isActive: 0 }, TENANT);
+		await update('1', { title: 'updated', status: 'expired', isActive: 0 }, TENANT);
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: {
 				UpdateExpression?: string;
@@ -540,7 +541,7 @@ describe('update', () => {
 			})
 			.mockResolvedValueOnce({});
 		const { update } = await loadRepo();
-		await update(1, {}, TENANT);
+		await update('1', {}, TENANT);
 		const upd = mockSend.mock.calls[1]?.[0] as { input: { UpdateExpression?: string } };
 		expect(upd.input.UpdateExpression).toContain('#updatedAt = :now');
 	});
@@ -548,7 +549,7 @@ describe('update', () => {
 	it('id 不在のとき Update を発行しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { update } = await loadRepo();
-		await update(999, { title: 'x' }, TENANT);
+		await update('999', { title: 'x' }, TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
@@ -565,7 +566,7 @@ describe('deleteChallenge', () => {
 			})
 			.mockResolvedValueOnce({});
 		const { deleteChallenge } = await loadRepo();
-		await deleteChallenge(3, TENANT);
+		await deleteChallenge('3', TENANT);
 		const del = mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } };
 		expect(del.input.Key?.SK).toBe('CHILDCHAL#00000003');
 	});
@@ -573,7 +574,7 @@ describe('deleteChallenge', () => {
 	it('id 不在のとき Delete を発行しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { deleteChallenge } = await loadRepo();
-		await deleteChallenge(999, TENANT);
+		await deleteChallenge('999', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
@@ -599,9 +600,9 @@ describe('copyAcrossChildren', () => {
 			.mockResolvedValueOnce({});
 
 		const { copyAcrossChildren } = await loadRepo();
-		const result = await copyAcrossChildren(CHILD_ID, 99, TENANT);
+		const result = await copyAcrossChildren(CHILD_ID, asChildId(99), TENANT);
 		expect(result.map((c) => c.title)).toEqual(['A', 'B']);
-		expect(result.every((c) => c.childId === 99)).toBe(true);
+		expect(result.every((c) => c.childId === '99')).toBe(true);
 		// 進捗リセット + sourceTemplateId 維持
 		expect(result[0]?.currentValue).toBe(0);
 		expect(result[0]?.completed).toBe(0);
@@ -611,7 +612,7 @@ describe('copyAcrossChildren', () => {
 	it('source 0 件のとき何も insert しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { copyAcrossChildren } = await loadRepo();
-		expect(await copyAcrossChildren(CHILD_ID, 99, TENANT)).toEqual([]);
+		expect(await copyAcrossChildren(CHILD_ID, asChildId(99), TENANT)).toEqual([]);
 		expect(mockSend).toHaveBeenCalledTimes(1); // Query のみ
 	});
 });
@@ -657,7 +658,7 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 			.mockResolvedValueOnce({ Items: [AUTO_KEY] }) // resolveKeyById
 			.mockResolvedValueOnce({}); // Update
 		const { updateProgress } = await loadRepo();
-		await updateProgress(50, 3, TENANT);
+		await updateProgress('50', 3, TENANT);
 
 		// no-op でなく Update まで発行する (resolve + Update = 2 send)
 		expect(mockSend).toHaveBeenCalledTimes(2);
@@ -685,7 +686,7 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 		const repo = await loadRepo();
 		// markCompleted
 		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
-		await repo.markCompleted(50, TENANT);
+		await repo.markCompleted('50', TENANT);
 		expect((mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } }).input.Key?.SK).toBe(
 			AUTO_SK,
 		);
@@ -693,7 +694,7 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 		mockSend.mockReset();
 		// claimReward
 		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
-		await repo.claimReward(50, TENANT);
+		await repo.claimReward('50', TENANT);
 		expect((mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } }).input.Key?.SK).toBe(
 			AUTO_SK,
 		);
@@ -704,7 +705,7 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 			Items: [makeItem({ id: 50, SK: AUTO_SK, title: 'AUTO-WEEKLY' })],
 		});
 		const { findById } = await loadRepo();
-		const result = await findById(50, TENANT);
+		const result = await findById('50', TENANT);
 		expect(result?.title).toBe('AUTO-WEEKLY');
 	});
 });
@@ -759,7 +760,7 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 			restoreInput({ sourceTemplateId: 'auto:weekly', currentValue: 4 }),
 			TENANT,
 		);
-		expect(result.id).toBe(201);
+		expect(result.id).toBe('201');
 		expect(result.currentValue).toBe(4);
 		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
 		// regular SK (CHILDCHAL#<padId>) ではなく dedup SK に置く。
@@ -807,7 +808,7 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 		);
 		// fast-path で復元行を返す (nextId / Put を発行しない = 2 個目を作らない)。
 		expect(mockSend).toHaveBeenCalledTimes(1);
-		expect(got.id).toBe(210);
+		expect(got.id).toBe('210');
 		expect(got.currentValue).toBe(4);
 		// dedup GetItem の Key SK が insertForRestore の Put SK と一致する (read=write 対称)。
 		const get = mockSend.mock.calls[0]?.[0] as { input: { Key?: { SK: string } } };
@@ -864,7 +865,7 @@ describe('interface 適合 (IChildChallengeRepo)', () => {
 		);
 		// stub なら row.id=0 を返していた。本実装は採番された row を返す。
 		expect(result).toHaveLength(1);
-		expect(result[0]?.id).toBe(1);
+		expect(result[0]?.id).toBe('1');
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

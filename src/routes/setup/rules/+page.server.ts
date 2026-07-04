@@ -9,6 +9,7 @@
 //   選択肢を提示するが取込試行は warning として記録される。setup フローでは敢えて
 //   非表示にして bonus + exchange のみ提示する (Pre-PMF UX 単純化)。
 
+import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import type { RulePresetPayload } from '$lib/domain/marketplace-item';
@@ -83,7 +84,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const itemIds = formData.getAll('itemIds').map((v) => v.toString());
 		const childIdRaw = formData.get('childId')?.toString();
-		const childId = childIdRaw && childIdRaw !== '' ? Number(childIdRaw) : undefined;
+		const childId = childIdRaw && childIdRaw !== '' ? asChildId(childIdRaw) : undefined;
 
 		if (itemIds.length === 0) {
 			redirect(302, '/setup/activities-defaults?rulesImported=0&rulesSkipped=0');

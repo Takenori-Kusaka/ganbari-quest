@@ -41,6 +41,7 @@ import {
 	childActivityPreferences as prefsTable,
 } from '$lib/server/db/schema';
 import { countPinnedInCategory } from '$lib/server/db/sqlite/activity-pref-repo';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 function countLegacyActivitiesTable(sqlite: TestSqlite): number {
 	const row = sqlite.prepare('SELECT COUNT(*) as cnt FROM activities').get() as { cnt: number };
@@ -123,7 +124,7 @@ describe('#2458-C-1: countPinnedInCategory は child_activities JOIN 経由', ()
 				.run();
 		}
 
-		const result = await countPinnedInCategory(testChildId, 1, TENANT);
+		const result = await countPinnedInCategory(asChildId(testChildId), asCategoryId(1), TENANT);
 		expect(result).toBe(3);
 
 		// 旧 activities table への write 一切なし (1 段 ready)
@@ -156,11 +157,11 @@ describe('#2458-C-1: countPinnedInCategory は child_activities JOIN 経由', ()
 		}
 
 		// categoryId=1 は 1 件のみ (体操)
-		expect(await countPinnedInCategory(testChildId, 1, TENANT)).toBe(1);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(1), TENANT)).toBe(1);
 		// categoryId=2 は 2 件 (読書 + 勉強)
-		expect(await countPinnedInCategory(testChildId, 2, TENANT)).toBe(2);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(2), TENANT)).toBe(2);
 		// 存在しない categoryId は 0
-		expect(await countPinnedInCategory(testChildId, 99, TENANT)).toBe(0);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(99), TENANT)).toBe(0);
 	});
 
 	it('AC-3: 別 childId の pin は集計対象外', async () => {
@@ -186,8 +187,8 @@ describe('#2458-C-1: countPinnedInCategory は child_activities JOIN 経由', ()
 			.run();
 
 		// 自分の child の pin のみ (1 件)
-		expect(await countPinnedInCategory(testChildId, 1, TENANT)).toBe(1);
-		expect(await countPinnedInCategory(otherChildId, 1, TENANT)).toBe(1);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(1), TENANT)).toBe(1);
+		expect(await countPinnedInCategory(asChildId(otherChildId), asCategoryId(1), TENANT)).toBe(1);
 	});
 
 	it('AC-4: isPinned=0 は集計対象外', async () => {
@@ -214,7 +215,7 @@ describe('#2458-C-1: countPinnedInCategory は child_activities JOIN 経由', ()
 			.values({ childId: testChildId, activityId: a2.id, isPinned: 0, pinOrder: null })
 			.run();
 
-		expect(await countPinnedInCategory(testChildId, 1, TENANT)).toBe(1);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(1), TENANT)).toBe(1);
 	});
 
 	it('AC-5: pin 0 件 のとき 0 を返す (entries 不在ケース)', async () => {
@@ -226,6 +227,6 @@ describe('#2458-C-1: countPinnedInCategory は child_activities JOIN 経由', ()
 			.run();
 		// pin 未作成
 
-		expect(await countPinnedInCategory(testChildId, 1, TENANT)).toBe(0);
+		expect(await countPinnedInCategory(asChildId(testChildId), asCategoryId(1), TENANT)).toBe(0);
 	});
 });

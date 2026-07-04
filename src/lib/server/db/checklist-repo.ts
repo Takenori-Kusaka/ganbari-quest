@@ -68,7 +68,7 @@ export async function findAssignmentsByChild(childId: ChildId, tenantId: string)
 
 export async function assignTemplateToChildren(
 	templateId: string,
-	childIds: readonly number[],
+	childIds: readonly ChildId[],
 	tenantId: string,
 ) {
 	return getRepos().checklist.assignTemplateToChildren(templateId, childIds, tenantId);
@@ -76,7 +76,7 @@ export async function assignTemplateToChildren(
 
 export async function unassignTemplateFromChildren(
 	templateId: string,
-	childIds: readonly number[],
+	childIds: readonly ChildId[],
 	tenantId: string,
 ) {
 	return getRepos().checklist.unassignTemplateFromChildren(templateId, childIds, tenantId);

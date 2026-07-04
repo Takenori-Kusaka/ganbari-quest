@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
 import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
@@ -51,8 +52,8 @@ function navigateMonth(offset: number) {
 }
 
 // 先月との比較データ取得
-function getPrevReport(childId: number) {
-	return data.prevMonthlyReports?.find((r: { childId: number }) => r.childId === childId);
+function getPrevReport(childId: ChildId) {
+	return data.prevMonthlyReports?.find((r: { childId: ChildId }) => r.childId === childId);
 }
 
 function diffLabel(current: number, prev: number | undefined): string {

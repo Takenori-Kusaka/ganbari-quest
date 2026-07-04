@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 /**
  * tests/unit/services/usage-log-service-dynamodb-noop.test.ts
  *
@@ -46,8 +47,8 @@ import {
 
 const TENANT = 'tenant-#2338';
 const CHILDREN = [
-	{ id: 901, nickname: 'みらいちゃん' },
-	{ id: 903, nickname: 'けんたくん' },
+	{ id: asChildId(901), nickname: 'みらいちゃん' },
+	{ id: asChildId(903), nickname: 'けんたくん' },
 ];
 
 describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb / demo)', () => {
@@ -70,14 +71,14 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		});
 
 		it('startUsageSession は no-op で dummy id を返し、SQLite repo を呼ばない', async () => {
-			const result = await startUsageSession(TENANT, 901);
-			expect(result).toEqual({ id: 0 });
+			const result = await startUsageSession(TENANT, asChildId(901));
+			expect(result).toEqual({ id: '0' });
 			expect(repo.insertUsageLog).not.toHaveBeenCalled();
 			expect(repo.closeOpenSessions).not.toHaveBeenCalled();
 		});
 
 		it('endUsageSession は no-op で durationSec: 0 を返し、SQLite repo を呼ばない', async () => {
-			const result = await endUsageSession(0, TENANT);
+			const result = await endUsageSession('0', TENANT);
 			expect(result).toEqual({ durationSec: 0 });
 			expect(repo.updateUsageLogEnd).not.toHaveBeenCalled();
 		});
@@ -85,14 +86,14 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		it('getTodayUsageSummary は no-op で全 child durationMin: 0 を返す', async () => {
 			const result = await getTodayUsageSummary(TENANT, CHILDREN);
 			expect(result).toEqual([
-				{ childId: 901, childName: 'みらいちゃん', durationMin: 0 },
-				{ childId: 903, childName: 'けんたくん', durationMin: 0 },
+				{ childId: asChildId(901), childName: 'みらいちゃん', durationMin: 0 },
+				{ childId: asChildId(903), childName: 'けんたくん', durationMin: 0 },
 			]);
 			expect(repo.findTodayUsageLogs).not.toHaveBeenCalled();
 		});
 
 		it('getWeeklyUsageSummary は no-op で直近 7 日の空エントリを返す', async () => {
-			const result = await getWeeklyUsageSummary(TENANT, 901);
+			const result = await getWeeklyUsageSummary(TENANT, asChildId(901));
 			expect(result).toHaveLength(7);
 			expect(result.every((e) => e.durationMin === 0)).toBe(true);
 			// 各エントリの date は YYYY-MM-DD 形式かつ昇順
@@ -113,8 +114,8 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		});
 
 		it('startUsageSession は no-op で dummy id を返す', async () => {
-			const result = await startUsageSession(TENANT, 901);
-			expect(result).toEqual({ id: 0 });
+			const result = await startUsageSession(TENANT, asChildId(901));
+			expect(result).toEqual({ id: '0' });
 			expect(repo.insertUsageLog).not.toHaveBeenCalled();
 		});
 
@@ -134,26 +135,26 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		it('startUsageSession は SQLite repo を呼び、insertUsageLog の結果を返す', async () => {
 			vi.mocked(repo.closeOpenSessions).mockResolvedValue(undefined);
 			vi.mocked(repo.insertUsageLog).mockResolvedValue({
-				id: 42,
+				id: '42',
 				tenantId: TENANT,
-				childId: 901,
+				childId: asChildId(901),
 				startedAt: '2026-05-20T00:00:00Z',
 				endedAt: null,
 				durationSec: null,
 			});
 
-			const result = await startUsageSession(TENANT, 901);
-			expect(result?.id).toBe(42);
+			const result = await startUsageSession(TENANT, asChildId(901));
+			expect(result?.id).toBe('42');
 			expect(repo.closeOpenSessions).toHaveBeenCalledOnce();
 			expect(repo.insertUsageLog).toHaveBeenCalledWith(
-				expect.objectContaining({ tenantId: TENANT, childId: 901 }),
+				expect.objectContaining({ tenantId: TENANT, childId: asChildId(901) }),
 			);
 		});
 
 		it('startUsageSession は SQLite repo 例外時に null を返す (graceful)', async () => {
 			vi.mocked(repo.closeOpenSessions).mockRejectedValue(new Error('SQLite locked'));
 
-			const result = await startUsageSession(TENANT, 901);
+			const result = await startUsageSession(TENANT, asChildId(901));
 			expect(result).toBeNull();
 		});
 
@@ -165,15 +166,15 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 			const endIso = new Date(today.getTime() + 30 * 60 * 1000).toISOString();
 			vi.mocked(repo.findUsageLogsByChildAndDateRange).mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					tenantId: TENANT,
-					childId: 901,
+					childId: asChildId(901),
 					startedAt: todayIso,
 					endedAt: endIso,
 					durationSec: 1800, // 30 分
 				},
 			]);
-			const result = await getWeeklyUsageSummary(TENANT, 901);
+			const result = await getWeeklyUsageSummary(TENANT, asChildId(901));
 			expect(result).toHaveLength(7);
 			expect(repo.findUsageLogsByChildAndDateRange).toHaveBeenCalledOnce();
 			// 1 件 30 分のログが含まれる日の durationMin > 0 を期待

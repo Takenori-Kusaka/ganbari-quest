@@ -91,7 +91,7 @@ onMount(() => {
 	let cleanupSleep: (() => void) | undefined;
 	if (!isBaby && data.child) {
 		const childId = data.child.id;
-		let usageSessionId: number | null = null;
+		let usageSessionId: string | null = null;
 
 		// セッション開始を記録（fire-and-forget）
 		fetch('/api/v1/usage', {
@@ -107,7 +107,7 @@ onMount(() => {
 					'id' in json &&
 					typeof (json as { id: unknown }).id === 'number'
 				) {
-					usageSessionId = (json as { id: number }).id;
+					usageSessionId = (json as { id: string }).id;
 				}
 			})
 			.catch(() => {

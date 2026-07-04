@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/db/repo-helpers.test.ts
 // repo-helpers.ts のユニットテスト (#1041)
 
@@ -251,7 +252,7 @@ describe('findChildByIdRaw', () => {
 			},
 		});
 
-		const child = await findChildByIdRaw(1, 'tenant1');
+		const child = await findChildByIdRaw(asChildId(1), 'tenant1');
 
 		expect(child).toBeDefined();
 		expect(child?.id).toBe(1);
@@ -270,7 +271,7 @@ describe('findChildByIdRaw', () => {
 	it('存在しない子供の場合は undefined を返す', async () => {
 		mockSend.mockResolvedValueOnce({ Item: undefined });
 
-		const child = await findChildByIdRaw(999, 'tenant1');
+		const child = await findChildByIdRaw(asChildId(999), 'tenant1');
 
 		expect(child).toBeUndefined();
 	});

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/usage-log-service.ts
 // 子供の使用時間ログ管理サービス (#1292)
 //
@@ -51,11 +52,11 @@ export function resetNoopNotifiedForTesting(): void {
 /** セッション開始を記録する */
 export async function startUsageSession(
 	tenantId: string,
-	childId: number,
-): Promise<{ id: number } | null> {
+	childId: ChildId,
+): Promise<{ id: string } | null> {
 	if (isUsageLogNoopBackend()) {
 		notifyNoopOnce();
-		return { id: 0 }; // dummy id (client は fire-and-forget なので未参照)
+		return { id: '0' }; // dummy id (client は fire-and-forget なので未参照)
 	}
 	try {
 		// 既存の進行中セッションを終了させてから新規作成
@@ -78,7 +79,7 @@ export async function startUsageSession(
 
 /** セッション終了を記録する */
 export async function endUsageSession(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<{ durationSec: number } | null> {
 	if (isUsageLogNoopBackend()) {
@@ -108,8 +109,8 @@ export async function endUsageSession(
 /** 本日の子供ごとの使用時間サマリーを取得（分単位） */
 export async function getTodayUsageSummary(
 	tenantId: string,
-	children: { id: number; nickname: string }[],
-): Promise<{ childId: number; childName: string; durationMin: number }[]> {
+	children: { id: ChildId; nickname: string }[],
+): Promise<{ childId: ChildId; childName: string; durationMin: number }[]> {
 	if (isUsageLogNoopBackend()) {
 		notifyNoopOnce();
 		return children.map((child) => ({
@@ -122,7 +123,7 @@ export async function getTodayUsageSummary(
 		const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 		const logs = await findTodayUsageLogs(tenantId, today);
 
-		const summaryMap = new Map<number, number>();
+		const summaryMap = new Map<ChildId, number>();
 		for (const log of logs) {
 			const existing = summaryMap.get(log.childId) ?? 0;
 			const sec = log.durationSec ?? 0;
@@ -149,7 +150,7 @@ export async function getTodayUsageSummary(
 /** 直近7日間の子供ごとの日別使用時間を取得（分単位） */
 export async function getWeeklyUsageSummary(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 ): Promise<{ date: string; durationMin: number }[]> {
 	if (isUsageLogNoopBackend()) {
 		notifyNoopOnce();

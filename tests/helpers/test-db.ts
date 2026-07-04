@@ -3,6 +3,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { asActivityId, asChildId } from '../../src/lib/domain/ids';
 import { SQL_CREATE_TABLES } from '../../src/lib/server/db/create-tables';
 import * as schema from '../../src/lib/server/db/schema';
 
@@ -84,17 +85,17 @@ export function seedTestData(db: ReturnType<typeof drizzle>) {
 	}
 
 	return {
-		childId: 1,
+		childId: asChildId(1),
 		activityIds: {
-			taisou: 1,
-			osoto: 2,
-			swimming: 3,
-			hiragana: 4,
-			okataduke: 5,
-			oekaki: 6,
-			otomodachi: 7,
-			fiveAndUp: 8,
-			hidden: 9,
+			taisou: asActivityId(1),
+			osoto: asActivityId(2),
+			swimming: asActivityId(3),
+			hiragana: asActivityId(4),
+			okataduke: asActivityId(5),
+			oekaki: asActivityId(6),
+			otomodachi: asActivityId(7),
+			fiveAndUp: asActivityId(8),
+			hidden: asActivityId(9),
 		},
 	};
 }

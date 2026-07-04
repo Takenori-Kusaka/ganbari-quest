@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/server/db/demo/reward-marketplace.test.ts
 // #2097 Phase B-7: demo Lambda の reward 経路 marketplace integration 検証。
 // settings-repo の `reward_templates` キー + special-reward-repo の child shop 用 pre-granted rewards。
@@ -13,26 +14,26 @@ import {
 describe('demo/reward — marketplace integration (#2097 B-7)', () => {
 	describe('per-child reward templates', () => {
 		it('902 (preschool F): kinder-rewards から 10 件取得', () => {
-			const templates = getDemoMarketplaceRewardTemplatesByChild(902);
+			const templates = getDemoMarketplaceRewardTemplatesByChild(asChildId(902));
 			expect(templates.length).toBe(10);
 			// 既知の kinder-rewards item（こうえんで30ぷんあそぶ）が含まれる
 			expect(templates.some((t) => t.title === 'こうえんで30ぷんあそぶ')).toBe(true);
 		});
 
 		it('903 (elementary M): elementary-rewards から 10 件', () => {
-			expect(getDemoMarketplaceRewardTemplatesByChild(903).length).toBe(10);
+			expect(getDemoMarketplaceRewardTemplatesByChild(asChildId(903)).length).toBe(10);
 		});
 
 		it('904 (junior F): junior-rewards から 10 件', () => {
-			expect(getDemoMarketplaceRewardTemplatesByChild(904).length).toBe(10);
+			expect(getDemoMarketplaceRewardTemplatesByChild(asChildId(904)).length).toBe(10);
 		});
 
 		it('906 (senior M): senior-rewards から 10 件', () => {
-			expect(getDemoMarketplaceRewardTemplatesByChild(906).length).toBe(10);
+			expect(getDemoMarketplaceRewardTemplatesByChild(asChildId(906)).length).toBe(10);
 		});
 
 		it('901 (baby M): marketplace 対象外 — 空配列', () => {
-			expect(getDemoMarketplaceRewardTemplatesByChild(901).length).toBe(0);
+			expect(getDemoMarketplaceRewardTemplatesByChild(asChildId(901)).length).toBe(0);
 		});
 	});
 
@@ -64,9 +65,9 @@ describe('demo/reward — marketplace integration (#2097 B-7)', () => {
 
 	describe('special-reward-repo の child shop 用 pre-granted rewards', () => {
 		it('902 で kinder-rewards 由来の rewards を上位 5 件返す', async () => {
-			const rewards = await specialRewardRepo.findSpecialRewards(902, 'demo');
+			const rewards = await specialRewardRepo.findSpecialRewards(asChildId(902), 'demo');
 			expect(rewards.length).toBe(5);
-			expect(rewards.every((r) => r.childId === 902)).toBe(true);
+			expect(rewards.every((r) => r.childId === '902')).toBe(true);
 			expect(rewards.every((r) => r.sourcePresetId === 'kinder-rewards')).toBe(true);
 			// 全 reward が pre-granted (grantedAt 設定済み)
 			expect(rewards.every((r) => r.grantedAt !== null)).toBe(true);
@@ -76,18 +77,18 @@ describe('demo/reward — marketplace integration (#2097 B-7)', () => {
 		});
 
 		it('903 で elementary-rewards 由来 5 件', async () => {
-			const rewards = await specialRewardRepo.findSpecialRewards(903, 'demo');
+			const rewards = await specialRewardRepo.findSpecialRewards(asChildId(903), 'demo');
 			expect(rewards.length).toBe(5);
 			expect(rewards.every((r) => r.sourcePresetId === 'elementary-rewards')).toBe(true);
 		});
 
 		it('901 (baby) は marketplace 対象外 — 空配列', async () => {
-			expect(await specialRewardRepo.findSpecialRewards(901, 'demo')).toEqual([]);
+			expect(await specialRewardRepo.findSpecialRewards(asChildId(901), 'demo')).toEqual([]);
 		});
 
 		it('getDemoMarketplaceSpecialRewardsByChild は per-child 配列を返す', () => {
-			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(5);
-			expect(getDemoMarketplaceSpecialRewardsByChild(999).length).toBe(0);
+			expect(getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length).toBe(5);
+			expect(getDemoMarketplaceSpecialRewardsByChild(asChildId(999)).length).toBe(0);
 		});
 	});
 });

@@ -1,3 +1,5 @@
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -23,9 +25,9 @@ export const actions: Actions = {
 	toggle: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const templateId = Number(formData.get('templateId'));
-		const itemId = Number(formData.get('itemId'));
+		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const templateId = formIdString(formData.get('templateId'));
+		const itemId = formIdString(formData.get('itemId'));
 		const checked = formData.get('checked') === '1';
 
 		if (Number.isNaN(childId) || Number.isNaN(templateId) || Number.isNaN(itemId)) {

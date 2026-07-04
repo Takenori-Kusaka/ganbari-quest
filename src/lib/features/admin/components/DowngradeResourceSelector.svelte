@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import {
 	getAgeTierLabel,
@@ -23,24 +24,24 @@ let {
 	loading?: boolean;
 	error?: string | null;
 	onConfirm: (selection: {
-		childIds: number[];
-		activityIds: number[];
-		checklistTemplateIds: number[];
+		childIds: ChildId[];
+		activityIds: ActivityId[];
+		checklistTemplateIds: string[];
 	}) => void;
 	onCancel: () => void;
 } = $props();
 
 // 選択状態: アーカイブ「する」リソースの ID セット
-let archiveChildIds = $state(new Set<number>());
-let archiveActivityIds = $state(new Set<number>());
-let archiveChecklistIds = $state(new Set<number>());
+let archiveChildIds = $state(new Set<ChildId>());
+let archiveActivityIds = $state(new Set<ActivityId>());
+let archiveChecklistIds = $state(new Set<string>());
 
 // プレビューが変わったら選択をリセット
 $effect(() => {
 	if (preview) {
-		archiveChildIds = new Set<number>();
-		archiveActivityIds = new Set<number>();
-		archiveChecklistIds = new Set<number>();
+		archiveChildIds = new Set<ChildId>();
+		archiveActivityIds = new Set<ActivityId>();
+		archiveChecklistIds = new Set<string>();
 	}
 });
 
@@ -70,7 +71,7 @@ const allValid = $derived(
 	childSelectionValid() && activitySelectionValid() && checklistSelectionValid(),
 );
 
-function toggleChild(id: number) {
+function toggleChild(id: ChildId) {
 	const next = new Set(archiveChildIds);
 	if (next.has(id)) {
 		next.delete(id);
@@ -80,7 +81,7 @@ function toggleChild(id: number) {
 	archiveChildIds = next;
 }
 
-function toggleActivity(id: number) {
+function toggleActivity(id: ActivityId) {
 	const next = new Set(archiveActivityIds);
 	if (next.has(id)) {
 		next.delete(id);
@@ -90,7 +91,7 @@ function toggleActivity(id: number) {
 	archiveActivityIds = next;
 }
 
-function toggleChecklist(id: number) {
+function toggleChecklist(id: string) {
 	const next = new Set(archiveChecklistIds);
 	if (next.has(id)) {
 		next.delete(id);

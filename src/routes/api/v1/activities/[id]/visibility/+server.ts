@@ -1,3 +1,4 @@
+import { asActivityId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 import { notFound, validationError } from '$lib/server/errors';
 import { getActivityById, setActivityVisibility } from '$lib/server/services/activity-service';
@@ -9,8 +10,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const id = Number(params.id);
-	if (Number.isNaN(id)) return validationError('IDが不正です');
+	const id = asActivityId(params.id);
+	if (!id) return validationError('IDが不正です');
 
 	const existing = await getActivityById(id, tenantId);
 	if (!existing) return notFound('かつどうがみつかりません');

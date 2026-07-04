@@ -1,15 +1,16 @@
 <script lang="ts">
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CERTIFICATES_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import CertificateCard from '$lib/features/certificate/CertificateCard.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
 
-let childIdOverride = $state<number | undefined>(undefined);
+let childIdOverride = $state<ChildId | undefined>(undefined);
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));

@@ -20,6 +20,8 @@
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/message-repo.ts (SSOT)
 
 import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { InsertParentMessageInput, ParentMessage } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -37,8 +39,8 @@ const PREFIX = parentMessagePrefix();
 function toMessage(item: Record<string, unknown>): ParentMessage {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
-		childId: s.childId as number,
+		id: String(s.id as number),
+		childId: asChildId(s.childId as number),
 		messageType: s.messageType as string,
 		stampCode: (s.stampCode ?? null) as string | null,
 		body: (s.body ?? null) as string | null,
@@ -59,13 +61,16 @@ export async function insertForRestore(
 	tenantId: string,
 ): Promise<ParentMessage> {
 	const id = await nextId(ENTITY_NAMES.parentMessage, tenantId);
-	const message: ParentMessage = { ...input, id };
+	const message: ParentMessage = { ...input, id: String(id) };
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...parentMessageKey(input.childId, id, tenantId),
+				...parentMessageKey(Number(input.childId), id, tenantId),
 				...message,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -78,7 +83,7 @@ export async function insertMessage(
 ): Promise<ParentMessage> {
 	const id = await nextId(ENTITY_NAMES.parentMessage, tenantId);
 	const message: ParentMessage = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		messageType: input.messageType,
 		stampCode: input.stampCode ?? null,
@@ -95,8 +100,11 @@ export async function insertMessage(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...parentMessageKey(input.childId, id, tenantId),
+				...parentMessageKey(Number(input.childId), id, tenantId),
 				...message,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -109,7 +117,7 @@ export async function insertMessage(
 // ============================================================
 
 export async function findMessages(
-	childId: number,
+	childId: ChildId,
 	limit: number,
 	tenantId: string,
 ): Promise<ParentMessage[]> {
@@ -126,7 +134,7 @@ export async function findMessages(
 // ============================================================
 
 export async function findUnshownMessage(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ParentMessage | undefined> {
 	const items = await queryChildMessages(childId, tenantId);
@@ -142,7 +150,7 @@ export async function findUnshownMessage(
 // countUnshownMessages — 未表示メッセージ数を取得
 // ============================================================
 
-export async function countUnshownMessages(childId: number, tenantId: string): Promise<number> {
+export async function countUnshownMessages(childId: ChildId, tenantId: string): Promise<number> {
 	const items = await queryChildMessages(childId, tenantId);
 	return items.map(toMessage).filter((m) => m.shownAt === null).length;
 }
@@ -159,15 +167,15 @@ export async function countUnshownMessages(childId: number, tenantId: string): P
  * (SQLite `WHERE id=? AND child_id=?` の affected 0 と等価)。
  */
 export async function markMessageShown(
-	childId: number,
-	messageId: number,
+	childId: ChildId,
+	messageId: string,
 	tenantId: string,
 ): Promise<ParentMessage | undefined> {
 	try {
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: parentMessageKey(childId, messageId, tenantId),
+				Key: parentMessageKey(Number(childId), Number(messageId), tenantId),
 				UpdateExpression: 'SET shownAt = :now',
 				ConditionExpression: 'attribute_exists(PK)',
 				ExpressionAttributeValues: { ':now': new Date().toISOString() },
@@ -201,12 +209,12 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  */
 function compareSentAtDesc(a: ParentMessage, b: ParentMessage): number {
 	if (a.sentAt !== b.sentAt) return a.sentAt < b.sentAt ? 1 : -1;
-	return b.id - a.id;
+	return Number(b.id) - Number(a.id);
 }
 
 /** 指定 child partition の MSG# item を全件 Query する (ページング対応)。 */
 async function queryChildMessages(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -218,7 +226,7 @@ async function queryChildMessages(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': PREFIX,
 				},
 				ExclusiveStartKey: lastKey,

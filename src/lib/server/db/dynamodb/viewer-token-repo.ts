@@ -25,8 +25,10 @@ import { nextId } from './counter';
 import { ENTITY_NAMES, VIEWER_TOKEN_PK_PREFIX, viewerTokenKey } from './keys';
 import { stripKeys } from './repo-helpers';
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で string に変換する。
 function mapItem(item: Record<string, unknown>): ViewerToken {
-	return stripKeys(item) as unknown as ViewerToken;
+	const raw = stripKeys(item) as unknown as Omit<ViewerToken, 'id'> & { id: number };
+	return { ...raw, id: String(raw.id) };
 }
 
 /** tenant に属する全 token を Scan + 属性フィルタで取得 (raw key 付き)。 */
@@ -77,7 +79,7 @@ export async function insert(
 	const now = new Date().toISOString();
 
 	const record: ViewerToken = {
-		id,
+		id: String(id),
 		tenantId,
 		token: input.token,
 		label: input.label ?? null,
@@ -89,17 +91,17 @@ export async function insert(
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
-			Item: { ...viewerTokenKey(input.token), ...record },
+			Item: { ...viewerTokenKey(input.token), ...record, id },
 		}),
 	);
 
 	return record;
 }
 
-export async function revoke(id: number, tenantId: string): Promise<void> {
+export async function revoke(id: string, tenantId: string): Promise<void> {
 	// id 指定だが PK は token 軸。tenant scope で raw item を引き当てて revokedAt をセット。
 	const items = await scanByTenant(tenantId);
-	const target = items.find((it) => it.id === id);
+	const target = items.find((it) => it.id === Number(id));
 	if (!target) return;
 	await getDocClient().send(
 		new UpdateCommand({
@@ -111,9 +113,9 @@ export async function revoke(id: number, tenantId: string): Promise<void> {
 	);
 }
 
-export async function deleteById(id: number, tenantId: string): Promise<void> {
+export async function deleteById(id: string, tenantId: string): Promise<void> {
 	const items = await scanByTenant(tenantId);
-	const target = items.find((it) => it.id === id);
+	const target = items.find((it) => it.id === Number(id));
 	if (!target) return;
 	await getDocClient().send(
 		new DeleteCommand({

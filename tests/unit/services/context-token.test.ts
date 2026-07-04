@@ -8,6 +8,7 @@ import {
 	verifyContext,
 } from '../../../src/lib/server/auth/context-token';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
+import { asChildId } from '$lib/domain/ids';
 
 const ownerContext: AuthContext = {
 	tenantId: 't-test',
@@ -18,7 +19,7 @@ const ownerContext: AuthContext = {
 const childContext: AuthContext = {
 	tenantId: 't-test',
 	role: 'child',
-	childId: 42,
+	childId: asChildId(42),
 	licenseStatus: 'active',
 };
 

@@ -12,6 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const {
 	mockSend,
@@ -68,8 +69,8 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
-const REWARD_ID = 7;
+const CHILD_ID = asChildId(42);
+const REWARD_ID = '7';
 
 function makeRewardItem(over: Record<string, unknown> = {}): Record<string, unknown> {
 	return {

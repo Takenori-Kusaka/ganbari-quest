@@ -12,7 +12,7 @@ import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 interface Props {
 	open: boolean;
-	rewardId: number | null;
+	rewardId: string | null;
 	rewardTitle: string;
 	rewardPoints: number;
 	rewardIcon: string | null;

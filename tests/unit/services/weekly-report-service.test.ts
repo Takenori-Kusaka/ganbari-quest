@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 const mockCountActivitiesByCategory = vi.fn();
 const mockFindStatuses = vi.fn();
@@ -35,22 +36,22 @@ beforeEach(() => {
 describe('generateWeeklyReport', () => {
 	it('活動データからレポートを生成する', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([
-			{ categoryId: 1, count: 5, totalPoints: 50 },
-			{ categoryId: 2, count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(1), count: 5, totalPoints: 50 },
+			{ categoryId: asCategoryId(2), count: 3, totalPoints: 30 },
 		]);
 		mockFindStatuses.mockResolvedValue([
-			{ categoryId: 1, totalXp: 150 },
-			{ categoryId: 2, totalXp: 80 },
+			{ categoryId: asCategoryId(1), totalXp: 150 },
+			{ categoryId: asCategoryId(2), totalXp: 80 },
 		]);
 
-		const report = await generateWeeklyReport(1, 'テスト太郎', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト太郎', TENANT);
 
 		expect(report.childName).toBe('テスト太郎');
 		expect(report.totalActivities).toBe(8);
 		expect(report.totalPoints).toBe(80);
 		expect(report.categories).toHaveLength(5);
 
-		const undou = report.categories.find((c) => c.categoryId === 1);
+		const undou = report.categories.find((c) => c.categoryId === '1');
 		expect(undou?.activityCount).toBe(5);
 	});
 
@@ -58,7 +59,7 @@ describe('generateWeeklyReport', () => {
 		mockCountActivitiesByCategory.mockResolvedValue([]);
 		mockFindStatuses.mockResolvedValue([]);
 
-		const report = await generateWeeklyReport(1, 'テスト花子', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト花子', TENANT);
 
 		expect(report.totalActivities).toBe(0);
 		expect(report.advice.message).toContain('まだ きろくが ないよ');
@@ -66,15 +67,15 @@ describe('generateWeeklyReport', () => {
 
 	it('全カテゴリで活動があるとハイライトに含まれる', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([
-			{ categoryId: 1, count: 2, totalPoints: 20 },
-			{ categoryId: 2, count: 3, totalPoints: 30 },
-			{ categoryId: 3, count: 1, totalPoints: 10 },
-			{ categoryId: 4, count: 2, totalPoints: 20 },
-			{ categoryId: 5, count: 1, totalPoints: 10 },
+			{ categoryId: asCategoryId(1), count: 2, totalPoints: 20 },
+			{ categoryId: asCategoryId(2), count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(3), count: 1, totalPoints: 10 },
+			{ categoryId: asCategoryId(4), count: 2, totalPoints: 20 },
+			{ categoryId: asCategoryId(5), count: 1, totalPoints: 10 },
 		]);
 		mockFindStatuses.mockResolvedValue([]);
 
-		const report = await generateWeeklyReport(1, 'テスト', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト', TENANT);
 
 		const allCatHighlight = report.highlights.find((h) => h.type === 'all_category');
 		expect(allCatHighlight?.message).toContain('ぜんカテゴリ');
@@ -85,19 +86,19 @@ describe('generateWeeklyReport', () => {
 		mockFindStatuses.mockResolvedValue([]);
 		const targetDate = new Date('2026-04-07');
 
-		const report = await generateWeeklyReport(1, 'テスト', TENANT, targetDate);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト', TENANT, targetDate);
 
 		expect(report.newAchievements).toHaveLength(0);
 	});
 
 	it('活動が少ないカテゴリのアドバイスを生成する', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([
-			{ categoryId: 1, count: 5, totalPoints: 50 },
+			{ categoryId: asCategoryId(1), count: 5, totalPoints: 50 },
 			// categoryId 2-5 は活動なし
 		]);
 		mockFindStatuses.mockResolvedValue([]);
 
-		const report = await generateWeeklyReport(1, 'テスト', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト', TENANT);
 
 		expect(report.advice.suggestedCategory).not.toBeNull();
 		expect(report.advice.message).toContain('ちょうせん');
@@ -105,27 +106,27 @@ describe('generateWeeklyReport', () => {
 
 	it('バランスよく活動している場合のアドバイス', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([
-			{ categoryId: 1, count: 3, totalPoints: 30 },
-			{ categoryId: 2, count: 3, totalPoints: 30 },
-			{ categoryId: 3, count: 3, totalPoints: 30 },
-			{ categoryId: 4, count: 3, totalPoints: 30 },
-			{ categoryId: 5, count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(1), count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(2), count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(3), count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(4), count: 3, totalPoints: 30 },
+			{ categoryId: asCategoryId(5), count: 3, totalPoints: 30 },
 		]);
 		mockFindStatuses.mockResolvedValue([]);
 
-		const report = await generateWeeklyReport(1, 'テスト', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト', TENANT);
 
 		expect(report.advice.message).toContain('バランスよく');
 	});
 
 	it('20回以上の活動でハイライトメッセージが変わる', async () => {
 		mockCountActivitiesByCategory.mockResolvedValue([
-			{ categoryId: 1, count: 10, totalPoints: 100 },
-			{ categoryId: 2, count: 12, totalPoints: 120 },
+			{ categoryId: asCategoryId(1), count: 10, totalPoints: 100 },
+			{ categoryId: asCategoryId(2), count: 12, totalPoints: 120 },
 		]);
 		mockFindStatuses.mockResolvedValue([]);
 
-		const report = await generateWeeklyReport(1, 'テスト', TENANT);
+		const report = await generateWeeklyReport(asChildId(1), 'テスト', TENANT);
 
 		const streakHighlight = report.highlights.find((h) => h.type === 'streak');
 		expect(streakHighlight?.message).toContain('22かいも');

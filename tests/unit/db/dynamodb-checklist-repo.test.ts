@@ -11,6 +11,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const { mockSend, MockQueryCommand, MockScanCommand, MockDeleteCommand } = vi.hoisted(() => {
 	const send = vi.fn();
@@ -53,8 +54,8 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const TEMPLATE_ID = 5;
-const CHILD_ID = 42;
+const TEMPLATE_ID = '5';
+const CHILD_ID = asChildId(42);
 
 function queryInput(idx: number): Record<string, unknown> {
 	return (mockSend.mock.calls[idx]?.[0] as { input: Record<string, unknown> }).input;
@@ -77,7 +78,7 @@ describe('deleteTemplateItem (#2845 B1: tenant 境界 + paging)', () => {
 		mockSend.mockResolvedValueOnce({ Items: [item] }).mockResolvedValueOnce({}); // Delete
 
 		const { deleteTemplateItem } = await loadRepo();
-		await deleteTemplateItem(TEMPLATE_ID, 20, TENANT);
+		await deleteTemplateItem(TEMPLATE_ID, '20', TENANT);
 
 		const query = mockSend.mock.calls[0]?.[0];
 		expect(query).toBeInstanceOf(MockQueryCommand);
@@ -106,7 +107,7 @@ describe('deleteTemplateItem (#2845 B1: tenant 境界 + paging)', () => {
 			})
 			.mockResolvedValueOnce({}); // Delete
 		const { deleteTemplateItem } = await loadRepo();
-		await deleteTemplateItem(TEMPLATE_ID, 20, TENANT);
+		await deleteTemplateItem(TEMPLATE_ID, '20', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(3);
 		expect(mockSend.mock.calls[2]?.[0]).toBeInstanceOf(MockDeleteCommand);
 	});
@@ -114,7 +115,7 @@ describe('deleteTemplateItem (#2845 B1: tenant 境界 + paging)', () => {
 	it('別 template (= 別 partition) の id は不在扱いで Delete しない (no-op)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { deleteTemplateItem } = await loadRepo();
-		await deleteTemplateItem(TEMPLATE_ID, 999, TENANT);
+		await deleteTemplateItem(TEMPLATE_ID, '999', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 		expect(mockSend.mock.calls[0]?.[0]).toBeInstanceOf(MockQueryCommand);
 	});
@@ -130,7 +131,7 @@ describe('deleteOverride (#2845 B1: tenant + child 境界 + paging)', () => {
 		mockSend.mockResolvedValueOnce({ Items: [item] }).mockResolvedValueOnce({}); // Delete
 
 		const { deleteOverride } = await loadRepo();
-		await deleteOverride(CHILD_ID, 7, TENANT);
+		await deleteOverride(CHILD_ID, '7', TENANT);
 
 		const query = mockSend.mock.calls[0]?.[0];
 		expect(query).toBeInstanceOf(MockQueryCommand);
@@ -158,7 +159,7 @@ describe('deleteOverride (#2845 B1: tenant + child 境界 + paging)', () => {
 			})
 			.mockResolvedValueOnce({}); // Delete
 		const { deleteOverride } = await loadRepo();
-		await deleteOverride(CHILD_ID, 7, TENANT);
+		await deleteOverride(CHILD_ID, '7', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(3);
 		expect(mockSend.mock.calls[2]?.[0]).toBeInstanceOf(MockDeleteCommand);
 	});
@@ -166,7 +167,7 @@ describe('deleteOverride (#2845 B1: tenant + child 境界 + paging)', () => {
 	it('別 child (= 別 partition) の id は不在扱いで Delete しない (no-op)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { deleteOverride } = await loadRepo();
-		await deleteOverride(CHILD_ID, 999, TENANT);
+		await deleteOverride(CHILD_ID, '999', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 		expect(mockSend.mock.calls[0]?.[0]).toBeInstanceOf(MockQueryCommand);
 	});
@@ -179,7 +180,7 @@ describe('findLogsByChild (#3078: child 単位バルク取得 + paging)', () => 
 				{
 					PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
 					SK: 'CKLOG#00000005#2026-03-15',
-					id: 1,
+					id: '1',
 					childId: CHILD_ID,
 					templateId: 5,
 					checkedDate: '2026-03-15',
@@ -204,7 +205,7 @@ describe('findLogsByChild (#3078: child 単位バルク取得 + paging)', () => 
 		// stripKeys で PK/SK が除去された domain 形で返る
 		expect(logs).toHaveLength(1);
 		expect(logs[0]).not.toHaveProperty('PK');
-		expect(logs[0]?.templateId).toBe(5);
+		expect(logs[0]?.templateId).toBe('5');
 		expect(logs[0]?.pointsAwarded).toBe(7);
 	});
 
@@ -215,7 +216,7 @@ describe('findLogsByChild (#3078: child 単位バルク取得 + paging)', () => 
 					{
 						PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
 						SK: 'CKLOG#00000005#2026-03-14',
-						id: 1,
+						id: '1',
 						childId: CHILD_ID,
 						templateId: 5,
 						checkedDate: '2026-03-14',
@@ -232,7 +233,7 @@ describe('findLogsByChild (#3078: child 単位バルク取得 + paging)', () => 
 					{
 						PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
 						SK: 'CKLOG#00000005#2026-03-15',
-						id: 2,
+						id: '2',
 						childId: CHILD_ID,
 						templateId: 5,
 						checkedDate: '2026-03-15',

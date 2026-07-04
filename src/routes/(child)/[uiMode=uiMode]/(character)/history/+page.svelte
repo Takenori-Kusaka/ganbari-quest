@@ -1,4 +1,5 @@
 <script lang="ts">
+import { asCategoryId } from '$lib/domain/ids';
 import { goto } from '$app/navigation';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
@@ -136,9 +137,9 @@ function purchaseStatusTone(status: string): string {
 											{#each Object.entries(data.summary.byCategory) as [cat, info]}
 												<span
 													class="text-xs px-2 py-1 rounded-[var(--radius-full)] text-white font-bold"
-													style:background-color={getCategoryById(Number(cat))?.color ?? 'var(--theme-primary)'}
+													style:background-color={getCategoryById(asCategoryId(cat))?.color ?? 'var(--theme-primary)'}
 												>
-													{getCategoryById(Number(cat))?.name ?? cat} {info.count}{t.historyCountUnit}
+													{getCategoryById(asCategoryId(cat))?.name ?? cat} {info.count}{t.historyCountUnit}
 												</span>
 											{/each}
 										</div>

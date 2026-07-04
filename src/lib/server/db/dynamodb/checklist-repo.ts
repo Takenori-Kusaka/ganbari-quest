@@ -17,6 +17,8 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type {
 	ChecklistLog,
 	ChecklistOverride,
@@ -51,6 +53,65 @@ import {
 import { stripKeys } from './repo-helpers';
 
 // ============================================================
+// #3575 branded id 境界変換: stored item は数値 id のまま (storage format 不変)。
+// repo 境界で string / ChildId に変換して返す mapper 群。
+// ============================================================
+
+type StoredChecklistTemplate = Omit<ChecklistTemplate, 'id'> & { id: number };
+type StoredChecklistTemplateAssignment = Omit<
+	ChecklistTemplateAssignment,
+	'id' | 'templateId' | 'childId'
+> & { id: number; templateId: number; childId: number };
+type StoredChecklistTemplateItem = Omit<ChecklistTemplateItem, 'id' | 'templateId'> & {
+	id: number;
+	templateId: number;
+};
+type StoredChecklistLog = Omit<ChecklistLog, 'id' | 'childId' | 'templateId'> & {
+	id: number;
+	childId: number;
+	templateId: number;
+};
+type StoredChecklistOverride = Omit<ChecklistOverride, 'id' | 'childId'> & {
+	id: number;
+	childId: number;
+};
+
+function toTemplate(item: Record<string, unknown>): ChecklistTemplate {
+	const raw = stripKeys(item) as unknown as StoredChecklistTemplate;
+	return { ...raw, id: String(raw.id) };
+}
+
+function toAssignment(item: Record<string, unknown>): ChecklistTemplateAssignment {
+	const raw = stripKeys(item) as unknown as StoredChecklistTemplateAssignment;
+	return {
+		...raw,
+		id: String(raw.id),
+		templateId: String(raw.templateId),
+		childId: asChildId(raw.childId),
+	};
+}
+
+function toTemplateItem(item: Record<string, unknown>): ChecklistTemplateItem {
+	const raw = stripKeys(item) as unknown as StoredChecklistTemplateItem;
+	return { ...raw, id: String(raw.id), templateId: String(raw.templateId) };
+}
+
+function toLog(item: Record<string, unknown>): ChecklistLog {
+	const raw = stripKeys(item) as unknown as StoredChecklistLog;
+	return {
+		...raw,
+		id: String(raw.id),
+		childId: asChildId(raw.childId),
+		templateId: String(raw.templateId),
+	};
+}
+
+function toOverride(item: Record<string, unknown>): ChecklistOverride {
+	const raw = stripKeys(item) as unknown as StoredChecklistOverride;
+	return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
+}
+
+// ============================================================
 // Templates (family scope)
 // ============================================================
 
@@ -69,7 +130,7 @@ export async function findTemplatesByTenant(
 		}),
 	);
 
-	let items = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplate);
+	let items = (result.Items ?? []).map((item) => toTemplate(item));
 	items = items.filter((t) => !t.isArchived || t.isArchived === 0);
 	if (!includeInactive) {
 		items = items.filter((t) => t.isActive === 1);
@@ -81,7 +142,7 @@ export async function findTemplatesByTenant(
  * 子供視点で「配信中の family templates」を取得 (assignments → templates の 2 段 query)。
  */
 export async function findTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	includeInactive?: boolean,
 	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
@@ -102,17 +163,17 @@ export async function findTemplatesByChild(
 }
 
 export async function findTemplateById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(id, tenantId),
+			Key: checklistTemplateKey(Number(id), tenantId),
 		}),
 	);
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as ChecklistTemplate;
+	return toTemplate(result.Item);
 }
 
 export async function insertTemplate(
@@ -123,7 +184,7 @@ export async function insertTemplate(
 	const now = new Date().toISOString();
 
 	const template: ChecklistTemplate = {
-		id,
+		id: String(id),
 		tenantId,
 		name: input.name,
 		icon: input.icon ?? '📋',
@@ -144,6 +205,8 @@ export async function insertTemplate(
 			Item: {
 				...checklistTemplateKey(id, tenantId),
 				...template,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
 			},
 		}),
 	);
@@ -152,7 +215,7 @@ export async function insertTemplate(
 }
 
 export async function updateTemplate(
-	id: number,
+	id: string,
 	input: UpdateChecklistTemplateInput,
 	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
@@ -182,7 +245,7 @@ export async function updateTemplate(
 	const result = await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(id, tenantId),
+			Key: checklistTemplateKey(Number(id), tenantId),
 			UpdateExpression: `SET ${updates.join(', ')}`,
 			ExpressionAttributeNames: names,
 			ExpressionAttributeValues: values,
@@ -191,10 +254,10 @@ export async function updateTemplate(
 	);
 
 	if (!result.Attributes) return undefined;
-	return stripKeys(result.Attributes) as unknown as ChecklistTemplate;
+	return toTemplate(result.Attributes);
 }
 
-export async function deleteTemplate(id: number, tenantId: string): Promise<void> {
+export async function deleteTemplate(id: string, tenantId: string): Promise<void> {
 	// 関連 assignments / items を先に削除
 	await unassignTemplate(id, tenantId);
 
@@ -204,7 +267,7 @@ export async function deleteTemplate(id: number, tenantId: string): Promise<void
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': tenantPK(`CKTPL#${id}`, tenantId),
+				':pk': tenantPK(`CKTPL#${Number(id)}`, tenantId),
 				':prefix': checklistItemPrefix(),
 			},
 		}),
@@ -222,7 +285,7 @@ export async function deleteTemplate(id: number, tenantId: string): Promise<void
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(id, tenantId),
+			Key: checklistTemplateKey(Number(id), tenantId),
 		}),
 	);
 }
@@ -232,7 +295,7 @@ export async function deleteTemplate(id: number, tenantId: string): Promise<void
 // ============================================================
 
 export async function findAssignmentsByTemplate(
-	templateId: number,
+	templateId: string,
 	tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	const result = await getDocClient().send(
@@ -240,18 +303,16 @@ export async function findAssignmentsByTemplate(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
+				':pk': tenantPK(`CKTPL#${Number(templateId)}`, tenantId),
 				':prefix': checklistAssignmentPrefix(),
 			},
 		}),
 	);
-	return (result.Items ?? []).map(
-		(item) => stripKeys(item) as unknown as ChecklistTemplateAssignment,
-	);
+	return (result.Items ?? []).map((item) => toAssignment(item));
 }
 
 export async function findAssignmentsByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	// Scan: PK starts with T#<tenantId>#CKTPL# and SK = ASSIGN#<padded childId>
@@ -269,13 +330,13 @@ export async function findAssignmentsByChild(
 				ExpressionAttributeValues: {
 					':pkPrefix': tenantPrefix,
 					':skPrefix': checklistAssignmentPrefix(),
-					':childId': childId,
+					':childId': Number(childId),
 				},
 				ExclusiveStartKey: lastKey,
 			}),
 		);
 		for (const item of result.Items ?? []) {
-			results.push(stripKeys(item) as unknown as ChecklistTemplateAssignment);
+			results.push(toAssignment(item));
 		}
 		lastKey = result.LastEvaluatedKey;
 	} while (lastKey);
@@ -283,8 +344,8 @@ export async function findAssignmentsByChild(
 }
 
 export async function assignTemplateToChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	if (childIds.length === 0) return [];
@@ -297,7 +358,7 @@ export async function assignTemplateToChildren(
 		const id = await nextId(ENTITY_NAMES.checklistAssignment, tenantId);
 		const now = new Date().toISOString();
 		const assignment: ChecklistTemplateAssignment = {
-			id,
+			id: String(id),
 			templateId,
 			childId,
 			createdAt: now,
@@ -306,8 +367,12 @@ export async function assignTemplateToChildren(
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...checklistAssignmentKey(templateId, childId, tenantId),
+					...checklistAssignmentKey(Number(templateId), Number(childId), tenantId),
 					...assignment,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					templateId: Number(templateId),
+					childId: Number(childId),
 				},
 			}),
 		);
@@ -317,8 +382,8 @@ export async function assignTemplateToChildren(
 }
 
 export async function unassignTemplateFromChildren(
-	templateId: number,
-	childIds: readonly number[],
+	templateId: string,
+	childIds: readonly ChildId[],
 	tenantId: string,
 ): Promise<void> {
 	if (childIds.length === 0) return;
@@ -326,19 +391,19 @@ export async function unassignTemplateFromChildren(
 		await getDocClient().send(
 			new DeleteCommand({
 				TableName: TABLE_NAME,
-				Key: checklistAssignmentKey(templateId, childId, tenantId),
+				Key: checklistAssignmentKey(Number(templateId), Number(childId), tenantId),
 			}),
 		);
 	}
 }
 
-export async function unassignTemplate(templateId: number, tenantId: string): Promise<void> {
+export async function unassignTemplate(templateId: string, tenantId: string): Promise<void> {
 	const assignments = await findAssignmentsByTemplate(templateId, tenantId);
 	for (const a of assignments) {
 		await getDocClient().send(
 			new DeleteCommand({
 				TableName: TABLE_NAME,
-				Key: checklistAssignmentKey(templateId, a.childId, tenantId),
+				Key: checklistAssignmentKey(Number(templateId), Number(a.childId), tenantId),
 			}),
 		);
 	}
@@ -349,7 +414,7 @@ export async function unassignTemplate(templateId: number, tenantId: string): Pr
 // ============================================================
 
 export async function findTemplateItems(
-	templateId: number,
+	templateId: string,
 	tenantId: string,
 ): Promise<ChecklistTemplateItem[]> {
 	const result = await getDocClient().send(
@@ -357,13 +422,13 @@ export async function findTemplateItems(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
+				':pk': tenantPK(`CKTPL#${Number(templateId)}`, tenantId),
 				':prefix': checklistItemPrefix(),
 			},
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplateItem);
+	return (result.Items ?? []).map((item) => toTemplateItem(item));
 }
 
 export async function insertTemplateItem(
@@ -375,7 +440,7 @@ export async function insertTemplateItem(
 	const sortOrder = input.sortOrder ?? 0;
 
 	const item: ChecklistTemplateItem = {
-		id,
+		id: String(id),
 		templateId: input.templateId,
 		name: input.name,
 		icon: input.icon ?? '✅',
@@ -389,8 +454,11 @@ export async function insertTemplateItem(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistItemKey(input.templateId, sortOrder, id, tenantId),
+				...checklistItemKey(Number(input.templateId), sortOrder, id, tenantId),
 				...item,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				templateId: Number(input.templateId),
 			},
 		}),
 	);
@@ -406,8 +474,8 @@ export async function insertTemplateItem(
  * exact Key 構成は不可、全ページ走査 + 一致で早期 return (#2842 paging 正パターン)。
  */
 export async function deleteTemplateItem(
-	templateId: number,
-	id: number,
+	templateId: string,
+	id: string,
 	tenantId: string,
 ): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
@@ -418,9 +486,9 @@ export async function deleteTemplateItem(
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
+					':pk': tenantPK(`CKTPL#${Number(templateId)}`, tenantId),
 					':prefix': checklistItemPrefix(),
-					':id': id,
+					':id': Number(id),
 				},
 				ExclusiveStartKey: lastKey,
 			}),
@@ -444,20 +512,20 @@ export async function deleteTemplateItem(
 // ============================================================
 
 export async function findTodayLog(
-	childId: number,
-	templateId: number,
+	childId: ChildId,
+	templateId: string,
 	date: string,
 	tenantId: string,
 ): Promise<ChecklistLog | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: checklistLogKey(childId, templateId, date, tenantId),
+			Key: checklistLogKey(Number(childId), Number(templateId), date, tenantId),
 		}),
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as ChecklistLog;
+	return toLog(result.Item);
 }
 
 export async function upsertLog(
@@ -470,7 +538,12 @@ export async function upsertLog(
 		const result = await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: checklistLogKey(input.childId, input.templateId, input.checkedDate, tenantId),
+				Key: checklistLogKey(
+					Number(input.childId),
+					Number(input.templateId),
+					input.checkedDate,
+					tenantId,
+				),
 				UpdateExpression:
 					'SET itemsJson = :itemsJson, completedAll = :completedAll, pointsAwarded = :pointsAwarded',
 				ExpressionAttributeValues: {
@@ -481,14 +554,14 @@ export async function upsertLog(
 				ReturnValues: 'ALL_NEW',
 			}),
 		);
-		return stripKeys(result.Attributes as Record<string, unknown>) as unknown as ChecklistLog;
+		return toLog(result.Attributes as Record<string, unknown>);
 	}
 
 	const id = await nextId(ENTITY_NAMES.checklistLog, tenantId);
 	const now = new Date().toISOString();
 
 	const log: ChecklistLog = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		templateId: input.templateId,
 		checkedDate: input.checkedDate,
@@ -502,8 +575,17 @@ export async function upsertLog(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistLogKey(input.childId, input.templateId, input.checkedDate, tenantId),
+				...checklistLogKey(
+					Number(input.childId),
+					Number(input.templateId),
+					input.checkedDate,
+					tenantId,
+				),
 				...log,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
+				templateId: Number(input.templateId),
 			},
 		}),
 	);
@@ -515,7 +597,7 @@ export async function upsertLog(
  * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
  * PK=CHILD#<childId> + begins_with(SK, 'CKLOG#') を全ページ走査する。
  */
-export async function findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]> {
+export async function findLogsByChild(childId: ChildId, tenantId: string): Promise<ChecklistLog[]> {
 	const logs: ChecklistLog[] = [];
 	let lastKey: Record<string, unknown> | undefined;
 	do {
@@ -524,14 +606,14 @@ export async function findLogsByChild(childId: number, tenantId: string): Promis
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': checklistLogPrefix(),
 				},
 				ExclusiveStartKey: lastKey,
 			}),
 		);
 		for (const item of result.Items ?? []) {
-			logs.push(stripKeys(item) as unknown as ChecklistLog);
+			logs.push(toLog(item));
 		}
 		lastKey = result.LastEvaluatedKey;
 	} while (lastKey);
@@ -543,7 +625,7 @@ export async function findLogsByChild(childId: number, tenantId: string): Promis
 // ============================================================
 
 export async function findOverrides(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	tenantId: string,
 ): Promise<ChecklistOverride[]> {
@@ -552,18 +634,18 @@ export async function findOverrides(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': checklistOverrideDatePrefix(date),
 			},
 		}),
 	);
 
-	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistOverride);
+	return (result.Items ?? []).map((item) => toOverride(item));
 }
 
 /** #3329 backup: child の全日次 override (日付不問、全 OVERRIDE# prefix を Query)。 */
 export async function findOverridesByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChecklistOverride[]> {
 	const result = await getDocClient().send(
@@ -571,12 +653,12 @@ export async function findOverridesByChild(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': childPK(Number(childId), tenantId),
 				':prefix': checklistOverridePrefix(),
 			},
 		}),
 	);
-	const rows = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistOverride);
+	const rows = (result.Items ?? []).map((item) => toOverride(item));
 	rows.sort((a, b) => a.targetDate.localeCompare(b.targetDate));
 	return rows;
 }
@@ -587,13 +669,16 @@ export async function insertOverrideForRestore(
 	tenantId: string,
 ): Promise<ChecklistOverride> {
 	const id = await nextId(ENTITY_NAMES.checklistOverride, tenantId);
-	const override: ChecklistOverride = { ...input, id };
+	const override: ChecklistOverride = { ...input, id: String(id) };
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistOverrideKey(input.childId, input.targetDate, id, tenantId),
+				...checklistOverrideKey(Number(input.childId), input.targetDate, id, tenantId),
 				...override,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -608,7 +693,7 @@ export async function insertOverride(
 	const now = new Date().toISOString();
 
 	const override: ChecklistOverride = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		targetDate: input.targetDate,
 		action: input.action,
@@ -621,8 +706,11 @@ export async function insertOverride(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistOverrideKey(input.childId, input.targetDate, id, tenantId),
+				...checklistOverrideKey(Number(input.childId), input.targetDate, id, tenantId),
 				...override,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -637,7 +725,11 @@ export async function insertOverride(
  * 解決する。SK = CKOVER#<date>#<id> で date が不明なため exact Key 構成は不可、
  * 全ページ走査 + 一致で早期 return (#2842 paging 正パターン)。
  */
-export async function deleteOverride(childId: number, id: number, tenantId: string): Promise<void> {
+export async function deleteOverride(
+	childId: ChildId,
+	id: string,
+	tenantId: string,
+): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
@@ -646,9 +738,9 @@ export async function deleteOverride(childId: number, id: number, tenantId: stri
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': checklistOverridePrefix(),
-					':id': id,
+					':id': Number(id),
 				},
 				ExclusiveStartKey: lastKey,
 			}),
@@ -689,7 +781,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveChecklistTemplates(
-	ids: number[],
+	ids: string[],
 	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
@@ -699,7 +791,7 @@ export async function archiveChecklistTemplates(
 		await getDocClient().send(
 			new UpdateCommand({
 				TableName: TABLE_NAME,
-				Key: checklistTemplateKey(id, tenantId),
+				Key: checklistTemplateKey(Number(id), tenantId),
 				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
 				ExpressionAttributeValues: {
 					':archived': 1,

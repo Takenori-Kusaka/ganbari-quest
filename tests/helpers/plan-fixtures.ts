@@ -35,13 +35,14 @@
 import type Database from 'better-sqlite3';
 import type { AuthContext, Role } from '../../src/lib/server/auth/types';
 import type { TrialSource, TrialTier } from '../../src/lib/server/services/trial-service';
+import { type ChildId } from '$lib/domain/ids';
 
 export type TestSqlite = InstanceType<typeof Database>;
 
 export interface ContextOverrides {
 	tenantId?: string;
 	role?: Role;
-	childId?: number;
+	childId?: ChildId;
 }
 
 const DEFAULT_TENANT_ID = 'test-tenant-1';

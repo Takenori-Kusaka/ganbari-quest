@@ -31,7 +31,7 @@ describe('ChallengeSetPayloadSchema', () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.output.challenges[0]?.monthDay).toBe('03-03');
-			expect(result.output.challenges[0]?.categoryId).toBe(3);
+			expect(result.output.challenges[0]?.categoryId).toBe('3');
 		}
 	});
 

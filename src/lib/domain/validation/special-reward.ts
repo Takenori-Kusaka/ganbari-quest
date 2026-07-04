@@ -1,3 +1,4 @@
+import { childIdSchema } from './id-schema';
 import { z } from 'zod';
 import { SHOP_CATEGORIES } from '$lib/domain/shop-category';
 
@@ -20,7 +21,7 @@ export const rewardCategorySchema = z.enum(REWARD_CATEGORIES);
 export const shopCategorySchema = z.enum(SHOP_CATEGORIES);
 
 export const grantSpecialRewardSchema = z.object({
-	childId: z.coerce.number().int().positive(),
+	childId: childIdSchema,
 	title: z.string().min(1).max(100),
 	description: z.string().max(500).optional(),
 	points: z.number().int().positive().max(10000),
@@ -31,7 +32,7 @@ export const grantSpecialRewardSchema = z.object({
 });
 
 export const specialRewardQuerySchema = z.object({
-	childId: z.coerce.number().int().positive(),
+	childId: childIdSchema,
 });
 
 export const rewardTemplateSchema = z.object({

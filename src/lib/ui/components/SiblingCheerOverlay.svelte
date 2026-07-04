@@ -11,7 +11,7 @@ import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 interface CheerData {
-	id: number;
+	id: string;
 	stampLabel: string;
 	stampEmoji: string;
 	fromName: string;

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IChecklistRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
@@ -36,7 +37,7 @@ import type {
  * interface に sync させるため、仮想 `tenantId` を 'default' で付与して family master view を生成する。
  * (実 fixture migration は Phase 2 の demo-data.ts 全面刷新で対応)
  */
-type LegacyDemoTemplate = ChecklistTemplate & { childId?: number };
+type LegacyDemoTemplate = ChecklistTemplate & { childId?: ChildId };
 
 const ALL_DEMO_CHECKLIST_TEMPLATES_RAW: LegacyDemoTemplate[] = (() => {
 	const seen = new Set<string>();
@@ -69,10 +70,10 @@ const ALL_DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = ALL_DEMO_CHECKLIST_TEM
 /** assignments view: legacy childId から仮想生成 (1 row per template × childId) */
 const ALL_DEMO_CHECKLIST_ASSIGNMENTS: ChecklistTemplateAssignment[] =
 	ALL_DEMO_CHECKLIST_TEMPLATES_RAW.flatMap((t, idx) => {
-		if (typeof t.childId !== 'number') return [];
+		if (typeof t.childId !== 'string') return [];
 		return [
 			{
-				id: idx + 1,
+				id: String(idx + 1),
 				templateId: t.id,
 				childId: t.childId,
 				createdAt: t.createdAt,
@@ -97,7 +98,7 @@ export async function findTemplatesByTenant(
 }
 
 export async function findTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	includeInactive?: boolean,
 	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
@@ -115,7 +116,7 @@ export async function findTemplatesByChild(
 }
 
 export async function findTemplateById(
-	id: number,
+	id: string,
 	_tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
 	return ALL_DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
@@ -127,7 +128,7 @@ export async function insertTemplate(
 ): Promise<ChecklistTemplate> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		tenantId,
 		name: input.name,
 		icon: input.icon ?? '📋',
@@ -144,36 +145,36 @@ export async function insertTemplate(
 }
 
 export async function updateTemplate(
-	id: number,
+	id: string,
 	_input: UpdateChecklistTemplateInput,
 	_tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
 	return ALL_DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
 }
 
-export async function deleteTemplate(_id: number, _tenantId: string): Promise<void> {
+export async function deleteTemplate(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 // ---------- Distribution (assignments) ----------
 
 export async function findAssignmentsByTemplate(
-	templateId: number,
+	templateId: string,
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	return ALL_DEMO_CHECKLIST_ASSIGNMENTS.filter((a) => a.templateId === templateId);
 }
 
 export async function findAssignmentsByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	return ALL_DEMO_CHECKLIST_ASSIGNMENTS.filter((a) => a.childId === childId);
 }
 
 export async function assignTemplateToChildren(
-	_templateId: number,
-	_childIds: readonly number[],
+	_templateId: string,
+	_childIds: readonly ChildId[],
 	_tenantId: string,
 ): Promise<ChecklistTemplateAssignment[]> {
 	// Stub: no-op (demo は read-only)
@@ -181,21 +182,21 @@ export async function assignTemplateToChildren(
 }
 
 export async function unassignTemplateFromChildren(
-	_templateId: number,
-	_childIds: readonly number[],
+	_templateId: string,
+	_childIds: readonly ChildId[],
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function unassignTemplate(_templateId: number, _tenantId: string): Promise<void> {
+export async function unassignTemplate(_templateId: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 // ---------- Template items ----------
 
 export async function findTemplateItems(
-	templateId: number,
+	templateId: string,
 	_tenantId: string,
 ): Promise<ChecklistTemplateItem[]> {
 	return ALL_DEMO_CHECKLIST_ITEMS.filter((i) => i.templateId === templateId);
@@ -207,7 +208,7 @@ export async function insertTemplateItem(
 ): Promise<ChecklistTemplateItem> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		templateId: input.templateId,
 		name: input.name,
 		icon: input.icon ?? '✅',
@@ -219,8 +220,8 @@ export async function insertTemplateItem(
 }
 
 export async function deleteTemplateItem(
-	_templateId: number,
-	_id: number,
+	_templateId: string,
+	_id: string,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
@@ -229,8 +230,8 @@ export async function deleteTemplateItem(
 // ---------- Logs ----------
 
 export async function findTodayLog(
-	_childId: number,
-	_templateId: number,
+	_childId: ChildId,
+	_templateId: string,
 	_date: string,
 	_tenantId: string,
 ): Promise<ChecklistLog | undefined> {
@@ -243,7 +244,7 @@ export async function upsertLog(
 ): Promise<ChecklistLog> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		templateId: input.templateId,
 		checkedDate: input.checkedDate,
@@ -256,7 +257,7 @@ export async function upsertLog(
 
 // #3078: demo fixture には per-child progress log を持たないため空配列を返す。
 export async function findLogsByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<ChecklistLog[]> {
 	return [];
@@ -265,7 +266,7 @@ export async function findLogsByChild(
 // ---------- Overrides ----------
 
 export async function findOverrides(
-	_childId: number,
+	_childId: ChildId,
 	_date: string,
 	_tenantId: string,
 ): Promise<ChecklistOverride[]> {
@@ -273,7 +274,7 @@ export async function findOverrides(
 }
 
 export async function findOverridesByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<ChecklistOverride[]> {
 	return [];
@@ -284,7 +285,7 @@ export async function insertOverrideForRestore(
 	_tenantId: string,
 ): Promise<ChecklistOverride> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0 };
+	return { ...input, id: '0' };
 }
 
 export async function insertOverride(
@@ -293,7 +294,7 @@ export async function insertOverride(
 ): Promise<ChecklistOverride> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		targetDate: input.targetDate,
 		action: input.action,
@@ -304,8 +305,8 @@ export async function insertOverride(
 }
 
 export async function deleteOverride(
-	_childId: number,
-	_id: number,
+	_childId: ChildId,
+	_id: string,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
@@ -315,7 +316,7 @@ export async function deleteOverride(
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChecklistTemplates(
-	_ids: number[],
+	_ids: string[],
 	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {

@@ -2,7 +2,7 @@
 import Card from '$lib/ui/primitives/Card.svelte';
 
 interface CertificateItem {
-	id: number;
+	id: string;
 	certificateType: string;
 	title: string;
 	description: string | null;

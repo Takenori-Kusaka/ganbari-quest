@@ -1,5 +1,6 @@
 // src/routes/api/v1/export/+server.ts
 // 家族データエクスポートAPI（JSON / ZIP対応）
+import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
@@ -35,8 +36,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const childIds = childIdsParam
 		? childIdsParam
 				.split(',')
-				.map(Number)
-				.filter((n) => !Number.isNaN(n))
+				.map((v) => v.trim())
+				.filter((v) => v !== '')
+				.map(asChildId)
 		: undefined;
 	const compact = url.searchParams.get('compact') === '1';
 	const format = url.searchParams.get('format') ?? 'json';

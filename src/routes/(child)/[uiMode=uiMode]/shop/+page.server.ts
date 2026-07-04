@@ -1,6 +1,8 @@
 // src/routes/(child)/[uiMode=uiMode]/shop/+page.server.ts
 // ごほうびショップ 子供側 (#1337)
 
+import { asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail } from '@sveltejs/kit';
 import { deriveShopCategory } from '$lib/domain/shop-category';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -67,11 +69,11 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const childIdStr = cookies.get('selectedChildId');
 		if (!childIdStr) return fail(400, { error: 'こどもが選択されていません' });
-		const child = await getChildById(Number(childIdStr), tenantId);
+		const child = await getChildById(asChildId(childIdStr), tenantId);
 		if (!child) return fail(400, { error: 'こどもが選択されていません' });
 
 		const formData = await request.formData();
-		const rewardId = Number(formData.get('rewardId'));
+		const rewardId = formIdString(formData.get('rewardId'));
 		if (!rewardId) return fail(400, { error: '報酬IDが不正です' });
 
 		const result = await requestRedemption(child.id, rewardId, tenantId);

@@ -7,6 +7,7 @@
 // - skip 動線は packs と異なり「auto-import なし」(reward は趣味性が強く、親に選んでほしいため)
 // - 次の遷移先は /setup/rules
 
+import { asChildId } from '$lib/domain/ids';
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
@@ -74,9 +75,9 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const itemIds = formData.getAll('itemIds').map((v) => v.toString());
 		const childIdRaw = formData.get('childId')?.toString();
-		const childId = childIdRaw ? Number(childIdRaw) : NaN;
+		const childId = childIdRaw ? asChildId(childIdRaw) : null;
 
-		if (itemIds.length === 0 || !childId || Number.isNaN(childId)) {
+		if (itemIds.length === 0 || !childId) {
 			// Nothing to import — fall through to next step
 			redirect(302, '/setup/rules?rewardsImported=0&rewardsSkipped=0');
 		}

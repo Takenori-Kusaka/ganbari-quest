@@ -1,3 +1,5 @@
+import { asCategoryId } from '$lib/domain/ids';
+import type { CategoryId } from '$lib/domain/ids';
 // src/lib/server/services/activity-suggest-service.ts
 // 自然言語から活動情報を推定するサービス (#721: Bedrock Claude Haiku)
 
@@ -8,7 +10,7 @@ import { logger } from '$lib/server/logger';
 
 export interface SuggestedActivity {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	nameKana: string | null;
@@ -253,7 +255,7 @@ async function suggestWithAi(text: string): Promise<SuggestedActivity> {
 
 	// バリデーション
 	const catDef = getCategoryByName(String(obj.category ?? ''));
-	const categoryId = catDef?.id ?? 3;
+	const categoryId = catDef?.id ?? asCategoryId(3);
 	const basePoints = [3, 5, 8, 10].includes(Number(obj.basePoints)) ? Number(obj.basePoints) : 5;
 
 	// 複合アイコン対応
@@ -280,7 +282,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	const rules: {
 		keywords: string[];
 		categoryName: string;
-		categoryId: number;
+		categoryId: CategoryId;
 		basePoints: number;
 	}[] = [
 		{
@@ -317,7 +319,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'てにす',
 			],
 			categoryName: 'うんどう',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			basePoints: 5,
 		},
 		{
@@ -344,7 +346,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'くく',
 			],
 			categoryName: 'べんきょう',
-			categoryId: 2,
+			categoryId: asCategoryId(2),
 			basePoints: 5,
 		},
 		{
@@ -376,7 +378,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'みずやり',
 			],
 			categoryName: 'せいかつ',
-			categoryId: 3,
+			categoryId: asCategoryId(3),
 			basePoints: 3,
 		},
 		{
@@ -402,7 +404,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'せんせい',
 			],
 			categoryName: 'こうりゅう',
-			categoryId: 4,
+			categoryId: asCategoryId(4),
 			basePoints: 3,
 		},
 		{
@@ -433,7 +435,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'ぎたー',
 			],
 			categoryName: 'そうぞう',
-			categoryId: 5,
+			categoryId: asCategoryId(5),
 			basePoints: 5,
 		},
 	];
@@ -454,7 +456,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	if (best.score === 0) {
 		return {
 			name: text.slice(0, 50),
-			categoryId: 3,
+			categoryId: asCategoryId(3),
 			icon: '📝',
 			basePoints: 5,
 			...inferNames(text),

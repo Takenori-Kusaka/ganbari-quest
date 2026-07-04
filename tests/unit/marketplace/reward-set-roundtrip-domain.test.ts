@@ -11,6 +11,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { grantSpecialRewardSchema, REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
 import { RewardSetPayloadSchema } from '$lib/marketplace/schemas/reward-set-schema';
+import { asChildId } from '$lib/domain/ids';
 
 const CAT = REWARD_CATEGORIES[0];
 const POINTS_MAX = 10000;
@@ -18,7 +19,7 @@ const POINTS_MAX = 10000;
 const rewardSetPayload = (points: number) => ({
 	rewards: [{ title: 'テスト', points, icon: '🎁', category: CAT }],
 });
-const domainReward = (points: number) => ({ childId: 1, title: 'テスト', points, category: CAT });
+const domainReward = (points: number) => ({ childId: asChildId(1), title: 'テスト', points, category: CAT });
 
 describe('#3132 reward points 値域: domain ⊆ export schema (round-trip 整合)', () => {
 	it('export schema (reward-set) は points=10000 (上限境界) を受理する', () => {

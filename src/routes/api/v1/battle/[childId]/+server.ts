@@ -1,3 +1,4 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 import { validationError } from '$lib/server/errors';
 import { executeDailyBattle, getTodayBattle } from '$lib/server/services/battle-service';
@@ -7,9 +8,9 @@ import type { RequestHandler } from './$types';
 
 interface BattleContext {
 	tenantId: string;
-	childId: number;
+	childId: ChildId;
 	uiMode: string;
-	categoryXp: Record<number, number>;
+	categoryXp: Record<string, number>;
 }
 
 /** childId パース → 子供取得 → ステータス取得 → カテゴリXP算出 の共通処理 */
@@ -22,8 +23,8 @@ async function resolveChildBattleContext(
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
-	if (Number.isNaN(childId)) return validationError('IDが不正です');
+	const childId = asChildId(params.childId);
+	if (!childId) return validationError('IDが不正です');
 
 	const child = await getChildById(childId, tenantId);
 	if (!child) return validationError('子供が見つかりません');
@@ -33,9 +34,9 @@ async function resolveChildBattleContext(
 		return validationError('ステータスが見つかりません');
 	}
 
-	const categoryXp: Record<number, number> = {};
+	const categoryXp: Record<string, number> = {};
 	for (const [catId, detail] of Object.entries(statusResult.statuses)) {
-		categoryXp[Number(catId)] = detail.value;
+		categoryXp[catId] = detail.value;
 	}
 
 	const uiMode = child.uiMode ?? 'preschool';

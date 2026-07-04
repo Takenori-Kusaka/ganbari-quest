@@ -3,7 +3,7 @@ import { APP_LABELS, VIEW_PAGE_LABELS } from '$lib/domain/labels';
 
 let { data } = $props();
 
-const CATEGORY_LABELS: Record<number, { name: string; icon: string }> = {
+const CATEGORY_LABELS: Record<string, { name: string; icon: string }> = {
 	1: { name: 'うんどう', icon: '🏃' },
 	2: { name: 'べんきょう', icon: '📚' },
 	3: { name: 'せいかつ', icon: '🏠' },

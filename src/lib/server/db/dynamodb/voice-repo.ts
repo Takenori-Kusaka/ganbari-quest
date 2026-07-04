@@ -5,6 +5,8 @@ import {
 	QueryCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { ChildCustomVoice } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -24,8 +26,8 @@ function voiceKey(childId: number, voiceId: number, tenantId: string): DynamoKey
 
 function toEntity(item: Record<string, unknown>, tenantId: string): ChildCustomVoice {
 	return {
-		id: item.voiceId as number,
-		childId: item.childId as number,
+		id: String(item.voiceId as number),
+		childId: asChildId(item.childId as number),
 		scene: (item.scene as string) ?? 'complete',
 		label: item.label as string,
 		filePath: item.filePath as string,
@@ -38,7 +40,7 @@ function toEntity(item: Record<string, unknown>, tenantId: string): ChildCustomV
 }
 
 export async function findByChild(
-	childId: number,
+	childId: ChildId,
 	scene: string,
 	tenantId: string,
 ): Promise<ChildCustomVoice[]> {
@@ -48,7 +50,7 @@ export async function findByChild(
 			KeyConditionExpression: 'PK = :pk',
 			FilterExpression: 'scene = :scene',
 			ExpressionAttributeValues: {
-				':pk': voicePK(childId, tenantId),
+				':pk': voicePK(Number(childId), tenantId),
 				':scene': scene,
 			},
 		}),
@@ -56,7 +58,7 @@ export async function findByChild(
 	return (result.Items ?? []).map((item) => toEntity(item, tenantId));
 }
 
-export async function findById(id: number, tenantId: string): Promise<ChildCustomVoice | null> {
+export async function findById(id: string, tenantId: string): Promise<ChildCustomVoice | null> {
 	// Need to scan under the voice prefix — voiceId is in the SK
 	const result = await getDocClient().send(
 		new QueryCommand({
@@ -64,7 +66,7 @@ export async function findById(id: number, tenantId: string): Promise<ChildCusto
 			IndexName: 'GSI1',
 			KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
 			ExpressionAttributeValues: {
-				':pk': `VOICEID#${padId(id)}`,
+				':pk': `VOICEID#${padId(Number(id))}`,
 				':sk': 'DETAIL',
 			},
 		}),
@@ -75,7 +77,7 @@ export async function findById(id: number, tenantId: string): Promise<ChildCusto
 }
 
 export async function findActiveVoice(
-	childId: number,
+	childId: ChildId,
 	scene: string,
 	tenantId: string,
 ): Promise<ChildCustomVoice | null> {
@@ -85,18 +87,18 @@ export async function findActiveVoice(
 
 export async function insert(
 	voice: Omit<ChildCustomVoice, 'id' | 'createdAt'>,
-): Promise<{ id: number }> {
+): Promise<{ id: string }> {
 	const id = await nextId('voice', voice.tenantId);
 	const now = new Date().toISOString();
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...voiceKey(voice.childId, id, voice.tenantId),
+				...voiceKey(Number(voice.childId), id, voice.tenantId),
 				GSI1PK: `VOICEID#${padId(id)}`,
 				GSI1SK: 'DETAIL',
 				voiceId: id,
-				childId: voice.childId,
+				childId: Number(voice.childId),
 				scene: voice.scene,
 				label: voice.label,
 				filePath: voice.filePath,
@@ -108,19 +110,19 @@ export async function insert(
 			},
 		}),
 	);
-	return { id };
+	return { id: String(id) };
 }
 
 /** #3329 backup: child の全カスタム音声 (scene 不問)。 */
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildCustomVoice[]> {
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk',
-			ExpressionAttributeValues: { ':pk': voicePK(childId, tenantId) },
+			ExpressionAttributeValues: { ':pk': voicePK(Number(childId), tenantId) },
 		}),
 	);
 	const voices = (result.Items ?? []).map((item) => toEntity(item, tenantId));
@@ -132,17 +134,17 @@ export async function findAllByChild(
 export async function insertForRestore(
 	voice: Omit<ChildCustomVoice, 'id'>,
 	_tenantId: string,
-): Promise<{ id: number }> {
+): Promise<{ id: string }> {
 	const id = await nextId('voice', voice.tenantId);
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...voiceKey(voice.childId, id, voice.tenantId),
+				...voiceKey(Number(voice.childId), id, voice.tenantId),
 				GSI1PK: `VOICEID#${padId(id)}`,
 				GSI1SK: 'DETAIL',
 				voiceId: id,
-				childId: voice.childId,
+				childId: Number(voice.childId),
 				scene: voice.scene,
 				label: voice.label,
 				filePath: voice.filePath,
@@ -154,12 +156,12 @@ export async function insertForRestore(
 			},
 		}),
 	);
-	return { id };
+	return { id: String(id) };
 }
 
 export async function setActive(
-	id: number,
-	childId: number,
+	id: string,
+	childId: ChildId,
 	scene: string,
 	tenantId: string,
 ): Promise<void> {
@@ -170,7 +172,7 @@ export async function setActive(
 			await getDocClient().send(
 				new UpdateCommand({
 					TableName: TABLE_NAME,
-					Key: voiceKey(childId, v.id, tenantId),
+					Key: voiceKey(Number(childId), Number(v.id), tenantId),
 					UpdateExpression: 'SET isActive = :zero',
 					ExpressionAttributeValues: { ':zero': 0 },
 				}),
@@ -181,26 +183,26 @@ export async function setActive(
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: voiceKey(childId, id, tenantId),
+			Key: voiceKey(Number(childId), Number(id), tenantId),
 			UpdateExpression: 'SET isActive = :one',
 			ExpressionAttributeValues: { ':one': 1 },
 		}),
 	);
 }
 
-export async function deleteById(id: number, tenantId: string): Promise<void> {
+export async function deleteById(id: string, tenantId: string): Promise<void> {
 	const voice = await findById(id, tenantId);
 	if (!voice) return;
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: voiceKey(voice.childId, id, tenantId),
+			Key: voiceKey(Number(voice.childId), Number(id), tenantId),
 		}),
 	);
 }
 
-export async function deleteByChild(childId: number, tenantId: string): Promise<void> {
-	const pk = voicePK(childId, tenantId);
+export async function deleteByChild(childId: ChildId, tenantId: string): Promise<void> {
+	const pk = voicePK(Number(childId), tenantId);
 	const result = await getDocClient().send(
 		new QueryCommand({
 			TableName: TABLE_NAME,

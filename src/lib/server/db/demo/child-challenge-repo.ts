@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IChildChallengeRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
@@ -13,12 +14,12 @@ import type {
 	UpdateChildChallengeInput,
 } from '../types';
 
-export async function findByChildId(childId: number, _tenantId: string): Promise<ChildChallenge[]> {
+export async function findByChildId(childId: ChildId, _tenantId: string): Promise<ChildChallenge[]> {
 	return DEMO_CHILD_CHALLENGES.filter((c) => c.childId === childId);
 }
 
 export async function findActiveByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -34,7 +35,7 @@ export async function findActiveByChildId(
 
 /** #2488 (must-1 fix): demo Lambda 環境向け。完成済 + 未請求 instance も含める。 */
 export async function findActiveOrUnclaimedByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -52,7 +53,7 @@ export async function findAllByTenant(_tenantId: string): Promise<ChildChallenge
 	return DEMO_CHILD_CHALLENGES;
 }
 
-export async function findById(id: number, _tenantId: string): Promise<ChildChallenge | undefined> {
+export async function findById(id: string, _tenantId: string): Promise<ChildChallenge | undefined> {
 	return DEMO_CHILD_CHALLENGES.find((c) => c.id === id);
 }
 
@@ -61,7 +62,7 @@ export async function insertForRestore(
 	_tenantId: string,
 ): Promise<ChildChallenge> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0 };
+	return { ...input, id: '0' };
 }
 
 export async function insert(
@@ -70,7 +71,7 @@ export async function insert(
 ): Promise<ChildChallenge> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		title: input.title,
 		description: input.description ?? null,
@@ -124,14 +125,14 @@ export async function insertBulk(
 }
 
 export async function updateProgress(
-	_id: number,
+	_id: string,
 	_currentValue: number,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function markCompleted(_id: number, _tenantId: string): Promise<void> {
+export async function markCompleted(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
@@ -141,27 +142,27 @@ export async function markCompleted(_id: number, _tenantId: string): Promise<voi
  * sqlite / dynamodb と同じ「completed=1 かつ未請求の行のみ 1、それ以外 0」ガードセマンティクスを返す。
  * これにより service 層の claim-first 判定 (戻り値 === 1 のときだけ付与) が demo でも一貫する。
  */
-export async function claimReward(id: number, _tenantId: string): Promise<number> {
+export async function claimReward(id: string, _tenantId: string): Promise<number> {
 	const target = DEMO_CHILD_CHALLENGES.find((c) => c.id === id);
 	if (!target) return 0;
 	return target.completed === 1 && target.rewardClaimed === 0 ? 1 : 0;
 }
 
 export async function update(
-	_id: number,
+	_id: string,
 	_input: UpdateChildChallengeInput,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function deleteChallenge(_id: number, _tenantId: string): Promise<void> {
+export async function deleteChallenge(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 export async function copyAcrossChildren(
-	_sourceChildId: number,
-	_targetChildId: number,
+	_sourceChildId: ChildId,
+	_targetChildId: ChildId,
 	_tenantId: string,
 ): Promise<ChildChallenge[]> {
 	// Stub: 空配列を返す (write 失敗扱いではなく、demo 環境では copy しても永続しない)

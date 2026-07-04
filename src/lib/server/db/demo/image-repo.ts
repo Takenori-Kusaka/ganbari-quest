@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IImageRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -5,7 +6,7 @@ import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
 
 export async function findCachedImage(
-	_childId: number,
+	_childId: ChildId,
 	_type: string,
 	_promptHash: string,
 	_tenantId: string,
@@ -21,7 +22,7 @@ export async function insertCharacterImage(
 }
 
 export async function updateChildAvatarUrl(
-	_childId: number,
+	_childId: ChildId,
 	_avatarUrl: string | null,
 	_tenantId: string,
 ): Promise<void> {
@@ -29,7 +30,7 @@ export async function updateChildAvatarUrl(
 }
 
 export async function findChildForImage(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === childId);

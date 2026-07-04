@@ -282,7 +282,7 @@ describe('API-ACT-03: GET /api/v1/activities?categoryId=1', () => {
 
 		const body = await jsonBody(res);
 		expect(body.activities).toHaveLength(1); // 'たいそう' のみ（非表示除外）
-		expect(body.activities[0].categoryId).toBe(1);
+		expect(body.activities[0].categoryId).toBe('1');
 	});
 });
 
@@ -296,7 +296,7 @@ describe('API-ACT-04: POST /api/v1/activities', () => {
 			url: '/api/v1/activities',
 			body: {
 				name: 'すいえい',
-				categoryId: 1,
+				categoryId: '1',
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: 3,
@@ -322,7 +322,7 @@ describe('API-ACT-06: POST /api/v1/activities (validation error)', () => {
 			url: '/api/v1/activities',
 			body: {
 				name: '', // 空文字はバリデーションエラー
-				categoryId: 1,
+				categoryId: '1',
 				icon: '🏊',
 				basePoints: 10,
 				ageMin: null,
@@ -342,7 +342,7 @@ describe('API-ACT-06: POST /api/v1/activities (validation error)', () => {
 			url: '/api/v1/activities',
 			body: {
 				name: 'テスト',
-				categoryId: 99,
+				categoryId: '99',
 				icon: '❌',
 				basePoints: 5,
 				ageMin: null,

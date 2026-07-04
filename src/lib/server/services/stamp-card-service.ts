@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/stamp-card-service.ts
 // スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
@@ -40,7 +41,7 @@ const COMPLETE_BONUS = 50;
 const MAX_SLOTS = 5;
 
 export interface StampMasterData {
-	id: number;
+	id: string;
 	name: string;
 	emoji: string;
 	rarity: string;
@@ -48,7 +49,7 @@ export interface StampMasterData {
 
 export interface StampEntryData {
 	slot: number;
-	stampMasterId: number | null;
+	stampMasterId: string | null;
 	omikujiRank: string | null;
 	name: string;
 	emoji: string;
@@ -57,8 +58,8 @@ export interface StampEntryData {
 }
 
 export interface StampCardData {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
 	status: string;
@@ -126,7 +127,7 @@ export async function getEnabledStamps(tenantId: string): Promise<StampMasterDat
 
 /** 現在の週のスタンプカードを取得（なければ作成） */
 export async function getOrCreateCurrentCard(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<StampCardData> {
 	const today = todayDateJST();
@@ -173,7 +174,7 @@ export async function getOrCreateCurrentCard(
 
 /** スタンプを押印する（即時 INSTANT_STAMP_POINTS pt 付与） */
 export async function stampToday(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<
 	| { error: 'ALREADY_STAMPED' | 'CARD_FULL' | 'NOT_COLLECTING' | 'NO_STAMPS_AVAILABLE' }
@@ -276,7 +277,7 @@ function calcCardPoints(
 
 /** スタンプカードをポイントに交換（週末 redeem: レアリティボーナス + コンプリートボーナス） */
 export async function redeemStampCard(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	loginMultiplier = 1,
 ): Promise<
@@ -332,7 +333,7 @@ export async function redeemStampCard(
 
 /** 前週のカードを自動 redeem する（月曜初ログイン時に呼ばれる） */
 export async function autoRedeemPreviousWeek(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	loginMultiplier = 1,
 ): Promise<null | {
@@ -412,7 +413,7 @@ export async function autoRedeemPreviousWeek(
 
 /** スタンプカードの状態を取得（ホーム画面用の簡易版） */
 export async function getStampCardStatus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<StampCardData | null> {
 	try {

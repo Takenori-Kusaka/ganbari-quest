@@ -7,6 +7,7 @@
  */
 
 import { selectDailyEnemy } from '$lib/domain/battle-enemies';
+import { type ActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleStats, Enemy } from '$lib/domain/battle-types';
@@ -50,7 +51,7 @@ export interface DemoChildLayoutData {
 	pointSettings: PointSettings;
 }
 
-export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
+export function getDemoChildLayoutData(childId: ChildId): DemoChildLayoutData {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId) ?? null;
 
 	if (!child) {
@@ -91,7 +92,7 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 
 export interface DemoHomeData {
 	activities: (Activity & { displayName: string; isMission: boolean })[];
-	todayRecorded: { activityId: number; count: number }[];
+	todayRecorded: { activityId: ActivityId; count: number }[];
 	loginBonusStatus: LoginBonusStatus | null;
 	latestReward: null;
 	hasChecklists: boolean;
@@ -112,7 +113,7 @@ export interface DemoHomeData {
 	} | null;
 }
 
-export function getDemoHomeData(childId: number): DemoHomeData {
+export function getDemoHomeData(childId: ChildId): DemoHomeData {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	if (!child) {
 		return {
@@ -141,7 +142,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 	const todayLogs = DEMO_ACTIVITY_LOGS.filter(
 		(l) => l.childId === childId && l.recordedDate === TODAY && l.cancelled === 0,
 	);
-	const countMap = new Map<number, number>();
+	const countMap = new Map<ActivityId, number>();
 	for (const log of todayLogs) {
 		countMap.set(log.activityId, (countMap.get(log.activityId) ?? 0) + 1);
 	}
@@ -159,7 +160,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 				consecutiveLoginDays: bonus.consecutiveDays,
 				lastClaimedAt: bonus.createdAt,
 			}
-		: childId === 901
+		: childId === asChildId(901)
 			? null // baby has no login bonus
 			: { childId, claimedToday: false, consecutiveLoginDays: 1, lastClaimedAt: null };
 
@@ -186,7 +187,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 					activityId: m.activityId,
 					activityName: act ? getActivityDisplayName(act, child.age) : '不明',
 					activityIcon: act?.icon ?? '❓',
-					categoryId: act?.categoryId ?? 0,
+					categoryId: act?.categoryId ?? asCategoryId(0),
 					completed: m.completed === 1,
 				};
 			}),
@@ -242,12 +243,12 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 // ============================================================
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export function getDemoStatusData(childId: number): ChildStatus | null {
+export function getDemoStatusData(childId: ChildId): ChildStatus | null {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	if (!child) return null;
 
 	const statuses = getDemoStatusesForChild(childId);
-	const statusMap: Record<number, StatusDetail> = {};
+	const statusMap: Record<string, StatusDetail> = {};
 
 	let highestCategoryLevel = 0;
 	let totalDeviation = 0;
@@ -309,7 +310,7 @@ export function getDemoStatusData(childId: number): ChildStatus | null {
 
 export interface DemoHistoryData {
 	logs: {
-		id: number;
+		id: string;
 		activityName: string;
 		activityIcon: string;
 		categoryName: string;
@@ -320,7 +321,7 @@ export interface DemoHistoryData {
 	}[];
 }
 
-export function getDemoHistoryData(childId: number): DemoHistoryData {
+export function getDemoHistoryData(childId: ChildId): DemoHistoryData {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	const age = child?.age ?? 6;
 	const logs = getDemoLogsForChild(childId);
@@ -370,7 +371,7 @@ export function getDemoAdminData(): DemoAdminData {
 // Checklist page data
 // ============================================================
 
-export function getDemoChecklistData(childId: number) {
+export function getDemoChecklistData(childId: ChildId) {
 	const { templates, items } = getDemoChecklistsForChild(childId);
 	return {
 		checklists: templates.map((t) => {
@@ -391,7 +392,7 @@ export function getDemoChecklistData(childId: number) {
 }
 
 // #704: 子供画面のチェックリストページ用 — 本番の TodayChecklist と互換性のある形に整形する。
-export function getDemoTodayChecklistsForChild(childId: number): TodayChecklist[] {
+export function getDemoTodayChecklistsForChild(childId: ChildId): TodayChecklist[] {
 	const { templates, items } = getDemoChecklistsForChild(childId);
 	return templates.map((t) => {
 		const tItems = items
@@ -439,12 +440,12 @@ export interface DemoBattleData {
 	} | null;
 }
 
-export function getDemoBattleData(childId: number): DemoBattleData {
+export function getDemoBattleData(childId: ChildId): DemoBattleData {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	if (!child) return { battle: null };
 
 	const statuses = getDemoStatusesForChild(childId);
-	const categoryXp: Record<number, number> = {};
+	const categoryXp: Record<string, number> = {};
 	for (const s of statuses) {
 		categoryXp[s.categoryId] = s.totalXp;
 	}
@@ -470,11 +471,11 @@ export function getDemoBattleData(childId: number): DemoBattleData {
 // No-op write operations (demo mode: success without persistence)
 // ============================================================
 
-export function demoRecordActivity(activityId: number) {
+export function demoRecordActivity(activityId: ActivityId) {
 	const act = DEMO_ACTIVITIES.find((a) => a.id === activityId);
 	return {
 		success: true,
-		logId: 999999,
+		logId: '999999',
 		activityName: act?.name ?? 'デモ活動',
 		totalPoints: (act?.basePoints ?? 10) + 5,
 		streakDays: 3,

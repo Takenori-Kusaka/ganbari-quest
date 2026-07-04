@@ -2,16 +2,26 @@
 // ポイント関連のリポジトリ層
 
 import { and, desc, eq, lt, sum } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
-import type { PointLedgerEntry } from '../types';
+import type { Child, InsertPointLedgerInput, PointLedgerEntry } from '../types';
+
+type LedgerRow = typeof pointLedger.$inferSelect;
+
+const toEntry = (r: LedgerRow): PointLedgerEntry => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	referenceId: r.referenceId === null ? null : String(r.referenceId),
+});
 
 /** ポイント残高を取得（point_ledgerのamount合計） */
-export async function getBalance(childId: number, _tenantId: string): Promise<number> {
+export async function getBalance(childId: ChildId, _tenantId: string): Promise<number> {
 	const result = db
 		.select({ total: sum(pointLedger.amount) })
 		.from(pointLedger)
-		.where(eq(pointLedger.childId, childId))
+		.where(eq(pointLedger.childId, Number(childId)))
 		.get();
 
 	return Number(result?.total ?? 0);
@@ -19,32 +29,37 @@ export async function getBalance(childId: number, _tenantId: string): Promise<nu
 
 /** ポイント履歴を取得 */
 export async function findPointHistory(
-	childId: number,
+	childId: ChildId,
 	options: { limit: number; offset: number },
 	_tenantId: string,
-) {
+): Promise<PointLedgerEntry[]> {
 	return db
 		.select()
 		.from(pointLedger)
-		.where(eq(pointLedger.childId, childId))
+		.where(eq(pointLedger.childId, Number(childId)))
 		.orderBy(desc(pointLedger.createdAt))
 		.limit(options.limit)
 		.offset(options.offset)
-		.all();
+		.all()
+		.map(toEntry);
 }
 
 /** ポイント台帳にエントリを挿入 */
 export async function insertPointEntry(
-	input: {
-		childId: number;
-		amount: number;
-		type: string;
-		description: string;
-		referenceId?: number;
-	},
+	input: InsertPointLedgerInput,
 	_tenantId: string,
-) {
-	return db.insert(pointLedger).values(input).returning().get();
+): Promise<PointLedgerEntry> {
+	return toEntry(
+		db
+			.insert(pointLedger)
+			.values({
+				...input,
+				childId: Number(input.childId),
+				referenceId: input.referenceId !== undefined ? Number(input.referenceId) : undefined,
+			})
+			.returning()
+			.get(),
+	);
 }
 
 /**
@@ -55,37 +70,44 @@ export async function insertPointEntry(
  * 残高マイナスを構造的に防ぐ）。
  */
 export async function spendPointsAtomic(
-	childId: number,
+	childId: ChildId,
 	amount: number,
-	entry: { type: string; description: string; referenceId?: number },
+	entry: { type: string; description: string; referenceId?: string },
 	_tenantId: string,
 ): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }> {
 	return db.transaction((tx) => {
 		const result = tx
 			.select({ total: sum(pointLedger.amount) })
 			.from(pointLedger)
-			.where(eq(pointLedger.childId, childId))
+			.where(eq(pointLedger.childId, Number(childId)))
 			.get();
 		const balance = Number(result?.total ?? 0);
 		if (balance < amount) return { error: 'INSUFFICIENT_POINTS' as const };
 
-		return tx
-			.insert(pointLedger)
-			.values({
-				childId,
-				amount: -amount,
-				type: entry.type,
-				description: entry.description,
-				referenceId: entry.referenceId,
-			})
-			.returning()
-			.get();
+		return toEntry(
+			tx
+				.insert(pointLedger)
+				.values({
+					childId: Number(childId),
+					amount: -amount,
+					type: entry.type,
+					description: entry.description,
+					referenceId: entry.referenceId !== undefined ? Number(entry.referenceId) : undefined,
+				})
+				.returning()
+				.get(),
+		);
 	});
 }
 
 /** 子供の存在確認 */
-export async function findChildById(id: number, _tenantId: string) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
+	const row = db
+		.select()
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	return row ? { ...row, id: asChildId(row.id) } : undefined;
 }
 
 /** テナントの全ポイント台帳を削除（SQLite: シングルテナントのため全行削除） */
@@ -102,13 +124,13 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
  * #717, #729
  */
 export async function deletePointLedgerBeforeDate(
-	childId: number,
+	childId: ChildId,
 	cutoffDate: string,
 	_tenantId: string,
 ): Promise<number> {
 	const result = db
 		.delete(pointLedger)
-		.where(and(eq(pointLedger.childId, childId), lt(pointLedger.createdAt, cutoffDate)))
+		.where(and(eq(pointLedger.childId, Number(childId)), lt(pointLedger.createdAt, cutoffDate)))
 		.run();
 	return result.changes;
 }

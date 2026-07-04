@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { requireChildAccess, requireRole } from '../../../src/lib/server/auth/guards';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
+import { asChildId } from '$lib/domain/ids';
 
 function makeLocals(context: AuthContext | null): App.Locals {
 	return {
@@ -22,28 +23,28 @@ function makeContext(overrides: Partial<AuthContext> = {}): AuthContext {
 describe('requireChildAccess', () => {
 	it('owner は任意の childId にアクセス可能', () => {
 		const locals = makeLocals(makeContext({ role: 'owner' }));
-		expect(() => requireChildAccess(locals, 1)).not.toThrow();
-		expect(() => requireChildAccess(locals, 99)).not.toThrow();
+		expect(() => requireChildAccess(locals, asChildId(1))).not.toThrow();
+		expect(() => requireChildAccess(locals, asChildId(99))).not.toThrow();
 	});
 
 	it('parent は任意の childId にアクセス可能', () => {
 		const locals = makeLocals(makeContext({ role: 'parent' }));
-		expect(() => requireChildAccess(locals, 1)).not.toThrow();
+		expect(() => requireChildAccess(locals, asChildId(1))).not.toThrow();
 	});
 
 	it('child は自分の childId にアクセス可能', () => {
-		const locals = makeLocals(makeContext({ role: 'child', childId: 5 }));
-		expect(() => requireChildAccess(locals, 5)).not.toThrow();
+		const locals = makeLocals(makeContext({ role: 'child', childId: asChildId(5) }));
+		expect(() => requireChildAccess(locals, asChildId(5))).not.toThrow();
 	});
 
 	it('child は他の childId にアクセス不可（403）', () => {
-		const locals = makeLocals(makeContext({ role: 'child', childId: 5 }));
-		expect(() => requireChildAccess(locals, 99)).toThrow();
+		const locals = makeLocals(makeContext({ role: 'child', childId: asChildId(5) }));
+		expect(() => requireChildAccess(locals, asChildId(99))).toThrow();
 	});
 
 	it('context なしで 401', () => {
 		const locals = makeLocals(null);
-		expect(() => requireChildAccess(locals, 1)).toThrow();
+		expect(() => requireChildAccess(locals, asChildId(1))).toThrow();
 	});
 });
 

@@ -1,3 +1,4 @@
+import { type ChildId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/age-recalc-service.test.ts
 // #1381: 子供の年齢自動インクリメントサービスのユニットテスト
 //
@@ -48,7 +49,7 @@ function makeTenant(tenantId = 't-1') {
 }
 
 type ChildOverride = {
-	id?: number;
+	id?: ChildId | number | string;
 	nickname?: string;
 	age?: number;
 	birthDate?: string | null;
@@ -59,7 +60,7 @@ type ChildOverride = {
 
 function makeChild(overrides: ChildOverride = {}) {
 	return {
-		id: overrides.id ?? 1,
+		id: asChildId(overrides.id ?? 1),
 		nickname: overrides.nickname ?? 'テスト',
 		age: overrides.age ?? 5,
 		birthDate: overrides.birthDate !== undefined ? overrides.birthDate : '2020-04-25',
@@ -141,7 +142,7 @@ describe('recalcAllChildrenAges — 基本動作', () => {
 
 		expect(result.scanned).toBe(1);
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 6, uiMode: 'elementary' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 6, uiMode: 'elementary' }, 't-1');
 	});
 
 	it('birthDate あり、年齢変化あり、uiModeManuallySet=true → age のみ更新し uiMode は変化しない', async () => {
@@ -204,7 +205,7 @@ describe('recalcAllChildrenAges — 年齢境界', () => {
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 3, uiMode: 'preschool' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 3, uiMode: 'preschool' }, 't-1');
 	});
 
 	it('5→6歳境界: preschool → elementary に uiMode 遷移', async () => {
@@ -216,7 +217,7 @@ describe('recalcAllChildrenAges — 年齢境界', () => {
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 6, uiMode: 'elementary' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 6, uiMode: 'elementary' }, 't-1');
 	});
 
 	it('12→13歳境界: elementary → junior に uiMode 遷移', async () => {
@@ -228,7 +229,7 @@ describe('recalcAllChildrenAges — 年齢境界', () => {
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 13, uiMode: 'junior' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 13, uiMode: 'junior' }, 't-1');
 	});
 
 	it('15→16歳境界: junior → senior に uiMode 遷移', async () => {
@@ -240,7 +241,7 @@ describe('recalcAllChildrenAges — 年齢境界', () => {
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 16, uiMode: 'senior' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 16, uiMode: 'senior' }, 't-1');
 	});
 
 	it('境界でない場合: 7→8歳で uiMode は elementary のまま変化しない', async () => {
@@ -252,7 +253,7 @@ describe('recalcAllChildrenAges — 年齢境界', () => {
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 8, uiMode: 'elementary' }, 't-1');
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 8, uiMode: 'elementary' }, 't-1');
 	});
 });
 
@@ -261,8 +262,8 @@ describe('recalcAllChildrenAges — エラーハンドリング', () => {
 		mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
 		// child 1: 更新失敗、child 2: 更新成功
 		mockFindAllChildren.mockResolvedValue([
-			makeChild({ id: 1, age: 5, birthDate: '2020-04-25' }),
-			makeChild({ id: 2, age: 5, birthDate: '2020-04-25' }),
+			makeChild({ id: asChildId(1), age: 5, birthDate: '2020-04-25' }),
+			makeChild({ id: asChildId(2), age: 5, birthDate: '2020-04-25' }),
 		]);
 		mockUpdateChild
 			.mockRejectedValueOnce(new Error('DB connection lost'))
@@ -281,17 +282,17 @@ describe('recalcAllChildrenAges — 複数テナント', () => {
 		mockListAllTenants.mockResolvedValue([makeTenant('t-1'), makeTenant('t-2')]);
 		// t-1: age 更新あり
 		mockFindAllChildren.mockResolvedValueOnce([
-			makeChild({ id: 1, age: 5, birthDate: '2020-04-25' }),
+			makeChild({ id: asChildId(1), age: 5, birthDate: '2020-04-25' }),
 		]);
 		// t-2: birthDate なし
-		mockFindAllChildren.mockResolvedValueOnce([makeChild({ id: 2, birthDate: null })]);
+		mockFindAllChildren.mockResolvedValueOnce([makeChild({ id: asChildId(2), birthDate: null })]);
 
 		const result = await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(result.scanned).toBe(2);
 		expect(result.skipped).toBe(1);
 		expect(result.updated).toBe(1);
-		expect(mockUpdateChild).toHaveBeenCalledWith(1, { age: 6, uiMode: 'elementary' }, 't-1');
-		expect(mockUpdateChild).not.toHaveBeenCalledWith(2, expect.anything(), expect.anything());
+		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 6, uiMode: 'elementary' }, 't-1');
+		expect(mockUpdateChild).not.toHaveBeenCalledWith('2', expect.anything(), expect.anything());
 	});
 });

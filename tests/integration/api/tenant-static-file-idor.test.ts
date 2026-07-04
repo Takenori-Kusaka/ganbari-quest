@@ -15,6 +15,7 @@ import { getChildById } from '$lib/server/services/child-service';
 import { readFile } from '$lib/server/storage';
 import { GET as tenantsGET } from '../../../src/routes/tenants/[...path]/+server';
 import { GET as avatarsGET } from '../../../src/routes/uploads/avatars/[filename]/+server';
+import { asChildId } from '$lib/domain/ids';
 
 const readFileMock = vi.mocked(readFile);
 const getChildByIdMock = vi.mocked(getChildById);
@@ -35,7 +36,7 @@ beforeEach(() => {
 	// 既定では「自テナントの子供 id=1 で、avatarUrl が要求 filename を指す」正常 Child を返す。
 	// avatarUrl は legacy flat key の公開 URL (`/uploads/avatars/avatar-1-abc.png`)。
 	getChildByIdMock.mockResolvedValue({
-		id: 1,
+		id: '1',
 		tenantId: 't-self',
 		avatarUrl: '/uploads/avatars/avatar-1-abc.png',
 		// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
@@ -124,17 +125,17 @@ describe('#3133 /uploads/avatars/[filename] legacy cross-tenant IDOR guard', () 
 		});
 		const res = (await avatarsGET(event)) as Response;
 		expect(res.status).toBe(200);
-		expect(getChildByIdMock).toHaveBeenCalledWith(1, 't-self');
+		expect(getChildByIdMock).toHaveBeenCalledWith('1', 't-self');
 		expect(readFileMock).toHaveBeenCalledWith('uploads/avatars/avatar-1-abc.png');
 	});
 
 	it('id-collision: 自テナントに同 id の子供が居ても avatarUrl が別ファイルなら 404、storage に到達しない', async () => {
 		// 攻撃シナリオ: テナント A の攻撃者が自テナントの child id=1 を持つ。
-		// getChildById(1, t-self) は VALID な自テナント child を返すが、その avatarUrl は
+		// getChildById(asChildId(1), t-self) は VALID な自テナント child を返すが、その avatarUrl は
 		// 別ファイル（被害者の avatar-1-victim.png ではない）を指す。
 		// 旧実装は「同 id child が存在する」だけで配信していたため被害者ファイルを漏洩した。
 		getChildByIdMock.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 't-self',
 			avatarUrl: '/uploads/avatars/avatar-1-mine.png',
 			// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
@@ -150,7 +151,7 @@ describe('#3133 /uploads/avatars/[filename] legacy cross-tenant IDOR guard', () 
 
 	it('id-collision: 自テナントに同 id の子供が居ても avatarUrl=null なら 404、storage に到達しない', async () => {
 		getChildByIdMock.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 't-self',
 			avatarUrl: null,
 			// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ

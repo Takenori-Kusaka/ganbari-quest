@@ -1,3 +1,4 @@
+import { asActivityId } from '$lib/domain/ids';
 import { describe, expect, it } from 'vitest';
 import { getDefaultUiMode } from '../../../src/lib/domain/validation/age-tier';
 import { DEMO_CHILDREN, getDemoActivitiesForChild } from '../../../src/lib/server/demo/demo-data';
@@ -26,8 +27,8 @@ describe('demo data integrity (#562)', () => {
 	// #703: 5 人構成 + 各年齢帯のテーマカラー一意性 + 活動の年齢フィルタ整合
 	describe('DEMO_CHILDREN 5人構成 (#703)', () => {
 		it('ちょうど 5 人で、想定の childId のみが含まれる', () => {
-			const ids = DEMO_CHILDREN.map((c) => c.id).sort((a, b) => a - b);
-			expect(ids).toEqual([901, 902, 903, 904, 906]);
+			const ids = DEMO_CHILDREN.map((c) => c.id).sort();
+			expect(ids).toEqual(['901', '902', '903', '904', '906']);
 		});
 
 		it('5 つの uiMode (baby/preschool/elementary/junior/senior) を 1 人ずつ持つ', () => {
@@ -82,10 +83,10 @@ describe('demo data integrity (#562)', () => {
 			it(`${c.nickname} の活動リストに想定の包含/除外がある`, () => {
 				const ids = new Set(getDemoActivitiesForChild(c.age).map((a) => a.id));
 				for (const id of c.mustInclude) {
-					expect(ids.has(id), `id=${id} は age=${c.age} に含まれるべき`).toBe(true);
+					expect(ids.has(asActivityId(id)), `id=${id} は age=${c.age} に含まれるべき`).toBe(true);
 				}
 				for (const id of c.mustExclude) {
-					expect(ids.has(id), `id=${id} は age=${c.age} に含まれてはいけない`).toBe(false);
+					expect(ids.has(asActivityId(id)), `id=${id} は age=${c.age} に含まれてはいけない`).toBe(false);
 				}
 			});
 		}

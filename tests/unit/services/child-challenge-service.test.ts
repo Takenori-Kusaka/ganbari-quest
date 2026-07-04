@@ -8,6 +8,7 @@
 //   - updateChildChallengeProgress (count 増分 + completed 判定)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 const mockInsert = vi.fn();
 const mockGetOrCreateWeeklyAuto = vi.fn();
@@ -112,7 +113,7 @@ function algoCounts(byId: Record<number, number>): Record<number, number> {
 }
 function makePrev(over: Partial<ChallengePrev> = {}): ChallengePrev {
 	return {
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		targetCount: 3,
 		currentCount: 0,
 		status: 'expired',
@@ -174,7 +175,7 @@ describe('computeProposal — カテゴリ選択 (§3.4、#3194 / #3213 移設)'
 	it('得意週は strength モードで最多カテゴリを選ぶ', () => {
 		const p = computeProposal(algoCounts({ 1: 8, 5: 0 }), undefined, STRENGTH_WEEK);
 		expect(p.mode).toBe('strength');
-		expect(p.categoryId).toBe(1); // 最多 = うんどう
+		expect(p.categoryId).toBe('1'); // 最多 = うんどう
 		expect(p.targetCount).toBe(5); // avg 4 → base clamp(5,2,7)
 	});
 });
@@ -184,21 +185,21 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 
 	it('前週完了 + 大幅超過なら target を上げる (+2)', () => {
 		// 得意週 → 最多カテゴリ1 を決定的に選択。prev も cat1 完了で overshoot 2
-		const prev = makePrev({ categoryId: 1, status: 'completed', targetCount: 5, currentCount: 7 });
+		const prev = makePrev({ categoryId: asCategoryId(1), status: 'completed', targetCount: 5, currentCount: 7 });
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
-		expect(p.categoryId).toBe(1);
+		expect(p.categoryId).toBe('1');
 		expect(p.targetCount).toBe(7); // max(base3, 5+2)=7
 	});
 
 	it('前週未達 (半分以上) なら据え置き', () => {
-		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 3 });
+		const prev = makePrev({ categoryId: asCategoryId(1), status: 'expired', targetCount: 5, currentCount: 3 });
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
 		expect(p.targetCount).toBe(5); // ratio 0.6 → 据置
 		expect(p.consecutiveMissCount).toBe(1);
 	});
 
 	it('前週未達 (半分未満) なら 1 下げる', () => {
-		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 1 });
+		const prev = makePrev({ categoryId: asCategoryId(1), status: 'expired', targetCount: 5, currentCount: 1 });
 		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
 		expect(p.targetCount).toBe(4); // ratio 0.2 → -1
 	});
@@ -206,7 +207,7 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 	it('2 週連続未達なら rescue-strength (target 最小 + 得意カテゴリ)', () => {
 		// prev が未達 + 既に 1 連続未達 → 今週 incoming streak = 2 → レスキュー
 		const prev = makePrev({
-			categoryId: 2,
+			categoryId: asCategoryId(2),
 			status: 'expired',
 			consecutiveMissCount: 1,
 			targetCount: 3,
@@ -214,7 +215,7 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 		});
 		const p = computeProposal(algoCounts({ 1: 6 }), prev, WEEK_WEAKNESS);
 		expect(p.mode).toBe('rescue-strength');
-		expect(p.categoryId).toBe(1); // 最多 = 得意
+		expect(p.categoryId).toBe('1'); // 最多 = 得意
 		expect(p.targetCount).toBe(2); // MIN_TARGET
 		expect(p.consecutiveMissCount).toBe(2);
 	});
@@ -256,9 +257,9 @@ describe('computeProposal — #3203 item2: childId+weekStart で seed 化し決�
 	const WEAK_COUNTS = algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
 
 	it('同 childId・同週は常に同一カテゴリを返す (flip-flop なし)', () => {
-		const a = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
-		const b = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
-		const c = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		const a = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: asChildId(42) });
+		const b = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: asChildId(42) });
+		const c = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: asChildId(42) });
 		expect(a.categoryId).toBe(b.categoryId);
 		expect(b.categoryId).toBe(c.categoryId);
 		expect(a.mode).toBe('weakness');
@@ -277,13 +278,13 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
 		// #3245: 生成は atomic な getOrCreateWeeklyAuto 経由
 		mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
-			id: 1,
+			id: '1',
 			currentValue: 0,
 			completed: 0,
 			...input,
 		}));
 
-		await getOrCreateWeeklyChildChallenge(10, TENANT);
+		await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 
 		expect(mockGetOrCreateWeeklyAuto).toHaveBeenCalledTimes(1);
 		const input = mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0];
@@ -302,15 +303,15 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			'../../../src/lib/server/services/child-challenge-service'
 		);
 		const existing = {
-			id: 99,
-			childId: 10,
+			id: '99',
+			childId: asChildId(10),
 			sourceTemplateId: 'auto:weekly',
 			startDate: getWeekStart(),
 			targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
 		};
 		mockFindByChildId.mockResolvedValue([existing]);
 
-		const result = await getOrCreateWeeklyChildChallenge(10, TENANT);
+		const result = await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 		expect(result).toBe(existing);
 		expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
 		expect(mockInsert).not.toHaveBeenCalled();
@@ -324,11 +325,11 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		/** 過去 prior auto:weekly 行を組み立てる。completed=1 で前週完了相当。 */
 		function priorAutoRow(startDate: string, over: Record<string, unknown> = {}) {
 			return {
-				id: 1,
-				childId: 10,
+				id: '1',
+				childId: asChildId(10),
 				sourceTemplateId: 'auto:weekly',
 				startDate,
-				targetConfig: JSON.stringify({ categoryId: 2, genMissStreak: 0 }),
+				targetConfig: JSON.stringify({ categoryId: asCategoryId(2), genMissStreak: 0 }),
 				targetValue: 3,
 				currentValue: 3,
 				completed: 1, // 完了 → prev streak 0
@@ -349,7 +350,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		beforeEach(() => {
 			mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 }); // 非 explore
 			mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
-				id: 1,
+				id: '1',
 				currentValue: 0,
 				completed: 0,
 				...input,
@@ -360,7 +361,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			const w3 = await weeksAgo(3); // 3 週前 → weeksBetween=3 → skip=2
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w3)]);
 
-			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
 			expect(cfg.genMode).toBe('rescue-strength');
 			expect(cfg.genMissStreak).toBe(2); // skip 2 を miss streak に反映
@@ -370,7 +371,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			const w1 = await weeksAgo(1); // 1 週前 → weeksBetween=1 → skip=0
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w1)]);
 
-			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
 			expect(cfg.genMode).not.toBe('rescue-strength');
 			expect(cfg.genMissStreak).toBe(0);
@@ -382,7 +383,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			// 順不同で渡しても最新 (w1) が prev → skip 0
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w4), priorAutoRow(w1)]);
 
-			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
 			expect(cfg.genMissStreak).toBe(0); // w1 採用 = skip 0
 		});
@@ -391,7 +392,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			const w2 = await weeksAgo(2); // skip=1
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w2), priorAutoRow(w2)]);
 
-			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
 			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
 			// 2 週前完了 → skip 1 → streak 1 (rescue 閾値 2 未満)
 			expect(cfg.genMissStreak).toBe(1);
@@ -419,10 +420,10 @@ describe('calcAgeAdjustedTarget', () => {
 
 describe('createChildChallenge / createChildChallengesBulk', () => {
 	it('createChildChallenge は repo.insert を呼び出す', async () => {
-		mockInsert.mockResolvedValueOnce({ id: 1, childId: 902, title: 'foo' });
+		mockInsert.mockResolvedValueOnce({ id: '1', childId: asChildId(902), title: 'foo' });
 		const result = await createChildChallenge(
 			{
-				childId: 902,
+				childId: asChildId(902),
 				title: 'foo',
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
@@ -432,17 +433,17 @@ describe('createChildChallenge / createChildChallengesBulk', () => {
 			},
 			TENANT,
 		);
-		expect(result.id).toBe(1);
+		expect(result.id).toBe('1');
 		expect(mockInsert).toHaveBeenCalledWith(
-			expect.objectContaining({ childId: 902, targetValue: 5 }),
+			expect.objectContaining({ childId: asChildId(902), targetValue: 5 }),
 			TENANT,
 		);
 	});
 
 	it('createChildChallengesBulk は childIds 配列ぶん insertBulk inputs 生成', async () => {
 		mockInsertBulk.mockResolvedValueOnce([
-			{ id: 1, childId: 902, targetValue: 15 },
-			{ id: 2, childId: 903, targetValue: 25 },
+			{ id: '1', childId: asChildId(902), targetValue: 15 },
+			{ id: '2', childId: asChildId(903), targetValue: 25 },
 		]);
 		const result = await createChildChallengesBulk(
 			{
@@ -454,21 +455,21 @@ describe('createChildChallenge / createChildChallengesBulk', () => {
 				sourceTemplateId: 'src:1',
 				perChildTargets: { 902: 15, 903: 25 },
 			},
-			[902, 903],
+			[asChildId(902), asChildId(903)],
 			TENANT,
 		);
 		expect(result.length).toBe(2);
 		expect(mockInsertBulk).toHaveBeenCalledWith(
 			expect.arrayContaining([
-				expect.objectContaining({ childId: 902, targetValue: 15, sourceTemplateId: 'src:1' }),
-				expect.objectContaining({ childId: 903, targetValue: 25, sourceTemplateId: 'src:1' }),
+				expect.objectContaining({ childId: asChildId(902), targetValue: 15, sourceTemplateId: 'src:1' }),
+				expect.objectContaining({ childId: asChildId(903), targetValue: 25, sourceTemplateId: 'src:1' }),
 			]),
 			TENANT,
 		);
 	});
 
 	it('perChildTargets で未指定 childId は targetValue=1 fallback', async () => {
-		mockInsertBulk.mockResolvedValueOnce([{ id: 1 }]);
+		mockInsertBulk.mockResolvedValueOnce([{ id: '1' }]);
 		await createChildChallengesBulk(
 			{
 				title: 'X',
@@ -478,11 +479,11 @@ describe('createChildChallenge / createChildChallengesBulk', () => {
 				rewardConfig: '{}',
 				perChildTargets: {},
 			},
-			[902],
+			[asChildId(902)],
 			TENANT,
 		);
 		expect(mockInsertBulk).toHaveBeenCalledWith(
-			[expect.objectContaining({ childId: 902, targetValue: 1 })],
+			[expect.objectContaining({ childId: asChildId(902), targetValue: 1 })],
 			TENANT,
 		);
 	});
@@ -492,8 +493,8 @@ describe('getChallengeGroupsForAdmin', () => {
 	it('同じ sourceTemplateId を持つ instance を group 化、各 instance が collect される', async () => {
 		mockFindAllByTenant.mockResolvedValueOnce([
 			{
-				id: 1,
-				childId: 902,
+				id: '1',
+				childId: asChildId(902),
 				title: 'A',
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
@@ -515,8 +516,8 @@ describe('getChallengeGroupsForAdmin', () => {
 				updatedAt: '',
 			},
 			{
-				id: 2,
-				childId: 903,
+				id: '2',
+				childId: asChildId(903),
 				title: 'A',
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
@@ -538,8 +539,8 @@ describe('getChallengeGroupsForAdmin', () => {
 				updatedAt: '',
 			},
 			{
-				id: 3,
-				childId: 902,
+				id: '3',
+				childId: asChildId(902),
 				title: 'B (individual)',
 				startDate: '2026-05-20',
 				endDate: '2026-05-27',
@@ -577,8 +578,8 @@ describe('getChallengeGroupsForAdmin', () => {
 	it('#3513 QM BLOCK fix: 同一 sourceTemplateId (auto:weekly) でも期間が異なれば別 group になる (全週混線防止)', async () => {
 		mockFindAllByTenant.mockResolvedValueOnce([
 			{
-				id: 1,
-				childId: 902,
+				id: '1',
+				childId: asChildId(902),
 				title: '今週のチャレンジ',
 				startDate: '2026-05-25',
 				endDate: '2026-05-31',
@@ -601,8 +602,8 @@ describe('getChallengeGroupsForAdmin', () => {
 			},
 			// 別の子供・前週分。sourceTemplateId は同じ固定文字列 'auto:weekly' だが期間が異なる。
 			{
-				id: 2,
-				childId: 903,
+				id: '2',
+				childId: asChildId(903),
 				title: '先週のチャレンジ',
 				startDate: '2026-05-18',
 				endDate: '2026-05-24',
@@ -640,8 +641,8 @@ describe('getChallengeGroupsForAdmin', () => {
 	it('全 instance 完了で allCompleted=true', async () => {
 		mockFindAllByTenant.mockResolvedValueOnce([
 			{
-				id: 1,
-				childId: 902,
+				id: '1',
+				childId: asChildId(902),
 				title: 'X',
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
@@ -663,8 +664,8 @@ describe('getChallengeGroupsForAdmin', () => {
 				updatedAt: '',
 			},
 			{
-				id: 2,
-				childId: 903,
+				id: '2',
+				childId: asChildId(903),
 				title: 'X',
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
@@ -695,8 +696,8 @@ describe('updateChildChallengeProgress', () => {
 	it('count metric → currentValue 増分 + target 達成で markCompleted', async () => {
 		mockFindActiveByChildId.mockResolvedValueOnce([
 			{
-				id: 10,
-				childId: 902,
+				id: '10',
+				childId: asChildId(902),
 				title: 'P',
 				completed: 0,
 				currentValue: 4,
@@ -718,22 +719,22 @@ describe('updateChildChallengeProgress', () => {
 				updatedAt: '',
 			},
 		]);
-		const results = await updateChildChallengeProgress(902, 999, 1, TENANT);
-		expect(mockUpdateProgress).toHaveBeenCalledWith(10, 5, TENANT);
-		expect(mockMarkCompleted).toHaveBeenCalledWith(10, TENANT);
+		const results = await updateChildChallengeProgress(asChildId(902), asActivityId(999), asCategoryId(1), TENANT);
+		expect(mockUpdateProgress).toHaveBeenCalledWith('10', 5, TENANT);
+		expect(mockMarkCompleted).toHaveBeenCalledWith('10', TENANT);
 		expect(results[0]?.completed).toBe(true);
 	});
 
 	it('categoryId 不一致 → 進捗更新スキップ', async () => {
 		mockFindActiveByChildId.mockResolvedValueOnce([
 			{
-				id: 11,
-				childId: 902,
+				id: '11',
+				childId: asChildId(902),
 				title: 'P',
 				completed: 0,
 				currentValue: 0,
 				targetValue: 5,
-				targetConfig: JSON.stringify({ metric: 'count', categoryId: 2, baseTarget: 5 }),
+				targetConfig: JSON.stringify({ metric: 'count', categoryId: asCategoryId(2), baseTarget: 5 }),
 				description: null,
 				rewardConfig: '{}',
 				challengeType: 'cooperative',
@@ -751,7 +752,7 @@ describe('updateChildChallengeProgress', () => {
 			},
 		]);
 		// categoryId=1 で呼ぶ → targetConfig.categoryId=2 と不一致 → スキップ
-		const results = await updateChildChallengeProgress(902, 999, 1, TENANT);
+		const results = await updateChildChallengeProgress(asChildId(902), asActivityId(999), asCategoryId(1), TENANT);
 		expect(mockUpdateProgress).not.toHaveBeenCalled();
 		expect(results.length).toBe(0);
 	});
@@ -760,24 +761,24 @@ describe('updateChildChallengeProgress', () => {
 describe('buildPerChildTargets', () => {
 	it('child の age に応じて ageAdjustments を適用', async () => {
 		mockFindAllChildren.mockResolvedValueOnce([
-			{ id: 902, age: 5 },
-			{ id: 903, age: 8 },
+			{ id: '902', age: 5 },
+			{ id: '903', age: 8 },
 		]);
-		const result = await buildPerChildTargets(10, { '5': 15, '8': 25 }, [902, 903], TENANT);
+		const result = await buildPerChildTargets(10, { '5': 15, '8': 25 }, [asChildId(902), asChildId(903)], TENANT);
 		expect(result).toEqual({ 902: 15, 903: 25 });
 	});
 
 	it('child が見つからない → age=6 fallback', async () => {
 		mockFindAllChildren.mockResolvedValueOnce([]);
-		const result = await buildPerChildTargets(10, undefined, [999], TENANT);
+		const result = await buildPerChildTargets(10, undefined, [asChildId(999)], TENANT);
 		// baseTarget=10、ageAdjustments 未指定 → baseTarget そのまま
 		expect(result).toEqual({ 999: 10 });
 	});
 
 	// #2488 (must-3 fix): pre-fetched children を受け取った場合 findAllChildren 呼出をスキップ
 	it('prefetchedChildren 渡し時は findAllChildren を呼ばない (N+1 解消)', async () => {
-		const result = await buildPerChildTargets(10, { '5': 15 }, [902], TENANT, [
-			{ id: 902, age: 5 },
+		const result = await buildPerChildTargets(10, { '5': 15 }, [asChildId(902)], TENANT, [
+			{ id: asChildId(902), age: 5 },
 		]);
 		expect(mockFindAllChildren).not.toHaveBeenCalled();
 		expect(result).toEqual({ 902: 15 });
@@ -788,8 +789,8 @@ describe('buildPerChildTargets', () => {
 describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 	function row(overrides: Record<string, unknown>) {
 		return {
-			id: 0,
-			childId: 902,
+			id: '0',
+			childId: asChildId(902),
 			title: 'X',
 			startDate: '2026-05-25',
 			endDate: '2026-06-01',
@@ -817,8 +818,8 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 		// findActiveOrUnclaimedByChildId が status=completed+rewardClaimed=0 を返す前提
 		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
 			row({
-				id: 10,
-				childId: 902,
+				id: '10',
+				childId: asChildId(902),
 				status: 'completed',
 				completed: 1,
 				currentValue: 5,
@@ -827,17 +828,17 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 		]);
 		mockFindAllByTenant.mockResolvedValueOnce([
 			row({
-				id: 10,
-				childId: 902,
+				id: '10',
+				childId: asChildId(902),
 				status: 'completed',
 				completed: 1,
 				currentValue: 5,
 				rewardClaimed: 0,
 			}),
 		]);
-		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		const result = await getActiveChildChallengesWithSiblings(asChildId(902), TENANT);
 		expect(result).toHaveLength(1);
-		expect(result[0]?.id).toBe(10);
+		expect(result[0]?.id).toBe('10');
 		expect(result[0]?.rewardClaimed).toBe(0);
 		expect(result[0]?.completed).toBe(1);
 		// ChallengeBanner の claim button が render されるための条件: completed=1 + rewardClaimed=0
@@ -846,22 +847,22 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 	it('must-2: 過去期間の同 sourceTemplateId instance は siblings[] から除外される', async () => {
 		// 自身: 今週 (5/25 - 6/1) active
 		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
-			row({ id: 100, childId: 902, startDate: '2026-05-25', endDate: '2026-06-01' }),
+			row({ id: '100', childId: asChildId(902), startDate: '2026-05-25', endDate: '2026-06-01' }),
 		]);
 		// tenant 全体: 自身 + 兄弟今週 + 自身の先週 expired completed (sourceTemplateId 共有)
 		mockFindAllByTenant.mockResolvedValueOnce([
-			row({ id: 100, childId: 902, startDate: '2026-05-25', endDate: '2026-06-01' }),
+			row({ id: '100', childId: asChildId(902), startDate: '2026-05-25', endDate: '2026-06-01' }),
 			row({
-				id: 101,
-				childId: 903,
+				id: '101',
+				childId: asChildId(903),
 				startDate: '2026-05-25',
 				endDate: '2026-06-01',
 				currentValue: 2,
 			}),
 			// 先週分 (異なる期間) — siblings に含まれてはいけない
 			row({
-				id: 90,
-				childId: 902,
+				id: '90',
+				childId: asChildId(902),
 				startDate: '2026-05-18',
 				endDate: '2026-05-24',
 				status: 'completed',
@@ -870,8 +871,8 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 				rewardClaimed: 1,
 			}),
 			row({
-				id: 91,
-				childId: 903,
+				id: '91',
+				childId: asChildId(903),
 				startDate: '2026-05-18',
 				endDate: '2026-05-24',
 				status: 'completed',
@@ -880,7 +881,7 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 				rewardClaimed: 1,
 			}),
 		]);
-		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		const result = await getActiveChildChallengesWithSiblings(asChildId(902), TENANT);
 		expect(result).toHaveLength(1);
 		// siblings は今週分 2 件のみ (先週分 2 件は除外)
 		expect(result[0]?.siblings).toHaveLength(2);
@@ -892,8 +893,8 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 	it('must-2: 同期間のみで全 sibling completed → allCompleted=true (正常 celebration 発火)', async () => {
 		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
 			row({
-				id: 200,
-				childId: 902,
+				id: '200',
+				childId: asChildId(902),
 				status: 'completed',
 				completed: 1,
 				currentValue: 5,
@@ -902,23 +903,23 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 		]);
 		mockFindAllByTenant.mockResolvedValueOnce([
 			row({
-				id: 200,
-				childId: 902,
+				id: '200',
+				childId: asChildId(902),
 				status: 'completed',
 				completed: 1,
 				currentValue: 5,
 				rewardClaimed: 0,
 			}),
 			row({
-				id: 201,
-				childId: 903,
+				id: '201',
+				childId: asChildId(903),
 				status: 'completed',
 				completed: 1,
 				currentValue: 5,
 				rewardClaimed: 1,
 			}),
 		]);
-		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		const result = await getActiveChildChallengesWithSiblings(asChildId(902), TENANT);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.allCompleted).toBe(true);
 	});
@@ -931,8 +932,8 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 // 兄弟全完了 (allCompleted) を受取条件にしてはならない。server は以下を fail-closed で守る。
 function challengeRow(over: Record<string, unknown> = {}) {
 	return {
-		id: 10,
-		childId: 902,
+		id: '10',
+		childId: asChildId(902),
 		title: 'P',
 		completed: 1,
 		currentValue: 5,
@@ -960,18 +961,18 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 	it('自身の instance が completed=1 && claimReward が 1 行 flip → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 0 }));
 		mockClaimReward.mockResolvedValueOnce(1); // 条件付き UPDATE が 1 行を flip
-		const result = await claimChildChallengeReward(10, 902, TENANT);
+		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('points' in result && result.points).toBe(30);
 		// claim-first: claimReward の戻り行数 === 1 を確認してから付与
-		expect(mockClaimReward).toHaveBeenCalledWith(10, TENANT);
+		expect(mockClaimReward).toHaveBeenCalledWith('10', TENANT);
 		// point ledger は 1 回だけ加算（二重付与なし）
 		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
 		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: 902,
+				childId: asChildId(902),
 				amount: 30,
 				type: 'child_challenge',
-				referenceId: 10,
+				referenceId: '10',
 			}),
 			TENANT,
 		);
@@ -979,7 +980,7 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 
 	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（claimReward を呼ばず ledger 加算なし）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 0, currentValue: 2 }));
-		const result = await claimChildChallengeReward(10, 902, TENANT);
+		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('まだクリアしていません');
 		expect(mockClaimReward).not.toHaveBeenCalled();
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
@@ -989,14 +990,14 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 		// findById は completed=1 を返すが、条件付き UPDATE は既に flip 済のため 0 行 = 付与スキップ
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 1 }));
 		mockClaimReward.mockResolvedValueOnce(0);
-		const result = await claimChildChallengeReward(10, 902, TENANT);
+		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('すでに受け取り済みです');
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
 
 	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed、claimReward を呼ばない）', async () => {
-		mockFindById.mockResolvedValueOnce(challengeRow({ childId: 903 }));
-		const result = await claimChildChallengeReward(10, 902, TENANT);
+		mockFindById.mockResolvedValueOnce(challengeRow({ childId: asChildId(903) }));
+		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('このチャレンジは別のお子さま用です');
 		expect(mockClaimReward).not.toHaveBeenCalled();
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
@@ -1004,7 +1005,7 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 
 	it('存在しない instance → 受取拒否', async () => {
 		mockFindById.mockResolvedValueOnce(undefined);
-		const result = await claimChildChallengeReward(999, 902, TENANT);
+		const result = await claimChildChallengeReward('999', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('チャレンジが見つかりません');
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
@@ -1019,8 +1020,8 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 		mockClaimReward.mockResolvedValueOnce(1).mockResolvedValue(0);
 
 		const [first, second] = await Promise.all([
-			claimChildChallengeReward(10, 902, TENANT),
-			claimChildChallengeReward(10, 902, TENANT),
+			claimChildChallengeReward('10', asChildId(902), TENANT),
+			claimChildChallengeReward('10', asChildId(902), TENANT),
 		]);
 
 		// 一方だけが成功し、他方は付与なしで「すでに受け取り済みです」

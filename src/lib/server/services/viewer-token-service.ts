@@ -52,13 +52,13 @@ export async function resolveViewerToken(token: string): Promise<ViewerToken | n
 }
 
 /** トークンを無効化 */
-export async function revokeViewerToken(id: number, tenantId: string): Promise<void> {
+export async function revokeViewerToken(id: string, tenantId: string): Promise<void> {
 	const repos = getRepos();
 	await repos.viewerToken.revoke(id, tenantId);
 }
 
 /** トークンを削除 */
-export async function deleteViewerToken(id: number, tenantId: string): Promise<void> {
+export async function deleteViewerToken(id: string, tenantId: string): Promise<void> {
 	const repos = getRepos();
 	await repos.viewerToken.deleteById(id, tenantId);
 }

@@ -28,13 +28,14 @@ import type {
 import { buildGrowthBook } from '../../../src/lib/server/services/growth-book-service';
 import { computeDetailedMonthlyReport } from '../../../src/lib/server/services/report-service';
 import { getChildStatus } from '../../../src/lib/server/services/status-service';
+import { asChildId } from '$lib/domain/ids';
 
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 const FISCAL_YEAR = '2025';
 
 const mockChild = {
-	id: 1,
+	id: asChildId(1),
 	nickname: 'テストちゃん',
 	age: 5,
 	theme: 'pink',
@@ -115,7 +116,7 @@ const EXPECTED_MONTHS = [
 
 function makeCert(id: number, type: string) {
 	return {
-		id,
+		id: String(id),
 		childId: CHILD_ID,
 		tenantId: TENANT,
 		certificateType: type,

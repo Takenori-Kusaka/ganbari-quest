@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/checklist-template-import-service.ts
 // #2137 (MP-2): event-checklist 一括追加サービス
 //
@@ -50,7 +51,7 @@ export interface ChecklistImportResult {
 	 */
 	failed: number;
 	/** 作成された template ID (imported=1 時のみ) */
-	templateId?: number;
+	templateId?: string;
 }
 
 /**
@@ -67,7 +68,7 @@ export interface ChecklistImportResult {
  */
 export async function previewChecklistImport(
 	presetId: string,
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChecklistImportPreview | null> {
 	const item = getMarketplaceItem('checklist', presetId);
@@ -138,7 +139,7 @@ function normalizeTimeSlot(timing: ChecklistPayload['timing']): string {
  */
 export async function importChecklistTemplate(
 	presetId: string,
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	options?: ImportChecklistTemplateOptions,
 ): Promise<ChecklistImportResult> {
@@ -160,7 +161,7 @@ export async function importChecklistTemplateForFamily(
 	presetId: string,
 	tenantId: string,
 	options: {
-		childIds: readonly number[];
+		childIds: readonly ChildId[];
 		timeSlot?: string;
 	},
 ): Promise<ChecklistImportResult> {
@@ -214,9 +215,9 @@ export async function importChecklistTemplateFromPayload(
 	templateName: string,
 	templateIcon: string,
 	tenantId: string,
-	options?: { childIds?: readonly number[] },
+	options?: { childIds?: readonly ChildId[] },
 ): Promise<ChecklistImportResult> {
-	const childIds: readonly number[] = options?.childIds ?? [];
+	const childIds: readonly ChildId[] = options?.childIds ?? [];
 
 	// 重複判定: 同名 family template が既に存在すれば preset 全体 skip (atomic unit)
 	const existingTemplates = await findTemplatesByTenant(tenantId, true);
@@ -289,7 +290,7 @@ async function importChecklistTemplateInternal(
 	presetId: string,
 	tenantId: string,
 	options: {
-		childIds: readonly number[];
+		childIds: readonly ChildId[];
 		timeSlot?: string;
 	},
 ): Promise<ChecklistImportResult> {

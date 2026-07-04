@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/special-reward-service.test.ts
 // 特別報酬サービスのユニットテスト
 
@@ -74,7 +75,7 @@ describe('grantSpecialReward', () => {
 		const result = assertSuccess(
 			await grantSpecialReward(
 				{
-					childId: 1,
+					childId: asChildId(1),
 					title: 'テスト100点',
 					points: 100,
 					category: 'academic',
@@ -83,8 +84,8 @@ describe('grantSpecialReward', () => {
 			),
 		);
 
-		expect(result.id).toBe(1);
-		expect(result.childId).toBe(1);
+		expect(result.id).toBe('1');
+		expect(result.childId).toBe('1');
 		expect(result.title).toBe('テスト100点');
 		expect(result.points).toBe(100);
 		expect(result.category).toBe('academic');
@@ -95,7 +96,7 @@ describe('grantSpecialReward', () => {
 		const result = assertSuccess(
 			await grantSpecialReward(
 				{
-					childId: 1,
+					childId: asChildId(1),
 					title: '漢字検定合格',
 					description: '漢字検定10級に合格！',
 					points: 200,
@@ -113,7 +114,7 @@ describe('grantSpecialReward', () => {
 	it('ポイント台帳に special_reward エントリが追加される', async () => {
 		await grantSpecialReward(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: 'テスト満点',
 				points: 50,
 				category: 'academic',
@@ -132,7 +133,7 @@ describe('grantSpecialReward', () => {
 		const result = assertError(
 			await grantSpecialReward(
 				{
-					childId: 999,
+					childId: asChildId(999),
 					title: 'テスト',
 					points: 50,
 					category: 'other',
@@ -147,11 +148,11 @@ describe('grantSpecialReward', () => {
 
 	it('複数回付与できる', async () => {
 		await grantSpecialReward(
-			{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+			{ childId: asChildId(1), title: '1回目', points: 50, category: 'academic' },
 			'test-tenant',
 		);
 		await grantSpecialReward(
-			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			{ childId: asChildId(1), title: '2回目', points: 100, category: 'sports' },
 			'test-tenant',
 		);
 
@@ -169,7 +170,7 @@ describe('getChildSpecialRewards', () => {
 	});
 
 	it('空の履歴を返す', async () => {
-		const result = await getChildSpecialRewards(1, 'test-tenant');
+		const result = await getChildSpecialRewards(asChildId(1), 'test-tenant');
 		expect(result.rewards).toHaveLength(0);
 		expect(result.totalPoints).toBe(0);
 	});
@@ -177,7 +178,7 @@ describe('getChildSpecialRewards', () => {
 	it('付与した報酬の履歴を返す', async () => {
 		await grantSpecialReward(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: 'テスト満点',
 				points: 100,
 				category: 'academic',
@@ -185,26 +186,26 @@ describe('getChildSpecialRewards', () => {
 			'test-tenant',
 		);
 		await grantSpecialReward(
-			{ childId: 1, title: '大会入賞', points: 150, category: 'sports' },
+			{ childId: asChildId(1), title: '大会入賞', points: 150, category: 'sports' },
 			'test-tenant',
 		);
 
-		const result = await getChildSpecialRewards(1, 'test-tenant');
+		const result = await getChildSpecialRewards(asChildId(1), 'test-tenant');
 		expect(result.rewards).toHaveLength(2);
 		expect(result.totalPoints).toBe(250);
 	});
 
 	it('降順で返される', async () => {
 		await grantSpecialReward(
-			{ childId: 1, title: '1番目', points: 50, category: 'other' },
+			{ childId: asChildId(1), title: '1番目', points: 50, category: 'other' },
 			'test-tenant',
 		);
 		await grantSpecialReward(
-			{ childId: 1, title: '2番目', points: 100, category: 'other' },
+			{ childId: asChildId(1), title: '2番目', points: 100, category: 'other' },
 			'test-tenant',
 		);
 
-		const result = await getChildSpecialRewards(1, 'test-tenant');
+		const result = await getChildSpecialRewards(asChildId(1), 'test-tenant');
 		// 最新が先頭
 		expect(result.rewards[0]?.title).toBe('2番目');
 		expect(result.rewards[1]?.title).toBe('1番目');
@@ -217,21 +218,21 @@ describe('getUnshownReward / markRewardShown', () => {
 	});
 
 	it('未表示報酬がない場合nullを返す', async () => {
-		const result = await getUnshownReward(1, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('未表示の報酬を1件返す', async () => {
 		await grantSpecialReward(
 			{
-				childId: 1,
+				childId: asChildId(1),
 				title: 'テスト100点',
 				points: 100,
 				category: 'academic',
 			},
 			'test-tenant',
 		);
-		const result = await getUnshownReward(1, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('テスト100点');
 	});
@@ -239,46 +240,46 @@ describe('getUnshownReward / markRewardShown', () => {
 	it('表示済みにした報酬は返さない', async () => {
 		const reward = assertSuccess(
 			await grantSpecialReward(
-				{ childId: 1, title: 'テスト100点', points: 100, category: 'academic' },
+				{ childId: asChildId(1), title: 'テスト100点', points: 100, category: 'academic' },
 				'test-tenant',
 			),
 		);
-		await markRewardShown(1, reward.id, 'test-tenant');
-		const result = await getUnshownReward(1, 'test-tenant');
+		await markRewardShown(asChildId(1), reward.id, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('#2845 課題① / B1: 他の childId では表示済みにできない (所有権検証、SQLite backend)', async () => {
 		const reward = assertSuccess(
 			await grantSpecialReward(
-				{ childId: 1, title: 'テスト100点', points: 100, category: 'academic' },
+				{ childId: asChildId(1), title: 'テスト100点', points: 100, category: 'academic' },
 				'test-tenant',
 			),
 		);
 		// childId=999 (別の子) を指定して rewardId だけ一致させても更新されない
-		const ok = await markRewardShown(999, reward.id, 'test-tenant');
+		const ok = await markRewardShown(asChildId(999), reward.id, 'test-tenant');
 		expect(ok).toBe(false);
 		// 本来の子の未表示報酬は残る (silent 越境更新が起きていない)
-		const result = await getUnshownReward(1, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result?.id).toBe(reward.id);
 	});
 
 	it('複数の報酬がある場合、未表示のものだけ返す', async () => {
 		const r1 = assertSuccess(
 			await grantSpecialReward(
-				{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+				{ childId: asChildId(1), title: '1回目', points: 50, category: 'academic' },
 				'test-tenant',
 			),
 		);
 		await grantSpecialReward(
-			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			{ childId: asChildId(1), title: '2回目', points: 100, category: 'sports' },
 			'test-tenant',
 		);
 
 		// 1回目を表示済みにする
-		await markRewardShown(1, r1.id, 'test-tenant');
+		await markRewardShown(asChildId(1), r1.id, 'test-tenant');
 
-		const result = await getUnshownReward(1, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('2回目');
 	});
@@ -286,18 +287,18 @@ describe('getUnshownReward / markRewardShown', () => {
 	it('新しいごほうびを付与すると再度表示される', async () => {
 		const r1 = assertSuccess(
 			await grantSpecialReward(
-				{ childId: 1, title: '1回目', points: 50, category: 'academic' },
+				{ childId: asChildId(1), title: '1回目', points: 50, category: 'academic' },
 				'test-tenant',
 			),
 		);
-		await markRewardShown(1, r1.id, 'test-tenant');
+		await markRewardShown(asChildId(1), r1.id, 'test-tenant');
 
 		// 新しい報酬を付与
 		await grantSpecialReward(
-			{ childId: 1, title: '2回目', points: 100, category: 'sports' },
+			{ childId: asChildId(1), title: '2回目', points: 100, category: 'sports' },
 			'test-tenant',
 		);
-		const result = await getUnshownReward(1, 'test-tenant');
+		const result = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe('2回目');
 	});
@@ -389,14 +390,14 @@ describe('checkAndGrantFixedIntervalReward', () => {
 	it('記録数がINTERVALの倍数でない場合はnullを返す', async () => {
 		insertActivityLogs(3); // 3 records, interval is 5
 
-		const result = await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('記録数がINTERVALの倍数の場合に報酬を自動付与する', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL); // exactly 5 records
 
-		const result = await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe(`${SPECIAL_REWARD_INTERVAL}かいきろく達成！`);
 		expect(result?.points).toBe(50);
@@ -406,28 +407,28 @@ describe('checkAndGrantFixedIntervalReward', () => {
 	it('10回目の記録でも報酬が付与される', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL * 2); // 10 records
 
-		const result = await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 		expect(result).not.toBeNull();
 		expect(result?.title).toBe(`${SPECIAL_REWARD_INTERVAL * 2}かいきろく達成！`);
 	});
 
 	it('記録数が0の場合はnullを返す', async () => {
 		// No activity logs inserted
-		const result = await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('存在しない子供にはnullを返す', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
 		// child 999 does not exist, but activity logs are for child 1
-		const result = await checkAndGrantFixedIntervalReward(999, 'test-tenant');
+		const result = await checkAndGrantFixedIntervalReward(asChildId(999), 'test-tenant');
 		expect(result).toBeNull();
 	});
 
 	it('付与された報酬がポイント台帳に記録される', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
 
-		await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
 		const autoRewardEntry = ledger.find((e) => e.type === 'special_reward');
@@ -438,9 +439,9 @@ describe('checkAndGrantFixedIntervalReward', () => {
 	it('付与された報酬は未表示として検出される', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
 
-		await checkAndGrantFixedIntervalReward(1, 'test-tenant');
+		await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
 
-		const unshown = await getUnshownReward(1, 'test-tenant');
+		const unshown = await getUnshownReward(asChildId(1), 'test-tenant');
 		expect(unshown).not.toBeNull();
 		expect(unshown?.category).toBe('auto_milestone');
 	});
@@ -452,7 +453,7 @@ describe('getSpecialRewardProgress', () => {
 	});
 
 	it('記録なしの場合はremaining=INTERVALを返す', async () => {
-		const progress = await getSpecialRewardProgress(1, 'test-tenant');
+		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
 		expect(progress.totalRecords).toBe(0);
 		expect(progress.interval).toBe(SPECIAL_REWARD_INTERVAL);
 		expect(progress.remaining).toBe(0); // 0 % 5 = 0 → remaining = 0
@@ -461,7 +462,7 @@ describe('getSpecialRewardProgress', () => {
 	it('1回記録後はremaining=4を返す', async () => {
 		insertActivityLogs(1);
 
-		const progress = await getSpecialRewardProgress(1, 'test-tenant');
+		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
 		expect(progress.totalRecords).toBe(1);
 		expect(progress.remaining).toBe(SPECIAL_REWARD_INTERVAL - 1);
 	});
@@ -469,7 +470,7 @@ describe('getSpecialRewardProgress', () => {
 	it('4回記録後はremaining=1を返す', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL - 1);
 
-		const progress = await getSpecialRewardProgress(1, 'test-tenant');
+		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
 		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL - 1);
 		expect(progress.remaining).toBe(1);
 	});
@@ -477,7 +478,7 @@ describe('getSpecialRewardProgress', () => {
 	it('INTERVALちょうどの場合はremaining=0を返す', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
 
-		const progress = await getSpecialRewardProgress(1, 'test-tenant');
+		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
 		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL);
 		expect(progress.remaining).toBe(0);
 	});
@@ -485,7 +486,7 @@ describe('getSpecialRewardProgress', () => {
 	it('INTERVAL+1の場合はremaining=INTERVAL-1を返す', async () => {
 		insertActivityLogs(SPECIAL_REWARD_INTERVAL + 1);
 
-		const progress = await getSpecialRewardProgress(1, 'test-tenant');
+		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
 		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL + 1);
 		expect(progress.remaining).toBe(SPECIAL_REWARD_INTERVAL - 1);
 	});
@@ -518,7 +519,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		const rewardRow = sqlite.prepare('SELECT id FROM special_rewards LIMIT 1').get() as {
 			id: number;
 		};
-		return { childId: childRow.id, rewardId: rewardRow.id };
+		return { childId: asChildId(childRow.id), rewardId: String(rewardRow.id) };
 	}
 
 	it('AC1: pending redemption 中の削除は PENDING_REDEMPTION で拒否される', async () => {
@@ -532,7 +533,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		// reward は削除されていない
 		const remaining = sqlite
 			.prepare('SELECT COUNT(*) AS c FROM special_rewards WHERE id = ?')
-			.get(rewardId) as { c: number };
+			.get(Number(rewardId)) as { c: number };
 		expect(remaining.c).toBe(1);
 	});
 
@@ -550,12 +551,12 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 		const remaining = sqlite
 			.prepare('SELECT COUNT(*) AS c FROM special_rewards WHERE id = ?')
-			.get(rewardId) as { c: number };
+			.get(Number(rewardId)) as { c: number };
 		expect(remaining.c).toBe(0);
 		// FK 整合: 解決済の交換申請履歴行も削除される (repo 層 cascade)
 		const requests = sqlite
 			.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests WHERE reward_id = ?')
-			.get(rewardId) as { c: number };
+			.get(Number(rewardId)) as { c: number };
 		expect(requests.c).toBe(0);
 	});
 
@@ -567,7 +568,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 	it('他の child を指定した削除は NOT_FOUND (IDOR 防御)', async () => {
 		const { rewardId } = seedRewardWithBalance();
-		const result = await deleteReward(rewardId, 999, 'test-tenant');
+		const result = await deleteReward(rewardId, asChildId(999), 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'reward' });
 	});
 
@@ -577,8 +578,8 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		expect('error' in req).toBe(false);
 
 		const result = await updateReward(
-			rewardId,
-			childId,
+			String(rewardId),
+			asChildId(childId),
 			{ title: 'ゲーム時間60分', points: 50, icon: '🕹️' },
 			'test-tenant',
 		);
@@ -591,8 +592,8 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 	it('#3154: 編集で shopCategory を変更できる (登録後の陳列系統変更)', async () => {
 		const { childId, rewardId } = seedRewardWithBalance();
 		const result = await updateReward(
-			rewardId,
-			childId,
+			String(rewardId),
+			asChildId(childId),
 			{ title: 'ゲーム時間30分', points: 80, shopCategory: 'money' },
 			'test-tenant',
 		);
@@ -602,8 +603,8 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		expect(result.shopCategory).toBe('money');
 
 		const cleared = await updateReward(
-			rewardId,
-			childId,
+			String(rewardId),
+			asChildId(childId),
 			{ title: 'ゲーム時間30分', points: 80, shopCategory: null },
 			'test-tenant',
 		);
@@ -615,14 +616,14 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 	it('#3154: shopCategory 未指定 (undefined) の編集は既存の陳列系統を保全する', async () => {
 		const { childId, rewardId } = seedRewardWithBalance();
 		await updateReward(
-			rewardId,
-			childId,
+			String(rewardId),
+			asChildId(childId),
 			{ title: 'ゲーム時間30分', points: 80, shopCategory: 'privilege' },
 			'test-tenant',
 		);
 		const result = await updateReward(
-			rewardId,
-			childId,
+			String(rewardId),
+			asChildId(childId),
 			{ title: '新タイトル', points: 80 },
 			'test-tenant',
 		);
@@ -689,7 +690,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 	it('存在しない reward の編集は NOT_FOUND', async () => {
 		const { childId } = seedRewardWithBalance();
-		const result = await updateReward(9999, childId, { title: 'x', points: 1 }, 'test-tenant');
+		const result = await updateReward('9999', asChildId(childId), { title: 'x', points: 1 }, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND', target: 'reward' });
 	});
 });

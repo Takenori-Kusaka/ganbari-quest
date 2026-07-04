@@ -29,8 +29,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const tenantId = context.tenantId;
 	requireRole(locals, ['owner', 'parent']);
 
-	const id = Number(params.id);
-	if (Number.isNaN(id) || id <= 0) {
+	const id = params.id;
+	if (!id) {
 		return validationError('無効なIDです');
 	}
 

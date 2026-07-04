@@ -8,9 +8,14 @@ import type {
 	UpdateCloudExportStatusInput,
 } from '../types';
 
-/** Drizzle の text カラムは string に推論されるので CloudExportRecord にキャスト */
+/** Drizzle row → CloudExportRecord (id は string 化、text カラムの union 型を narrow) */
 function toRecord(row: typeof cloudExports.$inferSelect): CloudExportRecord {
-	return row as unknown as CloudExportRecord;
+	return {
+		...row,
+		id: String(row.id),
+		exportType: row.exportType as CloudExportRecord['exportType'],
+		status: row.status as CloudExportStatus,
+	};
 }
 
 export async function findByTenant(tenantId: string): Promise<CloudExportRecord[]> {
@@ -29,13 +34,13 @@ export async function findByPin(pinCode: string): Promise<CloudExportRecord | un
 }
 
 export async function findById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<CloudExportRecord | undefined> {
 	const row = db
 		.select()
 		.from(cloudExports)
-		.where(and(eq(cloudExports.id, id), eq(cloudExports.tenantId, tenantId)))
+		.where(and(eq(cloudExports.id, Number(id)), eq(cloudExports.tenantId, tenantId)))
 		.get();
 	return row ? toRecord(row) : undefined;
 }
@@ -68,7 +73,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
  * (pending/ready/failed) では null に戻す (staleness reclaim の対象から外す)。
  */
 export async function updateStatus(
-	id: number,
+	id: string,
 	tenantId: string,
 	status: CloudExportStatus,
 	opts?: UpdateCloudExportStatusInput,
@@ -83,7 +88,7 @@ export async function updateStatus(
 	if (opts?.description !== undefined) patch.description = opts.description;
 	db.update(cloudExports)
 		.set(patch)
-		.where(and(eq(cloudExports.id, id), eq(cloudExports.tenantId, tenantId)))
+		.where(and(eq(cloudExports.id, Number(id)), eq(cloudExports.tenantId, tenantId)))
 		.run();
 }
 
@@ -122,16 +127,16 @@ export async function findStaleBuildingExports(
 }
 
 /** #2845 B1: tenantId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
-export async function incrementDownloadCount(id: number, tenantId: string): Promise<void> {
+export async function incrementDownloadCount(id: string, tenantId: string): Promise<void> {
 	db.update(cloudExports)
 		.set({ downloadCount: sql`${cloudExports.downloadCount} + 1` })
-		.where(and(eq(cloudExports.id, id), eq(cloudExports.tenantId, tenantId)))
+		.where(and(eq(cloudExports.id, Number(id)), eq(cloudExports.tenantId, tenantId)))
 		.run();
 }
 
-export async function deleteById(id: number, tenantId: string): Promise<void> {
+export async function deleteById(id: string, tenantId: string): Promise<void> {
 	db.delete(cloudExports)
-		.where(and(eq(cloudExports.id, id), eq(cloudExports.tenantId, tenantId)))
+		.where(and(eq(cloudExports.id, Number(id)), eq(cloudExports.tenantId, tenantId)))
 		.run();
 }
 

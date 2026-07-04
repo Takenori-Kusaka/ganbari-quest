@@ -1,5 +1,6 @@
 // POST /api/v1/admin/downgrade-archive — ダウングレード用リソースアーカイブ (#738)
 
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { error, json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
@@ -17,9 +18,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	const body = await request.json();
 	const { targetTier, childIds, activityIds, checklistTemplateIds } = body as {
 		targetTier?: string;
-		childIds?: number[];
-		activityIds?: number[];
-		checklistTemplateIds?: number[];
+		childIds?: ChildId[];
+		activityIds?: ActivityId[];
+		checklistTemplateIds?: string[];
 	};
 
 	if (!targetTier || !VALID_TIERS.includes(targetTier as PlanTier)) {

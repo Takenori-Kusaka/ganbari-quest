@@ -1,10 +1,11 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // Demo IActivityPrefRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
 export async function findAllByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	return [];
@@ -15,25 +16,25 @@ export async function insertForRestore(
 	_tenantId: string,
 ): Promise<ChildActivityPreference> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0 };
+	return { ...input, id: '0' };
 }
 
 export async function findPinnedByChild(
-	_childId: number,
+	_childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	return [];
 }
 
 export async function togglePin(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	pinned: boolean,
 	_tenantId: string,
 ): Promise<ChildActivityPreference> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		childId,
 		activityId,
 		isPinned: pinned ? 1 : 0,
@@ -44,15 +45,15 @@ export async function togglePin(
 }
 
 export async function countPinnedInCategory(
-	_childId: number,
-	_categoryId: number,
+	_childId: ChildId,
+	_categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<number> {
 	return 0;
 }
 
 export async function getUsageCounts(
-	_childId: number,
+	_childId: ChildId,
 	_sinceDate: string,
 	_tenantId: string,
 ): Promise<ActivityUsageCount[]> {

@@ -2,6 +2,7 @@
 // データインポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -490,7 +491,7 @@ describe('importFamilyData', () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1'), makeChild('c2', 'テスト花子')];
 
-			mockInsertChild.mockResolvedValueOnce({ id: 101 }).mockResolvedValueOnce({ id: 102 });
+			mockInsertChild.mockResolvedValueOnce({ id: '101' }).mockResolvedValueOnce({ id: '102' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -537,7 +538,7 @@ describe('importFamilyData', () => {
 
 			mockInsertChild
 				.mockRejectedValueOnce(new Error('duplicate'))
-				.mockResolvedValueOnce({ id: 102 });
+				.mockResolvedValueOnce({ id: '102' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -567,18 +568,18 @@ describe('importFamilyData', () => {
 			data.family.children = [makeChild('c1')];
 			data.data.childActivities = [childActivityFixture('c1', '新しい活動')];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
-			mockChildActivityInsert.mockResolvedValue({ id: 1 });
+			mockChildActivityInsert.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.activitiesCreated).toBe(1);
 			expect(mockChildActivityInsert).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
+					childId: asChildId(101),
 					name: '新しい活動',
-					categoryId: 1, // undou = 1
+					categoryId: asCategoryId(1), // undou = 1
 					icon: '🏃',
 					basePoints: 10,
 				}),
@@ -594,9 +595,9 @@ describe('importFamilyData', () => {
 				childActivityFixture('c2', '同じ活動'),
 			];
 
-			mockInsertChild.mockResolvedValueOnce({ id: 101 }).mockResolvedValueOnce({ id: 102 });
+			mockInsertChild.mockResolvedValueOnce({ id: '101' }).mockResolvedValueOnce({ id: '102' });
 			mockFindActivities.mockResolvedValue([]);
-			mockChildActivityInsert.mockResolvedValue({ id: 1 });
+			mockChildActivityInsert.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -612,7 +613,7 @@ describe('importFamilyData', () => {
 				childActivityFixture('c1', '不明カテゴリ活動', 'unknown_category'),
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
 
 			const result = await importFamilyData(data, TENANT);
@@ -628,7 +629,7 @@ describe('importFamilyData', () => {
 			data.family.children = [makeChild('c1')];
 			data.data.childActivities = [childActivityFixture('c-unknown', '迷子活動')];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
 
 			const result = await importFamilyData(data, TENANT);
@@ -644,7 +645,7 @@ describe('importFamilyData', () => {
 			data.family.children = [makeChild('c1')];
 			data.data.childActivities = [childActivityFixture('c1', '失敗する活動', 'benkyou')];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
 			mockChildActivityInsert.mockRejectedValue(new Error('constraint violation'));
 
@@ -675,9 +676,9 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
-			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: '5' }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: '5' }]);
 			mockInsertActivityLog.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
@@ -686,8 +687,8 @@ describe('importFamilyData', () => {
 			expect(result.activityLogsSkipped).toBe(0);
 			expect(mockInsertActivityLog).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
-					activityId: 5,
+					childId: asChildId(101),
+					activityId: asActivityId(5),
 					points: 10,
 					streakDays: 3,
 					streakBonus: 2,
@@ -713,7 +714,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
 
 			const result = await importFamilyData(data, TENANT);
@@ -741,7 +742,7 @@ describe('importFamilyData', () => {
 			};
 			data.data.activityLogs = [logEntry, { ...logEntry, recordedDate: '2026-03-16' }];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindActivities.mockResolvedValue([]);
 
 			const result = await importFamilyData(data, TENANT);
@@ -768,9 +769,9 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
-			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: '5' }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: '5' }]);
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -793,7 +794,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertPointLedger.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
@@ -802,7 +803,7 @@ describe('importFamilyData', () => {
 			expect(result.pointLedgerSkipped).toBe(0);
 			expect(mockInsertPointLedger).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
+					childId: asChildId(101),
 					amount: 10,
 					type: 'earn',
 					description: 'テスト報酬',
@@ -824,7 +825,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertPointLedger.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
@@ -849,7 +850,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -870,7 +871,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertPointLedger.mockRejectedValue(new Error('duplicate'));
 
 			const result = await importFamilyData(data, TENANT);
@@ -895,13 +896,13 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockUpsertStatus.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.statusesImported).toBe(1);
-			expect(mockUpsertStatus).toHaveBeenCalledWith(101, 1, 100, 5, 120, TENANT);
+			expect(mockUpsertStatus).toHaveBeenCalledWith('101', '1', 100, 5, 120, TENANT);
 		});
 
 		it('不明なカテゴリコードのステータスはスキップされる', async () => {
@@ -918,7 +919,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -940,7 +941,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockUpsertStatus.mockRejectedValue(new Error('DB failure'));
 
 			const result = await importFamilyData(data, TENANT);
@@ -965,7 +966,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -990,14 +991,14 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertLoginBonus.mockResolvedValue({});
 
 			await importFamilyData(data, TENANT);
 
 			expect(mockInsertLoginBonus).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
+					childId: asChildId(101),
 					loginDate: '2026-03-15',
 					rank: 'gold',
 					consecutiveDays: 3,
@@ -1022,7 +1023,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			await importFamilyData(data, TENANT);
 
@@ -1061,8 +1062,8 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockInsertTemplate.mockResolvedValue({ id: '50' });
 			mockInsertTemplateItem.mockResolvedValue({});
 			mockAssignTemplateToChildren.mockResolvedValue([]);
 
@@ -1077,11 +1078,11 @@ describe('importFamilyData', () => {
 				}),
 				TENANT,
 			);
-			expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(50, [101], TENANT);
+			expect(mockAssignTemplateToChildren).toHaveBeenCalledWith('50', ['101'], TENANT);
 			expect(mockInsertTemplateItem).toHaveBeenCalledTimes(2);
 			expect(mockInsertTemplateItem).toHaveBeenCalledWith(
 				expect.objectContaining({
-					templateId: 50,
+					templateId: '50',
 					name: 'はみがき',
 					sortOrder: 1,
 				}),
@@ -1104,8 +1105,8 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockInsertTemplate.mockResolvedValue({ id: 51 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockInsertTemplate.mockResolvedValue({ id: '51' });
 
 			await importFamilyData(data, TENANT);
 
@@ -1130,7 +1131,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertTemplate.mockRejectedValue(new Error('constraint error'));
 
 			const result = await importFamilyData(data, TENANT);
@@ -1172,10 +1173,10 @@ describe('importFamilyData', () => {
 
 		it('templateName が import 後の新 templateId に再マップされて復元される', async () => {
 			const data = makeDataWithTemplateAndLog();
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockInsertTemplate.mockResolvedValue({ id: '50' });
 			mockAssignTemplateToChildren.mockResolvedValue([]);
-			mockUpsertLog.mockResolvedValue({ id: 1 });
+			mockUpsertLog.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1183,8 +1184,8 @@ describe('importFamilyData', () => {
 			expect(result.checklistLogsSkipped).toBe(0);
 			expect(mockUpsertLog).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
-					templateId: 50, // 新規作成された family master template の id に再マップ
+					childId: asChildId(101),
+					templateId: '50', // 新規作成された family master template の id に再マップ
 					checkedDate: '2026-03-15',
 					completedAll: 1, // boolean -> number
 					pointsAwarded: 7,
@@ -1195,11 +1196,11 @@ describe('importFamilyData', () => {
 
 		it('既存ログと同一 (templateId, checkedDate) は重複としてスキップされる', async () => {
 			const data = makeDataWithTemplateAndLog();
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockInsertTemplate.mockResolvedValue({ id: '50' });
 			mockAssignTemplateToChildren.mockResolvedValue([]);
 			// 既存ログ: templateId 50, 同 checkedDate
-			mockFindLogsByChild.mockResolvedValue([{ templateId: 50, checkedDate: '2026-03-15' }]);
+			mockFindLogsByChild.mockResolvedValue([{ templateId: '50', checkedDate: '2026-03-15' }]);
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1222,7 +1223,7 @@ describe('importFamilyData', () => {
 					createdAt: '2026-03-15T08:00:00Z',
 				},
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1271,18 +1272,18 @@ describe('importFamilyData', () => {
 					createdAt: '2026-03-15T20:00:00Z',
 				},
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			// 1 件目 → id 50、2 件目 → id 51
-			mockInsertTemplate.mockResolvedValueOnce({ id: 50 }).mockResolvedValueOnce({ id: 51 });
+			mockInsertTemplate.mockResolvedValueOnce({ id: '50' }).mockResolvedValueOnce({ id: '51' });
 			mockAssignTemplateToChildren.mockResolvedValue([]);
-			mockUpsertLog.mockResolvedValue({ id: 1 });
+			mockUpsertLog.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.checklistLogsImported).toBe(1);
 			// exportId e2 → 2 番目に作成した template (id 51) に attach (name 一致でなく exportId 解決)
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 101, templateId: 51 }),
+				expect.objectContaining({ childId: asChildId(101), templateId: '51' }),
 				TENANT,
 			);
 		});
@@ -1338,11 +1339,11 @@ describe('importFamilyData', () => {
 					createdAt: '2026-03-16T08:00:00Z',
 				},
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			// 同名でも 2 件とも作成される → id 50 / 51 (collapse されない)
-			mockInsertTemplate.mockResolvedValueOnce({ id: 50 }).mockResolvedValueOnce({ id: 51 });
+			mockInsertTemplate.mockResolvedValueOnce({ id: '50' }).mockResolvedValueOnce({ id: '51' });
 			mockAssignTemplateToChildren.mockResolvedValue([]);
-			mockUpsertLog.mockResolvedValue({ id: 1 });
+			mockUpsertLog.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1354,11 +1355,11 @@ describe('importFamilyData', () => {
 			expect(result.checklistLogsSkipped).toBe(0);
 			// e1 の log → id 50、e2 の log → id 51 (取り違えなし)
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 101, templateId: 50, checkedDate: '2026-03-15' }),
+				expect.objectContaining({ childId: asChildId(101), templateId: '50', checkedDate: '2026-03-15' }),
 				TENANT,
 			);
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 101, templateId: 51, checkedDate: '2026-03-16' }),
+				expect.objectContaining({ childId: asChildId(101), templateId: '51', checkedDate: '2026-03-16' }),
 				TENANT,
 			);
 		});
@@ -1392,12 +1393,12 @@ describe('importFamilyData', () => {
 					createdAt: '2026-03-15T08:00:00Z',
 				},
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			// tenant に取込前から同名 template (id 70) が存在する
 			mockFindTemplatesByChild.mockResolvedValue([
-				{ id: 70, name: 'あさのしたく', sourcePresetId: null },
+				{ id: '70', name: 'あさのしたく', sourcePresetId: null },
 			]);
-			mockUpsertLog.mockResolvedValue({ id: 1 });
+			mockUpsertLog.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1407,7 +1408,7 @@ describe('importFamilyData', () => {
 			// log は既存 template (id 70) に exportId 経由で解決される
 			expect(result.checklistLogsImported).toBe(1);
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 101, templateId: 70 }),
+				expect.objectContaining({ childId: asChildId(101), templateId: '70' }),
 				TENANT,
 			);
 		});
@@ -1439,16 +1440,16 @@ describe('importFamilyData', () => {
 					createdAt: '2026-03-15T08:00:00Z',
 				},
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockInsertTemplate.mockResolvedValue({ id: 60 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockInsertTemplate.mockResolvedValue({ id: '60' });
 			mockAssignTemplateToChildren.mockResolvedValue([]);
-			mockUpsertLog.mockResolvedValue({ id: 1 });
+			mockUpsertLog.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.checklistLogsImported).toBe(1);
 			expect(mockUpsertLog).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 101, templateId: 60 }),
+				expect.objectContaining({ childId: asChildId(101), templateId: '60' }),
 				TENANT,
 			);
 		});
@@ -1466,7 +1467,7 @@ describe('importFamilyData', () => {
 				avatarUrl,
 				activeTitle: null,
 				createdAt: '2025-06-01T00:00:00Z',
-				sourceChildId,
+				sourceChildId: asChildId(sourceChildId),
 			};
 		}
 
@@ -1476,7 +1477,7 @@ describe('importFamilyData', () => {
 			data.family.children = [
 				makeChildWithAvatar('c1', 7, '/tenants/old-tenant/avatars/7/abc.png'),
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const staticFiles: Record<string, Uint8Array> = {
 				'avatars/7/abc.png': new Uint8Array([1, 2, 3]),
@@ -1509,7 +1510,7 @@ describe('importFamilyData', () => {
 		it('childId が解決できない孤立ファイルはスキップされる', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/a.png')];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const staticFiles: Record<string, Uint8Array> = {
 				'avatars/7/a.png': new Uint8Array([1]),
@@ -1525,7 +1526,7 @@ describe('importFamilyData', () => {
 		it('zip-slip: `..` を含む悪意あるパスは保存せずスキップ扱いになる', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/ok.png')];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const staticFiles: Record<string, Uint8Array> = {
 				'avatars/7/ok.png': new Uint8Array([1]), // 正常エントリ
@@ -1555,7 +1556,7 @@ describe('importFamilyData', () => {
 		it('staticFiles 未指定 (JSON-only) では復元処理を行わない (後方互換)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1568,7 +1569,7 @@ describe('importFamilyData', () => {
 		it('#3136: avatar 実体が同梱されていない場合は avatarUrl を null 化する (dangling reference を作らない)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/keep.png')];
-			mockInsertChild.mockResolvedValue({ id: 202 });
+			mockInsertChild.mockResolvedValue({ id: '202' });
 
 			// staticFiles に avatar 実体が無い (voices のみ)。旧実装は存在しない storage key へ
 			// 貼り替えて dangling を生んでいたが、#3136 で「実在しなければ null 化」に是正。
@@ -1578,7 +1579,7 @@ describe('importFamilyData', () => {
 
 			expect(result.staticFilesRestored).toBe(1); // voices/7/x.mp3
 			// avatar 実ファイルが無いため null 化 (存在しない /tenants/.../avatars/202/keep.png を指さない)
-			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(202, null, TENANT);
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith('202', null, TENANT);
 		});
 	});
 
@@ -1597,7 +1598,7 @@ describe('importFamilyData', () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
 			data.data.childVoices = [makeVoice('c1', 'voices/7/abcd-1234.mp3')];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockVoiceInsertForRestore.mockResolvedValue(undefined);
 
 			const result = await importFamilyData(data, TENANT);
@@ -1619,7 +1620,7 @@ describe('importFamilyData', () => {
 				makeVoice('c1', 'voices/1//etc/passwd'), // rest 先頭スラッシュ = 絶対パス
 				makeVoice('c1', 'voices/7/safe.mp3'), // 正常エントリ (1 件だけ通る)
 			];
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockVoiceInsertForRestore.mockResolvedValue(undefined);
 
 			const result = await importFamilyData(data, TENANT);
@@ -1658,9 +1659,9 @@ describe('importFamilyData', () => {
 				{ ...baseReward, title: 'おもちゃ', points: 50 },
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindSpecialRewards.mockResolvedValue([]);
-			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+			mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1669,7 +1670,7 @@ describe('importFamilyData', () => {
 			expect(mockInsertSpecialReward).toHaveBeenCalledTimes(2);
 			expect(mockInsertSpecialReward).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
+					childId: asChildId(101),
 					title: 'おこづかい',
 					points: 100,
 					category: 'money',
@@ -1686,10 +1687,10 @@ describe('importFamilyData', () => {
 				{ ...baseReward, title: 'おもちゃ', points: 50 },
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindSpecialRewards.mockResolvedValue([
-				{ id: 10, title: 'おこづかい' },
-				{ id: 11, title: 'おもちゃ' },
+				{ id: '10', title: 'おこづかい' },
+				{ id: '11', title: 'おもちゃ' },
 			]);
 
 			const result = await importFamilyData(data, TENANT);
@@ -1709,9 +1710,9 @@ describe('importFamilyData', () => {
 				{ ...baseReward, title: 'おもちゃ', points: 50 },
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			mockFindSpecialRewards.mockResolvedValue([{ id: 10, title: 'おこづかい' }]);
-			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockFindSpecialRewards.mockResolvedValue([{ id: '10', title: 'おこづかい' }]);
+			mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1730,7 +1731,7 @@ describe('importFamilyData', () => {
 				{ ...baseReward, childRef: 'unknown', title: 'ghost', points: 10 },
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1748,12 +1749,12 @@ describe('importFamilyData', () => {
 				{ ...baseReward, childRef: 'c2', title: 'おこづかい', points: 200 },
 			];
 
-			mockInsertChild.mockResolvedValueOnce({ id: 101 }).mockResolvedValueOnce({ id: 102 });
+			mockInsertChild.mockResolvedValueOnce({ id: '101' }).mockResolvedValueOnce({ id: '102' });
 			// c1 has existing 'おこづかい', c2 has none
 			mockFindSpecialRewards
-				.mockResolvedValueOnce([{ id: 5, title: 'おこづかい' }]) // childId 101
+				.mockResolvedValueOnce([{ id: '5', title: 'おこづかい' }]) // childId 101
 				.mockResolvedValueOnce([]); // childId 102
-			mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+			mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1761,7 +1762,7 @@ describe('importFamilyData', () => {
 			expect(result.specialRewardsSkipped).toBe(1);
 			expect(mockInsertSpecialReward).toHaveBeenCalledTimes(1);
 			expect(mockInsertSpecialReward).toHaveBeenCalledWith(
-				expect.objectContaining({ childId: 102, title: 'おこづかい' }),
+				expect.objectContaining({ childId: asChildId(102), title: 'おこづかい' }),
 				TENANT,
 			);
 		});
@@ -1771,7 +1772,7 @@ describe('importFamilyData', () => {
 			data.family.children = [makeChild('c1')];
 			data.data.specialRewards = [{ ...baseReward, title: '失敗', points: 100 }];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockFindSpecialRewards.mockResolvedValue([]);
 			mockInsertSpecialReward.mockRejectedValue(new Error('DB error'));
 
@@ -1797,15 +1798,15 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockInsertStatusHistory.mockResolvedValue({});
 
 			await importFamilyData(data, TENANT);
 
 			expect(mockInsertStatusHistory).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
-					categoryId: 3, // seikatsu = 3
+					childId: asChildId(101),
+					categoryId: asCategoryId(3), // seikatsu = 3
 					value: 42.5,
 					changeAmount: 0.5,
 					changeType: 'activity',
@@ -1828,7 +1829,7 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertChild.mockResolvedValue({ id: '101' });
 
 			await importFamilyData(data, TENANT);
 
@@ -1890,12 +1891,12 @@ describe('importFamilyData', () => {
 				},
 			];
 
-			mockInsertChild.mockResolvedValueOnce({ id: 201 }).mockResolvedValueOnce({ id: 202 });
+			mockInsertChild.mockResolvedValueOnce({ id: '201' }).mockResolvedValueOnce({ id: '202' });
 			// #3327 P3: importChildActivitiesData は getRepos().childActivity.insertActivity 経由。
 			// 活動ログ名解決は buildActivityLookupByChild の findActivitiesByChild が 'かけっこ' を返す (#3327)。
-			mockChildActivityInsert.mockResolvedValue({ id: 99 });
-			mockFindActivities.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
-			mockChildActivityFindByChild.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
+			mockChildActivityInsert.mockResolvedValue({ id: '99' });
+			mockFindActivities.mockResolvedValue([{ name: 'かけっこ', id: '99' }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'かけっこ', id: '99' }]);
 			mockInsertActivityLog.mockResolvedValue({});
 			mockUpsertStatus.mockResolvedValue({});
 

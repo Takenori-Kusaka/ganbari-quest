@@ -6,6 +6,7 @@
 //   - deleteTemplate: cascade (assignments / items / logs 同時削除)
 //   - NULL is_archived (legacy data 互換) も active 扱いされる (ADR-0031)
 
+import { asChildId } from '$lib/domain/ids';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../../../src/lib/server/db/schema';
@@ -79,7 +80,7 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 			const t1 = await insertTemplate({ name: '家族の決まり', icon: '🏠' }, TENANT);
 			await insertTemplate({ name: '習いごとリスト' }, TENANT);
 
-			expect(t1.id).toBeGreaterThan(0);
+			expect(Number(t1.id)).toBeGreaterThan(0);
 			expect(t1.tenantId).toBe(TENANT);
 			// ChecklistTemplate に childId プロパティはない
 			expect((t1 as unknown as { childId?: unknown }).childId).toBeUndefined();
@@ -102,12 +103,12 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 	describe('assignTemplateToChildren + findTemplatesByChild', () => {
 		it('1 family checklist を複数 child に配信できる', async () => {
 			const tpl = await insertTemplate({ name: '家族リスト' }, TENANT);
-			const inserted = await assignTemplateToChildren(tpl.id, [1, 2], TENANT);
+			const inserted = await assignTemplateToChildren(tpl.id, [asChildId(1), asChildId(2)], TENANT);
 			expect(inserted.length).toBe(2);
 
-			const child1List = await findTemplatesByChild(1, TENANT);
-			const child2List = await findTemplatesByChild(2, TENANT);
-			const child3List = await findTemplatesByChild(3, TENANT);
+			const child1List = await findTemplatesByChild(asChildId(1), TENANT);
+			const child2List = await findTemplatesByChild(asChildId(2), TENANT);
+			const child3List = await findTemplatesByChild(asChildId(3), TENANT);
 			expect(child1List.length).toBe(1);
 			expect(child2List.length).toBe(1);
 			expect(child3List.length).toBe(0);
@@ -115,11 +116,11 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 
 		it('既配信 child を含む再 assign は重複 row を作らない (冪等)', async () => {
 			const tpl = await insertTemplate({ name: '冪等テスト' }, TENANT);
-			await assignTemplateToChildren(tpl.id, [1, 2], TENANT);
-			const second = await assignTemplateToChildren(tpl.id, [2, 3], TENANT);
+			await assignTemplateToChildren(tpl.id, [asChildId(1), asChildId(2)], TENANT);
+			const second = await assignTemplateToChildren(tpl.id, [asChildId(2), asChildId(3)], TENANT);
 			expect(second.length).toBe(1); // child 3 のみ追加
 			const all = await findAssignmentsByTemplate(tpl.id, TENANT);
-			expect(all.map((a) => a.childId).sort()).toEqual([1, 2, 3]);
+			expect(all.map((a) => a.childId).sort()).toEqual(['1', '2', '3']);
 		});
 
 		it('childIds 空配列は何も配信しない', async () => {
@@ -130,13 +131,13 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 
 		it('isActive=0 の family template は findTemplatesByChild から除外', async () => {
 			const tpl = await insertTemplate({ name: '無効化テスト' }, TENANT);
-			await assignTemplateToChildren(tpl.id, [1], TENANT);
+			await assignTemplateToChildren(tpl.id, [asChildId(1)], TENANT);
 			await updateTemplate(tpl.id, { isActive: 0 }, TENANT);
 
-			const list = await findTemplatesByChild(1, TENANT);
+			const list = await findTemplatesByChild(asChildId(1), TENANT);
 			expect(list.length).toBe(0);
 
-			const includeInactive = await findTemplatesByChild(1, TENANT, true);
+			const includeInactive = await findTemplatesByChild(asChildId(1), TENANT, true);
 			expect(includeInactive.length).toBe(1);
 		});
 	});
@@ -144,16 +145,16 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 	describe('unassign', () => {
 		it('指定 child 群のみ配信解除', async () => {
 			const tpl = await insertTemplate({ name: '解除テスト' }, TENANT);
-			await assignTemplateToChildren(tpl.id, [1, 2, 3], TENANT);
-			await unassignTemplateFromChildren(tpl.id, [2], TENANT);
+			await assignTemplateToChildren(tpl.id, [asChildId(1), asChildId(2), asChildId(3)], TENANT);
+			await unassignTemplateFromChildren(tpl.id, [asChildId(2)], TENANT);
 
 			const remaining = await findAssignmentsByTemplate(tpl.id, TENANT);
-			expect(remaining.map((a) => a.childId).sort()).toEqual([1, 3]);
+			expect(remaining.map((a) => a.childId).sort()).toEqual(['1', '3']);
 		});
 
 		it('unassignTemplate は全配信を解除', async () => {
 			const tpl = await insertTemplate({ name: '全解除' }, TENANT);
-			await assignTemplateToChildren(tpl.id, [1, 2], TENANT);
+			await assignTemplateToChildren(tpl.id, [asChildId(1), asChildId(2)], TENANT);
 			await unassignTemplate(tpl.id, TENANT);
 
 			const remaining = await findAssignmentsByTemplate(tpl.id, TENANT);
@@ -166,11 +167,11 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 			const t1 = await insertTemplate({ name: 'A' }, TENANT);
 			const t2 = await insertTemplate({ name: 'B' }, TENANT);
 			const t3 = await insertTemplate({ name: 'C' }, TENANT);
-			await assignTemplateToChildren(t1.id, [1, 2], TENANT);
-			await assignTemplateToChildren(t2.id, [1], TENANT);
-			await assignTemplateToChildren(t3.id, [2], TENANT);
+			await assignTemplateToChildren(t1.id, [asChildId(1), asChildId(2)], TENANT);
+			await assignTemplateToChildren(t2.id, [asChildId(1)], TENANT);
+			await assignTemplateToChildren(t3.id, [asChildId(2)], TENANT);
 
-			const child1Assignments = await findAssignmentsByChild(1, TENANT);
+			const child1Assignments = await findAssignmentsByChild(asChildId(1), TENANT);
 			expect(child1Assignments.map((a) => a.templateId).sort()).toEqual([t1.id, t2.id]);
 		});
 	});
@@ -178,12 +179,12 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 	describe('deleteTemplate cascade', () => {
 		it('template 削除時に assignments / logs / items も同時削除される', async () => {
 			const tpl = await insertTemplate({ name: 'cascade' }, TENANT);
-			await assignTemplateToChildren(tpl.id, [1], TENANT);
+			await assignTemplateToChildren(tpl.id, [asChildId(1)], TENANT);
 
 			// log row 作成
 			await upsertLog(
 				{
-					childId: 1,
+					childId: asChildId(1),
 					templateId: tpl.id,
 					checkedDate: '2026-05-25',
 					itemsJson: '[]',
@@ -200,7 +201,7 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 			const logs = testDb
 				.select()
 				.from(schema.checklistLogs)
-				.where(eq(schema.checklistLogs.templateId, tpl.id))
+				.where(eq(schema.checklistLogs.templateId, Number(tpl.id)))
 				.all();
 			expect(logs.length).toBe(0);
 		});
@@ -223,7 +224,7 @@ describe('sqlite/checklist-repo family master (#2362 PR-5)', () => {
 			const list = await findTemplatesByTenant(TENANT);
 			expect(list.map((r) => r.name)).toContain('archive default check');
 
-			const childList = await findTemplatesByChild(1, TENANT);
+			const childList = await findTemplatesByChild(asChildId(1), TENANT);
 			expect(childList.map((r) => r.name)).toContain('archive default check');
 		});
 	});

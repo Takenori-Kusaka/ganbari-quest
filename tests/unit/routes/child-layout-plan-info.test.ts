@@ -38,7 +38,7 @@ vi.mock('$lib/server/auth/factory', () => ({
 
 vi.mock('$lib/server/services/child-service', () => ({
 	getChildById: vi.fn().mockResolvedValue({
-		id: 1,
+		id: '1',
 		nickname: 'たろうくん',
 		uiMode: 'elementary',
 		age: 7,

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/growth-book-service.ts
 // 成長記録ブックサービス — 年間データの集約と構造化
 
@@ -24,7 +25,7 @@ export interface MonthPage {
 }
 
 export interface GrowthBookData {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	fiscalYear: string; // "2025" = 2025年4月〜2026年3月
 	// Cover
@@ -51,7 +52,7 @@ export interface GrowthBookData {
  * @param fiscalYear "2025" → 2025年4月〜2026年3月
  */
 export async function buildGrowthBook(
-	childId: number,
+	childId: ChildId,
 	fiscalYear: string,
 	tenantId: string,
 ): Promise<GrowthBookData | null> {

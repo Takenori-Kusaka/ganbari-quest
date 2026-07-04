@@ -1,6 +1,8 @@
 // /setup/first-adventure — はじめてのがんばり体験 (#0262 G4)
 // セットアップの最終ステップ前に、子供と一緒に最初の活動記録を体験
 
+import { asActivityId, asChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 import { fail, redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
@@ -48,8 +50,8 @@ export const actions: Actions = {
 	record: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
-		const activityId = Number(formData.get('activityId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
+		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
 			return fail(400, { error: '活動を選択してください' });

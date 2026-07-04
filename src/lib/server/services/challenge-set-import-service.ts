@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/challenge-set-import-service.ts
 // challenge-set 一括インポートサービス (#2369 / EPIC #2362 P3 / EPIC #2294 ③)
 //
@@ -105,7 +106,7 @@ export interface ChallengeSetImportResult {
 }
 
 /** カテゴリ ID → コード (preview 集計表示用) */
-const CATEGORY_ID_TO_CODE: Record<number, string> = {
+const CATEGORY_ID_TO_CODE: Record<string, string> = {
 	1: 'undou',
 	2: 'benkyou',
 	3: 'seikatsu',
@@ -171,7 +172,7 @@ export interface ImportChallengeSetOptions {
 	 * `challenge-set:<presetId>:<title>` を付与する。
 	 * #2458-B: 旧 legacy family-wide path は撤去、childIds 必須化。
 	 */
-	childIds: readonly number[];
+	childIds: readonly ChildId[];
 }
 
 /**

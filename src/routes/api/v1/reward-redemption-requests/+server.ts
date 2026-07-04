@@ -3,6 +3,7 @@
 // POST: 子供が申請作成
 // GET: 親が申請一覧取得
 
+import { asChildId } from '$lib/domain/ids';
 import { json } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
@@ -26,16 +27,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: '不正なリクエストです' }, { status: 400 });
 	}
 
-	if (
-		typeof body !== 'object' ||
-		body === null ||
-		typeof (body as Record<string, unknown>).rewardId !== 'number' ||
-		typeof (body as Record<string, unknown>).childId !== 'number'
-	) {
+	const rawRewardId = (body as Record<string, unknown> | null)?.rewardId;
+	const rawChildId = (body as Record<string, unknown> | null)?.childId;
+	// #3575: id は opaque string。旧クライアントの number も境界で受けて as* 変換する
+	const isIdLike = (v: unknown): v is string | number =>
+		(typeof v === 'string' && v !== '') || typeof v === 'number';
+	if (typeof body !== 'object' || body === null || !isIdLike(rawRewardId) || !isIdLike(rawChildId)) {
 		return json({ error: 'rewardId と childId は必須です' }, { status: 400 });
 	}
 
-	const { rewardId, childId } = body as { rewardId: number; childId: number };
+	const rewardId = String(rawRewardId);
+	const childId = asChildId(rawChildId);
 
 	const result = await requestRedemption(childId, rewardId, tenantId);
 
@@ -74,7 +76,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const tenantId = requireTenantId(locals);
 	const status = url.searchParams.get('status') ?? undefined;
 	const childIdStr = url.searchParams.get('childId');
-	const childId = childIdStr ? Number(childIdStr) : undefined;
+	const childId = childIdStr ? asChildId(childIdStr) : undefined;
 	const limitStr = url.searchParams.get('limit');
 	const limit = limitStr ? Number(limitStr) : 50;
 

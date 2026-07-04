@@ -1,4 +1,5 @@
 <script lang="ts">
+import { asChildId, type ActivityId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
@@ -100,8 +101,8 @@ let showCheerOverlay = $state(true);
 // #2458-B: per-child instance に flip。自身の instance の rewardClaimed と group 全完了で判定。
 const celebrationChallenge = $derived(
 	data.activeChallenges?.find(
-		(c: { allCompleted: boolean; rewardClaimed: number; childId: number }) =>
-			c.allCompleted && c.childId === (data.child?.id ?? 0) && c.rewardClaimed === 0,
+		(c: { allCompleted: boolean; rewardClaimed: number; childId: ChildId }) =>
+			c.allCompleted && c.childId === (data.child?.id ?? '') && c.rewardClaimed === 0,
 	) ?? null,
 );
 let showCelebration = $state(true);
@@ -116,33 +117,33 @@ let showCelebration = $state(true);
 let challengeClaiming = $state(false);
 const claimableChallenge = $derived(
 	data.activeChallenges?.find(
-		(c: { childId: number; completed: number; rewardClaimed: number }) =>
-			c.childId === (data.child?.id ?? 0) && c.completed === 1 && c.rewardClaimed === 0,
+		(c: { childId: ChildId; completed: number; rewardClaimed: number }) =>
+			c.childId === (data.child?.id ?? '') && c.completed === 1 && c.rewardClaimed === 0,
 	) ?? null,
 );
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
-let pinMenuActivity = $state<{ id: number; name: string; isPinned: boolean } | null>(null);
+let pinMenuActivity = $state<{ id: ActivityId; name: string; isPinned: boolean } | null>(null);
 let pinSubmitting = $state(false);
 
 // Confirm dialog state (non-baby modes) — kept separate from FSM
 // because confirm/result/levelUp are a sequential user-initiated flow
 let confirmOpen = $state(false);
 let selectedActivity = $state<{
-	id: number;
+	id: ActivityId;
 	name: string;
 	displayName?: string;
 	icon: string;
 } | null>(null);
 
 // Baby mode: pending activity for inline form
-let pendingActivityId = $state<number | null>(null);
+let pendingActivityId = $state<ActivityId | null>(null);
 
 // Record result overlay
 let resultOpen = $state(false);
 let resultData = $state<{
-	logId: number;
+	logId: string;
 	activityName: string;
 	totalPoints: number;
 	streakDays: number;
@@ -152,7 +153,7 @@ let resultData = $state<{
 	masteryLeveledUp: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 	cancelableUntil: string;
 	comboBonus: {
-		categoryCombo: { categoryId: number; name: string; bonus: number }[];
+		categoryCombo: { categoryId: CategoryId; name: string; bonus: number }[];
 		crossCategoryCombo: { name: string; bonus: number } | null;
 		miniCombo: { uniqueCount: number; bonus: number } | null;
 		hints: { message: string }[];
@@ -211,13 +212,13 @@ let levelUpData = $state<{
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	categoryName?: string;
 } | null>(null);
 
 // XP gain animation state
 let xpGainData = $state<{
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	xpBefore: number;
 	xpAfter: number;
@@ -225,11 +226,11 @@ let xpGainData = $state<{
 	levelBefore: number;
 	levelAfter: number;
 } | null>(null);
-let xpAnimatingCategoryId = $state<number | null>(null);
+let xpAnimatingCategoryId = $state<CategoryId | null>(null);
 
 /** categoryXp にアニメーション用の上書き値を適用 */
 function getCategoryXpWithAnim(
-	categoryId: number,
+	categoryId: CategoryId,
 ): import('$lib/server/services/status-service').CategoryXpInfo | null {
 	const base = data.categoryXp?.[categoryId] ?? null;
 	if (!base) return null;
@@ -250,11 +251,11 @@ function getCategoryXpWithAnim(
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
 const todayTotalCount = $derived(data.todayRecorded.reduce((sum, r) => sum + r.count, 0));
 
-function getCount(activityId: number): number {
+function getCount(activityId: ActivityId): number {
 	return recordedMap.get(activityId) ?? 0;
 }
 
-function isCompleted(activity: { id: number; dailyLimit: number | null }): boolean {
+function isCompleted(activity: { id: ActivityId; dailyLimit: number | null }): boolean {
 	const limit = activity.dailyLimit ?? 1;
 	if (limit === 0) return false;
 	return getCount(activity.id) >= limit;
@@ -264,10 +265,10 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 const activeEventBadge: string | null = null;
 
 // Per-category mission counts (ProdDashboardSections で props として渡す)
-function getCategoryMissionCount(categoryId: number) {
+function getCategoryMissionCount(categoryId: CategoryId) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission).length;
 }
-function getCategoryCompletedMissionCount(categoryId: number) {
+function getCategoryCompletedMissionCount(categoryId: CategoryId) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission && isCompleted(a))
 		.length;
 }
@@ -280,7 +281,7 @@ const challengeTargetByCategory = $derived(
 		(
 			data.challengeTargets ??
 			([] as {
-				categoryId: number;
+				categoryId: CategoryId;
 				currentValue: number;
 				targetValue: number;
 				completed: boolean;
@@ -289,7 +290,7 @@ const challengeTargetByCategory = $derived(
 		).map((t) => [t.categoryId, t]),
 	),
 );
-function getChallengeTarget(categoryId: number) {
+function getChallengeTarget(categoryId: CategoryId) {
 	const t = challengeTargetByCategory.get(categoryId);
 	if (!t) return null;
 	return {
@@ -300,7 +301,7 @@ function getChallengeTarget(categoryId: number) {
 	};
 }
 
-function handleActivityTap(activity: { id: number; name: string; icon: string }) {
+function handleActivityTap(activity: { id: ActivityId; name: string; icon: string }) {
 	if (submitting || confirmOpen || resultOpen) return;
 	soundService.play('tap');
 	selectedActivity = activity;
@@ -308,7 +309,7 @@ function handleActivityTap(activity: { id: number; name: string; icon: string })
 }
 
 function handleActivityLongPress(activity: {
-	id: number;
+	id: ActivityId;
 	name: string;
 	isPinned?: boolean | number;
 }) {
@@ -502,7 +503,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	confirmOpen = false;
 	if (result.type === 'success' && result.data && 'success' in result.data) {
 		const d = result.data as {
-			logId: number;
+			logId: string;
 			activityName: string;
 			totalPoints: number;
 			streakDays: number;
@@ -512,7 +513,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
 			cancelableUntil: string;
 			comboBonus: {
-				categoryCombo: { categoryId: number; name: string; bonus: number }[];
+				categoryCombo: { categoryId: CategoryId; name: string; bonus: number }[];
 				crossCategoryCombo: { name: string; bonus: number } | null;
 				miniCombo: { uniqueCount: number; bonus: number } | null;
 				hints: { message: string }[];
@@ -528,12 +529,12 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				oldTitle: string;
 				newLevel: number;
 				newTitle: string;
-				categoryId?: number;
+				categoryId?: CategoryId;
 				categoryName?: string;
 				spGranted?: number;
 			} | null;
 			xpGain?: {
-				categoryId: number;
+				categoryId: CategoryId;
 				categoryName: string;
 				xpBefore: number;
 				xpAfter: number;
@@ -665,7 +666,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			// #2295 (EPIC #2294 ①): showEvents 削除済 (2026-05-19)
 		}}
 		isPremium={data.isPremium}
-		childId={data.child?.id ?? 0}
+		childId={data.child?.id ?? asChildId('')}
 		{submitting}
 		{pendingActivityId}
 		{getCategoryXpWithAnim}
@@ -1011,8 +1012,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
 	<SiblingCelebration
 		challengeTitle={celebrationChallenge.title}
-		siblings={celebrationChallenge.siblings.map((s: { childId: number; completed: number }) => ({
-			name: data.allChildren?.find((c: { id: number }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
+		siblings={celebrationChallenge.siblings.map((s: { childId: ChildId; completed: number }) => ({
+			name: data.allChildren?.find((c: { id: ChildId }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { showCelebration = false; }}

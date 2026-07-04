@@ -2,6 +2,7 @@
 // #740: 削除前エクスポートサービスのユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '$lib/domain/ids';
 
 // --- mocks ---
 
@@ -120,14 +121,14 @@ describe('deletion-export-service', () => {
 		it('子供名とサマリを含む最小限のエクスポートを生成する', async () => {
 			mockFindAllChildren.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					nickname: 'たろう',
 					age: 6,
 					uiMode: 'elementary',
 					createdAt: '2026-01-01T00:00:00.000Z',
 				},
 				{
-					id: 2,
+					id: '2',
 					nickname: 'はなこ',
 					age: 4,
 					uiMode: 'preschool',
@@ -135,13 +136,13 @@ describe('deletion-export-service', () => {
 				},
 			]);
 			mockFindStatuses.mockResolvedValue([
-				{ categoryId: 1, totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
-				{ categoryId: 2, totalXp: 50, level: 2, peakXp: 50, updatedAt: '2026-04-17' },
+				{ categoryId: asCategoryId(1), totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
+				{ categoryId: asCategoryId(2), totalXp: 50, level: 2, peakXp: 50, updatedAt: '2026-04-17' },
 			]);
 			// たろう: 5件、はなこ: 3件の活動ログ
 			mockFindActivityLogs
-				.mockResolvedValueOnce([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }])
-				.mockResolvedValueOnce([{ id: 6 }, { id: 7 }, { id: 8 }]);
+				.mockResolvedValueOnce([{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }])
+				.mockResolvedValueOnce([{ id: '6' }, { id: '7' }, { id: '8' }]);
 
 			const result = await generateMinimalExport('tenant-1');
 
@@ -176,15 +177,15 @@ describe('deletion-export-service', () => {
 	describe('generateSiblingComparison', () => {
 		it('きょうだい比較データを生成する', async () => {
 			mockFindAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'たろう', age: 6 },
-				{ id: 2, nickname: 'はなこ', age: 4 },
+				{ id: '1', nickname: 'たろう', age: 6 },
+				{ id: '2', nickname: 'はなこ', age: 4 },
 			]);
 			mockFindStatuses
 				.mockResolvedValueOnce([
-					{ categoryId: 1, totalXp: 200, level: 5, peakXp: 200, updatedAt: '2026-04-17' },
+					{ categoryId: asCategoryId(1), totalXp: 200, level: 5, peakXp: 200, updatedAt: '2026-04-17' },
 				])
 				.mockResolvedValueOnce([
-					{ categoryId: 1, totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
+					{ categoryId: asCategoryId(1), totalXp: 100, level: 3, peakXp: 100, updatedAt: '2026-04-17' },
 				]);
 
 			const result = await generateSiblingComparison('tenant-1');
@@ -224,7 +225,7 @@ describe('deletion-export-service', () => {
 		});
 
 		it('family プランで family エクスポート（full + sibling）を生成する', async () => {
-			mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'たろう', age: 6 }]);
+			mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'たろう', age: 6 }]);
 			mockFindStatuses.mockResolvedValue([]);
 
 			const result = await generateDeletionExport({

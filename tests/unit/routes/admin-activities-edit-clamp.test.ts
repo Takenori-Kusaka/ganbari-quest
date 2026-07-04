@@ -11,6 +11,7 @@
 // updateActivity の呼出引数を検証する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '$lib/domain/ids';
 
 const mockRequireTenantId = vi.fn();
 const mockUpdateActivity = vi.fn();
@@ -63,7 +64,7 @@ async function runSave(fields: Record<string, string | number>) {
 	return mockUpdateActivity.mock.calls[0]?.[1] as Record<string, unknown>;
 }
 
-const baseFields = { name: 'おてつだい', categoryId: 1, icon: '📝', basePoints: 5 };
+const baseFields = { name: 'おてつだい', categoryId: asCategoryId(1), icon: '📝', basePoints: 5 };
 
 describe('/admin/activities/[id]/edit save action — #3463 dailyLimit/name sanitize', () => {
 	beforeEach(() => {

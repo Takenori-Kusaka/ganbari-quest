@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
@@ -23,7 +24,7 @@ interface CategoryXpInfo {
 }
 
 interface Props {
-	categoryId: number;
+	categoryId: CategoryId;
 	cardSize?: CardSize;
 	itemsPerCategory?: number;
 	collapsible?: boolean;

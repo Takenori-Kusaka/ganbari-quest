@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/activity-log-aggregation.ts
 // #2097 ADR-0048 week 4 / Fix 2: 循環依存解消のため、「期間内 activity_logs のカテゴリ別集計」を
 // 純粋関数として分離。consumer service は本 module を import するが、本 module は
@@ -14,10 +15,10 @@
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 
 export interface ActivityLogEntry {
-	id: number;
+	id: string;
 	activityName: string;
 	activityIcon: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	points: number;
 	streakDays: number;
 	streakBonus: number;
@@ -27,7 +28,7 @@ export interface ActivityLogEntry {
 export interface ActivityLogSummary {
 	totalCount: number;
 	totalPoints: number;
-	byCategory: Record<number, { count: number; points: number }>;
+	byCategory: Record<string, { count: number; points: number }>;
 }
 
 /**
@@ -38,13 +39,13 @@ export interface ActivityLogSummary {
  *   共通化してある。
  */
 export async function aggregateActivityLogsByCategory(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	options: { from?: string; to?: string } = {},
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
 	const rows = await findActivityLogs(childId, tenantId, options);
 
-	const byCategory: Record<number, { count: number; points: number }> = {};
+	const byCategory: Record<string, { count: number; points: number }> = {};
 	let totalCount = 0;
 	let totalPoints = 0;
 

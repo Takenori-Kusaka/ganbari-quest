@@ -31,6 +31,7 @@
  *   - $lib/server/services/checklist-template-import-service (旧 service、@deprecated)
  */
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import * as v from 'valibot';
 import {
 	type ChecklistPayload,
@@ -80,7 +81,7 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 
 		// #2362 PR-5 Phase 2 (ADR-0055): checklist は family master scope。重複判定は tenant scope。
 		// childId / childIds は preview に不要 (legacy 互換 hint も Phase 2 で撤去)。
-		const raw = await previewChecklistImport(presetId, 0, ctx.tenantId);
+		const raw = await previewChecklistImport(presetId, asChildId(0), ctx.tenantId);
 		if (!raw) {
 			throw new Error(`[checklist-strategy] preset "${presetId}" が見つかりません`);
 		}
@@ -113,7 +114,7 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 		// ctx.childIds 未指定 (空配列含む) の場合は family scope template 作成のみ (assignment 0 件)、
 		// 配信は別途 admin/checklists の ChecklistDistributionDialog から行う想定。
 		// 旧 ctx.childId は本 Phase で受付撤去。
-		const childIds: readonly number[] = ctx.childIds && ctx.childIds.length > 0 ? ctx.childIds : [];
+		const childIds: readonly ChildId[] = ctx.childIds && ctx.childIds.length > 0 ? ctx.childIds : [];
 
 		// dry-run は preview と等価動作 (DB write 禁止)
 		if (ctx.dryRun === true) {

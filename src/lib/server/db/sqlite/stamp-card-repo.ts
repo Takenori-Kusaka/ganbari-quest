@@ -2,6 +2,7 @@
 // SQLite implementation of IStampCardRepo
 
 import { and, eq } from 'drizzle-orm';
+import { type ChildId, asChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import * as schema from '../schema';
 import type {
@@ -13,22 +14,44 @@ import type {
 	UpdateStampCardStatusInput,
 } from '../types';
 
+type CardRow = typeof schema.stampCards.$inferSelect;
+type MasterRow = typeof schema.stampMasters.$inferSelect;
+
+const toCard = (r: CardRow): StampCard => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
+
+const toMaster = (r: MasterRow): StampMaster => ({ ...r, id: String(r.id) });
+
 /** 有効なスタンプマスタ一覧を取得 */
 export async function findEnabledStampMasters(_tenantId: string): Promise<StampMaster[]> {
-	return db.select().from(schema.stampMasters).where(eq(schema.stampMasters.isEnabled, 1)).all();
+	return db
+		.select()
+		.from(schema.stampMasters)
+		.where(eq(schema.stampMasters.isEnabled, 1))
+		.all()
+		.map(toMaster);
 }
 
 /** 子供ID＋週開始日でスタンプカードを検索 */
 export async function findCardByChildAndWeek(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	_tenantId: string,
 ): Promise<StampCard | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(schema.stampCards)
-		.where(and(eq(schema.stampCards.childId, childId), eq(schema.stampCards.weekStart, weekStart)))
+		.where(
+			and(
+				eq(schema.stampCards.childId, Number(childId)),
+				eq(schema.stampCards.weekStart, weekStart),
+			),
+		)
 		.get();
+	return row ? toCard(row) : undefined;
 }
 
 /** スタンプカードを新規作成 */
@@ -38,7 +61,7 @@ export async function insertCard(
 ): Promise<StampCard> {
 	db.insert(schema.stampCards)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			weekStart: input.weekStart,
 			weekEnd: input.weekEnd,
 			status: input.status ?? 'collecting',
@@ -50,7 +73,7 @@ export async function insertCard(
 		.from(schema.stampCards)
 		.where(
 			and(
-				eq(schema.stampCards.childId, input.childId),
+				eq(schema.stampCards.childId, Number(input.childId)),
 				eq(schema.stampCards.weekStart, input.weekStart),
 			),
 		)
@@ -59,12 +82,12 @@ export async function insertCard(
 	if (!card) {
 		throw new Error('Failed to create stamp card');
 	}
-	return card;
+	return toCard(card);
 }
 
 /** カードIDに紐づくエントリ一覧をスタンプマスタ情報付きで取得 */
 export async function findEntriesWithMasterByCardId(
-	cardId: number,
+	cardId: string,
 	_tenantId: string,
 ): Promise<StampEntryWithMaster[]> {
 	return db
@@ -79,27 +102,32 @@ export async function findEntriesWithMasterByCardId(
 		})
 		.from(schema.stampEntries)
 		.leftJoin(schema.stampMasters, eq(schema.stampEntries.stampMasterId, schema.stampMasters.id))
-		.where(eq(schema.stampEntries.cardId, cardId))
-		.all();
+		.where(eq(schema.stampEntries.cardId, Number(cardId)))
+		.all()
+		.map((r) => ({
+			...r,
+			stampMasterId: r.stampMasterId === null ? null : String(r.stampMasterId),
+		}));
 }
 
 /** #3329 backup: child の全スタンプカード。 */
-export async function findCardsByChild(childId: number, _tenantId: string): Promise<StampCard[]> {
+export async function findCardsByChild(childId: ChildId, _tenantId: string): Promise<StampCard[]> {
 	return db
 		.select()
 		.from(schema.stampCards)
-		.where(eq(schema.stampCards.childId, childId))
+		.where(eq(schema.stampCards.childId, Number(childId)))
 		.orderBy(schema.stampCards.weekStart)
-		.all();
+		.all()
+		.map(toCard);
 }
 
 /** #3329 backup: card に紐づく押印 raw 行 (earnedAt まで含む)。 */
 export async function findEntriesByCardId(
-	cardId: number,
+	cardId: string,
 	_tenantId: string,
 ): Promise<
 	Array<{
-		stampMasterId: number | null;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -115,9 +143,13 @@ export async function findEntriesByCardId(
 			earnedAt: schema.stampEntries.earnedAt,
 		})
 		.from(schema.stampEntries)
-		.where(eq(schema.stampEntries.cardId, cardId))
+		.where(eq(schema.stampEntries.cardId, Number(cardId)))
 		.orderBy(schema.stampEntries.slot)
-		.all();
+		.all()
+		.map((r) => ({
+			...r,
+			stampMasterId: r.stampMasterId === null ? null : String(r.stampMasterId),
+		}));
 }
 
 /** #3329 backup restore 用: status / redeemed / 日時を保全して card を復元する。 */
@@ -128,7 +160,7 @@ export async function insertCardForRestore(
 	const card = db
 		.insert(schema.stampCards)
 		.values({
-			childId: input.childId,
+			childId: Number(input.childId),
 			weekStart: input.weekStart,
 			weekEnd: input.weekEnd,
 			status: input.status,
@@ -140,14 +172,14 @@ export async function insertCardForRestore(
 		.returning()
 		.get();
 	if (!card) throw new Error('insertCardForRestore: insert returned no row');
-	return card;
+	return toCard(card);
 }
 
 /** #3329 backup restore 用: earnedAt を保全して押印を復元する。 */
 export async function insertEntryForRestore(
 	input: {
-		cardId: number;
-		stampMasterId: number | null;
+		cardId: string;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -157,8 +189,8 @@ export async function insertEntryForRestore(
 ): Promise<void> {
 	db.insert(schema.stampEntries)
 		.values({
-			cardId: input.cardId,
-			stampMasterId: input.stampMasterId,
+			cardId: Number(input.cardId),
+			stampMasterId: input.stampMasterId === null ? null : Number(input.stampMasterId),
 			omikujiRank: input.omikujiRank,
 			slot: input.slot,
 			loginDate: input.loginDate,
@@ -172,8 +204,8 @@ export async function insertEntryForRestore(
 export async function insertEntry(input: InsertStampEntryInput, _tenantId: string): Promise<void> {
 	db.insert(schema.stampEntries)
 		.values({
-			cardId: input.cardId,
-			stampMasterId: input.stampMasterId,
+			cardId: Number(input.cardId),
+			stampMasterId: Number(input.stampMasterId),
 			omikujiRank: input.omikujiRank,
 			slot: input.slot,
 			loginDate: input.loginDate,
@@ -187,8 +219,8 @@ export async function insertEntry(input: InsertStampEntryInput, _tenantId: strin
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら no-op。
  */
 export async function updateCardStatus(
-	childId: number,
-	cardId: number,
+	childId: ChildId,
+	cardId: string,
 	input: UpdateStampCardStatusInput,
 	_tenantId: string,
 ): Promise<void> {
@@ -199,7 +231,9 @@ export async function updateCardStatus(
 			redeemedAt: input.redeemedAt,
 			updatedAt: input.updatedAt,
 		})
-		.where(and(eq(schema.stampCards.id, cardId), eq(schema.stampCards.childId, childId)))
+		.where(
+			and(eq(schema.stampCards.id, Number(cardId)), eq(schema.stampCards.childId, Number(childId))),
+		)
 		.run();
 }
 
@@ -208,8 +242,8 @@ export async function updateCardStatus(
  * #2845 課題①: childId 所有権検証付き。不一致 / 非 collecting なら 0。
  */
 export async function updateCardStatusIfCollecting(
-	childId: number,
-	cardId: number,
+	childId: ChildId,
+	cardId: string,
 	input: UpdateStampCardStatusInput,
 	_tenantId: string,
 ): Promise<number> {
@@ -223,8 +257,8 @@ export async function updateCardStatusIfCollecting(
 		})
 		.where(
 			and(
-				eq(schema.stampCards.id, cardId),
-				eq(schema.stampCards.childId, childId),
+				eq(schema.stampCards.id, Number(cardId)),
+				eq(schema.stampCards.childId, Number(childId)),
 				eq(schema.stampCards.status, 'collecting'),
 			),
 		)

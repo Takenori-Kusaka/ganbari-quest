@@ -141,8 +141,8 @@ describe('deleteAllChildrenData', () => {
 
 	it('全子供について deleteChildFiles + deleteChild が呼ばれる', async () => {
 		mockChildRepo.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: '太郎' },
-			{ id: 2, nickname: '花子' },
+			{ id: '1', nickname: '太郎' },
+			{ id: '2', nickname: '花子' },
 		]);
 
 		const deleted = await deleteAllChildrenData(TENANT);
@@ -150,14 +150,14 @@ describe('deleteAllChildrenData', () => {
 		expect(deleted).toBe(2);
 		expect(mockDeleteChildFiles).toHaveBeenCalledTimes(2);
 		expect(mockChildRepo.deleteChild).toHaveBeenCalledTimes(2);
-		expect(mockChildRepo.deleteChild).toHaveBeenCalledWith(1, TENANT);
-		expect(mockChildRepo.deleteChild).toHaveBeenCalledWith(2, TENANT);
+		expect(mockChildRepo.deleteChild).toHaveBeenCalledWith('1', TENANT);
+		expect(mockChildRepo.deleteChild).toHaveBeenCalledWith('2', TENANT);
 	});
 
 	it('1 人の削除が失敗しても他の子供は削除を続行する', async () => {
 		mockChildRepo.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: '太郎' },
-			{ id: 2, nickname: '花子' },
+			{ id: '1', nickname: '太郎' },
+			{ id: '2', nickname: '花子' },
 		]);
 		// 1 人目は失敗、2 人目は成功
 		mockChildRepo.deleteChild
@@ -171,7 +171,7 @@ describe('deleteAllChildrenData', () => {
 	});
 
 	it('scope boundary: tenant-scoped な repo は呼ばれない', async () => {
-		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 1, nickname: '太郎' }]);
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '1', nickname: '太郎' }]);
 
 		await deleteAllChildrenData(TENANT);
 
@@ -214,10 +214,10 @@ describe('deleteTenantScopedData', () => {
 
 	it('activities (per-child loop, #2362) / viewerTokens / cloudExports / pushSubscriptions は find+delete パターン', async () => {
 		// #2362 PR-3 (ADR-0055): activities は per-child instance loop で delete される
-		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 100 }, { id: 200 }]);
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '100' }, { id: '200' }]);
 		mockChildActivityRepo.findActivitiesByChild
-			.mockResolvedValueOnce([{ id: 1001 }, { id: 1002 }])
-			.mockResolvedValueOnce([{ id: 2001 }]);
+			.mockResolvedValueOnce([{ id: '1001' }, { id: '1002' }])
+			.mockResolvedValueOnce([{ id: '2001' }]);
 		mockViewerTokenRepo.findByTenant.mockResolvedValue([{ id: 'tk1' }]);
 		mockCloudExportRepo.findByTenant.mockResolvedValue([{ id: 'ex1' }]);
 		mockPushSubscriptionRepo.findByTenant.mockResolvedValue([{ endpoint: 'https://push1' }]);
@@ -225,16 +225,16 @@ describe('deleteTenantScopedData', () => {
 		await deleteTenantScopedData(TENANT);
 
 		// per-child activity delete: child=100 で 2 件、child=200 で 1 件 → 計 3 回
-		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith(100, TENANT, {
+		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith('100', TENANT, {
 			includeArchived: true,
 		});
-		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith(200, TENANT, {
+		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith('200', TENANT, {
 			includeArchived: true,
 		});
 		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledTimes(3);
-		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(1001, 100, TENANT);
-		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(1002, 100, TENANT);
-		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(2001, 200, TENANT);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith('1001', '100', TENANT);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith('1002', '100', TENANT);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith('2001', '200', TENANT);
 		// 旧 activity facade は呼ばれない (signature 移行確認)
 		expect(mockActivityRepo.deleteActivity).not.toHaveBeenCalled();
 
@@ -256,7 +256,7 @@ describe('deleteTenantScopedData', () => {
 	});
 
 	it('scope boundary: children の削除は呼ばれない', async () => {
-		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 1, nickname: '太郎' }]);
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '1', nickname: '太郎' }]);
 
 		await deleteTenantScopedData(TENANT);
 
@@ -264,6 +264,6 @@ describe('deleteTenantScopedData', () => {
 		expect(mockChildRepo.deleteChild).not.toHaveBeenCalled();
 		expect(mockDeleteChildFiles).not.toHaveBeenCalled();
 		// ただし voice.deleteByChild は子供ごとに呼ばれる（子供に紐づくテナントスコープ扱い）
-		expect(mockVoiceRepo.deleteByChild).toHaveBeenCalledWith(1, TENANT);
+		expect(mockVoiceRepo.deleteByChild).toHaveBeenCalledWith('1', TENANT);
 	});
 });

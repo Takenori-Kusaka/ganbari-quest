@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/recommendation-service.ts
 // #0264 G2: おすすめ活動の選定ロジック（カテゴリ分散・難易度・日替わり）
 
@@ -10,14 +11,14 @@ import { getSetting } from '$lib/server/db/settings-repo';
  * (ageMin / ageMax / gradeLevel / subcategory / description) には依存しない。
  */
 export interface RecommendableActivity {
-	id: number;
-	categoryId: number;
+	id: ActivityId;
+	categoryId: CategoryId;
 	basePoints: number;
 	isVisible: number | boolean;
 }
 
 export interface RecommendedActivity {
-	activityId: number;
+	activityId: ActivityId;
 	reason: 'category_diversity' | 'easy_win' | 'daily_rotation';
 }
 
@@ -25,14 +26,14 @@ export interface RecommendedActivity {
  * デイリークエストの有効/無効を判定
  * #0288: 3日限定を撤廃し常時有効化
  */
-export async function isFocusModeActive(_childId: number, _tenantId: string): Promise<boolean> {
+export async function isFocusModeActive(_childId: ChildId, _tenantId: string): Promise<boolean> {
 	return true;
 }
 
 /**
  * フォーカスモード開始日を記録（初回のみ）
  */
-export async function markFocusModeStart(childId: number, tenantId: string): Promise<void> {
+export async function markFocusModeStart(childId: ChildId, tenantId: string): Promise<void> {
 	const { setSetting } = await import('$lib/server/db/settings-repo');
 	const key = `focus_mode_start_${childId}`;
 	const existing = await getSetting(key, tenantId);
@@ -63,7 +64,7 @@ export function selectRecommendations<T extends RecommendableActivity>(
 	if (visible.length === 0) return [];
 
 	// カテゴリ別にグループ化
-	const byCategory = new Map<number, T[]>();
+	const byCategory = new Map<CategoryId, T[]>();
 	for (const a of visible) {
 		const group = byCategory.get(a.categoryId) ?? [];
 		group.push(a);
@@ -77,7 +78,10 @@ export function selectRecommendations<T extends RecommendableActivity>(
 
 	// 日替わりシード: 日付文字列から簡易ハッシュ
 	const seed = dateHash(date);
-	const categoryIds = [...byCategory.keys()].sort((a, b) => a - b);
+	// #3575: id は opaque string。10 進文字列では (桁数, 辞書順) 比較が旧 numeric 昇順と同値。
+	const categoryIds = [...byCategory.keys()].sort(
+		(a, b) => a.length - b.length || a.localeCompare(b),
+	);
 
 	// ラウンドロビンで各カテゴリから1件ずつ選択
 	const selected: RecommendedActivity[] = [];
@@ -131,8 +135,8 @@ export function selectRecommendations<T extends RecommendableActivity>(
  * 1日1回のみ。focus_bonus タイプで point_ledger に記録
  */
 export async function checkAndGrantFocusBonus(
-	childId: number,
-	recommendedActivityIds: number[],
+	childId: ChildId,
+	recommendedActivityIds: ActivityId[],
 	tenantId: string,
 ): Promise<{ bonusPoints: number } | null> {
 	if (recommendedActivityIds.length === 0) return null;

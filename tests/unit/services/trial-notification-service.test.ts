@@ -260,7 +260,7 @@ describe('trial-notification-service', () => {
 				source: 'user_initiated',
 			});
 			mockGetSettings.mockResolvedValue({});
-			mockFindArchivedChildren.mockResolvedValue([{ id: 3, nickname: 'child3' }]);
+			mockFindArchivedChildren.mockResolvedValue([{ id: '3', nickname: 'child3' }]);
 
 			const result = await getTrialExpirationInfo('tenant-1', 'none');
 			expect(result.isExpired).toBe(true);

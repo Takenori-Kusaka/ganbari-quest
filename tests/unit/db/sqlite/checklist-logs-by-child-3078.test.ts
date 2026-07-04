@@ -22,6 +22,7 @@ vi.mock('$lib/server/db/client', () => ({
 // import after mock
 import { checklistLogs, checklistTemplates, children } from '$lib/server/db/schema';
 import { findLogsByChild } from '$lib/server/db/sqlite/checklist-repo';
+import { asChildId } from '$lib/domain/ids';
 
 const TENANT = 't-3078';
 
@@ -76,10 +77,10 @@ describe('#3078: SQLite findLogsByChild (child 単位バルク取得)', () => {
 			])
 			.run();
 
-		const logs = await findLogsByChild(childId, TENANT);
+		const logs = await findLogsByChild(asChildId(childId), TENANT);
 		expect(logs).toHaveLength(2);
 		expect(logs.map((l) => l.checkedDate)).toEqual(['2026-03-15', '2026-03-14']); // checkedDate desc
-		expect(logs[0]?.templateId).toBe(templateId);
+		expect(logs[0]?.templateId).toBe(String(templateId));
 		expect(logs[0]?.completedAll).toBe(0);
 		expect(logs[1]?.pointsAwarded).toBe(7);
 	});
@@ -99,14 +100,14 @@ describe('#3078: SQLite findLogsByChild (child 単位バルク取得)', () => {
 			])
 			.run();
 
-		const logs = await findLogsByChild(childId, TENANT);
+		const logs = await findLogsByChild(asChildId(childId), TENANT);
 		expect(logs).toHaveLength(1);
-		expect(logs[0]?.childId).toBe(childId);
+		expect(logs[0]?.childId).toBe(asChildId(childId));
 		expect(logs[0]?.pointsAwarded).toBe(1);
 	});
 
 	it('ログ 0 件なら空配列を返す', async () => {
-		const logs = await findLogsByChild(childId, TENANT);
+		const logs = await findLogsByChild(asChildId(childId), TENANT);
 		expect(logs).toEqual([]);
 	});
 });

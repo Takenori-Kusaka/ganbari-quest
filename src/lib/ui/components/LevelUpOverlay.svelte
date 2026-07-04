@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { soundService } from '$lib/ui/sound';
@@ -8,7 +9,7 @@ interface LevelUpData {
 	oldTitle: string;
 	newLevel: number;
 	newTitle: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	categoryName?: string;
 	spGranted?: number;
 }

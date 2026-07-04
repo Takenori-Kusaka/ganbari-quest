@@ -1,7 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { CATEGORY_DEFS, sanitizeDailyLimit } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS, getCategoryById, sanitizeDailyLimit } from '$lib/domain/validation/activity';
+import { asActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
+import { formIdString } from '$lib/domain/form-value';
 // #2767 Fix Round 1 B3 (Adversarial security): indexes query を Zod ベース input validation
 // 経由でパースし、NaN / 負数 / 非整数 / 空文字 / 重複の 4 edge case を回帰固定する。
 import { parseImportIndexes } from '$lib/domain/validation/marketplace-import-params';
@@ -49,7 +51,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const children = await getAllChildren(tenantId);
 	const repos = getRepos();
 	const childActivitiesByChild: Record<
-		number,
+		string,
 		Awaited<ReturnType<typeof repos.childActivity.findActivitiesByChild>>
 	> = {};
 	for (const child of children) {
@@ -71,7 +73,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	// `?childId=<n>` query で初期選択 child 復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
 	const initialChildId =
-		initialChildIdRaw && /^\d+$/.test(initialChildIdRaw) ? Number(initialChildIdRaw) : null;
+		initialChildIdRaw && initialChildIdRaw !== '' ? asChildId(initialChildIdRaw) : null;
 
 	// Round 18 Cluster K (#1870 評価 Round 3): selectedChildId cookie fallback
 	// `?childId=` 未指定時は cookie に保存された前回選択 child を採用する。
@@ -81,8 +83,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const cookieChildIdRaw = cookies.get('selectedChildId');
 	const initialChildIdFromCookie = (() => {
 		if (!cookieChildIdRaw) return null;
-		const n = Number(cookieChildIdRaw);
-		return Number.isInteger(n) && n > 0 ? n : null;
+		return asChildId(cookieChildIdRaw);
 	})();
 
 	// プラン制限情報
@@ -119,7 +120,7 @@ export const actions: Actions = {
 	toggleVisibility: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const id = Number(formData.get('id'));
+		const id = asActivityId(formIdString(formData.get('id')));
 		const visible = formData.get('visible') === 'true';
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
@@ -142,7 +143,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
-		const categoryId = Number(formData.get('categoryId') ?? 0);
+		const categoryId = asCategoryId(formIdString(formData.get('categoryId')));
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
@@ -156,10 +157,10 @@ export const actions: Actions = {
 		// 一番古い child に fallback する (後方互換)。
 		const childIdRaw = formData.get('childId');
 		const childId =
-			childIdRaw != null && /^\d+$/.test(String(childIdRaw)) ? Number(childIdRaw) : undefined;
+			childIdRaw != null && String(childIdRaw) !== '' ? asChildId(String(childIdRaw)) : undefined;
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!categoryId || categoryId < 1 || categoryId > 5) {
+		if (!categoryId || !getCategoryById(categoryId)) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 
@@ -213,9 +214,9 @@ export const actions: Actions = {
 		//   本 action は API 互換性のため残し、priority も受理する。
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const id = Number(formData.get('id'));
+		const id = asActivityId(formIdString(formData.get('id')));
 		const name = String(formData.get('name') ?? '').trim();
-		const categoryId = Number(formData.get('categoryId') ?? 0);
+		const categoryId = asCategoryId(formIdString(formData.get('categoryId')));
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
@@ -231,7 +232,7 @@ export const actions: Actions = {
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!categoryId || categoryId < 1 || categoryId > 5) {
+		if (!categoryId || !getCategoryById(categoryId)) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 
@@ -315,7 +316,7 @@ export const actions: Actions = {
 	delete: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const id = Number(formData.get('id'));
+		const id = asActivityId(formIdString(formData.get('id')));
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 
@@ -386,7 +387,7 @@ export const actions: Actions = {
 	toggleMainQuest: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const id = Number(formData.get('id'));
+		const id = asActivityId(formIdString(formData.get('id')));
 		const enabled = formData.get('enabled') === 'true';
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
@@ -432,15 +433,16 @@ export const actions: Actions = {
 		}
 
 		// childIds: 'all' or comma-separated number list
-		let childIds: number[] | undefined;
+		let childIds: ChildId[] | undefined;
 		if (childIdsRaw === 'all') {
 			const children = await getAllChildren(tenantId);
 			childIds = children.map((c) => c.id);
 		} else {
 			childIds = childIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		}
 
 		if (!childIds || childIds.length === 0) {
@@ -500,21 +502,22 @@ export const actions: Actions = {
 	copyFromChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const sourceChildId = Number(formData.get('sourceChildId'));
+		const sourceChildId = asChildId(formIdString(formData.get('sourceChildId')));
 		const targetChildIdsRaw = String(formData.get('targetChildIds') ?? '').trim();
-		const singleTargetChildId = Number(formData.get('targetChildId'));
+		const singleTargetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId) {
 			return fail(400, { error: 'コピー元のお子さまが必要です' });
 		}
 
 		// targetChildIds (CSV) 優先、なければ targetChildId (単一) を使う
-		let targetChildIds: number[] | null = null;
+		let targetChildIds: ChildId[] | null = null;
 		if (targetChildIdsRaw) {
 			targetChildIds = targetChildIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		} else if (singleTargetChildId) {
 			targetChildIds = [singleTargetChildId];
 		}
@@ -562,7 +565,7 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
-		const categoryId = Number(formData.get('categoryId') ?? 0);
+		const categoryId = asCategoryId(formIdString(formData.get('categoryId')));
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const dailyLimitRaw = formData.get('dailyLimit');
@@ -570,7 +573,7 @@ export const actions: Actions = {
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!categoryId || categoryId < 1 || categoryId > 5) {
+		if (!categoryId || !getCategoryById(categoryId)) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
@@ -589,15 +592,16 @@ export const actions: Actions = {
 			});
 		}
 
-		let childIds: number[];
+		let childIds: ChildId[];
 		if (childIdsRaw === 'all') {
 			const children = await getAllChildren(tenantId);
 			childIds = children.map((c) => c.id);
 		} else {
 			childIds = childIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		}
 		if (childIds.length === 0) {
 			return fail(400, { error: '有効な対象が指定されていません' });

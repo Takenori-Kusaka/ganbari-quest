@@ -1,3 +1,4 @@
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/daily-mission-service.test.ts
 // デイリーミッションのユニットテスト
 
@@ -81,7 +82,7 @@ describe('getTodayMissions', () => {
 	});
 
 	it('3つのミッションを自動生成する', async () => {
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(3);
 		expect(result.completedCount).toBe(0);
 		expect(result.allComplete).toBe(false);
@@ -89,15 +90,15 @@ describe('getTodayMissions', () => {
 	});
 
 	it('2回呼んでも同じミッションが返る', async () => {
-		const first = await getTodayMissions(1, 'test-tenant');
-		const second = await getTodayMissions(1, 'test-tenant');
+		const first = await getTodayMissions(asChildId(1), 'test-tenant');
+		const second = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(first.missions.map((m) => m.activityId)).toEqual(
 			second.missions.map((m) => m.activityId),
 		);
 	});
 
 	it('各ミッションに活動名・アイコン・カテゴリが含まれる', async () => {
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		for (const mission of result.missions) {
 			expect(mission.activityName).toBeTypeOf('string');
 			expect(mission.activityIcon).toBeTypeOf('string');
@@ -107,7 +108,7 @@ describe('getTodayMissions', () => {
 	});
 
 	it('異なるカテゴリから選出される（可能な限り）', async () => {
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		const categories = new Set(result.missions.map((m) => m.categoryId));
 		// 5カテゴリあるので3つは別カテゴリから来るはず
 		expect(categories.size).toBe(3);
@@ -124,7 +125,7 @@ describe('エラーパス・境界値', () => {
 		// childId=1 用に child を先に seed し、その活動を作成 (999 はあえて存在しない別 id)
 		seedChild();
 		seedActivities();
-		const result = await getTodayMissions(999, 'test-tenant');
+		const result = await getTodayMissions(asChildId(999), 'test-tenant');
 		// 子供が存在しないため活動候補がフィルタされ、空ミッションを返す
 		expect(result.missions).toHaveLength(0);
 		expect(result.completedCount).toBe(0);
@@ -133,7 +134,7 @@ describe('エラーパス・境界値', () => {
 	it('活動が0件の場合は空のミッションリストを返す', async () => {
 		seedChild();
 		// 活動を追加しない
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(0);
 		expect(result.completedCount).toBe(0);
 		expect(result.allComplete).toBe(false);
@@ -146,7 +147,7 @@ describe('エラーパス・境界値', () => {
 			.insert(schema.childActivities)
 			.values({ name: 'ランニング', childId: 1, categoryId: 1, icon: '🏃', basePoints: 5 })
 			.run();
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(1);
 	});
 
@@ -161,7 +162,7 @@ describe('エラーパス・境界値', () => {
 			.insert(schema.childActivities)
 			.values({ name: 'おべんきょう', childId: 1, categoryId: 2, icon: '📚', basePoints: 5 })
 			.run();
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(2);
 	});
 });
@@ -192,8 +193,8 @@ describe('利用履歴ベースのミッション生成', () => {
 		const trials = 20;
 		for (let i = 0; i < trials; i++) {
 			sqlite.exec('DELETE FROM daily_missions');
-			const result = await getTodayMissions(1, 'test-tenant');
-			if (result.missions.some((m) => m.activityId === 5)) {
+			const result = await getTodayMissions(asChildId(1), 'test-tenant');
+			if (result.missions.some((m) => m.activityId === '5')) {
 				includesRecorded++;
 			}
 		}
@@ -203,7 +204,7 @@ describe('利用履歴ベースのミッション生成', () => {
 
 	it('利用履歴がない場合もミッションが3つ生成される', async () => {
 		// activity_logsが空の状態（新規ユーザ）
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(3);
 	});
 
@@ -225,7 +226,7 @@ describe('利用履歴ベースのミッション生成', () => {
 				.run();
 		}
 
-		const result = await getTodayMissions(1, 'test-tenant');
+		const result = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(result.missions).toHaveLength(3);
 	});
 });
@@ -238,66 +239,66 @@ describe('checkMissionCompletion', () => {
 	});
 
 	it('ミッションに含まれる活動を記録すると達成になる', async () => {
-		const missions = await getTodayMissions(1, 'test-tenant');
+		const missions = await getTodayMissions(asChildId(1), 'test-tenant');
 		const firstMission = missions.missions[0];
 		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
+		const result = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
 		expect(result.missionCompleted).toBe(true);
 
 		// 再取得して完了状態を確認
-		const updated = await getTodayMissions(1, 'test-tenant');
+		const updated = await getTodayMissions(asChildId(1), 'test-tenant');
 		expect(updated.completedCount).toBe(1);
 	});
 
 	it('ミッションに含まれない活動は影響しない', async () => {
-		const missions = await getTodayMissions(1, 'test-tenant');
+		const missions = await getTodayMissions(asChildId(1), 'test-tenant');
 		const missionActivityIds = new Set(missions.missions.map((m) => m.activityId));
 
 		// ミッションに含まれない活動を探す
 		// #2362 PR-3 Phase 7b-2c: child_activities を参照
 		const allActivities = testDb.select().from(schema.childActivities).all();
-		const nonMissionActivity = allActivities.find((a) => !missionActivityIds.has(a.id));
+		const nonMissionActivity = allActivities.find((a) => !missionActivityIds.has(asActivityId(a.id)));
 		if (!nonMissionActivity) return; // all activities are in missions
 
-		const result = await checkMissionCompletion(1, nonMissionActivity.id, 'test-tenant');
+		const result = await checkMissionCompletion(asChildId(1), asActivityId(nonMissionActivity.id), 'test-tenant');
 		expect(result.missionCompleted).toBe(false);
 	});
 
 	it('2つ達成で+5Pボーナス', async () => {
-		const missions = await getTodayMissions(1, 'test-tenant');
+		const missions = await getTodayMissions(asChildId(1), 'test-tenant');
 		const m0 = missions.missions[0];
 		const m1 = missions.missions[1];
 		if (!m0 || !m1) throw new Error('Expected at least 2 missions');
-		await checkMissionCompletion(1, m0.activityId, 'test-tenant');
-		const result2 = await checkMissionCompletion(1, m1.activityId, 'test-tenant');
+		await checkMissionCompletion(asChildId(1), m0.activityId, 'test-tenant');
+		const result2 = await checkMissionCompletion(asChildId(1), m1.activityId, 'test-tenant');
 		expect(result2.bonusAwarded).toBe(5);
 		expect(result2.allComplete).toBe(false);
 	});
 
 	it('3つ達成で+20Pボーナス（差分で+15P追加付与）', async () => {
-		const missions = await getTodayMissions(1, 'test-tenant');
+		const missions = await getTodayMissions(asChildId(1), 'test-tenant');
 		const m0 = missions.missions[0];
 		const m1 = missions.missions[1];
 		const m2 = missions.missions[2];
 		if (!m0 || !m1 || !m2) throw new Error('Expected at least 3 missions');
-		await checkMissionCompletion(1, m0.activityId, 'test-tenant');
-		await checkMissionCompletion(1, m1.activityId, 'test-tenant');
-		const result3 = await checkMissionCompletion(1, m2.activityId, 'test-tenant');
+		await checkMissionCompletion(asChildId(1), m0.activityId, 'test-tenant');
+		await checkMissionCompletion(asChildId(1), m1.activityId, 'test-tenant');
+		const result3 = await checkMissionCompletion(asChildId(1), m2.activityId, 'test-tenant');
 		expect(result3.allComplete).toBe(true);
 		// 2/3で5P付与済み、3/3で20P。差分は15P
 		expect(result3.bonusAwarded).toBe(15);
 	});
 
 	it('同じ活動を2回達成しても二重計上されない', async () => {
-		const missions = await getTodayMissions(1, 'test-tenant');
+		const missions = await getTodayMissions(asChildId(1), 'test-tenant');
 		const firstMission = missions.missions[0];
 		if (!firstMission) throw new Error('Expected at least one mission');
 
-		const result1 = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
+		const result1 = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
 		expect(result1.missionCompleted).toBe(true);
 
-		const result2 = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
+		const result2 = await checkMissionCompletion(asChildId(1), firstMission.activityId, 'test-tenant');
 		expect(result2.missionCompleted).toBe(false);
 	});
 });
@@ -320,11 +321,11 @@ describe('insertDailyMission 並行重複挿入 (#2565 flake root cause)', () =>
 		if (!childActivity) throw new Error('Expected at least one child activity');
 
 		// 1 回目の INSERT
-		await insertDailyMission(1, '2026-03-08', childActivity.id, 'test-tenant');
+		await insertDailyMission(asChildId(1), '2026-03-08', asActivityId(childActivity.id), 'test-tenant');
 		// 2 回目の INSERT (並行リクエストが同じ mission を再生成したケースを模す)。
 		// fix 前は idx_daily_missions_unique violation で throw していた。
 		await expect(
-			insertDailyMission(1, '2026-03-08', childActivity.id, 'test-tenant'),
+			insertDailyMission(asChildId(1), '2026-03-08', asActivityId(childActivity.id), 'test-tenant'),
 		).resolves.not.toThrow();
 
 		// 重複 skip され DB には 1 行のみ
@@ -342,8 +343,8 @@ describe('insertDailyMission 並行重複挿入 (#2565 flake root cause)', () =>
 		// idx_daily_missions_unique violation で片方が reject → child home load が 500 →
 		// tutorial 起動前に詰まって E2E flake していた。onConflictDoNothing で root cause を解消。
 		const [first, second] = await Promise.all([
-			getTodayMissions(1, 'test-tenant'),
-			getTodayMissions(1, 'test-tenant'),
+			getTodayMissions(asChildId(1), 'test-tenant'),
+			getTodayMissions(asChildId(1), 'test-tenant'),
 		]);
 		// 両リクエストとも reject せず最低 3 件の mission を返す (dead-end / 500 にならない)。
 		expect(first.missions.length).toBeGreaterThanOrEqual(3);

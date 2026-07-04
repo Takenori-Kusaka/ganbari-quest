@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
@@ -25,7 +26,7 @@ interface PointSettings {
 
 interface Props {
 	child: {
-		id: number;
+		id: ChildId;
 		nickname: string;
 		age: number;
 		uiMode: string;
@@ -37,7 +38,7 @@ interface Props {
 		status: {
 			level: number;
 			levelTitle: string;
-			statuses: Record<number, { value: number; level: number; stars: number }>;
+			statuses: Record<string, { value: number; level: number; stars: number }>;
 		} | null;
 		recentLogs: Array<{
 			activityIcon: string;
@@ -52,7 +53,7 @@ interface Props {
 			unlockedAt?: string | null;
 		}>;
 		voices: Array<{
-			id: number;
+			id: string;
 			label: string;
 			publicUrl: string;
 			isActive: boolean;
@@ -76,7 +77,7 @@ const editCalculatedAge = $derived(
 );
 let detailTab = $state<'info' | 'status' | 'logs' | 'achievements' | 'voice'>('info');
 let statusEditSuccess = $state(false);
-let sliderValues: Record<number, number> = $state({});
+let sliderValues: Record<string, number> = $state({});
 
 $effect(() => {
 	if (!isEditing) {
