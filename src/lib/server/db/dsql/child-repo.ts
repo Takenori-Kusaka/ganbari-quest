@@ -196,28 +196,28 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 			// child_achievements は #322 廃止で DSQL に表が無い → 常に 0。pointBalance 派生行も
 			// DSQL は children.total_point 列のため行削除は無し (0)。total_point は §5 P7 の
 			// 不変条件 (== SUM(point_ledger)) を保つため同一 txn で 0 リセットする。
+			// fitness#7 (tx-bound await のみ許可) 準拠のため helper 閉包を挟まず inline に await する。
 			return runner.runInTransaction(async (tx) => {
-				const counts: ChildProgressResetCounts = {
-					activityLogs: 0,
-					pointLedger: 0,
-					loginBonuses: 0,
-					childAchievements: 0,
-					pointBalance: 0,
-				};
-				const del = async (table: 'activity_logs' | 'point_ledger' | 'login_bonuses') => {
-					const r = await tx.execute(
-						sql`DELETE FROM ${sql.raw(table)} WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
-					);
-					return r.rows.length;
-				};
-				counts.activityLogs = await del('activity_logs');
-				counts.pointLedger = await del('point_ledger');
-				counts.loginBonuses = await del('login_bonuses');
+				const logs = await tx.execute(
+					sql`DELETE FROM activity_logs WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
+				);
+				const ledger = await tx.execute(
+					sql`DELETE FROM point_ledger WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
+				);
+				const bonuses = await tx.execute(
+					sql`DELETE FROM login_bonuses WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
+				);
 				await tx.execute(sql`
 					UPDATE children SET total_point = 0, updated_at = now()
 					WHERE family_id = ${tenantId} AND child_id = ${id}
 				`);
-				return counts;
+				return {
+					activityLogs: logs.rows.length,
+					pointLedger: ledger.rows.length,
+					loginBonuses: bonuses.rows.length,
+					childAchievements: 0,
+					pointBalance: 0,
+				};
 			});
 		},
 
