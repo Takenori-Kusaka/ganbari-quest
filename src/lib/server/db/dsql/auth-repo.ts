@@ -297,17 +297,23 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		async updateTenantOwner(tenantId, newOwnerId) {
 			// 全て単一 txn (§6.6)。owner_guard UNIQUE と両立する更新順序:
 			// 旧 owner を先に demote してから新 owner を promote (逆順だと一瞬 owner 2 行で 23505)。
-			// 新 owner の membership が無い場合 promote は 0 行 = owner 空白になるため、
-			// 呼び出し側 (requireRole(['owner']) route、§6.6 ⚠️) が既存 member であることを保証する。
+			// 新 owner が member でない場合は promote 0 行 = owner 空白になるため、
+			// RETURNING 行数を検証し 0 行なら throw → txn ごと rollback (demote も巻き戻る)。
 			await runner.runInTransaction(async (tx) => {
 				await tx.execute(sql`
 					UPDATE memberships SET role = 'parent'
 					WHERE family_id = ${tenantId} AND role = 'owner' AND user_id <> ${newOwnerId}
 				`);
-				await tx.execute(sql`
+				const promoted = await tx.execute(sql`
 					UPDATE memberships SET role = 'owner'
 					WHERE family_id = ${tenantId} AND user_id = ${newOwnerId}
+					RETURNING 1
 				`);
+				if (promoted.rows.length === 0) {
+					throw new Error(
+						`updateTenantOwner: new owner ${newOwnerId} is not a member of tenant ${tenantId}`,
+					);
+				}
 				await tx.execute(sql`
 					UPDATE families SET owner_user_id = ${newOwnerId}, updated_at = now()
 					WHERE family_id = ${tenantId}

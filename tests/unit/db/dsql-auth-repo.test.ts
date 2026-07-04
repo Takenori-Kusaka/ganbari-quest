@@ -366,4 +366,15 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		expect(all).toHaveLength(3);
 		expect(await repo.findAllConsents(other.tenantId)).toEqual([]);
 	});
+
+	it('[T8] updateTenantOwner: 非 member への移譲は throw + rollback (owner 空白防止)', async () => {
+		const owner = await repo.createUser({ email: 't8-owner@example.com', provider: 'cognito' });
+		const tenant = await repo.createTenant({ name: 'T8家', ownerId: owner.userId });
+		await expect(
+			repo.updateTenantOwner(tenant.tenantId, '00000000-0000-4000-8000-00000000dead'),
+		).rejects.toThrow(/not a member/);
+		// rollback 検証: demote も巻き戻り旧 owner が owner のまま (owner 空白が生じない)
+		const members = await repo.findTenantMembers(tenant.tenantId);
+		expect(members.find((m) => m.userId === owner.userId)?.role).toBe('owner');
+	});
 });
