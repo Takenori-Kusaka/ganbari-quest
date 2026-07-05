@@ -1,6 +1,8 @@
 # M3 物理データモデル（Physical Data Model / Aurora DSQL 固有）— がんばりクエスト
 
-> **状態**: M3 成果物（**Round 1 rework 反映済**・[must]8 件是正、台帳 `docs/design/dsql/m3-review-round1-ledger.md`）。**入力 = M2 論理モデル**（`docs/design/dsql/m2-logical-model.md`、Round 1〜3 で 0 must 収束・確定済）+ Phase 0 DSQL 実機 spike#1（`docs/research/2026-06-28-aurora-dsql-adoption.md` §11.1、**spike#2-#8 は未実施**）+ ADR-0063（pool マルチテナント分離）+ **`tmp/dsql-reset-plan-2026-07-05.md` 決定#1-#4（controlling、2026-07-05 ユーザー承認）**。関連: EPIC #3424 / M3 プロセス定義 `docs/design/dsql/detailed-design-process.md` §M3。
+> **状態**: M3 成果物（**Round 1 rework + Phase 1 PoC 実測反映済**、台帳 `docs/design/dsql/m3-review-round1-ledger.md`）。**入力 = M2 論理モデル**（`docs/design/dsql/m2-logical-model.md`、Round 1〜3 で 0 must 収束）+ **Phase 1 PoC 実測完了（`docs/research/dsql-poc-phase1-results-2026-07-05.md`、us-east-1 実クラスタ・検証後削除済）** + Phase 0 spike#1（`docs/research/2026-06-28-aurora-dsql-adoption.md` §11.1）+ ADR-0063 + **`tmp/dsql-reset-plan-2026-07-05.md` 決定#1-#4（controlling、2026-07-05 承認）**。関連: EPIC #3424 / M3 プロセス定義 `docs/design/dsql/detailed-design-process.md` §M3。
+>
+> **Phase 1 PoC 反映サマリ（2026-07-05）**: Round 1 で PoC 保留に降格した性能・enforcement 実挙動を**実機で確定**（構造決定へ昇格）。**確定** = owner_guard 23505（I-OWN ≤1）/ FOR UPDATE write-skew SAFE（I-BAL-NONNEG は FOR UPDATE 依存で成立、no-op でない、[should]5 解消）/ 3000行 AND 10MiB chunk / OCC 40001 同一行のみ（disjoint key 0 件）/ PK-prefix Index Only Scan / 42P17 生成列不可 / FK 非対応 / **drizzle-kit 標準出力 DSQL 非互換 → カスタム migration runner + ASYNC build 完了 poll が M4 必須（新知見）**。**未実施の正直な gap** = #3426 Lambda 接続 / #3429 CDK 構成（接続・IaC 層、データモデル非依存 = M3 ゲート非ブロック）。
 >
 > **Round 1 rework サマリ（3 テーマ / [must]8）**: **テーマA データ喪失根絶** = 全 JSON 列を列展開/子表化から **text 据置**へ是正（genMissStreak 等の silent drop を実コードで捕捉、原初喪失の再来を封殺、§4）。**テーマB セキュリティ** = fitness allowlist を閉集合化 + surrogate/capability 再スコープ不変条件 + 実行時接続 role 分離（append-only 表 GRANT 除外）を物理責務に格上げ（§3.4）。**テーマC PoC 規律** = 未実行 spike#2-#8 依拠の断言を構造決定→PoC 保留に降格 + M2 分類の捏造記述訂正（§5/§7/§8）。
 >
@@ -14,17 +16,19 @@
 
 ---
 
-## §P0 Aurora DSQL 物理制約の SSOT（spike#1 実機確証 + AWS 公式 doc）
+## §P0 Aurora DSQL 物理制約の SSOT（spike#1 + **Phase 1 PoC 実測（2026-07-05）** + AWS 公式 doc）
 
 M3 の全物理判断が拠って立つ DSQL 固有制約。**すべて構造決定（実測不要）**。出典を各行に付す。
+
+> **Phase 1 PoC 実測完了（2026-07-05、出典 `docs/research/dsql-poc-phase1-results-2026-07-05.md`、us-east-1 実クラスタ・検証後削除済）**: 本 §P0 の制約に加え、Round 1 で「PoC 保留」に降格した性能・enforcement 実挙動（owner_guard 23505 / 42P17 / 3000行&10MiB / OCC 40001 / **FOR UPDATE write-skew** / PK-prefix access path / FK 非対応）を**実機で確定**。反映は各節（§3.1B / §5 / §6.4 / §6.5 / §6.6 / §7）。**未実施（正直な gap）**: #3426 Lambda 接続再利用・cold start / #3429 CDK CfnCluster 構成 = 接続層 / provisioning でデータモデル設計に非依存（§7）。
 
 | # | 制約 | 裏取り | 物理設計への含意 |
 |---|---|---|---|
 | **P1** | **PK は CREATE TABLE 後に変更不可**（`ALTER TABLE` の supported action に `ADD/DROP/ALTER PRIMARY KEY` 無し。`ADD table_constraint_using_index` は `UNIQUE USING INDEX` のみ） | AWS 公式 `alter-table-syntax-support.html`（supported action 列挙で PK 変更不在）+ `working-with-primary-keys.html`（PK が index-organized 表本体 + cluster-wide unique key + 分散 partition の基盤） | **PK 凍結**（非可逆）。§P1 凍結対象を board 確定後に freeze。列追加（`ADD COLUMN`）・UNIQUE 後付けは可（可逆）だが PK は不可 |
 | **P2** | **SERIAL / 連番採番型なし**（`type "serial" does not exist`） | spike#1 実機 `42704` | 代理 PK は **UUID**（`gen_random_uuid()` ネイティブ動作を spike#1 確証）。counter.ts + padId 採番を全廃 |
 | **P3** | **FK 制約なし**（`FOREIGN KEY constraint not supported`） | spike#1 実機 `[0A000]` + AWS 公式（SQLAlchemy blog: `ForeignKey()` 不可、`relationship()` で app 層 join） | M2 の全論理 FK を **app 層 / CHECK / 生成列 UNIQUE / 複合 PK 包含** で担保（§3） |
-| **P4** | **CREATE INDEX は ASYNC 必須**（同期 `CREATE INDEX` は `unsupported mode`）。式 index・部分 index・GIN 不可。btree のみ。≤24 本/表・≤8 列・≤1KiB | spike#1 実機（同期 index 拒否 / `CREATE INDEX ASYNC` は job_id 返却） | secondary は ASYNC + job 完了待ち runner。**条件付き一意 / soft-delete 一意は STORED 生成列 + UNIQUE index** で表現（式/部分 index 不可の回避、§3） |
-| **P5** | **1 書込 txn ハード上限（調整不可）**: 3,000 行 / 10 MiB / 5 分 / クエリメモリ 128 MiB / 行 2 MiB | spike#1 実機（3,000 行 commit ✅ / 3,001 行 `54000 transaction row limit exceeded`） | 一括 import / 復元は **chunk 分割（≤3000 行 / ≤10MiB）+ 冪等 upsert + saga**（§6.4） |
+| **P4** | **CREATE INDEX は ASYNC 必須**（同期 `CREATE INDEX` は `unsupported mode`。`USING btree` も `0A000`）。式 index・部分 index・GIN 不可。btree のみ。≤24 本/表・≤8 列・≤1KiB。**ASYNC index は受理即 OK だが build 完了まで uniqueness を強制しない** | spike#1 + **Phase 1 PoC 検証2/3**（同期・`USING btree` とも `0A000` / `CREATE INDEX ASYNC` OK / **build 未完了中の重複投入で `sys.jobs` INDEX_BUILD が `failed` 化し dedup すり抜けを実機観測**） | secondary は ASYNC + **`sys.jobs` INDEX_BUILD=completed poll 確認（hard 制約、§6.5）**。条件付き一意 / soft-delete 一意は STORED 生成列 + UNIQUE index。**生成式は immutable のみ（CAST は `42P17`、PoC 検証3）** |
+| **P5** | **1 書込 txn ハード上限（調整不可）**: **3,000 行 AND 10 MiB**（両方独立に効く）/ 5 分 / クエリメモリ 128 MiB / 行 2 MiB | spike#1 + **Phase 1 PoC 検証4**（3,000 行 ✅ / 3,001 行 `54000 row limit` / 9.5MiB ✅ / **11.3MiB `54000 transaction size limit 10mb exceeded`**） | 一括 import / 復元は **行数 AND byte size 両方でチャンク分割（≤3000 行 かつ ≤10MiB）+ 冪等 upsert + saga**（§6.4、大 blob 行は 3000 行未満でも 10MiB 到達しうる） |
 | **P6** | **1 txn = DDL 1 文・DDL/DML 混在不可** | spike#1 実機（2 DDL `[0A000] multiple ddl` / DDL+DML `[0A000]`） | migration は 1 文/txn に分割。schema 構築順序を DDL 制約に合わせる（§6.5） |
 | **P7** | **OCC（楽観的同時実行制御）= commit 時 write-write を検出し `40001`（OC000）** | spike#1 実機（commitA=ok / commitB=`40001`）+ AWS 公式 concurrency-control | **同一行 write-write の commit 重なり時のみ**競合。retry ラッパ（指数バックオフ + jitter、冪等 txn のみ）を service 層に 1 箇所集約（§6.3） |
 | **P8** | **RLS 非対応**（`CREATE POLICY` / `ENABLE ROW LEVEL SECURITY` とも `[0A000] unsupported`） | spike#1 実機 + ADR-0063 | テナント分離は **DB エンジン強制でなく app 層単一強制点 + fitness function**（ADR-0063、§3.4） |
@@ -204,7 +208,7 @@ M2 の全論理 FK（`参照<R>`）を、**FK 制約なし（P3、spike#1 + AWS 
 | 手段 | 適用 | 例 |
 |---|---|---|
 | **(A) 複合 PK 包含**（参照先キーを PK に含み構造的に存在保証） | 子表の親参照 | stamp_entries の card_id / status_history の `(child, category)` / daily_missions の activity（同一 (family,child) 内） |
-| **(B) 生成列 + UNIQUE ASYNC**（DB 物理強制できる不変条件） | I-OWN の「≤1」/ soft-delete 一意 | memberships `owner_guard`（owner **≤1 名**を UNIQUE で物理拒否）/ 各表 `active_key`（未削除行で一意、NULLS DISTINCT）。**enforcement の実挙動（`23505`）は spike#3 依拠 = PoC 保留に降格（§7、#3427）**。owner の「≥1（最後の 1 名を残す）」は本機構で守れず (C) app 層（§3.3） |
+| **(B) 生成列 + UNIQUE ASYNC**（DB 物理強制できる不変条件） | I-OWN の「≤1」/ soft-delete 一意 | memberships `owner_guard`（owner **≤1 名**を UNIQUE で物理拒否）/ 各表 `active_key`（未削除行で一意、NULLS DISTINCT）。**【実測確定・Phase 1 PoC 検証3】** STORED 生成列（CASE 式）+ ASYNC UNIQUE で同一家族 2 人目 owner = `23505` 物理拒否、別家族は独立。**ただし ASYNC index を clean state で張り `sys.jobs` INDEX_BUILD=completed を待ってから書込開放する順序が correctness 必須**（未完了中の重複投入で build failed 化 → 強制すり抜けを実機観測、§6.5）。生成式は immutable のみ（CAST は `42P17`）。owner の「≥1（最後の 1 名を残す）」は本機構で守れず (C) app 層（§3.3） |
 | **(C) app 層単一強制点**（tenant-scoped repository が参照存在を保証） | 大半の集約横断 FK | 記録時に activity 所有 child を解決し family_id/child_id を注入。「参照先 tuple 存在」は書込パスで app が保証（読取は tenant フィルタで越境不能） |
 | **(D) 弱参照（存在保証なし、削除耐性）** | 任意参加 FK | redemption.対象ごほうび / child_activities.取込元テンプレート / point_ledger.由来参照（多態 `source_type`+`source_id`）→ 参照先削除を許す（NULL 化 or 孤児許容）。物理的に何も強制しない列。**⚠️ 多態解決時は必ず `WHERE family_id = <当該行.family_id>` で再スコープ**（by-id 単独 fetch は cross-tenant 露出、§3.4 不変条件） |
 
@@ -313,21 +317,20 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 ## §5 index 戦略（ASYNC 制約下、P4）
 
-> **Round 1 [must]C7 是正（PoC 規律・トレース honesty）**: 一次資料 §11.1 は **spike#1 のみ実施**、§11.2 は spike#2-#8 を「**未実施**」と明記。初版が構造決定として断言した「PK-prefix が既定 access path（spike#5）/ 式 index 42P17 回避（spike#5）/ point_ledger 2x secondary（spike#7）」等は **未実行 spike 依拠ゆえ PoC 保留（#3425/#3427）に降格**。**注: これらは実機 PoC で正当に確定できる見込み**（降格しておけば PoC 結果で構造決定に戻せる）。
+> **Phase 1 PoC 反映（2026-07-05、検証7）**: Round 1 で spike#2-#8 未実施ゆえ PoC 保留に降格した項目のうち、**PK-prefix access path・42P17 生成列不可は実機で確定**（構造決定に昇格）。**secondary 採否は PoC で新知見（統計未反映時 full scan）を得たため引き続き実データ規模での最終判断（PoC 保留維持）**。
 
-### §5.1 構造決定（AWS 公式 doc + spike#1 のみで今確定）
+### §5.1 構造決定（AWS 公式 doc + spike#1 + **Phase 1 PoC 実測**）
 
-- **PK covering の存在**（P1: PK = index-organized 表本体、全非キー列 INCLUDE covering、heap 不在 = AWS 公式 `working-with-primary-keys` 裏取り）。secondary は btree + **ASYNC 必須（P4 = spike#1 実機）**、式・部分・GIN 不可、≤24 本/表・≤8 列・≤1KiB（AWS 公式 quotas）。
-- **時刻列は PK に入れず素の列**（P9 = AWS 公式 hot-partition 回避）。sort は PK プレフィクス covering scan + `ORDER BY … DESC LIMIT`（**planner が実際にこの access path を選ぶかは PoC、下記 §5.2**）。
-- **式 index 不可の物理回避（構造）**（P4）: `recorded_date` はアプリ set の素の date 列 / `email_lower GENERATED lower(email)`（lower は immutable）/ activity_logs の category_id を記録時 snapshot。**`CAST(created_at AS date)` の生成列不可（`42P17`）は spike#5 依拠 = PoC 保留（#3427）でクロスチェック**（immutable 判定の実挙動）。据置方針（アプリ set 素の列）は spike に依存しない安全側ゆえ構造決定。
-- **最初から張る少数 secondary の候補**（PK プレフィクスで届かない別軸引き）: memberships `(user_id)`（findUserTenants）/ special_rewards `(…, granted_at)` / reward_redemption `(…, status)` / push/viewer/cloud の global UNIQUE。**これらが実際に必要か（planner 採用）・point_ledger の type/recorded_date secondary の 2x 効果は spike#7 依拠 = PoC 保留（#3425）**。
+- **PK covering + PK-prefix が既定効率パス【実測確定・検証7】**: PK = index-organized 表本体、全非キー列 INCLUDE covering、heap 不在（AWS 公式 `working-with-primary-keys`）。**PK 前方一致 `WHERE family_id=? AND child_id=?` = `Index Only Scan using pkey`（point lookup 0.00125 DPU / 500 行前方一致 0.116 DPU）を EXPLAIN ANALYZE VERBOSE で実測**。secondary は btree + **ASYNC 必須（P4）**、式・部分・GIN 不可、≤24 本/表・≤8 列・≤1KiB。
+- **時刻列は PK に入れず素の列**（P9）。sort は PK プレフィクス covering scan + `ORDER BY … DESC LIMIT`。
+- **式 index 不可の物理回避【実測確定・検証3】**（P4）: `CAST(created_at AS date)` の生成列は `42P17`(not immutable) で不可を実機確定 → `recorded_date` はアプリ set の素の date 列 / `email_lower GENERATED lower(email)`（lower は immutable で可）/ activity_logs の category_id を記録時 snapshot。
+- **write は txn 最小 0.05 DPU の下駄【実測・検証7】**: 単一行 INSERT/UPDATE とも Write Transaction minimum 0.05 DPU。→ N+1 小 txn 多発を避け batch 化（P0 コスト原則）。無料枠 10 万 DPU に対し 1 クエリは桁違いに小さい。
 
-### §5.2 PoC 保留（実性能で判断、確定と称さない、#3425/#3427）
+### §5.2 PoC 保留（secondary 採否は実データ規模で最終判断、#3425）
 
-- **PK-prefix scan が既定 access path か**: 初版の「spike#5 が単一 child 規模で PK-prefix scan を既定 access path に選ぶことを実測」は **spike#5 未実施ゆえ確定でない**。実データ規模の `EXPLAIN ANALYZE VERBOSE` で確認（#3425）。
-- **投機的 secondary を張らない**: activity_logs の date secondary（getTodayActivityCounts 用）の要否は **実 DPU 実測後に判断**（#3425）。初版の「spike#7 で 520 行/child は不採用（1.5ms）」は未実行 spike ゆえ撤回し、初期は PK のみで開始し計測で追加。secondary 1 本 = 全書込に複合 PK 幅の WriteDPU 加算。
-- **point_ledger の type/recorded_date secondary の 2x**: spike#7 依拠 = PoC 保留（#3425）。
-- **ASYNC index build 完了待ち + drizzle-kit 生成 SQL の DSQL 適合**（同期 CREATE INDEX / DDL-DML 分離を吐かないか）は **#3427 で実機検証**（構造は ASYNC + job 完了待ちと確定 = spike#1、drizzle-kit 実挙動は PoC）。ASYNC UNIQUE は §6.5 の書込開放前 build 完了確認と連動。
+- **【新知見・検証7】非 PK filter は統計未反映時 Full Scan**: `points>90` は ASYNC secondary（`completed` 確認済）が**あっても** planner が full scan を選択（推定行数 333333 vs 実 43 = ANALYZE 統計未反映）。→ **二次 index は「張れば効く」でなく ANALYZE 統計反映が前提**。secondary 依存クエリは統計反映後に EXPLAIN で access path 再確認。
+- **secondary 採否（memberships `(user_id)` / special_rewards `(…, granted_at)` / reward_redemption `(…, status)` / point_ledger `(…, type, recorded_date)` / activity_logs date）**: PK-prefix scan を第一設計とし、**production 実データ規模の EXPLAIN ANALYZE + 統計反映後に最終判断**（#3425）。secondary 1 本 = 全書込に複合 PK 幅の WriteDPU 加算ゆえ投機的に張らず、full-child scan を大幅削減する規模で planner が採用することを確認してから追加。
+- **drizzle-kit 標準出力は DSQL 非互換【実測確定・検証2】→ カスタム migration runner が M4 必須**（§6.5）。
 
 ---
 
@@ -347,29 +350,40 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 - **構造決定**: 残高（`children.total_point`）は D-BALANCE（SUM スキャン）を毎回走らせず、**全 point_ledger 書込がその INSERT を行う txn 内で total_point を同一 txn `+= amount` 共更新**（authoritative 増分、SUM 乖離不能、閲覧は列 read 1 回で DPU 削減）。statuses.total_xp/level/peak_xp・activity_logs.streak_days も同型。
 - **point 書込プリミティブ一本化（reset-plan 決定#3、2026-07-05 承認と reconcile）**: point_ledger 書込を単一プリミティブ（`insertPointEntry`）に統合（`IActivityRepo.insertPointLedger` 重複廃止）。ドメイン repo は total_point 不触 = total_point は point 書込プリミティブ内でのみ更新（責務単一化、R8/R5 の往復混乱の根治）。
 - **carryover 廃止（reset-plan 決定#4、2026-07-05 承認と reconcile）**: 初版 §6.2 の「retention 削除で `type='carryover'` 繰越エントリを同一 txn 挿入」は **reset-plan 決定#4 で廃止**。retention は古い ledger 行削除のみ・total_point 不触で #729（「ポイントは消えず過去明細だけが消える」）を満たす（total_point が authoritative 増分ゆえ削除で残高不変）。**fitness#14 は「total_point == SUM(全ledger)」から「テスト時（非 pruning）の書込増分整合検証」へ再定義**（本番正しさは単一プリミティブ + 同一 txn `+= amount` で構造担保）。→ 初版 §4/§9 の carryover 記述を撤回。
-- **PoC 保留（#3425）**: total_point 共更新の **OCC 競合率**（同一 child 行への並行書込が commit ウィンドウで重なる頻度）。**per-child 低書込ゆえ許容の公算大だが実測前に確定しない**。反証時の退避路 = 派生列を落とし D-BALANCE を都度 SUM（可逆）。
+- **PoC 保留（#3425、production 実データ規模で最終判断）**: total_point 共更新の **OCC 競合率**。**Phase 1 PoC 検証5 で「OCC 40001 は同一行並行書込のみ・lost update なし・disjoint key（別家族/別集約）は 0 件」を実測確定**。total_point は同一 child 行への共更新ゆえ per-child 並行書込が競合しうるが、**1 家族 per-child は低書込ゆえ実競合は極小の公算大**（disjoint key 0 件の傍証）。production 実データ規模での最終確認は M4（可逆）。反証時の退避路 = 派生列を落とし D-BALANCE を都度 SUM。
 
 ### §6.3 OCC retry ラッパ（P7、構造決定）
 
 - 40001（OC000）= 冪等 txn のみ **指数バックオフ + jitter で abort & retry**、service 層に共通ラッパ 1 箇所集約。
 - **40001 と 23505 / rowCount=0 を厳密分岐**（invite 受諾等）: `23505`=業務失敗（ALREADY_IN_TENANT、retry 禁止）/ `rowCount=0`=業務失敗（retry 禁止）/ `40001`=競合（retry）。owner_guard の `23505` は即エラー返却。
-- **PoC 保留（#3425）**: 実 OCC 競合率。1 家族低競合では非発生だが機構は実在（spike#1 再現済）。
+- **【実測確定・検証5】OCC 競合率**: 同一行並行 = `40001(OC000)` 再現・**lost update なし**（一方が確実に fail、正しく直列化）。**disjoint key（別行 = 1 家族相当のキー非重複ワークロード）= 40001 0 件**。→ retry ラッパは必須だが正しいキー設計下の常用競合率は極小。
 
-### §6.4 一括 import / 復元の chunk saga（I-4、P5、構造決定 + PoC 保留）
+### §6.4 一括 import / 復元の chunk saga（I-4、P5、**実測確定・検証4**）
 
-- **構造決定**: backup-archive 一括復元が 3,000 行 or 10 MiB 超なら単一 txn all-or-nothing 不可（P5、spike#1 で 3,001 行拒否確証）→ **chunk 分割（≤3000 行 / ≤10MiB）+ import バッチ ID + 進捗マーカで冪等再適用 + saga（「import 中」フラグ → 全 chunk 成功後 commit）**。lazy migration（cutover 設計必須要件、復旧負担最小化）。
-- **PoC 保留（#3428）**: 3,000 行/10MiB 抵触の**実挙動**（10MiB は行幅依存で行数と別に効く）と chunk 実装の実 DPU。**実測前に chunk サイズ既定値を確定しない**。
+- **【実測確定】** 一括復元は **行数 AND byte 両方でチャンク必須**: 3000 行 ✅ / 3001 行 `54000 row limit` / 9.5MiB ✅ / **11.3MiB `54000 transaction size limit 10mb exceeded`**。→ **chunk 分割（≤3000 行 **かつ** ≤10MiB）+ import バッチ ID + 進捗マーカで冪等再適用 + saga（「import 中」フラグ → 全 chunk 成功後 commit）**。**大 blob 行は 3000 行未満でも 10MiB 到達しうる**ため byte size も計測して切る。lazy migration（cutover 設計必須要件、復旧負担最小化）。
+- **PoC 保留なし（構造 + 実測確定）**: 上限値は実測済。残るは chunk サイズ既定値の tuning（実装調整、schema 非依存）。
 
-### §6.5 schema 構築順序（P6、構造決定 + [should] ASYNC UNIQUE build order）
+### §6.5 migration runner 設計（P6 + **カスタム runner 必須・実測確定**）
 
-- **1 txn = DDL 1 文・DDL/DML 混在不可（P6、spike#1）**→ migration を 1 文/txn に分割。
-- **[should] ASYNC UNIQUE の build 完了を書込開放前に確認**: `owner_guard`/`active_key`/global-UNIQUE 等の UNIQUE index は ASYNC build（P4）ゆえ **job 完了を確認してから当該表への書込を開放**する（build 未完了中に INSERT すると一意制約が未強制 = owner 二重登録・soft-delete 一意破れの窓）。cutover 順序: (1) CREATE TABLE → (2) ASYNC UNIQUE index CREATE → (3) job 完了 poll → (4) 書込開放。populated 表への UNIQUE 後付けは dedup 先行（この挙動 F1 は spike#6 依拠 = PoC 保留 #3427。greenfield 空表への inline UNIQUE も spike#6 依拠ゆえ #3427 でクロスチェック）。
+**【実測確定・検証2】drizzle-kit の標準 migration 出力は DSQL にそのまま適用不可** → **カスタム migration runner が M4 必須**（#3427 = 対策確定）。runner は最低限以下を行う:
 
-### §6.6 その他 [M3] 不変条件の realize（構造 + 一部 PoC 保留）
+1. `ALTER TABLE ADD CONSTRAINT … FOREIGN KEY`（inline FK も）を**除去** → 参照整合はアプリ層 `relations()` + fitness function（§3）。
+2. `CREATE (UNIQUE) INDEX … USING btree` を **`CREATE (UNIQUE) INDEX ASYNC …`（`USING` 節除去）へ書換** + **`sys.jobs` INDEX_BUILD=completed job 完了待ち**。
+3. 各 DDL を **autocommit（1 文/txn）** で適用（`BEGIN; DDL; DDL; COMMIT` = `0A000 multiple ddl`、`BEGIN; DDL; DML; COMMIT` = `0A000` を実機確定）。
+4. `SERIAL`（`42704`）/暗黙 SEQUENCE を禁止（UUID PK。明示 SEQUENCE は CACHE≥65536 or =1）。
+5. DDL と seed(DML) を別ステップ・別 txn に分離。
+
+**ASYNC UNIQUE build 完了を書込開放前に確認（hard 制約、[should]5 → 実測で hard 化）**: `owner_guard`/`active_key`/global-UNIQUE は ASYNC build（P4）ゆえ **clean state で index を張り `sys.jobs`（`job_type='INDEX_BUILD'`）`status='completed'` を poll 確認してから運用データを入れる**。**実機で「build 未完了中の重複投入 → job failed → dedup すり抜け」を観測**（検証3）ため、cutover 順序 (1) CREATE TABLE → (2) ASYNC UNIQUE CREATE → (3) job=completed poll → (4) 書込開放 を**必須ステップ**とする（[note] から hard 制約に格上げ）。populated 表への UNIQUE 後付けは dedup 先行。
+
+### §6.6 その他 [M3] 不変条件の realize（構造 + 実測確定）
 
 | M2 不変条件 | 物理 realize |
 |---|---|
-| I-BAL-NONNEG / I-NEG-BAL（裁量消費の非負・負残高中消費禁止） | 消費 txn 内で残高（total_point）読取 → 十分時のみ負エントリ append。write skew 防止に `SELECT … FOR UPDATE` で write-intent 化を**候補とするが**、**DSQL OCC 下で `FOR UPDATE` が commit 時 conflict footprint（40001 誘発）を生むかは未検証 → PoC 保留（#3425、[should]）**。「FOR UPDATE で write skew 防止」を構造決定と称さず、代替（消費も point_ledger INSERT で total_point `+= 負値` する同一 txn write にし read-then-write を write-then-check に畳む）も PoC で比較。競合率も #3425 |
+| I-BAL-NONNEG / I-NEG-BAL（裁量消費の非負・負残高中消費禁止） | **【実測確定・検証6、[should]5 解消】** 消費 txn 内で残高行を `SELECT … FOR UPDATE` → 十分時のみ負エントリ append + total_point 減算。**`FOR UPDATE` は DSQL 上で write-conflict footprint を生み、別行書込でも同一 FOR UPDATE 行を掴んだ 2 txn の一方が `40001` になり write-skew（TOCTOU overspend）を阻止**（S1）。二重引落シナリオで一方が `40001`・最終残高 0（overspend なし、S2）を実証。**plain read は footprint を生まない（S3）**ため、残高非負・owner 単一化などの read-modify-write 不変条件は**必ず `FOR UPDATE`（または対象行自体への write）を伴わせる MUST**。→ I-BAL-NONNEG は FOR UPDATE 依存で成立（no-op でないことを実証）。Round 1 で PoC 保留に移した本項を**実測確定に戻す**（セキュリティ [should]5 解消） |
+| I-SUB（トライアル二度取り禁止・状態遷移） | subscription_state の状態遷移を app 層遷移制約 + トライアル使用日時の非 NULL 化冪等 |
+| I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
+| I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
+| I-PIN-RESET / I-DOWNGRADE | 検証済ワンタイム + 冪等リセット / 下位プラン変更時アーカイブ = app 層トランザクション/UX |
 | I-SUB（トライアル二度取り禁止・状態遷移） | subscription_state の状態遷移を app 層遷移制約 + トライアル使用日時の非 NULL 化冪等 |
 | I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
 | I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
@@ -377,19 +391,21 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 
 ---
 
-## §7 PoC 保留リスト（M4 実装のブロッカー、#3425-#3429）
+## §7 PoC 状態（Phase 1 実測完了 2026-07-05 + 残 gap）
 
-> **決定的原則**: 以下は**実測が要る物理判断**であり、**実測前に確定と称さない**。**M4 実装はこれら PoC の close 後にのみ着手**（フェーズゲート）。各 PoC は EPIC #3424 配下の spike issue に紐付く。
+> **Phase 1 PoC 実測完了（出典 `docs/research/dsql-poc-phase1-results-2026-07-05.md`）**: **データモデル設計に必要な PoC（#3425/#3427/#3428 の中核 + owner_guard/FOR UPDATE/chunk 上限）は実機で確定**。M3 データモデルゲートはこれで裏取り済。**未実施の #3426/#3429 は接続層 / provisioning でデータモデルに非依存** = **M3 ゲートを待たせない**（M4 着手前に別 spike で実施）。
 
-| PoC | issue | 保留中の物理判断 | 反証時の退避路（可逆性） | ブロックする §本書 |
+| PoC | issue | 状態 | 実測結果 / 残タスク | 反映 §本書 |
 |---|---|---|---|---|
-| 実 DPU / OCC 競合率 | **#3425** | (1) total_point compute-on-write の OCC 競合率（§6.2）(2) read-model compute-on-read の read DPU 許容度 (3) 投機的 secondary の要否 + **PK-prefix が既定 access path か（[must]C7 降格、旧 spike#5）** + **point_ledger type/recorded_date secondary の 2x（旧 spike#7）**（EXPLAIN ANALYZE VERBOSE） (4) subscription を families へ吸収するか（family-load read DPU、§1.1a） (5) **`FOR UPDATE` が DSQL OCC 下で 40001 footprint を生むか（[should]、§6.6）** (6) JSON text 据置列の read 射影 DPU（§4.4 反証、問題列のみ可逆展開） | (1) 派生列 drop → 都度 SUM (2) read-model 復活 (3) secondary 後付け（ASYNC）/ PK-prefix は planner 依存 (4) table 統合/分離は backfill 可 (5) write-then-check に畳む (6) `ALTER ADD COLUMN` 可逆展開 | §4.4 / §5.2 / §6.2 / §6.6 / §1.1a |
-| Lambda 接続再利用 + cold start | **#3426** | 接続確立レイテンシ（spike#1 cold 約 1,450ms）の warm 再利用実測 → 接続プール maxLifetime 既定値 | 実装調整（PK/schema に影響なし） | （実装層、schema 非依存） |
-| drizzle-kit DDL 制約適合 + 生成列/UNIQUE 実挙動 | **#3427** | ASYNC index build 完了待ち runner + drizzle-kit 生成 SQL が同期 CREATE INDEX / DDL-DML 混在 / 2 DDL を吐かないか。**加えて [must]C7 降格分**: owner_guard の `23505` enforcement（旧 spike#3）/ `CAST(...date)` 生成列 `42P17`（旧 spike#5）/ greenfield inline UNIQUE + populated dedup 先行 F1（旧 spike#6） | migration 手書き/patch（構造は §6.5 確定） | §3.1(B) / §5.1 / §6.5 |
-| 一括 import 3000 行/10MiB 抵触 | **#3428** | chunk サイズ既定値（10MiB は行幅依存）・chunk saga の実 DPU・部分失敗の冪等再適用実挙動 | chunk サイズ調整（saga 構造は §6.4 確定） | §6.4 |
-| CDK CfnCluster 東京/us-east-1 最小構成 + **IAM ロールモデル（[must]B6 schema 結合）** | **#3429** | L1 `AWS::DSQL::Cluster` 最小構成・DeletionProtection・IAM grant helper 欠如（手書き）・**実行 role（DbConnect 最小権限、append-only 表 UPDATE/DELETE grant なし）vs migration role（DbConnectAdmin）分離の実 policy JSON**（§3.4） | IaC 調整（role 分離の構造は §3.4 確定、実 policy は PoC） | §3.4 |
+| DPU / OCC 競合率 / access path / FOR UPDATE | **#3425** | **✅ 実測完了** | OCC 40001=同一行のみ（disjoint key 0 件、lost update なし）/ PK-prefix=Index Only Scan（point 0.00125 DPU）/ 非 PK filter=full scan（統計未反映）/ FOR UPDATE=write-skew SAFE / write txn 最小 0.05 DPU。**残: total_point 共更新の production 競合率 + secondary 採否は実データ規模の EXPLAIN + 統計反映後（M4 で計測、schema 可逆）** | §5 / §6.2 / §6.6 |
+| drizzle-kit DDL 適合 + 生成列/UNIQUE 実挙動 | **#3427** | **✅ 実測完了（対策確定）** | FK/`USING btree`/同期 index/2DDL/DDL+DML/SERIAL とも `0A000`/`42704` → **カスタム migration runner 必須（5 点書換、§6.5）**。owner_guard 23505 ✅ / CAST 生成列 42P17 ✅ / ASYNC build 未完了で dedup すり抜け → build 完了 poll hard 化 | §3.1(B) / §5.1 / §6.5 |
+| 一括 import 3000 行/10MiB 抵触 | **#3428** | **✅ 実測完了** | 3001 行 & 11.3MiB とも `54000` → **行数 AND byte 両方でチャンク**。残: chunk サイズ tuning（実装調整） | §6.4 |
+| **Lambda 接続再利用 + cold start** | **#3426** | **⬜ 未実施（正直な gap）** | 本 PoC は pg(node) ローカル接続のみ。Lambda warm 接続再利用・cold start は別 spike。**接続層でデータモデル設計に非依存 → M3 ゲート非ブロック**。M4 着手前に実施 | （実装層、schema 非依存） |
+| **CDK CfnCluster 構成 + IAM ロールモデル** | **#3429** | **⬜ 未実施（正直な gap）** | L1 `AWS::DSQL::Cluster` 構成・実行 role（DbConnect 最小権限、append-only 表 GRANT 除外）vs migration role（DbConnectAdmin）分離の実 policy JSON（§3.4 構造は確定）。**provisioning 層でデータモデルに非依存 → M3 ゲート非ブロック**。M4 着手前に実施 | §3.4（構造確定、実 policy は未実施） |
 
-> **構造決定は PoC を待たない**: PK 不変性（AWS doc）・FK 非対応の担保方式（spike#1）・自然複合 PK 昇格の anchor 判定・**全 JSON 列 text 据置の分類（field grep + reset-plan 決定#1）**・chunk saga の構造・retry ラッパの構造・**fitness allowlist + 接続 role 分離の構造**は **公式制約 / 実 grep / spike#1 で今確定済**。**一方、未実行 spike#2-#8 依拠の性能・enforcement 実挙動（PK-prefix access path / 42P17 / 23505 / 2x secondary / F1 dedup / FOR UPDATE footprint）は PoC 保留に降格済（[must]C7）** = PoC 結果で構造決定に戻せる。
+> **M3 データモデルゲートの判定**: データモデル物理設計に必要な実測（PK/txn 上限/OCC/FOR UPDATE/生成列/migration 制約）は**全て完了**。残 gap（#3426/#3429）は接続・IaC 層で**データモデルを変えない** → M3 は「**実測裏取り済みの物理設計**」として Round 2 board へ進める。
+
+> **Phase 1 で「実測確定」に昇格した項目**: Round 1 で PoC 保留に降格した spike#2-#8 依拠の項目（PK-prefix access path / 42P17 / owner_guard 23505 / FOR UPDATE write-skew / 3000行&10MiB / OCC 40001 / FK 非対応 / drizzle-kit 非互換）は **Phase 1 PoC で実機確定**（構造決定に昇格）。**残 PoC 保留は total_point production 競合率と secondary 採否（統計反映後の実データ規模）のみ**（M4 で可逆に計測）。**未実施は #3426/#3429（接続層/IaC、データモデル非依存 = M3 ゲート非ブロック）**。
 
 ---
 
@@ -411,12 +427,14 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 | family_id 複合 PK 先頭（U-6 を (b) 確定） | 構造決定 | ADR-0063 + P9（AWS 移行 blog 複合キー推奨） |
 | FK → (A)複合PK/(B)生成列UNIQUE/(C)app層/(D)弱参照 | 構造決定 | P3（spike#1 + AWS SQLAlchemy blog） |
 | 自然複合 PK 昇格 anchor 判定（stamp_cards/certificates は **M2 代理識別子分類を追認**） | 構造決定 | P1 + governing rule + **M2 §3.1 代理識別子バケット**（PO パネル 2026-07-01/03） |
-| owner_guard 生成列 + UNIQUE（I-OWN の **≤1 のみ**、≥1 は app 層） | 構造決定（構造）+ **PoC 保留（enforcement 実挙動）** | P4 構造 + **`23505` は旧 spike#3 → #3427 降格** |
+| owner_guard 生成列 + UNIQUE（I-OWN の **≤1 のみ**、≥1 は app 層） | **実測確定** | **Phase 1 PoC 検証3（`23505` + ASYNC build 完了待ち + CAST は `42P17`）** |
 | **全 JSON 列 text 据置**（targetConfig/displayConfig/scoresJson/itemsJson/playerStats/metadata/battle） | 構造決定 | **field grep 0 件 + 実 write が宣言型より広い（genMissStreak 等）+ reset-plan 決定#1 + backup verbatim** |
-| PK covering の存在 / 時刻列を PK 外に | 構造決定 | P1/P9（AWS primary-keys doc） |
-| fitness allowlist 閉集合 + 接続 role 分離 + 再スコープ不変条件 | 構造決定（構造）+ **PoC 保留（実 policy JSON）** | ADR-0063 + P8 + **#3429（IAM policy 実体）** |
-| **PK-prefix access path / 42P17 / point_ledger 2x / F1 dedup / FOR UPDATE footprint** | **PoC 保留（旧 spike#2-#8 依拠、降格）** | **#3425/#3427（実測前に確定しない）** |
-| **投機的 secondary 採否 / total_point OCC 率 / import chunk 値** | **PoC 保留** | **#3425/#3428** |
+| PK covering / PK-prefix Index Only Scan / 42P17 生成列不可 | **実測確定** | **Phase 1 PoC 検証7/3（EXPLAIN ANALYZE + 42P17）** |
+| FK 非対応（inline/ALTER とも `0A000`）→ app 層整合 | **実測確定** | **Phase 1 PoC 検証2** |
+| 3000 行 AND 10MiB chunk / OCC 40001 同一行のみ / **FOR UPDATE write-skew SAFE** | **実測確定** | **Phase 1 PoC 検証4/5/6** |
+| カスタム migration runner 必須（drizzle-kit 標準出力 DSQL 非互換） | **実測確定** | **Phase 1 PoC 検証2（5 点書換）** |
+| fitness allowlist 閉集合 + 接続 role 分離（構造） + 再スコープ不変条件 | 構造決定（構造）+ **未実施（実 policy JSON = #3429）** | ADR-0063 + P8 +（IAM policy 実体は #3429 未実施） |
+| **total_point production 競合率 / secondary 採否（統計反映後）** | **PoC 保留（M4 で計測、可逆）** | **#3425（実データ規模）** |
 
 ---
 
@@ -452,6 +470,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 - `docs/design/dsql/m1-conceptual-model.md` — M1 概念モデル（背景）
 - `docs/design/dsql/detailed-design-process.md` — 詳細設計プロセス（M3 の INPUT/OUTPUT/決裁条件）
 - `docs/research/2026-06-28-aurora-dsql-adoption.md` — Phase 0 調査 SSOT + spike#1 実機実測（§11.1）
+- `docs/research/dsql-poc-phase1-results-2026-07-05.md` — **Phase 1 PoC 実測結果**（owner_guard/FK/3000行&10MiB/OCC/FOR UPDATE/EXPLAIN/drizzle-kit、branch feature/dsql-poc-phase1）
 - `docs/decisions/0063-dsql-pool-multitenant-isolation.md` — pool マルチテナント分離（§3.4 の根拠）
 - `docs/design/dsql-data-model.md` — 大方針設計書（**参照材料**。本書は M2 + 実 grep + DSQL 制約から再導出し、certificate metadata の jsonb→text 等で再判断）
 - AWS 公式: `alter-table-syntax-support.html`（P1 PK 不変性）/ `working-with-primary-keys.html`（P1/P9 index-organized）/ SQLAlchemy × DSQL blog（P3 FK 非対応）

@@ -78,3 +78,39 @@
 - **全 [must]8 解消**（テーマA 4 / B 2 / C 2）+ [should]5 反映 + reset-plan 決定#1-#4 reconcile。
 - **exit 判定は Round 2 board（fresh agent 独立再レビュー）**。本台帳は Fagan recorder 記録（決定→根拠→検証エビデンス→反映箇所）。
 - **凍結 ceremony の残 blocker = U-1（age_benchmarks PK に category 含むか）** のみ（§9）。text 据置化で子表 PK 凍結 blocker（evaluation_scores/checklist_log_items）は消滅。
+
+---
+
+## Phase 1 PoC 実測反映（2026-07-05、出典 `docs/research/dsql-poc-phase1-results-2026-07-05.md`）
+
+実 AWS（us-east-1 使い捨てクラスタ、検証後削除確認済）で Phase 1 PoC を実施。Round 1 で「PoC 保留」に降格した spike#2-#8 依拠の項目を実機で確定し、M3 に反映。
+
+### 1. PoC 保留 → 実測確定に昇格
+
+| 項目 | 実測結果（error code） | M3 反映 |
+|---|---|---|
+| owner_guard（I-OWN ≤1） | STORED 生成列 + ASYNC UNIQUE で同一家族 2 人目 owner=`23505` 物理拒否・別家族独立。CAST 生成列=`42P17`(not immutable) | §3.1(B) PoC 保留 → **実測確定** / §P0 P4 |
+| 3000 行 / 10MiB txn 上限 | 3001=`54000 row limit` / 11.3MiB=`54000 size limit` → **行数 AND byte 両方**でチャンク | §6.4 実測確定 / §P0 P5 |
+| OCC 40001 | 同一行=`40001(OC000)` 再現・lost update なし / disjoint key（1家族相当）=**0 件** | §6.3 実測確定 / §6.2 |
+| **FOR UPDATE write-skew（[should]5 解消）** | FOR UPDATE は write footprint 生成 → 別行書込でも `40001` で write-skew 阻止、二重引落で残高 0 維持。plain read は footprint 無し → **I-BAL-NONNEG は FOR UPDATE 依存で成立（no-op でない）** | §6.6 「PoC 保留に移動」を**実測確定に戻す** |
+| PK-prefix access path | PK 前方一致=`Index Only Scan`（point lookup 0.00125 DPU）が既定効率パス | §5.1 実測確定 |
+| FK 非対応 | inline/ALTER 両方=`0A000 not supported` | §3 / §P0 P3 実測確定 |
+
+### 2. 新知見（設計に反映）
+
+| 新知見 | M3 反映 |
+|---|---|
+| **drizzle-kit 標準出力はそのまま適用不可**（FK=`0A000` / `USING btree`=`0A000` / 二次 index=ASYNC 要 / 2DDL・DDL+DML=`0A000` / SERIAL=`42704` / SEQUENCE CACHE 必須） | §6.5 に **カスタム migration runner 必須（5 点書換）** を明記、#3427 = 対策確定 |
+| **ASYNC index build 完了待ちが correctness 必須**（未完了中の重複投入で build failed → dedup すり抜けを実機観測） | §6.5 の [note] → **hard 制約に格上げ**（`sys.jobs` INDEX_BUILD=completed poll をcutover 必須ステップ化） |
+| **非 PK filter は統計未反映時 Full Scan**（二次 index 非採用、推定行数ずれ） | §5.2 に追記。secondary 採否は「張れば効く」でなく統計依存 → production 実測で最終判断（PoC 保留維持） |
+
+### 3. honest gap（M3 データモデル非ブロック、M4 で実施）
+
+- **#3426（Lambda 接続再利用/cold start）・#3429（CDK CfnCluster 構成）は未実行**（接続層 / provisioning、データモデル設計に非依存）。§7 に「M4 着手前に別 spike で実施」と明記。**M3 データモデルゲートはこれらを待たない**（データモデルに必要な PoC は完了）。
+
+### 4. 判定
+
+- **M3 は「実測裏取り済みの物理設計」**になった。データモデル物理設計に必要な実測（PK/txn 上限/OCC/FOR UPDATE/生成列/migration 制約）は全て完了。
+- 残 PoC 保留 = total_point production 競合率 + secondary 採否（統計反映後）のみ（M4 で可逆に計測）。
+- **セキュリティ [should]5（FOR UPDATE を PoC 保留に移動）は実測で解消**（FOR UPDATE 依存の I-BAL-NONNEG 成立を実証）。
+- → **Round 2 board へ**。
