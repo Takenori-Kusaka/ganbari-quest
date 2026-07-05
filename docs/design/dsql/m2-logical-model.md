@@ -395,10 +395,10 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 - 正規形: 3NF
 
 #### R-AGE_BENCHMARK（年齢基準値, R-STATUS の参照）
-- 属性: `{ 年齢: 整数, 平均: 数値, 標準偏差: 数値 }`
-- CK: `{年齢}`（M1 §3.3 mermaid `AGE_BENCHMARK { 年齢; 平均; 標準偏差 }` の文字通りの写像） / PK: `{年齢}` / FK: なし
-- FD: `{年齢} → 平均, 標準偏差`
-- 正規形: 3NF。**Round 1 [should] 反映（勝手に足さない原則の徹底）**: 当初 CK にカテゴリを含めていたが、M1 属性列にカテゴリ明記がないため **M1 文字通りの `{年齢}` を既定に戻す**。カテゴリ別基準値（`{年齢, カテゴリ}`）の要否は §6 U-1 の候補に留め、既定に焼き込まない（M1 に無い構造を勝手に確定しない）。
+- 属性: `{ 年齢: 整数, カテゴリ: 参照<CATEGORY>, 平均: 数値, 標準偏差: 数値 }`
+- CK: `{年齢, カテゴリ}`（**U-1 決裁済 2026-07-05**: 実データ調査で `AGE_BENCHMARK ‖–o{ STATUS`（status はカテゴリ別）との整合により `(年齢, カテゴリ)` に確定。M1 §3.3 mermaid も category 弁別子を追記済） / PK: `{年齢, カテゴリ}` / FK: `カテゴリ → R-CATEGORY` / 物理 `market_benchmarks(age, category_id)`
+- FD: `{年齢, カテゴリ} → 平均, 標準偏差`
+- 正規形: 3NF。**U-1 決裁確定（2026-07-05、§6 U-1）**: 当初は「M1 属性列にカテゴリ明記がない」ため `{年齢}` を既定にしていたが、実データ調査で `AGE_BENCHMARK ‖–o{ STATUS`（ステータスはカテゴリ別）との整合上カテゴリ別基準値が正と board 決裁 → `{年齢, カテゴリ}` に確定（M1 mermaid にも category 弁別子を反映済）。物理 PK 凍結は `market_benchmarks(age, category_id)`（GLOBAL_MASTER_PK_MANIFEST）。
 
 #### R-PLAN（プラン参照, 契約の値集合）
 - 属性: `{ プランコード: コード, プラン層: 参照<PLAN_TIER>, …（価格等は課金 scope 外）}`
@@ -466,7 +466,7 @@ M1 は DynamoDB 遺産の「単一 opaque 識別子の一律強制 + 採番カ�
 | 分類 | リレーション | 論理 PK 選択 | 根拠 |
 |---|---|---|---|
 | **自然複合キーを PK に採用** | R-STATUS `{子供,カテゴリ}` / R-REST_DAY `{子供,対象日}` / R-DAILY_MISSION `{対象日,活動}`（唯一 CK, Round 2 で子供属性削除し BCNF）/ R-LOGIN_BONUS `{子供,ログイン日}` / R-DAILY_BATTLE `{子供,日付}` / R-ENEMY_COLLECTION `{子供,敵識別}` / R-CHECKLIST_ASSIGNMENT `{テンプレ,子供}` / R-EVALUATION_SCORE `{評価,カテゴリ}` / R-CHECKLIST_ITEM_RESULT `{進捗,項目}` / R-STAMP_ENTRY `{カード,枠番号}` / R-MEMBERSHIP `{家族,利用者}` | 自然複合キー | 自然同一性が存在し安定・一意（I-STATUS/I-CHECK-1WK 系の写像）。opaque id を被せない |
-| **自然単一キーを PK に採用** | R-CATEGORY `{カテゴリコード}` / R-STAMP_MASTER `{スタンプコード}` / R-PLAN `{プランコード}` / R-PLAN_TIER `{プラン層}` / R-EMAIL_LOGIN_LOCKOUT `{対象メール}` / R-AGE_BENCHMARK `{年齢}`（[should] で M1 文字通りに是正）| 自然コード / メール / 年齢 | 安定した自然識別子。列挙的コード・整数キーで露出 |
+| **自然単一キーを PK に採用** | R-CATEGORY `{カテゴリコード}` / R-STAMP_MASTER `{スタンプコード}` / R-PLAN `{プランコード}` / R-PLAN_TIER `{プラン層}` / R-EMAIL_LOGIN_LOCKOUT `{対象メール}` | 自然コード / メール | 安定した自然識別子。列挙的コード・整数キーで露出（R-AGE_BENCHMARK は U-1 決裁で `{年齢, カテゴリ}` 複合キー化ゆえ本行から除外、§1.10 参照） |
 | **1:1 従属で親キーを PK に採用** | R-PARENT_GATE_CREDENTIAL/SUBSCRIPTION_STATE/ACCOUNT_LIFECYCLE/DECAY_POLICY/APPROVAL_POLICY/POINT_CONVERSION_POLICY/NOTIFICATION_SETTINGS/LOYALTY_STATE `{家族}` / R-ACTIVITY_MASTERY/ACTIVITY_PREFERENCE `{活動}` | 親の識別子 | 1:1（1:0..1）従属は親キーが候補キー。縦分解で親を PK 共有 |
 | **代理識別子を PK に採用（自然キー不在 or 不安定/PII）** | R-FAMILY / R-USER / R-CHILD / R-CHILD_ACTIVITY / R-ACTIVITY_LOG / R-POINT_LEDGER_ENTRY / R-STATUS_HISTORY / R-SPECIAL_REWARD / R-REDEMPTION_REQUEST / R-CHILD_CHALLENGE / R-STAMP_CARD / R-CHECKLIST_TEMPLATE/ITEM / R-CHECKLIST_LOG / R-CHECKLIST_OVERRIDE / R-EVALUATION / R-INVITE / R-CONSENT_RECORD / R-TRIAL_HISTORY / R-CANCELLATION_REASON / R-BONUS_RULE / 各衛星（PARENT_MESSAGE/SIBLING_CHEER/CERTIFICATE/CHARACTER_IMAGE/CUSTOM_VOICE/GRADUATION_CONSENT/PUSH_SUBSCRIPTION/NOTIFICATION_LOG/VIEWER_TOKEN/CLOUD_EXPORT/USAGE_LOG） | 代理識別子 | 安定した自然キーがない（イベント/追記ログ）か、自然キー候補が可変・PII（メール等）。**自然候補キーがある場合は §1 で UNIQUE 候補キーとして併記**（例 R-USER `{メールアドレス}`、R-CHILD_ACTIVITY は自然キー無し、R-STAMP_CARD `{子供,週の開始}`、R-CHECKLIST_LOG `{子供,テンプレ,対象日}`、R-EVALUATION `{子供,週の開始}`）し、業務一意性を保証 |
 
@@ -596,7 +596,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 
 | # | 論点 | 候補 | 根拠 / 影響 |
 |---|---|---|---|
-| **U-1** | R-AGE_BENCHMARK の候補キーにカテゴリを含めるか | (a) `{年齢}`（本書既定＝M1 文字通り）/ (b) `{年齢,カテゴリ}` | M1 §3.3 属性列にカテゴリ明記がないため **既定は M1 文字通りの `{年齢}`**（[should] で修正）。`AGE_BENCHMARK ‖–o{ STATUS`（ステータスはカテゴリ別）との整合でカテゴリ別が自然かは board 確認事項＝(b) は候補に留め既定に焼き込まない（勝手に足さない原則） |
+| **U-1（決裁済 2026-07-05）** | R-AGE_BENCHMARK の候補キーにカテゴリを含めるか | (a) `{年齢}` / (b) `{年齢,カテゴリ}` | **✅ 決裁 = (b) `{年齢, カテゴリ}`**（実データ調査で確定、board 承認）。`AGE_BENCHMARK ‖–o{ STATUS`（ステータスはカテゴリ別）との整合でカテゴリ別基準値が正。M1 §3.3 mermaid に category 弁別子を追記済 + R-AGE_BENCHMARK CK/PK を `{年齢, カテゴリ}` に確定 + 物理 `market_benchmarks(age, category_id)` 凍結（GLOBAL_MASTER_PK_MANIFEST）。「勝手に足さない」既定は実データ根拠で解消 |
 | **U-2（派生整合ギャップに格上げ）** | R-LOYALTY_STATE.記念チケット数（第 2 通貨）に台帳がなく **I-DERIVED 普遍則の唯一の穴** | (a) 単純カウンタ（本書既定＝M1 定義）/ (b) 記念チケット台帳（増減監査可能・I-DERIVED 整合回復）| **[should] で「未決」から「派生整合ギャップ」に格上げ**: 経済点数は台帳総和の導出（I-DERIVED/D-BALANCE）で監査可能だが、記念チケットは M1 でカウンタ定義ゆえ**増減履歴を持たず I-DERIVED のフォールド等価則が適用できない唯一の量**。カウンタ update anomaly（付与/消費で直接加減算）を負う。M1 を覆さず (a) を既定写像とするが、**board へ (b)（第 2 通貨台帳で普遍則の穴を塞ぐ）の判断を促す**。(b) は M1 拡張を要する |
 | **U-3** | R-NOTIFICATION_SETTINGS.静音時間帯 を 2 属性展開 vs 値オブジェクト保持 | (a) 静音開始/終了 展開（本書既定）/ (b) 値オブジェクト | Q-04 基準（範囲述語に使うなら展開）。実 read パターンで範囲比較しないなら (b)。M3 read パターン確認事項 |
 | **U-4** | 1:1 家族方針リレーション（DecayPolicy 等）の縦分解 vs Family への吸収 | (a) 別リレーション（本書既定）/ (b) Family 属性群に吸収 | 論理的にはどちらも BCNF。別リレーションは疎な広幅回避＋概念独立（L-14）。物理 clustering は M3。論理層は独立概念を尊重し (a) |

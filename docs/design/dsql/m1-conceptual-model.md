@@ -214,7 +214,7 @@ erDiagram
   EVALUATION_SCORE { number スコア }
   DECAY_POLICY { enum 強度 "none/gentle/normal/strict(4段階)"; number 猶予日数 }
   BONUS_RULE { enum 条件種別; valueobject 発火条件; number 加算点or倍率; bool 有効か }
-  AGE_BENCHMARK { number 年齢; number 平均; number 標準偏差 }
+  AGE_BENCHMARK { number 年齢; ref カテゴリ "カテゴリ別基準値の弁別子(U-1決裁: age×category)"; number 平均; number 標準偏差 }
 ```
 
 - **PointLedger は経済点数値（残高＝台帳総和を構成する点数）の唯一の権威（sole authority）**（Round 3 構造決定、Round 6 で無限定表現を経済点数値に限定）。ある子供が「いつ何点得た/使ったか」の正本は PointLedger エントリだけであり、残高は「全エントリ増減量の意味論的総和」という**派生量**（I-BAL、PointLedger のみから導出）。**衛星集約が持つ経済点数属性（活動記録の付与ポイント / チェックリスト達成の付与ポイント / ログインボーナスの付与ポイント / 週次評価のボーナスポイント 等）は、記録時に捕捉した非権威な表示用観測値**（streak と同格の captured observation）であって、残高計算の source ではない。権威と観測値が食い違ったら PointLedger を正とする（§5 I-LEDGER-AUTH / I-SATELLITE-RECON）。**非経済の演出値（バトル戦果値）・KPI スナップショットは本条の対象外**（台帳に入らない）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。

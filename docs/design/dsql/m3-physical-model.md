@@ -95,7 +95,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 | M2 リレーション | 物理テーブル | PK | secondary | 物理判断メモ |
 |---|---|---|---|---|
 | R-CHILD_ACTIVITY | `child_activities` | `(family_id, child_id, activity_id uuid)` | 初期 PK のみ | per-child instance 維持（ADR-0055、catalog+override 不採用）。`取込元テンプレート source_marketplace_item_id text?`（弱帰属、FK 無し、削除耐性）。priority CHECK(must/optional)。category は `categories(code)` 参照（FK 無し）。記録時に category_id を activity_logs へ snapshot（§4.1 式 index 回避） |
-| R-ACTIVITY_PREFERENCE | `activity_preferences` | `(family_id, child_id, activity_id)` 自然複合（活動 1:0..1 縦分解） | — | ピン留め/表示順 |
+| R-ACTIVITY_PREFERENCE | `child_activity_preferences` | `(family_id, child_id, activity_id)` 自然複合（活動 1:0..1 縦分解） | — | ピン留め/表示順（物理表名 = schema `child_activity_preferences`） |
 | R-ACTIVITY_MASTERY | `activity_mastery` | `(family_id, child_id, activity_id)` 自然複合 | — | 累計回数/習熟レベルは **導出（D-MASTERY）**。materialize（派生列）は §6/PoC 判断 |
 | R-DAILY_MISSION | `daily_missions` | `(family_id, child_id, mission_date, activity_id)` 自然複合 | — | M2 Round 2 で子供属性削除・BCNF 是正済 → PK に child_id を含むのは family_id 先頭 tenant 物理規約ゆえ（論理は活動経由導出、物理は tenant PK 規約で child_id を PK 前置。矛盾なし = child_id は活動所有子供と一致し PK 前置は tenant 隔離目的）。`完了か` は導出（D-MISSION-DONE） |
 
@@ -153,7 +153,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 
 | M2 リレーション | 物理テーブル | PK | secondary | 物理判断メモ |
 |---|---|---|---|---|
-| R-GRADUATION_CONSENT | `graduation_consents` | `(family_id, consent_id uuid v4)` | `(family_id, agreed_public, consented_at)`（publicSamples/aggregate） | 複数子×複数回 = surrogate。**卒業時点数KPI/利用期間日数KPI は概念外プロジェクション**（台帳外、D-BALANCE 非寄与） |
+| R-GRADUATION_CONSENT | `graduation_consent` | `(family_id, consent_id uuid v4)` | `(family_id, agreed_public, consented_at)`（publicSamples/aggregate） | 複数子×複数回 = surrogate。**卒業時点数KPI/利用期間日数KPI は概念外プロジェクション**（台帳外、D-BALANCE 非寄与） |
 | R-PUSH_SUBSCRIPTION | `push_subscriptions` | `(family_id, subscription_id uuid)` | **UNIQUE `(endpoint)` global**（無 tenant 単点 findByEndpoint） | endpoint は rotate される mutable = surrogate。購読元 membership role∈{parent,owner}（I-PUSH-ROLE、§3.3） |
 | R-NOTIFICATION_LOG | `notification_logs`（append-only） | `(family_id, log_id uuid v4)` | sent_at 素の列 | once-per-period 一意なし = surrogate |
 | R-VIEWER_TOKEN | `viewer_tokens` | `(family_id, token_id uuid)` | **UNIQUE `(token)` global** | token は revoke 後再発行 = surrogate |
@@ -166,10 +166,19 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 |---|---|---|---|
 | R-CATEGORY | `categories` | `(code)` 自然キー | 固定 5 軸。tenant プレフィクスなし |
 | R-STAMP_MASTER | `stamp_masters` | `(stamp_code)` 自然キー | レアリティ列挙 |
-| R-AGE_BENCHMARK | `age_benchmarks` | **U-1 未決（§9）** | M2 既定 `(年齢)` / 候補 `(年齢, category_id)`。**PK 凍結対象ゆえ freeze 前に board 確定必須** |
+| R-AGE_BENCHMARK | `market_benchmarks` | `(age, category_id)`（**U-1 決裁済 2026-07-05、§9**） | 実データ調査で確定（`AGE_BENCHMARK ‖–o{ STATUS` のカテゴリ別整合）。物理表名 = schema `market_benchmarks`、GLOBAL_MASTER_PK_MANIFEST で凍結済。category_id はグローバル master categories(code) 論理 FK |
 | R-PLAN | `plans`（lookup 表） | `(plan_code)` 自然キー | 増減集合ゆえ lookup（CHECK でない、P1 の ALTER 後付け不可回避）。`plan_tier` 参照 |
 | R-PLAN_TIER | `plan_tiers`（lookup 表） | `(plan_tier)` 自然キー | → 猶予日数（I-LIFECYCLE grounding、[must]1 推移従属分解済） |
 | R-BILLING_EVENT_OBSERVATION | `stripe_webhook_events` | `(event_id)` 自然キー | webhook 冪等（at-least-once、二重課金防止）。tenant_id は nullable analytics 属性。実装は課金稼働前 MUST（本データモデル凍結と decouple） |
+
+### §1.11 M2 relation 外の実装表（no-silent-gap の明示、settings）
+
+**`settings`（`(family_id, key)` 自然複合 PK、family KVS）は M2 の 60 relation に写像元を持たない実装表**（事実上 61 番目の非系譜表）。M3 §8.1 の「§1 各行が M2 60 relation に 1:1 対応」宣言に対する**唯一の例外**として本節で明示 reconcile する（silent に存置しない）。
+
+- **存置根拠**: M2 L-14 の「軽微概念」のうち、型付きリレーションに昇格しきれない雑多な family 単位設定（機能フラグ / 表示既定 / 一時的な運用値等）の受け皿。個別 relation 化すると U-5（L-14a 軽微概念、§9）を過剰に確定してしまう → KVS で緩衝する（anchor (b): KVS の 1-key-1-value = 構造的確実性で自然複合 PK 凍結可）。
+- **凍結非可逆リスクなし**: PK `(family_id, key)` の値自体は正当（anchor (b)）。key の増減は行追加で吸収し PK 不変。
+- **セキュリティ（CWE-522/916、`dsql-data-model.md` §11.3 自己指摘）**: KVS は schema-walk の死角になりうるため、**export/backup allowlist で明示許可した key のみ移送**する（value に秘匿値を溜めない運用を repo/セキュリティ PR で強制）。
+- **昇格 path**: 特定 key が型付き検索/制約を要すると判明したら、対応する family policy 表（decay/approval/notification 等、§1.1）へ昇格 or 新表追加（可逆、PK 凍結 blocker でない）。
 
 ---
 
@@ -187,7 +196,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 | 判定 | 表 | anchor |
 |---|---|---|
 | **凍結（自然複合 PK）** | rest_days / login_bonuses / daily_battles | (a) ADR-0012（1 日/1 期間 1 回 = anti-engagement の直接帰結） |
-| **凍結（自然複合 PK）** | statuses / activity_mastery / activity_preferences / daily_missions / stamp_entries / checklist_logs / checklist_template_assignments | (b) 構造的確実性（子供×カテゴリ / 活動×子供 / 配信×子供 / 日次1 は product 上単一 cardinality。既存 UNIQUE index が全昇格表で裏付け済 = grep 実測 2026-07-01）。**⚠️ Round 2 [must]1 是正: `checklist_log_items` / `evaluation_scores` を本 freeze list から削除**（§4.2/§4.3 で両子表を作らず親の `items_json`/`scores_json` text 列に据置。freeze list に残すと M4 が子表を新設し PK 非可逆凍結 → 原初のデータ喪失が非可逆に再来するため） |
+| **凍結（自然複合 PK）** | statuses / activity_mastery / child_activity_preferences / daily_missions / stamp_entries / checklist_logs / checklist_template_assignments | (b) 構造的確実性（子供×カテゴリ / 活動×子供 / 配信×子供 / 日次1 は product 上単一 cardinality。既存 UNIQUE index が全昇格表で裏付け済 = grep 実測 2026-07-01）。**⚠️ Round 2 [must]1 是正: `checklist_log_items` / `evaluation_scores` を本 freeze list から削除**（§4.2/§4.3 で両子表を作らず親の `items_json`/`scores_json` text 列に据置。freeze list に残すと M4 が子表を新設し PK 非可逆凍結 → 原初のデータ喪失が非可逆に再来するため） |
 | **UUID surrogate + droppable UNIQUE（M2 代理識別子分類を追認）** | stamp_cards（シーズン復活で週複数化可）/ certificates（再発行・周期型で type 複数化可） | **M2 §3.1 が既に両者を代理識別子バケットに分類済**（[must]C8）。物理 outcome は M2 と一致。governing rule anchor 無しの明文化として根拠を補強（mutable product default → §P1 で自然 PK 凍結不可） |
 
 ### §2.2 PK 凍結 manifest の考え方（構造決定）
@@ -244,7 +253,7 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 | 分類 | 表 | family_id 述語なしで許す理由 |
 |---|---|---|
-| **グローバル master**（tenant 非依存） | `categories` / `stamp_masters` / `age_benchmarks` / `plans` / `plan_tiers` / `stripe_webhook_events` | family に属さない共有参照（§1.10）。テナントデータを含まない |
+| **グローバル master**（tenant 非依存） | `categories` / `stamp_masters` / `market_benchmarks` / `plans` / `plan_tiers` / `stripe_webhook_events` | family に属さない共有参照（§1.10）。テナントデータを含まない |
 | **tenant 非依存 auth** | `users`（global、email lookup）/ `email_login_lockouts`（未登録メールもロック対象） | family に閉じない独立参照（M2 Q-02=A / I-EMAIL-LOCK） |
 | **global-UNIQUE capability lookup** | `viewer_tokens`(token) / `cloud_exports`(pin_code) / `push_subscriptions`(endpoint) / `memberships`(**user_id = 認証済 principal 本人のみ** → findUserTenants) / `invites`(token_hash) | 無 tenant 単点 lookup（capability = 偽造不能秘密で照合）。**⚠️ この単点 fetch は必ず後段で取得行の family_id に再スコープ**（下記不変条件）。**memberships(user_id) は「認証済 JWT の principal 本人の user_id」に限定**し、任意 user_id を受けて他ユーザーの所属テナントを列挙させない（偽造 user_id での cross-user テナント列挙を防止） |
 
@@ -262,7 +271,7 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 | 用途 | 接続ロール | 権限 |
 |---|---|---|
-| **アプリ実行時** | 専用最小権限 postgres role（`DbConnect` 系 IAM、`DbConnectAdmin` でない） | tenant 表への SELECT/INSERT + 業務上必要な UPDATE のみ。**append-only 表（`consents`/`point_ledger`/`status_history`/`*_logs`/`trial_history`/`cancellation_reasons`/`graduation_consents`/`notification_logs`）への UPDATE/DELETE grant を与えない**（I-CONS 等の追記性を DB GRANT で物理担保） |
+| **アプリ実行時** | 専用最小権限 postgres role（`DbConnect` 系 IAM、`DbConnectAdmin` でない） | tenant 表への SELECT/INSERT + 業務上必要な UPDATE のみ。**append-only 表（`consents`/`point_ledger`/`status_history`/`*_logs`/`trial_history`/`cancellation_reasons`/`graduation_consent`/`notification_logs`）への UPDATE/DELETE grant を与えない**（I-CONS 等の追記性を DB GRANT で物理担保） |
 | **migration / admin** | 別クレデンシャル（`DbConnectAdmin`） | DDL・GRANT 管理。アプリ実行経路から到達不能 |
 
 - **fitness**: append-only 表への UPDATE/DELETE を repo 層で非定義 + GRANT 除外 + AST lint の 3 層（RLS 不在の代替、consent 削除・台帳改竄の物理防御）。
@@ -411,7 +420,8 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 
 ### §8.1 物理テーブル → M2 リレーション（no-silent-gap）
 
-§1 の各行が M2 全 60 リレーションを漏れなく写像（§1.1〜§1.10 で M2 §1.1〜§1.10 に 1:1 対応）。統合/分割:
+§1 の各行が M2 全 60 リレーションを漏れなく写像（§1.1〜§1.10 で M2 §1.1〜§1.10 に 1:1 対応）。物理表の総数は 58（60 relation − EVALUATION_SCORE/CHECKLIST_ITEM_RESULT の text 吸収 2 − SUBSCRIPTION_STATE の families 吸収 1 = 57 relation-backed 表 + §1.11 `settings` の 1 実装表 = 58）。統合/分割:
+- **M2 relation 外の実装表**: `settings`（family KVS）は 60 relation に写像元を持たない**唯一の非系譜表**として §1.11 で明示 reconcile（silent に存置しない、no-silent-gap）。
 - **統合**: R-SIBLING_CHEER(+SENT) → `sibling_cheers` 1 表（M2 で統合済）。
 - **子表を作らない（[must]A 是正）**: R-EVALUATION_SCORE/R-CHECKLIST_ITEM_RESULT は **親の text 列に据置**（`evaluations.scores_json`/`checklist_logs.items_json`）。M2 L-04 の論理解体は維持しつつ物理は text 据置（field query 0 件 + reset-plan 決定#1、§4）。
 - **1:1 従属の物理クラスタリング**: §1.1a（別表 baseline、families 吸収は PoC）。
@@ -440,7 +450,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 
 | M2 U | 論点 | 物理帰結 |
 |---|---|---|
-| **U-1** | age_benchmarks の CK に category を含めるか（`{年齢}` vs `{年齢, category}`） | **PK 凍結対象ゆえ freeze 前に board 確定必須（P1 で後変更不可）**。M2 既定 `(age)`。`AGE_BENCHMARK ‖–o{ STATUS`（status はカテゴリ別）との整合では `(age, category_id)` が自然だが、M2 が「勝手に足さない」で `(age)` 既定 → **物理的には凍結ゲートの blocker**（誤って `(age)` 凍結後に category 別が必要になると表再構築）。**board 決裁を凍結 ceremony 前に強制**。 |
+| **U-1（決裁済 2026-07-05）** | market_benchmarks の CK に category を含めるか（`{年齢}` vs `{年齢, category}`） | **✅ 決裁 = `(age, category_id)`**（実データ調査で確定、board 承認）。`AGE_BENCHMARK ‖–o{ STATUS`（status はカテゴリ別）との整合でカテゴリ別基準値が正。**凍結済**（GLOBAL_MASTER_PK_MANIFEST `market_benchmarks: ['age','category_id']`、M1 mermaid + M2 §6 U-1 + R-AGE_BENCHMARK CK も同期是正）。凍結ゲートの blocker は本 U-1 が唯一だったが決裁で解消。 |
 | **U-2** | loyalty 記念チケット（第 2 通貨）counter vs ledger | **物理 = int カウンタ列**（R-LOYALTY_STATE の `(family_id)` 1:1 表）= M2 既定。**ledger 化は新表追加で常に可能（可逆、P1 の PK 制約に非該当）**ゆえ counter 既定が期待損失最小。I-DERIVED 普遍則の穴（増減履歴なし = update anomaly）は残るが、監査可能性が要件化した時点で `loyalty_ledger` 表を後付け（board 判断）。 |
 | **U-3** | 静音時間帯 2 属性展開 vs 値オブジェクト | **物理 = text 据置（既定）**（[must]A 是正で全 JSON 列 text 据置に一本化、reset-plan 決定#1）。範囲 field query 0 件ゆえ据置が安全側。将来 `start`/`end` の SQL 範囲比較（静音時間帯の DB 側判定）が実発生したら 2 列展開を `ALTER ADD COLUMN` で可逆に検討（displayConfig と同扱い）。M2 の論理展開は「意味ある属性への分解」の宣言であり、物理格納の text 据置と両立（parse 後 JS で分解） |
 | **U-4** | 1:1 家族方針の縦分解 vs Family 吸収 | **物理 = 別テーブル baseline**（§1.1a、WriteDPU バイト課金 + 独立更新 + 概念独立）。families 吸収は read-DPU 最適化として **PoC 保留（#3425）**。可逆。 |
@@ -449,7 +459,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 | **U-7** | 由来参照の多態（弱単一 vs 由来種別+識別子） | **物理 = 2 列 `source_type` + `source_id`（多態明示）**（M2 §0 の単一 `参照<R>` では多態を表せず well-formed でないゆえ、M2 自身が推す (b)）。FK 無し弱参照（P3 + 削除耐性）。**構造決定**。 |
 | **U-8** | FixedIntervalReward の最小構造（発行間隔 N/last-issued/冪等キーの置き場所） | **物理テーブル未確定（M2 で構造保留）**。発行結果は special_rewards として現れる。発行状態（間隔 N・last-issued・冪等キー）は R-CHILD_ACTIVITY 列追加（`ALTER ADD COLUMN` 可逆）or 独立発行状態表（新表可逆）のいずれも **PK 凍結 blocker でない**。board 確定後に §1 追補。 |
 
-> **凍結 ceremony の blocker は U-1 のみ**（PK に触れる）。U-2/U-3/U-4/U-5/U-8 は列追加/新表/列 drop で可逆ゆえ凍結後も対応可。U-6/U-7 は構造決定済。
+> **凍結 ceremony の blocker だった U-1 は決裁済**（`market_benchmarks(age, category_id)` 凍結、2026-07-05）→ **凍結 blocker は残存 0**。U-2/U-3/U-4/U-5/U-8 は列追加/新表/列 drop で可逆ゆえ凍結後も対応可。U-6/U-7 は構造決定済。
 
 ---
 

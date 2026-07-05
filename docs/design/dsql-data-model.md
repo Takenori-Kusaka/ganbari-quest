@@ -399,7 +399,15 @@ children (
 | cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds） | UUID surrogate（pin は expire 後再利用） |
 | cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後 | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
 | graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate） | UUID surrogate（複数子×複数回で多数行が正） |
-| **グローバル master**（tenant 非依存）: categories(code) / stamp_masters / market_benchmarks(age,category_id) / stripe_webhook_events(event_id, tenant_id は nullable analytics 属性) | 自然キー | — | tenant プレフィクスなし。**achievements/child_achievements/title は §10-10 で drop 確定＝新スキーマに作らない** |
+| parent_gate_credentials | `(family_id)` | — | 1:1 従属（M2 §1.1、ADR-0050 保護者ゲート。PIN は平文非保持ハッシュ、失敗回数/ロック解除時刻/リセット痕跡は素の列） |
+| loyalty_state | `(family_id)` | — | 1:0..1 従属（M2 §1.1、記念チケット数=点数経済外の第2通貨カウンタ D-LOYALTY） |
+| account_lifecycle | `(family_id)` | — | 1:1 従属（M2 §1.1、状態機械 active/soft-deleted/purged、猶予プラン層→plan_tiers 論理 FK） |
+| decay_policy | `(family_id)` | — | 1:1 従属（M2 §1.1 L-17、強度 none/gentle/normal/strict + 猶予日数） |
+| approval_policy | `(family_id)` | — | 1:0..1 従属（M2 §1.1、自動承認 真偽） |
+| point_conversion_policy | `(family_id)` | — | 1:0..1 従属（M2 §1.1、換算レート real スカラー） |
+| notification_settings | `(family_id)` | — | 1:0..1 従属（M2 §1.1、静音時間帯は M3 §9 U-3 で text 据置 override） |
+| bonus_rules | `(family_id, rule_id uuid)` | — | family master 1:N（M2 §1.1、発火条件は M3 §1.1 で text 据置 override、効果は基礎点畳み込み L-19） |
+| **グローバル master**（tenant 非依存）: categories(code) / stamp_masters(stamp_code) / market_benchmarks(age,category_id) / plans(plan_code) / plan_tiers(plan_tier) / stripe_webhook_events(event_id, tenant_id は nullable analytics 属性) / email_login_lockouts(email, 家族非依存) | 自然キー | — | tenant プレフィクスなし。**achievements/child_achievements/title は §10-10 で drop 確定＝新スキーマに作らない** |
 
 ### §11.3 per-column 完全 DDL（drizzle 2 方言）
 
