@@ -18,20 +18,32 @@ import {
 
 const BP = '--> statement-breakpoint';
 
-/** 適用文と sys.jobs poll を記録する mock。poll には index ごとの status を返す。 */
+/**
+ * 適用文 / watermark 捕捉 / sys.jobs poll を記録する mock。
+ * - `max(...) AS watermark` (watermark 捕捉) → watermarks 記録 + {watermark:null} 返却。
+ * - `ORDER BY ... LIMIT 1` (poll) → polls 記録 + index ごとの status 返却。
+ * - それ以外 → applied 記録 (DDL/DML 適用)。
+ */
 function recordingExecutor(jobStatus: Record<string, string> = {}): RawSqlExecutor & {
 	applied: string[];
 	polls: string[];
+	watermarks: string[];
 } {
 	const applied: string[] = [];
 	const polls: string[] = [];
+	const watermarks: string[] = [];
+	const objectName = (s: string) => s.match(/object_name = 'public\.(\w+)'/)?.[1] ?? '';
 	return {
 		applied,
 		polls,
+		watermarks,
 		execute: async (sqlText: string) => {
+			if (/AS watermark/i.test(sqlText)) {
+				watermarks.push(objectName(sqlText));
+				return { rows: [{ watermark: null }] };
+			}
 			if (/FROM sys\.jobs/i.test(sqlText)) {
-				const m = sqlText.match(/object_name = 'public\.(\w+)'/);
-				const idx = m?.[1] ?? '';
+				const idx = objectName(sqlText);
 				polls.push(idx);
 				return { rows: [{ status: jobStatus[idx] ?? 'completed' }] };
 			}
@@ -65,6 +77,8 @@ describe('applyDsqlMigrationPlan — 適用順序', () => {
 		]);
 		// index の後に poll が 1 回走る。
 		expect(exec.polls).toEqual(['members_uq']);
+		// 発行前に watermark を 1 回捕捉する (今回 build 限定・fail-open 防止)。
+		expect(exec.watermarks).toEqual(['members_uq']);
 	});
 
 	it('index build failed で throw し、以降の文 (DML) を適用しない', async () => {
@@ -122,6 +136,22 @@ describe('runDsqlMigration — transform + apply 一括', () => {
 		expect(exec.applied.some((s) => /CREATE INDEX ASYNC "members_family_idx"/.test(s))).toBe(true);
 		expect(exec.polls).toEqual(['members_family_idx']);
 		expect(plan.ddl).toHaveLength(2); // CREATE TABLE + ASYNC index (FK は除去済)
+	});
+
+	it('UNIQUE の ADD CONSTRAINT ALTER を ASYNC UNIQUE INDEX へ変換して適用・poll する', async () => {
+		const exec = recordingExecutor();
+		const input = [
+			'CREATE TABLE "t" ("id" uuid PRIMARY KEY NOT NULL, "a" text NOT NULL)',
+			'ALTER TABLE "t" ADD CONSTRAINT "t_a_uq" UNIQUE ("a")',
+		].join(`;\n${BP}\n`);
+
+		await runDsqlMigration(input, exec);
+
+		expect(exec.applied.some((s) => /ALTER TABLE/i.test(s))).toBe(false);
+		expect(
+			exec.applied.some((s) => /CREATE UNIQUE INDEX ASYNC "t_a_uq" ON "t" \("a"\)/.test(s)),
+		).toBe(true);
+		expect(exec.polls).toEqual(['t_a_uq']);
 	});
 });
 

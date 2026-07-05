@@ -139,6 +139,75 @@ describe('transformDrizzleSqlToDsql — 責務 5: SERIAL/SEQUENCE 禁止', () =>
 		expect(transformDrizzleSqlToDsql('CREATE SEQUENCE "s1" CACHE 65536').ddl).toHaveLength(1);
 		expect(transformDrizzleSqlToDsql('CREATE SEQUENCE "s2" CACHE 1').ddl).toHaveLength(1);
 	});
+
+	// [should]1 false-positive ガード: 列名 "serial" / DEFAULT 'serial' で誤 throw しない。
+	it('列名が "serial" の CREATE TABLE は誤 throw しない (型宣言でない)', () => {
+		const plan = transformDrizzleSqlToDsql(
+			'CREATE TABLE "t" ("id" uuid PRIMARY KEY NOT NULL, "serial" text NOT NULL)',
+		);
+		expect(plan.ddl).toHaveLength(1);
+	});
+
+	it("DEFAULT 'serial' 文字列を含む CREATE TABLE は誤 throw しない", () => {
+		const plan = transformDrizzleSqlToDsql(
+			'CREATE TABLE "t" ("id" uuid PRIMARY KEY NOT NULL, "kind" text DEFAULT \'serial\' NOT NULL)',
+		);
+		expect(plan.ddl).toHaveLength(1);
+	});
+});
+
+describe('transformDrizzleSqlToDsql — [should] robustness', () => {
+	// [should]2: 引用識別子の実名を silent 切詰めしない (poll が別 object を叩くのを防ぐ)。
+	it('空白を含む引用 index 名を完全保持する', () => {
+		const plan = transformDrizzleSqlToDsql('CREATE UNIQUE INDEX "members uq" ON "members" ("a")');
+		expect(plan.ddl[0].asyncIndexName).toBe('members uq');
+	});
+
+	it('ハイフンを含む引用 index 名を完全保持する', () => {
+		const plan = transformDrizzleSqlToDsql('CREATE INDEX "members-idx" ON "members" ("a")');
+		expect(plan.ddl[0].asyncIndexName).toBe('members-idx');
+	});
+
+	// [should]3: 文字列/DEFAULT 内の REFERENCES を誤除去して DEFAULT を破壊しない。
+	it("DEFAULT 'see REFERENCES parent(id)' 文字列を FK 除去で壊さない", () => {
+		const input =
+			'CREATE TABLE "t" (\n\t"id" uuid PRIMARY KEY NOT NULL,\n\t"note" text DEFAULT \'see REFERENCES parent(id)\' NOT NULL,\n\t"family_id" uuid REFERENCES "families"("id")\n)';
+		const out = transformDrizzleSqlToDsql(input).ddl[0].sql;
+		// 文字列内の REFERENCES は残る。列レベル inline FK (family_id) は除去される。
+		expect(out).toContain("DEFAULT 'see REFERENCES parent(id)'");
+		expect(out).toMatch(/"family_id" uuid\s*\)/); // inline FK 除去済
+	});
+
+	// [should]4: 非 FK の ADD CONSTRAINT ALTER の扱い。
+	it('UNIQUE の ADD CONSTRAINT ALTER を CREATE UNIQUE INDEX ASYNC へ変換する', () => {
+		const plan = transformDrizzleSqlToDsql(
+			'ALTER TABLE "t" ADD CONSTRAINT "t_uq" UNIQUE ("a","b")',
+		);
+		expect(plan.ddl).toHaveLength(1);
+		expect(plan.ddl[0].sql).toMatch(/^CREATE UNIQUE INDEX ASYNC "t_uq" ON "t" \("a","b"\)$/);
+		expect(plan.ddl[0].asyncIndexName).toBe('t_uq');
+	});
+
+	it('PRIMARY KEY の ADD CONSTRAINT ALTER は明示 throw する (inline へ寄せるべき)', () => {
+		expect(() =>
+			transformDrizzleSqlToDsql('ALTER TABLE "t" ADD CONSTRAINT "t_pk" PRIMARY KEY ("id")'),
+		).toThrow(/ADD CONSTRAINT/);
+	});
+
+	it('CHECK の ADD CONSTRAINT ALTER は明示 throw する', () => {
+		expect(() =>
+			transformDrizzleSqlToDsql('ALTER TABLE "t" ADD CONSTRAINT "t_ck" CHECK ("n" > 0)'),
+		).toThrow(/ADD CONSTRAINT/);
+	});
+
+	// FK 修飾 (DEFERRABLE / MATCH) 断片を孤立させず除去する。
+	it('DEFERRABLE / MATCH FULL 付き表レベル FK を修飾ごと除去する', () => {
+		const input =
+			'CREATE TABLE "t" (\n\t"id" uuid PRIMARY KEY NOT NULL,\n\t"fid" uuid NOT NULL,\n\tCONSTRAINT "t_fk" FOREIGN KEY ("fid") REFERENCES "f"("id") MATCH FULL ON DELETE cascade DEFERRABLE INITIALLY DEFERRED\n)';
+		const out = transformDrizzleSqlToDsql(input).ddl[0].sql;
+		expect(out).not.toMatch(/FOREIGN KEY|REFERENCES|MATCH|DEFERRABLE|INITIALLY/i);
+		expect(out).not.toMatch(/,\s*\)/); // dangling comma なし
+	});
 });
 
 // ── §PGlite: 変換後 SQL が「vanilla Postgres として valid」であることの確認 ──
