@@ -1,45 +1,45 @@
 # M1 概念データモデル（Conceptual Data Model / ANSI-SPARC 概念層）— がんばりクエスト
 
-> **状態**: M1 成果物（データアーキ ground-up 導出、M1 レビュー board 評価待ち）。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）。
+> **状態**: M1 成果物 — **Round 1 レビュー board（3 独立観点）指摘反映済（rework 版）**。応答台帳: `docs/design/dsql/m1-review-round1-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
 >
-> **層の位置づけ（ANSI-SPARC）**: 本書は **概念層（conceptual schema）** に限定する。ここでは「業務ドメインに何が存在し、それらがどう関係し、どんな不変条件を満たすか」だけを述べる。**格納・物理表現（識別子の物理形式・索引・正規形の次数・格納フォーマット・トランザクション機構・分散配置）は一切扱わない**。それらは後続 M3（物理設計）の責務であり、既存の物理設計草稿 `docs/design/dsql-data-model.md`（§3 集約 / §11 確定スキーマ）が M3 の入力である。
+> **層の位置づけ（ANSI-SPARC）**: 本書は **概念層（conceptual schema）** に限定する。「業務ドメインに何が存在し、どう関係し、どんな不変条件を満たすか」だけを述べる。**格納・物理表現（識別子の物理形式・索引・正規形の次数・格納フォーマット・トランザクション機構・分散配置・認証ベンダ名）は一切扱わない**。それらは後続 M3（物理設計）の責務で、既存の物理草稿 `docs/design/dsql-data-model.md` が M3 の入力である。
 >
-> **導出方針（最重要）**: 概念は **製品ドメインから ground-up で導出**する。既存の型定義・スキーマ（`src/lib/server/db/types/index.ts` / `interfaces/*.interface.ts` / `auth/entities.ts` / `dsql-data-model.md`）は「**現状の振る舞いを理解するための参照**」であって anchor ではない。**DynamoDB single-table 時代に混入した歪み（単一代理識別子の強制・非正規な埋め込み・派生値の二重保持・暗黙のテナント導出）は概念モデルに持ち込まず、指摘して削ぐ**（§6 対照表）。
+> **導出方針**: 概念は **製品ドメインから ground-up で導出**する。既存の型定義・スキーマ・設定 KVS（`src/lib/server/db/types/index.ts` / `interfaces/*.interface.ts` / `auth/entities.ts` / 各 service / `dsql-data-model.md`）は「現状の振る舞いを理解するための参照」であって anchor ではない。**DynamoDB single-table 時代の歪み（単一 opaque 識別子の一律強制・非正規な埋め込み・派生値の二重保持・暗黙のテナント導出・役割二重書き）は概念に持ち込まず、指摘して削ぐ**（§7）。
+>
+> **Round 1 で解消した最大の欠落**: 家族設定（従来 KVS）を §2 読み替え規則で処理せず暗黙に捨てていた（no-silent-gap 違反）。本版で §2 に読み替え行を追加し、§3/§5/§6/§7 で **BonusRule / ParentGate 認証 / DecayPolicy / PointConversionPolicy / ApprovalPolicy / NotificationSettings / LoyaltyState / DefaultChildSelection / AccountLifecycle** を概念昇格、UI 状態を概念外と明示した。
 
 ---
 
 ## §1 ドメイン概要と境界づけられたコンテキスト
 
-### §1.1 プロダクトの中核業務概念（`docs/design/01-企画書.md` / `docs/DESIGN.md` §1/§8 / ゲーミフィケーション設計書より）
+### §1.1 プロダクトの中核業務概念
 
-がんばりクエストは「**家庭内で、子供の日々の活動を RPG 風のゲーミフィケーションで動機づける**」プロダクトである。ドメインの背骨は次の因果連鎖にある:
+がんばりクエストは「**家庭内で、子供の日々の活動を RPG 風ゲーミフィケーションで動機づける**」プロダクト。背骨の因果連鎖:
 
-1. **家族（テナント）** が閉じた単位で、その中に **子供** と **保護者** が居る。
-2. 子供が **活動（あるいはチェックリスト・チャレンジ・バトル・ログインなど）** を **記録** する。
-3. 記録は **ポイント（点数経済）** を生み、同時に **ステータス（カテゴリ別の成長度）** を育てる。
-4. たまったポイントを **ごほうび** と交換し、成長は **証書・称号的マイルストーン** で可視化される。
-5. 家族は子供を **応援**（メッセージ・スタンプ）し、成長を **見守り**、いずれ **卒業** する。
+1. **家族（テナント）** が閉じた単位で、中に **子供** と **保護者** が居る。
+2. 子供が **活動・チェックリスト・チャレンジ・バトル・ログイン等** を **記録** する。
+3. 記録は **ポイント（点数経済）** を生み、同時に **ステータス（カテゴリ別の成長度）** を育てる。ステータスは放置すると **減衰** する（習慣化の圧）。
+4. たまったポイントを **ごほうび** と交換し（残高を消費）、成長は **証書** 等で可視化される。
+5. 家族は子供を **応援** し、**見守り**、いずれ **卒業** する。
 
-この連鎖のうち **「記録 → ポイント + ステータス」** が最頻・最重要のトランザクション単位であり（`dsql-data-model.md` §3.5.1 の hot path）、概念設計上の整合の核となる。
+このうち **「記録 → ポイント + ステータス + 習熟」** が最頻・最重要のトランザクション整合単位であり、概念整合の核となる。**保護者による操作の保護（保護者ゲート）** と **契約（課金）** が家族の外郭を成す。
 
-### §1.2 境界づけられたコンテキスト（Bounded Context）一覧
-
-ドメインを、言語（ユビキタス言語）と整合の単位が変わる境界で 8 コンテキストに分ける。各コンテキストは §3 の集約群を内包する。
+### §1.2 境界づけられたコンテキスト（Bounded Context）
 
 | # | コンテキスト | 業務上の関心事 | 主要概念 |
 |---|---|---|---|
-| **C1** | **家族・アクセス管理**（Identity & Access） | 誰が家族に属し、どの役割で、何に同意したか | 家族、利用者、所属、招待、同意 |
-| **C2** | **契約・課金**（Subscription & Billing） | 家族が今どのプランで、どんな契約状態か、トライアル履歴 | 契約状態、プラン、トライアル履歴、解約理由 |
-| **C3** | **子供プロフィール**（Child Profile） | 子供は誰で、何歳で、どの年齢帯モード・見た目か | 子供、年齢帯、テーマ、アバター、休養日 |
-| **C4** | **活動と記録**（Activity & Recording） | 子供が何をして、いつ記録したか | 子供の活動、活動記録、習熟度、ピン留め、今日のミッション、カテゴリ |
-| **C5** | **成長経済**（Growth Economy） | 記録がどう点数・成長・評価に変換されるか | ポイント台帳、ポイント残高（派生）、ステータス、ステータス履歴、基準値、週次評価 |
-| **C6** | **ごほうびと承認**（Rewards） | 子供が何と交換でき、保護者がどう承認するか | ごほうび、交換申請 |
-| **C7** | **習慣化の道具**（Habit Instruments） | 反復・継続を支える仕組み | チェックリスト（家族マスタ＋配信＋進捗）、チャレンジ、スタンプカード、ログインボーナス、バトル |
-| **C8** | **家族の関わりと節目**（Engagement & Milestones） | 家族間の応援・見守り・節目の祝福・通知 | 保護者メッセージ、きょうだい応援、証書、誕生日ふりかえり、卒業同意、閲覧リンク、通知、メディア |
+| **C1** | **家族・アクセス管理** | 誰が家族に属し、どの役割で、何に同意し、どう本人確認・保護者確認するか | 家族、利用者、所属、招待、同意、保護者ゲート認証、メールログインロック |
+| **C2** | **契約・課金** | 家族の現プラン・契約状態・トライアル履歴・ロイヤルティ・解約 | 契約状態、プラン、トライアル履歴、ロイヤルティ、解約理由 |
+| **C3** | **子供プロフィール** | 子供は誰で、何歳で、どの年齢帯モード・見た目か | 子供、年齢帯、テーマ、アバター参照、休養日 |
+| **C4** | **活動と記録** | 子供が何をして、いつ記録したか | 子供の活動、活動記録、習熟度、ピン留め、今日のミッション、カテゴリ |
+| **C5** | **成長経済** | 記録がどう点数・成長・減衰・評価に変換されるか | ポイント台帳、残高（派生）、ステータス、ステータス履歴、減衰方針、基準値、週次評価、ボーナスルール |
+| **C6** | **ごほうびと承認** | 何と交換でき、保護者がどう承認し、残高がどう消費されるか | ごほうび、交換申請、承認方針、ポイント換算方針 |
+| **C7** | **習慣化の道具** | 反復・継続を支える仕組み | チェックリスト（家族マスタ＋配信＋進捗）、チャレンジ、スタンプカード、ログインボーナス、バトル |
+| **C8** | **家族の関わりと節目** | 応援・見守り・節目の祝福・通知 | 保護者メッセージ、きょうだい応援、証書、卒業同意、通知設定・購読・ログ、メディア参照 |
 
-> **境界の根拠**: C1/C2 は「家族という 1 個の主体」の内側で語られるが、**言語が異なる**（C1=同意・役割・招待は法務/認可の語彙、C2=プラン・請求は課金の語彙）ため分ける。C4 と C5 は「記録という 1 イベントが両方を同時に動かす」ため整合上の結合が最も強い（§4 不変条件 I-REC）。C7 は個々の習慣化装置が独立した記録源であり、いずれも C5 の点数経済に合流する。
+> **境界根拠**: C1/C2 は「家族 1 主体」の内側だが**言語が異なる**（C1=同意・役割・招待・保護者確認 = 認可/法務語彙、C2=プラン・請求 = 課金語彙）ため分ける。C4 と C5 は「記録 1 イベントが両方を同時に動かす」ため整合結合が最強（§5 I-REC）。C7 の各習慣装置は独立記録源で、いずれも C5 の点数経済に合流する。
 
-### §1.3 コンテキスト間の関係（Context Map）
+### §1.3 Context Map
 
 ```mermaid
 graph LR
@@ -53,203 +53,166 @@ graph LR
   C8[C8 関わりと節目]
 
   C1 -->|家族が全てを内包する所有境界| C3
+  C1 -->|保護者ゲートが親操作を保護| C6
   C1 -->|家族が契約主体| C2
-  C3 -->|子供がすべての活動主体| C4
+  C3 -->|子供が全活動の主体| C4
   C4 -->|記録が点数と成長を生む| C5
+  C5 -->|減衰が習慣化の圧を与える| C5
   C5 -->|残高がごほうび交換の原資| C6
   C7 -->|各習慣装置も点数を生む| C5
   C3 -->|子供が節目・応援の対象| C8
-  C7 -->|チェックリスト等の達成も点数化| C5
 ```
 
-**関係の性質**: **家族（C1）が最上位の所有境界**であり、C2〜C8 のあらゆる概念は「ある 1 つの家族に属する」。この所有は概念的に **無条件・全域**（あらゆる子供スコープ概念は、その子供を通じて必ず 1 つの家族に属する）であり、後述の DynamoDB 遺産「テナント識別子の暗黙導出」は概念的には **明示的で例外なき所有関係** に置き換える（§6 対照表 L-01）。
+**関係の性質**: **家族（C1）が最上位の所有境界**であり、C2〜C8 のあらゆる概念は「ちょうど 1 つの家族に属する」（I-CHILD-FAM の全域性）。DynamoDB 遺産「テナント識別子の暗黙導出」は概念的に**例外なき明示所有**へ正す（§7 L-01）。
 
 ---
 
 ## §2 導出の前提（読み替え規則）
 
-既存参照を概念へ持ち上げる際に一貫適用した読み替え。**物理語 → 概念語**の対応であり、以降のモデルはすべて右列の語彙のみで記述する。
+物理・既存構造 → 概念の対応。以降のモデルは右列語彙のみで記述する。
 
 | 既存（物理・参照） | 概念モデルでの扱い |
 |---|---|
-| 代理整数識別子 + 採番カウンタ + 辞書順パディング | 概念的 **識別（identity）**。自然な識別が存在する概念（ステータス = 子供×カテゴリ 等）は **その自然識別**で語る。存在しない概念のみ「その概念固有の識別を持つ」とだけ言う（物理形式は M3） |
+| 代理整数識別子 + 採番カウンタ + 辞書順パディング | 概念的 **同一性（identity）**。自然な同一性を持つ概念（ステータス=子供×カテゴリ 等）は**その自然同一性**で語る。持たない概念のみ「固有の同一性を持つ」とだけ言う（物理形式は M3） |
 | テナント識別子列の有無・暗黙導出 | すべての概念は **所属する家族**を持つ（例外なし）。導出経路は概念では不問 |
-| 埋め込み文書（items/scores/config 等） | **構成要素を独立概念 or 値オブジェクト**に展開。検索・集計の対象になる要素は概念関係、原子的に読み書きされる不透明値のみ **値オブジェクト**（§5） |
-| 残高の二重保持（合計値の別保持 vs 都度合算） | **残高は派生量**（point 台帳の意味論的総和）。独立した事実として持たない（§4 I-BAL） |
-| 派生集計の read-model（日次サマリ） | ドメイン概念ではない。**派生プロジェクション**として概念モデルから除外（§6 L-07） |
-| 楽観版数・更新機構 | 整合の**実現手段**。概念では不変条件（§4）だけを述べ、機構は M3 |
-| 役割の二重書き（隣接文書） | **単一の所属関係**（利用者×家族に役割属性が 1 つ付く） |
-| 年齢の格納列 | **生年月日からの派生量**。独立事実として持たない（§4 I-AGE） |
+| 埋め込み文書（items/scores/config 等） | **構成要素を独立概念 or 値オブジェクト**へ展開。単独で参照・検索・集計される、または**他概念から参照される**要素は独立概念、原子的に丸ごと読み書きされ不検索の不透明値のみ値オブジェクト（Q-04 決裁基準） |
+| **家族設定 KVS（旧 settings、任意キー→文字列）** | **各キー群を意味あるドメイン概念へ展開**（BonusRule / ParentGate 認証 / DecayPolicy / PointConversionPolicy / ApprovalPolicy / NotificationSettings / LoyaltyState / AccountLifecycle / DefaultChildSelection 等）。**クライアント都合の一過性フラグ（チュートリアル既読・歓迎表示済・モーダル表示済 等）はドメイン概念外**と明示（§7 L-14）。**KVS を暗黙に捨てない**（no-silent-gap） |
+| 残高の二重保持（合計値の別保持 vs 都度合算） | **残高は派生量**（点数台帳の意味論的総和）。独立事実として持たない（§5 I-BAL / I-DERIVED） |
+| 派生集計の read-model（日次サマリ） | ドメイン概念でない。**派生プロジェクション**として除外（§7 L-07） |
+| 楽観版数・更新機構・署名セッション | 整合／認証の**実現手段**。概念では不変条件だけを述べ、機構は M3。**署名セッション（保護者ゲート）は無状態でドメイン永続概念でない**（§7 L-14 注） |
+| 役割の二重書き（隣接文書） | **単一の所属関係**（利用者×家族に役割 1 つ） |
+| 年齢の格納列 | **生年月日からの派生量**。独立事実として持たない（§5 I-AGE） |
+| 認証プロバイダのベンダ名リテラル | **認証プロバイダ（値集合）** という概念語で扱う（特定ベンダ名を概念に持ち込まない） |
 
 ---
 
 ## §3 ER モデル（概念）
 
-> 記法: mermaid `erDiagram`。属性は**業務的に意味のある主要属性のみ**（物理型・識別子形式は書かない）。関係のラベルは業務語で、多重度と参加制約（必須 = 実線的「必ず」/ 任意 = 「任意」）を注記で補う。読みやすさのためコンテキスト別に分割する。
+> 記法: mermaid `erDiagram`。属性は業務的に意味ある主要属性のみ。関係ラベルは業務語 + 多重度 + 参加制約（必須/任意）。
 
 ### §3.1 C1 家族・アクセス管理 / C2 契約・課金
 
 ```mermaid
 erDiagram
   FAMILY ||--o{ MEMBERSHIP : "所属を持つ(1家族:N所属)"
-  USER   ||--o{ MEMBERSHIP : "所属を通じ家族に加わる(1利用者:N所属)"
+  USER   ||--|{ MEMBERSHIP : "所属を通じ家族に加わる(1利用者:1..N所属; 現行は1家族)"
   FAMILY ||--o{ INVITE : "招待を発行する(1:N)"
-  FAMILY ||--o{ CONSENT : "同意記録を蓄積する(1:N, 追記のみ)"
+  FAMILY ||--o{ CONSENT : "同意記録を蓄積(1:N, 追記のみ)"
   USER   ||--o{ CONSENT : "同意した本人(1:N)"
-  FAMILY ||--|| SUBSCRIPTION_STATE : "唯一の契約状態を持つ(1:1)"
+  FAMILY ||--|| PARENT_GATE_CREDENTIAL : "保護者ゲート認証を1つ持つ(1:1)"
+  USER   ||--o| EMAIL_LOGIN_LOCKOUT : "メール単位のログインロック(1:0..1, 家族非依存)"
+  FAMILY ||--|| SUBSCRIPTION_STATE : "唯一の契約状態(1:1)"
   FAMILY ||--o{ TRIAL_HISTORY : "トライアル履歴(1:N)"
   FAMILY ||--o{ CANCELLATION_REASON : "解約理由(1:N, 追記のみ)"
+  FAMILY ||--|| LOYALTY_STATE : "ロイヤルティ状態(1:0..1)"
+  FAMILY ||--|| ACCOUNT_LIFECYCLE : "アカウント状態機械(1:1)"
 
-  FAMILY {
-    string 家族名
-    datetime 作成日時
-    datetime 最終活動日時 "休眠判定用(派生的観測値)"
+  FAMILY { string 家族名; datetime 作成日時; datetime 最終活動日時 }
+  USER { string メールアドレス; ref 認証プロバイダ; string 表示名 }
+  MEMBERSHIP { enum 役割; datetime 参加日時; ref 招待者 }
+  INVITE { enum 付与役割; enum 状態; string 宛先メール; ref 対象の子供; datetime 有効期限 }
+  CONSENT { enum 種別; string 版; datetime 同意日時; valueobject 取得時環境 }
+  PARENT_GATE_CREDENTIAL {
+    secret 保護者PIN "秘匿・平文非保持(照合可能な形)"
+    number 連続失敗回数
+    datetime ロック解除時刻 "任意"
+    marker リセット適用痕跡 "運用リセットの冪等印"
   }
-  USER {
-    string メールアドレス "家族横断で一意"
-    string 認証プロバイダ
-    string 表示名 "任意"
-  }
-  MEMBERSHIP {
-    enum 役割 "owner / parent / child"
-    datetime 参加日時
-    ref 招待者 "任意"
-  }
-  INVITE {
-    enum 付与役割
-    enum 状態 "pending/accepted/revoked/expired"
-    string 宛先メール "任意(束縛用)"
-    ref 対象の子供 "任意(child招待時)"
-    datetime 有効期限
-  }
-  CONSENT {
-    enum 種別 "terms / privacy"
-    string 版
-    datetime 同意日時
-    string 取得時の環境情報 "IP/UA(最小化検討対象)"
-  }
-  SUBSCRIPTION_STATE {
-    enum 契約状態
-    ref プラン "任意(増減しうる集合)"
-    datetime プラン有効期限 "任意"
-  }
+  EMAIL_LOGIN_LOCKOUT { string 対象メール; number 連続失敗回数; datetime ロック解除時刻; datetime 最終失敗時刻 }
+  SUBSCRIPTION_STATE { enum 契約状態; ref プラン; datetime プラン有効期限; datetime トライアル使用日時 }
+  LOYALTY_STATE { number 継続月数; number 記念チケット数; string 最終加算月 }
+  ACCOUNT_LIFECYCLE { enum 状態 "active/soft-deleted(grace)/purged"; datetime 論理削除日時; ref 猶予プラン層; date 物理削除予定日 }
 ```
 
-- **役割の多重度**: 1 家族に **owner はちょうど 1 名**（§4 I-OWN）。parent/child は 0..N。1 利用者は現行ドメインでは **1 家族に所属**（`Membership` は「1ユーザー=1テナント」の注記）。将来の複数家族所属は §7 論点 Q-07。
-- **招待の対象子供**: child 役割の招待のみ「対象の子供」を持つ（その子供のアカウントを紐づける）。任意参加。
-- **契約状態を独立概念にするか**は §7 論点 Q-01。ここでは C2 の言語独立性を尊重し 1:1 の別概念として描くが、集約上は Family に内包しうる。
+- **保護者ゲート認証（ParentGateCredential）**は家族単位（ADR-0050）。**署名セッション自体は無状態（ドメイン永続概念でない）**ため ER に持たない。永続する認証状態は「PIN 資格・失敗回数・ロック期限・運用リセット痕跡」のみ。PIN リセットは検証済みワンタイム確認を前提とする（§5 I-PIN-RESET、確認自体も無状態）。
+- **メールログインロック（EmailLoginLockout）は家族非依存・メール単位**で、保護者ゲート PIN ロック（家族単位）とは**別機構**（閾値も別。概念では「別々の失敗上限・ロック期間を持つ 2 機構」とだけ言う。数値は M3）。
+- **役割の多重度**: 1 家族に owner **ちょうど 1 名**（I-OWN）。1 利用者は**現行では 1 家族に所属**（ER も下限 1 で「必ず所属」を表し、上限は現行 single。将来の複数家族所属＝M:N の反転影響は §9、決裁 Q-07=A）。
+- **契約状態は家族の属性（1:1、Q-01=A）**。プランは**増減しうる集合**の 1 値。トライアル使用日時は二度取り禁止（I-SUB）。
 
 ### §3.2 C3 子供プロフィール / C4 活動と記録
 
 ```mermaid
 erDiagram
   FAMILY ||--o{ CHILD : "子供を擁する(1:N)"
-  CHILD  ||--o{ CHILD_ACTIVITY : "自分の活動を所有する(1:N, per-child)"
-  CATEGORY ||--o{ CHILD_ACTIVITY : "活動が属するカテゴリ(1:N)"
+  CHILD  ||--o| MEMBERSHIP : "ログインする子供は所属を持つ(1:0..1, role=child)"
+  CHILD  ||--o{ CHILD_ACTIVITY : "自分の活動を所有(1:N, per-child)"
+  CATEGORY ||--o{ CHILD_ACTIVITY : "活動のカテゴリ(1:N)"
   CHILD_ACTIVITY ||--o{ ACTIVITY_LOG : "記録される(1:N)"
-  CHILD  ||--o{ ACTIVITY_LOG : "記録の主体(1:N)"
   CHILD_ACTIVITY ||--o| ACTIVITY_MASTERY : "習熟度が育つ(1:0..1)"
   CHILD_ACTIVITY ||--o| ACTIVITY_PREFERENCE : "ピン留め設定(1:0..1)"
   CHILD  ||--o{ DAILY_MISSION : "今日のミッション(1:N/日)"
   CHILD_ACTIVITY ||--o{ DAILY_MISSION : "ミッション対象の活動(1:N)"
-  CHILD  ||--o{ REST_DAY : "休養日(1:N)"
+  CHILD  ||--o{ REST_DAY : "休養日=減衰猶予日(1:N)"
 
   CHILD {
     string ニックネーム
     date 生年月日 "任意だが年齢/年齢帯導出の源"
-    enum 年齢帯モード "baby/preschool/elementary/junior/senior(派生 or 手動上書き)"
+    enum 年齢帯モード "手動固定でなければ年齢から派生"
     bool 年齢帯を手動固定したか
     string テーマ
-    ref アバター画像参照 "任意(バイトはドメイン外)"
+    ref アバター画像参照 "任意, バイトはドメイン外"
     valueobject 表示構成 "個別の意味ある属性へ展開"
-    ref 紐づく利用者 "任意(招待child)"
     number 誕生日ボーナス倍率
+    number 前回誕生日ボーナス付与年 "任意"
     bool アーカイブ済か
+    enum アーカイブ理由 "任意(例: ダウングレード選択)"
   }
   CHILD_ACTIVITY {
-    string 名称
-    string アイコン
-    number 基礎ポイント
+    string 名称; string アイコン; number 基礎ポイント
     enum 優先度 "must(今日のおやくそく)/optional"
-    number 1日あたり上限 "任意"
-    bool メインクエストか
-    bool 表示するか
+    number 1日あたり上限; bool メインクエストか; bool 表示するか
     ref 取込元テンプレート "任意(帰属記録)"
   }
   ACTIVITY_LOG {
-    date 記録日
-    datetime 記録日時
-    number 付与ポイント
-    number 連続日数 "派生・確定値"
-    number 連続ボーナス "派生・確定値"
+    date 記録日; datetime 記録日時; number 付与ポイント
+    number 連続日数 "記録時に確定した観測値(不変)"
+    number 連続ボーナス "記録時に確定した観測値(不変)"
     bool 取消済か
   }
-  ACTIVITY_MASTERY {
-    number 累計回数
-    number 習熟レベル "累計回数からの派生"
-  }
-  CATEGORY {
-    string コード "自然識別(運動/勉強/生活/交流/創造の5軸)"
-    string 名称
-  }
+  ACTIVITY_MASTERY { number 累計回数; number 習熟レベル "累計回数の関数" }
+  CATEGORY { string コード "自然同一性(運動/勉強/生活/交流/創造)"; string 名称 }
+  REST_DAY { date 対象日; string 理由 }
 ```
 
-- **per-child instance の徹底**（ADR-0055 / PO 判断 2026-06-29）: 活動は **子供ごとに 1 行所有**する。家族マスタ 1 つを編集して全子供へ波及させる要件は**無い**（波及は事故であって機能ではない、と PO 確定）。兄弟共通化は**コピー（重複は上書き）**で行う。→ 旧「家族共有の活動マスタ + 年齢フィルタ」は概念から削ぐ（§6 L-02）。
-- **カテゴリ**は家族に依存しない**グローバルな参照概念**（5 軸固定）。子供の活動が属する分類軸。
-- **記録（ActivityLog）と活動（ChildActivity）**: 記録は必ずある活動に紐づく（§4 I-LOG）。取消は物理的な消去ではなく**取消フラグ**（監査可能な履歴を残す業務要件）。
-- **習熟度・ピン留め**は活動に対し 0..1（まだ記録がなければ習熟度は無い）。
-- **今日のミッション**は「その日、その子供に提示された挑戦対象の活動」。日付×子供×活動で 1 つ。
+- **子供と利用者/所属の関係（I-CHILD-USER）**: 子供は**ログインするなら**同一家族に role=child の所属を**ちょうど 1 つ**持ち、逆も成り立つ。**ログインしない子供は利用者・所属を持たない**（任意参加）。旧「子供が利用者を紐づける」経路と「role=child の所属」の 2 源の整合規則を本条で確定。
+- **per-child instance の徹底**（ADR-0055 / PO 判断）: 活動は子供ごとに 1 行所有。家族マスタ活動は存在しない（波及は事故であって機能でない）。兄弟共通化はコピー（上書き）。
+- **記録の連続日数/連続ボーナス（streak）は「記録時に確定した観測値」**で、後から再計算しない不変の歴史的事実。記録の中核整合（I-REC）に**含まれ atomic に確定**する（後追い additive の連鎖 combo とは別、§5 I-STREAK-VS-COMBO）。
+- **休養日（RestDay）= 減衰猶予日**: 宙に浮いていた概念の意味を確定。ある子供のある日を「その日はステータス減衰を止める」休みとして指定する（唯一の業務効果は減衰停止、§5 I-DECAY）。
 
 ### §3.3 C5 成長経済
 
 ```mermaid
 erDiagram
-  CHILD ||--o{ POINT_LEDGER_ENTRY : "点数の増減が刻まれる(1:N, 追記のみ)"
+  CHILD ||--o{ POINT_LEDGER_ENTRY : "点数増減が刻まれる(1:N, 追記のみ)"
   CHILD ||--o{ STATUS : "カテゴリ別ステータスを育てる(1:0..5)"
   CATEGORY ||--o{ STATUS : "ステータスのカテゴリ(1:N)"
-  STATUS ||--o{ STATUS_HISTORY : "変化の履歴(1:N, 追記のみ)"
-  CHILD ||--o{ EVALUATION : "週次評価を受ける(1:N)"
+  STATUS ||--o{ STATUS_HISTORY : "成長・減衰の履歴(1:N, 追記のみ)"
+  CHILD ||--o{ EVALUATION : "週次評価(1:N)"
   EVALUATION ||--o{ EVALUATION_SCORE : "カテゴリ別スコア(1:N)"
-  CATEGORY ||--o{ EVALUATION_SCORE : "スコアのカテゴリ"
-  AGE_BENCHMARK ||--o{ STATUS : "年齢×カテゴリの基準値を与える(参照)"
+  FAMILY ||--|| DECAY_POLICY : "減衰方針(1:1, family単位)"
+  FAMILY ||--o{ BONUS_RULE : "ボーナスルール群(1:N, family master)"
+  AGE_BENCHMARK ||--o{ STATUS : "年齢×カテゴリ基準値(参照)"
 
   POINT_LEDGER_ENTRY {
     number 増減量 "正=獲得/負=消費"
-    enum 種別 "base/combo/mission/challenge/login/reward/carryover 等"
-    string 説明 "人間可読"
-    ref 由来参照 "任意(記録/申請等への soft link)"
-    datetime 発生日時
+    enum 種別 "activity/combo_bonus/weekly_bonus/birthday_bonus/reward_redemption/cancel/carryover"
+    string 説明; ref 由来参照 "任意(弱い業務参照)"; datetime 発生日時
   }
-  STATUS {
-    number 累計XP "派生・確定値"
-    number レベル "累計XPからの派生"
-    number 到達最高XP
-  }
-  STATUS_HISTORY {
-    number 変化量
-    enum 変化種別
-    number 変化後の値
-    datetime 記録日時
-  }
-  EVALUATION {
-    date 週の開始
-    date 週の終了
-    number ボーナスポイント
-  }
-  EVALUATION_SCORE {
-    number スコア "そのカテゴリの週次評点"
-  }
-  AGE_BENCHMARK {
-    number 年齢
-    number 平均
-    number 標準偏差
-  }
+  STATUS { number 累計XP "成長総和−減衰総和"; number レベル "累計XPの関数"; number 到達最高XP }
+  STATUS_HISTORY { number 変化量; enum 変化種別 "gain/daily_decay 等"; number 変化後の値; datetime 記録日時 }
+  EVALUATION { date 週の開始; date 週の終了; number ボーナスポイント }
+  EVALUATION_SCORE { number スコア }
+  DECAY_POLICY { enum 強度 "none/gentle/normal/strict(4段階)"; number 猶予日数 }
+  BONUS_RULE { enum 条件種別; valueobject 発火条件; number 加算点or倍率; bool 有効か }
+  AGE_BENCHMARK { number 年齢; number 平均; number 標準偏差 }
 ```
 
-- **ポイント残高は概念モデルに独立概念として存在しない**。残高は「その子供の全 ledger エントリの増減量の意味論的総和」という**派生量**である（§4 I-BAL）。DynamoDB の「残高を別に保持し手動加算」は削ぐ（§6 L-03）。
-- **ステータス**は子供×カテゴリで 1 つ（最大 5 軸）。累計 XP・レベル・最高到達は成長の**派生的到達点**。基準値（AGE_BENCHMARK）は年齢×カテゴリの相対評価に使う**グローバル参照**。
-- **週次評価（Evaluation）**はカテゴリ別スコアの束を持つ。旧「スコアの埋め込み文書」を**カテゴリ別スコアの独立要素**に展開（§5 / §6 L-04）。
-- **retention（履歴の間引き）**: 古いポイント明細を消しても**残高は不変でなければならない**（#729 契約）→ 消去分は「繰越（carryover）」種別のエントリに畳み込む（§4 I-BAL の帰結、意味論で表現）。
+- **ポイント残高は独立概念に存在しない**。残高は「その子供の全台帳エントリ増減量の意味論的総和」という**派生量**（I-BAL）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
+- **ポイント種別（台帳の kind）は実クエリで裏取り済**の値集合: `activity`（基礎点。**ボーナスルール・連続ボーナスの加点はこの activity エントリの額に畳み込まれる**＝独立 `bonus` 種別は存在しない）/ `combo_bonus`（後追い additive）/ `weekly_bonus`（週次評価）/ `birthday_bonus` / `reward_redemption`（負）/ `cancel`（取消）/ `carryover`（間引き時の繰越）。
+- **ステータスは「成長総和 − 減衰総和」**（I-STATUS 訂正）。減衰は日次に走る家族方針（DecayPolicy: 強度 4 段階 + 猶予日数）で、休養日・活動直後の猶予中は止まる（I-DECAY）。減衰も成長も STATUS_HISTORY に追記される。
+- **ボーナスルール（BonusRule）は family master 概念**（ADR-0055、marketplace 取込プリセット由来、記録時に同期評価され LIVE）。その効果は**記録の中核整合内で activity の付与点に反映**（別台帳エントリでない）。
+- **週次評価（Evaluation）**はカテゴリ別スコアの束を持ち、ボーナス点（`weekly_bonus`）を台帳に生む。旧スコア埋め込み文書を独立要素へ展開（§7 L-04）。
+- **retention（間引き）で残高不変**（#729）: 消去分は `carryover` 種別に畳み込み総和を保存（I-DERIVED の一般則）。
 
 ### §3.4 C6 ごほうびと承認 / C7 習慣化の道具
 
@@ -257,362 +220,393 @@ erDiagram
 erDiagram
   CHILD ||--o{ SPECIAL_REWARD : "自分のごほうびを持つ(1:N, per-child)"
   CHILD ||--o{ REDEMPTION_REQUEST : "交換を申請する(1:N)"
-  SPECIAL_REWARD ||--o{ REDEMPTION_REQUEST : "申請対象のごほうび(1:N, 申請時に内容を捕捉)"
+  SPECIAL_REWARD |o--o{ REDEMPTION_REQUEST : "申請対象(0..1:N, ごほうび削除後も申請存続)"
+  FAMILY ||--|| APPROVAL_POLICY : "承認方針(1:0..1, 自動承認可否)"
+  FAMILY ||--|| POINT_CONVERSION_POLICY : "ポイント換算方針(1:0..1)"
 
   FAMILY ||--o{ CHECKLIST_TEMPLATE : "家族マスタとして所有(1:N)"
   CHECKLIST_TEMPLATE ||--o{ CHECKLIST_ITEM : "項目を含む(1:N)"
-  CHECKLIST_TEMPLATE }o--o{ CHILD : "配信される(M:N, 配信=assignment)"
+  CHECKLIST_TEMPLATE }o--o{ CHILD : "配信される(M:N=assignment)"
   CHILD ||--o{ CHECKLIST_LOG : "日次の達成記録(1:N)"
   CHECKLIST_TEMPLATE ||--o{ CHECKLIST_LOG : "どのテンプレの達成か"
   CHECKLIST_LOG ||--o{ CHECKLIST_ITEM_RESULT : "項目別チェック結果(1:N)"
   CHILD ||--o{ CHECKLIST_OVERRIDE : "その日だけの項目増減(1:N)"
 
   CHILD ||--o{ CHILD_CHALLENGE : "自分のチャレンジ(1:N, per-child)"
-
   CHILD ||--o{ STAMP_CARD : "週次スタンプカード(1:N)"
   STAMP_CARD ||--o{ STAMP_ENTRY : "押印(1:N, 枠ごと)"
-  STAMP_MASTER ||--o{ STAMP_ENTRY : "押されたスタンプ種別(参照, 任意=おみくじ)"
+  STAMP_MASTER ||--o{ STAMP_ENTRY : "スタンプ種別(参照, おみくじ枠は任意)"
   CHILD ||--o{ LOGIN_BONUS : "日次ログインボーナス(1:N)"
-
   CHILD ||--o{ DAILY_BATTLE : "日次バトル(1:N)"
   CHILD ||--o{ ENEMY_COLLECTION : "討伐図鑑(1:N)"
 
-  SPECIAL_REWARD {
-    string 名称
-    string 説明 "任意"
-    number 必要ポイント
-    enum 陳列系統 "physical/money/privilege"
-    ref 付与者 "任意"
-  }
+  SPECIAL_REWARD { string 名称; string 説明; number 必要ポイント; enum 陳列系統; ref 付与者 }
   REDEMPTION_REQUEST {
     enum 状態 "申請中/承認/却下/失効"
-    string 申請時のごほうび名称 "捕捉した歴史的値"
-    number 申請時の必要ポイント "捕捉した歴史的値"
-    datetime 申請日時
-    string 保護者メモ "任意"
+    string 申請時のごほうび名称 "捕捉した歴史的値(不変)"
+    number 申請時の必要ポイント "捕捉した歴史的値(不変)"
+    datetime 申請日時; string 保護者メモ
   }
-  CHECKLIST_TEMPLATE {
-    string 名称
-    number 項目あたりポイント
-    number 全完了ボーナス
-    enum 時間帯
-  }
+  APPROVAL_POLICY { bool 自動承認するか }
+  POINT_CONVERSION_POLICY { enum 単位表示モード; string 通貨; number 換算レート }
+  CHECKLIST_TEMPLATE { string 名称; number 項目あたりポイント; number 全完了ボーナス; enum 時間帯 }
   CHECKLIST_ITEM { string 名称; enum 頻度; enum 方向 }
   CHECKLIST_LOG { date 対象日; bool 全完了か; number 付与ポイント }
   CHECKLIST_ITEM_RESULT { ref 対象項目; bool チェック済か }
+  CHECKLIST_OVERRIDE { date 対象日; enum 操作 "追加/削除"; string 項目名; string アイコン }
   CHILD_CHALLENGE {
-    string 題名
-    enum 期間種別 "weekly 等"
-    date 開始日
-    date 終了日
+    string 題名; enum 期間種別; date 開始日; date 終了日
     valueobject 目標条件 "指標/対象カテゴリ/目標値へ展開"
     valueobject ごほうび条件 "点数/メッセージへ展開"
-    number 現在値
-    number 目標値 "年齢調整済"
-    bool 達成済か
-    bool ごほうび受領済か
+    number 現在値; number 目標値 "年齢調整済"; bool 達成済か; bool ごほうび受領済か
     ref 連動グループキー "任意(きょうだい表示用)"
   }
   STAMP_CARD { date 週の開始; date 週の終了; enum 状態; number 交換ポイント }
   STAMP_ENTRY { number 枠番号; date 押印日; enum おみくじ結果 "任意" }
   LOGIN_BONUS { date ログイン日; enum ランク; number 付与ポイント; number 連続日数 }
-  DAILY_BATTLE {
-    number 敵ID; date 日付; enum 状態 "pending/completed";
-    enum 勝敗 "任意"; number 報酬ポイント; valueobject 戦闘時ステータス "展開検討"
-  }
-  ENEMY_COLLECTION { number 敵ID; datetime 初討伐日時; number 討伐回数 }
+  DAILY_BATTLE { number 敵識別; date 日付; enum 状態; enum 勝敗; number 報酬ポイント; valueobject 戦闘時ステータス }
+  ENEMY_COLLECTION { number 敵識別; datetime 初討伐日時; number 討伐回数 }
 ```
 
-- **ごほうびの申請捕捉（snapshot）**: 交換申請は「申請時点のごほうび名称・必要ポイント」を**歴史的値として捕捉**する。これは非正規化ではなく、**申請という業務イベントの不変な記録**（後でごほうび定義が変わっても申請の事実は変わらない）。概念的に正当なので維持（§6 L-05）。
-- **チェックリストのみ family master + 配信 + 進捗の 3 層**（ADR-0055 の唯一の family master 例外）。テンプレは家族が所有し、**配信（assignment）で子供へ M:N**、進捗（log）は子供に閉じる。項目別チェック結果は旧「項目の埋め込み文書」を展開（§5 / §6 L-04）。
-- **チャレンジは per-child instance**（#3195 でアプリ週次自動生成に一本化、親手動作成・兄弟コピー・競争モードは撤去）。「きょうだいで頑張る」表現は**連動グループキー**で束ねた表示上の工夫であり、データ構造上は各子供に独立したチャレンジ（§6 L-06）。
-- **スタンプカードは子供×週で 1 枚**（現行の強い制約）。押印はログイン起点で枠を埋める。カード内のスタンプ種別はグローバル参照（おみくじ枠のみ種別が任意）。カード復活（季節イベント）の可能性は §7 論点 Q-05。
-- **バトル**は日次で敵と戦い、討伐図鑑に討伐履歴が積まれる。戦闘時ステータスの展開粒度は §7 論点 Q-06。
+- **交換申請とごほうびの関係は任意参加**（0..1 : N）: ごほうび定義を削除しても申請は存続する（I-REDEEM の歴史性）。申請は申請時点の名称・必要ポイントを**不変に捕捉**する。
+- **承認 = 残高消費**（I-REDEEM-CONSUME）: 交換申請の承認は、必要ポイント分の**負の台帳エントリ（種別 `reward_redemption`）を 1 件**生む。承認は**残高が十分なときのみ**成立し、残高は**非負を保つ**（I-BAL-NONNEG）。自動承認するか否かは家族の承認方針（ApprovalPolicy）。
+- **ポイント換算方針（PointConversionPolicy）**は「点数を親子経済上の通貨・単位でどう見せるか」の家族方針（表示上の換算、C6）。
+- **チェックリストのみ family master + 配信 + 進捗の 3 層**（ADR-0055 唯一の例外）。項目別チェック結果は旧項目埋め込みを展開（§7 L-04）。**当日上書き（CHECKLIST_OVERRIDE）は子供のその日の実効チェックリストを増減する**（特定テンプレに紐づかない、子供×日の項目調整）。
+- **チャレンジは per-child instance**（#3195 週次自動生成一本化、競争モード撤去）。きょうだい連動は表示上の束ね（§7 L-06）。
+- **スタンプカードは子供×週で 1 枚**（I-CHECK-1WK、決裁 Q-05: 季節カードは Pre-PMF scope 外として確定し本制約を採用）。押印はログイン起点で 1 日 1 押印（I-STAMP-1DAY）。
+- **バトル**は日次で敵と戦い討伐図鑑が積まれる。戦闘時ステータスは値オブジェクト（Q-06=A）。
 
 ### §3.5 C8 家族の関わりと節目
 
 ```mermaid
 erDiagram
-  CHILD ||--o{ PARENT_MESSAGE : "保護者からのメッセージ(1:N)"
-  CHILD ||--o{ SIBLING_CHEER : "きょうだいからの応援(受け手, 1:N)"
-  CHILD ||--o{ CERTIFICATE : "証書を授与される(1:N)"
-  CHILD ||--o{ BIRTHDAY_REVIEW : "誕生日ふりかえり(1:N/年)"
-  FAMILY ||--o{ GRADUATION_CONSENT : "卒業同意(1:N)"
-  CHILD ||--o{ CHARACTER_IMAGE : "生成キャラ画像(1:N, バイトはドメイン外)"
-  CHILD ||--o{ CUSTOM_VOICE : "カスタム音声(1:N, バイトはドメイン外)"
+  CHILD ||--o{ PARENT_MESSAGE : "保護者メッセージを受ける(1:N)"
+  MEMBERSHIP ||--o{ PARENT_MESSAGE : "送信者(role=parent/owner)(1:N)"
+  CHILD ||--o{ SIBLING_CHEER : "きょうだい応援(受け手, 1:N)"
+  CHILD ||--o{ SIBLING_CHEER_SENT : "きょうだい応援(送り手, 1:N)"
+  CHILD ||--o{ CERTIFICATE : "証書を授与(1:N)"
+  FAMILY ||--o{ GRADUATION_CONSENT : "卒業(事例公開)同意(1:N)"
+  CHILD ||--o{ CHARACTER_IMAGE : "生成キャラ画像参照(1:N, バイトはドメイン外)"
+  CHILD ||--o{ CUSTOM_VOICE : "カスタム音声参照(1:N, バイトはドメイン外)"
   FAMILY ||--o{ PUSH_SUBSCRIPTION : "通知購読(1:N, 保護者のみ)"
+  FAMILY ||--|| NOTIFICATION_SETTINGS : "通知設定(1:0..1)"
   FAMILY ||--o{ NOTIFICATION_LOG : "通知送信ログ(1:N, 追記のみ)"
   FAMILY ||--o{ VIEWER_TOKEN : "閲覧専用リンク(1:N)"
   FAMILY ||--o{ CLOUD_EXPORT : "クラウド共有エクスポート(1:N)"
-  FAMILY ||--o{ USAGE_LOG : "利用ログ(1:N, 追記のみ)"
+  FAMILY ||--o{ USAGE_LOG : "利用ログ(1:N, 追記のみ, 対象子供は任意)"
 
-  PARENT_MESSAGE {
-    enum 種別 "stamp/text/reward_notice"
-    string 本文 "任意"; string スタンプコード "任意"
-    number ボーナス点 "任意(応援付与)"; datetime 送信日時; datetime 既読提示日時 "任意"
-  }
-  SIBLING_CHEER { ref 送り手の子供; string スタンプコード; datetime 送信日時 }
-  CERTIFICATE { enum 種別; string 題名; string 説明 "任意"; datetime 授与日時; valueobject 付帯情報 "不透明・発行後不変" }
-  BIRTHDAY_REVIEW {
-    number 対象年; number ふりかえり時年齢; valueobject 健康チェック;
-    string 抱負 "任意"; valueobject 抱負カテゴリ; number 合計ポイント
-  }
+  PARENT_MESSAGE { enum 種別 "stamp/text/reward_notice"; string 本文; string スタンプコード; number ボーナス点; datetime 送信日時; datetime 既読提示日時 }
+  SIBLING_CHEER { string スタンプコード; datetime 送信日時; datetime 既読提示日時 }
+  CERTIFICATE { enum 種別; string 題名; string 説明; datetime 授与日時; valueobject 付帯情報 "発行後不変" }
   GRADUATION_CONSENT { ref 対象の子供; bool 事例公開同意; datetime 同意日時 }
-  VIEWER_TOKEN { string ラベル "任意"; datetime 有効期限 "任意"; datetime 失効日時 "任意" }
-  CLOUD_EXPORT {
-    enum 種別 "template/full"; string 受渡PIN; enum 状態 "pending/building/ready/failed";
-    datetime 有効期限; number ダウンロード回数; number 最大回数
-  }
+  NOTIFICATION_SETTINGS { bool リマインダ有効; string リマインダ時刻; bool 連続通知有効; valueobject 静音時間帯 }
+  VIEWER_TOKEN { string ラベル; datetime 有効期限; datetime 失効日時 }
+  CLOUD_EXPORT { enum 種別; string 受渡PIN; enum 状態 "pending/building/ready/failed"; datetime 有効期限; number ダウンロード回数; number 最大回数 }
+  USAGE_LOG { ref 対象の子供 "任意"; enum 種別; datetime 発生日時 }
 ```
 
-- **メディア（キャラ画像・カスタム音声・アバター）**: ドメインが持つのは「**参照とメタ情報**」のみ。実バイトは**ドメイン外のテナント分離ストレージ**に置く（§6 L-08 / `dsql-data-model.md` §9.4）。概念上は「子供がメディア参照を所有する」関係だけを描く。
-- **通知購読は保護者のみ**（child は購読不可、COPPA + Anti-engagement）。概念上「購読者役割 = parent/owner」を属性に持つ。
-- **閲覧専用リンク・クラウドエクスポート・利用ログ**は家族運用の周辺概念。追記のみ or ライフサイクル状態を持つ。
+- **保護者メッセージの送信者は role=parent/owner の所属**（I-MSG-SENDER）。子供は送信者になれない。
+- **きょうだい応援は同一家族内の別の子供間**（I-CHEER）。送り手・受け手を明示。
+- **メディア（キャラ画像・音声・アバター）**: ドメインは**参照とメタのみ**、実バイトはドメイン外のテナント分離ストレージ（I-MEDIA-EXT / §7 L-08）。
+- **通知購読は保護者役割のみ**（I-PUSH-ROLE）。通知設定（NotificationSettings）は家族方針。
+- **利用ログは Family 集約に一本化**（対象子供は任意属性、§7 L-16。旧「Family/Child 両方に列挙」の二重帰属を解消）。
 
 ---
 
-## §4 DDD 集約マップ
+## §4 DDD 集約マップ（Child を所有スコープに再位置づけ）
 
-> **集約 = トランザクション整合の単位**（1 回の整合操作で不変条件を守り切る境界）。集約ルートを通じてのみ内部が変更される。**集約をまたぐ整合は結果整合 + 冪等**とし、1 つの整合操作で複数集約を跨がない。
+> **Round 1 指摘 #5 反映（案 a 採用、DDD 正道）**: 初版は「集約=トランザクション整合単位」と定義しつつ Child に同時整合不要な衛星（メッセージ・証書・バトル・申請・チャレンジ・スタンプ 等）を一括内包し**巨大集約スメル**だった。本版は **Child を「所有スコープ（per-child = ADR-0055 の所有軸）」に位置づけ直し**、その内側に**複数の小集約**を置く。各小集約は Child を**同一性参照**で指し、自身のトランザクション整合だけを守る。集約横断は結果整合 + 冪等。
 
-### §4.1 集約一覧と境界の根拠
+### §4.1 所有スコープ
 
-| 集約ルート | 内包する子概念 | 境界（この単位で整合させる）の根拠 |
-|---|---|---|
-| **家族（Family）** | 利用者所属、招待、同意、契約状態、トライアル履歴、解約理由、閲覧リンク、通知購読、通知ログ、クラウドエクスポート、利用ログ、卒業同意 | **アクセス・契約・家族運用の不変条件**（owner ちょうど 1 名／同意は追記のみ／契約状態は 1 つ）は家族単位で守る。認証ドメインが初めて正式にリレーショナル概念化される（従来 KV 由来）。**利用者（User）は家族に閉じない**（メールが家族横断で一意）ため、**利用者は独立した参照概念**とし、家族との関係は「所属（Membership）」で表す |
-| **子供（Child）** | 子供の活動、活動記録、習熟度、ピン留め、今日のミッション、休養日、ポイント台帳、ステータス、ステータス履歴、週次評価、ごほうび、交換申請、証書、誕生日ふりかえり、保護者メッセージ、キャラ画像、カスタム音声、チェックリスト進捗・当日上書き、チャレンジ、スタンプカード・押印、ログインボーナス、バトル・討伐図鑑、利用ログ | **「記録という 1 イベントが、その子供の記録・点数・成長を同時に整合させる」**のが最強シグナル（§4.2 I-REC）。子供の削除が配下概念を一括で消すのも同じ境界を示す。**子供が最大の集約**であり、per-child 主軸（ADR-0055）と一致 |
-| **スタンプカード（StampCard）**（子供のサブ集約） | 押印（枠） | カード単位で押印を扱う（週の枠が埋まると交換状態へ）。子供集約内の**局所整合単位** |
-| **チェックリストテンプレート（ChecklistTemplate）**（家族マスタ） | 項目、配信（子供への割当） | **家族が所有するマスタ**で、進捗（子供側）とは整合単位が別。テンプレ編集と進捗記録を別トランザクションに分ける（ADR-0055 の唯一の family master） |
-| **グローバル参照（家族非依存）** | カテゴリ、スタンプ種別、年齢基準値、（課金イベント整合の観測点） | 家族に属さない**共有参照**。整合は個別、テナント境界を持たない |
+| 所有スコープ | 意味 |
+|---|---|
+| **家族（Family）** | 最上位テナント境界。C1/C2/C8 家族運用概念の所有 |
+| **子供（Child）** | 家族内の**所有軸**（トランザクション整合の巨大単位ではない）。以下の小集約群が Child を同一性参照する（ADR-0055 per-child 主軸と一致） |
+| **グローバル参照** | 家族に属さない共有参照（カテゴリ / スタンプ種別 / 年齢基準値 / 課金イベント冪等の観測点） |
 
-> **利用者（User）を家族集約に含めない理由**: 利用者はメールで家族横断に一意で、招待により別家族へも所属しうる（将来）。家族に内包すると「1 利用者を複数家族が所有」する矛盾が生じる。→ **利用者は独立参照、所属（Membership）が家族×利用者の関係を担う**。この分離は DynamoDB の「役割二重書き（家族側と利用者側の両方に role を書く）」を解消する（§6 L-09）。
+### §4.2 集約一覧と境界の根拠（各々が独立した整合単位）
 
-### §4.2 集約内で守る整合（記録トランザクション I-REC）
+| 集約ルート | 所有 | 内包する子概念 | 境界（この単位で整合）の根拠 |
+|---|---|---|---|
+| **Family** | — | 所属、招待、同意、保護者ゲート認証、契約状態、トライアル履歴、解約理由、ロイヤルティ、アカウント状態機械、減衰方針、承認方針、換算方針、通知設定・購読・ログ、ボーナスルール群、既定子供選択、閲覧リンク、クラウドエクスポート、利用ログ、卒業同意 | アクセス・契約・家族方針の不変条件（owner ちょうど 1 名／同意追記のみ／契約状態 1 つ／保護者ゲート 1 つ）を家族単位で守る。**利用者（User）は家族に閉じない**（メール横断一意）ため独立参照、所属が家族×利用者を担う |
+| **ChildProfile** | Child | （子供の属性のみ: ニックネーム/生年月日/年齢帯/テーマ/アバター参照/アーカイブ状態/休養日） | 子供の identity と属性。他小集約の同一性アンカー |
+| **GrowthJournal**（成長台帳） | Child | 活動記録、ポイント台帳（+派生残高）、ステータス（+派生 XP/レベル）、ステータス履歴、活動習熟度 | **I-REC の atomic 境界そのもの**。1 記録が「記録・基礎点・ステータス・習熟」を同時整合させる、派生量が相互一貫すべき概念群を 1 集約に束ねる。**この集約の外は結果整合**（combo/mission/challenge/証書/通知） |
+| **ActivityCatalog** | Child | 子供の活動、ピン留め、今日のミッション | 記録の**設定**（何を記録できるか）。記録整合（GrowthJournal）とは別トランザクション |
+| **StampCard** | Child | 押印（枠） | カード単位で押印を扱う局所整合（週の枠で完結） |
+| **ChecklistProgress** | Child | 日次達成記録、項目別結果、当日上書き | 子供の進捗整合。家族マスタ（ChecklistTemplate）とは別トランザクション |
+| **Battle** | Child | 日次バトル、討伐図鑑 | 1 日 1 戦の局所整合 |
+| **RewardExchange** | Child | ごほうび、交換申請 | 交換申請の状態遷移・残高消費（I-REDEEM-CONSUME）の局所整合 |
+| **ChildChallenge** | Child | チャレンジ（進捗 inline） | per-child チャレンジの局所整合 |
+| **ChecklistTemplate**（家族マスタ） | Family | 項目、配信（子供への割当） | 家族が所有するマスタ。進捗（子供側）と整合単位が別（ADR-0055 唯一の family master） |
+| **グローバル参照** | — | カテゴリ、スタンプ種別、年齢基準値、課金イベント冪等観測点 | 家族に属さない共有参照。個別整合、テナント境界なし |
 
-**子供集約の中核不変条件**: 「活動を 1 回記録する」操作は、以下を**同時に成り立たせる**必要がある（部分的にしか成立しない状態を作らない）:
+> **衛星の扱い**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・週次評価は、**Child を同一性参照する独立記録**（追記 or 単純状態）で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。
 
-- 活動記録が 1 件生まれる。
-- その記録に対応するポイント（基礎点）が台帳に 1 件刻まれ、残高（派生量）が意味論的に整合する。
-- 対応するカテゴリのステータス（累計 XP・レベル）が更新され、その変化が履歴に残る。
+### §4.3 GrowthJournal の中核整合（I-REC）
+
+「活動を 1 回記録する」操作は次を**同時に成り立たせる**（部分成立は不変条件違反）:
+
+- 活動記録が 1 件生まれる（連続日数・連続ボーナスをその場で確定して載せる）。
+- 対応する基礎点（ボーナスルール・連続ボーナスの加点を畳み込んだ額）が台帳に 1 件刻まれ、派生残高が整合する。
+- 対応カテゴリのステータス（累計 XP・レベル）が更新され、変化が履歴に残る。
 - 活動の習熟度（累計回数・レベル）が更新される。
 
-この 4 者は**必ず一致していなければならない**（点数だけ入って成長が入らない、等の中間状態は不変条件違反）。→ これが「子供 = 集約」の境界を決める最重要根拠。**連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書発行・通知**などの**追加的（additive）効果は、中核整合に不要**であり、集約整合の外（結果整合・冪等・欠落許容）に置く（§7 論点 Q-08 で欠落許容の是非を明示）。
-
-> 現行実装は記録の複数副作用を**整合単位なしに逐次実行し例外を握り潰す**（`dsql-data-model.md` §8）。概念的にはこれは**不変条件違反を許す設計**であり、M1 では「中核 4 者の同時整合」を集約不変条件として明示する。実現機構は M3。
+**連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書・通知**は additive で中核整合に不要 → GrowthJournal 外の結果整合（冪等・欠落許容、Q-08=A）。現行実装が複数副作用を整合単位なしで逐次実行し例外を握り潰す（`dsql-data-model.md` §8）のは**不変条件違反を許す設計**であり、M1 は「中核 4 者の同時整合」を集約不変条件として明示する（実現機構は M3）。
 
 ---
 
 ## §5 ドメイン不変条件一覧（意味論で記述）
 
-> 各不変条件は「**業務的に何が真でなければならないか**」だけを述べる。実装手段（版数・ロック・索引・制約種別）は含めない。
-
-| # | 不変条件（意味論） | 由来・根拠 |
+| # | 不変条件（意味論） | 由来 |
 |---|---|---|
-| **I-OWN** | 1 つの家族には、owner 役割の利用者が**ちょうど 1 名**存在する。parent/child は 0 名以上 | 認可の単一責任者。`dsql-data-model.md` §6.6 |
-| **I-MEM** | 利用者が家族に所属するとき、その所属は**単一の役割**を持つ（役割の二重定義は存在しない） | DynamoDB 役割二重書きの解消（§6 L-09） |
-| **I-CONS** | 同意記録は**追記のみ**（変更・削除されない）。ある家族・利用者・種別の「現在の同意」は最新の同意日時のエントリで定まる。ただし**アカウント完全削除時のみ**、法的消去要件により物理消去される（唯一の例外） | GDPR Art.7 / COPPA。`dsql-data-model.md` §9.2 |
-| **I-SUB** | 1 家族は同時に**唯一の契約状態**を持つ。プランは増減しうる集合の 1 値（無ければトライアル/無料相当） | C2。課金の一貫性 |
-| **I-CHILD-FAM** | すべての子供スコープ概念（記録・点数・ステータス・ごほうび・チェックリスト進捗・…）は、**その子供を通じて必ずちょうど 1 つの家族に属する**（家族に属さない子供スコープ概念は存在しない） | テナント所有の全域性。§6 L-01 |
-| **I-LOG** | 活動記録は**必ず 1 つの活動に紐づく**（宙に浮いた記録は存在しない）。記録の主体の子供と、活動の所有者の子供は**同一**でなければならない | 記録の参照整合。per-child instance |
-| **I-BAL** | ある子供のポイント**残高は、その子供の全ポイント台帳エントリの増減量の総和に意味論的に等しい**。残高は独立した事実として保持されず派生する。**古い明細を間引いても残高は不変**（消去分は繰越として畳み込まれ、総和は保存される） | 残高二重保持の解消（§6 L-03）。#729 retention 契約 |
-| **I-STATUS** | ある子供の 1 カテゴリのステータスは**高々 1 つ**（子供×カテゴリで一意）。累計 XP・レベル・最高到達は、そのカテゴリへの成長イベントの総和／関数として整合する | §3.3。カテゴリ 5 軸 |
-| **I-REC** | 活動 1 記録の中核効果（記録・基礎点・ステータス・習熟度）は**すべて成立するか、すべて成立しないか**のいずれか（部分成立は不変条件違反） | §4.2。集約整合の核 |
-| **I-AGE** | 子供の年齢は**生年月日と現在時刻からの派生量**であり、独立して保持されない。年齢帯モードは、**手動固定されていない限り**、その派生年齢から導かれる（誕生日をまたぐと自動で適切な帯へ移る） | 年齢格納列の解消（§6 L-10）。`dsql-data-model.md` §11.1 |
-| **I-CHECK-1WK** | （現行の強い制約）1 人の子供は 1 週間について**高々 1 枚のスタンプカード**を持つ | §3.4。ただし季節カード復活で反転しうる（論点 Q-05） |
-| **I-STAMP-1DAY** | スタンプカードの押印は**1 日 1 押印**（同一日に複数枠は埋めない） | ログイン起点の日次性 |
-| **I-LOGIN-1DAY** | ログインボーナスは 1 人の子供につき**1 日 1 回**（連続日数はその系列から定まる） | Anti-engagement（ADR-0012、連続損失プレッシャーを煽らない） |
-| **I-BATTLE-1DAY** | 日次バトルは 1 人の子供につき**1 日 1 戦**（勝敗確定は 1 回） | ADR-0012 anti-engagement |
-| **I-MISSION** | 今日のミッションは（子供・日付・活動）で一意。完了は additive（達成でボーナス、未達で罰はない） | §3.2 |
-| **I-CHECKLIST** | チェックリストの進捗（log）は（子供・テンプレ・対象日）で一意。**配信されていないテンプレに対する子供の進捗は存在しない**（進捗は配信を前提とする） | §3.4。family master + assignment |
-| **I-REDEEM** | 交換申請は申請時点のごほうび内容（名称・必要ポイント）を**不変に捕捉**する。ごほうび定義の後日の変更は、既存申請の捕捉値を変えない | 申請イベントの歴史性（§6 L-05） |
-| **I-CERT-IMMUT** | 証書は授与後、内容（題名・付帯情報）が**変わらない**（発行済みの事実の不変性） | §3.5 |
-| **I-CHEER** | きょうだい応援は、送り手と受け手が**同一家族内の別の子供**である（家族をまたぐ応援は存在しない） | intra-tenant 信頼境界 |
-| **I-MEDIA-EXT** | メディア（キャラ画像・音声・アバター）の実体はドメイン外に置かれ、ドメインは**参照とメタ情報のみ**を保持する。参照は所有する子供の家族境界に閉じる | §6 L-08 |
-| **I-PUSH-ROLE** | 通知購読は**保護者役割（parent/owner）に限る**（child は購読しない） | COPPA + ADR-0012 |
-| **I-ADD** | 記録の追加的効果（combo/mission/challenge/証書/通知）は結果整合で、**冪等かつ加算的**（二重適用しても最終状態が壊れない）。可視な進捗（ミッション完了・チャレンジ進捗）は**確定した事実から再導出可能**でなければならない（推定先出しをしない） | ADR-0012 演出契約。`dsql-data-model.md` §8 |
+| **I-OWN** | 1 家族に owner 役割の利用者がちょうど 1 名。parent/child は 0 名以上 | 認可の単一責任者 |
+| **I-MEM** | 利用者が家族に所属するとき、その所属は単一の役割を持つ（役割の二重定義なし） | §7 L-09 |
+| **I-CHILD-USER** | 子供がログイン利用者を持つなら、同一家族に role=child の所属がちょうど 1 つ存在し、逆も成り立つ。**ログインしない子供は利用者・所属を持たない**（任意参加） | Round 1 #4 |
+| **I-PIN-LOCK** | 保護者ゲート PIN の連続失敗が家族ごとの上限に達すると、家族単位でロック期限まで照合を拒否する（メールログインロックとは別上限・別期間の別機構） | ADR-0050 / Round 1 #2 |
+| **I-PIN-RESET** | 保護者ゲート PIN のリセットは、検証済みのワンタイム確認を伴うときのみ成立する（未検証のリセットは不成立）。運用起点のリセットは冪等（同一リセットが二度適用されない） | ADR-0050 #3070 / Round 1 #2 |
+| **I-EMAIL-LOCK** | メールログインの連続失敗がメールごとの上限に達すると、そのメールをロック期限までロックする（家族非依存） | Round 1 #2 |
+| **I-CONS** | 同意記録は**追記のみ**（変更・削除しない）。ある家族・利用者・種別の「現在の同意」は最新同意日時のエントリで定まる。**物理消去はアカウント完全削除時の consent 消去に限る唯一の例外**（retention の間引きとは別レイヤーで、retention は consent を対象にしない） | GDPR Art.7 / COPPA / Round 1 [should] |
+| **I-SUB** | 1 家族は同時に唯一の契約状態を持つ。状態遷移は trial→active→past_due→canceled 系の妥当な系列で、**トライアル使用日時は二度取り禁止**（一度使ったトライアルを再取得しない） | C2 / Round 1 [should] |
+| **I-CHILD-FAM** | すべての子供スコープ概念は、その子供を通じて**必ずちょうど 1 つの家族に属する**（家族に属さない子供スコープ概念は存在しない）。**この全域性は全テナント所有導出の要石**であり、反転（複数家族）は局所変更でない（§9） | §7 L-01 / Round 1 #9 |
+| **I-LOG** | 活動記録は必ず 1 つの活動に紐づく。記録主体の子供と活動所有者の子供は同一 | per-child |
+| **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず派生する | §7 L-03 |
+| **I-BAL-NONNEG** | ポイント残高は非負を保つ。消費（負エントリ）は残高が十分なときのみ成立する | Round 1 #12 |
+| **I-DERIVED**（派生量統一則） | **総和・畳み込みで定義される全ての量（残高／ステータス累計 XP／習熟累計回数）は、その量の事象履歴のフォールドに意味論的に等しい**。履歴を間引く場合は、フォールド結果を保存する要約事象（残高なら carryover、ステータスなら等価な履歴チェックポイント）を残し、量を不変に保つ。**物理的に materialize するか否かは M3 の判断**であり、概念ではこのフォールド等価則のみを課す（初版の「残高だけ派生・他は確定値保持」という非対称を撤廃） | Round 1 #8 |
+| **I-STATUS** | ある子供の 1 カテゴリのステータスは高々 1 つ（子供×カテゴリで一意）。累計 XP は**そのカテゴリへの成長イベントの総和から減衰イベントの総和を引いた値**に整合する | §7 L-04 / Round 1 #3 |
+| **I-DECAY** | ステータス減衰は日次に、家族の減衰方針（強度 4 段階）に従い、カテゴリごとに走る。ただし **(a) その子のその日が休養日、(b) 直近活動から猶予日数以内、(c) 強度が none のいずれか**では減衰しない。減衰は成長と同じ履歴に追記される | Round 1 #3 |
+| **I-STREAK-VS-COMBO** | **連続（streak）** はある記録が「そのカテゴリ/活動を連続何日目に行ったか」を**記録時に確定する不変の観測値**で、記録の中核整合（I-REC）内に atomic に確定する。**連鎖（combo）** は同日複数活動に対する後追いの additive 効果で、独立した加算台帳エントリ（種別 combo_bonus）として結果整合で冪等に付与する。両者は別概念であり、同一事実を atomic 内外で二重定義しない | Round 1 #7 |
+| **I-REC** | 活動 1 記録の中核効果（記録・基礎点・ステータス・習熟度）は、すべて成立するかすべて成立しないか（部分成立は違反）。連続ボーナスとボーナスルールの加点はこの中核（基礎点）に畳み込まれる | §4.3 |
+| **I-ADD** | 記録の追加的効果（combo/mission/challenge/証書/通知）は結果整合で冪等かつ加算的。**「確定した事実から再導出可能」であることを要求するのは、状態を持たない効果（例: ミッション完了フラグは記録履歴から再判定できる）に限る**。状態を持つ台帳事実（streak/combo の付与済み点）は再導出でなく冪等な付与で守る | ADR-0012 / Round 1 #7 |
+| **I-AGE** | 子供の年齢は生年月日と現在時刻からの派生量であり、独立保持しない。年齢帯モードは手動固定でない限りその派生年齢から導かれる（誕生日跨ぎで自動遷移） | §7 L-10 |
+| **I-CHECK-1WK** | 1 人の子供は 1 週間について**ちょうど 1 枚のスタンプカード**を持つ（季節・イベントカードは Pre-PMF scope 外として確定、Q-05=採用）。この自然同一性（子供×週）を保持する | §7 L-12 / Round 1 #11 |
+| **I-STAMP-1DAY** | スタンプカードの押印は 1 日 1 押印（同一カードに同一日で複数枠を埋めない） | ログイン起点 |
+| **I-LOGIN-1DAY** | ログインボーナスは 1 子供 1 日 1 回。連続日数はその系列から定まる | ADR-0012 |
+| **I-BATTLE-1DAY** | 日次バトルは 1 子供 1 日 1 戦（勝敗確定 1 回） | ADR-0012 |
+| **I-MISSION** | 今日のミッションは（子供・日付・活動）で一意。完了は additive（未達に罰なし）。完了状態は記録履歴から再導出可能（I-ADD 準拠） | §3.2 |
+| **I-CHECKLIST** | 進捗（log）は（子供・テンプレ・対象日）で一意。配信されていないテンプレに対する子供の進捗は存在しない | ADR-0055 |
+| **I-REDEEM** | 交換申請は申請時点のごほうび内容（名称・必要ポイント）を不変に捕捉する。ごほうび定義の後日の変更・削除は既存申請の捕捉値を変えない（申請はごほうびに対し任意参加） | §7 L-05 / Round 1 #12 |
+| **I-REDEEM-CONSUME** | 交換申請の承認は、必要ポイント分の負の台帳エントリをちょうど 1 件生む。承認は残高が十分なときのみ成立（I-BAL-NONNEG と一体）。自動承認方針が有効なら承認は申請と同時に成立しうる | Round 1 #12 |
+| **I-CERT-IMMUT** | 証書は授与後、内容が変わらない | §3.5 |
+| **I-CHEER** | きょうだい応援は送り手・受け手が同一家族内の別の子供 | intra-tenant 信頼境界 |
+| **I-MSG-SENDER** | 保護者メッセージの送信者は role=parent/owner の所属に限る（子供は送信者になれない） | Round 1 #13 |
+| **I-MEDIA-EXT** | メディアの実体はドメイン外に置かれ、ドメインは参照とメタのみ保持する。参照は所有子供の家族境界に閉じる | §7 L-08 |
+| **I-PUSH-ROLE** | 通知購読は保護者役割（parent/owner）に限る（child は購読しない） | COPPA / ADR-0012 |
+| **I-LIFECYCLE** | 家族アカウントは active → soft-deleted（猶予期間つき）→ {restored（猶予内のみ） \| purged（猶予満了）} の状態機械に従う。猶予日数は契約プラン層で定まる（無料層は即時消去） | Round 1 #10 |
+| **I-PURGE** | 家族の purge は、その家族の全子孫概念（子供・記録・成長台帳・習慣装置・メディア参照・同意 等）を消し、**他家族には一切触れない**（cross-tenant 非到達） | Round 1 #10 |
+| **I-DOWNGRADE** | 契約を下位プランへ変更し上限（子供数・活動数・テンプレ数）を超える場合、超過分は**保護者が選択したものだけ**をアーカイブして上限内に収める（自動一括アーカイブではない。アーカイブ後に上限内へ収まることを満たさない選択は不成立） | Round 1 #10（実装裏取りで自動→ユーザー選択に訂正） |
 
 ---
 
 ## §6 概念 domain class スケッチ（格納非依存）
 
-> 型・振る舞いの**概念**を TypeScript 風で示す。ただし**永続化・格納・索引・トランザクション機構の語は使わない**。ここでの「識別」は概念的同一性であって物理識別子ではない。値オブジェクト（`ValueObject`）は同一性を持たず値そのもので等価判定される。
+> 型・振る舞いの概念を TypeScript 風で示す（永続化・格納・索引・トランザクション機構・ベンダ名の語は使わない）。`ValueObject` は同一性を持たず値で等価判定。
 
 ```ts
-// ── C1/C2 家族・アクセス・契約 ─────────────────────────────
 type Role = 'owner' | 'parent' | 'child';
 
+// ── C1/C2 家族・アクセス・契約 ─────────────────────────────
 class Family {                       // 集約ルート
   readonly name: string;
-  memberships: Membership[];         // I-OWN: role==='owner' はちょうど1
+  memberships: Membership[];         // I-OWN: role==='owner' ちょうど1
   invites: Invite[];
   consents: ConsentRecord[];         // I-CONS: 追記のみ
-  subscription: SubscriptionState;   // I-SUB: 唯一
-  // 振る舞い（意味論）
+  parentGate: ParentGateCredential;  // I-PIN-LOCK / I-PIN-RESET（署名セッションは無状態=非保持）
+  subscription: SubscriptionState;   // I-SUB: 唯一（Q-01=A: Family属性）
+  loyalty: LoyaltyState;
+  lifecycle: AccountLifecycle;       // I-LIFECYCLE
+  decayPolicy: DecayPolicy;          // 家族単位の減衰強度
+  approvalPolicy: ApprovalPolicy;
+  pointConversion: PointConversionPolicy;
+  notificationSettings: NotificationSettings;
+  bonusRules: BonusRule[];           // family master（ADR-0055）
+  defaultChildSelection?: Child;     // 親の既定選択（家族方針）
+
   inviteMember(role: Role, targetChild?: Child): Invite;
-  acceptInvite(code: string, byUser: User): Membership;   // 期限内 & 宛先email束縛を満たすときのみ
-  transferOwnership(to: User): void; // I-OWN を保ちつつ owner を移す（旧 owner は parent へ）
+  acceptInvite(code: string, byUser: User): Membership;  // 期限内 & 宛先束縛を満たすときのみ
+  transferOwnership(to: User): void; // I-OWN を保ちつつ owner を移す
   recordConsent(user: User, type: ConsentType, version: string): void; // 追記のみ
+  downgradeTo(plan: Plan, archiveSelection: OwnedResource[]): Result;   // I-DOWNGRADE（選択制）
+  requestSoftDelete(): void;         // I-LIFECYCLE: active→soft-deleted(grace)
+  purge(): void;                     // I-PURGE: 全子孫消去・他家族非到達
 }
 
-class User {                         // 独立参照（家族に内包しない）
+class User {                         // 独立参照（Q-02=A）
   readonly email: string;            // 家族横断で一意
-  readonly provider: 'cognito';
+  readonly provider: AuthProvider;   // 認証プロバイダ（値集合、ベンダ名を概念に持ち込まない）
   displayName?: string;
+  loginLockout?: EmailLoginLockout;  // I-EMAIL-LOCK（メール単位、家族非依存）
 }
-
-class Membership {                   // 家族×利用者の関係（役割は1つ）
-  readonly family: Family; readonly user: User; readonly role: Role;
+class Membership { readonly family: Family; readonly user: User; readonly role: Role; }
+class ParentGateCredential {
+  private secret: PinSecret;         // 秘匿・平文非保持
+  failedAttempts: number; lockedUntil?: Date;   // I-PIN-LOCK
+  verify(pin: string): boolean;      // ロック中は拒否
+  resetWithVerifiedChallenge(newPin: string, proof: OneTimeProof): void; // I-PIN-RESET
 }
-
-class SubscriptionState {            // C2（Family 内包 or 独立は論点 Q-01）
-  status: SubscriptionStatus; plan?: Plan; planExpiresAt?: Date;
+class SubscriptionState {
+  status: 'trial'|'active'|'past_due'|'canceled'|'free';
+  plan?: Plan; planExpiresAt?: Date; trialUsedAt?: Date;   // I-SUB: 二度取り禁止
   isEntitledTo(feature: Feature): boolean;  // 権利は状態から算出、別保持しない
 }
+class AccountLifecycle {             // I-LIFECYCLE 状態機械
+  state: 'active' | 'soft-deleted' | 'purged';
+  softDeletedAt?: Date; graceUntil?: Date; gracePlanTier?: Plan;
+  canRestore(): boolean;             // soft-deleted かつ 猶予内
+}
 
-// ── C3 子供 ───────────────────────────────────────────────
-class Child {                        // 集約ルート（最大の集約）
-  nickname: string;
-  birthDate?: Date;
-  get age(): number | undefined;     // I-AGE: 生年月日から派生（保持しない）
-  get ageTier(): AgeTier;            // 手動固定でなければ age から導出（誕生日跨ぎで自動遷移）
+// ── C3 子供（所有スコープ）─────────────────────────────────
+class Child {                        // 所有スコープ（巨大集約ではない）
+  nickname: string; birthDate?: Date;
+  get age(): number | undefined;     // I-AGE: 派生（保持しない）
+  get ageTier(): AgeTier;            // 手動固定でなければ age から導出（誕生日跨ぎ自動遷移）
   ageTierManuallyPinned: boolean;
-  theme: string;
-  displayConfig: DisplayConfig;      // ValueObject（意味ある個別属性へ展開）
+  theme: string; displayConfig: DisplayConfig; // ValueObject（意味ある属性へ展開）
   avatar?: MediaRef;                 // I-MEDIA-EXT: 参照のみ
-  archived: boolean;
-  // 中核の振る舞い（I-REC を守る）
-  recordActivity(activity: ChildActivity, at: Date): RecordingOutcome;
+  archived: boolean; archivedReason?: ArchiveReason;
+  linkedUser?: User;                 // I-CHILD-USER: あるなら role=child 所属とちょうど対応
+  restDays: RestDay[];               // 減衰猶予日（I-DECAY 入力）
 }
 
-// ── C4/C5 記録と成長経済（Child 集約内）────────────────────
-class ChildActivity {                // per-child instance（ADR-0055）
-  name: string; category: Category; basePoints: number;
-  priority: 'must' | 'optional'; dailyLimit?: number; isMainQuest: boolean;
-  sourceTemplateRef?: MarketplaceItemRef;  // 帰属記録（取込元）
+// ── C5 成長経済（Child 所有の小集約）───────────────────────
+class GrowthJournal {                // 集約ルート（I-REC の atomic 境界）
+  readonly child: Child;
+  private ledger: PointLedgerEntry[];// 追記のみ
+  get balance(): number;             // = Σ ledger.amount（I-BAL、別保持しない）
+  statuses: Status[];                // 子供×カテゴリで一意（最大5）
+  mastery: ActivityMastery[];
+  record(activity: ChildActivity, at: Date): RecordingOutcome;  // I-REC: 中核4者を同時整合
+  compactBefore(date: Date): void;   // I-DERIVED: 間引きは carryover 等で総和保存
+  applyDailyDecay(policy: DecayPolicy, restDays: RestDay[]): void; // I-DECAY
 }
-
-class ActivityLog {                  // I-LOG: 必ず活動に紐づく
-  readonly activity: ChildActivity; readonly recordedOn: Date;
-  points: number; streakDays: number; cancelled: boolean;
-}
-
-class PointLedger {                  // 追記のみ。残高は派生（I-BAL）
-  private entries: PointLedgerEntry[];
-  get balance(): number;             // = Σ entries.amount（別保持しない）
-  post(amount: number, kind: LedgerKind, ref?: DomainRef): void;
-  compactBefore(date: Date): void;   // 間引き時、消去分を carryover に畳み残高保存
-}
-
-class Status {                       // I-STATUS: 子供×カテゴリで一意
+class Status {                       // I-STATUS
   readonly category: Category;
-  get level(): number;               // 累計XPから派生
-  totalXp: number; peakXp: number;
-  history: StatusHistoryEntry[];     // 追記のみ
+  get level(): number;               // 累計XPの関数
+  get totalXp(): number;             // = Σ成長 − Σ減衰（I-DERIVED）
+  history: StatusHistoryEntry[];     // 追記のみ（gain / daily_decay）
+}
+class BonusRule {                    // family master（LIVE、記録時に同期評価）
+  condition: BonusCondition;         // ValueObject
+  bonusPoints?: number; multiplier?: number; enabled: boolean;
+  // 効果は record() 内で基礎点に畳み込む（独立台帳エントリを生まない）
 }
 
-class Evaluation {                   // 週次評価
-  weekStart: Date; weekEnd: Date;
-  scores: EvaluationScore[];         // カテゴリ別（旧埋め込み文書を展開）
-  bonusPoints: number;
+// ── C6/C7 ごほうび・習慣装置（Child 所有の小集約）──────────
+class RewardExchange {               // 集約ルート
+  readonly child: Child;
+  catalog: SpecialReward[];
+  requests: RedemptionRequest[];
+  request(reward: SpecialReward): RedemptionRequest;  // 申請時に名称・必要点を捕捉（I-REDEEM）
+  approve(req: RedemptionRequest, journal: GrowthJournal, policy: ApprovalPolicy): Result;
+    // I-REDEEM-CONSUME + I-BAL-NONNEG: 残高十分時のみ、負エントリ1件
 }
-
-// ── C6/C7 ごほうび・習慣装置 ───────────────────────────────
-class SpecialReward { name: string; requiredPoints: number; shopCategory: ShopCategory; }
-class RedemptionRequest {            // I-REDEEM: 申請時内容を不変捕捉
-  readonly capturedName: string; readonly capturedPoints: number;
+class RedemptionRequest {
+  readonly capturedName: string; readonly capturedPoints: number;  // I-REDEEM: 不変捕捉
   status: 'pending' | 'approved' | 'rejected' | 'expired';
-  approve(byParent: User): void;
+  rewardRef?: SpecialReward;         // 任意参加（削除後も存続）
 }
-
 class ChecklistTemplate {            // 家族マスタ（唯一の family master）
-  name: string; items: ChecklistItem[];
-  assignedTo: Child[];               // M:N 配信
-  assignTo(children: Child[]): void;
+  name: string; items: ChecklistItem[]; assignedTo: Child[];  // M:N 配信
 }
-class ChecklistProgress {            // 子供側（I-CHECKLIST: 配信前提）
+class ChecklistProgress {            // Child 所有（I-CHECKLIST: 配信前提）
   readonly template: ChecklistTemplate; readonly onDate: Date;
   results: ItemResult[]; completedAll: boolean;
 }
-
-class ChildChallenge {               // per-child instance（#3195 週次自動生成）
-  title: string; target: ChallengeTarget;   // ValueObject（指標/カテゴリ/目標値）
-  reward: ChallengeReward;                   // ValueObject
-  currentValue: number; targetValue: number; completed: boolean;
-  siblingGroupKey?: string;          // 表示上のきょうだい連動のみ
-}
-
-class StampCard {                    // 子供のサブ集約（I-CHECK-1WK / I-STAMP-1DAY）
+class StampCard {                    // Child 所有（I-CHECK-1WK / I-STAMP-1DAY）
   weekStart: Date; entries: StampEntry[]; status: CardStatus;
   stamp(on: Date, master?: StampMaster): void;  // 1日1押印
 }
 ```
 
-**設計上の注記**:
-- `PointLedger.balance` を getter（派生）にしているのは I-BAL の直接表現。`compactBefore` が「間引いても残高不変」を carryover で保証する。
-- `Child.age` / `ageTier` を getter にしているのは I-AGE の直接表現（保持しない）。
-- 埋め込み文書（`displayConfig` / `target` / `reward` / 戦闘時ステータス）は**値オブジェクト**として展開。ただし「検索・集計対象になる要素」は値オブジェクトでなく独立概念に昇格させる（例: チェックリストの項目別結果、週次評価のカテゴリ別スコア）。この線引きは §7 論点 Q-04。
+**注記**: `balance` / `totalXp` を getter（派生）にしているのは I-BAL / I-DERIVED の直接表現。`compactBefore` が「間引いても総和不変」を保証。`age` / `ageTier` の getter は I-AGE の表現。BonusRule の効果は `record()` 内で基礎点へ畳み込む（実測: 独立台帳エントリを生まない）。
 
 ---
 
-## §7 継承 vs 変更 対照表（既存 → 概念モデル + DynamoDB 遺産の指摘）
+## §7 継承 vs 変更 対照表（既存 → 概念 + DynamoDB 遺産の指摘）
 
-> 「既存構造（参照）」→「概念モデル」を並べ、**維持 / 変更**と理由を記す。DynamoDB 由来の歪みは「削ぐ」と明記。L 番号は §1.3 / 各節で参照。
+| # | 既存構造（参照のみ） | 概念モデル | 維持/変更 | 理由（DynamoDB 遺産の指摘を含む） |
+|---|---|---|---|---|
+| **L-01** | テナント識別子が一部概念にのみ存在・childId 暗黙導出 | 全子供スコープ概念は必ず 1 家族に属する（I-CHILD-FAM） | 変更 | 所有が暗黙・不揃いだった。概念では全域の明示所有に正す |
+| **L-02** | 家族共有の活動マスタ + 年齢フィルタ（dead） | per-child instance の活動のみ | 変更（削ぐ） | 「1 編集で全子波及」の二重実装。波及要件は無い（ADR-0055） |
+| **L-03** | ポイント残高の二重保持 + 手動加算 | 残高は派生量（I-BAL） | 変更（削ぐ） | 乖離事故の温床。台帳から一意に定まる |
+| **L-04** | 埋め込み文書（項目/週次スコア/チャレンジ設定/表示構成/戦闘ステータス） | 参照・検索・集計対象は独立概念へ展開、不透明原子値のみ値オブジェクト（Q-04 基準） | 変更（展開） | JOIN 回避策。概念では意味を持つ要素を一級化 |
+| **L-05** | ごほうび申請への内容コピー | 申請イベントの歴史的捕捉（I-REDEEM） | 維持 | 非正規化の悪でなく業務イベントの不変性 |
+| **L-06** | きょうだいチャレンジ（家族横断 + 進捗配列） | per-child instance + 表示上の連動グループキー | 変更 | 家族横断・競争は撤去済（ADR-0012） |
+| **L-07** | 日次サマリ派生集計 read-model | ドメイン概念から除外 | 変更（削ぐ） | GSI 回避の read-model・書込未配線。都度導出 |
+| **L-08** | メディア実体保持 | 参照とメタのみ（I-MEDIA-EXT） | 維持（明文化） | 既に正しい外部分離 |
+| **L-09** | 役割の二重書き | 単一の所属関係（I-MEM） | 変更（削ぐ） | 隣接リストの産物。片方成功で不整合 |
+| **L-10** | 年齢の格納 | 生年月日からの派生（I-AGE） | 変更（削ぐ） | 誕生日で日次に陳腐化 |
+| **L-11** | 実績・称号（achievements/child_achievements/title） | 概念から除外 | 変更（削ぐ） | 製品廃止済（#322）・データ不在 |
+| **L-12** | 単一 opaque 識別子の一律強制 + 採番カウンタ + 辞書順パディング | 自然な同一性で語る（ステータス=子供×カテゴリ、スタンプカード=子供×週 等） | 変更 | index-organized KV の都合。自然同一性がある所はそれで語る（物理形式は M3） |
+| **L-13** | 季節イベント / 月替わりプレゼント | 概念に存在しない（スタンプカードの季節版も Pre-PMF scope 外） | 維持（不在確認） | ADR-0012/0013 二重違反で撤去済。復活させない（Q-05 決裁） |
+| **L-14** | **家族設定 KVS（旧 settings、任意キー→文字列）** | **キー群を概念昇格 or 概念外に線引き**（下記） | **変更（decompose）** | **Round 1 最大の欠落**。KVS を §2 で処理せず暗黙に捨てていた（no-silent-gap 違反）。物理草稿は Family 集約に settings を含む。**キーごとに (a) 概念昇格 / (b) UI 状態=概念外**へ振り分け:<br>**(a) 概念昇格**: 保護者ゲート認証（PIN 資格・失敗回数・ロック期限・運用リセット痕跡）＝ParentGateCredential ／ 減衰方針（強度 4 段階）＝DecayPolicy ／ ポイント換算（単位モード・通貨・レート）＝PointConversionPolicy ／ 承認方針（自動承認）＝ApprovalPolicy ／ 通知設定＝NotificationSettings ／ ロイヤルティ（継続月数・記念チケット）＝LoyaltyState ／ アカウント猶予（論理削除日時・猶予層・物理削除日）＝AccountLifecycle ／ ボーナスルール群＝BonusRule（family master）／ きょうだいランキング可否＝家族表示方針 ／ 既定子供選択＝DefaultChildSelection ／ ごほうびテンプレ・オンボーディング設問＝家族設定（軽微概念）／ ライフサイクルメール・PMF 調査の送達状態＝家族運用状態（追記/カウンタ）。<br>**(b) 概念外（UI 一過性フラグ）**: チュートリアル開始/完了/バナー既読、歓迎表示済、保護者ゲートオンボ既読、トライアルモーダル表示済、オンボーディング dismiss、本日推薦済 等のクライアント都合フラグ。<br>**(c) 概念外（無状態の実現手段）**: 保護者ゲート署名セッション（cookie ベースで永続概念でない、§2 注）。<br>**裏取り訂正**: 「level/称号の family カスタム設定」は KVS に**存在しない**（称号相当はロイヤルティ継続月数から導出）ため概念化しない |
+| **L-15** | 保護者ゲート認証（PIN/lockout/session）が C1「認証を初めて概念化」から欠落 | ParentGateCredential（家族単位、I-PIN-LOCK/RESET）+ EmailLoginLockout（メール単位、I-EMAIL-LOCK）を C1 に追加。session は無状態 | 変更（追加） | Round 1 #2。PIN ロック（家族）とメールログインロック（メール）は別機構。ADR-0050 |
+| **L-16** | 利用ログの集約二重帰属（Family/Child 両方に列挙） | Family 集約に一本化（対象子供は任意属性） | 変更 | Round 1 #6。所有の一意化 |
+| **L-17** | ステータス減衰・休養日が未モデル（宙に浮く） | DecayPolicy（家族）+ RestDay（減衰猶予日）+ I-DECAY / I-STATUS 訂正（成長−減衰） | 変更（追加） | Round 1 #3。日次減衰は LIVE。REST_DAY の意味を確定 |
+| **L-18** | 埋め込み判定が read パターン未検証 | Q-04 基準を実 read パターンで裏取り（申請捕捉値・週次スコア・項目結果は参照/集計され展開、証書付帯情報・戦闘ステータスは不透明で値オブジェクト） | 変更（裏取り） | Round 1 [must]#13 / Q-04 |
+| **L-19** | ボーナス加点を独立台帳種別と想定（board 前提） | ボーナスルール・連続ボーナスは基礎点（activity エントリ額）に畳み込む（独立 `bonus` 種別なし）。実 additive 種別は combo_bonus/weekly_bonus/birthday_bonus 等 | 変更（裏取り訂正） | Round 1 #1 の board 前提を実装事実で訂正（§3.3 種別集合） |
+| **L-20** | 誕生日ふりかえり（BirthdayReview）を live 概念と想定 | 未配線（型と生成定義のみ、書込/読取ゼロ）→**将来概念として除外**。実装済み誕生日概念は BirthdayBonus（台帳種別 birthday_bonus + 子供の前回付与年） | 変更（裏取り訂正） | Round 1 Q-03/N-1。§8.2 に将来化を残置 |
+| **L-21** | ダウングレード超過の自動アーカイブと想定（board 前提） | 保護者が選択したものだけをアーカイブ（自動一括でない、I-DOWNGRADE） | 変更（裏取り訂正） | Round 1 #10 の board 前提を実装事実で訂正 |
 
-| 既存構造（参照のみ） | 概念モデル | 維持/変更 | 理由（DynamoDB 遺産の指摘を含む） |
-|---|---|---|---|
-| **L-01** テナント識別子が一部概念にのみ存在し、子供スコープは childId から暗黙導出 | すべての子供スコープ概念は子供を通じ**必ず 1 家族に属する**（例外なき所有、I-CHILD-FAM） | **変更** | DynamoDB single-table では所有が暗黙・不揃いだった。概念では**全域の明示所有**に正す。物理での所有の担保方法は M3 |
-| **L-02** 家族共有の活動マスタ + 年齢フィルタ（旧 `activities`、write 停止済 dead） | **per-child instance の活動**のみ（家族マスタ活動は存在しない） | **変更（削ぐ）** | 家族マスタ活動は「1 編集で全子に波及」を招く二重実装。PO 判断で波及要件は無い（事故であって機能でない）。ADR-0055 と一致。兄弟共通化はコピー（上書き） |
-| **L-03** ポイント残高の二重保持（合計値の別保持 vs 都度合算）+ 手動加算 | 残高は**派生量**（台帳総和、I-BAL）。独立事実として持たない | **変更（削ぐ）** | 二重保持は乖離事故の温床（監査で実証）。概念では残高は台帳から一意に定まる。retention の間引きは carryover で総和保存 |
-| **L-04** 埋め込み文書（チェックリスト項目 / 週次スコア / チャレンジ設定 / 表示構成 / 戦闘ステータス） | 検索・集計対象は**独立概念に展開**（項目別結果・カテゴリ別スコア・目標条件の各要素）、不透明原子値のみ**値オブジェクト** | **変更（展開）** | 埋め込みは DynamoDB の JOIN 回避策。概念では「個々に意味を持ち参照・集計される要素」を一級の概念にする。展開 vs 値オブジェクトの線引きは Q-04 |
-| **L-05** ごほうび申請への内容コピー（名称・必要点） | 申請イベントの**歴史的捕捉**（I-REDEEM） | **維持** | これは非正規化の悪ではなく**業務イベントの不変性**（申請後にごほうび定義が変わっても申請事実は不変）。概念的に正当 |
-| **L-06** きょうだいチャレンジ（家族横断 + 進捗配列） | **per-child instance** + 表示上の連動グループキー | **変更** | 家族横断チャレンジ・競争モードは撤去済（#2296/#3195、ADR-0012）。「みんなで頑張る」は表示上の束ねに退避。データは各子独立 |
-| **L-07** 日次サマリの派生集計 read-model | ドメイン概念から**除外**（派生プロジェクション） | **変更（削ぐ）** | DynamoDB の GSI 回避で持たざるを得なかった read-model。書込未配線で実質空。概念上の事実ではない。集計は元概念から都度導出 |
-| **L-08** メディアの実体保持 | ドメインは**参照とメタのみ**、実体はドメイン外テナント分離ストレージ（I-MEDIA-EXT） | **維持（明文化）** | 既に実装済の正しい分離。概念でも「バイトはドメインの持ち物でない」を明示 |
-| **L-09** 役割の二重書き（家族側・利用者側の両方に role） | **単一の所属関係**（Membership に role 1 つ、I-MEM） | **変更（削ぐ）** | DynamoDB 隣接リストの産物。片方成功で role 不整合が起きる。概念では 1 関係 = 1 役割 |
-| **L-10** 年齢の格納 | 生年月日からの**派生**（I-AGE） | **変更（削ぐ）** | 格納年齢は誕生日で日次に陳腐化する。概念では派生量。年齢帯は手動固定時のみ独立事実 |
-| **L-11** 実績・称号（achievements / child_achievements / title） | 概念から**除外** | **変更（削ぐ）** | 実績システムは製品として廃止済（#322）・データ不在。新概念に作らない |
-| **L-12** 単一代理識別子の一律強制 + 採番カウンタ + 辞書順パディング | 概念は**自然な同一性**で語る（ステータス=子供×カテゴリ、習熟度=子供×活動、ログインボーナス=子供×日 等） | **変更** | 「すべてに単一 opaque id」は index-organized KV の都合。概念では自然識別が存在する所はそれで同一性を語る（物理識別子形式は M3 の判断） |
-| **L-13** 季節イベント（TenantEvent 等）/ 月替わりプレゼント | 概念に**存在しない** | **維持（不在の確認）** | ADR-0012/0013 二重違反で撤去済。概念に復活させない |
-
-**参照に留め、継承しなかったことの確認**: 上表の「変更（削ぐ）」10 項目（L-01〜L-04, L-06, L-07, L-09〜L-11, L-13 の削ぎ）は、既存スキーマ／型を**現状理解のためだけに参照**し、概念には持ち込まなかった。特に **単一 opaque 識別子の一律強制・非正規な埋め込み・派生値の二重保持・暗黙のテナント導出・役割二重書き**という DynamoDB single-table の 5 大歪みを概念モデルから排した。維持したのは、**業務的に正当な概念**（申請の歴史的捕捉 L-05、メディア外部化 L-08、per-child 主軸 ADR-0055）のみである。
+**参照に留め継承しなかったことの確認**: 「変更（削ぐ）」項目（L-02/L-03/L-06/L-07/L-09/L-10/L-11/L-13）は現状理解のためだけに参照し概念へ持ち込まなかった。**単一 opaque 識別子の一律強制・非正規な埋め込み・派生値の二重保持・暗黙のテナント導出・役割二重書き**の 5 大歪みを排した。維持したのは業務的に正当な概念（申請の歴史的捕捉 L-05、メディア外部化 L-08、per-child 主軸 ADR-0055）のみ。**Round 1 で追加裏取りした結果、実装と異なる board 前提は事実側に訂正**した（L-19 ボーナスは畳み込み／L-20 BirthdayReview は未配線／L-21 ダウングレードはユーザー選択／保護者ゲートセッションは無状態）。
 
 ---
 
-## §8 未決論点（M1 レビュー board 評価対象）
+## §8 決裁済み論点（Round 1 board 収束）と残存論点
 
-> 迷った判断は「決定」せず論点として明示する。各論点に候補と根拠を添える。**決定は board の仕事**。
+### §8.1 決裁済み（本版に反映済）
 
-| # | 論点 | 候補と根拠 |
+| # | 決裁 | 反映箇所 |
 |---|---|---|
-| **Q-01** | 契約状態（Subscription）は独立概念か、家族の属性か | **A: 家族の属性**（1:1、契約状態は家族に内包）— 根拠: 常に家族と 1:1、独立ライフサイクルを持たない。/ **B: 独立概念（Billing コンテキスト）**— 根拠: 課金の言語（プラン・請求・Webhook 冪等）が家族の言語と異なり、将来 Stripe 連携が肥大化する。M1 board が「課金の将来複雑度」を見て決定。現物理草稿は A（families 属性）寄り |
-| **Q-02** | 利用者（User）は本当に独立参照か、家族に内包か | **A: 独立参照**（採用寄り）— 根拠: メールが家族横断で一意、将来の複数家族所属に耐える。/ **B: 家族内包**— 根拠: 現行は「1 利用者 = 1 家族」で単純。board が「複数家族所属を将来要件とみなすか」で決定 |
-| **Q-03** | 週次評価（Evaluation）と誕生日ふりかえり（BirthdayReview）は同一概念族か | **A: 別概念**（現状）— 週次 vs 年次で周期・目的が異なる。/ **B: 「ふりかえり」抽象の下の 2 種**— 根拠: どちらも「期間の成長をスコア化し点数を与える」。統合すると概念数が減る。実利益が薄ければ A |
-| **Q-04** | 埋め込み文書の「独立概念へ展開」vs「値オブジェクト」の線引き基準 | 提案基準: **その要素が単独で参照・検索・集計されるなら独立概念、原子的に丸ごと読み書きされ検索されないなら値オブジェクト**。確定候補: 項目別結果=展開／週次スコア=展開／チャレンジ目標条件=展開／表示構成=展開（将来サーバ側で扱う蓋然性、PO 判断）／証書付帯情報=値オブジェクト（発行後不変・不検索）／戦闘時ステータス=Q-06 で別途。board が各要素を確認 |
-| **Q-05** | 「子供×週で高々 1 枚のスタンプカード」不変条件（I-CHECK-1WK）の強度 | **A: 恒久不変条件**— 現行仕様。/ **B: 現行の既定にすぎない（季節・イベントカード復活で反転しうる）**— 根拠: PO 決裁（物理草稿 §11.2）で「復活があり得る」。→ M1 では **I-CHECK-1WK を「現時点の制約」と明記し恒久不変条件に格上げしない**ことを提案。board 確認 |
-| **Q-06** | 戦闘時ステータス（バトルの player stats）の概念粒度 | **A: 値オブジェクト（不透明スナップショット）**— 戦闘の 1 局面の記録で検索されない。/ **B: 独立概念に展開**— 将来バトル分析要件が立つなら。現状は分析要件不明 → A 寄り。board 確認 |
-| **Q-07** | 1 利用者の複数家族所属を概念で許すか | **A: 現行どおり単一所属**— 単純。/ **B: 複数所属を許す（Membership が M:N）**— 根拠: 離婚・再婚・祖父母参加など家族形態の多様性。Pre-PMF では A で十分だが、Membership を M:N として描いておけば将来無痛。board が product 方針を決定 |
-| **Q-08** | 記録の追加的効果（combo/mission/challenge）の**欠落許容**を概念不変条件とするか | **A: 欠落許容（I-ADD、結果整合・冪等）**— 中核整合に不要な additive 効果。現行と同等で退行なし。/ **B: 追加効果も中核整合に含める**— 根拠: 「取れたはずのボーナスが無い」UX 不信。ただし物理草稿 §8 は技術制約（部分巻戻し不可）から A を採る。M1 board が「product として欠落を許すか」を明示決定（物理草稿 §10-8 でも PO 確認事項として残置） |
-| **Q-09** | 同意記録（Consent）の環境情報（IP/UA）を概念に保持するか | **A: 保持**（現状）— 法的証跡。/ **B: 最小化（同意日時+版+本人で足りる）**— 根拠: データ最小化原則、IP/UA は PII。物理草稿 §9.4 も「必要性再評価」。board が法務と確認 |
-| **Q-10** | カテゴリ（5 軸）を「グローバル固定参照」とするか「家族が拡張しうる概念」とするか | **A: グローバル固定（5 軸）**— 現行、ステータス軸と一体。/ **B: 家族拡張可**— 将来のカスタム軸要件。現状要件なし → A。board 確認 |
+| Q-01 | **A: 契約状態は Family の属性（1:1）** | §3.1 / §4.2 / §6。webhook 冪等イベントは将来の課金複雑度材料としてグローバル参照に残す（§4.1/§4.2） |
+| Q-02 | **A: 利用者は独立参照** | §4.2 / §6 |
+| Q-03 | **A: 週次評価と誕生日ふりかえりは別概念**。**N-1 裏取りの結果 BirthdayReview は未配線（型と生成定義のみ、書込/読取ゼロ）** → **「将来概念（未実装）」として概念モデルから除外**（§7 L-20）。実装済み誕生日概念は BirthdayBonus（台帳種別 birthday_bonus + 子供の前回付与年）で GrowthJournal 台帳に反映済 | §3.3 / §7 L-20 / §8.2 |
+| Q-04 | **A: 単独で参照/検索/集計されるか、他概念から参照される要素は独立概念に展開**。実 read パターンで裏取り（§7 L-18） | §2 / §7 L-04 L-18 |
+| Q-05 | **季節カードを Pre-PMF scope 外と確定し I-CHECK-1WK を現行不変条件に採用** | §5 I-CHECK-1WK / §7 L-12 L-13 |
+| Q-06 | **A: 戦闘時ステータスは値オブジェクト** | §3.4 |
+| Q-07 | **A: 現行 single（1 利用者 1 家族）。ただし I-CHILD-FAM の要石扱い** | §3.1（ER を下限 1・現行 single に）/ §9 |
+| Q-08 | **A: additive 欠落許容。ただし再導出可能要件は状態を持たない効果に限定**（streak/combo は冪等付与で守る） | §5 I-ADD / I-STREAK-VS-COMBO |
+| Q-09 | **A: 同意の環境情報を保持（法的証跡）。データ最小化の注記付き**（必要性再評価は法務確認事項） | §3.1 / §5 I-CONS |
+| Q-10 | **A: カテゴリはグローバル固定 5 軸** | §3.2 / §4.2 |
+
+### §8.2 残存論点（M3 / 後続で判断）
+
+- **N-1 BirthdayReview の将来化**: 未配線のため概念から除外したが、「誕生日ふりかえり（健康チェック + 抱負記録）」を将来実装する場合は、Evaluation とは別の年次ふりかえり概念として C8 に追加する（現時点では作らない）。
+- **Q-09 同意環境情報のデータ最小化**: IP/UA を証跡として保持するか、同意日時+版+本人で足りるかは法務確認で最終決定（概念上は保持を既定、最小化は開放論点）。
+- **複数家族所属の将来反転（Q-07 影響、§9）**: I-CHILD-FAM を M:N に反転する場合の影響は局所でない（要石）。
 
 ---
 
-## §9 M1 → M3 への引き渡し（本書の scope 境界の明示）
+## §9 要石不変条件の反転影響（I-CHILD-FAM / 複数家族所属）
 
-本書（M1 概念層）が**意図的に扱わなかった**もの（すべて M3 論理・物理設計の責務、`dsql-data-model.md` が該当）:
+Q-07（現行 single）は「無痛で将来 M:N 化できる」ものではない。**I-CHILD-FAM（子供 → ちょうど 1 家族）は全テナント所有導出（L-01）の要石**であり、反転（1 利用者・子供が複数家族に属する）は次に波及する:
+
+- **所有の一意性が崩れる**: 「この概念はどの家族のものか」が子供経由で一意に定まる前提（I-CHILD-FAM の全域性）が失われ、所有の明示（どの家族の文脈で読むか）を全アクセスで担う必要が出る。
+- **保護者ゲート・認可の文脈が多重化**: 1 利用者が複数家族の保護者ゲートを持ちうる。
+- **課金・上限の帰属が曖昧化**: ダウングレード上限（I-DOWNGRADE）や purge（I-PURGE の「他家族に触れない」）の境界が子供単位で家族をまたぐ。
+
+→ **本版は Q-07=A（single）を採り、ER を「1 利用者は必ず 1 家族に所属（下限 1・現行上限 1）」に制約して図文一致**させた（初版の M:N 図 + 「1 user 1 family」注記の矛盾を解消）。将来 M:N 化する場合は上記波及を ADR で扱い、I-CHILD-FAM・I-PURGE・I-DOWNGRADE・保護者ゲートの再定義を同時に行う（局所変更にしない）。
+
+---
+
+## §10 M1 → M3 への引き渡し（scope 境界）
+
+本書（M1 概念層）が意図的に扱わなかったもの（すべて M3 の責務、`dsql-data-model.md` が該当）:
 
 - 識別子の物理形式（自然複合 or 代理、生成方式）、索引、covering、正規形の次数。
-- トランザクション機構・楽観制御・整合の実現手段（不変条件 I-* の**実現方法**）。
-- 分散配置・テナント物理共置・格納フォーマット（原子値の格納形式）・メディアストレージの具体。
-- 2 バックエンド（クラウド / ローカル）の方言差、マイグレーション手順、fitness function。
+- トランザクション機構・楽観制御・整合の実現手段（不変条件 I-* の**実現方法**）。**特に I-BAL/I-DERIVED の materialize 判断**（派生量を物理的に保持するか都度畳み込むか）は M3。
+- 分散配置・テナント物理共置・格納フォーマット・メディアストレージ具体・認証ベンダ・署名セッション機構。
+- 2 バックエンド（クラウド / ローカル）の方言差、マイグレーション、fitness function。
 
-M3 は本書の **§4 集約境界・§5 不変条件・§7 対照表の「削ぐ」判断** を入力とし、それらを物理へ写像する。**§8 の未決論点が M1 board で解決されるまで、対応する物理判断（Q-01→契約の表配置、Q-05→スタンプカードの識別、Q-06→戦闘ステータスの格納 等）は暫定扱い**とする。
+M3 は本書の **§4 集約境界・§5 不変条件・§7 の「削ぐ」判断・§8 決裁**を入力とし物理へ写像する。§8.2 残存論点に対応する物理判断は暫定扱いとする。
 
 ---
 
 ## 関連
 
-- `docs/design/dsql-data-model.md` — M3 物理設計草稿（本書の概念を物理へ写す先。§3 集約 / §11 確定スキーマ）
-- `docs/decisions/0055-per-child-primary-data-model-pattern.md` — per-child 主軸原則（§4/§6 の上流）
-- `docs/design/data-model-resource-scope.md` — 6 type scope SSOT（C4/C6/C7 の scope 根拠）
+- `docs/design/dsql/m1-review-round1-ledger.md` — Round 1 finding → 対応 → 反映箇所の応答台帳
+- `docs/design/dsql-data-model.md` — M3 物理設計草稿
+- `docs/decisions/0055-per-child-primary-data-model-pattern.md` — per-child 主軸原則
+- `docs/decisions/0050-parent-gate-session-cookie-signature.md` — 保護者ゲート（C1 認証）
+- `docs/design/data-model-resource-scope.md` — 6 type scope SSOT
 - `docs/design/01-企画書.md` / `docs/DESIGN.md` §1/§6/§8 — プロダクト概念・用語・年齢帯
