@@ -37,8 +37,9 @@ export const PK_FREEZE_MANIFEST = {
 	// 現行制約は droppable UNIQUE(family,child,week_start) で維持 (復活時は UNIQUE DROP のみ)。
 	stamp_cards: ['family_id', 'child_id', 'card_id'],
 	stamp_entries: ['family_id', 'card_id', 'slot'],
+	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items を作らない、M3 §4.2 [must]A /
+	// reset-plan 決定#1)。凍結 list に子表を残すと M4 が非可逆 PK 凍結 → 原初喪失が非可逆に再来する。
 	checklist_logs: ['family_id', 'child_id', 'template_id', 'checked_date'],
-	checklist_log_items: ['family_id', 'child_id', 'template_id', 'checked_date', 'item_id'],
 	checklist_overrides: ['family_id', 'child_id', 'override_id'],
 	checklist_templates: ['family_id', 'template_id'],
 	checklist_template_items: ['family_id', 'template_id', 'item_id'],
@@ -46,8 +47,9 @@ export const PK_FREEZE_MANIFEST = {
 	// certificates: governing rule で UUID surrogate 化 (再発行/周期型証書が roadmap プラウジブル、
 	// policy anchor 無し)。「1 type 有効1通」は生成列 + droppable UNIQUE で担保 (§11.2)。
 	certificates: ['family_id', 'child_id', 'certificate_id'],
+	// evaluations.scoresJson は text 据置 (子表 evaluation_scores を作らない、M3 §4.2 [must]A /
+	// reset-plan 決定#1)。凍結 list に子表を残すと非可逆 PK 凍結で原初喪失が再来する。
 	evaluations: ['family_id', 'child_id', 'eval_id'],
-	evaluation_scores: ['family_id', 'child_id', 'eval_id', 'category_id'],
 	rest_days: ['family_id', 'child_id', 'date'],
 	daily_battles: ['family_id', 'child_id', 'date'],
 	enemy_collection: ['family_id', 'child_id', 'enemy_id'],

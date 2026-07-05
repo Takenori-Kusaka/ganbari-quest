@@ -525,7 +525,10 @@ export const checklistTemplateAssignments = pgTable(
 // ── Child 集約 残り表 Slice A: 記録系 9 表 (§11.2 / §5、#3424) ──
 // PK は pk-freeze-manifest (= §11.2 凍結) と fitness#9 [3] が自動突合。
 
-// evaluations — 週次評価。scoresJson は evaluation_scores 子表に解体 (§5 判断③)。
+// evaluations — 週次評価。scoresJson は text 据置 (M3 §4.2 [must]A / reset-plan 決定#1:
+// 子表 evaluation_scores を作らない。field query 0 件で列展開の実利益ゼロ + backup verbatim +
+// SQLite parity。子表化は原初のデータ喪失の現場ゆえ text 据置に是正)。カテゴリ別スコア集合を
+// scores_json (JSON 文字列) に丸ごと保持する。
 // created_at は sort 用途 (findEvaluationsByChild = PK プレフィクス + sort LIMIT、§11.2)。
 export const evaluations = pgTable(
 	'evaluations',
@@ -535,25 +538,14 @@ export const evaluations = pgTable(
 		evalId: uuid('eval_id').notNull().default(sql`gen_random_uuid()`),
 		weekStart: text('week_start').notNull(),
 		weekEnd: text('week_end').notNull(),
+		// カテゴリ別スコアの JSON 文字列を据置 (子表化しない、M3 §4.2)。SQLite SSOT と同 shape。
+		scoresJson: text('scores_json').notNull(),
 		bonusPoints: integer('bonus_points').notNull().default(0),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId] })],
-);
-
-// evaluation_scores — scoresJson の子表化 (§5: 真の GROUP BY を持つ evaluation 系集計のため列展開)。
-export const evaluationScores = pgTable(
-	'evaluation_scores',
-	{
-		familyId: uuid('family_id').notNull(),
-		childId: uuid('child_id').notNull(),
-		evalId: uuid('eval_id').notNull(),
-		categoryId: text('category_id').notNull(),
-		score: real('score').notNull(),
-	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId, t.categoryId] })],
 );
 
 // rest_days — おやすみ日 (自然複合 PK 昇格、anchor (a) ADR-0012: 1日1回 = policy invariant §11.2)。
@@ -572,8 +564,8 @@ export const restDays = pgTable(
 );
 
 // daily_battles — 日次バトル (自然複合 PK 昇格、anchor (a) ADR-0012 §11.2)。
-// playerStatsJson は固定 5 キー (BattleStats hp/atk/def/spd/rec) のため列展開 (§11.3 の
-// 「実装時にキー数で確定」を 5 固定と実測して確定。ALTER ADD COLUMN 可で可逆)。
+// playerStatsJson は text 据置 (M3 §10 / 値オブジェクト Q-06=A: 列展開すると BattleStats の
+// キー変動時に silent drop を招く。JSON 文字列で丸ごと保持し SQLite SSOT と parity)。
 // enemy_id はコード内 enemy master の安定 id (DB 採番 surrogate でないため integer 維持)。
 export const dailyBattles = pgTable(
 	'daily_battles',
@@ -586,11 +578,8 @@ export const dailyBattles = pgTable(
 		outcome: text('outcome'),
 		rewardPoints: integer('reward_points').notNull().default(0),
 		turnsUsed: integer('turns_used').notNull().default(0),
-		playerHp: integer('player_hp').notNull().default(0),
-		playerAtk: integer('player_atk').notNull().default(0),
-		playerDef: integer('player_def').notNull().default(0),
-		playerSpd: integer('player_spd').notNull().default(0),
-		playerRec: integer('player_rec').notNull().default(0),
+		// BattleStats (hp/atk/def/spd/rec 等) の JSON 文字列を据置 (列展開しない、M3 §10)。
+		playerStatsJson: text('player_stats_json').notNull().default('{}'),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -620,8 +609,9 @@ export const enemyCollection = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.enemyId] })],
 );
 
-// checklist_logs — 日次チェック記録 (自然複合 PK 昇格 §11.2)。itemsJson は
-// checklist_log_items 子表に解体 (§5 判断③)。
+// checklist_logs — 日次チェック記録 (自然複合 PK 昇格 §11.2)。itemsJson は text 据置
+// (M3 §4.2 [must]A / reset-plan 決定#1: 子表 checklist_log_items を作らない。field query 0 件 +
+// item_id gap #3601 同時解消。checked item id 集合を JSON 文字列で丸ごと保持し SQLite SSOT と parity)。
 export const checklistLogs = pgTable(
 	'checklist_logs',
 	{
@@ -629,6 +619,8 @@ export const checklistLogs = pgTable(
 		childId: uuid('child_id').notNull(),
 		templateId: uuid('template_id').notNull(),
 		checkedDate: text('checked_date').notNull(),
+		// checked item id 配列の JSON 文字列を据置 (子表化しない、M3 §4.2)。SQLite SSOT と同 shape。
+		itemsJson: text('items_json').notNull().default('[]'),
 		completedAll: boolean('completed_all').notNull().default(false),
 		pointsAwarded: integer('points_awarded').notNull().default(0),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
@@ -636,20 +628,6 @@ export const checklistLogs = pgTable(
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate] })],
-);
-
-// checklist_log_items — itemsJson の子表化 (§5: item_id は checklist_template_items 論理FK)。
-export const checklistLogItems = pgTable(
-	'checklist_log_items',
-	{
-		familyId: uuid('family_id').notNull(),
-		childId: uuid('child_id').notNull(),
-		templateId: uuid('template_id').notNull(),
-		checkedDate: text('checked_date').notNull(),
-		itemId: uuid('item_id').notNull(),
-		checked: boolean('checked').notNull().default(false),
-	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate, t.itemId] })],
 );
 
 // checklist_overrides — 日次 override (UUID surrogate §11.2: 自然キー一意の前提を置かず確定 N5)。
@@ -872,9 +850,10 @@ export const childCustomVoices = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.voiceId] })],
 );
 
-// child_challenges — per-child チャレンジ (#2362 PR-7)。targetConfig/rewardConfig は
-// 列展開 (§5: target_metric / target_category_id 論理FK / base_target / reward_points /
-// reward_message)。challenge_type は増減集合 (CHECK 対象外)。
+// child_challenges — per-child チャレンジ (#2362 PR-7)。targetConfig/rewardConfig は text 据置
+// (M3 §4.2 [must]A: 列展開すると実 write の genMode/genMissStreak(#3203 救済入力)/activityId/
+// ageAdjustments を silent drop = 原初喪失そのもの。最 severe。JSON 文字列で丸ごと保持し
+// SQLite SSOT と parity)。challenge_type は増減集合 (CHECK 対象外)。
 export const childChallenges = pgTable(
 	'child_challenges',
 	{
@@ -887,11 +866,11 @@ export const childChallenges = pgTable(
 		periodType: text('period_type').notNull().default('weekly'),
 		startDate: text('start_date').notNull(),
 		endDate: text('end_date').notNull(),
-		targetMetric: text('target_metric').notNull(),
-		targetCategoryId: text('target_category_id'),
-		baseTarget: integer('base_target').notNull(),
-		rewardPoints: integer('reward_points').notNull(),
-		rewardMessage: text('reward_message'),
+		// { metric, categoryId?, baseTarget, genMode?, genMissStreak?, activityId?, ageAdjustments? }
+		// を丸ごと据置 (列展開しない、M3 §4.2)。SQLite SSOT と同 shape。
+		targetConfig: text('target_config').notNull(),
+		// { points, message? } を丸ごと据置 (列展開しない)。
+		rewardConfig: text('reward_config').notNull(),
 		status: text('status').notNull().default('active'),
 		isActive: boolean('is_active').notNull().default(true),
 		sourceTemplateId: text('source_template_id'),

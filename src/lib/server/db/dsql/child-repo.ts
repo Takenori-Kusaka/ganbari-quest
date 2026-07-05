@@ -94,13 +94,13 @@ const CHILD_SCOPED_TABLES = [
 	'daily_missions',
 	'login_bonuses',
 	'stamp_cards',
+	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items 廃止、M3 §4.2)。
 	'checklist_logs',
-	'checklist_log_items',
 	'checklist_overrides',
 	'checklist_template_assignments',
 	'certificates',
+	// evaluations.scoresJson は text 据置 (子表 evaluation_scores 廃止、M3 §4.2)。
 	'evaluations',
-	'evaluation_scores',
 	'rest_days',
 	'daily_battles',
 	'enemy_collection',

@@ -12,10 +12,11 @@
 //     assignments (checklist_template_assignments) を join して「配信済 template」を絞る。
 //     「別の子から取込 (copy)」= assignments 追加のみ (template は複製しない)。この非対称を
 //     findTemplatesByChild(assignments join) / assignTemplateToChildren(配信) で表現する。
-//   - **§5 JSON 解体**: checklist_logs.itemsJson は checklist_log_items 子表に解体済 (schema)。
-//     log 読み出しは JSON 復元でなく子表 join で itemsJson (= checked item id の配列) を再構成する。
-//     itemsJson の意味は checklist-service の `JSON.stringify(checkedIds)` (checked な item id 群)。
-//     upsertLog は log 行 + log_items を **単一 txn** で保存する (log と checked 集合の整合)。
+//   - **§5 JSON 据置 (M3 §4.2 [must]A / reset-plan 決定#1)**: checklist_logs.items_json は
+//     子表化せず text 列に据置する (子表 checklist_log_items は廃止)。log 読み出しは items_json
+//     を verbatim 返し、upsertLog は checked 集合を items_json に丸ごと保存する (子表 join / 全置換
+//     ループを廃止し原初のデータ喪失リスクを断つ)。itemsJson の意味は checklist-service の
+//     `JSON.stringify(checkedIds)` (checked な item id 群) で SQLite SSOT と同 shape。
 //   - **entity 境界**: isActive / isArchived / completedAll は number (0/1) 契約 — boolean 列を
 //     読み出し時に変換 (既存 sqlite backend と同一 shape)。
 //   - **surrogate 無し表の合成 id** (§11.2、daily-mission の自然キー戦略と同判断):
@@ -79,6 +80,7 @@ interface LogRow {
 	child_id: string;
 	template_id: string;
 	checked_date: string;
+	items_json: string;
 	completed_all: boolean;
 	points_awarded: number;
 	created_at: string;
@@ -104,7 +106,7 @@ const ITEM_COLUMNS = sql.raw(
 	'family_id, template_id, item_id, name, icon, frequency, direction, sort_order, created_at',
 );
 const LOG_COLUMNS = sql.raw(
-	'family_id, child_id, template_id, checked_date, completed_all, points_awarded, created_at',
+	'family_id, child_id, template_id, checked_date, items_json, completed_all, points_awarded, created_at',
 );
 const OVERRIDE_COLUMNS = sql.raw(
 	'family_id, child_id, override_id, target_date, action, item_name, icon, created_at',
@@ -155,14 +157,14 @@ function toItem(row: ItemRow): ChecklistTemplateItem {
 }
 
 /** 合成 id (§11.2 surrogate 無し): logs = `${child}:${template}:${date}`。
- * itemsJson は checklist_log_items 子表を join した checked item id 配列 (§5)。 */
-function toLog(row: LogRow, itemsJson: string): ChecklistLog {
+ * itemsJson は items_json text 列を verbatim 返す (子表 join を廃止、§5 text 据置)。 */
+function toLog(row: LogRow): ChecklistLog {
 	return {
 		id: `${row.child_id}:${row.template_id}:${row.checked_date}`,
 		childId: asChildId(row.child_id),
 		templateId: row.template_id,
 		checkedDate: row.checked_date,
-		itemsJson,
+		itemsJson: row.items_json,
 		completedAll: row.completed_all ? 1 : 0,
 		pointsAwarded: row.points_awarded,
 		createdAt: row.created_at,
@@ -192,23 +194,6 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IChecklistRepo {
-	// 指定 (family, child, template, date) の checked item id 群を子表から復元 (§5)。
-	// item_id 昇順で正規化する (itemsJson は checklist-service で Set 照合されるため順序非依存)。
-	const readCheckedIds = async (
-		childId: string,
-		templateId: string,
-		date: string,
-		tenantId: string,
-	): Promise<string[]> => {
-		const result = await db.execute(sql`
-			SELECT item_id FROM checklist_log_items
-			WHERE family_id = ${tenantId} AND child_id = ${childId}
-				AND template_id = ${templateId} AND checked_date = ${date} AND checked = true
-			ORDER BY item_id
-		`);
-		return (result.rows as { item_id: string }[]).map((r) => r.item_id);
-	};
-
 	return {
 		// ── Templates (family scope) ──────────────────────────────
 
@@ -287,12 +272,10 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		},
 
 		async deleteTemplate(id, tenantId) {
-			// cascade を単一 txn (fitness#7: work 内 await は tx.execute 直呼びのみ)。子表 →
+			// cascade を単一 txn (fitness#7: work 内 await は tx.execute 直呼びのみ)。関連表 →
 			// 親 template の順で削除し orphan を残さない。§P9: family 述語で他 tenant を保護。
+			// checklist_log_items 子表は廃止 (items_json text 据置) ゆえ削除対象から除外。
 			await runner.runInTransaction(async (tx) => {
-				await tx.execute(
-					sql`DELETE FROM checklist_log_items WHERE family_id = ${tenantId} AND template_id = ${id}`,
-				);
 				await tx.execute(
 					sql`DELETE FROM checklist_logs WHERE family_id = ${tenantId} AND template_id = ${id}`,
 				);
@@ -412,46 +395,29 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 			`);
 			const row = result.rows[0] as unknown as LogRow | undefined;
 			if (!row) return undefined;
-			const checkedIds = await readCheckedIds(String(childId), templateId, date, tenantId);
-			return toLog(row, JSON.stringify(checkedIds));
+			return toLog(row);
 		},
 
 		async upsertLog(input, tenantId) {
-			// log 行 + checked 集合 (checklist_log_items) を単一 txn で保存 (§5: itemsJson 子表化)。
-			// checked 集合は毎回 delete → re-insert で置換する (checklist-service は全 checked id を
-			// 渡すため差分でなく全置換が正)。log 行は PK ON CONFLICT DO UPDATE (created_at は不変)。
-			const checkedIds = parseCheckedIds(input.itemsJson);
+			// log 行を items_json text 据置で保存 (§5: 子表 checklist_log_items 廃止、M3 §4.2)。
+			// checked 集合は items_json に丸ごと保存する (checklist-service は全 checked id を渡すため
+			// 全置換が正)。log 行は PK ON CONFLICT DO UPDATE (created_at は不変、items_json も置換)。
+			// legacy number 配列を String 正規化した JSON を据置 (read と同 shape、順序非依存)。
+			const itemsJson = JSON.stringify(parseCheckedIds(input.itemsJson));
 			const childId = String(input.childId);
 			const { templateId, checkedDate } = input;
 			const completedAll = input.completedAll !== 0;
-			const row = await runner.runInTransaction(async (tx) => {
-				const upserted = await tx.execute(sql`
-					INSERT INTO checklist_logs
-						(family_id, child_id, template_id, checked_date, completed_all, points_awarded)
-					VALUES (${tenantId}, ${childId}, ${templateId}, ${checkedDate}, ${completedAll},
-						${input.pointsAwarded})
-					ON CONFLICT (family_id, child_id, template_id, checked_date)
-					DO UPDATE SET completed_all = ${completedAll}, points_awarded = ${input.pointsAwarded}
-					RETURNING ${LOG_COLUMNS}
-				`);
-				await tx.execute(sql`
-					DELETE FROM checklist_log_items
-					WHERE family_id = ${tenantId} AND child_id = ${childId}
-						AND template_id = ${templateId} AND checked_date = ${checkedDate}
-				`);
-				for (const itemId of checkedIds) {
-					await tx.execute(sql`
-						INSERT INTO checklist_log_items
-							(family_id, child_id, template_id, checked_date, item_id, checked)
-						VALUES (${tenantId}, ${childId}, ${templateId}, ${checkedDate}, ${itemId}, true)
-						ON CONFLICT (family_id, child_id, template_id, checked_date, item_id)
-						DO UPDATE SET checked = true
-					`);
-				}
-				return upserted.rows[0] as unknown as LogRow;
-			});
-			// 返り値の itemsJson は保存した checked 集合を item_id 正規化した配列 (read と同 shape)。
-			return toLog(row, JSON.stringify(checkedIds.slice().sort()));
+			const upserted = await db.execute(sql`
+				INSERT INTO checklist_logs
+					(family_id, child_id, template_id, checked_date, items_json, completed_all, points_awarded)
+				VALUES (${tenantId}, ${childId}, ${templateId}, ${checkedDate}, ${itemsJson}, ${completedAll},
+					${input.pointsAwarded})
+				ON CONFLICT (family_id, child_id, template_id, checked_date)
+				DO UPDATE SET items_json = ${itemsJson}, completed_all = ${completedAll},
+					points_awarded = ${input.pointsAwarded}
+				RETURNING ${LOG_COLUMNS}
+			`);
+			return toLog(upserted.rows[0] as unknown as LogRow);
 		},
 
 		async findLogsByChild(childId, tenantId) {
@@ -461,29 +427,8 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 				WHERE family_id = ${tenantId} AND child_id = ${id}
 				ORDER BY checked_date DESC
 			`);
-			const logRows = logsResult.rows as unknown as LogRow[];
-			if (logRows.length === 0) return [];
-			// checked 集合を 1 クエリで取得し (template, date) でグルーピング (N+1 回避)。
-			const itemsResult = await db.execute(sql`
-				SELECT template_id, checked_date, item_id FROM checklist_log_items
-				WHERE family_id = ${tenantId} AND child_id = ${id} AND checked = true
-				ORDER BY item_id
-			`);
-			const grouped = new Map<string, string[]>();
-			for (const r of itemsResult.rows as {
-				template_id: string;
-				checked_date: string;
-				item_id: string;
-			}[]) {
-				const key = `${r.template_id} ${r.checked_date}`;
-				const list = grouped.get(key);
-				if (list) list.push(r.item_id);
-				else grouped.set(key, [r.item_id]);
-			}
-			return logRows.map((row) => {
-				const key = `${row.template_id} ${row.checked_date}`;
-				return toLog(row, JSON.stringify(grouped.get(key) ?? []));
-			});
+			// items_json は各 log 行に据置済 (子表 join 廃止、§5 text 据置)。
+			return (logsResult.rows as unknown as LogRow[]).map(toLog);
 		},
 
 		// ── Per-child overrides ───────────────────────────────────
@@ -562,10 +507,9 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		// ── Tenant bulk deletion ──────────────────────────────────
 
 		async deleteByTenantId(tenantId) {
-			// 全 6 表を単一 txn で tenant 限定削除 (fitness#7)。sqlite (シングルテナント全行削除) と
+			// 全 5 表を単一 txn で tenant 限定削除 (fitness#7)。sqlite (シングルテナント全行削除) と
 			// 違い family 述語で tenant 限定 (§P9)。子表 → 親の順で削除。
 			await runner.runInTransaction(async (tx) => {
-				await tx.execute(sql`DELETE FROM checklist_log_items WHERE family_id = ${tenantId}`);
 				await tx.execute(sql`DELETE FROM checklist_logs WHERE family_id = ${tenantId}`);
 				await tx.execute(sql`DELETE FROM checklist_overrides WHERE family_id = ${tenantId}`);
 				await tx.execute(
