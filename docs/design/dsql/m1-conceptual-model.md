@@ -1,6 +1,8 @@
 # M1 概念データモデル（Conceptual Data Model / ANSI-SPARC 概念層）— がんばりクエスト
 
-> **状態**: M1 成果物 — **Round 1 レビュー board（3 独立観点）指摘反映済（rework 版）**。応答台帳: `docs/design/dsql/m1-review-round1-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
+> **状態**: M1 成果物 — **Round 1 + Round 2 レビュー board（各 3 独立観点）指摘反映済**。応答台帳: `docs/design/dsql/m1-review-round1-ledger.md` / `docs/design/dsql/m1-review-round2-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
+>
+> **Round 2 の主変更**: ①**PointLedger を Child 直下の独立集約に昇格**（消費=同期整合で overspend 不能、付与=結果整合）→ 残高非負の越境矛盾を根治。②台帳種別を**実 grep で網羅列挙**（付与14/消費3/繰越1）し虚偽の「裏取り済=完全」含意を撤回。③**ポイント換金（convert）を第 2 の消費オペレーションとして概念化**。④**Family も解体**（追記ログ・独立資源を衛星集約へ降格）。⑤§9 mermaid を `||--||` に修正し図文一致。
 >
 > **層の位置づけ（ANSI-SPARC）**: 本書は **概念層（conceptual schema）** に限定する。「業務ドメインに何が存在し、どう関係し、どんな不変条件を満たすか」だけを述べる。**格納・物理表現（識別子の物理形式・索引・正規形の次数・格納フォーマット・トランザクション機構・分散配置・認証ベンダ名）は一切扱わない**。それらは後続 M3（物理設計）の責務で、既存の物理草稿 `docs/design/dsql-data-model.md` が M3 の入力である。
 >
@@ -95,7 +97,7 @@ graph LR
 ```mermaid
 erDiagram
   FAMILY ||--o{ MEMBERSHIP : "所属を持つ(1家族:N所属)"
-  USER   ||--|{ MEMBERSHIP : "所属を通じ家族に加わる(1利用者:1..N所属; 現行は1家族)"
+  USER   ||--|| MEMBERSHIP : "所属を通じ家族に加わる(現行は1利用者=1所属を厳密に encode)"
   FAMILY ||--o{ INVITE : "招待を発行する(1:N)"
   FAMILY ||--o{ CONSENT : "同意記録を蓄積(1:N, 追記のみ)"
   USER   ||--o{ CONSENT : "同意した本人(1:N)"
@@ -194,8 +196,8 @@ erDiagram
   AGE_BENCHMARK ||--o{ STATUS : "年齢×カテゴリ基準値(参照)"
 
   POINT_LEDGER_ENTRY {
-    number 増減量 "正=獲得/負=消費"
-    enum 種別 "activity/combo_bonus/weekly_bonus/birthday_bonus/reward_redemption/cancel/carryover"
+    number 増減量 "正=付与/負=消費"
+    enum 種別 "付与14種/消費3種/繰越1種(下記, 実grep網羅)"
     string 説明; ref 由来参照 "任意(弱い業務参照)"; datetime 発生日時
   }
   STATUS { number 累計XP "成長総和−減衰総和"; number レベル "累計XPの関数"; number 到達最高XP }
@@ -207,8 +209,11 @@ erDiagram
   AGE_BENCHMARK { number 年齢; number 平均; number 標準偏差 }
 ```
 
-- **ポイント残高は独立概念に存在しない**。残高は「その子供の全台帳エントリ増減量の意味論的総和」という**派生量**（I-BAL）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
-- **ポイント種別（台帳の kind）は実クエリで裏取り済**の値集合: `activity`（基礎点。**ボーナスルール・連続ボーナスの加点はこの activity エントリの額に畳み込まれる**＝独立 `bonus` 種別は存在しない）/ `combo_bonus`（後追い additive）/ `weekly_bonus`（週次評価）/ `birthday_bonus` / `reward_redemption`（負）/ `cancel`（取消）/ `carryover`（間引き時の繰越）。
+- **ポイント台帳（PointLedger）は Child スコープ直下の独立集約**（§4 で GrowthJournal から分離）。残高は独立事実として存在せず「その子供の全台帳エントリ増減量の意味論的総和」という**派生量**（I-BAL）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
+- **ポイント種別（台帳の kind）の完全集合**（`src/lib/server/services` + `src/lib/server/db` を **実 grep して網羅**、2026-07 時点の配線。**この grep scope での網羅であり、taxonomy の恒久 freeze（凍結値集合）は M3 の責務**）。C7 習慣装置由来の点数事象も漏れなく PointLedger への付与事象として列挙する（no-silent-gap）:
+  - **付与（正、14 種）**: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）の加点はこの activity エントリの額に畳み込まれる**＝独立 `bonus` 種別は存在しない）/ `combo_bonus`（同日連鎖、後追い additive）/ `weekly_bonus`（週次評価）/ `birthday_bonus`（誕生日）/ `login_bonus`（ログイン）/ `checklist`（チェックリスト達成）/ `stamp_card`（スタンプカード交換）/ `stamp_instant`（スタンプ即時）/ `child_challenge`（チャレンジ達成報酬）/ `daily_mission`（今日のミッション達成）/ `focus_bonus`（おすすめ集中）/ `must_completion_bonus`（今日のおやくそく完了、**独立 additive**。masteryBonus とは別で activity に畳み込まれない）/ `cheer`（保護者/きょうだい応援の付与点）/ `initial_setup`（初期セットアップ付与）
+  - **消費（負、3 種）**: `reward_redemption`（ごほうび交換） / `convert`（ポイント換金＝お小遣い化、§3.4 の第 2 の消費経路） / `cancel`・`checklist_cancel`（記録取消による戻し。付与の逆符号）
+  - **繰越（1 種）**: `carryover`（retention 間引き時に削除分の合算を生む繰越。DSQL 側 retention compaction が生成、§7 L-03 / I-DERIVED）
 - **ステータスは「成長総和 − 減衰総和」**（I-STATUS 訂正）。減衰は日次に走る家族方針（DecayPolicy: 強度 4 段階 + 猶予日数）で、休養日・活動直後の猶予中は止まる（I-DECAY）。減衰も成長も STATUS_HISTORY に追記される。
 - **ボーナスルール（BonusRule）は family master 概念**（ADR-0055、marketplace 取込プリセット由来、記録時に同期評価され LIVE）。その効果は**記録の中核整合内で activity の付与点に反映**（別台帳エントリでない）。
 - **週次評価（Evaluation）**はカテゴリ別スコアの束を持ち、ボーナス点（`weekly_bonus`）を台帳に生む。旧スコア埋め込み文書を独立要素へ展開（§7 L-04）。
@@ -270,7 +275,8 @@ erDiagram
 
 - **交換申請とごほうびの関係は任意参加**（0..1 : N）: ごほうび定義を削除しても申請は存続する（I-REDEEM の歴史性）。申請は申請時点の名称・必要ポイントを**不変に捕捉**する。
 - **承認 = 残高消費**（I-REDEEM-CONSUME）: 交換申請の承認は、必要ポイント分の**負の台帳エントリ（種別 `reward_redemption`）を 1 件**生む。承認は**残高が十分なときのみ**成立し、残高は**非負を保つ**（I-BAL-NONNEG）。自動承認するか否かは家族の承認方針（ApprovalPolicy）。
-- **ポイント換算方針（PointConversionPolicy）**は「点数を親子経済上の通貨・単位でどう見せるか」の家族方針（表示上の換算、C6）。
+- **ポイント換金（convert）は残高を実際に消費するオペレーション**（I-BAL-NONNEG 従属、`reward_redemption` と並ぶ **2 つ目の消費経路**）: 換金は残高不足を拒否し、換金額分の**負の台帳エントリ（種別 `convert`）を 1 件** PointLedger に刻む（残高が親子経済上の「お小遣い」に変換される）。**表示上の換算に矮小化しない**（実残高が減る）。
+- **ポイント換算方針（PointConversionPolicy）は表示/レート方針として分離**: 「点数をどの通貨・単位・レートで見せ／換金するか」の家族方針であって、換金という**消費オペレーション自体（負エントリの発生）とは別概念**。方針は換金額の算定に使われるが、残高を減らすのは換金オペレーション（上記）。
 - **チェックリストのみ family master + 配信 + 進捗の 3 層**（ADR-0055 唯一の例外）。項目別チェック結果は旧項目埋め込みを展開（§7 L-04）。**当日上書き（CHECKLIST_OVERRIDE）は子供のその日の実効チェックリストを増減する**（特定テンプレに紐づかない、子供×日の項目調整）。
 - **チャレンジは per-child instance**（#3195 週次自動生成一本化、競争モード撤去）。きょうだい連動は表示上の束ね（§7 L-06）。
 - **スタンプカードは子供×週で 1 枚**（I-CHECK-1WK、決裁 Q-05: 季節カードは Pre-PMF scope 外として確定し本制約を採用）。押印はログイン起点で 1 日 1 押印（I-STAMP-1DAY）。
@@ -315,13 +321,17 @@ erDiagram
 
 ## §4 DDD 集約マップ（Child を所有スコープに再位置づけ）
 
-> **Round 1 指摘 #5 反映（案 a 採用、DDD 正道）**: 初版は「集約=トランザクション整合単位」と定義しつつ Child に同時整合不要な衛星（メッセージ・証書・バトル・申請・チャレンジ・スタンプ 等）を一括内包し**巨大集約スメル**だった。本版は **Child を「所有スコープ（per-child = ADR-0055 の所有軸）」に位置づけ直し**、その内側に**複数の小集約**を置く。各小集約は Child を**同一性参照**で指し、自身のトランザクション整合だけを守る。集約横断は結果整合 + 冪等。
+> **Round 1 #5 反映（案 a、DDD 正道）**: 初版の Child 巨大集約スメルを、**Child を「所有スコープ（per-child = ADR-0055 の所有軸）」に位置づけ直し**、内側に複数の小集約を置く形へ解体した。各小集約は Child を**同一性参照**で指し、自身のトランザクション整合だけを守る。集約横断は結果整合 + 冪等。
+>
+> **Round 2 追加反映**:
+> - **#1 PointLedger を Child 直下の独立集約に昇格**（初版の「台帳は GrowthJournal 所有」を廃止）。**消費オペレーション（負エントリ = reward_redemption / convert）だけは PointLedger 内で同期整合**（残高読取 → 負エントリ append を atomic ＝ overspend 不能、I-BAL-NONNEG は PointLedger の強不変条件）。**正の付与は各衛星集約（GrowthJournal / StampCard / ChecklistProgress / Battle / ChildChallenge / DailyMission / Cheer / login / focus / must / initial）から PointLedger へ「点数事象を要請」する結果整合**（付与は hard 不変条件を持たない・冪等・加算的）。これで §4「集約横断=結果整合」総則 ⇄ 残高非負の矛盾が「**消費だけ同期・付与は結果整合**」として解消（Round 1 の I-BAL-NONNEG 越境問題を根治）。
+> - **#4 Family も解体原則を適用**（初版は Child のみ解体し Family を巨大集約のまま放置）。Family ルートは**不変条件を担う概念のみ**（所属・招待・契約・保護者ゲート・同意の現在値・家族方針）に絞り、**追記専用ログと独立ライフサイクル資源は Family を同一性参照する衛星集約に降格**する。
 
 ### §4.1 所有スコープ
 
 | 所有スコープ | 意味 |
 |---|---|
-| **家族（Family）** | 最上位テナント境界。C1/C2/C8 家族運用概念の所有 |
+| **家族（Family）** | 最上位テナント境界。**Child と同様に所有軸として扱い（Round 2 #4）**、家族運用の追記ログ・独立資源は Family ルートでなく Family 参照の衛星集約に置く。Family ルートは不変条件概念のみ |
 | **子供（Child）** | 家族内の**所有軸**（トランザクション整合の巨大単位ではない）。以下の小集約群が Child を同一性参照する（ADR-0055 per-child 主軸と一致） |
 | **グローバル参照** | 家族に属さない共有参照（カテゴリ / スタンプ種別 / 年齢基準値 / 課金イベント冪等の観測点） |
 
@@ -329,30 +339,34 @@ erDiagram
 
 | 集約ルート | 所有 | 内包する子概念 | 境界（この単位で整合）の根拠 |
 |---|---|---|---|
-| **Family** | — | 所属、招待、同意、保護者ゲート認証、契約状態、トライアル履歴、解約理由、ロイヤルティ、アカウント状態機械、減衰方針、承認方針、換算方針、通知設定・購読・ログ、ボーナスルール群、既定子供選択、閲覧リンク、クラウドエクスポート、利用ログ、卒業同意 | アクセス・契約・家族方針の不変条件（owner ちょうど 1 名／同意追記のみ／契約状態 1 つ／保護者ゲート 1 つ）を家族単位で守る。**利用者（User）は家族に閉じない**（メール横断一意）ため独立参照、所属が家族×利用者を担う |
-| **ChildProfile** | Child | （子供の属性のみ: ニックネーム/生年月日/年齢帯/テーマ/アバター参照/アーカイブ状態/休養日） | 子供の identity と属性。他小集約の同一性アンカー |
-| **GrowthJournal**（成長台帳） | Child | 活動記録、ポイント台帳（+派生残高）、ステータス（+派生 XP/レベル）、ステータス履歴、活動習熟度 | **I-REC の atomic 境界そのもの**。1 記録が「記録・基礎点・ステータス・習熟」を同時整合させる、派生量が相互一貫すべき概念群を 1 集約に束ねる。**この集約の外は結果整合**（combo/mission/challenge/証書/通知） |
+| **Family**（縮小後） | — | 所属、招待、保護者ゲート認証、契約状態、ロイヤルティ、アカウント状態機械、減衰方針、承認方針、換算方針、通知設定、ボーナスルール群、既定子供選択、**同意の現在値**（追記ログは衛星、下記） | アクセス・契約・家族方針の**不変条件**（owner ちょうど 1 名／契約状態 1 つ／保護者ゲート 1 つ／同意の現在値）**だけ**を家族単位で守る（#4 で追記ログ・独立資源を衛星へ降格）。**利用者（User）は家族に閉じない**（メール横断一意）ため独立参照、所属が家族×利用者を担う |
+| **PointLedger**（Round 2 #1 独立昇格） | Child | 全点数事象（付与14/消費3/繰越1、§3.3）、**派生残高** | **残高の非負（I-BAL-NONNEG）を守る唯一の境界**。消費（reward_redemption/convert）は残高読取→負エントリ append を**この集約内で同期整合**＝overspend 不能。付与は結果整合で受理（付与に hard 不変条件なし）。retention compaction（carryover 生成）もこの集約内 |
+| **ChildProfile** | Child | 子供の属性（ニックネーム/生年月日/年齢帯/テーマ/アバター参照/アーカイブ状態/休養日） | 子供の identity と属性。他小集約の同一性アンカー |
+| **GrowthJournal**（縮小後 = 成長状態） | Child | 活動記録、ステータス（+派生 XP/レベル）、ステータス履歴、活動習熟度 | **I-REC の atomic 境界**（記録・ステータス・習熟の同時整合）。**点数は含まない**（PointLedger へ付与事象を結果整合で要請、§4.3）。この集約の外は結果整合（combo/mission/challenge/証書/通知） |
 | **ActivityCatalog** | Child | 子供の活動、ピン留め、今日のミッション | 記録の**設定**（何を記録できるか）。記録整合（GrowthJournal）とは別トランザクション |
-| **StampCard** | Child | 押印（枠） | カード単位で押印を扱う局所整合（週の枠で完結） |
-| **ChecklistProgress** | Child | 日次達成記録、項目別結果、当日上書き | 子供の進捗整合。家族マスタ（ChecklistTemplate）とは別トランザクション |
+| **StampCard** | Child | 押印（枠） | カード単位で押印を扱う局所整合。付与（stamp_card/stamp_instant）は PointLedger へ結果整合要請 |
+| **ChecklistProgress** | Child | 日次達成記録、項目別結果、当日上書き | 子供の進捗整合。付与（checklist/checklist_cancel）は PointLedger へ結果整合要請 |
 | **Battle** | Child | 日次バトル、討伐図鑑 | 1 日 1 戦の局所整合 |
-| **RewardExchange** | Child | ごほうび、交換申請 | 交換申請の状態遷移・残高消費（I-REDEEM-CONSUME）の局所整合 |
-| **ChildChallenge** | Child | チャレンジ（進捗 inline） | per-child チャレンジの局所整合 |
+| **RewardExchange** | Child | ごほうび、交換申請 | 交換申請の状態遷移。**残高消費は PointLedger 内同期**（I-REDEEM-CONSUME は PointLedger の消費オペレーションを呼ぶ）。承認可否の情報は当集約 |
+| **ChildChallenge** | Child | チャレンジ（進捗 inline） | per-child チャレンジの局所整合。達成報酬（child_challenge）は PointLedger へ結果整合要請 |
 | **ChecklistTemplate**（家族マスタ） | Family | 項目、配信（子供への割当） | 家族が所有するマスタ。進捗（子供側）と整合単位が別（ADR-0055 唯一の family master） |
 | **グローバル参照** | — | カテゴリ、スタンプ種別、年齢基準値、課金イベント冪等観測点 | 家族に属さない共有参照。個別整合、テナント境界なし |
 
-> **衛星の扱い**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・週次評価は、**Child を同一性参照する独立記録**（追記 or 単純状態）で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。
+> **Child 衛星集約**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・**週次評価（Evaluation、weekly_bonus を PointLedger へ要請）**は、**Child を同一性参照する独立記録**（追記 or 単純状態）で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。
+>
+> **Family 衛星集約（#4 対の注記）**: **追記専用ログ**（通知ログ・利用ログ・同意の追記履歴・トライアル履歴・解約理由）と**独立ライフサイクル資源**（通知購読 / 閲覧専用リンク / クラウドエクスポート / 卒業同意）は、**Family を同一性参照する衛星集約**に降格する。これらは Family ルートの不変条件（owner 数・契約・保護者ゲート）に同期整合を要さず、各々のライフサイクル（購読の失効・エクスポートの状態遷移・追記）を自集約で守る。**通知購読は購読元の所属（membership）を参照**（I-PUSH-ROLE の役割検証の依り所）。**同意は追記ログ（衛星）＋現在値の不変条件（Family ルート、I-CONS）** の 2 面で扱う（追記は衛星、最新値の解決は Family）。**carryover を生む retention compaction は PointLedger 集約内の操作**（Family でなく子供の台帳側）。
 
-### §4.3 GrowthJournal の中核整合（I-REC）
+### §4.3 GrowthJournal の中核整合（I-REC）と PointLedger への付与要請
 
-「活動を 1 回記録する」操作は次を**同時に成り立たせる**（部分成立は不変条件違反）:
+「活動を 1 回記録する」操作は、**GrowthJournal 内で次を同時に成り立たせる**（部分成立は不変条件違反）:
 
 - 活動記録が 1 件生まれる（連続日数・連続ボーナスをその場で確定して載せる）。
-- 対応する基礎点（ボーナスルール・連続ボーナスの加点を畳み込んだ額）が台帳に 1 件刻まれ、派生残高が整合する。
 - 対応カテゴリのステータス（累計 XP・レベル）が更新され、変化が履歴に残る。
 - 活動の習熟度（累計回数・レベル）が更新される。
 
-**連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書・通知**は additive で中核整合に不要 → GrowthJournal 外の結果整合（冪等・欠落許容、Q-08=A）。現行実装が複数副作用を整合単位なしで逐次実行し例外を握り潰す（`dsql-data-model.md` §8）のは**不変条件違反を許す設計**であり、M1 は「中核 4 者の同時整合」を集約不変条件として明示する（実現機構は M3）。
+**点数の付与は GrowthJournal の atomic 境界に含めない**（Round 2 #1）: 記録が確定すると、基礎点（ボーナスルール・連続ボーナス・習熟ボーナスを畳み込んだ額）は **PointLedger へ `activity` 付与事象として結果整合で要請**される（冪等・加算的）。付与は残高非負の hard 不変条件を持たないため、GrowthJournal（成長状態）の atomic 境界と PointLedger（残高）の境界を分けても整合が壊れない。逆に**残高を減らす消費（reward_redemption/convert）は PointLedger 内で同期整合**し overspend を不能にする（I-BAL-NONNEG）。
+
+**連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書・通知**も additive で中核整合に不要 → 結果整合（冪等・欠落許容、Q-08=A）。現行実装が複数副作用を整合単位なしで逐次実行し例外を握り潰す（`dsql-data-model.md` §8）のは**不変条件違反を許す設計**であり、M1 は「記録の中核 3 者（記録・ステータス・習熟）の同時整合 + 点数は PointLedger への冪等付与要請」を明示する（実現機構は M3）。
 
 ---
 
@@ -370,13 +384,13 @@ erDiagram
 | **I-SUB** | 1 家族は同時に唯一の契約状態を持つ。状態遷移は trial→active→past_due→canceled 系の妥当な系列で、**トライアル使用日時は二度取り禁止**（一度使ったトライアルを再取得しない） | C2 / Round 1 [should] |
 | **I-CHILD-FAM** | すべての子供スコープ概念は、その子供を通じて**必ずちょうど 1 つの家族に属する**（家族に属さない子供スコープ概念は存在しない）。**この全域性は全テナント所有導出の要石**であり、反転（複数家族）は局所変更でない（§9） | §7 L-01 / Round 1 #9 |
 | **I-LOG** | 活動記録は必ず 1 つの活動に紐づく。記録主体の子供と活動所有者の子供は同一 | per-child |
-| **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず派生する | §7 L-03 |
-| **I-BAL-NONNEG** | ポイント残高は非負を保つ。消費（負エントリ）は残高が十分なときのみ成立する | Round 1 #12 |
+| **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず派生する。**この不変条件は PointLedger 集約が単独で所有する**（Round 2 #1、GrowthJournal から分離） | §7 L-03 / Round 2 #1 |
+| **I-BAL-NONNEG**（PointLedger 強不変条件） | ポイント残高は非負を保つ。**残高を減らす消費オペレーション（負エントリ = reward_redemption / convert）は PointLedger 集約内で同期整合する**（残高読取 → 負エントリ append を atomic）＝残高不足の消費は不成立で **overspend 不能**。**正の付与は結果整合で受理**（付与は非負制約に無関係のため越境の結果整合で足りる）。この「消費だけ同期・付与は結果整合」の分離が §4 の集約横断=結果整合 総則と両立する | Round 1 #12 / Round 2 #1 |
 | **I-DERIVED**（派生量統一則） | **総和・畳み込みで定義される全ての量（残高／ステータス累計 XP／習熟累計回数）は、その量の事象履歴のフォールドに意味論的に等しい**。履歴を間引く場合は、フォールド結果を保存する要約事象（残高なら carryover、ステータスなら等価な履歴チェックポイント）を残し、量を不変に保つ。**物理的に materialize するか否かは M3 の判断**であり、概念ではこのフォールド等価則のみを課す（初版の「残高だけ派生・他は確定値保持」という非対称を撤廃） | Round 1 #8 |
 | **I-STATUS** | ある子供の 1 カテゴリのステータスは高々 1 つ（子供×カテゴリで一意）。累計 XP は**そのカテゴリへの成長イベントの総和から減衰イベントの総和を引いた値**に整合する | §7 L-04 / Round 1 #3 |
 | **I-DECAY** | ステータス減衰は日次に、家族の減衰方針（強度 4 段階）に従い、カテゴリごとに走る。ただし **(a) その子のその日が休養日、(b) 直近活動から猶予日数以内、(c) 強度が none のいずれか**では減衰しない。減衰は成長と同じ履歴に追記される | Round 1 #3 |
 | **I-STREAK-VS-COMBO** | **連続（streak）** はある記録が「そのカテゴリ/活動を連続何日目に行ったか」を**記録時に確定する不変の観測値**で、記録の中核整合（I-REC）内に atomic に確定する。**連鎖（combo）** は同日複数活動に対する後追いの additive 効果で、独立した加算台帳エントリ（種別 combo_bonus）として結果整合で冪等に付与する。両者は別概念であり、同一事実を atomic 内外で二重定義しない | Round 1 #7 |
-| **I-REC** | 活動 1 記録の中核効果（記録・基礎点・ステータス・習熟度）は、すべて成立するかすべて成立しないか（部分成立は違反）。連続ボーナスとボーナスルールの加点はこの中核（基礎点）に畳み込まれる | §4.3 |
+| **I-REC** | 活動 1 記録の中核効果（**記録・ステータス・習熟度の 3 者**）は、すべて成立するかすべて成立しないか（部分成立は違反）。**点数は中核に含めず**、確定後に PointLedger へ `activity` 付与事象を冪等に要請する（Round 2 #1）。基礎点への畳み込み対象は**連続ボーナス・ボーナスルール・習熟ボーナス（masteryBonus）**の 3 つ（＝独立台帳エントリを生まない）。一方 **今日のおやくそく完了ボーナス（must_completion_bonus）は独立の additive 付与**（activity に畳み込まれず、別の付与事象、I-ADD 準拠） | §4.3 / Round 2 [should] |
 | **I-ADD** | 記録の追加的効果（combo/mission/challenge/証書/通知）は結果整合で冪等かつ加算的。**「確定した事実から再導出可能」であることを要求するのは、状態を持たない効果（例: ミッション完了フラグは記録履歴から再判定できる）に限る**。状態を持つ台帳事実（streak/combo の付与済み点）は再導出でなく冪等な付与で守る | ADR-0012 / Round 1 #7 |
 | **I-AGE** | 子供の年齢は生年月日と現在時刻からの派生量であり、独立保持しない。年齢帯モードは手動固定でない限りその派生年齢から導かれる（誕生日跨ぎで自動遷移） | §7 L-10 |
 | **I-CHECK-1WK** | 1 人の子供は 1 週間について**ちょうど 1 枚のスタンプカード**を持つ（季節・イベントカードは Pre-PMF scope 外として確定、Q-05=採用）。この自然同一性（子供×週）を保持する | §7 L-12 / Round 1 #11 |
@@ -386,10 +400,12 @@ erDiagram
 | **I-MISSION** | 今日のミッションは（子供・日付・活動）で一意。完了は additive（未達に罰なし）。完了状態は記録履歴から再導出可能（I-ADD 準拠） | §3.2 |
 | **I-CHECKLIST** | 進捗（log）は（子供・テンプレ・対象日）で一意。配信されていないテンプレに対する子供の進捗は存在しない | ADR-0055 |
 | **I-REDEEM** | 交換申請は申請時点のごほうび内容（名称・必要ポイント）を不変に捕捉する。ごほうび定義の後日の変更・削除は既存申請の捕捉値を変えない（申請はごほうびに対し任意参加） | §7 L-05 / Round 1 #12 |
-| **I-REDEEM-CONSUME** | 交換申請の承認は、必要ポイント分の負の台帳エントリをちょうど 1 件生む。承認は残高が十分なときのみ成立（I-BAL-NONNEG と一体）。自動承認方針が有効なら承認は申請と同時に成立しうる | Round 1 #12 |
+| **I-CONSUME**（消費経路の統一則） | 残高を減らす消費オペレーションは 2 経路のみ = **ごほうび交換（reward_redemption）** と **ポイント換金（convert）**。いずれも PointLedger の消費オペレーションを呼び、負の台帳エントリをちょうど 1 件生み、残高十分時のみ成立する（I-BAL-NONNEG 従属）。新たな消費経路を増やす場合も必ずこの統一則に従う | Round 2 #1 #3 |
+| **I-REDEEM-CONSUME** | 交換申請の承認は PointLedger の消費オペレーションを呼び、必要ポイント分の負エントリ（reward_redemption）をちょうど 1 件生む。承認は残高が十分なときのみ成立（I-BAL-NONNEG と一体）。自動承認方針が有効なら承認は申請と同時に成立しうる | Round 1 #12 |
+| **I-CONVERT-CONSUME** | ポイント換金は PointLedger の消費オペレーションを呼び、換金額分の負エントリ（convert）をちょうど 1 件生む（残高が「お小遣い」に変換され実残高が減る）。残高十分時のみ成立（I-BAL-NONNEG 従属）。換算方針（PointConversionPolicy）は換金額算定の入力であって消費自体とは別概念 | Round 2 #3 |
 | **I-CERT-IMMUT** | 証書は授与後、内容が変わらない | §3.5 |
 | **I-CHEER** | きょうだい応援は送り手・受け手が同一家族内の別の子供 | intra-tenant 信頼境界 |
-| **I-MSG-SENDER** | 保護者メッセージの送信者は role=parent/owner の所属に限る（子供は送信者になれない） | Round 1 #13 |
+| **I-MSG-SENDER** | 保護者メッセージの送信者は role=parent/owner の所属に限る（子供は送信者になれない）。**かつ送信者の所属家族＝受信子供の家族**（家族をまたぐメッセージは存在しない、I-CHEER と対称の intra-family 制約） | Round 1 #13 / Round 2 [should] |
 | **I-MEDIA-EXT** | メディアの実体はドメイン外に置かれ、ドメインは参照とメタのみ保持する。参照は所有子供の家族境界に閉じる | §7 L-08 |
 | **I-PUSH-ROLE** | 通知購読は保護者役割（parent/owner）に限る（child は購読しない） | COPPA / ADR-0012 |
 | **I-LIFECYCLE** | 家族アカウントは active → soft-deleted（猶予期間つき）→ {restored（猶予内のみ） \| purged（猶予満了）} の状態機械に従う。猶予日数は契約プラン層で定まる（無料層は即時消去） | Round 1 #10 |
@@ -469,14 +485,20 @@ class Child {                        // 所有スコープ（巨大集約では�
 }
 
 // ── C5 成長経済（Child 所有の小集約）───────────────────────
-class GrowthJournal {                // 集約ルート（I-REC の atomic 境界）
+class PointLedger {                  // 独立集約ルート（Round 2 #1）— 残高不変条件の唯一の境界
   readonly child: Child;
-  private ledger: PointLedgerEntry[];// 追記のみ
-  get balance(): number;             // = Σ ledger.amount（I-BAL、別保持しない）
+  private entries: PointLedgerEntry[];// 追記のみ（付与14/消費3/繰越1、§3.3）
+  get balance(): number;             // = Σ entries.amount（I-BAL、別保持しない）
+  award(event: PointAwardEvent): void;   // 付与: 結果整合で受理（冪等・加算的、非負制約なし）
+  consume(amount: number, kind: 'reward_redemption'|'convert', ref?: DomainRef): Result;
+    // 消費: 残高読取→負エントリ append を集約内で同期整合（I-BAL-NONNEG / I-CONSUME）。残高不足は不成立=overspend不能
+  compactBefore(date: Date): void;   // I-DERIVED: 間引きは carryover で総和保存（当集約内）
+}
+class GrowthJournal {                // 集約ルート（I-REC の atomic 境界、点数は含まない）
+  readonly child: Child;
   statuses: Status[];                // 子供×カテゴリで一意（最大5）
   mastery: ActivityMastery[];
-  record(activity: ChildActivity, at: Date): RecordingOutcome;  // I-REC: 中核4者を同時整合
-  compactBefore(date: Date): void;   // I-DERIVED: 間引きは carryover 等で総和保存
+  record(activity: ChildActivity, at: Date): RecordingOutcome;  // I-REC: 記録/ステータス/習熟を同時整合 → PointLedger へ activity 付与要請
   applyDailyDecay(policy: DecayPolicy, restDays: RestDay[]): void; // I-DECAY
 }
 class Status {                       // I-STATUS
@@ -497,9 +519,11 @@ class RewardExchange {               // 集約ルート
   catalog: SpecialReward[];
   requests: RedemptionRequest[];
   request(reward: SpecialReward): RedemptionRequest;  // 申請時に名称・必要点を捕捉（I-REDEEM）
-  approve(req: RedemptionRequest, journal: GrowthJournal, policy: ApprovalPolicy): Result;
-    // I-REDEEM-CONSUME + I-BAL-NONNEG: 残高十分時のみ、負エントリ1件
+  approve(req: RedemptionRequest, ledger: PointLedger, policy: ApprovalPolicy): Result;
+    // I-REDEEM-CONSUME: ledger.consume(capturedPoints,'reward_redemption') を呼ぶ（残高非負は PointLedger 内で保証）
 }
+// ポイント換金は PointLedger の消費オペレーション（第2の消費経路、I-CONVERT-CONSUME）
+//   convert(amount): ledger.consume(amount,'convert')。PointConversionPolicy は換金額算定の入力（別概念）
 class RedemptionRequest {
   readonly capturedName: string; readonly capturedPoints: number;  // I-REDEEM: 不変捕捉
   status: 'pending' | 'approved' | 'rejected' | 'expired';
@@ -518,7 +542,7 @@ class StampCard {                    // Child 所有（I-CHECK-1WK / I-STAMP-1DA
 }
 ```
 
-**注記**: `balance` / `totalXp` を getter（派生）にしているのは I-BAL / I-DERIVED の直接表現。`compactBefore` が「間引いても総和不変」を保証。`age` / `ageTier` の getter は I-AGE の表現。BonusRule の効果は `record()` 内で基礎点へ畳み込む（実測: 独立台帳エントリを生まない）。
+**注記**: `PointLedger.balance` / `Status.totalXp` を getter（派生）にしているのは I-BAL / I-DERIVED の直接表現。`compactBefore` が「間引いても総和不変」を保証。`age` / `ageTier` の getter は I-AGE の表現。**PointLedger を GrowthJournal から分離**し `consume` を集約内同期・`award` を結果整合受理にしているのが Round 2 #1 の核（消費だけ overspend を防げばよい）。BonusRule・masteryBonus の効果は `record()` 内で基礎点へ畳み込み、その基礎点を PointLedger へ `activity` として付与要請する（実測: 独立台帳エントリを生まない）。must_completion_bonus は独立付与。
 
 ---
 
@@ -574,6 +598,7 @@ class StampCard {                    // Child 所有（I-CHECK-1WK / I-STAMP-1DA
 - **N-1 BirthdayReview の将来化**: 未配線のため概念から除外したが、「誕生日ふりかえり（健康チェック + 抱負記録）」を将来実装する場合は、Evaluation とは別の年次ふりかえり概念として C8 に追加する（現時点では作らない）。
 - **Q-09 同意環境情報のデータ最小化**: IP/UA を証跡として保持するか、同意日時+版+本人で足りるかは法務確認で最終決定（概念上は保持を既定、最小化は開放論点）。
 - **複数家族所属の将来反転（Q-07 影響、§9）**: I-CHILD-FAM を M:N に反転する場合の影響は局所でない（要石）。
+- **契約状態の業務語寄せ（note 級、Round 2 [should]）**: 契約状態の `past_due` / `canceled` は課金基盤由来の語彙に近い。UI・ドメイン記述では「支払い遅延」「解約済み」等の業務語に寄せる余地がある（概念上の状態集合は不変、表記のみ）。M3 / 用語 SSOT（terms.ts）で最終決定。
 
 ---
 
@@ -585,7 +610,7 @@ Q-07（現行 single）は「無痛で将来 M:N 化できる」ものではな�
 - **保護者ゲート・認可の文脈が多重化**: 1 利用者が複数家族の保護者ゲートを持ちうる。
 - **課金・上限の帰属が曖昧化**: ダウングレード上限（I-DOWNGRADE）や purge（I-PURGE の「他家族に触れない」）の境界が子供単位で家族をまたぐ。
 
-→ **本版は Q-07=A（single）を採り、ER を「1 利用者は必ず 1 家族に所属（下限 1・現行上限 1）」に制約して図文一致**させた（初版の M:N 図 + 「1 user 1 family」注記の矛盾を解消）。将来 M:N 化する場合は上記波及を ADR で扱い、I-CHILD-FAM・I-PURGE・I-DOWNGRADE・保護者ゲートの再定義を同時に行う（局所変更にしない）。
+→ **本版は Q-07=A（single）を採り、§3.1 の mermaid を `USER ||--|| MEMBERSHIP`（1 利用者=ちょうど 1 所属）に修正して記法と文言を一致**させた（Round 2 #5。初版は `||--|{`＝1..N で上限 1 を encode できておらず図文不一致だった）。将来 M:N 化する場合は、記法を `||--o{` 等へ緩め、上記波及を ADR で扱い、I-CHILD-FAM・I-PURGE・I-DOWNGRADE・保護者ゲートの再定義を同時に行う（局所変更にしない）。
 
 ---
 
