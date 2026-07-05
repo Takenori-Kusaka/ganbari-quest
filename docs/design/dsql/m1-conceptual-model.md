@@ -1,8 +1,10 @@
 # M1 概念データモデル（Conceptual Data Model / ANSI-SPARC 概念層）— がんばりクエスト
 
-> **状態**: M1 成果物 — **Round 1 + Round 2 レビュー board（各 3 独立観点）指摘反映済**。応答台帳: `docs/design/dsql/m1-review-round1-ledger.md` / `docs/design/dsql/m1-review-round2-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
+> **状態**: M1 成果物 — **Round 1〜3 レビュー board（各 3 独立観点）指摘反映済**。応答台帳: `docs/design/dsql/m1-review-round{1,2,3}-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
 >
-> **Round 2 の主変更**: ①**PointLedger を Child 直下の独立集約に昇格**（消費=同期整合で overspend 不能、付与=結果整合）→ 残高非負の越境矛盾を根治。②台帳種別を**実 grep で網羅列挙**（付与14/消費3/繰越1）し虚偽の「裏取り済=完全」含意を撤回。③**ポイント換金（convert）を第 2 の消費オペレーションとして概念化**。④**Family も解体**（追記ログ・独立資源を衛星集約へ降格）。⑤§9 mermaid を `||--||` に修正し図文一致。
+> **Round 2 の主変更**: ①**PointLedger を Child 直下の独立集約に昇格**（裁量消費=同期整合、付与=結果整合）→ 残高非負の越境矛盾を根治。②**ポイント換金（convert）を第 2 の裁量消費オペレーションとして概念化**。③**Family も解体**（追記ログ・独立資源を衛星集約へ降格）。④§9 mermaid を修正し図文一致。
+>
+> **Round 3 の主変更**: ①**PointLedger を全点数値の唯一の権威（sole authority）に確定**し、衛星の点数属性を非権威な観測値と位置づけ（集約境界での二重保持を封殺、I-LEDGER-AUTH / I-SATELLITE-RECON）。②**点数種別の完全性主張を撤回**し代表例のみ列挙（完全集合・CHECK・backend 差は M3 の関心事）。③**負エントリを 3 分類**（裁量消費 / award 逆転 / 繰越）し I-BAL-NONNEG を裁量消費のみに限定（+ I-NEG-BAL）。④**固定間隔特別報酬を C7 概念に追加**。⑤基幹付与を exactly-once eventual と明示。
 >
 > **層の位置づけ（ANSI-SPARC）**: 本書は **概念層（conceptual schema）** に限定する。「業務ドメインに何が存在し、どう関係し、どんな不変条件を満たすか」だけを述べる。**格納・物理表現（識別子の物理形式・索引・正規形の次数・格納フォーマット・トランザクション機構・分散配置・認証ベンダ名）は一切扱わない**。それらは後続 M3（物理設計）の責務で、既存の物理草稿 `docs/design/dsql-data-model.md` が M3 の入力である。
 >
@@ -136,7 +138,7 @@ erDiagram
 ```mermaid
 erDiagram
   FAMILY ||--o{ CHILD : "子供を擁する(1:N)"
-  CHILD  ||--o| MEMBERSHIP : "ログインする子供は所属を持つ(1:0..1, role=child)"
+  CHILD  |o--o| MEMBERSHIP : "ログインする子供は所属を持つ(子供0..1 ⇔ 所属0..1, role=child)"
   CHILD  ||--o{ CHILD_ACTIVITY : "自分の活動を所有(1:N, per-child)"
   CATEGORY ||--o{ CHILD_ACTIVITY : "活動のカテゴリ(1:N)"
   CHILD_ACTIVITY ||--o{ ACTIVITY_LOG : "記録される(1:N)"
@@ -196,8 +198,8 @@ erDiagram
   AGE_BENCHMARK ||--o{ STATUS : "年齢×カテゴリ基準値(参照)"
 
   POINT_LEDGER_ENTRY {
-    number 増減量 "正=付与/負=消費"
-    enum 種別 "付与14種/消費3種/繰越1種(下記, 実grep網羅)"
+    number 増減量 "正=付与/負=裁量消費 or award逆転"
+    enum 種別 "代表例は下記(完全な値集合はM3)"
     string 説明; ref 由来参照 "任意(弱い業務参照)"; datetime 発生日時
   }
   STATUS { number 累計XP "成長総和−減衰総和"; number レベル "累計XPの関数"; number 到達最高XP }
@@ -209,11 +211,11 @@ erDiagram
   AGE_BENCHMARK { number 年齢; number 平均; number 標準偏差 }
 ```
 
-- **ポイント台帳（PointLedger）は Child スコープ直下の独立集約**（§4 で GrowthJournal から分離）。残高は独立事実として存在せず「その子供の全台帳エントリ増減量の意味論的総和」という**派生量**（I-BAL）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
-- **ポイント種別（台帳の kind）の完全集合**（`src/lib/server/services` + `src/lib/server/db` を **実 grep して網羅**、2026-07 時点の配線。**この grep scope での網羅であり、taxonomy の恒久 freeze（凍結値集合）は M3 の責務**）。C7 習慣装置由来の点数事象も漏れなく PointLedger への付与事象として列挙する（no-silent-gap）:
-  - **付与（正、14 種）**: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）の加点はこの activity エントリの額に畳み込まれる**＝独立 `bonus` 種別は存在しない）/ `combo_bonus`（同日連鎖、後追い additive）/ `weekly_bonus`（週次評価）/ `birthday_bonus`（誕生日）/ `login_bonus`（ログイン）/ `checklist`（チェックリスト達成）/ `stamp_card`（スタンプカード交換）/ `stamp_instant`（スタンプ即時）/ `child_challenge`（チャレンジ達成報酬）/ `daily_mission`（今日のミッション達成）/ `focus_bonus`（おすすめ集中）/ `must_completion_bonus`（今日のおやくそく完了、**独立 additive**。masteryBonus とは別で activity に畳み込まれない）/ `cheer`（保護者/きょうだい応援の付与点）/ `initial_setup`（初期セットアップ付与）
-  - **消費（負、3 種）**: `reward_redemption`（ごほうび交換） / `convert`（ポイント換金＝お小遣い化、§3.4 の第 2 の消費経路） / `cancel`・`checklist_cancel`（記録取消による戻し。付与の逆符号）
-  - **繰越（1 種）**: `carryover`（retention 間引き時に削除分の合算を生む繰越。DSQL 側 retention compaction が生成、§7 L-03 / I-DERIVED）
+- **PointLedger は全点数値の唯一の権威（sole authority）**（Round 3 構造決定）。ある子供が「いつ何点得た/使ったか」の正本は PointLedger エントリだけであり、残高は「全エントリ増減量の意味論的総和」という**派生量**（I-BAL、PointLedger のみから導出）。**衛星集約が持つ点数属性（活動記録の付与ポイント / チェックリスト達成の付与ポイント / ログインボーナスの付与ポイント / 週次評価のボーナスポイント 等）は、記録時に捕捉した非権威な表示用観測値**（streak と同格の captured observation）であって、残高計算の source ではない。権威と観測値が食い違ったら PointLedger を正とする（§5 I-LEDGER-AUTH / I-SATELLITE-RECON）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
+- **点数種別（台帳の kind）は代表例のみ示す**（**完全な種別集合・CHECK 制約・backend 差の確定は M3 の関心事**であり概念モデルの本質ではない）:
+  - **付与（正）**の代表例: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）はこの額に畳み込む**）/ `combo_bonus`（同日連鎖の装飾 additive）/ `weekly_bonus`（週次評価）/ `login_bonus` / `checklist` / `stamp_card` / `child_challenge` / `must_completion_bonus`（今日のおやくそく完了、独立 additive）/ `special_reward`（固定間隔特別報酬 等、§3.4）/ `cheer` など。**C7 習慣装置由来の各達成も PointLedger への付与事象**（no-silent-gap）。
+  - **負エントリの 3 分類**（Round 3 #3）: **(i) 裁量消費** = `reward_redemption`（ごほうび交換）/ `convert`（ポイント換金） — 子供が意図的に残高を使う。**同期整合 + I-BAL-NONNEG 適用**。**(ii) award 逆転** = `cancel` / `checklist_cancel` — 記録取消の正当な補正（付与の逆符号を刻む）。**I-BAL-NONNEG を適用しない**（正当なバイパス。ただし負残高中の新規裁量消費は禁止、I-NEG-BAL）。**(iii) 繰越** = `carryover`（retention 間引き時に削除分の合算を刻み総和を保存、§7 L-03 / I-DERIVED）。
+  - **backend 差は M3 で確定**する（例: sqlite は今日のミッション完了を `daily_mission` 付与に畳み込むが DSQL cutover 後経路は `mission_bonus` 独立 type。概念上は「ミッション完了の付与事象」で 1 つ、物理 type と CHECK 集合の確定は M3）。
 - **ステータスは「成長総和 − 減衰総和」**（I-STATUS 訂正）。減衰は日次に走る家族方針（DecayPolicy: 強度 4 段階 + 猶予日数）で、休養日・活動直後の猶予中は止まる（I-DECAY）。減衰も成長も STATUS_HISTORY に追記される。
 - **ボーナスルール（BonusRule）は family master 概念**（ADR-0055、marketplace 取込プリセット由来、記録時に同期評価され LIVE）。その効果は**記録の中核整合内で activity の付与点に反映**（別台帳エントリでない）。
 - **週次評価（Evaluation）**はカテゴリ別スコアの束を持ち、ボーナス点（`weekly_bonus`）を台帳に生む。旧スコア埋め込み文書を独立要素へ展開（§7 L-04）。
@@ -275,9 +277,11 @@ erDiagram
 
 - **交換申請とごほうびの関係は任意参加**（0..1 : N）: ごほうび定義を削除しても申請は存続する（I-REDEEM の歴史性）。申請は申請時点の名称・必要ポイントを**不変に捕捉**する。
 - **承認 = 残高消費**（I-REDEEM-CONSUME）: 交換申請の承認は、必要ポイント分の**負の台帳エントリ（種別 `reward_redemption`）を 1 件**生む。承認は**残高が十分なときのみ**成立し、残高は**非負を保つ**（I-BAL-NONNEG）。自動承認するか否かは家族の承認方針（ApprovalPolicy）。
-- **ポイント換金（convert）は残高を実際に消費するオペレーション**（I-BAL-NONNEG 従属、`reward_redemption` と並ぶ **2 つ目の消費経路**）: 換金は残高不足を拒否し、換金額分の**負の台帳エントリ（種別 `convert`）を 1 件** PointLedger に刻む（残高が親子経済上の「お小遣い」に変換される）。**表示上の換算に矮小化しない**（実残高が減る）。
+- **ポイント換金（convert）は残高を実際に消費するオペレーション**（I-BAL-NONNEG 従属、`reward_redemption` と並ぶ **2 つ目の裁量消費経路**）: 換金は残高不足を拒否し、換金額分の**負の台帳エントリ（種別 `convert`）を 1 件** PointLedger に刻む（残高が親子経済上の「お小遣い」に変換される）。**表示上の換算に矮小化しない**（実残高が減る）。
+  - **概念上の目標（invariant）と現行 realization の分離（Round 3 [should]）**: 「残高十分時のみ成立＝overspend 不能」は**概念上の目標不変条件**であって、現行実装の測定事実ではない。現行 convert は残高読取→検査→追記が**非原子**（TOCTOU 窓あり）で、ごほうび交換が使う原子的消費オペレーションへ **M3 で収斂させることが必須**。M1 は目標不変条件を課し、原子化は M3 の realization に委ねる。
 - **ポイント換算方針（PointConversionPolicy）は表示/レート方針として分離**: 「点数をどの通貨・単位・レートで見せ／換金するか」の家族方針であって、換金という**消費オペレーション自体（負エントリの発生）とは別概念**。方針は換金額の算定に使われるが、残高を減らすのは換金オペレーション（上記）。
 - **チェックリストのみ family master + 配信 + 進捗の 3 層**（ADR-0055 唯一の例外）。項目別チェック結果は旧項目埋め込みを展開（§7 L-04）。**当日上書き（CHECKLIST_OVERRIDE）は子供のその日の実効チェックリストを増減する**（特定テンプレに紐づかない、子供×日の項目調整）。
+- **固定間隔特別報酬（FixedIntervalReward）は習慣化装置（C7）**（Round 3 #4）: 活動記録が一定回数（N 回）に達するたびに自動発行される**予告型マイルストーンごほうび**（子供が「あと N 回」と予測できる固定間隔で、変動比率のスロットマシン型ではない＝ADR-0012 anti-engagement 準拠）。発行結果は特別ごほうび（SpecialReward）として現れ、付与点は PointLedger へ結果整合で要請する（付与種別の代表例 `special_reward`）。既存記録フローの後追い additive で、失敗は記録を止めない。
 - **チャレンジは per-child instance**（#3195 週次自動生成一本化、競争モード撤去）。きょうだい連動は表示上の束ね（§7 L-06）。
 - **スタンプカードは子供×週で 1 枚**（I-CHECK-1WK、決裁 Q-05: 季節カードは Pre-PMF scope 外として確定し本制約を採用）。押印はログイン起点で 1 日 1 押印（I-STAMP-1DAY）。
 - **バトル**は日次で敵と戦い討伐図鑑が積まれる。戦闘時ステータスは値オブジェクト（Q-06=A）。
@@ -324,7 +328,7 @@ erDiagram
 > **Round 1 #5 反映（案 a、DDD 正道）**: 初版の Child 巨大集約スメルを、**Child を「所有スコープ（per-child = ADR-0055 の所有軸）」に位置づけ直し**、内側に複数の小集約を置く形へ解体した。各小集約は Child を**同一性参照**で指し、自身のトランザクション整合だけを守る。集約横断は結果整合 + 冪等。
 >
 > **Round 2 追加反映**:
-> - **#1 PointLedger を Child 直下の独立集約に昇格**（初版の「台帳は GrowthJournal 所有」を廃止）。**消費オペレーション（負エントリ = reward_redemption / convert）だけは PointLedger 内で同期整合**（残高読取 → 負エントリ append を atomic ＝ overspend 不能、I-BAL-NONNEG は PointLedger の強不変条件）。**正の付与は各衛星集約（GrowthJournal / StampCard / ChecklistProgress / Battle / ChildChallenge / DailyMission / Cheer / login / focus / must / initial）から PointLedger へ「点数事象を要請」する結果整合**（付与は hard 不変条件を持たない・冪等・加算的）。これで §4「集約横断=結果整合」総則 ⇄ 残高非負の矛盾が「**消費だけ同期・付与は結果整合**」として解消（Round 1 の I-BAL-NONNEG 越境問題を根治）。
+> - **#1 PointLedger を Child 直下の独立集約に昇格**（初版の「台帳は GrowthJournal 所有」を廃止）＝**全点数値の唯一の権威**（Round 3）。**裁量消費（負エントリ = reward_redemption / convert）だけは PointLedger 内で同期整合**（目標: 残高読取 → 負エントリ append を atomic ＝ overspend 不能、I-BAL-NONNEG）。**正の付与は各衛星集約（GrowthJournal / StampCard / ChecklistProgress / Battle / ChildChallenge / FixedIntervalReward / login / focus / must / cheer 等）から PointLedger へ「点数事象を要請」する結果整合**。ただし**付与の配送保証は 2 水準**（Round 3 [should]）: **獲得の実体である基幹付与（activity 基礎点・checklist・login・challenge 達成 等）は guaranteed exactly-once eventual（欠落不可・冪等）**、**装飾的 additive（combo 等）は欠落許容（I-ADD）**。「付与は落ちてよい」の誤読を禁じる。これで §4「集約横断=結果整合」総則 ⇄ 残高非負の矛盾が「**裁量消費だけ同期・付与は（水準別に）結果整合**」として解消。
 > - **#4 Family も解体原則を適用**（初版は Child のみ解体し Family を巨大集約のまま放置）。Family ルートは**不変条件を担う概念のみ**（所属・招待・契約・保護者ゲート・同意の現在値・家族方針）に絞り、**追記専用ログと独立ライフサイクル資源は Family を同一性参照する衛星集約に降格**する。
 
 ### §4.1 所有スコープ
@@ -352,7 +356,7 @@ erDiagram
 | **ChecklistTemplate**（家族マスタ） | Family | 項目、配信（子供への割当） | 家族が所有するマスタ。進捗（子供側）と整合単位が別（ADR-0055 唯一の family master） |
 | **グローバル参照** | — | カテゴリ、スタンプ種別、年齢基準値、課金イベント冪等観測点 | 家族に属さない共有参照。個別整合、テナント境界なし |
 
-> **Child 衛星集約**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・**週次評価（Evaluation、weekly_bonus を PointLedger へ要請）**は、**Child を同一性参照する独立記録**（追記 or 単純状態）で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。
+> **Child 衛星集約**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・**週次評価（Evaluation、weekly_bonus を PointLedger へ要請）**・**固定間隔特別報酬（FixedIntervalReward、special_reward を要請、§3.4）**は、**Child を同一性参照する独立記録**で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。**これら衛星が持つ点数属性は非権威な観測値**（正本は PointLedger、I-LEDGER-AUTH / I-SATELLITE-RECON）。
 >
 > **Family 衛星集約（#4 対の注記）**: **追記専用ログ**（通知ログ・利用ログ・同意の追記履歴・トライアル履歴・解約理由）と**独立ライフサイクル資源**（通知購読 / 閲覧専用リンク / クラウドエクスポート / 卒業同意）は、**Family を同一性参照する衛星集約**に降格する。これらは Family ルートの不変条件（owner 数・契約・保護者ゲート）に同期整合を要さず、各々のライフサイクル（購読の失効・エクスポートの状態遷移・追記）を自集約で守る。**通知購読は購読元の所属（membership）を参照**（I-PUSH-ROLE の役割検証の依り所）。**同意は追記ログ（衛星）＋現在値の不変条件（Family ルート、I-CONS）** の 2 面で扱う（追記は衛星、最新値の解決は Family）。**carryover を生む retention compaction は PointLedger 集約内の操作**（Family でなく子供の台帳側）。
 
@@ -364,7 +368,7 @@ erDiagram
 - 対応カテゴリのステータス（累計 XP・レベル）が更新され、変化が履歴に残る。
 - 活動の習熟度（累計回数・レベル）が更新される。
 
-**点数の付与は GrowthJournal の atomic 境界に含めない**（Round 2 #1）: 記録が確定すると、基礎点（ボーナスルール・連続ボーナス・習熟ボーナスを畳み込んだ額）は **PointLedger へ `activity` 付与事象として結果整合で要請**される（冪等・加算的）。付与は残高非負の hard 不変条件を持たないため、GrowthJournal（成長状態）の atomic 境界と PointLedger（残高）の境界を分けても整合が壊れない。逆に**残高を減らす消費（reward_redemption/convert）は PointLedger 内で同期整合**し overspend を不能にする（I-BAL-NONNEG）。
+**点数の付与は GrowthJournal の atomic 境界に含めない**（Round 2 #1）: 記録が確定すると、基礎点（ボーナスルール・連続ボーナス・習熟ボーナスを畳み込んだ額）は **PointLedger へ `activity` 付与事象として要請**される。**この基幹付与は guaranteed exactly-once eventual（欠落不可・冪等）**であって「落ちてよい」結果整合ではない（Round 3 [should]、獲得の実体そのものだから）。GrowthJournal（成長状態）と PointLedger（残高）で atomic 境界を分けても、付与は非負制約に無関係のため境界越えの exactly-once 配送で整合が壊れない。装飾的 additive（combo 等）のみ欠落許容（I-ADD）。逆に**残高を減らす裁量消費（reward_redemption/convert）は PointLedger 内で同期整合**し overspend を不能にする（I-BAL-NONNEG、目標不変条件）。
 
 **連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書・通知**も additive で中核整合に不要 → 結果整合（冪等・欠落許容、Q-08=A）。現行実装が複数副作用を整合単位なしで逐次実行し例外を握り潰す（`dsql-data-model.md` §8）のは**不変条件違反を許す設計**であり、M1 は「記録の中核 3 者（記録・ステータス・習熟）の同時整合 + 点数は PointLedger への冪等付与要請」を明示する（実現機構は M3）。
 
@@ -380,12 +384,15 @@ erDiagram
 | **I-PIN-LOCK** | 保護者ゲート PIN の連続失敗が家族ごとの上限に達すると、家族単位でロック期限まで照合を拒否する（メールログインロックとは別上限・別期間の別機構） | ADR-0050 / Round 1 #2 |
 | **I-PIN-RESET** | 保護者ゲート PIN のリセットは、検証済みのワンタイム確認を伴うときのみ成立する（未検証のリセットは不成立）。運用起点のリセットは冪等（同一リセットが二度適用されない） | ADR-0050 #3070 / Round 1 #2 |
 | **I-EMAIL-LOCK** | メールログインの連続失敗がメールごとの上限に達すると、そのメールをロック期限までロックする（家族非依存） | Round 1 #2 |
-| **I-CONS** | 同意記録は**追記のみ**（変更・削除しない）。ある家族・利用者・種別の「現在の同意」は最新同意日時のエントリで定まる。**物理消去はアカウント完全削除時の consent 消去に限る唯一の例外**（retention の間引きとは別レイヤーで、retention は consent を対象にしない） | GDPR Art.7 / COPPA / Round 1 [should] |
+| **I-CONS** | 同意記録は**追記のみ**（変更・削除しない）。**ある家族・利用者・種別の「現在の同意」は衛星の追記ログから derived-on-read で解決する派生値**（最新同意日時のエントリ、残高 = 台帳総和と同水準の「都度導出」であり別保持しない）。認可判断時に最新値を同期読取する必要がある点も残高と同水準。**物理消去はアカウント完全削除時の consent 消去に限る唯一の例外**（retention の間引きとは別レイヤーで、retention は consent を対象にしない） | GDPR Art.7 / COPPA / Round 1 [should] / Round 3 [should] |
 | **I-SUB** | 1 家族は同時に唯一の契約状態を持つ。状態遷移は trial→active→past_due→canceled 系の妥当な系列で、**トライアル使用日時は二度取り禁止**（一度使ったトライアルを再取得しない） | C2 / Round 1 [should] |
 | **I-CHILD-FAM** | すべての子供スコープ概念は、その子供を通じて**必ずちょうど 1 つの家族に属する**（家族に属さない子供スコープ概念は存在しない）。**この全域性は全テナント所有導出の要石**であり、反転（複数家族）は局所変更でない（§9） | §7 L-01 / Round 1 #9 |
 | **I-LOG** | 活動記録は必ず 1 つの活動に紐づく。記録主体の子供と活動所有者の子供は同一 | per-child |
-| **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず派生する。**この不変条件は PointLedger 集約が単独で所有する**（Round 2 #1、GrowthJournal から分離） | §7 L-03 / Round 2 #1 |
-| **I-BAL-NONNEG**（PointLedger 強不変条件） | ポイント残高は非負を保つ。**残高を減らす消費オペレーション（負エントリ = reward_redemption / convert）は PointLedger 集約内で同期整合する**（残高読取 → 負エントリ append を atomic）＝残高不足の消費は不成立で **overspend 不能**。**正の付与は結果整合で受理**（付与は非負制約に無関係のため越境の結果整合で足りる）。この「消費だけ同期・付与は結果整合」の分離が §4 の集約横断=結果整合 総則と両立する | Round 1 #12 / Round 2 #1 |
+| **I-LEDGER-AUTH**（台帳の唯一権威） | ある子供の「いつ何点得た/使ったか」の正本は PointLedger エントリだけ。**衛星集約が持つ点数属性（活動記録・チェックリスト・ログインボーナス・週次評価 等の付与ポイント）は記録時に捕捉した非権威な表示用観測値**（streak と同格）であり、残高・実績集計の source にしてはならない。DynamoDB の「同一事実の集約境界越え二重保持」を概念で禁じる（§7 L-03 の集約境界での再導入を封殺） | Round 3 #1 |
+| **I-SATELLITE-RECON**（reconciliation） | 衛星の点数観測値は、対応する PointLedger 付与エントリの額に**結果整合で収束**する（乖離時は PointLedger を正とし観測値を是正）。基幹付与は exactly-once eventual（§4.3）ゆえ恒常乖離は生じない | Round 3 #1 |
+| **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず**PointLedger のみから派生**する（I-LEDGER-AUTH） | §7 L-03 / Round 2 #1 |
+| **I-BAL-NONNEG**（裁量消費のみに適用する目標不変条件） | **残高非負は「裁量消費（reward_redemption / convert）」に対してのみ課す**。裁量消費は残高十分時のみ成立する（目標: PointLedger 内同期整合で overspend 不能。現行 convert の realization は非原子で M3 収斂必須、§3.4）。**award 逆転（cancel / checklist_cancel）は本制約をバイパスして良い**（記録取消の正当補正で残高が一時的に負になりうる）。**正の付与は非負制約に無関係**。この分離が §4 集約横断=結果整合 総則と両立する | Round 1 #12 / Round 2 #1 / Round 3 #3 |
+| **I-NEG-BAL**（負残高中の消費禁止） | award 逆転で残高が負になっている間は、**新規の裁量消費（reward_redemption / convert）を成立させない**（負残高からさらに使わせない）。付与や更なる逆転は妨げない | Round 3 #3 |
 | **I-DERIVED**（派生量統一則） | **総和・畳み込みで定義される全ての量（残高／ステータス累計 XP／習熟累計回数）は、その量の事象履歴のフォールドに意味論的に等しい**。履歴を間引く場合は、フォールド結果を保存する要約事象（残高なら carryover、ステータスなら等価な履歴チェックポイント）を残し、量を不変に保つ。**物理的に materialize するか否かは M3 の判断**であり、概念ではこのフォールド等価則のみを課す（初版の「残高だけ派生・他は確定値保持」という非対称を撤廃） | Round 1 #8 |
 | **I-STATUS** | ある子供の 1 カテゴリのステータスは高々 1 つ（子供×カテゴリで一意）。累計 XP は**そのカテゴリへの成長イベントの総和から減衰イベントの総和を引いた値**に整合する | §7 L-04 / Round 1 #3 |
 | **I-DECAY** | ステータス減衰は日次に、家族の減衰方針（強度 4 段階）に従い、カテゴリごとに走る。ただし **(a) その子のその日が休養日、(b) 直近活動から猶予日数以内、(c) 強度が none のいずれか**では減衰しない。減衰は成長と同じ履歴に追記される | Round 1 #3 |
@@ -400,7 +407,7 @@ erDiagram
 | **I-MISSION** | 今日のミッションは（子供・日付・活動）で一意。完了は additive（未達に罰なし）。完了状態は記録履歴から再導出可能（I-ADD 準拠） | §3.2 |
 | **I-CHECKLIST** | 進捗（log）は（子供・テンプレ・対象日）で一意。配信されていないテンプレに対する子供の進捗は存在しない | ADR-0055 |
 | **I-REDEEM** | 交換申請は申請時点のごほうび内容（名称・必要ポイント）を不変に捕捉する。ごほうび定義の後日の変更・削除は既存申請の捕捉値を変えない（申請はごほうびに対し任意参加） | §7 L-05 / Round 1 #12 |
-| **I-CONSUME**（消費経路の統一則） | 残高を減らす消費オペレーションは 2 経路のみ = **ごほうび交換（reward_redemption）** と **ポイント換金（convert）**。いずれも PointLedger の消費オペレーションを呼び、負の台帳エントリをちょうど 1 件生み、残高十分時のみ成立する（I-BAL-NONNEG 従属）。新たな消費経路を増やす場合も必ずこの統一則に従う | Round 2 #1 #3 |
+| **I-CONSUME**（裁量消費経路の統一則） | **子供が意図的に残高を使う「裁量消費」は 2 経路のみ** = **ごほうび交換（reward_redemption）** と **ポイント換金（convert）**（award 逆転は裁量消費でない、別扱い）。いずれも PointLedger の消費オペレーションを呼び、負エントリをちょうど 1 件生み、残高十分時のみ成立（I-BAL-NONNEG 従属）。新たな裁量消費経路もこの統一則に従う | Round 2 #1 #3 / Round 3 #3 |
 | **I-REDEEM-CONSUME** | 交換申請の承認は PointLedger の消費オペレーションを呼び、必要ポイント分の負エントリ（reward_redemption）をちょうど 1 件生む。承認は残高が十分なときのみ成立（I-BAL-NONNEG と一体）。自動承認方針が有効なら承認は申請と同時に成立しうる | Round 1 #12 |
 | **I-CONVERT-CONSUME** | ポイント換金は PointLedger の消費オペレーションを呼び、換金額分の負エントリ（convert）をちょうど 1 件生む（残高が「お小遣い」に変換され実残高が減る）。残高十分時のみ成立（I-BAL-NONNEG 従属）。換算方針（PointConversionPolicy）は換金額算定の入力であって消費自体とは別概念 | Round 2 #3 |
 | **I-CERT-IMMUT** | 証書は授与後、内容が変わらない | §3.5 |
@@ -409,7 +416,7 @@ erDiagram
 | **I-MEDIA-EXT** | メディアの実体はドメイン外に置かれ、ドメインは参照とメタのみ保持する。参照は所有子供の家族境界に閉じる | §7 L-08 |
 | **I-PUSH-ROLE** | 通知購読は保護者役割（parent/owner）に限る（child は購読しない） | COPPA / ADR-0012 |
 | **I-LIFECYCLE** | 家族アカウントは active → soft-deleted（猶予期間つき）→ {restored（猶予内のみ） \| purged（猶予満了）} の状態機械に従う。猶予日数は契約プラン層で定まる（無料層は即時消去） | Round 1 #10 |
-| **I-PURGE** | 家族の purge は、その家族の全子孫概念（子供・記録・成長台帳・習慣装置・メディア参照・同意 等）を消し、**他家族には一切触れない**（cross-tenant 非到達） | Round 1 #10 |
+| **I-PURGE** | 家族の purge は、その家族の全子孫概念（子供・記録・成長台帳・習慣装置・メディア参照・同意 等）を消し、**他家族には一切触れない**（cross-tenant 非到達）。**メディア参照が指すドメイン外の実体（子供の画像・音声バイト）の消去も purge の到達範囲**（実体はドメイン外だが消去責務は cross-cut、COPPA/GDPR。参照だけ消して実体を残さない） | Round 1 #10 / Round 3 [should] |
 | **I-DOWNGRADE** | 契約を下位プランへ変更し上限（子供数・活動数・テンプレ数）を超える場合、超過分は**保護者が選択したものだけ**をアーカイブして上限内に収める（自動一括アーカイブではない。アーカイブ後に上限内へ収まることを満たさない選択は不成立） | Round 1 #10（実装裏取りで自動→ユーザー選択に訂正） |
 
 ---
@@ -622,6 +629,8 @@ Q-07（現行 single）は「無痛で将来 M:N 化できる」ものではな�
 - トランザクション機構・楽観制御・整合の実現手段（不変条件 I-* の**実現方法**）。**特に I-BAL/I-DERIVED の materialize 判断**（派生量を物理的に保持するか都度畳み込むか）は M3。
 - 分散配置・テナント物理共置・格納フォーマット・メディアストレージ具体・認証ベンダ・署名セッション機構。
 - 2 バックエンド（クラウド / ローカル）の方言差、マイグレーション、fitness function。
+- **点数種別の完全な値集合・CHECK 制約・backend 差**（sqlite 畳込み ⇄ DSQL 独立 type 等）の確定（§3.3）。
+- **marketplace 公開プリセット（5 type: 活動 / ごほうび / チェックリスト / ルール / チャレンジのテンプレート）は、テナント外で共有される公開参照であり M1（家族内ドメイン）の scope 外**（Round 3 [should]、暗黙の no-silent-gap を明示的に閉じる）。取込はコピー上書きで per-child instance を生む（帰属記録のみ残す、ADR-0055 / `data-model-resource-scope.md`）。公開プリセット自体のモデル・配信・課金は別 scope で扱う。
 
 M3 は本書の **§4 集約境界・§5 不変条件・§7 の「削ぐ」判断・§8 決裁**を入力とし物理へ写像する。§8.2 残存論点に対応する物理判断は暫定扱いとする。
 
@@ -629,7 +638,7 @@ M3 は本書の **§4 集約境界・§5 不変条件・§7 の「削ぐ」判�
 
 ## 関連
 
-- `docs/design/dsql/m1-review-round1-ledger.md` — Round 1 finding → 対応 → 反映箇所の応答台帳
+- `docs/design/dsql/m1-review-round{1,2,3}-ledger.md` — 各ラウンド finding → 対応 → 反映箇所の応答台帳
 - `docs/design/dsql-data-model.md` — M3 物理設計草稿
 - `docs/decisions/0055-per-child-primary-data-model-pattern.md` — per-child 主軸原則
 - `docs/decisions/0050-parent-gate-session-cookie-signature.md` — 保護者ゲート（C1 認証）
