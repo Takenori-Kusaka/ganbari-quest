@@ -28,7 +28,7 @@ M3 の全物理判断が拠って立つ DSQL 固有制約。**すべて構造決
 | **P2** | **SERIAL / 連番採番型なし**（`type "serial" does not exist`） | spike#1 実機 `42704` | 代理 PK は **UUID**（`gen_random_uuid()` ネイティブ動作を spike#1 確証）。counter.ts + padId 採番を全廃 |
 | **P3** | **FK 制約なし**（`FOREIGN KEY constraint not supported`） | spike#1 実機 `[0A000]` + AWS 公式（SQLAlchemy blog: `ForeignKey()` 不可、`relationship()` で app 層 join） | M2 の全論理 FK を **app 層 / CHECK / 生成列 UNIQUE / 複合 PK 包含** で担保（§3） |
 | **P4** | **CREATE INDEX は ASYNC 必須**（同期 `CREATE INDEX` は `unsupported mode`。`USING btree` も `0A000`）。式 index・部分 index・GIN 不可。btree のみ。≤24 本/表・≤8 列・≤1KiB。**ASYNC index は受理即 OK だが build 完了まで uniqueness を強制しない** | spike#1 + **Phase 1 PoC 検証2/3**（同期・`USING btree` とも `0A000` / `CREATE INDEX ASYNC` OK / **build 未完了中の重複投入で `sys.jobs` INDEX_BUILD が `failed` 化し dedup すり抜けを実機観測**） | secondary は ASYNC + **`sys.jobs` INDEX_BUILD=completed poll 確認（hard 制約、§6.5）**。条件付き一意 / soft-delete 一意は STORED 生成列 + UNIQUE index。**生成式は immutable のみ（CAST は `42P17`、PoC 検証3）** |
-| **P5** | **1 書込 txn ハード上限（調整不可）**: **3,000 行 AND 10 MiB**（両方独立に効く）/ 5 分 / クエリメモリ 128 MiB / 行 2 MiB | spike#1 + **Phase 1 PoC 検証4**（3,000 行 ✅ / 3,001 行 `54000 row limit` / 9.5MiB ✅ / **11.3MiB `54000 transaction size limit 10mb exceeded`**） | 一括 import / 復元は **行数 AND byte size 両方でチャンク分割（≤3000 行 かつ ≤10MiB）+ 冪等 upsert + saga**（§6.4、大 blob 行は 3000 行未満でも 10MiB 到達しうる） |
+| **P5** | **1 書込 txn ハード上限（調整不可）**: **3,000 行 AND 10 MiB**（両方独立に効く）/ 5 分 / クエリメモリ 128 MiB / 行 2 MiB | **3,000 行 & 10MiB = Phase 1 PoC 検証4**（3,000 行 ✅ / 3,001 行 `54000 row limit` / 9.5MiB ✅ / 11.3MiB `54000 size limit`）。**5 分・128MiB・行 2MiB = spike#1 + AWS 公式 CHAP_quotas**（本 PoC 未計測、公式値） | 一括 import / 復元は **行数 AND byte size 両方でチャンク分割（≤3000 行 かつ ≤10MiB）+ 冪等 upsert + saga**（§6.4、大 blob 行は 3000 行未満でも 10MiB 到達しうる） |
 | **P6** | **1 txn = DDL 1 文・DDL/DML 混在不可** | spike#1 実機（2 DDL `[0A000] multiple ddl` / DDL+DML `[0A000]`） | migration は 1 文/txn に分割。schema 構築順序を DDL 制約に合わせる（§6.5） |
 | **P7** | **OCC（楽観的同時実行制御）= commit 時 write-write を検出し `40001`（OC000）** | spike#1 実機（commitA=ok / commitB=`40001`）+ AWS 公式 concurrency-control | **同一行 write-write の commit 重なり時のみ**競合。retry ラッパ（指数バックオフ + jitter、冪等 txn のみ）を service 層に 1 箇所集約（§6.3） |
 | **P8** | **RLS 非対応**（`CREATE POLICY` / `ENABLE ROW LEVEL SECURITY` とも `[0A000] unsupported`） | spike#1 実機 + ADR-0063 | テナント分離は **DB エンジン強制でなく app 層単一強制点 + fitness function**（ADR-0063、§3.4） |
@@ -58,8 +58,8 @@ M2 の全 60 リレーションを DSQL テーブルへ写像する。**物理 D
 |---|---|---|---|---|
 | R-FAMILY | `families` | `(family_id uuid)` | secondary `(user_id)` 不要（owner は memberships SSOT） | 最上位テナント境界。`default_child_id uuid?`（DefaultChildSelection、同一家族 child への論理参照、FK 無し）。`last_active_at` は §6 hot-write に注意（別表退避は PoC 判断） |
 | R-SUBSCRIPTION_STATE | **§1.1a で判断**（families クラスタ vs 別表） | `(family_id)` 1:1 | UNIQUE `(stripe_customer_id)` | `status` は Stripe 固定 enum=CHECK。**`plan` は `plans` lookup 表参照（CHECK でない）**= 増減集合（価格/ティア実験を schema migration 待ちにしない、P1 の ALTER 後付け不可回避） |
-| R-USER | `users`（global、tenant 非依存） | `(user_id uuid)` | UNIQUE `email_lower GENERATED lower(email) STORED` | メールは PK にしない（可変・PII、更新伝播非可逆コスト回避 = M2 §3.3(c)）。`lower(email)` は immutable ゆえ STORED 生成列可（spike#6 F7） |
-| R-MEMBERSHIP | `memberships` | `(family_id, user_id)` 自然連関 | secondary `(user_id)`（findUserTenants、別軸引き）+ **`owner_guard uuid GENERATED (CASE WHEN role='owner' THEN family_id ELSE NULL END) STORED` + UNIQUE ASYNC** | I-OWN（owner ちょうど 1 名）を **DB 物理強制**（spike#3: 2 人目 owner は `23505`、40001 retry でない即エラー）。`role` CHECK(owner/parent/child)。`対象子供 child_id?` は role=child 行のみ非 NULL |
+| R-USER | `users`（global、tenant 非依存） | `(user_id uuid)` | UNIQUE `email_lower GENERATED lower(email) STORED` | メールは PK にしない（可変・PII、更新伝播非可逆コスト回避 = M2 §3.3(c)）。`lower(email)` は immutable ゆえ STORED 生成列可（Phase 1 PoC 検証3 で生成列成立を実測、CAST 系のみ `42P17`） |
+| R-MEMBERSHIP | `memberships` | `(family_id, user_id)` 自然連関 | secondary `(user_id)`（findUserTenants、別軸引き）+ **`owner_guard uuid GENERATED (CASE WHEN role='owner' THEN family_id ELSE NULL END) STORED` + UNIQUE ASYNC** | I-OWN（owner ちょうど 1 名）の **≤1 を DB 物理強制**（Phase 1 PoC 検証3: 2 人目 owner は `23505`、40001 retry でない即エラー。ASYNC build 完了 poll 必須）。≥1 は app 層（§3.3）。`role` CHECK(owner/parent/child)。`対象子供 child_id?` は role=child 行のみ非 NULL |
 | R-INVITE | `invites` | `(invite_id uuid)` | secondary `(family_id)`、UNIQUE `(token_hash)`、status/role CHECK | `token_hash` = 招待コードの timing-safe ハッシュ（raw 非保存、CWE-522 = 現行 capability 機構の写像） |
 | R-CONSENT_RECORD | `consents`（**append-only**） | `(consent_id uuid)` | secondary `(family_id, type, consented_at)`、type CHECK | 追記のみ = UPDATE/DELETE を GRANT 除外 + repo 非定義 + fitness 禁止（I-CONS）。取得時環境（IP/UA）は **既に素の列**（`ip_address`/`user_agent`）= M2 値オブジェクトだが物理は原子列で確定（field query 無し、§4）。「現在の同意」= consented_at 降順の導出（D-CONSENT） |
 | R-PARENT_GATE_CREDENTIAL | §1.1a 判断 | `(family_id)` 1:1 | — | 保護者 PIN = 秘匿値（平文非保持ハッシュ、ADR-0050）。連続失敗/ロック解除時刻は素の列 |
@@ -68,8 +68,8 @@ M2 の全 60 リレーションを DSQL テーブルへ写像する。**物理 D
 | R-CANCELLATION_REASON | `cancellation_reasons`（append-only） | `(family_id, reason_id uuid)` | 分析用 secondary は PoC 後（hot path は cross-tenant） | KPI 分析。category CHECK |
 | R-LOYALTY_STATE | §1.1a 判断 | `(family_id)` 1:0..1 | — | **記念チケット数は int カウンタ列**（点数経済外の第 2 通貨、D-BALANCE 対象外）。U-2 派生整合ギャップの物理帰結は §9 |
 | R-ACCOUNT_LIFECYCLE | §1.1a 判断 | `(family_id)` 1:1 | — | 状態機械（active/soft-deleted/purged）= CHECK。`猶予プラン層` は `plan_tiers` 参照（FK 無し） |
-| R-DECAY_POLICY / R-APPROVAL_POLICY / R-POINT_CONVERSION_POLICY / R-NOTIFICATION_SETTINGS | §1.1a 判断 | 各 `(family_id)` 1:0..1 | — | 家族方針。静音時間帯は **静音開始/終了の 2 素の列**（M2展開、U-3 の物理帰結 §9）。換算レートは `real` |
-| R-BONUS_RULE | `bonus_rules`（family master 1:N） | `(family_id, rule_id uuid)` | secondary 不要（family プレフィクス scan） | 発火条件を **素の列に展開**（`条件種別`/`指標`/`閾値`/`加算点`/`倍率`/`有効か`）= M2展開。効果は記録時に基礎点へ畳み込む（独立台帳エントリ無し、L-19） |
+| R-DECAY_POLICY / R-APPROVAL_POLICY / R-POINT_CONVERSION_POLICY / R-NOTIFICATION_SETTINGS | §1.1a 判断 | 各 `(family_id)` 1:0..1 | — | 家族方針。**静音時間帯は text 据置**（Round 3 [should]2: §4.2「全 JSON 列 text 据置」に統一。範囲 field query 0 件、将来 SQL 範囲比較が実発生したら `ALTER ADD COLUMN` で可逆展開、§9 U-3）。換算レートは `real`（数値スカラーで JSON でない） |
+| R-BONUS_RULE | `bonus_rules`（family master 1:N） | `(family_id, rule_id uuid)` | secondary 不要（family プレフィクス scan） | **発火条件は text 据置**（Round 3 [should]2: §4.2「全 JSON 列 text 据置」に統一。field query 0 件、将来必要になれば可逆展開）。効果は記録時に基礎点へ畳み込む（独立台帳エントリ無し、L-19） |
 
 #### §1.1a 1:1 家族従属テーブルの物理クラスタリング判断（M2 §1.1 が明示的に M3 へ委譲、U-4）
 
@@ -113,7 +113,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 
 | M2 リレーション | 物理テーブル | PK | secondary | 物理判断メモ |
 |---|---|---|---|---|
-| R-POINT_LEDGER_ENTRY | `point_ledger`（append-only、経済点数の唯一権威） | `(family_id, child_id, ledger_id uuid v4)` | **`(family_id, child_id, type, recorded_date)`**（must-bonus 冪等 hot path、spike#7 で 2x = 最初から張る）。履歴ページング用 `(…, created_at)` は PoC 後の任意追加 | **created_at は PK に入れない**（等値検索されず sort 用途のみ = P9）。UUID v4 で hot-partition ゼロ。残高は**導出（D-BALANCE、I-BAL）**。**由来参照は多態 2 列 `source_type` + `source_id`（U-7 物理帰結、単一 FK で多態不能ゆえ、FK 無し弱参照）**。increment 符号（正/負/中立）で付与/裁量消費/繰越を区別（種別 CHECK 集合は M4 で SSOT から生成） |
+| R-POINT_LEDGER_ENTRY | `point_ledger`（append-only、経済点数の唯一権威） | `(family_id, child_id, ledger_id uuid v4)` | 候補 secondary `(family_id, child_id, type, recorded_date)`（must-bonus 冪等 hot path）+ 履歴ページング用 `(…, created_at)` は **いずれも PoC 保留 = 統計反映後の実データ規模で採否（§5.2/§7 #3425）**。**⚠️ Round 2 [must]2 是正: 「spike#7 で 2x = 最初から張る」を撤回**（Phase 1 PoC は point_ledger 2x を計測しておらず、むしろ検証7=非 PK filter は統計未反映で full scan → 二次 index は「張れば効く」でない。§5.2 と整合） | **created_at は PK に入れない**（等値検索されず sort 用途のみ = P9）。UUID v4 で hot-partition ゼロ。残高は**導出（D-BALANCE、I-BAL）**。**由来参照は多態 2 列 `source_type` + `source_id`（U-7 物理帰結、単一 FK で多態不能ゆえ、FK 無し弱参照）**。increment 符号（正/負/中立）で付与/裁量消費/繰越を区別（種別 CHECK 集合は M4 で SSOT から生成） |
 
 ### §1.6 Reward / Checklist進捗 / Stamp / Battle / Challenge（M2 §1.6）
 
@@ -187,7 +187,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 | 判定 | 表 | anchor |
 |---|---|---|
 | **凍結（自然複合 PK）** | rest_days / login_bonuses / daily_battles | (a) ADR-0012（1 日/1 期間 1 回 = anti-engagement の直接帰結） |
-| **凍結（自然複合 PK）** | statuses / activity_mastery / activity_preferences / daily_missions / stamp_entries / checklist_logs / checklist_log_items / checklist_template_assignments / evaluation_scores | (b) 構造的確実性（子供×カテゴリ / 活動×子供 / 配信×子供 / 日次1 は product 上単一 cardinality。既存 UNIQUE index が全昇格表で裏付け済 = grep 実測 2026-07-01） |
+| **凍結（自然複合 PK）** | statuses / activity_mastery / activity_preferences / daily_missions / stamp_entries / checklist_logs / checklist_template_assignments | (b) 構造的確実性（子供×カテゴリ / 活動×子供 / 配信×子供 / 日次1 は product 上単一 cardinality。既存 UNIQUE index が全昇格表で裏付け済 = grep 実測 2026-07-01）。**⚠️ Round 2 [must]1 是正: `checklist_log_items` / `evaluation_scores` を本 freeze list から削除**（§4.2/§4.3 で両子表を作らず親の `items_json`/`scores_json` text 列に据置。freeze list に残すと M4 が子表を新設し PK 非可逆凍結 → 原初のデータ喪失が非可逆に再来するため） |
 | **UUID surrogate + droppable UNIQUE（M2 代理識別子分類を追認）** | stamp_cards（シーズン復活で週複数化可）/ certificates（再発行・周期型で type 複数化可） | **M2 §3.1 が既に両者を代理識別子バケットに分類済**（[must]C8）。物理 outcome は M2 と一致。governing rule anchor 無しの明文化として根拠を補強（mutable product default → §P1 で自然 PK 凍結不可） |
 
 ### §2.2 PK 凍結 manifest の考え方（構造決定）
@@ -196,6 +196,7 @@ M2 §1.1 は「家族方針・認証資格・契約を family 識別子 CK の 1
 - **linchpin `children.child_id`**: ~25 テナント表の複合 PK 先頭に伝播するため**最優先凍結**。int → UUID 変換は cutover 時に一度だけ（後戻り不可）。
 - **代理キー併存原則（M2 §3.3 の物理写像）**: surrogate PK 表でも M2 の自然同一性を **droppable UNIQUE** で必ず宣言（例 stamp_cards `(child, week_start)`、evaluations `(child, week_start)`、redemption は無し）。「UUID で JOIN しつつ自然一意性は UNIQUE で担保」= DynamoDB 型 opaque id 一律強制の歪みを回避。UNIQUE は ALTER で後付け/DROP 可（P1 の PK と異なり可逆）。
 - **zero-user rebuildability**: cutover 前は本番ユーザー 0 のため、凍結 PK が誤りでも表再構築の実損は無い（DynamoDB 破棄 OK・NUC バックアップ後破棄 OK の前提）。凍結の非可逆性が牙を剥くのは**本番稼働後**ゆえ、稼働前レビューで潰す。
+- **⚠️ M4 blocker（凍結 ceremony 前に撤去必須、Round 2 [must]1）**: 既存実装 `src/lib/server/db/pk-freeze-manifest.ts` が `checklist_log_items`（:41）/ `evaluation_scores`（:50）の複合 PK を **子表として declare したまま**（big-policy 由来）。§4 で両子表は作らず親 text 列に据置と確定したため、**凍結 ceremony 前に本 manifest から両エントリを撤去**しないと M4 が子表を新設し PK 非可逆凍結 → 原初のデータ喪失が再来する。M3 は設計ゆえ本ファイルを編集せず、**M4 の凍結前タスクとして名指し**（実撤去は M4）。
 
 ---
 
@@ -245,14 +246,15 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 |---|---|---|
 | **グローバル master**（tenant 非依存） | `categories` / `stamp_masters` / `age_benchmarks` / `plans` / `plan_tiers` / `stripe_webhook_events` | family に属さない共有参照（§1.10）。テナントデータを含まない |
 | **tenant 非依存 auth** | `users`（global、email lookup）/ `email_login_lockouts`（未登録メールもロック対象） | family に閉じない独立参照（M2 Q-02=A / I-EMAIL-LOCK） |
-| **global-UNIQUE capability lookup** | `viewer_tokens`(token) / `cloud_exports`(pin_code) / `push_subscriptions`(endpoint) / `memberships`(user_id → findUserTenants) / `invites`(token_hash) | 無 tenant 単点 lookup（capability = 偽造不能秘密で照合）。**⚠️ この単点 fetch は必ず後段で取得行の family_id に再スコープ**（下記不変条件） |
+| **global-UNIQUE capability lookup** | `viewer_tokens`(token) / `cloud_exports`(pin_code) / `push_subscriptions`(endpoint) / `memberships`(**user_id = 認証済 principal 本人のみ** → findUserTenants) / `invites`(token_hash) | 無 tenant 単点 lookup（capability = 偽造不能秘密で照合）。**⚠️ この単点 fetch は必ず後段で取得行の family_id に再スコープ**（下記不変条件）。**memberships(user_id) は「認証済 JWT の principal 本人の user_id」に限定**し、任意 user_id を受けて他ユーザーの所属テナントを列挙させない（偽造 user_id での cross-user テナント列挙を防止） |
 
-#### 不変条件（[must]B5）: surrogate/capability 単独 fetch → family_id 再スコープ義務
+#### 不変条件（[must]B5 + Round 2 [should] fitness 機械強制）: surrogate/capability 単独 fetch → family_id 再スコープ義務
 
 **「surrogate id / capability キー単独での row fetch は、取得行の `family_id` を確定し以降の全アクセスを当該 family_id に再スコープするまで、テナントデータを返してはならない」**。
 - 例: viewer_token で家族 X の共有リンクを引いた後、そのトークンで家族 Y のデータを読めてはならない（token 行の family_id = X で以降を束縛）。
 - polymorphic `source_type`/`source_id` 解決（§3.1(D)）も同様に `WHERE family_id = <当該 point_ledger 行.family_id>` で参照先を束縛。
 - **cross-tenant E2E**: 家族 A の token を家族 B の capability に流用し 403/空 を assert（bare bearer 化による水平権限昇格の regression guard）。
+- **⚠️ Round 2 [should]: 機械強制 fitness を推奨**（E2E のみに頼らない、ADR-0061 整合）: family_id fitness は capability 5 表を allowlist 除外するため、**「capability/global-UNIQUE lookup の後に取得行 family_id への束縛が無い pattern」を検出する targeted fitness** を追加する（capability fetch 結果を `family_id` 述語なしで下流クエリに渡すコードパスを AST で hard-fail）。再スコープ忘れを E2E 1 層でなく静的にも捕捉。
 
 #### 実行時接続ロールモデル（[must]B6、schema 結合 MUST — #3429 を「schema 非依存」から格上げ）
 
@@ -264,7 +266,7 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 | **migration / admin** | 別クレデンシャル（`DbConnectAdmin`） | DDL・GRANT 管理。アプリ実行経路から到達不能 |
 
 - **fitness**: append-only 表への UPDATE/DELETE を repo 層で非定義 + GRANT 除外 + AST lint の 3 層（RLS 不在の代替、consent 削除・台帳改竄の物理防御）。
-- **PoC 保留（#3429）**: L1 `AWS::DSQL::Cluster` の IAM grant helper 欠如（手書き）・role 分離の実 IAM policy は実機構成で確定（構造は本表で確定、実 policy JSON は PoC）。
+- **⚠️ 本番 cutover 前 hard blocker（Round 2 [should] 格上げ、#3429）**: role 分離の**実 IAM policy JSON の実装は「M4 spike」でなく本番 cutover 前の hard blocker**。GRANT を防御線に名指す本設計は、実 IAM policy（実行 role = DbConnect 最小権限 + append-only 表 GRANT 除外 / migration = DbConnectAdmin）が**未実装だと design-only で無防備**（DbConnectAdmin 付与のままだと台帳改竄・consent 削除が素通り）。→ 本番稼働の gate に含める（データモデルゲート #3429 の CDK 構成 spike とは別に、role 分離だけは cutover 必須）。L1 `AWS::DSQL::Cluster` の IAM grant helper 欠如（手書き）は #3429 で吸収。
 
 ---
 
@@ -280,7 +282,7 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 | JSON 列 | 実 write が含む field | 列展開/子表化で落ちるもの | 影響 |
 |---|---|---|---|
-| `child_challenges.targetConfig` | `metric` / `categoryId` / `baseTarget` + **`genMode` / `genMissStreak`**（`child-challenge-service.ts:556-562` の write）。宣言型 `TargetConfig`（`:347-353`）は `activityId` / `ageAdjustments` も持つ | 初版 §1.6 の `metric`/`category_id`/`base_target`/`reward_points`/`reward_message` 列展開だと **`genMissStreak`/`genMode`/`activityId`/`ageAdjustments` を silent drop** | `genMissStreak` は #3203 週次チャレンジ救済アルゴリズムの入力＝**原初喪失と同型のデータ喪失** |
+| `child_challenges.targetConfig` | `metric` / `categoryId` / `baseTarget` + **`genMode` / `genMissStreak`**（`child-challenge-service.ts:555-561` の write）。宣言型 `TargetConfig`（`:347-353`）は `activityId` / `ageAdjustments` も持つ | 初版 §1.6 の `metric`/`category_id`/`base_target`/`reward_points`/`reward_message` 列展開だと **`genMissStreak`/`genMode`/`activityId`/`ageAdjustments` を silent drop** | `genMissStreak` は #3203 週次チャレンジ救済アルゴリズムの入力＝**原初喪失と同型のデータ喪失** |
 | `children.displayConfig` | `cardSize` / `itemsPerCategory` / `collapsible`（`display-config.ts:7-14` の `DisplayConfig` 型） | 初版 §1.2/§4 の展開先 `display_color`/`display_decoration` は **実在しない列（捏造）**。実 field は全く別 | 表示カスタマイズ #2148 の全設定が消失 |
 | `evaluations.scoresJson` | カテゴリ別 `count`/`points`/`status_increase`（丸ごと read） | 初版 §1.4 の evaluation_scores 子表化。reset-plan 決定#1 が子表化を**明示否定** | 週次評価スコアの喪失（原初喪失の現場） |
 | `checklist_logs.itemsJson` | `item_id` 集合（丸ごと read、field query は実 grep で **0 件**確認） | 初版 §1.6 の checklist_log_items 子表化 | item_id gap #3601 |
@@ -384,10 +386,6 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 | I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
 | I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
 | I-PIN-RESET / I-DOWNGRADE | 検証済ワンタイム + 冪等リセット / 下位プラン変更時アーカイブ = app 層トランザクション/UX |
-| I-SUB（トライアル二度取り禁止・状態遷移） | subscription_state の状態遷移を app 層遷移制約 + トライアル使用日時の非 NULL 化冪等 |
-| I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
-| I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
-| I-PIN-RESET / I-DOWNGRADE | 検証済ワンタイム + 冪等リセット / 下位プラン変更時アーカイブ = app 層トランザクション/UX |
 
 ---
 
@@ -401,7 +399,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 | drizzle-kit DDL 適合 + 生成列/UNIQUE 実挙動 | **#3427** | **✅ 実測完了（対策確定）** | FK/`USING btree`/同期 index/2DDL/DDL+DML/SERIAL とも `0A000`/`42704` → **カスタム migration runner 必須（5 点書換、§6.5）**。owner_guard 23505 ✅ / CAST 生成列 42P17 ✅ / ASYNC build 未完了で dedup すり抜け → build 完了 poll hard 化 | §3.1(B) / §5.1 / §6.5 |
 | 一括 import 3000 行/10MiB 抵触 | **#3428** | **✅ 実測完了** | 3001 行 & 11.3MiB とも `54000` → **行数 AND byte 両方でチャンク**。残: chunk サイズ tuning（実装調整） | §6.4 |
 | **Lambda 接続再利用 + cold start** | **#3426** | **⬜ 未実施（正直な gap）** | 本 PoC は pg(node) ローカル接続のみ。Lambda warm 接続再利用・cold start は別 spike。**接続層でデータモデル設計に非依存 → M3 ゲート非ブロック**。M4 着手前に実施 | （実装層、schema 非依存） |
-| **CDK CfnCluster 構成 + IAM ロールモデル** | **#3429** | **⬜ 未実施（正直な gap）** | L1 `AWS::DSQL::Cluster` 構成・実行 role（DbConnect 最小権限、append-only 表 GRANT 除外）vs migration role（DbConnectAdmin）分離の実 policy JSON（§3.4 構造は確定）。**provisioning 層でデータモデルに非依存 → M3 ゲート非ブロック**。M4 着手前に実施 | §3.4（構造確定、実 policy は未実施） |
+| **CDK CfnCluster 構成 + IAM ロールモデル** | **#3429** | **⬜ 未実施（gap、ただし IAM role 分離は cutover hard blocker）** | L1 `AWS::DSQL::Cluster` 構成 = provisioning 層で**データモデル非依存 → M3 ゲート非ブロック**。**⚠️ ただし実行 role（DbConnect 最小権限、append-only 表 GRANT 除外）vs migration role（DbConnectAdmin）分離の実 IAM policy JSON は本番 cutover 前 hard blocker**（未実装だと GRANT 防御が design-only、台帳改竄素通り、§3.4）。M3 データモデルは待たせないが本番稼働 gate に含める | §3.4（構造確定、実 policy = cutover 前 MUST） |
 
 > **M3 データモデルゲートの判定**: データモデル物理設計に必要な実測（PK/txn 上限/OCC/FOR UPDATE/生成列/migration 制約）は**全て完了**。残 gap（#3426/#3429）は接続・IaC 層で**データモデルを変えない** → M3 は「**実測裏取り済みの物理設計**」として Round 2 board へ進める。
 
@@ -461,7 +459,12 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 - **値オブジェクト境界を尊重 + データ喪失の根絶（[must]A）**: **全 JSON 列を text 据置**（field grep 0 件 + 実 write が宣言型より広い + reset-plan 決定#1）。M2 の「意味ある属性への展開」宣言は parse 後 JS 分解で満たし、物理格納は text 据置 = 論理を反転せず data-loss を根絶。
 - **per-child 主軸・PointLedger 唯一権威・第 2 通貨分離を維持**: family_id/child_id PK 前置は tenant 隔離の物理目的であり、M2 の per-child 主軸を強化こそすれ覆さない。D-BALANCE scope（経済点数のみ）・戦果値/KPI の台帳外を維持。total_point は authoritative 増分（carryover 廃止、reset-plan 決定#4）で SUM 権威を構造担保。
 - **M1 忠実性の連鎖**: M2 が M1 を忠実写像し、本 M3 が M2 を忠実写像（M1→M2→M3 のトレーサビリティ連鎖）。
-- **移植ハックの非継承 + reset-plan controlling 決定の reconcile**: big-policy doc / develop の DSQL コードは参照したが、JSON 格納は **M2 + 実 grep + DSQL 制約 + reset-plan 決定#1 から再導出**（big-policy doc の列展開/子表化/jsonb は data-loss ゆえ採らない）。reset-plan 決定#1-#4（2026-07-05 ユーザー承認、controlling）を否定せず reconcile 済（JSON text 据置 / branded id + 合成 id 廃止 / point プリミティブ一本化 / carryover 廃止）。
+- **移植ハックの非継承 + reset-plan controlling 決定の reconcile**: big-policy doc / develop の DSQL コードは参照したが、JSON 格納は **M2 + 実 grep + DSQL 制約 + reset-plan 決定#1 から再導出**（big-policy doc の列展開/子表化/jsonb は data-loss ゆえ採らない）。reset-plan 決定#1-#4（2026-07-05 ユーザー承認、controlling）を否定せず reconcile 済（#1 JSON text 据置 / **#2 branded id 型は維持・複合自然キー entity の合成 id のみ廃止**（branded id 自体は廃止しない）/ #3 point プリミティブ一本化 / #4 carryover 廃止）。
+- **⚠️ M4 で必ず捨てて rewrite する artifact（Round 2 [must]1 + Round 3 [should]1、名指し）**: `src/lib/server/db/dsql/schema.ts` は big-policy 由来で以下の **§4 text 据置確定に反する data-loss 列展開/子表**を持つ。M4 で再利用せず rewrite（親の text 列に据置）。M3 は設計ゆえ本ファイルを編集せず名指しのみ。`pk-freeze-manifest.ts` の両子表エントリ撤去（§2.2）と対で処理する:
+  - **`child_challenges.targetConfig` 列展開（`childChallenges` export :878、`target_metric`/`target_category_id`/`base_target`/`reward_points`/`reward_message` 列 :888-892）→ `target_config` text 据置**。**最も severe（`genMode`/`genMissStreak`/`activityId`/`ageAdjustments` を落とす = #3203 救済入力喪失 = 原初喪失そのもの）**。**⚠️ 部分 rewrite の M4 実装者が `target_metric`/`base_target` を legit ドメイン列と誤認し温存する残余リスクを断つため明示**（列展開は全て捨て text 据置に戻す）。`rewardConfig` も同様。
+  - **`evaluation_scores` 子表（`evaluationScores` export :547）→ `evaluations.scores_json` text 据置**。
+  - **`checklist_log_items` 子表（`checklistLogItems` export :642）→ `checklist_logs.items_json` text 据置**。
+  - **`daily_battles.playerStatsJson` 列展開（`dailyBattles` export :578、`player_hp/atk/def/spd/rec` 列 :587-591）→ `player_stats_json` text 据置**。
 
 ---
 
