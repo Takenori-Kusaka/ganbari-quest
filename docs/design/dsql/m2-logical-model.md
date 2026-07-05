@@ -60,11 +60,12 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 - 正規形: 3NF。**自然キー露出**: メールアドレスを業務候補キー（UNIQUE）として露出する（DynamoDB の opaque 単一 id 一律強制を排す, L-12）。PK にメールを採るか安定同一性を採るかの選択は §3。
 
 #### R-MEMBERSHIP（所属 = 利用者×家族の連関, 役割 1 つ, L-09/I-MEM）
-- 属性: `{ 家族: 参照<FAMILY>, 利用者: 参照<USER>, 役割: 列挙<owner/parent/child>, 参加日時: 日時, 招待者: 参照<USER>? }`
-- CK: `{家族, 利用者}`（自然連関キー）。現行 single（Q-07=A, 1 利用者=1 所属）では `{利用者}` も UNIQUE 候補キー / PK: `{家族, 利用者}`
-- FK: `家族 → R-FAMILY`, `利用者 → R-USER`, `招待者 → R-USER`
-- FD: `{家族, 利用者} → 役割, 参加日時, 招待者`
+- 属性: `{ 家族: 参照<FAMILY>, 利用者: 参照<USER>, 役割: 列挙<owner/parent/child>, 参加日時: 日時, 招待者: 参照<USER>?, 対象子供: 参照<CHILD>?（role=child 行のみ非 NULL・UNIQUE, I-CHILD-USER の写像）}`
+- CK: `{家族, 利用者}`（自然連関キー）。現行 single（Q-07=A, 1 利用者=1 所属）では `{利用者}` が最小候補キー。**別 UNIQUE 候補キー `{対象子供}`**（role=child 行で子供 1 対 1, I-CHILD-USER の 0..1:0..1 を一意 FK で担保） / PK: `{家族, 利用者}`
+- FK: `家族 → R-FAMILY`, `利用者 → R-USER`, `招待者 → R-USER`, `対象子供 → R-CHILD`（**Round 1 [must]4 反映**: M1 `CHILD |o--o| MEMBERSHIP`（role=child, 0..1:0..1, I-CHILD-USER）を担う FK。role=child 行のみ非 NULL、同一家族の子供に限る＝ §5 述語）
+- FD: `{家族, 利用者} → 役割, 参加日時, 招待者, 対象子供`
 - 正規形: 3NF。役割を単一の所属関係に集約し二重書き（L-09）を排除。I-MEM（役割 1 つ）は「役割が主キーでなく従属属性＝1 タプル 1 役割」で写像。I-OWN（owner ちょうど 1 名）は単一リレーション内の**述語制約**（family ごとに役割=owner のタプルが 1 件）で §5 にマップ。
+- **PK 選択の根拠（Round 1 [should]）**: Q-07=A（1 利用者 1 家族）下の最小候補キーは `{利用者}` だが、PK には連関自然キー `{家族, 利用者}`（非最小 superkey）を採る。将来 M:N 反転（§9）時に `{利用者}` が候補キーでなくなっても連関キー PK が安定して残る（連関安定性優先）。非最小である旨は承知の上での選択。
 
 #### R-INVITE（招待）
 - 属性: `{ 招待同一性: 識別子, 家族: 参照<FAMILY>, 付与役割: 列挙<owner/parent/child>, 状態: 列挙<pending/accepted/…（値集合 M3）>, 宛先メール: 文字列, 対象の子供: 参照<CHILD>?, 有効期限: 日時 }`
@@ -153,12 +154,12 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 ### §1.2 集約 ChildProfile（C3）+ 休養日
 
 #### R-CHILD（子供 = 所有スコープの identity アンカー）
-- 属性: `{ 子供同一性: 識別子, 家族: 参照<FAMILY>, ニックネーム: 文字列, 生年月日: 日付?, 年齢帯モード: 列挙<baby/preschool/elementary/junior/senior>, 年齢帯を手動固定したか: 真偽, テーマ: 文字列, アバター画像参照: 参照<CHARACTER_IMAGE>?, 表示_色: 文字列?, 表示_装飾: 文字列?（DisplayConfig 展開）, 誕生日ボーナス倍率: 数値, 前回誕生日ボーナス付与年: 整数?, アーカイブ済か: 真偽, アーカイブ理由: 列挙? }`
+- 属性: `{ 子供同一性: 識別子, 家族: 参照<FAMILY>, ニックネーム: 文字列, 生年月日: 日付?, 手動固定年齢帯: 列挙<baby/preschool/elementary/junior/senior>?（手動固定時のみ非 NULL）, テーマ: 文字列, アバター画像参照: 参照<CHARACTER_IMAGE>?, 表示_色: 文字列?, 表示_装飾: 文字列?（DisplayConfig 展開）, 誕生日ボーナス倍率: 数値, 前回誕生日ボーナス付与年: 整数?, アーカイブ済か: 真偽, アーカイブ理由: 列挙? }`
 - CK: `{子供同一性}` / PK: `{子供同一性}`
 - FK: `家族 → R-FAMILY`, `アバター画像参照 → R-CHARACTER_IMAGE`（任意, 同一子供所有）
-- FD: `子供同一性 → 家族, ニックネーム, 生年月日, 年齢帯を手動固定したか, テーマ, …（列挙）`
-- 導出注記: **年齢は保持しない**（生年月日と現在時刻からの導出＝I-AGE, §4 D-AGE）。**年齢帯モードは手動固定でない限り年齢からの導出**（§4 D-AGE）。M1 §3.2 は年齢帯モードを属性として持つが、これは「手動固定値の保持列」であり、非固定時の実効値は導出（両立: 固定フラグ true のとき列値が権威, false のとき導出値が権威）。
-- 正規形: 3NF。`表示構成: 値オブジェクト` を意味ある原子属性に展開（M1 §3.2 明示指示「個別の意味ある属性へ展開」）。
+- FD: `子供同一性 → 家族, ニックネーム, 生年月日, 手動固定年齢帯, テーマ, …（列挙）`
+- 導出注記: **年齢は保持しない**（生年月日と現在時刻からの導出＝I-AGE, §4 D-AGE）。**Round 1 [must]2 反映（stale-on-birthday anomaly 除去）**: 当初 `年齢帯モード` を常時格納していたが、非固定時に `生年月日 → 年齢帯モード` の導出 FD が残り L-10 の年齢と同型の誕生日跨ぎ stale anomaly を起こす。→ 列を **`手動固定年齢帯`（nullable、手動固定時のみ非 NULL＝手動固定フラグを兼ねる）** に改名し、**実効年齢帯は D-AGE で導出**（手動固定年齢帯が非 NULL ならその値が権威、NULL なら D-AGE の導出値）。これで非固定行に導出 FD が残らない。
+- 正規形: 3NF（`手動固定年齢帯` は手動固定という別事実であり生年月日から導出されない＝推移従属なし）。`表示構成: 値オブジェクト` を意味ある原子属性に展開（M1 §3.2 明示指示「個別の意味ある属性へ展開」）。
 
 #### R-REST_DAY（休養日 = 減衰猶予日, I-DECAY 入力）
 - 属性: `{ 子供: 参照<CHILD>, 対象日: 日付, 理由: 文字列? }`
@@ -188,10 +189,11 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 
 #### R-DAILY_MISSION（今日のミッション, I-MISSION）
 - 属性: `{ 子供: 参照<CHILD>, 対象日: 日付, 活動: 参照<CHILD_ACTIVITY>, 完了か: 真偽（導出候補）}`
-- CK: `{子供, 対象日, 活動}`（自然複合キー, I-MISSION） / PK: 同上
+- **最小候補キー: `{対象日, 活動}`**（Round 1 [must]3 反映）。per-child instance ゆえ `活動 → 子供` が成立し（活動は 1 子供が所有, L-02）、`{子供, 対象日, 活動}` は非最小 superkey。`子供` は活動由来の冗長 prime。 / PK: `{対象日, 活動}`
 - FK: `子供 → R-CHILD`, `活動 → R-CHILD_ACTIVITY`（活動所有子供＝本行子供＝論理制約）
+- FD: `{対象日, 活動} → 子供, 完了か` ／ `活動 → 子供`（per-child 由来）
+- 正規形: **3NF だが BCNF ではない**（`活動 → 子供` の決定項 `活動` が候補キーでなく、`子供` は prime 属性＝冗長 prime）。M1 の per-child 主軸の自然な帰結であり、R-STAMP_ENTRY の 2 候補キー開示（N-4）と同水準に FD と非 BCNF を明示開示する（隠さない）。
 - 導出注記: 完了状態は記録履歴から再判定可能（I-MISSION / I-ADD）＝ D-MISSION-DONE。
-- 正規形: 3NF
 
 ### §1.4 集約 GrowthJournal（C5, I-REC の atomic 境界。点数は含まない）
 
@@ -254,12 +256,13 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 #### R-CHECKLIST_LOG（日次達成記録, I-CHECKLIST, 配信前提）
 - 属性: `{ 進捗同一性: 識別子, 子供: 参照<CHILD>, テンプレート: 参照<CHECKLIST_TEMPLATE>, 対象日: 日付, 全完了か: 真偽, 付与ポイント: 整数（捕捉観測値・非権威）}`
 - CK: `{進捗同一性}`。自然候補キー `{子供, テンプレート, 対象日}`（I-CHECKLIST 一意） / PK: `{進捗同一性}`
-- FK: `子供 → R-CHILD`, `テンプレート → R-CHECKLIST_TEMPLATE`（**配信されているテンプレのみ**＝ R-CHECKLIST_ASSIGNMENT 存在が前提＝ §5 述語）
+- FK: `子供 → R-CHILD`, `テンプレート → R-CHECKLIST_TEMPLATE`。**複合 FK `{子供, テンプレート} → R-CHECKLIST_ASSIGNMENT`**（Round 1 [should] 反映）: 「配信済テンプレのみ進捗を持つ」（I-CHECKLIST）を [C] 述語でなく **[R] 参照整合**に格上げ（配信されていない (子供,テンプレ) の進捗行を参照整合違反として排除）。
 - 正規形: 3NF。`付与ポイント` は checklist 付与の捕捉観測値（権威は PointLedger）。
 
 #### R-CHECKLIST_ITEM_RESULT（項目別チェック結果, L-04 展開）
 - 属性: `{ 進捗: 参照<CHECKLIST_LOG>, 対象項目: 参照<CHECKLIST_ITEM>, チェック済か: 真偽 }`
 - CK: `{進捗, 対象項目}` / PK: 同上 / FK: `進捗 → R-CHECKLIST_LOG`, `対象項目 → R-CHECKLIST_ITEM`
+- **行間整合述語（Round 1 [should]）**: `対象項目.テンプレート = 進捗.テンプレート`（結果の項目は進捗と同一テンプレートに属す＝別テンプレ項目の誤紐付けを排除）。FK だけで表せないタプル間述語＝ §5 [C]。
 - 正規形: 3NF
 
 #### R-CHECKLIST_OVERRIDE（当日上書き = 子供×日の項目増減, 特定テンプレに紐づかない）
@@ -298,8 +301,9 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 - 正規形: 3NF。**戦果値は I-SATELLITE-RECON の述語で自動的に scope 外**（台帳に入らない非経済値）＝ PointLedger 権威争いの対象でない。`戦闘時ステータス` は L-18 で不透明原子値と確認済＝値オブジェクト（展開しない）。
 
 #### R-ENEMY_COLLECTION（討伐図鑑）
-- 属性: `{ 子供: 参照<CHILD>, 敵識別: 整数, 初討伐日時: 日時, 討伐回数: 整数 }`
+- 属性: `{ 子供: 参照<CHILD>, 敵識別: 整数, 初討伐日時: 日時（導出）, 討伐回数: 整数（導出）}`
 - CK: `{子供, 敵識別}`（自然複合キー） / PK: 同上 / FK: `子供 → R-CHILD`
+- 導出注記（Round 1 [should]）: `討伐回数`/`初討伐日時` は当該（子供,敵識別）の R-DAILY_BATTLE 勝利行の集約（count）/ 最小（min 日時）＝ **§4 D-ENEMY**（D-MASTERY と対称）。**可変集約ゆえ update anomaly を持ち captured observation の免罪符が効かない**（勝利のたびに再集約が必要）→ 導出分類が正。基底は identity（子供, 敵識別）＋導出量。materialize は M3。
 - 正規形: 3NF
 
 ### §1.7 集約 ChecklistTemplate（C7, family master — ADR-0055 唯一の例外, 3 層）
@@ -390,16 +394,23 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 - CK: `{スタンプコード}` / PK: `{スタンプコード}` / FK: なし
 - 正規形: 3NF
 
-#### R-AGE_BENCHMARK（年齢×カテゴリ基準値, R-STATUS の参照）
-- 属性: `{ 年齢: 整数, カテゴリ: 参照<CATEGORY>, 平均: 数値, 標準偏差: 数値 }`
-- CK: `{年齢, カテゴリ}`（自然複合キー） / PK: 同上 / FK: `カテゴリ → R-CATEGORY`
-- FD: `{年齢, カテゴリ} → 平均, 標準偏差`
-- 正規形: 3NF。M1 §3.3 mermaid では `AGE_BENCHMARK { 年齢; 平均; 標準偏差 }` だが、基準値は年齢×カテゴリで定まる（R-STATUS が `AGE_BENCHMARK ||--o{ STATUS`＝ステータスのカテゴリ別基準を参照）ため候補キーにカテゴリを含める。**M1 との差分（明示）**: M1 属性列にカテゴリが明記されていないが、関係（STATUS はカテゴリ別）と整合させると基準値もカテゴリ別が自然。→ §6 未決論点で M2 board 確認（基準値が全カテゴリ共通なら CK は `{年齢}`）。
+#### R-AGE_BENCHMARK（年齢基準値, R-STATUS の参照）
+- 属性: `{ 年齢: 整数, 平均: 数値, 標準偏差: 数値 }`
+- CK: `{年齢}`（M1 §3.3 mermaid `AGE_BENCHMARK { 年齢; 平均; 標準偏差 }` の文字通りの写像） / PK: `{年齢}` / FK: なし
+- FD: `{年齢} → 平均, 標準偏差`
+- 正規形: 3NF。**Round 1 [should] 反映（勝手に足さない原則の徹底）**: 当初 CK にカテゴリを含めていたが、M1 属性列にカテゴリ明記がないため **M1 文字通りの `{年齢}` を既定に戻す**。カテゴリ別基準値（`{年齢, カテゴリ}`）の要否は §6 U-1 の候補に留め、既定に焼き込まない（M1 に無い構造を勝手に確定しない）。
 
 #### R-PLAN（プラン参照, 契約の値集合）
-- 属性: `{ プランコード: コード, プラン層: 列挙, 猶予日数: 整数, …（価格等は課金 scope 外）}`
-- CK: `{プランコード}` / PK: `{プランコード}` / FK: なし
-- 正規形: 3NF。M1 は「プラン＝増減しうる集合の 1 値」。猶予日数がプラン層で定まる（I-LIFECYCLE）ため参照リレーション化し、R-SUBSCRIPTION_STATE / R-ACCOUNT_LIFECYCLE が参照。**プランの完全カタログ・価格は課金 scope（M1 §10 で LP/課金は別 scope）**＝本書は参照点のみ定義。
+- 属性: `{ プランコード: コード, プラン層: 参照<PLAN_TIER>, …（価格等は課金 scope 外）}`
+- CK: `{プランコード}` / PK: `{プランコード}` / FK: `プラン層 → R-PLAN_TIER`
+- FD: `プランコード → プラン層`
+- 正規形: 3NF。M1 は「プラン＝増減しうる集合の 1 値」。**Round 1 [must]1 反映（推移従属の分解）**: 当初 `プランコード → プラン層 → 猶予日数` の推移従属を持ち 3NF 違反だったため、`猶予日数`（プラン層で定まる, I-LIFECYCLE）を R-PLAN_TIER に外出し、R-PLAN は `プランコード → プラン層` のみ保持する。**プランの完全カタログ・価格は課金 scope（M1 §10 で LP/課金は別 scope）**＝本書は参照点のみ定義。
+
+#### R-PLAN_TIER（プラン層 → 猶予日数, I-LIFECYCLE の grounding）
+- 属性: `{ プラン層: 列挙, 猶予日数: 整数 }`
+- CK: `{プラン層}` / PK: `{プラン層}` / FK: なし
+- FD: `プラン層 → 猶予日数`
+- 正規形: 3NF（[must]1 の分解後、推移従属を除去）。R-SUBSCRIPTION_STATE.プラン / R-ACCOUNT_LIFECYCLE.猶予プラン層 は R-PLAN → R-PLAN_TIER 経由で猶予日数へ到達する（`猶予プラン層` は R-PLAN_TIER への直接参照でもよい＝物理 lookup 経路は M3）。**代替案（M3 送り）**: 猶予日数を課金 scope として M2 論理属性から外し M3 で定義する選択もあり（価格 defer と整合）。本書は I-LIFECYCLE を論理的に grounding するため分解を採る。
 
 #### R-BILLING_EVENT_OBSERVATION（課金イベント冪等観測点）
 - 属性: `{ イベント同一性: 識別子（課金基盤のイベント id）, 観測日時: 日時, …（冪等判定に必要な最小属性）}`
@@ -410,11 +421,15 @@ M1 §4.2 で Family ルートは「不変条件を担う概念のみ」。家族
 
 ## §2 関数従属と正規形の総括
 
-### §2.1 3NF 達成の論拠（全リレーション共通）
-- **部分従属の排除**: 複合候補キーを持つリレーション（R-STATUS `{子供,カテゴリ}`、R-REST_DAY `{子供,対象日}`、R-DAILY_MISSION `{子供,対象日,活動}`、R-STAMP_ENTRY、R-CHECKLIST_ASSIGNMENT、R-EVALUATION_SCORE、R-CHECKLIST_ITEM_RESULT、R-AGE_BENCHMARK 等）で、非キー属性はキー全体に完全従属（キーの真部分集合に従属する属性を持たない）。連関リレーションは属性が最小（連関事実のみ）で部分従属が生じない。
-- **推移従属の排除**: 各リレーションの非キー属性間に FD がない（例: R-CHILD の年齢帯モード↔年齢の推移は、**年齢を保持しない**（I-AGE 導出）ことで根絶。R-STATUS の レベル↔累計XP の推移は、両者を**導出属性**として基底から外すことで根絶。R-SUBSCRIPTION_STATE の entitlement↔状態 の推移は entitlement を保持しないことで根絶）。
-- **導出量の分離**: 総和・畳み込みで定義される量（残高 / 累計XP / 習熟累計回数 / レベル / 年齢 / 現在の同意）は基底属性にせず **§4 導出関係**として定義。これにより「同一事実の 2 保持」（L-03）と推移従属を同時に排す（I-DERIVED の論理写像）。
-- **制御された冗長の明示区別**: R-ACTIVITY_LOG.付与ポイント / R-CHECKLIST_LOG.付与ポイント / R-EVALUATION.ボーナスポイント / R-LOGIN_BONUS.付与ポイント（捕捉観測値）と R-REDEMPTION_REQUEST.申請時捕捉値 は PointLedger 権威やごほうび現値と重複しうるが、**記録時に確定する不変の歴史的観測値**であり正規化違反ではない（L-05 の業務イベント不変性 / I-SATELLITE-RECON の観測値扱い）。これらは「更新時異常」を起こさない（追記後不変・権威側を正とする reconcile）。
+### §2.1 正規形の論拠（3NF を既定とし、明示した制御冗長・非 BCNF を例外開示）
+
+> **全称を張らない（M1 の教訓）**: 「全リレーション 3NF」の全称断言はしない。各リレーションは **3NF（下記に明示した制御された派生冗長を除く）** を満たし、**一部は 3NF だが BCNF ではない**（下記に FD と決定項を開示）。悉皆断言でなく例外を列挙・述語で定義する。
+
+- **部分従属の排除**: 複合候補キーを持つリレーション（R-STATUS `{子供,カテゴリ}`、R-REST_DAY `{子供,対象日}`、R-DAILY_MISSION `{対象日,活動}`、R-STAMP_ENTRY、R-CHECKLIST_ASSIGNMENT、R-EVALUATION_SCORE、R-CHECKLIST_ITEM_RESULT、R-AGE_BENCHMARK 等）で、非キー属性はキー全体に完全従属（キーの真部分集合に従属する属性を持たない）。連関リレーションは属性が最小（連関事実のみ）で部分従属が生じない。
+- **推移従属の排除**: 非キー属性間の推移 FD を除去する（例: R-CHILD の年齢帯↔年齢の推移は **手動固定年齢帯のみ格納し実効年齢帯を導出**（[must]2）することで根絶。R-STATUS の レベル↔累計XP、R-SUBSCRIPTION_STATE の entitlement↔状態 は導出属性を基底から外して根絶。R-PLAN の プランコード→プラン層→猶予日数 は R-PLAN_TIER 分解（[must]1）で根絶）。
+- **導出量の分離**: 総和・畳み込み・関数で定義される量（残高 / 累計XP / 習熟累計回数 / レベル / 年齢 / 現在の同意 / 討伐回数）は基底属性にせず **§4 導出関係**として定義。これにより「同一事実の 2 保持」（L-03）と推移従属を同時に排す（I-DERIVED の論理写像）。
+- **制御された派生冗長の明示区別（3NF の例外として開示）**: R-ACTIVITY_LOG.付与ポイント / R-CHECKLIST_LOG.付与ポイント / R-EVALUATION.ボーナスポイント / R-LOGIN_BONUS.付与ポイント（捕捉観測値）、R-REDEMPTION_REQUEST.申請時捕捉値、R-ACTIVITY_LOG/R-LOGIN_BONUS.連続日数（streak）は、PointLedger 権威やごほうび現値・記録履歴と重複しうるが、**記録時に確定する不変の歴史的観測値**であり更新時異常を起こさない（追記後不変・権威側を正とする reconcile）＝ L-05 / I-SATELLITE-RECON。R-CHILD.手動固定年齢帯も「手動固定という別事実」の派生冗長ではない格納。これらを 3NF の「明示した制御冗長」として区別する。
+- **3NF だが BCNF でないリレーションの開示**: `R-DAILY_MISSION`（`活動 → 子供` の決定項 `活動` が候補キーでなく `子供` は prime＝冗長 prime, per-child 由来）。これを隠さず開示し、R-STAMP_ENTRY の 2 候補キー開示（N-4）と同水準に FD を明示する。冗長 prime の解消（子供を落として活動経由参照にする）は物理判断＝M3。
 
 ### §2.2 M:N 関係の連関解決
 本モデルの M:N は **ChecklistTemplate ↔ Child（配信）** の 1 組のみ（M1 §3.4）。→ **R-CHECKLIST_ASSIGNMENT** に解決（連関自然キー `{テンプレート, 子供}`）。他のすべての関係は 1:1 / 1:0..1 / 1:N であり連関を要しない（per-child 主軸により多くが 1:N に単純化＝ADR-0055 の効果）。
@@ -437,7 +452,7 @@ M1 §4.2 の集約を relation グループとして反映（トランザクシ�
 | ChecklistTemplate（family master） | R-CHECKLIST_TEMPLATE + R-CHECKLIST_ITEM + R-CHECKLIST_ASSIGNMENT |
 | Child 衛星 | R-PARENT_MESSAGE/SIBLING_CHEER/CERTIFICATE/CHARACTER_IMAGE/CUSTOM_VOICE |
 | Family 衛星 | R-GRADUATION_CONSENT/PUSH_SUBSCRIPTION/NOTIFICATION_LOG/VIEWER_TOKEN/CLOUD_EXPORT/USAGE_LOG |
-| グローバル参照 | R-CATEGORY/STAMP_MASTER/AGE_BENCHMARK/PLAN/BILLING_EVENT_OBSERVATION |
+| グローバル参照 | R-CATEGORY/STAMP_MASTER/AGE_BENCHMARK/PLAN/PLAN_TIER/BILLING_EVENT_OBSERVATION |
 
 > **注**: R-EVALUATION/R-EVALUATION_SCORE は M1 §4.2 で「Child 衛星（週次評価）」だが、成長状態の一部として GrowthJournal グループに近接配置した（weekly_bonus を PointLedger へ要請する点は他衛星と同型）。集約整合境界としては独立（GrowthJournal の atomic 境界を膨らませない, M1 §4.2 注）。物理 clustering は M3。
 
@@ -450,8 +465,8 @@ M1 は DynamoDB 遺産の「単一 opaque 識別子の一律強制 + 採番カ�
 
 | 分類 | リレーション | 論理 PK 選択 | 根拠 |
 |---|---|---|---|
-| **自然複合キーを PK に採用** | R-STATUS `{子供,カテゴリ}` / R-REST_DAY `{子供,対象日}` / R-DAILY_MISSION `{子供,対象日,活動}` / R-LOGIN_BONUS `{子供,ログイン日}` / R-DAILY_BATTLE `{子供,日付}` / R-ENEMY_COLLECTION `{子供,敵識別}` / R-CHECKLIST_ASSIGNMENT `{テンプレ,子供}` / R-EVALUATION_SCORE `{評価,カテゴリ}` / R-CHECKLIST_ITEM_RESULT `{進捗,項目}` / R-STAMP_ENTRY `{カード,枠番号}` / R-AGE_BENCHMARK `{年齢,カテゴリ}` / R-MEMBERSHIP `{家族,利用者}` | 自然複合キー | 自然同一性が存在し安定・一意（I-STATUS/I-CHECK-1WK 系の写像）。opaque id を被せない |
-| **自然単一キー（コード）を PK に採用** | R-CATEGORY `{カテゴリコード}` / R-STAMP_MASTER `{スタンプコード}` / R-PLAN `{プランコード}` / R-EMAIL_LOGIN_LOCKOUT `{対象メール}` | 自然コード / メール | 安定した自然識別子。列挙的コードで露出 |
+| **自然複合キーを PK に採用** | R-STATUS `{子供,カテゴリ}` / R-REST_DAY `{子供,対象日}` / R-DAILY_MISSION `{対象日,活動}`（最小 CK, [must]3。非 BCNF は §2.1 開示）/ R-LOGIN_BONUS `{子供,ログイン日}` / R-DAILY_BATTLE `{子供,日付}` / R-ENEMY_COLLECTION `{子供,敵識別}` / R-CHECKLIST_ASSIGNMENT `{テンプレ,子供}` / R-EVALUATION_SCORE `{評価,カテゴリ}` / R-CHECKLIST_ITEM_RESULT `{進捗,項目}` / R-STAMP_ENTRY `{カード,枠番号}` / R-MEMBERSHIP `{家族,利用者}` | 自然複合キー | 自然同一性が存在し安定・一意（I-STATUS/I-CHECK-1WK 系の写像）。opaque id を被せない |
+| **自然単一キーを PK に採用** | R-CATEGORY `{カテゴリコード}` / R-STAMP_MASTER `{スタンプコード}` / R-PLAN `{プランコード}` / R-PLAN_TIER `{プラン層}` / R-EMAIL_LOGIN_LOCKOUT `{対象メール}` / R-AGE_BENCHMARK `{年齢}`（[should] で M1 文字通りに是正）| 自然コード / メール / 年齢 | 安定した自然識別子。列挙的コード・整数キーで露出 |
 | **1:1 従属で親キーを PK に採用** | R-PARENT_GATE_CREDENTIAL/SUBSCRIPTION_STATE/ACCOUNT_LIFECYCLE/DECAY_POLICY/APPROVAL_POLICY/POINT_CONVERSION_POLICY/NOTIFICATION_SETTINGS/LOYALTY_STATE `{家族}` / R-ACTIVITY_MASTERY/ACTIVITY_PREFERENCE `{活動}` | 親の識別子 | 1:1（1:0..1）従属は親キーが候補キー。縦分解で親を PK 共有 |
 | **代理識別子を PK に採用（自然キー不在 or 不安定/PII）** | R-FAMILY / R-USER / R-CHILD / R-CHILD_ACTIVITY / R-ACTIVITY_LOG / R-POINT_LEDGER_ENTRY / R-STATUS_HISTORY / R-SPECIAL_REWARD / R-REDEMPTION_REQUEST / R-CHILD_CHALLENGE / R-STAMP_CARD / R-CHECKLIST_TEMPLATE/ITEM / R-CHECKLIST_LOG / R-CHECKLIST_OVERRIDE / R-EVALUATION / R-INVITE / R-CONSENT_RECORD / R-TRIAL_HISTORY / R-CANCELLATION_REASON / R-BONUS_RULE / 各衛星（PARENT_MESSAGE/SIBLING_CHEER/CERTIFICATE/CHARACTER_IMAGE/CUSTOM_VOICE/GRADUATION_CONSENT/PUSH_SUBSCRIPTION/NOTIFICATION_LOG/VIEWER_TOKEN/CLOUD_EXPORT/USAGE_LOG） | 代理識別子 | 安定した自然キーがない（イベント/追記ログ）か、自然キー候補が可変・PII（メール等）。**自然候補キーがある場合は §1 で UNIQUE 候補キーとして併記**（例 R-USER `{メールアドレス}`、R-CHILD_ACTIVITY は自然キー無し、R-STAMP_CARD `{子供,週の開始}`、R-CHECKLIST_LOG `{子供,テンプレ,対象日}`、R-EVALUATION `{子供,週の開始}`）し、業務一意性を保証 |
 
@@ -478,6 +493,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 | **D-XP** | ある子供×カテゴリの累計XP = R-STATUS_HISTORY の当該 `変化量` 総和（成長 − 減衰）。到達最高XP = 履歴 `変化後の値` の最大 | I-DERIVED / I-STATUS | R-STATUS_HISTORY |
 | **D-LEVEL** | ステータスのレベル = 累計XP の関数 / 習熟レベル = 習熟累計回数の関数 | I-DERIVED | D-XP / D-MASTERY |
 | **D-MASTERY** | ある活動の習熟累計回数 = 当該 R-ACTIVITY_LOG のうち取消されていない行数 | I-DERIVED | R-ACTIVITY_LOG |
+| **D-ENEMY** | ある子供×敵識別の討伐回数 = 当該 R-DAILY_BATTLE 勝利行の count、初討伐日時 = 同 min(日付/日時) | I-DERIVED | R-DAILY_BATTLE |
 | **D-AGE** | 子供の年齢 = 生年月日と現在時刻の関数。年齢帯モード（実効） = 手動固定でなければ D-AGE の関数（誕生日跨ぎ自動遷移） | I-AGE | R-CHILD.生年月日 |
 | **D-CONSENT** | ある家族×利用者×種別の「現在の同意」 = R-CONSENT_RECORD の最新 `同意日時` エントリ（追記ログからの都度導出） | I-CONS | R-CONSENT_RECORD |
 | **D-MISSION-DONE** | 今日のミッションの完了状態 = 当該（子供,日,活動）の記録履歴から再判定 | I-MISSION / I-ADD | R-ACTIVITY_LOG |
@@ -487,7 +503,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 
 > **非経済値・別通貨の分離（M1 忠実写像）**:
 > - **D-BALANCE の scope は経済点数のみ**。R-DAILY_BATTLE.戦果値（非経済の内部演出値）・R-GRADUATION_CONSENT の KPI スナップショット は **台帳に入らず D-BALANCE に寄与しない**。I-SATELLITE-RECON の述語により「台帳付与に裏付けられない点数次元の値」は自動的に reconcile scope 外＝これらは PointLedger と突合しない（列挙でなく述語での scope 外化を論理レベルでも維持）。
-> - **D-LOYALTY（別通貨）**: R-LOYALTY_STATE.記念チケット数 は **PointLedger 経済とは独立の第 2 通貨のカウンタ**（繰越 [note] 反映）。D-BALANCE とは別次元で、I-BAL / I-LEDGER-AUTH / I-BAL-NONNEG の対象外。記念チケットの増減を独立台帳で追跡するか単純カウンタに留めるかは §6 未決論点（M1 はカウンタ定義のため本書はカウンタを既定写像）。
+> - **D-LOYALTY（別通貨・I-DERIVED の穴）**: R-LOYALTY_STATE.記念チケット数 は **PointLedger 経済とは独立の第 2 通貨のカウンタ**（繰越 [note] 反映）。D-BALANCE とは別次元で、I-BAL / I-LEDGER-AUTH / I-BAL-NONNEG の対象外。**ただし M1 がカウンタ定義（増減履歴なし）ゆえ、I-DERIVED のフォールド等価則が適用できない唯一の量＝派生整合ギャップ**（Round 1 [should] で §6 U-2 を「未決」から「派生整合ギャップ」に格上げ）。本書は M1 を覆さずカウンタを既定写像とし、第 2 通貨台帳化（穴を塞ぐ）を board 判断に委ねる。
 > - **captured observation は導出でない**: R-ACTIVITY_LOG.連続日数/連続ボーナス、R-LOGIN_BONUS.連続日数（streak 系）、各 付与ポイント は**記録時確定の不変観測値**であって導出関係ではない（I-STREAK-VS-COMBO）。再計算せず、権威（PointLedger）との整合は I-SATELLITE-RECON の結果整合 reconcile で担保。
 
 ---
@@ -502,7 +518,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 - C5（§3.3）: POINT_LEDGER_ENTRY/STATUS/STATUS_HISTORY/EVALUATION/EVALUATION_SCORE/DECAY_POLICY/BONUS_RULE/AGE_BENCHMARK → R-* 8 対応
 - C6/C7（§3.4）: SPECIAL_REWARD/REDEMPTION_REQUEST/APPROVAL_POLICY/POINT_CONVERSION_POLICY/CHECKLIST_TEMPLATE/CHECKLIST_ITEM/（配信 M:N→ASSIGNMENT）/CHECKLIST_LOG/CHECKLIST_ITEM_RESULT/CHECKLIST_OVERRIDE/CHILD_CHALLENGE/STAMP_CARD/STAMP_ENTRY/STAMP_MASTER/LOGIN_BONUS/DAILY_BATTLE/ENEMY_COLLECTION → R-* 17 対応
 - C8（§3.5）: PARENT_MESSAGE/SIBLING_CHEER(+SENT を統合)/CERTIFICATE/GRADUATION_CONSENT/CHARACTER_IMAGE/CUSTOM_VOICE/PUSH_SUBSCRIPTION/NOTIFICATION_SETTINGS/NOTIFICATION_LOG/VIEWER_TOKEN/CLOUD_EXPORT/USAGE_LOG → R-* 12 対応（SIBLING_CHEER/SENT は 1 リレーションに統合＝§1.8 記載）
-- グローバル: CATEGORY/STAMP_MASTER/AGE_BENCHMARK/PLAN/BILLING_EVENT_OBSERVATION
+- グローバル: CATEGORY/STAMP_MASTER/AGE_BENCHMARK/PLAN/PLAN_TIER（[must]1 分解で追加）/BILLING_EVENT_OBSERVATION
 - **DefaultChildSelection** → R-FAMILY.既定子供（属性写像）。**BonusRule/DecayPolicy/…（KVS 昇格分, L-14a）** → 各 R-* 対応済。**UI 一過性フラグ（L-14b）/ 無状態セッション（L-14c）** → リレーション化しない（§6 で明示除外）。
 
 ### §5.2 外部キー → M1 関係
@@ -518,10 +534,12 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 | R-CHECKLIST_ASSIGNMENT.テンプレ/子供 | CHECKLIST_TEMPLATE }o–o{ CHILD（配信 M:N） |
 | R-CHECKLIST_LOG.テンプレ/子供 | CHILD ‖–o{ CHECKLIST_LOG / CHECKLIST_TEMPLATE ‖–o{ CHECKLIST_LOG |
 | R-REDEMPTION_REQUEST.対象ごほうび | SPECIAL_REWARD |o–o{ REDEMPTION_REQUEST（任意参加） |
+| R-MEMBERSHIP.対象子供 | CHILD \|o–o\| MEMBERSHIP（role=child, 0..1:0..1, I-CHILD-USER, [must]4 で追加） |
+| R-CHECKLIST_LOG.{子供,テンプレート} | CHECKLIST_TEMPLATE }o–o{ CHILD（配信）への複合 FK（I-CHECKLIST 配信済前提の [R] 化, [should]） |
 | R-PARENT_MESSAGE.送信者 | MEMBERSHIP ‖–o{ PARENT_MESSAGE |
 | R-SIBLING_CHEER.送り手/受け手 | CHILD ‖–o{ SIBLING_CHEER(_SENT) |
 | R-PUSH_SUBSCRIPTION.購読元所属 | FAMILY ‖–o{ PUSH_SUBSCRIPTION（購読元 membership 参照, M1 §4.2 注） |
-| R-AGE_BENCHMARK.カテゴリ / R-STATUS 参照 | AGE_BENCHMARK ‖–o{ STATUS |
+| R-STATUS → R-AGE_BENCHMARK | AGE_BENCHMARK ‖–o{ STATUS。**年齢は導出属性（D-AGE）ゆえ格納 FK でなく導出参照**（実効年齢での M3 lookup、格納した年齢列を持たない, [should]） |
 | （他 FAMILY 1:1/1:N 従属・衛星 FK は §1 各行に対応） | §3.1/§3.5 の各関係 |
 
 ### §5.3 M1 不変条件 → 論理制約のマッピング
@@ -531,7 +549,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 |---|---|
 | I-OWN（owner ちょうど 1 名） | [C] R-MEMBERSHIP: family ごとに 役割=owner が 1 件（リレーション内タプル述語） |
 | I-MEM（役割 1 つ） | [K] R-MEMBERSHIP PK `{家族,利用者}`＋役割は従属属性（1 タプル 1 役割） |
-| I-CHILD-USER | [C]/[R] R-MEMBERSHIP(role=child) と R-CHILD.linked の対応述語（同一家族）＋任意参加 |
+| I-CHILD-USER | [K]/[R] R-MEMBERSHIP.対象子供（role=child 行, UNIQUE FK → R-CHILD, [must]4）で 0..1:0..1 を一意に写像＋ [C] 対象子供家族＝所属家族 |
 | I-PIN-LOCK / I-EMAIL-LOCK | [C] R-PARENT_GATE_CREDENTIAL / R-EMAIL_LOGIN_LOCKOUT の失敗回数・ロック期限述語（別機構） |
 | I-PIN-RESET | [M3] 検証済ワンタイム確認＋冪等リセット＝トランザクション/機構（静的制約でない） |
 | I-CONS（追記のみ・現在同意導出） | [C] 追記のみ（更新/削除禁止述語）＋ [D] D-CONSENT |
@@ -554,15 +572,15 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 | I-STAMP-1DAY | [K] R-STAMP_ENTRY 候補キー `{カード,押印日}` |
 | I-LOGIN-1DAY | [K] R-LOGIN_BONUS PK `{子供,ログイン日}` |
 | I-BATTLE-1DAY | [K] R-DAILY_BATTLE PK `{子供,日付}` |
-| I-MISSION | [K] R-DAILY_MISSION PK `{子供,対象日,活動}`＋ [D] D-MISSION-DONE |
-| I-CHECKLIST | [K] R-CHECKLIST_LOG UNIQUE `{子供,テンプレ,対象日}`＋ [C] 配信済（R-CHECKLIST_ASSIGNMENT 存在）前提 |
+| I-MISSION | [K] R-DAILY_MISSION 最小候補キー `{対象日,活動}`（[must]3）＋ [D] D-MISSION-DONE |
+| I-CHECKLIST | [K] R-CHECKLIST_LOG UNIQUE `{子供,テンプレ,対象日}`＋ **[R] 配信済前提を複合 FK `{子供,テンプレ}→R-CHECKLIST_ASSIGNMENT` に格上げ**（[should]、[C] 述語から昇格） |
 | I-REDEEM（申請の歴史的捕捉） | [C] R-REDEMPTION_REQUEST の申請時捕捉値は追記後不変＋任意参加 FK |
 | I-CONSUME / I-REDEEM-CONSUME / I-CONVERT-CONSUME | [M3] 裁量消費 2 経路が PointLedger 消費オペを呼び負エントリ 1 件＋残高十分時のみ成立（トランザクション） |
 | I-CERT-IMMUT | [C] R-CERTIFICATE 授与後不変（更新禁止述語） |
-| I-CHEER | [C] R-SIBLING_CHEER 送り手・受け手が同一家族の別子供（タプル述語） |
-| I-MSG-SENDER | [C]/[R] R-PARENT_MESSAGE.送信者 が role∈{parent,owner} ∧ 送信者家族＝受信子供家族 |
-| I-MEDIA-EXT | [C] R-CHARACTER_IMAGE/CUSTOM_VOICE は参照とメタのみ（実体ドメイン外）＋家族境界内参照 |
-| I-PUSH-ROLE | [C]/[R] R-PUSH_SUBSCRIPTION.購読元所属 が role∈{parent,owner} |
+| I-CHEER | 役割/別子供部分 [C]／**家族一致部分は [C](family 非正規化前提=U-6 で複合 FK 化可) / でなければ [M3]**（送り手・受け手が同一家族） |
+| I-MSG-SENDER | 送信者 role∈{parent,owner} は [C]／**送信者家族＝受信子供家族は [C](U-6 前提) / でなければ [M3]** |
+| I-MEDIA-EXT | [C] R-CHARACTER_IMAGE/CUSTOM_VOICE は参照とメタのみ（実体ドメイン外）／家族境界内参照は [C](U-6 前提)/[M3] |
+| I-PUSH-ROLE | [C]/[R] R-PUSH_SUBSCRIPTION.購読元所属 が role∈{parent,owner}（役割は所属参照で担保） |
 | I-LIFECYCLE | [C]/[M3] R-ACCOUNT_LIFECYCLE.状態機械（active→soft-deleted→{restored/purged}）＝遷移制約 |
 | I-PURGE | [M3] 家族 purge が全子孫（FK 連鎖到達）＋ドメイン外メディア実体を消去し他家族非到達＝カスケード機構 |
 | I-DOWNGRADE | [M3] 下位プラン変更時の保護者選択アーカイブ（上限内充足）＝トランザクション/UX |
@@ -575,13 +593,14 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 
 | # | 論点 | 候補 | 根拠 / 影響 |
 |---|---|---|---|
-| **U-1** | R-AGE_BENCHMARK の候補キーにカテゴリを含めるか | (a) `{年齢,カテゴリ}`（本書既定）/ (b) `{年齢}` のみ | M1 §3.3 属性列にカテゴリ明記なしだが、`AGE_BENCHMARK ‖–o{ STATUS`（ステータスはカテゴリ別）と整合させると基準値もカテゴリ別が自然。全カテゴリ共通なら (b)。M1 関係の解釈確認が必要（M1 を覆さず、関係との整合で (a) を暫定既定） |
-| **U-2** | R-LOYALTY_STATE.記念チケット（別通貨）に独立台帳を設けるか | (a) 単純カウンタ（本書既定＝M1 定義）/ (b) 記念チケット台帳（増減監査可能）| M1 はカウンタとして定義（本書は覆さずカウンタ写像）。ただし記念チケットも「増えて使う通貨」なら PointLedger 同様の追記台帳が監査上望ましい可能性。**M1 に無い構造を足さない原則から (a) を既定とし、(b) は将来 EPIC で M1 拡張が要る旨を明記** |
+| **U-1** | R-AGE_BENCHMARK の候補キーにカテゴリを含めるか | (a) `{年齢}`（本書既定＝M1 文字通り）/ (b) `{年齢,カテゴリ}` | M1 §3.3 属性列にカテゴリ明記がないため **既定は M1 文字通りの `{年齢}`**（[should] で修正）。`AGE_BENCHMARK ‖–o{ STATUS`（ステータスはカテゴリ別）との整合でカテゴリ別が自然かは board 確認事項＝(b) は候補に留め既定に焼き込まない（勝手に足さない原則） |
+| **U-2（派生整合ギャップに格上げ）** | R-LOYALTY_STATE.記念チケット数（第 2 通貨）に台帳がなく **I-DERIVED 普遍則の唯一の穴** | (a) 単純カウンタ（本書既定＝M1 定義）/ (b) 記念チケット台帳（増減監査可能・I-DERIVED 整合回復）| **[should] で「未決」から「派生整合ギャップ」に格上げ**: 経済点数は台帳総和の導出（I-DERIVED/D-BALANCE）で監査可能だが、記念チケットは M1 でカウンタ定義ゆえ**増減履歴を持たず I-DERIVED のフォールド等価則が適用できない唯一の量**。カウンタ update anomaly（付与/消費で直接加減算）を負う。M1 を覆さず (a) を既定写像とするが、**board へ (b)（第 2 通貨台帳で普遍則の穴を塞ぐ）の判断を促す**。(b) は M1 拡張を要する |
 | **U-3** | R-NOTIFICATION_SETTINGS.静音時間帯 を 2 属性展開 vs 値オブジェクト保持 | (a) 静音開始/終了 展開（本書既定）/ (b) 値オブジェクト | Q-04 基準（範囲述語に使うなら展開）。実 read パターンで範囲比較しないなら (b)。M3 read パターン確認事項 |
 | **U-4** | 1:1 家族方針リレーション（DecayPolicy 等）の縦分解 vs Family への吸収 | (a) 別リレーション（本書既定）/ (b) Family 属性群に吸収 | 論理的にはどちらも BCNF。別リレーションは疎な広幅回避＋概念独立（L-14）。物理 clustering は M3。論理層は独立概念を尊重し (a) |
 | **U-5** | L-14(a) の軽微概念（ごほうびテンプレ選択・オンボーディング設問・ライフサイクルメール/PMF 送達状態）のリレーション構造 | (a) M1 で ER 未構造化のため M2 board で最小構造を確定 / (b) M3 まで属性群/追記カウンタとして保留 | M1 §3 mermaid に ER entity として現れず（L-14 テキストのみ）。**勝手に構造を作らず**、M1 を覆さない範囲で「Family 属性 or 追記カウンタ相当」と暫定し、正式リレーション化の要否を board 判断（no-silent-gap: 存在は明示・構造は保留） |
 | **U-6** | 集約横断の家族境界一致述語（§3.2）を論理層でどこまで宣言するか | (a) FK 存在のみ論理宣言＋家族一致は §5 述語（本書既定）/ (b) family 識別子を各リレーションに冗長配置し複合 FK で宣言 | (b) は M3 の非正規化（テナント隔離）と結びつく物理判断に踏み込む。M2 は (a) で FK 連鎖＋述語に留め、冗長配置は M3 へ委譲 |
 | **U-7** | R-POINT_LEDGER_ENTRY.由来参照 の論理型（多態参照） | (a) 弱い任意単一参照（本書既定）/ (b) 由来種別＋由来識別子の 2 属性で多態明示 | 由来は複数の衛星リレーションを指しうる（多態）。単一 FK で表現しづらい。論理的には (b) が明確だが M1 は「弱い業務参照」と緩く定義。board 判断 |
+| **U-8** | FixedIntervalReward（固定間隔特別報酬）の最小構造 | (a) M2 board で最小構造を確定（発行間隔 N・last-issued カウンタ/冪等キーの置き場所）/ (b) M3 まで保留 | **Round 1 [must]5 反映（silent drop の是正）**: M1 §3.4/§4.2 は FixedIntervalReward を **Child 衛星集約**として明記（活動記録が N 回ごとに予告型マイルストーンごほうびを発行、special_reward を PointLedger へ要請）するが、**M1 §3 ER に entity として構造化されていない**（発行結果は R-SPECIAL_REWARD として現れる）。U-5 と同型で、**勝手に構造を発明せず** board 判断とする。論点: 発行間隔 N・last-issued（あと N 回の起点）・発行の冪等キーをどのリレーション（R-CHILD_ACTIVITY 属性 / 独立の発行状態リレーション）に持たせるか。存在は明示・構造は保留（no-silent-gap） |
 
 ---
 
