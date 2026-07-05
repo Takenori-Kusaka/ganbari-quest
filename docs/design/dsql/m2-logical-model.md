@@ -475,7 +475,7 @@ M1 は DynamoDB 遺産の「単一 opaque 識別子の一律強制 + 採番カ�
 ### §3.2 外部キー（参照整合）の宣言
 - すべての `参照<R>`（§1 各リレーションの FK 行）は **論理的参照整合**（参照先タプル存在）を宣言する。
 - **任意参加 FK（弱参照・削除耐性）**: R-REDEMPTION_REQUEST.対象ごほうび（I-REDEEM: ごほうび削除後も申請存続）/ R-CHILD_ACTIVITY.取込元テンプレート（テナント外プリセット, 削除耐性）/ R-POINT_LEDGER_ENTRY.由来参照（衛星への弱参照）。これらは「参照先が消えても本タプルは存続」＝論理的に nullable かつ ON DELETE 非カスケードの意味を持つ（実装は M3）。
-- **家族境界一致の論理制約**: 集約横断 FK は「参照元と参照先が同一家族に属す」ことを要求する（例 R-DAILY_MISSION.活動 の所有子供＝本行子供、R-PARENT_MESSAGE.送信者所属家族＝受信子供家族、R-SIBLING_CHEER 送受両子供同一家族、R-CHECKLIST_ASSIGNMENT テンプレ家族＝子供家族）。これは FK だけで表せない**タプル間述語**＝ §5 の不変条件マップに委ね、静的宣言可能な部分（FK 存在）と述語部分（家族一致）を区別する。
+- **家族境界一致の論理制約**: 集約横断 FK は「参照元と参照先が同一家族に属す」ことを要求する（例 R-PARENT_MESSAGE.送信者所属家族＝受信子供家族、R-SIBLING_CHEER 送受両子供同一家族、R-CHECKLIST_ASSIGNMENT テンプレ家族＝子供家族）。これは FK だけで表せない**タプル間述語**＝ §5 の不変条件マップに委ね、静的宣言可能な部分（FK 存在）と述語部分（家族一致）を区別する。（Round 3 [must]: R-DAILY_MISSION は Round 2 で `子供` 属性を削除し子供＝活動経由導出としたため「活動所有子供＝本行子供」述語が自明化・不要化済＝本例から除外。復活させると BCNF 是正が巻き戻るため置かない。）
 - **DSQL FK 非対応は物理問題**: 上記はすべて**論理宣言**。DSQL が FK を張れない事実に対する app 側/CHECK 相当の担保方式は **M3 の責務**（M1 §10 / 本プロセス §M2 決裁条件 c）。
 
 ### §3.3 §P1 非可逆性への配慮（論理レベルの前置き）
@@ -496,7 +496,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 | **D-ENEMY** | ある子供×敵識別の討伐回数 = 当該 R-DAILY_BATTLE 勝利行の count、初討伐日時 = 同 min(日付/日時) | I-DERIVED | R-DAILY_BATTLE |
 | **D-AGE** | 子供の年齢 = 生年月日と現在時刻の関数。年齢帯モード（実効） = 手動固定でなければ D-AGE の関数（誕生日跨ぎ自動遷移） | I-AGE | R-CHILD.生年月日 |
 | **D-CONSENT** | ある家族×利用者×種別の「現在の同意」 = R-CONSENT_RECORD の最新 `同意日時` エントリ（追記ログからの都度導出） | I-CONS | R-CONSENT_RECORD |
-| **D-MISSION-DONE** | 今日のミッションの完了状態 = 当該（子供,日,活動）の記録履歴から再判定 | I-MISSION / I-ADD | R-ACTIVITY_LOG |
+| **D-MISSION-DONE** | 今日のミッションの完了状態 = 当該（対象日,活動）の記録履歴から再判定（子供は活動経由導出、Round 3 [note] で表記統一） | I-MISSION / I-ADD | R-ACTIVITY_LOG |
 | **D-ENTITLEMENT** | 家族の権利（利用可能機能） = R-SUBSCRIPTION_STATE.契約状態 の関数（別保持しない） | M1 §6 | R-SUBSCRIPTION_STATE |
 
 > **retention 間引きと総和保存（I-DERIVED 一般則）**: 履歴（R-POINT_LEDGER_ENTRY / R-STATUS_HISTORY）を間引く場合、フォールド結果を保存する要約事象を残し導出量を不変に保つ ── 残高なら **中立の `carryover` エントリ**（R-POINT_LEDGER_ENTRY の中立種別, 増減量が総和保存）、ステータスなら**等価な履歴チェックポイント**。これにより D-BALANCE / D-XP は間引き後も不変。**間引きの物理機構（compaction）は M3**、論理は「総和保存の要約事象を残す」制約のみ課す。
@@ -558,7 +558,7 @@ M1 の派生量統一則（I-DERIVED）を論理的に「導出関係（derived 
 | I-CONS（追記のみ・現在同意導出） | [C] 追記のみ（更新/削除禁止述語）＋ [D] D-CONSENT |
 | I-SUB（唯一契約・トライアル二度取り禁止・状態遷移） | [K] R-SUBSCRIPTION_STATE PK `{家族}`（唯一）＋ [M3] 状態遷移系列・トライアル二度取り禁止（遷移制約） |
 | I-CHILD-FAM（全子供スコープ→1 家族） | [R] 各子供スコープ R-* の 子供/家族 FK（連鎖で家族一意）＝全域参加（NOT NULL FK） |
-| I-LOG | [R] R-ACTIVITY_LOG.活動 FK ＋ [C] 記録子供＝活動所有子供 |
+| I-LOG | [R] R-ACTIVITY_LOG.活動 FK（記録子供＝活動所有子供は**自明**: 子供は活動経由導出で R-ACTIVITY_LOG は記録子供属性を持たない＝別述語を要さない。R-DAILY_MISSION と同型） |
 | I-LEDGER-AUTH（経済点数の唯一権威） | [D] D-BALANCE を R-POINT_LEDGER_ENTRY のみから導出（衛星観測値を source にしない）＝設計上の権威分離 |
 | I-SATELLITE-RECON（述語 scope） | [M3] 台帳付与に対応する衛星観測値のみ結果整合 reconcile（非台帳点数値は述語で自動 scope 外）＝結果整合機構 |
 | I-BAL（残高＝総和） | [D] D-BALANCE |
