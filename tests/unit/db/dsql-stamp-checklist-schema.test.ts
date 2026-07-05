@@ -34,6 +34,17 @@ describe('StampCard / ChecklistTemplate 集約 DDL の構造要件 (§11.2 補�
 		);
 		expect(indexCols).toContain('family_id,child_id');
 	});
+
+	// [must]1 (M4-C review round1): source_preset_id 欠落 = marketplace dedup miss → 二重取込。
+	// SQLite SSOT (schema.ts checklist_templates.source_preset_id、#1254 G1) と provenance parity。
+	// checklist-strategy の existingTemplates.find(t => t.sourcePresetId === presetId) が
+	// 常に undefined を引かないよう、DSQL schema にも provenance 列が在ることを機械保証する。
+	it('checklist_templates に source_preset_id provenance 列がある (dedup miss 防止、SQLite parity)', async () => {
+		const { checklistTemplates } = await import('../../../src/lib/server/db/dsql/schema');
+		const cfg = getTableConfig(checklistTemplates);
+		const colNames = cfg.columns.map((c) => c.name);
+		expect(colNames).toContain('source_preset_id');
+	});
 });
 
 describe('Family 系 8 表 DDL の構造要件 (§11.2 #3557 確定行の補助 UNIQUE/secondary)', () => {

@@ -470,6 +470,11 @@ export const checklistTemplates = pgTable(
 		isActive: boolean('is_active').notNull().default(true),
 		isArchived: boolean('is_archived').notNull().default(false),
 		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
+		// #1254 G1: marketplace 取込元 preset の provenance (弱帰属、FK 無し)。SQLite SSOT
+		// (schema.ts:472) と同 shape。dedup (checklist-template-import-service / checklist-strategy の
+		// existingTemplates.find(t => t.sourcePresetId === presetId)) の miss = 二重取込を防ぐため
+		// 兄弟 type (child_activities/special_rewards の source_preset_id) と同様 DSQL にも配備する。
+		sourcePresetId: text('source_preset_id'),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
