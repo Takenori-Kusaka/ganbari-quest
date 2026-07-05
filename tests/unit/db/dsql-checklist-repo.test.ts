@@ -22,12 +22,12 @@
 // ── Items ──
 //   [I1] insertTemplateItem + findTemplateItems (sort_order 順) + §P9
 //   [I2] deleteTemplateItem: (templateId, id) composite — 別 template を名乗った削除は no-op
-// ── Logs (§5 子表化: itemsJson は checklist_log_items 子表を join で復元、JSON blob でない) ──
-//   [L1] upsertLog insert → findTodayLog が checklist_log_items を join して itemsJson 復元 +
+// ── Logs (§5 items_json text 据置: itemsJson は items_json 列に verbatim 保存、子表化しない) ──
+//   [L1] upsertLog insert → findTodayLog が items_json を verbatim 返す +
 //        completedAll 0/1 + pointsAwarded + §P9 / cross-child 分離
-//   [L2] upsertLog update (再 upsert): log_items 集合を置換 + created_at 保全
+//   [L2] upsertLog update (再 upsert): items_json 集合を置換 + created_at 保全
 //   [L3] findLogsByChild: 複数日をバルク取得 (checked_date desc) + §P9
-//   [L4] log + items 単一 txn: checklist_log_items 行数 = checked id 数 / 空 itemsJson → 0 件
+//   [L4] items_json 据置: checked 集合を verbatim 保存 / 空 itemsJson → 空配列
 // ── Overrides ──
 //   [O1] insertOverride + findOverrides (child × date) + §P9
 //   [O2] findOverridesByChild (全日) + insertOverrideForRestore (createdAt verbatim 保全)
@@ -147,7 +147,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect((await repo.findTemplateById(tpl.id, FAMILY))?.name).toBe('あと');
 	});
 
-	it('[T4] deleteTemplate: cascade (assignments / items / logs / log_items) + §P9', async () => {
+	it('[T4] deleteTemplate: cascade (assignments / items / logs、items_json 据置) + §P9', async () => {
 		const child = await newChild('カスケード太郎');
 		const tpl = await repo.insertTemplate({ name: 'けす' }, FAMILY);
 		const item = await repo.insertTemplateItem({ templateId: tpl.id, name: 'ぼうし' }, FAMILY);
@@ -182,11 +182,6 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		).toBe(0);
 		expect(
 			await countRows(sql`SELECT count(*) AS c FROM checklist_logs WHERE template_id = ${tpl.id}`),
-		).toBe(0);
-		expect(
-			await countRows(
-				sql`SELECT count(*) AS c FROM checklist_log_items WHERE template_id = ${tpl.id}`,
-			),
 		).toBe(0);
 	});
 
@@ -349,9 +344,9 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findTemplateItems(tpl.id, FAMILY)).toEqual([]);
 	});
 
-	// ─────────────────── Logs (§5 子表化) ───────────────────
+	// ─────────────────── Logs (§5 items_json text 据置) ───────────────────
 
-	it('[L1] upsertLog insert → findTodayLog が checklist_log_items を join して itemsJson 復元', async () => {
+	it('[L1] upsertLog insert → findTodayLog が items_json を verbatim 返す', async () => {
 		const child = await newChild('記録太郎');
 		const tpl = await repo.insertTemplate({ name: 'にっか', pointsPerItem: 3 }, FAMILY);
 		const i1 = await repo.insertTemplateItem({ templateId: tpl.id, name: 'A' }, FAMILY);
@@ -374,7 +369,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 
 		const log = await repo.findTodayLog(child, tpl.id, '2026-07-02', FAMILY);
 		expect(log).toBeDefined();
-		// §5: itemsJson は JSON blob でなく checklist_log_items 子表を join して復元する
+		// §5: itemsJson は items_json text 列に据置した JSON blob を verbatim 返す
 		expect(sortedIds(log?.itemsJson ?? '[]')).toEqual([i1.id, i2.id].sort());
 		expect(log?.completedAll).toBe(1);
 		expect(log?.pointsAwarded).toBe(11);
@@ -387,7 +382,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findTodayLog(stranger, tpl.id, '2026-07-02', FAMILY)).toBe(undefined);
 	});
 
-	it('[L2] upsertLog update: log_items 集合を置換 + created_at 保全', async () => {
+	it('[L2] upsertLog update: items_json 集合を置換 + created_at 保全', async () => {
 		const child = await newChild('更新太郎');
 		const tpl = await repo.insertTemplate({ name: 'こうしん' }, FAMILY);
 		const i1 = await repo.insertTemplateItem({ templateId: tpl.id, name: 'A' }, FAMILY);
@@ -405,7 +400,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 			},
 			FAMILY,
 		);
-		// 再 upsert: checked 集合を {i3} に置換
+		// 再 upsert: checked 集合 (items_json) を {i3} に置換
 		await repo.upsertLog(
 			{
 				childId: child,
@@ -454,7 +449,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findLogsByChild(child, OTHER_FAMILY)).toEqual([]);
 	});
 
-	it('[L4] log + items 単一 txn: log_items 行数 = checked 数 / 空 itemsJson → 0 件', async () => {
+	it('[L4] items_json 据置: checked 集合を verbatim 保存 / 空 itemsJson → 空配列', async () => {
 		const child = await newChild('原子太郎');
 		const tpl = await repo.insertTemplate({ name: 'げんし' }, FAMILY);
 		const i1 = await repo.insertTemplateItem({ templateId: tpl.id, name: 'A' }, FAMILY);
@@ -471,14 +466,10 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 			},
 			FAMILY,
 		);
-		const cnt = await countRows(sql`
-			SELECT count(*) AS c FROM checklist_log_items
-			WHERE family_id = ${FAMILY} AND child_id = ${String(child)}
-				AND template_id = ${tpl.id} AND checked_date = '2026-07-06'
-		`);
-		expect(cnt).toBe(2);
+		const saved = await repo.findTodayLog(child, tpl.id, '2026-07-06', FAMILY);
+		expect(sortedIds(saved?.itemsJson ?? '[]')).toEqual([i1.id, i2.id].sort());
 
-		// 空 itemsJson → log 行は残り log_items は 0 件
+		// 空 itemsJson → log 行は残り items_json は空配列
 		await repo.upsertLog(
 			{
 				childId: child,
@@ -492,13 +483,14 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		);
 		const log = await repo.findTodayLog(child, tpl.id, '2026-07-06', FAMILY);
 		expect(JSON.parse(log?.itemsJson ?? 'null')).toEqual([]);
+		// log 行自体は残る (items_json 空置換のみ、PK upsert)
 		expect(
 			await countRows(sql`
-				SELECT count(*) AS c FROM checklist_log_items
+				SELECT count(*) AS c FROM checklist_logs
 				WHERE family_id = ${FAMILY} AND child_id = ${String(child)}
 					AND template_id = ${tpl.id} AND checked_date = '2026-07-06'
 			`),
-		).toBe(0);
+		).toBe(1);
 	});
 
 	// ─────────────────── Overrides ───────────────────
@@ -588,7 +580,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 
 	// ─────────────────── tenant bulk delete ───────────────────
 
-	it('[D1] deleteByTenantId: 全 6 表を tenant 限定削除、他 tenant 無傷', async () => {
+	it('[D1] deleteByTenantId: 全 5 表を tenant 限定削除、他 tenant 無傷', async () => {
 		const victim = await newChild('全消し', FAM_D1);
 		const keeper = await newChild('無傷', FAMILY);
 		const vTpl = await repo.insertTemplate({ name: 'victim' }, FAM_D1);
@@ -620,7 +612,6 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 			'checklist_template_items',
 			'checklist_template_assignments',
 			'checklist_logs',
-			'checklist_log_items',
 			'checklist_overrides',
 		]) {
 			expect(

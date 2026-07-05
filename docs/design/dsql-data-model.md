@@ -150,10 +150,10 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 ### JSON 列の解体（P6）
 | 旧 JSON 列 | 新リレーショナル |
 |---|---|
-| `checklist_logs.itemsJson` | `checklist_log_items (family_id, child_id, template_id, checked_date, item_id, checked bool)` |
-| `child_challenges.targetConfig/rewardConfig` | 列展開（`metric`/`category_id`(論理FK)/`base_target`/`reward_points`/`reward_message`） |
-| `daily_battles.playerStatsJson` | 列展開 or `daily_battle_stats` 子表 |
-| `evaluations.scoresJson` | `evaluation_scores (… , category_id, score)` |
+| `checklist_logs.itemsJson` | **`items_json` text 列に据置**（子表 checklist_log_items を作らない、§4.2 [must]A / reset-plan 決定#1: field query 0 件 + backup verbatim + SQLite parity。子表化は原初喪失の現場ゆえ是正） |
+| `child_challenges.targetConfig/rewardConfig` | **`target_config`/`reward_config` text 列に据置**（列展開しない、§4.2 [must]A: 列展開は genMode/genMissStreak(#3203)/activityId/ageAdjustments を silent drop = 原初喪失） |
+| `daily_battles.playerStatsJson` | **`player_stats_json` text 列に据置**（列展開しない、§4.2 [must]A / 値オブジェクト Q-06=A） |
+| `evaluations.scoresJson` | **`scores_json` text 列に据置**（子表 evaluation_scores を作らない、§4.2 [must]A / reset-plan 決定#1） |
 | `report_daily_summaries.categoryBreakdown/checklistCompletion` | §7 で read-model 再判定（解体 or 廃止） |
 | `children.displayConfig` | **素の列に展開**（PO 判断 2026-06-29: 表示利便性向上で将来サーバ側に扱う可能性が高い → jsonb 不可。spike#2 で式 index も不可のため key を列化が唯一の検索可能形） |
 | `certificates.metadata` | 発行後 immutable・不検索 = **`jsonb` 列**で可（spike#2: jsonb ネイティブ動作確証） |
@@ -371,15 +371,13 @@ children (
 | login_bonuses | `(family_id, child_id, login_date)` | — | 自然複合 |
 | stamp_cards | `(family_id, child_id, card_id uuid[v4])` | **UNIQUE(family_id, child_id, week_start)**（「1子1週1枚」の現行制約、droppable） | **UUID surrogate（PO 決裁 2026-07-03、PR #3547）**: シーズン/イベントカード復活が roadmap 上あり得る＝同一週複数カードの cardinality 可変で anchor (b) 不成立 → governing rule により自然複合凍結不可（certificates と同判定）。週1枚制約は droppable UNIQUE で維持し、復活時は UNIQUE を DROP するだけで PK 不変 |
 | stamp_entries | `(family_id, card_id, slot)` | UNIQUE `(family_id, card_id, login_date)`（1日1押印、consistency minor） | 自然複合 |
-| checklist_logs | `(family_id, child_id, template_id, checked_date)` | — | 自然複合 |
-| checklist_log_items | `(family_id, child_id, template_id, checked_date, item_id)` | — | itemsJson 解体（§5） |
+| checklist_logs | `(family_id, child_id, template_id, checked_date)` | — | 自然複合。itemsJson は `items_json` text 列に据置（子表 checklist_log_items を作らない、§4.2 [must]A / reset-plan 決定#1） |
 | checklist_overrides | `(family_id, child_id, override_id uuid)` | — | UUID surrogate（自然キー一意の前提を置かず確定、N5） |
 | checklist_templates | `(family_id, template_id uuid)` | — | UUID |
 | checklist_template_items | `(family_id, template_id, item_id uuid)` | — | UUID |
 | checklist_template_assignments | `(family_id, template_id, child_id)` | secondary `(family_id, child_id)`（findTemplatesByChild hot） | 自然複合 |
 | certificates | `(family_id, child_id, certificate_id uuid[v4])` | `active_key GENERATED (CASE WHEN … type)` + UNIQUE（「1 type 有効1通」要時、droppable） | **UUID surrogate（PO/戦略パネル 2026-07-01）**: 再発行/名前修正2通目/周期型証書(月間・シーズン・challenge完了)が roadmap プラウジブル＝cardinality 可変、policy anchor 無し → §P1 で自然 PK 凍結は不可。UNIQUE は DROP 可 |
-| evaluations | `(family_id, child_id, eval_id uuid[v4])` | — | created_at は列（sort 用途）。findEvaluationsByChild は PK プレフィクス + sort LIMIT |
-| evaluation_scores | `(family_id, child_id, eval_id, category_id)` | — | scoresJson 解体（§5） |
+| evaluations | `(family_id, child_id, eval_id uuid[v4])` | — | created_at は列（sort 用途）。findEvaluationsByChild は PK プレフィクス + sort LIMIT。scoresJson は `scores_json` text 列に据置（子表 evaluation_scores を作らない、§4.2 [must]A / reset-plan 決定#1） |
 | rest_days | `(family_id, child_id, date)` | — | 自然複合（昇格） |
 | daily_battles | `(family_id, child_id, date)` | — | 自然複合（昇格） |
 | enemy_collection | `(family_id, child_id, enemy_id)` | — | 自然複合（昇格） |
@@ -389,7 +387,7 @@ children (
 | sibling_cheers | `(family_id, cheer_id uuid)` | secondary `(family_id, to_child_id, shown_at)` | UUID |
 | character_images | `(family_id, child_id, image_id uuid)` | — | UUID（key+メタ、§9.4） |
 | **child_custom_voices**（**§3 欠落→編入**） | `(family_id, child_id, voice_id uuid)` | — | UUID。**source/not-yet-exported のユーザー録音**＝backup 必須。key+メタのみ（§9.4）、`scene` 素の列 |
-| child_challenges | `(family_id, child_id, challenge_id uuid)` | secondary `(family_id, child_id, status)` | UUID。targetConfig/rewardConfig 解体（§5） |
+| child_challenges | `(family_id, child_id, challenge_id uuid)` | secondary `(family_id, child_id, status)` | UUID。targetConfig/rewardConfig は `target_config`/`reward_config` text 列に据置（列展開しない、§4.2 [must]A: genMode/genMissStreak/activityId/ageAdjustments の silent drop 防止） |
 | usage_logs | `(family_id, child_id, log_id uuid)` | — | UUID |
 | report_daily_summaries | **廃止**（§7） | — | compute-on-read |
 | achievements / child_achievements | **drop 判断（#322 廃止・データ不在）**: drop なら §3/§5 から除外、存続なら milestone_values 子表化 | — | 要確定（§10 追記） |
@@ -406,7 +404,7 @@ children (
 ### §11.3 per-column 完全 DDL（drizzle 2 方言）
 
 > 全 ~40 表の列・型・CHECK・生成列・index を含む完全 DDL は **drizzle schema（pg-core/sqlite-core）の確定コードが SSOT**。§11.1/§11.2 の凍結 PK + §5 JSON 解体 + §4.1 index + §6.6 auth を入力に、実装 PR で生成する。DDL は **schema.ts の現列 + 変換規則（int id→uuid / +family_id / 複合 PK / 生成列 / CHECK / jsonb 判定）から機械的に導出**できるため、本設計書では凍結 PK と変換規則を SSOT とし、列レベル DDL は実装 PR の drizzle schema に委ねる（二重メンテ回避）。
-> **委譲の前提条件（PR-0 前に潰す、N7）**: PK・型・family_id 付与・複合 PK 昇格・生成列・CHECK は機械決定だが、**「jsonb 列 vs 列展開」だけは設計判断が残る**。§5 に列挙された各 JSON 列の**判定結果（確定）**: displayConfig=**列展開**[PO 判断] / certificates.metadata=**jsonb** / scoresJson=**evaluation_scores 子表** / itemsJson=**checklist_log_items 子表** / targetConfig・rewardConfig=**列展開** / playerStatsJson=**列展開 or daily_battle_stats 子表**（実装時にキー数で確定、`ALTER ADD COLUMN` 可で可逆） / milestoneValues=**drop**（achievements 廃止）。これで委譲は安全に成立。列追加は `ALTER ADD COLUMN` 可（spike#2/3c）で後戻りも安い。
+> **委譲の前提条件（PR-0 前に潰す、N7）**: PK・型・family_id 付与・複合 PK 昇格・生成列・CHECK は機械決定だが、**「jsonb 列 vs 列展開」だけは設計判断が残る**。§5 に列挙された各 JSON 列の**判定結果（確定、§4.2 [must]A / reset-plan 決定#1 で子表化・列展開を text 据置に是正済）**: displayConfig=**列展開**[PO 判断] / certificates.metadata=**jsonb** / scoresJson=**`scores_json` text 据置**（子表を作らない） / itemsJson=**`items_json` text 据置**（子表を作らない） / targetConfig・rewardConfig=**`target_config`/`reward_config` text 据置**（列展開しない） / playerStatsJson=**`player_stats_json` text 据置**（列展開しない） / milestoneValues=**drop**（achievements 廃止）。これで委譲は安全に成立。列追加は `ALTER ADD COLUMN` 可（spike#2/3c）で後戻りも安い。
 
 ## §12 マイグレーション & cutover runbook
 
