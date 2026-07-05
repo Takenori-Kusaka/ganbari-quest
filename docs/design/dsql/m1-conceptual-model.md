@@ -1,12 +1,14 @@
 # M1 概念データモデル（Conceptual Data Model / ANSI-SPARC 概念層）— がんばりクエスト
 
-> **状態**: M1 成果物 — **Round 1〜4 レビュー board（各 3 独立観点）指摘反映済**。応答台帳: `docs/design/dsql/m1-review-round{1,2,3,4}-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
+> **状態**: M1 成果物 — **Round 1〜5 レビュー board（各 3 独立観点）指摘反映済**。応答台帳: `docs/design/dsql/m1-review-round{1..5}-ledger.md`。関連: EPIC #3424（DSQL 移管）/ ADR-0055（per-child 主軸 + 限定 family master）/ ADR-0050（保護者ゲート）。
 >
 > **Round 2 の主変更**: ①**PointLedger を Child 直下の独立集約に昇格**（裁量消費=同期整合、付与=結果整合）→ 残高非負の越境矛盾を根治。②**ポイント換金（convert）を第 2 の裁量消費オペレーションとして概念化**。③**Family も解体**（追記ログ・独立資源を衛星集約へ降格）。④§9 mermaid を修正し図文一致。
 >
 > **Round 3 の主変更**: ①**PointLedger を全点数値の唯一の権威（sole authority）に確定**し、衛星の点数属性を非権威な観測値と位置づけ（集約境界での二重保持を封殺、I-LEDGER-AUTH / I-SATELLITE-RECON）。②**点数種別を代表例のみの列挙に是正**（値集合・CHECK・backend 差の確定は M3 の関心事）。③台帳エントリを役割別に分類（付与 / 裁量消費 / award 逆転 / 繰越）し I-BAL-NONNEG を裁量消費のみに限定（+ I-NEG-BAL）。④**固定間隔特別報酬を C7 概念に追加**。⑤基幹付与を exactly-once eventual と明示。
 >
 > **Round 4 の主変更（収束）**: ①**種別の個数を断言する表記の残渣 2 箇所を撤去**（§4.2 PointLedger 行・§6 code スケッチ）＝ Round 3 で是正したはずの過剰主張の再発 + I-CONSUME との数矛盾を根絶（grep 確認済）。②**I-SATELLITE-RECON の scope を明記**（reconcile 対象は総額観測値のみ・streak 計数は不変・乖離は基幹付与 land までの一時窓のみ・申請捕捉値は対象外）。③繰越を符号中立の残高保存事象として別立て、I-NEG-BAL/I-BAL に補強 1 行。
+>
+> **Round 5 の主変更（false universal の除去）**: ①**バトルの報酬を「戦果値」に改名し「PointLedger 付与でない非経済の内部演出値（残高に入らない）」と明記**（実装確認: バトルは台帳へ書かない）。②**I-SATELLITE-RECON の全称を訂正**（「観測値を持つ衛星付与は全て基幹」は偽＝バトルが反例）→「台帳エントリを生む経済的付与の総額観測値のみ reconcile 対象、バトル戦果値・streak 計数・申請捕捉値は scope 外」に scope 明示分類。③**no-silent-gap を精緻化**（「経済的付与のみ台帳経由、バトル戦果は非経済内部値」、悉皆の断言をしない）。
 >
 > **層の位置づけ（ANSI-SPARC）**: 本書は **概念層（conceptual schema）** に限定する。「業務ドメインに何が存在し、どう関係し、どんな不変条件を満たすか」だけを述べる。**格納・物理表現（識別子の物理形式・索引・正規形の次数・格納フォーマット・トランザクション機構・分散配置・認証ベンダ名）は一切扱わない**。それらは後続 M3（物理設計）の責務で、既存の物理草稿 `docs/design/dsql-data-model.md` が M3 の入力である。
 >
@@ -215,7 +217,8 @@ erDiagram
 
 - **PointLedger は全点数値の唯一の権威（sole authority）**（Round 3 構造決定）。ある子供が「いつ何点得た/使ったか」の正本は PointLedger エントリだけであり、残高は「全エントリ増減量の意味論的総和」という**派生量**（I-BAL、PointLedger のみから導出）。**衛星集約が持つ点数属性（活動記録の付与ポイント / チェックリスト達成の付与ポイント / ログインボーナスの付与ポイント / 週次評価のボーナスポイント 等）は、記録時に捕捉した非権威な表示用観測値**（streak と同格の captured observation）であって、残高計算の source ではない。権威と観測値が食い違ったら PointLedger を正とする（§5 I-LEDGER-AUTH / I-SATELLITE-RECON）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
 - **台帳エントリの役割別分類（付与 / 裁量消費 / award 逆転 / 繰越）** — 各種別は代表例のみ示す（**種別の値集合・CHECK 制約・backend 差の確定は M3 の関心事**であり概念モデルの本質ではない）:
-  - **付与（正）**の代表例: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）はこの額に畳み込む**）/ `combo_bonus`（同日連鎖の装飾 additive）/ `weekly_bonus`（週次評価）/ `login_bonus` / `checklist` / `stamp_card` / `child_challenge` / `must_completion_bonus`（今日のおやくそく完了、独立 additive）/ `special_reward`（固定間隔特別報酬 等、§3.4）/ `cheer` など。**C7 習慣装置由来の各達成も PointLedger への付与事象**（no-silent-gap）。
+  - **付与（正）**の代表例: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）はこの額に畳み込む**）/ `combo_bonus`（同日連鎖の装飾 additive）/ `weekly_bonus`（週次評価）/ `login_bonus` / `checklist` / `stamp_card` / `child_challenge` / `must_completion_bonus`（今日のおやくそく完了、独立 additive）/ `special_reward`（固定間隔特別報酬 等、§3.4）/ `cheer` など。
+  - **no-silent-gap の精緻化（Round 5 [must]、全称の訂正）**: 「C7 習慣装置の**各達成が悉く**PointLedger 付与になる」わけではない。**経済的付与（残高に入る点数）だけが台帳経由**であり、**バトルの戦果値のような非経済の内部値は台帳に入らない**（§3.4、実装確認: バトルは台帳へ書かない）。したがって「習慣装置由来でも、経済的付与に限り PointLedger 事象になる／非経済の内部演出値は台帳外」と分類する（悉皆の断言はしない）。
   - **裁量消費（負）**（Round 3 #3）: `reward_redemption`（ごほうび交換）/ `convert`（ポイント換金） — 子供が意図的に残高を使う。**同期整合 + I-BAL-NONNEG 適用**。
   - **award 逆転（負）**（Round 3 #3）: `cancel` / `checklist_cancel` — 記録取消の正当な補正（付与の逆符号を刻む）。**I-BAL-NONNEG を適用しない**（正当なバイパス。ただし負残高中の新規裁量消費は禁止、I-NEG-BAL）。
   - **繰越（符号中立の残高保存事象）**: `carryover` — retention 間引き時に削除分の合算を刻み**総和を保存する**（残高を変えないための保存事象で、消費でも付与でもない中立イベント、§7 L-03 / I-DERIVED）。
@@ -275,7 +278,7 @@ erDiagram
   STAMP_CARD { date 週の開始; date 週の終了; enum 状態; number 交換ポイント }
   STAMP_ENTRY { number 枠番号; date 押印日; enum おみくじ結果 "任意" }
   LOGIN_BONUS { date ログイン日; enum ランク; number 付与ポイント; number 連続日数 }
-  DAILY_BATTLE { number 敵識別; date 日付; enum 状態; enum 勝敗; number 報酬ポイント; valueobject 戦闘時ステータス }
+  DAILY_BATTLE { number 敵識別; date 日付; enum 状態; enum 勝敗; number 戦果値 "バトル内部の演出値・台帳付与でない・残高に入らない"; valueobject 戦闘時ステータス }
   ENEMY_COLLECTION { number 敵識別; datetime 初討伐日時; number 討伐回数 }
 ```
 
@@ -288,7 +291,7 @@ erDiagram
 - **固定間隔特別報酬（FixedIntervalReward）は習慣化装置（C7）**（Round 3 #4）: 活動記録が一定回数（N 回）に達するたびに自動発行される**予告型マイルストーンごほうび**（子供が「あと N 回」と予測できる固定間隔で、変動比率のスロットマシン型ではない＝ADR-0012 anti-engagement 準拠）。発行結果は特別ごほうび（SpecialReward）として現れ、付与点は PointLedger へ結果整合で要請する（付与種別の代表例 `special_reward`）。既存記録フローの後追い additive で、失敗は記録を止めない。
 - **チャレンジは per-child instance**（#3195 週次自動生成一本化、競争モード撤去）。きょうだい連動は表示上の束ね（§7 L-06）。
 - **スタンプカードは子供×週で 1 枚**（I-CHECK-1WK、決裁 Q-05: 季節カードは Pre-PMF scope 外として確定し本制約を採用）。押印はログイン起点で 1 日 1 押印（I-STAMP-1DAY）。
-- **バトル**は日次で敵と戦い討伐図鑑が積まれる。戦闘時ステータスは値オブジェクト（Q-06=A）。
+- **バトル**は日次で敵と戦い討伐図鑑が積まれる。戦闘時ステータスは値オブジェクト（Q-06=A）。**バトルの「戦果値」（勝＝ドロップ / 負＝なぐさめ、勝敗で決まる値）は PointLedger 付与ではない**（Round 5 [must]、実装確認: バトルは台帳へ一切書かず、戦果値はバトル行内にのみ保持され残高＝台帳総和に入らない）。ポイント経済と紛れないよう概念名を「戦果値」とし、`報酬ポイント` の語を避ける。→ バトルは C7 習慣装置だが、その戦果値は**非経済の内部値**であって §3.3 の「経済的付与は PointLedger 経由」の例外（下記 §3.3 no-silent-gap 精緻化）。
 
 ### §3.5 C8 家族の関わりと節目
 
@@ -372,7 +375,7 @@ erDiagram
 - 対応カテゴリのステータス（累計 XP・レベル）が更新され、変化が履歴に残る。
 - 活動の習熟度（累計回数・レベル）が更新される。
 
-**点数の付与は GrowthJournal の atomic 境界に含めない**（Round 2 #1）: 記録が確定すると、基礎点（ボーナスルール・連続ボーナス・習熟ボーナスを畳み込んだ額）は **PointLedger へ `activity` 付与事象として要請**される。**この基幹付与は guaranteed exactly-once eventual（欠落不可・冪等）**であって「落ちてよい」結果整合ではない（Round 3 [should]、獲得の実体そのものだから）。GrowthJournal（成長状態）と PointLedger（残高）で atomic 境界を分けても、付与は非負制約に無関係のため境界越えの exactly-once 配送で整合が壊れない。装飾的 additive（combo 等）のみ欠落許容（I-ADD）。逆に**残高を減らす裁量消費（reward_redemption/convert）は PointLedger 内で同期整合**し overspend を不能にする（I-BAL-NONNEG、目標不変条件）。
+**点数の付与は GrowthJournal の atomic 境界に含めない**（Round 2 #1）: 記録が確定すると、基礎点（ボーナスルール・連続ボーナス・習熟ボーナスを畳み込んだ額）は **PointLedger へ `activity` 付与事象として要請**される。**この基幹付与は guaranteed exactly-once eventual（欠落不可・冪等）**であって「落ちてよい」結果整合ではない（Round 3 [should]、獲得の実体そのものだから）。GrowthJournal（成長状態）と PointLedger（残高）で atomic 境界を分けても、付与は非負制約に無関係のため境界越えの exactly-once 配送で整合が壊れない。装飾的 additive（combo 等）のみ欠落許容（I-ADD）。逆に**残高を減らす裁量消費（reward_redemption/convert）は PointLedger 内で同期整合**し overspend を不能にする（I-BAL-NONNEG、目標不変条件）。**概念層が規定するのは「衛星から PointLedger への付与方向」であって、その realization（同期に先 insert するか eventual に要請するか。例: 応援 cheer は現行 realization では台帳エントリを同期に先 insert する）は M3 の関心事**（Round 5 [note]、概念の向き規定と実装の同期/eventual を分離）。
 
 **連鎖ボーナス（combo）・ミッション達成・チャレンジ進捗・証書・通知**も additive で中核整合に不要 → 結果整合（冪等・欠落許容、Q-08=A）。現行実装が複数副作用を整合単位なしで逐次実行し例外を握り潰す（`dsql-data-model.md` §8）のは**不変条件違反を許す設計**であり、M1 は「記録の中核 3 者（記録・ステータス・習熟）の同時整合 + 点数は PointLedger への冪等付与要請」を明示する（実現機構は M3）。
 
@@ -393,7 +396,7 @@ erDiagram
 | **I-CHILD-FAM** | すべての子供スコープ概念は、その子供を通じて**必ずちょうど 1 つの家族に属する**（家族に属さない子供スコープ概念は存在しない）。**この全域性は全テナント所有導出の要石**であり、反転（複数家族）は局所変更でない（§9） | §7 L-01 / Round 1 #9 |
 | **I-LOG** | 活動記録は必ず 1 つの活動に紐づく。記録主体の子供と活動所有者の子供は同一 | per-child |
 | **I-LEDGER-AUTH**（台帳の唯一権威） | ある子供の「いつ何点得た/使ったか」の正本は PointLedger エントリだけ。**衛星集約が持つ点数属性（活動記録・チェックリスト・ログインボーナス・週次評価 等の付与ポイント）は記録時に捕捉した非権威な表示用観測値**（streak と同格）であり、残高・実績集計の source にしてはならない。DynamoDB の「同一事実の集約境界越え二重保持」を概念で禁じる（§7 L-03 の集約境界での再導入を封殺） | Round 3 #1 |
-| **I-SATELLITE-RECON**（reconciliation の scope） | 衛星の点数観測値は、対応する PointLedger 付与エントリの額に**結果整合で収束**する（乖離時は PointLedger を正とし観測値を是正）。scope を明確化する: **(a) reconcile 対象は総額観測値（付与ポイント）のみ**。streak 日数等の**歴史的計数は記録時に確定した不変値で reconcile 対象外・非是正**（I-STREAK-VS-COMBO と接続）。**(b) 点数観測値を持つ衛星付与は全て基幹付与（exactly-once eventual）**であり、逆に droppable な装飾 additive（combo 等）は観測値を持たず PointLedger エントリのみで表れる（観測値の有無＝基幹/装飾の対応）。**(c) 乖離は基幹付与が land するまでの eventual ラグの一時窓のみ**で、land 後は恒常一致（temporary であって permanent でない）。**I-REDEEM の申請捕捉値（名称・必要ポイント）は不変の歴史値ゆえ reconcile 対象外**（現在のごほうび定義に合わせて是正しない） | Round 3 #1 / Round 4 [should] |
+| **I-SATELLITE-RECON**（reconciliation の scope） | 衛星の観測値のうち **PointLedger 付与エントリを生む「経済的付与の総額観測値」のみが reconcile 対象**で、対応台帳エントリ額に**結果整合で収束**する（乖離時は PointLedger を正とし観測値を是正）。この対象観測値は基幹付与（exactly-once eventual）に対応する。**RECON scope 外（台帳エントリを生まない値）を明示列挙**: **(i) バトルの戦果値**（非経済の内部演出値、台帳に入らない、§3.4）／**(ii) streak 日数等の歴史的計数**（記録時確定の不変値、非是正、I-STREAK-VS-COMBO）／**(iii) I-REDEEM の申請捕捉値**（不変の歴史値、現在のごほうび定義に是正しない）。**droppable な装飾 additive（combo 等）は観測値を持たず PointLedger エントリのみで表れる**（reconcile の対にならない）。**乖離は基幹付与が land するまでの eventual ラグの一時窓のみ**で land 後は恒常一致（temporary であって permanent でない） | Round 3 #1 / Round 4 [should] / Round 5 [must] |
 | **I-BAL** | ある子供のポイント残高は、その子供の全台帳エントリ増減量の総和に意味論的に等しい。残高は独立事実として保持されず**PointLedger のみから派生**する（I-LEDGER-AUTH）。**基幹付与が land するまでの一時窓では、残高が稼得分を含まず過小表示になりうる**（overspend 安全と引き換えの獲得側ラグ。materialize 判断は M3） | §7 L-03 / Round 2 #1 / Round 4 [note] |
 | **I-BAL-NONNEG**（裁量消費のみに適用する目標不変条件） | **残高非負は「裁量消費（reward_redemption / convert）」に対してのみ課す**。裁量消費は残高十分時のみ成立する（目標: PointLedger 内同期整合で overspend 不能。現行 convert の realization は非原子で M3 収斂必須、§3.4）。**award 逆転（cancel / checklist_cancel）は本制約をバイパスして良い**（記録取消の正当補正で残高が一時的に負になりうる）。**正の付与は非負制約に無関係**。この分離が §4 集約横断=結果整合 総則と両立する | Round 1 #12 / Round 2 #1 / Round 3 #3 |
 | **I-NEG-BAL**（負残高中の消費禁止） | award 逆転で残高が負になっている間は、**新規の裁量消費（reward_redemption / convert）を成立させない**（負残高からさらに使わせない）。付与や更なる逆転は妨げない。**本条は I-BAL-NONNEG の負残高特化**（別制約でなく、逆転が非負制約をバイパスした後も裁量消費側の非負意図を守る補強） | Round 3 #3 / Round 4 [note] |
@@ -402,7 +405,7 @@ erDiagram
 | **I-DECAY** | ステータス減衰は日次に、家族の減衰方針（強度 4 段階）に従い、カテゴリごとに走る。ただし **(a) その子のその日が休養日、(b) 直近活動から猶予日数以内、(c) 強度が none のいずれか**では減衰しない。減衰は成長と同じ履歴に追記される | Round 1 #3 |
 | **I-STREAK-VS-COMBO** | **連続（streak）** はある記録が「そのカテゴリ/活動を連続何日目に行ったか」を**記録時に確定する不変の観測値**で、記録の中核整合（I-REC）内に atomic に確定する。**連鎖（combo）** は同日複数活動に対する後追いの additive 効果で、独立した加算台帳エントリ（種別 combo_bonus）として結果整合で冪等に付与する。両者は別概念であり、同一事実を atomic 内外で二重定義しない | Round 1 #7 |
 | **I-REC** | 活動 1 記録の中核効果（**記録・ステータス・習熟度の 3 者**）は、すべて成立するかすべて成立しないか（部分成立は違反）。**点数は中核に含めず**、確定後に PointLedger へ `activity` 付与事象を冪等に要請する（Round 2 #1）。基礎点への畳み込み対象は**連続ボーナス・ボーナスルール・習熟ボーナス（masteryBonus）**の 3 つ（＝独立台帳エントリを生まない）。一方 **今日のおやくそく完了ボーナス（must_completion_bonus）は独立の additive 付与**（activity に畳み込まれず、別の付与事象、I-ADD 準拠） | §4.3 / Round 2 [should] |
-| **I-ADD** | 記録の追加的効果（combo/mission/challenge/証書/通知）は結果整合で冪等かつ加算的。**「確定した事実から再導出可能」であることを要求するのは、状態を持たない効果（例: ミッション完了フラグは記録履歴から再判定できる）に限る**。状態を持つ台帳事実（streak/combo の付与済み点）は再導出でなく冪等な付与で守る | ADR-0012 / Round 1 #7 |
+| **I-ADD** | 記録の追加的効果（combo / mission / **challenge の進捗（現在値、droppable）** / 証書 / 通知）は結果整合で冪等かつ加算的。ここでの bare `challenge` は**進捗（現在値・droppable）**を指し、**チャレンジ達成報酬（child_challenge の付与）は基幹付与（exactly-once eventual）**で本行の droppable 対象ではない。**「確定した事実から再導出可能」であることを要求するのは、状態を持たない効果（例: ミッション完了フラグは記録履歴から再判定できる）に限る**。状態を持つ台帳事実（streak/combo の付与済み点）は再導出でなく冪等な付与で守る。なお **ACTIVITY_LOG.連続ボーナスは `activity` 付与ポイント総額に subsume され**、その総額観測値として reconcile される（独立観測でなく基礎点に畳み込み済） | ADR-0012 / Round 1 #7 / Round 5 [note] |
 | **I-AGE** | 子供の年齢は生年月日と現在時刻からの派生量であり、独立保持しない。年齢帯モードは手動固定でない限りその派生年齢から導かれる（誕生日跨ぎで自動遷移） | §7 L-10 |
 | **I-CHECK-1WK** | 1 人の子供は 1 週間について**ちょうど 1 枚のスタンプカード**を持つ（季節・イベントカードは Pre-PMF scope 外として確定、Q-05=採用）。この自然同一性（子供×週）を保持する | §7 L-12 / Round 1 #11 |
 | **I-STAMP-1DAY** | スタンプカードの押印は 1 日 1 押印（同一カードに同一日で複数枠を埋めない） | ログイン起点 |
