@@ -141,6 +141,53 @@
 
 ---
 
+## 検証 8: CDK L1 CfnCluster + IAM で provisioning（#3429、2026-07-05 追実行）
+
+> 前回「未実行」だった #3429 を **実 AWS で deploy 実行**して置換。scratchpad の独立 CDK app（`aws-cdk-lib` 2.257.0 / `aws_dsql.CfnCluster`）で使い捨てスタック **`GanbariQuestDsqlPocStack`** を作成。既存本番スタック（`GanbariQuestCompute`/`Auth`/`Storage`/… + `CDKToolkit`）には**一切触れず**（別スタック名・deploy/destroy 対象外）。
+
+**実行環境**: `aws-cdk-lib@2.257.0` / `aws-cdk`(CLI)@latest / Node 22 / us-east-1 / account 443370718249。cluster identifier `hft4y6gvzzmhxfo5hfu75txxou`（**検証後 destroy 済**）。
+
+| 確認項目 | 結果（生ログ） | 含意 |
+|---|---|---|
+| (a) CfnCluster provisioning / ACTIVE | `AWS::DSQL::Cluster PocCluster` → CREATE_COMPLETE（8 秒）。stack 全体 55.9s で CREATE_COMPLETE。`aws dsql get-cluster` で `status=ACTIVE`。**`multiRegionProperties` フィールドは describe 出力に存在せず** = single-region で provisioning 成功 | L1 CfnCluster 単体で single-region cluster が数秒〜数十秒で ACTIVE 化。`MultiRegionProperties` を指定しなければ暗黙 single-region |
+| (b) DP=true variant の synth | 同一 construct を `deletionProtectionEnabled:true` で synth した `GanbariQuestDsqlPocSynthProdStack`（**deploy せず synth のみ**）→ CFN に `DeletionProtectionEnabled: true` を正しく出力。deploy 実体は `false`（使い捨て） | 本番想定の DP=true が正しい CFN を生成。deploy と synth の設定分離が機能 |
+| (c) GetAtt 4 種 | `Fn::GetAtt PocCluster.Identifier / .Endpoint / .ResourceArn / .Status` が Outputs に生成され、deploy 後の実値を取得: Identifier=`hft4y…`, Endpoint=`hft4y….dsql.us-east-1.on.aws`, Arn=`arn:aws:dsql:us-east-1:443370718249:cluster/hft4y…`, Status=`ACTIVE`。うち **Endpoint を Lambda env（`DSQL_ENDPOINT`）へ直接 GetAtt 注入**して接続成功（検証 9） | `attrEndpoint`/`attrIdentifier`/`attrResourceArn`/`attrStatus` の 4 attribute が全て利用可。endpoint 手組み（`<id>.dsql.<region>.on.aws`）不要、GetAtt で確実に配線できる |
+| (d) DP=true 時の削除挙動（ADR-0019 Replacement gate 観点） | CFN テンプレート上、DSQL::Cluster に **`DeletionPolicy` は付与されない**（CDK 既定=Delete 相当）。deletion protection は **CFN の DeletionPolicy ではなく DSQL サービス側プロパティ `DeletionProtectionEnabled`** で制御。`DeletionProtectionEnabled` は **mutable property（更新で Replacement を起こさない）** | **ADR-0019 含意**: DP の on/off 切替は cluster 置換（＝データ消失）を伴わない安全な update。ただし **DP=true のまま stack destroy すると DeleteCluster がサービス側で拒否され destroy が fail** するため、本番撤去時は「先に DP=false へ update → destroy」の 2 段が必要（この危険挙動は実 deploy せず synth + サービス仕様で確認、cluster 残置リスク回避のため意図的に未実行） |
+
+- **IAM 接続**: Lambda 実行 role に `dsql:DbConnectAdmin`（Resource = cluster ResourceArn）を `addToRolePolicy` で付与 → 検証 9 で admin auth token 経由の接続成立を実証（policy が有効に機能）。
+- **結論（#3429）**: **L1 `CfnCluster` + `Function.addToRolePolicy(dsql:DbConnectAdmin)` の最小構成で、single-region cluster provisioning・GetAtt 配線・IAM 接続が成立**。M4 provisioning 設計は L1 CfnCluster で足りる（L2 不要）。本番は `DeletionProtectionEnabled:true` を既定にし、**撤去 runbook に「DP=false へ update してから destroy」を明記**する（ADR-0019 Replacement gate に「DP は非 Replacement な mutable property」を追記推奨）。
+
+---
+
+## 検証 9: Lambda 接続再利用 / cold start / 接続方式比較（#3426、2026-07-05 追実行）
+
+> 前回「未実行」だった #3426 を **実 Lambda（Node 22, 512MB, us-east-1, 検証 8 の cluster に接続）で実行**して置換。ハンドラ外（module scope）で pool を生成し、`aws lambda update-function-configuration` で env を書換えて実行コンテキストを強制リサイクル（cold）→ 連続 invoke（warm）で計測。全 method で `SELECT 1, current_user, now()` を実行。
+
+接続 3 方式を同一 Lambda 内で比較（module-scope singleton を method 別に保持）:
+- **connector**: `@aws/aurora-dsql-node-postgres-connector` の `AuroraDSQLPool`（IAM token 自動生成/更新 + region 自動判定 + OCC retry helper 内蔵）
+- **signer 直結**: `pg.Pool` + `@aws-sdk/dsql-signer` の `DsqlSigner`。pg の **async `password` 関数**で新規物理接続ごとに admin auth token を都度発行
+- **drizzle**: `drizzle-orm/node-postgres` の `drizzle()` を connector pool に被せて `db.execute(sql\`…\`)`
+
+### cold / warm レイテンシ実測（ms、`connectAndQueryMs` = 接続確立込みの初回 query〜warm reuse）
+
+| method | moduleInitMs（require コスト） | cold（isCold=true, invocation 1） | warm（isCold=false, invocation 2–4） |
+|---|---|---|---|
+| **connector** | 289.7 | **127.9** | 4.9 / 4.4 / 4.4 |
+| **signer 直結** | 298.7 | **117.1** | 4.5 / 4.0 / 4.1 |
+| **drizzle**（connector 上） | 280.9 | **118.1** | 5.4 / 4.5 / 4.5 |
+
+- (a) **接続再利用**: warm invoke は全 method で `isCold=false` かつ **~4–5ms**（＝module-scope pool の既存物理接続を再利用、新規 token 発行/TLS/auth 無し）。cold の ~120ms（IAM token 生成 + TLS handshake + auth + 初回 query）に対し **約 25–30 倍高速**。**module scope で pool を持てば実行コンテキスト跨ぎで接続が確実に再利用される**ことを実証。
+- (b) **接続方式の採用判断（connector vs signer 直結）**: レイテンシは両者ほぼ同等（cold 127.9 vs 117.1ms、warm いずれも ~4ms、有意差なし）。**トークン自動更新「機構」の差**が決め手:
+  - **signer 直結**は pg の async `password` 関数が **新規物理接続時にのみ** token を再発行する。既存接続は 60 分 token 期限が来ても切れない（token は接続確立時の認証にのみ使用）が、**pool が新規接続を張る瞬間の token 失効ハンドリング / OCC retry / region 判定を全て自前実装**する必要がある。
+  - **connector（`AuroraDSQLPool`）** は token 自動生成・更新、hostname からの region 自動判定、`transaction()` の **OCC（40001/OC000）自動 retry**（検証 5 で必須と確定）を **標準装備**。本 PoC で cold/warm とも直結と同等性能かつ Drizzle も問題なく載る。
+  - → **採用: `@aws/aurora-dsql-node-postgres-connector`（AuroraDSQLPool）**。根拠 = (1) 性能は直結と同等、(2) token 更新 + OCC retry + region 判定という **DSQL 固有の必須ボイラープレートを OSS が肩代わり**（ADR README §OSS 先調査 / #1350 整合、awslabs 公式・Apache-2.0）、(3) Drizzle と共存可（下記 d）。signer 直結は「connector が使えない特殊制約が出た場合の fallback」に留める。
+  - **honest gap**: token の完全な 60 分期限跨ぎ（＝失効後の新規接続で自動再取得）は待機時間の都合で未検証。ただし cold invoke ごとに **新規物理接続が毎回 fresh token を発行して接続成功**しており（3 方式 × 複数 cold）、「新規接続時の token 発行機構」自体は実証済み。60 分実待機のみ未実施。
+- (c) **cold start レイテンシ**: 接続確立込みで **~120ms**（3 方式共通レンジ 117–128ms）。module require コスト（`moduleInitMs`）が別途 ~280–300ms。合計の実 cold は Lambda runtime init + これらで概ね数百 ms オーダー（本番許容内、warm 化で ~5ms に収束）。
+- (d) **Drizzle 動作**: `drizzle-orm/node-postgres` の `drizzle(pool)` を **connector の `AuroraDSQLPool` にそのまま被せて `db.execute(sql\`…\`)` が成功**（`{one:1, current_user:'admin'}` 取得）。cold 118ms / warm ~4.5ms で connector 単体と同等。**Drizzle は DSQL + connector 上で追加改変なく動作**（クエリ実行層。DDL/migration は検証 2 のとおりカスタム runner が別途必要）。
+- **結論（#3426）**: **module-scope pool で接続再利用が成立**（warm ~4ms）。**採用接続方式 = connector（AuroraDSQLPool）**（性能同等 + token 更新/OCC retry/region 判定を OSS 肩代わり）。**Drizzle は connector pool に無改変で載る**。cold は接続確立 ~120ms + require ~290ms。M4 接続層は「connector の AuroraDSQLPool を Lambda module scope に 1 個保持 → Drizzle を被せる」を基本形とする。
+
+---
+
 ## クラスタ削除の確認
 
 - `aws dsql delete-cluster --identifier svt4yyxzjy3v3vxdns5kb7m2bm --region us-east-1` → `status=DELETING`
@@ -148,9 +195,11 @@
 
 ## 未実行 / 対象外（正直な記録）
 
-- **Lambda 接続再利用 + cold start（#3426）**: 本 PoC は pg(node) ローカル接続のみ。Lambda 実行コンテキストでの warm 接続再利用・cold start は **未実行**（別 spike）。
-- **CDK CfnCluster 東京最小構成（#3429）**: **未実行**（移管先は us-east-1 確定のため東京前提は不要。CDK L1 構成 spike は別途）。
+- ~~**Lambda 接続再利用 + cold start（#3426）**: 未実行~~ → **2026-07-05 実 Lambda で実行済（検証 9）**。
+- ~~**CDK CfnCluster（#3429）**: 未実行~~ → **2026-07-05 実 AWS deploy で実行済（検証 8、us-east-1 single-region）**。
 - **10MiB の厳密境界二分探索**: 9.5MiB OK / 11.3MiB fail までは確定。ちょうど 10.0MiB 近傍の厳密境界は未詰め（実害なくチャンクは安全側で切るため不要と判断）。
+- **DP=true のまま destroy 時の実 fail 挙動（#3429 (d)）**: cluster 残置リスク回避のため実 deploy せず synth + サービス仕様で確認（実 destroy fail は未実行）。
+- **token 60 分完全期限跨ぎの自動再取得（#3426 (b)）**: 60 分実待機は未実施。新規接続ごとの fresh token 発行機構は cold invoke で実証済。
 
 ## M3（physical design）への反映（over-claim / 保留の解消）
 
@@ -161,3 +210,5 @@
 5. **OCC retry ラッパ必須**だが低競合ワークロード（disjoint key）では 40001=0。lost update は起きない。
 6. **read-modify-write の不変条件（残高非負・owner 単一）は `FOR UPDATE` を必須化** — FOR UPDATE は footprint を生み write-skew を 40001 で阻止（plain read は不可）。
 7. **PK-prefix scan を第一設計**、非 PK filter は full scan + 統計依存。write は txn 最小 0.05 DPU。
+8. **provisioning は L1 `CfnCluster` 最小構成で足りる（#3429）** — single-region（`MultiRegionProperties` 省略）で ACTIVE 化、GetAtt（Endpoint/Identifier/ResourceArn/Status）で Lambda へ配線。本番は `DeletionProtectionEnabled:true` 既定、撤去は「DP=false へ update → destroy」の 2 段（DP は非 Replacement な mutable property、ADR-0019 補足）。
+9. **M4 接続層 = connector（AuroraDSQLPool）を Lambda module scope に 1 個 + Drizzle を被せる（#3426）** — warm ~4ms で接続再利用、cold ~120ms（接続確立）+ ~290ms（require）。signer 直結と性能同等だが token 更新/OCC retry/region 判定を OSS が肩代わりするため connector 採用。`dsql:DbConnectAdmin` を実行 role に cluster ARN scope で付与。
