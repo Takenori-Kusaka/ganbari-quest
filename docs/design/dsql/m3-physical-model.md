@@ -68,8 +68,8 @@ M2 の全 60 リレーションを DSQL テーブルへ写像する。**物理 D
 | R-CANCELLATION_REASON | `cancellation_reasons`（append-only） | `(family_id, reason_id uuid)` | 分析用 secondary は PoC 後（hot path は cross-tenant） | KPI 分析。category CHECK |
 | R-LOYALTY_STATE | §1.1a 判断 | `(family_id)` 1:0..1 | — | **記念チケット数は int カウンタ列**（点数経済外の第 2 通貨、D-BALANCE 対象外）。U-2 派生整合ギャップの物理帰結は §9 |
 | R-ACCOUNT_LIFECYCLE | §1.1a 判断 | `(family_id)` 1:1 | — | 状態機械（active/soft-deleted/purged）= CHECK。`猶予プラン層` は `plan_tiers` 参照（FK 無し） |
-| R-DECAY_POLICY / R-APPROVAL_POLICY / R-POINT_CONVERSION_POLICY / R-NOTIFICATION_SETTINGS | §1.1a 判断 | 各 `(family_id)` 1:0..1 | — | 家族方針。静音時間帯は **静音開始/終了の 2 素の列**（M2展開、U-3 の物理帰結 §9）。換算レートは `real` |
-| R-BONUS_RULE | `bonus_rules`（family master 1:N） | `(family_id, rule_id uuid)` | secondary 不要（family プレフィクス scan） | 発火条件を **素の列に展開**（`条件種別`/`指標`/`閾値`/`加算点`/`倍率`/`有効か`）= M2展開。効果は記録時に基礎点へ畳み込む（独立台帳エントリ無し、L-19） |
+| R-DECAY_POLICY / R-APPROVAL_POLICY / R-POINT_CONVERSION_POLICY / R-NOTIFICATION_SETTINGS | §1.1a 判断 | 各 `(family_id)` 1:0..1 | — | 家族方針。**静音時間帯は text 据置**（Round 3 [should]2: §4.2「全 JSON 列 text 据置」に統一。範囲 field query 0 件、将来 SQL 範囲比較が実発生したら `ALTER ADD COLUMN` で可逆展開、§9 U-3）。換算レートは `real`（数値スカラーで JSON でない） |
+| R-BONUS_RULE | `bonus_rules`（family master 1:N） | `(family_id, rule_id uuid)` | secondary 不要（family プレフィクス scan） | **発火条件は text 据置**（Round 3 [should]2: §4.2「全 JSON 列 text 据置」に統一。field query 0 件、将来必要になれば可逆展開）。効果は記録時に基礎点へ畳み込む（独立台帳エントリ無し、L-19） |
 
 #### §1.1a 1:1 家族従属テーブルの物理クラスタリング判断（M2 §1.1 が明示的に M3 へ委譲、U-4）
 
@@ -386,10 +386,6 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 | I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
 | I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
 | I-PIN-RESET / I-DOWNGRADE | 検証済ワンタイム + 冪等リセット / 下位プラン変更時アーカイブ = app 層トランザクション/UX |
-| I-SUB（トライアル二度取り禁止・状態遷移） | subscription_state の状態遷移を app 層遷移制約 + トライアル使用日時の非 NULL 化冪等 |
-| I-DECAY（日次減衰） | cron バッチ（全テナント横断、rest_days/decay_policy 入力）。cross-tenant 書込は recordActivity と同格の chunk 化（§8.1 big-policy 相当） |
-| I-PURGE（家族 purge カスケード） | family_id プレフィクスで全子孫削除（`deleteByPrefix(tenants/<family_id>/)` 相当）+ ドメイン外メディア実体消去（IStorageRepo）。TRUNCATE 不可（P0 §4）ゆえ DELETE + chunk |
-| I-PIN-RESET / I-DOWNGRADE | 検証済ワンタイム + 冪等リセット / 下位プラン変更時アーカイブ = app 層トランザクション/UX |
 
 ---
 
@@ -464,7 +460,11 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 - **per-child 主軸・PointLedger 唯一権威・第 2 通貨分離を維持**: family_id/child_id PK 前置は tenant 隔離の物理目的であり、M2 の per-child 主軸を強化こそすれ覆さない。D-BALANCE scope（経済点数のみ）・戦果値/KPI の台帳外を維持。total_point は authoritative 増分（carryover 廃止、reset-plan 決定#4）で SUM 権威を構造担保。
 - **M1 忠実性の連鎖**: M2 が M1 を忠実写像し、本 M3 が M2 を忠実写像（M1→M2→M3 のトレーサビリティ連鎖）。
 - **移植ハックの非継承 + reset-plan controlling 決定の reconcile**: big-policy doc / develop の DSQL コードは参照したが、JSON 格納は **M2 + 実 grep + DSQL 制約 + reset-plan 決定#1 から再導出**（big-policy doc の列展開/子表化/jsonb は data-loss ゆえ採らない）。reset-plan 決定#1-#4（2026-07-05 ユーザー承認、controlling）を否定せず reconcile 済（#1 JSON text 据置 / **#2 branded id 型は維持・複合自然キー entity の合成 id のみ廃止**（branded id 自体は廃止しない）/ #3 point プリミティブ一本化 / #4 carryover 廃止）。
-- **⚠️ M4 で必ず捨てて rewrite する artifact（Round 2 [must]1、名指し）**: `src/lib/server/db/dsql/schema.ts` は big-policy 由来で **`evaluation_scores` 子表（:547）/ `checklist_log_items` 子表（:642）/ `playerStatsJson` 列展開（:575）** を持つ。これらは §4 の text 据置確定に反する data-loss 実装ゆえ、**M4 で再利用せず rewrite**（親の `scores_json`/`items_json`/`player_stats_json` text 列に据置）。M3 は設計ゆえ本ファイルを編集せず名指しのみ。`pk-freeze-manifest.ts` の両子表エントリ撤去（§2.2）と対で処理する。
+- **⚠️ M4 で必ず捨てて rewrite する artifact（Round 2 [must]1 + Round 3 [should]1、名指し）**: `src/lib/server/db/dsql/schema.ts` は big-policy 由来で以下の **§4 text 据置確定に反する data-loss 列展開/子表**を持つ。M4 で再利用せず rewrite（親の text 列に据置）。M3 は設計ゆえ本ファイルを編集せず名指しのみ。`pk-freeze-manifest.ts` の両子表エントリ撤去（§2.2）と対で処理する:
+  - **`child_challenges.targetConfig` 列展開（`childChallenges` export :878、`target_metric`/`target_category_id`/`base_target`/`reward_points`/`reward_message` 列 :888-892）→ `target_config` text 据置**。**最も severe（`genMode`/`genMissStreak`/`activityId`/`ageAdjustments` を落とす = #3203 救済入力喪失 = 原初喪失そのもの）**。**⚠️ 部分 rewrite の M4 実装者が `target_metric`/`base_target` を legit ドメイン列と誤認し温存する残余リスクを断つため明示**（列展開は全て捨て text 据置に戻す）。`rewardConfig` も同様。
+  - **`evaluation_scores` 子表（`evaluationScores` export :547）→ `evaluations.scores_json` text 据置**。
+  - **`checklist_log_items` 子表（`checklistLogItems` export :642）→ `checklist_logs.items_json` text 据置**。
+  - **`daily_battles.playerStatsJson` 列展開（`dailyBattles` export :578、`player_hp/atk/def/spd/rec` 列 :587-591）→ `player_stats_json` text 据置**。
 
 ---
 
