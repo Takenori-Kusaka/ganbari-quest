@@ -383,9 +383,34 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		},
 
 		async deleteMembership(userId, tenantId) {
-			await db.execute(
-				sql`DELETE FROM memberships WHERE family_id = ${tenantId} AND user_id = ${userId}`,
-			);
+			// I-OWN ≥1 (M3 §3.1B / §3.3): owner_guard 生成列 UNIQUE は「owner ≤ 1」のみを DB 物理
+			// 強制する。「最後の 1 名を残す」(≥1) は生成列では守れないため app 層で保証する。owner は
+			// owner_guard で常に ≤ 1 = 現 owner が家族の唯一の owner ゆえ、owner membership の削除は
+			// family を owner 空白にする (I-OWN 違反)。→ 削除をブロックし、先に updateTenantOwner で
+			// 移譲させる。read-then-conditional-write の RMW 不変条件ゆえ、対象行を `FOR UPDATE` で
+			// write-intent 化して write-skew (並行 promote / role 変更との TOCTOU) を阻止する
+			// (M3 §6.6 F7、Phase 1 PoC 検証6)。runInTransaction が withOccRetry を内包し 40001 を
+			// bounded retry する (M3 §6.3 F6、Drizzle txn 経路は connector 内蔵 retry を通らない)。
+			// fitness#7: work 内 await は tx.execute 直呼びのみ。
+			await runner.runInTransaction(async (tx) => {
+				const found = await tx.execute(sql`
+					SELECT role FROM memberships
+					WHERE family_id = ${tenantId} AND user_id = ${userId}
+					FOR UPDATE
+				`);
+				const row = found.rows[0] as { role: string } | undefined;
+				// 非存在は silent no-op (既存 unconditional delete / dynamo backend の DeleteCommand と同契約)。
+				if (!row) return;
+				if (row.role === 'owner') {
+					throw new Error(
+						`deleteMembership: cannot remove the sole owner of tenant ${tenantId}; ` +
+							'transfer ownership via updateTenantOwner first (I-OWN ≥1, M3 §3.3)',
+					);
+				}
+				await tx.execute(
+					sql`DELETE FROM memberships WHERE family_id = ${tenantId} AND user_id = ${userId}`,
+				);
+			});
 		},
 
 		// ---------------------------------------------------------- Invite (token_hash、CWE-522)

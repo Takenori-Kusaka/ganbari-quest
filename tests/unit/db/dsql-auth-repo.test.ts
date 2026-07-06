@@ -12,7 +12,9 @@
 //   [T5] updateTenantLastActiveAt (存在しない tenant は silent no-op)
 //   [T6] listAllTenants (created_at 順)
 //   [T7] deleteTenant = auth 4 表削除の単一 txn (users は cross-tenant で survive)
-//   [M1] membership CRUD (findUserTenants / findTenantMembers / deleteMembership)
+//   [M1] membership CRUD (findUserTenants / findTenantMembers / deleteMembership + 非存在 no-op)
+//   [M2] deleteMembership が唯一の owner をブロック (I-OWN ≥1 app 層、M3 §3.3、FOR UPDATE)
+//   [M3] owner 移譲後は旧 owner (parent 降格) を削除可能
 //   [I1] createInvite → findInviteByCode round-trip (raw code 維持、DB は token_hash のみ保存)
 //   [I2] findTenantInvites の inviteCode = invite_id (raw 非保存のため復元不能、挙動固定)
 //   [I3] invite email の小文字正規化 (§6.6)
@@ -230,6 +232,39 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 
 		await repo.deleteMembership(USER_B, t1.tenantId);
 		expect(await repo.findMembership(USER_B, t1.tenantId)).toBeUndefined();
+
+		// 非存在 membership の削除は silent no-op (dynamo backend の DeleteCommand と同契約)
+		await expect(repo.deleteMembership(NO_SUCH, t1.tenantId)).resolves.toBeUndefined();
+	});
+
+	it('[M2] deleteMembership は唯一の owner をブロックする (I-OWN ≥1 app 層、M3 §3.3)', async () => {
+		// owner_guard は owner ≤1 を DB 強制するが「最後の 1 名を残す」(≥1) は app 層。
+		const owner = await repo.createUser({ email: 'm2-owner@example.com', provider: 'cognito' });
+		const tenant = await repo.createTenant({ name: 'M2家', ownerId: owner.userId });
+
+		// owner は唯一の owner ゆえ削除はブロックされる (owner 空白防止)
+		await expect(repo.deleteMembership(owner.userId, tenant.tenantId)).rejects.toThrow(
+			/sole owner/,
+		);
+		// ブロック後も owner は残る (I-OWN ≥1 維持)
+		expect((await repo.findMembership(owner.userId, tenant.tenantId))?.role).toBe('owner');
+	});
+
+	it('[M3] owner 移譲後は旧 owner (parent 降格) を削除できる', async () => {
+		const owner = await repo.createUser({ email: 'm3-owner@example.com', provider: 'cognito' });
+		const heir = await repo.createUser({ email: 'm3-heir@example.com', provider: 'cognito' });
+		const tenant = await repo.createTenant({ name: 'M3家', ownerId: owner.userId });
+		await repo.createMembership({ userId: heir.userId, tenantId: tenant.tenantId, role: 'parent' });
+
+		// 先に移譲 (updateTenantOwner) → 旧 owner は parent へ降格
+		await repo.updateTenantOwner(tenant.tenantId, heir.userId);
+		expect((await repo.findMembership(owner.userId, tenant.tenantId))?.role).toBe('parent');
+
+		// parent へ降格した旧 owner は削除可能 (新 owner が I-OWN ≥1 を満たす)
+		await repo.deleteMembership(owner.userId, tenant.tenantId);
+		expect(await repo.findMembership(owner.userId, tenant.tenantId)).toBeUndefined();
+		// 新 owner は残る
+		expect((await repo.findMembership(heir.userId, tenant.tenantId))?.role).toBe('owner');
 	});
 
 	// ---------------------------------------------------------- Invite
