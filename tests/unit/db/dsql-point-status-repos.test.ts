@@ -56,10 +56,15 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		return c.id;
 	};
 
-	/** total_point == SUM(point_ledger.amount) 不変条件を assert する (§5 P7 / fitness#14)。 */
-	const expectNoDrift = async () => {
+	/**
+	 * 指定 child の書込増分整合 (total_point == SUM) を assert する (fitness#14 再定義)。
+	 * carryover 廃止後は pruning 済 child が恒久的に drift を持つため、共有 db 全体でなく
+	 * **当該 child (非 pruning scope) のみ**を突合する (reset-plan 決定#4)。
+	 */
+	const expectNoDrift = async (childId: ChildId) => {
 		const drift = await findTotalPointDrift(t.db);
-		expect(drift, 'total_point == SUM(point_ledger.amount) (fitness#14)').toEqual([]);
+		const forChild = drift.filter((d) => String(d.childId) === String(childId));
+		expect(forChild, 'total_point == SUM(point_ledger.amount) (fitness#14)').toEqual([]);
 	};
 
 	const totalPointOf = async (childId: ChildId, family = FAMILY): Promise<number> => {
@@ -97,7 +102,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(typeof entry.createdAt).toBe('string');
 
 		expect(await totalPointOf(childId)).toBe(10);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 
 		// referenceId 未指定は null (sqlite parity)
 		const noRef = await pointRepo.insertPointEntry(
@@ -120,7 +125,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		);
 		expect(await totalPointOf(childId)).toBe(12);
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(12);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P3] child 不在への insert は throw + ledger 未挿入 (片肺書込 rollback)', async () => {
@@ -190,7 +195,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(result.type).toBe('reward_redeem');
 		expect(result.referenceId).toBe('reward-1');
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(20);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P7] spendPointsAtomic 残高不足: INSUFFICIENT_POINTS + 無書込', async () => {
@@ -212,7 +217,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 			WHERE family_id = ${FAMILY} AND child_id = ${String(childId)} AND amount < 0
 		`);
 		expect(Number((rows.rows[0] as { c: unknown }).c)).toBe(0);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P8] §P9 tenant 分離: 他 family から不可視 + spend 不能', async () => {
@@ -306,7 +311,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		const balance = await pointRepo.getBalance(childId, FAMILY);
 		expect(balance).toBe(10);
 		expect(balance).toBeGreaterThanOrEqual(0); // 残高マイナス不能
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P10] deleteByTenantId: ledger 全削除 + total_point 0 (== SUM 維持)、他 tenant 無傷', async () => {
@@ -329,7 +334,8 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		);
 		expect(Number((gone.rows[0] as { c: unknown }).c)).toBe(0);
 		expect(await pointRepo.getBalance(other, FAMILY)).toBe(9); // 他 tenant 無傷
-		await expectNoDrift();
+		await expectNoDrift(other);
+		await expectNoDrift(mine);
 	});
 
 	it('point-repo findChildById: Child entity round-trip (child-repo parity)', async () => {
