@@ -98,6 +98,11 @@ export const AUTH_PK_MANIFEST = {
 	memberships: ['family_id', 'user_id'],
 	invites: ['invite_id'],
 	consents: ['consent_id'],
+	// inquiries (#3612): auth 5 表ではないが同じ「family_id 先頭でない例外」class。
+	// PK = inquiry_id (text、既存 interface の INQ-YYYYMMDD-seq 形式を維持)。
+	// family_id nullable (未ログイン founder 導線も受ける) のため PK_FREEZE (family 先頭) に
+	// 置けない。backup 対象外 (backup-entity-registry `inquiry` excluded)。
+	inquiries: ['inquiry_id'],
 } as const satisfies Record<string, readonly string[]>;
 
 // ── グローバル master (§11.2 例外: tenant プレフィクスなし、自然キー PK) ──

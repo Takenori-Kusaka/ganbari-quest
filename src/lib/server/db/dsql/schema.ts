@@ -34,6 +34,7 @@ import {
 	CLOUD_EXPORT_STATUSES,
 	type CloudExportStatus,
 } from '$lib/domain/constants/cloud-export-status';
+import { INQUIRY_STATUSES } from '$lib/domain/constants/inquiry';
 import { REDEMPTION_STATUSES } from '$lib/domain/constants/redemption-status';
 import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
@@ -1095,6 +1096,33 @@ export const cancellationReasons = pgTable(
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.reasonId] })],
+);
+
+// inquiries — 問い合わせ (#3612)。sqlite の settings KVS 間借り (`inquiry:` prefix JSON) を
+// greenfield では専用表化する (account-lockout の専用表化と同 class 是正)。
+// - PK = inquiry_id (text): 既存 interface 契約 `INQ-YYYYMMDD-seq` (app 側採番) を維持。
+//   family_id 先頭でないため AUTH_PK_MANIFEST に凍結宣言 (fitness#9)。
+// - family_id nullable: 未ログインの founder 導線 (/inquiry/founder) からも受けるため。
+//   tenant 述語 fitness は INSERT の family_id 列存在で判定 (値 NULL は正当)。
+// - backup 対象外 (backup-entity-registry `inquiry` excluded: 運用データ、家族データ外)。
+export const inquiries = pgTable(
+	'inquiries',
+	{
+		inquiryId: text('inquiry_id').notNull(),
+		familyId: uuid('family_id'),
+		email: text('email').notNull(),
+		replyEmail: text('reply_email'),
+		category: text('category').notNull(),
+		body: text('body').notNull(),
+		status: text('status').notNull().default('open'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.inquiryId] }),
+		check('inquiries_status_ck', enumCheck(t.status, INQUIRY_STATUSES)),
+	],
 );
 
 // graduation_consent — 卒業同意 (UUID surrogate: 複数子×複数回で多数行が正)。

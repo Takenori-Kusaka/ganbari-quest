@@ -189,6 +189,7 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 | `memberships` | `(family_id, user_id)` | secondary `(user_id)`、**`owner_guard GENERATED CASE WHEN role='owner' THEN family_id ELSE NULL END`+UNIQUE**、role CHECK(owner/parent/child) | owner 1名 DB 強制（spike#3/SQLite parity）。role 二重書き廃止＝1 行 SSOT |
 | `invites` | `(invite_id uuid)` | secondary `(family_id)`、UNIQUE `(token_hash)`、status/role CHECK | adjacency item 廃止。**`token_hash`（招待コードの timing-safe ハッシュ、raw 非保存）必須＝現行 `inviteCode` capability 機構の写像、bare bearer 化による機密性退行を防ぐ（CWE-522）** |
 | `consents`(**append-only**) | `(consent_id)` | secondary `(family_id, type, consented_at)`、type CHECK | 最新=consented_at 降順（version 文字列順非依存）。UPDATE/DELETE は GRANT 除外+repo 非定義+fitness 多層禁止。GDPR Art.7/COPPA |
+| `inquiries`（#3612） | `(inquiry_id)` | status CHECK（`INQUIRY_STATUSES` SSOT） | 問い合わせ専用表（settings KVS 間借りの greenfield 是正）。inquiry_id は text（既存 `INQ-YYYYMMDD-seq` app 採番を維持）。family_id **nullable**（未ログイン founder 導線）。backup excluded |
 
 - **方言差**: pg `uuid/timestamptz/gen_random_uuid()/jsonb` ↔ sqlite `text/$defaultFn(randomUUID)/strftime/text`。生成列・CHECK・UNIQUE は両対応。drizzle `text(enum)` は CHECK 非生成（既知落とし穴）→ `check()` 明示必須。CHECK 値（status 等の固定集合）は subscription-status.ts 等から生成（手書き二重化禁止）。plan は `plans` lookup 表（増減集合、CHECK でない）。
 - **二重書き廃止の単純化**: createMembership/deleteMembership/invite CRUD が現 2 item Put/Delete → 1 行/1 文。片方成功の role 不整合が構造的に消滅。
@@ -197,6 +198,7 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 - **⚠️ セキュリティ不変条件（必須）**: `owner_guard` UNIQUE は「owner ≤1」を DB で守るが「**誰が role を書けるか**」は守らない。**membership role 変更・owner 移譲・member 削除は `requireRole(['owner'])` 必須**（owner 専用 route guard。現状 owner 機能が `/admin`=owner+parent 配下に同居し parent が到達しうるため、移管で水平/垂直権限昇格を作り込まない）。invite 受諾時は `accepting_user.email == invite.email` 束縛も検証。
 - **spike#6 確証**: inline UNIQUE on 生成列（owner_guard）/ `lower(email)` STORED+UNIQUE / `UNIQUE(stripe_customer_id)` 複数 NULL は全て単一 CREATE TABLE で動作（F6/F7/F8、greenfield 空表）。populated 表への後付け UNIQUE は dedup 先行必須（F1、§12.1 cutover）。
 - `child_id`(invites) は children 再設計（greenfield UUID）に依存。`listAllTenants`(ops/cron, cold) は created_at cursor ページング（OFFSET 不使用）。
+- **`inquiries`（問い合わせ、#3612）**: sqlite の settings KVS 間借り（`inquiry:` prefix JSON）を greenfield では専用表化。PK = `inquiry_id`（text、既存 interface の `INQ-YYYYMMDD-seq` app 側採番を維持）。`family_id` は **nullable**（未ログイン founder 導線 `/inquiry/founder` も受ける）ため family 先頭 PK に置けず、invites / consents と同じ「family_id 先頭でない例外」として `AUTH_PK_MANIFEST` に凍結宣言（fitness#9）。status CHECK は `INQUIRY_STATUSES`（`$lib/domain/constants/inquiry`）から機械生成（§1.0-6）。backup 対象外（backup-entity-registry `inquiry` excluded = 運用データ、家族データ外）。
 
 ## §7 read-model（report_daily_summaries）
 
