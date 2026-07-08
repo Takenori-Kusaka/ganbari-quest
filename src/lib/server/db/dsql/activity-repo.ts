@@ -152,13 +152,13 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 		// ── Activities (CRUD、Activity shape adapter) ──
 
 		async findActivities(tenantId, filter) {
-			const conditions = [sql`family_id = ${tenantId}`, sql`${NOT_ARCHIVED}`];
-			if (filter?.categoryId) conditions.push(sql`category_id = ${filter.categoryId}`);
-			if (!filter?.includeHidden) conditions.push(sql`is_visible = true`);
+			const tenantConditions = [sql`family_id = ${tenantId}`, sql`${NOT_ARCHIVED}`];
+			if (filter?.categoryId) tenantConditions.push(sql`category_id = ${filter.categoryId}`);
+			if (!filter?.includeHidden) tenantConditions.push(sql`is_visible = true`);
 			// NOTE: filter.childAge は per-child instance では非適用 (sqlite facade parity、ADR-0055)。
 			const result = await db.execute(sql`
 				SELECT ${ACTIVITY_COLUMNS} FROM child_activities
-				WHERE ${sql.join(conditions, sql` AND `)}
+				WHERE ${sql.join(tenantConditions, sql` AND `)}
 				ORDER BY sort_order, created_at, activity_id
 			`);
 			return (result.rows as unknown as ActivityRow[]).map(toActivityShape);

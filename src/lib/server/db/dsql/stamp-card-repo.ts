@@ -87,8 +87,10 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 	// グローバル master SSOT (tenant 非依存 §11.2)。id → master の join 用 map。
 	const masterById = new Map<string, StampMaster>(getDefaultStampMasters().map((m) => [m.id, m]));
 
-	const findCard = async (where: ReturnType<typeof sql>): Promise<StampCard | undefined> => {
-		const result = await db.execute(sql`SELECT ${CARD_COLUMNS} FROM stamp_cards WHERE ${where}`);
+	const findCard = async (tenantWhere: ReturnType<typeof sql>): Promise<StampCard | undefined> => {
+		const result = await db.execute(
+			sql`SELECT ${CARD_COLUMNS} FROM stamp_cards WHERE ${tenantWhere}`,
+		);
 		const row = result.rows[0] as unknown as CardRow | undefined;
 		return row ? toCard(row) : undefined;
 	};

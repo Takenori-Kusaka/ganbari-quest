@@ -154,12 +154,12 @@ export function createDsqlChildActivityRepo<TTx extends SqlExecutor>(
 		tenantId,
 		options,
 	) => {
-		const conditions = [sql`family_id = ${tenantId}`, sql`child_id = ${childId}`];
-		if (!options?.includeArchived) conditions.push(sql`is_archived = false`);
-		if (options?.visibleOnly) conditions.push(sql`is_visible = true`);
+		const tenantConditions = [sql`family_id = ${tenantId}`, sql`child_id = ${childId}`];
+		if (!options?.includeArchived) tenantConditions.push(sql`is_archived = false`);
+		if (options?.visibleOnly) tenantConditions.push(sql`is_visible = true`);
 		const result = await db.execute(sql`
 			SELECT ${ACTIVITY_COLUMNS} FROM child_activities
-			WHERE ${sql.join(conditions, sql` AND `)}
+			WHERE ${sql.join(tenantConditions, sql` AND `)}
 			ORDER BY sort_order, created_at, activity_id
 		`);
 		return (result.rows as unknown as ChildActivityRow[]).map(toChildActivity);

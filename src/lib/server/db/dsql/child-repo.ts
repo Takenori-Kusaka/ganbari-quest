@@ -118,9 +118,9 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IChildRepo {
-	const findMany = async (where: ReturnType<typeof sql>): Promise<Child[]> => {
+	const findMany = async (tenantWhere: ReturnType<typeof sql>): Promise<Child[]> => {
 		const result = await db.execute(
-			sql`SELECT ${CHILD_COLUMNS} FROM children WHERE ${where} ORDER BY created_at, child_id`,
+			sql`SELECT ${CHILD_COLUMNS} FROM children WHERE ${tenantWhere} ORDER BY created_at, child_id`,
 		);
 		return (result.rows as unknown as ChildRow[]).map(toChild);
 	};

@@ -198,11 +198,11 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		// ── Templates (family scope) ──────────────────────────────
 
 		async findTemplatesByTenant(tenantId, includeInactive = false) {
-			const conditions = [sql`family_id = ${tenantId}`, sql`is_archived = false`];
-			if (!includeInactive) conditions.push(sql`is_active = true`);
+			const tenantConditions = [sql`family_id = ${tenantId}`, sql`is_archived = false`];
+			if (!includeInactive) tenantConditions.push(sql`is_active = true`);
 			const result = await db.execute(sql`
 				SELECT ${TEMPLATE_COLUMNS} FROM checklist_templates
-				WHERE ${sql.join(conditions, sql` AND `)}
+				WHERE ${sql.join(tenantConditions, sql` AND `)}
 				ORDER BY created_at, template_id
 			`);
 			return (result.rows as unknown as TemplateRow[]).map(toTemplate);

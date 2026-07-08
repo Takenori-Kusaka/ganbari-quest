@@ -61,9 +61,9 @@ export function createDsqlVoiceRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IVoiceRepo {
-	const findMany = async (where: ReturnType<typeof sql>): Promise<ChildCustomVoice[]> => {
+	const findMany = async (tenantWhere: ReturnType<typeof sql>): Promise<ChildCustomVoice[]> => {
 		const result = await db.execute(
-			sql`SELECT ${VOICE_COLUMNS} FROM child_custom_voices WHERE ${where} ORDER BY scene, created_at, voice_id`,
+			sql`SELECT ${VOICE_COLUMNS} FROM child_custom_voices WHERE ${tenantWhere} ORDER BY scene, created_at, voice_id`,
 		);
 		return (result.rows as unknown as VoiceRow[]).map(toVoice);
 	};
