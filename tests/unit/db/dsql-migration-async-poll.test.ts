@@ -26,7 +26,7 @@ function mockStatuses(seq: Array<string | null>): RawSqlExecutor & { queries: st
 		queries,
 		execute: async (sqlText: string) => {
 			queries.push(sqlText);
-			const status = seq[Math.min(i, seq.length - 1)];
+			const status = seq[Math.min(i, seq.length - 1)] ?? '';
 			i += 1;
 			return { rows: status === null ? [] : [{ status }] };
 		},
@@ -43,7 +43,7 @@ function mockRowSets(
 		queries,
 		execute: async (sqlText: string) => {
 			queries.push(sqlText);
-			const rows = seq[Math.min(i, seq.length - 1)];
+			const rows = seq[Math.min(i, seq.length - 1)] ?? [];
 			i += 1;
 			return { rows };
 		},

@@ -27,7 +27,7 @@ describe('transformDrizzleSqlToDsql — 責務 1: FK 除去', () => {
 		].join(`;\n${BP}\n`);
 		const plan = transformDrizzleSqlToDsql(input);
 		expect(plan.ddl).toHaveLength(1);
-		expect(plan.ddl[0].sql).toMatch(/CREATE TABLE "families"/);
+		expect(plan.ddl[0]?.sql).toMatch(/CREATE TABLE "families"/);
 		expect(plan.ddl.some((s) => /FOREIGN KEY/i.test(s.sql))).toBe(false);
 	});
 
@@ -36,15 +36,15 @@ describe('transformDrizzleSqlToDsql — 責務 1: FK 除去', () => {
 			'CREATE TABLE "child_t" (\n\t"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,\n\t"family_id" uuid REFERENCES "families"("id") ON DELETE cascade\n)';
 		const plan = transformDrizzleSqlToDsql(input);
 		expect(plan.ddl).toHaveLength(1);
-		expect(plan.ddl[0].sql).not.toMatch(/REFERENCES/i);
-		expect(plan.ddl[0].sql).toMatch(/"family_id" uuid/);
+		expect(plan.ddl[0]?.sql).not.toMatch(/REFERENCES/i);
+		expect(plan.ddl[0]?.sql).toMatch(/"family_id" uuid/);
 	});
 
 	it('表レベル FOREIGN KEY 制約行を除去し、余った comma を掃除する', () => {
 		const input =
 			'CREATE TABLE "members" (\n\t"id" uuid PRIMARY KEY NOT NULL,\n\t"family_id" uuid NOT NULL,\n\tCONSTRAINT "members_fk" FOREIGN KEY ("family_id") REFERENCES "public"."families"("id") ON DELETE cascade\n)';
 		const plan = transformDrizzleSqlToDsql(input);
-		const out = plan.ddl[0].sql;
+		const out = plan.ddl[0]?.sql ?? '';
 		expect(out).not.toMatch(/FOREIGN KEY/i);
 		expect(out).not.toMatch(/REFERENCES/i);
 		// dangling comma が閉じ括弧直前に残っていないこと。
@@ -59,6 +59,7 @@ describe('transformDrizzleSqlToDsql — 責務 2: ASYNC index 化', () => {
 			'CREATE INDEX "members_family_idx" ON "members" USING btree ("family_id")',
 		);
 		const out = plan.ddl[0];
+		if (!out) throw new Error('ddl[0] missing');
 		expect(out.sql).toMatch(
 			/^CREATE INDEX ASYNC "members_family_idx" ON "members" \("family_id"\)$/,
 		);
@@ -71,20 +72,21 @@ describe('transformDrizzleSqlToDsql — 責務 2: ASYNC index 化', () => {
 			'CREATE UNIQUE INDEX "members_uq" ON "members" USING btree ("family_id","name")',
 		);
 		const out = plan.ddl[0];
+		if (!out) throw new Error('ddl[0] missing');
 		expect(out.sql).toMatch(/^CREATE UNIQUE INDEX ASYNC "members_uq"/);
 		expect(out.asyncIndexName).toBe('members_uq');
 	});
 
 	it('USING 節が無い CREATE INDEX にも ASYNC を注入する', () => {
 		const plan = transformDrizzleSqlToDsql('CREATE INDEX "idx2" ON "t" ("a")');
-		expect(plan.ddl[0].sql).toMatch(/^CREATE INDEX ASYNC "idx2"/);
-		expect(plan.ddl[0].asyncIndexName).toBe('idx2');
+		expect(plan.ddl[0]?.sql).toMatch(/^CREATE INDEX ASYNC "idx2"/);
+		expect(plan.ddl[0]?.asyncIndexName).toBe('idx2');
 	});
 
 	it('既に ASYNC の index に二重付与しない (冪等)', () => {
 		const plan = transformDrizzleSqlToDsql('CREATE INDEX ASYNC "idx3" ON "t" ("a")');
-		expect(plan.ddl[0].sql).not.toMatch(/ASYNC\s+ASYNC/i);
-		expect(plan.ddl[0].asyncIndexName).toBe('idx3');
+		expect(plan.ddl[0]?.sql).not.toMatch(/ASYNC\s+ASYNC/i);
+		expect(plan.ddl[0]?.asyncIndexName).toBe('idx3');
 	});
 });
 
@@ -109,8 +111,8 @@ describe('transformDrizzleSqlToDsql — 責務 4/6: 文分割 / DDL⇄DML 分離
 		const plan = transformDrizzleSqlToDsql(input);
 		expect(plan.ddl).toHaveLength(1);
 		expect(plan.dml).toHaveLength(2);
-		expect(plan.dml[0].sql).toMatch(/^INSERT INTO/);
-		expect(plan.dml[1].sql).toMatch(/^UPDATE/);
+		expect(plan.dml[0]?.sql).toMatch(/^INSERT INTO/);
+		expect(plan.dml[1]?.sql).toMatch(/^UPDATE/);
 	});
 });
 
@@ -160,19 +162,19 @@ describe('transformDrizzleSqlToDsql — [should] robustness', () => {
 	// [should]2: 引用識別子の実名を silent 切詰めしない (poll が別 object を叩くのを防ぐ)。
 	it('空白を含む引用 index 名を完全保持する', () => {
 		const plan = transformDrizzleSqlToDsql('CREATE UNIQUE INDEX "members uq" ON "members" ("a")');
-		expect(plan.ddl[0].asyncIndexName).toBe('members uq');
+		expect(plan.ddl[0]?.asyncIndexName).toBe('members uq');
 	});
 
 	it('ハイフンを含む引用 index 名を完全保持する', () => {
 		const plan = transformDrizzleSqlToDsql('CREATE INDEX "members-idx" ON "members" ("a")');
-		expect(plan.ddl[0].asyncIndexName).toBe('members-idx');
+		expect(plan.ddl[0]?.asyncIndexName).toBe('members-idx');
 	});
 
 	// [should]3: 文字列/DEFAULT 内の REFERENCES を誤除去して DEFAULT を破壊しない。
 	it("DEFAULT 'see REFERENCES parent(id)' 文字列を FK 除去で壊さない", () => {
 		const input =
 			'CREATE TABLE "t" (\n\t"id" uuid PRIMARY KEY NOT NULL,\n\t"note" text DEFAULT \'see REFERENCES parent(id)\' NOT NULL,\n\t"family_id" uuid REFERENCES "families"("id")\n)';
-		const out = transformDrizzleSqlToDsql(input).ddl[0].sql;
+		const out = transformDrizzleSqlToDsql(input).ddl[0]?.sql ?? '';
 		// 文字列内の REFERENCES は残る。列レベル inline FK (family_id) は除去される。
 		expect(out).toContain("DEFAULT 'see REFERENCES parent(id)'");
 		expect(out).toMatch(/"family_id" uuid\s*\)/); // inline FK 除去済
@@ -184,8 +186,8 @@ describe('transformDrizzleSqlToDsql — [should] robustness', () => {
 			'ALTER TABLE "t" ADD CONSTRAINT "t_uq" UNIQUE ("a","b")',
 		);
 		expect(plan.ddl).toHaveLength(1);
-		expect(plan.ddl[0].sql).toMatch(/^CREATE UNIQUE INDEX ASYNC "t_uq" ON "t" \("a","b"\)$/);
-		expect(plan.ddl[0].asyncIndexName).toBe('t_uq');
+		expect(plan.ddl[0]?.sql).toMatch(/^CREATE UNIQUE INDEX ASYNC "t_uq" ON "t" \("a","b"\)$/);
+		expect(plan.ddl[0]?.asyncIndexName).toBe('t_uq');
 	});
 
 	it('PRIMARY KEY の ADD CONSTRAINT ALTER は明示 throw する (inline へ寄せるべき)', () => {
@@ -204,7 +206,7 @@ describe('transformDrizzleSqlToDsql — [should] robustness', () => {
 	it('DEFERRABLE / MATCH FULL 付き表レベル FK を修飾ごと除去する', () => {
 		const input =
 			'CREATE TABLE "t" (\n\t"id" uuid PRIMARY KEY NOT NULL,\n\t"fid" uuid NOT NULL,\n\tCONSTRAINT "t_fk" FOREIGN KEY ("fid") REFERENCES "f"("id") MATCH FULL ON DELETE cascade DEFERRABLE INITIALLY DEFERRED\n)';
-		const out = transformDrizzleSqlToDsql(input).ddl[0].sql;
+		const out = transformDrizzleSqlToDsql(input).ddl[0]?.sql ?? '';
 		expect(out).not.toMatch(/FOREIGN KEY|REFERENCES|MATCH|DEFERRABLE|INITIALLY/i);
 		expect(out).not.toMatch(/,\s*\)/); // dangling comma なし
 	});
@@ -252,13 +254,13 @@ describe('transformDrizzleSqlToDsql — 変換後 DDL が Postgres valid (PGlite
 				"SELECT count(*)::int AS n FROM information_schema.table_constraints WHERE constraint_type='FOREIGN KEY' AND table_schema='public'",
 			),
 		)) as { rows: Array<{ n: number }> };
-		expect(fks.rows[0].n).toBe(0);
+		expect(fks.rows[0]?.n).toBe(0);
 
 		const idx = (await db.execute(
 			sql.raw(
 				"SELECT count(*)::int AS n FROM pg_indexes WHERE schemaname='public' AND indexname IN ('members_family_idx','members_uq')",
 			),
 		)) as { rows: Array<{ n: number }> };
-		expect(idx.rows[0].n).toBe(2);
+		expect(idx.rows[0]?.n).toBe(2);
 	});
 });
