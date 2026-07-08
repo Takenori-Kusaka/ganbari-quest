@@ -1,9 +1,15 @@
 // src/lib/server/db/dsql/derived-drift.ts
 // EPIC #3424 / 実装 #3539 (#N4-1 Phase C) / 設計 SSOT: dsql-data-model.md §5(P7) / §13.1 fitness#14
 //
-// 派生列 drift 突合 (fitness#14): children.total_point == SUM(point_ledger.amount)。
-// 正本は派生列 (§5: 全 point_ledger 書込は同一 mini-txn で total_point を共更新 = 乖離不能設計)。
-// 本関数はバッチで不変条件の破れを検出する (F2)。乖離 0 が正常、検出時は書込経路のバグ。
+// fitness#14 (reset-plan 決定#4 で再定義): 「書込増分整合検証」helper。
+// children.total_point == SUM(point_ledger.amount) を突合する。
+//   - **本番正しさの正本は「単一プリミティブ (point-write.ts) + 同一 txn `+= amount`」の構造担保**。
+//     total_point == SUM は「pruning が起きていない」前提でのみ成立する不変条件であり、
+//     retention (deletePointLedgerBeforeDate) で古い明細を削除すると SUM < total_point に
+//     なる (carryover 廃止、reset-plan 決定#4)。
+//   - したがって本関数は **本番の残高監視バッチではなく、テスト時 (非 pruning) の書込増分整合を
+//     検証する helper** に再定義された。pruning を経た child に対して呼ぶと false-positive に
+//     なるため、テストは pruning 前 / 非 pruning の scope でのみ assert する。
 // ⚠️ optional 欠落 (ledger 行自体が無い) は drift に現れない — fitness#11 欠落カウンタが補完。
 //
 // statuses.total_xp / activity_logs.streak_days の突合は #N4-2 (recordActivity 原子化) で
