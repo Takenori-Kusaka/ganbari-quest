@@ -24,7 +24,6 @@
 //     integer autoincrement が無いため created_at, child_id で先頭を決定する。
 
 import { sql } from 'drizzle-orm';
-import { todayDateJST } from '$lib/domain/date-utils';
 import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import type { IActivityRepo } from '../interfaces/activity-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';

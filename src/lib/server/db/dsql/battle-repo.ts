@@ -6,10 +6,9 @@
 //     呼び出し側 (client factory / テスト) が渡す。本 repo は txn を張らない (全操作が単文の
 //     ため runner 不要) が、fitness#8 の一貫性のため signature は他 repo と揃える。
 //   - **§P9 tenant 述語**: 全メソッドが family_id = tenantId を WHERE に含む。
-//   - **playerStats 5 列展開 parity (§11.3)**: daily_battles.player_stats_json は固定 5 キー
-//     (BattleStats hp/atk/def/spd/rec) を player_hp/atk/def/spd/rec 列に展開済。read 時に
-//     JSON.stringify で playerStatsJson へ再構成し、sqlite backend と同一 shape (DailyBattleRow)
-//     を返す (battle-service が JSON.parse(row.playerStatsJson) するため文字列契約を維持)。
+//   - **playerStatsJson は text 据置 (M3 §10 / M4-C)**: BattleStats を列展開すると キー変動時に
+//     silent drop を招くため、daily_battles.player_stats_json に JSON 文字列で丸ごと保持する
+//     (SQLite SSOT と parity。battle-service が JSON.parse(row.playerStatsJson) する文字列契約)。
 //   - **合成 id (自然複合 PK の帰結)**: daily_battles PK = (family,child,date)、enemy_collection
 //     PK = (family,child,enemy_id) で surrogate id 列が無い。interface の `id: string` /
 //     insertDailyBattle 戻り / completeBattle(battleId) は opaque token 契約 (battle-service は
@@ -22,7 +21,7 @@
 //     置換、§3.5.5 の N+1 を repo が作らない)。
 
 import { sql } from 'drizzle-orm';
-import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import type { BattleOutcome } from '$lib/domain/battle-types';
 import { asChildId } from '$lib/domain/ids';
 import type {
 	DailyBattleRow,
@@ -39,11 +38,7 @@ interface BattleRow {
 	outcome: string | null;
 	reward_points: number;
 	turns_used: number;
-	player_hp: number;
-	player_atk: number;
-	player_def: number;
-	player_spd: number;
-	player_rec: number;
+	player_stats_json: string;
 	created_at: string;
 	updated_at: string;
 }
@@ -57,7 +52,7 @@ interface CollectionRow {
 
 const BATTLE_COLUMNS = sql.raw(
 	`child_id, date, enemy_id, status, outcome, reward_points, turns_used,
-	 player_hp, player_atk, player_def, player_spd, player_rec, created_at, updated_at`,
+	 player_stats_json, created_at, updated_at`,
 );
 
 const COLLECTION_COLUMNS = sql.raw('child_id, enemy_id, first_defeated_at, defeat_count');
@@ -76,15 +71,8 @@ function decodeBattleToken(battleId: string): { childId: string; date: string } 
 	return { childId: battleId.slice(0, idx), date: battleId.slice(idx + 1) };
 }
 
-/** row → DailyBattleRow (playerStats 5 列を playerStatsJson へ再構成、sqlite parity shape)。 */
+/** row → DailyBattleRow (player_stats_json は text 据置のため verbatim、sqlite parity shape)。 */
 function toBattleRow(row: BattleRow): DailyBattleRow {
-	const playerStats: BattleStats = {
-		hp: row.player_hp,
-		atk: row.player_atk,
-		def: row.player_def,
-		spd: row.player_spd,
-		rec: row.player_rec,
-	};
 	return {
 		id: battleToken(row.child_id, row.date),
 		childId: asChildId(row.child_id),
@@ -94,7 +82,7 @@ function toBattleRow(row: BattleRow): DailyBattleRow {
 		outcome: row.outcome as DailyBattleRow['outcome'],
 		rewardPoints: Number(row.reward_points),
 		turnsUsed: Number(row.turns_used),
-		playerStatsJson: JSON.stringify(playerStats),
+		playerStatsJson: row.player_stats_json,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -157,11 +145,9 @@ export function createDsqlBattleRepo(db: SqlExecutor): IBattleRepo {
 			// service は事前に findTodayBattle で存在確認するため plain INSERT (衝突は 1日2回目 = 契約違反)。
 			await db.execute(sql`
 				INSERT INTO daily_battles
-					(family_id, child_id, date, enemy_id, status,
-					 player_hp, player_atk, player_def, player_spd, player_rec)
+					(family_id, child_id, date, enemy_id, status, player_stats_json)
 				VALUES (${tenantId}, ${childId}, ${date}, ${enemyId}, 'pending',
-					${playerStats.hp}, ${playerStats.atk}, ${playerStats.def},
-					${playerStats.spd}, ${playerStats.rec})
+					${JSON.stringify(playerStats)})
 			`);
 			return battleToken(String(childId), date);
 		},

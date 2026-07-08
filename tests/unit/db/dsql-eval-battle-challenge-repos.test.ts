@@ -68,7 +68,7 @@ describe('DSQL battle-repo (PR-R9、実 schema PGlite)', () => {
 		expect(battle?.outcome).toBe(null);
 		expect(battle?.rewardPoints).toBe(0);
 		expect(battle?.turnsUsed).toBe(0);
-		// playerStats は 5 列展開 → JSON 再構成 (battle-service が JSON.parse する契約)
+		// playerStats は player_stats_json text 据置 (M3 §10、battle-service が JSON.parse する契約)
 		expect(JSON.parse(battle?.playerStatsJson ?? '{}')).toEqual(STATS);
 		expect(typeof battle?.createdAt).toBe('string');
 		expect(typeof battle?.updatedAt).toBe('string');
