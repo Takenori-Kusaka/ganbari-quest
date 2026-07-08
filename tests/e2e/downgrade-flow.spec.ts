@@ -373,7 +373,10 @@ test.describe('#754 プレビュー応答の構造検証', () => {
 			expect(child).toHaveProperty('id');
 			expect(child).toHaveProperty('name');
 			expect(child).toHaveProperty('uiMode');
-			expect(typeof child.id).toBe('number');
+			// #3575 (PR-R0) / #3606: id は branded string (opaque token) が wire contract の正。
+			// DSQL では uuid、sqlite では integer PK の 10 進文字列 (src/lib/domain/ids.ts SSOT)。
+			expect(typeof child.id).toBe('string');
+			expect(child.id).not.toBe('');
 			expect(typeof child.name).toBe('string');
 		}
 	});

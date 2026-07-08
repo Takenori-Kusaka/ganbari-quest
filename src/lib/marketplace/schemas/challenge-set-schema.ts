@@ -42,7 +42,14 @@ export const ChallengeSetItemSchema = v.object({
 		v.minValue(1, 'durationDays は 1 以上で指定してください'),
 		v.maxValue(90, 'durationDays は 90 以下で指定してください'),
 	),
-	/** 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou */
+	/**
+	 * 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou
+	 *
+	 * payload 内で自己完結する「意味的カテゴリ enum」であり、DB エンティティの
+	 * branded CategoryId (string、src/lib/domain/ids.ts) とは別物 (#3606 棚卸しで
+	 * runtime break なしを確認済)。数値直書きは SSOT 不在の技術負債であり、#3607
+	 * (カテゴリ SSOT 統合) で as const satisfies SSOT からの派生参照に置換予定。
+	 */
 	categoryId: v.picklist(
 		[1, 2, 3, 4, 5] as const,
 		'categoryId は 1 (運動) / 2 (勉強) / 3 (生活) / 4 (交流) / 5 (創造) のいずれかで指定してください',

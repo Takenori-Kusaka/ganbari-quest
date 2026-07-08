@@ -22,14 +22,14 @@ describe('demo/checklist-repo — marketplace integration (#2097 B-7)', () => {
 			expect(templates.length).toBeGreaterThanOrEqual(1);
 			expect(templates[0]?.sourcePresetId).toBe('event-pool');
 			// legacy fixture record は childId フィールドを持つ (cast 経由で参照)
-			expect((templates[0] as unknown as { childId?: number }).childId).toBe('903');
+			expect((templates[0] as unknown as { childId?: string }).childId).toBe('903');
 		});
 
 		it('904 (junior F): event-school-start checklist が含まれる', () => {
 			const templates = getDemoMarketplaceChecklistTemplatesByChild(asChildId(904));
 			expect(templates.length).toBeGreaterThanOrEqual(1);
 			expect(templates[0]?.sourcePresetId).toBe('event-school-start');
-			expect((templates[0] as unknown as { childId?: number }).childId).toBe('904');
+			expect((templates[0] as unknown as { childId?: string }).childId).toBe('904');
 		});
 
 		it('901/902/906: marketplace checklist 対象外', () => {
