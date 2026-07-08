@@ -38,6 +38,42 @@ import * as demoStorageRepo from './demo/storage-repo';
 import * as demoTrialHistoryRepo from './demo/trial-history-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
+import { createDsqlAccountLockoutRepo } from './dsql/account-lockout-repo';
+import { createDsqlActivityMasteryRepo } from './dsql/activity-mastery-repo';
+import { createDsqlActivityPrefRepo } from './dsql/activity-pref-repo';
+import { createDsqlActivityRepo } from './dsql/activity-repo';
+import { createDsqlAuthRepo } from './dsql/auth-repo';
+import { createDsqlBattleRepo } from './dsql/battle-repo';
+import { createDsqlCancellationReasonRepo } from './dsql/cancellation-reason-repo';
+import { createDsqlCertificateRepo } from './dsql/certificate-repo';
+import { createDsqlChecklistRepo } from './dsql/checklist-repo';
+import { createDsqlChildActivityRepo } from './dsql/child-activity-repo';
+import { createDsqlChildChallengeRepo } from './dsql/child-challenge-repo';
+import { createDsqlChildRepo } from './dsql/child-repo';
+import { createDsqlCloudExportRepo } from './dsql/cloud-export-repo';
+// connection の import 自体は side-effect free (pool/db/runner は getDsql* 呼び出し時に lazy 確立)。
+// getDsqlDb() / getDsqlTransactionRunner() は dsql 分岐内でのみ呼ぶこと (sqlite/demo 環境で
+// DSQL pool を作らせない)。
+import { getDsqlDb, getDsqlTransactionRunner } from './dsql/connection';
+import { createDsqlDailyMissionRepo } from './dsql/daily-mission-repo';
+import { createDsqlEvaluationRepo } from './dsql/evaluation-repo';
+import { createDsqlGraduationConsentRepo } from './dsql/graduation-consent-repo';
+import { createDsqlImageRepo } from './dsql/image-repo';
+import { createDsqlInquiryRepo } from './dsql/inquiry-repo';
+import { createDsqlLoginBonusRepo } from './dsql/login-bonus-repo';
+import { createDsqlMessageRepo } from './dsql/message-repo';
+import { createDsqlPointRepo } from './dsql/point-repo';
+import { createDsqlPushSubscriptionRepo } from './dsql/push-subscription-repo';
+import { createDsqlReportDailySummaryRepo } from './dsql/report-daily-summary-repo';
+import { createDsqlRewardRedemptionRepo } from './dsql/reward-redemption-repo';
+import { createDsqlSettingsRepo } from './dsql/settings-repo';
+import { createDsqlSiblingCheerRepo } from './dsql/sibling-cheer-repo';
+import { createDsqlSpecialRewardRepo } from './dsql/special-reward-repo';
+import { createDsqlStampCardRepo } from './dsql/stamp-card-repo';
+import { createDsqlStatusRepo } from './dsql/status-repo';
+import { createDsqlTrialHistoryRepo } from './dsql/trial-history-repo';
+import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
+import { createDsqlVoiceRepo } from './dsql/voice-repo';
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
@@ -238,6 +274,52 @@ export function getRepos(): Repositories {
 			trialHistory: demoTrialHistoryRepo,
 			viewerToken: demoViewerTokenRepo,
 			voice: demoVoiceRepo,
+		};
+		_repos = repos;
+		return repos;
+	}
+	if (dataSource === 'dsql') {
+		// EPIC #3424: Aurora DSQL backend。db / runner は connection.ts の lazy singleton から
+		// この分岐内でのみ取得する (module-level 呼び出し禁止: sqlite/demo 環境で pool を作らせない)。
+		const db = getDsqlDb();
+		const runner = getDsqlTransactionRunner();
+		const repos: Repositories = {
+			accountLockout: createDsqlAccountLockoutRepo(db),
+			battle: createDsqlBattleRepo(db),
+			cancellationReason: createDsqlCancellationReasonRepo(db),
+			certificate: createDsqlCertificateRepo(db),
+			auth: createDsqlAuthRepo(db, runner),
+			activity: createDsqlActivityRepo(db, runner),
+			activityMastery: createDsqlActivityMasteryRepo(db, runner),
+			activityPref: createDsqlActivityPrefRepo(db, runner),
+			childActivity: createDsqlChildActivityRepo(db, runner),
+			childChallenge: createDsqlChildChallengeRepo(db),
+			checklist: createDsqlChecklistRepo(db, runner),
+			child: createDsqlChildRepo(db, runner),
+			cloudExport: createDsqlCloudExportRepo(db),
+			dailyMission: createDsqlDailyMissionRepo(db),
+			evaluation: createDsqlEvaluationRepo(db, runner),
+			graduationConsent: createDsqlGraduationConsentRepo(db),
+			image: createDsqlImageRepo(db),
+			inquiry: createDsqlInquiryRepo(db),
+			loginBonus: createDsqlLoginBonusRepo(db),
+			message: createDsqlMessageRepo(db),
+			point: createDsqlPointRepo(db, runner),
+			pushSubscription: createDsqlPushSubscriptionRepo(db),
+			// §7 compute-on-read (report_daily_summaries 表は DSQL に存在しない)
+			reportDailySummary: createDsqlReportDailySummaryRepo(db),
+			siblingCheer: createDsqlSiblingCheerRepo(db),
+			settings: createDsqlSettingsRepo(db),
+			rewardRedemption: createDsqlRewardRedemptionRepo(db),
+			specialReward: createDsqlSpecialRewardRepo(db, runner),
+			stampCard: createDsqlStampCardRepo(db, runner),
+			status: createDsqlStatusRepo(db, runner),
+			// storage の実体は S3 (DB backend 非依存)。DSQL 用実装は作らず dynamodb/ の実装を
+			// 再利用する。#3438 dynamodb 撤去時に storage-repo を dynamodb/ 外へ移設する。
+			storage: dynamoStorageRepo,
+			trialHistory: createDsqlTrialHistoryRepo(db),
+			viewerToken: createDsqlViewerTokenRepo(db),
+			voice: createDsqlVoiceRepo(db, runner),
 		};
 		_repos = repos;
 		return repos;
