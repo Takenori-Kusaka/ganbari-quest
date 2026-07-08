@@ -164,6 +164,7 @@ interface SqlStatement {
 	text: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: template literal の nesting 状態機械 (fitness 専用 parser)
 function extractSqlTemplates(source: string, file: string): SqlStatement[] {
 	const results: SqlStatement[] = [];
 	const re = /\bsql`/g;
@@ -262,11 +263,13 @@ describe('DSQL append-only 表 mutation allowlist (§3.4 B6 3 層防御の repo/
 			{
 				file: 'fixture-repo.ts',
 				line: 1,
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: fixture は SQL template の ${} を文字列として検証する
 				text: 'UPDATE point_ledger SET amount = ${v} WHERE family_id = ${t}',
 			},
 			{
 				file: 'fixture-repo.ts',
 				line: 2,
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: fixture は SQL template の ${} を文字列として検証する
 				text: 'UPDATE consents SET consented = false WHERE family_id = ${t}',
 			},
 		]);

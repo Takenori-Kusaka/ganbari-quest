@@ -156,6 +156,7 @@ interface SqlStatement {
 	text: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: template literal の nesting 状態機械 (fitness 専用 parser)
 function extractSqlTemplates(source: string, file: string): SqlStatement[] {
 	const results: SqlStatement[] = [];
 	const re = /\bsql`/g;
@@ -237,6 +238,7 @@ interface Violation {
 	snippet: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: kind 別判定の列挙 (fitness 中核ロジック)
 function collectViolations(statements: SqlStatement[]): Violation[] {
 	const violations: Violation[] = [];
 	for (const stmt of statements) {
@@ -287,11 +289,13 @@ describe('DSQL tenant 述語 fitness (§3.4 / ADR-0063、RLS 非対応の代替�
 
 	it('[fixture] 述語欠如を検出できる (非トートロジー証明)', () => {
 		const bad = collectViolations([
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: fixture は SQL template の ${} を文字列として検証する
 			{ file: 'fixture-repo.ts', line: 1, text: 'SELECT * FROM children WHERE child_id = ${id}' },
 			{ file: 'fixture-repo.ts', line: 2, text: 'DELETE FROM point_ledger' },
 			{
 				file: 'fixture-repo.ts',
 				line: 3,
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: fixture は SQL template の ${} を文字列として検証する
 				text: 'INSERT INTO children (child_id, nickname) VALUES (${a}, ${b})',
 			},
 		]);
@@ -301,6 +305,7 @@ describe('DSQL tenant 述語 fitness (§3.4 / ADR-0063、RLS 非対応の代替�
 			{
 				file: 'fixture-repo.ts',
 				line: 4,
+				// biome-ignore lint/suspicious/noTemplateCurlyInString: fixture は SQL template の ${} を文字列として検証する
 				text: 'SELECT * FROM children WHERE family_id = ${t} AND child_id = ${id}',
 			},
 		]);
