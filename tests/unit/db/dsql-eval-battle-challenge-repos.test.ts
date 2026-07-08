@@ -1,30 +1,27 @@
 // tests/unit/db/dsql-eval-battle-challenge-repos.test.ts
-// EPIC #3424 / PR-R9 / 設計 SSOT: dsql-data-model.md §5 / §11.2 / §11.3 / §P9
+// EPIC #3424 / PR-R9 → M4-E PR8b / 設計 SSOT: m2-logical-model.md §1.6 / m3-physical-model.md §4.2 / §P9
 //
-// DSQL IBattleRepo 実装のテスト (実 schema, pushSchema 適用、dsql-test-db helper)。
+// DSQL IBattleRepo + IChildChallengeRepo 実装のテスト (実 schema, pushSchema 適用、dsql-test-db helper)。
 //
-// ⚠️ PR-R9 scope note (設計懸念により 保留):
-//   本 spec は **IBattleRepo のみ green** を担保する。IEvaluationRepo / IChildChallengeRepo は
-//   frozen schema の JSON 解体 (evaluation_scores 子表 / child_challenges 列展開) が対象 JSON の
-//   実 shape を表現できず **可逆でない** ことが実装調査で判明したため保留 (最終報告 §設計懸念)。
-//   - evaluations.scoresJson = Record<cat, {count,points,statusIncrease}> (入れ子) だが
-//     evaluation_scores は score real 単値のみ → 3 値 → 1 値の不可逆。
-//   - child_challenges.targetConfig = {metric,categoryId,activityId?,baseTarget,ageAdjustments?,
-//     genMode?,genMissStreak?} だが列は 5 つ (target_metric/target_category_id/base_target/
-//     reward_points/reward_message) のみ → activityId/ageAdjustments/genMode/genMissStreak 消失。
-//     genMissStreak は auto:weekly の連続未達継続に必須 (child-challenge-service:507 が read)。
-//   design doc §9.2.1 (line 272) 自身が「opaque blob(scoresJson/targetConfig...)は pg でも
-//   text 据置」と規定しており §5/§11.3 の解体と矛盾する。schema 決着後に両 repo を実装する。
+// scope note (R9 時点の保留は M4-C schema 確定で解消済):
+//   R9 時点では frozen schema の JSON 解体 (evaluation_scores 子表 / child_challenges 列展開) が
+//   対象 JSON の実 shape を表現できず IEvaluationRepo / IChildChallengeRepo を保留していた。
+//   M4-C (M3 §10 / §4.2 [must]A) で子表・列展開が撤去され text 据置に確定したため、
+//   IEvaluationRepo は M4-D PR6 (dsql-evaluation-repo.test.ts)、IChildChallengeRepo は本 spec の
+//   [C*] suite (M4-E PR8b) で実装・検証する。
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { BattleStats } from '../../../src/lib/domain/battle-types';
 import type { ChildId } from '../../../src/lib/domain/ids';
 import { createDsqlBattleRepo } from '../../../src/lib/server/db/dsql/battle-repo';
+import { createDsqlChildChallengeRepo } from '../../../src/lib/server/db/dsql/child-challenge-repo';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
 import type { IBattleRepo } from '../../../src/lib/server/db/interfaces/battle-repo.interface';
+import type { IChildChallengeRepo } from '../../../src/lib/server/db/interfaces/child-challenge-repo.interface';
 import type { IChildRepo } from '../../../src/lib/server/db/interfaces/child-repo.interface';
+import type { InsertChildChallengeInput } from '../../../src/lib/server/db/types';
 import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000c1';
@@ -165,5 +162,238 @@ describe('DSQL battle-repo (PR-R9、実 schema PGlite)', () => {
 			sql`SELECT count(*) AS c FROM enemy_collection WHERE family_id = ${FAMILY} AND child_id = ${String(childId)}`,
 		);
 		expect(Number((cross.rows[0] as { c: unknown }).c)).toBe(0);
+	});
+});
+
+// ============================================================
+// IChildChallengeRepo (M4-E PR8b) — targetConfig/rewardConfig text 据置 + weekly_auto_guard
+// ============================================================
+
+const TARGET_CONFIG = JSON.stringify({
+	metric: 'category_activities',
+	categoryId: 1,
+	baseTarget: 10,
+	genMode: 'auto',
+	genMissStreak: 2,
+	ageAdjustments: { '6': 0.8 },
+});
+const REWARD_CONFIG = JSON.stringify({ points: 50, message: 'よくがんばりました' });
+
+describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
+	let t: DsqlTestDb;
+	let childRepo: IChildRepo;
+	let repo: IChildChallengeRepo;
+
+	const newChild = async (nickname: string, family = FAMILY): Promise<ChildId> => {
+		const c = await childRepo.insertChild({ nickname, age: 8, birthDate: '2018-01-15' }, family);
+		return c.id;
+	};
+
+	const baseInput = (childId: ChildId, overrides?: Partial<InsertChildChallengeInput>) =>
+		({
+			childId,
+			title: '週間チャレンジ',
+			description: 'テスト用',
+			startDate: '2026-07-06',
+			endDate: '2026-07-12',
+			targetConfig: TARGET_CONFIG,
+			rewardConfig: REWARD_CONFIG,
+			targetValue: 10,
+			...overrides,
+		}) satisfies InsertChildChallengeInput;
+
+	beforeAll(async () => {
+		t = await createDsqlTestDb();
+		const runner = createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 });
+		childRepo = createDsqlChildRepo(t.db, runner);
+		repo = createDsqlChildChallengeRepo(t.db);
+	}, 60_000);
+	afterAll(async () => {
+		await t.close();
+	});
+
+	it('[C1] insert → findByChildId: shape + defaults + config JSON verbatim round-trip', async () => {
+		const childId = await newChild('挑戦一郎');
+		const created = await repo.insert(baseInput(childId), FAMILY);
+		expect(created.id).toMatch(/^[0-9a-f-]{36}$/); // uuid 採番
+		expect(created.childId).toBe(childId);
+		expect(created.status).toBe('active');
+		expect(created.isActive).toBe(1);
+		expect(created.challengeType).toBe('cooperative');
+		expect(created.periodType).toBe('weekly');
+		expect(created.currentValue).toBe(0);
+		expect(created.completed).toBe(0);
+		expect(created.rewardClaimed).toBe(0);
+		expect(created.completedAt).toBeNull();
+
+		const rows = await repo.findByChildId(childId, FAMILY);
+		expect(rows).toHaveLength(1);
+		// M3 §4.2 [must]A: genMode/genMissStreak/ageAdjustments を含む実 shape が silent drop されない
+		expect(JSON.parse(rows[0]?.targetConfig ?? '{}')).toEqual(JSON.parse(TARGET_CONFIG));
+		expect(JSON.parse(rows[0]?.rewardConfig ?? '{}')).toEqual(JSON.parse(REWARD_CONFIG));
+	});
+
+	it('[C2] §P9 tenant 分離: 他 family からは find/findById とも不可視', async () => {
+		const childId = await newChild('分離次郎');
+		const created = await repo.insert(baseInput(childId), FAMILY);
+		expect(await repo.findByChildId(childId, OTHER_FAMILY)).toHaveLength(0);
+		expect(await repo.findById(created.id, OTHER_FAMILY)).toBeUndefined();
+		expect(await repo.findById(created.id, FAMILY)).toBeDefined();
+	});
+
+	it('[C3] findActiveByChildId: 期間内 active のみ (期間外・inactive を除外)', async () => {
+		const childId = await newChild('期間三郎');
+		await repo.insert(baseInput(childId, { title: '期間内' }), FAMILY);
+		await repo.insert(
+			baseInput(childId, { title: '期間外', startDate: '2026-06-01', endDate: '2026-06-07' }),
+			FAMILY,
+		);
+		const inactive = await repo.insert(baseInput(childId, { title: '停止中' }), FAMILY);
+		await repo.update(inactive.id, { isActive: 0 }, FAMILY);
+
+		const active = await repo.findActiveByChildId(childId, '2026-07-08', FAMILY);
+		expect(active.map((c) => c.title)).toEqual(['期間内']);
+	});
+
+	it('[C4] findActiveOrUnclaimedByChildId (#2488): completed+未請求を含み、claim 後は消える', async () => {
+		const childId = await newChild('請求四郎');
+		const c = await repo.insert(baseInput(childId), FAMILY);
+		await repo.markCompleted(c.id, FAMILY);
+
+		// completed だが未請求 → 含まれる (claim ボタン render 契約)
+		const before = await repo.findActiveOrUnclaimedByChildId(childId, '2026-07-08', FAMILY);
+		expect(before.map((r) => r.id)).toContain(c.id);
+		expect(before[0]?.status).toBe('completed');
+		expect(before[0]?.completed).toBe(1);
+		expect(before[0]?.completedAt).not.toBeNull();
+
+		// claim 後 → 消える
+		expect(await repo.claimReward(c.id, FAMILY)).toBe(1);
+		const after = await repo.findActiveOrUnclaimedByChildId(childId, '2026-07-08', FAMILY);
+		expect(after.map((r) => r.id)).not.toContain(c.id);
+	});
+
+	it('[C5] getOrCreateWeeklyAuto (#3245): 同一 (child, week) は 1 行に収束 (weekly_auto_guard)', async () => {
+		const childId = await newChild('自動五郎');
+		const input = baseInput(childId, { sourceTemplateId: 'auto:weekly' });
+		const first = await repo.getOrCreateWeeklyAuto(input, FAMILY);
+		const second = await repo.getOrCreateWeeklyAuto(input, FAMILY);
+		expect(second.id).toBe(first.id); // 勝者 1 行に収束
+		expect(await repo.findByChildId(childId, FAMILY)).toHaveLength(1);
+
+		// 別週は別行 (guard キーが異なる)
+		const nextWeek = await repo.getOrCreateWeeklyAuto(
+			baseInput(childId, {
+				sourceTemplateId: 'auto:weekly',
+				startDate: '2026-07-13',
+				endDate: '2026-07-19',
+			}),
+			FAMILY,
+		);
+		expect(nextWeek.id).not.toBe(first.id);
+
+		// 非 auto 行 (guard NULL) は同 week に複数共存できる (UNIQUE は NULL 複数許容)
+		await repo.insert(baseInput(childId, { title: '手動1' }), FAMILY);
+		await repo.insert(baseInput(childId, { title: '手動2' }), FAMILY);
+		expect(await repo.findByChildId(childId, FAMILY)).toHaveLength(4);
+	});
+
+	it('[C6] claimReward (#3333): 未 completed は 0 / completed 後 1 / 二重 claim は 0 (TOCTOU 防止)', async () => {
+		const childId = await newChild('原子六郎');
+		const c = await repo.insert(baseInput(childId), FAMILY);
+		expect(await repo.claimReward(c.id, FAMILY)).toBe(0); // 未完了は flip しない
+		await repo.markCompleted(c.id, FAMILY);
+		expect(await repo.claimReward(c.id, FAMILY)).toBe(1); // 1 回目のみ成功
+		expect(await repo.claimReward(c.id, FAMILY)).toBe(0); // 二重 claim は 0 行
+		const row = await repo.findById(c.id, FAMILY);
+		expect(row?.rewardClaimed).toBe(1);
+		expect(row?.rewardClaimedAt).not.toBeNull();
+	});
+
+	it('[C7] updateProgress / update (partial) / deleteChallenge', async () => {
+		const childId = await newChild('更新七郎');
+		const c = await repo.insert(baseInput(childId), FAMILY);
+
+		await repo.updateProgress(c.id, 7, FAMILY);
+		expect((await repo.findById(c.id, FAMILY))?.currentValue).toBe(7);
+
+		// status は CHILD_CHALLENGE_STATUSES (active/completed/expired) の CHECK 制約下
+		await repo.update(c.id, { title: '改題', status: 'expired' }, FAMILY);
+		const updated = await repo.findById(c.id, FAMILY);
+		expect(updated?.title).toBe('改題');
+		expect(updated?.status).toBe('expired');
+		expect(updated?.endDate).toBe('2026-07-12'); // 未指定フィールドは不変
+
+		await repo.deleteChallenge(c.id, FAMILY);
+		expect(await repo.findById(c.id, FAMILY)).toBeUndefined();
+	});
+
+	it('[C8] copyAcrossChildren: メタ複製 + 進捗リセット (INSERT...SELECT 単文)', async () => {
+		const source = await newChild('複製元八郎');
+		const target = await newChild('複製先九郎');
+		const c = await repo.insert(baseInput(source, { sourceTemplateId: 'preset:summer' }), FAMILY);
+		await repo.updateProgress(c.id, 9, FAMILY);
+		await repo.markCompleted(c.id, FAMILY);
+
+		const copied = await repo.copyAcrossChildren(source, target, FAMILY);
+		expect(copied).toHaveLength(1);
+		expect(copied[0]?.childId).toBe(target);
+		expect(copied[0]?.title).toBe('週間チャレンジ');
+		expect(copied[0]?.sourceTemplateId).toBe('preset:summer');
+		expect(JSON.parse(copied[0]?.targetConfig ?? '{}')).toEqual(JSON.parse(TARGET_CONFIG));
+		// 進捗はリセット (source の 9/completed を引き継がない)
+		expect(copied[0]?.currentValue).toBe(0);
+		expect(copied[0]?.completed).toBe(0);
+		expect(copied[0]?.status).toBe('active');
+	});
+
+	it('[C9] insertForRestore (#3329): 進捗・完了・請求・日時を保全して round-trip', async () => {
+		const childId = await newChild('復元十郎');
+		const restored = await repo.insertForRestore(
+			{
+				childId,
+				title: '復元チャレンジ',
+				description: null,
+				challengeType: 'cooperative',
+				periodType: 'weekly',
+				startDate: '2026-06-01',
+				endDate: '2026-06-07',
+				targetConfig: TARGET_CONFIG,
+				rewardConfig: REWARD_CONFIG,
+				status: 'completed',
+				isActive: 0,
+				sourceTemplateId: 'preset:spring',
+				currentValue: 10,
+				targetValue: 10,
+				completed: 1,
+				completedAt: '2026-06-07T10:00:00.000Z',
+				rewardClaimed: 1,
+				rewardClaimedAt: '2026-06-07T11:00:00.000Z',
+				createdAt: '2026-06-01T00:00:00.000Z',
+				updatedAt: '2026-06-07T11:00:00.000Z',
+			},
+			FAMILY,
+		);
+		expect(restored.status).toBe('completed');
+		expect(restored.isActive).toBe(0);
+		expect(restored.currentValue).toBe(10);
+		expect(restored.completed).toBe(1);
+		expect(restored.rewardClaimed).toBe(1);
+		expect(restored.completedAt).not.toBeNull();
+		expect(restored.rewardClaimedAt).not.toBeNull();
+	});
+
+	it('[C10] insertBulk + findAllByTenant + deleteByTenantId', async () => {
+		const a = await newChild('一括 A');
+		const b = await newChild('一括 B');
+		const rows = await repo.insertBulk([baseInput(a), baseInput(b)], FAMILY);
+		expect(rows).toHaveLength(2);
+		expect(rows.map((r) => r.childId).sort()).toEqual([a, b].sort());
+
+		const all = await repo.findAllByTenant(FAMILY);
+		expect(all.length).toBeGreaterThanOrEqual(2);
+
+		await repo.deleteByTenantId(FAMILY);
+		expect(await repo.findAllByTenant(FAMILY)).toHaveLength(0);
 	});
 });

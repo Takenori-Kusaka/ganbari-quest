@@ -891,6 +891,18 @@ export const childChallenges = pgTable(
 		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
+		// #3245 atomic get-or-create (auto:weekly): DSQL は部分 unique index 非対応 (spike 実機確証)
+		// のため、owner_guard パターン (memberships.owner_guard / users.email_lower と同型) の
+		// STORED 生成列 + droppable UNIQUE で「auto:weekly 行のみ (child, start_date) 一意」を
+		// 条件付き一意化する。非 auto 行は NULL (UNIQUE は複数 NULL 許容、spike#6 F8)。
+		// 'auto:weekly' リテラルは AUTO_WEEKLY_SOURCE_TEMPLATE_ID (types/index.ts SSOT) と同値
+		// (生成列式は SQL リテラル必須のため直書き、変更時は両方同時更新)。
+		weeklyAutoGuard: text('weekly_auto_guard')
+			.generatedAlwaysAs(
+				(): ReturnType<typeof sql> =>
+					sql`CASE WHEN source_template_id = 'auto:weekly' THEN (child_id::text || ':' || start_date) ELSE NULL END`,
+			)
+			.unique(),
 	},
 	(t) => [
 		primaryKey({ columns: [t.familyId, t.childId, t.challengeId] }),
