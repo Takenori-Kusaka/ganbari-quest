@@ -9,7 +9,11 @@
 			"addWords": true
 		}
 	],
-	"dictionaries": ["project-words", "softwareTerms", "fonts"],
+	"dictionaries": [
+		"project-words",
+		"softwareTerms",
+		"fonts"
+	],
 	"ignorePaths": [
 		"node_modules",
 		".svelte-kit",
@@ -60,15 +64,37 @@
 	"overrides": [
 		{
 			"filename": "**/*.css",
-			"ignoreRegExpList": ["/[a-zA-Z0-9-]+:\\s*[^;]+;/g"]
+			"ignoreRegExpList": [
+				"/[a-zA-Z0-9-]+:\\s*[^;]+;/g"
+			]
 		},
 		{
 			"filename": "**/package.json",
-			"ignoreRegExpList": ["/\"@?[a-zA-Z0-9/_.-]+\"\\s*:/g"]
+			"ignoreRegExpList": [
+				"/\"@?[a-zA-Z0-9/_.-]+\"\\s*:/g"
+			]
 		},
 		{
 			"filename": "infra/**/*.ts",
-			"ignoreRegExpList": ["/[a-z0-9]{20,}/g", "/\\._domainkey/g"]
+			"ignoreRegExpList": [
+				"/[a-z0-9]{20,}/g",
+				"/\\._domainkey/g"
+			]
 		}
+	],
+	"words": [
+		"BCNF",
+		"BIGSERIAL",
+		"bigserial",
+		"chunker",
+		"Idents",
+		"ILIKE",
+		"multitenant",
+		"NONNEG",
+		"schemaname",
+		"SMALLSERIAL",
+		"STAYPUT",
+		"tablename",
+		"testcluster"
 	]
 }
