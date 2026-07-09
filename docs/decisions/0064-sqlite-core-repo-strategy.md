@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | proposed |
+| ステータス | accepted (2026-07-09 PO 承認: NUC 基盤 PGlite 化をロールバック可能前提で許可) |
 | 日付 | 2026-07-09 |
 | 起票者 | Dev (Claude) |
 | 関連 Issue | EPIC #3620 (AC1) / 親 #3424 / #3531 (PGlite 採用) |
@@ -36,9 +36,11 @@ DSQL 移行 M4 (#3614) は **クラウド = Postgres(DSQL) 側のみ**を実装�
 
 ## 決定
 
-**案 C (PGlite for NUC) を一次推奨とし、PGlite 本番運用の PO 承認を gate とする。承認されない場合は案 A を fallback とする。案 B は却下。**
+**案 C (PGlite for NUC) を採択する (2026-07-09 PO 承認)。案 B は却下、案 A は fallback として温存。**
 
-決定的根拠: (1) 案 C は pg repos を verbatim 再利用し、**恒久 dialect-parity 税を唯一ゼロにする**唯一の案。(2) その再利用可能性は「33 repos が PGlite で test green」という実測で既に裏付け済 (推測でない)。(3) NUC の単一世帯・単一 writer 実行 envelope は PGlite single-connection 制約と一致 (better-sqlite3 と同じ単一 writer モデル)。(4) 案 B は shipping 済 pg repo の全面書き直し回帰 + hard 20% の split 残存で最悪、当初の EPIC lean (B hybrid 軸) は本 research で反転した。
+PO 判断 (2026-07-09): 「PGlite にしたいのは SQLite がクエリ複雑度に耐えられないからか?」への回答は **No — SQLite は複雑クエリ対応可 (部分 index 等 DSQL に無い機能すら持つ)。案 C の理由は複雑度でなく、pg repos の verbatim 再利用による二重実装税ゼロ化とクラウド挙動 parity**。「どちらにせよ (旧→新 schema の) マイグレーションは不可避」を確認のうえ、**ロールバック可能を前提に PGlite 化を許可**。
+
+決定的根拠: (1) 案 C は pg repos を verbatim 再利用し、**恒久 dialect-parity 税を唯一ゼロにする**。(2) 再利用可能性は「33 repos が PGlite で test green」の実測で裏付け済。(3) NUC の単一世帯・単一 writer envelope は PGlite single-connection 制約と一致。(4) 案 B は shipping 済 pg repo の全面書き直し回帰 + hard 20% split 残存で最悪。
 
 ## 結果 (トレードオフ)
 
@@ -46,7 +48,15 @@ DSQL 移行 M4 (#3614) は **クラウド = Postgres(DSQL) 側のみ**を実装�
 - **案 A fallback 時**: NUC 基盤不変で安全だが repo 33×2 の恒久税 + parity fitness を CI に常設
 - dialect-parity fitness (AC2) は **案 C なら不要** (schema 1 本)、案 A なら必須 — 方式決定が後続 AC の工数を大きく分岐させる
 
-## ユーザー承認を要する判断点 (PO エスカレーション)
+## ロールバック保証 (PO 承認の前提条件、§12.2 整合)
 
-- **NUC 本番実行基盤の変更 (案 C)**: SQLite(better-sqlite3) → PGlite への切替は「NUC = 越境ゼロ・データ家庭内」訴求 (ADR-0013) の実行基盤を変える判断。PGlite 公式が本番長期運用を第一用途としない点 (durability/backup が dev-tool positioning) が「モダン実装と乖離する技術制約」に該当しうる → **PO 判断必須**
-- gate 項目: (a) Node FS VFS の crash-safe durability + backup 手順の検証、(b) 単一世帯負荷での常駐メモリ/性能 (vs better-sqlite3)、(c) PGlite 本番採用の OSS 実績。gate 不合格なら案 A に確定
+案 C 採択の前提 = **ロールバック可能**。cutover は非破壊 import-then-swap で担保する:
+1. 旧 NUC DB (better-sqlite3) は **読み取りのみ**でエクスポート (非破壊)、新 PGlite DB は別途構築
+2. **検証 OK まで旧 DB のまま稼働**、round-trip completeness `errors > 0` で swap 中止 → 旧 DB に戻す
+3. 切替後も**旧 DB を物理保持**。PGlite 実行基盤に問題が出れば env/runtime を旧 sqlite に戻すだけで復帰
+4. 残注意: 切替後の新 DB 書込は旧 DB 復帰で検証窓分を失う (単一世帯 NUC の短い検証窓で許容)
+
+## 実装時の検証 gate (AC 消化中に確認、不合格なら案 A へ)
+
+案 C の残懸念は実装 sub で検証する (不合格時は案 A fallback が生きている):
+- (a) PGlite の Node FS VFS crash-safe durability + backup 手順、(b) 単一世帯負荷の常駐メモリ/性能 (vs better-sqlite3)、(c) `PGTZ=UTC` 固定 (DSQL は UTC 固定 P10、PGlite はローカル TZ 継承)。実際の NUC 本番 cutover はバックアップ取得を作業直前に行う最終ゲート付き

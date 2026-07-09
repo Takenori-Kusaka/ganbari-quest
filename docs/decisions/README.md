@@ -186,6 +186,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0061 | [band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function / accepted-residual gate)](0061-band-aid-breaking-shift-left-mechanization.md) | accepted | 2026-06-20 |
 | 0062 | [統一エラー通知設計 (種別×手段マッピング + 内部例外非露出 + role/aria SSOT)](0062-unified-error-notification.md) | accepted | 2026-06-22 |
 | 0063 | [DSQL pool マルチテナント分離 (信頼 claim/context + アプリ層単一強制点 + fitness function、RLS 非対応の代替防御線)](0063-dsql-pool-multitenant-isolation.md) | accepted | 2026-06-29 |
+| 0064 | [NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback](0064-sqlite-core-repo-strategy.md) | accepted | 2026-07-09 |
 
 > 注 (2026-06-04 #2440 PR-A5): 番号は欠番を許容する（削除済 ADR の番号は再利用しない、git 履歴で追跡可能）。新規 ADR は最大番号 +1 で採番する。renumber 規約は §renumber 規約 を参照。
 >
