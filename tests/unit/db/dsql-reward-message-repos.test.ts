@@ -377,19 +377,23 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 	});
 
 	it('[RR7] expireOldRedemptions (30 日超 pending → expired) / hasPendingByReward', async () => {
-		const childId = await newChild('期限七郎');
-		const reward = await seedReward(childId, '期限報酬', 10);
+		// expireOldRedemptions は tenant 全体を走査するため、[RR3] と同様に専用 family へ隔離する。
+		// 共有 FAMILY だと他 case が残す pending (例 [RR2] の固定 epoch) が cutoff を跨いだ日に
+		// 混入し expired 件数が非決定になる (time-bomb)。tenant 隔離で件数を決定的にする。
+		const family = '00000000-0000-4000-8000-0000000000d7';
+		const childId = await newChild('期限七郎', family);
+		const reward = await seedReward(childId, '期限報酬', 10, family);
 		const old = Math.floor(Date.now() / 1000) - 40 * 24 * 60 * 60; // 40 日前
 		await redemptionRepo.insertRedemptionRequest(
 			{ childId, rewardId: reward.id, requestedAt: old },
-			FAMILY,
+			family,
 		);
-		expect(await redemptionRepo.hasPendingByReward(reward.id, FAMILY)).toBe(true);
+		expect(await redemptionRepo.hasPendingByReward(reward.id, family)).toBe(true);
 
-		const expired = await redemptionRepo.expireOldRedemptions(FAMILY);
+		const expired = await redemptionRepo.expireOldRedemptions(family);
 		expect(expired).toBe(1);
-		expect(await redemptionRepo.hasPendingByReward(reward.id, FAMILY)).toBe(false);
-		const rows = await redemptionRepo.findRedemptionRequestsByChild(childId, FAMILY);
+		expect(await redemptionRepo.hasPendingByReward(reward.id, family)).toBe(false);
+		const rows = await redemptionRepo.findRedemptionRequestsByChild(childId, family);
 		expect(rows[0]?.status).toBe('expired');
 	});
 
