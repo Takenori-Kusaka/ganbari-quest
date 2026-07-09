@@ -52,6 +52,7 @@ interface TemplateRow {
 	is_active: boolean;
 	is_archived: boolean;
 	archived_reason: string | null;
+	source_preset_id: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -99,7 +100,7 @@ interface OverrideRow {
 
 const TEMPLATE_COLUMNS = sql.raw(
 	`family_id, template_id, name, icon, points_per_item, completion_bonus, time_slot,
-	 is_active, is_archived, archived_reason, created_at, updated_at`,
+	 is_active, is_archived, archived_reason, source_preset_id, created_at, updated_at`,
 );
 const ASSIGNMENT_COLUMNS = sql.raw('family_id, template_id, child_id, created_at');
 const ITEM_COLUMNS = sql.raw(
@@ -113,8 +114,8 @@ const OVERRIDE_COLUMNS = sql.raw(
 );
 
 /** row → ChecklistTemplate entity (boolean → 0/1、sqlite 互換 shape)。
- * sourcePresetId: DSQL checklist_templates は source_preset_id 列を持たない (§10 marketplace
- * 帰属記録は将来課題) ため常に null を返す (entity 側は optional)。 */
+ * sourcePresetId: marketplace 取込 checklist の帰属記録 (#3601 Gap B、兄弟 type child_activities/
+ * special_rewards と同様 source_preset_id 列に永続。非取込は null)。 */
 function toTemplate(row: TemplateRow): ChecklistTemplate {
 	return {
 		id: row.template_id,
@@ -129,7 +130,7 @@ function toTemplate(row: TemplateRow): ChecklistTemplate {
 		archivedReason: row.archived_reason,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
-		sourcePresetId: null,
+		sourcePresetId: row.source_preset_id,
 	};
 }
 
@@ -243,10 +244,12 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 			// 未指定は schema default に合わせた値を明示 (child-activity buildInsertSql と同方針)。
 			const result = await db.execute(sql`
 				INSERT INTO checklist_templates
-					(family_id, name, icon, points_per_item, completion_bonus, time_slot, is_active, is_archived)
+					(family_id, name, icon, points_per_item, completion_bonus, time_slot, is_active,
+					 is_archived, source_preset_id)
 				VALUES (${tenantId}, ${input.name}, ${input.icon ?? '📋'}, ${input.pointsPerItem ?? 2},
 					${input.completionBonus ?? 5}, ${input.timeSlot ?? 'anytime'},
-					${(input.isActive ?? 1) !== 0}, ${(input.isArchived ?? 0) !== 0})
+					${(input.isActive ?? 1) !== 0}, ${(input.isArchived ?? 0) !== 0},
+					${input.sourcePresetId ?? null})
 				RETURNING ${TEMPLATE_COLUMNS}
 			`);
 			return toTemplate(result.rows[0] as unknown as TemplateRow);

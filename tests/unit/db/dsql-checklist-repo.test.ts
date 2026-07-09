@@ -102,6 +102,7 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(created.isActive).toBe(1); // 0/1 契約
 		expect(created.isArchived).toBe(0);
 		expect(created.archivedReason).toBe(null);
+		expect(created.sourcePresetId).toBe(null); // 非取込は null (#3601 Gap B)
 		expect(typeof created.createdAt).toBe('string');
 
 		const found = await repo.findTemplateById(created.id, FAMILY);
@@ -109,6 +110,17 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(found?.name).toBe('あさのしたく');
 		// §P9: 他 family からは不可視
 		expect(await repo.findTemplateById(created.id, OTHER_FAMILY)).toBe(undefined);
+	});
+
+	it('[T1b] insertTemplate: sourcePresetId 永続 (#3601 Gap B、marketplace 取込帰属)', async () => {
+		const created = await repo.insertTemplate(
+			{ name: 'イベント持ち物', sourcePresetId: 'event-pool' },
+			FAMILY,
+		);
+		expect(created.sourcePresetId).toBe('event-pool');
+		// read 経路でも保全 (toTemplate が source_preset_id を verbatim 返す)
+		const found = await repo.findTemplateById(created.id, FAMILY);
+		expect(found?.sourcePresetId).toBe('event-pool');
 	});
 
 	it('[T2] findTemplatesByTenant: includeInactive filter + archived 除外 + §P9', async () => {
