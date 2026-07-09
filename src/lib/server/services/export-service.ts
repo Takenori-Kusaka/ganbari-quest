@@ -1,8 +1,15 @@
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
+
 // src/lib/server/services/export-service.ts
 // 家族データエクスポートサービス（Phase 1: エクスポートのみ）
 
+import {
+	CATEGORIES,
+	CATEGORY_CODES,
+	type CategoryCode,
+	toCategoryCode,
+} from '$lib/domain/categories';
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
@@ -37,7 +44,6 @@ import {
 	type ExportTitle,
 	type ExportTransactionData,
 } from '$lib/domain/export-format';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
 import {
 	findLogsByChild,
@@ -57,28 +63,30 @@ import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-rep
 import { logger } from '$lib/server/logger';
 import { tenantPrefix } from '$lib/server/storage-keys';
 
-// カテゴリID → コード マッピング（5件固定）
-const CATEGORY_ID_TO_CODE: Record<string, string> = {
-	1: CATEGORY_CODES[0], // undou
-	2: CATEGORY_CODES[1], // benkyou
-	3: CATEGORY_CODES[2], // seikatsu
-	4: CATEGORY_CODES[3], // kouryuu
-	5: CATEGORY_CODES[4], // souzou
+// エクスポートファイルに埋める hex color は表示層の関心事 (歴史的にカテゴリ SSOT の master
+// palette と別値で出力されてきた) のため、SSOT ($lib/domain/categories.ts) に統合せず
+// 本 service ローカルに留めて挙動不変を維持する (#3607)。
+const EXPORT_CATEGORY_COLORS: Record<CategoryCode, string> = {
+	undou: '#FF6B6B',
+	benkyou: '#4ECDC4',
+	seikatsu: '#45B7D1',
+	kouryuu: '#96CEB4',
+	souzou: '#DDA0DD',
 };
 
-// カテゴリID → 情報マッピング
-const CATEGORY_INFO: ExportCategory[] = [
-	{ id: asCategoryId(1), code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B' },
-	{ id: asCategoryId(2), code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4' },
-	{ id: asCategoryId(3), code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#45B7D1' },
-	{ id: asCategoryId(4), code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#96CEB4' },
-	{ id: asCategoryId(5), code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD' },
-];
+// カテゴリID → 情報マッピング (#3607: id/code/name/icon は SSOT 派生)
+const CATEGORY_INFO: ExportCategory[] = CATEGORY_CODES.map((code) => ({
+	id: asCategoryId(CATEGORIES[code].legacyNumericId),
+	code,
+	name: CATEGORIES[code].name,
+	icon: CATEGORIES[code].icon,
+	color: EXPORT_CATEGORY_COLORS[code],
+}));
 
 const MAX_EXPORT_ROWS = 999999;
 
 function getCategoryCode(categoryId: CategoryId): string {
-	return CATEGORY_ID_TO_CODE[categoryId] ?? 'unknown';
+	return toCategoryCode(categoryId) ?? 'unknown';
 }
 
 /**

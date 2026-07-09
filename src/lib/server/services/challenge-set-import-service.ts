@@ -19,6 +19,7 @@ import type { ChildId } from '$lib/domain/ids';
 //   - $lib/marketplace/strategies/challenge-set-strategy (本 service を内部 callee として参照)
 //   - EPIC #2294 案 B-γ (日本ローカライズ wedge): 日本年間行事パック配信経路
 
+import { toCategoryCode } from '$lib/domain/categories';
 import { toJSTDateString } from '$lib/domain/date-utils';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
 import { findAllChildren } from '$lib/server/db/child-repo';
@@ -105,15 +106,6 @@ export interface ChallengeSetImportResult {
 	failed: number;
 }
 
-/** カテゴリ ID → コード (preview 集計表示用) */
-const CATEGORY_ID_TO_CODE: Record<string, string> = {
-	1: 'undou',
-	2: 'benkyou',
-	3: 'seikatsu',
-	4: 'kouryuu',
-	5: 'souzou',
-};
-
 /**
  * インポート対象の challenge-set をプレビュー (DB write 禁止)
  *
@@ -133,7 +125,15 @@ export async function previewChallengeSetImport(
 	let newCount = 0;
 
 	for (const ch of challenges) {
-		const catCode = CATEGORY_ID_TO_CODE[ch.categoryId] ?? `category_${ch.categoryId}`;
+		// #3607 AC3: 旧 `category_${id}` silent fallback を撤去し明示エラー化。
+		// ChallengeSetItemSchema (picklist = SSOT 派生) 検証済み payload では到達しない防御線であり、
+		// 未検証 caller が未知 id を流した場合に修正漏れを silent 化せず即座に露出させる。
+		const catCode = toCategoryCode(ch.categoryId);
+		if (!catCode) {
+			throw new Error(
+				`未知の categoryId です: ${ch.categoryId} (カテゴリ SSOT: $lib/domain/categories.ts)`,
+			);
+		}
 		byCategory[catCode] = (byCategory[catCode] ?? 0) + 1;
 
 		if (existingTitles.has(ch.title)) {

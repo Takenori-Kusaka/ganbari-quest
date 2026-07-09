@@ -4,8 +4,8 @@
  * 子供の日々の活動がRPGステータスに反映され、毎日の敵とバトルする機能。
  * カテゴリ別XPをRPGステータスに変換し、ターン制自動バトルで勝敗を決する。
  */
+import type { CategoryCode } from '$lib/domain/categories';
 import type { ChildId } from '$lib/domain/ids';
-import type { CategoryCode } from '$lib/domain/validation/activity';
 
 // ============================================================
 // RPG ステータス

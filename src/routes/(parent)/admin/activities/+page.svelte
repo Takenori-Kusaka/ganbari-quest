@@ -1,6 +1,7 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
 import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
@@ -138,7 +139,7 @@ const childOptions = $derived<ChildOption[]>(
 
 // AI プレフィル
 let prefillName = $state('');
-let prefillCategoryId = $state<CategoryId>(asCategoryId(1));
+let prefillCategoryId = $state<CategoryId>(asCategoryId(CATEGORY_CODE_TO_ID.undou));
 let prefillMainIcon = $state('🤸');
 let prefillSubIcon = $state('');
 let prefillPoints = $state(5);

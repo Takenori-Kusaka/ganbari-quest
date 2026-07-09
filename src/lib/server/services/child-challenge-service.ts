@@ -12,6 +12,12 @@ import { asCategoryId } from '$lib/domain/ids';
 //   - Anti-engagement (ADR-0012): 全員完了で簡素な祝福のみ (admin 画面で表示)、
 //     子供画面で兄弟比較を煽らない
 
+import {
+	CATEGORIES,
+	CATEGORY_CODE_TO_ID,
+	CATEGORY_CODES,
+	CATEGORY_NUMERIC_IDS,
+} from '$lib/domain/categories';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { insertPointLedger } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
@@ -32,17 +38,13 @@ import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-l
 // 設計: docs/design/44-チャレンジ設計書.md §3.4 / docs/rationale/12-auto-challenge-generation-rationale.md
 // ============================================================
 
-/** Category IDs from the categories master table */
-const ALL_CATEGORY_IDS: readonly CategoryId[] = [1, 2, 3, 4, 5].map(asCategoryId);
+/** Category IDs from the categories master table (#3607: SSOT 派生) */
+const ALL_CATEGORY_IDS: readonly CategoryId[] = CATEGORY_NUMERIC_IDS.map(asCategoryId);
 
-/** Category names for display (生成 challenge の view 整形でも再利用) */
-export const CATEGORY_NAMES: Record<string, string> = {
-	1: 'うんどう',
-	2: 'べんきょう',
-	3: 'せいかつ',
-	4: 'こうりゅう',
-	5: 'そうぞう',
-};
+/** Category names for display (生成 challenge の view 整形でも再利用、#3607: SSOT 派生) */
+export const CATEGORY_NAMES: Record<string, string> = Object.fromEntries(
+	CATEGORY_CODES.map((code) => [String(CATEGORIES[code].legacyNumericId), CATEGORIES[code].name]),
+);
 
 /** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 (#3194) */
 export type ChallengeProposalMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
@@ -163,7 +165,7 @@ export async function aggregateCategoryCounts(
 
 /** 最多記録カテゴリ (得意) を返す。同数は最小 id を優先 (決定的)。 */
 function strongestCategory(counts: Record<string, number>): CategoryId {
-	let best = ALL_CATEGORY_IDS[0] ?? asCategoryId(1);
+	let best = ALL_CATEGORY_IDS[0] ?? asCategoryId(CATEGORY_CODE_TO_ID.undou);
 	let max = -1;
 	for (const catId of ALL_CATEGORY_IDS) {
 		const n = counts[catId] ?? 0;
@@ -220,7 +222,7 @@ function weightedWeakPick(
 		r -= x.w;
 		if (r <= 0) return x.c;
 	}
-	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? asCategoryId(1);
+	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? asCategoryId(CATEGORY_CODE_TO_ID.undou);
 }
 
 function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
@@ -247,7 +249,9 @@ function selectCategory(
 	const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 	if (totalRecords < MIN_RECORDS_FOR_ANALYSIS) {
 		return {
-			categoryId: ALL_CATEGORY_IDS[Math.floor(rand() * ALL_CATEGORY_IDS.length)] ?? asCategoryId(1),
+			categoryId:
+				ALL_CATEGORY_IDS[Math.floor(rand() * ALL_CATEGORY_IDS.length)] ??
+				asCategoryId(CATEGORY_CODE_TO_ID.undou),
 			mode: 'explore',
 		};
 	}
@@ -495,7 +499,7 @@ function weekEndOf(weekStart: string): string {
 
 /** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev 形) に写像する。 */
 function toProposalPrev(row: ChildChallenge): ChallengePrev {
-	let categoryId = asCategoryId(1);
+	let categoryId = asCategoryId(CATEGORY_CODE_TO_ID.undou);
 	let genMissStreak = 0;
 	try {
 		// 旧行の targetConfig は number categoryId (legacy)。asCategoryId で正規化する。
@@ -503,7 +507,10 @@ function toProposalPrev(row: ChildChallenge): ChallengePrev {
 			categoryId?: number | string;
 			genMissStreak?: number;
 		};
-		categoryId = cfg.categoryId != null ? asCategoryId(cfg.categoryId) : asCategoryId(1);
+		categoryId =
+			cfg.categoryId != null
+				? asCategoryId(cfg.categoryId)
+				: asCategoryId(CATEGORY_CODE_TO_ID.undou);
 		genMissStreak = cfg.genMissStreak ?? 0;
 	} catch {
 		// 破損 JSON は既定値で続行

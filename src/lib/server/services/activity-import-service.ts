@@ -23,16 +23,17 @@ import { asCategoryId } from '$lib/domain/ids';
 //   生んだ activity 数」、skipped は「全 target child で既存だった activity 数」。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
+import { toLegacyCategoryId } from '$lib/domain/categories';
 import { findActivities } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 
-const CATEGORY_CODE_TO_ID: Record<string, CategoryId> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = asCategoryId(i + 1);
+/** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
+function categoryIdFromCode(code: string): CategoryId | undefined {
+	const legacyId = toLegacyCategoryId(code);
+	return legacyId === undefined ? undefined : asCategoryId(legacyId);
 }
 
 export interface ActivityImportPreview {
@@ -148,7 +149,7 @@ function resolveActivityMeta(
 	categoryId?: CategoryId;
 	priority?: 'must' | 'optional';
 } {
-	const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
+	const categoryId = categoryIdFromCode(a.categoryCode);
 	if (!categoryId) {
 		return {
 			ok: false,

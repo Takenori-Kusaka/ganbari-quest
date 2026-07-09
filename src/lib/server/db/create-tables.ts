@@ -2,6 +2,17 @@
 // Shared CREATE TABLE SQL — used by both Lambda cold-start init and tests.
 // This is the single source of truth for table structure.
 
+// #3607: categories master seed はカテゴリ SSOT から派生生成 (id/code/name/icon/color の
+// 二重定義を解消。カテゴリ追加は categories.ts 1 エントリ追記で本 seed にも自動伝播)。
+// scripts/migrate-local.ts (tsx 直接実行) が本 file を import するため $lib alias ではなく
+// 相対 import を使う (categories.ts は依存ゼロの pure module)。
+import { CATEGORIES, CATEGORY_CODES } from '../../domain/categories';
+
+const SQL_INSERT_CATEGORIES = CATEGORY_CODES.map((code) => {
+	const c = CATEGORIES[code];
+	return `INSERT OR IGNORE INTO categories VALUES (${c.legacyNumericId}, '${code}', '${c.name}', '${c.icon}', '${c.color}');`;
+}).join('\n\t');
+
 export const SQL_CREATE_TABLES = `
 	CREATE TABLE IF NOT EXISTS categories (
 		id INTEGER PRIMARY KEY,
@@ -11,11 +22,7 @@ export const SQL_CREATE_TABLES = `
 		color TEXT
 	);
 
-	INSERT OR IGNORE INTO categories VALUES (1, 'undou', 'うんどう', '🏃', '#FF6B6B');
-	INSERT OR IGNORE INTO categories VALUES (2, 'benkyou', 'べんきょう', '📚', '#4ECDC4');
-	INSERT OR IGNORE INTO categories VALUES (3, 'seikatsu', 'せいかつ', '🏠', '#FFE66D');
-	INSERT OR IGNORE INTO categories VALUES (4, 'kouryuu', 'こうりゅう', '🤝', '#A8E6CF');
-	INSERT OR IGNORE INTO categories VALUES (5, 'souzou', 'そうぞう', '🎨', '#DDA0DD');
+	${SQL_INSERT_CATEGORIES}
 
 	CREATE TABLE IF NOT EXISTS children (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

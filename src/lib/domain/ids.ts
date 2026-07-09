@@ -20,7 +20,11 @@ type Branded<T, B extends string> = T & { readonly [idBrand]: B };
 export type ChildId = Branded<string, 'ChildId'>;
 /** 活動 id (child_activities.activity_id)。 */
 export type ActivityId = Branded<string, 'ActivityId'>;
-/** カテゴリ id (categories.code への論理 FK)。 */
+/**
+ * カテゴリ id (categories.code への論理 FK)。
+ * 責務はエンティティ参照 (opaque token、取り違え検出) のみ。カテゴリの値域・code↔数値 id
+ * 対応・表示メタ (意味的 enum) は $lib/domain/categories.ts が SSOT (#3607)。
+ */
 export type CategoryId = Branded<string, 'CategoryId'>;
 
 /** 境界 (route param / cookie / 旧 integer PK) からの取り込み。検証はしない (opaque)。 */
