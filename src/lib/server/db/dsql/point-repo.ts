@@ -123,14 +123,20 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 			// authoritative な残高であり、過去明細を消しても残高は変わらない (#729「ポイントは
 			// 消えず過去明細だけが消える」)。pruning 後は SUM(ledger) < total_point となり得るが、
 			// 本番正しさは単一プリミティブ + 同一 txn `+= amount` で構造担保する (fitness#14 再定義)。
-			// SqlExecutor は rowCount 非公開のため RETURNING で削除件数を rows で数える。
+			// #3593 ①: SqlExecutor は rowCount 非公開だが、`RETURNING ledger_id` を JS 側で数えると
+			// 長期利用 child の大量明細で全 PK を client に materialize する scale/memory リスクがある。
+			// CTE で削除行を DB 側 count(*) 集約し、返るのは単一スカラのみにする (carryover 廃止済 =
+			// reset-plan 決定#4 のため SUM は不要、件数のみ。sqlite 版 `result.changes` と同じ count 契約)。
 			const deleted = await db.execute(sql`
-				DELETE FROM point_ledger
-				WHERE family_id = ${tenantId} AND child_id = ${childId}
-					AND created_at < ${cutoffDate}::timestamptz
-				RETURNING ledger_id
+				WITH deleted AS (
+					DELETE FROM point_ledger
+					WHERE family_id = ${tenantId} AND child_id = ${childId}
+						AND created_at < ${cutoffDate}::timestamptz
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
 			`);
-			return deleted.rows.length;
+			return Number((deleted.rows[0] as { c: number }).c);
 		},
 	};
 }
