@@ -2,6 +2,8 @@
 
 <!-- 命名規則: NN-機能名-rationale.md -->
 
+> **⚠️ superseded by EPIC #3424（2026-06-28、marking 2026-07-09 #3461）**: 本 rationale の当時の結論「Pre-PMF では DynamoDB 継続（DSQL は将来候補）」は、**ゼロユーザー期＝データ移行不要により deferral 前提が崩れた**ため EPIC #3424 で supersede された（採用案は「案 A: 今すぐ DSQL へ移管」に反転）。移管方針・料金・特性の現行 SSOT は [`docs/research/2026-06-28-aurora-dsql-adoption.md`](../research/2026-06-28-aurora-dsql-adoption.md)。本文書は「なぜ当初は見送り判断だったか」の設計経緯記録として保持する（active な結論ではない）。
+
 ## 議論の発端
 
 - **日時**: 2026-06-28
@@ -46,7 +48,7 @@
 
 | 案 | 概要 | 検討した理由 |
 |----|------|-----------|
-| 採用案: DynamoDB 継続（DSQL は将来候補として記録） | 現状維持。DSQL を「料金クリア・技術的有力」と評価したうえで Pre-PMF では移管しない | Pre-PMF（ADR-0010）で純リファクタの大移行リスクを取らない |
+| ~~当時の採用案: DynamoDB 継続（DSQL は将来候補として記録）~~ **← EPIC #3424 で supersede** | 現状維持。DSQL を「料金クリア・技術的有力」と評価したうえで Pre-PMF では移管しない | Pre-PMF（ADR-0010）で純リファクタの大移行リスクを取らない。**ゼロユーザー期＝移行コスト最小の窓により前提が崩れ、案 A に反転（#3424）** |
 | 案 A: 今すぐ DSQL へ移管 | AWS backend を DynamoDB→DSQL、`db/dynamodb/` を削除し relational 一本化 | 二重実装税の恒久解消 |
 | 案 B: SQLite 互換サーバーレス（Turso/libSQL）へ一本化 | ローカル SQLite とさらに直接的に一本化 | パラダイム差を最小移植で解消 |
 
