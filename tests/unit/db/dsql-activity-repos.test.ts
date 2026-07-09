@@ -580,4 +580,22 @@ describe('DSQL activity-mastery-repo (PR-R3、実 schema PGlite)', () => {
 		expect(await masteryRepo.findAllByChild(otherChild, OTHER_FAMILY)).toEqual([]);
 		expect((await masteryRepo.findAllByChild(child, FAMILY)).length).toBe(2); // FAMILY 残存
 	});
+
+	// [M3 write-value guard] #3592 ①: CRUD 契約の repo 層最終防衛線。不正値は書込前に throw し、
+	// 行が作られない (監査証跡欠落を防ぐ) ことを検証する。M1/M2 が触らない専用 activity を使う。
+	it('[M3] upsert は totalCount / level の負値・非整数を拒否し行を書かない', async () => {
+		const actGuard = (
+			await activityRepo.insertActivity(activityInput(child, { name: 'mGuard' }), FAMILY)
+		).id;
+		await expect(masteryRepo.upsert(child, actGuard, -1, 1, FAMILY)).rejects.toThrow(/totalCount/);
+		await expect(masteryRepo.upsert(child, actGuard, 1, -1, FAMILY)).rejects.toThrow(/level/);
+		await expect(masteryRepo.upsert(child, actGuard, 1.5, 1, FAMILY)).rejects.toThrow(/totalCount/);
+		await expect(masteryRepo.upsert(child, actGuard, 1, 2.5, FAMILY)).rejects.toThrow(/level/);
+		// 拒否された upsert は行を作らない。
+		expect(await masteryRepo.findByChildAndActivity(child, actGuard, FAMILY)).toBeUndefined();
+		// 境界: 0 は許容 (非負整数)。
+		const zero = await masteryRepo.upsert(child, actGuard, 0, 0, FAMILY);
+		expect(zero.totalCount).toBe(0);
+		expect(zero.level).toBe(0);
+	});
 });
