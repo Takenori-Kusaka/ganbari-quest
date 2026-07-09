@@ -1,17 +1,28 @@
 import { z } from 'zod';
+import {
+	CATEGORY_CODES,
+	CATEGORIES as CATEGORY_SSOT,
+	type CategoryCode,
+	type CategoryName,
+} from '$lib/domain/categories';
 import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { activityIdSchema, categoryIdSchema, childIdSchema } from './id-schema';
 
-export const CATEGORIES = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
+export type { CategoryCode };
+// #3607: カテゴリ id↔code↔表示メタの SSOT は $lib/domain/categories.ts へ移設。
+// CATEGORY_CODES / CategoryCode は後方互換のため本モジュールから re-export を維持する。
+export { CATEGORY_CODES };
 
-export type Category = (typeof CATEGORIES)[number];
+export type Category = CategoryName;
+
+/** 日本語表示名一覧 (SSOT 派生)。新規参照は $lib/domain/categories.ts を直接使うこと */
+export const CATEGORIES: readonly Category[] = CATEGORY_CODES.map(
+	(code) => CATEGORY_SSOT[code].name,
+);
 
 // ============================================================
-// カテゴリマスタ定義（サロゲートキー）
+// カテゴリマスタ定義（サロゲートキー、#3607 で SSOT 派生化）
 // ============================================================
-export const CATEGORY_CODES = ['undou', 'benkyou', 'seikatsu', 'kouryuu', 'souzou'] as const;
-export type CategoryCode = (typeof CATEGORY_CODES)[number];
-
 export interface CategoryDef {
 	readonly id: CategoryId;
 	readonly code: CategoryCode;
@@ -21,48 +32,14 @@ export interface CategoryDef {
 	readonly accent: string;
 }
 
-export const CATEGORY_DEFS: readonly CategoryDef[] = [
-	{
-		id: asCategoryId(1),
-		code: 'undou',
-		name: 'うんどう',
-		icon: '🏃',
-		color: '#FF6B6B',
-		accent: '#D32F2F',
-	},
-	{
-		id: asCategoryId(2),
-		code: 'benkyou',
-		name: 'べんきょう',
-		icon: '📚',
-		color: '#4ECDC4',
-		accent: '#00897B',
-	},
-	{
-		id: asCategoryId(3),
-		code: 'seikatsu',
-		name: 'せいかつ',
-		icon: '🏠',
-		color: '#FFE66D',
-		accent: '#F9A825',
-	},
-	{
-		id: asCategoryId(4),
-		code: 'kouryuu',
-		name: 'こうりゅう',
-		icon: '🤝',
-		color: '#A8E6CF',
-		accent: '#2E7D32',
-	},
-	{
-		id: asCategoryId(5),
-		code: 'souzou',
-		name: 'そうぞう',
-		icon: '🎨',
-		color: '#DDA0DD',
-		accent: '#7B1FA2',
-	},
-] as const;
+export const CATEGORY_DEFS: readonly CategoryDef[] = CATEGORY_CODES.map((code) => ({
+	id: asCategoryId(CATEGORY_SSOT[code].legacyNumericId),
+	code,
+	name: CATEGORY_SSOT[code].name,
+	icon: CATEGORY_SSOT[code].icon,
+	color: CATEGORY_SSOT[code].color,
+	accent: CATEGORY_SSOT[code].accent,
+}));
 
 export const CATEGORY_IDS = CATEGORY_DEFS.map((c) => c.id) as [CategoryId, ...CategoryId[]];
 

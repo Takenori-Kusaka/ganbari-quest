@@ -1,16 +1,14 @@
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
+
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
+import { toLegacyCategoryId } from '$lib/domain/categories';
 import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/domain/export-format';
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
-import {
-	CATEGORY_CODES,
-	sanitizeActivityNameField,
-	sanitizeDailyLimit,
-} from '$lib/domain/validation/activity';
+import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
@@ -39,10 +37,10 @@ import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
-// カテゴリコード → ID
-const CATEGORY_CODE_TO_ID: Record<string, CategoryId> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = asCategoryId(i + 1);
+/** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
+function categoryIdFromCode(code: string): CategoryId | undefined {
+	const legacyId = toLegacyCategoryId(code);
+	return legacyId === undefined ? undefined : asCategoryId(legacyId);
 }
 
 /**
@@ -984,7 +982,7 @@ async function importChildActivitiesData(
 			result.warnings.push(`活動「${a.name}」スキップ: childRef「${a.childRef}」が解決できません`);
 			continue;
 		}
-		const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
+		const categoryId = categoryIdFromCode(a.categoryCode);
 		if (!categoryId) {
 			result.warnings.push(`活動「${a.name}」のカテゴリ「${a.categoryCode}」が不明のためスキップ`);
 			continue;
@@ -1088,7 +1086,7 @@ async function importStatusesData(
 ): Promise<void> {
 	for (const status of data.data.statuses) {
 		const childId = childIdMap.get(status.childRef);
-		const categoryId = CATEGORY_CODE_TO_ID[status.categoryCode];
+		const categoryId = categoryIdFromCode(status.categoryCode);
 		if (!childId || !categoryId) continue;
 		try {
 			await upsertStatus(
@@ -1524,7 +1522,7 @@ async function importStatusHistoryData(
 ): Promise<void> {
 	for (const sh of data.data.statusHistory) {
 		const childId = childIdMap.get(sh.childRef);
-		const categoryId = CATEGORY_CODE_TO_ID[sh.categoryCode];
+		const categoryId = categoryIdFromCode(sh.categoryCode);
 		if (!childId || !categoryId) continue;
 
 		try {

@@ -14,6 +14,12 @@
  */
 
 import * as v from 'valibot';
+import { CATEGORIES, CATEGORY_CODES, CATEGORY_NUMERIC_IDS } from '$lib/domain/categories.js';
+
+/** picklist エラーメッセージ用の "1 (うんどう) / 2 (べんきょう) / ..." 列挙 (SSOT 派生、#3607) */
+const CATEGORY_ID_CHOICES = CATEGORY_CODES.map(
+	(code) => `${CATEGORIES[code].legacyNumericId} (${CATEGORIES[code].name})`,
+).join(' / ');
 
 /** challenge-set item: 単一のチャレンジ (#2297 ChallengeSetPayload interface 整合) */
 export const ChallengeSetItemSchema = v.object({
@@ -43,16 +49,16 @@ export const ChallengeSetItemSchema = v.object({
 		v.maxValue(90, 'durationDays は 90 以下で指定してください'),
 	),
 	/**
-	 * 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou
+	 * legacy 数値カテゴリ id ($lib/domain/categories.ts SSOT の `legacyNumericId` 投影、#3607)。
 	 *
 	 * payload 内で自己完結する「意味的カテゴリ enum」であり、DB エンティティの
 	 * branded CategoryId (string、src/lib/domain/ids.ts) とは別物 (#3606 棚卸しで
-	 * runtime break なしを確認済)。数値直書きは SSOT 不在の技術負債であり、#3607
-	 * (カテゴリ SSOT 統合) で as const satisfies SSOT からの派生参照に置換予定。
+	 * runtime break なしを確認済)。値域はカテゴリ SSOT から派生し、カテゴリ追加時は
+	 * SSOT 1 エントリ追記で本 picklist にも自動伝播する。
 	 */
 	categoryId: v.picklist(
-		[1, 2, 3, 4, 5] as const,
-		'categoryId は 1 (運動) / 2 (勉強) / 3 (生活) / 4 (交流) / 5 (創造) のいずれかで指定してください',
+		CATEGORY_NUMERIC_IDS,
+		`categoryId は ${CATEGORY_ID_CHOICES} のいずれかで指定してください`,
 	),
 	/** 達成目標 (例: 累積 10 回) */
 	baseTarget: v.pipe(

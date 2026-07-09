@@ -11,9 +11,9 @@
 // - SEASON_EVENTS は tenant_events table で日付一致時に自動配信される
 // - PRESET_CHALLENGES は setup フロー任意 step で親が明示選択 → sibling_challenges に手動 add
 //
-// CategoryId は src/lib/domain/validation/activity.ts の CATEGORIES 定義に整合:
-//   1=うんどう / 2=べんきょう / 3=せいかつ / 4=こうりゅう / 5=そうぞう
+// カテゴリ id↔code の対応は $lib/domain/categories.ts (SSOT、#3607) に整合。
 
+import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { asCategoryId, type CategoryId } from '$lib/domain/ids';
 import { CHILD_TERMS } from '$lib/domain/terms';
 
@@ -54,7 +54,7 @@ export const PRESET_CHALLENGES: readonly PresetChallenge[] = [
 		startMonthDay: '03-01',
 		endMonthDay: '03-03',
 		baseTarget: 3,
-		categoryId: asCategoryId(3), // せいかつ
+		categoryId: asCategoryId(CATEGORY_CODE_TO_ID.seikatsu),
 		rewardPoints: 50,
 		icon: '🎎',
 		autoAddRecommended: false,
@@ -66,7 +66,7 @@ export const PRESET_CHALLENGES: readonly PresetChallenge[] = [
 		startMonthDay: '04-25',
 		endMonthDay: '05-05',
 		baseTarget: 5,
-		categoryId: asCategoryId(5), // そうぞう
+		categoryId: asCategoryId(CATEGORY_CODE_TO_ID.souzou),
 		rewardPoints: 80,
 		icon: '🎏',
 		autoAddRecommended: true,
@@ -90,7 +90,7 @@ export const PRESET_CHALLENGES: readonly PresetChallenge[] = [
 		startMonthDay: '07-20',
 		endMonthDay: '08-31',
 		baseTarget: 10,
-		categoryId: asCategoryId(2), // べんきょう
+		categoryId: asCategoryId(CATEGORY_CODE_TO_ID.benkyou),
 		rewardPoints: 100,
 		icon: '📚',
 		autoAddRecommended: true,
@@ -102,7 +102,7 @@ export const PRESET_CHALLENGES: readonly PresetChallenge[] = [
 		startMonthDay: '09-10',
 		endMonthDay: '09-18',
 		baseTarget: 3,
-		categoryId: asCategoryId(4), // こうりゅう
+		categoryId: asCategoryId(CATEGORY_CODE_TO_ID.kouryuu),
 		rewardPoints: 50,
 		icon: '👴',
 		autoAddRecommended: false,
@@ -114,7 +114,7 @@ export const PRESET_CHALLENGES: readonly PresetChallenge[] = [
 		startMonthDay: 'this-month-start',
 		endMonthDay: 'this-month-end',
 		baseTarget: 15,
-		categoryId: asCategoryId(3), // せいかつ
+		categoryId: asCategoryId(CATEGORY_CODE_TO_ID.seikatsu),
 		rewardPoints: 60,
 		icon: '🏠',
 		autoAddRecommended: true,

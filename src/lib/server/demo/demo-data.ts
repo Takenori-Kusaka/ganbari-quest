@@ -28,6 +28,7 @@
 
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { CATEGORY_CODE_TO_ID, toLegacyCategoryId } from '$lib/domain/categories';
 import {
 	type ActivityId,
 	asActivityId,
@@ -41,7 +42,6 @@ import type {
 	ChecklistPayload,
 	RewardSetPayload,
 } from '$lib/domain/marketplace-item';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import type { DailyBattleRow } from '$lib/server/db/interfaces/battle-repo.interface';
@@ -3199,12 +3199,6 @@ const SYN_TEMPLATE_ID_BASE = 5000;
 const SYN_TEMPLATE_ITEM_ID_BASE = 6000;
 const SYN_SPECIAL_REWARD_ID_BASE = 5000;
 
-// Category code → numeric ID (activity-import-service.ts の CATEGORY_CODE_TO_ID と同義)
-const CATEGORY_CODE_TO_ID: Record<string, number> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = i + 1;
-}
-
 /** Marketplace ActivityPackItem → Domain Activity への変換 (production の importActivities と同型) */
 function convertMarketplaceActivitiesToDomain(
 	items: ActivityPackItem[],
@@ -3212,7 +3206,10 @@ function convertMarketplaceActivitiesToDomain(
 	idOffset: number,
 ): Activity[] {
 	return items.map((item, idx) => {
-		const categoryId = asCategoryId(CATEGORY_CODE_TO_ID[item.categoryCode] ?? 3); // fallback: seikatsu
+		// #3607: id↔code は SSOT 派生。未知 code は従来どおり seikatsu に fallback
+		const categoryId = asCategoryId(
+			toLegacyCategoryId(item.categoryCode) ?? CATEGORY_CODE_TO_ID.seikatsu,
+		);
 		return {
 			id: asActivityId(SYN_ACTIVITY_ID_BASE + idOffset + idx),
 			name: item.name,

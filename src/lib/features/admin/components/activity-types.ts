@@ -1,3 +1,4 @@
+import type { CategoryName } from '$lib/domain/categories';
 import type { ActivityId, CategoryId } from '$lib/domain/ids';
 /**
  * Shared types for admin activity management components.
@@ -67,8 +68,13 @@ export interface PointGuideEntry {
 	color: string;
 }
 
-/** Shared constants for activity forms */
-export const CATEGORY_INFO: Record<string, CategoryInfo> = {
+/**
+ * Shared constants for activity forms.
+ * #3607: key はカテゴリ SSOT ($lib/domain/categories.ts) の表示名。satisfies で全カテゴリの
+ * 網羅をコンパイル時強制する (カテゴリ追加時に desc / icons の追記漏れが即 compile error)。
+ * 参照側は表示名文字列で lookup するため公開型は Record<string, CategoryInfo> を維持。
+ */
+export const CATEGORY_INFO = {
 	うんどう: {
 		label: 'うんどう',
 		desc: '体を動かす活動（走る、泳ぐ、ボール遊びなど）',
@@ -94,7 +100,7 @@ export const CATEGORY_INFO: Record<string, CategoryInfo> = {
 		desc: '創造的活動（お絵描き、工作、音楽など）',
 		icons: ['🎨', '✂️', '🎹', '🎸', '📷', '🏗️', '🧩', '🎤', '🖍️', '🎲', '📐', '🪡'],
 	},
-};
+} satisfies Record<CategoryName, CategoryInfo> as Record<string, CategoryInfo>;
 
 export const POINT_GUIDE: PointGuideEntry[] = [
 	{
