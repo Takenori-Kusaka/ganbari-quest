@@ -70,5 +70,20 @@
 			"filename": "infra/**/*.ts",
 			"ignoreRegExpList": ["/[a-z0-9]{20,}/g", "/\\._domainkey/g"]
 		}
+	],
+	"words": [
+		"BCNF",
+		"BIGSERIAL",
+		"bigserial",
+		"chunker",
+		"Idents",
+		"ILIKE",
+		"multitenant",
+		"NONNEG",
+		"schemaname",
+		"SMALLSERIAL",
+		"STAYPUT",
+		"tablename",
+		"testcluster"
 	]
 }

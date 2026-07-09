@@ -12,9 +12,11 @@
 //   [P6] spendPointsAtomic 成功: 負値エントリ + total_point 減算 (== SUM)
 //   [P7] spendPointsAtomic 残高不足: INSUFFICIENT_POINTS + 無書込
 //   [P8] §P9 tenant 分離: 他 family から balance/history 不可視、spend も不能
-//   [P9] deletePointLedgerBeforeDate: cutoff 前だけ削除 + 繰越エントリで残高不変 (== SUM 維持、
-//        #729「ポイントは消えず過去明細だけが消える」× fitness#14 の両立)
+//   [P9] deletePointLedgerBeforeDate: cutoff 前だけ削除・total_point 不触 (carryover 廃止、
+//        reset-plan 決定#4。#729「ポイントは消えず過去明細だけが消える」を total_point 不触で満たす)
+//   [P9b] deletePointLedgerBeforeDate: 対象 0 件は無書込 (carryover 生成 0)
 //   [P10] deleteByTenantId: ledger 全削除 + total_point 0 リセット (== SUM 維持)、他 tenant 無傷
+//   [P11] spendPointsAtomic 二重引落: FOR UPDATE で残高非負維持 (I-BAL-NONNEG, §6.6 F7)
 //
 // ── IStatusRepo ──
 //   [S1] upsertStatus: insert → update (負 XP は 0 clamp、sqlite parity) + shape
@@ -54,10 +56,15 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		return c.id;
 	};
 
-	/** total_point == SUM(point_ledger.amount) 不変条件を assert する (§5 P7 / fitness#14)。 */
-	const expectNoDrift = async () => {
+	/**
+	 * 指定 child の書込増分整合 (total_point == SUM) を assert する (fitness#14 再定義)。
+	 * carryover 廃止後は pruning 済 child が恒久的に drift を持つため、共有 db 全体でなく
+	 * **当該 child (非 pruning scope) のみ**を突合する (reset-plan 決定#4)。
+	 */
+	const expectNoDrift = async (childId: ChildId) => {
 		const drift = await findTotalPointDrift(t.db);
-		expect(drift, 'total_point == SUM(point_ledger.amount) (fitness#14)').toEqual([]);
+		const forChild = drift.filter((d) => String(d.childId) === String(childId));
+		expect(forChild, 'total_point == SUM(point_ledger.amount) (fitness#14)').toEqual([]);
 	};
 
 	const totalPointOf = async (childId: ChildId, family = FAMILY): Promise<number> => {
@@ -95,7 +102,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(typeof entry.createdAt).toBe('string');
 
 		expect(await totalPointOf(childId)).toBe(10);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 
 		// referenceId 未指定は null (sqlite parity)
 		const noRef = await pointRepo.insertPointEntry(
@@ -118,7 +125,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		);
 		expect(await totalPointOf(childId)).toBe(12);
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(12);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P3] child 不在への insert は throw + ledger 未挿入 (片肺書込 rollback)', async () => {
@@ -188,7 +195,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(result.type).toBe('reward_redeem');
 		expect(result.referenceId).toBe('reward-1');
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(20);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P7] spendPointsAtomic 残高不足: INSUFFICIENT_POINTS + 無書込', async () => {
@@ -210,7 +217,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 			WHERE family_id = ${FAMILY} AND child_id = ${String(childId)} AND amount < 0
 		`);
 		expect(Number((rows.rows[0] as { c: unknown }).c)).toBe(0);
-		await expectNoDrift();
+		await expectNoDrift(childId);
 	});
 
 	it('[P8] §P9 tenant 分離: 他 family から不可視 + spend 不能', async () => {
@@ -234,7 +241,7 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(40); // 無傷
 	});
 
-	it('[P9] deletePointLedgerBeforeDate: cutoff 前削除 + 繰越で残高不変 (== SUM 維持)', async () => {
+	it('[P9] deletePointLedgerBeforeDate: cutoff 前だけ削除・total_point 不触 (carryover 廃止)', async () => {
 		const childId = await newChild('保持八郎');
 		const id = String(childId);
 		// 古いエントリ 2 件 (cutoff 前) + 新しいエントリ 1 件を直接 seed
@@ -251,21 +258,21 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 
 		const deleted = await pointRepo.deletePointLedgerBeforeDate(childId, '2026-01-01', FAMILY);
 		expect(deleted).toBe(2);
-		// #729: ポイントは消えず過去明細だけが消える → 残高不変
+		// reset-plan 決定#4 / #729: total_point は authoritative な残高で不触 → 残高不変
 		expect(await pointRepo.getBalance(childId, FAMILY)).toBe(22);
-		// fitness#14: 繰越エントリにより SUM も 22 のまま
-		await expectNoDrift();
 		const remaining = await t.db.execute(sql`
 			SELECT amount, type FROM point_ledger
 			WHERE family_id = ${FAMILY} AND child_id = ${id} ORDER BY amount
 		`);
 		const rows = remaining.rows as { amount: number; type: string }[];
-		expect(rows).toHaveLength(2); // 残存 1 件 + 繰越 1 件
-		expect(rows.some((r) => r.amount === 15 && r.type === 'carryover')).toBe(true);
-		expect(rows.some((r) => r.amount === 7)).toBe(true);
+		// carryover 廃止: 残るのは cutoff 後の 1 件のみ (繰越エントリを作らない)
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.amount).toBe(7);
+		expect(rows.some((r) => r.type === 'carryover')).toBe(false);
+		// pruning 後は SUM(=7) < total_point(=22) となるのが仕様 (fitness#14 は非 pruning scope)
 	});
 
-	it('[P9b] deletePointLedgerBeforeDate: 対象 0 件は繰越を作らない', async () => {
+	it('[P9b] deletePointLedgerBeforeDate: 対象 0 件は何も書かない (carryover 生成 0)', async () => {
 		const childId = await newChild('保持九郎');
 		await pointRepo.insertPointEntry(
 			{ childId, amount: 3, type: 'activity', description: '最近' },
@@ -276,7 +283,35 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		const rows = await t.db.execute(
 			sql`SELECT count(*) AS c FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${String(childId)}`,
 		);
-		expect(Number((rows.rows[0] as { c: unknown }).c)).toBe(1); // 繰越なし
+		expect(Number((rows.rows[0] as { c: unknown }).c)).toBe(1); // 繰越なし・元 1 件のまま
+	});
+
+	it('[P11] spendPointsAtomic 二重引落: FOR UPDATE で残高非負維持 (I-BAL-NONNEG)', async () => {
+		// I-BAL-NONNEG (§6.6, F7): 残高 30 に対し 20 の spend を 2 本並行させる。FOR UPDATE の
+		// write-intent により高々 1 本のみ成功し、最終残高は非負 (真の 40001 write-skew 阻止は
+		// PoC 検証6 実測確定。PGlite は単一接続ゆえ直列化されるが「二重減算・overspend しない」
+		// 不変条件は本 test で検証する)。
+		const childId = await newChild('二重引落太郎');
+		await pointRepo.insertPointEntry(
+			{ childId, amount: 30, type: 'activity', description: '貯金' },
+			FAMILY,
+		);
+		const spend = () =>
+			pointRepo.spendPointsAtomic(
+				childId,
+				20,
+				{ type: 'reward_redeem', description: '交換' },
+				FAMILY,
+			);
+		const results = await Promise.all([spend(), spend()]);
+		const successes = results.filter((r) => !('error' in r)).length;
+		const failures = results.filter((r) => 'error' in r).length;
+		expect(successes).toBe(1); // overspend しない (両成功は残高 -10 を意味し不可)
+		expect(failures).toBe(1);
+		const balance = await pointRepo.getBalance(childId, FAMILY);
+		expect(balance).toBe(10);
+		expect(balance).toBeGreaterThanOrEqual(0); // 残高マイナス不能
+		await expectNoDrift(childId);
 	});
 
 	it('[P10] deleteByTenantId: ledger 全削除 + total_point 0 (== SUM 維持)、他 tenant 無傷', async () => {
@@ -299,7 +334,8 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		);
 		expect(Number((gone.rows[0] as { c: unknown }).c)).toBe(0);
 		expect(await pointRepo.getBalance(other, FAMILY)).toBe(9); // 他 tenant 無傷
-		await expectNoDrift();
+		await expectNoDrift(other);
+		await expectNoDrift(mine);
 	});
 
 	it('point-repo findChildById: Child entity round-trip (child-repo parity)', async () => {

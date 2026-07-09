@@ -1,3 +1,5 @@
+import type { InquiryStatus } from '$lib/domain/constants/inquiry';
+
 export interface InquiryRecord {
 	inquiryId: string;
 	tenantId: string | null;
@@ -5,7 +7,8 @@ export interface InquiryRecord {
 	replyEmail: string | null;
 	category: string;
 	body: string;
-	status: 'open' | 'replied' | 'closed';
+	/** SSOT: INQUIRY_STATUSES ($lib/domain/constants/inquiry、DSQL CHECK と共有 #3612) */
+	status: InquiryStatus;
 	createdAt: string;
 }
 

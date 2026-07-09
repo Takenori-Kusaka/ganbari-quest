@@ -94,13 +94,13 @@ const CHILD_SCOPED_TABLES = [
 	'daily_missions',
 	'login_bonuses',
 	'stamp_cards',
+	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items 廃止、M3 §4.2)。
 	'checklist_logs',
-	'checklist_log_items',
 	'checklist_overrides',
 	'checklist_template_assignments',
 	'certificates',
+	// evaluations.scoresJson は text 据置 (子表 evaluation_scores 廃止、M3 §4.2)。
 	'evaluations',
-	'evaluation_scores',
 	'rest_days',
 	'daily_battles',
 	'enemy_collection',
@@ -118,9 +118,9 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 	db: SqlExecutor,
 	runner: TransactionRunner<TTx>,
 ): IChildRepo {
-	const findMany = async (where: ReturnType<typeof sql>): Promise<Child[]> => {
+	const findMany = async (tenantWhere: ReturnType<typeof sql>): Promise<Child[]> => {
 		const result = await db.execute(
-			sql`SELECT ${CHILD_COLUMNS} FROM children WHERE ${where} ORDER BY created_at, child_id`,
+			sql`SELECT ${CHILD_COLUMNS} FROM children WHERE ${tenantWhere} ORDER BY created_at, child_id`,
 		);
 		return (result.rows as unknown as ChildRow[]).map(toChild);
 	};

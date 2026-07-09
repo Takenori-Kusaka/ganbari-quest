@@ -34,6 +34,7 @@ import {
 	CLOUD_EXPORT_STATUSES,
 	type CloudExportStatus,
 } from '$lib/domain/constants/cloud-export-status';
+import { INQUIRY_STATUSES } from '$lib/domain/constants/inquiry';
 import { REDEMPTION_STATUSES } from '$lib/domain/constants/redemption-status';
 import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
@@ -470,6 +471,11 @@ export const checklistTemplates = pgTable(
 		isActive: boolean('is_active').notNull().default(true),
 		isArchived: boolean('is_archived').notNull().default(false),
 		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
+		// #1254 G1: marketplace 取込元 preset の provenance (弱帰属、FK 無し)。SQLite SSOT
+		// (schema.ts:472) と同 shape。dedup (checklist-template-import-service / checklist-strategy の
+		// existingTemplates.find(t => t.sourcePresetId === presetId)) の miss = 二重取込を防ぐため
+		// 兄弟 type (child_activities/special_rewards の source_preset_id) と同様 DSQL にも配備する。
+		sourcePresetId: text('source_preset_id'),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -525,7 +531,10 @@ export const checklistTemplateAssignments = pgTable(
 // ── Child 集約 残り表 Slice A: 記録系 9 表 (§11.2 / §5、#3424) ──
 // PK は pk-freeze-manifest (= §11.2 凍結) と fitness#9 [3] が自動突合。
 
-// evaluations — 週次評価。scoresJson は evaluation_scores 子表に解体 (§5 判断③)。
+// evaluations — 週次評価。scoresJson は text 据置 (M3 §4.2 [must]A / reset-plan 決定#1:
+// 子表 evaluation_scores を作らない。field query 0 件で列展開の実利益ゼロ + backup verbatim +
+// SQLite parity。子表化は原初のデータ喪失の現場ゆえ text 据置に是正)。カテゴリ別スコア集合を
+// scores_json (JSON 文字列) に丸ごと保持する。
 // created_at は sort 用途 (findEvaluationsByChild = PK プレフィクス + sort LIMIT、§11.2)。
 export const evaluations = pgTable(
 	'evaluations',
@@ -535,25 +544,14 @@ export const evaluations = pgTable(
 		evalId: uuid('eval_id').notNull().default(sql`gen_random_uuid()`),
 		weekStart: text('week_start').notNull(),
 		weekEnd: text('week_end').notNull(),
+		// カテゴリ別スコアの JSON 文字列を据置 (子表化しない、M3 §4.2)。SQLite SSOT と同 shape。
+		scoresJson: text('scores_json').notNull(),
 		bonusPoints: integer('bonus_points').notNull().default(0),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId] })],
-);
-
-// evaluation_scores — scoresJson の子表化 (§5: 真の GROUP BY を持つ evaluation 系集計のため列展開)。
-export const evaluationScores = pgTable(
-	'evaluation_scores',
-	{
-		familyId: uuid('family_id').notNull(),
-		childId: uuid('child_id').notNull(),
-		evalId: uuid('eval_id').notNull(),
-		categoryId: text('category_id').notNull(),
-		score: real('score').notNull(),
-	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId, t.categoryId] })],
 );
 
 // rest_days — おやすみ日 (自然複合 PK 昇格、anchor (a) ADR-0012: 1日1回 = policy invariant §11.2)。
@@ -572,8 +570,8 @@ export const restDays = pgTable(
 );
 
 // daily_battles — 日次バトル (自然複合 PK 昇格、anchor (a) ADR-0012 §11.2)。
-// playerStatsJson は固定 5 キー (BattleStats hp/atk/def/spd/rec) のため列展開 (§11.3 の
-// 「実装時にキー数で確定」を 5 固定と実測して確定。ALTER ADD COLUMN 可で可逆)。
+// playerStatsJson は text 据置 (M3 §10 / 値オブジェクト Q-06=A: 列展開すると BattleStats の
+// キー変動時に silent drop を招く。JSON 文字列で丸ごと保持し SQLite SSOT と parity)。
 // enemy_id はコード内 enemy master の安定 id (DB 採番 surrogate でないため integer 維持)。
 export const dailyBattles = pgTable(
 	'daily_battles',
@@ -586,11 +584,8 @@ export const dailyBattles = pgTable(
 		outcome: text('outcome'),
 		rewardPoints: integer('reward_points').notNull().default(0),
 		turnsUsed: integer('turns_used').notNull().default(0),
-		playerHp: integer('player_hp').notNull().default(0),
-		playerAtk: integer('player_atk').notNull().default(0),
-		playerDef: integer('player_def').notNull().default(0),
-		playerSpd: integer('player_spd').notNull().default(0),
-		playerRec: integer('player_rec').notNull().default(0),
+		// BattleStats (hp/atk/def/spd/rec 等) の JSON 文字列を据置 (列展開しない、M3 §10)。
+		playerStatsJson: text('player_stats_json').notNull().default('{}'),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -620,8 +615,9 @@ export const enemyCollection = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.enemyId] })],
 );
 
-// checklist_logs — 日次チェック記録 (自然複合 PK 昇格 §11.2)。itemsJson は
-// checklist_log_items 子表に解体 (§5 判断③)。
+// checklist_logs — 日次チェック記録 (自然複合 PK 昇格 §11.2)。itemsJson は text 据置
+// (M3 §4.2 [must]A / reset-plan 決定#1: 子表 checklist_log_items を作らない。field query 0 件 +
+// item_id gap #3601 同時解消。checked item id 集合を JSON 文字列で丸ごと保持し SQLite SSOT と parity)。
 export const checklistLogs = pgTable(
 	'checklist_logs',
 	{
@@ -629,6 +625,8 @@ export const checklistLogs = pgTable(
 		childId: uuid('child_id').notNull(),
 		templateId: uuid('template_id').notNull(),
 		checkedDate: text('checked_date').notNull(),
+		// checked item id 配列の JSON 文字列を据置 (子表化しない、M3 §4.2)。SQLite SSOT と同 shape。
+		itemsJson: text('items_json').notNull().default('[]'),
 		completedAll: boolean('completed_all').notNull().default(false),
 		pointsAwarded: integer('points_awarded').notNull().default(0),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
@@ -636,20 +634,6 @@ export const checklistLogs = pgTable(
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate] })],
-);
-
-// checklist_log_items — itemsJson の子表化 (§5: item_id は checklist_template_items 論理FK)。
-export const checklistLogItems = pgTable(
-	'checklist_log_items',
-	{
-		familyId: uuid('family_id').notNull(),
-		childId: uuid('child_id').notNull(),
-		templateId: uuid('template_id').notNull(),
-		checkedDate: text('checked_date').notNull(),
-		itemId: uuid('item_id').notNull(),
-		checked: boolean('checked').notNull().default(false),
-	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate, t.itemId] })],
 );
 
 // checklist_overrides — 日次 override (UUID surrogate §11.2: 自然キー一意の前提を置かず確定 N5)。
@@ -872,9 +856,10 @@ export const childCustomVoices = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.voiceId] })],
 );
 
-// child_challenges — per-child チャレンジ (#2362 PR-7)。targetConfig/rewardConfig は
-// 列展開 (§5: target_metric / target_category_id 論理FK / base_target / reward_points /
-// reward_message)。challenge_type は増減集合 (CHECK 対象外)。
+// child_challenges — per-child チャレンジ (#2362 PR-7)。targetConfig/rewardConfig は text 据置
+// (M3 §4.2 [must]A: 列展開すると実 write の genMode/genMissStreak(#3203 救済入力)/activityId/
+// ageAdjustments を silent drop = 原初喪失そのもの。最 severe。JSON 文字列で丸ごと保持し
+// SQLite SSOT と parity)。challenge_type は増減集合 (CHECK 対象外)。
 export const childChallenges = pgTable(
 	'child_challenges',
 	{
@@ -887,11 +872,11 @@ export const childChallenges = pgTable(
 		periodType: text('period_type').notNull().default('weekly'),
 		startDate: text('start_date').notNull(),
 		endDate: text('end_date').notNull(),
-		targetMetric: text('target_metric').notNull(),
-		targetCategoryId: text('target_category_id'),
-		baseTarget: integer('base_target').notNull(),
-		rewardPoints: integer('reward_points').notNull(),
-		rewardMessage: text('reward_message'),
+		// { metric, categoryId?, baseTarget, genMode?, genMissStreak?, activityId?, ageAdjustments? }
+		// を丸ごと据置 (列展開しない、M3 §4.2)。SQLite SSOT と同 shape。
+		targetConfig: text('target_config').notNull(),
+		// { points, message? } を丸ごと据置 (列展開しない)。
+		rewardConfig: text('reward_config').notNull(),
 		status: text('status').notNull().default('active'),
 		isActive: boolean('is_active').notNull().default(true),
 		sourceTemplateId: text('source_template_id'),
@@ -907,6 +892,18 @@ export const childChallenges = pgTable(
 		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
+		// #3245 atomic get-or-create (auto:weekly): DSQL は部分 unique index 非対応 (spike 実機確証)
+		// のため、owner_guard パターン (memberships.owner_guard / users.email_lower と同型) の
+		// STORED 生成列 + droppable UNIQUE で「auto:weekly 行のみ (child, start_date) 一意」を
+		// 条件付き一意化する。非 auto 行は NULL (UNIQUE は複数 NULL 許容、spike#6 F8)。
+		// 'auto:weekly' リテラルは AUTO_WEEKLY_SOURCE_TEMPLATE_ID (types/index.ts SSOT) と同値
+		// (生成列式は SQL リテラル必須のため直書き、変更時は両方同時更新)。
+		weeklyAutoGuard: text('weekly_auto_guard')
+			.generatedAlwaysAs(
+				(): ReturnType<typeof sql> =>
+					sql`CASE WHEN source_template_id = 'auto:weekly' THEN (child_id::text || ':' || start_date) ELSE NULL END`,
+			)
+			.unique(),
 	},
 	(t) => [
 		primaryKey({ columns: [t.familyId, t.childId, t.challengeId] }),
@@ -1101,6 +1098,33 @@ export const cancellationReasons = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.reasonId] })],
 );
 
+// inquiries — 問い合わせ (#3612)。sqlite の settings KVS 間借り (`inquiry:` prefix JSON) を
+// greenfield では専用表化する (account-lockout の専用表化と同 class 是正)。
+// - PK = inquiry_id (text): 既存 interface 契約 `INQ-YYYYMMDD-seq` (app 側採番) を維持。
+//   family_id 先頭でないため AUTH_PK_MANIFEST に凍結宣言 (fitness#9)。
+// - family_id nullable: 未ログインの founder 導線 (/inquiry/founder) からも受けるため。
+//   tenant 述語 fitness は INSERT の family_id 列存在で判定 (値 NULL は正当)。
+// - backup 対象外 (backup-entity-registry `inquiry` excluded: 運用データ、家族データ外)。
+export const inquiries = pgTable(
+	'inquiries',
+	{
+		inquiryId: text('inquiry_id').notNull(),
+		familyId: uuid('family_id'),
+		email: text('email').notNull(),
+		replyEmail: text('reply_email'),
+		category: text('category').notNull(),
+		body: text('body').notNull(),
+		status: text('status').notNull().default('open'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.inquiryId] }),
+		check('inquiries_status_ck', enumCheck(t.status, INQUIRY_STATUSES)),
+	],
+);
+
 // graduation_consent — 卒業同意 (UUID surrogate: 複数子×複数回で多数行が正)。
 // secondary(consented, consented_at) は publicSamples/aggregate 用 (cross-tenant、§11.2 #3557)。
 export const graduationConsent = pgTable(
@@ -1120,5 +1144,254 @@ export const graduationConsent = pgTable(
 	(t) => [
 		primaryKey({ columns: [t.familyId, t.consentId] }),
 		index('graduation_consent_public_idx').on(t.consented, t.consentedAt),
+	],
+);
+
+// ── Family 方針 / 認証 / ライフサイクル 表 (M3 §1.1a 構造決定 = 別テーブル据置 baseline、#3424 M4-C) ──
+// WriteDPU バイト課金 + 独立更新 + 概念独立ゆえ families 広幅行へ吸収しない (M3 §1.1a / U-4)。
+// 各 (family_id) 1:1/1:0..1 表は PK covering の point-read。属性は M2 §1.1 の 3NF 分解に忠実。
+// ⚠️ enum CHECK: SSOT 配列が存在する列のみ enumCheck で生成。SSOT 未整備の enum
+//    (decay 強度 / lifecycle 状態 / 換算単位 / bonus 条件種別) は CHECK 省略 (ALTER ADD
+//    CONSTRAINT で後付け可逆、§P1 の PK 凍結と異なり non-blocking)。手書き二重化はしない。
+
+// parent_gate_credentials — 保護者ゲート PIN (family 1:1、ADR-0050)。PIN は平文非保持ハッシュ。
+// 連続失敗/ロック解除時刻/リセット痕跡は素の列 (M2 §1.1 R-PARENT_GATE_CREDENTIAL)。
+export const parentGateCredentials = pgTable(
+	'parent_gate_credentials',
+	{
+		familyId: uuid('family_id').notNull(),
+		pinHash: text('pin_hash').notNull(),
+		failedAttempts: integer('failed_attempts').notNull().default(0),
+		lockedUntil: timestamp('locked_until', { mode: 'string', withTimezone: true }),
+		// 運用リセットの冪等印 (リセット適用痕跡、M2 §1.1)。
+		resetTrace: text('reset_trace'),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// loyalty_state — ロイヤルティ (family 1:0..1)。記念チケット数は点数経済外の第 2 通貨カウンタ
+// (D-BALANCE 非寄与、M2 §1.1 R-LOYALTY_STATE / D-LOYALTY)。
+export const loyaltyState = pgTable(
+	'loyalty_state',
+	{
+		familyId: uuid('family_id').notNull(),
+		continuationMonths: integer('continuation_months').notNull().default(0),
+		mementoTickets: integer('memento_tickets').notNull().default(0),
+		lastGrantedMonth: text('last_granted_month'),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// account_lifecycle — アカウント状態機械 (family 1:1、I-LIFECYCLE)。状態 = active/soft-deleted/purged。
+// 猶予プラン層は plan_tiers への論理 FK (DSQL FK 非対応、text)。CHECK は SSOT 未整備で省略。
+export const accountLifecycle = pgTable(
+	'account_lifecycle',
+	{
+		familyId: uuid('family_id').notNull(),
+		state: text('state').notNull().default('active'),
+		softDeletedAt: timestamp('soft_deleted_at', { mode: 'string', withTimezone: true }),
+		// 猶予プラン層 → plan_tiers(plan_tier) 論理 FK (M2 [must]1 分解、猶予日数は tier で定まる)。
+		gracePlanTier: text('grace_plan_tier'),
+		// 物理削除予定日 (date 'YYYY-MM-DD')。
+		purgeScheduledDate: text('purge_scheduled_date'),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// decay_policy — 減衰方針 (family 1:1、L-17)。強度 = none/gentle/normal/strict (DecayIntensity)。
+// 猶予日数の既定 = DECAY_GRACE_DAYS(2)。CHECK は DecayIntensity SSOT が runtime 配列未整備で省略。
+export const decayPolicy = pgTable(
+	'decay_policy',
+	{
+		familyId: uuid('family_id').notNull(),
+		intensity: text('intensity').notNull().default('normal'),
+		graceDays: integer('grace_days').notNull().default(2),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// approval_policy — 承認方針 (family 1:0..1)。自動承認するか 真偽 (M2 §1.1 R-APPROVAL_POLICY)。
+export const approvalPolicy = pgTable(
+	'approval_policy',
+	{
+		familyId: uuid('family_id').notNull(),
+		autoApprove: boolean('auto_approve').notNull().default(false),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// point_conversion_policy — ポイント換算方針 (family 1:0..1)。換算レートは real スカラー
+// (JSON でない、M3 §1.1)。単位表示モード = point/currency (PointUnitMode)。CHECK は SSOT 配列
+// 未整備で省略。
+export const pointConversionPolicy = pgTable(
+	'point_conversion_policy',
+	{
+		familyId: uuid('family_id').notNull(),
+		unitMode: text('unit_mode').notNull().default('point'),
+		currency: text('currency').notNull().default('JPY'),
+		conversionRate: real('conversion_rate').notNull().default(1.0),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// notification_settings — 通知設定 (family 1:0..1)。⚠️ M3 §9 U-3 が M2 §1.1 の
+// 静音開始/静音終了 2 列展開を **text 据置に override** (§4.2「全 JSON 列 text 据置」統一、
+// 範囲 field query 0 件。将来 SQL 範囲比較が実発生したら ALTER ADD COLUMN で可逆展開)。
+// → quiet_hours を単一 text 据置とする。reminder_time は scalar 時刻ゆえ素の text 列。
+export const notificationSettings = pgTable(
+	'notification_settings',
+	{
+		familyId: uuid('family_id').notNull(),
+		reminderEnabled: boolean('reminder_enabled').notNull().default(false),
+		reminderTime: text('reminder_time'),
+		consecutiveEnabled: boolean('consecutive_enabled').notNull().default(false),
+		// 静音時間帯 = 値オブジェクト text 据置 (M3 §9 U-3、M2 の 2 列展開を override)。
+		quietHours: text('quiet_hours'),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId] })],
+);
+
+// bonus_rules — ボーナスルール群 (family master 1:N、ADR-0055)。⚠️ M3 §1.1 が発火条件を
+// text 据置と確定 (M2 §1.1 の 発火条件_指標/閾値 2 列展開を override。field query 0 件 +
+// 将来必要になれば可逆展開)。効果は記録時に基礎点へ畳み込む (独立台帳なし、L-19)。
+// 条件種別 CHECK は SSOT 未整備で省略。
+export const bonusRules = pgTable(
+	'bonus_rules',
+	{
+		familyId: uuid('family_id').notNull(),
+		ruleId: uuid('rule_id').notNull().default(sql`gen_random_uuid()`),
+		conditionType: text('condition_type').notNull(),
+		// 発火条件 = 値オブジェクト text 据置 (M3 §1.1、M2 の 指標/閾値 2 列展開を override)。
+		triggerConfig: text('trigger_config'),
+		bonusPoints: integer('bonus_points'),
+		multiplier: real('multiplier'),
+		isEnabled: boolean('is_enabled').notNull().default(true),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.ruleId] })],
+);
+
+// ── tenant 非依存 auth + グローバル master (§1.10 / §11.2 例外: family_id 先頭でない自然キー PK) ──
+// GLOBAL_MASTER_PK_MANIFEST に凍結宣言 (family_id fitness allowlist 除外表、M3 §3.4)。
+
+// email_login_lockouts — メールログインロック (家族非依存、PK = email、I-EMAIL-LOCK)。
+// 未登録メールもロック対象になりうるため R-USER への FK は張らない (M2 §1.1 R-EMAIL_LOGIN_LOCKOUT)。
+// 保護者ゲート PIN ロック (family 単位) とは別機構。
+export const emailLoginLockouts = pgTable(
+	'email_login_lockouts',
+	{
+		email: text('email').notNull(),
+		failedAttempts: integer('failed_attempts').notNull().default(0),
+		lockedUntil: timestamp('locked_until', { mode: 'string', withTimezone: true }),
+		lastFailedAt: timestamp('last_failed_at', { mode: 'string', withTimezone: true }),
+	},
+	(t) => [primaryKey({ columns: [t.email] })],
+);
+
+// categories — カテゴリマスタ (グローバル master、PK = code 自然キー、固定 5 軸)。
+// statuses/child_activities/market_benchmarks の category_id text 論理 FK 参照先。
+export const categories = pgTable(
+	'categories',
+	{
+		code: text('code').notNull(),
+		name: text('name').notNull(),
+		icon: text('icon'),
+		color: text('color'),
+	},
+	(t) => [primaryKey({ columns: [t.code] })],
+);
+
+// stamp_masters — スタンプマスタ (グローバル master、PK = stamp_code 自然キー)。
+// M2 §1.1 R-STAMP_MASTER PK={スタンプコード}。sqlite 現行の int id → 安定 stamp_code へ
+// (cutover 写像)。stamp_entries.stamp_master_id (text) の論理参照先。rarity CHECK は SSOT
+// 配列未整備で省略。
+export const stampMasters = pgTable(
+	'stamp_masters',
+	{
+		stampCode: text('stamp_code').notNull(),
+		name: text('name').notNull(),
+		emoji: text('emoji').notNull(),
+		rarity: text('rarity').notNull(),
+		isDefault: boolean('is_default').notNull().default(true),
+		isEnabled: boolean('is_enabled').notNull().default(true),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.stampCode] })],
+);
+
+// plans — プラン参照 (グローバル lookup、PK = plan_code)。増減集合ゆえ CHECK でなく lookup 表
+// (P1 の ALTER 後付け不可回避、M3 §1.10)。価格・カタログは課金 scope で defer (M2 §1.10)。
+export const plans = pgTable(
+	'plans',
+	{
+		planCode: text('plan_code').notNull(),
+		// plan_tiers(plan_tier) への論理 FK (M2 §1.10 R-PLAN: プランコード → プラン層)。
+		planTier: text('plan_tier').notNull(),
+	},
+	(t) => [primaryKey({ columns: [t.planCode] })],
+);
+
+// plan_tiers — プラン層 → 猶予日数 (グローバル lookup、PK = plan_tier、I-LIFECYCLE grounding)。
+// M2 [must]1 で推移従属 (プランコード→プラン層→猶予日数) を分解し猶予日数を本表へ外出し。
+export const planTiers = pgTable(
+	'plan_tiers',
+	{
+		planTier: text('plan_tier').notNull(),
+		graceDays: integer('grace_days').notNull(),
+	},
+	(t) => [primaryKey({ columns: [t.planTier] })],
+);
+
+// stripe_webhook_events — Stripe webhook 冪等 dedup (グローバル、PK = event_id、tenant_id は
+// nullable analytics 属性)。at-least-once delivery + resend の二重課金防止。30 日 retention。
+// handler_result は type-only enum (sqlite SSOT と同 shape、DDL CHECK は drizzle 仕様で非生成)。
+export const stripeWebhookEvents = pgTable(
+	'stripe_webhook_events',
+	{
+		eventId: text('event_id').notNull(),
+		eventType: text('event_type').notNull(),
+		processedAt: timestamp('processed_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		handlerResult: text('handler_result', { enum: ['success', 'error', 'skipped'] }).notNull(),
+		errorMessage: text('error_message'),
+		retryCount: integer('retry_count').notNull().default(0),
+		tenantId: text('tenant_id'),
+	},
+	(t) => [
+		primaryKey({ columns: [t.eventId] }),
+		index('stripe_webhook_events_processed_at_idx').on(t.processedAt),
+		index('stripe_webhook_events_type_result_idx').on(t.eventType, t.handlerResult),
 	],
 );

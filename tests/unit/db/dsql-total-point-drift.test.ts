@@ -1,9 +1,12 @@
 // tests/unit/db/dsql-total-point-drift.test.ts
 // EPIC #3424 / 実装 #3539 (#N4-1 Phase C) / 設計 SSOT: dsql-data-model.md §5(P7) / §13.1 fitness#14
 //
-// fitness#14「派生列 drift 突合」: children.total_point (残高派生列) == SUM(point_ledger.amount)。
-//   正本は派生列 (§5: 全 point_ledger 書込 mini-txn 内で total_point を共更新 = 乖離不能設計)。
-//   本突合はその不変条件のバッチ drift 検出 (F2)。
+// fitness#14「書込増分整合検証」(reset-plan 決定#4 で再定義):
+//   children.total_point == SUM(point_ledger.amount) を **非 pruning scope** で突合する。
+//   本番正しさの正本は「単一プリミティブ + 同一 txn `+= amount`」の構造担保であり、本突合は
+//   書込経路が total_point を漏れなく共更新していることのテスト時検証。retention の pruning
+//   (carryover 廃止、reset-plan 決定#4) を経ると SUM < total_point になるため本突合は成り立た
+//   ない。以下の [D1-D3] は直接 seed した非 pruning データで書込増分整合を検証する。
 //   ⚠️ optional 欠落 (point_ledger 行自体が書かれない) は drift=0 で検出不能 —
 //   fitness#11 の欠落カウンタが補完する (§13.1、#N4-2 以降)。
 //

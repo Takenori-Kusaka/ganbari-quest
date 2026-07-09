@@ -11,11 +11,10 @@
 //   - **record 系 hot path は record-activity-core.ts が正** (§8 単一 txn)。本 repo の
 //     insertActivityLog / markActivityLogCancelled は sqlite parity の単文 primitive
 //     (service 合成用) であり、5 表複合書込は重複実装しない。
-//   - **insertPointLedger は §5 P7 不変条件に従い** point_ledger INSERT + children.total_point
-//     共更新を同一 txn で行う (sqlite の単文 insert とは設計差分 — fitness#14 findTotalPointDrift
-//     が突合する DSQL 側の必須契約。point-repo.insertPointEntry と同判断で child 不在は throw
-//     して rollback、recorded_date は todayDateJST で導出)。txn work 内の await は tx.execute
-//     直呼びのみ (fitness#7)。
+//   - **insertPointLedger は point 書込単一プリミティブ (point-write.ts) へ委譲** (reset-plan
+//     決定#3)。ledger INSERT + children.total_point 加算を同一 txn で行い、child 不在は throw
+//     して rollback する契約は writer 側に集約 (INSERT + 加算のコピーを 2 つ持たない)。
+//     point-repo.insertPointEntry と完全に同一経路 (§5 P7 / §6.2 compute-on-write)。
 //   - **集計は SQL 集計 1 クエリ** (§3.5.5: 1 接続逐次 await の N+1 を repo が自ら作らない)。
 //     findMustActivitiesWithToday も sqlite の 2 クエリ + app 側 Set 合成ではなく LEFT JOIN
 //     1 クエリで集計する。
@@ -25,12 +24,12 @@
 //     integer autoincrement が無いため created_at, child_id で先頭を決定する。
 
 import { sql } from 'drizzle-orm';
-import { todayDateJST } from '$lib/domain/date-utils';
 import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import type { IActivityRepo } from '../interfaces/activity-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Activity, ActivityLog, ActivityLogSummary, ActivityPriority } from '../types';
 import { createDsqlChildRepo } from './child-repo';
+import { createPointEntryWriter } from './point-write';
 import type { SqlExecutor } from './sql-executor';
 
 interface ActivityRow {
@@ -137,6 +136,8 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 ): IActivityRepo {
 	// findChildById convenience は child-repo の compute-on-read 契約 (§11.1) へ委譲する。
 	const childRepo = createDsqlChildRepo(db, runner);
+	// reset-plan 決定#3: point 書込単一プリミティブ。insertPointLedger は本 writer に委譲する。
+	const insertPointEntry = createPointEntryWriter(runner);
 
 	const findActivityById = async (id: ActivityId, tenantId: string) => {
 		const result = await db.execute(sql`
@@ -151,13 +152,13 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 		// ── Activities (CRUD、Activity shape adapter) ──
 
 		async findActivities(tenantId, filter) {
-			const conditions = [sql`family_id = ${tenantId}`, sql`${NOT_ARCHIVED}`];
-			if (filter?.categoryId) conditions.push(sql`category_id = ${filter.categoryId}`);
-			if (!filter?.includeHidden) conditions.push(sql`is_visible = true`);
+			const tenantConditions = [sql`family_id = ${tenantId}`, sql`${NOT_ARCHIVED}`];
+			if (filter?.categoryId) tenantConditions.push(sql`category_id = ${filter.categoryId}`);
+			if (!filter?.includeHidden) tenantConditions.push(sql`is_visible = true`);
 			// NOTE: filter.childAge は per-child instance では非適用 (sqlite facade parity、ADR-0055)。
 			const result = await db.execute(sql`
 				SELECT ${ACTIVITY_COLUMNS} FROM child_activities
-				WHERE ${sql.join(conditions, sql` AND `)}
+				WHERE ${sql.join(tenantConditions, sql` AND `)}
 				ORDER BY sort_order, created_at, activity_id
 			`);
 			return (result.rows as unknown as ActivityRow[]).map(toActivityShape);
@@ -563,25 +564,10 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 		// ── Point Ledger ──
 
 		async insertPointLedger(input, tenantId) {
-			// §5 P7: ledger INSERT + children.total_point 共更新を同一 txn (fitness#14 乖離不能設計)。
-			// child 不在 = 共更新先が無いため throw で txn ごと rollback (point-repo と同判断)。
-			const recordedDate = todayDateJST();
-			await runner.runInTransaction(async (tx) => {
-				await tx.execute(sql`
-					INSERT INTO point_ledger
-						(family_id, child_id, amount, type, description, reference_id, recorded_date)
-					VALUES (${tenantId}, ${input.childId}, ${input.amount}, ${input.type},
-						${input.description}, ${input.referenceId ?? null}, ${recordedDate})
-				`);
-				const updated = await tx.execute(sql`
-					UPDATE children SET total_point = total_point + ${input.amount}, updated_at = now()
-					WHERE family_id = ${tenantId} AND child_id = ${input.childId}
-					RETURNING child_id
-				`);
-				if (updated.rows.length === 0) {
-					throw new Error(`insertPointLedger: child not found (${tenantId}/${input.childId})`);
-				}
-			});
+			// reset-plan 決定#3: point 書込は単一プリミティブ (point-write.ts) に一本化。
+			// insertPointLedger は付与用エイリアスとして writer に委譲し戻り値を捨てる
+			// (INSERT + total_point 加算のコピーを DSQL backend に 2 つ持たない)。
+			await insertPointEntry(input, tenantId);
 		},
 
 		// ── Retention cleanup (#717, #729) ──

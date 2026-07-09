@@ -37,8 +37,9 @@ export const PK_FREEZE_MANIFEST = {
 	// 現行制約は droppable UNIQUE(family,child,week_start) で維持 (復活時は UNIQUE DROP のみ)。
 	stamp_cards: ['family_id', 'child_id', 'card_id'],
 	stamp_entries: ['family_id', 'card_id', 'slot'],
+	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items を作らない、M3 §4.2 [must]A /
+	// reset-plan 決定#1)。凍結 list に子表を残すと M4 が非可逆 PK 凍結 → 原初喪失が非可逆に再来する。
 	checklist_logs: ['family_id', 'child_id', 'template_id', 'checked_date'],
-	checklist_log_items: ['family_id', 'child_id', 'template_id', 'checked_date', 'item_id'],
 	checklist_overrides: ['family_id', 'child_id', 'override_id'],
 	checklist_templates: ['family_id', 'template_id'],
 	checklist_template_items: ['family_id', 'template_id', 'item_id'],
@@ -46,8 +47,9 @@ export const PK_FREEZE_MANIFEST = {
 	// certificates: governing rule で UUID surrogate 化 (再発行/周期型証書が roadmap プラウジブル、
 	// policy anchor 無し)。「1 type 有効1通」は生成列 + droppable UNIQUE で担保 (§11.2)。
 	certificates: ['family_id', 'child_id', 'certificate_id'],
+	// evaluations.scoresJson は text 据置 (子表 evaluation_scores を作らない、M3 §4.2 [must]A /
+	// reset-plan 決定#1)。凍結 list に子表を残すと非可逆 PK 凍結で原初喪失が再来する。
 	evaluations: ['family_id', 'child_id', 'eval_id'],
-	evaluation_scores: ['family_id', 'child_id', 'eval_id', 'category_id'],
 	rest_days: ['family_id', 'child_id', 'date'],
 	daily_battles: ['family_id', 'child_id', 'date'],
 	enemy_collection: ['family_id', 'child_id', 'enemy_id'],
@@ -71,6 +73,16 @@ export const PK_FREEZE_MANIFEST = {
 	cloud_exports: ['family_id', 'export_id'],
 	cancellation_reasons: ['family_id', 'reason_id'],
 	graduation_consent: ['family_id', 'consent_id'],
+	// ── Family 方針 / 認証 / ライフサイクル 表 (M3 §1.1a 別テーブル baseline、#3424 M4-C) ──
+	// (family_id) 1:1/1:0..1 従属表 = 親キー PK (M2 §1.1 3NF)。bonus_rules は family master 1:N。
+	parent_gate_credentials: ['family_id'],
+	loyalty_state: ['family_id'],
+	account_lifecycle: ['family_id'],
+	decay_policy: ['family_id'],
+	approval_policy: ['family_id'],
+	point_conversion_policy: ['family_id'],
+	notification_settings: ['family_id'],
+	bonus_rules: ['family_id', 'rule_id'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PkFreezeManifest = typeof PK_FREEZE_MANIFEST;
@@ -86,6 +98,11 @@ export const AUTH_PK_MANIFEST = {
 	memberships: ['family_id', 'user_id'],
 	invites: ['invite_id'],
 	consents: ['consent_id'],
+	// inquiries (#3612): auth 5 表ではないが同じ「family_id 先頭でない例外」class。
+	// PK = inquiry_id (text、既存 interface の INQ-YYYYMMDD-seq 形式を維持)。
+	// family_id nullable (未ログイン founder 導線も受ける) のため PK_FREEZE (family 先頭) に
+	// 置けない。backup 対象外 (backup-entity-registry `inquiry` excluded)。
+	inquiries: ['inquiry_id'],
 } as const satisfies Record<string, readonly string[]>;
 
 // ── グローバル master (§11.2 例外: tenant プレフィクスなし、自然キー PK) ──
@@ -94,5 +111,17 @@ export const AUTH_PK_MANIFEST = {
 // schema.ts へグローバル master 表を追記する際は本 manifest にも 1 行追加する
 // (fitness#9 [3] が PK_FREEZE / AUTH / GLOBAL_MASTER の union で schema 全表を突合)。
 export const GLOBAL_MASTER_PK_MANIFEST = {
+	// U-1 決裁済 (実データ調査、2026-07-05): market_benchmarks PK = (age, category_id)。
+	// AGE_BENCHMARK ‖–o{ STATUS (status はカテゴリ別) との整合で category 弁別子を PK に含む。
 	market_benchmarks: ['age', 'category_id'],
+	// ── グローバル master / tenant 非依存 (M3 §1.10 / §1.1、#3424 M4-C) ──
+	// 自然キー PK・tenant プレフィクスなし。family_id fitness allowlist 除外表 (M3 §3.4)。
+	categories: ['code'],
+	stamp_masters: ['stamp_code'],
+	plans: ['plan_code'],
+	plan_tiers: ['plan_tier'],
+	stripe_webhook_events: ['event_id'],
+	// email_login_lockouts は家族非依存 (PK=email、未登録メールもロック対象)。family_id 先頭で
+	// ないため PK_FREEZE でなく本 manifest に置く (M2 §1.1 R-EMAIL_LOGIN_LOCKOUT、I-EMAIL-LOCK)。
+	email_login_lockouts: ['email'],
 } as const satisfies Record<string, readonly string[]>;

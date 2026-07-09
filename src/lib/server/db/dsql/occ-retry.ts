@@ -11,6 +11,8 @@
 // ⚠️ retry は冪等性を保証しない (§8: 冪等性の正は「txn 内 re-read」)。work 側が再実行可能
 // であることは runInTransaction port (transaction.interface.ts) の契約。
 
+import { sqlstateOf } from './dsql-errors';
+
 export interface OccRetryOptions {
 	/** 総試行回数 (初回含む)。既定 3 (家庭スケールでは親子同時記録の稀な衝突のみ、§8)。 */
 	maxAttempts?: number;
@@ -20,16 +22,9 @@ export interface OccRetryOptions {
 
 const DEFAULTS: Required<OccRetryOptions> = { maxAttempts: 3, baseDelayMs: 10 };
 
-/** SQLSTATE 40001 (serialization failure / DSQL OC000) か。pg driver は .code に SQLSTATE を載せる。 */
+/** SQLSTATE 40001 (serialization failure / DSQL OC000) か。抽出は dsql-errors.ts (分類集約点) に委譲。 */
 export function isOccConflict(err: unknown): boolean {
-	if (typeof err !== 'object' || err === null) return false;
-	const code = (err as { code?: unknown }).code;
-	if (code === '40001') return true;
-	// drizzle / driver 層で wrap された場合は cause を 1 段見る。
-	const cause = (err as { cause?: unknown }).cause;
-	return (
-		typeof cause === 'object' && cause !== null && (cause as { code?: unknown }).code === '40001'
-	);
+	return sqlstateOf(err) === '40001';
 }
 
 /** fn を実行し、40001 のみ bounded retry する。他エラーは即 rethrow。 */
