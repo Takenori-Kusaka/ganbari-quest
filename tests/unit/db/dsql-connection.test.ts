@@ -41,6 +41,7 @@ vi.mock('@aws/aurora-dsql-node-postgres-connector', () => {
 // ── drizzle(node-postgres) mock: pool を受け取り fake db を返す ──
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: drizzleFn }));
 
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 import { isDsqlBackend, resolveDbBackend } from '../../../src/lib/server/db/backend';
 import {
 	getDsqlDb,
@@ -52,6 +53,7 @@ import {
 describe('dsql/connection 接続層 (M4-B②、§3.3)', () => {
 	beforeEach(() => {
 		process.env.DSQL_ENDPOINT = 'testcluster.dsql.us-east-1.on.aws';
+		resetEnvForTesting();
 		poolCtor.mockClear();
 		drizzleFn.mockClear();
 	});
@@ -59,8 +61,11 @@ describe('dsql/connection 接続層 (M4-B②、§3.3)', () => {
 	afterEach(async () => {
 		await resetDsqlConnectionForTesting();
 		delete process.env.DSQL_ENDPOINT;
+		resetEnvForTesting();
 		delete process.env.DSQL_USER;
+		resetEnvForTesting();
 		delete process.env.DSQL_DATABASE;
+		resetEnvForTesting();
 	});
 
 	it('[T1] getDsqlPool は module scope singleton (2 回呼んで同一 pool、connector 構築は 1 回)', () => {
@@ -116,6 +121,7 @@ describe('dsql/connection 接続層 (M4-B②、§3.3)', () => {
 
 	it('[T5] DSQL_ENDPOINT 未設定は明示エラー (silent fallback しない)', () => {
 		delete process.env.DSQL_ENDPOINT;
+		resetEnvForTesting();
 		expect(() => getDsqlPool()).toThrow(/DSQL_ENDPOINT/);
 	});
 });

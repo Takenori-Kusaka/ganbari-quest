@@ -41,6 +41,7 @@
 
 import { AuroraDSQLPool } from '@aws/aurora-dsql-node-postgres-connector';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { getEnv } from '$lib/runtime/env';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { createDsqlTransactionRunner } from './run-in-transaction';
 import * as schema from './schema';
@@ -67,17 +68,22 @@ let _runner: TransactionRunner<DsqlTx> | null = null;
  * - `ssl` = DSQL は TLS 必須 (検証 1)。connector が証明書検証込みで確立する。
  */
 function buildDsqlPoolConfig(): ConstructorParameters<typeof AuroraDSQLPool>[0] {
-	const endpoint = process.env.DSQL_ENDPOINT;
+	// ADR-0040 P1: env は $lib/runtime/env 経由 (envSchema で optional 宣言済み)。
+	// DSQL_* は「DATA_SOURCE=dsql を選んだときだけ」意味を持つ条件付き設定であり、
+	// 現行本番 (dynamodb) では不要。実配布は M5 cutover (CDK attrEndpoint → Lambda env)。
+	const env = getEnv();
+	const endpoint = env.DSQL_ENDPOINT;
 	if (!endpoint) {
 		throw new Error(
-			'[dsql/connection] DSQL_ENDPOINT is not set. DSQL backend (DATA_SOURCE=dsql) requires the ' +
-				'cluster endpoint (CDK GetAtt attrEndpoint → Lambda env). See m4-implementation-plan.md §3.3.',
+			'[dsql/connection] DSQL_ENDPOINT が未設定です。DATA_SOURCE=dsql で起動する場合のみ ' +
+				'cluster endpoint (CDK GetAtt attrEndpoint → Lambda env、M5 cutover で配布) を設定してください。' +
+				'm4-implementation-plan.md §3.3 参照。',
 		);
 	}
 	return {
 		host: endpoint,
-		user: process.env.DSQL_USER ?? 'admin',
-		database: process.env.DSQL_DATABASE ?? 'postgres',
+		user: env.DSQL_USER ?? 'admin',
+		database: env.DSQL_DATABASE ?? 'postgres',
 		ssl: true,
 		// connector が region を hostname から自動判定 (検証 9 (b))。token 生成・更新も connector 任せ。
 	};

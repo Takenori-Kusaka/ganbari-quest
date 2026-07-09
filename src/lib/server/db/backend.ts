@@ -10,6 +10,8 @@
 //   DATA_SOURCE=dynamodb → 'dynamodb' : 撤去予定 (M5 で DB 一本化、m4-plan §3.9)
 //   DATA_SOURCE=demo     → 'demo'     : Multi-Lambda demo (stateless fixture、ADR-0048)
 
+import { getEnv } from '$lib/runtime/env';
+
 /** 物理 backend の種別。repo 実装 (sqlite/ dsql/ dynamodb/ demo/) の選択軸。 */
 export type DbBackend = 'sqlite' | 'dsql' | 'dynamodb' | 'demo';
 
@@ -18,7 +20,8 @@ export type DbBackend = 'sqlite' | 'dsql' | 'dynamodb' | 'demo';
  * 引数省略時は `process.env.DATA_SOURCE` を読み、既定は 'sqlite' (既存挙動と同一)。
  */
 export function resolveDbBackend(dataSource?: string): DbBackend {
-	const source = dataSource ?? process.env.DATA_SOURCE ?? 'sqlite';
+	// ADR-0040 P1: env は $lib/runtime/env 経由 (envSchema が default 'sqlite' を保証)。
+	const source = dataSource ?? getEnv().DATA_SOURCE;
 	switch (source) {
 		case 'dsql':
 			return 'dsql';
