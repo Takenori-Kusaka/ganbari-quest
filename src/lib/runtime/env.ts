@@ -68,7 +68,10 @@ const envSchema = z.object({
 	// EPIC #3424 M4-B②: DATA_SOURCE='dsql' を追加 (Aurora DSQL backend、cognito/本番)。
 	//   SQLite (sqlite) = NUC/local/test、DSQL (dsql) = cognito/本番。切替は factory.ts + 接続層
 	//   (db/dsql/connection.ts) で行い、repo インターフェイスは 1 本 (m4-implementation-plan.md §3.3)。
-	DATA_SOURCE: z.enum(['sqlite', 'dynamodb', 'demo', 'dsql']).default('sqlite'),
+	// EPIC #3620 (ADR-0064 案 C): DATA_SOURCE='pglite' を追加。NUC を組込 Postgres (PGlite) で
+	//   駆動し dsql (pg-core) schema + repos を verbatim 再利用する (dialect 税ゼロ)。cutover まで
+	//   既定は 'sqlite' のまま (旧 NUC 実装)、切替は factory.ts + db/pglite/connection.ts で行う。
+	DATA_SOURCE: z.enum(['sqlite', 'dynamodb', 'demo', 'dsql', 'pglite']).default('sqlite'),
 	SCHEMA_VALIDATION_MODE: z.enum(['warn', 'strict']).optional(),
 	// EPIC #3424 M4-B② 接続層: Aurora DSQL cluster 接続情報 (DATA_SOURCE=dsql のとき必須)。
 	//   DSQL_ENDPOINT = CDK GetAtt attrEndpoint (`<id>.dsql.<region>.on.aws`) を Lambda env へ注入。
@@ -76,6 +79,11 @@ const envSchema = z.object({
 	DSQL_ENDPOINT: z.string().optional(),
 	DSQL_DATABASE: z.string().optional(),
 	DSQL_USER: z.string().optional(),
+	// EPIC #3620 AC-C1 (ADR-0064 案 C): NUC PGlite の FS 永続先 + migration 適用先。
+	//   PGLITE_DATA_DIR 未設定なら in-memory (test/dev)。本番 NUC は Node FS VFS パスを設定し永続化。
+	//   PGLITE_MIGRATIONS_DIR は生成済み migration (drizzle/pglite) の解決先 (既定 = cwd 相対)。
+	PGLITE_DATA_DIR: z.string().optional(),
+	PGLITE_MIGRATIONS_DIR: z.string().optional(),
 
 	// ----- Stripe -----
 	STRIPE_SECRET_KEY: z.string().optional(),
