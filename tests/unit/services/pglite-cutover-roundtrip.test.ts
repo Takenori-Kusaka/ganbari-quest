@@ -74,11 +74,25 @@ describe('NUC cutover cross-backend round-trip (#3620 AC-C4、旧 sqlite → PGl
 		const hana = await reposA.child.insertChild({ nickname: '移行花子', age: 6 }, TENANT);
 
 		const act1 = await reposA.activity.insertActivity(
-			{ name: 'はみがき', categoryId: asCategoryId('3'), icon: '🦷', basePoints: 5, ageMin: null, ageMax: null },
+			{
+				name: 'はみがき',
+				categoryId: asCategoryId('3'),
+				icon: '🦷',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
 			TENANT,
 		);
 		await reposA.activity.insertActivity(
-			{ name: 'おてつだい', categoryId: asCategoryId('3'), icon: '🧹', basePoints: 10, ageMin: null, ageMax: null },
+			{
+				name: 'おてつだい',
+				categoryId: asCategoryId('3'),
+				icon: '🧹',
+				basePoints: 10,
+				ageMin: null,
+				ageMax: null,
+			},
 			TENANT,
 		);
 
