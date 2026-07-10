@@ -72,6 +72,15 @@ export async function initPgliteConnection(): Promise<void> {
 			'SELECT current_database()',
 		);
 		const dbName = dbNameRes.rows[0]?.current_database ?? 'postgres';
+		// #3629 QM follow-up: dbName は current_database() 由来で安全だが、識別子補間の同型コピーで
+		// SQL injection を招かないよう安全な識別子形状を明示 assert する (parameterize 不能な
+		// DDL 識別子の防御。unsafe pattern の横展開防止)。
+		if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(dbName)) {
+			throw new Error(`[pglite/connection] 不正な database 識別子: ${dbName}`);
+		}
+		// #3629 QM follow-up (両輪、誤除去防止): 下記 2 文は片方だけでは UTC を保証できない。
+		//   ALTER DATABASE = 以後の全 session の既定 (現 session には効かない、pg_db_role_setting 永続)。
+		//   SET TIME ZONE  = 現 session のみ。両方あって初めて「現 session も将来 session も UTC」。
 		await _client.exec(`ALTER DATABASE "${dbName}" SET timezone TO 'UTC';`);
 		await _client.exec("SET TIME ZONE 'UTC';");
 		_db = drizzle(_client, { schema });
@@ -97,6 +106,33 @@ export async function getPgliteDb(): Promise<PgliteDatabase> {
 export async function getPgliteTransactionRunner(): Promise<TransactionRunner<PgliteTx>> {
 	await initPgliteConnection();
 	if (!_runner) throw new Error('[pglite/connection] init 後も runner が null です (到達不能)');
+	return _runner;
+}
+
+/**
+ * #3620 AC-C2: 同期 factory (getRepos) 用の **init 済み前提** アクセサ。
+ * PGlite init は非同期のため、request 前に `initPgliteConnection()` を await 済みであること
+ * (hooks.server.ts の 1st-request guard) を前提に、同期で ready singleton を返す。
+ * 未 init で呼ばれた場合は明示 throw する (silent な空 backend を作らせない)。
+ */
+export function getPgliteDbSync(): PgliteDatabase {
+	if (!_db) {
+		throw new Error(
+			'[pglite/connection] init 未完了。DATA_SOURCE=pglite では request 前に ' +
+				'initPgliteConnection() を await すること (hooks.server.ts の 1st-request guard)。',
+		);
+	}
+	return _db;
+}
+
+/** #3620 AC-C2: 同期 factory 用の init 済み TransactionRunner アクセサ (getPgliteDbSync と同契約)。 */
+export function getPgliteTransactionRunnerSync(): TransactionRunner<PgliteTx> {
+	if (!_runner) {
+		throw new Error(
+			'[pglite/connection] init 未完了。DATA_SOURCE=pglite では request 前に ' +
+				'initPgliteConnection() を await すること (hooks.server.ts の 1st-request guard)。',
+		);
+	}
 	return _runner;
 }
 
