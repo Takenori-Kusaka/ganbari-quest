@@ -17,6 +17,7 @@
 // settings / login bonus) で件数・内容一致を確認する (重複検証しない)。
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '../../../src/lib/domain/ids';
 
 // ── Phase A 用の旧 sqlite test-db mock (既存 backup-roundtrip と同型)。
 // resetModules 後の Phase B では pglite 分岐が client を参照しないため、この mock は無害に残る。
@@ -73,11 +74,11 @@ describe('NUC cutover cross-backend round-trip (#3620 AC-C4、旧 sqlite → PGl
 		const hana = await reposA.child.insertChild({ nickname: '移行花子', age: 6 }, TENANT);
 
 		const act1 = await reposA.activity.insertActivity(
-			{ name: 'はみがき', categoryId: '3', icon: '🦷', basePoints: 5 },
+			{ name: 'はみがき', categoryId: asCategoryId('3'), icon: '🦷', basePoints: 5, ageMin: null, ageMax: null },
 			TENANT,
 		);
 		await reposA.activity.insertActivity(
-			{ name: 'おてつだい', categoryId: '3', icon: '🧹', basePoints: 10 },
+			{ name: 'おてつだい', categoryId: asCategoryId('3'), icon: '🧹', basePoints: 10, ageMin: null, ageMax: null },
 			TENANT,
 		);
 
