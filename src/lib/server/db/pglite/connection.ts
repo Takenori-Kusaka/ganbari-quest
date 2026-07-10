@@ -87,7 +87,19 @@ export async function initPgliteConnection(): Promise<void> {
 		// 生成済み pg-core migration を適用 (drizzle-kit 非依存、本番 boot 経路)。
 		await migrate(_db, { migrationsFolder: migrationsDir() });
 		_runner = createDsqlTransactionRunner<PgliteTx>(_db);
-	})();
+	})().catch((err) => {
+		// #3630 QM follow-up (self-heal): init が reject すると `_ready` に rejected promise が残り、
+		// 以後の全呼出が `if (_ready) return _ready` で恒久的に同じ失敗を返す (permanent brick、retry
+		// 不能)。失敗時は singleton 状態を破棄し、次回呼出で再 init を試せるようにする (成功は memoize
+		// 維持)。self-heal を `_ready` 自体に付けるため並列呼出も同一 promise を共有する。
+		const failedClient = _client;
+		_client = null;
+		_db = null;
+		_runner = null;
+		_ready = null;
+		if (failedClient) void failedClient.close().catch(() => {}); // best-effort cleanup
+		throw err;
+	});
 	return _ready;
 }
 
