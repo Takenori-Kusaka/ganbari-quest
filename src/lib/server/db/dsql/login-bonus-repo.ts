@@ -118,12 +118,16 @@ export function createDsqlLoginBonusRepo(db: SqlExecutor): ILoginBonusRepo {
 
 		async deleteLoginBonusesBeforeDate(childId, cutoffDate, tenantId) {
 			// #717/#729: login_date < cutoffDate (strict less than、当日は残す)。
+			// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない。
 			const result = await db.execute(sql`
-				DELETE FROM login_bonuses
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND login_date < ${cutoffDate}
-				RETURNING login_date
+				WITH deleted AS (
+					DELETE FROM login_bonuses
+					WHERE family_id = ${tenantId} AND child_id = ${childId} AND login_date < ${cutoffDate}
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 	};
 }

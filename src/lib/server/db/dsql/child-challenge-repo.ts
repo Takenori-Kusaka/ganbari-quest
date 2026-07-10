@@ -247,15 +247,20 @@ export function createDsqlChildChallengeRepo(db: SqlExecutor): IChildChallengeRe
 		},
 
 		async claimReward(id, tenantId) {
-			// #3333: 条件付き flip。実際に flip した行数を RETURNING で数えて返す (TOCTOU 防止)。
+			// #3333: 条件付き flip。実際に flip した行数を返す (TOCTOU 防止)。
+			// #3625: 件数は CTE で DB 側 count 集約し idiom を統一する (affected は高々 1 行だが
+			// dsql 全体の「mutation 件数は CTE count」規律に揃え、guard の false-positive を避ける)。
 			const result = await db.execute(sql`
-				UPDATE child_challenges
-				SET reward_claimed = true, reward_claimed_at = now(), updated_at = now()
-				WHERE family_id = ${tenantId} AND challenge_id = ${id}
-					AND reward_claimed = false AND completed = true
-				RETURNING challenge_id
+				WITH updated AS (
+					UPDATE child_challenges
+					SET reward_claimed = true, reward_claimed_at = now(), updated_at = now()
+					WHERE family_id = ${tenantId} AND challenge_id = ${id}
+						AND reward_claimed = false AND completed = true
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM updated
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 
 		async update(id, input: UpdateChildChallengeInput, tenantId) {

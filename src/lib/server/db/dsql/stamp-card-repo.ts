@@ -227,15 +227,20 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 
 		async updateCardStatusIfCollecting(childId, cardId, input, tenantId) {
 			// status='collecting' の行のみ遷移 (冪等ガード)。affected 行数を返す (sqlite parity)。
+			// #3625: 件数は CTE で DB 側 count 集約し idiom を統一する (affected は高々 1 行だが
+			// dsql 全体の「mutation 件数は CTE count」規律に揃え、guard の false-positive を避ける)。
 			const result = await db.execute(sql`
-				UPDATE stamp_cards
-				SET status = ${input.status}, redeemed_points = ${input.redeemedPoints},
-					redeemed_at = ${input.redeemedAt}, updated_at = ${input.updatedAt}::timestamptz
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND card_id = ${cardId}
-					AND status = 'collecting'
-				RETURNING card_id
+				WITH updated AS (
+					UPDATE stamp_cards
+					SET status = ${input.status}, redeemed_points = ${input.redeemedPoints},
+						redeemed_at = ${input.redeemedAt}, updated_at = ${input.updatedAt}::timestamptz
+					WHERE family_id = ${tenantId} AND child_id = ${childId} AND card_id = ${cardId}
+						AND status = 'collecting'
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM updated
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 
 		async deleteByTenantId(tenantId) {

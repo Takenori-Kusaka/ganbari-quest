@@ -574,13 +574,17 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 
 		async deleteActivityLogsBeforeDate(childId, cutoffDate, tenantId) {
 			// strict less than: cutoffDate 当日は削除対象に含まない (interface 契約)。
+			// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない。
 			const result = await db.execute(sql`
-				DELETE FROM activity_logs
-				WHERE family_id = ${tenantId} AND child_id = ${childId}
-					AND recorded_date < ${cutoffDate}
-				RETURNING log_id
+				WITH deleted AS (
+					DELETE FROM activity_logs
+					WHERE family_id = ${tenantId} AND child_id = ${childId}
+						AND recorded_date < ${cutoffDate}
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 	};
 }

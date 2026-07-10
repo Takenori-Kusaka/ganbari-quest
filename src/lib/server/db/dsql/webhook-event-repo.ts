@@ -81,11 +81,16 @@ export function createDsqlWebhookEventRepo(db: SqlExecutor): IWebhookEventRepo {
 		},
 
 		async deleteOlderThan(cutoffIso) {
+			// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない
+			// (retention cron で大量 webhook event を削除しうる)。
 			const result = await db.execute(sql`
-				DELETE FROM stripe_webhook_events WHERE processed_at < ${cutoffIso}::timestamptz
-				RETURNING event_id
+				WITH deleted AS (
+					DELETE FROM stripe_webhook_events WHERE processed_at < ${cutoffIso}::timestamptz
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 	};
 }
