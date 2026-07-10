@@ -58,4 +58,19 @@ describe('PGlite 本番接続層 (#3620 AC-C1、ADR-0064 案 C)', () => {
 		const db2 = await getPgliteDb();
 		expect(db1).toBe(db2);
 	});
+
+	// #3628 QM follow-up: session-level SET の脱落リスクを閉じるため、UTC は DB 既定として
+	// pg_database.datconfig に永続する (接続再取得/multiplexing でも新 session が UTC を継承)。
+	it('[C1-4] UTC は接続レベル保証: DB 既定 timezone が pg_db_role_setting に永続する', async () => {
+		const db = await getPgliteDb();
+		// PG16 系は DB 既定を pg_db_role_setting (setrole=0 = DB 全体) に持つ (datconfig は撤去)。
+		// 'TimeZone=UTC' が入っている = 接続再取得/multiplexing でも新 session の既定として脱落しない。
+		const result = await db.execute(
+			sql`SELECT unnest(setconfig) AS cfg FROM pg_db_role_setting
+				WHERE setdatabase = (SELECT oid FROM pg_database WHERE datname = current_database())
+					AND setrole = 0`,
+		);
+		const configs = (result.rows as { cfg: string }[]).map((r) => r.cfg);
+		expect(configs).toContain('TimeZone=UTC');
+	});
 });
