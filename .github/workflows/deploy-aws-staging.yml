@@ -204,12 +204,16 @@ jobs:
       # Step 10.5 (EPIC #3424 M5 DoD4、DSQL lane のみ): DSQL staging cluster を deploy し、
       # outputs (endpoint/ARN) を解決 → schema provisioning (dsql:migrate) を実行する。
       # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
+      # bin/app.ts は本番 stack 群を無条件 instantiate するため、DsqlStaging のみの deploy でも
+      # synth には compute-stack の必須 context (opsSecretKey 等) が要る (cycle 1 の学び)。
       - name: Deploy DSQL staging cluster (dsql lane)
         if: env.DSQL_LANE == 'true'
         working-directory: infra/
         run: |
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
-            -c dsqlStagingEnabled=true
+            -c dsqlStagingEnabled=true \
+            -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
 
       - name: Resolve DSQL staging outputs (dsql lane)
         if: env.DSQL_LANE == 'true'
