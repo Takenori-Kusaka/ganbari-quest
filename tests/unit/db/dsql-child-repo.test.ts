@@ -124,6 +124,18 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 				INSERT INTO activity_logs (family_id, child_id, activity_id, points, recorded_date, recorded_at)
 				VALUES (${FAMILY}, ${childId}, ${activityId}, 10, '2026-07-04', now())
 			`);
+			// #3592 ③: pin 直列化 anchor は「pin 対象 activity の child が存在する」前提で成立する。
+			// DSQL は FK 非対応のため orphan pref/mastery が残ると anchor が silent no-op になり
+			// write-skew を招く。deleteChild が preferences/mastery を同 txn で cascade 除去し orphan を
+			// 生じさせないことを [C7] で検証し、cascade からの脱落を regression として捕捉する。
+			await t.db.execute(sql`
+				INSERT INTO child_activity_preferences (family_id, child_id, activity_id, is_pinned, pin_order)
+				VALUES (${FAMILY}, ${childId}, ${activityId}, true, 1)
+			`);
+			await t.db.execute(sql`
+				INSERT INTO activity_mastery (family_id, child_id, activity_id, total_count, level)
+				VALUES (${FAMILY}, ${childId}, ${activityId}, 3, 1)
+			`);
 			await t.db.execute(sql`
 				INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date)
 				VALUES (${FAMILY}, ${childId}, 10, 'activity', '2026-07-04')
@@ -155,7 +167,14 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 					)) as { rows: { c: unknown }[] }
 				).rows[0]?.c,
 			);
-		for (const table of ['child_activities', 'activity_logs', 'point_ledger', 'stamp_cards']) {
+		for (const table of [
+			'child_activities',
+			'activity_logs',
+			'point_ledger',
+			'stamp_cards',
+			'child_activity_preferences', // #3592 ③ anchor 前提保証
+			'activity_mastery', // #3592 ③ anchor 前提保証
+		]) {
 			expect(await countFor(table, String(target.id)), `${table} 消滅`).toBe(0);
 			expect(await countFor(table, String(sibling.id)), `${table} 兄弟 survive`).toBe(1);
 		}

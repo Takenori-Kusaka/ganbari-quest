@@ -67,6 +67,16 @@ export function createDsqlActivityMasteryRepo<TTx extends SqlExecutor>(
 		},
 
 		async upsert(childId, activityId, totalCount, level, tenantId) {
+			// #3592 ①: CRUD 契約 (呼び出し側算出値を書く) の最小 write-value guard。
+			// service 層 (activity-log-service / record-activity-core) は count+1 / masteryLevelFor で
+			// 常に非負整数を算出するが、facade 直呼び等の不正値注入・監査証跡欠落に対する repo 層の
+			// 最終防衛線として非負整数を強制する (cutover 後に service validate 前提が崩れても不変)。
+			if (!Number.isInteger(totalCount) || totalCount < 0) {
+				throw new Error(`upsert: totalCount は非負整数 (got ${totalCount})`);
+			}
+			if (!Number.isInteger(level) || level < 0) {
+				throw new Error(`upsert: level は非負整数 (got ${level})`);
+			}
 			const result = await db.execute(sql`
 				INSERT INTO activity_mastery (family_id, child_id, activity_id, total_count, level)
 				VALUES (${tenantId}, ${childId}, ${activityId}, ${totalCount}, ${level})
