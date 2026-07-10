@@ -186,6 +186,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0061 | [band-aid サイクル打破 + shift-left の機械強制 (failing-test-first / same-class-N→guard / push-down-pyramid / fitness function / accepted-residual gate)](0061-band-aid-breaking-shift-left-mechanization.md) | accepted | 2026-06-20 |
 | 0062 | [統一エラー通知設計 (種別×手段マッピング + 内部例外非露出 + role/aria SSOT)](0062-unified-error-notification.md) | accepted | 2026-06-22 |
 | 0063 | [DSQL pool マルチテナント分離 (信頼 claim/context + アプリ層単一強制点 + fitness function、RLS 非対応の代替防御線)](0063-dsql-pool-multitenant-isolation.md) | accepted | 2026-06-29 |
+| 0064 | [NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback](0064-sqlite-core-repo-strategy.md) | accepted | 2026-07-09 |
 
 > 注 (2026-06-04 #2440 PR-A5): 番号は欠番を許容する（削除済 ADR の番号は再利用しない、git 履歴で追跡可能）。新規 ADR は最大番号 +1 で採番する。renumber 規約は §renumber 規約 を参照。
 >
@@ -345,3 +346,13 @@ active 総数: 41 件 (棚卸後、ADR-0061 +1)。
 **1-in-1-out 履行**: ADR-0060 / 0061 起票時と同様、active 大幅超過の現状を踏まえ 1-in-1-out は **2026-06 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
 
 active 総数: 42 件 (棚卸後、ADR-0063 +1)。
+
+### 2026-07-09 棚卸 (ADR-0064 起票)
+
+**完了項目**:
+
+1. **ADR-0064 新規追加**: NUC 新 model repo 構築方式 = PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback。EPIC #3424 (DynamoDB → Aurora DSQL 移管) の NUC (セルフホスト) トラックで、DSQL 用 pg repos 33 本を書き直さず NUC でも動かすため、案 C = NUC を PGlite (@electric-sql/pglite) で駆動し pg repos を verbatim 再利用する決定 (PO 承認 2026-07-09、ロールバック可能前提 = 非破壊 import-then-swap / 旧 DB 物理保持 / errors>0 abort)。決定的根拠 = pg repos が既に PGlite で全 test green (`tests/unit/db/dsql-*.test.ts`、#3531 で dev dep 採用済) で二重実装税ゼロ + クラウド parity。選択肢 3 案比較 (案 A: drizzle sqlite-core の別 raw SQL repo 群 / 案 B: drizzle query-builder で方言非依存 repo に書き直し / 案 C: PGlite で pg repos 再利用) を本文に記載し、案 B 却下・案 A は fallback 温存。Pre-PMF Bucket A (ADR-0010 整合)。
+
+**1-in-1-out 履行**: ADR-0060 / 0061 / 0063 起票時と同様、active 大幅超過の現状を踏まえ 1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
+
+active 総数: 43 件 (棚卸後、ADR-0064 +1)。
