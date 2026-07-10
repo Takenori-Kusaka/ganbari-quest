@@ -79,6 +79,7 @@
 		"datconfig",
 		"datname",
 		"Idents",
+		"hana",
 		"ILIKE",
 		"multiplexing",
 		"multitenant",
