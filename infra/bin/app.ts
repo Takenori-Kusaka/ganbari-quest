@@ -123,6 +123,20 @@ if (dsqlEnabled) {
 	});
 }
 
+// --- DSQL staging cluster (EPIC #3424 M5 DoD4 / #3429) ---
+// `-c dsqlStagingEnabled=true` 時のみ instantiate。deploy-aws-staging.yml の dsql opt-in lane が
+// deploy し、staging Lambda (DATA_SOURCE=dsql) の接続先 + schema provisioning (dsql:migrate) の
+// 対象になる。staging は捨てて作り直す前提のため deletion protection を外す (本番 Dsql は DP=true
+// 既定のまま)。alarm/Budgets subscription は本番系に限定 (opsEmail 非注入 = 通知ノイズ防止)。
+const dsqlStagingEnabled = String(app.node.tryGetContext('dsqlStagingEnabled')) === 'true';
+if (dsqlStagingEnabled) {
+	new DsqlStack(app, `${appName}DsqlStaging`, {
+		env,
+		description: 'Aurora DSQL staging cluster (EPIC #3424 M5 DoD4、PDCA 用・DP なし)',
+		deletionProtection: false,
+	});
+}
+
 // --- AWS staging 3 stack (#2873 / EPIC #2861 D 系) ---
 // `-c stagingEnabled=true` 時のみ instantiate する context gate。
 // 本番の `cdk deploy --all` / `cdk diff --all` (deploy.yml) は context 無しで実行されるため

@@ -83,6 +83,7 @@
 		"multiplexing",
 		"multitenant",
 		"NONNEG",
+		"PDCA",
 		"schemaname",
 		"setconfig",
 		"setdatabase",
