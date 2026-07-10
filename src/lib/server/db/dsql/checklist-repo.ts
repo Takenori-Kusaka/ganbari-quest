@@ -319,13 +319,18 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 			// 配信を all-or-nothing に (単一 txn)。#3562 ③ parity: template 所有を INSERT ... SELECT で
 			// 強制し、他 family template / 存在しない template への orphan 配信を構造排除。既配信は
 			// PK ON CONFLICT DO NOTHING で skip し、RETURNING で「実際に追加された」assignment のみ返す。
+			// #3603 ①: DSQL は FK 非対応のため child_id をリテラル無検証で挿入すると同 family 内でも
+			// 存在しない child への orphan assignment を許容する。children を JOIN し child 実在を
+			// 構造強制する (template と child が両方存在するときのみ 1 行 emit)。存在しない child は
+			// JOIN で 0 行 → 挿入されず inserted に載らない (findTemplatesByChild で返らない無害データも作らない)。
 			return runner.runInTransaction(async (tx) => {
 				const inserted: ChecklistTemplateAssignment[] = [];
 				for (const childId of childIds) {
 					const result = await tx.execute(sql`
 						INSERT INTO checklist_template_assignments (family_id, template_id, child_id)
-						SELECT t.family_id, t.template_id, ${String(childId)}
+						SELECT t.family_id, t.template_id, c.child_id
 						FROM checklist_templates t
+						JOIN children c ON c.family_id = t.family_id AND c.child_id = ${String(childId)}
 						WHERE t.family_id = ${tenantId} AND t.template_id = ${templateId}
 						ON CONFLICT (family_id, template_id, child_id) DO NOTHING
 						RETURNING ${ASSIGNMENT_COLUMNS}

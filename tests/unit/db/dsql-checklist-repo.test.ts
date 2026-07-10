@@ -42,7 +42,7 @@
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ChildId } from '../../../src/lib/domain/ids';
+import { asChildId, type ChildId } from '../../../src/lib/domain/ids';
 import { createDsqlChecklistRepo } from '../../../src/lib/server/db/dsql/checklist-repo';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
@@ -224,6 +224,25 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 
 		// 空配列は no-op
 		expect(await repo.assignTemplateToChildren(tpl.id, [], FAMILY)).toEqual([]);
+	});
+
+	// #3603 ①: DSQL は FK 非対応。存在しない child_id への orphan assignment を children JOIN で
+	// 構造排除する (同 family でも children に無い child は 0 行 emit で挿入されない)。
+	it('[A1b] assignTemplateToChildren: 存在しない child は JOIN で構造排除 (orphan を作らない)', async () => {
+		const real = await newChild('実在配信');
+		const ghost = asChildId('00000000-0000-4000-8000-0000009999e1'); // children 未登録
+		const tpl = await repo.insertTemplate({ name: 'ゴースト配信' }, FAMILY);
+
+		const result = await repo.assignTemplateToChildren(tpl.id, [ghost, real], FAMILY);
+		// 実在 child のみ配信され、ghost は載らない
+		expect(result.map((r) => r.childId)).toEqual([real]);
+		// ghost の orphan assignment 行は物理的に存在しない
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM checklist_template_assignments
+					WHERE family_id = ${FAMILY} AND template_id = ${tpl.id} AND child_id = ${String(ghost)}`,
+			),
+		).toBe(0);
 	});
 
 	it('[A2] findAssignmentsByTemplate / findAssignmentsByChild + §P9', async () => {
