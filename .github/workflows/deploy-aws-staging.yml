@@ -37,6 +37,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      # EPIC #3424 M5 DoD4: DSQL staging lane (opt-in)。true で DsqlStaging cluster deploy →
+      # schema provisioning (dsql:migrate) → staging Lambda を DATA_SOURCE=dsql で起動し、
+      # post-deploy health を DSQL backend で検証する (audit-team.md §3.7#5 の新 backend 適用)。
+      # pull_request trigger (統合 PR) では inputs 不在 = 常に現行 dynamodb lane (不変)。
+      dsqlEnabled:
+        description: 'DSQL backend で staging を deploy (EPIC #3424 M5 PDCA)'
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -54,6 +63,8 @@ env:
   # staging 3 stack の明示列挙 (--all 禁止)。deploy 順は Storage → Auth → Compute 固定
   # (Auth が SSM cognito param を書き、Compute が deploy-time に解決するため順序依存)。
   STAGING_STACKS: GanbariQuestStorageStaging GanbariQuestAuthStaging GanbariQuestComputeStaging
+  # DSQL lane 判定 (DoD4)。dispatch + dsqlEnabled=true のときのみ 'true'。
+  DSQL_LANE: ${{ github.event_name == 'workflow_dispatch' && inputs.dsqlEnabled == true && 'true' || 'false' }}
 
 jobs:
   deploy-aws-staging:
@@ -190,12 +201,51 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Step 10: ADR-0019 gate (staging 3 stack)
+      # Step 10.5 (EPIC #3424 M5 DoD4、DSQL lane のみ): DSQL staging cluster を deploy し、
+      # outputs (endpoint/ARN) を解決 → schema provisioning (dsql:migrate) を実行する。
+      # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
+      - name: Deploy DSQL staging cluster (dsql lane)
+        if: env.DSQL_LANE == 'true'
+        working-directory: infra/
+        run: |
+          npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
+            -c dsqlStagingEnabled=true
+
+      - name: Resolve DSQL staging outputs (dsql lane)
+        if: env.DSQL_LANE == 'true'
+        run: |
+          ENDPOINT=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsqlStaging \
+            --region $AWS_REGION \
+            --query "Stacks[0].Outputs[?OutputKey=='ClusterEndpoint'].OutputValue" --output text)
+          ARN=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsqlStaging \
+            --region $AWS_REGION \
+            --query "Stacks[0].Outputs[?OutputKey=='ClusterArn'].OutputValue" --output text)
+          if [ -z "$ENDPOINT" ] || [ -z "$ARN" ] || [ "$ENDPOINT" = "None" ] || [ "$ARN" = "None" ]; then
+            echo "::error::DSQL staging outputs (ClusterEndpoint/ClusterArn) の取得に失敗しました"
+            exit 1
+          fi
+          echo "DSQL_ENDPOINT=$ENDPOINT" >> $GITHUB_ENV
+          echo "DSQL_CLUSTER_ARN=$ARN" >> $GITHUB_ENV
+          echo "::notice::DSQL staging cluster resolved: $ENDPOINT"
+
+      # schema provisioning (#3638 CLI)。OIDC role に dsql:DbConnectAdmin が必要 —
+      # 権限不足で fail した場合はこの step のログが PDCA cycle の学びになる (silent skip しない)。
+      - name: Provision DSQL schema (dsql lane)
+        if: env.DSQL_LANE == 'true'
+        env:
+          DSQL_ENDPOINT: ${{ env.DSQL_ENDPOINT }}
+        run: npm run dsql:migrate
+
       - name: CDK diff — replacement check (staging 3 stacks)
         working-directory: infra/
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
+          DSQL_CTX=""
+          if [ "$DSQL_LANE" = "true" ]; then
+            DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
+          fi
           npx cdk diff $STAGING_STACKS \
-            -c stagingEnabled=true \
+            -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -203,13 +253,19 @@ jobs:
       # Step 11: staging 3 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
       # Auth → Compute の順序は SSM param (cognito/*) の deploy-time 解決に必要なため、
       # 1 stack ずつ直列に deploy する (Auth/Compute 間に CFN 依存辺は意図的に無い)。
+      # DSQL lane では compute-stack の flag-gated 配線 (#3637) に endpoint/ARN を渡し、
+      # staging Lambda を DATA_SOURCE=dsql で起動する。
       - name: CDK Deploy staging stacks (explicit enumeration)
         working-directory: infra/
         run: |
+          DSQL_CTX=""
+          if [ "$DSQL_LANE" = "true" ]; then
+            DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
+          fi
           for stack in $STAGING_STACKS; do
             echo "=== cdk deploy $stack ==="
             npx cdk deploy "$stack" --require-approval never \
-              -c stagingEnabled=true \
+              -c stagingEnabled=true $DSQL_CTX \
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           done

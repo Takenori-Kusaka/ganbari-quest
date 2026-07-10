@@ -193,5 +193,11 @@ export class DsqlStack extends cdk.Stack {
 			value: `${clusterId}.dsql.${this.region}.on.aws`,
 			description: 'DSQL 接続 endpoint (connection.ts の DSQL_ENDPOINT に配布)',
 		});
+		// EPIC #3424 M5 DoD4: deploy workflow が describe-stacks で取得し、compute-stack の
+		// dsql:DbConnect resource 限定 (-c dsqlClusterArn) に渡す。
+		new cdk.CfnOutput(this, 'ClusterArn', {
+			value: this.cluster.attrResourceArn,
+			description: 'DSQL cluster ARN (dsql:DbConnect の resource 限定に使用)',
+		});
 	}
 }

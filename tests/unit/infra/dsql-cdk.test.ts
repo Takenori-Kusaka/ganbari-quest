@@ -36,6 +36,12 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		});
 	});
 
+	it('[I2b] ClusterEndpoint / ClusterArn output を持つ (M5 DoD4: workflow が OutputKey 名で解決する契約)', () => {
+		// deploy-aws-staging.yml (DSQL lane) が describe-stacks --query OutputKey==... で取得する。
+		template.hasOutput('ClusterEndpoint', {});
+		template.hasOutput('ClusterArn', {});
+	});
+
 	it('[I3] コストガードレール alarm 2 本 (TotalDPU 日次 3,225 / Storage 0.8GiB) (#3431)', () => {
 		template.resourceCountIs('AWS::CloudWatch::Alarm', 2);
 		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
