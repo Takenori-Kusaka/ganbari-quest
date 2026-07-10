@@ -200,23 +200,34 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 			// 不変条件 (== SUM(point_ledger)) を保つため同一 txn で 0 リセットする。
 			// fitness#7 (tx-bound await のみ許可) 準拠のため helper 閉包を挟まず inline に await する。
 			return runner.runInTransaction(async (tx) => {
-				const logs = await tx.execute(
-					sql`DELETE FROM activity_logs WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
-				);
-				const ledger = await tx.execute(
-					sql`DELETE FROM point_ledger WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
-				);
-				const bonuses = await tx.execute(
-					sql`DELETE FROM login_bonuses WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1`,
-				);
+				// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない
+				// (progress reset は長期 child で大量明細を削除しうる)。fitness#7: tx.execute 直呼び。
+				const logs = await tx.execute(sql`
+					WITH deleted AS (
+						DELETE FROM activity_logs WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1
+					)
+					SELECT count(*)::int AS c FROM deleted
+				`);
+				const ledger = await tx.execute(sql`
+					WITH deleted AS (
+						DELETE FROM point_ledger WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1
+					)
+					SELECT count(*)::int AS c FROM deleted
+				`);
+				const bonuses = await tx.execute(sql`
+					WITH deleted AS (
+						DELETE FROM login_bonuses WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1
+					)
+					SELECT count(*)::int AS c FROM deleted
+				`);
 				await tx.execute(sql`
 					UPDATE children SET total_point = 0, updated_at = now()
 					WHERE family_id = ${tenantId} AND child_id = ${id}
 				`);
 				return {
-					activityLogs: logs.rows.length,
-					pointLedger: ledger.rows.length,
-					loginBonuses: bonuses.rows.length,
+					activityLogs: Number((logs.rows[0] as { c: number }).c),
+					pointLedger: Number((ledger.rows[0] as { c: number }).c),
+					loginBonuses: Number((bonuses.rows[0] as { c: number }).c),
 					childAchievements: 0,
 					pointBalance: 0,
 				};

@@ -249,13 +249,18 @@ export function createDsqlRewardRedemptionRepo(db: SqlExecutor): IRewardRedempti
 
 		async expireOldRedemptions(tenantId) {
 			// 30 日超 pending → expired。timestamptz 比較で now() - interval を使う (§11.3)。
+			// #3625: affected 件数は CTE で DB 側 count 集約し、更新全行を client に materialize しない
+			// (tenant 全体走査で大量 pending を expire しうる)。
 			const result = await db.execute(sql`
-				UPDATE reward_redemption_requests SET status = 'expired'
-				WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
-					AND requested_at < now() - interval '30 days'
-				RETURNING redemption_id
+				WITH updated AS (
+					UPDATE reward_redemption_requests SET status = 'expired'
+					WHERE family_id = ${tenantId} AND status = 'pending_parent_approval'
+						AND requested_at < now() - interval '30 days'
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM updated
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 
 		async hasPendingByReward(rewardId, tenantId) {

@@ -170,11 +170,15 @@ export function createDsqlCloudExportRepo(db: SqlExecutor): ICloudExportRepo {
 		},
 
 		async deleteExpired(now) {
+			// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない。
 			const result = await db.execute(sql`
-				DELETE FROM cloud_exports WHERE expires_at < ${now}::timestamptz
-				RETURNING export_id
+				WITH deleted AS (
+					DELETE FROM cloud_exports WHERE expires_at < ${now}::timestamptz
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
 			`);
-			return result.rows.length;
+			return Number((result.rows[0] as { c: number }).c);
 		},
 
 		async countByTenant(tenantId) {
