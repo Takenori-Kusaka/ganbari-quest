@@ -63,6 +63,16 @@ export async function initPgliteConnection(): Promise<void> {
 		_client = env.PGLITE_DATA_DIR ? new PGlite(env.PGLITE_DATA_DIR) : new PGlite();
 		await _client.waitReady;
 		// DSQL parity: timezone を UTC 固定 (::timestamptz 境界の TZ ズレ防止、ADR-0064 §gate)。
+		// **接続レベル保証** (#3628 QM follow-up): `SET TIME ZONE` は session-level のため接続再取得
+		// / multiplexing / singleton 再生成で脱落し、子供の記録が日付境界で 1 日ズレる無言毀損の余地
+		// がある。`ALTER DATABASE ... SET timezone` は DB 既定として pg_database catalog に永続し
+		// (dataDir 永続時は reopen 後も有効)、以後の全 session に UTC を適用する = 脱落しない。
+		// 現 session には ALTER が効かないため session SET も併用する (両輪)。
+		const dbNameRes = await _client.query<{ current_database: string }>(
+			'SELECT current_database()',
+		);
+		const dbName = dbNameRes.rows[0]?.current_database ?? 'postgres';
+		await _client.exec(`ALTER DATABASE "${dbName}" SET timezone TO 'UTC';`);
 		await _client.exec("SET TIME ZONE 'UTC';");
 		_db = drizzle(_client, { schema });
 		// 生成済み pg-core migration を適用 (drizzle-kit 非依存、本番 boot 経路)。
