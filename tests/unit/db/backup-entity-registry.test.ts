@@ -20,6 +20,7 @@ import {
 	classifiedSchemaTables,
 	deferredExcludedEntities,
 	notYetExportedSourceEntities,
+	notYetExportedSourceLabels,
 } from '../../../src/lib/server/db/backup-entity-registry';
 
 const DB_DIR = join(process.cwd(), 'src/lib/server/db');
@@ -133,5 +134,27 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 		// Phase 2 等で source / derived 化したら本ベースラインから外す (意図的更新)。
 		// 「暫定除外のまま放置」を禁止し、実装フェーズ到来時の再分類を強制する。
 		expect(deferredExcludedEntities()).toEqual(['characterImage', 'dailyMission']);
+	});
+
+	it('#3372: notYetExportedSourceLabels は not-yet-exported source の表示名一覧を返す (現ベースライン 0 件)', () => {
+		// import/restore UI の partial-backup 警告が本関数を registry SSOT として参照する。
+		// #3329 完遂により現状は空 = UI 警告非表示。not-yet-exported source を追加すると
+		// 一覧が非空になり警告が自動表示される (registry 駆動)。
+		expect(notYetExportedSourceLabels()).toEqual(notYetExportedSourceEntities());
+		expect(notYetExportedSourceLabels()).toEqual([]);
+	});
+
+	it('#3372: not-yet-exported な source は displayLabel (UI 表示名) が必須 (内部コード露出禁止)', () => {
+		// partial-backup 警告は displayLabel を UI に列挙する。displayLabel 無しで
+		// not-yet-exported source を追加すると内部実体名がそのまま UI に露出するため、
+		// 本 assert が追加時点で fail し表示名の付与を強制する。
+		for (const [name, entry] of Object.entries(BACKUP_ENTITY_REGISTRY)) {
+			if (entry.classification === 'source' && entry.backupStatus === 'not-yet-exported') {
+				expect(
+					entry.displayLabel,
+					`${name} (not-yet-exported source) は displayLabel 必須`,
+				).toBeTruthy();
+			}
+		}
 	});
 });

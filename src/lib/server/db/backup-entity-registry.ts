@@ -40,6 +40,12 @@ export interface BackupEntityEntry {
 	schemaTable?: string;
 	/** source のときのみ: export/import で round-trip 済か。'not-yet-exported' は #3329 残課題 */
 	backupStatus?: BackupExportStatus;
+	/**
+	 * #3372: backupStatus='not-yet-exported' の source に必須の UI 表示名。
+	 * import/restore UI の partial-backup 警告が本値を列挙する (内部コード露出禁止のため
+	 * 内部実体名をそのまま UI に出さない。必須性は backup-entity-registry.test.ts が機械強制)。
+	 */
+	displayLabel?: string;
 	/** excluded のときのみ: 恒久除外 / 繰延除外 (Phase 2 で再分類) の区別 */
 	excludedKind?: BackupExcludedKind;
 	reason: string;
@@ -412,6 +418,19 @@ export function notYetExportedSourceEntities(): string[] {
 	return Object.entries(BACKUP_ENTITY_REGISTRY)
 		.filter(([, e]) => e.classification === 'source' && e.backupStatus === 'not-yet-exported')
 		.map(([name]) => name)
+		.sort();
+}
+
+/**
+ * #3372: 未 export source の UI 表示名一覧 (import/restore UI の partial-backup 警告用)。
+ * registry SSOT 駆動のため、export 実装が進み not-yet-exported が減ると警告も自動で縮む。
+ * displayLabel 未設定の場合は内部実体名に fallback するが、not-yet-exported source への
+ * displayLabel 設定は backup-entity-registry.test.ts が機械強制する (内部コード露出禁止)。
+ */
+export function notYetExportedSourceLabels(): string[] {
+	return Object.entries(BACKUP_ENTITY_REGISTRY)
+		.filter(([, e]) => e.classification === 'source' && e.backupStatus === 'not-yet-exported')
+		.map(([name, e]) => e.displayLabel ?? name)
 		.sort();
 }
 
