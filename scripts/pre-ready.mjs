@@ -621,9 +621,21 @@ async function main() {
 		console.log(`\n[pre-ready] ⚠ fail-open: ${note}`);
 	}
 
+	// #3649: --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は開発中の
+	// 部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には skip なし
+	// 実行が必要 (skip 込みで ALL PASS 表示すると self-report ↔ CI 乖離の温床になる)。
+	if (skipped.length > 0) {
+		console.log(
+			`\n[pre-ready] PARTIAL PASS — 実行した ${steps.length - skipped.length} step は PASS しましたが、` +
+				`${skipped.length} step が --skip 指定で未実行です (${skipped.join(', ')})。\n` +
+				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
+				`  skip なしの \`npm run pre-ready -- --pr ${args.pr ?? '<num>'}\` 全 step PASS が必要です。\n`,
+		);
+		return 0;
+	}
+
 	console.log(
 		`\n[pre-ready] ALL PASS${failOpenNotes.length > 0 ? ` (fail-open ${failOpenNotes.length} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
-			`  実行: ${steps.length - skipped.length} step / skip: ${skipped.length} step (${skipped.join(', ') || 'none'})\n` +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
 			`    2. gh pr ready ${args.pr ?? '<num>'}                            # Ready for Review に変更\n` +
