@@ -95,6 +95,7 @@
 		"setconfig",
 		"setdatabase",
 		"setrole",
+		"srcs",
 		"tablename",
 		"testcluster"
 	]
