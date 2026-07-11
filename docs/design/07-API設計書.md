@@ -1232,9 +1232,9 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **認可**: `requireRole(locals, ['owner', 'parent'])`（child → 403）
 - **リクエスト**: FormData `planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly'`
 - **成功レスポンス**: Stripe Checkout URL へリダイレクト
-- **`success_url`**: `${origin}/admin/license?session_id={CHECKOUT_SESSION_ID}`
+- **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
 - **`cancel_url`**: `${origin}/pricing`
-- **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新し、ライセンスキーを発行
+- **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
 
 #### POST /api/stripe/portal
 
@@ -1245,7 +1245,7 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = true` のテナント: PIN（4-6 桁）入力 → `verifyPin`
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
-- **`return_url`**: `${origin}/admin/license`
+- **`return_url`**: `${origin}/admin/subscription`
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）
@@ -1255,7 +1255,7 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
 
 ##### 月額 ↔ 年額切替と proration ポリシー (#786)
 
-- **切替動線**: `/admin/license` → 「プラン管理ポータル」ボタン → Stripe Customer Portal → プラン変更 → 月額/年額の Price ID を選択
+- **切替動線**: `/admin/subscription` → 「プラン管理ポータル」ボタン → Stripe Customer Portal → プラン変更 → 月額/年額の Price ID を選択
 - **Stripe 設定**: `proration_behavior = 'create_prorations'`（Stripe デフォルト）
   - **アップグレード（月額 → 年額、standard → family）**:
     - 即時切替。残り期間の月額分を日割り返金 → 新プラン分を日割り課金 → 差額を次回請求にマージ
@@ -2313,7 +2313,7 @@ export interface PlanLimitError {
   message: string;                              // 人間可読（日本語）
   currentTier: 'free' | 'standard' | 'family';  // リクエスト時点のテナントプラン
   requiredTier: 'standard' | 'family';          // 許可される最小プラン
-  upgradeUrl: '/admin/license';                 // アップグレード導線。固定
+  upgradeUrl: '/admin/subscription';            // アップグレード導線。固定
 }
 ```
 
@@ -2326,7 +2326,7 @@ export interface PlanLimitError {
     "message": "AI 活動提案はスタンダードプラン以上でご利用いただけます",
     "currentTier": "free",
     "requiredTier": "standard",
-    "upgradeUrl": "/admin/license"
+    "upgradeUrl": "/admin/subscription"
   }
 }
 ```
