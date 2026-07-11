@@ -180,9 +180,25 @@
 
 **結論**: §9-§10 の de-risking 推定が実機で全件裏取りされた。特に最重要の **RLS 非対応が確定**し、テナント分離設計（pool + 信頼 claim/context + fitness function + cross-tenant E2E）が唯一解であることが確証された。サプライズなし。残る実機検証（Lambda warm 接続再利用・cold start・drizzle-kit 実 migration 適用・一括 import チャンク実装）は設計 Sub 着手時に実施。
 
-### 11.2 今後の spike（#3425-#3429 着手時に追記）
+### 11.2 staging 実測（2026-07-11、staging cluster us-east-1、#3425 / #3426 / #3545 / #3550）
 
-- （未実施: Lambda 接続再利用 + cold start / drizzle-kit 実 migration 適用 / 一括 import チャンク実装 / CDK CfnCluster 構成）
+staging DSQL lane（EPIC #3424 M5 PDCA）の生きた cluster で実測。詳細な生データは各 Issue コメント（#3425 / #3426 / #3545）を参照。
+
+**並行アクセス（#3545/#3550、`tests/integration/db/dsql-staging-concurrency.test.ts` — DSQL_ENDPOINT 指定時のみ実行の恒久 test）**:
+
+| 検証 | 実測 |
+|---|---|
+| retry なし 8 並行 recordActivityCore（同一 child 共有行 write） | SQLSTATE 40001 = **7/8 件**（spike#8 の M=8→6 件と整合） |
+| withOccRetry 込み 8 並行（dailyLimit=1） | **exactly-once**（ok=1 / ALREADY_RECORDED=7、point_ledger 1 行、total_point=SUM 整合） |
+| withOccRetry 込み 8 並行（無制限） | **lost update ゼロ**（mastery total_count=8 / total_point=80=SUM / statuses XP=80） |
+
+**DPU（#3425、EXPLAIN ANALYZE VERBOSE Statement DPU Estimate）**: home read 0.050 / ledger 履歴 50 件 0.056 / 冪等 guard count 0.025 / ledger INSERT 0.022 / children UPDATE 0.012。**write txn には Transaction minimum 0.05 WriteDPU** が適用され、活動記録 1 回 ≈ 0.1 DPU → 1 家族 300 記録/月 ≈ 30 DPU ≈ $0.00024/月（§P0 の「実費 ¥0 見込み」を service クエリ粒度で裏取り）。
+
+**CloudWatch（#3425 AC3）**: `AWS/AuroraDSQL` の TotalDPU（233.19、Compute 88%）/ **OccConflicts（85 件 — retry 内競合も全部観測）** / CommitLatency（平均 **2.87ms**）を ClusterId dimension で観測可能と確証。
+
+**Lambda 接続層（#3426）**: cold start Init = DSQL 構成 3315ms vs dynamodb 構成 3073ms（**+242ms = IAM token + TLS + probe 2 クエリ**）、warm 36ms。connector（AuroraDSQLPool singleton）+ drizzle は app_user role（dsql:DbConnect + AWS IAM GRANT 紐付け、#3646）で実運用動作を確認。
+
+**残実測**: #3426 AC1（60 分 token 期限跨ぎの warm 継続 — DSQL 構成の持続観測窓で実施）/ 一括 import チャンク実装（#3427 系）。
 
 ---
 
