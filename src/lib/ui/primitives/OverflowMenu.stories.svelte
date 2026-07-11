@@ -149,6 +149,10 @@ const { Story } = defineMeta({
 		});
 		await userEvent.click(marketplaceItem);
 		await waitFor(() => expect(marketplaceSpy).toHaveBeenCalledTimes(1));
+		// #3687 第 2 形態: open のまま終了すると zag-js focus-visible cleanup が unhandled
+		// error を leak する (Menu と同型)。Escape で閉じて完結させる。
+		await userEvent.keyboard('{Escape}');
+		await waitFor(() => expect(marketplaceItem).not.toBeVisible());
 	}}
 />
 

@@ -75,6 +75,12 @@ const { Story } = defineMeta({
 		// item select → onSelect spy 発火 (dead-end でない前提)
 		await userEvent.click(editItem);
 		await waitFor(() => expect(editSpy).toHaveBeenCalledTimes(1));
+		// #3687 第 2 形態: menu を open したまま play を終えると、unmount 時の zag-js
+		// focus-visible cleanup が Storybook instrumentation と衝突し unhandled
+		// TypeError (Illegal invocation) を CI で leak する。Escape で閉じて close 遷移を
+		// test 内で完結させる。
+		await userEvent.keyboard('{Escape}');
+		await waitFor(() => expect(editItem).not.toBeVisible());
 	}}
 />
 
