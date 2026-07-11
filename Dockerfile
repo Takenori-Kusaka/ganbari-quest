@@ -45,6 +45,19 @@ COPY --from=build /app/src/lib/server/db/seed.ts ./src/lib/server/db/seed.ts
 COPY --from=build /app/src/lib/server/db/schema.ts ./src/lib/server/db/schema.ts
 COPY --from=build /app/drizzle.config.ts ./
 
+# EPIC #3620 AC-C5: PGlite cutover を image 同梱ツールで実行可能にする (staging/本番 同一手順)。
+# `docker compose run --rm app npx tsx scripts/nuc-pglite-cutover.ts <export|import> ...`
+# tsx は node_modules に既存 (devDeps 込み COPY)、$lib alias は tsconfig paths を tsx が解決、
+# drizzle/pglite は PGlite boot 時 migration の SSOT (connection.ts)。手順 SSOT は
+# docs/runbooks/nuc-pglite-cutover.md。
+COPY --from=build /app/src ./src
+COPY --from=build /app/scripts/nuc-pglite-cutover.ts ./scripts/nuc-pglite-cutover.ts
+COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/tsconfig.json ./
+# root tsconfig は .svelte-kit/tsconfig.json を extends し $lib paths はそちら側 (svelte-kit sync
+# 生成物、build stage に存在)。tsx の alias 解決に必要な該当ファイルのみ COPY する。
+COPY --from=build /app/.svelte-kit/tsconfig.json ./.svelte-kit/tsconfig.json
+
 # Copy entrypoint script (strip Windows CRLF line endings)
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh

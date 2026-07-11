@@ -11,6 +11,9 @@ EPIC #3620 / ADR-0064 §ロールバック保証 (非破壊 import-then-swap) �
 
 ## 手順
 
+CLI は **app image に同梱** (Dockerfile runtime stage、AC-C5) されており、host に node_modules は不要。
+`docker compose run` で実行する (staging lane = `deploy-nuc-staging.yml` の PGlite lane と同一コマンド)。
+
 ```bash
 # 0. (本番のみ) 直前バックアップ
 cp data/ganbari-quest.db* backup/pre-pglite-cutover-$(date +%Y%m%d)/
@@ -18,12 +21,14 @@ cp data/ganbari-quest.db* backup/pre-pglite-cutover-$(date +%Y%m%d)/
 # 1. アプリ停止 (WAL flush。NUC デプロイ順序と同じ)
 docker compose stop app
 
-# 2. export (旧 DB → JSON。原本 read-only、copy に対して実行)
-npx tsx scripts/nuc-pglite-cutover.ts export --db data/ganbari-quest.db --out tmp/cutover-export.json
+# 2. export (旧 DB → JSON。原本 read-only、copy に対して実行。CLI は image 同梱)
+docker compose run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts export \
+  --db /app/data/ganbari-quest.db --out /app/data/.cutover-export.json
 #    → counts が表示される (14 軸)。控えておく。
 
 # 3. import (fresh PGlite 構築 + migration 適用 + import + 件数突合)
-npx tsx scripts/nuc-pglite-cutover.ts import --in tmp/cutover-export.json --data-dir data/pglite
+docker compose run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts import \
+  --in /app/data/.cutover-export.json --data-dir /app/data/pglite
 #    → 「import + 件数突合 完了」が出れば成功。
 #    → errors>0 または件数不一致なら CLI が dataDir を削除して exit 1 (旧 DB 無傷、原因解消後に再実行)。
 
@@ -31,9 +36,9 @@ npx tsx scripts/nuc-pglite-cutover.ts import --in tmp/cutover-export.json --data
 #    DATA_SOURCE=pglite
 #    PGLITE_DATA_DIR=/app/data/pglite   (コンテナ内 path。docker-compose の volume に合わせる)
 
-# 5. 起動 + health
-docker compose build && docker compose up -d
-curl -s http://localhost:3000/api/health   # 200 を確認
+# 5. 起動 + health (health は probePg = PGlite への実接続 + schema 実在検証)
+docker compose up -d
+curl -s http://localhost:3000/api/health   # 200 + "dataSource":"pglite" + schemaValid:true を確認
 
 # 6. 実画面確認 (子供一覧 / ポイント残高 / 活動記録 1 件)
 ```

@@ -40,3 +40,25 @@ export async function probeDynamoDB(): Promise<void> {
 		throw new Error('dynamodb_table_not_active');
 	}
 }
+
+/**
+ * pg 系 backend (dsql / pglite) の liveness + schema 検証 (#3620 AC-C5 / EPIC #3424)。
+ * **実 backend への実接続**で SELECT 1 + children 表 count を実行する — 従来 health は
+ * dynamodb 以外を一律 sqlite probe しており、DATA_SOURCE=dsql/pglite の Lambda/NUC でも
+ * 「空 sqlite が触れた」だけで 200 を返す偽陽性だった (staging cycle 3 の反省)。
+ * children count が通る = migration 適用済み schema が実在する、を schemaValid とする。
+ */
+export async function probePg(dataSource: 'dsql' | 'pglite'): Promise<SqliteProbeResult> {
+	const { sql } = await import('drizzle-orm');
+	const db =
+		dataSource === 'dsql'
+			? (await import('./dsql/connection')).getDsqlDb()
+			: (await import('./pglite/connection')).getPgliteDbSync();
+	const ping = await db.execute(sql`SELECT 1 AS ok`);
+	if (Number((ping.rows[0] as { ok: number } | undefined)?.ok) !== 1) {
+		throw new Error('db_check_failed');
+	}
+	// schema 実在検証: 中核表 children への count が通れば migration 適用済み。
+	await db.execute(sql`SELECT count(*) FROM children`);
+	return { schemaValid: true, migrationsApplied: 0, schemaWarnings: 0 };
+}
