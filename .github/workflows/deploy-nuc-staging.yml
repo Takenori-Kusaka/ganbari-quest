@@ -211,15 +211,15 @@ jobs:
             Write-Host "removed previous staging pglite dataDir (fresh rehearsal)"
           }
           if (-not (Test-Path ".\data\ganbari-quest.db")) {
-            Write-Host "::notice::旧 sqlite DB が無い (fixture fallback) -> cutover skip、fresh PGlite で起動します"
+            Write-Host "::notice::legacy sqlite DB not found (fixture fallback) -> skip cutover, boot fresh PGlite"
             exit 0
           }
           docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts export --db /app/data/ganbari-quest.db --out /app/data/.cutover-export.json
           if ($LASTEXITCODE -ne 0) { throw "cutover export failed (exit $LASTEXITCODE)" }
           docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts import --in /app/data/.cutover-export.json --data-dir /app/data/pglite
-          if ($LASTEXITCODE -ne 0) { throw "cutover import failed (exit $LASTEXITCODE、件数突合 or errors>0 abort。旧 DB は無傷)" }
+          if ($LASTEXITCODE -ne 0) { throw "cutover import failed (exit $LASTEXITCODE; count-mismatch or errors>0 abort, legacy DB untouched)" }
           Remove-Item -Force ".\data\.cutover-export.json" -ErrorAction SilentlyContinue
-          Write-Host "::notice::cutover rehearsal passed (export -> import -> 件数突合)。PGlite backend で起動します"
+          Write-Host "::notice::cutover rehearsal passed (export -> import -> count verification). Booting with PGlite backend"
 
       - name: Start (staging)
         run: |
