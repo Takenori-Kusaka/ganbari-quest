@@ -1,4 +1,4 @@
-// tests/unit/services/nuc-cutover-verify.test.ts
+// tests/unit/scripts/nuc-cutover-verify.test.ts
 // EPIC #3620 AC-C4 後段 — cutover 件数突合 (nuc-cutover-verify.ts) のテスト。
 //
 //   [CV1] summarizeExportCounts: ExportData から全 14 軸の件数を集計する
@@ -8,15 +8,15 @@
 // CLI 本体 (export→import orchestration) は実プロセス E2E で検証する (PR 記載の実機ログ)。
 
 import { describe, expect, it } from 'vitest';
-import type { ExportData } from '../../../src/lib/domain/export-format';
-import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 import {
 	CUTOVER_COUNT_AXES,
 	type CutoverCounts,
 	collectImportedCounts,
 	diffCutoverCounts,
 	summarizeExportCounts,
-} from '../../../src/lib/server/services/nuc-cutover-verify';
+} from '../../../scripts/lib/nuc-cutover-verify';
+import type { ExportData } from '../../../src/lib/domain/export-format';
+import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 
 /** 全軸 0 件の ExportData 骨格に、指定 field だけ n 件の placeholder を入れる。 */
 function makeExportData(overrides: Partial<Record<string, number>> = {}): ExportData {

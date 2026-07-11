@@ -69,7 +69,7 @@ async function runExport(opts: Record<string, string>): Promise<void> {
 
 	try {
 		const { exportFamilyData } = await import('../src/lib/server/services/export-service');
-		const { summarizeExportCounts } = await import('../src/lib/server/services/nuc-cutover-verify');
+		const { summarizeExportCounts } = await import('./lib/nuc-cutover-verify');
 		// 旧 NUC の tenant は local auth 固定値 'local' (src/lib/server/auth/local-tenant.ts)。
 		const data = await exportFamilyData({ tenantId: 'local' });
 		const counts = summarizeExportCounts(data);
@@ -115,7 +115,7 @@ async function runImport(opts: Record<string, string>): Promise<void> {
 
 	await pglite.initPgliteConnection();
 	const { importFamilyData } = await import('../src/lib/server/services/import-service');
-	const verify = await import('../src/lib/server/services/nuc-cutover-verify');
+	const verify = await import('./lib/nuc-cutover-verify');
 
 	const result = await importFamilyData(data, LOCAL_TENANT_UUID);
 	if (result.errors.length > 0) {
