@@ -44,7 +44,7 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 |---|---|
 | 1. cut | 統合したい `develop` の**特定コミットを凍結**し、そこから `release/<YYYY-MM-DD>`（例 `release/2026-06-16`）を cut する。以後 develop が進んでも release branch の HEAD は不変＝frozen 標的 |
 | 2. 統合 PR | `release/* → main` の PR を発行する。`pr-lane.mjs` rule 2 で `integration`（重量レーン）に分類され、`main-pr-base-guard` が release/* を許可、重量 job + `integration-evidence` が保証発火する |
-| 3. 監査・merge | frozen な release HEAD に対し 8 領域監査 + adversarial evidence（ADR-0056）→ lab approve（author≠approver, ADR-0022）→ **merge commit（`gh pr merge --merge`、squash 禁止）**。HEAD が動かないため監査が無効化されない。統合 PR を squash すると含有 PR の commit 粒度が潰れ B-4 in-toto / DORA per-PR 計測が成立しないため merge commit に統一する（§2 / audit-team.md §3.5、#2938） |
+| 3. 監査・merge | frozen な release HEAD に対し 8 領域監査 + adversarial evidence（ADR-0056）→ lab approve（author≠approver, ADR-0022）→ **merge commit（`gh pr merge --merge`、squash 禁止。根拠 SSOT = §2 #2871）**。HEAD が動かないため監査が無効化されない |
 | 4. back-merge | merge 後、`main → develop` の back-merge sync PR で main の merge commit を develop へ取り込む（hotfix back-merge と同じ §5 経路 / #2951・#3061 自動化）|
 
 - release branch は **`non_fast_forward` の ruleset（`release-lane-freeze`、target=`refs/heads/release/*`、id 17725378）で保護**し、force-push（history 書換）で標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
