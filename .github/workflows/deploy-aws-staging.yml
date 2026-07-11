@@ -274,6 +274,21 @@ jobs:
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           done
 
+      # Step 11.5 (#3646、DSQL lane のみ): アプリ実行 role (app_user) の provisioning。
+      # Lambda 実行 role は dsql:DbConnect のみ持ち (M3 §3.4 B6 最小権限)、DSQL の認可仕様では
+      # DbConnect は custom database role 専用のため、CREATE ROLE + AWS IAM GRANT (Lambda role
+      # ARN 紐付け) + 表 GRANT (UPDATE 除外表は SELECT/INSERT/DELETE のみ) を冪等適用する。
+      # compute deploy 後 = Lambda 実行 role ARN 確定後、health check 前に置く。
+      - name: Grant DSQL app role to Lambda (dsql lane)
+        if: env.DSQL_LANE == 'true'
+        run: |
+          LAMBDA_ROLE_ARN=$(aws lambda get-function-configuration \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'Role' --output text)
+          echo "Granting app_user to $LAMBDA_ROLE_ARN"
+          npm run dsql:grant -- --iam-role-arn "$LAMBDA_ROLE_ARN"
+
       # Step 12: staging Lambda を今回 push した sha image に明示更新 (deploy.yml Phase 4 同型 —
       # `latest` タグは CFN が新 push を検知できないため)。
       - name: Update Lambda function image (staging)

@@ -102,6 +102,9 @@ describe('compute-stack DSQL cutover 配線 (EPIC #3424 M5 DoD3、flag-gated)', 
 		const envVars = mainFnEnv(template);
 		expect(envVars.DATA_SOURCE).toBe('dsql');
 		expect(envVars.DSQL_ENDPOINT).toBe(TEST_DSQL_ENDPOINT);
+		// #3646: DbConnect は custom db role 専用 (admin は DbConnectAdmin 必要)。既定 admin の
+		// まま接続すると staging cycle 4 同様に接続不能になるため app_user 注入を固定する。
+		expect(envVars.DSQL_USER).toBe('app_user');
 
 		// DbConnect が cluster ARN 限定で付与される (ワイルドカード禁止)
 		template.hasResourceProperties('AWS::IAM::Policy', {

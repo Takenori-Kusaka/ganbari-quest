@@ -271,11 +271,11 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 | 用途 | 接続ロール | 権限 |
 |---|---|---|
-| **アプリ実行時** | 専用最小権限 postgres role（`DbConnect` 系 IAM、`DbConnectAdmin` でない） | tenant 表への SELECT/INSERT + 業務上必要な UPDATE のみ。**append-only 表（`consents`/`point_ledger`/`status_history`/`*_logs`/`trial_history`/`cancellation_reasons`/`graduation_consent`/`notification_logs`）への UPDATE/DELETE grant を与えない**（I-CONS 等の追記性を DB GRANT で物理担保） |
+| **アプリ実行時** | 専用最小権限 postgres role `app_user`（`DbConnect` 系 IAM、`DbConnectAdmin` でない。provisioning = `dsql/migration/app-role.ts` + `npm run dsql:grant`、#3646） | tenant 表への SELECT/INSERT/DELETE + 業務上必要な UPDATE のみ。**UPDATE 除外表（`consents`/`point_ledger`/`status_history`/`checklist_logs`/`notification_logs`/`usage_logs`/`cancellation_reasons`/`graduation_consent` — SSOT は `app-role.ts` `UPDATE_EXCLUDED_TABLES`）への UPDATE grant を与えない**（I-CONS 等の追記性 = 改竄不能を DB GRANT で物理担保）。**DELETE は除外しない** — 退会（tenant 全削除）/ retention cleanup（ADR-0049 物理削除）/ child 削除の正当業務経路が DELETE を発行するため（#3646 で「UPDATE/DELETE 除外」から是正）。`activity_logs`（cancelled soft-cancel）/ `trial_history`（状態更新）は実装が UPDATE を必要とするため除外対象外 |
 | **migration / admin** | 別クレデンシャル（`DbConnectAdmin`） | DDL・GRANT 管理。アプリ実行経路から到達不能 |
 
-- **fitness**: append-only 表への UPDATE/DELETE を repo 層で非定義 + GRANT 除外 + AST lint の 3 層（RLS 不在の代替、consent 削除・台帳改竄の物理防御）。
-- **⚠️ 本番 cutover 前 hard blocker（Round 2 [should] 格上げ、#3429）**: role 分離の**実 IAM policy JSON の実装は「M4 spike」でなく本番 cutover 前の hard blocker**。GRANT を防御線に名指す本設計は、実 IAM policy（実行 role = DbConnect 最小権限 + append-only 表 GRANT 除外 / migration = DbConnectAdmin）が**未実装だと design-only で無防備**（DbConnectAdmin 付与のままだと台帳改竄・consent 削除が素通り）。→ 本番稼働の gate に含める（データモデルゲート #3429 の CDK 構成 spike とは別に、role 分離だけは cutover 必須）。L1 `AWS::DSQL::Cluster` の IAM grant helper 欠如（手書き）は #3429 で吸収。
+- **fitness**: UPDATE 除外表への UPDATE を GRANT 除外（runtime、`tests/unit/db/dsql-app-role.test.ts` [G2]）+ 静的走査（`tests/unit/architecture/dsql-append-only-update-fitness.test.ts`）の 2 層（RLS 不在の代替、台帳改竄の物理防御）。
+- **role 分離の実装（#3646 で cutover gate 消化済）**: 実行 role = `app_user`（DbConnect、compute-stack が `DSQL_USER=app_user` 注入）/ migration・grant = `DbConnectAdmin` 経路（`dsql:migrate` → compute deploy → `dsql:grant --iam-role-arn <Lambda 実行 role>` の順で deploy workflow が適用）。DSQL の認可仕様上 DbConnect は custom database role 専用（admin は DbConnectAdmin 必要）のため、この provisioning なしでは DbConnect 最小権限の Lambda は一切接続できない。
 
 ---
 
