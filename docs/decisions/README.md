@@ -357,3 +357,14 @@ active 総数: 42 件 (棚卸後、ADR-0063 +1)。
 **1-in-1-out 履行**: ADR-0060 / 0061 / 0063 起票時と同様、active 大幅超過の現状を踏まえ 1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
 
 active 総数: 43 件 (棚卸後、ADR-0064 +1)。
+
+### 2026-07-11 棚卸 (ADR-0065 起票)
+
+**完了項目**:
+
+1. **ADR-0065 新規追加**: DSQL DPU コスト規約 — service 層クエリの 5 原則 (実測裏付け)。EPIC #3424 の設計 Sub #3430 を、staging cluster 実測 (#3425: write txn minimum 0.05 WriteDPU / 代表クエリ DPU / OccConflicts・CommitLatency 2.87ms) で裏取りして規約化。フルスキャン禁止 (PK prefix、ADR-0063 と同一強制点) / N+1 禁止・write 束ね (recordActivityCore 模範) / secondary index PoC 保留 / hot key 回避 (UUID v4) / 一括 3,000 行・10MiB チャンク。EXPLAIN ANALYZE VERBOSE は相対回帰用 (絶対閾値 gate 不向き) を明文化。Pre-PMF Bucket A (ADR-0010 整合、ツール導入ゼロ)。
+
+**1-in-1-out 履行**: ADR-0060〜0064 起票時と同様、active 大幅超過の現状を踏まえ 1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
+
+active 総数: 44 件 (棚卸後、ADR-0065 +1)。
+
