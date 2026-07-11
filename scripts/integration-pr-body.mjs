@@ -158,7 +158,7 @@ export function buildContainedPrTable(prs) {
  * 軽微な揺れで section 検出を取りこぼすと closes 集約が silent に漏れる（under-close）。
  * 見出しテキストを「空白除去 + 小文字化 + 末尾コロン除去」で正規化して比較する。
  *
- * @param {string} line
+ * @param {string | undefined} line
  * @returns {{ level: number } | null} 見出しなら level（# の数）、違えば null
  */
 function parseRelatedIssueHeading(line) {
@@ -168,7 +168,7 @@ function parseRelatedIssueHeading(line) {
 		.replace(/[ \t　]/g, '')
 		.replace(/[:：]$/, '')
 		.toLowerCase();
-	return text === '関連issue' ? { level: m[1].length } : null;
+	return text === '関連issue' ? { level: (m[1] ?? '').length } : null;
 }
 
 /**
@@ -195,7 +195,8 @@ function sliceRelatedIssueSection(body) {
 	let endIdx = lines.length;
 	for (let i = startIdx + 1; i < lines.length; i += 1) {
 		const hm = /^[ \t]*(#{1,6})[ \t]/.exec(lines[i] ?? '');
-		if (hm && hm[1].length <= startLevel) {
+		// regex マッチ時 hm[1] は必ず 1 文字以上（?? 7 は noUncheckedIndexedAccess 向けの到達不能な防御値）
+		if (hm && (hm[1]?.length ?? 7) <= startLevel) {
 			endIdx = i;
 			break;
 		}
@@ -286,7 +287,7 @@ export function extractClosedIssues(prs) {
 		for (const m of scanned.matchAll(CLOSING_KEYWORD_LINE_RE)) {
 			// #3462: コロン形で subject テキストを伴う行は conventional-commit prefix
 			// （`fix: #N …`）であり closing 宣言ではないため集約しない（.github/CLAUDE.md SSOT 整合）。
-			if (m[1] === ':' && isConventionalCommitPrefixLine(m[3])) continue;
+			if (m[1] === ':' && isConventionalCommitPrefixLine(m[3] ?? '')) continue;
 			const n = Number(m[2]);
 			if (Number.isInteger(n) && n > 0) set.add(n);
 		}
@@ -314,7 +315,9 @@ export function partitionClosedIssues(issueNumbers, trackingIssueNumbers = []) {
 			.map((t) => Number(typeof t === 'object' && t !== null ? t.number : t))
 			.filter((n) => Number.isInteger(n) && n > 0),
 	);
+	/** @type {number[]} */
 	const closable = [];
+	/** @type {number[]} */
 	const tracking = [];
 	for (const n of issueNumbers ?? []) {
 		(trackingSet.has(n) ? tracking : closable).push(n);
