@@ -85,6 +85,7 @@
 		"multitenant",
 		"NONNEG",
 		"PDCA",
+		"reinit",
 		"schemaname",
 		"setconfig",
 		"setdatabase",
