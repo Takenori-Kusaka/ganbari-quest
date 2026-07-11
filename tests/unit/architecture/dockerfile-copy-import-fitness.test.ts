@@ -71,7 +71,9 @@ function extractSpecifiers(sourceText: string): string[] {
 		/require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, // cjs require
 	];
 	for (const re of patterns) {
-		for (const m of noComments.matchAll(re)) specifiers.push(m[1]);
+		for (const m of noComments.matchAll(re)) {
+			if (m[1]) specifiers.push(m[1]);
+		}
 	}
 	return specifiers;
 }
