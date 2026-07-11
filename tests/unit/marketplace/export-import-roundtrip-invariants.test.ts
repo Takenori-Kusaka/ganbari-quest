@@ -16,7 +16,7 @@
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { createActivitySchema } from '$lib/domain/validation/activity';
+import { ACTIVITY_BASE_POINTS_MAX, createActivitySchema } from '$lib/domain/validation/activity';
 import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-schema';
 import { ChallengeSetItemSchema } from '$lib/marketplace/schemas/challenge-set-schema';
 import { ChecklistItemSchema } from '$lib/marketplace/schemas/checklist-schema';
@@ -72,9 +72,15 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 	});
 
 	describe('② 値域整合: schema 数値上限の境界 (上限値 受理 / 上限+1 拒否)', () => {
-		it('activity-pack basePoints 上限 10000 受理 / 10001 拒否', () => {
-			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 10000 }))).toBe(true);
-			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 10001 }))).toBe(false);
+		it('activity-pack basePoints 上限 (ACTIVITY_BASE_POINTS_MAX) 受理 / +1 拒否', () => {
+			// #3151: 旧 wire 上限 10000 は domain 上限 100 との 100 倍ドリフト (二重定義)。
+			// 値域 SSOT 統一後は境界を hardcode せず SSOT 定数から導出する。
+			expect(
+				ok(ActivityPackItemSchema, activityItem({ basePoints: ACTIVITY_BASE_POINTS_MAX })),
+			).toBe(true);
+			expect(
+				ok(ActivityPackItemSchema, activityItem({ basePoints: ACTIVITY_BASE_POINTS_MAX + 1 })),
+			).toBe(false);
 		});
 		it('activity domain ⊆ export schema: 実 domain validator を oracle に値域整合を cross-assert (#3153)', () => {
 			// #3153: 旧 test は basePoints=100 を hardcode し domain validator を import していなかったため、
@@ -89,15 +95,23 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 				ageMin: null,
 				ageMax: null,
 			});
-			// domain validator の境界を実 validator で確認 (hardcode でなく validator が boundary を決める)。
-			expect(createActivitySchema.safeParse(domainActivity(100)).success).toBe(true);
-			expect(createActivitySchema.safeParse(domainActivity(101)).success).toBe(false);
-			// domain が受理する最大値 (100) は export schema を必ず通る (domain ⊆ schema)。
-			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 100 }))).toBe(true);
-			// 値域整合の drift guard: export schema 上限超過 (10001) を domain validator も拒否する。
-			// domain max が export schema max (10000) を超えて drift すると domain が 10001 を受理 → 本 assert が落ち、
+			// domain validator の境界を実 validator で確認 (hardcode でなく SSOT 定数 + validator が boundary を決める)。
+			expect(createActivitySchema.safeParse(domainActivity(ACTIVITY_BASE_POINTS_MAX)).success).toBe(
+				true,
+			);
+			expect(
+				createActivitySchema.safeParse(domainActivity(ACTIVITY_BASE_POINTS_MAX + 1)).success,
+			).toBe(false);
+			// domain が受理する最大値は export schema を必ず通る (domain ⊆ schema)。
+			expect(
+				ok(ActivityPackItemSchema, activityItem({ basePoints: ACTIVITY_BASE_POINTS_MAX })),
+			).toBe(true);
+			// 値域整合の drift guard (#3151 で SSOT 統一済): SSOT 上限超過は wire schema も拒否する。
+			// どちらかが SSOT 定数を離れて値域を広げると本 assert が落ち、
 			// #3132 と同 class (domain 値域 ⊄ export schema 値域) の再混入を CI で検出する。
-			expect(createActivitySchema.safeParse(domainActivity(10001)).success).toBe(false);
+			expect(
+				ok(ActivityPackItemSchema, activityItem({ basePoints: ACTIVITY_BASE_POINTS_MAX + 1 })),
+			).toBe(false);
 		});
 		it('checklist order は 0 以上整数 (負値拒否)', () => {
 			expect(ok(ChecklistItemSchema, checklistItem({ order: 0 }))).toBe(true);

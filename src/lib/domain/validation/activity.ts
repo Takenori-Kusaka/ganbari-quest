@@ -73,8 +73,51 @@ export const SOURCES = ACTIVITY_SOURCE_WIRE_VALUES;
 
 export type Source = (typeof SOURCES)[number];
 
+// ============================================================
+// 活動 値域 SSOT (#3151 / ADR-0066)
+// ============================================================
+// domain Zod schema (本ファイル createActivitySchema) と wire Valibot schema
+// (src/lib/marketplace/schemas/activity-pack-schema.ts) の両方が本定数を参照する。
+// 値域 literal の二重定義は #3132 (値域ドリフト blocker) の root class のため禁止。
+// domain⊆wire 包含は tests/unit/architecture/schema-range-ssot.test.ts が機械表明する。
+
+export const ACTIVITY_NAME_MIN = 1;
+export const ACTIVITY_NAME_MAX = 50;
+export const ACTIVITY_BASE_POINTS_MIN = 1;
+/** ポイント経済設計の上限 (初期 #0013 から不変)。wire 側旧 maxValue(10000) は #3151 で本値に統一 */
+export const ACTIVITY_BASE_POINTS_MAX = 100;
+export const ACTIVITY_AGE_MIN = 0;
+/** domain 側が先行 SSOT (0〜20)。wire 側旧 maxValue(18) は #3151 で本値に統一 (既存行の往復保証) */
+export const ACTIVITY_AGE_MAX = 20;
+export const ACTIVITY_TRIGGER_HINT_MAX = 30;
+export const ACTIVITY_DESCRIPTION_MAX = 200;
+export const ACTIVITY_SUBCATEGORY_MAX = 50;
+export const ACTIVITY_ICON_MIN_GRAPHEMES = 1;
+export const ACTIVITY_ICON_MAX_GRAPHEMES = 2;
+
+// #3463: dailyLimit / nameKana / nameKanji の許容境界 SSOT (form zod と同値)。
+export const DAILY_LIMIT_MIN = 0;
+export const DAILY_LIMIT_MAX = 99;
+export const ACTIVITY_NAME_FIELD_MAX = 50;
+
+/** grapheme cluster 数を数える (ZWJ 連結絵文字を 1 と数える)。icon 値域判定の共有実装 (#3151) */
+export function countIconGraphemes(val: string): number {
+	const seg = new Intl.Segmenter('ja', { granularity: 'grapheme' });
+	return [...seg.segment(val)].length;
+}
+
+/**
+ * icon 値域 (1〜2 grapheme) 判定。domain Zod refine と wire Valibot check の共有 oracle (#3151)。
+ * 旧 wire 側 maxLength(20) (UTF-16 units 基準) は ZWJ 連結絵文字 2 個 (22 units) を弾き
+ * domain⊆wire を破っていたため、本関数への統一で値域を表現方式ごと SSOT 化した。
+ */
+export function isValidActivityIcon(val: string): boolean {
+	const count = countIconGraphemes(val);
+	return count >= ACTIVITY_ICON_MIN_GRAPHEMES && count <= ACTIVITY_ICON_MAX_GRAPHEMES;
+}
+
 export const createActivitySchema = z.object({
-	name: z.string().min(1).max(50),
+	name: z.string().min(ACTIVITY_NAME_MIN).max(ACTIVITY_NAME_MAX),
 	// #3575: id は opaque string。旧クライアント/テストの number も境界で as* 変換して受ける
 	categoryId: z
 		.union([z.string(), z.number()])
@@ -85,33 +128,21 @@ export const createActivitySchema = z.object({
 	icon: z
 		.string()
 		.min(1)
-		.refine(
-			(val) => {
-				const seg = new Intl.Segmenter('ja', { granularity: 'grapheme' });
-				const count = [...seg.segment(val)].length;
-				return count >= 1 && count <= 2;
-			},
-			{ message: 'アイコンは1〜2つの絵文字で指定してください' },
-		),
-	basePoints: z.number().int().min(1).max(100),
-	ageMin: z.number().int().min(0).max(20).nullable(),
-	ageMax: z.number().int().min(0).max(20).nullable(),
+		.refine(isValidActivityIcon, { message: 'アイコンは1〜2つの絵文字で指定してください' }),
+	basePoints: z.number().int().min(ACTIVITY_BASE_POINTS_MIN).max(ACTIVITY_BASE_POINTS_MAX),
+	ageMin: z.number().int().min(ACTIVITY_AGE_MIN).max(ACTIVITY_AGE_MAX).nullable(),
+	ageMax: z.number().int().min(ACTIVITY_AGE_MIN).max(ACTIVITY_AGE_MAX).nullable(),
 	source: z.enum(SOURCES).optional(),
 	gradeLevel: z.enum(GRADE_LEVELS).nullable().optional(),
-	subcategory: z.string().max(50).nullable().optional(),
-	description: z.string().max(200).nullable().optional(),
-	dailyLimit: z.number().int().min(0).max(99).nullable().optional(),
-	nameKana: z.string().max(50).nullable().optional(),
-	nameKanji: z.string().max(50).nullable().optional(),
-	triggerHint: z.string().max(30).nullable().optional(),
+	subcategory: z.string().max(ACTIVITY_SUBCATEGORY_MAX).nullable().optional(),
+	description: z.string().max(ACTIVITY_DESCRIPTION_MAX).nullable().optional(),
+	dailyLimit: z.number().int().min(DAILY_LIMIT_MIN).max(DAILY_LIMIT_MAX).nullable().optional(),
+	nameKana: z.string().max(ACTIVITY_NAME_FIELD_MAX).nullable().optional(),
+	nameKanji: z.string().max(ACTIVITY_NAME_FIELD_MAX).nullable().optional(),
+	triggerHint: z.string().max(ACTIVITY_TRIGGER_HINT_MAX).nullable().optional(),
 });
 
 export const updateActivitySchema = createActivitySchema.partial();
-
-// #3463: dailyLimit / nameKana / nameKanji の許容境界 SSOT (form zod と同値)。
-export const DAILY_LIMIT_MIN = 0;
-export const DAILY_LIMIT_MAX = 99;
-export const ACTIVITY_NAME_FIELD_MAX = 50;
 
 /**
  * #3463 item1/item4: dailyLimit を `[0, 99]` の整数 or null に正規化する (import 境界 + server clamp 共用)。
