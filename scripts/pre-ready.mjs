@@ -57,6 +57,7 @@ const failOpenNotes = [];
 
 const SKIP_FLAGS = {
 	'--skip-biome': 'skipBiome',
+	'--skip-cspell': 'skipCspell',
 	'--skip-svelte-check': 'skipSvelteCheck',
 	'--skip-vitest': 'skipVitest',
 	'--skip-hardcoded': 'skipHardcoded',
@@ -117,6 +118,7 @@ Usage:
 Options:
   --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
   --skip-biome           Step 1 biome check をスキップ
+  --skip-cspell          Step 1b cspell spell check をスキップ
   --skip-svelte-check    Step 2 svelte-check をスキップ
   --skip-vitest          Step 3 vitest をスキップ (重いので高速確認時のみ)
   --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
@@ -134,6 +136,7 @@ Options:
 
 Steps:
   1.  biome check                 — lint
+  1b. cspell                      — spell check (CI lint-and-test と同一コマンド、#3649)
   2.  svelte-check                — TS strict 型チェック
   3.  vitest run                  — unit test (storybook 以外)
   4.  check-hardcoded-strings.mjs — JP ハードコード baseline 監視 (#1452)
@@ -330,6 +333,17 @@ function buildSteps(args, changedFiles) {
 			fixHint:
 				'  npx biome check --error-on-warnings --write .   # 自動修正可能なものを修正\n' +
 				'  remaining warning / error は手動で修正してから再実行 (CI は warning=error 扱い)',
+		},
+		{
+			name: 'cspell',
+			label: 'Step 1b/12: cspell (CI lint-and-test と同一コマンド — #3649)',
+			skip: args.skipCspell,
+			// #3649: CI lint-and-test の `npm run cspell` (#1432 warning=error) と同一。
+			// pre-ready に本 step が無かった gap により「pre-ready ALL PASS ↔ CI cspell red」の
+			// self-report 乖離が反復 (PR #3647 の Millis 等)。glob は package.json "cspell" が SSOT。
+			runner: () => run('cspell', ['npm', 'run', 'cspell']),
+			fixHint:
+				'  typo なら修正 / 正当な技術語・固有名詞なら .cspell.json の words に追加 (小文字で登録、大文字小文字非依存)',
 		},
 		{
 			name: 'svelte-check',
