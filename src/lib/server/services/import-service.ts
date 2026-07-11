@@ -260,6 +260,22 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 }
 
 /**
+ * import の重複解決 semantics (#3653)。
+ *
+ * - `merge` (既定、現行挙動): 既存 DB / 同一 import 内の同名・同 preset・同時刻行を dedup skip する。
+ *   バックアップの再取込・marketplace 二重取込の防止が目的 (merge import)。
+ * - `verbatim`: dedup を bypass し全行を復元する。cutover (fresh DB への完全移行、#3620) 用 —
+ *   実本番 DB には同 child 同 title の specialRewards 等が正当に存在し (NUC staging cycle 3 で
+ *   件数突合が export=9 → imported=2 の欠落を実検出)、merge semantics では移行にならない。
+ *   childRef / FK 解決不能・allowlist・path 検証などの整合性 skip は mode に関わらず維持する。
+ */
+export type ImportMode = 'merge' | 'verbatim';
+
+export interface ImportOptions {
+	mode?: ImportMode;
+}
+
+/**
  * 家族データをインポート (#1254: silent try-catch を pre-fetch 方式に統一)
  *
  * 処理順: 活動マスタ → 子供作成 → ステータス → 活動ログ → ポイント台帳 → ログインボーナス
@@ -268,12 +284,15 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
  *
  * @param staticFiles #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。
  *   JSON のみインポート時は undefined (後方互換)。
+ * @param options #3653: mode='verbatim' で dedup を bypass (cutover 用)。既定 merge = 現行不変。
  */
 export async function importFamilyData(
 	data: ExportData,
 	tenantId: string,
 	staticFiles?: Record<string, Uint8Array>,
+	options?: ImportOptions,
 ): Promise<ImportResult> {
+	const mode: ImportMode = options?.mode ?? 'merge';
 	// #3326 系: lazy マイグレーション。旧 version の backup を現 shape に正規化してから取り込む。
 	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後でなければ mismatch する)。
 	data = migrateExportData(
@@ -301,13 +320,19 @@ export async function importFamilyData(
 	const activityLookupByChild = await buildActivityLookupByChild(childIdMap, tenantId);
 
 	await importStatusesData(data, childIdMap, tenantId, result);
-	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
+	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result, mode);
 	// #3329: per-child 活動設定 (ピン留め)。activityName を取込先 childActivity に再解決して復元。
 	// 活動 lookup (name→新 id) が必要なので buildActivityLookupByChild の後に実行する。
 	await importActivityPrefsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
-	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
+	const templateIdMap = await importChecklistTemplatesData(
+		data,
+		childIdMap,
+		tenantId,
+		result,
+		mode,
+	);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
@@ -315,7 +340,7 @@ export async function importFamilyData(
 	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
 	await importChildVoicesData(data, childIdMap, tenantId, result);
-	await importSpecialRewards(data, childIdMap, tenantId, result);
+	await importSpecialRewards(data, childIdMap, tenantId, result, mode);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
 	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
@@ -1109,12 +1134,14 @@ async function importStatusesData(
 /**
  * 活動ログを import (#1254 G2: pre-fetch で (activityId, recordedAt) セット構築 → 事前スキップ)
  */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importActivityLogsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	activityLookupByChild: Map<ChildId, Map<string, { id: ActivityId; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
 	const existingLogKeysByChild = new Map<ChildId, Set<string>>();
 	// #3327: 「見つからない」warning の dedup は (childId, name) で行う。name のみだと
@@ -1142,7 +1169,9 @@ async function importActivityLogsData(
 
 		const existingKeys = await getOrFetchActivityLogKeys(childId, tenantId, existingLogKeysByChild);
 		const key = `${log.activityName}:${log.recordedAt}`;
-		if (existingKeys.has(key)) {
+		// #3653: (activityName, recordedAt) dedup は merge のみ。verbatim (cutover) では同時刻の
+		// 正当な複数記録 (DB 一意制約なし) を全行復元する。
+		if (mode === 'merge' && existingKeys.has(key)) {
 			result.activityLogsSkipped++;
 			result.skipped.constraint++;
 			continue;
@@ -1318,12 +1347,14 @@ async function loadChildChecklistState(
 }
 
 /** 1 件の checklist template を import (重複スキップ / 新規作成) し、exportId を id に登録する。 */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importOneChecklistTemplate(
 	tpl: ExportData['data']['checklistTemplates'][number],
 	childId: ChildId,
 	state: ChildChecklistState,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
 	// #3107: 解決先 templateId を round-trip キー (exportId) に登録する (スキップ時も既存 id を登録)。
 	const register = (templateId: string) => {
@@ -1332,13 +1363,15 @@ async function importOneChecklistTemplate(
 
 	// #3107: 同一 import data 内に同じ exportId が 2 度現れたら真の重複 → 既存解決先を再登録して skip。
 	//   (export-service は templateId ごとに distinct exportId を発番するため通常は発生しないが防御的に処理)
+	//   #3653: exportId は source template ごとに distinct 保証 = 真の重複判定のため verbatim でも維持。
 	if (tpl.exportId && state.exportIdToId.has(tpl.exportId)) {
 		result.skipped.name++;
 		return;
 	}
 
-	// #1254 G1: preset_duplicate → name_duplicate の順で判定
-	if (tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
+	// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653。verbatim = cutover は
+	// name/preset に DB 一意制約が無く、正当な同名 template を collapse させないため bypass)
+	if (mode === 'merge' && tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
 		result.skipped.preset++;
 		const dupId = state.idByPreset.get(tpl.sourcePresetId);
 		if (dupId !== undefined) register(dupId);
@@ -1352,7 +1385,7 @@ async function importOneChecklistTemplate(
 	//   - exportId なし (旧 backup): 従来通り full names (preExisting + 当 import 作成分) で name-dedup
 	//     し後方互換を維持する。
 	const nameDedupSet = tpl.exportId ? state.preExistingNames : state.names;
-	if (nameDedupSet.has(tpl.name)) {
+	if (mode === 'merge' && nameDedupSet.has(tpl.name)) {
 		result.skipped.name++;
 		const dupId = state.idByName.get(tpl.name);
 		if (dupId !== undefined) register(dupId);
@@ -1414,6 +1447,7 @@ async function importChecklistTemplatesData(
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<ChecklistTemplateIdMaps> {
 	const stateByChild = new Map<ChildId, ChildChecklistState>();
 
@@ -1426,7 +1460,7 @@ async function importChecklistTemplatesData(
 			state = await loadChildChecklistState(childId, tenantId);
 			stateByChild.set(childId, state);
 		}
-		await importOneChecklistTemplate(tpl, childId, state, tenantId, result);
+		await importOneChecklistTemplate(tpl, childId, state, tenantId, result, mode);
 	}
 
 	const byName = new Map<ChildId, Map<string, string>>();
@@ -1551,6 +1585,7 @@ async function importSpecialRewards(
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
 	const { errors, warnings } = result;
 	const existingByChild = new Map<ChildId, { titles: Set<string>; presetIds: Set<string> }>();
@@ -1568,13 +1603,15 @@ async function importSpecialRewards(
 			existingByChild.set(childId, existing);
 		}
 
-		// #1254 G1: preset_duplicate → name_duplicate の順で判定
-		if (sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
+		// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
+		// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
+		// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
+		if (mode === 'merge' && sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
 			result.specialRewardsSkipped++;
 			result.skipped.preset++;
 			continue;
 		}
-		if (existing.titles.has(sr.title)) {
+		if (mode === 'merge' && existing.titles.has(sr.title)) {
 			result.specialRewardsSkipped++;
 			result.skipped.name++;
 			continue;

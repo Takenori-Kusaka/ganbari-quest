@@ -922,3 +922,74 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 		expect(restored?.sourcePresetId, 'sourcePresetId').toBe('preset-chk');
 	});
 });
+
+// ============================================================
+// #3653: cutover verbatim mode — merge-dedup が正当データを落とす実障害の再現
+// ============================================================
+// NUC staging PGlite cycle 3 (run 29150840787) で件数突合が検出した実障害の最小再現:
+// importFamilyData の merge-dedup (同 child 同 title は 2 件目以降 skip、L1597 の
+// existing.titles.add) が、cutover (fresh DB への完全移行) では実本番に存在する正当な
+// 同 title 複数行 (specialRewards export=9 → imported=2) を欠落させる。
+// verbatim mode は dedup を bypass し全行復元する。merge mode (既定) は現行挙動不変。
+describe('#3653 cutover verbatim mode (dedup bypass)', () => {
+	it('[verbatim] 同 child 同 title の specialRewards 複数行が全件復元される (cycle 3 実障害の最小再現)', async () => {
+		const child = await getRepos().child.insertChild({ nickname: 'ふたごA', age: 7 }, T);
+		// 実本番データに実在するパターン: 同 title のごほうびを points 違いで複数登録
+		for (const points of [50, 100, 150]) {
+			await insertSpecialReward(
+				{
+					childId: child.id,
+					title: 'アイス',
+					description: undefined,
+					points,
+					icon: undefined,
+					category: 'money',
+					sourcePresetId: null,
+				},
+				T,
+			);
+		}
+
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.specialRewards.length, 'export: 同 title 3 行').toBe(3);
+
+		await clearAllFamilyData(T);
+		const result = await importFamilyData(data, T, undefined, { mode: 'verbatim' });
+		expect(result.errors, 'import errors').toEqual([]);
+
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+		expect(
+			(await findSpecialRewards(asChildId(cid), T)).length,
+			'verbatim: 同 title 3 行が全件復元 (merge-dedup で欠落しない)',
+		).toBe(3);
+	});
+
+	it('[merge 既定] 同 title は従来どおり dedup される (後方互換、バックアップ二重取込防止)', async () => {
+		const child = await getRepos().child.insertChild({ nickname: 'ふたごB', age: 9 }, T);
+		for (const points of [50, 100]) {
+			await insertSpecialReward(
+				{
+					childId: child.id,
+					title: 'ケーキ',
+					description: undefined,
+					points,
+					icon: undefined,
+					category: 'money',
+					sourcePresetId: null,
+				},
+				T,
+			);
+		}
+		const data = await exportFamilyData({ tenantId: T });
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T); // mode 省略 = merge (現行挙動)
+
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+		expect(
+			(await findSpecialRewards(asChildId(cid), T)).length,
+			'merge: 同 title は 1 件に dedup (現行挙動の固定)',
+		).toBe(1);
+	});
+});
