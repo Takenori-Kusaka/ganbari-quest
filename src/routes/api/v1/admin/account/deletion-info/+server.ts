@@ -29,8 +29,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 		const info = await getOwnerDeletionInfo(tenantId, identity.userId);
 		return json(info);
 	} catch (err) {
-		// ADR-0062 §2: 内部例外メッセージ (String(err)) をユーザに露出しない。
-		// 生例外は logger のみに残し、レスポンスは固定のユーザ向け文言にする (#3561)。
+		// ADR-0062 §2 / #3571: 内部例外メッセージ (String(err)) をユーザに露出しない。
+		// 生例外は logger のみに残し、レスポンスは固定のユーザ向け文言 (ERROR_NOTIFY_LABELS.server, SSOT) にする (#3561 / #3673)。
 		logger.error('[deletion-info] 削除前情報取得失敗', {
 			error: String(err),
 			context: { tenantId },
