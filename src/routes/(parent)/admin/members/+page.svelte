@@ -360,7 +360,7 @@ const roleLabel = (role: string) => {
 			{/if}
 			<Button
 				onclick={createInvite}
-				disabled={creating}
+				loading={creating}
 				variant="primary"
 				size="sm"
 			>
@@ -484,7 +484,7 @@ const roleLabel = (role: string) => {
 				</FormField>
 				<Button
 					onclick={createViewerLink}
-					disabled={creatingViewer}
+					loading={creatingViewer}
 					variant="primary"
 					size="sm"
 				>
