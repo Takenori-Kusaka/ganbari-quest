@@ -85,6 +85,7 @@
 		"datconfig",
 		"datname",
 		"hana",
+		"millis",
 		"multiplexing",
 		"multitenant",
 		"reinit",
