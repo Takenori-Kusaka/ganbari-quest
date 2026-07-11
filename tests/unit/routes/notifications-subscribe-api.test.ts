@@ -18,6 +18,12 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+// #3404 item3: validation 拒否の可視化 (structured log + Discord alert) は結線のみ検証
+const mockReportRejection = vi.fn();
+vi.mock('$lib/server/services/push-validation-alert', () => ({
+	reportPushValidationRejection: mockReportRejection,
+}));
+
 const { POST } = await import('../../../src/routes/api/v1/notifications/subscribe/+server');
 
 type Role = 'owner' | 'parent' | 'child';
@@ -186,6 +192,84 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		);
 		expect(res.status).toBe(400);
 		expect(mockInsert).not.toHaveBeenCalled();
+		// #3404 item3: INVALID_ENDPOINT 発生が可視化基盤へ report される
+		expect(mockReportRejection).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 'tenant-1',
+				code: 'INVALID_ENDPOINT',
+				reason: expect.any(String),
+			}),
+		);
+	});
+
+	// ============================================================
+	// #3404 item2: url.href 正規化保存
+	// ============================================================
+
+	it('大文字 host / default port の endpoint は正規化形 (.href) で保存される', async () => {
+		const res = await POST(
+			makeEvent({
+				role: 'parent',
+				body: {
+					endpoint: 'https://FCM.googleapis.com:443/fcm/send/abc',
+					keys: { p256dh: 'p256-key', auth: 'auth-key' },
+				},
+			}),
+		);
+		expect(res.status).toBe(200);
+		// 既存チェックも正規化形で照合される
+		expect(mockFindByEndpoint).toHaveBeenCalledWith(
+			'https://fcm.googleapis.com/fcm/send/abc',
+			'tenant-1',
+		);
+		expect(mockInsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
+			}),
+		);
+	});
+
+	it('正規化形で miss しても raw 形で保存済みの既存レコードと fallback 照合し重複 insert しない', async () => {
+		const rawEndpoint = 'https://FCM.googleapis.com:443/fcm/send/abc';
+		// 正規化形 lookup は miss、raw 形 lookup で hit する既存レコード (正規化導入前の保存分)
+		mockFindByEndpoint.mockImplementation(async (endpoint: string) =>
+			endpoint === rawEndpoint
+				? {
+						id: '77',
+						tenantId: 'tenant-1',
+						endpoint: rawEndpoint,
+						keysP256dh: 'p',
+						keysAuth: 'a',
+						userAgent: null,
+						subscriberRole: 'parent',
+						createdAt: '',
+					}
+				: undefined,
+		);
+		const res = await POST(
+			makeEvent({
+				role: 'parent',
+				body: {
+					endpoint: rawEndpoint,
+					keys: { p256dh: 'p256-key', auth: 'auth-key' },
+				},
+			}),
+		);
+		expect(res.status).toBe(200);
+		expect(mockInsert).not.toHaveBeenCalled();
+		// 正規化形 → raw 形の順で 2 回照合される
+		expect(mockFindByEndpoint).toHaveBeenNthCalledWith(
+			1,
+			'https://fcm.googleapis.com/fcm/send/abc',
+			'tenant-1',
+		);
+		expect(mockFindByEndpoint).toHaveBeenNthCalledWith(2, rawEndpoint, 'tenant-1');
+	});
+
+	it('入力が既に正規化形なら raw 形 fallback 照合は行わない (lookup 1 回)', async () => {
+		const res = await POST(makeEvent({ role: 'parent' }));
+		expect(res.status).toBe(200);
+		expect(mockFindByEndpoint).toHaveBeenCalledTimes(1);
 	});
 
 	it('非 https endpoint は 400 で拒否する', async () => {
@@ -215,5 +299,19 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		);
 		expect(res.status).toBe(400);
 		expect(mockInsert).not.toHaveBeenCalled();
+		// #3404 item3: INVALID_KEY 発生が可視化基盤へ report される
+		expect(mockReportRejection).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tenantId: 'tenant-1',
+				code: 'INVALID_KEY',
+				reason: expect.any(String),
+			}),
+		);
+	});
+
+	it('正常 subscribe では validation 拒否 report は発火しない', async () => {
+		const res = await POST(makeEvent({ role: 'parent' }));
+		expect(res.status).toBe(200);
+		expect(mockReportRejection).not.toHaveBeenCalled();
 	});
 });

@@ -28,6 +28,38 @@ describe('validatePushEndpoint (#3188 SSRF hardening)', () => {
 		}
 	});
 
+	// #3404 item2: 検証は WHATWG new URL() → 返却 url は .href (正規化形)。
+	// 保存経路が正規化形を永続化することで、web-push の legacy url.parse() との
+	// parser-differential を runtime 挙動に依存せず排除する。
+	it('大文字 host / default port / 空 path を .href に正規化して返す (#3404 item2)', () => {
+		// host 小文字化
+		expect(validatePushEndpoint('https://FCM.googleapis.com/fcm/send/AbC')).toEqual({
+			ok: true,
+			url: 'https://fcm.googleapis.com/fcm/send/AbC', // path の大文字は保持される
+		});
+		// default port (:443) 除去
+		expect(validatePushEndpoint('https://fcm.googleapis.com:443/fcm/send/abc')).toEqual({
+			ok: true,
+			url: 'https://fcm.googleapis.com/fcm/send/abc',
+		});
+		// 空 path は末尾スラッシュ付与 (WHATWG 正規化)
+		expect(validatePushEndpoint('https://web.push.apple.com')).toEqual({
+			ok: true,
+			url: 'https://web.push.apple.com/',
+		});
+	});
+
+	it('既に正規化済みの endpoint は入力と同一文字列で返る (既存保存分と互換)', () => {
+		const ep = 'https://updates.push.services.mozilla.com/wpush/v2/gAAAA';
+		expect(validatePushEndpoint(ep)).toEqual({ ok: true, url: ep });
+	});
+
+	it('raw 形 (非正規化) で保存済みの既存 endpoint も ok 判定は変わらず通過する (送信側再検証の後方互換)', () => {
+		// 判定は scheme/host のみに依存し正規化形とは無関係 → 送信側 (notification-service) の
+		// validatePushEndpoint(sub.endpoint).ok 再検証で raw 保存分が落ちない
+		expect(validatePushEndpoint('https://FCM.googleapis.com:443/fcm/send/legacy').ok).toBe(true);
+	});
+
 	it('https 以外 (http / file / gopher) を拒否', () => {
 		for (const ep of [
 			'http://fcm.googleapis.com/fcm/send/abc',
