@@ -167,6 +167,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `code-quality-weekly.yml` | N/A（schedule weekly / dispatch） | — | — | 定期監査 |
 | `security-scan.yml` | N/A（schedule quarterly / dispatch） | — | — | 定期監査 |
 | `weekly-report.yml` | N/A（schedule weekly / dispatch） | — | — | 定期レポート |
+| `close-leak-report.yml` | N/A（schedule weekly / dispatch、main 反映済 open issue の close漏れ候補を job summary へ report。auto-close なし = `issues: read` のみ） | — | — | 定期レポート（#3459、検出 SSOT は `scripts/audit/close-leak-report.mjs`） |
 | `gcp-terraform.yml` | N/A（`workflow_dispatch` のみ） | — | — | infra（手動） |
 | `zenn-lint.yml` | N/A（push/PR `paths:docs/zenn/**`、lint 専用） | — | なし（docs/zenn のみ、lane 非依存） | 軽量（zenn 限定） |
 
