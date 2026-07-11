@@ -92,7 +92,7 @@ describe.skipIf(!ENDPOINT)('実 DSQL staging 並行アクセス検証 (#3545/#35
 		]) {
 			await db.execute(sql.raw(`DELETE FROM ${table} WHERE family_id = '${FAMILY}'`));
 		}
-		await pool.end();
+		await (pool as unknown as { end(): Promise<void> }).end(); // 型定義に end 無し (dsql-migrate.ts と同キャスト)
 	}, 120_000);
 
 	async function seedChild(childId: string): Promise<void> {
