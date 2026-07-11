@@ -117,7 +117,9 @@ async function runImport(opts: Record<string, string>): Promise<void> {
 	const { importFamilyData } = await import('../src/lib/server/services/import-service');
 	const verify = await import('./lib/nuc-cutover-verify');
 
-	const result = await importFamilyData(data, LOCAL_TENANT_UUID);
+	// #3653: cutover は fresh DB への完全移行のため verbatim (dedup bypass)。merge semantics だと
+	// 実本番に存在する同 child 同 title 行等が skip され件数突合で abort する (cycle 3 実検出)。
+	const result = await importFamilyData(data, LOCAL_TENANT_UUID, undefined, { mode: 'verbatim' });
 	if (result.errors.length > 0) {
 		console.error(`[nuc-cutover] import errors (${result.errors.length} 件):`);
 		for (const e of result.errors) console.error(`  - ${e}`);
