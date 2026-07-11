@@ -1312,12 +1312,26 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 #### GET /api/health
 
-**レスポンス:**
+liveness probe。**DATA_SOURCE に応じた実 backend への実接続検証**を行う (#3620 AC-C5 / EPIC #3424。probe 実体は `src/lib/server/db/probe.ts` facade、route↔DB 境界 #3184):
+
+| DATA_SOURCE | probe | schema 検証 |
+|---|---|---|
+| `sqlite` (既定) | `probeSqlite` — rawSqlite `SELECT 1` | lazy migration の validation 結果 (`schemaValid` / `migrationsApplied` / `schemaWarnings`) |
+| `dynamodb` | `probeDynamoDB` — DescribeTable ACTIVE | なし (`schema` は空 object) |
+| `dsql` / `pglite` | `probePg` — 実 backend へ `SELECT 1` + `children` 表 count | children count 成功 = migration 適用済み schema 実在 (`schemaValid: true`) |
+
+backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"status":"error", "error":..., "dataSource":...}` を返す (空 backend の偽陽性 200 を返さない)。
+
+**レスポンス (200):**
 ```json
 {
   "status": "ok",
   "timestamp": "2026-02-19T18:30:00Z",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dataSource": "pglite",
+  "region": "local",
+  "uptime": 123,
+  "schema": { "schemaValid": true, "migrationsApplied": 0, "schemaWarnings": 0 }
 }
 ```
 
