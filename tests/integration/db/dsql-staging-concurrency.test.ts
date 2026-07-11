@@ -65,6 +65,8 @@ function coreInput(
 	};
 }
 
+// #3545 恒久 opt-in skip: 実 DSQL cluster (DSQL_ENDPOINT + AWS creds) が必要な staging 検証のため
+// CI では常時 skip する設計 (deadline なし)。owner: @Takenori-Kusaka。実行方法は本ファイル冒頭コメント。
 describe.skipIf(!ENDPOINT)('実 DSQL staging 並行アクセス検証 (#3545/#3550、cutover 前必須)', () => {
 	let pool: AuroraDSQLPool;
 	let db: Db;
