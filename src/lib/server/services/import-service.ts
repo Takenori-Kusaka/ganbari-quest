@@ -1134,6 +1134,7 @@ async function importStatusesData(
 /**
  * 活動ログを import (#1254 G2: pre-fetch で (activityId, recordedAt) セット構築 → 事前スキップ)
  */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importActivityLogsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
@@ -1346,6 +1347,7 @@ async function loadChildChecklistState(
 }
 
 /** 1 件の checklist template を import (重複スキップ / 新規作成) し、exportId を id に登録する。 */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importOneChecklistTemplate(
 	tpl: ExportData['data']['checklistTemplates'][number],
 	childId: ChildId,
