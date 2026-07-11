@@ -38,7 +38,13 @@
 
 **設計 docs 本文で禁止**: 「変更履歴」節 / strikethrough 履歴表 / 「旧 X は #NNNN で撤去済」型の inline 経緯注記 / 「YYYY-MM-DD 時点」datestamp 記述（Issue 番号の参照自体は可。禁止対象は「経緯の物語」であって出典 pointer ではない）。
 
-既存混入の整形は #2440 確定計画（粒度 = 同質性 × diff 行数 × 機械検証の 3 条件、`docs/research/2026-06-04-docs-inventory-audit.md` が基準書）で段階消化。再混入防止 gate は `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils へ相乗り（専用 script は新設しない）。
+**research 配置規律（#3516 — one-off 量産 / 誤配置 / 死蔵の防止）**:
+
+- **research に narrative / cross-team 連絡メモを置かない**。検討 narrative・棄却案比較 → `docs/rationale/`、別チームへの申し送り・連絡 → GitHub Issue、作業メモ → memory（git 追跡しない）。`docs/research/` に置いてよいのは調査の計測結果・比較分析のみ
+- **one-off の結論は設計書 / ADR に内包し、詳細は git 履歴に委ねる**。deep-research / 調査の出力を毎回 `docs/research/YYYY-MM-DD-*.md` としてコミットしない。設計書 / ADR から継続参照される根拠 SSOT になるものだけを research に残す
+- **research ファイルは役目を終えたら削除する（削除主義）**。参照元の ADR / 設計書 / script が消えた・結論が内包済になった dated one-off は削除し、履歴は git で追跡する（ADR の削除主義 `docs/decisions/README.md` §ボリューム上限ルールと同一原則）
+
+既存混入の整形は #2440 確定計画（粒度 = 同質性 × diff 行数 × 機械検証の 3 条件、`docs/research/2026-06-04-docs-inventory-audit.md` が基準書）で段階消化。one-off 量産・誤配置・死蔵の棚卸分類は `docs/research/2026-07-12-docs-inventory-audit.md`（#3516 AC1、続編）が基準書。再混入防止 gate は `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils へ相乗り（専用 script は新設しない）。
 
 ## LP メトリクス ratchet (#1163)
 
