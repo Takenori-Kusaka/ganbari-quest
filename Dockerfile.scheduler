@@ -10,6 +10,10 @@ FROM node:22-alpine AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
+# npm の prepare lifecycle は scripts/prepare.mjs を実行する (#3611 で inline sh から Node 化)。
+# package*.json のみの stage では MODULE_NOT_FOUND で npm ci が exit 1 するため同 script を
+# 先に COPY する (staging PDCA cycle 2 で検出、EPIC #3424。prepare.mjs は常に exit 0 設計)。
+COPY scripts/prepare.mjs ./scripts/prepare.mjs
 RUN npm ci
 
 # Stage 2: Runtime（最小コピー）
