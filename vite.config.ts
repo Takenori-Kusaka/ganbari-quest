@@ -106,6 +106,19 @@ export default defineConfig({
 									provider: playwright({}),
 									instances: [{ browser: 'chromium' as const }],
 								},
+								// #3687: Ark UI (@zag-js/focus-visible) の setupGlobalFocusEvents が
+								// Storybook CSF instrumentation の HTMLElement.focus getter と衝突し、
+								// menu open 時に「TypeError: Illegal invocation」を unhandled で leak する
+								// (test 自体は全 pass、CI Linux でのみ再現)。upstream 衝突の既知 false-positive
+								// のため、この 1 パターンのみ narrow に許容する (他の unhandled は従来どおり fail)。
+								onUnhandledError(error: { message?: string; stack?: string }): boolean | void {
+									if (
+										error.message?.includes('Illegal invocation') &&
+										error.stack?.includes('@zag-js/focus-visible')
+									) {
+										return false; // 既知の zag-js × Storybook instrumentation 衝突のみ無視
+									}
+								},
 							},
 						},
 					]),
