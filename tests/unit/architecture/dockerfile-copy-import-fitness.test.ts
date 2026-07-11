@@ -33,7 +33,7 @@ function toRepoPath(abs: string): string {
  * 本リポジトリの COPY は src(=repo パス) と dest が同一形 (/app/<p> → ./<p>) のため src を採る。
  * `COPY --from=<stage> /app/<p> ./<p>` / `COPY <p> <dest>` の両形に対応。
  */
-export function parseDockerfileCopyRoots(dockerfileText: string): string[] {
+function parseDockerfileCopyRoots(dockerfileText: string): string[] {
 	const roots: string[] = [];
 	for (const raw of dockerfileText.split('\n')) {
 		const line = raw.trim();
@@ -54,12 +54,12 @@ export function parseDockerfileCopyRoots(dockerfileText: string): string[] {
 }
 
 /** repo パスが COPY roots のいずれか (file 一致 or dir prefix) でカバーされるか。 */
-export function isCovered(repoPath: string, copyRoots: string[]): boolean {
+function isCovered(repoPath: string, copyRoots: string[]): boolean {
 	return copyRoots.some((root) => repoPath === root || repoPath.startsWith(`${root}/`));
 }
 
 /** import/require/dynamic-import の specifier を抽出する (コメント行は除外)。 */
-export function extractSpecifiers(sourceText: string): string[] {
+function extractSpecifiers(sourceText: string): string[] {
 	const noComments = sourceText
 		.split('\n')
 		.filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
@@ -77,7 +77,7 @@ export function extractSpecifiers(sourceText: string): string[] {
 }
 
 /** specifier をファイル実体へ解決する (tsx 同等: .js 指定は .ts 実体も試す)。解決不能は null。 */
-export function resolveSpecifier(fromFileAbs: string, specifier: string): string | null {
+function resolveSpecifier(fromFileAbs: string, specifier: string): string | null {
 	let baseAbs: string;
 	if (specifier.startsWith('./') || specifier.startsWith('../')) {
 		baseAbs = resolve(dirname(fromFileAbs), specifier);
@@ -111,7 +111,7 @@ export function resolveSpecifier(fromFileAbs: string, specifier: string): string
 }
 
 /** entry から relative/$lib import graph を再帰解決し、repo パス集合を返す。 */
-export function collectImportGraph(entryAbs: string): string[] {
+function collectImportGraph(entryAbs: string): string[] {
 	const visited = new Set<string>();
 	const queue = [entryAbs];
 	while (queue.length > 0) {
