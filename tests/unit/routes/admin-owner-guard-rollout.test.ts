@@ -349,7 +349,8 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			requireRoleImpl = null;
 		});
 
-		const cases: Array<[string, () => Promise<Response>]> = [
+		// RequestHandler の戻り値は MaybePromise<Response> (Response | Promise<Response>)
+		const cases: Array<[string, () => Response | Promise<Response>]> = [
 			['POST tenant/cancel', () => tenantCancel(createSimpleEvent('owner'))],
 			['POST tenant/reactivate', () => tenantReactivate(createSimpleEvent('owner'))],
 			['GET account/deletion-info', () => deletionInfo(createSimpleEvent('owner'))],
