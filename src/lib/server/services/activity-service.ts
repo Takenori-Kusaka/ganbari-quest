@@ -1,3 +1,4 @@
+import { normalizeParentCreatedSource } from '$lib/domain/activity-source';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	type GradeLevel,
@@ -141,10 +142,15 @@ async function _resolveChildIdForActivity(
 /**
  * `CreateActivityInput` (Activity master 型) を `InsertChildActivityInput` に変換。
  *
- * ageMin / ageMax / gradeLevel / subcategory / description / source は child_activities に
- * 列が無いため drop。dailyLimit / nameKana / nameKanji は child_activities に列が存在するため
- * persist する (#3422: 旧実装は「存在しない」と誤認して drop し、親の 1 日上限設定が常に無視され
+ * ageMin / ageMax / gradeLevel / subcategory / description は child_activities に列が無いため
+ * drop。dailyLimit / nameKana / nameKanji は child_activities に列が存在するため persist する
+ * (#3422: 旧実装は「存在しない」と誤認して drop し、親の 1 日上限設定が常に無視され
  * ProdDashboardSections の dailyLimit ?? 1 で 1 日 1 回固定になっていた = NN/G #1 visibility 違反)。
+ *
+ * source は正規化して persist する (#3669: 旧実装は「列が無い」と誤認して drop し、UI 手動作成が
+ * schema default 'seed' で保存され quota (maxActivities) / subscription カウンタが常に 0 だった)。
+ * createActivity は親手動作成 (admin UI / api/v1/activities) の経路なので、未指定 / legacy
+ * 'parent' は正準 'custom' に倒す (SSOT: $lib/domain/activity-source.ts)。
  */
 function _toChildActivityInsertInput(
 	input: CreateActivityInput,
@@ -164,6 +170,9 @@ function _toChildActivityInsertInput(
 		dailyLimit: sanitizeDailyLimit(input.dailyLimit),
 		nameKana: sanitizeActivityNameField(input.nameKana),
 		nameKanji: sanitizeActivityNameField(input.nameKanji),
+		// #3669: 親手動作成の source 正規化 (undefined / 'parent' → 'custom')。service 層の
+		// 単一強制点 (ADR-0061 push-down) — form / API どの callsite からでも quota 整合が保たれる
+		source: normalizeParentCreatedSource(input.source),
 	};
 }
 

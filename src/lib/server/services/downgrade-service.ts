@@ -1,3 +1,4 @@
+import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/downgrade-service.ts
 // #738: ダウングレード前の超過リソースプレビュー・選択アーカイブ
@@ -54,7 +55,7 @@ export async function getDowngradePreview(
 
 	// --- Activities (custom only) ---
 	const allActivities = await findActivities(tenantId, { includeHidden: false });
-	const customActivities = allActivities.filter((a) => a.source === 'custom');
+	const customActivities = allActivities.filter((a) => countsTowardActivityQuota(a.source));
 	const activityPreviews: ActivityPreview[] = customActivities.map((a) => ({
 		id: a.id,
 		name: a.name,
@@ -157,7 +158,7 @@ export async function archiveForDowngrade(
 	// Activities
 	if (limits.maxActivities !== null) {
 		const allActivities = await findActivities(tenantId, { includeHidden: false });
-		const customActivities = allActivities.filter((a) => a.source === 'custom');
+		const customActivities = allActivities.filter((a) => countsTowardActivityQuota(a.source));
 		const remaining = customActivities.length - selection.activityIds.length;
 		if (remaining > limits.maxActivities) {
 			return {

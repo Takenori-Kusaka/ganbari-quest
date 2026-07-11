@@ -1,3 +1,4 @@
+import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/resource-archive-service.ts
 // #783: トライアル終了時の超過リソース archive / アップグレード時の restore
@@ -70,7 +71,7 @@ export async function archiveExcessResources(tenantId: string): Promise<{
 	// --- Activities ---
 	if (limits.maxActivities !== null) {
 		const activities = await findActivities(tenantId);
-		const custom = activities.filter((a) => a.source === 'custom');
+		const custom = activities.filter((a) => countsTowardActivityQuota(a.source));
 		if (custom.length > limits.maxActivities) {
 			const sorted = [...custom].sort((a, b) => compareOpaqueIdAsc(a.id, b.id));
 			const excess = sorted.slice(limits.maxActivities);
