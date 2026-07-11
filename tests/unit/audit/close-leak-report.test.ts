@@ -132,7 +132,7 @@ describe('detectCloseLeaks', () => {
 			epicLike: true,
 			labels: ['epic'],
 		});
-		expect(leaks[0].commits).toEqual([
+		expect(leaks[0]?.commits).toEqual([
 			{
 				sha: 'c2'.padEnd(40, '0'),
 				date: '2026-06-25',

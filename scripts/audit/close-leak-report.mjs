@@ -177,7 +177,11 @@ export function detectCloseLeaks({ openIssues, commits }) {
 	return leaks.sort((a, b) => a.number - b.number);
 }
 
-/** markdown table cell escape (pipe / 改行) */
+/**
+ * markdown table cell escape (pipe / 改行)
+ * @param {unknown} s
+ * @returns {string}
+ */
 function escapeCell(s) {
 	return String(s ?? '')
 		.replace(/\|/g, '\\|')
@@ -238,10 +242,19 @@ export function parseArgs(argv) {
 	const out = { since: DEFAULT_SINCE, ref: DEFAULT_REF, limit: 500, json: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--since' && argv[i + 1]) out.since = argv[++i];
-		else if (a === '--ref' && argv[i + 1]) out.ref = argv[++i];
-		else if (a === '--limit' && argv[i + 1]) out.limit = Number(argv[++i]) || out.limit;
-		else if (a === '--json') out.json = true;
+		const next = argv[i + 1];
+		if (a === '--since' && next) {
+			out.since = next;
+			i++;
+		} else if (a === '--ref' && next) {
+			out.ref = next;
+			i++;
+		} else if (a === '--limit' && next) {
+			out.limit = Number(next) || out.limit;
+			i++;
+		} else if (a === '--json') {
+			out.json = true;
+		}
 	}
 	return out;
 }
@@ -250,7 +263,11 @@ export function parseArgs(argv) {
 // 以下は副作用層 (gh / git 呼び出し + 出力)。純関数の unit test 対象外。
 // ---------------------------------------------------------------------------
 
-/** gh CLI で open issue 一覧を取得する */
+/**
+ * gh CLI で open issue 一覧を取得する
+ * @param {number} limit
+ * @returns {Array<{ number: number; title?: string; labels?: Array<{ name?: string }> }>}
+ */
 function fetchOpenIssues(limit) {
 	const raw = execFileSync(
 		'gh',
@@ -260,7 +277,12 @@ function fetchOpenIssues(limit) {
 	return JSON.parse(raw);
 }
 
-/** git log を RS/US 区切り raw で取得する */
+/**
+ * git log を RS/US 区切り raw で取得する
+ * @param {string} ref
+ * @param {string} since
+ * @returns {string}
+ */
 function fetchGitLogRaw(ref, since) {
 	return execFileSync(
 		'git',
