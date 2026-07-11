@@ -16,9 +16,10 @@
 // DB 更新をスキップさせる（#741 のアカウント削除と同じパターン）。
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { error, isHttpError, json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
-import { requireRole } from '$lib/server/auth/guards';
+import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyCancellation } from '$lib/server/services/discord-notify-service';
@@ -35,14 +36,10 @@ export const POST: RequestHandler = async ({ locals }) => {
 	}
 
 	// #3556: role 判定は requireRole seam (#3528 fitness#3) に統一。
-	// response 形は既存 client 互換の {error} JSON を維持する
-	try {
-		requireRole(locals, ['owner']);
-	} catch (e) {
-		if (isHttpError(e, 403)) {
-			return json({ error: 'owner のみ解約申請できます' }, { status: 403 });
-		}
-		throw e;
+	// #3561: 403 文言は OWNER_GATE_LABELS (SSOT)、401/403 変換は ownerGateResponse に集約。
+	const guard = ownerGateResponse(locals, OWNER_GATE_LABELS.tenantCancel);
+	if (guard) {
+		return guard;
 	}
 
 	const tenantId = context.tenantId;

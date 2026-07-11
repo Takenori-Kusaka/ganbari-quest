@@ -472,6 +472,40 @@ export const PLAN_GATE_LABELS = {
 	lockedItemIcon: '🔒',
 } as const;
 
+// ============================================================
+// OWNER_GATE_LABELS — owner-gate 403 / 401 エラー文言 SSOT (#3561 ①③)
+// ============================================================
+//
+// account / tenant / members 系 owner-gate endpoint (requireRole(locals, ['owner'])
+// seam、#3528 fitness#3 / #3556) の {error} body 文言を PLAN_GATE_LABELS 同様に
+// compound 層へ集約する (ADR-0062 §2 error body 統一の territory)。既存 client
+// 互換のため、各値は置換前のハードコード文言とバイト一致で維持する。
+// endpoint 側の変換 helper は src/lib/server/auth/owner-gate.ts (ownerGateResponse)。
+
+/** "owner のみ{action}できます" — owner-gate 403 文言の共通テンプレート (#3561 ①) */
+const ownerOnly = (action: string) => `owner のみ${action}できます`;
+
+export const OWNER_GATE_LABELS = {
+	/**
+	 * 401: 認証コンテキスト欠落。requireRole が throw する HttpError(401) を
+	 * endpoint 文言へ変換する際の body (#3561 ③)。各 endpoint 上流の
+	 * `!context` 早期 return と同一文言（バイト一致）。
+	 */
+	authRequired: '認証が必要です',
+	/** POST api/v1/admin/account/delete (owner 系 3 pattern 共通) */
+	accountDelete: ownerOnly('実行'),
+	/** GET api/v1/admin/account/deletion-info */
+	deletionInfo: ownerOnly('取得'),
+	/** POST api/v1/admin/tenant/cancel */
+	tenantCancel: ownerOnly(`${CANCEL_TERMS.canonical}申請`),
+	/** POST api/v1/admin/tenant/reactivate */
+	tenantReactivate: ownerOnly(`${CANCEL_TERMS.canonical}キャンセル`),
+	/** DELETE api/v1/admin/members/[userId] */
+	memberDelete: ownerOnly('メンバーを削除'),
+	/** POST api/v1/admin/members/[userId]/transfer-ownership */
+	transferOwnership: ownerOnly('権限を移譲'),
+} as const;
+
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
 	monthly: 'スタンダード月額',
 	yearly: 'スタンダード年額',

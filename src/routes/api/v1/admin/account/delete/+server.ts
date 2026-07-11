@@ -17,9 +17,10 @@
 // 詳細: docs/design/account-deletion-flow.md §3 / §4.2 (#741 Stripe キャンセル先行原則)。
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { isHttpError, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { requireRole } from '$lib/server/auth/guards';
+import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { logger } from '$lib/server/logger';
 import {
 	deleteChildAccount,
@@ -41,20 +42,13 @@ interface DeleteRequestBody {
 	newOwnerId?: string;
 }
 
-// #3556: owner 系 3 pattern (owner-only / owner-with-transfer / owner-full-delete) の
-// role 判定は requireRole seam (#3528 fitness#3) に統一。response 形は既存 client 互換の
-// {error} JSON を維持する（403 の status / body は置換前とバイト一致）。
-function ownerGuardResponse(locals: App.Locals): Response | null {
-	try {
-		requireRole(locals, ['owner']);
-		return null;
-	} catch (e) {
-		if (isHttpError(e, 403)) {
-			return json({ error: 'owner のみ実行できます' }, { status: 403 });
-		}
-		throw e;
-	}
-}
+// #3561 ②: 本人操作（自分自身の削除）pattern。これ以外の pattern は owner-gate を
+// handler 先頭の single choke-point で必須通過させる（default-deny）。将来 4 つ目の
+// owner 系 pattern を追加しても guard の付け忘れが構造的に発生しない。
+const SELF_SERVICE_PATTERNS: ReadonlySet<DeleteRequestBody['pattern']> = new Set([
+	'child',
+	'member',
+]);
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -80,14 +74,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'pattern パラメータが必要です' }, { status: 400 });
 	}
 
+	// #3561 ②: owner-gate single choke-point (guard hoist、#3558 follow-up)。
+	// SELF_SERVICE_PATTERNS (child / member、後段の switch 内で本人 role を個別検証)
+	// 以外の pattern は、未知 pattern を含めここで owner-gate を必須通過させる
+	// (default-deny: 非 owner の未知 pattern は 400 より先に 403 を返す)。
+	// 403 / 401 の {error} body 変換は ownerGateResponse (owner-gate.ts) に集約。
+	if (!SELF_SERVICE_PATTERNS.has(pattern)) {
+		const guard = ownerGateResponse(locals, OWNER_GATE_LABELS.accountDelete);
+		if (guard) {
+			return guard;
+		}
+	}
+
 	try {
 		switch (pattern) {
 			case 'owner-only': {
-				const guard = ownerGuardResponse(locals);
-				if (guard) {
-					return guard;
-				}
-
 				// #1781: プラン別グレースピリオド配線。
 				// 経路選択は plan tier で決まる（free=即時 / standard=7d / family=30d）。
 				//
@@ -137,10 +138,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			case 'owner-with-transfer': {
-				const guard = ownerGuardResponse(locals);
-				if (guard) {
-					return guard;
-				}
 				if (!newOwnerId) {
 					return json({ error: '移譲先 (newOwnerId) が必要です' }, { status: 400 });
 				}
@@ -152,11 +149,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 
 			case 'owner-full-delete': {
-				const guard = ownerGuardResponse(locals);
-				if (guard) {
-					return guard;
-				}
-
 				// #1781: 全削除パターンも同様にグレースピリオドを適用する。
 				// 有料プランでは soft-delete のみ実施し、cron が物理削除時に
 				// 全メンバーの Cognito 削除と他メンバーへのメール通知を行う。
