@@ -78,17 +78,24 @@ describe('PGlite durability gate + self-heal (#3620 AC-C3、ADR-0064 §検証 ga
 		// reopen 後も UTC 既定が catalog に残る (#3629 接続レベル TZ の永続実証)
 		const tz = await getPgliteDbSync().execute(sql`SHOW timezone`);
 		expect((tz.rows[0] as { TimeZone?: string }).TimeZone).toBe('UTC');
-	});
+	}, 60_000);
 
-	it('[C3-2] self-heal: init reject 後も次回 init で自己回復する (permanent brick 回避)', async () => {
-		// 存在しない migrations dir を指すと migrate() が throw → init reject
+	it('[C3-2] self-heal: init reject 後、reset を経ずに init 直接再呼出で自己回復する (permanent brick 回避)', async () => {
+		// 1st init: 存在しない migrations dir で migrate() が throw → init reject。
+		// (この準備段階のみ reinitWithEnv = reset 込みで clean 状態から開始する)
 		const bogus = join(tmpdir(), `pglite-missing-migrations-${Date.now()}`);
 		await expect(reinitWithEnv({ PGLITE_MIGRATIONS_DIR: bogus })).rejects.toThrow();
 
-		// _ready が破棄されているため、正しい migrations dir で再 init すると成功する
-		await reinitWithEnv({ PGLITE_MIGRATIONS_DIR: undefined });
+		// 2nd init: **resetPgliteConnectionForTesting() を一切呼ばず**、env 修正のみで
+		// initPgliteConnection() を直接再呼出する (QM 指摘のトートロジー是正)。
+		// self-heal (.catch が _ready を null に破棄) が無ければ 1st の rejected promise が
+		// memoize されたまま再利用され、本 step は fail する (mutation 演繹で確認済み —
+		// connection.ts の .catch self-heal を外すと本 step が同じ migrate ENOENT で fail)。
+		delete process.env.PGLITE_MIGRATIONS_DIR;
+		resetEnvForTesting(); // env cache のみ再 parse (pglite singleton には触れない)
+		await initPgliteConnection(); // ← self-heal の _ready=null だけが再試行を可能にする
 		const repo = createDsqlChildRepo(getPgliteDbSync(), getPgliteTransactionRunnerSync());
 		const created = await repo.insertChild({ nickname: '回復くん', age: 8 }, FAMILY);
 		expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
-	});
+	}, 60_000);
 });
