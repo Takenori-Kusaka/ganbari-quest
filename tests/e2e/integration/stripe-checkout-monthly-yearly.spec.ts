@@ -11,33 +11,56 @@
 // 本 spec は (A) 年額トグル撤去 + 月額固定表示、(B) checkout 失敗時のエラー提示、
 // (C) 月額 planId が checkout に送信されることを検証する。
 //
+//   - #3352: CI (e2e-cognito-dev lane) に test mode STRIPE_SECRET_KEY_TEST を供給し本 spec を
+//     実 assertion 実行させる (A) + return-skip (PASSED 偽装) を honest SKIPPED 計上に是正 (B)。
+//   - #3351: hydration gate + strict-mode `.first()` を #3204 test にも展開、共通 helper 化。
+//
 // テスト分類: Integration (page.route() で Stripe API モック、cognito-dev 認証必須)
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts stripe-checkout-monthly-yearly
 
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 test.describe('#3204 月額固定 checkout + 失敗フィードバック — /admin/subscription', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	/** Stripe 未設定環境 (plan card 非表示) では月額ボタンが出ないため skip 判定に使う */
-	async function skipIfStripeDisabled(page: import('@playwright/test').Page): Promise<boolean> {
+	/**
+	 * Stripe 未設定環境 (plan card 非表示) では checkout UI が描画されないため、honest に
+	 * SKIPPED 計上する (#3352 (B))。旧実装は return false + 呼び出し側 early-return で
+	 * runner に PASSED 計上され「fail-closed path 検証済」と誤認される Goodhart hazard だった。
+	 * CI (e2e-cognito-dev lane) には #3352 (A) で test mode の STRIPE_SECRET_KEY_TEST が
+	 * 供給されるため、本 skip が発火するのは secrets 非供給環境 (fork PR / key 未設定 local) のみ。
+	 */
+	async function skipIfStripeDisabled(page: Page): Promise<void> {
 		const monthlyCheckoutBtn = page.getByTestId('standard-plan-card');
 		const visible = await monthlyCheckoutBtn
 			.waitFor({ state: 'visible', timeout: 5_000 })
 			.then(() => true)
 			.catch(() => false);
-		if (!visible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のためスキップ',
+		// #3352: 環境 capability 由来の条件付き skip (unconditional disable ではない)。
+		// ratchet-allow marker は check-test-antipatterns.js の明示 escape hatch (同一行必須)。
+		test.skip(!visible, 'Stripe 未設定 (plan card 非表示) のためスキップ'); // ratchet-allow: #3352
+	}
+
+	/**
+	 * hydration ゲート (#3351): skipIfStripeDisabled は SSR 描画済 plan card の visible のみ
+	 * 待つため、interactive island の hydration 完了前に click すると onclick が発火しない。
+	 * plan card 選択 (selectedTier) が checkout button label に反映される (= hydration 完了)
+	 * まで poll-click し、確実に interactive 化を待ってから checkout を起動する (flaky 防止)。
+	 * card click は checkout API を呼ばないため route mock の call count には影響しない。
+	 */
+	async function ensureCheckoutHydrated(page: Page): Promise<void> {
+		await page.waitForLoadState('load');
+		await expect(async () => {
+			await page.getByTestId('family-plan-card').click();
+			await expect(page.getByRole('button', { name: 'プレミアムプランで始める' })).toBeVisible({
+				timeout: 1_000,
 			});
-		}
-		return visible;
+		}).toPass({ timeout: 15_000 });
 	}
 
 	test('年額トグルが撤去され月額固定で表示される (#2719 年額廃止と UI 整合)', async ({ page }) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
 		// 年額トグル・年額専用 UI が物理的に存在しないこと (年額選択 → INVALID_PLAN 経路の根絶)
 		await expect(page.getByRole('button', { name: /年額/ })).toHaveCount(0);
@@ -60,14 +83,17 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
-		// プレミアム選択 → 「プレミアムプランで始める」押下
-		await page.getByTestId('family-plan-card').click();
+		// プレミアム選択 (hydration 完了まで poll-click、#3351) → 「プレミアムプランで始める」押下
+		await ensureCheckoutHydrated(page);
 		await page.getByRole('button', { name: /プランで始める/ }).click();
 
-		// silent no-op でなく、サーバーメッセージが画面に提示されること (Alert / Toast の 2 層 feedback)
-		await expect(page.getByText('プランが正しくありません')).toBeVisible({ timeout: 8_000 });
+		// silent no-op でなく、サーバーメッセージが画面に提示されること。
+		// 2 層 feedback (Alert banner + Toast、DESIGN.md §5) で同一文言が複数描画されるため first() (#3351)
+		await expect(page.getByText('プランが正しくありません').first()).toBeVisible({
+			timeout: 8_000,
+		});
 	});
 
 	// #3209: 503 STRIPE_DISABLED (demo/staging 頻出) path の test 補完。汎用「時間をおいて再度…」
@@ -88,20 +114,10 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
-		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
-		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
-		// (selectedTier) が checkout button label に反映される (= hydration 完了) まで poll-click し、
-		// 確実に interactive 化を待ってから checkout を起動する (flaky 防止)。card click は checkout を
-		// 呼ばないため checkoutCallCount には影響しない。
-		await page.waitForLoadState('load');
-		await expect(async () => {
-			await page.getByTestId('family-plan-card').click();
-			await expect(page.getByRole('button', { name: 'プレミアムプランで始める' })).toBeVisible({
-				timeout: 1_000,
-			});
-		}).toPass({ timeout: 15_000 });
+		// hydration ゲート (#3351 で共通 helper 化。詳細は ensureCheckoutHydrated の docblock 参照)
+		await ensureCheckoutHydrated(page);
 
 		const checkoutBtn = page.getByRole('button', { name: /プランで始める/ });
 		await checkoutBtn.click();
@@ -138,20 +154,10 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
-		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
-		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
-		// (selectedTier) が checkout button label に反映される (= hydration 完了) まで poll-click し、
-		// 確実に interactive 化を待ってから checkout を起動する (flaky 防止)。card click は checkout を
-		// 呼ばないため checkoutCallCount には影響しない。
-		await page.waitForLoadState('load');
-		await expect(async () => {
-			await page.getByTestId('family-plan-card').click();
-			await expect(page.getByRole('button', { name: 'プレミアムプランで始める' })).toBeVisible({
-				timeout: 1_000,
-			});
-		}).toPass({ timeout: 15_000 });
+		// hydration ゲート (#3351 で共通 helper 化。詳細は ensureCheckoutHydrated の docblock 参照)
+		await ensureCheckoutHydrated(page);
 
 		const checkoutBtn = page.getByRole('button', { name: /プランで始める/ });
 		await checkoutBtn.click();
