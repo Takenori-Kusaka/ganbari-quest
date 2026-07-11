@@ -86,6 +86,10 @@ function buildDsqlPoolConfig(): ConstructorParameters<typeof AuroraDSQLPool>[0] 
 		database: env.DSQL_DATABASE ?? 'postgres',
 		ssl: true,
 		// connector が region を hostname から自動判定 (検証 9 (b))。token 生成・更新も connector 任せ。
+		// 接続確立 timeout (#3646): pg 既定は 0 = 無期限待ちで、接続不能時に caller (health probe 等)
+		// が hang し Lambda invoke timeout (Function URL 502) 化する。error にして 503 fail-close へ
+		// 落とす (staging cycle 4 の LWA readiness 連鎖の再発防止)。
+		connectionTimeoutMillis: 5_000,
 	};
 }
 

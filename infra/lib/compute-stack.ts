@@ -327,7 +327,11 @@ export class ComputeStack extends cdk.Stack {
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
 						// EPIC #3424 M5: dsqlEnabled 時のみ backend を DSQL へ切替 (後勝ち上書き)。
 						// flag なしでは spread 空 = 上の DATA_SOURCE: 'dynamodb' が維持され template 不変。
-						...(dsqlEnabled ? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint } : {}),
+						// DSQL_USER=app_user (#3646): dsql:DbConnect は custom db role 専用 (admin は
+						// DbConnectAdmin が必要)。role 実体は deploy workflow の dsql:grant が provisioning。
+						...(dsqlEnabled
+							? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint, DSQL_USER: 'app_user' }
+							: {}),
 					}
 				: {
 						...stagingEnvironment,
@@ -337,7 +341,10 @@ export class ComputeStack extends cdk.Stack {
 						// EPIC #3424 M5 DoD4: staging を DSQL backend で起動し §3.7#5 (post-deploy
 						// health green) を新 backend で検証する経路 (deploy-aws-staging.yml が
 						// -c dsqlEnabled=true -c dsqlEndpoint=... を渡したときのみ)。
-						...(dsqlEnabled ? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint } : {}),
+						// DSQL_USER=app_user (#3646): 本番側と同型 (dsql:grant が role provisioning)。
+						...(dsqlEnabled
+							? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint, DSQL_USER: 'app_user' }
+							: {}),
 					},
 		});
 		this.fn.node.addDependency(logGroup);
