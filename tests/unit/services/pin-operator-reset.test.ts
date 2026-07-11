@@ -27,7 +27,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: mockLoggerInfo, warn: mockLoggerWarn },
 }));
 
-const envState: { PARENT_PIN_RESET?: string } = {};
+const envState: { PARENT_PIN_RESET?: string; DATA_SOURCE?: string } = {};
 vi.mock('$lib/runtime/env', () => ({
 	get env() {
 		return envState;
@@ -43,6 +43,7 @@ describe('applyOperatorPinResetIfRequested (#2994)', () => {
 		vi.clearAllMocks();
 		resetOperatorPinResetForTesting();
 		envState.PARENT_PIN_RESET = undefined;
+		envState.DATA_SOURCE = undefined;
 		mockGetAuthMode.mockReturnValue('local');
 		mockGetSetting.mockResolvedValue(undefined);
 		mockSetSetting.mockResolvedValue(undefined);
@@ -53,6 +54,25 @@ describe('applyOperatorPinResetIfRequested (#2994)', () => {
 
 		expect(mockGetSetting).not.toHaveBeenCalled();
 		expect(mockSetSetting).not.toHaveBeenCalled();
+	});
+
+	it('pglite backend: reset は LOCAL_TENANT_UUID 配下に書く (#3620 AC-C4 QM remedy、silent no-op 防止)', async () => {
+		// 旧ハードコード 'local' のままだと pglite cutover 後に実 PIN (UUID 配下) と reset 書込先
+		// ('local') が分裂し operator reset が silent no-op になる regression を固定する。
+		const { LOCAL_TENANT_UUID } = await import('../../../src/lib/server/auth/local-tenant');
+		envState.PARENT_PIN_RESET = 'reset-pglite-1';
+		envState.DATA_SOURCE = 'pglite';
+		await applyOperatorPinResetIfRequested();
+
+		expect(mockGetSetting).toHaveBeenCalledWith('pin_reset_applied', LOCAL_TENANT_UUID);
+		expect(mockSetSetting).toHaveBeenCalledWith('pin_hash', '', LOCAL_TENANT_UUID);
+		expect(mockSetSetting).toHaveBeenCalledWith(
+			'pin_reset_applied',
+			'reset-pglite-1',
+			LOCAL_TENANT_UUID,
+		);
+		// 旧 'local' への書込が残っていない (分裂そのものの検出)
+		expect(mockSetSetting).not.toHaveBeenCalledWith('pin_hash', '', 'local');
 	});
 
 	it('未適用 token: pin_hash 空文字化 (未設定化) + 失敗カウンタ/ロック解除 + 冪等フラグ書込', async () => {

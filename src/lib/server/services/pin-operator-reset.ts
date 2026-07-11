@@ -16,11 +16,9 @@
 
 import { env } from '$lib/runtime/env';
 import { getAuthMode } from '$lib/server/auth/factory';
+import { resolveLocalTenantId } from '$lib/server/auth/local-tenant';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-
-/** AUTH_MODE=local は単一 tenant ('local' 固定、local.ts provider と同値) */
-const LOCAL_TENANT_ID = 'local';
 
 /** プロセスごとに 1 回だけ評価する (2 回目以降は同期 return で zero cost) */
 let evaluatedThisProcess = false;
@@ -53,7 +51,12 @@ export async function applyOperatorPinResetIfRequested(): Promise<void> {
 		return;
 	}
 
-	const applied = await getSetting('pin_reset_applied', LOCAL_TENANT_ID);
+	// #3620 AC-C4 (QM BLOCK remedy): tenantId は local-tenant.ts SSOT で backend-aware に解決する。
+	// 旧ハードコード 'local' のままだと pglite cutover 後に実 PIN (LOCAL_TENANT_UUID 配下) と
+	// reset 書込先 ('local') が分裂し、operator reset が silent no-op になる (保護者 PIN 復旧不能)。
+	const localTenantId = resolveLocalTenantId(env.DATA_SOURCE);
+
+	const applied = await getSetting('pin_reset_applied', localTenantId);
 	if (applied === token) {
 		// 適用済 token: 冪等 no-op。env の unset 忘れ (Metabase 反面教師) でも再 reset しない
 		logger.info('[PIN_RESET] PARENT_PIN_RESET は適用済みです (env の削除を推奨)', {
@@ -64,14 +67,14 @@ export async function applyOperatorPinResetIfRequested(): Promise<void> {
 
 	// 既定状態に初期化: pin_hash 空 (= isPinConfigured false → #2992 初回作成フロー) +
 	// 失敗カウンタ / ロックアウトも解除 (ロック中に忘れたケースの救済)
-	await setSetting('pin_hash', '', LOCAL_TENANT_ID);
-	await setSetting('pin_failed_attempts', '0', LOCAL_TENANT_ID);
-	await setSetting('pin_locked_until', '', LOCAL_TENANT_ID);
-	await setSetting('pin_reset_applied', token, LOCAL_TENANT_ID);
+	await setSetting('pin_hash', '', localTenantId);
+	await setSetting('pin_failed_attempts', '0', localTenantId);
+	await setSetting('pin_locked_until', '', localTenantId);
+	await setSetting('pin_reset_applied', token, localTenantId);
 
 	// audit log (適用事実の記録、AC6)
 	logger.warn(
 		'[AUDIT] [PIN_RESET] operator PIN reset を適用しました — PIN は未設定状態に戻り、次回アクセスで新規作成フローになります。適用後は PARENT_PIN_RESET env を削除してください',
-		{ context: { tokenPrefix: token.slice(0, 8), tenantId: LOCAL_TENANT_ID } },
+		{ context: { tokenPrefix: token.slice(0, 8), tenantId: localTenantId } },
 	);
 }
