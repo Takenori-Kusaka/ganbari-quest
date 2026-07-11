@@ -37,6 +37,18 @@
 export type AdminResourceOrganizingModel = 'per-child-tabs' | 'family-distribute';
 export type AdminResourceBinding = 'child-selection-dialog' | 'visibility-chip';
 
+/**
+ * ADR-0055 データ scope 宣言 (#3117 項目 3)。organizingModel (UI 表示軸) とは**別レイヤー** (#3096)。
+ *
+ * - `'per-child-instance'` — aggregate root が child に閉じる (activity / reward)。
+ * - `'family-master-template'` — family master template + per-child assignments/progress (checklist)。
+ *
+ * SSOT は `docs/design/data-model-resource-scope.md` §3 (ADR-0055)。本宣言と doc 表の整合は
+ * `tests/unit/features/admin-resource-model-registry.test.ts` の drift gate が機械検証する
+ * (doc 側だけ / registry 側だけ変更すると CI fail)。
+ */
+export type AdminResourceDataScope = 'per-child-instance' | 'family-master-template';
+
 export interface AdminResourceModel {
 	/** リソース種別キー (registry の key と一致) */
 	readonly resource: 'activity' | 'reward' | 'checklist';
@@ -46,14 +58,20 @@ export interface AdminResourceModel {
 	readonly organizingModel: AdminResourceOrganizingModel;
 	/** 取込 / 追加時の child 紐付け UI */
 	readonly binding: AdminResourceBinding;
+	/** ADR-0055 データ scope (UI とは別レイヤー、doc 表と drift gate で照合、#3117) */
+	readonly dataScope: AdminResourceDataScope;
 	/**
 	 * DOM 整合検証用の代表 testid。
 	 * - `childTabsTestid` — 子供タブ row (per-child-tabs では必須出現)。
 	 * - `visibilityChipTestid` — family-distribute の配信先 chip (DOM 上に存在すべきか判定)。
 	 *   per-child-tabs リソースでは null (配信 chip を持たない)。
+	 * - `emptyStateTestid` — 一覧 / 検索結果が 0 件のとき描画される UnifiedEmptyState (SSOT、
+	 *   DESIGN.md §5) の testid。fitness function の 0-items exercise (#3117 項目 2) が
+	 *   「空表示でもスロット契約が成立する」ことを assert するために使う。
 	 */
 	readonly childTabsTestid: string;
 	readonly visibilityChipTestid: string | null;
+	readonly emptyStateTestid: string;
 }
 
 /**
@@ -154,12 +172,13 @@ export const REQUIRED_SLOT_NAMES: readonly string[] = CANONICAL_SLOT_ORDER.filte
  * checklist = family master「配信される」(family-distribute + visibility-chip)。
  *   Sub-2 (#3096) で checklist を per-child-tabs に更新予定だが、本 PR では現状を宣言する。
  *
- * **ADR-0055 との関係 (Sub-1 暫定宣言)**: per-child / family master のデータモデル原則は ADR-0055 が
+ * **ADR-0055 との関係**: per-child / family master のデータモデル原則は ADR-0055 が
  * SSOT だが、ADR-0055 は設計 doc であり code-level の共有 type を持たない (本 registry 起票時点で
  * `organizingModel` / `binding` の TypeScript 型は本ファイルが初出)。よって本宣言は ADR-0055 の値を
- * **再宣言ではなく初の code 化**であり二重 SSOT ではない。将来 ADR-0055 由来の共有 scope 型
- * (`data-model-resource-scope`) が code 化された場合は、Sub-2 (#3096) で本 registry をそれに寄せて
- * 統一し、drift gate (registry 値 ⇄ schema/ADR 整合の CI 照合) を併設する。
+ * **再宣言ではなく初の code 化**であり二重 SSOT ではない。#3117 項目 3 で `dataScope` 宣言を追加し、
+ * `docs/design/data-model-resource-scope.md` §3 表との整合を
+ * `tests/unit/features/admin-resource-model-registry.test.ts` の drift gate が機械検証する
+ * (doc 側だけ / registry 側だけ変更すると CI fail)。
  */
 export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 	activity: {
@@ -167,16 +186,24 @@ export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 		route: '/admin/activities',
 		organizingModel: 'per-child-tabs',
 		binding: 'child-selection-dialog',
+		// ADR-0055 §3: aggregate root = ChildActivity (per-child instance)
+		dataScope: 'per-child-instance',
 		childTabsTestid: 'admin-activities-child-tabs',
 		visibilityChipTestid: null,
+		// ActivityEmptyState (UnifiedEmptyState thin wrapper) は testid override せず default を使う
+		emptyStateTestid: 'unified-empty-state',
 	},
 	reward: {
 		resource: 'reward',
 		route: '/admin/rewards',
 		organizingModel: 'per-child-tabs',
 		binding: 'child-selection-dialog',
+		// ADR-0055 §3: aggregate root = ChildReward (per-child instance)
+		dataScope: 'per-child-instance',
 		childTabsTestid: 'admin-rewards-child-tabs',
 		visibilityChipTestid: null,
+		// 検索結果 0 件の filter-empty 表示 (UnifiedEmptyState、#2268 / Round 18)
+		emptyStateTestid: 'rewards-search-empty',
 	},
 	checklist: {
 		resource: 'checklist',
@@ -191,12 +218,44 @@ export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 		//   visibilityChipTestid は null (page top に配信 chip を常設しない)。
 		organizingModel: 'per-child-tabs',
 		binding: 'child-selection-dialog',
+		// ADR-0055 §3: family master template + per-child assignments/progress (UI とは別レイヤー、#3096)
+		dataScope: 'family-master-template',
 		childTabsTestid: 'admin-checklists-child-tabs',
 		visibilityChipTestid: null,
+		// 一覧 / 検索結果 0 件の空表示 (UnifiedEmptyState、Round 18 CX-DoR #11)
+		emptyStateTestid: 'admin-checklists-empty-state',
 	},
 } as const satisfies Record<string, AdminResourceModel>;
 
 export type AdminResourceKey = keyof typeof ADMIN_RESOURCE_MODEL_REGISTRY;
+
+/**
+ * #3117 項目 1: intruder scan の allowlist (fails-closed)。
+ *
+ * fitness function (`tests/e2e/admin-resource-layout-contract.spec.ts`) は canonical スロット間の
+ * direct-child 帯に出現した「`data-testid` を持つ slot-level 兄弟要素」を走査する。旧実装は
+ * `admin-<res>-` prefix 名前空間の regex でのみ判定していたため、bare 名 testid
+ * (例: `data-testid="promo-banner"`) の drift slot を素通りする false-negative があった。
+ *
+ * 本 allowlist 方式では **canonical slot testid + 本リストに明示列挙された既知 (B) ドメイン
+ * section のみを許可**し、未知の testid は全て intruder として fail する (fails-closed、ADR-0006
+ * assertion 弱体化禁止と整合)。新規 section を canonical スロット間に置きたい場合は、
+ * DESIGN.md §10 正準スロット契約との整合を確認したうえで本リストに reason 付きで追加すること。
+ *
+ * scope 境界: `data-testid` を持たない純装飾要素 (spacing wrapper 等) は本 scan の対象外
+ * (legit な装飾要素の false-positive とのバランス、Issue #3117 項目 1)。
+ */
+export const ALLOWED_NON_CANONICAL_SLOT_TESTIDS: Record<AdminResourceKey, readonly string[]> = {
+	activity: [],
+	reward: [],
+	checklist: [
+		// marketplace 取込結果メッセージ + browse link section (#2558 段階2)。
+		// ChildSelectionDialog auto-open + 取込結果表示として E2E (marketplace-checklist-import /
+		// bug1-import-dead-end / goal-flows-exemplar) が依存する既知 (B) ドメイン section。
+		// slot 6 (action-message) と slot 7 (list) の間に配置される。
+		'marketplace-import-section',
+	],
+};
 
 /**
  * #3134: 正準スロット契約 (ADMIN_RESOURCE_MODEL_REGISTRY) の **scope 外**と判断した admin リソース
