@@ -111,13 +111,14 @@ export default defineConfig({
 								// menu open 時に「TypeError: Illegal invocation」を unhandled で leak する
 								// (test 自体は全 pass、CI Linux でのみ再現)。upstream 衝突の既知 false-positive
 								// のため、この 1 パターンのみ narrow に許容する (他の unhandled は従来どおり fail)。
-								onUnhandledError(error: { message?: string; stack?: string }): boolean | void {
+								onUnhandledError(error: { message?: string; stack?: string }): boolean | undefined {
 									if (
 										error.message?.includes('Illegal invocation') &&
 										error.stack?.includes('@zag-js/focus-visible')
 									) {
 										return false; // 既知の zag-js × Storybook instrumentation 衝突のみ無視
 									}
+									return undefined;
 								},
 							},
 						},
