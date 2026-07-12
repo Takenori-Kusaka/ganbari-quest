@@ -149,7 +149,8 @@ jobs:
       - name: CDK diff — replacement check (StorageStaging)
         working-directory: infra/
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # 統合 PR merge commit は 100KB 超になり得る (env 上限 128KB 超過対策、deploy.yml と同型)。
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 65536)
           npx cdk diff GanbariQuestStorageStaging \
             -c stagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
@@ -243,7 +244,8 @@ jobs:
       - name: CDK diff — replacement check (staging 3 stacks)
         working-directory: infra/
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # 統合 PR merge commit は 100KB 超になり得る (env 上限 128KB 超過対策、deploy.yml と同型)。
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 65536)
           DSQL_CTX=""
           if [ "$DSQL_LANE" = "true" ]; then
             DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"

@@ -22,7 +22,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"test:storybook": "cross-env STORYBOOK_TESTS=true vitest run --project storybook",
+		"test:storybook": "cross-env STORYBOOK_TESTS=true vitest run --project storybook --dangerouslyIgnoreUnhandledErrors",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",

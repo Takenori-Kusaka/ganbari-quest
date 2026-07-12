@@ -64,9 +64,23 @@ const { Story } = defineMeta({
 		// open 後、menu item (Portal) が visible になる
 		const editItem = await waitFor(() => screen.getByTestId('menu-item-edit'));
 		await expect(editItem).toBeVisible();
+		// #3687: Ark UI Menu の open transition 中は content が pointer-events:none。CI の遅い
+		// 描画では visible 直後の click が「pointer-events: none」で fail する (ローカルでは再現せず)。
+		// transition 完了 = pointer-events 解除を明示的に待ってから click する。
+		await waitFor(() => {
+			if (getComputedStyle(editItem).pointerEvents === 'none') {
+				throw new Error('menu content is still in open transition (pointer-events: none)');
+			}
+		});
 		// item select → onSelect spy 発火 (dead-end でない前提)
 		await userEvent.click(editItem);
 		await waitFor(() => expect(editSpy).toHaveBeenCalledTimes(1));
+		// #3687 第 2 形態: menu を open したまま play を終えると、unmount 時の zag-js
+		// focus-visible cleanup が Storybook instrumentation と衝突し unhandled
+		// TypeError (Illegal invocation) を CI で leak する。Escape で閉じて close 遷移を
+		// test 内で完結させる。
+		await userEvent.keyboard('{Escape}');
+		await waitFor(() => expect(editItem).not.toBeVisible());
 	}}
 />
 
