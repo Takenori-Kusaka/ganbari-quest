@@ -122,7 +122,10 @@ jobs:
       - name: CDK diff — replacement check (Storage)
         working-directory: infra/
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # 統合 PR の merge commit は PR body 全体を含み 100KB 超になり得る (第 14 回統合で 147KB、
+          # Linux の単一 env 上限 128KB 超過で node が Argument list too long / exit 126)。
+          # replacement-approved マーカー検出には先頭で十分なため 64KB に truncate する。
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 65536)
           npx cdk diff GanbariQuestStorage \
             -c domainName=${{ env.DOMAIN_NAME }} \
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
@@ -230,7 +233,10 @@ jobs:
       - name: CDK diff — replacement check (all stacks)
         working-directory: infra/
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
+          # 統合 PR の merge commit は PR body 全体を含み 100KB 超になり得る (第 14 回統合で 147KB、
+          # Linux の単一 env 上限 128KB 超過で node が Argument list too long / exit 126)。
+          # replacement-approved マーカー検出には先頭で十分なため 64KB に truncate する。
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -c 65536)
           npx cdk diff --all \
             -c domainName=${{ env.DOMAIN_NAME }} \
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
