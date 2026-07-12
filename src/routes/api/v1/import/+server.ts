@@ -8,6 +8,7 @@ import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { type ParsedBackupZip, parseBackupZip } from '$lib/server/services/backup-archive';
 import {
+	countImportRows,
 	importFamilyData,
 	previewImport,
 	validateExportData,
@@ -86,7 +87,16 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 
 	if (mode === 'execute') {
 		try {
+			// #3692: 本番 restore timeout の切り分けで execute 経路が無ログだったため、
+			// 開始 (取込行数) / 完了 (所要 ms) を記録する。Lambda 30s 制約下の消費時間を可視化。
+			logger.info('[import] インポート開始', {
+				context: { tenantId, rows: countImportRows(validation.data) },
+			});
+			const startedAt = Date.now();
 			const result = await importFamilyData(validation.data, tenantId, staticFiles);
+			logger.info('[import] インポート完了', {
+				context: { tenantId, durationMs: Date.now() - startedAt, errors: result.errors.length },
+			});
 			return json({ ok: true, result });
 		} catch (err) {
 			logger.error('[import] インポート失敗', { error: String(err) });
@@ -99,8 +109,14 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		try {
 			// #3326: clear + import を原子境界で実行。途中失敗時は旧データを必ず復元する
 			// (SQLite=BEGIN/ROLLBACK / DynamoDB=backup-before-clear)。clear 先行の永久喪失を廃止。
-			logger.info('[import] 置換インポート開始 (原子化)', { context: { tenantId } });
+			logger.info('[import] 置換インポート開始 (原子化)', {
+				context: { tenantId, rows: countImportRows(validation.data) },
+			});
+			const startedAt = Date.now();
 			const result = await replaceImportAtomic(validation.data, tenantId, staticFiles);
+			logger.info('[import] 置換インポート完了', {
+				context: { tenantId, durationMs: Date.now() - startedAt, errors: result.errors.length },
+			});
 			return json({ ok: true, result });
 		} catch (err) {
 			if (err instanceof AtomicReplaceError) {
