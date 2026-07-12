@@ -54,6 +54,21 @@ export default defineConfig({
 		fileParallelism: false, // test file 直列実行 (公式 docs: maxWorkers=1 強制、shared DB 推奨)
 		testTimeout: 5_000, // default 明示 — 個別 `vi.setConfig({ testTimeout })` band-aid を撤去
 		hookTimeout: 10_000,
+		// #3687: Ark UI (@zag-js/focus-visible) の setupGlobalFocusEvents が Storybook CSF
+		// instrumentation の HTMLElement.focus getter と衝突し、menu open 時に
+		// 「TypeError: Illegal invocation」を unhandled で leak する (test 自体は全 pass、
+		// CI Linux でのみ再現)。unhandled error の集約は root Vitest が行うため本 option は
+		// root config に置く (project 側では効かない)。message + stack の両一致の 1 パターン
+		// のみ narrow に許容し、他の unhandled は従来どおり fail (検出力維持、ADR-0006)。
+		onUnhandledError(error: { message?: string; stack?: string }): boolean | undefined {
+			if (
+				error.message?.includes('Illegal invocation') &&
+				error.stack?.includes('@zag-js/focus-visible')
+			) {
+				return false; // 既知の zag-js × Storybook instrumentation 衝突のみ無視
+			}
+			return undefined;
+		},
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'html', 'lcov'],
@@ -105,20 +120,6 @@ export default defineConfig({
 									headless: true,
 									provider: playwright({}),
 									instances: [{ browser: 'chromium' as const }],
-								},
-								// #3687: Ark UI (@zag-js/focus-visible) の setupGlobalFocusEvents が
-								// Storybook CSF instrumentation の HTMLElement.focus getter と衝突し、
-								// menu open 時に「TypeError: Illegal invocation」を unhandled で leak する
-								// (test 自体は全 pass、CI Linux でのみ再現)。upstream 衝突の既知 false-positive
-								// のため、この 1 パターンのみ narrow に許容する (他の unhandled は従来どおり fail)。
-								onUnhandledError(error: { message?: string; stack?: string }): boolean | undefined {
-									if (
-										error.message?.includes('Illegal invocation') &&
-										error.stack?.includes('@zag-js/focus-visible')
-									) {
-										return false; // 既知の zag-js × Storybook instrumentation 衝突のみ無視
-									}
-									return undefined;
 								},
 							},
 						},
