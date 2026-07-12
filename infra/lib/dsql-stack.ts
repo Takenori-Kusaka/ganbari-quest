@@ -36,6 +36,12 @@ export class DsqlStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props?: DsqlStackProps) {
 		super(scope, id, props);
 
+		// #3703 hotfix: staging (GanbariQuestDsqlStaging) と本番 (GanbariQuestDsql) は同一アカウント・
+		// 同一リージョンに同居するため、dashboard / budget の物理名が同名だと CloudFormation
+		// 'already exists' で deploy fail する (本番 cutover 初回で顕在化)。stack id から suffix を
+		// 導出して一意化する (cluster/topic/alarm は論理 ID 由来で自動一意のため対象外)。
+		const nameSuffix = id.toLowerCase().includes('staging') ? '-staging' : '';
+
 		// ── 1. DSQL クラスタ (L1、#3429。DP=true 既定で誤 destroy を物理拒否) ──
 		this.cluster = new dsql.CfnCluster(this, 'Cluster', {
 			deletionProtectionEnabled: props?.deletionProtection ?? true,
@@ -99,7 +105,7 @@ export class DsqlStack extends cdk.Stack {
 		if (props?.opsEmail) {
 			new budgets.CfnBudget(this, 'DsqlBudget', {
 				budget: {
-					budgetName: 'ganbari-quest-dsql-guardrail',
+					budgetName: `ganbari-quest-dsql-guardrail${nameSuffix}`,
 					budgetType: 'COST',
 					timeUnit: 'MONTHLY',
 					budgetLimit: { amount: 1, unit: 'USD' },
@@ -133,7 +139,7 @@ export class DsqlStack extends cdk.Stack {
 			});
 
 		new cloudwatch.Dashboard(this, 'DsqlDashboard', {
-			dashboardName: 'ganbari-quest-dsql',
+			dashboardName: `ganbari-quest-dsql${nameSuffix}`,
 			widgets: [
 				[
 					new cloudwatch.GraphWidget({
