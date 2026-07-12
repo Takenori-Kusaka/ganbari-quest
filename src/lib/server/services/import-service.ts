@@ -44,6 +44,58 @@ function categoryIdFromCode(code: string): CategoryId | undefined {
 }
 
 /**
+ * #3692: import insert の並列チャンク実行度。
+ *
+ * 本番 restore が Lambda 30s timeout (504) した根因は、実バックアップ ≈ 1,200 行を
+ * 1 insert = 最大 3 DynamoDB 往復 (採番 + denormalize read + Put) で逐次 await して
+ * いたこと (≈ 3,000 往復 × 10-20ms = 30-60s)。件数支配ヘルパは runConcurrent で
+ * 並列化し、往復の壁時計時間を 1/CONCURRENCY に圧縮する。
+ *
+ * 値の根拠: DynamoDB on-demand は並列 25 程度で throttle しない (BatchWriteItem の
+ * 上限 25 と同水準)。PGlite (NUC) は単一接続で内部 queue されるため並列発行しても
+ * 安全、better-sqlite3 は同期実行で実質逐次 — いずれの backend でも正しさに影響しない。
+ */
+const IMPORT_INSERT_CONCURRENCY = 25;
+
+/**
+ * items を最大 concurrency 本の worker で並列処理する (#3692)。
+ *
+ * worker 内でエラーを catch して result.errors に積む既存 import ヘルパの規約を
+ * 前提とする (worker が reject すると全体が reject する — 呼び出し側で try/catch 必須)。
+ * dedup 判定 (Set 参照/更新) は並列区間に入れると race するため、呼び出し側は
+ * 「同期 phase で dedup と insert 対象を確定 → 本関数で insert のみ並列実行」の
+ * 2-phase に分ける。
+ */
+async function runConcurrent<T>(
+	items: readonly T[],
+	worker: (item: T) => Promise<void>,
+	concurrency = IMPORT_INSERT_CONCURRENCY,
+): Promise<void> {
+	let next = 0;
+	const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+		while (next < items.length) {
+			const item = items[next++];
+			// noUncheckedIndexedAccess: next < length で取得するため実際には undefined にならない
+			if (item === undefined) continue;
+			await worker(item);
+		}
+	});
+	await Promise.all(runners);
+}
+
+/**
+ * export data の取込対象行数の概算 (#3692 observability)。
+ * import 開始ログに載せ、Lambda 30s 制約下で「何行の取込にどれだけかかったか」を
+ * CloudWatch で切り分け可能にする (本番 restore 504 は経路無ログで切り分け不能だった)。
+ */
+export function countImportRows(data: ExportData): number {
+	const d = data.data;
+	return Object.values(d)
+		.filter((v): v is unknown[] => Array.isArray(v))
+		.reduce((sum, rows) => sum + rows.length, 0);
+}
+
+/**
  * インポート結果 (#1254 で skipped 内訳追加)
  */
 export interface ImportResult {
@@ -572,12 +624,21 @@ async function importStampCardsData(
 	result: ImportResult,
 ): Promise<void> {
 	const repo = getRepos().stampCard;
+	// #3692 phase 1 (同期): childId 解決。card → entries は親子依存のため card 単位を
+	// worker とし、card insert → 当該 card の entries 並列 insert を worker 内で行う
+	// (card 間は独立なので card レベルで並列化できる)。
+	const tasks: { childId: ChildId; card: NonNullable<ExportData['data']['stampCards']>[number] }[] =
+		[];
 	for (const card of data.data.stampCards ?? []) {
 		const childId = childIdMap.get(card.childRef);
 		if (!childId) {
 			result.stampCardsSkipped++;
 			continue;
 		}
+		tasks.push({ childId, card });
+	}
+	// #3692 phase 2: card 単位で並列チャンク実行
+	await runConcurrent(tasks, async ({ childId, card }) => {
 		let newCardId: string;
 		try {
 			const restored = await repo.insertCardForRestore(
@@ -600,9 +661,9 @@ async function importStampCardsData(
 			result.errors.push(
 				`スタンプカード insert 失敗 (child=${card.childRef}, week=${card.weekStart}): ${String(e)}`,
 			);
-			continue;
+			return;
 		}
-		for (const entry of card.entries) {
+		await runConcurrent(card.entries, async (entry) => {
 			try {
 				await repo.insertEntryForRestore(
 					{
@@ -622,8 +683,8 @@ async function importStampCardsData(
 					`スタンプ押印 insert 失敗 (child=${card.childRef}, slot=${entry.slot}): ${String(e)}`,
 				);
 			}
-		}
-	}
+		});
+	});
 }
 
 /**
@@ -1148,6 +1209,27 @@ async function importActivityLogsData(
 	// 子 A で欠落・子 B で存在のケースで正当な warning を抑制してしまう。
 	const missingActivityKeys = new Set<string>();
 
+	// #3692 phase 0: merge dedup に使う既存ログキーを、登場する child 分だけ並列 prefetch
+	if (mode === 'merge') {
+		const involvedChildIds = [
+			...new Set(
+				data.data.activityLogs
+					.map((log) => childIdMap.get(log.childRef))
+					.filter((id): id is ChildId => !!id),
+			),
+		];
+		await runConcurrent(involvedChildIds, async (childId) => {
+			await getOrFetchActivityLogKeys(childId, tenantId, existingLogKeysByChild);
+		});
+	}
+
+	// #3692 phase 1 (同期): activity 解決 + dedup 判定を同期で確定する。dedup Set の
+	// 参照/更新が insert await を跨ぐと並列化で race するため、Set 操作はここで完結させる。
+	const tasks: {
+		childId: ChildId;
+		activityId: ActivityId;
+		log: (typeof data.data.activityLogs)[number];
+	}[] = [];
 	for (const log of data.data.activityLogs) {
 		const childId = childIdMap.get(log.childRef);
 		if (!childId) continue;
@@ -1167,21 +1249,28 @@ async function importActivityLogsData(
 			continue;
 		}
 
-		const existingKeys = await getOrFetchActivityLogKeys(childId, tenantId, existingLogKeysByChild);
-		const key = `${log.activityName}:${log.recordedAt}`;
 		// #3653: (activityName, recordedAt) dedup は merge のみ。verbatim (cutover) では同時刻の
 		// 正当な複数記録 (DB 一意制約なし) を全行復元する。
-		if (mode === 'merge' && existingKeys.has(key)) {
-			result.activityLogsSkipped++;
-			result.skipped.constraint++;
-			continue;
+		if (mode === 'merge') {
+			const existingKeys = existingLogKeysByChild.get(childId);
+			const key = `${log.activityName}:${log.recordedAt}`;
+			if (existingKeys?.has(key)) {
+				result.activityLogsSkipped++;
+				result.skipped.constraint++;
+				continue;
+			}
+			existingKeys?.add(key);
 		}
+		tasks.push({ childId, activityId: activity.id, log });
+	}
 
+	// #3692 phase 2: insert を並列チャンク実行 (dedup 確定済みで行間依存なし)
+	await runConcurrent(tasks, async ({ childId, activityId, log }) => {
 		try {
 			await insertActivityLog(
 				{
 					childId,
-					activityId: activity.id,
+					activityId,
 					points: log.points,
 					streakDays: log.streakDays,
 					streakBonus: log.streakBonus,
@@ -1191,14 +1280,13 @@ async function importActivityLogsData(
 				tenantId,
 			);
 			result.activityLogsImported++;
-			existingKeys.add(key);
 		} catch (e) {
 			result.activityLogsSkipped++;
 			result.errors.push(
 				`活動ログ insert 失敗 (child=${log.childRef}, activity=${log.activityName}): ${String(e)}`,
 			);
 		}
-	}
+	});
 }
 
 async function getOrFetchActivityLogKeys(
@@ -1224,12 +1312,18 @@ async function importPointLedgerData(
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
+	// #3692 phase 1 (同期): childId 解決と insert 対象確定
+	const tasks: { childId: ChildId; entry: (typeof data.data.pointLedger)[number] }[] = [];
 	for (const entry of data.data.pointLedger) {
 		const childId = childIdMap.get(entry.childRef);
 		if (!childId) {
 			result.pointLedgerSkipped++;
 			continue;
 		}
+		tasks.push({ childId, entry });
+	}
+	// #3692 phase 2: insert を並列チャンク実行 (台帳は append-only で行間依存なし)
+	await runConcurrent(tasks, async ({ childId, entry }) => {
 		try {
 			await insertPointLedger(
 				{
@@ -1247,7 +1341,7 @@ async function importPointLedgerData(
 				`ポイント台帳 insert 失敗 (child=${entry.childRef}, amount=${entry.amount}): ${String(e)}`,
 			);
 		}
-	}
+	});
 }
 
 /**
@@ -1261,23 +1355,37 @@ async function importLoginBonusesData(
 ): Promise<void> {
 	const existingBonusesByChild = new Map<ChildId, Set<string>>();
 
+	// #3692 phase 0: 既存 bonus 日付を、登場する child 分だけ並列 prefetch
+	const involvedChildIds = [
+		...new Set(
+			data.data.loginBonuses
+				.map((lb) => childIdMap.get(lb.childRef))
+				.filter((id): id is ChildId => !!id),
+		),
+	];
+	await runConcurrent(involvedChildIds, async (childId) => {
+		const existing = await findRecentBonuses(childId, tenantId, 365);
+		existingBonusesByChild.set(childId, new Set(existing.map((e) => e.loginDate)));
+	});
+
+	// #3692 phase 1 (同期): (childId, loginDate) dedup を同期で確定 (Set race 回避)
+	const tasks: { childId: ChildId; lb: (typeof data.data.loginBonuses)[number] }[] = [];
 	for (const lb of data.data.loginBonuses) {
 		const childId = childIdMap.get(lb.childRef);
 		if (!childId) continue;
 
-		let existingDates = existingBonusesByChild.get(childId);
-		if (!existingDates) {
-			const existing = await findRecentBonuses(childId, tenantId, 365);
-			existingDates = new Set(existing.map((e) => e.loginDate));
-			existingBonusesByChild.set(childId, existingDates);
-		}
-
-		if (existingDates.has(lb.loginDate)) {
+		const existingDates = existingBonusesByChild.get(childId);
+		if (existingDates?.has(lb.loginDate)) {
 			result.loginBonusesSkipped++;
 			result.skipped.constraint++;
 			continue;
 		}
+		existingDates?.add(lb.loginDate);
+		tasks.push({ childId, lb });
+	}
 
+	// #3692 phase 2: insert を並列チャンク実行
+	await runConcurrent(tasks, async ({ childId, lb }) => {
 		try {
 			await insertLoginBonus(
 				{
@@ -1292,14 +1400,13 @@ async function importLoginBonusesData(
 				tenantId,
 			);
 			result.loginBonusesImported++;
-			existingDates.add(lb.loginDate);
 		} catch (e) {
 			result.loginBonusesSkipped++;
 			result.errors.push(
 				`ログインボーナス insert 失敗 (child=${lb.childRef}, date=${lb.loginDate}): ${String(e)}`,
 			);
 		}
-	}
+	});
 }
 
 /** checklistLog の再マップに使う、childId 単位の template id 解決マップ群。 */
@@ -1554,11 +1661,20 @@ async function importStatusHistoryData(
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
+	// #3692 phase 1 (同期): childId / categoryId 解決と insert 対象確定
+	const tasks: {
+		childId: ChildId;
+		categoryId: CategoryId;
+		sh: (typeof data.data.statusHistory)[number];
+	}[] = [];
 	for (const sh of data.data.statusHistory) {
 		const childId = childIdMap.get(sh.childRef);
 		const categoryId = categoryIdFromCode(sh.categoryCode);
 		if (!childId || !categoryId) continue;
-
+		tasks.push({ childId, categoryId, sh });
+	}
+	// #3692 phase 2: insert を並列チャンク実行 (履歴は append-only で行間依存なし)
+	await runConcurrent(tasks, async ({ childId, categoryId, sh }) => {
 		try {
 			await insertStatusHistory(
 				{
@@ -1577,7 +1693,7 @@ async function importStatusHistoryData(
 				`ステータス履歴 insert 失敗 (child=${sh.childRef}, category=${sh.categoryCode}): ${String(e)}`,
 			);
 		}
-	}
+	});
 }
 
 async function importSpecialRewards(
