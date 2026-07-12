@@ -71,6 +71,12 @@ function writeLog(entry: LogEntry) {
 	} else if (entry.level === 'warn') {
 		console.warn(msg);
 	} else {
+		// #3692: info / debug は shouldLog を通過している (MIN_LOG_LEVEL=info) にもかかわらず
+		// console 出力先が無く CloudWatch に一切出ていなかった (空 else = 握りつぶし)。
+		// 本番の restore 504 調査で logger.info の observability が全滅していた根因。
+		// Lambda は stdout/stderr を CloudWatch Logs に送るため console.log で出力する。
+		// biome-ignore lint/suspicious/noConsole: logger 実装本体の意図的 console 出力 (info/debug を stdout へ)
+		console.log(msg);
 	}
 
 	// File output (production only, skip on Lambda — CloudWatch Logs handles it)
