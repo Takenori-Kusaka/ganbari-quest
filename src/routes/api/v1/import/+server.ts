@@ -62,12 +62,16 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	requireRole(locals, ['owner', 'parent']);
 
 	const mode = url.searchParams.get('mode') ?? 'preview';
+	// #3692: restore 504 の段階別切り分け用 timing。logger.info が本番で出るようになった
+	// (logger.ts 空 else 修正) ため、parse / checksum / preview / import の各所要を可視化する。
+	const reqStart = Date.now();
 
 	const parsed = await parseImportRequest(request);
 	if (!parsed.ok) {
 		return apiError('VALIDATION_ERROR', parsed.error);
 	}
 	const { body, staticFiles } = parsed.value;
+	logger.info('[import] parsed', { context: { mode, parseMs: Date.now() - reqStart } });
 
 	const validation = validateExportData(body);
 	if (!validation.valid) {
@@ -79,9 +83,16 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (!checksumOk) {
 		return apiError('VALIDATION_ERROR', IMPORT_LABELS.errorChecksumMismatch);
 	}
+	logger.info('[import] validated', {
+		context: { mode, elapsedMs: Date.now() - reqStart, rows: countImportRows(validation.data) },
+	});
 
 	if (mode === 'preview') {
+		const previewStart = Date.now();
 		const preview = await previewImport(validation.data, tenantId);
+		logger.info('[import] preview 完了', {
+			context: { previewMs: Date.now() - previewStart, totalMs: Date.now() - reqStart },
+		});
 		return json({ ok: true, preview });
 	}
 
