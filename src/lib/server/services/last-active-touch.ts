@@ -12,6 +12,7 @@
 //     ため、in-memory cache (LRU 風 Map) で十分
 //   - cache は 10000 テナント上限で truncation する (Pre-PMF 想定 << 10000)
 
+import { LOCAL_TENANT_UUID } from '$lib/server/auth/local-tenant';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 
@@ -39,11 +40,13 @@ export function _resetLastActiveTouchCacheForTesting(): void {
  * - 当日中に既に書き込み済みなら no-op (DB に行かない)
  * - 失敗しても例外は投げない (hooks のホットパスを止めないため)
  *
- * @param tenantId 対象テナント。'demo' / 'local' / falsy ならスキップ。
+ * @param tenantId 対象テナント。'demo' / 'local' / LOCAL_TENANT_UUID / falsy ならスキップ。
  */
 export async function touchTenantLastActive(tenantId: string | undefined | null): Promise<void> {
 	if (!tenantId) return;
-	if (tenantId === 'demo' || tenantId === 'local') return;
+	// #3620 AC-C4: NUC 単一テナントは pg-core backend では固定 UUID になる (local-tenant.ts SSOT)。
+	// 旧 'local' と同様に touch 対象外 (NUC は analytics 対象外の単一家庭)。
+	if (tenantId === 'demo' || tenantId === 'local' || tenantId === LOCAL_TENANT_UUID) return;
 
 	const today = getDayKey();
 	const lastDay = lastTouchCache.get(tenantId);

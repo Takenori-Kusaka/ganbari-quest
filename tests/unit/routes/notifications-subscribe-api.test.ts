@@ -61,7 +61,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		vi.clearAllMocks();
 		mockFindByEndpoint.mockResolvedValue(undefined);
 		mockInsert.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'tenant-1',
 			endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 			keysP256dh: 'p256-key',
@@ -133,7 +133,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 
 	it('既存 endpoint は重複挿入せず success を返す', async () => {
 		mockFindByEndpoint.mockResolvedValue({
-			id: 99,
+			id: '99',
 			tenantId: 'tenant-1',
 			endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 			keysP256dh: 'p',

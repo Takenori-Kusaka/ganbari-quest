@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type {
 	InsertStampCardInput,
 	InsertStampEntryInput,
@@ -10,24 +11,24 @@ import type {
 export interface IStampCardRepo {
 	findEnabledStampMasters(tenantId: string): Promise<StampMaster[]>;
 	findCardByChildAndWeek(
-		childId: number,
+		childId: ChildId,
 		weekStart: string,
 		tenantId: string,
 	): Promise<StampCard | undefined>;
 	insertCard(input: InsertStampCardInput, tenantId: string): Promise<StampCard>;
-	findEntriesWithMasterByCardId(cardId: number, tenantId: string): Promise<StampEntryWithMaster[]>;
+	findEntriesWithMasterByCardId(cardId: string, tenantId: string): Promise<StampEntryWithMaster[]>;
 	insertEntry(input: InsertStampEntryInput, tenantId: string): Promise<void>;
 
 	/** #3329 backup: child の全スタンプカード (status / 期間問わず)。 */
-	findCardsByChild(childId: number, tenantId: string): Promise<StampCard[]>;
+	findCardsByChild(childId: ChildId, tenantId: string): Promise<StampCard[]>;
 
 	/** #3329 backup: card に紐づく押印 raw 行 (master join せず earnedAt まで保全)。 */
 	findEntriesByCardId(
-		cardId: number,
+		cardId: string,
 		tenantId: string,
 	): Promise<
 		Array<{
-			stampMasterId: number | null;
+			stampMasterId: string | null;
 			omikujiRank: string | null;
 			slot: number;
 			loginDate: string;
@@ -45,8 +46,8 @@ export interface IStampCardRepo {
 	/** #3329 backup restore 用: earnedAt を保全して押印を復元する (cardId は復元後の card を指す)。 */
 	insertEntryForRestore(
 		input: {
-			cardId: number;
-			stampMasterId: number | null;
+			cardId: string;
+			stampMasterId: string | null;
 			omikujiRank: string | null;
 			slot: number;
 			loginDate: string;
@@ -59,15 +60,15 @@ export interface IStampCardRepo {
 	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら no-op。
 	 */
 	updateCardStatus(
-		childId: number,
-		cardId: number,
+		childId: ChildId,
+		cardId: string,
 		input: UpdateStampCardStatusInput,
 		tenantId: string,
 	): Promise<void>;
 	/** #2845 課題①: childId 所有権検証付き。不一致 / 非 collecting なら affected=0。 */
 	updateCardStatusIfCollecting(
-		childId: number,
-		cardId: number,
+		childId: ChildId,
+		cardId: string,
 		input: UpdateStampCardStatusInput,
 		tenantId: string,
 	): Promise<number>;

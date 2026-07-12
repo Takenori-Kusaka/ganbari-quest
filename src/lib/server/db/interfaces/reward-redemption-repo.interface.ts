@@ -1,9 +1,10 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/interfaces/reward-redemption-repo.interface.ts
 
 export interface RedemptionRequestRow {
-	id: number;
-	childId: number;
-	rewardId: number;
+	id: string;
+	childId: ChildId;
+	rewardId: string;
 	requestedAt: number;
 	status: string;
 	parentNote: string | null;
@@ -26,7 +27,7 @@ export interface RedemptionRequestWithReward extends RedemptionRequestRow {
 
 export interface IRewardRedemptionRepo {
 	insertRedemptionRequest(
-		input: { childId: number; rewardId: number; requestedAt: number },
+		input: { childId: ChildId; rewardId: string; requestedAt: number },
 		tenantId: string,
 	): Promise<RedemptionRequestRow>;
 
@@ -38,8 +39,8 @@ export interface IRewardRedemptionRepo {
 	 */
 	insertRedemptionForRestore(
 		input: {
-			childId: number;
-			rewardId: number;
+			childId: ChildId;
+			rewardId: string;
 			requestedAt: number;
 			status: string;
 			parentNote: string | null;
@@ -53,11 +54,14 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow>;
 
-	findRedemptionRequestsByChild(childId: number, tenantId: string): Promise<RedemptionRequestRow[]>;
+	findRedemptionRequestsByChild(
+		childId: ChildId,
+		tenantId: string,
+	): Promise<RedemptionRequestRow[]>;
 
 	findRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: number; limit?: number },
+		opts?: { status?: string; childId?: ChildId; limit?: number },
 	): Promise<RedemptionRequestWithDetails[]>;
 
 	/**
@@ -67,7 +71,7 @@ export interface IRewardRedemptionRepo {
 	 */
 	countRedemptionRequestsByTenant(
 		tenantId: string,
-		opts?: { status?: string; childId?: number },
+		opts?: { status?: string; childId?: ChildId },
 	): Promise<number>;
 
 	/**
@@ -75,8 +79,8 @@ export interface IRewardRedemptionRepo {
 	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら undefined。
 	 */
 	updateRedemptionRequestStatus(
-		childId: number,
-		id: number,
+		childId: ChildId,
+		id: string,
 		updates: {
 			status: string;
 			parentNote?: string | null;
@@ -87,26 +91,26 @@ export interface IRewardRedemptionRepo {
 	): Promise<RedemptionRequestRow | undefined>;
 
 	findPendingByChildAndReward(
-		childId: number,
-		rewardId: number,
+		childId: ChildId,
+		rewardId: string,
 		tenantId: string,
 	): Promise<RedemptionRequestRow | undefined>;
 
 	findUnshownResultByChild(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 	): Promise<RedemptionRequestWithReward | undefined>;
 
 	/** #2845 課題①: childId 所有権検証付き (composite key 直接特定)。不一致なら undefined。 */
 	markRedemptionResultShown(
-		childId: number,
-		id: number,
+		childId: ChildId,
+		id: string,
 		tenantId: string,
 	): Promise<RedemptionRequestRow | undefined>;
 
 	expireOldRedemptions(tenantId: string): Promise<number>;
 
-	hasPendingByReward(rewardId: number, tenantId: string): Promise<boolean>;
+	hasPendingByReward(rewardId: string, tenantId: string): Promise<boolean>;
 
 	deleteByTenantId(tenantId: string): Promise<void>;
 }

@@ -41,6 +41,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import type { parseDisplayConfig } from '$lib/domain/display-config';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { CHILD_HOME_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
@@ -59,10 +60,10 @@ import { soundService } from '$lib/ui/sound';
  * (private のため duplicate 定義、改名時は同期必要)
  */
 interface SiblingRankingRow {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	totalCount: number;
-	categoryCounts: Record<number, number>;
+	categoryCounts: Record<string, number>;
 }
 
 /**
@@ -104,11 +105,11 @@ const {
 	 * 「今日のおやくそく」ribbon badge を出すために参照する。
 	 */
 	activities: Array<{
-		id: number;
+		id: ActivityId;
 		name: string;
 		displayName: string;
 		icon: string;
-		categoryId: number;
+		categoryId: CategoryId;
 		dailyLimit: number | null;
 		isMission: boolean;
 		isMainQuest?: boolean | number;
@@ -128,27 +129,27 @@ const {
 		// #2295 (EPIC #2294 ①): showEvents 削除済 (2026-05-19)
 	};
 	isPremium: boolean;
-	childId: number;
+	childId: ChildId;
 	submitting: boolean;
-	pendingActivityId: number | null;
-	getCategoryXpWithAnim: (categoryId: number) => CategoryXpInfo | null;
-	xpAnimatingCategoryId: number | null;
-	getCategoryMissionCount: (categoryId: number) => number;
-	getCategoryCompletedMissionCount: (categoryId: number) => number;
+	pendingActivityId: ActivityId | null;
+	getCategoryXpWithAnim: (categoryId: CategoryId) => CategoryXpInfo | null;
+	xpAnimatingCategoryId: CategoryId | null;
+	getCategoryMissionCount: (categoryId: CategoryId) => number;
+	getCategoryCompletedMissionCount: (categoryId: CategoryId) => number;
 	/**
 	 * #3333: カテゴリが今週のチャレンジ対象なら進捗を返す（非対象は null）。
 	 * CategorySection ヘッダーへ静的バッジ + インライン進捗を表示する（旧 ChallengeBanner 代替）。
 	 */
 	getChallengeTarget: (
-		categoryId: number,
+		categoryId: CategoryId,
 	) => { current: number; target: number; remaining: number; completed: boolean } | null;
-	onActivityTap: (activity: { id: number; name: string; icon: string }) => void;
+	onActivityTap: (activity: { id: ActivityId; name: string; icon: string }) => void;
 	onActivityLongPress: (activity: {
-		id: number;
+		id: ActivityId;
 		name: string;
 		isPinned?: boolean | number;
 	}) => void;
-	onRecordSubmit: (activityId: number) => void;
+	onRecordSubmit: (activityId: ActivityId) => void;
 	onRecordResult: (result: { type: string; data?: Record<string, unknown> }) => void;
 } = $props();
 
@@ -157,11 +158,11 @@ const service = getDashboardService();
 const homeData = $derived(service.getHomeData());
 const recordedMap = $derived(new Map(homeData.todayRecorded.map((r) => [r.activityId, r.count])));
 
-function getCount(activityId: number): number {
+function getCount(activityId: ActivityId): number {
 	return recordedMap.get(activityId) ?? 0;
 }
 
-function isCompleted(activity: { id: number; dailyLimit: number | null }): boolean {
+function isCompleted(activity: { id: ActivityId; dailyLimit: number | null }): boolean {
 	const limit = activity.dailyLimit ?? 1;
 	if (limit === 0) return false;
 	return getCount(activity.id) >= limit;

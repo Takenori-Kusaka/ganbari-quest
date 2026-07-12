@@ -1,9 +1,10 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
 interface WeekData {
 	weekLabel: string;
-	children: { childId: number; childName: string; count: number }[];
+	children: { childId: ChildId; childName: string; count: number }[];
 }
 
 interface Props {

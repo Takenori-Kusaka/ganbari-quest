@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/certificate-service.test.ts
 // 証明書サービスのユニットテスト（certificate-repo をモックして純粋にサービス層ロジックを検証）
 
@@ -33,11 +34,11 @@ import {
 } from '../../../src/lib/server/services/certificate-service';
 
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 
 function makeCert(overrides: Partial<Certificate> = {}): Certificate {
 	return {
-		id: 1,
+		id: '1',
 		childId: CHILD_ID,
 		tenantId: TENANT,
 		certificateType: 'streak_7',
@@ -82,7 +83,7 @@ describe('checkAndIssueStreakCertificates', () => {
 		vi.mocked(issueCertificate).mockImplementation(async (input) => {
 			callCount++;
 			return makeCert({
-				id: callCount,
+				id: String(callCount),
 				certificateType: input.certificateType,
 				metadata: input.metadata ?? null,
 			});
@@ -119,7 +120,7 @@ describe('checkAndIssueStreakCertificates', () => {
 		let callCount = 0;
 		vi.mocked(issueCertificate).mockImplementation(async (input) => {
 			callCount++;
-			return makeCert({ id: callCount, certificateType: input.certificateType });
+			return makeCert({ id: String(callCount), certificateType: input.certificateType });
 		});
 
 		const result = await checkAndIssueStreakCertificates(CHILD_ID, 100, TENANT);
@@ -167,7 +168,7 @@ describe('checkAndIssueLevelCertificates', () => {
 		let callCount = 0;
 		vi.mocked(issueCertificate).mockImplementation(async (input) => {
 			callCount++;
-			return makeCert({ id: callCount, certificateType: input.certificateType });
+			return makeCert({ id: String(callCount), certificateType: input.certificateType });
 		});
 
 		const result = await checkAndIssueLevelCertificates(CHILD_ID, 20, TENANT);
@@ -328,17 +329,17 @@ describe('getCertificatesForChild', () => {
 	it('証明書一覧にメタデータ (icon, category) を付与して返す', async () => {
 		vi.mocked(findCertificates).mockResolvedValue([
 			makeCert({
-				id: 1,
+				id: '1',
 				certificateType: 'streak_7',
 				metadata: JSON.stringify({ streakDays: 7, icon: '⭐' }),
 			}),
 			makeCert({
-				id: 2,
+				id: '2',
 				certificateType: 'monthly_2026-03',
 				metadata: JSON.stringify({ yearMonth: '2026-03', icon: '📜' }),
 			}),
 			makeCert({
-				id: 3,
+				id: '3',
 				certificateType: 'level_10',
 				metadata: JSON.stringify({ level: 10, icon: '🏆' }),
 			}),
@@ -375,16 +376,16 @@ describe('getCertificateDetail', () => {
 	it('証明書が見つかった場合はメタデータ付きで返す', async () => {
 		vi.mocked(findCertificateById).mockResolvedValue(
 			makeCert({
-				id: 42,
+				id: '42',
 				certificateType: 'annual_2025',
 				metadata: JSON.stringify({ year: '2025', icon: '🏆' }),
 			}),
 		);
 
-		const result = await getCertificateDetail(42, TENANT);
+		const result = await getCertificateDetail('42', TENANT);
 
 		expect(result).not.toBeNull();
-		expect(result?.id).toBe(42);
+		expect(result?.id).toBe('42');
 		expect(result?.icon).toBe('🏆');
 		expect(result?.category).toBe('annual');
 	});
@@ -392,7 +393,7 @@ describe('getCertificateDetail', () => {
 	it('証明書が見つからない場合は null を返す', async () => {
 		vi.mocked(findCertificateById).mockResolvedValue(undefined);
 
-		const result = await getCertificateDetail(999, TENANT);
+		const result = await getCertificateDetail('999', TENANT);
 
 		expect(result).toBeNull();
 	});
@@ -406,7 +407,7 @@ describe('buildRenderData', () => {
 	it('ストリーク証明書のレンダリングデータを生成する', () => {
 		const cert: CertificateWithMeta = {
 			...makeCert({
-				id: 10,
+				id: '10',
 				certificateType: 'streak_30',
 				title: 'れんぞく30にちのぼうけんしゃ',
 				description: '30にちれんぞくで がんばりました！',
@@ -418,7 +419,7 @@ describe('buildRenderData', () => {
 
 		const result = buildRenderData(cert, 'テスト太郎');
 
-		expect(result.id).toBe(10);
+		expect(result.id).toBe('10');
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.title).toBe('れんぞく30にちのぼうけんしゃ');
 		expect(result.icon).toBe('🔥');
@@ -428,7 +429,7 @@ describe('buildRenderData', () => {
 	it('月間証明書のレンダリングデータに activityCount と totalPoints を含む', () => {
 		const cert: CertificateWithMeta = {
 			...makeCert({
-				id: 20,
+				id: '20',
 				certificateType: 'monthly_2026-03',
 				title: '2026ねん3がつの がんばりしょうめいしょ',
 				description: '3がつも たくさん がんばりました！',
@@ -454,7 +455,7 @@ describe('buildRenderData', () => {
 	it('年間証明書のレンダリングデータに全統計を含む', () => {
 		const cert: CertificateWithMeta = {
 			...makeCert({
-				id: 30,
+				id: '30',
 				certificateType: 'annual_2025',
 				title: '2025ねんど がんばりたいしょう',
 				description: '2025ねんど いちねんかん がんばりました！',
@@ -481,7 +482,7 @@ describe('buildRenderData', () => {
 
 	it('metadata が null の場合は stats が空配列になる', () => {
 		const cert: CertificateWithMeta = {
-			...makeCert({ id: 40, metadata: null }),
+			...makeCert({ id: '40', metadata: null }),
 			icon: '📜',
 			category: 'monthly',
 		};
@@ -493,7 +494,7 @@ describe('buildRenderData', () => {
 
 	it('description が null の場合は空文字列を返す', () => {
 		const cert: CertificateWithMeta = {
-			...makeCert({ id: 50, description: null }),
+			...makeCert({ id: '50', description: null }),
 			icon: '📜',
 			category: 'monthly',
 		};

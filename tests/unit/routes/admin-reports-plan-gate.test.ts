@@ -68,7 +68,7 @@ type PlanTier = 'free' | 'standard' | 'family';
 function primeCommonMocks(tier: PlanTier) {
 	mockResolveFullPlanTier.mockResolvedValue(tier);
 	mockGetSettings.mockResolvedValue({});
-	mockGetAllChildren.mockResolvedValue([{ id: 1, nickname: 'たろう' }]);
+	mockGetAllChildren.mockResolvedValue([{ id: '1', nickname: 'たろう' }]);
 	mockGenerateReportsForChildren.mockResolvedValue([]);
 	mockComputeAllChildrenDetailedReport.mockResolvedValue([]);
 }

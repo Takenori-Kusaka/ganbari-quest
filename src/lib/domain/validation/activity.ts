@@ -1,17 +1,30 @@
 import { z } from 'zod';
+import {
+	CATEGORY_CODES,
+	CATEGORIES as CATEGORY_SSOT,
+	type CategoryCode,
+	type CategoryName,
+} from '$lib/domain/categories';
+import { asCategoryId, type CategoryId } from '$lib/domain/ids';
+import { activityIdSchema, categoryIdSchema, childIdSchema } from './id-schema';
 
-export const CATEGORIES = ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'] as const;
+export type { CategoryCode };
+// #3607: カテゴリ id↔code↔表示メタの SSOT は $lib/domain/categories.ts へ移設。
+// CATEGORY_CODES / CategoryCode は後方互換のため本モジュールから re-export を維持する。
+export { CATEGORY_CODES };
 
-export type Category = (typeof CATEGORIES)[number];
+export type Category = CategoryName;
+
+/** 日本語表示名一覧 (SSOT 派生)。新規参照は $lib/domain/categories.ts を直接使うこと */
+export const CATEGORIES: readonly Category[] = CATEGORY_CODES.map(
+	(code) => CATEGORY_SSOT[code].name,
+);
 
 // ============================================================
-// カテゴリマスタ定義（サロゲートキー）
+// カテゴリマスタ定義（サロゲートキー、#3607 で SSOT 派生化）
 // ============================================================
-export const CATEGORY_CODES = ['undou', 'benkyou', 'seikatsu', 'kouryuu', 'souzou'] as const;
-export type CategoryCode = (typeof CATEGORY_CODES)[number];
-
 export interface CategoryDef {
-	readonly id: number;
+	readonly id: CategoryId;
 	readonly code: CategoryCode;
 	readonly name: Category;
 	readonly icon: string;
@@ -19,17 +32,18 @@ export interface CategoryDef {
 	readonly accent: string;
 }
 
-export const CATEGORY_DEFS: readonly CategoryDef[] = [
-	{ id: 1, code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B', accent: '#D32F2F' },
-	{ id: 2, code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4', accent: '#00897B' },
-	{ id: 3, code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#FFE66D', accent: '#F9A825' },
-	{ id: 4, code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#A8E6CF', accent: '#2E7D32' },
-	{ id: 5, code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD', accent: '#7B1FA2' },
-] as const;
+export const CATEGORY_DEFS: readonly CategoryDef[] = CATEGORY_CODES.map((code) => ({
+	id: asCategoryId(CATEGORY_SSOT[code].legacyNumericId),
+	code,
+	name: CATEGORY_SSOT[code].name,
+	icon: CATEGORY_SSOT[code].icon,
+	color: CATEGORY_SSOT[code].color,
+	accent: CATEGORY_SSOT[code].accent,
+}));
 
-export const CATEGORY_IDS = CATEGORY_DEFS.map((c) => c.id) as [number, ...number[]];
+export const CATEGORY_IDS = CATEGORY_DEFS.map((c) => c.id) as [CategoryId, ...CategoryId[]];
 
-export function getCategoryById(id: number): CategoryDef | undefined {
+export function getCategoryById(id: CategoryId): CategoryDef | undefined {
 	return CATEGORY_DEFS.find((c) => c.id === id);
 }
 
@@ -58,7 +72,13 @@ export type Source = (typeof SOURCES)[number];
 
 export const createActivitySchema = z.object({
 	name: z.string().min(1).max(50),
-	categoryId: z.number().int().min(1).max(5),
+	// #3575: id は opaque string。旧クライアント/テストの number も境界で as* 変換して受ける
+	categoryId: z
+		.union([z.string(), z.number()])
+		.transform((v) => asCategoryId(v))
+		.refine((v) => CATEGORY_DEFS.some((c) => c.id === v), {
+			message: 'カテゴリが不正です',
+		}),
 	icon: z
 		.string()
 		.min(1)
@@ -120,20 +140,20 @@ export function sanitizeActivityNameField(raw: unknown): string | null {
 }
 
 export const recordActivitySchema = z.object({
-	childId: z.number().int().positive(),
-	activityId: z.number().int().positive(),
+	childId: childIdSchema,
+	activityId: activityIdSchema,
 });
 
 export const activityLogsQuerySchema = z.object({
-	childId: z.coerce.number().int().positive(),
+	childId: childIdSchema,
 	period: z.enum(['week', 'month', 'year']).default('week'),
 	from: z.string().optional(),
 	to: z.string().optional(),
 });
 
 export const activitiesQuerySchema = z.object({
-	childId: z.coerce.number().int().positive().optional(),
-	categoryId: z.coerce.number().int().min(1).max(5).optional(),
+	childId: childIdSchema.optional(),
+	categoryId: categoryIdSchema.optional(),
 	includeHidden: z
 		.string()
 		.transform((v) => v === 'true')

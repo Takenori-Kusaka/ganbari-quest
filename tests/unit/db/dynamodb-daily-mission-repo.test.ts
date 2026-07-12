@@ -10,6 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 
 const { mockSend, MockUpdateCommand, MockScanCommand, MockQueryCommand } = vi.hoisted(() => {
 	const send = vi.fn();
@@ -51,9 +52,9 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 const DATE = '2026-06-12';
-const ACTIVITY_ID = 7;
+const ACTIVITY_ID = asActivityId(7);
 
 beforeEach(() => {
 	mockSend.mockReset();

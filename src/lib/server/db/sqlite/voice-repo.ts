@@ -1,31 +1,42 @@
 import { and, eq } from 'drizzle-orm';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { childCustomVoices } from '../schema';
 import type { ChildCustomVoice } from '../types';
 
+type VoiceRow = typeof childCustomVoices.$inferSelect;
+
+const toVoice = (r: VoiceRow): ChildCustomVoice => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
+
 export async function findByChild(
-	childId: number,
+	childId: ChildId,
 	scene: string,
 	_tenantId: string,
 ): Promise<ChildCustomVoice[]> {
 	return db
 		.select()
 		.from(childCustomVoices)
-		.where(and(eq(childCustomVoices.childId, childId), eq(childCustomVoices.scene, scene)))
-		.all() as ChildCustomVoice[];
+		.where(and(eq(childCustomVoices.childId, Number(childId)), eq(childCustomVoices.scene, scene)))
+		.all()
+		.map(toVoice);
 }
 
-export async function findById(id: number, _tenantId: string): Promise<ChildCustomVoice | null> {
+export async function findById(id: string, _tenantId: string): Promise<ChildCustomVoice | null> {
 	const rows = db
 		.select()
 		.from(childCustomVoices)
-		.where(eq(childCustomVoices.id, id))
-		.all() as ChildCustomVoice[];
+		.where(eq(childCustomVoices.id, Number(id)))
+		.all()
+		.map(toVoice);
 	return rows[0] ?? null;
 }
 
 export async function findActiveVoice(
-	childId: number,
+	childId: ChildId,
 	scene: string,
 	_tenantId: string,
 ): Promise<ChildCustomVoice | null> {
@@ -34,51 +45,56 @@ export async function findActiveVoice(
 		.from(childCustomVoices)
 		.where(
 			and(
-				eq(childCustomVoices.childId, childId),
+				eq(childCustomVoices.childId, Number(childId)),
 				eq(childCustomVoices.scene, scene),
 				eq(childCustomVoices.isActive, 1),
 			),
 		)
-		.all() as ChildCustomVoice[];
+		.all()
+		.map(toVoice);
 	return rows[0] ?? null;
 }
 
 export async function insert(
 	voice: Omit<ChildCustomVoice, 'id' | 'createdAt'>,
-): Promise<{ id: number }> {
+): Promise<{ id: string }> {
 	const now = new Date().toISOString();
 	const result = db
 		.insert(childCustomVoices)
-		.values({ ...voice, createdAt: now })
+		.values({ ...voice, childId: Number(voice.childId), createdAt: now })
 		.run();
-	return { id: Number(result.lastInsertRowid) };
+	return { id: String(result.lastInsertRowid) };
 }
 
 /** #3329 backup: child の全カスタム音声 (scene 不問、export 用)。 */
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildCustomVoice[]> {
 	return db
 		.select()
 		.from(childCustomVoices)
-		.where(eq(childCustomVoices.childId, childId))
+		.where(eq(childCustomVoices.childId, Number(childId)))
 		.orderBy(childCustomVoices.scene)
-		.all() as ChildCustomVoice[];
+		.all()
+		.map(toVoice);
 }
 
 /** #3329 backup restore 用: createdAt / filePath / publicUrl / isActive を保全して音声行を復元する。 */
 export async function insertForRestore(
 	voice: Omit<ChildCustomVoice, 'id'>,
 	_tenantId: string,
-): Promise<{ id: number }> {
-	const result = db.insert(childCustomVoices).values(voice).run();
-	return { id: Number(result.lastInsertRowid) };
+): Promise<{ id: string }> {
+	const result = db
+		.insert(childCustomVoices)
+		.values({ ...voice, childId: Number(voice.childId) })
+		.run();
+	return { id: String(result.lastInsertRowid) };
 }
 
 export async function setActive(
-	id: number,
-	childId: number,
+	id: string,
+	childId: ChildId,
 	scene: string,
 	_tenantId: string,
 ): Promise<void> {
@@ -86,17 +102,26 @@ export async function setActive(
 		// まず同じ子供・シーンの全ボイスを非アクティブに
 		tx.update(childCustomVoices)
 			.set({ isActive: 0 })
-			.where(and(eq(childCustomVoices.childId, childId), eq(childCustomVoices.scene, scene)))
+			.where(
+				and(eq(childCustomVoices.childId, Number(childId)), eq(childCustomVoices.scene, scene)),
+			)
 			.run();
 		// 指定ボイスをアクティブに
-		tx.update(childCustomVoices).set({ isActive: 1 }).where(eq(childCustomVoices.id, id)).run();
+		tx.update(childCustomVoices)
+			.set({ isActive: 1 })
+			.where(eq(childCustomVoices.id, Number(id)))
+			.run();
 	});
 }
 
-export async function deleteById(id: number, _tenantId: string): Promise<void> {
-	db.delete(childCustomVoices).where(eq(childCustomVoices.id, id)).run();
+export async function deleteById(id: string, _tenantId: string): Promise<void> {
+	db.delete(childCustomVoices)
+		.where(eq(childCustomVoices.id, Number(id)))
+		.run();
 }
 
-export async function deleteByChild(childId: number, _tenantId: string): Promise<void> {
-	db.delete(childCustomVoices).where(eq(childCustomVoices.childId, childId)).run();
+export async function deleteByChild(childId: ChildId, _tenantId: string): Promise<void> {
+	db.delete(childCustomVoices)
+		.where(eq(childCustomVoices.childId, Number(childId)))
+		.run();
 }

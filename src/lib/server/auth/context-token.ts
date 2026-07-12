@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // src/lib/server/auth/context-token.ts
 // サーバーサイド Context トークン（署名付き短命トークン）
 // JWE ではなく HMAC-SHA256 で署名した JSON。サーバーサイドのみで使用。
@@ -68,7 +69,7 @@ export function verifyContext(token: string): AuthContext | null {
 		return {
 			tenantId: payload.tenantId,
 			role: payload.role,
-			childId: payload.childId,
+			childId: payload.childId === undefined ? undefined : asChildId(payload.childId),
 			licenseStatus: payload.licenseStatus,
 			tenantStatus: payload.tenantStatus,
 			plan: payload.plan,

@@ -1,3 +1,4 @@
+import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/activity-service.test.ts
 // activity-service ユニットテスト (UT-ACT-01 〜 UT-ACT-10)
 
@@ -66,12 +67,37 @@ function seedBase() {
 	// 旧 schema.activities (master + age filter) → schema.childActivities (childId=1 紐付け)。
 	// ageMin/ageMax は ChildActivity に無いため drop (per-child なので年齢 filter は不要)。
 	seedChildActivities(testDb, 1, [
-		{ name: 'たいそうした', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
-		{ name: 'おそとであそんだ', categoryId: 1, icon: '🏃', basePoints: 5, sortOrder: 2 },
-		{ name: 'すいみんぐ', categoryId: 1, icon: '🏊', basePoints: 10, sortOrder: 3 },
-		{ name: 'ひらがなれんしゅう', categoryId: 2, icon: '✏️', basePoints: 5, sortOrder: 4 },
-		{ name: 'おかたづけした', categoryId: 3, icon: '🧹', basePoints: 5, sortOrder: 5 },
-		{ name: '非表示活動', categoryId: 1, icon: '❌', basePoints: 5, isVisible: 0, sortOrder: 99 },
+		{ name: 'たいそうした', categoryId: asCategoryId(1), icon: '🤸', basePoints: 5, sortOrder: 1 },
+		{
+			name: 'おそとであそんだ',
+			categoryId: asCategoryId(1),
+			icon: '🏃',
+			basePoints: 5,
+			sortOrder: 2,
+		},
+		{ name: 'すいみんぐ', categoryId: asCategoryId(1), icon: '🏊', basePoints: 10, sortOrder: 3 },
+		{
+			name: 'ひらがなれんしゅう',
+			categoryId: asCategoryId(2),
+			icon: '✏️',
+			basePoints: 5,
+			sortOrder: 4,
+		},
+		{
+			name: 'おかたづけした',
+			categoryId: asCategoryId(3),
+			icon: '🧹',
+			basePoints: 5,
+			sortOrder: 5,
+		},
+		{
+			name: '非表示活動',
+			categoryId: asCategoryId(1),
+			icon: '❌',
+			basePoints: 5,
+			isVisible: 0,
+			sortOrder: 99,
+		},
 	]);
 }
 
@@ -101,7 +127,7 @@ describe('activity-service', () => {
 
 	// UT-ACT-03: 活動一覧取得（カテゴリフィルタ）
 	it('UT-ACT-03: 活動一覧取得（カテゴリフィルタ）', async () => {
-		const result = await getActivities('test-tenant', { categoryId: 1 });
+		const result = await getActivities('test-tenant', { categoryId: asCategoryId(1) });
 		// 非表示を除く うんどう = たいそう + おそと + すいみんぐ = 3件
 		// すいみんぐ: ageMin=5 だが childAge 指定なしなのでageフィルタされない → 含む
 		expect(result.length).toBe(3);
@@ -119,7 +145,7 @@ describe('activity-service', () => {
 		const result = await createActivity(
 			{
 				name: 'さんすうをした',
-				categoryId: 2,
+				categoryId: asCategoryId(2),
 				icon: '🔢',
 				basePoints: 5,
 				ageMin: null,
@@ -127,16 +153,20 @@ describe('activity-service', () => {
 			},
 			'test-tenant',
 		);
-		expect(result.id).toBeGreaterThan(0);
+		expect(Number(result.id)).toBeGreaterThan(0);
 		expect(result.name).toBe('さんすうをした');
-		expect(result.categoryId).toBe(2);
+		expect(result.categoryId).toBe('2');
 		expect(result.basePoints).toBe(5);
 		expect(result.isVisible).toBe(1);
 	});
 
 	// UT-ACT-07: 活動更新（正常）
 	it('UT-ACT-07: 活動更新（正常）', async () => {
-		const updated = await updateActivity(1, { name: 'ラジオたいそう' }, 'test-tenant');
+		const updated = await updateActivity(
+			asActivityId(1),
+			{ name: 'ラジオたいそう' },
+			'test-tenant',
+		);
 		expect(updated).toBeDefined();
 		expect(updated?.name).toBe('ラジオたいそう');
 	});
@@ -149,7 +179,7 @@ describe('activity-service', () => {
 		const created = await createActivity(
 			{
 				name: 'けんしょう',
-				categoryId: 2,
+				categoryId: asCategoryId(2),
 				icon: '🔢',
 				basePoints: 5,
 				ageMin: null,
@@ -168,7 +198,14 @@ describe('activity-service', () => {
 	it('#3484: updateActivity も範囲外 dailyLimit / 巨大 nameKana を service 層で clamp する', async () => {
 		// 前テスト state 非依存にするため fresh に作成してから更新する。
 		const created = await createActivity(
-			{ name: 'こうしん', categoryId: 2, icon: '🔧', basePoints: 5, ageMin: null, ageMax: null },
+			{
+				name: 'こうしん',
+				categoryId: asCategoryId(2),
+				icon: '🔧',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
 			'test-tenant',
 		);
 		const updated = await updateActivity(
@@ -185,11 +222,11 @@ describe('activity-service', () => {
 
 	// UT-ACT-08: 活動表示/非表示切替
 	it('UT-ACT-08: 活動表示/非表示切替', async () => {
-		const hidden = await setActivityVisibility(1, false, 'test-tenant');
+		const hidden = await setActivityVisibility(asActivityId(1), false, 'test-tenant');
 		expect(hidden).toBeDefined();
 		expect(hidden?.isVisible).toBe(0);
 
-		const shown = await setActivityVisibility(1, true, 'test-tenant');
+		const shown = await setActivityVisibility(asActivityId(1), true, 'test-tenant');
 		expect(shown).toBeDefined();
 		expect(shown?.isVisible).toBe(1);
 	});
@@ -210,20 +247,32 @@ describe('activity-service', () => {
 		// seedBase で child id=1 + 6 activities seed 済。子供 2 (id=2) を追加し独自 activities を seed
 		testDb.insert(schema.children).values({ nickname: 'いもうと', age: 6, theme: 'blue' }).run();
 		seedChildActivities(testDb, 2, [
-			{ name: 'いもうと専用活動A', categoryId: 1, icon: '🎯', basePoints: 5, sortOrder: 1 },
-			{ name: 'いもうと専用活動B', categoryId: 2, icon: '✨', basePoints: 5, sortOrder: 2 },
+			{
+				name: 'いもうと専用活動A',
+				categoryId: asCategoryId(1),
+				icon: '🎯',
+				basePoints: 5,
+				sortOrder: 1,
+			},
+			{
+				name: 'いもうと専用活動B',
+				categoryId: asCategoryId(2),
+				icon: '✨',
+				basePoints: 5,
+				sortOrder: 2,
+			},
 		]);
 
 		// 兄 (id=1) の home から取得すると 5 件 (visible のみ、いもうと活動は含まれない)
-		const elderResult = await getChildActivities(1, 'test-tenant');
+		const elderResult = await getChildActivities(asChildId(1), 'test-tenant');
 		expect(elderResult.length).toBe(5);
-		expect(elderResult.every((a) => a.childId === 1)).toBe(true);
+		expect(elderResult.every((a) => a.childId === '1')).toBe(true);
 		expect(elderResult.find((a) => a.name.startsWith('いもうと専用'))).toBeUndefined();
 
 		// 妹 (id=2) の home から取得すると 2 件 (いもうと活動のみ)
-		const youngerResult = await getChildActivities(2, 'test-tenant');
+		const youngerResult = await getChildActivities(asChildId(2), 'test-tenant');
 		expect(youngerResult.length).toBe(2);
-		expect(youngerResult.every((a) => a.childId === 2)).toBe(true);
+		expect(youngerResult.every((a) => a.childId === '2')).toBe(true);
 		expect(youngerResult.find((a) => a.name === '兄専用')).toBeUndefined();
 
 		// 既存 getActivities (tenant 全集約) は兄妹両方を返す = 7 件 (5 + 2)
@@ -233,18 +282,22 @@ describe('activity-service', () => {
 
 	// UT-ACT-12 (#2471): includeHidden / categoryId filter は per-child でも有効
 	it('UT-ACT-12 (#2471): getChildActivities の includeHidden / categoryId filter', async () => {
-		const visible = await getChildActivities(1, 'test-tenant');
+		const visible = await getChildActivities(asChildId(1), 'test-tenant');
 		expect(visible.length).toBe(5);
 		expect(visible.every((a) => a.isVisible === 1)).toBe(true);
 
-		const includeHidden = await getChildActivities(1, 'test-tenant', { includeHidden: true });
+		const includeHidden = await getChildActivities(asChildId(1), 'test-tenant', {
+			includeHidden: true,
+		});
 		expect(includeHidden.length).toBe(6);
 		expect(includeHidden.some((a) => a.isVisible === 0)).toBe(true);
 
-		const cat1 = await getChildActivities(1, 'test-tenant', { categoryId: 1 });
+		const cat1 = await getChildActivities(asChildId(1), 'test-tenant', {
+			categoryId: asCategoryId(1),
+		});
 		// うんどう (cat=1) は seed で 3 件 (たいそう / おそと / すいみんぐ)、visible only
 		expect(cat1.length).toBe(3);
-		expect(cat1.every((a) => a.categoryId === 1)).toBe(true);
+		expect(cat1.every((a) => a.categoryId === '1')).toBe(true);
 	});
 
 	// UT-ACT-13 (#2471): 存在しない childId は空配列 (cross-child access の defense in depth)
@@ -255,23 +308,23 @@ describe('activity-service', () => {
 		//  child_activities table 自体に tenant_id 列がないため child.tenant_id 経由の
 		//  間接 isolation のみ。本 Issue #2471 scope は重複 render fix のため tenant 層
 		//  isolation 強化は follow-up Issue にて対応)
-		const nonexistent = await getChildActivities(999, 'test-tenant');
+		const nonexistent = await getChildActivities(asChildId(999), 'test-tenant');
 		expect(nonexistent.length).toBe(0);
 	});
 
 	it('getActivityById: 存在する活動を返す', async () => {
-		const result = await getActivityById(1, 'test-tenant');
+		const result = await getActivityById(asActivityId(1), 'test-tenant');
 		expect(result).toBeDefined();
 		expect(result?.name).toBe('たいそうした');
 	});
 
 	it('getActivityById: 存在しない場合は undefined', async () => {
-		const result = await getActivityById(999, 'test-tenant');
+		const result = await getActivityById(asActivityId(999), 'test-tenant');
 		expect(result).toBeUndefined();
 	});
 
 	it('hasActivityLogs: ログなしの活動はfalse', async () => {
-		expect(await hasActivityLogs(1, 'test-tenant')).toBe(false);
+		expect(await hasActivityLogs(asActivityId(1), 'test-tenant')).toBe(false);
 	});
 
 	it('hasActivityLogs: ログありの活動はtrue', async () => {
@@ -286,7 +339,7 @@ describe('activity-service', () => {
 				recordedDate: '2026-03-15',
 			})
 			.run();
-		expect(await hasActivityLogs(1, 'test-tenant')).toBe(true);
+		expect(await hasActivityLogs(asActivityId(1), 'test-tenant')).toBe(true);
 	});
 
 	it('getActivityLogCounts: 活動ごとのログ件数を返す', async () => {
@@ -334,10 +387,10 @@ describe('activity-service', () => {
 		const before = await getActivities('test-tenant', { includeHidden: true });
 		expect(before.length).toBe(6);
 
-		await deleteActivityWithCleanup(6, 'test-tenant'); // 非表示活動
+		await deleteActivityWithCleanup(asActivityId(6), 'test-tenant'); // 非表示活動
 		const after = await getActivities('test-tenant', { includeHidden: true });
 		expect(after.length).toBe(5);
-		expect(after.find((a) => a.id === 6)).toBeUndefined();
+		expect(after.find((a) => a.id === '6')).toBeUndefined();
 	});
 
 	it('deleteActivityWithCleanup: daily_missionsも一緒に削除される', async () => {
@@ -351,8 +404,8 @@ describe('activity-service', () => {
 			.run();
 
 		// daily_missionsが存在する状態で削除
-		await deleteActivityWithCleanup(1, 'test-tenant');
-		expect(await getActivityById(1, 'test-tenant')).toBeUndefined();
+		await deleteActivityWithCleanup(asActivityId(1), 'test-tenant');
+		expect(await getActivityById(asActivityId(1), 'test-tenant')).toBeUndefined();
 	});
 });
 
@@ -377,7 +430,7 @@ describe('#1755 activity-service priority', () => {
 		const created = await createActivity(
 			{
 				name: 'はみがきした',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '🪥',
 				basePoints: 3,
 				ageMin: null,
@@ -400,7 +453,7 @@ describe('#1755 activity-service priority', () => {
 		const must = await createActivity(
 			{
 				name: 'おやくそく活動',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '⭐',
 				basePoints: 5,
 				ageMin: null,
@@ -411,7 +464,7 @@ describe('#1755 activity-service priority', () => {
 		);
 
 		const today = '2026-04-30';
-		const result = await getMustActivitiesToday(1, today, 'test-tenant');
+		const result = await getMustActivitiesToday(asChildId(1), today, 'test-tenant');
 
 		expect(result.total).toBe(1);
 		expect(result.activities).toHaveLength(1);
@@ -425,7 +478,7 @@ describe('#1755 activity-service priority', () => {
 		const must1 = await createActivity(
 			{
 				name: 'はみがきした',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '🪥',
 				basePoints: 3,
 				ageMin: null,
@@ -437,7 +490,7 @@ describe('#1755 activity-service priority', () => {
 		const must2 = await createActivity(
 			{
 				name: 'おきがえした',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '👕',
 				basePoints: 3,
 				ageMin: null,
@@ -455,7 +508,7 @@ describe('#1755 activity-service priority', () => {
 			.values([
 				{
 					childId,
-					activityId: must1.id,
+					activityId: Number(must1.id),
 					points: 3,
 					streakDays: 1,
 					streakBonus: 0,
@@ -465,7 +518,7 @@ describe('#1755 activity-service priority', () => {
 				},
 				{
 					childId,
-					activityId: must2.id,
+					activityId: Number(must2.id),
 					points: 3,
 					streakDays: 1,
 					streakBonus: 0,
@@ -476,7 +529,7 @@ describe('#1755 activity-service priority', () => {
 			])
 			.run();
 
-		const result = await getMustActivitiesToday(childId, today, 'test-tenant');
+		const result = await getMustActivitiesToday(asChildId(childId), today, 'test-tenant');
 		expect(result.total).toBe(2);
 		expect(result.logged).toBe(2);
 		expect(result.activities.every((a) => a.loggedToday === 1)).toBe(true);
@@ -527,7 +580,7 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		return createActivity(
 			{
 				name,
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '⭐',
 				basePoints: 5,
 				ageMin: null,
@@ -538,12 +591,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		);
 	}
 
-	function recordMust(childId: number, activityId: number, hour = 8) {
+	function recordMust(childId: number, activityId: ActivityId | number, hour = 8) {
 		testDb
 			.insert(schema.activityLogs)
 			.values({
 				childId,
-				activityId,
+				activityId: Number(activityId),
 				points: 5,
 				streakDays: 1,
 				streakBonus: 0,
@@ -565,7 +618,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 
 	// UT-ACT-PRIORITY-BONUS-01: must=0 件 → granted=false / total=0
 	it('UT-ACT-PRIORITY-BONUS-01: must 活動が 0 件のときは付与せず total=0 を返す', async () => {
-		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.total).toBe(0);
 		expect(result.logged).toBe(0);
 		expect(result.allComplete).toBe(false);
@@ -581,7 +639,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		await createMustActivity('おきがえ');
 		recordMust(1, must1.id);
 
-		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.total).toBe(2);
 		expect(result.logged).toBe(1);
 		expect(result.allComplete).toBe(false);
@@ -597,7 +660,12 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		recordMust(1, must1.id);
 		recordMust(1, must2.id, 9);
 
-		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(result.allComplete).toBe(true);
 		expect(result.granted).toBe(true);
 		expect(result.points).toBe(5);
@@ -609,7 +677,7 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		const must1 = await createMustActivity('歯磨き');
 		recordMust(1, must1.id);
 
-		const result = await tryGrantMustCompletionBonus(1, TODAY, 'junior', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'junior', 'test-tenant');
 		expect(result.allComplete).toBe(true);
 		expect(result.granted).toBe(true);
 		expect(result.points).toBe(3);
@@ -620,11 +688,21 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		const must1 = await createMustActivity('はみがき');
 		recordMust(1, must1.id);
 
-		const first = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		const first = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(first.granted).toBe(true);
 		expect(first.points).toBe(5);
 
-		const second = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		const second = await tryGrantMustCompletionBonus(
+			asChildId(1),
+			TODAY,
+			'preschool',
+			'test-tenant',
+		);
 		expect(second.allComplete).toBe(true);
 		expect(second.granted).toBe(false);
 		expect(second.points).toBe(0);
@@ -637,7 +715,7 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		const must1 = await createMustActivity('はみがき');
 		recordMust(1, must1.id);
 
-		const result = await tryGrantMustCompletionBonus(1, TODAY, 'baby', 'test-tenant');
+		const result = await tryGrantMustCompletionBonus(asChildId(1), TODAY, 'baby', 'test-tenant');
 		expect(result.allComplete).toBe(true);
 		expect(result.granted).toBe(false);
 		expect(result.points).toBe(0);
@@ -667,23 +745,23 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 		const created = await createActivity(
 			{
 				name: 'なわとびした',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: null,
 				ageMax: null,
 			},
 			'test-tenant',
-			2,
+			asChildId(2),
 		);
-		expect(created.childId).toBe(2);
+		expect(created.childId).toBe('2');
 
 		// child 2 の一覧に出る
-		const child2 = await getChildActivities(2, 'test-tenant');
+		const child2 = await getChildActivities(asChildId(2), 'test-tenant');
 		expect(child2.map((a) => a.name)).toContain('なわとびした');
 
 		// child 1 の一覧には混ざらない (兄弟 scope 分離)
-		const child1 = await getChildActivities(1, 'test-tenant');
+		const child1 = await getChildActivities(asChildId(1), 'test-tenant');
 		expect(child1.map((a) => a.name)).not.toContain('なわとびした');
 	});
 
@@ -691,7 +769,7 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 		const created = await createActivity(
 			{
 				name: 'おてつだいした',
-				categoryId: 3,
+				categoryId: asCategoryId(3),
 				icon: '🧹',
 				basePoints: 5,
 				ageMin: null,
@@ -699,8 +777,8 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 			},
 			'test-tenant',
 		);
-		expect(created.childId).toBe(1);
-		const child1 = await getChildActivities(1, 'test-tenant');
+		expect(created.childId).toBe('1');
+		const child1 = await getChildActivities(asChildId(1), 'test-tenant');
 		expect(child1.map((a) => a.name)).toContain('おてつだいした');
 	});
 
@@ -708,16 +786,16 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 		const created = await createActivity(
 			{
 				name: 'ふせいid活動',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '❓',
 				basePoints: 5,
 				ageMin: null,
 				ageMax: null,
 			},
 			'test-tenant',
-			999,
+			asChildId(999),
 		);
 		// 999 は存在しないため先頭 child (id=1) に fallback
-		expect(created.childId).toBe(1);
+		expect(created.childId).toBe('1');
 	});
 });

@@ -1,10 +1,11 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IReportDailySummaryRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import type { InsertReportDailySummaryInput, ReportDailySummary } from '../types';
 
 export async function findByChildAndDateRange(
-	_childId: number,
+	_childId: ChildId,
 	_startDate: string,
 	_endDate: string,
 	_tenantId: string,

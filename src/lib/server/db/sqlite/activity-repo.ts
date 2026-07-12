@@ -36,9 +36,39 @@ import {
 	sql,
 } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import { db } from '../client';
 import { activityLogs, childActivities, children, dailyMissions, pointLedger } from '../schema';
-import type { Activity, ActivityFilter, InsertActivityInput, UpdateActivityInput } from '../types';
+import type {
+	Activity,
+	ActivityFilter,
+	ActivityLog,
+	ActivityLogSummary,
+	Child,
+	InsertActivityInput,
+	InsertActivityLogInput,
+	InsertPointLedgerInput,
+	UpdateActivityInput,
+} from '../types';
+
+type ActivityLogRow = typeof activityLogs.$inferSelect;
+type ChildRow = typeof children.$inferSelect;
+
+const _toActivityLog = (r: ActivityLogRow): ActivityLog => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	activityId: asActivityId(r.activityId),
+});
+
+const _toChild = (r: ChildRow): Child => ({ ...r, id: asChildId(r.id) });
 
 // ============================================================
 // Internal helpers — ChildActivity → Activity shape adapter
@@ -69,9 +99,9 @@ function _toActivityShape(c: {
 	priority: 'must' | 'optional';
 }): Activity {
 	return {
-		id: c.id,
+		id: asActivityId(c.id),
 		name: c.name,
-		categoryId: c.categoryId,
+		categoryId: asCategoryId(c.categoryId),
 		icon: c.icon,
 		basePoints: c.basePoints,
 		ageMin: null, // ChildActivity は per-child instance のため age filter なし (ADR-0055)
@@ -98,16 +128,16 @@ function _toActivityShape(c: {
 /**
  * activity_id から childId を逆引きする (tenant 内)。
  * write 系 method (updateActivity / setActivityVisibility / deleteActivity) で必要。
- * 見つからなければ undefined。
+ * 見つからなければ undefined。内部は integer PK のまま扱う (repo 境界内)。
  */
 async function _resolveChildIdForActivity(
-	id: number,
+	id: ActivityId,
 	_tenantId: string,
 ): Promise<number | undefined> {
 	const row = await db
 		.select({ childId: childActivities.childId })
 		.from(childActivities)
-		.where(eq(childActivities.id, id))
+		.where(eq(childActivities.id, Number(id)))
 		.get();
 	return row?.childId;
 }
@@ -133,7 +163,7 @@ export async function findActivities(
 	conditions.push(or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)));
 
 	if (filter?.categoryId) {
-		conditions.push(eq(childActivities.categoryId, filter.categoryId));
+		conditions.push(eq(childActivities.categoryId, Number(filter.categoryId)));
 	}
 
 	if (!filter?.includeHidden) {
@@ -151,9 +181,13 @@ export async function findActivities(
 	return rows.map(_toActivityShape);
 }
 
-export async function findActivityById(id: number, _tenantId: string) {
+export async function findActivityById(id: ActivityId, _tenantId: string) {
 	// #2362 PR-3 Phase 7b-2c: child_activities から取得 (PR-3 で移行済)。
-	const row = await db.select().from(childActivities).where(eq(childActivities.id, id)).get();
+	const row = await db
+		.select()
+		.from(childActivities)
+		.where(eq(childActivities.id, Number(id)))
+		.get();
 	return row ? _toActivityShape(row) : undefined;
 }
 
@@ -173,7 +207,7 @@ export async function insertActivity(
 		.values({
 			childId: firstChild.id,
 			name: input.name,
-			categoryId: input.categoryId,
+			categoryId: Number(input.categoryId),
 			icon: input.icon,
 			basePoints: input.basePoints,
 			triggerHint: input.triggerHint ?? null,
@@ -190,7 +224,7 @@ export async function insertActivity(
 }
 
 export async function updateActivity(
-	id: number,
+	id: ActivityId,
 	input: UpdateActivityInput,
 	tenantId: string,
 ): Promise<Activity | undefined> {
@@ -199,7 +233,7 @@ export async function updateActivity(
 	// ChildActivity に存在しない field (ageMin / ageMax) は drop
 	const updateData: Record<string, unknown> = {};
 	if (input.name !== undefined) updateData.name = input.name;
-	if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+	if (input.categoryId !== undefined) updateData.categoryId = Number(input.categoryId);
 	if (input.icon !== undefined) updateData.icon = input.icon;
 	if (input.basePoints !== undefined) updateData.basePoints = input.basePoints;
 	if (input.triggerHint !== undefined) updateData.triggerHint = input.triggerHint;
@@ -210,14 +244,14 @@ export async function updateActivity(
 		const existing = await db
 			.select()
 			.from(childActivities)
-			.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+			.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, childId)))
 			.get();
 		return existing ? _toActivityShape(existing) : undefined;
 	}
 	const row = db
 		.update(childActivities)
 		.set(updateData)
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, childId)))
 		.returning()
 		.get();
 	return row ? _toActivityShape(row) : undefined;
@@ -227,13 +261,13 @@ export async function updateActivity(
  * #1755 (#1709-A): 子供の今日の must 活動と達成状況を返す。
  */
 export async function findMustActivitiesWithToday(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<{
 	logged: number;
 	total: number;
-	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+	activities: Array<{ id: ActivityId; name: string; icon: string; loggedToday: number }>;
 }> {
 	const mustList = await db
 		.select({
@@ -244,7 +278,7 @@ export async function findMustActivitiesWithToday(
 		.from(childActivities)
 		.where(
 			and(
-				eq(childActivities.childId, childId),
+				eq(childActivities.childId, Number(childId)),
 				eq(childActivities.priority, 'must'),
 				eq(childActivities.isVisible, 1),
 				or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)),
@@ -262,7 +296,7 @@ export async function findMustActivitiesWithToday(
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				eq(activityLogs.recordedDate, today),
 				eq(activityLogs.cancelled, 0),
 			),
@@ -271,7 +305,7 @@ export async function findMustActivitiesWithToday(
 
 	const loggedSet = new Set<number>(todayLogs.map((l) => l.activityId));
 	const enriched = mustList.map((a) => ({
-		id: a.id,
+		id: asActivityId(a.id),
 		name: a.name,
 		icon: a.icon,
 		loggedToday: loggedSet.has(a.id) ? 1 : 0,
@@ -281,7 +315,7 @@ export async function findMustActivitiesWithToday(
 }
 
 export async function setActivityVisibility(
-	id: number,
+	id: ActivityId,
 	visible: boolean,
 	tenantId: string,
 ): Promise<Activity | undefined> {
@@ -290,18 +324,21 @@ export async function setActivityVisibility(
 	const row = db
 		.update(childActivities)
 		.set({ isVisible: visible ? 1 : 0 })
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, childId)))
 		.returning()
 		.get();
 	return row ? _toActivityShape(row) : undefined;
 }
 
-export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
+export async function deleteActivity(
+	id: ActivityId,
+	tenantId: string,
+): Promise<Activity | undefined> {
 	const childId = await _resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;
 	const row = db
 		.delete(childActivities)
-		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.where(and(eq(childActivities.id, Number(id)), eq(childActivities.childId, childId)))
 		.returning()
 		.get();
 	return row ? _toActivityShape(row) : undefined;
@@ -312,14 +349,14 @@ export async function deleteActivity(id: number, tenantId: string): Promise<Acti
 // `ARCHIVED_REASONS` SSOT integration)。schema.ts L79 の `text('archived_reason', { enum: … })`
 // と同期で型安全を担保 (3 reason 以外の値は compile-time / runtime 両方で reject)。
 export async function archiveActivities(
-	ids: number[],
+	ids: ActivityId[],
 	reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	if (ids.length === 0) return;
 	db.update(childActivities)
 		.set({ isArchived: 1, archivedReason: reason })
-		.where(inArray(childActivities.id, ids))
+		.where(inArray(childActivities.id, ids.map(Number)))
 		.run();
 }
 
@@ -333,39 +370,46 @@ export async function restoreArchivedActivities(
 		.run();
 }
 
-export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
+export async function hasActivityLogs(activityId: ActivityId, _tenantId: string): Promise<boolean> {
 	const result = await db
 		.select({ cnt: count() })
 		.from(activityLogs)
-		.where(eq(activityLogs.activityId, activityId))
+		.where(eq(activityLogs.activityId, Number(activityId)))
 		.get();
 	return (result?.cnt ?? 0) > 0;
 }
 
-export async function getActivityLogCounts(_tenantId: string): Promise<Record<number, number>> {
+export async function getActivityLogCounts(_tenantId: string): Promise<Record<string, number>> {
 	const rows = await db
 		.select({ activityId: activityLogs.activityId, cnt: count() })
 		.from(activityLogs)
 		.where(eq(activityLogs.cancelled, 0))
 		.groupBy(activityLogs.activityId)
 		.all();
-	const result: Record<number, number> = {};
+	const result: Record<string, number> = {};
 	for (const row of rows) {
-		result[row.activityId] = row.cnt;
+		result[String(row.activityId)] = row.cnt;
 	}
 	return result;
 }
 
-export async function deleteDailyMissionsByActivity(activityId: number, _tenantId: string) {
-	db.delete(dailyMissions).where(eq(dailyMissions.activityId, activityId)).run();
+export async function deleteDailyMissionsByActivity(activityId: ActivityId, _tenantId: string) {
+	db.delete(dailyMissions)
+		.where(eq(dailyMissions.activityId, Number(activityId)))
+		.run();
 }
 
 // ============================================================
 // Children
 // ============================================================
 
-export async function findChildById(id: number, _tenantId: string) {
-	return db.select().from(children).where(eq(children.id, id)).get();
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
+	const row = db
+		.select()
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	return row ? _toChild(row) : undefined;
 }
 
 // ============================================================
@@ -373,33 +417,34 @@ export async function findChildById(id: number, _tenantId: string) {
 // ============================================================
 
 export async function findDailyLog(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	date: string,
 	_tenantId: string,
-) {
-	return db
+): Promise<ActivityLog | undefined> {
+	const row = db
 		.select()
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
-				eq(activityLogs.activityId, activityId),
+				eq(activityLogs.childId, Number(childId)),
+				eq(activityLogs.activityId, Number(activityId)),
 				eq(activityLogs.recordedDate, date),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
 		.get();
+	return row ? _toActivityLog(row) : undefined;
 }
 
-export async function findStreakLogs(childId: number, activityId: number, _tenantId: string) {
+export async function findStreakLogs(childId: ChildId, activityId: ActivityId, _tenantId: string) {
 	return db
 		.select({ recordedDate: activityLogs.recordedDate })
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
-				eq(activityLogs.activityId, activityId),
+				eq(activityLogs.childId, Number(childId)),
+				eq(activityLogs.activityId, Number(activityId)),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
@@ -408,34 +453,46 @@ export async function findStreakLogs(childId: number, activityId: number, _tenan
 }
 
 export async function insertActivityLog(
-	input: {
-		childId: number;
-		activityId: number;
-		points: number;
-		streakDays: number;
-		streakBonus: number;
-		recordedDate: string;
-		recordedAt: string;
-	},
+	input: InsertActivityLogInput,
 	_tenantId: string,
-) {
-	return db.insert(activityLogs).values(input).returning().get();
+): Promise<ActivityLog> {
+	const row = db
+		.insert(activityLogs)
+		.values({
+			...input,
+			childId: Number(input.childId),
+			activityId: Number(input.activityId),
+		})
+		.returning()
+		.get();
+	return _toActivityLog(row);
 }
 
-export async function findActivityLogById(id: number, _tenantId: string) {
-	return db.select().from(activityLogs).where(eq(activityLogs.id, id)).get();
+export async function findActivityLogById(
+	id: string,
+	_tenantId: string,
+): Promise<ActivityLog | undefined> {
+	const row = db
+		.select()
+		.from(activityLogs)
+		.where(eq(activityLogs.id, Number(id)))
+		.get();
+	return row ? _toActivityLog(row) : undefined;
 }
 
-export async function markActivityLogCancelled(id: number, _tenantId: string) {
-	db.update(activityLogs).set({ cancelled: 1 }).where(eq(activityLogs.id, id)).run();
+export async function markActivityLogCancelled(id: string, _tenantId: string) {
+	db.update(activityLogs)
+		.set({ cancelled: 1 })
+		.where(eq(activityLogs.id, Number(id)))
+		.run();
 }
 
 export async function findActivityLogs(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	options: { from?: string; to?: string } = {},
-) {
-	const conditions = [eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)];
+): Promise<ActivityLogSummary[]> {
+	const conditions = [eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)];
 
 	if (options.from) {
 		conditions.push(gte(activityLogs.recordedDate, options.from));
@@ -460,12 +517,13 @@ export async function findActivityLogs(
 		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(and(...conditions))
 		.orderBy(desc(activityLogs.recordedAt))
-		.all();
+		.all()
+		.map((r) => ({ ...r, id: String(r.id), categoryId: asCategoryId(r.categoryId) }));
 }
 
 export async function countTodayActiveRecords(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	date: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -474,8 +532,8 @@ export async function countTodayActiveRecords(
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
-				eq(activityLogs.activityId, activityId),
+				eq(activityLogs.childId, Number(childId)),
+				eq(activityLogs.activityId, Number(activityId)),
 				eq(activityLogs.recordedDate, date),
 				eq(activityLogs.cancelled, 0),
 			),
@@ -485,10 +543,10 @@ export async function countTodayActiveRecords(
 }
 
 export async function getTodayActivityCountsByChild(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	_tenantId: string,
-): Promise<{ activityId: number; count: number }[]> {
+): Promise<{ activityId: ActivityId; count: number }[]> {
 	return db
 		.select({
 			activityId: activityLogs.activityId,
@@ -497,33 +555,34 @@ export async function getTodayActivityCountsByChild(
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				eq(activityLogs.recordedDate, date),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
 		.groupBy(activityLogs.activityId)
-		.all();
+		.all()
+		.map((r) => ({ activityId: asActivityId(r.activityId), count: r.count }));
 }
 
 export async function findTodayRecordedActivityIds(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
-): Promise<number[]> {
+): Promise<ActivityId[]> {
 	const rows = await db
 		.select({ activityId: activityLogs.activityId })
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				eq(activityLogs.recordedDate, today),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
 		.all();
 
-	return rows.map((r) => r.activityId);
+	return rows.map((r) => asActivityId(r.activityId));
 }
 
 // ============================================================
@@ -532,31 +591,34 @@ export async function findTodayRecordedActivityIds(
 
 /** 子供の活動記録日（重複除去・昇順）を取得 */
 export async function findDistinctRecordedDates(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<{ recordedDate: string }[]> {
 	return db
 		.select({ recordedDate: activityLogs.recordedDate })
 		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.where(and(eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)))
 		.groupBy(activityLogs.recordedDate)
 		.orderBy(activityLogs.recordedDate)
 		.all();
 }
 
 /** 子供の累計活動記録数（キャンセル除外） */
-export async function countActiveActivityLogs(childId: number, _tenantId: string): Promise<number> {
+export async function countActiveActivityLogs(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	const result = await db
 		.select({ total: count() })
 		.from(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.where(and(eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)))
 		.get();
 	return result?.total ?? 0;
 }
 
 /** 日別カテゴリ数を取得（achievement: all_categories 判定用） */
 export async function getCategoryCountsByDate(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<{ recordedDate: string; categoryCount: number }[]> {
 	// #2458-A1: child_activities 経由 (旧 activities table の JOIN を撤去)
@@ -567,25 +629,32 @@ export async function getCategoryCountsByDate(
 		})
 		.from(activityLogs)
 		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.where(and(eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)))
 		.groupBy(activityLogs.recordedDate)
 		.all();
 }
 
 /** 累計で記録した異なるカテゴリ数 */
-export async function countDistinctCategories(childId: number, _tenantId: string): Promise<number> {
+export async function countDistinctCategories(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<number> {
 	// #2458-A1: child_activities 経由
 	const result = await db
 		.select({ count: countDistinct(childActivities.categoryId) })
 		.from(activityLogs)
 		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
-		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
+		.where(and(eq(activityLogs.childId, Number(childId)), eq(activityLogs.cancelled, 0)))
 		.get();
 	return result?.count ?? 0;
 }
 
 /** 今日のログ（活動ID+カテゴリID付き）を取得（combo-service用） */
-export async function findTodayLogsWithCategory(childId: number, date: string, _tenantId: string) {
+export async function findTodayLogsWithCategory(
+	childId: ChildId,
+	date: string,
+	_tenantId: string,
+): Promise<{ activityId: ActivityId; categoryId: CategoryId }[]> {
 	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)
 	return db
 		.select({
@@ -596,17 +665,21 @@ export async function findTodayLogsWithCategory(childId: number, date: string, _
 		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				eq(activityLogs.recordedDate, date),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
-		.all();
+		.all()
+		.map((r) => ({
+			activityId: asActivityId(r.activityId),
+			categoryId: asCategoryId(r.categoryId),
+		}));
 }
 
 /** コンボボーナス既付与額を取得（combo-service用） */
 export async function getComboPointsGranted(
-	childId: number,
+	childId: ChildId,
 	descriptionPrefix: string,
 	_tenantId: string,
 ): Promise<number> {
@@ -617,7 +690,7 @@ export async function getComboPointsGranted(
 		.from(pointLedger)
 		.where(
 			and(
-				eq(pointLedger.childId, childId),
+				eq(pointLedger.childId, Number(childId)),
 				eq(pointLedger.type, 'combo_bonus'),
 				sql`${pointLedger.description} LIKE ${`${descriptionPrefix}%`}`,
 			),
@@ -628,8 +701,8 @@ export async function getComboPointsGranted(
 
 /** カテゴリ別の累計活動記録数（キャンセル除外） */
 export async function countActiveActivityLogsByCategory(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<number> {
 	// #2458-A1: child_activities 経由 (旧 activities table の JOIN を撤去)
@@ -639,9 +712,9 @@ export async function countActiveActivityLogsByCategory(
 		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				eq(activityLogs.cancelled, 0),
-				eq(childActivities.categoryId, categoryId),
+				eq(childActivities.categoryId, Number(categoryId)),
 			),
 		)
 		.get();
@@ -650,21 +723,21 @@ export async function countActiveActivityLogsByCategory(
 
 /** 指定タイプのポイント台帳エントリ数を取得 */
 export async function countPointLedgerEntriesByType(
-	childId: number,
+	childId: ChildId,
 	type: string,
 	_tenantId: string,
 ): Promise<number> {
 	const result = await db
 		.select({ total: count() })
 		.from(pointLedger)
-		.where(and(eq(pointLedger.childId, childId), eq(pointLedger.type, type)))
+		.where(and(eq(pointLedger.childId, Number(childId)), eq(pointLedger.type, type)))
 		.get();
 	return result?.total ?? 0;
 }
 
 /** 指定タイプ＋日付のポイント台帳エントリ数を取得 */
 export async function countPointLedgerEntriesByTypeAndDate(
-	childId: number,
+	childId: ChildId,
 	type: string,
 	date: string,
 	_tenantId: string,
@@ -674,7 +747,7 @@ export async function countPointLedgerEntriesByTypeAndDate(
 		.from(pointLedger)
 		.where(
 			and(
-				eq(pointLedger.childId, childId),
+				eq(pointLedger.childId, Number(childId)),
 				eq(pointLedger.type, type),
 				sql`date(${pointLedger.createdAt}) = ${date}`,
 			),
@@ -687,17 +760,14 @@ export async function countPointLedgerEntriesByTypeAndDate(
 // Point Ledger
 // ============================================================
 
-export async function insertPointLedger(
-	input: {
-		childId: number;
-		amount: number;
-		type: string;
-		description: string;
-		referenceId?: number;
-	},
-	_tenantId: string,
-) {
-	db.insert(pointLedger).values(input).run();
+export async function insertPointLedger(input: InsertPointLedgerInput, _tenantId: string) {
+	db.insert(pointLedger)
+		.values({
+			...input,
+			childId: Number(input.childId),
+			referenceId: input.referenceId !== undefined ? Number(input.referenceId) : undefined,
+		})
+		.run();
 }
 
 export async function countMainQuestActivities(_tenantId: string): Promise<number> {
@@ -725,13 +795,15 @@ export async function countMainQuestActivities(_tenantId: string): Promise<numbe
  * cutoffDate は `YYYY-MM-DD` 形式で、その日自体は削除対象に含まない（strict less than）。
  */
 export async function deleteActivityLogsBeforeDate(
-	childId: number,
+	childId: ChildId,
 	cutoffDate: string,
 	_tenantId: string,
 ): Promise<number> {
 	const result = db
 		.delete(activityLogs)
-		.where(and(eq(activityLogs.childId, childId), lt(activityLogs.recordedDate, cutoffDate)))
+		.where(
+			and(eq(activityLogs.childId, Number(childId)), lt(activityLogs.recordedDate, cutoffDate)),
+		)
 		.run();
 	return result.changes;
 }

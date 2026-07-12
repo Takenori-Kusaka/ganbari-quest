@@ -2,12 +2,13 @@
  * バトルページ共通の load ロジック。
  * 各年齢モードの +page.server.ts から呼び出す。
  */
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getTodayBattle } from '$lib/server/services/battle-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 
 export async function loadBattlePage(
-	parent: () => Promise<{ child: { id: number; uiMode: string } | null }>,
+	parent: () => Promise<{ child: { id: ChildId; uiMode: string } | null }>,
 	locals: App.Locals,
 ) {
 	const tenantId = requireTenantId(locals);
@@ -19,9 +20,9 @@ export async function loadBattlePage(
 		return { battle: null };
 	}
 
-	const categoryXp: Record<number, number> = {};
+	const categoryXp: Record<string, number> = {};
 	for (const [catId, detail] of Object.entries(statusResult.statuses)) {
-		categoryXp[Number(catId)] = detail.value;
+		categoryXp[catId] = detail.value;
 	}
 
 	const battle = await getTodayBattle(child.id, child.uiMode, categoryXp, tenantId);

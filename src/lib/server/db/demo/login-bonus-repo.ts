@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo ILoginBonusRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -5,7 +6,7 @@ import { DEMO_CHILDREN, DEMO_LOGIN_BONUSES } from '$lib/server/demo/demo-data';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
 
 export async function findTodayBonus(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	_tenantId: string,
 ): Promise<LoginBonus | undefined> {
@@ -13,7 +14,7 @@ export async function findTodayBonus(
 }
 
 export async function findRecentBonuses(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 	limit?: number,
 ): Promise<LoginBonus[]> {
@@ -26,7 +27,7 @@ export async function insertLoginBonus(
 	_tenantId: string,
 ): Promise<LoginBonus> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		loginDate: input.loginDate,
 		rank: input.rank,
@@ -38,7 +39,7 @@ export async function insertLoginBonus(
 	};
 }
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }
 
@@ -47,7 +48,7 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 }
 
 export async function deleteLoginBonusesBeforeDate(
-	_childId: number,
+	_childId: ChildId,
 	_cutoffDate: string,
 	_tenantId: string,
 ): Promise<number> {

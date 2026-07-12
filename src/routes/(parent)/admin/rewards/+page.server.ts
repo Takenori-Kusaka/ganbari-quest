@@ -8,6 +8,8 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 // 旧 `PRESET_REWARD_GROUPS` の in-page render は撤去済 (本 file の load 出力からも削除)。
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { formIdString } from '$lib/domain/form-value';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { ADMIN_REWARDS_PAGE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 // #3147: ショップ陳列系統 (physical/money/privilege) の SSOT
 import { SHOP_CATEGORIES } from '$lib/domain/shop-category';
@@ -65,7 +67,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// #2362 PR-4 (ADR-0055): per-child rewards 取得 (child タブ切替 + 兄弟 copy UI 用)
 	const childRewardsByChild: Record<
-		number,
+		string,
 		Awaited<ReturnType<typeof getChildSpecialRewards>>['rewards']
 	> = {};
 	const childrenWithRewards = await Promise.all(
@@ -112,7 +114,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// `?childId=<n>` query で初期 child 選択復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
 	const initialChildId =
-		initialChildIdRaw && /^\d+$/.test(initialChildIdRaw) ? Number(initialChildIdRaw) : null;
+		initialChildIdRaw && initialChildIdRaw !== '' ? asChildId(initialChildIdRaw) : null;
 
 	// #2268: 申請承認画面は /admin/rewards/requests に分離 (子#3)。
 	// 本画面は pending 件数のみ取得し、overflow menu のバッジに使用する。
@@ -167,7 +169,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const title = String(formData.get('title') ?? '').trim();
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
@@ -208,8 +210,8 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const rewardId = Number(formData.get('rewardId'));
-		const childId = Number(formData.get('childId'));
+		const rewardId = formIdString(formData.get('rewardId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const title = String(formData.get('title') ?? '').trim();
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
@@ -249,8 +251,8 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 
 		const formData = await request.formData();
-		const rewardId = Number(formData.get('rewardId'));
-		const childId = Number(formData.get('childId'));
+		const rewardId = formIdString(formData.get('rewardId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 
 		if (!rewardId || !childId) return fail(400, { error: 'ごほうびが指定されていません' });
 
@@ -317,7 +319,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const presetId = String(formData.get('presetId') ?? '').trim();
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
@@ -389,14 +391,15 @@ export const actions: Actions = {
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
 
 		// childIds: 'all' or comma-separated number list
-		let childIds: number[];
+		let childIds: ChildId[];
 		if (childIdsRaw === 'all') {
 			childIds = tenantChildren.map((c) => c.id);
 		} else {
 			childIds = childIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		}
 		if (childIds.length === 0) {
 			return fail(400, { error: '有効な対象が指定されていません' });
@@ -521,20 +524,21 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const sourceChildId = Number(formData.get('sourceChildId'));
+		const sourceChildId = asChildId(formIdString(formData.get('sourceChildId')));
 		const targetChildIdsRaw = String(formData.get('targetChildIds') ?? '').trim();
-		const singleTargetChildId = Number(formData.get('targetChildId'));
+		const singleTargetChildId = asChildId(formIdString(formData.get('targetChildId')));
 
 		if (!sourceChildId) {
 			return fail(400, { error: 'コピー元のお子さまが必要です' });
 		}
 
-		let targetChildIds: number[] | null = null;
+		let targetChildIds: ChildId[] | null = null;
 		if (targetChildIdsRaw) {
 			targetChildIds = targetChildIdsRaw
 				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n > 0);
+				.map((s) => s.trim())
+				.filter((v) => v !== '')
+				.map(asChildId);
 		} else if (singleTargetChildId) {
 			targetChildIds = [singleTargetChildId];
 		}
@@ -603,7 +607,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const file = formData.get('file');
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 
@@ -661,7 +665,7 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
+		const childId = asChildId(formIdString(formData.get('childId')));
 		const file = formData.get('file');
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 

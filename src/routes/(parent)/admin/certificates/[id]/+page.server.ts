@@ -8,7 +8,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const tenantId = requireTenantId(locals);
-	const certId = Number(params.id);
+	const certId = params.id;
 	if (!certId) error(404, '証明書が見つかりません');
 
 	const cert = await getCertificateDetail(certId, tenantId);

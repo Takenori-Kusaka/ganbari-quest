@@ -1,12 +1,13 @@
 // src/lib/server/db/types/index.ts
 // Drizzle-independent entity / input / projection types for dual-backend support
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 
 // ============================================================
 // Entity Types (DB read — full row)
 // ============================================================
 
 export interface Category {
-	id: number;
+	id: CategoryId;
 	code: string;
 	name: string;
 	icon: string | null;
@@ -14,7 +15,7 @@ export interface Category {
 }
 
 export interface Child {
-	id: number;
+	id: ChildId;
 	nickname: string;
 	age: number;
 	birthDate: string | null;
@@ -44,9 +45,9 @@ export interface Child {
 export type ActivityPriority = 'must' | 'optional';
 
 export interface Activity {
-	id: number;
+	id: ActivityId;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	ageMin: number | null;
@@ -78,7 +79,7 @@ export interface Activity {
  * `childId NOT NULL` で aggregate root が child に閉じる (ADR-0055 §3.1)。
  *
  * 差分:
- *   - `childId: number` 追加 (NOT NULL)
+ *   - `childId: ChildId` 追加 (NOT NULL)
  *   - `ageMin / ageMax` 削除 (marketplace 側の表示 filter にのみ残す)
  *   - `gradeLevel / subcategory / description` 削除 (使用箇所なしの cleanup)
  *
@@ -86,10 +87,10 @@ export interface Activity {
  *         `ChildActivity` に切り替える (本 PR の続きで対応)。
  */
 export interface ChildActivity {
-	id: number;
-	childId: number;
+	id: ActivityId;
+	childId: ChildId;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	isVisible: number;
@@ -108,9 +109,9 @@ export interface ChildActivity {
 }
 
 export interface ActivityLog {
-	id: number;
-	childId: number;
-	activityId: number;
+	id: string;
+	childId: ChildId;
+	activityId: ActivityId;
 	points: number;
 	streakDays: number;
 	streakBonus: number;
@@ -120,19 +121,19 @@ export interface ActivityLog {
 }
 
 export interface PointLedgerEntry {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	amount: number;
 	type: string;
 	description: string | null;
-	referenceId: number | null;
+	referenceId: string | null;
 	createdAt: string;
 }
 
 export interface Status {
-	id: number;
-	childId: number;
-	categoryId: number;
+	id: string;
+	childId: ChildId;
+	categoryId: CategoryId;
 	totalXp: number;
 	level: number;
 	peakXp: number;
@@ -140,9 +141,9 @@ export interface Status {
 }
 
 export interface StatusHistoryEntry {
-	id: number;
-	childId: number;
-	categoryId: number;
+	id: string;
+	childId: ChildId;
+	categoryId: CategoryId;
 	value: number;
 	changeAmount: number;
 	changeType: string;
@@ -150,8 +151,8 @@ export interface StatusHistoryEntry {
 }
 
 export interface Evaluation {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
 	scoresJson: string;
@@ -160,9 +161,9 @@ export interface Evaluation {
 }
 
 export interface MarketBenchmark {
-	id: number;
+	id: string;
 	age: number;
-	categoryId: number;
+	categoryId: CategoryId;
 	mean: number;
 	stdDev: number;
 	source: string | null;
@@ -176,16 +177,16 @@ export interface Setting {
 }
 
 export interface RestDay {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	date: string;
 	reason: string;
 	createdAt: string;
 }
 
 export interface CharacterImage {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	type: string;
 	filePath: string;
 	promptHash: string | null;
@@ -193,8 +194,8 @@ export interface CharacterImage {
 }
 
 export interface LoginBonus {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	loginDate: string;
 	rank: string;
 	basePoints: number;
@@ -205,7 +206,7 @@ export interface LoginBonus {
 }
 
 export interface Achievement {
-	id: number;
+	id: string;
 	code: string;
 	name: string;
 	description: string | null;
@@ -223,17 +224,17 @@ export interface Achievement {
 }
 
 export interface ChildAchievement {
-	id: number;
-	childId: number;
-	achievementId: number;
+	id: string;
+	childId: ChildId;
+	achievementId: string;
 	milestoneValue: number | null;
 	unlockedAt: string;
 }
 
 export interface SpecialReward {
-	id: number;
-	childId: number;
-	grantedBy: number | null;
+	id: string;
+	childId: ChildId;
+	grantedBy: string | null;
 	title: string;
 	description: string | null;
 	points: number;
@@ -249,9 +250,9 @@ export interface SpecialReward {
 
 /** ごほうびショップ交換申請 (#1337) */
 export interface RewardRedemptionRequest {
-	id: number;
-	childId: number;
-	rewardId: number;
+	id: string;
+	childId: ChildId;
+	rewardId: string;
 	requestedAt: number;
 	status: 'pending_parent_approval' | 'approved' | 'rejected' | 'expired';
 	parentNote: string | null;
@@ -261,8 +262,8 @@ export interface RewardRedemptionRequest {
 }
 
 export interface InsertRedemptionRequestInput {
-	childId: number;
-	rewardId: number;
+	childId: ChildId;
+	rewardId: string;
 	requestedAt: number;
 }
 
@@ -272,7 +273,7 @@ export interface InsertRedemptionRequestInput {
  *   `tenantId` は scope 物理化 (SQLite 単一テナント時は 'default')。
  */
 export interface ChecklistTemplate {
-	id: number;
+	id: string;
 	tenantId: string;
 	name: string;
 	icon: string;
@@ -294,15 +295,15 @@ export interface ChecklistTemplate {
  * 配信先 child を表す 1 row = 1 配信。配信解除は row 削除。
  */
 export interface ChecklistTemplateAssignment {
-	id: number;
-	templateId: number;
-	childId: number;
+	id: string;
+	templateId: string;
+	childId: ChildId;
 	createdAt: string;
 }
 
 export interface ChecklistTemplateItem {
-	id: number;
-	templateId: number;
+	id: string;
+	templateId: string;
 	name: string;
 	icon: string;
 	frequency: string;
@@ -312,9 +313,9 @@ export interface ChecklistTemplateItem {
 }
 
 export interface ChecklistLog {
-	id: number;
-	childId: number;
-	templateId: number;
+	id: string;
+	childId: ChildId;
+	templateId: string;
 	checkedDate: string;
 	itemsJson: string;
 	completedAll: number;
@@ -323,8 +324,8 @@ export interface ChecklistLog {
 }
 
 export interface ChecklistOverride {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	targetDate: string;
 	action: string;
 	itemName: string;
@@ -333,8 +334,8 @@ export interface ChecklistOverride {
 }
 
 export interface BirthdayReview {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	reviewYear: number;
 	ageAtReview: number;
 	healthChecks: string;
@@ -348,10 +349,10 @@ export interface BirthdayReview {
 }
 
 export interface DailyMission {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	missionDate: string;
-	activityId: number;
+	activityId: ActivityId;
 	completed: number;
 	completedAt: string | null;
 }
@@ -362,7 +363,7 @@ export interface DailyMission {
 
 export interface InsertActivityInput {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	ageMin: number | null;
@@ -376,7 +377,7 @@ export interface InsertActivityInput {
 
 export interface UpdateActivityInput {
 	name?: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	icon?: string;
 	basePoints?: number;
 	ageMin?: number | null;
@@ -392,9 +393,9 @@ export interface UpdateActivityInput {
  * `childId` 必須、`ageMin/ageMax` なし。
  */
 export interface InsertChildActivityInput {
-	childId: number;
+	childId: ChildId;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	triggerHint?: string | null;
@@ -417,7 +418,7 @@ export interface InsertChildActivityInput {
 
 export interface UpdateChildActivityInput {
 	name?: string;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	icon?: string;
 	basePoints?: number;
 	triggerHint?: string | null;
@@ -430,8 +431,8 @@ export interface UpdateChildActivityInput {
 }
 
 export interface InsertActivityLogInput {
-	childId: number;
-	activityId: number;
+	childId: ChildId;
+	activityId: ActivityId;
 	points: number;
 	streakDays: number;
 	streakBonus: number;
@@ -440,11 +441,11 @@ export interface InsertActivityLogInput {
 }
 
 export interface InsertPointLedgerInput {
-	childId: number;
+	childId: ChildId;
 	amount: number;
 	type: string;
 	description: string;
-	referenceId?: number;
+	referenceId?: string;
 }
 
 export interface InsertChildInput {
@@ -469,7 +470,7 @@ export interface UpdateChildInput {
 }
 
 export interface InsertEvaluationInput {
-	childId: number;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
 	scoresJson: string;
@@ -477,7 +478,7 @@ export interface InsertEvaluationInput {
 }
 
 export interface InsertLoginBonusInput {
-	childId: number;
+	childId: ChildId;
 	loginDate: string;
 	rank: string;
 	basePoints: number;
@@ -487,8 +488,8 @@ export interface InsertLoginBonusInput {
 }
 
 export interface InsertSpecialRewardInput {
-	childId: number;
-	grantedBy?: number | null;
+	childId: ChildId;
+	grantedBy?: string | null;
 	title: string;
 	description?: string;
 	points: number;
@@ -500,8 +501,8 @@ export interface InsertSpecialRewardInput {
 }
 
 export interface InsertStatusHistoryInput {
-	childId: number;
-	categoryId: number;
+	childId: ChildId;
+	categoryId: CategoryId;
 	value: number;
 	changeAmount: number;
 	changeType: string;
@@ -540,7 +541,7 @@ export interface UpdateChecklistTemplateInput {
 }
 
 export interface InsertChecklistTemplateItemInput {
-	templateId: number;
+	templateId: string;
 	name: string;
 	icon?: string;
 	frequency?: string;
@@ -549,8 +550,8 @@ export interface InsertChecklistTemplateItemInput {
 }
 
 export interface UpsertChecklistLogInput {
-	childId: number;
-	templateId: number;
+	childId: ChildId;
+	templateId: string;
 	checkedDate: string;
 	itemsJson: string;
 	completedAll: number;
@@ -558,7 +559,7 @@ export interface UpsertChecklistLogInput {
 }
 
 export interface InsertChecklistOverrideInput {
-	childId: number;
+	childId: ChildId;
 	targetDate: string;
 	action: string;
 	itemName: string;
@@ -566,7 +567,7 @@ export interface InsertChecklistOverrideInput {
 }
 
 export interface InsertBirthdayReviewInput {
-	childId: number;
+	childId: ChildId;
 	reviewYear: number;
 	ageAtReview: number;
 	healthChecks: string;
@@ -579,7 +580,7 @@ export interface InsertBirthdayReviewInput {
 }
 
 export interface InsertParentMessageInput {
-	childId: number;
+	childId: ChildId;
 	messageType: string;
 	stampCode?: string | null;
 	body?: string | null;
@@ -591,7 +592,7 @@ export interface InsertParentMessageInput {
 }
 
 export interface InsertCharacterImageInput {
-	childId: number;
+	childId: ChildId;
 	type: string;
 	filePath: string;
 	promptHash: string;
@@ -603,7 +604,7 @@ export interface InsertCharacterImageInput {
 
 export interface ActivityFilter {
 	childAge?: number;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	includeHidden?: boolean;
 }
 
@@ -612,10 +613,10 @@ export interface ActivityFilter {
 // ============================================================
 
 export interface ActivityLogSummary {
-	id: number;
+	id: string;
 	activityName: string;
 	activityIcon: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	points: number;
 	streakDays: number;
 	streakBonus: number;
@@ -623,22 +624,22 @@ export interface ActivityLogSummary {
 }
 
 export interface DailyMissionWithActivity {
-	id: number;
-	activityId: number;
+	id: string;
+	activityId: ActivityId;
 	completed: number;
 	activityName: string;
 	activityIcon: string;
-	categoryId: number;
+	categoryId: CategoryId;
 }
 
 export interface CategoryActivityCount {
-	categoryId: number;
+	categoryId: CategoryId;
 	count: number;
 	totalPoints: number;
 }
 
 export interface CategoryLastDate {
-	categoryId: number;
+	categoryId: CategoryId;
 	lastDate: string;
 }
 
@@ -647,9 +648,9 @@ export interface CategoryLastDate {
 // ============================================================
 
 export interface ChildActivityPreference {
-	id: number;
-	childId: number;
-	activityId: number;
+	id: string;
+	childId: ChildId;
+	activityId: ActivityId;
 	isPinned: number;
 	pinOrder: number | null;
 	createdAt: string;
@@ -657,7 +658,7 @@ export interface ChildActivityPreference {
 }
 
 export interface ActivityUsageCount {
-	activityId: number;
+	activityId: ActivityId;
 	usageCount: number;
 }
 
@@ -666,17 +667,17 @@ export interface ActivityUsageCount {
 // ============================================================
 
 export interface ActivityMastery {
-	id: number;
-	childId: number;
-	activityId: number;
+	id: string;
+	childId: ChildId;
+	activityId: ActivityId;
 	totalCount: number;
 	level: number;
 	updatedAt: string;
 }
 
 export interface ChildCustomVoice {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	scene: string;
 	label: string;
 	filePath: string;
@@ -688,8 +689,8 @@ export interface ChildCustomVoice {
 }
 
 export interface ParentMessage {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	messageType: string;
 	stampCode: string | null;
 	body: string | null;
@@ -707,7 +708,7 @@ export interface ParentMessage {
 // ============================================================
 
 export interface StampMaster {
-	id: number;
+	id: string;
 	name: string;
 	emoji: string;
 	rarity: string;
@@ -718,8 +719,8 @@ export interface StampMaster {
 }
 
 export interface StampCard {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
 	status: string;
@@ -730,9 +731,9 @@ export interface StampCard {
 }
 
 export interface StampEntry {
-	id: number;
-	cardId: number;
-	stampMasterId: number | null;
+	id: string;
+	cardId: string;
+	stampMasterId: string | null;
 	omikujiRank: string | null;
 	slot: number;
 	loginDate: string;
@@ -741,7 +742,7 @@ export interface StampEntry {
 
 export interface StampEntryWithMaster {
 	slot: number;
-	stampMasterId: number | null;
+	stampMasterId: string | null;
 	omikujiRank: string | null;
 	loginDate: string;
 	name: string | null;
@@ -750,15 +751,15 @@ export interface StampEntryWithMaster {
 }
 
 export interface InsertStampCardInput {
-	childId: number;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
 	status?: string;
 }
 
 export interface InsertStampEntryInput {
-	cardId: number;
-	stampMasterId: number;
+	cardId: string;
+	stampMasterId: string;
 	omikujiRank: string | null;
 	slot: number;
 	loginDate: string;
@@ -790,8 +791,8 @@ export interface UpdateStampCardStatusInput {
 // 兄弟連動 UI は `sourceTemplateId` でグルーピングし `SiblingChallengeComparison` で表示する。
 
 export interface ChildChallenge {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	title: string;
 	description: string | null;
 	challengeType: string;
@@ -819,7 +820,7 @@ export interface ChildChallenge {
 export const AUTO_WEEKLY_SOURCE_TEMPLATE_ID = 'auto:weekly';
 
 export interface InsertChildChallengeInput {
-	childId: number;
+	childId: ChildId;
 	title: string;
 	description?: string | null;
 	challengeType?: string;
@@ -889,9 +890,9 @@ export interface ChildChallengeWithSiblings extends ChildChallenge {
 // ============================================================
 
 export interface SiblingCheer {
-	id: number;
-	fromChildId: number;
-	toChildId: number;
+	id: string;
+	fromChildId: ChildId;
+	toChildId: ChildId;
 	stampCode: string;
 	tenantId: string;
 	sentAt: string;
@@ -899,8 +900,8 @@ export interface SiblingCheer {
 }
 
 export interface InsertSiblingCheerInput {
-	fromChildId: number;
-	toChildId: number;
+	fromChildId: ChildId;
+	toChildId: ChildId;
 	stampCode: string;
 }
 
@@ -918,7 +919,7 @@ export interface InsertSiblingCheerInput {
 export type PushSubscriberRole = 'parent' | 'owner';
 
 export interface PushSubscriptionRecord {
-	id: number;
+	id: string;
 	tenantId: string;
 	endpoint: string;
 	keysP256dh: string;
@@ -942,7 +943,7 @@ export interface InsertPushSubscriptionInput {
 // ============================================================
 
 export interface NotificationLog {
-	id: number;
+	id: string;
 	tenantId: string;
 	notificationType: string;
 	title: string;
@@ -966,9 +967,9 @@ export interface InsertNotificationLogInput {
 // ============================================================
 
 export interface ReportDailySummary {
-	id: number;
+	id: string;
 	tenantId: string;
-	childId: number;
+	childId: ChildId;
 	date: string;
 	activityCount: number;
 	categoryBreakdown: string;
@@ -982,7 +983,7 @@ export interface ReportDailySummary {
 
 export interface InsertReportDailySummaryInput {
 	tenantId: string;
-	childId: number;
+	childId: ChildId;
 	date: string;
 	activityCount: number;
 	categoryBreakdown: string;
@@ -1001,8 +1002,8 @@ export interface InsertReportDailySummaryInput {
 // ============================================================
 
 export interface Certificate {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	tenantId: string;
 	certificateType: string;
 	title: string;
@@ -1012,7 +1013,7 @@ export interface Certificate {
 }
 
 export interface InsertCertificateInput {
-	childId: number;
+	childId: ChildId;
 	certificateType: string;
 	title: string;
 	description?: string;
@@ -1030,10 +1031,13 @@ export type CloudExportType = 'template' | 'full';
  * pending (build 待ち) → building (cron が build 中) → ready (DL 可) / failed (build 失敗)。
  * 本機構導入前に作成された既存レコードは lazy migration で 'ready' に backfill される。
  */
-export type CloudExportStatus = 'pending' | 'building' | 'ready' | 'failed';
+// #3424: runtime SSOT は $lib/domain/constants/cloud-export-status (DSQL CHECK 生成と共有、型同値)
+import type { CloudExportStatus } from '$lib/domain/constants/cloud-export-status';
+
+export type { CloudExportStatus };
 
 export interface CloudExportRecord {
-	id: number;
+	id: string;
 	tenantId: string;
 	exportType: CloudExportType;
 	pinCode: string;
@@ -1093,7 +1097,7 @@ export interface UpdateCloudExportStatusInput {
 // ============================================================
 
 export interface ViewerToken {
-	id: number;
+	id: string;
 	tenantId: string;
 	token: string;
 	label: string | null;
@@ -1113,8 +1117,8 @@ export interface InsertViewerTokenInput {
 // ============================================================
 
 export interface DailyBattleRecord {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	enemyId: number;
 	date: string;
 	status: 'pending' | 'completed';
@@ -1127,8 +1131,8 @@ export interface DailyBattleRecord {
 }
 
 export interface EnemyCollectionRecord {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	enemyId: number;
 	firstDefeatedAt: string;
 	defeatCount: number;

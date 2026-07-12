@@ -86,7 +86,7 @@ beforeEach(() => {
 	mockFindActivities.mockResolvedValue([]);
 	// #2458-A1: fallback bind helper — tenant 最初の child を返す。
 	// childIds 未指定 ctx の test ではこの child に per-child instance が bulk insert される。
-	mockFindAllChildren.mockResolvedValue([{ id: 100 }]);
+	mockFindAllChildren.mockResolvedValue([{ id: '100' }]);
 	// #2824 (取込永続 honesty): insertActivitiesBulk は本実装と同様に「作成した row (name 込み)」
 	//   を返す。importActivities は imported を実 persist 結果から算出するため、mock も入力を
 	//   echo する (旧 `mockResolvedValue(undefined)` は persist 0 件相当で imported を偽る経路を隠す)。

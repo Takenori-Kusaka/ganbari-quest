@@ -11,6 +11,7 @@
 // と同型。SvelteKit CSRF を回避するため action handler を直接呼び出して検証する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId } from '$lib/domain/ids';
 
 // --- モック ---
 const mockRequireTenantId = vi.fn();
@@ -135,8 +136,8 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 		vi.clearAllMocks();
 		mockRequireTenantId.mockReturnValue('tenant-1');
 		mockGetAllChildren.mockResolvedValue([
-			{ id: 902, nickname: 'preschool', tenantId: 'tenant-1' },
-			{ id: 903, nickname: 'elementary', tenantId: 'tenant-1' },
+			{ id: '902', nickname: 'preschool', tenantId: 'tenant-1' },
+			{ id: '903', nickname: 'elementary', tenantId: 'tenant-1' },
 		]);
 		mockLoadFromMarketplace.mockReturnValue({
 			payload: { activities: [{ name: 'a' }] },
@@ -209,7 +210,7 @@ describe('/admin/activities page.server — #2894 取込経路の活動上限 en
 			const result = await bulkCreateForChildrenAction({
 				request: makeFormRequest({
 					name: 'あたらしい活動',
-					categoryId: 1,
+					categoryId: asCategoryId(1),
 					childIds: 'all',
 				}),
 				locals: makeLocals({ licenseStatus: 'none' }),

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { notFound, validationError } from '$lib/server/errors';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getChildEvaluations } from '$lib/server/services/evaluation-service';
@@ -10,8 +11,8 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const childId = Number(params.childId);
-	if (Number.isNaN(childId)) return validationError('IDが不正です');
+	const childId = asChildId(params.childId);
+	if (!childId) return validationError('IDが不正です');
 
 	const children = await getAllChildren(tenantId);
 	const child = children.find((c) => c.id === childId);

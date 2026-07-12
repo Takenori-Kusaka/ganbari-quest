@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/interfaces/child-challenge-repo.interface.ts
 // IChildChallengeRepo — per-child challenge instance CRUD (#2362 PR-7、ADR-0055、User §6)
 //
@@ -16,10 +17,10 @@ import type {
 
 export interface IChildChallengeRepo {
 	/** child 単位の全 challenge instance (status / 期間問わず) */
-	findByChildId(childId: number, tenantId: string): Promise<ChildChallenge[]>;
+	findByChildId(childId: ChildId, tenantId: string): Promise<ChildChallenge[]>;
 
 	/** child 単位のアクティブ challenge instance (status=active かつ today が start〜end の範囲内) */
-	findActiveByChildId(childId: number, today: string, tenantId: string): Promise<ChildChallenge[]>;
+	findActiveByChildId(childId: ChildId, today: string, tenantId: string): Promise<ChildChallenge[]>;
 
 	/**
 	 * #2488 (must-1 fix): 子供画面向け「active + 完成済だが未請求」instance を返す。
@@ -29,7 +30,7 @@ export interface IChildChallengeRepo {
 	 * 子供画面 (home / history) は本関数経由でデータ取得すること。
 	 */
 	findActiveOrUnclaimedByChildId(
-		childId: number,
+		childId: ChildId,
 		today: string,
 		tenantId: string,
 	): Promise<ChildChallenge[]>;
@@ -38,7 +39,7 @@ export interface IChildChallengeRepo {
 	findAllByTenant(tenantId: string): Promise<ChildChallenge[]>;
 
 	/** id で 1 件取得 (tenant 越え防止のため tenantId 必須) */
-	findById(id: number, tenantId: string): Promise<ChildChallenge | undefined>;
+	findById(id: string, tenantId: string): Promise<ChildChallenge | undefined>;
 
 	/** 1 child に 1 instance insert */
 	insert(input: InsertChildChallengeInput, tenantId: string): Promise<ChildChallenge>;
@@ -70,10 +71,10 @@ export interface IChildChallengeRepo {
 	): Promise<ChildChallenge[]>;
 
 	/** 進捗更新 (currentValue 増分、completed 判定は service 層) */
-	updateProgress(id: number, currentValue: number, tenantId: string): Promise<void>;
+	updateProgress(id: string, currentValue: number, tenantId: string): Promise<void>;
 
 	/** 完了マーク (currentValue >= targetValue 達成時) */
-	markCompleted(id: number, tenantId: string): Promise<void>;
+	markCompleted(id: string, tenantId: string): Promise<void>;
 
 	/**
 	 * ごほうび受取マーク (条件付き原子化、#3333)。
@@ -81,13 +82,13 @@ export interface IChildChallengeRepo {
 	 * 並行 submit による TOCTOU 二重 claim → ポイント二重付与を防ぐため、service 層は
 	 * 戻り行数 === 1 のときだけ insertPointLedger を実行する (claim-first)。
 	 */
-	claimReward(id: number, tenantId: string): Promise<number>;
+	claimReward(id: string, tenantId: string): Promise<number>;
 
 	/** メタ更新 (status / 期間 / target / reward 変更) */
-	update(id: number, input: UpdateChildChallengeInput, tenantId: string): Promise<void>;
+	update(id: string, input: UpdateChildChallengeInput, tenantId: string): Promise<void>;
 
 	/** 1 instance 削除 (`delete` は予約語のため `deleteChallenge` を使用) */
-	deleteChallenge(id: number, tenantId: string): Promise<void>;
+	deleteChallenge(id: string, tenantId: string): Promise<void>;
 
 	/**
 	 * source child の challenge 全件を target child に複製。
@@ -97,8 +98,8 @@ export interface IChildChallengeRepo {
 	 * @returns target child に作成された ChildChallenge 配列
 	 */
 	copyAcrossChildren(
-		sourceChildId: number,
-		targetChildId: number,
+		sourceChildId: ChildId,
+		targetChildId: ChildId,
 		tenantId: string,
 	): Promise<ChildChallenge[]>;
 

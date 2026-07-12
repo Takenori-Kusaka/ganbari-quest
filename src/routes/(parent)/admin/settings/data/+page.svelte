@@ -4,6 +4,7 @@
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import type { ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
 	ERROR_NOTIFY_LABELS,
@@ -72,7 +73,7 @@ let importMode = $state<'add' | 'replace'>('replace');
 // クラウドエクスポート
 let cloudExports = $state<
 	Array<{
-		id: number;
+		id: string;
 		exportType: string;
 		pinCode: string;
 		expiresAt: string;
@@ -288,7 +289,7 @@ async function handleCloudExport() {
 	}
 }
 
-async function handleDeleteCloudExport(id: number) {
+async function handleDeleteCloudExport(id: string) {
 	try {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
@@ -342,11 +343,11 @@ async function handleCloudImportExecute() {
 	await executeCloudImport(null);
 }
 
-async function executeCloudImport(targetChildIds: number[] | null) {
+async function executeCloudImport(targetChildIds: ChildId[] | null) {
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
-		const body: { pinCode: string; targetChildIds?: number[] } = {
+		const body: { pinCode: string; targetChildIds?: ChildId[] } = {
 			pinCode: cloudImportPin.trim(),
 		};
 		if (targetChildIds && targetChildIds.length > 0) {
@@ -371,7 +372,7 @@ async function executeCloudImport(targetChildIds: number[] | null) {
 	}
 }
 
-function handleChildSelectionConfirm(result: 'all' | number[]) {
+function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	childSelectionOpen = false;
 	const ids = result === 'all' ? importTargetChildren.map((c) => c.id) : result;
 	void executeCloudImport(ids);

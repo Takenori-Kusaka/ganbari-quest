@@ -1,3 +1,5 @@
+import type { CategoryId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/bonus-hook-service.ts
 // #2138 MP-3 / #2895: bonus rule hook の集約 (activity-log-service から呼び出される)
 //
@@ -28,6 +30,7 @@
 // 計算のみ、category-challenge は呼び出し側 (activity-log-service) から渡される
 // today categories count を使う形式とする。
 
+import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { calcStreakBonus } from '$lib/domain/validation/activity';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 // 本 import は新 SSOT を直接参照 (旧 rule-preset-import-service の re-export 経由を撤去)。
@@ -48,7 +51,7 @@ export interface BonusHookContext {
 	/** 当日初回記録か (early-bird / streak の条件) */
 	isFirstToday: boolean;
 	/** 活動カテゴリ ID (self-study-reward の判定用、学習系カテゴリで +10) */
-	categoryId: number;
+	categoryId: CategoryId;
 	/** 子供画面で記録される追加メモ (今 phase では未使用、将来枠) */
 	memo?: string;
 }
@@ -206,7 +209,8 @@ export async function evaluateBonusHooks(
 				// 学習系カテゴリ (categoryId === 2 = 勉強) で自主学習 bonus
 				// 仕様簡略化: 学習カテゴリで記録した場合 +10 (本来は memo / 教科判定が必要)
 				// #2895: `しんきかもくボーナス` (新教科判定) は本番判定ロジックがなく死蔵だったため preset から撤去済。
-				if (ctx.categoryId === 2) {
+				// #3607: 「学習カテゴリ = benkyou」の対応は SSOT 派生で解決 (magic number 2 を撤去)
+				if (ctx.categoryId === asCategoryId(CATEGORY_CODE_TO_ID.benkyou)) {
 					const study = preset.rules.find((r) => r.title === 'じしゅがくしゅうボーナス');
 					if (study) {
 						hits.push({

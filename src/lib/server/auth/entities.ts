@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/auth/entities.ts
 // マルチテナント認証エンティティの型定義 (#0123)
 
@@ -83,7 +84,7 @@ export interface Invite {
 	tenantId: string;
 	invitedBy: string;
 	role: Role;
-	childId?: number;
+	childId?: ChildId;
 	/** #3549 判断2 (§6.6 ⚠️): 設定時は受諾 user の email と一致必須 (横流し防止)。小文字正規化して保存 */
 	email?: string;
 	status: InviteStatus;
@@ -97,7 +98,7 @@ export interface CreateInviteInput {
 	tenantId: string;
 	invitedBy: string;
 	role: Role;
-	childId?: number;
+	childId?: ChildId;
 	/** 宛先 email (任意)。設定時は受諾者 email 束縛が有効になる (#3549 判断2) */
 	email?: string;
 }

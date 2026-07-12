@@ -58,9 +58,19 @@ const { Story } = defineMeta({
 		await expect(manualItem).toBeVisible();
 		await expect(screen.getByTestId('menu-item-ai')).toBeVisible();
 		await expect(screen.getByTestId('menu-item-browse')).toBeVisible();
+		// #3687: open transition 完了 (pointer-events 解除) を待ってから click (Menu と同型)。
+		await waitFor(() => {
+			if (getComputedStyle(manualItem).pointerEvents === 'none') {
+				throw new Error('menu content is still in open transition (pointer-events: none)');
+			}
+		});
 		// item select → onSelect spy 発火 (dropdown → 起動の入口が機能する)
 		await userEvent.click(manualItem);
 		await waitFor(() => expect(manualSpy).toHaveBeenCalledTimes(1));
+		// #3687 第 2 形態: open のまま終了すると zag-js focus-visible cleanup が unhandled
+		// error を leak する (Menu と同型)。Escape で閉じて完結させる。
+		await userEvent.keyboard('{Escape}');
+		await waitFor(() => expect(manualItem).not.toBeVisible());
 	}}
 />
 

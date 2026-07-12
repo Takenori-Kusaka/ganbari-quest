@@ -150,7 +150,7 @@ describe('API-PNT-01: GET /api/v1/points/:childId', () => {
 		expect(res.status).toBe(200);
 
 		const body = await jsonBody(res);
-		expect(body.childId).toBe(1);
+		expect(body.childId).toBe('1');
 		expect(body.balance).toBe(300);
 		expect(body.convertableAmount).toBe(0); // 500未満
 	});
@@ -247,7 +247,7 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(200);
@@ -264,7 +264,7 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 1000 },
+			body: { childId: '1', amount: 1000 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(200);
@@ -280,7 +280,7 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const convertEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		await POST_CONVERT(convertEvent);
 
@@ -300,7 +300,7 @@ describe('API-PNT-03: POST /api/v1/points/convert (normal)', () => {
 		const convertEvent = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		await POST_CONVERT(convertEvent);
 
@@ -329,7 +329,7 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(400);
@@ -342,7 +342,7 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(400);
@@ -352,7 +352,7 @@ describe('API-PNT-05: POST /api/v1/points/convert (insufficient)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 999, amount: 500 },
+			body: { childId: '999', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(404);
@@ -369,7 +369,7 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 123, mode: 'manual' },
+			body: { childId: '1', amount: 123, mode: 'manual' },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(200);
@@ -386,7 +386,7 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 648, mode: 'receipt' },
+			body: { childId: '1', amount: 648, mode: 'receipt' },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(200);
@@ -402,7 +402,7 @@ describe('API-PNT-03b: POST /api/v1/points/convert (manual mode)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 500 },
+			body: { childId: '1', amount: 500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(200);
@@ -422,7 +422,7 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 300 },
+			body: { childId: '1', amount: 300 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(400);
@@ -435,7 +435,7 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: 0 },
+			body: { childId: '1', amount: 0 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(400);
@@ -445,7 +445,7 @@ describe('API-PNT-06: POST /api/v1/points/convert (invalid amount)', () => {
 		const event = createMockEvent({
 			method: 'POST',
 			url: '/api/v1/points/convert',
-			body: { childId: 1, amount: -500 },
+			body: { childId: '1', amount: -500 },
 		});
 		const res = await POST_CONVERT(event);
 		expect(res.status).toBe(400);

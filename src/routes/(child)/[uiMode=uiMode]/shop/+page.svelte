@@ -13,7 +13,7 @@ import ConfirmExchangeDialog from './ConfirmExchangeDialog.svelte';
 let { data, form } = $props();
 
 let confirmDialogOpen = $state(false);
-let selectedRewardId = $state<number | null>(null);
+let selectedRewardId = $state<string | null>(null);
 let selectedRewardTitle = $state('');
 let selectedRewardPoints = $state(0);
 let selectedRewardIcon = $state<string | null>(null);
@@ -89,7 +89,7 @@ function tabLabelFor(tabValue: string) {
 	return tabItems.find((t) => t.value === tabValue)?.label ?? '';
 }
 
-function openConfirmDialog(id: number, title: string, points: number, icon: string | null) {
+function openConfirmDialog(id: string, title: string, points: number, icon: string | null) {
 	selectedRewardId = id;
 	selectedRewardTitle = title;
 	selectedRewardPoints = points;

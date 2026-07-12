@@ -8,6 +8,8 @@ import {
 	TransactWriteCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { InsertPointLedgerInput, PointLedgerEntry } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -22,15 +24,29 @@ import {
 } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+function toPointLedgerEntry(item: Record<string, unknown>): PointLedgerEntry {
+	const raw = stripKeys(item) as unknown as Omit<
+		PointLedgerEntry,
+		'id' | 'childId' | 'referenceId'
+	> & { id: number; childId: number; referenceId: number | null };
+	return {
+		...raw,
+		id: String(raw.id),
+		childId: asChildId(raw.childId),
+		referenceId: raw.referenceId != null ? String(raw.referenceId) : null,
+	};
+}
+
 // biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
 export { findChildByIdRaw as findChildById } from './repo-helpers';
 
 /** ポイント残高を取得 */
-export async function getBalance(childId: number, tenantId: string): Promise<number> {
+export async function getBalance(childId: ChildId, tenantId: string): Promise<number> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: pointBalanceKey(childId, tenantId),
+			Key: pointBalanceKey(Number(childId), tenantId),
 		}),
 	);
 
@@ -39,11 +55,11 @@ export async function getBalance(childId: number, tenantId: string): Promise<num
 
 /** ポイント履歴を取得（降順） */
 export async function findPointHistory(
-	childId: number,
+	childId: ChildId,
 	options: { limit: number; offset: number },
 	tenantId: string,
 ): Promise<PointLedgerEntry[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = pointLedgerPrefix();
 
 	// For offset, we need to skip items. Query with larger limit then slice.
@@ -68,7 +84,7 @@ export async function findPointHistory(
 		);
 
 		for (const item of result.Items ?? []) {
-			items.push(stripKeys(item) as unknown as PointLedgerEntry);
+			items.push(toPointLedgerEntry(item));
 		}
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey && items.length < totalNeeded);
@@ -86,7 +102,7 @@ export async function insertPointEntry(
 	const now = new Date().toISOString();
 
 	const entry: PointLedgerEntry = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		amount: input.amount,
 		type: input.type,
@@ -95,7 +111,7 @@ export async function insertPointEntry(
 		createdAt: now,
 	};
 
-	const key = pointLedgerKey(input.childId, now, id, tenantId);
+	const key = pointLedgerKey(Number(input.childId), now, id, tenantId);
 
 	// Put the ledger entry
 	await getDocClient().send(
@@ -104,6 +120,10 @@ export async function insertPointEntry(
 			Item: {
 				...key,
 				...entry,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
+				referenceId: input.referenceId != null ? Number(input.referenceId) : null,
 			},
 		}),
 	);
@@ -112,7 +132,7 @@ export async function insertPointEntry(
 	await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: pointBalanceKey(input.childId, tenantId),
+			Key: pointBalanceKey(Number(input.childId), tenantId),
 			UpdateExpression: 'ADD #balance :amount',
 			ExpressionAttributeNames: { '#balance': 'balance' },
 			ExpressionAttributeValues: { ':amount': input.amount },
@@ -130,16 +150,16 @@ export async function insertPointEntry(
  * （理由 `ConditionalCheckFailed`）で送出されるため、握って `INSUFFICIENT_POINTS` を返す。
  */
 export async function spendPointsAtomic(
-	childId: number,
+	childId: ChildId,
 	amount: number,
-	entry: { type: string; description: string; referenceId?: number },
+	entry: { type: string; description: string; referenceId?: string },
 	tenantId: string,
 ): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }> {
 	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	const now = new Date().toISOString();
 
 	const ledger: PointLedgerEntry = {
-		id,
+		id: String(id),
 		childId,
 		amount: -amount,
 		type: entry.type,
@@ -147,7 +167,7 @@ export async function spendPointsAtomic(
 		referenceId: entry.referenceId ?? null,
 		createdAt: now,
 	};
-	const key = pointLedgerKey(childId, now, id, tenantId);
+	const key = pointLedgerKey(Number(childId), now, id, tenantId);
 
 	try {
 		await getDocClient().send(
@@ -157,7 +177,7 @@ export async function spendPointsAtomic(
 						// 残高 >= コスト のときのみ原子的に減算（条件不成立で transaction 全体が cancel される）
 						Update: {
 							TableName: TABLE_NAME,
-							Key: pointBalanceKey(childId, tenantId),
+							Key: pointBalanceKey(Number(childId), tenantId),
 							UpdateExpression: 'ADD #balance :neg',
 							ConditionExpression: '#balance >= :amount',
 							ExpressionAttributeNames: { '#balance': 'balance' },
@@ -167,7 +187,14 @@ export async function spendPointsAtomic(
 					{
 						Put: {
 							TableName: TABLE_NAME,
-							Item: { ...key, ...ledger },
+							Item: {
+								...key,
+								...ledger,
+								// stored attributes は数値 id のまま (storage format 不変、#3575)
+								id,
+								childId: Number(childId),
+								referenceId: entry.referenceId != null ? Number(entry.referenceId) : null,
+							},
 						},
 					},
 				],
@@ -210,7 +237,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  * （#729 の設計: ポイントは消えず、過去明細だけが消える）。
  */
 export async function deletePointLedgerBeforeDate(
-	childId: number,
+	childId: ChildId,
 	cutoffDate: string,
 	tenantId: string,
 ): Promise<number> {
@@ -223,7 +250,7 @@ export async function deletePointLedgerBeforeDate(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND SK BETWEEN :lower AND :upper',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':lower': pointLedgerPrefix(),
 					':upper': `POINT#${cutoffDate}`,
 				},

@@ -2,6 +2,7 @@
 // クラウドエクスポートサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 
 // テスト用グローバル制御変数
 let mockAuthMode = 'cognito';
@@ -35,9 +36,9 @@ vi.mock('$lib/server/services/export-service', () => ({
 	exportFamilyData: vi.fn(async () => ({
 		format: 'ganbari-quest-backup',
 		version: '1.1.0',
-		family: { children: [{ id: 1, nickname: 'テスト' }] },
+		family: { children: [{ id: '1', nickname: 'テスト' }] },
 		data: {
-			child_1: { activityLogs: [{ id: 1 }, { id: 2 }] },
+			child_1: { activityLogs: [{ id: '1' }, { id: '2' }] },
 		},
 	})),
 }));
@@ -48,7 +49,7 @@ const mockCloudExportRepo = {
 	findByTenant: vi.fn().mockResolvedValue([]),
 	findById: vi.fn(),
 	insert: vi.fn().mockImplementation(async (input: Record<string, unknown>) => ({
-		id: 1,
+		id: '1',
 		...input,
 		downloadCount: 0,
 		maxDownloads: (input.maxDownloads as number) ?? 10,
@@ -81,7 +82,7 @@ const mockChildActivityRepo = {
 	findActivitiesByChild: vi.fn().mockResolvedValue([
 		{
 			name: '走る',
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			icon: '🏃',
 			basePoints: 5,
 			triggerHint: null,
@@ -92,7 +93,7 @@ const mockChildActivityRepo = {
 };
 
 const mockChildRepo = {
-	findAllChildren: vi.fn().mockResolvedValue([{ id: 1, nickname: 'テスト' }]),
+	findAllChildren: vi.fn().mockResolvedValue([{ id: '1', nickname: 'テスト' }]),
 };
 
 const mockChecklistRepo = {
@@ -135,18 +136,18 @@ describe('cloud-export-service', () => {
 		mockCloudExportRepo.updateStatus.mockResolvedValue(undefined);
 		mockStorageRepo.saveFile.mockReset();
 		mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
-			id: 1,
+			id: '1',
 			...input,
 			downloadCount: 0,
 			maxDownloads: (input.maxDownloads as number) ?? 10,
 			createdAt: new Date().toISOString(),
 		}));
 		// #2362 PR-3 (ADR-0055): per-child child fixture + activity fixture
-		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト' }]);
 		mockChildActivityRepo.findActivitiesByChild.mockResolvedValue([
 			{
 				name: '走る',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🏃',
 				basePoints: 5,
 				triggerHint: null,
@@ -189,7 +190,7 @@ describe('cloud-export-service', () => {
 			mockCloudExportRepo.countByTenant.mockResolvedValue(0);
 			mockCloudExportRepo.findByPin.mockResolvedValue(null);
 			mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
-				id: 1,
+				id: '1',
 				...input,
 			}));
 			await createCloudExport({
@@ -249,7 +250,7 @@ describe('cloud-export-service', () => {
 	describe('drainPendingExports (#3504 async: 背景 build)', () => {
 		function pendingRecord(overrides: Record<string, unknown> = {}) {
 			return {
-				id: 1,
+				id: '1',
 				tenantId: 'tenant-1',
 				exportType: 'template',
 				pinCode: 'ABC234',
@@ -268,7 +269,7 @@ describe('cloud-export-service', () => {
 			// building → ready の 2 回
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenNthCalledWith(
 				1,
-				1,
+				'1',
 				'tenant-1',
 				'building',
 			);
@@ -281,14 +282,14 @@ describe('cloud-export-service', () => {
 
 		it('template build は child 別 shape (activitiesByChild) を出力する (#2362 PR-3、PO 判断 A 案)', async () => {
 			mockChildRepo.findAllChildren.mockResolvedValue([
-				{ id: 10, nickname: 'たろう' },
-				{ id: 20, nickname: 'はなこ' },
+				{ id: '10', nickname: 'たろう' },
+				{ id: '20', nickname: 'はなこ' },
 			]);
 			mockChildActivityRepo.findActivitiesByChild
 				.mockResolvedValueOnce([
 					{
 						name: 'はしる',
-						categoryId: 1,
+						categoryId: asCategoryId(1),
 						icon: '🏃',
 						basePoints: 5,
 						triggerHint: null,
@@ -299,7 +300,7 @@ describe('cloud-export-service', () => {
 				.mockResolvedValueOnce([
 					{
 						name: 'よむ',
-						categoryId: 2,
+						categoryId: asCategoryId(2),
 						icon: '📖',
 						basePoints: 3,
 						triggerHint: '寝る前',
@@ -318,7 +319,7 @@ describe('cloud-export-service', () => {
 			expect(savedData.version).toBe('2.0.0');
 			expect(savedData.activitiesByChild).toHaveLength(2);
 			expect(savedData.activitiesByChild[0]).toMatchObject({
-				childId: 10,
+				childId: asChildId(10),
 				childNickname: 'たろう',
 				activities: [{ name: 'はしる', isMainQuest: 1, priority: 'must' }],
 			});
@@ -341,8 +342,8 @@ describe('cloud-export-service', () => {
 		it('build 失敗時は failed + failureReason を記録し他は継続する', async () => {
 			mockStorageRepo.saveFile.mockRejectedValueOnce(new Error('disk full'));
 			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
-				pendingRecord({ id: 1 }),
-				pendingRecord({ id: 2 }),
+				pendingRecord({ id: '1' }),
+				pendingRecord({ id: '2' }),
 			]);
 
 			const result = await drainPendingExports();
@@ -351,7 +352,7 @@ describe('cloud-export-service', () => {
 			expect(result.ready).toBe(1);
 			// id=1 は failed 遷移 (building → failed) + failureReason
 			const failedCall = mockCloudExportRepo.updateStatus.mock.calls.find((c) => c[2] === 'failed');
-			expect(failedCall?.[0]).toBe(1);
+			expect(failedCall?.[0]).toBe('1');
 			expect((failedCall?.[3] as { failureReason: string }).failureReason).toContain('disk full');
 		});
 
@@ -364,7 +365,7 @@ describe('cloud-export-service', () => {
 
 		it('#3509 QM 是正 (async-backup-export.md §3.2-4): stale building を failed へ fail-closed してから drain する', async () => {
 			mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([
-				pendingRecord({ id: 99, status: 'building' }),
+				pendingRecord({ id: '99', status: 'building' }),
 			]);
 			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
 
@@ -372,7 +373,7 @@ describe('cloud-export-service', () => {
 
 			expect(result.reclaimed).toBe(1);
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenCalledWith(
-				99,
+				'99',
 				'tenant-1',
 				'failed',
 				expect.objectContaining({
@@ -401,19 +402,19 @@ describe('cloud-export-service', () => {
 
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
 				{
-					id: 1,
+					id: '1',
 					expiresAt: future.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
 				},
 				{
-					id: 2,
+					id: '2',
 					expiresAt: past.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
 				},
 				{
-					id: 3,
+					id: '3',
 					expiresAt: future.toISOString(),
 					downloadCount: 10,
 					maxDownloads: 10,
@@ -423,7 +424,7 @@ describe('cloud-export-service', () => {
 			const result = await listCloudExports('tenant-1');
 
 			expect(result).toHaveLength(1);
-			expect(result[0]?.id).toBe(1);
+			expect(result[0]?.id).toBe('1');
 		});
 
 		it('#3504: pending/building/failed も (期限内なら) 生成状況として返す', async () => {
@@ -435,7 +436,7 @@ describe('cloud-export-service', () => {
 			mockCloudExportRepo.findByTenant.mockResolvedValue([
 				// pending: DL 上限に関係なく表示
 				{
-					id: 1,
+					id: '1',
 					expiresAt: future.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
@@ -443,7 +444,7 @@ describe('cloud-export-service', () => {
 				},
 				// building: 表示
 				{
-					id: 2,
+					id: '2',
 					expiresAt: future.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
@@ -451,7 +452,7 @@ describe('cloud-export-service', () => {
 				},
 				// failed: 表示
 				{
-					id: 3,
+					id: '3',
 					expiresAt: future.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
@@ -459,7 +460,7 @@ describe('cloud-export-service', () => {
 				},
 				// ready かつ DL 上限到達: 除外
 				{
-					id: 4,
+					id: '4',
 					expiresAt: future.toISOString(),
 					downloadCount: 10,
 					maxDownloads: 10,
@@ -467,53 +468,53 @@ describe('cloud-export-service', () => {
 				},
 				// 期限切れ pending: 除外
 				{
-					id: 5,
+					id: '5',
 					expiresAt: past.toISOString(),
 					downloadCount: 0,
 					maxDownloads: 10,
 					status: 'pending',
 				},
 				// status 未設定 (旧行) は ready 扱い: 表示
-				{ id: 6, expiresAt: future.toISOString(), downloadCount: 0, maxDownloads: 10 },
+				{ id: '6', expiresAt: future.toISOString(), downloadCount: 0, maxDownloads: 10 },
 			]);
 
 			const ids = (await listCloudExports('tenant-1')).map((e) => e.id).sort();
-			expect(ids).toEqual([1, 2, 3, 6]);
+			expect(ids).toEqual(['1', '2', '3', '6']);
 		});
 	});
 
 	describe('deleteCloudExport', () => {
 		it('存在するエクスポートを削除できる', async () => {
 			mockCloudExportRepo.findById.mockResolvedValue({
-				id: 1,
+				id: '1',
 				s3Key: 'exports/tenant-1/ABC123/data.json',
 			});
 
-			await deleteCloudExport(1, 'tenant-1');
+			await deleteCloudExport('1', 'tenant-1');
 
 			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
 				'exports/tenant-1/ABC123/data.json',
 			);
-			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith(1, 'tenant-1');
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
 		});
 
 		it('存在しないエクスポートの削除はエラーになる', async () => {
 			mockCloudExportRepo.findById.mockResolvedValue(null);
 
-			await expect(deleteCloudExport(999, 'tenant-1')).rejects.toThrow('見つかりません');
+			await expect(deleteCloudExport('999', 'tenant-1')).rejects.toThrow('見つかりません');
 		});
 
 		it('S3削除失敗はログのみで続行する', async () => {
 			mockCloudExportRepo.findById.mockResolvedValue({
-				id: 1,
+				id: '1',
 				s3Key: 'exports/tenant-1/ABC123/data.json',
 			});
 			mockStorageRepo.deleteByPrefix.mockRejectedValue(new Error('S3 error'));
 
-			await deleteCloudExport(1, 'tenant-1');
+			await deleteCloudExport('1', 'tenant-1');
 
 			// DB側の削除は実行される
-			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith(1, 'tenant-1');
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('1', 'tenant-1');
 		});
 	});
 
@@ -522,7 +523,7 @@ describe('cloud-export-service', () => {
 			const future = new Date();
 			future.setDate(future.getDate() + 3);
 			mockCloudExportRepo.findByPin.mockResolvedValue({
-				id: 1,
+				id: '1',
 				tenantId: 'tenant-1',
 				pinCode: 'ABC123',
 				expiresAt: future.toISOString(),
@@ -561,7 +562,7 @@ describe('cloud-export-service', () => {
 			const past = new Date();
 			past.setDate(past.getDate() - 1);
 			mockCloudExportRepo.findByPin.mockResolvedValue({
-				id: 1,
+				id: '1',
 				expiresAt: past.toISOString(),
 				downloadCount: 0,
 				maxDownloads: 10,
@@ -574,7 +575,7 @@ describe('cloud-export-service', () => {
 			const future = new Date();
 			future.setDate(future.getDate() + 3);
 			mockCloudExportRepo.findByPin.mockResolvedValue({
-				id: 1,
+				id: '1',
 				expiresAt: future.toISOString(),
 				downloadCount: 10,
 				maxDownloads: 10,
@@ -587,11 +588,11 @@ describe('cloud-export-service', () => {
 	describe('consumeCloudExportDownload (#3376 adversarial)', () => {
 		it('record.tenantId で tenant 束縛して DL カウントを 1 消費する (#2845 B1)', async () => {
 			await consumeCloudExportDownload({
-				id: 7,
+				id: '7',
 				tenantId: 'tenant-1',
 			} as unknown as Parameters<typeof consumeCloudExportDownload>[0]);
 
-			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(7, 'tenant-1');
+			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith('7', 'tenant-1');
 		});
 	});
 

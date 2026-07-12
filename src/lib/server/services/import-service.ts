@@ -1,14 +1,14 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
+
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
+import { toLegacyCategoryId } from '$lib/domain/categories';
 import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/domain/export-format';
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
-import {
-	CATEGORY_CODES,
-	sanitizeActivityNameField,
-	sanitizeDailyLimit,
-} from '$lib/domain/validation/activity';
+import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
@@ -37,10 +37,10 @@ import { logger } from '$lib/server/logger';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
-// カテゴリコード → ID
-const CATEGORY_CODE_TO_ID: Record<string, number> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = i + 1;
+/** categoryCode (未検証文字列) → branded CategoryId (#3607: SSOT 派生、旧 index-based map を撤去) */
+function categoryIdFromCode(code: string): CategoryId | undefined {
+	const legacyId = toLegacyCategoryId(code);
+	return legacyId === undefined ? undefined : asCategoryId(legacyId);
 }
 
 /**
@@ -260,6 +260,22 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 }
 
 /**
+ * import の重複解決 semantics (#3653)。
+ *
+ * - `merge` (既定、現行挙動): 既存 DB / 同一 import 内の同名・同 preset・同時刻行を dedup skip する。
+ *   バックアップの再取込・marketplace 二重取込の防止が目的 (merge import)。
+ * - `verbatim`: dedup を bypass し全行を復元する。cutover (fresh DB への完全移行、#3620) 用 —
+ *   実本番 DB には同 child 同 title の specialRewards 等が正当に存在し (NUC staging cycle 3 で
+ *   件数突合が export=9 → imported=2 の欠落を実検出)、merge semantics では移行にならない。
+ *   childRef / FK 解決不能・allowlist・path 検証などの整合性 skip は mode に関わらず維持する。
+ */
+export type ImportMode = 'merge' | 'verbatim';
+
+export interface ImportOptions {
+	mode?: ImportMode;
+}
+
+/**
  * 家族データをインポート (#1254: silent try-catch を pre-fetch 方式に統一)
  *
  * 処理順: 活動マスタ → 子供作成 → ステータス → 活動ログ → ポイント台帳 → ログインボーナス
@@ -268,12 +284,15 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
  *
  * @param staticFiles #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。
  *   JSON のみインポート時は undefined (後方互換)。
+ * @param options #3653: mode='verbatim' で dedup を bypass (cutover 用)。既定 merge = 現行不変。
  */
 export async function importFamilyData(
 	data: ExportData,
 	tenantId: string,
 	staticFiles?: Record<string, Uint8Array>,
+	options?: ImportOptions,
 ): Promise<ImportResult> {
+	const mode: ImportMode = options?.mode ?? 'merge';
 	// #3326 系: lazy マイグレーション。旧 version の backup を現 shape に正規化してから取り込む。
 	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後でなければ mismatch する)。
 	data = migrateExportData(
@@ -301,13 +320,19 @@ export async function importFamilyData(
 	const activityLookupByChild = await buildActivityLookupByChild(childIdMap, tenantId);
 
 	await importStatusesData(data, childIdMap, tenantId, result);
-	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
+	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result, mode);
 	// #3329: per-child 活動設定 (ピン留め)。activityName を取込先 childActivity に再解決して復元。
 	// 活動 lookup (name→新 id) が必要なので buildActivityLookupByChild の後に実行する。
 	await importActivityPrefsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
-	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
+	const templateIdMap = await importChecklistTemplatesData(
+		data,
+		childIdMap,
+		tenantId,
+		result,
+		mode,
+	);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
@@ -315,7 +340,7 @@ export async function importFamilyData(
 	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
 	await importChildVoicesData(data, childIdMap, tenantId, result);
-	await importSpecialRewards(data, childIdMap, tenantId, result);
+	await importSpecialRewards(data, childIdMap, tenantId, result, mode);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
 	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
@@ -351,7 +376,7 @@ export async function importFamilyData(
  */
 async function importEvaluationsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -391,7 +416,7 @@ async function importEvaluationsData(
  */
 async function importRewardRedemptionsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -399,8 +424,8 @@ async function importRewardRedemptionsData(
 	if (redemptions.length === 0) return;
 
 	// 取込先 child ごとに reward title → rewardId の lookup を構築する (新規 insert + 既存 dedup 双方を含む)。
-	const rewardIdByChildTitle = new Map<number, Map<string, number>>();
-	async function rewardLookup(childId: number): Promise<Map<string, number>> {
+	const rewardIdByChildTitle = new Map<ChildId, Map<string, string>>();
+	async function rewardLookup(childId: ChildId): Promise<Map<string, string>> {
 		let map = rewardIdByChildTitle.get(childId);
 		if (!map) {
 			const rows = await findSpecialRewards(childId, tenantId);
@@ -487,7 +512,7 @@ async function importSettingsData(
  */
 async function importChildChallengesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -542,7 +567,7 @@ async function importChildChallengesData(
  */
 async function importStampCardsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -553,7 +578,7 @@ async function importStampCardsData(
 			result.stampCardsSkipped++;
 			continue;
 		}
-		let newCardId: number;
+		let newCardId: string;
 		try {
 			const restored = await repo.insertCardForRestore(
 				{
@@ -609,7 +634,7 @@ async function importStampCardsData(
  */
 async function importCertificatesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -648,7 +673,7 @@ async function importCertificatesData(
  */
 async function importParentMessagesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -690,7 +715,7 @@ async function importParentMessagesData(
  */
 async function importSiblingCheersData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -729,8 +754,8 @@ async function importSiblingCheersData(
  */
 async function importActivityPrefsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
-	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	childIdMap: Map<string, ChildId>,
+	activityLookupByChild: Map<ChildId, Map<string, { id: ActivityId; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -773,7 +798,7 @@ async function importActivityPrefsData(
  */
 async function importChecklistOverridesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -813,7 +838,7 @@ async function importChecklistOverridesData(
  */
 async function importRestDaysData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -851,7 +876,7 @@ const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
  */
 async function importChildVoicesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -971,7 +996,7 @@ function createEmptyImportResult(): ImportResult {
  */
 async function importChildActivitiesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -982,7 +1007,7 @@ async function importChildActivitiesData(
 			result.warnings.push(`活動「${a.name}」スキップ: childRef「${a.childRef}」が解決できません`);
 			continue;
 		}
-		const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
+		const categoryId = categoryIdFromCode(a.categoryCode);
 		if (!categoryId) {
 			result.warnings.push(`活動「${a.name}」のカテゴリ「${a.categoryCode}」が不明のためスキップ`);
 			continue;
@@ -1033,16 +1058,16 @@ async function importChildActivitiesData(
  * activityName の両方で activity を引くことで、各子の正しい activity instance に bind される。
  */
 async function buildActivityLookupByChild(
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
-): Promise<Map<number, Map<string, { id: number; name: string }>>> {
-	const lookup = new Map<number, Map<string, { id: number; name: string }>>();
+): Promise<Map<ChildId, Map<string, { id: ActivityId; name: string }>>> {
+	const lookup = new Map<ChildId, Map<string, { id: ActivityId; name: string }>>();
 	const childActivityRepo = getRepos().childActivity;
 	for (const childId of new Set(childIdMap.values())) {
 		const activities = await childActivityRepo.findActivitiesByChild(childId, tenantId, {
 			includeArchived: true,
 		});
-		const byName = new Map<string, { id: number; name: string }>();
+		const byName = new Map<string, { id: ActivityId; name: string }>();
 		for (const a of activities) {
 			byName.set(a.name, { id: a.id, name: a.name });
 		}
@@ -1055,8 +1080,8 @@ async function importChildrenData(
 	data: ExportData,
 	tenantId: string,
 	result: ImportResult,
-): Promise<Map<string, number>> {
-	const childIdMap = new Map<string, number>();
+): Promise<Map<string, ChildId>> {
+	const childIdMap = new Map<string, ChildId>();
 	for (const exportChild of data.family.children) {
 		try {
 			const child = await insertChild(
@@ -1080,13 +1105,13 @@ async function importChildrenData(
 
 async function importStatusesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	for (const status of data.data.statuses) {
 		const childId = childIdMap.get(status.childRef);
-		const categoryId = CATEGORY_CODE_TO_ID[status.categoryCode];
+		const categoryId = categoryIdFromCode(status.categoryCode);
 		if (!childId || !categoryId) continue;
 		try {
 			await upsertStatus(
@@ -1109,14 +1134,16 @@ async function importStatusesData(
 /**
  * 活動ログを import (#1254 G2: pre-fetch で (activityId, recordedAt) セット構築 → 事前スキップ)
  */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importActivityLogsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
-	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	childIdMap: Map<string, ChildId>,
+	activityLookupByChild: Map<ChildId, Map<string, { id: ActivityId; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
-	const existingLogKeysByChild = new Map<number, Set<string>>();
+	const existingLogKeysByChild = new Map<ChildId, Set<string>>();
 	// #3327: 「見つからない」warning の dedup は (childId, name) で行う。name のみだと
 	// 子 A で欠落・子 B で存在のケースで正当な warning を抑制してしまう。
 	const missingActivityKeys = new Set<string>();
@@ -1142,7 +1169,9 @@ async function importActivityLogsData(
 
 		const existingKeys = await getOrFetchActivityLogKeys(childId, tenantId, existingLogKeysByChild);
 		const key = `${log.activityName}:${log.recordedAt}`;
-		if (existingKeys.has(key)) {
+		// #3653: (activityName, recordedAt) dedup は merge のみ。verbatim (cutover) では同時刻の
+		// 正当な複数記録 (DB 一意制約なし) を全行復元する。
+		if (mode === 'merge' && existingKeys.has(key)) {
 			result.activityLogsSkipped++;
 			result.skipped.constraint++;
 			continue;
@@ -1173,9 +1202,9 @@ async function importActivityLogsData(
 }
 
 async function getOrFetchActivityLogKeys(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
-	cache: Map<number, Set<string>>,
+	cache: Map<ChildId, Set<string>>,
 ): Promise<Set<string>> {
 	let keys = cache.get(childId);
 	if (!keys) {
@@ -1191,7 +1220,7 @@ async function getOrFetchActivityLogKeys(
  */
 async function importPointLedgerData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -1226,11 +1255,11 @@ async function importPointLedgerData(
  */
 async function importLoginBonusesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingBonusesByChild = new Map<number, Set<string>>();
+	const existingBonusesByChild = new Map<ChildId, Set<string>>();
 
 	for (const lb of data.data.loginBonuses) {
 		const childId = childIdMap.get(lb.childRef);
@@ -1276,9 +1305,9 @@ async function importLoginBonusesData(
 /** checklistLog の再マップに使う、childId 単位の template id 解決マップ群。 */
 export interface ChecklistTemplateIdMaps {
 	/** templateName → templateId (#3078、旧 export の fallback 用) */
-	byName: Map<number, Map<string, number>>;
+	byName: Map<ChildId, Map<string, string>>;
 	/** exportId → templateId (#3107、同名 template 取り違え防止の安定キー) */
-	byExportId: Map<number, Map<string, number>>;
+	byExportId: Map<ChildId, Map<string, string>>;
 }
 
 /** childId 単位の checklist template import 状態 (既存 + 当 import で作成した template の id 解決)。 */
@@ -1292,15 +1321,15 @@ interface ChildChecklistState {
 	/** preExisting + 当 import で作成した template 全ての名 (exportId なし旧 backup の fallback name-dedup 用)。 */
 	names: Set<string>;
 	presetIds: Set<string>;
-	idByName: Map<string, number>;
-	idByPreset: Map<string, number>;
+	idByName: Map<string, string>;
+	idByPreset: Map<string, string>;
 	/** exportId → templateId (#3107 round-trip キー、当 import data の exportId のみ) */
-	exportIdToId: Map<string, number>;
+	exportIdToId: Map<string, string>;
 }
 
 /** child の既存 template から import 状態を初期化する。 */
 async function loadChildChecklistState(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<ChildChecklistState> {
 	const rows = await findTemplatesByChild(childId, tenantId, true, true);
@@ -1318,27 +1347,31 @@ async function loadChildChecklistState(
 }
 
 /** 1 件の checklist template を import (重複スキップ / 新規作成) し、exportId を id に登録する。 */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列 + mode (#3653)。オブジェクト引数化は import 系一括 refactor (別 Issue) で扱う
 async function importOneChecklistTemplate(
 	tpl: ExportData['data']['checklistTemplates'][number],
-	childId: number,
+	childId: ChildId,
 	state: ChildChecklistState,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
 	// #3107: 解決先 templateId を round-trip キー (exportId) に登録する (スキップ時も既存 id を登録)。
-	const register = (templateId: number) => {
+	const register = (templateId: string) => {
 		if (tpl.exportId) state.exportIdToId.set(tpl.exportId, templateId);
 	};
 
 	// #3107: 同一 import data 内に同じ exportId が 2 度現れたら真の重複 → 既存解決先を再登録して skip。
 	//   (export-service は templateId ごとに distinct exportId を発番するため通常は発生しないが防御的に処理)
+	//   #3653: exportId は source template ごとに distinct 保証 = 真の重複判定のため verbatim でも維持。
 	if (tpl.exportId && state.exportIdToId.has(tpl.exportId)) {
 		result.skipped.name++;
 		return;
 	}
 
-	// #1254 G1: preset_duplicate → name_duplicate の順で判定
-	if (tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
+	// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653。verbatim = cutover は
+	// name/preset に DB 一意制約が無く、正当な同名 template を collapse させないため bypass)
+	if (mode === 'merge' && tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
 		result.skipped.preset++;
 		const dupId = state.idByPreset.get(tpl.sourcePresetId);
 		if (dupId !== undefined) register(dupId);
@@ -1352,7 +1385,7 @@ async function importOneChecklistTemplate(
 	//   - exportId なし (旧 backup): 従来通り full names (preExisting + 当 import 作成分) で name-dedup
 	//     し後方互換を維持する。
 	const nameDedupSet = tpl.exportId ? state.preExistingNames : state.names;
-	if (nameDedupSet.has(tpl.name)) {
+	if (mode === 'merge' && nameDedupSet.has(tpl.name)) {
 		result.skipped.name++;
 		const dupId = state.idByName.get(tpl.name);
 		if (dupId !== undefined) register(dupId);
@@ -1411,11 +1444,12 @@ async function importOneChecklistTemplate(
  */
 async function importChecklistTemplatesData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<ChecklistTemplateIdMaps> {
-	const stateByChild = new Map<number, ChildChecklistState>();
+	const stateByChild = new Map<ChildId, ChildChecklistState>();
 
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
@@ -1426,11 +1460,11 @@ async function importChecklistTemplatesData(
 			state = await loadChildChecklistState(childId, tenantId);
 			stateByChild.set(childId, state);
 		}
-		await importOneChecklistTemplate(tpl, childId, state, tenantId, result);
+		await importOneChecklistTemplate(tpl, childId, state, tenantId, result, mode);
 	}
 
-	const byName = new Map<number, Map<string, number>>();
-	const byExportId = new Map<number, Map<string, number>>();
+	const byName = new Map<ChildId, Map<string, string>>();
+	const byExportId = new Map<ChildId, Map<string, string>>();
 	for (const [childId, state] of stateByChild) {
 		byName.set(childId, state.idByName);
 		byExportId.set(childId, state.exportIdToId);
@@ -1450,12 +1484,12 @@ async function importChecklistTemplatesData(
  */
 async function importChecklistLogsData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	templateIdMaps: ChecklistTemplateIdMaps,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingKeysByChild = new Map<number, Set<string>>();
+	const existingKeysByChild = new Map<ChildId, Set<string>>();
 
 	for (const log of data.data.checklistLogs) {
 		const childId = childIdMap.get(log.childRef);
@@ -1516,13 +1550,13 @@ async function importChecklistLogsData(
  */
 async function importStatusHistoryData(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	for (const sh of data.data.statusHistory) {
 		const childId = childIdMap.get(sh.childRef);
-		const categoryId = CATEGORY_CODE_TO_ID[sh.categoryCode];
+		const categoryId = categoryIdFromCode(sh.categoryCode);
 		if (!childId || !categoryId) continue;
 
 		try {
@@ -1548,12 +1582,13 @@ async function importStatusHistoryData(
 
 async function importSpecialRewards(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
 	const { errors, warnings } = result;
-	const existingByChild = new Map<number, { titles: Set<string>; presetIds: Set<string> }>();
+	const existingByChild = new Map<ChildId, { titles: Set<string>; presetIds: Set<string> }>();
 	for (const sr of data.data.specialRewards) {
 		const childId = childIdMap.get(sr.childRef);
 		if (!childId) continue;
@@ -1568,13 +1603,15 @@ async function importSpecialRewards(
 			existingByChild.set(childId, existing);
 		}
 
-		// #1254 G1: preset_duplicate → name_duplicate の順で判定
-		if (sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
+		// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
+		// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
+		// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
+		if (mode === 'merge' && sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
 			result.specialRewardsSkipped++;
 			result.skipped.preset++;
 			continue;
 		}
-		if (existing.titles.has(sr.title)) {
+		if (mode === 'merge' && existing.titles.has(sr.title)) {
 			result.specialRewardsSkipped++;
 			result.skipped.name++;
 			continue;
@@ -1663,17 +1700,18 @@ function contentTypeFromPath(path: string): string {
  */
 async function importStaticFiles(
 	data: ExportData,
-	childIdMap: Map<string, number>,
+	childIdMap: Map<string, ChildId>,
 	staticFiles: Record<string, Uint8Array>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	// sourceChildId (export 元の数値 id) → 新 childId
-	const oldChildToNew = new Map<number, number>();
+	// sourceChildId (export 元 id、旧 backup は number / 新 backup は string) → 新 childId。
+	// String() 正規化で新旧 backup 双方の key を同一視する。
+	const oldChildToNew = new Map<string, ChildId>();
 	for (const child of data.family.children) {
 		const newId = childIdMap.get(child.exportId);
-		if (typeof child.sourceChildId === 'number' && newId) {
-			oldChildToNew.set(child.sourceChildId, newId);
+		if (child.sourceChildId != null && newId) {
+			oldChildToNew.set(String(child.sourceChildId), newId);
 		}
 	}
 
@@ -1693,7 +1731,7 @@ async function importStaticFiles(
 			continue;
 		}
 		const [, type, oldChildIdStr, rest] = match;
-		const newChildId = oldChildToNew.get(Number(oldChildIdStr));
+		const newChildId = oldChildToNew.get(String(oldChildIdStr));
 		if (!newChildId) {
 			result.staticFilesSkipped++;
 			continue;
@@ -1720,9 +1758,9 @@ async function importStaticFiles(
 
 export interface AvatarRemapState {
 	data: ExportData;
-	childIdMap: Map<string, number>;
+	childIdMap: Map<string, ChildId>;
 	/** sourceChildId (export 元 id) → 新 childId */
-	oldChildToNew: Map<number, number>;
+	oldChildToNew: Map<string, ChildId>;
 	/** 旧 storage 相対パス → 復元済の新相対パス */
 	relativeKeyRemap: Map<string, string>;
 }
@@ -1742,7 +1780,7 @@ export async function remapChildAvatarUrls(
 	const prefix = tenantPrefix(tenantId);
 
 	/** avatarUrl 更新を 1 箇所に集約し、失敗は result.errors に蓄積する。 */
-	const persist = async (childId: number, url: string | null, exportId: string): Promise<void> => {
+	const persist = async (childId: ChildId, url: string | null, exportId: string): Promise<void> => {
 		try {
 			await updateChildAvatarUrl(childId, url, tenantId);
 		} catch (e) {
@@ -1801,8 +1839,8 @@ function resolveNewAvatarRelPath(
 	oldRelPath: string,
 	ctx: {
 		relativeKeyRemap: Map<string, string>;
-		oldChildToNew: Map<number, number>;
-		newChildId: number;
+		oldChildToNew: Map<string, ChildId>;
+		newChildId: ChildId;
 	},
 ): string | null | undefined {
 	const hit = ctx.relativeKeyRemap.get(oldRelPath);
@@ -1814,7 +1852,7 @@ function resolveNewAvatarRelPath(
 	const rest = relMatch?.[3];
 	if (!type || !oldChildIdStr || !rest) return undefined;
 
-	const mappedChildId = ctx.oldChildToNew.get(Number(oldChildIdStr)) ?? ctx.newChildId;
+	const mappedChildId = ctx.oldChildToNew.get(String(oldChildIdStr)) ?? ctx.newChildId;
 	const candidate = `${type}/${mappedChildId}/${rest}`;
 	// unsafe (`..` / 絶対パス) は fileExists で probe (存在オラクル化) / 永続化させない。
 	if (!isSafeRelativePath(candidate)) return null;

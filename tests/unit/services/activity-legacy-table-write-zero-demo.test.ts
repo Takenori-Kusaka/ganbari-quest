@@ -1,3 +1,4 @@
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/services/activity-legacy-table-write-zero-demo.test.ts
 //
 // #2458-A2 regression test (demo backend): demo activity-repo の全 write method を
@@ -41,7 +42,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 		const result = await demoActivityRepo.insertActivity(
 			{
 				name: 'たいそうした',
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🤸',
 				basePoints: 5,
 				ageMin: 3,
@@ -54,7 +55,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 
 		expect(result).toBeDefined();
 		expect(result.name).toBe('たいそうした');
-		expect(result.id).toBe(0); // Stub: synthetic id (no actual insert)
+		expect(result.id).toBe('0'); // Stub: synthetic id (no actual insert)
 		// AC: 全 fixture が mutate されていない
 		expect(DEMO_CHILD_ACTIVITIES.length).toBe(beforeChildActivities);
 		expect(DEMO_ACTIVITIES.length).toBe(beforeMaster);
@@ -95,7 +96,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 
 	it('deleteActivity: 元 fixture から削除されない', async () => {
 		const beforeMasterIds = DEMO_ACTIVITIES.map((a) => a.id);
-		const targetId = DEMO_ACTIVITIES[0]?.id ?? 1;
+		const targetId = DEMO_ACTIVITIES[0]?.id ?? asActivityId(1);
 
 		const result = await demoActivityRepo.deleteActivity(targetId, TENANT);
 
@@ -128,8 +129,8 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 
 		const result = await demoActivityRepo.insertActivityLog(
 			{
-				childId: 902,
-				activityId: 9020001,
+				childId: asChildId(902),
+				activityId: asActivityId(9020001),
 				points: 5,
 				streakDays: 1,
 				streakBonus: 0,
@@ -140,8 +141,8 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 		);
 
 		expect(result).toBeDefined();
-		expect(result.childId).toBe(902);
-		expect(result.id).toBe(0); // Stub: synthetic id
+		expect(result.childId).toBe('902');
+		expect(result.id).toBe('0'); // Stub: synthetic id
 		// AC: DEMO_ACTIVITY_LOGS の長さ不変
 		expect(DEMO_ACTIVITY_LOGS.length).toBe(beforeLogs);
 	});
@@ -163,7 +164,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 
 		await demoActivityRepo.insertPointLedger(
 			{
-				childId: 902,
+				childId: asChildId(902),
 				amount: 100,
 				type: 'combo_bonus',
 				description: 'test',
@@ -180,7 +181,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 		const beforeMasterLen = DEMO_ACTIVITIES.length;
 		const beforeLogsLen = DEMO_ACTIVITY_LOGS.length;
 
-		await demoActivityRepo.deleteDailyMissionsByActivity(123, TENANT);
+		await demoActivityRepo.deleteDailyMissionsByActivity(asActivityId(123), TENANT);
 
 		expect(DEMO_ACTIVITIES.length).toBe(beforeMasterLen);
 		expect(DEMO_ACTIVITY_LOGS.length).toBe(beforeLogsLen);
@@ -190,7 +191,7 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 		const beforeLogsLen = DEMO_ACTIVITY_LOGS.length;
 
 		const deletedCount = await demoActivityRepo.deleteActivityLogsBeforeDate(
-			902,
+			asChildId(902),
 			'2026-01-01',
 			TENANT,
 		);

@@ -343,6 +343,29 @@ UI/UX 指摘（PR レビュー / CI fail / PO 実機 / 外部品質監査）を�
 - 適用ツール方針: VRT = pixelmatch（ADR-0053）/ 配置エンジン = Ark UI 内蔵 Floating UI で充足（単体導入しない）/ a11y = `@axe-core/playwright`。情報設計レビュー（OOUI 成果物）は新規画面・EPIC 級のみ適用
 - **プロセス SSOT**: 4 層自動化モデル（axe / geometry / pixelmatch+Storybook / E2E）・課題一般化フロー・既存資産対応表は [webui-review-process.md](webui-review-process.md) を参照
 
+### 実装モダン性の継続検証原則（#3609、2026-07-08 PO 指示）
+
+「機能が動いている」ことと「実装が洗練されている」ことは別物。あらゆる実装作業・レビュー・棚卸しで、触れたコードとその周辺実装に対し**「これは古い / 不適切 / 非推奨な実装ではないか」を常時疑い**、以下の観点で検証し続ける（Why: magic number 散在等の設計負債は機能テスト緑のまま拡張時 silent 不具合になる。実例: カテゴリ picklist 数値直書き #3607）:
+
+- **モダンか**: 言語・フレームワークの現行推奨イディオムか（例: TS `enum` → `as const satisfies` + 派生 union、Svelte 4 構文 → Runes）
+- **オブジェクト指向 / SOLID か**: 単一責任・依存性逆転・Strategy/Factory/Registry 等の確立パターン適用漏れがないか
+- **公式ベストプラクティスか**: 採用ライブラリの公式ドキュメントが推奨する使い方に沿っているか
+
+**気になった実装を見つけたときのセット運用（3 点で 1 セット、どれか単独では不完全）**:
+
+1. **deep research で妥当性検証** — 一次ソース（公式 docs / OSS 実装 2 件以上、ADR-0014）で「本当にそれが問題か / 対策は妥当か」を裏取りする
+2. **follow-up Issue 起票** — Dev が自由に起票してよい（下記「Issue 起票権限」参照）。issue-triage skill の 7 ステップ + root class 特定（ADR-0061）を適用する
+3. **横展開** — 同 class の残存を grep / Glob で全件調査し、Issue の散在実測表に列挙する（1 箇所だけ直して同型を放置しない）
+
+**Issue 起票権限（2026-07-08 PO 指示、旧「Issue 起票 = PO 専権」を緩和)**: 十分に深く検討・deep research され、対策の妥当性が検証済みで、モダンかつ SOLID 原則に基づき将来性・拡張性がありソフトウェアデザインアーキテクチャに沿った Issue であれば、Dev が PO 確認なしに起票してよい（Why: 過去の PO 専権化は「research 不足のはりぼて Issue 増殖」への対策であり、原因は権限でなく品質）。
+
+**PO 判断としてエスカレーションするケース（以下のみ事前確認必須）**:
+
+1. プロダクトとして機能要件が満たせなくなる
+2. ユーザに影響がある
+3. 他社との差別化ポイントに関わる
+4. モダンな実装と乖離するがどうしても回避できない技術制約がある
+
 ### 3 つ目の類似 service / component 実装時の Strategy/Factory 適用判断（#2373 / AN-5 #2180 補強 6）
 
 PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」MUST-DO 2) と対をなす Dev セッション側ガード。**3 つ目の類似 service / component を実装する前**、Strategy / Factory / Registry パターンの適用判断を行う:
@@ -362,7 +385,8 @@ PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」
 | 作業 | 担当 |
 |---|---|
 | コード実装・修正・削除 / Rebase / 実機動作確認 / SS 生成 | **Dev** |
-| PR レビュー・指摘 / Issue 起票 / ADR 起票 | Reviewer / PO |
+| Issue 起票 | **Dev も可**（#3609、品質バー = §「実装モダン性の継続検証原則」。PO エスカレーション 4 基準該当時のみ事前確認） |
+| PR レビュー・指摘 / ADR 起票 | Reviewer / PO |
 | PR close 判断・方針転換 | PO |
 | PR base branch 切替 (blocker 解消) | Reviewer |
 

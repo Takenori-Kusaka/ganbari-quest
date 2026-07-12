@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-set-import-service.ts
 // マーケットプレイス reward-set 一括取込サービス (#2136 MP-1)
 //
@@ -116,7 +117,7 @@ export interface ImportRewardSetOptions {
 	/**
 	 * 適用対象の子供 ID。reward-set は子供毎に付与するため必須。
 	 */
-	childId: number;
+	childId: ChildId;
 	/**
 	 * 重複検知モード (#3168)。省略時は `'preset-scope'` (既定、#1254 G1)。
 	 * backup/restore は `'content'` を渡して冪等復元する。
@@ -133,7 +134,7 @@ export interface ImportRewardSetOptions {
 export interface ImportRewardSetToChildrenOptions {
 	presetId: string;
 	/** 適用対象 child ID 配列 (1 件以上必須、空は呼出側で排除) */
-	childIds: readonly number[];
+	childIds: readonly ChildId[];
 }
 
 /**
@@ -147,7 +148,7 @@ export interface RewardSetImportToChildrenResult {
 	/** #2830: 全 child 合算の実失敗 reward 行数 (errors.length と分離、UI 件数表示用)。 */
 	failed: number;
 	/** target child 別の取込件数 (UI 表示 / debug 用) */
-	byChild: Record<number, { imported: number; skipped: number; errors: number }>;
+	byChild: Record<string, { imported: number; skipped: number; errors: number }>;
 }
 
 // ---------- preview ----------
@@ -166,7 +167,7 @@ export interface RewardSetImportToChildrenResult {
 export async function previewRewardSetImport(
 	rewards: RewardSetItem[],
 	presetId: string,
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	dedupMode: RewardDedupMode = 'preset-scope',
 ): Promise<RewardSetImportPreview> {
@@ -286,7 +287,7 @@ export async function importRewardSetToChildren(
 	options: ImportRewardSetToChildrenOptions,
 ): Promise<RewardSetImportToChildrenResult> {
 	const { presetId, childIds } = options;
-	const byChild: Record<number, { imported: number; skipped: number; errors: number }> = {};
+	const byChild: Record<string, { imported: number; skipped: number; errors: number }> = {};
 	let totalImported = 0;
 	let totalSkipped = 0;
 	let totalFailed = 0;

@@ -1,11 +1,12 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 
 interface RankingData {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	totalCount: number;
-	categoryCounts: Record<number, number>;
+	categoryCounts: Record<string, number>;
 }
 
 interface Props {

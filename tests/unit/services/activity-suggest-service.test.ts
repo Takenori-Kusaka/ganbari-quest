@@ -21,32 +21,32 @@ import { suggestActivity } from '../../../src/lib/server/services/activity-sugge
 describe('suggestActivity (fallback)', () => {
 	it('スポーツ系のキーワードで「うんどう」に分類される', async () => {
 		const result = await suggestActivity('サッカーの練習');
-		expect(result.categoryId).toBe(1); // うんどう
+		expect(result.categoryId).toBe('1'); // うんどう
 		expect(result.icon).toBe('⚽');
 		expect(result.source).toBe('fallback');
 	});
 
 	it('学習系のキーワードで「べんきょう」に分類される', async () => {
 		const result = await suggestActivity('宿題をした');
-		expect(result.categoryId).toBe(2); // べんきょう
+		expect(result.categoryId).toBe('2'); // べんきょう
 		expect(result.icon).toBe('📝');
 	});
 
 	it('生活系のキーワードで「せいかつ」に分類される', async () => {
 		const result = await suggestActivity('おかたづけした');
-		expect(result.categoryId).toBe(3); // せいかつ
+		expect(result.categoryId).toBe('3'); // せいかつ
 		expect(result.icon).toBe('🧹');
 		expect(result.basePoints).toBe(3);
 	});
 
 	it('社会性のキーワードで「こうりゅう」に分類される', async () => {
 		const result = await suggestActivity('ともだちとあそんだ');
-		expect(result.categoryId).toBe(4); // こうりゅう
+		expect(result.categoryId).toBe('4'); // こうりゅう
 	});
 
 	it('創造系のキーワードで「そうぞう」に分類される', async () => {
 		const result = await suggestActivity('おえかきした');
-		expect(result.categoryId).toBe(5); // そうぞう
+		expect(result.categoryId).toBe('5'); // そうぞう
 		expect(result.icon).toBe('🎨');
 	});
 
@@ -54,19 +54,19 @@ describe('suggestActivity (fallback)', () => {
 		const result = await suggestActivity('ピアノの練習');
 		expect(result.basePoints).toBe(8);
 		expect(result.icon).toBe('🎹');
-		expect(result.categoryId).toBe(5); // そうぞう
+		expect(result.categoryId).toBe('5'); // そうぞう
 	});
 
 	it('水泳は8Pでうんどうカテゴリ', async () => {
 		const result = await suggestActivity('水泳の練習');
 		expect(result.basePoints).toBe(8);
-		expect(result.categoryId).toBe(1);
+		expect(result.categoryId).toBe('1');
 		expect(result.icon).toBe('🏊');
 	});
 
 	it('マッチしない入力はデフォルト値を返す', async () => {
 		const result = await suggestActivity('いろいろやった');
-		expect(result.categoryId).toBe(3); // せいかつ（デフォルト）
+		expect(result.categoryId).toBe('3'); // せいかつ（デフォルト）
 		expect(result.icon).toBe('📝');
 		expect(result.basePoints).toBe(5);
 	});

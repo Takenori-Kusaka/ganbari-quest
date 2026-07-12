@@ -1,56 +1,57 @@
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/db/daily-mission-repo.ts — Facade (delegates to factory)
 
 import { getRepos } from './factory';
 
-export async function findTodayMissions(childId: number, date: string, tenantId: string) {
+export async function findTodayMissions(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().dailyMission.findTodayMissions(childId, date, tenantId);
 }
 export async function findMissionBonusRecord(
-	childId: number,
+	childId: ChildId,
 	description: string,
 	tenantId: string,
 ) {
 	return getRepos().dailyMission.findMissionBonusRecord(childId, description, tenantId);
 }
 export async function findMissionByActivity(
-	childId: number,
+	childId: ChildId,
 	date: string,
-	activityId: number,
+	activityId: ActivityId,
 	tenantId: string,
 ) {
 	return getRepos().dailyMission.findMissionByActivity(childId, date, activityId, tenantId);
 }
 // #2845 B1: (childId, date, activityId) 所有権検証付き (composite key)
 export async function markMissionCompleted(
-	childId: number,
+	childId: ChildId,
 	date: string,
-	activityId: number,
+	activityId: ActivityId,
 	tenantId: string,
 ) {
 	return getRepos().dailyMission.markMissionCompleted(childId, date, activityId, tenantId);
 }
-export async function findAllMissionStatuses(childId: number, date: string, tenantId: string) {
+export async function findAllMissionStatuses(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().dailyMission.findAllMissionStatuses(childId, date, tenantId);
 }
-export async function findChildForMission(childId: number, tenantId: string) {
+export async function findChildForMission(childId: ChildId, tenantId: string) {
 	return getRepos().dailyMission.findChildForMission(childId, tenantId);
 }
 export async function findVisibleActivities(tenantId: string) {
 	return getRepos().dailyMission.findVisibleActivities(tenantId);
 }
-export async function findPreviousDayMissionIds(childId: number, date: string, tenantId: string) {
+export async function findPreviousDayMissionIds(childId: ChildId, date: string, tenantId: string) {
 	return getRepos().dailyMission.findPreviousDayMissionIds(childId, date, tenantId);
 }
-export async function findRecentActivityIds(childId: number, sinceDate: string, tenantId: string) {
+export async function findRecentActivityIds(childId: ChildId, sinceDate: string, tenantId: string) {
 	return getRepos().dailyMission.findRecentActivityIds(childId, sinceDate, tenantId);
 }
-export async function findAllRecordedActivityIds(childId: number, tenantId: string) {
+export async function findAllRecordedActivityIds(childId: ChildId, tenantId: string) {
 	return getRepos().dailyMission.findAllRecordedActivityIds(childId, tenantId);
 }
 export async function insertDailyMission(
-	childId: number,
+	childId: ChildId,
 	date: string,
-	activityId: number,
+	activityId: ActivityId,
 	tenantId: string,
 ) {
 	return getRepos().dailyMission.insertDailyMission(childId, date, activityId, tenantId);

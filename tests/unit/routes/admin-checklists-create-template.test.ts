@@ -8,6 +8,7 @@
 // - バリデーション (childId/name/timeSlot) は上限チェックより先に走る
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 
 const mockCreateTemplate = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
@@ -60,7 +61,7 @@ vi.mock('$lib/server/services/plan-limit-service', async () => {
 		checkChecklistTemplateLimit: async (
 			_tenantId: string,
 			_licenseStatus: string,
-			childId: number,
+			childId: ChildId,
 		) => {
 			const tier = await mockResolveFullPlanTier();
 			if (tier !== 'free') return { allowed: true, current: 0, max: null };
@@ -114,7 +115,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 	it('Free で 0/3 → createTemplate 呼び出し成功', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		mockRepoFindTemplatesByChild.mockResolvedValue([]);
-		mockCreateTemplate.mockResolvedValue({ id: 1 });
+		mockCreateTemplate.mockResolvedValue({ id: '1' });
 
 		const result = await actions.createTemplate!(
 			createEvent({ childId: '1', name: 'あさの準備', icon: '☀️', timeSlot: 'morning' }),
@@ -123,7 +124,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 		expect(result).toEqual({ success: true });
 		expect(mockCreateTemplate).toHaveBeenCalledWith(
 			// #1755 (#1709-A): kind 削除 — 持ち物純化
-			{ childId: 1, name: 'あさの準備', icon: '☀️', timeSlot: 'morning' },
+			{ childId: asChildId(1), name: 'あさの準備', icon: '☀️', timeSlot: 'morning' },
 			't-test',
 		);
 	});
@@ -131,9 +132,9 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 	it('Free で 3/3 到達 → 403 + upgradeRequired（PlanLimitError 形式 #787）', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		mockRepoFindTemplatesByChild.mockResolvedValue([
-			{ id: 1, name: 'a' },
-			{ id: 2, name: 'b' },
-			{ id: 3, name: 'c' },
+			{ id: '1', name: 'a' },
+			{ id: '2', name: 'b' },
+			{ id: '3', name: 'c' },
 		]);
 
 		const result = (await actions.createTemplate!(
@@ -157,7 +158,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 
 	it('Standard は常に通る (上限チェックが max=null で早期リターン)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
-		mockCreateTemplate.mockResolvedValue({ id: 1 });
+		mockCreateTemplate.mockResolvedValue({ id: '1' });
 
 		const result = await actions.createTemplate!(
 			createEvent(
@@ -172,7 +173,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 
 	it('Family も常に通る', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('family');
-		mockCreateTemplate.mockResolvedValue({ id: 1 });
+		mockCreateTemplate.mockResolvedValue({ id: '1' });
 
 		const result = await actions.createTemplate!(
 			createEvent(

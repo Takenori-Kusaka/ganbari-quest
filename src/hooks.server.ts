@@ -10,6 +10,9 @@ import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evalu
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { getOrInitDb } from '$lib/server/db/client';
+// #3620 AC-C2: DATA_SOURCE=pglite の非同期 init guard 用 (import は side-effect free、
+// PGlite instance は initPgliteConnection() 呼び出し時のみ生成)。
+import { initPgliteConnection } from '$lib/server/db/pglite/connection';
 import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
 	buildDemoNoopResponseBody,
@@ -154,6 +157,13 @@ export const handle: Handle = ({ event, resolve }) =>
 		// globalSetup 完了後) に DB が open されるため、Round 10 H-1 (schema cache
 		// invalidation 失敗) が構造的に解消される。
 		getOrInitDb();
+
+		// #3620 AC-C2 (ADR-0064 案 C): DATA_SOURCE=pglite の非同期 init guard。PGlite の open +
+		// migration は非同期のため、同期 getRepos() が ready singleton を使えるよう request 処理前に
+		// 接続を確立する。idempotent (2nd 以降は cached Promise 即 return) で他 backend では no-op。
+		if (env.DATA_SOURCE === 'pglite') {
+			await initPgliteConnection();
+		}
 
 		// #2994: operator-level PIN reset (PARENT_PIN_RESET env)。プロセスごと初回のみ実評価、
 		// 2 回目以降は同期 return。DB 接続確立 (getOrInitDb) 後である必要がある。

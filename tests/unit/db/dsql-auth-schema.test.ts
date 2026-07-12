@@ -55,10 +55,12 @@ describe('#N2-1: auth 5 表 PK 凍結 + 構造不変条件 (§6.6 / spike#3,#6)'
 		const { AUTH_PK_MANIFEST } = await import('../../../src/lib/server/db/pk-freeze-manifest');
 		const frozen = parseAuthPkTable();
 
-		// parser 空振り防止: 5 表が必ず抽出される。
+		// parser 空振り防止: auth 5 表 + inquiries (#3612、同じ「family_id 先頭でない例外」class) が
+		// 必ず抽出される。
 		expect(Object.keys(frozen).sort()).toEqual([
 			'consents',
 			'families',
+			'inquiries',
 			'invites',
 			'memberships',
 			'users',

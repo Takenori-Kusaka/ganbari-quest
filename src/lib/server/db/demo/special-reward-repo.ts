@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo ISpecialRewardRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -10,7 +11,7 @@ export async function insertSpecialReward(
 	_tenantId: string,
 ): Promise<SpecialReward> {
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		grantedBy: input.grantedBy ?? null,
 		title: input.title,
@@ -27,7 +28,7 @@ export async function insertSpecialReward(
 }
 
 export async function findSpecialRewards(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<SpecialReward[]> {
 	// #2097 Phase B-7: marketplace reward-set 由来の pre-granted rewards を返す
@@ -35,7 +36,7 @@ export async function findSpecialRewards(
 }
 
 export async function findUnshownReward(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
 	// #2097 Phase B-5a: marketplace 由来 rewards のうち shownAt=null の最初の 1 件を返す
@@ -45,8 +46,8 @@ export async function findUnshownReward(
 }
 
 export async function markRewardShown(
-	_childId: number,
-	_rewardId: number,
+	_childId: ChildId,
+	_rewardId: string,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
 	// Stateless: fixture を mutate せず success として undefined (sqlite repo の returning().get()
@@ -62,8 +63,8 @@ export async function markRewardShown(
  * (UI 側は demo フラグで no-op を明示するため成功偽装しない)。
  */
 export async function updateSpecialReward(
-	_childId: number,
-	_rewardId: number,
+	_childId: ChildId,
+	_rewardId: string,
 	_updates: UpdateSpecialRewardInput,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
@@ -75,8 +76,8 @@ export async function updateSpecialReward(
  * sqlite repo の「該当行なし → false」と整合させ false を返す。
  */
 export async function deleteSpecialReward(
-	_childId: number,
-	_rewardId: number,
+	_childId: ChildId,
+	_rewardId: string,
 	_tenantId: string,
 ): Promise<boolean> {
 	return false;

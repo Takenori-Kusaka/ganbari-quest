@@ -1,4 +1,5 @@
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findWeekEvaluation, hasDecayRunToday } from '$lib/server/db/evaluation-repo';
 import { logger } from '$lib/server/logger';
@@ -14,7 +15,7 @@ function todayStr(): string {
 	return todayDateJST();
 }
 
-async function ensureStatusUpToDate(childId: number, tenantId: string) {
+async function ensureStatusUpToDate(childId: ChildId, tenantId: string) {
 	const today = todayStr();
 
 	if (!(await hasDecayRunToday(childId, today, tenantId))) {

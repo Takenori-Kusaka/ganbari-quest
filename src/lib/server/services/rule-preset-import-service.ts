@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/rule-preset-import-service.ts
 //
 // @deprecated Issue #2368 / EPIC #2362 P3 / ADR-0052:
@@ -112,7 +113,7 @@ export async function previewRulePresetImport(
 	presetIcon: string,
 	payload: RulePresetPayload,
 	tenantId: string,
-	childId?: number,
+	childId?: ChildId,
 ): Promise<RulePresetImportPreview> {
 	warnDeprecated('previewRulePresetImport');
 	const { rulePresetStrategy } = await import(
@@ -126,7 +127,7 @@ export async function previewRulePresetImport(
 
 export interface ImportRulePresetOptions {
 	/** exchange ruleType の取込先 子供 ID。bonus / penalty / special では使わない。 */
-	childId?: number;
+	childId?: ChildId;
 }
 
 /**

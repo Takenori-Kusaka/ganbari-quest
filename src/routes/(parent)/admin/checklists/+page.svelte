@@ -2,6 +2,7 @@
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay } from '$lib/domain/errors';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
@@ -20,7 +21,6 @@ import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChe
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
-import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog, {
@@ -47,11 +47,11 @@ let { data, form } = $props();
 //   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
 //   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
 //   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
-let childIdOverride = $state<number | undefined>(undefined);
+let childIdOverride = $state<ChildId | undefined>(undefined);
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
@@ -79,7 +79,7 @@ const hasSearchActive = $derived(searchQuery.trim().length > 0);
 // #3098: 兄弟共通化の「別の子から copy」(= その子の配信 template を選択中 child にも配信)。
 //   activity の copyFromChild と同型 (assignments 追加なので template 重複作成は発生しない)。
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 const canCopyFromChild = $derived(data.children.length >= 2);
 
 // #723: Free プランのテンプレート上限（UI ゲート用、per-child quota: 選択中 child の配信済み件数）。
@@ -91,7 +91,7 @@ const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
 // Add item dialog
 let addItemOpen = $state(false);
-let addItemTemplateId = $state(0);
+let addItemTemplateId = $state<string | null>(null);
 let itemName = $state('');
 let itemIcon = $state('🏫');
 let itemFrequency = $state('daily');
@@ -144,7 +144,7 @@ const TIME_SLOT_SELECT_OPTIONS = TIME_SLOT_OPTIONS.map((o) => ({
 	label: `${o.icon} ${o.label}`,
 }));
 
-function getTimeSlot(template: { id: number; timeSlot?: string }): string {
+function getTimeSlot(template: { id: string; timeSlot?: string }): string {
 	return template.timeSlot ?? 'anytime';
 }
 
@@ -168,11 +168,14 @@ const anyDialogOpen = $derived(
 //   (種類・順序) が一致することを E2E (admin-add-path-isomorphism.spec.ts) が assert する (AC3)。
 const addMenuItems = $derived<MenuItem[]>([
 	{
+		// EPIC #3533 §10.2.3: 上限到達時は disabled にせず locked-but-active にする
+		//   (完全 disabled は NN/G アンチパターン = dead-end 化)。lock マーカー付きで活性のまま残し、
+		//   選択でプラン画面へ遷移させる (制約詳細はプラン画面に一元化 / dropdown item は popover 不適)。
+		//   業界収束パターン (Figma/Zapier/汎用 Paywall): active item + lock マーカー + 選択で upgrade 導線。
 		id: 'manual',
 		label: ADMIN_CHECKLISTS_PAGE_LABELS.addManualLabel,
-		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addManualIcon,
-		disabled: atLimit,
-		onSelect: openAddTemplate,
+		icon: atLimit ? PLAN_GATE_LABELS.lockedItemIcon : ADMIN_CHECKLISTS_PAGE_LABELS.addManualIcon,
+		onSelect: atLimit ? goToPlanForLimit : openAddTemplate,
 	},
 	{
 		id: 'ai',
@@ -207,7 +210,7 @@ const addMenuItems = $derived<MenuItem[]>([
 		: []),
 ]);
 
-function openAddItem(templateId: number) {
+function openAddItem(templateId: string) {
 	if (anyDialogOpen) return;
 	addItemTemplateId = templateId;
 	itemName = '';
@@ -217,9 +220,17 @@ function openAddItem(templateId: number) {
 	addItemOpen = true;
 }
 
+// EPIC #3533 §10.2.3: 上限到達時の manual 追加は locked-but-active。選択でプラン画面へ誘導する
+//   (画面内に quota カウンタ / 個別 CTA を持たず、制約詳細はプラン画面に一元化 P1)。
+function goToPlanForLimit() {
+	void goto('/admin/subscription');
+}
+
 function openAddTemplate() {
 	if (anyDialogOpen) return;
-	// #723: Free プランで上限到達時はダイアログを開かない（サーバー側でも 403 で拒否）
+	// #723: Free プランで上限到達時はダイアログを開かない（サーバー側でも 403 で拒否）。
+	//   EPIC #3533 で manual の onSelect は上限時 goToPlanForLimit に切替わるため通常ここには来ないが、
+	//   直接呼び出し経路の防御として guard を残す。
 	if (atLimit) return;
 	templateName = '';
 	// #1755 (#1709-A): kind 削除 — 持ち物純化、初期アイコンは持ち物デフォルト 🎒
@@ -309,7 +320,7 @@ async function handleCopyFromChild() {
 }
 
 // #3098: 各 child に配信済みの template 件数 (copy dialog の選択肢補助表示用)。
-function assignedCountForChild(childId: number): number {
+function assignedCountForChild(childId: ChildId): number {
 	return data.familyTemplates.filter((t) => t.assignedChildIds.includes(childId)).length;
 }
 
@@ -366,8 +377,8 @@ let isImporting = $state(false);
 
 // ChecklistDistributionDialog (template 別の配信先 children 設定)
 let showDistributionDialog = $state(false);
-let distributionTemplateId = $state<number | null>(null);
-let distributionVisibility = $state<Record<number, boolean>>({});
+let distributionTemplateId = $state<string | null>(null);
+let distributionVisibility = $state<Record<string, boolean>>({});
 
 // 「ヘルプ」dialog
 let helpDialogOpen = $state(false);
@@ -563,7 +574,7 @@ async function handleRestoreConfirm() {
 }
 
 // エクスポート — テンプレートを選択して v2 envelope JSON でダウンロード
-function exportTemplate(templateId: number) {
+function exportTemplate(templateId: string) {
 	const a = document.createElement('a');
 	a.href = `/api/v1/checklists/export?templateId=${templateId}`;
 	a.download = 'checklist-export.json';
@@ -579,7 +590,7 @@ function exportTemplate(templateId: number) {
 // `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
 // が返り JSON parse 失敗する。公式 enhance と同じ header を付与 + `deserialize()` で
 // 正しい ActionResult を取得する。
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;
@@ -692,10 +703,10 @@ function handleChildSelectionCancel() {
 }
 
 // ChecklistDistributionDialog open: 既存配信先で visibility を初期化
-function openDistributionDialog(template: { id: number; assignedChildIds: readonly number[] }) {
+function openDistributionDialog(template: { id: string; assignedChildIds: readonly ChildId[] }) {
 	distributionTemplateId = template.id;
 	const assignedSet = new Set(template.assignedChildIds);
-	const initial: Record<number, boolean> = {};
+	const initial: Record<string, boolean> = {};
 	for (const c of data.children) {
 		initial[c.id] = assignedSet.has(c.id);
 	}
@@ -708,7 +719,7 @@ function closeDistributionDialog() {
 	distributionTemplateId = null;
 }
 
-function toggleVisibility(childId: number, visible: boolean) {
+function toggleVisibility(childId: ChildId, visible: boolean) {
 	distributionVisibility = { ...distributionVisibility, [childId]: visible };
 }
 
@@ -757,7 +768,7 @@ async function saveDistribution() {
 	await invalidateAll();
 }
 
-function getChildName(childId: number): string {
+function getChildName(childId: ChildId): string {
 	return data.children.find((c) => c.id === childId)?.nickname ?? `#${childId}`;
 }
 </script>
@@ -787,11 +798,6 @@ function getChildName(childId: number): string {
 					ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
 					testid="checklists-overflow-menu"
 				/>
-			{/snippet}
-			{#snippet badge()}
-				{#if !data.isPremium}
-					<PremiumBadge size="sm" label={ADMIN_CHECKLISTS_PAGE_LABELS.premiumBadgeLabel} />
-				{/if}
 			{/snippet}
 		</AdminResourceHeader>
 	</div>
@@ -835,35 +841,11 @@ function getChildName(childId: number): string {
 		{/if}
 	{/if}
 
-	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — free プラン上限の誘導を正準スロットに固定配置。
-	     旧: 一覧の下 (templates 描画後) にあったため activities / rewards (slot 4) と配置がズレていた。 -->
-	{#if !data.isPremium && checklistMax !== null}
-		<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm" data-testid="admin-checklists-plan-banner">
-			<div class="flex items-center justify-between gap-2">
-				<div class="flex items-center gap-2">
-					<span class="text-base">📋</span>
-					<span class="text-[var(--color-text-primary)]">
-						{#if atLimit}
-							{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
-						{:else}
-							{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
-						{/if}
-					</span>
-				</div>
-				<a
-					href="/pricing"
-					class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
-				>
-					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
-				</a>
-			</div>
-			{#if atLimit}
-				<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
-					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
-				</p>
-			{/if}
-		</div>
-	{/if}
+	<!-- EPIC #3533 (§10.2 P1/P3): 旧「プラン系バナー (slot 4、quota カウンタ + アップグレード CTA)」を撤去。
+	     同一の Free 上限制限が 1 画面に 4 表現 (badge / quota バナー / atLimit 文言 / action-message) で散在
+	     していた根本原因への対処。制約詳細・アップグレード導線はプラン画面 (/admin/subscription) に一元化し、
+	     機能画面側は「+ 追加」dropdown の manual 項目を locked-but-active (lock マーカー + 選択でプラン画面遷移)
+	     に留める。上限到達時の弾き返し文言は slot 6 の action-message (サーバー 403 の保険) が担う。 -->
 
 	<!-- #3097 (EPIC #3096): 検索 (slot 5、一覧の直上) — activities / rewards と同型に追加。 -->
 	<section data-testid="admin-checklists-search">

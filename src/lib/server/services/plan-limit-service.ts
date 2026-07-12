@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/plan-limit-service.ts
 // プラン別機能制限サービス (#0196, #0269, #0270)
 
@@ -192,7 +193,7 @@ export function applyRetentionFilter(
  */
 export async function hasArchivedData(
 	tenantId: string,
-	childId: number,
+	childId: ChildId,
 	tier: PlanTier,
 ): Promise<boolean> {
 	const cutoff = getHistoryCutoffDate(tier);
@@ -273,7 +274,7 @@ export async function checkActivityLimit(
 export async function checkChecklistTemplateLimit(
 	tenantId: string,
 	licenseStatus: string,
-	childId: number,
+	childId: ChildId,
 ): Promise<{ allowed: boolean; current: number; max: number | null }> {
 	const limits = getPlanLimits(await resolveFullPlanTier(tenantId, licenseStatus));
 	if (limits.maxChecklistTemplates === null) {

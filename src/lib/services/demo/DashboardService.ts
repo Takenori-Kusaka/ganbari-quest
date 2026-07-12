@@ -35,6 +35,7 @@
  *     sessionStorage への persist は skip する (best-effort)。
  */
 
+import type { ActivityId } from '$lib/domain/ids';
 import type {
 	CancelRecordInput,
 	CancelRecordResult,
@@ -91,14 +92,14 @@ export class DemoDashboardService implements ChildDashboardService {
 	 * 本サービスインスタンス内で保持する。ページ navigation で reset しても
 	 * 良い (demo は best-effort)。
 	 */
-	#pinnedActivities = new Set<number>();
+	#pinnedActivities = new Set<ActivityId>();
 
 	/**
 	 * 直近の record logId。`cancelRecord(input)` の `logId` は demo では
 	 * 検証用途で受け取るのみで、実際は最後の record をキャンセル動作で
 	 * decrement する (demo は activity_log 個別管理を持たない)。
 	 */
-	#lastRecordedActivityId: number | null = null;
+	#lastRecordedActivityId: ActivityId | null = null;
 
 	#loginBonusClaimedToday = false;
 
@@ -160,7 +161,7 @@ export class DemoDashboardService implements ChildDashboardService {
 		// UI 側で `activityName` を補完したい場合は pageData から引く想定。
 		return Promise.resolve({
 			ok: true,
-			logId: Date.now(), // demo 限定の合成 ID (cancelRecord 側は無視)
+			logId: String(Date.now()), // demo 限定の合成 ID (cancelRecord 側は無視)
 			activityName: 'デモ活動',
 			totalPoints: DEMO_RECORD_TOTAL_POINTS_BASE,
 			streakDays: DEMO_RECORD_STREAK_DAYS,

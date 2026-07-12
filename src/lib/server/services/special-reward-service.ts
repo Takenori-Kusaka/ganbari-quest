@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
 import { countActiveActivityLogs } from '$lib/server/db/activity-repo';
@@ -28,8 +29,8 @@ const AUTO_REWARD_CATEGORY = 'auto_milestone';
 // --- 型定義 ---
 
 export interface SpecialRewardResult {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	title: string;
 	description: string | null;
 	points: number;
@@ -58,8 +59,8 @@ export interface RewardTemplate {
 }
 
 interface GrantInput {
-	childId: number;
-	grantedBy?: number | null;
+	childId: ChildId;
+	grantedBy?: string | null;
 	title: string;
 	description?: string;
 	points: number;
@@ -75,8 +76,8 @@ const TEMPLATES_KEY = 'reward_templates';
 
 /** DB の報酬レコードを SpecialRewardResult にマッピング */
 function toRewardResult(row: {
-	id: number;
-	childId: number;
+	id: string;
+	childId: ChildId;
 	title: string;
 	description: string | null;
 	points: number;
@@ -163,8 +164,8 @@ export interface UpdateRewardInput {
  * で表示・控除されるため、編集は処理待ちの申請に波及しない (UI 側で note 明示)。
  */
 export async function updateReward(
-	rewardId: number,
-	childId: number,
+	rewardId: string,
+	childId: ChildId,
 	data: UpdateRewardInput,
 	tenantId: string,
 ): Promise<SpecialRewardResult | { error: 'NOT_FOUND'; target: string }> {
@@ -201,8 +202,8 @@ export type DeleteRewardResult =
  * 削除時は当該 reward の解決済交換申請履歴行も削除される (repo 層、FK 整合)。
  */
 export async function deleteReward(
-	rewardId: number,
-	childId: number,
+	rewardId: string,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<DeleteRewardResult> {
 	// 所有権検証: 指定 child に紐付く reward であること (IDOR 防御)
@@ -228,7 +229,7 @@ export async function deleteReward(
 // --- 履歴取得 ---
 
 export async function getChildSpecialRewards(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<{
 	rewards: SpecialRewardResult[];
@@ -248,7 +249,7 @@ export async function getChildSpecialRewards(
 // --- 未表示報酬取得 ---
 
 export async function getUnshownReward(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SpecialRewardResult | null> {
 	const row = await findUnshownReward(childId, tenantId);
@@ -260,8 +261,8 @@ export async function getUnshownReward(
 
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら false。 */
 export async function markRewardShown(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<boolean> {
 	const result = await markRewardShownRepo(childId, rewardId, tenantId);
@@ -294,7 +295,7 @@ export async function saveRewardTemplates(
  * 変動比率（スロットマシン的ランダム）ではなく、子供が「あとN回」と予測できる固定間隔。
  */
 export async function checkAndGrantFixedIntervalReward(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SpecialRewardResult | null> {
 	const totalRecords = await countActiveActivityLogs(childId, tenantId);
@@ -340,7 +341,7 @@ export async function checkAndGrantFixedIntervalReward(
  * 子供の特別報酬進捗を取得する（UI表示用: 「あとN回でとくべつごほうび！」）
  */
 export async function getSpecialRewardProgress(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SpecialRewardProgress> {
 	const totalRecords = await countActiveActivityLogs(childId, tenantId);

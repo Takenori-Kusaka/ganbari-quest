@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	type GradeLevel,
 	type Source,
@@ -61,7 +62,7 @@ import type {
 
 export interface CreateActivityInput {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	ageMin: number | null;
@@ -80,7 +81,7 @@ export interface CreateActivityInput {
 
 export interface ActivityFilter {
 	childAge?: number;
-	categoryId?: number;
+	categoryId?: CategoryId;
 	includeHidden?: boolean;
 }
 
@@ -125,9 +126,9 @@ async function _collectAllChildActivities(
  * 大規模化時は ChildActivity に tenant index を追加し直接 join するよう refactor 可能。
  */
 async function _resolveChildIdForActivity(
-	id: number,
+	id: ActivityId,
 	tenantId: string,
-): Promise<number | undefined> {
+): Promise<ChildId | undefined> {
 	const children = await findAllChildren(tenantId);
 	const repos = getRepos();
 	for (const child of children) {
@@ -147,7 +148,7 @@ async function _resolveChildIdForActivity(
  */
 function _toChildActivityInsertInput(
 	input: CreateActivityInput,
-	childId: number,
+	childId: ChildId,
 ): InsertChildActivityInput {
 	return {
 		childId,
@@ -224,7 +225,7 @@ export async function getActivities(tenantId: string, filter?: ActivityFilter) {
  *               signature 互換のため受け取るが filter 適用はしない。
  */
 export async function getChildActivities(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	filter?: ActivityFilter,
 ): Promise<ChildActivity[]> {
@@ -239,7 +240,7 @@ export async function getChildActivities(
 	return activities;
 }
 
-export async function getActivityById(id: number, tenantId: string) {
+export async function getActivityById(id: ActivityId, tenantId: string) {
 	const childId = await _resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;
 	return getRepos().childActivity.findActivityById(id, childId, tenantId);
@@ -248,7 +249,7 @@ export async function getActivityById(id: number, tenantId: string) {
 export async function createActivity(
 	input: CreateActivityInput,
 	tenantId: string,
-	childId?: number,
+	childId?: ChildId,
 ) {
 	// #2902 Phase A: 作成先 child を明示できる optional 第 3 引数 childId を追加。
 	// admin/activities は選択中タブの child に作成する (single-axis 表示と一致し、
@@ -272,7 +273,7 @@ export async function createActivity(
 }
 
 export async function updateActivity(
-	id: number,
+	id: ActivityId,
 	input: Partial<CreateActivityInput> & { isMainQuest?: number },
 	tenantId: string,
 ) {
@@ -286,27 +287,27 @@ export async function updateActivity(
 	);
 }
 
-export async function setActivityVisibility(id: number, visible: boolean, tenantId: string) {
+export async function setActivityVisibility(id: ActivityId, visible: boolean, tenantId: string) {
 	const childId = await _resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;
 	return getRepos().childActivity.setActivityVisibility(id, childId, visible, tenantId);
 }
 
-async function _deleteActivity(id: number, tenantId: string) {
+async function _deleteActivity(id: ActivityId, tenantId: string) {
 	const childId = await _resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;
 	return getRepos().childActivity.deleteActivity(id, childId, tenantId);
 }
 
-export async function hasActivityLogs(activityId: number, tenantId: string): Promise<boolean> {
+export async function hasActivityLogs(activityId: ActivityId, tenantId: string): Promise<boolean> {
 	return await hasActivityLogsRepo(activityId, tenantId);
 }
 
-export async function getActivityLogCounts(tenantId: string): Promise<Record<number, number>> {
+export async function getActivityLogCounts(tenantId: string): Promise<Record<string, number>> {
 	return await getActivityLogCountsRepo(tenantId);
 }
 
-export async function deleteActivityWithCleanup(id: number, tenantId: string) {
+export async function deleteActivityWithCleanup(id: ActivityId, tenantId: string) {
 	await deleteDailyMissionsByActivity(id, tenantId);
 	return await _deleteActivity(id, tenantId);
 }
@@ -314,7 +315,7 @@ export async function deleteActivityWithCleanup(id: number, tenantId: string) {
 export const MAIN_QUEST_MAX = 3;
 
 export async function setMainQuest(
-	id: number,
+	id: ActivityId,
 	enabled: boolean,
 	tenantId: string,
 ): Promise<{ success: true } | { error: string }> {
@@ -363,13 +364,13 @@ export async function getMainQuestCount(tenantId: string): Promise<number> {
  *          activities: must 活動 + 今日記録済みフラグ
  */
 export async function getMustActivitiesToday(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<{
 	logged: number;
 	total: number;
-	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+	activities: Array<{ id: ActivityId; name: string; icon: string; loggedToday: number }>;
 }> {
 	return await findMustActivitiesWithToday(childId, today, tenantId);
 }
@@ -432,7 +433,7 @@ export const MUST_COMPLETION_BONUS_TYPE = 'must_completion_bonus';
  * - `activities` — must 活動 + 今日記録済みフラグ（呼び出し側で UI 表示に使う場合）
  */
 export async function tryGrantMustCompletionBonus(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	uiMode: UiMode,
 	tenantId: string,
@@ -442,7 +443,7 @@ export async function tryGrantMustCompletionBonus(
 	allComplete: boolean;
 	granted: boolean;
 	points: number;
-	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+	activities: Array<{ id: ActivityId; name: string; icon: string; loggedToday: number }>;
 }> {
 	const { logged, total, activities } = await getMustActivitiesToday(childId, today, tenantId);
 	const allComplete = total > 0 && logged === total;

@@ -1,5 +1,6 @@
 import { eq, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
@@ -22,6 +23,9 @@ import {
 } from '../schema';
 
 type ChildRow = typeof children.$inferSelect;
+type Child = import('../types').Child;
+
+const toChild = (r: ChildRow): Child => ({ ...r, id: asChildId(r.id) });
 
 /**
  * SQLite child row を最新スキーマに hydrate し、必要なら DB に書き戻す。
@@ -80,19 +84,23 @@ export async function findAllChildren(_tenantId: string) {
 		.from(children)
 		.where(or(eq(children.isArchived, 0), isNull(children.isArchived)))
 		.all();
-	return rows.map(hydrateChildRow);
+	return rows.map((r) => toChild(hydrateChildRow(r)));
 }
 
-export async function findChildById(id: number, _tenantId: string) {
-	const row = db.select().from(children).where(eq(children.id, id)).get();
-	if (!row) return row;
-	return hydrateChildRow(row);
+export async function findChildById(id: ChildId, _tenantId: string) {
+	const row = db
+		.select()
+		.from(children)
+		.where(eq(children.id, Number(id)))
+		.get();
+	if (!row) return undefined;
+	return toChild(hydrateChildRow(row));
 }
 
 export async function findChildByUserId(userId: string, _tenantId: string) {
 	const row = db.select().from(children).where(eq(children.userId, userId)).get();
-	if (!row) return row;
-	return hydrateChildRow(row);
+	if (!row) return undefined;
+	return toChild(hydrateChildRow(row));
 }
 
 export async function insertChild(
@@ -105,7 +113,7 @@ export async function insertChild(
 	},
 	_tenantId: string,
 ) {
-	return db
+	const row = db
 		.insert(children)
 		.values({
 			nickname: input.nickname,
@@ -117,10 +125,11 @@ export async function insertChild(
 		})
 		.returning()
 		.get();
+	return toChild(row);
 }
 
 export async function updateChild(
-	id: number,
+	id: ChildId,
 	input: {
 		nickname?: string;
 		age?: number;
@@ -134,15 +143,17 @@ export async function updateChild(
 	},
 	_tenantId: string,
 ) {
-	return db
+	const row = db
 		.update(children)
 		.set({ ...input, updatedAt: new Date().toISOString() })
-		.where(eq(children.id, id))
+		.where(eq(children.id, Number(id)))
 		.returning()
 		.get();
+	return row ? toChild(row) : undefined;
 }
 
-export async function deleteChild(id: number, _tenantId: string) {
+export async function deleteChild(childIdArg: ChildId, _tenantId: string) {
+	const id = Number(childIdArg);
 	// トランザクションで関連データをすべて削除
 	return db.transaction((tx) => {
 		tx.delete(checklistOverrides).where(eq(checklistOverrides.childId, id)).run();
@@ -161,9 +172,10 @@ export async function deleteChild(id: number, _tenantId: string) {
 }
 
 export async function resetChildProgressData(
-	id: number,
+	childIdArg: ChildId,
 	_tenantId: string,
 ): Promise<ChildProgressResetCounts> {
+	const id = Number(childIdArg);
 	// #3152: 子供 1 人分の進捗データを削除 (child 行は残す)。
 	// 削除対象 4 テーブルはトランザクションで一括削除する。
 	// #3184 item2: 削除件数を診断用に返す。SQLite は POINT# 行集計のため pointBalance は常に 0。
@@ -181,12 +193,12 @@ export async function resetChildProgressData(
 // Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
 // `ARCHIVED_REASONS` SSOT integration)。schema.ts L45 の enum 制約と同期で型安全担保。
 
-export async function archiveChildren(ids: number[], reason: ArchivedReason, _tenantId: string) {
+export async function archiveChildren(ids: ChildId[], reason: ArchivedReason, _tenantId: string) {
 	if (ids.length === 0) return;
 	for (const id of ids) {
 		db.update(children)
 			.set({ isArchived: 1, archivedReason: reason, updatedAt: new Date().toISOString() })
-			.where(eq(children.id, id))
+			.where(eq(children.id, Number(id)))
 			.run();
 	}
 }
@@ -200,5 +212,5 @@ export async function restoreArchivedChildren(reason: ArchivedReason, _tenantId:
 
 export async function findArchivedChildren(_tenantId: string) {
 	const rows = db.select().from(children).where(eq(children.isArchived, 1)).all();
-	return rows.map(hydrateChildRow);
+	return rows.map((r) => toChild(hydrateChildRow(r)));
 }

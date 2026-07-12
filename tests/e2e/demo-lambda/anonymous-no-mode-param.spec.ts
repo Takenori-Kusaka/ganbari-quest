@@ -20,6 +20,7 @@
 // 全 PASS することで、`?mode=demo` 不要原則の回帰を防ぐ。
 
 import { expect, test } from '@playwright/test';
+import { asActivityId, asChildId } from '../../../src/lib/domain/ids';
 
 test.describe('#2097 AC11: demo Lambda は `?mode=demo` 不要で動作', () => {
 	test('AC11-1: `?mode=demo` なしで / → /switch に到達 + 子供 fixture が見える', async ({
@@ -53,7 +54,7 @@ test.describe('#2097 AC11: demo Lambda は `?mode=demo` 不要で動作', () => 
 		// 子供 fixture (903) の `/api/v1/activities/log` を query なしで叩く
 		// hooks.server.ts §shouldReturnDemoNoop が env (DATA_SOURCE=demo) 駆動で no-op 化する
 		const res = await request.post('/api/v1/activities/log', {
-			data: { activityId: 1, childId: 903 },
+			data: { activityId: asActivityId(1), childId: asChildId(903) },
 			failOnStatusCode: false,
 		});
 

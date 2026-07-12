@@ -444,6 +444,15 @@ export const PLAN_GATE_LABELS = {
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 
 	/**
+	 * "メンバー上限（{max}人）に達しています。プランをアップグレードしてください。"
+	 *
+	 * 家族メンバー招待の quota 上限 (maxFamilyMembers) 到達時の 403 文言 (#1111 / EPIC #3533 §10.7)。
+	 * 旧 `api/v1/admin/invites/+server.ts` 内ハードコードを SSOT 経由に是正 (ADR-0045 / P5)。
+	 */
+	memberLimitReached: (max: number | string) =>
+		`メンバー上限（${max}人）に達しています。プランをアップグレードしてください。`,
+
+	/**
 	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
 	 *
 	 * PlanLimitError (`upgradeUrl='/admin/subscription'`) を受領した admin 取込フローで、
@@ -451,6 +460,16 @@ export const PLAN_GATE_LABELS = {
 	 * 「どこへ行けば解消できるか」を必ず提示する。
 	 */
 	upgradeLinkLabel: `${UPGRADE_TERMS.actionVerb}する`,
+
+	/**
+	 * dropdown / メニュー内の上限到達 add 項目に付ける lock マーカーアイコン (EPIC #3533 §10.2.3)。
+	 *
+	 * 上限到達時の add 系メニュー項目は完全 disabled にせず locked-but-active にし
+	 * (NN/G: disabled + 説明なしは dead-end アンチパターン)、本アイコンで「制約あり」を最小表現する。
+	 * 選択でプラン画面へ遷移させ、制約詳細はプラン画面に一元化する (P1)。
+	 * standalone button / section の quota ゲートは FeatureGate の popover が担う (§10.2.1)。
+	 */
+	lockedItemIcon: '🔒',
 } as const;
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
@@ -4178,7 +4197,7 @@ export const REWARDS_LABELS = {
 	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
 	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
 	sectionTitle: '🎁 ごほうび管理',
-	premiumBadge: '有料限定',
+	// EPIC #3533: 旧 premiumBadge (ヘッダー「有料限定」バッジ) は §10.2 P3/P4 で撤去。
 	tabRewards: 'ごほうび',
 	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
 	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
@@ -4187,10 +4206,8 @@ export const REWARDS_LABELS = {
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',
 	pageDescHintSuffix: 'から送れます',
-	upgradeBannerTitle: 'ごほうび管理はスタンダードプラン以上の機能です',
-	upgradeBannerDesc:
-		'アップグレードすると、子供 shop に並べるごほうびを自由に作成・編集・削除できます。',
-	upgradeButton: 'プランを確認する',
+	// EPIC #3533: 旧 free 向けアップグレード誘導バナー文言 (upgradeBannerTitle/Desc/Button) は
+	//   §10.2 P1/P3 で撤去 (画面内 CTA バナーを廃止、制約詳細はプラン画面へ一元化)。
 	selectChildTitle: 'こどもを選択',
 	selectTemplateTitle: 'プリセットを選択',
 	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,
@@ -5396,11 +5413,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	deleteButton: '削除',
 	timeSlotLabel: '時間帯:',
 	addItemButton: '+ アイテム追加',
-	limitReachedText: (max: number | string) => `フリープランの上限 (${max}個) に達しました`,
-	limitCountText: (current: number | string, max: number | string) =>
-		`チェックリスト ${current} / ${max}`,
-	upgradeLink: 'アップグレード →',
-	upgradeDesc: 'スタンダード以上にアップグレードすると無制限に作成できます。',
+	// EPIC #3533: 旧 free 上限バナー文言 (limitReachedText / limitCountText / upgradeLink / upgradeDesc) は
+	//   §10.2 P1/P3 に基づき撤去 (画面内 quota カウンタ・個別アップセル CTA を廃止、制約詳細はプラン画面へ一元化)。
 	addTemplateButton: '+ テンプレート作成',
 	addOverrideButton: '📅 ワンオフ追加',
 	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
@@ -5427,7 +5441,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addButton: '追加',
 	addItemDialogTitle: 'アイテム追加',
 	overrideDialogTitle: 'ワンオフ追加/除外',
-	premiumBadgeLabel: 'スタンダード以上',
+	// EPIC #3533: 旧 premiumBadgeLabel (ヘッダー「スタンダード以上」バッジ) は §10.2 P3/P4 で撤去
+	//   (tier 表示は header に一本化、画面内の個別プランバッジは非採用)。
 	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション (#2272: UI ラベルは TEMPLATE_TERMS atom 経由)
 	marketplaceSectionTitle: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.userFacing}から一括追加`,
 	marketplaceSectionDesc:

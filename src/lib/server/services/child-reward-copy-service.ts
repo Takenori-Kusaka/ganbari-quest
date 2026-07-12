@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/child-reward-copy-service.ts
 // 兄弟共通化 UX (#2362 PR-4、ADR-0055、User §3 reward use case R6)
 //
@@ -25,18 +26,18 @@ export interface CopyChildRewardsContext {
 	/** テナント ID (必須、tenant isolation 強制) */
 	tenantId: string;
 	/** コピー元 child */
-	sourceChildId: number;
+	sourceChildId: ChildId;
 	/** コピー先 child 配列 (1 件 = 1 child へ複製、複数指定で全員に同時複製) */
-	targetChildIds: readonly number[];
+	targetChildIds: readonly ChildId[];
 }
 
 export interface CopyChildRewardsResult {
 	/** 各 target child に作成された SpecialReward 件数の合計 */
 	totalCopied: number;
 	/** target child 別のコピー件数 (UI feedback 用) */
-	byTargetChild: Record<number, number>;
+	byTargetChild: Record<string, number>;
 	/** 個別エラー (target child 単位、tenant 違反 / 親が存在しない等) */
-	errors: { targetChildId: number; message: string }[];
+	errors: { targetChildId: ChildId; message: string }[];
 }
 
 /**
@@ -54,8 +55,8 @@ export async function copyChildRewardsToSiblings(
 ): Promise<CopyChildRewardsResult> {
 	const { tenantId, sourceChildId, targetChildIds } = ctx;
 
-	const byTargetChild: Record<number, number> = {};
-	const errors: { targetChildId: number; message: string }[] = [];
+	const byTargetChild: Record<string, number> = {};
+	const errors: { targetChildId: ChildId; message: string }[] = [];
 	let totalCopied = 0;
 
 	// 同一 child への self-copy は明示的に拒否 (誤操作防止)
@@ -137,8 +138,8 @@ export async function copyChildRewardsToSiblings(
  */
 export async function copyChildRewardsToSibling(
 	tenantId: string,
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 ): Promise<number> {
 	if (sourceChildId === targetChildId) {
 		throw new Error('同じお子さまにはコピーできません');

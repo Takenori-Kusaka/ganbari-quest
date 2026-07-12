@@ -104,17 +104,19 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('ai-suggest-upgrade-cta')).toBeVisible();
 	});
 
-	test('/admin/rewards — アップグレードバナーが表示される', async ({ page }) => {
-		// plan-gated-features.spec.ts でも検証済みだが、
-		// free プランの正面検証パッケージとしてここでも押さえる
+	test('/admin/rewards — manual 追加が locked-but-active + 常設バナーなし', async ({ page }) => {
+		// EPIC #3533 §10.2.3: 旧 rewards-upgrade-banner 撤去。free の gate は「+ 追加」manual の
+		//   locked-but-active (lock マーカー + 選択でプラン画面遷移) で表現される。
+		//   plan-gated-features.spec.ts でも検証済みだが free の正面検証パッケージとしてここでも押さえる。
 		await page.goto('/admin/rewards');
-		await expect(page.getByTestId('rewards-upgrade-banner')).toBeVisible();
-		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
+		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+		await page.getByTestId('rewards-add-menu').click();
+		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
 	// #2316: 旧 /admin/messages 「ひとことメッセージ」family-only ゲートテストは削除。
 	//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
 	//   メッセージ機能は応援機能の付随要素として全プラン解放された。
 	//   ADR-0006 (assertion erosion ban) に従い skip ではなく削除。
-	//   free プランのゲート確認は /admin/rewards rewards-upgrade-banner で担保。
+	//   free プランのゲート確認は /admin/rewards の manual locked-but-active (§10.2.3) で担保。
 });

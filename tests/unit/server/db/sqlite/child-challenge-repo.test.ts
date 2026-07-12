@@ -25,6 +25,7 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	claimReward,
 	copyAcrossChildren,
@@ -64,7 +65,7 @@ function seedChildren() {
 }
 
 function buildInput(
-	overrides: Partial<InsertChildChallengeInput> & { childId: number },
+	overrides: Partial<InsertChildChallengeInput> & { childId: ChildId },
 ): InsertChildChallengeInput {
 	return {
 		childId: overrides.childId,
@@ -87,9 +88,9 @@ describe('sqlite/child-challenge-repo', () => {
 	});
 
 	it('insert + findById で 1 件取得できる', async () => {
-		const inserted = await insert(buildInput({ childId: 1 }), TENANT);
-		expect(inserted.id).toBeGreaterThan(0);
-		expect(inserted.childId).toBe(1);
+		const inserted = await insert(buildInput({ childId: asChildId(1) }), TENANT);
+		expect(Number(inserted.id)).toBeGreaterThan(0);
+		expect(inserted.childId).toBe('1');
 		expect(inserted.currentValue).toBe(0);
 		expect(inserted.completed).toBe(0);
 
@@ -99,12 +100,12 @@ describe('sqlite/child-challenge-repo', () => {
 	});
 
 	it('findByChildId は child scope の instance のみ返す', async () => {
-		await insert(buildInput({ childId: 1, title: 'Aの' }), TENANT);
-		await insert(buildInput({ childId: 1, title: 'Bの' }), TENANT);
-		await insert(buildInput({ childId: 2, title: 'Cの' }), TENANT);
+		await insert(buildInput({ childId: asChildId(1), title: 'Aの' }), TENANT);
+		await insert(buildInput({ childId: asChildId(1), title: 'Bの' }), TENANT);
+		await insert(buildInput({ childId: asChildId(2), title: 'Cの' }), TENANT);
 
-		const child1 = await findByChildId(1, TENANT);
-		const child2 = await findByChildId(2, TENANT);
+		const child1 = await findByChildId(asChildId(1), TENANT);
+		const child2 = await findByChildId(asChildId(2), TENANT);
 		expect(child1.length).toBe(2);
 		expect(child2.length).toBe(1);
 		expect(child2[0]?.title).toBe('Cの');
@@ -112,29 +113,39 @@ describe('sqlite/child-challenge-repo', () => {
 
 	it('findActiveByChildId は today が start..end 範囲内かつ active のみ返す', async () => {
 		await insert(
-			buildInput({ childId: 1, startDate: '2026-05-20', endDate: '2026-05-30', title: 'active' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'active',
+			}),
 			TENANT,
 		);
 		await insert(
-			buildInput({ childId: 1, startDate: '2026-05-20', endDate: '2026-05-22', title: 'past' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-22',
+				title: 'past',
+			}),
 			TENANT,
 		);
-		const active = await findActiveByChildId(1, '2026-05-25', TENANT);
+		const active = await findActiveByChildId(asChildId(1), '2026-05-25', TENANT);
 		expect(active.length).toBe(1);
 		expect(active[0]?.title).toBe('active');
 	});
 
 	it('findAllByTenant は全 instance を返す', async () => {
-		await insert(buildInput({ childId: 1 }), TENANT);
-		await insert(buildInput({ childId: 2 }), TENANT);
+		await insert(buildInput({ childId: asChildId(1) }), TENANT);
+		await insert(buildInput({ childId: asChildId(2) }), TENANT);
 		const all = await findAllByTenant(TENANT);
 		expect(all.length).toBe(2);
 	});
 
 	it('insertBulk は複数 child に同時 insert', async () => {
 		const inputs = [
-			buildInput({ childId: 1, targetValue: 15 }),
-			buildInput({ childId: 2, targetValue: 25 }),
+			buildInput({ childId: asChildId(1), targetValue: 15 }),
+			buildInput({ childId: asChildId(2), targetValue: 25 }),
 		];
 		const created = await insertBulk(inputs, TENANT);
 		expect(created.length).toBe(2);
@@ -143,7 +154,7 @@ describe('sqlite/child-challenge-repo', () => {
 	});
 
 	it('updateProgress + markCompleted で 進捗が更新される', async () => {
-		const c = await insert(buildInput({ childId: 1, targetValue: 5 }), TENANT);
+		const c = await insert(buildInput({ childId: asChildId(1), targetValue: 5 }), TENANT);
 		await updateProgress(c.id, 3, TENANT);
 		const after = await findById(c.id, TENANT);
 		expect(after?.currentValue).toBe(3);
@@ -157,7 +168,7 @@ describe('sqlite/child-challenge-repo', () => {
 	});
 
 	it('deleteChallenge で 1 件削除', async () => {
-		const c = await insert(buildInput({ childId: 1 }), TENANT);
+		const c = await insert(buildInput({ childId: asChildId(1) }), TENANT);
 		await deleteChallenge(c.id, TENANT);
 		const found = await findById(c.id, TENANT);
 		expect(found).toBeUndefined();
@@ -165,14 +176,14 @@ describe('sqlite/child-challenge-repo', () => {
 
 	it('copyAcrossChildren で source → target に 進捗 reset で複製', async () => {
 		const src1 = await insert(
-			buildInput({ childId: 1, title: '兄弟チャレンジ A', sourceTemplateId: 'tmpl' }),
+			buildInput({ childId: asChildId(1), title: '兄弟チャレンジ A', sourceTemplateId: 'tmpl' }),
 			TENANT,
 		);
 		await updateProgress(src1.id, 3, TENANT); // source 側は進捗あり
 
-		const copied = await copyAcrossChildren(1, 2, TENANT);
+		const copied = await copyAcrossChildren(asChildId(1), asChildId(2), TENANT);
 		expect(copied.length).toBe(1);
-		expect(copied[0]?.childId).toBe(2);
+		expect(copied[0]?.childId).toBe('2');
 		expect(copied[0]?.title).toBe('兄弟チャレンジ A');
 		expect(copied[0]?.sourceTemplateId).toBe('tmpl'); // sourceTemplateId は維持
 		expect(copied[0]?.currentValue).toBe(0); // 進捗はリセット
@@ -183,12 +194,17 @@ describe('sqlite/child-challenge-repo', () => {
 	it('findActiveOrUnclaimedByChildId は active + 完成済かつ未請求の instance を返す', async () => {
 		// 3 種類の instance を投入: active / completed+unclaimed / completed+claimed
 		const activeOne = await insert(
-			buildInput({ childId: 1, startDate: '2026-05-20', endDate: '2026-05-30', title: 'active' }),
+			buildInput({
+				childId: asChildId(1),
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'active',
+			}),
 			TENANT,
 		);
 		const unclaimedCompleted = await insert(
 			buildInput({
-				childId: 1,
+				childId: asChildId(1),
 				startDate: '2026-05-20',
 				endDate: '2026-05-30',
 				title: 'unclaimed',
@@ -199,7 +215,7 @@ describe('sqlite/child-challenge-repo', () => {
 
 		const claimedCompleted = await insert(
 			buildInput({
-				childId: 1,
+				childId: asChildId(1),
 				startDate: '2026-05-20',
 				endDate: '2026-05-30',
 				title: 'claimed',
@@ -209,12 +225,12 @@ describe('sqlite/child-challenge-repo', () => {
 		await markCompleted(claimedCompleted.id, TENANT);
 		await claimReward(claimedCompleted.id, TENANT);
 
-		const result = await findActiveOrUnclaimedByChildId(1, '2026-05-25', TENANT);
+		const result = await findActiveOrUnclaimedByChildId(asChildId(1), '2026-05-25', TENANT);
 		const titles = result.map((r) => r.title).sort();
 		// active + unclaimed の 2 件のみ。claimed は除外
 		expect(titles).toEqual(['active', 'unclaimed']);
 		// 元の findActiveByChildId は active 1 件のみ返す (status=active filter)
-		const activeOnly = await findActiveByChildId(1, '2026-05-25', TENANT);
+		const activeOnly = await findActiveByChildId(asChildId(1), '2026-05-25', TENANT);
 		expect(activeOnly.length).toBe(1);
 		expect(activeOnly[0]?.title).toBe('active');
 		void activeOne; // ref
@@ -222,11 +238,11 @@ describe('sqlite/child-challenge-repo', () => {
 
 	it('cross-child scope: childId が異なる instance は別 row', async () => {
 		await insert(
-			buildInput({ childId: 1, title: '同じタイトル', sourceTemplateId: 'shared-1' }),
+			buildInput({ childId: asChildId(1), title: '同じタイトル', sourceTemplateId: 'shared-1' }),
 			TENANT,
 		);
 		await insert(
-			buildInput({ childId: 2, title: '同じタイトル', sourceTemplateId: 'shared-1' }),
+			buildInput({ childId: asChildId(2), title: '同じタイトル', sourceTemplateId: 'shared-1' }),
 			TENANT,
 		);
 		const all = await findAllByTenant(TENANT);
@@ -234,14 +250,14 @@ describe('sqlite/child-challenge-repo', () => {
 		// 同じ sourceTemplateId を持つ instance が異なる childId で 2 件存在 (兄弟連動の基盤)
 		const sharedInstances = all.filter((c) => c.sourceTemplateId === 'shared-1');
 		expect(sharedInstances.length).toBe(2);
-		expect(new Set(sharedInstances.map((c) => c.childId))).toEqual(new Set([1, 2]));
+		expect(new Set(sharedInstances.map((c) => c.childId))).toEqual(new Set(['1', '2']));
 	});
 
 	// #3333 (3): 条件付き UPDATE の原子性。better-sqlite3 の実 DB で「completed=1 && 未請求のみ flip し
 	// 変更行数を返す」を検証する。並行二重 claim でも 2 回目は 0 行 → service が付与をスキップする根拠。
 	describe('claimReward — 条件付き原子化 (#3333)', () => {
 		it('completed=1 && 未請求 → 1 回目は 1 行 flip、2 回目は 0 行 (二重 flip しない)', async () => {
-			const c = await insert(buildInput({ childId: 1, title: 'claim-atomic' }), TENANT);
+			const c = await insert(buildInput({ childId: asChildId(1), title: 'claim-atomic' }), TENANT);
 			await markCompleted(c.id, TENANT);
 
 			const first = await claimReward(c.id, TENANT);
@@ -255,7 +271,7 @@ describe('sqlite/child-challenge-repo', () => {
 		});
 
 		it('未完了 (completed=0) → 条件不成立で 0 行 (付与対象外)', async () => {
-			const c = await insert(buildInput({ childId: 1, title: 'not-completed' }), TENANT);
+			const c = await insert(buildInput({ childId: asChildId(1), title: 'not-completed' }), TENANT);
 			const changed = await claimReward(c.id, TENANT);
 			expect(changed).toBe(0);
 			const after = await findById(c.id, TENANT);

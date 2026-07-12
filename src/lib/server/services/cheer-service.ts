@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/cheer-service.ts
 // 応援機能 (cheer) サービス層
 //
@@ -36,7 +37,7 @@ export type CheerCategory = (typeof CHEER_CATEGORIES)[number];
 
 export interface GrantCheerInput {
 	/** 子供 ID */
-	childId: number;
+	childId: ChildId;
 	/** 任意理由テキスト (例: 「運動会で 1 位」) */
 	reason: string;
 	/** 付与ポイント (1〜10000) */
@@ -59,7 +60,7 @@ export type GrantCheerError =
 
 export interface GrantCheerResult {
 	/** parent_messages.id */
-	messageId: number;
+	messageId: string;
 	/** 加算後の残高 (将来 UI で「{nickname} の残高は {n}P になりました」表示用、現状未使用でも返却) */
 	pointEntryAmount: number;
 	/** point ledger に記録された description */

@@ -1,23 +1,24 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/reward-redemption-repo.ts — Facade (delegates to factory)
 
 import { getRepos } from './factory';
 
 export async function insertRedemptionRequest(
-	input: { childId: number; rewardId: number; requestedAt: number },
+	input: { childId: ChildId; rewardId: string; requestedAt: number },
 	tenantId: string,
 ) {
 	return getRepos().rewardRedemption.insertRedemptionRequest(input, tenantId);
 }
 
-export async function findRedemptionRequestsByChild(childId: number, tenantId: string) {
+export async function findRedemptionRequestsByChild(childId: ChildId, tenantId: string) {
 	return getRepos().rewardRedemption.findRedemptionRequestsByChild(childId, tenantId);
 }
 
 /** #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。 */
 export async function insertRedemptionForRestore(
 	input: {
-		childId: number;
-		rewardId: number;
+		childId: ChildId;
+		rewardId: string;
 		requestedAt: number;
 		status: string;
 		parentNote: string | null;
@@ -35,7 +36,7 @@ export async function insertRedemptionForRestore(
 
 export async function findRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: number; limit?: number },
+	opts?: { status?: string; childId?: ChildId; limit?: number },
 ) {
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
@@ -43,15 +44,15 @@ export async function findRedemptionRequestsByTenant(
 /** #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。 */
 export async function countRedemptionRequestsByTenant(
 	tenantId: string,
-	opts?: { status?: string; childId?: number },
+	opts?: { status?: string; childId?: ChildId },
 ) {
 	return getRepos().rewardRedemption.countRedemptionRequestsByTenant(tenantId, opts);
 }
 
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
 export async function updateRedemptionRequestStatus(
-	childId: number,
-	id: number,
+	childId: ChildId,
+	id: string,
 	updates: {
 		status: string;
 		parentNote?: string | null;
@@ -64,19 +65,19 @@ export async function updateRedemptionRequestStatus(
 }
 
 export async function findPendingByChildAndReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ) {
 	return getRepos().rewardRedemption.findPendingByChildAndReward(childId, rewardId, tenantId);
 }
 
-export async function findUnshownResultByChild(childId: number, tenantId: string) {
+export async function findUnshownResultByChild(childId: ChildId, tenantId: string) {
 	return getRepos().rewardRedemption.findUnshownResultByChild(childId, tenantId);
 }
 
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
-export async function markRedemptionResultShown(childId: number, id: number, tenantId: string) {
+export async function markRedemptionResultShown(childId: ChildId, id: string, tenantId: string) {
 	return getRepos().rewardRedemption.markRedemptionResultShown(childId, id, tenantId);
 }
 
@@ -84,6 +85,6 @@ export async function expireOldRedemptions(tenantId: string) {
 	return getRepos().rewardRedemption.expireOldRedemptions(tenantId);
 }
 
-export async function hasPendingByReward(rewardId: number, tenantId: string) {
+export async function hasPendingByReward(rewardId: string, tenantId: string) {
 	return getRepos().rewardRedemption.hasPendingByReward(rewardId, tenantId);
 }

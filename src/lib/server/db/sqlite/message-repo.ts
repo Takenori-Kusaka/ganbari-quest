@@ -1,71 +1,82 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { parentMessages } from '../schema';
+import type { InsertParentMessageInput, ParentMessage } from '../types';
+
+type MessageRow = typeof parentMessages.$inferSelect;
+
+const toMessage = (r: MessageRow): ParentMessage => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+});
 
 /** おうえんメッセージを送信（保存） */
 export async function insertMessage(
-	input: {
-		childId: number;
-		messageType: string;
-		stampCode?: string | null;
-		body?: string | null;
-		icon?: string;
-		// #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント (reward_notice のみ)
-		bonusPoints?: number | null;
-		// #2267 (EPIC #2266): 応援機能のカテゴリ (reward_notice のみ)
-		rewardCategory?: string | null;
-	},
+	input: InsertParentMessageInput,
 	_tenantId: string,
-) {
-	return db.insert(parentMessages).values(input).returning().get();
+): Promise<ParentMessage> {
+	return toMessage(
+		db
+			.insert(parentMessages)
+			.values({ ...input, childId: Number(input.childId) })
+			.returning()
+			.get(),
+	);
 }
 
 /** #3329 backup restore 用: sentAt / shownAt を保全してメッセージを復元する。 */
 export async function insertForRestore(
-	input: {
-		childId: number;
-		messageType: string;
-		stampCode: string | null;
-		body: string | null;
-		icon: string;
-		sentAt: string;
-		shownAt: string | null;
-		bonusPoints: number | null;
-		rewardCategory: string | null;
-	},
+	input: Omit<ParentMessage, 'id'>,
 	_tenantId: string,
-) {
-	return db.insert(parentMessages).values(input).returning().get();
+): Promise<ParentMessage> {
+	return toMessage(
+		db
+			.insert(parentMessages)
+			.values({ ...input, childId: Number(input.childId) })
+			.returning()
+			.get(),
+	);
 }
 
 /** 子供のメッセージ履歴を取得（降順） */
-export async function findMessages(childId: number, limit: number, _tenantId: string) {
+export async function findMessages(
+	childId: ChildId,
+	limit: number,
+	_tenantId: string,
+): Promise<ParentMessage[]> {
 	return db
 		.select()
 		.from(parentMessages)
-		.where(eq(parentMessages.childId, childId))
+		.where(eq(parentMessages.childId, Number(childId)))
 		.orderBy(desc(parentMessages.sentAt))
 		.limit(limit)
-		.all();
+		.all()
+		.map(toMessage);
 }
 
 /** 子供の未表示メッセージを1件取得（最新） */
-export async function findUnshownMessage(childId: number, _tenantId: string) {
-	return db
+export async function findUnshownMessage(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<ParentMessage | undefined> {
+	const row = db
 		.select()
 		.from(parentMessages)
-		.where(and(eq(parentMessages.childId, childId), isNull(parentMessages.shownAt)))
+		.where(and(eq(parentMessages.childId, Number(childId)), isNull(parentMessages.shownAt)))
 		.orderBy(desc(parentMessages.sentAt))
 		.limit(1)
 		.get();
+	return row ? toMessage(row) : undefined;
 }
 
 /** 未表示メッセージ数を取得 */
-export async function countUnshownMessages(childId: number, _tenantId: string) {
+export async function countUnshownMessages(childId: ChildId, _tenantId: string) {
 	const result = db
 		.select({ count: sql<number>`count(*)` })
 		.from(parentMessages)
-		.where(and(eq(parentMessages.childId, childId), isNull(parentMessages.shownAt)))
+		.where(and(eq(parentMessages.childId, Number(childId)), isNull(parentMessages.shownAt)))
 		.get();
 	return result?.count ?? 0;
 }
@@ -74,13 +85,20 @@ export async function countUnshownMessages(childId: number, _tenantId: string) {
  * メッセージを表示済みにする。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
  */
-export async function markMessageShown(childId: number, messageId: number, _tenantId: string) {
-	return db
+export async function markMessageShown(
+	childId: ChildId,
+	messageId: string,
+	_tenantId: string,
+): Promise<ParentMessage | undefined> {
+	const row = db
 		.update(parentMessages)
 		.set({ shownAt: new Date().toISOString() })
-		.where(and(eq(parentMessages.id, messageId), eq(parentMessages.childId, childId)))
+		.where(
+			and(eq(parentMessages.id, Number(messageId)), eq(parentMessages.childId, Number(childId))),
+		)
 		.returning()
 		.get();
+	return row ? toMessage(row) : undefined;
 }
 
 /** テナントの全メッセージを削除（SQLite: シングルテナントのため全行削除） */

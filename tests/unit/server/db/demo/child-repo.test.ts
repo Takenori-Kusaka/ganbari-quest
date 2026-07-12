@@ -5,6 +5,7 @@
 // が物理的に発生不可能であることをユニットレベルで担保する。
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as childRepo from '../../../../../src/lib/server/db/demo/child-repo';
 import { DEMO_CHILDREN } from '../../../../../src/lib/server/demo/demo-data';
 
@@ -14,15 +15,15 @@ describe('demo/child-repo', () => {
 			const all = await childRepo.findAllChildren('demo');
 			expect(all.length).toBeGreaterThanOrEqual(5);
 			const ids = all.map((c) => c.id);
-			expect(ids).toContain(901);
-			expect(ids).toContain(902);
-			expect(ids).toContain(903);
-			expect(ids).toContain(904);
-			expect(ids).toContain(906);
+			expect(ids).toContain('901');
+			expect(ids).toContain('902');
+			expect(ids).toContain('903');
+			expect(ids).toContain('904');
+			expect(ids).toContain('906');
 		});
 
 		it('findChildById で 902 (ひなちゃん) が見つかる', async () => {
-			const child = await childRepo.findChildById(902, 'demo');
+			const child = await childRepo.findChildById(asChildId(902), 'demo');
 			expect(child).toBeDefined();
 			expect(child?.nickname).toBe('ひなちゃん');
 			expect(child?.age).toBe(5);
@@ -30,7 +31,7 @@ describe('demo/child-repo', () => {
 		});
 
 		it('findChildById で存在しない ID は undefined', async () => {
-			const child = await childRepo.findChildById(99999, 'demo');
+			const child = await childRepo.findChildById(asChildId(99999), 'demo');
 			expect(child).toBeUndefined();
 		});
 
@@ -56,23 +57,23 @@ describe('demo/child-repo', () => {
 		});
 
 		it('updateChild は no-op で fixture mutation なし', async () => {
-			const originalNickname = DEMO_CHILDREN.find((c) => c.id === 902)?.nickname;
-			await childRepo.updateChild(902, { nickname: 'mutated' }, 'demo');
-			const after = DEMO_CHILDREN.find((c) => c.id === 902)?.nickname;
+			const originalNickname = DEMO_CHILDREN.find((c) => c.id === '902')?.nickname;
+			await childRepo.updateChild(asChildId(902), { nickname: 'mutated' }, 'demo');
+			const after = DEMO_CHILDREN.find((c) => c.id === '902')?.nickname;
 			expect(after).toBe(originalNickname);
 		});
 
 		it('deleteChild は no-op で fixture mutation なし', async () => {
 			const before = DEMO_CHILDREN.length;
-			await childRepo.deleteChild(902, 'demo');
+			await childRepo.deleteChild(asChildId(902), 'demo');
 			expect(DEMO_CHILDREN.length).toBe(before);
-			expect(DEMO_CHILDREN.find((c) => c.id === 902)).toBeDefined();
+			expect(DEMO_CHILDREN.find((c) => c.id === '902')).toBeDefined();
 		});
 
 		it('archiveChildren / restoreArchivedChildren は no-op で例外を投げない', async () => {
 			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で 'test' → 'trial_expired' (ARCHIVED_REASONS SSOT)
 			await expect(
-				childRepo.archiveChildren([902], 'trial_expired', 'demo'),
+				childRepo.archiveChildren([asChildId(902)], 'trial_expired', 'demo'),
 			).resolves.toBeUndefined();
 			await expect(
 				childRepo.restoreArchivedChildren('trial_expired', 'demo'),
@@ -89,10 +90,10 @@ describe('demo/child-repo', () => {
 		});
 
 		it('write → read で fixture 値が変化しない (mutable singleton anti-pattern 回避)', async () => {
-			const before = (await childRepo.findChildById(901, 'demo'))?.nickname;
+			const before = (await childRepo.findChildById(asChildId(901), 'demo'))?.nickname;
 			await childRepo.insertChild({ nickname: '新しい', age: 3 }, 'demo');
-			await childRepo.updateChild(901, { nickname: 'mutated' }, 'demo');
-			const after = (await childRepo.findChildById(901, 'demo'))?.nickname;
+			await childRepo.updateChild(asChildId(901), { nickname: 'mutated' }, 'demo');
+			const after = (await childRepo.findChildById(asChildId(901), 'demo'))?.nickname;
 			expect(after).toBe(before);
 		});
 	});

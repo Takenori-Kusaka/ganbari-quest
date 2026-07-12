@@ -1,3 +1,4 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // Demo IChildRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
@@ -11,7 +12,7 @@ export async function findAllChildren(_tenantId: string): Promise<Child[]> {
 	return DEMO_CHILDREN.filter((c) => c.isArchived === 0);
 }
 
-export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }
 
@@ -26,7 +27,7 @@ export async function insertChild(input: InsertChildInput, _tenantId: string): P
 	const now = new Date().toISOString();
 	const uiMode = input.uiMode ?? getDefaultUiMode(input.age);
 	return {
-		id: 0,
+		id: asChildId(0),
 		nickname: input.nickname,
 		age: input.age,
 		birthDate: input.birthDate ?? null,
@@ -46,19 +47,19 @@ export async function insertChild(input: InsertChildInput, _tenantId: string): P
 }
 
 export async function updateChild(
-	id: number,
+	id: ChildId,
 	_input: UpdateChildInput,
 	_tenantId: string,
 ): Promise<Child | undefined> {
 	return DEMO_CHILDREN.find((c) => c.id === id);
 }
 
-export async function deleteChild(_id: number, _tenantId: string): Promise<void> {
+export async function deleteChild(_id: ChildId, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
 export async function resetChildProgressData(
-	_id: number,
+	_id: ChildId,
 	_tenantId: string,
 ): Promise<ChildProgressResetCounts> {
 	// Stub: no-op (#3152)。#3184 item2: 件数は全 0 を返す (demo write は no-op)。
@@ -75,7 +76,7 @@ export async function resetChildProgressData(
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChildren(
-	_ids: number[],
+	_ids: ChildId[],
 	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {

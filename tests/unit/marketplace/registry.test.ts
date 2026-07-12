@@ -6,6 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import { MarketplaceTypeRegistry } from '$lib/marketplace/registry';
 import type {
 	ImportContext,
@@ -178,11 +179,11 @@ describe('MarketplaceTypeRegistry', () => {
 			const parsed = got.strategy.parse({ items: ['a', 'b'] });
 			const preview = await got.strategy.preview(parsed as DummyPayload, {
 				tenantId: 't1',
-				childId: 42,
+				childId: asChildId(42),
 			});
 			const result = await got.strategy.apply(parsed as DummyPayload, {
 				tenantId: 't1',
-				childId: 42,
+				childId: asChildId(42),
 			});
 
 			expect(preview.total).toBe(2);

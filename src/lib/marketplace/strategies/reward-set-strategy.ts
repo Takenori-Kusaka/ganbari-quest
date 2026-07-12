@@ -24,6 +24,7 @@
  */
 
 import * as v from 'valibot';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	type RewardSetPayload,
 	RewardSetPayloadSchema,
@@ -53,8 +54,8 @@ import {
  * 両方欠落時は明確に error throw (Descriptor.requiresChildId=true の保証)。
  */
 export type RewardSetChildContext =
-	| { kind: 'child-selection'; presetId: string; childIds: readonly number[] }
-	| { kind: 'legacy-single'; presetId: string; childId: number };
+	| { kind: 'child-selection'; presetId: string; childIds: readonly ChildId[] }
+	| { kind: 'legacy-single'; presetId: string; childId: ChildId };
 
 /**
  * reward-set Strategy 実装 (SSOT)。
@@ -82,7 +83,7 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 		// preview は重複検知が child 単位で意味を持つため、複数 child 時は
 		// 最初の child について preview を返す (件数提示は概算で十分、ADR-0055 §3.2)。
 		const previewChildId =
-			narrowed.kind === 'legacy-single' ? narrowed.childId : (narrowed.childIds[0] ?? 0);
+			narrowed.kind === 'legacy-single' ? narrowed.childId : (narrowed.childIds[0] ?? asChildId(0));
 		const raw = await previewRewardSetImport(
 			rewards,
 			narrowed.presetId,
@@ -167,7 +168,7 @@ export function narrowChildContext(ctx: ImportContext): RewardSetChildContext {
 	if (ctx.childIds && ctx.childIds.length > 0) {
 		return { kind: 'child-selection', presetId: ctx.presetId, childIds: ctx.childIds };
 	}
-	if (ctx.childId && ctx.childId > 0) {
+	if (ctx.childId && ctx.childId !== asChildId(0)) {
 		return { kind: 'legacy-single', presetId: ctx.presetId, childId: ctx.childId };
 	}
 	throw new Error(

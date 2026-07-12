@@ -1,4 +1,5 @@
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ChildId } from '$lib/domain/ids';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 
 /**
@@ -17,11 +18,11 @@ export interface ChildProgressResetCounts {
 
 export interface IChildRepo {
 	findAllChildren(tenantId: string): Promise<Child[]>;
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	findChildByUserId(userId: string, tenantId: string): Promise<Child | undefined>;
 	insertChild(input: InsertChildInput, tenantId: string): Promise<Child>;
-	updateChild(id: number, input: UpdateChildInput, tenantId: string): Promise<Child | undefined>;
-	deleteChild(id: number, tenantId: string): Promise<void>;
+	updateChild(id: ChildId, input: UpdateChildInput, tenantId: string): Promise<Child | undefined>;
+	deleteChild(id: ChildId, tenantId: string): Promise<void>;
 
 	/**
 	 * #3152: 子供 1 人分の進捗データ (activity_logs / point_ledger / login_bonuses /
@@ -36,11 +37,11 @@ export interface IChildRepo {
 	 * 同一 allowlist を使い、返り値 {@link ChildProgressResetCounts} の key 集合が cross-backend で一致する
 	 * ことを `tests/unit/db/dynamodb-child-repo-reset.test.ts` の契約テストで機械固定する。
 	 */
-	resetChildProgressData(id: number, tenantId: string): Promise<ChildProgressResetCounts>;
+	resetChildProgressData(id: ChildId, tenantId: string): Promise<ChildProgressResetCounts>;
 
 	// #783: archive / restore
 	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
-	archiveChildren(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	archiveChildren(ids: ChildId[], reason: ArchivedReason, tenantId: string): Promise<void>;
 	restoreArchivedChildren(reason: ArchivedReason, tenantId: string): Promise<void>;
 	findArchivedChildren(tenantId: string): Promise<Child[]>;
 }

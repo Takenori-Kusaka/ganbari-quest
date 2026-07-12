@@ -20,21 +20,38 @@
 //   - docs/design/data-model-resource-scope.md §4.1
 
 import { and, count, eq, gte, sql } from 'drizzle-orm';
+import {
+	type ActivityId,
+	asActivityId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import { db } from '../client';
 import { activityLogs, childActivities, childActivityPreferences } from '../schema';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
+type PrefRow = typeof childActivityPreferences.$inferSelect;
+
+const toEntity = (r: PrefRow): ChildActivityPreference => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	activityId: asActivityId(r.activityId),
+});
+
 /** #3329 backup: child の全活動設定 (pinned 不問。isPinned/pinOrder を round-trip 保全)。 */
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	return db
 		.select()
 		.from(childActivityPreferences)
-		.where(eq(childActivityPreferences.childId, childId))
+		.where(eq(childActivityPreferences.childId, Number(childId)))
 		.orderBy(childActivityPreferences.pinOrder)
-		.all();
+		.all()
+		.map(toEntity);
 }
 
 /** #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId は呼び出し側が解決済)。 */
@@ -42,11 +59,11 @@ export async function insertForRestore(
 	input: Omit<ChildActivityPreference, 'id'>,
 	_tenantId: string,
 ): Promise<ChildActivityPreference> {
-	return db
+	const row = db
 		.insert(childActivityPreferences)
 		.values({
-			childId: input.childId,
-			activityId: input.activityId,
+			childId: Number(input.childId),
+			activityId: Number(input.activityId),
 			isPinned: input.isPinned,
 			pinOrder: input.pinOrder,
 			createdAt: input.createdAt,
@@ -54,25 +71,30 @@ export async function insertForRestore(
 		})
 		.returning()
 		.get();
+	return toEntity(row);
 }
 
 export async function findPinnedByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ChildActivityPreference[]> {
 	return db
 		.select()
 		.from(childActivityPreferences)
 		.where(
-			and(eq(childActivityPreferences.childId, childId), eq(childActivityPreferences.isPinned, 1)),
+			and(
+				eq(childActivityPreferences.childId, Number(childId)),
+				eq(childActivityPreferences.isPinned, 1),
+			),
 		)
 		.orderBy(childActivityPreferences.pinOrder)
-		.all();
+		.all()
+		.map(toEntity);
 }
 
 export async function togglePin(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	pinned: boolean,
 	_tenantId: string,
 ): Promise<ChildActivityPreference> {
@@ -84,7 +106,7 @@ export async function togglePin(
 			.from(childActivityPreferences)
 			.where(
 				and(
-					eq(childActivityPreferences.childId, childId),
+					eq(childActivityPreferences.childId, Number(childId)),
 					eq(childActivityPreferences.isPinned, 1),
 				),
 			)
@@ -96,8 +118,8 @@ export async function togglePin(
 			.from(childActivityPreferences)
 			.where(
 				and(
-					eq(childActivityPreferences.childId, childId),
-					eq(childActivityPreferences.activityId, activityId),
+					eq(childActivityPreferences.childId, Number(childId)),
+					eq(childActivityPreferences.activityId, Number(activityId)),
 				),
 			)
 			.get();
@@ -107,14 +129,14 @@ export async function togglePin(
 				.set({ isPinned: 1, pinOrder: nextOrder, updatedAt: now })
 				.where(eq(childActivityPreferences.id, existing.id))
 				.run();
-			return { ...existing, isPinned: 1, pinOrder: nextOrder, updatedAt: now };
+			return { ...toEntity(existing), isPinned: 1, pinOrder: nextOrder, updatedAt: now };
 		}
 
 		const result = db
 			.insert(childActivityPreferences)
 			.values({
-				childId,
-				activityId,
+				childId: Number(childId),
+				activityId: Number(activityId),
 				isPinned: 1,
 				pinOrder: nextOrder,
 				createdAt: now,
@@ -122,7 +144,7 @@ export async function togglePin(
 			})
 			.returning()
 			.get();
-		return result;
+		return toEntity(result);
 	}
 
 	// ピン留め解除
@@ -131,8 +153,8 @@ export async function togglePin(
 		.from(childActivityPreferences)
 		.where(
 			and(
-				eq(childActivityPreferences.childId, childId),
-				eq(childActivityPreferences.activityId, activityId),
+				eq(childActivityPreferences.childId, Number(childId)),
+				eq(childActivityPreferences.activityId, Number(activityId)),
 			),
 		)
 		.get();
@@ -142,21 +164,28 @@ export async function togglePin(
 			.set({ isPinned: 0, pinOrder: null, updatedAt: now })
 			.where(eq(childActivityPreferences.id, existing.id))
 			.run();
-		return { ...existing, isPinned: 0, pinOrder: null, updatedAt: now };
+		return { ...toEntity(existing), isPinned: 0, pinOrder: null, updatedAt: now };
 	}
 
 	// 存在しない場合は isPinned=0 で作成
 	const result = db
 		.insert(childActivityPreferences)
-		.values({ childId, activityId, isPinned: 0, pinOrder: null, createdAt: now, updatedAt: now })
+		.values({
+			childId: Number(childId),
+			activityId: Number(activityId),
+			isPinned: 0,
+			pinOrder: null,
+			createdAt: now,
+			updatedAt: now,
+		})
 		.returning()
 		.get();
-	return result;
+	return toEntity(result);
 }
 
 export async function countPinnedInCategory(
-	childId: number,
-	categoryId: number,
+	childId: ChildId,
+	categoryId: CategoryId,
 	_tenantId: string,
 ): Promise<number> {
 	// #2458-C-1: childActivityPreferences.activityId は child_activities.id を参照する
@@ -169,9 +198,9 @@ export async function countPinnedInCategory(
 		.innerJoin(childActivities, eq(childActivityPreferences.activityId, childActivities.id))
 		.where(
 			and(
-				eq(childActivityPreferences.childId, childId),
+				eq(childActivityPreferences.childId, Number(childId)),
 				eq(childActivityPreferences.isPinned, 1),
-				eq(childActivities.categoryId, categoryId),
+				eq(childActivities.categoryId, Number(categoryId)),
 			),
 		)
 		.get();
@@ -179,7 +208,7 @@ export async function countPinnedInCategory(
 }
 
 export async function getUsageCounts(
-	childId: number,
+	childId: ChildId,
 	sinceDate: string,
 	_tenantId: string,
 ): Promise<ActivityUsageCount[]> {
@@ -191,13 +220,14 @@ export async function getUsageCounts(
 		.from(activityLogs)
 		.where(
 			and(
-				eq(activityLogs.childId, childId),
+				eq(activityLogs.childId, Number(childId)),
 				gte(activityLogs.recordedDate, sinceDate),
 				eq(activityLogs.cancelled, 0),
 			),
 		)
 		.groupBy(activityLogs.activityId)
-		.all();
+		.all()
+		.map((r) => ({ activityId: asActivityId(r.activityId), usageCount: r.usageCount }));
 }
 
 /** テナントの全活動ピン留め設定を削除（SQLite: シングルテナントのため全行削除） */

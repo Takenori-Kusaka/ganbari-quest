@@ -24,20 +24,23 @@ import { defineMeta } from '@storybook/addon-svelte-csf';
 // `screen` (document.body 起点の Testing Library query) を使う。
 // 参考: Storybook docs "Interaction tests" + Ark UI Portal の仕様。
 import { expect, fn, screen, waitFor } from 'storybook/test';
+import { asChildId } from '$lib/domain/ids';
 import { CHILD_SELECTION_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import ChildSelectionDialog from './ChildSelectionDialog.svelte';
 
 const L = STORYBOOK_LABELS.childSelectionDialog;
 
 const threeChildren = [
-	{ id: 1, nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon },
-	{ id: 2, nickname: L.childHina.split(' ')[0], age: 5, icon: L.childHinaIcon },
-	{ id: 3, nickname: L.childKenta.split(' ')[0], age: 1, icon: L.childKentaIcon },
+	{ id: asChildId(1), nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon },
+	{ id: asChildId(2), nickname: L.childHina.split(' ')[0], age: 5, icon: L.childHinaIcon },
+	{ id: asChildId(3), nickname: L.childKenta.split(' ')[0], age: 1, icon: L.childKentaIcon },
 ];
 
-const oneChild = [{ id: 1, nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon }];
+const oneChild = [
+	{ id: asChildId(1), nickname: L.childTaro.split(' ')[0], age: 8, icon: L.childTaroIcon },
+];
 
-/** @type {Array<{id: number; nickname: string; age?: number; icon?: string}>} */
+/** @type {Array<{id: import('$lib/domain/ids').ChildId; nickname: string; age?: number; icon?: string}>} */
 const noChildren = [];
 
 const { Story } = defineMeta({
@@ -98,13 +101,13 @@ const { Story } = defineMeta({
 		await expect(childHina).toBeVisible();
 		await childTaro.click();
 		await childHina.click();
-		// 確定 click → onConfirm が [1, 2] で発火 (1 child のみ選択 退行検出)
+		// 確定 click → onConfirm が ['1', '2'] で発火 (1 child のみ選択 退行検出)
 		const confirm = screen.getByTestId('child-selection-confirm');
 		await expect(confirm).toBeEnabled();
 		await confirm.click();
 		await expect(args.onConfirm).toHaveBeenCalledTimes(1);
 		// 引数 shape: 'all' でなく number[]、選択 id を含む
-		await expect(args.onConfirm).toHaveBeenCalledWith([1, 2]);
+		await expect(args.onConfirm).toHaveBeenCalledWith([asChildId(1), asChildId(2)]);
 	}}
 />
 

@@ -13,6 +13,7 @@
 //   - ADR-0055 §3.1 (childId 必須化、cross-child access 防止)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 
 // Mocks (top-level)
 const mockFetchCloudExport = vi.fn();
@@ -81,7 +82,7 @@ function makeRequest(body: object, mode: 'preview' | 'execute' | 'replace' = 'ex
 }
 
 function templateV2Payload(
-	buckets: Array<{ childId: number; nickname?: string; names: string[] }>,
+	buckets: Array<{ childId: ChildId; nickname?: string; names: string[] }>,
 ) {
 	return {
 		format: 'ganbari-quest-template',
@@ -92,7 +93,7 @@ function templateV2Payload(
 			childNickname: b.nickname ?? `child-${b.childId}`,
 			activities: b.names.map((name) => ({
 				name,
-				categoryId: 1,
+				categoryId: asCategoryId(1),
 				icon: '🏃',
 				basePoints: 5,
 				triggerHint: null,
@@ -108,20 +109,20 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockFindAllChildren.mockResolvedValue([
-			{ id: 10, nickname: 'たろう' },
-			{ id: 20, nickname: 'はなこ' },
+			{ id: '10', nickname: 'たろう' },
+			{ id: '20', nickname: 'はなこ' },
 		]);
 		mockFindActivitiesByChild.mockResolvedValue([]);
 		mockInsertActivitiesBulk.mockImplementation(async (inputs: Array<{ name: string }>) =>
-			inputs.map((i, idx) => ({ id: 1000 + idx, name: i.name })),
+			inputs.map((i, idx) => ({ id: `1000${idx}`, name: i.name })),
 		);
 	});
 
 	describe('preview mode', () => {
 		it('preview は targetChildIds 不要、activitiesByChild 集計を返す', async () => {
 			const payload = templateV2Payload([
-				{ childId: 99, nickname: 'export-source-A', names: ['はしる', 'よむ'] },
-				{ childId: 88, nickname: 'export-source-B', names: ['はみがき'] },
+				{ childId: asChildId(99), nickname: 'export-source-A', names: ['はしる', 'よむ'] },
+				{ childId: asChildId(88), nickname: 'export-source-B', names: ['はみがき'] },
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
@@ -133,7 +134,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 				ok: boolean;
 				preview: {
 					activities: number;
-					activitiesByChild: Array<{ childId: number; activityCount: number }>;
+					activitiesByChild: Array<{ childId: ChildId; activityCount: number }>;
 				};
 			};
 
@@ -141,7 +142,10 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(json.ok).toBe(true);
 			expect(json.preview.activities).toBe(3);
 			expect(json.preview.activitiesByChild).toHaveLength(2);
-			expect(json.preview.activitiesByChild[0]).toMatchObject({ childId: 99, activityCount: 2 });
+			expect(json.preview.activitiesByChild[0]).toMatchObject({
+				childId: asChildId(99),
+				activityCount: 2,
+			});
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 			// #3376 adversarial: preview は DL を消費しない
 			expect(mockConsumeDownload).not.toHaveBeenCalled();
@@ -152,7 +156,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は targetChildIds 必須 (未指定で VALIDATION_ERROR)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: asChildId(99), names: ['a'] }]))),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'execute'));
@@ -165,11 +169,11 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は cross-tenant child id を拒否する (CWE-639)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: asChildId(99), names: ['a'] }]))),
 			});
 
 			const res = await POST(
-				makeRequest({ pinCode: 'ABC123', targetChildIds: [10, 999] }, 'execute'),
+				makeRequest({ pinCode: 'ABC123', targetChildIds: ['10', '999'] }, 'execute'),
 			);
 			expect(res.status).toBe(400);
 			const json = (await res.json()) as { error?: { message?: string } };
@@ -181,8 +185,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 
 		it('execute は ChildSelectionDialog で選ばれた child 全員に bulk insert する', async () => {
 			const payload = templateV2Payload([
-				{ childId: 99, names: ['はしる', 'よむ'] },
-				{ childId: 88, names: ['はみがき'] },
+				{ childId: asChildId(99), names: ['はしる', 'よむ'] },
+				{ childId: asChildId(88), names: ['はみがき'] },
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
@@ -190,7 +194,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			});
 
 			const res = await POST(
-				makeRequest({ pinCode: 'ABC123', targetChildIds: [10, 20] }, 'execute'),
+				makeRequest({ pinCode: 'ABC123', targetChildIds: ['10', '20'] }, 'execute'),
 			);
 
 			expect(res.status).toBe(200);
@@ -199,7 +203,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 				result: { activitiesCreated: number; targetChildIds: number[] };
 			};
 			expect(json.ok).toBe(true);
-			expect(json.result.targetChildIds).toEqual([10, 20]);
+			expect(json.result.targetChildIds).toEqual(['10', '20']);
 			// 各 child に 3 件 (dedup 後) ずつ → 計 6 件
 			expect(json.result.activitiesCreated).toBe(6);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(2);
@@ -208,18 +212,20 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		});
 
 		it('execute は per-child 既存名と衝突する activity をスキップする', async () => {
-			const payload = templateV2Payload([{ childId: 99, names: ['はしる', 'よむ', 'はみがき'] }]);
+			const payload = templateV2Payload([
+				{ childId: asChildId(99), names: ['はしる', 'よむ', 'はみがき'] },
+			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
 				bytes: enc(JSON.stringify(payload)),
 			});
 			// child=10 には既に「はしる」がある
-			mockFindActivitiesByChild.mockImplementation(async (childId: number) =>
-				childId === 10 ? [{ name: 'はしる' }] : [],
+			mockFindActivitiesByChild.mockImplementation(async (childId: ChildId) =>
+				childId === '10' ? [{ name: 'はしる' }] : [],
 			);
 
 			const res = await POST(
-				makeRequest({ pinCode: 'ABC123', targetChildIds: [10, 20] }, 'execute'),
+				makeRequest({ pinCode: 'ABC123', targetChildIds: ['10', '20'] }, 'execute'),
 			);
 
 			expect(res.status).toBe(200);
@@ -231,15 +237,15 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は複数 child bucket を同名 dedup してから配信する', async () => {
 			// 「はしる」が 2 bucket 両方に出現 → dedup 後 1 件として扱う
 			const payload = templateV2Payload([
-				{ childId: 99, names: ['はしる', 'よむ'] },
-				{ childId: 88, names: ['はしる', 'はみがき'] },
+				{ childId: asChildId(99), names: ['はしる', 'よむ'] },
+				{ childId: asChildId(88), names: ['はしる', 'はみがき'] },
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
 				bytes: enc(JSON.stringify(payload)),
 			});
 
-			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: [10] }, 'execute'));
+			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'));
 
 			const json = (await res.json()) as { result: { activitiesCreated: number } };
 			// dedup 後 3 種類 → child 1 人分なので 3 件

@@ -38,6 +38,43 @@ import * as demoStorageRepo from './demo/storage-repo';
 import * as demoTrialHistoryRepo from './demo/trial-history-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
+import { createDsqlAccountLockoutRepo } from './dsql/account-lockout-repo';
+import { createDsqlActivityMasteryRepo } from './dsql/activity-mastery-repo';
+import { createDsqlActivityPrefRepo } from './dsql/activity-pref-repo';
+import { createDsqlActivityRepo } from './dsql/activity-repo';
+import { createDsqlAuthRepo } from './dsql/auth-repo';
+import { createDsqlBattleRepo } from './dsql/battle-repo';
+import { createDsqlCancellationReasonRepo } from './dsql/cancellation-reason-repo';
+import { createDsqlCertificateRepo } from './dsql/certificate-repo';
+import { createDsqlChecklistRepo } from './dsql/checklist-repo';
+import { createDsqlChildActivityRepo } from './dsql/child-activity-repo';
+import { createDsqlChildChallengeRepo } from './dsql/child-challenge-repo';
+import { createDsqlChildRepo } from './dsql/child-repo';
+import { createDsqlCloudExportRepo } from './dsql/cloud-export-repo';
+// connection の import 自体は side-effect free (pool/db/runner は getDsql* 呼び出し時に lazy 確立)。
+// getDsqlDb() / getDsqlTransactionRunner() は dsql 分岐内でのみ呼ぶこと (sqlite/demo 環境で
+// DSQL pool を作らせない)。
+import { getDsqlDb, getDsqlTransactionRunner } from './dsql/connection';
+import { createDsqlDailyMissionRepo } from './dsql/daily-mission-repo';
+import { createDsqlEvaluationRepo } from './dsql/evaluation-repo';
+import { createDsqlGraduationConsentRepo } from './dsql/graduation-consent-repo';
+import { createDsqlImageRepo } from './dsql/image-repo';
+import { createDsqlInquiryRepo } from './dsql/inquiry-repo';
+import { createDsqlLoginBonusRepo } from './dsql/login-bonus-repo';
+import { createDsqlMessageRepo } from './dsql/message-repo';
+import { createDsqlPointRepo } from './dsql/point-repo';
+import { createDsqlPushSubscriptionRepo } from './dsql/push-subscription-repo';
+import { createDsqlReportDailySummaryRepo } from './dsql/report-daily-summary-repo';
+import { createDsqlRewardRedemptionRepo } from './dsql/reward-redemption-repo';
+import { createDsqlSettingsRepo } from './dsql/settings-repo';
+import { createDsqlSiblingCheerRepo } from './dsql/sibling-cheer-repo';
+import { createDsqlSpecialRewardRepo } from './dsql/special-reward-repo';
+import type { SqlExecutor } from './dsql/sql-executor';
+import { createDsqlStampCardRepo } from './dsql/stamp-card-repo';
+import { createDsqlStatusRepo } from './dsql/status-repo';
+import { createDsqlTrialHistoryRepo } from './dsql/trial-history-repo';
+import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
+import { createDsqlVoiceRepo } from './dsql/voice-repo';
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
@@ -105,9 +142,14 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
+import type { TransactionRunner } from './interfaces/transaction.interface';
 import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interface';
 import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
+// #3620 AC-C2 (ADR-0064 案 C): NUC=PGlite は dsql (pg-core) repos を verbatim 再利用する。
+// getPglite*Sync は init 済み前提の同期アクセサ (async init は hooks.server.ts の 1st-request
+// guard で await 済み)。pglite 分岐内でのみ呼ぶこと (他 backend で PGlite を open させない)。
+import { getPgliteDbSync, getPgliteTransactionRunnerSync } from './pglite/connection';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
@@ -193,6 +235,56 @@ export interface Repositories {
 
 let _repos: Repositories | null = null;
 
+/**
+ * pg-core backend (Aurora DSQL / NUC PGlite 共通) の Repositories を組み立てる。
+ * ADR-0064 案 C: DSQL(cloud) と PGlite(NUC) は同一 dsql repos を共有するため、db(SqlExecutor 面)
+ * と runner を注入する 1 箇所に集約する (dsql/pglite 分岐の 35 repo 二重列挙を防ぐ)。
+ * db は DsqlDatabase / PgliteDatabase いずれも SqlExecutor を構造的に満たす。
+ */
+function buildPgBackendRepos<TTx extends SqlExecutor>(
+	db: SqlExecutor,
+	runner: TransactionRunner<TTx>,
+): Repositories {
+	return {
+		accountLockout: createDsqlAccountLockoutRepo(db),
+		battle: createDsqlBattleRepo(db),
+		cancellationReason: createDsqlCancellationReasonRepo(db),
+		certificate: createDsqlCertificateRepo(db),
+		auth: createDsqlAuthRepo(db, runner),
+		activity: createDsqlActivityRepo(db, runner),
+		activityMastery: createDsqlActivityMasteryRepo(db, runner),
+		activityPref: createDsqlActivityPrefRepo(db, runner),
+		childActivity: createDsqlChildActivityRepo(db, runner),
+		childChallenge: createDsqlChildChallengeRepo(db),
+		checklist: createDsqlChecklistRepo(db, runner),
+		child: createDsqlChildRepo(db, runner),
+		cloudExport: createDsqlCloudExportRepo(db),
+		dailyMission: createDsqlDailyMissionRepo(db),
+		evaluation: createDsqlEvaluationRepo(db, runner),
+		graduationConsent: createDsqlGraduationConsentRepo(db),
+		image: createDsqlImageRepo(db),
+		inquiry: createDsqlInquiryRepo(db),
+		loginBonus: createDsqlLoginBonusRepo(db),
+		message: createDsqlMessageRepo(db),
+		point: createDsqlPointRepo(db, runner),
+		pushSubscription: createDsqlPushSubscriptionRepo(db),
+		// §7 compute-on-read (report_daily_summaries 表は pg-core に存在しない)
+		reportDailySummary: createDsqlReportDailySummaryRepo(db),
+		siblingCheer: createDsqlSiblingCheerRepo(db),
+		settings: createDsqlSettingsRepo(db),
+		rewardRedemption: createDsqlRewardRedemptionRepo(db),
+		specialReward: createDsqlSpecialRewardRepo(db, runner),
+		stampCard: createDsqlStampCardRepo(db, runner),
+		status: createDsqlStatusRepo(db, runner),
+		// storage の実体は S3 (DB backend 非依存)。専用実装は作らず dynamodb/ の実装を再利用する。
+		// #3438 dynamodb 撤去時に storage-repo を dynamodb/ 外へ移設する。
+		storage: dynamoStorageRepo,
+		trialHistory: createDsqlTrialHistoryRepo(db),
+		viewerToken: createDsqlViewerTokenRepo(db),
+		voice: createDsqlVoiceRepo(db, runner),
+	};
+}
+
 export function getRepos(): Repositories {
 	if (_repos) return _repos;
 
@@ -241,6 +333,19 @@ export function getRepos(): Repositories {
 		};
 		_repos = repos;
 		return repos;
+	}
+	if (dataSource === 'dsql') {
+		// EPIC #3424: Aurora DSQL backend。db / runner は connection.ts の lazy singleton から
+		// この分岐内でのみ取得する (module-level 呼び出し禁止: sqlite/demo 環境で pool を作らせない)。
+		_repos = buildPgBackendRepos(getDsqlDb(), getDsqlTransactionRunner());
+		return _repos;
+	}
+	if (dataSource === 'pglite') {
+		// EPIC #3620 (ADR-0064 案 C): NUC=PGlite backend。dsql (pg-core) repos を verbatim 再利用する。
+		// PGlite init は非同期のため hooks.server.ts の 1st-request guard で await 済み前提。
+		// getPglite*Sync は init 未完なら明示 throw する (この分岐内でのみ呼ぶ)。
+		_repos = buildPgBackendRepos(getPgliteDbSync(), getPgliteTransactionRunnerSync());
+		return _repos;
 	}
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {

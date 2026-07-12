@@ -1,13 +1,14 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/point-repo.ts — Facade (delegates to factory)
 
 import { getRepos } from './factory';
 import type { InsertPointLedgerInput } from './types';
 
-export async function getBalance(childId: number, tenantId: string) {
+export async function getBalance(childId: ChildId, tenantId: string) {
 	return getRepos().point.getBalance(childId, tenantId);
 }
 export async function findPointHistory(
-	childId: number,
+	childId: ChildId,
 	options: { limit: number; offset: number },
 	tenantId: string,
 ) {
@@ -21,13 +22,13 @@ export async function insertPointEntry(input: InsertPointLedgerInput, tenantId: 
  * 詳細は `IPointRepo.spendPointsAtomic` の doc を参照。
  */
 export async function spendPointsAtomic(
-	childId: number,
+	childId: ChildId,
 	amount: number,
-	entry: { type: string; description: string; referenceId?: number },
+	entry: { type: string; description: string; referenceId?: string },
 	tenantId: string,
 ) {
 	return getRepos().point.spendPointsAtomic(childId, amount, entry, tenantId);
 }
-export async function findChildById(id: number, tenantId: string) {
+export async function findChildById(id: ChildId, tenantId: string) {
 	return getRepos().point.findChildById(id, tenantId);
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { ChildId } from '$lib/domain/ids';
 import { CHILD_SELECTION_LABELS } from '$lib/domain/labels';
 import Button from './Button.svelte';
 import Dialog from './Dialog.svelte';
@@ -29,7 +30,7 @@ import Dialog from './Dialog.svelte';
 
 export interface ChildOption {
 	/** child の ID (DB primary key 推奨) */
-	id: number;
+	id: ChildId;
 	/** 表示名 (nickname) */
 	nickname: string;
 	/** 年齢 (label 表示用、任意) */
@@ -46,7 +47,7 @@ interface Props {
 	/** 複数選択許可 (default = false、radio 単一選択。true で checkbox 複数選択) */
 	allowMultiple?: boolean;
 	/** 確定ハンドラ: 'all' (全員) or 選択された child ID 配列 */
-	onConfirm: (result: 'all' | number[]) => void;
+	onConfirm: (result: 'all' | ChildId[]) => void;
 	/** キャンセルハンドラ */
 	onCancel?: () => void;
 	/** 任意の testid (Dialog content に付与) */
@@ -77,7 +78,7 @@ let {
 	closeOnConfirm = true,
 }: Props = $props();
 
-type Selection = 'all' | { type: 'individual'; ids: number[] };
+type Selection = 'all' | { type: 'individual'; ids: ChildId[] };
 
 let selection = $state<Selection>('all');
 
@@ -99,7 +100,7 @@ function handleAllSelect() {
 	selection = 'all';
 }
 
-function handleChildToggle(childId: number) {
+function handleChildToggle(childId: ChildId) {
 	if (allowMultiple) {
 		if (selection === 'all') {
 			selection = { type: 'individual', ids: [childId] };
@@ -114,7 +115,7 @@ function handleChildToggle(childId: number) {
 	}
 }
 
-function isChildSelected(childId: number): boolean {
+function isChildSelected(childId: ChildId): boolean {
 	if (selection === 'all') return false;
 	return selection.ids.includes(childId);
 }

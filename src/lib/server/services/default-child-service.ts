@@ -1,3 +1,4 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
 /**
  * #576: 「既定の子供」の永続化サービス
  *
@@ -18,17 +19,15 @@ const KEY = 'default_child_id';
 /**
  * 設定済みの既定子供 ID を取得する。未設定 or 不正値の場合は null。
  */
-export async function getDefaultChildId(tenantId: string): Promise<number | null> {
+export async function getDefaultChildId(tenantId: string): Promise<ChildId | null> {
 	const raw = await getSetting(KEY, tenantId);
 	if (!raw) return null;
-	const parsed = Number(raw);
-	if (!Number.isFinite(parsed) || parsed <= 0) return null;
-	return parsed;
+	return asChildId(raw);
 }
 
 /**
  * 既定子供 ID を設定する。null を渡すとクリア（空文字列を保存）。
  */
-export async function setDefaultChildId(tenantId: string, childId: number | null): Promise<void> {
+export async function setDefaultChildId(tenantId: string, childId: ChildId | null): Promise<void> {
 	await setSetting(KEY, childId === null ? '' : String(childId), tenantId);
 }

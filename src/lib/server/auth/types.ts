@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/auth/types.ts
 // 二層セッションモデルの型定義
 
@@ -47,7 +48,7 @@ export type Identity =
 export interface AuthContext {
 	tenantId: string;
 	role: Role;
-	childId?: number;
+	childId?: ChildId;
 	licenseStatus: AuthLicenseStatus;
 	tenantStatus?: SubscriptionStatus;
 	plan?: string;

@@ -37,10 +37,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const tenantId = context.tenantId;
 
 	const templateIdRaw = url.searchParams.get('templateId');
-	if (!templateIdRaw || !/^\d+$/.test(templateIdRaw)) {
+	if (!templateIdRaw) {
 		return json({ error: 'templateId が必要です' }, { status: 400 });
 	}
-	const templateId = Number(templateIdRaw);
+	const templateId = templateIdRaw;
 
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) {

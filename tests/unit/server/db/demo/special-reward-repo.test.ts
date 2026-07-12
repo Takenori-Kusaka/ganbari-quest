@@ -6,16 +6,17 @@
 // - insertSpecialReward: stateless stub (returning input echo)
 
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as specialRewardRepo from '../../../../../src/lib/server/db/demo/special-reward-repo';
 import { getDemoMarketplaceSpecialRewardsByChild } from '../../../../../src/lib/server/demo/demo-data';
 
 describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発火)', () => {
 	describe('findSpecialRewards: 各子供 reward 件数 (granted / unshown 混在)', () => {
 		const expectedChildren = [
-			{ id: 902, name: 'ひなちゃん (preschool F)', presetId: 'kinder-rewards' },
-			{ id: 903, name: 'けんたくん (elementary M)', presetId: 'elementary-rewards' },
-			{ id: 904, name: 'さくらちゃん (junior F)', presetId: 'junior-rewards' },
-			{ id: 906, name: 'けいすけくん (senior M)', presetId: 'senior-rewards' },
+			{ id: asChildId(902), name: 'ひなちゃん (preschool F)', presetId: 'kinder-rewards' },
+			{ id: asChildId(903), name: 'けんたくん (elementary M)', presetId: 'elementary-rewards' },
+			{ id: asChildId(904), name: 'さくらちゃん (junior F)', presetId: 'junior-rewards' },
+			{ id: asChildId(906), name: 'けいすけくん (senior M)', presetId: 'senior-rewards' },
 		];
 
 		for (const child of expectedChildren) {
@@ -32,11 +33,11 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 		}
 
 		it('901 (たろうくん baby、marketplace 対象外) で 0 件', async () => {
-			expect(await specialRewardRepo.findSpecialRewards(901, 'demo')).toEqual([]);
+			expect(await specialRewardRepo.findSpecialRewards(asChildId(901), 'demo')).toEqual([]);
 		});
 
 		it('存在しない childId (999) で 0 件', async () => {
-			expect(await specialRewardRepo.findSpecialRewards(999, 'demo')).toEqual([]);
+			expect(await specialRewardRepo.findSpecialRewards(asChildId(999), 'demo')).toEqual([]);
 		});
 	});
 
@@ -45,9 +46,9 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 
 		for (const childId of expectedChildren) {
 			it(`${childId} で unshown reward を 1 件取得 (childId / shownAt=null 整合)`, async () => {
-				const unshown = await specialRewardRepo.findUnshownReward(childId, 'demo');
+				const unshown = await specialRewardRepo.findUnshownReward(asChildId(childId), 'demo');
 				expect(unshown).toBeDefined();
-				expect(unshown?.childId).toBe(childId);
+				expect(unshown?.childId).toBe(asChildId(childId));
 				expect(unshown?.shownAt).toBeNull();
 				expect(unshown?.grantedAt).not.toBeNull();
 				expect(unshown?.title).toBeDefined();
@@ -56,40 +57,42 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 		}
 
 		it('901 (baby、marketplace 対象外) で undefined (modal 発火なし)', async () => {
-			expect(await specialRewardRepo.findUnshownReward(901, 'demo')).toBeUndefined();
+			expect(await specialRewardRepo.findUnshownReward(asChildId(901), 'demo')).toBeUndefined();
 		});
 
 		it('findUnshownReward と findSpecialRewards の整合 (idx 0 の id が一致)', async () => {
-			const all = await specialRewardRepo.findSpecialRewards(902, 'demo');
-			const unshown = await specialRewardRepo.findUnshownReward(902, 'demo');
+			const all = await specialRewardRepo.findSpecialRewards(asChildId(902), 'demo');
+			const unshown = await specialRewardRepo.findUnshownReward(asChildId(902), 'demo');
 			expect(unshown?.id).toBe(all[0]?.id);
 		});
 	});
 
 	describe('markRewardShown: stateless stub (fixture mutate なし)', () => {
 		it('markRewardShown は undefined を返す (sqlite repo の returning().get() 整合)', async () => {
-			expect(await specialRewardRepo.markRewardShown(902, 5000, 'demo')).toBeUndefined();
+			expect(
+				await specialRewardRepo.markRewardShown(asChildId(902), '5000', 'demo'),
+			).toBeUndefined();
 		});
 
 		it('markRewardShown 呼出後も findUnshownReward は同じ unshown reward を返す (stateless)', async () => {
-			const before = await specialRewardRepo.findUnshownReward(902, 'demo');
-			await specialRewardRepo.markRewardShown(902, before?.id ?? 0, 'demo');
-			const after = await specialRewardRepo.findUnshownReward(902, 'demo');
+			const before = await specialRewardRepo.findUnshownReward(asChildId(902), 'demo');
+			await specialRewardRepo.markRewardShown(asChildId(902), before?.id ?? '0', 'demo');
+			const after = await specialRewardRepo.findUnshownReward(asChildId(902), 'demo');
 			expect(after?.id).toBe(before?.id);
 			expect(after?.shownAt).toBeNull();
 		});
 
 		it('markRewardShown 呼出後も fixture (MARKETPLACE_SPECIAL_REWARDS_BY_CHILD) 件数不変', async () => {
-			const before = getDemoMarketplaceSpecialRewardsByChild(902).length;
-			await specialRewardRepo.markRewardShown(902, 5000, 'demo');
-			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(before);
+			const before = getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length;
+			await specialRewardRepo.markRewardShown(asChildId(902), '5000', 'demo');
+			expect(getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length).toBe(before);
 		});
 	});
 
 	describe('insertSpecialReward: stateless stub (input echo)', () => {
 		it('insertSpecialReward は input を echo した SpecialReward を返す', async () => {
 			const input = {
-				childId: 902,
+				childId: asChildId(902),
 				title: 'テスト報酬',
 				points: 50,
 				category: 'achievement',
@@ -104,12 +107,12 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 		});
 
 		it('insertSpecialReward 呼出後も fixture 件数不変', async () => {
-			const before = getDemoMarketplaceSpecialRewardsByChild(902).length;
+			const before = getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length;
 			await specialRewardRepo.insertSpecialReward(
-				{ childId: 902, title: 'x', points: 10, category: 'achievement' },
+				{ childId: asChildId(902), title: 'x', points: 10, category: 'achievement' },
 				'demo',
 			);
-			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(before);
+			expect(getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length).toBe(before);
 		});
 	});
 
@@ -123,19 +126,26 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 	describe('updateSpecialReward / deleteSpecialReward: stateless stub (#2832)', () => {
 		it('updateSpecialReward は undefined を返す (write no-op、成功偽装しない)', async () => {
 			expect(
-				await specialRewardRepo.updateSpecialReward(902, 5000, { title: 'x', points: 1 }, 'demo'),
+				await specialRewardRepo.updateSpecialReward(
+					asChildId(902),
+					'5000',
+					{ title: 'x', points: 1 },
+					'demo',
+				),
 			).toBeUndefined();
 		});
 
 		it('deleteSpecialReward は false を返す (write no-op、成功偽装しない)', async () => {
-			expect(await specialRewardRepo.deleteSpecialReward(902, 5000, 'demo')).toBe(false);
+			expect(await specialRewardRepo.deleteSpecialReward(asChildId(902), '5000', 'demo')).toBe(
+				false,
+			);
 		});
 
 		it('呼出後も fixture 件数不変 (stateless)', async () => {
-			const before = getDemoMarketplaceSpecialRewardsByChild(902).length;
-			await specialRewardRepo.updateSpecialReward(902, 5000, { title: 'x' }, 'demo');
-			await specialRewardRepo.deleteSpecialReward(902, 5000, 'demo');
-			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(before);
+			const before = getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length;
+			await specialRewardRepo.updateSpecialReward(asChildId(902), '5000', { title: 'x' }, 'demo');
+			await specialRewardRepo.deleteSpecialReward(asChildId(902), '5000', 'demo');
+			expect(getDemoMarketplaceSpecialRewardsByChild(asChildId(902)).length).toBe(before);
 		});
 	});
 });

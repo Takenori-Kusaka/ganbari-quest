@@ -19,6 +19,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const {
@@ -71,7 +72,7 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 const DATE = '2026-06-01';
 const BATTLE_ID = 7;
 const ENEMY_ID = 3;
@@ -104,7 +105,7 @@ function makeCollectionItem(over: Record<string, unknown> = {}): Record<string, 
 	return {
 		PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
 		SK: `ENEMYCOL#${String(enemyId).padStart(8, '0')}`,
-		id: 1,
+		id: '1',
 		childId: CHILD_ID,
 		enemyId,
 		firstDefeatedAt: '2026-06-01T09:00:00.000Z',
@@ -130,7 +131,7 @@ describe('findTodayBattle', () => {
 		mockSend.mockResolvedValueOnce({ Item: makeBattleItem() });
 		const { findTodayBattle } = await loadRepo();
 		const battle = await findTodayBattle(CHILD_ID, DATE, TENANT);
-		expect(battle?.id).toBe(BATTLE_ID);
+		expect(battle?.id).toBe(String(BATTLE_ID));
 		expect(battle?.date).toBe(DATE);
 		const callArg = mockSend.mock.calls[0]?.[0] as { input: { Key?: { PK: string; SK: string } } };
 		expect(callArg.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
@@ -171,7 +172,7 @@ describe('findRecentBattles', () => {
 		});
 		const { findRecentBattles } = await loadRepo();
 		const battles = await findRecentBattles(CHILD_ID, 10, TENANT);
-		expect(battles.map((b) => b.id)).toEqual([9, 8]);
+		expect(battles.map((b) => b.id)).toEqual(['9', '8']);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
 			input: {
 				ScanIndexForward?: boolean;
@@ -197,7 +198,7 @@ describe('findRecentBattles', () => {
 		const { findRecentBattles } = await loadRepo();
 		const battles = await findRecentBattles(CHILD_ID, 2, TENANT);
 		expect(battles).toHaveLength(2);
-		expect(battles.map((b) => b.id)).toEqual([9, 8]);
+		expect(battles.map((b) => b.id)).toEqual(['9', '8']);
 	});
 
 	it('0 件のとき空配列を返す', async () => {
@@ -282,7 +283,7 @@ describe('insertDailyBattle', () => {
 		const stats = { hp: 100, atk: 10, def: 5, spd: 5, rec: 2 };
 		const id = await insertDailyBattle(CHILD_ID, ENEMY_ID, DATE, stats, TENANT);
 
-		expect(id).toBe(101);
+		expect(id).toBe(`101`);
 		const putCall = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
 		expect(putCall.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
 		expect(putCall.input.Item?.SK).toBe(`BATTLE#${DATE}`);
@@ -309,7 +310,7 @@ describe('completeBattle', () => {
 		mockSend.mockResolvedValueOnce({});
 
 		const { completeBattle } = await loadRepo();
-		await completeBattle(BATTLE_ID, 'win', 50, 4, TENANT);
+		await completeBattle(String(BATTLE_ID), 'win', 50, 4, TENANT);
 
 		expect(mockSend).toHaveBeenCalledTimes(2);
 		const scan = mockSend.mock.calls[0]?.[0] as {
@@ -330,7 +331,7 @@ describe('completeBattle', () => {
 	it('battle が見つからないとき Update せず no-op (SQLite UPDATE no-match と等価)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { completeBattle } = await loadRepo();
-		await completeBattle(BATTLE_ID, 'lose', 0, 3, TENANT);
+		await completeBattle(String(BATTLE_ID), 'lose', 0, 3, TENANT);
 		// Scan のみ、Update 0 件。
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
@@ -349,7 +350,7 @@ describe('completeBattle', () => {
 			.mockResolvedValueOnce({});
 
 		const { completeBattle } = await loadRepo();
-		await completeBattle(BATTLE_ID, 'win', 50, 4, TENANT);
+		await completeBattle(String(BATTLE_ID), 'win', 50, 4, TENANT);
 
 		expect(mockSend).toHaveBeenCalledTimes(3);
 		const page1 = mockSend.mock.calls[0]?.[0] as { input: { ExclusiveStartKey?: unknown } };
@@ -367,7 +368,7 @@ describe('completeBattle', () => {
 		});
 		mockSend.mockResolvedValueOnce({});
 		const { completeBattle } = await loadRepo();
-		await completeBattle(BATTLE_ID, 'win', 50, 4, TENANT);
+		await completeBattle(String(BATTLE_ID), 'win', 50, 4, TENANT);
 		const scan = mockSend.mock.calls[0]?.[0] as { input: { Limit?: number } };
 		expect(scan.input.Limit).toBeUndefined();
 	});
@@ -546,7 +547,7 @@ describe('interface 適合 (IBattleRepo)', () => {
 			TENANT,
 		);
 		// stub なら id=0 を返していた。本実装は counter 値を返す。
-		expect(id).toBe(1);
+		expect(id).toBe(`1`);
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

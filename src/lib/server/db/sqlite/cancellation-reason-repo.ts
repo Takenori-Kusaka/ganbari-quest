@@ -17,7 +17,7 @@ const DEFAULT_FREE_TEXT_SEARCH_LIMIT = 50;
 
 function mapRow(row: typeof cancellationReasons.$inferSelect): CancellationReasonRecord {
 	return {
-		id: row.id,
+		id: String(row.id),
 		tenantId: row.tenantId,
 		category: row.category as CancellationCategory,
 		freeText: row.freeText ?? null,

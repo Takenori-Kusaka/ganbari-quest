@@ -14,6 +14,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const {
@@ -67,7 +68,7 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 const CERT_TYPE = 'elementary_graduation';
 
 /** child partition の DynamoDB certificate item を組み立てる (PK/SK + 属性)。 */
@@ -117,7 +118,7 @@ describe('issueCertificate', () => {
 			TENANT,
 		);
 
-		expect(result?.id).toBe(55);
+		expect(result?.id).toBe('55');
 		expect(result).toMatchObject({
 			childId: CHILD_ID,
 			tenantId: TENANT,
@@ -192,7 +193,7 @@ describe('findCertificates', () => {
 		const { findCertificates } = await loadRepo();
 		const result = await findCertificates(CHILD_ID, TENANT);
 
-		expect(result.map((c) => c.id)).toEqual([2, 3, 1]);
+		expect(result.map((c) => c.id)).toEqual(['2', '3', '1']);
 		const call = mockSend.mock.calls[0]?.[0] as {
 			input: { ExpressionAttributeValues?: Record<string, unknown> };
 		};
@@ -230,9 +231,9 @@ describe('findCertificateById', () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 9 })] });
 
 		const { findCertificateById } = await loadRepo();
-		const result = await findCertificateById(9, TENANT);
+		const result = await findCertificateById('9', TENANT);
 
-		expect(result?.id).toBe(9);
+		expect(result?.id).toBe('9');
 		expect(result?.certificateType).toBe(CERT_TYPE);
 		const call = mockSend.mock.calls[0]?.[0] as {
 			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
@@ -247,7 +248,7 @@ describe('findCertificateById', () => {
 			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } })
 			.mockResolvedValueOnce({ Items: [] });
 		const { findCertificateById } = await loadRepo();
-		await expect(findCertificateById(999, TENANT)).resolves.toBeUndefined();
+		await expect(findCertificateById('999', TENANT)).resolves.toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
 });

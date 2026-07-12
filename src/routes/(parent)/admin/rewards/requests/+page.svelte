@@ -22,10 +22,10 @@ const redemptionError = $derived(
 	(form as Record<string, unknown> | null)?.redemptionError as string | undefined,
 );
 
-let rejectingRequestId = $state<number | null>(null);
+let rejectingRequestId = $state<string | null>(null);
 let rejectNote = $state('');
 
-function openRejectForm(id: number) {
+function openRejectForm(id: string) {
 	rejectingRequestId = id;
 	rejectNote = '';
 }

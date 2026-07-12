@@ -34,7 +34,7 @@ describe('setup-service', () => {
 
 		it('active が1人以上いる場合 false を返す（archived は問わない）', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'テスト太郎', tenantId: 'tenant-1' },
+				{ id: '1', nickname: 'テスト太郎', tenantId: 'tenant-1' },
 			]);
 
 			const result = await isSetupRequired('tenant-1');
@@ -46,7 +46,7 @@ describe('setup-service', () => {
 		it('active 0人だが archived が存在する場合 false を返す', async () => {
 			mockGetAllChildren.mockResolvedValue([]);
 			mockGetArchivedChildren.mockResolvedValue([
-				{ id: 2, nickname: 'アーカイブ済み', tenantId: 'tenant-1', isArchived: 1 },
+				{ id: '2', nickname: 'アーカイブ済み', tenantId: 'tenant-1', isArchived: 1 },
 			]);
 
 			const result = await isSetupRequired('tenant-1');
@@ -60,21 +60,21 @@ describe('setup-service', () => {
 			mockGetAllChildren.mockResolvedValue([]);
 			mockGetArchivedChildren.mockResolvedValue([
 				{
-					id: 10,
+					id: '10',
 					nickname: 'trial_expired 子供1',
 					tenantId: 'tenant-1',
 					isArchived: 1,
 					archivedReason: 'trial_expired',
 				},
 				{
-					id: 11,
+					id: '11',
 					nickname: 'trial_expired 子供2',
 					tenantId: 'tenant-1',
 					isArchived: 1,
 					archivedReason: 'trial_expired',
 				},
 				{
-					id: 12,
+					id: '12',
 					nickname: '手動アーカイブ',
 					tenantId: 'tenant-1',
 					isArchived: 1,
@@ -91,9 +91,9 @@ describe('setup-service', () => {
 
 		it('子供が複数人いる場合 false を返す', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'テスト太郎', tenantId: 'tenant-1' },
-				{ id: 2, nickname: 'テスト花子', tenantId: 'tenant-1' },
-				{ id: 3, nickname: 'テスト次郎', tenantId: 'tenant-1' },
+				{ id: '1', nickname: 'テスト太郎', tenantId: 'tenant-1' },
+				{ id: '2', nickname: 'テスト花子', tenantId: 'tenant-1' },
+				{ id: '3', nickname: 'テスト次郎', tenantId: 'tenant-1' },
 			]);
 
 			const result = await isSetupRequired('tenant-1');

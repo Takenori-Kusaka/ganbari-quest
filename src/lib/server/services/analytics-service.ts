@@ -1,3 +1,4 @@
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/analytics-service.ts
 // Analytics service — server-side event tracking facade.
 // Wraps the analytics module with app-specific business event helpers.
@@ -74,7 +75,7 @@ export function trackActivationSignupCompleted(tenantId: string): void {
  * Track: テナント初の子供登録 (Step 2)
  * 呼び出し側で「初回かどうか」を判定すること。
  */
-export function trackActivationFirstChildAdded(tenantId: string, childId: number): void {
+export function trackActivationFirstChildAdded(tenantId: string, childId: ChildId): void {
 	trackBusinessEvent('activation_first_child_added', { step: 2, childId }, tenantId);
 }
 
@@ -87,8 +88,8 @@ export function trackActivationFirstChildAdded(tenantId: string, childId: number
  */
 export function trackActivationFirstActivityCompleted(
 	tenantId: string,
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 ): void {
 	trackBusinessEvent(
 		'activation_first_activity_completed',

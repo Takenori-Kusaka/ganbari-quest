@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/point-service.test.ts
 // ポイント管理サービスのユニットテスト
 
@@ -62,7 +63,7 @@ describe('point-service', () => {
 
 	// 残高取得
 	it('ポイント残高0を返す（初期状態）', async () => {
-		const result = assertSuccess(await getPointBalance(1, 'test-tenant'));
+		const result = assertSuccess(await getPointBalance(asChildId(1), 'test-tenant'));
 		expect(result.balance).toBe(0);
 		expect(result.convertableAmount).toBe(0);
 	});
@@ -72,7 +73,7 @@ describe('point-service', () => {
 		addPoints(1, 200, 'activity', 'テスト活動2');
 		addPoints(1, -50, 'cancel', 'キャンセル');
 
-		const result = assertSuccess(await getPointBalance(1, 'test-tenant'));
+		const result = assertSuccess(await getPointBalance(asChildId(1), 'test-tenant'));
 		expect(result.balance).toBe(250);
 		expect(result.convertableAmount).toBe(0); // 500未満
 	});
@@ -80,13 +81,13 @@ describe('point-service', () => {
 	it('変換可能額を正しく計算する（500P単位）', async () => {
 		addPoints(1, 1250, 'activity', '大量ポイント');
 
-		const result = assertSuccess(await getPointBalance(1, 'test-tenant'));
+		const result = assertSuccess(await getPointBalance(asChildId(1), 'test-tenant'));
 		expect(result.balance).toBe(1250);
 		expect(result.convertableAmount).toBe(1000); // 500 * 2
 	});
 
 	it('存在しない子供のポイント残高はNOT_FOUND', async () => {
-		const result = await getPointBalance(999, 'test-tenant');
+		const result = await getPointBalance(asChildId(999), 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
@@ -96,7 +97,9 @@ describe('point-service', () => {
 		addPoints(1, 200, 'activity', '活動2');
 		addPoints(1, 50, 'login_bonus', 'ログインボーナス');
 
-		const result = assertSuccess(await getPointHistory(1, { limit: 50, offset: 0 }, 'test-tenant'));
+		const result = assertSuccess(
+			await getPointHistory(asChildId(1), { limit: 50, offset: 0 }, 'test-tenant'),
+		);
 		const history = await result.history;
 		expect(history.length).toBe(3);
 	});
@@ -106,13 +109,15 @@ describe('point-service', () => {
 		addPoints(1, 20, 'activity', '2');
 		addPoints(1, 30, 'activity', '3');
 
-		const result = assertSuccess(await getPointHistory(1, { limit: 2, offset: 0 }, 'test-tenant'));
+		const result = assertSuccess(
+			await getPointHistory(asChildId(1), { limit: 2, offset: 0 }, 'test-tenant'),
+		);
 		const history = await result.history;
 		expect(history.length).toBe(2);
 	});
 
 	it('存在しない子供の履歴はNOT_FOUND', async () => {
-		const result = await getPointHistory(999, { limit: 50, offset: 0 }, 'test-tenant');
+		const result = await getPointHistory(asChildId(999), { limit: 50, offset: 0 }, 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
@@ -120,41 +125,41 @@ describe('point-service', () => {
 	it('ポイントを正常に変換できる（500P）', async () => {
 		addPoints(1, 700, 'activity', 'テスト');
 
-		const result = assertSuccess(await convertPoints(1, 500, 'test-tenant', 'preset'));
+		const result = assertSuccess(await convertPoints(asChildId(1), 500, 'test-tenant', 'preset'));
 		expect(result.convertedAmount).toBe(500);
 		expect(result.remainingBalance).toBe(200);
 
 		// 残高確認
-		const balance = assertSuccess(await getPointBalance(1, 'test-tenant'));
+		const balance = assertSuccess(await getPointBalance(asChildId(1), 'test-tenant'));
 		expect(balance.balance).toBe(200);
 	});
 
 	it('残高不足時はINSUFFICIENT_POINTSエラー', async () => {
 		addPoints(1, 300, 'activity', 'テスト');
 
-		const result = await convertPoints(1, 500, 'test-tenant', 'preset');
+		const result = await convertPoints(asChildId(1), 500, 'test-tenant', 'preset');
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
 	it('存在しない子供の変換はNOT_FOUND', async () => {
-		const result = await convertPoints(999, 500, 'test-tenant', 'preset');
+		const result = await convertPoints(asChildId(999), 500, 'test-tenant', 'preset');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
 	it('1000P変換が正常に動作する', async () => {
 		addPoints(1, 1500, 'activity', '大量');
 
-		const result = assertSuccess(await convertPoints(1, 1000, 'test-tenant', 'preset'));
+		const result = assertSuccess(await convertPoints(asChildId(1), 1000, 'test-tenant', 'preset'));
 		expect(result.convertedAmount).toBe(1000);
 		expect(result.remainingBalance).toBe(500);
 	});
 
 	it('変換後に履歴にconvertエントリが追加される', async () => {
 		addPoints(1, 600, 'activity', 'テスト');
-		await convertPoints(1, 500, 'test-tenant', 'preset');
+		await convertPoints(asChildId(1), 500, 'test-tenant', 'preset');
 
 		const historyResult = assertSuccess(
-			await getPointHistory(1, { limit: 50, offset: 0 }, 'test-tenant'),
+			await getPointHistory(asChildId(1), { limit: 50, offset: 0 }, 'test-tenant'),
 		);
 		const historyList = await historyResult.history;
 		const convertEntry = historyList.find((h: { type: string }) => h.type === 'convert');
@@ -166,7 +171,7 @@ describe('point-service', () => {
 	it('手動入力モードで1P単位の変換ができる', async () => {
 		addPoints(1, 700, 'activity', 'テスト');
 
-		const result = assertSuccess(await convertPoints(1, 123, 'test-tenant', 'manual'));
+		const result = assertSuccess(await convertPoints(asChildId(1), 123, 'test-tenant', 'manual'));
 		expect(result.convertedAmount).toBe(123);
 		expect(result.remainingBalance).toBe(577);
 		expect(result.message).toContain('手動入力');
@@ -175,7 +180,7 @@ describe('point-service', () => {
 	it('領収書モードで変換できる', async () => {
 		addPoints(1, 1000, 'activity', 'テスト');
 
-		const result = assertSuccess(await convertPoints(1, 648, 'test-tenant', 'receipt'));
+		const result = assertSuccess(await convertPoints(asChildId(1), 648, 'test-tenant', 'receipt'));
 		expect(result.convertedAmount).toBe(648);
 		expect(result.remainingBalance).toBe(352);
 		expect(result.message).toContain('領収書読み取り');
@@ -184,7 +189,7 @@ describe('point-service', () => {
 	it('プリセットモード（デフォルト）の説明文にサフィックスがない', async () => {
 		addPoints(1, 600, 'activity', 'テスト');
 
-		const result = assertSuccess(await convertPoints(1, 500, 'test-tenant', 'preset'));
+		const result = assertSuccess(await convertPoints(asChildId(1), 500, 'test-tenant', 'preset'));
 		expect(result.message).not.toContain('手動入力');
 		expect(result.message).not.toContain('領収書');
 	});

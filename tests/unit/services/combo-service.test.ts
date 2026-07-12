@@ -25,6 +25,7 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { asChildId } from '$lib/domain/ids';
 import { checkAndGrantCombo } from '../../../src/lib/server/services/combo-service';
 
 const TODAY = '2026-03-07';
@@ -79,7 +80,7 @@ describe('combo-service', () => {
 		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(0);
 		expect(result.crossCategoryCombo).toBeNull();
 		expect(result.totalNewBonus).toBe(0);
@@ -91,7 +92,7 @@ describe('combo-service', () => {
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(1);
 		expect(result.categoryCombo[0]?.name).toBe('ダブル');
 		expect(result.categoryCombo[0]?.bonus).toBe(2);
@@ -107,7 +108,7 @@ describe('combo-service', () => {
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(1);
 		expect(result.categoryCombo[0]?.name).toBe('トリプル');
 		expect(result.categoryCombo[0]?.bonus).toBe(5);
@@ -124,7 +125,7 @@ describe('combo-service', () => {
 		addLog(1, 3, TODAY);
 		addLog(1, 4, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(1);
 		expect(result.categoryCombo[0]?.name).toBe('スーパー');
 		expect(result.categoryCombo[0]?.bonus).toBe(10);
@@ -137,7 +138,7 @@ describe('combo-service', () => {
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(0); // each category has only 1 unique
 		expect(result.crossCategoryCombo).not.toBeNull();
 		expect(result.crossCategoryCombo?.name).toBe('にとうりゅう');
@@ -153,7 +154,7 @@ describe('combo-service', () => {
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.crossCategoryCombo?.name).toBe('さんみいったい');
 		expect(result.crossCategoryCombo?.bonus).toBe(8);
 		expect(result.totalNewBonus).toBe(8);
@@ -171,7 +172,7 @@ describe('combo-service', () => {
 		addLog(1, 4, TODAY);
 		addLog(1, 5, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.crossCategoryCombo?.name).toBe('パーフェクト');
 		expect(result.crossCategoryCombo?.bonus).toBe(30);
 		expect(result.totalNewBonus).toBe(30);
@@ -185,7 +186,7 @@ describe('combo-service', () => {
 		addLog(1, 2, TODAY);
 		addLog(1, 3, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		// Category combo: うんどう x2 = ダブル +2
 		expect(result.categoryCombo).toHaveLength(1);
 		expect(result.categoryCombo[0]?.bonus).toBe(2);
@@ -203,14 +204,14 @@ describe('combo-service', () => {
 		addLog(1, 2, TODAY);
 
 		// 1st call: ダブル +2
-		const first = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const first = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(first.totalNewBonus).toBe(2);
 
 		// Add 3rd activity
 		addLog(1, 3, TODAY);
 
 		// 2nd call: トリプル +5 total, but 2 already granted → +3 new
-		const second = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const second = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(second.categoryCombo[0]?.name).toBe('トリプル');
 		expect(second.categoryCombo[0]?.bonus).toBe(5);
 		expect(second.totalNewBonus).toBe(3); // 5 - 2 = 3
@@ -234,7 +235,7 @@ describe('combo-service', () => {
 			})
 			.run();
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(0);
 		expect(result.totalNewBonus).toBe(0);
 	});
@@ -247,7 +248,7 @@ describe('combo-service', () => {
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		// クロスカテゴリ(にとうりゅう)が発動 → ミニコンボは出ない
 		expect(result.crossCategoryCombo).not.toBeNull();
 		expect(result.miniCombo).toBeNull();
@@ -259,7 +260,7 @@ describe('combo-service', () => {
 		addLog(1, 1, TODAY);
 		addLog(1, 2, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(1);
 		expect(result.miniCombo).toBeNull();
 	});
@@ -268,7 +269,7 @@ describe('combo-service', () => {
 		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.miniCombo).toBeNull();
 		expect(result.hints.some((h) => h.message.includes('ミニコンボ'))).toBe(true);
 	});
@@ -277,7 +278,7 @@ describe('combo-service', () => {
 		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.hints.some((h) => h.message.includes('ダブルコンボ'))).toBe(true);
 	});
 
@@ -285,7 +286,7 @@ describe('combo-service', () => {
 		seedActivity(1, 'ランニング', 1);
 		addLog(1, 1, TODAY);
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.hints.some((h) => h.message.includes('にとうりゅう'))).toBe(true);
 	});
 
@@ -294,7 +295,7 @@ describe('combo-service', () => {
 		addLog(1, 1, TODAY);
 		addLog(1, 1, TODAY); // same activity twice
 
-		const result = await checkAndGrantCombo(1, TODAY, 'test-tenant');
+		const result = await checkAndGrantCombo(asChildId(1), TODAY, 'test-tenant');
 		expect(result.categoryCombo).toHaveLength(0);
 		expect(result.totalNewBonus).toBe(0);
 	});

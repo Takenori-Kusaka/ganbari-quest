@@ -12,7 +12,7 @@
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts plan-gated-features
 //
 // 対応ゲート:
-//  - /admin/rewards: rewards-upgrade-banner（free のみ表示）
+//  - /admin/rewards: 「+ 追加」manual の locked-but-active（free のみ lock マーカー、EPIC #3533 §10.2.3）
 //
 // #2316 削除済 ゲート:
 //  - /admin/messages: ひとことメッセージボタン (free/standard disabled, family enabled)
@@ -28,10 +28,17 @@ import { expect, test } from '@playwright/test';
 test.describe('#776 /admin/rewards プランゲート — free', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free プランではアップグレードバナーが表示される', async ({ page }) => {
+	// EPIC #3533 §10.2.3: 旧 rewards-upgrade-banner (slot 4 常設 CTA バナー) は撤去。
+	//   free の gate は「+ 追加」dropdown の manual 項目が locked-but-active (lock マーカー +
+	//   選択でプラン画面遷移) で表現される。banner が消え、gate signal が manual 項目へ移ったことを検証する
+	//   (ADR-0006: assertion は弱体化でなく新 UX 機構への置換。click→プラン画面遷移の goal 完遂は AC6 で担保)。
+	test('free プランでは manual 追加が locked-but-active (lock マーカー) + 常設バナーなし', async ({
+		page,
+	}) => {
 		await page.goto('/admin/rewards');
-		await expect(page.getByTestId('rewards-upgrade-banner')).toBeVisible();
-		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
+		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+		await page.getByTestId('rewards-add-menu').click();
+		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
 	// #2894 AC5: free tier の reward-set 取込 → PlanLimitError が正しく描画される。
@@ -75,9 +82,13 @@ test.describe('#776 /admin/rewards プランゲート — free', () => {
 test.describe('#776 /admin/rewards プランゲート — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
-	test('standard プランではアップグレードバナーが表示されない', async ({ page }) => {
+	test('standard プランでは manual 追加が gate なし (lock マーカーなし) + 常設バナーなし', async ({
+		page,
+	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+		await page.getByTestId('rewards-add-menu').click();
+		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 
 	// #2894 AC5: paid tier (standard) は reward-set 取込が成功し一覧に反映される
@@ -111,9 +122,13 @@ test.describe('#776 /admin/rewards プランゲート — standard', () => {
 test.describe('#776 /admin/rewards プランゲート — family', () => {
 	test.use({ storageState: 'playwright/.auth/family.json' });
 
-	test('family プランではアップグレードバナーが表示されない', async ({ page }) => {
+	test('family プランでは manual 追加が gate なし (lock マーカーなし) + 常設バナーなし', async ({
+		page,
+	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
+		await page.getByTestId('rewards-add-menu').click();
+		await expect(page.getByTestId('menu-item-manual')).not.toContainText('🔒');
 	});
 });
 

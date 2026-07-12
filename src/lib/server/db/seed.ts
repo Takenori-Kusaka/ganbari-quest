@@ -5,6 +5,8 @@
 import Database from 'better-sqlite3';
 import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+// #3607: tsx 直接実行 (Usage 参照) のため $lib alias ではなく相対 import
+import { CATEGORY_CODE_TO_ID, type CategoryCode } from '../../domain/categories';
 import * as schema from './schema';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
@@ -3003,7 +3005,7 @@ function seed() {
 			name: 'うんどうがんばった',
 			description: 'うんどうのかつどうをたくさんやろう！',
 			icon: '🏃',
-			category: 'undou',
+			category: 'undou' satisfies CategoryCode,
 			conditionType: 'category_activities',
 			conditionValue: 10,
 			bonusPoints: 10,
@@ -3017,7 +3019,7 @@ function seed() {
 			name: 'べんきょうがんばった',
 			description: 'べんきょうのかつどうをたくさんやろう！',
 			icon: '📚',
-			category: 'benkyou',
+			category: 'benkyou' satisfies CategoryCode,
 			conditionType: 'category_activities',
 			conditionValue: 10,
 			bonusPoints: 10,
@@ -3031,7 +3033,7 @@ function seed() {
 			name: 'せいかつマスター',
 			description: 'せいかつのかつどうをたくさんやろう！',
 			icon: '🏠',
-			category: 'seikatsu',
+			category: 'seikatsu' satisfies CategoryCode,
 			conditionType: 'category_activities',
 			conditionValue: 10,
 			bonusPoints: 10,
@@ -3045,7 +3047,7 @@ function seed() {
 			name: 'こうりゅうのたつじん',
 			description: 'こうりゅうのかつどうをたくさんやろう！',
 			icon: '🤝',
-			category: 'kouryuu',
+			category: 'kouryuu' satisfies CategoryCode,
 			conditionType: 'category_activities',
 			conditionValue: 10,
 			bonusPoints: 10,
@@ -3059,7 +3061,7 @@ function seed() {
 			name: 'そうぞうのてんさい',
 			description: 'そうぞうのかつどうをたくさんやろう！',
 			icon: '🎨',
-			category: 'souzou',
+			category: 'souzou' satisfies CategoryCode,
 			conditionType: 'category_activities',
 			conditionValue: 10,
 			bonusPoints: 10,
@@ -3283,7 +3285,7 @@ function seed() {
 		const springActivities: (typeof schema.activities.$inferInsert)[] = [
 			{
 				name: 'おはなみさんぽ',
-				categoryId: catMap.undou ?? 1,
+				categoryId: catMap.undou ?? CATEGORY_CODE_TO_ID.undou,
 				icon: '🌸',
 				basePoints: 8,
 				source: 'seasonal',
@@ -3293,7 +3295,7 @@ function seed() {
 			},
 			{
 				name: 'たねをまく',
-				categoryId: catMap.seikatsu ?? 3,
+				categoryId: catMap.seikatsu ?? CATEGORY_CODE_TO_ID.seikatsu,
 				icon: '🌱',
 				basePoints: 10,
 				source: 'seasonal',
@@ -3303,7 +3305,7 @@ function seed() {
 			},
 			{
 				name: 'はるのむしさがし',
-				categoryId: catMap.undou ?? 1,
+				categoryId: catMap.undou ?? CATEGORY_CODE_TO_ID.undou,
 				icon: '🐝',
 				basePoints: 8,
 				source: 'seasonal',
@@ -3313,7 +3315,7 @@ function seed() {
 			},
 			{
 				name: 'あたらしいおともだちとあそぶ',
-				categoryId: catMap.kouryuu ?? 4,
+				categoryId: catMap.kouryuu ?? CATEGORY_CODE_TO_ID.kouryuu,
 				icon: '🤝',
 				basePoints: 10,
 				source: 'seasonal',
@@ -3323,7 +3325,7 @@ function seed() {
 			},
 			{
 				name: 'はるのおえかき',
-				categoryId: catMap.souzou ?? 5,
+				categoryId: catMap.souzou ?? CATEGORY_CODE_TO_ID.souzou,
 				icon: '🎨',
 				basePoints: 8,
 				source: 'seasonal',
@@ -3333,7 +3335,7 @@ function seed() {
 			},
 			{
 				name: 'しんがっきのもくひょう',
-				categoryId: catMap.benkyou ?? 2,
+				categoryId: catMap.benkyou ?? CATEGORY_CODE_TO_ID.benkyou,
 				icon: '📝',
 				basePoints: 15,
 				source: 'seasonal',

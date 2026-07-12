@@ -372,7 +372,7 @@ describe('account-deletion-service', () => {
 	describe('Pattern 3: deleteChildAccount', () => {
 		it('子供アカウント削除', async () => {
 			mockChildRepo.findChildByUserId.mockResolvedValue({
-				id: 1,
+				id: '1',
 				nickname: 'たろう',
 				userId: CHILD_USER_ID,
 			});
@@ -385,7 +385,7 @@ describe('account-deletion-service', () => {
 
 			expect(result.success).toBe(true);
 			expect(result.pattern).toBe('child');
-			expect(mockChildRepo.updateChild).toHaveBeenCalledWith(1, { userId: null }, TENANT_ID);
+			expect(mockChildRepo.updateChild).toHaveBeenCalledWith('1', { userId: null }, TENANT_ID);
 			expect(mockAuthRepo.deleteMembership).toHaveBeenCalledWith(CHILD_USER_ID, TENANT_ID);
 			expect(mockAuthRepo.deleteUser).toHaveBeenCalledWith(CHILD_USER_ID);
 		});

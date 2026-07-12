@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/evaluation-service.test.ts
 // 週次評価サービスのユニットテスト
 
@@ -173,8 +174,8 @@ describe('evaluateChild', () => {
 	});
 
 	it('活動なしの週は全カテゴリ0', async () => {
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
-		expect(result.childId).toBe(1);
+		const result = await evaluateChild(asChildId(1), '2026-02-16', '2026-02-22', 'test-tenant');
+		expect(result.childId).toBe('1');
 		expect(result.bonusPoints).toBe(0);
 		for (const cat of Object.values(result.categoryScores)) {
 			expect(cat.count).toBe(0);
@@ -190,7 +191,7 @@ describe('evaluateChild', () => {
 		addLog(1, 4, '2026-02-19'); // こうりゅう
 		addLog(1, 5, '2026-02-20'); // そうぞう
 
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
+		const result = await evaluateChild(asChildId(1), '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.bonusPoints).toBe(20); // 5カテゴリ活動ボーナス
 
 		// 各カテゴリ1回→週次ボーナスなし（即時更新分で十分）
@@ -205,7 +206,7 @@ describe('evaluateChild', () => {
 			addLog(1, 1, `2026-02-${i}`); // うんどう毎日
 		}
 
-		const result = await evaluateChild(1, '2026-02-16', '2026-02-22', 'test-tenant');
+		const result = await evaluateChild(asChildId(1), '2026-02-16', '2026-02-22', 'test-tenant');
 		expect(result.categoryScores[1]?.count).toBe(7);
 		expect(result.categoryScores[1]?.statusIncrease).toBe(27); // 週次ボーナスXP
 	});
@@ -225,7 +226,7 @@ describe('runDailyDecay', () => {
 		addLog(1, 1, '2026-02-18'); // 3日前にうんどう（猶予2日を超える）
 
 		const results = await runDailyDecay('test-tenant', '2026-02-21');
-		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
+		const decay = results[0]?.decays.find((d) => d.categoryId === '1');
 		expect(decay).toBeDefined();
 		expect(decay?.amount).toBeGreaterThan(0);
 	});
@@ -234,7 +235,7 @@ describe('runDailyDecay', () => {
 		addLog(1, 1, '2026-02-19'); // 2日前にうんどう（猶予2日以内）
 
 		const results = await runDailyDecay('test-tenant', '2026-02-21');
-		const decay = results[0]?.decays.find((d) => d.categoryId === 1);
+		const decay = results[0]?.decays.find((d) => d.categoryId === '1');
 		// 猶予期間内なので減少なし（decayが未定義 or amount=0）
 		if (decay) {
 			expect(decay.amount).toBe(0);

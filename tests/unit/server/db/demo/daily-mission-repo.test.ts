@@ -1,6 +1,7 @@
 // tests/unit/server/db/demo/daily-mission-repo.test.ts
 
 import { describe, expect, it } from 'vitest';
+import { asActivityId, asChildId } from '$lib/domain/ids';
 import * as dailyMissionRepo from '../../../../../src/lib/server/db/demo/daily-mission-repo';
 import { DEMO_DAILY_MISSIONS } from '../../../../../src/lib/server/demo/demo-data';
 
@@ -27,8 +28,18 @@ describe('demo/daily-mission-repo', () => {
 	it('markMissionCompleted / insertDailyMission は no-op で fixture mutate なし', async () => {
 		const before = DEMO_DAILY_MISSIONS.length;
 		// #2845 B1: (childId, date, activityId, tenantId) composite key
-		await dailyMissionRepo.markMissionCompleted(902, '2026-04-01', 1, 'demo');
-		await dailyMissionRepo.insertDailyMission(902, '2026-04-01', 1, 'demo');
+		await dailyMissionRepo.markMissionCompleted(
+			asChildId(902),
+			'2026-04-01',
+			asActivityId(1),
+			'demo',
+		);
+		await dailyMissionRepo.insertDailyMission(
+			asChildId(902),
+			'2026-04-01',
+			asActivityId(1),
+			'demo',
+		);
 		expect(DEMO_DAILY_MISSIONS.length).toBe(before);
 	});
 

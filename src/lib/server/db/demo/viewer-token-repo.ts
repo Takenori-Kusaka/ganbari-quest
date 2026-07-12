@@ -16,7 +16,7 @@ export async function insert(
 	tenantId: string,
 ): Promise<ViewerToken> {
 	return {
-		id: 0,
+		id: '0',
 		tenantId,
 		token: input.token,
 		label: input.label ?? null,
@@ -26,10 +26,10 @@ export async function insert(
 	};
 }
 
-export async function revoke(_id: number, _tenantId: string): Promise<void> {
+export async function revoke(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 
-export async function deleteById(_id: number, _tenantId: string): Promise<void> {
+export async function deleteById(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }

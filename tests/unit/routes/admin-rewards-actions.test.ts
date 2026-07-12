@@ -4,6 +4,7 @@
 // tenant 配下 child guard (CWE-598 IDOR 防御) を追加検証 (must-1)。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // --- モック ---
 const mockRequireTenantId = vi.fn();
@@ -176,7 +177,12 @@ describe('/admin/rewards page.server', () => {
 		it('無料プランでは 403 を返し grantSpecialReward を呼ばない（PlanLimitError 形式 #787）', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
 			const result = await grantAction({
-				request: makeFormRequest({ childId: 1, title: 'ごほうび', points: 100, icon: '🎁' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'ごほうび',
+					points: 100,
+					icon: '🎁',
+				}),
 				locals: makeLocals({ licenseStatus: 'none' }),
 			});
 
@@ -193,10 +199,15 @@ describe('/admin/rewards page.server', () => {
 
 		it('スタンダードプランでは grantSpecialReward を実行', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGrantSpecialReward.mockResolvedValue({ id: 1, title: 'ごほうび', points: 100 });
+			mockGrantSpecialReward.mockResolvedValue({ id: '1', title: 'ごほうび', points: 100 });
 
 			const result = await grantAction({
-				request: makeFormRequest({ childId: 1, title: 'ごほうび', points: 100, icon: '🎁' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'ごほうび',
+					points: 100,
+					icon: '🎁',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
 			});
 
@@ -206,10 +217,15 @@ describe('/admin/rewards page.server', () => {
 
 		it('ファミリープランでも grantSpecialReward を実行', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('family');
-			mockGrantSpecialReward.mockResolvedValue({ id: 2, title: 'おてつだい', points: 50 });
+			mockGrantSpecialReward.mockResolvedValue({ id: '2', title: 'おてつだい', points: 50 });
 
 			const result = await grantAction({
-				request: makeFormRequest({ childId: 1, title: 'おてつだい', points: 50, icon: '🧹' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'おてつだい',
+					points: 50,
+					icon: '🧹',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'family_monthly' }),
 			});
 
@@ -220,11 +236,11 @@ describe('/admin/rewards page.server', () => {
 		// #3147: shop_category 列をフォームから addReward へ受け渡す
 		it('親が選んだ shopCategory (privilege) を addReward に渡す', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGrantSpecialReward.mockResolvedValue({ id: 3, title: 'ゲーム30分', points: 100 });
+			mockGrantSpecialReward.mockResolvedValue({ id: '3', title: 'ゲーム30分', points: 100 });
 
 			await grantAction({
 				request: makeFormRequest({
-					childId: 1,
+					childId: asChildId(1),
 					title: 'ゲーム30分',
 					points: 100,
 					icon: '🎮',
@@ -240,10 +256,15 @@ describe('/admin/rewards page.server', () => {
 
 		it('shopCategory 未選択 (空) は null として addReward に渡す (表示側 fallback)', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGrantSpecialReward.mockResolvedValue({ id: 4, title: 'おやつ', points: 30 });
+			mockGrantSpecialReward.mockResolvedValue({ id: '4', title: 'おやつ', points: 30 });
 
 			await grantAction({
-				request: makeFormRequest({ childId: 1, title: 'おやつ', points: 30, icon: '🍪' }),
+				request: makeFormRequest({
+					childId: asChildId(1),
+					title: 'おやつ',
+					points: 30,
+					icon: '🍪',
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
 			});
 
@@ -253,11 +274,11 @@ describe('/admin/rewards page.server', () => {
 
 		it('shopCategory に不正値が来た場合は null に正規化する', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
-			mockGrantSpecialReward.mockResolvedValue({ id: 5, title: 'ふせい', points: 10 });
+			mockGrantSpecialReward.mockResolvedValue({ id: '5', title: 'ふせい', points: 10 });
 
 			await grantAction({
 				request: makeFormRequest({
-					childId: 1,
+					childId: asChildId(1),
 					title: 'ふせい',
 					points: 10,
 					icon: '🎁',
@@ -333,8 +354,8 @@ describe('/admin/rewards page.server', () => {
 
 		it('childIds が tenant 配下 child の場合は dispatchImport を実行', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			const result = await importPresetToChildrenAction({
@@ -352,8 +373,8 @@ describe('/admin/rewards page.server', () => {
 
 		it('childIds=all は tenant 配下 child 全件を fan-out target にする', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			await importPresetToChildrenAction({
@@ -366,14 +387,14 @@ describe('/admin/rewards page.server', () => {
 
 			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
 			const callArg = mockDispatchImport.mock.calls[0]?.[0];
-			expect(callArg.ctx.childIds).toEqual([100, 200]);
+			expect(callArg.ctx.childIds).toEqual(['100', '200']);
 		});
 
 		it('childIds に tenant 外 ID が混入すると 403 + dispatchImport を呼ばない (IDOR 防御)', async () => {
 			// tenant 配下 = 100, 200 のみ
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			// 攻撃 input: 自分の child (100) に他 tenant の child (999) を混ぜる
@@ -390,7 +411,7 @@ describe('/admin/rewards page.server', () => {
 		});
 
 		it('childIds=99999 のみ (tenant 外) でも 403 reject', async () => {
-			mockGetAllChildren.mockResolvedValue([{ id: 100, nickname: 'a', age: 5 }]);
+			mockGetAllChildren.mockResolvedValue([{ id: '100', nickname: 'a', age: 5 }]);
 
 			const result = await importPresetToChildrenAction({
 				request: makeFormRequest({
@@ -429,8 +450,8 @@ describe('/admin/rewards page.server', () => {
 
 		it('source / target が tenant 配下 child の場合は copy を実行', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			const result = await copyFromChildAction({
@@ -447,8 +468,8 @@ describe('/admin/rewards page.server', () => {
 
 		it('source が tenant 外なら 403 + copy を呼ばない (IDOR 防御)', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			const result = await copyFromChildAction({
@@ -465,8 +486,8 @@ describe('/admin/rewards page.server', () => {
 
 		it('target が tenant 外なら 403 + copy を呼ばない (IDOR 防御)', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
 			]);
 
 			const result = await copyFromChildAction({
@@ -483,9 +504,9 @@ describe('/admin/rewards page.server', () => {
 
 		it('targetChildIds (CSV) のうち 1 件でも tenant 外なら 403 + copy を呼ばない', async () => {
 			mockGetAllChildren.mockResolvedValue([
-				{ id: 100, nickname: 'a', age: 5 },
-				{ id: 200, nickname: 'b', age: 7 },
-				{ id: 300, nickname: 'c', age: 9 },
+				{ id: '100', nickname: 'a', age: 5 },
+				{ id: '200', nickname: 'b', age: 7 },
+				{ id: '300', nickname: 'c', age: 9 },
 			]);
 
 			// 200 (valid) + 999 (foreign) の混在

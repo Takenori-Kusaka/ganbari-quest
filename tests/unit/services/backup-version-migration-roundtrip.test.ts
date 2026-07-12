@@ -1,3 +1,4 @@
+import { asCategoryId } from '$lib/domain/ids';
 // tests/unit/services/backup-version-migration-roundtrip.test.ts
 // 旧 version 印の backup が lazy migration seam 経由で実 DB に取り込めることの golden round-trip。
 //
@@ -52,7 +53,7 @@ describe('#3326 系 旧 version backup の lazy migration round-trip', () => {
 	it('version=1.0.0 印 + 後発 optional 欠落の backup が seam 経由で child/activity を復元する', async () => {
 		// seed: 1 child + 1 activity
 		testDb.insert(schema.children).values({ nickname: 'ふるばん', age: 8, theme: 'blue' }).run();
-		seedChildActivities(testDb, 1, [{ name: 'うんどう', categoryId: 1, icon: '🏃' }]);
+		seedChildActivities(testDb, 1, [{ name: 'うんどう', categoryId: asCategoryId(1), icon: '🏃' }]);
 
 		// 現 version で export → 旧 version 相当に downgrade
 		// biome-ignore lint/suspicious/noExplicitAny: テストで旧 shape を擬似的に再現する

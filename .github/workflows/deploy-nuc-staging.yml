@@ -37,10 +37,23 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      # EPIC #3620 AC-C5: PGlite staging lane (opt-in)。true で snapshot 済み旧 sqlite DB を
+      # cutover CLI (export→import、image 同梱) で PGlite へ移行し、DATA_SOURCE=pglite で staging を
+      # 起動して health (probePg = 実 backend 実接続) を検証する = NUC cutover の実機リハーサル。
+      # pull_request trigger (統合 PR) では inputs 不在 = 常に現行 sqlite lane (不変)。
+      pgliteEnabled:
+        description: 'PGlite backend で staging を deploy (EPIC #3620 cutover リハーサル)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-nuc-staging
   cancel-in-progress: true
+
+env:
+  # PGlite lane 判定 (AC-C5)。dispatch + pgliteEnabled=true のときのみ 'true'。
+  PGLITE_LANE: ${{ github.event_name == 'workflow_dispatch' && inputs.pgliteEnabled == true && 'true' || 'false' }}
 
 jobs:
   deploy-nuc-staging:
@@ -121,6 +134,12 @@ jobs:
             "PORT=3100",
             "ORIGIN=http://0.0.0.0:3100"
           )
+          if ($env:PGLITE_LANE -eq 'true') {
+            # EPIC #3620 AC-C5: PGlite lane。cutover CLI (次 step) が data/pglite を構築し、
+            # アプリは同 dataDir を PGlite backend として起動する (runbook §手順 4 の swap と同一形)。
+            $envLines += "DATA_SOURCE=pglite"
+            $envLines += "PGLITE_DATA_DIR=/app/data/pglite"
+          }
           Set-Content -Path .env -Value $envLines -Encoding ASCII
           Write-Host "Wrote staging .env from GitHub Secrets ($($envLines.Count) lines, secret values masked)"
 
@@ -172,10 +191,38 @@ jobs:
       # stop -> build -> up 順は WAL safety のため重要 (deploy-nuc.yml と同型)。
       # BUILD_TIMESTAMP で build-stage cache を bust (#711)。`-p` で本番 project と隔離。
       # PORT=3100 は .env (env_file) 経由で docker-compose.yml の `${PORT:-3000}` に注入される。
-      - name: Build and start (staging)
+      - name: Build (staging)
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
           docker compose -p ganbari-quest-staging build
+          if ($LASTEXITCODE -ne 0) { throw "docker compose build failed (exit $LASTEXITCODE)" }
+
+      # Step 5.5 (EPIC #3620 AC-C5、PGlite lane のみ): cutover リハーサル。
+      # snapshot 済み旧 sqlite DB (Step 4) を image 同梱 cutover CLI で export → PGlite import →
+      # 件数突合。runbook (docs/runbooks/nuc-pglite-cutover.md) §手順 2-3 と同一コマンドを
+      # staging container image で実行する (本番 cutover の実機リハーサル)。
+      # 旧 DB 不在 (fixture fallback) の場合は cutover を skip し fresh PGlite で起動する
+      # (health/probePg は migration 適用済み schema を検証する)。
+      - name: PGlite cutover rehearsal (pglite lane)
+        if: env.PGLITE_LANE == 'true'
+        run: |
+          if (Test-Path ".\data\pglite") {
+            Remove-Item -Recurse -Force ".\data\pglite"
+            Write-Host "removed previous staging pglite dataDir (fresh rehearsal)"
+          }
+          if (-not (Test-Path ".\data\ganbari-quest.db")) {
+            Write-Host "::notice::legacy sqlite DB not found (fixture fallback) -> skip cutover, boot fresh PGlite"
+            exit 0
+          }
+          docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts export --db /app/data/ganbari-quest.db --out /app/data/.cutover-export.json
+          if ($LASTEXITCODE -ne 0) { throw "cutover export failed (exit $LASTEXITCODE)" }
+          docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts import --in /app/data/.cutover-export.json --data-dir /app/data/pglite
+          if ($LASTEXITCODE -ne 0) { throw "cutover import failed (exit $LASTEXITCODE; count-mismatch or errors>0 abort, legacy DB untouched)" }
+          Remove-Item -Force ".\data\.cutover-export.json" -ErrorAction SilentlyContinue
+          Write-Host "::notice::cutover rehearsal passed (export -> import -> count verification). Booting with PGlite backend"
+
+      - name: Start (staging)
+        run: |
           docker compose -p ganbari-quest-staging up -d
 
       # Step 6: Post-deploy health check (#2872 AC6 / AC8 = §3.8 step 9 NUC 側)。

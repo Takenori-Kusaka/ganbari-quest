@@ -5,6 +5,7 @@
  * into a unified browsable catalog.
  */
 
+import type { CategoryNumericId } from './categories.js';
 import { AGE_TIER_LABELS } from './labels.js';
 import type { ShopCategory } from './shop-category.js';
 import { CONCEPT_ICONS } from './terms.js';
@@ -141,8 +142,8 @@ export interface ChallengeSetPayload {
 		monthDay: string;
 		/** 期間 (日数)。startDate = monthDay の N 日前。endDate = monthDay。 */
 		durationDays: number;
-		/** 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou */
-		categoryId: 1 | 2 | 3 | 4 | 5;
+		/** legacy 数値カテゴリ id ($lib/domain/categories.ts SSOT 派生、#3607) */
+		categoryId: CategoryNumericId;
 		baseTarget: number;
 		rewardPoints: number;
 		icon: string;

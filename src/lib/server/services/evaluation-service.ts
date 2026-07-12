@@ -1,3 +1,4 @@
+import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/evaluation-service.ts
 // 週次評価・日次ステータス減少サービス
 
@@ -67,23 +68,23 @@ export function getWeekRange(date: Date = new Date()): {
 }
 
 export interface EvaluationResult {
-	childId: number;
+	childId: ChildId;
 	weekStart: string;
 	weekEnd: string;
-	categoryScores: Record<number, { count: number; points: number; statusIncrease: number }>;
+	categoryScores: Record<string, { count: number; points: number; statusIncrease: number }>;
 	bonusPoints: number;
 }
 
 /** 子供1人分の週次評価を実行 */
 export async function evaluateChild(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	weekEnd: string,
 	tenantId: string,
 ): Promise<EvaluationResult> {
 	const activityCounts = await countActivitiesByCategory(childId, weekStart, weekEnd, tenantId);
 
-	const categoryScores: Record<number, { count: number; points: number; statusIncrease: number }> =
+	const categoryScores: Record<string, { count: number; points: number; statusIncrease: number }> =
 		{};
 
 	for (const catDef of CATEGORY_DEFS) {
@@ -144,7 +145,7 @@ async function _runWeeklyEvaluation(tenantId: string, date?: Date): Promise<Eval
 }
 
 /** 子供の評価履歴を取得 */
-export async function getChildEvaluations(childId: number, tenantId: string, limit = 10) {
+export async function getChildEvaluations(childId: ChildId, tenantId: string, limit = 10) {
 	const results = await findEvaluationsByChild(childId, limit, tenantId);
 	return results.map((e) => ({
 		...e,
@@ -167,16 +168,16 @@ export async function runDailyDecay(
 	today?: string,
 ): Promise<
 	{
-		childId: number;
-		decays: { categoryId: number; amount: number }[];
+		childId: ChildId;
+		decays: { categoryId: CategoryId; amount: number }[];
 	}[]
 > {
 	const todayStr = today ?? todayDateJST();
 	const intensity = await getDecayIntensity(tenantId);
 	const allChildren = await findAllChildren(tenantId);
 	const results: {
-		childId: number;
-		decays: { categoryId: number; amount: number }[];
+		childId: ChildId;
+		decays: { categoryId: CategoryId; amount: number }[];
 	}[] = [];
 
 	for (const child of allChildren) {
@@ -188,7 +189,7 @@ export async function runDailyDecay(
 		}
 
 		const lastActivityDates = await findLastActivityDateByCategory(child.id, tenantId);
-		const decays: { categoryId: number; amount: number }[] = [];
+		const decays: { categoryId: CategoryId; amount: number }[] = [];
 
 		for (const catDef of CATEGORY_DEFS) {
 			const row = lastActivityDates.find((r) => r.categoryId === catDef.id);

@@ -1,9 +1,10 @@
 <script lang="ts">
+import type { CategoryId } from '$lib/domain/ids';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import Progress from '$lib/ui/primitives/Progress.svelte';
 
 interface Props {
-	categoryId: number;
+	categoryId: CategoryId;
 	value: number;
 	maxValue?: number;
 	level?: number;

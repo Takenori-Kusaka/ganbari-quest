@@ -1,14 +1,15 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
 
 export interface IImageRepo {
 	findCachedImage(
-		childId: number,
+		childId: ChildId,
 		type: string,
 		promptHash: string,
 		tenantId: string,
 	): Promise<CharacterImage | undefined>;
 	insertCharacterImage(input: InsertCharacterImageInput, tenantId: string): Promise<void>;
-	updateChildAvatarUrl(childId: number, avatarUrl: string | null, tenantId: string): Promise<void>;
-	findChildForImage(childId: number, tenantId: string): Promise<Child | undefined>;
+	updateChildAvatarUrl(childId: ChildId, avatarUrl: string | null, tenantId: string): Promise<void>;
+	findChildForImage(childId: ChildId, tenantId: string): Promise<Child | undefined>;
 	deleteByTenantId(tenantId: string): Promise<void>;
 }

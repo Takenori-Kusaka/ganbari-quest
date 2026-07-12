@@ -36,6 +36,8 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { DailyBattleRow, EnemyCollectionRow } from '../interfaces/battle-repo.interface';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -56,8 +58,8 @@ const ENEMYCOL_PREFIX = enemyCollectionPrefix();
 function toBattleRow(item: Record<string, unknown>): DailyBattleRow {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
-		childId: s.childId as number,
+		id: String(s.id as number),
+		childId: asChildId(s.childId as number),
 		enemyId: s.enemyId as number,
 		date: s.date as string,
 		status: s.status as 'pending' | 'completed',
@@ -76,8 +78,8 @@ function toBattleRow(item: Record<string, unknown>): DailyBattleRow {
 function toCollectionRow(item: Record<string, unknown>): EnemyCollectionRow {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
-		childId: s.childId as number,
+		id: String(s.id as number),
+		childId: asChildId(s.childId as number),
 		enemyId: s.enemyId as number,
 		firstDefeatedAt: s.firstDefeatedAt as string,
 		// SQLite: defeat_count は NOT NULL default 1。
@@ -90,14 +92,14 @@ function toCollectionRow(item: Record<string, unknown>): EnemyCollectionRow {
 // ============================================================
 
 export async function findTodayBattle(
-	childId: number,
+	childId: ChildId,
 	date: string,
 	tenantId: string,
 ): Promise<DailyBattleRow | undefined> {
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: dailyBattleKey(childId, date, tenantId),
+			Key: dailyBattleKey(Number(childId), date, tenantId),
 		}),
 	);
 	if (!result.Item) return undefined;
@@ -109,7 +111,7 @@ export async function findTodayBattle(
 // ============================================================
 
 export async function findRecentBattles(
-	childId: number,
+	childId: ChildId,
 	limit: number,
 	tenantId: string,
 ): Promise<DailyBattleRow[]> {
@@ -123,7 +125,7 @@ export async function findRecentBattles(
 // countConsecutiveLosses — 直近の連敗数
 // ============================================================
 
-export async function countConsecutiveLosses(childId: number, tenantId: string): Promise<number> {
+export async function countConsecutiveLosses(childId: ChildId, tenantId: string): Promise<number> {
 	// SQLite: status='completed' を date desc 5 件取り、先頭から outcome='lose' が続く数を数える。
 	// DynamoDB は SK 降順 Query (date desc) で completed のみ拾い、先頭 5 件で同じロジックを適用。
 	const items = await queryChildBattles(childId, tenantId, { descending: true });
@@ -148,21 +150,21 @@ export async function countConsecutiveLosses(childId: number, tenantId: string):
 // ============================================================
 
 export async function insertDailyBattle(
-	childId: number,
+	childId: ChildId,
 	enemyId: number,
 	date: string,
 	playerStats: BattleStats,
 	tenantId: string,
-): Promise<number> {
+): Promise<string> {
 	const id = await nextId(ENTITY_NAMES.dailyBattle, tenantId);
 	const now = new Date().toISOString();
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...dailyBattleKey(childId, date, tenantId),
+				...dailyBattleKey(Number(childId), date, tenantId),
 				id,
-				childId,
+				childId: Number(childId),
 				enemyId,
 				date,
 				// SQLite schema default。
@@ -176,7 +178,7 @@ export async function insertDailyBattle(
 			},
 		}),
 	);
-	return id;
+	return String(id);
 }
 
 // ============================================================
@@ -184,7 +186,7 @@ export async function insertDailyBattle(
 // ============================================================
 
 export async function completeBattle(
-	battleId: number,
+	battleId: string,
 	outcome: BattleOutcome,
 	rewardPoints: number,
 	turnsUsed: number,
@@ -216,7 +218,7 @@ export async function completeBattle(
 // ============================================================
 
 export async function findCollection(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<EnemyCollectionRow[]> {
 	const items = await queryChildEnemyCollection(childId, tenantId);
@@ -228,12 +230,12 @@ export async function findCollection(
 // ============================================================
 
 export async function upsertCollectionEntry(
-	childId: number,
+	childId: ChildId,
 	enemyId: number,
 	tenantId: string,
 ): Promise<void> {
 	const doc = getDocClient();
-	const key = enemyCollectionKey(childId, enemyId, tenantId);
+	const key = enemyCollectionKey(Number(childId), enemyId, tenantId);
 	const existing = await doc.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
 
 	if (existing.Item) {
@@ -258,7 +260,7 @@ export async function upsertCollectionEntry(
 				Item: {
 					...key,
 					id,
-					childId,
+					childId: Number(childId),
 					enemyId,
 					firstDefeatedAt: new Date().toISOString(),
 					defeatCount: 1,
@@ -297,7 +299,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  * (begins_with の KeyCondition で他 entity は混ざらないため Limit が filter 前評価でも安全)。
  */
 async function queryChildBattles(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 	opts?: { descending?: boolean; limit?: number },
 ): Promise<Record<string, unknown>[]> {
@@ -310,7 +312,7 @@ async function queryChildBattles(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': dailyBattleKey(childId, '', tenantId).PK,
+					':pk': dailyBattleKey(Number(childId), '', tenantId).PK,
 					':prefix': BATTLE_PREFIX,
 				},
 				ScanIndexForward: !opts?.descending,
@@ -330,7 +332,7 @@ async function queryChildBattles(
 
 /** child partition の ENEMYCOL# item を全件 Query する (ページング対応)。 */
 async function queryChildEnemyCollection(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -342,7 +344,7 @@ async function queryChildEnemyCollection(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': enemyCollectionKey(childId, 0, tenantId).PK,
+					':pk': enemyCollectionKey(Number(childId), 0, tenantId).PK,
 					':prefix': ENEMYCOL_PREFIX,
 				},
 				ExclusiveStartKey: lastKey,
@@ -366,7 +368,7 @@ async function queryChildEnemyCollection(
  * return する (stamp-card findCardItemById と同じ正パターン)。1 件も無ければ undefined。
  */
 async function findBattleItemById(
-	battleId: number,
+	battleId: string,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
 	const doc = getDocClient();
@@ -380,7 +382,7 @@ async function findBattleItemById(
 				ExpressionAttributeValues: {
 					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': BATTLE_PREFIX,
-					':id': battleId,
+					':id': Number(battleId),
 				},
 				ProjectionExpression: 'PK, SK',
 				ExclusiveStartKey: lastKey,

@@ -5,6 +5,7 @@
 // service 層は既存 reward-redemption-service.ts を再利用。
 
 import { fail } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	approveRedemption,
@@ -43,7 +44,7 @@ export const actions: Actions = {
 	approveRedemption: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const requestId = Number(formData.get('requestId'));
+		const requestId = formIdString(formData.get('requestId'));
 		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
 
 		// #3320: 認証済み identity の userId を監査証跡として記録 (旧: parentId=0 ハードコード)
@@ -63,7 +64,7 @@ export const actions: Actions = {
 	rejectRedemption: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const requestId = Number(formData.get('requestId'));
+		const requestId = formIdString(formData.get('requestId'));
 		const parentNote = String(formData.get('parentNote') ?? '').trim() || null;
 		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
 

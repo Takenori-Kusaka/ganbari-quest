@@ -3,6 +3,8 @@
 
 import type { RequestEvent } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { getEnv } from '$lib/runtime/env';
+import { resolveLocalTenantId } from '../local-tenant';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 
 export class LocalAuthProvider implements AuthProvider {
@@ -12,9 +14,11 @@ export class LocalAuthProvider implements AuthProvider {
 	}
 
 	async resolveContext(_event: RequestEvent, _identity: Identity | null): Promise<AuthContext> {
-		// 単一テナント固定、常に owner
+		// 単一テナント固定、常に owner。tenantId は backend-aware (#3620 AC-C4):
+		// pg-core 系 (pglite/dsql) は uuid 型 family_id のため固定 UUID、旧 backend は 'local'
+		// (既存データの帰属キー) を維持する。SSOT: ../local-tenant.ts
 		return {
-			tenantId: 'local',
+			tenantId: resolveLocalTenantId(getEnv().DATA_SOURCE),
 			role: 'owner',
 			licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		};

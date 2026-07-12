@@ -12,6 +12,7 @@
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
+import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
@@ -50,7 +51,7 @@ const errorMessage = $derived(getErrorMessage(form?.error));
 // #2362 PR-4: 子供タブ切替 UI
 //   `?childId=<n>` query で初期 child 復元、未指定なら最初の child
 // svelte-ignore state_referenced_locally
-let childIdOverride = $state<number | undefined>(
+let childIdOverride = $state<ChildId | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId
 		: undefined,
@@ -58,7 +59,7 @@ let childIdOverride = $state<number | undefined>(
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: (data.children[0]?.id ?? asChildId('')),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -80,7 +81,7 @@ let isImporting = $state(false);
 
 // #2362 PR-4: 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 
 // #3079: バックアップから復元 dialog (preview → 実行の 2 段)。resource noun = REWARD_TERMS.canonical
 let showRestoreDialog = $state(false);
@@ -103,7 +104,7 @@ let showDeleteDialog = $state(false);
 let isDeleting = $state(false);
 
 // #2832 AC2: pending redemption が存在する reward か (編集 note / 処理待ちバッジ表示用)
-function hasPendingRedemption(rewardId: number): boolean {
+function hasPendingRedemption(rewardId: string): boolean {
 	return data.pendingRewardIds.includes(rewardId);
 }
 
@@ -299,11 +300,17 @@ function closeAddDialog() {
 // 同一 id・同一順序で揃える (admin-add-path-isomorphism.spec.ts AC6 同型性固定)。
 const addMenuItems = $derived<MenuItem[]>([
 	{
+		// EPIC #3533 §10.2.3: カスタムごほうび作成は有料機能 (binary gate)。上限/gate 到達時は
+		//   disabled にせず locked-but-active (NN/G: disabled + 説明なしは dead-end アンチパターン)。
+		//   lock マーカー + 選択でプラン画面へ遷移させ、制約詳細はプラン画面に一元化 (P1)。
 		id: 'manual',
 		label: ADMIN_REWARDS_PAGE_LABELS.addManualLabel,
-		icon: ADMIN_REWARDS_PAGE_LABELS.addManualIcon,
-		disabled: !data.isPremium,
-		onSelect: () => handleAddSelect('manual'),
+		icon: data.isPremium
+			? ADMIN_REWARDS_PAGE_LABELS.addManualIcon
+			: PLAN_GATE_LABELS.lockedItemIcon,
+		onSelect: data.isPremium
+			? () => handleAddSelect('manual')
+			: () => void goto('/admin/subscription'),
 	},
 	{
 		id: 'ai',
@@ -534,7 +541,7 @@ async function handleRestoreConfirm() {
 }
 
 // #2362 PR-4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
-function selectChild(childId: number) {
+function selectChild(childId: ChildId) {
 	childIdOverride = childId;
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
@@ -545,13 +552,13 @@ function selectChild(childId: number) {
 	}
 }
 
-// #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
+// #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or ChildId[] (選択 child IDs)
 //
 // #2474 must-2 (Copilot must-1): SvelteKit form action を fetch で直接呼ぶ場合、
 // `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
 // が返ってきて JSON parse 常時 fail し件数が誤表示される (件数=1 固定の旧 bug)。
 // 公式 enhance と同じ header を付与 + `deserialize()` で正しい ActionResult を取得する。
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;
@@ -725,11 +732,6 @@ async function handleCopyFromChild() {
 		addMenuTestid="rewards-add-menu"
 		addMenuDataTutorial="rewards-add-start"
 	>
-		{#snippet badge()}
-			{#if !data.isPremium}
-				<span class="inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">{REWARDS_LABELS.premiumBadge}</span>
-			{/if}
-		{/snippet}
 		{#snippet toolbarLeading()}
 			{#if data.pendingRequestsCount > 0}
 				<span class="inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs font-bold rounded-full bg-[var(--color-action-danger)] text-white" data-testid="pending-badge">
@@ -815,29 +817,11 @@ async function handleCopyFromChild() {
 		{/if}
 	{/if}
 
-	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — 正準スロットに固定配置。
-	     旧: child タブの上にあったため activities (slot 4 = limit banner) と配置がズレていた。 -->
-	{#if !data.isPremium}
-		<!-- #728: 無料プラン向けアップグレード誘導 -->
-		<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 space-y-3 border border-[var(--color-border-premium)]" data-testid="admin-rewards-plan-banner">
-			<div class="flex items-start gap-3" data-testid="rewards-upgrade-banner">
-				<span class="text-2xl">✨</span>
-				<div class="flex-1">
-					<p class="font-bold text-[var(--color-premium)]">{REWARDS_LABELS.upgradeBannerTitle}</p>
-					<p class="text-xs text-[var(--color-premium-light)] mt-1">
-						{REWARDS_LABELS.upgradeBannerDesc}
-					</p>
-				</div>
-			</div>
-			<a
-				href="/admin/subscription"
-				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
-				data-testid="rewards-upgrade-cta"
-			>
-				{REWARDS_LABELS.upgradeButton}
-			</a>
-		</div>
-	{/if}
+	<!-- EPIC #3533 (§10.2 P1/P3): 旧「プラン系バナー (slot 4、rewards-upgrade-banner + CTA)」を撤去。
+	     カスタムごほうび = 有料機能の gate を badge / banner / manual disabled と多重表現していた根本原因への
+	     対処。制約詳細・アップグレード導線はプラン画面 (/admin/subscription) に一元化し、機能画面側は
+	     「+ 追加」dropdown の manual 項目を locked-but-active (§10.2.3、lock マーカー + 選択でプラン画面遷移)
+	     に留める。gate 到達時の弾き返しは slot 6 の action-message (role="status") が担う。 -->
 
 	<!-- #2268: 検索 UI (slot 5、一覧の直上、正準スロット契約 #3097) -->
 	<section data-testid="admin-rewards-search">

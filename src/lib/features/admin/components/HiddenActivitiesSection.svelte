@@ -7,7 +7,7 @@ import type { ActivityItem } from './activity-types';
 
 interface Props {
 	activities: ActivityItem[];
-	logCounts: Record<number, number>;
+	logCounts: Record<string, number>;
 }
 
 let { activities, logCounts }: Props = $props();

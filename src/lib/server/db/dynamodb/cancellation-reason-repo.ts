@@ -35,7 +35,7 @@ interface CancellationReasonItem {
 function mapItem(item: Record<string, unknown>): CancellationReasonRecord {
 	const i = item as unknown as CancellationReasonItem;
 	return {
-		id: i.id,
+		id: String(i.id),
 		tenantId: i.tenantId,
 		category: i.category as CancellationCategory,
 		freeText: i.freeText ?? null,
@@ -79,7 +79,7 @@ export async function create(
 	);
 
 	return {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		category: input.category,
 		freeText: input.freeText ?? null,

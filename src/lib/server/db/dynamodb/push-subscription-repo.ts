@@ -77,7 +77,7 @@ function mapPushItem(item: Record<string, unknown>): PushSubscriptionRecord {
 	// #1593 backfill 観点: 不正値 ('child' / NULL / 空文字列) は string のまま渡す。
 	// 送信側 (notification-service) で skip される二重防御があるため、ここでは再キャストしない。
 	return {
-		id: i.id,
+		id: String(i.id),
 		tenantId: i.tenantId,
 		endpoint: i.endpoint,
 		keysP256dh: i.keysP256dh,
@@ -91,7 +91,7 @@ function mapPushItem(item: Record<string, unknown>): PushSubscriptionRecord {
 function mapLogItem(item: Record<string, unknown>): NotificationLog {
 	const i = item as unknown as NotificationLogItem;
 	return {
-		id: i.id,
+		id: String(i.id),
 		tenantId: i.tenantId,
 		notificationType: i.notificationType,
 		title: i.title,
@@ -176,7 +176,7 @@ export async function insert(input: InsertPushSubscriptionInput): Promise<PushSu
 	);
 
 	return {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		endpoint: input.endpoint,
 		keysP256dh: input.keysP256dh,
@@ -227,7 +227,7 @@ export async function insertLog(input: InsertNotificationLogInput): Promise<Noti
 	);
 
 	return {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		notificationType: input.notificationType,
 		title: input.title,

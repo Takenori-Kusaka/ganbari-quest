@@ -1232,9 +1232,9 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **認可**: `requireRole(locals, ['owner', 'parent'])`（child → 403）
 - **リクエスト**: FormData `planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly'`
 - **成功レスポンス**: Stripe Checkout URL へリダイレクト
-- **`success_url`**: `${origin}/admin/license?session_id={CHECKOUT_SESSION_ID}`
+- **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
 - **`cancel_url`**: `${origin}/pricing`
-- **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新し、ライセンスキーを発行
+- **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
 
 #### POST /api/stripe/portal
 
@@ -1245,7 +1245,7 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = true` のテナント: PIN（4-6 桁）入力 → `verifyPin`
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
-- **`return_url`**: `${origin}/admin/license`
+- **`return_url`**: `${origin}/admin/subscription`
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）
@@ -1255,7 +1255,7 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
 
 ##### 月額 ↔ 年額切替と proration ポリシー (#786)
 
-- **切替動線**: `/admin/license` → 「プラン管理ポータル」ボタン → Stripe Customer Portal → プラン変更 → 月額/年額の Price ID を選択
+- **切替動線**: `/admin/subscription` → 「プラン管理ポータル」ボタン → Stripe Customer Portal → プラン変更 → 月額/年額の Price ID を選択
 - **Stripe 設定**: `proration_behavior = 'create_prorations'`（Stripe デフォルト）
   - **アップグレード（月額 → 年額、standard → family）**:
     - 即時切替。残り期間の月額分を日割り返金 → 新プラン分を日割り課金 → 差額を次回請求にマージ
@@ -1312,12 +1312,26 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 #### GET /api/health
 
-**レスポンス:**
+liveness probe。**DATA_SOURCE に応じた実 backend への実接続検証**を行う (#3620 AC-C5 / EPIC #3424。probe 実体は `src/lib/server/db/probe.ts` facade、route↔DB 境界 #3184):
+
+| DATA_SOURCE | probe | schema 検証 |
+|---|---|---|
+| `sqlite` (既定) | `probeSqlite` — rawSqlite `SELECT 1` | lazy migration の validation 結果 (`schemaValid` / `migrationsApplied` / `schemaWarnings`) |
+| `dynamodb` | `probeDynamoDB` — DescribeTable ACTIVE | なし (`schema` は空 object) |
+| `dsql` / `pglite` | `probePg` — 実 backend へ `SELECT 1` + `children` 表 count | children count 成功 = migration 適用済み schema 実在 (`schemaValid: true`) |
+
+backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"status":"error", "error":..., "dataSource":...}` を返す (空 backend の偽陽性 200 を返さない)。
+
+**レスポンス (200):**
 ```json
 {
   "status": "ok",
   "timestamp": "2026-02-19T18:30:00Z",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "dataSource": "pglite",
+  "region": "local",
+  "uptime": 123,
+  "schema": { "schemaValid": true, "migrationsApplied": 0, "schemaWarnings": 0 }
 }
 ```
 
@@ -2299,7 +2313,7 @@ export interface PlanLimitError {
   message: string;                              // 人間可読（日本語）
   currentTier: 'free' | 'standard' | 'family';  // リクエスト時点のテナントプラン
   requiredTier: 'standard' | 'family';          // 許可される最小プラン
-  upgradeUrl: '/admin/license';                 // アップグレード導線。固定
+  upgradeUrl: '/admin/subscription';            // アップグレード導線。固定
 }
 ```
 
@@ -2312,7 +2326,7 @@ export interface PlanLimitError {
     "message": "AI 活動提案はスタンダードプラン以上でご利用いただけます",
     "currentTier": "free",
     "requiredTier": "standard",
-    "upgradeUrl": "/admin/license"
+    "upgradeUrl": "/admin/subscription"
   }
 }
 ```

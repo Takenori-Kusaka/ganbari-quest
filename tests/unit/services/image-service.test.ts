@@ -1,3 +1,4 @@
+import { asChildId, type ChildId } from '$lib/domain/ids';
 // tests/unit/services/image-service.test.ts
 // キャラクター画像生成サービスのユニットテスト
 
@@ -26,7 +27,7 @@ vi.mock('$lib/server/storage', () => ({
 }));
 
 vi.mock('$lib/server/storage-keys', () => ({
-	generatedImageKey: (_tenant: string, childId: number, hash: string, ext: string) =>
+	generatedImageKey: (_tenant: string, childId: ChildId, hash: string, ext: string) =>
 		`generated/${childId}/${hash}.${ext}`,
 	storageKeyToPublicUrl: (key: string) => `/${key}`,
 }));
@@ -62,7 +63,7 @@ import {
 // ---------- Helpers ----------
 
 const TENANT = 'test-tenant';
-const CHILD_ID = 1;
+const CHILD_ID = asChildId(1);
 
 function makeChild(overrides: Record<string, unknown> = {}) {
 	return {
@@ -96,7 +97,11 @@ beforeEach(() => {
 describe('generateAvatar', () => {
 	it('子供が見つからない → NOT_FOUND', async () => {
 		mockFindChildForImage.mockResolvedValue(null);
-		const result = await generateAvatar(999, { characterType: 'beginner', level: 1 }, TENANT);
+		const result = await generateAvatar(
+			asChildId(999),
+			{ characterType: 'beginner', level: 1 },
+			TENANT,
+		);
 		expect(result).toEqual({ error: 'NOT_FOUND' });
 	});
 
@@ -209,7 +214,7 @@ describe('generateAvatar', () => {
 describe('getAvatarUrl', () => {
 	it('子供が見つからない → null', async () => {
 		mockFindChildForImage.mockResolvedValue(null);
-		const result = await getAvatarUrl(999, TENANT);
+		const result = await getAvatarUrl(asChildId(999), TENANT);
 		expect(result).toBeNull();
 	});
 

@@ -1,22 +1,23 @@
 // src/lib/domain/downgrade-types.ts
 // #738: ダウングレードプレビュー — クライアント/サーバー共有型
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 
 export interface ChildPreview {
-	id: number;
+	id: ChildId;
 	name: string;
 	uiMode: string;
 }
 
 export interface ActivityPreview {
-	id: number;
+	id: ActivityId;
 	name: string;
 	icon: string;
 }
 
 export interface ChecklistTemplatePreview {
-	id: number;
+	id: string;
 	name: string;
-	childId: number;
+	childId: ChildId;
 	childName: string;
 }
 
@@ -35,7 +36,7 @@ export interface DowngradePreview {
 	checklistTemplates: {
 		current: ChecklistTemplatePreview[];
 		maxPerChild: number | null;
-		excessByChild: { childId: number; childName: string; excess: number }[];
+		excessByChild: { childId: ChildId; childName: string; excess: number }[];
 	};
 	retentionChange: {
 		currentDays: number | null;

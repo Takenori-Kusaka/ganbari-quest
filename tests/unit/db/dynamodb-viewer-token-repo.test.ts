@@ -107,7 +107,7 @@ describe('findByTenant', () => {
 		const result = await findByTenant(TENANT);
 		expect(result).toHaveLength(2);
 		// createdAt desc → id=2 が先頭
-		expect(result[0]?.id).toBe(2);
+		expect(result[0]?.id).toBe('2');
 		const arg = callOf(0).input;
 		expect(arg.FilterExpression).toContain('tenantId = :tid');
 		expect((arg.ExpressionAttributeValues as Record<string, string>)[':prefix']).toBe('VTOKEN#');
@@ -137,7 +137,7 @@ describe('insert', () => {
 			.mockResolvedValueOnce({}); // PutCommand
 		const { insert } = await loadRepo();
 		const r = await insert({ token: 'tok', label: 'おばあちゃん用' }, TENANT);
-		expect(r.id).toBe(9);
+		expect(r.id).toBe('9');
 		expect(r.token).toBe('tok');
 		expect(r.label).toBe('おばあちゃん用');
 		expect(r.revokedAt).toBeNull();
@@ -162,7 +162,7 @@ describe('revoke', () => {
 			.mockResolvedValueOnce({ Items: [tokenRow(3, 'x')] }) // scanByTenant
 			.mockResolvedValueOnce({}); // UpdateCommand
 		const { revoke } = await loadRepo();
-		await revoke(3, TENANT);
+		await revoke('3', TENANT);
 		const upArg = callOf(1).input;
 		expect(upArg.UpdateExpression).toContain('SET revokedAt = :now');
 		expect((upArg.Key as Record<string, string>).PK).toBe('VTOKEN#x');
@@ -171,7 +171,7 @@ describe('revoke', () => {
 	it('id 不在なら Update を呼ばない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [tokenRow(3, 'x')] });
 		const { revoke } = await loadRepo();
-		await revoke(999, TENANT);
+		await revoke('999', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
@@ -182,7 +182,7 @@ describe('deleteById', () => {
 			.mockResolvedValueOnce({ Items: [tokenRow(4, 'y')] }) // scanByTenant
 			.mockResolvedValueOnce({}); // DeleteCommand
 		const { deleteById } = await loadRepo();
-		await deleteById(4, TENANT);
+		await deleteById('4', TENANT);
 		const delArg = callOf(1).input;
 		expect((delArg.Key as Record<string, string>).PK).toBe('VTOKEN#y');
 	});
@@ -190,7 +190,7 @@ describe('deleteById', () => {
 	it('id 不在なら Delete を呼ばない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [tokenRow(4, 'y')] });
 		const { deleteById } = await loadRepo();
-		await deleteById(999, TENANT);
+		await deleteById('999', TENANT);
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });

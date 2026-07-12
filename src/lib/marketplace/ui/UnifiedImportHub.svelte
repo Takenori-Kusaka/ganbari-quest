@@ -19,6 +19,7 @@
  */
 
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { UNIFIED_IMPORT_HUB_LABELS } from '$lib/domain/labels';
 // #2370: browser-safe な client-types のみ import (server services を巻き込まない)
 import {
@@ -48,7 +49,7 @@ interface Props {
 	/** type ごとの marketplace preset 一覧（typeCode → list） */
 	presets: Partial<Record<MarketplaceTypeCode, MarketplacePresetSummary[]>>;
 	/** reward-set / checklist 等 requiresChildId === true の場合に渡す childId */
-	selectedChildId?: number;
+	selectedChildId?: ChildId;
 	/** 取込完了時の callback（メッセージ + result data） */
 	onimported?: (message: string) => void;
 	/** dialog close 等の callback */
@@ -100,7 +101,7 @@ const activePresets = $derived(activeDescriptor ? (presets[activeDescriptor.type
 // childId 要件
 const requiresChildId = $derived(activeDescriptor?.requiresChildId ?? false);
 const hasChildId = $derived(
-	selectedChildId !== undefined && selectedChildId !== null && selectedChildId > 0,
+	selectedChildId !== undefined && selectedChildId !== null && selectedChildId !== '',
 );
 const canImport = $derived(!disabled && (!requiresChildId || hasChildId));
 

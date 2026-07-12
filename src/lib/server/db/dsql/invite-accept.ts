@@ -16,6 +16,7 @@
 
 import { sql } from 'drizzle-orm';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import { isUniqueViolation } from './dsql-errors';
 import type { SqlExecutor } from './sql-executor';
 
 export type { SqlExecutor } from './sql-executor';
@@ -42,13 +43,6 @@ class AcceptInviteAbort extends Error {
 		super(`invite accept aborted: ${reason}`);
 	}
 }
-
-const isUniqueViolation = (err: unknown): boolean =>
-	typeof err === 'object' &&
-	err !== null &&
-	((err as { code?: unknown }).code === '23505' ||
-		(typeof (err as { cause?: unknown }).cause === 'object' &&
-			(err as { cause?: { code?: unknown } }).cause?.code === '23505'));
 
 interface AcceptedInviteRow {
 	family_id: string;

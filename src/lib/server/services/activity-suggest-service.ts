@@ -1,6 +1,15 @@
+import type { CategoryId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
+
 // src/lib/server/services/activity-suggest-service.ts
 // 自然言語から活動情報を推定するサービス (#721: Bedrock Claude Haiku)
 
+import {
+	CATEGORIES,
+	CATEGORY_CODE_TO_ID,
+	CATEGORY_CODES,
+	type CategoryName,
+} from '$lib/domain/categories';
 import { joinIcon } from '$lib/domain/icon-utils';
 import { getCategoryByName } from '$lib/domain/validation/activity';
 import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
@@ -8,7 +17,7 @@ import { logger } from '$lib/server/logger';
 
 export interface SuggestedActivity {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	nameKana: string | null;
@@ -16,13 +25,14 @@ export interface SuggestedActivity {
 	source: 'gemini' | 'fallback';
 }
 
-const CATEGORY_ICONS: Record<string, string[]> = {
+// #3607: key はカテゴリ SSOT の表示名。satisfies で全カテゴリ網羅をコンパイル時強制
+const CATEGORY_ICONS = {
 	うんどう: ['🤸', '⚽', '🏃', '🏊', '🚴', '⚾', '🎾', '🏀'],
 	べんきょう: ['📖', '✏️', '🔢', '📝', '🧮', '📚', '🔬', '🌍'],
 	せいかつ: ['🪥', '🧹', '👕', '🍽️', '🛏️', '🧺', '🚿', '🌱'],
 	こうりゅう: ['🤝', '👋', '💬', '🎉', '👫', '🤗', '📱', '✉️'],
 	そうぞう: ['🎨', '✂️', '🎹', '🎸', '📷', '🏗️', '🧩', '🎤'],
-};
+} satisfies Record<CategoryName, string[]> as Record<string, string[]>;
 
 /** キーワード→アイコンの詳細マッピング */
 const KEYWORD_ICONS: Record<string, string> = {
@@ -170,7 +180,8 @@ const ACTIVITY_TOOL = {
 			nameKanji: { type: 'string', description: '漢字混じり表記' },
 			category: {
 				type: 'string',
-				enum: ['うんどう', 'べんきょう', 'せいかつ', 'こうりゅう', 'そうぞう'],
+				// #3607: カテゴリ SSOT から派生 (カテゴリ追加時に AI tool schema へ自動伝播)
+				enum: CATEGORY_CODES.map((code) => CATEGORIES[code].name),
 				description: '活動カテゴリ',
 			},
 			mainIcon: { type: 'string', description: '活動の主な対象を表す絵文字' },
@@ -253,7 +264,7 @@ async function suggestWithAi(text: string): Promise<SuggestedActivity> {
 
 	// バリデーション
 	const catDef = getCategoryByName(String(obj.category ?? ''));
-	const categoryId = catDef?.id ?? 3;
+	const categoryId = catDef?.id ?? asCategoryId(CATEGORY_CODE_TO_ID.seikatsu);
 	const basePoints = [3, 5, 8, 10].includes(Number(obj.basePoints)) ? Number(obj.basePoints) : 5;
 
 	// 複合アイコン対応
@@ -280,7 +291,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	const rules: {
 		keywords: string[];
 		categoryName: string;
-		categoryId: number;
+		categoryId: CategoryId;
 		basePoints: number;
 	}[] = [
 		{
@@ -316,8 +327,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'テニス',
 				'てにす',
 			],
-			categoryName: 'うんどう',
-			categoryId: 1,
+			categoryName: CATEGORIES.undou.name,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.undou),
 			basePoints: 5,
 		},
 		{
@@ -343,8 +354,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'九九',
 				'くく',
 			],
-			categoryName: 'べんきょう',
-			categoryId: 2,
+			categoryName: CATEGORIES.benkyou.name,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.benkyou),
 			basePoints: 5,
 		},
 		{
@@ -375,8 +386,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'水やり',
 				'みずやり',
 			],
-			categoryName: 'せいかつ',
-			categoryId: 3,
+			categoryName: CATEGORIES.seikatsu.name,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.seikatsu),
 			basePoints: 3,
 		},
 		{
@@ -401,8 +412,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'先生',
 				'せんせい',
 			],
-			categoryName: 'こうりゅう',
-			categoryId: 4,
+			categoryName: CATEGORIES.kouryuu.name,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.kouryuu),
 			basePoints: 3,
 		},
 		{
@@ -432,8 +443,8 @@ function suggestByKeywords(text: string): SuggestedActivity {
 				'ギター',
 				'ぎたー',
 			],
-			categoryName: 'そうぞう',
-			categoryId: 5,
+			categoryName: CATEGORIES.souzou.name,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.souzou),
 			basePoints: 5,
 		},
 	];
@@ -454,7 +465,7 @@ function suggestByKeywords(text: string): SuggestedActivity {
 	if (best.score === 0) {
 		return {
 			name: text.slice(0, 50),
-			categoryId: 3,
+			categoryId: asCategoryId(CATEGORY_CODE_TO_ID.seikatsu),
 			icon: '📝',
 			basePoints: 5,
 			...inferNames(text),

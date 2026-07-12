@@ -1,3 +1,5 @@
+import type { CategoryCode } from '$lib/domain/categories';
+import type { ChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -35,7 +37,9 @@ interface ChecklistPreset {
  * 旧キー (morning/homework/exercise/picky/balanced) は後方互換のため保持し、過去にアンケート回答を
  * 保存済みのテナントが再度クエリしても壊れないようにする。新規 setup フローからは投稿されない。
  */
-const CHALLENGE_CATEGORY_WEIGHTS: Record<string, string[]> = {
+// #3607: 値は CategoryCode 型で SSOT に束縛 (rename / typo をコンパイル時検出)。
+// 配列順は既存挙動維持のため据置 (SSOT 定義順とは独立の重み付け順)。
+const CHALLENGE_CATEGORY_WEIGHTS: Record<string, readonly CategoryCode[]> = {
 	// 新 3 軸（#1592）
 	'homework-daily': ['benkyou'],
 	chores: ['seikatsu'],
@@ -72,8 +76,8 @@ const CHALLENGE_CHECKLIST_MAP: Record<string, string[]> = {
 /**
  * アンケート回答からおすすめカテゴリコードを算出
  */
-export function getRecommendedCategories(challenges: string[]): string[] {
-	const categorySet = new Set<string>();
+export function getRecommendedCategories(challenges: string[]): CategoryCode[] {
+	const categorySet = new Set<CategoryCode>();
 	for (const challenge of challenges) {
 		const categories = CHALLENGE_CATEGORY_WEIGHTS[challenge];
 		if (categories) {
@@ -81,6 +85,7 @@ export function getRecommendedCategories(challenges: string[]): string[] {
 		}
 	}
 	if (categorySet.size === 0) {
+		// #3607: 全カテゴリ fallback。配列順は既存挙動維持のため据置 (SSOT 定義順と souzou/kouryuu が逆)
 		return ['undou', 'benkyou', 'seikatsu', 'souzou', 'kouryuu'];
 	}
 	return [...categorySet];
@@ -121,7 +126,7 @@ export function getActivityDisplayCount(level: 'few' | 'normal' | 'many'): numbe
  * チェックリストプリセットを子供に自動適用
  */
 export async function applyChecklistPresets(
-	childId: number,
+	childId: ChildId,
 	presetIds: string[],
 	tenantId: string,
 ): Promise<number> {

@@ -2,6 +2,8 @@
 // DynamoDB implementation of ISpecialRewardRepo
 
 import { DeleteCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
@@ -24,6 +26,23 @@ function stripKeys<T extends Record<string, unknown>>(
 	return rest;
 }
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+type StoredSpecialReward = Omit<SpecialReward, 'id' | 'childId' | 'grantedBy'> & {
+	id: number;
+	childId: number;
+	grantedBy: number | string | null;
+};
+
+function toSpecialReward(item: Record<string, unknown>): SpecialReward {
+	const raw = stripKeys(item) as unknown as StoredSpecialReward;
+	return {
+		...raw,
+		id: String(raw.id),
+		childId: asChildId(raw.childId),
+		grantedBy: raw.grantedBy != null ? String(raw.grantedBy) : null,
+	};
+}
+
 /** 特別報酬を記録 */
 export async function insertSpecialReward(
 	input: InsertSpecialRewardInput,
@@ -33,7 +52,7 @@ export async function insertSpecialReward(
 	const now = new Date().toISOString();
 
 	const reward: SpecialReward = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		grantedBy: input.grantedBy ?? null,
 		title: input.title,
@@ -48,7 +67,7 @@ export async function insertSpecialReward(
 		shopCategory: input.shopCategory ?? null,
 	};
 
-	const key = specialRewardKey(input.childId, now, id, tenantId);
+	const key = specialRewardKey(Number(input.childId), now, id, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -56,6 +75,9 @@ export async function insertSpecialReward(
 			Item: {
 				...key,
 				...reward,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -65,10 +87,10 @@ export async function insertSpecialReward(
 
 /** 子供の特別報酬履歴を取得（降順） */
 export async function findSpecialRewards(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SpecialReward[]> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = specialRewardPrefix();
 
 	const items: SpecialReward[] = [];
@@ -89,7 +111,7 @@ export async function findSpecialRewards(
 		);
 
 		for (const item of result.Items ?? []) {
-			items.push(stripKeys(item) as unknown as SpecialReward);
+			items.push(toSpecialReward(item));
 		}
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
@@ -105,10 +127,10 @@ export async function findSpecialRewards(
  * 全ページ走査 + 一致で早期 return に置換 (本 file の findRewardItemByChildAndId と同パターン)。
  */
 export async function findUnshownReward(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<SpecialReward | undefined> {
-	const pk = childPK(childId, tenantId);
+	const pk = childPK(Number(childId), tenantId);
 	const prefix = specialRewardPrefix();
 
 	// Query all rewards for this child (descending), filter for unshown
@@ -129,7 +151,7 @@ export async function findUnshownReward(
 			}),
 		);
 		const item = (result.Items ?? [])[0];
-		if (item) return stripKeys(item as Record<string, unknown>) as unknown as SpecialReward;
+		if (item) return toSpecialReward(item as Record<string, unknown>);
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 	return undefined;
@@ -143,8 +165,8 @@ export async function findUnshownReward(
  * child partition Query (tenant + child 境界を KeyCondition で構造的に担保) に置換。
  */
 export async function markRewardShown(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<SpecialReward | undefined> {
 	const found = await findRewardItemByChildAndId(childId, rewardId, tenantId);
@@ -163,7 +185,7 @@ export async function markRewardShown(
 	);
 
 	if (!updateResult.Attributes) return undefined;
-	return stripKeys(updateResult.Attributes) as unknown as SpecialReward;
+	return toSpecialReward(updateResult.Attributes);
 }
 
 /**
@@ -174,8 +196,8 @@ export async function markRewardShown(
  * (#2842 paging 正パターン: Limit + Filter の silent no-op を避ける)。
  */
 async function findRewardItemByChildAndId(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<({ PK: string; SK: string } & Record<string, unknown>) | undefined> {
 	const doc = getDocClient();
@@ -187,9 +209,9 @@ async function findRewardItemByChildAndId(
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': specialRewardPrefix(),
-					':id': rewardId,
+					':id': Number(rewardId),
 				},
 				ExclusiveStartKey: lastKey,
 			}),
@@ -207,8 +229,8 @@ async function findRewardItemByChildAndId(
  * 非正規化 snapshot (申請時点値) で処理されるため、本編集は申請に波及しない。
  */
 export async function updateSpecialReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	updates: UpdateSpecialRewardInput,
 	tenantId: string,
 ): Promise<SpecialReward | undefined> {
@@ -245,7 +267,7 @@ export async function updateSpecialReward(
 		values[':shopCategory'] = updates.shopCategory;
 	}
 	if (sets.length === 0) {
-		return stripKeys(found) as unknown as SpecialReward;
+		return toSpecialReward(found);
 	}
 
 	const result = await getDocClient().send(
@@ -259,7 +281,7 @@ export async function updateSpecialReward(
 		}),
 	);
 	if (!result.Attributes) return undefined;
-	return stripKeys(result.Attributes) as unknown as SpecialReward;
+	return toSpecialReward(result.Attributes);
 }
 
 /**
@@ -269,8 +291,8 @@ export async function updateSpecialReward(
  * (解決済 approved/rejected/expired) も削除する。
  */
 export async function deleteSpecialReward(
-	childId: number,
-	rewardId: number,
+	childId: ChildId,
+	rewardId: string,
 	tenantId: string,
 ): Promise<boolean> {
 	const found = await findRewardItemByChildAndId(childId, rewardId, tenantId);
@@ -287,9 +309,9 @@ export async function deleteSpecialReward(
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
 				FilterExpression: 'rewardId = :rid',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':skPrefix': rewardRedemptionPrefix(),
-					':rid': rewardId,
+					':rid': Number(rewardId),
 				},
 				ExclusiveStartKey: lastKey,
 			}),

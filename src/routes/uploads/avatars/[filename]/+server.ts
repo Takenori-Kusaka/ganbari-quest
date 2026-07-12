@@ -2,6 +2,7 @@
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
 import { error } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
 import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
 import { getChildById } from '$lib/server/services/child-service';
@@ -65,7 +66,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			'debug',
 		);
 	}
-	const child = await getChildById(Number(childIdMatch[1]), context.tenantId);
+	const child = await getChildById(asChildId(childIdMatch[1] ?? ''), context.tenantId);
 	// file ownership anchor: avatarUrl がこの legacy filename を指していなければ拒否する
 	const expectedPublicUrl = storageKeyToPublicUrl(`uploads/avatars/${filename}`);
 	if (!child) {

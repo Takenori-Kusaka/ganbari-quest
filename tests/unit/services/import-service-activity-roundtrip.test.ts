@@ -35,6 +35,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { getChildActivities } from '../../../src/lib/server/services/activity-service';
 import { clearAllFamilyData } from '../../../src/lib/server/services/data-service';
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
@@ -60,17 +61,17 @@ describe('#3327/#3328 backup round-trip: replace で per-child 活動が復元�
 		testDb.insert(schema.children).values({ nickname: 'ゆうき', age: 8, theme: 'blue' }).run(); // id=1
 		testDb.insert(schema.children).values({ nickname: 'たくみ', age: 6, theme: 'pink' }).run(); // id=2
 		seedChildActivities(testDb, 1, [
-			{ name: 'うんどうA', categoryId: 1, icon: '🏃' },
-			{ name: 'べんきょうB', categoryId: 2, icon: '📚' },
-			{ name: 'せいかつC', categoryId: 3, icon: '🏠' },
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' },
+			{ name: 'べんきょうB', categoryId: asCategoryId(2), icon: '📚' },
+			{ name: 'せいかつC', categoryId: asCategoryId(3), icon: '🏠' },
 		]);
 		seedChildActivities(testDb, 2, [
-			{ name: 'うんどうA', categoryId: 1, icon: '🏃' }, // child1 と同名（dedup 観測用）
-			{ name: 'こうりゅうD', categoryId: 4, icon: '🤝' },
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' }, // child1 と同名（dedup 観測用）
+			{ name: 'こうりゅうD', categoryId: asCategoryId(4), icon: '🤝' },
 		]);
 
-		const before1 = await getChildActivities(1, TENANT);
-		const before2 = await getChildActivities(2, TENANT);
+		const before1 = await getChildActivities(asChildId(1), TENANT);
+		const before2 = await getChildActivities(asChildId(2), TENANT);
 		expect(before1.length, 'seed child1').toBe(3);
 		expect(before2.length, 'seed child2').toBe(2);
 
@@ -86,7 +87,9 @@ describe('#3327/#3328 backup round-trip: replace で per-child 活動が復元�
 		expect(children.length, 'children restored').toBe(2);
 
 		// --- 各子の活動を集計 ---
-		const perChild = await Promise.all(children.map((c) => getChildActivities(c.id, TENANT)));
+		const perChild = await Promise.all(
+			children.map((c) => getChildActivities(asChildId(c.id), TENANT)),
+		);
 		const total = perChild.reduce((s, a) => s + a.length, 0);
 
 		// 期待: 子1=3 / 子2=2 / 計5 が per-child に正しく復元される。
@@ -101,11 +104,11 @@ describe('#3327/#3328 backup round-trip: replace で per-child 活動が復元�
 		testDb.insert(schema.children).values({ nickname: 'ゆうき', age: 8, theme: 'blue' }).run(); // id=1
 		testDb.insert(schema.children).values({ nickname: 'たくみ', age: 6, theme: 'pink' }).run(); // id=2
 		seedChildActivities(testDb, 1, [
-			{ name: 'うんどうA', categoryId: 1, icon: '🏃' },
-			{ name: 'べんきょうB', categoryId: 2, icon: '📚' },
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' },
+			{ name: 'べんきょうB', categoryId: asCategoryId(2), icon: '📚' },
 		]);
 		seedChildActivities(testDb, 2, [
-			{ name: 'うんどうA', categoryId: 1, icon: '🏃' }, // child1 と同名（cross-child 誤 bind 誘発用）
+			{ name: 'うんどうA', categoryId: asCategoryId(1), icon: '🏃' }, // child1 と同名（cross-child 誤 bind 誘発用）
 		]);
 
 		// 各子の「うんどうA」instance は別 id（per-child instance, ADR-0055）

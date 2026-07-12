@@ -145,7 +145,8 @@
 			"!**/*.md",
 			"!**/lp-metrics.json",
 			"!**/tmp",
-			"!**/.tmp-screenshots"
+			"!**/.tmp-screenshots",
+			"!**/drizzle"
 		]
 	}
 }

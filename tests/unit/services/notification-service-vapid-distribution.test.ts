@@ -70,7 +70,7 @@ describe('#2191 AC5 VAPID 配布証跡 — notification-service silent fail ガ�
 		process.env.AUTH_MODE = 'cognito';
 		mockGetSettings.mockResolvedValue({});
 		mockInsertLog.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'T1',
 			notificationType: 'test',
 			title: 'test',
@@ -85,7 +85,7 @@ describe('#2191 AC5 VAPID 配布証跡 — notification-service silent fail ガ�
 		mockCountTodayLogs.mockResolvedValue(0);
 		mockFindByTenant.mockResolvedValue([
 			{
-				id: 1,
+				id: '1',
 				tenantId: 'T1',
 				endpoint: 'https://fcm.googleapis.com/fcm/send/x',
 				keysP256dh: 'p',
@@ -170,7 +170,7 @@ describe('#2191 AC5 4 通知系統 — type 別 sendPushNotification 発火', ()
 		process.env.VAPID_PRIVATE_KEY = 'test-sk';
 		mockGetSettings.mockResolvedValue({});
 		mockInsertLog.mockResolvedValue({
-			id: 1,
+			id: '1',
 			tenantId: 'T1',
 			notificationType: 'test',
 			title: 'test',
@@ -184,7 +184,7 @@ describe('#2191 AC5 4 通知系統 — type 別 sendPushNotification 発火', ()
 		mockCountTodayLogs.mockResolvedValue(0);
 		mockFindByTenant.mockResolvedValue([
 			{
-				id: 1,
+				id: '1',
 				tenantId: 'T1',
 				endpoint: 'https://fcm.googleapis.com/fcm/send/x',
 				keysP256dh: 'p',

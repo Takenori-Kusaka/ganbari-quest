@@ -31,6 +31,8 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
 import type {
 	ChildChallenge,
@@ -52,17 +54,24 @@ import { queryAllItems, stripKeys } from './repo-helpers';
 
 const PREFIX = childChallengePrefix();
 
-/** DynamoDB item を ChildChallenge に正規化する (PK/SK を除去)。 */
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
+type StoredChildChallenge = Omit<ChildChallenge, 'id' | 'childId'> & {
+	id: number;
+	childId: number;
+};
+
+/** DynamoDB item を ChildChallenge に正規化する (PK/SK を除去 + branded id 変換)。 */
 function toChildChallenge(item: Record<string, unknown>): ChildChallenge {
-	return stripKeys(item) as unknown as ChildChallenge;
+	const raw = stripKeys(item) as unknown as StoredChildChallenge;
+	return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
 }
 
 // ============================================================
 // findByChildId — child 単位の全 challenge instance (child partition Query)
 // ============================================================
 
-export async function findByChildId(childId: number, tenantId: string): Promise<ChildChallenge[]> {
-	const items = await queryAllItems(childPK(childId, tenantId), PREFIX);
+export async function findByChildId(childId: ChildId, tenantId: string): Promise<ChildChallenge[]> {
+	const items = await queryAllItems(childPK(Number(childId), tenantId), PREFIX);
 	const challenges = items.map(toChildChallenge);
 	// SQLite は ORDER BY start_date。in-memory で同順に揃える。
 	challenges.sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -74,7 +83,7 @@ export async function findByChildId(childId: number, tenantId: string): Promise<
 // ============================================================
 
 export async function findActiveByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -93,7 +102,7 @@ export async function findActiveByChildId(
  * (markCompleted 直後に claim ボタンが消える regression 防止、SQLite SSOT と同条件)。
  */
 export async function findActiveOrUnclaimedByChildId(
-	childId: number,
+	childId: ChildId,
 	today: string,
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
@@ -125,7 +134,7 @@ export async function findAllByTenant(tenantId: string): Promise<ChildChallenge[
 // findById — id 単独取得 (childId 不明のため tenant 配下 Scan)
 // ============================================================
 
-export async function findById(id: number, tenantId: string): Promise<ChildChallenge | undefined> {
+export async function findById(id: string, tenantId: string): Promise<ChildChallenge | undefined> {
 	// #3258: SK 形式 (regular=CHILDCHAL#<padId> / auto=CHILDCHAL#AUTO#<weekStart>) に依存せず
 	// id 属性で解決する (auto:weekly 行が exact-SK match を外して silent に取得不能になるのを根治)。
 	const items = await scanTenantChallenges(tenantId, { id });
@@ -149,7 +158,7 @@ function buildChildChallenge(
 	now: string,
 ): ChildChallenge {
 	return {
-		id,
+		id: String(id),
 		childId: input.childId,
 		title: input.title,
 		description: input.description ?? null,
@@ -184,8 +193,11 @@ export async function insert(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...childChallengeKey(input.childId, id, tenantId),
+				...childChallengeKey(Number(input.childId), id, tenantId),
 				...challenge,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -211,12 +223,12 @@ export async function insertForRestore(
 	tenantId: string,
 ): Promise<ChildChallenge> {
 	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
-	const challenge: ChildChallenge = { ...input, id };
+	const challenge: ChildChallenge = { ...input, id: String(id) };
 
 	const key =
 		input.sourceTemplateId === 'auto:weekly'
-			? childChallengeAutoWeeklyKey(input.childId, input.startDate, tenantId)
-			: childChallengeKey(input.childId, id, tenantId);
+			? childChallengeAutoWeeklyKey(Number(input.childId), input.startDate, tenantId)
+			: childChallengeKey(Number(input.childId), id, tenantId);
 
 	await getDocClient().send(
 		new PutCommand({
@@ -224,6 +236,9 @@ export async function insertForRestore(
 			Item: {
 				...key,
 				...challenge,
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				id,
+				childId: Number(input.childId),
 			},
 		}),
 	);
@@ -242,7 +257,7 @@ export async function getOrCreateWeeklyAuto(
 	tenantId: string,
 ): Promise<ChildChallenge> {
 	const doc = getDocClient();
-	const key = childChallengeAutoWeeklyKey(input.childId, input.startDate, tenantId);
+	const key = childChallengeAutoWeeklyKey(Number(input.childId), input.startDate, tenantId);
 
 	// fast path: 既存があれば即返す (proposal 再計算も省ける)
 	const existing = await doc.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
@@ -260,7 +275,8 @@ export async function getOrCreateWeeklyAuto(
 		await doc.send(
 			new PutCommand({
 				TableName: TABLE_NAME,
-				Item: { ...key, ...challenge },
+				// stored attributes は数値 id のまま (storage format 不変、#3575)
+				Item: { ...key, ...challenge, id, childId: Number(input.childId) },
 				// 同一 (child, week) の auto 行が既存なら書込まない (atomic)
 				ConditionExpression: 'attribute_not_exists(PK)',
 			}),
@@ -295,7 +311,7 @@ export async function insertBulk(
 // ============================================================
 
 export async function updateProgress(
-	id: number,
+	id: string,
 	currentValue: number,
 	tenantId: string,
 ): Promise<void> {
@@ -311,7 +327,7 @@ export async function updateProgress(
 	);
 }
 
-export async function markCompleted(id: number, tenantId: string): Promise<void> {
+export async function markCompleted(id: string, tenantId: string): Promise<void> {
 	const key = await resolveKeyById(id, tenantId);
 	if (!key) return;
 	const now = new Date().toISOString();
@@ -335,7 +351,7 @@ export async function markCompleted(id: number, tenantId: string): Promise<void>
  * ポイント付与する (claim-first) ことで TOCTOU 二重付与を防ぐ。tenant scope は resolveKeyById の
  * PK (`T#<tenantId>#...`) 解決で担保 (IDOR 防御)。
  */
-export async function claimReward(id: number, tenantId: string): Promise<number> {
+export async function claimReward(id: string, tenantId: string): Promise<number> {
 	const key = await resolveKeyById(id, tenantId);
 	if (!key) return 0;
 	const now = new Date().toISOString();
@@ -361,7 +377,7 @@ export async function claimReward(id: number, tenantId: string): Promise<number>
 
 /** UpdateChildChallengeInput で渡された field のみ更新する (SQLite .set({...}) 等価)。 */
 export async function update(
-	id: number,
+	id: string,
 	input: UpdateChildChallengeInput,
 	tenantId: string,
 ): Promise<void> {
@@ -404,7 +420,7 @@ export async function update(
 	);
 }
 
-export async function deleteChallenge(id: number, tenantId: string): Promise<void> {
+export async function deleteChallenge(id: string, tenantId: string): Promise<void> {
 	const key = await resolveKeyById(id, tenantId);
 	if (!key) return;
 	await getDocClient().send(new DeleteCommand({ TableName: TABLE_NAME, Key: key }));
@@ -419,8 +435,8 @@ export async function deleteChallenge(id: number, tenantId: string): Promise<voi
  * sourceTemplateId を維持し、進捗は insert で currentValue=0 / completed=0 にリセット。
  */
 export async function copyAcrossChildren(
-	sourceChildId: number,
-	targetChildId: number,
+	sourceChildId: ChildId,
+	targetChildId: ChildId,
 	tenantId: string,
 ): Promise<ChildChallenge[]> {
 	const source = await findByChildId(sourceChildId, tenantId);
@@ -478,7 +494,7 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  */
 async function scanTenantChallenges(
 	tenantId: string,
-	opts?: { id?: number; projection?: string },
+	opts?: { id?: string; projection?: string },
 ): Promise<Record<string, unknown>[]> {
 	const filters = ['begins_with(SK, :skPrefix)', 'begins_with(PK, :tenantPrefix)'];
 	const values: Record<string, unknown> = {
@@ -490,7 +506,7 @@ async function scanTenantChallenges(
 		opts?.id !== undefined ? { '#id': 'id' } : undefined;
 	if (opts?.id !== undefined) {
 		filters.push('#id = :id');
-		values[':id'] = opts.id;
+		values[':id'] = Number(opts.id);
 	}
 
 	const items: Record<string, unknown>[] = [];
@@ -521,7 +537,7 @@ async function scanTenantChallenges(
  * updateProgress/markCompleted/claimReward/update/delete が DynamoDB prod で silent no-op だった。
  */
 async function resolveKeyById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
 	const items = await scanTenantChallenges(tenantId, {

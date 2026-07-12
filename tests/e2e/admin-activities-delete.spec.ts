@@ -7,9 +7,12 @@
  * (tests/CLAUDE.md §「interactive flow は『操作 → 結果』を必須検証する」)。
  *
  * 検証する 3 sequence (act → outcome assert):
- *   1. 削除 confirm → 確定 click → family 一覧件数が -1 (toHaveCount(before - 1)) + Toast success
- *   2. 削除 confirm → キャンセル click → Dialog close + 件数不変
+ *   1. 削除 confirm → 確定 click → 対象行が一覧から消える (dedicated testid toHaveCount(0)) + Toast success
+ *   2. 削除 confirm → キャンセル click → Dialog close + 対象行が一覧に残存
  *   3. activity-delete-btn が family 各行に visible (entry point 担保)
+ *
+ * #3606: 旧「global 件数 ±1 / 不変」assertion は並列 spec が同一 worker DB を変更すると
+ * race で破綻するため、dedicated item 自身の消滅 / 残存に置換 (検証 goal は同一)。
  *
  * deterministic completion signal: 件数の `toHaveCount` 比較 + Toast の text assertion で
  * waitForTimeout を一切使わず web-first assertion で完遂を verify
@@ -17,6 +20,7 @@
  */
 
 import { expect, type Locator, test } from '@playwright/test';
+import { asCategoryId } from '../../src/lib/domain/ids';
 
 /**
  * Ark UI Dialog primitive の trigger button を click し dialog が data-state="open" に
@@ -56,7 +60,7 @@ async function createDedicatedActivity(
 			name: `#2744-delete-test-${suffix}-${Date.now()}`,
 			icon: '🗑',
 			basePoints: 1,
-			categoryId: 1,
+			categoryId: asCategoryId(1),
 			ageMin: null,
 			ageMax: null,
 		},
@@ -85,7 +89,7 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		await request.delete(`/api/v1/activities/${testId}`);
 	});
 
-	test('削除 button click → 確認 Dialog 表示 → 確定 → 一覧件数 -1 + Toast success', async ({
+	test('削除 button click → 確認 Dialog 表示 → 確定 → 対象行が一覧から消える + Toast success', async ({
 		page,
 		request,
 	}) => {
@@ -95,7 +99,6 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		await page.waitForLoadState('domcontentloaded');
 
 		const dedicatedBtn = page.getByTestId(`activity-delete-btn-${testId}`);
-		const beforeCount = await page.locator('[data-testid^="activity-delete-btn-"]').count();
 		await expect(dedicatedBtn).toBeVisible();
 
 		const dialog = page.getByTestId(`activity-delete-confirm-${testId}`);
@@ -120,15 +123,15 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		//   成功通知は assertive=alert ではなく polite=status。error のみ role="alert")。
 		await expect(page.getByRole('status').filter({ hasText: '活動を削除しました' })).toBeVisible();
 
-		// outcome 3: 一覧件数が確実に -1 (delete action は activity ログがあれば hidden 化、
-		//           なければ hard delete、いずれも一覧表示からは消える)
-		// web-first assertion `toHaveCount` で auto-retry、waitForTimeout 不使用
-		await expect(page.locator('[data-testid^="activity-delete-btn-"]')).toHaveCount(
-			beforeCount - 1,
-		);
+		// outcome 3: 削除対象の行が一覧から確実に消える (delete action は activity ログが
+		//           あれば hidden 化、なければ hard delete、いずれも一覧表示からは消える)
+		// #3606: 旧 assertion「global 件数が -1」は並列 spec が同一 worker DB に活動を
+		// 追加すると破綻する race (CI で 43 期待 / 44 実測の flake を実証)。検証する goal
+		// (削除した item が一覧から消える) は dedicated testid の消滅で正確に assert する。
+		await expect(page.getByTestId(`activity-delete-btn-${testId}`)).toHaveCount(0);
 	});
 
-	test('削除 button click → キャンセル click → Dialog 閉じる + 件数不変', async ({
+	test('削除 button click → キャンセル click → Dialog 閉じる + 対象行が残存', async ({
 		page,
 		request,
 	}) => {
@@ -138,7 +141,6 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		await page.waitForLoadState('domcontentloaded');
 
 		const dedicatedBtn = page.getByTestId(`activity-delete-btn-${testId}`);
-		const beforeCount = await page.locator('[data-testid^="activity-delete-btn-"]').count();
 		await expect(dedicatedBtn).toBeVisible();
 
 		const dialog = page.getByTestId(`activity-delete-confirm-${testId}`);
@@ -152,9 +154,10 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		// outcome 1: Dialog 閉じる
 		await expect(dialog).toBeHidden();
 
-		// outcome 2: 件数は不変 (キャンセル経路の dead-end 検出)
-		// web-first assertion で auto-retry
-		await expect(page.locator('[data-testid^="activity-delete-btn-"]')).toHaveCount(beforeCount);
+		// outcome 2: 削除対象の行が一覧に残存する (キャンセル経路の dead-end 検出)
+		// #3606: global 件数比較は並列 spec の DB 変更と race するため、対象 item 自身の
+		// 残存を assert する
+		await expect(dedicatedBtn).toBeVisible();
 
 		// cleanup: API 経由で削除 (cancel test は cancel path 検証のみ、後始末は API で)
 		await request.delete(`/api/v1/activities/${testId}`);

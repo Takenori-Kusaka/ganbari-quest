@@ -1,3 +1,4 @@
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/downgrade-service.ts
 // #738: ダウングレード前の超過リソースプレビュー・選択アーカイブ
 
@@ -21,9 +22,9 @@ export type { DowngradePreview };
 const ARCHIVE_REASON: ArchivedReason = 'downgrade_user_selected';
 
 export interface ArchiveSelection {
-	childIds: number[];
-	activityIds: number[];
-	checklistTemplateIds: number[];
+	childIds: ChildId[];
+	activityIds: ActivityId[];
+	checklistTemplateIds: string[];
 }
 
 /**
@@ -66,7 +67,7 @@ export async function getDowngradePreview(
 
 	// --- Checklist Templates (per child) ---
 	const checklistPreviews: ChecklistTemplatePreview[] = [];
-	const excessByChild: { childId: number; childName: string; excess: number }[] = [];
+	const excessByChild: { childId: ChildId; childName: string; excess: number }[] = [];
 	if (targetLimits.maxChecklistTemplates !== null) {
 		for (const child of allChildren) {
 			const templates = await findTemplatesByChild(child.id, tenantId, true);
@@ -128,9 +129,9 @@ export async function getDowngradePreview(
  */
 export interface ArchiveResult {
 	ok: true;
-	archivedChildIds: number[];
-	archivedActivityIds: number[];
-	archivedChecklistTemplateIds: number[];
+	archivedChildIds: ChildId[];
+	archivedActivityIds: ActivityId[];
+	archivedChecklistTemplateIds: string[];
 }
 
 export async function archiveForDowngrade(

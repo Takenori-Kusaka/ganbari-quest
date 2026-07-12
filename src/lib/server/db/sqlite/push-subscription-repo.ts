@@ -15,22 +15,20 @@ import type {
  * `subscriberRole !== 'parent' && subscriberRole !== 'owner'` を skip する二重防御があるため、
  * 既存 DB の不正値（NULL / 旧 `'child'` レコード）も安全側に倒れる。
  */
-type RawPushSubscriptionRow = Omit<PushSubscriptionRecord, 'subscriberRole'> & {
-	subscriberRole: string;
-};
+type RawPushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 
 function normalizePushRow(row: RawPushSubscriptionRow): PushSubscriptionRecord {
 	// 不正値はそのまま PushSubscriberRole にキャストせず string 経由で渡す。
 	// 送信側で安全に skip されるため、ここで `'parent' | 'owner'` 以外を捨てる必要はない。
-	return row as unknown as PushSubscriptionRecord;
+	return { ...row, id: String(row.id), subscriberRole: row.subscriberRole as PushSubscriberRole };
 }
 
 export async function findByTenant(tenantId: string): Promise<PushSubscriptionRecord[]> {
-	const rows = (await db
+	const rows = await db
 		.select()
 		.from(pushSubscriptions)
 		.where(eq(pushSubscriptions.tenantId, tenantId))
-		.all()) as RawPushSubscriptionRow[];
+		.all();
 	return rows.map(normalizePushRow);
 }
 
@@ -38,17 +36,17 @@ export async function findByEndpoint(
 	endpoint: string,
 	_tenantId: string,
 ): Promise<PushSubscriptionRecord | undefined> {
-	const row = (await db
+	const row = await db
 		.select()
 		.from(pushSubscriptions)
 		.where(eq(pushSubscriptions.endpoint, endpoint))
-		.get()) as RawPushSubscriptionRow | undefined;
+		.get();
 	return row ? normalizePushRow(row) : undefined;
 }
 
 export async function insert(input: InsertPushSubscriptionInput): Promise<PushSubscriptionRecord> {
 	const now = new Date().toISOString();
-	const row = (await db
+	const row = await db
 		.insert(pushSubscriptions)
 		.values({
 			tenantId: input.tenantId,
@@ -60,7 +58,7 @@ export async function insert(input: InsertPushSubscriptionInput): Promise<PushSu
 			createdAt: now,
 		})
 		.returning()
-		.get()) as RawPushSubscriptionRow;
+		.get();
 	return normalizePushRow(row);
 }
 
@@ -74,7 +72,7 @@ export async function deleteByEndpoint(endpoint: string, _tenantId: string): Pro
 
 export async function insertLog(input: InsertNotificationLogInput): Promise<NotificationLog> {
 	const now = new Date().toISOString();
-	return db
+	const row = db
 		.insert(notificationLogs)
 		.values({
 			tenantId: input.tenantId,
@@ -87,6 +85,7 @@ export async function insertLog(input: InsertNotificationLogInput): Promise<Noti
 		})
 		.returning()
 		.get();
+	return { ...row, id: String(row.id) };
 }
 
 export async function countTodayLogs(tenantId: string, today: string): Promise<number> {
@@ -112,5 +111,6 @@ export async function findRecentLogs(tenantId: string, limit: number): Promise<N
 		.where(eq(notificationLogs.tenantId, tenantId))
 		.orderBy(desc(notificationLogs.sentAt))
 		.limit(limit)
-		.all();
+		.all()
+		.map((r) => ({ ...r, id: String(r.id) }));
 }

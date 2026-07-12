@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, SETUP_REWARDS_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
@@ -7,7 +8,7 @@ let { data } = $props();
 
 let selectedItems = $state<Set<string>>(new Set());
 // svelte-ignore state_referenced_locally
-let selectedChildId = $state<number>(data.children[0]?.id ?? 0);
+let selectedChildId = $state<ChildId | 0>(data.children[0]?.id ?? 0);
 let submitting = $state(false);
 let skipMode = $state(false);
 let expandedItem = $state<string | null>(null);

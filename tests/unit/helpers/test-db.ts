@@ -4,6 +4,7 @@
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import type { CategoryId, ChildId } from '../../../src/lib/domain/ids';
 import * as schema from '../../../src/lib/server/db/schema';
 
 // ============================================================
@@ -935,7 +936,7 @@ export function closeDb(sqlite: TestSqlite): void {
 
 export interface SeedChildActivityInput {
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId | number;
 	icon: string;
 	basePoints?: number;
 	isVisible?: number;
@@ -961,15 +962,15 @@ export interface SeedChildActivityInput {
  */
 export function seedChildActivities(
 	db: TestDb,
-	childId: number,
+	childId: ChildId | number,
 	activities: SeedChildActivityInput[],
 ): void {
 	for (const a of activities) {
 		db.insert(schema.childActivities)
 			.values({
-				childId,
+				childId: Number(childId),
 				name: a.name,
-				categoryId: a.categoryId,
+				categoryId: Number(a.categoryId),
 				icon: a.icon,
 				basePoints: a.basePoints ?? 5,
 				isVisible: a.isVisible ?? 1,

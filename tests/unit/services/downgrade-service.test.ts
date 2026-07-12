@@ -2,6 +2,7 @@
 // #738: ダウングレードプレビュー・アーカイブサービスのユニットテスト
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 // --- モック定義 ---
 const mockFindAllChildren = vi.fn();
@@ -35,7 +36,7 @@ const TENANT = 'test-tenant';
 
 function makeChild(id: number, nickname: string) {
 	return {
-		id,
+		id: asChildId(id),
 		nickname,
 		age: 4,
 		theme: 'pink',
@@ -49,9 +50,9 @@ function makeChild(id: number, nickname: string) {
 
 function makeActivity(id: number, name: string, source = 'custom') {
 	return {
-		id,
+		id: asActivityId(id),
 		name,
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 5,
 		source,
@@ -64,8 +65,8 @@ function makeActivity(id: number, name: string, source = 'custom') {
 
 function makeTemplate(id: number, childId: number, name: string) {
 	return {
-		id,
-		childId,
+		id: String(id),
+		childId: asChildId(childId),
 		name,
 		icon: '📋',
 		pointsPerItem: 5,
@@ -207,19 +208,19 @@ describe('downgrade-service', () => {
 			]);
 
 			const result = await archiveForDowngrade(TENANT, 'free', {
-				childIds: [3],
-				activityIds: [4],
+				childIds: [asChildId(3)],
+				activityIds: [asActivityId(4)],
 				checklistTemplateIds: [],
 			});
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
-				expect(result.archivedChildIds).toEqual([3]);
-				expect(result.archivedActivityIds).toEqual([4]);
+				expect(result.archivedChildIds).toEqual(['3']);
+				expect(result.archivedActivityIds).toEqual(['4']);
 				expect(result.archivedChecklistTemplateIds).toEqual([]);
 			}
-			expect(mockArchiveChildren).toHaveBeenCalledWith([3], 'downgrade_user_selected', TENANT);
-			expect(mockArchiveActivities).toHaveBeenCalledWith([4], 'downgrade_user_selected', TENANT);
+			expect(mockArchiveChildren).toHaveBeenCalledWith(['3'], 'downgrade_user_selected', TENANT);
+			expect(mockArchiveActivities).toHaveBeenCalledWith(['4'], 'downgrade_user_selected', TENANT);
 		});
 
 		it('アーカイブ後も上限を超える場合はエラーを返す（子供）', async () => {
@@ -232,7 +233,7 @@ describe('downgrade-service', () => {
 			mockFindActivities.mockResolvedValue([]);
 
 			const result = await archiveForDowngrade(TENANT, 'free', {
-				childIds: [3], // 4人→3人、上限2人なのでまだ超過
+				childIds: [asChildId(3)], // 4人→3人、上限2人なのでまだ超過
 				activityIds: [],
 				checklistTemplateIds: [],
 			});
@@ -256,7 +257,7 @@ describe('downgrade-service', () => {
 
 			const result = await archiveForDowngrade(TENANT, 'free', {
 				childIds: [],
-				activityIds: [4], // 5個→4個、上限3個なのでまだ超過
+				activityIds: [asActivityId(4)], // 5個→4個、上限3個なのでまだ超過
 				checklistTemplateIds: [],
 			});
 
@@ -305,7 +306,7 @@ describe('downgrade-service', () => {
 			});
 
 			const result = await archiveForDowngrade(TENANT, 'free', {
-				childIds: [3], // child 3 をアーカイブ → テンプレ検証をスキップ
+				childIds: [asChildId(3)], // child 3 をアーカイブ → テンプレ検証をスキップ
 				activityIds: [],
 				checklistTemplateIds: [],
 			});

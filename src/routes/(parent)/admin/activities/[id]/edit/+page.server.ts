@@ -1,9 +1,13 @@
 // #1756 (#1709-B): 親 UI — 活動編集を独立 URL に分離。
 //   /admin/activities/[id]/edit で must トグル + 既存編集項目を扱う。
 //   form action は $lib/server/services/activity-service 経由で priority を含めた更新を行う。
+
 import { error, fail, redirect } from '@sveltejs/kit';
+import { formIdString } from '$lib/domain/form-value';
+import { asActivityId, asCategoryId } from '$lib/domain/ids';
 import {
 	CATEGORY_DEFS,
+	getCategoryById,
 	sanitizeActivityNameField,
 	sanitizeDailyLimit,
 } from '$lib/domain/validation/activity';
@@ -14,8 +18,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const tenantId = requireTenantId(locals);
-	const id = Number(params.id);
-	if (!id || Number.isNaN(id)) {
+	const id = asActivityId(params.id);
+	if (!id) {
 		error(400, '不正な活動IDです');
 	}
 	const activity = await getActivityById(id, tenantId);
@@ -32,14 +36,14 @@ export const actions: Actions = {
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 多項目編集 form の単純な分解。複雑度より読みやすさを優先
 	save: async ({ request, locals, params }) => {
 		const tenantId = requireTenantId(locals);
-		const id = Number(params.id);
-		if (!id || Number.isNaN(id)) {
+		const id = asActivityId(params.id);
+		if (!id) {
 			return fail(400, { error: '不正な活動IDです' });
 		}
 
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '').trim();
-		const categoryId = Number(formData.get('categoryId') ?? 0);
+		const categoryId = asCategoryId(formIdString(formData.get('categoryId')));
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
@@ -58,7 +62,7 @@ export const actions: Actions = {
 		const priority: 'must' | 'optional' = priorityRaw === 'must' ? 'must' : 'optional';
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
-		if (!categoryId || categoryId < 1 || categoryId > 5) {
+		if (!categoryId || !getCategoryById(categoryId)) {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 

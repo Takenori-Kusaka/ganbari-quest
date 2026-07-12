@@ -9,17 +9,12 @@
 // v1 export 出力自体は本 PR で停止し、新規出力は v2 envelope のみ。
 
 import { json } from '@sveltejs/kit';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
+import { toCategoryCode } from '$lib/domain/categories';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
 import { requireRole } from '$lib/server/auth/factory';
 import { getActivities } from '$lib/server/services/activity-service';
 import type { RequestHandler } from './$types';
-
-const CATEGORY_ID_TO_CODE: Record<number, string> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_ID_TO_CODE[i + 1] = code;
-}
 
 export const GET: RequestHandler = async ({ locals }) => {
 	// #3246: export は import と同じ owner/parent gate に揃える (child role 到達不可)。
@@ -39,8 +34,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const payload: ActivityPackPayload = {
 		activities: activities.map((a) => ({
 			name: a.name,
-			categoryCode: (CATEGORY_ID_TO_CODE[a.categoryId] ??
-				'seikatsu') as ActivityPackPayload['activities'][number]['categoryCode'],
+			// #3607: id→code は SSOT 派生 helper で解決 (未知 id は従来どおり seikatsu に fallback)
+			categoryCode: toCategoryCode(a.categoryId) ?? 'seikatsu',
 			icon: a.icon && a.icon.length > 0 ? a.icon : '📝',
 			basePoints: a.basePoints,
 			ageMin: null,

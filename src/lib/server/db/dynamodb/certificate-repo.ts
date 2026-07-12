@@ -21,6 +21,8 @@
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/certificate-repo.ts (SSOT)
 
 import { GetCommand, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { Certificate, InsertCertificateInput } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -33,8 +35,8 @@ const PREFIX = certificatePrefix();
 function toCertificate(item: Record<string, unknown>): Certificate {
 	const s = stripKeys(item) as Record<string, unknown>;
 	return {
-		id: s.id as number,
-		childId: s.childId as number,
+		id: String(s.id as number),
+		childId: asChildId(s.childId as number),
 		tenantId: s.tenantId as string,
 		certificateType: s.certificateType as string,
 		title: s.title as string,
@@ -55,7 +57,7 @@ export async function issueCertificate(
 ): Promise<Certificate | null> {
 	const id = await nextId(ENTITY_NAMES.certificate, tenantId);
 	const certificate: Certificate = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		tenantId,
 		certificateType: input.certificateType,
@@ -71,8 +73,11 @@ export async function issueCertificate(
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...certificateKey(input.childId, input.certificateType, tenantId),
+					...certificateKey(Number(input.childId), input.certificateType, tenantId),
 					...certificate,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(input.childId),
 				},
 				// onConflictDoNothing 等価: 同 child + certType が既存なら Put せず例外 → null。
 				ConditionExpression: 'attribute_not_exists(PK)',
@@ -94,7 +99,7 @@ export async function issueCertificate(
 // findCertificates — child の全証明書を取得（新しい順）
 // ============================================================
 
-export async function findCertificates(childId: number, tenantId: string): Promise<Certificate[]> {
+export async function findCertificates(childId: ChildId, tenantId: string): Promise<Certificate[]> {
 	const items = await queryChildCertificates(childId, tenantId);
 	// SQLite: ORDER BY issued_at DESC。同 issuedAt は id 降順を tiebreaker にする。
 	return items.map(toCertificate).sort(compareIssuedAtDesc);
@@ -105,7 +110,7 @@ export async function findCertificates(childId: number, tenantId: string): Promi
 // ============================================================
 
 export async function findCertificateById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<Certificate | undefined> {
 	const found = await findCertificateItemById(id, tenantId);
@@ -118,7 +123,7 @@ export async function findCertificateById(
 // ============================================================
 
 export async function hasCertificate(
-	childId: number,
+	childId: ChildId,
 	certificateType: string,
 	tenantId: string,
 ): Promise<boolean> {
@@ -126,7 +131,7 @@ export async function hasCertificate(
 	const result = await getDocClient().send(
 		new GetCommand({
 			TableName: TABLE_NAME,
-			Key: certificateKey(childId, certificateType, tenantId),
+			Key: certificateKey(Number(childId), certificateType, tenantId),
 			ProjectionExpression: 'id',
 		}),
 	);
@@ -143,7 +148,7 @@ export async function insertForRestore(
 ): Promise<Certificate | null> {
 	const id = await nextId(ENTITY_NAMES.certificate, tenantId);
 	const certificate: Certificate = {
-		id,
+		id: String(id),
 		childId: input.childId,
 		tenantId,
 		certificateType: input.certificateType,
@@ -158,8 +163,11 @@ export async function insertForRestore(
 			new PutCommand({
 				TableName: TABLE_NAME,
 				Item: {
-					...certificateKey(input.childId, input.certificateType, tenantId),
+					...certificateKey(Number(input.childId), input.certificateType, tenantId),
 					...certificate,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(input.childId),
 				},
 				ConditionExpression: 'attribute_not_exists(PK)',
 			}),
@@ -191,12 +199,12 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
  */
 function compareIssuedAtDesc(a: Certificate, b: Certificate): number {
 	if (a.issuedAt !== b.issuedAt) return a.issuedAt < b.issuedAt ? 1 : -1;
-	return b.id - a.id;
+	return Number(b.id) - Number(a.id);
 }
 
 /** 指定 child partition の CERT# item を全件 Query する (ページング対応)。 */
 async function queryChildCertificates(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, unknown>[]> {
 	const doc = getDocClient();
@@ -208,7 +216,7 @@ async function queryChildCertificates(
 				TableName: TABLE_NAME,
 				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 				ExpressionAttributeValues: {
-					':pk': childPK(childId, tenantId),
+					':pk': childPK(Number(childId), tenantId),
 					':prefix': PREFIX,
 				},
 				ExclusiveStartKey: lastKey,
@@ -226,7 +234,7 @@ async function queryChildCertificates(
  * Scan は全ページ走査し一致 item で早期 return する (#2842 paging 正パターン)。
  */
 async function findCertificateItemById(
-	id: number,
+	id: string,
 	tenantId: string,
 ): Promise<Record<string, unknown> | undefined> {
 	const doc = getDocClient();
@@ -240,7 +248,7 @@ async function findCertificateItemById(
 				ExpressionAttributeValues: {
 					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': PREFIX,
-					':id': id,
+					':id': Number(id),
 				},
 				ExclusiveStartKey: lastKey,
 			}),

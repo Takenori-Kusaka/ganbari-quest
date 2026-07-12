@@ -1,6 +1,15 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
+
 // src/lib/server/services/export-service.ts
 // 家族データエクスポートサービス（Phase 1: エクスポートのみ）
 
+import {
+	CATEGORIES,
+	CATEGORY_CODES,
+	type CategoryCode,
+	toCategoryCode,
+} from '$lib/domain/categories';
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
@@ -35,7 +44,6 @@ import {
 	type ExportTitle,
 	type ExportTransactionData,
 } from '$lib/domain/export-format';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
 import {
 	findLogsByChild,
@@ -55,28 +63,30 @@ import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-rep
 import { logger } from '$lib/server/logger';
 import { tenantPrefix } from '$lib/server/storage-keys';
 
-// カテゴリID → コード マッピング（5件固定）
-const CATEGORY_ID_TO_CODE: Record<number, string> = {
-	1: CATEGORY_CODES[0], // undou
-	2: CATEGORY_CODES[1], // benkyou
-	3: CATEGORY_CODES[2], // seikatsu
-	4: CATEGORY_CODES[3], // kouryuu
-	5: CATEGORY_CODES[4], // souzou
+// エクスポートファイルに埋める hex color は表示層の関心事 (歴史的にカテゴリ SSOT の master
+// palette と別値で出力されてきた) のため、SSOT ($lib/domain/categories.ts) に統合せず
+// 本 service ローカルに留めて挙動不変を維持する (#3607)。
+const EXPORT_CATEGORY_COLORS: Record<CategoryCode, string> = {
+	undou: '#FF6B6B',
+	benkyou: '#4ECDC4',
+	seikatsu: '#45B7D1',
+	kouryuu: '#96CEB4',
+	souzou: '#DDA0DD',
 };
 
-// カテゴリID → 情報マッピング
-const CATEGORY_INFO: ExportCategory[] = [
-	{ id: 1, code: 'undou', name: 'うんどう', icon: '🏃', color: '#FF6B6B' },
-	{ id: 2, code: 'benkyou', name: 'べんきょう', icon: '📚', color: '#4ECDC4' },
-	{ id: 3, code: 'seikatsu', name: 'せいかつ', icon: '🏠', color: '#45B7D1' },
-	{ id: 4, code: 'kouryuu', name: 'こうりゅう', icon: '🤝', color: '#96CEB4' },
-	{ id: 5, code: 'souzou', name: 'そうぞう', icon: '🎨', color: '#DDA0DD' },
-];
+// カテゴリID → 情報マッピング (#3607: id/code/name/icon は SSOT 派生)
+const CATEGORY_INFO: ExportCategory[] = CATEGORY_CODES.map((code) => ({
+	id: asCategoryId(CATEGORIES[code].legacyNumericId),
+	code,
+	name: CATEGORIES[code].name,
+	icon: CATEGORIES[code].icon,
+	color: EXPORT_CATEGORY_COLORS[code],
+}));
 
 const MAX_EXPORT_ROWS = 999999;
 
-function getCategoryCode(categoryId: number): string {
-	return CATEGORY_ID_TO_CODE[categoryId] ?? 'unknown';
+function getCategoryCode(categoryId: CategoryId): string {
+	return toCategoryCode(categoryId) ?? 'unknown';
 }
 
 /**
@@ -215,7 +225,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
  * capped query が cap ちょうどの件数を返した = silent truncation の可能性を observable にする
  * (#3259 perf-6、no-silent-cap 原則。MAX_EXPORT_ROWS で頭打ちした export は半損のため warn する)。
  */
-function warnIfTruncated(kind: string, childId: number, count: number): void {
+function warnIfTruncated(kind: string, childId: ChildId, count: number): void {
 	if (count >= MAX_EXPORT_ROWS) {
 		logger.warn(
 			'[export] 取得件数が上限に達しました — export が truncate されている可能性があります',
@@ -256,8 +266,8 @@ interface ChildTransactionData {
  * `Promise.all(childIds.map(...))` 並列化する。出力は childIds 順に連結するため checksum は決定的。
  */
 async function collectForChild(
-	childId: number,
-	childExportIdMap: Map<number, string>,
+	childId: ChildId,
+	childExportIdMap: Map<ChildId, string>,
 	tenantId: string,
 ): Promise<ChildTransactionData> {
 	const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
@@ -331,7 +341,7 @@ async function collectForChild(
 	// ステータス履歴は全カテゴリ分を取得
 	const statusHistoryResults = await Promise.all(
 		[1, 2, 3, 4, 5].map((catId) =>
-			findRecentStatusHistory(childId, catId, tenantId, MAX_EXPORT_ROWS),
+			findRecentStatusHistory(childId, asCategoryId(catId), tenantId, MAX_EXPORT_ROWS),
 		),
 	);
 
@@ -512,7 +522,9 @@ async function collectForChild(
 	// 活動 (childActivitiesRaw) から activityId → name を解決し activityName で出力する。
 	// 活動が解決できない pref は skip (orphan)。
 	warnIfTruncated('activityPrefs', childId, activityPrefsRaw.length);
-	const activityNameById = new Map<number, string>(childActivitiesRaw.map((a) => [a.id, a.name]));
+	const activityNameById = new Map<ActivityId, string>(
+		childActivitiesRaw.map((a) => [a.id, a.name]),
+	);
 	const activityPrefsOut: ExportActivityPref[] = [];
 	for (const pref of activityPrefsRaw) {
 		const name = activityNameById.get(pref.activityId);
@@ -536,8 +548,8 @@ async function collectForChild(
 	const templateItems = await Promise.all(
 		checklistTemplates.map((tpl) => findTemplateItems(tpl.id, tenantId)),
 	);
-	const templateNameById = new Map<number, string>();
-	const exportIdByTemplateId = new Map<number, string>();
+	const templateNameById = new Map<string, string>();
+	const exportIdByTemplateId = new Map<string, string>();
 	const checklistTemplatesOut: ExportChecklistTemplate[] = checklistTemplates.map((tpl, idx) => {
 		templateNameById.set(tpl.id, tpl.name);
 		const exportId = `chk-${childRef}-${tpl.id}`;
@@ -645,8 +657,8 @@ async function collectForChild(
 }
 
 async function collectTransactionData(
-	childIds: number[],
-	childExportIdMap: Map<number, string>,
+	childIds: ChildId[],
+	childExportIdMap: Map<ChildId, string>,
 	_achievementMap: Map<number, { code: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {

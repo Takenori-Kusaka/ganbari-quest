@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
@@ -30,9 +31,9 @@ type MonthlySummaries = Record<
 	number,
 	{ totalActivities: number; currentLevel: number; newAchievements: number }
 >;
-type TodayUsage = { childId: number; childName: string; durationMin: number }[];
+type TodayUsage = { childId: ChildId; childName: string; durationMin: number }[];
 type WeeklyUsage = {
-	childId: number;
+	childId: ChildId;
 	childName: string;
 	dailySummary: { date: string; durationMin: number }[];
 }[];

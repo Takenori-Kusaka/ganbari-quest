@@ -32,6 +32,8 @@
  *     同じ呼出記法で扱えるように)
  */
 
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+
 import type { PointSettings } from '$lib/domain/point-display';
 import type { Child } from '$lib/server/db/types/index.js';
 
@@ -46,7 +48,7 @@ export interface ChildDashboardHomeData {
 	/** 表示中の子供 (null = 未選択 / 親アカウント直下) */
 	child: Child | null;
 	/** 今日記録した活動の件数マップ */
-	todayRecorded: { activityId: number; count: number }[];
+	todayRecorded: { activityId: ActivityId; count: number }[];
 	/** ポイント表示設定 (通貨換算 / 単位等) */
 	pointSettings: PointSettings;
 }
@@ -59,7 +61,7 @@ export interface ChildDashboardHomeData {
  * - demo: `activityId` のみで in-memory state を更新する。
  */
 export interface RecordActivityInput {
-	activityId: number;
+	activityId: ActivityId;
 }
 
 /**
@@ -73,7 +75,7 @@ export interface RecordActivityInput {
 export type RecordActivityWriteResult =
 	| {
 			ok: true;
-			logId: number;
+			logId: string;
 			activityName: string;
 			totalPoints: number;
 			streakDays: number;
@@ -87,7 +89,7 @@ export type RecordActivityWriteResult =
  */
 export interface CancelRecordInput {
 	/** 取消したい activity_log の id (本番のみ必要。demo は最後の record をキャンセル) */
-	logId: number;
+	logId: string;
 }
 
 export type CancelRecordResult =
@@ -114,7 +116,7 @@ export type ClaimLoginBonusResult =
  * 活動ピン留めトグル API の input / 結果。
  */
 export interface ToggleActivityPinInput {
-	activityId: number;
+	activityId: ActivityId;
 	pinned: boolean;
 }
 
@@ -266,7 +268,7 @@ export interface ChildHomeViewModel {
 
 /** child header / profile に必要なフィールド (subset of Child) */
 export interface ChildHomeChild {
-	id: number;
+	id: ChildId;
 	nickname: string;
 	pointBalance: number;
 	level: number;
@@ -299,7 +301,7 @@ export type ChildHomeProgressDisplay =
 			 */
 			type: 'category-level';
 			categories: readonly {
-				id: number;
+				id: CategoryId;
 				name: string;
 				level: number;
 				xpPercent: number; // 0-100
@@ -324,10 +326,10 @@ export type ChildHomeProgressDisplay =
 
 /** Activity grid 1 件分 */
 export interface ChildHomeActivity {
-	id: number;
+	id: ActivityId;
 	name: string;
 	icon: string; // emoji or asset path
-	categoryId: number;
+	categoryId: CategoryId;
 	categoryName: string;
 	pointReward: number;
 	streakBonus: number;
@@ -443,7 +445,7 @@ export interface ParentAdminViewModel {
 
 /** プリセット (display only) */
 export interface ParentAdminReadonlyPreset {
-	id: number;
+	id: string;
 	name: string;
 	activitiesCount: number;
 	description?: string;
@@ -451,7 +453,7 @@ export interface ParentAdminReadonlyPreset {
 
 /** ごほうび (display only) */
 export interface ParentAdminReadonlyReward {
-	id: number;
+	id: string;
 	name: string;
 	pointCost: number;
 	icon: string;
@@ -459,7 +461,7 @@ export interface ParentAdminReadonlyReward {
 
 /** 家族メンバー (display only) */
 export interface ParentAdminReadonlyMember {
-	id: number;
+	id: string;
 	name: string;
 	role: 'parent' | 'child';
 	uiMode?: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { childIdSchema } from './id-schema';
 
 /** メッセージ種別 */
 export const MESSAGE_TYPES = ['stamp', 'text', 'reward_notice'] as const;
@@ -14,7 +15,7 @@ export const MESSAGE_TEXT_MAX_LENGTH = 200;
 /** メッセージ送信スキーマ */
 export const sendMessageSchema = z
 	.object({
-		childId: z.coerce.number().int().positive(),
+		childId: childIdSchema,
 		messageType: z.enum(MESSAGE_TYPES),
 		stampCode: z.string().max(30).optional(),
 		body: z.string().max(MESSAGE_TEXT_MAX_LENGTH).optional(),
@@ -31,5 +32,5 @@ export const sendMessageSchema = z
 
 /** メッセージ取得パラメータ */
 export const messageQuerySchema = z.object({
-	childId: z.coerce.number().int().positive(),
+	childId: childIdSchema,
 });

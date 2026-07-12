@@ -9,6 +9,7 @@
 // - 正常系: grantCheer() が呼ばれ、granted: true が返る
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- mocks ----------
 
@@ -78,7 +79,7 @@ describe('POST /admin/cheer?/grant (#2267)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockGrantCheer.mockResolvedValue({
-			messageId: 1,
+			messageId: '1',
 			pointEntryAmount: 100,
 			description: '🎉 応援: うんどうかいで 1いに なったね！',
 		});
@@ -95,7 +96,7 @@ describe('POST /admin/cheer?/grant (#2267)', () => {
 		});
 		expect(mockGrantCheer).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: 1,
+				childId: asChildId(1),
 				reason: 'うんどうかいで 1いに なったね！',
 				points: 100,
 				category: 'うんどう',

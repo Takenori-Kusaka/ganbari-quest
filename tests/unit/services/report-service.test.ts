@@ -3,6 +3,7 @@
 // ファクトリ経由 (getRepos()) でDBアクセスするため、ファクトリをモックしてテストする。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import type { ReportDailySummary } from '$lib/server/db/types';
 
 // ---- モック定義 ----
@@ -41,9 +42,9 @@ const TENANT = 'test-tenant';
 
 function makeSummary(overrides: Partial<ReportDailySummary> = {}): ReportDailySummary {
 	return {
-		id: 1,
+		id: '1',
 		tenantId: TENANT,
-		childId: 1,
+		childId: asChildId(1),
 		date: '2026-04-01',
 		activityCount: 3,
 		categoryBreakdown: JSON.stringify({ '1': 2, '2': 1 }),
@@ -76,8 +77,8 @@ beforeEach(() => {
 describe('aggregateDailyReport', () => {
 	it('全子供を処理し、処理件数を返す', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
 		]);
 		// findTodayLogsWithCategory は aggregateChildDaily -> calculateStreak でも呼ばれる
 		// 最初の呼び出しはログ取得、以降はストリーク計算
@@ -102,15 +103,15 @@ describe('aggregateDailyReport', () => {
 
 	it('個別の子供でエラーが発生しても他の子供の処理を継続する', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
-			{ id: 3, nickname: 'じろう' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
+			{ id: '3', nickname: 'じろう' },
 		]);
 
 		// 1人目は成功, 2人目はエラー, 3人目は成功
 		let callCount = 0;
-		mockRepos.activity.findTodayLogsWithCategory.mockImplementation(async (childId: number) => {
-			if (childId === 2 && callCount < 3) {
+		mockRepos.activity.findTodayLogsWithCategory.mockImplementation(async (childId: ChildId) => {
+			if (childId === '2' && callCount < 3) {
 				callCount++;
 				throw new Error('DB error');
 			}
@@ -125,14 +126,18 @@ describe('aggregateDailyReport', () => {
 	});
 
 	it('活動ログからカテゴリ別内訳を集計してupsertする', async () => {
-		mockRepos.child.findAllChildren.mockResolvedValue([{ id: 1, nickname: 'たろう' }]);
+		mockRepos.child.findAllChildren.mockResolvedValue([{ id: '1', nickname: 'たろう' }]);
 
 		// 最初の呼び出し (日次ログ取得) のみデータを返し、ストリーク計算の後続呼び出しでは空を返す
 		let firstCall = true;
 		mockRepos.activity.findTodayLogsWithCategory.mockImplementation(async () => {
 			if (firstCall) {
 				firstCall = false;
-				return [{ categoryId: 1 }, { categoryId: 1 }, { categoryId: 2 }];
+				return [
+					{ categoryId: asCategoryId(1) },
+					{ categoryId: asCategoryId(1) },
+					{ categoryId: asCategoryId(2) },
+				];
 			}
 			return [];
 		});
@@ -143,7 +148,7 @@ describe('aggregateDailyReport', () => {
 		expect(mockRepos.reportDailySummary.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				tenantId: TENANT,
-				childId: 1,
+				childId: asChildId(1),
 				date: '2026-04-01',
 				activityCount: 3,
 				categoryBreakdown: JSON.stringify({ '1': 2, '2': 1 }),
@@ -162,16 +167,16 @@ describe('getMonthlyReport', () => {
 	it('サマリーがない場合はnullを返す', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		const result = await getMonthlyReport(TENANT, 1, '2026-04');
+		const result = await getMonthlyReport(TENANT, asChildId(1), '2026-04');
 
 		expect(result).toBeNull();
 	});
 
 	it('子供が見つからない場合はnullを返す', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([makeSummary()]);
-		mockRepos.child.findAllChildren.mockResolvedValue([{ id: 99, nickname: '別の子' }]);
+		mockRepos.child.findAllChildren.mockResolvedValue([{ id: '99', nickname: '別の子' }]);
 
-		const result = await getMonthlyReport(TENANT, 1, '2026-04');
+		const result = await getMonthlyReport(TENANT, asChildId(1), '2026-04');
 
 		expect(result).toBeNull();
 	});
@@ -205,9 +210,9 @@ describe('getMonthlyReport', () => {
 			}),
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
-		mockRepos.child.findAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト太郎' }]);
+		mockRepos.child.findAllChildren.mockResolvedValue([{ id: '1', nickname: 'テスト太郎' }]);
 
-		const result = await getMonthlyReport(TENANT, 1, '2026-04');
+		const result = await getMonthlyReport(TENANT, asChildId(1), '2026-04');
 
 		expect(result).not.toBeNull();
 		expect(result?.childName).toBe('テスト太郎');
@@ -225,10 +230,10 @@ describe('getMonthlyReport', () => {
 	it('正しい日付範囲でクエリする（月末日の計算）', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2026-02');
+		await getMonthlyReport(TENANT, asChildId(1), '2026-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-02-01',
 			'2026-02-28',
 			TENANT,
@@ -251,21 +256,21 @@ describe('getAllChildrenMonthlyReport', () => {
 
 	it('子供ごとにグルーピングして複数のサマリーを構築する', async () => {
 		const summaries = [
-			makeSummary({ childId: 1, date: '2026-04-01', activityCount: 3 }),
-			makeSummary({ childId: 1, date: '2026-04-02', activityCount: 2 }),
-			makeSummary({ childId: 2, date: '2026-04-01', activityCount: 4 }),
+			makeSummary({ childId: asChildId(1), date: '2026-04-01', activityCount: 3 }),
+			makeSummary({ childId: asChildId(1), date: '2026-04-02', activityCount: 2 }),
+			makeSummary({ childId: asChildId(2), date: '2026-04-01', activityCount: 4 }),
 		];
 		mockRepos.reportDailySummary.findByTenantAndDateRange.mockResolvedValue(summaries);
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
 		]);
 
 		const result = await getAllChildrenMonthlyReport(TENANT, '2026-04');
 
 		expect(result).toHaveLength(2);
-		const taro = result.find((r) => r.childId === 1);
-		const hanako = result.find((r) => r.childId === 2);
+		const taro = result.find((r) => r.childId === '1');
+		const hanako = result.find((r) => r.childId === '2');
 		expect(taro?.totalActivities).toBe(5);
 		expect(taro?.childName).toBe('たろう');
 		expect(hanako?.totalActivities).toBe(4);
@@ -273,7 +278,7 @@ describe('getAllChildrenMonthlyReport', () => {
 	});
 
 	it('子供名が見つからない場合はフォールバック名を使用する', async () => {
-		const summaries = [makeSummary({ childId: 99, date: '2026-04-01' })];
+		const summaries = [makeSummary({ childId: asChildId(99), date: '2026-04-01' })];
 		mockRepos.reportDailySummary.findByTenantAndDateRange.mockResolvedValue(summaries);
 		mockRepos.child.findAllChildren.mockResolvedValue([]);
 
@@ -296,7 +301,7 @@ describe('getSimpleMonthSummary', () => {
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
 
-		const result = await getSimpleMonthSummary(TENANT, 1, '2026-04');
+		const result = await getSimpleMonthSummary(TENANT, asChildId(1), '2026-04');
 
 		expect(result.totalActivities).toBe(5);
 		expect(result.currentLevel).toBe(6);
@@ -307,11 +312,13 @@ describe('getSimpleMonthSummary', () => {
 
 	it('集計テーブルが空の場合はリアルタイム計算にフォールバックする', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
-		mockRepos.activity.findTodayLogsWithCategory.mockResolvedValue([{ categoryId: 1 }]);
+		mockRepos.activity.findTodayLogsWithCategory.mockResolvedValue([
+			{ categoryId: asCategoryId(1) },
+		]);
 		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 200, level: 8 }]);
 		mockRepos.achievement.findUnlockedAchievements.mockResolvedValue([]);
 
-		const result = await getSimpleMonthSummary(TENANT, 1, '2026-04');
+		const result = await getSimpleMonthSummary(TENANT, asChildId(1), '2026-04');
 
 		expect(result.currentLevel).toBe(8);
 		expect(result.totalActivities).toBeGreaterThanOrEqual(0);
@@ -326,8 +333,8 @@ describe('getSimpleMonthSummary', () => {
 describe('getAllChildrenSimpleSummary', () => {
 	it('全子供の簡易サマリーをMapで返す', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
 		]);
 		// 集計テーブルにデータがあるケース
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([
@@ -338,14 +345,14 @@ describe('getAllChildrenSimpleSummary', () => {
 
 		expect(result).toBeInstanceOf(Map);
 		expect(result.size).toBe(2);
-		expect(result.get(1)).toBeDefined();
-		expect(result.get(2)).toBeDefined();
+		expect(result.get(asChildId(1))).toBeDefined();
+		expect(result.get(asChildId(2))).toBeDefined();
 	});
 
 	it('個別の子供でエラーが出てもデフォルト値を返す', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
 		]);
 		// 1人目は正常、2人目はエラー
 		let callIdx = 0;
@@ -360,7 +367,7 @@ describe('getAllChildrenSimpleSummary', () => {
 		const result = await getAllChildrenSimpleSummary(TENANT, '2026-04');
 
 		expect(result.size).toBe(2);
-		const fallback = result.get(2);
+		const fallback = result.get(asChildId(2));
 		expect(fallback).toEqual({
 			totalActivities: 0,
 			currentLevel: 1,
@@ -395,9 +402,14 @@ describe('computeDetailedMonthlyReport', () => {
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
 
-		const result = await computeDetailedMonthlyReport(TENANT, 1, 'テスト太郎', '2026-04');
+		const result = await computeDetailedMonthlyReport(
+			TENANT,
+			asChildId(1),
+			'テスト太郎',
+			'2026-04',
+		);
 
-		expect(result.childId).toBe(1);
+		expect(result.childId).toBe('1');
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.month).toBe('2026-04');
 		expect(result.totalActivities).toBe(7);
@@ -417,7 +429,12 @@ describe('computeDetailedMonthlyReport', () => {
 		mockRepos.status.findStatuses.mockResolvedValue([{ totalXp: 300, level: 10 }]);
 		mockRepos.achievement.findUnlockedAchievements.mockResolvedValue([]);
 
-		const result = await computeDetailedMonthlyReport(TENANT, 1, 'テスト太郎', '2026-04');
+		const result = await computeDetailedMonthlyReport(
+			TENANT,
+			asChildId(1),
+			'テスト太郎',
+			'2026-04',
+		);
 
 		expect(result.childName).toBe('テスト太郎');
 		expect(result.currentLevel).toBe(10);
@@ -438,7 +455,7 @@ describe('computeDetailedMonthlyReport', () => {
 		];
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue(summaries);
 
-		const result = await computeDetailedMonthlyReport(TENANT, 1, 'テスト', '2026-04');
+		const result = await computeDetailedMonthlyReport(TENANT, asChildId(1), 'テスト', '2026-04');
 
 		expect(result.categoryBreakdown).toEqual({ '1': 5, '2': 1, '3': 4 });
 	});
@@ -451,8 +468,8 @@ describe('computeDetailedMonthlyReport', () => {
 describe('computeAllChildrenDetailedReport', () => {
 	it('全子供の詳細レポートを返す', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
 		]);
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([
 			makeSummary({ activityCount: 5 }),
@@ -467,9 +484,9 @@ describe('computeAllChildrenDetailedReport', () => {
 
 	it('個別の子供でエラーが発生しても他の子供の処理を継続する', async () => {
 		mockRepos.child.findAllChildren.mockResolvedValue([
-			{ id: 1, nickname: 'たろう' },
-			{ id: 2, nickname: 'はなこ' },
-			{ id: 3, nickname: 'じろう' },
+			{ id: '1', nickname: 'たろう' },
+			{ id: '2', nickname: 'はなこ' },
+			{ id: '3', nickname: 'じろう' },
 		]);
 
 		let callIdx = 0;
@@ -505,10 +522,10 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 	it('2月の月末日を正しく計算する（平年）', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2025-02');
+		await getMonthlyReport(TENANT, asChildId(1), '2025-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2025-02-01',
 			'2025-02-28',
 			TENANT,
@@ -518,10 +535,10 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 	it('2月の月末日を正しく計算する（閏年）', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2024-02');
+		await getMonthlyReport(TENANT, asChildId(1), '2024-02');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2024-02-01',
 			'2024-02-29',
 			TENANT,
@@ -531,10 +548,10 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 	it('31日の月の月末日を正しく計算する', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2026-01');
+		await getMonthlyReport(TENANT, asChildId(1), '2026-01');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-01-01',
 			'2026-01-31',
 			TENANT,
@@ -544,10 +561,10 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 	it('30日の月の月末日を正しく計算する', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2026-04');
+		await getMonthlyReport(TENANT, asChildId(1), '2026-04');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-04-01',
 			'2026-04-30',
 			TENANT,
@@ -557,10 +574,10 @@ describe('getMonthEndDate (ヘルパー関数の間接テスト)', () => {
 	it('12月の月末日を正しく計算する', async () => {
 		mockRepos.reportDailySummary.findByChildAndDateRange.mockResolvedValue([]);
 
-		await getMonthlyReport(TENANT, 1, '2026-12');
+		await getMonthlyReport(TENANT, asChildId(1), '2026-12');
 
 		expect(mockRepos.reportDailySummary.findByChildAndDateRange).toHaveBeenCalledWith(
-			1,
+			asChildId(1),
 			'2026-12-01',
 			'2026-12-31',
 			TENANT,

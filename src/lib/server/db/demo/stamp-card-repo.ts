@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // Demo IStampCardRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 // #2097 Phase B-2: 当週 active card + 前週 redeemed card の fixture を返す。
@@ -21,7 +22,7 @@ export async function findEnabledStampMasters(_tenantId: string): Promise<StampM
 }
 
 export async function findCardByChildAndWeek(
-	childId: number,
+	childId: ChildId,
 	weekStart: string,
 	_tenantId: string,
 ): Promise<StampCard | undefined> {
@@ -34,7 +35,7 @@ export async function insertCard(
 ): Promise<StampCard> {
 	const now = new Date().toISOString();
 	return {
-		id: 0,
+		id: '0',
 		childId: input.childId,
 		weekStart: input.weekStart,
 		weekEnd: input.weekEnd,
@@ -47,7 +48,7 @@ export async function insertCard(
 }
 
 export async function findEntriesWithMasterByCardId(
-	cardId: number,
+	cardId: string,
 	_tenantId: string,
 ): Promise<StampEntryWithMaster[]> {
 	const entries = DEMO_STAMP_ENTRIES.filter((e) => e.cardId === cardId);
@@ -69,16 +70,16 @@ export async function insertEntry(_input: InsertStampEntryInput, _tenantId: stri
 	// Stub: no-op
 }
 
-export async function findCardsByChild(childId: number, _tenantId: string): Promise<StampCard[]> {
+export async function findCardsByChild(childId: ChildId, _tenantId: string): Promise<StampCard[]> {
 	return DEMO_STAMP_CARDS.filter((c) => c.childId === childId);
 }
 
 export async function findEntriesByCardId(
-	cardId: number,
+	cardId: string,
 	_tenantId: string,
 ): Promise<
 	Array<{
-		stampMasterId: number | null;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -99,13 +100,13 @@ export async function insertCardForRestore(
 	_tenantId: string,
 ): Promise<StampCard> {
 	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: 0 };
+	return { ...input, id: '0' };
 }
 
 export async function insertEntryForRestore(
 	_input: {
-		cardId: number;
-		stampMasterId: number | null;
+		cardId: string;
+		stampMasterId: string | null;
 		omikujiRank: string | null;
 		slot: number;
 		loginDate: string;
@@ -117,8 +118,8 @@ export async function insertEntryForRestore(
 }
 
 export async function updateCardStatus(
-	_childId: number,
-	_cardId: number,
+	_childId: ChildId,
+	_cardId: string,
 	_input: UpdateStampCardStatusInput,
 	_tenantId: string,
 ): Promise<void> {
@@ -126,8 +127,8 @@ export async function updateCardStatus(
 }
 
 export async function updateCardStatusIfCollecting(
-	_childId: number,
-	_cardId: number,
+	_childId: ChildId,
+	_cardId: string,
 	_input: UpdateStampCardStatusInput,
 	_tenantId: string,
 ): Promise<number> {

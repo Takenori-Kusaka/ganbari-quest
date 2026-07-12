@@ -11,6 +11,7 @@
 
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { asChildId } from '$lib/domain/ids';
 import type { RulePresetPayload } from '$lib/domain/marketplace-item';
 // #2368 (ADR-0052 P3): Strategy 経由 (Registry 経由) で 4 ruleType sub-dispatcher を呼ぶ
 import { marketplaceRegistry } from '$lib/marketplace';
@@ -83,7 +84,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const itemIds = formData.getAll('itemIds').map((v) => v.toString());
 		const childIdRaw = formData.get('childId')?.toString();
-		const childId = childIdRaw && childIdRaw !== '' ? Number(childIdRaw) : undefined;
+		const childId = childIdRaw && childIdRaw !== '' ? asChildId(childIdRaw) : undefined;
 
 		if (itemIds.length === 0) {
 			redirect(302, '/setup/activities-defaults?rulesImported=0&rulesSkipped=0');

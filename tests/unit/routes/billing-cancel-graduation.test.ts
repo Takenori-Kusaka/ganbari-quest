@@ -12,6 +12,7 @@
 // biome-ignore-all lint/suspicious/noExplicitAny: テスト用 load/action の型を最小化
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ChildId } from '$lib/domain/ids';
 
 const mockFindAllChildren = vi.fn();
 const mockGetBalance = vi.fn();
@@ -88,12 +89,12 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 	describe('load', () => {
 		it('全子供のポイント合計を計算して返す', async () => {
 			mockFindAllChildren.mockResolvedValue([
-				{ id: 1, nickname: 'a' },
-				{ id: 2, nickname: 'b' },
+				{ id: '1', nickname: 'a' },
+				{ id: '2', nickname: 'b' },
 			]);
-			mockGetBalance.mockImplementation(async (childId: number) => {
-				if (childId === 1) return 500;
-				if (childId === 2) return 800;
+			mockGetBalance.mockImplementation(async (childId: ChildId) => {
+				if (childId === '1') return 500;
+				if (childId === '2') return 800;
 				return 0;
 			});
 			mockGetLicenseInfo.mockResolvedValue({
@@ -129,7 +130,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 		});
 
 		it('getBalance 失敗時も合計 0 でエラーにせずに返す', async () => {
-			mockFindAllChildren.mockResolvedValue([{ id: 1, nickname: 'a' }]);
+			mockFindAllChildren.mockResolvedValue([{ id: '1', nickname: 'a' }]);
 			mockGetBalance.mockRejectedValue(new Error('balance fetch failed'));
 			mockGetLicenseInfo.mockResolvedValue({
 				createdAt: new Date().toISOString(),
@@ -221,7 +222,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			mockRecordGraduationConsent.mockResolvedValue({
 				ok: true,
 				record: {
-					id: 1,
+					id: '1',
 					tenantId: 'tenant-1',
 					nickname: 'たろう家',
 					consented: true,
@@ -260,7 +261,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			mockRecordGraduationConsent.mockResolvedValue({
 				ok: true,
 				record: {
-					id: 1,
+					id: '1',
 					tenantId: 'tenant-1',
 					nickname: '匿名の卒業生',
 					consented: false,

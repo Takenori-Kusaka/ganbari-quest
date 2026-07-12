@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/reward-redemption-service.test.ts
 // ごほうびショップ交換申請サービスのユニットテスト (#1335)
 
@@ -87,13 +88,13 @@ function seedBaseData() {
 describe('requestRedemption', () => {
 	it('正常申請が作成される', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 
 		expect('error' in result).toBe(false);
 		if ('error' in result) return;
 		expect(result.status).toBe('pending_parent_approval');
-		expect(result.childId).toBe(childId);
-		expect(result.rewardId).toBe(rewardId);
+		expect(result.childId).toBe(asChildId(childId));
+		expect(result.rewardId).toBe(String(rewardId));
 	});
 
 	it('ポイント不足で INSUFFICIENT_POINTS を返す', async () => {
@@ -114,22 +115,22 @@ describe('requestRedemption', () => {
 			id: number;
 		};
 
-		const result = await requestRedemption(childId, rewardRow.id, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardRow.id), TENANT_ID);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 	});
 
 	it('重複申請で ALREADY_PENDING を返す', async () => {
 		const { childId, rewardId } = seedBaseData();
 		// 1回目の申請
-		await requestRedemption(childId, rewardId, TENANT_ID);
+		await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		// 2回目の申請
-		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		expect(result).toEqual({ error: 'ALREADY_PENDING' });
 	});
 
 	it('存在しない報酬で REWARD_NOT_FOUND を返す', async () => {
 		const { childId } = seedBaseData();
-		const result = await requestRedemption(childId, 99999, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), '99999', TENANT_ID);
 		expect(result).toEqual({ error: 'REWARD_NOT_FOUND' });
 	});
 });
@@ -149,7 +150,7 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 		const { childId, rewardId } = seedBaseData();
 		setAutoApprove('false');
 
-		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		expect('error' in result).toBe(false);
 		if ('error' in result) return;
 		expect(result.status).toBe('pending_parent_approval');
@@ -168,7 +169,7 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 		const { childId, rewardId } = seedBaseData();
 		setAutoApprove('true');
 
-		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		expect('error' in result).toBe(false);
 		if ('error' in result) return;
 		expect(result.status).toBe('approved');
@@ -212,7 +213,7 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 		};
 		setAutoApprove('true');
 
-		const result = await requestRedemption(childId, rewardRow.id, TENANT_ID);
+		const result = await requestRedemption(asChildId(childId), String(rewardRow.id), TENANT_ID);
 		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
 
 		// 減算されていない
@@ -253,8 +254,8 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 		setAutoApprove('true');
 
 		const [r1, r2] = await Promise.all([
-			requestRedemption(childId, rewardId, TENANT_ID),
-			requestRedemption(childId, rewardId, TENANT_ID),
+			requestRedemption(asChildId(childId), String(rewardId), TENANT_ID),
+			requestRedemption(asChildId(childId), String(rewardId), TENANT_ID),
 		]);
 
 		// ちょうど 1 件だけ成功し 80P 減算。二重減算なら 100-160 = -60 になる。
@@ -287,8 +288,8 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 		setAutoApprove('true');
 
 		const [r1, r2] = await Promise.all([
-			requestRedemption(childId, rewardId, TENANT_ID),
-			requestRedemption(childId, reward2.id, TENANT_ID),
+			requestRedemption(asChildId(childId), String(rewardId), TENANT_ID),
+			requestRedemption(asChildId(childId), String(reward2.id), TENANT_ID),
 		]);
 
 		// 残高 100 で 80×2 を同時要求 → 1 件のみ成功、残高 20（atomic 不在なら -60）
@@ -308,7 +309,7 @@ describe('requestRedemption — 即時交換オプション (#3339)', () => {
 describe('approveRedemption', () => {
 	it('承認するとポイントが減算され status が approved になる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		expect('error' in reqResult).toBe(false);
 		if ('error' in reqResult) return;
 
@@ -328,7 +329,7 @@ describe('approveRedemption', () => {
 
 	it('既に承認済みの申請を承認しようとすると INVALID_STATUS', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
@@ -339,7 +340,7 @@ describe('approveRedemption', () => {
 	// #3320: 承認した保護者の実 userId が監査証跡 resolved_by_parent_id に記録される
 	it('承認すると resolved_by_parent_id に実 parent userId が記録される (監査証跡)', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		await approveRedemption(reqResult.id, 'cognito-sub-parent-A', TENANT_ID);
@@ -351,7 +352,7 @@ describe('approveRedemption', () => {
 
 	it('userId が無い実行モード (null) では resolved_by_parent_id は null (解決者不明)', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		await approveRedemption(reqResult.id, null, TENANT_ID);
@@ -365,7 +366,7 @@ describe('approveRedemption', () => {
 describe('rejectRedemption', () => {
 	it('却下するとステータスが rejected になる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		const rejectResult = await rejectRedemption(reqResult.id, 'ごめんね', TENANT_ID);
@@ -377,7 +378,7 @@ describe('rejectRedemption', () => {
 
 	it('100文字を超える却下理由は切り詰められる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		const longNote = 'あ'.repeat(150);
@@ -389,7 +390,7 @@ describe('rejectRedemption', () => {
 	// #3320: 却下も承認と対称に解決者 userId を記録する
 	it('却下すると resolved_by_parent_id に実 parent userId が記録される (監査証跡)', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		await rejectRedemption(reqResult.id, 'いまは だめ', TENANT_ID, 'cognito-sub-parent-B');
@@ -403,18 +404,18 @@ describe('rejectRedemption', () => {
 describe('getRedemptionRequestsForChild', () => {
 	it('子供の申請一覧が取得できる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		await requestRedemption(childId, rewardId, TENANT_ID);
+		await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 
-		const requests = await getRedemptionRequestsForChild(childId, TENANT_ID);
+		const requests = await getRedemptionRequestsForChild(asChildId(childId), TENANT_ID);
 		expect(requests.length).toBe(1);
-		expect(requests[0]!.childId).toBe(childId);
+		expect(requests[0]!.childId).toBe(String(childId));
 	});
 });
 
 describe('getRedemptionRequestsForParent', () => {
 	it('pending_parent_approval 申請が取得できる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		await requestRedemption(childId, rewardId, TENANT_ID);
+		await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 
 		const requests = await getRedemptionRequestsForParent(TENANT_ID, {
 			status: 'pending_parent_approval',
@@ -433,7 +434,7 @@ describe('countPendingRedemptionsForParent (#3144)', () => {
 
 	it('pending 申請の件数を返し、承認すると減る', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) throw new Error('request failed');
 
 		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
@@ -463,24 +464,24 @@ describe('countPendingRedemptionsForParent (#3144)', () => {
 describe('getUnshownRedemptionResult / markRedemptionShown', () => {
 	it('承認結果が未表示として取得でき、表示済みにすると取得できなくなる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
 
-		const unshown = await getUnshownRedemptionResult(childId, TENANT_ID);
+		const unshown = await getUnshownRedemptionResult(asChildId(childId), TENANT_ID);
 		expect(unshown).toBeTruthy();
 		expect(unshown?.status).toBe('approved');
 
 		// #2845 課題①: 他の childId では表示済みにできない (所有権検証、SQLite backend)
-		const wrongChild = await markRedemptionShown(childId + 999, reqResult.id, TENANT_ID);
+		const wrongChild = await markRedemptionShown(asChildId(childId + 999), reqResult.id, TENANT_ID);
 		expect(wrongChild).toBeUndefined();
-		expect(await getUnshownRedemptionResult(childId, TENANT_ID)).toBeTruthy();
+		expect(await getUnshownRedemptionResult(asChildId(childId), TENANT_ID)).toBeTruthy();
 
 		// 表示済みにする
-		await markRedemptionShown(childId, reqResult.id, TENANT_ID);
+		await markRedemptionShown(asChildId(childId), reqResult.id, TENANT_ID);
 
-		const afterMark = await getUnshownRedemptionResult(childId, TENANT_ID);
+		const afterMark = await getUnshownRedemptionResult(asChildId(childId), TENANT_ID);
 		expect(afterMark).toBeNull();
 	});
 });
@@ -488,7 +489,7 @@ describe('getUnshownRedemptionResult / markRedemptionShown', () => {
 describe('expireOldRedemptions', () => {
 	it('古い pending 申請が expired になる', async () => {
 		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
 		if ('error' in reqResult) return;
 
 		// requestedAt を30日以上前に上書き

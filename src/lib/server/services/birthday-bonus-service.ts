@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/birthday-bonus-service.ts
 // 誕生日ボーナスポイントの判定・付与サービス
 
@@ -31,7 +32,7 @@ export interface BirthdayBonusStatus {
 }
 
 export interface BirthdayBonusClaimResult {
-	childId: number;
+	childId: ChildId;
 	newAge: number;
 	basePoints: number;
 	multiplier: number;
@@ -91,7 +92,7 @@ export function calcBirthdayBonus(age: number, multiplier: number): number {
 
 /** 誕生日ボーナスの状態を取得 */
 export async function getBirthdayBonusStatus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<BirthdayBonusStatus | { error: 'NOT_FOUND' } | { error: 'NO_BIRTHDATE' }> {
 	const child = await findChildById(childId, tenantId);
@@ -135,7 +136,7 @@ export function checkBirthdayStatus(child: Child, today: string): BirthdayBonusS
 
 /** 誕生日ボーナスを請求（ポイント付与 + 年齢更新） */
 export async function claimBirthdayBonus(
-	childId: number,
+	childId: ChildId,
 	tenantId: string,
 ): Promise<
 	| BirthdayBonusClaimResult

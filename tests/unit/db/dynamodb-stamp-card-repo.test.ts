@@ -16,6 +16,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
 const {
@@ -68,10 +69,10 @@ async function loadRepo() {
 }
 
 const TENANT = 'tenant-1';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 const WEEK_START = '2026-06-01';
 const WEEK_END = '2026-06-07';
-const CARD_ID = 7;
+const CARD_ID = '7';
 
 /** child partition の stamp_card DynamoDB item を組み立てる。 */
 function makeCardItem(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -183,7 +184,7 @@ describe('insertCard', () => {
 			TENANT,
 		);
 
-		expect(card.id).toBe(101);
+		expect(card.id).toBe('101');
 		expect(card).toMatchObject({
 			childId: CHILD_ID,
 			weekStart: WEEK_START,
@@ -285,7 +286,13 @@ describe('insertEntry', () => {
 		mockSend.mockResolvedValueOnce({});
 		const { insertEntry } = await loadRepo();
 		await insertEntry(
-			{ cardId: CARD_ID, stampMasterId: 3, omikujiRank: '中吉', slot: 2, loginDate: '2026-06-02' },
+			{
+				cardId: CARD_ID,
+				stampMasterId: '3',
+				omikujiRank: '中吉',
+				slot: 2,
+				loginDate: '2026-06-02',
+			},
 			TENANT,
 		);
 		const callArg = mockSend.mock.calls[0]?.[0] as {
@@ -304,7 +311,13 @@ describe('insertEntry', () => {
 		const { insertEntry } = await loadRepo();
 		await expect(
 			insertEntry(
-				{ cardId: CARD_ID, stampMasterId: 1, omikujiRank: null, slot: 1, loginDate: '2026-06-01' },
+				{
+					cardId: CARD_ID,
+					stampMasterId: '1',
+					omikujiRank: null,
+					slot: 1,
+					loginDate: '2026-06-01',
+				},
 				TENANT,
 			),
 		).resolves.toBeUndefined();
@@ -315,7 +328,13 @@ describe('insertEntry', () => {
 		const { insertEntry } = await loadRepo();
 		await expect(
 			insertEntry(
-				{ cardId: CARD_ID, stampMasterId: 1, omikujiRank: null, slot: 1, loginDate: '2026-06-01' },
+				{
+					cardId: CARD_ID,
+					stampMasterId: '1',
+					omikujiRank: null,
+					slot: 1,
+					loginDate: '2026-06-01',
+				},
 				TENANT,
 			),
 		).rejects.toThrow('throughput exceeded');
@@ -360,7 +379,7 @@ describe('updateCardStatus (#2845 課題①: full composite-key addressing)', ()
 		expect(query.input.KeyConditionExpression).toContain('PK = :pk');
 		expect(query.input.ExpressionAttributeValues?.[':pk']).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
 		expect(query.input.FilterExpression).toContain('id = :id');
-		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(CARD_ID);
+		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(Number(CARD_ID));
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: { UpdateExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
 		};
@@ -567,7 +586,7 @@ describe('interface 適合 (IStampCardRepo)', () => {
 			TENANT,
 		);
 		// stub なら id=0 を返していた。本実装は counter 値を返す。
-		expect(card.id).toBe(1);
+		expect(card.id).toBe('1');
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

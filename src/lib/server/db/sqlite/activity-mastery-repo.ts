@@ -2,32 +2,53 @@
 // 活動習熟度リポジトリ（SQLite実装）
 
 import { and, eq } from 'drizzle-orm';
+import { type ActivityId, asActivityId, asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { activityMastery } from '../schema';
 import type { ActivityMastery } from '../types';
 
+type Row = typeof activityMastery.$inferSelect;
+
+const toEntity = (r: Row): ActivityMastery => ({
+	...r,
+	id: String(r.id),
+	childId: asChildId(r.childId),
+	activityId: asActivityId(r.activityId),
+});
+
 export async function findByChildAndActivity(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	_tenantId: string,
 ): Promise<ActivityMastery | undefined> {
-	return db
+	const row = db
 		.select()
 		.from(activityMastery)
-		.where(and(eq(activityMastery.childId, childId), eq(activityMastery.activityId, activityId)))
+		.where(
+			and(
+				eq(activityMastery.childId, Number(childId)),
+				eq(activityMastery.activityId, Number(activityId)),
+			),
+		)
 		.get();
+	return row ? toEntity(row) : undefined;
 }
 
 export async function findAllByChild(
-	childId: number,
+	childId: ChildId,
 	_tenantId: string,
 ): Promise<ActivityMastery[]> {
-	return db.select().from(activityMastery).where(eq(activityMastery.childId, childId)).all();
+	return db
+		.select()
+		.from(activityMastery)
+		.where(eq(activityMastery.childId, Number(childId)))
+		.all()
+		.map(toEntity);
 }
 
 export async function upsert(
-	childId: number,
-	activityId: number,
+	childId: ChildId,
+	activityId: ActivityId,
 	totalCount: number,
 	level: number,
 	_tenantId: string,
@@ -38,16 +59,23 @@ export async function upsert(
 	if (existing) {
 		db.update(activityMastery)
 			.set({ totalCount, level, updatedAt: now })
-			.where(eq(activityMastery.id, existing.id))
+			.where(eq(activityMastery.id, Number(existing.id)))
 			.run();
 		return { ...existing, totalCount, level, updatedAt: now };
 	}
 
-	return db
+	const inserted = db
 		.insert(activityMastery)
-		.values({ childId, activityId, totalCount, level, updatedAt: now })
+		.values({
+			childId: Number(childId),
+			activityId: Number(activityId),
+			totalCount,
+			level,
+			updatedAt: now,
+		})
 		.returning()
 		.get();
+	return toEntity(inserted);
 }
 
 /** テナントの全活動習熟度を削除（SQLite: シングルテナントのため全行削除） */

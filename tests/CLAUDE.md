@@ -14,7 +14,7 @@ cd infra && npm ci      # infra 配下も install (必須)
 cd ..
 ```
 
-`prepare` script (root `package.json`) が 2 ステップ目を自動実行するが、`prepare` の各ステップは `||` 経由で warning を出すだけで silent fail する設計のため、**手動確認推奨**:
+`prepare` script (`scripts/prepare.mjs`、#3611 で Node 化) が 2 ステップ目を自動実行するが、`prepare` の各ステップは warning を出すだけで継続する設計のため、**手動確認推奨**:
 
 ```bash
 ls node_modules/valibot/                    # marketplace schemas で必要
@@ -30,9 +30,9 @@ ls node_modules/canvas-confetti/            # tests/unit/features/reward-celebra
 | `Cannot find module 'aws-cdk-lib'` (`tests/unit/infra/multi-lambda-cdk.test.ts`) | `infra/node_modules/` 未 install | `cd infra && npm ci` を手動実行 |
 | `Cannot find module 'canvas-confetti'` (`tests/unit/features/reward-celebration.test.ts`) | root `node_modules/` 不整合 | `npm ci` または `rm -rf node_modules && npm install` |
 
-### `prepare` script の挙動 (#2476)
+### `prepare` script の挙動 (#2476 / #3611)
 
-`package.json` `prepare` script は 3 ステップ実行する: `svelte-kit sync` / `husky` / `cd infra && npm ci`。各ステップ失敗時は `[prepare] ... FAILED — ...` の warning が標準出力に出るため、`npm install` / `npm ci` の出力末尾を確認する習慣をつける。
+`prepare` は `scripts/prepare.mjs` (Node、cross-platform) が 3 ステップ実行する: `svelte-kit sync` / `husky` / `cd infra && npm ci`。各ステップ失敗時は `[prepare] ... FAILED — ...` の warning が標準出力に出るため、`npm install` / `npm ci` の出力末尾を確認する習慣をつける。旧実装 (package.json 内 POSIX sh 構文) は Windows cmd.exe で quote 解釈が壊れ npm ci が毎回 exit 1 になっていたため #3611 で Node script 化した (挙動契約・warning 文言は不変)。
 
 CI ログでも同 warning が出るため、PR の CI fail 調査時にまず確認する箇所。
 

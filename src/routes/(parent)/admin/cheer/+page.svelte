@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -12,7 +13,7 @@ let { data, form } = $props();
 const errorMessage = $derived((form as { error?: string } | null)?.error);
 const granted = $derived(Boolean((form as { granted?: boolean } | null)?.granted));
 
-let selectedChildId = $state(0);
+let selectedChildId = $state<ChildId | 0>(0);
 $effect(() => {
 	const first = data.children[0];
 	if (selectedChildId === 0 && first) {
@@ -34,7 +35,7 @@ const reasonLength = $derived(reason.length);
 const reasonRemaining = $derived(data.reasonMaxLength - reasonLength);
 
 const canSubmit = $derived(
-	selectedChildId > 0 &&
+	selectedChildId !== 0 &&
 		reason.trim().length > 0 &&
 		reason.length <= data.reasonMaxLength &&
 		points >= data.pointsMin &&

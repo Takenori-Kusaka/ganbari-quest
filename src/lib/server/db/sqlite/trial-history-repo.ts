@@ -10,6 +10,11 @@ import type {
 } from '../interfaces/trial-history-repo.interface';
 import { trialHistory } from '../schema';
 
+const toRow = (r: typeof trialHistory.$inferSelect): TrialHistoryRow => ({
+	...r,
+	id: String(r.id),
+});
+
 export async function findLatestByTenant(tenantId: string): Promise<TrialHistoryRow | undefined> {
 	const rows = await db
 		.select()
@@ -17,13 +22,14 @@ export async function findLatestByTenant(tenantId: string): Promise<TrialHistory
 		.where(eq(trialHistory.tenantId, tenantId))
 		.orderBy(desc(trialHistory.id))
 		.limit(1);
-	return rows[0];
+	return rows[0] ? toRow(rows[0]) : undefined;
 }
 
 /** endDate が今日以降のトライアル履歴を返す（cron 通知対象の取得用） */
 export async function findActiveTrials(): Promise<TrialHistoryRow[]> {
 	const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-	return db.select().from(trialHistory).where(gte(trialHistory.endDate, today));
+	const rows = await db.select().from(trialHistory).where(gte(trialHistory.endDate, today));
+	return rows.map(toRow);
 }
 
 export async function insert(input: InsertTrialHistoryInput): Promise<void> {
@@ -50,7 +56,7 @@ export async function updateConversion(input: UpdateTrialConversionInput): Promi
 			stripeSubscriptionId: input.stripeSubscriptionId,
 			upgradeReason: input.upgradeReason,
 		})
-		.where(and(eq(trialHistory.id, input.id), eq(trialHistory.tenantId, input.tenantId)));
+		.where(and(eq(trialHistory.id, Number(input.id)), eq(trialHistory.tenantId, input.tenantId)));
 }
 
 /** テナントの全トライアル履歴を削除 */

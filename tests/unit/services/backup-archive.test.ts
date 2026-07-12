@@ -38,7 +38,7 @@ const SAMPLE_EXPORT = {
 	format: 'ganbari-quest-backup',
 	version: '1.3.0',
 	exportedAt: '2026-06-28T00:00:00.000Z',
-	family: { children: [{ id: 1, nickname: 'テスト' }] },
+	family: { children: [{ id: '1', nickname: 'テスト' }] },
 	data: {},
 } as unknown as ExportData;
 

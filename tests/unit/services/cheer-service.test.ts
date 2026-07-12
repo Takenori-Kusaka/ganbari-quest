@@ -2,6 +2,7 @@
 // 応援機能 (cheer-service) のユニットテスト — EPIC #2266 / #2267
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- mocks ----------
 
@@ -32,7 +33,7 @@ const {
 // ---------- helpers ----------
 
 const validInput = {
-	childId: 1,
+	childId: asChildId(1),
 	reason: 'うんどうかいで 1いに なったね！',
 	points: 100,
 	category: 'うんどう',
@@ -40,7 +41,7 @@ const validInput = {
 };
 
 const stubChild = {
-	id: 1,
+	id: '1',
 	nickname: 'たくみ',
 	age: 8,
 	birthDate: '2018-01-01',
@@ -78,10 +79,10 @@ describe('grantCheer()', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockFindChildById.mockResolvedValue(stubChild);
-		mockInsertPointEntry.mockResolvedValue({ id: 99 });
+		mockInsertPointEntry.mockResolvedValue({ id: '99' });
 		mockInsertMessage.mockResolvedValue({
-			id: 42,
-			childId: 1,
+			id: '42',
+			childId: asChildId(1),
 			messageType: 'reward_notice',
 			stampCode: null,
 			body: 'うんどうかいで 1いに なったね！',
@@ -97,14 +98,14 @@ describe('grantCheer()', () => {
 		const result = await grantCheer(validInput, 't-test');
 
 		expect(result).toMatchObject({
-			messageId: 42,
+			messageId: '42',
 			pointEntryAmount: 100,
 			description: expect.stringContaining('応援'),
 		});
 
 		expect(mockInsertPointEntry).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: 1,
+				childId: asChildId(1),
 				amount: 100,
 				type: 'cheer',
 				description: expect.stringContaining('うんどうかいで 1いに なったね！'),
@@ -113,7 +114,7 @@ describe('grantCheer()', () => {
 		);
 		expect(mockInsertMessage).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: 1,
+				childId: asChildId(1),
 				messageType: 'reward_notice',
 				body: 'うんどうかいで 1いに なったね！',
 				icon: '🎉',

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/message-service.ts
 // 親子おうえんメッセージサービス
 
@@ -41,7 +42,7 @@ export async function sendMessage(input: InsertParentMessageInput, tenantId: str
 }
 
 /** 子供の未表示メッセージを取得（スタンプラベル付き） */
-export async function getUnshownMessage(childId: number, tenantId: string) {
+export async function getUnshownMessage(childId: ChildId, tenantId: string) {
 	const msg = await findUnshownMessage(childId, tenantId);
 	if (!msg) return undefined;
 	const stamp = msg.stampCode ? getStampPreset(msg.stampCode) : undefined;
@@ -49,7 +50,7 @@ export async function getUnshownMessage(childId: number, tenantId: string) {
 }
 
 /** 未表示メッセージ数を取得 */
-export async function getUnshownMessageCount(childId: number, tenantId: string) {
+export async function getUnshownMessageCount(childId: ChildId, tenantId: string) {
 	return countUnshownMessages(childId, tenantId);
 }
 
@@ -57,11 +58,11 @@ export async function getUnshownMessageCount(childId: number, tenantId: string) 
  * メッセージを表示済みにする。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。
  */
-export async function markAsShown(childId: number, messageId: number, tenantId: string) {
+export async function markAsShown(childId: ChildId, messageId: string, tenantId: string) {
 	return markMessageShown(childId, messageId, tenantId);
 }
 
 /** メッセージ履歴を取得 */
-export async function getMessageHistory(childId: number, tenantId: string, limit = 20) {
+export async function getMessageHistory(childId: ChildId, tenantId: string, limit = 20) {
 	return findMessages(childId, limit, tenantId);
 }

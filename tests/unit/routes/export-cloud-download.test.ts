@@ -47,7 +47,7 @@ function readyRecord(overrides: Record<string, unknown> = {}) {
 	const future = new Date();
 	future.setDate(future.getDate() + 3);
 	return {
-		id: 1,
+		id: '1',
 		tenantId: 't-1',
 		s3Key: 'exports/t-1/ABC234/backup.zip',
 		status: 'ready',
@@ -73,9 +73,12 @@ describe('export/cloud/[id]/download GET — 認可', () => {
 		expect(r.status).toBe(403);
 	});
 
-	it('無効な id は 400', async () => {
+	it('存在しない opaque id は 404 (#3575: id は opaque string、数値形式チェックは撤去)', async () => {
+		// 旧: Number('abc') = NaN → 400。opaque id 化後は形式判定を持たず、
+		// tenant 束縛 findById が undefined を返して 404 (IDOR 遮断と同一経路) に収束する。
+		mockCloudExportRepo.findById.mockResolvedValue(undefined);
 		const r = await callGet('parent', 'abc');
-		expect(r.status).toBe(400);
+		expect(r.status).toBe(404);
 	});
 
 	it('他 tenant のリソースは findById が undefined → 404 (IDOR 遮断)', async () => {
@@ -83,7 +86,7 @@ describe('export/cloud/[id]/download GET — 認可', () => {
 		const r = await callGet('parent', '999');
 		expect(r.status).toBe(404);
 		// findById は tenantId 束縛で呼ばれる
-		expect(mockCloudExportRepo.findById).toHaveBeenCalledWith(999, 't-1');
+		expect(mockCloudExportRepo.findById).toHaveBeenCalledWith('999', 't-1');
 	});
 });
 
@@ -125,7 +128,7 @@ describe('export/cloud/[id]/download GET — 配信分岐', () => {
 		expect(mockStorageRepo.getDownloadUrl).toHaveBeenCalledWith('exports/t-1/ABC234/backup.zip', {
 			expiresIn: 300,
 		});
-		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 't-1');
+		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith('1', 't-1');
 	});
 
 	it('NUC(proxy): 200 で readFile を stream し attachment + DL 消費', async () => {
@@ -139,7 +142,7 @@ describe('export/cloud/[id]/download GET — 配信分岐', () => {
 		expect(r.status).toBe(200);
 		expect(r.res?.headers.get('content-type')).toBe('application/zip');
 		expect(r.res?.headers.get('content-disposition')).toContain('backup.zip');
-		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 't-1');
+		expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith('1', 't-1');
 	});
 
 	it('proxy で実体不在 (readFile null) は 404', async () => {

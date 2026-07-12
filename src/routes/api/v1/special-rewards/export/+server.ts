@@ -8,6 +8,7 @@
 // 復元は admin/rewards の ?/restoreFile action (loadRewardSetFromFile → dispatchImport) で受ける。
 
 import { json } from '@sveltejs/kit';
+import { asChildId } from '$lib/domain/ids';
 import { REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { RewardSetPayload } from '$lib/marketplace/schemas/reward-set-schema';
@@ -28,10 +29,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const tenantId = context.tenantId;
 
 	const childIdRaw = url.searchParams.get('childId');
-	if (!childIdRaw || !/^\d+$/.test(childIdRaw)) {
+	if (!childIdRaw) {
 		return json({ error: 'childId が必要です' }, { status: 400 });
 	}
-	const childId = Number(childIdRaw);
+	const childId = asChildId(childIdRaw);
 
 	const { rewards } = await getChildSpecialRewards(childId, tenantId);
 

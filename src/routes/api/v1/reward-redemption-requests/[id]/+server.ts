@@ -25,7 +25,7 @@ function resolverUserId(locals: App.Locals): string | null {
 	return null;
 }
 
-async function handleApprove(requestId: number, tenantId: string, parentUserId: string | null) {
+async function handleApprove(requestId: string, tenantId: string, parentUserId: string | null) {
 	// #3320: 認証済み identity の userId を監査証跡として記録 (旧: 0 ハードコード)
 	const result = await approveRedemption(requestId, parentUserId, tenantId);
 	if (!('error' in result)) return json(result);
@@ -41,7 +41,7 @@ async function handleApprove(requestId: number, tenantId: string, parentUserId: 
 }
 
 async function handleReject(
-	requestId: number,
+	requestId: string,
 	parentNote: string | undefined,
 	tenantId: string,
 	parentUserId: string | null,
@@ -71,8 +71,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	const tenantId = requireTenantId(locals);
-	const requestId = Number(params.id);
-	if (!requestId || Number.isNaN(requestId)) {
+	const requestId = params.id;
+	if (!requestId) {
 		return json({ error: '不正なリクエストIDです' }, { status: 400 });
 	}
 

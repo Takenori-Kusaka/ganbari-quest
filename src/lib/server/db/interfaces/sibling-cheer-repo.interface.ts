@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
 
 export interface ISiblingCheerRepo {
@@ -17,8 +18,8 @@ export interface ISiblingCheerRepo {
 		tenantId: string,
 	): Promise<SiblingCheer>;
 
-	findUnshownCheers(toChildId: number, tenantId: string): Promise<SiblingCheer[]>;
-	markShown(cheerIds: number[], tenantId: string): Promise<void>;
-	countTodayCheersFrom(fromChildId: number, tenantId: string): Promise<number>;
+	findUnshownCheers(toChildId: ChildId, tenantId: string): Promise<SiblingCheer[]>;
+	markShown(cheerIds: string[], tenantId: string): Promise<void>;
+	countTodayCheersFrom(fromChildId: ChildId, tenantId: string): Promise<number>;
 	deleteByTenantId(tenantId: string): Promise<void>;
 }

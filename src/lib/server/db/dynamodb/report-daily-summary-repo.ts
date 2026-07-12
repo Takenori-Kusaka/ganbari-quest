@@ -11,6 +11,8 @@
 //   - upsert は SK 決定的 → PutItem 上書きで SQLite onConflictDoUpdate 等価
 
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import type { ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { InsertReportDailySummaryInput, ReportDailySummary } from '../types';
 import { deleteItemsByExactPk } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -21,8 +23,13 @@ import { stripKeys } from './repo-helpers';
 // SK は <date>#<childId>。日付範囲の上端まで全 childId を含めるための番兵 (最大 char)。
 const SK_DATE_UPPER_BOUND = '￿';
 
+// stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
 function mapItem(item: Record<string, unknown>): ReportDailySummary {
-	return stripKeys(item) as unknown as ReportDailySummary;
+	const raw = stripKeys(item) as unknown as Omit<ReportDailySummary, 'id' | 'childId'> & {
+		id: number;
+		childId: number;
+	};
+	return { ...raw, id: String(raw.id), childId: asChildId(raw.childId) };
 }
 
 /**
@@ -62,7 +69,7 @@ async function queryByDateRange(
 }
 
 export async function findByChildAndDateRange(
-	childId: number,
+	childId: ChildId,
 	startDate: string,
 	endDate: string,
 	tenantId: string,
@@ -80,7 +87,7 @@ export async function findByTenantAndDateRange(
 }
 
 export async function upsert(input: InsertReportDailySummaryInput): Promise<void> {
-	const key = reportDailySummaryKey(input.childId, input.date, input.tenantId);
+	const key = reportDailySummaryKey(Number(input.childId), input.date, input.tenantId);
 
 	// 既存レコードがあれば id / createdAt を維持 (SQLite onConflictDoUpdate は id を保つ)。
 	const existing = await getDocClient().send(
@@ -101,7 +108,7 @@ export async function upsert(input: InsertReportDailySummaryInput): Promise<void
 			: new Date().toISOString();
 
 	const record: ReportDailySummary = {
-		id,
+		id: String(id),
 		tenantId: input.tenantId,
 		childId: input.childId,
 		date: input.date,
@@ -118,7 +125,8 @@ export async function upsert(input: InsertReportDailySummaryInput): Promise<void
 	await getDocClient().send(
 		new PutCommand({
 			TableName: TABLE_NAME,
-			Item: { ...key, ...record },
+			// stored attributes は数値 id のまま (storage format 不変、#3575)
+			Item: { ...key, ...record, id, childId: Number(input.childId) },
 		}),
 	);
 }

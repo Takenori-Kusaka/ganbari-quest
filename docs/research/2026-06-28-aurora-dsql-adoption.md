@@ -5,7 +5,7 @@
 | 調査日 | 2026-06-28（転記 2026-06-29） |
 | 関連 EPIC | #3424（DynamoDB → Aurora DSQL 移管） |
 | 関連 rationale | `docs/rationale/13-aurora-dsql-migration-evaluation-rationale.md`（料金・特性 SSOT、結論は EPIC #3424 で supersede） |
-| 前提 | 既存 DynamoDB データ移行は**不要**（ゼロから DSQL に作り直す）。料金は無料枠 + scale-to-zero で **≤¥100/月**。東京 $0.00001/DPU・$0.40/GB-month |
+| 前提 | 既存 DynamoDB データ移行は**不要**（ゼロから DSQL に作り直す）。料金は無料枠 + scale-to-zero で **≤¥100/月**。移管先 us-east-1（`infra/bin/app.ts`）で $0.000008/DPU・$0.33/GB-month（§11.1） |
 
 > 本ファイルは EPIC #3424 の調査 SSOT。設計 Sub / PoC spike の前提となるガードレールを一次ソース付きで集約する。PoC spike 完了時は各 issue の実測結果を本ファイル末尾「PoC 実測ログ」に追記する。
 
@@ -75,14 +75,14 @@
 ## 7. CDK プロビジョニング
 
 - `AWS::DSQL::Cluster`（CloudFormation）あり。プロパティ: DeletionProtectionEnabled / KmsEncryptionKey / MultiRegionProperties / PolicyDocument（≤20KB）/ Tags。GetAtt: Identifier / ResourceArn / Endpoint / Status / VpcEndpointServiceName / CreationTime。
-- 東京シングルリージョン = MultiRegionProperties 指定しないだけ。CDK は aws-cdk-lib L1 `CfnCluster`（aws_dsql）。L2 標準なし。本番 DeletionProtectionEnabled:true（ADR-0019 Replacement gate 整合確認）。
+- us-east-1 シングルリージョン（本番同一、§11.1）= MultiRegionProperties 指定しないだけ。CDK は aws-cdk-lib L1 `CfnCluster`（aws_dsql）。L2 標準なし。本番 DeletionProtectionEnabled:true（ADR-0019 Replacement gate 整合確認）。
 
 ## 8. EPIC 事前整理 Issue（設計 = 紙上確定 / PoC = 実機検証 の別）
 
 起票済（EPIC #3424 配下）:
 
 - **設計 Sub**: #3430 DPU クエリ規約 ADR / #3431 CloudWatch Alarm+Budgets+Anomaly IaC / #3432 DSQL アラーム dashboard / #3433 sqlite→pg 型差分洗い出し / #3434 tenantId 列分離 fitness function / #3435 OCC retry ラッパ / #3436 backup 一括 import チャンク+saga 設計 / #3437 DSQL backup(AWS Backup) とアプリ backup 役割分担 / #3438 db/dynamodb 撤去計画 + rationale 13 supersede
-- **PoC spike**（新サービスゆえ実測必須）: #3425 実 DPU/OCC 競合率 / #3426 Lambda 接続再利用 + cold start / #3427 drizzle-kit DDL 制約適合（ASYNC index 等）/ #3428 一括 import 3,000 行/10MiB 抵触実測 / #3429 L1 CfnCluster 東京最小構成 spike。
+- **PoC spike**（新サービスゆえ実測必須）: #3425 実 DPU/OCC 競合率 / #3426 Lambda 接続再利用 + cold start / #3427 drizzle-kit DDL 制約適合（ASYNC index 等）/ #3428 一括 import 3,000 行/10MiB 抵触実測 / #3429 L1 CfnCluster us-east-1 最小構成 spike。
 
 ---
 
@@ -92,7 +92,7 @@
 
 | リスク | verdict | 要旨 |
 |---|---|---|
-| B コスト | **NOT-TRIGGERED** | scale-to-zero は本物・固定費/最低課金なし、無料枠 perpetual。本ワークロード試算 約180 DPU/月（無料枠 0.18%）→ 実費 ¥0 見込み。東京単価は要最終確認 |
+| B コスト | **NOT-TRIGGERED** | scale-to-zero は本物・固定費/最低課金なし、無料枠 perpetual。本ワークロード試算 約180 DPU/月（無料枠 0.18%）→ 実費 ¥0 見込み。単価は us-east-1（$0.000008/DPU・$0.33/GB、§11.1）で確定、PoC spike#1 実測 TotalDPU 3.53 で裏取り済 |
 | C 性能 | **NOT-TRIGGERED**（定常）/ Lambda 接続 **NEEDS-POC** | 単一リージョン・低競合で read 数ms・write 低ms と DynamoDB 同等。OCC 300ms 罰則は書込競合時のみ＝1家族では非該当。Lambda cold 接続確立のみ実測 |
 | A スキーマ一本化 | **NOT-TRIGGERED** | AWS 公式 Drizzle blog: pg-core schema 1 本で済む（差は SERIAL→UUID 等の型選択のみ）。FK→relations / SERIAL→UUID / JSONB→TEXT の片方向移植。SQLite 残置 2 バックエンドは不採用 |
 | F CDK/IaC | **NOT-TRIGGERED** | L1 `AWS::DSQL::Cluster` 主要プロパティ No-interruption（ADR-0019 Replacement リスク低）。alpha L2 `aws_dsql_alpha` 実在（要 pin）。IAM grant helper 欠如のみ手書き |
@@ -180,9 +180,25 @@
 
 **結論**: §9-§10 の de-risking 推定が実機で全件裏取りされた。特に最重要の **RLS 非対応が確定**し、テナント分離設計（pool + 信頼 claim/context + fitness function + cross-tenant E2E）が唯一解であることが確証された。サプライズなし。残る実機検証（Lambda warm 接続再利用・cold start・drizzle-kit 実 migration 適用・一括 import チャンク実装）は設計 Sub 着手時に実施。
 
-### 11.2 今後の spike（#3425-#3429 着手時に追記）
+### 11.2 staging 実測（2026-07-11、staging cluster us-east-1、#3425 / #3426 / #3545 / #3550）
 
-- （未実施: Lambda 接続再利用 + cold start / drizzle-kit 実 migration 適用 / 一括 import チャンク実装 / CDK CfnCluster 構成）
+staging DSQL lane（EPIC #3424 M5 PDCA）の生きた cluster で実測。詳細な生データは各 Issue コメント（#3425 / #3426 / #3545）を参照。
+
+**並行アクセス（#3545/#3550、`tests/integration/db/dsql-staging-concurrency.test.ts` — DSQL_ENDPOINT 指定時のみ実行の恒久 test）**:
+
+| 検証 | 実測 |
+|---|---|
+| retry なし 8 並行 recordActivityCore（同一 child 共有行 write） | SQLSTATE 40001 = **7/8 件**（spike#8 の M=8→6 件と整合） |
+| withOccRetry 込み 8 並行（dailyLimit=1） | **exactly-once**（ok=1 / ALREADY_RECORDED=7、point_ledger 1 行、total_point=SUM 整合） |
+| withOccRetry 込み 8 並行（無制限） | **lost update ゼロ**（mastery total_count=8 / total_point=80=SUM / statuses XP=80） |
+
+**DPU（#3425、EXPLAIN ANALYZE VERBOSE Statement DPU Estimate）**: home read 0.050 / ledger 履歴 50 件 0.056 / 冪等 guard count 0.025 / ledger INSERT 0.022 / children UPDATE 0.012。**write txn には Transaction minimum 0.05 WriteDPU** が適用され、活動記録 1 回 ≈ 0.1 DPU → 1 家族 300 記録/月 ≈ 30 DPU ≈ $0.00024/月（§P0 の「実費 ¥0 見込み」を service クエリ粒度で裏取り）。
+
+**CloudWatch（#3425 AC3）**: `AWS/AuroraDSQL` の TotalDPU（233.19、Compute 88%）/ **OccConflicts（85 件 — retry 内競合も全部観測）** / CommitLatency（平均 **2.87ms**）を ClusterId dimension で観測可能と確証。
+
+**Lambda 接続層（#3426）**: cold start Init = DSQL 構成 3315ms vs dynamodb 構成 3073ms（**+242ms = IAM token + TLS + probe 2 クエリ**）、warm 36ms。connector（AuroraDSQLPool singleton）+ drizzle は app_user role（dsql:DbConnect + AWS IAM GRANT 紐付け、#3646）で実運用動作を確認。
+
+**残実測**: #3426 AC1（60 分 token 期限跨ぎの warm 継続 — DSQL 構成の持続観測窓で実施）/ 一括 import チャンク実装（#3427 系）。
 
 ---
 

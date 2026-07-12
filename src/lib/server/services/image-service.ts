@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/image-service.ts
 // Gemini API を使ったキャラクター画像生成サービス
 
@@ -88,7 +89,7 @@ export interface GenerateAvatarResult {
 
 /** 子供のアバター画像を生成（またはキャッシュから取得） */
 export async function generateAvatar(
-	childId: number,
+	childId: ChildId,
 	statusInfo: {
 		characterType: string;
 		level: number;
@@ -142,7 +143,7 @@ export async function generateAvatar(
 }
 
 /** 子供の現在のアバターURLを取得（未生成ならnull） */
-export async function getAvatarUrl(childId: number, tenantId: string): Promise<string | null> {
+export async function getAvatarUrl(childId: ChildId, tenantId: string): Promise<string | null> {
 	const child = await findChildForImage(childId, tenantId);
 	return child?.avatarUrl ?? null;
 }

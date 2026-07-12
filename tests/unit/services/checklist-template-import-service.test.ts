@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/checklist-template-import-service.test.ts
 // #2137 (MP-2) checklist-template-import-service unit tests
 //
@@ -45,7 +46,7 @@ import {
 // ---------- Helpers ----------
 
 const TENANT = 'test-tenant-001';
-const CHILD_ID = 42;
+const CHILD_ID = asChildId(42);
 
 function makePresetItem(overrides: Partial<MarketplaceItem> = {}): MarketplaceItem {
 	const payload: ChecklistPayload = {
@@ -77,8 +78,8 @@ function makePresetItem(overrides: Partial<MarketplaceItem> = {}): MarketplaceIt
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindTemplatesByTenant.mockResolvedValue([]);
-	mockCreateTemplate.mockResolvedValue({ id: 100 });
-	mockAddTemplateItem.mockResolvedValue({ id: 1 });
+	mockCreateTemplate.mockResolvedValue({ id: '100' });
+	mockAddTemplateItem.mockResolvedValue({ id: '1' });
 });
 
 // ==========================================================
@@ -112,8 +113,8 @@ describe('previewChecklistImport', () => {
 	it('同 sourcePresetId のテンプレートが既存 → alreadyImported=true', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
 		mockFindTemplatesByTenant.mockResolvedValue([
-			{ id: 7, name: 'プールの もちもの', sourcePresetId: 'event-pool' },
-			{ id: 8, name: '別のテンプレ', sourcePresetId: null },
+			{ id: '7', name: 'プールの もちもの', sourcePresetId: 'event-pool' },
+			{ id: '8', name: '別のテンプレ', sourcePresetId: null },
 		]);
 
 		const result = await previewChecklistImport('event-pool', CHILD_ID, TENANT);
@@ -125,7 +126,7 @@ describe('previewChecklistImport', () => {
 	it('他の preset 由来テンプレートが既存 → alreadyImported=false', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
 		mockFindTemplatesByTenant.mockResolvedValue([
-			{ id: 7, name: '別 preset', sourcePresetId: 'event-school-start' },
+			{ id: '7', name: '別 preset', sourcePresetId: 'event-school-start' },
 		]);
 
 		const result = await previewChecklistImport('event-pool', CHILD_ID, TENANT);
@@ -166,7 +167,7 @@ describe('importChecklistTemplate', () => {
 		expect(result.skipped).toBe(0);
 		expect(result.importedItems).toBe(3);
 		expect(result.errors).toEqual([]);
-		expect(result.templateId).toBe(100);
+		expect(result.templateId).toBe('100');
 
 		expect(mockCreateTemplate).toHaveBeenCalledTimes(1);
 		// #2362 PR-5 (ADR-0055): family master 化に伴い childId → childIds 経由
@@ -186,7 +187,7 @@ describe('importChecklistTemplate', () => {
 	it('重複検出: 同 sourcePresetId が既存 → 何もせずスキップ', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
 		mockFindTemplatesByTenant.mockResolvedValue([
-			{ id: 99, name: 'プールの もちもの', sourcePresetId: 'event-pool' },
+			{ id: '99', name: 'プールの もちもの', sourcePresetId: 'event-pool' },
 		]);
 
 		const result = await importChecklistTemplate('event-pool', CHILD_ID, TENANT);
@@ -234,9 +235,9 @@ describe('importChecklistTemplate', () => {
 	it('addTemplateItem が一部失敗してもエラー記録のみで処理継続', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
 		mockAddTemplateItem
-			.mockResolvedValueOnce({ id: 1 })
+			.mockResolvedValueOnce({ id: '1' })
 			.mockRejectedValueOnce(new Error('DB busy'))
-			.mockResolvedValueOnce({ id: 3 });
+			.mockResolvedValueOnce({ id: '3' });
 
 		const result = await importChecklistTemplate('event-pool', CHILD_ID, TENANT);
 
@@ -349,7 +350,7 @@ describe('previewChecklistImportFromPayload (#3079)', () => {
 
 	it('同名テンプレートが既存 → alreadyImported=true (name scope 重複判定)', async () => {
 		mockFindTemplatesByTenant.mockResolvedValue([
-			{ id: 9, name: 'もちもの', sourcePresetId: null },
+			{ id: '9', name: 'もちもの', sourcePresetId: null },
 		]);
 
 		const result = await previewChecklistImportFromPayload(RESTORE_PAYLOAD, 'もちもの', TENANT);
@@ -383,7 +384,7 @@ describe('importChecklistTemplateFromPayload (#3079)', () => {
 
 	it('同名テンプレート既存 → preset 全体スキップ (imported=0 / skipped=1)', async () => {
 		mockFindTemplatesByTenant.mockResolvedValue([
-			{ id: 9, name: 'もちもの', sourcePresetId: null },
+			{ id: '9', name: 'もちもの', sourcePresetId: null },
 		]);
 
 		const result = await importChecklistTemplateFromPayload(

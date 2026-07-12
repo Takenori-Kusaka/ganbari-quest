@@ -34,4 +34,42 @@ describe('StampCard / ChecklistTemplate 集約 DDL の構造要件 (§11.2 補�
 		);
 		expect(indexCols).toContain('family_id,child_id');
 	});
+
+	// [must]1 (M4-C review round1): source_preset_id 欠落 = marketplace dedup miss → 二重取込。
+	// SQLite SSOT (schema.ts checklist_templates.source_preset_id、#1254 G1) と provenance parity。
+	// checklist-strategy の existingTemplates.find(t => t.sourcePresetId === presetId) が
+	// 常に undefined を引かないよう、DSQL schema にも provenance 列が在ることを機械保証する。
+	it('checklist_templates に source_preset_id provenance 列がある (dedup miss 防止、SQLite parity)', async () => {
+		const { checklistTemplates } = await import('../../../src/lib/server/db/dsql/schema');
+		const cfg = getTableConfig(checklistTemplates);
+		const colNames = cfg.columns.map((c) => c.name);
+		expect(colNames).toContain('source_preset_id');
+	});
+});
+
+describe('Family 系 8 表 DDL の構造要件 (§11.2 #3557 確定行の補助 UNIQUE/secondary)', () => {
+	it('無 tenant 単点 lookup の global UNIQUE 3 本 (endpoint / token / pin_code)', async () => {
+		const schema = await import('../../../src/lib/server/db/dsql/schema');
+		for (const [table, col] of [
+			[schema.pushSubscriptions, 'endpoint'],
+			[schema.viewerTokens, 'token'],
+			[schema.cloudExports, 'pin_code'],
+		] as const) {
+			const cfg = getTableConfig(table);
+			const single = cfg.columns.find((c) => c.name === col);
+			expect(single?.isUnique, `${col} は global UNIQUE 必須 (値単独 lookup)`).toBe(true);
+		}
+	});
+
+	it('cross-tenant secondary: cloud_exports(status) / graduation_consent(consented, consented_at)', async () => {
+		const schema = await import('../../../src/lib/server/db/dsql/schema');
+		const exportIdx = getTableConfig(schema.cloudExports).indexes.map((i) =>
+			i.config.columns.map((c) => ('name' in c ? (c as { name: string }).name : '')).join(','),
+		);
+		expect(exportIdx, 'cron findPendingBuilds 用 (family 非依存)').toContain('status');
+		const gradIdx = getTableConfig(schema.graduationConsent).indexes.map((i) =>
+			i.config.columns.map((c) => ('name' in c ? (c as { name: string }).name : '')).join(','),
+		);
+		expect(gradIdx, 'publicSamples/aggregate 用').toContain('consented,consented_at');
+	});
 });

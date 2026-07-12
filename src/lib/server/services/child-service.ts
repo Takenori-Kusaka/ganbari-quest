@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { recalcUiMode } from '$lib/domain/validation/age-tier';
 import {
@@ -21,7 +22,7 @@ export async function getArchivedChildren(tenantId: string) {
 	return await findArchivedChildren(tenantId);
 }
 
-export async function getChildById(id: number, tenantId: string) {
+export async function getChildById(id: ChildId, tenantId: string) {
 	return await findChildById(id, tenantId);
 }
 
@@ -43,7 +44,7 @@ export async function addChild(
 }
 
 export async function editChild(
-	id: number,
+	id: ChildId,
 	input: {
 		nickname?: string;
 		age?: number;
@@ -76,7 +77,7 @@ export async function editChild(
 	return await updateChild(id, patched, tenantId);
 }
 
-export async function removeChild(id: number, tenantId: string) {
+export async function removeChild(id: ChildId, tenantId: string) {
 	// 物理ファイル削除（アバター画像・AI生成画像）
 	await deleteChildFiles(id, tenantId);
 
@@ -84,7 +85,7 @@ export async function removeChild(id: number, tenantId: string) {
 }
 
 /** 子供に紐づく物理ファイルを削除 */
-export async function deleteChildFiles(childId: number, tenantId: string): Promise<void> {
+export async function deleteChildFiles(childId: ChildId, tenantId: string): Promise<void> {
 	try {
 		let totalDeleted = 0;
 

@@ -13,6 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks (settings repo + special-reward repo + logger) ----------
 
@@ -82,7 +83,7 @@ beforeEach(() => {
 	mockGetSetting.mockResolvedValue(null);
 	mockSetSetting.mockResolvedValue(undefined);
 	mockFindSpecialRewards.mockResolvedValue([]);
-	mockInsertSpecialReward.mockResolvedValue({ id: 1 });
+	mockInsertSpecialReward.mockResolvedValue({ id: '1' });
 });
 
 // =====================================================
@@ -130,13 +131,13 @@ describe('rulePresetStrategy.applyRulePreset — exchange', () => {
 	it('special_rewards に rule を挿入し imported=1 を返す', async () => {
 		const result = await rulePresetStrategy.applyRulePreset(IDENTITY, makeExchangePayload(), {
 			tenantId: TENANT,
-			childId: 42,
+			childId: asChildId(42),
 		});
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(0);
 		expect(mockInsertSpecialReward).toHaveBeenCalledOnce();
 		const [insertedRow, tenantArg] = mockInsertSpecialReward.mock.calls[0]!;
-		expect(insertedRow.childId).toBe(42);
+		expect(insertedRow.childId).toBe('42');
 		expect(insertedRow.points).toBe(50); // pointCost → points
 		expect(insertedRow.sourcePresetId).toBe(PRESET_ID);
 		expect(tenantArg).toBe(TENANT); // tenant isolation 伝播
@@ -144,11 +145,11 @@ describe('rulePresetStrategy.applyRulePreset — exchange', () => {
 
 	it('同 sourcePresetId + 同 title が既存なら skipped++', async () => {
 		mockFindSpecialRewards.mockResolvedValue([
-			{ id: 1, title: 'アイス交換', sourcePresetId: PRESET_ID },
+			{ id: '1', title: 'アイス交換', sourcePresetId: PRESET_ID },
 		]);
 		const result = await rulePresetStrategy.applyRulePreset(IDENTITY, makeExchangePayload(), {
 			tenantId: TENANT,
-			childId: 42,
+			childId: asChildId(42),
 		});
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(1);
@@ -158,10 +159,10 @@ describe('rulePresetStrategy.applyRulePreset — exchange', () => {
 
 describe('rulePresetStrategy.previewRulePreset — exchange', () => {
 	it('alreadyImported=true: 同 sourcePresetId が存在する', async () => {
-		mockFindSpecialRewards.mockResolvedValue([{ id: 1, sourcePresetId: PRESET_ID }]);
+		mockFindSpecialRewards.mockResolvedValue([{ id: '1', sourcePresetId: PRESET_ID }]);
 		const result = await rulePresetStrategy.previewRulePreset(IDENTITY, makeExchangePayload(), {
 			tenantId: TENANT,
-			childId: 42,
+			childId: asChildId(42),
 		});
 		expect(result.alreadyImported).toBe(true);
 		expect(result.ruleType).toBe('exchange');
@@ -327,7 +328,7 @@ describe('rulePresetStrategy.applyRulePreset — dryRun', () => {
 			const payload = { ruleType, rules: [{ title: 't', description: 'd', icon: 'i' }] };
 			const result = await rulePresetStrategy.applyRulePreset(IDENTITY, payload, {
 				tenantId: TENANT,
-				childId: 42,
+				childId: asChildId(42),
 				dryRun: true,
 			});
 			expect(result.imported).toBe(0);

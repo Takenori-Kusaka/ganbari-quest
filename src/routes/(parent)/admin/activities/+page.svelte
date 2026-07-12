@@ -1,8 +1,10 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
+import { asCategoryId, asChildId, type CategoryId, type ChildId } from '$lib/domain/ids';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	APP_LABELS,
@@ -16,7 +18,6 @@ import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.sv
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
 import ActivityEmptyState from '$lib/features/admin/components/ActivityEmptyState.svelte';
-import ActivityLimitBanner from '$lib/features/admin/components/ActivityLimitBanner.svelte';
 import ActivityListItem from '$lib/features/admin/components/ActivityListItem.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
@@ -43,7 +44,7 @@ const activityLimit = $derived(
 		| undefined,
 );
 
-let filterCategoryId = $state(0);
+let filterCategoryId = $state<CategoryId | 0>(0);
 let searchQuery = $state('');
 let actionMessage = $state('');
 // #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
@@ -67,7 +68,7 @@ let restoreLoading = $state(false);
 // marketplace (ひな選択) → admin/activities 遷移時に「たろうくんタブが active」になる
 // per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
 // svelte-ignore state_referenced_locally
-let childIdOverride = $state<number | undefined>(
+let childIdOverride = $state<ChildId | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId
 		: undefined,
@@ -78,7 +79,7 @@ const selectedChildId = $derived(
 		: data.initialChildIdFromCookie != null &&
 				data.children.some((c) => c.id === data.initialChildIdFromCookie)
 			? data.initialChildIdFromCookie
-			: (data.children[0]?.id ?? 0),
+			: (data.children[0]?.id ?? asChildId('')),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -107,7 +108,7 @@ let isImporting = $state(false);
 
 // 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
-let copySourceChildId = $state<number | null>(null);
+let copySourceChildId = $state<ChildId | null>(null);
 
 // 「一括追加」dialog (manual create で複数 child 同時 create)
 let showBulkCreateDialog = $state(false);
@@ -138,7 +139,7 @@ const childOptions = $derived<ChildOption[]>(
 
 // AI プレフィル
 let prefillName = $state('');
-let prefillCategoryId = $state(1);
+let prefillCategoryId = $state<CategoryId>(asCategoryId(CATEGORY_CODE_TO_ID.undou));
 let prefillMainIcon = $state('🤸');
 let prefillSubIcon = $state('');
 let prefillPoints = $state(5);
@@ -179,8 +180,18 @@ const canAdd = $derived(!activityLimit || activityLimit.allowed);
 function handleAddSelect(mode: 'manual' | 'ai' | 'browse' | 'copy' | 'bulk') {
 	switch (mode) {
 		case 'manual':
+			// EPIC #3533 §10.2.3: quota 上限到達時は manual を locked-but-active にする
+			//   (完全 disabled は NN/G アンチパターン = dead-end)。選択でプラン画面へ誘導し、
+			//   制約詳細はプラン画面に一元化 (P1)。checklists / rewards と同一パターン。
+			if (!canAdd) {
+				void goto('/admin/subscription');
+				break;
+			}
+			addMode = 'manual';
+			showAddDialog = true;
+			break;
 		case 'ai':
-			addMode = mode;
+			addMode = 'ai';
 			showAddDialog = true;
 			break;
 		case 'browse':
@@ -229,8 +240,8 @@ function applyImportFailure(failText: string) {
 	showToast(display.message, undefined, 'error');
 }
 
-// ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
+// ChildSelectionDialog 確定ハンドラ: 'all' or ChildId[] (選択 child IDs)
+async function handleChildSelectionConfirm(result: 'all' | ChildId[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
 		return;
@@ -398,9 +409,9 @@ let bulkName = $state('');
 let bulkCategoryId = $state(1);
 let bulkIcon = $state('📝');
 let bulkPoints = $state(5);
-let bulkTargets = $state<'all' | number[]>('all');
+let bulkTargets = $state<'all' | ChildId[]>('all');
 
-async function handleBulkCreate(targets: 'all' | number[]) {
+async function handleBulkCreate(targets: 'all' | ChildId[]) {
 	if (!bulkName.trim()) {
 		actionMessage = '名前を入力してください';
 		return;
@@ -425,7 +436,7 @@ async function handleBulkCreate(targets: 'all' | number[]) {
 }
 
 // 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
-function selectChild(childId: number) {
+function selectChild(childId: ChildId) {
 	childIdOverride = childId;
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
@@ -505,12 +516,11 @@ function selectChild(childId: number) {
 		/>
 	{/if}
 
-	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — 正準スロットに固定配置 -->
-	{#if activityLimit && !activityLimit.allowed}
-		<div data-testid="admin-activities-plan-banner">
-			<ActivityLimitBanner current={activityLimit.current} max={activityLimit.max} />
-		</div>
-	{/if}
+	<!-- EPIC #3533 (§10.2 P1): 旧「プラン系バナー (slot 4、ActivityLimitBanner = quota カウンタ)」を撤去。
+	     画面内 quota カウンタ (current/max) を廃止し、制約詳細はプラン画面 (/admin/subscription) に一元化。
+	     機能画面側は「+ 追加」dropdown の manual 項目を locked-but-active (§10.2.3、lock マーカー +
+	     選択でプラン画面遷移) に留める。上限到達時の弾き返しは slot 6 の action-message が担う。 -->
+
 
 	<!-- #3097 (EPIC #3096): 検索 + フィルタ行 (slot 5、一覧の直上)。
 	     (B) カテゴリフィルタは活動固有のドメイン差のため撤去せず本スロットに配置する。 -->

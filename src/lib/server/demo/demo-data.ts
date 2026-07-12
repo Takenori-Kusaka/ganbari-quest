@@ -28,12 +28,20 @@
 
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { CATEGORY_CODE_TO_ID, toLegacyCategoryId } from '$lib/domain/categories';
+import {
+	type ActivityId,
+	asActivityId,
+	asCategoryId,
+	asChildId,
+	type CategoryId,
+	type ChildId,
+} from '$lib/domain/ids';
 import type {
 	ActivityPackPayload,
 	ChecklistPayload,
 	RewardSetPayload,
 } from '$lib/domain/marketplace-item';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import type { DailyBattleRow } from '$lib/server/db/interfaces/battle-repo.interface';
@@ -88,7 +96,7 @@ function daysAgoISO(n: number): string {
 export const DEMO_CHILDREN: Child[] = [
 	// 901 — 乳幼児 (男): blue テーマ
 	{
-		id: 901,
+		id: asChildId(901),
 		nickname: 'たろうくん',
 		age: 1,
 		birthDate: '2025-01-15',
@@ -108,7 +116,7 @@ export const DEMO_CHILDREN: Child[] = [
 	// 902 — 幼児 (女): pink テーマ (#1893: LP 用代表ペルソナ。
 	//        旧 'ゆうきちゃん' は user 家族実名 'ゆうき' を含むため 'ひな' に変更 2026-05-16)
 	{
-		id: 902,
+		id: asChildId(902),
 		nickname: 'ひなちゃん',
 		age: 5,
 		birthDate: '2020-06-10',
@@ -127,7 +135,7 @@ export const DEMO_CHILDREN: Child[] = [
 	},
 	// 903 — 小学生 (男): green テーマ
 	{
-		id: 903,
+		id: asChildId(903),
 		nickname: 'けんたくん',
 		age: 8,
 		birthDate: '2018-03-22',
@@ -146,7 +154,7 @@ export const DEMO_CHILDREN: Child[] = [
 	},
 	// 904 — 中学生 (女): purple テーマ
 	{
-		id: 904,
+		id: asChildId(904),
 		nickname: 'さくらちゃん',
 		age: 14,
 		birthDate: '2011-08-05',
@@ -165,7 +173,7 @@ export const DEMO_CHILDREN: Child[] = [
 	},
 	// 906 — 高校生 (男): orange テーマ (旧 'ゆうき' は user 家族実名のため 'けいすけ' に変更 2026-05-16)
 	{
-		id: 906,
+		id: asChildId(906),
 		nickname: 'けいすけくん',
 		age: 17,
 		birthDate: '2008-11-20',
@@ -194,11 +202,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 	// baby-first / kinder-starter / elementary-challenge パック + 上位年齢用
 	// ============================================================
 
-	// 運動 (categoryId: 1)
+	// 運動 (categoryId: asCategoryId(1))
 	{
-		id: 1,
+		id: asActivityId(1),
 		name: 'はいはいした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🐣',
 		basePoints: 3,
 		ageMin: 0,
@@ -220,9 +228,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 2,
+		id: asActivityId(2),
 		name: 'あんよした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '👣',
 		basePoints: 5,
 		ageMin: 0,
@@ -244,9 +252,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 3,
+		id: asActivityId(3),
 		name: 'おそとにでた',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🌿',
 		basePoints: 3,
 		ageMin: 0,
@@ -268,9 +276,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 4,
+		id: asActivityId(4),
 		name: 'からだをうごかした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🤸',
 		basePoints: 5,
 		ageMin: 0,
@@ -292,9 +300,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 5,
+		id: asActivityId(5),
 		name: 'なわとびした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🪢',
 		basePoints: 5,
 		ageMin: 4,
@@ -316,9 +324,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 6,
+		id: asActivityId(6),
 		name: 'ダンスした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '💃',
 		basePoints: 5,
 		ageMin: 3,
@@ -340,9 +348,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 7,
+		id: asActivityId(7),
 		name: 'うんどうした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 10,
 		ageMin: 6,
@@ -364,11 +372,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 
-	// 勉強 (categoryId: 2)
+	// 勉強 (categoryId: asCategoryId(2))
 	{
-		id: 10,
+		id: asActivityId(10),
 		name: 'えほんをよんだ',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📖',
 		basePoints: 5,
 		ageMin: 0,
@@ -390,9 +398,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 11,
+		id: asActivityId(11),
 		name: 'すうじをかぞえた',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🔢',
 		basePoints: 5,
 		ageMin: 3,
@@ -414,9 +422,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 12,
+		id: asActivityId(12),
 		name: 'ひらがなれんしゅう',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '✏️',
 		basePoints: 10,
 		ageMin: 4,
@@ -438,9 +446,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 13,
+		id: asActivityId(13),
 		name: 'しゅくだいをした',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📝',
 		basePoints: 10,
 		ageMin: 6,
@@ -462,9 +470,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 14,
+		id: asActivityId(14),
 		name: 'どくしょした',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📚',
 		basePoints: 10,
 		ageMin: 6,
@@ -486,9 +494,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 15,
+		id: asActivityId(15),
 		name: 'けいさんれんしゅう',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🔢',
 		basePoints: 10,
 		ageMin: 6,
@@ -512,9 +520,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 
 	// --- upper (9-12) / teen (13+) 向け追加 ---
 	{
-		id: 16,
+		id: asActivityId(16),
 		name: '自主学習した',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📓',
 		basePoints: 15,
 		ageMin: 9,
@@ -536,9 +544,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 17,
+		id: asActivityId(17),
 		name: '受験勉強した',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🎓',
 		basePoints: 20,
 		ageMin: 13,
@@ -560,9 +568,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 18,
+		id: asActivityId(18),
 		name: '資格・検定の勉強',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📜',
 		basePoints: 20,
 		ageMin: 13,
@@ -586,9 +594,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 
 	// 運動 — upper/teen 追加
 	{
-		id: 8,
+		id: asActivityId(8),
 		name: '部活・習い事',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '⚽',
 		basePoints: 15,
 		ageMin: 9,
@@ -610,11 +618,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 
-	// 生活 (categoryId: 3)
+	// 生活 (categoryId: asCategoryId(3))
 	{
-		id: 20,
+		id: asActivityId(20),
 		name: 'はみがきした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🪥',
 		basePoints: 5,
 		ageMin: 0,
@@ -636,9 +644,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 21,
+		id: asActivityId(21),
 		name: 'おきがえした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '👕',
 		basePoints: 5,
 		ageMin: 0,
@@ -660,9 +668,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 22,
+		id: asActivityId(22),
 		name: 'おかたづけした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🧹',
 		basePoints: 5,
 		ageMin: 3,
@@ -684,9 +692,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 23,
+		id: asActivityId(23),
 		name: 'てをあらった',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🧼',
 		basePoints: 3,
 		ageMin: 0,
@@ -708,9 +716,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 24,
+		id: asActivityId(24),
 		name: 'はやおきした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '⏰',
 		basePoints: 5,
 		ageMin: 3,
@@ -732,9 +740,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 25,
+		id: asActivityId(25),
 		name: 'おてつだいした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🫧',
 		basePoints: 10,
 		ageMin: 3,
@@ -756,9 +764,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 26,
+		id: asActivityId(26),
 		name: 'ごはんをたべた',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🍚',
 		basePoints: 3,
 		ageMin: 0,
@@ -780,9 +788,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 27,
+		id: asActivityId(27),
 		name: 'じかんわりのじゅんび',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🎒',
 		basePoints: 5,
 		ageMin: 6,
@@ -806,9 +814,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 
 	// --- 生活: upper/teen 追加 ---
 	{
-		id: 28,
+		id: asActivityId(28),
 		name: '家事手伝い',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🍳',
 		basePoints: 10,
 		ageMin: 9,
@@ -830,11 +838,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 
-	// 交流 (categoryId: 4)
+	// 交流 (categoryId: asCategoryId(4))
 	{
-		id: 30,
+		id: asActivityId(30),
 		name: 'あいさつした',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '👋',
 		basePoints: 3,
 		ageMin: 0,
@@ -856,9 +864,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 31,
+		id: asActivityId(31),
 		name: 'いっしょにあそんだ',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '🤝',
 		basePoints: 5,
 		ageMin: 3,
@@ -880,9 +888,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 32,
+		id: asActivityId(32),
 		name: 'ありがとうをいった',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '💕',
 		basePoints: 3,
 		ageMin: 3,
@@ -904,9 +912,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 33,
+		id: asActivityId(33),
 		name: 'じゅんばんをまもった',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '🙋',
 		basePoints: 5,
 		ageMin: 3,
@@ -928,9 +936,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 34,
+		id: asActivityId(34),
 		name: 'にこにこした',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '😊',
 		basePoints: 3,
 		ageMin: 0,
@@ -954,9 +962,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 
 	// --- 交流: teen 追加 ---
 	{
-		id: 35,
+		id: asActivityId(35),
 		name: 'ボランティア活動',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '🤲',
 		basePoints: 20,
 		ageMin: 13,
@@ -978,11 +986,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 
-	// 創造 (categoryId: 5)
+	// 創造 (categoryId: asCategoryId(5))
 	{
-		id: 40,
+		id: asActivityId(40),
 		name: 'おえかきした',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '🖍️',
 		basePoints: 5,
 		ageMin: 0,
@@ -1004,9 +1012,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 41,
+		id: asActivityId(41),
 		name: 'こうさくした',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '✂️',
 		basePoints: 10,
 		ageMin: 3,
@@ -1028,9 +1036,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 42,
+		id: asActivityId(42),
 		name: 'おうたをうたった',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '🎵',
 		basePoints: 5,
 		ageMin: 0,
@@ -1052,9 +1060,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 43,
+		id: asActivityId(43),
 		name: 'ピアノれんしゅう',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '🎹',
 		basePoints: 15,
 		ageMin: 5,
@@ -1080,9 +1088,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 	// senior 専用 (age 16+) — #1147 中高生差別化
 	// ============================================================
 	{
-		id: 50,
+		id: asActivityId(50),
 		name: '大学受験勉強した',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🎯',
 		basePoints: 25,
 		ageMin: 16,
@@ -1104,9 +1112,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 51,
+		id: asActivityId(51),
 		name: 'アルバイトした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '💼',
 		basePoints: 20,
 		ageMin: 16,
@@ -1128,9 +1136,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 52,
+		id: asActivityId(52),
 		name: '自動車学校',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🚗',
 		basePoints: 15,
 		ageMin: 17,
@@ -1152,9 +1160,9 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 53,
+		id: asActivityId(53),
 		name: '進路相談',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '🎓',
 		basePoints: 15,
 		ageMin: 16,
@@ -1201,11 +1209,11 @@ export const DEMO_ACTIVITIES: Activity[] = [
 // 旧 master を per-child 投影する legacy fallback で動作継続。
 
 function buildChildActivity(spec: {
-	id: number;
-	childId: number;
+	id: ActivityId;
+	childId: ChildId;
 	sourceMasterId: number;
 	name: string;
-	categoryId: number;
+	categoryId: CategoryId;
 	icon: string;
 	basePoints: number;
 	isMainQuest?: boolean;
@@ -1238,31 +1246,31 @@ function buildChildActivity(spec: {
 export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 	// 901 たろうくん (baby M, age 1) — baby 基本動作 3 件
 	buildChildActivity({
-		id: 9010001,
-		childId: 901,
+		id: asActivityId(9010001),
+		childId: asChildId(901),
 		sourceMasterId: 1,
 		name: 'はいはいした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🐣',
 		basePoints: 3,
 		sortOrder: 1,
 	}),
 	buildChildActivity({
-		id: 9010002,
-		childId: 901,
+		id: asActivityId(9010002),
+		childId: asChildId(901),
 		sourceMasterId: 2,
 		name: 'あんよした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '👣',
 		basePoints: 5,
 		sortOrder: 2,
 	}),
 	buildChildActivity({
-		id: 9010003,
-		childId: 901,
+		id: asActivityId(9010003),
+		childId: asChildId(901),
 		sourceMasterId: 10,
 		name: 'えほんをよんだ',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📖',
 		basePoints: 5,
 		sortOrder: 3,
@@ -1270,51 +1278,51 @@ export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 
 	// 902 ひなちゃん (preschool F, age 5) — 幼児期 5 件 (うち must 1 件 = はみがき)
 	buildChildActivity({
-		id: 9020001,
-		childId: 902,
+		id: asActivityId(9020001),
+		childId: asChildId(902),
 		sourceMasterId: 4,
 		name: 'からだをうごかした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🤸',
 		basePoints: 5,
 		sortOrder: 1,
 	}),
 	buildChildActivity({
-		id: 9020002,
-		childId: 902,
+		id: asActivityId(9020002),
+		childId: asChildId(902),
 		sourceMasterId: 10,
 		name: 'えほんをよんだ',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📖',
 		basePoints: 5,
 		sortOrder: 2,
 	}),
 	buildChildActivity({
-		id: 9020003,
-		childId: 902,
+		id: asActivityId(9020003),
+		childId: asChildId(902),
 		sourceMasterId: 25,
 		name: 'おてつだいした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🧹',
 		basePoints: 6,
 		sortOrder: 3,
 	}),
 	buildChildActivity({
-		id: 9020004,
-		childId: 902,
+		id: asActivityId(9020004),
+		childId: asChildId(902),
 		sourceMasterId: 30,
 		name: 'あいさつした',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '👋',
 		basePoints: 3,
 		sortOrder: 4,
 	}),
 	buildChildActivity({
-		id: 9020005,
-		childId: 902,
+		id: asActivityId(9020005),
+		childId: asChildId(902),
 		sourceMasterId: 35,
 		name: 'はみがきした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🪥',
 		basePoints: 5,
 		priority: 'must',
@@ -1323,62 +1331,62 @@ export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 
 	// 903 けんたくん (elementary M, age 8) — 小学生 6 件 (うち main quest 1 件 + must 1 件)
 	buildChildActivity({
-		id: 9030001,
-		childId: 903,
+		id: asActivityId(9030001),
+		childId: asChildId(903),
 		sourceMasterId: 7,
 		name: 'うんどうした',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '⚽',
 		basePoints: 8,
 		sortOrder: 1,
 	}),
 	buildChildActivity({
-		id: 9030002,
-		childId: 903,
+		id: asActivityId(9030002),
+		childId: asChildId(903),
 		sourceMasterId: 13,
 		name: 'しゅくだいをした',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📝',
 		basePoints: 10,
 		priority: 'must',
 		sortOrder: 2,
 	}),
 	buildChildActivity({
-		id: 9030003,
-		childId: 903,
+		id: asActivityId(9030003),
+		childId: asChildId(903),
 		sourceMasterId: 40,
 		name: 'おえかきした',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '🎨',
 		basePoints: 5,
 		sortOrder: 3,
 	}),
 	buildChildActivity({
-		id: 9030004,
-		childId: 903,
+		id: asActivityId(9030004),
+		childId: asChildId(903),
 		sourceMasterId: 25,
 		name: 'おてつだいした',
-		categoryId: 3,
+		categoryId: asCategoryId(3),
 		icon: '🧹',
 		basePoints: 6,
 		sortOrder: 4,
 	}),
 	buildChildActivity({
-		id: 9030005,
-		childId: 903,
+		id: asActivityId(9030005),
+		childId: asChildId(903),
 		sourceMasterId: 30,
 		name: 'あいさつした',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '👋',
 		basePoints: 3,
 		sortOrder: 5,
 	}),
 	buildChildActivity({
-		id: 9030006,
-		childId: 903,
+		id: asActivityId(9030006),
+		childId: asChildId(903),
 		sourceMasterId: 43,
 		name: 'ピアノれんしゅう',
-		categoryId: 5,
+		categoryId: asCategoryId(5),
 		icon: '🎹',
 		basePoints: 10,
 		isMainQuest: true,
@@ -1387,53 +1395,53 @@ export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 
 	// 904 さくらちゃん (junior F, age 14) — 中学生 5 件 (受験 / 検定中心)
 	buildChildActivity({
-		id: 9040001,
-		childId: 904,
+		id: asActivityId(9040001),
+		childId: asChildId(904),
 		sourceMasterId: 7,
 		name: '運動した',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 8,
 		sortOrder: 1,
 	}),
 	buildChildActivity({
-		id: 9040002,
-		childId: 904,
+		id: asActivityId(9040002),
+		childId: asChildId(904),
 		sourceMasterId: 13,
 		name: '宿題をした',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📚',
 		basePoints: 10,
 		priority: 'must',
 		sortOrder: 2,
 	}),
 	buildChildActivity({
-		id: 9040003,
-		childId: 904,
+		id: asActivityId(9040003),
+		childId: asChildId(904),
 		sourceMasterId: 17,
 		name: '受験勉強した',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '✏️',
 		basePoints: 15,
 		isMainQuest: true,
 		sortOrder: 3,
 	}),
 	buildChildActivity({
-		id: 9040004,
-		childId: 904,
+		id: asActivityId(9040004),
+		childId: asChildId(904),
 		sourceMasterId: 18,
 		name: '資格・検定の勉強',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📖',
 		basePoints: 12,
 		sortOrder: 4,
 	}),
 	buildChildActivity({
-		id: 9040005,
-		childId: 904,
+		id: asActivityId(9040005),
+		childId: asChildId(904),
 		sourceMasterId: 22,
 		name: '部活がんばった',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃‍♀️',
 		basePoints: 8,
 		sortOrder: 5,
@@ -1441,21 +1449,21 @@ export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 
 	// 906 けいすけくん (senior M, age 17) — 高校生 5 件 (大学受験 / アルバイト)
 	buildChildActivity({
-		id: 9060001,
-		childId: 906,
+		id: asActivityId(9060001),
+		childId: asChildId(906),
 		sourceMasterId: 7,
 		name: '運動した',
-		categoryId: 1,
+		categoryId: asCategoryId(1),
 		icon: '🏃',
 		basePoints: 8,
 		sortOrder: 1,
 	}),
 	buildChildActivity({
-		id: 9060002,
-		childId: 906,
+		id: asActivityId(9060002),
+		childId: asChildId(906),
 		sourceMasterId: 50,
 		name: '大学受験勉強した',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '🎓',
 		basePoints: 20,
 		isMainQuest: true,
@@ -1463,31 +1471,31 @@ export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
 		sortOrder: 2,
 	}),
 	buildChildActivity({
-		id: 9060003,
-		childId: 906,
+		id: asActivityId(9060003),
+		childId: asChildId(906),
 		sourceMasterId: 51,
 		name: 'アルバイトした',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '💼',
 		basePoints: 15,
 		sortOrder: 3,
 	}),
 	buildChildActivity({
-		id: 9060004,
-		childId: 906,
+		id: asActivityId(9060004),
+		childId: asChildId(906),
 		sourceMasterId: 18,
 		name: '資格・検定の勉強',
-		categoryId: 2,
+		categoryId: asCategoryId(2),
 		icon: '📖',
 		basePoints: 12,
 		sortOrder: 4,
 	}),
 	buildChildActivity({
-		id: 9060005,
-		childId: 906,
+		id: asActivityId(9060005),
+		childId: asChildId(906),
 		sourceMasterId: 52,
 		name: '自動車学校',
-		categoryId: 4,
+		categoryId: asCategoryId(4),
 		icon: '🚗',
 		basePoints: 18,
 		sortOrder: 5,
@@ -1503,9 +1511,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// 901 たろうくん (baby, age 1) — simple logs
 	...[0, 1, 2, 3, 5, 7, 10].flatMap((d, i) => [
 		{
-			id: 901001 + i * 2,
-			childId: 901,
-			activityId: 1,
+			id: String(901001 + i * 2),
+			childId: asChildId(901),
+			activityId: asActivityId(1),
 			points: 11,
 			streakDays: 3,
 			streakBonus: 2,
@@ -1514,9 +1522,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 901002 + i * 2,
-			childId: 901,
-			activityId: 20,
+			id: String(901002 + i * 2),
+			childId: asChildId(901),
+			activityId: asActivityId(20),
 			points: 6,
 			streakDays: 3,
 			streakBonus: 1,
@@ -1528,9 +1536,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// 902 ひなちゃん (preschool, age 5) — moderate activity
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13].flatMap((d, i) => [
 		{
-			id: 902001 + i * 3,
-			childId: 902,
-			activityId: 4, // からだをうごかした (age 0-5)
+			id: String(902001 + i * 3),
+			childId: asChildId(902),
+			activityId: asActivityId(4), // からだをうごかした (age 0-5)
 			points: 7,
 			streakDays: 10,
 			streakBonus: 2,
@@ -1539,9 +1547,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 902002 + i * 3,
-			childId: 902,
-			activityId: 10, // えほんをよんだ (age 0-5)
+			id: String(902002 + i * 3),
+			childId: asChildId(902),
+			activityId: asActivityId(10), // えほんをよんだ (age 0-5)
 			points: 7,
 			streakDays: 10,
 			streakBonus: 2,
@@ -1552,9 +1560,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 		...(d % 2 === 0
 			? [
 					{
-						id: 902003 + i * 3,
-						childId: 902,
-						activityId: 25, // おてつだいした (age 3+)
+						id: String(902003 + i * 3),
+						childId: asChildId(902),
+						activityId: asActivityId(25), // おてつだいした (age 3+)
 						points: 12,
 						streakDays: 5,
 						streakBonus: 2,
@@ -1568,9 +1576,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// 903 けんたくん (elementary, age 8) — active with variety
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
-			id: 903001 + i * 4,
-			childId: 903,
-			activityId: 13, // しゅくだいをした (age 6+)
+			id: String(903001 + i * 4),
+			childId: asChildId(903),
+			activityId: asActivityId(13), // しゅくだいをした (age 6+)
 			points: 18,
 			streakDays: 14,
 			streakBonus: 7,
@@ -1579,9 +1587,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 903002 + i * 4,
-			childId: 903,
-			activityId: 7, // うんどうした (age 6+)
+			id: String(903002 + i * 4),
+			childId: asChildId(903),
+			activityId: asActivityId(7), // うんどうした (age 6+)
 			points: 13,
 			streakDays: 14,
 			streakBonus: 7,
@@ -1590,9 +1598,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 903003 + i * 4,
-			childId: 903,
-			activityId: 22,
+			id: String(903003 + i * 4),
+			childId: asChildId(903),
+			activityId: asActivityId(22),
 			points: 17,
 			streakDays: 14,
 			streakBonus: 5,
@@ -1603,9 +1611,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 		...(d % 3 === 0
 			? [
 					{
-						id: 903004 + i * 4,
-						childId: 903,
-						activityId: 40,
+						id: String(903004 + i * 4),
+						childId: asChildId(903),
+						activityId: asActivityId(40),
 						points: 18,
 						streakDays: 5,
 						streakBonus: 3,
@@ -1619,9 +1627,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// 904 さくらちゃん (junior, age 14) — very active, all categories
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
-			id: 904001 + i * 5,
-			childId: 904,
-			activityId: 7, // うんどうした (age 6+)
+			id: String(904001 + i * 5),
+			childId: asChildId(904),
+			activityId: asActivityId(7), // うんどうした (age 6+)
 			points: 15,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1630,9 +1638,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 904002 + i * 5,
-			childId: 904,
-			activityId: 13, // しゅくだいをした (age 6+)
+			id: String(904002 + i * 5),
+			childId: asChildId(904),
+			activityId: asActivityId(13), // しゅくだいをした (age 6+)
 			points: 15,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1641,9 +1649,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 904003 + i * 5,
-			childId: 904,
-			activityId: 17, // 受験勉強した (age 13+)
+			id: String(904003 + i * 5),
+			childId: asChildId(904),
+			activityId: asActivityId(17), // 受験勉強した (age 13+)
 			points: 25,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1652,9 +1660,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 904004 + i * 5,
-			childId: 904,
-			activityId: 18, // 資格・検定の勉強 (age 13+)
+			id: String(904004 + i * 5),
+			childId: asChildId(904),
+			activityId: asActivityId(18), // 資格・検定の勉強 (age 13+)
 			points: 20,
 			streakDays: 14,
 			streakBonus: 8,
@@ -1663,9 +1671,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 904005 + i * 5,
-			childId: 904,
-			activityId: 43, // ピアノれんしゅう
+			id: String(904005 + i * 5),
+			childId: asChildId(904),
+			activityId: asActivityId(43), // ピアノれんしゅう
 			points: 30,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1677,9 +1685,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 	// 906 けいすけくん (senior, age 17) — very active, senior 専用活動中心
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
-			id: 906001 + i * 5,
-			childId: 906,
-			activityId: 50, // 大学受験勉強した (senior 専用)
+			id: String(906001 + i * 5),
+			childId: asChildId(906),
+			activityId: asActivityId(50), // 大学受験勉強した (senior 専用)
 			points: 35,
 			streakDays: 14,
 			streakBonus: 12,
@@ -1688,9 +1696,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 906002 + i * 5,
-			childId: 906,
-			activityId: 51, // アルバイトした (senior 専用)
+			id: String(906002 + i * 5),
+			childId: asChildId(906),
+			activityId: asActivityId(51), // アルバイトした (senior 専用)
 			points: 28,
 			streakDays: 10,
 			streakBonus: 8,
@@ -1699,9 +1707,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 906003 + i * 5,
-			childId: 906,
-			activityId: 18, // 資格・検定の勉強
+			id: String(906003 + i * 5),
+			childId: asChildId(906),
+			activityId: asActivityId(18), // 資格・検定の勉強
 			points: 25,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1710,9 +1718,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 906004 + i * 5,
-			childId: 906,
-			activityId: 52, // 自動車学校 (senior 専用)
+			id: String(906004 + i * 5),
+			childId: asChildId(906),
+			activityId: asActivityId(52), // 自動車学校 (senior 専用)
 			points: 20,
 			streakDays: 7,
 			streakBonus: 5,
@@ -1721,9 +1729,9 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 		{
-			id: 906005 + i * 5,
-			childId: 906,
-			activityId: 7, // 運動した
+			id: String(906005 + i * 5),
+			childId: asChildId(906),
+			activityId: asActivityId(7), // 運動した
 			points: 20,
 			streakDays: 14,
 			streakBonus: 10,
@@ -1740,42 +1748,242 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 
 export const DEMO_STATUSES: Status[] = [
 	// 901 たろうくん (baby, Lv.2) — 15 XP 程度
-	{ id: 9011, childId: 901, categoryId: 1, totalXp: 20, level: 2, peakXp: 20, updatedAt: NOW },
-	{ id: 9012, childId: 901, categoryId: 2, totalXp: 10, level: 1, peakXp: 10, updatedAt: NOW },
-	{ id: 9013, childId: 901, categoryId: 3, totalXp: 25, level: 2, peakXp: 25, updatedAt: NOW },
-	{ id: 9014, childId: 901, categoryId: 4, totalXp: 12, level: 1, peakXp: 12, updatedAt: NOW },
-	{ id: 9015, childId: 901, categoryId: 5, totalXp: 18, level: 2, peakXp: 18, updatedAt: NOW },
+	{
+		id: '9011',
+		childId: asChildId(901),
+		categoryId: asCategoryId(1),
+		totalXp: 20,
+		level: 2,
+		peakXp: 20,
+		updatedAt: NOW,
+	},
+	{
+		id: '9012',
+		childId: asChildId(901),
+		categoryId: asCategoryId(2),
+		totalXp: 10,
+		level: 1,
+		peakXp: 10,
+		updatedAt: NOW,
+	},
+	{
+		id: '9013',
+		childId: asChildId(901),
+		categoryId: asCategoryId(3),
+		totalXp: 25,
+		level: 2,
+		peakXp: 25,
+		updatedAt: NOW,
+	},
+	{
+		id: '9014',
+		childId: asChildId(901),
+		categoryId: asCategoryId(4),
+		totalXp: 12,
+		level: 1,
+		peakXp: 12,
+		updatedAt: NOW,
+	},
+	{
+		id: '9015',
+		childId: asChildId(901),
+		categoryId: asCategoryId(5),
+		totalXp: 18,
+		level: 2,
+		peakXp: 18,
+		updatedAt: NOW,
+	},
 	// 902 ひなちゃん (preschool, Lv.4) — 80-140 XP
-	{ id: 9021, childId: 902, categoryId: 1, totalXp: 120, level: 4, peakXp: 120, updatedAt: NOW },
-	{ id: 9022, childId: 902, categoryId: 2, totalXp: 90, level: 4, peakXp: 90, updatedAt: NOW },
-	{ id: 9023, childId: 902, categoryId: 3, totalXp: 75, level: 3, peakXp: 75, updatedAt: NOW },
-	{ id: 9024, childId: 902, categoryId: 4, totalXp: 55, level: 3, peakXp: 55, updatedAt: NOW },
-	{ id: 9025, childId: 902, categoryId: 5, totalXp: 100, level: 4, peakXp: 100, updatedAt: NOW },
+	{
+		id: '9021',
+		childId: asChildId(902),
+		categoryId: asCategoryId(1),
+		totalXp: 120,
+		level: 4,
+		peakXp: 120,
+		updatedAt: NOW,
+	},
+	{
+		id: '9022',
+		childId: asChildId(902),
+		categoryId: asCategoryId(2),
+		totalXp: 90,
+		level: 4,
+		peakXp: 90,
+		updatedAt: NOW,
+	},
+	{
+		id: '9023',
+		childId: asChildId(902),
+		categoryId: asCategoryId(3),
+		totalXp: 75,
+		level: 3,
+		peakXp: 75,
+		updatedAt: NOW,
+	},
+	{
+		id: '9024',
+		childId: asChildId(902),
+		categoryId: asCategoryId(4),
+		totalXp: 55,
+		level: 3,
+		peakXp: 55,
+		updatedAt: NOW,
+	},
+	{
+		id: '9025',
+		childId: asChildId(902),
+		categoryId: asCategoryId(5),
+		totalXp: 100,
+		level: 4,
+		peakXp: 100,
+		updatedAt: NOW,
+	},
 	// 903 けんたくん (elementary, Lv.7) — 275-500 XP
-	{ id: 9031, childId: 903, categoryId: 1, totalXp: 450, level: 9, peakXp: 450, updatedAt: NOW },
-	{ id: 9032, childId: 903, categoryId: 2, totalXp: 350, level: 8, peakXp: 350, updatedAt: NOW },
-	{ id: 9033, childId: 903, categoryId: 3, totalXp: 300, level: 7, peakXp: 300, updatedAt: NOW },
-	{ id: 9034, childId: 903, categoryId: 4, totalXp: 200, level: 6, peakXp: 200, updatedAt: NOW },
-	{ id: 9035, childId: 903, categoryId: 5, totalXp: 280, level: 7, peakXp: 280, updatedAt: NOW },
+	{
+		id: '9031',
+		childId: asChildId(903),
+		categoryId: asCategoryId(1),
+		totalXp: 450,
+		level: 9,
+		peakXp: 450,
+		updatedAt: NOW,
+	},
+	{
+		id: '9032',
+		childId: asChildId(903),
+		categoryId: asCategoryId(2),
+		totalXp: 350,
+		level: 8,
+		peakXp: 350,
+		updatedAt: NOW,
+	},
+	{
+		id: '9033',
+		childId: asChildId(903),
+		categoryId: asCategoryId(3),
+		totalXp: 300,
+		level: 7,
+		peakXp: 300,
+		updatedAt: NOW,
+	},
+	{
+		id: '9034',
+		childId: asChildId(903),
+		categoryId: asCategoryId(4),
+		totalXp: 200,
+		level: 6,
+		peakXp: 200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9035',
+		childId: asChildId(903),
+		categoryId: asCategoryId(5),
+		totalXp: 280,
+		level: 7,
+		peakXp: 280,
+		updatedAt: NOW,
+	},
 	// 904 さくらちゃん (junior, Lv.15+) — 1200-2500 XP
-	{ id: 9041, childId: 904, categoryId: 1, totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
-	{ id: 9042, childId: 904, categoryId: 2, totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
-	{ id: 9043, childId: 904, categoryId: 3, totalXp: 1200, level: 15, peakXp: 1200, updatedAt: NOW },
-	{ id: 9044, childId: 904, categoryId: 4, totalXp: 800, level: 10, peakXp: 800, updatedAt: NOW },
-	{ id: 9045, childId: 904, categoryId: 5, totalXp: 1800, level: 17, peakXp: 1800, updatedAt: NOW },
+	{
+		id: '9041',
+		childId: asChildId(904),
+		categoryId: asCategoryId(1),
+		totalXp: 2000,
+		level: 18,
+		peakXp: 2000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9042',
+		childId: asChildId(904),
+		categoryId: asCategoryId(2),
+		totalXp: 2500,
+		level: 20,
+		peakXp: 2500,
+		updatedAt: NOW,
+	},
+	{
+		id: '9043',
+		childId: asChildId(904),
+		categoryId: asCategoryId(3),
+		totalXp: 1200,
+		level: 15,
+		peakXp: 1200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9044',
+		childId: asChildId(904),
+		categoryId: asCategoryId(4),
+		totalXp: 800,
+		level: 10,
+		peakXp: 800,
+		updatedAt: NOW,
+	},
+	{
+		id: '9045',
+		childId: asChildId(904),
+		categoryId: asCategoryId(5),
+		totalXp: 1800,
+		level: 17,
+		peakXp: 1800,
+		updatedAt: NOW,
+	},
 	// 906 けいすけくん (senior, Lv.20+) — 2000-3000 XP
-	{ id: 9061, childId: 906, categoryId: 1, totalXp: 2800, level: 22, peakXp: 2800, updatedAt: NOW },
-	{ id: 9062, childId: 906, categoryId: 2, totalXp: 3000, level: 23, peakXp: 3000, updatedAt: NOW },
-	{ id: 9063, childId: 906, categoryId: 3, totalXp: 2200, level: 19, peakXp: 2200, updatedAt: NOW },
-	{ id: 9064, childId: 906, categoryId: 4, totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
-	{ id: 9065, childId: 906, categoryId: 5, totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
+	{
+		id: '9061',
+		childId: asChildId(906),
+		categoryId: asCategoryId(1),
+		totalXp: 2800,
+		level: 22,
+		peakXp: 2800,
+		updatedAt: NOW,
+	},
+	{
+		id: '9062',
+		childId: asChildId(906),
+		categoryId: asCategoryId(2),
+		totalXp: 3000,
+		level: 23,
+		peakXp: 3000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9063',
+		childId: asChildId(906),
+		categoryId: asCategoryId(3),
+		totalXp: 2200,
+		level: 19,
+		peakXp: 2200,
+		updatedAt: NOW,
+	},
+	{
+		id: '9064',
+		childId: asChildId(906),
+		categoryId: asCategoryId(4),
+		totalXp: 2000,
+		level: 18,
+		peakXp: 2000,
+		updatedAt: NOW,
+	},
+	{
+		id: '9065',
+		childId: asChildId(906),
+		categoryId: asCategoryId(5),
+		totalXp: 2500,
+		level: 20,
+		peakXp: 2500,
+		updatedAt: NOW,
+	},
 ];
 
 // ============================================================
 // Point Balances (computed from logs)
 // ============================================================
 
-export const DEMO_POINT_BALANCES: Record<number, number> = {
+export const DEMO_POINT_BALANCES: Record<string, number> = {
 	901: 180, // たろうくん (baby) — low
 	902: 1250, // ひなちゃん (preschool) — moderate
 	903: 3400, // けんた (elementary) — active
@@ -1789,22 +1997,106 @@ export const DEMO_POINT_BALANCES: Record<number, number> = {
 
 export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 	// 902 ひなちゃん (preschool)
-	{ id: 1, childId: 902, achievementId: 1, milestoneValue: null, unlockedAt: daysAgoISO(20) },
-	{ id: 2, childId: 902, achievementId: 2, milestoneValue: 10, unlockedAt: daysAgoISO(15) },
+	{
+		id: '1',
+		childId: asChildId(902),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(20),
+	},
+	{
+		id: '2',
+		childId: asChildId(902),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(15),
+	},
 	// 903 けんた (elementary)
-	{ id: 3, childId: 903, achievementId: 1, milestoneValue: null, unlockedAt: daysAgoISO(60) },
-	{ id: 4, childId: 903, achievementId: 2, milestoneValue: 10, unlockedAt: daysAgoISO(50) },
-	{ id: 5, childId: 903, achievementId: 2, milestoneValue: 50, unlockedAt: daysAgoISO(30) },
-	{ id: 6, childId: 903, achievementId: 3, milestoneValue: null, unlockedAt: daysAgoISO(25) },
-	{ id: 7, childId: 903, achievementId: 4, milestoneValue: null, unlockedAt: daysAgoISO(10) },
+	{
+		id: '3',
+		childId: asChildId(903),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(60),
+	},
+	{
+		id: '4',
+		childId: asChildId(903),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(50),
+	},
+	{
+		id: '5',
+		childId: asChildId(903),
+		achievementId: '2',
+		milestoneValue: 50,
+		unlockedAt: daysAgoISO(30),
+	},
+	{
+		id: '6',
+		childId: asChildId(903),
+		achievementId: '3',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(25),
+	},
+	{
+		id: '7',
+		childId: asChildId(903),
+		achievementId: '4',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(10),
+	},
 	// 904 さくら (junior)
-	{ id: 8, childId: 904, achievementId: 1, milestoneValue: null, unlockedAt: daysAgoISO(90) },
-	{ id: 9, childId: 904, achievementId: 2, milestoneValue: 10, unlockedAt: daysAgoISO(80) },
-	{ id: 10, childId: 904, achievementId: 2, milestoneValue: 50, unlockedAt: daysAgoISO(60) },
-	{ id: 11, childId: 904, achievementId: 2, milestoneValue: 100, unlockedAt: daysAgoISO(30) },
-	{ id: 12, childId: 904, achievementId: 3, milestoneValue: null, unlockedAt: daysAgoISO(70) },
-	{ id: 13, childId: 904, achievementId: 4, milestoneValue: null, unlockedAt: daysAgoISO(50) },
-	{ id: 14, childId: 904, achievementId: 5, milestoneValue: null, unlockedAt: daysAgoISO(20) },
+	{
+		id: '8',
+		childId: asChildId(904),
+		achievementId: '1',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(90),
+	},
+	{
+		id: '9',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 10,
+		unlockedAt: daysAgoISO(80),
+	},
+	{
+		id: '10',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 50,
+		unlockedAt: daysAgoISO(60),
+	},
+	{
+		id: '11',
+		childId: asChildId(904),
+		achievementId: '2',
+		milestoneValue: 100,
+		unlockedAt: daysAgoISO(30),
+	},
+	{
+		id: '12',
+		childId: asChildId(904),
+		achievementId: '3',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(70),
+	},
+	{
+		id: '13',
+		childId: asChildId(904),
+		achievementId: '4',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(50),
+	},
+	{
+		id: '14',
+		childId: asChildId(904),
+		achievementId: '5',
+		milestoneValue: null,
+		unlockedAt: daysAgoISO(20),
+	},
 ];
 
 // ============================================================
@@ -1813,21 +2105,105 @@ export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 
 export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 	// 902 ひなちゃん (preschool, age 5) — 3 missions, 1 done
-	{ id: 1, childId: 902, missionDate: TODAY, activityId: 4, completed: 1, completedAt: NOW }, // からだをうごかした
-	{ id: 2, childId: 902, missionDate: TODAY, activityId: 10, completed: 0, completedAt: null }, // えほんをよんだ
-	{ id: 3, childId: 902, missionDate: TODAY, activityId: 30, completed: 0, completedAt: null }, // あいさつした
+	{
+		id: '1',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(4),
+		completed: 1,
+		completedAt: NOW,
+	}, // からだをうごかした
+	{
+		id: '2',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(10),
+		completed: 0,
+		completedAt: null,
+	}, // えほんをよんだ
+	{
+		id: '3',
+		childId: asChildId(902),
+		missionDate: TODAY,
+		activityId: asActivityId(30),
+		completed: 0,
+		completedAt: null,
+	}, // あいさつした
 	// 903 けんた (elementary, age 8) — 3 missions, 2 done
-	{ id: 4, childId: 903, missionDate: TODAY, activityId: 13, completed: 1, completedAt: NOW }, // しゅくだいをした
-	{ id: 5, childId: 903, missionDate: TODAY, activityId: 7, completed: 1, completedAt: NOW }, // うんどうした
-	{ id: 6, childId: 903, missionDate: TODAY, activityId: 40, completed: 0, completedAt: null }, // おえかきした
+	{
+		id: '4',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(13),
+		completed: 1,
+		completedAt: NOW,
+	}, // しゅくだいをした
+	{
+		id: '5',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(7),
+		completed: 1,
+		completedAt: NOW,
+	}, // うんどうした
+	{
+		id: '6',
+		childId: asChildId(903),
+		missionDate: TODAY,
+		activityId: asActivityId(40),
+		completed: 0,
+		completedAt: null,
+	}, // おえかきした
 	// 904 さくら (junior, age 14) — 3 missions, all done
-	{ id: 7, childId: 904, missionDate: TODAY, activityId: 7, completed: 1, completedAt: NOW }, // うんどうした
-	{ id: 8, childId: 904, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
-	{ id: 9, childId: 904, missionDate: TODAY, activityId: 43, completed: 1, completedAt: NOW }, // ピアノれんしゅう
+	{
+		id: '7',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(7),
+		completed: 1,
+		completedAt: NOW,
+	}, // うんどうした
+	{
+		id: '8',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(17),
+		completed: 1,
+		completedAt: NOW,
+	}, // 受験勉強した
+	{
+		id: '9',
+		childId: asChildId(904),
+		missionDate: TODAY,
+		activityId: asActivityId(43),
+		completed: 1,
+		completedAt: NOW,
+	}, // ピアノれんしゅう
 	// 906 けいすけくん (senior, age 17) — 3 missions, 2 done (senior 専用: 大学受験 + アルバイト)
-	{ id: 13, childId: 906, missionDate: TODAY, activityId: 50, completed: 1, completedAt: NOW }, // 大学受験勉強した
-	{ id: 14, childId: 906, missionDate: TODAY, activityId: 51, completed: 1, completedAt: NOW }, // アルバイトした
-	{ id: 15, childId: 906, missionDate: TODAY, activityId: 52, completed: 0, completedAt: null }, // 自動車学校
+	{
+		id: '13',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(50),
+		completed: 1,
+		completedAt: NOW,
+	}, // 大学受験勉強した
+	{
+		id: '14',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(51),
+		completed: 1,
+		completedAt: NOW,
+	}, // アルバイトした
+	{
+		id: '15',
+		childId: asChildId(906),
+		missionDate: TODAY,
+		activityId: asActivityId(52),
+		completed: 0,
+		completedAt: null,
+	}, // 自動車学校
 ];
 
 // #3213 (EPIC #3193): DEMO_AUTO_CHALLENGES fixture 削除済。週次自動生成チャレンジは
@@ -1844,7 +2220,7 @@ export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 // fixture 用に legacy 拡張型 `DemoLegacyChecklistTemplate` を局所定義する。
 // demo-repo.ts (`src/lib/server/db/demo/checklist-repo.ts`) で childId を捨てて
 // family master view に変換する処理が入っている。
-type DemoLegacyChecklistTemplate = ChecklistTemplate & { childId: number };
+type DemoLegacyChecklistTemplate = ChecklistTemplate & { childId: ChildId };
 
 export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	// #1755 (#1709-A): kind 削除 — 持ち物純化
@@ -1855,9 +2231,9 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	// junior (904 さくら) → 中学生の登校準備
 	// senior (906 けいすけくん) → 高校生の登校準備
 	{
-		id: 900,
+		id: '900',
 		tenantId: DEMO_TENANT_ID,
-		childId: 901,
+		childId: asChildId(901),
 		name: 'おでかけのじゅんび',
 		icon: '🍼',
 		pointsPerItem: 2,
@@ -1870,9 +2246,9 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 		updatedAt: NOW,
 	},
 	{
-		id: 904,
+		id: '904',
 		tenantId: DEMO_TENANT_ID,
-		childId: 904,
+		childId: asChildId(904),
 		name: '中学生の登校準備',
 		icon: '🎒',
 		pointsPerItem: 3,
@@ -1885,9 +2261,9 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 		updatedAt: NOW,
 	},
 	{
-		id: 905,
+		id: '905',
 		tenantId: DEMO_TENANT_ID,
-		childId: 906,
+		childId: asChildId(906),
 		name: '高校生の登校準備',
 		icon: '📚',
 		pointsPerItem: 3,
@@ -1906,8 +2282,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 	//   それぞれの item (id 1-9) も併せて削除した。後続 sub-issue (#1709-C) で activities.priority='must' に役割移管予定
 	// #703: おでかけのじゅんび（たろう・乳幼児）
 	{
-		id: 20,
-		templateId: 900,
+		id: '20',
+		templateId: '900',
 		name: 'おむつ',
 		icon: '👶',
 		frequency: 'daily',
@@ -1916,8 +2292,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 21,
-		templateId: 900,
+		id: '21',
+		templateId: '900',
 		name: 'おしりふき',
 		icon: '🧻',
 		frequency: 'daily',
@@ -1926,8 +2302,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 22,
-		templateId: 900,
+		id: '22',
+		templateId: '900',
 		name: 'きがえ',
 		icon: '👕',
 		frequency: 'daily',
@@ -1936,8 +2312,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 23,
-		templateId: 900,
+		id: '23',
+		templateId: '900',
 		name: 'ぼうし',
 		icon: '🧢',
 		frequency: 'daily',
@@ -1946,8 +2322,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 24,
-		templateId: 900,
+		id: '24',
+		templateId: '900',
 		name: 'みずとう',
 		icon: '🍼',
 		frequency: 'daily',
@@ -1957,8 +2333,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 	},
 	// #703: 中学生の登校準備（さくら・中学生）
 	{
-		id: 30,
-		templateId: 904,
+		id: '30',
+		templateId: '904',
 		name: '教科書',
 		icon: '📕',
 		frequency: 'daily',
@@ -1967,8 +2343,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 31,
-		templateId: 904,
+		id: '31',
+		templateId: '904',
 		name: 'ノート',
 		icon: '📒',
 		frequency: 'daily',
@@ -1977,8 +2353,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 32,
-		templateId: 904,
+		id: '32',
+		templateId: '904',
 		name: '体操着',
 		icon: '👕',
 		frequency: 'daily',
@@ -1987,8 +2363,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 33,
-		templateId: 904,
+		id: '33',
+		templateId: '904',
 		name: '制服',
 		icon: '🎽',
 		frequency: 'daily',
@@ -1997,8 +2373,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 34,
-		templateId: 904,
+		id: '34',
+		templateId: '904',
 		name: 'お弁当',
 		icon: '🍱',
 		frequency: 'daily',
@@ -2008,8 +2384,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 	},
 	// #703: 高校生の登校準備（けいすけくん・高校生）
 	{
-		id: 40,
-		templateId: 905,
+		id: '40',
+		templateId: '905',
 		name: '教科書',
 		icon: '📕',
 		frequency: 'daily',
@@ -2018,8 +2394,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 41,
-		templateId: 905,
+		id: '41',
+		templateId: '905',
 		name: 'ノート',
 		icon: '📒',
 		frequency: 'daily',
@@ -2028,8 +2404,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 42,
-		templateId: 905,
+		id: '42',
+		templateId: '905',
 		name: '参考書',
 		icon: '📖',
 		frequency: 'daily',
@@ -2038,8 +2414,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 43,
-		templateId: 905,
+		id: '43',
+		templateId: '905',
 		name: 'お弁当',
 		icon: '🍱',
 		frequency: 'daily',
@@ -2048,8 +2424,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		createdAt: NOW,
 	},
 	{
-		id: 44,
-		templateId: 905,
+		id: '44',
+		templateId: '905',
 		name: 'ICカード',
 		icon: '💳',
 		frequency: 'daily',
@@ -2066,8 +2442,8 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 	// 902 ひなちゃん (preschool)
 	{
-		id: 1,
-		childId: 902,
+		id: '1',
+		childId: asChildId(902),
 		loginDate: TODAY,
 		rank: 'dai-kichi',
 		basePoints: 10,
@@ -2078,8 +2454,8 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 	},
 	// 903 けんた (elementary)
 	{
-		id: 2,
-		childId: 903,
+		id: '2',
+		childId: asChildId(903),
 		loginDate: TODAY,
 		rank: 'kichi',
 		basePoints: 5,
@@ -2090,8 +2466,8 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 	},
 	// 904 さくら (junior)
 	{
-		id: 3,
-		childId: 904,
+		id: '3',
+		childId: asChildId(904),
 		loginDate: TODAY,
 		rank: 'chu-kichi',
 		basePoints: 3,
@@ -2115,9 +2491,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	// ── 過去履歴 (shownAt 設定済み) ──
 	// 903 けんた → 902 ひな (兄から妹へ)
 	{
-		id: 1,
-		fromChildId: 903,
-		toChildId: 902,
+		id: '1',
+		fromChildId: asChildId(903),
+		toChildId: asChildId(902),
 		stampCode: 'ganbare',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(2),
@@ -2125,9 +2501,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 904 さくら → 902 ひな (姉から妹へ)
 	{
-		id: 2,
-		fromChildId: 904,
-		toChildId: 902,
+		id: '2',
+		fromChildId: asChildId(904),
+		toChildId: asChildId(902),
 		stampCode: 'omedeto',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(2),
@@ -2135,9 +2511,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 902 ひな → 903 けんた (妹から兄へ)
 	{
-		id: 3,
-		fromChildId: 902,
-		toChildId: 903,
+		id: '3',
+		fromChildId: asChildId(902),
+		toChildId: asChildId(903),
 		stampCode: 'sugoi',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(3),
@@ -2145,9 +2521,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 904 さくら → 903 けんた (姉から弟へ)
 	{
-		id: 4,
-		fromChildId: 904,
-		toChildId: 903,
+		id: '4',
+		fromChildId: asChildId(904),
+		toChildId: asChildId(903),
 		stampCode: 'nice',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(3),
@@ -2155,9 +2531,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 906 けいすけ → 904 さくら (兄から妹へ)
 	{
-		id: 5,
-		fromChildId: 906,
-		toChildId: 904,
+		id: '5',
+		fromChildId: asChildId(906),
+		toChildId: asChildId(904),
 		stampCode: 'fight',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(4),
@@ -2166,9 +2542,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	// ── 未表示 (shownAt: null) — demo 子供画面でおうえん受信演出が確認可能 ──
 	// 903 → 902 (直近)
 	{
-		id: 6,
-		fromChildId: 903,
-		toChildId: 902,
+		id: '6',
+		fromChildId: asChildId(903),
+		toChildId: asChildId(902),
 		stampCode: 'issho',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(0),
@@ -2176,9 +2552,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 906 → 903 (直近)
 	{
-		id: 7,
-		fromChildId: 906,
-		toChildId: 903,
+		id: '7',
+		fromChildId: asChildId(906),
+		toChildId: asChildId(903),
 		stampCode: 'sugoi',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(0),
@@ -2186,9 +2562,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 902 → 904 (直近)
 	{
-		id: 8,
-		fromChildId: 902,
-		toChildId: 904,
+		id: '8',
+		fromChildId: asChildId(902),
+		toChildId: asChildId(904),
 		stampCode: 'ganbare',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(0),
@@ -2196,9 +2572,9 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 	},
 	// 903 → 906 (直近)
 	{
-		id: 9,
-		fromChildId: 903,
-		toChildId: 906,
+		id: '9',
+		fromChildId: asChildId(903),
+		toChildId: asChildId(906),
 		stampCode: 'nice',
 		tenantId: DEMO_TENANT_ID,
 		sentAt: daysAgoISO(0),
@@ -2219,8 +2595,8 @@ export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
 export const DEMO_CHILD_CHALLENGES: ChildChallenge[] = [
 	// 兄弟連動 instance: 902 ひなちゃん版 (5歳 age-adjusted target 15)
 	{
-		id: 101,
-		childId: 902,
+		id: '101',
+		childId: asChildId(902),
 		title: 'みんなで 100 ポイントチャレンジ',
 		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
 		challengeType: 'cooperative',
@@ -2243,8 +2619,8 @@ export const DEMO_CHILD_CHALLENGES: ChildChallenge[] = [
 	},
 	// 兄弟連動 instance: 903 けんたくん版 (8歳 age-adjusted target 25)
 	{
-		id: 102,
-		childId: 903,
+		id: '102',
+		childId: asChildId(903),
 		title: 'みんなで 100 ポイントチャレンジ',
 		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
 		challengeType: 'cooperative',
@@ -2267,8 +2643,8 @@ export const DEMO_CHILD_CHALLENGES: ChildChallenge[] = [
 	},
 	// 兄弟連動 instance: 904 さくらちゃん版 (14歳 age-adjusted target 30)
 	{
-		id: 103,
-		childId: 904,
+		id: '103',
+		childId: asChildId(904),
 		title: 'みんなで 100 ポイントチャレンジ',
 		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
 		challengeType: 'cooperative',
@@ -2291,15 +2667,15 @@ export const DEMO_CHILD_CHALLENGES: ChildChallenge[] = [
 	},
 	// 個別 instance: 903 けんたくんの「うんどう週間チャレンジ」(兄弟連動なし)
 	{
-		id: 104,
-		childId: 903,
+		id: '104',
+		childId: asChildId(903),
 		title: 'うんどう週間チャレンジ',
 		description: 'うんどうカテゴリを 5 回達成しよう',
 		challengeType: 'cooperative',
 		periodType: 'weekly',
 		startDate: daysAgo(1),
 		endDate: daysAgo(-5),
-		targetConfig: JSON.stringify({ metric: 'count', categoryId: 1, baseTarget: 5 }),
+		targetConfig: JSON.stringify({ metric: 'count', categoryId: asCategoryId(1), baseTarget: 5 }),
 		rewardConfig: JSON.stringify({ points: 30, message: 'たいりょくアップ！' }),
 		status: 'active',
 		isActive: 1,
@@ -2351,8 +2727,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 	// ── 903 けんた (elementary) ──
 	// 当日 (TODAY): pending
 	{
-		id: 9030,
-		childId: 903,
+		id: '9030',
+		childId: asChildId(903),
 		enemyId: 1,
 		date: TODAY,
 		status: 'pending',
@@ -2365,8 +2741,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 	},
 	// 過去 5 日: completed 履歴
 	{
-		id: 9031,
-		childId: 903,
+		id: '9031',
+		childId: asChildId(903),
 		enemyId: 1,
 		date: daysAgo(1),
 		status: 'completed',
@@ -2378,8 +2754,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(1),
 	},
 	{
-		id: 9032,
-		childId: 903,
+		id: '9032',
+		childId: asChildId(903),
 		enemyId: 2,
 		date: daysAgo(2),
 		status: 'completed',
@@ -2391,8 +2767,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(2),
 	},
 	{
-		id: 9033,
-		childId: 903,
+		id: '9033',
+		childId: asChildId(903),
 		enemyId: 3,
 		date: daysAgo(3),
 		status: 'completed',
@@ -2404,8 +2780,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(3),
 	},
 	{
-		id: 9034,
-		childId: 903,
+		id: '9034',
+		childId: asChildId(903),
 		enemyId: 1,
 		date: daysAgo(4),
 		status: 'completed',
@@ -2417,8 +2793,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(4),
 	},
 	{
-		id: 9035,
-		childId: 903,
+		id: '9035',
+		childId: asChildId(903),
 		enemyId: 2,
 		date: daysAgo(5),
 		status: 'completed',
@@ -2431,8 +2807,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 	},
 	// ── 904 さくら (junior) ──
 	{
-		id: 9040,
-		childId: 904,
+		id: '9040',
+		childId: asChildId(904),
 		enemyId: 4,
 		date: TODAY,
 		status: 'pending',
@@ -2444,8 +2820,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: NOW,
 	},
 	{
-		id: 9041,
-		childId: 904,
+		id: '9041',
+		childId: asChildId(904),
 		enemyId: 4,
 		date: daysAgo(1),
 		status: 'completed',
@@ -2457,8 +2833,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(1),
 	},
 	{
-		id: 9042,
-		childId: 904,
+		id: '9042',
+		childId: asChildId(904),
 		enemyId: 5,
 		date: daysAgo(2),
 		status: 'completed',
@@ -2470,8 +2846,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(2),
 	},
 	{
-		id: 9043,
-		childId: 904,
+		id: '9043',
+		childId: asChildId(904),
 		enemyId: 6,
 		date: daysAgo(3),
 		status: 'completed',
@@ -2483,8 +2859,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(3),
 	},
 	{
-		id: 9044,
-		childId: 904,
+		id: '9044',
+		childId: asChildId(904),
 		enemyId: 4,
 		date: daysAgo(4),
 		status: 'completed',
@@ -2496,8 +2872,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(4),
 	},
 	{
-		id: 9045,
-		childId: 904,
+		id: '9045',
+		childId: asChildId(904),
 		enemyId: 5,
 		date: daysAgo(5),
 		status: 'completed',
@@ -2510,8 +2886,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 	},
 	// ── 906 けいすけ (senior) ──
 	{
-		id: 9060,
-		childId: 906,
+		id: '9060',
+		childId: asChildId(906),
 		enemyId: 7,
 		date: TODAY,
 		status: 'pending',
@@ -2523,8 +2899,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: NOW,
 	},
 	{
-		id: 9061,
-		childId: 906,
+		id: '9061',
+		childId: asChildId(906),
 		enemyId: 7,
 		date: daysAgo(1),
 		status: 'completed',
@@ -2536,8 +2912,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(1),
 	},
 	{
-		id: 9062,
-		childId: 906,
+		id: '9062',
+		childId: asChildId(906),
 		enemyId: 8,
 		date: daysAgo(2),
 		status: 'completed',
@@ -2549,8 +2925,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(2),
 	},
 	{
-		id: 9063,
-		childId: 906,
+		id: '9063',
+		childId: asChildId(906),
 		enemyId: 9,
 		date: daysAgo(3),
 		status: 'completed',
@@ -2562,8 +2938,8 @@ export const DEMO_BATTLES: DailyBattleRow[] = [
 		updatedAt: daysAgoISO(3),
 	},
 	{
-		id: 9064,
-		childId: 906,
+		id: '9064',
+		childId: asChildId(906),
 		enemyId: 7,
 		date: daysAgo(4),
 		status: 'completed',
@@ -2612,8 +2988,8 @@ function makeScoresJson(c1: number, c2: number, c3: number, c4: number, c5: numb
 export const DEMO_EVALUATIONS: Evaluation[] = [
 	// ── 901 たろうくん (baby) — 低頻度活動 ──
 	{
-		id: 9011,
-		childId: 901,
+		id: '9011',
+		childId: asChildId(901),
 		weekStart: weekStartDate(0),
 		weekEnd: weekEndDate(0),
 		scoresJson: makeScoresJson(2, 1, 3, 1, 2),
@@ -2621,8 +2997,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(0),
 	},
 	{
-		id: 9012,
-		childId: 901,
+		id: '9012',
+		childId: asChildId(901),
 		weekStart: weekStartDate(1),
 		weekEnd: weekEndDate(1),
 		scoresJson: makeScoresJson(1, 1, 2, 1, 1),
@@ -2630,8 +3006,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(7),
 	},
 	{
-		id: 9013,
-		childId: 901,
+		id: '9013',
+		childId: asChildId(901),
 		weekStart: weekStartDate(2),
 		weekEnd: weekEndDate(2),
 		scoresJson: makeScoresJson(2, 0, 2, 1, 2),
@@ -2639,8 +3015,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(14),
 	},
 	{
-		id: 9014,
-		childId: 901,
+		id: '9014',
+		childId: asChildId(901),
 		weekStart: weekStartDate(3),
 		weekEnd: weekEndDate(3),
 		scoresJson: makeScoresJson(1, 1, 1, 0, 1),
@@ -2649,8 +3025,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 	},
 	// ── 902 ひなちゃん (preschool) ──
 	{
-		id: 9021,
-		childId: 902,
+		id: '9021',
+		childId: asChildId(902),
 		weekStart: weekStartDate(0),
 		weekEnd: weekEndDate(0),
 		scoresJson: makeScoresJson(5, 4, 3, 2, 4),
@@ -2658,8 +3034,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(0),
 	},
 	{
-		id: 9022,
-		childId: 902,
+		id: '9022',
+		childId: asChildId(902),
 		weekStart: weekStartDate(1),
 		weekEnd: weekEndDate(1),
 		scoresJson: makeScoresJson(4, 3, 3, 2, 3),
@@ -2667,8 +3043,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(7),
 	},
 	{
-		id: 9023,
-		childId: 902,
+		id: '9023',
+		childId: asChildId(902),
 		weekStart: weekStartDate(2),
 		weekEnd: weekEndDate(2),
 		scoresJson: makeScoresJson(3, 2, 2, 1, 3),
@@ -2676,8 +3052,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(14),
 	},
 	{
-		id: 9024,
-		childId: 902,
+		id: '9024',
+		childId: asChildId(902),
 		weekStart: weekStartDate(3),
 		weekEnd: weekEndDate(3),
 		scoresJson: makeScoresJson(2, 2, 2, 1, 2),
@@ -2686,8 +3062,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 	},
 	// ── 903 けんたくん (elementary) — 高頻度 ──
 	{
-		id: 9031,
-		childId: 903,
+		id: '9031',
+		childId: asChildId(903),
 		weekStart: weekStartDate(0),
 		weekEnd: weekEndDate(0),
 		scoresJson: makeScoresJson(10, 8, 6, 4, 7),
@@ -2695,8 +3071,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(0),
 	},
 	{
-		id: 9032,
-		childId: 903,
+		id: '9032',
+		childId: asChildId(903),
 		weekStart: weekStartDate(1),
 		weekEnd: weekEndDate(1),
 		scoresJson: makeScoresJson(9, 7, 5, 4, 6),
@@ -2704,8 +3080,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(7),
 	},
 	{
-		id: 9033,
-		childId: 903,
+		id: '9033',
+		childId: asChildId(903),
 		weekStart: weekStartDate(2),
 		weekEnd: weekEndDate(2),
 		scoresJson: makeScoresJson(8, 6, 5, 3, 5),
@@ -2713,8 +3089,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(14),
 	},
 	{
-		id: 9034,
-		childId: 903,
+		id: '9034',
+		childId: asChildId(903),
 		weekStart: weekStartDate(3),
 		weekEnd: weekEndDate(3),
 		scoresJson: makeScoresJson(7, 5, 4, 3, 5),
@@ -2723,8 +3099,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 	},
 	// ── 904 さくらちゃん (junior) — 高頻度 ──
 	{
-		id: 9041,
-		childId: 904,
+		id: '9041',
+		childId: asChildId(904),
 		weekStart: weekStartDate(0),
 		weekEnd: weekEndDate(0),
 		scoresJson: makeScoresJson(12, 14, 8, 5, 10),
@@ -2732,8 +3108,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(0),
 	},
 	{
-		id: 9042,
-		childId: 904,
+		id: '9042',
+		childId: asChildId(904),
 		weekStart: weekStartDate(1),
 		weekEnd: weekEndDate(1),
 		scoresJson: makeScoresJson(11, 13, 7, 5, 9),
@@ -2741,8 +3117,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(7),
 	},
 	{
-		id: 9043,
-		childId: 904,
+		id: '9043',
+		childId: asChildId(904),
 		weekStart: weekStartDate(2),
 		weekEnd: weekEndDate(2),
 		scoresJson: makeScoresJson(10, 12, 7, 4, 8),
@@ -2750,8 +3126,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(14),
 	},
 	{
-		id: 9044,
-		childId: 904,
+		id: '9044',
+		childId: asChildId(904),
 		weekStart: weekStartDate(3),
 		weekEnd: weekEndDate(3),
 		scoresJson: makeScoresJson(9, 11, 6, 4, 7),
@@ -2760,8 +3136,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 	},
 	// ── 906 けいすけくん (senior) — 最頻度 ──
 	{
-		id: 9061,
-		childId: 906,
+		id: '9061',
+		childId: asChildId(906),
 		weekStart: weekStartDate(0),
 		weekEnd: weekEndDate(0),
 		scoresJson: makeScoresJson(14, 16, 12, 10, 13),
@@ -2769,8 +3145,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(0),
 	},
 	{
-		id: 9062,
-		childId: 906,
+		id: '9062',
+		childId: asChildId(906),
 		weekStart: weekStartDate(1),
 		weekEnd: weekEndDate(1),
 		scoresJson: makeScoresJson(13, 15, 11, 10, 12),
@@ -2778,8 +3154,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(7),
 	},
 	{
-		id: 9063,
-		childId: 906,
+		id: '9063',
+		childId: asChildId(906),
 		weekStart: weekStartDate(2),
 		weekEnd: weekEndDate(2),
 		scoresJson: makeScoresJson(12, 14, 10, 9, 11),
@@ -2787,8 +3163,8 @@ export const DEMO_EVALUATIONS: Evaluation[] = [
 		createdAt: daysAgoISO(14),
 	},
 	{
-		id: 9064,
-		childId: 906,
+		id: '9064',
+		childId: asChildId(906),
 		weekStart: weekStartDate(3),
 		weekEnd: weekEndDate(3),
 		scoresJson: makeScoresJson(11, 13, 10, 8, 10),
@@ -2823,12 +3199,6 @@ const SYN_TEMPLATE_ID_BASE = 5000;
 const SYN_TEMPLATE_ITEM_ID_BASE = 6000;
 const SYN_SPECIAL_REWARD_ID_BASE = 5000;
 
-// Category code → numeric ID (activity-import-service.ts の CATEGORY_CODE_TO_ID と同義)
-const CATEGORY_CODE_TO_ID: Record<string, number> = {};
-for (const [i, code] of CATEGORY_CODES.entries()) {
-	CATEGORY_CODE_TO_ID[code] = i + 1;
-}
-
 /** Marketplace ActivityPackItem → Domain Activity への変換 (production の importActivities と同型) */
 function convertMarketplaceActivitiesToDomain(
 	items: ActivityPackItem[],
@@ -2836,9 +3206,12 @@ function convertMarketplaceActivitiesToDomain(
 	idOffset: number,
 ): Activity[] {
 	return items.map((item, idx) => {
-		const categoryId = CATEGORY_CODE_TO_ID[item.categoryCode] ?? 3; // fallback: seikatsu
+		// #3607: id↔code は SSOT 派生。未知 code は従来どおり seikatsu に fallback
+		const categoryId = asCategoryId(
+			toLegacyCategoryId(item.categoryCode) ?? CATEGORY_CODE_TO_ID.seikatsu,
+		);
 		return {
-			id: SYN_ACTIVITY_ID_BASE + idOffset + idx,
+			id: asActivityId(SYN_ACTIVITY_ID_BASE + idOffset + idx),
 			name: item.name,
 			categoryId,
 			icon: item.icon,
@@ -2868,32 +3241,31 @@ function convertMarketplaceActivitiesToDomain(
 
 // ── Per-child preset mapping (A-4 §3 spec) ────────────────────
 
-const ACTIVITY_PACKS_BY_CHILD: Record<number, string[]> = {
+const ACTIVITY_PACKS_BY_CHILD: Record<string, string[]> = {
 	902: ['kinder-starter'],
 	903: ['elementary-boy'],
 	904: ['junior-girl'],
 	906: ['senior-boy'],
 };
 
-const REWARD_SETS_BY_CHILD: Record<number, string[]> = {
+const REWARD_SETS_BY_CHILD: Record<string, string[]> = {
 	902: ['kinder-rewards'],
 	903: ['elementary-rewards'],
 	904: ['junior-rewards'],
 	906: ['senior-rewards'],
 };
 
-const CHECKLISTS_BY_CHILD: Record<number, string[]> = {
+const CHECKLISTS_BY_CHILD: Record<string, string[]> = {
 	903: ['event-pool'],
 	904: ['event-school-start'],
 };
 
 // ── Module-load factory builders ──────────────────────────────
 
-const MARKETPLACE_ACTIVITIES_BY_CHILD: Record<number, Activity[]> = (() => {
-	const map: Record<number, Activity[]> = {};
+const MARKETPLACE_ACTIVITIES_BY_CHILD: Record<string, Activity[]> = (() => {
+	const map: Record<string, Activity[]> = {};
 	let idOffset = 0;
-	for (const [childIdStr, packIds] of Object.entries(ACTIVITY_PACKS_BY_CHILD)) {
-		const childId = Number(childIdStr);
+	for (const [childId, packIds] of Object.entries(ACTIVITY_PACKS_BY_CHILD)) {
 		const collected: Activity[] = [];
 		for (const packId of packIds) {
 			const pack = getMarketplaceItem('activity-pack', packId);
@@ -2909,15 +3281,14 @@ const MARKETPLACE_ACTIVITIES_BY_CHILD: Record<number, Activity[]> = (() => {
 })();
 
 const MARKETPLACE_REWARD_TEMPLATES_BY_CHILD: Record<
-	number,
+	string,
 	Array<{ title: string; points: number; icon: string; category: RewardCategory }>
 > = (() => {
 	const map: Record<
-		number,
+		string,
 		Array<{ title: string; points: number; icon: string; category: RewardCategory }>
 	> = {};
-	for (const [childIdStr, setIds] of Object.entries(REWARD_SETS_BY_CHILD)) {
-		const childId = Number(childIdStr);
+	for (const [childId, setIds] of Object.entries(REWARD_SETS_BY_CHILD)) {
 		const collected: Array<{
 			title: string;
 			points: number;
@@ -2944,20 +3315,19 @@ const MARKETPLACE_REWARD_TEMPLATES_BY_CHILD: Record<
 
 // #2362 PR-5 (ADR-0055): family master 化 — legacy 形 fixture を生成。
 // `DemoLegacyChecklistTemplate` で childId 列を許容し、demo-repo.ts で family scope view に変換。
-const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<number, DemoLegacyChecklistTemplate[]> =
+const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<string, DemoLegacyChecklistTemplate[]> =
 	(() => {
-		const map: Record<number, DemoLegacyChecklistTemplate[]> = {};
+		const map: Record<string, DemoLegacyChecklistTemplate[]> = {};
 		let tplIdOffset = 0;
-		for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
-			const childId = Number(childIdStr);
+		for (const [childId, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
 			const collected: DemoLegacyChecklistTemplate[] = [];
 			for (const listId of listIds) {
 				const item = getMarketplaceItem('checklist', listId);
 				if (!item) continue;
 				collected.push({
-					id: SYN_TEMPLATE_ID_BASE + tplIdOffset,
+					id: String(SYN_TEMPLATE_ID_BASE + tplIdOffset),
 					tenantId: 'demo',
-					childId,
+					childId: asChildId(childId),
 					name: item.name,
 					icon: item.icon,
 					pointsPerItem: 2,
@@ -2977,11 +3347,10 @@ const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<number, DemoLegacyCheckli
 		return map;
 	})();
 
-const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateItem[]> = (() => {
-	const map: Record<number, ChecklistTemplateItem[]> = {};
+const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<string, ChecklistTemplateItem[]> = (() => {
+	const map: Record<string, ChecklistTemplateItem[]> = {};
 	let itemIdOffset = 0;
-	for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
-		const childId = Number(childIdStr);
+	for (const [childId, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
 		const templates = MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD[childId] ?? [];
 		for (let i = 0; i < listIds.length; i++) {
 			const listId = listIds[i];
@@ -2991,7 +3360,7 @@ const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateI
 			if (!item) continue;
 			const payload = item.payload as ChecklistPayload;
 			map[template.id] = payload.items.map((it, idx) => ({
-				id: SYN_TEMPLATE_ITEM_ID_BASE + itemIdOffset + idx,
+				id: String(SYN_TEMPLATE_ITEM_ID_BASE + itemIdOffset + idx),
 				templateId: template.id,
 				name: it.label,
 				icon: it.icon,
@@ -3015,17 +3384,16 @@ const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateI
 // - idx 0 (最新): **未表示** (shownAt = null) — `findUnshownReward` で取得され
 //   子供ホームで `SpecialRewardOverlay` (おうかん演出 / 達成プレゼント modal) を発火させる (B-5a)
 // - idx 1-4 (古い): 既表示 (shownAt 設定済み) — child shop 棚の履歴として表示される
-const MARKETPLACE_SPECIAL_REWARDS_BY_CHILD: Record<number, SpecialReward[]> = (() => {
-	const map: Record<number, SpecialReward[]> = {};
+const MARKETPLACE_SPECIAL_REWARDS_BY_CHILD: Record<string, SpecialReward[]> = (() => {
+	const map: Record<string, SpecialReward[]> = {};
 	let idOffset = 0;
-	for (const [childIdStr, templates] of Object.entries(MARKETPLACE_REWARD_TEMPLATES_BY_CHILD)) {
-		const childId = Number(childIdStr);
+	for (const [childId, templates] of Object.entries(MARKETPLACE_REWARD_TEMPLATES_BY_CHILD)) {
 		const presetId = REWARD_SETS_BY_CHILD[childId]?.[0] ?? null;
 		// 上位 5 件を pre-granted として配置（child shop で「いくつか並んだ棚」を再現 + 1 件未表示）
 		const top5 = templates.slice(0, 5);
 		map[childId] = top5.map((tpl, idx) => ({
-			id: SYN_SPECIAL_REWARD_ID_BASE + idOffset + idx,
-			childId,
+			id: String(SYN_SPECIAL_REWARD_ID_BASE + idOffset + idx),
+			childId: asChildId(childId),
 			grantedBy: null,
 			title: tpl.title,
 			description: null,
@@ -3067,12 +3435,12 @@ export const DEMO_MARKETPLACE_SPECIAL_REWARDS: SpecialReward[] = Object.values(
 
 // ── Per-child getter API ──────────────────────────────────────
 
-export function getDemoMarketplaceActivitiesByChild(childId: number): Activity[] {
+export function getDemoMarketplaceActivitiesByChild(childId: ChildId): Activity[] {
 	return MARKETPLACE_ACTIVITIES_BY_CHILD[childId] ?? [];
 }
 
 export function getDemoMarketplaceRewardTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 ): Array<{ title: string; points: number; icon: string; category: RewardCategory }> {
 	return MARKETPLACE_REWARD_TEMPLATES_BY_CHILD[childId] ?? [];
 }
@@ -3106,18 +3474,18 @@ export function getDemoMarketplaceRewardTemplatesForTenant(): Array<{
 }
 
 export function getDemoMarketplaceChecklistTemplatesByChild(
-	childId: number,
+	childId: ChildId,
 ): DemoLegacyChecklistTemplate[] {
 	return MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD[childId] ?? [];
 }
 
 export function getDemoMarketplaceChecklistItemsByTemplate(
-	templateId: number,
+	templateId: string,
 ): ChecklistTemplateItem[] {
 	return MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE[templateId] ?? [];
 }
 
-export function getDemoMarketplaceSpecialRewardsByChild(childId: number): SpecialReward[] {
+export function getDemoMarketplaceSpecialRewardsByChild(childId: ChildId): SpecialReward[] {
 	return MARKETPLACE_SPECIAL_REWARDS_BY_CHILD[childId] ?? [];
 }
 
@@ -3150,8 +3518,8 @@ const PREV_WEEK_END = '2026-03-22';
 export const DEMO_STAMP_CARDS: StampCard[] = [
 	// 902 ひなちゃん (preschool) — 当週 2 枚 (月火)
 	{
-		id: 702,
-		childId: 902,
+		id: '702',
+		childId: asChildId(902),
 		weekStart: CURRENT_WEEK_START,
 		weekEnd: CURRENT_WEEK_END,
 		status: 'collecting',
@@ -3161,8 +3529,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 		updatedAt: daysAgoISO(3),
 	},
 	{
-		id: 802,
-		childId: 902,
+		id: '802',
+		childId: asChildId(902),
 		weekStart: PREV_WEEK_START,
 		weekEnd: PREV_WEEK_END,
 		status: 'redeemed',
@@ -3173,8 +3541,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 	},
 	// 903 けんたくん (elementary) — 当週 3 枚 (月火水)
 	{
-		id: 703,
-		childId: 903,
+		id: '703',
+		childId: asChildId(903),
 		weekStart: CURRENT_WEEK_START,
 		weekEnd: CURRENT_WEEK_END,
 		status: 'collecting',
@@ -3184,8 +3552,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 		updatedAt: daysAgoISO(2),
 	},
 	{
-		id: 803,
-		childId: 903,
+		id: '803',
+		childId: asChildId(903),
 		weekStart: PREV_WEEK_START,
 		weekEnd: PREV_WEEK_END,
 		status: 'redeemed',
@@ -3196,8 +3564,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 	},
 	// 904 さくらちゃん (junior) — 当週 4 枚 (月火水木)
 	{
-		id: 704,
-		childId: 904,
+		id: '704',
+		childId: asChildId(904),
 		weekStart: CURRENT_WEEK_START,
 		weekEnd: CURRENT_WEEK_END,
 		status: 'collecting',
@@ -3207,8 +3575,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 		updatedAt: daysAgoISO(1),
 	},
 	{
-		id: 804,
-		childId: 904,
+		id: '804',
+		childId: asChildId(904),
 		weekStart: PREV_WEEK_START,
 		weekEnd: PREV_WEEK_END,
 		status: 'redeemed',
@@ -3219,8 +3587,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 	},
 	// 906 けいすけくん (senior) — 当週 4 枚 (月火水木)
 	{
-		id: 706,
-		childId: 906,
+		id: '706',
+		childId: asChildId(906),
 		weekStart: CURRENT_WEEK_START,
 		weekEnd: CURRENT_WEEK_END,
 		status: 'collecting',
@@ -3230,8 +3598,8 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 		updatedAt: daysAgoISO(1),
 	},
 	{
-		id: 806,
-		childId: 906,
+		id: '806',
+		childId: asChildId(906),
 		weekStart: PREV_WEEK_START,
 		weekEnd: PREV_WEEK_END,
 		status: 'redeemed',
@@ -3259,18 +3627,18 @@ function prevWeekDate(slot: number): string {
 export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	// === 902 ひな 当週 (cardId=702) — slot 1-2, masters 1(N)+3(N) ===
 	{
-		id: 7021,
-		cardId: 702,
-		stampMasterId: 1,
+		id: '7021',
+		cardId: '702',
+		stampMasterId: '1',
 		omikujiRank: 'sho-kichi',
 		slot: 1,
 		loginDate: currentWeekDate(1),
 		earnedAt: daysAgoISO(4),
 	},
 	{
-		id: 7022,
-		cardId: 702,
-		stampMasterId: 3,
+		id: '7022',
+		cardId: '702',
+		stampMasterId: '3',
 		omikujiRank: 'kichi',
 		slot: 2,
 		loginDate: currentWeekDate(2),
@@ -3278,45 +3646,45 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 902 ひな 前週 (cardId=802) — 5/5 完了, N×3 + R×1 + SR×1 ===
 	{
-		id: 8021,
-		cardId: 802,
-		stampMasterId: 1,
+		id: '8021',
+		cardId: '802',
+		stampMasterId: '1',
 		omikujiRank: 'sho-kichi',
 		slot: 1,
 		loginDate: prevWeekDate(1),
 		earnedAt: daysAgoISO(11),
 	},
 	{
-		id: 8022,
-		cardId: 802,
-		stampMasterId: 4,
+		id: '8022',
+		cardId: '802',
+		stampMasterId: '4',
 		omikujiRank: 'sho-kichi',
 		slot: 2,
 		loginDate: prevWeekDate(2),
 		earnedAt: daysAgoISO(10),
 	},
 	{
-		id: 8023,
-		cardId: 802,
-		stampMasterId: 5,
+		id: '8023',
+		cardId: '802',
+		stampMasterId: '5',
 		omikujiRank: 'kichi',
 		slot: 3,
 		loginDate: prevWeekDate(3),
 		earnedAt: daysAgoISO(9),
 	},
 	{
-		id: 8024,
-		cardId: 802,
-		stampMasterId: 9,
+		id: '8024',
+		cardId: '802',
+		stampMasterId: '9',
 		omikujiRank: 'chu-kichi',
 		slot: 4,
 		loginDate: prevWeekDate(4),
 		earnedAt: daysAgoISO(8),
 	},
 	{
-		id: 8025,
-		cardId: 802,
-		stampMasterId: 12,
+		id: '8025',
+		cardId: '802',
+		stampMasterId: '12',
 		omikujiRank: 'dai-kichi',
 		slot: 5,
 		loginDate: prevWeekDate(5),
@@ -3324,27 +3692,27 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 903 けんた 当週 (cardId=703) — 3 個, N+N+R ===
 	{
-		id: 7031,
-		cardId: 703,
-		stampMasterId: 2,
+		id: '7031',
+		cardId: '703',
+		stampMasterId: '2',
 		omikujiRank: 'sho-kichi',
 		slot: 1,
 		loginDate: currentWeekDate(1),
 		earnedAt: daysAgoISO(4),
 	},
 	{
-		id: 7032,
-		cardId: 703,
-		stampMasterId: 5,
+		id: '7032',
+		cardId: '703',
+		stampMasterId: '5',
 		omikujiRank: 'kichi',
 		slot: 2,
 		loginDate: currentWeekDate(2),
 		earnedAt: daysAgoISO(3),
 	},
 	{
-		id: 7033,
-		cardId: 703,
-		stampMasterId: 8,
+		id: '7033',
+		cardId: '703',
+		stampMasterId: '8',
 		omikujiRank: 'chu-kichi',
 		slot: 3,
 		loginDate: currentWeekDate(3),
@@ -3352,45 +3720,45 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 903 けんた 前週 (cardId=803) — 5/5 完了, N×2 + R×2 + SR×1 ===
 	{
-		id: 8031,
-		cardId: 803,
-		stampMasterId: 1,
+		id: '8031',
+		cardId: '803',
+		stampMasterId: '1',
 		omikujiRank: 'sho-kichi',
 		slot: 1,
 		loginDate: prevWeekDate(1),
 		earnedAt: daysAgoISO(11),
 	},
 	{
-		id: 8032,
-		cardId: 803,
-		stampMasterId: 5,
+		id: '8032',
+		cardId: '803',
+		stampMasterId: '5',
 		omikujiRank: 'kichi',
 		slot: 2,
 		loginDate: prevWeekDate(2),
 		earnedAt: daysAgoISO(10),
 	},
 	{
-		id: 8033,
-		cardId: 803,
-		stampMasterId: 6,
+		id: '8033',
+		cardId: '803',
+		stampMasterId: '6',
 		omikujiRank: 'chu-kichi',
 		slot: 3,
 		loginDate: prevWeekDate(3),
 		earnedAt: daysAgoISO(9),
 	},
 	{
-		id: 8034,
-		cardId: 803,
-		stampMasterId: 7,
+		id: '8034',
+		cardId: '803',
+		stampMasterId: '7',
 		omikujiRank: 'chu-kichi',
 		slot: 4,
 		loginDate: prevWeekDate(4),
 		earnedAt: daysAgoISO(8),
 	},
 	{
-		id: 8035,
-		cardId: 803,
-		stampMasterId: 13,
+		id: '8035',
+		cardId: '803',
+		stampMasterId: '13',
 		omikujiRank: 'dai-kichi',
 		slot: 5,
 		loginDate: prevWeekDate(5),
@@ -3398,36 +3766,36 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 904 さくら 当週 (cardId=704) — 4 個, N+R+SR+R ===
 	{
-		id: 7041,
-		cardId: 704,
-		stampMasterId: 3,
+		id: '7041',
+		cardId: '704',
+		stampMasterId: '3',
 		omikujiRank: 'sho-kichi',
 		slot: 1,
 		loginDate: currentWeekDate(1),
 		earnedAt: daysAgoISO(4),
 	},
 	{
-		id: 7042,
-		cardId: 704,
-		stampMasterId: 8,
+		id: '7042',
+		cardId: '704',
+		stampMasterId: '8',
 		omikujiRank: 'chu-kichi',
 		slot: 2,
 		loginDate: currentWeekDate(2),
 		earnedAt: daysAgoISO(3),
 	},
 	{
-		id: 7043,
-		cardId: 704,
-		stampMasterId: 11,
+		id: '7043',
+		cardId: '704',
+		stampMasterId: '11',
 		omikujiRank: 'dai-kichi',
 		slot: 3,
 		loginDate: currentWeekDate(3),
 		earnedAt: daysAgoISO(2),
 	},
 	{
-		id: 7044,
-		cardId: 704,
-		stampMasterId: 9,
+		id: '7044',
+		cardId: '704',
+		stampMasterId: '9',
 		omikujiRank: 'chu-kichi',
 		slot: 4,
 		loginDate: currentWeekDate(4),
@@ -3435,45 +3803,45 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 904 さくら 前週 (cardId=804) — 5/5 完了, R×2 + SR×2 + UR×1 ===
 	{
-		id: 8041,
-		cardId: 804,
-		stampMasterId: 6,
+		id: '8041',
+		cardId: '804',
+		stampMasterId: '6',
 		omikujiRank: 'chu-kichi',
 		slot: 1,
 		loginDate: prevWeekDate(1),
 		earnedAt: daysAgoISO(11),
 	},
 	{
-		id: 8042,
-		cardId: 804,
-		stampMasterId: 10,
+		id: '8042',
+		cardId: '804',
+		stampMasterId: '10',
 		omikujiRank: 'chu-kichi',
 		slot: 2,
 		loginDate: prevWeekDate(2),
 		earnedAt: daysAgoISO(10),
 	},
 	{
-		id: 8043,
-		cardId: 804,
-		stampMasterId: 11,
+		id: '8043',
+		cardId: '804',
+		stampMasterId: '11',
 		omikujiRank: 'dai-kichi',
 		slot: 3,
 		loginDate: prevWeekDate(3),
 		earnedAt: daysAgoISO(9),
 	},
 	{
-		id: 8044,
-		cardId: 804,
-		stampMasterId: 14,
+		id: '8044',
+		cardId: '804',
+		stampMasterId: '14',
 		omikujiRank: 'dai-kichi',
 		slot: 4,
 		loginDate: prevWeekDate(4),
 		earnedAt: daysAgoISO(8),
 	},
 	{
-		id: 8045,
-		cardId: 804,
-		stampMasterId: 16,
+		id: '8045',
+		cardId: '804',
+		stampMasterId: '16',
 		omikujiRank: 'dai-kichi',
 		slot: 5,
 		loginDate: prevWeekDate(5),
@@ -3481,36 +3849,36 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 906 けいすけ 当週 (cardId=706) — 4 個, R+SR+R+SR ===
 	{
-		id: 7061,
-		cardId: 706,
-		stampMasterId: 7,
+		id: '7061',
+		cardId: '706',
+		stampMasterId: '7',
 		omikujiRank: 'chu-kichi',
 		slot: 1,
 		loginDate: currentWeekDate(1),
 		earnedAt: daysAgoISO(4),
 	},
 	{
-		id: 7062,
-		cardId: 706,
-		stampMasterId: 12,
+		id: '7062',
+		cardId: '706',
+		stampMasterId: '12',
 		omikujiRank: 'dai-kichi',
 		slot: 2,
 		loginDate: currentWeekDate(2),
 		earnedAt: daysAgoISO(3),
 	},
 	{
-		id: 7063,
-		cardId: 706,
-		stampMasterId: 10,
+		id: '7063',
+		cardId: '706',
+		stampMasterId: '10',
 		omikujiRank: 'chu-kichi',
 		slot: 3,
 		loginDate: currentWeekDate(3),
 		earnedAt: daysAgoISO(2),
 	},
 	{
-		id: 7064,
-		cardId: 706,
-		stampMasterId: 13,
+		id: '7064',
+		cardId: '706',
+		stampMasterId: '13',
 		omikujiRank: 'dai-kichi',
 		slot: 4,
 		loginDate: currentWeekDate(4),
@@ -3518,45 +3886,45 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 	},
 	// === 906 けいすけ 前週 (cardId=806) — 5/5 完了, R×1 + SR×2 + UR×2 ===
 	{
-		id: 8061,
-		cardId: 806,
-		stampMasterId: 8,
+		id: '8061',
+		cardId: '806',
+		stampMasterId: '8',
 		omikujiRank: 'chu-kichi',
 		slot: 1,
 		loginDate: prevWeekDate(1),
 		earnedAt: daysAgoISO(11),
 	},
 	{
-		id: 8062,
-		cardId: 806,
-		stampMasterId: 12,
+		id: '8062',
+		cardId: '806',
+		stampMasterId: '12',
 		omikujiRank: 'dai-kichi',
 		slot: 2,
 		loginDate: prevWeekDate(2),
 		earnedAt: daysAgoISO(10),
 	},
 	{
-		id: 8063,
-		cardId: 806,
-		stampMasterId: 14,
+		id: '8063',
+		cardId: '806',
+		stampMasterId: '14',
 		omikujiRank: 'dai-kichi',
 		slot: 3,
 		loginDate: prevWeekDate(3),
 		earnedAt: daysAgoISO(9),
 	},
 	{
-		id: 8064,
-		cardId: 806,
-		stampMasterId: 15,
+		id: '8064',
+		cardId: '806',
+		stampMasterId: '15',
 		omikujiRank: 'dai-kichi',
 		slot: 4,
 		loginDate: prevWeekDate(4),
 		earnedAt: daysAgoISO(8),
 	},
 	{
-		id: 8065,
-		cardId: 806,
-		stampMasterId: 16,
+		id: '8065',
+		cardId: '806',
+		stampMasterId: '16',
 		omikujiRank: 'dai-kichi',
 		slot: 5,
 		loginDate: prevWeekDate(5),
@@ -3579,9 +3947,9 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 export const DEMO_CERTIFICATES: Certificate[] = [
 	// 902 ひな (preschool F, Level 4) — 1 件: 7 日連続
 	{
-		id: 9021,
+		id: '9021',
 		tenantId: DEMO_TENANT_ID,
-		childId: 902,
+		childId: asChildId(902),
 		certificateType: 'streak_7',
 		title: 'れんぞく7にちのぼうけんしゃ',
 		description: '7にちれんぞくで がんばりました！',
@@ -3590,9 +3958,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 	},
 	// 903 けんた (elementary M, Level 7) — 4 件: streak 14 / level 5 / 2026-02 月間 / 運動マスター
 	{
-		id: 9031,
+		id: '9031',
 		tenantId: DEMO_TENANT_ID,
-		childId: 903,
+		childId: asChildId(903),
 		certificateType: 'streak_14',
 		title: 'れんぞく14にちのぼうけんしゃ',
 		description: '14にちれんぞくで がんばりました！',
@@ -3600,9 +3968,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 		issuedAt: daysAgoISO(40),
 	},
 	{
-		id: 9032,
+		id: '9032',
 		tenantId: DEMO_TENANT_ID,
-		childId: 903,
+		childId: asChildId(903),
 		certificateType: 'level_5',
 		title: 'レベル5とうたつ！',
 		description: 'レベル5に たっせいしました！',
@@ -3610,9 +3978,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 		issuedAt: daysAgoISO(60),
 	},
 	{
-		id: 9033,
+		id: '9033',
 		tenantId: DEMO_TENANT_ID,
-		childId: 903,
+		childId: asChildId(903),
 		certificateType: 'monthly_2026-02',
 		title: '2026ねん2がつの がんばりしょうめいしょ',
 		description: '2026ねん2がつ にがんばりました！',
@@ -3620,9 +3988,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 		issuedAt: daysAgoISO(25),
 	},
 	{
-		id: 9034,
+		id: '9034',
 		tenantId: DEMO_TENANT_ID,
-		childId: 903,
+		childId: asChildId(903),
 		certificateType: 'category_master_1',
 		title: 'うんどうマスター',
 		description: 'うんどうカテゴリで たくさんがんばりました！',
@@ -3631,9 +3999,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 	},
 	// 904 さくら (junior F, Level 15+) — 1 件: Lv.10
 	{
-		id: 9041,
+		id: '9041',
 		tenantId: DEMO_TENANT_ID,
-		childId: 904,
+		childId: asChildId(904),
 		certificateType: 'level_10',
 		title: 'レベル10とうたつ！',
 		description: 'レベル10に たっせいしました！',
@@ -3642,9 +4010,9 @@ export const DEMO_CERTIFICATES: Certificate[] = [
 	},
 	// 906 けいすけ (senior M, Level 20+) — 1 件: 2025年度総括
 	{
-		id: 9061,
+		id: '9061',
 		tenantId: DEMO_TENANT_ID,
-		childId: 906,
+		childId: asChildId(906),
 		certificateType: 'annual_2025',
 		title: '2025ねんどの がんばりしょうめいしょ',
 		description: '2025ねんどに たくさんがんばりました！',
@@ -3664,19 +4032,19 @@ export function getDemoActivitiesForChild(childAge: number): Activity[] {
 	);
 }
 
-export function getDemoLogsForChild(childId: number): ActivityLog[] {
+export function getDemoLogsForChild(childId: ChildId): ActivityLog[] {
 	return DEMO_ACTIVITY_LOGS.filter((l) => l.childId === childId);
 }
 
-export function getDemoStatusesForChild(childId: number): Status[] {
+export function getDemoStatusesForChild(childId: ChildId): Status[] {
 	return DEMO_STATUSES.filter((s) => s.childId === childId);
 }
 
-export function getDemoMissionsForChild(childId: number): DailyMission[] {
+export function getDemoMissionsForChild(childId: ChildId): DailyMission[] {
 	return DEMO_DAILY_MISSIONS.filter((m) => m.childId === childId);
 }
 
-export function getDemoChecklistsForChild(childId: number): {
+export function getDemoChecklistsForChild(childId: ChildId): {
 	templates: DemoLegacyChecklistTemplate[];
 	items: ChecklistTemplateItem[];
 } {
@@ -3688,7 +4056,7 @@ export function getDemoChecklistsForChild(childId: number): {
 	return { templates, items };
 }
 
-export function getDemoPointBalance(childId: number): number {
+export function getDemoPointBalance(childId: ChildId): number {
 	return DEMO_POINT_BALANCES[childId] ?? 0;
 }
 

@@ -4,6 +4,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { ComputeStack } from '../lib/compute-stack';
+import { DsqlStack } from '../lib/dsql-stack';
 import { STAGING_ENV_CONFIG } from '../lib/env-config';
 import { NetworkStack } from '../lib/network-stack';
 import { OpsStack } from '../lib/ops-stack';
@@ -108,6 +109,33 @@ new OpsStack(app, `${appName}Ops`, {
 	opsEmail,
 	discordWebhookHealth,
 });
+
+// --- DSQL stack (EPIC #3424 M4-E item 12 / #3429 #3431 #3432) ---
+// `-c dsqlEnabled=true` 時のみ instantiate する context gate。DSQL クラスタの本番作成 /
+// cutover は M5 のユーザー承認事項 (Auto Mode ガイドライン: 本番デプロイ / DB スキーマ変更は
+// 確認必須) のため、既定の `cdk deploy --all` では合成されない。
+const dsqlEnabled = String(app.node.tryGetContext('dsqlEnabled')) === 'true';
+if (dsqlEnabled) {
+	new DsqlStack(app, `${appName}Dsql`, {
+		env,
+		description: 'Aurora DSQL cluster + cost guardrail + observability (EPIC #3424)',
+		opsEmail,
+	});
+}
+
+// --- DSQL staging cluster (EPIC #3424 M5 DoD4 / #3429) ---
+// `-c dsqlStagingEnabled=true` 時のみ instantiate。deploy-aws-staging.yml の dsql opt-in lane が
+// deploy し、staging Lambda (DATA_SOURCE=dsql) の接続先 + schema provisioning (dsql:migrate) の
+// 対象になる。staging は捨てて作り直す前提のため deletion protection を外す (本番 Dsql は DP=true
+// 既定のまま)。alarm/Budgets subscription は本番系に限定 (opsEmail 非注入 = 通知ノイズ防止)。
+const dsqlStagingEnabled = String(app.node.tryGetContext('dsqlStagingEnabled')) === 'true';
+if (dsqlStagingEnabled) {
+	new DsqlStack(app, `${appName}DsqlStaging`, {
+		env,
+		description: 'Aurora DSQL staging cluster (EPIC #3424 M5 DoD4、PDCA 用・DP なし)',
+		deletionProtection: false,
+	});
+}
 
 // --- AWS staging 3 stack (#2873 / EPIC #2861 D 系) ---
 // `-c stagingEnabled=true` 時のみ instantiate する context gate。

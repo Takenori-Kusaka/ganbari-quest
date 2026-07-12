@@ -2,6 +2,7 @@
 // setup-funnel-service ユニットテスト — セットアップファネル計測
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const mockLoggerInfo = vi.fn();
 
@@ -101,7 +102,7 @@ describe('setup-funnel-service', () => {
 		it('setup_rewards_selected が context つきで記録される', () => {
 			trackSetupFunnel('setup_rewards_selected', 'tenant-mp5', {
 				itemCount: 2,
-				childId: 100,
+				childId: asChildId(100),
 				imported: 12,
 			});
 
@@ -111,7 +112,7 @@ describe('setup-funnel-service', () => {
 			expect(meta.context).toEqual({
 				event: 'setup_rewards_selected',
 				itemCount: 2,
-				childId: 100,
+				childId: asChildId(100),
 				imported: 12,
 			});
 		});

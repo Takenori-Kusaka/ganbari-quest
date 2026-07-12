@@ -155,7 +155,7 @@ describe('findLatestByTenant', () => {
 		const { findLatestByTenant } = await loadRepo();
 		const row = await findLatestByTenant(TENANT);
 
-		expect(row?.id).toBe(9);
+		expect(row?.id).toBe('9');
 		expect(row?.source).toBe('admin_grant');
 		expect(row?.tenantId).toBe(TENANT);
 
@@ -252,7 +252,7 @@ describe('updateConversion', () => {
 
 		const { updateConversion } = await loadRepo();
 		await updateConversion({
-			id: 7,
+			id: '7',
 			tenantId: TENANT,
 			stripeSubscriptionId: 'sub_abc',
 			upgradeReason: 'auto',
@@ -288,7 +288,7 @@ describe('updateConversion', () => {
 		const { updateConversion } = await loadRepo();
 		await expect(
 			updateConversion({
-				id: 99,
+				id: '99',
 				tenantId: TENANT,
 				stripeSubscriptionId: 'sub_x',
 				upgradeReason: 'manual',
@@ -305,7 +305,7 @@ describe('updateConversion', () => {
 		const { updateConversion } = await loadRepo();
 		await expect(
 			updateConversion({
-				id: 1,
+				id: '1',
 				tenantId: TENANT,
 				stripeSubscriptionId: 'sub_y',
 				upgradeReason: 'email_cta',
@@ -317,13 +317,13 @@ describe('updateConversion', () => {
 		mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
 		const { updateConversion } = await loadRepo();
 		await updateConversion({
-			id: 7,
+			id: '7',
 			tenantId: 'tenant-A',
 			stripeSubscriptionId: 'sub_a',
 			upgradeReason: 'auto',
 		});
 		await updateConversion({
-			id: 7,
+			id: '7',
 			tenantId: 'tenant-B',
 			stripeSubscriptionId: 'sub_b',
 			upgradeReason: 'auto',
@@ -411,7 +411,7 @@ describe('interface 適合 (ITrialHistoryRepo)', () => {
 		const { findLatestByTenant } = await loadRepo();
 		const row = await findLatestByTenant(TENANT);
 		// stub なら常に undefined だった。本実装は Query item を返す。
-		expect(row?.id).toBe(5);
+		expect(row?.id).toBe('5');
 		expect(mockSend).toHaveBeenCalled();
 	});
 });

@@ -70,6 +70,76 @@ const { Story } = defineMeta({
 	{/snippet}
 </Story>
 
+<!--
+  QuotaReached: quota 上限到達 (current >= max) で disabled + popover (§10.2.2)。
+  tier ではなく quota で開閉判定する。
+-->
+<Story
+	name="QuotaReached"
+	args={{
+		currentTier: 'free',
+		requiredTier: 'standard',
+		display: 'inline',
+		buttonLabel: L.buttonLabel,
+		quota: { allowed: false, current: 3, max: 3 },
+	}}
+	play={async () => {
+		const trigger = await waitFor(() => screen.getByTestId('feature-gate-locked-trigger'));
+		await userEvent.click(trigger);
+		const popover = await waitFor(() => screen.getByTestId('feature-gate-popover'));
+		await expect(popover).toBeVisible();
+	}}
+>
+	{#snippet children()}
+		<span>{L.unlockedContent}</span>
+	{/snippet}
+</Story>
+
+<!--
+  QuotaAvailable: 上限未到達 (current < max) は操作可 = children をそのまま描画 (gate なし)。
+-->
+<Story
+	name="QuotaAvailable"
+	args={{
+		currentTier: 'free',
+		requiredTier: 'standard',
+		display: 'inline',
+		buttonLabel: L.buttonLabel,
+		quota: { allowed: true, current: 1, max: 3 },
+	}}
+	play={async () => {
+		// gate 痕跡 (locked trigger) は出ず、children が見える
+		await expect(screen.queryByTestId('feature-gate-locked-trigger')).toBeNull();
+		await expect(screen.getByText(L.unlockedContent)).toBeVisible();
+	}}
+>
+	{#snippet children()}
+		<span>{L.unlockedContent}</span>
+	{/snippet}
+</Story>
+
+<!--
+  QuotaUnlimited: max===null (無制限プラン) はゲート痕跡を一切描画しない (§10.2.2)。
+-->
+<Story
+	name="QuotaUnlimited"
+	args={{
+		currentTier: 'family',
+		requiredTier: 'standard',
+		display: 'inline',
+		buttonLabel: L.buttonLabel,
+		quota: { allowed: true, current: 8, max: null },
+	}}
+	play={async () => {
+		await expect(screen.queryByTestId('feature-gate-locked-trigger')).toBeNull();
+		await expect(screen.getByText(L.unlockedContent)).toBeVisible();
+	}}
+>
+	{#snippet children()}
+		<span>{L.unlockedContent}</span>
+	{/snippet}
+</Story>
+
 <style>
 	:global(.sb-story) {
 		min-height: 300px;

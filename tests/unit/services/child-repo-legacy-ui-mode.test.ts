@@ -1,3 +1,4 @@
+import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/child-repo-legacy-ui-mode.test.ts
 // #571: SQLite child-repo が旧 ui_mode コード（kinder/lower/upper/teen）を
 // 自動正規化することを検証する。
@@ -64,7 +65,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('findChildById: ui_mode=kinder を preschool に正規化する', async () => {
 		insertPoisonedChild({ id: 1, nickname: 'たろう', age: 5, uiMode: 'kinder' });
 
-		const child = await findChildById(1, 'tenant');
+		const child = await findChildById(asChildId(1), 'tenant');
 
 		expect(child).toBeDefined();
 		expect(child?.uiMode).toBe('preschool');
@@ -73,7 +74,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('findChildById: ui_mode=lower を elementary に正規化する', async () => {
 		insertPoisonedChild({ id: 2, nickname: 'はなこ', age: 9, uiMode: 'lower' });
 
-		const child = await findChildById(2, 'tenant');
+		const child = await findChildById(asChildId(2), 'tenant');
 
 		expect(child?.uiMode).toBe('elementary');
 	});
@@ -81,7 +82,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('findChildById: ui_mode=upper を junior に正規化する', async () => {
 		insertPoisonedChild({ id: 3, nickname: 'けんた', age: 14, uiMode: 'upper' });
 
-		const child = await findChildById(3, 'tenant');
+		const child = await findChildById(asChildId(3), 'tenant');
 
 		expect(child?.uiMode).toBe('junior');
 	});
@@ -89,7 +90,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('findChildById: ui_mode=teen を senior に正規化する', async () => {
 		insertPoisonedChild({ id: 4, nickname: 'みき', age: 17, uiMode: 'teen' });
 
-		const child = await findChildById(4, 'tenant');
+		const child = await findChildById(asChildId(4), 'tenant');
 
 		expect(child?.uiMode).toBe('senior');
 	});
@@ -97,7 +98,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('findChildById: 正規化後の値を DB に書き戻す', async () => {
 		insertPoisonedChild({ id: 5, nickname: 'たろう', age: 5, uiMode: 'kinder' });
 
-		await findChildById(5, 'tenant');
+		await findChildById(asChildId(5), 'tenant');
 
 		const raw = sqlite.prepare('SELECT ui_mode FROM children WHERE id = ?').get(5) as {
 			ui_mode: string;
@@ -113,9 +114,9 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 		const all = await findAllChildren('tenant');
 
 		const map = new Map(all.map((c) => [c.id, c.uiMode]));
-		expect(map.get(1)).toBe('preschool');
-		expect(map.get(2)).toBe('elementary');
-		expect(map.get(3)).toBe('junior');
+		expect(map.get(asChildId(1))).toBe('preschool');
+		expect(map.get(asChildId(2))).toBe('elementary');
+		expect(map.get(asChildId(3))).toBe('junior');
 	});
 
 	it('findChildByUserId: 旧コードを正規化する', async () => {
@@ -135,7 +136,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	it('既に新コード (preschool) の行は変更しない', async () => {
 		insertPoisonedChild({ id: 20, nickname: 'みなと', age: 4, uiMode: 'preschool' });
 
-		const child = await findChildById(20, 'tenant');
+		const child = await findChildById(asChildId(20), 'tenant');
 
 		expect(child?.uiMode).toBe('preschool');
 		const raw = sqlite.prepare('SELECT ui_mode FROM children WHERE id = ?').get(20) as {
@@ -145,7 +146,7 @@ describe('#571 SQLite child-repo: 旧 ui_mode コードの正規化', () => {
 	});
 
 	it('存在しない id では undefined を返す', async () => {
-		const child = await findChildById(999, 'tenant');
+		const child = await findChildById(asChildId(999), 'tenant');
 		expect(child).toBeUndefined();
 	});
 });

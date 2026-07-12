@@ -2,6 +2,7 @@
 // #759 — plan-fixtures ヘルパ自体のユニットテスト
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	makeFamilyContext,
 	makeFreeContext,
@@ -48,10 +49,10 @@ describe('plan-fixtures', () => {
 		});
 
 		it('overrides が反映される', () => {
-			const ctx = makeFreeContext({ tenantId: 't-42', role: 'parent', childId: 7 });
+			const ctx = makeFreeContext({ tenantId: 't-42', role: 'parent', childId: asChildId(7) });
 			expect(ctx.tenantId).toBe('t-42');
 			expect(ctx.role).toBe('parent');
-			expect(ctx.childId).toBe(7);
+			expect(ctx.childId).toBe('7');
 		});
 	});
 

@@ -13,6 +13,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 // ---------- Top-level mocks ----------
 
@@ -51,7 +52,7 @@ import {
 } from '../../../src/lib/server/services/challenge-set-import-service';
 
 const TENANT = 'test-tenant-001';
-const CHILD_IDS = [101, 102] as const;
+const CHILD_IDS = [asChildId(101), asChildId(102)] as const;
 
 interface ChallengeFixture {
 	title: string;
@@ -89,8 +90,8 @@ beforeEach(() => {
 			Promise.resolve(Object.fromEntries(childIds.map((id) => [id, baseTarget]))),
 	);
 	mockFindAllChildren.mockResolvedValue([
-		{ id: 101, age: 5 },
-		{ id: 102, age: 8 },
+		{ id: '101', age: 5 },
+		{ id: '102', age: 8 },
 	]);
 });
 
@@ -281,8 +282,8 @@ describe('importChallengeSet', () => {
 		mockCreateChildChallengesBulk
 			.mockRejectedValueOnce(new Error('DB error'))
 			.mockResolvedValueOnce([
-				{ id: 2, childId: 101 },
-				{ id: 3, childId: 102 },
+				{ id: '2', childId: asChildId(101) },
+				{ id: '3', childId: asChildId(102) },
 			]);
 		const challenges = [
 			makeChallenge({ title: 'failing' }),
@@ -344,8 +345,8 @@ describe('importChallengeSet', () => {
 		// 5 回全てで 5 番目引数 (prefetched) が渡されている
 		for (const call of mockBuildPerChildTargets.mock.calls) {
 			expect(call[4]).toEqual([
-				{ id: 101, age: 5 },
-				{ id: 102, age: 8 },
+				{ id: '101', age: 5 },
+				{ id: '102', age: 8 },
 			]);
 		}
 	});
