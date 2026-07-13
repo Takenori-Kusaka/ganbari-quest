@@ -66,7 +66,8 @@ test.describe('本番環境 - 基本動作', () => {
 		expect(response.status()).toBe(200);
 		const body = await response.json();
 		expect(body.status).toBe('ok');
-		expect(body.dataSource).toBe('dynamodb');
+		// 本番は EPIC #3424 cutover 完遂で恒久 DSQL (deploy.yml が常時 -c dsqlEnabled=true)。
+		expect(body.dataSource).toBe('dsql');
 	});
 
 	test('ログインページが表示される', async ({ page }) => {
