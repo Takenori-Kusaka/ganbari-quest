@@ -75,10 +75,12 @@ describe('PGlite 本番接続層 (#3620 AC-C1、ADR-0064 案 C)', () => {
 		expect(configs).toContain('TimeZone=UTC');
 	});
 
-	// #3620 QM residual #2 (security guardrail): aws-prod (cloud Lambda) では PGlite を開かせない。
+	// #3620 QM residual #2 (security guardrail): AWS Lambda 上では PGlite を開かせない。
 	// DATA_SOURCE=pglite の誤配布で全 tenant が単一 local store に集約され ADR-0063 の tenant 分離が
 	// 消失する config-only blast radius を、PGlite を開く唯一の入口で fail-loud に閉じる。
-	it('[C1-5] aws-prod では initPgliteConnection が throw する (ADR-0063 tenant 分離 guardrail)', async () => {
+	// 判定は生 AWS_LAMBDA_FUNCTION_NAME (AWS ランタイム自動設定、config で偽装不能) —
+	// resolveRuntimeMode 経由だと APP_MODE / IS_NUC_DEPLOY の誤設定で bypass される (adversarial 指摘)。
+	it('[C1-5] AWS Lambda 環境では initPgliteConnection が throw する (ADR-0063 tenant 分離 guardrail)', async () => {
 		const prev = process.env.AWS_LAMBDA_FUNCTION_NAME;
 		const restoreEnv = () => {
 			if (prev === undefined) {
@@ -91,11 +93,41 @@ describe('PGlite 本番接続層 (#3620 AC-C1、ADR-0064 案 C)', () => {
 		process.env.AWS_LAMBDA_FUNCTION_NAME = 'ganbari-quest-app';
 		resetEnvForTesting();
 		try {
-			await expect(getPgliteDb()).rejects.toThrow(/forbidden on aws-prod/);
+			await expect(getPgliteDb()).rejects.toThrow(/forbidden on AWS Lambda/);
 			// self-heal (#3630): reject 後も singleton は brick されず、env 修正後は再 init できる。
 			restoreEnv();
 			const db = await getPgliteDb();
 			expect(db).toBeTruthy();
+		} finally {
+			restoreEnv();
+		}
+	});
+
+	it('[C1-6] APP_MODE / IS_NUC_DEPLOY の誤設定でも Lambda guard は bypass されない (生 signal 検査)', async () => {
+		// resolveRuntimeMode は APP_MODE override → IS_NUC_DEPLOY → Lambda の順で評価するため、
+		// Lambda 上にこれらが誤設定されると mode 判定は 'nuc-prod' 等になる。guard は mode でなく
+		// 生 AWS_LAMBDA_FUNCTION_NAME を検査するため、この組合せでも必ず throw する。
+		const prevLambda = process.env.AWS_LAMBDA_FUNCTION_NAME;
+		const prevNuc = process.env.IS_NUC_DEPLOY;
+		const prevAppMode = process.env.APP_MODE;
+		const restoreEnv = () => {
+			if (prevLambda === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+			else process.env.AWS_LAMBDA_FUNCTION_NAME = prevLambda;
+			if (prevNuc === undefined) delete process.env.IS_NUC_DEPLOY;
+			else process.env.IS_NUC_DEPLOY = prevNuc;
+			if (prevAppMode === undefined) delete process.env.APP_MODE;
+			else process.env.APP_MODE = prevAppMode;
+			resetEnvForTesting();
+		};
+		try {
+			process.env.AWS_LAMBDA_FUNCTION_NAME = 'ganbari-quest-app';
+			process.env.IS_NUC_DEPLOY = 'true';
+			resetEnvForTesting();
+			await expect(getPgliteDb()).rejects.toThrow(/forbidden on AWS Lambda/);
+
+			process.env.APP_MODE = 'nuc-prod';
+			resetEnvForTesting();
+			await expect(getPgliteDb()).rejects.toThrow(/forbidden on AWS Lambda/);
 		} finally {
 			restoreEnv();
 		}
