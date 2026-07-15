@@ -9,6 +9,7 @@
 //    core txn に入れてはならない — core commit 後の独立 best-effort にする (#N4-2)。
 
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import { assertNotNestedTransaction, runWithTransactionContext } from '../txn-nest-guard';
 import { type OccRetryOptions, withOccRetry } from './occ-retry';
 
 /** drizzle pg database の transaction 部分だけを構造的に要求する (driver 非依存)。 */
@@ -25,7 +26,13 @@ export function createDsqlTransactionRunner<TTx>(
 	opts?: OccRetryOptions,
 ): TransactionRunner<TTx> {
 	return {
-		runInTransaction: <T>(work: (tx: TTx) => Promise<T>): Promise<T> =>
-			withOccRetry(() => db.transaction((tx) => work(tx)), opts),
+		runInTransaction: <T>(work: (tx: TTx) => Promise<T>): Promise<T> => {
+			// #3535: ネスト呼出は fail-loud (SAVEPOINT 非対応 + OCC retry = txn 全体再実行の契約)。
+			assertNotNestedTransaction('dsql');
+			return withOccRetry(
+				() => db.transaction((tx) => runWithTransactionContext(() => work(tx))),
+				opts,
+			);
+		},
 	};
 }
