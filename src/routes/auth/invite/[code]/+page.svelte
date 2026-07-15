@@ -21,7 +21,8 @@ let { data } = $props();
 			<div class="text-center">
 				<div class="text-[2.5rem] mb-3">⚠️</div>
 				<p class="text-base font-semibold text-[var(--color-danger)] mb-2">{data.error}</p>
-				<p class="text-sm text-[var(--color-neutral-500)] mb-6">{AUTH_INVITE_LABELS.invalidLinkDesc}</p>
+				<!-- #3555 ①: email mismatch 等、エラー種別ごとの次アクション案内 (未指定時は再発行案内) -->
+				<p class="text-sm text-[var(--color-neutral-500)] mb-6">{data.errorDesc ?? AUTH_INVITE_LABELS.invalidLinkDesc}</p>
 				<a href="/auth/login" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.loginPageLink}</a>
 			</div>
 		{:else}

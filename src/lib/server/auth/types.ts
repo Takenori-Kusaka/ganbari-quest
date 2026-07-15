@@ -30,6 +30,8 @@ export type Identity =
 			type: 'cognito';
 			userId: string;
 			email: string;
+			/** #3555 ③: Cognito `email_verified` claim。email 束縛招待の受諾判定 (fail-closed) に使う */
+			emailVerified?: boolean;
 			groups?: string[];
 			/** #3025: federated IdP (Google 等) 経由 = Cognito パスワードを持たない */
 			isFederated?: boolean;

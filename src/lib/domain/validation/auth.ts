@@ -67,6 +67,13 @@ export const REFRESH_COOKIE_NAME = 'gq_refresh';
 // 招待リンク関連
 export const INVITE_COOKIE_NAME = 'invite_code';
 export const INVITE_EXPIRY_DAYS = 7;
+/**
+ * #3555 ①: 招待受諾が email 束縛で拒否されたことを受諾後の画面 (admin layout) に伝える
+ * 1 回限りの通知 cookie。値は 'INVITE_EMAIL_MISMATCH' | 'INVITE_EMAIL_UNVERIFIED'。
+ * 受諾失敗 → 新規テナント自動作成で顧客が理由不明の dead-end になるのを防ぐ。
+ */
+export const INVITE_ACCEPT_ERROR_COOKIE_NAME = 'invite_accept_error';
+export const INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS = 10 * 60;
 
 export const createInviteSchema = z.object({
 	role: z.enum(['parent', 'child']),

@@ -3718,6 +3718,9 @@ export const MEMBERS_LABELS = {
 	// Pending invites section
 	pendingInvitesTitle: '保留中の招待',
 	inviteExpiresPrefix: '期限: ',
+	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
+	// 取消し → 再発行できる修正導線)
+	inviteEmailBoundPrefix: '宛先: ',
 	inviteRevokeButton: '取消し',
 
 	// Error messages
@@ -5262,6 +5265,15 @@ export const AUTH_INVITE_LABELS = {
 	roleLabel: '参加ロール:',
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
+	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
+	// 英語エラーコード (INVITE_EMAIL_MISMATCH) を露出せず、次アクションを必ず添える。
+	emailMismatch: 'この招待は別のメールアドレス宛です。',
+	emailMismatchDesc: '招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
+	// #3555 ①: 受諾失敗 → 新規家族グループ自動作成後に admin 画面で表示する案内バナー
+	acceptErrorMismatchBanner:
+		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
+	acceptErrorUnverifiedBanner:
+		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
 } as const;
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
