@@ -20,6 +20,10 @@
 //   [B3] 非 pending (accepted 済/revoked) → INVALID_OR_EXPIRED
 //   [B4] 既 member (23505) → ALREADY_IN_TENANT + **invite UPDATE も rollback (原子性)**
 //   [B5] email 束縛不一致 → EMAIL_MISMATCH + 全 rollback
+//   [B5b] email 束縛 + userEmailVerified=false → EMAIL_UNVERIFIED + 全 rollback (#3742 service parity)
+//   [B5c] email 束縛 + userEmailVerified=true / 未提供 → 受諾可 (#3742 後方互換 parity)
+//   [B5d] email 前後空白は trim 一致扱い (#3742 service `trim().toLowerCase()` parity)
+//   [B5e] email 未束縛 + userEmailVerified=false → 受諾可 (束縛 opt-in と同原則、#3742)
 //   [B7] consents: append-only 表に insert できる (GRANT/repo 束縛 = fitness#2 は repo 実装 PR)
 
 import { PGlite } from '@electric-sql/pglite';
@@ -219,6 +223,79 @@ describe('#3528(b): invite 受諾単一 txn (§6.6 厳密分岐)', () => {
 			now: NOW,
 		});
 		expect(result2.ok).toBe(true);
+	});
+
+	it('[B5b] email 束縛 + userEmailVerified=false → EMAIL_UNVERIFIED + 全 rollback (#3742 fail-closed parity)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000000015';
+		const user = '20000000-0000-4000-8000-000000000015';
+		await seedInvite({ id, email: 'intended@example.com' });
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'intended@example.com',
+			userEmailVerified: false,
+			now: NOW,
+		});
+		expect(result).toEqual({ ok: false, reason: 'EMAIL_UNVERIFIED' });
+		expect((await inviteStatus(id)).status).toBe('pending');
+		expect(await membershipCount(user)).toBe(0);
+	});
+
+	it('[B5c] email 束縛 + userEmailVerified=true / 未提供 → 受諾できる (#3742 後方互換 parity)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		// true: 検証済み claim を持つ provider
+		const idTrue = '10000000-0000-4000-8000-000000000016';
+		const userTrue = '20000000-0000-4000-8000-000000000016';
+		await seedInvite({ id: idTrue, email: 'intended@example.com' });
+		const resultTrue = await acceptInvite(await makeRunner(), {
+			inviteId: idTrue,
+			userId: userTrue,
+			userEmail: 'intended@example.com',
+			userEmailVerified: true,
+			now: NOW,
+		});
+		expect(resultTrue.ok).toBe(true);
+		// undefined: claim を持たない provider (local / dev) の後方互換 (service 層と同一契約)
+		const idUndef = '10000000-0000-4000-8000-000000000017';
+		const userUndef = '20000000-0000-4000-8000-000000000017';
+		await seedInvite({ id: idUndef, email: 'intended@example.com' });
+		const resultUndef = await acceptInvite(await makeRunner(), {
+			inviteId: idUndef,
+			userId: userUndef,
+			userEmail: 'intended@example.com',
+			now: NOW,
+		});
+		expect(resultUndef.ok).toBe(true);
+	});
+
+	it('[B5d] 受諾 email の前後空白は trim 一致扱い (#3742 service trim().toLowerCase() parity)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000000018';
+		const user = '20000000-0000-4000-8000-000000000018';
+		await seedInvite({ id, email: 'intended@example.com' });
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: '  Intended@Example.com  ',
+			now: NOW,
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it('[B5e] email 未束縛の招待は userEmailVerified=false でも受諾できる (束縛 opt-in と同原則、#3742)', async () => {
+		const { acceptInvite } = await import('../../../src/lib/server/db/dsql/invite-accept');
+		const id = '10000000-0000-4000-8000-000000000019';
+		const user = '20000000-0000-4000-8000-000000000019';
+		await seedInvite({ id, email: null });
+		const result = await acceptInvite(await makeRunner(), {
+			inviteId: id,
+			userId: user,
+			userEmail: 'anyone@example.com',
+			userEmailVerified: false,
+			now: NOW,
+		});
+		expect(result.ok).toBe(true);
 	});
 
 	it('[B7] consents 表に insert できる (append-only 表の正常系。fitness#2 repo 束縛は後続 PR)', async () => {

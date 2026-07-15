@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Invite, Membership } from '$lib/server/auth/entities';
+import { checkInviteEmailBinding } from '$lib/server/auth/invite-email-binding';
 import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -46,27 +47,9 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 	return invite;
 }
 
-/**
- * 宛先 email 束縛招待の受諾可否判定 (#3549 判断2 / dsql-data-model.md §6.6 ⚠️)。
- * invite.email 設定時は受諾 user の email と case-insensitive 一致必須。未提供は
- * fail-closed (招待リンクの横流しによる別人受諾を防ぐ)。招待は消費せず pending の
- * まま (正規宛先の受諾可能性を保持)。
- * #3555 ③: 束縛照合は「検証済み email」が前提。email_verified=false の provider
- * 構成では他人の email を自称して束縛招待を受諾できてしまうため fail-closed で拒否。
- */
-function checkInviteEmailBinding(
-	inviteEmail: string,
-	userEmail: string | undefined,
-	emailVerified: boolean | undefined,
-): string | null {
-	if (emailVerified === false) {
-		return 'INVITE_EMAIL_UNVERIFIED';
-	}
-	if (inviteEmail.toLowerCase() !== userEmail?.trim().toLowerCase()) {
-		return 'INVITE_EMAIL_MISMATCH';
-	}
-	return null;
-}
+// 宛先 email 束縛判定は `$lib/server/auth/invite-email-binding` が SSOT (#3742)。
+// DSQL txn 変種 (`db/dsql/invite-accept.ts`) と同一関数を共有し parity を機械保証する。
+// 判定結果の招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
 
 /** 招待を受諾してテナントに参加 */
 export async function acceptInvite(
