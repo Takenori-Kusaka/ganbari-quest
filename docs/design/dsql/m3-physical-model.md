@@ -367,7 +367,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 
 - 40001（OC000）= 冪等 txn のみ **指数バックオフ + jitter で abort & retry**、service 層に共通ラッパ 1 箇所集約。
 - **40001 と 23505 / rowCount=0 を厳密分岐**（invite 受諾等）: `23505`=業務失敗（ALREADY_IN_TENANT、retry 禁止）/ `rowCount=0`=業務失敗（retry 禁止）/ `40001`=競合（retry）。owner_guard の `23505` は即エラー返却。
-- **【実測確定・検証5】OCC 競合率**: 同一行並行 = `40001(OC000)` 再現・**lost update なし**（一方が確実に fail、正しく直列化）。**disjoint key（別行 = 1 家族相当のキー非重複ワークロード）= 40001 0 件**。→ retry ラッパは必須だが正しいキー設計下の常用競合率は極小。
+- **【実測確定・検証5】OCC 競合率**: 同一行並行 = `40001(OC000)` 再現・**lost update なし**（一方が確実に fail、正しく直列化）。**disjoint key（別行 = 1 家族相当のキー非重複ワークロード）= 40001 0 件**。→ retry ラッパは必須だが正しいキー設計下の常用競合率は極小。**#3592② staging 実測 (2026-07-15) 追補**: 同一行 anchor (FOR UPDATE 行) へ意図的に競合させる採番系 (pin の MAX+1) は N 並行バーストで成功数が occ-retry maxAttempts に律速される (N=8 で 4〜7 成功、失敗は clean な 40001 枯渇のみ / committed 分の整合は常に成立 / N=2 は retry で全成功)。「anchor = 整合性保証」であり「直列化 (全成功) 保証」ではない。バーストが仕様化する経路は write 束ね (ADR-0065 原則 2) を使う。
 
 ### §6.4 一括 import / 復元の chunk saga（I-4、P5、**実測確定・検証4**）
 
