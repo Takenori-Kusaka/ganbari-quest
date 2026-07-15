@@ -115,11 +115,15 @@ jobs:
 
       - name: No-op summary (統合 merge でない)
         if: steps.classify.outputs.is_integration != 'true'
+        # workflow_dispatch input (自由文字列) は run: へ ${{ }} 直展開せず env 経由で渡す
+        # (script injection 定石、#3745)
+        env:
+          TARGET_SHA: ${{ inputs.sha || github.sha }}
         run: |
           {
             echo "## integration-attest: no-op";
             echo "";
-            echo "- 対象 SHA: \`${{ inputs.sha || github.sha }}\`";
+            echo "- 対象 SHA: \`$TARGET_SHA\`";
             echo "- 理由: ${{ steps.classify.outputs.reason }}";
             echo "";
             echo "統合 PR (base=main + head=develop|release/*) の merge ではないため attestation を発行しません (silent fail なし)。";
