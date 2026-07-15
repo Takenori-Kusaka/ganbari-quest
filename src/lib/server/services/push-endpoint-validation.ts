@@ -50,7 +50,15 @@ function isAllowedPushHost(hostname: string): boolean {
 /**
  * push endpoint URL を検証する。https + 既知 push service host のみ許可 (SSRF 防御)。
  *
- * @returns ok=true で通過、ok=false で reason に拒否理由 (logger 用、ユーザーには汎用文言を返す)
+ * #3404 item2: ok=true の `url` は raw 入力ではなく WHATWG `new URL()` の `.href` (正規化形:
+ * host 小文字化 / default port 除去 / percent-encoding 正規化) を返す。保存経路 (subscribe) が
+ * この正規化形を永続化することで、「検証 = WHATWG parse / 送信 = web-push の legacy `url.parse()`」
+ * の parser-differential を runtime 挙動に依存せず排除する。
+ * 後方互換: ok/NG の判定自体は parse 結果の scheme/host にのみ依存するため、raw 形で保存済みの
+ * 既存 subscription も送信側再検証 (`notification-service.ts`) で従来どおり通過する。
+ *
+ * @returns ok=true で通過 (url は正規化済 href)、ok=false で reason に拒否理由
+ *          (logger 用、ユーザーには汎用文言を返す)
  */
 export function validatePushEndpoint(
 	endpoint: unknown,
@@ -73,7 +81,7 @@ export function validatePushEndpoint(
 	if (!isAllowedPushHost(url.hostname)) {
 		return { ok: false, reason: `endpoint host not in push-service allowlist (${url.hostname})` };
 	}
-	return { ok: true, url: endpoint };
+	return { ok: true, url: url.href };
 }
 
 /**

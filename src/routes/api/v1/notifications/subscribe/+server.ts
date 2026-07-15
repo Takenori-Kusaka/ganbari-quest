@@ -15,6 +15,7 @@ import {
 	isValidPushKey,
 	validatePushEndpoint,
 } from '$lib/server/services/push-endpoint-validation';
+import { reportPushValidationRejection } from '$lib/server/services/push-validation-alert';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -51,30 +52,44 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// #3188 SSRF hardening: endpoint は https + 既知 push service host のみ許可。
 		// cron の server push が internal host へ POST する CWE-918 を防ぐ。
+		// #3404 item3: 拒否発生は reportPushValidationRejection で可視化する (ベンダー host 変更で
+		// 正規ブラウザの subscribe が無言停止する事業継続リスクの観測点)。
 		const endpointCheck = validatePushEndpoint(body.endpoint);
 		if (!endpointCheck.ok) {
-			logger.warn('[notifications/subscribe] 不正な push endpoint を拒否', {
-				context: { tenantId: context.tenantId, reason: endpointCheck.reason },
+			reportPushValidationRejection({
+				tenantId: context.tenantId,
+				code: 'INVALID_ENDPOINT',
+				reason: endpointCheck.reason,
 			});
 			return json({ error: 'Invalid push endpoint', code: 'INVALID_ENDPOINT' }, { status: 400 });
 		}
 		// #3188: key は base64url 形式 + 長さ上限のみ検証 (raw 保存前の最小サニタイズ)。
 		if (!isValidPushKey(body.keys.p256dh) || !isValidPushKey(body.keys.auth, 64)) {
-			logger.warn('[notifications/subscribe] 不正な push key 形式を拒否', {
-				context: { tenantId: context.tenantId },
+			reportPushValidationRejection({
+				tenantId: context.tenantId,
+				code: 'INVALID_KEY',
+				reason: 'push key failed base64url format / length validation',
 			});
 			return json({ error: 'Invalid push key', code: 'INVALID_KEY' }, { status: 400 });
 		}
 
-		// 既存チェック（同じ endpoint が登録済みならスキップ）
-		const existing = await findByEndpoint(body.endpoint, context.tenantId);
+		// #3404 item2: 保存は raw 入力ではなく WHATWG 正規化済 URL (`url.href`) を使う。
+		// 検証 (new URL) / 保存 / 送信 (web-push legacy url.parse) の parser-differential を
+		// 保存時点で潰す。既存チェックは正規化形で照合し、正規化前の raw 形で保存された
+		// 既存レコードとも fallback 照合して重複 insert (= 二重通知) を防ぐ。
+		const normalizedEndpoint = endpointCheck.url;
+		const existing =
+			(await findByEndpoint(normalizedEndpoint, context.tenantId)) ??
+			(body.endpoint !== normalizedEndpoint
+				? await findByEndpoint(body.endpoint, context.tenantId)
+				: undefined);
 		if (existing) {
 			return json({ success: true, message: 'Already subscribed' });
 		}
 
 		await insert({
 			tenantId: context.tenantId,
-			endpoint: body.endpoint,
+			endpoint: normalizedEndpoint,
 			keysP256dh: body.keys.p256dh,
 			keysAuth: body.keys.auth,
 			userAgent: request.headers.get('user-agent'),

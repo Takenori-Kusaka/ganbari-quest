@@ -512,6 +512,7 @@ webapi
 webp
 webpush
 webui
+whatwg
 whsec
 worktree
 writeback
