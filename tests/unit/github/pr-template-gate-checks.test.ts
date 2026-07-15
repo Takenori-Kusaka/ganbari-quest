@@ -9,6 +9,9 @@
 //   - AC3: integration lane の issue-reference が含有 PR 一覧を検証する。
 //   - AC4: feature / hotfix lane が現行と完全同一の観点を維持する (回帰ゼロ)。
 //   - AC5: dependabot lane は全 check が skip 相当 (挙動不変)。
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	CLOSING_KEYWORD_TARGET_LABELS,
@@ -464,6 +467,113 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 		// 統合 PR でも意味を持つ section は含む
 		expect(INTEGRATION_REQUIRED_SECTIONS).toContain('## 顧客価値・目的');
 		expect(INTEGRATION_REQUIRED_SECTIONS).toContain('## 関連 Issue');
+	});
+});
+
+// =====================================================================
+// #3688: integration lane の section-presence は INTEGRATION_PR_TEMPLATE_SECTIONS.json
+// (統合 PR 用 SSOT、#2950) を検証し、feature 用 section を要求しない。
+// 実 SSOT JSON を読み込んで fixture に使い、正規統合 body (#3686 型) が素で PASS することを固定する。
+// =====================================================================
+describe('integration lane: INTEGRATION_PR_TEMPLATE_SECTIONS.json ベース検証 (#3688)', () => {
+	const __dirname = dirname(fileURLToPath(import.meta.url));
+	const integrationSsot = JSON.parse(
+		readFileSync(
+			resolve(__dirname, '../../../.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json'),
+			'utf-8',
+		),
+	) as { sections: string[] };
+	const INTEGRATION_SSOT_SECTIONS = integrationSsot.sections;
+
+	// #3686 型の正規統合 body: INTEGRATION_PR_TEMPLATE.md の 7 section を埋めたもの。
+	// feature 用 template の 5 section (変更タイプ / テスト & 安全装置セルフチェック /
+	// レビュー依頼事項・破壊的変更 / Ready for Review チェックリスト / QM レビュー結果) を持たない。
+	const CANONICAL_INTEGRATION_BODY = `## 統合サマリ
+
+develop の累積変更 5 PR を main に統合する。
+
+## 含有 PR 一覧
+
+- #3010
+- #3012
+- #3015
+
+## マージ判定エビデンス表
+
+| 含有 PR | 領域 | テスト | 結果 |
+|---|---|---|---|
+| #3010 | admin | 重量レーン E2E | PASS |
+
+## 監査 run 結果リンク
+
+- run https://github.com/example/actions/runs/12345
+
+## NG 0 件 / カバレッジ宣言
+
+- [x] 残 NG 0 件
+
+## Accepted residual (Pre-PMF)
+
+なし
+
+## back-merge / drift 状態
+
+- [x] back-merge 済 / drift なし
+`;
+
+	const base = {
+		labels: [],
+		template: TEMPLATE,
+		ssotSections: SSOT_SECTIONS,
+		integrationSsotSections: INTEGRATION_SSOT_SECTIONS,
+		lane: 'integration' as const,
+	};
+
+	it('AC1/AC3: 正規統合 body が素で PASS する (feature 用 section を要求しない)', () => {
+		const r = checkSectionPresence({ ...base, body: CANONICAL_INTEGRATION_BODY });
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBeFalsy();
+		expect(r.message).toContain('INTEGRATION_PR_TEMPLATE_SECTIONS.json');
+	});
+	it('AC1: 統合 section 欠落で fail する (JSON ベース検証の空洞化なし)', () => {
+		const r = checkSectionPresence({
+			...base,
+			body: CANONICAL_INTEGRATION_BODY.replace('## マージ判定エビデンス表', '## (削除)'),
+		});
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('## マージ判定エビデンス表');
+	});
+	it('AC1: feature 用 5 section の欠落は integration では fail 要因にならない (#3686 再現の否定)', () => {
+		// CANONICAL_INTEGRATION_BODY は feature 用 5 section を一切含まないが PASS する
+		expect(CANONICAL_INTEGRATION_BODY).not.toContain('## 変更タイプ');
+		expect(CANONICAL_INTEGRATION_BODY).not.toContain('## Ready for Review チェックリスト');
+		expect(checkSectionPresence({ ...base, body: CANONICAL_INTEGRATION_BODY }).ok).toBe(true);
+	});
+	it('AC2: feature lane は integrationSsotSections を渡されても現行 SSOT (feature JSON) を検証 (不変)', () => {
+		const r = checkSectionPresence({
+			...base,
+			lane: 'feature' as const,
+			body: VALID_FEATURE_BODY,
+		});
+		expect(r.ok).toBe(true);
+		expect(r.message).toContain('PR_TEMPLATE_SECTIONS.json (SSOT)');
+		// feature lane に正規統合 body を渡すと feature 用 section 欠落で fail する (観点が切り替わっていない証跡)
+		expect(
+			checkSectionPresence({ ...base, lane: 'feature' as const, body: CANONICAL_INTEGRATION_BODY })
+				.ok,
+		).toBe(false);
+	});
+	it('fallback: integrationSsotSections 未提供時は暫定 set (INTEGRATION_REQUIRED_SECTIONS) を維持', () => {
+		const r = checkSectionPresence({
+			labels: [],
+			template: TEMPLATE,
+			ssotSections: SSOT_SECTIONS,
+			lane: 'integration' as const,
+			body: CANONICAL_INTEGRATION_BODY,
+		});
+		// 暫定 set は feature 用 section を要求するため、正規統合 body は fallback 経路では fail する
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('INTEGRATION_REQUIRED_SECTIONS');
 	});
 });
 
