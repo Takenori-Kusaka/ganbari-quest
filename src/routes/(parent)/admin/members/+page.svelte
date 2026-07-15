@@ -68,8 +68,13 @@ async function createInvite() {
 	}
 }
 
+// #3743: await 駆動ハンドラの実行中フラグ (DESIGN.md §5 Button loading prop、#3667 same-class)。
+// 対象 item の id を保持し、該当ボタンのみ spinner + disabled + aria-busy にする。
+let revokingInviteCode = $state<string | null>(null);
+
 async function revokeInvite(code: string) {
 	if (!confirm(MEMBERS_LABELS.revokeConfirm)) return;
+	revokingInviteCode = code;
 	try {
 		const res = await fetch(`/api/v1/admin/invites/${code}`, { method: 'DELETE' });
 		// #3225: 取り消し失敗を silent にしない (失敗時は reload せず error Toast)
@@ -77,11 +82,12 @@ async function revokeInvite(code: string) {
 			await notifyApiError(res);
 			return;
 		}
+		window.location.reload();
 	} catch {
 		notifyNetworkError();
-		return;
+	} finally {
+		revokingInviteCode = null;
 	}
-	window.location.reload();
 }
 
 async function copyLink() {
@@ -132,8 +138,17 @@ async function createViewerLink() {
 	}
 }
 
+// #3743: 閲覧リンク行の revoke / delete 実行中フラグ。同一行の 2 ボタン同時発火 (二重送信) を
+// 防ぐため、どちらかが実行中なら両ボタンを disabled にする (viewerActionPending)。
+let revokingViewerTokenId = $state<string | null>(null);
+let deletingViewerTokenId = $state<string | null>(null);
+const viewerActionPending = $derived(
+	revokingViewerTokenId !== null || deletingViewerTokenId !== null,
+);
+
 async function revokeViewerToken(id: string) {
 	if (!confirm(MEMBERS_LABELS.viewerRevokeConfirm)) return;
+	revokingViewerTokenId = id;
 	try {
 		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, {
 			method: 'DELETE',
@@ -142,26 +157,29 @@ async function revokeViewerToken(id: string) {
 			await notifyApiError(res);
 			return;
 		}
+		window.location.reload();
 	} catch {
 		notifyNetworkError();
-		return;
+	} finally {
+		revokingViewerTokenId = null;
 	}
-	window.location.reload();
 }
 
 async function deleteViewerToken(id: string) {
 	if (!confirm(MEMBERS_LABELS.viewerDeleteConfirm)) return;
+	deletingViewerTokenId = id;
 	try {
 		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
 			await notifyApiError(res);
 			return;
 		}
+		window.location.reload();
 	} catch {
 		notifyNetworkError();
-		return;
+	} finally {
+		deletingViewerTokenId = null;
 	}
-	window.location.reload();
 }
 
 async function copyViewerLink() {
@@ -174,9 +192,19 @@ async function copyViewerLink() {
 
 let memberError = $state('');
 
+// #3743: メンバー操作 (オーナー移譲 / 削除 / 離脱) の実行中フラグ。特にオーナー移譲・離脱は
+// 冪等でない不可逆操作のため、実行中はメンバー操作系ボタン全体を disabled にして二重送信を防ぐ。
+let transferringUserId = $state<string | null>(null);
+let removingUserId = $state<string | null>(null);
+let leavingGroup = $state(false);
+const memberActionPending = $derived(
+	transferringUserId !== null || removingUserId !== null || leavingGroup,
+);
+
 async function removeMember(userId: string, email: string) {
 	if (!confirm(MEMBERS_LABELS.removeMemberConfirm(email))) return;
 	memberError = '';
+	removingUserId = userId;
 	try {
 		const res = await fetch(`/api/v1/admin/members/${userId}`, { method: 'DELETE' });
 		if (!res.ok) {
@@ -187,12 +215,15 @@ async function removeMember(userId: string, email: string) {
 		window.location.reload();
 	} catch {
 		memberError = MEMBERS_LABELS.networkError;
+	} finally {
+		removingUserId = null;
 	}
 }
 
 async function transferOwnership(userId: string, email: string) {
 	if (!confirm(MEMBERS_LABELS.transferConfirm(email))) return;
 	memberError = '';
+	transferringUserId = userId;
 	try {
 		const res = await fetch(`/api/v1/admin/members/${userId}/transfer-ownership`, {
 			method: 'POST',
@@ -205,12 +236,15 @@ async function transferOwnership(userId: string, email: string) {
 		window.location.reload();
 	} catch {
 		memberError = MEMBERS_LABELS.networkError;
+	} finally {
+		transferringUserId = null;
 	}
 }
 
 async function leaveGroup() {
 	if (!confirm(MEMBERS_LABELS.leaveGroupConfirm)) return;
 	memberError = '';
+	leavingGroup = true;
 	try {
 		const res = await fetch('/api/v1/admin/members/leave', { method: 'POST' });
 		if (!res.ok) {
@@ -221,6 +255,8 @@ async function leaveGroup() {
 		window.location.href = '/auth/login';
 	} catch {
 		memberError = MEMBERS_LABELS.networkError;
+	} finally {
+		leavingGroup = false;
 	}
 }
 
@@ -283,6 +319,8 @@ const roleLabel = (role: string) => {
 										variant="ghost"
 										size="sm"
 										title={MEMBERS_LABELS.transferTitle}
+										loading={transferringUserId === member.userId}
+										disabled={memberActionPending}
 									>
 										{MEMBERS_LABELS.transferButton}
 									</Button>
@@ -291,6 +329,8 @@ const roleLabel = (role: string) => {
 										variant="danger"
 										size="sm"
 										title={MEMBERS_LABELS.removeTitle}
+										loading={removingUserId === member.userId}
+										disabled={memberActionPending}
 									>
 										{MEMBERS_LABELS.removeButton}
 									</Button>
@@ -309,6 +349,8 @@ const roleLabel = (role: string) => {
 					onclick={leaveGroup}
 					variant="danger"
 					size="sm"
+					loading={leavingGroup}
+					disabled={memberActionPending}
 				>
 					{MEMBERS_LABELS.leaveGroupButton}
 				</Button>
@@ -445,6 +487,8 @@ const roleLabel = (role: string) => {
 								onclick={() => revokeInvite(invite.inviteCode)}
 								variant="danger"
 								size="sm"
+								loading={revokingInviteCode === invite.inviteCode}
+								disabled={revokingInviteCode !== null}
 							>
 								{MEMBERS_LABELS.inviteRevokeButton}
 							</Button>
@@ -572,6 +616,8 @@ const roleLabel = (role: string) => {
 										onclick={() => revokeViewerToken(vt.id)}
 										variant="ghost"
 										size="sm"
+										loading={revokingViewerTokenId === vt.id}
+										disabled={viewerActionPending}
 									>
 										{MEMBERS_LABELS.viewerRevokeButton}
 									</Button>
@@ -580,6 +626,8 @@ const roleLabel = (role: string) => {
 									onclick={() => deleteViewerToken(vt.id)}
 									variant="danger"
 									size="sm"
+									loading={deletingViewerTokenId === vt.id}
+									disabled={viewerActionPending}
 								>
 									{MEMBERS_LABELS.viewerDeleteButton}
 								</Button>
