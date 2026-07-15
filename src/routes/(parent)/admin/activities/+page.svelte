@@ -69,9 +69,10 @@ let restoreLoading = $state(false);
 // per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
 //
 // #3499: childIdOverride は「ユーザーの tab click による明示上書き」だけを保持する。
-// 旧実装は data.initialChildId を $state seed に一度だけ複製しており、同一 route の
-// client-side 再遷移 (?childId 変更で load 再実行) や invalidateAll 後に stale seed が
-// URL と食い違う per-child scope 境界があった。URL 由来値は $derived fallback chain で
+// 旧実装は data.initialChildId を $state seed に一度だけ複製しており、page component が
+// remount されず data prop だけ更新される経路 (SvelteKit の component 再利用 /
+// invalidateAll / shallow routing — remount 有無は version 依存の実装詳細) で stale seed
+// が URL と食い違う per-child scope 境界があった。URL 由来値は $derived fallback chain で
 // 常に data から読み、load 再実行で ?childId が変わったら override を破棄して URL を優先する。
 let childIdOverride = $state<ChildId | undefined>(undefined);
 // 直前の URL 由来値 (?childId)。$effect 内でのみ比較・更新するため非 reactive な plain let でよい。

@@ -2,11 +2,12 @@
 	#3499: 活動編集フォーム (seed-once $state を安全に保つための component 分割)。
 
 	編集欄の $state は props.activity から「component 初期化時に一度だけ」seed する。
-	SvelteKit は同一 route の param 変更 (edit/1 → edit/2) で page component を remount
-	しないため、seed-once $state を +page.svelte に直接置くと古い activity のフォーム値が
-	残る stale form になる (#3498 QM adversarial 検出)。本 component は親
-	(+page.svelte) が `{#key data.activity.id}` で必ず remount するため、seed-once が
-	activity 単位で常に正しく再実行される。
+	page component が remount されず data prop だけ更新される経路 (SvelteKit の component
+	再利用 / invalidateAll / shallow routing — remount 有無は version 依存の実装詳細) では、
+	seed-once $state を +page.svelte に直接置くと古い activity のフォーム値が残る stale
+	form になる (#3498 QM adversarial 検出)。本 component は親 (+page.svelte) が
+	`{#key data.activity.id}` で必ず remount するため、seed-once が activity 単位で常に
+	正しく再実行される。
 
 	lint 方針 (#3499 AC3): `svelte-ignore state_referenced_locally` の行単位恒久化は
 	「親が {#key} で remount を保証している seed-once form」に限り許容する。guard なしの

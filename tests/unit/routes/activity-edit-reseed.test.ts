@@ -1,13 +1,13 @@
 // tests/unit/routes/activity-edit-reseed.test.ts
-// #3499 AC1: /admin/activities/[id]/edit の編集フォームは data.activity の切替
-// (= 同一 route の param 変更による非アンマウント再遷移) で必ず再 seed される。
+// #3499 AC1: /admin/activities/[id]/edit の編集フォームは data.activity の切替で必ず再 seed される。
 //
-// SvelteKit は edit/1 → edit/2 の client-side 遷移で page component を remount せず
-// props (`data`) だけを更新する。seed-once $state を +page.svelte に直接置くと古い
+// seed-once $state を +page.svelte に直接置くと、page component が remount されずに
+// `data` prop だけが更新される経路 (SvelteKit の component 再利用 / invalidateAll /
+// shallow routing。remount するか否かは SvelteKit version 依存の実装詳細) で古い
 // activity のフォーム値が残る stale form になる (#3498 QM adversarial 検出)。
 // 本 test は @testing-library/svelte の `rerender` で「同一 component instance への
-// data 更新」を忠実に再現し、`{#key data.activity.id}` guard (ActivityEditForm 分割)
-// が無いと RED になる (failing-test-first、ADR-0061)。
+// data 更新」を再現し、`{#key data.activity.id}` guard (ActivityEditForm 分割)
+// が無いと RED になる (failing-test-first、ADR-0061。旧実装での RED 実測済)。
 
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';

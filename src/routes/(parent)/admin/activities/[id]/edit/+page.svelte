@@ -27,8 +27,9 @@ let { data, form } = $props();
 		</div>
 	{/if}
 
-	<!-- #3499: edit/1 → edit/2 の非アンマウント再遷移 (同一 route の param 変更は component を
-	     remount しない) で seed-once $state が古い activity を指す stale form を防ぐため、
+	<!-- #3499: page component が remount されず data prop だけ更新される経路 (SvelteKit の
+	     component 再利用 / invalidateAll / shallow routing — remount 有無は version 依存の
+	     実装詳細) で seed-once $state が古い activity を指す stale form を防ぐため、
 	     activity.id を key に ActivityEditForm を必ず remount して再 seed する。 -->
 	{#key data.activity.id}
 		<ActivityEditForm activity={data.activity} categoryDefs={data.categoryDefs} />

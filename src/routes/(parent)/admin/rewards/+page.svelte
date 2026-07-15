@@ -54,8 +54,9 @@ const errorMessage = $derived(getErrorMessage(form?.error));
 // #3499: childIdOverride は「ユーザーの tab click による明示上書き」だけを保持する
 // (admin/activities と同型)。URL 由来値 (?childId) は $derived fallback chain で常に
 // data から読み、load 再実行で ?childId が変わったら override を破棄して URL を優先する。
-// 旧 seed-once $state は client-side 再遷移 / invalidateAll 後に stale seed が URL と
-// 食い違う per-child scope 境界があった。
+// 旧 seed-once $state は page component が remount されず data prop だけ更新される経路
+// (SvelteKit の component 再利用 / invalidateAll / shallow routing — remount 有無は
+// version 依存の実装詳細) で stale seed が URL と食い違う per-child scope 境界があった。
 let childIdOverride = $state<ChildId | undefined>(undefined);
 // 直前の URL 由来値 (?childId)。$effect 内でのみ比較・更新するため非 reactive な plain let でよい。
 // undefined = 未観測 sentinel (data.initialChildId は ChildId | null で undefined を取らない)。
