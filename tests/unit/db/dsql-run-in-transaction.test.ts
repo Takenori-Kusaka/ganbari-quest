@@ -197,3 +197,113 @@ describe('#N1-1: sqlite runInTransaction (BEGIN IMMEDIATE)', () => {
 		sqlite.close();
 	});
 });
+
+// #3535: ネスト呼出の fail-loud guard (SAVEPOINT 非対応 + OCC retry = txn 全体再実行の契約)。
+// ネストは drizzle では「別接続の独立 txn」になり外側の未 commit write が見えない stale read の
+// 温床のため、合流ではなく禁止 (設計判断は src/lib/server/db/txn-nest-guard.ts 冒頭に記録)。
+describe('#3535: runInTransaction ネスト呼出 guard', () => {
+	it('[T9] pg: txn work 内から runInTransaction を再呼出すると明示 message で throw + 外側 rollback', async () => {
+		const { createDsqlTransactionRunner } = await import(
+			'../../../src/lib/server/db/dsql/run-in-transaction'
+		);
+		const client = new PGlite();
+		const db = drizzle(client);
+		await db.execute(sql`CREATE TABLE nest_probe (id int PRIMARY KEY)`);
+		const runner = createDsqlTransactionRunner(db);
+		try {
+			await expect(
+				runner.runInTransaction(async (tx) => {
+					await tx.execute(sql`INSERT INTO nest_probe VALUES (1)`);
+					// ネスト呼出 (誤った呼び出し構造の再現)
+					await runner.runInTransaction(async () => {});
+				}),
+			).rejects.toThrow(/ネスト呼出を検出しました \(backend=dsql\)/);
+			// 外側 txn ごと rollback される (部分 commit なし)
+			const rows = (await db.execute(sql`SELECT id FROM nest_probe`)).rows;
+			expect(rows).toHaveLength(0);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('[T10] pg: 逐次 (非ネスト) の連続呼出は guard に阻害されない', async () => {
+		const { createDsqlTransactionRunner } = await import(
+			'../../../src/lib/server/db/dsql/run-in-transaction'
+		);
+		const client = new PGlite();
+		const db = drizzle(client);
+		await db.execute(sql`CREATE TABLE seq_probe (id int PRIMARY KEY)`);
+		const runner = createDsqlTransactionRunner(db);
+		try {
+			await runner.runInTransaction(async (tx) => {
+				await tx.execute(sql`INSERT INTO seq_probe VALUES (1)`);
+			});
+			await runner.runInTransaction(async (tx) => {
+				await tx.execute(sql`INSERT INTO seq_probe VALUES (2)`);
+			});
+			const rows = (await db.execute(sql`SELECT id FROM seq_probe ORDER BY id`)).rows as {
+				id: number;
+			}[];
+			expect(rows.map((r) => r.id)).toEqual([1, 2]);
+		} finally {
+			await client.close();
+		}
+	});
+
+	it('[T11] sqlite: ネスト呼出も同一契約で throw (native error より明確な message)', async () => {
+		const { createSqliteTransactionRunner } = await import(
+			'../../../src/lib/server/db/sqlite/run-in-transaction'
+		);
+		const sqlite = new Database(':memory:');
+		sqlite.exec('CREATE TABLE nest_probe (id INTEGER PRIMARY KEY)');
+		const runner = createSqliteTransactionRunner(sqlite, sqlite);
+		await expect(
+			runner.runInTransaction(async (tx) => {
+				tx.prepare('INSERT INTO nest_probe VALUES (1)').run();
+				await runner.runInTransaction(async () => {});
+			}),
+		).rejects.toThrow(/ネスト呼出を検出しました \(backend=sqlite\)/);
+		// 外側 rollback 済み + txn が閉じている
+		expect(sqlite.prepare('SELECT count(*) AS c FROM nest_probe').get()).toEqual({ c: 0 });
+		expect(sqlite.inTransaction).toBe(false);
+		sqlite.close();
+	});
+
+	it('[T12] work 内で spawn した fire-and-forget 子孫は外側 commit 後なら独立 txn を張れる (false-positive 防止)', async () => {
+		// ALS context は spawn された async chain に外側 txn 完了後まで伝播する。done flag が
+		// 無いと #N4-2 型「core commit 後の独立 best-effort」を async 子孫から行う正当パターンが
+		// 誤 throw で殺される (adversarial review objection 1)。guard は「進行中のネスト」のみ拒否する。
+		const { createDsqlTransactionRunner } = await import(
+			'../../../src/lib/server/db/dsql/run-in-transaction'
+		);
+		const client = new PGlite();
+		const db = drizzle(client);
+		await db.execute(sql`CREATE TABLE ff_probe (id int PRIMARY KEY)`);
+		const runner = createDsqlTransactionRunner(db);
+		try {
+			let resolveOuterDone: () => void = () => {};
+			const outerDone = new Promise<void>((r) => {
+				resolveOuterDone = r;
+			});
+			let descendant: Promise<void> | undefined;
+			await runner.runInTransaction(async (tx) => {
+				await tx.execute(sql`INSERT INTO ff_probe VALUES (1)`);
+				// fire (未 await): 外側 commit を待ってから独立 txn を張る子孫 chain
+				descendant = (async () => {
+					await outerDone; // 外側 txn 完了まで待機 (PGlite 単一接続の deadlock 回避も兼ねる)
+					await runner.runInTransaction(async (tx2) => {
+						await tx2.execute(sql`INSERT INTO ff_probe VALUES (2)`);
+					});
+				})();
+			});
+			resolveOuterDone();
+			await expect(descendant, '子孫の独立 txn は誤 throw されない').resolves.toBeUndefined();
+			const rows = (await db.execute(sql`SELECT id FROM ff_probe ORDER BY id`)).rows as {
+				id: number;
+			}[];
+			expect(rows.map((r) => r.id)).toEqual([1, 2]);
+		} finally {
+			await client.close();
+		}
+	});
+});
