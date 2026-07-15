@@ -268,4 +268,42 @@ describe('#3535: runInTransaction ネスト呼出 guard', () => {
 		expect(sqlite.inTransaction).toBe(false);
 		sqlite.close();
 	});
+
+	it('[T12] work 内で spawn した fire-and-forget 子孫は外側 commit 後なら独立 txn を張れる (false-positive 防止)', async () => {
+		// ALS context は spawn された async chain に外側 txn 完了後まで伝播する。done flag が
+		// 無いと #N4-2 型「core commit 後の独立 best-effort」を async 子孫から行う正当パターンが
+		// 誤 throw で殺される (adversarial review objection 1)。guard は「進行中のネスト」のみ拒否する。
+		const { createDsqlTransactionRunner } = await import(
+			'../../../src/lib/server/db/dsql/run-in-transaction'
+		);
+		const client = new PGlite();
+		const db = drizzle(client);
+		await db.execute(sql`CREATE TABLE ff_probe (id int PRIMARY KEY)`);
+		const runner = createDsqlTransactionRunner(db);
+		try {
+			let resolveOuterDone: () => void = () => {};
+			const outerDone = new Promise<void>((r) => {
+				resolveOuterDone = r;
+			});
+			let descendant: Promise<void> | undefined;
+			await runner.runInTransaction(async (tx) => {
+				await tx.execute(sql`INSERT INTO ff_probe VALUES (1)`);
+				// fire (未 await): 外側 commit を待ってから独立 txn を張る子孫 chain
+				descendant = (async () => {
+					await outerDone; // 外側 txn 完了まで待機 (PGlite 単一接続の deadlock 回避も兼ねる)
+					await runner.runInTransaction(async (tx2) => {
+						await tx2.execute(sql`INSERT INTO ff_probe VALUES (2)`);
+					});
+				})();
+			});
+			resolveOuterDone();
+			await expect(descendant, '子孫の独立 txn は誤 throw されない').resolves.toBeUndefined();
+			const rows = (await db.execute(sql`SELECT id FROM ff_probe ORDER BY id`)).rows as {
+				id: number;
+			}[];
+			expect(rows.map((r) => r.id)).toEqual([1, 2]);
+		} finally {
+			await client.close();
+		}
+	});
 });

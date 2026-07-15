@@ -17,14 +17,27 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-const inTransaction = new AsyncLocalStorage<true>();
+/**
+ * txn work の進行状態。ALS context は work 内で spawn された fire-and-forget promise の
+ * async chain にも**外側 txn 完了後まで**伝播する (継続作成時に bind される) ため、
+ * boolean でなく mutable な done flag を持つ:
+ *   - done=false (work 実行中) のネスト呼出 → 真のネスト。fail-loud に throw
+ *   - done=true (外側 txn 完了後、spawn された子孫 chain からの呼出) → 独立 txn として許容
+ *     (#N4-2 の「core commit 後の独立 best-effort」を async 子孫から行う正当パターンを殺さない)
+ */
+interface TxnContext {
+	done: boolean;
+}
+
+const inTransaction = new AsyncLocalStorage<TxnContext>();
 
 /**
- * runInTransaction 冒頭で呼ぶ。既に txn work の中なら fail-loud に throw する。
+ * runInTransaction 冒頭で呼ぶ。**進行中の** txn work の中なら fail-loud に throw する。
  * @param backend エラーメッセージ用の backend 識別子 ('dsql' | 'sqlite' 等)
  */
 export function assertNotNestedTransaction(backend: string): void {
-	if (inTransaction.getStore()) {
+	const ctx = inTransaction.getStore();
+	if (ctx && !ctx.done) {
 		throw new Error(
 			`[run-in-transaction] ネスト呼出を検出しました (backend=${backend})。` +
 				'DSQL は SAVEPOINT 非対応で OCC retry は txn 全体再実行が契約のため、' +
@@ -35,6 +48,13 @@ export function assertNotNestedTransaction(backend: string): void {
 }
 
 /** work を「txn 実行中」context で走らせる (runInTransaction 内部専用)。 */
-export function runWithTransactionContext<T>(fn: () => Promise<T>): Promise<T> {
-	return inTransaction.run(true, fn);
+export async function runWithTransactionContext<T>(fn: () => Promise<T>): Promise<T> {
+	const ctx: TxnContext = { done: false };
+	try {
+		return await inTransaction.run(ctx, fn);
+	} finally {
+		// commit / rollback を問わず work 終了で done 化。以後、work 内から spawn された
+		// async 子孫 chain の runInTransaction は独立 txn として通る (false-positive 防止)。
+		ctx.done = true;
+	}
 }
