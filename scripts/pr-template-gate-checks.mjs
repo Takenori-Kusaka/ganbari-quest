@@ -32,7 +32,8 @@
  *
  * 【CLI (job から呼ぶ)】
  *   node scripts/pr-template-gate-checks.mjs --check section-presence --lane integration \
- *     --body-file <path> --labels-json <path> --template-file <path> --ssot-file <path>
+ *     --body-file <path> --labels-json <path> --template-file <path> --ssot-file <path> \
+ *     --integration-ssot-file <path>   # 統合 PR 用 section SSOT (#3688、section-presence のみ使用)
  *   exit: 0 = ok/skipped、1 = 検証 fail、2 = 引数/内部エラー
  *
  * 純粋関数群 (本 file の export) は副作用ゼロ。fs 読み込み / process.exit は CLI entrypoint のみ。
@@ -50,19 +51,19 @@ import { fileURLToPath } from 'node:url';
  *   labels: string[];
  *   template: string;
  *   ssotSections: string[] | null;
+ *   integrationSsotSections?: string[] | null;
  *   lane: Lane;
  * }} CheckInput
  */
 
 /**
- * 統合 PR (integration lane) で必須とする section set。
- * Phase B (#2871) で PR_TEMPLATE_SECTIONS.integration.json を導入するまでの暫定。
- * 現行 13 section の部分集合 (統合 PR が単一 Issue × per-PR AC 前提を満たせないため、
- * AC 検証マップ等の per-PR 前提 section を外す) + マージ判定エビデンス表 section を必須化。
+ * 統合 PR (integration lane) で必須とする section set の **fallback**。
  *
- * 「マージ判定エビデンス」は audit-team.md §3.5 のマージ判定エビデンス表を指す。本 phase では
- * 統合 PR template 未導入のため、現行 template に存在する section のうち統合 PR でも意味を持つ
- * ものに限定する。section 名は現行 PR_TEMPLATE_SECTIONS.json の表記に一致させる。
+ * 正: `.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json` (#2950 で導入済の統合 PR 用 SSOT。
+ * workflow が `--integration-ssot-file` で渡し、integration lane の section-presence は
+ * その JSON の見出し集合を検証する — #3688 AC1)。本定数は同 file が checkout に存在しない
+ * 場合 (旧 branch 等) の fallback としてのみ使う。feature 用 template の見出しを含むため、
+ * INTEGRATION_PR_TEMPLATE.md 準拠の正規統合 body は fallback 経路では通らない点に注意。
  *
  * @type {string[]}
  */
@@ -116,13 +117,21 @@ export function extractTemplateSections(template) {
 /**
  * Check 1: 必須セクション存在確認 (lane-aware)。
  * - feature/hotfix: 現行どおり SSOT JSON (なければ template) の全 `## ` 見出しを必須。
- * - integration: INTEGRATION_REQUIRED_SECTIONS (現行の部分集合 + エビデンス表) を必須。
+ * - integration: INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#2950 / #3688 AC1) の
+ *   見出し集合を必須。同 JSON 不在時のみ INTEGRATION_REQUIRED_SECTIONS に fallback。
  * - dependabot: skip。
  *
  * @param {CheckInput} input
  * @returns {CheckResult}
  */
-export function checkSectionPresence({ body, labels, template, ssotSections, lane }) {
+export function checkSectionPresence({
+	body,
+	labels,
+	template,
+	ssotSections,
+	integrationSsotSections,
+	lane,
+}) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
 	if (hasDependenciesLabel(labels, lane)) {
@@ -132,8 +141,13 @@ export function checkSectionPresence({ body, labels, template, ssotSections, lan
 	let sections;
 	let sourceLabel;
 	if (lane === 'integration') {
-		sections = INTEGRATION_REQUIRED_SECTIONS;
-		sourceLabel = 'INTEGRATION_REQUIRED_SECTIONS (暫定 section set、#2944 / Phase B 接続点)';
+		if (Array.isArray(integrationSsotSections) && integrationSsotSections.length > 0) {
+			sections = integrationSsotSections;
+			sourceLabel = 'INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#3688)';
+		} else {
+			sections = INTEGRATION_REQUIRED_SECTIONS;
+			sourceLabel = 'INTEGRATION_REQUIRED_SECTIONS (fallback — 統合 SSOT JSON 不在)';
+		}
 	} else if (Array.isArray(ssotSections) && ssotSections.length > 0) {
 		sections = ssotSections;
 		sourceLabel = 'PR_TEMPLATE_SECTIONS.json (SSOT)';
@@ -675,7 +689,25 @@ if (isMain) {
 		}
 	}
 
-	const result = fn({ body, labels, template, ssotSections, lane });
+	// 統合 PR 用 section SSOT (#3688)。不在 / parse 失敗時は null → INTEGRATION_REQUIRED_SECTIONS fallback。
+	const integrationSsotRaw =
+		args['integration-ssot-file'] && existsSync(args['integration-ssot-file'])
+			? readFileArg('integration-ssot-file')
+			: '';
+	/** @type {string[] | null} */
+	let integrationSsotSections = null;
+	if (integrationSsotRaw) {
+		try {
+			const ssot = JSON.parse(integrationSsotRaw);
+			if (Array.isArray(ssot.sections)) integrationSsotSections = ssot.sections.map(String);
+		} catch (err) {
+			console.error(
+				`[pr-template-gate-checks] integration-ssot-file parse 失敗 (INTEGRATION_REQUIRED_SECTIONS fallback): ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	const result = fn({ body, labels, template, ssotSections, integrationSsotSections, lane });
 	console.log(result.message);
 	process.exit(result.ok ? 0 : 1);
 }

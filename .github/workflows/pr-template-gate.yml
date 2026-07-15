@@ -43,7 +43,8 @@ permissions:
 jobs:
   # ============================================================
   # Job 1: 必須セクション存在確認 (lane-aware)
-  #   feature/hotfix = SSOT JSON の全 `## ` 見出し / integration = 統合 section set /
+  #   feature/hotfix = SSOT JSON の全 `## ` 見出し /
+  #   integration = INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#3688) /
   #   dependabot = skip。検証ロジックは scripts/pr-template-gate-checks.mjs (check=section-presence)。
   # ============================================================
   check-section-presence:
@@ -75,7 +76,8 @@ jobs:
             --body-file /tmp/pr-body.md \
             --labels-json /tmp/pr-labels.json \
             --template-file .github/PULL_REQUEST_TEMPLATE.md \
-            --ssot-file .github/PR_TEMPLATE_SECTIONS.json
+            --ssot-file .github/PR_TEMPLATE_SECTIONS.json \
+            --integration-ssot-file .github/INTEGRATION_PR_TEMPLATE_SECTIONS.json
 
   # ============================================================
   # Job 2: 関連 Issue 番号の記入 (lane-aware)
