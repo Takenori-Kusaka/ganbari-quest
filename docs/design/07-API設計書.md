@@ -1411,7 +1411,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 
 > **deprecated (Epic #2525 license key 全廃)**: 以下の `/ops/license` / `/ops/license/[key]` / `/ops/license/issue` / `/ops/license/legacy-count` 系統はすべて物理削除された (PR-L3 PR #2822)。割引・campaign 配布は Stripe Coupon / Promotion Code (Stripe Dashboard) で代替する。リンク先 `license-hmac-migration-plan.md` も deprecated (HMAC 移行は機構全廃により不要、歴史記録)。本節以降の `/ops/license/*` 仕様は歴史記録として残す。
 
-#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805）
+#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1422,7 +1422,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 **URL パラメータ:**
 - `limit` (query, number): イベント取得件数。デフォルト 50、最大 200
 
-#### GET /ops/license/[key] （ライセンスキー詳細 #805）
+#### GET /ops/license/[key] （ライセンスキー詳細 #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1434,7 +1434,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - 当該キーの `license_events` 履歴（最新 200 件）
 - `status='active'` のときのみ「失効」ボタンを表示
 
-#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805）
+#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1457,7 +1457,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - `license_events` に `eventType='revoked'` を記録 (#804)
 - `ops_audit_log` に `action='license.revoke'` / `target=<key>` / `metadata={reason, note}` を記録 (#820)
 
-#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802）
+#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1465,7 +1465,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - Stripe を経由しないキャンペーン配布・サポート補償・プレゼント用のライセンスキーを一括発行する入力画面
 - 発行結果は同一ページでテキスト表示 + CSV ダウンロード（`campaign-keys-YYYY-MM-DD.csv`）
 
-#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802）
+#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1491,7 +1491,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - `license_events` に `eventType='issued'` を各キー分記録 (#804)
 - `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
 
-#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484）
+#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること (`src/routes/ops/+layout.server.ts` の `isOpsMember(locals.identity)` で gate)
 
