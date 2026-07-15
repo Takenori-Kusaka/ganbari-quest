@@ -21,7 +21,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import {
 	ADMIN_RESOURCE_MODEL_REGISTRY,
+	type AdminResourceKey,
 	type AdminResourceModel,
+	ALLOWED_NON_CANONICAL_SLOT_TESTIDS,
 	CANONICAL_SLOT_ORDER,
 	REQUIRED_SLOT_NAMES,
 } from '../../src/lib/features/admin/admin-resource-model-registry';
@@ -100,7 +102,15 @@ async function readVisibleSlotsInDomOrder(
  * 間に正準でない section / banner が挿入されても部分列照合では見えない (順序は崩れていないため PASS)。
  * これを塞ぐため、canonical スロット要素の共通親 (LCA) を求め、その **直接の子要素**を document 順に
  * 走査し、「canonical スロットを含む子」の連続帯 (first〜last canonical child) の中に、
- * canonical でない `data-testid` を持つ slot-level 兄弟が割り込んでいないかを assert する。
+ * 正準でも allowlist でもない `data-testid` を持つ slot-level 兄弟が割り込んでいないかを assert する。
+ *
+ * #3117 項目 1 (allowlist 方式、fails-closed): 旧実装は `admin-<res>-` prefix 名前空間の regex での
+ * 判定だったため、bare 名 testid (例: `data-testid="promo-banner"`) の drift slot を素通りする
+ * false-negative があった。本実装は **canonical slot testid + `ALLOWED_NON_CANONICAL_SLOT_TESTIDS`
+ * (registry SSOT に明示列挙された既知 (B) ドメイン section) のみを許可**し、それ以外の testid を持つ
+ * 直接の子は全て intruder として報告する (未知 = fail、fails-closed)。
+ * `data-testid` を持たない純装飾要素は対象外 (false-positive とのバランス、registry の allowlist
+ * doc comment 参照)。
  *
  * 返り値: 割り込んでいた非正準 testid の配列 (空なら drift なし)。
  */
@@ -111,8 +121,9 @@ async function findIntruderTestidsBetweenSlots(
 	const canonicalTestids = CANONICAL_SLOT_ORDER.map((slot) => slot.testid(resource)).filter(
 		(t): t is string => Boolean(t),
 	);
+	const allowedNonCanonical = ALLOWED_NON_CANONICAL_SLOT_TESTIDS[resource as AdminResourceKey];
 	return page.evaluate(
-		({ canonicalTestids, allCanonicalTestids }) => {
+		({ canonicalTestids, allCanonicalTestids, allowedNonCanonical }) => {
 			// canonical スロット要素群の lowest common ancestor (LCA) を返す (browser context helper)。
 			const findLca = (els: Element[]): Element | null => {
 				let lca: Element | null = els[0] ?? null;
@@ -145,23 +156,16 @@ async function findIntruderTestidsBetweenSlots(
 			const lastIdx = canonicalChildIdx[canonicalChildIdx.length - 1];
 			if (firstIdx === undefined || lastIdx === undefined) return [];
 
-			// first〜last の帯の中で、canonical スロットを含まないのに「slot 名前空間 testid」を持つ
-			// 直接の子 = 割り込み (drift)。
-			//
-			// 判定対象は **slot 名前空間** `admin-<res>-*` (+ `<res>-action-message` /
-			// `<res>-child-context-banner` の variant) とする。`admin-<res>-` で始まる testid を持つ
-			// 直接の子は「page-level slot」を名乗っているとみなし、canonical 集合外なら割り込み (新規 slot)
-			// として捕捉する (例: `admin-checklists-promo-banner` を search と list の間に追加)。
-			//
-			// (B) 正当なドメインセクション (marketplace-import-section / checklist-distribution-section-*
-			// 等) は `admin-<res>-` 接頭辞を持たない固有 testid であり、かつ各自の canonical スロット内に
-			// 置かれる限り「canonical を含む子」として帯から除外されるため誤検出しない。
-			const slotNamespaceRe =
-				/^admin-(activities|rewards|checklists)-|-(action-message|child-context-banner)$/;
+			// first〜last の帯の中で、canonical スロットを含まないのに data-testid を持つ直接の子は、
+			// allowlist (canonical 全集合 + registry の ALLOWED_NON_CANONICAL_SLOT_TESTIDS) に無ければ
+			// 全て割り込み (drift) として報告する (#3117 項目 1、fails-closed)。
+			// 旧 regex 方式 (`admin-<res>-` prefix のみ検出) では bare 名 testid (例: `promo-banner`) が
+			// 素通りしていた false-negative を封じる。
+			const allowed = new Set<string>([...allCanonicalTestids, ...allowedNonCanonical]);
 			const isIntruder = (child: Element): string | null => {
 				if (containsCanonical(child)) return null;
 				const tid = child.getAttribute('data-testid');
-				return tid && slotNamespaceRe.test(tid) && !allCanonicalTestids.includes(tid) ? tid : null;
+				return tid && !allowed.has(tid) ? tid : null;
 			};
 
 			const intruders: string[] = [];
@@ -172,7 +176,11 @@ async function findIntruderTestidsBetweenSlots(
 			}
 			return intruders;
 		},
-		{ canonicalTestids, allCanonicalTestids: Array.from(ALL_CANONICAL_TESTIDS) },
+		{
+			canonicalTestids,
+			allCanonicalTestids: Array.from(ALL_CANONICAL_TESTIDS),
+			allowedNonCanonical: Array.from(allowedNonCanonical),
+		},
 	);
 }
 
@@ -266,6 +274,46 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 				// (= page-top に配信 chip を常設しない契約)。per-child リソースが配信 chip を page-top に
 				// 常設したら toBeHidden が fail する。
 				await expect(page.getByTestId('checklist-distribution-visibility')).toBeHidden();
+			});
+
+			test('(e) 一覧 0 件 (filter-empty) でも slot 契約が成立する (UnifiedEmptyState 経由、#3117 項目 2)', async ({
+				page,
+			}) => {
+				// demo fixture がデータを seed するため、通常描画では一覧の 0 件分岐が本 spec の CI 実行で
+				// 一度も踏まれない (#3117 項目 2 = 0-items パスの CI exercise 欠落)。新規 fixture variant を
+				// 作らず (Pre-PMF、ADR-0010)、既存 UI の search filter で一覧を 0 件に倒し、
+				// UnifiedEmptyState (empty state SSOT、DESIGN.md §5 / §10) 経由の空表示でも
+				// スロット契約が item 数に依存せず成立することを assert する。
+				const searchTestid = CANONICAL_SLOT_ORDER.find((s) => s.name === 'search')?.testid(
+					model.resource,
+				);
+				expect(
+					searchTestid,
+					'search スロットの testid が registry に定義されていない',
+				).toBeTruthy();
+				await page
+					.getByTestId(searchTestid as string)
+					.getByRole('searchbox')
+					.fill('zzz-no-match-3117');
+
+				// 0 件分岐: UnifiedEmptyState (SSOT) の empty state が描画される (registry 宣言 testid)。
+				await expect(page.getByTestId(model.emptyStateTestid)).toBeVisible();
+
+				// item 数に依存しない slot 契約: 必須スロットは空表示でも欠けず、正準順を保ち、
+				// intruder 0 件のまま (test (a)/(b) と同じ assert を 0 件状態で再適用)。
+				const observed = await readVisibleSlotsInDomOrder(page, model.resource);
+				for (const required of REQUIRED_SLOT_NAMES) {
+					expect(observed, `0 件表示で必須スロット "${required}" が消えた`).toContain(required);
+				}
+				expect(
+					isSubsequence(observed, CANONICAL_NAMES),
+					`0 件表示の slot 順 ${JSON.stringify(observed)} が canonical の部分列ではない`,
+				).toBe(true);
+				const intruders = await findIntruderTestidsBetweenSlots(page, model.resource);
+				expect(
+					intruders,
+					`0 件表示で canonical スロット間に非正準 slot が割り込んだ: ${JSON.stringify(intruders)}`,
+				).toEqual([]);
 			});
 		});
 	}
