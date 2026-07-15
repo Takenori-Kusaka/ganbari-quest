@@ -77,7 +77,7 @@ describe('PGlite 本番接続層 (#3620 AC-C1、ADR-0064 案 C)', () => {
 
 	// #3620 QM residual #2 (security guardrail): aws-prod (cloud Lambda) では PGlite を開かせない。
 	// DATA_SOURCE=pglite の誤配布で全 tenant が単一 local store に集約され ADR-0063 の tenant 分離が
-	// 消失する config-only blast radius を、PGlite を開く唯一の chokepoint で fail-loud に閉じる。
+	// 消失する config-only blast radius を、PGlite を開く唯一の入口で fail-loud に閉じる。
 	it('[C1-5] aws-prod では initPgliteConnection が throw する (ADR-0063 tenant 分離 guardrail)', async () => {
 		const prev = process.env.AWS_LAMBDA_FUNCTION_NAME;
 		const restoreEnv = () => {

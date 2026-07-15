@@ -63,7 +63,7 @@ export async function initPgliteConnection(): Promise<void> {
 		// #3620 QM residual #2 (security guardrail): aws-prod (cloud Lambda) で PGlite を開くことを
 		// 物理拒否する。DATA_SOURCE=pglite が誤って本番 Lambda に配布されると、単一接続の PGlite に
 		// 全家族のデータが集約され ADR-0063 の tenant 分離 (DSQL pool + 偽造不能 tenantId) が
-		// config ミス 1 つで消失する。PGlite を開く唯一の chokepoint である本関数の先頭で fail-loud
+		// config ミス 1 つで消失する。PGlite を開く唯一の入口である本関数の先頭で fail-loud
 		// する (self-heal は rejected init を破棄するため、誤設定が直るまで毎回 throw = silent 稼働なし)。
 		if (resolveRuntimeMode({ env }) === 'aws-prod') {
 			throw new Error(
