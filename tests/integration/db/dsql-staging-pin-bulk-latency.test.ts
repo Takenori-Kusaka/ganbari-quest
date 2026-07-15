@@ -46,6 +46,9 @@ function percentile(sorted: number[], p: number): number {
 	return sorted[Math.max(0, idx)] ?? 0;
 }
 
+// #3592②/#3600② 恒久 opt-in skip: 実 Aurora DSQL cluster (DSQL_ENDPOINT + AWS creds) を要する
+// staging 実測のため CI では常時 skip する設計。#3683 の staging CI レーン常設で置換予定
+// (deadline 目標 2026-09-13)。owner: @Takenori-Kusaka。実行方法は本ファイル冒頭コメント参照。
 describe.skipIf(!ENDPOINT)('実 DSQL pin 並行 + bulk rollback + latency (#3592②/#3600②)', () => {
 	let pool: AuroraDSQLPool;
 	let db: Db;
@@ -91,7 +94,8 @@ describe.skipIf(!ENDPOINT)('実 DSQL pin 並行 + bulk rollback + latency (#3592
 				await db.execute(sql`DELETE FROM ${sql.raw(t)} WHERE family_id = ${FAMILY}`);
 			}
 		} finally {
-			await pool.end();
+			// 型定義に end 無し (dsql-staging-concurrency.test.ts / dsql-migrate.ts と同キャスト)
+			await (pool as unknown as { end(): Promise<void> }).end();
 		}
 	}, 60_000);
 
@@ -107,7 +111,7 @@ describe.skipIf(!ENDPOINT)('実 DSQL pin 並行 + bulk rollback + latency (#3592
 
 		const results = await Promise.allSettled(
 			activityIds.map((aid) =>
-				repo.togglePin(asChildId(childId), asChildId(aid) as never, 1, FAMILY),
+				repo.togglePin(asChildId(childId), asChildId(aid) as never, true, FAMILY),
 			),
 		);
 		const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
@@ -140,11 +144,11 @@ describe.skipIf(!ENDPOINT)('実 DSQL pin 並行 + bulk rollback + latency (#3592
 		const repo = createDsqlActivityPrefRepo(db, runner);
 		// M1 の pin を全解除して盤面を初期化
 		for (const aid of activityIds) {
-			await repo.togglePin(asChildId(childId), asChildId(aid) as never, 0, FAMILY);
+			await repo.togglePin(asChildId(childId), asChildId(aid) as never, false, FAMILY);
 		}
 		const two = activityIds.slice(0, 2);
 		const results = await Promise.allSettled(
-			two.map((aid) => repo.togglePin(asChildId(childId), asChildId(aid) as never, 1, FAMILY)),
+			two.map((aid) => repo.togglePin(asChildId(childId), asChildId(aid) as never, true, FAMILY)),
 		);
 		expect(
 			results
