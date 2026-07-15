@@ -289,18 +289,22 @@ EPIC #2362 P1 Phase 1 で導入された Valibot schema SSOT。`src/lib/marketpl
 
 ### 9.1 `activity-pack` (`ActivityPackPayloadSchema`)
 
+値域は domain 層 SSOT 定数 (`src/lib/domain/validation/activity.ts` の `ACTIVITY_*`、#3151 / ADR-0066)
+を参照し、domain Zod (`createActivitySchema`) と完全一致する (domain⊆wire を
+`tests/unit/architecture/schema-range-ssot.test.ts` が機械表明)。
+
 ```ts
 {
   activities: Array<{
-    name: string (1-50)
+    name: string (1-50)                    // ACTIVITY_NAME_MIN..MAX
     categoryCode: 'undou' | 'benkyou' | 'seikatsu' | 'kouryuu' | 'souzou'
-    icon: string (1-10)
-    basePoints: integer (1-10000)
-    ageMin: number | null
-    ageMax: number | null
+    icon: string (1-2 grapheme)            // isValidActivityIcon (ZWJ 連結絵文字 = 1 grapheme)
+    basePoints: integer (1-100)            // ACTIVITY_BASE_POINTS_MIN..MAX
+    ageMin: integer (0-20) | null          // ACTIVITY_AGE_MIN..MAX
+    ageMax: integer (0-20) | null
     gradeLevel: 'baby' | 'kinder' | 'elementary_lower' | ... | null
-    triggerHint?: string (≤200)
-    description?: string (≤500)
+    triggerHint?: string (≤30)             // ACTIVITY_TRIGGER_HINT_MAX
+    description?: string (≤200)            // ACTIVITY_DESCRIPTION_MAX
     mustDefault?: boolean    // #1758 / #1709-D
   }>  (minLength: 1)
 }
