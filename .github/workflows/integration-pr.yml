@@ -50,6 +50,8 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  # #3462: tracking issue (label:epic) の集約 Closes 除外判定に issue 一覧の read が必要。
+  issues: read
 
 jobs:
   upsert-integration-pr:
@@ -124,6 +126,12 @@ jobs:
             --json number,title > /tmp/back-merge-open.json || echo '[]' > /tmp/back-merge-open.json
           echo "未取込 back-merge PR 件数: $(jq 'length' /tmp/back-merge-open.json)"
 
+          # #3462: EPIC/tracking issue (label:epic, open) を取得し、集約 Closes から除外する
+          # (AC 未検証の force-close 防止。issue-close-gate は PR-keyword close を skip するため gate も掛からない)。
+          gh issue list --state open --label epic --limit 200 \
+            --json number > /tmp/epic-issues.json || echo '[]' > /tmp/epic-issues.json
+          echo "tracking (epic) issue 件数: $(jq 'length' /tmp/epic-issues.json)"
+
           # drift 日数 = 前回統合 merge からの経過日数。
           NOW_EPOCH=$(date -u +%s)
           SINCE_EPOCH=$(date -u -d "$SINCE_ISO" +%s)
@@ -147,6 +155,7 @@ jobs:
             --template .github/INTEGRATION_PR_TEMPLATE.md \
             --prs /tmp/develop-merged.json \
             --back-merge-prs /tmp/back-merge-open.json \
+            --tracking-issues /tmp/epic-issues.json \
             --develop-head "$DEVELOP_HEAD" \
             --since "$SINCE" --until "$UNTIL" --drift-days "$DRIFT_DAYS" \
             > /tmp/integration-pr-body.md
