@@ -12,6 +12,10 @@ on:
     paths:
       - 'docs/zenn/**'
 
+# #3494 AC2: repo デフォルト GITHUB_TOKEN 権限への依存を排除するため read-only を明示 (checkout のみ)。
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
