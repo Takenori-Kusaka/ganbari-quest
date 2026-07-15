@@ -11,6 +11,7 @@
 
 import { sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import {
 	getPgliteDb,
@@ -72,5 +73,31 @@ describe('PGlite 本番接続層 (#3620 AC-C1、ADR-0064 案 C)', () => {
 		);
 		const configs = (result.rows as { cfg: string }[]).map((r) => r.cfg);
 		expect(configs).toContain('TimeZone=UTC');
+	});
+
+	// #3620 QM residual #2 (security guardrail): aws-prod (cloud Lambda) では PGlite を開かせない。
+	// DATA_SOURCE=pglite の誤配布で全 tenant が単一 local store に集約され ADR-0063 の tenant 分離が
+	// 消失する config-only blast radius を、PGlite を開く唯一の chokepoint で fail-loud に閉じる。
+	it('[C1-5] aws-prod では initPgliteConnection が throw する (ADR-0063 tenant 分離 guardrail)', async () => {
+		const prev = process.env.AWS_LAMBDA_FUNCTION_NAME;
+		const restoreEnv = () => {
+			if (prev === undefined) {
+				delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+			} else {
+				process.env.AWS_LAMBDA_FUNCTION_NAME = prev;
+			}
+			resetEnvForTesting();
+		};
+		process.env.AWS_LAMBDA_FUNCTION_NAME = 'ganbari-quest-app';
+		resetEnvForTesting();
+		try {
+			await expect(getPgliteDb()).rejects.toThrow(/forbidden on aws-prod/);
+			// self-heal (#3630): reject 後も singleton は brick されず、env 修正後は再 init できる。
+			restoreEnv();
+			const db = await getPgliteDb();
+			expect(db).toBeTruthy();
+		} finally {
+			restoreEnv();
+		}
 	});
 });

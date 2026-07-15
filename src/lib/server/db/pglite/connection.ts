@@ -28,6 +28,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { getEnv } from '$lib/runtime/env';
+import { resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { createDsqlTransactionRunner } from '../dsql/run-in-transaction';
 import * as schema from '../dsql/schema';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
@@ -59,6 +60,18 @@ export async function initPgliteConnection(): Promise<void> {
 	if (_ready) return _ready;
 	_ready = (async () => {
 		const env = getEnv();
+		// #3620 QM residual #2 (security guardrail): aws-prod (cloud Lambda) で PGlite を開くことを
+		// 物理拒否する。DATA_SOURCE=pglite が誤って本番 Lambda に配布されると、単一接続の PGlite に
+		// 全家族のデータが集約され ADR-0063 の tenant 分離 (DSQL pool + 偽造不能 tenantId) が
+		// config ミス 1 つで消失する。PGlite を開く唯一の chokepoint である本関数の先頭で fail-loud
+		// する (self-heal は rejected init を破棄するため、誤設定が直るまで毎回 throw = silent 稼働なし)。
+		if (resolveRuntimeMode({ env }) === 'aws-prod') {
+			throw new Error(
+				'PGlite backend is forbidden on aws-prod (cloud Lambda): DATA_SOURCE=pglite would ' +
+					'collapse all tenants into a single local store and void ADR-0063 tenant isolation. ' +
+					'Use DATA_SOURCE=dsql on AWS. (#3620 QM residual #2)',
+			);
+		}
 		// dataDir 未設定 = in-memory (PGlite は引数なしで in-memory)。設定時は FS VFS で永続化。
 		_client = env.PGLITE_DATA_DIR ? new PGlite(env.PGLITE_DATA_DIR) : new PGlite();
 		await _client.waitReady;
