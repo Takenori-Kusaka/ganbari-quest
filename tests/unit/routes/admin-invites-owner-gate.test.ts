@@ -33,9 +33,7 @@ type Role = 'owner' | 'parent' | 'child';
 
 function makeLocals(role: Role | null): App.Locals {
 	return {
-		context: role
-			? { tenantId: 't-invites', role, licenseStatus: 'active', plan: 'family' }
-			: null,
+		context: role ? { tenantId: 't-invites', role, licenseStatus: 'active', plan: 'family' } : null,
 		identity: role ? { type: 'cognito', userId: 'u-1', email: 'o@example.com' } : null,
 	} as unknown as App.Locals;
 }
