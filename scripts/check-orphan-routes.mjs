@@ -33,7 +33,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const ROUTES_DIR = path.join(REPO_ROOT, 'src', 'routes');
 const LEGACY_URL_MAP = path.join(REPO_ROOT, 'src', 'lib', 'server', 'routing', 'legacy-url-map.ts');

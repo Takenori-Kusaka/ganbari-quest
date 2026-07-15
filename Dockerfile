@@ -52,9 +52,11 @@ COPY --from=build /app/drizzle.config.ts ./
 # docs/runbooks/nuc-pglite-cutover.md。
 COPY --from=build /app/src ./src
 COPY --from=build /app/scripts/nuc-pglite-cutover.ts ./scripts/nuc-pglite-cutover.ts
-# CLI が import する scripts/lib/ (nuc-cutover-verify 等) を丸ごと同梱する — 単体ファイル COPY だと
-# lib module 追加のたびに漏れる (staging PGlite cycle 2 で ERR_MODULE_NOT_FOUND 実機露呈、#3620)
-COPY --from=build /app/scripts/lib ./scripts/lib
+# CLI が import する scripts/lib/runtime/ (nuc-cutover-verify 等) を dir ごと同梱する — 単体ファイル
+# COPY だと lib module 追加のたびに漏れる (staging PGlite cycle 2 で ERR_MODULE_NOT_FOUND 実機露呈、#3620)。
+# CI/dev 専用 helper は scripts/lib/ci/ に分離し image に入れない (#3659、image 純度 / attack surface)。
+# COPY ↔ import の整合は tests/unit/architecture/dockerfile-copy-import-fitness.test.ts が機械検証する。
+COPY --from=build /app/scripts/lib/runtime ./scripts/lib/runtime
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/tsconfig.json ./
 # root tsconfig は .svelte-kit/tsconfig.json を extends し $lib paths はそちら側 (svelte-kit sync

@@ -35,7 +35,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const DB_DIR = path.join(REPO_ROOT, 'src', 'lib', 'server', 'db');
 const REPO_LAYER_DIRS = ['sqlite', 'demo', 'dynamodb'];

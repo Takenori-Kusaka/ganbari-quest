@@ -33,7 +33,7 @@ AI エージェントも 4 フィールド全て埋める。`Blocked by` 未解�
 
 ## Draft PR 運用
 
-- **base branch は develop 二層**（`docs/sessions/branch-strategy.md` §3/§5、#2870 cutover / #2959）: feature/fix/docs PR = `--base develop` 必須 / hotfix（`fix/*` from main）のみ `--base main`。**統合 PR は `release/*`（develop の凍結コミットから cut）→ main**（release ブランチ方式、branch-strategy.md §3.1 / #3063。動く標的問題の構造的解消）。`--base` 省略は default branch（main）向けになり `main-pr-base-guard` で fail する。`main-pr-base-guard` は head=`develop` / `release/*` / `fix/*` のみ許可。base 判定 SSOT: `node scripts/lib/resolve-base-branch.mjs`
+- **base branch は develop 二層**（`docs/sessions/branch-strategy.md` §3/§5、#2870 cutover / #2959）: feature/fix/docs PR = `--base develop` 必須 / hotfix（`fix/*` from main）のみ `--base main`。**統合 PR は `release/*`（develop の凍結コミットから cut）→ main**（release ブランチ方式、branch-strategy.md §3.1 / #3063。動く標的問題の構造的解消）。`--base` 省略は default branch（main）向けになり `main-pr-base-guard` で fail する。`main-pr-base-guard` は head=`develop` / `release/*` / `fix/*` のみ許可。base 判定 SSOT: `node scripts/lib/ci/resolve-base-branch.mjs`
 - `gh pr create --draft --base develop` で作成 → CI 全通過後 `gh pr ready <num>` で Ready 化（#1074）
 - CI 失敗で Ready にすると `draft-on-ci-fail.yml` が自動 Draft 戻し
 - Dependabot PR は non-draft 自動作成、auto-merge 運用

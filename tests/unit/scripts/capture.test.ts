@@ -12,7 +12,7 @@ import {
 	PRESETS,
 	resolveDomSnapshotPath,
 	resolvePreset,
-} from '../../../scripts/lib/screenshot-helpers.mjs';
+} from '../../../scripts/lib/ci/screenshot-helpers.mjs';
 
 describe('resolvePreset (#1424)', () => {
 	it('mobile プリセットを解決できる', () => {

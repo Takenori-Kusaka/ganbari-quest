@@ -14,7 +14,7 @@
  *   composite action (actions/pr-lane) 経由で全 gate が同一 SSOT を参照する
  *   (terms.ts / ADR-0042 の 3 層トークンと同型の SSOT 思想)。
  *
- * `scripts/lib/resolve-base-branch.mjs` (#2959) との責務分担:
+ * `scripts/lib/ci/resolve-base-branch.mjs` (#2959) との責務分担:
  *   - resolve-base-branch.mjs = **クライアント tooling 用** (local git 基点)。
  *     「現在の branch がどの base に push / PR すべきか」を local git / gh から解決する。
  *     副作用あり (execSync で git / gh を叩く)。

@@ -15,7 +15,7 @@ import {
 	detectErrorMarkersInHtml,
 	evaluateRenderHealth,
 	INFRA_ERROR_TITLE_MARKER,
-} from '../../../scripts/lib/screenshot-helpers.mjs';
+} from '../../../scripts/lib/ci/screenshot-helpers.mjs';
 
 // ============================================================
 // fixture: src/routes/+error.svelte の実レンダリング相当 (Svelte scoping class 付き)

@@ -14,7 +14,7 @@ import {
 	collectImportedCounts,
 	diffCutoverCounts,
 	summarizeExportCounts,
-} from '../../../scripts/lib/nuc-cutover-verify';
+} from '../../../scripts/lib/runtime/nuc-cutover-verify';
 import type { ExportData } from '../../../src/lib/domain/export-format';
 import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 

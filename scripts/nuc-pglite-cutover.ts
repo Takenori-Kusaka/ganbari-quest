@@ -69,7 +69,7 @@ async function runExport(opts: Record<string, string>): Promise<void> {
 
 	try {
 		const { exportFamilyData } = await import('../src/lib/server/services/export-service');
-		const { summarizeExportCounts } = await import('./lib/nuc-cutover-verify');
+		const { summarizeExportCounts } = await import('./lib/runtime/nuc-cutover-verify');
 		// 旧 NUC の tenant は local auth 固定値 'local' (src/lib/server/auth/local-tenant.ts)。
 		const data = await exportFamilyData({ tenantId: 'local' });
 		const counts = summarizeExportCounts(data);
@@ -133,7 +133,7 @@ async function runImport(opts: Record<string, string>): Promise<void> {
 
 	await pglite.initPgliteConnection();
 	const { importFamilyData } = await import('../src/lib/server/services/import-service');
-	const verify = await import('./lib/nuc-cutover-verify');
+	const verify = await import('./lib/runtime/nuc-cutover-verify');
 
 	// #3653: cutover は fresh DB への完全移行のため verbatim (dedup bypass)。merge semantics だと
 	// 実本番に存在する同 child 同 title 行等が skip され件数突合で abort する (cycle 3 実検出)。

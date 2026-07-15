@@ -34,7 +34,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const SCHEMA_FILE = path.join(REPO_ROOT, 'src', 'lib', 'server', 'db', 'schema.ts');
 const PRODUCTION_DIRS = [

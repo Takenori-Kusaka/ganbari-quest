@@ -1,7 +1,7 @@
 /**
  * scripts/__tests__/check-orphan-utils.test.mjs (EPIC #2362 follow-up)
  *
- * orphan detection 共通 utility (`scripts/lib/orphan-utils.mjs`) の unit test。
+ * orphan detection 共通 utility (`scripts/lib/ci/orphan-utils.mjs`) の unit test。
  *
  * 実行: node --test scripts/__tests__/check-orphan-utils.test.mjs
  */
@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const { parseArgs, loadBaseline, saveBaseline, walkDir, escapeRegex, collectReferences } =
-	await import('../lib/orphan-utils.mjs');
+	await import('../lib/ci/orphan-utils.mjs');
 
 describe('parseArgs', () => {
 	it('--report → report=true', () => {

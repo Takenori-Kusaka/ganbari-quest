@@ -3,7 +3,7 @@
  * PR #3266 (#3260 C2): /admin/settings/account の ? ページガイド overlay を撮影。
  * PO 指摘「おやカギ変更画面に説明がない」への個別ガイド付与の証跡。
  */
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 

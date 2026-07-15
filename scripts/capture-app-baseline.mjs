@@ -14,7 +14,7 @@
 //     2. admin 代表 critical 画面 (marketplace 取込 CUJ の受領先 = /admin/activities, /admin/checklists)
 //     3. ページガイド open 状態 (#2928、EPIC #2925 Sub-3): ❓ を開いた driver.js popover の
 //        settled 状態 (重複 / 見切れ / spotlight 不全の pixel 回帰検出)。代表 3 ページ × desktop + mobile。
-//        scripts/lib/page-guide-capture.mjs の openPageGuide hook を ScreenshotCapture.capture({ interact })
+//        scripts/lib/ci/page-guide-capture.mjs の openPageGuide hook を ScreenshotCapture.capture({ interact })
 //        に渡して撮影する (#1442 使い捨て禁止 — 既存 capture infra の generic 拡張)。
 //
 //   これにより「critical CUJ × 5 age mode + admin + ガイド open」の見た目回帰を pixelmatch で
@@ -50,8 +50,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { openPageGuide } from './lib/page-guide-capture.mjs';
-import { ScreenshotCapture } from './lib/screenshot-helpers.mjs';
+import { openPageGuide } from './lib/ci/page-guide-capture.mjs';
+import { ScreenshotCapture } from './lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const CURRENT_DIR = path.resolve('tmp/app-baseline-current');

@@ -136,7 +136,7 @@ UI 系 fix / design PR では **A〜D 仕分けの妥当性**も判定する（[
   ```
 - After SS は PR HEAD (作業中ブランチ) で撮影し 'after-' prefix にリネーム
 - 同一 dir に `before-X.png` / `after-X.png` が揃った状態で再度 capture を実行すると、本ガードが sha256 比較で偽装を検出する
-- 実装: `scripts/lib/screenshot-helpers.mjs` の `checkBeforeAfterIdentical()` + unit test 16 ケース (`scripts/__tests__/capture-ss-fakes.test.mjs`)
+- 実装: `scripts/lib/ci/screenshot-helpers.mjs` の `checkBeforeAfterIdentical()` + unit test 16 ケース (`scripts/__tests__/capture-ss-fakes.test.mjs`)
 
 ### 手順 3: SS 欠落検知
 
