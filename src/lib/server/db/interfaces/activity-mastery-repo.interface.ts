@@ -15,5 +15,5 @@ export interface IActivityMasteryRepo {
 		level: number,
 		tenantId: string,
 	): Promise<ActivityMastery>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

@@ -5,7 +5,7 @@ import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { activityLogPrefix, activityPrefKey, activityPrefPrefix, childPK, tenantPK } from './keys';
 
@@ -216,6 +216,9 @@ export async function getUsageCounts(
 }
 
 /** テナントの全活動ピン留め設定を削除（CHILD#* 配下の ACTPREF# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), activityPrefPrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, activityPrefPrefix());
 }

@@ -62,5 +62,5 @@ export interface IStatusRepo {
 		childId: ChildId,
 		tenantId: string,
 	): Promise<{ category: number | string; lastDate: string | null }[]>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

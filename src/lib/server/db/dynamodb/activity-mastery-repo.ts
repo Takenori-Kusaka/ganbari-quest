@@ -5,7 +5,7 @@ import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityMastery } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { activityMasteryKey, activityMasteryPrefix, childPK, tenantPK } from './keys';
 
@@ -89,7 +89,10 @@ export async function upsert(
 	return toActivityMastery(item);
 }
 
-/** テナントの全活動習熟度を削除（CHILD#* パーティション配下の MAST# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), activityMasteryPrefix());
+/** テナントの全活動習熟度を削除（CHILD#* パーティション配下の MAST# アイテム、#3693: childIds 指定時は Query 化） */
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, activityMasteryPrefix());
 }

@@ -11,5 +11,5 @@ export interface IImageRepo {
 	insertCharacterImage(input: InsertCharacterImageInput, tenantId: string): Promise<void>;
 	updateChildAvatarUrl(childId: ChildId, avatarUrl: string | null, tenantId: string): Promise<void>;
 	findChildForImage(childId: ChildId, tenantId: string): Promise<Child | undefined>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

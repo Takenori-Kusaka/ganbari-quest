@@ -33,5 +33,5 @@ export interface IMessageRepo {
 		messageId: string,
 		tenantId: string,
 	): Promise<ParentMessage | undefined>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

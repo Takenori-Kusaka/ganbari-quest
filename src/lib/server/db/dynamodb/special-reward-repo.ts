@@ -6,7 +6,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -337,6 +337,9 @@ export async function deleteSpecialReward(
 }
 
 /** テナントの全特別報酬を削除（CHILD#* 配下の REWARD# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), specialRewardPrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, specialRewardPrefix());
 }

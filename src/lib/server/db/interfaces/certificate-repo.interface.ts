@@ -27,5 +27,5 @@ export interface ICertificateRepo {
 	): Promise<Certificate | null>;
 
 	/** #3329: テナントの全証明書を削除 (clear / テナント削除時。child_id は no-cascade のため明示削除が必要)。 */
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

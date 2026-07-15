@@ -42,5 +42,5 @@ export interface ISpecialRewardRepo {
 	 * #2845 課題①: childId 所有権検証付き。
 	 */
 	deleteSpecialReward(childId: ChildId, rewardId: string, tenantId: string): Promise<boolean>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }
