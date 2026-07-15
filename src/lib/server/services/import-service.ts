@@ -9,6 +9,7 @@ import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/dom
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
+import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
 import {
 	findActivities,
 	findActivityLogs,
@@ -34,6 +35,7 @@ import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
+import { getStampByCode } from '$lib/server/services/sibling-cheer-service';
 import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
@@ -81,6 +83,24 @@ async function runConcurrent<T>(
 		}
 	});
 	await Promise.all(runners);
+}
+
+/**
+ * content dedup (#3414/#3420) 用の既存行 prefetch 上限。
+ * parentMessage は findMessages(childId, limit) 契約のため十分大きな値で全件相当を取る
+ * (export 側 MAX_EXPORT_ROWS と同水準の桁。家庭内データで到達しない安全上限)。
+ */
+const RESTORE_DEDUP_FETCH_LIMIT = 100_000;
+
+/** ISO 8601 日時 (先頭 `YYYY-MM-DDTHH:MM` + Date.parse 可) か。restore の verbatim 値検証用 (#3414/#3420)。 */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+function isValidIsoDateTime(value: string): boolean {
+	return ISO_DATETIME_RE.test(value) && !Number.isNaN(Date.parse(value));
+}
+
+/** bonusPoints の許容範囲 (null または 0〜99,999 の整数)。改竄 backup の範囲外値を弾く (#3414)。 */
+function isValidBonusPoints(value: number | null): boolean {
+	return value === null || (Number.isInteger(value) && value >= 0 && value <= 99_999);
 }
 
 /**
@@ -403,9 +423,11 @@ export async function importFamilyData(
 	// #3329: 証明書 (がんばり/卒業証明書 授与記録) を issuedAt 保全で復元。childIdMap のみ必要。
 	await importCertificatesData(data, childIdMap, tenantId, result);
 	// #3329: 親→子おうえんメッセージを sentAt/shownAt 保全で復元。childIdMap のみ必要。
-	await importParentMessagesData(data, childIdMap, tenantId, result);
+	// #3414: merge mode は content dedup で再取込冪等 (verbatim = cutover は bypass)。
+	await importParentMessagesData(data, childIdMap, tenantId, result, mode);
 	// #3329: きょうだい間おうえんスタンプ。from/to 両 childRef を解決して復元。childIdMap のみ必要。
-	await importSiblingCheersData(data, childIdMap, tenantId, result);
+	// #3420: merge mode は content dedup で再取込冪等 (verbatim = cutover は bypass)。
+	await importSiblingCheersData(data, childIdMap, tenantId, result, mode);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -502,7 +524,7 @@ async function importRewardRedemptionsData(
 			continue;
 		}
 		try {
-			await insertRedemptionForRestore(
+			const restored = await insertRedemptionForRestore(
 				{
 					childId,
 					rewardId,
@@ -518,7 +540,9 @@ async function importRewardRedemptionsData(
 				},
 				tenantId,
 			);
-			result.rewardRedemptionsImported++;
+			// #3394: null = 永続化なし (demo no-op stub)。imported に加算しない (#2263 count 偽装防止)。
+			if (restored) result.rewardRedemptionsImported++;
+			else result.rewardRedemptionsSkipped++;
 		} catch (e) {
 			result.rewardRedemptionsSkipped++;
 			result.errors.push(
@@ -575,7 +599,7 @@ async function importChildChallengesData(
 			continue;
 		}
 		try {
-			await getRepos().childChallenge.insertForRestore(
+			const restored = await getRepos().childChallenge.insertForRestore(
 				{
 					childId,
 					title: c.title,
@@ -600,7 +624,17 @@ async function importChildChallengesData(
 				},
 				tenantId,
 			);
-			result.childChallengesImported++;
+			// #3387/#3394 統一冪等契約: null = 重複 (auto:weekly 同週既存) skip。imported に加算しない
+			// (count 偽装防止)。demo backend の書込 no-op も null で skip 計上される。
+			if (restored) {
+				result.childChallengesImported++;
+			} else {
+				result.childChallengesSkipped++;
+				result.skipped.constraint++;
+				result.warnings.push(
+					`チャレンジ重複スキップ (child=${c.childRef}, title=${c.title}, week=${c.startDate})`,
+				);
+			}
 		} catch (e) {
 			result.childChallengesSkipped++;
 			result.errors.push(
@@ -654,10 +688,22 @@ async function importStampCardsData(
 				},
 				tenantId,
 			);
+			// #3391/#3394 統一冪等契約: null = 同 (child, weekStart) 重複 skip。card が skip されたら
+			// 配下 entry も貼り先が無いため全件 skip 計上する (入力件数 = imported + skipped 恒等式)。
+			if (!restored) {
+				result.stampCardsSkipped++;
+				result.skipped.constraint++;
+				result.stampEntriesSkipped += card.entries.length;
+				result.warnings.push(
+					`スタンプカード重複スキップ (child=${card.childRef}, week=${card.weekStart})`,
+				);
+				return;
+			}
 			newCardId = restored.id;
 			result.stampCardsImported++;
 		} catch (e) {
 			result.stampCardsSkipped++;
+			result.stampEntriesSkipped += card.entries.length;
 			result.errors.push(
 				`スタンプカード insert 失敗 (child=${card.childRef}, week=${card.weekStart}): ${String(e)}`,
 			);
@@ -665,7 +711,7 @@ async function importStampCardsData(
 		}
 		await runConcurrent(card.entries, async (entry) => {
 			try {
-				await repo.insertEntryForRestore(
+				const inserted = await repo.insertEntryForRestore(
 					{
 						cardId: newCardId,
 						stampMasterId: entry.stampMasterId,
@@ -676,7 +722,14 @@ async function importStampCardsData(
 					},
 					tenantId,
 				);
-				result.stampEntriesImported++;
+				// #3394: 実 insert (true) のときのみ imported++。重複 ((cardId,slot) or (cardId,loginDate))
+				// skip は false → skipped 計上 (旧実装は void 返却で常に imported++ される count 偽装だった)。
+				if (inserted) {
+					result.stampEntriesImported++;
+				} else {
+					result.stampEntriesSkipped++;
+					result.skipped.constraint++;
+				}
 			} catch (e) {
 				result.stampEntriesSkipped++;
 				result.errors.push(
@@ -699,10 +752,37 @@ async function importCertificatesData(
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	for (const cert of data.data.certificates ?? []) {
+	const certs = data.data.certificates ?? [];
+	if (certs.length === 0) return;
+
+	// #3394 service 層 dedup (defense in depth): (childId, certificateType) の既存 + 同一 import 内
+	// 重複を DB 到達前に skip する。DSQL は certificates に DB unique 制約を持たない (§11.2 未設置)
+	// ため、この service 層 dedup が SQLite uniqueIndex / DynamoDB attribute_not_exists との
+	// backend 間機能等価を成立させる唯一の防御になる。
+	const seenTypesByChild = new Map<ChildId, Set<string>>();
+	async function seenTypes(childId: ChildId): Promise<Set<string>> {
+		let set = seenTypesByChild.get(childId);
+		if (!set) {
+			const rows = await getRepos().certificate.findCertificates(childId, tenantId);
+			set = new Set(rows.map((r) => r.certificateType));
+			seenTypesByChild.set(childId, set);
+		}
+		return set;
+	}
+
+	for (const cert of certs) {
 		const childId = childIdMap.get(cert.childRef);
 		if (!childId) {
 			result.certificatesSkipped++;
+			continue;
+		}
+		const types = await seenTypes(childId);
+		if (types.has(cert.certificateType)) {
+			result.certificatesSkipped++;
+			result.skipped.constraint++;
+			result.warnings.push(
+				`証明書重複スキップ (child=${cert.childRef}, type=${cert.certificateType})`,
+			);
 			continue;
 		}
 		try {
@@ -717,9 +797,18 @@ async function importCertificatesData(
 				},
 				tenantId,
 			);
-			if (restored) result.certificatesImported++;
-			else result.certificatesSkipped++;
+			if (restored) {
+				result.certificatesImported++;
+				types.add(cert.certificateType);
+			} else {
+				// DB 層 guard (onConflictDoNothing / attribute_not_exists) での重複 skip、
+				// または demo backend の書込 no-op。
+				result.certificatesSkipped++;
+				result.skipped.constraint++;
+			}
 		} catch (e) {
+			// #3401 例外分類: throttle / network 等の真の write 失敗のみここに到達する
+			// (重複は null 返却で上の分岐)。errors に可視化する。
 			result.certificatesSkipped++;
 			result.errors.push(
 				`証明書 insert 失敗 (child=${cert.childRef}, type=${cert.certificateType}): ${String(e)}`,
@@ -729,23 +818,103 @@ async function importCertificatesData(
 }
 
 /**
+ * parentMessage の verbatim 値検証 (#3414 item 2、default-deny)。
+ * 改竄/破損 backup の未知 messageType・範囲外 bonusPoints・不正日時が子供画面のおうえん描画
+ * (ParentMessageOverlay / 履歴ソート) を壊さないよう、import 境界で弾く。
+ * @returns 不正理由 (valid なら null)
+ */
+function validateParentMessageRow(m: {
+	messageType: string;
+	stampCode: string | null;
+	body: string | null;
+	icon: string;
+	sentAt: string;
+	shownAt: string | null;
+	bonusPoints: number | null;
+}): string | null {
+	if (!(MESSAGE_TYPES as readonly string[]).includes(m.messageType)) {
+		return `未知の messageType「${m.messageType}」`;
+	}
+	if (m.messageType === 'stamp' && !m.stampCode) return 'stamp に stampCode がありません';
+	if (m.stampCode !== null && m.stampCode.length > 30) return 'stampCode が長すぎます';
+	if (m.body !== null && m.body.length > MESSAGE_TEXT_MAX_LENGTH) return 'body が長すぎます';
+	if (m.icon.length > 10) return 'icon が長すぎます';
+	if (!isValidBonusPoints(m.bonusPoints)) return `bonusPoints が範囲外 (${m.bonusPoints})`;
+	if (!isValidIsoDateTime(m.sentAt)) return `sentAt が不正 (${m.sentAt})`;
+	if (m.shownAt !== null && !isValidIsoDateTime(m.shownAt)) return `shownAt が不正 (${m.shownAt})`;
+	return null;
+}
+
+/**
  * 親→子おうえんメッセージ (stamp/text/reward_notice) を復元する (#3329)。
  * childRef で取込先 child に解決し insertForRestore で sentAt / shownAt (既読) を保全して書き戻す。
+ *
+ * #3414: id-addressable append で DB 自然キーが無いため、merge mode では
+ * (messageType, stampCode, body, sentAt) の content key で 既存行 + 同一 import 内 を dedup し、
+ * 同一 backup 再取込の全件複製を防ぐ (verbatim = cutover は正当な同時刻複数行を保全するため bypass)。
+ * verbatim 値検証 (validateParentMessageRow) は mode 不問で適用する (整合性 skip は #3653 準拠)。
  */
 async function importParentMessagesData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
+	const messages = data.data.parentMessages ?? [];
+	if (messages.length === 0) return;
+
+	const contentKey = (m: {
+		messageType: string;
+		stampCode: string | null;
+		body: string | null;
+		sentAt: string;
+	}) => `${m.messageType}|${m.stampCode ?? ''}|${m.body ?? ''}|${m.sentAt}`;
+
+	// merge mode: 取込先 child の既存メッセージ content key を prefetch (再取込冪等化)。
+	const existingKeysByChild = new Map<ChildId, Set<string>>();
+	async function existingKeys(childId: ChildId): Promise<Set<string>> {
+		let set = existingKeysByChild.get(childId);
+		if (!set) {
+			const rows = await getRepos().message.findMessages(
+				childId,
+				RESTORE_DEDUP_FETCH_LIMIT,
+				tenantId,
+			);
+			set = new Set(rows.map(contentKey));
+			existingKeysByChild.set(childId, set);
+		}
+		return set;
+	}
+
 	for (const m of data.data.parentMessages ?? []) {
 		const childId = childIdMap.get(m.childRef);
 		if (!childId) {
+			// #3414 item 3: childRef 未解決の silent skip をやめ、欠落を親に可視化する。
 			result.parentMessagesSkipped++;
+			result.warnings.push(
+				`メッセージスキップ: childRef「${m.childRef}」(type=${m.messageType}) が解決できません`,
+			);
 			continue;
 		}
+		const invalidReason = validateParentMessageRow(m);
+		if (invalidReason) {
+			result.parentMessagesSkipped++;
+			result.warnings.push(`メッセージスキップ (child=${m.childRef}): ${invalidReason}`);
+			continue;
+		}
+		if (mode === 'merge') {
+			const keys = await existingKeys(childId);
+			const key = contentKey(m);
+			if (keys.has(key)) {
+				result.parentMessagesSkipped++;
+				result.skipped.constraint++;
+				continue;
+			}
+			keys.add(key);
+		}
 		try {
-			await getRepos().message.insertForRestore(
+			const restored = await getRepos().message.insertForRestore(
 				{
 					childId,
 					messageType: m.messageType,
@@ -759,7 +928,9 @@ async function importParentMessagesData(
 				},
 				tenantId,
 			);
-			result.parentMessagesImported++;
+			// null = 永続化なし (demo no-op stub)。imported に加算しない (#2263 count 偽装防止)。
+			if (restored) result.parentMessagesImported++;
+			else result.parentMessagesSkipped++;
 		} catch (e) {
 			result.parentMessagesSkipped++;
 			result.errors.push(
@@ -770,25 +941,81 @@ async function importParentMessagesData(
 }
 
 /**
+ * siblingCheer の verbatim 値検証 (#3420 item 3、default-deny)。
+ * 不正 stampCode は SiblingCheerOverlay 描画破損、不正 sentAt は countTodayCheersFrom の
+ * 日次上限 (辞書順比較) とソートを汚染するため import 境界で弾く。
+ * stampCode は CHEER_STAMPS allowlist (送信経路 sendCheer と同一の getStampByCode 判定)。
+ * @returns 不正理由 (valid なら null)
+ */
+function validateSiblingCheerRow(c: {
+	stampCode: string;
+	sentAt: string;
+	shownAt: string | null;
+}): string | null {
+	if (!getStampByCode(c.stampCode)) return `未知の stampCode「${c.stampCode}」`;
+	if (!isValidIsoDateTime(c.sentAt)) return `sentAt が不正 (${c.sentAt})`;
+	if (c.shownAt !== null && !isValidIsoDateTime(c.shownAt)) return `shownAt が不正 (${c.shownAt})`;
+	return null;
+}
+
+/**
  * きょうだい間おうえんスタンプを復元する (#3329)。
  * from/to 両 childRef を取込先 child に解決し、insertForRestore で sentAt/shownAt (既読) を保全する。
- * どちらかの child が解決できない行は skip (FK NOT NULL を満たせないため)。
+ * どちらかの child が解決できない行は skip + warning 可視化 (FK NOT NULL を満たせないため、#3420 item 2)。
+ *
+ * #3420: id-addressable append で DB 自然キーが無いため、merge mode では
+ * (fromChildId, toChildId, stampCode, sentAt) の content key で 既存行 + 同一 import 内 を dedup し、
+ * 同一 backup 再取込のおうえん履歴二重化を防ぐ (verbatim = cutover は bypass)。
  */
 async function importSiblingCheersData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	mode: ImportMode = 'merge',
 ): Promise<void> {
-	for (const c of data.data.siblingCheers ?? []) {
+	const cheers = data.data.siblingCheers ?? [];
+	if (cheers.length === 0) return;
+
+	// merge mode: 既存 cheer の content key を tenant 一括 prefetch (findAllByTenant は export でも使用)。
+	let existingKeys: Set<string> | undefined;
+	if (mode === 'merge') {
+		const rows = await getRepos().siblingCheer.findAllByTenant(tenantId);
+		existingKeys = new Set(
+			rows.map((r) => `${r.fromChildId}|${r.toChildId}|${r.stampCode}|${r.sentAt}`),
+		);
+	}
+
+	for (const c of cheers) {
 		const fromChildId = childIdMap.get(c.fromChildRef);
 		const toChildId = childIdMap.get(c.toChildRef);
 		if (!fromChildId || !toChildId) {
+			// #3420 item 2: silent skip をやめ、欠落を親に可視化する。
 			result.siblingCheersSkipped++;
+			result.warnings.push(
+				`おうえんスタンプスキップ: childRef (from=${c.fromChildRef}, to=${c.toChildRef}) が解決できません`,
+			);
 			continue;
 		}
+		const invalidReason = validateSiblingCheerRow(c);
+		if (invalidReason) {
+			result.siblingCheersSkipped++;
+			result.warnings.push(
+				`おうえんスタンプスキップ (from=${c.fromChildRef}, to=${c.toChildRef}): ${invalidReason}`,
+			);
+			continue;
+		}
+		if (existingKeys) {
+			const key = `${fromChildId}|${toChildId}|${c.stampCode}|${c.sentAt}`;
+			if (existingKeys.has(key)) {
+				result.siblingCheersSkipped++;
+				result.skipped.constraint++;
+				continue;
+			}
+			existingKeys.add(key);
+		}
 		try {
-			await getRepos().siblingCheer.insertForRestore(
+			const restored = await getRepos().siblingCheer.insertForRestore(
 				{
 					fromChildId,
 					toChildId,
@@ -798,7 +1025,9 @@ async function importSiblingCheersData(
 				},
 				tenantId,
 			);
-			result.siblingCheersImported++;
+			// null = 永続化なし (demo no-op stub)。imported に加算せず虚偽サマリを防ぐ (#3420 item 2)。
+			if (restored) result.siblingCheersImported++;
+			else result.siblingCheersSkipped++;
 		} catch (e) {
 			result.siblingCheersSkipped++;
 			result.errors.push(
@@ -832,7 +1061,7 @@ async function importActivityPrefsData(
 			continue;
 		}
 		try {
-			await getRepos().activityPref.insertForRestore(
+			const restored = await getRepos().activityPref.insertForRestore(
 				{
 					childId,
 					activityId: activity.id,
@@ -843,7 +1072,17 @@ async function importActivityPrefsData(
 				},
 				tenantId,
 			);
-			result.activityPrefsImported++;
+			// #3394/#3465 統一冪等契約: null = 同 (child, activity) 重複 skip (within-child 同名活動が
+			// name 再結合で同一 activityId に縮約されたケースを含む)。imported に加算しない。
+			if (restored) {
+				result.activityPrefsImported++;
+			} else {
+				result.activityPrefsSkipped++;
+				result.skipped.constraint++;
+				result.warnings.push(
+					`活動設定重複スキップ (child=${p.childRef}, activity=${p.activityName})`,
+				);
+			}
 		} catch (e) {
 			result.activityPrefsSkipped++;
 			result.errors.push(
@@ -870,7 +1109,7 @@ async function importChecklistOverridesData(
 			continue;
 		}
 		try {
-			await insertOverrideForRestore(
+			const restored = await insertOverrideForRestore(
 				{
 					childId,
 					targetDate: o.targetDate,
@@ -881,7 +1120,9 @@ async function importChecklistOverridesData(
 				},
 				tenantId,
 			);
-			result.checklistOverridesImported++;
+			// #3394: null = 永続化なし (demo no-op stub)。imported に加算しない (#2263 count 偽装防止)。
+			if (restored) result.checklistOverridesImported++;
+			else result.checklistOverridesSkipped++;
 		} catch (e) {
 			result.checklistOverridesSkipped++;
 			result.errors.push(
@@ -971,7 +1212,7 @@ async function importChildVoicesData(
 		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
 		const publicUrl = storageKeyToPublicUrl(filePath);
 		try {
-			await getRepos().voice.insertForRestore(
+			const restored = await getRepos().voice.insertForRestore(
 				{
 					childId,
 					scene: v.scene,
@@ -985,7 +1226,9 @@ async function importChildVoicesData(
 				},
 				tenantId,
 			);
-			result.childVoicesImported++;
+			// #3394: null = 永続化なし (demo no-op stub)。imported に加算しない (#2263 count 偽装防止)。
+			if (restored) result.childVoicesImported++;
+			else result.childVoicesSkipped++;
 		} catch (e) {
 			result.childVoicesSkipped++;
 			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);

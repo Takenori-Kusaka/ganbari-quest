@@ -41,9 +41,10 @@ export async function findAllByChild(
 export async function insertForRestore(
 	_voice: Omit<ChildCustomVoice, 'id'>,
 	_tenantId: string,
-): Promise<{ id: string }> {
-	// Stub: return dummy id
-	return { id: '0' };
+): Promise<{ id: string } | null> {
+	// Stub: demo は書き込み no-op。#3394: 永続化していないため null を返し
+	// import カウント (childVoicesImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function setActive(

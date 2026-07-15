@@ -1607,7 +1607,8 @@ describe('importFamilyData', () => {
 			data.family.children = [makeChild('c1')];
 			data.data.childVoices = [makeVoice('c1', 'voices/7/abcd-1234.mp3')];
 			mockInsertChild.mockResolvedValue({ id: '101' });
-			mockVoiceInsertForRestore.mockResolvedValue(undefined);
+			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1629,7 +1630,8 @@ describe('importFamilyData', () => {
 				makeVoice('c1', 'voices/7/safe.mp3'), // 正常エントリ (1 件だけ通る)
 			];
 			mockInsertChild.mockResolvedValue({ id: '101' });
-			mockVoiceInsertForRestore.mockResolvedValue(undefined);
+			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
 			const result = await importFamilyData(data, TENANT);
 

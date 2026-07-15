@@ -289,6 +289,8 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.id).toMatch(UUID_RE);
 		expect(restored.status).toBe('redeemed');
 		expect(restored.redeemedPoints).toBe(30);
@@ -312,8 +314,8 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		expect(Date.parse(raw[0]?.earnedAt ?? '')).toBe(Date.parse('2025-12-01T08:30:00+00:00'));
 		expect(raw[0]?.stampMasterId).toBe(null); // omikuji のみの押印 (master 無し)
 
-		// restore 経路も #3562③ tenant 境界を通る (他 family card への restore は no-op)
-		await stampRepo.insertEntryForRestore(
+		// restore 経路も #3562③ tenant 境界を通る (他 family card への restore は no-op = false)
+		const crossTenant = await stampRepo.insertEntryForRestore(
 			{
 				cardId: restored.id,
 				stampMasterId: null,
@@ -324,6 +326,42 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			},
 			OTHER_FAMILY,
 		);
+		expect(crossTenant).toBe(false); // #3394: 実 insert なし = false (count 偽装防止)
+		expect(await stampRepo.findEntriesByCardId(restored.id, FAMILY)).toHaveLength(1);
+
+		// #3394 統一冪等契約: 同 (child, weekStart) の重複 card restore は null skip
+		// (stamp_cards_week_uq、旧 23505 throw から機能等価契約へ)。既存行は上書きされない。
+		const dupCard = await stampRepo.insertCardForRestore(
+			{
+				childId,
+				weekStart: '2025-12-01',
+				weekEnd: '2025-12-07',
+				status: 'collecting',
+				redeemedPoints: null,
+				redeemedAt: null,
+				createdAt: '2025-12-01T00:00:00+00:00',
+				updatedAt: '2025-12-01T00:00:00+00:00',
+			},
+			FAMILY,
+		);
+		expect(dupCard).toBeNull();
+		const cards = await stampRepo.findCardsByChild(childId, FAMILY);
+		expect(cards).toHaveLength(1);
+		expect(cards[0]?.status).toBe('redeemed'); // silent overwrite されていない
+
+		// 同 (cardId, slot) の重複 entry restore は false skip (imported に加算しない)
+		const dupEntry = await stampRepo.insertEntryForRestore(
+			{
+				cardId: restored.id,
+				stampMasterId: null,
+				omikujiRank: 'kichi',
+				slot: 1,
+				loginDate: '2025-12-03',
+				earnedAt: '2025-12-03T08:30:00+00:00',
+			},
+			FAMILY,
+		);
+		expect(dupEntry).toBe(false);
 		expect(await stampRepo.findEntriesByCardId(restored.id, FAMILY)).toHaveLength(1);
 	});
 

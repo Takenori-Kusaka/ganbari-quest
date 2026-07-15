@@ -461,6 +461,8 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.status).toBe('completed');
 		expect(restored.isActive).toBe(0);
 		expect(restored.currentValue).toBe(10);
@@ -468,6 +470,45 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		expect(restored.rewardClaimed).toBe(1);
 		expect(restored.completedAt).not.toBeNull();
 		expect(restored.rewardClaimedAt).not.toBeNull();
+	});
+
+	it('[C9b] insertForRestore (#3387/#3394): auto:weekly の (child, startDate) 重複は null skip (weekly_auto_guard)', async () => {
+		const childId = await newChild('復元週次');
+		const autoInput = (over: Record<string, unknown> = {}) =>
+			({
+				childId,
+				title: '週次チャレンジ',
+				description: null,
+				challengeType: 'cooperative',
+				periodType: 'weekly',
+				startDate: '2026-06-08',
+				endDate: '2026-06-14',
+				targetConfig: TARGET_CONFIG,
+				rewardConfig: REWARD_CONFIG,
+				status: 'active',
+				isActive: 1,
+				sourceTemplateId: 'auto:weekly',
+				currentValue: 3,
+				targetValue: 5,
+				completed: 0,
+				completedAt: null,
+				rewardClaimed: 0,
+				rewardClaimedAt: null,
+				createdAt: '2026-06-08T00:00:00.000Z',
+				updatedAt: '2026-06-08T00:00:00.000Z',
+				...over,
+			}) as Parameters<typeof repo.insertForRestore>[0];
+
+		const first = await repo.insertForRestore(autoInput(), FAMILY);
+		expect(first).not.toBeNull();
+		// 同 (child, startDate) の auto:weekly 重複 backup → ON CONFLICT DO NOTHING で null skip
+		// (sqlite 部分 unique index / dynamodb AUTO# SK + attribute_not_exists と機能等価)。
+		const dup = await repo.insertForRestore(autoInput({ currentValue: 0 }), FAMILY);
+		expect(dup).toBeNull();
+		// 既存行 (進捗 3) は上書きされない (silent last-writer-wins なし)
+		const rows = await repo.findByChildId(childId, FAMILY);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.currentValue).toBe(3);
 	});
 
 	it('[C10] insertBulk + findAllByTenant + deleteByTenantId', async () => {

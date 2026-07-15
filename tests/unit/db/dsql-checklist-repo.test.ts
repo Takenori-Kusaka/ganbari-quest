@@ -562,6 +562,8 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 			FAMILY,
 		);
 		// verbatim 保全: insertOverride と違い createdAt を default(now) に落とさない
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(Date.parse(restored.createdAt)).toBe(Date.parse('2025-12-24T08:00:00+00:00'));
 
 		const all = await repo.findOverridesByChild(child, FAMILY);

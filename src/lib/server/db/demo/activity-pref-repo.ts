@@ -12,11 +12,12 @@ export async function findAllByChild(
 }
 
 export async function insertForRestore(
-	input: Omit<ChildActivityPreference, 'id'>,
+	_input: Omit<ChildActivityPreference, 'id'>,
 	_tenantId: string,
-): Promise<ChildActivityPreference> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: '0' };
+): Promise<ChildActivityPreference | null> {
+	// Stub: demo は書き込み no-op。#3394/#3465: 永続化していないため null を返し
+	// import カウント (activityPrefsImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function findPinnedByChild(

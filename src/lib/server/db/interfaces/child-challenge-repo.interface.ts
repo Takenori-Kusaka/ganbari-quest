@@ -49,8 +49,16 @@ export interface IChildChallengeRepo {
 	 * 通常の insert は currentValue / completed / rewardClaimed / createdAt を初期化するため round-trip で
 	 * 進捗・完了・請求状態が失われる。本メソッドは export された値をそのまま書き戻す (id は新規採番、
 	 * childId は呼び出し側が import 後の child に解決済)。
+	 *
+	 * #3387/#3394 統一冪等契約: auto:weekly 行 (sourceTemplateId='auto:weekly') の
+	 * (childId, startDate) が既存なら **null** を返す (重複 skip。SQLite=部分 unique index /
+	 * DynamoDB=AUTO# 決定的 SK + attribute_not_exists / DSQL=weekly_auto_guard UNIQUE で機能等価)。
+	 * その他の write 失敗は throw する (throttle silent loss 禁止、#3401)。
 	 */
-	insertForRestore(input: Omit<ChildChallenge, 'id'>, tenantId: string): Promise<ChildChallenge>;
+	insertForRestore(
+		input: Omit<ChildChallenge, 'id'>,
+		tenantId: string,
+	): Promise<ChildChallenge | null>;
 
 	/**
 	 * #3245: アプリ週次自動生成 (sourceTemplateId='auto:weekly') の **atomic** get-or-create。
