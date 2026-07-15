@@ -54,6 +54,14 @@ curl -s http://localhost:3000/api/health   # 200 + "dataSource":"pglite" + schem
 2. `docker compose up -d` — 旧 sqlite DB は無変更のためそのまま復帰
 3. 失敗した `data/pglite` dir は調査後に削除可
 
+## 意図的な再 cutover 手順 (#3713 AC3)
+
+deploy-nuc.yml の cutover step は **`data/pglite` が既存なら skip する** (PGlite 稼働後の deploy で cutover 後データを凍結 snapshot で上書きしないため、PR #3711)。旧 sqlite snapshot から意図的にやり直す場合のみ、以下を手動実行する:
+
+1. NUC 上で PGlite dataDir を退避または削除: `mv data/pglite data/pglite.discard-$(date +%Y%m%d)` — **cutover 以降の記録データは失われる**ことを PO に確認してから実行する
+2. `gh workflow run deploy-nuc.yml` を dispatch — Step 2.5 が「dataDir 不在 + legacy sqlite 存在」を検知し cutover を再実行する
+3. 完了後 `/api/health` で `dataSource:"pglite"` + 実画面で子供一覧を確認
+
 ## 検証済みエビデンス (2026-07-11、AC-C4)
 
 - cross-backend round-trip test: `tests/unit/services/pglite-cutover-roundtrip.test.ts` (内容保全・自然キー再解決)
