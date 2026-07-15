@@ -6,6 +6,11 @@
 //   item3 — opt-out マーカーは「存在」だけでなく「同一ファイル内に DOMPurify.sanitize 等の
 //            sanitizer 実呼び出しが実在する」ことを構造検証する (マーカーだけで未 sanitize の
 //            {@html} / innerHTML を恒久許可できる構造的穴を封鎖)。
+// #3741 (#3671 same-class 残余): dot 記法限定だった TS sink 検出を同値 sink まで拡張。
+//   - bracket 記法 `el['innerHTML'] = x` / `el["outerHTML"] += x` / `el['insertAdjacentHTML'](...)`
+//     (QM Tier2 が実証した gate 素通り evasion、dot と同一 sink)
+//   - `document.write(x)` / `document.writeln(x)` (+ bracket 形) — 古典的 HTML 注入 sink
+//   - logical assignment `??=` / `||=` (exotic だが同 regex で吸収)
 //
 // 背景: error message 等のサーバ値を `{@html}` / `innerHTML` で描画すると stored/echo XSS が
 // 成立する。不変条件「サーバ値は textContent 補間で描画する」は従来 06-UI設計書 + コメント +
@@ -29,9 +34,18 @@ const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 const AT_HTML = /\{@html\b/;
 const ALLOW_AT_HTML = /eslint-disable(?:-next-line)?\s+svelte\/no-at-html-tags|allow-at-html:/;
-// TS/JS echo sink (#3450 item2): 代入 (= / +=) と insertAdjacentHTML 呼び出し。
-// `(?!=)` で比較演算子 (== / === / !==) を除外する。
-const TS_SINK = /\.(?:innerHTML|outerHTML)\s*\+?=(?!=)|\binsertAdjacentHTML\s*\(/;
+// TS/JS echo sink (#3450 item2 + #3741 bracket/document.write 拡張):
+//   1. innerHTML / outerHTML への代入 — dot (`el.innerHTML`) と bracket (`el['innerHTML']` /
+//      `el["innerHTML"]` / `el[`innerHTML`]`) を同値カバーし、演算子は = / += / ||= / ??= を検出。
+//      `(?!=)` で比較演算子 (== / === / !==) を除外する。
+//   2. insertAdjacentHTML 呼び出し — dot / bracket 両形。
+//   3. document.write / document.writeln 呼び出し — dot / bracket 両形 (`document` レシーバ
+//      限定。`writer.write(chunk)` 等の一般 write は誤検出しない)。
+// bracket key の quote 文字クラスは single/double/backtick の 3 種 (`['"`]`) を許容する。
+// backtick を欠くと `el[`innerHTML`] = x` 等の template-literal key evasion が MISS する
+// (#3741 が塞ぐ bracket 回避の同一クラス兄弟、ADR-0061 same-class→guard)。
+const TS_SINK =
+	/(?:\.(?:innerHTML|outerHTML)|\[\s*['"`](?:innerHTML|outerHTML)['"`]\s*\])\s*(?:\+|\|\||\?\?)?=(?!=)|(?:\binsertAdjacentHTML|\[\s*['"`]insertAdjacentHTML['"`]\s*\])\s*\(|\bdocument\s*(?:\.\s*write(?:ln)?|\[\s*['"`]write(?:ln)?['"`]\s*\])\s*\(/;
 const ALLOW_SINK = /allow-innerhtml:/;
 // sanitizer 実呼び出しパターン (#3450 item3)。DOMPurify (ADR-0025) を第一級とし、
 // 同等 sanitizer (sanitize-html 等) の呼び出し形も許容する。
@@ -110,8 +124,9 @@ export function findUnsanitizedAtHtmlOptOuts(content) {
 }
 
 /**
- * TS/JS の innerHTML 系 echo sink を抽出する純粋関数 (#3450 item2)。
- * 検出対象: `.innerHTML =` / `.innerHTML +=` / `.outerHTML =` / `insertAdjacentHTML(`。
+ * TS/JS の innerHTML 系 echo sink を抽出する純粋関数 (#3450 item2 / #3741 拡張)。
+ * 検出対象: innerHTML / outerHTML への代入 (= / += / ||= / ??=、dot・bracket 両記法) /
+ * `insertAdjacentHTML(` (dot・bracket 両形) / `document.write(` / `document.writeln(`。
  * コメント行は除外。当該行または直前行の `allow-innerhtml:` マーカーで opt-out できるが、
  * opt-out には同一ファイル内の sanitizer 実呼び出しが必須 (item3 と同一原則)。
  *
@@ -203,9 +218,10 @@ function main() {
 		);
 		for (const v of sinkViolations) console.error(`  ${v}`);
 		console.error(
-			'\nDOM への HTML 文字列注入 (`innerHTML =` / `insertAdjacentHTML` / `outerHTML =`) は' +
-				' textContent / DOM API で代替してください。正当な sanitize 済注入が必要なら当該行直前に' +
-				' `allow-innerhtml:` コメントを置き、同一ファイル内で DOMPurify.sanitize を実呼び出ししてください。',
+			'\nDOM への HTML 文字列注入 (`innerHTML =` / `insertAdjacentHTML` / `outerHTML =` /' +
+				' `document.write`、bracket 記法含む #3741) は textContent / DOM API で代替してください。' +
+				'正当な sanitize 済注入が必要なら当該行直前に `allow-innerhtml:` コメントを置き、' +
+				'同一ファイル内で DOMPurify.sanitize を実呼び出ししてください。',
 		);
 	}
 

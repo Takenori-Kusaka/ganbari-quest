@@ -159,3 +159,121 @@ describe('findTsSinkViolations (#3450 item2 TS/JS innerHTML sink 検出)', () =>
 		expect(findTsSinkViolations(content).violations).toEqual([1, 3]);
 	});
 });
+
+describe('findTsSinkViolations (#3741 bracket 記法 / document.write / logical assign residual)', () => {
+	// #3671 QM Tier2 で実証された evasion (dot 記法限定 gap) の回帰 fixture (ADR-0006:
+	// 危険コードで実 fail を assert する)。ここが MISS に戻ったら gate の網羅宣言が偽になる。
+	it("bracket 記法 el['innerHTML'] = x (single quote) を違反として検出する", () => {
+		expect(findTsSinkViolations("el['innerHTML'] = userInput;").violations).toEqual([1]);
+	});
+
+	it('bracket 記法 el["innerHTML"] += x (double quote) を検出する', () => {
+		expect(findTsSinkViolations('el["innerHTML"] += chunk;').violations).toEqual([1]);
+	});
+
+	it("bracket 記法 el['outerHTML'] = x を検出する", () => {
+		expect(findTsSinkViolations("node['outerHTML'] = replacement;").violations).toEqual([1]);
+	});
+
+	it("bracket 記法 el[ 'innerHTML' ] = x (空白入り) も検出する", () => {
+		expect(findTsSinkViolations("el[ 'innerHTML' ] = userInput;").violations).toEqual([1]);
+	});
+
+	it("bracket 記法 insertAdjacentHTML 呼び出し el['insertAdjacentHTML'](...) を検出する", () => {
+		expect(findTsSinkViolations("el['insertAdjacentHTML']('beforeend', html);").violations).toEqual(
+			[1],
+		);
+	});
+
+	// #3741 follow-up: backtick (template literal) bracket key の evasion 回帰 fixture。
+	// quote 文字クラスが single/double のみで backtick を欠くと以下が MISS する
+	// (dot/single/double を回避する同一クラス兄弟、ADR-0061 same-class→guard)。
+	it('backtick bracket 記法 el[`innerHTML`] = x を違反として検出する', () => {
+		expect(findTsSinkViolations('el[`innerHTML`] = userInput;').violations).toEqual([1]);
+	});
+
+	it('backtick bracket 記法 el[`outerHTML`] = x を検出する', () => {
+		expect(findTsSinkViolations('node[`outerHTML`] = replacement;').violations).toEqual([1]);
+	});
+
+	it('backtick bracket 記法 el[`innerHTML`] += x (logical/加算代入) を検出する', () => {
+		expect(findTsSinkViolations('el[`innerHTML`] += chunk;').violations).toEqual([1]);
+	});
+
+	it('backtick bracket 記法 insertAdjacentHTML 呼び出し el[`insertAdjacentHTML`](...) を検出する', () => {
+		expect(findTsSinkViolations('el[`insertAdjacentHTML`](`beforeend`, html);').violations).toEqual(
+			[1],
+		);
+	});
+
+	it('backtick bracket 記法 document[`write`](x) を検出する', () => {
+		expect(findTsSinkViolations('document[`write`](payload);').violations).toEqual([1]);
+	});
+
+	it('backtick bracket 記法 document[`writeln`](x) を検出する', () => {
+		expect(findTsSinkViolations('document[`writeln`](payload);').violations).toEqual([1]);
+	});
+
+	it('backtick bracket 記法でも比較演算 (el[`innerHTML`] === x) は検出しない', () => {
+		expect(findTsSinkViolations('if (el[`innerHTML`] === ``) { reset(); }').violations).toEqual([]);
+	});
+
+	it('backtick bracket 記法の読み取り (const s = el[`innerHTML`];) は検出しない', () => {
+		expect(findTsSinkViolations('const snapshot = el[`innerHTML`];').violations).toEqual([]);
+	});
+
+	it('document.write(x) を HTML 注入 sink として検出する', () => {
+		expect(findTsSinkViolations('document.write(payload);').violations).toEqual([1]);
+	});
+
+	it('document.writeln(x) を検出する', () => {
+		expect(findTsSinkViolations('document.writeln(payload);').violations).toEqual([1]);
+	});
+
+	it("bracket 記法 document['write'](x) も検出する", () => {
+		expect(findTsSinkViolations("document['write'](payload);").violations).toEqual([1]);
+	});
+
+	it('logical assign innerHTML ??= x を検出する', () => {
+		expect(findTsSinkViolations('el.innerHTML ??= fallbackHtml;').violations).toEqual([1]);
+	});
+
+	it('logical assign innerHTML ||= x を検出する', () => {
+		expect(findTsSinkViolations('el.innerHTML ||= fallbackHtml;').violations).toEqual([1]);
+	});
+
+	it("bracket 記法でも比較演算 (el['innerHTML'] === x) は検出しない", () => {
+		const content = [
+			"if (el['innerHTML'] === '') { reset(); }",
+			'if (el["outerHTML"] == raw) {}',
+		].join('\n');
+		expect(findTsSinkViolations(content).violations).toEqual([]);
+	});
+
+	it("bracket 記法の読み取り (const s = el['innerHTML'];) は検出しない", () => {
+		expect(findTsSinkViolations("const snapshot = el['innerHTML'];").violations).toEqual([]);
+	});
+
+	it('document.write を含むコメント行は検出しない', () => {
+		expect(findTsSinkViolations('// NG 例: document.write(x) は禁止').violations).toEqual([]);
+	});
+
+	it('writer.write(chunk) 等の document 以外の write 呼び出しは検出しない', () => {
+		const content = ['writer.write(chunk);', 'stream.writeln(line);'].join('\n');
+		expect(findTsSinkViolations(content).violations).toEqual([]);
+	});
+
+	it('bracket sink も allow-innerhtml: マーカー + sanitizer 実呼び出しで opt-out できる', () => {
+		const content = [
+			'const clean = DOMPurify.sanitize(raw);',
+			'// allow-innerhtml: DOMPurify 済 (ADR-0025)',
+			"el['innerHTML'] = clean;",
+		].join('\n');
+		expect(findTsSinkViolations(content)).toEqual({ violations: [], unsanitizedOptOuts: [] });
+	});
+
+	it('bracket sink の opt-out でも sanitizer 実呼び出しが無ければ違反 (#3450 item3 と同一原則)', () => {
+		const content = ['// allow-innerhtml: 済のつもり', "el['innerHTML'] = raw;"].join('\n');
+		expect(findTsSinkViolations(content)).toEqual({ violations: [], unsanitizedOptOuts: [2] });
+	});
+});
