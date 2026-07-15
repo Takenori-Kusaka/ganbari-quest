@@ -145,7 +145,15 @@ describe('POST /api/cron/analytics-aggregate (#1693)', () => {
 		expect(res.status).toBe(500);
 		const body = (await res.json()) as { ok: boolean; error: string };
 		expect(body.ok).toBe(false);
-		expect(body.error).toContain('DynamoDB unavailable');
+		// #3571 (ADR-0062 §2): 内部例外は response へ露出しない (汎用文言固定)
+		expect(body.error).toBe('Internal error');
+		expect(body.error).not.toContain('DynamoDB unavailable');
+		// 詳細は logger 側に従来どおり残る
+		const { logger } = await import('$lib/server/logger');
+		expect(vi.mocked(logger.error)).toHaveBeenCalledWith(
+			'[analytics-aggregate] cron failed',
+			expect.objectContaining({ error: 'DynamoDB unavailable' }),
+		);
 	});
 
 	it('CRON_SECRET 未設定 + AUTH_MODE=local で認証スキップ (200)', async () => {
