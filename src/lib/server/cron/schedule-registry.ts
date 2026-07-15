@@ -6,6 +6,19 @@
 //
 // cronExpression は Asia/Tokyo タイムゾーンで解釈される（コンテナ TZ=Asia/Tokyo）。
 // AWS EventBridge は UTC 固定のため、Sub A-2 (#1376) 実装時に utcExpression も参照すること。
+//
+// 新規 cron ジョブ追加 checklist (#3695、規約 SSOT: 13-AWS設計書 §3.3「Cron ジョブ実行時間予算」):
+//   1. 【30 秒予算】全 cron の実処理は Function URL 経由でアプリ Lambda (timeout 30 秒) 上で
+//      走る。dispatcher の timeout (5 分) は「504 を待つだけ」で救済にならない — 30 秒予算で
+//      設計すること (「cron だから長く走れる」前提は誤り)。
+//   2. 【self-limiting + 持ち越し】処理量がデータ量 (テナント数 / pending 件数等) に比例する
+//      ジョブは、1 回の実行で処理する量に件数上限 + 時間予算 ($lib/server/cron/time-budget.ts
+//      createTimeBudget) を設け、残りは次回実行に持ち越す。持ち越し件数は log + レスポンスで
+//      必ず報告する (silent 持ち越し禁止)。前例: cloud-export-service.drainPendingExports /
+//      grace-period-service.purgeExpiredSoftDeletedTenants。
+//   3. 【並行登録】KNOWN_ENDPOINTS (infra/lambda/cron-dispatcher/index.ts) + CRON_JOBS
+//      (infra/lib/compute-stack.ts) にも登録し、13-AWS設計書 §3.3 の Cron ジョブ一覧表を更新
+//      (tests/unit/cron/schedule-consistency.test.ts が整合検証)。
 
 export interface CronJob {
 	/** ジョブ識別名（ログ・監視用） */

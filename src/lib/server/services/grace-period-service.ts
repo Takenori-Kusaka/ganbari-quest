@@ -9,6 +9,7 @@
 //   standard: 7日間
 //   family:   30日間
 
+import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import type { PlanTier } from './plan-limit-service';
@@ -264,18 +265,36 @@ export function getGracePeriodDays(planTier: PlanTier): number {
  *
  * dryRun=true の場合は対象一覧のみ返し、削除は実行しない。
  *
+ * #3695 (30 秒 self-limiting + 持ち越し規約、13-AWS設計書 §3.3): テナント物理削除は
+ * 1 件あたりが重い (Cognito + DynamoDB 全域 + Stripe) ため、1 回の実行で処理するのは
+ * 最大 limit 件 (既定 {@link DEFAULT_PURGE_LIMIT}) + 時間予算内に留め、残りは翌日の
+ * 実行に持ち越す (`tenantsRemaining` で報告)。個人情報保護法 22 条は努力義務であり
+ * 1-2 日の持ち越しは許容範囲。
+ *
  * 個人情報保護法 22 条「不要となった個人データの遅滞なく消去する努力義務」遵守 +
  * DB 肥大化リスク解消が目的（ADR-0010 過剰防衛禁止に該当しない最小実装）。
  */
-export async function purgeExpiredSoftDeletedTenants(opts?: { dryRun?: boolean }): Promise<{
+export const DEFAULT_PURGE_LIMIT = 5;
+
+export async function purgeExpiredSoftDeletedTenants(opts?: {
+	dryRun?: boolean;
+	/** #3695: 1 回の実行で物理削除を試行する最大テナント数。 */
+	limit?: number;
+	/** #3695: 時間予算 (テスト注入用。省略時は endpoint 側が生成した予算 or 新規生成)。 */
+	budget?: TimeBudget;
+}): Promise<{
 	tenantsProcessed: number;
 	tenantsDeleted: number;
 	tenantsFailed: number;
+	/** #3695: limit / 時間予算により今回処理せず次回実行へ持ち越した件数。 */
+	tenantsRemaining: number;
 	dryRun: boolean;
 	expired: Array<{ tenantId: string; planTier: PlanTier; physicalDeletionDate: string }>;
 	errors: Array<{ tenantId: string; error: string }>;
 }> {
 	const dryRun = opts?.dryRun ?? false;
+	const limit = opts?.limit ?? DEFAULT_PURGE_LIMIT;
+	const budget = opts?.budget ?? createTimeBudget();
 	const expired = await findExpiredSoftDeletedTenants();
 
 	if (dryRun || expired.length === 0) {
@@ -286,6 +305,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: { dryRun?: boolean }
 			tenantsProcessed: expired.length,
 			tenantsDeleted: 0,
 			tenantsFailed: 0,
+			tenantsRemaining: 0,
 			dryRun,
 			expired,
 			errors: [],
@@ -299,8 +319,12 @@ export async function purgeExpiredSoftDeletedTenants(opts?: { dryRun?: boolean }
 	const repos = getRepos();
 	const errors: Array<{ tenantId: string; error: string }> = [];
 	let deleted = 0;
+	let attempted = 0;
 
 	for (const item of expired) {
+		// #3695: 30 秒 self-limiting — 件数上限 or 時間予算超過で残りを次回実行へ持ち越す。
+		if (attempted >= limit || budget.exceeded()) break;
+		attempted++;
 		try {
 			const members = await repos.auth.findTenantMembers(item.tenantId);
 			const owner = members.find((m) => m.role === 'owner');
@@ -334,10 +358,19 @@ export async function purgeExpiredSoftDeletedTenants(opts?: { dryRun?: boolean }
 		}
 	}
 
+	const remaining = expired.length - attempted;
+	if (remaining > 0) {
+		// #3695: silent 持ち越し禁止 (ADR-0006 整合) — 持ち越し発生を必ずログに残す。
+		logger.warn('[grace-period] purge carried over remaining tenants to next run', {
+			context: { remaining, attempted, limit, elapsedMs: budget.elapsedMs() },
+		});
+	}
+
 	return {
-		tenantsProcessed: expired.length,
+		tenantsProcessed: attempted,
 		tenantsDeleted: deleted,
 		tenantsFailed: errors.length,
+		tenantsRemaining: remaining,
 		dryRun: false,
 		expired,
 		errors,
