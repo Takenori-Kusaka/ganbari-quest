@@ -26,7 +26,8 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/health | ヘルスチェック | 不要 |
+| GET | /api/health | ヘルスチェック（deep、監視用） | 不要 |
+| GET | /api/ready | readiness probe（shallow、LWA 用 #3657） | 不要 |
 | POST | /api/v1/auth/login | Cognito ログイン（Email/Password） | 不要 |
 | POST | /api/v1/auth/logout | ログアウト（Cookie クリア） | 不要 |
 | GET | /auth/callback | Cognito OAuth コールバック | 不要 |
@@ -1335,6 +1336,18 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 }
 ```
 
+#### GET /api/ready
+
+readiness probe（shallow、#3657）。**プロセスが HTTP を受けられることのみを証明し、DB には一切接触しない**。LWA（Lambda Web Adapter）の `AWS_LWA_READINESS_CHECK_PATH` が参照する（`Dockerfile.lambda`）。readiness を `/api/health`（deep DB probe）に結合すると DB 障害時に LWA が never-ready → 全リクエスト 502 + cold start init timeout ループになるため分離する（13-AWSサーバレスアーキテクチャ設計書 §3.3）。
+
+- 常に **200** を返す（DB 状態に依存しない。メンテナンスモード中も 503 化しない）
+- 監視・deploy smoke には使わない（deep 検証は `/api/health` が担う）
+
+**レスポンス (200):**
+```json
+{ "status": "ok", "version": "1.0.0", "uptime": 123 }
+```
+
 ---
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
@@ -2405,7 +2418,7 @@ export interface PlanLimitError {
     │       └── Layer 2: context_token Cookie → HMAC 検証 → AuthContext
     │
     ├── 2) ルート保護
-    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/stripe/webhook, /ops/*）→ 通過
+    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/ready, /api/stripe/webhook, /ops/*）→ 通過
     │       ├── /admin/* → owner/parent ロール必須
     │       ├── /child/* → 全ロール
     │       ├── /api/v1/admin/* → owner/parent ロール必須
