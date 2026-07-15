@@ -67,6 +67,10 @@ describe.skipIf(!ENDPOINT)(
 			const ledgerEntries: { childRef: string; amount: number }[] = exportData.data.pointLedger;
 			expect(ledgerEntries.length).toBe(772);
 
+			// 前回 run が timeout / kill で finally cleanup 未到達だった場合の残骸を除去する
+			// (専用 tenant を import 前に空へ正規化 — 汚染耐性)。
+			await clearAllFamilyData(TENANT).catch(() => {});
+
 			try {
 				const result = await importFamilyData(exportData, TENANT);
 
