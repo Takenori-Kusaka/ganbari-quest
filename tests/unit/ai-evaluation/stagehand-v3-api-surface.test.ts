@@ -116,7 +116,13 @@ async function loadAxe(): Promise<AxeRunnerModule> {
 	)) as unknown as AxeRunnerModule;
 }
 
-describe('Stagehand v3 module export surface', () => {
+// #3661: @browserbasehq/stagehand / stagehand-runner.mjs / axe-runner.mjs の dynamic import は
+// 初回 (module cache cold、fresh npm ci 直後の cold FS) や並列 worktree agent 稼働中の高負荷環境で
+// 5s 級の解決時間を要する (実測 7.9s → 再実行 pass の flake)。hooks-integration.test.ts と同型の
+// describe-level timeout で吸収する (assertion 内容は不変、ADR-0061 same-class 対処)。
+const HEAVY_INIT_TIMEOUT = 30_000;
+
+describe('Stagehand v3 module export surface', { timeout: HEAVY_INIT_TIMEOUT }, () => {
 	it('@browserbasehq/stagehand exports Stagehand and V3 (alias) classes', async () => {
 		const sdk = await import('@browserbasehq/stagehand');
 		expect(sdk.Stagehand).toBeDefined();
@@ -137,7 +143,7 @@ describe('Stagehand v3 module export surface', () => {
 	});
 });
 
-describe('Mock Stagehand instance — v3 API surface 整合', () => {
+describe('Mock Stagehand instance — v3 API surface 整合', { timeout: HEAVY_INIT_TIMEOUT }, () => {
 	it('createStagehand({ mock: true }) は context.addCookies / context.activePage を持つ', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
@@ -199,7 +205,7 @@ describe('Mock Stagehand instance — v3 API surface 整合', () => {
 	});
 });
 
-describe('setChildContext / executeStep — v3 形態で動作', () => {
+describe('setChildContext / executeStep — v3 形態で動作', { timeout: HEAVY_INIT_TIMEOUT }, () => {
 	it('setChildContext は stagehand.context.addCookies 経由で cookie 追加', async () => {
 		const { createStagehand, setChildContext } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });
@@ -261,7 +267,9 @@ describe('setChildContext / executeStep — v3 形態で動作', () => {
 	});
 });
 
-describe('axe-runner — mock mode で realistic 5 violations', () => {
+describe('axe-runner — mock mode で realistic 5 violations', {
+	timeout: HEAVY_INIT_TIMEOUT,
+}, () => {
 	it('runAxeAudit が mock page で 5 件 dummy violations を返す + JSON 出力', async () => {
 		const { runAxeAudit } = await loadAxe();
 		const mockPage = { _mockMode: true };
@@ -329,7 +337,9 @@ describe('axe-runner — mock mode で realistic 5 violations', () => {
 	});
 });
 
-describe('Anti-regression — v2 API patterns must NOT appear in mock', () => {
+describe('Anti-regression — v2 API patterns must NOT appear in mock', {
+	timeout: HEAVY_INIT_TIMEOUT,
+}, () => {
 	it('mock instance は **v2 の stagehand.page プロパティ** を持たない', async () => {
 		const { createStagehand } = await loadModule();
 		const sh = await createStagehand({ baseUrl: 'http://localhost:5180', mock: true });

@@ -38,7 +38,11 @@ vi.mock('$lib/server/logger', () => ({
 // cleanupExpiredData (retention-cleanup endpoint)
 // ============================================================
 
-describe('#1377 idempotency — cleanupExpiredData', () => {
+// #3661: vi.resetModules() + service graph の dynamic import を毎 test 再実行するため、
+// 高負荷環境 (並列 worktree agent 稼働中) で vitest 既定 5s を超える (実測 5-8s、
+// --testTimeout=30000 で PASS)。hooks-integration.test.ts と同型の describe-level timeout で
+// 吸収する (assertion 内容は不変、ADR-0061 same-class 対処)。
+describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => {
 	const listAllTenantsMock = vi.fn();
 	const findAllChildrenMock = vi.fn();
 	const deleteActivityLogsMock = vi.fn();
@@ -136,7 +140,7 @@ describe('#1377 idempotency — cleanupExpiredData', () => {
 // processTrialNotifications (trial-notifications endpoint)
 // ============================================================
 
-describe('#1377 idempotency — processTrialNotifications', () => {
+describe('#1377 idempotency — processTrialNotifications', { timeout: 30_000 }, () => {
 	beforeEach(() => {
 		vi.resetModules();
 		vi.clearAllMocks();
