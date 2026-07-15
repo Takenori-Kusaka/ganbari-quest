@@ -289,7 +289,7 @@ EPIC #2362 P1 Phase 1 で導入された Valibot schema SSOT。`src/lib/marketpl
 
 ### 9.1 `activity-pack` (`ActivityPackPayloadSchema`)
 
-値域は domain 層 SSOT 定数 (`src/lib/domain/validation/activity.ts` の `ACTIVITY_*`、#3151 / ADR-0065)
+値域は domain 層 SSOT 定数 (`src/lib/domain/validation/activity.ts` の `ACTIVITY_*`、#3151 / ADR-0066)
 を参照し、domain Zod (`createActivitySchema`) と完全一致する (domain⊆wire を
 `tests/unit/architecture/schema-range-ssot.test.ts` が機械表明)。
 
