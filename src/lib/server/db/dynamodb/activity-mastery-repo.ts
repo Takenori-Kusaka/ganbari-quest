@@ -7,7 +7,7 @@ import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityMastery } from '../types';
 import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
-import { activityMasteryKey, activityMasteryPrefix, childPK, tenantPK } from './keys';
+import { activityMasteryKey, activityMasteryPrefix, childPK } from './keys';
 
 function stripKeys<T extends Record<string, unknown>>(
 	item: T,

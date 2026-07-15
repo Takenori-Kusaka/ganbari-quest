@@ -15,7 +15,6 @@ import {
 	rewardRedemptionPrefix,
 	specialRewardKey,
 	specialRewardPrefix,
-	tenantPK,
 } from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */

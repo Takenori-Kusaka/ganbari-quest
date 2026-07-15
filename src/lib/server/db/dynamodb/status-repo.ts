@@ -34,7 +34,6 @@ import {
 	statusHistoryPrefix,
 	statusKey,
 	statusPrefix,
-	tenantPK,
 } from './keys';
 import { queryAllItems, stripKeys } from './repo-helpers';
 

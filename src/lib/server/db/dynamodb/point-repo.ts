@@ -21,7 +21,6 @@ import {
 	pointLedgerIdempotencyKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
-	tenantPK,
 } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
