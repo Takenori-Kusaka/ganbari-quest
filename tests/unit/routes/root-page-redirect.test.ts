@@ -63,6 +63,8 @@ async function captureAsyncRedirect(
 function makeEvent(opts: { tenantId?: string | null; cookieValue?: string | null } = {}) {
 	const cookies: Partial<Cookies> = {
 		get: (key: string) => (key === 'selectedChildId' ? (opts.cookieValue ?? undefined) : undefined),
+		// #3709: 解決できない stale cookie は load が削除する (自動クリア) ため delete を備える。
+		delete: () => {},
 	};
 	return {
 		cookies: cookies as Cookies,
