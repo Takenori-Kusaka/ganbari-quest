@@ -3,7 +3,7 @@
 //
 // 「移設・追加した module が Dockerfile COPY に追随せず、実行時 ERR_MODULE_NOT_FOUND で
 // staging/本番 deploy を止める」class が 3 件連続で CI をすり抜けた (prepare.mjs #3642 /
-// scripts/lib/nuc-cutover-verify #3648 / QM が #3642 approve 時に本 fitness を候補化):
+// scripts/lib/runtime/nuc-cutover-verify #3648 / QM が #3642 approve 時に本 fitness を候補化):
 //   再発防止が「移設時に Dockerfile も見る」という人の注意依存だったため、image 同梱 CLI の
 //   relative import graph を静的解決し、全解決先が COPY 宣言でカバーされることを CI で検証する。
 //
@@ -154,15 +154,15 @@ describe('Dockerfile COPY ↔ CLI import 一致 fitness (#3652、ADR-0061)', () 
 		});
 	}
 
-	it('[mutation 演繹] COPY 宣言から scripts/lib を欠くと検出される (fitness 自体の実効性)', () => {
+	it('[mutation 演繹] COPY 宣言から scripts/lib/runtime を欠くと検出される (fitness 自体の実効性)', () => {
 		const dockerfileText = readFileSync(join(REPO_ROOT, 'Dockerfile'), 'utf-8');
 		const mutated = parseDockerfileCopyRoots(dockerfileText).filter(
-			(root) => root !== 'scripts/lib',
+			(root) => root !== 'scripts/lib/runtime',
 		);
 		const graph = collectImportGraph(join(REPO_ROOT, 'scripts/nuc-pglite-cutover.ts'));
 		const missing = graph.filter((p) => !isCovered(p, mutated));
-		// scripts/lib COPY (#3648) を欠く = cycle 2 の実障害状態を再現 → 必ず検出される
-		expect(missing.some((p) => p.startsWith('scripts/lib/'))).toBe(true);
+		// scripts/lib COPY (#3648、#3659 で runtime/ に分離) を欠く = cycle 2 の実障害状態を再現 → 必ず検出される
+		expect(missing.some((p) => p.startsWith('scripts/lib/runtime/'))).toBe(true);
 	});
 
 	it('[parser 健全性] COPY 形式 (--from / 直 COPY / dir / file) を正しく抽出する', () => {

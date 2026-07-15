@@ -1,4 +1,4 @@
-// Issue #2959 AC1: base branch 解決 SSOT (scripts/lib/resolve-base-branch.mjs) の
+// Issue #2959 AC1: base branch 解決 SSOT (scripts/lib/ci/resolve-base-branch.mjs) の
 // 決定的解決順序 6 段の境界を網羅する unit test。
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3/§5) のクライアント側 SSOT。
 import { describe, expect, it } from 'vitest';
@@ -6,7 +6,7 @@ import {
 	isAllowedBaseBranch,
 	refspecCoversDevelop,
 	resolveBaseBranch,
-} from '../../../scripts/lib/resolve-base-branch.mjs';
+} from '../../../scripts/lib/ci/resolve-base-branch.mjs';
 
 const base = {
 	envBase: null as string | null,

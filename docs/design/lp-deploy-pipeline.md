@@ -121,7 +121,7 @@ screenshot mode の「演出強制 ON」は **撮影日に依らず決定的に�
 - `src/lib/features/demo/screenshot-mode.ts` — `ScreenshotMode` 型定義 + `resolveScreenshotMode()`
 - `src/routes/demo/+layout.svelte` — `setScreenshotModeContext(getter, modeGetter)` の context 配置
 - `src/routes/demo/(child)/+layout.svelte` — `?screenshot=all` 時の本番一致演出（`MilestoneBanner` 等）
-- `scripts/lib/screenshot-helpers.mjs` — `SCREENSHOT_QUERY` / `withScreenshotParam` の default
+- `scripts/lib/ci/screenshot-helpers.mjs` — `SCREENSHOT_QUERY` / `withScreenshotParam` の default
 - `tests/e2e/demo-screenshot-mode.spec.ts` — E2E 検証（後方互換含む）
 
 ## 6.6 SS 鮮度 CI gate (#1893)

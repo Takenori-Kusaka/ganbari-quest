@@ -509,7 +509,7 @@ font ready を待つが、Splide.js の初期化（DOMContentLoaded → CDN scri
 `waitForStablePage` の `waitSplide` オプションを使う:
 
 ```javascript
-// scripts/lib/screenshot-helpers.mjs
+// scripts/lib/ci/screenshot-helpers.mjs
 await waitForStablePage(page, { waitSplide: true });
 //   → document.querySelector('#hero-carousel .splide__slide.is-active') が現れるまで最大 10s 待機
 //   → Splide が存在しないページでは silent skip
@@ -528,7 +528,7 @@ node scripts/capture-hp-screenshots.mjs --webp --only carousel
 
 ### 再発防止策
 
-- `scripts/lib/screenshot-helpers.mjs::waitForStablePage` に `waitSplide` オプションを実装し SSOT 化（#1825）
+- `scripts/lib/ci/screenshot-helpers.mjs::waitForStablePage` に `waitSplide` オプションを実装し SSOT 化（#1825）
 - `scripts/capture-hp-screenshots.mjs` の `carousel-*` 撮影で `waitSplide: true` を自動指定
 - `scripts/capture.mjs` の `--server-mode lp` で `waitSplide` を自動有効化
 - 撮影 1 件でも失敗すれば `capture-hp-screenshots.mjs` が exit 1（#1783 / ADR-0029）するため CI で黒画像のまま push されることはない（ただし「撮影成功 + 中身が黒」のケースは別途 `scripts/measure-lp-dimensions.mjs` で参照存在検証）
@@ -587,7 +587,7 @@ grep '保護者向けの管理画面' tmp/screenshots/pr-1766/admin-children-des
 
 ### 再発防止策
 
-- `scripts/lib/screenshot-helpers.mjs` の `ScreenshotCapture.capture()` がデフォルトで DOM HTML を保存（opt-out フラグは `--no-dom-snapshot`）
+- `scripts/lib/ci/screenshot-helpers.mjs` の `ScreenshotCapture.capture()` がデフォルトで DOM HTML を保存（opt-out フラグは `--no-dom-snapshot`）
 - `scripts/check-pr-screenshot.mjs` が UI PR で SS が添付されているのに `.dom.html` 参照が無い PR を CI で検出（#1766 / #1747 AC4）
 - `docs/sessions/dev-session.md` Screenshot Agent テンプレート §1 にデフォルト動作を明記
 - `docs/sessions/qa-session.md` 手順 2 で QM が DOM HTML を Read tool で開いて主要ラベル grep を実行するルールを追加

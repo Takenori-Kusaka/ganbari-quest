@@ -67,13 +67,13 @@ develop 二層では feature/fix/docs PR の base が `develop`（非 default br
 
 ### branch 作成・push 運用 SOP（refspec self-heal + 基点鮮度 + rebase、#2975 / #3009）
 
-stale develop 基点ズレ（single-branch refspec で `origin/develop` が更新されない）と PR 期間中の develop rebase drift を防ぐ運用手順。機械層は `scripts/lib/resolve-base-branch.mjs`（pre-push hook Step 2.0 / pre-ready が経由）が refspec を自動 self-heal する。
+stale develop 基点ズレ（single-branch refspec で `origin/develop` が更新されない）と PR 期間中の develop rebase drift を防ぐ運用手順。機械層は `scripts/lib/ci/resolve-base-branch.mjs`（pre-push hook Step 2.0 / pre-ready が経由）が refspec を自動 self-heal する。
 
 | 局面 | 手順 |
 |---|---|
 | worktree / clone 直後 | `git config --get-all remote.origin.fetch` に develop 行（または `refs/heads/*`）があるか確認。無ければ `git config --add remote.origin.fetch '+refs/heads/develop:refs/remotes/origin/develop' && git fetch origin`（`resolve-base-branch.mjs` 経由の経路では自動修復される。worktree は main repo と config 共有のため修復は clone 単位で 1 回） |
-| branch 作成直後 | `node scripts/lib/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（HEAD が `origin/<base>` 最新を取り込んでいなければ exit 1。`git rev-list --count HEAD..origin/<base>` == 0 と等価） |
-| push 前 | `git fetch origin <base> && git rebase origin/<base>` → `git push --force-with-lease origin <branch>`（base は `node scripts/lib/resolve-base-branch.mjs` で解決） |
+| branch 作成直後 | `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（HEAD が `origin/<base>` 最新を取り込んでいなければ exit 1。`git rev-list --count HEAD..origin/<base>` == 0 と等価） |
+| push 前 | `git fetch origin <base> && git rebase origin/<base>` → `git push --force-with-lease origin <branch>`（base は `node scripts/lib/ci/resolve-base-branch.mjs` で解決） |
 | `--force-with-lease` が stale info で reject | worktree / 限定 refspec 下では `origin/<branch>` tracking ref が自動更新されない（`git fetch origin <branch>` は FETCH_HEAD のみ更新で tracking ref を更新しない）。`git fetch origin <branch>:refs/remotes/origin/<branch> --force` で tracking ref を明示更新してから再 push する。fast-forward push なのに reject が続く場合は `git push origin <branch>`（force なし）で通る。tracking ref 一致でも reject が続く環境（Windows worktree で観測）では `git push --force-with-lease=<branch>:$(git ls-remote origin refs/heads/<branch> \| cut -f1) origin <branch>` で期待 SHA を明示する（lease 安全性は同等） |
 | PR open 中に base（develop）が進んだ | **QM BLOCK を待たず速やかに rebase + push する**（#3009: 放置すると BLOCK が複数ラウンド累積する）。UI 変更 PR は rebase 後の SS 再撮影 + screenshots branch push も必須（`src/routes/CLAUDE.md` §「rebase 後の screenshots branch push 必須」） |
 

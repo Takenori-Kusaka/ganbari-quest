@@ -17,7 +17,7 @@ import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { waitForStablePage } from './lib/screenshot-helpers.mjs';
+import { waitForStablePage } from './lib/ci/screenshot-helpers.mjs';
 
 const log = (...a) => console.log(...a);
 const logErr = (...a) => console.error(...a);

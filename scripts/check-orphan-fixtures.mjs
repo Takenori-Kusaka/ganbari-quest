@@ -32,7 +32,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const DEMO_DIRS = [path.join(REPO_ROOT, 'src', 'lib', 'server', 'demo')];
 const SEARCH_DIRS = ['src', 'tests/unit', 'tests/integration', 'tests/e2e', 'scripts'];

@@ -16,7 +16,7 @@
  *
  * # 2 層防御における位置付け
  *
- * - 根本層 (撮影時 assert): `scripts/lib/screenshot-helpers.mjs` `checkRenderHealth`
+ * - 根本層 (撮影時 assert): `scripts/lib/ci/screenshot-helpers.mjs` `checkRenderHealth`
  *   — capture.mjs / capture-app-baseline.mjs が撮影直前に error ページを検出して exit 1。
  *   error ページ SS はそもそも生成・push されない。
  * - 補完層 (本 script): 旧版 capture script の使用 / 手動 push 等で撮影時 assert を
@@ -63,7 +63,7 @@
 
 import { resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { detectErrorMarkersInHtml } from './lib/screenshot-helpers.mjs';
+import { detectErrorMarkersInHtml } from './lib/ci/screenshot-helpers.mjs';
 
 const MODE = (process.env.CHECK_MODE || 'error').toLowerCase();
 const PR_NUMBER = process.env.PR_NUMBER || '';

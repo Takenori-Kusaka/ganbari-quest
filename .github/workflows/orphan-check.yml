@@ -31,7 +31,7 @@ on:
       - 'site/**'
       - 'scripts/check-orphan-*.mjs'
       - 'scripts/check-skip-deadlines.mjs'
-      - 'scripts/lib/orphan-utils.mjs'
+      - 'scripts/lib/ci/orphan-utils.mjs'
       - 'scripts/orphan-baselines/**'
       - '.env.example'
       - '.github/workflows/orphan-check.yml'

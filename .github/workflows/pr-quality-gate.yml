@@ -247,7 +247,7 @@ jobs:
   #   PR #3006 で 500 エラーページが「実画面 SS」として screenshots branch に
   #   2 度 push され、既存 gate (blob SHA 一意性 / ローカルパス禁止) を素通りした
   #   事故への補完 gate。根本層は capture.mjs / capture-app-baseline.mjs の
-  #   撮影時 assert (scripts/lib/screenshot-helpers.mjs checkRenderHealth) が担い、
+  #   撮影時 assert (scripts/lib/ci/screenshot-helpers.mjs checkRenderHealth) が担い、
   #   本 job は screenshots branch pr-<N>/ の .dom.html (#1766 DOM snapshot) を
   #   text scan して error ページ marker を検出する軽量 heuristic 1 つに限定
   #   (画像解析は不採用、ADR-0010 Pre-PMF)。
@@ -265,7 +265,7 @@ jobs:
         with:
           sparse-checkout: |
             scripts/check-ss-render-health.mjs
-            scripts/lib/screenshot-helpers.mjs
+            scripts/lib/ci/screenshot-helpers.mjs
           sparse-checkout-cone-mode: false
 
       - name: Run check-ss-render-health.mjs

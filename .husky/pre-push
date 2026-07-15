@@ -53,10 +53,10 @@ echo "[pre-push] QA self-implement 第 8 弾 verify chain (#2598)"
 # --- Step 2.0: base branch 解決 (#2959 / develop 二層 cutover #2870) ---
 # develop 二層 (branch-strategy.md §3/§5) では feature branch は develop 向け、
 # hotfix (fix/* from main) は main 向け。drift 検査 / deploy 削除 gate / biome 抽出の
-# 比較 base を scripts/lib/resolve-base-branch.mjs (SSOT) で解決する。
+# 比較 base を scripts/lib/ci/resolve-base-branch.mjs (SSOT) で解決する。
 # 解決不能時 (offline 等) は main に fallback (従来挙動と同一)。
 # hotfix の初回 push (PR 未作成 + develop 乖離) は `GANBARI_PR_BASE=main git push` で明示可。
-BASE_BRANCH=$(node scripts/lib/resolve-base-branch.mjs 2>/dev/null) || BASE_BRANCH="main"
+BASE_BRANCH=$(node scripts/lib/ci/resolve-base-branch.mjs 2>/dev/null) || BASE_BRANCH="main"
 echo "[pre-push] (0/3) base branch 解決: origin/$BASE_BRANCH (#2959)"
 
 # --- Step 2.1: origin/<base> rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) ---

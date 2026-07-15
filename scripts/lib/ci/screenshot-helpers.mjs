@@ -1,5 +1,5 @@
 /**
- * scripts/lib/screenshot-helpers.mjs (#1206, #1424, #1766)
+ * scripts/lib/ci/screenshot-helpers.mjs (#1206, #1424, #1766)
  *
  * `take-lp-screenshots.mjs` / `capture-hp-screenshots.mjs` 共通ユーティリティの SSOT。
  * #1424 で ScreenshotCapture / FlowRecorder クラスと純粋関数を追加。

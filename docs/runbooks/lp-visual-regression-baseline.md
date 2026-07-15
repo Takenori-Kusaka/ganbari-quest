@@ -133,7 +133,7 @@ git commit -m "chore: app visual baseline 更新 (意図的なアプリ / ガイ
 
 ### (B) ガイド open 状態 baseline の注意 (#2928)
 
-ガイド open SS (`app-guide-<page>-<viewport>.webp`、代表 3 ページ × desktop + mobile) は driver.js popover の fade-in + spotlight pulse が乗るため、`scripts/lib/page-guide-capture.mjs` の `openPageGuide` hook が **freeze-animations + opacity===1 + box 安定待ち** で settled 状態に固定してから撮る。これにより pixelmatch baseline が決定的になる (PR #2930 「settled でない SS」教訓の共有化)。
+ガイド open SS (`app-guide-<page>-<viewport>.webp`、代表 3 ページ × desktop + mobile) は driver.js popover の fade-in + spotlight pulse が乗るため、`scripts/lib/ci/page-guide-capture.mjs` の `openPageGuide` hook が **freeze-animations + opacity===1 + box 安定待ち** で settled 状態に固定してから撮る。これにより pixelmatch baseline が決定的になる (PR #2930 「settled でない SS」教訓の共有化)。
 
 - **desktop は font anti-aliasing (DPR=1) で数 % の text-edge 差分が出る**ことがある。layout / 内容が同一なら 10% 閾値内で warn 段階のため許容する (diff PNG が text 縁の赤 speckle のみであることを確認)。layout / 内容が変わった場合のみ baseline 更新する。
 - **geometry の全 step 網羅は `tests/e2e/page-guide-layout-invariant.spec.ts` (#2926) が担う**。本 baseline は pixel での「重複 / 見切れ / spotlight 不全」回帰検出 (両輪)。
@@ -150,7 +150,7 @@ git commit -m "chore: app visual baseline 更新 (意図的なアプリ / ガイ
 - `scripts/check-lp-visual-regression.mjs` — pixelmatch 比較 + `--update-baseline` 本体 (全 3 層共通、汎用 `--baseline-dir` / `--current-dir`)
 - `scripts/capture-hp-screenshots.mjs` — LP / child-home 層 current SS 撮影 (`--webp` / `--only`)
 - `scripts/capture-app-baseline.mjs` — app 層 current SS 撮影 (`--webp` / `--only age|admin|guide`、§5)
-- `scripts/lib/page-guide-capture.mjs` — ガイド open settled 撮影 hook (`openPageGuide`、#2928)
+- `scripts/lib/ci/page-guide-capture.mjs` — ガイド open settled 撮影 hook (`openPageGuide`、#2928)
 - `.github/workflows/lp-visual-regression.yml` — LP 層 CI gate (job `visual-regression-check`、artifact upload)
 - `.github/workflows/app-visual-regression.yml` — app 層 CI gate (warn 段階、§5)
 - `.github/workflows/pages.yml` — GitHub Pages deploy 時に LP SS を撮影

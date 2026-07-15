@@ -27,7 +27,7 @@ import {
 	detectIdenticalBeforeAfterPairs,
 	findBeforeAfterPairs,
 	sha256OfFile,
-} from '../lib/screenshot-helpers.mjs';
+} from '../lib/ci/screenshot-helpers.mjs';
 
 // ---------------------------------------------------------------------------
 // sha256OfFile — 基本動作

@@ -28,7 +28,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const ASSET_ROOTS = [
 	{ root: path.join(REPO_ROOT, 'static', 'assets'), relPrefix: 'static/assets' },

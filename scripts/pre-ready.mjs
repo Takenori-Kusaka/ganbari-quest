@@ -40,7 +40,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
+import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/ci/resolve-base-branch.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -187,7 +187,7 @@ function run(cmd, argv) {
 
 /**
  * `git diff origin/<base>...HEAD --name-only` で変更ファイル一覧を取得する。
- * base は scripts/lib/resolve-base-branch.mjs (#2959 SSOT) で解決する
+ * base は scripts/lib/ci/resolve-base-branch.mjs (#2959 SSOT) で解決する
  * (develop 二層 cutover #2870 後、feature branch は develop 基点のため
  *  origin/main 固定だと sibling PR の develop commit を誤算入する)。
  * @param {string} baseBranch 解決済み base branch 名 ('develop' | 'main')
