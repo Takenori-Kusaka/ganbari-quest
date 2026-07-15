@@ -77,12 +77,32 @@ export interface IChildChallengeRepo {
 	markCompleted(id: string, tenantId: string): Promise<void>;
 
 	/**
-	 * ごほうび受取マーク (条件付き原子化、#3333)。
-	 * `rewardClaimed=0 AND completed=1` の行のみを flip し、実際に flip した行数を返す。
-	 * 並行 submit による TOCTOU 二重 claim → ポイント二重付与を防ぐため、service 層は
-	 * 戻り行数 === 1 のときだけ insertPointLedger を実行する (claim-first)。
+	 * ごほうび受取マーク + ポイント付与の**単一原子プリミティブ** (#3284 / #3342、#3333 の後継)。
+	 *
+	 * `rewardClaimed=0 AND completed=1` の行のみを flip し、flip できた場合に限り同一
+	 * トランザクション境界内で point ledger へ付与エントリを書く (type='child_challenge' /
+	 * referenceId=id は本メソッドが内部で設定する = 冪等キー SSOT)。戻り値は flip 行数
+	 * (1 = flip + 付与成功 / 0 = 既請求 or 未完了)。
+	 *
+	 * 原子性契約 (両成功 or 両 rollback):
+	 *   - SQLite: better-sqlite3 同期 transaction (flip → 行数 gate → ledger insert)
+	 *   - DynamoDB: TransactWriteItems (条件付き flip + ledger Put + 冪等 marker Put)
+	 *   - DSQL/PGlite: runner txn (条件付き UPDATE RETURNING → ledger INSERT + total_point 共更新)
+	 *   - demo: stateless guard semantics (ADR-0048、fixture 非 mutate)
+	 *
+	 * 旧 `claimReward` (flip のみ) は ledger insert が txn 外に残る half-primitive だったため
+	 * 撤去 (#3342 lost-award edge: flip 成功後の ledger throw で恒久受取不能)。
+	 * ledger 側は (childId, type, referenceId) 冪等 UNIQUE (#3284) が defense-in-depth で挟む。
+	 *
+	 * @throws DynamoDB backend で challenge が tenant 内に見つからない場合 (#3342 (3):
+	 *         not-found を「既請求 (0)」と混同させない。service 層は事前 findById で
+	 *         not-found を user error に落とすため、ここでの throw は並行削除等の異常系)。
 	 */
-	claimReward(id: string, tenantId: string): Promise<number>;
+	claimRewardAndGrantPoints(
+		id: string,
+		ledger: { childId: ChildId; amount: number; description: string },
+		tenantId: string,
+	): Promise<number>;
 
 	/** メタ更新 (status / 期間 / target / reward 変更) */
 	update(id: string, input: UpdateChildChallengeInput, tenantId: string): Promise<void>;

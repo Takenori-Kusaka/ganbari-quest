@@ -233,6 +233,16 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 		// 専用 SQLite table なし (DynamoDB single-table の集約 key、SQLite は pointLedger から都度算出)
 		reason: 'ポイント残高。pointLedger から再計算可',
 	},
+	pointLedgerIdempotency: {
+		classification: 'derived',
+		// 専用 SQLite table なし (#3284 DynamoDB 冪等 marker、SQLite は部分 UNIQUE index で等価表現)
+		reason: '付与冪等 marker。pointLedger の (child, type, reference) から再構築可',
+	},
+	redemptionPendingMarker: {
+		classification: 'derived',
+		// 専用 SQLite table なし (#3356 DynamoDB pending 一意 marker、SQLite は txn 内 dedup で等価表現)
+		reason: '交換申請 pending 一意 marker。rewardRedemption の pending 行から再構築可',
+	},
 	activityMastery: {
 		classification: 'derived',
 		schemaTable: 'activityMastery',

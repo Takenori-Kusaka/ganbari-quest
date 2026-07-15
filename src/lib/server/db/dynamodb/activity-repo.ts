@@ -42,6 +42,7 @@ import {
 	PutCommand,
 	QueryCommand,
 	ScanCommand,
+	TransactWriteCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ArchivedReason } from '$lib/domain/archive-types';
@@ -71,6 +72,7 @@ import {
 	childKey,
 	childPK,
 	ENTITY_NAMES,
+	pointLedgerIdempotencyKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
 	tenantPK,
@@ -1120,21 +1122,65 @@ export async function insertPointLedger(
 	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	const createdAt = new Date().toISOString();
 
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...pointLedgerKey(Number(input.childId), createdAt, id, tenantId),
-				id,
-				childId: Number(input.childId),
-				amount: input.amount,
-				type: input.type,
-				description: input.description,
-				referenceId: input.referenceId != null ? Number(input.referenceId) : null,
-				createdAt,
-			},
-		}),
-	);
+	const ledgerItem = {
+		...pointLedgerKey(Number(input.childId), createdAt, id, tenantId),
+		id,
+		childId: Number(input.childId),
+		amount: input.amount,
+		type: input.type,
+		description: input.description,
+		referenceId: input.referenceId != null ? Number(input.referenceId) : null,
+		createdAt,
+	};
+
+	// #3284: referenceId 付き付与は冪等 marker (POINTIDEM#<type>#<ref>) の条件付き Put を
+	// ledger Put と同一 TransactWriteItems 化し、同一 (child, type, reference) の二重付与を
+	// 物理拒否する (SQLite idx_point_ledger_idempotency と機能等価)。referenceId 無しの付与
+	// (combo / daily_mission 等) は従来通り単発 Put。
+	if (input.referenceId == null) {
+		await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: ledgerItem }));
+		return;
+	}
+
+	try {
+		await getDocClient().send(
+			new TransactWriteCommand({
+				TransactItems: [
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: {
+								...pointLedgerIdempotencyKey(
+									Number(input.childId),
+									input.type,
+									Number(input.referenceId),
+									tenantId,
+								),
+								ledgerId: id,
+								createdAt,
+							},
+							ConditionExpression: 'attribute_not_exists(PK)',
+						},
+					},
+					{ Put: { TableName: TABLE_NAME, Item: ledgerItem } },
+				],
+			}),
+		);
+	} catch (err) {
+		const cancellation = (err as { name?: string; CancellationReasons?: Array<{ Code?: string }> })
+			?.CancellationReasons;
+		const conditionFailed =
+			(err as { name?: string })?.name === 'TransactionCanceledException' &&
+			(cancellation?.some((r) => r?.Code === 'ConditionalCheckFailed') ?? false);
+		if (conditionFailed) {
+			// SQLite の UNIQUE 違反 throw と対称。silent no-op にせず呼び出し側へ露出する
+			// (冪等 guard 発火 = 上流の二重付与バグの兆候であり、握り潰すと lost signal になる)。
+			throw new Error(
+				`insertPointLedger: duplicate grant rejected (child=${input.childId}, type=${input.type}, referenceId=${input.referenceId}) #3284`,
+			);
+		}
+		throw err;
+	}
 }
 
 // ============================================================

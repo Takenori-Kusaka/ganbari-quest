@@ -64,13 +64,8 @@ export async function updateRedemptionRequestStatus(
 	return getRepos().rewardRedemption.updateRedemptionRequestStatus(childId, id, updates, tenantId);
 }
 
-export async function findPendingByChildAndReward(
-	childId: ChildId,
-	rewardId: string,
-	tenantId: string,
-) {
-	return getRepos().rewardRedemption.findPendingByChildAndReward(childId, rewardId, tenantId);
-}
+// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
+// insertRedemptionRequest の repo 原子境界 dedup に内蔵済 (TOCTOU 根治)。
 
 export async function findUnshownResultByChild(childId: ChildId, tenantId: string) {
 	return getRepos().rewardRedemption.findUnshownResultByChild(childId, tenantId);

@@ -140,12 +140,20 @@ export async function markCompleted(_id: string, _tenantId: string): Promise<voi
 }
 
 /**
- * ごほうび受取マーク (条件付きガード、#3333)。
- * demo は read=fixture / write=stub (永続化なし) のため実際の flip は行わないが、
- * sqlite / dynamodb と同じ「completed=1 かつ未請求の行のみ 1、それ以外 0」ガードセマンティクスを返す。
- * これにより service 層の claim-first 判定 (戻り値 === 1 のときだけ付与) が demo でも一貫する。
+ * ごほうび受取マーク + ポイント付与 (条件付きガード、#3333 → #3284/#3342 で統合 primitive 化)。
+ *
+ * demo は read=fixture / write=stub (永続化なし、ADR-0048 stateless Fake+Stub) のため実際の
+ * flip / ledger 書込は行わないが、sqlite / dynamodb / dsql と同じ「completed=1 かつ未請求の
+ * 行のみ 1、それ以外 0」ガードセマンティクスを返す。fixture を in-memory mutate しない判断は
+ * 意図的仕様 (#3342 (2)): demo Lambda で module-level user-specific mutable state を持つことは
+ * AWS Lambda 公式 anti-pattern であり ADR-0048 が物理的に禁止する (全 write repo が no-op stub)。
+ * 「completed & 未請求」fixture が存在する場合の再 claim 可視は ephemeral demo の許容挙動。
  */
-export async function claimReward(id: string, _tenantId: string): Promise<number> {
+export async function claimRewardAndGrantPoints(
+	id: string,
+	_ledger: { childId: ChildId; amount: number; description: string },
+	_tenantId: string,
+): Promise<number> {
 	const target = DEMO_CHILD_CHALLENGES.find((c) => c.id === id);
 	if (!target) return 0;
 	return target.completed === 1 && target.rewardClaimed === 0 ? 1 : 0;

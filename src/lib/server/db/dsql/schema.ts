@@ -20,6 +20,7 @@ import {
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 	uuid,
 } from 'drizzle-orm/pg-core';
 import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
@@ -328,6 +329,12 @@ export const pointLedger = pgTable(
 		// spike#7 採用の唯一の初期 secondary (§11.2)。履歴ページング用 (family,child,created_at)
 		// は計測後の任意追加。
 		index('point_ledger_type_date_idx').on(t.familyId, t.childId, t.type, t.recordedDate),
+		// #3284: 付与の冪等キー。reference_id NULL 行は pg の UNIQUE NULL-distinct 規則で
+		// 複数許容されるため partial index 不要 (DSQL は partial unique 非対応、spike 実機確証)。
+		// referenceId 付き付与 (activity / cancel / child_challenge / reward_redemption /
+		// special_reward) の二重 insert を DB レベルで物理拒否する。migration では
+		// CREATE UNIQUE INDEX → runner が ASYNC 変換 + build poll (transform.ts 責務 2)。
+		uniqueIndex('point_ledger_idempotency_uq').on(t.familyId, t.childId, t.type, t.referenceId),
 	],
 );
 

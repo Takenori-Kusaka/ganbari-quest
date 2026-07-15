@@ -187,7 +187,15 @@ export const pointLedger = sqliteTable(
 		referenceId: integer('reference_id'),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [index('idx_point_ledger_child').on(table.childId, table.createdAt)],
+	(table) => [
+		index('idx_point_ledger_child').on(table.childId, table.createdAt),
+		// #3284: 付与の冪等キー。referenceId を持つ付与 (activity / cancel / child_challenge /
+		// reward_redemption / special_reward) は同一 (child, type, reference) の二重 insert を
+		// DB 層で物理拒否する (二重付与窓の根治、#3245 の auto:weekly 部分 unique と同パターン)。
+		uniqueIndex('idx_point_ledger_idempotency')
+			.on(table.childId, table.type, table.referenceId)
+			.where(sql`reference_id IS NOT NULL`),
+	],
 );
 
 // ============================================================

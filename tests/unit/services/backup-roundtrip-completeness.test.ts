@@ -162,6 +162,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
 			T,
 		);
+		if ('error' in redemption) throw new Error('seed: unexpected DUPLICATE_REQUEST');
 		await updateRedemptionRequestStatus(
 			asChildId(1),
 			redemption.id,
@@ -512,8 +513,12 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// 進捗 → 完了 → ごほうび受取 まで進め、completed/completedAt/status/rewardClaimed/rewardClaimedAt を立てる。
 		await getRepos().childChallenge.updateProgress(ch.id, 3, T);
 		await getRepos().childChallenge.markCompleted(ch.id, T);
-		const claimed = await getRepos().childChallenge.claimReward(ch.id, T);
-		expect(claimed, 'seed: claimReward 成功').toBe(1);
+		const claimed = await getRepos().childChallenge.claimRewardAndGrantPoints(
+			ch.id,
+			{ childId: asChildId(1), amount: 120, description: 'チャレンジ達成: 完了チャレンジ' },
+			T,
+		);
+		expect(claimed, 'seed: claimRewardAndGrantPoints 成功').toBe(1);
 
 		// seed 後の確定状態を取得 (id 以外を round-trip 後と厳格比較する基準)。
 		const seeded = await getRepos().childChallenge.findById(ch.id, T);
