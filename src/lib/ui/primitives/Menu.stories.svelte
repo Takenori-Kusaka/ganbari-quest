@@ -3,6 +3,7 @@ import { defineMeta } from '@storybook/addon-svelte-csf';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Menu from './Menu.svelte';
+import { assertPointerInteractive } from './story-play-helpers';
 
 const L = STORYBOOK_LABELS.menu;
 
@@ -67,11 +68,7 @@ const { Story } = defineMeta({
 		// #3687: Ark UI Menu の open transition 中は content が pointer-events:none。CI の遅い
 		// 描画では visible 直後の click が「pointer-events: none」で fail する (ローカルでは再現せず)。
 		// transition 完了 = pointer-events 解除を明示的に待ってから click する。
-		await waitFor(() => {
-			if (getComputedStyle(editItem).pointerEvents === 'none') {
-				throw new Error('menu content is still in open transition (pointer-events: none)');
-			}
-		});
+		await waitFor(() => assertPointerInteractive(editItem));
 		// item select → onSelect spy 発火 (dead-end でない前提)
 		await userEvent.click(editItem);
 		await waitFor(() => expect(editSpy).toHaveBeenCalledTimes(1));
