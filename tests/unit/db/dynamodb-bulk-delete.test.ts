@@ -329,6 +329,73 @@ describe('BatchWrite 完全性 (#3693 AC3)', () => {
 });
 
 // =========================================================
+// deleteOrphanChildPartitionItems — orphan child partition sweep (#3750)
+// =========================================================
+
+describe('deleteOrphanChildPartitionItems (#3750: orphan child partition sweep)', () => {
+	it('childIds 非空 + orphan partition 混在時、per-child Query は orphan を取り漏らし、sweep が残骸のみ消す', async () => {
+		const t = 'tenant-a';
+		// 既知児童 1, 2 の scoped データ
+		seedTenant(t, [1, 2], { 'STATUS#': 2, 'POINT#': 2 });
+		// 既知児童の PROFILE (deleteAllChildrenData が後続で削除 + file 削除に必要なため sweep 対象外)
+		table.push({ PK: childPkOf(t, 1), SK: 'PROFILE' }, { PK: childPkOf(t, 2), SK: 'PROFILE' });
+		// orphan partition 99: 過去の部分失敗で profile なし・childId が active でも archived でもない
+		// のに scoped データだけ残存 (childIds には含まれない)
+		table.push(
+			{ PK: childPkOf(t, 99), SK: 'STATUS#0000' },
+			{ PK: childPkOf(t, 99), SK: 'POINT#0000' },
+		);
+		// 他 tenant の同名 orphan (tenant 境界の検証)
+		seedTenant('tenant-b', [99], { 'STATUS#': 3 });
+
+		const { deleteChildScopedItems, deleteOrphanChildPartitionItems } = await loadBulkDelete();
+
+		// 1) 旧経路: 既知児童のみ per-child Query で削除 → orphan 99 は取り漏らす (#3750 の gap)
+		await deleteChildScopedItems(t, [asChildId(1), asChildId(2)], 'STATUS#');
+		await deleteChildScopedItems(t, [asChildId(1), asChildId(2)], 'POINT#');
+		expect(table.filter((it) => it.PK === childPkOf(t, 99))).toHaveLength(2);
+
+		// 2) 末尾 sweep: orphan 99 の残骸のみ削除
+		const swept = await deleteOrphanChildPartitionItems(t, [asChildId(1), asChildId(2)]);
+		expect(swept).toBe(2);
+		expect(table.filter((it) => it.PK === childPkOf(t, 99))).toHaveLength(0);
+		// 既知児童 PROFILE は残る (sweep が既知 partition を除外 = file 削除経路を壊さない)
+		expect(table.filter((it) => it.PK === childPkOf(t, 1) && it.SK === 'PROFILE')).toHaveLength(1);
+		expect(table.filter((it) => it.PK === childPkOf(t, 2) && it.SK === 'PROFILE')).toHaveLength(1);
+		// 他 tenant は完全に不変 (tenant 境界)
+		expect(table.filter((it) => it.PK.startsWith('T#tenant-b#'))).toHaveLength(3);
+	});
+
+	it('orphan がない場合 (既知児童のみ) は sweep で何も消さず 0 を返す', async () => {
+		const t = 'tenant-a';
+		seedTenant(t, [1, 2], { 'STATUS#': 2 });
+		table.push({ PK: childPkOf(t, 1), SK: 'PROFILE' });
+
+		const { deleteOrphanChildPartitionItems } = await loadBulkDelete();
+		const swept = await deleteOrphanChildPartitionItems(t, [asChildId(1), asChildId(2)]);
+
+		expect(swept).toBe(0);
+		// 既知児童データは不変 (STATUS# 4 件 + PROFILE 1 件)
+		expect(table.filter((it) => it.PK.startsWith('T#tenant-a#'))).toHaveLength(5);
+	});
+
+	it('knownChildIds が空配列でも child partition prefix 配下を全 sweep する (0 児童 orphan の受け皿)', async () => {
+		const t = 'tenant-a';
+		// 全て orphan (既知児童 0 人 = knownPKs 空)
+		table.push(
+			{ PK: childPkOf(t, 77), SK: 'STATUS#0000' },
+			{ PK: childPkOf(t, 88), SK: 'POINT#0000' },
+		);
+
+		const { deleteOrphanChildPartitionItems } = await loadBulkDelete();
+		const swept = await deleteOrphanChildPartitionItems(t, []);
+
+		expect(swept).toBe(2);
+		expect(table.filter((it) => it.PK.startsWith('T#tenant-a#CHILD#'))).toHaveLength(0);
+	});
+});
+
+// =========================================================
 // repo 配線 (代表: status-repo) — childIds 受領時に Query 化される
 // =========================================================
 

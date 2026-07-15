@@ -340,5 +340,21 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] image 削除失敗: ${String(err)}`);
 	}
 
+	// #3750: orphan child partition sweep (混在ケースの削除完全性保証)。
+	// childIds 非空時、上記 child-scoped repo の deleteByTenantId は既知 child のみ Query する
+	// ため、過去の部分失敗で残った orphan child partition (childId が active でも archived でも
+	// ない + 他に現存児童 ≥1) を取り漏らす。末尾で 1 度だけ child partition prefix を Scan し、
+	// 既知 partition を除いた残骸を消す (退会 = 削除権 CUJ の完全性優先)。
+	// childIds undefined (児童 0 人) の場合は各 repo の Scan fallback が既に orphan を拾うため
+	// 呼ばず、二重 Scan を避ける。DynamoDB backend 固有 (relational backend は
+	// sweepOrphanChildPartitions 未実装 = optional のため skip)。
+	if (childIds && childIds.length > 0 && r.child.sweepOrphanChildPartitions) {
+		try {
+			deleted += await r.child.sweepOrphanChildPartitions(tenantId, childIds);
+		} catch (err) {
+			logger.warn(`[tenant-cleanup] orphan child partition sweep 失敗: ${String(err)}`);
+		}
+	}
+
 	return deleted;
 }
