@@ -187,9 +187,12 @@ export async function insertForRestore(
 // deleteByTenantId — テナントの全証明書を削除 (#3329)
 // ============================================================
 
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	const { deleteChildScopedItems } = await import('./bulk-delete');
+	await deleteChildScopedItems(tenantId, childIds, PREFIX);
 }
 
 // ============================================================

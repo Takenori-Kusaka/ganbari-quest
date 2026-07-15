@@ -133,5 +133,5 @@ export interface IRewardRedemptionRepo {
 
 	hasPendingByReward(rewardId: string, tenantId: string): Promise<boolean>;
 
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

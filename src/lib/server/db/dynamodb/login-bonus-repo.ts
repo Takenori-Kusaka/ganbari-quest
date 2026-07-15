@@ -5,10 +5,10 @@ import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { InsertLoginBonusInput, LoginBonus } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix, tenantPK } from './keys';
+import { childPK, ENTITY_NAMES, loginBonusKey, loginBonusPrefix } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
 // stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
@@ -104,8 +104,11 @@ export async function insertLoginBonus(
 }
 
 /** テナントの全ログインボーナスを削除（CHILD#* 配下の LOGIN# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), loginBonusPrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, loginBonusPrefix());
 }
 
 // ============================================================

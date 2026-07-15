@@ -55,5 +55,5 @@ export interface IDailyMissionRepo {
 		activityId: ActivityId,
 		tenantId: string,
 	): Promise<void>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

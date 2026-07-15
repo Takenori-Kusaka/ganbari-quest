@@ -10,7 +10,7 @@ export interface ILoginBonusRepo {
 	findRecentBonuses(childId: ChildId, tenantId: string, limit?: number): Promise<LoginBonus[]>;
 	insertLoginBonus(input: InsertLoginBonusInput, tenantId: string): Promise<LoginBonus>;
 	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 
 	// Retention cleanup (#717, #729)
 	/**

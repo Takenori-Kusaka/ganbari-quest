@@ -81,5 +81,5 @@ export interface IStampCardRepo {
 		input: UpdateStampCardStatusInput,
 		tenantId: string,
 	): Promise<number>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

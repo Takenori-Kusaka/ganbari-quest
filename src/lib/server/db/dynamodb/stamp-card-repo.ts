@@ -417,11 +417,15 @@ export async function updateCardStatusIfCollecting(
 // deleteByTenantId — テナントの全カード・エントリを削除
 // ============================================================
 
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	// cards: child partition 配下の STMPCARD# item。
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), CARD_PREFIX);
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	const { deleteChildScopedItems, deleteItemsByPkPrefix } = await import('./bulk-delete');
+	// cards: child partition 配下の STMPCARD# item (#3693: childIds 指定時は Query 化)。
+	await deleteChildScopedItems(tenantId, childIds, CARD_PREFIX);
 	// entries: 専用 STMPCARD#<cardId> partition 配下の STMPENT# item。
+	// cardId は PK 埋込で列挙不能のため Scan 継続 (#3693: tenant あたり 1 Scan のみ)。
 	await deleteItemsByPkPrefix(tenantPK('STMPCARD#', tenantId), ENTRY_PREFIX);
 }
 

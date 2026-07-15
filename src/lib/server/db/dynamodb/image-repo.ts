@@ -5,10 +5,10 @@ import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { CharacterImage, InsertCharacterImageInput } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { characterImageKey, characterImagePrefix, childKey, ENTITY_NAMES, tenantPK } from './keys';
+import { characterImageKey, characterImagePrefix, childKey, ENTITY_NAMES } from './keys';
 import { stripKeys } from './repo-helpers';
 
 // biome-ignore lint/performance/noBarrelFile: 後方互換 re-export のため維持、削除は別 Issue で検討
@@ -97,6 +97,9 @@ export async function updateChildAvatarUrl(
 }
 
 /** テナントの全キャラクター画像レコードを削除（CHILD#* 配下の IMG# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), characterImagePrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, characterImagePrefix());
 }

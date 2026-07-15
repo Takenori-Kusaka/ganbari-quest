@@ -157,5 +157,5 @@ export interface IChecklistRepo {
 
 	// ── Tenant bulk deletion ────────────────────────────────────────
 
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

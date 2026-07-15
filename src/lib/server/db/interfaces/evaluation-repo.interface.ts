@@ -49,5 +49,5 @@ export interface IEvaluationRepo {
 		tenantId: string,
 	): Promise<RestDay | undefined>;
 
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

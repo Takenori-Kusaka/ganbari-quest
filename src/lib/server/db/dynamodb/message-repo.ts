@@ -25,7 +25,7 @@ import { asChildId } from '$lib/domain/ids';
 import type { InsertParentMessageInput, ParentMessage } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childPK, ENTITY_NAMES, parentMessageKey, parentMessagePrefix, tenantPK } from './keys';
+import { childPK, ENTITY_NAMES, parentMessageKey, parentMessagePrefix } from './keys';
 import { stripKeys } from './repo-helpers';
 
 const PREFIX = parentMessagePrefix();
@@ -194,9 +194,12 @@ export async function markMessageShown(
 // deleteByTenantId — テナントの全メッセージを削除
 // ============================================================
 
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	const { deleteChildScopedItems } = await import('./bulk-delete');
+	await deleteChildScopedItems(tenantId, childIds, PREFIX);
 }
 
 // ============================================================

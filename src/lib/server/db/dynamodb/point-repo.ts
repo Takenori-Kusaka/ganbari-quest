@@ -11,7 +11,7 @@ import {
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { InsertPointLedgerInput, PointLedgerEntry } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -21,7 +21,6 @@ import {
 	pointLedgerIdempotencyKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
-	tenantPK,
 } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
@@ -246,13 +245,16 @@ export async function spendPointsAtomic(
 }
 
 /** テナントの全ポイント台帳・残高を削除（CHILD#* 配下の POINT# + POINTIDEM# + BALANCE アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
 	// Delete point ledger entries (POINT#...)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), pointLedgerPrefix());
+	await deleteChildScopedItems(tenantId, childIds, pointLedgerPrefix());
 	// Delete idempotency markers (POINTIDEM#..., #3284)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'POINTIDEM#');
+	await deleteChildScopedItems(tenantId, childIds, 'POINTIDEM#');
 	// Delete balance records (BALANCE)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'BALANCE');
+	await deleteChildScopedItems(tenantId, childIds, 'BALANCE');
 }
 
 // ============================================================

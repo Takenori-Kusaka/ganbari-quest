@@ -558,11 +558,12 @@ export const hasPendingByReward: IRewardRedemptionRepo['hasPendingByReward'] = a
 
 export const deleteByTenantId: IRewardRedemptionRepo['deleteByTenantId'] = async (
 	tenantId,
+	childIds,
 ): Promise<void> => {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+	const { deleteChildScopedItems } = await import('./bulk-delete');
+	await deleteChildScopedItems(tenantId, childIds, PREFIX);
 	// #3356 (1): pending marker (REDEMPTPEND#) も併せて削除
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'REDEMPTPEND#');
+	await deleteChildScopedItems(tenantId, childIds, 'REDEMPTPEND#');
 };
 
 // ============================================================

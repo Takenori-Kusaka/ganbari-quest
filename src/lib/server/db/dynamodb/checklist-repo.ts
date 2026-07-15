@@ -31,7 +31,7 @@ import type {
 	UpdateChecklistTemplateInput,
 	UpsertChecklistLogInput,
 } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems, deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -765,14 +765,16 @@ export async function deleteOverride(
  * - T#<tenantId>#CKTPL#<tplId> 配下: ITEM# (item) / ASSIGN# (assignment)
  * - CHILD#* 配下: CKLOG# (ログ), CKOVER# (override)
  */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	// Templates 本体
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	// Templates 本体 + Items/Assignments (#3693: PK=T#<t>#CKTPL と T#<t>#CKTPL#<tplId> は
+	// 同一 begins_with prefix のため 1 Scan に統合。tplId は PK 埋込で列挙不能のため Scan 継続)
 	await deleteItemsByPkPrefix(tenantPK('CKTPL', tenantId));
-	// Items + Assignments (PK=T#<tenantId>#CKTPL#*)
-	await deleteItemsByPkPrefix(tenantPK('CKTPL#', tenantId));
 	// Logs / Overrides (CHILD#* 配下)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistLogPrefix());
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistOverridePrefix());
+	await deleteChildScopedItems(tenantId, childIds, checklistLogPrefix());
+	await deleteChildScopedItems(tenantId, childIds, checklistOverridePrefix());
 }
 
 // ============================================================
