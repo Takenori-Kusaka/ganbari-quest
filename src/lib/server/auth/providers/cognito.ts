@@ -7,6 +7,8 @@ import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
+	INVITE_ACCEPT_ERROR_COOKIE_NAME,
+	INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
 	INVITE_COOKIE_NAME,
 } from '$lib/domain/validation/auth';
 import { getRepos } from '$lib/server/db/factory';
@@ -34,6 +36,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						type: 'cognito',
 						userId: claims.sub,
 						email: claims.email,
+						// #3555 ③: email 束縛招待の受諾判定 (fail-closed) に使う
+						emailVerified: claims.email_verified,
 						groups: claims['cognito:groups'],
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
@@ -57,6 +61,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						type: 'cognito',
 						userId: claims.sub,
 						email: claims.email,
+						// #3555 ③: email 束縛招待の受諾判定 (fail-closed) に使う
+						emailVerified: claims.email_verified,
 						groups: claims['cognito:groups'],
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
@@ -218,8 +224,10 @@ export class CognitoAuthProvider implements AuthProvider {
 				effectiveUserId = user.userId;
 			}
 
-			// 招待受諾
-			const result = await acceptInvite(inviteCode, effectiveUserId, identity.email);
+			// 招待受諾 (#3555 ③: email 束縛招待は email_verified=false を fail-closed 拒否)
+			const result = await acceptInvite(inviteCode, effectiveUserId, identity.email, {
+				emailVerified: identity.emailVerified,
+			});
 
 			// Cookie を消費（成功でも失敗でも消す）
 			this.clearInviteCookie(event);
@@ -228,6 +236,21 @@ export class CognitoAuthProvider implements AuthProvider {
 				logger.warn('[AUTH] Invite acceptance failed', {
 					context: { inviteCode, error: result.error, userId: effectiveUserId },
 				});
+				// #3555 ①: email 束縛による拒否は受諾者に理由を伝えないと dead-end になる
+				// (この後 fallback の新規テナント自動作成が走り、無説明の空 admin に着地する)。
+				// 1 回限りの通知 cookie を積み、admin +layout が読み取って案内バナーを表示する。
+				if (
+					result.error === 'INVITE_EMAIL_MISMATCH' ||
+					result.error === 'INVITE_EMAIL_UNVERIFIED'
+				) {
+					event.cookies.set(INVITE_ACCEPT_ERROR_COOKIE_NAME, result.error, {
+						path: '/',
+						httpOnly: true,
+						sameSite: 'lax',
+						secure: true,
+						maxAge: INVITE_ACCEPT_ERROR_MAX_AGE_SECONDS,
+					});
+				}
 				return null;
 			}
 

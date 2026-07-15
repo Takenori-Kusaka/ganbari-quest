@@ -432,6 +432,13 @@ const roleLabel = (role: string) => {
 							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
 								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
 							</span>
+							<!-- #3555 ①: 宛先 email 束縛付き招待の宛先を表示 (タイプミスに owner が気づき
+							     取消し → 再発行できる修正導線) -->
+							{#if invite.email}
+								<span class="ml-2 text-xs text-[var(--color-text-tertiary)]" data-testid="invite-bound-email">
+									{MEMBERS_LABELS.inviteEmailBoundPrefix}{invite.email}
+								</span>
+							{/if}
 						</div>
 						{#if $page.data.currentRole === 'owner'}
 							<Button

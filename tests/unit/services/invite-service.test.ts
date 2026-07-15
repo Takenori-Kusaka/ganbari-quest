@@ -331,3 +331,87 @@ describe('招待 email 束縛 (#3549 判断2 / §6.6)', () => {
 		);
 	});
 });
+
+// #3555 ②: 招待失効が email mismatch の replay window を上限する regression。
+// 期限切れ後は正しい email でも INVALID_OR_EXPIRED になり、横流しリンクの
+// 試行可能期間は INVITE_EXPIRY_DAYS (7 日) で必ず閉じる。
+describe('招待失効 × email 束縛 (#3555 ②)', () => {
+	it('期限切れの email 束縛招待は正しい email でも INVALID_OR_EXPIRED (replay window 上限)', async () => {
+		inviteStore.set(
+			'exp-em',
+			makePendingInvite({
+				inviteCode: 'exp-em',
+				email: 'intended@example.com',
+				expiresAt: new Date(Date.now() - 1000).toISOString(),
+			}),
+		);
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertError(await acceptInvite('exp-em', 'user-new', 'intended@example.com'));
+		expect(result.error).toBe('INVALID_OR_EXPIRED');
+		// pending のまま放置されず expired に遷移する (getInvite の自動失効)
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('exp-em', 'expired');
+	});
+});
+
+// #3555 ③: email 束縛招待の受諾は検証済み email が前提。email_verified=false の
+// provider 構成が将来入った場合、未検証 email での束縛招待受諾を fail-closed で拒否する。
+// email_verified 未提供 (undefined) は現行 provider (Cognito は常に claim を含む /
+// local・dev は claim なし) との後方互換のため許容する。
+describe('email_verified enforcement (#3555 ③)', () => {
+	beforeEach(() => {
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+	});
+
+	it('email 束縛招待 + emailVerified=false → INVITE_EMAIL_UNVERIFIED (fail-closed、membership 未作成)', async () => {
+		inviteStore.set(
+			'ev-1',
+			makePendingInvite({ inviteCode: 'ev-1', email: 'intended@example.com' }),
+		);
+
+		const result = assertError(
+			await acceptInvite('ev-1', 'user-new', 'intended@example.com', { emailVerified: false }),
+		);
+		expect(result.error).toBe('INVITE_EMAIL_UNVERIFIED');
+		expect(membershipStore).toHaveLength(0);
+		// 招待は pending のまま (email 検証完了後の再受諾可能性を保持)
+		expect(inviteStore.get('ev-1')?.status).toBe('pending');
+	});
+
+	it('email 束縛招待 + emailVerified=true → 受諾できる', async () => {
+		inviteStore.set(
+			'ev-2',
+			makePendingInvite({ inviteCode: 'ev-2', email: 'intended@example.com' }),
+		);
+
+		const result = assertSuccess(
+			await acceptInvite('ev-2', 'user-new', 'intended@example.com', { emailVerified: true }),
+		);
+		expect(result.membership.tenantId).toBe('t-test');
+	});
+
+	it('email 束縛招待 + emailVerified 未提供 → 従来通り受諾できる (後方互換)', async () => {
+		inviteStore.set(
+			'ev-3',
+			makePendingInvite({ inviteCode: 'ev-3', email: 'intended@example.com' }),
+		);
+
+		assertSuccess(await acceptInvite('ev-3', 'user-new', 'intended@example.com'));
+	});
+
+	it('email 未束縛の招待は emailVerified=false でも受諾できる (束縛 opt-in と同原則)', async () => {
+		inviteStore.set('ev-4', makePendingInvite({ inviteCode: 'ev-4' }));
+
+		assertSuccess(
+			await acceptInvite('ev-4', 'user-new', 'anyone@example.com', { emailVerified: false }),
+		);
+	});
+});
