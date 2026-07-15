@@ -146,7 +146,8 @@ Pre-PMF (ADR-0010) の「最小有効セット」原則で、過不足なく全�
 - **Pre-PMF コスト**: 最小。
 
 ### 選択肢 B — 専用 staging seed script を新設 (A を内包)
-- **概要**: demo-data.ts (Tenant A の中身) + plan-fixtures の seed ロジック + DEV_USERS の tenant 設計を組み合わせ、Tenant A-D を投入する薄い seed script (`scripts/seed-staging.ts` 等) を 1 本作る。
+<!-- doc-code-refs: ignore-line -->
+- **概要**: demo-data.ts (Tenant A の中身) + plan-fixtures の seed ロジック + DEV_USERS の tenant 設計を組み合わせ、Tenant A-D を投入する薄い seed script (`scripts/seed-staging.ts` 等、未実装の提案パス) を 1 本作る。
 - **メリット**: 複数 tenant マトリクスを表現可能 (§4 を完全カバー)。既存資産を呼ぶだけの薄いラッパで済む。NUC(SQLite)/AWS(DynamoDB) 両方に同じ入力データを流せる。
 - **デメリット**: 新規 script 1 本 (使い捨て禁止 #1442 に注意 — 汎用 seed として位置づける)。
 - **Pre-PMF コスト**: 中 (既存資産の組み合わせのため低め)。
