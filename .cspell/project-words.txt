@@ -528,3 +528,4 @@ Zhnattb
 # ===== #3151 slice1 (ADR-0065/0066 本文) =====
 # codemod = ソースコードの機械的一括変換ツール/手法（jscodeshift 等の総称、ADR 本文で既出）
 codemod
+permissionless

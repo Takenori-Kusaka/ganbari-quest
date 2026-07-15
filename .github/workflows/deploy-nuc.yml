@@ -21,6 +21,11 @@ concurrency:
   group: deploy-nuc
   cancel-in-progress: true
 
+# #3494 AC2: repo デフォルト GITHUB_TOKEN 権限への依存を排除するため read-only を明示
+# (deploy は host credential の git / docker で行い GITHUB_TOKEN を使わない)。
+permissions:
+  contents: read
+
 jobs:
   deploy-nuc:
     # NUC 専用 runner (local_nuc) に pin する。`nuc` ラベルなしの汎用 self-hosted runner
