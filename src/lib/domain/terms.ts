@@ -761,7 +761,7 @@ export const REWARD_TERMS = {
 //   - exportNoun   : 'バックアップ'        ( 書き出し操作の名詞 )
 //   - exportVerb   : 'バックアップする'    ( 書き出し操作の動詞 )
 //   - restoreVerb  : '復元'               ( 取り込み操作 )
-//   - importFile   : 'バックアップ / CSV' ( CSV 取込対応 import 欄のファイル呼称、後ろに「ファイル」を付けて使う )
+//   - csvFile      : 'CSV ファイル'       ( ユーザー自作の表計算ファイルの呼称、CSV 取込対応 import 文脈専用 )
 //
 // フォーマット (JSON/ZIP) は機能的差異 (画像・音声を含めるか) としてのみ表現し、
 // 拡張子・形式名そのものは UI 露出しない。
@@ -770,7 +770,7 @@ export const REWARD_TERMS = {
 //   活動の取り込み (file-source.ts) は、ユーザーが自作した CSV 表計算ファイルからの
 //   インポートを実機能として備える (#3079 AC4)。ユーザー作成 CSV はアプリが書き出した
 //   バックアップではないため「バックアップファイル」と呼ぶと不正確 + CSV 取込機能を隠蔽する。
-//   CSV 取込対応の文脈では importFile を使い、CSV を露出したまま記述する
+//   CSV 取込対応の文脈では csvFile を file と併記して使い、CSV を露出したまま記述する
 //   (JSON のみ受ける純バックアップ復元では file を使ってよい)。
 export const BACKUP_TERMS = {
 	canonical: 'バックアップデータ',
@@ -779,9 +779,10 @@ export const BACKUP_TERMS = {
 	exportVerb: 'バックアップする',
 	restoreVerb: '復元',
 	// CSV 取込対応の import 文脈専用 (ADR-0013 truth — CSV を隠さない)。
-	// バックアップ (書き出した JSON) も自作 CSV も同じ入力欄で受けるため両方を併記する。
-	// 文中では `${BACKUP_TERMS.importFile} ファイル` の形で使う。
-	importFile: 'バックアップ / CSV',
+	// #3201: 旧 importFile ('バックアップ / CSV') の slash 表記は「1 つのファイル種別なのか
+	// 2 つ受けるのか」が曖昧なため廃止。compound 側で「以前書き出した ${file} か、
+	// 表計算ソフトで作った ${csvFile}」の形で 2 つの入力源を平易に並べて使う。
+	csvFile: 'CSV ファイル',
 } as const;
 
 // ============================================================

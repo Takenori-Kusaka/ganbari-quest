@@ -40,7 +40,9 @@ async function parseImportRequest(
 		try {
 			return { ok: true, value: { body: await request.json(), staticFiles: {} } };
 		} catch {
-			return { ok: false, error: 'JSONの解析に失敗しました' };
+			// #3201: 内部フォーマット名 (JSON) を露出せず、checksum 不一致 (破損/改ざん) と
+			// 区別できる「形式が正しくない」文言 SSOT を使う (旧: 'JSONの解析に失敗しました' 直書き)
+			return { ok: false, error: IMPORT_LABELS.errorInvalidJson };
 		}
 	}
 

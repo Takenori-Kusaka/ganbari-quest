@@ -2149,7 +2149,10 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 export const IMPORT_LABELS = {
 	// エラーメッセージ
 	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
-	errorInvalidJson: 'ファイルの読み込みに失敗しました',
+	// #3201: parse 失敗 (= そもそもバックアップ形式でない) を checksum 不一致 (= 破損 / 改ざん) と
+	// 区別できる文言に是正 + /api/v1/import の parse 失敗経路に配線 (旧: 'JSONの解析に失敗しました' 直書き)。
+	// 内部フォーマット名 (JSON) は UI 露出しない (BACKUP_TERMS SSOT、#3198)。
+	errorInvalidJson: `${BACKUP_TERMS.file}として読み込めませんでした（ファイルの形式が正しくありません）`,
 	errorImportFailed: 'インポートに失敗しました',
 
 	// 事前確認ダイアログ
@@ -7301,7 +7304,9 @@ export const FEATURES_LABELS = {
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
 		// #backup-terms: 活動取込は JSON バックアップに加え CSV (自作表計算) も読み込めるため CSV を露出する (ADR-0013 truth、#3079 AC4)
-		restoreDialogDesc: `活動の${BACKUP_TERMS.importFile} ファイルを読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。`,
+		// #3201: 2 つの入力源 (書き出したバックアップ / 自作 CSV) を平易に並記 + 家族全体 (画像・音声含む)
+		// の復元先は 設定 > データ である旨を誘導 (受理 format が画面ごとに異なる混乱の予防)
+		restoreDialogDesc: `以前書き出した活動の${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。家族全体のデータ（画像・音声を含む）の${BACKUP_TERMS.restoreVerb}は「設定 > データ」から行えます。`,
 		restoreSubmitBtn: '読み込む',
 		restoreProcessing: '読み込み中…',
 		restoreSuccess: (name: string, imported: number, skipped: number) =>
@@ -9272,7 +9277,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	marketplaceHeading: 'マーケットプレイスから',
 	fileHeading: 'ファイルから',
 	// #backup-terms: 活動取込は CSV (自作表計算) も受けるため CSV を露出する (ADR-0013 truth)
-	fileDesc: `保存しておいた${BACKUP_TERMS.importFile} ファイルを取り込みます。`,
+	// #3201: slash 表記「バックアップ / CSV」を廃止し 2 つの入力源を平易に並記
+	fileDesc: `保存しておいた${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',

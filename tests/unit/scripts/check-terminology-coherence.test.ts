@@ -28,6 +28,29 @@ describe('check-terminology-coherence (#2555)', () => {
 			const { mysteryHits } = scanLabels(text);
 			expect(mysteryHits).toHaveLength(0);
 		});
+
+		it('内部フォーマット名 JSON / ZIP の露出を検知する (#3201)', () => {
+			const text = `
+				export const TEST_LABELS = {
+					k1: 'JSONファイルを選択してください',
+					k2: 'ZIP形式でダウンロード',
+				};
+			`;
+			const { mysteryHits } = scanLabels(text);
+			expect(mysteryHits.some((h) => h.pattern === 'JSON')).toBe(true);
+			expect(mysteryHits.some((h) => h.pattern === 'ZIP')).toBe(true);
+		});
+
+		it('CSV はユーザー自作ファイルの実態呼称のため検知しない (#3201 / ADR-0013 truth)', () => {
+			const text = `
+				export const TEST_LABELS = {
+					k1: '表計算ソフトで作った CSV ファイルを取り込みます',
+					k2: '確定申告用CSVエクスポート',
+				};
+			`;
+			const { mysteryHits } = scanLabels(text);
+			expect(mysteryHits).toHaveLength(0);
+		});
 	});
 
 	describe('add path duplication detection', () => {

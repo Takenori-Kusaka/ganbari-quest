@@ -334,7 +334,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 - **LIFESTAGE_TERMS**: `canonical`=`'年齢'` / `tier`=`'年齢区分'` / `schoolGrade`=`'学年'`
 - **CHEER_TERMS**: `canonical`=`'応援'` / `action`=`'応援する'` / `reasonField`=`'できごと'`
 - **REWARD_TERMS**: `menu`=`'ごほうび管理'` / `shop`=`'ごほうびショップ'` / `preset`=`'プリセット'` / `canonical`=`'ごほうび'`
-- **BACKUP_TERMS**: `canonical`=`'バックアップデータ'` / `file`=`'バックアップファイル'` / `exportNoun`=`'バックアップ'` / `exportVerb`=`'バックアップする'` / `restoreVerb`=`'復元'` / `importFile`=`'バックアップ / CSV'`
+- **BACKUP_TERMS**: `canonical`=`'バックアップデータ'` / `file`=`'バックアップファイル'` / `exportNoun`=`'バックアップ'` / `exportVerb`=`'バックアップする'` / `restoreVerb`=`'復元'` / `csvFile`=`'CSV ファイル'`
 - **TEMPLATE_TERMS**: `userFacing`=`'みんなのテンプレート'` / `short`=`'テンプレート'` / `browse`=`'みんなのテンプレートを見る'`
 - **CHECKOUT_TERMS**: `chosenPlanFeature`=`'お選びのプランの機能'`
 - **TOKUSHOHO_TERMS**: `heading1Quantity`=`'分量'` / `heading2Price`=`'販売価格'` / `heading3Payment`=`'支払時期・方法'` / `heading4Delivery`=`'引渡時期・自動更新'` / `heading5Cancel`=`'申込撤回・解約方法'` / `heading6Important`=`'重要事項'` / `cancelButtonLabel`=`'やめる'`
