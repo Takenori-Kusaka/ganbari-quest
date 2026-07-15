@@ -200,6 +200,76 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 		expect(Number((entries.rows[0] as { c: unknown }).c)).toBe(1); // 兄弟 card の entry のみ残存
 	});
 
+	it('[C7b] #3584 ②: deleteChild が mid-txn で失敗すると部分削除は全て rollback される (原子性)', async () => {
+		// [C7] は正常系のみ。本 test は txn 途中で失敗を注入し、先行した DELETE が
+		// rollback されて全表が元に戻ることを実証する (TransactionRunner の atomicity を回帰固定。
+		// FK/CASCADE 非対応 DSQL では repo の明示 DELETE 列が唯一の整合性装置のため、部分失敗で
+		// 「一部の表だけ消えた child」が残ると復旧不能な半壊状態になる)。
+		const victim = await repo.insertChild({ nickname: '巻戻対象', age: 7 }, FAMILY);
+		const vid = String(victim.id);
+		const act = await t.db.execute(sql`
+			INSERT INTO child_activities (family_id, child_id, name, category_id, icon)
+			VALUES (${FAMILY}, ${vid}, '巻戻活動', '1', '🏃') RETURNING activity_id
+		`);
+		const activityId = (act.rows[0] as { activity_id: string }).activity_id;
+		await t.db.execute(sql`
+			INSERT INTO activity_logs (family_id, child_id, activity_id, points, recorded_date, recorded_at)
+			VALUES (${FAMILY}, ${vid}, ${activityId}, 10, '2026-07-05', now())
+		`);
+		await t.db.execute(sql`
+			INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date)
+			VALUES (${FAMILY}, ${vid}, 10, 'activity', '2026-07-05')
+		`);
+
+		// 失敗注入 runner: work に渡す tx を proxy し、N 回目以降の execute で throw する。
+		// CHILD_SCOPED_TABLES 先頭数表の DELETE を実行させた後に失敗させる (= 部分削除状態を作る)。
+		const runner = createDsqlTransactionRunner(t.db, { maxAttempts: 1, baseDelayMs: 1 });
+		const failAfter = 4;
+		const failingRunner: typeof runner = {
+			runInTransaction: (work) =>
+				runner.runInTransaction((tx) => {
+					let calls = 0;
+					const proxy = new Proxy(tx as object, {
+						get(target, prop, receiver) {
+							if (prop === 'execute') {
+								return (...args: unknown[]) => {
+									calls++;
+									if (calls > failAfter) throw new Error('inject: mid-txn failure (#3584②)');
+									return (target as { execute: (...a: unknown[]) => Promise<unknown> }).execute(
+										...args,
+									);
+								};
+							}
+							return Reflect.get(target, prop, receiver);
+						},
+					});
+					return work(proxy as Parameters<typeof work>[0]);
+				}),
+		};
+		const failingRepo = createDsqlChildRepo(t.db, failingRunner);
+
+		await expect(failingRepo.deleteChild(victim.id, FAMILY)).rejects.toThrow(
+			'inject: mid-txn failure',
+		);
+
+		// 全表が元のまま (先行 DELETE 分も rollback 済み = 半壊 child が残らない)
+		const countFor = async (table: string) =>
+			Number(
+				(
+					(await t.db.execute(
+						sql`SELECT count(*) AS c FROM ${sql.raw(table)} WHERE family_id = ${FAMILY} AND child_id = ${vid}`,
+					)) as { rows: { c: unknown }[] }
+				).rows[0]?.c,
+			);
+		expect(await repo.findChildById(victim.id, FAMILY), 'child 本体が残存').toBeTruthy();
+		expect(await countFor('child_activities'), 'child_activities rollback').toBe(1);
+		expect(await countFor('activity_logs'), 'activity_logs rollback').toBe(1);
+		expect(await countFor('point_ledger'), 'point_ledger rollback').toBe(1);
+
+		// 後始末 (正常 runner で本削除)
+		await repo.deleteChild(victim.id, FAMILY);
+	});
+
 	it('[C8] resetChildProgressData: allowlist 3 表 + total_point 0 (statuses は survive)', async () => {
 		const c = await repo.insertChild({ nickname: 'リセット', age: 8 }, FAMILY);
 		const id = String(c.id);
