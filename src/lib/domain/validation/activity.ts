@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ACTIVITY_SOURCE_WIRE_VALUES } from '$lib/domain/activity-source';
 import {
 	CATEGORY_CODES,
 	CATEGORIES as CATEGORY_SSOT,
@@ -66,7 +67,9 @@ export const GRADE_LEVELS = [
 
 export type GradeLevel = (typeof GRADE_LEVELS)[number];
 
-export const SOURCES = ['seed', 'curriculum', 'custom', 'parent'] as const;
+// #3669: source 意味論の SSOT は $lib/domain/activity-source.ts。本 tuple は wire 受理値域
+// (zod enum 用) の再 export。'parent' は legacy wire 値で persist 前に 'custom' へ正規化される。
+export const SOURCES = ACTIVITY_SOURCE_WIRE_VALUES;
 
 export type Source = (typeof SOURCES)[number];
 

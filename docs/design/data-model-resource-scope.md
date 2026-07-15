@@ -113,6 +113,22 @@ child_activities
 
 **禁忌**: child context が確定している経路 (child home / setup の child binding 後) では必ず `getChildActivities` を使う。`getActivities` (tenant aggregate) を child 経路で使うと 5 children 環境で同名 activity が 5 倍に重複 render される UX 退行が再発する (#2471 教訓)。
 
+#### `source` 列の意味論 SSOT (#3669)
+
+`child_activities.source` の値域・経路別の保存値・集計述語は **`src/lib/domain/activity-source.ts`** (`ACTIVITY_SOURCES`、`as const satisfies` パターン #3607 同型) が単一定義点。producer / consumer が個別に文字列リテラルを持つことを禁止する。
+
+| source 値 | 保存する経路 (producer) | quota 集計対象 |
+|---|---|---|
+| `custom` | 親手動作成 = admin/activities 単体追加 / 一括追加 / `api/v1/activities` (`createActivity` が `normalizeParentCreatedSource` で強制。正準定数 `PARENT_CREATED_SOURCE`) | ✅ |
+| `seed` | 初期 seed (`seed.ts`) / marketplace 取込 (`activity-import-service` — 取込元は `source_preset_id` で識別) / backup 復元 / cloud import (source 未指定 → repo 既定 = schema default 同値) | — |
+| `curriculum` | 年齢別カリキュラムプリセット (`seed.ts`) | — |
+| (元活動の値を保全) | 兄弟 copy (`copyActivitiesAcrossChildren`) — custom の copy は custom のまま (copy 経由の quota 迂回禁止) | 元の値に従う |
+| `parent` (legacy wire 値) | 保存されない (persist 前に `custom` へ正規化)。zod `SOURCES` enum は後方互換で受理のみ | ✅ (防御的) |
+
+- **consumer 共通述語**: `countsTowardActivityQuota(source)` — `checkActivityLimit` (plan-limit-service) / `/admin/subscription` 活動カウンタ / downgrade preview・検証 (downgrade-service) / trial 終了 archive (resource-archive-service) の 4 consumer が同一述語を参照する
+- **整合 lock**: `tests/unit/services/activity-source-quota-roundtrip.test.ts` が「UI 作成 → `checkActivityLimit.current` +1」の producer×consumer round-trip を実 SQLite で assert (ADR-0061 same-class guard)
+- **禁忌**: `InsertChildActivityInput.source` を経由せず repo 直 insert で source 文字列を直書きしない / consumer 側で `a.source === '...'` の直比較を書かない (必ず SSOT 述語を使う)
+
 **実装状況 PR-A1 (2026-05-26、#2458 Path A)**:
 
 - ✅ facade rewrite (`src/lib/server/db/sqlite/activity-repo.ts`) — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archiveActivities / restoreArchivedActivities) を `child_activities` 経由に切替。**旧 `activities` table への write が 0 件 = #2458-C drop ready**

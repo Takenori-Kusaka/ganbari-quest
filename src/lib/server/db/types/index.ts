@@ -414,6 +414,10 @@ export interface InsertChildActivityInput {
 	dailyLimit?: number | null;
 	nameKana?: string | null;
 	nameKanji?: string | null;
+	// #3669: 作成経路の意味論 (SSOT: $lib/domain/activity-source.ts)。旧型は本 field を持たず
+	// 全 insert が schema default 'seed' に落ち、親手動作成が quota (maxActivities) 集計から
+	// 漏れていた。省略時は repo 既定 'seed' (marketplace 取込 / backup 復元は quota 非対象)。
+	source?: string;
 }
 
 export interface UpdateChildActivityInput {

@@ -14,6 +14,7 @@
 // Phase 6/7 で全 callsite 移行後に drop。
 
 import { and, count, eq, inArray, isNull, or } from 'drizzle-orm';
+import { ACTIVITY_SOURCES } from '$lib/domain/activity-source';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	type ActivityId,
@@ -147,6 +148,9 @@ export async function insertActivity(
 			dailyLimit: input.dailyLimit ?? null,
 			nameKana: input.nameKana ?? null,
 			nameKanji: input.nameKanji ?? null,
+			// #3669: 作成経路の source を persist (旧型は field 不在で常に schema default 'seed' に
+			// 落ち、親手動作成 'custom' が quota 集計から漏れていた)。省略時は従来どおり 'seed'。
+			source: input.source ?? ACTIVITY_SOURCES.seed.value,
 		})
 		.returning()
 		.get();
@@ -265,6 +269,9 @@ export async function copyActivitiesAcrossChildren(
 		isMainQuest: a.isMainQuest,
 		sourcePresetId: a.sourcePresetId,
 		priority: a.priority,
+		// #3669: 元活動の source を保全 (custom の copy は custom のまま quota に数える。
+		// copy 経由の quota 迂回と provenance 喪失を防ぐ)
+		source: a.source,
 	}));
 
 	return insertActivitiesBulk(inputs, tenantId);

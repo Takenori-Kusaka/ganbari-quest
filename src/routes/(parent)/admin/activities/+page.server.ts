@@ -1,4 +1,6 @@
 import { fail } from '@sveltejs/kit';
+// #3669: 親手動作成の source は SSOT 定数 'custom' で保存する (quota / カウンタ集計と整合)
+import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
@@ -193,7 +195,7 @@ export const actions: Actions = {
 					ageMin,
 					ageMax,
 					dailyLimit,
-					source: 'parent',
+					source: PARENT_CREATED_SOURCE,
 					nameKana,
 					nameKanji,
 					triggerHint,
@@ -619,7 +621,7 @@ export const actions: Actions = {
 			icon,
 			basePoints,
 			dailyLimit,
-			source: 'parent' as const,
+			source: PARENT_CREATED_SOURCE,
 		}));
 
 		try {

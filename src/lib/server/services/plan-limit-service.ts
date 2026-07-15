@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/plan-limit-service.ts
 // プラン別機能制限サービス (#0196, #0269, #0270)
 
+import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
@@ -253,7 +254,8 @@ export async function checkActivityLimit(
 	let current = 0;
 	for (const child of children) {
 		const activities = await repos.childActivity.findActivitiesByChild(child.id, tenantId);
-		current += activities.filter((a) => a.source === 'custom').length;
+		// #3669: 集計述語は domain SSOT (producer と同一定義点) を参照
+		current += activities.filter((a) => countsTowardActivityQuota(a.source)).length;
 	}
 
 	return {
