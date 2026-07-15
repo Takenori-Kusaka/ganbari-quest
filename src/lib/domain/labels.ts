@@ -504,6 +504,10 @@ export const OWNER_GATE_LABELS = {
 	memberDelete: ownerOnly('メンバーを削除'),
 	/** POST api/v1/admin/members/[userId]/transfer-ownership */
 	transferOwnership: ownerOnly('権限を移譲'),
+	/** POST api/v1/admin/invites (#3726、置換前文言とバイト一致) */
+	inviteCreate: ownerOnly('招待を作成'),
+	/** DELETE api/v1/admin/invites/[code] (#3726、置換前文言とバイト一致) */
+	inviteRevoke: ownerOnly('招待を取り消し'),
 } as const;
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
