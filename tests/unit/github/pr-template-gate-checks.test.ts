@@ -11,7 +11,9 @@
 //   - AC5: dependabot lane は全 check が skip 相当 (挙動不変)。
 import { describe, expect, it } from 'vitest';
 import {
+	CLOSING_KEYWORD_TARGET_LABELS,
 	checkChangeType,
+	checkClosingKeyword,
 	checkCustomerValue,
 	checkIssueReference,
 	checkSectionPresence,
@@ -22,6 +24,7 @@ import {
 	extractTemplateSections,
 	INTEGRATION_REQUIRED_SECTIONS,
 	parseArgs,
+	stripConventionalCommitFixTitleLines,
 } from '../../../scripts/pr-template-gate-checks.mjs';
 
 // --- 最小だが現行構造に一致する template fixture ---
@@ -483,6 +486,7 @@ describe('dependabot lane: 全 check skip 相当 (#2944 AC5)', () => {
 		['change-type', checkChangeType],
 		['customer-value', checkCustomerValue],
 		['test-results', checkTestResults],
+		['closing-keyword', checkClosingKeyword],
 	] as const) {
 		it(`${name}: dependabot は skip 相当 (ok:true skipped:true)`, () => {
 			const r = fn(base);
@@ -507,6 +511,197 @@ describe('dependencies label skip (lane と直交)', () => {
 		});
 		expect(r.ok).toBe(true);
 		expect(r.skipped).toBe(true);
+	});
+});
+
+// =====================================================================
+// #3458: closing keyword 必須 gate (develop 向け feat/fix、#3423 AC1)
+//   検出規約は integration-pr-body.mjs extractClosedIssues と共有 (二重実装なし、AC4)。
+// =====================================================================
+describe('closing-keyword gate (#3458)', () => {
+	const base = {
+		labels: ['type:fix'],
+		template: TEMPLATE,
+		ssotSections: SSOT_SECTIONS,
+		lane: 'feature' as const,
+	};
+
+	/** `## 関連 Issue` section に任意行を持つ最小 body を組み立てる。 */
+	const bodyWith = (issueSectionLines: string) => `## 顧客価値・目的
+
+gate の検証用 body。
+
+## 関連 Issue
+
+${issueSectionLines}
+
+## 変更タイプ
+
+- [x] fix: バグ修正
+`;
+
+	// --- PASS: closing keyword 各形 (AC1) ---
+	it('PASS: Closes #N (基本形)', () => {
+		const r = checkClosingKeyword({ ...base, body: bodyWith('Closes #3458') });
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBeFalsy();
+		expect(r.message).toContain('#3458');
+	});
+	it('PASS: fixes #N (小文字 + 別 keyword)', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('fixes #123') }).ok).toBe(true);
+	});
+	it('PASS: Resolves: #N (コロン形)', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('Resolves: #3458') }).ok).toBe(true);
+	});
+	it('PASS: closes ＃N (全角 ＃)', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('closes ＃3458') }).ok).toBe(true);
+	});
+	it('PASS: list marker 付き (- closes #N)', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('- closes #3458') }).ok).toBe(true);
+	});
+	it('PASS: type:feat label でも検証対象', () => {
+		const r = checkClosingKeyword({
+			...base,
+			labels: ['type:feat'],
+			body: bodyWith('Closes #3458'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBeFalsy();
+	});
+
+	// --- FAIL: closing keyword なし (AC2) ---
+	it('FAIL: bare #N 参照のみ', () => {
+		const r = checkClosingKeyword({ ...base, body: bodyWith('#3458') });
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('closing keyword');
+	});
+	it('FAIL: 関連: #N のみ', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('関連: #3458') }).ok).toBe(false);
+	});
+	it('FAIL: 本文中の言及 (see closes #N) は行頭アンカーで除外 (#3444 規約共有)', () => {
+		expect(
+			checkClosingKeyword({ ...base, body: bodyWith('前 PR では closes #3458 と書いた') }).ok,
+		).toBe(false);
+	});
+	it('FAIL: code fence 内の closes #N は strip される (#3444 規約共有)', () => {
+		expect(checkClosingKeyword({ ...base, body: bodyWith('```\ncloses #999\n```') }).ok).toBe(
+			false,
+		);
+	});
+	it('FAIL: closing keyword が 関連 Issue section 外にあると section 限定走査で除外 (#3444 規約共有)', () => {
+		const body = `## 顧客価値・目的
+
+Closes #3458
+
+## 関連 Issue
+
+#3458 のみ参照
+
+## 変更タイプ
+
+- [x] fix: バグ修正
+`;
+		expect(checkClosingKeyword({ ...base, body }).ok).toBe(false);
+	});
+
+	// --- conventional-commit prefix を closing と誤認しない ---
+	it('FAIL: conventional-commit title 引用 (fix: #N subject) のみでは closing と誤認しない', () => {
+		const r = checkClosingKeyword({
+			...base,
+			body: bodyWith('fix: #3458 closing keyword gate を追加'),
+		});
+		expect(r.ok).toBe(false);
+	});
+	it('PASS: title 引用 + 正規の closes #N が併記されていれば PASS', () => {
+		const r = checkClosingKeyword({
+			...base,
+			body: bodyWith('fix: #3458 closing keyword gate を追加\n\ncloses #3458'),
+		});
+		expect(r.ok).toBe(true);
+	});
+	it('stripConventionalCommitFixTitleLines: fix(scope): #N subject 行を除去し、Fixes: #N 説明 (正規コロン形) は残す', () => {
+		const text = [
+			'fix: #3458 subject あり',
+			'fix(admin): #3458 scope 付き',
+			'Fixes: #3458 ログインバグ',
+			'fix: #3458',
+			'closes #3458',
+		].join('\n');
+		const stripped = stripConventionalCommitFixTitleLines(text);
+		expect(stripped).not.toContain('subject あり');
+		expect(stripped).not.toContain('scope 付き');
+		expect(stripped).toContain('Fixes: #3458 ログインバグ');
+		expect(stripped).toContain('fix: #3458'); // subject なし単独行は closing 宣言として尊重
+		expect(stripped).toContain('closes #3458');
+	});
+
+	// --- skip: no-issue-close 宣言 (AC3) ---
+	it('SKIP: <!-- no-issue-close: 理由 --> 宣言で skip', () => {
+		const r = checkClosingKeyword({
+			...base,
+			body: bodyWith('<!-- no-issue-close: follow-up 修正で対応 issue なし -->\n#3458 関連'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+		expect(r.message).toContain('follow-up 修正で対応 issue なし');
+	});
+	it('FAIL: no-issue-close 宣言の理由が空 (空洞化防止)', () => {
+		const r = checkClosingKeyword({
+			...base,
+			body: bodyWith('<!-- no-issue-close: -->'),
+		});
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('理由');
+	});
+
+	// --- skip: 対象外 lane / label ---
+	it('SKIP: type:feat / type:fix 以外 (refactor) は対象外', () => {
+		const r = checkClosingKeyword({
+			...base,
+			labels: ['type:refactor'],
+			body: bodyWith('#3458 のみ'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+	});
+	it('SKIP: integration lane (#3423 集約側が担う)', () => {
+		const r = checkClosingKeyword({
+			...base,
+			lane: 'integration',
+			body: bodyWith('#3458 のみ'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+	});
+	it('SKIP: hotfix lane (main 直行は GitHub 直接 auto-close)', () => {
+		const r = checkClosingKeyword({
+			...base,
+			lane: 'hotfix',
+			body: bodyWith('#3458 のみ'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+	});
+	it('SKIP: back-merge label (機械生成 PR)', () => {
+		const r = checkClosingKeyword({
+			...base,
+			labels: ['type:fix', 'back-merge'],
+			body: bodyWith('#3458 のみ'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+	});
+	it('SKIP: dependencies label', () => {
+		const r = checkClosingKeyword({
+			...base,
+			labels: ['type:fix', 'dependencies'],
+			body: bodyWith('#3458 のみ'),
+		});
+		expect(r.ok).toBe(true);
+		expect(r.skipped).toBe(true);
+	});
+	it('CLOSING_KEYWORD_TARGET_LABELS は type:feat / type:fix の 2 種', () => {
+		expect([...CLOSING_KEYWORD_TARGET_LABELS]).toEqual(['type:feat', 'type:fix']);
 	});
 });
 
