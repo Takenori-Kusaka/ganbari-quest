@@ -1,7 +1,8 @@
 // DELETE /api/v1/admin/invites/[code] — 招待取消し (#0129)
 
-import { isHttpError, json } from '@sveltejs/kit';
-import { requireRole } from '$lib/server/auth/guards';
+import { json } from '@sveltejs/kit';
+import { OWNER_GATE_LABELS } from '$lib/domain/labels';
+import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { revokeInvite } from '$lib/server/services/invite-service';
 import type { RequestHandler } from './$types';
 
@@ -12,16 +13,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	}
 	const tenantId = context.tenantId;
 
-	// #3549 決裁 (a): 招待取消は owner 専用。role 判定は requireRole seam (#3528 fitness#3)
-	// に統一し、response 形は既存 client 互換の {error} JSON を維持する
-	try {
-		requireRole(locals, ['owner']);
-	} catch (e) {
-		if (isHttpError(e, 403)) {
-			return json({ error: 'owner のみ招待を取り消しできます' }, { status: 403 });
-		}
-		throw e;
-	}
+	// #3549 決裁 (a): 招待取消は owner 専用。#3726 (= #3673 same-class): 401→401 / 403→403 変換と
+	// 文言 SSOT (OWNER_GATE_LABELS) を ownerGateResponse helper に集約 (401 の 500 化退行を構造排除)
+	const gate = ownerGateResponse(locals, OWNER_GATE_LABELS.inviteRevoke);
+	if (gate) return gate;
 
 	await revokeInvite(params.code, tenantId);
 	return json({ ok: true });
