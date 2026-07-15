@@ -2154,6 +2154,10 @@ export const IMPORT_LABELS = {
 	// 内部フォーマット名 (JSON) は UI 露出しない (BACKUP_TERMS SSOT、#3198)。
 	errorInvalidJson: `${BACKUP_TERMS.file}として読み込めませんでした（ファイルの形式が正しくありません）`,
 	errorImportFailed: 'インポートに失敗しました',
+	// #3325 AC3: 実行環境の実効上限 (AWS = Function URL 6MB 弱) 超過時のエラー + クラウド導線案内。
+	// API (import/+server.ts) と UI (settings/data の送信前 pre-check) の双方で共有する。
+	errorFileTooLargeCloudGuide: (maxMb: number | string) =>
+		`ファイルサイズが大きすぎます（最大${maxMb}MB）。大きな${BACKUP_TERMS.canonical}はクラウド共有（PINコード）経由で${BACKUP_TERMS.restoreVerb}してください`,
 
 	// 事前確認ダイアログ
 	previewDialogTitle: 'インポート内容の確認',
@@ -2302,6 +2306,13 @@ export const SETTINGS_LABELS = {
 	// #3285 uiux-3: settings/data の import 検証 / クラウド連携メッセージを SSOT 集約 (旧: 直書き)
 	dataImportNoFile: `${BACKUP_TERMS.file}が選択されていません`,
 	dataImportFileTooLarge: (maxMb: string) => `ファイルサイズが大きすぎます（最大${maxMb}MB）`,
+	// #3324: import fetch の client timeout (AbortController) 発火時の明示エラー (無限ハング防止)
+	dataImportTimeoutError:
+		'処理がタイムアウトしました。通信状況をご確認のうえ、しばらくしてから再度お試しください',
+	// #3372: registry (backup-entity-registry) 駆動の partial-backup 警告 (NN/G visibility)。
+	// 未 export の source 実体が存在する間のみ表示し、export 実装が進むと自動で消える。
+	dataImportPartialBackupWarning: (items: string) =>
+		`この${BACKUP_TERMS.exportNoun}形式にはまだ含まれないデータがあります（${items}）。これらは${BACKUP_TERMS.restoreVerb}されません。`,
 	cloudExportPinIssued: (pinCode: string, expiry: string) =>
 		`PINコード: ${pinCode}（有効期限: ${expiry}）`,
 	cloudImportNoChildren:
@@ -2368,6 +2379,11 @@ export const SETTINGS_LABELS = {
 	cloudStoredExpiry: (date: string) => `期限: ${date}`,
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
+	// #3324 / #3509: 非同期 build 状態 (pending/building/ready/failed) の可視フィードバック
+	cloudStatusPending: '受付済み・生成待ち',
+	cloudStatusBuilding: '生成中…',
+	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
+	cloudDownloadAction: 'ダウンロード',
 	cloudImportTitle: 'PINコードでインポート',
 	cloudImportDesc: '共有されたPINコードを入力してデータを取り込みます。',
 	cloudImportPinPlaceholder: 'PINコード（6桁）',

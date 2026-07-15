@@ -910,7 +910,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 **リクエストボディ:**
 
 - `Content-Type: application/json`: エクスポートされた JSON 全体（`ExportData`）。
-- `Content-Type: application/zip`（#3077）: GET `/api/v1/export?format=zip` が出力した ZIP。`data.json` を export body として解析し、同梱の `avatars/{childId}/**` / `voices/{childId}/**` をインポート後の新 `childId` 配下（`tenants/{tenantId}/{type}/{newChildId}/...`）に復元する。子供の `avatarUrl` 参照は新 storage key（公開 URL）へ貼り替える。受理上限は export ZIP と整合する 100MB。JSON のみインポートは後方互換で動作する。
+- `Content-Type: application/zip`（#3077）: GET `/api/v1/export?format=zip` が出力した ZIP。`data.json` を export body として解析し、同梱の `avatars/{childId}/**` / `voices/{childId}/**` をインポート後の新 `childId` 配下（`tenants/{tenantId}/{type}/{newChildId}/...`）に復元する。子供の `avatarUrl` 参照は新 storage key（公開 URL）へ貼り替える。受理上限は実行環境で分岐する（#3325、SSOT: `src/lib/server/services/import-limit.ts`）: AWS（aws-prod）は Lambda Function URL（BUFFERED）の request payload 6MB hard cap に整合する 5.5MB、NUC / local は Function URL 制約が無いため export ZIP（`MAX_ZIP_SIZE`）と整合する 100MB。超過時は 400 VALIDATION_ERROR で「クラウド共有（PIN コード）経由の復元」を案内する（沈黙のハング禁止）。UI（settings/data）も同値を load 経由で受け取り、ファイル選択時に client-side pre-check する。JSON のみインポートは後方互換で動作する。
 
 > **#3077 id 再マップ**: `ExportData.family.children[].sourceChildId`（v1.3.0 相当の追加フィールド、export 元の数値 childId）を介して ZIP 内パスの `{oldChildId}` を新 `childId` に解決する。`sourceChildId` が解決できない孤立ファイルはスキップする（`result.staticFilesSkipped`）。
 >

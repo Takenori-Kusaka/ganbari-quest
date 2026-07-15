@@ -82,6 +82,9 @@ let cloudExports = $state<
 		downloadCount: number;
 		maxDownloads: number;
 		createdAt: string;
+		// #3324 / #3509: 非同期 build 状態。旧レコードは server 側で 'ready' に backfill 済。
+		status: 'pending' | 'building' | 'ready' | 'failed';
+		failureReason: string | null;
 	}>
 >([]);
 let cloudLoading = $state(false);
@@ -118,28 +121,77 @@ const anyFormBusy = $derived(
 );
 
 // #3077: JSON は 10MB、ZIP (静的ファイル同梱) は export ZIP と整合する 100MB を許容。
+// #3325 AC3: さらに実行環境の実効上限 (data.maxImportBytes、AWS = Function URL 6MB 弱) で下方制限する。
 const MAX_JSON_BYTES = 10 * 1024 * 1024;
 const MAX_ZIP_BYTES = 100 * 1024 * 1024;
 
+// #3324: import fetch の client timeout。サーバ側は Lambda/CloudFront 30 秒で必ず決着するため、
+// NUC の大きめ import (制約なし) も考慮した安全上限として 120 秒で打ち切り、無限ハングを防止する。
+const IMPORT_FETCH_TIMEOUT_MS = 120_000;
+
 /**
  * #3077: 選択ファイルが ZIP なら raw bytes を application/zip で、JSON なら従来通り JSON で送る。
+ * #3324: AbortController + timeout で応答が返らない場合の client 無限ハングを防止する
+ * (サーバが edge で kill された場合など、`finally` の importLoading=false に到達させる)。
  */
 async function postImport(mode: string): Promise<Response> {
 	if (!importFile) throw new Error(SETTINGS_LABELS.dataImportNoFile);
-	if (importFile.name.endsWith('.zip')) {
-		return fetch(`/api/v1/import?mode=${mode}`, {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), IMPORT_FETCH_TIMEOUT_MS);
+	try {
+		if (importFile.name.endsWith('.zip')) {
+			return await fetch(`/api/v1/import?mode=${mode}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/zip' },
+				body: importFile,
+				signal: controller.signal,
+			});
+		}
+		const text = await importFile.text();
+		const json = JSON.parse(text);
+		// fetch-error-exempt (#3324): 失敗は呼び出し側 (handleImportPreview / executeImport) が
+		// res.ok チェック + catch → importError で可視化する (ADR-0062 の可視フィードバック要件は
+		// caller が充足)。helper は Response を返すのみでエラー処理を co-locate しない。
+		return await fetch(`/api/v1/import?mode=${mode}`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/zip' },
-			body: importFile,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(json),
+			signal: controller.signal,
 		});
+	} finally {
+		clearTimeout(timer);
 	}
-	const text = await importFile.text();
-	const json = JSON.parse(text);
-	return fetch(`/api/v1/import?mode=${mode}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(json),
-	});
+}
+
+/** #3324: AbortController による timeout 中断かを判定する (明示エラー文言の出し分け用)。 */
+function isAbortError(err: unknown): boolean {
+	return err instanceof DOMException && err.name === 'AbortError';
+}
+
+/**
+ * #3324 (cloud 経路横展開): cloud import fetch も AbortController + timeout で包み、
+ * 応答が返らない場合の client 無限ハングを防止する (直接 import 経路 postImport と同型)。
+ * サーバが edge で kill された場合などに catch/finally へ到達させ cloudImportLoading を必ず戻す。
+ */
+async function postCloudImport(
+	mode: string,
+	body: { pinCode: string; targetChildIds?: ChildId[] },
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), IMPORT_FETCH_TIMEOUT_MS);
+	try {
+		// fetch-error-exempt (#3324): 失敗は呼び出し側 (handleCloudImportPreview / executeCloudImport)
+		// が res.ok チェック + catch → cloudImportError で可視化する (ADR-0062 の可視フィードバック要件は
+		// caller が充足)。helper は Response を返すのみでエラー処理を co-locate しない。
+		return await fetch(`/api/v1/import/cloud?mode=${mode}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+			signal: controller.signal,
+		});
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 async function handleImportFileChange(e: Event) {
@@ -158,9 +210,16 @@ async function handleImportFileChange(e: Event) {
 		importFile = null;
 		return;
 	}
-	const maxBytes = isZip ? MAX_ZIP_BYTES : MAX_JSON_BYTES;
+	// #3325 AC3: 実行環境の実効上限 (AWS = 6MB 弱) で下方制限。超過は送信前にクラウド導線案内付きで弾く。
+	const staticMaxBytes = isZip ? MAX_ZIP_BYTES : MAX_JSON_BYTES;
+	const maxBytes = Math.min(staticMaxBytes, data.maxImportBytes);
 	if (importFile.size > maxBytes) {
-		importError = SETTINGS_LABELS.dataImportFileTooLarge(isZip ? '100' : '10');
+		importError =
+			maxBytes < staticMaxBytes
+				? IMPORT_LABELS.errorFileTooLargeCloudGuide(
+						Math.round((maxBytes / (1024 * 1024)) * 10) / 10,
+					)
+				: SETTINGS_LABELS.dataImportFileTooLarge(isZip ? '100' : '10');
 		importFile = null;
 		return;
 	}
@@ -177,8 +236,11 @@ async function handleImportFileChange(e: Event) {
 		}
 		importPreview = d.preview;
 		importStep = 'preview';
-	} catch {
-		importError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic
+		importError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 		importFile = null;
 	} finally {
 		importLoading = false;
@@ -199,8 +261,11 @@ async function handleImportExecute() {
 		}
 		importResult = d.result;
 		importStep = 'done';
-	} catch {
-		importError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic
+		importError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		importLoading = false;
 	}
@@ -308,11 +373,7 @@ async function handleCloudImportPreview() {
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
-		const res = await fetch('/api/v1/import/cloud?mode=preview', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
-		});
+		const res = await postCloudImport('preview', { pinCode: cloudImportPin.trim() });
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
@@ -320,8 +381,11 @@ async function handleCloudImportPreview() {
 		}
 		cloudImportPreview = d.preview;
 		cloudImportStep = 'preview';
-	} catch {
-		cloudImportError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic (直接 import 経路と同型)
+		cloudImportError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
@@ -353,11 +417,7 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		if (targetChildIds && targetChildIds.length > 0) {
 			body.targetChildIds = targetChildIds;
 		}
-		const res = await fetch('/api/v1/import/cloud?mode=execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
-		});
+		const res = await postCloudImport('execute', body);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
@@ -365,8 +425,11 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		}
 		cloudImportResult = d.result;
 		cloudImportStep = 'done';
-	} catch {
-		cloudImportError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic (直接 import 経路と同型)
+		cloudImportError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
@@ -395,6 +458,21 @@ $effect(() => {
 	if ($page.data.authMode === 'cognito' && data.maxCloudExports > 0) {
 		loadCloudExports();
 	}
+});
+
+// #3324: 非同期 build (pending/building) が残っている間のみ一覧を polling し、
+// 「受付 → 生成中 → 完了 (DL 可)」の進捗を可視化する。全件決着 (ready/failed) で自動停止
+// (ADR-0012: 常時 polling や過剰演出はしない)。
+const CLOUD_EXPORT_POLL_MS = 5_000;
+const hasInFlightCloudExports = $derived(
+	cloudExports.some((e) => e.status === 'pending' || e.status === 'building'),
+);
+$effect(() => {
+	if (!hasInFlightCloudExports) return;
+	const timer = setInterval(() => {
+		void loadCloudExports();
+	}, CLOUD_EXPORT_POLL_MS);
+	return () => clearInterval(timer);
 });
 
 const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChecked);
@@ -535,6 +613,22 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">
 					{SETTINGS_LABELS.dataImportTitle}
 				</h4>
+
+				<!-- #3372: partial-backup 警告 (registry 駆動)。未 export の source 実体が
+				     存在するときのみ表示し、export 実装が進むと自動で消える (NN/G visibility)。 -->
+				{#if data.notYetExportedLabels.length > 0}
+					<div
+						class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-3 mb-3"
+						role="status"
+						data-testid="import-partial-backup-warning"
+					>
+						<p class="text-xs text-[var(--color-feedback-warning-text)]">
+							{SETTINGS_LABELS.dataImportPartialBackupWarning(
+								data.notYetExportedLabels.join('、'),
+							)}
+						</p>
+					</div>
+				{/if}
 
 				{#if importError}
 					<ErrorAlert message={importError} severity="warning" action="fix_input" />
@@ -952,16 +1046,54 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 													exp.maxDownloads,
 												)}
 											</p>
+											<!-- #3324: 非同期 build の進捗フィードバック (受付/生成中/失敗)。 -->
+											{#if exp.status === 'pending' || exp.status === 'building'}
+												<p
+													class="text-xs text-[var(--color-feedback-info-text)] flex items-center gap-1"
+													role="status"
+													data-testid="cloud-export-status-{exp.id}"
+												>
+													<span
+														class="inline-block w-3 h-3 border-2 border-[var(--color-feedback-info-text)] border-t-transparent rounded-full animate-spin"
+														aria-hidden="true"
+													></span>
+													{exp.status === 'pending'
+														? SETTINGS_LABELS.cloudStatusPending
+														: SETTINGS_LABELS.cloudStatusBuilding}
+												</p>
+											{:else if exp.status === 'failed'}
+												<p
+													class="text-xs text-[var(--color-feedback-error-text)]"
+													role="status"
+													data-testid="cloud-export-status-{exp.id}"
+												>
+													{SETTINGS_LABELS.cloudStatusFailed(exp.failureReason ?? '')}
+												</p>
+											{/if}
 										</div>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											class="text-[var(--color-feedback-error-text)] hover:brightness-75"
-											onclick={() => handleDeleteCloudExport(exp.id)}
-										>
-											{SETTINGS_LABELS.cloudStoredDelete}
-										</Button>
+										<div class="flex items-center gap-2">
+											<!-- #3324: ready 時のみ DL 導線を出す (#3509 の一時 DL 経路へ)。 -->
+											{#if exp.status === 'ready'}
+												<Button
+													href="/api/v1/export/cloud/{exp.id}/download"
+													variant="ghost"
+													size="sm"
+													class="text-[var(--color-text-link)] hover:brightness-75"
+													data-testid="cloud-export-download-link"
+												>
+													{SETTINGS_LABELS.cloudDownloadAction}
+												</Button>
+											{/if}
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												class="text-[var(--color-feedback-error-text)] hover:brightness-75"
+												onclick={() => handleDeleteCloudExport(exp.id)}
+											>
+												{SETTINGS_LABELS.cloudStoredDelete}
+											</Button>
+										</div>
 									</div>
 								{/each}
 							</div>
