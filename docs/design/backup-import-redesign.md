@@ -92,7 +92,7 @@ D1-D4 は補佐推奨どおり承認、D5 は「下位互換不要」で決定�
 | P2 | 分類レジストリ + 機械検証 + export source 全網羅 + per-child binding 保持（#3329） | 実装済み（ratchet 空） |
 | P3 | per-child 正復元 + 未実装取込 + 失敗集計 + import 原子化（#3327/#3326） | 実装済み |
 | P4 | 復元時 projection rebuild | 実装済み |
-| P5 | UX/安全: 進捗フィードバック + クライアント timeout + 上限の実態整合 + partial-backup 警告（#3324/#3325/#3372） | 実装済み（cloud export status polling UI / import fetch AbortController 120s / 実行環境別 import 上限 = AWS 5.5MB・NUC 100MB `import-limit.ts` / registry 駆動 partial-backup 警告）。20 年×子供数 scale（全メモリ export / 逐次 import）の抜本対応は将来課題 |
+| P5 | UX/安全: 進捗フィードバック + クライアント timeout + 上限の実態整合 + partial-backup 警告（#3324/#3325/#3372） | 実装済み（cloud export status polling UI / import fetch AbortController 120s = 直接 import（`postImport`）と cloud import（`postCloudImport`、preview / execute）の両経路 / 実行環境別 import 上限 = AWS 5.5MB・NUC 100MB `import-limit.ts` / registry 駆動 partial-backup 警告）。20 年×子供数 scale（全メモリ export / 逐次 import）の抜本対応は将来課題 |
 
 各段階に round-trip 完全性テスト（`backup-roundtrip-completeness.test.ts`、#3328）。source/派生/除外の三分類原則の ADR 昇格は未判断。
 

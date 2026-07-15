@@ -165,6 +165,29 @@ function isAbortError(err: unknown): boolean {
 	return err instanceof DOMException && err.name === 'AbortError';
 }
 
+/**
+ * #3324 (cloud 経路横展開): cloud import fetch も AbortController + timeout で包み、
+ * 応答が返らない場合の client 無限ハングを防止する (直接 import 経路 postImport と同型)。
+ * サーバが edge で kill された場合などに catch/finally へ到達させ cloudImportLoading を必ず戻す。
+ */
+async function postCloudImport(
+	mode: string,
+	body: { pinCode: string; targetChildIds?: ChildId[] },
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), IMPORT_FETCH_TIMEOUT_MS);
+	try {
+		return await fetch(`/api/v1/import/cloud?mode=${mode}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+			signal: controller.signal,
+		});
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 async function handleImportFileChange(e: Event) {
 	if (anyFormBusy) return;
 	const input = e.target as HTMLInputElement;
@@ -344,11 +367,7 @@ async function handleCloudImportPreview() {
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
-		const res = await fetch('/api/v1/import/cloud?mode=preview', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
-		});
+		const res = await postCloudImport('preview', { pinCode: cloudImportPin.trim() });
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
@@ -356,8 +375,11 @@ async function handleCloudImportPreview() {
 		}
 		cloudImportPreview = d.preview;
 		cloudImportStep = 'preview';
-	} catch {
-		cloudImportError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic (直接 import 経路と同型)
+		cloudImportError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
@@ -389,11 +411,7 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		if (targetChildIds && targetChildIds.length > 0) {
 			body.targetChildIds = targetChildIds;
 		}
-		const res = await fetch('/api/v1/import/cloud?mode=execute', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
-		});
+		const res = await postCloudImport('execute', body);
 		const d = await res.json().catch(() => null);
 		if (!res.ok) {
 			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
@@ -401,8 +419,11 @@ async function executeCloudImport(targetChildIds: ChildId[] | null) {
 		}
 		cloudImportResult = d.result;
 		cloudImportStep = 'done';
-	} catch {
-		cloudImportError = ERROR_NOTIFY_LABELS.generic;
+	} catch (err) {
+		// #3324: timeout 中断は明示文言、それ以外は generic (直接 import 経路と同型)
+		cloudImportError = isAbortError(err)
+			? SETTINGS_LABELS.dataImportTimeoutError
+			: ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
