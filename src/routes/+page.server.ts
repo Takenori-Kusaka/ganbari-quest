@@ -41,6 +41,10 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 				redirect(302, homeFor(child));
 			}
 		}
+		// #3709: 解決できない stale cookie (cutover 前の旧 id / 削除済み子供) は削除して
+		// 以降の優先順位 (default_child_id → 1人自動 → /switch → /admin/children) へ fallback。
+		// (child)/+layout.server.ts の同処理と整合 (放置すると毎訪問で無効 lookup が走る)。
+		cookies.delete('selectedChildId', { path: '/' });
 	}
 
 	// 2) tenant の既定子供

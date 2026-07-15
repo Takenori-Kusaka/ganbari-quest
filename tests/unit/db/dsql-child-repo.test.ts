@@ -78,6 +78,18 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 		expect(foundNoBirth?.uiMode).toBe('preschool'); // stored 既定
 	});
 
+	it('[C4b] #3709: 非 uuid の stale id は throw せず undefined (22P02 正規化)', async () => {
+		// cutover 前の旧 SQLite 数値 id が Cookie に残存したケース。guard 無しだと PGlite/DSQL が
+		// 22P02 (invalid input syntax for type uuid) を throw し route 層が 500 になる回帰の再現。
+		await expect(repo.findChildById(asChildId('3'), FAMILY)).resolves.toBeUndefined();
+		await expect(repo.findChildById(asChildId('not-a-uuid'), FAMILY)).resolves.toBeUndefined();
+		await expect(repo.findChildById(asChildId(''), FAMILY)).resolves.toBeUndefined();
+		// uuid 形式だが存在しない id は従来どおり undefined (query は実行される)
+		await expect(
+			repo.findChildById(asChildId('00000000-0000-4000-8000-00000000dead'), FAMILY),
+		).resolves.toBeUndefined();
+	});
+
 	it('[C4] §P9 tenant 分離: 他 family から不可視・更新不能', async () => {
 		const mine = await repo.insertChild({ nickname: 'うち', age: 6 }, FAMILY);
 		expect(await repo.findChildById(mine.id, OTHER_FAMILY)).toBeUndefined();
