@@ -24,6 +24,7 @@ import { isValidUiMode, recalcUiMode, type UiMode } from '$lib/domain/validation
 import type { ChildProgressResetCounts, IChildRepo } from '../interfaces/child-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
+import { isUuidFormat } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 export interface ChildRow {
@@ -131,6 +132,9 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 		},
 
 		async findChildById(id, tenantId) {
+			// #3709: stale cookie 由来の非 uuid id (旧 SQLite 数値 id 等) は 22P02 throw ではなく
+			// not-found (undefined) に正規化する — route 層の cookie clear + redirect を機能させる。
+			if (!isUuidFormat(id)) return undefined;
 			const rows = await findMany(sql`family_id = ${tenantId} AND child_id = ${id}`);
 			return rows[0];
 		},

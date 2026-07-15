@@ -23,6 +23,7 @@ import type { IStatusRepo } from '../interfaces/status-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { MarketBenchmark, Status, StatusHistoryEntry } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
+import { isUuidFormat } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface StatusRow {
@@ -198,6 +199,8 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 		},
 
 		async findChildById(id, tenantId) {
+			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
+			if (!isUuidFormat(id)) return undefined;
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children
 				WHERE family_id = ${tenantId} AND child_id = ${id}
