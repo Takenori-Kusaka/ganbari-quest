@@ -45,6 +45,9 @@ afterAll(() => {
 	else process.env.DATA_SOURCE = originalDataSource;
 });
 
+// #3692 恒久 opt-in skip: 実 Aurora DSQL cluster (DSQL_ENDPOINT + AWS creds) を要する staging 貫通のため
+// CI では常時 skip する設計。#3683 の staging CI レーン常設で置換予定 (deadline 目標 2026-09-13)。
+// owner: @Takenori-Kusaka。実行方法は本ファイル冒頭コメント参照。
 describe.skipIf(!ENDPOINT)(
 	'実 DSQL restore 貫通 (#3692 本番障害の実機回帰、staging cluster)',
 	() => {
