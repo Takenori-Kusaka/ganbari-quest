@@ -1322,24 +1322,51 @@ async function importPointLedgerData(
 		}
 		tasks.push({ childId, entry });
 	}
-	// #3692 phase 2: insert を並列チャンク実行 (台帳は append-only で行間依存なし)
-	await runConcurrent(tasks, async ({ childId, entry }) => {
-		try {
-			await insertPointLedger(
-				{
-					childId,
-					amount: entry.amount,
-					type: entry.type,
-					description: entry.description ?? '',
-				},
-				tenantId,
-			);
-			result.pointLedgerImported++;
-		} catch (e) {
-			result.pointLedgerSkipped++;
-			result.errors.push(
-				`ポイント台帳 insert 失敗 (child=${entry.childRef}, amount=${entry.amount}): ${String(e)}`,
-			);
+	// #3692 phase 2 改 (本番 DSQL restore 障害の根治): 並列は **child 間のみ**。
+	//
+	// 旧実装は全 entry を 25 並列で insertPointLedger していたが、point 書込プリミティブ
+	// (point-write.ts) は「ledger INSERT + **同一 children 行の total_point += UPDATE**」を
+	// 1 txn で行う (§6.2 compute-on-write)。つまり台帳は append-only でも **children 行が
+	// 共有 write 先**であり、同一 child の entry を並列化すると DSQL (OCC) では write-write
+	// 衝突が COMMIT 時に 40001 で abort する (occ-retry maxAttempts=3 では 25 並列 × 数百行の
+	// 競合に耐えられない)。本番実 zip (772 entries / 2 children) の restore が
+	// 「Failed query: commit」で abort した実障害 (2026-07-15)。
+	//
+	// child ごとに entry を group し、child 内は逐次 / child 間のみ並列にすることで
+	// 同一 children 行への並行 write を構造的に排除する (ADR-0065 原則 2 の write 束ね方向。
+	// DynamoDB / PGlite / sqlite の意味論は不変)。PGlite が単一接続逐次のため OCC 衝突を
+	// 再現できない盲点は、実 zip fixture + 並列検証 (#3683) で担保する。
+	const byChild = new Map<
+		ChildId,
+		{ childId: ChildId; entry: (typeof tasks)[number]['entry'] }[]
+	>();
+	for (const task of tasks) {
+		const list = byChild.get(task.childId);
+		if (list) {
+			list.push(task);
+		} else {
+			byChild.set(task.childId, [task]);
+		}
+	}
+	await runConcurrent([...byChild.values()], async (childTasks) => {
+		for (const { childId, entry } of childTasks) {
+			try {
+				await insertPointLedger(
+					{
+						childId,
+						amount: entry.amount,
+						type: entry.type,
+						description: entry.description ?? '',
+					},
+					tenantId,
+				);
+				result.pointLedgerImported++;
+			} catch (e) {
+				result.pointLedgerSkipped++;
+				result.errors.push(
+					`ポイント台帳 insert 失敗 (child=${entry.childRef}, amount=${entry.amount}): ${String(e)}`,
+				);
+			}
 		}
 	});
 }

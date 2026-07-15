@@ -146,7 +146,8 @@
 			"!**/lp-metrics.json",
 			"!**/tmp",
 			"!**/.tmp-screenshots",
-			"!**/drizzle"
+			"!**/drizzle",
+			"!tests/fixtures/restore-real-scale-backup.json"
 		]
 	}
 }
