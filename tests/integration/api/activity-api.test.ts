@@ -111,6 +111,22 @@ const SQL_TABLES = `
 		description TEXT, reference_id INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+	-- #3740: POST /api/v1/activities の checkActivityLimit が resolveFullPlanTier 経由で
+	-- trial_history を読むため、quota gate 追加に伴い本テスト DB にも同テーブルが必要。
+	CREATE TABLE trial_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		tier TEXT NOT NULL DEFAULT 'standard',
+		source TEXT NOT NULL,
+		campaign_id TEXT,
+		stripe_subscription_id TEXT,
+		upgrade_reason TEXT,
+		trial_start_source TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_trial_history_tenant ON trial_history(tenant_id);
 `;
 
 vi.mock('$lib/server/db', () => ({
