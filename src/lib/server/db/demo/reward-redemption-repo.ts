@@ -26,7 +26,7 @@ export async function insertRedemptionRequest(
 }
 
 export async function insertRedemptionForRestore(
-	input: {
+	_input: {
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
@@ -40,19 +40,10 @@ export async function insertRedemptionForRestore(
 		rewardIcon: string | null;
 	},
 	_tenantId: string,
-): Promise<RedemptionRequestRow> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return {
-		id: '0',
-		childId: input.childId,
-		rewardId: input.rewardId,
-		requestedAt: input.requestedAt,
-		status: input.status,
-		parentNote: input.parentNote,
-		resolvedAt: input.resolvedAt,
-		resolvedByParentId: input.resolvedByParentId,
-		shownToChildAt: input.shownToChildAt,
-	};
+): Promise<RedemptionRequestRow | null> {
+	// Stub: demo は書き込み no-op。#3394: 永続化していないため null を返し
+	// import カウント (rewardRedemptionsImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function findRedemptionRequestsByChild(

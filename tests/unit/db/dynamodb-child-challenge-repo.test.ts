@@ -824,8 +824,8 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 			restoreInput({ sourceTemplateId: 'auto:weekly', currentValue: 4 }),
 			TENANT,
 		);
-		expect(result.id).toBe('201');
-		expect(result.currentValue).toBe(4);
+		expect(result?.id).toBe('201');
+		expect(result?.currentValue).toBe(4);
 		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
 		// regular SK (CHILDCHAL#<padId>) ではなく dedup SK に置く。
 		expect(put.input.Item?.SK).toBe(AUTO_SK);
@@ -878,6 +878,74 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 		const get = mockSend.mock.calls[0]?.[0] as { input: { Key?: { SK: string } } };
 		expect(get.input.Key?.SK).toBe(AUTO_SK);
 		expect(get.input.Key?.SK).toBe(restoreSK);
+	});
+});
+
+// ============================================================
+// #3387/#3394: insertForRestore の unique-index 相当 guard (統一冪等契約)
+// ============================================================
+//
+// SQLite の部分 unique index idx_child_challenges_auto_weekly_unique と機能等価にするため、
+// Put は attribute_not_exists(PK) 条件付きで発行し、衝突 (重複 backup) は silent 上書き
+// (last-writer-wins) せず null を返す。throttle 等その他の失敗は throw する (#3401 例外分類)。
+
+describe('#3387/#3394 insertForRestore 冪等 guard', () => {
+	function restoreInput(over: Record<string, unknown> = {}) {
+		return {
+			childId: CHILD_ID,
+			title: '復元チャレンジ',
+			description: null,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: '2026-06-01',
+			endDate: '2026-06-07',
+			targetConfig: '{"metric":"count","baseTarget":5}',
+			rewardConfig: '{"points":50}',
+			status: 'active',
+			isActive: 1,
+			sourceTemplateId: null,
+			currentValue: 0,
+			targetValue: 5,
+			completed: 0,
+			completedAt: null,
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			createdAt: '2026-06-01T00:00:00.000Z',
+			updatedAt: '2026-06-01T00:00:00.000Z',
+			...over,
+		} as Parameters<Awaited<ReturnType<typeof loadRepo>>['insertForRestore']>[0];
+	}
+
+	it('Put に ConditionExpression attribute_not_exists(PK) が付く (silent 上書き禁止)', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 301 } }).mockResolvedValueOnce({});
+		const { insertForRestore } = await loadRepo();
+		await insertForRestore(restoreInput({ sourceTemplateId: 'auto:weekly' }), TENANT);
+		const put = mockSend.mock.calls[1]?.[0] as {
+			input: { ConditionExpression?: string };
+		};
+		expect(put.input.ConditionExpression).toBe('attribute_not_exists(PK)');
+	});
+
+	it('重複 (ConditionalCheckFailedException) は null を返す (SQLite onConflictDoNothing 等価、count 偽装防止)', async () => {
+		const err = new Error('conditional check failed');
+		err.name = 'ConditionalCheckFailedException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 302 } }).mockRejectedValueOnce(err);
+		const { insertForRestore } = await loadRepo();
+		const result = await insertForRestore(
+			restoreInput({ sourceTemplateId: 'auto:weekly' }),
+			TENANT,
+		);
+		expect(result).toBeNull();
+	});
+
+	it('throttle 等その他の write 失敗は throw する (#3401: silent loss / 重複誤分類の禁止)', async () => {
+		const err = new Error('Throughput exceeds the current capacity');
+		err.name = 'ProvisionedThroughputExceededException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 303 } }).mockRejectedValueOnce(err);
+		const { insertForRestore } = await loadRepo();
+		await expect(
+			insertForRestore(restoreInput({ sourceTemplateId: 'auto:weekly' }), TENANT),
+		).rejects.toThrow('Throughput exceeds');
 	});
 });
 

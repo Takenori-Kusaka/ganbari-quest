@@ -276,3 +276,47 @@ describe('hasCertificate', () => {
 		await expect(hasCertificate(CHILD_ID, CERT_TYPE, TENANT)).resolves.toBe(false);
 	});
 });
+
+// ============================================================
+// #3401: insertForRestore の例外分類 (throttle silent loss 可視化)
+// ============================================================
+//
+// 旧実装は catch-all `return null` で throttle / network 失敗も「重複 skip」と誤分類し、
+// import が certificatesSkipped++ に計上して silent loss になっていた。
+// 統一契約 (#3394): 重複 (ConditionalCheckFailedException) のみ null、その他は throw。
+
+describe('#3401 insertForRestore 例外分類', () => {
+	const restoreInput = {
+		childId: CHILD_ID,
+		certificateType: CERT_TYPE,
+		title: 'そつぎょうしょうめいしょ',
+		description: null,
+		issuedAt: '2026-02-01T00:00:00Z',
+		metadata: null,
+	};
+
+	it('重複 (ConditionalCheckFailedException) は null を返す (skip)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Attributes: { counter: 10 } })
+			.mockRejectedValueOnce(conditionalCheckFailed());
+		const { insertForRestore } = await loadRepo();
+		await expect(insertForRestore(restoreInput, TENANT)).resolves.toBeNull();
+	});
+
+	it('throttle 等その他の write 失敗は throw する (旧 catch-all null の silent loss を根治)', async () => {
+		const err = new Error('throughput exceeded');
+		err.name = 'ProvisionedThroughputExceededException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 11 } }).mockRejectedValueOnce(err);
+		const { insertForRestore } = await loadRepo();
+		await expect(insertForRestore(restoreInput, TENANT)).rejects.toThrow('throughput exceeded');
+	});
+
+	it('成功時は issuedAt を verbatim 保全した Certificate を返す + ConditionExpression 付き Put', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 12 } }).mockResolvedValueOnce({});
+		const { insertForRestore } = await loadRepo();
+		const cert = await insertForRestore(restoreInput, TENANT);
+		expect(cert?.issuedAt).toBe('2026-02-01T00:00:00Z');
+		const put = mockSend.mock.calls[1]?.[0] as { input: { ConditionExpression?: string } };
+		expect(put.input.ConditionExpression).toBe('attribute_not_exists(PK)');
+	});
+});

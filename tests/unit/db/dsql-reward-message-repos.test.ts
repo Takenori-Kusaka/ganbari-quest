@@ -509,6 +509,8 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.status).toBe('rejected'); // pending 固定でなく verbatim
 		expect(restored.requestedAt).toBe(requestedAt);
 		expect(restored.resolvedAt).toBe(resolvedAt);
@@ -586,6 +588,8 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(Date.parse(restored.sentAt)).toBe(Date.parse('2025-12-01T08:00:00+00:00'));
 		expect(Date.parse(restored.shownAt ?? '')).toBe(Date.parse('2025-12-02T09:00:00+00:00'));
 		expect(restored.stampCode).toBe('good');
@@ -667,6 +671,8 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			},
 			family,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.id).toMatch(UUID_RE);
 		expect(Date.parse(restored.sentAt)).toBe(Date.parse('2025-11-01T10:00:00+00:00'));
 		expect(Date.parse(restored.shownAt ?? '')).toBe(Date.parse('2025-11-02T10:00:00+00:00'));

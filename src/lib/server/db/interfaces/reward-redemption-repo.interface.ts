@@ -57,6 +57,9 @@ export interface IRewardRedemptionRepo {
 	 * 復元する。通常の insertRedemptionRequest は status を pending 固定 + live reward を引くため
 	 * round-trip で承認済/却下/snapshot が失われる。本メソッドは export された値をそのまま書き戻す。
 	 * id は新規採番 (元 id は保全しない、FK は呼び出し側が解決済の rewardId を渡す)。
+	 *
+	 * #3394 統一冪等契約: 永続化しなかった場合 (demo no-op stub) は **null** を返し、
+	 * import カウント (rewardRedemptionsImported) を偽装しない (#2263 count 偽装 class)。
 	 */
 	insertRedemptionForRestore(
 		input: {
@@ -73,7 +76,7 @@ export interface IRewardRedemptionRepo {
 			rewardIcon: string | null;
 		},
 		tenantId: string,
-	): Promise<RedemptionRequestRow>;
+	): Promise<RedemptionRequestRow | null>;
 
 	findRedemptionRequestsByChild(
 		childId: ChildId,

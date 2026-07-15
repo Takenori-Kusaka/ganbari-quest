@@ -590,3 +590,86 @@ describe('interface 適合 (IStampCardRepo)', () => {
 		expect(mockSend).toHaveBeenCalled();
 	});
 });
+
+// ============================================================
+// #3391/#3394: insertCardForRestore / insertEntryForRestore の統一冪等契約
+// ============================================================
+//
+// SQLite uniqueIndex idx_stamp_cards_child_week / idx_stamp_entries_card_slot と機能等価にするため、
+// card restore Put は attribute_not_exists(PK) 条件付きで発行し重複は null (silent 上書き禁止)、
+// entry restore は実 insert のとき true / 重複 skip のとき false を返す (count 偽装 #2263 防止)。
+// throttle 等その他の失敗は throw する (#3401 例外分類)。
+
+describe('#3391/#3394 insertCardForRestore 冪等 guard', () => {
+	const restoreCardInput = {
+		childId: CHILD_ID,
+		weekStart: '2026-06-01',
+		weekEnd: '2026-06-07',
+		status: 'redeemed',
+		redeemedPoints: 20,
+		redeemedAt: '2026-06-07T10:00:00Z',
+		createdAt: '2026-06-01T00:00:00Z',
+		updatedAt: '2026-06-07T10:00:00Z',
+	};
+
+	it('Put に ConditionExpression attribute_not_exists(PK) が付く (silent 上書き禁止)', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 30 } }).mockResolvedValueOnce({});
+		const { insertCardForRestore } = await loadRepo();
+		const card = await insertCardForRestore(restoreCardInput, TENANT);
+		expect(card?.id).toBe('30');
+		const put = mockSend.mock.calls[1]?.[0] as {
+			input: { ConditionExpression?: string; Item?: Record<string, unknown> };
+		};
+		expect(put.input.ConditionExpression).toBe('attribute_not_exists(PK)');
+		expect(put.input.Item?.SK).toBe('STMPCARD#2026-06-01');
+	});
+
+	it('重複 (ConditionalCheckFailedException) は null を返す (SQLite uniqueIndex 等価)', async () => {
+		const err = new Error('cond');
+		err.name = 'ConditionalCheckFailedException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 31 } }).mockRejectedValueOnce(err);
+		const { insertCardForRestore } = await loadRepo();
+		await expect(insertCardForRestore(restoreCardInput, TENANT)).resolves.toBeNull();
+	});
+
+	it('throttle 等その他の write 失敗は throw する (#3401)', async () => {
+		const err = new Error('throughput exceeded');
+		err.name = 'ProvisionedThroughputExceededException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 32 } }).mockRejectedValueOnce(err);
+		const { insertCardForRestore } = await loadRepo();
+		await expect(insertCardForRestore(restoreCardInput, TENANT)).rejects.toThrow(
+			'throughput exceeded',
+		);
+	});
+});
+
+describe('#3394 insertEntryForRestore の count 整合 (boolean 返却)', () => {
+	const restoreEntryInput = {
+		cardId: CARD_ID,
+		stampMasterId: '3',
+		omikujiRank: '大吉',
+		slot: 2,
+		loginDate: '2026-06-02',
+		earnedAt: '2026-06-02T08:00:00Z',
+	};
+
+	it('実 insert したら true を返す', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { insertEntryForRestore } = await loadRepo();
+		await expect(insertEntryForRestore(restoreEntryInput, TENANT)).resolves.toBe(true);
+	});
+
+	it('重複 (ConditionalCheckFailedException) は false を返す (旧 void 返却の imported++ 偽装を根治)', async () => {
+		const err = new Error('cond');
+		err.name = 'ConditionalCheckFailedException';
+		mockSend.mockRejectedValueOnce(err);
+		const { insertEntryForRestore } = await loadRepo();
+		await expect(insertEntryForRestore(restoreEntryInput, TENANT)).resolves.toBe(false);
+	});
+
+	it('throttle 等その他の write 失敗は throw する (#3401)', async () => {
+		mockSend.mockRejectedValueOnce(new Error('network error'));
+		const { insertEntryForRestore } = await loadRepo();
+		await expect(insertEntryForRestore(restoreEntryInput, TENANT)).rejects.toThrow('network error');
+	});
+});

@@ -96,12 +96,6 @@ function toChallenge(row: ChallengeRow): ChildChallenge {
 	};
 }
 
-function firstRowOrThrow(rows: unknown[], context: string): ChallengeRow {
-	const row = rows[0] as ChallengeRow | undefined;
-	if (!row) throw new Error(`${context}: insert returned no row`);
-	return row;
-}
-
 /**
  * DSQL 用 IChildChallengeRepo を生成する (db/runner は注入、fitness#8)。
  * runner は claimRewardAndGrantPoints (#3284/#3342: 条件付き flip + ledger insert +
@@ -194,6 +188,10 @@ export function createDsqlChildChallengeRepo<TTx extends SqlExecutor>(
 
 		async insertForRestore(input, tenantId) {
 			// #3329: 進捗 / 完了 / 請求 / status / 日時を export 値のまま書き戻す (id のみ新規採番)。
+			// #3387/#3394 統一冪等契約: auto:weekly 行の (child, start_date) 重複 (weekly_auto_guard
+			// UNIQUE 衝突) は DO NOTHING で skip し null を返す (sqlite 部分 unique index /
+			// dynamodb AUTO# SK + attribute_not_exists と機能等価。regular 行は guard 列が NULL の
+			// ため衝突せず常に insert される)。
 			const result = await db.execute(sql`
 				INSERT INTO child_challenges
 					(family_id, child_id, title, description, challenge_type, period_type,
@@ -207,9 +205,11 @@ export function createDsqlChildChallengeRepo<TTx extends SqlExecutor>(
 					${input.targetValue}, ${input.completed === 1}, ${input.completedAt},
 					${input.rewardClaimed === 1}, ${input.rewardClaimedAt},
 					${input.createdAt}, ${input.updatedAt})
+				ON CONFLICT DO NOTHING
 				RETURNING ${CHALLENGE_COLUMNS}
 			`);
-			return toChallenge(firstRowOrThrow(result.rows, 'insertForRestore'));
+			const row = result.rows[0] as unknown as ChallengeRow | undefined;
+			return row ? toChallenge(row) : null;
 		},
 
 		async getOrCreateWeeklyAuto(input, tenantId) {

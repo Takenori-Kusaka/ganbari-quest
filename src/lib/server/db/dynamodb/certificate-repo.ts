@@ -173,8 +173,11 @@ export async function insertForRestore(
 			}),
 		);
 	} catch (e) {
+		// #3401 例外分類: 重複 (ConditionalCheckFailedException) のみ null = skip。
+		// throttle / network 等の真の write 失敗を null に握り潰すと import が「重複 skip」と
+		// 誤分類し silent loss になるため throw する (import 側 catch が errors に可視化)。
 		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
-		return null;
+		throw e;
 	}
 
 	return certificate;

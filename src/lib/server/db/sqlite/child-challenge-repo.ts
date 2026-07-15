@@ -158,11 +158,15 @@ export async function insert(
  * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
  * insert と異なり currentValue / completed / rewardClaimed / createdAt 等を引数の値のまま書き戻す。
  * id は新規採番 (元 id は保全しない、childId は呼び出し側が解決済)。
+ *
+ * #3387/#3394 統一冪等契約: auto:weekly 行の (childId, startDate) 重複 (部分 unique index
+ * idx_child_challenges_auto_weekly_unique 衝突) は onConflictDoNothing で skip し null を返す
+ * (DynamoDB AUTO# SK + attribute_not_exists と機能等価。regular 行は一意制約がなく常に insert)。
  */
 export async function insertForRestore(
 	input: Omit<ChildChallenge, 'id'>,
 	_tenantId: string,
-): Promise<ChildChallenge> {
+): Promise<ChildChallenge | null> {
 	const row = db
 		.insert(childChallenges)
 		.values({
@@ -187,10 +191,10 @@ export async function insertForRestore(
 			createdAt: input.createdAt,
 			updatedAt: input.updatedAt,
 		})
+		.onConflictDoNothing()
 		.returning()
 		.get();
-	if (!row) throw new Error('insertForRestore: insert returned no row');
-	return toChallenge(row);
+	return row ? toChallenge(row) : null;
 }
 
 /**

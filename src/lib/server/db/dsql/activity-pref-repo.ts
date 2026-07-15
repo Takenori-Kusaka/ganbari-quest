@@ -69,15 +69,20 @@ export function createDsqlActivityPrefRepo<TTx extends SqlExecutor>(
 
 		async insertForRestore(input, tenantId) {
 			// #3329: isPinned/pinOrder/日時を verbatim 書き戻す (togglePin の再採番を経由しない)。
-			// 複合 PK 重複は 23505 throw のまま呼び出し側契約 (restore 先は新規 child 前提)。
+			// #3394/#3465 統一冪等契約: 同 (child, activity) 既存 (自然複合 PK 衝突) は DO NOTHING で
+			// skip し null を返す (sqlite idx_child_activity_prefs_unique / dynamodb
+			// attribute_not_exists と機能等価。旧実装の 23505 throw は「重複 = errors 行き」で
+			// backend 間の count 非対称を生んでいた)。
 			const result = await db.execute(sql`
 				INSERT INTO child_activity_preferences
 					(family_id, child_id, activity_id, is_pinned, pin_order, created_at, updated_at)
 				VALUES (${tenantId}, ${input.childId}, ${input.activityId}, ${input.isPinned !== 0},
 					${input.pinOrder}, ${input.createdAt}, ${input.updatedAt})
+				ON CONFLICT (family_id, child_id, activity_id) DO NOTHING
 				RETURNING ${PREF_COLUMNS}
 			`);
-			return toPref(result.rows[0] as unknown as PrefRow);
+			const row = result.rows[0] as unknown as PrefRow | undefined;
+			return row ? toPref(row) : null;
 		},
 
 		async findPinnedByChild(childId, tenantId) {

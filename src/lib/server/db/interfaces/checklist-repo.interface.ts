@@ -135,11 +135,14 @@ export interface IChecklistRepo {
 	 * #3329 backup restore 用: createdAt を保全して日次 override を復元する。
 	 * insertOverride は createdAt を schema default (now) で発番するため round-trip で作成日時が
 	 * 失われる。本メソッドは export された値をそのまま書き戻す (id は新規採番、childId は解決済)。
+	 *
+	 * #3394 統一冪等契約: 永続化しなかった場合 (demo no-op stub) は **null** を返し、
+	 * import カウント (checklistOverridesImported) を偽装しない (#2263 count 偽装 class)。
 	 */
 	insertOverrideForRestore(
 		input: Omit<ChecklistOverride, 'id'>,
 		tenantId: string,
-	): Promise<ChecklistOverride>;
+	): Promise<ChecklistOverride | null>;
 	/**
 	 * #2845 B1: childId 必須 (composite key)。旧 id-only は DynamoDB 側で
 	 * tenant 無束縛 Scan + 全 tenant delete 可能形状だった。

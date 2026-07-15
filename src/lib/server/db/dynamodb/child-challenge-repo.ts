@@ -224,7 +224,7 @@ export async function insert(
 export async function insertForRestore(
 	input: Omit<ChildChallenge, 'id'>,
 	tenantId: string,
-): Promise<ChildChallenge> {
+): Promise<ChildChallenge | null> {
 	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
 	const challenge: ChildChallenge = { ...input, id: String(id) };
 
@@ -233,18 +233,29 @@ export async function insertForRestore(
 			? childChallengeAutoWeeklyKey(Number(input.childId), input.startDate, tenantId)
 			: childChallengeKey(Number(input.childId), id, tenantId);
 
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...key,
-				...challenge,
-				// stored attributes は数値 id のまま (storage format 不変、#3575)
-				id,
-				childId: Number(input.childId),
-			},
-		}),
-	);
+	try {
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...key,
+					...challenge,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(input.childId),
+				},
+				// #3387/#3394 統一冪等契約: 同キー既存行を silent 上書き (last-writer-wins) しない。
+				// auto:weekly は SQLite 部分 unique index idx_child_challenges_auto_weekly_unique と
+				// 機能等価の重複拒否になる。regular 行は新規採番 id キーのため通常衝突しない
+				// (counter 破損時の上書きも防ぐ defense in depth)。
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		// 重複は null (import 側 skip 計上)。throttle 等その他の失敗は throw (#3401 例外分類)。
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
+		throw e;
+	}
 
 	return challenge;
 }

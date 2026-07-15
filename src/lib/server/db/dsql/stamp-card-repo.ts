@@ -187,6 +187,9 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 		async insertCardForRestore(input, tenantId) {
 			// #3329 backup restore: status / redeemed / 日時を verbatim 保全 (insertCard と違い
 			// default に落とさない)。card_id は新規採番 (schema default gen_random_uuid())。
+			// #3394 統一冪等契約: 同 (child, week_start) 既存 (stamp_cards_week_uq 衝突) は
+			// DO NOTHING で skip し null を返す (sqlite onConflictDoNothing / dynamodb
+			// attribute_not_exists と機能等価)。
 			const result = await db.execute(sql`
 				INSERT INTO stamp_cards
 					(family_id, child_id, week_start, week_end, status, redeemed_points, redeemed_at,
@@ -194,17 +197,19 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 				VALUES (${tenantId}, ${input.childId}, ${input.weekStart}, ${input.weekEnd},
 					${input.status}, ${input.redeemedPoints}, ${input.redeemedAt},
 					${input.createdAt}::timestamptz, ${input.updatedAt}::timestamptz)
+				ON CONFLICT (family_id, child_id, week_start) DO NOTHING
 				RETURNING ${CARD_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as CardRow | undefined;
-			if (!row) throw new Error('insertCardForRestore: insert returned no row');
-			return toCard(row);
+			return row ? toCard(row) : null;
 		},
 
 		async insertEntryForRestore(input, tenantId) {
 			// restore 経路も #3562 ③ の tenant 境界 (INSERT ... SELECT 所有検証) を通す。
 			// earned_at は verbatim 保全。重複は DO NOTHING (sqlite parity)。
-			await db.execute(sql`
+			// #3394 統一冪等契約: 実 insert 行有無を RETURNING で判定し boolean を返す
+			// (重複 skip / card 非所有 (orphan) は false → import 側 skip 計上 = count 偽装防止)。
+			const result = await db.execute(sql`
 				INSERT INTO stamp_entries
 					(family_id, card_id, slot, stamp_master_id, omikuji_rank, login_date, earned_at)
 				SELECT c.family_id, c.card_id, ${input.slot}, ${input.stampMasterId},
@@ -212,7 +217,9 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 				FROM stamp_cards c
 				WHERE c.family_id = ${tenantId} AND c.card_id = ${input.cardId}
 				ON CONFLICT DO NOTHING
+				RETURNING 1 AS inserted
 			`);
+			return result.rows.length > 0;
 		},
 
 		async updateCardStatus(childId, cardId, input, tenantId) {

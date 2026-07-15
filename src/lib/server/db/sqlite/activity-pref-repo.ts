@@ -54,11 +54,15 @@ export async function findAllByChild(
 		.map(toEntity);
 }
 
-/** #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId は呼び出し側が解決済)。 */
+/**
+ * #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId は呼び出し側が解決済)。
+ * #3394/#3465 統一冪等契約: 同 (childId, activityId) 既存 (idx_child_activity_prefs_unique 衝突) は
+ * onConflictDoNothing で skip し null を返す (DynamoDB attribute_not_exists と機能等価)。
+ */
 export async function insertForRestore(
 	input: Omit<ChildActivityPreference, 'id'>,
 	_tenantId: string,
-): Promise<ChildActivityPreference> {
+): Promise<ChildActivityPreference | null> {
 	const row = db
 		.insert(childActivityPreferences)
 		.values({
@@ -69,9 +73,10 @@ export async function insertForRestore(
 			createdAt: input.createdAt,
 			updatedAt: input.updatedAt,
 		})
+		.onConflictDoNothing()
 		.returning()
 		.get();
-	return toEntity(row);
+	return row ? toEntity(row) : null;
 }
 
 export async function findPinnedByChild(

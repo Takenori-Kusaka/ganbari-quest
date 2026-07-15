@@ -26,11 +26,12 @@ export async function findAllByTenant(tenantId: string): Promise<SiblingCheer[]>
 }
 
 export async function insertForRestore(
-	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
-	tenantId: string,
-): Promise<SiblingCheer> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: '0', tenantId };
+	_input: Omit<SiblingCheer, 'id' | 'tenantId'>,
+	_tenantId: string,
+): Promise<SiblingCheer | null> {
+	// Stub: demo は書き込み no-op。#3420: 永続化していないため null を返し
+	// import カウント (siblingCheersImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function findUnshownCheers(

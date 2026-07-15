@@ -270,7 +270,14 @@ async function collectForChild(
 	childExportIdMap: Map<ChildId, string>,
 	tenantId: string,
 ): Promise<ChildTransactionData> {
-	const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
+	// #3414 item 3: 旧 fallback `child-${childId}` (生 id) は import 側 childIdMap のキー
+	// `child-${index+1}` と決して一致せず、silent skip の温床だった。childExportIdMap は
+	// 呼び出し側 (collectTransactionData) が同一 allChildren から構築するため未解決は論理矛盾 =
+	// 到達したら fail-fast で throw し、childRef 不整合な backup を生成しない (明示 skip + error 統一)。
+	const childRef = childExportIdMap.get(childId);
+	if (!childRef) {
+		throw new Error(`collectForChild: childExportIdMap に childId=${childId} がありません`);
+	}
 
 	// 各データを並列取得
 	const [

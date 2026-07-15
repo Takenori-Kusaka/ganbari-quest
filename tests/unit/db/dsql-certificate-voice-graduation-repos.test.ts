@@ -319,7 +319,7 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 
 	it('[V6] insertForRestore: createdAt / filePath / publicUrl / isActive を verbatim 保全 (新 id)', async () => {
 		const childId = await newChild('声六郎');
-		const { id } = await voiceRepo.insertForRestore(
+		const restored = await voiceRepo.insertForRestore(
 			{
 				childId,
 				scene: 'complete',
@@ -333,6 +333,9 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = demo no-op stub のみ)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
+		const { id } = restored;
 		expect(id).toMatch(UUID_RE);
 		const row = await voiceRepo.findById(id, FAMILY);
 		expect(row?.isActive).toBe(1);
