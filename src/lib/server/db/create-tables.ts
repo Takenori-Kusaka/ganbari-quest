@@ -132,6 +132,9 @@ export const SQL_CREATE_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_point_ledger_child ON point_ledger(child_id, created_at);
+	-- #3284: 付与の冪等キー (referenceId 付き付与の二重 insert を DB 層で拒否)
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_point_ledger_idempotency
+		ON point_ledger(child_id, type, reference_id) WHERE reference_id IS NOT NULL;
 
 	CREATE TABLE IF NOT EXISTS statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "point_ledger_idempotency_uq" ON "point_ledger" USING btree ("family_id","child_id","type","reference_id");

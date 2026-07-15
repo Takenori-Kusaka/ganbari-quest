@@ -6,7 +6,6 @@ import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/poi
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
-	findPendingByChildAndReward,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
 	findUnshownResultByChild,
@@ -98,13 +97,13 @@ export async function requestRedemption(
 	const balance = await getBalance(childId, tenantId);
 	if (balance < reward.points) return { error: 'INSUFFICIENT_POINTS' };
 
-	// 重複申請確認
-	const existing = await findPendingByChildAndReward(childId, rewardId, tenantId);
-	if (existing) return { error: 'ALREADY_PENDING' };
-
-	// 申請作成（repo は常に pending_parent_approval で作成する）
+	// 申請作成 (#3356 (1): 重複判定は repo の原子境界に内蔵。旧 findPendingByChildAndReward の
+	// check-then-act は並行 submit で両者が「pending 無し」を読み二重申請 → 即時交換モードで
+	// 二重減算を招く TOCTOU だった。repo は (a) pending 既存 (b) 直近 approved 窓 (連打/再送/多タブ)
+	// のいずれかで DUPLICATE_REQUEST を返す)
 	const now = Math.floor(Date.now() / 1000);
 	const row = await insertRedemptionRequest({ childId, rewardId, requestedAt: now }, tenantId);
+	if ('error' in row) return { error: 'ALREADY_PENDING' };
 
 	// #3339: 家庭設定で即時交換が有効なら、その場で承認確定（減算 + approved）し親承認をスキップする。
 	// 既存の親承認と同一の finalizeApproval を共有するため減算・監査・status 更新の挙動は一致する

@@ -209,6 +209,26 @@ export function pointBalanceKey(childId: number, tenantId: string): DynamoKey {
 	};
 }
 
+/**
+ * Point ledger 冪等 marker (#3284): PK=CHILD#<cId>, SK=POINTIDEM#<type>#<referenceId>
+ *
+ * SQLite の部分 unique index (child_id, type, reference_id) の DynamoDB 等価。ledger item
+ * (POINT#<ts>#<id>) は時刻 keyed で一意制約を表現できないため、決定的キーの marker item を
+ * `attribute_not_exists(PK)` 条件付き Put で ledger Put と同一 TransactWriteItems 化し、
+ * 同一 (child, type, reference) の二重付与を物理拒否する (#3245 auto:weekly dedup key と同型)。
+ */
+export function pointLedgerIdempotencyKey(
+	childId: number,
+	type: string,
+	referenceId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `POINTIDEM#${type}#${padId(referenceId)}`,
+	};
+}
+
 /** Status: PK=CHILD#<cId>, SK=STATUS#<catId> */
 export function statusKey(childId: number, categoryId: number, tenantId: string): DynamoKey {
 	return {
@@ -380,6 +400,25 @@ export function rewardRedemptionKey(
 /** Reward redemption SK prefix for querying all requests of a child */
 export function rewardRedemptionPrefix(): string {
 	return 'REDEMPT#';
+}
+
+/**
+ * Reward redemption pending marker (#3356 (1)): PK=CHILD#<cId>, SK=REDEMPTPEND#<rewardId>
+ *
+ * 「同一 (child, reward) の pending は同時に高々 1 件」を DynamoDB で表現する決定的キー。
+ * insertRedemptionRequest が `attribute_not_exists(PK)` 条件付き Put を申請 Put と同一
+ * TransactWriteItems 化し、並行申請の二重 insert (即時交換の二重減算) を物理拒否する。
+ * pending 解消 (approve / reject / expire) 時に削除する (requestId 条件付き)。
+ */
+export function redemptionPendingMarkerKey(
+	childId: number,
+	rewardId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `REDEMPTPEND#${padId(rewardId)}`,
+	};
 }
 
 /**

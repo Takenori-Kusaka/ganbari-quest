@@ -19,12 +19,14 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import type {
-	IRewardRedemptionRepo,
-	RedemptionRequestRow,
-	RedemptionRequestWithDetails,
-	RedemptionRequestWithReward,
+import {
+	type IRewardRedemptionRepo,
+	REDEMPTION_DEDUP_WINDOW_SEC,
+	type RedemptionRequestRow,
+	type RedemptionRequestWithDetails,
+	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
+import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { SqlExecutor } from './sql-executor';
 
 interface RequestRow {
@@ -75,8 +77,14 @@ const SNAPSHOT_TITLE = sql`COALESCE(rr.reward_title, sr.title)`;
 const SNAPSHOT_ICON = sql`COALESCE(rr.reward_icon, sr.icon)`;
 const SNAPSHOT_POINTS = sql`COALESCE(rr.reward_points, sr.points)`;
 
-/** DSQL 用 IRewardRedemptionRepo を生成する (db は注入、fitness#8)。 */
-export function createDsqlRewardRedemptionRepo(db: SqlExecutor): IRewardRedemptionRepo {
+/**
+ * DSQL 用 IRewardRedemptionRepo を生成する (db/runner は注入、fitness#8)。
+ * runner は insertRedemptionRequest (#3356 (1): per-child 直列化 dedup txn) でのみ使用する。
+ */
+export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
+	db: SqlExecutor,
+	runner: TransactionRunner<TTx>,
+): IRewardRedemptionRepo {
 	/** status / childId filter を組み立てる (findByTenant / countByTenant 共有)。 */
 	const tenantConditions = (
 		tenantId: string,
@@ -90,25 +98,49 @@ export function createDsqlRewardRedemptionRepo(db: SqlExecutor): IRewardRedempti
 
 	return {
 		async insertRedemptionRequest(input, tenantId) {
-			// #2832: 申請時点 snapshot を live reward から写像 (reward per-child のため 3 軸で参照)。
-			// reward 不在でも申請行は作る (snapshot は null) = sqlite parity。
-			const rewardResult = await db.execute(sql`
-				SELECT title, points, icon FROM special_rewards
-				WHERE family_id = ${tenantId} AND child_id = ${input.childId} AND reward_id = ${input.rewardId}
-			`);
-			const reward = rewardResult.rows[0] as
-				| { title: string; points: number; icon: string | null }
-				| undefined;
-			const result = await db.execute(sql`
-				INSERT INTO reward_redemption_requests
-					(family_id, child_id, reward_id, requested_at, status,
-					 reward_title, reward_points, reward_icon)
-				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-					'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
-					${reward?.icon ?? null})
-				RETURNING ${REQUEST_COLUMNS}
-			`);
-			return toRequestRow(result.rows[0] as unknown as RequestRow);
+			// #3356 (1): server-side idempotency。children 行を FOR UPDATE で write-intent 化して
+			// 同一 child の並行申請を直列化 (spendPointsAtomic §6.6 と同パターン。並行 txn は
+			// 一方が 40001 → runner が retry → dedup 判定が commit 済状態を見る) したうえで、
+			// (a) pending 既存 / (b) 直近 approved 窓 の dedup check → insert を単一 txn で行う。
+			// 旧 check-then-act (service 層 findPendingByChildAndReward) の TOCTOU を根治。
+			// fitness#7 準拠: txn work 内の await は全て tx.execute 直呼び。
+			const windowStartIso = epochToIso(input.requestedAt - REDEMPTION_DEDUP_WINDOW_SEC);
+			return runner.runInTransaction(async (tx) => {
+				await tx.execute(sql`
+					SELECT child_id FROM children
+					WHERE family_id = ${tenantId} AND child_id = ${input.childId}
+					FOR UPDATE
+				`);
+				const dup = await tx.execute(sql`
+					SELECT redemption_id FROM reward_redemption_requests
+					WHERE family_id = ${tenantId} AND child_id = ${input.childId}
+						AND reward_id = ${input.rewardId}
+						AND (status = 'pending_parent_approval'
+							OR (status = 'approved' AND resolved_at >= ${windowStartIso}::timestamptz))
+					LIMIT 1
+				`);
+				if (dup.rows.length > 0) return { error: 'DUPLICATE_REQUEST' as const };
+
+				// #2832: 申請時点 snapshot を live reward から写像 (reward per-child のため 3 軸で参照)。
+				// reward 不在でも申請行は作る (snapshot は null) = sqlite parity。
+				const rewardResult = await tx.execute(sql`
+					SELECT title, points, icon FROM special_rewards
+					WHERE family_id = ${tenantId} AND child_id = ${input.childId} AND reward_id = ${input.rewardId}
+				`);
+				const reward = rewardResult.rows[0] as
+					| { title: string; points: number; icon: string | null }
+					| undefined;
+				const result = await tx.execute(sql`
+					INSERT INTO reward_redemption_requests
+						(family_id, child_id, reward_id, requested_at, status,
+						 reward_title, reward_points, reward_icon)
+					VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
+						'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
+						${reward?.icon ?? null})
+					RETURNING ${REQUEST_COLUMNS}
+				`);
+				return toRequestRow(result.rows[0] as unknown as RequestRow);
+			});
 		},
 
 		async insertRedemptionForRestore(input, tenantId) {
@@ -200,16 +232,8 @@ export function createDsqlRewardRedemptionRepo(db: SqlExecutor): IRewardRedempti
 			return row ? toRequestRow(row) : undefined;
 		},
 
-		async findPendingByChildAndReward(childId, rewardId, tenantId) {
-			const result = await db.execute(sql`
-				SELECT ${REQUEST_COLUMNS} FROM reward_redemption_requests
-				WHERE family_id = ${tenantId} AND child_id = ${childId} AND reward_id = ${rewardId}
-					AND status = 'pending_parent_approval'
-				LIMIT 1
-			`);
-			const row = result.rows[0] as unknown as RequestRow | undefined;
-			return row ? toRequestRow(row) : undefined;
-		},
+		// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
+		// insertRedemptionRequest の dedup txn に内蔵済 (check-then-act TOCTOU 根治)。
 
 		async findUnshownResultByChild(childId, tenantId) {
 			const result = await db.execute(sql`

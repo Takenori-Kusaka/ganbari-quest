@@ -277,6 +277,24 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #3284 並行実装整合: point_ledger 付与冪等キー (本番 lazy-migrate / test-db と同制約)。
+			// 既存 E2E DB に重複行があると CREATE UNIQUE INDEX が失敗するため dedup してから作成。
+			try {
+				db.exec(`DELETE FROM point_ledger
+					WHERE reference_id IS NOT NULL
+					  AND id NOT IN (
+						SELECT MIN(id) FROM point_ledger
+						WHERE reference_id IS NOT NULL
+						GROUP BY child_id, type, reference_id
+					  )`);
+				db.exec(
+					`CREATE UNIQUE INDEX IF NOT EXISTS idx_point_ledger_idempotency
+					 ON point_ledger(child_id, type, reference_id) WHERE reference_id IS NOT NULL`,
+				);
+			} catch {
+				// point_ledger 未作成 (fresh DB は app 起動時 create-tables が index ごと作成) は無視
+			}
+
 			db.close();
 			if (!table) needsSchema = true;
 		} catch {

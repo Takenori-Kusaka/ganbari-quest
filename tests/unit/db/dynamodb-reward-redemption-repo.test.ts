@@ -25,6 +25,8 @@ const {
 	MockQueryCommand,
 	MockUpdateCommand,
 	MockScanCommand,
+	MockDeleteCommand,
+	MockTransactWriteCommand,
 } = vi.hoisted(() => {
 	const send = vi.fn();
 	class Cmd {
@@ -40,6 +42,8 @@ const {
 		MockQueryCommand: class extends Cmd {},
 		MockUpdateCommand: class extends Cmd {},
 		MockScanCommand: class extends Cmd {},
+		MockDeleteCommand: class extends Cmd {},
+		MockTransactWriteCommand: class extends Cmd {},
 	};
 });
 
@@ -54,6 +58,8 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 	QueryCommand: MockQueryCommand,
 	UpdateCommand: MockUpdateCommand,
 	ScanCommand: MockScanCommand,
+	DeleteCommand: MockDeleteCommand,
+	TransactWriteCommand: MockTransactWriteCommand,
 	BatchWriteCommand: class {
 		input: unknown;
 		constructor(input: unknown) {
@@ -106,15 +112,24 @@ afterEach(() => {
 // insertRedemptionRequest
 // ============================================================
 
-describe('insertRedemptionRequest', () => {
-	it('counter 採番 → child/reward を解決 → PutItem し pending_parent_approval row を返す', async () => {
+describe('insertRedemptionRequest (#3356 (1): pending marker TransactWrite + 直近 approved 窓 dedup)', () => {
+	type TransactInput = {
+		input: {
+			TransactItems?: Array<{
+				Put?: { Item?: Record<string, unknown>; ConditionExpression?: string };
+			}>;
+		};
+	};
+
+	it('窓 pre-read → counter 採番 → child/reward 解決 → marker + 申請の TransactWrite で pending row を返す', async () => {
 		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // queryChildRedemptions (直近 approved 窓 pre-read)
 			.mockResolvedValueOnce({ Attributes: { counter: 11 } }) // nextId
 			.mockResolvedValueOnce({ Item: { PK: 'p', SK: 'PROFILE', id: CHILD_ID, nickname: 'けんた' } }) // findChildByIdRaw (GetItem)
 			.mockResolvedValueOnce({
 				Items: [{ id: 7, title: 'アイスクリーム', icon: '🍦', points: 100 }],
 			}) // reward Query
-			.mockResolvedValueOnce({}); // PutCommand
+			.mockResolvedValueOnce({}); // TransactWriteCommand
 
 		const { insertRedemptionRequest } = await loadRepo();
 		const row = await insertRedemptionRequest(
@@ -133,18 +148,27 @@ describe('insertRedemptionRequest', () => {
 			shownToChildAt: null,
 		});
 
-		const putCall = mockSend.mock.calls[3]?.[0] as { input: { Item?: Record<string, unknown> } };
-		expect(putCall.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
-		expect(putCall.input.Item?.SK).toBe('REDEMPT#00000011');
-		// 非正規化フィールドが item に保存される (JOIN 代替)
-		expect(putCall.input.Item?.childName).toBe('けんた');
-		expect(putCall.input.Item?.rewardTitle).toBe('アイスクリーム');
-		expect(putCall.input.Item?.rewardIcon).toBe('🍦');
-		expect(putCall.input.Item?.rewardPoints).toBe(100);
+		const transact = mockSend.mock.calls[4]?.[0] as TransactInput;
+		const items = transact.input.TransactItems ?? [];
+		expect(items).toHaveLength(2);
+		// item 1: pending marker (同一 (child, reward) の pending 高々 1 件を物理保証)
+		const marker = items[0]?.Put;
+		expect(marker?.ConditionExpression).toBe('attribute_not_exists(PK)');
+		expect(String(marker?.Item?.SK)).toBe('REDEMPTPEND#00000007');
+		expect(marker?.Item?.requestId).toBe(11);
+		// item 2: 申請 item (非正規化フィールドが item に保存される = JOIN 代替)
+		const putItem = items[1]?.Put?.Item;
+		expect(putItem?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(putItem?.SK).toBe('REDEMPT#00000011');
+		expect(putItem?.childName).toBe('けんた');
+		expect(putItem?.rewardTitle).toBe('アイスクリーム');
+		expect(putItem?.rewardIcon).toBe('🍦');
+		expect(putItem?.rewardPoints).toBe(100);
 	});
 
 	it('child / reward が不在でも throw せず空文字 / 0 で非正規化する', async () => {
 		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // 窓 pre-read
 			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
 			.mockResolvedValueOnce({ Item: undefined }) // child 不在
 			.mockResolvedValueOnce({ Items: [] }) // reward 不在
@@ -154,10 +178,69 @@ describe('insertRedemptionRequest', () => {
 			{ childId: CHILD_ID, rewardId: '7', requestedAt: 1 },
 			TENANT,
 		);
+		expect('error' in row).toBe(false);
+		if ('error' in row) throw new Error('unreachable');
 		expect(row.id).toBe('1');
-		const putCall = mockSend.mock.calls[3]?.[0] as { input: { Item?: Record<string, unknown> } };
-		expect(putCall.input.Item?.childName).toBe('');
-		expect(putCall.input.Item?.rewardPoints).toBe(0);
+		const transact = mockSend.mock.calls[4]?.[0] as TransactInput;
+		const putItem = transact.input.TransactItems?.[1]?.Put?.Item;
+		expect(putItem?.childName).toBe('');
+		expect(putItem?.rewardPoints).toBe(0);
+	});
+
+	it('pending marker 条件違反 (並行 2 件目) → DUPLICATE_REQUEST を返し throw しない', async () => {
+		const cancel = Object.assign(new Error('canceled'), {
+			name: 'TransactionCanceledException',
+			CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }],
+		});
+		mockSend
+			.mockResolvedValueOnce({ Items: [] })
+			.mockResolvedValueOnce({ Attributes: { counter: 12 } })
+			.mockResolvedValueOnce({ Item: undefined })
+			.mockResolvedValueOnce({ Items: [] })
+			.mockRejectedValueOnce(cancel);
+		const { insertRedemptionRequest } = await loadRepo();
+		const result = await insertRedemptionRequest(
+			{ childId: CHILD_ID, rewardId: '7', requestedAt: 1700000000 },
+			TENANT,
+		);
+		expect(result).toEqual({ error: 'DUPLICATE_REQUEST' });
+	});
+
+	it('直近 approved 窓内 (連打/再送/多タブ) → DUPLICATE_REQUEST を返し insert しない', async () => {
+		const nowSec = 1700000000;
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				makeItem({ id: 5, rewardId: 7, status: 'approved', resolvedAt: nowSec - 3 }), // 窓内 approved
+			],
+		});
+		const { insertRedemptionRequest } = await loadRepo();
+		const result = await insertRedemptionRequest(
+			{ childId: CHILD_ID, rewardId: '7', requestedAt: nowSec },
+			TENANT,
+		);
+		expect(result).toEqual({ error: 'DUPLICATE_REQUEST' });
+		// pre-read の 1 send のみ (counter 採番 / TransactWrite に進まない)
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+
+	it('窓外の approved (意図的な連続購入) は dedup せず insert に進む', async () => {
+		const nowSec = 1700000000;
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [
+					makeItem({ id: 5, rewardId: 7, status: 'approved', resolvedAt: nowSec - 3600 }), // 窓外
+				],
+			})
+			.mockResolvedValueOnce({ Attributes: { counter: 13 } })
+			.mockResolvedValueOnce({ Item: undefined })
+			.mockResolvedValueOnce({ Items: [] })
+			.mockResolvedValueOnce({});
+		const { insertRedemptionRequest } = await loadRepo();
+		const result = await insertRedemptionRequest(
+			{ childId: CHILD_ID, rewardId: '7', requestedAt: nowSec },
+			TENANT,
+		);
+		expect('error' in result).toBe(false);
 	});
 });
 
@@ -293,15 +376,17 @@ describe('findRedemptionRequestsByTenant', () => {
 // ============================================================
 
 describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key addressing)', () => {
-	it('childId + id で PK/SK を直接構成し UpdateItem 1 回で完結する (Scan 不使用)', async () => {
-		mockSend.mockResolvedValueOnce({
-			Attributes: makeItem({
-				id: 5,
-				status: 'approved',
-				resolvedAt: 1700001000,
-				resolvedByParentId: 'parent-sub-3',
-			}),
-		});
+	it('childId + id で PK/SK を直接構成し UpdateItem する (Scan 不使用、pending 離脱で marker Delete が続く)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Attributes: makeItem({
+					id: 5,
+					status: 'approved',
+					resolvedAt: 1700001000,
+					resolvedByParentId: 'parent-sub-3',
+				}),
+			})
+			.mockResolvedValueOnce({}); // #3356 (1): pending marker Delete (requestId 条件付き)
 		const { updateRedemptionRequestStatus } = await loadRepo();
 		const row = await updateRedemptionRequestStatus(
 			CHILD_ID,
@@ -311,8 +396,8 @@ describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key add
 		);
 		expect(row?.status).toBe('approved');
 		expect(row?.resolvedAt).toBe(1700001000);
-		// UpdateItem 1 回のみ (旧 tenant Scan 逆引き = #2842 B2 残党は撤去済)
-		expect(mockSend).toHaveBeenCalledTimes(1);
+		// UpdateItem + marker Delete の 2 send (旧 tenant Scan 逆引き = #2842 B2 残党は撤去済)
+		expect(mockSend).toHaveBeenCalledTimes(2);
 		const upd = mockSend.mock.calls[0]?.[0] as {
 			input: {
 				Key?: Record<string, string>;
@@ -329,12 +414,25 @@ describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key add
 		expect(upd.input.UpdateExpression).toContain('resolvedByParentId = :resolvedByParentId');
 		// parentNote は undefined のため SET に含めない
 		expect(upd.input.UpdateExpression).not.toContain('parentNote');
+		// marker Delete は requestId 条件付き (並行新規 pending の marker を誤削除しない)
+		const del = mockSend.mock.calls[1]?.[0] as {
+			input: {
+				Key?: Record<string, string>;
+				ConditionExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
+		};
+		expect(del.input.Key?.SK).toBe('REDEMPTPEND#00000007');
+		expect(del.input.ConditionExpression).toBe('requestId = :rid');
+		expect(del.input.ExpressionAttributeValues?.[':rid']).toBe(5);
 	});
 
 	it('null は明示的に SET する (rejected の parentNote=null 等)', async () => {
-		mockSend.mockResolvedValueOnce({
-			Attributes: makeItem({ id: 5, status: 'rejected', parentNote: null }),
-		});
+		mockSend
+			.mockResolvedValueOnce({
+				Attributes: makeItem({ id: 5, status: 'rejected', parentNote: null }),
+			})
+			.mockResolvedValueOnce({}); // marker Delete (rejected も pending 離脱)
 		const { updateRedemptionRequestStatus } = await loadRepo();
 		await updateRedemptionRequestStatus(
 			CHILD_ID,
@@ -362,14 +460,17 @@ describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key add
 	});
 
 	it('残高に触れない (point ledger / balance への write を行わない)', async () => {
-		mockSend.mockResolvedValueOnce({ Attributes: makeItem({ id: 5, status: 'approved' }) });
+		mockSend
+			.mockResolvedValueOnce({ Attributes: makeItem({ id: 5, status: 'approved' }) })
+			.mockResolvedValueOnce({}); // marker Delete
 		const { updateRedemptionRequestStatus } = await loadRepo();
 		await updateRedemptionRequestStatus(CHILD_ID, '5', { status: 'approved' }, TENANT);
-		// Update の 1 send のみ。BALANCE / POINT への追加 write は service 層の責務。
-		expect(mockSend).toHaveBeenCalledTimes(1);
+		// Update + marker Delete の 2 send のみ。BALANCE / POINT への追加 write は service 層の責務。
+		expect(mockSend).toHaveBeenCalledTimes(2);
 		for (const call of mockSend.mock.calls) {
 			const input = (call[0] as { input: { Key?: { SK?: string } } }).input;
 			expect(input.Key?.SK ?? '').not.toContain('BALANCE');
+			expect(input.Key?.SK ?? '').not.toContain('POINT#');
 		}
 	});
 });
@@ -378,27 +479,8 @@ describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key add
 // findPendingByChildAndReward
 // ============================================================
 
-describe('findPendingByChildAndReward', () => {
-	it('child の REDEMPT# から rewardId + pending 一致を返す', async () => {
-		mockSend.mockResolvedValueOnce({
-			Items: [
-				makeItem({ id: 1, rewardId: 7, status: 'approved' }),
-				makeItem({ id: 2, rewardId: 7, status: 'pending_parent_approval' }),
-			],
-		});
-		const { findPendingByChildAndReward } = await loadRepo();
-		const row = await findPendingByChildAndReward(CHILD_ID, '7', TENANT);
-		expect(row?.id).toBe('2');
-	});
-
-	it('pending が無いとき undefined', async () => {
-		mockSend.mockResolvedValueOnce({
-			Items: [makeItem({ id: 1, rewardId: 7, status: 'approved' })],
-		});
-		const { findPendingByChildAndReward } = await loadRepo();
-		expect(await findPendingByChildAndReward(CHILD_ID, '7', TENANT)).toBeUndefined();
-	});
-});
+// findPendingByChildAndReward は #3356 (1) で撤去 (dedup は insertRedemptionRequest の
+// pending marker TransactWrite に内蔵)。同 describe は insertRedemptionRequest 側に移設済。
 
 // ============================================================
 // findUnshownResultByChild
@@ -472,7 +554,7 @@ describe('markRedemptionResultShown (#2845 課題①: full composite-key address
 // ============================================================
 
 describe('expireOldRedemptions', () => {
-	it('30 日超 pending を Scan → expired に Update し件数を返す', async () => {
+	it('30 日超 pending を Scan → expired に Update + marker Delete し件数を返す', async () => {
 		const old = Math.floor(Date.now() / 1000) - 31 * 24 * 60 * 60;
 		const recent = Math.floor(Date.now() / 1000) - 1 * 24 * 60 * 60;
 		mockSend
@@ -483,16 +565,19 @@ describe('expireOldRedemptions', () => {
 					makeItem({ id: 3, status: 'approved', requestedAt: old }), // 非 pending → 除外
 				],
 			})
-			.mockResolvedValueOnce({}); // 1 Update
+			.mockResolvedValueOnce({}) // 1 Update
+			.mockResolvedValueOnce({}); // 1 marker Delete (#3356 (1))
 		const { expireOldRedemptions } = await loadRepo();
 		const count = await expireOldRedemptions(TENANT);
 		expect(count).toBe(1);
-		// 1 Scan + 1 Update
-		expect(mockSend).toHaveBeenCalledTimes(2);
+		// 1 Scan + 1 Update + 1 marker Delete
+		expect(mockSend).toHaveBeenCalledTimes(3);
 		const upd = mockSend.mock.calls[1]?.[0] as {
 			input: { ExpressionAttributeValues?: Record<string, unknown> };
 		};
 		expect(upd.input.ExpressionAttributeValues?.[':expired']).toBe('expired');
+		const del = mockSend.mock.calls[2]?.[0] as { input: { Key?: { SK?: string } } };
+		expect(del.input.Key?.SK).toBe('REDEMPTPEND#00000007');
 	});
 
 	it('対象 0 件のとき 0 を返し Update しない', async () => {
@@ -530,7 +615,7 @@ describe('hasPendingByReward', () => {
 // ============================================================
 
 describe('deleteByTenantId', () => {
-	it('CHILD#* 配下の REDEMPT# を Scan → BatchWrite で削除する', async () => {
+	it('CHILD#* 配下の REDEMPT# と REDEMPTPEND# を Scan → BatchWrite で削除する', async () => {
 		mockSend
 			.mockResolvedValueOnce({
 				Items: [
@@ -538,7 +623,8 @@ describe('deleteByTenantId', () => {
 					{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'REDEMPT#00000002' },
 				],
 			})
-			.mockResolvedValueOnce({}); // BatchWrite
+			.mockResolvedValueOnce({}) // BatchWrite (REDEMPT#)
+			.mockResolvedValueOnce({ Items: [] }); // Scan (REDEMPTPEND#、0 件で BatchWrite なし)
 		const { deleteByTenantId } = await loadRepo();
 		await deleteByTenantId(TENANT);
 		const scan = mockSend.mock.calls[0]?.[0] as {
@@ -546,6 +632,11 @@ describe('deleteByTenantId', () => {
 		};
 		expect(scan.input.ExpressionAttributeValues?.[':pkPrefix']).toBe(`T#${TENANT}#CHILD#`);
 		expect(scan.input.ExpressionAttributeValues?.[':skPrefix']).toBe('REDEMPT#');
+		// #3356 (1): pending marker prefix も別 pass で削除する
+		const markerScan = mockSend.mock.calls[2]?.[0] as {
+			input: { ExpressionAttributeValues?: Record<string, string> };
+		};
+		expect(markerScan.input.ExpressionAttributeValues?.[':skPrefix']).toBe('REDEMPTPEND#');
 	});
 });
 
@@ -561,7 +652,6 @@ describe('interface 適合 (IRewardRedemptionRepo)', () => {
 			'findRedemptionRequestsByChild',
 			'findRedemptionRequestsByTenant',
 			'updateRedemptionRequestStatus',
-			'findPendingByChildAndReward',
 			'findUnshownResultByChild',
 			'markRedemptionResultShown',
 			'expireOldRedemptions',
@@ -574,6 +664,7 @@ describe('interface 適合 (IRewardRedemptionRepo)', () => {
 
 	it('write method が no-op stub でない (insertRedemptionRequest が実 send する)', async () => {
 		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // 窓 pre-read
 			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
 			.mockResolvedValueOnce({ Item: undefined })
 			.mockResolvedValueOnce({ Items: [] })
@@ -583,7 +674,9 @@ describe('interface 適合 (IRewardRedemptionRepo)', () => {
 			{ childId: CHILD_ID, rewardId: '7', requestedAt: 1 },
 			TENANT,
 		);
-		// stub なら id=0 / send 0 回だった。本実装は counter 採番 + Put を行う。
+		// stub なら id=0 / send 0 回だった。本実装は counter 採番 + TransactWrite を行う。
+		expect('error' in row).toBe(false);
+		if ('error' in row) throw new Error('unreachable');
 		expect(row.id).toBe('1');
 		expect(mockSend).toHaveBeenCalled();
 	});

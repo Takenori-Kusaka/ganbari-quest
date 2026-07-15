@@ -190,6 +190,47 @@ function migrateChildChallengeAutoWeeklyUnique(db: Database.Database): void {
 }
 
 /**
+ * #3284: point_ledger に付与の冪等キー (child_id, type, reference_id) 部分 unique index を導入。
+ * referenceId を持つ付与 (activity / cancel / child_challenge / reward_redemption / special_reward)
+ * の二重 insert を DB レベルで物理拒否し、claim/redeem 経路の二重付与窓を根治する
+ * (#3245 auto:weekly 部分 unique と同パターン)。
+ *
+ * 既存 production DB に重複行 (= 過去の二重付与の実痕跡) があると CREATE UNIQUE INDEX が
+ * 失敗するため、先に dedup (各 (child, type, reference) で最小 id を残し他を削除 = 過去の
+ * 二重付与の遡及補正。balance は SUM(ledger) 由来のため正しい残高に収束する) してから作成。
+ * 冪等: index 既存なら skip。
+ */
+function migratePointLedgerIdempotencyUnique(db: Database.Database): void {
+	if (!tableExists(db, 'point_ledger')) return;
+	if (indexExists(db, 'idx_point_ledger_idempotency')) return;
+
+	const run = db.transaction(() => {
+		const dedup = db
+			.prepare(`
+			DELETE FROM point_ledger
+			WHERE reference_id IS NOT NULL
+			  AND id NOT IN (
+				SELECT MIN(id) FROM point_ledger
+				WHERE reference_id IS NOT NULL
+				GROUP BY child_id, type, reference_id
+			  )
+		`)
+			.run();
+		if (dedup.changes > 0) {
+			console.info(
+				`[lazy-migrate #3284] deduped ${dedup.changes} duplicate point_ledger grant rows (retroactive double-grant correction)`,
+			);
+		}
+		db.exec(
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_point_ledger_idempotency
+			 ON point_ledger(child_id, type, reference_id) WHERE reference_id IS NOT NULL;`,
+		);
+		console.info('[lazy-migrate #3284] created partial unique index for point_ledger idempotency');
+	});
+	run();
+}
+
+/**
  * #2362 PR-3 (Phase 7b-2a): activity 系テーブルの FK target を
  * 旧 `activities` から `child_activities` に切替。
  *
@@ -945,6 +986,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3245: child_challenges auto:weekly に (child_id, start_date) 部分 unique index 復活
 		// (dedup → index)。auto_challenges drop 後、child_challenges を触る前に実行。
 		migrateChildChallengeAutoWeeklyUnique(db);
+		// #3284: point_ledger に付与冪等キー (dedup → 部分 unique index)。#3245 と同パターンで
+		// child_challenges の直後・FK switchover の前に実行 (point_ledger は switchover 対象外)。
+		migratePointLedgerIdempotencyUnique(db);
 		migrateActivityFkSwitchover(db);
 		// #2510 / #2513: FK switchover (dim 3) の **後** に data copy (dim 4) を実行。
 		// FK target が child_activities になった後でないと remap が整合しないため順序固定。

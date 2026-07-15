@@ -90,13 +90,8 @@ export async function updateRedemptionRequestStatus(
 	return undefined;
 }
 
-export async function findPendingByChildAndReward(
-	_childId: ChildId,
-	_rewardId: string,
-	_tenantId: string,
-): Promise<RedemptionRequestRow | undefined> {
-	return undefined;
-}
+// findPendingByChildAndReward は #3356 (1) で撤去 (dedup は insertRedemptionRequest に内蔵。
+// demo は stateless stub のため dedup せず常に stub row を返す = 従来挙動不変)。
 
 export async function findUnshownResultByChild(
 	_childId: ChildId,

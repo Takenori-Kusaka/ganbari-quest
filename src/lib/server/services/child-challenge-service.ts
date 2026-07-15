@@ -19,7 +19,6 @@ import {
 	CATEGORY_NUMERIC_IDS,
 } from '$lib/domain/categories';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { insertPointLedger } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -794,27 +793,26 @@ export async function claimChildChallengeReward(
 	const repos = getRepos();
 	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
 	if (!challenge) return { error: 'チャレンジが見つかりません' };
-	// IDOR 防御 + 事前 gate (childId 所有権 / completed)。rewardClaimed の最終判定は下の条件付き UPDATE で行う。
+	// IDOR 防御 + 事前 gate (childId 所有権 / completed)。rewardClaimed の最終判定は下の原子 primitive で行う。
 	if (challenge.childId !== childId) return { error: 'このチャレンジは別のお子さま用です' };
 	if (challenge.completed !== 1) return { error: 'まだクリアしていません' };
 
-	// claim-first (#3333): 先に条件付き claimReward を atomic に実行し、実際に flip できた (戻り値 === 1)
-	// ときだけポイントを付与する。check-then-act だと並行 submit で findById が両方 rewardClaimed=0 を
-	// 読み、insertPointLedger が 2 回走る TOCTOU 二重付与が起きるため、付与の前に flip を確定させる。
-	const flipped = await repos.childChallenge.claimReward(challengeId, tenantId);
-	if (flipped !== 1) return { error: 'すでに受け取り済みです' };
-
+	// #3284 / #3342 (#3333 claim-first の後継): 条件付き flip + point ledger insert を repo 層の
+	// **単一原子 primitive** で実行する。旧 2 段構成 (claimReward flip → 別呼び出しで
+	// insertPointLedger) は flip 成功後の ledger throw で lost-award (rewardClaimed=1 のまま付与 0 =
+	// 恒久受取不能) が残っていた。primitive 内では両成功 or 両 rollback が保証され、ledger 側の
+	// 冪等 UNIQUE (child, type='child_challenge', referenceId=challengeId) が二重付与を DB 層で拒否する。
 	const rewardConfig: RewardConfig = JSON.parse(challenge.rewardConfig);
-	await insertPointLedger(
+	const flipped = await repos.childChallenge.claimRewardAndGrantPoints(
+		challengeId,
 		{
 			childId,
 			amount: rewardConfig.points,
-			type: 'child_challenge',
 			description: `チャレンジ達成: ${challenge.title}`,
-			referenceId: challengeId,
 		},
 		tenantId,
 	);
+	if (flipped !== 1) return { error: 'すでに受け取り済みです' };
 	return { points: rewardConfig.points, message: rewardConfig.message };
 }
 

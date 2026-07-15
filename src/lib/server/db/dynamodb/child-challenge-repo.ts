@@ -29,6 +29,7 @@ import {
 	GetCommand,
 	PutCommand,
 	ScanCommand,
+	TransactWriteCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
@@ -48,6 +49,8 @@ import {
 	childChallengePrefix,
 	childPK,
 	ENTITY_NAMES,
+	pointLedgerIdempotencyKey,
+	pointLedgerKey,
 	tenantPK,
 } from './keys';
 import { queryAllItems, stripKeys } from './repo-helpers';
@@ -344,31 +347,87 @@ export async function markCompleted(id: string, tenantId: string): Promise<void>
 }
 
 /**
- * ごほうび受取マーク (条件付き原子化、#3333)。
- * `completed=1 AND (rewardClaimed が未設定 OR 0)` の行のみ flip し、flip できたら 1 / できなければ 0 を返す。
- * DynamoDB ConditionExpression で atomic に判定するため、並行 submit (同 child 二重 POST) でも
- * 2 件目は ConditionalCheckFailedException となり 0 を返す。service 層は戻り値 === 1 のときだけ
- * ポイント付与する (claim-first) ことで TOCTOU 二重付与を防ぐ。tenant scope は resolveKeyById の
- * PK (`T#<tenantId>#...`) 解決で担保 (IDOR 防御)。
+ * ごほうび受取マーク + ポイント付与の単一原子プリミティブ (#3284 / #3342、#3333 claim-first の後継)。
+ *
+ * 単一 TransactWriteItems で以下 3 item を all-or-nothing 実行する:
+ *   1. challenge 行の条件付き flip (`completed=1 AND rewardClaimed 未設定 or 0`)
+ *   2. point_ledger item Put (type='child_challenge' / referenceId=id)
+ *   3. 冪等 marker Put (POINTIDEM#child_challenge#<id>、attribute_not_exists、#3284)
+ * 条件不成立 (既請求 / 未完了 / 二重付与) は TransactionCanceledException となり全 item が
+ * cancel されるため、旧 2 段構成の lost-award (flip 済 + 付与 0、#3342 (1)) が構造的に消える。
+ *
+ * 残高整合: 既存 insertPointLedger (activity-repo) と同じく BALANCE item は触らない
+ * (challenge 付与経路の既存セマンティクス保存。BALANCE 整合は別課題で、本 PR の scope 外)。
+ *
+ * #3342 (3): resolveKeyById が null (challenge が tenant 内に不在) の場合は 0 を返さず throw
+ * する。「既請求 (0)」と「not-found」の混同を排除し、service 層の事前 findById を通過した後の
+ * 並行削除等の異常系を明示エラーとして露出する。
  */
-export async function claimReward(id: string, tenantId: string): Promise<number> {
+export async function claimRewardAndGrantPoints(
+	id: string,
+	ledger: { childId: ChildId; amount: number; description: string },
+	tenantId: string,
+): Promise<number> {
 	const key = await resolveKeyById(id, tenantId);
-	if (!key) return 0;
+	if (!key) {
+		throw new Error(`claimRewardAndGrantPoints: challenge not found (id=${id}) #3342`);
+	}
 	const now = new Date().toISOString();
+	const ledgerId = await nextId(ENTITY_NAMES.pointLedger, tenantId);
 	try {
 		await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: key,
-				UpdateExpression: 'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
-				ConditionExpression:
-					'completed = :one AND (attribute_not_exists(rewardClaimed) OR rewardClaimed = :zero)',
-				ExpressionAttributeValues: { ':one': 1, ':zero': 0, ':now': now },
+			new TransactWriteCommand({
+				TransactItems: [
+					{
+						Update: {
+							TableName: TABLE_NAME,
+							Key: key,
+							UpdateExpression:
+								'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
+							ConditionExpression:
+								'completed = :one AND (attribute_not_exists(rewardClaimed) OR rewardClaimed = :zero)',
+							ExpressionAttributeValues: { ':one': 1, ':zero': 0, ':now': now },
+						},
+					},
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: {
+								...pointLedgerKey(Number(ledger.childId), now, ledgerId, tenantId),
+								id: ledgerId,
+								childId: Number(ledger.childId),
+								amount: ledger.amount,
+								type: 'child_challenge',
+								description: ledger.description,
+								referenceId: Number(id),
+								createdAt: now,
+							},
+						},
+					},
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: {
+								...pointLedgerIdempotencyKey(
+									Number(ledger.childId),
+									'child_challenge',
+									Number(id),
+									tenantId,
+								),
+								ledgerId,
+								createdAt: now,
+							},
+							ConditionExpression: 'attribute_not_exists(PK)',
+						},
+					},
+				],
 			}),
 		);
 		return 1;
 	} catch (e) {
-		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') {
+		if (e instanceof Error && e.name === 'TransactionCanceledException') {
+			// flip 条件不成立 (既請求 / 未完了) or 冪等 marker 既存 (二重付与)。
+			// いずれも「付与しない」が正で、transaction 全体 cancel 済 (partial write なし)。
 			return 0;
 		}
 		throw e;
