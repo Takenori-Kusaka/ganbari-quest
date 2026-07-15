@@ -155,6 +155,17 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
 - **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。Sub A-3 対象 endpoint (retention-cleanup / trial-notifications) は 0 tolerance で厳密検証する一方、`age-recalc` は EventBridge / dispatcher 未反映の既知 drift として `KNOWN_DRIFT_OUT_OF_SCOPE` で除外している (上表「✗」と整合)。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
 
+**Cron ジョブ実行時間予算 — 30 秒 self-limiting + 持ち越し規約 (#3695):**
+
+全 cron ジョブの実処理は `EventBridge → cron-dispatcher → HTTP POST → SvelteKitFn (timeout 30 秒)` 上で走るため、dispatcher 側の timeout (Lambda 5 分 / HTTP client 270 秒) は「アプリ Lambda が 504 を返すまで待つだけ」で救済にならず、**全ジョブが実質 30 秒制約下にある**。「cron だから長く走れる」という前提で設計してはならない。
+
+- **規約**: 処理量がデータ量 (テナント数 / pending 件数等) に比例する cron ジョブは、**1 回の実行で 30 秒予算内に処理できる分だけ処理し、残りは次回実行に持ち越す** (self-limiting)。実装は `src/lib/server/cron/time-budget.ts` の `createTimeBudget` (既定 20 秒 = 30 秒 − 認証・前処理・in-flight 完走・レスポンス直列化のヘッドルーム 10 秒) と件数上限の併用。予算超過チェックは item 間で行い、着手した item は完走させる (中断は stale 'building' 等の中途状態を量産するため)
+- **観測性**: 持ち越し発生時は件数 (`remaining` / `skipped`) を log warn + レスポンスに必ず含める (silent 持ち越し禁止、ADR-0006 整合)
+- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲)
+- **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
+- **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
+- **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
+
 ### 3.4 OpsStack（監視・コスト防衛）
 
 **SNS 通知基盤:**

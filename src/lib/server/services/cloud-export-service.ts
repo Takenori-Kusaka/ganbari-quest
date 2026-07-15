@@ -4,6 +4,7 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 
 import { randomInt } from 'node:crypto';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
@@ -262,6 +263,8 @@ export interface DrainResult {
 	failed: number;
 	/** #3509: stale 'building' から 'failed' へ reclaim (fail-closed) した件数。 */
 	reclaimed: number;
+	/** #3695: 時間予算超過で今回 build せず次回実行 (5 分毎) へ持ち越した件数。 */
+	skipped: number;
 }
 
 /**
@@ -299,15 +302,27 @@ export async function reclaimStaleBuildingExports(
  * #3509 QM 是正: build 開始前に {@link reclaimStaleBuildingExports} を呼び、cron worker が
  * kill/timeout して 'building' のまま永久 stuck したレコードを 'failed' へ fail-closed してから
  * 通常の pending drain を行う。
+ *
+ * #3695 (30 秒 self-limiting + 持ち越し規約、13-AWS設計書 §3.3): ZIP build は 1 件が重く
+ * limit 件で 30 秒 (アプリ Lambda timeout) を超えうるため、build 間で時間予算を確認し、
+ * 予算超過時は残りを build せず次回実行 (5 分毎 cron) に持ち越す (`skipped` で報告)。
+ * 予算内に着手した build は完走させる (中断すると #3509 の stale 'building' を自ら量産するため)。
  */
-export async function drainPendingExports(limit = 5): Promise<DrainResult> {
+export async function drainPendingExports(
+	limit = 5,
+	budget: TimeBudget = createTimeBudget(),
+): Promise<DrainResult> {
 	const repos = getRepos();
 	const reclaimed = await reclaimStaleBuildingExports();
 	const pending = await repos.cloudExport.findPendingBuilds(limit);
 	let ready = 0;
 	let failed = 0;
+	let attempted = 0;
 
 	for (const record of pending) {
+		// #3695: 予算超過なら残りは次回 5 分毎 cron が拾う (pending のまま残す)。
+		if (budget.exceeded()) break;
+		attempted++;
 		const { id, tenantId, exportType, s3Key } = record;
 		try {
 			await repos.cloudExport.updateStatus(id, tenantId, 'building');
@@ -341,7 +356,15 @@ export async function drainPendingExports(limit = 5): Promise<DrainResult> {
 		}
 	}
 
-	return { processed: pending.length, ready, failed, reclaimed };
+	const skipped = pending.length - attempted;
+	if (skipped > 0) {
+		// #3695: silent 持ち越し禁止 (ADR-0006 整合) — 持ち越し発生を必ずログに残す。
+		logger.warn('[cloud-export] drain 時間予算超過、残件を次回実行へ持ち越し', {
+			context: { skipped, attempted, limit, elapsedMs: budget.elapsedMs() },
+		});
+	}
+
+	return { processed: attempted, ready, failed, reclaimed, skipped };
 }
 
 /**

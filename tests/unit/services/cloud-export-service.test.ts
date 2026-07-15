@@ -265,7 +265,7 @@ describe('cloud-export-service', () => {
 
 			const result = await drainPendingExports(5);
 
-			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0 });
+			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0, skipped: 0 });
 			// building → ready の 2 回
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenNthCalledWith(
 				1,
@@ -359,7 +359,7 @@ describe('cloud-export-service', () => {
 		it('pending 0 件のとき何もしない', async () => {
 			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
 			const result = await drainPendingExports();
-			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0 });
+			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0, skipped: 0 });
 			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
 		});
 
@@ -390,6 +390,39 @@ describe('cloud-export-service', () => {
 
 			expect(result.reclaimed).toBe(0);
 			expect(result.ready).toBe(1);
+		});
+
+		it('#3695: 時間予算超過で残件を build せず skipped として持ち越す (pending のまま残す)', async () => {
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
+				pendingRecord({ id: '1' }),
+				pendingRecord({ id: '2' }),
+				pendingRecord({ id: '3' }),
+			]);
+			// 1 件目の build 後に予算超過する fake budget (2 回目の exceeded() から true)
+			let calls = 0;
+			const budget = { exceeded: () => ++calls > 1, elapsedMs: () => 20_001 };
+
+			const result = await drainPendingExports(5, budget);
+
+			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0, skipped: 2 });
+			// 2 件目以降は building 遷移していない (pending のまま = 次回 cron が拾う)
+			const buildingIds = mockCloudExportRepo.updateStatus.mock.calls
+				.filter((c) => c[2] === 'building')
+				.map((c) => c[0]);
+			expect(buildingIds).toEqual(['1']);
+		});
+
+		it('#3695: 開始時点で予算超過なら 1 件も build せず全件持ち越す', async () => {
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
+				pendingRecord({ id: '1' }),
+				pendingRecord({ id: '2' }),
+			]);
+			const budget = { exceeded: () => true, elapsedMs: () => 20_001 };
+
+			const result = await drainPendingExports(5, budget);
+
+			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0, skipped: 2 });
+			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
 		});
 	});
 

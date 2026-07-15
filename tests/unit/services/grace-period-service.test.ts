@@ -18,6 +18,7 @@ const mockSetSetting = vi.fn(async (key: string, value: string, _tenantId: strin
 });
 const mockListAllTenants = vi.fn().mockResolvedValue([]);
 const mockUpdateTenantStripe = vi.fn();
+const mockFindTenantMembers = vi.fn().mockResolvedValue([{ userId: 'owner-1', role: 'owner' }]);
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -28,8 +29,17 @@ vi.mock('$lib/server/db/factory', () => ({
 		auth: {
 			listAllTenants: mockListAllTenants,
 			updateTenantStripe: mockUpdateTenantStripe,
+			findTenantMembers: mockFindTenantMembers,
 		},
 	}),
+}));
+
+// #3695: purge の実削除経路 (dynamic import) を spy 化して self-limiting を検証する
+const mockDeleteOwnerOnlyAccount = vi.fn().mockResolvedValue(undefined);
+const mockDeleteOwnerFullDelete = vi.fn().mockResolvedValue(undefined);
+vi.mock('$lib/server/services/account-deletion-service', () => ({
+	deleteOwnerOnlyAccount: mockDeleteOwnerOnlyAccount,
+	deleteOwnerFullDelete: mockDeleteOwnerFullDelete,
 }));
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -308,8 +318,60 @@ describe('grace-period-service', () => {
 
 			expect(result.tenantsProcessed).toBe(0);
 			expect(result.tenantsDeleted).toBe(0);
+			expect(result.tenantsRemaining).toBe(0);
 			expect(result.expired).toHaveLength(0);
 			expect(result.errors).toHaveLength(0);
+		});
+
+		// #3695: 30 秒 self-limiting + 持ち越し (13-AWS設計書 §3.3)
+		function seedExpiredTenants(ids: string[]) {
+			const pastDate = new Date();
+			pastDate.setDate(pastDate.getDate() - 5);
+			// settingsStore 経由の既定実装で全テナントが期限切れ扱いになる
+			settingsStore.set('soft_deleted_at', new Date(Date.now() - 35 * 86400000).toISOString());
+			settingsStore.set('deletion_grace_plan_tier', 'family');
+			settingsStore.set('physical_deletion_date', pastDate.toISOString());
+			mockListAllTenants.mockResolvedValue(ids.map((tenantId) => ({ tenantId })));
+			mockFindTenantMembers.mockResolvedValue([{ userId: 'owner-1', role: 'owner' }]);
+			mockDeleteOwnerOnlyAccount.mockResolvedValue(undefined);
+			mockDeleteOwnerFullDelete.mockResolvedValue(undefined);
+		}
+
+		it('#3695: limit 超過分は削除せず tenantsRemaining として翌日実行へ持ち越す', async () => {
+			seedExpiredTenants(['t1', 't2', 't3']);
+
+			const result = await purgeExpiredSoftDeletedTenants({ dryRun: false, limit: 2 });
+
+			expect(result.tenantsProcessed).toBe(2);
+			expect(result.tenantsDeleted).toBe(2);
+			expect(result.tenantsRemaining).toBe(1);
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledTimes(2);
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1');
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t2', 'owner-1');
+		});
+
+		it('#3695: 時間予算超過なら以降のテナントを削除せず持ち越す', async () => {
+			seedExpiredTenants(['t1', 't2']);
+			// 1 件目の処理後に予算超過する fake budget (2 回目の exceeded() から true)
+			let calls = 0;
+			const budget = { exceeded: () => ++calls > 1, elapsedMs: () => 20_001 };
+
+			const result = await purgeExpiredSoftDeletedTenants({ dryRun: false, budget });
+
+			expect(result.tenantsProcessed).toBe(1);
+			expect(result.tenantsDeleted).toBe(1);
+			expect(result.tenantsRemaining).toBe(1);
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledTimes(1);
+		});
+
+		it('#3695: limit 内 + 予算内なら全件削除し持ち越し 0', async () => {
+			seedExpiredTenants(['t1', 't2']);
+
+			const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+			expect(result.tenantsProcessed).toBe(2);
+			expect(result.tenantsDeleted).toBe(2);
+			expect(result.tenantsRemaining).toBe(0);
 		});
 	});
 });
