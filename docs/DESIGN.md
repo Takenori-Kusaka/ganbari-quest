@@ -631,6 +631,7 @@ admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび
 - admin 画面の「みんなのテンプレートから探す」は `/marketplace?type=<typeCode>` への**画面遷移**とし、in-page ブラウズ UI を出さない。取込実行は marketplace 詳細 → `?import=<presetId>` → `ChildSelectionDialog` の正規経路 (`marketplace-import-flow.md` §3.1) に合流させる。
 - **ファイル復元 (JSON / CSV import) はマーケットプレイスとは別概念**。`UnifiedImportHub` がブラウズ UI とファイル復元を兼ねている場合、ブラウズ UI のみ撤去し、ファイル復元は独立した導線 (例: `︙` overflow menu の「バックアップから復元」+ 専用ダイアログ、`OVERFLOW_MENU_TERMS.itemRestore`) として保持する。
 - **適用範囲**: 全 5 admin 画面 (activities / rewards / challenges / checklists / settings/rules) で**in-page browse UI を撤去完了**。ただし取込先となるのは取込 4 type (activities / rewards / checklists / settings/rules) のみで、admin/challenges は marketplace 取込先ではなく読み取り専用ビュー (#3195、challenge-set は取込型ではない)。`UnifiedImportHub.svelte` component 自体は Storybook / unit test / 将来用途 (LP 経由公開ブラウズ等) のため存続させる。詳細は [marketplace-import-flow.md §5.1](design/marketplace-import-flow.md)。
+- **challenge-set 残置物の存続 / 撤去終了条件 (#3442)**: `UnifiedImportHub` 内の challenge-set 分岐 (`?/importMarketplaceChallengeSet` action 名解決) は、取込タブが browseable filter で challenge-set / rule-preset を除外するため到達不能 (server action 自体は #3195 で撤去済)。challenge-set の型 / schema / Registry 登録 / `tests/fixtures/marketplace/challenge-sets/` とあわせて schema 互換検証のため残置する。**撤去条件 = challenge-set を `MarketplaceItemType` (5 type) から正式に外す決定が下った時点**で、型 / schema / fixture / Hub 分岐 / 非陳列回帰 spec (`tests/e2e/marketplace-challenge-set-import.spec.ts`) を同一 PR で一括撤去する (それまでの個別部分削除は行わない)。
 
 #### marketplace 取込 CTA 取込 4 type 統一原則 (#2774 + #2775 で完遂、User 指摘 #2/#4 根治)
 
