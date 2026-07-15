@@ -120,8 +120,10 @@ describe('#3394 restore-idempotency registry fitness (ADR-0061 same-class → gu
 			'utf-8',
 		);
 		// parentMessage: (messageType, stampCode, body, sentAt) content key
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: source-scan fitness — import-service 内の template literal を文字列として照合する
 		expect(importService).toContain('${m.messageType}|${m.stampCode ?? ');
 		// siblingCheer: (fromChildId, toChildId, stampCode, sentAt) content key
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: source-scan fitness — import-service 内の template literal を文字列として照合する
 		expect(importService).toContain('${fromChildId}|${toChildId}|${c.stampCode}|${c.sentAt}');
 	});
 });
