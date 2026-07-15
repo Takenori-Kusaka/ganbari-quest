@@ -58,7 +58,11 @@ jobs:
 
       # script が markdown report を stdout + GITHUB_STEP_SUMMARY へ出力する。
       # 検出 0 件でも N 件でも exit 0 (gate ではない)。
+      # workflow_dispatch input は run: へ ${{ }} 直展開せず env 経由で渡す
+      # (GitHub Actions script injection 定石、#3745。shell が $SINCE を展開するため
+      #  input 値が shell 構文として解釈されない)
       - name: Detect close leaks (report only)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/audit/close-leak-report.mjs --since "${{ inputs.since || '90 days ago' }}"
+          SINCE: ${{ inputs.since || '90 days ago' }}
+        run: node scripts/audit/close-leak-report.mjs --since "$SINCE"

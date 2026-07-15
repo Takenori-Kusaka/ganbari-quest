@@ -180,11 +180,16 @@ jobs:
       - name: Pipeline CLI smoke (sample fixture → 集約レポート)
         # 固定 fixture (scripts/audit/fixtures/sample-evidence.json) を evidence dir に置き、
         # verify → run-pipeline --strict が exit 0 になることを確認する (pipeline 配線の健全性)。
+        # workflow_dispatch input は run: へ ${{ }} 直展開せず env 経由で渡す
+        # (script injection 定石、#3745。run_id は自由文字列 input のため特に必須)
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          SCOPE: ${{ inputs.scope }}
         run: |
           mkdir -p tmp/audit-evidence
           cp scripts/audit/fixtures/sample-evidence.json tmp/audit-evidence/sample.json
           node scripts/audit/verify-audit-evidence.mjs --file tmp/audit-evidence/sample.json
-          node scripts/audit/run-pipeline.mjs --run-id "${{ inputs.run_id }}" --scope "${{ inputs.scope }}" --strict
+          node scripts/audit/run-pipeline.mjs --run-id "$RUN_ID" --scope "$SCOPE" --strict
       - name: Upload pipeline report artifact
         if: always()
         uses: actions/upload-artifact@v7
