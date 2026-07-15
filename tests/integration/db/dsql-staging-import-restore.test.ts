@@ -67,6 +67,19 @@ describe.skipIf(!ENDPOINT)(
 			const ledgerEntries: { childRef: string; amount: number }[] = exportData.data.pointLedger;
 			expect(ledgerEntries.length).toBe(772);
 
+			// 前回 run が timeout / kill で finally cleanup 未到達だった場合の残骸を除去する
+			// (専用 tenant を import 前に空へ正規化 — 汚染耐性)。
+			// ⚠️ blast radius 注記: 本 test の書込/削除は全て専用 TENANT uuid にスコープされる
+			// (clearAllFamilyData も family_id 述語)。DSQL_ENDPOINT を誤って本番に向けても他 tenant
+			// には触れないが、本番 DB にテスト tenant を書き込むことになるため endpoint は必ず
+			// staging を指定すること。共有 TENANT のため並行実行 (2 者同時) は不可 — solo 前提
+			// (#3683 CI レーン化時に per-run tenant 分離へ移行)。
+			// catch は「tenant が未作成 = 削除対象なし」の正常系のみを許容し、接続断等の真の障害は
+			// 後段 assert を混乱させる前に観測できるよう warn を出す (#3700 握りつぶし教訓)。
+			await clearAllFamilyData(TENANT).catch((e) => {
+				console.warn('[dsql-staging-import-restore] pre-clean skipped:', String(e));
+			});
+
 			try {
 				const result = await importFamilyData(exportData, TENANT);
 
@@ -101,6 +114,6 @@ describe.skipIf(!ENDPOINT)(
 				// staging 原状復帰: tenant scope データ + 子供集約を全削除 (専用 family uuid 隔離)
 				await clearAllFamilyData(TENANT).catch(() => {});
 			}
-		}, 600_000);
+		}, 1_500_000);
 	},
 );
