@@ -451,7 +451,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</p>
 						<a
 							href="/pricing"
-							class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
+							class="inline-block px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:opacity-90 transition-all"
 							data-testid="export-upsell-cta"
 						>
 							{SETTINGS_LABELS.dataExportUpsellCta}
@@ -854,7 +854,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 					</p>
 					<a
 						href="/pricing"
-						class="inline-block px-4 py-2 bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:brightness-110 transition-all"
+						class="inline-block px-4 py-2 bg-[var(--color-premium)] text-[var(--color-text-inverse)] text-sm font-semibold rounded-lg no-underline hover:opacity-90 transition-all"
 						data-testid="cloud-export-upsell-cta"
 					>
 						{SETTINGS_LABELS.cloudUpsellCta}

@@ -140,7 +140,7 @@ function maxCategoryCount(breakdown: Record<string, number>): number {
 			<div class="mt-3">
 				<a
 					href="/pricing"
-					class="inline-flex items-center gap-1 rounded-lg bg-[var(--color-action-trial-upgrade)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-action-trial-upgrade-hover)]"
+					class="inline-flex items-center gap-1 rounded-lg bg-[var(--color-premium)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-inverse)] hover:opacity-90"
 				>
 					{REPORTS_LABELS.weeklyEmailUpsellLink}
 				</a>
