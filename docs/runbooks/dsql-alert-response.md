@@ -7,10 +7,12 @@
 # https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards/dashboard/ganbari-quest-dsql
 # cluster 状態
 aws dsql list-clusters --region us-east-1 --output table
-# 直近 1h の対象 metric 実値 (例: OccConflicts)
+# 直近 1h の対象 metric 実値 (例: OccConflicts)。--start-time / --end-time は UTC の
+# ISO 8601 を明示指定する (date -d は GNU 拡張で Windows Git Bash に無い。
+# 迷ったら dashboard (console) の期間指定で見るのが最速)
 aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/AuroraDSQL \
   --metric-name OccConflicts --dimensions Name=ClusterId,Value=<cluster-id> \
-  --start-time $(date -u -d '1 hour ago' +%FT%TZ) --end-time $(date -u +%FT%TZ) \
+  --start-time <UTC 開始 例 2026-07-15T08:00:00Z> --end-time <UTC 終了> \
   --period 300 --statistics Sum
 ```
 
@@ -33,7 +35,8 @@ aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/AuroraDS
 1. 増加ペースを確認 (急増 = 異常データ、緩増 = 自然成長)
 2. 急増時: 直近の restore 多重実行 / retention-cleanup cron の停止を疑う
    ```bash
-   curl -X POST https://ganbari-quest.com/api/cron/retention-cleanup -H "x-cron-secret: <CRON_SECRET>" -d '{"dryRun": true}'
+   # CRON_SECRET は GitHub Secrets の値。shell history に残さないよう env 変数経由で渡す (直書き禁止)
+   curl -X POST https://ganbari-quest.com/api/cron/retention-cleanup -H "x-cron-secret: $CRON_SECRET" -d '{"dryRun": true}'
    ```
 3. 自然成長時: プラン別 retention (ADR-0049) の物理削除対象拡張を PO と検討 (無料枠超過は月額数十円規模のため priority は低)
 
@@ -76,6 +79,8 @@ aws cloudwatch get-metric-statistics --region us-east-1 --namespace AWS/AuroraDS
 1. Lambda 同時実行数と突合: `aws lambda get-function --function-name ganbari-quest-app --region us-east-1` + CloudWatch `ConcurrentExecutions`
 2. 単調増加 (実行数と乖離) なら接続リーク — `dsql/connection.ts` の pool 生成が唯一の集約点のため、直近の接続系変更を review
 3. 緊急時は Lambda の再 deploy (`gh workflow run deploy.yml --ref main`) でコンテキストを世代交代させる
+   — ただし**最終手段**: 再 deploy は接続リークの証跡 (実行コンテキスト) を破壊し真因調査を難しくする。
+   実行前に CloudWatch Logs の該当時間帯を保全し、main に deploy 起因の未解消 issue が無いことを確認する
 
 ## エスカレーション基準
 
