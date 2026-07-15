@@ -149,6 +149,9 @@ async function postImport(mode: string): Promise<Response> {
 		}
 		const text = await importFile.text();
 		const json = JSON.parse(text);
+		// fetch-error-exempt (#3324): 失敗は呼び出し側 (handleImportPreview / executeImport) が
+		// res.ok チェック + catch → importError で可視化する (ADR-0062 の可視フィードバック要件は
+		// caller が充足)。helper は Response を返すのみでエラー処理を co-locate しない。
 		return await fetch(`/api/v1/import?mode=${mode}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -177,6 +180,9 @@ async function postCloudImport(
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), IMPORT_FETCH_TIMEOUT_MS);
 	try {
+		// fetch-error-exempt (#3324): 失敗は呼び出し側 (handleCloudImportPreview / executeCloudImport)
+		// が res.ok チェック + catch → cloudImportError で可視化する (ADR-0062 の可視フィードバック要件は
+		// caller が充足)。helper は Response を返すのみでエラー処理を co-locate しない。
 		return await fetch(`/api/v1/import/cloud?mode=${mode}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
