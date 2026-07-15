@@ -283,20 +283,20 @@ describe('#3394 restore 冪等 guard 統一 (corrupted backup → skip + count �
 
 		// --- 実 DB 最終状態: 重複が物理的に 1 行へ収束している ---
 		const children = await findAllChildren(T);
-		const yuki = children.find((c) => c.nickname === 'ゆうき');
-		if (!yuki) throw new Error('restored child not found');
-		const challenges = await getRepos().childChallenge.findByChildId(yuki.id, T);
+		const restoredChild = children.find((c) => c.nickname === 'ゆうき');
+		if (!restoredChild) throw new Error('restored child not found');
+		const challenges = await getRepos().childChallenge.findByChildId(restoredChild.id, T);
 		expect(challenges.length, 'DB: auto:weekly 1 行').toBe(1);
-		const cards = await getRepos().stampCard.findCardsByChild(yuki.id, T);
+		const cards = await getRepos().stampCard.findCardsByChild(restoredChild.id, T);
 		expect(cards.length, 'DB: card 1 枚').toBe(1);
 		const cardId = cards[0]?.id as string;
 		const entries = await getRepos().stampCard.findEntriesByCardId(cardId, T);
 		expect(entries.length, 'DB: 押印 1 件').toBe(1);
-		const certs = await getRepos().certificate.findCertificates(yuki.id, T);
+		const certs = await getRepos().certificate.findCertificates(restoredChild.id, T);
 		expect(certs.length, 'DB: 証明書 1 通').toBe(1);
-		const prefs = await getRepos().activityPref.findAllByChild(yuki.id, T);
+		const prefs = await getRepos().activityPref.findAllByChild(restoredChild.id, T);
 		expect(prefs.length, 'DB: 活動設定 1 件').toBe(1);
-		const messages = await getRepos().message.findMessages(yuki.id, 100, T);
+		const messages = await getRepos().message.findMessages(restoredChild.id, 100, T);
 		expect(messages.length, 'DB: メッセージ 1 件').toBe(1);
 
 		// --- #3465 item 3: activityPref createdAt/updatedAt round-trip (ADR-0006) ---

@@ -2,7 +2,7 @@
 // #3394: backup restore の insertForRestore 冪等 guard 分類 SSOT (same-class #3385/#3391/#3387/#3401)。
 //
 // 背景: DynamoDB insertForRestore が SQLite unique index 相当の衝突防御を欠く同型欠陥が
-// 連続発生した (#3385 challenge auto:weekly / #3391 stampcard)。個別パッチでは同 class の
+// 連続発生した (#3385 challenge auto:weekly / #3391 stampCard)。個別パッチでは同 class の
 // 新規 entity 追加時に再発するため、本 registry で「restore 冪等性の種別」と「backend ごとの
 // guard 実装方式」を宣言し、fitness function (tests/unit/db/restore-idempotency-registry.test.ts)
 // が以下を機械検証する (ADR-0061 same-class → guard):
