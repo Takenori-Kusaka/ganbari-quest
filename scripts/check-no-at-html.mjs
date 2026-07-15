@@ -36,13 +36,16 @@ const AT_HTML = /\{@html\b/;
 const ALLOW_AT_HTML = /eslint-disable(?:-next-line)?\s+svelte\/no-at-html-tags|allow-at-html:/;
 // TS/JS echo sink (#3450 item2 + #3741 bracket/document.write 拡張):
 //   1. innerHTML / outerHTML への代入 — dot (`el.innerHTML`) と bracket (`el['innerHTML']` /
-//      `el["innerHTML"]`) を同値カバーし、演算子は = / += / ||= / ??= を検出。
+//      `el["innerHTML"]` / `el[`innerHTML`]`) を同値カバーし、演算子は = / += / ||= / ??= を検出。
 //      `(?!=)` で比較演算子 (== / === / !==) を除外する。
 //   2. insertAdjacentHTML 呼び出し — dot / bracket 両形。
 //   3. document.write / document.writeln 呼び出し — dot / bracket 両形 (`document` レシーバ
 //      限定。`writer.write(chunk)` 等の一般 write は誤検出しない)。
+// bracket key の quote 文字クラスは single/double/backtick の 3 種 (`['"`]`) を許容する。
+// backtick を欠くと `el[`innerHTML`] = x` 等の template-literal key evasion が MISS する
+// (#3741 が塞ぐ bracket 回避の同一クラス兄弟、ADR-0061 same-class→guard)。
 const TS_SINK =
-	/(?:\.(?:innerHTML|outerHTML)|\[\s*['"](?:innerHTML|outerHTML)['"]\s*\])\s*(?:\+|\|\||\?\?)?=(?!=)|(?:\binsertAdjacentHTML|\[\s*['"]insertAdjacentHTML['"]\s*\])\s*\(|\bdocument\s*(?:\.\s*write(?:ln)?|\[\s*['"]write(?:ln)?['"]\s*\])\s*\(/;
+	/(?:\.(?:innerHTML|outerHTML)|\[\s*['"`](?:innerHTML|outerHTML)['"`]\s*\])\s*(?:\+|\|\||\?\?)?=(?!=)|(?:\binsertAdjacentHTML|\[\s*['"`]insertAdjacentHTML['"`]\s*\])\s*\(|\bdocument\s*(?:\.\s*write(?:ln)?|\[\s*['"`]write(?:ln)?['"`]\s*\])\s*\(/;
 const ALLOW_SINK = /allow-innerhtml:/;
 // sanitizer 実呼び出しパターン (#3450 item3)。DOMPurify (ADR-0025) を第一級とし、
 // 同等 sanitizer (sanitize-html 等) の呼び出し形も許容する。
