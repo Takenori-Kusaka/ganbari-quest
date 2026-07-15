@@ -134,6 +134,16 @@ npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必�
 
 使用必須: 認証画面変更 PR の Ready 前 / SS 撮影 / login / signup / ops group / プラン別 UI / 管理画面の変更時。
 
+### local 検証不可: invite / members (auth repo) 系 (#3732)
+
+招待 (invites) / メンバー (memberships) 系の作成〜受諾フローは **どの local backend でも検証できない**。cloud staging (#2873) で検証する:
+
+| backend | 検証不可の理由 |
+|---|---|
+| sqlite (`dev:cognito` 既定) | auth repo 非対応 (`sqlite/auth-repo.ts` が `AUTH_MODE=cognito` 要求で 500) |
+| `DATA_SOURCE=demo` | `createInvite` が非永続 stub (一覧に出ず受諾不可) |
+| `DATA_SOURCE=pglite` | `DEV_USERS` の tenant id が非 UUID のため uuid 型 column で 22P02 (全 admin ページ 500) |
+
 ## 巨大 docs refactor PR 分割ガイドライン (#2225)
 
 #2223 (Epic 2 / 142 file) / #2224 (Epic 3 / 146 file) で連続発生した「docs/sessions/ SSOT 削除 + 60+ ファイル参照未更新 + 機械生成ツール暴走」(両 PR BLOCK / Close) の構造的再発防止。
