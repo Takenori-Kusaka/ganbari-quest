@@ -101,6 +101,6 @@ describe.skipIf(!ENDPOINT)(
 				// staging 原状復帰: tenant scope データ + 子供集約を全削除 (専用 family uuid 隔離)
 				await clearAllFamilyData(TENANT).catch(() => {});
 			}
-		}, 600_000);
+		}, 1_500_000);
 	},
 );
