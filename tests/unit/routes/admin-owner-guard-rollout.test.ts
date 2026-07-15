@@ -13,13 +13,24 @@
 // - negative (parent / child): 403 + 既存 `{ error: <既存日本語文言> }` body が
 //   バイト一致で維持されること (回帰固定: 現実装でも green)
 // - positive (owner): 成功経路に入ること (回帰固定: 現実装でも green)
+//
+// #3561 (#3558 follow-up) 追加観点:
+// - ①: 403 文言が OWNER_GATE_LABELS (labels.ts SSOT) と一致すること
+// - ②: account/delete の owner-gate が handler 先頭の single choke-point に hoist され、
+//   未知 pattern にも default-deny が効くこと
+// - ③: requireRole が throw する 401 が 500 化せず endpoint の
+//   `{error: 認証が必要です}` 401 に変換されること (requireRole override で機械検証)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { error } from '@sveltejs/kit';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OWNER_GATE_LABELS } from '../../../src/lib/domain/labels';
 
 // ---------- mocks ----------
 
-// requireRole seam の spy: 実装 (throw error(401/403)) はそのまま使い、呼び出しを観測する
+// requireRole seam の spy: 実装 (throw error(401/403)) はそのまま使い、呼び出しを観測する。
+// #3561 ③: requireRoleImpl を差し替えると 401 throw 等の異常系を機械的に注入できる。
 const requireRoleSpy = vi.fn();
+let requireRoleImpl: ((...args: unknown[]) => void) | null = null;
 vi.mock('$lib/server/auth/guards', async () => {
 	const actual =
 		await vi.importActual<typeof import('../../../src/lib/server/auth/guards')>(
@@ -29,6 +40,9 @@ vi.mock('$lib/server/auth/guards', async () => {
 		...actual,
 		requireRole: (...args: Parameters<typeof actual.requireRole>) => {
 			requireRoleSpy(...args);
+			if (requireRoleImpl) {
+				return requireRoleImpl(...args);
+			}
 			return actual.requireRole(...args);
 		},
 	};
@@ -139,6 +153,7 @@ function expectSeamCalledWith(role: Role) {
 describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#3556)', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		requireRoleImpl = null;
 		mockRepos.auth.findTenantById.mockResolvedValue({
 			status: 'active',
 			stripeSubscriptionId: 'sub_1',
@@ -280,6 +295,76 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 					expect(mockDeleteOwnerFullDelete).not.toHaveBeenCalled();
 					expect(mockTransferOwnershipAndLeave).not.toHaveBeenCalled();
 				});
+			});
+		}
+	});
+
+	describe('#3561 ①: 403 文言は OWNER_GATE_LABELS (labels.ts SSOT) と一致する', () => {
+		it('endpoint 別文言が置換前ハードコードとバイト一致で SSOT 化されている', () => {
+			expect(OWNER_GATE_LABELS.accountDelete).toBe('owner のみ実行できます');
+			expect(OWNER_GATE_LABELS.deletionInfo).toBe('owner のみ取得できます');
+			expect(OWNER_GATE_LABELS.tenantCancel).toBe('owner のみ解約申請できます');
+			expect(OWNER_GATE_LABELS.tenantReactivate).toBe('owner のみ解約キャンセルできます');
+			expect(OWNER_GATE_LABELS.memberDelete).toBe('owner のみメンバーを削除できます');
+			expect(OWNER_GATE_LABELS.transferOwnership).toBe('owner のみ権限を移譲できます');
+			expect(OWNER_GATE_LABELS.authRequired).toBe('認証が必要です');
+		});
+	});
+
+	describe('#3561 ②: account/delete owner-gate single choke-point (default-deny)', () => {
+		it('未知 pattern + parent は switch より先に choke-point guard が 403 を返す (default-deny)', async () => {
+			const res = await accountDelete(createDeleteEvent('parent', 'future-owner-pattern'));
+			expect(res.status).toBe(403);
+			await expect(res.json()).resolves.toEqual({ error: OWNER_GATE_LABELS.accountDelete });
+			expectSeamCalledWith('parent');
+		});
+
+		it('未知 pattern + owner は choke-point 通過後、従来通り 400 (不明な pattern)', async () => {
+			const res = await accountDelete(createDeleteEvent('owner', 'future-owner-pattern'));
+			expect(res.status).toBe(400);
+			expectSeamCalledWith('owner');
+		});
+
+		it('child pattern (本人操作) は choke-point guard を経由しない (switch 内の本人 role 判定へ委譲)', async () => {
+			await accountDelete(createDeleteEvent('child', 'child'));
+			expect(requireRoleSpy).not.toHaveBeenCalled();
+		});
+
+		it('member pattern (本人操作) は choke-point guard を経由しない', async () => {
+			await accountDelete(createDeleteEvent('parent', 'member'));
+			expect(requireRoleSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('#3561 ③: requireRole の 401 は 500 化せず endpoint の 401 {error} に変換される', () => {
+		beforeEach(() => {
+			// 上流の `!context` 早期 return が消えた状態 (requireRole が 401 を throw する
+			// 唯一の経路) を機械的に注入し、outer try/catch での 500 化がないことを検証する
+			requireRoleImpl = () => {
+				throw error(401, 'Unauthorized');
+			};
+		});
+
+		afterEach(() => {
+			requireRoleImpl = null;
+		});
+
+		// RequestHandler の戻り値は MaybePromise<Response> (Response | Promise<Response>)
+		const cases: Array<[string, () => Response | Promise<Response>]> = [
+			['POST tenant/cancel', () => tenantCancel(createSimpleEvent('owner'))],
+			['POST tenant/reactivate', () => tenantReactivate(createSimpleEvent('owner'))],
+			['GET account/deletion-info', () => deletionInfo(createSimpleEvent('owner'))],
+			[
+				'POST account/delete (owner-only)',
+				() => accountDelete(createDeleteEvent('owner', 'owner-only')),
+			],
+		];
+
+		for (const [name, invoke] of cases) {
+			it(`${name}: 401 + {error: 認証が必要です}`, async () => {
+				const res = await invoke();
+				expect(res.status).toBe(401);
+				await expect(res.json()).resolves.toEqual({ error: OWNER_GATE_LABELS.authRequired });
 			});
 		}
 	});
