@@ -280,7 +280,10 @@ describe('rewardSetStrategy.apply', () => {
 // dispatcher integration
 // =====================================================
 
-describe('marketplace dispatcher + reward-set', () => {
+// #3661 same-class: $lib/marketplace 全体の dynamic import (registry eager-load) が
+// cold FS / 高負荷環境で vitest 既定 5s を超える (実測 5.2-5.3s、--testTimeout=30000 で PASS)。
+// stagehand-v3-construction.test.ts と同型の describe-level timeout で吸収する (assertion 内容は不変)。
+describe('marketplace dispatcher + reward-set', { timeout: 30_000 }, () => {
 	it('Registry 経由で reward-set が解決でき、dispatchImport が成立', async () => {
 		// eager-load が走るよう $lib/marketplace import
 		const { marketplaceRegistry, dispatchImport } = await import('../../../../src/lib/marketplace');

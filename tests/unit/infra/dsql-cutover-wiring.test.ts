@@ -78,7 +78,13 @@ function allPolicyActions(template: Template): string[] {
 	return actions;
 }
 
-describe('compute-stack DSQL cutover 配線 (EPIC #3424 M5 DoD3、flag-gated)', () => {
+// #3661: aws-cdk-lib の初回ロード + 各 test の ComputeStack synth (Template.fromStack) が
+// 高負荷環境で vitest 既定 5s を超える (実測 5-8s、--testTimeout=30000 で PASS)。
+// hooks-integration.test.ts と同型の describe-level timeout で吸収する
+// (assertion 内容は不変、ADR-0061 same-class 対処)。
+describe('compute-stack DSQL cutover 配線 (EPIC #3424 M5 DoD3、flag-gated)', {
+	timeout: 30_000,
+}, () => {
 	it('[W1 prod 不変 guard] dsqlEnabled 無し: DATA_SOURCE=dynamodb 維持 + dsql:* policy ゼロ', () => {
 		const compute = buildCompute();
 		const template = Template.fromStack(compute);
