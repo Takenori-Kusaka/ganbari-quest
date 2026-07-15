@@ -268,6 +268,10 @@
 	/* ---- Action: インタラクティブ要素 ---- */
 	--color-action-primary: var(--theme-primary);
 	--color-action-primary-hover: var(--color-brand-700);
+	/* #3744: 白文字 (--color-text-inverse) を載せる塗り背景 (選択タブ / 選択チップ / badge) 用。
+	   --color-action-primary (brand-600) は白文字で 3.34:1 と WCAG 1.4.3 AA (4.5:1) 未達のため、
+	   brand-700 (白文字 4.62:1) を AA 適合の primary 塗りとして提供する。 */
+	--color-action-primary-strong: var(--color-brand-700);
 	--color-action-secondary: var(--theme-secondary);
 	--color-action-accent: var(--theme-accent);
 	--color-action-danger: var(--color-danger);
