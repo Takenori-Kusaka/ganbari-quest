@@ -46,12 +46,16 @@ const mockFindRecentBonuses = vi.fn();
 const mockChildActivityFindByChild = vi.fn();
 const mockStampInsertCardForRestore = vi.fn();
 
+// pointLedger の insert 実装はテストごとに tracker を差し替えられるよう間接参照にする
+// (同一 child 逐次 guard テストが専用 tracker で in-flight を隔離計測するため)。
+let pointLedgerImpl: () => Promise<unknown> = () => pointLedgerTracker.tracked();
+
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
 	findActivityLogs: (...args: unknown[]) => mockFindActivityLogs(...args),
 	insertActivity: vi.fn(),
 	insertActivityLog: () => activityLogTracker.tracked(),
-	insertPointLedger: () => pointLedgerTracker.tracked(),
+	insertPointLedger: () => pointLedgerImpl(),
 }));
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -201,7 +205,48 @@ beforeEach(() => {
 // ============================================================
 
 describe('#3692 import insert 並列チャンク実行', () => {
-	it('pointLedger: insert が並列 in-flight >1 で実行され、全件 import される', async () => {
+	// #3692 改 (本番 DSQL restore 障害 2026-07-15 の根治):
+	// point 書込プリミティブは「ledger INSERT + 同一 children 行 total_point UPDATE」を 1 txn で
+	// 行うため、同一 child の entry を並列化すると DSQL (OCC) で commit 時 40001 衝突する
+	// (実 zip 772 entries / child-1 に 756 偏在で本番 abort)。契約は「child 間のみ並列 /
+	// 同一 child 内は逐次」— 並列性 (30s timeout 退行ガード) と OCC 安全性の両方を assert する。
+	it('pointLedger: child 間は並列 in-flight >1 で実行され、全件 import される', async () => {
+		// child ごとに distinct な id を返す (childIdMap が child 単位 group を作れるように)
+		let childSeq = 200;
+		mockInsertChild.mockReset().mockImplementation(async () => ({ id: String(childSeq++) }));
+		const children = Array.from({ length: 4 }, (_, i) => ({
+			exportId: `child-${i + 1}`,
+			nickname: `テスト子${i + 1}`,
+			age: 8,
+			birthDate: '2018-01-15',
+			theme: 'blue',
+			uiMode: 'elementary',
+			avatarUrl: null,
+			activeTitle: null,
+			createdAt: '2025-06-01T00:00:00Z',
+		}));
+		const data = makeExportData({
+			pointLedger: Array.from({ length: N }, (_, i) => ({
+				childRef: `child-${(i % 4) + 1}`, // 4 children に分散 → child 間並列が観測できる
+				amount: 10 + i,
+				type: 'earn',
+				description: `entry-${i}`,
+				createdAt: '2026-07-01T00:00:00Z',
+			})),
+		});
+		(data.family as { children: unknown[] }).children = children;
+		const result = await importFamilyData(data, TENANT);
+		expect(result.pointLedgerImported).toBe(N);
+		expect(pointLedgerTracker.max()).toBeGreaterThan(1);
+	});
+
+	it('pointLedger: 同一 child 内は逐次 (in-flight ≤ 1) — DSQL OCC 同一行衝突の恒久 guard', async () => {
+		// 本番障害の再現条件: 単一 child に全 entry 集中。旧実装 (全 entry 25 並列) だと
+		// max in-flight > 1 になり、DSQL では同一 children 行への並行 txn が commit 時 40001 で
+		// abort する。修正後の契約 = 同一 child の point 書込は決して並行しない。
+		const tracker = makeConcurrencyTracker();
+		const prevImpl = pointLedgerImpl;
+		pointLedgerImpl = () => tracker.tracked();
 		const data = makeExportData({
 			pointLedger: Array.from({ length: N }, (_, i) => ({
 				childRef: 'child-1',
@@ -211,9 +256,13 @@ describe('#3692 import insert 並列チャンク実行', () => {
 				createdAt: '2026-07-01T00:00:00Z',
 			})),
 		});
-		const result = await importFamilyData(data, TENANT);
-		expect(result.pointLedgerImported).toBe(N);
-		expect(pointLedgerTracker.max()).toBeGreaterThan(1);
+		try {
+			const result = await importFamilyData(data, TENANT);
+			expect(result.pointLedgerImported).toBe(N);
+			expect(tracker.max()).toBe(1);
+		} finally {
+			pointLedgerImpl = prevImpl;
+		}
 	});
 
 	it('statusHistory: insert が並列 in-flight >1 で実行され、全件 import される', async () => {
