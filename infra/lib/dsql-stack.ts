@@ -1,8 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
+import * as backup from 'aws-cdk-lib/aws-backup';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dsql from 'aws-cdk-lib/aws-dsql';
+import * as events from 'aws-cdk-lib/aws-events';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
@@ -194,6 +196,69 @@ export class DsqlStack extends cdk.Stack {
 				],
 			],
 		});
+
+		// ── 5. AWS Backup (物理 backup、#3437) ──
+		// DSQL は自動 backup 機構を持たないため AWS Backup で cluster 全体の full backup を
+		// 日次取得する。**DSQL の backup は full snapshot のみ (PITR/継続 backup ではない)** —
+		// 復元は AWS Backup が新 cluster を作成し (source 上書きなし)、DSQL_ENDPOINT 切替が必要
+		// (runbook: docs/runbooks/dsql-restore.md)。アプリ層 backup-archive (JSON/CSV、#3376) は
+		// 論理 backup として別レイヤー併存 (役割分担は data-model §6.4)。cluster ARN を **明示 assign**
+		// するため AWS Backup の Service Opt-in は不要 (explicit resource assignment は opt-in 設定に
+		// 依らず対象化される、AWS Backup 仕様)。staging は使い捨て (#2873) のため backup を省略する。
+		const isStaging = nameSuffix === '-staging';
+		if (!isStaging) {
+			const backupVault = new backup.BackupVault(this, 'DsqlBackupVault', {
+				backupVaultName: `ganbari-quest-dsql${nameSuffix}-vault`,
+				// backup vault は誤削除で復元不能ゆえ RETAIN (stack 削除でも backup を残す)。
+				removalPolicy: cdk.RemovalPolicy.RETAIN,
+			});
+			const backupPlan = new backup.BackupPlan(this, 'DsqlBackupPlan', {
+				backupPlanName: `ganbari-quest-dsql${nameSuffix}-daily`,
+				backupPlanRules: [
+					new backup.BackupPlanRule({
+						ruleName: 'daily-7day-retention',
+						// 02:00 UTC (低トラフィック帯)。**月額コスト設計 (< ¥10、マネタイズ整合)**:
+						//   AWS Backup warm storage = $0.05/GB-month (us-east-1、DSQL は cold tier 非対応)。
+						//   月額 ≈ retention_points(7) × ClusterStorageSize × $0.05。
+						//   実測 (2026-07-17) ClusterStorageSize = 1.35 MiB → 7 × 0.00132GiB × $0.05
+						//   ≈ $0.0005/月 ≈ **¥0.07/月** (¥10 の 140 分の 1)。¥10 (≈$0.067) 到達は cluster
+						//   ~190 MiB 相当 (現状の ~145 倍)。下の DsqlBackupBudget が ¥10 接近で通知し、
+						//   その時点で retention を短縮する (runbook: dsql-restore.md §コスト)。
+						scheduleExpression: events.Schedule.cron({ hour: '2', minute: '0' }),
+						deleteAfter: cdk.Duration.days(7),
+						backupVault: backupVault,
+					}),
+				],
+			});
+			backupPlan.addSelection('DsqlCluster', {
+				resources: [backup.BackupResource.fromArn(this.cluster.attrResourceArn)],
+			});
+
+			// 月額 backup コストを ¥10 未満に保つ guardrail (マネタイズ整合)。AWS Backup storage は
+			// DSQL の RDS budget (上記 $1) と別 attribution ('Backup' service) になり得るため専用 budget を
+			// 置き、$0.07 (≈¥10) の 80%/100% で通知する (接近したら retention 短縮 → dsql-restore.md)。
+			if (props?.opsEmail) {
+				new budgets.CfnBudget(this, 'DsqlBackupBudget', {
+					budget: {
+						budgetName: `ganbari-quest-dsql${nameSuffix}-backup-guardrail`,
+						budgetType: 'COST',
+						timeUnit: 'MONTHLY',
+						// $0.07 ≈ ¥10 (¥150/$ 換算)。設計目標「月額 < ¥10」の hard 上限監視。
+						budgetLimit: { amount: 0.07, unit: 'USD' },
+						costFilters: { Service: ['AWS Backup'] },
+					},
+					notificationsWithSubscribers: [80, 100].map((threshold) => ({
+						notification: {
+							notificationType: 'ACTUAL',
+							comparisonOperator: 'GREATER_THAN',
+							threshold,
+							thresholdType: 'PERCENTAGE',
+						},
+						subscribers: [{ subscriptionType: 'EMAIL', address: props.opsEmail as string }],
+					})),
+				});
+			}
+		}
 
 		new cdk.CfnOutput(this, 'ClusterIdentifier', { value: clusterId });
 		new cdk.CfnOutput(this, 'ClusterEndpoint', {

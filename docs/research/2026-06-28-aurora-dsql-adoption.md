@@ -53,7 +53,7 @@
 ## 3. モニタリング / 可観測性
 
 - アラーム: OccConflicts / QueryTimeouts(5 分上限) / CommitLatency P50 / ClusterConnectionCount(10,000 接近) / DbConnect CallCount(100/秒接近) / TotalDPU・ClusterStorageSize。CW 15 ヶ月保持。
-- バックアップ/PITR: DSQL 自動 backup 機構なし → **AWS Backup 統合**で PITR（continuous backup）。復元 = 新クラスタ作成（上書きなし）、同時 restore 最大 4。→ アプリ層 backup-archive（JSON/CSV）は論理 backup として併存価値あり（別レイヤー）。
+- バックアップ: DSQL 自動 backup 機構なし → **AWS Backup 統合**で cluster full backup（**#3437 実装時の AWS 公式 doc 再確認で訂正: DSQL は full snapshot のみで PITR/continuous backup ではない**。RPO = 直近スケジュール backup 時刻。PITR は provisioned Aurora の機能で DSQL 非対応）。復元 = 新クラスタ作成（上書きなし）、同時 restore 最大 4、cluster 全体単位のみ。cluster ARN を明示 assign すれば Service Opt-in 不要。→ アプリ層 backup-archive（JSON/CSV）は論理 backup として併存価値あり（別レイヤー、tenant 単位・秒単位相当の細粒度復元を担保）。実装 = #3437（`infra/lib/dsql-stack.ts` backup vault/plan + `docs/runbooks/dsql-restore.md`）。
 
 ## 4. スキーマ / マイグレーション
 
@@ -220,7 +220,7 @@ staging DSQL lane（EPIC #3424 M5 PDCA）の生きた cluster で実測。詳細
 - authentication-token（DsqlSigner / IAM 一時トークン）
 - Lambda tutorial（接続再利用パターン）
 - AWS::DSQL::Cluster CloudFormation リファレンス
-- backup-aurora-dsql（AWS Backup 統合 / PITR）
+- backup-aurora-dsql（AWS Backup 統合 / full snapshot のみ、PITR 非対応 — #3437 で訂正確認）
 - Drizzle × DSQL × Lambda × CDK の AWS Database Blog 記事
 
 > ⚠️ 上記「ページ名のみ」群は本調査で参照したが、転記時点で URL 文字列の billing-grade な正確性を未再検証。**各 issue 着手時に §0 軸 1（公式ドキュメント一次ソース）で実 URL を取得し、本「出典」節へ確定 URL を昇格**する（誤リンク放置は基盤設計の品質欠陥に当たるため）。

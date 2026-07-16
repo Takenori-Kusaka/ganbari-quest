@@ -83,7 +83,8 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 	});
 
 	it('[I5] Budgets $1 が 80% / 100% の 2 段通知で作成される (#3431)', () => {
-		template.resourceCountIs('AWS::Budgets::Budget', 1);
+		// DSQL guardrail ($1) + backup guardrail ($0.07、#3437) の 2 budget。
+		template.resourceCountIs('AWS::Budgets::Budget', 2);
 		template.hasResourceProperties('AWS::Budgets::Budget', {
 			Budget: Match.objectLike({
 				BudgetName: 'ganbari-quest-dsql-guardrail',
@@ -118,6 +119,38 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		]) {
 			expect(body).toContain(metric);
 		}
+	});
+
+	it('[I8] AWS Backup: prod は日次 full backup plan (7日保持) + cluster ARN 明示 selection (#3437)', () => {
+		// DSQL は自動 backup を持たないため AWS Backup で cluster full backup を日次取得。
+		template.resourceCountIs('AWS::Backup::BackupVault', 1);
+		template.resourceCountIs('AWS::Backup::BackupPlan', 1);
+		template.resourceCountIs('AWS::Backup::BackupSelection', 1);
+		// daily rule + 7 日保持 (Pre-PMF 最小 DR 窓)。
+		template.hasResourceProperties('AWS::Backup::BackupPlan', {
+			BackupPlan: {
+				BackupPlanRule: Match.arrayWith([Match.objectLike({ Lifecycle: { DeleteAfterDays: 7 } })]),
+			},
+		});
+		// cluster ARN を明示 assign (Service Opt-in 不要の根拠。ARN は cluster の attrResourceArn)。
+		template.hasResourceProperties('AWS::Backup::BackupSelection', {
+			BackupSelection: Match.objectLike({
+				Resources: Match.arrayWith([
+					Match.objectLike({ 'Fn::GetAtt': Match.arrayWith(['ResourceArn']) }),
+				]),
+			}),
+		});
+	});
+
+	it('[I8b] backup 月額コスト guardrail budget $0.07 (≈¥10) が存在する (#3437、マネタイズ整合)', () => {
+		// 月額 backup コスト < ¥10 の設計目標を hard 監視。AWS Backup service filter で $0.07 上限。
+		template.hasResourceProperties('AWS::Budgets::Budget', {
+			Budget: Match.objectLike({
+				BudgetName: 'ganbari-quest-dsql-backup-guardrail',
+				BudgetLimit: { Amount: 0.07, Unit: 'USD' },
+				CostFilters: Match.objectLike({ Service: ['AWS Backup'] }),
+			}),
+		});
 	});
 });
 
@@ -157,5 +190,15 @@ describe('DsqlStack nameSuffix guard (#3703 / #3708 staging・prod 物理名一�
 		const staging = physicalNames('GanbariQuestDsqlStaging');
 		expect(prod.dashboard).not.toBe(staging.dashboard);
 		expect(prod.budget).not.toBe(staging.budget);
+	});
+
+	it('[N4] staging は AWS Backup を作らない / 本番は作る (#3437、使い捨て staging で backup コスト回避)', () => {
+		const app = new cdk.App();
+		const prod = Template.fromStack(new DsqlStack(app, 'GanbariQuestDsql'));
+		const staging = Template.fromStack(new DsqlStack(new cdk.App(), 'GanbariQuestDsqlStaging'));
+		prod.resourceCountIs('AWS::Backup::BackupPlan', 1);
+		staging.resourceCountIs('AWS::Backup::BackupVault', 0);
+		staging.resourceCountIs('AWS::Backup::BackupPlan', 0);
+		staging.resourceCountIs('AWS::Backup::BackupSelection', 0);
 	});
 });
