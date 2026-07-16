@@ -4,10 +4,9 @@ import { validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
 import { toDisplayMb } from '$lib/server/services/import-limit';
-import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
+import { ocrReceipt, RECEIPT_MAX_IMAGE_BYTES } from '$lib/server/services/receipt-ocr-service';
 import type { RequestHandler } from './$types';
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB（NUC / local の上限。AWS は runtime で下方整合）
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -29,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// base64サイズチェック（base64は元データの約1.33倍）。
 	// #3694: AWS 本番は base64 JSON body が Function URL 6MB request cap を超えると edge で
 	// 沈黙拒否されるため、デコード後上限を runtime 実効値に下方整合する (NUC / local は 5MB 維持)。
-	const maxImageBytes = resolveMaxBase64DecodedBytes(MAX_IMAGE_SIZE);
+	const maxImageBytes = resolveMaxBase64DecodedBytes(RECEIPT_MAX_IMAGE_BYTES);
 	const estimatedSize = (image.length * 3) / 4;
 	if (estimatedSize > maxImageBytes) {
 		return validationError(POINTS_LABELS.receiptImageTooLarge(String(toDisplayMb(maxImageBytes))));

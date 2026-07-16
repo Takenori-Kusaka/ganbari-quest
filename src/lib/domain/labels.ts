@@ -2292,6 +2292,11 @@ export const SETTINGS_LABELS = {
 	// (PINコード、非同期・上限なし) への誘導を返す (ADR-0062)。
 	dataExportTooLargeForDirectDownload: (maxMb: string) =>
 		`画像・音声を含むファイルが直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
+	// #3775 ①: JSON export (テキストのみ、画像・音声は ZIP 同梱) も aws-prod では Function URL
+	// 6MB response cap を超えると edge 沈黙切断される。JSON は画像・音声を含まないため専用文言で
+	// クラウド共有 (PINコード、非同期・上限なし) へ誘導する (ADR-0062 / dataExportTooLargeForDirectDownload と対)。
+	dataExportJsonTooLargeForDirectDownload: (maxMb: string) =>
+		`${BACKUP_TERMS.canonical}が直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
 	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
 	dataExportZipCloudHint:
@@ -2991,7 +2996,10 @@ export const POINTS_LABELS = {
 	receiptImageTooLarge: (maxMb: string) => `画像サイズは${maxMb}MB以下にしてください`,
 	receiptLabel: '領収書を撮影して金額を読み取り',
 	receiptCaptureButtonTitle: '領収書を撮影 / 画像を選択',
-	receiptCaptureButtonNote: 'JPEG, PNG, WebP（5MB以下）',
+	// #3775 ②: 表示上限 (MB) は実行環境で異なる (aws-prod ~4.1MB / NUC・local 5MB)。静的 5MB 表記は
+	// aws-prod の実効 reject 閾値と乖離し「5MB と書いてあるのに 4.5MB が弾かれる」UX 齟齬を生むため、
+	// server が実際に reject する実効値 (resolveMaxBase64DecodedBytes → toDisplayMb) を load で解決して渡す。
+	receiptCaptureButtonNote: (maxMb: string) => `JPEG, PNG, WebP（${maxMb}MB以下）`,
 	receiptPreviewAlt: '領収書プレビュー',
 	receiptPreviewClose: 'プレビューを閉じる',
 	receiptScanningText: '金額を読み取り中...',

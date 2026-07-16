@@ -5,11 +5,14 @@ import { ConvertMode } from '$lib/domain/validation/point';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
+import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
+import { toDisplayMb } from '$lib/server/services/import-limit';
 import {
 	convertPoints,
 	getPointBalance,
 	getPointHistory,
 } from '$lib/server/services/point-service';
+import { RECEIPT_MAX_IMAGE_BYTES } from '$lib/server/services/receipt-ocr-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -35,7 +38,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 			};
 		}),
 	);
-	return { children: childrenWithBalance };
+	// #3775 ②: 領収書撮影ボタン note が「実効の受理上限」と一致するよう、OCR route と同一の
+	// 実効値 (aws-prod ~4.1MB / NUC・local 5MB) を server 側で解決して渡す。
+	const maxReceiptImageMb = String(
+		toDisplayMb(resolveMaxBase64DecodedBytes(RECEIPT_MAX_IMAGE_BYTES)),
+	);
+
+	return { children: childrenWithBalance, maxReceiptImageMb };
 };
 
 export const actions: Actions = {

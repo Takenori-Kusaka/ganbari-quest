@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockOcrReceipt = vi.fn();
 vi.mock('$lib/server/services/receipt-ocr-service', () => ({
 	ocrReceipt: (...args: unknown[]) => mockOcrReceipt(...args),
+	// #3775 ②: route が受理上限定数を service から import するようになったため mock でも提供する。
+	RECEIPT_MAX_IMAGE_BYTES: 5 * 1024 * 1024,
 }));
 vi.mock('$lib/server/security/magic-bytes', () => ({
 	validateBase64ImageMagicBytes: () => ({ valid: true }),

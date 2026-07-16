@@ -889,6 +889,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
   - `avatars/{childId}/{filename}.png` / `voices/{childId}/{filename}` 等、`tenants/{tenantId}/` prefix 配下のアップロード済みファイル
 - ZIP 同梱対象（`data.json` + 静的ファイル）の合計が 100MB を超える場合は、残りを silent skip せず **fail-closed で 400 を返す**（#3376）。不完全な ZIP を「フルバックアップ」として返すと、再生成不能な avatar/voice が無警告で欠落し manifest も truncated set で整合してしまうため。ユーザーには「バックアップ対象のデータが上限（100MB）を超えています」と明示する
 - **#3694 (Function URL response 6MB cap 整合)**: AWS（aws-prod）は Lambda Function URL（BUFFERED）の response payload も 6MB hard cap のため、100MB fail-closed の**手前**で、構築 ZIP が実効上限（`resolveMaxSyncResponseBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）を超えた場合は **400 VALIDATION_ERROR で「クラウド共有（PIN コード）経由のバックアップ」を案内**する（edge の沈黙切断 = 「ダウンロードできない」状態を根絶）。NUC / local は Function URL 制約が無いため従来通り直 DL（100MB まで）を許可する
+- **#3775 ① (JSON export 直 DL の 6MB cap 整合)**: `format=json`（既定）の直 DL body も同一の Function URL response 6MB cap 対象。#3694 は ZIP response のみ guard していたため残余だった。JSON body（マルチバイト JP を含むため `Buffer.byteLength` で byte 長判定）が `resolveMaxSyncResponseBytes` を超えた場合は同様に **400 VALIDATION_ERROR + クラウド共有導線**（`SETTINGS_LABELS.dataExportJsonTooLargeForDirectDownload`、JSON は画像・音声を含まないため専用文言）を返す。JSON はテキストのみで 6MB 超は稀だが、edge 沈黙切断の完全性のため塞ぐ。NUC / local は Infinity で従来通り直 DL
 
 > **#3078**: `data.checklistLogs`（チェックリスト完了履歴）は `checklist-repo.findLogsByChild` で child 単位にバルク取得した実データを `templateName` 参照付きで含む（旧来の空配列固定を解消、activity ログと同様に往復対象）。
 
@@ -1021,7 +1022,9 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 **AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。Bedrock 未利用時は `NO_API_KEY` エラーを返す。
 
-**画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。
+**画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。受理上限の元定数は `RECEIPT_MAX_IMAGE_BYTES`（`src/lib/server/services/receipt-ocr-service.ts`、5MB）を SSOT とし、route の reject 判定と撮影ボタン note の表示値を同一値から導出する。
+
+**撮影ボタン note の実効値同期（#3775 ②）:** 領収書撮影ボタンの note（`POINTS_LABELS.receiptCaptureButtonNote(maxMb)`）は、旧静的「5MB以下」が aws-prod の実効 reject 閾値（約 4.1MB）と乖離し「5MB と書いてあるのに 4.5MB が弾かれる」UX 齟齬を生んでいた。admin/points の load が `toDisplayMb(resolveMaxBase64DecodedBytes(RECEIPT_MAX_IMAGE_BYTES))` を解決して note に渡し、表示 MB を server の実効 reject 閾値（aws-prod 約 4.1MB / NUC・local 5MB）と一致させる。
 
 #### GET /api/v1/export/cloud (#0294)
 
