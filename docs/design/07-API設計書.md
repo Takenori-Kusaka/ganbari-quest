@@ -888,6 +888,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
   - `data.json`（JSON ファイルと同内容）
   - `avatars/{childId}/{filename}.png` / `voices/{childId}/{filename}` 等、`tenants/{tenantId}/` prefix 配下のアップロード済みファイル
 - ZIP 同梱対象（`data.json` + 静的ファイル）の合計が 100MB を超える場合は、残りを silent skip せず **fail-closed で 400 を返す**（#3376）。不完全な ZIP を「フルバックアップ」として返すと、再生成不能な avatar/voice が無警告で欠落し manifest も truncated set で整合してしまうため。ユーザーには「バックアップ対象のデータが上限（100MB）を超えています」と明示する
+- **#3694 (Function URL response 6MB cap 整合)**: AWS（aws-prod）は Lambda Function URL（BUFFERED）の response payload も 6MB hard cap のため、100MB fail-closed の**手前**で、構築 ZIP が実効上限（`resolveMaxSyncResponseBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）を超えた場合は **400 VALIDATION_ERROR で「クラウド共有（PIN コード）経由のバックアップ」を案内**する（edge の沈黙切断 = 「ダウンロードできない」状態を根絶）。NUC / local は Function URL 制約が無いため従来通り直 DL（100MB まで）を許可する
 
 > **#3078**: `data.checklistLogs`（チェックリスト完了履歴）は `checklist-repo.findLogsByChild` で child 単位にバルク取得した実データを `templateName` 参照付きで含む（旧来の空配列固定を解消、activity ログと同様に往復対象）。
 
@@ -1019,6 +1020,8 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 レシート画像を OCR で読み取り、金額を抽出する。
 
 **AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。Bedrock 未利用時は `NO_API_KEY` エラーを返す。
+
+**画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。
 
 #### GET /api/v1/export/cloud (#0294)
 

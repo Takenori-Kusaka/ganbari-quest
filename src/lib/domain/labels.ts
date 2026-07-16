@@ -2282,6 +2282,11 @@ export const SETTINGS_LABELS = {
 	// 不完全な部分バックアップを黙って作らず明示エラーにする (再生成不能な avatar/voice の silent 欠落防止)。
 	dataExportTooLarge: (maxMb: string) =>
 		`バックアップ対象のデータが上限（${maxMb}MB）を超えています。不要な画像・音声を整理してから、もう一度お試しください。`,
+	// #3694: AWS 本番の Function URL (BUFFERED) は response も 6MB hard cap。画像込み ZIP が
+	// 直接ダウンロードの実効上限を超えると edge で沈黙切断されるため、明示エラー + クラウド共有
+	// (PINコード、非同期・上限なし) への誘導を返す (ADR-0062)。
+	dataExportTooLargeForDirectDownload: (maxMb: string) =>
+		`画像・音声を含むファイルが直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
 	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
 	dataExportZipCloudHint:
@@ -2960,6 +2965,9 @@ export const POINTS_LABELS = {
 	manualMaxButton: '全額変換',
 
 	// 領収書モード
+	// #3694: OCR 画像は base64 JSON body で送るため、AWS 本番は Function URL 6MB request cap に
+	// 整合した実効上限をサーバが返す (デコード後上限は runtime で下方整合される)。
+	receiptImageTooLarge: (maxMb: string) => `画像サイズは${maxMb}MB以下にしてください`,
 	receiptLabel: '領収書を撮影して金額を読み取り',
 	receiptCaptureButtonTitle: '領収書を撮影 / 画像を選択',
 	receiptCaptureButtonNote: 'JPEG, PNG, WebP（5MB以下）',

@@ -16,6 +16,10 @@ import { getEnv, type TypedEnv } from '$lib/runtime/env';
 import { resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { MAX_ZIP_SIZE } from '$lib/server/services/backup-archive';
 
+// #3694: platform cap (6MB) の SSOT は function-url-limit.ts。本 module は request-side (ZIP 受信)
+// の実効上限を担い、response-side (export ZIP) / base64 (OCR) は function-url-limit.ts が担う。
+// FUNCTION_URL_PAYLOAD_CAP_BYTES との関係は tests/unit/services/function-url-limit.test.ts が
+// fitness assert する (AWS_MAX_IMPORT_BYTES < platform cap)。
 /** AWS Lambda Function URL (BUFFERED) の 6MB hard cap に対する安全側の実効上限 (5.5MB)。 */
 export const AWS_MAX_IMPORT_BYTES = Math.floor(5.5 * 1024 * 1024);
 
