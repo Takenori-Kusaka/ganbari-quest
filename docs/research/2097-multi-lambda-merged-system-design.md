@@ -8,9 +8,7 @@
 > - Part III (PO 判断 14 項目): infra 7 件 + OOP 4 件 + SOLID 改善 2 件 + ADR-0048 起票要否 1 件
 > - 参考リンク: 一次情報源 約 120 URL
 >
-> **元 source files**:
-> - Part I 原典: `docs/research/2097-multi-lambda-detailed-system-design.md` (540 行、Agent aac7c2c3ed0e92be3)
-> - Part II 原典: `docs/research/2097-multi-lambda-oop-solid-uml-design.md` (1257 行、Agent a126339b9fc7942f6)
+> **元 source files** (Part I / Part II 原典は本統合版に merge 済のため #3516 で削除、内容は本 file と git 履歴に保全):
 > - 前段 (v3) 採用是非 research: `docs/research/2097-multi-lambda-demo-evidence-based-architecture.md`
 > - 前段 (v2) 戦略 research: `docs/research/2097-demo-prod-unification-strategic-architecture-v2.md`
 > - product audit: `docs/research/2097-product-audit.md`
