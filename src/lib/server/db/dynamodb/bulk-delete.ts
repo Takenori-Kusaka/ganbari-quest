@@ -187,3 +187,60 @@ export async function deleteChildScopedItems(
 	}
 	return deleted;
 }
+
+/**
+ * orphan child partition (`T#<tenantId>#CHILD#<childId>`) の残骸を sweep する (#3750)。
+ *
+ * `deleteChildScopedItems` は childIds が非空のとき、既知 child の partition のみを
+ * per-child Query で削除する。過去の部分失敗で child profile だけ消えて scoped データが
+ * 残った orphan partition (childId が active でも archived でもない) は、他に現存児童が
+ * ≥1 (= childIds 非空) だと per-child Query 経路では取り漏らす。旧 Scan fallback は PK
+ * prefix で全 child partition を拾っていたため、この orphan を消せていた。
+ *
+ * 本関数は child partition prefix を 1 度だけ Scan し、既知 partition (`knownChildIds`)
+ * を除いた残存 item を削除して混在ケースの完全性を回復する。退会 = 削除権 (GDPR / 個情法)
+ * を伴う CUJ のため、read が全テナント総量に比例する Scan コストを 1 回だけ許容してでも
+ * 取り漏らしを塞ぐ (#3693 の per-repo Scan × 約 25 とは異なり、末尾 1 回の低頻度 fallback)。
+ *
+ * 既知 partition を除外するのは、tenant-cleanup で本 sweep の後続に走る
+ * `deleteAllChildrenData` が children を列挙してファイル (アバター / 音声 / 画像) を
+ * 削除する経路を壊さないため (PROFILE を先に消すと列挙できずファイルが残留する)。
+ *
+ * 児童 0 人 (`knownChildIds` 空) の経路は `deleteChildScopedItems(undefined)` の Scan
+ * fallback が既に orphan を拾うため、呼び出し側で本 sweep を呼ばず二重 Scan を避けること。
+ *
+ * @param tenantId - 対象テナント
+ * @param knownChildIds - 削除対象から除外する既知児童 ID (active + archived)
+ * @returns 削除した orphan item 数 (既知 partition 分は除外済み)
+ */
+export async function deleteOrphanChildPartitionItems(
+	tenantId: string,
+	knownChildIds: readonly ChildId[],
+): Promise<number> {
+	const knownPKs = new Set(knownChildIds.map((id) => childPK(Number(id), tenantId)));
+	const doc = getDocClient();
+	let deleted = 0;
+	let lastKey: Record<string, unknown> | undefined;
+
+	do {
+		const result = await doc.send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(PK, :pkPrefix)',
+				ExpressionAttributeValues: { ':pkPrefix': `T#${tenantId}#CHILD#` },
+				ProjectionExpression: 'PK, SK',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+
+		const keys = (result.Items ?? [])
+			.map((item) => ({ PK: item.PK as string, SK: item.SK as string }))
+			.filter((key) => !knownPKs.has(key.PK));
+		// streaming: page 単位で即削除 (既知 partition 除外後の orphan 残骸のみ)
+		await batchDeleteKeys(keys);
+		deleted += keys.length;
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+
+	return deleted;
+}

@@ -44,4 +44,17 @@ export interface IChildRepo {
 	archiveChildren(ids: ChildId[], reason: ArchivedReason, tenantId: string): Promise<void>;
 	restoreArchivedChildren(reason: ArchivedReason, tenantId: string): Promise<void>;
 	findArchivedChildren(tenantId: string): Promise<Child[]>;
+
+	/**
+	 * #3750: orphan child partition (childId が active でも archived でもない残骸) を sweep する。
+	 * tenant-cleanup で既知 childIds のみ per-child 削除する DynamoDB 経路の取り漏らし fallback
+	 * (childIds 非空 + orphan 混在時の削除完全性を回復する)。`knownChildIds` は削除対象から除外する。
+	 *
+	 * partition storage 固有の懸念のため DynamoDB backend のみ実装する。relational backend
+	 * (sqlite / dsql / demo) は FK cascade で orphan 行が生じないため未実装 (= optional method、
+	 * 呼び出し側は存在チェックしてから呼ぶ)。DSQL の same-class 検討は EPIC #3424 で扱う。
+	 *
+	 * @returns 削除した orphan item 数
+	 */
+	sweepOrphanChildPartitions?(tenantId: string, knownChildIds: readonly ChildId[]): Promise<number>;
 }

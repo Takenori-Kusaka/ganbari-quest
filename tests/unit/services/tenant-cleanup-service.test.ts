@@ -15,6 +15,8 @@ const mockChildRepo = {
 	// #3693: deleteTenantScopedData は archived 児童も childIds に含める (Scan 時代の削除範囲と同一)
 	findArchivedChildren: vi.fn(),
 	deleteChild: vi.fn().mockResolvedValue(undefined),
+	// #3750: orphan child partition sweep (DynamoDB backend 固有、optional method)
+	sweepOrphanChildPartitions: vi.fn().mockResolvedValue(0),
 };
 
 const mockActivityRepo = {
@@ -253,6 +255,36 @@ describe('deleteTenantScopedData', () => {
 		expect(mockStatusRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT, undefined);
 		expect(mockPointRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT, undefined);
 		expect(mockSettingsRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
+	});
+
+	it('#3750: childIds 非空時、末尾で orphan child partition sweep を childIds 付きで 1 回呼ぶ', async () => {
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '100' }, { id: '200' }]);
+		mockChildRepo.findArchivedChildren.mockResolvedValue([{ id: '300' }]);
+
+		await deleteTenantScopedData(TENANT);
+
+		// 既知 childIds (active + archived) を除外対象として渡し、orphan 残骸のみ sweep する
+		expect(mockChildRepo.sweepOrphanChildPartitions).toHaveBeenCalledTimes(1);
+		expect(mockChildRepo.sweepOrphanChildPartitions).toHaveBeenCalledWith(TENANT, [
+			'100',
+			'200',
+			'300',
+		]);
+	});
+
+	it('#3750: 児童 0 人 (childIds undefined) 時は sweep を呼ばない (Scan fallback と二重 Scan を避ける)', async () => {
+		// findAllChildren / findArchivedChildren はデフォルトで空 → childIds=undefined
+		await deleteTenantScopedData(TENANT);
+
+		expect(mockChildRepo.sweepOrphanChildPartitions).not.toHaveBeenCalled();
+	});
+
+	it('#3750: orphan sweep が失敗しても他の削除をブロックしない', async () => {
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: '100' }]);
+		mockChildRepo.sweepOrphanChildPartitions.mockRejectedValueOnce(new Error('scan err'));
+
+		await expect(deleteTenantScopedData(TENANT)).resolves.toBeGreaterThanOrEqual(0);
+		expect(mockChildRepo.sweepOrphanChildPartitions).toHaveBeenCalledTimes(1);
 	});
 
 	it('activities (per-child loop, #2362) / viewerTokens / cloudExports / pushSubscriptions は find+delete パターン', async () => {

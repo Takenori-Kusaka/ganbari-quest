@@ -15,6 +15,7 @@ import type { ChildProgressResetCounts } from '../interfaces/child-repo.interfac
 import { hydrate, withVersion } from '../migration';
 import { writeBackDynamoDB } from '../migration/writeback';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
+import { deleteOrphanChildPartitionItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -256,6 +257,19 @@ export async function deleteChild(id: ChildId, tenantId: string): Promise<void> 
 	} while (lastKey);
 
 	await batchDeleteItems(allKeys);
+}
+
+/**
+ * #3750: orphan child partition (childId が active でも archived でもない残骸) を sweep する。
+ * tenant-cleanup が既知 childIds のみ per-child 削除する際の取り漏らし fallback。
+ * partition storage 固有のため DynamoDB backend のみ実装する (relational backend は
+ * FK cascade で orphan 行が生じず未実装 = interface で optional)。
+ */
+export async function sweepOrphanChildPartitions(
+	tenantId: string,
+	knownChildIds: readonly ChildId[],
+): Promise<number> {
+	return deleteOrphanChildPartitionItems(tenantId, knownChildIds);
 }
 
 /** #3152: 子供 1 人分の進捗データを削除 (child profile / 関連 master は残す) */
