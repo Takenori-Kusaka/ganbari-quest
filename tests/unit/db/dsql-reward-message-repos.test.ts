@@ -35,6 +35,8 @@
 //   [SC1] insertCheer (from/to 2 参照、tenantId=family マップ) + findUnshownCheers + §P9
 //   [SC2] markShown (複数 id 一括、空は no-op) / countTodayCheersFrom (JST 当日境界)
 //   [SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)
+//   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
+//         (cross-family child は 0 行 → throw、行は書かれない)
 // ── ILoginBonusRepo ──
 //   [LB1] insertLoginBonus 冪等 (自然複合 PK ON CONFLICT、id=child:date 合成) + findTodayBonus + §P9
 //   [LB2] findRecentBonuses (login_date 降順 limit) / findChildById (§P9)
@@ -683,6 +685,46 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(await cheerRepo.findAllByTenant(OTHER_FAMILY)).not.toContainEqual(
 			expect.objectContaining({ id: restored.id }),
 		);
+	});
+
+	it('[SC4] #3566 ②: from/to のどちらかが family 外 child なら insert 拒否 (0 行、行は書かれない)', async () => {
+		const family = '00000000-0000-4000-8000-0000000000d5';
+		const from = await newChild('応援元四郎', family);
+		const to = await newChild('応援先四郎', family);
+		// 別 family に属する child (cross-family 混入の攻撃面)
+		const alien = await newChild('他家の子', OTHER_FAMILY);
+
+		// (a) 同一 family の from/to → 成功 (INSERT ... SELECT が 1 行返す)
+		const ok = await cheerRepo.insertCheer(
+			{ fromChildId: from, toChildId: to, stampCode: 'ok' },
+			family,
+		);
+		expect(ok.id).toMatch(UUID_RE);
+		expect(ok.fromChildId).toBe(from);
+		expect(ok.toChildId).toBe(to);
+		expect(ok.tenantId).toBe(family);
+
+		const before = (await cheerRepo.findAllByTenant(family)).length;
+		expect(before).toBe(1);
+
+		// (b1) 送信先が family 外 child → 拒否 (SELECT 0 行 → throw)
+		await expect(
+			cheerRepo.insertCheer({ fromChildId: from, toChildId: alien, stampCode: 'x' }, family),
+		).rejects.toThrow();
+
+		// (b2) 送信元が family 外 child → 拒否
+		await expect(
+			cheerRepo.insertCheer({ fromChildId: alien, toChildId: to, stampCode: 'x' }, family),
+		).rejects.toThrow();
+
+		// (b3) どの family にも存在しない child id → 拒否
+		const ghost = '00000000-0000-4000-8000-0000000009ff' as ChildId;
+		await expect(
+			cheerRepo.insertCheer({ fromChildId: from, toChildId: ghost, stampCode: 'x' }, family),
+		).rejects.toThrow();
+
+		// 拒否ケースでは 1 行も追加されていない (structural: 0 行挿入)
+		expect((await cheerRepo.findAllByTenant(family)).length).toBe(before);
 	});
 
 	// ─────────────────── ILoginBonusRepo ───────────────────
