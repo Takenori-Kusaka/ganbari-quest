@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1amflqm--><!----><title>子供登録 - がんばりクエスト セットアップ</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--eqlqg4--><meta name="description" content="みんなのテンプレート — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式テンプレート集です。"><!----><title>みんなのテンプレート - がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.2 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -4257,46 +4257,327 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.setup-page.svelte-a9mpxv {
-		min-height: 100dvh;
-		background: linear-gradient(to bottom, var(--color-brand-100), var(--color-brand-200));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 16px;
+	/* Fixed ? trigger at the top-right (sticky band that avoids the marketplace header). */
+	.page-guide-trigger.svelte-qpound {
+		position: fixed;
+		top: 0.75rem;
+		right: 0.75rem;
+		/* DESIGN.md section 10 z-index token (dropdown band: above content, below overlay). */
+		z-index: var(--z-dropdown);
+	}
+ .svelte-qpound{}
+.driver-active .driver-overlay{pointer-events:none}.driver-active.driver-no-scroll{overflow:hidden}.driver-active *{pointer-events:none}.driver-active .driver-active-element,.driver-active .driver-active-element *,.driver-popover,.driver-popover *{pointer-events:auto}@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}.driver-fade .driver-overlay{animation:animate-fade-in var(--driver-animation-duration,.4s) ease-in-out}.driver-fade .driver-popover{animation:animate-fade-in var(--driver-animation-duration,.4s)}.driver-popover{all:unset;box-sizing:border-box;color:#2d2d2d;z-index:1000000000;background-color:#fff;border-radius:5px;min-width:250px;max-width:300px;margin:0;padding:15px;position:fixed;top:0;right:0;box-shadow:0 1px 10px #0006}.driver-popover *{font-family:Helvetica Neue,Inter,ui-sans-serif,Apple Color Emoji,Helvetica,Arial,sans-serif}.driver-popover-title{zoom:1;margin:0;font:700 19px/1.5 sans-serif;display:block;position:relative}.driver-popover-close-btn{all:unset;cursor:pointer;color:#d2d2d2;z-index:1;text-align:center;width:32px;height:28px;font-size:18px;font-weight:500;transition:color .2s;position:absolute;top:0;right:0}.driver-popover-close-btn:hover,.driver-popover-close-btn:focus{color:#2d2d2d}.driver-popover-title[style*=block]+.driver-popover-description{margin-top:5px}.driver-popover-description{zoom:1;margin-bottom:0;font:400 14px/1.5 sans-serif}.driver-popover-footer{text-align:right;zoom:1;justify-content:space-between;align-items:center;margin-top:15px;display:flex}.driver-popover-progress-text{color:#727272;zoom:1;font-size:13px;font-weight:400}.driver-popover-footer-btn{all:unset;box-sizing:border-box;color:#2d2d2d;cursor:pointer;zoom:1;background-color:#fff;border:1px solid #ccc;border-radius:3px;outline:0;padding:3px 7px;font:12px/1.3 sans-serif;text-decoration:none;display:inline-block}.driver-popover-footer .driver-popover-btn-disabled{opacity:.5;pointer-events:none}.driver-active-element-parent-no-scroll{overflow:hidden!important}.driver-no-interaction,.driver-no-interaction *{pointer-events:none!important}.driver-popover-footer-btn:hover,.driver-popover-footer-btn:focus{background-color:#f7f7f7}.driver-popover-navigation-btns{flex-grow:1;justify-content:flex-end;display:flex}.driver-popover-navigation-btns button+button{margin-left:4px}.driver-popover-arrow{content:"";border:5px solid #fff;position:absolute}.driver-popover-arrow-side-over{display:none}.driver-popover-arrow-side-left{border-top-color:#0000;border-bottom-color:#0000;border-right-color:#0000;left:100%}.driver-popover-arrow-side-right{border-top-color:#0000;border-bottom-color:#0000;border-left-color:#0000;right:100%}.driver-popover-arrow-side-top{border-bottom-color:#0000;border-left-color:#0000;border-right-color:#0000;top:100%}.driver-popover-arrow-side-bottom{border-top-color:#0000;border-left-color:#0000;border-right-color:#0000;bottom:100%}.driver-popover-arrow-side-center,.driver-popover-arrow-none{display:none}
+/*$vite$:1*/
+
+	/*
+	  Minimal adjustments to the driver.js popover for our guide UI.
+	  PageGuideBubble draws its own white card / header / nav, so we strip only the
+	  default driver.js popover chrome (padding / background / box-shadow) and use the
+	  wrapper as a transparent positioning container. :global overrides the elements
+	  driver.js injects at body level from this component scope.
+	  NOTE: do NOT use `all: unset` — it would also wipe the z-index driver.js gives
+	  `.driver-popover` (above the overlay SVG), dropping the bubble behind the overlay so
+	  button clicks get intercepted by the overlay SVG. Override chrome properties only.
+	*/
+	.driver-popover.page-guide-popover {
+		/*
+		  driver.js positions / viewport-clamps the popover using THIS wrapper's measured
+		  width & height (`se()` → wrapper.getBoundingClientRect()). To guarantee the bubble
+		  can always be placed fully inside the viewport (invariant (b)), the wrapper must
+		  never be wider/taller than the viewport minus a margin. CI (Linux) renders the
+		  Japanese bubble text taller than local, so a fixed 360px without a height cap let
+		  driver place the popover with a negative top / off-viewport edge. We therefore cap
+		  BOTH axes responsively here and make the inner bubble fill the wrapper (width 100%),
+		  so the wrapper's measured size always equals the rendered bubble size and stays
+		  within `100vw - 24px` × `100vh - 24px`. The bubble itself scrolls (overflow-y:auto)
+		  when content exceeds the cap.
+
+		  NOTE (#2971 round5): The CSS `max-width: min(360px, calc(100vw - 24px))` here applies
+		  to the wrapper (driver-popover-content), but the invariant spec measures the inner
+		  `.guide-bubble` element. In CI double-emulation (project=mobile layout 412px, then
+		  invariant spec resizes to 390px), `100vw` evaluates to 412px → 388px max-width,
+		  causing right≈12.5+388=400.5 > 390 invariant failure across all rounds.
+		  The runtime fix is applied in clampPopoverFrame() + renderBubble() via
+		  `bubble.style.maxWidth = Math.min(360, innerWidth-2*pad)px` on the .guide-bubble
+		  directly. This CSS fallback remains for initial load before JS runs.
+		*/
+		max-width: min(360px, calc(100vw - 24px));
+		max-height: calc(100vh - 24px);
+		min-width: 0;
+		background: transparent;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
+		border-radius: 0;
+		color: inherit;
 	}
 
-	.step.svelte-a9mpxv {
+	/* Hide driver.js's built-in popover UI (title / body / footer / progress / close / arrow)
+	   — the UI is fully delegated to the Svelte PageGuideBubble (AC2). */
+	.driver-popover.page-guide-popover .driver-popover-title,
+	.driver-popover.page-guide-popover .driver-popover-description,
+	.driver-popover.page-guide-popover .driver-popover-footer,
+	.driver-popover.page-guide-popover .driver-popover-progress-text,
+	.driver-popover.page-guide-popover .driver-popover-close-btn,
+	.driver-popover.page-guide-popover .driver-popover-arrow {
+		display: none !important;
+	}
+
+	/*
+	  Stronger spotlight ring (AC6 / PO finding c): put the box-shadow directly on the
+	  .driver-active-element that driver.js applies to the highlighted element. Because it is
+	  the element's own box-shadow, the ring always follows it when driver.js re-positions on
+	  scroll / resize, so it never drifts. Thick blue ring + double glow + pulse make the
+	  focus target obvious at a glance.
+	*/
+	.driver-active-element {
+		border-radius: 12px;
+		box-shadow:
+			0 0 0 3px var(--color-action-primary),
+			0 0 0 6px color-mix(in srgb, var(--color-action-primary) 35%, transparent),
+			0 0 18px 4px color-mix(in srgb, var(--color-action-primary) 45%, transparent) !important;
+		animation: svelte-y136gw-page-guide-ring-pulse 1.8s ease-in-out infinite;
+	}
+
+	@keyframes svelte-y136gw-page-guide-ring-pulse {
+		0%,
+		100% {
+			box-shadow:
+				0 0 0 3px var(--color-action-primary),
+				0 0 0 6px color-mix(in srgb, var(--color-action-primary) 30%, transparent),
+				0 0 14px 3px color-mix(in srgb, var(--color-action-primary) 35%, transparent);
+		}
+		50% {
+			box-shadow:
+				0 0 0 4px var(--color-action-primary),
+				0 0 0 8px color-mix(in srgb, var(--color-action-primary) 40%, transparent),
+				0 0 26px 6px color-mix(in srgb, var(--color-action-primary) 55%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.driver-active-element {
+			animation: none;
+		}
+	}
+ /* (unused) *{}*/
+
+	.guide-bubble.svelte-1wbmjuk {
+		/* The driver.js popover wrapper owns viewport placement and caps its own size to
+		   `min(360px, 100vw - 24px)` × `100vh - 24px` (see PageGuideOverlay popover styles).
+		   The bubble fills that wrapper (width:100%) so the wrapper's measured size — which
+		   driver.js uses for collision-aware positioning & viewport clamping — always equals
+		   the rendered bubble size. This prevents CI (taller JP text) from producing a bubble
+		   that overflows the viewport. The bubble scrolls when content exceeds the height cap. */
+		width: 100%;
+		box-sizing: border-box;
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		overflow: hidden;
+		animation: svelte-1wbmjuk-guide-bubble-appear 0.3s ease-out;
+		pointer-events: auto;
+		max-height: calc(100vh - 24px);
+		overflow-y: auto;
+	}
+
+	@keyframes svelte-1wbmjuk-guide-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.guide-header.svelte-1wbmjuk {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		padding: 10px 14px;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
+		gap: 8px;
+		color: white;
+	}
+
+	.guide-header-icon.svelte-1wbmjuk {
+		font-size: 1.1rem;
+	}
+
+	.guide-header-title.svelte-1wbmjuk {
+		font-size: 0.85rem;
+		font-weight: 600;
+		flex: 1;
+	}
+
+	.guide-header-progress.svelte-1wbmjuk {
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
+
+	.guide-step-title.svelte-1wbmjuk {
+		padding: 14px 16px 8px;
+	}
+
+	.guide-step-title.svelte-1wbmjuk h3:where(.svelte-1wbmjuk) {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1e293b);
+	}
+
+	.guide-progress-bar.svelte-1wbmjuk {
+		height: 3px;
+		background: var(--color-surface-muted, #e2e8f0);
+		margin: 0 16px;
+	}
+
+	.guide-progress-fill.svelte-1wbmjuk {
+		height: 100%;
+		background: linear-gradient(90deg, var(--color-action-primary, #3b82f6), var(--color-brand-600, #7c3aed));
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.guide-nav.svelte-1wbmjuk {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 14px 14px;
+		gap: 8px;
+	}
+
+	.guide-nav-right.svelte-1wbmjuk {
+		display: flex;
+		gap: 6px;
+	}
+
+	.guide-nav-btn.svelte-1wbmjuk {
+		padding: 7px 16px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.guide-nav-end.svelte-1wbmjuk {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+	}
+
+	.guide-nav-end.svelte-1wbmjuk:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-prev.svelte-1wbmjuk {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-secondary, #475569);
+	}
+
+	.guide-nav-prev.svelte-1wbmjuk:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-next.svelte-1wbmjuk {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		color: white;
+	}
+
+	.guide-nav-next.svelte-1wbmjuk:hover {
+		filter: brightness(1.1);
+	}
+
+	.guide-nav-next.svelte-1wbmjuk:active {
+		transform: scale(0.97);
+	}
+ .svelte-1wbmjuk{}
+
+	.guide-tabs.svelte-m7e7um {
+		display: flex;
+		padding: 0 12px;
 		gap: 4px;
 	}
 
-	.step-circle.svelte-a9mpxv {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.875rem;
-		font-weight: 700;
-		background: var(--color-neutral-200);
-		color: var(--color-neutral-400);
-		transition: all 0.2s;
+	.guide-tab.svelte-m7e7um {
+		flex: 1;
+		padding: 6px 8px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: none;
+		border-radius: 8px 8px 0 0;
+		cursor: pointer;
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+		transition: all 0.15s;
 	}
 
-	.step--active.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-brand-600); color: white; }
-	.step--done.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-success); color: white; }
+	.guide-tab.active.svelte-m7e7um {
+		background: var(--color-brand-50, #eff6ff);
+		color: var(--color-action-primary, #3b82f6);
+	}
 
-	.step-label.svelte-a9mpxv { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
-	.step--active.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-brand-600); font-weight: 600; }
-	.step--done.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-success); }
+	.guide-tab.svelte-m7e7um:hover:not(.active) {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
 
-	.step-line.svelte-a9mpxv { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
-	.step-line--done.svelte-a9mpxv { background: var(--color-success); }
- .svelte-a9mpxv{}
+	.guide-tab-content.svelte-m7e7um {
+		padding: 12px 16px;
+		min-height: 80px;
+		background: var(--color-surface-card, #ffffff);
+		border-top: 2px solid var(--color-brand-50, #eff6ff);
+	}
+
+	.guide-tab-content.svelte-m7e7um p:where(.svelte-m7e7um) {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--color-text-secondary, #475569);
+		line-height: 1.6;
+		white-space: pre-line;
+	}
+
+	.guide-how-text.svelte-m7e7um {
+		font-size: 0.85rem;
+	}
+
+	.guide-tips.svelte-m7e7um {
+		margin-top: 10px;
+		padding: 8px 10px;
+		background: var(--color-surface-muted, #fffbeb);
+		border-radius: 8px;
+	}
+
+	.guide-tips-label.svelte-m7e7um {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-primary, #92400e);
+	}
+
+	.guide-tip.svelte-m7e7um {
+		margin: 4px 0 0 !important;
+		font-size: 0.8rem !important;
+		color: var(--color-text-secondary, #78716c) !important;
+	}
+
+	.guide-links.svelte-m7e7um {
+		margin-top: 8px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.guide-link.svelte-m7e7um {
+		font-size: 0.8rem;
+		color: var(--color-action-primary, #3b82f6);
+		text-decoration: none;
+	}
+
+	.guide-link.svelte-m7e7um:hover {
+		text-decoration: underline;
+	}
+ .svelte-m7e7um{}
 
 	.logo-wrapper.svelte-1n7r250 {
 		display: inline-flex;
@@ -4325,69 +4606,18 @@ h1, h2, h3, h4 {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
 	}
- .svelte-1n7r250{}
-
-	.theme-card.svelte-1amflqm {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		padding: 12px 8px;
-		border: 2px solid var(--color-neutral-200);
-		border-radius: 12px;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.theme-card.svelte-1amflqm:hover {
-		border-color: var(--color-neutral-300);
-	}
-
-	.peer:checked ~ .theme-card--pink.svelte-1amflqm {
-		border-color: var(--color-pink-400);
-		background-color: var(--color-pink-50);
-	}
-
-	.peer:checked ~ .theme-card--blue.svelte-1amflqm {
-		border-color: var(--color-blue-400);
-		background-color: var(--color-blue-50);
-	}
- .svelte-1amflqm{}
-
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
-	}
-
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
-	}
-
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
-	}
- .svelte-pwdxgn{}</style>
+ .svelte-1n7r250{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div class="setup-page svelte-a9mpxv"><div class="w-full max-w-[480px] svelte-a9mpxv"><div class="text-center mb-6 svelte-a9mpxv"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="200" height="81" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <p class="text-sm text-[var(--color-text-muted)] mt-1 svelte-a9mpxv">初期セットアップ</p></div> <div class="flex items-center justify-center mb-6 svelte-a9mpxv"><!--[--><div class="step svelte-a9mpxv step--active"><div class="step-circle svelte-a9mpxv"><!--[-1-->1<!--]--></div> <span class="step-label svelte-a9mpxv">子供登録</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->2<!--]--></div> <span class="step-label svelte-a9mpxv">かんたん質問</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->3<!--]--></div> <span class="step-label svelte-a9mpxv">活動</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->4<!--]--></div> <span class="step-label svelte-a9mpxv">ごほうび</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->5<!--]--></div> <span class="step-label svelte-a9mpxv">ルール</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->6<!--]--></div> <span class="step-label svelte-a9mpxv">活動初期設定</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->7<!--]--></div> <span class="step-label svelte-a9mpxv">家族チャレンジ</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->8<!--]--></div> <span class="step-label svelte-a9mpxv">はじめての冒険</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->9<!--]--></div> <span class="step-label svelte-a9mpxv">冒険の始まり</span></div> <!--[-1--><!--]--><!--]--></div> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><!--[-1--><!--[--><h2 class="text-lg font-bold text-[var(--color-text)] mb-2 svelte-1amflqm">子供を登録しよう</h2> <p class="text-sm text-[var(--color-text-muted)] mb-4 svelte-1amflqm">がんばりクエストを使う子供を登録してください（1人以上）。</p> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <form method="POST" action="?/addChild" class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)] svelte-1amflqm"><h3 class="text-sm font-bold text-[var(--color-text-secondary)] svelte-1amflqm">子供を追加</h3> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-ニックネーム" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">ニックネーム</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="text" id="field-ニックネーム" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="nickname" required="" placeholder="たろうくん" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-年齢" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">年齢</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="number" id="field-年齢" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="age" min="0" max="18" required="" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="svelte-1amflqm"><label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1 svelte-1amflqm">テーマカラー</label> <div class="grid grid-cols-2 gap-2 svelte-1amflqm"><label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="pink" checked="" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--pink svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👧</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ピンク</span></div></label> <label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="blue" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--blue svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👦</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ブルー</span></div></label></div></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" type="submit"><!--[-1--><!--]--><!---->追加する<!----></button><!--]--><!----></form> <!--[-1--><!--]-->   <div class="mt-4 text-center svelte-1amflqm"><a href="/switch" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)] svelte-1amflqm" data-testid="setup-skip-link">ホームに戻る</a></div><!--]--><!--]--><!----><!----></div> <!--[-1--><!--]--></section><!----></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[0--><div class="sticky top-0 z-50 flex items-center gap-2 px-3 py-2 text-sm border-b bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]" role="status" data-testid="demo-banner"><span class="shrink-0" aria-hidden="true">🧪</span> <div class="flex-1 min-w-0"><p class="font-bold leading-tight">おためしモード</p> <p class="text-xs leading-snug opacity-90">これはおためしです。記録やせっていはほぞんされません。</p></div> <a href="https://www.ganbari-quest.com/auth/signup" class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap" data-testid="demo-banner-signup">本当に始める</a> <a href="https://www.ganbari-quest.com/" class="shrink-0 px-2 py-1 text-xs underline whitespace-nowrap" data-testid="demo-banner-exit">おためしをやめる</a></div><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><!--[-1--><!--]--> <!--[-1--><!--[--><div class="min-h-dvh bg-[var(--color-surface-base)]"><div class="max-w-5xl mx-auto px-4 py-8"><!--[0--><div class="mb-4"><a href="/admin" data-testid="marketplace-back-to-admin" class="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-action-primary)] hover:underline">← 見守り画面へ</a></div><!--]--> <div class="text-center mb-8"><div class="flex justify-center mb-3"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="160" height="65" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></div> <h1 class="text-2xl font-bold text-[var(--color-text-primary)] mb-2">みんなのテンプレート</h1> <p class="text-sm text-[var(--color-text-secondary)]">お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう</p></div>  <div class="grid grid-cols-3 gap-2 mb-6" data-tutorial="marketplace-type-filter"><!--[--><a href="/marketplace?type=activity-pack&amp;age=elementary&amp;gender=boy" data-testid="filter-type-activity-pack" class="rounded-xl p-3 text-center transition-all bg-[var(--color-surface-card)] text-[var(--color-text-primary)] hover:shadow-sm"><span class="text-xl block">📝</span> <span class="text-xs font-bold block mt-1">活動セット</span> <span class="text-xs opacity-70">12種</span></a><a href="/marketplace?type=reward-set&amp;age=elementary&amp;gender=boy" data-testid="filter-type-reward-set" class="rounded-xl p-3 text-center transition-all bg-[var(--color-surface-card)] text-[var(--color-text-primary)] hover:shadow-sm"><span class="text-xl block">🎁</span> <span class="text-xs font-bold block mt-1">ごほうびセット</span> <span class="text-xs opacity-70">10種</span></a><a href="/marketplace?type=checklist&amp;age=elementary&amp;gender=boy" data-testid="filter-type-checklist" class="rounded-xl p-3 text-center transition-all bg-[var(--color-surface-card)] text-[var(--color-text-primary)] hover:shadow-sm"><span class="text-xl block">📋</span> <span class="text-xs font-bold block mt-1">チェックリスト</span> <span class="text-xs opacity-70">3種</span></a><!--]--></div> <!--[-1--><!--]--> <div class="flex items-center justify-between gap-2 mb-4"><span class="text-sm font-medium text-[var(--color-text-secondary)]" data-testid="result-count">13件</span> <div class="flex items-center gap-2"><button type="button" class="md:hidden tap-target inline-flex items-center gap-1 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-card)] border border-[var(--color-border-default)] text-sm font-medium text-[var(--color-text-primary)]" data-testid="filter-open-button">⚙️ フィルタ</button> <div class="w-36" data-testid="sort-select"><!--[--><!--$s1--><!--[-1--><!----><div data-scope="select" data-part="root" dir="ltr" id="select:s1"><div class="flex flex-col gap-1 "><!--[--><!--[-1--><!----><label dir="ltr" id="select:s1:label" data-scope="select" data-part="label" for="select:s1:select" class="text-sm font-medium text-[var(--color-text)]"><!----><!----><!----></label><!----><!--]--><!----><!--]--> <!--[--><!--[-1--><!----><div data-scope="select" data-part="control" dir="ltr" id="select:s1:control" data-state="closed"><!--[--><!--[-1--><!----><button id="select:s1:trigger" dir="ltr" type="button" role="combobox" aria-controls="select:s1:content" aria-expanded="false" aria-haspopup="listbox" data-state="closed" aria-invalid="false" aria-required="false" aria-labelledby="select:s1:label" data-scope="select" data-part="trigger" class="w-full flex items-center justify-between px-3 py-2 border rounded-[var(--input-radius)]
+					bg-[var(--input-bg)] text-sm transition-colors
+					border-[var(--input-border)] hover:border-[var(--color-border-strong)]
+					disabled:opacity-50 disabled:cursor-not-allowed"><!--[--><!--[-1--><!----><span data-scope="select" data-part="value-text" dir="ltr" placeholder="選択してください" class="truncate"><!--[-1-->人気順<!--]--><!----><!----></span><!----><!--]--><!----><!--]--> <span class="text-[var(--color-text-muted)] text-xs ml-2">▼</span><!----><!----></button><!----><!--]--><!----><!--]--><!----><!----></div><!----><!--]--><!----><!--]--> <!--[-1--><!--]--></div> <!--[-1--><!--]--><!----><!----><!----></div><!----><!--]--><!----><!--]--><!----></div></div></div> <div class="md:grid md:grid-cols-[240px_1fr] md:gap-6"><aside class="hidden md:block"><div class="sticky top-4 bg-[var(--color-surface-card)] rounded-xl p-4 border border-[var(--color-border-light)]"><h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">しぼりこむ</h2> <div class="flex flex-col gap-4" data-testid="filter-panel-desktop"><div><h3 class="text-xs font-bold text-[var(--color-text-primary)] mb-2">年齢</h3> <div class="flex flex-wrap gap-1"><!--[--><a href="/marketplace?age=baby&amp;gender=boy" data-testid="filter-age-baby" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">準備モード（0〜2歳）</a><a href="/marketplace?age=preschool&amp;gender=boy" data-testid="filter-age-preschool" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">幼児（3〜5歳）</a><a href="/marketplace?gender=boy" data-testid="filter-age-elementary" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-action-primary-strong)] text-white shadow">小学生（6〜12歳）</a><a href="/marketplace?age=junior&amp;gender=boy" data-testid="filter-age-junior" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">中学生（13〜15歳）</a><a href="/marketplace?age=senior&amp;gender=boy" data-testid="filter-age-senior" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">高校生（16〜18歳）</a><!--]--></div></div> <div><h3 class="text-xs font-bold text-[var(--color-text-primary)] mb-2">性別</h3> <div class="flex flex-wrap gap-1"><a href="/marketplace?age=elementary" data-testid="filter-gender-all" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">すべて</a> <!--[--><a href="/marketplace?age=elementary" data-testid="filter-gender-boy" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-action-primary-strong)] text-white shadow">男の子向け</a><a href="/marketplace?age=elementary&amp;gender=girl" data-testid="filter-gender-girl" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">女の子向け</a><a href="/marketplace?age=elementary&amp;gender=neutral" data-testid="filter-gender-neutral" class="px-3 py-1 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]">どちらも</a><!--]--></div></div> <!--[0--><div><h3 class="text-xs font-bold text-[var(--color-text-primary)] mb-2">タグ</h3> <div class="flex flex-wrap gap-1"><!--[--><a href="/marketplace?age=elementary&amp;tag=%E3%83%86%E3%83%BC%E3%83%9E%E5%88%A5&amp;gender=boy" data-testid="filter-tag-テーマ別" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">テーマ別</a><a href="/marketplace?age=elementary&amp;tag=%E5%B9%B4%E9%BD%A2%E5%88%A5&amp;gender=boy" data-testid="filter-tag-年齢別" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">年齢別</a><a href="/marketplace?age=elementary&amp;tag=%E9%AB%98%E6%A0%A1%E7%94%9F&amp;gender=boy" data-testid="filter-tag-高校生" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">高校生</a><a href="/marketplace?age=elementary&amp;tag=%E8%87%AA%E5%BE%8B&amp;gender=boy" data-testid="filter-tag-自律" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">自律</a><a href="/marketplace?age=elementary&amp;tag=%E8%87%AA%E7%AB%8B&amp;gender=boy" data-testid="filter-tag-自立" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">自立</a><a href="/marketplace?age=elementary&amp;tag=%E5%A5%B3%E3%81%AE%E5%AD%90&amp;gender=boy" data-testid="filter-tag-女の子" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">女の子</a><a href="/marketplace?age=elementary&amp;tag=%E5%B0%8F%E5%AD%A6%E7%94%9F&amp;gender=boy" data-testid="filter-tag-小学生" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">小学生</a><a href="/marketplace?age=elementary&amp;tag=%E7%94%B7%E3%81%AE%E5%AD%90&amp;gender=boy" data-testid="filter-tag-男の子" class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">男の子</a><!--]--></div> <!--[0--><button type="button" data-testid="filter-tag-toggle-desktop" class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--color-action-primary)] hover:underline" aria-expanded="false">もっと見る (残 40 件)</button><!--]--></div><!--]--> <!--[0--><div><a href="/marketplace" data-testid="filter-reset" class="inline-flex items-center gap-1 text-sm text-[var(--color-action-primary)] hover:underline">✕ フィルタをクリア</a></div><!--]--></div><!----></div></aside> <div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8"><!--[--><a href="/marketplace/activity-pack/elementary-challenge" data-tutorial="marketplace-item-card" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">📚</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📝 活動セット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">しょうがくせいチャレンジ</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">6〜9歳のお子さま向け。学習習慣・運動・お手伝いをバランスよく組み合わせ、自主性を育てます。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">6〜9歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">35件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">小学生</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">学習</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">自立</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/activity-pack/elementary-boy" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🏅</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📝 活動セット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">小学生チャレンジ（男の子）</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">6〜12歳の男の子向け。学習習慣・スポーツ・お手伝いに加え表現活動もバランスよく組み合わせ、自主性を育てます。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">6〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">28件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">小学生</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">男の子</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">学習</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/activity-pack/junior-high-challenge" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🎯</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📝 活動セット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">中学生チャレンジ</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">10〜12歳のお子さま向け。自主学習・生活自立・コミュニケーション力を育てる本格的な活動セットです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">10〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">25件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">中学生</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">自主学習</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">自立</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/checklist/event-school-start" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🎒</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📋 チェックリスト<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">にゅうえん・にゅうがく じゅんび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">3〜7歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">11件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">イベント</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">春</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">入園</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/checklist/event-pool" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🏊</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📋 チェックリスト<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">プールの もちもの</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">4〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">10件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">イベント</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">夏</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">プール</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/checklist/event-field-trip" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🗺️</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->📋 チェックリスト<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">えんそく・こうがいがくしゅう もちもの</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">4〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">12件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">イベント</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">遠足</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">校外学習</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/elementary-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🏆</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">しょうがくせいごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">6〜9歳向け。バッジ・称号・連続記録などの「達成記録」で勤勉性を伸ばす小学生向けセット。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">6〜9歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">10件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">年齢別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">小学生</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">達成記録</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/junior-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🎯</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">中学生ごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">10〜12歳向け。自分で選ぶ目標・自己ベスト更新・数値達成で「自己効力感」を育てる中学生向けセット。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">10〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">10件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">年齢別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">中学生</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">自己効力感</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/food-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🍰</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">たべものごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">おやつやスイーツなど、食べること大好きなお子さまが喜ぶごほうびセット。食育にもつながります。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">2〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">6件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">テーマ別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">食べ物</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">おやつ</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/privilege-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">👑</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">とくけんごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">「特別に許可される」ことをごほうびに。夜ふかし、メニュー決定権など、子どもが憧れる特権セットです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">5〜15歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">6件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">テーマ別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">特権</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">自律</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/experience-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">✨</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">たいけんごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">モノではなく体験をごほうびに。家族の思い出づくりにもなる特別な体験型ごほうびセットです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">3〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">5件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">テーマ別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">体験型</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">家族</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/screen-time-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">📱</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">スクリーンタイムごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">ゲームやスマホの時間をポイントで「購入」するスタイル。デジタルとの付き合い方を学べるごほうびセットです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">5〜18歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">5件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">テーマ別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">デジタル</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">スクリーンタイム</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><a href="/marketplace/reward-set/creative-rewards" class="block hover:shadow-md transition-shadow"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="flex items-start gap-3"><span class="text-3xl">🎨</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-1 mb-1"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----></div> <h2 class="text-sm font-bold text-[var(--color-text-primary)] truncate">クリエイティブごほうび</h2> <p class="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">創作好きなお子さまに。画材やクラフト素材など、創造力を刺激するごほうびセットです。</p> <div class="flex items-center gap-2 mt-2"><span class="text-[10px] text-[var(--color-text-tertiary)]">3〜12歳</span> <!--[0--><span class="text-[10px] text-[var(--color-text-tertiary)]">5件</span><!--]--></div> <div class="flex flex-wrap gap-1 mt-2"><!--[--><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">テーマ別</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">創造</span><span class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-1.5 py-0.5 rounded-full">アート</span><!--]--></div></div></div><!----></div> <!--[-1--><!--]--></section><!----></a><!--]--></div> <!--[-1--><!--]--> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><div class="text-center"><p class="text-sm font-bold text-[var(--color-text-primary)] mb-1">テンプレートを使うには</p> <p class="text-xs text-[var(--color-text-secondary)] mb-3">アカウント登録後、ご家族の見守り画面からワンタップで使ってみることができます</p> <a href="/auth/login" class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity">無料で はじめる</a></div><!----></div> <!--[-1--><!--]--></section><!----> <div class="text-center mt-6 flex justify-center gap-4"><a href="/" class="text-sm text-[var(--color-action-primary)] hover:underline">トップページへ</a> <a href="/demo" class="text-sm text-[var(--color-action-primary)] hover:underline">デモを体験</a></div></div></div></div></div> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!----> <!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL(".", location).pathname.slice(0, -1),
 						env: {}
 					};
 
@@ -4398,15 +4628,15 @@ h1, h2, h3, h4 {
 						import("/@fs/C:/Users/kokor/Github/ganbari-quest-qa/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 8, 72],
-							data: [{type:"data",data:{role:"owner",requestId:"53086691-c707-4b92-a627-151d5f2cad22",isDemo:false},uses:{}},null,{type:"data",data:{children:[]},uses:{}}],
+							node_ids: [0, 6, 58],
+							data: [{type:"data",data:{role:"owner",requestId:"757bedc4-bd46-4be4-b827-0ef2e883bf32",isDemo:true},uses:{}},null,{type:"data",data:{isAuthenticated:true,items:[{type:"activity-pack",itemId:"elementary-challenge",name:"しょうがくせいチャレンジ",description:"6〜9歳のお子さま向け。学習習慣・運動・お手伝いをバランスよく組み合わせ、自主性を育てます。",icon:"📚",targetAgeMin:6,targetAgeMax:9,tags:["小学生","学習","自立"],personas:["academic-oriented","routine-focused"],gender:"neutral",curator:"official",itemCount:35},{type:"activity-pack",itemId:"elementary-boy",name:"小学生チャレンジ（男の子）",description:"6〜12歳の男の子向け。学習習慣・スポーツ・お手伝いに加え表現活動もバランスよく組み合わせ、自主性を育てます。",icon:"🏅",targetAgeMin:6,targetAgeMax:12,tags:["小学生","男の子","学習","スポーツ"],personas:["achievement-focused","sports-oriented","outdoor"],gender:"boy",curator:"official",itemCount:28},{type:"activity-pack",itemId:"junior-high-challenge",name:"中学生チャレンジ",description:"10〜12歳のお子さま向け。自主学習・生活自立・コミュニケーション力を育てる本格的な活動セットです。",icon:"🎯",targetAgeMin:10,targetAgeMax:12,tags:["中学生","自主学習","自立"],personas:["academic-oriented","achievement-focused"],gender:"neutral",curator:"official",itemCount:25},{type:"checklist",itemId:"event-school-start",name:"にゅうえん・にゅうがく じゅんび",description:"入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。",icon:"🎒",targetAgeMin:3,targetAgeMax:7,tags:["イベント","春","入園","入学"],personas:["first-child","routine-focused"],gender:"neutral",curator:"official",itemCount:11},{type:"checklist",itemId:"event-pool",name:"プールの もちもの",description:"小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。",icon:"🏊",targetAgeMin:4,targetAgeMax:12,tags:["イベント","夏","プール","水泳"],personas:["routine-focused","outdoor","sports-oriented"],gender:"neutral",curator:"official",itemCount:10},{type:"checklist",itemId:"event-field-trip",name:"えんそく・こうがいがくしゅう もちもの",description:"遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。",icon:"🗺️",targetAgeMin:4,targetAgeMax:12,tags:["イベント","遠足","校外学習"],personas:["routine-focused","outdoor"],gender:"neutral",curator:"official",itemCount:12},{type:"reward-set",itemId:"elementary-rewards",name:"しょうがくせいごほうび",description:"6〜9歳向け。バッジ・称号・連続記録などの「達成記録」で勤勉性を伸ばす小学生向けセット。",icon:"🏆",targetAgeMin:6,targetAgeMax:9,tags:["年齢別","小学生","達成記録","コレクション"],personas:["achievement-focused","game-oriented"],gender:"neutral",curator:"official",itemCount:10},{type:"reward-set",itemId:"junior-rewards",name:"中学生ごほうび",description:"10〜12歳向け。自分で選ぶ目標・自己ベスト更新・数値達成で「自己効力感」を育てる中学生向けセット。",icon:"🎯",targetAgeMin:10,targetAgeMax:12,tags:["年齢別","中学生","自己効力感","自律"],personas:["achievement-focused","game-oriented"],gender:"neutral",curator:"official",itemCount:10},{type:"reward-set",itemId:"food-rewards",name:"たべものごほうび",description:"おやつやスイーツなど、食べること大好きなお子さまが喜ぶごほうびセット。食育にもつながります。",icon:"🍰",targetAgeMin:2,targetAgeMax:12,tags:["テーマ別","食べ物","おやつ"],personas:["relaxed","routine-focused"],gender:"neutral",curator:"official",itemCount:6},{type:"reward-set",itemId:"privilege-rewards",name:"とくけんごほうび",description:"「特別に許可される」ことをごほうびに。夜ふかし、メニュー決定権など、子どもが憧れる特権セットです。",icon:"👑",targetAgeMin:5,targetAgeMax:15,tags:["テーマ別","特権","自律"],personas:["achievement-focused","self-care"],gender:"neutral",curator:"official",itemCount:6},{type:"reward-set",itemId:"experience-rewards",name:"たいけんごほうび",description:"モノではなく体験をごほうびに。家族の思い出づくりにもなる特別な体験型ごほうびセットです。",icon:"✨",targetAgeMin:3,targetAgeMax:12,tags:["テーマ別","体験型","家族"],personas:["outdoor","sibling"],gender:"neutral",curator:"official",itemCount:5},{type:"reward-set",itemId:"screen-time-rewards",name:"スクリーンタイムごほうび",description:"ゲームやスマホの時間をポイントで「購入」するスタイル。デジタルとの付き合い方を学べるごほうびセットです。",icon:"📱",targetAgeMin:5,targetAgeMax:18,tags:["テーマ別","デジタル","スクリーンタイム"],personas:["game-oriented","dual-income"],gender:"neutral",curator:"official",itemCount:5},{type:"reward-set",itemId:"creative-rewards",name:"クリエイティブごほうび",description:"創作好きなお子さまに。画材やクラフト素材など、創造力を刺激するごほうびセットです。",icon:"🎨",targetAgeMin:3,targetAgeMax:12,tags:["テーマ別","創造","アート"],personas:["creative-oriented","indoor"],gender:"neutral",curator:"official",itemCount:5}],tags:["テーマ別","年齢別","高校生","自律","自立","女の子","小学生","男の子","中学生","幼児","イベント","バランス型","学習","進路","部活","アート","おやつ","コレクション","スクリーンタイム","スポーツ","デジタル","プール","遠足","夏","家族","外的成果連動","感覚刺激","校外学習","自己管理","自己決定","自己効力感","自主学習","自発性","受験","春","初心者向け","承認・シール","食べ物","親子共感","水泳","赤ちゃん","創作","創造","体験型","達成記録","特権","入園","入学"],counts:{"activity-pack":12,"reward-set":10,checklist:3},ageBands:[{id:"baby",label:"準備モード（0〜2歳）"},{id:"preschool",label:"幼児（3〜5歳）"},{id:"elementary",label:"小学生（6〜12歳）"},{id:"junior",label:"中学生（13〜15歳）"},{id:"senior",label:"高校生（16〜18歳）"}],filters:{type:null,age:"elementary",tag:null,gender:"boy",sort:"popularity"},ageAutoApplied:null},uses:{search_params:["type","age","tag","gender","sort"]}}],
 							form: null,
 							error: null
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = './service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }
