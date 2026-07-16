@@ -1,6 +1,7 @@
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
+	calcMasteryBonusRefundOnCancel,
 	calcMasteryLevel,
 	getActivityDisplayName,
 	getCategoryById,
@@ -408,7 +409,13 @@ export async function cancelActivityLog(
 		return { error: 'CANCEL_EXPIRED' };
 	}
 
-	const totalPoints = log.points + log.streakBonus;
+	// #3787: mastery_bonus 対称返金。記録時 ledger / status は base+streak+mastery を計上したため、
+	// cancel も同額を返金しないと record→cancel farming で mastery_bonus が balance に残り point 経済が
+	// 壊れる。mastery_bonus 額は付与時と同一式 (記録前 level) で再構成する (計算 SSOT = activity.ts)。
+	const mastery = await findMastery(log.childId, log.activityId, tenantId);
+	const masteryBonusRefund =
+		mastery && mastery.totalCount > 0 ? calcMasteryBonusRefundOnCancel(mastery.totalCount) : 0;
+	const totalPoints = log.points + log.streakBonus + masteryBonusRefund;
 
 	// 活動のカテゴリを取得してステータスXPを戻す
 	const activity = await findActivityById(log.activityId, tenantId);
@@ -417,7 +424,6 @@ export async function cancelActivityLog(
 	}
 
 	// 習熟度を戻す（count-1、レベル再計算）
-	const mastery = await findMastery(log.childId, log.activityId, tenantId);
 	if (mastery && mastery.totalCount > 0) {
 		const revertedCount = Math.max(0, mastery.totalCount - 1);
 		const revertedLevel = calcMasteryLevel(revertedCount);

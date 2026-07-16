@@ -300,5 +300,19 @@ export function calcMasteryBonus(level: number): number {
 	return Math.floor(level / 5);
 }
 
+/**
+ * cancel 時に対称返金すべき mastery_bonus を、cancel 対象 log の記録で増えた mastery 総回数
+ * (post-record count) から再構成する (#3787)。
+ *
+ * 記録時 (`prepareActivityRecord`) は「記録前 level」= `calcMasteryLevel(count - 1)` を基準に
+ * `calcMasteryBonus` を付与する (mastery は per-record 付与)。cancel の point_ledger 相殺行も
+ * 同一式で額を復元し、record→cancel cycle で mastery_bonus が balance に残らない (farming vector
+ * 消滅)。latest record の cancel では付与額と厳密一致する (既存の mastery count 巻戻しと同精度)。
+ */
+export function calcMasteryBonusRefundOnCancel(postRecordCount: number): number {
+	if (postRecordCount <= 0) return 0;
+	return calcMasteryBonus(calcMasteryLevel(postRecordCount - 1));
+}
+
 /** 節目レベル（派手な演出対象） */
 export const MASTERY_MILESTONE_LEVELS = new Set([5, 10, 20, 30, 50, 99]);

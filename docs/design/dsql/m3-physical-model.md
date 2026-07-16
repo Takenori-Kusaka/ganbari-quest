@@ -356,6 +356,7 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 - **core = 単一 txn**（activity_log + status + status_history + mastery + point_ledger base + total_point 加算）。
 - **optional = core commit 後の独立 best-effort mini-txn**（combo/mission/challenge/certificate/special_reward、各 additive かつ冪等、失敗隔離 + ログ）。**欠落許容は要 PO 確認**（M2/big-policy §10-8: 現状の握り潰しと同等で regression なし）。
 - **cancel も対称に単一 txn**（#3596 ②、`cancel-activity-core.ts`）: activity_log soft-cancel（`cancelled=true`）+ mastery count−1 + point_ledger(−)+total_point 減 + status 復元（clampDecayFloor 契約保存）+ status_history を all-or-nothing 書込。冪等 guard = cancel UPDATE の affected 行判定（2 連打は同一行 UPDATE の OCC 40001 retry で 0 行 → ALREADY_CANCELLED、二重返金なし）。record core と同じく DATA_SOURCE=dsql のみ本経路（sqlite/pglite は逐次 await 経路を温存、単一接続で並行競合なし）。
+- **返金額は base+streak+mastery_bonus の対称返金**（#3787）: record 時 ledger は base+streak+mastery_bonus を計上するため、cancel も同額を相殺しないと record→cancel cycle で mastery_bonus（per-record 付与、`floor(level/5)`）が balance に残り point 経済が壊れる。refundPoints は service 層（`activity-cancel-dsql.ts` / legacy sqlite 経路とも）が `log.points + log.streak_bonus + calcMasteryBonusRefundOnCancel(mastery.total_count)` で算出する（記録前 level = `calcMasteryLevel(count-1)` を基準に付与時と同一式で復元、latest record の cancel で厳密一致）。core は refundPoints を ledger(−)/total_point/status に一貫適用するのみ（額算出責務は service 層に凝集、旧 #3596 ② の非対称挙動を是正）。
 
 ### §6.2 派生列 compute-on-write（total_point 等、構造決定 + PoC 保留）
 
