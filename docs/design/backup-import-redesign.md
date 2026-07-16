@@ -40,9 +40,10 @@
 - **PIN（おやカギ pin_hash）取扱**（監査 §3 セキュリティ caveat、CWE-522/916）: backup から除外し復元後に再設定、または別パスフレーズで暗号化。無防備同梱しない（PO 判断、§4）。
 
 **実装（`src/lib/domain/export-format.ts` / `src/lib/server/services/export-service.ts`）**:
-- フォーマット = `EXPORT_FORMAT='ganbari-quest-backup'` / `EXPORT_VERSION='1.6.0'`。下位互換読込は持たない（D5）。
+- フォーマット = `EXPORT_FORMAT='ganbari-quest-backup'` / `EXPORT_VERSION='1.7.0'`。下位互換読込は持たない（D5）。
 - **settings は default-deny allowlist**（`EXPORTABLE_SETTING_KEYS` / `isExportableSettingKey`）。`pin_hash` / `pin_locked_until` / `pin_failed_attempts` / `pin_reset_applied` / `session_token` / `session_expires_at` を export からも import からも除外（CWE-522/916、import 側でも再 filter する多層防御）。
-- per-child instance は **自然キー参照（ref）で出力**し、import で新 childId / 新 id に再解決する（§3.3）: `childRef`（child）/ `rewardRef`（ごほうび title）/ `activityName`（per-child 活動名）/ `templateExportId`（checklist template）/ `voiceRelPath`（音声ファイル相対パス、tenant prefix 除去済）/ `from`-`toChildRef`（兄弟応援）。
+- per-child instance は **参照（ref）で出力**し、import で新 childId / 新 id に再解決する（§3.3）: `childRef`（child）/ `rewardExportId`（ごほうび安定識別子 `reward-<childRef>-<rewardId>`、交換履歴の優先再結合キー、#3381）+ `rewardRef`（ごほうび title、旧 backup / fallback）/ `activityName`（per-child 活動名）/ `templateExportId`（checklist template、#3107）/ `voiceRelPath`（音声ファイル相対パス、tenant prefix 除去済）/ `from`-`toChildRef`（兄弟応援）。
+  - **安定識別子 vs title/name（#3107 / #3381）**: title / name は mutable なため、改名後 / 同名複数時に再結合が silent skip / collapse する。checklist（`exportId` / `templateExportId`）と交換履歴（`exportId` / `rewardExportId`）は **`<種別>-<childRef>-<元id>` 形の安定識別子を優先キー**にし、title/name は旧 backup 用の fallback に降格する（いずれも optional で後方互換、EXPORT_VERSION 1.7.0）。activity（`activityName`）は同型の安定 id 化が follow-up（#3465(2)、`findActivityLogs` の projection に activityId を carry させる必要あり）。
 - 音声 / アバター等の静的ファイルは `backup-archive.ts` が ZIP に同梱（`MAX_ZIP_SIZE=100MB`、fail-closed）。DB 行は tenant prefix を除いた相対パスを持ち、import で新 tenant+childId に再構成する（#3077）。
 
 ### 3.3 import
