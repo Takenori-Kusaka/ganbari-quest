@@ -286,7 +286,10 @@ describe('buildFullBackupZip (#3376 AC8)', () => {
 		// 旧実装は非圧縮合計 > 100MB で誤 reject していたが、判定を圧縮後 ZIP サイズ基準に是正したため通る。
 		// data.json は per-entry 対象外 (構造化データ) のため parse 側 filter でも drop されず round-trip する。
 		mockListFiles.mockResolvedValue([]);
-		const hugeCompressibleDataJson = `{"format":"ganbari-quest-backup","version":"1.3.0","pad":"${'a'.repeat(
+		// data.json override は manifest.itemCounts (buildFullBackupZip は exportData から算出) と
+		// 整合させる必要がある (#3386 の itemCounts 照合。本番では dataJson=exportData 直列化で常に一致)。
+		// SAMPLE_EXPORT は children 1 件のため family も同一件数で埋める。
+		const hugeCompressibleDataJson = `{"format":"ganbari-quest-backup","version":"1.3.0","family":{"children":[{"id":"1","nickname":"テスト"}]},"pad":"${'a'.repeat(
 			MAX_ZIP_SIZE + 2 * 1024 * 1024,
 		)}"}`;
 		const zip = await buildFullBackupZip('T1', SAMPLE_EXPORT, false, hugeCompressibleDataJson);
