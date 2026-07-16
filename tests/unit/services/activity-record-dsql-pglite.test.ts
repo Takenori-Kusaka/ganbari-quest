@@ -37,13 +37,17 @@ vi.mock('$lib/server/db/dsql/connection', () => ({
 import { createDsqlChildActivityRepo } from '../../../src/lib/server/db/dsql/child-activity-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
 // サービス層 (dispatch 元) は mock 設定後に import
-import { recordActivity } from '../../../src/lib/server/services/activity-log-service';
+import {
+	cancelActivityLog,
+	recordActivity,
+} from '../../../src/lib/server/services/activity-log-service';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000e1';
 
 let t: DsqlTestDb;
 let childId: ChildId;
 let activityId: string;
+let activityId2: string;
 
 const count = async (table: string, cid: string) =>
 	Number(
@@ -83,11 +87,12 @@ beforeAll(async () => {
 		{ childId, name: 'たいそう', categoryId: asCategoryId('1'), icon: '🤸', basePoints: 5 },
 		FAMILY,
 	);
-	await repo.insertActivity(
+	const a2 = await repo.insertActivity(
 		{ childId, name: 'えほん', categoryId: asCategoryId('2'), icon: '📖', basePoints: 5 },
 		FAMILY,
 	);
 	activityId = a1.id;
+	activityId2 = a2.id;
 }, 60_000);
 
 afterAll(async () => {
@@ -145,5 +150,27 @@ describe('#3541 Phase Z: dsql 経路 end-to-end (PGlite 実 schema + 実 core)',
 		expect(await count('activity_logs', childId)).toBe(1);
 		expect(await count('status_history', childId)).toBe(1);
 		expect(await totalPoint(childId)).toBe(5);
+	});
+
+	it('[E3] #3787: mastery_bonus 付与済 record→cancel は対称返金し total_point net 0', async () => {
+		// activityId2 に習熟 Lv5 (total_count=30) を seed → 次の record で masteryBonus = floor(5/5) = 1
+		await t.db.execute(sql`
+			INSERT INTO activity_mastery (family_id, child_id, activity_id, total_count, level)
+			VALUES (${FAMILY}, ${childId}, ${activityId2}, 30, 5)
+		`);
+
+		const recorded = assertSuccess(await recordActivity(childId, activityId2 as never, FAMILY));
+		// この record で mastery_bonus が実際に付与されている (前提)。totalPoints は base+streak+mastery。
+		expect(recorded.masteryBonus).toBeGreaterThan(0);
+		// achievement 解禁分の別 ledger が混ざるため total_point の絶対値ではなく cancel の相殺量で検証する。
+		const afterRecord = await totalPoint(childId);
+
+		const cancelResult = await cancelActivityLog(recorded.id, FAMILY);
+		if ('error' in cancelResult) throw new Error(`Unexpected error: ${cancelResult.error}`);
+		// 対称返金: cancel は base+streak だけでなく mastery_bonus 込みの totalPoints 全額を返金する
+		// (pre-fix は base+streak のみで mastery_bonus 分が balance に残った)。
+		expect(cancelResult.refundedPoints).toBe(recorded.totalPoints);
+		// cancel は activity ledger 相殺のみ (achievement 分は据置)。total_point は正確に totalPoints 減る。
+		expect(await totalPoint(childId)).toBe(afterRecord - recorded.totalPoints);
 	});
 });

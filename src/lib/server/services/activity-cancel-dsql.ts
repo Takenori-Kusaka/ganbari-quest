@@ -16,8 +16,13 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn は core 内)。
 
 import { todayDateJST } from '$lib/domain/date-utils';
-import { CANCEL_WINDOW_MS, calcMasteryLevel } from '$lib/domain/validation/activity';
+import {
+	CANCEL_WINDOW_MS,
+	calcMasteryBonusRefundOnCancel,
+	calcMasteryLevel,
+} from '$lib/domain/validation/activity';
 import { calcLevelFromXp, clampDecayFloor } from '$lib/domain/validation/status';
+import { findByChildAndActivity as findMastery } from '$lib/server/db/activity-mastery-repo';
 import { findActivityById, findActivityLogById } from '$lib/server/db/activity-repo';
 import { cancelActivityCore } from '$lib/server/db/dsql/cancel-activity-core';
 import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
@@ -40,8 +45,14 @@ export async function cancelActivityDsql(
 		return { error: 'CANCEL_EXPIRED' };
 	}
 
-	// 返金額 = log.points + log.streak_bonus (legacy と同一計算)。
-	const refundPoints = log.points + log.streakBonus;
+	// 返金額 = log.points + log.streak_bonus + mastery_bonus (#3787 対称返金)。記録時 ledger は
+	// base+streak+mastery を計上するため、mastery_bonus も相殺しないと record→cancel farming で
+	// balance に残る。mastery_bonus 額は付与時と同一式 (記録前 level) で再構成する (計算 SSOT = activity.ts)。
+	// mastery 読取は refund 額算出用 (count 巻戻し自体は core が in-txn で実施)。
+	const mastery = await findMastery(log.childId, log.activityId, tenantId);
+	const masteryBonusRefund =
+		mastery && mastery.totalCount > 0 ? calcMasteryBonusRefundOnCancel(mastery.totalCount) : 0;
+	const refundPoints = log.points + log.streakBonus + masteryBonusRefund;
 
 	// activity 削除済なら categoryId=null で status 復元を skip (legacy `if (activity)` parity)。
 	const activity = await findActivityById(log.activityId, tenantId);

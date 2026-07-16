@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	calcMasteryBonus,
+	calcMasteryBonusRefundOnCancel,
 	calcMasteryLevel,
 	countToNextMasteryLevel,
 	MASTERY_LEVEL_TABLE,
@@ -109,6 +110,25 @@ describe('calcMasteryBonus', () => {
 
 	it('Lv99 → +19pt', () => {
 		expect(calcMasteryBonus(99)).toBe(19);
+	});
+});
+
+describe('calcMasteryBonusRefundOnCancel (#3787 対称返金)', () => {
+	it('post-record count 0 / 1 は返金 0 (記録前 Lv1 = bonus 0)', () => {
+		expect(calcMasteryBonusRefundOnCancel(0)).toBe(0);
+		expect(calcMasteryBonusRefundOnCancel(1)).toBe(0);
+	});
+
+	it('付与時と同一額を復元する: 記録前 level = calcMasteryLevel(count-1) の bonus', () => {
+		// count=31 (post-record) → 記録前 count=30 → Lv5 → bonus 1
+		expect(calcMasteryBonusRefundOnCancel(31)).toBe(calcMasteryBonus(calcMasteryLevel(30)));
+		expect(calcMasteryBonusRefundOnCancel(31)).toBe(1);
+		// count=51 → 記録前 50 → Lv6 → bonus 1
+		expect(calcMasteryBonusRefundOnCancel(51)).toBe(calcMasteryBonus(calcMasteryLevel(50)));
+	});
+
+	it('負値は 0 に丸める (防御)', () => {
+		expect(calcMasteryBonusRefundOnCancel(-5)).toBe(0);
 	});
 });
 

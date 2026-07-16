@@ -22,10 +22,13 @@
 //   - **fitness#7 準拠**: work 内 await は全て tx.execute 直呼び。level/floor 算出は sync 注入。
 //   - work は再実行可能 (40001 retry で全体再実行、cancel UPDATE の affected 判定が冪等性を守る)。
 //
-// **返金額の非対称メモ (#3596 ②)**: refundPoints は legacy と同一に log.points + log.streak_bonus
-//   を service が算出する。記録時 ledger は base+streak+mastery_bonus を計上するため mastery_bonus
-//   分は返金されない既存挙動を本 core は保存する (atomicity の是正のみが scope)。厳密な対称返金
-//   (原 ledger 額の巻戻し) は別途 follow-up (#3596 の後続 or 新規) で扱う。
+// **返金額の対称化 (#3787)**: refundPoints は service (activity-cancel-dsql.ts) が
+//   log.points + log.streak_bonus + mastery_bonus を算出して渡す (legacy sqlite 経路と同一計算)。
+//   記録時 ledger は base+streak+mastery_bonus を計上するため、mastery_bonus も相殺しないと
+//   record→cancel farming で balance に残る (point 経済破綻)。mastery_bonus 額は付与時と同一式
+//   (記録前 level = calcMasteryLevelFor(count-1)) で再構成する (計算 SSOT = activity.ts の
+//   calcMasteryBonusRefundOnCancel)。本 core は refundPoints を ledger(−)/total_point/status に
+//   一貫適用するのみで、額の算出責務は service 層に凝集する (旧 #3596 ② の非対称挙動を是正)。
 
 import { sql } from 'drizzle-orm';
 import type { TransactionRunner } from '../interfaces/transaction.interface';

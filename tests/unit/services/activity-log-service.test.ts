@@ -365,6 +365,44 @@ describe('cancelActivityLog', () => {
 	});
 });
 
+describe('cancelActivityLog: mastery_bonus 対称返金 (#3787)', () => {
+	beforeEach(() => {
+		seedBase();
+		mockToday = '2026-02-20';
+	});
+
+	/** childId の point_ledger 合計 (record +total / cancel −refund の net)。 */
+	function ledgerBalance(childId: number): number {
+		return testDb
+			.select()
+			.from(schema.pointLedger)
+			.all()
+			.filter((e) => Number(e.childId) === childId)
+			.reduce((sum, e) => sum + e.amount, 0);
+	}
+
+	it('mastery_bonus 付与済 (level ≥ 5) の record→cancel は mastery_bonus も返金し net 0 (farming vector 消滅)', async () => {
+		// 習熟レベル 5 (totalCount=30) を seed → 次の record で masteryBonus = floor(5/5) = 1 が付与される
+		testDb
+			.insert(schema.activityMastery)
+			.values({ childId: 1, activityId: 1, totalCount: 30, level: 5 })
+			.run();
+
+		const recorded = assertSuccess(await recordActivity(asChildId(1), asActivityId(1), TENANT));
+		// 前提: この record で mastery_bonus が実際に付与されている (0 だと本テストが farming を検出できない)
+		expect(recorded.masteryBonus).toBeGreaterThan(0);
+		expect(ledgerBalance(1)).toBe(recorded.totalPoints);
+
+		const cancelResult = await cancelActivityLog(recorded.id, TENANT);
+		if ('error' in cancelResult) throw new Error(`Unexpected error: ${cancelResult.error}`);
+
+		// 対称返金: cancel は base+streak だけでなく mastery_bonus 込みの totalPoints 全額を返金する
+		expect(cancelResult.refundedPoints).toBe(recorded.totalPoints);
+		// record +total / cancel −total で net 0。mastery_bonus が balance に残らない
+		expect(ledgerBalance(1)).toBe(0);
+	});
+});
+
 describe('recordActivity: 習熟度（mastery）', () => {
 	beforeEach(() => {
 		seedBase();
