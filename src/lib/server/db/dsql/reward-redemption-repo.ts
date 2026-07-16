@@ -27,6 +27,7 @@ import {
 	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
 import type { SqlExecutor } from './sql-executor';
 
 interface RequestRow {
@@ -153,7 +154,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
 					${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
-					${input.resolvedByParentId},
+					${normalizeResolvedByParentId(input.resolvedByParentId)},
 					${input.shownToChildAt === null ? null : epochToIso(input.shownToChildAt)},
 					${input.rewardTitle}, ${input.rewardPoints}, ${input.rewardIcon})
 				RETURNING ${REQUEST_COLUMNS}

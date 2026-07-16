@@ -10,6 +10,7 @@ import {
 	type RedemptionRequestWithDetails,
 	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
+import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
 
 type RequestRow = typeof rewardRedemptionRequests.$inferSelect;
@@ -148,7 +149,9 @@ export async function insertRedemptionForRestore(
 				status: input.status,
 				parentNote: input.parentNote,
 				resolvedAt: input.resolvedAt,
-				resolvedByParentId: input.resolvedByParentId,
+				// #3464: legacy `0`/`'0'` を物理 null 化して書き戻す (read 正規化と SSOT 共有、
+				// 「書込 0 / read null」の物理値ドリフト防止)。
+				resolvedByParentId: normalizeResolvedByParentId(input.resolvedByParentId),
 				shownToChildAt: input.shownToChildAt,
 				rewardTitle: input.rewardTitle,
 				rewardPoints: input.rewardPoints,

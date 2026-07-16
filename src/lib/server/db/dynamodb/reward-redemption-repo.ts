@@ -43,6 +43,7 @@ import {
 	type RedemptionRequestWithDetails,
 	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
+import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -67,16 +68,8 @@ interface DenormFields {
 	rewardPoints: number;
 }
 
-// #3337: legacy DynamoDB レコードは resolvedByParentId=0 (number) を持つ (旧 approve/reject の
-// placeholder)。`?? null` は 0 が nullish でないため legacy 0 を素通しし、string|null 型に number が
-// 紛れる coercion trap になる。read-side で 0 / '0' / null/undefined を null に正規化し、SQLite
-// (lazy-startup-migrations で legacy 0→NULL 正規化済) と cross-backend 表現を揃える。
-// 実 parent userId は string で保存されるためそのまま String 化して返す。
-function normalizeResolvedByParentId(raw: unknown): string | null {
-	if (raw === null || raw === undefined || raw === 0 || raw === '0') return null;
-	return String(raw);
-}
-
+// #3337 / #3464: resolvedByParentId の legacy `0`/`'0'` → null 正規化は
+// `../reward-redemption-normalize` の SSOT (read + restore write 共有) を使う。
 // DynamoDB item から PK/SK + 非正規化フィールドを除いた RedemptionRequestRow を作る。
 function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 	const stripped = stripKeys(item) as Record<string, unknown>;
@@ -278,7 +271,8 @@ export const insertRedemptionForRestore: IRewardRedemptionRepo['insertRedemption
 			status: input.status,
 			parentNote: input.parentNote,
 			resolvedAt: input.resolvedAt,
-			resolvedByParentId: input.resolvedByParentId,
+			// #3464: legacy `0`/`'0'` を物理 null 化して書き戻す (read 正規化と SSOT 共有)。
+			resolvedByParentId: normalizeResolvedByParentId(input.resolvedByParentId),
 			shownToChildAt: input.shownToChildAt,
 		};
 

@@ -84,7 +84,8 @@ export async function insertEvaluation(
 		weekEnd: input.weekEnd,
 		scoresJson: input.scoresJson,
 		bonusPoints: input.bonusPoints,
-		createdAt: now,
+		// #3355: backup restore が渡した createdAt を保全 (省略時は取込時刻)。
+		createdAt: input.createdAt ?? now,
 	};
 
 	const key = evaluationKey(Number(input.childId), input.weekStart, tenantId);

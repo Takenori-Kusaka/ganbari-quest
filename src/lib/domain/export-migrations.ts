@@ -40,6 +40,9 @@ const STEPS: readonly MigrationStep[] = [
 	{ from: '1.3.0', to: '1.4.0', migrate: identity },
 	{ from: '1.4.0', to: '1.5.0', migrate: identity },
 	{ from: '1.5.0', to: '1.6.0', migrate: identity },
+	// #3381: specialReward.exportId / rewardRedemption.rewardExportId 追加 (追加のみ、import 側は
+	// exportId 欠落時に rewardRef=title で fallback するため identity で足りる)。
+	{ from: '1.6.0', to: '1.7.0', migrate: identity },
 ];
 
 /** STEPS が辿れる version の集合 (chain の起点 + 各 step の to)。テストの網羅検証に使う。 */

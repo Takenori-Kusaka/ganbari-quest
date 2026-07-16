@@ -13,7 +13,11 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #3422: 1.6.0 で childActivity の `dailyLimit` / `nameKana` / `nameKanji` を追加。create/update では
 //   persist 是正済だが backup round-trip では同 3 列が silent drop され、復元後 dailyLimit が null
 //   (= 1 日 1 回固定) に戻る取りこぼしの修正。いずれも optional で後方互換 (旧 backup は schema default)。
-export const EXPORT_VERSION = '1.6.0' as const;
+// #3381: 1.7.0 で specialReward の `exportId` / rewardRedemption の `rewardExportId` を追加。交換履歴の
+//   reward 再結合を mutable な title でなく安定識別子 (rewardId 由来の exportId) で行い、reward 改名後 /
+//   同名 reward 複数時に交換履歴が silent skip / collapse する restore edge を根治する。いずれも optional で
+//   後方互換 (旧 backup は rewardRef=title で従来どおり fallback 再結合、#3107 checklist exportId と同型)。
+export const EXPORT_VERSION = '1.7.0' as const;
 
 // ============================================================
 // 退役キー名の予約 (Protobuf `reserved` / Avro alias の安価な代替)。
@@ -247,12 +251,20 @@ export interface ExportSpecialReward {
 	grantedAt: string;
 	// #1254 G1: マーケットプレイスプリセット由来の識別子 (v1.2.0+)
 	sourcePresetId?: string | null;
+	// #3381: export 内で安定な reward 識別子 (v1.7.0+、`reward-${childRef}-${rewardId}`)。
+	// rewardRedemption の再結合キーに使い、reward が改名されても / 同名 reward が複数あっても
+	// 交換履歴を取り違えない。旧 export には無いため optional (title fallback へ縮退)。
+	exportId?: string;
 }
 
 export interface ExportRewardRedemption {
 	childRef: string;
-	/** import 後に FK rewardId を再解決するための reward タイトル (per-child で一意) */
+	/** import 後に FK rewardId を再解決するための reward タイトル (per-child で一意、旧 backup / fallback 用) */
 	rewardRef: string;
+	// #3381: 紐づく reward の安定識別子 (v1.7.0+、ExportSpecialReward.exportId 参照)。import 側はこれを
+	// 優先して新 rewardId に再マップし、無い場合 (旧 export) のみ rewardRef (title) で fallback する。
+	// reward 改名後 / 同名 reward 複数時の silent skip / collapse を根治する。
+	rewardExportId?: string | null;
 	requestedAt: number;
 	status: string;
 	parentNote: string | null;

@@ -431,14 +431,18 @@ async function collectForChild(
 		category: sr.category,
 		grantedAt: sr.grantedAt,
 		sourcePresetId: sr.sourcePresetId,
+		// #3381: 安定 reward 識別子。交換履歴 (rewardExportId) の再結合キー (改名/同名衝突に頑健)。
+		exportId: `reward-${childRef}-${sr.id}`,
 	}));
 
-	// #3329: 交換履歴。FK rewardId は import 後に変わるため rewardRef (reward title) で再結合する。
-	// WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
+	// #3329: 交換履歴。FK rewardId は import 後に変わるため再結合が必要。
+	// #3381: 安定識別子 rewardExportId (reward の exportId) を優先キーにし、rewardRef (snapshot title) は
+	// 旧 backup / fallback 用に残す。WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
 	warnIfTruncated('rewardRedemptions', childId, redemptions.length);
 	const rewardRedemptionsOut: ExportRewardRedemption[] = redemptions.map((r) => ({
 		childRef,
 		rewardRef: r.rewardTitle,
+		rewardExportId: `reward-${childRef}-${r.rewardId}`,
 		requestedAt: r.requestedAt,
 		status: r.status,
 		parentNote: r.parentNote,

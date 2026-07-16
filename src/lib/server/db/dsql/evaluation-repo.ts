@@ -105,10 +105,11 @@ export function createDsqlEvaluationRepo<TTx extends SqlExecutor>(
 
 		async insertEvaluation(input, tenantId) {
 			// scores_json は verbatim text 据置 (子表化しない、§4.2)。
+			// #3355: created_at は backup restore が渡した値を保全 (省略時は DB default = now)。
 			const result = await db.execute(sql`
-				INSERT INTO evaluations (family_id, child_id, week_start, week_end, scores_json, bonus_points)
+				INSERT INTO evaluations (family_id, child_id, week_start, week_end, scores_json, bonus_points, created_at)
 				VALUES (${tenantId}, ${input.childId}, ${input.weekStart}, ${input.weekEnd},
-					${input.scoresJson}, ${input.bonusPoints})
+					${input.scoresJson}, ${input.bonusPoints}, ${input.createdAt ?? sql`DEFAULT`})
 				RETURNING ${EVALUATION_COLUMNS}
 			`);
 			return toEvaluation(result.rows[0] as unknown as EvaluationRow);
