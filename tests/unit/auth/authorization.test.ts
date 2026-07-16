@@ -30,6 +30,7 @@ describe('authorizeCognito', () => {
 			'/pricing',
 			'/setup',
 			'/api/health',
+			'/api/ready',
 			'/api/stripe/webhook',
 			'/legal/privacy',
 			'/legal/terms',

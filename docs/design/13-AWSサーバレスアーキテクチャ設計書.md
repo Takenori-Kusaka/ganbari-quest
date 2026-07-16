@@ -107,6 +107,18 @@
 - Lambda events → HTTP変換を透過的に処理
 - Cold start: ~500ms（許容範囲）
 
+**LWA readiness と health の分離（#3657）:**
+
+| probe | パス | 深さ | 用途 |
+|-------|------|------|------|
+| readiness | `/api/ready` | shallow（プロセスが HTTP を受けられるかのみ、DB 非接触） | LWA の `AWS_LWA_READINESS_CHECK_PATH`（`Dockerfile.lambda`）。トラフィック受入可否の判定 |
+| health | `/api/health` | deep（DATA_SOURCE に応じた実 backend 接続 + schema 検証、07-API設計書 §3.15） | 監視専用: 外部ヘルスチェック Prober（§3.4 L1）/ post-deploy smoke（deploy.yml / deploy-aws-staging.yml）/ NUC Docker healthcheck（`Dockerfile`） |
+
+- **readiness を deep DB probe に結合しない**。結合すると DB 障害時に LWA が never-ready となり、アプリの fail-close 503 が外に出ず Function URL 全体が 502 化する（外形の劣化 + 障害原因の不可視化）。さらに cold start の readiness 成立が DB 接続に律速されて Lambda init 10s 上限の `INIT_REPORT timeout` → 再 init ループを誘発する（DSQL 構成 staging 実測: probe 込み Init 3315ms）
+- LWA 0.9.1 の readiness は HTTP status ≥ 500（`AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS` 既定値）を unhealthy と判定するため、/api/health の 503 fail-close はそのまま never-ready になる。LWA 既定の readiness path が `/`（軽量応答想定）である点とも整合し、shallow readiness + deep health の分離は Kubernetes の readiness/liveness 分離・AWS Builders' Library「Implementing health checks」（依存 deep check を起動 gate に使うと単一依存障害が全遮断へ増幅される）と同型の確立パターン
+- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、Lambda-URL-5xx alarm（§3.4 #7、≥5回/5分 P0）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
+- `/api/ready` はメンテナンスモード（§3.5）でも 503 化しない（`hooks.server.ts` で `/api/health` と同様に除外）。メンテ中の cold start が never-ready → 502 になり、メンテページ（503 → S3 差し替え）が出せなくなるのを防ぐ
+
 **ECRリポジトリ:**
 - イメージ保持: 最新10個（ロールバック用 ~2週間分）
 - 未タグイメージ: 1日で自動削除

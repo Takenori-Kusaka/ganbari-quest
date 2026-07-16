@@ -137,6 +137,8 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/_app') ||
 		path.startsWith('/favicon') ||
 		path.startsWith('/api/health') ||
+		// #3657: LWA readiness の shallow probe。認証なしで 200 を返せる必要がある
+		path.startsWith('/api/ready') ||
 		path.startsWith('/api/stripe/webhook') ||
 		path.startsWith('/legal') ||
 		path.startsWith('/demo') ||

@@ -48,7 +48,10 @@ COPY --from=build /app/package.json ./
 ENV PORT=3000
 ENV HOST=0.0.0.0
 ENV AWS_LWA_PORT=3000
-ENV AWS_LWA_READINESS_CHECK_PATH=/api/health
+# readiness は shallow probe (/api/ready = プロセス生存のみ) に向ける (#3657)。
+# /api/health (deep DB probe) に結合すると DB 障害時に LWA never-ready → 全 502 +
+# cold start init timeout ループになる。deep probe は監視系 (/api/health) が担う。
+ENV AWS_LWA_READINESS_CHECK_PATH=/api/ready
 ENV AWS_LWA_INVOKE_MODE=buffered
 ENV NODE_ENV=production
 
