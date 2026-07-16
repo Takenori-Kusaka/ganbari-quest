@@ -246,17 +246,25 @@ export const statusHistory = sqliteTable(
 // ============================================================
 // evaluations - 週次評価
 // ============================================================
-export const evaluations = sqliteTable('evaluations', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	childId: integer('child_id')
-		.notNull()
-		.references(() => children.id),
-	weekStart: text('week_start').notNull(),
-	weekEnd: text('week_end').notNull(),
-	scoresJson: text('scores_json').notNull(),
-	bonusPoints: integer('bonus_points').notNull().default(0),
-	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const evaluations = sqliteTable(
+	'evaluations',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		weekStart: text('week_start').notNull(),
+		weekEnd: text('week_end').notNull(),
+		scoresJson: text('scores_json').notNull(),
+		bonusPoints: integer('bonus_points').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	// #3782: 「1子1週1評価」の自然キー (childId, weekStart) を DB 層で物理一意化
+	// (兄弟表 rest_days=idx_rest_days_child_date / login_bonuses=idx_login_bonuses_child_date /
+	// stamp_cards=idx_stamp_cards_child_week と同型)。service 層 pre-fetch dedup (#3355) を経由しない
+	// 別 insert 経路・並行 import でも重複行を作れない canonical guard (ADR-0061 push-down-pyramid)。
+	(table) => [uniqueIndex('idx_evaluations_child_week').on(table.childId, table.weekStart)],
+);
 
 // ============================================================
 // market_benchmarks - 市場ベンチマーク

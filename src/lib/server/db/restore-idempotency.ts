@@ -180,7 +180,7 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 			demo: 'null-stub',
 		},
 		reason:
-			'音声 DB 行は filePath (uuid) が実質識別子で、静的ファイル復元 (#3077) と対で管理される。再取込複製は既知の制約 (backup 対象は同一 uuid path へ上書き復元されるため実害は DB 行の重複のみ)',
+			'音声 DB 行は filePath (uuid) が実質識別子で、静的ファイル復元 (#3077) と対で管理される。再取込複製は既知の制約 (backup 対象は同一 uuid path へ上書き復元されるため実害は DB 行の重複のみ)。#3781: import-service 層で DB 行↔本体ファイル (staticFiles) の相互整合を fail-closed 検証 — 本体を欠く行は insert せず skip + warning で dangling publicUrl を生まない',
 	},
 	restDay: {
 		kind: 'natural-key',

@@ -1640,7 +1640,10 @@ describe('importFamilyData', () => {
 			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
 			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
-			const result = await importFamilyData(data, TENANT);
+			// #3781: DB 行の本体ファイルが staticFiles に存在するときのみ復元される (dangling fail-closed)。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/abcd-1234.mp3': new Uint8Array([1, 2, 3]),
+			});
 
 			expect(result.childVoicesImported).toBe(1);
 			expect(result.childVoicesSkipped).toBe(0);
@@ -1663,7 +1666,10 @@ describe('importFamilyData', () => {
 			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
 			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
-			const result = await importFamilyData(data, TENANT);
+			// 正常エントリのみ本体を同梱。トラバーサル 3 件は path-safety で本体チェック前に落ちる。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/safe.mp3': new Uint8Array([1]),
+			});
 
 			// 正常 1 件のみ insert、トラバーサル 3 件は skip
 			expect(result.childVoicesImported).toBe(1);
@@ -1692,7 +1698,10 @@ describe('importFamilyData', () => {
 			mockInsertChild.mockResolvedValue({ id: '101' });
 			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
-			const result = await importFamilyData(data, TENANT);
+			// 正常エントリのみ本体を同梱。NUL エントリは path-safety で本体チェック前に落ちる。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/safe.mp3': new Uint8Array([1]),
+			});
 
 			expect(result.childVoicesImported).toBe(1);
 			expect(result.childVoicesSkipped).toBe(1);
@@ -1703,6 +1712,62 @@ describe('importFamilyData', () => {
 				expect(String(row.filePath)).not.toContain(NUL);
 			}
 			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
+		});
+
+		it('#3781: 本体ファイルが取込データ (staticFiles) に無い DB 行は insert されず skip + warning (dangling fail-closed)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [makeVoice('c1', 'voices/7/abcd-1234.mp3')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// staticFiles に本体が無い (別の voice のみ) → 参照先ファイル欠落 = dangling publicUrl になるため skip。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/other-file.mp3': new Uint8Array([9]),
+			});
+
+			expect(result.childVoicesImported).toBe(0);
+			expect(result.childVoicesSkipped).toBe(1);
+			// insert は一切呼ばれない (dangling 行を作らない)
+			expect(mockVoiceInsertForRestore).not.toHaveBeenCalled();
+			expect(result.warnings.some((w) => w.includes('取込データに含まれない'))).toBe(true);
+		});
+
+		it('#3781: JSON-only import (staticFiles 未指定) では全 childVoice が本体欠落で skip される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [
+				makeVoice('c1', 'voices/7/a.mp3'),
+				makeVoice('c1', 'voices/7/b.mp3'),
+			];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// staticFiles 未指定 = JSON-only → 全行が本体を持たず dangling。1 件も復元されない。
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.childVoicesImported).toBe(0);
+			expect(result.childVoicesSkipped).toBe(2);
+			expect(mockVoiceInsertForRestore).not.toHaveBeenCalled();
+		});
+
+		it('#3781: どの childVoice からも参照されない voices 本体は orphan warning で surface される (逆方向)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [makeVoice('c1', 'voices/7/referenced.mp3')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// referenced.mp3 は DB 行と対 (正常復元)、orphan.mp3 は参照する DB 行が無い (未参照本体)。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/referenced.mp3': new Uint8Array([1]),
+				'voices/7/orphan.mp3': new Uint8Array([2]),
+			});
+
+			expect(result.childVoicesImported).toBe(1);
+			expect(
+				result.warnings.some((w) => w.includes('orphan.mp3') && w.includes('未参照ファイル')),
+			).toBe(true);
 		});
 	});
 

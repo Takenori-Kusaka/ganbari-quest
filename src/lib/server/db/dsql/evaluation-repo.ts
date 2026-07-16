@@ -106,13 +106,32 @@ export function createDsqlEvaluationRepo<TTx extends SqlExecutor>(
 		async insertEvaluation(input, tenantId) {
 			// scores_json は verbatim text 据置 (子表化しない、§4.2)。
 			// #3355: created_at は backup restore が渡した値を保全 (省略時は DB default = now)。
+			// #3782: eval_id は random UUID surrogate のため PK は衝突しないが、week UNIQUE
+			// (evaluations_week_uq、family_id/child_id/week_start) への ON CONFLICT DO NOTHING で
+			// 「1週1評価」を冪等化する (stamp_cards insertCard と同型)。並行 insert / restore backstop
+			// でも二重行を作らず、conflict 時は既存行を返す。
 			const result = await db.execute(sql`
 				INSERT INTO evaluations (family_id, child_id, week_start, week_end, scores_json, bonus_points, created_at)
 				VALUES (${tenantId}, ${input.childId}, ${input.weekStart}, ${input.weekEnd},
 					${input.scoresJson}, ${input.bonusPoints}, ${input.createdAt ?? sql`DEFAULT`})
+				ON CONFLICT (family_id, child_id, week_start) DO NOTHING
 				RETURNING ${EVALUATION_COLUMNS}
 			`);
-			return toEvaluation(result.rows[0] as unknown as EvaluationRow);
+			const inserted = result.rows[0] as unknown as EvaluationRow | undefined;
+			if (inserted) return toEvaluation(inserted);
+			// conflict = 同 (family, child, week) 行が既存。既存行を返す (throw しない)。
+			const existing = await db.execute(sql`
+				SELECT ${EVALUATION_COLUMNS} FROM evaluations
+				WHERE family_id = ${tenantId} AND child_id = ${input.childId}
+					AND week_start = ${input.weekStart}
+				LIMIT 1
+			`);
+			const existingRow = existing.rows[0] as unknown as EvaluationRow | undefined;
+			if (existingRow) return toEvaluation(existingRow);
+			// 到達しない (conflict した = 既存行あり)。型安全 (Evaluation 非 null) のため明示。
+			throw new Error(
+				`insertEvaluation: conflict without existing row (child=${input.childId}, week=${input.weekStart})`,
+			);
 		},
 
 		async findAllChildren(tenantId): Promise<Child[]> {

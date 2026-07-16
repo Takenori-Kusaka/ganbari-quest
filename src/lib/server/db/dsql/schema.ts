@@ -558,7 +558,14 @@ export const evaluations = pgTable(
 			.notNull()
 			.defaultNow(),
 	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId] })],
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.evalId] }),
+		// #3782: eval_id は random UUID surrogate のため PK だけでは (child, weekStart) 重複を許容する。
+		// 「1子1週1評価」を droppable UNIQUE で維持 (stamp_cards_week_uq と同型。将来 seasonal 多重評価が
+		// 必要になれば index を DROP するだけで PK 不変)。service 層 dedup (#3355) の canonical backstop
+		// (ADR-0061 push-down-pyramid)。async index build は transform.ts が CREATE UNIQUE INDEX ASYNC へ変換。
+		uniqueIndex('evaluations_week_uq').on(t.familyId, t.childId, t.weekStart),
+	],
 );
 
 // rest_days — おやすみ日 (自然複合 PK 昇格、anchor (a) ADR-0012: 1日1回 = policy invariant §11.2)。

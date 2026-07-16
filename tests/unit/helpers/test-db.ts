@@ -202,6 +202,9 @@ export const SQL_TABLES = `
 		bonus_points INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+	-- #3782: 1子1週1評価の自然キー物理一意化 (schema.ts idx_evaluations_child_week と同期)
+	CREATE UNIQUE INDEX idx_evaluations_child_week
+		ON evaluations(child_id, week_start);
 
 	-- ============================================================
 	-- market_benchmarks
