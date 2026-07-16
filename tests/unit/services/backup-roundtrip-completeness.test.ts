@@ -172,7 +172,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		// #3329: 設定 KVS。allowlist キー (point_unit_mode) + 秘匿キー (pin_hash) を seed し、
 		// 秘匿キーが export に載らない (default-deny) こと + allowlist キーが round-trip することを検証。
-		await setSetting('point_unit_mode', 'custom', T);
+		// #3382: import 側で値バリデーションが入ったため、round-trip 検証は妥当値 ('currency') を使う。
+		await setSetting('point_unit_mode', 'currency', T);
 		await setSetting('pin_hash', '$2b$10$fake.hash.not.restored', T);
 
 		// #3329: チャレンジを 1 件 seed し進捗を進める。round-trip 後に currentValue/status が保全されることを検証。
@@ -365,7 +366,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredRedemptions[0]?.rewardTitle, '交換履歴 snapshot 保全').toBe('ごほうびX');
 
 		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
-		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('custom');
+		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('currency');
 		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
 
 		// #3329: チャレンジが進捗 (currentValue) を保って復元される。

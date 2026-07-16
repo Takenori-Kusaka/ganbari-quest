@@ -62,6 +62,11 @@ let importResult = $state<{
 	checklistLogsSkipped: number;
 	staticFilesRestored: number;
 	staticFilesSkipped: number;
+	// #3490: childVoices (お子さまの音声) / 各種設定の復元・skip 件数を summary に surface
+	childVoicesImported: number;
+	childVoicesSkipped: number;
+	settingsImported: number;
+	settingsSkipped: number;
 	errors: string[];
 	warnings: string[];
 } | null>(null);
@@ -853,6 +858,22 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 									{SETTINGS_LABELS.dataImportResultStaticFiles(
 										importResult.staticFilesRestored,
 										importResult.staticFilesSkipped,
+									)}
+								</li>
+							{/if}
+							{#if importResult.childVoicesImported > 0 || importResult.childVoicesSkipped > 0}
+								<li data-testid="data-import-result-child-voices">
+									{SETTINGS_LABELS.dataImportResultChildVoices(
+										importResult.childVoicesImported,
+										importResult.childVoicesSkipped,
+									)}
+								</li>
+							{/if}
+							{#if importResult.settingsImported > 0 || importResult.settingsSkipped > 0}
+								<li data-testid="data-import-result-settings">
+									{SETTINGS_LABELS.dataImportResultSettings(
+										importResult.settingsImported,
+										importResult.settingsSkipped,
 									)}
 								</li>
 							{/if}

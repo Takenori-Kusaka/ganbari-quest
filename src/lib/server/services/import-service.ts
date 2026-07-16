@@ -5,7 +5,12 @@ import { asCategoryId } from '$lib/domain/ids';
 // 家族データインポートサービス（Phase 2 / #1254）
 
 import { toLegacyCategoryId } from '$lib/domain/categories';
-import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/domain/export-format';
+import {
+	EXPORT_FORMAT,
+	type ExportData,
+	isExportableSettingKey,
+	isValidSettingValue,
+} from '$lib/domain/export-format';
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
@@ -612,6 +617,13 @@ async function importSettingsData(
 			// 秘匿 / 非 allowlist キーは書き戻さない (多層防御)。
 			result.settingsSkipped++;
 			result.warnings.push(`設定「${s.key}」は backup 対象外のためスキップしました`);
+			continue;
+		}
+		// #3382: allowlist キーでも値域/型/enum を検証してから書き戻す (改竄/破損 backup の
+		// 範囲外 decay_intensity・非数値 point_rate・未知 enum・制御文字混入を fail-closed で弾く)。
+		if (typeof s.value !== 'string' || !isValidSettingValue(s.key, s.value)) {
+			result.settingsSkipped++;
+			result.warnings.push(`設定「${s.key}」の値が不正なためスキップしました`);
 			continue;
 		}
 		try {
@@ -2154,9 +2166,18 @@ const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
  * 相対 storage パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip / CWE-22 防御)。
  * `STATIC_FILE_PATH_RE` の `rest` (`.+`、importStaticFiles) / `VOICE_REL_PATH_RE` の `rest`
  * (`.+`、importChildVoicesData) は任意文字を許すため、ここで `..` セグメント・先頭スラッシュ・
- * Windows ドライブ・バックスラッシュ等を弾く。安全なら true。
+ * Windows ドライブ・バックスラッシュ・NUL/制御文字等を弾く。安全なら true。
+ *
+ * #3490: NUL/制御文字も拒否する (poison-null-byte / CWE-22 の理論上残余)。本パスは現状 FS read に
+ * 直結せず DB 行 + publicUrl 参照に留まるため実害は無いが、「path に制御文字を混在させない」不変条件を
+ * 明示強制し、将来 storage 実装が FS/URL parse に渡しても切詰め攻撃が成立しないようにする。
  */
 function isSafeRelativePath(relPath: string): boolean {
+	// NUL / 制御文字 (C0 0x00-0x1f / DEL 0x7f / C1 0x80-0x9f) を含むパスは無条件拒否する (#3490)。
+	for (let i = 0; i < relPath.length; i++) {
+		const code = relPath.charCodeAt(i);
+		if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return false;
+	}
 	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル
 	// 文字になり segment 分割では escape を検知できないため、含むパスはすべて弾く)。
 	if (relPath.includes('\\')) return false;

@@ -77,6 +77,128 @@ export function isExportableSettingKey(key: string): boolean {
 }
 
 // ============================================================
+// #3382: 設定キー分類 SSOT (silent round-trip 喪失 / 秘匿混入の機械強制)
+// ============================================================
+// EXPORTABLE_SETTING_KEYS は「載せてよいキー」の allowlist だが、それだけでは (a) 今後追加される
+// 非秘匿キーが backup から黙って脱落しても検知できず、(b) session_token 等の秘匿キーが allowlist に
+// 誤混入しても CI を素通りしてしまう。そこで get/setSetting で実在する全キーを「exportable /
+// secret / non-exportable」のいずれかに **必ず分類**し、`settings-backup-classification.test.ts` が
+// (1) src 全体を走査して未分類の新キーを fail (silent-gap ガード)、(2) secret ∩ exportable = ∅ を assert する。
+
+/**
+ * 秘匿 / 認証状態キー (CWE-522 平文認証情報 / CWE-916 不十分なハッシュ保護)。
+ * backup allowlist に **絶対に含めてはならない**。fitness test が非交差を機械強制する。
+ */
+export const SECRET_SETTING_KEYS = [
+	'pin_failed_attempts',
+	'pin_hash',
+	'pin_locked_until',
+	'pin_reset_applied',
+	'session_expires_at',
+	'session_token',
+] as const;
+
+/**
+ * 環境間で移送すべきでない課金 / アカウントライフサイクル / 一時状態キー (意図的除外)。
+ * 秘匿ではないが backup で別環境へ持ち出すと状態が壊れるため allowlist から外す。
+ */
+export const NON_EXPORTABLE_SETTING_KEYS = [
+	'deletion_grace_plan_tier',
+	'dormant_reactivation_sent',
+	'marketing_unsubscribed_at',
+	'onboarding_child_screen_visited',
+	'physical_deletion_date',
+	'premium_welcome_shown',
+	// questionnaire_activity_display_count は questionnaire_activity_level から getActivityDisplayCount で
+	// 一意に導出される派生キャッシュ。level 自体が exportable なので導出値の backup は冗長 (除外で現挙動維持)。
+	'questionnaire_activity_display_count',
+	'soft_deleted_at',
+	'trial_expiration_modal_shown',
+] as const;
+
+// ============================================================
+// #3382: 取込時の設定値バリデータ (改竄 / 破損 backup の範囲外・型不正・未知 enum を fail-closed 化)
+// ============================================================
+// importSettingsData は ZIP 由来 value を `setSetting` で verbatim 書き戻すため、allowlist キーでも
+// `decay_intensity=<範囲外>` / `point_rate=<非数値>` / `point_unit_mode=<未知 enum>` が通ると復元後に
+// 表示崩れ・計算誤りを招く (#3379 injection 対策と整合)。allowlist キーごとの値バリデータを import で適用する。
+// 値域方針は ADR-0066 (export/import 値域 SSOT) と同型 — 値域を domain 層に集約し validator で述語化する。
+
+/** 制御文字 (C0 0x00-0x1f / DEL 0x7f / C1 0x80-0x9f) を含むか (poison-null-byte 等の混入防御)。 */
+function hasControlChar(value: string): boolean {
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return true;
+	}
+	return false;
+}
+
+const BOOL_SETTING_VALUES = new Set(['true', 'false', '0', '1']);
+// HH:MM (24h)。notifications / quiet hours の time input が生成する形式。
+const TIME_HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+// tutorial_started_at / completed_at は `new Date().toISOString()`。
+const ISO_DATETIME_PREFIX_RE = /^\d{4}-\d{2}-\d{2}T/;
+const DECAY_INTENSITY_VALUES = new Set(['none', 'gentle', 'normal', 'strict']); // validation/status.ts DecayIntensity SSOT
+const POINT_UNIT_MODE_VALUES = new Set(['point', 'currency']); // point-display.ts PointUnitMode SSOT
+const CURRENCY_CODE_VALUES = new Set(['JPY', 'USD', 'EUR', 'GBP', 'AUD', 'CAD']); // point-display.ts CurrencyCode SSOT
+const ACTIVITY_LEVEL_VALUES = new Set(['few', 'normal', 'many']); // setup/questionnaire SSOT
+const WEEKDAY_VALUES = new Set([
+	'monday',
+	'tuesday',
+	'wednesday',
+	'thursday',
+	'friday',
+	'saturday',
+	'sunday',
+]);
+
+const isBoolSetting = (v: string): boolean => BOOL_SETTING_VALUES.has(v);
+const isTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
+const isIsoDatetime = (v: string): boolean =>
+	v.length <= 40 && ISO_DATETIME_PREFIX_RE.test(v) && !Number.isNaN(Date.parse(v));
+
+/**
+ * 設定キーごとの値バリデータ (allowlist の 20 キー全てを網羅)。
+ * fitness test が「EXPORTABLE_SETTING_KEYS の各キーに validator が存在する」ことを機械強制する。
+ */
+export const SETTING_VALUE_VALIDATORS: Record<string, (value: string) => boolean> = {
+	decay_intensity: (v) => DECAY_INTENSITY_VALUES.has(v),
+	notification_achievements_enabled: isBoolSetting,
+	notification_quiet_end: isTimeSetting,
+	notification_quiet_start: isTimeSetting,
+	notification_reminder_time: isTimeSetting,
+	notification_reminders_enabled: isBoolSetting,
+	notification_streak_enabled: isBoolSetting,
+	pin_gate_onboarding_seen: isBoolSetting,
+	point_currency: (v) => CURRENCY_CODE_VALUES.has(v),
+	point_rate: (v) => {
+		const n = Number(v);
+		return v.trim() !== '' && Number.isFinite(n) && n > 0 && n <= 100000;
+	},
+	point_unit_mode: (v) => POINT_UNIT_MODE_VALUES.has(v),
+	questionnaire_activity_level: (v) => ACTIVITY_LEVEL_VALUES.has(v),
+	// challenge 名の CSV。自由記述だが暴走的な長大値のみ弾く (bounded length)。
+	questionnaire_challenges: (v) => v.length <= 1000,
+	reward_auto_approve: isBoolSetting,
+	sibling_ranking_enabled: isBoolSetting,
+	tutorial_banner_dismissed: isBoolSetting,
+	tutorial_completed_at: isIsoDatetime,
+	tutorial_started_at: isIsoDatetime,
+	weekly_report_day: (v) => WEEKDAY_VALUES.has(v),
+	weekly_report_enabled: isBoolSetting,
+};
+
+/**
+ * #3382: 取込対象の設定値が妥当か (allowlist キーの想定範囲・型・enum に収まるか)。
+ * 制御文字を含む値・validator 未定義キー・validator 不合格は false (= import 側で skip する)。
+ */
+export function isValidSettingValue(key: string, value: string): boolean {
+	if (typeof value !== 'string' || hasControlChar(value)) return false;
+	const validator = SETTING_VALUE_VALIDATORS[key];
+	return validator ? validator(value) : false;
+}
+
+// ============================================================
 // マスタデータ型
 // ============================================================
 

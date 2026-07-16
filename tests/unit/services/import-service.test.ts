@@ -62,6 +62,13 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	insertChild: (...args: unknown[]) => mockInsertChild(...args),
 }));
 
+// #3382: 各種設定 (settings) の書き戻しは setSetting 経由。値バリデーションで skip される値は
+// setSetting が呼ばれないことを検証するため spy 化する。
+const mockSetSetting = vi.fn();
+vi.mock('$lib/server/db/settings-repo', () => ({
+	setSetting: (...args: unknown[]) => mockSetSetting(...args),
+}));
+
 vi.mock('$lib/server/db/status-repo', () => ({
 	upsertStatus: (...args: unknown[]) => mockUpsertStatus(...args),
 	insertStatusHistory: (...args: unknown[]) => mockInsertStatusHistory(...args),
@@ -1649,6 +1656,91 @@ describe('importFamilyData', () => {
 				expect(String(row.filePath).startsWith(`tenants/${TENANT}/voices/`)).toBe(true);
 			}
 			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
+		});
+
+		it('#3490: voiceRelPath の rest に NUL/制御文字が含まれると insert されず skip + warning になる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			const NUL = String.fromCharCode(0);
+			data.data.childVoices = [
+				makeVoice('c1', `voices/7/evil${NUL}.mp3`), // rest に NUL (poison-null-byte)
+				makeVoice('c1', 'voices/7/safe.mp3'), // 正常エントリ (1 件だけ通る)
+			];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.childVoicesImported).toBe(1);
+			expect(result.childVoicesSkipped).toBe(1);
+			expect(mockVoiceInsertForRestore).toHaveBeenCalledTimes(1);
+			// 制御文字混入パスは一切 insert されない
+			for (const call of mockVoiceInsertForRestore.mock.calls) {
+				const [row] = call;
+				expect(String(row.filePath)).not.toContain(NUL);
+			}
+			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
+		});
+	});
+
+	describe('各種設定 (settings) のインポート (#3382 値バリデーション)', () => {
+		const makeSetting = (key: string, value: string) => ({ key, value });
+
+		it('allowlist キーの正常値は setSetting で書き戻され settingsImported に計上される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('decay_intensity', 'normal'),
+				makeSetting('point_rate', '2'),
+				makeSetting('weekly_report_day', 'friday'),
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(3);
+			expect(result.settingsSkipped).toBe(0);
+			expect(mockSetSetting).toHaveBeenCalledTimes(3);
+		});
+
+		it('範囲外/型不正/未知 enum の値は書き戻されず skip + warning になる (fail-closed)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('decay_intensity', 'EXTREME'), // 未知 enum
+				makeSetting('point_rate', 'not-a-number'), // 非数値
+				makeSetting('point_unit_mode', 'bitcoin'), // 未知 enum
+				makeSetting('decay_intensity', 'gentle'), // 正常 (1 件だけ通る)
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			// 正常 1 件のみ setSetting、不正 3 件は skip
+			expect(result.settingsImported).toBe(1);
+			expect(result.settingsSkipped).toBe(3);
+			expect(mockSetSetting).toHaveBeenCalledTimes(1);
+			expect(mockSetSetting).toHaveBeenCalledWith('decay_intensity', 'gentle', TENANT);
+			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
+		});
+
+		it('秘匿/非 allowlist キーは値の妥当性以前に書き戻されない (多層防御)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('pin_hash', '$2b$10$whatever'), // 秘匿キー (allowlist 外)
+				makeSetting('session_token', 'abc'), // 秘匿キー (allowlist 外)
+			];
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(0);
+			expect(result.settingsSkipped).toBe(2);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+			expect(result.warnings.some((w) => w.includes('backup 対象外'))).toBe(true);
 		});
 	});
 

@@ -42,6 +42,8 @@
 **実装（`src/lib/domain/export-format.ts` / `src/lib/server/services/export-service.ts`）**:
 - フォーマット = `EXPORT_FORMAT='ganbari-quest-backup'` / `EXPORT_VERSION='1.7.0'`。下位互換読込は持たない（D5）。
 - **settings は default-deny allowlist**（`EXPORTABLE_SETTING_KEYS` / `isExportableSettingKey`）。`pin_hash` / `pin_locked_until` / `pin_failed_attempts` / `pin_reset_applied` / `session_token` / `session_expires_at` を export からも import からも除外（CWE-522/916、import 側でも再 filter する多層防御）。
+- **設定キー分類 SSOT（#3382）**: get/setSetting で実在する全設定キーを `EXPORTABLE_SETTING_KEYS`（載せる）/ `SECRET_SETTING_KEYS`（秘匿、絶対載せない）/ `NON_EXPORTABLE_SETTING_KEYS`（課金・ライフサイクル・派生キャッシュ等の意図的除外）に**必ず分類**する。`tests/unit/domain/settings-backup-classification.test.ts` が (a) src 全走査で未分類の新キーを fail（silent round-trip 喪失の silent-gap ガード）(b) 秘匿キー ∩ allowlist = ∅ を機械強制する。
+- **import 時の値バリデーション（#3382）**: allowlist キーでも ZIP 由来 value を verbatim 書き戻さず、`isValidSettingValue(key, value)`（`SETTING_VALUE_VALIDATORS`、domain 層 SSOT、ADR-0066 と同型）で範囲・型・enum・制御文字を検証してから `setSetting` する。改竄/破損 backup の範囲外 `decay_intensity` / 非数値 `point_rate` / 未知 enum は skip + warning で fail-closed（`settingsSkipped` 計上）。
 - per-child instance は **参照（ref）で出力**し、import で新 childId / 新 id に再解決する（§3.3）: `childRef`（child）/ `rewardExportId`（ごほうび安定識別子 `reward-<childRef>-<rewardId>`、交換履歴の優先再結合キー、#3381）+ `rewardRef`（ごほうび title、旧 backup / fallback）/ `activityName`（per-child 活動名）/ `templateExportId`（checklist template、#3107）/ `voiceRelPath`（音声ファイル相対パス、tenant prefix 除去済）/ `from`-`toChildRef`（兄弟応援）。
   - **安定識別子 vs title/name（#3107 / #3381）**: title / name は mutable なため、改名後 / 同名複数時に再結合が silent skip / collapse する。checklist（`exportId` / `templateExportId`）と交換履歴（`exportId` / `rewardExportId`）は **`<種別>-<childRef>-<元id>` 形の安定識別子を優先キー**にし、title/name は旧 backup 用の fallback に降格する（いずれも optional で後方互換、EXPORT_VERSION 1.7.0）。activity（`activityName`）は同型の安定 id 化が follow-up（#3465(2)、`findActivityLogs` の projection に activityId を carry させる必要あり）。
 - 音声 / アバター等の静的ファイルは `backup-archive.ts` が ZIP に同梱（`MAX_ZIP_SIZE=100MB`、fail-closed）。DB 行は tenant prefix を除いた相対パスを持ち、import で新 tenant+childId に再構成する（#3077）。
@@ -50,7 +52,9 @@
 - per-child 実体を **正しい child へ復元**（childIdMap で元 child に対応付け。findFirstChild 一律 bind をやめる）。
 - **未実装の取込を実装**（evaluations 等、網羅）。
 - **依存順序**を保証（children → per-child 実体 → ログ/履歴系。lookup 依存は復元順で解決）。
-- **失敗集計**: skip/warning を種別ごとに集計し、>0 なら結果に部分失敗を明示。UI で「N 件取り込めませんでした」を表示。
+- **失敗集計**: skip/warning を種別ごとに集計し、>0 なら結果に部分失敗を明示。UI で「N 件取り込めませんでした」を表示。復元完了 UI（`admin/settings/data`）は活動ログ / ポイント / ごほうび / チェックリスト履歴 / 画像・音声ファイルに加え **お子さまの音声（childVoices）/ 各種設定（settings）の復元・skip 件数も可視化**する（#3490、silent-skip 禁止）。
+- **エラー文言の内部非露出（#3386 / ADR-0062）**: ZIP manifest 整合性検証の失敗は内部 reason コード（`checksum-mismatch` / `size-mismatch` / `missing-file` / `unexpected-file`）と生パスを保護者に露出せず、`labels.ts` の汎用文言（`SETTINGS_LABELS.dataImportBackupCorrupt` 等）を返す。内部 reason / path は診断用に logger のみへ残す。
+- **path guard の制御文字拒否（#3490）**: 静的ファイル / 音声の相対パス検証 `isSafeRelativePath`（`import-service.ts`）は `..` / 絶対 / バックスラッシュに加え **NUL / 制御文字（C0/DEL/C1）も無条件拒否**する（poison-null-byte / CWE-22 の理論上残余の閉塞）。実効的 path injection 防御は本関数が担い、manifest の `unexpected-file` は「偶発混入検出」に限定される役割分担（`backup-manifest.ts` 冒頭コメント参照）。
 - **atomicity（#3326 実装済）**: replace は **「途中失敗時に旧データを必ず復元可能」な原子境界**で clear + import を実行する。clear 先行の永久喪失を廃止。単一強制点は `src/lib/server/services/replace-import-service.ts` の `replaceImportAtomic`（全 replace 経路 = `/api/v1/import` / `/api/v1/import/cloud` が経由）。**success-on-partial-failure ban**: import 中に hard error（例外を伴う取込失敗、`ImportResult.errors > 0`）が 1 件でもあれば原子境界を中止し旧データを復元する（childRef 不在等の skip は `*Skipped` に積まれ中止対象外）。中止時は呼び出し側へ `AtomicReplaceError` を送出し、API は「既存データは保全されています」を返す。
 - 復元後に**派生を再計算**（statuses 現在値/balance/streak 等の projection rebuild。source の statusHistory は再計算せず recordedAt 保持で復元）。
 
@@ -103,7 +107,7 @@ backup 形式は **5 つの責務を層で分離**する。「旧版を読む」
 
 | 層 | 責務 | 所有 |
 |---|---|---|
-| **L1 整合性** | 改竄/破損検出 | `verifyChecksum`（migrate より前。元バイト列に対して検証） |
+| **L1 整合性** | 改竄/破損検出 | `verifyChecksum`（migrate より前。元バイト列に対して検証） + ZIP は `backup-manifest.ts` で全エントリ SHA-256 / バイト数 / 集合一致 + **itemCounts 件数照合**（#3386、data.json 実件数 vs manifest.itemCounts の部分欠損検出、fail-closed） |
 | **L2 版識別 + 旧 shape 読取** | 対応版の判定 + 旧→現 shape 変換 | **`src/lib/domain/export-migrations.ts` 単独**。`MIGRATABLE_VERSIONS` が対応版 SSOT（`validateExportData` の allowlist はここから導出。二重列挙禁止）。`migrateExportData` が import 入口で 1 回 eager 実行（copy-transform、lazy-on-read の N+1 を避ける） |
 | **L3 DTO 抽象** | DB スキーマからの decoupling | `export-format.ts` の自然キー（`childRef` / `categoryCode` / `rewardRef` 等）。DSQL の sqlite→pg 型差はここで吸収 |
 | **L4 ref→id 再解決** | DTO を取込先の新 id に lowering | `import-service.ts` の `childIdMap` / lookup |

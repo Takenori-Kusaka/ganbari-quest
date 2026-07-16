@@ -2352,6 +2352,11 @@ export const SETTINGS_LABELS = {
 		`チェックリスト履歴: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultStaticFiles: (restored: number | string, skipped: number | string) =>
 		`画像・音声ファイル: ${restored}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	// #3490: childVoices (お子さまの音声) / 各種設定の復元・skip 件数を summary に surface (silent-skip 可視化)
+	dataImportResultChildVoices: (imported: number | string, skipped: number | string) =>
+		`お子さまの音声: ${imported}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportResultSettings: (imported: number | string, skipped: number | string) =>
+		`各種設定: ${imported}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportWarningsTitle: (n: number | string) => `警告 (${n}件):`,
 	dataImportErrorsTitle: (n: number | string) => `エラー (${n}件):`,
 	// #3095: partial-restore の data-integrity 可視化 — errors があれば「完了」でなく部分復元として警告する。
@@ -2362,6 +2367,17 @@ export const SETTINGS_LABELS = {
 	dataImportPartialBodyAdd:
 		'復元できなかった項目があります。下記の内容をご確認のうえ、必要に応じて再度インポートしてください。',
 	dataImportClose: '閉じる',
+	// #3386: バックアップ ZIP の整合性検証失敗メッセージ (ADR-0062 — 内部 reason コード / 生パスを露出しない
+	// ユーザー向け文言。内部 reason は logger のみに残す)。checksum/size/missing 破損は共通の破損文言で、
+	// unexpected-file (混入) のみ別文言にして「作り直し」の次アクションを促す。
+	dataImportManifestCorrupt:
+		'バックアップファイルが壊れているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupCorrupt:
+		'バックアップファイルの内容が壊れているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupUnexpectedFile:
+		'バックアップファイルに想定外のデータが含まれているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupCountMismatch:
+		'バックアップファイルの一部が欠けているため復元できません。もう一度エクスポートしてください',
 
 	// クラウドエクスポート
 	cloudSectionTitle: '☁️ クラウド共有',

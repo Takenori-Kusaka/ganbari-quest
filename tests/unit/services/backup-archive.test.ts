@@ -6,6 +6,7 @@
 import { zipSync } from 'fflate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExportData } from '../../../src/lib/domain/export-format';
+import { SETTINGS_LABELS } from '../../../src/lib/domain/labels';
 import {
 	BackupSizeLimitError,
 	buildFullBackupZip,
@@ -102,7 +103,7 @@ describe('parseBackupZip (#3376)', () => {
 		expect(Object.keys(res.value.staticFiles)).toEqual(['avatars/1/a.png']);
 	});
 
-	it('manifest と中身が食い違う ZIP は破損として弾く', async () => {
+	it('manifest と中身が食い違う ZIP は破損として弾く (#3386: 内部 reason/path を露出しない)', async () => {
 		// manifest を正しく作った後、静的ファイルだけ差し替えた ZIP を組む
 		const original = {
 			'data.json': enc(VALID_DATA_JSON),
@@ -117,7 +118,87 @@ describe('parseBackupZip (#3376)', () => {
 		const res = await parseBackupZip(tamperedZip);
 		expect(res.ok).toBe(false);
 		if (res.ok) return;
-		expect(res.error).toContain('破損');
+		// ADR-0062: ユーザー向け文言は labels.ts SSOT 経由。内部 reason コード / 生パスを露出しない。
+		expect(res.error).toBe(SETTINGS_LABELS.dataImportBackupCorrupt);
+		expect(res.error).not.toContain('checksum-mismatch');
+		expect(res.error).not.toContain('size-mismatch');
+		expect(res.error).not.toContain('avatars/1/a.png');
+	});
+
+	it('#3386: manifest 記載外ファイルの混入は専用文言で弾く (内部 reason/path 非露出)', async () => {
+		const original = { 'data.json': enc(VALID_DATA_JSON) };
+		const manifest = await buildBackupManifest(original, '1.3.0', {}, '2026-06-28T00:00:00.000Z');
+		const injectedZip = zipSync({
+			'data.json': enc(VALID_DATA_JSON),
+			'avatars/9/injected.png': new Uint8Array([7, 7, 7]), // manifest に無い注入ファイル
+			[BACKUP_MANIFEST_FILENAME]: enc(JSON.stringify(manifest)),
+		});
+		const res = await parseBackupZip(injectedZip);
+		expect(res.ok).toBe(false);
+		if (res.ok) return;
+		expect(res.error).toBe(SETTINGS_LABELS.dataImportBackupUnexpectedFile);
+		expect(res.error).not.toContain('unexpected-file');
+		expect(res.error).not.toContain('avatars/9/injected.png');
+	});
+
+	it('#3386: 壊れた manifest.json は専用文言で弾く (内部詳細非露出)', async () => {
+		const zip = zipSync({
+			'data.json': enc(VALID_DATA_JSON),
+			[BACKUP_MANIFEST_FILENAME]: enc('{ this is not valid json'),
+		});
+		const res = await parseBackupZip(zip);
+		expect(res.ok).toBe(false);
+		if (res.ok) return;
+		expect(res.error).toBe(SETTINGS_LABELS.dataImportManifestCorrupt);
+	});
+
+	it('#3386: manifest.itemCounts と data.json 実件数が食い違えば部分欠損として弾く', async () => {
+		// data.json は children 1 件だが、manifest.itemCounts は children:5 を主張 → 部分欠損
+		const dataJson = JSON.stringify({
+			format: 'ganbari-quest-backup',
+			version: '1.3.0',
+			exportedAt: '2026-06-28T00:00:00.000Z',
+			family: { children: [{ id: '1', nickname: 'A' }] },
+			data: {},
+		});
+		const files = { 'data.json': enc(dataJson) };
+		const manifest = await buildBackupManifest(
+			files,
+			'1.3.0',
+			{ children: 5 }, // 実際は 1 件 → 照合で mismatch
+			'2026-06-28T00:00:00.000Z',
+		);
+		const zip = zipSync({
+			'data.json': enc(dataJson),
+			[BACKUP_MANIFEST_FILENAME]: enc(JSON.stringify(manifest)),
+		});
+		const res = await parseBackupZip(zip);
+		expect(res.ok).toBe(false);
+		if (res.ok) return;
+		expect(res.error).toBe(SETTINGS_LABELS.dataImportBackupCountMismatch);
+	});
+
+	it('#3386: manifest.itemCounts が data.json 実件数と一致すれば通る', async () => {
+		const dataJson = JSON.stringify({
+			format: 'ganbari-quest-backup',
+			version: '1.3.0',
+			exportedAt: '2026-06-28T00:00:00.000Z',
+			family: { children: [{ id: '1', nickname: 'A' }] },
+			data: { activityLogs: [{ x: 1 }, { x: 2 }] },
+		});
+		const files = { 'data.json': enc(dataJson) };
+		const manifest = await buildBackupManifest(
+			files,
+			'1.3.0',
+			{ children: 1, activityLogs: 2 },
+			'2026-06-28T00:00:00.000Z',
+		);
+		const zip = zipSync({
+			'data.json': enc(dataJson),
+			[BACKUP_MANIFEST_FILENAME]: enc(JSON.stringify(manifest)),
+		});
+		const res = await parseBackupZip(zip);
+		expect(res.ok).toBe(true);
 	});
 
 	it('data.json が無い ZIP はエラー', async () => {
