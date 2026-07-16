@@ -785,12 +785,33 @@ jobs:
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
         run: npm run build
 
+      # #3352 (A): stripe-checkout spec を CI で実 assertion 実行させるため、test mode の
+      # Stripe key を供給する前に sk_test_ prefix を検証する fail-closed gate。
+      # live 用 secrets.STRIPE_SECRET_KEY (deploy.yml / weekly-report.yml 専用) を誤って
+      # 本 lane に流し込む事故を機械的に遮断する (live key の E2E 使用禁止)。
+      - name: Validate Stripe key is test mode (live key E2E 使用禁止 #3352)
+        env:
+          STRIPE_KEY_CANDIDATE: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+        run: |
+          if [ -n "$STRIPE_KEY_CANDIDATE" ] && [[ "$STRIPE_KEY_CANDIDATE" != sk_test_* ]]; then
+            echo "::error::STRIPE_SECRET_KEY_TEST must be a Stripe test mode key (sk_test_...). Refusing to run E2E with a non-test key."
+            exit 1
+          fi
+          echo "Stripe key validation passed (empty = degrade to skip, sk_test_* = enabled)."
+
       - name: Run cognito-dev E2E tests
         env:
           AUTH_MODE: cognito
           COGNITO_DEV_MODE: "true"
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts E2E requirement
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
+          # #3352 (A): test mode Stripe key + 月額 price ID。playwright webServer (preview server)
+          # が本 step の env を継承し isStripeEnabled()=true で plan card を描画、stripe-checkout
+          # spec の全 failure-path assertion が CI で実 exercise される。fork PR では secrets 非供給
+          # (空文字) のため従来どおり honest skip に degrade する。
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          STRIPE_PRICE_STANDARD_MONTHLY: ${{ vars.STRIPE_PRICE_STANDARD_MONTHLY_TEST }}
+          STRIPE_PRICE_FAMILY_MONTHLY: ${{ vars.STRIPE_PRICE_FAMILY_MONTHLY_TEST }}
           CI: "true"
         run: npx playwright test --config playwright.cognito-dev.config.ts
 

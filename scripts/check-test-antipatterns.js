@@ -20,15 +20,28 @@ let hasError = false;
 
 const TEST_SKIP_PATTERN = 'test\\.skip\\|test\\.fixme\\|it\\.skip\\|describe\\.skip';
 
-function sumGitGrepCountOutput(output) {
+// #3352: 明示 escape hatch。環境 capability 由来の「条件付き skip + reason」(Playwright 公式
+// pattern) を honest SKIPPED 計上へ是正する際、同一行に `// ratchet-allow: #<issue>` を付けた
+// 行のみ ratchet 集計から除外する (eslint-disable-line と同型の可視・監査可能な annotation)。
+// - default 挙動は不変: marker なしの test.skip/fixme 増加は従来どおり BLOCK
+// - marker には Issue 番号必須 (根拠 traceability)。check-skip-deadlines.mjs の metadata gate
+//   (ADR-0006) も全 skip に引き続き適用される (二重ガード)
+// - 背景: 本 ratchet が count-only だったため「return-skip で PASSED 偽装」という より悪い
+//   anti-pattern を誘発していた (#3352 (B) Goodhart hazard)。honest skip を可視 annotation 付きで
+//   許容し、偽装 skip への逃げ道を断つ
+const RATCHET_ALLOW_RE = /\/\/\s*ratchet-allow:\s*#\d+/;
+
+function countSkipLines(gitGrepRef) {
+	// gitGrepRef: '' = working tree / 'origin/main' = main 側。同一ロジックで両側を数える。
+	const cmd = gitGrepRef
+		? `git grep -n "${TEST_SKIP_PATTERN}" ${gitGrepRef} -- "tests/e2e/" || true`
+		: `git grep -n "${TEST_SKIP_PATTERN}" -- "tests/e2e/" || true`;
+	const output = execSync(cmd, { encoding: 'utf-8' });
 	return output
 		.trim()
 		.split('\n')
 		.filter(Boolean)
-		.reduce((sum, line) => {
-			const match = line.match(/:(\d+)$/);
-			return sum + (match ? Number.parseInt(match[1], 10) : 0);
-		}, 0);
+		.filter((line) => !RATCHET_ALLOW_RE.test(line)).length;
 }
 
 // --- 1. Check for new clearDialogGhosts usage in diff ---
@@ -72,28 +85,26 @@ try {
 }
 
 // --- 2. Count test.skip / test.fixme and compare vs origin/main ---
+// #3352: ratchet-allow annotation 付き行 (条件付き環境 skip の明示許容) は両側とも除外して比較する。
 try {
-	const skipCount = execSync(`git grep -c "${TEST_SKIP_PATTERN}" -- "tests/e2e/" || echo "0"`, {
-		encoding: 'utf-8',
-	});
+	const totalSkips = countSkipLines('');
 
-	const totalSkips = sumGitGrepCountOutput(skipCount);
-
-	console.log(`  test.skip/fixme count in e2e: ${totalSkips}`);
+	console.log(`  test.skip/fixme count in e2e (ratchet-allow 除外後): ${totalSkips}`);
 
 	// Compare vs origin/main without mutating the working tree
 	try {
-		const mainSkipCount = execSync(
-			`git grep -c "${TEST_SKIP_PATTERN}" origin/main -- "tests/e2e/" || echo "0"`,
-			{ encoding: 'utf-8' },
-		);
-		const mainTotalSkips = sumGitGrepCountOutput(mainSkipCount);
+		const mainTotalSkips = countSkipLines('origin/main');
 
-		console.log(`  test.skip/fixme count in origin/main e2e: ${mainTotalSkips}`);
+		console.log(
+			`  test.skip/fixme count in origin/main e2e (ratchet-allow 除外後): ${mainTotalSkips}`,
+		);
 
 		if (totalSkips > mainTotalSkips) {
 			console.error(
-				`BLOCKED: test.skip/fixme count increased in e2e (${mainTotalSkips} -> ${totalSkips}).`,
+				`BLOCKED: test.skip/fixme count increased in e2e (${mainTotalSkips} -> ${totalSkips}).\n` +
+					'条件付き環境 skip (Playwright 公式 pattern) として正当な場合のみ、同一行に\n' +
+					'`// ratchet-allow: #<issue>` annotation を付与して除外できる (#3352)。\n' +
+					'無条件 skip / fixme でテストを黙らせる用途への annotation 濫用は QM レビューで BLOCK 対象。',
 			);
 			hasError = true;
 		} else {
