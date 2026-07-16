@@ -40,7 +40,9 @@ function makeEvent(mode: string, activities: unknown[]) {
 			method: 'POST',
 			body: JSON.stringify({ activities }),
 		}),
-		locals: { context: { tenantId: 't1', licenseStatus: 'none' } },
+		// develop の #3334 で本 endpoint に requireRole(['owner','parent']) が入ったため、
+		// gate 検証には認証済 parent context (role 付き) を与える。
+		locals: { context: { tenantId: 't1', licenseStatus: 'none', role: 'parent' } },
 		// biome-ignore lint/suspicious/noExplicitAny: minimal RequestEvent stub for handler unit test
 	} as any;
 }
