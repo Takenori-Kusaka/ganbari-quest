@@ -1,5 +1,5 @@
 /**
- * scripts/lib/orphan-utils.mjs (EPIC #2362 follow-up — 構造的予防)
+ * scripts/lib/ci/orphan-utils.mjs (EPIC #2362 follow-up — 構造的予防)
  *
  * 10 種類の orphan detection script で共有するユーティリティ。
  *  - REPO_ROOT 解決
@@ -16,10 +16,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// REPO_ROOT 解決 — scripts/lib/ から 2 階層上
+// REPO_ROOT 解決 — scripts/lib/ci/ から 3 階層上
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-export const REPO_ROOT = path.resolve(__dirname, '..', '..');
+export const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 /**
  * CLI 引数を parse する。

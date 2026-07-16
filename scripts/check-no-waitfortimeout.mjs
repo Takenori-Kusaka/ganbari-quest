@@ -3,7 +3,7 @@
  * scripts/check-no-waitfortimeout.mjs (#1208)
  *
  * scripts/ 配下の `.mjs` / `.js` / `.cjs` に対し、`page.waitForTimeout(N)` / `.waitForTimeout(N)`
- * の実呼び出しを禁止する lint。`scripts/lib/screenshot-helpers.mjs` の `waitForStablePage()`
+ * の実呼び出しを禁止する lint。`scripts/lib/ci/screenshot-helpers.mjs` の `waitForStablePage()`
  * などに置き換える (ADR-0020 と同方針)。
  *
  * 許容: コメント / doc 内の文字列参照 (このファイル自身を含む)
@@ -69,7 +69,7 @@ if (violations.length > 0) {
 		console.error(`  ${v.file}:${v.line}  ${v.text}`);
 	}
 	console.error(
-		'\nscripts/lib/screenshot-helpers.mjs の waitForStablePage() 等に置き換えてください。',
+		'\nscripts/lib/ci/screenshot-helpers.mjs の waitForStablePage() 等に置き換えてください。',
 	);
 	process.exit(1);
 }

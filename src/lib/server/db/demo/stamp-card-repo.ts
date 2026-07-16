@@ -96,11 +96,12 @@ export async function findEntriesByCardId(
 }
 
 export async function insertCardForRestore(
-	input: Omit<StampCard, 'id'>,
+	_input: Omit<StampCard, 'id'>,
 	_tenantId: string,
-): Promise<StampCard> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: '0' };
+): Promise<StampCard | null> {
+	// Stub: demo は書き込み no-op。#3394: 永続化していないため null を返し
+	// import カウント (stampCardsImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function insertEntryForRestore(
@@ -113,8 +114,9 @@ export async function insertEntryForRestore(
 		earnedAt: string;
 	},
 	_tenantId: string,
-): Promise<void> {
-	// Stub: no-op
+): Promise<boolean> {
+	// Stub: demo は書き込み no-op。#3394: false を返し stampEntriesImported を偽装しない。
+	return false;
 }
 
 export async function updateCardStatus(

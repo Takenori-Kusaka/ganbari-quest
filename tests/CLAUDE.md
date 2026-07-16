@@ -155,7 +155,7 @@ interactive primitive の play 関数 coverage:
 | primitive | play で検証する操作 → 結果 | 備考 |
 |---|---|---|
 | `Dialog` | close button click → `onOpenChange({open:false})` / `closable=false` で × button 非 render / `role=dialog` + accessible name | Esc / backdrop close は Ark UI のグローバル listener 依存で Storybook vitest 環境では非決定的 → Playwright (統合層) に委譲 |
-| `Menu` | trigger click → item visible → item select → `onSelect` 発火 / disabled item は `data-disabled` | Ark UI Menu は `userEvent.click` (full pointer sequence) で select、`element.click()` では発火しない |
+| `Menu` | trigger click → item visible → item select → `onSelect` 発火 / disabled item は `data-disabled` | Ark UI Menu は `userEvent.click` (full pointer sequence) で select、`element.click()` では発火しない。item click 前に open transition 完了待ち必須 (#3687、下記「Ark UI Menu 系 play の CI flake 対策」) |
 | `OverflowMenu` | ⋮ trigger click → item visible → select → `onSelect` 発火 | 同上 (Ark UI Menu wrapper) |
 | `FormField` | input type → value 反映 / `WithError` で `role=alert` + `aria-invalid=true` / `Disabled` で input 編集不可 | canvasElement 内 render、`within` 使用 |
 | `PinInput` | 全桁入力 → `onComplete({valueAsString})` 発火 | mask=false (unmasked) で `role=textbox` query 可能。mask=true は type=password で role 無し |
@@ -163,6 +163,13 @@ interactive primitive の play 関数 coverage:
 | `ChildSelectionDialog` | confirm → `onConfirm('all')` / 複数選択 → `onConfirm([id...])` / empty children 防御 | per-child 取込 SSOT、Portal 経由のため `screen` 使用 |
 
 **Portal 経由 component の query 原則**: Dialog / Menu / OverflowMenu / ChildSelectionDialog は Ark UI `<Portal>` で document.body 直下に render するため、`canvasElement` 起点の `within` では届かない。`screen` (document.body 起点の Testing Library query) + `waitFor` (非同期 mount 待ち) を使う。
+
+**Ark UI Menu 系 play の CI flake 対策 (#3687)**: Ark UI Menu (Menu / OverflowMenu) の open transition 中は content が `pointer-events: none` であり、`userEvent.click` は click 前に pointer-events を検査するため、CI runner の遅い描画では「item visible 直後の click」が「Unable to perform pointer interaction as the element has pointer-events: none」で fail する (ローカルの速い描画では再現しない timing flake)。対策は 2 点セット:
+
+1. **open transition 完了待ち**: item click 前に `await waitFor(() => assertPointerInteractive(item))` を挟む。wait 条件 SSOT は `src/lib/ui/primitives/story-play-helpers.ts` (遅延注入での決定性検証は `tests/unit/ui/story-play-helpers.test.ts`)。固定待ち (`waitForTimeout`) は不採用 (本ファイル禁止事項)
+2. **close 遷移を play 内で完結**: menu を open したまま play を終えると unmount 時の zag-js focus-visible cleanup が Storybook instrumentation と衝突し unhandled TypeError (Illegal invocation) を CI で leak する。`userEvent.keyboard('{Escape}')` → `not.toBeVisible()` で閉じてから終える
+
+横展開確認 (#3687 AC2): `ChildSelectionDialog` の play は `element.click()` (DOM click、pointer-events 非検査) で confirm/cancel を押すため本 flake class の対象外。新規に Menu 系 primitive の play で `userEvent.click(item)` を書く場合は上記 2 点セットを必ず適用する。
 
 ## 顧客レビュー前 CX 版 DoR (12 条件 SSOT、#2553 + #2657 後段フェーズ拡張 2026-05-30)
 

@@ -3,7 +3,7 @@
  * PR #3270 (#3260 C6): /admin/challenges ガイドに追加した ③最頻操作 step を撮影。
  * ①概要 → つぎへ → ②画面の見方 → つぎへ → ③よく使う操作（3/3）。
  */
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 

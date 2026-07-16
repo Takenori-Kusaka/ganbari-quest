@@ -69,7 +69,7 @@ async function runExport(opts: Record<string, string>): Promise<void> {
 
 	try {
 		const { exportFamilyData } = await import('../src/lib/server/services/export-service');
-		const { summarizeExportCounts } = await import('./lib/nuc-cutover-verify');
+		const { summarizeExportCounts } = await import('./lib/runtime/nuc-cutover-verify');
 		// 旧 NUC の tenant は local auth 固定値 'local' (src/lib/server/auth/local-tenant.ts)。
 		const data = await exportFamilyData({ tenantId: 'local' });
 		const counts = summarizeExportCounts(data);
@@ -103,6 +103,24 @@ async function runImport(opts: Record<string, string>): Promise<void> {
 	process.env.PGLITE_DATA_DIR = resolve(dataDir);
 
 	const data = JSON.parse(readFileSync(inPath, 'utf-8'));
+
+	// #3584 ③ birth_date backfill gate: 新 model は age 列を持たず compute-on-read (§11.1) のため、
+	// birth_date NULL の child は age=0 → preschool UI に固定される (中高生が幼児 UI を見せられる
+	// 誤 tier)。PO B2「cutover backfill 必須」を機械 gate 化し、NULL 行があれば dataDir 構築前に
+	// fail-fast する (旧 DB 側で生年月日を登録 → 再 export → 再実行)。
+	const nullBirthChildren = (
+		(data.family?.children ?? []) as { nickname?: string; birthDate?: string | null }[]
+	).filter((c) => !c.birthDate);
+	if (nullBirthChildren.length > 0) {
+		const names = nullBirthChildren.map((c) => c.nickname ?? '(無名)').join(', ');
+		fail(
+			`birth_date 未設定の child が ${nullBirthChildren.length} 人います (${names})。` +
+				'新 model は birth_date が唯一の年齢ソース (compute-on-read §11.1) のため、未設定のまま ' +
+				'cutover すると当該 child は age=0 (preschool UI) に固定されます。' +
+				'旧環境で生年月日を登録してから export し直して再実行してください (#3584 ③)。',
+		);
+	}
+
 	const { LOCAL_TENANT_UUID } = await import('../src/lib/server/auth/local-tenant');
 	const pglite = await import('../src/lib/server/db/pglite/connection');
 
@@ -115,7 +133,7 @@ async function runImport(opts: Record<string, string>): Promise<void> {
 
 	await pglite.initPgliteConnection();
 	const { importFamilyData } = await import('../src/lib/server/services/import-service');
-	const verify = await import('./lib/nuc-cutover-verify');
+	const verify = await import('./lib/runtime/nuc-cutover-verify');
 
 	// #3653: cutover は fresh DB への完全移行のため verbatim (dedup bypass)。merge semantics だと
 	// 実本番に存在する同 child 同 title 行等が skip され件数突合で abort する (cycle 3 実検出)。

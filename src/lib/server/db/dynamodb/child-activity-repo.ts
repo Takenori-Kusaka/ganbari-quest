@@ -18,6 +18,7 @@
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/child-activity-repo.ts (SSOT)
 
 import { DeleteCommand, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { ACTIVITY_SOURCES } from '$lib/domain/activity-source';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
@@ -146,7 +147,9 @@ function buildChildActivity(
 		// #3422: 親入力の 1 日上限 / 読み仮名 / 漢字表記を persist (旧実装は null 固定で drop していた)
 		dailyLimit: input.dailyLimit ?? null,
 		sortOrder: input.sortOrder ?? 0,
-		source: 'seed',
+		// #3669: 作成経路の source を persist (旧実装は 'seed' 固定で親手動作成 'custom' が
+		// quota 集計から漏れていた)。省略時は従来どおり 'seed' (sqlite schema default parity)。
+		source: input.source ?? ACTIVITY_SOURCES.seed.value,
 		nameKana: input.nameKana ?? null,
 		nameKanji: input.nameKanji ?? null,
 		triggerHint: input.triggerHint ?? null,
@@ -343,6 +346,8 @@ export async function copyActivitiesAcrossChildren(
 		isMainQuest: a.isMainQuest,
 		sourcePresetId: a.sourcePresetId,
 		priority: a.priority,
+		// #3669: 元活動の source を保全 (copy 経由の quota 迂回と provenance 喪失を防ぐ)
+		source: a.source,
 	}));
 
 	return insertActivitiesBulk(inputs, tenantId);

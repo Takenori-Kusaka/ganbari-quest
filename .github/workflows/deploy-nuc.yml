@@ -21,6 +21,11 @@ concurrency:
   group: deploy-nuc
   cancel-in-progress: true
 
+# #3494 AC2: repo デフォルト GITHUB_TOKEN 権限への依存を排除するため read-only を明示
+# (deploy は host credential の git / docker で行い GITHUB_TOKEN を使わない)。
+permissions:
+  contents: read
+
 jobs:
   deploy-nuc:
     # NUC 専用 runner (local_nuc) に pin する。`nuc` ラベルなしの汎用 self-hosted runner
@@ -115,16 +120,19 @@ jobs:
       # cutover CLI が export → PGlite import (data/pglite) → 件数突合。count-mismatch / errors>0 で
       # abort (legacy DB untouched = ロールバック可能)。旧 DB 不在なら fresh PGlite で起動。
       # backup は #3702 で別途 (deploy 前に手動 + backup-1 コンテナ)。旧 sqlite を消さないため二重安全。
-      - name: PGlite cutover (SQLite → PGlite, 非破壊)
+      #
+      # ★ #3711 (adversarial reviewer 検出): PGlite dataDir が既に存在する場合は cutover を skip する。
+      #   cutover 完遂後のアプリ書込み先は PGlite で旧 sqlite は凍結される。旧実装 (pglite dir を毎回
+      #   削除して再 import) だと、cutover 後の通常 deploy のたびに cutover 時点の凍結 snapshot へ
+      #   silent ロールバックし、家族の記録 (活動・ポイント・スタンプ) が消失する。意図的な再 cutover は
+      #   NUC 上で data\pglite を手動削除してから deploy を dispatch する (runbook: docs/runbooks/nuc-pglite-cutover.md)。
+      - name: PGlite cutover (SQLite → PGlite, 非破壊・初回のみ)
         run: |
-          if (-not (Test-Path ".\data\ganbari-quest.db")) {
+          if (Test-Path ".\data\pglite") {
+            Write-Host "::notice::PGlite dataDir already exists -> skip cutover (PGlite is live; re-import would roll back post-cutover data). To re-cutover intentionally, remove data\pglite manually first."
+          } elseif (-not (Test-Path ".\data\ganbari-quest.db")) {
             Write-Host "::notice::legacy sqlite DB not found -> skip cutover, boot fresh PGlite"
           } else {
-            # 既存 PGlite dataDir があれば作り直す (再デプロイ冪等)。旧 sqlite は温存。
-            if (Test-Path ".\data\pglite") {
-              Remove-Item -Recurse -Force ".\data\pglite"
-              Write-Host "removed previous pglite dataDir (re-cutover)"
-            }
             docker compose run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts export --db /app/data/ganbari-quest.db --out /app/data/.cutover-export.json
             if ($LASTEXITCODE -ne 0) { throw "cutover export failed (exit $LASTEXITCODE)" }
             docker compose run --rm --no-deps app npx tsx scripts/nuc-pglite-cutover.ts import --in /app/data/.cutover-export.json --data-dir /app/data/pglite

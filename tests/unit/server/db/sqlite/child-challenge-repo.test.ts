@@ -27,7 +27,7 @@ vi.mock('$lib/server/db/client', () => ({
 
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
-	claimReward,
+	claimRewardAndGrantPoints,
 	copyAcrossChildren,
 	deleteChallenge,
 	findActiveByChildId,
@@ -223,7 +223,11 @@ describe('sqlite/child-challenge-repo', () => {
 			TENANT,
 		);
 		await markCompleted(claimedCompleted.id, TENANT);
-		await claimReward(claimedCompleted.id, TENANT);
+		await claimRewardAndGrantPoints(
+			claimedCompleted.id,
+			{ childId: asChildId(1), amount: 50, description: 'claimed' },
+			TENANT,
+		);
 
 		const result = await findActiveOrUnclaimedByChildId(asChildId(1), '2026-05-25', TENANT);
 		const titles = result.map((r) => r.title).sort();
@@ -253,29 +257,133 @@ describe('sqlite/child-challenge-repo', () => {
 		expect(new Set(sharedInstances.map((c) => c.childId))).toEqual(new Set(['1', '2']));
 	});
 
-	// #3333 (3): 条件付き UPDATE の原子性。better-sqlite3 の実 DB で「completed=1 && 未請求のみ flip し
-	// 変更行数を返す」を検証する。並行二重 claim でも 2 回目は 0 行 → service が付与をスキップする根拠。
-	describe('claimReward — 条件付き原子化 (#3333)', () => {
-		it('completed=1 && 未請求 → 1 回目は 1 行 flip、2 回目は 0 行 (二重 flip しない)', async () => {
+	// #3284 / #3342 (#3333 の後継): flip + ledger insert の単一原子 primitive を better-sqlite3 の
+	// 実 DB で検証する。ledger 行 (type='child_challenge' / reference_id=挑戦 id) が flip と同 txn で
+	// 書かれ、二重 claim では ledger が増えない (= ポイント二重付与不能) こと、および ledger insert
+	// 失敗時に flip ごと rollback される (両成功 or 両 rollback、lost-award 根治) ことを assert する。
+	describe('claimRewardAndGrantPoints — flip + ledger 単一 txn (#3284/#3342)', () => {
+		const ledgerRows = (challengeId: string) =>
+			sqlite
+				.prepare(
+					"SELECT child_id, amount, type, reference_id FROM point_ledger WHERE type = 'child_challenge' AND reference_id = ?",
+				)
+				.all(Number(challengeId)) as {
+				child_id: number;
+				amount: number;
+				type: string;
+				reference_id: number;
+			}[];
+
+		it('completed=1 && 未請求 → 1 回目は flip + ledger 1 行、2 回目は 0 で ledger 増えない (二重付与不能)', async () => {
 			const c = await insert(buildInput({ childId: asChildId(1), title: 'claim-atomic' }), TENANT);
 			await markCompleted(c.id, TENANT);
 
-			const first = await claimReward(c.id, TENANT);
+			const first = await claimRewardAndGrantPoints(
+				c.id,
+				{ childId: asChildId(1), amount: 50, description: 'チャレンジ達成: claim-atomic' },
+				TENANT,
+			);
 			expect(first).toBe(1);
+			expect(ledgerRows(c.id)).toEqual([
+				{ child_id: 1, amount: 50, type: 'child_challenge', reference_id: Number(c.id) },
+			]);
 
-			const second = await claimReward(c.id, TENANT);
+			const second = await claimRewardAndGrantPoints(
+				c.id,
+				{ childId: asChildId(1), amount: 50, description: 'チャレンジ達成: claim-atomic' },
+				TENANT,
+			);
 			expect(second).toBe(0);
+			// AC (#3284): 同一 challenge を 2 回 claim → ledger は 1 行のみ (balance 1 回分)
+			expect(ledgerRows(c.id)).toHaveLength(1);
 
 			const after = await findById(c.id, TENANT);
 			expect(after?.rewardClaimed).toBe(1);
 		});
 
-		it('未完了 (completed=0) → 条件不成立で 0 行 (付与対象外)', async () => {
+		it('未完了 (completed=0) → 条件不成立で 0 (ledger 無書込)', async () => {
 			const c = await insert(buildInput({ childId: asChildId(1), title: 'not-completed' }), TENANT);
-			const changed = await claimReward(c.id, TENANT);
+			const changed = await claimRewardAndGrantPoints(
+				c.id,
+				{ childId: asChildId(1), amount: 50, description: 'x' },
+				TENANT,
+			);
 			expect(changed).toBe(0);
+			expect(ledgerRows(c.id)).toHaveLength(0);
 			const after = await findById(c.id, TENANT);
 			expect(after?.rewardClaimed).toBe(0);
 		});
+
+		// #3342 (1) lost-award 根治の本丸: ledger insert が失敗 (冪等 UNIQUE 違反 #3284 を利用して
+		// 意図的に誘発) した場合、flip も rollback され rewardClaimed=0 のまま = 再 claim 可能。
+		// 旧 2 段構成では flip=1 が確定した後に ledger が throw し「恒久受取不能」になっていた。
+		it('ledger insert 失敗時は flip ごと rollback (両成功 or 両 rollback、lost-award 根治)', async () => {
+			const c = await insert(buildInput({ childId: asChildId(1), title: 'rollback' }), TENANT);
+			await markCompleted(c.id, TENANT);
+			// 事前に同一冪等キー (child, 'child_challenge', reference=c.id) の ledger 行を仕込み、
+			// primitive 内の ledger insert を UNIQUE 違反で失敗させる
+			sqlite
+				.prepare(
+					"INSERT INTO point_ledger (child_id, amount, type, description, reference_id) VALUES (1, 50, 'child_challenge', 'pre-existing', ?)",
+				)
+				.run(Number(c.id));
+
+			await expect(
+				claimRewardAndGrantPoints(
+					c.id,
+					{ childId: asChildId(1), amount: 50, description: 'dup' },
+					TENANT,
+				),
+			).rejects.toThrow();
+
+			// flip は rollback され未請求のまま (lost-award にならない)
+			const after = await findById(c.id, TENANT);
+			expect(after?.rewardClaimed).toBe(0);
+			// ledger は事前 1 行のみ (二重付与なし)
+			expect(ledgerRows(c.id)).toHaveLength(1);
+		});
+	});
+});
+
+// #3284 AC: point_ledger の冪等キー (child_id, type, reference_id) を DB 層 (部分 UNIQUE index)
+// が強制することを実 DB で検証する。referenceId 無しの付与 (combo / daily_mission 等) は制約対象外。
+describe('point_ledger 冪等キー (idx_point_ledger_idempotency、#3284)', () => {
+	beforeEach(() => {
+		seedChildren();
+	});
+
+	it('同一 (child, type, reference) の 2 回目 insert は UNIQUE 違反で拒否される', () => {
+		const stmt = sqlite.prepare(
+			"INSERT INTO point_ledger (child_id, amount, type, description, reference_id) VALUES (1, 30, 'child_challenge', 'grant', 77)",
+		);
+		stmt.run();
+		expect(() => stmt.run()).toThrow(/UNIQUE/);
+		const rows = sqlite
+			.prepare("SELECT COUNT(*) AS c FROM point_ledger WHERE type = 'child_challenge'")
+			.get() as { c: number };
+		expect(rows.c).toBe(1);
+	});
+
+	it('reference_id が NULL の付与 (combo 等) は複数 insert 可能 (部分 index 対象外)', () => {
+		const stmt = sqlite.prepare(
+			"INSERT INTO point_ledger (child_id, amount, type, description, reference_id) VALUES (1, 10, 'combo_bonus', 'combo', NULL)",
+		);
+		stmt.run();
+		expect(() => stmt.run()).not.toThrow();
+	});
+
+	it('type が異なれば同一 (child, reference) でも insert 可能 (activity ログと cancel の対)', () => {
+		sqlite
+			.prepare(
+				"INSERT INTO point_ledger (child_id, amount, type, description, reference_id) VALUES (1, 20, 'activity', 'earn', 5)",
+			)
+			.run();
+		expect(() =>
+			sqlite
+				.prepare(
+					"INSERT INTO point_ledger (child_id, amount, type, description, reference_id) VALUES (1, -20, 'cancel', 'キャンセル', 5)",
+				)
+				.run(),
+		).not.toThrow();
 	});
 });

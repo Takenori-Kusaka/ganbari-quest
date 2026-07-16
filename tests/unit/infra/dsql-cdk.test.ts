@@ -108,3 +108,42 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		}
 	});
 });
+
+// #3703 / #3708: dashboard / budget の物理名は staging / prod で一意でなければならない。
+// 同一アカウント・同一リージョンに GanbariQuestDsql (本番) と GanbariQuestDsqlStaging が同居するため、
+// 物理名がハードコード同名だと CloudFormation 'already exists' で本番 cutover deploy が fail する
+// (2026-07-13 本番 cutover が 4 回連続 fail した実障害)。nameSuffix 導出 (stack id に 'staging' を
+// 含むか) の guard test。heuristic が壊れる / 削られると本番・staging の名前衝突が再発するため、
+// 実 stack id (deploy workflows が使う 'GanbariQuestDsql' / 'GanbariQuestDsqlStaging') で assert する。
+describe('DsqlStack nameSuffix guard (#3703 / #3708 staging・prod 物理名一意性)', () => {
+	/** stack id で synth し dashboard / budget 物理名を取り出す。 */
+	function physicalNames(stackId: string): { dashboard: string; budget: string } {
+		const app = new cdk.App();
+		const stack = new DsqlStack(app, stackId, { opsEmail: 'ops@example.com' });
+		const template = Template.fromStack(stack);
+		const dashboards = template.findResources('AWS::CloudWatch::Dashboard');
+		const budgets = template.findResources('AWS::Budgets::Budget');
+		const dashboard = Object.values(dashboards)[0]?.Properties?.DashboardName as string;
+		const budget = Object.values(budgets)[0]?.Properties?.Budget?.BudgetName as string;
+		return { dashboard, budget };
+	}
+
+	it('[N1] 本番 stack id (GanbariQuestDsql) は suffix 無しの物理名', () => {
+		const names = physicalNames('GanbariQuestDsql');
+		expect(names.dashboard).toBe('ganbari-quest-dsql');
+		expect(names.budget).toBe('ganbari-quest-dsql-guardrail');
+	});
+
+	it('[N2] staging stack id (GanbariQuestDsqlStaging) は -staging suffix 付き物理名', () => {
+		const names = physicalNames('GanbariQuestDsqlStaging');
+		expect(names.dashboard).toBe('ganbari-quest-dsql-staging');
+		expect(names.budget).toBe('ganbari-quest-dsql-guardrail-staging');
+	});
+
+	it('[N3] 本番と staging の物理名は衝突しない (cutover 4 連続 fail の再発 guard)', () => {
+		const prod = physicalNames('GanbariQuestDsql');
+		const staging = physicalNames('GanbariQuestDsqlStaging');
+		expect(prod.dashboard).not.toBe(staging.dashboard);
+		expect(prod.budget).not.toBe(staging.budget);
+	});
+});

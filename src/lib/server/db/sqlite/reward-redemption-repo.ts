@@ -1,13 +1,14 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
-import type {
-	RedemptionRequestRow,
-	RedemptionRequestWithDetails,
-	RedemptionRequestWithReward,
+import {
+	REDEMPTION_DEDUP_WINDOW_SEC,
+	type RedemptionRequestRow,
+	type RedemptionRequestWithDetails,
+	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
 
@@ -37,7 +38,15 @@ const snapshotIcon = sql<
 >`COALESCE(${rewardRedemptionRequests.rewardIcon}, ${specialRewards.icon})`;
 const snapshotPoints = sql<number>`COALESCE(${rewardRedemptionRequests.rewardPoints}, ${specialRewards.points})`;
 
-/** 交換申請を作成（#2832: reward title/points/icon の申請時点 snapshot を保存） */
+/**
+ * 交換申請を作成 (#2832: 申請時点 snapshot を保存 / #3356 (1): server-side idempotency 内蔵)。
+ *
+ * better-sqlite3 の**同期トランザクション**内で「pending 既存 check + 直近 approved 窓 check →
+ * insert」を 1 単位に閉じ込める。旧構成 (service 層の findPendingByChildAndReward check-then-act)
+ * は並行 submit で両者が「pending 無し」を読んで二重申請 → 即時交換モードで二重減算を招いた。
+ * txn 中は他リクエストが event loop に割り込めないため dedup 判定が原子化される
+ * (spendPointsAtomic #3347 と同パターン)。
+ */
 export async function insertRedemptionRequest(
 	input: {
 		childId: ChildId;
@@ -45,32 +54,67 @@ export async function insertRedemptionRequest(
 		requestedAt: number;
 	},
 	_tenantId: string,
-): Promise<RedemptionRequestRow> {
-	const reward = db
-		.select({
-			title: specialRewards.title,
-			points: specialRewards.points,
-			icon: specialRewards.icon,
-		})
-		.from(specialRewards)
-		.where(eq(specialRewards.id, Number(input.rewardId)))
-		.get();
+): Promise<RedemptionRequestRow | { error: 'DUPLICATE_REQUEST' }> {
+	return db.transaction((tx) => {
+		// dedup (a): 同一 (child, reward) の pending が既存なら弾く
+		const pending = tx
+			.select({ id: rewardRedemptionRequests.id })
+			.from(rewardRedemptionRequests)
+			.where(
+				and(
+					eq(rewardRedemptionRequests.childId, Number(input.childId)),
+					eq(rewardRedemptionRequests.rewardId, Number(input.rewardId)),
+					eq(rewardRedemptionRequests.status, 'pending_parent_approval'),
+				),
+			)
+			.limit(1)
+			.get();
+		if (pending) return { error: 'DUPLICATE_REQUEST' as const };
 
-	return toRequestRow(
-		db
-			.insert(rewardRedemptionRequests)
-			.values({
-				childId: Number(input.childId),
-				rewardId: Number(input.rewardId),
-				requestedAt: input.requestedAt,
-				status: 'pending_parent_approval',
-				rewardTitle: reward?.title ?? null,
-				rewardPoints: reward?.points ?? null,
-				rewardIcon: reward?.icon ?? null,
+		// dedup (b): 直近 REDEMPTION_DEDUP_WINDOW_SEC 秒以内に approved (即時交換含む) が
+		// あれば連打/再送/多タブとみなして弾く (#3356 (1))
+		const windowStart = input.requestedAt - REDEMPTION_DEDUP_WINDOW_SEC;
+		const recentApproved = tx
+			.select({ id: rewardRedemptionRequests.id })
+			.from(rewardRedemptionRequests)
+			.where(
+				and(
+					eq(rewardRedemptionRequests.childId, Number(input.childId)),
+					eq(rewardRedemptionRequests.rewardId, Number(input.rewardId)),
+					eq(rewardRedemptionRequests.status, 'approved'),
+					gte(rewardRedemptionRequests.resolvedAt, windowStart),
+				),
+			)
+			.limit(1)
+			.get();
+		if (recentApproved) return { error: 'DUPLICATE_REQUEST' as const };
+
+		const reward = tx
+			.select({
+				title: specialRewards.title,
+				points: specialRewards.points,
+				icon: specialRewards.icon,
 			})
-			.returning()
-			.get(),
-	);
+			.from(specialRewards)
+			.where(eq(specialRewards.id, Number(input.rewardId)))
+			.get();
+
+		return toRequestRow(
+			tx
+				.insert(rewardRedemptionRequests)
+				.values({
+					childId: Number(input.childId),
+					rewardId: Number(input.rewardId),
+					requestedAt: input.requestedAt,
+					status: 'pending_parent_approval',
+					rewardTitle: reward?.title ?? null,
+					rewardPoints: reward?.points ?? null,
+					rewardIcon: reward?.icon ?? null,
+				})
+				.returning()
+				.get(),
+		);
+	});
 }
 
 /**
@@ -231,25 +275,8 @@ export async function updateRedemptionRequestStatus(
 }
 
 /** 子供の特定報酬に対して pending 申請が存在するか確認 */
-export async function findPendingByChildAndReward(
-	childId: ChildId,
-	rewardId: string,
-	_tenantId: string,
-): Promise<RedemptionRequestRow | undefined> {
-	const row = db
-		.select()
-		.from(rewardRedemptionRequests)
-		.where(
-			and(
-				eq(rewardRedemptionRequests.childId, Number(childId)),
-				eq(rewardRedemptionRequests.rewardId, Number(rewardId)),
-				eq(rewardRedemptionRequests.status, 'pending_parent_approval'),
-			),
-		)
-		.limit(1)
-		.get();
-	return row ? toRequestRow(row) : undefined;
-}
+// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
+// insertRedemptionRequest の同期 txn 内 dedup に内蔵済 (check-then-act TOCTOU 根治)。
 
 /** 子供の未表示の承認/却下通知を取得 */
 export async function findUnshownResultByChild(

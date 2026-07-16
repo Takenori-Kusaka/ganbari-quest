@@ -484,25 +484,33 @@ describe('DSQL activity-pref-repo (PR-R3、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.isPinned).toBe(1);
 		expect(restored.pinOrder).toBe(42);
 		expect(Date.parse(restored.createdAt)).toBe(Date.parse('2026-01-02T03:04:05.000Z'));
 		expect(Date.parse(restored.updatedAt)).toBe(Date.parse('2026-01-03T03:04:05.000Z'));
 
-		// 複合 PK (family, child, activity) UNIQUE の実効
-		await expect(
-			prefRepo.insertForRestore(
-				{
-					childId: c2,
-					activityId: act,
-					isPinned: 0,
-					pinOrder: null,
-					createdAt: '2026-01-02T03:04:05.000Z',
-					updatedAt: '2026-01-02T03:04:05.000Z',
-				},
-				FAMILY,
-			),
-		).rejects.toThrow();
+		// 複合 PK (family, child, activity) UNIQUE の実効。
+		// #3394 統一冪等契約: 重複は 23505 throw ではなく ON CONFLICT DO NOTHING → null skip
+		// (sqlite onConflictDoNothing / dynamodb attribute_not_exists と機能等価、count 整合)。
+		const duplicate = await prefRepo.insertForRestore(
+			{
+				childId: c2,
+				activityId: act,
+				isPinned: 0,
+				pinOrder: null,
+				createdAt: '2026-01-02T03:04:05.000Z',
+				updatedAt: '2026-01-02T03:04:05.000Z',
+			},
+			FAMILY,
+		);
+		expect(duplicate).toBeNull();
+		// 既存行は上書きされず 1 行のまま (silent overwrite なし)
+		const after = await prefRepo.findAllByChild(c2, FAMILY);
+		expect(after).toHaveLength(1);
+		expect(after[0]?.isPinned).toBe(1);
+		expect(after[0]?.pinOrder).toBe(42);
 	});
 
 	it('[P6] §P9 tenant 分離 + deleteByTenantId は tenant scope のみ削除', async () => {

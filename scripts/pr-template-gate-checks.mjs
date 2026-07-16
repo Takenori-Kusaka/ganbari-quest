@@ -2,8 +2,8 @@
 /**
  * scripts/pr-template-gate-checks.mjs — Issue #2944 (Phase A/A-2、親 #2942 / EPIC #2861)
  *
- * `.github/workflows/pr-template-gate.yml` の 5 job (必須セクション存在 / 関連 Issue 番号 /
- * 変更タイプ / 顧客価値 / テスト実行結果) の検証ロジックを **lane-aware な純粋関数**として
+ * `.github/workflows/pr-template-gate.yml` の 6 job (必須セクション存在 / 関連 Issue 番号 /
+ * 変更タイプ / 顧客価値 / テスト実行結果 / closing keyword #3458) の検証ロジックを **lane-aware な純粋関数**として
  * 集約した SSOT。各 job の `actions/github-script` に inline されていた判定を本 script に移し、
  * unit test (tests/unit/github/pr-template-gate-checks.test.ts) で 4 lane (feature /
  * integration / hotfix / dependabot) 全てを fixture 入力で検証可能にする (#2944 実装方針)。
@@ -32,7 +32,8 @@
  *
  * 【CLI (job から呼ぶ)】
  *   node scripts/pr-template-gate-checks.mjs --check section-presence --lane integration \
- *     --body-file <path> --labels-json <path> --template-file <path> --ssot-file <path>
+ *     --body-file <path> --labels-json <path> --template-file <path> --ssot-file <path> \
+ *     --integration-ssot-file <path>   # 統合 PR 用 section SSOT (#3688、section-presence のみ使用)
  *   exit: 0 = ok/skipped、1 = 検証 fail、2 = 引数/内部エラー
  *
  * 純粋関数群 (本 file の export) は副作用ゼロ。fs 読み込み / process.exit は CLI entrypoint のみ。
@@ -41,6 +42,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractClosedIssues } from './integration-pr-body.mjs';
 
 /**
  * @typedef {'feature' | 'integration' | 'hotfix' | 'dependabot'} Lane
@@ -50,19 +52,19 @@ import { fileURLToPath } from 'node:url';
  *   labels: string[];
  *   template: string;
  *   ssotSections: string[] | null;
+ *   integrationSsotSections?: string[] | null;
  *   lane: Lane;
  * }} CheckInput
  */
 
 /**
- * 統合 PR (integration lane) で必須とする section set。
- * Phase B (#2871) で PR_TEMPLATE_SECTIONS.integration.json を導入するまでの暫定。
- * 現行 13 section の部分集合 (統合 PR が単一 Issue × per-PR AC 前提を満たせないため、
- * AC 検証マップ等の per-PR 前提 section を外す) + マージ判定エビデンス表 section を必須化。
+ * 統合 PR (integration lane) で必須とする section set の **fallback**。
  *
- * 「マージ判定エビデンス」は audit-team.md §3.5 のマージ判定エビデンス表を指す。本 phase では
- * 統合 PR template 未導入のため、現行 template に存在する section のうち統合 PR でも意味を持つ
- * ものに限定する。section 名は現行 PR_TEMPLATE_SECTIONS.json の表記に一致させる。
+ * 正: `.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json` (#2950 で導入済の統合 PR 用 SSOT。
+ * workflow が `--integration-ssot-file` で渡し、integration lane の section-presence は
+ * その JSON の見出し集合を検証する — #3688 AC1)。本定数は同 file が checkout に存在しない
+ * 場合 (旧 branch 等) の fallback としてのみ使う。feature 用 template の見出しを含むため、
+ * INTEGRATION_PR_TEMPLATE.md 準拠の正規統合 body は fallback 経路では通らない点に注意。
  *
  * @type {string[]}
  */
@@ -116,13 +118,21 @@ export function extractTemplateSections(template) {
 /**
  * Check 1: 必須セクション存在確認 (lane-aware)。
  * - feature/hotfix: 現行どおり SSOT JSON (なければ template) の全 `## ` 見出しを必須。
- * - integration: INTEGRATION_REQUIRED_SECTIONS (現行の部分集合 + エビデンス表) を必須。
+ * - integration: INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#2950 / #3688 AC1) の
+ *   見出し集合を必須。同 JSON 不在時のみ INTEGRATION_REQUIRED_SECTIONS に fallback。
  * - dependabot: skip。
  *
  * @param {CheckInput} input
  * @returns {CheckResult}
  */
-export function checkSectionPresence({ body, labels, template, ssotSections, lane }) {
+export function checkSectionPresence({
+	body,
+	labels,
+	template,
+	ssotSections,
+	integrationSsotSections,
+	lane,
+}) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
 	if (hasDependenciesLabel(labels, lane)) {
@@ -132,8 +142,13 @@ export function checkSectionPresence({ body, labels, template, ssotSections, lan
 	let sections;
 	let sourceLabel;
 	if (lane === 'integration') {
-		sections = INTEGRATION_REQUIRED_SECTIONS;
-		sourceLabel = 'INTEGRATION_REQUIRED_SECTIONS (暫定 section set、#2944 / Phase B 接続点)';
+		if (Array.isArray(integrationSsotSections) && integrationSsotSections.length > 0) {
+			sections = integrationSsotSections;
+			sourceLabel = 'INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#3688)';
+		} else {
+			sections = INTEGRATION_REQUIRED_SECTIONS;
+			sourceLabel = 'INTEGRATION_REQUIRED_SECTIONS (fallback — 統合 SSOT JSON 不在)';
+		}
 	} else if (Array.isArray(ssotSections) && ssotSections.length > 0) {
 		sections = ssotSections;
 		sourceLabel = 'PR_TEMPLATE_SECTIONS.json (SSOT)';
@@ -276,6 +291,167 @@ export function checkIssueReference({ body, labels, template, lane }) {
 			`❌ 「${heading}」セクションに Issue 番号の参照がありません。\n\n` +
 			'`closes #123` の形式で関連する Issue 番号を記載してください。\n' +
 			'Issue が存在しない場合は `closes` 行を削除し理由を明記してください。',
+	};
+}
+
+/**
+ * closing keyword 必須化 (#3458) の対象 type label。
+ * develop 向け (feature lane) の feat / fix PR のみ closing keyword を必須とする
+ * (refactor / docs / chore 等 issue を閉じない type は対象外、AC3)。
+ * @type {readonly string[]}
+ */
+export const CLOSING_KEYWORD_TARGET_LABELS = Object.freeze(['type:feat', 'type:fix']);
+
+/**
+ * `<!-- no-issue-close: 理由 -->` 宣言 (#3458 AC3)。
+ * issue を閉じない PR (follow-up fix / issue なし小修正等) の明示的 escape hatch。
+ * 理由が空の宣言は fail とする (空宣言による gate 空洞化防止)。
+ */
+const NO_ISSUE_CLOSE_RE = /<!--\s*no-issue-close:([\s\S]*?)-->/i;
+
+/**
+ * conventional-commit 形式の PR title 引用行 (`fix: #N <subject>` / `fix(scope): #N <subject>`)
+ * を検出する正規表現 (#3458 AC / #3462 残課題 1 の gate 側ガード)。
+ *
+ * 共有規約 `CLOSING_KEYWORD_LINE_RE` (integration-pr-body.mjs、#3444) はコロン形
+ * `Fixes: #N` を許容するため、副作用として conventional-commit prefix `fix: #N subject`
+ * (title 引用) も match しうる。`.github/CLAUDE.md` SSOT は「conventional-commit prefix は
+ * Issue 参照であって closing keyword ではない」と定めるため、gate 側では
+ * **小文字 `fix` type token + コロン + `#N` + 後続 subject 本文がある行** のみを
+ * title 引用とみなし走査対象から除外する。判別基準:
+ *   - 小文字 `fix` 限定 (conventional-commit type は小文字規約、#2495 title 接頭辞 SSOT と一致)。
+ *     `Fixes: #N` / `Closes: #N` (大文字・複数形の正規コロン closing 形) は除外しない。
+ *   - `#N` の後に subject 本文 (`[ \t]+\S`) が続く行のみ。`fix: #N` 単独行は closing 宣言として尊重。
+ * regex 本体の根治 (共有規約側での区別) は #3462 が担い、本ガードはその gate 局所の防御。
+ */
+const CONVENTIONAL_COMMIT_FIX_TITLE_RE =
+	/^[ \t]*(?:[-*+][ \t]+)?fix(?:\([^)\r\n]*\))?!?:[ \t]*[#＃]\d+[ \t]+\S/;
+
+/**
+ * conventional-commit 形式の title 引用行を除去する純粋関数 (#3458)。
+ * 行単位の除去のため section 見出し構造 (`## `) は保たれ、除去後の本文を
+ * `extractClosedIssues` (section 限定走査) にそのまま渡せる。
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripConventionalCommitFixTitleLines(text) {
+	return text
+		.split('\n')
+		.filter((l) => !CONVENTIONAL_COMMIT_FIX_TITLE_RE.test(l))
+		.join('\n');
+}
+
+/**
+ * Check 6: closing keyword の必須化 (#3458、#3423 AC1 / PR #3444 QM BLOCK 指摘 (3))。
+ *
+ * develop 向け (feature lane) の `type:feat` / `type:fix` PR は、`## 関連 Issue` section に
+ * **行頭 closing keyword** (`Closes #N` / `Fixes #N` / `Resolves #N`、コロン形 `Closes: #N` /
+ * 全角 `＃` 許容) を必須とする。含有 PR が bare `#N` 参照だけだと develop→main 統合 PR の
+ * `Closes #N` 集約 (#3423 / integration-pr-body.mjs) が空になり close 漏れ防止機構が
+ * inert になるため、per-PR gate で宣言を強制する。
+ *
+ * 検出規約は `extractClosedIssues` (integration-pr-body.mjs、#3444 で section 限定 +
+ * code-fence strip + 行頭アンカー化済) を **単一 PR body で呼び出して共有**する (AC4、
+ * 二重実装なし)。集約側と gate 側で「何が closing 宣言か」の判定が常に一致する。
+ *
+ * lane 別:
+ * - feature: type:feat / type:fix のみ検証。`<!-- no-issue-close: 理由 -->` 宣言で skip (AC3)。
+ *   back-merge label PR は機械生成のため skip (classifyForContainedList と同基準)。
+ * - integration: skip (統合 PR は #3423 集約側 = renderIntegrationPrBody が担う)。
+ * - hotfix: skip (main = default branch 直行のため merge 時に GitHub が直接 auto-close する。
+ *   #3458 の scope は develop 向け PR のみ)。
+ * - dependabot: skip。
+ *
+ * @param {CheckInput} input
+ * @returns {CheckResult}
+ */
+export function checkClosingKeyword({ body, labels, lane }) {
+	const dep = dependabotSkip(lane);
+	if (dep) return dep;
+	if (hasDependenciesLabel(labels, lane)) {
+		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
+	}
+	if (lane === 'integration') {
+		return {
+			ok: true,
+			skipped: true,
+			lane,
+			message:
+				'[integration] 統合 PR は含有 PR の close 宣言を integration-pr-body.mjs (#3423) が集約するためスキップ',
+		};
+	}
+	if (lane === 'hotfix') {
+		return {
+			ok: true,
+			skipped: true,
+			lane,
+			message:
+				'[hotfix] main (default branch) 直行 PR は merge 時に GitHub が直接 auto-close するためスキップ (#3458 scope は develop 向けのみ)',
+		};
+	}
+	if (labels.includes('back-merge')) {
+		return {
+			ok: true,
+			skipped: true,
+			lane,
+			message: 'back-merge PR (機械生成) のためスキップ',
+		};
+	}
+	if (!CLOSING_KEYWORD_TARGET_LABELS.some((l) => labels.includes(l))) {
+		return {
+			ok: true,
+			skipped: true,
+			lane,
+			message: `type:feat / type:fix 以外 (labels: ${labels.join(', ') || 'なし'}) のためスキップ (#3458 AC3)`,
+		};
+	}
+
+	const noClose = body.match(NO_ISSUE_CLOSE_RE);
+	if (noClose) {
+		const reason = (noClose[1] ?? '').trim();
+		if (reason.length === 0) {
+			return {
+				ok: false,
+				lane,
+				message:
+					'❌ `<!-- no-issue-close: 理由 -->` 宣言に理由が記載されていません。\n\n' +
+					'issue を閉じない PR は `<!-- no-issue-close: follow-up 修正で対応 issue なし -->` のように\n' +
+					'理由を必ず記載してください (#3458 AC3、空宣言による gate 空洞化防止)。',
+			};
+		}
+		return {
+			ok: true,
+			skipped: true,
+			lane,
+			message: `✅ no-issue-close 宣言によりスキップ (理由: ${reason})`,
+		};
+	}
+
+	// 共有規約 (extractClosedIssues) を単一 PR body で呼び出す。section 限定 / code-fence strip /
+	// 行頭アンカーの 3 段絞り込み (#3444) がそのまま適用される。conventional-commit title 引用行のみ
+	// gate 側で事前除去する (#3462 残課題 1 の局所ガード)。
+	const closedIssues = extractClosedIssues([
+		{ number: 0, body: stripConventionalCommitFixTitleLines(body) },
+	]);
+	if (closedIssues.length > 0) {
+		return {
+			ok: true,
+			lane,
+			message: `✅ closing keyword 宣言: ${closedIssues.map((n) => `Closes #${n}`).join(' / ')}`,
+		};
+	}
+
+	return {
+		ok: false,
+		lane,
+		message:
+			'❌ 「## 関連 Issue」section に closing keyword (`Closes #N` / `Fixes #N` / `Resolves #N`) がありません。\n\n' +
+			'develop 向け type:feat / type:fix PR は、解決対象 issue を行頭の closing keyword で宣言してください\n' +
+			'(develop→main 統合 PR が `Closes #N` を集約し main merge 時に一括 auto-close します、#3423/#3458)。\n\n' +
+			'- 単なる `#N` 参照 / `関連: #N` は closing 宣言ではないため不可\n' +
+			'- conventional-commit prefix の title 引用 (`fix: #N subject`) は closing 宣言と見なされません\n' +
+			'- issue を閉じない PR は `<!-- no-issue-close: 理由 -->` を本文に記載すれば skip されます\n\n' +
+			'例:\n```\n## 関連 Issue\n\ncloses #1234\n```',
 	};
 }
 
@@ -574,6 +750,7 @@ export const CHECKS = {
 	'change-type': checkChangeType,
 	'customer-value': checkCustomerValue,
 	'test-results': checkTestResults,
+	'closing-keyword': checkClosingKeyword,
 };
 
 /**
@@ -675,7 +852,25 @@ if (isMain) {
 		}
 	}
 
-	const result = fn({ body, labels, template, ssotSections, lane });
+	// 統合 PR 用 section SSOT (#3688)。不在 / parse 失敗時は null → INTEGRATION_REQUIRED_SECTIONS fallback。
+	const integrationSsotRaw =
+		args['integration-ssot-file'] && existsSync(args['integration-ssot-file'])
+			? readFileArg('integration-ssot-file')
+			: '';
+	/** @type {string[] | null} */
+	let integrationSsotSections = null;
+	if (integrationSsotRaw) {
+		try {
+			const ssot = JSON.parse(integrationSsotRaw);
+			if (Array.isArray(ssot.sections)) integrationSsotSections = ssot.sections.map(String);
+		} catch (err) {
+			console.error(
+				`[pr-template-gate-checks] integration-ssot-file parse 失敗 (INTEGRATION_REQUIRED_SECTIONS fallback): ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	const result = fn({ body, labels, template, ssotSections, integrationSsotSections, lane });
 	console.log(result.message);
 	process.exit(result.ok ? 0 : 1);
 }

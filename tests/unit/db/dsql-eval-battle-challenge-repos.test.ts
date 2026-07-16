@@ -206,7 +206,7 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		t = await createDsqlTestDb();
 		const runner = createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 });
 		childRepo = createDsqlChildRepo(t.db, runner);
-		repo = createDsqlChildChallengeRepo(t.db);
+		repo = createDsqlChildChallengeRepo(t.db, runner);
 	}, 60_000);
 	afterAll(async () => {
 		await t.close();
@@ -268,7 +268,13 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		expect(before[0]?.completedAt).not.toBeNull();
 
 		// claim 後 → 消える
-		expect(await repo.claimReward(c.id, FAMILY)).toBe(1);
+		expect(
+			await repo.claimRewardAndGrantPoints(
+				c.id,
+				{ childId, amount: 30, description: 'チャレンジ達成' },
+				FAMILY,
+			),
+		).toBe(1);
 		const after = await repo.findActiveOrUnclaimedByChildId(childId, '2026-07-08', FAMILY);
 		expect(after.map((r) => r.id)).not.toContain(c.id);
 	});
@@ -298,16 +304,97 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		expect(await repo.findByChildId(childId, FAMILY)).toHaveLength(4);
 	});
 
-	it('[C6] claimReward (#3333): 未 completed は 0 / completed 後 1 / 二重 claim は 0 (TOCTOU 防止)', async () => {
+	it('[C6] claimRewardAndGrantPoints (#3284/#3342、#3333 後継): 未 completed 0 / completed 後 1 (ledger+total_point 同時) / 二重 claim 0 (無付与)', async () => {
 		const childId = await newChild('原子六郎');
 		const c = await repo.insert(baseInput(childId), FAMILY);
-		expect(await repo.claimReward(c.id, FAMILY)).toBe(0); // 未完了は flip しない
+		const claim = () =>
+			repo.claimRewardAndGrantPoints(
+				c.id,
+				{ childId, amount: 30, description: 'チャレンジ達成: テスト' },
+				FAMILY,
+			);
+		const ledgerCount = async () => {
+			const r = await t.db.execute(sql`
+				SELECT count(*)::int AS c FROM point_ledger
+				WHERE family_id = ${FAMILY} AND child_id = ${childId}
+					AND type = 'child_challenge' AND reference_id = ${c.id}
+			`);
+			return Number((r.rows[0] as { c: number }).c);
+		};
+		const totalPoint = async () => {
+			const r = await t.db.execute(sql`
+				SELECT total_point FROM children WHERE family_id = ${FAMILY} AND child_id = ${childId}
+			`);
+			return Number((r.rows[0] as { total_point: number }).total_point);
+		};
+
+		expect(await claim()).toBe(0); // 未完了は flip しない (ledger も書かない)
+		expect(await ledgerCount()).toBe(0);
+
 		await repo.markCompleted(c.id, FAMILY);
-		expect(await repo.claimReward(c.id, FAMILY)).toBe(1); // 1 回目のみ成功
-		expect(await repo.claimReward(c.id, FAMILY)).toBe(0); // 二重 claim は 0 行
+		expect(await claim()).toBe(1); // 1 回目のみ成功 = flip + ledger + total_point が同一 txn
+		expect(await ledgerCount()).toBe(1);
+		expect(await totalPoint()).toBe(30);
+
+		expect(await claim()).toBe(0); // 二重 claim は 0 行 → ledger / total_point とも増えない
+		expect(await ledgerCount()).toBe(1);
+		expect(await totalPoint()).toBe(30);
+
 		const row = await repo.findById(c.id, FAMILY);
 		expect(row?.rewardClaimed).toBe(1);
 		expect(row?.rewardClaimedAt).not.toBeNull();
+	});
+
+	it('[C6b] fire→settle 並行 claim (#3284 AC): 同時 2 発でも ledger 1 行 / total_point 1 回分のみ', async () => {
+		const childId = await newChild('並行六郎');
+		const c = await repo.insert(baseInput(childId), FAMILY);
+		await repo.markCompleted(c.id, FAMILY);
+
+		// PGlite は単一接続のため fire→settle パターン (#3531): 2 claim を await せず発火し、
+		// 後で settle して flip 勝者がちょうど 1 であることを確認する。
+		const fire1 = repo.claimRewardAndGrantPoints(
+			c.id,
+			{ childId, amount: 30, description: '並行1' },
+			FAMILY,
+		);
+		const fire2 = repo.claimRewardAndGrantPoints(
+			c.id,
+			{ childId, amount: 30, description: '並行2' },
+			FAMILY,
+		);
+		const results = await Promise.all([fire1, fire2]);
+		expect(results.filter((r) => r === 1)).toHaveLength(1);
+		expect(results.filter((r) => r === 0)).toHaveLength(1);
+
+		const ledger = await t.db.execute(sql`
+			SELECT count(*)::int AS c FROM point_ledger
+			WHERE family_id = ${FAMILY} AND child_id = ${childId}
+				AND type = 'child_challenge' AND reference_id = ${c.id}
+		`);
+		expect(Number((ledger.rows[0] as { c: number }).c)).toBe(1);
+		const tp = await t.db.execute(sql`
+			SELECT total_point FROM children WHERE family_id = ${FAMILY} AND child_id = ${childId}
+		`);
+		expect(Number((tp.rows[0] as { total_point: number }).total_point)).toBe(30);
+	});
+
+	it('[C6c] point_ledger 冪等 UNIQUE (#3284): 事前に同一冪等キーの ledger があれば claim は throw し flip ごと rollback (lost-award 根治)', async () => {
+		const childId = await newChild('冪等六郎');
+		const c = await repo.insert(baseInput(childId), FAMILY);
+		await repo.markCompleted(c.id, FAMILY);
+		// 同一 (family, child, type, reference) の ledger 行を事前に仕込む
+		await t.db.execute(sql`
+			INSERT INTO point_ledger (family_id, child_id, amount, type, description, reference_id, recorded_date)
+			VALUES (${FAMILY}, ${childId}, 30, 'child_challenge', 'pre-existing', ${c.id}, '2026-07-08')
+		`);
+
+		await expect(
+			repo.claimRewardAndGrantPoints(c.id, { childId, amount: 30, description: 'dup' }, FAMILY),
+		).rejects.toThrow();
+
+		// flip は rollback され未請求のまま (恒久受取不能 = lost-award にならない)
+		const row = await repo.findById(c.id, FAMILY);
+		expect(row?.rewardClaimed).toBe(0);
 	});
 
 	it('[C7] updateProgress / update (partial) / deleteChallenge', async () => {
@@ -374,6 +461,8 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 			},
 			FAMILY,
 		);
+		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
+		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.status).toBe('completed');
 		expect(restored.isActive).toBe(0);
 		expect(restored.currentValue).toBe(10);
@@ -381,6 +470,45 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		expect(restored.rewardClaimed).toBe(1);
 		expect(restored.completedAt).not.toBeNull();
 		expect(restored.rewardClaimedAt).not.toBeNull();
+	});
+
+	it('[C9b] insertForRestore (#3387/#3394): auto:weekly の (child, startDate) 重複は null skip (weekly_auto_guard)', async () => {
+		const childId = await newChild('復元週次');
+		const autoInput = (over: Record<string, unknown> = {}) =>
+			({
+				childId,
+				title: '週次チャレンジ',
+				description: null,
+				challengeType: 'cooperative',
+				periodType: 'weekly',
+				startDate: '2026-06-08',
+				endDate: '2026-06-14',
+				targetConfig: TARGET_CONFIG,
+				rewardConfig: REWARD_CONFIG,
+				status: 'active',
+				isActive: 1,
+				sourceTemplateId: 'auto:weekly',
+				currentValue: 3,
+				targetValue: 5,
+				completed: 0,
+				completedAt: null,
+				rewardClaimed: 0,
+				rewardClaimedAt: null,
+				createdAt: '2026-06-08T00:00:00.000Z',
+				updatedAt: '2026-06-08T00:00:00.000Z',
+				...over,
+			}) as Parameters<typeof repo.insertForRestore>[0];
+
+		const first = await repo.insertForRestore(autoInput(), FAMILY);
+		expect(first).not.toBeNull();
+		// 同 (child, startDate) の auto:weekly 重複 backup → ON CONFLICT DO NOTHING で null skip
+		// (sqlite 部分 unique index / dynamodb AUTO# SK + attribute_not_exists と機能等価)。
+		const dup = await repo.insertForRestore(autoInput({ currentValue: 0 }), FAMILY);
+		expect(dup).toBeNull();
+		// 既存行 (進捗 3) は上書きされない (silent last-writer-wins なし)
+		const rows = await repo.findByChildId(childId, FAMILY);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.currentValue).toBe(3);
 	});
 
 	it('[C10] insertBulk + findAllByTenant + deleteByTenantId', async () => {

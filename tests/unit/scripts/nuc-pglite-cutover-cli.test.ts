@@ -77,7 +77,11 @@ beforeAll(async () => {
 	testSqlite = t.sqlite;
 	const { getRepos } = await import('../../../src/lib/server/db/factory');
 	const repos = getRepos();
-	const child = await repos.child.insertChild({ nickname: 'CLI検証子', age: 7 }, 'local');
+	// birth_date は #3584 ③ gate (backfill 必須) を通すため設定する (実運用の export と同形)
+	const child = await repos.child.insertChild(
+		{ nickname: 'CLI検証子', age: 7, birthDate: '2019-01-15' },
+		'local',
+	);
 	await repos.point.insertPointEntry(
 		{ childId: child.id, amount: 5, type: 'activity', description: 'x' },
 		'local',
@@ -113,10 +117,28 @@ describe('cutover CLI fail-close (#3620 AC-C4 後段、実子プロセス)', () 
 		expect(readFileSync(join(dataDir, 'existing.bin'), 'utf-8')).toBe('x'); // 既存内容は無傷
 	}, 60_000);
 
+	it('[CLI4] #3584 ③ birth_date backfill gate: NULL birth_date の child がいると dataDir 構築前に fail-fast する', () => {
+		// 新 model は birth_date が唯一の年齢ソース (compute-on-read §11.1)。NULL のまま cutover
+		// すると当該 child は age=0 (preschool UI) 固定 = 中高生が幼児 UI を見せられる誤 tier。
+		const noBirth = JSON.parse(readFileSync(exportJsonPath, 'utf-8'));
+		noBirth.family.children = [{ ...noBirth.family.children[0], birthDate: null }];
+		const noBirthPath = join(freshDir('no-birth-json'), 'no-birth.json');
+		mkdirSync(join(noBirthPath, '..'), { recursive: true });
+		writeFileSync(noBirthPath, JSON.stringify(noBirth));
+
+		const dataDir = freshDir('no-birth');
+		const r = runCli(['import', '--in', noBirthPath, '--data-dir', dataDir]);
+		expect(r.status).not.toBe(0);
+		expect(r.output).toContain('birth_date 未設定');
+		expect(existsSync(dataDir), 'fail-fast のため dataDir は構築されない').toBe(false);
+	}, 60_000);
+
 	it('[CLI3] errors>0 abort: 壊れた export JSON は exit≠0 + 部分構築 dataDir が削除される', () => {
-		// children を必須 field 欠落 ({}) に破壊 → importFamilyData が errors を返す実経路を通す
+		// children を必須 field (nickname) 欠落に破壊 → importFamilyData が errors を返す実経路を通す。
+		// birthDate は保持する (#3584 ③ の birth_date gate より先に落ちないよう、import 層の
+		// errors>0 abort 経路そのものを検証する)。
 		const broken = JSON.parse(readFileSync(exportJsonPath, 'utf-8'));
-		broken.family.children = [{}];
+		broken.family.children = [{ birthDate: '2019-01-15' }];
 		const brokenPath = join(freshDir('broken-json'), 'broken.json');
 		mkdirSync(join(brokenPath, '..'), { recursive: true });
 		writeFileSync(brokenPath, JSON.stringify(broken));

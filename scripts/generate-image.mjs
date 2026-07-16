@@ -31,7 +31,7 @@ import {
 	FALLBACK_REFERENCE_IMAGE,
 	MODEL_IDS,
 	RARITY_KEYWORDS,
-} from './lib/brand-style-guide.js';
+} from './lib/ci/brand-style-guide.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');

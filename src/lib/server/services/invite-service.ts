@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Invite, Membership } from '$lib/server/auth/entities';
+import { checkInviteEmailBinding } from '$lib/server/auth/invite-email-binding';
 import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -46,11 +47,23 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 	return invite;
 }
 
+// 宛先 email 束縛判定は `$lib/server/auth/invite-email-binding` が SSOT (#3742)。
+// DSQL txn 変種 (`db/dsql/invite-accept.ts`) と同一関数を共有し parity を機械保証する。
+// 判定結果の招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
+
 /** 招待を受諾してテナントに参加 */
 export async function acceptInvite(
 	inviteCode: string,
 	userId: string,
 	userEmail?: string,
+	opts?: {
+		/**
+		 * 受諾 user の email が IdP で検証済みか (Cognito `email_verified` claim、#3555 ③)。
+		 * email 束縛招待でのみ判定に使う。`false` は fail-closed で拒否、`undefined` は
+		 * claim を持たない provider (local / dev) との後方互換のため許容。
+		 */
+		emailVerified?: boolean;
+	},
 ): Promise<{ membership: Membership } | { error: string }> {
 	const invite = await getInvite(inviteCode);
 	if (!invite) {
@@ -62,11 +75,11 @@ export async function acceptInvite(
 		return { error: 'SELF_INVITE_NOT_ALLOWED' };
 	}
 
-	// 宛先 email 束縛 (#3549 判断2 / dsql-data-model.md §6.6 ⚠️): invite.email 設定時は
-	// 受諾 user の email と case-insensitive 一致必須。未提供は fail-closed (招待リンクの
-	// 横流しによる別人受諾を防ぐ)。招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
-	if (invite.email && invite.email.toLowerCase() !== userEmail?.trim().toLowerCase()) {
-		return { error: 'INVITE_EMAIL_MISMATCH' };
+	if (invite.email) {
+		const bindingError = checkInviteEmailBinding(invite.email, userEmail, opts?.emailVerified);
+		if (bindingError) {
+			return { error: bindingError };
+		}
 	}
 
 	// 1ユーザー=1テナント制約チェック

@@ -3,6 +3,7 @@ import { defineMeta } from '@storybook/addon-svelte-csf';
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { OVERFLOW_MENU_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import OverflowMenu from './OverflowMenu.svelte';
+import { assertPointerInteractive } from './story-play-helpers';
 
 const L = STORYBOOK_LABELS.overflowMenu;
 const items = OVERFLOW_MENU_LABELS.items;
@@ -142,11 +143,7 @@ const { Story } = defineMeta({
 		);
 		await expect(marketplaceItem).toBeVisible();
 		// #3687: open transition 中 (pointer-events:none) の click は CI で fail する (Menu と同型)。
-		await waitFor(() => {
-			if (getComputedStyle(marketplaceItem).pointerEvents === 'none') {
-				throw new Error('menu content is still in open transition (pointer-events: none)');
-			}
-		});
+		await waitFor(() => assertPointerInteractive(marketplaceItem));
 		await userEvent.click(marketplaceItem);
 		await waitFor(() => expect(marketplaceSpy).toHaveBeenCalledTimes(1));
 		// #3687 第 2 形態: open のまま終了すると zag-js focus-visible cleanup が unhandled

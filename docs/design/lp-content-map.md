@@ -899,7 +899,7 @@ LP を変更する PR では以下を同時に更新する（並行実装チェ�
 **撮影スクリプトの前提**:
 
 - `npm run dev` は `/auth/login` を 302 redirect するため使用不可 (#1026)。ローカル実行時は `npm run build && AWS_LICENSE_SECRET=local-dummy npm run preview -- --port 5173` で preview を起動してから撮影する
-- 両スクリプトとも `scripts/lib/screenshot-helpers.mjs` の `withScreenshotParam()` で `?screenshot=1` を付与し、デモバナー等のオーバーレイを抑制する (#1181 の band-aid を #1180 で恒久化)
+- 両スクリプトとも `scripts/lib/ci/screenshot-helpers.mjs` の `withScreenshotParam()` で `?screenshot=1` を付与し、デモバナー等のオーバーレイを抑制する (#1181 の band-aid を #1180 で恒久化)
 - CI が撮影する画像数が 20 枚未満の場合、`pages.yml` は fail する（ADR-0006 準拠、無言で古い画像を残さない）
 
 ---

@@ -29,6 +29,7 @@ const {
 	MockDeleteCommand,
 	MockScanCommand,
 	MockBatchWriteCommand,
+	MockTransactWriteCommand,
 } = vi.hoisted(() => {
 	const send = vi.fn();
 	class Cmd {
@@ -46,6 +47,7 @@ const {
 		MockDeleteCommand: class extends Cmd {},
 		MockScanCommand: class extends Cmd {},
 		MockBatchWriteCommand: class extends Cmd {},
+		MockTransactWriteCommand: class extends Cmd {},
 	};
 });
 
@@ -62,6 +64,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 	DeleteCommand: MockDeleteCommand,
 	ScanCommand: MockScanCommand,
 	BatchWriteCommand: MockBatchWriteCommand,
+	TransactWriteCommand: MockTransactWriteCommand,
 }));
 
 async function loadRepo() {
@@ -266,10 +269,10 @@ describe('read 整合 (insertActivityLog → findActivityLogs / findDailyLog rou
 // ============================================================
 
 describe('insertPointLedger', () => {
-	it('counter 採番 → POINT# key で Put する (read が読める形式)', async () => {
+	it('referenceId 付き付与は counter 採番 → 冪等 marker + POINT# Put を単一 TransactWrite する (#3284)', async () => {
 		mockSend
 			.mockResolvedValueOnce({ Attributes: { counter: 201 } }) // nextId(pointLedger)
-			.mockResolvedValueOnce({}); // PutCommand
+			.mockResolvedValueOnce({}); // TransactWriteCommand
 		const { insertPointLedger } = await loadRepo();
 		await insertPointLedger(
 			{
@@ -282,19 +285,49 @@ describe('insertPointLedger', () => {
 			TENANT,
 		);
 
-		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
-		expect(put.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
-		// read 側が begins_with(SK, 'POINT#…') で読む key 形式 (POINT#<createdAt>#<paddedId>)
-		expect(String(put.input.Item?.SK)).toMatch(/^POINT#.+#00000201$/);
-		expect(put.input.Item?.amount).toBe(10);
-		expect(put.input.Item?.type).toBe('activity');
-		expect(put.input.Item?.description).toBe('なわとび');
-		expect(put.input.Item?.referenceId).toBe(55);
+		const transact = mockSend.mock.calls[1]?.[0] as {
+			input: {
+				TransactItems?: Array<{
+					Put?: { Item?: Record<string, unknown>; ConditionExpression?: string };
+				}>;
+			};
+		};
+		const items = transact.input.TransactItems ?? [];
+		expect(items).toHaveLength(2);
+
+		// item 1: 冪等 marker (POINTIDEM#<type>#<ref>、attribute_not_exists で二重付与を物理拒否)
+		const marker = items[0]?.Put;
+		expect(marker?.ConditionExpression).toBe('attribute_not_exists(PK)');
+		expect(String(marker?.Item?.SK)).toBe('POINTIDEM#activity#00000055');
+
+		// item 2: read 側が begins_with(SK, 'POINT#…') で読む key 形式 (POINT#<createdAt>#<paddedId>)
+		const put = items[1]?.Put;
+		expect(put?.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(String(put?.Item?.SK)).toMatch(/^POINT#.+#00000201$/);
+		expect(put?.Item?.amount).toBe(10);
+		expect(put?.Item?.type).toBe('activity');
+		expect(put?.Item?.description).toBe('なわとび');
+		expect(put?.Item?.referenceId).toBe(55);
 		// createdAt は YYYY-MM-DD… (countPointLedgerEntriesByTypeAndDate の begins_with 用)
-		expect(String(put.input.Item?.createdAt)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		expect(String(put?.Item?.createdAt)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 	});
 
-	it('referenceId 省略時は null で保存する', async () => {
+	it('同一 (child, type, reference) の二重付与は marker 条件違反で throw する (#3284 冪等キー)', async () => {
+		const cancel = Object.assign(new Error('canceled'), {
+			name: 'TransactionCanceledException',
+			CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }],
+		});
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 202 } }).mockRejectedValueOnce(cancel);
+		const { insertPointLedger } = await loadRepo();
+		await expect(
+			insertPointLedger(
+				{ childId: CHILD_ID, amount: 10, type: 'activity', description: 'dup', referenceId: '55' },
+				TENANT,
+			),
+		).rejects.toThrow(/duplicate grant rejected/);
+	});
+
+	it('referenceId 省略時は従来通り単発 Put で null 保存する (marker 対象外)', async () => {
 		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
 		const { insertPointLedger } = await loadRepo();
 		await insertPointLedger(

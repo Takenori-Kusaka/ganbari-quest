@@ -17,7 +17,7 @@ import {
 	convertToWebP,
 	waitForStablePage,
 	withScreenshotParam,
-} from './lib/screenshot-helpers.mjs';
+} from './lib/ci/screenshot-helpers.mjs';
 
 const log = (...a) => console.log(...a);
 const logErr = (...a) => console.error(...a);

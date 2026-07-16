@@ -2,15 +2,20 @@
 // #3134: admin リソース正準契約の no-silent-gap guard。
 // DESIGN.md §10 の全 admin リソース管理画面が、正準 registry か明示除外リストの
 // いずれかで必ず説明されること (= 契約が自身の網羅漏れを silent に見逃さない) を保証する。
+// #3117 項目 3: registry の dataScope 宣言 ⇄ ADR-0055 SSOT doc
+// (docs/design/data-model-resource-scope.md §3 表) の drift gate を併設する。
 
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	ADMIN_RESOURCE_MODEL_REGISTRY,
 	ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY,
+	type AdminResourceDataScope,
+	type AdminResourceKey,
 	ALL_ADMIN_RESOURCE_PAGES,
+	ALLOWED_NON_CANONICAL_SLOT_TESTIDS,
 	classifyAdminPageRoute,
 	NON_CANONICAL_ADMIN_RESOURCES,
 	NON_RESOURCE_ADMIN_PAGE_ROUTES,
@@ -142,5 +147,114 @@ describe('#3164 母数を実 route FS から導出する (literal 未更新の s
 		expect(classifyAdminPageRoute('badges-not-registered-yet')).toBe('unclassified');
 		expect(classifyAdminPageRoute('activities')).toBe('resource');
 		expect(classifyAdminPageRoute('settings')).toBe('non-resource');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #3117 項目 3: registry ⇄ ADR-0055 SSOT doc の drift gate
+// ---------------------------------------------------------------------------
+// `ADMIN_RESOURCE_MODEL_REGISTRY` の `dataScope` 宣言 (ADR-0055 の code 化) と、ADR-0055 の
+// 設計 doc SSOT `docs/design/data-model-resource-scope.md` §3「6 type の scope 適用表」の
+// 「採択 scope」列を機械照合する。doc 側だけ scope を変える / registry 側だけ変える、の
+// 片側更新 (3-way drift) を CI で検出する fitness test (新規 script は作らない、tests/unit/ 内で完結)。
+//
+// parse 方式: doc §3 表の行は `| **<type>** | <採択 scope> | ...` 形式 (太字 type 名) で
+// 安定しているため、doc 側に machine-readable マーカーを追加せず既存表を直接 parse する
+// (最小コスト、check-doc-code-references と同じ「doc 実体を読む」方式)。見出し・行形式が
+// 変わった場合は parser 側 assert が fail する (fails-closed、silent pass しない)。
+
+const DATA_MODEL_SCOPE_DOC = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	'../../../docs/design/data-model-resource-scope.md',
+);
+
+/** registry key → doc §3 表の Type 列 (太字内の literal)。 */
+const REGISTRY_KEY_TO_DOC_TYPE: Record<AdminResourceKey, string> = {
+	activity: 'activity',
+	reward: 'reward (exchange)',
+	checklist: 'checklist',
+};
+
+/** doc の「採択 scope」自然文セルを registry の dataScope enum に正規化する。未知の文言は null (= fail)。 */
+function normalizeDocScope(cell: string): AdminResourceDataScope | null {
+	if (cell.startsWith('per-child instance')) return 'per-child-instance';
+	if (cell.startsWith('family master template')) return 'family-master-template';
+	return null;
+}
+
+/** doc §3 の scope 適用表から `Type (太字) → 採択 scope セル` の Map を得る。 */
+function parseDocScopeTable(): Map<string, string> {
+	const md = readFileSync(DATA_MODEL_SCOPE_DOC, 'utf-8');
+	const start = md.indexOf('## 3. 6 type の scope 適用表');
+	expect(
+		start,
+		`data-model-resource-scope.md に見出し「## 3. 6 type の scope 適用表」が見つからない ` +
+			'(doc 再構成時は本 drift gate の parser も同期更新すること)',
+	).toBeGreaterThanOrEqual(0);
+	// §3.1 以降のサブ表 (dedup scope 表) を除外し、§3 本表のみを対象にする。
+	const section = md.slice(start).split('### 3.1')[0] ?? '';
+	const rows = new Map<string, string>();
+	for (const line of section.split('\n')) {
+		// 例: | **activity** | per-child instance | `ChildActivity` | ...
+		const m = /^\|\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|/.exec(line);
+		if (m?.[1] && m[2]) rows.set(m[1], m[2]);
+	}
+	return rows;
+}
+
+describe('#3117 registry dataScope ⇄ data-model-resource-scope.md §3 (ADR-0055 SSOT) drift gate', () => {
+	const docRows = parseDocScopeTable();
+
+	it('doc §3 表が parse でき、registry 対象 3 type の行が存在する (parser sanity、fails-closed)', () => {
+		for (const [key, docType] of Object.entries(REGISTRY_KEY_TO_DOC_TYPE)) {
+			expect(
+				docRows.has(docType),
+				`doc §3 表に registry resource "${key}" に対応する行 "**${docType}**" が無い ` +
+					'(doc の type 名変更時は REGISTRY_KEY_TO_DOC_TYPE を同期更新すること)',
+			).toBe(true);
+		}
+	});
+
+	it('registry の dataScope が doc §3「採択 scope」列と一致する (片側更新 = drift を検出)', () => {
+		for (const model of Object.values(ADMIN_RESOURCE_MODEL_REGISTRY)) {
+			const docType = REGISTRY_KEY_TO_DOC_TYPE[model.resource];
+			const cell = docRows.get(docType);
+			expect(cell, `doc §3 表に "${docType}" 行が無い`).toBeTruthy();
+			const docScope = normalizeDocScope(cell as string);
+			expect(
+				docScope,
+				`doc §3 "${docType}" の採択 scope セル "${cell}" を既知の scope に正規化できない ` +
+					'(scope 表現の変更時は normalizeDocScope と registry を同時更新すること)',
+			).not.toBeNull();
+			expect(
+				model.dataScope,
+				`registry "${model.resource}" の dataScope (${model.dataScope}) が doc §3 の採択 scope ` +
+					`(${docScope}) と乖離している (ADR-0055 SSOT drift)。doc と registry を同一 PR で同期すること`,
+			).toBe(docScope);
+		}
+	});
+
+	it('registry の organizingModel は UI 表示軸としてデータ scope と独立に per-child-tabs で統一されている (#3098)', () => {
+		// data-model-resource-scope.md は「データ scope」の SSOT であり UI 表示軸は宣言しない。
+		// UI 表示軸の統一 (3 資源とも child 主軸) は DESIGN.md §10 の宣言で、checklist が
+		// family-master-template (データ) でも per-child-tabs (UI) である「別レイヤー」原則 (#3096) を
+		// ここで固定する (dataScope に引きずられて organizingModel を書き換える誤同期の防止)。
+		for (const model of Object.values(ADMIN_RESOURCE_MODEL_REGISTRY)) {
+			expect(
+				model.organizingModel,
+				`registry "${model.resource}" の organizingModel が per-child-tabs でない (DESIGN.md §10 逸脱)`,
+			).toBe('per-child-tabs');
+		}
+	});
+
+	it('intruder allowlist (ALLOWED_NON_CANONICAL_SLOT_TESTIDS) は registry の全 resource key を網羅する', () => {
+		// #3117 項目 1 の allowlist が resource 追加時に定義漏れで undefined アクセスにならないよう
+		// (Record 型で強制されるが、satisfies 崩れ等の退行を runtime でも固定)。
+		for (const key of Object.keys(ADMIN_RESOURCE_MODEL_REGISTRY)) {
+			expect(
+				Array.isArray(ALLOWED_NON_CANONICAL_SLOT_TESTIDS[key as AdminResourceKey]),
+				`ALLOWED_NON_CANONICAL_SLOT_TESTIDS に resource "${key}" のエントリが無い`,
+			).toBe(true);
+		}
 	});
 });

@@ -384,7 +384,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 #### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③ — #2896 で marketplace 陳列廃止)
 
-> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset (日本年間行事パック) を廃止した (JSON は `tests/fixtures/marketplace/challenge-sets/` へ移管し schema 互換検証を継続)。以下のペア表は型 / schema / Registry 登録の互換維持のため残置するが、marketplace 経由のチャレンジ取込動線は撤去済。チャレンジ機能本体は #3193/#3195/#3238 で**自動生成一本化**され、旧「自作」(手動作成フォーム) 経路は撤去済。`/admin/challenges` は auto-challenge の閲覧（読み取り専用）として保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset (日本年間行事パック) を廃止した (JSON は `tests/fixtures/marketplace/challenge-sets/` へ移管し schema 互換検証を継続)。以下のペア表は型 / schema / Registry 登録の互換維持のため残置するが、marketplace 経由のチャレンジ取込動線は撤去済。チャレンジ機能本体は #3193/#3195/#3238 で**自動生成一本化**され、旧「自作」(手動作成フォーム) 経路は撤去済。`/admin/challenges` は auto-challenge の閲覧（読み取り専用）として保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。残置物（型 / schema / Registry 登録 / `UnifiedImportHub` challenge-set 分岐 / fixture / 非陳列回帰 spec）の撤去終了条件は [docs/DESIGN.md §10](../DESIGN.md)「challenge-set 残置物の存続 / 撤去終了条件」が SSOT（challenge-set を `MarketplaceItemType` から正式に外す決定時に同一 PR で一括撤去、#3442）。
 
 `src/lib/domain/marketplace-item.ts` の `ChallengeSetPayload` 等は **マーケットプレイス詳細ページ → /admin/challenges 画面**の動線（現在は廃止）で一括取込されていた。`MarketplaceItemType` を 4 → 5 type に拡張した実装。
 

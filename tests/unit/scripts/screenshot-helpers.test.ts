@@ -4,9 +4,9 @@ import {
 	SCREENSHOT_QUERY,
 	SCREENSHOT_QUERY_NOISE_ONLY,
 	withScreenshotParam,
-} from '../../../scripts/lib/screenshot-helpers.mjs';
+} from '../../../scripts/lib/ci/screenshot-helpers.mjs';
 
-describe('scripts/lib/screenshot-helpers — #1206 SSOT (#1893 で screenshot=all 化)', () => {
+describe('scripts/lib/ci/screenshot-helpers — #1206 SSOT (#1893 で screenshot=all 化)', () => {
 	// #1893: default を `screenshot=all` (本番一致演出強制 ON) に変更。`screenshot=1` は後方互換のみ。
 	it('SCREENSHOT_QUERY は "screenshot=all" (default、本番一致演出 ON)', () => {
 		expect(SCREENSHOT_QUERY).toBe('screenshot=all');

@@ -38,11 +38,12 @@ export async function findCertificates(childId: ChildId, tenantId: string): Prom
 }
 
 export async function insertForRestore(
-	input: Omit<Certificate, 'id' | 'tenantId'>,
-	tenantId: string,
+	_input: Omit<Certificate, 'id' | 'tenantId'>,
+	_tenantId: string,
 ): Promise<Certificate | null> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: '0', tenantId };
+	// Stub: demo は書き込み no-op。#3394: 永続化していないため null を返し
+	// import カウント (certificatesImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function deleteByTenantId(_tenantId: string): Promise<void> {

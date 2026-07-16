@@ -20,7 +20,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5280';
 

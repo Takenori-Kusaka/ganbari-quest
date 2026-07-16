@@ -43,7 +43,8 @@
  *   cat prs.json | node scripts/integration-pr-body.mjs \
  *     --template .github/INTEGRATION_PR_TEMPLATE.md \
  *     --develop-head abc1234 --since 2026-06-10 --until 2026-06-16 \
- *     --back-merge-prs back-merge.json --drift-days 3
+ *     --back-merge-prs back-merge.json --drift-days 3 \
+ *     --tracking-issues epic-issues.json
  *   → stdout に統合 PR 本文全文
  *
  * exit: 0 = 生成成功 / 2 = 引数不足 / 3 = template 読込失敗
@@ -150,23 +151,52 @@ export function buildContainedPrTable(prs) {
 	return `${header}\n${rows.join('\n')}`;
 }
 
-/** 含有 PR body の close 宣言を集約する section 見出し（feature PR template の SSOT、PULL_REQUEST_TEMPLATE.md）。 */
-const RELATED_ISSUE_HEADING = '## 関連 Issue';
+/**
+ * `関連 Issue` section 見出しかを正規化判定する純粋関数（#3462 見出し揺れ under-close 解消）。
+ * feature PR template の正準は `## 関連 Issue`（PULL_REQUEST_TEMPLATE.md）だが、
+ * 前後空白 / 見出しレベル差（`##`〜`####`）/ 「関連Issue」の空白有無 / 末尾コロン等の
+ * 軽微な揺れで section 検出を取りこぼすと closes 集約が silent に漏れる（under-close）。
+ * 見出しテキストを「空白除去 + 小文字化 + 末尾コロン除去」で正規化して比較する。
+ *
+ * @param {string | undefined} line
+ * @returns {{ level: number } | null} 見出しなら level（# の数）、違えば null
+ */
+function parseRelatedIssueHeading(line) {
+	const m = /^[ \t]*(#{2,4})[ \t]*(.*?)[ \t]*$/.exec(line ?? '');
+	if (!m) return null;
+	const text = (m[2] ?? '')
+		.replace(/[ \t　]/g, '')
+		.replace(/[:：]$/, '')
+		.toLowerCase();
+	return text === '関連issue' ? { level: (m[1] ?? '').length } : null;
+}
 
 /**
- * body から `## 関連 Issue` section（見出しの次行 〜 次の `## ` 見出し or EOF）の本体を抜き出す純粋関数。
+ * body から `## 関連 Issue` section（見出しの次行 〜 同レベル以上の次見出し or EOF）の本体を抜き出す純粋関数。
  * 見出しが無い body は `null` を返す（呼び出し側で全文 fallback 走査する）。
+ * 見出し判定は parseRelatedIssueHeading で正規化する（#3462 under-close 解消）。
  *
  * @param {string} body
  * @returns {string | null}
  */
 function sliceRelatedIssueSection(body) {
 	const lines = body.split('\n');
-	const startIdx = lines.findIndex((l) => l.trim() === RELATED_ISSUE_HEADING);
+	let startIdx = -1;
+	let startLevel = 2;
+	for (let i = 0; i < lines.length; i += 1) {
+		const h = parseRelatedIssueHeading(lines[i]);
+		if (h) {
+			startIdx = i;
+			startLevel = h.level;
+			break;
+		}
+	}
 	if (startIdx === -1) return null;
 	let endIdx = lines.length;
 	for (let i = startIdx + 1; i < lines.length; i += 1) {
-		if ((lines[i] ?? '').startsWith('## ')) {
+		const hm = /^[ \t]*(#{1,6})[ \t]/.exec(lines[i] ?? '');
+		// regex マッチ時 hm[1] は必ず 1 文字以上（?? 7 は noUncheckedIndexedAccess 向けの到達不能な防御値）
+		if (hm && (hm[1]?.length ?? 7) <= startLevel) {
 			endIdx = i;
 			break;
 		}
@@ -188,14 +218,39 @@ function stripCode(text) {
 }
 
 /**
- * 行頭の closing keyword（任意の list marker + 任意のコロン + 半角/全角 `#`）のみを拾う正規表現。
+ * 行頭の closing keyword（任意の list marker + 任意のコロン + 半角/全角 `#`）を拾う正規表現。
  * - 否定文（「前 PR では closes #N と書いたが誤り」）や本文中の言及（「see closes #N」）は
  *   行頭でない / 行頭が closing keyword でないため除外される（over-close 防止、#3444）。
- * - GitHub closing keyword: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved。
+ * - GitHub closing keyword の厳密形のみ: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved。
  * - GitHub 許容形のコロン `Closes: #N` と全角 `＃` も拾う（under-close 解消、#3444）。
+ * - capture: [1]=コロン有無 / [2]=issue 番号 / [3]=行末までの後続テキスト。
+ *   コロン形は #3462 の conventional-commit prefix 判別（isConventionalCommitPrefixLine）にかける。
  */
 const CLOSING_KEYWORD_LINE_RE =
-	/^[ \t]*(?:[-*+][ \t]+)?(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*[#＃](\d+)/gim;
+	/^[ \t]*(?:[-*+][ \t]+)?(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*(:?)[ \t]*[#＃](\d+)([^\r\n]*)/gim;
+
+/**
+ * コロン形 closing 行が conventional-commit prefix（`fix: #N subject...`）かを判定する純粋関数（#3462）。
+ *
+ * `.github/CLAUDE.md` SSOT は「conventional-commit prefix（`fix:` / `feat:` `#N`）は Issue 参照であって
+ * closing keyword ではなく auto-close しない」と定める。一方 #3444 の under-close 解消で
+ * `Closes: #N`（コロン形の close 宣言）は集約対象とした。両者はどちらも「keyword + `:` + `#N`」で
+ * 始まるため、**issue 番号の後続テキスト**で判別する:
+ *   - close 宣言行（`Closes: #3246` / `Closes: #1, #2`）= 後続が追加 `#M` 参照・区切り記号・空白のみ
+ *   - conventional-commit 行（`fix: #3462 統合 PR auto-close regex の…`）= subject テキストを伴う
+ * 後続に参照以外のテキストが残るコロン形は close 宣言とみなさず集約しない（SSOT 整合）。
+ * コロン無し形（`Closes #N …`）は GitHub 正準形のため後続テキストがあっても従来どおり集約する。
+ *
+ * @param {string} rest issue 番号より後ろの行末までのテキスト
+ * @returns {boolean} true = conventional-commit prefix 行（集約しない）
+ */
+function isConventionalCommitPrefixLine(rest) {
+	const residue = (rest ?? '')
+		.replace(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*:?/gi, '') // 同一行の追加 close 宣言
+		.replace(/[#＃]\d+/g, '') // 追加 issue 参照
+		.replace(/[ \t,、/・()（）.。]/g, ''); // 区切り・括弧・終止記号
+	return residue !== '';
+}
 
 /**
  * #3423 / #3444: 含有 PR 群が **closing keyword で閉じると宣言した issue 番号**を
@@ -230,11 +285,44 @@ export function extractClosedIssues(prs) {
 		const scanned = stripCode(scope);
 		CLOSING_KEYWORD_LINE_RE.lastIndex = 0;
 		for (const m of scanned.matchAll(CLOSING_KEYWORD_LINE_RE)) {
-			const n = Number(m[1]);
+			// #3462: コロン形で subject テキストを伴う行は conventional-commit prefix
+			// （`fix: #N …`）であり closing 宣言ではないため集約しない（.github/CLAUDE.md SSOT 整合）。
+			if (m[1] === ':' && isConventionalCommitPrefixLine(m[3] ?? '')) continue;
+			const n = Number(m[2]);
 			if (Number.isInteger(n) && n > 0) set.add(n);
 		}
 	}
 	return [...set].sort((a, b) => a - b);
+}
+
+/**
+ * 集約 close 候補から tracking issue（`epic` label 付き）を分離する純粋関数（#3462）。
+ *
+ * EPIC/tracking issue が含有 PR の closes 宣言に紛れると、統合 PR の main merge で
+ * AC 未検証のまま force-close される（issue-close-gate は PR-keyword close を skip するため
+ * gate も掛からない）。tracking issue は集約 `Closes #N` から除外し、統合 PR 本文には
+ * 「(tracking, close 対象外)」と注記する（close は AC 検証のうえ手動で行う）。
+ * tracking issue 番号の取得（gh api）は workflow 側の責務（本 file は純粋関数のみ、責務分担コメント参照）。
+ *
+ * @param {number[]} issueNumbers extractClosedIssues の結果（昇順）
+ * @param {Array<number | { number?: number }>} trackingIssueNumbers `epic` label 付き issue 番号
+ *        （gh issue list --json number の `[{number}]` 形式 / 生の number 配列の両方を受ける）
+ * @returns {{ closable: number[]; tracking: number[] }} 昇順を保った分離結果
+ */
+export function partitionClosedIssues(issueNumbers, trackingIssueNumbers = []) {
+	const trackingSet = new Set(
+		(trackingIssueNumbers ?? [])
+			.map((t) => Number(typeof t === 'object' && t !== null ? t.number : t))
+			.filter((n) => Number.isInteger(n) && n > 0),
+	);
+	/** @type {number[]} */
+	const closable = [];
+	/** @type {number[]} */
+	const tracking = [];
+	for (const n of issueNumbers ?? []) {
+		(trackingSet.has(n) ? tracking : closable).push(n);
+	}
+	return { closable, tracking };
 }
 
 /**
@@ -321,6 +409,7 @@ export function replaceSectionBody(template, heading, replacement) {
  *   untilDate?: string;
  *   backMergePrs?: Array<{ number: number; title: string }>;
  *   driftDays?: number|null;
+ *   trackingIssues?: Array<number | { number?: number }>;
  * }} input
  * @returns {string} 統合 PR 本文 markdown 全文
  */
@@ -332,13 +421,19 @@ export function renderIntegrationPrBody({
 	untilDate = '',
 	backMergePrs = [],
 	driftDays = null,
+	trackingIssues = [],
 }) {
 	let body = template;
 
 	// 1. 統合サマリ
 	// #3423: 含有 PR が closing keyword で閉じると宣言した issue を集約し `Closes #N` を本文に出す。
 	// main merge 時に GitHub が auto-close し close漏れ（fix merge 済だが issue open）を構造的に防ぐ。
-	const closedIssues = extractClosedIssues(prs);
+	// #3462: `epic` label 付き tracking issue は AC 未検証 force-close を防ぐため集約から除外し注記する。
+	const declaredIssues = extractClosedIssues(prs);
+	const { closable: closedIssues, tracking: excludedTracking } = partitionClosedIssues(
+		declaredIssues,
+		trackingIssues,
+	);
 	const closesLines =
 		closedIssues.length > 0
 			? [
@@ -350,6 +445,13 @@ export function renderIntegrationPrBody({
 					'',
 					'> 含有 PR に closing keyword（`Closes #N`）付き issue はありません（部分対応 PR / docs 等）。',
 				];
+	if (excludedTracking.length > 0) {
+		closesLines.push(
+			'',
+			`> 集約 close 対象外: ${excludedTracking.map((n) => `#${n} (tracking, close 対象外)`).join(' / ')}`,
+			'> — `epic` label 付き tracking issue は AC 未検証の force-close を防ぐため自動 close せず、AC 検証のうえ手動 close する（#3462）。',
+		);
+	}
 	const summary = [
 		`- 対象 develop HEAD: \`${escapeCell(developHead) || '不明'}\``,
 		`- 統合対象期間: \`${escapeCell(sinceDate) || '前回統合 merge'}\` 〜 \`${escapeCell(untilDate) || '今回'}\``,
@@ -415,7 +517,7 @@ if (isMain) {
 	const templatePath = args.template;
 	if (!templatePath) {
 		console.error(
-			'[integration-pr-body] Usage: cat prs.json | node scripts/integration-pr-body.mjs --template <path> --develop-head <sha> [--since <date>] [--until <date>] [--back-merge-prs <path>] [--drift-days <n>]',
+			'[integration-pr-body] Usage: cat prs.json | node scripts/integration-pr-body.mjs --template <path> --develop-head <sha> [--since <date>] [--until <date>] [--back-merge-prs <path>] [--drift-days <n>] [--tracking-issues <path>]',
 		);
 		process.exit(2);
 	}
@@ -439,6 +541,14 @@ if (isMain) {
 		backMergePrs = bmJson.trim() ? JSON.parse(bmJson) : [];
 	}
 
+	// #3462: `epic` label 付き tracking issue 一覧（gh issue list --json number の出力）。
+	// 集約 Closes から除外し「(tracking, close 対象外)」と注記する。取得は workflow 側の責務。
+	let trackingIssues = [];
+	if (args['tracking-issues']) {
+		const tiJson = readFileSync(args['tracking-issues'], 'utf8');
+		trackingIssues = tiJson.trim() ? JSON.parse(tiJson) : [];
+	}
+
 	const driftDays = args['drift-days'] !== undefined ? Number(args['drift-days']) : null;
 
 	const body = renderIntegrationPrBody({
@@ -449,6 +559,7 @@ if (isMain) {
 		untilDate: args.until ?? '',
 		backMergePrs,
 		driftDays: Number.isFinite(driftDays) ? driftDays : null,
+		trackingIssues,
 	});
 
 	process.stdout.write(body);

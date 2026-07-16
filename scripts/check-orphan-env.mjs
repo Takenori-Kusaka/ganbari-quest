@@ -26,7 +26,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const ENV_EXAMPLE = path.join(REPO_ROOT, '.env.example');
 const SEARCH_DIRS = ['src', 'scripts', 'infra', 'tests'];

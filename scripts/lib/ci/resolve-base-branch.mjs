@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/lib/resolve-base-branch.mjs — Issue #2959 (#2870 follow-up)
+ * scripts/lib/ci/resolve-base-branch.mjs — Issue #2959 (#2870 follow-up)
  *
  * develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3/§5) における
  * 「現在の branch がどの base branch に向かうべきか」のクライアント側 SSOT。
@@ -24,10 +24,10 @@
  * 責務が異なる。#2943 実装時に統合可否を再評価する (Issue #2959 related 記載)。
  *
  * Usage (CLI):
- *   node scripts/lib/resolve-base-branch.mjs            # => "develop" または "main" を stdout に出力
- *   node scripts/lib/resolve-base-branch.mjs --verify-base  # 基点鮮度検証 (#2975 AC2): HEAD が
+ *   node scripts/lib/ci/resolve-base-branch.mjs            # => "develop" または "main" を stdout に出力
+ *   node scripts/lib/ci/resolve-base-branch.mjs --verify-base  # 基点鮮度検証 (#2975 AC2): HEAD が
  *                                                           # origin/<base> 最新を取り込んでいなければ exit 1
- *   GANBARI_PR_BASE=main node scripts/lib/resolve-base-branch.mjs
+ *   GANBARI_PR_BASE=main node scripts/lib/ci/resolve-base-branch.mjs
  *
  * exit: 0 = 解決成功 / 1 = git 情報取得不能 (呼び出し側は main に fallback すること)
  *       --verify-base 時は「HEAD が origin/<base> より遅れている (stale base)」でも 1

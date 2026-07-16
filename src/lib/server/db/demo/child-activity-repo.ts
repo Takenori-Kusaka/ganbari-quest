@@ -138,7 +138,8 @@ export async function insertActivity(
 		// #3422: 親入力の 1 日上限 / 読み仮名 / 漢字表記を persist (旧実装は null 固定で drop していた)
 		dailyLimit: input.dailyLimit ?? null,
 		sortOrder: input.sortOrder ?? 0,
-		source: 'demo',
+		// #3669: input.source を透過 (返り値 shape の backend parity)。省略時は demo stub 既定
+		source: input.source ?? 'demo',
 		nameKana: input.nameKana ?? null,
 		nameKanji: input.nameKanji ?? null,
 		triggerHint: input.triggerHint ?? null,

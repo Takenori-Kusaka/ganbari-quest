@@ -18,9 +18,12 @@
 // scope: 本 gate は高権限 action のみを対象とする。repo 全体の SHA pin 化は churn / 運用コストが大きく
 // Pre-PMF (ADR-0010) で PO 判断待ちのため、本 gate では強制しない (#3298 §対応案 2)。
 //
-// 使用: node scripts/check-action-sha-pin.mjs
-// CI: deps-supply-chain-check job (.github/ 変更時)。tag pin 検出で exit 1。
+// 使用: node scripts/check-action-sha-pin.mjs [--verify-default-token]
+//   --verify-default-token: repo 設定 default_workflow_permissions=read を gh api で実測 assert
+//   (#3494 AC2 ②、owner local audit / 月 1 棚卸用。GITHUB_TOKEN は administration:read を持てず CI 不可)
+// CI: deps-supply-chain-check job (.github/ 変更時)。tag pin / top-level permissions 未宣言で exit 1。
 
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -89,25 +92,29 @@ export const HIGH_PRIVILEGE_ACTIONS = [
 // (default-deny) とし、floating 許容は LOW_RISK_THIRD_PARTY_ALLOWLIST に理由付き明示する。これにより
 // 新規 third-party action を高権限 workflow に未 pin で足したら CI が自動 fail する (class 全体を lock)。
 //
-// 高権限とみなす write 権限クラス (HIGH_PRIVILEGE_PERMISSION_RE):
-//   - id-token: write    … OIDC で本番クラウド role を assume (#3318 aws / #3457 gcp)
-//   - contents: write    … push / release / asset upload で配布物を改変し得る
-//   - pull-requests: write … PR を編集・auto-merge し得る。特に dependabot auto-merge (#3489) のように
-//                            自動 merge を起動する context では、改竄 action が出力を偽造して悪性 PR の
-//                            merge に直結し得る (= contents/id-token と同等の攻撃面)。#3483 当初は本クラスを
-//                            取りこぼしており no-silent-gap の主張と実装が乖離していた (#3489 で是正)。
-//   - packages: write    … GitHub Packages (registry) に publish し得る。配布物汚染経路
-//   - permissions: write-all … 全 scope を write 付与する最大権限宣言
+// 高権限とみなす write 権限クラス (HIGH_PRIVILEGE_PERMISSION_RE、#3494 で generic class-lock 化):
+//   **任意の permission scope への write 付与** (`<scope>: write` / `permissions: write-all`) を
+//   高権限 context のトリガとする。#3483 当初の 3 クラス → #3489 で 5 クラス → #3494 で
+//   issues/pages/security-events/checks/deployments/statuses/actions:write が未列挙と検出され、
+//   個別列挙は #3318→#3457→#3483→#3489 と同じ「手動追加 treadmill」を write クラス次元で再生産する
+//   ことが確定したため、列挙自体を廃止して generic 検出に置換した。attestations / discussions 等の
+//   未列挙クラスも自動的に lock される (no-silent-gap の射程 = 明示 write 宣言の全クラス)。
+//   偽陽性 (permissions ブロック外の `<key>: write` 一致、例: コメント内言及) は「高権限側に倒す」
+//   fail-safe 方向のため許容する (over-classify しても要求されるのは third-party の SHA pin のみ)。
 //
-// permissions ブロックを全く持たない workflow の扱い (過剰 BLOCK ↔ silent gap のトレードオフ、#3489):
-//   permissions 明示なしの workflow は repo / org の「デフォルト GITHUB_TOKEN 権限」設定に従う。
-//   本 gate は **明示的な write 権限宣言**のみを高権限 context のトリガとする (default-deny の対象を明示宣言に限定)。
-//   理由: 「permissions 明示なし = 高権限」とすると、ci.yml 等の多数の workflow が抱える setup 系
-//   third-party action を一斉に違反化し、Pre-PMF (ADR-0010) で過大な churn を生む。デフォルト token を
-//   read-only に絞る (GitHub 推奨の repo 設定 "Read repository contents permission") を第一防御線とし、
-//   write が必要な workflow は permissions ブロックで明示する運用前提に乗る。この前提が崩れた場合
-//   (デフォルト token が write のまま放置) は本 gate の対象外となる残余リスクであり、repo 設定側で担保する。
-//   → silent gap を完全には潰さない代わりに、明示 write 宣言クラスは漏れなく lock する保守的境界を採る。
+// permissions ブロックを全く持たない workflow の扱い (#3489 → #3494 で機械担保に昇格):
+//   permissions 明示なしの workflow は repo / org の「デフォルト GITHUB_TOKEN 権限」設定に従うため、
+//   本 gate は明示 write 宣言のみをトリガとし permissionless workflow を除外している (#3489)。
+//   この除外は「デフォルト token = read-only」という repo 設定前提に依存し、設定 drift で silent に
+//   崩れる gap があった (#3494)。以下 2 層で機械担保する:
+//   ① 静的 gate (scanDefaultTokenPremise、CI 決定的): 全 workflow に top-level `permissions:` 宣言を
+//      必須化し、default token に依存する workflow を構造的に排除する (job-level のみでは、将来
+//      permissions 無しの job を足すと default token に落ちるため不足とする)。
+//   ② repo 設定の実測 assert (verifyDefaultTokenReadOnly、`--verify-default-token` opt-in):
+//      `gh api repos/{owner}/{repo}/actions/permissions/workflow` で default_workflow_permissions=read
+//      を assert する。GITHUB_TOKEN は administration:read を持てず CI 常時実行は不能のため、
+//      repo owner の local audit / 月 1 棚卸で実行する (opt-in flag のため silent skip は発生しない —
+//      flag 指定時に照会不能なら hard fail、ADR-0024)。
 // ---------------------------------------------------------------------------
 
 /** GitHub 公式 (actions/* / github/*)。floating tag 許容 (供給元 = GitHub 本体)。 */
@@ -133,18 +140,19 @@ export const LOW_RISK_THIRD_PARTY_ALLOWLIST = [
 ];
 
 /**
- * 高権限とみなす write 権限宣言の検出パターン (SSOT)。明示宣言クラスのみを対象とする
- * (permissions 明示なしの扱いは上記コメントのトレードオフ参照)。
+ * 高権限とみなす write 権限宣言の検出パターン (SSOT、#3494 で generic class-lock 化)。
+ * 個別クラス列挙 (5 クラス固定) は未列挙 write クラスの silent gap を残すため、
+ * 「任意 scope の write 付与」を generic に検出する (詳細は上記コメント)。
  */
 const HIGH_PRIVILEGE_PERMISSION_RE = [
-	/\bid-token:\s*write\b/,
-	/\bcontents:\s*write\b/,
-	/\bpull-requests:\s*write\b/,
-	/\bpackages:\s*write\b/,
+	// `<scope>: write` — issues/pages/security-events/checks/deployments/statuses/actions を含む
+	// 全 write クラス (id-token/contents/pull-requests/packages と attestations 等の未列挙も lock)
+	/\b[a-z][a-z-]*:\s*write\b/,
+	// `permissions: write-all` (最大権限宣言)。上の generic にも一致するが意図明示のため残す
 	/\bpermissions:\s*write-all\b/,
 ];
 
-/** workflow が高権限な write 権限クラス (id-token/contents/pull-requests/packages write or write-all) を付与する context か。 */
+/** workflow が高権限な write 権限クラス (任意 scope の write / write-all、#3494 generic) を付与する context か。 */
 export function isHighPrivilegeWorkflow(source) {
 	return HIGH_PRIVILEGE_PERMISSION_RE.some((re) => re.test(source));
 }
@@ -197,8 +205,8 @@ export function findTagPinViolations(source, fileRel, actions = HIGH_PRIVILEGE_A
 }
 
 /**
- * 網羅性 gate (#3483 / #3489): 高権限 workflow (id-token / contents / pull-requests / packages write
- * or write-all) 内で、first-party でも LOW_RISK allowlist でもない third-party action が SHA pin されて
+ * 網羅性 gate (#3483 / #3489 / #3494): 高権限 workflow (任意 scope の write 宣言 or write-all) 内で、
+ * first-party でも LOW_RISK allowlist でもない third-party action が SHA pin されて
  * いない `uses:` を violation で返す。新規 third-party action を未 pin で高権限 workflow に足したら自動検出 (no-silent-gap)。
  *
  * @param {string} source workflow YAML 本文
@@ -227,11 +235,88 @@ export function findHighPrivilegeContextViolations(source, fileRel) {
 			action: usedPath,
 			ref,
 			reason:
-				'高権限 workflow (id-token/contents/pull-requests/packages write or write-all) 内の未 pin third-party action (#3483/#3489 網羅性 gate)。' +
+				'高権限 workflow (任意 scope の write 宣言 or write-all、#3494 generic class-lock) 内の未 pin third-party action (#3483/#3489/#3494 網羅性 gate)。' +
 				'pin するか、produce/write 能力なし + 起動する後続処理が安全なことを確認のうえ LOW_RISK_THIRD_PARTY_ALLOWLIST に reason 付きで追加する',
 		});
 	}
 	return violations;
+}
+
+/**
+ * default GITHUB_TOKEN 前提の静的 gate (#3494 AC2 ①): workflow が top-level `permissions:` を
+ * 宣言していなければ violation で返す。permissionless workflow は repo デフォルト token 設定に
+ * 依存する (= 網羅性 gate の除外前提が設定 drift で silent に崩れる) ため、全 workflow に明示宣言を
+ * 必須化して default token 依存を構造的に排除する。job-level のみの宣言は、将来 permissions 無しの
+ * job を追加すると default token に落ちるため不足とする (top-level 必須)。
+ *
+ * @param {string} source workflow YAML 本文
+ * @param {string} fileRel リポジトリ相対パス
+ * @returns {{file:string, line:number, action:string, ref:string, reason:string}[]}
+ */
+export function findMissingTopLevelPermissionsViolations(source, fileRel) {
+	// column 0 の `permissions:` (top-level key)。indent 付き (job/step-level) は不一致。
+	if (/^permissions:/m.test(source)) return [];
+	return [
+		{
+			file: fileRel,
+			line: 1,
+			action: '(workflow 全体)',
+			ref: '-',
+			reason:
+				'top-level `permissions:` 宣言なし = repo デフォルト GITHUB_TOKEN 権限に依存 (#3494 AC2)。' +
+				'必要最小の permissions ブロック (読取のみなら `permissions:\\n  contents: read`) を top-level に明示する',
+		},
+	];
+}
+
+/** 全 workflow を走査して top-level permissions 未宣言 (default token 依存) を集約する (#3494 AC2 ①)。 */
+export function scanDefaultTokenPremise(files = listWorkflowFiles()) {
+	const all = [];
+	for (const file of files) {
+		const source = fs.readFileSync(file, 'utf8');
+		const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
+		all.push(...findMissingTopLevelPermissionsViolations(source, rel));
+	}
+	return all;
+}
+
+/** verifyDefaultTokenReadOnly の既定 exec (gh CLI 経由、test では injectable)。 */
+function defaultExec(cmd) {
+	return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * repo 設定の実測 assert (#3494 AC2 ②): `default_workflow_permissions` が `read` であることを
+ * GitHub API で検証する。permissionless 除外 (#3489 トレードオフ) が依存する「デフォルト token =
+ * read-only」前提の設定 drift を検知する。GITHUB_TOKEN は administration:read を持てないため
+ * CI 常時実行は不能 — `--verify-default-token` opt-in で repo owner の local audit / 月 1 棚卸から
+ * 実行する。照会不能 (未認証 / 権限不足) も fail を返す (silent skip 禁止、ADR-0024)。
+ *
+ * @param {(cmd: string) => string} exec コマンド実行関数 (test では injectable)
+ * @returns {{ok: boolean, detail: string}}
+ */
+export function verifyDefaultTokenReadOnly(exec = defaultExec) {
+	try {
+		const out = exec('gh api "repos/{owner}/{repo}/actions/permissions/workflow"');
+		const parsed = JSON.parse(String(out));
+		const perm = parsed.default_workflow_permissions;
+		if (perm === 'read') {
+			return { ok: true, detail: 'default_workflow_permissions=read (前提成立)' };
+		}
+		return {
+			ok: false,
+			detail:
+				`default_workflow_permissions=${perm} — read 以外は permissionless 除外の前提崩れ。` +
+				'repo Settings > Actions > General > Workflow permissions を "Read repository contents and packages permissions" に戻す',
+		};
+	} catch (e) {
+		return {
+			ok: false,
+			detail:
+				`repo 設定を照会できず前提を検証不能 (silent skip 禁止、ADR-0024): ${e?.message ?? e}。` +
+				'gh auth login 済みで administration:read を持つ資格情報 (repo owner) で再実行する',
+		};
+	}
 }
 
 /** 全 workflow を走査して violations を集約する (named list + 網羅性 gate の両方)。 */
@@ -254,29 +339,45 @@ export function scanAllWorkflows(files = listWorkflowFiles()) {
 }
 
 function main() {
-	console.log('[check-action-sha-pin] 高権限 GitHub Actions の SHA pin 検査 (#3298)');
-	const violations = scanAllWorkflows();
-	if (violations.length === 0) {
+	console.log('[check-action-sha-pin] 高権限 GitHub Actions の SHA pin 検査 (#3298/#3483/#3494)');
+	const violations = [...scanAllWorkflows(), ...scanDefaultTokenPremise()];
+	if (violations.length > 0) {
+		console.log('\n[check-action-sha-pin] ✗ FAIL — SHA pin / top-level permissions 宣言の違反:\n');
+		for (const v of violations) {
+			console.log(`  ${v.file}:${v.line}  ${v.action}@${v.ref}`);
+			console.log(`    理由: ${v.reason}`);
+		}
 		console.log(
-			`[check-action-sha-pin] ✓ PASS — ${HIGH_PRIVILEGE_ACTIONS.map((a) => a.name).join(', ')} は全て SHA pin`,
+			'\n修正方針 (#3298/#3494):\n' +
+				'  - 該当 action を full-length commit SHA に pin し、`# vX.Y.Z` コメントで version を注記する。\n' +
+				'    例: uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0\n' +
+				'  - SHA は `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha` で解決する。\n' +
+				'  - dependabot は SHA pin + コメント方式でも更新追従するため運用負荷は増えない。\n' +
+				'  - 新規高権限 action は scripts/check-action-sha-pin.mjs の HIGH_PRIVILEGE_ACTIONS に追記する。\n' +
+				'  - top-level permissions 未宣言の workflow は必要最小の permissions ブロックを明示する (#3494 AC2)。\n',
 		);
-		return 0;
+		return 1;
 	}
 
-	console.log('\n[check-action-sha-pin] ✗ FAIL — SHA pin されていない高権限 action:\n');
-	for (const v of violations) {
-		console.log(`  ${v.file}:${v.line}  ${v.action}@${v.ref}`);
-		console.log(`    理由: ${v.reason}`);
+	// #3494 AC2 ②: opt-in で repo 設定 (default_workflow_permissions=read) を実測 assert。
+	// GITHUB_TOKEN では照会不能 (administration:read なし) のため CI 常時実行はせず、
+	// repo owner の local audit / 月 1 棚卸 (docs/CLAUDE.md §ADR 月 1 棚卸) から実行する。
+	if (process.argv.includes('--verify-default-token')) {
+		const r = verifyDefaultTokenReadOnly();
+		if (!r.ok) {
+			console.log(
+				`\n[check-action-sha-pin] ✗ FAIL — default token 前提の実測 assert: ${r.detail}\n`,
+			);
+			return 1;
+		}
+		console.log(`[check-action-sha-pin] ✓ default token 実測 assert PASS — ${r.detail}`);
 	}
+
 	console.log(
-		'\n修正方針 (#3298):\n' +
-			'  - 該当 action を full-length commit SHA に pin し、`# vX.Y.Z` コメントで version を注記する。\n' +
-			'    例: uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0\n' +
-			'  - SHA は `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha` で解決する。\n' +
-			'  - dependabot は SHA pin + コメント方式でも更新追従するため運用負荷は増えない。\n' +
-			'  - 新規高権限 action は scripts/check-action-sha-pin.mjs の HIGH_PRIVILEGE_ACTIONS に追記する。\n',
+		`[check-action-sha-pin] ✓ PASS — ${HIGH_PRIVILEGE_ACTIONS.map((a) => a.name).join(', ')} は全て SHA pin、` +
+			'全 workflow が top-level permissions 宣言済',
 	);
-	return 1;
+	return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

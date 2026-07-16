@@ -111,8 +111,13 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 | [03-stamp-card-audit-2026-04.md](03-stamp-card-audit-2026-04.md) | スタンプカード L2 逸脱調査 (4 項目) | 2026-04-26 | #1339 |
 | [04-stamp-card-spec-rationale.md](04-stamp-card-spec-rationale.md) | スタンプカード正仕様 | — | — |
 | [05-textlint-prh-evaluation.md](05-textlint-prh-evaluation.md) | textlint-rule-prh 必要性評価 (Phase 5 F4) | 2026-05-08 | #1921, #1909, #1918 |
+| [06-milestones-thresholds-rationale.md](06-milestones-thresholds-rationale.md) | 初月価値プレビュー MILESTONES 閾値の業界 prior art 妥当性検証 | 2026-05-17 | #2174, #1600 |
+| [07-usage-log-dynamodb-deferred-rationale.md](07-usage-log-dynamodb-deferred-rationale.md) | 使用時間ログ DynamoDB 実装延期 (Pre-PMF no-op fallback) | 2026-05-20 | #2338 |
+| [08-hotfix-pr-ci-fail-prevention.md](08-hotfix-pr-ci-fail-prevention.md) | hotfix PR CI fail 連続再発 防止策 | 2026-05-20 | #2343 |
 | [10-admin-nav-restructure-rationale.md](10-admin-nav-restructure-rationale.md) | 親管理画面 5 tab 化 + family カテゴリ新設 (subject-first 上位化) | 2026-05-18 | #2176, #2177, #2178, #2179, #2180 |
 | [11-branch-strategy-rationale.md](11-branch-strategy-rationale.md) | git ブランチ戦略 (develop 二層 + gate 二層、3 案比較) | 2026-06-04 | #2858 |
+| [12-auto-challenge-generation-rationale.md](12-auto-challenge-generation-rationale.md) | 自動生成週間チャレンジ アルゴリズム (child_challenges 一本化) | 2026-06-20 | #3194, #3213 |
+| [13-aurora-dsql-migration-evaluation-rationale.md](13-aurora-dsql-migration-evaluation-rationale.md) | Aurora DSQL 移管評価 (DB バックエンド一本化。superseded by EPIC #3424) | 2026-06-28 | #3424, #3461 |
 
 ---
 

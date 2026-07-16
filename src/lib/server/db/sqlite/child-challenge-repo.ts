@@ -16,7 +16,7 @@
 import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
-import { childChallenges } from '../schema';
+import { childChallenges, pointLedger } from '../schema';
 import type {
 	ChildChallenge,
 	InsertChildChallengeInput,
@@ -158,11 +158,15 @@ export async function insert(
  * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
  * insert と異なり currentValue / completed / rewardClaimed / createdAt 等を引数の値のまま書き戻す。
  * id は新規採番 (元 id は保全しない、childId は呼び出し側が解決済)。
+ *
+ * #3387/#3394 統一冪等契約: auto:weekly 行の (childId, startDate) 重複 (部分 unique index
+ * idx_child_challenges_auto_weekly_unique 衝突) は onConflictDoNothing で skip し null を返す
+ * (DynamoDB AUTO# SK + attribute_not_exists と機能等価。regular 行は一意制約がなく常に insert)。
  */
 export async function insertForRestore(
 	input: Omit<ChildChallenge, 'id'>,
 	_tenantId: string,
-): Promise<ChildChallenge> {
+): Promise<ChildChallenge | null> {
 	const row = db
 		.insert(childChallenges)
 		.values({
@@ -187,10 +191,10 @@ export async function insertForRestore(
 			createdAt: input.createdAt,
 			updatedAt: input.updatedAt,
 		})
+		.onConflictDoNothing()
 		.returning()
 		.get();
-	if (!row) throw new Error('insertForRestore: insert returned no row');
-	return toChallenge(row);
+	return row ? toChallenge(row) : null;
 }
 
 /**
@@ -278,30 +282,50 @@ export async function markCompleted(id: string, _tenantId: string): Promise<void
 }
 
 /**
- * ごほうび受取マーク (条件付き原子化、#3333)。
- * `rewardClaimed=0 AND completed=1` の行のみを 1→flip し、実際に変更した行数を返す。
- * SQLite は本番 NUC ではプロセス内シリアル実行だが、並行 submit (同 child の二重 POST) でも
- * UPDATE の WHERE 条件が同一行を 2 回 flip しないことを保証する (better-sqlite3 `.run().changes`)。
- * service 層は戻り値 === 1 のときだけポイント付与する (claim-first) ことで二重付与を防ぐ。
+ * ごほうび受取マーク + ポイント付与の単一原子プリミティブ (#3284 / #3342、#3333 claim-first の後継)。
+ *
+ * better-sqlite3 の**同期トランザクション**で「条件付き flip (`rewardClaimed=0 AND completed=1`) →
+ * flip 行数 gate → point_ledger insert (type='child_challenge' / referenceId=id)」を 1 単位に閉じ込める。
+ * 旧 2 段構成 (claimReward flip → service が別呼び出しで insertPointLedger) は flip 成功後の
+ * ledger throw で「rewardClaimed=1 のまま付与 0 = 恒久受取不能 (lost-award)」が残っていた (#3342 (1))。
+ * 本 txn では ledger insert が throw すると flip ごと自動 ROLLBACK され、両成功 or 両 rollback を保証する。
+ * ledger 側は idx_point_ledger_idempotency (#3284) が同一 (child, type, reference) の二重 insert を
+ * DB レベルで拒否する (defense in depth)。
  *
  * 注: childChallenges に tenantId 列は無く SQLite は単一テナント DB のため `_tenantId` は他 mutation
  * (markCompleted / updateProgress) と同様に未使用。tenant 越え IDOR は DB 分離 + service の childId
  * 所有権 check で担保する。
  */
-export async function claimReward(id: string, _tenantId: string): Promise<number> {
+export async function claimRewardAndGrantPoints(
+	id: string,
+	ledger: { childId: ChildId; amount: number; description: string },
+	_tenantId: string,
+): Promise<number> {
 	const now = new Date().toISOString();
-	const result = db
-		.update(childChallenges)
-		.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
-		.where(
-			and(
-				eq(childChallenges.id, Number(id)),
-				eq(childChallenges.rewardClaimed, 0),
-				eq(childChallenges.completed, 1),
-			),
-		)
-		.run();
-	return result.changes;
+	return db.transaction((tx) => {
+		const result = tx
+			.update(childChallenges)
+			.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
+			.where(
+				and(
+					eq(childChallenges.id, Number(id)),
+					eq(childChallenges.rewardClaimed, 0),
+					eq(childChallenges.completed, 1),
+				),
+			)
+			.run();
+		if (result.changes !== 1) return 0;
+		tx.insert(pointLedger)
+			.values({
+				childId: Number(ledger.childId),
+				amount: ledger.amount,
+				type: 'child_challenge',
+				description: ledger.description,
+				referenceId: Number(id),
+			})
+			.run();
+		return 1;
+	});
 }
 
 export async function update(

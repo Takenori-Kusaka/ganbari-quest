@@ -3,6 +3,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
+import { INVITE_ACCEPT_ERROR_COOKIE_NAME } from '$lib/domain/validation/auth';
 import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
@@ -173,9 +174,24 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		}
 	}
 
+	// #3555 ①: 招待受諾が email 束縛で拒否された直後の案内 (1 回限りの通知 cookie を
+	// 読み取り即消費)。受諾失敗 → 新規テナント自動作成で無説明の空 admin に着地した
+	// 顧客に「なぜ招待で参加できなかったか + 次アクション」をバナーで伝える。
+	const rawInviteAcceptError = cookies.get(INVITE_ACCEPT_ERROR_COOKIE_NAME);
+	const inviteAcceptError =
+		rawInviteAcceptError === 'INVITE_EMAIL_MISMATCH' ||
+		rawInviteAcceptError === 'INVITE_EMAIL_UNVERIFIED'
+			? rawInviteAcceptError
+			: null;
+	if (rawInviteAcceptError) {
+		cookies.delete(INVITE_ACCEPT_ERROR_COOKIE_NAME, { path: '/' });
+	}
+
 	return {
 		pointSettings,
 		authMode,
+		// #3555 ①: 招待受諾失敗の 1 回限り案内 (admin +layout.svelte がバナー表示に使う)
+		inviteAcceptError,
 		// parent-gate inactivity redirect (client): PIN gate 有効時のみ admin で
 		// 15 分アイドル → /switch 自動リダイレクトを起動する (dev/demo では起動しない)
 		pinGateActive,

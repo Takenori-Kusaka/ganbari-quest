@@ -8,10 +8,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	findHighPrivilegeContextViolations,
+	findMissingTopLevelPermissionsViolations,
 	findTagPinViolations,
 	HIGH_PRIVILEGE_ACTIONS,
 	isHighPrivilegeWorkflow,
+	listWorkflowFiles,
 	scanAllWorkflows,
+	scanDefaultTokenPremise,
+	verifyDefaultTokenReadOnly,
 } from '../../../scripts/check-action-sha-pin.mjs';
 
 const SHA = 'bcd2ba49218906704ab6c1aa796996da409d3eb1';
@@ -143,8 +147,103 @@ describe('#3483 findHighPrivilegeContextViolations (網羅性 gate / no-silent-g
 	});
 });
 
+// #3494: #3483→#3489 で 5 クラス固定だった HIGH_PRIVILEGE_PERMISSION_RE の残余 gap
+// (issues/pages/security-events/checks/deployments/statuses/actions:write が trigger 外)。
+// 個別列挙の追加は #3318→#3457→#3483→#3489 と同じ treadmill を再生産するため、
+// 「任意の permission scope への write 付与」を generic に検出する class-lock を要求する。
+describe('#3494 残り write クラスの generic class-lock', () => {
+	const remainingWriteScopes = [
+		'issues',
+		'pages',
+		'security-events',
+		'checks',
+		'deployments',
+		'statuses',
+		'actions',
+	];
+	for (const scope of remainingWriteScopes) {
+		it(`${scope}: write を高権限 context として検出する (#3494)`, () => {
+			const src = `permissions:\n  ${scope}: write\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1`;
+			expect(isHighPrivilegeWorkflow(src)).toBe(true);
+			const v = findHighPrivilegeContextViolations(src, 'wf.yml');
+			expect(v).toHaveLength(1);
+			expect(v[0]?.action).toBe('evil/a');
+		});
+	}
+
+	it('列挙外の write scope (attestations: write) も generic に検出する (列挙 treadmill 根絶)', () => {
+		const src =
+			'permissions:\n  attestations: write\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(src)).toBe(true);
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(1);
+	});
+
+	it('read 権限のみ (issues: read / read-all 含む) は高権限 context にしない', () => {
+		const src =
+			'permissions:\n  contents: read\n  issues: read\n  actions: read\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(src)).toBe(false);
+		const readAll = 'permissions: read-all\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(readAll)).toBe(false);
+	});
+});
+
+// #3494 AC2: 網羅性 gate の permissionless 除外は「repo デフォルト GITHUB_TOKEN = read-only」
+// 前提に依存する (#3489 トレードオフ)。この前提が repo 設定 drift で崩れても検知できない gap を、
+// ① 静的 gate (全 workflow に top-level permissions 必須 = default token 依存を構造的に排除) +
+// ② repo 設定の実測 assert (verifyDefaultTokenReadOnly、gh api 経由 opt-in) の 2 層で機械担保する。
+describe('#3494 default GITHUB_TOKEN 前提の機械担保', () => {
+	it('top-level permissions を持たない workflow を violation にする (default token 依存)', () => {
+		const src = 'on: push\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v7';
+		const v = findMissingTopLevelPermissionsViolations(src, 'wf.yml');
+		expect(v).toHaveLength(1);
+		expect(v[0]?.file).toBe('wf.yml');
+	});
+
+	it('top-level permissions がある workflow は violation にしない', () => {
+		const src =
+			'on: push\npermissions:\n  contents: read\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v7';
+		expect(findMissingTopLevelPermissionsViolations(src, 'wf.yml')).toHaveLength(0);
+	});
+
+	it('job-level permissions のみでは不足 (将来追加 job が default token に落ちる)', () => {
+		const src = [
+			'on: push',
+			'jobs:',
+			'  x:',
+			'    permissions:',
+			'      contents: read',
+			'    steps:',
+			'      - uses: actions/checkout@v7',
+		].join('\n');
+		expect(findMissingTopLevelPermissionsViolations(src, 'wf.yml')).toHaveLength(1);
+	});
+
+	it('verifyDefaultTokenReadOnly: default_workflow_permissions=read なら ok', () => {
+		const exec = () => JSON.stringify({ default_workflow_permissions: 'read' });
+		expect(verifyDefaultTokenReadOnly(exec).ok).toBe(true);
+	});
+
+	it('verifyDefaultTokenReadOnly: write なら fail (前提崩れ = 設定 drift 検知)', () => {
+		const exec = () => JSON.stringify({ default_workflow_permissions: 'write' });
+		const r = verifyDefaultTokenReadOnly(exec);
+		expect(r.ok).toBe(false);
+		expect(r.detail).toContain('write');
+	});
+
+	it('verifyDefaultTokenReadOnly: API 照会不能も fail (silent skip 禁止、ADR-0024)', () => {
+		const exec = () => {
+			throw new Error('gh: Not Found (HTTP 404)');
+		};
+		expect(verifyDefaultTokenReadOnly(exec).ok).toBe(false);
+	});
+});
+
 describe('#3298/#3483 scanAllWorkflows (実 workflow)', () => {
 	it('現行 .github/workflows/ は高権限 action 違反 0 (named list + 網羅性 gate 両方)', () => {
 		expect(scanAllWorkflows()).toEqual([]);
+	});
+
+	it('現行 .github/workflows/ は全 workflow が top-level permissions を宣言済 (#3494 AC2)', () => {
+		expect(scanDefaultTokenPremise(listWorkflowFiles())).toEqual([]);
 	});
 });

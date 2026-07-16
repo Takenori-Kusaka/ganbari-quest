@@ -31,7 +31,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const SERVICES_DIR = path.join(REPO_ROOT, 'src', 'lib', 'server', 'services');
 const SEARCH_DIRS = ['src', 'tests/unit', 'tests/integration', 'tests/e2e'];

@@ -152,11 +152,15 @@ export async function findEntriesByCardId(
 		}));
 }
 
-/** #3329 backup restore 用: status / redeemed / 日時を保全して card を復元する。 */
+/**
+ * #3329 backup restore 用: status / redeemed / 日時を保全して card を復元する。
+ * #3394 統一冪等契約: 同 (childId, weekStart) 既存 (idx_stamp_cards_child_week 衝突) は
+ * onConflictDoNothing で skip し null を返す (DynamoDB attribute_not_exists と機能等価)。
+ */
 export async function insertCardForRestore(
 	input: Omit<StampCard, 'id'>,
 	_tenantId: string,
-): Promise<StampCard> {
+): Promise<StampCard | null> {
 	const card = db
 		.insert(schema.stampCards)
 		.values({
@@ -169,13 +173,17 @@ export async function insertCardForRestore(
 			createdAt: input.createdAt,
 			updatedAt: input.updatedAt,
 		})
+		.onConflictDoNothing()
 		.returning()
 		.get();
-	if (!card) throw new Error('insertCardForRestore: insert returned no row');
-	return toCard(card);
+	return card ? toCard(card) : null;
 }
 
-/** #3329 backup restore 用: earnedAt を保全して押印を復元する。 */
+/**
+ * #3329 backup restore 用: earnedAt を保全して押印を復元する。
+ * #3394 統一冪等契約: 実 insert したら true / 重複 ((cardId,slot) or (cardId,loginDate)) skip は
+ * false を返す (import は true のときのみ imported++ = count 偽装防止)。
+ */
 export async function insertEntryForRestore(
 	input: {
 		cardId: string;
@@ -186,8 +194,9 @@ export async function insertEntryForRestore(
 		earnedAt: string;
 	},
 	_tenantId: string,
-): Promise<void> {
-	db.insert(schema.stampEntries)
+): Promise<boolean> {
+	const result = db
+		.insert(schema.stampEntries)
 		.values({
 			cardId: Number(input.cardId),
 			stampMasterId: input.stampMasterId === null ? null : Number(input.stampMasterId),
@@ -198,6 +207,7 @@ export async function insertEntryForRestore(
 		})
 		.onConflictDoNothing()
 		.run();
+	return result.changes > 0;
 }
 
 /** スタンプエントリを挿入（同日重複時は無視） */

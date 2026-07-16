@@ -32,6 +32,7 @@ import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AUTONOMY_TERMS,
+	BACKUP_TERMS,
 	CHILD_TERMS,
 	FREE_PLAN_TERMS,
 	GRADUATION_TERMS,
@@ -93,6 +94,18 @@ export const MYSTERY_TERMS = [
 	{
 		pattern: 'アドベンチャー',
 		reason: `「アドベンチャー」は表記揺れ。SSOT は ${ADVENTURE_TERMS.canonical} を使用する (#1915 D-5)`,
+	},
+	// #3201 (PR #3199 follow-up): バックアップ / 取込 UI での内部フォーマット名露出を防ぐ
+	// (BACKUP_TERMS SSOT — 形式差は「画像・音声を含む」等の機能説明で表現する)。
+	// CSV は対象外: ユーザー自作の表計算ファイルの実態呼称 (ADR-0013 truth) + 確定申告 CSV
+	// エクスポート等の正当用途がある。
+	{
+		pattern: 'JSON',
+		reason: `内部フォーマット名「JSON」の UI 露出。SSOT は ${BACKUP_TERMS.file} / ${BACKUP_TERMS.canonical} を使う (#3201)`,
+	},
+	{
+		pattern: 'ZIP',
+		reason: `内部フォーマット名「ZIP」の UI 露出。SSOT は ${BACKUP_TERMS.file} を使い、形式差は「画像・音声を含む」等の機能説明で表現する (#3201)`,
 	},
 ];
 

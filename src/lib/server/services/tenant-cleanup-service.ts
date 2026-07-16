@@ -35,6 +35,7 @@
 //     → 上記に加えて メンバーシップ / 招待 / Cognito / tenant レコード
 //        も削除する（`fullTenantDeletion` で実装）
 
+import type { ChildId } from '$lib/domain/ids';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
@@ -99,11 +100,30 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	let deleted = 0;
 	const r = repos();
 
+	// #3693: 児童一覧を先頭で 1 回だけ解決し、以降の per-child ループと
+	// DynamoDB backend の deleteByTenantId 群 (child partition Query 化) で共有する。
+	// childIds には archived 児童も含める (旧 Scan 実装の削除範囲と同一に保つ)。
+	// 列挙に失敗した場合は childIds を undefined のまま渡し、各 repo の Scan fallback で
+	// 削除完全性を優先する (退会 = 法的要請を伴う CUJ のため取り漏らし禁止)。
+	// 児童 0 人時も undefined (orphan child partition の残骸まで Scan で拾う)。
+	let children: Awaited<ReturnType<typeof r.child.findAllChildren>> = [];
+	let childIds: readonly ChildId[] | undefined;
+	try {
+		const [activeChildren, archivedChildren] = await Promise.all([
+			r.child.findAllChildren(tenantId),
+			r.child.findArchivedChildren(tenantId),
+		]);
+		children = activeChildren;
+		const all = [...activeChildren, ...archivedChildren];
+		childIds = all.length > 0 ? all.map((c) => c.id) : undefined;
+	} catch (err) {
+		logger.warn(`[tenant-cleanup] children 列挙失敗 (Scan fallback で継続): ${String(err)}`);
+	}
+
 	// Activities (#2362 PR-3 / ADR-0055): per-child instance loop
 	// 旧 tenant-wide enumeration を child loop + per-child deleteActivity(id, childId, tenantId) に置換。
 	// 旧 activities table drop (Phase 7b-2) 後、child cascade delete に委譲予定。
 	try {
-		const children = await r.child.findAllChildren(tenantId);
 		for (const child of children) {
 			const activities = await r.childActivity.findActivitiesByChild(child.id, tenantId, {
 				includeArchived: true,
@@ -150,9 +170,8 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] pushSubscriptions 削除失敗: ${String(err)}`);
 	}
 
-	// Voice（子供ごとに deleteByChild 可能）
+	// Voice（子供ごとに deleteByChild 可能。#3693: 先頭で解決済みの children を再利用）
 	try {
-		const children = await r.child.findAllChildren(tenantId);
 		for (const child of children) {
 			await r.voice.deleteByChild(child.id, tenantId);
 			deleted++;
@@ -171,7 +190,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Checklists（templates, items, logs, overrides）
 	try {
-		await r.checklist.deleteByTenantId(tenantId);
+		await r.checklist.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] checklists 削除失敗: ${String(err)}`);
@@ -179,7 +198,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Daily missions
 	try {
-		await r.dailyMission.deleteByTenantId(tenantId);
+		await r.dailyMission.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] dailyMissions 削除失敗: ${String(err)}`);
@@ -187,7 +206,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Evaluations（evaluations + rest_days）
 	try {
-		await r.evaluation.deleteByTenantId(tenantId);
+		await r.evaluation.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] evaluations 削除失敗: ${String(err)}`);
@@ -195,7 +214,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Points（point_ledger）
 	try {
-		await r.point.deleteByTenantId(tenantId);
+		await r.point.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] points 削除失敗: ${String(err)}`);
@@ -203,7 +222,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Stamp cards + entries
 	try {
-		await r.stampCard.deleteByTenantId(tenantId);
+		await r.stampCard.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] stampCards 削除失敗: ${String(err)}`);
@@ -211,7 +230,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Status（statuses + status_history + market_benchmarks）
 	try {
-		await r.status.deleteByTenantId(tenantId);
+		await r.status.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] status 削除失敗: ${String(err)}`);
@@ -219,7 +238,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Login bonuses
 	try {
-		await r.loginBonus.deleteByTenantId(tenantId);
+		await r.loginBonus.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] loginBonus 削除失敗: ${String(err)}`);
@@ -229,7 +248,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	// special_rewards 削除より先に消す。残すと special_rewards 削除が FK で失敗し、さらに
 	// special_rewards.child_id (no cascade) が children 削除も阻む (replace import で子ごと喪失)。
 	try {
-		await r.rewardRedemption.deleteByTenantId(tenantId);
+		await r.rewardRedemption.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] rewardRedemption 削除失敗: ${String(err)}`);
@@ -237,7 +256,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Special rewards
 	try {
-		await r.specialReward.deleteByTenantId(tenantId);
+		await r.specialReward.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] specialReward 削除失敗: ${String(err)}`);
@@ -246,7 +265,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	// #3329: 証明書 (certificates)。child_id が no-cascade のため children 削除より先に明示削除する
 	// (残すと children 削除が FK で失敗し replace import で子ごと喪失する。redemption と同型の修正)。
 	try {
-		await r.certificate.deleteByTenantId(tenantId);
+		await r.certificate.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] certificate 削除失敗: ${String(err)}`);
@@ -254,7 +273,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Activity preferences（pin settings）
 	try {
-		await r.activityPref.deleteByTenantId(tenantId);
+		await r.activityPref.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] activityPref 削除失敗: ${String(err)}`);
@@ -262,7 +281,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Activity mastery
 	try {
-		await r.activityMastery.deleteByTenantId(tenantId);
+		await r.activityMastery.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] activityMastery 削除失敗: ${String(err)}`);
@@ -270,7 +289,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Parent messages
 	try {
-		await r.message.deleteByTenantId(tenantId);
+		await r.message.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] message 削除失敗: ${String(err)}`);
@@ -294,7 +313,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Sibling cheers
 	try {
-		await r.siblingCheer.deleteByTenantId(tenantId);
+		await r.siblingCheer.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] siblingCheer 削除失敗: ${String(err)}`);
@@ -315,10 +334,26 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 
 	// Character images
 	try {
-		await r.image.deleteByTenantId(tenantId);
+		await r.image.deleteByTenantId(tenantId, childIds);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] image 削除失敗: ${String(err)}`);
+	}
+
+	// #3750: orphan child partition sweep (混在ケースの削除完全性保証)。
+	// childIds 非空時、上記 child-scoped repo の deleteByTenantId は既知 child のみ Query する
+	// ため、過去の部分失敗で残った orphan child partition (childId が active でも archived でも
+	// ない + 他に現存児童 ≥1) を取り漏らす。末尾で 1 度だけ child partition prefix を Scan し、
+	// 既知 partition を除いた残骸を消す (退会 = 削除権 CUJ の完全性優先)。
+	// childIds undefined (児童 0 人) の場合は各 repo の Scan fallback が既に orphan を拾うため
+	// 呼ばず、二重 Scan を避ける。DynamoDB backend 固有 (relational backend は
+	// sweepOrphanChildPartitions 未実装 = optional のため skip)。
+	if (childIds && childIds.length > 0 && r.child.sweepOrphanChildPartitions) {
+		try {
+			deleted += await r.child.sweepOrphanChildPartitions(tenantId, childIds);
+		} catch (err) {
+			logger.warn(`[tenant-cleanup] orphan child partition sweep 失敗: ${String(err)}`);
+		}
 	}
 
 	return deleted;

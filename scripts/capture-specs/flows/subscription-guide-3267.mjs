@@ -2,7 +2,7 @@
  * scripts/capture-specs/flows/subscription-guide-3267.mjs
  * PR #3291 (#3260 C3): /admin/subscription の ? ページガイド overlay を撮影。
  */
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5191';
 

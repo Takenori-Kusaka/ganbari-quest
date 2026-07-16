@@ -1,0 +1,68 @@
+# close-leak-report.yml — Issue #3459 (#3423 AC4)
+#
+# 「fix は main 反映済だが issue が open のまま」の close漏れ候補を週次で検出し、
+# job summary に一覧 report を出す補助 job。**auto-close はしない** (誤爆回避、#3423 選択肢 B 却下)。
+# 人間が report を見て手動 close (AC gate 経由) する棚卸し材料を自動生成する。
+#
+# 設計判断 (integration-pr.yml 相乗りではなく独立 workflow にした理由):
+#   - integration-pr.yml は「統合 PR upsert」専用の薄い orchestrator で、permissions
+#     (pull-requests: write + App token) / concurrency group / checkout 深度が本 job と異なる。
+#     本 job は issues:read + 全 git 履歴 (fetch-depth: 0) が必要で、混載すると両者の
+#     最小権限原則が崩れる。
+#   - weekly-report.yml / code-quality-weekly.yml と同じ「目的別の軽量週次 workflow」慣行に合流。
+#
+# 検出ロジック SSOT: scripts/audit/close-leak-report.mjs (純関数 unit test =
+# tests/unit/audit/close-leak-report.test.ts)。本 workflow は薄い orchestrator (#1442 同型)。
+#
+# 止血の主機構は #3423 AC2 (統合 PR の Closes 集約) + #3458 AC1 (per-PR closing-keyword gate)。
+# 本 job は既存 backlog の取りこぼし (C 層 #3133/#3246/#3088 型) の掃除用。
+
+name: close-leak-report
+
+on:
+  schedule:
+    # 週 1 (月曜 JST 07:00 = 日曜 UTC 22:00)。integration-pr cron (月・木 UTC 21:00) の
+    # 翌朝に前週分の取りこぼしを棚卸しする想定
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: '走査期間 (git approxidate、例: "30 days ago")'
+        required: false
+        default: '90 days ago'
+        type: string
+
+concurrency:
+  group: close-leak-report
+  cancel-in-progress: false
+
+# report only — issue への書き込みは一切しない (auto-close なし、最小権限)
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  report:
+    name: close漏れ取りこぼし検知 report (auto-close なし)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # main 反映済判定に全 git 履歴が必要 (git log origin/main --since)
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # script が markdown report を stdout + GITHUB_STEP_SUMMARY へ出力する。
+      # 検出 0 件でも N 件でも exit 0 (gate ではない)。
+      # workflow_dispatch input は run: へ ${{ }} 直展開せず env 経由で渡す
+      # (GitHub Actions script injection 定石、#3745。shell が $SINCE を展開するため
+      #  input 値が shell 構文として解釈されない)
+      - name: Detect close leaks (report only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SINCE: ${{ inputs.since || '90 days ago' }}
+        run: node scripts/audit/close-leak-report.mjs --since "$SINCE"

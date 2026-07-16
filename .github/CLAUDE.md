@@ -7,7 +7,7 @@
 - 新規チケットは `gh issue create`。`docs/tickets/` への新規ファイル禁止（レガシー、参照のみ）
 - テンプレート: `.github/ISSUE_TEMPLATE/dev_ticket.yml` / `bug_report.yml` / `feature_request.yml`
 - ラベル: `type:feat|fix|refactor|infra|design|docs|marketing|test` / `priority:critical|high|medium|low` / `status:blocked|in-progress|on-hold` / `area:auth|billing|child-ui|admin|lp|db`
-- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、**個別 PR の develop merge では Issue は auto-close されない**。ただし **develop→main 統合 PR は含有 PR の `## 関連 Issue` の close 宣言（`closes/fixes/resolves #N`）を `integration-pr-body.mjs` が `Closes #N` に集約し、main 反映で一括 auto-close する**（#3423。over-close 防止のため section 内 行頭 closing keyword のみ集約、#3444。issue-close-gate は PR-keyword close を skip するため reopen storm は起きない）。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（個別 close は手動 `- [x]` close + AC gate、統合 PR で集約 `Closes #N` 一括 close）
+- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、**個別 PR の develop merge では Issue は auto-close されない**。ただし **develop→main 統合 PR は含有 PR の `## 関連 Issue` の close 宣言（`closes/fixes/resolves #N`）を `integration-pr-body.mjs` が `Closes #N` に集約し、main 反映で一括 auto-close する**（#3423。over-close 防止のため section 内 行頭 closing keyword のみ集約、#3444。issue-close-gate は PR-keyword close を skip するため reopen storm は起きない）。この集約が空振りしないよう、**develop 向け `type:feat` / `type:fix` PR は `## 関連 Issue` への closing keyword 記入を `pr-template-gate.yml` job 6（`closing keyword の記入 (feat/fix)`）が必須化する**（#3458 / #3423 AC1。issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip）。集約の residual edge 3 件は #3462 で封鎖: ① conventional-commit prefix 行（`fix: #N subject…` のように issue 番号の後に subject テキストを伴うコロン形）は集約しない（`Closes: #N` の裸コロン宣言は集約維持）/ ② `## 関連 Issue` 見出しは軽微な揺れ（前後空白・`##`〜`####` レベル差・「関連Issue」空白有無・末尾コロン）を正規化して検出（under-close 防止）/ ③ **`epic` label 付き tracking issue は集約 `Closes` から除外**し統合 PR 本文に「(tracking, close 対象外)」と注記（AC 未検証 force-close 防止、close は AC 検証のうえ手動）。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（個別 close は手動 `- [x]` close + AC gate、統合 PR で集約 `Closes #N` 一括 close）
 
 ## Issue 起票ルール（CRITICAL — ADR-0003）
 
@@ -33,7 +33,7 @@ AI エージェントも 4 フィールド全て埋める。`Blocked by` 未解�
 
 ## Draft PR 運用
 
-- **base branch は develop 二層**（`docs/sessions/branch-strategy.md` §3/§5、#2870 cutover / #2959）: feature/fix/docs PR = `--base develop` 必須 / hotfix（`fix/*` from main）のみ `--base main`。**統合 PR は `release/*`（develop の凍結コミットから cut）→ main**（release ブランチ方式、branch-strategy.md §3.1 / #3063。動く標的問題の構造的解消）。`--base` 省略は default branch（main）向けになり `main-pr-base-guard` で fail する。`main-pr-base-guard` は head=`develop` / `release/*` / `fix/*` のみ許可。base 判定 SSOT: `node scripts/lib/resolve-base-branch.mjs`
+- **base branch は develop 二層**（`docs/sessions/branch-strategy.md` §3/§5、#2870 cutover / #2959）: feature/fix/docs PR = `--base develop` 必須 / hotfix（`fix/*` from main）のみ `--base main`。**統合 PR は `release/*`（develop の凍結コミットから cut）→ main**（release ブランチ方式、branch-strategy.md §3.1 / #3063。動く標的問題の構造的解消）。`--base` 省略は default branch（main）向けになり `main-pr-base-guard` で fail する。`main-pr-base-guard` は head=`develop` / `release/*` / `fix/*` のみ許可。base 判定 SSOT: `node scripts/lib/ci/resolve-base-branch.mjs`
 - `gh pr create --draft --base develop` で作成 → CI 全通過後 `gh pr ready <num>` で Ready 化（#1074）
 - CI 失敗で Ready にすると `draft-on-ci-fail.yml` が自動 Draft 戻し
 - Dependabot PR は non-draft 自動作成、auto-merge 運用
@@ -41,7 +41,7 @@ AI エージェントも 4 フィールド全て埋める。`Blocked by` 未解�
 ### Dependabot CI exempt（#1808）
 
 Dependabot / Renovate の依存更新 PR は以下を自動 skip（`dependencies` ラベル + `actor != bot`）:
-`pr-template-gate.yml` 5 ジョブ / `pr-ac-verification-check.yml` / `pr-merge-gate.yml` / **`pr-author-guard.yml` (#2430 で追加、#1994 由来の exempt 抜け修復)**。AC マップ・Ready チェックは依存更新に該当しない。`pr-author-guard.yml` は ADR-0022 役割分離 (Takenori-Kusaka 作成 / ganbariquestsupport-lab approve) の機械強制 gate だが、bot は同分離の対象外。
+`pr-template-gate.yml` 6 ジョブ / `pr-ac-verification-check.yml` / `pr-merge-gate.yml` / **`pr-author-guard.yml` (#2430 で追加、#1994 由来の exempt 抜け修復)**。AC マップ・Ready チェックは依存更新に該当しない。`pr-author-guard.yml` は ADR-0022 役割分離 (Takenori-Kusaka 作成 / ganbariquestsupport-lab approve) の機械強制 gate だが、bot は同分離の対象外。
 
 ### AC / merge gate の lane-aware 化（#2945 / Phase A、親 #2942）
 
@@ -55,7 +55,7 @@ Dependabot / Renovate の依存更新 PR は以下を自動 skip（`dependencies
 
 検証ロジックは `scripts/check-ac-verification-map.mjs` / `scripts/check-merge-gate-checklist.mjs`（unit test 済、inline 重複なし）。required context 名は不変。lane 別の全 gate 対応表は `docs/sessions/branch-strategy.md`（A-6）が SSOT。
 
-**integration lane の label/comment skip 無効化（#3071、空洞化防止）**: `type:docs` / `dependencies` label / 明示 skip コメント（`<!-- ac-verification-skip -->`）による検証 skip は **feature / hotfix lane でのみ有効**。統合 PR（lane=integration）に誤って `type:docs` 等が付いても §3.5 マージ判定エビデンス表 / 統合用 section / template gate の検証を必ず実行する（誤ラベルで required check が空洞緑化するのを防ぐ）。`pr-template-gate-checks.mjs` の 5 check も同様（`hasDependenciesLabel` / `type:docs` skip を integration で無効化）。dependabot lane（bot actor）は `dependabotSkip(lane)` で従来どおり skip 維持（#1808）。
+**integration lane の label/comment skip 無効化（#3071、空洞化防止）**: `type:docs` / `dependencies` label / 明示 skip コメント（`<!-- ac-verification-skip -->`）による検証 skip は **feature / hotfix lane でのみ有効**。統合 PR（lane=integration）に誤って `type:docs` 等が付いても §3.5 マージ判定エビデンス表 / 統合用 section / template gate の検証を必ず実行する（誤ラベルで required check が空洞緑化するのを防ぐ）。`pr-template-gate-checks.mjs` の 6 check も同様（`hasDependenciesLabel` / `type:docs` skip を integration で無効化）。dependabot lane（bot actor）は `dependabotSkip(lane)` で従来どおり skip 維持（#1808）。
 
 ## 巨大 docs refactor PR の分割 (#2225)
 
@@ -111,7 +111,7 @@ gh pr ready <PR番号>
 
 ## PR テンプレート必須ゲート（`pr-template-gate.yml`）
 
-5 ジョブ並列 hard-fail（Ready PR / non-Dependabot のみ）。テンプレ動的読込のため template 変更で workflow 修正不要（PR HEAD 読込、#1855）。
+6 ジョブ並列 hard-fail（Ready PR / non-Dependabot のみ）。テンプレ動的読込のため template 変更で workflow 修正不要（PR HEAD 読込、#1855）。
 
 | ジョブ | 検証 |
 |---|---|
@@ -120,10 +120,11 @@ gh pr ready <PR番号>
 | 変更タイプ | `[x]` 1 つ以上 |
 | 顧客価値・目的 | プレースホルダー残存なし |
 | テスト実行結果 | `<!-- PASS / FAIL -->` 残存なし（type:docs は skip） |
+| closing keyword の記入 (feat/fix) | develop 向け `type:feat`/`type:fix` PR は `## 関連 Issue` に行頭 closing keyword（`Closes #N` / `Fixes #N` / `Resolves #N`、コロン形 / 全角 `＃` 許容）必須。bare `#N` / `関連: #N` のみは fail。issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip。検出規約は `integration-pr-body.mjs` `extractClosedIssues` と共有（#3458 / #3423 AC1） |
 
 AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 
-セットアップ: Branch Ruleset の `required_status_checks` に 5 ジョブ追加（管理者作業）。
+セットアップ: Branch Ruleset の `required_status_checks` に 6 ジョブ追加（管理者作業。`closing keyword の記入 (feat/fix)` は #3458 で新設、required 化には ruleset 追加登録が必要）。
 
 ### type:* label 自動付与 — title 接頭辞が SSOT（#2495）
 

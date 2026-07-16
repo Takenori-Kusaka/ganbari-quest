@@ -11,7 +11,7 @@ import {
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import { asActivityId, asCategoryId } from '$lib/domain/ids';
 import type { Activity, DailyMissionWithActivity } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -330,6 +330,9 @@ export async function insertDailyMission(
 }
 
 /** テナントの全デイリーミッションを削除（CHILD#* 配下の MISSION# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), dailyMissionPrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, dailyMissionPrefix());
 }

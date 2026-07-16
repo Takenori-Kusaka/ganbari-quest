@@ -1,5 +1,5 @@
 /**
- * scripts/lib/brand-style-guide.js
+ * scripts/lib/ci/brand-style-guide.js
  *
  * がんばりクエスト ブランドスタイル定数 — SSOT
  * generate-image.mjs および既存の generate-*.mjs スクリプトから参照する。

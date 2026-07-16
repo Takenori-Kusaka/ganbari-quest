@@ -14,6 +14,7 @@ import {
 	extractClosedIssues,
 	extractTypeLabel,
 	parseArgs,
+	partitionClosedIssues,
 	renderIntegrationPrBody,
 	replaceSectionBody,
 } from '../../../scripts/integration-pr-body.mjs';
@@ -350,6 +351,134 @@ describe('extractClosedIssues (#3423 — close漏れ防止: 含有 PR の closin
 			},
 		];
 		expect(extractClosedIssues(prs)).toEqual([3300, 3301]);
+	});
+
+	// --- #3462 residual edge 1: fix: コロン衝突 (conventional-commit prefix は closing でない、SSOT 整合) ---
+
+	it('conventional-commit prefix (fix: #N subject...) は集約しない (#3462 SSOT 整合)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: [
+					'## 関連 Issue',
+					'fix: #3570 AWS deploy DKIM replacement 承認', // conventional-commit 形 → 除外
+					'fixes: #3571 別の subject を伴う行', // 同上
+					'closes #3200', // 正規の close 宣言 → 集約
+				].join('\n'),
+			},
+		];
+		expect(extractClosedIssues(prs)).toEqual([3200]);
+	});
+
+	it('section 無し body の全文 fallback でも conventional-commit prefix 行 (fix: #N subject) は集約しない (#3462)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				// PR body 冒頭に PR title を引用するパターン（section 見出し無し → 全文 fallback 走査）
+				body: 'fix: #3570 AWS deploy DKIM replacement 承認\n\n対応内容の説明。\n\ncloses #3462',
+			},
+		];
+		expect(extractClosedIssues(prs)).toEqual([3462]);
+	});
+
+	it('コロン形の close 宣言 (Closes: #N / 追加参照のみの後続) は引き続き集約する (#3444 維持 + #3462)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: [
+					'## 関連 Issue',
+					'Closes: #3246', // コロン形の裸宣言 → 集約 (#3444 既存挙動維持)
+					'Fixes: #3247, #3248', // 後続が追加 #M 参照のみ → 集約 (#3248 は同一行 2 個目のため対象外だが行自体は宣言)
+				].join('\n'),
+			},
+		];
+		// 同一行 2 個目の #3248 は従来から行頭アンカーの対象外 (既存挙動、#3444)
+		expect(extractClosedIssues(prs)).toEqual([3246, 3247]);
+	});
+
+	// --- #3462 residual edge 2: 見出し揺れ under-close ---
+
+	it('見出しの軽微な揺れ (前後空白 / レベル差 / 関連Issue 空白無し) でも section を検出し under-close しない (#3462)', () => {
+		const mkPr = (heading: string) => [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: [heading, 'closes #3300', '', '## 影響範囲', 'closes #9999'].join('\n'),
+			},
+		];
+		// 前後空白
+		expect(extractClosedIssues(mkPr('  ## 関連 Issue  '))).toEqual([3300]);
+		// 見出しレベル差 (###)
+		expect(extractClosedIssues(mkPr('### 関連 Issue'))).toEqual([3300]);
+		// 「関連Issue」空白無し + 末尾コロン
+		expect(extractClosedIssues(mkPr('## 関連Issue:'))).toEqual([3300]);
+	});
+
+	it('見出し揺れ section でも section 外の closes は引き続き無視する (over-close 再発防止、#3462)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: ['### 関連Issue', 'closes #3300', '', '### 影響範囲', 'closes #9999'].join('\n'),
+			},
+		];
+		// ### 見出しで始まる section は同レベル (###) の次見出しで終端する
+		expect(extractClosedIssues(prs)).toEqual([3300]);
+	});
+});
+
+describe('partitionClosedIssues (#3462 residual edge 3 — tracking issue force-close ガード)', () => {
+	it('epic label 付き tracking issue を集約 close 候補から分離する', () => {
+		expect(partitionClosedIssues([100, 200, 300], [200])).toEqual({
+			closable: [100, 300],
+			tracking: [200],
+		});
+	});
+
+	it('gh issue list --json number の [{number}] 形式も受ける', () => {
+		expect(partitionClosedIssues([100, 200], [{ number: 100 }])).toEqual({
+			closable: [200],
+			tracking: [100],
+		});
+	});
+
+	it('tracking 一覧が空なら全て closable (後方互換)', () => {
+		expect(partitionClosedIssues([100, 200])).toEqual({ closable: [100, 200], tracking: [] });
+	});
+
+	it('renderIntegrationPrBody: tracking issue は Closes に出さず「(tracking, close 対象外)」注記を出す', () => {
+		const body = renderIntegrationPrBody({
+			template: TEMPLATE,
+			prs: [
+				{
+					number: 10,
+					title: 'fix A',
+					headRefName: 'fix/1',
+					body: '## 関連 Issue\ncloses #3133\ncloses #2861',
+				},
+			],
+			developHead: 'abc1234',
+			trackingIssues: [{ number: 2861 }],
+		});
+		expect(body).toContain('Closes #3133'); // 通常 issue は集約
+		expect(body).not.toContain('Closes #2861'); // tracking issue は自動 close しない
+		expect(body).toContain('#2861 (tracking, close 対象外)'); // 除外番号を注記
+	});
+
+	it('renderIntegrationPrBody: 全宣言が tracking のみでも注記を出し Closes は出さない', () => {
+		const body = renderIntegrationPrBody({
+			template: TEMPLATE,
+			prs: [{ number: 10, title: 'fix A', headRefName: 'fix/1', body: 'closes #2861' }],
+			developHead: 'abc1234',
+			trackingIssues: [2861],
+		});
+		expect(body).not.toContain('Closes #2861');
+		expect(body).toContain('#2861 (tracking, close 対象外)');
+		// closable 0 件時の既存文言も維持される
+		expect(body).toContain('closing keyword（`Closes #N`）付き issue はありません');
 	});
 });
 

@@ -1,5 +1,5 @@
 /**
- * scripts/lib/page-guide-capture.mjs (#2928、EPIC #2925 Sub-3)
+ * scripts/lib/ci/page-guide-capture.mjs (#2928、EPIC #2925 Sub-3)
  *
  * ページガイド (driver.js 委譲後、#2926) の "open + settled 状態" を決定的に撮影するための
  * 共有ヘルパ SSOT。`ScreenshotCapture` の `interact` hook (#2928) に渡して使う。
@@ -26,7 +26,7 @@
  *   - tests/e2e/page-guide-screenshots.spec.ts (同 settled ロジックの E2E 版、SS Before/After)
  *   - tests/e2e/page-guide-layout-invariant.spec.ts (#2926 geometry invariant、本 baseline と両輪)
  *   - scripts/capture-specs/flows/admin-page-guide-2905.mjs (PR 証跡 SS 撮影、generic flow)
- *   - scripts/lib/screenshot-helpers.mjs ScreenshotCapture.capture({ interact }) (#2928)
+ *   - scripts/lib/ci/screenshot-helpers.mjs ScreenshotCapture.capture({ interact }) (#2928)
  */
 
 /** ❓ ガイド起動ボタン (AdminLayout.svelte `data-tutorial="page-guide-btn"`)。 */

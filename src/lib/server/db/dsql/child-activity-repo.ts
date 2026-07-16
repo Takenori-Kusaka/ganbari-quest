@@ -19,6 +19,7 @@
 //     isVisible/sortOrder/dailyLimit 等は default に落とす)。
 
 import { sql } from 'drizzle-orm';
+import { ACTIVITY_SOURCES } from '$lib/domain/activity-source';
 import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 import type { IChildActivityRepo } from '../interfaces/child-activity-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
@@ -89,20 +90,22 @@ export function toChildActivity(row: ChildActivityRow): ChildActivity {
 
 /**
  * INSERT 文を構築する (insertActivity / insertActivitiesBulk で共有)。
- * `source` 列は schema default ('seed') に委ねる (sqlite parity: insert 側は指定しない)。
+ * `source` 列は input.source を persist し、省略時は 'seed' (schema default 同値、sqlite parity)。
+ * #3669: 旧実装は source を指定せず全経路が 'seed' に落ち、親手動作成 'custom' が
+ * quota 集計から漏れていた。
  */
 function buildInsertSql(input: InsertChildActivityInput, tenantId: string) {
 	return sql`
 		INSERT INTO child_activities
 			(family_id, child_id, name, category_id, icon, base_points, trigger_hint, is_main_quest,
 			 source_preset_id, priority, is_visible, sort_order, is_archived, archived_reason,
-			 daily_limit, name_kana, name_kanji)
+			 daily_limit, name_kana, name_kanji, source)
 		VALUES (${tenantId}, ${input.childId}, ${input.name}, ${input.categoryId}, ${input.icon},
 			${input.basePoints}, ${input.triggerHint ?? null}, ${(input.isMainQuest ?? 0) !== 0},
 			${input.sourcePresetId ?? null}, ${input.priority ?? 'optional'},
 			${(input.isVisible ?? 1) !== 0}, ${input.sortOrder ?? 0}, ${(input.isArchived ?? 0) !== 0},
 			${input.archivedReason ?? null}, ${input.dailyLimit ?? null}, ${input.nameKana ?? null},
-			${input.nameKanji ?? null})
+			${input.nameKanji ?? null}, ${input.source ?? ACTIVITY_SOURCES.seed.value})
 		RETURNING ${ACTIVITY_COLUMNS}
 	`;
 }
@@ -242,6 +245,8 @@ export function createDsqlChildActivityRepo<TTx extends SqlExecutor>(
 				isMainQuest: a.isMainQuest,
 				sourcePresetId: a.sourcePresetId,
 				priority: a.priority,
+				// #3669: 元活動の source を保全 (copy 経由の quota 迂回と provenance 喪失を防ぐ)
+				source: a.source,
 			}));
 			return insertActivitiesBulk(inputs, tenantId);
 		},

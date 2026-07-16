@@ -26,20 +26,29 @@
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/reward-redemption-repo.ts (SSOT)
 
-import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	PutCommand,
+	QueryCommand,
+	ScanCommand,
+	TransactWriteCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
-import type {
-	IRewardRedemptionRepo,
-	RedemptionRequestRow,
-	RedemptionRequestWithDetails,
-	RedemptionRequestWithReward,
+import {
+	type IRewardRedemptionRepo,
+	REDEMPTION_DEDUP_WINDOW_SEC,
+	type RedemptionRequestRow,
+	type RedemptionRequestWithDetails,
+	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
 	childPK,
 	ENTITY_NAMES,
+	redemptionPendingMarkerKey,
 	rewardRedemptionKey,
 	rewardRedemptionPrefix,
 	specialRewardPrefix,
@@ -132,7 +141,21 @@ async function findRewardFields(
 export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionRequest'] = async (
 	input,
 	tenantId,
-): Promise<RedemptionRequestRow> => {
+): Promise<RedemptionRequestRow | { error: 'DUPLICATE_REQUEST' }> => {
+	// #3356 (1) dedup (b): 直近 REDEMPTION_DEDUP_WINDOW_SEC 秒以内の approved (即時交換含む) が
+	// あれば連打/再送/多タブとみなして弾く。pre-read best-effort (DynamoDB transaction は query 述語
+	// を条件化できないため。極端な並行では (a) の pending marker が最終防衛線になる)。
+	const windowStart = input.requestedAt - REDEMPTION_DEDUP_WINDOW_SEC;
+	const existing = await queryChildRedemptions(input.childId, tenantId);
+	const recentApproved = existing.some(
+		(item) =>
+			item.rewardId === Number(input.rewardId) &&
+			item.status === 'approved' &&
+			typeof item.resolvedAt === 'number' &&
+			(item.resolvedAt as number) >= windowStart,
+	);
+	if (recentApproved) return { error: 'DUPLICATE_REQUEST' };
+
 	const id = await nextId(ENTITY_NAMES.rewardRedemption, tenantId);
 
 	// JOIN 代替: childName / reward fields を解決し item に非正規化保存。
@@ -159,23 +182,85 @@ export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionReq
 		rewardPoints: reward?.points ?? 0,
 	};
 
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...rewardRedemptionKey(Number(input.childId), id, tenantId),
-				...row,
-				...denorm,
-				// stored attributes は数値 id のまま (storage format 不変、#3575)
-				id,
-				childId: Number(input.childId),
-				rewardId: Number(input.rewardId),
-			},
-		}),
-	);
+	// #3356 (1) dedup (a): pending marker (REDEMPTPEND#<rewardId>) の attribute_not_exists 条件付き
+	// Put を申請 Put と同一 TransactWriteItems 化。同一 (child, reward) の pending は高々 1 件を
+	// DB レベルで物理保証する (旧 service 層 findPendingByChildAndReward の TOCTOU 根治)。
+	// marker は pending 解消時 (updateRedemptionRequestStatus / expireOldRedemptions) に削除する。
+	try {
+		await getDocClient().send(
+			new TransactWriteCommand({
+				TransactItems: [
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: {
+								...redemptionPendingMarkerKey(
+									Number(input.childId),
+									Number(input.rewardId),
+									tenantId,
+								),
+								requestId: id,
+								requestedAt: input.requestedAt,
+							},
+							ConditionExpression: 'attribute_not_exists(PK)',
+						},
+					},
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: {
+								...rewardRedemptionKey(Number(input.childId), id, tenantId),
+								...row,
+								...denorm,
+								// stored attributes は数値 id のまま (storage format 不変、#3575)
+								id,
+								childId: Number(input.childId),
+								rewardId: Number(input.rewardId),
+							},
+						},
+					},
+				],
+			}),
+		);
+	} catch (e) {
+		const cancellation = (e as { name?: string; CancellationReasons?: Array<{ Code?: string }> })
+			?.CancellationReasons;
+		const conditionFailed =
+			(e as { name?: string })?.name === 'TransactionCanceledException' &&
+			(cancellation?.some((r) => r?.Code === 'ConditionalCheckFailed') ?? false);
+		if (conditionFailed) return { error: 'DUPLICATE_REQUEST' };
+		throw e;
+	}
 
 	return row;
 };
+
+/**
+ * pending 解消時に pending marker を削除する (#3356 (1))。
+ * marker.requestId が一致する場合のみ削除する条件付き Delete (並行で新規 pending が
+ * 作った marker を誤って消さない)。marker 不在 / requestId 不一致 (legacy pending 等) は
+ * ConditionalCheckFailedException を握って no-op。
+ */
+async function deletePendingMarker(
+	childId: number,
+	rewardId: number,
+	requestId: number,
+	tenantId: string,
+): Promise<void> {
+	try {
+		await getDocClient().send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: redemptionPendingMarkerKey(childId, rewardId, tenantId),
+				ConditionExpression: 'requestId = :rid',
+				ExpressionAttributeValues: { ':rid': requestId },
+			}),
+		);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return;
+		throw e;
+	}
+}
 
 // ============================================================
 // insertRedemptionForRestore — backup restore 用 (全フィールド保全、#3329)
@@ -341,7 +426,13 @@ export const updateRedemptionRequestStatus: IRewardRedemptionRepo['updateRedempt
 				}),
 			);
 			if (!result.Attributes) return undefined;
-			return toRow(result.Attributes);
+			const row = toRow(result.Attributes);
+			// #3356 (1): pending から離脱する遷移 (approved / rejected / expired) では pending marker を
+			// 削除し、同一 (child, reward) の次回申請を許可する (requestId 条件付き、legacy 行は no-op)。
+			if (updates.status !== 'pending_parent_approval') {
+				await deletePendingMarker(Number(childId), Number(row.rewardId), Number(id), tenantId);
+			}
+			return row;
 		} catch (e) {
 			if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return undefined;
 			throw e;
@@ -352,14 +443,8 @@ export const updateRedemptionRequestStatus: IRewardRedemptionRepo['updateRedempt
 // findPendingByChildAndReward — 二重申請チェック
 // ============================================================
 
-export const findPendingByChildAndReward: IRewardRedemptionRepo['findPendingByChildAndReward'] =
-	async (childId, rewardId, tenantId): Promise<RedemptionRequestRow | undefined> => {
-		const items = await queryChildRedemptions(childId, tenantId);
-		const match = items.find(
-			(item) => item.rewardId === Number(rewardId) && item.status === 'pending_parent_approval',
-		);
-		return match ? toRow(match) : undefined;
-	};
+// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
+// insertRedemptionRequest の pending marker (TransactWriteItems) に内蔵済 (TOCTOU 根治)。
 
 // ============================================================
 // findUnshownResultByChild — 子供の未表示の承認/却下通知 (reward 結合付き)
@@ -442,6 +527,13 @@ export const expireOldRedemptions: IRewardRedemptionRepo['expireOldRedemptions']
 				ExpressionAttributeValues: { ':expired': 'expired' },
 			}),
 		);
+		// #3356 (1): pending 解消に伴い pending marker も削除 (requestId 条件付き、legacy 行は no-op)。
+		await deletePendingMarker(
+			item.childId as number,
+			item.rewardId as number,
+			item.id as number,
+			tenantId,
+		);
 	}
 	return targets.length;
 };
@@ -466,9 +558,12 @@ export const hasPendingByReward: IRewardRedemptionRepo['hasPendingByReward'] = a
 
 export const deleteByTenantId: IRewardRedemptionRepo['deleteByTenantId'] = async (
 	tenantId,
+	childIds,
 ): Promise<void> => {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+	const { deleteChildScopedItems } = await import('./bulk-delete');
+	await deleteChildScopedItems(tenantId, childIds, PREFIX);
+	// #3356 (1): pending marker (REDEMPTPEND#) も併せて削除
+	await deleteChildScopedItems(tenantId, childIds, 'REDEMPTPEND#');
 };
 
 // ============================================================

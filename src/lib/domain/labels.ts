@@ -472,6 +472,44 @@ export const PLAN_GATE_LABELS = {
 	lockedItemIcon: '🔒',
 } as const;
 
+// ============================================================
+// OWNER_GATE_LABELS — owner-gate 403 / 401 エラー文言 SSOT (#3561 ①③)
+// ============================================================
+//
+// account / tenant / members 系 owner-gate endpoint (requireRole(locals, ['owner'])
+// seam、#3528 fitness#3 / #3556) の {error} body 文言を PLAN_GATE_LABELS 同様に
+// compound 層へ集約する (ADR-0062 §2 error body 統一の territory)。既存 client
+// 互換のため、各値は置換前のハードコード文言とバイト一致で維持する。
+// endpoint 側の変換 helper は src/lib/server/auth/owner-gate.ts (ownerGateResponse)。
+
+/** "owner のみ{action}できます" — owner-gate 403 文言の共通テンプレート (#3561 ①) */
+const ownerOnly = (action: string) => `owner のみ${action}できます`;
+
+export const OWNER_GATE_LABELS = {
+	/**
+	 * 401: 認証コンテキスト欠落。requireRole が throw する HttpError(401) を
+	 * endpoint 文言へ変換する際の body (#3561 ③)。各 endpoint 上流の
+	 * `!context` 早期 return と同一文言（バイト一致）。
+	 */
+	authRequired: '認証が必要です',
+	/** POST api/v1/admin/account/delete (owner 系 3 pattern 共通) */
+	accountDelete: ownerOnly('実行'),
+	/** GET api/v1/admin/account/deletion-info */
+	deletionInfo: ownerOnly('取得'),
+	/** POST api/v1/admin/tenant/cancel */
+	tenantCancel: ownerOnly(`${CANCEL_TERMS.canonical}申請`),
+	/** POST api/v1/admin/tenant/reactivate */
+	tenantReactivate: ownerOnly(`${CANCEL_TERMS.canonical}キャンセル`),
+	/** DELETE api/v1/admin/members/[userId] */
+	memberDelete: ownerOnly('メンバーを削除'),
+	/** POST api/v1/admin/members/[userId]/transfer-ownership */
+	transferOwnership: ownerOnly('権限を移譲'),
+	/** POST api/v1/admin/invites (#3726、置換前文言とバイト一致) */
+	inviteCreate: ownerOnly('招待を作成'),
+	/** DELETE api/v1/admin/invites/[code] (#3726、置換前文言とバイト一致) */
+	inviteRevoke: ownerOnly('招待を取り消し'),
+} as const;
+
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
 	monthly: 'スタンダード月額',
 	yearly: 'スタンダード年額',
@@ -2111,8 +2149,15 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 export const IMPORT_LABELS = {
 	// エラーメッセージ
 	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
-	errorInvalidJson: 'ファイルの読み込みに失敗しました',
+	// #3201: parse 失敗 (= そもそもバックアップ形式でない) を checksum 不一致 (= 破損 / 改ざん) と
+	// 区別できる文言に是正 + /api/v1/import の parse 失敗経路に配線 (旧: 'JSONの解析に失敗しました' 直書き)。
+	// 内部フォーマット名 (JSON) は UI 露出しない (BACKUP_TERMS SSOT、#3198)。
+	errorInvalidJson: `${BACKUP_TERMS.file}として読み込めませんでした（ファイルの形式が正しくありません）`,
 	errorImportFailed: 'インポートに失敗しました',
+	// #3325 AC3: 実行環境の実効上限 (AWS = Function URL 6MB 弱) 超過時のエラー + クラウド導線案内。
+	// API (import/+server.ts) と UI (settings/data の送信前 pre-check) の双方で共有する。
+	errorFileTooLargeCloudGuide: (maxMb: number | string) =>
+		`ファイルサイズが大きすぎます（最大${maxMb}MB）。大きな${BACKUP_TERMS.canonical}はクラウド共有（PINコード）経由で${BACKUP_TERMS.restoreVerb}してください`,
 
 	// 事前確認ダイアログ
 	previewDialogTitle: 'インポート内容の確認',
@@ -2261,6 +2306,13 @@ export const SETTINGS_LABELS = {
 	// #3285 uiux-3: settings/data の import 検証 / クラウド連携メッセージを SSOT 集約 (旧: 直書き)
 	dataImportNoFile: `${BACKUP_TERMS.file}が選択されていません`,
 	dataImportFileTooLarge: (maxMb: string) => `ファイルサイズが大きすぎます（最大${maxMb}MB）`,
+	// #3324: import fetch の client timeout (AbortController) 発火時の明示エラー (無限ハング防止)
+	dataImportTimeoutError:
+		'処理がタイムアウトしました。通信状況をご確認のうえ、しばらくしてから再度お試しください',
+	// #3372: registry (backup-entity-registry) 駆動の partial-backup 警告 (NN/G visibility)。
+	// 未 export の source 実体が存在する間のみ表示し、export 実装が進むと自動で消える。
+	dataImportPartialBackupWarning: (items: string) =>
+		`この${BACKUP_TERMS.exportNoun}形式にはまだ含まれないデータがあります（${items}）。これらは${BACKUP_TERMS.restoreVerb}されません。`,
 	cloudExportPinIssued: (pinCode: string, expiry: string) =>
 		`PINコード: ${pinCode}（有効期限: ${expiry}）`,
 	cloudImportNoChildren:
@@ -2327,6 +2379,11 @@ export const SETTINGS_LABELS = {
 	cloudStoredExpiry: (date: string) => `期限: ${date}`,
 	cloudStoredDownloads: (count: number | string, max: number | string) => `DL: ${count}/${max}回`,
 	cloudStoredDelete: '削除',
+	// #3324 / #3509: 非同期 build 状態 (pending/building/ready/failed) の可視フィードバック
+	cloudStatusPending: '受付済み・生成待ち',
+	cloudStatusBuilding: '生成中…',
+	cloudStatusFailed: (reason: string) => `作成に失敗しました${reason ? `（${reason}）` : ''}`,
+	cloudDownloadAction: 'ダウンロード',
 	cloudImportTitle: 'PINコードでインポート',
 	cloudImportDesc: '共有されたPINコードを入力してデータを取り込みます。',
 	cloudImportPinPlaceholder: 'PINコード（6桁）',
@@ -3684,6 +3741,9 @@ export const MEMBERS_LABELS = {
 	// Pending invites section
 	pendingInvitesTitle: '保留中の招待',
 	inviteExpiresPrefix: '期限: ',
+	// #3555 ①: 宛先 email 束縛付き招待の宛先を owner に見せる (タイプミスに気づき
+	// 取消し → 再発行できる修正導線)
+	inviteEmailBoundPrefix: '宛先: ',
 	inviteRevokeButton: '取消し',
 
 	// Error messages
@@ -5228,6 +5288,15 @@ export const AUTH_INVITE_LABELS = {
 	roleLabel: '参加ロール:',
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
+	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
+	// 英語エラーコード (INVITE_EMAIL_MISMATCH) を露出せず、次アクションを必ず添える。
+	emailMismatch: 'この招待は別のメールアドレス宛です。',
+	emailMismatchDesc: '招待した方に、あなたのメールアドレス宛の招待を発行し直してもらってください。',
+	// #3555 ①: 受諾失敗 → 新規家族グループ自動作成後に admin 画面で表示する案内バナー
+	acceptErrorMismatchBanner:
+		'招待は別のメールアドレス宛だったため参加できず、新しい家族グループが作成されました。招待で参加するには、招待した方にあなたのメールアドレス宛の招待を発行し直してもらってください。',
+	acceptErrorUnverifiedBanner:
+		'メールアドレスの確認が完了していないため招待を受諾できず、新しい家族グループが作成されました。メールアドレスの確認後、招待した方に新しい招待を発行してもらってください。',
 } as const;
 
 // DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
@@ -7251,7 +7320,9 @@ export const FEATURES_LABELS = {
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
 		// #backup-terms: 活動取込は JSON バックアップに加え CSV (自作表計算) も読み込めるため CSV を露出する (ADR-0013 truth、#3079 AC4)
-		restoreDialogDesc: `活動の${BACKUP_TERMS.importFile} ファイルを読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。`,
+		// #3201: 2 つの入力源 (書き出したバックアップ / 自作 CSV) を平易に並記 + 家族全体 (画像・音声含む)
+		// の復元先は 設定 > データ である旨を誘導 (受理 format が画面ごとに異なる混乱の予防)
+		restoreDialogDesc: `以前書き出した活動の${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。家族全体のデータ（画像・音声を含む）の${BACKUP_TERMS.restoreVerb}は「設定 > データ」から行えます。`,
 		restoreSubmitBtn: '読み込む',
 		restoreProcessing: '読み込み中…',
 		restoreSuccess: (name: string, imported: number, skipped: number) =>
@@ -9222,7 +9293,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	marketplaceHeading: 'マーケットプレイスから',
 	fileHeading: 'ファイルから',
 	// #backup-terms: 活動取込は CSV (自作表計算) も受けるため CSV を露出する (ADR-0013 truth)
-	fileDesc: `保存しておいた${BACKUP_TERMS.importFile} ファイルを取り込みます。`,
+	// #3201: slash 表記「バックアップ / CSV」を廃止し 2 つの入力源を平易に並記
+	fileDesc: `保存しておいた${BACKUP_TERMS.file}か、表計算ソフトで作った${BACKUP_TERMS.csvFile}を取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',

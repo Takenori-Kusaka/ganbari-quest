@@ -27,6 +27,7 @@ const {
 	MockUpdateCommand,
 	MockDeleteCommand,
 	MockScanCommand,
+	MockTransactWriteCommand,
 } = vi.hoisted(() => {
 	const send = vi.fn();
 	class Cmd {
@@ -43,6 +44,7 @@ const {
 		MockUpdateCommand: class extends Cmd {},
 		MockDeleteCommand: class extends Cmd {},
 		MockScanCommand: class extends Cmd {},
+		MockTransactWriteCommand: class extends Cmd {},
 	};
 });
 
@@ -58,6 +60,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 	UpdateCommand: MockUpdateCommand,
 	DeleteCommand: MockDeleteCommand,
 	ScanCommand: MockScanCommand,
+	TransactWriteCommand: MockTransactWriteCommand,
 }));
 
 async function loadRepo() {
@@ -468,44 +471,92 @@ describe('markCompleted', () => {
 	});
 });
 
-describe('claimReward', () => {
-	it('条件付き UPDATE が成功 → rewardClaimed=1 を Update し 1 を返す (#3333)', async () => {
+describe('claimRewardAndGrantPoints (#3284/#3342、#3333 後継)', () => {
+	type TransactInput = {
+		input: {
+			TransactItems?: Array<{
+				Update?: {
+					UpdateExpression?: string;
+					ConditionExpression?: string;
+					ExpressionAttributeValues?: Record<string, unknown>;
+				};
+				Put?: {
+					Item?: Record<string, unknown>;
+					ConditionExpression?: string;
+				};
+			}>;
+		};
+	};
+
+	it('単一 TransactWriteItems で 条件付き flip + ledger Put + 冪等 marker Put を実行し 1 を返す', async () => {
 		mockSend
 			.mockResolvedValueOnce({
 				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
-			})
-			.mockResolvedValueOnce({});
-		const { claimReward } = await loadRepo();
-		const changed = await claimReward('1', TENANT);
+			}) // resolveKeyById (Scan)
+			.mockResolvedValueOnce({ Attributes: { counter: 501 } }) // nextId (pointLedger)
+			.mockResolvedValueOnce({}); // TransactWrite
+		const { claimRewardAndGrantPoints } = await loadRepo();
+		const changed = await claimRewardAndGrantPoints(
+			'1',
+			{ childId: CHILD_ID, amount: 30, description: 'チャレンジ達成: なわとび' },
+			TENANT,
+		);
 		expect(changed).toBe(1);
-		const upd = mockSend.mock.calls[1]?.[0] as {
-			input: {
-				UpdateExpression?: string;
-				ConditionExpression?: string;
-				ExpressionAttributeValues?: Record<string, unknown>;
-			};
-		};
-		expect(upd.input.UpdateExpression).toContain('rewardClaimed = :one');
-		expect(upd.input.ExpressionAttributeValues?.[':one']).toBe(1);
-		// 原子化: completed=1 かつ未請求 (未設定 or 0) のみ flip する ConditionExpression
-		expect(upd.input.ConditionExpression).toContain('completed = :one');
-		expect(upd.input.ConditionExpression).toContain('attribute_not_exists(rewardClaimed)');
-		expect(upd.input.ConditionExpression).toContain('rewardClaimed = :zero');
-		expect(upd.input.ExpressionAttributeValues?.[':zero']).toBe(0);
+
+		const transact = mockSend.mock.calls[2]?.[0] as TransactInput;
+		const items = transact.input.TransactItems ?? [];
+		expect(items).toHaveLength(3);
+
+		// item 1: 条件付き flip (completed=1 かつ未請求のみ)
+		const upd = items[0]?.Update;
+		expect(upd?.UpdateExpression).toContain('rewardClaimed = :one');
+		expect(upd?.ConditionExpression).toContain('completed = :one');
+		expect(upd?.ConditionExpression).toContain('attribute_not_exists(rewardClaimed)');
+		expect(upd?.ConditionExpression).toContain('rewardClaimed = :zero');
+		expect(upd?.ExpressionAttributeValues?.[':one']).toBe(1);
+		expect(upd?.ExpressionAttributeValues?.[':zero']).toBe(0);
+
+		// item 2: point ledger Put (type='child_challenge' / referenceId=challenge id)
+		const ledgerPut = items[1]?.Put;
+		expect(ledgerPut?.Item).toMatchObject({
+			childId: Number(CHILD_ID),
+			amount: 30,
+			type: 'child_challenge',
+			referenceId: 1,
+		});
+
+		// item 3: 冪等 marker Put (POINTIDEM#child_challenge#<id>、attribute_not_exists、#3284)
+		const markerPut = items[2]?.Put;
+		expect(markerPut?.ConditionExpression).toBe('attribute_not_exists(PK)');
+		expect((markerPut?.Item?.SK as string) ?? '').toContain('POINTIDEM#child_challenge#');
 	});
 
-	it('ConditionalCheckFailedException (既請求 / 並行 2 件目) → 付与せず 0 を返す (#3333 TOCTOU)', async () => {
-		const condFail = Object.assign(new Error('conditional failed'), {
-			name: 'ConditionalCheckFailedException',
+	it('TransactionCanceledException (既請求 / 並行 2 件目 / 冪等 marker 既存) → 全 item cancel で 0 を返す', async () => {
+		const cancel = Object.assign(new Error('canceled'), {
+			name: 'TransactionCanceledException',
+			CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }, { Code: 'None' }],
 		});
 		mockSend
 			.mockResolvedValueOnce({
 				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
 			})
-			.mockRejectedValueOnce(condFail);
-		const { claimReward } = await loadRepo();
-		const changed = await claimReward('1', TENANT);
+			.mockResolvedValueOnce({ Attributes: { counter: 502 } })
+			.mockRejectedValueOnce(cancel);
+		const { claimRewardAndGrantPoints } = await loadRepo();
+		const changed = await claimRewardAndGrantPoints(
+			'1',
+			{ childId: CHILD_ID, amount: 30, description: 'x' },
+			TENANT,
+		);
 		expect(changed).toBe(0);
+	});
+
+	it('challenge が tenant 内に不在 → 0 で mask せず throw する (#3342 (3) not-found 区別)', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [] }); // resolveKeyById が null
+		const { claimRewardAndGrantPoints } = await loadRepo();
+		await expect(
+			claimRewardAndGrantPoints('999', { childId: CHILD_ID, amount: 30, description: 'x' }, TENANT),
+		).rejects.toThrow(/not found/);
 	});
 });
 
@@ -687,7 +738,7 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 		expect(upd.input.ExpressionAttributeValues?.[':cv']).toBe(3);
 	});
 
-	it('markCompleted / claimReward も auto 行に作用する (進捗→完了→報酬の貫通)', async () => {
+	it('markCompleted / claimRewardAndGrantPoints も auto 行に作用する (進捗→完了→報酬の貫通)', async () => {
 		const repo = await loadRepo();
 		// markCompleted
 		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
@@ -697,12 +748,20 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 		);
 
 		mockSend.mockReset();
-		// claimReward
-		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
-		await repo.claimReward('50', TENANT);
-		expect((mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } }).input.Key?.SK).toBe(
-			AUTO_SK,
+		// claimRewardAndGrantPoints: resolve → nextId → TransactWrite (flip item の Key が実 AUTO SK)
+		mockSend
+			.mockResolvedValueOnce({ Items: [AUTO_KEY] })
+			.mockResolvedValueOnce({ Attributes: { counter: 601 } })
+			.mockResolvedValueOnce({});
+		await repo.claimRewardAndGrantPoints(
+			'50',
+			{ childId: CHILD_ID, amount: 30, description: 'x' },
+			TENANT,
 		);
+		const transact = mockSend.mock.calls[2]?.[0] as {
+			input: { TransactItems?: Array<{ Update?: { Key?: { SK: string } } }> };
+		};
+		expect(transact.input.TransactItems?.[0]?.Update?.Key?.SK).toBe(AUTO_SK);
 	});
 
 	it('findById も auto 行を id で取得する (read=write 対称、SK 形式非依存)', async () => {
@@ -765,8 +824,8 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 			restoreInput({ sourceTemplateId: 'auto:weekly', currentValue: 4 }),
 			TENANT,
 		);
-		expect(result.id).toBe('201');
-		expect(result.currentValue).toBe(4);
+		expect(result?.id).toBe('201');
+		expect(result?.currentValue).toBe(4);
 		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
 		// regular SK (CHILDCHAL#<padId>) ではなく dedup SK に置く。
 		expect(put.input.Item?.SK).toBe(AUTO_SK);
@@ -823,6 +882,74 @@ describe('#3329 insertForRestore dedup key 整合', () => {
 });
 
 // ============================================================
+// #3387/#3394: insertForRestore の unique-index 相当 guard (統一冪等契約)
+// ============================================================
+//
+// SQLite の部分 unique index idx_child_challenges_auto_weekly_unique と機能等価にするため、
+// Put は attribute_not_exists(PK) 条件付きで発行し、衝突 (重複 backup) は silent 上書き
+// (last-writer-wins) せず null を返す。throttle 等その他の失敗は throw する (#3401 例外分類)。
+
+describe('#3387/#3394 insertForRestore 冪等 guard', () => {
+	function restoreInput(over: Record<string, unknown> = {}) {
+		return {
+			childId: CHILD_ID,
+			title: '復元チャレンジ',
+			description: null,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: '2026-06-01',
+			endDate: '2026-06-07',
+			targetConfig: '{"metric":"count","baseTarget":5}',
+			rewardConfig: '{"points":50}',
+			status: 'active',
+			isActive: 1,
+			sourceTemplateId: null,
+			currentValue: 0,
+			targetValue: 5,
+			completed: 0,
+			completedAt: null,
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			createdAt: '2026-06-01T00:00:00.000Z',
+			updatedAt: '2026-06-01T00:00:00.000Z',
+			...over,
+		} as Parameters<Awaited<ReturnType<typeof loadRepo>>['insertForRestore']>[0];
+	}
+
+	it('Put に ConditionExpression attribute_not_exists(PK) が付く (silent 上書き禁止)', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 301 } }).mockResolvedValueOnce({});
+		const { insertForRestore } = await loadRepo();
+		await insertForRestore(restoreInput({ sourceTemplateId: 'auto:weekly' }), TENANT);
+		const put = mockSend.mock.calls[1]?.[0] as {
+			input: { ConditionExpression?: string };
+		};
+		expect(put.input.ConditionExpression).toBe('attribute_not_exists(PK)');
+	});
+
+	it('重複 (ConditionalCheckFailedException) は null を返す (SQLite onConflictDoNothing 等価、count 偽装防止)', async () => {
+		const err = new Error('conditional check failed');
+		err.name = 'ConditionalCheckFailedException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 302 } }).mockRejectedValueOnce(err);
+		const { insertForRestore } = await loadRepo();
+		const result = await insertForRestore(
+			restoreInput({ sourceTemplateId: 'auto:weekly' }),
+			TENANT,
+		);
+		expect(result).toBeNull();
+	});
+
+	it('throttle 等その他の write 失敗は throw する (#3401: silent loss / 重複誤分類の禁止)', async () => {
+		const err = new Error('Throughput exceeds the current capacity');
+		err.name = 'ProvisionedThroughputExceededException';
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 303 } }).mockRejectedValueOnce(err);
+		const { insertForRestore } = await loadRepo();
+		await expect(
+			insertForRestore(restoreInput({ sourceTemplateId: 'auto:weekly' }), TENANT),
+		).rejects.toThrow('Throughput exceeds');
+	});
+});
+
+// ============================================================
 // interface 適合 (SQLite との機能等価性)
 // ============================================================
 
@@ -841,7 +968,7 @@ describe('interface 適合 (IChildChallengeRepo)', () => {
 			'insertBulk',
 			'updateProgress',
 			'markCompleted',
-			'claimReward',
+			'claimRewardAndGrantPoints',
 			'update',
 			'deleteChallenge',
 			'copyAcrossChildren',

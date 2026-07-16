@@ -6,6 +6,9 @@
 // restoreArchivedResources) を撤去。subscription 管理 (プラン表示 / trial / Stripe 連携) のみ残す。
 
 import { fail } from '@sveltejs/kit';
+// #3669: 活動カウンタは quota (checkActivityLimit) と同一の SSOT 述語で集計する
+// (旧実装は 'parent' を数えており、producer/quota と三重乖離して常に 0 表示だった)
+import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { TRIAL_LABELS } from '$lib/domain/labels';
@@ -40,7 +43,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let activityCount = 0;
 	try {
 		const acts = await getActivities(tenantId, { includeHidden: false });
-		activityCount = acts.filter((a) => a.source === 'parent').length;
+		activityCount = acts.filter((a) => countsTowardActivityQuota(a.source)).length;
 	} catch {
 		/* fallback */
 	}

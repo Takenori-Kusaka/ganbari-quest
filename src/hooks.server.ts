@@ -170,7 +170,9 @@ export const handle: Handle = ({ event, resolve }) =>
 		await applyOperatorPinResetIfRequested();
 
 		// 0-a) メンテナンスモード（Lambda環境変数で切替）
-		if (MAINTENANCE_MODE && path !== '/api/health') {
+		// /api/ready (LWA readiness、#3657) も除外 — メンテ中に 503 を返すと cold start の
+		// LWA が never-ready になり、メンテページ (503) の代わりに 502 が外形になる。
+		if (MAINTENANCE_MODE && path !== '/api/health' && path !== '/api/ready') {
 			if (acceptsHtml(event.request)) {
 				return new Response(
 					renderErrorHtml(

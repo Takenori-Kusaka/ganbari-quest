@@ -10,9 +10,15 @@
 //     行う。この read-then-write は同一 child の別 activity を並行 pin すると write-skew を起こす
 //     (両 txn が同じ MAX をスナップショット読取 → 同じ nextOrder を別行に INSERT → 別行ゆえ OCC
 //     40001 は発火せず pin_order が tie。設計書 §4.1: read-write 依存は非検出 = write skew を
-//     OCC では防げない)。よって txn 冒頭で children 行を FOR UPDATE ロックし、同一 child の pin
-//     操作を直列化する (§8。#3546 daily-mission と同型の serialization anchor)。異なる child は
-//     別行ロックで非競合。sqlite は同期ドライバで暗黙直列のため parity 上も等価。
+//     OCC では防げない)。よって txn 冒頭で children 行を FOR UPDATE し、この read を write-intent
+//     化する (#3546 daily-mission と同型の anchor)。
+//     ⚠️ **DSQL の FOR UPDATE は blocking lock ではない** (#3592 ② staging 実測 2026-07-15):
+//     同一 children 行への並行 write-intent は commit 時に 40001 で検出され occ-retry が吸収する
+//     — write-skew (pin_order tie) は構造的に防がれるが「直列化 (全成功)」は保証されない。
+//     現実的並行度 (N=2、二重 click) は maxAttempts=3 で全成功、N=8 バーストでは一部が
+//     clean な OCC 枯渇 fail になり得る (committed 分の tie なし連番は常に成立)。実測 test =
+//     tests/integration/db/dsql-staging-pin-bulk-latency.test.ts [M1][M1b]。異なる child は
+//     別行 intent で非競合。sqlite は同期ドライバで暗黙直列のため parity 上も等価。
 //     work 内 await は tx.execute(...) 直呼びのみ (fitness#7、helper 閉包経由 await 禁止)。
 //   - upsert は複合 PK への ON CONFLICT DO UPDATE (record-activity-core.ts と同型)。
 //   - sqlite parity: findAllByChild の並びは pin_order ASC で NULL 先頭 (SQLite の NULL 順)。
@@ -69,15 +75,20 @@ export function createDsqlActivityPrefRepo<TTx extends SqlExecutor>(
 
 		async insertForRestore(input, tenantId) {
 			// #3329: isPinned/pinOrder/日時を verbatim 書き戻す (togglePin の再採番を経由しない)。
-			// 複合 PK 重複は 23505 throw のまま呼び出し側契約 (restore 先は新規 child 前提)。
+			// #3394/#3465 統一冪等契約: 同 (child, activity) 既存 (自然複合 PK 衝突) は DO NOTHING で
+			// skip し null を返す (sqlite idx_child_activity_prefs_unique / dynamodb
+			// attribute_not_exists と機能等価。旧実装の 23505 throw は「重複 = errors 行き」で
+			// backend 間の count 非対称を生んでいた)。
 			const result = await db.execute(sql`
 				INSERT INTO child_activity_preferences
 					(family_id, child_id, activity_id, is_pinned, pin_order, created_at, updated_at)
 				VALUES (${tenantId}, ${input.childId}, ${input.activityId}, ${input.isPinned !== 0},
 					${input.pinOrder}, ${input.createdAt}, ${input.updatedAt})
+				ON CONFLICT (family_id, child_id, activity_id) DO NOTHING
 				RETURNING ${PREF_COLUMNS}
 			`);
-			return toPref(result.rows[0] as unknown as PrefRow);
+			const row = result.rows[0] as unknown as PrefRow | undefined;
+			return row ? toPref(row) : null;
 		},
 
 		async findPinnedByChild(childId, tenantId) {

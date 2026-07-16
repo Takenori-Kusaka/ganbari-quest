@@ -19,8 +19,14 @@ export interface IVoiceRepo {
 	 * insert は createdAt を now で発番するため round-trip で作成日時が失われる。本メソッドは
 	 * 呼び出し側が新 tenant+childId へ remap 済の filePath/publicUrl をそのまま書き戻す
 	 * (音声ファイル本体は #3077 importStaticFiles が voices/<newChildId>/ へ復元済)。id は新規採番。
+	 *
+	 * #3394 統一冪等契約: 永続化しなかった場合 (demo no-op stub) は **null** を返し、
+	 * import カウント (childVoicesImported) を偽装しない (#2263 count 偽装 class)。
 	 */
-	insertForRestore(voice: Omit<ChildCustomVoice, 'id'>, tenantId: string): Promise<{ id: string }>;
+	insertForRestore(
+		voice: Omit<ChildCustomVoice, 'id'>,
+		tenantId: string,
+	): Promise<{ id: string } | null>;
 
 	setActive(id: string, childId: ChildId, scene: string, tenantId: string): Promise<void>;
 	deleteById(id: string, tenantId: string): Promise<void>;

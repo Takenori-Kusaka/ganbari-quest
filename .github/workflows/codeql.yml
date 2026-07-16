@@ -29,6 +29,11 @@ on:
   schedule:
     - cron: "0 6 * * 1" # Every Monday at 6:00 UTC
 
+# #3494 AC2: repo デフォルト GITHUB_TOKEN 権限への依存を排除するため top-level で read-only を明示。
+# analyze job は job-level permissions (security-events: write 等) で全面 override する。
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze

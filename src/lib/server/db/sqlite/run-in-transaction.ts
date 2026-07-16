@@ -12,6 +12,7 @@
 
 import type { Database } from 'better-sqlite3';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import { assertNotNestedTransaction, runWithTransactionContext } from '../txn-nest-guard';
 
 /**
  * SQLite 用 TransactionRunner を生成する。
@@ -24,9 +25,12 @@ export function createSqliteTransactionRunner<TTx>(
 ): TransactionRunner<TTx> {
 	return {
 		async runInTransaction<T>(work: (tx: TTx) => Promise<T>): Promise<T> {
+			// #3535: ネスト呼出は fail-loud。native の 'cannot start a transaction within a
+			// transaction' より前に、原因が特定できる message で throw する (dsql 側と同一契約)。
+			assertNotNestedTransaction('sqlite');
 			sqlite.exec('BEGIN IMMEDIATE');
 			try {
-				const result = await work(txHandle);
+				const result = await runWithTransactionContext(() => work(txHandle));
 				sqlite.exec('COMMIT');
 				return result;
 			} catch (err) {

@@ -265,6 +265,15 @@ jobs:
       - name: ESLint Playwright (no-networkidle / no-wait-for-timeout, #1259)
         run: npx eslint "tests/**/*.ts"
 
+      # #3450 item1: svelte/no-at-html-tags (XSS) の AST 検出を CI で二重化。
+      # XSS の hard merge-blocker は scripts/check-no-at-html.mjs (lint-parallel job) が担い、
+      # 本 step は AST 層の secondary 検出。既存違反 38 errors は全て local design rules
+      # (no-raw-button / max-style-lines 等、svelte/no-at-html-tags は 0 件) のため
+      # SonarJS step と同格の warn-only で導入 (green 化できない hard gate を足さない)。
+      - name: ESLint Svelte (svelte/no-at-html-tags AST XSS 二重化, #3450)
+        continue-on-error: true
+        run: npm run lint:svelte
+
       - name: Knip (unused exports/files/deps detection, #970)
         continue-on-error: true
         run: npx knip

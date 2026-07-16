@@ -67,19 +67,32 @@ let restoreLoading = $state(false);
 // Round 18 Cluster K (#1870 評価 Round 3): cookie fallback を fallback chain に追加。
 // marketplace (ひな選択) → admin/activities 遷移時に「たろうくんタブが active」になる
 // per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
-// svelte-ignore state_referenced_locally
-let childIdOverride = $state<ChildId | undefined>(
-	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
-		? data.initialChildId
-		: undefined,
-);
+//
+// #3499: childIdOverride は「ユーザーの tab click による明示上書き」だけを保持する。
+// 旧実装は data.initialChildId を $state seed に一度だけ複製しており、page component が
+// remount されず data prop だけ更新される経路 (SvelteKit の component 再利用 /
+// invalidateAll / shallow routing — remount 有無は version 依存の実装詳細) で stale seed
+// が URL と食い違う per-child scope 境界があった。URL 由来値は $derived fallback chain で
+// 常に data から読み、load 再実行で ?childId が変わったら override を破棄して URL を優先する。
+let childIdOverride = $state<ChildId | undefined>(undefined);
+// 直前の URL 由来値 (?childId)。$effect 内でのみ比較・更新するため非 reactive な plain let でよい。
+// undefined = 未観測 sentinel (data.initialChildId は ChildId | null で undefined を取らない)。
+let lastInitialChildId: ChildId | null | undefined;
+$effect(() => {
+	if (lastInitialChildId !== undefined && data.initialChildId !== lastInitialChildId) {
+		childIdOverride = undefined;
+	}
+	lastInitialChildId = data.initialChildId;
+});
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: data.initialChildIdFromCookie != null &&
-				data.children.some((c) => c.id === data.initialChildIdFromCookie)
-			? data.initialChildIdFromCookie
-			: (data.children[0]?.id ?? asChildId('')),
+		: data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
+			? data.initialChildId
+			: data.initialChildIdFromCookie != null &&
+					data.children.some((c) => c.id === data.initialChildIdFromCookie)
+				? data.initialChildIdFromCookie
+				: (data.children[0]?.id ?? asChildId('')),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 

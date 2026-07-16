@@ -1,11 +1,37 @@
-# 「PERS-CRT-N」形式の persona 検証由来 critical 識別子を comment に残す運用)
-# ↑ ADR-0022 で定めた QA 専用 GitHub アカウント名 (ganbariquestsupport-lab)。
-# ↑ REST API のサブリソース (例: /pulls/123/comments) を指す技術用語。
+# (labels.ts コメント + tests/unit/domain/labels-phase7-pr2b.test.ts、6 出現)
+# (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
 # ===== #1702 LP-SSOT Phase B namespace =====
 # ===== #1900 (UIUX-C-1) =====
 # ===== #1915 SSOT 用語多重表記正規化 atom namespace =====
+# ===== #2298 日本年間行事 (preset-challenges) =====
+# ===== #2320 settings child route helpers =====
+# ===== #2338 usage-log no-op fallback (haribote = scaffold/sham impl 概念) =====
+# ===== #2353 PIN gate Phase C (jose JWT) =====
+# ===== #2353 PIN gate Phase D (onboarding dialog) =====
+# ===== #2364 Valibot schema (EPIC #2362) =====
+# ===== #2365 activity-pack Strategy 移行 (EPIC #2362 P2) =====
+# ===== #2389 Registry integrity test fixture isolation =====
+# ===== #2455 capture flow comment (Git Bash MSYS path conversion workaround) =====
+# ===== #2455 security CWE-639 / per-child URL param =====
+# ===== #2618 ADR-0056 §D worktree HEAD verify gate / QM drift research terms =====
+# ===== #2648 Round 11 deep research (Phase A E2E flake research) =====
+# ===== #2697 Phase 7 PR-2b labels.ts compounds (billing redesign #2620) =====
+# ===== #2738 Stripe alert PII redaction (Phase 7 PR-3b BLOCK V-3) =====
+# ===== #2749 PII redaction Unicode bypass (Phase 7 PR-3b BLOCK V-3) =====
+# ===== #2926 (EPIC #2925 Sub-1) =====
+# ===== #2944 PR template gate lane-aware (Phase A/A-2) =====
+# ===== #2975 refspec self-heal + rebase SOP (PR #3020) =====
+# ===== #2975 single-branch refspec self-heal (resolve-base-branch.mjs / branch-strategy SOP) =====
+# ===== #2994 operator PIN reset runbook (operator reset の一次資料参照) =====
+# ===== #3012 SS render health gate (PR #3023) =====
+# ===== #3354 echo sanitize blocklist 拡張 =====
+# ===== #3424 PR-R6 pg_catalog 列名 (pg_index / pg_attribute / pg_constraint、PostgreSQL 標準カタログ語彙) =====
+# ===== #3512 fitness#6 temporal dialect-parity guard =====
+# ===== #3512 PK 凍結 manifest fitness#9 (children linchpin) =====
 # ===== ADR-0025 (#1683) =====
 # ===== AWS =====
+# ===== EPIC #2310 Parent-Gate =====
+# ===== EPIC #2327 License-Page NUC-SaaS Bifurcation (業界 prior art OSS) =====
 # ===== infra / AWS 用語 =====
 # ===== site（LP）用語 =====
 # ===== SQL / DB =====
@@ -30,92 +56,155 @@
 # ===== ライフサイクルメール (#1601) =====
 # ===== ライブラリ名 =====
 # ===== 外部サービス =====
+# ===== 学術調査機関 (#2295 / #2296 Research 引用) =====
 # ===== 年齢モード =====
 # ===== 技術用語 / ライブラリ =====
 # ===== 日本語ローマ字（メッセージ / UI / デモデータ） =====
+# ===== 業界 prior art サービス名 (#2148 / docs/reference/07-research-child-collapsible-prior-art.md) =====
 # ===== 法令・データ保護 (#1638 / #1590) =====
 # ===== 解約フロー (#1596) =====
+# alnum = alphanumeric (regex 説明 comment 内、IDN_PATTERN docstring)
+# alternative として評価 (本 product では不採用、in-memory + NUC SSOT 破壊のため)
+# aррӏ = partial Cyrillic homograph (mixed Latin + Cyrillic prefix test、homograph fold 対象)
+# Bohner = "From Eternity to Here" 著者 (Phase 6 doc rollback philosophy 引用)
+# changepassword = Metabase changepassword アクション (operator reset runbook 参照)
 # claude-hook-prevent-qa-account-pr.test.ts の false-positive 設計判断コメントで使用。
+# confusables = Unicode TR#39 confusables (homograph list 用語、HOMOGLYPH_MAP docstring)
 # cspell:disable-next-line の使用は禁止。辞書で解決する。
+# cutover = Phase 4 #2620 migration 用語 (immutable webhook → reactivation cutover)
+# dogfooding/quotepath/taskkill/greyscale/fullpage/Pngs = pr-quality-gate.yml / capture scripts / sharp / test 内の技術用語
 # DOMPurify = OSS HTML sanitizer (cure53)、ADR-0025 で採用
 # DPIA = Data Protection Impact Assessment（個情法 §28 域外移転 / GDPR §35）
+# flagsmith = Flagsmith (kill switch OSS、Phase 6 §design alternative として参照)
 # freetext = 自由記述カラムの testid / CSS class 識別子 (cancellation_reasons.free_text)
+# fullwidth = 全角 (Unicode NFKC test fixture 用語、Stripe Customer phone field)
+# Fwsq / Zhnattb = test fixture pseudo-random strings (PII redaction unit test 用)
+# Goodhart('s) = Goodhart's Law (measurement → target 化で proxy 化、Adversarial Reviewer 設計根拠)
 # healthcheck = cron-dispatcher の動作確認エンドポイント識別子
+# Homoglyphs = visually similar characters (function 名 foldHomoglyphs / 解説 comment)
+# Hubinger = Evan Hubinger (Anthropic Alignment researcher、role drift 構造的対処の理論的支柱)
 # Issue タイトル / コミットメッセージ / コードコメント内で参照される。
+# Kinde = SaaS UX "what happens when clicked" copywriting principle 引用元
 # LICENSEKEY = LP_LICENSEKEY_LABELS export 名 (site/help/license-key.html ページ用)
 # LIFESTAGE = ライフステージ (幼児期 / 学童期 / 思春期等) を表す atom namespace。
+# Luhn = Luhn algorithm (credit card number checksum validation、業界標準)
 # maxlength = HTML <textarea> 属性 (Playwright toHaveAttribute で検証)
+# Metabase = Metabase BI tool (operator reset 一次資料の参照先)
+# MTTR = Mean Time To Recovery (incident response 指標、Phase 6 rollback doc)
+# NOSEP = NO SEParator (test fixture name、区切り無し card 番号 pattern test)
 # Paraglide = inlang 製 i18n OSS、ADR-0014 で採用検討
 # Persona-critical findings prefix (PO Wave レビュー #1888 / #1892 / #1894 / #1899 / #1903 等で
+# pglite = PostgreSQL WASM impl by ElectricSQL、Round 11 §3.4 で testcontainers
 # PHASEB = #1702 で導入した LP_INDEX/PRICING/FAQ/PAMPHLET _PHASEB_LABELS の suffix
+# pipefail = `set -euo pipefail` (bash strict mode) — pr-template-gate.yml / pr-lane-smoke.yml の shell step
+# rebuildable = pk-freeze-manifest.ts の JSDoc（「再構築可能」の英語表現、標準英単語）
+# refspec = git fetch/push の ref mapping 指定 (+refs/heads/develop:refs/remotes/origin/develop)
+# refspec = git remote.origin.fetch の fetch refspec / retarget = PR base 変更操作
+# revertable = ロールバック可能 (Phase 6 rollback design 用語)
 # scripts/check-gh-account-before-pr.mjs / claude-hook-prevent-qa-account-pr.mjs
+# seti = SetupIntent prefix (Stripe API resource ID、例: seti_1Abc...)
+# SQLSTATE = 標準 SQL エラー状態コード（error-notify.ts の internal-identifier blocklist pattern）
 # terms.ts の LIFESTAGE_TERMS / labels.ts / site/shared-labels.js で参照される造語。
+# timestamptz = PostgreSQL/DSQL の標準型名 (TIMESTAMP WITH TIME ZONE の略記、造語ではない)
+# typeerror = TypeScript 型エラー (rollback doc CI failure scenario)
 # UIUX = PO Issue グルーピング略号 (UI/UX 改善 Critical track)。
+# validationexception = lowercase 例外クラス名の例（blocklist test payload）
+# viewports = "viewport" の複数形。cspell 辞書は singular `viewport` のみ収録のため plural を明示登録
+# wada = t-wada（テスト駆動開発の提唱者、和田卓人氏の通称）。docs/design/dsql-implementation-plan.md 等で既出の Canon TDD 参照
+# WCAG = Web Content Accessibility Guidelines / OOUI = Object-Oriented UI / webui = WebUI レビュープロセス
+# worktree = git worktree (CLI sub-command + 並列開発分離 dir、.claude/worktrees/ 配下で使用)
+# xample = `xample` is the literal Latin token left over after the leading character was substituted by a full-width Latin e (U+FF45) in the fuzz fixture for PR #2770
+# аррӏе = Cyrillic homograph for "apple" (IDN homograph attack test fixture、xn--80ak6aa92e.com 復号形)
+# ↑ ADR-0022 で定めた QA 専用 GitHub アカウント名 (ganbariquestsupport-lab)。
+# ↑ REST API のサブリソース (例: /pulls/123/comments) を指す技術用語。
+# 「PERS-CRT-N」形式の persona 検証由来 critical 識別子を comment に残す運用)
 # がんばりクエスト プロジェクト辞書
 # のテスト・docs で多数登場。
+# 兄弟競争 sibling rivalry が depression/自傷リスクと相関する根拠の引用元
+# 子供向け教育・ゲーミフィケーション競合 7 サービス全件調査時に commit 履歴 / spec コメントで参照
 # 新語追加時は PR レビューで正当性を必ず確認すること
+# 𝐞𝐱𝐚𝐦𝐩𝐥𝐞 = Mathematical Bold "example" (Unicode bypass test fixture、AC1 NFKC 対象)
+# 𝗲𝘅𝗮𝗺𝗽𝗹𝗲 = Mathematical Sans-Serif Bold "example" (同上、Math Bold Sans variant)
 ABCDEFGHJKLMNPQRSTUVWXYZ
+ABCmouse
 achv
 ACHV
 ACTPREF
 ACTV
 adminhome
 ADR
+alnum
 antipattern
 antipatterns
 arigatou
-arpu
 Arpu
 ARPU
+arpu
+attname
+attnum
+attrelid
 AUTOCHAL
 autocheckpoint
 autocomplete
 autodocs
 AUTOINCREMENT
 autoreply
+aррӏ
 backfill
 banlist
 bedrock
 Bedrock
 benkyou
 bfcache
-biome
 Biome
+biome
 biomejs
+Bitwarden
+Bohner
 browsable
 Budou
 budoux
+buildx
 BusyKid
+callsite
 catchcopy
 certificatemanager
-chibi
-chukichi
 CEXPORT
+changepassword
+chibi
 CHILDACT
 CHILDCHAL
+childid
+chukichi
 CKLOG
 CKOVER
 CKTPL
+clientside
 Cloudflare
-cloudwatch
 CloudWatch
+cloudwatch
 codegen
 coeff
-cognito
 Cognito
-convertable
+cognito
+confusables
+conname
+conrelid
+contype
 Convertable
+convertable
+COOLDOWN
 cooldown
 Cooldown
-COOLDOWN
-copilot
 Copilot
+copilot
 COPPA
-coreloop
 CORELOOP
+coreloop
 creds
 cspell
 cust
+cutover
 daidaikichi
 daikichi
 daisuki
@@ -126,17 +215,22 @@ Dependabot
 Deque
 describedby
 dflt
+DMARC
 dmarc
 Dmarc
-DMARC
+dogfood
+dogfooding
 domainkey
 domcontentloaded
 DOMPurify
+dont
+dorny
 DPIA
-drizzle
 Drizzle
+drizzle
 drizzleorm
 dropdown
+Duolingo
 dynamodb
 DynamoDB
 EBML
@@ -144,49 +238,67 @@ EFGH
 ehon
 ENEMYCOL
 epool
+evilcorp
 EXIF
 favicon
 fflate
+flagsmith
 Fogg
 freetext
 froms
 ftyp
+fullpage
 fullscreen
+fullwidth
 FUTR
+Fwsq
 gamification
 ganba
 ganbare
-ganbari
 Ganbari
 GANBARI
+ganbari
 ganbariquestsupport
 ganbatta
 genai
-gpgsign
 gohoubi
 gohubi
-greenlight
+Goodhart
+gpgsign
 Greenlight
+greenlight
+greyscale
 hamigaki
 hanako
 hanami
+haribote
 healthcheck
 hina
 hinamatsuri
+Homoglyphs
 hostedzone
-keisuke
-kenta
 HSTS
+Hubinger
+IDOR
+indisprimary
+indkey
+indrelid
+inmemory
 innerhtml
 issho
 JKLM
 jscpd
 Kaku
+keironohi
+keisuke
+kenta
 kichi
+Kinde
 kinder
 kinesisfirehose
 knip
 kodomo
+kodomonohi
 kokor
 kouryuu
 Kusaka
@@ -195,8 +307,8 @@ latm
 LEGC
 levelup
 LICENSEKEY
-LIFESTAGE
 lifestage
+LIFESTAGE
 Lingokids
 localde
 localdev
@@ -205,33 +317,43 @@ lookback
 Lottie
 lowr
 LOWR
+Luhn
+Mattermost
 maxlength
+Mearge
+Metabase
 metacharacter
 Metas
 microticks
 miteruyo
-mojibake
 Mojibake
+mojibake
 mozjpeg
+MSYS
+MTTR
 multiline
+natsuyasumi
 navigations
 networkidle
+Nextcloud
 nikonikoSmile
 noopener
 NOPQR
 noreferrer
 noreply
+NOSEP
 nosniff
 notif
 notnull
 NPRST
+Octalysis
 oekaki
 okataduke
 omedeto
 omedetou
-omikuji
 Omikuji
 OMIKUJI
+omikuji
 omote
 onaccept
 oncanceledit
@@ -242,6 +364,7 @@ onimported
 onlongpress
 onretry
 onsaved
+OOUI
 osoto
 osouji
 osv
@@ -252,28 +375,43 @@ oyakagi
 Oyakagi
 OYAKAGI
 Paraglide
+PATHCONV
 PERS
+pglite
 PHASEB
+picklist
+pipefail
 PITR
 plainto
-pmf
 PMF
+pmf
+Pngs
+POINTIDEM
 popover
 prefs
 Prefs
 prerender
 prerendered
 preschool
-pwa
+Prodigy
 PWA
+pwa
 qrcode
 quickmode
+quotepath
+rebuildable
 recalc
-reconsent
 Reconsent
+reconsent
 REDEMPT
+REDEMPTPEND
+refspec
+regclass
+retarget
 REVD
+revertable
 Roboto
+SAARA
 sakura
 SARIF
 SAVEPOINT
@@ -285,42 +423,50 @@ selfhost
 selftest
 semgrep
 SES
+seti
 setsubun
 shokichi
 signin
 signout
 signup
-signups
 Signups
+signups
 Snyk
+softprops
 sonarjs
 souzou
+SplashLearn
 splide
 Splide
 splidejs
+SQLSTATE
 SSOT
 STATHIST
 STMPCARD
 STMPENT
-stylelint
 Stylelint
+stylelint
 subresource
 subrouter
 suekichi
 sugoi
-svelte
 Svelte
+svelte
 sveltejs
-sveltekit
 SvelteKit
+sveltekit
 syncsafe
 Tailwind
 tailwindcss
 taisou
 Takenori
+tanabata
+taskkill
 TESTIDS
 TESTPOOL
 textareas
+timestamptz
+tmpdirs
 tmpl
 Tmpls
 TOCTOU
@@ -329,14 +475,17 @@ tooltip
 totaltime
 TOTP
 tsquery
+typecode
+typeerror
 UIUX
-umami
 Umami
+umami
 unblended
 Unblended
 undou
-unshown
 Unshown
+unshown
+unsign
 unstub
 upsell
 Upsell
@@ -344,207 +493,39 @@ upsert
 upserted
 upserts
 ureshii
+valibot
+validationexception
+Vaultwarden
+viewports
 vite
 Vite
-vitest
 Vitest
+vitest
 VOICEID
-vorbis
 Vorbis
+vorbis
 VTOKEN
+wada
 wakeup
+WCAG
+webapi
 webp
 webpush
+webui
+whatwg
 whsec
+worktree
 writeback
 wrongpassword
-wxyz
 WXYZ
+wxyz
+xample
 xlabel
-Octalysis
-
-# ===== 業界 prior art サービス名 (#2148 / docs/reference/07-research-child-collapsible-prior-art.md) =====
-# 子供向け教育・ゲーミフィケーション競合 7 サービス全件調査時に commit 履歴 / spec コメントで参照
-Duolingo
-ABCmouse
-Prodigy
-SplashLearn
-
-# ===== 学術調査機関 (#2295 / #2296 Research 引用) =====
-# 兄弟競争 sibling rivalry が depression/自傷リスクと相関する根拠の引用元
-SAARA
-
-# ===== #2298 日本年間行事 (preset-challenges) =====
-kodomonohi
-tanabata
-natsuyasumi
-keironohi
-
-# ===== EPIC #2310 Parent-Gate =====
-dogfood
-unsign
-
-# ===== #2338 usage-log no-op fallback (haribote = scaffold/sham impl 概念) =====
-haribote
-
-# ===== #2320 settings child route helpers =====
-clientside
-
-# ===== EPIC #2327 License-Page NUC-SaaS Bifurcation (業界 prior art OSS) =====
-Bitwarden
-Vaultwarden
-Mattermost
-Nextcloud
-
-# ===== #2353 PIN gate Phase D (onboarding dialog) =====
-dont
-
-# ===== #2353 PIN gate Phase C (jose JWT) =====
-webapi
-inmemory
-
-# ===== #2364 Valibot schema (EPIC #2362) =====
-picklist
-valibot
-
-# ===== #2365 activity-pack Strategy 移行 (EPIC #2362 P2) =====
-callsite
-
-# ===== #2389 Registry integrity test fixture isolation =====
-typecode
-tmpdirs
-
-# ===== #2455 capture flow comment (Git Bash MSYS path conversion workaround) =====
-MSYS
-PATHCONV
-
-# ===== #2455 security CWE-639 / per-child URL param =====
-IDOR
-childid
-
-# ===== #2618 ADR-0056 §D worktree HEAD verify gate / QM drift research terms =====
-# worktree = git worktree (CLI sub-command + 並列開発分離 dir、.claude/worktrees/ 配下で使用)
-# Goodhart('s) = Goodhart's Law (measurement → target 化で proxy 化、Adversarial Reviewer 設計根拠)
-# Hubinger = Evan Hubinger (Anthropic Alignment researcher、role drift 構造的対処の理論的支柱)
-worktree
-Goodhart
-Hubinger
-
-# ===== #2648 Round 11 deep research (Phase A E2E flake research) =====
-# pglite = PostgreSQL WASM impl by ElectricSQL、Round 11 §3.4 で testcontainers
-# alternative として評価 (本 product では不採用、in-memory + NUC SSOT 破壊のため)
-pglite
-
-# ===== #2697 Phase 7 PR-2b labels.ts compounds (billing redesign #2620) =====
-# Kinde = SaaS UX "what happens when clicked" copywriting principle 引用元
-# (labels.ts コメント + tests/unit/domain/labels-phase7-pr2b.test.ts、6 出現)
-# cutover = Phase 4 #2620 migration 用語 (immutable webhook → reactivation cutover)
-Kinde
-cutover
-
-# ===== #2738 Stripe alert PII redaction (Phase 7 PR-3b BLOCK V-3) =====
-# Luhn = Luhn algorithm (credit card number checksum validation、業界標準)
-# seti = SetupIntent prefix (Stripe API resource ID、例: seti_1Abc...)
-# Fwsq / Zhnattb = test fixture pseudo-random strings (PII redaction unit test 用)
-# MTTR = Mean Time To Recovery (incident response 指標、Phase 6 rollback doc)
-# revertable = ロールバック可能 (Phase 6 rollback design 用語)
-# flagsmith = Flagsmith (kill switch OSS、Phase 6 §design alternative として参照)
-# typeerror = TypeScript 型エラー (rollback doc CI failure scenario)
-# Bohner = "From Eternity to Here" 著者 (Phase 6 doc rollback philosophy 引用)
-Bohner
-flagsmith
-Fwsq
-Luhn
-MTTR
-revertable
-seti
-typeerror
 Zhnattb
-
-# ===== #2749 PII redaction Unicode bypass (Phase 7 PR-3b BLOCK V-3) =====
-# alnum = alphanumeric (regex 説明 comment 内、IDN_PATTERN docstring)
-# confusables = Unicode TR#39 confusables (homograph list 用語、HOMOGLYPH_MAP docstring)
-# Homoglyphs = visually similar characters (function 名 foldHomoglyphs / 解説 comment)
-# fullwidth = 全角 (Unicode NFKC test fixture 用語、Stripe Customer phone field)
-# NOSEP = NO SEParator (test fixture name、区切り無し card 番号 pattern test)
-# 𝐞𝐱𝐚𝐦𝐩𝐥𝐞 = Mathematical Bold "example" (Unicode bypass test fixture、AC1 NFKC 対象)
-# 𝗲𝘅𝗮𝗺𝗽𝗹𝗲 = Mathematical Sans-Serif Bold "example" (同上、Math Bold Sans variant)
-# аррӏе = Cyrillic homograph for "apple" (IDN homograph attack test fixture、xn--80ak6aa92e.com 復号形)
-# aррӏ = partial Cyrillic homograph (mixed Latin + Cyrillic prefix test、homograph fold 対象)
-alnum
-confusables
-Homoglyphs
-fullwidth
-NOSEP
+аррӏе
 𝐞𝐱𝐚𝐦𝐩𝐥𝐞
 𝗲𝘅𝗮𝗺𝗽𝗹𝗲
-аррӏе
-aррӏ
-# xample = `xample` is the literal Latin token left over after the leading character was substituted by a full-width Latin e (U+FF45) in the fuzz fixture for PR #2770
-xample
-# ===== #2926 (EPIC #2925 Sub-1) =====
-# viewports = "viewport" の複数形。cspell 辞書は singular `viewport` のみ収録のため plural を明示登録
-# (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
-viewports
-Mearge
-
-# ===== #2994 operator PIN reset runbook (operator reset の一次資料参照) =====
-# changepassword = Metabase changepassword アクション (operator reset runbook 参照)
-# Metabase = Metabase BI tool (operator reset 一次資料の参照先)
-changepassword
-Metabase
-# ===== #2975 refspec self-heal + rebase SOP (PR #3020) =====
-# refspec = git remote.origin.fetch の fetch refspec / retarget = PR base 変更操作
-# WCAG = Web Content Accessibility Guidelines / OOUI = Object-Oriented UI / webui = WebUI レビュープロセス
-refspec
-retarget
-WCAG
-OOUI
-webui
-
-# ===== #2975 single-branch refspec self-heal (resolve-base-branch.mjs / branch-strategy SOP) =====
-# refspec = git fetch/push の ref mapping 指定 (+refs/heads/develop:refs/remotes/origin/develop)
-refspec
-
-# ===== #3012 SS render health gate (PR #3023) =====
-# dogfooding/quotepath/taskkill/greyscale/fullpage/Pngs = pr-quality-gate.yml / capture scripts / sharp / test 内の技術用語
-dogfooding
-quotepath
-taskkill
-greyscale
-fullpage
-Pngs
-# ===== #2944 PR template gate lane-aware (Phase A/A-2) =====
-# pipefail = `set -euo pipefail` (bash strict mode) — pr-template-gate.yml / pr-lane-smoke.yml の shell step
-pipefail
-buildx
-dorny
-evilcorp
-softprops
-
-# ===== #3512 PK 凍結 manifest fitness#9 (children linchpin) =====
-# rebuildable = pk-freeze-manifest.ts の JSDoc（「再構築可能」の英語表現、標準英単語）
-# wada = t-wada（テスト駆動開発の提唱者、和田卓人氏の通称）。docs/design/dsql-implementation-plan.md 等で既出の Canon TDD 参照
-rebuildable
-wada
-# ===== #3354 echo sanitize blocklist 拡張 =====
-# SQLSTATE = 標準 SQL エラー状態コード（error-notify.ts の internal-identifier blocklist pattern）
-# validationexception = lowercase 例外クラス名の例（blocklist test payload）
-SQLSTATE
-validationexception
-
-# ===== #3512 fitness#6 temporal dialect-parity guard =====
-# timestamptz = PostgreSQL/DSQL の標準型名 (TIMESTAMP WITH TIME ZONE の略記、造語ではない)
-timestamptz
-
-# ===== #3424 PR-R6 pg_catalog 列名 (pg_index / pg_attribute / pg_constraint、PostgreSQL 標準カタログ語彙) =====
-attname
-attnum
-attrelid
-conname
-conrelid
-contype
-indisprimary
-indkey
-indrelid
-regclass
+# ===== #3151 slice1 (ADR-0065/0066 本文) =====
+# codemod = ソースコードの機械的一括変換ツール/手法（jscodeshift 等の総称、ADR 本文で既出）
+codemod
+permissionless

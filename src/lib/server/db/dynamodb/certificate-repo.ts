@@ -173,8 +173,11 @@ export async function insertForRestore(
 			}),
 		);
 	} catch (e) {
+		// #3401 例外分類: 重複 (ConditionalCheckFailedException) のみ null = skip。
+		// throttle / network 等の真の write 失敗を null に握り潰すと import が「重複 skip」と
+		// 誤分類し silent loss になるため throw する (import 側 catch が errors に可視化)。
 		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
-		return null;
+		throw e;
 	}
 
 	return certificate;
@@ -184,9 +187,12 @@ export async function insertForRestore(
 // deleteByTenantId — テナントの全証明書を削除 (#3329)
 // ============================================================
 
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	const { deleteChildScopedItems } = await import('./bulk-delete');
+	await deleteChildScopedItems(tenantId, childIds, PREFIX);
 }
 
 // ============================================================

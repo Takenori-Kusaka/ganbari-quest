@@ -103,7 +103,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 						href={filterUrl({ age: activeAge === band.id ? null : band.id })}
 						data-testid="filter-age-{band.id}"
 						class="px-3 py-1 rounded-full text-xs font-medium transition-all {activeAge === band.id
-							? 'bg-[var(--color-action-primary)] text-white shadow'
+							? 'bg-[var(--color-action-primary-strong)] text-white shadow'
 							: 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]'}"
 					>
 						{band.label}
@@ -122,7 +122,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					href={filterUrl({ gender: null })}
 					data-testid="filter-gender-all"
 					class="px-3 py-1 rounded-full text-xs font-medium transition-all {activeGender === null
-						? 'bg-[var(--color-action-primary)] text-white shadow'
+						? 'bg-[var(--color-action-primary-strong)] text-white shadow'
 						: 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]'}"
 				>
 					{MARKETPLACE_FILTER_LABELS.genderOptions.all}
@@ -132,7 +132,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 						href={filterUrl({ gender: activeGender === g ? null : g })}
 						data-testid="filter-gender-{g}"
 						class="px-3 py-1 rounded-full text-xs font-medium transition-all {activeGender === g
-							? 'bg-[var(--color-action-primary)] text-white shadow'
+							? 'bg-[var(--color-action-primary-strong)] text-white shadow'
 							: 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-secondary)]'}"
 					>
 						{MARKETPLACE_FILTER_LABELS.genderOptions[g]}
@@ -155,7 +155,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 							href={filterUrl({ tag: activeTag === tag ? null : tag })}
 							data-testid="filter-tag-{tag}"
 							class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all {activeTag === tag
-								? 'bg-[var(--color-action-primary)] text-white'
+								? 'bg-[var(--color-action-primary-strong)] text-white'
 								: 'bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}"
 						>
 							{tag}
@@ -233,7 +233,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 					href={filterUrl({ type: activeType === t ? null : t })}
 					data-testid="filter-type-{t}"
 					class="rounded-xl p-3 text-center transition-all {activeType === t
-						? 'bg-[var(--color-action-primary)] text-white shadow-md'
+						? 'bg-[var(--color-action-primary-strong)] text-white shadow-md'
 						: 'bg-[var(--color-surface-card)] text-[var(--color-text-primary)] hover:shadow-sm'}"
 				>
 					<span class="text-xl block">{MARKETPLACE_TYPE_ICONS[t]}</span>
@@ -398,7 +398,7 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 								login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 							<a
 								href="/auth/login"
-								class="inline-block px-6 py-2.5 bg-[var(--color-action-primary)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+								class="inline-block px-6 py-2.5 bg-[var(--color-action-primary-strong)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
 							>
 								{MARKETPLACE_LABELS.ctaStart}
 							</a>

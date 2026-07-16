@@ -20,7 +20,7 @@ const mockFindActiveOrUnclaimedByChildId = vi.fn();
 const mockUpdateProgress = vi.fn();
 const mockMarkCompleted = vi.fn();
 const mockFindById = vi.fn();
-const mockClaimReward = vi.fn();
+const mockClaimRewardAndGrantPoints = vi.fn();
 const mockFindAllChildren = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -36,7 +36,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			updateProgress: (...a: unknown[]) => mockUpdateProgress(...a),
 			markCompleted: (...a: unknown[]) => mockMarkCompleted(...a),
 			findById: (...a: unknown[]) => mockFindById(...a),
-			claimReward: (...a: unknown[]) => mockClaimReward(...a),
+			claimRewardAndGrantPoints: (...a: unknown[]) => mockClaimRewardAndGrantPoints(...a),
 		},
 	}),
 }));
@@ -66,15 +66,10 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (...a: unknown[]) => mockFindAllChildren(...a),
 }));
 
-vi.mock('$lib/server/db/activity-repo', () => ({
-	insertPointLedger: vi.fn(),
-}));
-
 vi.mock('$lib/domain/date-utils', () => ({
 	todayDateJST: () => '2026-05-25',
 }));
 
-import { insertPointLedger } from '../../../src/lib/server/db/activity-repo';
 import {
 	buildPerChildTargets,
 	type ChallengePrev,
@@ -999,67 +994,63 @@ function challengeRow(over: Record<string, unknown> = {}) {
 	};
 }
 
-describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gating (#3333 C / per-child)', () => {
-	it('自身の instance が completed=1 && claimReward が 1 行 flip → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
+describe('claimChildChallengeReward — 単一原子 primitive + fail-closed gating (#3284/#3342、#3333 後継)', () => {
+	it('自身の instance が completed=1 && primitive が 1 を返す → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 0 }));
-		mockClaimReward.mockResolvedValueOnce(1); // 条件付き UPDATE が 1 行を flip
+		mockClaimRewardAndGrantPoints.mockResolvedValueOnce(1); // flip + ledger insert が txn で成立
 		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('points' in result && result.points).toBe(30);
-		// claim-first: claimReward の戻り行数 === 1 を確認してから付与
-		expect(mockClaimReward).toHaveBeenCalledWith('10', TENANT);
-		// point ledger は 1 回だけ加算（二重付与なし）
-		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
-		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledWith(
+		// flip + ledger を単一 primitive で実行 (service からの ledger 別呼び出しは撤去済 #3342 (1))
+		expect(mockClaimRewardAndGrantPoints).toHaveBeenCalledTimes(1);
+		expect(mockClaimRewardAndGrantPoints).toHaveBeenCalledWith(
+			'10',
 			expect.objectContaining({
 				childId: asChildId(902),
 				amount: 30,
-				type: 'child_challenge',
-				referenceId: '10',
+				description: 'チャレンジ達成: P',
 			}),
 			TENANT,
 		);
 	});
 
-	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（claimReward を呼ばず ledger 加算なし）', async () => {
+	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（primitive を呼ばない = 付与なし）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 0, currentValue: 2 }));
 		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('まだクリアしていません');
-		expect(mockClaimReward).not.toHaveBeenCalled();
-		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+		expect(mockClaimRewardAndGrantPoints).not.toHaveBeenCalled();
 	});
 
-	it('既請求 (claimReward が 0 行) → 「すでに受け取り済みです」で fail-closed（付与しない）', async () => {
-		// findById は completed=1 を返すが、条件付き UPDATE は既に flip 済のため 0 行 = 付与スキップ
+	it('既請求 (primitive が 0) → 「すでに受け取り済みです」で fail-closed（付与しない）', async () => {
+		// findById は completed=1 を返すが、条件付き flip は既に flip 済のため 0 = 付与ごと skip
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 1 }));
-		mockClaimReward.mockResolvedValueOnce(0);
+		mockClaimRewardAndGrantPoints.mockResolvedValueOnce(0);
 		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('すでに受け取り済みです');
-		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
 
-	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed、claimReward を呼ばない）', async () => {
+	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed、primitive を呼ばない）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ childId: asChildId(903) }));
 		const result = await claimChildChallengeReward('10', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('このチャレンジは別のお子さま用です');
-		expect(mockClaimReward).not.toHaveBeenCalled();
-		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+		expect(mockClaimRewardAndGrantPoints).not.toHaveBeenCalled();
 	});
 
 	it('存在しない instance → 受取拒否', async () => {
 		mockFindById.mockResolvedValueOnce(undefined);
 		const result = await claimChildChallengeReward('999', asChildId(902), TENANT);
 		expect('error' in result && result.error).toBe('チャレンジが見つかりません');
-		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+		expect(mockClaimRewardAndGrantPoints).not.toHaveBeenCalled();
 	});
 
-	// #3333 (3) TOCTOU 二重 claim 回帰: mock を直列化せず、同一の completed&未請求 row を両 call が
-	// findById で読む状況を作る。原子化 claimReward は 1 回目だけ 1 行を flip し、2 回目は条件付きで
-	// 0 行を返す。これにより insertPointLedger は「ちょうど 1 回」しか呼ばれず、ポイント二重付与が起きない。
-	it('並行 submit (race): claimReward が 1→0 を返し insertPointLedger はちょうど 1 回だけ呼ばれる', async () => {
+	// #3333 (3) TOCTOU 二重 claim 回帰 (#3284 で primitive 統合後も維持): mock を直列化せず、
+	// 同一の completed&未請求 row を両 call が findById で読む状況を作る。原子 primitive は 1 回目
+	// だけ flip + 付与 (=1)、2 回目は条件付きで 0 を返す。付与は primitive 内 txn に一体化して
+	// いるため「flip 成功 = 付与 1 回」が構造保証される。
+	it('並行 submit (race): primitive が 1→0 を返し、成功はちょうど 1 件', async () => {
 		// 両 call とも findById は同じ completed=1 / rewardClaimed=0 の row を読む (TOCTOU 状況)
 		mockFindById.mockResolvedValue(challengeRow({ completed: 1, rewardClaimed: 0 }));
-		// 原子的 claimReward: 1 回目は 1 行 flip、2 回目以降は 0 行 (条件付き UPDATE が同一行を二度 flip しない)
-		mockClaimReward.mockResolvedValueOnce(1).mockResolvedValue(0);
+		// 原子 primitive: 1 回目は flip + 付与 (=1)、2 回目以降は 0 (同一行を二度 flip しない)
+		mockClaimRewardAndGrantPoints.mockResolvedValueOnce(1).mockResolvedValue(0);
 
 		const [first, second] = await Promise.all([
 			claimChildChallengeReward('10', asChildId(902), TENANT),
@@ -1077,9 +1068,7 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 		expect(successes[0]?.points).toBe(30);
 		expect(failures[0]?.error).toBe('すでに受け取り済みです');
 
-		// 二重付与防止の本丸: insertPointLedger はちょうど 1 回
-		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
-		// claimReward 自体は両 submit で呼ばれる (原子化判定は repo に委譲)
-		expect(mockClaimReward).toHaveBeenCalledTimes(2);
+		// primitive 自体は両 submit で呼ばれる (原子化判定 + 付与は repo txn に委譲)
+		expect(mockClaimRewardAndGrantPoints).toHaveBeenCalledTimes(2);
 	});
 });

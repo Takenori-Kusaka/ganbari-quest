@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GoogleGenAI } from '@google/genai';
-import { BRAND_STYLE_BLOCK, NEGATIVE_PROMPTS } from './lib/brand-style-guide.js';
+import { BRAND_STYLE_BLOCK, NEGATIVE_PROMPTS } from './lib/ci/brand-style-guide.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

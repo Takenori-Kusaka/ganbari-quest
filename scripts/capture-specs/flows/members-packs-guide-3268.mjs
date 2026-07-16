@@ -3,7 +3,7 @@
  * PR #3268 (#3260 C4): /admin/members と /admin/packs の ? ページガイド overlay を撮影。
  * env GUIDE_TARGET=members|packs で対象切替（既定 members）。
  */
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const TARGET = process.env.GUIDE_TARGET === 'packs' ? 'packs' : 'members';

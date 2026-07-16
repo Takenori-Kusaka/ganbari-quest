@@ -7,6 +7,7 @@ import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { type ParsedBackupZip, parseBackupZip } from '$lib/server/services/backup-archive';
+import { resolveMaxImportBytes, toDisplayMb } from '$lib/server/services/import-limit';
 import {
 	countImportRows,
 	importFamilyData,
@@ -19,9 +20,6 @@ import {
 	replaceImportAtomic,
 } from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
-
-// #3077: ZIP インポートの上限。export ZIP (backup-archive MAX_ZIP_SIZE) と整合させる。
-const MAX_IMPORT_BYTES = 100 * 1024 * 1024; // 100MB
 
 /**
  * リクエスト本文を JSON / ZIP のいずれかとして解析する (#3077)。
@@ -40,13 +38,21 @@ async function parseImportRequest(
 		try {
 			return { ok: true, value: { body: await request.json(), staticFiles: {} } };
 		} catch {
-			return { ok: false, error: 'JSONの解析に失敗しました' };
+			// #3201: 内部フォーマット名 (JSON) を露出せず、checksum 不一致 (破損/改ざん) と
+			// 区別できる「形式が正しくない」文言 SSOT を使う (旧: 'JSONの解析に失敗しました' 直書き)
+			return { ok: false, error: IMPORT_LABELS.errorInvalidJson };
 		}
 	}
 
+	// #3325 AC3: 実行環境の実効上限で受理判定する (AWS = Function URL 6MB 弱 / NUC・local = 100MB)。
+	// 上限超過は「沈黙のハング」ではなく明示エラー + クラウド共有経由の復元案内を返す。
+	const maxImportBytes = resolveMaxImportBytes();
 	const buffer = await request.arrayBuffer();
-	if (buffer.byteLength > MAX_IMPORT_BYTES) {
-		return { ok: false, error: 'ファイルサイズが大きすぎます（最大100MB）' };
+	if (buffer.byteLength > maxImportBytes) {
+		return {
+			ok: false,
+			error: IMPORT_LABELS.errorFileTooLargeCloudGuide(toDisplayMb(maxImportBytes)),
+		};
 	}
 
 	return parseBackupZip(new Uint8Array(buffer));

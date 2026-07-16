@@ -49,8 +49,15 @@ test.describe('CX-DoR #10 Accessibility — critical CUJ (WCAG 2.2 AA)', () => {
 
 	// ============================================================
 	// 2. 受領 admin 3 page (activities / checklists / rewards)
+	//    + /admin/reports (#3670: feature-teaser 低コントラスト検出を機に scan 対象化。
+	//      無料→有料導線の teaser CTA を持つ page で WCAG 2.2 AA 回帰を機械検出する)
 	// ============================================================
-	for (const adminPath of ['/admin/activities', '/admin/checklists', '/admin/rewards']) {
+	for (const adminPath of [
+		'/admin/activities',
+		'/admin/checklists',
+		'/admin/rewards',
+		'/admin/reports',
+	]) {
 		test(`受領 admin (${adminPath}) に critical/serious a11y 違反がない`, async ({ page }) => {
 			test.slow();
 			const res = await page.goto(adminPath, { waitUntil: 'domcontentloaded' });

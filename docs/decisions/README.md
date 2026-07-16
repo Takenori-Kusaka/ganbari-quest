@@ -188,6 +188,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0063 | [DSQL pool マルチテナント分離 (信頼 claim/context + アプリ層単一強制点 + fitness function、RLS 非対応の代替防御線)](0063-dsql-pool-multitenant-isolation.md) | accepted | 2026-06-29 |
 | 0064 | [NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback](0064-sqlite-core-repo-strategy.md) | accepted | 2026-07-09 |
 | 0065 | [DSQL DPU コスト規約 — service 層クエリの 5 原則 (実測裏付け)](0065-dsql-dpu-query-rules.md) | accepted | 2026-07-11 |
+| 0066 | [export/import 値域 SSOT — wire schema とドメイン validator は同一値域定数を import する](0066-export-import-schema-range-ssot.md) | accepted | 2026-07-12 |
 
 > 注 (2026-06-04 #2440 PR-A5): 番号は欠番を許容する（削除済 ADR の番号は再利用しない、git 履歴で追跡可能）。新規 ADR は最大番号 +1 で採番する。renumber 規約は §renumber 規約 を参照。
 >
@@ -368,3 +369,12 @@ active 総数: 43 件 (棚卸後、ADR-0064 +1)。
 
 active 総数: 44 件 (棚卸後、ADR-0065 +1)。
 
+### 2026-07-12 棚卸 (ADR-0066 起票)
+
+**完了項目**:
+
+1. **ADR-0066 新規追加**: export/import 値域 SSOT (wire schema とドメイン validator は同一値域定数を import)。EPIC #3151 (export/import 値域ドリフト根絶) slice1 で、#3104→#3132 の 2 サイクル連続 round-trip blocker の root class =「Zod domain / Valibot wire の値域二重定義 + domain⊆wire 不変条件の機械表明欠如」に対し、値域定数の domain 層 SSOT 集約 + 実 validator boundary probe fitness (`tests/unit/architecture/schema-range-ssot.test.ts`) を決定。選択肢 3 案比較 (A: schema 変換 OSS / B: 単一 Valibot schema 完全統合 / C: 値域定数 SSOT + fitness) を本文に記載し C 採用、B は EPIC 最終形として方向固定。Pre-PMF Bucket A (ADR-0010 整合、新規 dep / build step ゼロ)。当初 0065 で起票したが、同番号は 2026-07-11 の DSQL DPU コスト規約が先取済のため renumber 規約 (§renumber 規約) に従い 0066 に振り直した。
+
+**1-in-1-out 履行**: ADR-0064 / 0065 起票時と同様、1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補と併せて消化する (本 PR scope 外)。
+
+active 総数: 45 件 (棚卸後、ADR-0066 +1)。

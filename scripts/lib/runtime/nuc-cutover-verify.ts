@@ -1,4 +1,4 @@
-// scripts/lib/nuc-cutover-verify.ts
+// scripts/lib/runtime/nuc-cutover-verify.ts
 // EPIC #3620 AC-C4 後段 — NUC cutover (旧 sqlite → PGlite) の件数突合 safety net。
 //
 // 役割: cutover CLI の import 完了後に「export した件数 = 新 backend に入った件数」を機械突合し、
@@ -11,8 +11,8 @@
 // checklistLogs 等は import 側で allowlist filter / dedup が正当に件数を変えうるため対象外
 // (突合軸は「import が 1:1 で書くことが round-trip test で実証済みの実体」に限る)。
 
-import type { ExportData } from '../../src/lib/domain/export-format';
-import type { SqlExecutor } from '../../src/lib/server/db/dsql/sql-executor';
+import type { ExportData } from '../../../src/lib/domain/export-format';
+import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 
 /** 突合軸: export 側 field → 新 backend (pg-core) のテーブル。 */
 export const CUTOVER_COUNT_AXES = [

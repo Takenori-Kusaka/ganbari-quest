@@ -3,7 +3,7 @@
  * PR #3265 (#3260 C1): /admin/settings ハブガイドの ②画面の見方（6グループ俯瞰）step を撮影。
  * 6 グループ全カードを上→下順に案内する改訂版の証跡。
  */
-import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 

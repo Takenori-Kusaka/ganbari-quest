@@ -59,6 +59,27 @@ export async function initPgliteConnection(): Promise<void> {
 	if (_ready) return _ready;
 	_ready = (async () => {
 		const env = getEnv();
+		// #3620 QM residual #2 (security guardrail): AWS Lambda 上で PGlite を開くことを物理拒否する。
+		// DATA_SOURCE=pglite が誤って cloud Lambda に配布されると、単一接続の PGlite に全家族の
+		// データが集約され ADR-0063 の tenant 分離 (DSQL pool + 偽造不能 tenantId) が config ミス
+		// 1 つで消失する。PGlite を開く唯一の入口である本関数の先頭で fail-loud する
+		// (self-heal は rejected init を破棄するため、誤設定が直るまで毎回 throw = silent 稼働なし)。
+		//
+		// 判定は resolveRuntimeMode でなく **生の AWS_LAMBDA_FUNCTION_NAME を直接検査**する
+		// (adversarial review 指摘): resolveRuntimeMode は APP_MODE override / IS_NUC_DEPLOY を
+		// Lambda 判定より先に評価するため、Lambda 上に APP_MODE=nuc-prod や IS_NUC_DEPLOY=true が
+		// 誤設定されると 'aws-prod' 判定が bypass される。AWS_LAMBDA_FUNCTION_NAME は AWS Lambda
+		// ランタイム自身が必ず設定する env で config では偽装/解除できず、正当な Lambda 用途に
+		// pglite backend は存在しない (本番=dsql / demo=demo / staging=dsql|dynamodb) ため、
+		// この生 signal での拒否が最も強い不変条件になる。
+		if (env.AWS_LAMBDA_FUNCTION_NAME && env.AWS_LAMBDA_FUNCTION_NAME.length > 0) {
+			throw new Error(
+				'PGlite backend is forbidden on AWS Lambda: DATA_SOURCE=pglite would ' +
+					'collapse all tenants into a single local store and void ADR-0063 tenant isolation. ' +
+					'Use DATA_SOURCE=dsql on AWS. (#3620 QM residual #2, ' +
+					`AWS_LAMBDA_FUNCTION_NAME=${env.AWS_LAMBDA_FUNCTION_NAME})`,
+			);
+		}
 		// dataDir 未設定 = in-memory (PGlite は引数なしで in-memory)。設定時は FS VFS で永続化。
 		_client = env.PGLITE_DATA_DIR ? new PGlite(env.PGLITE_DATA_DIR) : new PGlite();
 		await _client.waitReady;

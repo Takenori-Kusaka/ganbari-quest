@@ -51,6 +51,11 @@ concurrency:
   group: deploy-nuc-staging
   cancel-in-progress: true
 
+# #3494 AC2: repo デフォルト GITHUB_TOKEN 権限への依存を排除するため read-only を明示
+# (staging deploy は host credential の git / docker で行い GITHUB_TOKEN を使わない)。
+permissions:
+  contents: read
+
 env:
   # PGlite lane 判定 (AC-C5)。dispatch + pgliteEnabled=true のときのみ 'true'。
   PGLITE_LANE: ${{ github.event_name == 'workflow_dispatch' && inputs.pgliteEnabled == true && 'true' || 'false' }}

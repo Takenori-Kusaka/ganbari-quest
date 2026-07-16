@@ -147,6 +147,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 					type: 'cognito',
 					userId: claims.sub,
 					email: claims.email,
+					// #3555 ③: 本番 CognitoAuthProvider と同じ email_verified 伝搬 (dev claim は通常 undefined)
+					emailVerified: claims.email_verified,
 					groups: claims['cognito:groups'],
 					// #3025: 本番 CognitoAuthProvider と同じ federated / recent-auth 情報
 					isFederated: (claims.identities?.length ?? 0) > 0,

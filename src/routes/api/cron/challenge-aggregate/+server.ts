@@ -62,10 +62,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			error: err instanceof Error ? err.message : String(err),
 			stack: err instanceof Error ? err.stack : undefined,
 		});
-		return json(
-			{ ok: false, error: err instanceof Error ? err.message : String(err) },
-			{ status: 500 },
-		);
+		// #3571 (ADR-0062 §2): 内部例外を response へ露出しない (詳細は上記 logger のみ)
+		return json({ ok: false, error: 'Internal error' }, { status: 500 });
 	}
 };
 
@@ -84,9 +82,7 @@ export const GET: RequestHandler = async ({ request }) => {
 			service: 'challenge-aggregate',
 			error: err instanceof Error ? err.message : String(err),
 		});
-		return json(
-			{ ok: false, error: err instanceof Error ? err.message : String(err) },
-			{ status: 500 },
-		);
+		// #3571 (ADR-0062 §2): 内部例外を response へ露出しない (詳細は上記 logger のみ)
+		return json({ ok: false, error: 'Internal error' }, { status: 500 });
 	}
 };

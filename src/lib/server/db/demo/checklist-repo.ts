@@ -281,11 +281,12 @@ export async function findOverridesByChild(
 }
 
 export async function insertOverrideForRestore(
-	input: Omit<ChecklistOverride, 'id'>,
+	_input: Omit<ChecklistOverride, 'id'>,
 	_tenantId: string,
-): Promise<ChecklistOverride> {
-	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
-	return { ...input, id: '0' };
+): Promise<ChecklistOverride | null> {
+	// Stub: demo は書き込み no-op。#3394: 永続化していないため null を返し
+	// import カウント (checklistOverridesImported) を偽装しない (#2263 count 偽装 class)。
+	return null;
 }
 
 export async function insertOverride(

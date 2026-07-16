@@ -40,10 +40,19 @@ export interface IStampCardRepo {
 	 * #3329 backup restore 用: status / redeemedPoints / redeemedAt / 日時を保全して card を復元する。
 	 * insertCard は status 既定化 + redeemed/日時を保持しないため round-trip で交換済状態が失われる。
 	 * id は新規採番、childId は呼び出し側が解決済。
+	 *
+	 * #3394 統一冪等契約: 同 (childId, weekStart) が既存なら **null** を返す (重複 skip。
+	 * SQLite=uniqueIndex / DynamoDB=attribute_not_exists / DSQL=stamp_cards_week_uq で機能等価)。
+	 * その他の write 失敗は throw する (throttle silent loss 禁止、#3401)。
 	 */
-	insertCardForRestore(input: Omit<StampCard, 'id'>, tenantId: string): Promise<StampCard>;
+	insertCardForRestore(input: Omit<StampCard, 'id'>, tenantId: string): Promise<StampCard | null>;
 
-	/** #3329 backup restore 用: earnedAt を保全して押印を復元する (cardId は復元後の card を指す)。 */
+	/**
+	 * #3329 backup restore 用: earnedAt を保全して押印を復元する (cardId は復元後の card を指す)。
+	 * #3394 統一冪等契約: 実際に insert したら true / 重複 ((cardId,slot) or (cardId,loginDate)) で
+	 * skip したら false を返す (import カウントは true のときのみ加算 = count 偽装防止 #2263 class)。
+	 * その他の write 失敗は throw する (#3401)。
+	 */
 	insertEntryForRestore(
 		input: {
 			cardId: string;
@@ -54,7 +63,7 @@ export interface IStampCardRepo {
 			earnedAt: string;
 		},
 		tenantId: string,
-	): Promise<void>;
+	): Promise<boolean>;
 	/**
 	 * #2845 課題①: full composite-key addressing。childId + cardId の複合キーで対象を
 	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら no-op。
@@ -72,5 +81,5 @@ export interface IStampCardRepo {
 		input: UpdateStampCardStatusInput,
 		tenantId: string,
 	): Promise<number>;
-	deleteByTenantId(tenantId: string): Promise<void>;
+	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

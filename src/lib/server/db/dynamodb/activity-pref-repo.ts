@@ -5,7 +5,7 @@ import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asActivityId, asChildId } from '$lib/domain/ids';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { activityLogPrefix, activityPrefKey, activityPrefPrefix, childPK, tenantPK } from './keys';
 
@@ -79,11 +79,16 @@ export async function findAllByChild(
 		.sort((a, b) => (a.pinOrder ?? 999) - (b.pinOrder ?? 999));
 }
 
-/** #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId 解決済)。 */
+/**
+ * #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId 解決済)。
+ * #3394/#3465 統一冪等契約: 同 (childId, activityId) の既存 item を attribute_not_exists(PK) で
+ * silent 上書きしない (SQLite idx_child_activity_prefs_unique と機能等価)。重複は null を返し
+ * (import 側 skip 計上 = count 水増し防止)、その他の失敗は throw する (#3401 例外分類)。
+ */
 export async function insertForRestore(
 	input: Omit<ChildActivityPreference, 'id'>,
 	tenantId: string,
-): Promise<ChildActivityPreference> {
+): Promise<ChildActivityPreference | null> {
 	const key = activityPrefKey(Number(input.childId), Number(input.activityId), tenantId);
 	// activityPref の partition key は (childId, activityId) 複合。id は非キー属性のため
 	// togglePin と同様に Date.now() 由来の一意値を採番する (元 id は保全しない)。
@@ -98,7 +103,18 @@ export async function insertForRestore(
 		createdAt: input.createdAt,
 		updatedAt: input.updatedAt,
 	};
-	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
+	try {
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: item,
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
+		throw e;
+	}
 	return toChildActivityPreference(item);
 }
 
@@ -200,6 +216,9 @@ export async function getUsageCounts(
 }
 
 /** テナントの全活動ピン留め設定を削除（CHILD#* 配下の ACTPREF# アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), activityPrefPrefix());
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	await deleteChildScopedItems(tenantId, childIds, activityPrefPrefix());
 }

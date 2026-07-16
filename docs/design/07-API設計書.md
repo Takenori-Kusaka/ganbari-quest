@@ -26,7 +26,8 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/health | ヘルスチェック | 不要 |
+| GET | /api/health | ヘルスチェック（deep、監視用） | 不要 |
+| GET | /api/ready | readiness probe（shallow、LWA 用 #3657） | 不要 |
 | POST | /api/v1/auth/login | Cognito ログイン（Email/Password） | 不要 |
 | POST | /api/v1/auth/logout | ログアウト（Cookie クリア） | 不要 |
 | GET | /auth/callback | Cognito OAuth コールバック | 不要 |
@@ -910,7 +911,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 **リクエストボディ:**
 
 - `Content-Type: application/json`: エクスポートされた JSON 全体（`ExportData`）。
-- `Content-Type: application/zip`（#3077）: GET `/api/v1/export?format=zip` が出力した ZIP。`data.json` を export body として解析し、同梱の `avatars/{childId}/**` / `voices/{childId}/**` をインポート後の新 `childId` 配下（`tenants/{tenantId}/{type}/{newChildId}/...`）に復元する。子供の `avatarUrl` 参照は新 storage key（公開 URL）へ貼り替える。受理上限は export ZIP と整合する 100MB。JSON のみインポートは後方互換で動作する。
+- `Content-Type: application/zip`（#3077）: GET `/api/v1/export?format=zip` が出力した ZIP。`data.json` を export body として解析し、同梱の `avatars/{childId}/**` / `voices/{childId}/**` をインポート後の新 `childId` 配下（`tenants/{tenantId}/{type}/{newChildId}/...`）に復元する。子供の `avatarUrl` 参照は新 storage key（公開 URL）へ貼り替える。受理上限は実行環境で分岐する（#3325、SSOT: `src/lib/server/services/import-limit.ts`）: AWS（aws-prod）は Lambda Function URL（BUFFERED）の request payload 6MB hard cap に整合する 5.5MB、NUC / local は Function URL 制約が無いため export ZIP（`MAX_ZIP_SIZE`）と整合する 100MB。超過時は 400 VALIDATION_ERROR で「クラウド共有（PIN コード）経由の復元」を案内する（沈黙のハング禁止）。UI（settings/data）も同値を load 経由で受け取り、ファイル選択時に client-side pre-check する。JSON のみインポートは後方互換で動作する。
 
 > **#3077 id 再マップ**: `ExportData.family.children[].sourceChildId`（v1.3.0 相当の追加フィールド、export 元の数値 childId）を介して ZIP 内パスの `{oldChildId}` を新 `childId` に解決する。`sourceChildId` が解決できない孤立ファイルはスキップする（`result.staticFilesSkipped`）。
 >
@@ -1335,6 +1336,18 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 }
 ```
 
+#### GET /api/ready
+
+readiness probe（shallow、#3657）。**プロセスが HTTP を受けられることのみを証明し、DB には一切接触しない**。LWA（Lambda Web Adapter）の `AWS_LWA_READINESS_CHECK_PATH` が参照する（`Dockerfile.lambda`）。readiness を `/api/health`（deep DB probe）に結合すると DB 障害時に LWA が never-ready → 全リクエスト 502 + cold start init timeout ループになるため分離する（13-AWSサーバレスアーキテクチャ設計書 §3.3）。
+
+- 常に **200** を返す（DB 状態に依存しない。メンテナンスモード中も 503 化しない）
+- 監視・deploy smoke には使わない（deep 検証は `/api/health` が担う）
+
+**レスポンス (200):**
+```json
+{ "status": "ok", "version": "1.0.0", "uptime": 123 }
+```
+
 ---
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
@@ -1411,7 +1424,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 
 > **deprecated (Epic #2525 license key 全廃)**: 以下の `/ops/license` / `/ops/license/[key]` / `/ops/license/issue` / `/ops/license/legacy-count` 系統はすべて物理削除された (PR-L3 PR #2822)。割引・campaign 配布は Stripe Coupon / Promotion Code (Stripe Dashboard) で代替する。リンク先 `license-hmac-migration-plan.md` も deprecated (HMAC 移行は機構全廃により不要、歴史記録)。本節以降の `/ops/license/*` 仕様は歴史記録として残す。
 
-#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805）
+#### GET /ops/license （ライセンスキー管理 - 一覧 / 検索 #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1422,7 +1435,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 **URL パラメータ:**
 - `limit` (query, number): イベント取得件数。デフォルト 50、最大 200
 
-#### GET /ops/license/[key] （ライセンスキー詳細 #805）
+#### GET /ops/license/[key] （ライセンスキー詳細 #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1434,7 +1447,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - 当該キーの `license_events` 履歴（最新 200 件）
 - `status='active'` のときのみ「失効」ボタンを表示
 
-#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805）
+#### POST /ops/license/[key]?/revoke （ライセンスキー失効 form action #805） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1457,7 +1470,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - `license_events` に `eventType='revoked'` を記録 (#804)
 - `ops_audit_log` に `action='license.revoke'` / `target=<key>` / `metadata={reason, note}` を記録 (#820)
 
-#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802）
+#### GET /ops/license/issue （キャンペーンキー一括発行ページ #802） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1465,7 +1478,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - Stripe を経由しないキャンペーン配布・サポート補償・プレゼント用のライセンスキーを一括発行する入力画面
 - 発行結果は同一ページでテキスト表示 + CSV ダウンロード（`campaign-keys-YYYY-MM-DD.csv`）
 
-#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802）
+#### POST /ops/license/issue?/issue （キャンペーンキー一括発行 form action #802） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること
 
@@ -1491,7 +1504,7 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 - `license_events` に `eventType='issued'` を各キー分記録 (#804)
 - `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
 
-#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484）
+#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484） — deprecated (Epic #2525 で削除)
 
 **認証:** Cognito User Pool `ops` group メンバーであること (`src/routes/ops/+layout.server.ts` の `isOpsMember(locals.identity)` で gate)
 
@@ -2405,7 +2418,7 @@ export interface PlanLimitError {
     │       └── Layer 2: context_token Cookie → HMAC 検証 → AuthContext
     │
     ├── 2) ルート保護
-    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/stripe/webhook, /ops/*）→ 通過
+    │       ├── 公開ルート（/, /auth/*, /switch, /legal/*, /api/health, /api/ready, /api/stripe/webhook, /ops/*）→ 通過
     │       ├── /admin/* → owner/parent ロール必須
     │       ├── /child/* → 全ロール
     │       ├── /api/v1/admin/* → owner/parent ロール必須

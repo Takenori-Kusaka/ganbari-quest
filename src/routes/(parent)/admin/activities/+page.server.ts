@@ -1,4 +1,6 @@
 import { fail } from '@sveltejs/kit';
+// #3669: 親手動作成の source は SSOT 定数 'custom' で保存する (quota / カウンタ集計と整合)
+import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
@@ -193,7 +195,7 @@ export const actions: Actions = {
 					ageMin,
 					ageMax,
 					dailyLimit,
-					source: 'parent',
+					source: PARENT_CREATED_SOURCE,
 					nameKana,
 					nameKanji,
 					triggerHint,
@@ -530,6 +532,22 @@ export const actions: Actions = {
 			return fail(400, { error: 'コピー先のお子さまが必要です' });
 		}
 
+		// #3740: copy は元活動の source ('custom' 含む) を保全して複製するため quota を消費する。
+		// gate 未通過だと free tier が上限到達後も copy で custom 活動を増殖できた
+		// (#2894 importPackToChildren gate と同型の課金境界執行)。
+		const copyLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const copyLimitCheck = await checkActivityLimit(tenantId, copyLicenseStatus);
+		if (!copyLimitCheck.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, copyLicenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`カスタム活動は最大${copyLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				),
+			});
+		}
+
 		try {
 			const target = targetChildIds[0];
 			if (targetChildIds.length === 1 && target !== undefined) {
@@ -619,7 +637,7 @@ export const actions: Actions = {
 			icon,
 			basePoints,
 			dailyLimit,
-			source: 'parent' as const,
+			source: PARENT_CREATED_SOURCE,
 		}));
 
 		try {

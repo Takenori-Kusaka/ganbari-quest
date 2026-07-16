@@ -132,6 +132,9 @@ export const SQL_CREATE_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_point_ledger_child ON point_ledger(child_id, created_at);
+	-- #3284: 付与の冪等キー (referenceId 付き付与の二重 insert を DB 層で拒否)
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_point_ledger_idempotency
+		ON point_ledger(child_id, type, reference_id) WHERE reference_id IS NOT NULL;
 
 	CREATE TABLE IF NOT EXISTS statuses (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -645,7 +648,8 @@ export const SQL_CREATE_TABLES = `
 		max_downloads INTEGER NOT NULL DEFAULT 10,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		status TEXT NOT NULL DEFAULT 'pending',
-		failure_reason TEXT
+		failure_reason TEXT,
+		build_started_at TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_cloud_exports_tenant
 		ON cloud_exports(tenant_id);

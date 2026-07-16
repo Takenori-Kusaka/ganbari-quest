@@ -20,13 +20,16 @@
 //     weekly_auto_guard STORED 生成列 (auto:weekly 行のみ `${child}:${startDate}`、他は NULL) +
 //     UNIQUE に対する ON CONFLICT DO NOTHING で concurrent 二重 INSERT を物理拒否し、直後の
 //     SELECT で勝者 1 行に収束させる (owner_guard パターン、ポイント二重付与の不可能化)。
-//   - **claimReward (#3333)**: `reward_claimed=false AND completed=true` の行のみ flip し
-//     RETURNING で実 flip 行数を返す (SqlExecutor は rowCount 非公開のため RETURNING で数える、
-//     daily-mission-complete と同 convention)。service は戻り 1 のときだけ加点する。
+//   - **claimRewardAndGrantPoints (#3284/#3342、旧 claimReward #3333 の後継)**:
+//     `reward_claimed=false AND completed=true` の行のみ flip し、flip 成立時に限り同一 txn 内で
+//     point_ledger INSERT + children.total_point 共更新まで実行する (両成功 or 両 rollback)。
+//     RETURNING で実 flip 行数を判定 (SqlExecutor は rowCount 非公開)。
 
 import { sql } from 'drizzle-orm';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { asChildId } from '$lib/domain/ids';
 import type { IChildChallengeRepo } from '../interfaces/child-challenge-repo.interface';
+import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type {
 	ChildChallenge,
 	InsertChildChallengeInput,
@@ -93,14 +96,15 @@ function toChallenge(row: ChallengeRow): ChildChallenge {
 	};
 }
 
-function firstRowOrThrow(rows: unknown[], context: string): ChallengeRow {
-	const row = rows[0] as ChallengeRow | undefined;
-	if (!row) throw new Error(`${context}: insert returned no row`);
-	return row;
-}
-
-/** DSQL 用 IChildChallengeRepo を生成する (db は注入、fitness#8)。 */
-export function createDsqlChildChallengeRepo(db: SqlExecutor): IChildChallengeRepo {
+/**
+ * DSQL 用 IChildChallengeRepo を生成する (db/runner は注入、fitness#8)。
+ * runner は claimRewardAndGrantPoints (#3284/#3342: 条件付き flip + ledger insert +
+ * total_point 共更新の単一 txn) でのみ使用する。
+ */
+export function createDsqlChildChallengeRepo<TTx extends SqlExecutor>(
+	db: SqlExecutor,
+	runner: TransactionRunner<TTx>,
+): IChildChallengeRepo {
 	async function insertOne(
 		input: InsertChildChallengeInput,
 		tenantId: string,
@@ -184,6 +188,10 @@ export function createDsqlChildChallengeRepo(db: SqlExecutor): IChildChallengeRe
 
 		async insertForRestore(input, tenantId) {
 			// #3329: 進捗 / 完了 / 請求 / status / 日時を export 値のまま書き戻す (id のみ新規採番)。
+			// #3387/#3394 統一冪等契約: auto:weekly 行の (child, start_date) 重複 (weekly_auto_guard
+			// UNIQUE 衝突) は DO NOTHING で skip し null を返す (sqlite 部分 unique index /
+			// dynamodb AUTO# SK + attribute_not_exists と機能等価。regular 行は guard 列が NULL の
+			// ため衝突せず常に insert される)。
 			const result = await db.execute(sql`
 				INSERT INTO child_challenges
 					(family_id, child_id, title, description, challenge_type, period_type,
@@ -197,9 +205,11 @@ export function createDsqlChildChallengeRepo(db: SqlExecutor): IChildChallengeRe
 					${input.targetValue}, ${input.completed === 1}, ${input.completedAt},
 					${input.rewardClaimed === 1}, ${input.rewardClaimedAt},
 					${input.createdAt}, ${input.updatedAt})
+				ON CONFLICT DO NOTHING
 				RETURNING ${CHALLENGE_COLUMNS}
 			`);
-			return toChallenge(firstRowOrThrow(result.rows, 'insertForRestore'));
+			const row = result.rows[0] as unknown as ChallengeRow | undefined;
+			return row ? toChallenge(row) : null;
 		},
 
 		async getOrCreateWeeklyAuto(input, tenantId) {
@@ -246,21 +256,43 @@ export function createDsqlChildChallengeRepo(db: SqlExecutor): IChildChallengeRe
 			`);
 		},
 
-		async claimReward(id, tenantId) {
-			// #3333: 条件付き flip。実際に flip した行数を返す (TOCTOU 防止)。
-			// #3625: 件数は CTE で DB 側 count 集約し idiom を統一する (affected は高々 1 行だが
-			// dsql 全体の「mutation 件数は CTE count」規律に揃え、guard の false-positive を避ける)。
-			const result = await db.execute(sql`
-				WITH updated AS (
+		async claimRewardAndGrantPoints(id, ledger, tenantId) {
+			// #3284 / #3342 (旧 claimReward #3333 の後継): 条件付き flip → flip 行数 gate →
+			// point_ledger INSERT + children.total_point 共更新 (§6.2 compute-on-write) を
+			// **単一 txn** で実行する。ledger INSERT が throw (冪等 UNIQUE 23505 等) すると
+			// flip ごと rollback され、lost-award (flip 済 + 付与 0) を構造的に排除する。
+			// fitness#7 準拠: txn work 内の await は全て tx.execute 直呼び (point-write.ts の
+			// createPointEntryWriter は自前 txn を張るため本 txn 内では使えない。同 SQL を inline
+			// 展開し、付与契約 = ledger INSERT + total_point += amount 同時更新 を维持する)。
+			const recordedDate = todayDateJST();
+			return runner.runInTransaction(async (tx) => {
+				const flipped = await tx.execute(sql`
 					UPDATE child_challenges
 					SET reward_claimed = true, reward_claimed_at = now(), updated_at = now()
 					WHERE family_id = ${tenantId} AND challenge_id = ${id}
 						AND reward_claimed = false AND completed = true
-					RETURNING 1
-				)
-				SELECT count(*)::int AS c FROM updated
-			`);
-			return Number((result.rows[0] as { c: number }).c);
+					RETURNING challenge_id
+				`);
+				if (flipped.rows.length !== 1) return 0;
+
+				await tx.execute(sql`
+					INSERT INTO point_ledger (family_id, child_id, amount, type, description, reference_id, recorded_date)
+					VALUES (${tenantId}, ${ledger.childId}, ${ledger.amount}, 'child_challenge',
+						${ledger.description}, ${id}, ${recordedDate})
+				`);
+				const updated = await tx.execute(sql`
+					UPDATE children SET total_point = total_point + ${ledger.amount}, updated_at = now()
+					WHERE family_id = ${tenantId} AND child_id = ${ledger.childId}
+					RETURNING child_id
+				`);
+				if (updated.rows.length === 0) {
+					// child 不在 = total_point 共更新不能。throw で txn ごと rollback (§5 P7 片肺書込禁止)。
+					throw new Error(
+						`claimRewardAndGrantPoints: child not found (${tenantId}/${ledger.childId})`,
+					);
+				}
+				return 1;
+			});
 		},
 
 		async update(id, input: UpdateChildChallengeInput, tenantId) {

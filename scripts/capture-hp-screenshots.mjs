@@ -31,7 +31,7 @@ import {
 	convertToWebP,
 	ScreenshotCapture,
 	withScreenshotParam,
-} from './lib/screenshot-helpers.mjs';
+} from './lib/ci/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const OUTPUT_DIR = path.resolve('site/screenshots');

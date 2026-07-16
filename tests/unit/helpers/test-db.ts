@@ -158,6 +158,8 @@ export const SQL_TABLES = `
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX idx_point_ledger_child ON point_ledger(child_id, created_at);
+	-- #3284 並行実装整合: 付与の冪等キー (referenceId 付き付与は (child, type, reference) 一意)
+	CREATE UNIQUE INDEX idx_point_ledger_idempotency ON point_ledger(child_id, type, reference_id) WHERE reference_id IS NOT NULL;
 
 	-- ============================================================
 	-- statuses

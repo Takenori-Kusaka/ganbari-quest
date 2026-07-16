@@ -275,7 +275,7 @@ static/assets/
 
 | スクリプト | 用途 | 状態 |
 |-----------|------|------|
-| `generate-image.mjs` | 汎用生成 CLI（本 Issue で新規作成） | `scripts/lib/brand-style-guide.js` を参照 |
+| `generate-image.mjs` | 汎用生成 CLI（本 Issue で新規作成） | `scripts/lib/ci/brand-style-guide.js` を参照 |
 | `generate-stamp-images.mjs` | おみくじスタンプ6種専用 | 専用プロンプトのため独立維持 |
 | `generate-marketing-images.mjs` | OGP・SNSバナー専用 | `brand-style-guide.js` の COMMON_STYLE を参照 |
 | `generate-stripe-product-images.mjs` | Stripe商品画像専用 | 独立維持 |

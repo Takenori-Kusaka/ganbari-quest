@@ -209,27 +209,44 @@ export async function findEntriesByCardId(
 // insertCardForRestore / insertEntryForRestore — backup restore 用 (#3329、全フィールド保全)
 // ============================================================
 
+/**
+ * #3391/#3394 統一冪等契約: SK=STMPCARD#<weekStart> への Put に attribute_not_exists(PK) を付け、
+ * 同 (childId, weekStart) の既存 card を silent 上書きしない (SQLite uniqueIndex
+ * idx_stamp_cards_child_week と機能等価)。重複は null を返し (import 側 skip 計上)、
+ * throttle 等その他の失敗は throw する (#3401 例外分類、silent loss 禁止)。
+ */
 export async function insertCardForRestore(
 	input: Omit<StampCard, 'id'>,
 	tenantId: string,
-): Promise<StampCard> {
+): Promise<StampCard | null> {
 	const id = await nextId(ENTITY_NAMES.stampCard, tenantId);
 	const card: StampCard = { ...input, id: String(id) };
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...stampCardKey(Number(input.childId), input.weekStart, tenantId),
-				...card,
-				// stored attributes は数値 id のまま (storage format 不変、#3575)
-				id,
-				childId: Number(input.childId),
-			},
-		}),
-	);
+	try {
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...stampCardKey(Number(input.childId), input.weekStart, tenantId),
+					...card,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(input.childId),
+				},
+				// SQLite uniqueIndex(child_id, week_start) 等価: 既存 (child, week) を上書きしない。
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
+		throw e;
+	}
 	return card;
 }
 
+/**
+ * #3394 統一冪等契約: 実 insert したら true / 重複 (同 (cardId, slot)) skip は false を返す
+ * (import は true のときのみ imported++ = count 偽装防止 #2263 class)。その他の失敗は throw (#3401)。
+ */
 export async function insertEntryForRestore(
 	input: {
 		cardId: string;
@@ -240,7 +257,7 @@ export async function insertEntryForRestore(
 		earnedAt: string;
 	},
 	tenantId: string,
-): Promise<void> {
+): Promise<boolean> {
 	try {
 		await getDocClient().send(
 			new PutCommand({
@@ -257,8 +274,9 @@ export async function insertEntryForRestore(
 				ConditionExpression: 'attribute_not_exists(PK)',
 			}),
 		);
+		return true;
 	} catch (e) {
-		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return;
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return false;
 		throw e;
 	}
 }
@@ -399,11 +417,15 @@ export async function updateCardStatusIfCollecting(
 // deleteByTenantId — テナントの全カード・エントリを削除
 // ============================================================
 
-export async function deleteByTenantId(tenantId: string): Promise<void> {
-	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
-	// cards: child partition 配下の STMPCARD# item。
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), CARD_PREFIX);
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
+	const { deleteChildScopedItems, deleteItemsByPkPrefix } = await import('./bulk-delete');
+	// cards: child partition 配下の STMPCARD# item (#3693: childIds 指定時は Query 化)。
+	await deleteChildScopedItems(tenantId, childIds, CARD_PREFIX);
 	// entries: 専用 STMPCARD#<cardId> partition 配下の STMPENT# item。
+	// cardId は PK 埋込で列挙不能のため Scan 継続 (#3693: tenant あたり 1 Scan のみ)。
 	await deleteItemsByPkPrefix(tenantPK('STMPCARD#', tenantId), ENTRY_PREFIX);
 }
 

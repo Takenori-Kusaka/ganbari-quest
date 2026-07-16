@@ -16,7 +16,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-describe('Stagehand v3 SDK construction (cost $0、init/Chrome 起動なし)', () => {
+// #3661: @browserbasehq/stagehand の dynamic import (初回 module cache cold) が高負荷環境で
+// vitest 既定 5s を超える (実測 5-8s、--testTimeout=30000 で PASS)。hooks-integration.test.ts と
+// 同型の describe-level timeout で吸収する (assertion 内容は不変、ADR-0061 same-class 対処)。
+describe('Stagehand v3 SDK construction (cost $0、init/Chrome 起動なし)', {
+	timeout: 30_000,
+}, () => {
 	it('new Stagehand({ env: LOCAL, ... }) で instance 構築可能 (v3 V3Options 整合)', async () => {
 		const { Stagehand } = await import('@browserbasehq/stagehand');
 		// 実 init() は呼ばない (Chrome 起動 + ANTHROPIC API call が発生するため)

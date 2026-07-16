@@ -5,7 +5,7 @@ concurrency:
   cancel-in-progress: true
 
 # PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) の必須項目が
-# 適切に記入されているかを 5 つの並列ジョブで検証する。
+# 適切に記入されているかを 6 つの並列ジョブで検証する。
 # いずれか 1 つでも失敗すると PR がブロックされる（hard-fail）。
 #
 # 対象: Ready for Review 済みの全 PR（Draft は除外）
@@ -31,6 +31,8 @@ concurrency:
 # ★ required check context 名 (= job の name) は変更しない (#2944 AC6 / no-go):
 #   main ruleset に登録済の 5 context (必須セクションの存在確認 / 関連 Issue 番号の記入 /
 #   変更タイプの選択 / 顧客価値・目的の記入 / テスト実行結果の記入) を 1 つも改名しない。
+#   Job 6 (closing keyword の記入、#3458) は新規 context — required 化には Branch Ruleset の
+#   required_status_checks への登録 (管理者作業) が必要。
 
 on:
   pull_request:
@@ -43,7 +45,8 @@ permissions:
 jobs:
   # ============================================================
   # Job 1: 必須セクション存在確認 (lane-aware)
-  #   feature/hotfix = SSOT JSON の全 `## ` 見出し / integration = 統合 section set /
+  #   feature/hotfix = SSOT JSON の全 `## ` 見出し /
+  #   integration = INTEGRATION_PR_TEMPLATE_SECTIONS.json (統合 PR 用 SSOT、#3688) /
   #   dependabot = skip。検証ロジックは scripts/pr-template-gate-checks.mjs (check=section-presence)。
   # ============================================================
   check-section-presence:
@@ -75,7 +78,8 @@ jobs:
             --body-file /tmp/pr-body.md \
             --labels-json /tmp/pr-labels.json \
             --template-file .github/PULL_REQUEST_TEMPLATE.md \
-            --ssot-file .github/PR_TEMPLATE_SECTIONS.json
+            --ssot-file .github/PR_TEMPLATE_SECTIONS.json \
+            --integration-ssot-file .github/INTEGRATION_PR_TEMPLATE_SECTIONS.json
 
   # ============================================================
   # Job 2: 関連 Issue 番号の記入 (lane-aware)
@@ -214,6 +218,47 @@ jobs:
           printf '%s' "${PR_LABELS}" > /tmp/pr-labels.json
           node scripts/pr-template-gate-checks.mjs \
             --check test-results --lane "${LANE}" \
+            --body-file /tmp/pr-body.md \
+            --labels-json /tmp/pr-labels.json \
+            --template-file .github/PULL_REQUEST_TEMPLATE.md
+
+  # ============================================================
+  # Job 6: closing keyword の必須化 (#3458 / #3423 AC1、lane-aware)
+  #   feature (develop 向け) × type:feat/type:fix = `## 関連 Issue` に行頭 closing keyword
+  #   (Closes/Fixes/Resolves #N、コロン形 / 全角 ＃ 許容) を必須化。
+  #   bare `#N` / `関連: #N` のみは fail。issue を閉じない PR は
+  #   `<!-- no-issue-close: 理由 -->` 宣言で skip。
+  #   integration = skip (#3423 集約側 integration-pr-body.mjs が担う) /
+  #   hotfix = skip (main 直行は GitHub が直接 auto-close) / dependabot = skip。
+  #   検出規約は scripts/integration-pr-body.mjs extractClosedIssues と共有 (二重実装なし、#3444)。
+  #   check=closing-keyword。
+  # ============================================================
+  check-closing-keyword:
+    name: "closing keyword の記入 (feat/fix)"
+    runs-on: ubuntu-latest
+    if: "github.event.pull_request.draft == false"
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Classify PR lane (actions/pr-lane SSOT)
+        id: lane
+        uses: ./actions/pr-lane
+      - name: Verify closing keyword declared (lane-aware)
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          LANE: ${{ steps.lane.outputs.lane }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${PR_BODY}" > /tmp/pr-body.md
+          printf '%s' "${PR_LABELS}" > /tmp/pr-labels.json
+          node scripts/pr-template-gate-checks.mjs \
+            --check closing-keyword --lane "${LANE}" \
             --body-file /tmp/pr-body.md \
             --labels-json /tmp/pr-labels.json \
             --template-file .github/PULL_REQUEST_TEMPLATE.md

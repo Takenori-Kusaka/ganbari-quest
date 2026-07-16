@@ -35,7 +35,7 @@ import {
 	REPO_ROOT,
 	reportFindings,
 	walkDir,
-} from './lib/orphan-utils.mjs';
+} from './lib/ci/orphan-utils.mjs';
 
 const TEST_DIRS = ['tests', 'src'];
 const TEST_EXTENSIONS = ['.ts', '.mjs', '.spec.ts', '.test.ts', '.test.mjs'];

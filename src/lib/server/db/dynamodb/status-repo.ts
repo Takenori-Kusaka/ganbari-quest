@@ -19,7 +19,7 @@ import type {
 	Status,
 	StatusHistoryEntry,
 } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -34,7 +34,6 @@ import {
 	statusHistoryPrefix,
 	statusKey,
 	statusPrefix,
-	tenantPK,
 } from './keys';
 import { queryAllItems, stripKeys } from './repo-helpers';
 
@@ -445,9 +444,12 @@ export async function findLastActivityDates(
  * テナントの全ステータスデータを削除（CHILD#* 配下の STATUS# + STATHIST# アイテム）。
  * market_benchmarks はグローバルなマスターデータのため削除しない。
  */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
 	// Delete status records (STATUS#...)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), statusPrefix());
+	await deleteChildScopedItems(tenantId, childIds, statusPrefix());
 	// Delete status history records (STATHIST#...)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), statusHistoryPrefix());
+	await deleteChildScopedItems(tenantId, childIds, statusHistoryPrefix());
 }

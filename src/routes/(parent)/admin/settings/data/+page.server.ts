@@ -5,9 +5,11 @@ import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { notYetExportedSourceLabels } from '$lib/server/db/backup-entity-registry';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
+import { resolveMaxImportBytes } from '$lib/server/services/import-limit';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -56,6 +58,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		canExport: planLimits.canExport,
 		maxCloudExports: planLimits.maxCloudExports,
 		children,
+		// #3325 AC3: 実行環境の実効 import 上限 (AWS = Function URL 6MB 弱 / NUC・local = 100MB)。
+		// UI 側のファイル選択時 client-side pre-check に使う (送信前に気付ける、NN/G error prevention)。
+		maxImportBytes: resolveMaxImportBytes(),
+		// #3372: registry 駆動の partial-backup 警告 (未 export source の表示名。空なら警告非表示)。
+		notYetExportedLabels: notYetExportedSourceLabels(),
 	};
 };
 

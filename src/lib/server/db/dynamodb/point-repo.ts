@@ -11,16 +11,16 @@ import {
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { InsertPointLedgerInput, PointLedgerEntry } from '../types';
-import { deleteItemsByPkPrefix } from './bulk-delete';
+import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
 	childPK,
 	ENTITY_NAMES,
 	pointBalanceKey,
+	pointLedgerIdempotencyKey,
 	pointLedgerKey,
 	pointLedgerPrefix,
-	tenantPK,
 } from './keys';
 import { batchDeleteItems, stripKeys } from './repo-helpers';
 
@@ -169,56 +169,92 @@ export async function spendPointsAtomic(
 	};
 	const key = pointLedgerKey(Number(childId), now, id, tenantId);
 
+	// #3284: referenceId 付き減算 (reward_redemption 等) は冪等 marker の条件付き Put を同一
+	// transaction 化し、同一 (child, type, reference) の二重減算を DB レベルで物理拒否する
+	// (SQLite idx_point_ledger_idempotency と機能等価)。
+	const transactItems: NonNullable<
+		ConstructorParameters<typeof TransactWriteCommand>[0]['TransactItems']
+	> = [
+		{
+			// 残高 >= コスト のときのみ原子的に減算（条件不成立で transaction 全体が cancel される）
+			Update: {
+				TableName: TABLE_NAME,
+				Key: pointBalanceKey(Number(childId), tenantId),
+				UpdateExpression: 'ADD #balance :neg',
+				ConditionExpression: '#balance >= :amount',
+				ExpressionAttributeNames: { '#balance': 'balance' },
+				ExpressionAttributeValues: { ':neg': -amount, ':amount': amount },
+			},
+		},
+		{
+			Put: {
+				TableName: TABLE_NAME,
+				Item: {
+					...key,
+					...ledger,
+					// stored attributes は数値 id のまま (storage format 不変、#3575)
+					id,
+					childId: Number(childId),
+					referenceId: entry.referenceId != null ? Number(entry.referenceId) : null,
+				},
+			},
+		},
+	];
+	if (entry.referenceId != null) {
+		transactItems.push({
+			Put: {
+				TableName: TABLE_NAME,
+				Item: {
+					...pointLedgerIdempotencyKey(
+						Number(childId),
+						entry.type,
+						Number(entry.referenceId),
+						tenantId,
+					),
+					ledgerId: id,
+					createdAt: now,
+				},
+				ConditionExpression: 'attribute_not_exists(PK)',
+			},
+		});
+	}
+
 	try {
-		await getDocClient().send(
-			new TransactWriteCommand({
-				TransactItems: [
-					{
-						// 残高 >= コスト のときのみ原子的に減算（条件不成立で transaction 全体が cancel される）
-						Update: {
-							TableName: TABLE_NAME,
-							Key: pointBalanceKey(Number(childId), tenantId),
-							UpdateExpression: 'ADD #balance :neg',
-							ConditionExpression: '#balance >= :amount',
-							ExpressionAttributeNames: { '#balance': 'balance' },
-							ExpressionAttributeValues: { ':neg': -amount, ':amount': amount },
-						},
-					},
-					{
-						Put: {
-							TableName: TABLE_NAME,
-							Item: {
-								...key,
-								...ledger,
-								// stored attributes は数値 id のまま (storage format 不変、#3575)
-								id,
-								childId: Number(childId),
-								referenceId: entry.referenceId != null ? Number(entry.referenceId) : null,
-							},
-						},
-					},
-				],
-			}),
-		);
+		await getDocClient().send(new TransactWriteCommand({ TransactItems: transactItems }));
 	} catch (err) {
 		const cancellation = (err as { name?: string; CancellationReasons?: Array<{ Code?: string }> })
 			?.CancellationReasons;
-		const conditionFailed =
-			(err as { name?: string })?.name === 'TransactionCanceledException' &&
-			(cancellation?.some((r) => r?.Code === 'ConditionalCheckFailed') ?? true);
-		if (conditionFailed) return { error: 'INSUFFICIENT_POINTS' };
+		const isCancel = (err as { name?: string })?.name === 'TransactionCanceledException';
+		// #3356 (2): 旧 `?? true` は CancellationReasons 無しの TransactionCanceledException
+		// (transient conflict / throttle) まで「残高不足」に誤分類していた。CancellationReasons の
+		// index は TransactItems と 1:1 のため、index 0 (残高条件) の失敗のみ INSUFFICIENT_POINTS に
+		// 分類する。index 2 (冪等 marker、#3284) の失敗 = 同一 reference の二重減算は明示 throw、
+		// 分類不能な cancel も throw して呼び出し側 / インフラ retry に委ねる (減算はされず fail-closed)。
+		if (isCancel && cancellation?.[0]?.Code === 'ConditionalCheckFailed') {
+			return { error: 'INSUFFICIENT_POINTS' };
+		}
+		if (isCancel && cancellation?.[2]?.Code === 'ConditionalCheckFailed') {
+			throw new Error(
+				`spendPointsAtomic: duplicate spend rejected (child=${childId}, type=${entry.type}, referenceId=${entry.referenceId}) #3284`,
+			);
+		}
 		throw err;
 	}
 
 	return ledger;
 }
 
-/** テナントの全ポイント台帳・残高を削除（CHILD#* 配下の POINT# + BALANCE アイテム） */
-export async function deleteByTenantId(tenantId: string): Promise<void> {
+/** テナントの全ポイント台帳・残高を削除（CHILD#* 配下の POINT# + POINTIDEM# + BALANCE アイテム） */
+export async function deleteByTenantId(
+	tenantId: string,
+	childIds?: readonly ChildId[],
+): Promise<void> {
 	// Delete point ledger entries (POINT#...)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), pointLedgerPrefix());
+	await deleteChildScopedItems(tenantId, childIds, pointLedgerPrefix());
+	// Delete idempotency markers (POINTIDEM#..., #3284)
+	await deleteChildScopedItems(tenantId, childIds, 'POINTIDEM#');
 	// Delete balance records (BALANCE)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), 'BALANCE');
+	await deleteChildScopedItems(tenantId, childIds, 'BALANCE');
 }
 
 // ============================================================

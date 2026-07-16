@@ -107,6 +107,18 @@
 - Lambda events → HTTP変換を透過的に処理
 - Cold start: ~500ms（許容範囲）
 
+**LWA readiness と health の分離（#3657）:**
+
+| probe | パス | 深さ | 用途 |
+|-------|------|------|------|
+| readiness | `/api/ready` | shallow（プロセスが HTTP を受けられるかのみ、DB 非接触） | LWA の `AWS_LWA_READINESS_CHECK_PATH`（`Dockerfile.lambda`）。トラフィック受入可否の判定 |
+| health | `/api/health` | deep（DATA_SOURCE に応じた実 backend 接続 + schema 検証、07-API設計書 §3.15） | 監視専用: 外部ヘルスチェック Prober（§3.4 L1）/ post-deploy smoke（deploy.yml / deploy-aws-staging.yml）/ NUC Docker healthcheck（`Dockerfile`） |
+
+- **readiness を deep DB probe に結合しない**。結合すると DB 障害時に LWA が never-ready となり、アプリの fail-close 503 が外に出ず Function URL 全体が 502 化する（外形の劣化 + 障害原因の不可視化）。さらに cold start の readiness 成立が DB 接続に律速されて Lambda init 10s 上限の `INIT_REPORT timeout` → 再 init ループを誘発する（DSQL 構成 staging 実測: probe 込み Init 3315ms）
+- LWA 0.9.1 の readiness は HTTP status ≥ 500（`AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS` 既定値）を unhealthy と判定するため、/api/health の 503 fail-close はそのまま never-ready になる。LWA 既定の readiness path が `/`（軽量応答想定）である点とも整合し、shallow readiness + deep health の分離は Kubernetes の readiness/liveness 分離・AWS Builders' Library「Implementing health checks」（依存 deep check を起動 gate に使うと単一依存障害が全遮断へ増幅される）と同型の確立パターン
+- **DB 障害時の外形と検出経路**: アプリは各リクエストで fail-close 503 / エラー応答を返し（assertion 弱体化なし、ADR-0006 整合）、Lambda-URL-5xx alarm（§3.4 #7、≥5回/5分 P0）+ 外部ヘルスチェック Prober（§3.4 L1、`/api/health` を 1 時間毎 GET → 503 検知 → Discord 通知）が検出する。CloudFront カスタムエラーレスポンス（§3.5）は 502/503 とも S3 エラーページに差し替えるため、ユーザー向け表示は劣化しない
+- `/api/ready` はメンテナンスモード（§3.5）でも 503 化しない（`hooks.server.ts` で `/api/health` と同様に除外）。メンテ中の cold start が never-ready → 502 になり、メンテページ（503 → S3 差し替え）が出せなくなるのを防ぐ
+
 **ECRリポジトリ:**
 - イメージ保持: 最新10個（ロールバック用 ~2週間分）
 - 未タグイメージ: 1日で自動削除
@@ -154,6 +166,17 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
 - **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。Sub A-3 対象 endpoint (retention-cleanup / trial-notifications) は 0 tolerance で厳密検証する一方、`age-recalc` は EventBridge / dispatcher 未反映の既知 drift として `KNOWN_DRIFT_OUT_OF_SCOPE` で除外している (上表「✗」と整合)。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
+
+**Cron ジョブ実行時間予算 — 30 秒 self-limiting + 持ち越し規約 (#3695):**
+
+全 cron ジョブの実処理は `EventBridge → cron-dispatcher → HTTP POST → SvelteKitFn (timeout 30 秒)` 上で走るため、dispatcher 側の timeout (Lambda 5 分 / HTTP client 270 秒) は「アプリ Lambda が 504 を返すまで待つだけ」で救済にならず、**全ジョブが実質 30 秒制約下にある**。「cron だから長く走れる」という前提で設計してはならない。
+
+- **規約**: 処理量がデータ量 (テナント数 / pending 件数等) に比例する cron ジョブは、**1 回の実行で 30 秒予算内に処理できる分だけ処理し、残りは次回実行に持ち越す** (self-limiting)。実装は `src/lib/server/cron/time-budget.ts` の `createTimeBudget` (既定 20 秒 = 30 秒 − 認証・前処理・in-flight 完走・レスポンス直列化のヘッドルーム 10 秒) と件数上限の併用。予算超過チェックは item 間で行い、着手した item は完走させる (中断は stale 'building' 等の中途状態を量産するため)
+- **観測性**: 持ち越し発生時は件数 (`remaining` / `skipped`) を log warn + レスポンスに必ず含める (silent 持ち越し禁止、ADR-0006 整合)
+- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲)
+- **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
+- **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
+- **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
 
 ### 3.4 OpsStack（監視・コスト防衛）
 

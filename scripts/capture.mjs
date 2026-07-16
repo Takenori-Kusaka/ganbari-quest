@@ -38,7 +38,7 @@ import {
 	FlowRecorder,
 	resolvePreset,
 	ScreenshotCapture,
-} from './lib/screenshot-helpers.mjs';
+} from './lib/ci/screenshot-helpers.mjs';
 
 // ============================================================
 // CLI オプション定義
