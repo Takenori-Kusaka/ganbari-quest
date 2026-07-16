@@ -54,7 +54,9 @@ const GRANDFATHER = new Set(
 		'src/lib/server/cookie-config.ts',
 		'src/lib/server/db/client.ts',
 		'src/lib/server/db/dynamodb/client.ts',
-		'src/lib/server/db/dynamodb/storage-repo.ts',
+		// #3438 Phase 1 で src/lib/server/db/dynamodb/storage-repo.ts から相対移動 (pure relocate)。
+		// grandfather の意図 (既存の直接 env 参照を維持) を保つため path のみ追随更新。
+		'src/lib/server/db/s3/storage-repo.ts',
 		'src/lib/server/db/factory.ts',
 		'src/lib/server/db/seed.ts',
 		'src/lib/server/debug-plan.ts',
