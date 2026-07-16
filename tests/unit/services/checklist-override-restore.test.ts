@@ -35,7 +35,7 @@ import { clearAllFamilyData } from '../../../src/lib/server/services/data-servic
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 import { importFamilyData } from '../../../src/lib/server/services/import-service';
 
-const T = 't-ckoverride';
+const T = 't-ck-override';
 
 beforeAll(() => {
 	const t = createTestDb();
