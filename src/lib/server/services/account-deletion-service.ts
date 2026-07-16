@@ -175,8 +175,13 @@ async function fullTenantDeletion(
 	// 3. 子供データ削除
 	itemsDeleted += await deleteAllChildrenData(tenantId);
 
-	// 4. 全メンバーの Cognito ユーザー削除 + メンバーシップ削除
+	// 4. 全メンバーの メンバーシップ削除 → Cognito / global users 削除 の順 (#3588 ②)。
+	// DSQL cutover 安全性: memberships (family_id 述語付き tenant scope) を global users 表の
+	// 削除より先に掃除する。FK 非対応 (§P4) ゆえ deleteUser を先に行うと membership 行が
+	// 存在しない user_id を指す dangling 窓が生じる。owner_user_id cache は step 6 の
+	// deleteTenant (families 行ごと削除) で消えるため別途掃除不要。
 	const members = await repos().auth.findTenantMembers(tenantId);
+	itemsDeleted += await deleteAllMemberships(tenantId);
 	for (const member of members) {
 		try {
 			await deleteCognitoUser(member.userId);
@@ -185,7 +190,6 @@ async function fullTenantDeletion(
 			logger.warn(`[account-deletion] ユーザー削除失敗 userId=${member.userId}: ${String(err)}`);
 		}
 	}
-	itemsDeleted += await deleteAllMemberships(tenantId);
 
 	// 5. 招待リンク無効化 + 物理削除
 	itemsDeleted += await revokeAndDeleteAllInvites(tenantId);
