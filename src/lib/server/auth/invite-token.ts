@@ -16,8 +16,13 @@
 //         sha256(token) で十分 (token 自体が 256bit 高エントロピーのため salt / pepper 不要、
 //         パスワードと違い辞書攻撃が成立しない)。
 //   - raw token は生成時に呼び出し元へ返すのみ。DB には tokenHash (UNIQUE(token_hash)) だけを保存する。
+//
+// #3588 ①: token の hash は `invite-code-hash.ts` の hashInviteSecret に委譲する (SSOT 統合)。
+//   hashInviteToken と hashInviteCode は同一写像 (sha256 hex) の別呼称であり、二重定義を廃して
+//   将来のアルゴリズム変更時の片側更新漏れ (invite lookup 不整合) を構造排除する。
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { hashInviteSecret } from './invite-code-hash';
 
 /** invite token のエントロピー (bytes)。32 bytes = 256 bit、base64url で 43 chars */
 export const INVITE_TOKEN_BYTES = 32;
@@ -36,9 +41,10 @@ export function generateInviteToken(): { token: string; tokenHash: string } {
 /**
  * 提示された token を照合用にハッシュ化する (DB lookup キー算出)。
  * generateInviteToken と同一写像 (sha256 hex 小文字) であることが contract。
+ * #3588 ①: hashInviteSecret (SSOT) に委譲。hashInviteCode と同一写像。
  */
 export function hashInviteToken(token: string): string {
-	return createHash('sha256').update(token, 'utf8').digest('hex');
+	return hashInviteSecret(token);
 }
 
 /**

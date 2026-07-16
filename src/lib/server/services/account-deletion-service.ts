@@ -133,21 +133,20 @@ async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 
 	for (const invite of invites) {
 		try {
+			// #3585: 管理鍵は inviteId (findTenantInvites の inviteCode は '' で raw 非露出)。
 			// まずステータスを revoked に（pending の場合のみ条件付き更新）
 			if (invite.status === 'pending') {
 				try {
-					await repos().auth.updateInviteStatus(invite.inviteCode, 'revoked');
+					await repos().auth.updateInviteStatus(invite.inviteId, 'revoked');
 				} catch {
 					// conditional write failure は無視
 				}
 			}
 			// 物理削除: 招待レコード自体を削除（テナント側・招待コード側の両方）
-			await repos().auth.deleteInvite(invite.inviteCode, tenantId);
+			await repos().auth.deleteInvite(invite.inviteId, tenantId);
 			deleted++;
 		} catch (err) {
-			logger.warn(
-				`[account-deletion] 招待削除失敗 inviteCode=${invite.inviteCode}: ${String(err)}`,
-			);
+			logger.warn(`[account-deletion] 招待削除失敗 inviteId=${invite.inviteId}: ${String(err)}`);
 		}
 	}
 

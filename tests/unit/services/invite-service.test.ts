@@ -10,9 +10,13 @@ let membershipStore: Membership[];
 let tenantStore: Map<string, Tenant>;
 let userTenantStore: Map<string, Membership[]>;
 
+// #3585: inviteId は管理鍵、inviteCode は raw code。unit mock では inviteId を code から
+// 派生 (id-<code>) して一意にし「service が inviteId を渡す (code ではない)」ことを検証可能にする。
 function makePendingInvite(overrides: Partial<Invite> = {}): Invite {
+	const inviteCode = overrides.inviteCode ?? 'test-code-123';
 	return {
-		inviteCode: 'test-code-123',
+		inviteId: `id-${inviteCode}`,
+		inviteCode,
 		tenantId: 't-test',
 		invitedBy: 'user-owner',
 		role: 'parent',
@@ -25,8 +29,10 @@ function makePendingInvite(overrides: Partial<Invite> = {}): Invite {
 
 const mockAuthRepo: Partial<IAuthRepo> = {
 	createInvite: vi.fn(async (input) => {
+		const inviteCode = `inv-${Date.now()}`;
 		const invite: Invite = {
-			inviteCode: `inv-${Date.now()}`,
+			inviteId: `id-${inviteCode}`,
+			inviteCode,
 			tenantId: input.tenantId,
 			invitedBy: input.invitedBy,
 			role: input.role,
@@ -41,8 +47,9 @@ const mockAuthRepo: Partial<IAuthRepo> = {
 	findInviteByCode: vi.fn(async (code: string) => {
 		return inviteStore.get(code);
 	}),
-	updateInviteStatus: vi.fn(async (code: string, status: string, acceptedBy?: string) => {
-		const invite = inviteStore.get(code);
+	// #3585: 管理系は inviteId 鍵。store は inviteCode で引くため inviteId で線形検索する。
+	updateInviteStatus: vi.fn(async (inviteId: string, status: string, acceptedBy?: string) => {
+		const invite = [...inviteStore.values()].find((i) => i.inviteId === inviteId);
 		if (invite) {
 			invite.status = status as Invite['status'];
 			if (acceptedBy) {
@@ -152,7 +159,8 @@ describe('getInvite', () => {
 
 		const result = await getInvite('past');
 		expect(result).toBeNull();
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('past', 'expired');
+		// #3585: 状態遷移は inviteId 鍵 (code ではなく invite.inviteId を渡す)
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-past', 'expired');
 	});
 });
 
@@ -227,25 +235,32 @@ describe('acceptInvite', () => {
 	});
 });
 
-describe('revokeInvite', () => {
-	it('pending の招待を取り消せる', async () => {
+// #3585: revoke は inviteId 鍵 (admin 一覧の inviteId を受ける)。tenant scope は
+// findTenantInvites (tenant 束縛一覧) に inviteId が存在することで担保する。
+describe('revokeInvite (#3585 inviteId 鍵)', () => {
+	it('一覧の inviteId で pending の招待を取り消せる', async () => {
 		inviteStore.set('rev-1', makePendingInvite({ inviteCode: 'rev-1' }));
 
-		await revokeInvite('rev-1', 't-test');
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('rev-1', 'revoked');
+		await revokeInvite('id-rev-1', 't-test');
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-rev-1', 'revoked');
 	});
 
-	it('別テナントの招待は取り消せない', async () => {
+	it('別テナントの inviteId は取り消せない (一覧に無い → no-op、cross-tenant 防止)', async () => {
 		inviteStore.set('rev-2', makePendingInvite({ inviteCode: 'rev-2', tenantId: 't-other' }));
 
-		await revokeInvite('rev-2', 't-test');
+		await revokeInvite('id-rev-2', 't-test');
 		expect(mockAuthRepo.updateInviteStatus).not.toHaveBeenCalled();
 	});
 
-	it('既に accepted の招待は取り消せない', async () => {
+	it('既に accepted の招待は取り消せない (状態機械)', async () => {
 		inviteStore.set('rev-3', makePendingInvite({ inviteCode: 'rev-3', status: 'accepted' }));
 
-		await revokeInvite('rev-3', 't-test');
+		await revokeInvite('id-rev-3', 't-test');
+		expect(mockAuthRepo.updateInviteStatus).not.toHaveBeenCalled();
+	});
+
+	it('存在しない inviteId は no-op', async () => {
+		await revokeInvite('id-nonexistent', 't-test');
 		expect(mockAuthRepo.updateInviteStatus).not.toHaveBeenCalled();
 	});
 });
@@ -353,8 +368,8 @@ describe('招待失効 × email 束縛 (#3555 ②)', () => {
 
 		const result = assertError(await acceptInvite('exp-em', 'user-new', 'intended@example.com'));
 		expect(result.error).toBe('INVALID_OR_EXPIRED');
-		// pending のまま放置されず expired に遷移する (getInvite の自動失効)
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('exp-em', 'expired');
+		// pending のまま放置されず expired に遷移する (getInvite の自動失効、#3585 inviteId 鍵)
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-exp-em', 'expired');
 	});
 });
 

@@ -178,6 +178,7 @@ export async function deleteMembership(_userId: string, _tenantId: string): Prom
 export async function createInvite(input: CreateInviteInput): Promise<Invite> {
 	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 	return {
+		inviteId: 'DEMO-INVITE-ID',
 		inviteCode: 'DEMO-INVITE',
 		tenantId: input.tenantId,
 		invitedBy: input.invitedBy,
@@ -194,19 +195,19 @@ export async function findInviteByCode(_inviteCode: string): Promise<Invite | un
 }
 
 export async function updateInviteStatus(
-	_inviteCode: string,
+	_inviteId: string,
 	_status: Invite['status'],
 	_acceptedBy?: string,
 ): Promise<void> {
-	// Stub: no-op
+	// Stub: no-op (#3585: 管理鍵は inviteId)
 }
 
 export async function findTenantInvites(_tenantId: string): Promise<Invite[]> {
 	return [];
 }
 
-export async function deleteInvite(_inviteCode: string, _tenantId: string): Promise<void> {
-	// Stub: no-op
+export async function deleteInvite(_inviteId: string, _tenantId: string): Promise<void> {
+	// Stub: no-op (#3585: 管理鍵は inviteId)
 }
 
 // ---------- Consent ----------

@@ -70,13 +70,13 @@ async function createInvite() {
 
 // #3743: await 駆動ハンドラの実行中フラグ (DESIGN.md §5 Button loading prop、#3667 same-class)。
 // 対象 item の id を保持し、該当ボタンのみ spinner + disabled + aria-busy にする。
-let revokingInviteCode = $state<string | null>(null);
+let revokingInviteId = $state<string | null>(null);
 
-async function revokeInvite(code: string) {
+async function revokeInvite(inviteId: string) {
 	if (!confirm(MEMBERS_LABELS.revokeConfirm)) return;
-	revokingInviteCode = code;
+	revokingInviteId = inviteId;
 	try {
-		const res = await fetch(`/api/v1/admin/invites/${code}`, { method: 'DELETE' });
+		const res = await fetch(`/api/v1/admin/invites/${inviteId}`, { method: 'DELETE' });
 		// #3225: 取り消し失敗を silent にしない (失敗時は reload せず error Toast)
 		if (!res.ok) {
 			await notifyApiError(res);
@@ -86,7 +86,7 @@ async function revokeInvite(code: string) {
 	} catch {
 		notifyNetworkError();
 	} finally {
-		revokingInviteCode = null;
+		revokingInviteId = null;
 	}
 }
 
@@ -484,11 +484,11 @@ const roleLabel = (role: string) => {
 						</div>
 						{#if $page.data.currentRole === 'owner'}
 							<Button
-								onclick={() => revokeInvite(invite.inviteCode)}
+								onclick={() => revokeInvite(invite.inviteId)}
 								variant="danger"
 								size="sm"
-								loading={revokingInviteCode === invite.inviteCode}
-								disabled={revokingInviteCode !== null}
+								loading={revokingInviteId === invite.inviteId}
+								disabled={revokingInviteId !== null}
 							>
 								{MEMBERS_LABELS.inviteRevokeButton}
 							</Button>

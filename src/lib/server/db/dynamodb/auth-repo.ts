@@ -419,6 +419,9 @@ export const createInvite: IAuthRepo['createInvite'] = async (input) => {
 	const now = new Date();
 	const expiresAt = new Date(now.getTime() + INVITE_EXPIRY_DAYS * MS_PER_DAY);
 	const invite: Invite = {
+		// #3585: DynamoDB は raw code を PK=INVITE#<code> に採る。管理鍵 inviteId は raw code と
+		// 同値にし、updateInviteStatus / deleteInvite が inviteKey(inviteId) を解決できるようにする。
+		inviteId: inviteCode,
 		inviteCode,
 		tenantId: input.tenantId,
 		invitedBy: input.invitedBy,
@@ -458,15 +461,17 @@ export const findInviteByCode: IAuthRepo['findInviteByCode'] = async (inviteCode
 };
 
 export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async (
-	inviteCode,
+	inviteId,
 	status,
 	acceptedBy,
 ) => {
 	const now = new Date().toISOString();
 
+	// #3585: inviteId は raw code と同値 (PK=INVITE#<code>)。inviteKey(inviteId) で primary を引く。
 	// Get current invite to find tenantId for adjacency update
-	const current = await findInviteByCode(inviteCode);
+	const current = await findInviteByCode(inviteId);
 	if (!current) return;
+	const inviteCode = inviteId;
 
 	const updates: string[] = ['#status = :status', '#updatedAt = :now'];
 	const names: Record<string, string> = { '#status': 'status', '#updatedAt': 'updatedAt' };
@@ -514,15 +519,18 @@ export const findTenantInvites: IAuthRepo['findTenantInvites'] = async (tenantId
 			},
 		}),
 	);
-	return (result.Items ?? []).map(itemToInvite);
+	// #3585: 一覧は inviteId を管理鍵として返し、raw inviteCode は空にする (作成時のみ露出、
+	// DSQL backend と統一)。管理操作は inviteId 経由で行う。
+	return (result.Items ?? []).map((item) => ({ ...itemToInvite(item), inviteCode: '' }));
 };
 
-export const deleteInvite: IAuthRepo['deleteInvite'] = async (inviteCode, tenantId) => {
+export const deleteInvite: IAuthRepo['deleteInvite'] = async (inviteId, tenantId) => {
+	// #3585: inviteId は raw code と同値 (PK=INVITE#<code>)。inviteKey(inviteId) で解決。
 	// Delete primary invite item (INVITE#<code>)
-	await doc().send(new DeleteCommand({ TableName: TABLE_NAME, Key: inviteKey(inviteCode) }));
+	await doc().send(new DeleteCommand({ TableName: TABLE_NAME, Key: inviteKey(inviteId) }));
 	// Delete tenant adjacency item (TENANT#<tenantId>, INVITE#<code>)
 	await doc().send(
-		new DeleteCommand({ TableName: TABLE_NAME, Key: tenantInviteKey(tenantId, inviteCode) }),
+		new DeleteCommand({ TableName: TABLE_NAME, Key: tenantInviteKey(tenantId, inviteId) }),
 	);
 };
 
@@ -571,8 +579,11 @@ function itemToMembership(item: Record<string, unknown>): Membership {
 }
 
 function itemToInvite(item: Record<string, unknown>): Invite {
+	const inviteCode = item.inviteCode as string;
 	return {
-		inviteCode: item.inviteCode as string,
+		// #3585: inviteId は管理鍵。既存 (inviteId 未保存) item は raw code に fallback。
+		inviteId: (item.inviteId as string | undefined) ?? inviteCode,
+		inviteCode,
 		tenantId: item.tenantId as string,
 		invitedBy: item.invitedBy as string,
 		role: item.role as Role,

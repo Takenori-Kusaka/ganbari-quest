@@ -1,4 +1,6 @@
-// DELETE /api/v1/admin/invites/[code] — 招待取消し (#0129)
+// DELETE /api/v1/admin/invites/[id] — 招待取消し (#0129)
+// #3585: パスセグメントは inviteId (管理鍵)。raw code は一覧から復元不能 (CWE-522) のため、
+//        admin UI は一覧の inviteId を渡す。revokeInvite が tenant 束縛で検証する。
 
 import { json } from '@sveltejs/kit';
 import { OWNER_GATE_LABELS } from '$lib/domain/labels';
@@ -18,10 +20,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	// #3552 ②: role-mutation の 403 拒否は監査ログに残す (招待濫用試行の追跡)。
 	const gate = ownerGateResponse(locals, OWNER_GATE_LABELS.inviteRevoke, {
 		auditAction: 'invites.revoke',
-		targetId: params.code,
+		targetId: params.id,
 	});
 	if (gate) return gate;
 
-	await revokeInvite(params.code, tenantId);
+	await revokeInvite(params.id, tenantId);
 	return json({ ok: true });
 };

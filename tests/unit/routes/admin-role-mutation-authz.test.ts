@@ -76,7 +76,7 @@ const { DELETE: deleteMember } = await import(
 );
 const { POST: createInvitePost } = await import('../../../src/routes/api/v1/admin/invites/+server');
 const { DELETE: revokeInviteDelete } = await import(
-	'../../../src/routes/api/v1/admin/invites/[code]/+server'
+	'../../../src/routes/api/v1/admin/invites/[id]/+server'
 );
 
 // ---------- helpers ----------
@@ -110,7 +110,7 @@ function createInviteCreateEvent(role: Role) {
 
 function createInviteRevokeEvent(role: Role) {
 	return {
-		params: { code: 'invite-code-1' },
+		params: { id: 'invite-code-1' },
 		locals: {
 			context: { tenantId: 't-test', role },
 			identity: { type: 'cognito', userId: 'u-caller' },
@@ -311,7 +311,7 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 		});
 	});
 
-	describe('DELETE /api/v1/admin/invites/[code] (#3549 (a) 招待取消の owner 専用化)', () => {
+	describe('DELETE /api/v1/admin/invites/[id] (#3549 (a) 招待取消の owner 専用化)', () => {
 		beforeEach(() => {
 			mockRevokeInvite.mockResolvedValue(undefined);
 		});
