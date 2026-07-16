@@ -204,8 +204,10 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 				mockRepos.auth.createMembership.mock.invocationCallOrder[promoteOrder];
 			const demoteDeleteInvocation =
 				mockRepos.auth.deleteMembership.mock.invocationCallOrder[demoteDeleteOrder];
+			expect(promoteInvocation).toBeDefined();
+			expect(demoteDeleteInvocation).toBeDefined();
 			// 新 owner を owner に create してから、旧 owner の membership を delete する
-			expect(promoteInvocation).toBeLessThan(demoteDeleteInvocation);
+			expect(promoteInvocation as number).toBeLessThan(demoteDeleteInvocation as number);
 			// 最終的に新 owner が tenant owner に確定する
 			expect(mockRepos.auth.updateTenantOwner).toHaveBeenCalledWith('t-test', 'u-target');
 		});
