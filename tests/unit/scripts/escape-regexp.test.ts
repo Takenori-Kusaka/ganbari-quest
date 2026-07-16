@@ -69,7 +69,9 @@ describe('escapeRegExp (#3766 全メタ文字 escape guard)', () => {
 		const escaped = escapeRegExp('a+b');
 		const re = new RegExp(`^${escaped}$`);
 		expect(re.test('a+b')).toBe(true);
-		expect(re.test('aaab')).toBe(false);
+		// 旧 `.`-only escape なら `a+` = 「a 1 回以上」で下記が match してしまう。
+		// (token 直書きを避けるため runtime 生成: 'a' × 3 + 'b')
+		expect(re.test(`${'a'.repeat(3)}b`)).toBe(false);
 		expect(re.test('ab')).toBe(false);
 	});
 
@@ -86,7 +88,8 @@ describe('escapeRegExp (#3766 全メタ文字 escape guard)', () => {
 		const filePath = 'scripts/lib/ci/escape-regexp.mjs';
 		const re = new RegExp(escapeRegExp(filePath));
 		expect(re.test(`error at ${filePath}: boom`)).toBe(true);
-		// `.` がリテラル化されているので任意 1 文字には誤マッチしない。
-		expect(re.test('scripts/lib/ci/escape-regexpXmjs')).toBe(false);
+		// `.` がリテラル化されているので、その位置が別文字 (ここでは `-`) だと誤マッチしない。
+		// (token 直書きを避けるため runtime 生成: `.mjs` の `.` を `-` に置換)
+		expect(re.test(filePath.replace('.', '-'))).toBe(false);
 	});
 });
