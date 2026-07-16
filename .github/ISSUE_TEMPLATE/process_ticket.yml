@@ -153,7 +153,7 @@ body:
         OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
       value: |
         <!-- 例:
-        - docs/reference/01-research-issue-templating-and-doc-consolidation.md §2.1
+        - docs/research/01-research-issue-templating-and-doc-consolidation.md §2.1
         - または: N/A（既存パターン適用のため新規調査不要）
         -->
     validations:

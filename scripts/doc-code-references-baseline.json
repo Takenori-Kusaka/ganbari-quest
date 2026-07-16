@@ -196,7 +196,7 @@
 		"docs/rationale/07-usage-log-dynamodb-deferred-rationale.md": [
 			"src/lib/server/db/dynamodb/usage-log-repo.ts"
 		],
-		"docs/reference/07-research-child-collapsible-prior-art.md": ["src/routes/demo"],
+		"docs/research/07-research-child-collapsible-prior-art.md": ["src/routes/demo"],
 		"docs/research/2097-multi-lambda-merged-system-design.md": [
 			"scripts/check-demo-prod-schema-parity.mjs",
 			"scripts/check-no-escape-language.mjs",

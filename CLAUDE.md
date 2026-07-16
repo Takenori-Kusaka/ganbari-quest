@@ -103,8 +103,7 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 ## Further Context
 
-- @docs/DESIGN.md（デザイン SSOT、必読）/ @docs/reference/ui_framwork.md / @docs/reference/backend_framework.md
-- @docs/reference/gemini_image_generation_guide.md / @docs/design/asset-catalog.md
+- @docs/DESIGN.md（デザイン SSOT、必読）/ @docs/reference/gemini_image_generation_guide.md / @docs/design/asset-catalog.md
 - @personal/data/family.yml (サブモジュール)
 
 ## Compaction Rules
