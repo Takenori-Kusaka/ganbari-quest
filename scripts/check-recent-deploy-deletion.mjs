@@ -485,7 +485,7 @@ export function findViolations(deletedFiles, recentMerges, ignorePatterns) {
 }
 
 /** `--ignore-pattern` に許容する最大長 (ReDoS 表面積の上限、operator 誤用の早期検出)。 */
-const MAX_IGNORE_PATTERN_LENGTH = 200;
+export const MAX_IGNORE_PATTERN_LENGTH = 200;
 
 /**
  * `--ignore-pattern <regex>` の operator 指定値を安全に RegExp へ compile する。
@@ -499,7 +499,7 @@ const MAX_IGNORE_PATTERN_LENGTH = 200;
  * @param {string} source operator が渡した regex 文字列
  * @returns {RegExp}
  */
-function compileIgnorePattern(source) {
+export function compileIgnorePattern(source) {
 	if (source.length > MAX_IGNORE_PATTERN_LENGTH) {
 		throw new Error(
 			`--ignore-pattern が長すぎます (${source.length} > ${MAX_IGNORE_PATTERN_LENGTH} 文字)。path 除外 regex を短くしてください。`,

@@ -21,7 +21,7 @@
  * @param {unknown} v
  * @returns {string}
  */
-function escapeMarkdownCell(v) {
+export function escapeMarkdownCell(v) {
 	return String(v ?? '').replace(/[\\|]/g, '\\$&');
 }
 

@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { escapeRegExp } from './escape-regexp.mjs';
 
 // REPO_ROOT 解決 — scripts/lib/ci/ から 3 階層上
 const __filename = fileURLToPath(import.meta.url);
@@ -116,10 +117,15 @@ export function walkDir(dir, options = {}) {
 
 /**
  * 文字列を regex 用に escape する。
+ *
+ * SSOT 統合 (#3766 / #1442): 実体は `scripts/lib/ci/escape-regexp.mjs` の `escapeRegExp`
+ * に一本化した (3 変種目の重複実装を作らない)。新版は旧 MDN パターン `[.*+?^${}()|[\]\\]`
+ * に `/` `-` を追加 + `String()` coercion を持つが、いずれも既存 escape 済メタ文字の出力を
+ * 変えず (`\-` `\/` は非 char-class では identity escape で literal-safe)、既存 caller
+ * (`collectReferences` の word-boundary 生成含む) の挙動は不変。後方互換のため `escapeRegex`
+ * 名で re-export する。
  */
-export function escapeRegex(s) {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+export const escapeRegex = escapeRegExp;
 
 /**
  * 結果 print + exit。
