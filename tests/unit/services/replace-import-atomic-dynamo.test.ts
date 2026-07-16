@@ -9,17 +9,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 
-const { clearAllFamilyData, importFamilyData, exportFamilyData, saveFile } = vi.hoisted(() => ({
-	clearAllFamilyData: vi.fn(async () => ({ deleted: {} })),
-	importFamilyData: vi.fn(async () => ({ errors: [] }) as unknown),
-	exportFamilyData: vi.fn(async () => ({ snapshot: true }) as unknown),
-	saveFile: vi.fn(async () => {}),
-}));
+const { clearAllFamilyData, importFamilyData, exportFamilyData, saveFile, sendDiscordAlert } =
+	vi.hoisted(() => ({
+		clearAllFamilyData: vi.fn(async () => ({ deleted: {} })),
+		importFamilyData: vi.fn(async () => ({ errors: [] }) as unknown),
+		exportFamilyData: vi.fn(async () => ({ snapshot: true }) as unknown),
+		saveFile: vi.fn(async () => {}),
+		// 引数を 1 つ受ける形で型付け (mock.calls[0][0] の tuple index アクセスを型安全にする)。
+		sendDiscordAlert: vi.fn(async (_opts: Record<string, unknown>) => {}),
+	}));
 
 vi.mock('$lib/server/services/data-service', () => ({ clearAllFamilyData }));
 vi.mock('$lib/server/services/import-service', () => ({ importFamilyData }));
 vi.mock('$lib/server/services/export-service', () => ({ exportFamilyData }));
 vi.mock('$lib/server/storage', () => ({ saveFile }));
+vi.mock('$lib/server/discord-alert', () => ({ sendDiscordAlert }));
 vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
@@ -67,5 +71,62 @@ describe('#3326 DynamoDB backup-before-clear', () => {
 		expect(importFamilyData).toHaveBeenCalledTimes(2);
 		// 復元 import には snapshot が渡される
 		expect(importFamilyData).toHaveBeenLastCalledWith({ snapshot: true }, T);
+	});
+
+	it('復元自体の成功時は Discord alert を送らない (一次故障からの自動復元はノイズにしない、#3520)', async () => {
+		importFamilyData
+			.mockRejectedValueOnce(new Error('import 途中失敗'))
+			.mockResolvedValueOnce({ errors: [] } as unknown);
+
+		await expect(replaceImportAtomic(DATA, T)).rejects.toThrow('import 途中失敗');
+
+		expect(sendDiscordAlert).not.toHaveBeenCalled();
+	});
+
+	it('二次故障 (復元自体が失敗) 時は critical Discord alert を送り元エラーを再送出する (#3520)', async () => {
+		// 本体 import 失敗 → 復元 import も失敗 (二次故障)。復元前 clear は成功させ、
+		// 復元 importFamilyData が reject するケース (最終防衛線が崩れる状況)。
+		importFamilyData
+			.mockRejectedValueOnce(new Error('import 途中失敗'))
+			.mockRejectedValueOnce(new Error('復元も失敗'));
+
+		// 呼び出し側には一次故障の元エラーが再送出される (復元失敗で隠蔽しない)。
+		await expect(replaceImportAtomic(DATA, T)).rejects.toThrow('import 途中失敗');
+
+		// 二次故障パスに限定して即時 alert を送る (手動復旧が必要な状態の可視化)。
+		expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+		const alertArg = sendDiscordAlert.mock.calls[0]?.[0] as unknown as {
+			level: string;
+			message: string;
+			tenantId: string;
+			errorSummary: string;
+		};
+		expect(alertArg.level).toBe('critical');
+		expect(alertArg.tenantId).toBe(T);
+		expect(alertArg.message).toContain('手動復旧');
+		// errorSummary に二次故障と一次故障の両方を残す (オンコール診断用)。
+		expect(alertArg.errorSummary).toContain('復元も失敗');
+		expect(alertArg.errorSummary).toContain('import 途中失敗');
+	});
+
+	it('復元経路の migrateExportData 失敗 (snapshot version 不一致) も二次故障として alert する (#3521)', async () => {
+		// #3521: restoreFromSnapshot の最終防衛線 importFamilyData(snapshot) が内部で呼ぶ
+		// migrateExportData が「移行経路未定義」で throw するケースを、復元 import の reject として
+		// 再現する (version 不一致を人工的に発生させた状況を表す)。二次故障として alert される。
+		importFamilyData
+			.mockRejectedValueOnce(new Error('import 途中失敗'))
+			.mockRejectedValueOnce(
+				new Error('[export-migrations] version 99.0.0 → 1.6.0 の移行経路が未定義です'),
+			);
+
+		await expect(replaceImportAtomic(DATA, T)).rejects.toThrow('import 途中失敗');
+
+		expect(sendDiscordAlert).toHaveBeenCalledTimes(1);
+		const alertArg = sendDiscordAlert.mock.calls[0]?.[0] as unknown as {
+			level: string;
+			errorSummary: string;
+		};
+		expect(alertArg.level).toBe('critical');
+		expect(alertArg.errorSummary).toContain('移行経路が未定義');
 	});
 });

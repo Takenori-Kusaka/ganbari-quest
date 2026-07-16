@@ -389,6 +389,42 @@ describe('updateStatus (#3504)', () => {
 	});
 });
 
+describe('claimForBuild (#3522 dual-cron 楽観ロック)', () => {
+	it('status=pending 条件付きで building へ SET し、成功時 true を返す', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { claimForBuild } = await loadRepo();
+		const claimed = await claimForBuild('5', TENANT);
+		expect(claimed).toBe(true);
+		const arg = callOf(0).input;
+		// pending → building の CAS 条件 (別 worker が先取得していれば条件不成立)。
+		expect(arg.ConditionExpression).toBe('attribute_exists(PK) AND #status = :pending');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':pending']).toBe('pending');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':building']).toBe('building');
+		expect(arg.UpdateExpression).toContain('#status = :building');
+		// building 遷移なので buildStartedAt=now / failureReason=null も同 UpdateItem で確定。
+		expect(typeof (arg.ExpressionAttributeValues as Record<string, unknown>)[':bsa']).toBe(
+			'string',
+		);
+		expect((arg.ExpressionAttributeValues as Record<string, unknown>)[':fr']).toBeNull();
+	});
+
+	it('別 worker が先取得済み (ConditionalCheckFailed) は false を返す (二重 build 回避)', async () => {
+		mockSend.mockRejectedValueOnce(
+			Object.assign(new Error('cc'), { name: 'ConditionalCheckFailedException' }),
+		);
+		const { claimForBuild } = await loadRepo();
+		await expect(claimForBuild('5', TENANT)).resolves.toBe(false);
+	});
+
+	it('その他のエラーは再送出する (握り潰さない)', async () => {
+		mockSend.mockRejectedValueOnce(
+			Object.assign(new Error('boom'), { name: 'ThrottlingException' }),
+		);
+		const { claimForBuild } = await loadRepo();
+		await expect(claimForBuild('5', TENANT)).rejects.toThrow('boom');
+	});
+});
+
 describe('findPendingBuilds (#3504)', () => {
 	it('Scan + #status=pending で最大 limit 件返す', async () => {
 		mockSend.mockResolvedValueOnce({

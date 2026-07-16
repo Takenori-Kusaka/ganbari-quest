@@ -151,6 +151,21 @@ async function restoreFromSnapshot(
 			error: String(restoreErr),
 			context: { tenantId, originalError: String(originalErr) },
 		});
+		// #3520: 二次故障 (復元自体の失敗)。永続化済 snapshot による手動復旧が必要な状態だが、
+		// ログだけでは誰かが能動的に確認しない限り気づかれず、家庭のバックアップデータが黙って
+		// 喪失するリスクが残る。低頻度 (DynamoDB が連続失敗した場合のみ) だが影響が大きいため、
+		// この二次故障パスに限定してオペレータへ即時 Discord alert を送る (一次故障からの自動復元
+		// 成功時は既存ログのみでノイズを増やさない)。alert 送信自体の失敗で本来の再送出を阻害しない
+		// よう .catch() で握り潰す (sendDiscordAlert は webhook 未設定なら no-op で即 return する)。
+		const { sendDiscordAlert } = await import('$lib/server/discord-alert');
+		await sendDiscordAlert({
+			level: 'critical',
+			message: '置換インポートの復元に失敗しました。永続化済スナップショットで手動復旧が必要です',
+			tenantId,
+			errorSummary: `restore=${String(restoreErr)} / original=${String(originalErr)}`,
+		}).catch((alertErr) =>
+			logger.error('[replace-import] 二次故障 alert 送信失敗', { error: String(alertErr) }),
+		);
 	}
 }
 

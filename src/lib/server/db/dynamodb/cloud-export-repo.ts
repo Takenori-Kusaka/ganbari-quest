@@ -183,6 +183,43 @@ export async function updateStatus(
 }
 
 /**
+ * #3522: pending → building の CAS claim (楽観ロック)。`ConditionExpression` で
+ * `#status = 'pending'` を満たすときだけ 'building' へ SET し、条件不成立
+ * (ConditionalCheckFailedException = 既に別 worker が掴んだ / 不在) は false を返す。
+ * DynamoDB の conditional write は item 単位で原子的なので、複数 worker が同時に掴んでも
+ * 1 worker だけが成功し二重 build を防げる。'building' 遷移なので buildStartedAt=now /
+ * failureReason=null も同 UpdateItem で確定する (updateStatus('building') と同じ副次値)。
+ */
+export async function claimForBuild(id: string, tenantId: string): Promise<boolean> {
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: cloudExportKey(Number(id), tenantId),
+				UpdateExpression: 'SET #status = :building, #bsa = :bsa, #fr = :fr',
+				ConditionExpression: 'attribute_exists(PK) AND #status = :pending',
+				ExpressionAttributeNames: {
+					'#status': 'status',
+					'#bsa': 'buildStartedAt',
+					'#fr': 'failureReason',
+				},
+				ExpressionAttributeValues: {
+					':building': 'building',
+					':pending': 'pending',
+					':bsa': new Date().toISOString(),
+					':fr': null,
+				},
+			}),
+		);
+		return true;
+	} catch (error) {
+		// 条件不成立 (既に別 worker が building/ready/failed へ進めた or 不在) は claim 失敗 = false。
+		if ((error as { name?: string }).name === 'ConditionalCheckFailedException') return false;
+		throw error;
+	}
+}
+
+/**
  * #3504: build 待ち (status='pending') を tenant 横断で最大 limit 件返す (cron drain 用)。
  * deleteExpired と同じく低頻度 Scan + 属性フィルタ。`#status` は予約語のため別名化。
  */
