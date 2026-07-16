@@ -1,5 +1,5 @@
 /**
- * tests/unit/db/dynamodb-storage-repo.test.ts
+ * tests/unit/db/s3-storage-repo.test.ts (#3438 Phase 1 で dynamodb-storage-repo.test.ts から改称)
  *
  * #3504 (async-backup-export.md §3.4): S3 storage の getDownloadUrl が presigned GET URL を
  * 発行し `{ kind: 'redirect', url }` を返すことを検証する。@aws-sdk/s3-request-presigner を
@@ -32,7 +32,7 @@ afterEach(() => {
 describe('dynamodb storage-repo getDownloadUrl (#3504)', () => {
 	it('presigned GET URL を対象 key 限定・指定 TTL で発行し redirect を返す', async () => {
 		mockGetSignedUrl.mockResolvedValueOnce('https://s3.example.com/presigned?sig=abc');
-		const { getDownloadUrl } = await import('../../../src/lib/server/db/dynamodb/storage-repo');
+		const { getDownloadUrl } = await import('../../../src/lib/server/db/s3/storage-repo');
 
 		const result = await getDownloadUrl('exports/t1/ABC234/backup.zip', { expiresIn: 300 });
 
