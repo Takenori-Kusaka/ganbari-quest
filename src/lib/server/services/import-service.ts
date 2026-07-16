@@ -5,6 +5,7 @@ import { asCategoryId } from '$lib/domain/ids';
 // 家族データインポートサービス（Phase 2 / #1254）
 
 import { toLegacyCategoryId } from '$lib/domain/categories';
+import { sanitizeChecklistOverrideRestore } from '$lib/domain/checklist-override';
 import {
 	EXPORT_FORMAT,
 	type ExportData,
@@ -1174,15 +1175,32 @@ async function importChecklistOverridesData(
 			result.checklistOverridesSkipped++;
 			continue;
 		}
+		// #3473 item 3: untrusted backup 由来の action/itemName/icon/targetDate を restore 境界で
+		// sanitize する。enum 外 action は子供画面フィルタにヒットせず silent 破損になるため、
+		// verbatim 書き戻しをやめ拒否を errors に可視化する (owner 復元でも fail-safe)。
+		const sanitized = sanitizeChecklistOverrideRestore({
+			targetDate: o.targetDate,
+			action: o.action,
+			itemName: o.itemName,
+			icon: o.icon,
+			createdAt: o.createdAt,
+		});
+		if (!sanitized.ok) {
+			result.checklistOverridesSkipped++;
+			result.errors.push(
+				`チェックリスト override 検証失敗 (child=${o.childRef}, date=${String(o.targetDate)}): ${sanitized.reason}`,
+			);
+			continue;
+		}
 		try {
 			const restored = await insertOverrideForRestore(
 				{
 					childId,
-					targetDate: o.targetDate,
-					action: o.action,
-					itemName: o.itemName,
-					icon: o.icon,
-					createdAt: o.createdAt,
+					targetDate: sanitized.value.targetDate,
+					action: sanitized.value.action,
+					itemName: sanitized.value.itemName,
+					icon: sanitized.value.icon,
+					createdAt: sanitized.value.createdAt,
 				},
 				tenantId,
 			);

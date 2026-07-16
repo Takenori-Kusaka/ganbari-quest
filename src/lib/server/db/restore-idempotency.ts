@@ -208,7 +208,12 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 			demo: 'null-stub',
 		},
 		reason:
-			'日次 override は (child, targetDate, action, itemName) に DB 一意制約がなく、同日複数 override も正当なため dedup 対象外 (既知の制約、#3329)',
+			'日次 override は (child, targetDate, action, itemName) に DB 一意制約がなく、同日複数 override も正当なため dedup 対象外 (既知の制約、#3329)。' +
+			'#3473 item 2 の「dynamodb に ConditionExpression 冪等 guard を追加 (#3385/#3448/#3465 と同方針)」は再分類の結果 non-applicable: ' +
+			'#3385/#3448/#3465 は決定的 SK (STMPCARD#<weekStart> 等) への無条件 Put が既存行を silent overwrite + count 偽装する欠陥だった。' +
+			'一方 insertOverrideForRestore は id を nextId で新規採番し SK=CKOVER#<date>#<id> が毎回一意になるため silent overwrite は構造的に発生せず、' +
+			'残るのは append 特性 (merge 再取込での重複行) のみ。これは同日複数 override 正当性から dedup してはならない。' +
+			'したがって natural-key guard は追加せず append 分類を維持する (ADR-0066 / #3719 統一契約整合)。',
 	},
 	rewardRedemption: {
 		kind: 'append',
