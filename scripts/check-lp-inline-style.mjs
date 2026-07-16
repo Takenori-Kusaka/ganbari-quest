@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck — CLI gate script。unit test が import するため TS graph に入るが untyped JS の CLI ツール。
 /**
  * scripts/check-lp-inline-style.mjs (#1851 Phase 2)
  *
