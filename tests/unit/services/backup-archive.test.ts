@@ -216,5 +216,7 @@ describe('buildFullBackupZip (#3376 AC8)', () => {
 		expect(res.ok).toBe(true);
 		if (!res.ok) return;
 		expect((res.value.body as { format: string }).format).toBe('ganbari-quest-backup');
-	});
+		// #3661 same-class: ~102MB 文字列の deflate/inflate + zip 構築が CI runner で vitest 既定 5s
+		// を超える (round-trip 検証に必要な実サイズ、mock 不可)。30s に緩和 (計算量は決定的)。
+	}, 30_000);
 });
