@@ -3769,6 +3769,11 @@ export const MEMBERS_LABELS = {
 	// 取消し → 再発行できる修正導線)
 	inviteEmailBoundPrefix: '宛先: ',
 	inviteRevokeButton: '取消し',
+	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
+	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
+	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
+	inviteOwnerOnlyNote:
+		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
 
 	// Error messages
 	inviteCreateError: '招待リンクの作成に失敗しました',
