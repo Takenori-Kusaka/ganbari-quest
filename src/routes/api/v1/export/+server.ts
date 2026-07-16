@@ -50,7 +50,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 		if (format === 'zip') {
 			// #3518-1: checksum 計算に使った直列化文字列を data.json に流用し二重 JSON.stringify を解消する。
-			const { exportData, dataJson } = await exportFamilyDataForZip({ tenantId, childIds, compact });
+			const { exportData, dataJson } = await exportFamilyDataForZip({
+				tenantId,
+				childIds,
+				compact,
+			});
 			return await buildZipResponse(exportData, tenantId, now, compact, dataJson);
 		}
 

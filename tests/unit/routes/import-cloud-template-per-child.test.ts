@@ -221,9 +221,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			});
 			mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB write failed'));
 
-			const res = await POST(
-				makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'),
-			);
+			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'));
 
 			expect(res.status).toBe(500);
 			// 取込が失敗しているので DL は消費されない (quota 温存)
