@@ -77,7 +77,7 @@ export class DsqlStack extends cdk.Stack {
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
 			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
 			alarmDescription:
-				'DSQL TotalDPU が無料枠ペース (10万 DPU/月 ≈ 3,225/日) を超過 (#3431。DPU 単価: Write は Read の約 27 倍)',
+				'DSQL TotalDPU が無料枠ペース (10万 DPU/月 ≈ 3,225/日) を超過 (#3431。DPU 単価: Write は Read の約 27 倍) 一次対応: docs/runbooks/dsql-alert-response.md',
 		});
 		totalDpuAlarm.addAlarmAction(alarmAction);
 
@@ -94,7 +94,8 @@ export class DsqlStack extends cdk.Stack {
 			evaluationPeriods: 1,
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
 			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-			alarmDescription: 'DSQL storage が無料枠 1GB の 80% に接近 (#3431)',
+			alarmDescription:
+				'DSQL storage が無料枠 1GB の 80% に接近 (#3431) 一次対応: docs/runbooks/dsql-alert-response.md',
 		});
 		storageAlarm.addAlarmAction(alarmAction);
 
