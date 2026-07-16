@@ -33,6 +33,7 @@ import type { IStampCardRepo } from '../interfaces/stamp-card-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { getDefaultStampMasters } from '../stamp-master-defaults';
 import type { StampCard, StampEntryWithMaster, StampMaster } from '../types';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface CardRow {
@@ -102,6 +103,14 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 		},
 
 		async findCardByChildAndWeek(childId, weekStart, tenantId) {
+			// #3581 ②: stampCard / loginStamp action (child POST) の stampToday →
+			// getOrCreateCurrentCard 経路が raw cookie id を最初に渡す repo 入口。route guard
+			// (requireValidChildCookieFormat) が第 1 層だが、repo 層でも非 uuid を「その週のカードなし」
+			// = undefined (not-found と同 shape) に正規化し、22P02 → 500 を fail-safe に断つ (二重防御)。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('stamp-card-repo.findCardByChildAndWeek');
+				return undefined;
+			}
 			return findCard(
 				sql`family_id = ${tenantId} AND child_id = ${childId} AND week_start = ${weekStart}`,
 			);
@@ -161,6 +170,11 @@ export function createDsqlStampCardRepo<TTx extends SqlExecutor>(
 		},
 
 		async findCardsByChild(childId, tenantId) {
+			// #3581 ②: 非 uuid の raw id は「カードなし」= 空配列 (not-found と同 shape) に正規化。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('stamp-card-repo.findCardsByChild');
+				return [];
+			}
 			const result = await db.execute(sql`
 				SELECT ${CARD_COLUMNS} FROM stamp_cards
 				WHERE family_id = ${tenantId} AND child_id = ${childId}

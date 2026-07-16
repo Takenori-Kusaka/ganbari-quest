@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
+import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -293,7 +294,8 @@ export const actions: Actions = {
 	record: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.record'));
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
@@ -339,7 +341,8 @@ export const actions: Actions = {
 	cancelRecord: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.cancelRecord'));
 		const logId = formIdString(formData.get('logId'));
 
 		if (!childId || !logId) {
@@ -359,7 +362,8 @@ export const actions: Actions = {
 
 	claimBonus: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBonus'));
 		if (!childId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
@@ -386,7 +390,10 @@ export const actions: Actions = {
 	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
+		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
+		// なる CWE-20 を trust 境界で断つ)。非 dsql (demo/anonymous 等) では空文字を返し下記 no-op 契約を保持。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.loginStamp'));
 		// Issue #2097 B-14a: anonymous / demo flow without selectedChildId cookie is expected.
 		// Previously returned fail(400) which triggered client retry storm (17-52 retries observed).
 		// Return a successful no-op shape so client skips stampPress transition without retrying.
@@ -451,7 +458,8 @@ export const actions: Actions = {
 	togglePin: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.togglePin'));
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 		const pinned = formData.get('pinned') === 'true';
 
@@ -470,7 +478,10 @@ export const actions: Actions = {
 
 	stampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
+		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
+		// なる CWE-20 を trust 境界で断つ)。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.stampCard'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await stampToday(childId, tenantId);
@@ -500,7 +511,8 @@ export const actions: Actions = {
 
 	redeemStampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.redeemStampCard'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await redeemStampCard(childId, tenantId);
@@ -520,7 +532,8 @@ export const actions: Actions = {
 
 	claimBirthday: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBirthday'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await claimBirthdayBonus(childId, tenantId);
@@ -545,7 +558,10 @@ export const actions: Actions = {
 	claimChallengeReward: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.claimChallengeReward'),
+		);
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
@@ -573,7 +589,8 @@ export const actions: Actions = {
 	sendCheer: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.sendCheer'));
 		const toChildId = asChildId(formIdString(formData.get('toChildId')));
 		const stampCode = formData.get('stampCode')?.toString() ?? '';
 

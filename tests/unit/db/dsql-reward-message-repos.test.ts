@@ -15,6 +15,7 @@
 // ── ISpecialRewardRepo ──
 //   [SR1] insert + findSpecialRewards (降順) + §P9
 //   [SR2] findUnshownReward (shown_at NULL の最新) / markRewardShown (composite key、他 child no-op)
+//   [SR2b] #3581 ②: markRewardShown は非 uuid id で throw せず undefined (/shown +server の 22P02 fail-safe)
 //   [SR3] updateSpecialReward (composite key、部分更新 / 空更新 = 現状返却 / 他 child no-op)
 //   [SR4] deleteSpecialReward (解決済 redemption も同 txn cascade、他 child no-op) + hasPending は残す
 //   [SR5] deleteByTenantId は §P9 tenant 限定 (他 tenant 無傷)
@@ -30,6 +31,7 @@
 // ── IMessageRepo ──
 //   [MSG1] insertMessage (icon 既定 💌 は schema DEFAULT 経由) + findMessages 降順 + §P9
 //   [MSG2] findUnshownMessage / countUnshownMessages / markMessageShown (composite、他 child no-op)
+//   [MSG2b] #3581 ②: markMessageShown は非 uuid id で throw せず undefined (/shown +server の 22P02 fail-safe)
 //   [MSG3] insertForRestore (sentAt/shownAt verbatim) + message_type CHECK 実効
 // ── ISiblingCheerRepo ──
 //   [SC1] insertCheer (from/to 2 参照、tenantId=family マップ) + findUnshownCheers + §P9
@@ -44,7 +46,7 @@
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ChildId } from '../../../src/lib/domain/ids';
+import { asChildId, type ChildId } from '../../../src/lib/domain/ids';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { createDsqlLoginBonusRepo } from '../../../src/lib/server/db/dsql/login-bonus-repo';
 import { createDsqlMessageRepo } from '../../../src/lib/server/db/dsql/message-repo';
@@ -165,6 +167,17 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(shown?.shownAt).not.toBe(null);
 		// r2 が既読になったので次の未表示は r1
 		expect((await rewardRepo.findUnshownReward(childId, FAMILY))?.id).toBe(r1.id);
+	});
+
+	it('[SR2b] #3581 ②: markRewardShown は非 uuid id で throw せず undefined (22P02 正規化)', async () => {
+		// `/api/v1/special-rewards/[rewardId]/shown` POST (+server) が stale cookie 由来の旧数値 id を
+		// 直達させる repo 入口。guard 無しだと WHERE child_id = <非uuid> で 22P02 throw → 500。
+		// undefined = 「対象なし」(endpoint は 404 で graceful) に正規化する。
+		for (const bad of ['3', 'not-a-uuid', '']) {
+			await expect(rewardRepo.markRewardShown(asChildId(bad), 'r-x', FAMILY)).resolves.toBe(
+				undefined,
+			);
+		}
 	});
 
 	it('[SR3] updateSpecialReward (composite、部分更新 / 空更新 = 現状 / 他 child no-op)', async () => {
@@ -572,6 +585,16 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		await messageRepo.markMessageShown(childId, m2.id, FAMILY);
 		expect(await messageRepo.countUnshownMessages(childId, FAMILY)).toBe(1);
 		expect((await messageRepo.findUnshownMessage(childId, FAMILY))?.body).toBe('a');
+	});
+
+	it('[MSG2b] #3581 ②: markMessageShown は非 uuid id で throw せず undefined (22P02 正規化)', async () => {
+		// `/api/v1/messages/[messageId]/shown` POST (+server) が stale cookie 由来の旧数値 id を
+		// 直達させる repo 入口。undefined = 「対象なし」(endpoint は notFound で graceful) に正規化する。
+		for (const bad of ['3', 'not-a-uuid', '']) {
+			await expect(messageRepo.markMessageShown(asChildId(bad), 'm-x', FAMILY)).resolves.toBe(
+				undefined,
+			);
+		}
 	});
 
 	it('[MSG3] insertForRestore (sentAt/shownAt verbatim) + message_type CHECK', async () => {
