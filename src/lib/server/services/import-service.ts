@@ -431,7 +431,8 @@ export async function importFamilyData(
 	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
 	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
-	await importChildVoicesData(data, childIdMap, tenantId, result);
+	// #3781: DB 行↔ファイル本体の dangling 相互整合を fail-closed 検証するため staticFiles を渡す。
+	await importChildVoicesData(data, childIdMap, tenantId, result, staticFiles);
 	// #3381: importSpecialRewards が返す exportId → 新 rewardId マップを交換履歴の安定再結合に使う。
 	const rewardIdByExportId = await importSpecialRewards(data, childIdMap, tenantId, result, mode);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済なので importSpecialRewards の後に実行する。
@@ -1259,14 +1260,26 @@ const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
  * filePath = `<tenantPrefix>voices/<newChildId>/<rest>` / publicUrl = `/<filePath>` を新環境向けに
  * 再構成して書き戻す (音声ファイル本体は #3077 importStaticFiles が同一パスへ復元済)。createdAt/
  * scene/label/durationMs/isActive を保全。child or path 解決不能行は skip。
+ *
+ * #3781: childVoice DB 行 ↔ #3077 ファイル本体の dangling 相互整合を fail-closed 検証する。
+ * - 前方 (DB 行 → 本体): 参照する本体ファイル (voiceRelPath) が同一 import payload (staticFiles) に
+ *   無い行は insert せず skip + warning。JSON-only import (staticFiles 未指定) や ZIP に本体を欠く
+ *   backup で「実体の無い publicUrl を指す DB 行」= dangling を生まない (#3490 AC-3 の deferral 解消)。
+ * - 逆方向 (本体 → DB 行): どの childVoice からも参照されない voices/* 本体は orphan として warning
+ *   で surface する (実害は未参照バイトのみのため fail-closed でなく可視化)。
  */
 async function importChildVoicesData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	staticFiles?: Record<string, Uint8Array>,
 ): Promise<void> {
-	for (const v of data.data.childVoices ?? []) {
+	const voices = data.data.childVoices ?? [];
+	// #3781 逆方向: childVoice が参照する本体パス集合。staticFiles 側の未参照 voices/* を orphan 検出。
+	const referencedVoicePaths = new Set(voices.map((v) => v.voiceRelPath));
+
+	for (const v of voices) {
 		const childId = childIdMap.get(v.childRef);
 		if (!childId) {
 			result.childVoicesSkipped++;
@@ -1293,6 +1306,16 @@ async function importChildVoicesData(
 			);
 			continue;
 		}
+		// #3781 前方 (fail-closed): 本体ファイルが同一 import payload に無ければ dangling publicUrl を
+		// 生むため insert しない。staticFiles のキーは export 時の相対パス (voices/<oldChildId>/<rest>) =
+		// v.voiceRelPath と一致する。JSON-only import (staticFiles 未指定) は全 childVoice が本体を欠く。
+		if (!staticFiles || !(v.voiceRelPath in staticFiles)) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: 本体ファイル「${v.voiceRelPath}」が取込データに含まれないため復元しません (child=${v.childRef})`,
+			);
+			continue;
+		}
 		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
 		const publicUrl = storageKeyToPublicUrl(filePath);
 		try {
@@ -1316,6 +1339,29 @@ async function importChildVoicesData(
 		} catch (e) {
 			result.childVoicesSkipped++;
 			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);
+		}
+	}
+
+	// #3781 逆方向: staticFiles に含まれるが、どの childVoice DB 行からも参照されない voices/* 本体を
+	// orphan として surface する (importStaticFiles が storage に配置しても参照する DB 行が無い状態)。
+	warnUnreferencedVoiceFiles(staticFiles, referencedVoicePaths, result);
+}
+
+/**
+ * #3781 逆方向: staticFiles の voices/* のうち、どの childVoice DB 行からも参照されない本体を
+ * orphan として warning で surface する (実害は未参照バイトのみのため fail-closed でなく可視化)。
+ */
+function warnUnreferencedVoiceFiles(
+	staticFiles: Record<string, Uint8Array> | undefined,
+	referencedVoicePaths: Set<string>,
+	result: ImportResult,
+): void {
+	if (!staticFiles) return;
+	for (const relPath of Object.keys(staticFiles)) {
+		if (relPath.startsWith('voices/') && !referencedVoicePaths.has(relPath)) {
+			result.warnings.push(
+				`音声本体「${relPath}」は参照する音声データが無いため未参照ファイルになります`,
+			);
 		}
 	}
 }

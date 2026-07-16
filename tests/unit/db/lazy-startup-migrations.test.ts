@@ -1010,4 +1010,85 @@ describe('applyLazyStartupMigrations', () => {
 			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
 		});
 	});
+
+	describe('#3782: evaluations (child, week) unique index (dedup → index)', () => {
+		function seedLegacyEvaluations(): void {
+			// unique index を欠く旧 evaluations (child_id, week_start 重複を許容していた状態)。
+			db.exec(`
+				CREATE TABLE evaluations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL,
+					week_start TEXT NOT NULL,
+					week_end TEXT NOT NULL,
+					scores_json TEXT NOT NULL,
+					bonus_points INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+			`);
+		}
+
+		function indexExists(name: string): boolean {
+			return !!db
+				.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?")
+				.get(name);
+		}
+
+		function evalCount(): number {
+			return (db.prepare('SELECT COUNT(*) AS c FROM evaluations').get() as { c: number }).c;
+		}
+
+		it('重複 (child, week) 行を dedup (最小 id を残す) してから unique index を作成する', () => {
+			seedLegacyEvaluations();
+			// (1, 2026-06-01) を 2 件、(1, 2026-06-08) を 1 件、(2, 2026-06-01) を 1 件 = 計 4 行
+			db.exec(`
+				INSERT INTO evaluations (child_id, week_start, week_end, scores_json, bonus_points) VALUES
+					(1, '2026-06-01', '2026-06-07', '{"a":1}', 10),
+					(1, '2026-06-01', '2026-06-07', '{"a":2}', 20),
+					(1, '2026-06-08', '2026-06-14', '{"a":3}', 5),
+					(2, '2026-06-01', '2026-06-07', '{"a":4}', 0);
+			`);
+			expect(evalCount()).toBe(4);
+
+			applyLazyStartupMigrations(db);
+
+			// dedup: (1, 2026-06-01) が 1 件に縮約 → 計 3 行。最小 id (最初の行 scores '{"a":1}') が残る。
+			expect(evalCount()).toBe(3);
+			const kept = db
+				.prepare(
+					"SELECT scores_json FROM evaluations WHERE child_id = 1 AND week_start = '2026-06-01'",
+				)
+				.all() as { scores_json: string }[];
+			expect(kept).toHaveLength(1);
+			expect(kept[0]?.scores_json).toBe('{"a":1}'); // MIN(id) 行が保全される
+
+			// unique index が作成され、以後 (child, week) 重複 INSERT は物理拒否される
+			expect(indexExists('idx_evaluations_child_week')).toBe(true);
+			expect(() =>
+				db
+					.prepare(
+						"INSERT INTO evaluations (child_id, week_start, week_end, scores_json) VALUES (1, '2026-06-01', '2026-06-07', '{}')",
+					)
+					.run(),
+			).toThrow();
+		});
+
+		it('冪等: index 既存の DB に再適用しても no-op (dedup しない / throw しない)', () => {
+			seedLegacyEvaluations();
+			db.exec(`
+				INSERT INTO evaluations (child_id, week_start, week_end, scores_json, bonus_points) VALUES
+					(1, '2026-06-01', '2026-06-07', '{"a":1}', 10),
+					(1, '2026-06-08', '2026-06-14', '{"a":3}', 5);
+			`);
+			applyLazyStartupMigrations(db);
+			expect(indexExists('idx_evaluations_child_week')).toBe(true);
+			const after1 = evalCount();
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+			expect(evalCount()).toBe(after1);
+		});
+
+		it('evaluations 不在でも例外を投げない', () => {
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+			expect(indexExists('idx_evaluations_child_week')).toBe(false);
+		});
+	});
 });

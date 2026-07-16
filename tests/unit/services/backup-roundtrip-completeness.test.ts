@@ -332,8 +332,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 
 		// --- replace = clear → import ---
+		// #3781: 実 backup ZIP は音声本体を staticFiles に同梱する。DB 行↔本体の相互整合を満たすため
+		// voiceRelPath (voices/1/sample.mp3) の本体を渡す (未指定だと dangling として skip される)。
 		await clearAllFamilyData(T);
-		await importFamilyData(data, T);
+		await importFamilyData(data, T, { 'voices/1/sample.mp3': new Uint8Array([1, 2, 3]) });
 
 		// --- 復元後の child ---
 		const children = testDb.select().from(schema.children).all();

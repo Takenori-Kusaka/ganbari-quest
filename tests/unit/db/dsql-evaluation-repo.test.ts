@@ -198,6 +198,37 @@ describe('DSQL evaluation-repo (M4-D PR6、実 schema PGlite)', () => {
 		expect(await repo.findWeekEvaluation(child, '2026-05-11', FAMILY)).toBeUndefined();
 	});
 
+	it('[E5b] #3782: 同 (child, weekStart) 再 insert は week UNIQUE (evaluations_week_uq) で冪等 — 二重行を作らず既存行を返す', async () => {
+		const child = await seedChild(FAMILY, 'E5b');
+		const first = await repo.insertEvaluation(
+			{
+				childId: child,
+				weekStart: '2026-08-03',
+				weekEnd: '2026-08-09',
+				scoresJson: '{"a":1}',
+				bonusPoints: 10,
+			},
+			FAMILY,
+		);
+		// 同一 (family, child, weekStart) を再 insert (並行ロード / restore backstop 相当)
+		const second = await repo.insertEvaluation(
+			{
+				childId: child,
+				weekStart: '2026-08-03',
+				weekEnd: '2026-08-09',
+				scoresJson: '{"a":999}', // 内容が違っても新規行は作らない
+				bonusPoints: 999,
+			},
+			FAMILY,
+		);
+		// ON CONFLICT DO NOTHING → 既存行 (first) がそのまま返る (throw しない)
+		expect(second.id).toBe(first.id);
+		expect(second.scoresJson).toBe('{"a":1}'); // 既存行が保全される (上書きしない)
+		// 物理的に 1 行のみ (二重計上なし)
+		const all = await repo.findEvaluationsByChild(child, 100, FAMILY);
+		expect(all.filter((e) => e.weekStart === '2026-08-03')).toHaveLength(1);
+	});
+
 	it('[E6] findAllChildren: archive 不問 + compute-on-read (age 導出)', async () => {
 		const fam = '00000000-0000-4000-8000-0000000000c6';
 		const active = await seedChild(fam, 'E6-active', '2018-01-15');
