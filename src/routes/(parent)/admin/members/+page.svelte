@@ -496,6 +496,15 @@ const roleLabel = (role: string) => {
 					</div>
 				{/each}
 			</div>
+			<!-- #3552 ③: parent には取消ボタンが出ないため、理由 + owner 依頼導線を案内 -->
+			{#if $page.data.currentRole !== 'owner'}
+				<p
+					class="mt-3 text-xs text-[var(--color-text-tertiary)]"
+					data-testid="invite-owner-only-note"
+				>
+					{MEMBERS_LABELS.inviteOwnerOnlyNote}
+				</p>
+			{/if}
 			{/snippet}
 		</Card>
 	{/if}

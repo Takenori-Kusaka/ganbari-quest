@@ -9,17 +9,33 @@
 // - owner は null (続行可)
 // - HttpError(401/403) 以外の例外は re-throw (握りつぶさない)
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OWNER_GATE_LABELS } from '../../../src/lib/domain/labels';
 import { ownerGateResponse } from '../../../src/lib/server/auth/owner-gate';
 
+// #3552 ②: 403 拒否の監査ログ検証のため logger を spy 化する
+const loggerWarn = vi.fn();
+vi.mock('$lib/server/logger', () => ({
+	logger: {
+		debug: vi.fn(),
+		info: vi.fn(),
+		warn: (...a: unknown[]) => loggerWarn(...a),
+		error: vi.fn(),
+	},
+}));
+
 type Role = 'owner' | 'parent' | 'child';
 
-function createLocals(role: Role | null): App.Locals {
+function createLocals(role: Role | null, opts: { userId?: string } = {}): App.Locals {
 	return {
 		context: role ? { tenantId: 't-test', role } : null,
+		identity: opts.userId ? { type: 'cognito', userId: opts.userId } : undefined,
 	} as unknown as App.Locals;
 }
+
+beforeEach(() => {
+	loggerWarn.mockClear();
+});
 
 describe('ownerGateResponse (#3561 owner-gate seam hardening)', () => {
 	it('owner は null を返し続行可 (positive)', () => {
@@ -43,6 +59,49 @@ describe('ownerGateResponse (#3561 owner-gate seam hardening)', () => {
 		expect(res).not.toBeNull();
 		expect(res?.status).toBe(401);
 		await expect(res?.json()).resolves.toEqual({ error: OWNER_GATE_LABELS.authRequired });
+	});
+
+	// #3552 ②: role-mutation 拒否の監査ログ
+	describe('403 拒否の監査ログ (#3552 ②)', () => {
+		it('audit 指定時、403 拒否は logger.warn に actor / role / tenant / target を記録する', () => {
+			const res = ownerGateResponse(
+				createLocals('parent', { userId: 'u-attacker' }),
+				OWNER_GATE_LABELS.transferOwnership,
+				{ auditAction: 'members.transfer-ownership', targetId: 'u-victim' },
+			);
+			expect(res?.status).toBe(403);
+			expect(loggerWarn).toHaveBeenCalledTimes(1);
+			expect(loggerWarn).toHaveBeenCalledWith(
+				expect.stringContaining('owner-gate'),
+				expect.objectContaining({
+					context: expect.objectContaining({
+						action: 'members.transfer-ownership',
+						tenantId: 't-test',
+						actorUserId: 'u-attacker',
+						actorRole: 'parent',
+						targetId: 'u-victim',
+					}),
+				}),
+			);
+		});
+
+		it('audit 未指定時は 403 でも監査ログを残さない (account / tenant 系は対象外)', () => {
+			const res = ownerGateResponse(createLocals('parent'), OWNER_GATE_LABELS.tenantCancel);
+			expect(res?.status).toBe(403);
+			expect(loggerWarn).not.toHaveBeenCalled();
+		});
+
+		it('owner 成功時は audit 指定でも監査ログを残さない', () => {
+			ownerGateResponse(
+				createLocals('owner', { userId: 'u-owner' }),
+				OWNER_GATE_LABELS.memberDelete,
+				{
+					auditAction: 'members.delete',
+					targetId: 'u-target',
+				},
+			);
+			expect(loggerWarn).not.toHaveBeenCalled();
+		});
 	});
 
 	it('401/403 の HttpError 以外は re-throw する (握りつぶし禁止)', () => {

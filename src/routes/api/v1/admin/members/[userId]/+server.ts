@@ -20,7 +20,11 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	// #3528: role 判定は requireRole seam に統一。response 形は既存 client
 	// (admin/members/+page.svelte が d.error を表示) 互換の {error} JSON を維持する。
 	// #3561: 403 文言は OWNER_GATE_LABELS (SSOT)、401/403 変換は ownerGateResponse に集約。
-	const guard = ownerGateResponse(locals, OWNER_GATE_LABELS.memberDelete);
+	// #3552 ②: role-mutation の 403 拒否は監査ログに残す (濫用試行の追跡)。
+	const guard = ownerGateResponse(locals, OWNER_GATE_LABELS.memberDelete, {
+		auditAction: 'members.delete',
+		targetId: targetUserId,
+	});
 	if (guard) {
 		return guard;
 	}
