@@ -10,16 +10,22 @@
 //
 // 保護対象と非対象 (truth、ADR-0013):
 // - 検出できる: 転送/保存中の偶発的破損 (SHA-256 / バイト数の不一致)、manifest 記載ファイルの欠落、
-//   manifest 記載外ファイルの混入 (注入)。
+//   manifest 記載外ファイルの混入 (整合性外ファイルの検出)、data.json 側の部分欠損 (itemCounts 照合、#3386)。
 // - 検出できない (将来スコープ): **意図的改竄の防止**。manifest は未署名のため、攻撃者は改竄後に
 //   manifest を再計算でき検証を通せる。また manifest.json を削除した旧 ZIP は後方互換で検証スキップ
 //   される (downgrade)。改竄防止が必要になったら署名 (HMAC / 公開鍵) を別途導入する。
 //
+// #3386 注入防御の役割分担 (誤認防止): 本モジュールの `unexpected-file` チェックは「manifest 記載外
+// ファイルの混入検出」であり、**完全に攻撃者制御された ZIP (manifest を再計算可) には無力**である。
+// 実効的な path injection / zip-slip 防御は `import-service.ts` の `isSafeRelativePath` /
+// `STATIC_FILE_PATH_RE` (#3077 / #3490) が担う (復元時に tenant 境界外パスを弾く default-deny)。
+// 本 manifest は「偶発的破損 + 集合不一致 + 件数不一致」の検出専用と位置づける。
+//
 // 後方互換: manifest.json を持たない旧 ZIP / 旧 JSON バックアップは検証スキップ (従来どおり復元可)。
 //
-// dataVersion / itemCounts は manifest に記録するが、**現状 import 側 (verifyBackupManifest /
-// verifyManifestIfPresent) では未使用の将来用メタデータ**である (件数照合による部分欠損検査・
-// 復元マイグレーション dispatch は未実装。配線時に本コメントを更新する)。
+// dataVersion は manifest に記録するが現状 import 側では未使用の将来用メタデータ (復元マイグレーション
+// dispatch は未実装)。itemCounts は #3386 で配線済 — parseBackupZip が data.json 実件数と照合し部分欠損を
+// fail-closed 検出する。
 
 /** manifest 内の 1 エントリの整合性情報。 */
 export interface BackupManifestFileEntry {
@@ -41,7 +47,7 @@ export interface BackupManifest {
 	createdAt: string;
 	/** path → 整合性情報 (data.json と全静的ファイルを含む)。 */
 	files: Record<string, BackupManifestFileEntry>;
-	/** 主要エンティティの件数。将来用メタデータ (現状 import では未使用。件数照合による部分欠損検査は未実装)。 */
+	/** 主要エンティティの件数。#3386 で配線済 — import 時に data.json 実件数と照合し部分欠損を fail-closed 検出する。 */
 	itemCounts: Record<string, number>;
 }
 

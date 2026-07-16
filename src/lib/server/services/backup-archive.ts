@@ -18,6 +18,7 @@ import { listFiles, readFile } from '$lib/server/storage';
 import { tenantPrefix } from '$lib/server/storage-keys';
 import {
 	BACKUP_MANIFEST_FILENAME,
+	type BackupManifest,
 	buildBackupManifest,
 	parseBackupManifest,
 	verifyBackupManifest,
@@ -205,22 +206,58 @@ export async function parseBackupZip(
 		return { ok: false, error: 'data.json の解析に失敗しました' };
 	}
 
+	// #3386: itemCounts 件数照合 (選択肢 B の配線)。manifest.itemCounts (エクスポート時の主要エンティティ件数)
+	// と、実際に data.json から数え直した件数が食い違えば、data.json 側の部分欠損 (途中切詰め/改竄) として
+	// fail-closed で弾く。件数不一致は「ファイルの一部が欠けている」旨の汎用文言を返し、内部差分は log のみ。
+	if (manifestCheck.manifest?.itemCounts) {
+		const actual = countExportItems(body as ExportData);
+		const countError = findItemCountMismatch(manifestCheck.manifest.itemCounts, actual);
+		if (countError) {
+			logger.warn('[backup-archive] itemCounts 照合に失敗 (data.json 部分欠損の疑い)', {
+				context: countError,
+			});
+			return { ok: false, error: SETTINGS_LABELS.dataImportBackupCountMismatch };
+		}
+	}
+
 	return { ok: true, value: { body, staticFiles: collectStaticFiles(entries) } };
 }
 
 /**
+ * #3386: manifest.itemCounts と data.json 実件数を照合し、最初の不一致 key を返す (一致なら null)。
+ * manifest に記載のある key のみ照合する (将来 key 追加時の後方互換: 旧 backup に無い key は無視)。
+ */
+function findItemCountMismatch(
+	expected: Record<string, number>,
+	actual: Record<string, number>,
+): { key: string; expected: number; actual: number } | null {
+	for (const [key, expectedCount] of Object.entries(expected)) {
+		const actualCount = actual[key] ?? 0;
+		if (actualCount !== expectedCount) {
+			return { key, expected: expectedCount, actual: actualCount };
+		}
+	}
+	return null;
+}
+
+/**
  * #3375: 展開済み ZIP エントリに manifest.json があれば整合性照合する。
- * manifest が無い旧 ZIP は検証スキップ（後方互換）で ok を返す。
+ * manifest が無い旧 ZIP は検証スキップ（後方互換）で ok を返す（manifest は undefined）。
+ *
+ * #3386 (ADR-0062): ユーザーに返す `error` は内部 reason コード (`checksum-mismatch` /
+ * `size-mismatch` / `missing-file` / `unexpected-file`) と生パスを **露出させない** 汎用文言にする。
+ * 内部 reason / path は診断用に logger にのみ残す (監視で追える + 保護者には無害な文言を出す)。
  */
 async function verifyManifestIfPresent(
 	entries: Record<string, Uint8Array>,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; manifest?: BackupManifest } | { ok: false; error: string }> {
 	const manifestBytes = entries[BACKUP_MANIFEST_FILENAME];
 	if (!manifestBytes) return { ok: true };
 
 	const manifest = parseBackupManifest(manifestBytes);
 	if (!manifest) {
-		return { ok: false, error: 'バックアップの manifest.json が壊れています' };
+		logger.warn('[backup-archive] manifest.json のパース/構造検証に失敗', {});
+		return { ok: false, error: SETTINGS_LABELS.dataImportManifestCorrupt };
 	}
 
 	const entriesForVerify: Record<string, Uint8Array> = {};
@@ -231,13 +268,17 @@ async function verifyManifestIfPresent(
 
 	const verdict = await verifyBackupManifest(entriesForVerify, manifest);
 	if (!verdict.ok) {
-		const detail =
+		// 内部 reason / path は診断用 log のみ。ユーザー文言では露出しない (ADR-0062)。
+		logger.warn('[backup-archive] manifest 整合性検証に失敗', {
+			context: { reason: verdict.reason, path: verdict.path },
+		});
+		const error =
 			verdict.reason === 'unexpected-file'
-				? `manifest に記載のないファイルが含まれています（${verdict.path}）`
-				: `バックアップが破損しています（${verdict.path}: ${verdict.reason}）`;
-		return { ok: false, error: `${detail}。再エクスポートしてください` };
+				? SETTINGS_LABELS.dataImportBackupUnexpectedFile
+				: SETTINGS_LABELS.dataImportBackupCorrupt;
+		return { ok: false, error };
 	}
-	return { ok: true };
+	return { ok: true, manifest };
 }
 
 /**
