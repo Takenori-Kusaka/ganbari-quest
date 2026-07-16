@@ -24,7 +24,7 @@ import { isValidUiMode, recalcUiMode, type UiMode } from '$lib/domain/validation
 import type { ChildProgressResetCounts, IChildRepo } from '../interfaces/child-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 export interface ChildRow {
@@ -136,7 +136,11 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 		async findChildById(id, tenantId) {
 			// #3709: stale cookie 由来の非 uuid id (旧 SQLite 数値 id 等) は 22P02 throw ではなく
 			// not-found (undefined) に正規化する — route 層の cookie clear + redirect を機能させる。
-			if (!isUuidFormat(id)) return undefined;
+			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('child-repo.findChildById');
+				return undefined;
+			}
 			const rows = await findMany(sql`family_id = ${tenantId} AND child_id = ${id}`);
 			return rows[0];
 		},
@@ -161,6 +165,13 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 		},
 
 		async updateChild(id, input, tenantId) {
+			// #3581 ②: admin の子供編集 form は raw な id を渡す (child layout の getChildById gate を
+			// 経由しない経路)。非 uuid は「該当行なし」= 22P02 throw ではなく undefined (既存の
+			// not-found 契約と同 shape) を返す。DB へは到達させない。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('child-repo.updateChild');
+				return undefined;
+			}
 			const sets = buildUpdateSets(input);
 			if (sets.length === 0) return this.findChildById(id, tenantId);
 			const result = await db.execute(sql`
@@ -173,6 +184,12 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 		},
 
 		async deleteChild(id, tenantId) {
+			// #3581 ②: removeChild は raw な id を deleteChild に直達させる (findChildById gate なし)。
+			// 非 uuid は該当行なし = no-op (void 契約と同 shape) で早期 return し、22P02 を避ける。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('child-repo.deleteChild');
+				return;
+			}
 			// 集約全削除を単一 txn (§3 / §P4)。work は inline + tx-bound await のみ (fitness#7)。
 			await runner.runInTransaction(async (tx) => {
 				for (const table of CHILD_SCOPED_TABLES) {

@@ -23,6 +23,7 @@ import type {
 } from '../interfaces/special-reward-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface RewardRow {
@@ -118,6 +119,13 @@ export function createDsqlSpecialRewardRepo<TTx extends SqlExecutor>(
 		},
 
 		async markRewardShown(childId, rewardId, tenantId) {
+			// #3581 ②: `/api/v1/special-rewards/[rewardId]/shown` POST (+server) が raw cookie id を
+			// 直達させる repo 入口。非 uuid は not-found (undefined) に正規化し 22P02 → 500 を断つ
+			// (endpoint は既存の 404 経路で graceful 応答。beacon POST のため redirect でなく repo guard)。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('special-reward-repo.markRewardShown');
+				return undefined;
+			}
 			// #2845 課題①: (childId, rewardId) 複合キー。不一致なら 0 行 = undefined。
 			const result = await db.execute(sql`
 				UPDATE special_rewards SET shown_at = now()

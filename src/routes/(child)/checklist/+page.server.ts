@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	getChecklistsForChild,
@@ -24,8 +25,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 export const actions: Actions = {
 	toggle: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
+		// #3581 ②: dsql backend で stale/非 uuid cookie を cookie clear + /switch redirect に正規化
+		// (findAssignmentsByChild へ生 id が直達し 22P02 → 500 になる CWE-20 を trust 境界で断つ)。
+		const childIdStr = requireValidChildCookieFormat(cookies, 'route.checklist.toggle');
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		const childId = asChildId(childIdStr);
 		const templateId = formIdString(formData.get('templateId'));
 		const itemId = formIdString(formData.get('itemId'));
 		const checked = formData.get('checked') === '1';

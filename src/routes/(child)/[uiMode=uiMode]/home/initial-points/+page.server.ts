@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { grantInitialPoints } from '$lib/server/services/point-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -14,7 +15,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 export const actions: Actions = {
 	grant: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.initial-points.grant'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const formData = await request.formData();
