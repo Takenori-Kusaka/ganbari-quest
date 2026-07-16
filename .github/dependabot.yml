@@ -35,6 +35,13 @@ updates:
       # #3636: typescript 7.x は @sveltejs/kit@2.69.x の peer (^5.3.3 || ^6.0.0) が除外し
       # npm ci が ERESOLVE で失敗する。kit が TS7 peer 対応版を出したら本 ignore を削除して TS7 を取り込む。
       # major (6→7) のみ保留し 6.x の minor/patch 更新は許可する。
+      # 【解除手順 (#3765、2 手順必須)】@sveltejs/kit が peer に typescript@^7 を含む版を release したら:
+      #   1. 本 ignore エントリ + 本コメントを削除する PR を出す (yml 側の抑止解除)
+      #   2. 加えて dependabot に `@dependabot unignore typescript` を実行し、PR #3636 の
+      #      `@dependabot ignore this major version` 由来の internal ignore も解除する。
+      #      yml と comment 由来 ignore は独立した別々の抑止機構であり、yml 削除だけでは TS7 が再開されない。
+      #   3. その後 @sveltejs/kit を TS7 対応版へ bump → dependabot が TS7 を再提案 (npm ci が通り mergeable)。
+      #   ※ 解除前に @sveltejs/kit@2.x の peer が実際に typescript@^7 を含むか確認 (ERESOLVE 再発防止)。
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
     groups:
