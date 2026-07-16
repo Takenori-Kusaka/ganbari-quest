@@ -226,6 +226,7 @@ async function copyDistributionWithQuota(params: {
 	let limitReached = false;
 	for (let i = 0; i < sourceTemplateIds.length; i++) {
 		const templateId = sourceTemplateIds[i];
+		if (templateId === undefined) continue;
 		if (limitMax !== null) {
 			const live = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
 			if (!live.allowed) {
