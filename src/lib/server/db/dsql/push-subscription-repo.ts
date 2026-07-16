@@ -3,9 +3,10 @@
 //
 // IPushSubscriptionRepo (push_subscriptions + notification_logs) の DSQL backend 実装。設計契約:
 //   - **factory 注入** (fitness#8)。全操作が単文のため txn runner 不要。
-//   - **§P9 tenant 述語**: findByEndpoint / deleteByEndpoint (ブラウザ Push endpoint の無 tenant
-//     値単独 lookup、endpoint global UNIQUE が機能要件 — schema §11.2 で明示された例外。sqlite
-//     backend も tenantId を無視する同 shape) を除く全メソッドが family_id = tenantId を含む。
+//   - **§P9 tenant 述語**: 全メソッドが family_id = tenantId を含む。**#3574 ② で findByEndpoint /
+//     deleteByEndpoint も family scope 再適用に変更**: endpoint (global UNIQUE) は attacker 可制御値
+//     のため、値単独 lookup 後に family_id で再スコープし cross-family read / IDOR-delete を遮断する
+//     (旧「無 tenant lookup」から改訂。DynamoDB backend は PK=T#<tenant>#PUSH_SUB で元から tenant 束縛)。
 //   - **UUID surrogate PK**: subscription_id / log_id は gen_random_uuid() 採番。
 //   - **subscriberRole は Repository 境界で正規化** (#1593 / ADR-0023 I6): 送信側 skip の
 //     二重防御があるため、不正値も string 経由で PushSubscriberRole に渡す (sqlite と同判断)。
@@ -91,10 +92,14 @@ export function createDsqlPushSubscriptionRepo(db: SqlExecutor): IPushSubscripti
 			return (result.rows as unknown as PushSubscriptionRow[]).map(toSubscription);
 		},
 
-		async findByEndpoint(endpoint, _tenantId) {
-			// endpoint global UNIQUE の無 tenant 値単独 lookup (§11.2 機能要件、sqlite と同 shape)。
+		async findByEndpoint(endpoint, tenantId) {
+			// #3574 ②: endpoint (global UNIQUE) の値単独 lookup 後、返却前に family scope を再適用する
+			// (§P9)。呼び出し元 (subscribe route) は body.endpoint = attacker 可制御値 + 認証済 tenantId を
+			// 渡すため、tenantId 無視 lookup は cross-family read (push key 存在オラクル) 経路になる。
+			// endpoint は 1 family にしか属さない (global UNIQUE) ので family 一致時のみ 1 行に解決する。
 			const result = await db.execute(sql`
-				SELECT ${SUBSCRIPTION_COLUMNS} FROM push_subscriptions WHERE endpoint = ${endpoint}
+				SELECT ${SUBSCRIPTION_COLUMNS} FROM push_subscriptions
+				WHERE endpoint = ${endpoint} AND family_id = ${tenantId}
 			`);
 			const row = result.rows[0] as unknown as PushSubscriptionRow | undefined;
 			return row ? toSubscription(row) : undefined;
@@ -113,9 +118,14 @@ export function createDsqlPushSubscriptionRepo(db: SqlExecutor): IPushSubscripti
 			return toSubscription(row);
 		},
 
-		async deleteByEndpoint(endpoint, _tenantId) {
-			// endpoint global UNIQUE 前提の値単独削除 (sqlite backend と同 shape)。
-			await db.execute(sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`);
+		async deleteByEndpoint(endpoint, tenantId) {
+			// #3574 ②: family scope を再適用する (§P9)。unsubscribe route は body.endpoint (attacker
+			// 可制御) をそのまま渡すため、family 不一致の削除は cross-family IDOR-delete (他家の購読を
+			// 消す) になる。family 一致行のみ削除し不一致は no-op にする。正規呼び出し元 (自 family の
+			// findByTenant 由来 endpoint / 送信失敗 cleanup) は tenantId が endpoint 所有者と一致する。
+			await db.execute(sql`
+				DELETE FROM push_subscriptions WHERE endpoint = ${endpoint} AND family_id = ${tenantId}
+			`);
 		},
 
 		// ── Notification logs ──

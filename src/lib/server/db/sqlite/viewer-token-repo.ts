@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, lt, or } from 'drizzle-orm';
 import { db } from '../client';
 import { viewerTokens } from '../schema';
 import type { InsertViewerTokenInput, ViewerToken } from '../types';
@@ -27,6 +27,22 @@ export async function insert(
 	tenantId: string,
 ): Promise<ViewerToken> {
 	const now = new Date().toISOString();
+	// #3574 ①: expire-then-purge (DSQL backend と parity)。token は revoke 後の値再発行が前提だが
+	// UNIQUE(token) のため、自 tenant の dead 旧行 (revoke 済 or 期限切れ) が同 token を占有したまま
+	// 再発行すると UNIQUE 衝突で沈黙失敗する。挿入前に自 tenant の再利用可能な旧行を purge する
+	// (live 行が占有していれば purge 対象外 → UNIQUE 衝突が surface = 2 live 行防止は維持)。
+	db.delete(viewerTokens)
+		.where(
+			and(
+				eq(viewerTokens.tenantId, tenantId),
+				eq(viewerTokens.token, input.token),
+				or(
+					isNotNull(viewerTokens.revokedAt),
+					and(isNotNull(viewerTokens.expiresAt), lt(viewerTokens.expiresAt, now)),
+				),
+			),
+		)
+		.run();
 	const row = db
 		.insert(viewerTokens)
 		.values({

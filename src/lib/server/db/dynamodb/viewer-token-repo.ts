@@ -75,6 +75,9 @@ export async function insert(
 	input: InsertViewerTokenInput,
 	tenantId: string,
 ): Promise<ViewerToken> {
+	// #3574 ①: DSQL/sqlite の expire-then-purge に相当する挙動を PK 設計で満たす。PK = VTOKEN#<token>
+	// のため同 token の再発行 Put は既存 (revoke 済 / 期限切れ) 行を上書きし、token あたり常に 1 行に
+	// 収束する (2 行併存が構造的に不可能)。したがって明示 purge は不要。
 	const id = await nextId(ENTITY_NAMES.viewerToken, tenantId);
 	const now = new Date().toISOString();
 

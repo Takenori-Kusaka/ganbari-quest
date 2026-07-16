@@ -9,8 +9,11 @@
 //   - **cross-tenant scan の例外 3 種**: findActiveTrials (cron) / aggregateRecent + searchFreeText
 //     (PO KPI 分析) / findPendingBuilds + findStaleBuildingExports + deleteExpired (cron drain /
 //     retention) は §11.2 で明示された tenant 無し走査。containment assert で他テストの行と共存する。
-//   - **無 tenant 単点 lookup の global UNIQUE 3 種**: viewer_tokens.token / push_subscriptions.
-//     endpoint / cloud_exports.pin_code (§11.2 機能要件)。
+//   - **無 tenant 単点 lookup の global UNIQUE (credential 自体が authz)**: viewer_tokens.token /
+//     cloud_exports.pin_code (§11.2 機能要件、findByToken/findByPin は tenant 無し)。
+//   - **push_subscriptions.endpoint は #3574 ② で family scope 再適用**: findByEndpoint /
+//     deleteByEndpoint は endpoint 値単独 lookup 後 family_id で再スコープし cross-family read /
+//     IDOR-delete を遮断する (endpoint は attacker 可制御値、認証済 tenantId を持つ経路のため)。
 //
 // ── Canon TDD test list ──
 // ── ISettingsRepo ──
@@ -24,7 +27,7 @@
 //   [VT1] insert shape + findByTenant (created_at 降順) + §P9
 //   [VT2] findByToken (無 tenant 単点 lookup) / revoke (tenant no-op → soft revoke) / deleteById
 // ── IPushSubscriptionRepo ──
-//   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (無 tenant、sqlite 同 shape)
+//   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)
 //   [PS2] insertLog (success boolean→0/1) + countTodayLogs (UTC 日境界) + findRecentLogs 降順 limit
 // ── ICancellationReasonRepo ──
 //   [CR1] create shape + listByTenant 降順 + §P9
@@ -268,7 +271,7 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 	// ─────────────────── IPushSubscriptionRepo ───────────────────
 
-	it('[PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (無 tenant)', async () => {
+	it('[PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)', async () => {
 		const rec = await pushRepo.insert({
 			tenantId: FAMILY,
 			endpoint: 'https://push.example/ep-1',
@@ -292,12 +295,22 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect((await pushRepo.findByTenant(FAMILY)).length).toBe(2);
 		expect(await pushRepo.findByTenant(OTHER_FAMILY)).toEqual([]); // §P9
 
-		// endpoint global UNIQUE の無 tenant lookup (sqlite backend と同 shape、tenantId 無視)
-		const byEp = await pushRepo.findByEndpoint('https://push.example/ep-2', OTHER_FAMILY);
+		// #3574 ②: endpoint (global UNIQUE) の値単独 lookup 後、返却前に family scope を再適用する (§P9)。
+		// 所有 family は取得できるが、他 family を名乗った lookup は cross-family read 遮断で undefined。
+		const byEp = await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY);
 		expect(byEp?.subscriberRole).toBe('owner');
 		expect(byEp?.userAgent).toBe(null); // default
+		expect(await pushRepo.findByEndpoint('https://push.example/ep-2', OTHER_FAMILY)).toBe(
+			undefined,
+		);
 
+		// 他 family を名乗った削除 (unsubscribe が body.endpoint をそのまま渡す IDOR 経路) は no-op。
 		await pushRepo.deleteByEndpoint('https://push.example/ep-2', OTHER_FAMILY);
+		expect(
+			(await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY))?.subscriberRole,
+		).toBe('owner');
+		// 所有 family からの削除は成功する。
+		await pushRepo.deleteByEndpoint('https://push.example/ep-2', FAMILY);
 		expect(await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY)).toBe(undefined);
 		expect((await pushRepo.findByTenant(FAMILY)).length).toBe(1);
 	});

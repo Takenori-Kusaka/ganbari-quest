@@ -394,13 +394,13 @@ children (
 | report_daily_summaries | **廃止**（§7） | — | compute-on-read |
 | achievements / child_achievements | **drop 判断（#322 廃止・データ不在）**: drop なら §3/§5 から除外、存続なら milestone_values 子表化 | — | 要確定（§10 追記） |
 | settings | `(family_id, key)` | — | 自然複合 (anchor (b): KVS の 1 key = 1 value は構造的確実。⚠️ sqlite 現行は tenant_id 列なし = cutover で family_id 追加、単一家族は定数 §P10) |
-| push_subscriptions | `(family_id, subscription_id uuid)` | **UNIQUE(endpoint) global**（無 tenant 単点 findByEndpoint） | UUID surrogate（endpoint は rotate される mutable、anchor 無し） |
+| push_subscriptions | `(family_id, subscription_id uuid)` | **UNIQUE(endpoint) global**（findByEndpoint は endpoint 値単独 lookup 後 family scope 再適用、#3574 ② §P9） | UUID surrogate（endpoint は rotate される mutable、anchor 無し） |
 | notification_logs | `(family_id, log_id uuid[v4])` | sent_at は素の列（sort 用途） | UUID surrogate（append-only log、once-per-period 一意なし） |
 | trial_history | `(family_id, trial_id uuid[v4])` | cross-tenant cron 用 secondary(end_date) は計測後 | UUID surrogate（1 tenant N 回トライアル） |
-| viewer_tokens | `(family_id, token_id uuid)` | **UNIQUE(token) global**（無 tenant 単点 findByToken） | UUID surrogate（token は revoke 後再発行あり） |
-| cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds） | UUID surrogate（pin は expire 後再利用） |
-| cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後 | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
-| graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate） | UUID surrogate（複数子×複数回で多数行が正） |
+| viewer_tokens | `(family_id, token_id uuid)` | **UNIQUE(token) global**（無 tenant 単点 findByToken。insert は revoke/expire 後の値再発行を expire-then-purge で担保、#3574 ①） | UUID surrogate（token は revoke 後再発行あり） |
+| cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds）。insert は expire/DL 上限後の pin 値再発行を expire-then-purge で担保（#3574 ①） | UUID surrogate（pin は expire 後再利用） |
+| cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後（#3574 ③: §P5「投機的に張らない」に従い KPI hot path の実 EXPLAIN ANALYZE で必要確認後に追加。family スケールの aggregateRecent/searchFreeText は当面 PK-prefix scan で許容） | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
+| graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate、cross-tenant KPI hot path は #3574 ③ で §P5 計測後追加判断）。**append-only（COPPA 同意証跡）**: repo は UPDATE を定義せず改竄不能（#3574 ④、`dsql-append-only-mutation-allowlist.test.ts` で機械強制） | UUID surrogate（複数子×複数回で多数行が正） |
 | parent_gate_credentials | `(family_id)` | — | 1:1 従属（M2 §1.1、ADR-0050 保護者ゲート。PIN は平文非保持ハッシュ、失敗回数/ロック解除時刻/リセット痕跡は素の列） |
 | loyalty_state | `(family_id)` | — | 1:0..1 従属（M2 §1.1、記念チケット数=点数経済外の第2通貨カウンタ D-LOYALTY） |
 | account_lifecycle | `(family_id)` | — | 1:1 従属（M2 §1.1、状態機械 active/soft-deleted/purged、猶予プラン層→plan_tiers 論理 FK） |

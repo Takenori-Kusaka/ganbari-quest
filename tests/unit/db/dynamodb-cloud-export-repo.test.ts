@@ -191,6 +191,7 @@ describe('findById', () => {
 describe('insert', () => {
 	it('counter 採番 → PutItem。downloadCount=0 / maxDownloads 既定 10', async () => {
 		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // #3574 ①: purgeReusablePin Query (再利用可能な旧行なし)
 			.mockResolvedValueOnce({ Attributes: { counter: 42 } }) // nextId
 			.mockResolvedValueOnce({}); // PutCommand
 		const { insert } = await loadRepo();
@@ -206,8 +207,8 @@ describe('insert', () => {
 		expect(r.downloadCount).toBe(0);
 		expect(r.maxDownloads).toBe(10);
 		expect(r.label).toBeNull();
-		// PutCommand の Item に key + record
-		const putArg = callOf(1).input;
+		// PutCommand の Item に key + record (call 0 = purge Query, call 1 = nextId, call 2 = Put)
+		const putArg = callOf(2).input;
 		const item = putArg.Item as Record<string, unknown>;
 		expect(item.PK).toBe(`T#${TENANT}#CEXPORT`);
 		expect(item.SK).toBe('EXPORT#00000042');
@@ -215,7 +216,10 @@ describe('insert', () => {
 	});
 
 	it('maxDownloads 明示時はそれを使う', async () => {
-		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
+		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // #3574 ①: purgeReusablePin Query
+			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
+			.mockResolvedValueOnce({});
 		const { insert } = await loadRepo();
 		const r = await insert({
 			tenantId: TENANT,
@@ -227,6 +231,28 @@ describe('insert', () => {
 			maxDownloads: 3,
 		});
 		expect(r.maxDownloads).toBe(3);
+	});
+
+	it('#3574 ①: expire-then-purge — 同 pin の dead 旧行を Delete してから Put する', async () => {
+		mockSend
+			// purgeReusablePin Query: 同 pin の dead 行 1 件を返す
+			.mockResolvedValueOnce({ Items: [{ PK: `T#${TENANT}#CEXPORT`, SK: 'EXPORT#00000009' }] })
+			.mockResolvedValueOnce({}) // DeleteCommand (dead 旧行 purge)
+			.mockResolvedValueOnce({ Attributes: { counter: 10 } }) // nextId
+			.mockResolvedValueOnce({}); // PutCommand
+		const { insert } = await loadRepo();
+		const r = await insert({
+			tenantId: TENANT,
+			exportType: 'full',
+			pinCode: 'REUSE',
+			s3Key: 'k',
+			fileSizeBytes: 0,
+			expiresAt: '2099-01-01',
+		});
+		expect(r.id).toBe('10');
+		// call 0 = purge Query / call 1 = Delete(旧行) / call 2 = nextId / call 3 = Put
+		expect((callOf(1).input.Key as Record<string, string>).SK).toBe('EXPORT#00000009');
+		expect((callOf(3).input.Item as Record<string, unknown>).pinCode).toBe('REUSE');
 	});
 });
 
@@ -314,7 +340,10 @@ describe('countByTenant', () => {
 
 describe('insert は status を含める (#3504)', () => {
 	it('status 省略時は pending / failureReason=null', async () => {
-		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
+		mockSend
+			.mockResolvedValueOnce({ Items: [] }) // #3574 ①: purgeReusablePin Query
+			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
+			.mockResolvedValueOnce({});
 		const { insert } = await loadRepo();
 		const r = await insert({
 			tenantId: TENANT,
@@ -326,7 +355,7 @@ describe('insert は status を含める (#3504)', () => {
 		});
 		expect(r.status).toBe('pending');
 		expect(r.failureReason).toBeNull();
-		const item = (callOf(1).input.Item as Record<string, unknown>) ?? {};
+		const item = (callOf(2).input.Item as Record<string, unknown>) ?? {};
 		expect(item.status).toBe('pending');
 	});
 });

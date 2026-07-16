@@ -34,12 +34,14 @@ export async function findByTenant(tenantId: string): Promise<PushSubscriptionRe
 
 export async function findByEndpoint(
 	endpoint: string,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<PushSubscriptionRecord | undefined> {
+	// #3574 ②: family scope 再適用 (§P9、DSQL backend と parity)。endpoint (attacker 可制御) の
+	// 値単独 lookup 後、tenant 一致行のみ返し cross-family read (push key 存在オラクル) を遮断する。
 	const row = await db
 		.select()
 		.from(pushSubscriptions)
-		.where(eq(pushSubscriptions.endpoint, endpoint))
+		.where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.tenantId, tenantId)))
 		.get();
 	return row ? normalizePushRow(row) : undefined;
 }
@@ -62,8 +64,12 @@ export async function insert(input: InsertPushSubscriptionInput): Promise<PushSu
 	return normalizePushRow(row);
 }
 
-export async function deleteByEndpoint(endpoint: string, _tenantId: string): Promise<void> {
-	db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint)).run();
+export async function deleteByEndpoint(endpoint: string, tenantId: string): Promise<void> {
+	// #3574 ②: family scope 再適用 (§P9、DSQL backend と parity)。unsubscribe が body.endpoint を
+	// そのまま渡すため、tenant 不一致削除は cross-family IDOR-delete になる。tenant 一致行のみ削除する。
+	db.delete(pushSubscriptions)
+		.where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.tenantId, tenantId)))
+		.run();
 }
 
 // ============================================================
