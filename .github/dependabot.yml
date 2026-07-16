@@ -32,6 +32,11 @@ updates:
       # 12.12+ は再提案を許可 (修正版採用時は scripts/check-native-dep-pin.mjs の pin と同期更新)。
       - dependency-name: "better-sqlite3"
         versions: ["12.11.x"]
+      # #3636: typescript 7.x は @sveltejs/kit@2.69.x の peer (^5.3.3 || ^6.0.0) が除外し
+      # npm ci が ERESOLVE で失敗する。kit が TS7 peer 対応版を出したら本 ignore を削除して TS7 を取り込む。
+      # major (6→7) のみ保留し 6.x の minor/patch 更新は許可する。
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         # #3311: grouped update が per-dependency ignore (上記 better-sqlite3 12.11.x) を
