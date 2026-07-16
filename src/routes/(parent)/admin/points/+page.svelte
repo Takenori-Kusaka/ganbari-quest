@@ -374,7 +374,7 @@ async function handleReceiptFile(event: Event) {
 						>
 							<span class="text-4xl">📸</span>
 							<span class="text-sm font-bold">{POINTS_LABELS.receiptCaptureButtonTitle}</span>
-							<span class="text-xs">{POINTS_LABELS.receiptCaptureButtonNote}</span>
+							<span class="text-xs">{POINTS_LABELS.receiptCaptureButtonNote(data.maxReceiptImageMb)}</span>
 						</Button>
 					{:else}
 						<!-- Preview + Result -->

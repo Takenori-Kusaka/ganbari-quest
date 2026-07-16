@@ -60,6 +60,23 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 		const exportData = await exportFamilyData({ tenantId, childIds, compact });
 		const jsonStr = compact ? JSON.stringify(exportData) : JSON.stringify(exportData, null, 2);
+
+		// #3775 ①: JSON export も aws-prod の Function URL (BUFFERED) 6MB response cap を超えると
+		// edge で沈黙切断され「ダウンロード不能」になる (#3770 は ZIP response のみ guard 済で JSON が残余)。
+		// マルチバイト JP を含むため char 長ではなく byte 長で判定する。NUC / local は
+		// resolveMaxSyncResponseBytes が Infinity を返すため従来通り直 DL を許可する。
+		const maxResponseBytes = resolveMaxSyncResponseBytes();
+		const jsonByteLength = Buffer.byteLength(jsonStr, 'utf-8');
+		if (jsonByteLength > maxResponseBytes) {
+			return apiError(
+				'VALIDATION_ERROR',
+				SETTINGS_LABELS.dataExportJsonTooLargeForDirectDownload(
+					String(toDisplayMb(maxResponseBytes)),
+				),
+				{ bytes: jsonByteLength, maxBytes: maxResponseBytes },
+			);
+		}
+
 		return new Response(jsonStr, {
 			status: 200,
 			headers: {
