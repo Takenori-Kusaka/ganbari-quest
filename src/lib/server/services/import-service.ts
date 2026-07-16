@@ -26,7 +26,11 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
-import { insertEvaluation, insertRestDayForRestore } from '$lib/server/db/evaluation-repo';
+import {
+	findEvaluationsByChild,
+	insertEvaluation,
+	insertRestDayForRestore,
+} from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
@@ -412,10 +416,11 @@ export async function importFamilyData(
 	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
 	await importChildVoicesData(data, childIdMap, tenantId, result);
-	await importSpecialRewards(data, childIdMap, tenantId, result, mode);
-	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
-	// importSpecialRewards の後に実行する。
-	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
+	// #3381: importSpecialRewards が返す exportId → 新 rewardId マップを交換履歴の安定再結合に使う。
+	const rewardIdByExportId = await importSpecialRewards(data, childIdMap, tenantId, result, mode);
+	// #3329: ごほうび交換/購入履歴。reward を先に取込済なので importSpecialRewards の後に実行する。
+	// #3381: rewardExportId (安定識別子) 優先 → rewardRef (title) fallback で再結合する。
+	await importRewardRedemptionsData(data, childIdMap, rewardIdByExportId, tenantId, result);
 	// #3329: per-child チャレンジ (auto:weekly 含む) を進捗/完了/請求保全で復元。childIdMap のみ必要。
 	await importChildChallengesData(data, childIdMap, tenantId, result);
 	// #3329: スタンプカード + 押印。card を復元 → 新 cardId に entry を貼り直す。childIdMap のみ必要。
@@ -448,15 +453,43 @@ export async function importFamilyData(
  * 従来 importFamilyData に評価の取込経路が無く、export には含まれるのに restore で全喪失していた
  * 網羅漏れ (本番 t-82c17558 で評価 22→0 を実証) を解消する。
  */
+/** 評価 dedup の既存行 prefetch 上限 (週次 = 年 52 行程度、10 年でも十分な余裕)。 */
+const EVALUATION_DEDUP_PREFETCH = 100_000;
+
 async function importEvaluationsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	for (const ev of data.data.evaluations ?? []) {
+	const evaluations = data.data.evaluations ?? [];
+	if (evaluations.length === 0) return;
+
+	// #3355: (childId, weekStart) は週次評価の自然キー (1 週 1 評価)。他 importer
+	// (importLoginBonusesData / importActivityLogsData) と同型の pre-fetch dedup で、同一 backup の
+	// 再取込 (merge) や重複行を二重計上しない (旧実装は無条件 insert で growth-book/reports の数値汚染)。
+	// 既存 DB 行 + 同一 import 内の両方を dedup 対象にする (loginBonuses と同じく mode 非依存 = 自然キーは
+	// verbatim でも重複が正当化されないため常に dedup)。
+	const existingWeeksByChild = new Map<ChildId, Set<string>>();
+	async function existingWeeks(childId: ChildId): Promise<Set<string>> {
+		let set = existingWeeksByChild.get(childId);
+		if (!set) {
+			const rows = await findEvaluationsByChild(childId, EVALUATION_DEDUP_PREFETCH, tenantId);
+			set = new Set(rows.map((e) => e.weekStart));
+			existingWeeksByChild.set(childId, set);
+		}
+		return set;
+	}
+
+	for (const ev of evaluations) {
 		const childId = childIdMap.get(ev.childRef);
 		if (!childId) {
+			result.evaluationsSkipped++;
+			continue;
+		}
+		const weeks = await existingWeeks(childId);
+		if (weeks.has(ev.weekStart)) {
+			// 既存 or 同一 import 内の同 (child, weekStart) → skip (二重計上防止)。
 			result.evaluationsSkipped++;
 			continue;
 		}
@@ -468,9 +501,12 @@ async function importEvaluationsData(
 					weekEnd: ev.weekEnd,
 					scoresJson: ev.scoresJson,
 					bonusPoints: ev.bonusPoints,
+					// #3355: 作成日時を保全 (取込時刻に書き換えると growth-book/reports の時系列が歪む)。
+					createdAt: ev.createdAt,
 				},
 				tenantId,
 			);
+			weeks.add(ev.weekStart);
 			result.evaluationsImported++;
 		} catch (e) {
 			result.evaluationsSkipped++;
@@ -482,15 +518,20 @@ async function importEvaluationsData(
 }
 
 /**
- * ごほうびショップ交換/購入履歴を復元する (#3329)。
- * FK rewardId は import で振り直されるため、export の `rewardRef` (reward title) を取込先 child の
- * reward 一覧から再解決して結合する。reward が解決できない行 (元 reward 未取込/同名衝突) は
- * skip + warning (FK NOT NULL を満たせないため。残高への影響は別途 pointLedger が真実を持つ)。
- * status / 解決情報 / snapshot は insertRedemptionForRestore で申請時点のまま書き戻す。
+ * ごほうびショップ交換/購入履歴を復元する (#3329 / #3381)。
+ * FK rewardId は import で振り直されるため再結合が必要。
+ * #3381: 安定識別子 `rewardExportId` (importSpecialRewards が返す exportId→新 rewardId マップ) を
+ * 優先キーに再結合し、無い場合 (旧 backup) のみ `rewardRef` (snapshot title) で取込先 child の reward
+ * 一覧から fallback 解決する。これにより reward が redemption 後に改名されても / 同名 reward が複数あっても
+ * 交換履歴が silent skip / collapse しない (旧実装は live title 照合のみで改名後 skip していた)。
+ * reward が解決できない行 (元 reward 未取込) は skip + warning (FK NOT NULL を満たせないため。残高への
+ * 影響は別途 pointLedger が真実を持つ)。status / 解決情報 / snapshot は insertRedemptionForRestore で
+ * 申請時点のまま書き戻す。
  */
 async function importRewardRedemptionsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
+	rewardIdByExportId: Map<ChildId, Map<string, string>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -515,7 +556,10 @@ async function importRewardRedemptionsData(
 			result.rewardRedemptionsSkipped++;
 			continue;
 		}
-		const rewardId = (await rewardLookup(childId)).get(r.rewardRef);
+		// #3381: 安定識別子 (rewardExportId) を優先、無ければ snapshot title で fallback 解決。
+		const rewardId =
+			(r.rewardExportId ? rewardIdByExportId.get(childId)?.get(r.rewardExportId) : undefined) ??
+			(await rewardLookup(childId)).get(r.rewardRef);
 		if (!rewardId) {
 			result.rewardRedemptionsSkipped++;
 			result.warnings.push(
@@ -1966,68 +2010,137 @@ async function importStatusHistoryData(
 	});
 }
 
+/** child 単位の specialReward import 状態 (既存 + 当 import で作成した reward の id 解決)。 */
+interface SpecialRewardChildState {
+	titles: Set<string>;
+	presetIds: Set<string>;
+	idByTitle: Map<string, string>;
+	idByPreset: Map<string, string>;
+}
+
+/** child の既存 reward から import 状態を初期化する (#3381)。 */
+async function loadSpecialRewardState(
+	childId: ChildId,
+	tenantId: string,
+): Promise<SpecialRewardChildState> {
+	const rows = await findSpecialRewards(childId, tenantId);
+	return {
+		titles: new Set(rows.map((r) => r.title)),
+		presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
+		idByTitle: new Map(rows.map((r) => [r.title, r.id])),
+		idByPreset: new Map(
+			rows.filter((r) => r.sourcePresetId).map((r) => [r.sourcePresetId as string, r.id]),
+		),
+	};
+}
+
+/**
+ * 1 件の specialReward を import (重複スキップ / 新規作成) し、解決先 rewardId を register に渡す (#3381)。
+ * skip 時も既存 rewardId を register し、交換履歴が正しい reward に再結合できるようにする
+ * (#3107 checklist の register と同型)。
+ */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列に合わせる (checklist と同型)。
+async function importOneSpecialReward(
+	sr: ExportData['data']['specialRewards'][number],
+	childId: ChildId,
+	state: SpecialRewardChildState,
+	tenantId: string,
+	result: ImportResult,
+	register: (rewardId: string) => void,
+	mode: ImportMode,
+): Promise<void> {
+	// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
+	// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
+	// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
+	if (mode === 'merge' && sr.sourcePresetId && state.presetIds.has(sr.sourcePresetId)) {
+		result.specialRewardsSkipped++;
+		result.skipped.preset++;
+		const dupId = state.idByPreset.get(sr.sourcePresetId);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+	if (mode === 'merge' && state.titles.has(sr.title)) {
+		result.specialRewardsSkipped++;
+		result.skipped.name++;
+		const dupId = state.idByTitle.get(sr.title);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+
+	try {
+		const created = await insertSpecialReward(
+			{
+				childId,
+				title: sr.title,
+				description: sr.description ?? undefined,
+				points: sr.points,
+				icon: sr.icon ?? undefined,
+				category: sr.category,
+				sourcePresetId: sr.sourcePresetId ?? null,
+			},
+			tenantId,
+		);
+		result.specialRewardsImported++;
+		state.titles.add(sr.title);
+		state.idByTitle.set(sr.title, created.id);
+		if (sr.sourcePresetId) {
+			state.presetIds.add(sr.sourcePresetId);
+			state.idByPreset.set(sr.sourcePresetId, created.id);
+		}
+		register(created.id);
+	} catch (e) {
+		result.errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
+	}
+}
+
+/**
+ * ごほうび (specialReward) を import し、`exportId → 新 rewardId` の再結合マップを返す (#3329 / #3381)。
+ *
+ * #3381: 返すマップは交換履歴 (importRewardRedemptionsData) が **安定識別子 (exportId)** で reward を
+ * 再結合するための SSOT。新規 insert / 重複 skip いずれの reward も exportId → 解決先 rewardId を登録する
+ * ため、reward が改名されても / 同名 reward が複数あっても交換履歴を取り違えない。exportId を持たない旧
+ * backup は本マップに載らず、履歴側が title (rewardRef) で fallback する。
+ */
 async function importSpecialRewards(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 	mode: ImportMode = 'merge',
-): Promise<void> {
-	const { errors, warnings } = result;
-	const existingByChild = new Map<ChildId, { titles: Set<string>; presetIds: Set<string> }>();
+): Promise<Map<ChildId, Map<string, string>>> {
+	// #3381: exportId → 解決先 rewardId (child 単位)。交換履歴の安定再結合キー。
+	const rewardIdByExportId = new Map<ChildId, Map<string, string>>();
+	const stateByChild = new Map<ChildId, SpecialRewardChildState>();
+
 	for (const sr of data.data.specialRewards) {
 		const childId = childIdMap.get(sr.childRef);
 		if (!childId) continue;
 
-		let existing = existingByChild.get(childId);
-		if (!existing) {
-			const rows = await findSpecialRewards(childId, tenantId);
-			existing = {
-				titles: new Set(rows.map((r) => r.title)),
-				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
-			};
-			existingByChild.set(childId, existing);
+		let state = stateByChild.get(childId);
+		if (!state) {
+			state = await loadSpecialRewardState(childId, tenantId);
+			stateByChild.set(childId, state);
 		}
 
-		// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
-		// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
-		// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
-		if (mode === 'merge' && sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
-			result.specialRewardsSkipped++;
-			result.skipped.preset++;
-			continue;
-		}
-		if (mode === 'merge' && existing.titles.has(sr.title)) {
-			result.specialRewardsSkipped++;
-			result.skipped.name++;
-			continue;
-		}
+		const register = (rewardId: string) => {
+			if (!sr.exportId) return;
+			let m = rewardIdByExportId.get(childId);
+			if (!m) {
+				m = new Map<string, string>();
+				rewardIdByExportId.set(childId, m);
+			}
+			m.set(sr.exportId, rewardId);
+		};
 
-		try {
-			await insertSpecialReward(
-				{
-					childId,
-					title: sr.title,
-					description: sr.description ?? undefined,
-					points: sr.points,
-					icon: sr.icon ?? undefined,
-					category: sr.category,
-					sourcePresetId: sr.sourcePresetId ?? null,
-				},
-				tenantId,
-			);
-			result.specialRewardsImported++;
-			existing.titles.add(sr.title);
-			if (sr.sourcePresetId) existing.presetIds.add(sr.sourcePresetId);
-		} catch (e) {
-			errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
-		}
+		await importOneSpecialReward(sr, childId, state, tenantId, result, register, mode);
 	}
+
 	if (result.specialRewardsSkipped > 0) {
-		warnings.push(
+		result.warnings.push(
 			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名または同一プリセットのためスキップされました`,
 		);
 	}
+	return rewardIdByExportId;
 }
 
 // ============================================================

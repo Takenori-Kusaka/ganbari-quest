@@ -33,7 +33,8 @@ export async function insertEvaluation(
 		weekEnd: input.weekEnd,
 		scoresJson: input.scoresJson,
 		bonusPoints: input.bonusPoints,
-		createdAt: new Date().toISOString(),
+		// #3355: backup restore が渡した createdAt を保全 (省略時は取込時刻)。
+		createdAt: input.createdAt ?? new Date().toISOString(),
 	};
 }
 
