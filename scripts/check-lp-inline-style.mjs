@@ -73,7 +73,12 @@ const NUMERIC_UNIT_RE = /^-?\d+(\.\d+)?(px|em|rem|%)$/;
 const VAR_TOKEN_RE = /^var\(--[\w-]+\)$/;
 const VAR_LEADING_RE = /^var\(--/;
 const VAR_ONLY_VALUE_RE = /^[\s]*var\(--[\w-]+\)([\s]+(var\(--[\w-]+\)|[0]+|auto))*[\s]*$/;
-const ZERO_AUTO_ONLY_RE = /^(\s*(0|auto)\s*)+$/;
+// CodeQL js/redos (#3766): 旧 `/^(\s*(0|auto)\s*)+$/` は繰り返しグループ内の
+// 先頭・末尾 `\s*` が隣接反復とマッチ範囲を奪い合い、非マッチ入力で
+// catastrophic backtracking を起こす (nested quantifier ambiguity)。
+// トークン間の whitespace を必須 `\s+` に固定し前後の trim を 1 回きりにすることで
+// linear-time な等価パターンへ書換える ("0" / "auto" が空白区切りで並ぶ列を許容)。
+const ZERO_AUTO_ONLY_RE = /^\s*(?:0|auto)(?:\s+(?:0|auto))*\s*$/;
 const CALC_LEADING_RE = /^calc\(/;
 const SPECIAL_VALUES = new Set(['0', 'auto', 'inherit', 'unset', 'initial']);
 

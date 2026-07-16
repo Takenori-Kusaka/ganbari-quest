@@ -9,13 +9,29 @@
  * vitest: tests/unit/audit/aggregate-report.test.ts
  */
 
+/**
+ * markdown テーブルセル値をエスケープする。
+ *
+ * CodeQL `js/incomplete-sanitization` (#3766): 旧実装 `.replace(/\|/g, '\\|')` は
+ * escape 文字である `\` 自体を先に escape しないため、入力に含まれる `\` が
+ * 後続の `|` escape と結合して table 崩れ / 誤 escape を招きうる。`\` を最初に
+ * escape してから `|` を escape することで、完全なサニタイズにする。単一パスで
+ * `[\\|]` をまとめて `\` 前置換えするため `\` → `|` の順序依存を持たない。
+ *
+ * @param {unknown} v
+ * @returns {string}
+ */
+function escapeMarkdownCell(v) {
+	return String(v ?? '').replace(/[\\|]/g, '\\$&');
+}
+
 /** @param {any} f */
 function fmtFindingRow(f) {
 	const sev = Number.isInteger(f?.severity) ? f.severity : '?';
 	const team = f?.team ?? '?';
 	const rule = f?.ruleId ?? '?';
-	const title = (f?.title ?? '').replace(/\|/g, '\\|');
-	const loc = (f?.location ?? '').replace(/\|/g, '\\|');
+	const title = escapeMarkdownCell(f?.title);
+	const loc = escapeMarkdownCell(f?.location);
 	const mergedCount = Array.isArray(f?.merged_from) ? f.merged_from.length : 1;
 	return `| ${f?.id ?? '?'} | ${team} | ${rule} | ${sev} | ${mergedCount} | ${title} | ${loc} |`;
 }

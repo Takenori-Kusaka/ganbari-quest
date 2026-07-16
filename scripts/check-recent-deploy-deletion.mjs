@@ -484,6 +484,35 @@ export function findViolations(deletedFiles, recentMerges, ignorePatterns) {
 	return violations;
 }
 
+/** `--ignore-pattern` に許容する最大長 (ReDoS 表面積の上限、operator 誤用の早期検出)。 */
+const MAX_IGNORE_PATTERN_LENGTH = 200;
+
+/**
+ * `--ignore-pattern <regex>` の operator 指定値を安全に RegExp へ compile する。
+ *
+ * CodeQL `js/regex-injection` (#3766): 本 script は CI / 開発者が起動する監査 gate で、
+ * `--ignore-pattern` は「削除を意図的に除外する path regex」を **信頼された CLI operator が
+ * 明示指定する設計インターフェース** (help / docstring に `<regex>` と明記)。attacker 経路ではなく、
+ * escape すると regex 機能そのものが失われるため escape は不採用。代わりに ①長さ上限 ②try/catch で
+ * fail-closed 化 (不正 regex は明確な Error で gate を止める) を行い、alert は justified suppression とする。
+ *
+ * @param {string} source operator が渡した regex 文字列
+ * @returns {RegExp}
+ */
+function compileIgnorePattern(source) {
+	if (source.length > MAX_IGNORE_PATTERN_LENGTH) {
+		throw new Error(
+			`--ignore-pattern が長すぎます (${source.length} > ${MAX_IGNORE_PATTERN_LENGTH} 文字)。path 除外 regex を短くしてください。`,
+		);
+	}
+	try {
+		// codeql[js/regex-injection] source は信頼された CLI operator が明示指定する設計 regex (attacker 由来ではない)。長さ上限 + try/catch で fail-closed 化済。
+		return new RegExp(source);
+	} catch {
+		throw new Error(`--ignore-pattern が不正な正規表現です: ${source}`);
+	}
+}
+
 /**
  * CLI 引数を parse する。
  *
@@ -523,7 +552,7 @@ export function parseArgs(argv) {
 			opts.sinceRecent = Number(next);
 			i++;
 		} else if (arg === '--ignore-pattern' && typeof next === 'string') {
-			opts.ignorePatterns.push(new RegExp(next));
+			opts.ignorePatterns.push(compileIgnorePattern(next));
 			i++;
 		} else if (arg === '--base' && typeof next === 'string') {
 			opts.base = next;
