@@ -60,6 +60,12 @@ export async function findPendingBuilds(_limit: number): Promise<CloudExportReco
 	return [];
 }
 
+export async function claimForBuild(_id: string, _tenantId: string): Promise<boolean> {
+	// Stub: demo Lambda は永続的な pending build を持たない (findPendingBuilds が常に [] を返すため
+	// drain 経路から本メソッドへ到達しない)。掴める build が無いため false を返す。
+	return false;
+}
+
 export async function findStaleBuildingExports(
 	_staleThresholdMs: number,
 ): Promise<CloudExportRecord[]> {

@@ -133,6 +133,20 @@ export function createDsqlCloudExportRepo(db: SqlExecutor): ICloudExportRepo {
 			`);
 		},
 
+		async claimForBuild(id, tenantId) {
+			// #3522: pending → building の CAS claim (楽観ロック)。status='pending' 条件付き UPDATE で
+			// 更新できた行のみ RETURNING され (rows.length === 1)、DSQL の OCC (楽観並行制御) が
+			// 二重 build を単一 worker に絞る。'building' 遷移なので build_started_at=now /
+			// failure_reason=NULL も確定する (updateStatus('building') と同じ副次値)。
+			const result = await db.execute(sql`
+				UPDATE cloud_exports
+				SET status = 'building', build_started_at = now(), failure_reason = NULL
+				WHERE family_id = ${tenantId} AND export_id = ${id} AND status = 'pending'
+				RETURNING export_id
+			`);
+			return result.rows.length === 1;
+		},
+
 		async findPendingBuilds(limit) {
 			// #3504: build 待ちを tenant 横断で createdAt asc に最大 limit 件 (cron drain、§11.2)。
 			const result = await db.execute(sql`

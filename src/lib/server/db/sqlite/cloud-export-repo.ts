@@ -92,6 +92,32 @@ export async function updateStatus(
 		.run();
 }
 
+/**
+ * #3522: pending → building の CAS claim (楽観ロック)。`status='pending'` 条件付き UPDATE で、
+ * 遷移できた (`changes === 1`) 場合のみ true を返す。複数 worker が同一レコードを掴んでも
+ * SQLite の単一 writer 直列化により 1 worker だけが 1 行更新し他は 0 行更新 (false) になるため、
+ * 二重 build を防げる。'building' 遷移なので buildStartedAt=now / failureReason=null も確定する
+ * (updateStatus('building') と同じ副次値)。
+ */
+export async function claimForBuild(id: string, tenantId: string): Promise<boolean> {
+	const result = db
+		.update(cloudExports)
+		.set({
+			status: 'building',
+			buildStartedAt: new Date().toISOString(),
+			failureReason: null,
+		})
+		.where(
+			and(
+				eq(cloudExports.id, Number(id)),
+				eq(cloudExports.tenantId, tenantId),
+				eq(cloudExports.status, 'pending'),
+			),
+		)
+		.run();
+	return result.changes === 1;
+}
+
 /** #3504: build 待ち (status='pending') を tenant 横断で createdAt asc に最大 limit 件返す。 */
 export async function findPendingBuilds(limit: number): Promise<CloudExportRecord[]> {
 	const rows = await db

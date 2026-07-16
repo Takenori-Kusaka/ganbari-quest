@@ -298,6 +298,16 @@ export async function verifyChecksum(data: ExportData): Promise<boolean> {
  * 件数カウント + 重複候補 (活動/ごほうび/持ち物 CL/活動ログ/ログインボーナス) を返す
  */
 export async function previewImport(data: ExportData, tenantId: string): Promise<PreviewResult> {
+	// #3521: preview も importFamilyData と同じ lazy migration seam を通す。現状の STEPS は全て
+	// identity のため件数は不変だが、将来 breaking transform (フィールド rename / 分割 / 件数変化を
+	// 伴う正規化) を導入した際に、置換確認ダイアログで見せる件数プレビューと importFamilyData で
+	// migrate 後に実取込される件数が食い違うのを構造的に防ぐ (実 transform 導入前に seam を揃えておく)。
+	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後に行う)。
+	data = migrateExportData(
+		data as unknown as Record<string, unknown>,
+		data.version,
+	) as unknown as ExportData;
+
 	const duplicates: PreviewResult['duplicates'] = {
 		activities: [],
 		specialRewards: [],

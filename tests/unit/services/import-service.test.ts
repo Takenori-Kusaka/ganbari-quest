@@ -469,6 +469,20 @@ describe('previewImport', () => {
 		expect(preview.checklistTemplates).toBe(0);
 		expect(preview.specialRewards).toBe(0);
 	});
+
+	// #3521: preview も importFamilyData と同じ migration seam を通す。将来 breaking transform 時に
+	// preview 件数と実取込件数が食い違わないよう、seam の存在を wiring test で機械的に固定する。
+	it('移行経路が未定義の version は migrateExportData 経由で fail-loud する (#3521 preview 側 seam)', async () => {
+		const data = makeExportData({ version: '99.0.0' });
+		await expect(previewImport(data, TENANT)).rejects.toThrow('移行経路が未定義');
+	});
+
+	it('現行 version は migrate を通しても件数が保たれる (identity transform)', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1'), makeChild('c2', 'テスト花子')];
+		const preview = await previewImport(data, TENANT);
+		expect(preview.children).toBe(2);
+	});
 });
 
 // ============================================================
@@ -476,6 +490,15 @@ describe('previewImport', () => {
 // ============================================================
 
 describe('importFamilyData', () => {
+	// #3521: importFamilyData も冒頭で migrateExportData を通す。移行経路未定義の version は
+	// DB へ触れる前に fail-loud する (silent に旧 shape のまま取り込まない)。restoreFromSnapshot の
+	// 最終防衛線がこの seam を通ることの根拠 (dynamo テストの migrate 失敗シナリオを現実に接地する)。
+	it('移行経路が未定義の version は取込前に fail-loud する (#3521 import 側 seam)', async () => {
+		const data = makeExportData({ version: '99.0.0' });
+		data.family.children = [makeChild('c1')];
+		await expect(importFamilyData(data, TENANT)).rejects.toThrow('移行経路が未定義');
+	});
+
 	describe('空データのインポート', () => {
 		it('子供なし・ログなしの場合は全カウントがゼロになる', async () => {
 			const data = makeExportData();

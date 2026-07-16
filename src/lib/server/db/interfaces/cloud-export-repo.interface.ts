@@ -35,6 +35,15 @@ export interface ICloudExportRepo {
 	 */
 	findPendingBuilds(limit: number): Promise<CloudExportRecord[]>;
 	/**
+	 * #3522: pending → building の CAS claim (楽観ロック)。dual-cron (AWS cron-dispatcher +
+	 * NUC scheduler) や同一 job の重複起動下で、複数 worker が同一 pending レコードを二重 build
+	 * するのを防ぐ。`status='pending'` のときだけ 'building' へ遷移させ (`buildStartedAt`=now /
+	 * `failureReason`=null も確定)、遷移できた場合のみ `true` を返す。既に別 worker が
+	 * building/ready/failed へ進めていれば `false` (呼び出し側は二重 build せず skip する)。
+	 * tenantId 束縛は updateStatus と同じ #2845 B1 方針 (cross-tenant write 遮断)。
+	 */
+	claimForBuild(id: string, tenantId: string): Promise<boolean>;
+	/**
 	 * #3509 QM 是正 (async-backup-export.md §3.2 追補): status='building' かつ
 	 * buildStartedAt が staleThresholdMs より古いレコードを tenant 横断で返す
 	 * (cron worker が build 中に kill/timeout し永久 stuck した行の reclaim 用)。
