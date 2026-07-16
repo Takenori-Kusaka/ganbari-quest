@@ -19,7 +19,7 @@
 //   - DynamoDB 側は変更不要 (email natural key で既存レコードが再利用される)。
 //   - --dry-run フラグで実際の API コールなしに検証のみ実行可能。
 
-import { randomBytes } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import {
@@ -67,13 +67,16 @@ const dryRun = args['dry-run'];
  */
 function generateTempPassword() {
 	const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-	const buf = randomBytes(16);
+	// CodeQL js/biased-cryptographic-random (#3766): 旧 `randomBytes(16)` の各 byte を
+	// `b % chars.length` (53) で写像していたが 256 が 53 で割り切れないため index に
+	// modulo bias が乗る。`crypto.randomInt(max)` は rejection sampling で一様分布を
+	// 保証するため、bias なしに文字を抽出できる。
 	let pwd = '';
-	for (const b of buf) {
-		pwd += chars[b % chars.length];
+	for (let i = 0; i < 6; i++) {
+		pwd += chars[randomInt(chars.length)];
 	}
-	// 大文字・小文字・数字を確実に含める
-	return `${pwd.slice(0, 6)}Aa1!`;
+	// 大文字・小文字・数字・記号を確実に含める
+	return `${pwd}Aa1!`;
 }
 
 /**

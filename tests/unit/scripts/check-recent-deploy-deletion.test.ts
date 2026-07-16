@@ -40,6 +40,7 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+	compileIgnorePattern,
 	DEFAULT_BASE,
 	DEFAULT_DAYS,
 	findViolations,
@@ -47,6 +48,7 @@ import {
 	helpText,
 	isAncestor,
 	isIgnored,
+	MAX_IGNORE_PATTERN_LENGTH,
 	parseArgs,
 	resolveSinceWindow,
 	verifyWorktreeHeadMatchesPrHead,
@@ -137,6 +139,47 @@ describe('parseArgs', () => {
 		expect(opts.days).toBe(14);
 		expect(opts.base).toBe('origin/main');
 		expect(opts.ignorePatterns).toHaveLength(1);
+	});
+});
+
+/**
+ * #3766 CodeQL js/regex-injection guard — `--ignore-pattern` の RegExp compile を
+ * fail-closed 化した `compileIgnorePattern` の regression guard。
+ *
+ * 本 script は信頼された CLI operator が `--ignore-pattern <regex>` を明示指定する設計 (attacker
+ * 経路ではない) のため escape は不採用 (regex 機能そのものが失われる)。代わりに ①長さ上限
+ * ②try/catch fail-closed の 2 段防御で ReDoS 表面積 / operator 誤用を早期に止める。
+ *
+ * 判別力 (mutation → fail):
+ *   - 長さ上限 guard を外すと 201 文字 (valid regex) が throw しなくなり (a) が fail する
+ *     (実測: guard 無しでは `new RegExp('a'.repeat(201))` が正常 compile して throw しない)。
+ *   - try/catch を外すと不正 regex が Error ではなく生 SyntaxError を throw し、明示メッセージ
+ *     `不正な正規表現` を assert する (b) が fail する。
+ */
+describe('compileIgnorePattern (#3766 js/regex-injection fail-closed guard)', () => {
+	it('(a) MAX_IGNORE_PATTERN_LENGTH 超で明示 Error を throw する (ReDoS 表面積上限)', () => {
+		const tooLong = 'a'.repeat(MAX_IGNORE_PATTERN_LENGTH + 1);
+		expect(() => compileIgnorePattern(tooLong)).toThrow(/長すぎます/);
+		// 上限ちょうど (valid regex) は throw しない (境界値)。
+		const atLimit = 'a'.repeat(MAX_IGNORE_PATTERN_LENGTH);
+		expect(() => compileIgnorePattern(atLimit)).not.toThrow();
+	});
+
+	it('(b) 不正な正規表現で明示 Error を throw する (fail-closed、生 SyntaxError を握り潰さない)', () => {
+		// `[` は未閉 character class で不正。fail-closed で gate を止める。
+		expect(() => compileIgnorePattern('[')).toThrow(/不正な正規表現/);
+		expect(() => compileIgnorePattern('(unclosed')).toThrow(/不正な正規表現/);
+	});
+
+	it('正当な path 除外 regex は RegExp を返しマッチが機能する (機能保全)', () => {
+		const re = compileIgnorePattern('^docs/decisions/archive/');
+		expect(re).toBeInstanceOf(RegExp);
+		expect(re.test('docs/decisions/archive/0031-foo.md')).toBe(true);
+		expect(re.test('docs/decisions/0056-active.md')).toBe(false);
+	});
+
+	it('MAX_IGNORE_PATTERN_LENGTH は 200 で pin される (閾値回帰検出)', () => {
+		expect(MAX_IGNORE_PATTERN_LENGTH).toBe(200);
 	});
 });
 
