@@ -153,9 +153,6 @@
 			"tests/e2e/billing",
 			"tests/e2e/billing/helpers/stripe-fixture.ts"
 		],
-		"docs/design/license-subscription-causality.md": [
-			"src/routes/api/v1/stripe/webhook/+server.ts"
-		],
 		"docs/design/lp-content-map.md": ["site/help/license-key.html"],
 		"docs/design/lp-deploy-pipeline.md": [
 			"site/screenshots",

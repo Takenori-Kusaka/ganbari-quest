@@ -657,8 +657,8 @@ Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の
 
 - ADR-0013（LP truth: LP / pricing.html に書いた仕様を実装の正とする）
 - ADR-0026（archive: ライセンスキーアーキテクチャ）
-- ライセンスキー要件: [`license-key-requirements.md`](license-key-requirements.md) §2.3 / §2.9
-- 因果関係マップ: [`license-subscription-causality.md`](license-subscription-causality.md)
+- ライセンスキー要件: `license-key-requirements.md` §2.3 / §2.9（削除済、git 履歴参照）
+- 因果関係マップ: `license-subscription-causality.md`（削除済、git 履歴参照）
 - Phase 2 β 移行の判断基準: Phase F deep research 軸 D-6（補佐確認、PMF 後に再評価）
 
 ---
