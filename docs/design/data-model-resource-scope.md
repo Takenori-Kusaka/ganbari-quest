@@ -126,8 +126,8 @@ child_activities
 | `parent` (legacy wire 値) | 保存されない (persist 前に `custom` へ正規化)。zod `SOURCES` enum は後方互換で受理のみ | ✅ (防御的) |
 
 - **consumer 共通述語**: `countsTowardActivityQuota(source)` — `checkActivityLimit` (plan-limit-service) / `/admin/subscription` 活動カウンタ / downgrade preview・検証 (downgrade-service) / trial 終了 archive (resource-archive-service) の 4 consumer が同一述語を参照する
-- **producer 側 quota gate (`checkActivityLimit`) 適用経路**: admin/activities `create` / `bulkCreateForChildren` (#2894) / `importPack` / `importPackToChildren` (#2894) / `copyFromChild` (#3740、copy は custom source を保全して quota を消費するため) / `api/v1/activities` POST (#3740)
-- **整合 lock**: `tests/unit/services/activity-source-quota-roundtrip.test.ts` が「UI 作成 → `checkActivityLimit.current` +1」の producer×consumer round-trip を実 SQLite で assert (ADR-0061 same-class guard)。残余 2 経路 (api/v1 POST の wire source 注入 / copyFromChild 未 gate) は `tests/unit/routes/activities-quota-residual-gate.test.ts` が gate + `custom` 強制を assert (#3740)
+- **producer 側 quota gate (`checkActivityLimit`) 適用経路**: admin/activities `create` / `bulkCreateForChildren` (#2894) / `importPack` / `importPackToChildren` (#2894) / `copyFromChild` (#3740、copy は custom source を保全して quota を消費するため) / `api/v1/activities` POST (#3740) / `api/v1/activities/import` mode=merge (#3759、admin `importPack` と同型。gate 完全性の残余として 5 producer 全経路で対称化)
+- **整合 lock**: `tests/unit/services/activity-source-quota-roundtrip.test.ts` が「UI 作成 → `checkActivityLimit.current` +1」の producer×consumer round-trip を実 SQLite で assert (ADR-0061 same-class guard)。残余 2 経路 (api/v1 POST の wire source 注入 / copyFromChild 未 gate) は `tests/unit/routes/activities-quota-residual-gate.test.ts` が gate + `custom` 強制を assert (#3740)。api/v1/activities/import mode=merge の gate 対称化は `tests/unit/routes/activities-import-merge-quota-gate.test.ts` が assert (#3759)
 - **禁忌**: `InsertChildActivityInput.source` を経由せず repo 直 insert で source 文字列を直書きしない / consumer 側で `a.source === '...'` の直比較を書かない (必ず SSOT 述語を使う)
 
 **実装状況 PR-A1 (2026-05-26、#2458 Path A)**:
