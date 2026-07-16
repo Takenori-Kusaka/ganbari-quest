@@ -23,6 +23,7 @@ import {
 } from '$lib/server/db/activity-repo';
 // EPIC #3424 Phase Z (#3541): DATA_SOURCE=dsql は core 単一 txn + optional 隔離経路へ dispatch (§8)
 import { isDsqlBackend } from '$lib/server/db/backend';
+import { cancelActivityDsql } from '$lib/server/services/activity-cancel-dsql';
 import {
 	type ActivityLogEntry,
 	type ActivityLogSummary,
@@ -391,6 +392,13 @@ export async function cancelActivityLog(
 	logId: string,
 	tenantId: string,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
+	// #3596 ②: DSQL backend は cancel core 単一 txn (log-cancel / mastery / ledger+total_point /
+	// status / history を all-or-nothing)。sqlite / dynamo / demo は従来の逐次 await 経路 (以下、
+	// 現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐。
+	if (isDsqlBackend()) {
+		return cancelActivityDsql(logId, tenantId);
+	}
+
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };

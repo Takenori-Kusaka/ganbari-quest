@@ -148,6 +148,14 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 			'記録取消の soft-cancel flip (P7 設計済み遷移。行は削除せず cancelled=true、台帳側は相殺行を追記)',
 	},
 	{
+		file: 'cancel-activity-core.ts',
+		table: 'activity_logs',
+		op: 'UPDATE',
+		marker: /SET\s+cancelled\s*=\s*true/,
+		reason:
+			'記録取消の単一 txn core (#3596 ②) の soft-cancel flip (activity-repo.ts と同一遷移。cancelled=false 条件で冪等 guard を兼ねる。台帳側は相殺行を追記)',
+	},
+	{
 		file: 'trial-history-repo.ts',
 		table: 'trial_history',
 		op: 'UPDATE',
