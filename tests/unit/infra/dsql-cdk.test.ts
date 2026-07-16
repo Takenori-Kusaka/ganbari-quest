@@ -58,6 +58,18 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		});
 	});
 
+	it('[I3b] 両 alarm の description が一次対応 runbook link を含む (#3730、2am 発見時の可観測性)', () => {
+		// runbook link が silent に消えると alarm 発火時の一次対応導線が失われる (#3432 residual)。
+		const alarms = template.findResources('AWS::CloudWatch::Alarm');
+		const descriptions = Object.values(alarms).map(
+			(alarm) => alarm.Properties.AlarmDescription as string,
+		);
+		expect(descriptions).toHaveLength(2);
+		for (const description of descriptions) {
+			expect(description).toContain('docs/runbooks/dsql-alert-response.md');
+		}
+	});
+
 	it('[I4] alarm は SNS topic に通知し、opsEmail が subscribe される', () => {
 		template.resourceCountIs('AWS::SNS::Topic', 1);
 		template.hasResourceProperties('AWS::SNS::Subscription', {
