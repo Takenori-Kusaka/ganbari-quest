@@ -31,7 +31,7 @@ import { todayDateJST } from '$lib/domain/date-utils';
 import type { IPointRepo } from '../interfaces/point-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import { createPointEntryWriter, LEDGER_COLUMNS, type LedgerRow, toEntry } from './point-write';
 import type { SqlExecutor } from './sql-executor';
 
@@ -99,7 +99,11 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 
 		async findChildById(id, tenantId) {
 			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
-			if (!isUuidFormat(id)) return undefined;
+			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('point-repo.findChildById');
+				return undefined;
+			}
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children
 				WHERE family_id = ${tenantId} AND child_id = ${id}

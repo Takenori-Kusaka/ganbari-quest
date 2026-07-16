@@ -260,6 +260,14 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findAssignmentsByChild(a, OTHER_FAMILY)).toEqual([]);
 	});
 
+	it('[A2b] #3581 ②: findAssignmentsByChild は非 uuid id で throw せず空配列 (22P02 正規化)', async () => {
+		// checklist toggle action (child POST) が stale cookie 由来の旧数値 id を最初に渡す repo 経路。
+		// guard 無しだと WHERE child_id = <非uuid> で 22P02 throw → 500。空配列 = 「配信なし」に正規化。
+		await expect(repo.findAssignmentsByChild(asChildId('3'), FAMILY)).resolves.toEqual([]);
+		await expect(repo.findAssignmentsByChild(asChildId('not-a-uuid'), FAMILY)).resolves.toEqual([]);
+		await expect(repo.findAssignmentsByChild(asChildId(''), FAMILY)).resolves.toEqual([]);
+	});
+
 	it('[A3] unassignTemplateFromChildren (subset / 空 no-op) + unassignTemplate (全解除)', async () => {
 		const a = await newChild('解除A');
 		const b = await newChild('解除B');

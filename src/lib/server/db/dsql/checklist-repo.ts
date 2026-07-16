@@ -39,6 +39,7 @@ import type {
 	ChecklistTemplateAssignment,
 	ChecklistTemplateItem,
 } from '../types';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface TemplateRow {
@@ -306,6 +307,12 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		},
 
 		async findAssignmentsByChild(childId, tenantId) {
+			// #3581 ②: checklist toggle action (child POST) が raw cookie id を最初に渡す repo 経路。
+			// 非 uuid は「配信なし」= 空配列 (not-found と同 shape) を返し、22P02 → 500 を避ける。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('checklist-repo.findAssignmentsByChild');
+				return [];
+			}
 			const result = await db.execute(sql`
 				SELECT ${ASSIGNMENT_COLUMNS} FROM checklist_template_assignments
 				WHERE family_id = ${tenantId} AND child_id = ${String(childId)}

@@ -18,7 +18,7 @@ import { asChildId, type ChildId } from '$lib/domain/ids';
 import type { ILoginBonusRepo } from '../interfaces/login-bonus-repo.interface';
 import type { InsertLoginBonusInput, LoginBonus } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface LoginBonusRow {
@@ -106,7 +106,11 @@ export function createDsqlLoginBonusRepo(db: SqlExecutor): ILoginBonusRepo {
 
 		async findChildById(id, tenantId) {
 			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
-			if (!isUuidFormat(id)) return undefined;
+			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('login-bonus-repo.findChildById');
+				return undefined;
+			}
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children
 				WHERE family_id = ${tenantId} AND child_id = ${id}
