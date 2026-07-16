@@ -29,7 +29,7 @@ let { isDemo }: Props = $props();
 		</div>
 		<a
 			href={DEMO_LABELS.signupHref}
-			class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap"
+			class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap"
 			data-testid="demo-banner-signup"
 		>
 			{DEMO_LABELS.ctaStart}

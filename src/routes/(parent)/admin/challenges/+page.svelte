@@ -110,7 +110,7 @@ function tabHref(childId: ChildId | 'all'): string {
 		>
 			<a
 				href={tabHref('all')}
-				class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === 'all' ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
+				class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === 'all' ? 'bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
 				data-testid="admin-challenges-child-tab-all"
 			>
 				{ADMIN_CHALLENGES_PAGE_LABELS.childTabAllLabel}
@@ -118,7 +118,7 @@ function tabHref(childId: ChildId | 'all'): string {
 			{#each data.children as child (child.id)}
 				<a
 					href={tabHref(child.id)}
-					class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === child.id ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
+					class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === child.id ? 'bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
 					data-testid="admin-challenges-child-tab-{child.id}"
 				>
 					{child.nickname}

@@ -150,7 +150,7 @@ function resetForm() {
 				<button
 					type="button"
 					class="px-2 py-2 rounded-lg text-xs font-bold transition-colors text-center
-						{formCategoryId === catDef.id ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-neutral-200)]'}"
+						{formCategoryId === catDef.id ? 'bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text)] hover:bg-[var(--color-neutral-200)]'}"
 					onclick={() => onCategoryChange(catDef.id)}
 				>
 					{info?.icons[0] ?? '📝'} {catDef.name}
@@ -256,7 +256,7 @@ function resetForm() {
 				<button
 					type="button"
 					class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors
-						{formDailyLimit === opt.val ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
+						{formDailyLimit === opt.val ? 'bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)]'}"
 					onclick={() => formDailyLimit = opt.val}
 				>
 					{opt.label}
