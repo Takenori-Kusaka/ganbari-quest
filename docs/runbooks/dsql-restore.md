@@ -12,6 +12,8 @@
 - **DSQL の AWS Backup は full snapshot のみ (PITR / 継続 backup ではない)**。RPO = 直近の日次 backup 時刻 (02:00 UTC)。秒単位の point-in-time 復元は不可 (それは provisioned Aurora の機能で DSQL は非対応)。細かい復元要求はアプリ層 backup-archive で担保する。
 - **backup / restore は AWS Backup (console / CLI / SDK) からのみ**。DSQL console からは実行不可。
 - backup plan: 日次 02:00 UTC / 7 日保持 / vault = `ganbari-quest-dsql-vault` (RETAIN)。cluster ARN を明示 assign しているため AWS Backup の Service Opt-in は不要。
+- **IAM role**: backup / restore とも CDK が確定生成する **`ganbari-quest-dsql-backup-role`** を使う (`AWSBackupServiceRolePolicyForBackup` + `AWSBackupServiceRolePolicyForRestores` の 2 managed policy を付与済)。console 初回操作でしか作られない `AWSBackupDefaultServiceRole` には依存しない (IaC 環境で未 provision の事故を防止、#3437 F-4)。ARN は `DsqlStack` の `BackupRoleArn` output で配布される。
+- **backup 失敗の検知**: 日次 backup ジョブが失敗すると EventBridge Rule `ganbari-quest-dsql-backup-failed` が `Backup Job State Change` (state=FAILED/ABORTED/EXPIRED) を捕捉し `DsqlAlerts` SNS (opsEmail) へ通知する。DSQL の唯一の DR 手段が silent fail するのを防ぐ (ADR-0024 (d))。
 
 ## 月額コスト設計 (< ¥10、マネタイズ整合)
 
@@ -39,9 +41,12 @@ aws backup list-recovery-points-by-backup-vault --backup-vault-name ganbari-ques
 # metadata は describe-recovery-point の RestoreMetadata を雛形にする
 aws backup get-recovery-point-restore-metadata --backup-vault-name ganbari-quest-dsql-vault \
   --recovery-point-arn <RP_ARN> --region us-east-1
+# --iam-role-arn は DsqlStack の BackupRoleArn output (= ganbari-quest-dsql-backup-role) を使う:
+ROLE_ARN=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsql --region us-east-1 \
+  --query "Stacks[0].Outputs[?OutputKey=='BackupRoleArn'].OutputValue" --output text)
 # 上記 metadata (deletionProtectionEnabled 等) を渡して restore
 aws backup start-restore-job --recovery-point-arn <RP_ARN> --region us-east-1 \
-  --iam-role-arn <AWSBackupDefaultServiceRole ARN> \
+  --iam-role-arn "$ROLE_ARN" \
   --resource-type AuroraDsql --metadata '<RestoreMetadata JSON>'
 ```
 `aws backup describe-restore-job --restore-job-id <id>` で `COMPLETED` を待つ。
@@ -72,10 +77,11 @@ curl -s https://ganbari-quest.com/api/health   # dataSource:dsql / schemaValid:t
 |---|---|
 | 本番 cluster 消失・全 500 | priority:critical + PO 即報告。本手順で最新 recovery point から新 cluster 復元 |
 | tenant 単位の誤削除・巻戻し | AWS Backup ではなく **アプリ層 backup-archive (JSON/CSV) で該当 tenant を import** (物理 restore は cluster 全体を巻き戻すため不適) |
-| restore job が失敗 | `describe-restore-job` の StatusMessage 確認。IAM role / metadata 不整合が典型 |
+| restore job が失敗 | `describe-restore-job` の StatusMessage 確認。metadata 不整合が典型 (IAM role は `ganbari-quest-dsql-backup-role` = backup/restore 両権限付きを使う) |
+| 日次 backup ジョブが失敗 | `ganbari-quest-dsql-backup-failed` の SNS 通知が来る。`aws backup describe-backup-job --backup-job-id <id>` で原因確認 (cluster busy / 権限 / vault full 等)。連日失敗 = DR 空白のため priority:high |
 
 ## 関連
-- 実装: `infra/lib/dsql-stack.ts` (backup vault/plan) + `tests/unit/infra/dsql-cdk.test.ts` [I8][N4]
+- 実装: `infra/lib/dsql-stack.ts` (backup vault/plan/role + 失敗検知 rule) + `tests/unit/infra/dsql-cdk.test.ts` [I8][I8c][I8d][N4]
 - 論理 backup: `src/lib/server/services/backup-archive.ts` (#3376) / データモデル §6.4
 - alarm 一次対応: [dsql-alert-response.md](dsql-alert-response.md)
 - AWS 公式: [Aurora DSQL backups](https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-aurora.html) / [restore](https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-auroradsql.html)

@@ -5,6 +5,8 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dsql from 'aws-cdk-lib/aws-dsql';
 import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
@@ -230,8 +232,57 @@ export class DsqlStack extends cdk.Stack {
 					}),
 				],
 			});
+			// backup / restore を AWS Backup が assume する role を**明示 provision** する (#3437 F-4)。
+			// CDK 自動生成 role は backup 権限のみで restore 権限を持たず、`AWSBackupDefaultServiceRole`
+			// は console 初回操作でしか作られない (IaC 環境では未 provision の可能性)。両 managed policy を
+			// 付けた named role を CDK で確定生成し、backup selection と restore job (runbook §2 の
+			// --iam-role-arn) の双方で同一 role を使う (role 不整合による復元失敗を防止)。
+			const backupRole = new iam.Role(this, 'DsqlBackupRole', {
+				roleName: `ganbari-quest-dsql${nameSuffix}-backup-role`,
+				assumedBy: new iam.ServicePrincipal('backup.amazonaws.com'),
+				description: 'AWS Backup が DSQL cluster の backup / restore を実行する role (#3437)',
+				managedPolicies: [
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForBackup',
+					),
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForRestores',
+					),
+				],
+			});
 			backupPlan.addSelection('DsqlCluster', {
 				resources: [backup.BackupResource.fromArn(this.cluster.attrResourceArn)],
+				role: backupRole,
+			});
+
+			// backup ジョブ失敗の検知 (#3437 F-2 / ADR-0024 (d): silent fail 防止)。AWS Backup は
+			// DSQL の唯一の DR 手段のため、日次 backup が毎晩 silent fail しても誰も気づかない =
+			// EPIC #3424 が塞いだはずの DR 空白の再現。EventBridge で Backup Job State Change の
+			// 失敗系 (FAILED / ABORTED / EXPIRED) を捕捉し、上で無条件生成済の DsqlAlerts SNS topic
+			// へ通知する (コスト guardrail の DsqlBackupBudget はコスト検知でありジョブ失敗検知ではない)。
+			// topic は opsEmail 未指定でも存在するため silent skip しない (ADR-0024 ルール 1)。opsEmail
+			// 未注入時は email subscription なし = メール未達だが rule / topic は provision される
+			// (staging は本 backup ブロック自体に入らないため対象外)。vault 名で scope し、同一
+			// アカウントの無関係 backup 失敗を拾わない。
+			new events.Rule(this, 'DsqlBackupJobFailed', {
+				ruleName: `ganbari-quest-dsql${nameSuffix}-backup-failed`,
+				description:
+					'AWS Backup ジョブ失敗 (FAILED/ABORTED/EXPIRED) を検知し DsqlAlerts へ通知 (#3437 / ADR-0024 (d)) 一次対応: docs/runbooks/dsql-restore.md',
+				eventPattern: {
+					source: ['aws.backup'],
+					detailType: ['Backup Job State Change'],
+					detail: {
+						state: ['FAILED', 'ABORTED', 'EXPIRED'],
+						backupVaultName: [backupVault.backupVaultName],
+					},
+				},
+				targets: [new eventsTargets.SnsTopic(topic)],
+			});
+
+			// restore job (runbook §2 の start-restore-job --iam-role-arn) が使う role ARN を配布。
+			new cdk.CfnOutput(this, 'BackupRoleArn', {
+				value: backupRole.roleArn,
+				description: 'AWS Backup backup/restore role ARN (dsql-restore.md の --iam-role-arn)',
 			});
 
 			// 月額 backup コストを ¥10 未満に保つ guardrail (マネタイズ整合)。AWS Backup storage は

@@ -5,6 +5,7 @@
 //   - CfnCluster は deletion protection 既定 true (#3429、誤 destroy の物理拒否)
 //   - コストガードレール: TotalDPU 日次 / Storage 80% の 2 alarm + Budgets $1 (80/100%) (#3431)
 //   - 可観測性 dashboard (OccConflicts/QueryTimeouts/CommitLatency/接続数) (#3432)
+//   - AWS Backup: 日次 full backup plan + backup/restore role 明示 provision + 失敗検知 rule (#3437)
 //   - `-c dsqlEnabled=true` 無しでは合成されない (M5 承認前の誤 deploy 防止)
 
 import * as cdk from 'aws-cdk-lib';
@@ -152,6 +153,68 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 			}),
 		});
 	});
+
+	it('[I8c] backup ジョブ失敗を EventBridge → DsqlAlerts SNS で検知する (#3437 F-2 / ADR-0024 (d))', () => {
+		// 日次 backup が silent fail しても誰も気づかない = DR 空白の再現 (ADR-0024 生成インシデント根本原因 D)。
+		// Backup Job State Change の失敗系を捕捉し、コスト guardrail (budget) ではなく「ジョブ失敗」を検知する。
+		template.hasResourceProperties('AWS::Events::Rule', {
+			EventPattern: Match.objectLike({
+				source: ['aws.backup'],
+				'detail-type': ['Backup Job State Change'],
+				detail: Match.objectLike({
+					state: ['FAILED', 'ABORTED', 'EXPIRED'],
+				}),
+			}),
+		});
+		// alert 先は新規 SNS を作らず既存 DsqlAlerts topic に相乗り (SNS topic は依然 1 個)。
+		template.resourceCountIs('AWS::SNS::Topic', 1);
+		const rules = template.findResources('AWS::Events::Rule', {
+			Properties: {
+				EventPattern: Match.objectLike({ source: ['aws.backup'] }),
+			},
+		});
+		const backupFailRule = Object.values(rules)[0];
+		expect(backupFailRule?.Properties?.Targets).toHaveLength(1);
+		// target は SNS topic (Ref で DsqlAlerts を指す)。
+		expect(JSON.stringify(backupFailRule?.Properties?.Targets)).toContain('DsqlAlerts');
+	});
+
+	it('[I8d] backup/restore role を明示 provision し selection に配線する (#3437 F-4、role 不整合防止)', () => {
+		// CDK 自動生成 role は backup 権限のみ。restore job (runbook §2) が使えるよう backup + restore の
+		// 2 managed policy を付けた named role を確定生成する (AWSBackupDefaultServiceRole 依存を排除)。
+		template.hasResourceProperties('AWS::IAM::Role', {
+			RoleName: 'ganbari-quest-dsql-backup-role',
+			AssumeRolePolicyDocument: Match.objectLike({
+				Statement: Match.arrayWith([
+					Match.objectLike({
+						Principal: Match.objectLike({ Service: 'backup.amazonaws.com' }),
+					}),
+				]),
+			}),
+			ManagedPolicyArns: Match.arrayWith([
+				Match.objectLike({
+					'Fn::Join': Match.arrayWith([
+						Match.arrayWith([Match.stringLikeRegexp('AWSBackupServiceRolePolicyForBackup')]),
+					]),
+				}),
+				Match.objectLike({
+					'Fn::Join': Match.arrayWith([
+						Match.arrayWith([Match.stringLikeRegexp('AWSBackupServiceRolePolicyForRestores')]),
+					]),
+				}),
+			]),
+		});
+		// BackupSelection が上記 role を参照する (自動生成 role でなく named role)。
+		template.hasResourceProperties('AWS::Backup::BackupSelection', {
+			BackupSelection: Match.objectLike({
+				IamRoleArn: Match.objectLike({
+					'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^DsqlBackupRole')]),
+				}),
+			}),
+		});
+		// restore job が使う role ARN を output で配布する (runbook の --iam-role-arn)。
+		template.hasOutput('BackupRoleArn', {});
+	});
 });
 
 // #3703 / #3708: dashboard / budget の物理名は staging / prod で一意でなければならない。
@@ -200,5 +263,10 @@ describe('DsqlStack nameSuffix guard (#3703 / #3708 staging・prod 物理名一�
 		staging.resourceCountIs('AWS::Backup::BackupVault', 0);
 		staging.resourceCountIs('AWS::Backup::BackupPlan', 0);
 		staging.resourceCountIs('AWS::Backup::BackupSelection', 0);
+		// backup 付随リソース (role / 失敗検知 rule) も staging では作らない (#3437 F-2/F-4)。
+		prod.resourceCountIs('AWS::IAM::Role', 1);
+		staging.resourceCountIs('AWS::IAM::Role', 0);
+		prod.resourceCountIs('AWS::Events::Rule', 1);
+		staging.resourceCountIs('AWS::Events::Rule', 0);
 	});
 });
