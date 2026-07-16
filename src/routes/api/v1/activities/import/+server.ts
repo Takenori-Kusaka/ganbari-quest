@@ -4,6 +4,7 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 // #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
+import { requireRole } from '$lib/server/auth/factory';
 import type { RequestHandler } from './$types';
 
 const validCategoryCodes = new Set<string>(CATEGORY_CODES);
@@ -47,6 +48,10 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
+	// #3334: 家族データの取込 (管理操作) は owner / parent 専用。ROUTE_RULES の /api/v1 は
+	// child も到達を許すため、他の import 系 endpoint (/api/v1/import, /api/v1/import/cloud) と
+	// 同様に in-handler で owner-gate し、child が家族の活動を勝手に取り込めないようにする。
+	requireRole(locals, ['owner', 'parent']);
 	const tenantId = context.tenantId;
 	const mode = url.searchParams.get('mode') ?? 'preview';
 
