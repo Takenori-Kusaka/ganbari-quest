@@ -223,6 +223,22 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 			}));
 		},
 
+		async deleteStatusHistoryBeforeDate(childId, cutoffDate, tenantId) {
+			// #3518-2 retention: cutoffDate (YYYY-MM-DD) 当日 0:00 前の status_history を削除。
+			// point-repo.deletePointLedgerBeforeDate と同じ CTE count 契約 — 削除行を DB 側 count(*) 集約し、
+			// 返すのは単一スカラのみ (長期利用 child の大量履歴で全 hist_id を client に materialize しない)。
+			const deleted = await db.execute(sql`
+				WITH deleted AS (
+					DELETE FROM status_history
+					WHERE family_id = ${tenantId} AND child_id = ${childId}
+						AND recorded_at < ${cutoffDate}::timestamptz
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
+			`);
+			return Number((deleted.rows[0] as { c: number }).c);
+		},
+
 		async deleteByTenantId(tenantId) {
 			// market_benchmarks はグローバル master のため削除しない (sqlite parity)。
 			// 2 表削除を単一 txn で (fitness#7: work 内 await は tx.execute 直呼びのみ)。

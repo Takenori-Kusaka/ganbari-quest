@@ -9,8 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------- mocks ----------
 const mockExportFamilyData = vi.fn();
+const mockExportFamilyDataForZip = vi.fn();
 vi.mock('$lib/server/services/export-service', () => ({
 	exportFamilyData: (...args: unknown[]) => mockExportFamilyData(...args),
+	// #3518-1: ZIP 経路は checksum 計算文字列を data.json に流用する exportFamilyDataForZip を使う。
+	exportFamilyDataForZip: (...args: unknown[]) => mockExportFamilyDataForZip(...args),
 }));
 
 const mockBuildFullBackupZip = vi.fn();
@@ -55,6 +58,10 @@ function makeEvent(format: string, awsMode: boolean) {
 
 beforeEach(() => {
 	mockExportFamilyData.mockResolvedValue({ version: 1, family: { children: [] }, data: {} });
+	mockExportFamilyDataForZip.mockResolvedValue({
+		exportData: { version: 1, family: { children: [] }, data: {} },
+		dataJson: '{"version":1,"family":{"children":[]},"data":{}}',
+	});
 	mockResolveFullPlanTier.mockResolvedValue('standard');
 	mockGetPlanLimits.mockReturnValue({ canExport: true });
 });

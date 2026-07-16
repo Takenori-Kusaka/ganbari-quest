@@ -32,16 +32,25 @@ vi.mock('$lib/server/services/plan-limit-service', () => ({
 }));
 
 // モック: export-service
-vi.mock('$lib/server/services/export-service', () => ({
-	exportFamilyData: vi.fn(async () => ({
+vi.mock('$lib/server/services/export-service', () => {
+	const sampleExportData = {
 		format: 'ganbari-quest-backup',
 		version: '1.1.0',
+		checksum: 'sha256:test',
 		family: { children: [{ id: '1', nickname: 'テスト' }] },
 		data: {
-			child_1: { activityLogs: [{ id: '1' }, { id: '2' }] },
+			activityLogs: [{ id: '1' }, { id: '2' }],
 		},
-	})),
-}));
+	};
+	return {
+		exportFamilyData: vi.fn(async () => sampleExportData),
+		// #3518-1: full export build は checksum 計算と data.json を使い回す exportFamilyDataForZip を使う。
+		exportFamilyDataForZip: vi.fn(async () => ({
+			exportData: sampleExportData,
+			dataJson: JSON.stringify(sampleExportData),
+		})),
+	};
+});
 
 // モック: repos
 const mockCloudExportRepo = {

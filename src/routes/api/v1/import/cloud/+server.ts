@@ -125,9 +125,10 @@ async function handleFullZipImport(
 
 	if (mode === 'execute') {
 		try {
-			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
-			await consumeCloudExportDownload(record);
 			const result = await importFamilyData(validation.data, tenantId, staticFiles);
+			// #3405-2 consume-on-success: import 成功後に DL を消費する。旧実装は import 前に消費して
+			// いたため、import 失敗時に「データ未取込 + DL 回数消費」が両立して quota を無駄に失っていた。
+			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
 			logger.error('[cloud-import] フル ZIP インポート失敗', { error: String(err) });
@@ -137,11 +138,12 @@ async function handleFullZipImport(
 
 	// replace
 	try {
-		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
-		await consumeCloudExportDownload(record);
 		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
 		logger.info('[cloud-import] 置換インポート開始 (ZIP, 原子化)', { context: { tenantId } });
 		const result = await replaceImportAtomic(validation.data, tenantId, staticFiles);
+		// #3405-2 consume-on-success: 置換成功後に DL を消費する。replaceImportAtomic は失敗時に旧データを
+		// 保全する (#3326) ため、失敗時は「データ保全 + DL 未消費」となり quota + データの二重損失を防ぐ。
+		await consumeCloudExportDownload(record);
 		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
 		if (err instanceof AtomicReplaceError) {
@@ -268,9 +270,6 @@ async function handleTemplateImport(
 			);
 		}
 
-		// #3376 adversarial: 全 validation 成功後に DL を消費 (preview / validate 失敗では消費しない)
-		await consumeCloudExportDownload(record);
-
 		// 旧 export の活動を平坦化 (childId 元情報は捨てる、復元先 child が SSOT)
 		const flatActivities: TemplateActivity[] = childBuckets.flatMap((b) =>
 			Array.isArray(b.activities) ? b.activities : [],
@@ -306,6 +305,10 @@ async function handleTemplateImport(
 				activitiesCreated += created.length;
 			}
 		}
+
+		// #3405-2 consume-on-success: 全 child への取込が成功した後に DL を消費する。旧実装は取込前に
+		// 消費していたため、bulk insert 途中失敗で「未取込 + DL 回数消費」が両立して quota を無駄に失っていた。
+		await consumeCloudExportDownload(record);
 
 		logger.info('[cloud-import] テンプレートインポート完了', {
 			context: {
@@ -356,9 +359,9 @@ async function handleFullImport(
 
 	if (mode === 'execute') {
 		try {
-			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
-			await consumeCloudExportDownload(record);
 			const result = await importFamilyData(validation.data, tenantId);
+			// #3405-2 consume-on-success: import 成功後に DL を消費する (失敗時は quota を消費しない)。
+			await consumeCloudExportDownload(record);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
 			logger.error('[cloud-import] フルインポート失敗', { error: String(err) });
@@ -368,11 +371,12 @@ async function handleFullImport(
 
 	// replace
 	try {
-		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
-		await consumeCloudExportDownload(record);
 		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
 		logger.info('[cloud-import] 置換インポート開始 (原子化)', { context: { tenantId } });
 		const result = await replaceImportAtomic(validation.data, tenantId);
+		// #3405-2 consume-on-success: 置換成功後に DL を消費する (replaceImportAtomic は失敗時に旧データを
+		// 保全するため、失敗時は quota + データの二重損失を防ぐ)。
+		await consumeCloudExportDownload(record);
 		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
 		if (err instanceof AtomicReplaceError) {

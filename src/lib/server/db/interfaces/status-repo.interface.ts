@@ -62,5 +62,19 @@ export interface IStatusRepo {
 		childId: ChildId,
 		tenantId: string,
 	): Promise<{ category: number | string; lastDate: string | null }[]>;
+	/**
+	 * 指定した子供の `recorded_at < cutoffDate` に該当する status_history を削除する (#3518-2 retention)。
+	 * cutoffDate は `YYYY-MM-DD` 形式。recorded_at は ISO timestamp のため辞書順比較で境界判定する
+	 * (cutoffDate 当日は削除対象に含めない)。activity_logs / point_ledger と同型 (ADR-0049 拡張)。
+	 *
+	 * daily decay が child×category×日で機械生成する status_history は長期利用で最大母数になり、
+	 * free/standard プランの保持期間超過分を物理削除して backup 生成メモリ / DSQL read コストを抑える。
+	 * @returns 削除件数
+	 */
+	deleteStatusHistoryBeforeDate(
+		childId: ChildId,
+		cutoffDate: string,
+		tenantId: string,
+	): Promise<number>;
 	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

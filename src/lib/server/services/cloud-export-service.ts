@@ -9,7 +9,7 @@ import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
-import { exportFamilyData } from '$lib/server/services/export-service';
+import { exportFamilyDataForZip } from '$lib/server/services/export-service';
 import {
 	getPlanLimits,
 	type PlanTier,
@@ -155,10 +155,11 @@ async function buildTemplateExportData(tenantId: string): Promise<CloudExportArt
  * クラウド完全復元（画像込み）を可能にする。ブラウザ DL を介さないため Safe Browsing 警告も発生しない。
  */
 async function buildFullExportData(tenantId: string): Promise<CloudExportArtifact> {
-	const exportData = await exportFamilyData({ tenantId });
+	// #3518-1: checksum 計算に使った直列化文字列を data.json に流用し二重 JSON.stringify を解消する。
+	const { exportData, dataJson } = await exportFamilyDataForZip({ tenantId });
 	const childCount = exportData.family.children.length;
 	const logCount = exportData.data.activityLogs?.length ?? 0;
-	const zipBytes = await buildFullBackupZip(tenantId, exportData, false);
+	const zipBytes = await buildFullBackupZip(tenantId, exportData, false, dataJson);
 	const description = `フルバックアップ（子供${childCount}人、ログ${logCount}件、画像同梱）`;
 	return {
 		bytes: zipBytes,

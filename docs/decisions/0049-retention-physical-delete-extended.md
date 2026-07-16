@@ -123,10 +123,11 @@ UX 層はそのまま残す。理由:
    - トライアル中はトライアルティアが優先される（ADR-0024）
    - `family` （`historyRetentionDays === null`）はスキップ
 3. `getHistoryCutoffDate(tier)` で cutoff 日（YYYY-MM-DD）を算出
-4. そのテナントの各 child について以下 3 テーブルから `recorded_date < cutoffDate` を物理削除
+4. そのテナントの各 child について以下 4 テーブルから `recorded_date < cutoffDate` を物理削除
    - `activity_logs`
    - `point_ledger`
    - `login_bonuses`
+   - `status_history`（#3518-2 で追加）
 5. テナントごとに try/catch — 1 テナントの失敗が他に波及しないこと
 6. 結果 `{tenantsProcessed, childrenProcessed, *Deleted, errors}` を構造化ログに出力
 
@@ -137,6 +138,7 @@ UX 層はそのまま残す。理由:
 | `activity_logs` | 活動ログ本体。pricing の約束の核心 |
 | `point_ledger` | ポイント履歴。**ただし `BALANCE` 集計は削除しない** |
 | `login_bonuses` | ログインボーナス履歴 |
+| `status_history` (#3518-2) | daily decay が child×category×日で機械生成する変動履歴。長期利用で最大母数 (20 年で ~4 万行/child) になり backup 生成メモリ / DSQL read コストの主因のため保持期間超過分を物理削除する。`statuses` (現在値) は削除しない |
 
 | 物理削除しない | 理由 |
 |---------------|------|

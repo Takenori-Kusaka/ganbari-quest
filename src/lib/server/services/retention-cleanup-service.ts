@@ -34,6 +34,7 @@ export interface RetentionCleanupResult {
 	activityLogsDeleted: number;
 	pointLedgerDeleted: number;
 	loginBonusesDeleted: number;
+	statusHistoryDeleted: number; // #3518-2
 	errors: Array<{ tenantId: string; error: string }>;
 }
 
@@ -82,6 +83,7 @@ export async function cleanupExpiredData(
 		activityLogsDeleted: 0,
 		pointLedgerDeleted: 0,
 		loginBonusesDeleted: 0,
+		statusHistoryDeleted: 0, // #3518-2
 		errors: [],
 	};
 
@@ -119,6 +121,7 @@ export async function cleanupExpiredData(
 			let tenantActivityLogsDeleted = 0;
 			let tenantPointLedgerDeleted = 0;
 			let tenantLoginBonusesDeleted = 0;
+			let tenantStatusHistoryDeleted = 0; // #3518-2
 
 			for (const child of children) {
 				if (dryRun) {
@@ -143,16 +146,25 @@ export async function cleanupExpiredData(
 					cutoffDate,
 					tenant.tenantId,
 				);
+				// #3518-2: daily decay が child×category×日で機械生成する status_history を retention 対象化。
+				// backup 生成メモリ / DSQL read コストの主因になる最大母数を保持期間超過分だけ物理削除する。
+				const statusHistory = await repos.status.deleteStatusHistoryBeforeDate(
+					child.id,
+					cutoffDate,
+					tenant.tenantId,
+				);
 
 				tenantActivityLogsDeleted += activityLogs;
 				tenantPointLedgerDeleted += pointLedger;
 				tenantLoginBonusesDeleted += loginBonuses;
+				tenantStatusHistoryDeleted += statusHistory;
 				result.childrenProcessed++;
 			}
 
 			result.activityLogsDeleted += tenantActivityLogsDeleted;
 			result.pointLedgerDeleted += tenantPointLedgerDeleted;
 			result.loginBonusesDeleted += tenantLoginBonusesDeleted;
+			result.statusHistoryDeleted += tenantStatusHistoryDeleted;
 			result.tenantsProcessed++;
 
 			logger.info('[retention-cleanup] tenant processed', {
@@ -165,6 +177,7 @@ export async function cleanupExpiredData(
 					activityLogsDeleted: tenantActivityLogsDeleted,
 					pointLedgerDeleted: tenantPointLedgerDeleted,
 					loginBonusesDeleted: tenantLoginBonusesDeleted,
+					statusHistoryDeleted: tenantStatusHistoryDeleted,
 					dryRun,
 				},
 			});

@@ -74,6 +74,7 @@ const ENDPOINTS: EndpointConfig[] = [
 				activityLogsDeleted: 0,
 				pointLedgerDeleted: 0,
 				loginBonusesDeleted: 0,
+				statusHistoryDeleted: 0,
 				errors: [],
 			}),
 	},

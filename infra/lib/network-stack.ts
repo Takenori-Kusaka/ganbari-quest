@@ -42,6 +42,9 @@ export interface NetworkStackProps extends cdk.StackProps {
 export class NetworkStack extends cdk.Stack {
 	public readonly distribution: cloudfront.Distribution;
 	public readonly demoDistribution?: cloudfront.Distribution;
+	// #3402-1: staticAssetsS3Offload=true 時のみ生成される immutable アセット bucket。OpsStack が
+	// S3 origin 専用 4xx/5xx alarm を張るため公開する (offload OFF 時は undefined = alarm も作らない)。
+	public readonly staticAssetsBucket?: s3.Bucket;
 
 	constructor(scope: Construct, id: string, props: NetworkStackProps) {
 		super(scope, id, props);
@@ -187,6 +190,9 @@ function handler(event) {
 		// replacement を防ぐ、#3102 / ADR-0019)。
 		let prodImmutableS3Origin: cloudfront.IOrigin | undefined;
 		let demoImmutableS3Origin: cloudfront.IOrigin | undefined;
+		// #3402-2: distribution が S3 immutable origin を指すより前に BucketDeployment (upload) を
+		// 完了させるため、後段で distribution.node.addDependency() に渡す。
+		let staticAssetsDeploy: s3deploy.BucketDeployment | undefined;
 		if (props.staticAssetsS3Offload) {
 			const srcDir = props.staticAssetsSourceDir;
 			const immutableDir = srcDir ? path.join(srcDir, '_app', 'immutable') : undefined;
@@ -206,11 +212,30 @@ function handler(event) {
 				autoDeleteObjects: true,
 				blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
 				encryption: s3.BucketEncryption.S3_MANAGED,
+				// #3402-3: prune:false で旧 hash を残す運用のため、放置すると deploy ごとに旧 immutable
+				// hash が無限蓄積する。deploy window (数分) を大きく超える 30 日で expiration し剪定する。
+				// content-hash 付き immutable アセットは 30 日以上前の HTML から参照されることはない
+				// (HTML は Lambda が毎 deploy 更新、旧 HTML の TTL も短い)。誤削除リスクなし。
+				lifecycleRules: [
+					{
+						id: 'expire-old-immutable-hashes',
+						enabled: true,
+						prefix: '_app/immutable/',
+						expiration: cdk.Duration.days(30),
+					},
+				],
 			});
+
+			// #3402-1: S3 origin 専用 4xx/5xx alarm (OpsStack) のため request metrics を有効化する。
+			// escape hatch: L2 Bucket は request metrics config を直接公開しないため CfnBucket に設定する。
+			(staticAssetsBucket.node.defaultChild as s3.CfnBucket).metricsConfigurations = [
+				{ id: 'EntireBucket' },
+			];
+			this.staticAssetsBucket = staticAssetsBucket;
 
 			// content-hash 付きで immutable。prune:false で旧 hash を残し、deploy window 中に
 			// 旧 HTML (Lambda 由来) が参照する旧 chunk が 403 にならないようにする。
-			new s3deploy.BucketDeployment(this, 'StaticAssetsDeploy', {
+			staticAssetsDeploy = new s3deploy.BucketDeployment(this, 'StaticAssetsDeploy', {
 				sources: [s3deploy.Source.asset(immutableDir)],
 				destinationBucket: staticAssetsBucket,
 				destinationKeyPrefix: '_app/immutable',
@@ -305,6 +330,15 @@ function handler(event) {
 			httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
 			geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
 		});
+
+		// #3402-2: offload 初回有効化時、distribution が /_app/immutable/* を S3 に向ける更新と
+		// BucketDeployment(upload) の CFN 順序が保証されないと、短い propagation 窓で S3 が空を指し
+		// 403 (親画面 JS 白画面化) になり得る。distribution を BucketDeployment に依存させ、upload 完了後に
+		// distribution を更新する順序を強制してこの窓を塞ぐ (Origin Group failover は #3087 の origin
+		// index preempt 不変条件を churn させるため不採用、CFN 依存で低リスクに解決)。
+		if (staticAssetsDeploy) {
+			this.distribution.node.addDependency(staticAssetsDeploy);
+		}
 
 		// --- Deploy error pages to S3 ---
 		new s3deploy.BucketDeployment(this, 'ErrorPagesDeploy', {
@@ -496,6 +530,11 @@ function handler(event) {
 				httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
 				geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
 			});
+
+			// #3402-2: demo distribution も本番同型で BucketDeployment(upload) 完了後に更新する順序を強制。
+			if (staticAssetsDeploy) {
+				this.demoDistribution.node.addDependency(staticAssetsDeploy);
+			}
 
 			// Route 53 ALIAS A + AAAA レコード: demo.ganbari-quest.com → demoDistribution
 			if (hostedZone) {
