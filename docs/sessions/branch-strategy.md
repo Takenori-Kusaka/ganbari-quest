@@ -262,6 +262,17 @@ develop→main 統合の運用を **手動（audit-manager が release ブラン
 
 **S1 frozen 標的の担保（§3.1 整合）**: S1 で手動 cut を廃し standing 統合 PR を vehicle 化しても、§3.1 の「動く標的」問題（#3063）を再導入しないため、approve→merge は **frozen な HEAD（audit 時点の commit）に対してのみ成立**させる。standing PR の HEAD が develop の進行で動いた場合は adversarial evidence（TTL 30 分、ADR-0056）を無効化し再監査する（approve HEAD = merge HEAD の一致を必須）。vehicle 化は cut の手作業を省く範囲に留め、frozen 標的での監査・TTL 30 分 evidence の不変条件は維持する。
 
+### no-diff 早期 exit ガード（全段共通の必須ガード、#3399）
+
+develop と main に差分が無い日は、release cut / 統合 PR upsert / 重量 CI（audit run / staging deploy）を**一切回さず即 skip する**。無差分日に重量レーンを空回しさせないための必須ガードであり、S0〜S4 の全段・全トリガに徹底する（CI 実行時間・GitHub Actions 分・staging deploy コストの浪費防止、Pre-PMF / ADR-0010）。
+
+- **判定条件**: `git rev-list --count origin/main..origin/develop` = 0（develop に main 未取込 commit なし）なら no-diff。job を早期 success 終了し、後続の重量 step を実行しない。
+- **適用トリガ**:
+  - **standing 統合 PR upsert（`integration-pr.yml`）**: `Detect develop⇔main diff` step の `has_diff=false` で後続 upsert 系 step を skip し、`No-diff early exit (no-op)` step が no-op を job summary に明示する（silent 終了させない）。
+  - **audit run schedule dispatch（S2 で自動化、cloud routine）**: run 冒頭ガードで no-diff を判定し即終了する。監査 agent 起動・adversarial evidence 生成・health check を回さない。
+  - **staging deploy トリガ（AWS / NUC）**: 統合対象差分が無い run では staging deploy を発火させない。
+- **観測性**: no-diff 早期 exit は silent success ではなく job summary / run log に「no-diff → skip」を必ず残す（後から「なぜ回らなかったか」を追跡可能にする）。
+
 ### follow-up 起票の半自動設計
 
 failure 時の follow-up Issue 起票は「素スクリプト自動化」を**不採用**とする（ADR-0003 issue 品質＝根本原因・AC・dedup を満たせず dup spam を生む）。代わりに **schedule 起動の AI audit-manager agent が構造化 evidence から判断起票する半自動**とする（人手でも素スクリプトでもない第 3 の自動化）。品質ガード:
@@ -277,3 +288,21 @@ failure 時の follow-up Issue 起票は「素スクリプト自動化」を**�
 
 - 手動 release ブランチ方式を継続（§3.1）。standing 統合 PR は **S0 観察として残し、各手動 run で supersede close**（自動 body / 含有 PR 列挙の正確性を S1 gate の判定材料として毎サイクル観察）。
 - 各段の移行は #3399 配下の個別 sub-issue で着手する。
+
+### S0→S1 移行 gate の観測ログ運用（AC2、#3399）
+
+S0→S1 の移行 gate =「standing 統合 PR（#3397 系）の自動 body / 含有 PR 列挙が **N サイクル連続で正確**」を判定するため、毎手動 run（standing PR の supersede close 時）に自動 body の正確性を観察記録する。素スクリプトで正確性を機械判定せず、audit-manager が実 body と実含有 PR を突き合わせて人間 verify した結果を記録する（False accuracy claim を避ける）。
+
+- **置き場所**: tracker Issue #3399 のコメントに 1 サイクル 1 行を追記する（累積ログ）。監査 run 全体の証跡は監査 run 証跡表（audit-team.md §3.8 step 8）に含め、そこから抽出した gate 判定行を #3399 に転記する。専用ファイル / 専用 script は新設しない（Pre-PMF、#1442）。
+- **記録項目（1 サイクル分）**:
+
+  | 項目 | 内容 |
+  |---|---|
+  | cycle | 通し番号（第 N 回リリース run） |
+  | standing PR | supersede close した standing 統合 PR 番号（#3397 系） |
+  | 含有 PR 列挙 | 過不足判定（`過不足なし` / `欠落 N 件` / `余分 N 件`）— 自動 body の含有 PR 一覧 vs 実 merge 済 PR |
+  | Closes 集約 | closing keyword 集約の過不足判定（over-close / under-close 有無、#3423 / #3462 整合） |
+  | drift_days | 自動 body に出力された前回統合からの経過日数の妥当性 |
+  | 判定 | `正確` / `不正確`（1 項目でも過不足があれば不正確） |
+  | 連続カウント | 直近の `正確` 連続回数（`不正確` で 0 リセット） |
+- **移行判定**: 連続カウントが gate 閾値 N（初期値 = 3 サイクル）に到達したら S1 移行 sub-issue に着手可とする。`不正確` が出たサイクルは真因を #3399 コメントに併記し、`integration-pr-body.mjs` / 検出規約の修正で潰してからカウントを再開する。
