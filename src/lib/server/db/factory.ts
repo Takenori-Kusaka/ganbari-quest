@@ -106,7 +106,6 @@ import * as dynamoSiblingCheerRepo from './dynamodb/sibling-cheer-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
-import * as dynamoStorageRepo from './dynamodb/storage-repo';
 import * as dynamoTrialHistoryRepo from './dynamodb/trial-history-repo';
 import * as dynamoViewerTokenRepo from './dynamodb/viewer-token-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
@@ -150,6 +149,7 @@ import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 // getPglite*Sync は init 済み前提の同期アクセサ (async init は hooks.server.ts の 1st-request
 // guard で await 済み)。pglite 分岐内でのみ呼ぶこと (他 backend で PGlite を open させない)。
 import { getPgliteDbSync, getPgliteTransactionRunnerSync } from './pglite/connection';
+import * as s3StorageRepo from './s3/storage-repo';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
@@ -276,9 +276,8 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 		specialReward: createDsqlSpecialRewardRepo(db, runner),
 		stampCard: createDsqlStampCardRepo(db, runner),
 		status: createDsqlStatusRepo(db, runner),
-		// storage の実体は S3 (DB backend 非依存)。専用実装は作らず dynamodb/ の実装を再利用する。
-		// #3438 dynamodb 撤去時に storage-repo を dynamodb/ 外へ移設する。
-		storage: dynamoStorageRepo,
+		// storage の実体は S3 (DB backend 非依存)。#3438 Phase 1 で dynamodb/ → s3/ へ移設済。
+		storage: s3StorageRepo,
 		trialHistory: createDsqlTrialHistoryRepo(db),
 		viewerToken: createDsqlViewerTokenRepo(db),
 		voice: createDsqlVoiceRepo(db, runner),
@@ -380,7 +379,8 @@ export function getRepos(): Repositories {
 			specialReward: dynamoSpecialRewardRepo,
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
-			storage: dynamoStorageRepo,
+			// storage は S3 (DB backend 非依存)。dynamodb backend も S3 実装を共有 (#3438 Phase 1 で s3/ へ移設)。
+			storage: s3StorageRepo,
 			trialHistory: dynamoTrialHistoryRepo,
 			viewerToken: dynamoViewerTokenRepo,
 			voice: dynamoVoiceRepo,

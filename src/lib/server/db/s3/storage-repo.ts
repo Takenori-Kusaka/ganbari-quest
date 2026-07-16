@@ -1,5 +1,7 @@
-// src/lib/server/db/dynamodb/storage-repo.ts
-// S3（Lambda）向けストレージ実装
+// src/lib/server/db/s3/storage-repo.ts
+// S3（Lambda）向けストレージ実装。DB backend 非依存の S3 層 (#3438 Phase 1 で dynamodb/ から移設)。
+// 旧配置は dynamodb/ だが DynamoDB 依存はゼロ (@aws-sdk/client-s3 のみ)。dsql/pglite/dynamodb
+// いずれの backend でも本 S3 実装を共有する (factory.ts が注入)。
 
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
