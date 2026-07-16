@@ -97,9 +97,17 @@ D1-D4 は補佐推奨どおり承認、D5 は「下位互換不要」で決定�
 | P2 | 分類レジストリ + 機械検証 + export source 全網羅 + per-child binding 保持（#3329） | 実装済み（ratchet 空） |
 | P3 | per-child 正復元 + 未実装取込 + 失敗集計 + import 原子化（#3327/#3326） | 実装済み |
 | P4 | 復元時 projection rebuild | 実装済み |
-| P5 | UX/安全: 進捗フィードバック + クライアント timeout + 上限の実態整合 + partial-backup 警告（#3324/#3325/#3372） | 実装済み（cloud export status polling UI / import fetch AbortController 120s = 直接 import（`postImport`）と cloud import（`postCloudImport`、preview / execute）の両経路 / 実行環境別 import 上限 = AWS 5.5MB・NUC 100MB `import-limit.ts` / registry 駆動 partial-backup 警告）。20 年×子供数 scale（全メモリ export / 逐次 import）の抜本対応は将来課題 |
+| P5 | UX/安全: 進捗フィードバック + クライアント timeout + 上限の実態整合 + partial-backup 警告（#3324/#3325/#3372） | 実装済み（cloud export status polling UI / import fetch AbortController 120s = 直接 import（`postImport`）と cloud import（`postCloudImport`、preview / execute）の両経路 / 実行環境別 import 上限 = AWS 5.5MB・NUC 100MB `import-limit.ts` / registry 駆動 partial-backup 警告）。生成側の軽量化（#3518）は下記で消化。20 年×子供数 scale の import バッチ化（DSQL 3,000 行/txn 上限整合）は #3436 に合流 |
 
 各段階に round-trip 完全性テスト（`backup-roundtrip-completeness.test.ts`、#3328）。source/派生/除外の三分類原則の ADR 昇格は未判断。
+
+### P5 生成側軽量化（#3518）
+
+大規模データ（最大 20 年 × 子供数）で export 生成がメモリ／コスト律速になる構造弱点を、生成側に絞って除去する（streaming/chunked export はトリガまで繰延、import バッチ化は #3436）。
+
+- **二重 JSON.stringify 解消**: 旧実装は checksum 用（`export-service.ts`）と data.json 用（`backup-archive.ts`）で同一巨大 payload を 2 回直列化していた。`export-service.finalizeExport` が body を 1 回だけ直列化し、その文字列を checksum 入力（import `verifyChecksum` の正規化とバイト一致）と data.json body（先頭に checksum 差し込み）に流用する。`exportFamilyDataForZip` が data.json 文字列を `buildFullBackupZip` へ渡し再 stringify を無くす。round-trip 保証は `export-checksum-roundtrip.test.ts`。
+- **statusHistory の retention 対象化**: daily decay が child×category×日で機械生成する `status_history`（20 年で ~4 万行/child）が free/standard でも剪定されず 100MB 抵触の主因だった。`retention-cleanup-service` にプラン別 cutoff での物理削除を追加（ADR-0049 拡張、family=無制限は現状維持）。
+- **cloud full ZIP のサイズ判定は圧縮後基準（#3405-1）**: 100MB 判定を非圧縮合計から結果 ZIP バイト列基準に是正し、deflate で収まる正当 backup の誤 reject を除去。
 
 ## 6. 形式バージョニングと lazy マイグレーション（責務の単一所有）
 

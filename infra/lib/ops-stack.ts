@@ -11,6 +11,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -29,6 +30,11 @@ export interface OpsStackProps extends cdk.StackProps {
 	 * #1376 AC6: cron dispatcher Lambda のエラーを CloudWatch Alarm で通知するため。
 	 */
 	cronDispatcherFn?: lambda.Function;
+	/**
+	 * #3402-1: staticAssetsS3Offload=true 時のみ生成される immutable アセット S3 origin bucket。
+	 * 指定時のみ S3 origin 専用 4xx/5xx alarm を作成する (offload OFF = undefined = alarm も cost も無し)。
+	 */
+	staticAssetsBucket?: s3.Bucket;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
 }
@@ -246,6 +252,56 @@ export class OpsStack extends cdk.Stack {
 				});
 			cronDispatcherErrors.addAlarmAction(alarmAction);
 			cronDispatcherErrors.addOkAction(alarmAction);
+		}
+
+		// P1: 静的アセット S3 origin 4xx/5xx (#3402-1, ADR-0024 ルール D)
+		// staticAssetsS3Offload=true で /_app/immutable/* を S3(OAC) から配信するとき、部分 upload 失敗 /
+		// OAC 誤設定で S3 が 4xx/5xx を返し、親画面 JS チャンクが欠落して白画面化しうる。既存の
+		// distribution-level CloudFront5xx alarm は S3 origin の 4xx (403/404) を捉えられないため、S3
+		// request metrics (AWS/S3 4xxErrors/5xxErrors) を直接監視して misconfig を継続検知する
+		// (deploy 後の post-deploy smoke を transitive にしか検出しない gap を埋める)。bucket が渡された
+		// とき (= offload 有効時) のみ作成し、offload OFF では alarm も監視 cost も発生させない。
+		if (props.staticAssetsBucket) {
+			const s3OriginDims = {
+				BucketName: props.staticAssetsBucket.bucketName,
+				FilterId: 'EntireBucket',
+			};
+			const staticS3_4xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin4xx', {
+				alarmName: 'ganbari-quest-static-assets-s3-4xx',
+				alarmDescription:
+					'静的アセット S3 origin 4xx (OAC 誤設定 / 部分 upload 欠落): 5分間に10回以上 (#3402)',
+				metric: new cloudwatch.Metric({
+					namespace: 'AWS/S3',
+					metricName: '4xxErrors',
+					dimensionsMap: s3OriginDims,
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 10,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			staticS3_4xx.addAlarmAction(alarmAction);
+			staticS3_4xx.addOkAction(alarmAction);
+
+			const staticS3_5xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin5xx', {
+				alarmName: 'ganbari-quest-static-assets-s3-5xx',
+				alarmDescription: '静的アセット S3 origin 5xx (S3 障害): 5分間に5回以上 (#3402)',
+				metric: new cloudwatch.Metric({
+					namespace: 'AWS/S3',
+					metricName: '5xxErrors',
+					dimensionsMap: s3OriginDims,
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 5,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			staticS3_5xx.addAlarmAction(alarmAction);
+			staticS3_5xx.addOkAction(alarmAction);
 		}
 
 		// ================================================================

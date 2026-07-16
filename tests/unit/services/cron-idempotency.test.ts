@@ -48,6 +48,7 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 	const deleteActivityLogsMock = vi.fn();
 	const deletePointLedgerMock = vi.fn();
 	const deleteLoginBonusesMock = vi.fn();
+	const deleteStatusHistoryMock = vi.fn(); // #3518-2
 
 	beforeEach(() => {
 		vi.resetModules();
@@ -75,8 +76,11 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 				activity: { deleteActivityLogsBeforeDate: deleteActivityLogsMock },
 				point: { deletePointLedgerBeforeDate: deletePointLedgerMock },
 				loginBonus: { deleteLoginBonusesBeforeDate: deleteLoginBonusesMock },
+				status: { deleteStatusHistoryBeforeDate: deleteStatusHistoryMock },
 			}),
 		}));
+		// #3518-2: 既定 0 (テスト個別は mockResolvedValueOnce で上書き)
+		deleteStatusHistoryMock.mockResolvedValue(0);
 	});
 
 	afterEach(() => {

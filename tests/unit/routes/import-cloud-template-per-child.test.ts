@@ -211,6 +211,23 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(mockConsumeDownload).toHaveBeenCalledTimes(1);
 		});
 
+		it('#3405-2: bulk insert が失敗したら DL を消費しない (consume-on-success)', async () => {
+			// 旧実装は取込前に DL を消費していたため、bulk insert 途中失敗で「未取込 + DL 回数消費」が
+			// 両立して quota を無駄に失っていた。consume を取込成功後に移動した回帰を固定する。
+			const payload = templateV2Payload([{ childId: asChildId(99), names: ['はしる'] }]);
+			mockFetchCloudExport.mockResolvedValue({
+				record: { exportType: 'template', description: 'テスト' },
+				bytes: enc(JSON.stringify(payload)),
+			});
+			mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB write failed'));
+
+			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: ['10'] }, 'execute'));
+
+			expect(res.status).toBe(500);
+			// 取込が失敗しているので DL は消費されない (quota 温存)
+			expect(mockConsumeDownload).not.toHaveBeenCalled();
+		});
+
 		it('execute は per-child 既存名と衝突する activity をスキップする', async () => {
 			const payload = templateV2Payload([
 				{ childId: asChildId(99), names: ['はしる', 'よむ', 'はみがき'] },

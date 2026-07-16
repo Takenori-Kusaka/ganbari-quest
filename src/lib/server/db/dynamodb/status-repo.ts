@@ -35,7 +35,7 @@ import {
 	statusKey,
 	statusPrefix,
 } from './keys';
-import { queryAllItems, stripKeys } from './repo-helpers';
+import { batchDeleteItems, queryAllItems, stripKeys } from './repo-helpers';
 
 // stored item は数値 id のまま (storage format 不変、#3575)。repo 境界で branded string に変換する。
 function toStatus(item: Record<string, unknown>): Status {
@@ -444,6 +444,34 @@ export async function findLastActivityDates(
  * テナントの全ステータスデータを削除（CHILD#* 配下の STATUS# + STATHIST# アイテム）。
  * market_benchmarks はグローバルなマスターデータのため削除しない。
  */
+/**
+ * #3518-2 retention: 指定した子供の `recorded_at < cutoffDate` の status_history を削除する。
+ * SK 形式は `STATHIST#<catId>#<recordedAt>#<id>` で日付がカテゴリ配下にネストするため、全カテゴリ
+ * (1..5) を category prefix で begins_with 走査し、`SK < STATHIST#<cat>#<cutoffDate>` の FilterExpression
+ * で cutoffDate 当日 0:00 前に絞って削除する (activity_logs の日付境界と同型)。
+ */
+export async function deleteStatusHistoryBeforeDate(
+	childId: ChildId,
+	cutoffDate: string,
+	tenantId: string,
+): Promise<number> {
+	const pk = childPK(Number(childId), tenantId);
+	const keys: Array<{ PK: string; SK: string }> = [];
+	for (let categoryId = 1; categoryId <= 5; categoryId++) {
+		const prefix = statusHistoryByCategoryPrefix(categoryId);
+		const items = await queryAllItems(pk, prefix, {
+			filterExpression: '#sk < :upper',
+			expressionAttributeNames: { '#sk': 'SK' },
+			expressionAttributeValues: { ':upper': `${prefix}${cutoffDate}` },
+			projectionExpression: 'PK, #sk',
+		});
+		for (const item of items) {
+			keys.push({ PK: item.PK as string, SK: item.SK as string });
+		}
+	}
+	return batchDeleteItems(keys);
+}
+
 export async function deleteByTenantId(
 	tenantId: string,
 	childIds?: readonly ChildId[],

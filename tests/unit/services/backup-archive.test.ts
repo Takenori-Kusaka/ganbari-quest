@@ -11,6 +11,7 @@ import {
 	BackupSizeLimitError,
 	buildFullBackupZip,
 	isZipBytes,
+	MAX_ENTRY_UNCOMPRESSED_BYTES,
 	MAX_ZIP_SIZE,
 	parseBackupZip,
 } from '../../../src/lib/server/services/backup-archive';
@@ -257,20 +258,46 @@ describe('buildFullBackupZip (#3376 AC8)', () => {
 		expect(Object.keys(res.value.staticFiles)).toEqual([]);
 	});
 
-	it('同梱対象が上限 (100MB) を超えたら fail-closed で BackupSizeLimitError を throw する (silent truncation 禁止)', async () => {
-		// 1 ファイルで MAX_ZIP_SIZE を超過させ、残りを silent skip せずエラーになることを固定する
-		mockListFiles.mockResolvedValue(['t/T1/voices/1/huge.webm']);
-		mockReadFile.mockResolvedValue({ data: Buffer.allocUnsafe(MAX_ZIP_SIZE + 1) });
+	it('#3405-3: 静的ファイル単体が per-entry 上限 (25MB) を超えたら build 時点で fail-closed する (parse filter と対称)', async () => {
+		// build 側に per-entry 上限が無いと、25MB 超 entry を含む ZIP を作れてしまい import で silent drop
+		// → manifest 不整合で復元不能 dead-end になる (#3405-3)。build 時点で明示エラーにして根治する。
+		mockListFiles.mockResolvedValue(['t/T1/voices/1/big.webm']);
+		mockReadFile.mockResolvedValue({ data: Buffer.alloc(MAX_ENTRY_UNCOMPRESSED_BYTES + 1) });
 
 		await expect(buildFullBackupZip('T1', SAMPLE_EXPORT, false)).rejects.toBeInstanceOf(
 			BackupSizeLimitError,
 		);
+		// total (100MB) ではなく per-entry (25MB) の文言であること。
+		await expect(buildFullBackupZip('T1', SAMPLE_EXPORT, false)).rejects.toThrow('25MB');
 	});
 
-	it('上限超過エラーはユーザー向け文言 (上限 MB) を持つ', async () => {
-		mockListFiles.mockResolvedValue(['t/T1/voices/1/huge.webm']);
-		mockReadFile.mockResolvedValue({ data: Buffer.allocUnsafe(MAX_ZIP_SIZE + 1) });
+	it('#3405-1: 構築後 ZIP が上限 (100MB) を超えたら fail-closed で BackupSizeLimitError を throw する (100MB 文言)', async () => {
+		// 各 25MB 未満 (per-entry OK) だが store 同梱で合計 ZIP が 100MB 超になる 5 ファイル。
+		// 判定は圧縮後 ZIP サイズ基準 (非圧縮合計ではない) だが、store される静的ファイル群では ZIP ≈ 合計。
+		const twentyOneMb = 21 * 1024 * 1024;
+		mockListFiles.mockResolvedValue([1, 2, 3, 4, 5].map((n) => `t/T1/voices/1/v${n}.webm`));
+		mockReadFile.mockResolvedValue({ data: Buffer.alloc(twentyOneMb) });
 
 		await expect(buildFullBackupZip('T1', SAMPLE_EXPORT, false)).rejects.toThrow('100MB');
 	});
+
+	it('#3405-1: 非圧縮合計が 100MB 超でも圧縮後 ZIP が収まる backup は誤 reject しない (round-trip 可)', async () => {
+		// 巨大だが高圧縮な data.json (非圧縮 > 100MB / deflate 後は極小) を dataJson で流し込む。
+		// 旧実装は非圧縮合計 > 100MB で誤 reject していたが、判定を圧縮後 ZIP サイズ基準に是正したため通る。
+		// data.json は per-entry 対象外 (構造化データ) のため parse 側 filter でも drop されず round-trip する。
+		mockListFiles.mockResolvedValue([]);
+		const hugeCompressibleDataJson = `{"format":"ganbari-quest-backup","version":"1.3.0","pad":"${'a'.repeat(
+			MAX_ZIP_SIZE + 2 * 1024 * 1024,
+		)}"}`;
+		const zip = await buildFullBackupZip('T1', SAMPLE_EXPORT, false, hugeCompressibleDataJson);
+		expect(isZipBytes(zip)).toBe(true);
+		expect(zip.length).toBeLessThan(MAX_ZIP_SIZE);
+
+		const res = await parseBackupZip(zip);
+		expect(res.ok).toBe(true);
+		if (!res.ok) return;
+		expect((res.value.body as { format: string }).format).toBe('ganbari-quest-backup');
+		// #3661 same-class: ~102MB 文字列の deflate/inflate + zip 構築が CI runner で vitest 既定 5s
+		// を超える (round-trip 検証に必要な実サイズ、mock 不可)。30s に緩和 (計算量は決定的)。
+	}, 30_000);
 });

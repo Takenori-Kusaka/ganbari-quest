@@ -244,6 +244,10 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
   - origin = S3 `StaticAssetsBucket`（OAC 経由）。**Lambda を一切経由しない**ため、エッジ cache cold 時に ~224 本のチャンクが Lambda origin を一斉直撃して `TooManyRequestsException`(429) + HTTP/1.1 接続キュー輻輳で最遅 ~16s に達していた問題（HAR 実測、#3087）が**構造的に消滅**する
   - 配信元 = deploy 済 Docker image から抽出した `/app/client/_app/immutable`（= Lambda が SSR で参照するのと**同一 build artifact**）を `BucketDeployment` で S3 に upload。HTML が参照する content-hash と S3 の hash が完全一致する（`prune: false` で旧 hash も残し deploy window 中の旧 HTML 参照を 403 にしない）
   - 解決策 A（Origin Shield）からの段階改善。CDK context `staticAssetsS3Offload`（deploy.yml が `true` 指定 + image から asset 抽出）で有効化。flag OFF（default）時は従来構成（下記 `/_app/*` の Origin Shield Lambda が immutable も配信）を維持し、本番 template と byte 一致（非 replacement、ADR-0019）
+  - **robustness (#3402、offload ON 時のみ)**:
+    - **403 propagation 窓の解消 (#3402-2)**: distribution を `StaticAssetsDeploy`（BucketDeployment）に `addDependency` させ、初回有効化時に upload 完了後へ distribution 更新順序を強制する（S3 が空を指す 403 窓を塞ぐ）。Origin Group failover は #3087 の origin index preempt 不変条件を churn させるため不採用、CFN 依存で低リスク解決
+    - **旧 hash 剪定 (#3402-3)**: `prune: false` の旧 content-hash 無限蓄積を、`_app/immutable/` prefix の **30 日 expiration lifecycle rule** で剪定（deploy window は数分、30 日以上前の hash は参照されない）
+    - **S3 origin 4xx/5xx alarm (#3402-1、ADR-0024 ルール D)**: bucket に request metrics（`EntireBucket`）を有効化し、`OpsStack` が `AWS/S3` `4xxErrors`（≥10/5分、OAC 誤設定/部分 upload 欠落）/ `5xxErrors`（≥5/5分、S3 障害）を SNS 通知で継続監視。offload OFF（bucket 不在）時は alarm 未作成 = 監視 cost ゼロ
 - `/_app/*`: SvelteKit の非 immutable 静的アセット（`_app/version.json` 等。burst しない）
   - origin = `staticAssetOrigin`（**Origin Shield 有効 / region `us-east-1`、#3087 解決策 A**）。S3 offload OFF 時は immutable も含め `/_app/*` 全体をここで配信。Origin Shield（regional mid-tier cache）で cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に collapse + 二次キャッシュで Lambda 直撃を激減。region は origin (Lambda) と同一 us-east-1
 - `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）

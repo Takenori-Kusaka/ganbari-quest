@@ -106,6 +106,8 @@ new OpsStack(app, `${appName}Ops`, {
 	functionUrl: compute.functionUrl,
 	// #1376 AC6: cron dispatcher Lambda エラーを既存 SNS topic で通知
 	cronDispatcherFn: compute.cronDispatcherFn,
+	// #3402-1: offload 有効時のみ生成される S3 origin bucket。undefined なら S3 alarm を作らない。
+	staticAssetsBucket: network.staticAssetsBucket,
 	opsEmail,
 	discordWebhookHealth,
 });

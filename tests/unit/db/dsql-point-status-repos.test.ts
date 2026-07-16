@@ -431,6 +431,42 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(await statusRepo.findStatusValueAtDate(childId, catId, '2025-12-01', FAMILY)).toBe(null);
 	});
 
+	it('[S8] deleteStatusHistoryBeforeDate: cutoff 前だけ削除 + tenant 分離 (#3518-2 retention)', async () => {
+		const childId = await newChild('剪定八郎');
+		const id = String(childId);
+		await t.db.execute(sql`
+			INSERT INTO status_history (family_id, child_id, category_id, value, change_amount, change_type, recorded_at)
+			VALUES
+				(${FAMILY}, ${id}, 'social', 10, 10, 'daily_decay', '2025-01-05T00:00:00Z'),
+				(${FAMILY}, ${id}, 'social', 20, 10, 'daily_decay', '2025-06-05T00:00:00Z'),
+				(${FAMILY}, ${id}, 'study', 30, 30, 'activity_record', '2026-06-05T00:00:00Z')
+		`);
+		// 他 tenant の同 child_id 行は消さない (tenant 分離)
+		const otherChild = await newChild('剪定九郎', OTHER_FAMILY);
+		await t.db.execute(sql`
+			INSERT INTO status_history (family_id, child_id, category_id, value, change_amount, change_type, recorded_at)
+			VALUES (${OTHER_FAMILY}, ${String(otherChild)}, 'social', 5, 5, 'daily_decay', '2025-01-05T00:00:00Z')
+		`);
+
+		// cutoff = 2026-01-01: 2025 の 2 行 (全カテゴリ) が削除、2026 行は残る
+		const deleted = await statusRepo.deleteStatusHistoryBeforeDate(childId, '2026-01-01', FAMILY);
+		expect(deleted).toBe(2);
+
+		const remain = await t.db.execute(
+			sql`SELECT count(*)::int AS c FROM status_history WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		expect(Number((remain.rows[0] as { c: number }).c)).toBe(1);
+
+		// 他 tenant 行は無傷
+		const other = await t.db.execute(
+			sql`SELECT count(*)::int AS c FROM status_history WHERE family_id = ${OTHER_FAMILY}`,
+		);
+		expect(Number((other.rows[0] as { c: number }).c)).toBe(1);
+
+		// 対象 0 件は 0 を返す
+		expect(await statusRepo.deleteStatusHistoryBeforeDate(childId, '2020-01-01', FAMILY)).toBe(0);
+	});
+
 	it('[S5] benchmark upsert/find: グローバル master (tenant 非依存、sqlite parity)', async () => {
 		const catId = asCategoryId('exercise');
 		const created = await statusRepo.upsertBenchmark(8, catId, 50, 10, 'survey-2026', FAMILY);

@@ -11,7 +11,7 @@ import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
-import { exportFamilyData } from '$lib/server/services/export-service';
+import { exportFamilyData, exportFamilyDataForZip } from '$lib/server/services/export-service';
 import { resolveMaxSyncResponseBytes } from '$lib/server/services/function-url-limit';
 import { toDisplayMb } from '$lib/server/services/import-limit';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -46,13 +46,19 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const format = url.searchParams.get('format') ?? 'json';
 
 	try {
-		const exportData = await exportFamilyData({ tenantId, childIds, compact });
 		const now = todayDateJST();
 
 		if (format === 'zip') {
-			return await buildZipResponse(exportData, tenantId, now, compact);
+			// #3518-1: checksum 計算に使った直列化文字列を data.json に流用し二重 JSON.stringify を解消する。
+			const { exportData, dataJson } = await exportFamilyDataForZip({
+				tenantId,
+				childIds,
+				compact,
+			});
+			return await buildZipResponse(exportData, tenantId, now, compact, dataJson);
 		}
 
+		const exportData = await exportFamilyData({ tenantId, childIds, compact });
 		const jsonStr = compact ? JSON.stringify(exportData) : JSON.stringify(exportData, null, 2);
 		return new Response(jsonStr, {
 			status: 200,
@@ -82,8 +88,9 @@ async function buildZipResponse(
 	tenantId: string,
 	dateStr: string,
 	compact: boolean,
+	dataJson?: string,
 ): Promise<Response> {
-	const zipData = await buildFullBackupZip(tenantId, exportData, compact);
+	const zipData = await buildFullBackupZip(tenantId, exportData, compact, dataJson);
 
 	// #3694: AWS 本番の Function URL (BUFFERED) は response も 6MB hard cap。構築 ZIP が実効上限
 	// (MAX_ZIP_SIZE=100MB は request/response の platform cap と別) を超えると edge で沈黙切断され

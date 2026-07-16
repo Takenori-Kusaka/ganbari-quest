@@ -529,3 +529,6 @@ Zhnattb
 # codemod = ソースコードの機械的一括変換ツール/手法（jscodeshift 等の総称、ADR 本文で既出）
 codemod
 permissionless
+misconfig
+upcasting
+Postel

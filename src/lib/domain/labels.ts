@@ -2282,6 +2282,11 @@ export const SETTINGS_LABELS = {
 	// 不完全な部分バックアップを黙って作らず明示エラーにする (再生成不能な avatar/voice の silent 欠落防止)。
 	dataExportTooLarge: (maxMb: string) =>
 		`バックアップ対象のデータが上限（${maxMb}MB）を超えています。不要な画像・音声を整理してから、もう一度お試しください。`,
+	// #3405-3: 個々の画像・音声ファイル単体が per-entry 上限を超えたとき、build/parse 対称化のため
+	// build 時点で明示エラーにする (25MB 超 entry を含む ZIP を作らせない = import で silent drop →
+	// 復元不能になる dead-end を根治)。
+	dataExportEntryTooLarge: (maxMb: string) =>
+		`1つの画像・音声ファイルが上限（${maxMb}MB）を超えています。該当ファイルを小さくするか削除してから、もう一度お試しください。`,
 	// #3694: AWS 本番の Function URL (BUFFERED) は response も 6MB hard cap。画像込み ZIP が
 	// 直接ダウンロードの実効上限を超えると edge で沈黙切断されるため、明示エラー + クラウド共有
 	// (PINコード、非同期・上限なし) への誘導を返す (ADR-0062)。
