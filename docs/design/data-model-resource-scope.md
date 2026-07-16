@@ -215,6 +215,8 @@ checklist_logs       -- 既存維持 (per-child progress、(child_id, template_i
 
 C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_assignments` 側で表現。C2「たろうにだけ色鉛筆追加」は `checklist_overrides` (既存 per-child override) で表現。
 
+**兄弟共通化 copy の per-child quota (#3474)**: 「別の子から取り込む」copy (`?/copyDistributionFromChild`) は source child の配信 template を target child の `checklist_template_assignments` に追加する (template 複製なし、assignments 行のみ増える)。free プランの per-child テンプレ上限 (`maxChecklistTemplates`) を守るため、各 grant 直前に `checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId)` を **live 再評価** し (`checklist_template_assignments` の per-child 基数を毎回数え直す)、上限到達で残余 source を copy しない。取り込めなかった件数は「上限拒否 (`limitRejected`)」と「既に target に配信済みで no-op skip (`alreadyDistributed`)」に分離集計する (`distributeToChildren` の空戻り = 既配信を no-op 成功として扱い、上限拒否と混同しない)。TOCTOU window の backend 別有無 (SQLite=exact / DynamoDB=bounded over-grant を accepted residual) は [rationale/14-checklist-copy-toctou-rationale.md](../rationale/14-checklist-copy-toctou-rationale.md) が SSOT。
+
 ### 4.3 reward exchange (PR-4、現状 per-child 維持 + UX 整備済)
 
 **現状**: `special_rewards.child_id NOT NULL` (per-child instance、現状一致)
