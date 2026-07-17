@@ -33,9 +33,9 @@ export interface IChildRepo {
 	 * ステータスバー (STATUS# / STATHIST#) / バトル (BATTLE# / enemyCollection.defeatCount) /
 	 * childChallenge.currentValue / 評価 (EVAL#) / ごほうび (REWARD#) は**意図的に survive させる**。
 	 * これは「ポイント残高は 0 だがステータス/図鑑/チャレンジは満タン」という一見矛盾した状態を生むが、
-	 * dev-only の進捗リセット (= 記録系のみ初期化) の定義であり仕様。両 backend (sqlite / dynamodb) で
+	 * dev-only の進捗リセット (= 記録系のみ初期化) の定義であり仕様。両 backend (sqlite / dsql) で
 	 * 同一 allowlist を使い、返り値 {@link ChildProgressResetCounts} の key 集合が cross-backend で一致する
-	 * ことを `tests/unit/db/dynamodb-child-repo-reset.test.ts` の契約テストで機械固定する。
+	 * ことを `tests/unit/db/dsql-child-repo.test.ts` の契約テストで機械固定する。
 	 */
 	resetChildProgressData(id: ChildId, tenantId: string): Promise<ChildProgressResetCounts>;
 

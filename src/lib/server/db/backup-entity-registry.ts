@@ -5,14 +5,13 @@
 // ごほうび交換履歴・設定 等が silent に失われた (本番 t-82c17558 で実証)。
 //
 // 権威列挙 (#3329 QM BLOCK 是正): 実体の「真実集合」は `schema.ts` の **全 sqliteTable 定義**である。
-// 旧実装は `keys.ts` の key builder のみを列挙していたため、key builder を持たない実テーブル
-// (rest_days / child_custom_voices / usage_logs / stamp_masters) が盲点となり緑通過していた。
 // 本レジストリは各実体に `schemaTable` (対応する schema.ts の table const 名) を持たせ、
 // `tests/unit/db/backup-entity-registry.test.ts` が **「schema.ts の全テーブル ⊆ 本レジストリ」**を
-// 主軸で機械検証する (key builder の有無に依らず全実体を分類強制)。keys.ts の key builder 照合は
-// DynamoDB single-table key の網羅を担保する補助軸として残す。
-// 新実体 (schema テーブル or key builder) を追加して分類を忘れると test が fail し、
-// 「backup 対象への入れ忘れ」を CI で弾く (silent-gap ガード、設計 doc backup-import-redesign §3.1)。
+// 主軸で機械検証する。schemaTable を持たない logical entity (派生集計 / 廃止機能残置 等) は
+// 同 test の SCHEMALESS_LOGICAL_ENTITIES 凍結集合で exact-equality 固定する
+// (#3438 で DynamoDB backend 撤去に伴い旧 keys.ts key-builder 照合 = 補助軸を代替)。
+// 新実テーブルを追加して分類を忘れると test が fail し、「backup 対象への入れ忘れ」を CI で弾く
+// (silent-gap ガード、設計 doc backup-import-redesign §3.1)。
 //
 // classification:
 //   - 'source'   : イベント=真実。backup 必須 (失えば再計算不能)。

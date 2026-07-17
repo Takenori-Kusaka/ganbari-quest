@@ -3,14 +3,16 @@
 //
 // 主軸 (#3329 QM BLOCK 是正): 実体の「真実集合」は schema.ts の **全 sqliteTable 定義**。
 // schema.ts の全テーブルが backup-entity-registry に分類済 (`schemaTable` で宣言) であることを assert する。
-// key builder を持たない実テーブル (rest_days / child_custom_voices / usage_logs / stamp_masters) も
-// 必ず分類対象に含めることで、「key builder が無い実テーブルが盲点で緑通過」する旧バグを根治する。
+// 実テーブルを持たない logical entity (派生集計 / 廃止機能残置 等) も必ず分類対象に含めることで、
+// 「盲点で緑通過」する旧バグを根治する。
 //
-// 補助軸: keys.ts の全 key builder (`<name>Key`) も registry に分類済であること (DynamoDB single-table key の網羅)。
+// 実テーブル (schema テーブル) を追加して分類を忘れると本テストが fail し、「backup 対象への入れ忘れ」を
+// CI で検知する。replace import で活動/評価/ごほうび交換履歴等が silent に失われた事故 (#3327/#3329) の
+// 構造的再発防止 (設計 doc backup-import-redesign §3.1)。
 //
-// いずれかの実体 (schema テーブル or key builder) を追加して分類を忘れると本テストが fail し、
-// 「backup 対象への入れ忘れ」を CI で検知する。replace import で活動/評価/ごほうび交換履歴等が
-// silent に失われた事故 (#3327/#3329) の構造的再発防止 (設計 doc backup-import-redesign §3.1)。
+// 注 (#3438 Phase 3): 旧「補助軸」= keys.ts の DynamoDB single-table key builder 照合は、DynamoDB
+// backend 撤去 (dynamodb/keys.ts 削除) に伴い廃止。schemaTable を持たない logical entity は
+// SCHEMALESS_LOGICAL_ENTITIES で凍結し、追加/削除を exact-equality で機械強制する (ratchet)。
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,7 +27,25 @@ import {
 
 const DB_DIR = join(process.cwd(), 'src/lib/server/db');
 const SCHEMA_TS = join(DB_DIR, 'schema.ts');
-const KEYS_TS = join(DB_DIR, 'dynamodb/keys.ts');
+
+/**
+ * schemaTable を持たない (専用 SQLite table を持たない) logical entity の凍結集合。
+ * 派生集計 (pointBalance 等) / 廃止機能残置 (title / childTitle 等) / 運用 key
+ * (inquiry / counter) など、実テーブルに 1:1 対応しない分類エントリを列挙する。
+ * schemaTable 権威列挙で拾えないため、ここで exact-equality 凍結し「新規 schemaTable-less
+ * エントリの silent 追加」「既存エントリの silent 削除」を CI で検知する (#3438 で keys.ts
+ * key-builder 照合 = 旧補助軸を代替する ratchet)。
+ */
+const SCHEMALESS_LOGICAL_ENTITIES: readonly string[] = [
+	'childChallengeAutoWeekly',
+	'childTitle',
+	'counter',
+	'inquiry',
+	'pointBalance',
+	'pointLedgerIdempotency',
+	'redemptionPendingMarker',
+	'title',
+];
 
 /** schema.ts の全 sqliteTable const 名を権威列挙する (実テーブルの真実集合)。 */
 function schemaTableConstNames(): string[] {
@@ -41,18 +61,12 @@ function schemaTableConstNames(): string[] {
 	return [...names].sort();
 }
 
-/** keys.ts から `export function <name>Key(...)` の <name> を抽出する (補助軸)。 */
-function keyBuilderEntityNames(): string[] {
-	const src = readFileSync(KEYS_TS, 'utf8');
-	const names = new Set<string>();
-	const re = /export function (\w+)Key\b/g;
-	let m: RegExpExecArray | null;
-	// biome-ignore lint/suspicious/noAssignInExpressions: 正規表現の逐次 match 抽出
-	while ((m = re.exec(src)) !== null) {
-		const base = m[1];
-		if (base) names.add(base);
-	}
-	return [...names].sort();
+/** registry のうち schemaTable を持たない (実テーブル非対応) エントリ名一覧。 */
+function schemalessRegistryEntities(): string[] {
+	return Object.entries(BACKUP_ENTITY_REGISTRY)
+		.filter(([, entry]) => entry.schemaTable === undefined)
+		.map(([name]) => name)
+		.sort();
 }
 
 describe('#3329 backup-entity-registry — silent-gap ガード', () => {
@@ -77,30 +91,28 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 		).toEqual([]);
 	});
 
-	it('【補助】keys.ts の全 key builder が registry に分類されている (未分類で fail)', () => {
-		const entities = keyBuilderEntityNames();
-		expect(entities.length, 'keys.ts に key builder が存在する').toBeGreaterThan(20);
-
-		const unclassified = entities.filter((name) => !(name in BACKUP_ENTITY_REGISTRY));
+	it('【補助】schemaTable を持たない logical entity は凍結集合と exact-match (silent 追加/削除で fail)', () => {
+		// #3438: 旧 keys.ts key-builder 照合の代替。schemaTable-less エントリは派生集計 / 廃止機能残置
+		// 等の意図的分類のみを許容し、新規 silent 追加 (backup 盲点) と silent 削除の両方を検知する。
 		expect(
-			unclassified,
-			`未分類の key builder があります。src/lib/server/db/backup-entity-registry.ts に source/derived/excluded を追記してください: ${unclassified.join(', ')}`,
-		).toEqual([]);
+			schemalessRegistryEntities(),
+			'schemaTable を持たない registry エントリが凍結集合と不一致。意図的な追加/削除なら SCHEMALESS_LOGICAL_ENTITIES を更新すること',
+		).toEqual([...SCHEMALESS_LOGICAL_ENTITIES]);
 	});
 
-	it('registry に schema テーブルにも keys.ts builder にも対応しない孤児エントリが無い', () => {
-		const builders = new Set(keyBuilderEntityNames());
+	it('registry の全エントリが「実 schema テーブル」または「凍結 schemaless 集合」に対応する (孤児で fail)', () => {
 		const tables = new Set(schemaTableConstNames());
+		const schemaless = new Set(SCHEMALESS_LOGICAL_ENTITIES);
 		const orphans = Object.entries(BACKUP_ENTITY_REGISTRY)
 			.filter(
 				([name, entry]) =>
-					!builders.has(name) &&
-					!(entry.schemaTable !== undefined && tables.has(entry.schemaTable)),
+					!(entry.schemaTable !== undefined && tables.has(entry.schemaTable)) &&
+					!schemaless.has(name),
 			)
 			.map(([name]) => name);
 		expect(
 			orphans,
-			`schema テーブル / keys.ts key builder のどちらにも対応しない孤児 registry エントリ: ${orphans.join(', ')}`,
+			`実 schema テーブルにも凍結 schemaless 集合にも対応しない孤児 registry エントリ: ${orphans.join(', ')}`,
 		).toEqual([]);
 	});
 
