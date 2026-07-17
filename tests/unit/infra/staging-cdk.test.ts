@@ -75,9 +75,9 @@ function buildStagingStacks(): {
 	const app = new cdk.App({
 		context: {
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
-			// #3438 Phase 2A: staging も DSQL 無条件 backend (本番構成一致) の fail-close 回避
-			dsqlEndpoint: 'stagingcluster.dsql.us-east-1.on.aws',
-			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/stagingcluster',
+			// #3438 Phase 2A: staging に dsqlEndpoint 注入 → staging dual-mode の dsql 側を検証 (S-3)。
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorageStaging', {
