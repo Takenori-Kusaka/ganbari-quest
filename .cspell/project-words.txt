@@ -60,7 +60,7 @@
 # ===== 年齢モード =====
 # ===== 技術用語 / ライブラリ =====
 # ===== 日本語ローマ字（メッセージ / UI / デモデータ） =====
-# ===== 業界 prior art サービス名 (#2148 / docs/reference/07-research-child-collapsible-prior-art.md) =====
+# ===== 業界 prior art サービス名 (#2148 / docs/research/07-research-child-collapsible-prior-art.md) =====
 # ===== 法令・データ保護 (#1638 / #1590) =====
 # ===== 解約フロー (#1596) =====
 # alnum = alphanumeric (regex 説明 comment 内、IDN_PATTERN docstring)
