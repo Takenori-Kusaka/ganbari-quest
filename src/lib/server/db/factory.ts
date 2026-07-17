@@ -1,7 +1,8 @@
 // src/lib/server/db/factory.ts
-// DATA_SOURCE 環境変数による SQLite / DynamoDB / Demo バックエンド切り替え
+// DATA_SOURCE 環境変数による SQLite / DSQL / PGlite / Demo バックエンド切り替え。
 // ADR-0048: DATA_SOURCE=demo は Multi-Lambda Demo Deployment (demo.ganbari-quest.com) で使用
 // される stateless fixture provider。production DB / S3 / Cognito へのアクセス権を持たない。
+// #3438 Phase 2B: DynamoDB backend (repo 層 33 本 + dynamodb 分岐) は cutover 完了により撤去済。
 
 import * as demoAccountLockoutRepo from './demo/account-lockout-repo';
 import * as demoActivityMasteryRepo from './demo/activity-mastery-repo';
@@ -75,40 +76,7 @@ import { createDsqlStatusRepo } from './dsql/status-repo';
 import { createDsqlTrialHistoryRepo } from './dsql/trial-history-repo';
 import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
 import { createDsqlVoiceRepo } from './dsql/voice-repo';
-import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
-import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
-import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
-import * as dynamoActivityRepo from './dynamodb/activity-repo';
-import * as dynamoAuthRepo from './dynamodb/auth-repo';
-import * as dynamoBattleRepo from './dynamodb/battle-repo';
-import * as dynamoCancellationReasonRepo from './dynamodb/cancellation-reason-repo';
-import * as dynamoCertificateRepo from './dynamodb/certificate-repo';
-import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
-import * as dynamoChildActivityRepo from './dynamodb/child-activity-repo';
-import * as dynamoChildChallengeRepo from './dynamodb/child-challenge-repo';
-import * as dynamoChildRepo from './dynamodb/child-repo';
-import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
-import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
-import * as dynamoEvaluationRepo from './dynamodb/evaluation-repo';
-import * as dynamoGraduationConsentRepo from './dynamodb/graduation-consent-repo';
-import * as dynamoImageRepo from './dynamodb/image-repo';
-import * as dynamoInquiryRepo from './dynamodb/inquiry-repo';
-import * as dynamoLoginBonusRepo from './dynamodb/login-bonus-repo';
-import * as dynamoMessageRepo from './dynamodb/message-repo';
-import * as dynamoPointRepo from './dynamodb/point-repo';
-import * as dynamoPushSubscriptionRepo from './dynamodb/push-subscription-repo';
-import * as dynamoReportDailySummaryRepo from './dynamodb/report-daily-summary-repo';
-import * as dynamoRewardRedemptionRepo from './dynamodb/reward-redemption-repo';
-// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
-import * as dynamoSettingsRepo from './dynamodb/settings-repo';
-// #2458 (Path B sibling drop): dynamoSiblingChallengeRepo 削除済 (2026-05-26)、child-challenge-repo へ完全移行
-import * as dynamoSiblingCheerRepo from './dynamodb/sibling-cheer-repo';
-import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
-import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
-import * as dynamoStatusRepo from './dynamodb/status-repo';
-import * as dynamoTrialHistoryRepo from './dynamodb/trial-history-repo';
-import * as dynamoViewerTokenRepo from './dynamodb/viewer-token-repo';
-import * as dynamoVoiceRepo from './dynamodb/voice-repo';
+// #3438 Phase 2B: dynamodb/*-repo は撤去 (storage は Phase 1 #3786 で s3/ へ移設済)。
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
@@ -346,49 +314,6 @@ export function getRepos(): Repositories {
 		_repos = buildPgBackendRepos(getPgliteDbSync(), getPgliteTransactionRunnerSync());
 		return _repos;
 	}
-	if (dataSource === 'dynamodb') {
-		const repos: Repositories = {
-			accountLockout: dynamoAccountLockoutRepo,
-			battle: dynamoBattleRepo,
-			cancellationReason: dynamoCancellationReasonRepo,
-			certificate: dynamoCertificateRepo,
-			auth: dynamoAuthRepo,
-			activity: dynamoActivityRepo,
-			activityMastery: dynamoActivityMasteryRepo,
-			activityPref: dynamoActivityPrefRepo,
-			childActivity: dynamoChildActivityRepo,
-			childChallenge: dynamoChildChallengeRepo,
-			checklist: dynamoChecklistRepo,
-			child: dynamoChildRepo,
-			cloudExport: dynamoCloudExportRepo,
-			dailyMission: dynamoDailyMissionRepo,
-			evaluation: dynamoEvaluationRepo,
-			graduationConsent: dynamoGraduationConsentRepo,
-			image: dynamoImageRepo,
-			inquiry: dynamoInquiryRepo,
-			loginBonus: dynamoLoginBonusRepo,
-			message: dynamoMessageRepo,
-			point: dynamoPointRepo,
-			pushSubscription: dynamoPushSubscriptionRepo,
-			reportDailySummary: dynamoReportDailySummaryRepo,
-			// #2295: seasonEvent / tenantEvent 削除済
-			// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)
-			siblingCheer: dynamoSiblingCheerRepo,
-			settings: dynamoSettingsRepo,
-			rewardRedemption: dynamoRewardRedemptionRepo,
-			specialReward: dynamoSpecialRewardRepo,
-			stampCard: dynamoStampCardRepo,
-			status: dynamoStatusRepo,
-			// storage は S3 (DB backend 非依存)。dynamodb backend も S3 実装を共有 (#3438 Phase 1 で s3/ へ移設)。
-			storage: s3StorageRepo,
-			trialHistory: dynamoTrialHistoryRepo,
-			viewerToken: dynamoViewerTokenRepo,
-			voice: dynamoVoiceRepo,
-		};
-		_repos = repos;
-		return repos;
-	}
-
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
 		battle: sqliteBattleRepo,

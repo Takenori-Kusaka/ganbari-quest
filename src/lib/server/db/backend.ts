@@ -7,13 +7,13 @@
 //
 //   DATA_SOURCE=sqlite   → 'sqlite'   : NUC / local / test (better-sqlite3、単テナント物理分離)
 //   DATA_SOURCE=dsql     → 'dsql'     : cognito / 本番 (Aurora DSQL、tenant 述語で論理分離)
-//   DATA_SOURCE=dynamodb → 'dynamodb' : 撤去予定 (M5 で DB 一本化、m4-plan §3.9)
 //   DATA_SOURCE=demo     → 'demo'     : Multi-Lambda demo (stateless fixture、ADR-0048)
+// #3438 Phase 2B: DynamoDB backend は cutover 完了により撤去済 (DB 一本化)。
 
 import { getEnv } from '$lib/runtime/env';
 
-/** 物理 backend の種別。repo 実装 (sqlite/ dsql/ dynamodb/ demo/) の選択軸。 */
-export type DbBackend = 'sqlite' | 'dsql' | 'dynamodb' | 'demo';
+/** 物理 backend の種別。repo 実装 (sqlite/ dsql/ demo/) の選択軸。 */
+export type DbBackend = 'sqlite' | 'dsql' | 'demo';
 
 /**
  * `DATA_SOURCE` から物理 backend を解決する (純関数、副作用なし)。
@@ -25,8 +25,6 @@ export function resolveDbBackend(dataSource?: string): DbBackend {
 	switch (source) {
 		case 'dsql':
 			return 'dsql';
-		case 'dynamodb':
-			return 'dynamodb';
 		case 'demo':
 			return 'demo';
 		default:

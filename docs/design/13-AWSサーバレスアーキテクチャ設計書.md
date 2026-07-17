@@ -325,7 +325,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | キー | 本番 Fn | demo Fn | 用途 |
 |------|--------|--------|------|
-| `DATA_SOURCE` | `dynamodb` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger |
+| `DATA_SOURCE` | `dsql` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger (本番 = Aurora DSQL、cutover 完遂 / #3438 で dynamodb backend 撤去) |
 | `AUTH_MODE` | `cognito` | `anonymous` | AnonymousAuthProvider 起動 |
 | `ORIGIN` | `https://ganbari-quest.com` | `https://demo.ganbari-quest.com` | absolute URL 解決 |
 | `DYNAMODB_TABLE` / `TABLE_NAME` | (注入) | **未注入** | demo は in-memory fixture |
@@ -400,7 +400,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 | Lambda | `AUTH_MODE` | `DATA_SOURCE` | `event.locals.isDemo` |
 |---|---|---|---|
-| Production (`ganbari-quest.com`) | `cognito` | `dynamodb` (本番) / `sqlite` (NUC) | `false` |
+| Production (`ganbari-quest.com`) | `cognito` | `dsql` (AWS 本番) / `sqlite` or `pglite` (NUC) | `false` |
 | Demo (`demo.ganbari-quest.com`) | `anonymous` | `demo` | `true` |
 | 開発者 misconfiguration 防御 | `anonymous` | `sqlite` | `false` (実 DB を no-op writer 化しない) |
 
@@ -492,7 +492,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。dispatch の `dsqlEnabled` / `pgliteEnabled` input は develop HEAD を任意 backend で回す手動検証用に残す。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
-- **データ戦略**: staging table は空作成（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は DynamoDB repository 経路を通らず staging の存在意義が消えるため不採用。PITR / Backup restore 自動化は不採用 (ADR-0010 Bucket C)。本番相当データが必要になった場合の手動 runbook: 本番 table を AWS Backup の on-demand backup から `ganbari-quest-staging-restore` 等の別名 table に restore し、`aws dynamodb scan` + `batch-write-item`（または S3 export/import）で staging table に流し込む。終了後は restore table を削除する（本番 table へは一切 write しない）。
+- **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。PITR / Backup restore 自動化は不採用 (ADR-0010 Bucket C)。本番相当データが必要になった場合の手動 runbook: 本番 table を AWS Backup の on-demand backup から `ganbari-quest-staging-restore` 等の別名 table に restore し、`aws dynamodb scan` + `batch-write-item`（または S3 export/import）で staging table に流し込む。終了後は restore table を削除する（本番 table へは一切 write しない）。
 - **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
 - **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。

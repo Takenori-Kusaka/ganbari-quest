@@ -29,7 +29,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('dynamodb storage-repo getDownloadUrl (#3504)', () => {
+describe('s3 storage-repo getDownloadUrl (#3504)', () => {
 	it('presigned GET URL を対象 key 限定・指定 TTL で発行し redirect を返す', async () => {
 		mockGetSignedUrl.mockResolvedValueOnce('https://s3.example.com/presigned?sig=abc');
 		const { getDownloadUrl } = await import('../../../src/lib/server/db/s3/storage-repo');

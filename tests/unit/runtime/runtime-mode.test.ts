@@ -172,9 +172,9 @@ describe('runtime/runtime-mode RUNTIME_MODE_PROFILES sanity', () => {
 		});
 	});
 
-	it('aws-prod uses dynamodb + cognito', () => {
+	it('aws-prod uses dsql + cognito', () => {
 		expect(RUNTIME_MODE_PROFILES['aws-prod']).toMatchObject({
-			persistence: 'dynamodb',
+			persistence: 'dsql',
 			authMode: 'cognito',
 			acceptsWrites: true,
 		});

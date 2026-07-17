@@ -71,7 +71,8 @@ const envSchema = z.object({
 	// EPIC #3620 (ADR-0064 案 C): DATA_SOURCE='pglite' を追加。NUC を組込 Postgres (PGlite) で
 	//   駆動し dsql (pg-core) schema + repos を verbatim 再利用する (dialect 税ゼロ)。cutover まで
 	//   既定は 'sqlite' のまま (旧 NUC 実装)、切替は factory.ts + db/pglite/connection.ts で行う。
-	DATA_SOURCE: z.enum(['sqlite', 'dynamodb', 'demo', 'dsql', 'pglite']).default('sqlite'),
+	// #3438 Phase 2B: 'dynamodb' は cutover 完了により enum から撤去 (DynamoDB backend 選択不可)。
+	DATA_SOURCE: z.enum(['sqlite', 'demo', 'dsql', 'pglite']).default('sqlite'),
 	SCHEMA_VALIDATION_MODE: z.enum(['warn', 'strict']).optional(),
 	// EPIC #3424 M4-B② 接続層: Aurora DSQL cluster 接続情報 (DATA_SOURCE=dsql のとき必須)。
 	//   DSQL_ENDPOINT = CDK GetAtt attrEndpoint (`<id>.dsql.<region>.on.aws`) を Lambda env へ注入。

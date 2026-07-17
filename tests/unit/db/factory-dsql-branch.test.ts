@@ -110,7 +110,7 @@ describe('factory DATA_SOURCE=dsql 分岐 (connection mock、実 pool を作ら�
 		// 新規配線 (compute-on-read repo) の spot check
 		expect(typeof repos.reportDailySummary.findByChildAndDateRange).toBe('function');
 		expect(typeof repos.reportDailySummary.upsert).toBe('function');
-		// storage は dynamodb/ の S3 実装を再利用 (DB backend 非依存、#3438 で移設予定)
+		// storage は s3/ の S3 実装を再利用 (DB backend 非依存、#3438 Phase 1 で dynamodb/ から移設済)
 		expect(typeof repos.storage.saveFile).toBe('function');
 		expect(typeof repos.storage.getDownloadUrl).toBe('function');
 

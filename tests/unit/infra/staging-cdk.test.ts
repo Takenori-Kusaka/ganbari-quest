@@ -75,7 +75,7 @@ function buildStagingStacks(): {
 	const app = new cdk.App({
 		context: {
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
-			// #3438 Phase 2A: staging に dsqlEndpoint 注入 → staging dual-mode の dsql 側を検証 (S-3)。
+			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (dual-mode 廃止)。endpoint は必須 (fail-close)。
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},

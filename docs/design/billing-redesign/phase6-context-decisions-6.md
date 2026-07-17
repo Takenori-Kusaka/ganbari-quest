@@ -134,7 +134,7 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 | 項目 | 内容 |
 |---|---|
 <!-- doc-code-refs: ignore-line -->
-| **現状** | `LICENSE_KEY_STATUS` enum (`src/lib/domain/constants/license-key-status.ts` 想定 + `src/lib/server/db/dynamodb/auth-repo.ts` 参照) — NUC license key 内部状態 (consumed / revoked / migrated) を表現 |
+| **現状** | `LICENSE_KEY_STATUS` enum (`src/lib/domain/constants/license-key-status.ts` 想定 + 旧 DynamoDB auth-repo 参照) — NUC license key 内部状態 (consumed / revoked / migrated) を表現 |
 | **影響範囲** | enum 定義 + DynamoDB `auth-repo.ts` の `licenseKey` 列 + `LicenseRecord` table + `license-key-service.ts` (#2788 で全て物理削除対象、旧「NUC で唯一の billing proof」は FR-5 自己矛盾訂正で撤回) |
 | **業界根拠** | (a) Phase 1 補強 1 FR-5「`LICENSE_KEY_STATUS` enum NUC license key 内部状態 (consumed/revoked/migrated)、DB schema 後方互換」で「残す」と明記済 — **だったが、補強 3 §1.2 で FR-5 は SSOT 内部の自己矛盾フラグメントと判明し訂正済** (b) NUC は信頼ベース (family 固定) で license key を読まないため、`LICENSE_KEY_STATUS` enum も `LicenseRecord` table も参照されない dead schema 化 (c) DB persist 値は internal identifier だが、参照経路が全廃されるため列ごと撤去可能 |
 | **🔄 再評価 (#2788、2026-06-03)** | 元推奨「rename しない (維持)」は「NUC で license key は billing proof として残存、DB schema 後方互換」前提 (FR-5) に依存していた。[phase1-license-key-removal-final-requirements.md §3.4 / §3.8 / OQ-4](phase1-license-key-removal-final-requirements.md) で **`LICENSE_KEY_STATUS` enum + `licenseKey` 列 + `LicenseRecord` table を物理削除** (4 backend: sqlite / dynamodb / demo / fixture) と確定。expand-contract (PR-L1〜L3 で書込経路削除 + NULL 化 → 観測期間 → PR-L5 で列 DROP + enum 定義削除 + table DROP) で実施。rollback 不可点 (Pre-PMF 顧客ゼロ前提で許容、列 DROP 直前に本番 DynamoDB `licenseKey()` prefix item 最終確認推奨)。 |
@@ -286,7 +286,7 @@ Phase 7 では apiVersion bump なし (`'2026-04-22.dahlia'` 維持、#2683 訂�
 | `STRIPE_API_VERSION` 定数 | 1 件 (`src/lib/server/stripe/client.ts` L7) | Phase 7 Step 3 (1 行修正) |
 | `AUTH_LICENSE_STATUS` + `LICENSE_PLAN` enum 参照 | 43 件 (Explore 照合) | Phase 7 Step 2-4 (atom rename、論点 1 PO 判断後) |
 | `/ops/license/*` route 参照 | route file 4 件 + `OPS_LAYOUT_LABELS.navLicense` (`/ops/+layout.svelte` L16) | **物理削除** (論点 3 再評価、#2788 PR-L3 + Stripe Coupon 代替) |
-| `LICENSE_KEY_STATUS` 参照 | `src/lib/server/db/dynamodb/auth-repo.ts` 内部 | **物理削除** (論点 6 再評価、#2788 PR-L1〜L5 expand-contract) |
+| `LICENSE_KEY_STATUS` 参照 | 旧 DynamoDB auth-repo 内部 | **物理削除** (論点 6 再評価、#2788 PR-L1〜L5 expand-contract) |
 | `site/help/license-key.html` 内 `/admin/license` href | LP 1 file | **完全削除 + 301 redirect** (論点 4 再評価、#2788 PR-L4) |
 | `lifecycle-email-service.ts` 内「ライセンス」言及 | 5 件未満 (Phase 1 補強 1 FR-8 推定) | Phase 7 Step 2-3 で `PLAN_TERMS` 経由化 (論点 5) |
 

@@ -13,7 +13,7 @@
 | PR | 内容 | 初回 fail した gate | 修正方法 | 根本原因 |
 |---|---|---|---|---|
 | #2318 | marketplace CTA `/auth/signup`→`/auth/login` data integrity 保護 | design-doc-check / 必須セクション | `refactor:internal-no-doc-impact` ラベル付与 + QM レビュー結果セクション追記 | URL 振替のみで設計書同期不要だが、`src/routes/marketplace/` 変更検出で design-doc-check が fail。 label exempt 機構 (#1985) を起票時に思い出せなかった |
-| #2340 | 本番 loginStamp 500 hotfix - stamp_masters fallback SSOT 化 | design-doc-check | ラベル付与 (`refactor:internal-no-doc-impact` 相当の判断) | `src/lib/server/db/dynamodb/stamp-card-repo.ts` 変更で `src/routes/(child)/[uiMode]/home/+page.server.ts` も連動変更 → routes 変更扱い。fallback 値の修正で機能仕様変化なしだが exempt label が起票時に未付与 |
+| #2340 | 本番 loginStamp 500 hotfix - stamp_masters fallback SSOT 化 | design-doc-check | ラベル付与 (`refactor:internal-no-doc-impact` 相当の判断) | 旧 DynamoDB stamp-card-repo 変更で `src/routes/(child)/[uiMode]/home/+page.server.ts` も連動変更 → routes 変更扱い。fallback 値の修正で機能仕様変化なしだが exempt label が起票時に未付与 |
 | #2341 | PARENT_GATE_COOKIE_SECRET 配布証跡 4 経路完備 | (lint-and-test 系で initial fail なし、design-doc-check は CDK 変更で適切に通過) | (大きな fail なし、env 配布 evidence セクション + ADR-0006 適切に記載) | 教訓: hotfix PR でも 4 経路配布証跡を最初から記載すれば 1 ラウンドで完結する好例 |
 | #2342 | `/api/v1/usage` 500 本番 hotfix - DynamoDB no-op fallback | design-doc-check / 必須セクション / Verify AC map / lint-and-test (env 直接参照) | `docs/design/07-API設計書.md` 追記 + 必須セクション 13 件補完 + AC マップ 4 列埋め + `$lib/runtime/env` 経由化 | 4 種 gate 同時 fail。Skill 雛形を使わず手書きで起票してセクション欠落、`process.env.DATA_SOURCE` 直接参照 (ADR-0040 P1 違反) |
 

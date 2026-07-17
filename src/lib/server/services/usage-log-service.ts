@@ -2,10 +2,9 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/usage-log-service.ts
 // 子供の使用時間ログ管理サービス (#1292)
 //
-// #2338 (2026-05-20): 本番 cognito Lambda (DATA_SOURCE=dynamodb) で 500 発生。
-// usage-log-repo は SQLite のみ実装 (Pre-PMF: ADR-0010 Bucket B)。
-// DATA_SOURCE が 'dynamodb' / 'demo' の場合は no-op fallback で graceful degradation。
-// PMF 後の DynamoDB 完全実装 roadmap は docs/rationale/07-usage-log-dynamodb-deferred-rationale.md 参照。
+// #2338 (2026-05-20): usage-log-repo は SQLite のみ実装 (Pre-PMF: ADR-0010 Bucket B)。
+// DATA_SOURCE が 'demo' の場合は no-op fallback で graceful degradation。
+// PMF 後の他 backend 完全実装 roadmap は docs/rationale/07-usage-log-dynamodb-deferred-rationale.md 参照。
 
 import { getEnv } from '$lib/runtime/env';
 import {
@@ -18,13 +17,13 @@ import {
 import { logger } from '$lib/server/logger';
 
 /**
- * DATA_SOURCE が SQLite 以外 (dynamodb / demo) かを判定。
+ * DATA_SOURCE が usage-log 非対応 backend (demo) かを判定。
  * `getEnv()` は cache を持つが、テストでは `resetEnvForTesting()` を beforeEach で
  * 呼ぶことで `vi.stubEnv` での切替を可能にしている (ADR-0040 P1 整合)。
  */
 function isUsageLogNoopBackend(): boolean {
 	const dataSource = getEnv().DATA_SOURCE;
-	return dataSource === 'dynamodb' || dataSource === 'demo';
+	return dataSource === 'demo';
 }
 
 let noopNotified = false;

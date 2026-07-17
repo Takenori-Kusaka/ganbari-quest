@@ -14,7 +14,8 @@ name: Deploy to AWS (Staging)
 # 責務分界 (docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3):
 #   - 本 workflow の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 #   - migration 込み起動 (G-MIG) の主担保は NUC staging (#2872 / deploy-nuc-staging.yml)。
-#     AWS Lambda は DynamoDB backend で applyLazyStartupMigrations を呼ばないため重複実装しない。
+#     AWS Lambda は DSQL backend で applyLazyStartupMigrations を呼ばず、schema provisioning は
+#     dsql:migrate step が別途担う (#3438) ため本 workflow で重複実装しない。
 #
 # 位置付け (段階導入、#2874 / docs/runbooks/staging-gate-required-checks.md):
 #   Phase 1 = advisory 観測 (統合 PR 数本で発火・所要・安定性を観測、required 未登録)。

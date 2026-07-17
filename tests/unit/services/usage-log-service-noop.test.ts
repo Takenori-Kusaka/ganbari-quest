@@ -1,21 +1,21 @@
 import { asChildId } from '$lib/domain/ids';
 /**
- * tests/unit/services/usage-log-service-dynamodb-noop.test.ts
+ * tests/unit/services/usage-log-service-noop.test.ts
  *
- * #2338 (2026-05-20): 本番 cognito Lambda (AUTH_MODE=cognito + DATA_SOURCE=dynamodb) で
- * `/api/v1/usage` POST / PATCH が 500 連続発生。usage-log-repo は SQLite のみ実装
- * (Pre-PMF: DynamoDB 対応不要、ADR-0010 Bucket B) のため、DATA_SOURCE=dynamodb 環境で
- * SQLite import → throw → endpoint 500 となっていた。
+ * #2338 (2026-05-20): usage-log-repo は SQLite のみ実装 (Pre-PMF: 他 backend 対応不要、
+ * ADR-0010 Bucket B)。SQLite 非対応 backend では SQLite import → throw → endpoint 500 を
+ * 避けるため no-op fallback で graceful degradation する。
  *
  * 本テストは以下を検証する:
- *   1. DATA_SOURCE=dynamodb で 4 関数 (startUsageSession / endUsageSession /
+ *   1. DATA_SOURCE=demo で 4 関数 (startUsageSession / endUsageSession /
  *      getTodayUsageSummary / getWeeklyUsageSummary) が no-op で動作 (throw せず、
  *      安全なダミー値を返す)
- *   2. DATA_SOURCE=demo でも同様に no-op
- *   3. DATA_SOURCE=sqlite (既定) では SQLite 経路を試みる (既存挙動維持)
+ *   2. DATA_SOURCE=sqlite (既定) では SQLite 経路を試みる (既存挙動維持)
  *
  * これにより、SQLite import の throw が endpoint まで到達せず、500 ではなく
  * 204 No Content (endpoint 側で `result === null` を 204 に変換) が返る経路を担保する。
+ *
+ * #3438 Phase 2B: DATA_SOURCE=dynamodb ケースは cutover (DynamoDB backend 撤去) により削除。
  *
  * 関連:
  *   - ADR-0010 Pre-PMF Bucket B (まだ作らない)
@@ -51,7 +51,7 @@ const CHILDREN = [
 	{ id: asChildId(903), nickname: 'けんたくん' },
 ];
 
-describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb / demo)', () => {
+describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=demo)', () => {
 	beforeEach(() => {
 		resetNoopNotifiedForTesting();
 		// env を re-parse させる (ADR-0040 P1 / getEnv cache を都度リセット)
@@ -64,9 +64,9 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		resetEnvForTesting();
 	});
 
-	describe('DATA_SOURCE=dynamodb (本番 cognito Lambda)', () => {
+	describe('DATA_SOURCE=demo (demo Lambda、ADR-0048)', () => {
 		beforeEach(() => {
-			vi.stubEnv('DATA_SOURCE', 'dynamodb');
+			vi.stubEnv('DATA_SOURCE', 'demo');
 			resetEnvForTesting();
 		});
 
@@ -104,25 +104,6 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 				expect(curr.date > prev.date).toBe(true);
 			}
 			expect(repo.findUsageLogsByChildAndDateRange).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('DATA_SOURCE=demo (demo Lambda、ADR-0048)', () => {
-		beforeEach(() => {
-			vi.stubEnv('DATA_SOURCE', 'demo');
-			resetEnvForTesting();
-		});
-
-		it('startUsageSession は no-op で dummy id を返す', async () => {
-			const result = await startUsageSession(TENANT, asChildId(901));
-			expect(result).toEqual({ id: '0' });
-			expect(repo.insertUsageLog).not.toHaveBeenCalled();
-		});
-
-		it('getTodayUsageSummary は no-op で全 child durationMin: 0 を返す', async () => {
-			const result = await getTodayUsageSummary(TENANT, CHILDREN);
-			expect(result.every((e) => e.durationMin === 0)).toBe(true);
-			expect(repo.findTodayUsageLogs).not.toHaveBeenCalled();
 		});
 	});
 

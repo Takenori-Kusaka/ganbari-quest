@@ -29,7 +29,7 @@ describe('check-license-key-leak (#2836)', () => {
 
 		it.each([
 			// PR-L5 (#2860) で DB 層を物理削除したため、旧 allowlist file は scan 対象 (= false) に戻った
-			'src/lib/server/db/dynamodb/auth-repo.ts',
+			'src/lib/server/db/dsql/auth-repo.ts',
 			'src/lib/server/db/sqlite/auth-repo.ts',
 			'src/lib/domain/validation/auth.ts',
 			'src/lib/server/auth/entities.ts',
