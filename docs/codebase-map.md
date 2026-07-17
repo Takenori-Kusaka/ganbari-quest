@@ -37,7 +37,6 @@
 | `src/lib/domain/` | ドメイン: `labels.ts` (compound SSOT、ADR-0045) / `terms.ts` (atom SSOT) / `validation/` (age-tier 等) / 型定義 |
 | `src/lib/policy/` | 認可ポリシー (`authorization.ts` の補助、ルート × ロール × ライセンス三軸判定) |
 | `src/lib/runtime/` | 実行モード判定 (cognito / local / demo 環境) |
-| `src/lib/analytics/` | 分析 (内部メトリクス、PMF 計測) |
 | `src/lib/services/` | client-side service (BFF 呼び出しラッパ) |
 | `src/lib/data/` | static data ロード (プリセット等) |
 | `src/hooks.server.ts` | 全リクエスト前処理: 認証 / 認可 / セキュリティヘッダ / レートリミット |

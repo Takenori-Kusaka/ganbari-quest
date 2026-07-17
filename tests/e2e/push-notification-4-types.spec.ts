@@ -100,12 +100,11 @@ test.describe('#2191 push 4 systems — Anti-engagement + VAPID distribution smo
 });
 
 test.describe('#2191 push 4 systems — cron trigger smoke (reminder + streak + achievement + level_up)', () => {
-	test('#2191 AC1-5: reminder cron (`analytics-aggregate` 経由) auth ガード', async ({
-		request,
-	}) => {
-		// reminder / streak-warning は analytics-aggregate cron 内派生のため
-		// 直接の reminder endpoint は存在しない。代表として analytics-aggregate の auth を確認。
-		const res = await request.post('/api/cron/analytics-aggregate');
+	test('#2191 AC1-5: reminder cron (代表 cron 経由) auth ガード', async ({ request }) => {
+		// reminder / streak-warning に専用 endpoint は無いため、cron 認証ガードの回帰は
+		// 代表として稼働中の cron (pmf-survey) の verifyCronAuth 挙動で確認する
+		// (#3805: analytics-aggregate cron 撤去に伴い代表 endpoint を差し替え)。
+		const res = await request.post('/api/cron/pmf-survey', { data: { dryRun: true } });
 		if (cronSecret) {
 			expect(res.status()).toBe(401);
 		} else if (authSkipped) {
@@ -117,13 +116,14 @@ test.describe('#2191 push 4 systems — cron trigger smoke (reminder + streak + 
 
 	test('#2191 AC1-6: reminder cron 正常認証で dryRun 集計が返る', async ({ request }) => {
 		if (!cronSecret && !authSkipped) {
-			const res = await request.post('/api/cron/analytics-aggregate');
+			const res = await request.post('/api/cron/pmf-survey', { data: { dryRun: true } });
 			expect(res.status()).toBe(500);
 			return;
 		}
 
-		const res = await request.post('/api/cron/analytics-aggregate', {
+		const res = await request.post('/api/cron/pmf-survey', {
 			headers: getCronHeaders(),
+			data: { dryRun: true },
 		});
 
 		if (!cronSecret && authSkipped) {
@@ -134,7 +134,7 @@ test.describe('#2191 push 4 systems — cron trigger smoke (reminder + streak + 
 		}
 
 		const body = await res.json();
-		// analytics-aggregate は処理結果オブジェクトを返す (具体的 key は実装依存だが ok 系)
+		// 代表 cron (pmf-survey) は処理結果オブジェクトを返す (具体的 key は実装依存だが ok 系)
 		expect(typeof body).toBe('object');
 		expect(body).not.toBeNull();
 	});

@@ -114,30 +114,9 @@ function violationKey(v: Violation): string {
 // 新規 file がここに該当した場合は **baseline に足すのではなく repo facade / getRepos()
 // 経由に書き直す** こと。baseline の縮小 (migration / Phase Z 撤去) のみ歓迎、拡大は QM 指摘対象。
 const BASELINE_VIOLATIONS: Violation[] = [
-	{
-		// analytics event pipeline (server-only guard の都合で dynamic import 経由)。
-		// §12.1 N3 で「analytics は独立 event pipeline とするか repo 化するか」を product 判断
-		// に接続済。Phase Z (#3438) の DynamoDB 撤去に編入される。
-		file: 'src/lib/analytics/providers/dynamo.ts',
-		reason:
-			'DynamoDB SDK (@aws-sdk/*-dynamodb) を src/lib/server/db/dynamodb/ 外で直接 import (repo facade 経由にする)',
-	},
-	{
-		file: 'src/lib/analytics/providers/dynamo.ts',
-		reason:
-			'backend 固有実装 ($lib/server/db/dynamodb/*) を src/lib/server/db/ (factory/facade 層) 外から直接 import',
-	},
-	{
-		// analytics 集計 service。上と同じ analytics クラスタ (Phase Z 編入)。
-		file: 'src/lib/server/services/analytics-aggregate-service.ts',
-		reason:
-			'DynamoDB SDK (@aws-sdk/*-dynamodb) を src/lib/server/db/dynamodb/ 外で直接 import (repo facade 経由にする)',
-	},
-	{
-		file: 'src/lib/server/services/analytics-aggregate-service.ts',
-		reason:
-			'backend 固有実装 ($lib/server/db/dynamodb/*) を src/lib/server/db/ (factory/facade 層) 外から直接 import',
-	},
+	// #3805: analytics DynamoDB event pipeline (providers/dynamo.ts + analytics-aggregate-service.ts)
+	// を撤去し、marketing 分析を DSQL main data 由来の on-demand 集計へ載せ替えたため、
+	// 該当 4 violation は baseline から縮小 (repo facade 経由の縮小のみ歓迎の原則に整合)。
 	{
 		// /api/health liveness probe が使う DescribeTable。src/lib/server/db/ 直下だが
 		// SDK 直 import (rule 1) は db/dynamodb/ 限定のため violation。撤去予定 tooling。

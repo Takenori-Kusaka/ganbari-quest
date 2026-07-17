@@ -369,7 +369,7 @@ Storybook ラベル言語ポリシー (DESIGN.md §6) に従い、stories.svelte
 2. `TrialBanner.svelte` を 4 variant 拡張: `not-started` / `progress` / `sticky-invite` / `ending-soon` / `final-day` / `recently-downgraded` の 6 variant 判定ロジック実装
 3. `aria-live="polite"` + `aria-atomic="true"` + `aria-label` 追加 (§5)
 4. `+layout.svelte` の `showTrialBanner` derived に `!path.startsWith('/admin/subscription')` + `!path.startsWith('/admin/billing')` 追加 (boundary)
-5. PQL 計測 source 確定: 既存 analytics 層 (`src/lib/analytics/`) で `pqlActionCount` を server-side 集計 → `+layout.server.ts` で props 注入
+5. PQL 計測 source 確定: `pqlActionCount` を server-side 集計 → `+layout.server.ts` で props 注入（旧 analytics 層は #3805 で撤去、計測 source は本 Phase 実装時に on-demand DSQL 集計として再設計する）
 6. archivedSummary 拡張: 既存 `archivedSummary.archivedChildCount` に加え `archivedActivityCount` / `archivedActivityFreeLimit` を追加 (Notion 型 read-only カウント表示用)
 7. Storybook 9 variant stories 追加 (§8)
 8. E2E 5 シナリオ追加 (§10)

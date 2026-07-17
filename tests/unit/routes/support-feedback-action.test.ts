@@ -26,8 +26,6 @@ vi.mock('$lib/server/services/email-service', () => ({
 	sendInquiryConfirmationEmail: (...args: unknown[]) => mockSendConfirmation(...args),
 }));
 
-vi.mock('$lib/server/services/analytics-service', () => ({ trackBusinessEvent: vi.fn() }));
-
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: (locals: { context?: { tenantId?: string } }) => {
 		if (!locals.context?.tenantId) throw new Error('Unauthorized');

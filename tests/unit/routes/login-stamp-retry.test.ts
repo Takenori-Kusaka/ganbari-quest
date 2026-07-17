@@ -153,7 +153,6 @@ const mockRequireTenantId = vi.fn(
 const mockClaimLoginBonus = vi.fn();
 const mockStampToday = vi.fn();
 const mockAutoRedeemPreviousWeek = vi.fn();
-const mockTrackActivationFirstRewardSeen = vi.fn();
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: (locals: { context?: { tenantId?: string } }) => mockRequireTenantId(locals),
@@ -174,10 +173,6 @@ vi.mock('$lib/server/services/activity-pin-service', () => ({
 vi.mock('$lib/server/services/activity-service', () => ({
 	getActivities: vi.fn().mockResolvedValue([]),
 	tryGrantMustCompletionBonus: vi.fn(),
-}));
-vi.mock('$lib/server/services/analytics-service', () => ({
-	trackActivationFirstRewardSeen: (...args: unknown[]) =>
-		mockTrackActivationFirstRewardSeen(...args),
 }));
 vi.mock('$lib/server/services/birthday-bonus-service', () => ({
 	claimBirthdayBonus: vi.fn(),
@@ -290,6 +285,5 @@ describe('Issue #2097 B-14a: loginStamp action no-op for missing selectedChildId
 		expect(mockClaimLoginBonus).not.toHaveBeenCalled();
 		expect(mockStampToday).not.toHaveBeenCalled();
 		expect(mockAutoRedeemPreviousWeek).not.toHaveBeenCalled();
-		expect(mockTrackActivationFirstRewardSeen).not.toHaveBeenCalled();
 	});
 });

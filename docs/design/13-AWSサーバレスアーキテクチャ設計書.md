@@ -560,104 +560,42 @@ Dockerfile.lambda        # Lambda Web Adapter用
 └── release.yml          # リリースノートカテゴリ設定
 ```
 
-## 7.2 アナリティクス基盤（DynamoDB 一本化, #1591 / ADR-0023 I2）
+## 7.2 アナリティクス基盤（on-demand DSQL 集計, #3805 / EPIC #3424）
 
 ### 採用方針
 
-**外部 SaaS analytics は採用しない**。子供データ究極ミニマリズム原則 (ADR-0023 §4.4 / A-Q1(C)) に従い、業務イベントは AWS 内完結 (DynamoDB 単一テーブル) に閉じる。
+**外部 SaaS analytics は採用しない**（子供データ究極ミニマリズム原則 ADR-0023 §4.4 / A-Q1(C)）。かつ **always-on の event 収集も持たない**（#3805 で撤去）。marketing 分析（activation funnel / 解約率）は **DSQL の main data から必要時のみ on-demand 集計**する。常設収集・日次 cron・常設 dashboard は Pre-PMF で過剰（維持費 <¥100/月 target のボトルネック）ゆえ撤去し、分析能力のみを維持する。
 
 | 項目 | 内容 |
 |------|------|
-| 採用 provider | DynamoDB のみ (`src/lib/analytics/providers/dynamo.ts`) |
-| 削除済 provider | umami / Sentry (#1591 で `src/lib/analytics/providers/` から物理削除) |
-| 外部送信 | ゼロ (CSP `connect-src 'self'` で構造的に保証) |
-| イベント保持期間 | 90 日 (DynamoDB TTL 自動削除) |
+| 収集方式 | なし（DynamoDB `ANALYTICS#` / `ANALYTICS_AGG#` / `CHALLENGE_AGG#` partition・日次 aggregator cron・provider を全廃、#3805） |
+| 導出元 | DSQL main data（`families` / `children` / `activity_logs` / `cancellation_reasons`） |
+| 実行契機 | 認証済 ops が `/ops/analytics` を開いた時のみ（on-demand、常時コスト 0） |
+| 外部送信 | ゼロ（CSP `connect-src 'self'` で構造的に保証） |
 
-### Key 設計
+### on-demand 集計サービス
 
-| 項目 | 値 |
-|------|----|
-| PK | `ANALYTICS#<YYYY-MM-DD>` |
-| SK | `<ISO timestamp>#<random>` |
-| GSI2PK | `ANALYTICS#EVENT#<eventName>` (イベント別時系列) |
-| GSI2SK | `<YYYY-MM-DD>#<tenantId>` (日付 → テナントで絞込) |
-| TTL | 取込時刻 + 90 日 (epoch seconds) |
+`analytics-ondemand-service.ts` が read-only で 2 指標を DSQL main data から導出する:
 
-メインテーブル (`ganbari-quest`) に同居させる single-table design。専用テーブルは作らない (ADR-0010 過剰防衛禁止)。
-
-### 環境変数
-
-| 変数 | 設定値 | 説明 |
+| 指標 | 導出元 | 方式 |
 |------|--------|------|
-| `ANALYTICS_ENABLED` | `'true'` (本番固定) | DynamoDB provider の有効化トグル。CDK が Lambda env にハードコード注入 (#1591) |
-| `ANALYTICS_TABLE_NAME` | `props.table.tableName` | 書込先テーブル名。メイン DynamoDB を流用 |
+| Activation Funnel（signup → 初回子供登録 → 初回活動 → 7 日継続） | `families.created_at` 起点コホート + `children` / `activity_logs` を JOIN | 単一集約 SQL 1 発（`repos.activationFunnel`、ADR-0065 N+1 禁止） |
+| 解約理由分布（30d / 90d） | `cancellation_reasons` | `repos.cancellationReason.aggregateRecent`（DSQL main data 由来） |
+
+旧 step ④「初回報酬演出」は純 UI view event でデータ痕跡がなく DSQL から導出不能のため drop し、engagement 本質の「7 日 retention」を ④ に据える（#3805）。
+
+### `/ops/analytics` 可視化
+
+`ops_users` group 認証必須。Activation Funnel（on-demand DSQL）+ Retention Cohort（`cohort-analysis-service`）+ Sean Ellis スコア（`pmf-survey-service`）+ 解約理由分布（`cancellation-service`）+ setup チャレンジ選択分布（`settings` を on-demand N+1 read）を `Promise.allSettled` で部分縮退表示する。いずれも tenant 状態・main data のスナップショットで、event log は使わない。旧 `/admin/analytics` は #2283 EPIC で全面撤去済。
 
 ### CSP との整合
 
-`hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
+`hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない（`connect-src 'self'` 固定）。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと（ADR-0006 安全弁削除禁止）。
 
-### 可視化 (~~`/admin/analytics`~~ → `/ops/analytics`, #1639 / #2283 EPIC で集約先変更)
+### Pre-PMF (ADR-0010) スコープ
 
-> **2026-05-19 更新 (#2283 EPIC Analytics-Removal)**: `/admin/analytics` を全面撤去し、運用者向け 4 種可視化は **`/ops/analytics` に集約**。詳細は `06-UI設計書.md §11 全ページ一覧` および `tmp/research/analytics-removal-result.md` §1 機能差分マトリクスを参照。本表は run-time の実装方式を継続保持（cron / DynamoDB schema 変更なし）。
-
-`/ops/analytics` ページは **#1639 + #2285 EPIC #2283 で 4 種可視化を実装済み**（Pre-PMF Bucket A 範囲、`ops_users` group 認証必須）。
-
-| セクション | 実装方式 | データ源 |
-|-----------|---------|---------|
-| Activation Funnel (4 step) | DynamoDB GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>`、`GSI2SK >= <since-date>`) を 4 events 並列実行、テナント単位 unique 件数を集計。**#2285 で `/admin/analytics` から `/ops/analytics` へ移動**、`funnelPeriod=30d` 固定 | `ANALYTICS#` partition |
-| Retention Cohort (月次) | `cohort-analysis-service.getCohortAnalysis` を再利用。Day 単位は本 EPIC scope 外 (PO 確定 OQ1 α: 月単位で十分) | tenant 一覧（`auth.listAllTenants()`） |
-| Sean Ellis スコア | `pmf-survey-service.aggregateSurveyResponses` を再利用 | settings KV (`pmf_survey_response_<round>`) |
-| 解約理由分布 | `cancellation-service.getCancellationReasonAggregation` を再利用 | `CANCEL_REASON` partition |
-
-**事前集計レコード（`PK=ANALYTICS_AGG#<YYYY-MM-DD>`, #1693 で導入）**: テナント数増加に備え、cron `gq-analytics-aggregator-daily` (毎日 03:00 JST = 18:00 UTC) で前日分の funnel + cancellation reason を集計し DynamoDB に書き込む。
-
-| 集計種別 | PK | SK | 内容 | TTL |
-|---------|----|----|------|-----|
-| Activation Funnel | `ANALYTICS_AGG#<YYYY-MM-DD>` | `FUNNEL` | その日の event 別 unique tenantId 一覧（最大 4 events） | 365 日 |
-| Cancellation 30d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_30D` | その日時点での過去 30 日 rolling-window 集計結果 | 365 日 |
-| Cancellation 90d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_90D` | その日時点での過去 90 日 rolling-window 集計結果 | 365 日 |
-
-**Read 側のフォールバック構造（`analytics-service.ts`）:**
-1. 集計レコードを期間内日付分取得（`PK BETWEEN ANALYTICS_AGG#<since> AND ANALYTICS_AGG#<yesterday> AND SK=<kind>`）
-2. **Funnel**: 集計済み日付分の tenantId 一覧を union し、不足日付（当日 / cron 失敗で歯抜けの日）のみライブ計算で補う
-3. **Cancellation**: 前日分 rolling-window スナップショットがあれば即採用、無ければ既存ライブ集計 (`getCancellationReasonAggregation`) で fallback
-4. service の interface (`getActivationFunnel` / `getCancellationReasons`) は不変。呼出側 (`+page.server.ts`) は変更不要
-
-**Pre-PMF (ADR-0010) スコープ**:
-- Sean Ellis / retention cohort は集計頻度が低い（半年に 1 round / 月次）ため事前集計対象外
-- HyperLogLog 等の近似 sketch は post-PMF に持ち越し（~100 テナント規模では tenantId 一覧の保持が数 KB で十分）
-- DynamoDB TTL 属性 (`ttl`) を有効化し、365 日経過したレコードは自動失効
-
-**部分縮退方式**: `+page.server.ts` で `Promise.allSettled` を使い、1 セクションが失敗しても他セクションは表示する。`getActivationFunnel` / `getCancellationReasons` 内部の DynamoDB query 失敗時は zero counts / 空 breakdown で fallback（個別エラーログのみ、画面全体は崩さない）。
-
-### 運営内部分析 (`/ops/analytics`, #1602 ADR-0023 I13)
-
-`/ops/analytics` は **DynamoDB のメインテーブル**から直接ライブ集計する。`ANALYTICS#` パーティションは使わない（運営内部の集計対象は tenant 状態と settings のスナップショットであり、event log ではないため）。
-
-| 集計項目 | 集計元 | 取得方法 | 計算量 |
-|---------|--------|---------|--------|
-| LTV / 月次獲得 / コホート / プラン別 MRR | tenant 一覧 | `auth.listAllTenants()`（全 tenant scan） | O(N tenants) |
-| **setup チャレンジ選択分布**（#1602 / #1742） | 集計レコード優先 → 不足時ライブ計算 | 二段構造 (下記) | 通常 O(1)、cron 未稼働時のみ O(N tenants) |
-
-**setup チャレンジ選択分布の事前集計レコード（`PK=CHALLENGE_AGG#<YYYY-MM-DD>`, #1742 で導入）**:
-
-cron `gq-challenge-aggregator-daily` (毎日 03:30 JST = 18:30 UTC、analytics-aggregator-daily と被らないよう 30 分ずらし) で当日時点の全テナント `questionnaire_challenges` 設定値を CSV 配列に集約し、DynamoDB に書き込む。
-
-| 集計種別 | PK | SK | 内容 | TTL |
-|---------|----|----|------|-----|
-| Preset Distribution | `CHALLENGE_AGG#<YYYY-MM-DD>` | `AGGREGATE` | `payload.challengesPerTenant`: 全テナントの `questionnaire_challenges` CSV 配列。`payload.totalTenants`: 集計時のテナント総数 | 365 日 |
-
-**Read 側のフォールバック構造（`ops-analytics-service.fetchChallengesPerTenant`）:**
-1. 直近 7 日分の集計レコードを Scan (`PK BETWEEN CHALLENGE_AGG#<7日前> AND CHALLENGE_AGG#<今日> AND SK=AGGREGATE`) し、最新の `payload.challengesPerTenant` を採用
-2. 集計レコードが見つからない (cron 未稼働 / 障害 / 7 日以上停止) 場合のみ、テナントごと `settings.getSetting('questionnaire_challenges', tenantId)` を呼ぶ N+1 ライブ集計で fallback
-3. `getAnalyticsData` の interface (`presetDistribution`) は不変。呼出側 (`+page.server.ts`) は変更不要
-
-**Pre-PMF (ADR-0010) スコープ**:
-- テナント数 ≦ 数百を想定 → cron 未稼働段階でも N+1 fallback で動作する設計
-- テナント数 1,000+ で N+1 GetItem の表示遅延が顕在化する想定。cron が走り始めれば自然移行
-- DynamoDB TTL 属性 (`ttl`) 365 日で自動失効
-- HyperLogLog 等の近似 sketch は post-PMF (~10,000+ tenants) で再検討
-- 関連: PR #1696 (analytics 事前集計 cron) と同パターン
+- on-demand ゆえ常時コスト 0。実行時のみ DSQL DPU を消費（cross-tenant range scan は少数、ADR-0065 整合）
+- HyperLogLog 等の近似 sketch は post-PMF（~10,000+ tenants）で再検討
 
 ---
 

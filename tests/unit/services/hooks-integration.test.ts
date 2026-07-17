@@ -51,18 +51,6 @@ vi.mock('$lib/server/auth/factory', () => ({
 // hooks.server.ts の残り依存モジュールをモック化（並列実行時のモジュール解決高速化）
 vi.mock('$app/environment', () => ({ building: false }));
 
-vi.mock('$lib/analytics', () => ({
-	analytics: {
-		init: vi.fn(),
-		// #1591 (ADR-0023 I2): umami / Sentry 削除に伴い getUmamiConfig は不在
-		isProviderActive: vi.fn(() => false),
-		identify: vi.fn(),
-		trackPageView: vi.fn(),
-		trackEvent: vi.fn(),
-		flush: vi.fn(),
-	},
-}));
-
 vi.mock('$lib/server/debug-plan', () => ({
 	applyDebugPlanOverride: (ctx: unknown) => ctx,
 }));
@@ -88,10 +76,6 @@ vi.mock('$lib/server/request-context', () => ({
 vi.mock('$lib/server/routing/legacy-url-map', () => ({
 	findLegacyRedirect: () => null,
 	rewriteLegacyPath: () => '/',
-}));
-
-vi.mock('$lib/server/services/analytics-service', () => ({
-	trackServerError: vi.fn(),
 }));
 
 vi.mock('$lib/server/services/discord-notify-service', () => ({

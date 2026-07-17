@@ -320,17 +320,6 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 		excludedKind: 'permanent',
 		reason: 'グローバル年齢別ベンチマーク master',
 	},
-	analyticsAggregate: {
-		classification: 'excluded',
-		// 専用 SQLite table なし (DynamoDB 集約 key、SQLite は source から再集計)
-		excludedKind: 'permanent',
-		reason: '運用集計 (前日 funnel 等、source から再集計可)',
-	},
-	challengeAggregate: {
-		classification: 'excluded',
-		excludedKind: 'permanent',
-		reason: '運用集計 (challenge 事前集計)',
-	},
 	reportDailySummary: {
 		classification: 'excluded',
 		schemaTable: 'reportDailySummaries',

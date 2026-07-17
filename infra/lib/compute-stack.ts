@@ -26,10 +26,6 @@ const CRON_JOBS = [
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
-	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
-	{ name: 'analytics-aggregator-daily', utcCronExpression: 'cron(0 18 * * ? *)' },
-	// #1742: challenge (preset distribution) 事前集計バッチ (#1602 N+1 GetItem 移行)
-	{ name: 'challenge-aggregator-daily', utcCronExpression: 'cron(30 18 * * ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 ] as const;
