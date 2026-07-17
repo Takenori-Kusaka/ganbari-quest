@@ -6,6 +6,12 @@
  * `gh pr create` を実行する直前に、active な gh アカウントが
  * Takenori-Kusaka であることを検証するガードスクリプト。
  *
+ * #3806: active アカウント判定を `gh api graphql {viewer{login}}` (一次) +
+ *   `gh auth status` (fallback) の 2 段構成にした。GitHub 側で認証付き REST
+ *   `/user` だけが 503 を返す部分障害時、`gh auth status` は「keyring invalid」を
+ *   誤報し hook が全 push を誤ブロックする。GraphQL は REST 503 の影響を受けない
+ *   ため、これを一次検証ソースにして誤ブロックを根治する。
+ *
  * ADR-0022 (#1481) で定めた役割分担:
  *   - Takenori-Kusaka  → Dev (PR 作成・push)
  *   - ganbariquestsupport-lab → QA (approve・merge・PR コメントのみ)
@@ -46,11 +52,76 @@ export const QA_ACCOUNT = 'ganbariquestsupport-lab';
 const ALLOWED_PR_AUTHOR = process.env.ALLOWED_PR_AUTHOR ?? ALLOWED_PR_AUTHOR_DEFAULT;
 
 /**
+ * `gh api graphql -f query='{viewer{login}}'` の JSON 応答文字列から
+ * viewer.login を抽出する純粋関数。
+ *
+ * 一次検証を GraphQL にする理由 (#3806):
+ *   GitHub 側で認証付き REST データエンドポイント (`/user`) だけが 503 を返す
+ *   部分障害が起きると、`gh auth status` はトークン検証 (REST `/user`) に失敗し
+ *   「The token in keyring is invalid」と誤報する。これは keyring 障害ではなく、
+ *   再認証でも直らない。GraphQL `{viewer{login}}` は REST 503 の影響を受けず
+ *   active アカウントを返せるため、hook の誤ブロックを根治できる。
+ *
+ * @param {string} jsonStr  gh api graphql の標準出力 (JSON 文字列)
+ * @returns {string|null}   viewer.login / パース不能・欠落なら null
+ */
+export function extractViewerLoginFromGraphql(jsonStr) {
+	const trimmed = String(jsonStr ?? '').trim();
+	if (trimmed === '') return null;
+	try {
+		const parsed = JSON.parse(trimmed);
+		const login = parsed?.data?.viewer?.login;
+		return typeof login === 'string' && login.length > 0 ? login : null;
+	} catch {
+		// REST 503 の HTML エラーページ等、JSON 非準拠の応答は null 扱い。
+		return null;
+	}
+}
+
+/**
+ * `gh api graphql -f query='{viewer{login}}'` を実行し active アカウント login を返す。
+ * REST `/user` 503 (#3806) の影響を受けない一次検証経路。
+ *
+ * @returns {{ok: boolean, login: string|null, reason: string|null}}
+ */
+function runGhGraphqlViewer() {
+	const result = spawnSync('gh', ['api', 'graphql', '-f', 'query={viewer{login}}'], {
+		encoding: 'utf8',
+		shell: process.platform === 'win32',
+	});
+
+	if (result.error) {
+		return { ok: false, login: null, reason: `gh コマンドの起動に失敗: ${result.error.message}` };
+	}
+	if (result.status !== 0) {
+		return {
+			ok: false,
+			login: null,
+			reason: `gh api graphql が exit ${result.status} で終了しました。`,
+		};
+	}
+
+	const login = extractViewerLoginFromGraphql(result.stdout ?? '');
+	if (login === null) {
+		return {
+			ok: false,
+			login: null,
+			reason: 'GraphQL 応答から viewer.login を抽出できませんでした。',
+		};
+	}
+	return { ok: true, login, reason: null };
+}
+
+/**
  * `gh auth status` を実行して標準出力を返す。
  * gh CLI 未インストール / 未ログインなら null を返す。
  *
  * 注: `gh auth status` は active アカウントが存在する場合 stdout に出力するが、
  * バージョンによっては stderr に出すこともあるため、両方を結合して扱う。
+ *
+ * #3806 以降、本関数は GraphQL 一次検証が不達だった場合の fallback に降格した。
+ * `gh auth status` はトークン検証で REST `/user` を叩くため、GitHub 側の
+ * 認証付き REST 部分障害 (503) 時に false-negative を出しうる。
  */
 function runGhAuthStatus() {
 	const result = spawnSync('gh', ['auth', 'status'], {
@@ -137,28 +208,58 @@ export function evaluateActiveAccount(activeAccount, opts = {}) {
 	};
 }
 
-function main() {
+/**
+ * active アカウント login を解決する。
+ *
+ * 1) 一次: `gh api graphql {viewer{login}}` (REST `/user` 503 の影響を受けない、#3806)
+ * 2) fallback: `gh api graphql` 不達時のみ `gh auth status` を解析
+ *
+ * @returns {{account: string|null, source: 'graphql'|'auth-status'|null, rawStatusOutput: string|null}}
+ */
+function resolveActiveAccount() {
+	const graphql = runGhGraphqlViewer();
+	if (graphql.ok) {
+		return { account: graphql.login, source: 'graphql', rawStatusOutput: null };
+	}
+
+	// GraphQL 不達 (真の未ログイン / gh 未インストール / GraphQL 側障害) → auth status fallback。
 	const status = runGhAuthStatus();
 	if (!status.ok) {
-		process.stderr.write(`[check-gh-account-before-pr] FAIL: ${status.reason}\n`);
+		return { account: null, source: null, rawStatusOutput: status.output };
+	}
+	return {
+		account: extractActiveAccount(status.output),
+		source: 'auth-status',
+		rawStatusOutput: status.output,
+	};
+}
+
+function main() {
+	const { account, source, rawStatusOutput } = resolveActiveAccount();
+
+	if (account === null) {
+		process.stderr.write(
+			'[check-gh-account-before-pr] FAIL: active アカウントを判定できませんでした。\n',
+		);
+		if (rawStatusOutput) {
+			process.stderr.write(`  gh auth status raw output:\n${rawStatusOutput}\n`);
+		}
 		process.stderr.write(
 			'  対処: `gh auth login --hostname github.com` でログインしてください。\n',
 		);
 		process.exit(1);
 	}
 
-	const activeAccount = extractActiveAccount(status.output);
-	const verdict = evaluateActiveAccount(activeAccount, { allowed: ALLOWED_PR_AUTHOR });
+	const verdict = evaluateActiveAccount(account, { allowed: ALLOWED_PR_AUTHOR });
 
 	if (verdict.ok) {
-		process.stdout.write(`[check-gh-account-before-pr] OK: active=${activeAccount} (PR 作成可)\n`);
+		process.stdout.write(
+			`[check-gh-account-before-pr] OK: active=${account} (source=${source}, PR 作成可)\n`,
+		);
 		process.exit(0);
 	}
 
 	process.stderr.write(`[check-gh-account-before-pr] FAIL: ${verdict.reason}\n`);
-	if (activeAccount === null) {
-		process.stderr.write(`  raw output:\n${status.output}\n`);
-	}
 	if (verdict.isQa) {
 		process.stderr.write(
 			`  ${QA_ACCOUNT} は QA レビュー (approve / merge) 専用アカウントです。PR 作成は禁止 (ADR-0022 amendment 1, #1728)。\n`,
