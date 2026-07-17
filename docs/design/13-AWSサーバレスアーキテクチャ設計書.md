@@ -42,13 +42,27 @@
 
 ### 3.1 StorageStack
 
-DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。StorageStack は
-DB リソースを持たず、S3（アセット / バックアップ）と ECR（Lambda コンテナイメージ）のみを
-提供する。DSQL のリレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
+DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB
+table を参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL の
+リレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
 
-> DynamoDB シングルテーブル + その AWS Backup（daily plan）は #3438 で撤去した。prod は
-> removalPolicy=RETAIN だったため、既存 table は CloudFormation の管理から外れる（orphan）
-> だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
+> **DynamoDB `MainTable` の撤去は cross-stack export の 2-deploy 制約により 2 段で行う（#3438 → #3850）。**
+> CloudFormation は「利用中（in-use）の export は削除も値変更もできない」ため、producer（StorageStack）が
+> `MainTable` ARN の cross-stack export を消せるのは、consumer（ComputeStack）の import 消失が本番へ
+> 反映された後に限られる。deploy pipeline は Storage → Auth → Compute の producer-first 固定順（かつ
+> Storage は ECR repo を先に作る必要があり Storage-first は必須制約）で、1 リリース内で consumer を先に
+> 更新できないため、同一 PR での table + export 同時撤去は StorageStack rollback を招く。よって:
+>
+> - **Deploy-1（#3850、本リリース）**: consumer（ComputeStack）は `grantReadWriteData` + `DYNAMODB_TABLE`
+>   env を落とす（#3438 で実施済）。producer（StorageStack）は `MainTable`（removalPolicy=RETAIN）+
+>   その AWS Backup（daily plan）+ `exportValue(table.tableArn)` による cross-stack export を保持する。
+> - **Deploy-2（follow-up、次リリース）**: Deploy-1 が本番反映され consumer の import が消失した後、
+>   StorageStack から `MainTable` + `exportValue` を撤去する（この時点で export は in-use ではないため
+>   削除成功）。prod は removalPolicy=RETAIN のため、この撤去でも table は CloudFormation の管理から
+>   外れる（orphan）だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
+>
+> prod 不変条件（table + Backup + export の Deploy-1 保持 / consumer の table 非参照）は
+> `tests/unit/infra/staging-cdk.test.ts`（P-1 / B-3850a / B-3850b）が fitness function として固定する。
 
 **S3バケット:**
 - アバター画像: `avatars/{tenantId}/{childId}/`
@@ -540,7 +554,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 infra/
 ├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
-│   ├── storage-stack.ts  # S3 + ECR (DB backend は dsql-stack.ts、#3438)
+│   ├── storage-stack.ts  # S3 + ECR + MainTable(#3438→#3850 の 2-deploy 撤去中、Deploy-1 は export 保持)
 │   ├── dsql-stack.ts     # Aurora DSQL cluster (EPIC #3424)
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離

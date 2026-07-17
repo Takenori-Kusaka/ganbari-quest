@@ -118,12 +118,19 @@ beforeAll(() => {
 describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)', () => {
 	describe('P: prod 不変 guard — envConfig 未指定 synth で従来 prod template を維持', () => {
 		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3438 撤去 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
-			// #3438 (EPIC #3424): DB backend は DSQL に一本化。Storage stack は DynamoDB table も
-			// その AWS Backup (daily plan) も一切構築しない。再度 table を生やしたら CI で落ちる。
-			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
+			// #3850: #3438 の MainTable 撤去は CFN cross-stack export の in-use 削除制約により
+			// 2-deploy に分割する。Deploy-1 (本リリース) では ComputeStack が import を落とした状態で
+			// StorageStack は MainTable + その export を保持する (Deploy-2 = 次リリースで撤去)。
+			// producer(Storage) が export を消せるのは consumer(Compute) の import 消失が本番反映された
+			// 後のみ (CFN は in-use export の削除を拒否)。ここで table を消したら #3850 が再発するため落とす。
+			// TableV2 は AWS::DynamoDB::GlobalTable として synth される。
+			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
 			prodStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
-			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
-			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
+			// prod は removalPolicy=RETAIN 不変 (Deploy-2 の撤去でも物理 table + データは orphan 保全)。
+			prodStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Retain' });
+			// enableBackup=true (prod)。DynamoDB daily backup plan (vault + plan) を保持する。
+			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 1);
+			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 1);
 
 			const repos = prodStorage.findResources('AWS::ECR::Repository');
 			expect(Object.keys(repos).length).toBe(1);
@@ -211,13 +218,42 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 		});
 	});
 
-	describe('S-1: staging Storage — DynamoDB / Backup 不在 (#3438) + ECR maxImageCount:3 + DESTROY', () => {
-		it('DynamoDB table を構築しない (#3438 撤去、DB backend は DSQL)', () => {
-			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
-			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
+	describe('#3850: MainTable cross-stack export 2-deploy migration 不変条件 (Deploy-1)', () => {
+		it('B-3850a: prod StorageStack が MainTable ARN の cross-stack export を保持する (Deploy-1 の肝)', () => {
+			// #3850: ComputeStack が import を落とした Deploy-1 状態でも、StorageStack は exportValue で
+			// `<stackName>:ExportsOutputFnGetAttMainTable<hash>Arn` の export を明示保持する。これが無いと
+			// 未反映 consumer が旧 export を import 中に CFN が in-use 削除を拒否 → StorageStack rollback (#3850)。
+			// エラーログの export 名 `GanbariQuest{,Staging}Storage:ExportsOutputFnGetAttMainTable...Arn` と
+			// 同一 shape (test では stack 名 prefix が TestStorage、本番 synth は GanbariQuestStorage で実測一致済)。
+			const exportOutputs = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn') },
+			});
+			expect(Object.keys(exportOutputs).length).toBe(1);
 		});
 
-		it('AWS Backup (vault / plan) を構築しない', () => {
+		it('B-3850b: prod ComputeStack は MainTable を import / grant しない (Deploy-1 の consumer 状態)', () => {
+			// Deploy-1 の前提 = consumer(Compute) が既に MainTable への参照を落としていること:
+			//   (1) grantReadWriteData 由来の dynamodb: IAM policy が無い
+			//   (2) ExportsOutputFnGetAttMainTable...Arn を Fn::ImportValue する箇所が無い
+			// これらが残ると export が in-use のままで Deploy-2 (次リリース) の table+export 撤去が永遠にできない。
+			const computeJson = JSON.stringify(prodCompute.toJSON());
+			expect(computeJson).not.toContain('MainTable');
+			const policies = prodCompute.findResources('AWS::IAM::Policy');
+			expect(JSON.stringify(policies)).not.toContain('dynamodb:');
+		});
+	});
+
+	describe('S-1: staging Storage — DynamoDB MainTable(=1, DESTROY) + Backup 不在 (#3850 Deploy-1) + ECR maxImageCount:3', () => {
+		it('DynamoDB MainTable を Deploy-1 で保持 (#3850、staging も prod と同型 / removalPolicy=DESTROY)', () => {
+			// #3850: staging も prod と同型に MainTable + export を Deploy-1 で保持する (staging 側 export 名は
+			// GanbariQuestStorageStaging: 名前空間で prod と衝突しない)。staging は removalPolicy=DESTROY。
+			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
+			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
+			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Delete' });
+		});
+
+		it('AWS Backup (vault / plan) を構築しない (enableBackup=false)', () => {
+			// staging は enableBackup=false (空 table 起点 + 使い捨て)。table は保持するが Backup plan は持たない。
 			stagingStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
 			stagingStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
 		});
