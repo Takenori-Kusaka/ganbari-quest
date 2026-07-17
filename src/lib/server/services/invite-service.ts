@@ -38,7 +38,8 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 	if (new Date(invite.expiresAt) < new Date()) {
 		try {
 			// #3585: 状態遷移は inviteId 鍵。invite は raw code で引いた本物のため inviteId は信頼できる
-			await repos().auth.updateInviteStatus(invite.inviteId, 'expired');
+			// #3588: tenant scope (family_id 述語) を query 層で強制するため invite.tenantId を渡す
+			await repos().auth.updateInviteStatus(invite.inviteId, invite.tenantId, 'expired');
 		} catch {
 			// conditional write failure は無視（既に別ステータスに遷移済み）
 		}
@@ -111,7 +112,8 @@ export async function acceptInvite(
 	// 招待ステータス更新（accepted）
 	try {
 		// #3585: 状態遷移は inviteId 鍵 (invite は getInvite が raw code で引いた本物)
-		await repos().auth.updateInviteStatus(invite.inviteId, 'accepted', userId);
+		// #3588: tenant scope は invite.tenantId (受諾対象 family) を query 層 family_id 述語で強制
+		await repos().auth.updateInviteStatus(invite.inviteId, invite.tenantId, 'accepted', userId);
 	} catch {
 		// conditional write failure — 既に受諾済み（race condition）
 		// メンバーシップは作成済みなので続行
@@ -155,7 +157,8 @@ export async function revokeInvite(inviteId: string, tenantId: string): Promise<
 		return;
 	}
 	try {
-		await repos().auth.updateInviteStatus(inviteId, 'revoked');
+		// #3588: tenant scope は tenantId (family_id 述語) で query 層が強制する
+		await repos().auth.updateInviteStatus(inviteId, tenantId, 'revoked');
 	} catch {
 		// conditional write failure は無視 (状態機械が pending 以外を弾く)
 	}

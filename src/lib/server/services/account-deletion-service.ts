@@ -137,7 +137,8 @@ async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 			// まずステータスを revoked に（pending の場合のみ条件付き更新）
 			if (invite.status === 'pending') {
 				try {
-					await repos().auth.updateInviteStatus(invite.inviteId, 'revoked');
+					// #3588: tenant scope は tenantId (family_id 述語) で query 層が強制する
+					await repos().auth.updateInviteStatus(invite.inviteId, tenantId, 'revoked');
 				} catch {
 					// conditional write failure は無視
 				}

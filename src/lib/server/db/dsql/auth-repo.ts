@@ -443,8 +443,10 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 			return row ? toInvite(row, inviteCode) : undefined;
 		},
 
-		async updateInviteStatus(inviteId, status, acceptedBy) {
+		async updateInviteStatus(inviteId, tenantId, status, acceptedBy) {
 			// 管理系遷移 (revoke / expire / 旧経路 accept)。鍵は invite_id (#3585)。
+			// tenant scope: AND family_id = ${tenantId} で cross-tenant mutation を query 層が物理排除する
+			// (deleteInvite と対称、ADR-0063 §3.4 単一強制点。RLS 非対応の代替防御線。#3588)。
 			// #3588 ③ 状態機械: pending からの遷移のみ許可 (AND status = 'pending')。
 			// 失効済 / 受諾済 invite への再遷移は 0 行 = no-op で乱用余地を塞ぐ。
 			// 全呼び出し側は既に pending を確認してから呼ぶため defense-in-depth。
@@ -452,13 +454,13 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 			if (acceptedBy) {
 				await db.execute(sql`
 					UPDATE invites SET status = ${status}, accepted_by = ${acceptedBy}, accepted_at = now()
-					WHERE invite_id = ${inviteId} AND status = 'pending'
+					WHERE invite_id = ${inviteId} AND family_id = ${tenantId} AND status = 'pending'
 				`);
 				return;
 			}
 			await db.execute(sql`
 				UPDATE invites SET status = ${status}
-				WHERE invite_id = ${inviteId} AND status = 'pending'
+				WHERE invite_id = ${inviteId} AND family_id = ${tenantId} AND status = 'pending'
 			`);
 		},
 

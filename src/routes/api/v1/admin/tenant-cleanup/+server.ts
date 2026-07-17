@@ -147,7 +147,8 @@ async function deleteTenantData(
 	for (const invite of invites) {
 		if (invite.status === 'pending') {
 			// #3585: 管理鍵は inviteId (findTenantInvites の inviteCode は '' で raw 非露出)
-			await repos.auth.updateInviteStatus(invite.inviteId, 'revoked');
+			// #3588: tenant scope は tenantId (family_id 述語) で query 層が強制する
+			await repos.auth.updateInviteStatus(invite.inviteId, tenantId, 'revoked');
 			itemsDeleted++;
 		}
 	}

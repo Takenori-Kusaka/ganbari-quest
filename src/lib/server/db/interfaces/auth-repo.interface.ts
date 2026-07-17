@@ -67,11 +67,16 @@ export interface IAuthRepo {
 	/**
 	 * 管理系の状態遷移 (revoke / expire / 旧経路 accept)。鍵は inviteId (#3585)。
 	 * pending からの遷移のみ許可する状態機械 (#3588 ③): 失効済 / 受諾済 invite への
-	 * 再遷移は no-op (乱用余地を塞ぐ)。tenant scope は呼び出し側 (findTenantInvites 経由の
-	 * 一覧束縛) が担保する。
+	 * 再遷移は no-op (乱用余地を塞ぐ)。
+	 *
+	 * tenant scope は query 層が `family_id = tenantId` 述語で強制する (deleteInvite と対称、
+	 * ADR-0063 §3.4 単一強制点。RLS 非対応の代替防御線)。他 tenant の inviteId を渡しても
+	 * 述語不一致で 0 行 = no-op となり cross-tenant mutation (他家族の status / accepted_by 書込)
+	 * を物理排除する。呼び出し側の一覧束縛に依存しない (caller-discipline 非依存、#3588)。
 	 */
 	updateInviteStatus(
 		inviteId: string,
+		tenantId: string,
 		status: Invite['status'],
 		acceptedBy?: string,
 	): Promise<void>;

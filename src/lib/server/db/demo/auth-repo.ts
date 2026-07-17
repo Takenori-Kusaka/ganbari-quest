@@ -196,10 +196,11 @@ export async function findInviteByCode(_inviteCode: string): Promise<Invite | un
 
 export async function updateInviteStatus(
 	_inviteId: string,
+	_tenantId: string,
 	_status: Invite['status'],
 	_acceptedBy?: string,
 ): Promise<void> {
-	// Stub: no-op (#3585: 管理鍵は inviteId)
+	// Stub: no-op (#3585: 管理鍵は inviteId、#3588: tenant scope 引数)
 }
 
 export async function findTenantInvites(_tenantId: string): Promise<Invite[]> {

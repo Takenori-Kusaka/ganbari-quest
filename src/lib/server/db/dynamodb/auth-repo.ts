@@ -462,6 +462,7 @@ export const findInviteByCode: IAuthRepo['findInviteByCode'] = async (inviteCode
 
 export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async (
 	inviteId,
+	tenantId,
 	status,
 	acceptedBy,
 ) => {
@@ -471,6 +472,9 @@ export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async (
 	// Get current invite to find tenantId for adjacency update
 	const current = await findInviteByCode(inviteId);
 	if (!current) return;
+	// tenant scope: 他 tenant の invite は更新しない (DSQL の family_id 述語と対称、
+	// ADR-0063 単一強制点。cross-tenant mutation を no-op で排除。#3588)。
+	if (current.tenantId !== tenantId) return;
 	const inviteCode = inviteId;
 
 	const updates: string[] = ['#status = :status', '#updatedAt = :now'];

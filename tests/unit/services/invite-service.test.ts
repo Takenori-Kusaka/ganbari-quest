@@ -48,16 +48,21 @@ const mockAuthRepo: Partial<IAuthRepo> = {
 		return inviteStore.get(code);
 	}),
 	// #3585: 管理系は inviteId 鍵。store は inviteCode で引くため inviteId で線形検索する。
-	updateInviteStatus: vi.fn(async (inviteId: string, status: string, acceptedBy?: string) => {
-		const invite = [...inviteStore.values()].find((i) => i.inviteId === inviteId);
-		if (invite) {
-			invite.status = status as Invite['status'];
-			if (acceptedBy) {
-				invite.acceptedBy = acceptedBy;
-				invite.acceptedAt = new Date().toISOString();
+	// #3588: tenant scope は tenantId 引数 (family_id 述語相当) で他 tenant の invite を弾く。
+	updateInviteStatus: vi.fn(
+		async (inviteId: string, tenantId: string, status: string, acceptedBy?: string) => {
+			const invite = [...inviteStore.values()].find(
+				(i) => i.inviteId === inviteId && i.tenantId === tenantId,
+			);
+			if (invite) {
+				invite.status = status as Invite['status'];
+				if (acceptedBy) {
+					invite.acceptedBy = acceptedBy;
+					invite.acceptedAt = new Date().toISOString();
+				}
 			}
-		}
-	}),
+		},
+	),
 	findTenantInvites: vi.fn(async (tenantId: string) => {
 		return Array.from(inviteStore.values()).filter((i) => i.tenantId === tenantId);
 	}),
@@ -160,7 +165,7 @@ describe('getInvite', () => {
 		const result = await getInvite('past');
 		expect(result).toBeNull();
 		// #3585: 状態遷移は inviteId 鍵 (code ではなく invite.inviteId を渡す)
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-past', 'expired');
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-past', 't-test', 'expired');
 	});
 });
 
@@ -242,7 +247,7 @@ describe('revokeInvite (#3585 inviteId 鍵)', () => {
 		inviteStore.set('rev-1', makePendingInvite({ inviteCode: 'rev-1' }));
 
 		await revokeInvite('id-rev-1', 't-test');
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-rev-1', 'revoked');
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-rev-1', 't-test', 'revoked');
 	});
 
 	it('別テナントの inviteId は取り消せない (一覧に無い → no-op、cross-tenant 防止)', async () => {
@@ -369,7 +374,7 @@ describe('招待失効 × email 束縛 (#3555 ②)', () => {
 		const result = assertError(await acceptInvite('exp-em', 'user-new', 'intended@example.com'));
 		expect(result.error).toBe('INVALID_OR_EXPIRED');
 		// pending のまま放置されず expired に遷移する (getInvite の自動失効、#3585 inviteId 鍵)
-		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-exp-em', 'expired');
+		expect(mockAuthRepo.updateInviteStatus).toHaveBeenCalledWith('id-exp-em', 't-test', 'expired');
 	});
 });
 
