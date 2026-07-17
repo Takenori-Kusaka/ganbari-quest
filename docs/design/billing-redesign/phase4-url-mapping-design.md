@@ -361,7 +361,7 @@ test.describe('#2525 /help/license-key → /admin/subscription (Phase 1 補強 3
 
 #### D. 分析・監視
 
-- [ ] **11. analytics event name**: PostHog / Mixpanel 未導入 (Pre-PMF)、`/admin/license` page view event 設定があれば内部 metric ロガー (`src/lib/analytics/`) で旧/新両 URL を一定期間記録する選択肢あり (本プロジェクト現状未実装、Phase 7 scope 判断)
+- [ ] **11. analytics event name**: PostHog / Mixpanel 未導入 (Pre-PMF)。旧 always-on analytics 層は #3805 で撤去済のため、旧/新両 URL の一定期間記録が必要なら on-demand DSQL 集計 or 一時ロガーとして本プロジェクト現状未実装 (Phase 7 scope 判断)
 - [ ] **12. dashboard / alert**: 該当なし
 
 #### E. 顧客接点 (UX)
