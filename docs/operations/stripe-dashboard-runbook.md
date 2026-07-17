@@ -9,7 +9,7 @@
 | 想定所要時間 | Phase 1: 1-2 時間（1 回限り） / Phase 2: 月 0-1 回 / Phase 3: ad-hoc |
 | 関連 ADR | ADR-0006（assertion 弱体化禁止 / 配布証跡）/ ADR-0010（Pre-PMF スコープ判断）/ ADR-0013（LP truth）/ ADR-0026 archive（ライセンスキーアーキテクチャ）|
 | 関連 Issue | #2098（親 EPIC）/ #2100（D 集約: 8 項目 #4 #5 #6 #8 設計書反映）/ #2101（本書）|
-| 関連設計書 | [`license-key-requirements.md`](../design/license-key-requirements.md) / [`plan-change-flow.md`](../design/plan-change-flow.md) / [`license-subscription-causality.md`](../design/license-subscription-causality.md) / [`license-key-secrets.md`](license-key-secrets.md) / [`runbook.md`](runbook.md) |
+| 関連設計書 | `license-key-requirements.md`（削除済） / [`plan-change-flow.md`](../design/plan-change-flow.md) / `license-subscription-causality.md`（削除済） / [`license-key-secrets.md`](license-key-secrets.md) / [`runbook.md`](runbook.md) |
 
 ---
 
@@ -25,8 +25,8 @@ Phase 2 月次運用 / Phase 3 incident は頻度低 / ad-hoc のため最小限
 
 - 価格・プラン体系: [`docs/design/19-プライシング戦略書.md`](../design/19-プライシング戦略書.md)
 - 課金・entitlement 仕様 (現行): [`docs/design/billing-redesign/`](../design/billing-redesign/)
-- License Key ↔ Stripe 因果関係 (deprecated): [`docs/design/license-subscription-causality.md`](../design/license-subscription-causality.md)
-- License Key 要件 (deprecated): [`docs/design/license-key-requirements.md`](../design/license-key-requirements.md)
+- License Key ↔ Stripe 因果関係 (deprecated, 削除済): `docs/design/license-subscription-causality.md`（git 履歴参照）
+- License Key 要件 (deprecated, 削除済): `docs/design/license-key-requirements.md`（git 履歴参照）
 - HMAC シークレット運用 (deprecated): [`docs/operations/license-key-secrets.md`](license-key-secrets.md)
 
 ---
@@ -337,4 +337,4 @@ Standard → Family アップグレードは Phase 1 α 採用（Family 780 円�
 
 ## LP 記載準拠の期限切れ予告通知フローとの整合（#2100 #6）
 
-Stripe Webhook 受信後の期限切れ予告 7 日前 / 3 日前 / 1 日前 / 期限当日の通知フローは [`license-key-requirements.md`](../design/license-key-requirements.md) §2.9 / [`license-subscription-causality.md`](../design/license-subscription-causality.md) §2.4.1 を参照。本ランブック ステップ 5 で `customer.subscription.deleted` Webhook を購読しておけば、アプリ側で自動発火される。
+Stripe Webhook 受信後の期限切れ予告 7 日前 / 3 日前 / 1 日前 / 期限当日の通知フローは当時の `license-key-requirements.md` §2.9 / `license-subscription-causality.md` §2.4.1（いずれも削除済、git 履歴参照）に記載。本ランブック ステップ 5 で `customer.subscription.deleted` Webhook を購読しておけば、アプリ側で自動発火される。
