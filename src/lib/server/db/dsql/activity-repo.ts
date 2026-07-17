@@ -20,8 +20,16 @@
 //     1 クエリで集計する。
 //   - countPointLedgerEntriesByTypeAndDate は recorded_date 列で冪等 lookup (§11.2 H21 —
 //     spike#7 採用の secondary (family,child,type,recorded_date) が covering)。
-//   - insertActivity の「tenant 先頭 child bind」は sqlite facade parity (#2458-A1)。DSQL は
-//     integer autoincrement が無いため created_at, child_id で先頭を決定する。
+//   - **insertActivity の facade 契約再評価 (#3596 ③)**: `IActivityRepo.insertActivity(input,
+//     tenantId)` は child selector を持たない **family-level 互換 API** であり、per-child
+//     instance (ADR-0055 §6) を作る新規呼出は `IChildActivityRepo.insertActivity(input, childId)`
+//     を使う。本 facade は「child 未指定」の legacy 呼出のために tenant の**代表 child**
+//     (= 最古 created_at) に bind する暫定 shim を維持する (sqlite facade parity #2458-A1、
+//     sqlite は `ORDER BY children.id` = 作成順)。DSQL は integer autoincrement が無いため
+//     `ORDER BY created_at, child_id` で代表 child を決める。**child_id (uuid) を第 2 sort key に
+//     置くことで同秒 created_at でも一意・決定的**に選ばれる (「同秒時 tiebreak 非決定」懸念の解消。
+//     `[A3b]` 回帰で pin)。返す Activity shape は child 束縛を露出しない (sqlite parity) ため、
+//     複数 child 家庭で本 facade を使うのは legacy path のみ。
 
 import { sql } from 'drizzle-orm';
 import { type ActivityId, asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
@@ -175,6 +183,9 @@ export function createDsqlActivityRepo<TTx extends SqlExecutor>(
 			`);
 			const child = firstChild.rows[0] as { child_id: string } | undefined;
 			if (!child) {
+				// facade 契約 (#3596 ③、header 参照): child 未指定の legacy family-level 呼出は
+				// 代表 child (最古 created_at、child_id uuid tiebreak で決定的) に bind する。
+				// per-child 新規作成は IChildActivityRepo.insertActivity(input, childId) を使う。
 				throw new Error('insertActivity: tenant に child が存在しないため作成不可');
 			}
 			const result = await db.execute(sql`
