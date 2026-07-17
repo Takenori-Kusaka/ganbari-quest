@@ -3,6 +3,10 @@ import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
+import {
+	areValidUuidFormFields,
+	isValidUuidFormField,
+} from '$lib/server/auth/child-form-field-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -300,6 +304,11 @@ export const actions: Actions = {
 		if (!childId || !activityId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
+		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id) へ
+		// 直達し 22P02 → 500 になる CWE-20 を trust 境界で断つ (自己誘発改竄なので 400 正規化)。
+		if (!isValidUuidFormField(activityId, 'route.home.record.activityId')) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
 
 		const result = await recordActivity(childId, activityId, tenantId);
 		if ('error' in result) {
@@ -339,6 +348,11 @@ export const actions: Actions = {
 		const logId = formIdString(formData.get('logId'));
 
 		if (!childId || !logId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 logId が dsql の uuid 列 (activity_logs.log_id) へ直達し
+		// 22P02 → 500 になる CWE-20 を trust 境界で断つ。
+		if (!isValidUuidFormField(logId, 'route.home.cancelRecord.logId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -453,6 +467,11 @@ export const actions: Actions = {
 		if (!childId || !activityId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
+		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id /
+		// child_activity_preferences.activity_id) へ直達し 22P02 になる CWE-20 を trust 境界で断つ。
+		if (!isValidUuidFormField(activityId, 'route.home.togglePin.activityId')) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
 
 		try {
 			const result = await toggleActivityPin(childId, activityId, pinned, tenantId);
@@ -550,6 +569,12 @@ export const actions: Actions = {
 		if (!childId || !challengeId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
+		// #3799: form-field 由来 challengeId が dsql の uuid 列 (child_challenges.challenge_id) へ
+		// 直達し 22P02 になる CWE-20 を trust 境界で断つ。下の try/catch は 22P02 を握り潰し
+		// 生 err.message を fail(400) に載せる (ADR-0062 内部例外 leak) ため、事前 guard で防ぐ。
+		if (!isValidUuidFormField(challengeId, 'route.home.claimChallengeReward.challengeId')) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
 
 		try {
 			// #2458-B: per-child instance ごとに claim (旧 sibling-challenge service の family scope claim から flip)
@@ -580,6 +605,13 @@ export const actions: Actions = {
 		if (!childId || !toChildId || !stampCode) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
+		// #3799 (確定残渣): form-field 由来 toChildId が sendCheer → insertCheer の
+		// `JOIN children ct ON ct.child_id = ${toChildId}` (dsql uuid 列) へ無 guard 直達し、
+		// 非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。fromChildId は
+		// requireValidChildCookieFormat で cookie guard 済のため、残る form-field toChildId を検証する。
+		if (!isValidUuidFormField(toChildId, 'route.home.sendCheer.toChildId')) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
 
 		const result = await sendCheer(childId, toChildId, stampCode, tenantId);
 		if ('error' in result) {
@@ -599,6 +631,11 @@ export const actions: Actions = {
 			.filter((v) => v !== '');
 
 		if (cheerIds.length === 0) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 cheerIds が markShown の `cheer_id IN (${...})` (dsql uuid 列) へ
+		// 無 guard 直達し、非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。
+		if (!areValidUuidFormFields(cheerIds, 'route.home.markCheersShown.cheerIds')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 

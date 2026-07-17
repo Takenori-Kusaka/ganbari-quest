@@ -120,6 +120,12 @@ export function createDsqlMessageRepo(db: SqlExecutor): IMessageRepo {
 				warnInvalidUuidId('message-repo.markMessageShown');
 				return undefined;
 			}
+			// #3799: messageId は URL param (`[messageId]`) 由来の form-field 同等 opaque id。cookie childId
+			// が有効でも非 uuid messageId が `msg_id = ${messageId}` へ直達すると 22P02 になるため同型 guard。
+			if (!isUuidFormat(String(messageId))) {
+				warnInvalidUuidId('message-repo.markMessageShown');
+				return undefined;
+			}
 			// #2845 課題①: (childId, msgId) 複合キー。不一致なら undefined。
 			const result = await db.execute(sql`
 				UPDATE parent_messages SET shown_at = now()

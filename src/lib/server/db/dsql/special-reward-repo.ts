@@ -126,6 +126,12 @@ export function createDsqlSpecialRewardRepo<TTx extends SqlExecutor>(
 				warnInvalidUuidId('special-reward-repo.markRewardShown');
 				return undefined;
 			}
+			// #3799: rewardId は URL param (`[rewardId]`) 由来の form-field 同等 opaque id。cookie childId
+			// が有効でも非 uuid rewardId が `reward_id = ${rewardId}` へ直達すると 22P02 になるため同型 guard。
+			if (!isUuidFormat(String(rewardId))) {
+				warnInvalidUuidId('special-reward-repo.markRewardShown');
+				return undefined;
+			}
 			// #2845 課題①: (childId, rewardId) 複合キー。不一致なら 0 行 = undefined。
 			const result = await db.execute(sql`
 				UPDATE special_rewards SET shown_at = now()
