@@ -5,6 +5,7 @@
 // #3438 Phase 2B: DynamoDB backend (repo 層 33 本 + dynamodb 分岐) は cutover 完了により撤去済。
 
 import * as demoAccountLockoutRepo from './demo/account-lockout-repo';
+import * as demoActivationFunnelRepo from './demo/activation-funnel-repo';
 import * as demoActivityMasteryRepo from './demo/activity-mastery-repo';
 import * as demoActivityPrefRepo from './demo/activity-pref-repo';
 import * as demoActivityRepo from './demo/activity-repo';
@@ -40,6 +41,7 @@ import * as demoTrialHistoryRepo from './demo/trial-history-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
 import { createDsqlAccountLockoutRepo } from './dsql/account-lockout-repo';
+import { createDsqlActivationFunnelRepo } from './dsql/activation-funnel-repo';
 import { createDsqlActivityMasteryRepo } from './dsql/activity-mastery-repo';
 import { createDsqlActivityPrefRepo } from './dsql/activity-pref-repo';
 import { createDsqlActivityRepo } from './dsql/activity-repo';
@@ -78,6 +80,7 @@ import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
 import { createDsqlVoiceRepo } from './dsql/voice-repo';
 // #3438 Phase 2B: dynamodb/*-repo は撤去 (storage は Phase 1 #3786 で s3/ へ移設済)。
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
+import type { IActivationFunnelRepo } from './interfaces/activation-funnel-repo.interface';
 import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.interface';
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
@@ -119,6 +122,7 @@ import type { IVoiceRepo } from './interfaces/voice-repo.interface';
 import { getPgliteDbSync, getPgliteTransactionRunnerSync } from './pglite/connection';
 import * as s3StorageRepo from './s3/storage-repo';
 import * as sqliteAccountLockoutRepo from './sqlite/account-lockout-repo';
+import * as sqliteActivationFunnelRepo from './sqlite/activation-funnel-repo';
 import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
@@ -156,6 +160,11 @@ import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
+	/**
+	 * #3805: on-demand activation funnel (cross-tenant KPI)。DSQL / PGlite のみ実データ、
+	 * sqlite / demo / dynamodb は単一テナント or 非分析 backend のため 0 件 stub。
+	 */
+	activationFunnel: IActivationFunnelRepo;
 	battle: IBattleRepo;
 	cancellationReason: ICancellationReasonRepo;
 	certificate: ICertificateRepo;
@@ -215,6 +224,7 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 ): Repositories {
 	return {
 		accountLockout: createDsqlAccountLockoutRepo(db),
+		activationFunnel: createDsqlActivationFunnelRepo(db),
 		battle: createDsqlBattleRepo(db),
 		cancellationReason: createDsqlCancellationReasonRepo(db),
 		certificate: createDsqlCertificateRepo(db),
@@ -263,6 +273,7 @@ export function getRepos(): Repositories {
 		// 物理的に発生不可能にする。
 		const repos: Repositories = {
 			accountLockout: demoAccountLockoutRepo,
+			activationFunnel: demoActivationFunnelRepo,
 			battle: demoBattleRepo,
 			cancellationReason: demoCancellationReasonRepo,
 			certificate: demoCertificateRepo,
@@ -316,6 +327,7 @@ export function getRepos(): Repositories {
 	}
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
+		activationFunnel: sqliteActivationFunnelRepo,
 		battle: sqliteBattleRepo,
 		cancellationReason: sqliteCancellationReasonRepo,
 		certificate: sqliteCertificateRepo,

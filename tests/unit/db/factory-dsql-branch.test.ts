@@ -34,6 +34,7 @@ vi.mock('../../../src/lib/server/db/dsql/connection', () => {
 /** Repositories interface の全 key (factory.ts の interface 定義と同期)。 */
 const REPOSITORY_KEYS = [
 	'accountLockout',
+	'activationFunnel',
 	'battle',
 	'cancellationReason',
 	'certificate',
