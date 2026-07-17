@@ -161,7 +161,7 @@
 |----------|------|------|------|
 | GET | /api/v1/admin/invites | 招待一覧取得 | owner/parent |
 | POST | /api/v1/admin/invites | 招待リンク作成 | owner/parent |
-| DELETE | /api/v1/admin/invites/[code] | 招待リンク取消 | owner/parent |
+| DELETE | /api/v1/admin/invites/[id] | 招待リンク取消 | owner/parent |
 | GET | /api/v1/admin/license | ライセンス情報取得 (Epic #2525 で削除済、§3.X 参照) | — |
 | POST | /admin/license?/applyLicenseKey | ライセンスキー適用 (Epic #2525 で削除済、§3.X 参照) | — |
 | DELETE | /api/v1/admin/members/[userId] | メンバー削除 | owner |
@@ -1205,9 +1205,9 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 }
 ```
 
-#### DELETE /api/v1/admin/invites/[code]
+#### DELETE /api/v1/admin/invites/[id]
 
-招待リンクを取り消す。
+招待リンクを取り消す。パスセグメントは招待レコードの内部 ID（`inviteId`、`inv-<uuid v4>`）。取消（`revokeInvite` → `updateInviteStatus`）は query 層で `family_id` 述語により対象テナントの招待に限定され、cross-tenant mutation を物理排除する（ADR-0063 単一強制点）。
 
 #### GET /api/v1/admin/license — deprecated (Epic #2525 で削除)
 

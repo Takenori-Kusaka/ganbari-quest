@@ -37,7 +37,9 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 	// 有効期限チェック
 	if (new Date(invite.expiresAt) < new Date()) {
 		try {
-			await repos().auth.updateInviteStatus(inviteCode, 'expired');
+			// #3585: 状態遷移は inviteId 鍵。invite は raw code で引いた本物のため inviteId は信頼できる
+			// #3588: tenant scope (family_id 述語) を query 層で強制するため invite.tenantId を渡す
+			await repos().auth.updateInviteStatus(invite.inviteId, invite.tenantId, 'expired');
 		} catch {
 			// conditional write failure は無視（既に別ステータスに遷移済み）
 		}
@@ -109,7 +111,9 @@ export async function acceptInvite(
 
 	// 招待ステータス更新（accepted）
 	try {
-		await repos().auth.updateInviteStatus(inviteCode, 'accepted', userId);
+		// #3585: 状態遷移は inviteId 鍵 (invite は getInvite が raw code で引いた本物)
+		// #3588: tenant scope は invite.tenantId (受諾対象 family) を query 層 family_id 述語で強制
+		await repos().auth.updateInviteStatus(invite.inviteId, invite.tenantId, 'accepted', userId);
 	} catch {
 		// conditional write failure — 既に受諾済み（race condition）
 		// メンバーシップは作成済みなので続行
@@ -139,16 +143,24 @@ export async function acceptInvite(
 	return { membership };
 }
 
-/** 招待を取り消す */
-export async function revokeInvite(inviteCode: string, tenantId: string): Promise<void> {
-	const invite = await repos().auth.findInviteByCode(inviteCode);
-	if (!invite || invite.tenantId !== tenantId || invite.status !== 'pending') {
+/**
+ * 招待を取り消す (#3585: 管理鍵は inviteId)。
+ *
+ * raw code は一覧から復元不能 (CWE-522) のため、admin UI は inviteId を渡す。tenant scope は
+ * findTenantInvites (tenant 束縛) の一覧に inviteId が存在することで担保する — 他 tenant の
+ * inviteId を渡しても一覧に無いため no-op となり cross-tenant revoke を防ぐ。
+ */
+export async function revokeInvite(inviteId: string, tenantId: string): Promise<void> {
+	const invites = await repos().auth.findTenantInvites(tenantId);
+	const target = invites.find((i) => i.inviteId === inviteId);
+	if (!target || target.status !== 'pending') {
 		return;
 	}
 	try {
-		await repos().auth.updateInviteStatus(inviteCode, 'revoked');
+		// #3588: tenant scope は tenantId (family_id 述語) で query 層が強制する
+		await repos().auth.updateInviteStatus(inviteId, tenantId, 'revoked');
 	} catch {
-		// conditional write failure は無視
+		// conditional write failure は無視 (状態機械が pending 以外を弾く)
 	}
 }
 

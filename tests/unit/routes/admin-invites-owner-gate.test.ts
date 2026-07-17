@@ -91,14 +91,14 @@ describe('POST /api/v1/admin/invites owner-gate (#3726)', () => {
 	});
 });
 
-describe('DELETE /api/v1/admin/invites/[code] owner-gate (#3726)', () => {
-	const load = () => import('../../../src/routes/api/v1/admin/invites/[code]/+server');
+describe('DELETE /api/v1/admin/invites/[id] owner-gate (#3726)', () => {
+	const load = () => import('../../../src/routes/api/v1/admin/invites/[id]/+server');
 
 	for (const role of ['parent', 'child'] as const) {
 		it(`${role} は 403 + OWNER_GATE_LABELS.inviteRevoke (SSOT 文言、旧 literal とバイト一致)`, async () => {
 			const { DELETE } = await load();
 			const res = await DELETE({
-				params: { code: 'ABC123' },
+				params: { id: 'ABC123' },
 				locals: makeLocals(role),
 			} as never);
 			expect(res.status).toBe(403);
@@ -111,7 +111,7 @@ describe('DELETE /api/v1/admin/invites/[code] owner-gate (#3726)', () => {
 	it('未認証 (context 欠落) は 500 化せず 401', async () => {
 		const { DELETE } = await load();
 		const res = await DELETE({
-			params: { code: 'ABC123' },
+			params: { id: 'ABC123' },
 			locals: makeLocals(null),
 		} as never);
 		expect(res.status).toBe(401);
@@ -121,7 +121,7 @@ describe('DELETE /api/v1/admin/invites/[code] owner-gate (#3726)', () => {
 		mockRevokeInvite.mockResolvedValue(undefined);
 		const { DELETE } = await load();
 		const res = await DELETE({
-			params: { code: 'ABC123' },
+			params: { id: 'ABC123' },
 			locals: makeLocals('owner'),
 		} as never);
 		expect(res.status).toBe(200);

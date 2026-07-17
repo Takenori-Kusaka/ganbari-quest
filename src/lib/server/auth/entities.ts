@@ -80,6 +80,19 @@ export type InviteStatus = (typeof INVITE_STATUSES)[number];
 
 /** 招待リンク */
 export interface Invite {
+	/**
+	 * 管理操作 (updateInviteStatus / deleteInvite / 一覧からの revoke) の安定鍵 (#3585)。
+	 * 呼び出し側にとって opaque な backend 定義のハンドル:
+	 *   - DSQL: invites.invite_id (DB 採番 uuid)。raw code は token_hash のみ保存で復元不能 (CWE-522)
+	 *   - DynamoDB: raw inviteCode と同値 (PK=INVITE#<code> を管理鍵に流用)
+	 * findTenantInvites はこの inviteId を返し、inviteCode は空文字にする (raw は作成時のみ露出)。
+	 */
+	inviteId: string;
+	/**
+	 * raw 招待コード (受諾リンクに埋め込む capability)。作成時 (createInvite) と
+	 * 受諾照合 (findInviteByCode、raw 提示者 = capability 保持者) でのみ非空。
+	 * 一覧 (findTenantInvites) では復元不能 (DSQL) / 非露出 (統一) のため空文字。
+	 */
 	inviteCode: string;
 	tenantId: string;
 	invitedBy: string;

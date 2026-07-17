@@ -15,11 +15,14 @@
 //   [M1] membership CRUD (findUserTenants / findTenantMembers / deleteMembership + 非存在 no-op)
 //   [M2] deleteMembership が唯一の owner をブロック (I-OWN ≥1 app 層、M3 §3.3、FOR UPDATE)
 //   [M3] owner 移譲後は旧 owner (parent 降格) を削除可能
-//   [I1] createInvite → findInviteByCode round-trip (raw code 維持、DB は token_hash のみ保存)
-//   [I2] findTenantInvites の inviteCode = invite_id (raw 非保存のため復元不能、挙動固定)
+//   [I1] createInvite → findInviteByCode round-trip (raw code 維持 + inviteId 採番、DB は token_hash のみ保存)
+//   [I2] findTenantInvites は inviteId を管理鍵に返し inviteCode は '' (raw 非露出、#3585)
 //   [I3] invite email の小文字正規化 (§6.6)
-//   [I4] updateInviteStatus (hash 照合、acceptedBy/acceptedAt 設定)
-//   [I5] deleteInvite の tenant 束縛 (他 tenant からは消せない)
+//   [I4] updateInviteStatus (inviteId 鍵、acceptedBy/acceptedAt 設定、#3585)
+//   [I5] deleteInvite の inviteId 鍵 + tenant 束縛 (他 tenant からは消せない、#3585)
+//   [I8] updateInviteStatus の tenant 束縛 (他 tenant の inviteId は no-op、cross-tenant mutation 排除、#3588 / ADR-0063)
+//   [I6] updateInviteStatus 状態機械: pending 以外からの再遷移は no-op (#3588 ③)
+//   [I7] 一覧の inviteId → revoke/delete が正しく反応する (raw 非保存の債務解消、#3585 / #3588 ④)
 //   [N1] consent append-only + findLatestConsent (consented_at 降順) + §P9 tenant 分離
 
 import { sql } from 'drizzle-orm';
@@ -280,6 +283,9 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		});
 		// 作成時のみ raw code を返す (dynamo backend と同形式)
 		expect(invite.inviteCode).toMatch(/^inv-/);
+		// #3585: inviteId (管理鍵) は DB 採番 uuid で raw code とは独立
+		expect(invite.inviteId).toMatch(UUID_RE);
+		expect(invite.inviteId).not.toBe(invite.inviteCode);
 		expect(invite.status).toBe('pending');
 		expect(invite.childId).toBe(CHILD_1);
 		// expiresAt ≈ +7 日 (INVITE_EXPIRY_DAYS)
@@ -297,13 +303,14 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 
 		const found = await repo.findInviteByCode(invite.inviteCode);
 		expect(found?.inviteCode).toBe(invite.inviteCode); // 引数の raw code を維持
+		expect(found?.inviteId).toBe(invite.inviteId); // 同一 invite の inviteId を復元
 		expect(found?.tenantId).toBe(tenant.tenantId);
 		expect(found?.invitedBy).toBe(USER_A);
 		expect(found?.role).toBe('parent');
 		expect(await repo.findInviteByCode('inv-unknown')).toBeUndefined();
 	});
 
-	it('[I2] findTenantInvites の inviteCode = invite_id (raw 非保存で復元不能、挙動固定)', async () => {
+	it('[I2] findTenantInvites は inviteId を管理鍵に返し inviteCode は空 (raw 非露出、#3585)', async () => {
 		const tenant = await repo.createTenant({ name: '一覧家', ownerId: USER_A });
 		const created = await repo.createInvite({
 			tenantId: tenant.tenantId,
@@ -313,9 +320,11 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 
 		const listed = await repo.findTenantInvites(tenant.tenantId);
 		expect(listed).toHaveLength(1);
-		// raw code は復元不能 → invite_id (uuid) を返す (interface 進化までの固定挙動)
-		expect(listed[0]?.inviteCode).toMatch(UUID_RE);
-		expect(listed[0]?.inviteCode).not.toBe(created.inviteCode);
+		// #3585: 管理鍵 inviteId (= 作成時の inviteId) を返す
+		expect(listed[0]?.inviteId).toBe(created.inviteId);
+		expect(listed[0]?.inviteId).toMatch(UUID_RE);
+		// raw code は復元不能 (CWE-522) のため一覧では '' (作成時のみ露出)
+		expect(listed[0]?.inviteCode).toBe('');
 		expect(listed[0]?.role).toBe('child');
 		// §P9: 他 tenant の一覧には出ない
 		const other = await repo.createTenant({ name: '別家', ownerId: USER_B });
@@ -334,14 +343,15 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		expect((await repo.findInviteByCode(invite.inviteCode))?.email).toBe('aunt.mari@example.com');
 	});
 
-	it('[I4] updateInviteStatus: hash 照合 + acceptedBy/acceptedAt 設定', async () => {
+	it('[I4] updateInviteStatus: inviteId 鍵 + acceptedBy/acceptedAt 設定 (#3585)', async () => {
 		const tenant = await repo.createTenant({ name: '状態家', ownerId: USER_A });
 		const inv1 = await repo.createInvite({
 			tenantId: tenant.tenantId,
 			invitedBy: USER_A,
 			role: 'parent',
 		});
-		await repo.updateInviteStatus(inv1.inviteCode, 'revoked');
+		// #3585: 管理鍵は inviteId (raw code ではない)。#3588: tenant scope は family_id 述語
+		await repo.updateInviteStatus(inv1.inviteId, tenant.tenantId, 'revoked');
 		expect((await repo.findInviteByCode(inv1.inviteCode))?.status).toBe('revoked');
 
 		const inv2 = await repo.createInvite({
@@ -349,14 +359,23 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 			invitedBy: USER_A,
 			role: 'parent',
 		});
-		await repo.updateInviteStatus(inv2.inviteCode, 'accepted', USER_B);
+		await repo.updateInviteStatus(inv2.inviteId, tenant.tenantId, 'accepted', USER_B);
 		const accepted = await repo.findInviteByCode(inv2.inviteCode);
 		expect(accepted?.status).toBe('accepted');
 		expect(accepted?.acceptedBy).toBe(USER_B);
 		expect(accepted?.acceptedAt).toBeDefined();
+
+		// 存在しない inviteId (有効 uuid) は invite_id 照合で一致せず no-op
+		const inv3 = await repo.createInvite({
+			tenantId: tenant.tenantId,
+			invitedBy: USER_A,
+			role: 'parent',
+		});
+		await repo.updateInviteStatus(NO_SUCH, tenant.tenantId, 'revoked');
+		expect((await repo.findInviteByCode(inv3.inviteCode))?.status).toBe('pending');
 	});
 
-	it('[I5] deleteInvite は tenant 束縛 (他 tenant からは消せない)', async () => {
+	it('[I5] deleteInvite は inviteId 鍵 + tenant 束縛 (他 tenant からは消せない、#3585)', async () => {
 		const mine = await repo.createTenant({ name: '自家', ownerId: USER_A });
 		const other = await repo.createTenant({ name: '他家', ownerId: USER_B });
 		const invite = await repo.createInvite({
@@ -365,11 +384,76 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 			role: 'parent',
 		});
 
-		await repo.deleteInvite(invite.inviteCode, other.tenantId); // 他 tenant → no-op
+		await repo.deleteInvite(invite.inviteId, other.tenantId); // 他 tenant → no-op
 		expect(await repo.findInviteByCode(invite.inviteCode)).toBeDefined();
 
-		await repo.deleteInvite(invite.inviteCode, mine.tenantId);
+		await repo.deleteInvite(invite.inviteId, mine.tenantId);
 		expect(await repo.findInviteByCode(invite.inviteCode)).toBeUndefined();
+	});
+
+	it('[I8] updateInviteStatus は tenant 束縛 (他 tenant の inviteId は no-op、cross-tenant mutation 排除、#3588 / ADR-0063)', async () => {
+		// deleteInvite ([I5]) と対称の family_id 述語検証。他家族の invite の status / accepted_by を
+		// 書き換えられないことを assert する (述語を外すと fail する検出力)。
+		const mine = await repo.createTenant({ name: '本家', ownerId: USER_A });
+		const other = await repo.createTenant({ name: '別家', ownerId: USER_B });
+		const invite = await repo.createInvite({
+			tenantId: mine.tenantId,
+			invitedBy: USER_A,
+			role: 'parent',
+		});
+
+		// 他 tenant の family_id 指定 → family_id 述語不一致で 0 行 = no-op (revoke されない)
+		await repo.updateInviteStatus(invite.inviteId, other.tenantId, 'revoked');
+		expect((await repo.findInviteByCode(invite.inviteCode))?.status).toBe('pending');
+
+		// 他 tenant の family_id 指定 + acceptedBy 経路も no-op (accepted_by を書き込めない)
+		await repo.updateInviteStatus(invite.inviteId, other.tenantId, 'accepted', USER_C);
+		const afterCrossTenant = await repo.findInviteByCode(invite.inviteCode);
+		expect(afterCrossTenant?.status).toBe('pending');
+		expect(afterCrossTenant?.acceptedBy).toBeUndefined();
+
+		// 正しい family_id なら遷移する (regression の対照)
+		await repo.updateInviteStatus(invite.inviteId, mine.tenantId, 'revoked');
+		expect((await repo.findInviteByCode(invite.inviteCode))?.status).toBe('revoked');
+	});
+
+	it('[I6] updateInviteStatus 状態機械: pending 以外からの再遷移は no-op (#3588 ③)', async () => {
+		const tenant = await repo.createTenant({ name: '機械家', ownerId: USER_A });
+		const invite = await repo.createInvite({
+			tenantId: tenant.tenantId,
+			invitedBy: USER_A,
+			role: 'parent',
+		});
+		// pending → revoked は許可 (#3588: tenant scope は family_id 述語)
+		await repo.updateInviteStatus(invite.inviteId, tenant.tenantId, 'revoked');
+		expect((await repo.findInviteByCode(invite.inviteCode))?.status).toBe('revoked');
+
+		// revoked → accepted / pending / expired への再遷移は状態機械が弾く (no-op)
+		await repo.updateInviteStatus(invite.inviteId, tenant.tenantId, 'accepted', USER_B);
+		await repo.updateInviteStatus(invite.inviteId, tenant.tenantId, 'pending');
+		await repo.updateInviteStatus(invite.inviteId, tenant.tenantId, 'expired');
+		const stillRevoked = await repo.findInviteByCode(invite.inviteCode);
+		expect(stillRevoked?.status).toBe('revoked');
+		expect(stillRevoked?.acceptedBy).toBeUndefined();
+	});
+
+	it('[I7] 一覧の inviteId で revoke / delete が正しく反応する (raw 非保存の債務解消、#3585 / #3588 ④)', async () => {
+		const tenant = await repo.createTenant({ name: '債務家', ownerId: USER_A });
+		await repo.createInvite({ tenantId: tenant.tenantId, invitedBy: USER_A, role: 'parent' });
+
+		// 一覧から得た inviteId で管理操作 → 一致して状態遷移する (旧: inviteCode 位置の
+		// invite_id を hash 照合し不一致 no-op となる債務)。
+		const listed = (await repo.findTenantInvites(tenant.tenantId))[0];
+		expect(listed).toBeDefined();
+		if (!listed) throw new Error('invite not listed');
+		expect(listed.inviteCode).toBe(''); // raw は非露出
+		await repo.updateInviteStatus(listed.inviteId, tenant.tenantId, 'revoked');
+		const afterRevoke = await repo.findTenantInvites(tenant.tenantId);
+		expect(afterRevoke[0]?.status).toBe('revoked');
+
+		// 一覧の inviteId で物理削除も反応する
+		await repo.deleteInvite(listed.inviteId, tenant.tenantId);
+		expect(await repo.findTenantInvites(tenant.tenantId)).toEqual([]);
 	});
 
 	// ---------------------------------------------------------- Consent
