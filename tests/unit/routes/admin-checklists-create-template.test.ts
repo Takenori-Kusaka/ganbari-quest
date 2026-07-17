@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 
 const mockCreateTemplate = vi.fn();
+const mockAddTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
 const mockFindOverrides = vi.fn();
 const mockFindTemplateItems = vi.fn();
@@ -21,7 +22,7 @@ vi.mock('$lib/server/services/checklist-service', () => ({
 	createTemplate: (...args: unknown[]) => mockCreateTemplate(...args),
 	editTemplate: vi.fn(),
 	removeTemplate: vi.fn(),
-	addTemplateItem: vi.fn(),
+	addTemplateItem: (...args: unknown[]) => mockAddTemplateItem(...args),
 	removeTemplateItem: vi.fn(),
 	addOverride: vi.fn(),
 	removeOverride: vi.fn(),
@@ -211,5 +212,38 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 
 		expect(result).toMatchObject({ status: 400 });
 		expect(mockCreateTemplate).not.toHaveBeenCalled();
+	});
+});
+
+// #3151 slice3 (ADR-0066): addItem authoring guard — export/import 往復不能 item を default-deny。
+// domain validator (checklistItemSchema) が wire schema と同一境界で label / icon を検証する。
+describe('POST /admin/checklists?/addItem authoring guard (#3151 slice3)', () => {
+	it('正常な label / icon → addTemplateItem 呼び出し成功', async () => {
+		mockAddTemplateItem.mockResolvedValue({ id: 'i1' });
+
+		const result = await actions.addItem!(
+			createEvent({ templateId: 't1', name: 'ハンカチ', icon: '🧻' }),
+		);
+
+		expect(result).toEqual({ success: true });
+		expect(mockAddTemplateItem).toHaveBeenCalledTimes(1);
+	});
+
+	it('label が 100 文字超 → 400 (往復不能データの authoring を default-deny)', async () => {
+		const result = await actions.addItem!(
+			createEvent({ templateId: 't1', name: 'あ'.repeat(101), icon: '📋' }),
+		);
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(mockAddTemplateItem).not.toHaveBeenCalled();
+	});
+
+	it('icon が絵文字 3 個 → 400 (isValidChecklistIcon 1〜2 grapheme 境界)', async () => {
+		const result = await actions.addItem!(
+			createEvent({ templateId: 't1', name: 'X', icon: '🎁🎈🎀' }),
+		);
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(mockAddTemplateItem).not.toHaveBeenCalled();
 	});
 });
