@@ -62,7 +62,7 @@ jobs:
           # PR 発行は後段で App install トークンを使う。checkout は既定 token で十分。
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 

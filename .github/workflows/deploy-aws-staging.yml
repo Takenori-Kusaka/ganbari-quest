@@ -85,7 +85,7 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && 'develop' || github.event.pull_request.head.sha }}
 
       # Step 2: Node 22
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
