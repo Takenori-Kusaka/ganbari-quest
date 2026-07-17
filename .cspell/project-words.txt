@@ -209,6 +209,7 @@ cutover
 daidaikichi
 daikichi
 daisuki
+Dakuten
 dedup
 Denorm
 dependabot

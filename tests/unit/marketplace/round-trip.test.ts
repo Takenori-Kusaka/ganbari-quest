@@ -27,6 +27,11 @@ import { dispatchExport, dispatchExportToJson } from '$lib/marketplace/export-di
 import { parseAnyExportEnvelope, parseExportEnvelopeV2 } from '$lib/marketplace/export-schema';
 import { MarketplacePayloadSchemaMap, type MarketplaceTypeId } from '$lib/marketplace/schemas';
 
+// #3847 (EPIC #3151): 下記の「round-trip 不変条件」(import(export(x)) == x) 本体は
+// example-based から property-based (fast-check) に **格上げ** 済 (`export-import-roundtrip-property.test.ts`)。
+// 本ファイルは property では表現しにくい orthogonal な lock (checksum 改竄検知 / 別 entry point /
+// v1 互換 / deterministic checksum / wire format canary snapshot) を example-based で保持する。
+
 /**
  * Strategy 本体は DB 依存 import を引き連れるためテストで直接読み込まず、
  * Strategy.parse() と同等の振る舞いをする payload schema (`MarketplacePayloadSchemaMap`)
@@ -121,33 +126,12 @@ const SAMPLES: Array<{ typeCode: MarketplaceTypeId; payload: unknown }> = [
 	{ typeCode: 'challenge-set', payload: SAMPLE_CHALLENGE_SET },
 ];
 
-describe('export → import round-trip 保証 (5 type 全網羅)', () => {
+describe('export → import round-trip 保証 (5 type 全網羅、orthogonal lock)', () => {
+	// NOTE(#3847): round-trip 不変条件 (dispatchExport → JSON 往復 → parseExportEnvelopeV2 →
+	// schema.parse == 元 payload) 本体は property-based に格上げ済 (export-import-roundtrip-property.test.ts)。
+	// 本 describe は checksum 改竄検知 / 別 entry point / v1 互換など property では表現しにくい lock のみ残す。
 	for (const { typeCode, payload } of SAMPLES) {
 		describe(`typeCode = ${typeCode}`, () => {
-			it('dispatchExport → JSON.stringify → JSON.parse → parseExportEnvelopeV2 が成功する', () => {
-				const env = dispatchExport({ typeCode, payload });
-				const json = JSON.stringify(env);
-				const restored = parseExportEnvelopeV2(JSON.parse(json));
-				expect(restored.typeCode).toBe(typeCode);
-				expect(restored.schemaVersion).toBe(2);
-				expect(restored.payload).toEqual(env.payload);
-				expect(restored.checksum).toBe(env.checksum);
-			});
-
-			it('envelope.payload は Strategy 互換の schema.parse() で受理される', () => {
-				const env = dispatchExport({ typeCode, payload });
-				expect(() => parseViaSchema(typeCode, env.payload)).not.toThrow();
-			});
-
-			it('round-trip 後の payload を schema.parse() に渡しても元 payload と等価', () => {
-				// payload → envelope → JSON → restored → schema.parse → restored payload
-				const env = dispatchExport({ typeCode, payload });
-				const restored = parseExportEnvelopeV2(JSON.parse(JSON.stringify(env)));
-				const finalParsed = parseViaSchema(typeCode, restored.payload);
-				// schema 経由 parse の結果が元 payload と equal (deep)
-				expect(finalParsed).toEqual(env.payload);
-			});
-
 			it('checksum 改竄を round-trip で検出', () => {
 				const env = dispatchExport({ typeCode, payload });
 				const tampered = JSON.parse(JSON.stringify(env));
@@ -231,5 +215,33 @@ describe('deterministic checksum 保証', () => {
 			exportedAt: fixed,
 		});
 		expect(e1.checksum).toBe(e2.checksum);
+	});
+});
+
+// #3847 AC3: wire format canary。代表 export 1 枚を snapshot で固定し、envelope 構造 /
+// checksum アルゴリズム / key 順序 の silent な wire format 変更を検出する (過剰な approval
+// framework は作らず 1 snapshot のみ)。exportedAt を固定して deterministic にする。
+describe('wire format canary snapshot (#3847)', () => {
+	it('activity-pack の代表 export envelope が既知の wire format と一致する', () => {
+		const canary = {
+			activities: [
+				{
+					name: 'ランニング🏃',
+					categoryCode: 'undou' as const,
+					icon: '🏃',
+					basePoints: 10,
+					ageMin: 6,
+					ageMax: 12,
+					gradeLevel: null,
+					triggerHint: '朝いちばん',
+				},
+			],
+		};
+		const json = dispatchExportToJson({
+			typeCode: 'activity-pack',
+			payload: canary,
+			exportedAt: '2026-05-21T00:00:00.000Z',
+		});
+		expect(JSON.parse(json)).toMatchSnapshot();
 	});
 });
