@@ -110,8 +110,10 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 // `response.headers.set('Content-Security-Policy', ...)` は clobber (二重付与) を避けるため撤去済。
 // directive 値の SSOT は svelte.config.js kit.csp。「外部送信ゼロ」の connect-src 'self' 固定も
 // 同 config に引き継いでいる (ADR-0067 / ADR-0023 §3.4)。
-// prerender ページ (sitemap 等) では frame-ancestors が meta で無効化されるため、下記
-// `X-Frame-Options: DENY` が clickjacking 防御の backup として引き続き必須。
+// clickjacking 防御 (下記 `X-Frame-Options: DENY`) は resolve(event) を通る SSR / 動的レスポンス
+// 全てに付与される。対話 HTML ページは全て SSR のため確実に効く。prerender ページ (唯一 sitemap.xml、
+// 非対話 XML) は build 時に静的化され hooks を経由しないため X-Frame-Options を持たないが、iframe 埋込
+// による clickjacking の実害は無い (QM runtime 検証 #3833 で実挙動を確認)。
 
 export const handle: Handle = ({ event, resolve }) =>
 	// #788: リクエスト境界でコンテキストを張る。resolveFullPlanTier / getTrialStatus が
@@ -483,8 +485,9 @@ export const handle: Handle = ({ event, resolve }) =>
 		// 3) セキュリティヘッダ付与
 		// Content-Security-Policy は SvelteKit 標準 CSP (svelte.config.js kit.csp) が
 		// ページレスポンスに付与するため、ここでは set しない (#3829、clobber 除去)。
-		// X-Frame-Options は prerender ページで frame-ancestors が meta 無効化される分の
-		// clickjacking backup として引き続き全レスポンスに付与する。
+		// X-Frame-Options は SSR / 動的レスポンス全てに付与し、対話 HTML の clickjacking を防ぐ。
+		// prerender ページ (sitemap.xml、非対話 XML) は静的化され本 hooks を経由しないため
+		// 本 header は乗らないが、非対話 XML で実害なし (#3833 で実挙動を確認)。
 		response.headers.set('X-Frame-Options', 'DENY');
 		response.headers.set('X-Content-Type-Options', 'nosniff');
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

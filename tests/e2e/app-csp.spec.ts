@@ -7,9 +7,19 @@
 //
 // 本 spec は「全画面 hydration」への高回帰リスクを厚く検証する:
 //   ① SSR ページのレスポンス CSP に `script-src 'unsafe-inline'` が **無い** + sha256 hash が付与されている
-//   ② X-Frame-Options: DENY が付与されている (prerender ページで frame-ancestors が meta 無効化される分の backup)
+//   ② SSR (動的) レスポンスに X-Frame-Options: DENY が付与されている (対話 HTML の clickjacking 防御)
 //   ③ ページ読込時に CSP violation (Refused to execute inline script 等) の console error が **0 件**
 //   ④ hydration / interactivity が生存 (child home 遷移 / admin Ark UI Menu / marketplace SPA nav が client 動作する)
+//
+// clickjacking 防御の適用境界 (QM runtime 検証 #3833 で是正):
+//   X-Frame-Options: DENY は hooks.server.ts が resolve(event) を通る SSR / 動的レスポンス全てに付与する。
+//   対話 HTML ページは全て SSR のため clickjacking 保護は確実に効く (本 spec ② で実測)。
+//   一方 prerender ページ (`export const prerender = true`) は build 時に静的化され request 時に
+//   server hooks を経由しないため X-Frame-Options を持たない。本アプリで唯一の prerender endpoint は
+//   /sitemap.xml (非対話 XML) であり、iframe 埋め込みによる clickjacking の実害は事実上ない。
+//   従って「hooks の X-Frame-Options が prerender ページの backup になる」という当初の設計前提は
+//   prerender ページ自身には成立しない。本 spec は実挙動に整合させ、SSR HTML で X-Frame-Options を、
+//   sitemap.xml では「prerender は server-hook header を持たない」実挙動を assert する。
 //
 // CI は `npm run preview` (本番ビルド) で E2E 実行 = kit.csp hash mode が実効化する環境。
 // LP (site/**) 側 CSP は別 origin・別スコープ (GitHub Pages 静的配信、ADR-0029 + tests/e2e/lp-csp.spec.ts)。
@@ -75,7 +85,7 @@ function expectNoCspViolations(
 }
 
 test.describe('#3829 アプリ側 CSP script-src hash 化 (unsafe-inline 撤廃)', () => {
-	test('SSR ページの CSP header が script-src unsafe-inline 撤廃 + hash 付与 + X-Frame-Options backup', async ({
+	test('SSR ページの CSP header が script-src unsafe-inline 撤廃 + hash 付与 + X-Frame-Options (SSR clickjacking 防御)', async ({
 		page,
 	}) => {
 		const violations = collectCspViolations(page);
@@ -94,20 +104,33 @@ test.describe('#3829 アプリ側 CSP script-src hash 化 (unsafe-inline 撤廃)
 			"'unsafe-inline'",
 		);
 
-		// prerender ページで frame-ancestors が meta 無効化される分の clickjacking backup
-		expect(headers['x-frame-options'], 'X-Frame-Options: DENY が hooks で付与されている').toBe(
+		// /switch は SSR (動的) レスポンス = hooks が resolve(event) 経由で X-Frame-Options を付与する。
+		// 対話 HTML の clickjacking 防御はここで実測する。
+		expect(headers['x-frame-options'], 'SSR HTML に X-Frame-Options: DENY が hooks で付与されている').toBe(
 			'DENY',
 		);
 
 		expectNoCspViolations(violations, '/switch');
 	});
 
-	test('prerender エンドポイント /sitemap.xml が CSP 一本化後も配信され X-Frame-Options を持つ', async ({
+	test('prerender エンドポイント /sitemap.xml が CSP 一本化後も配信される (server-hook header は非経由)', async ({
 		page,
 	}) => {
 		const response = await page.goto('/sitemap.xml', { waitUntil: 'domcontentloaded' });
-		expect(response?.status(), '/sitemap.xml が 200 で配信される').toBe(200);
-		expect(response?.headers()['x-frame-options'], 'X-Frame-Options: DENY backup').toBe('DENY');
+		expect(response?.status(), '/sitemap.xml が 200 で配信される (CSP 一本化後も prerender endpoint 生存)').toBe(
+			200,
+		);
+
+		// prerender ページ (`export const prerender = true`) は build 時に静的化され request 時に
+		// server hooks (hooks.server.ts) を経由しない。従って hooks が付与する X-Frame-Options: DENY は
+		// sitemap.xml には乗らない (QM runtime 検証 #3833 で実測 = undefined)。当初 spec は
+		// `toBe('DENY')` を期待していたが実挙動と不整合だったため、実挙動に整合させる。
+		// clickjacking の実害は無い: sitemap.xml は非対話 XML で iframe 埋め込みの攻撃価値が無く、
+		// 対話 HTML ページは全て SSR で X-Frame-Options を確実に取得する (上の /switch test で担保)。
+		expect(
+			response?.headers()['x-frame-options'],
+			'prerender の静的レスポンスは server-hook 由来の X-Frame-Options を持たない (実挙動)',
+		).toBeUndefined();
 	});
 
 	// hydration 生存 = bootstrap inline script が CSP に blockされず実行された証跡。
@@ -160,6 +183,12 @@ test.describe('#3829 アプリ側 CSP script-src hash 化 (unsafe-inline 撤廃)
 		const response = await page.goto('/marketplace', { waitUntil: 'domcontentloaded' });
 		await page.waitForLoadState('load');
 		assertScriptSrcHardened(response?.headers()['content-security-policy'], '/marketplace');
+		// /marketplace は SSR HTML (対話ページ) = hooks が X-Frame-Options: DENY を付与する。
+		// clickjacking 保護が SSR HTML で効くことを 2 ページ目でも実測する (SSR-scoped 保証)。
+		expect(
+			response?.headers()['x-frame-options'],
+			'SSR HTML (/marketplace) に X-Frame-Options: DENY が付与されている',
+		).toBe('DENY');
 
 		// SvelteKit client router が hydrate されていれば <a> は full reload せず SPA 遷移する。
 		// window に probe を置き、type filter link click 後も残存 = full reload していない = hydration 生存。

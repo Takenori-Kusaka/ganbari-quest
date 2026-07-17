@@ -21,7 +21,7 @@ impact-analysis の実測で、アプリの inline `<script>` は **SvelteKit hy
 ### 選択肢 A: SvelteKit 標準 CSP `kit.csp` hash mode (採用)
 - 概要: `svelte.config.js` `kit.csp = { mode: 'hash', directives: {...} }`。SvelteKit が自身の inline bootstrap script の sha256 を計算し `script-src` に自動注入 (`@sveltejs/kit` `csp.js` 実装、v2.69.2)。SSR ページは HTTP header、prerender ページは `<meta>` で配信。
 - メリット: フレームワーク標準・追加依存ゼロ・bundle 影響ゼロ。custom inline script 0 のため親和性が高い。OWASP CSP Level 2+ 準拠。
-- デメリット: `<meta>` では `frame-ancestors` が効かない (SvelteKit が meta 生成時に自動除外) → prerender ページは `X-Frame-Options` backup が要る。
+- デメリット: `<meta>` では `frame-ancestors` が効かない (SvelteKit が meta 生成時に自動除外)。ただし本アプリで唯一の prerender endpoint は `/sitemap.xml` (非対話 XML) で clickjacking の実害が無く、対話 HTML は全て SSR で `X-Frame-Options` header を取得するため実質問題にならない。
 - Pre-PMF コスト: 低 (config 数行 + hooks の CSP set 撤去のみ、ADR-0010 Bucket A)。
 
 ### 選択肢 B: nonce + `strict-dynamic`
@@ -38,7 +38,7 @@ impact-analysis の実測で、アプリの inline `<script>` は **SvelteKit hy
 
 **選択肢 A を採用**。`svelte.config.js` `kit.csp` (hash mode) に directive を一本化し、`script-src` から `'unsafe-inline'` を撤廃する (`['self']` のみ → SvelteKit が sha256 を自動付与)。旧 `hooks.server.ts` の `buildCspHeader()` / `CSP_HEADER` / `response.headers.set('Content-Security-Policy', ...)` は二重付与 (clobber) を避けるため撤去する。directive 値は旧 builder を SSOT として 1:1 写経し (img/media/font/connect 等を漏らさない)、`connect-src 'self'` 固定による「外部送信ゼロ」も引き継ぐ。
 
-`frame-ancestors 'none'` は SSR では header で有効、prerender では `X-Frame-Options: DENY` (hooks 継続付与) が backup。
+`frame-ancestors 'none'` は SSR では header で有効。対話 HTML は全て SSR のため clickjacking 保護は確実に効く (SSR / 動的レスポンスに hooks が `X-Frame-Options: DENY` を付与)。prerender ページ (唯一 `/sitemap.xml`、非対話 XML) は build 時に静的化され hooks を経由しないため `X-Frame-Options` を持たないが、iframe 埋込による clickjacking の実害は無い (当初「hooks の X-Frame-Options が prerender ページの backup」とした記述は prerender ページ自身には成立しないため、QM runtime 検証 #3833 で実挙動へ是正)。
 
 ### style-src は `'unsafe-inline'` を維持する (slice B = #3828、案C)
 
