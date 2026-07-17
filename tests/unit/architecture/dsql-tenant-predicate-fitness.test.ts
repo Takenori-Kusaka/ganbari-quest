@@ -140,6 +140,33 @@ const PREDICATE_ALLOWLIST: AllowlistEntry[] = [
 		reason:
 			'cross-tenant cron worker: build キュー取得 / stale building 回収 / 期限切れ削除 (#3504/#3509 state machine)',
 	},
+	// ── activation-funnel-repo: PO KPI activation funnel の cross-tenant 集計 (#3819 QM Tier2 指摘 ②) ──
+	//   families / children / activity_logs を cohort (since 以降登録の全テナント家庭) で横断集計する
+	//   単一集約 SQL。ops 認可下・count のみ返却で個票非露出 (§11.2 明示例外、cancellation-reason-repo
+	//   .aggregateRecent と同クラス)。marker は CTE 名 (cohort / child_flag / first_activity) を anchor
+	//   とし、JOIN 句の `family_id =` 記法 (HAS_FAMILY_PREDICATE への偶発マッチ) に依存しない明示登録。
+	//   これにより将来 JOIN を USING(family_id) 等へ書き換えても保護挙動が不定にならない。
+	{
+		file: 'activation-funnel-repo.ts',
+		table: 'families',
+		marker: /WITH\s+cohort\s+AS[\s\S]*?FROM\s+families/i,
+		reason:
+			'cross-tenant PO KPI 集計: activation funnel の cohort (since 以降登録の全テナント家庭) 走査。ops 認可下・count のみ・個票非露出 (§11.2 明示例外、#3805 Sub-A)',
+	},
+	{
+		file: 'activation-funnel-repo.ts',
+		table: 'children',
+		marker: /child_flag\s+AS[\s\S]*?FROM\s+children/i,
+		reason:
+			'cross-tenant PO KPI 集計: cohort 家庭の子供有無フラグ (child_flag CTE)。cohort JOIN で cohort 家庭に限定・count のみ (§11.2 明示例外、#3805 Sub-A)',
+	},
+	{
+		file: 'activation-funnel-repo.ts',
+		table: 'activity_logs',
+		marker: /first_activity\s+AS[\s\S]*?FROM\s+activity_logs/i,
+		reason:
+			'cross-tenant PO KPI 集計: cohort 家庭の初回 (非取消) 活動時刻 (first_activity CTE)。cohort JOIN で限定・count/retention のみ (§11.2 明示例外、#3805 Sub-A)',
+	},
 ];
 
 /**
@@ -257,20 +284,25 @@ function collectViolations(statements: SqlStatement[]): Violation[] {
 				}
 				continue;
 			}
-			if (HAS_FAMILY_PREDICATE.test(stmt.text)) continue;
-			if (HAS_TENANT_FRAGMENT.test(stmt.text)) continue;
+			// 閉じた allowlist を最優先で評価する (#3819 QM Tier2 指摘 ②)。cross-tenant scan
+			// (families 横断の PO KPI 集計等) は JOIN 句の `family_id =` に偶発マッチして
+			// HAS_FAMILY_PREDICATE を通過しうるが、その偶発マッチに依存せず「§3.4 の閉じた
+			// allowlist に理由付きで明示登録された例外」として pass することを保証する
+			// (将来 JOIN 記法変更で保護挙動が不定になるのを防ぐ)。allowlist 非該当の通常
+			// tenant-scoped クエリは従来どおり HAS_FAMILY_PREDICATE / HAS_TENANT_FRAGMENT で pass する。
 			const allowed = PREDICATE_ALLOWLIST.some(
 				(a) => a.file === stmt.file && a.table === table && a.marker.test(stmt.text),
 			);
-			if (!allowed) {
-				violations.push({
-					file: stmt.file,
-					line: stmt.line,
-					table,
-					kind: 'SELECT/UPDATE/DELETE (family_id 述語欠如)',
-					snippet: stmt.text.slice(0, 160).replace(/\s+/g, ' '),
-				});
-			}
+			if (allowed) continue;
+			if (HAS_FAMILY_PREDICATE.test(stmt.text)) continue;
+			if (HAS_TENANT_FRAGMENT.test(stmt.text)) continue;
+			violations.push({
+				file: stmt.file,
+				line: stmt.line,
+				table,
+				kind: 'SELECT/UPDATE/DELETE (family_id 述語欠如)',
+				snippet: stmt.text.slice(0, 160).replace(/\s+/g, ' '),
+			});
 		}
 	}
 	return violations;
