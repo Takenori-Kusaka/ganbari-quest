@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, json, redirect } from '@sveltejs/kit';
 import { building } from '$app/environment';
-import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { can } from '$lib/policy/capabilities';
@@ -31,7 +30,6 @@ import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
-import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
@@ -104,9 +102,6 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
 	);
 }
-
-// Initialize analytics providers (lazy, environment-variable gated)
-analytics.init();
 
 /**
  * Build CSP header.
@@ -544,14 +539,6 @@ export const handle: Handle = ({ event, resolve }) =>
 					},
 				});
 			}
-
-			// Analytics: identify tenant and track page views for HTML requests
-			if (context?.tenantId) {
-				analytics.identify(context.tenantId);
-			}
-			if (event.request.method === 'GET' && acceptsHtml(event.request)) {
-				analytics.trackPageView(path, event.request.headers.get('Referer') ?? undefined);
-			}
 		}
 
 		return response;
@@ -574,11 +561,6 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		error: error instanceof Error ? error.message : String(error),
 		stack,
 	});
-
-	// Analytics: track all server errors
-	if (error instanceof Error) {
-		trackServerError(error, { method, path, status, requestId, tenantId });
-	}
 
 	// 500 系エラーのみ Discord に通知（4xx は通常エラーなので除外）
 	if (status >= 500) {

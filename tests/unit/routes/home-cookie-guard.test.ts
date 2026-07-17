@@ -34,10 +34,6 @@ vi.mock('$lib/server/services/login-bonus-service', () => ({
 	getLoginBonusStatus: vi.fn(),
 }));
 
-vi.mock('$lib/server/services/analytics-service', () => ({
-	trackActivationFirstRewardSeen: vi.fn(),
-}));
-
 import { actions as homeActions } from '../../../src/routes/(child)/[uiMode=uiMode]/home/+page.server';
 
 const VALID_UUID = '00000000-0000-4000-8000-0000000000a1';

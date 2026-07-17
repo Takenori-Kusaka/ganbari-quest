@@ -83,17 +83,6 @@ export const scheduleRegistry: CronJob[] = [
 		description: 'PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 I7)',
 	},
 	{
-		// #1693 (#1639 follow-up): /admin/analytics の DynamoDB 集計負荷削減のため、
-		// 前日分の activation funnel + cancellation reason を 1 日 1 回事前集計し、
-		// `PK=ANALYTICS_AGG#<date>` に書き込む (TTL 365 日)。read 側 (analytics-service) は
-		// 集計レコードを優先取得し、無い分のみライブ計算で補う設計。
-		name: 'analytics-aggregator-daily',
-		endpoint: '/api/cron/analytics-aggregate',
-		cronExpression: '0 3 * * *', // 毎日 03:00 JST
-		utcCronExpression: 'cron(0 18 * * ? *)', // 毎日 18:00 UTC = 翌日 03:00 JST
-		description: 'analytics 事前集計バッチ (#1693, #1639 follow-up — Pre-PMF 移行用)',
-	},
-	{
 		// #3504 (async-backup-export.md §3.2): クラウドエクスポートの背景 build。
 		// status='pending' を拾って ZIP 生成 → S3/FS 保存 → 'ready' に遷移する。
 		// 起票からの体感待ち時間を短くするため 5 分毎に回す。
@@ -102,17 +91,5 @@ export const scheduleRegistry: CronJob[] = [
 		cronExpression: '*/5 * * * *', // 5 分毎 (JST)
 		utcCronExpression: 'cron(0/5 * * * ? *)', // 5 分毎 (UTC、JST と同一間隔)
 		description: 'クラウドエクスポート非同期 build バッチ (#3504)',
-	},
-	{
-		// #1742: ops/analytics の DynamoDB プリセット分布画面で fetchChallengesPerTenant の
-		// N+1 GetItem を集計テーブル方式 (`PK=CHALLENGE_AGG#<date>`, TTL 365 日) へ移行。
-		// read 側 (ops-analytics-service.fetchChallengesPerTenant) は集計を優先取得し、
-		// 無い場合のみライブ集計 (settings repo 経由 N+1) で fallback する設計。
-		// analytics-aggregator-daily (03:00 JST) と被らないよう 03:30 JST に固定。
-		name: 'challenge-aggregator-daily',
-		endpoint: '/api/cron/challenge-aggregate',
-		cronExpression: '30 3 * * *', // 毎日 03:30 JST
-		utcCronExpression: 'cron(30 18 * * ? *)', // 毎日 18:30 UTC = 翌日 03:30 JST
-		description: 'challenge (preset distribution) 事前集計バッチ (#1742, #1602 N+1 移行)',
 	},
 ];

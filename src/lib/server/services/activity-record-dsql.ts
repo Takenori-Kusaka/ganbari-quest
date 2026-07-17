@@ -27,7 +27,6 @@ import {
 	MASTERY_MILESTONE_LEVELS,
 } from '$lib/domain/validation/activity';
 import { calcLevelFromXp } from '$lib/domain/validation/status';
-import { countActiveActivityLogs } from '$lib/server/db/activity-repo';
 import { getDsqlTransactionRunner } from '$lib/server/db/dsql/connection';
 import { runOptionalWrite } from '$lib/server/db/dsql/optional-write-guard';
 import { recordActivityCore } from '$lib/server/db/dsql/record-activity-core';
@@ -36,7 +35,6 @@ import {
 	type PreparedActivityRecord,
 	prepareActivityRecord,
 } from '$lib/server/services/activity-record-preparation';
-import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
 import { checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
@@ -188,18 +186,6 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 	const { childId, activityId, tenantId, prep, totalPoints, levelUp, xpGain } = input;
 	const onFailure = createOptionalWriteFailureHandler({ childId: String(childId), tenantId });
 	const catDef = getCategoryById(prep.activity.categoryId);
-
-	// #831: Activation Funnel Step 3 — テナント初の活動記録 (計測のみ、point 書込なし)
-	await runOptionalWrite(
-		'activation_track',
-		async () => {
-			const activeCount = await countActiveActivityLogs(childId, tenantId);
-			if (activeCount === 1) {
-				trackActivationFirstActivityCompleted(tenantId, childId, activityId);
-			}
-		},
-		onFailure,
-	);
 
 	// コンボボーナスチェック
 	const comboRaw = await runOptionalWrite(

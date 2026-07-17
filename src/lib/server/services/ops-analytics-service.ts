@@ -426,47 +426,13 @@ export function emptyAnalytics(): OpsAnalyticsData {
 }
 
 /**
- * #1602 / #1742: 全テナントの `questionnaire_challenges` 設定値を取得する。
+ * #1602 / #3805: 全テナントの `questionnaire_challenges` 設定値を取得する (on-demand)。
  *
- * 二段構造 (PR #1696 同パターン):
- *   1. **集計レコード優先** — DynamoDB `PK=CHALLENGE_AGG#<date>` から直近 7 日分を Scan し、
- *      最新の集計を採用する (cron `gq-challenge-aggregator-daily` が 1 日 1 回書込み、TTL 365 日)。
- *      Scan range はテナント数増加時の RCU を抑える観点で 7 日に制限。
- *   2. **ライブ fallback** — 集計が見つからない (cron 未稼働 / 障害 / 7 日以上停止) 場合のみ、
- *      テナントごと settings repo を叩く N+1 で当日値を取得する (#1602 既存ロジック)。
- *
- * 整合性: cron 集計時刻 (03:30 JST) より後にテナントが追加されても、最新集計は遅くとも翌日
- * 反映される (preset 分布画面の更新頻度は週次未満 = 数時間遅延は許容範囲)。
- *
- * Pre-PMF (ADR-0010): 集計レコードが無い (cron 未稼働 / 初回起動) 段階でも N+1 fallback で
- * 必ず動作する。post-PMF / テナント数 1,000+ で N+1 が遅くなる前に cron が走り始めれば自然移行。
+ * #3805 で DynamoDB 事前集計 (旧 CHALLENGE_AGG cron) を撤去し、常設収集なしに settings repo を
+ * テナントごと直接読む on-demand 集計へ一本化した。/ops は認証者が必要時に開く前提で、preset
+ * 分布画面の描画頻度は稀 (Pre-PMF ~100 テナント) のため N+1 read で十分 (ADR-0010)。
  */
 async function fetchChallengesPerTenant(tenants: Tenant[]): Promise<string[]> {
-	// ─ Step 1: 集計レコード優先取得 (#1742) ─────────────────────────────
-	try {
-		const { queryLatestChallengeAggregate } = await import('$lib/analytics/providers/dynamo');
-		const today = new Date();
-		const since = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-		const sinceDate = since.toISOString().slice(0, 10);
-		const untilDate = today.toISOString().slice(0, 10);
-		const aggregate = await queryLatestChallengeAggregate(sinceDate, untilDate);
-		if (aggregate && aggregate.challengesPerTenant.length > 0) {
-			logger.debug('[OPS/analytics] Using CHALLENGE_AGG aggregate', {
-				context: {
-					date: aggregate.date,
-					totalTenants: aggregate.totalTenants,
-					currentTenantCount: tenants.length,
-				},
-			});
-			return aggregate.challengesPerTenant;
-		}
-	} catch (e) {
-		logger.warn('[OPS/analytics] CHALLENGE_AGG read failed, falling back to live', {
-			context: { error: e instanceof Error ? e.message : String(e) },
-		});
-	}
-
-	// ─ Step 2: ライブ集計 fallback (#1602 既存ロジック) ────────────────
 	const repos = getRepos();
 	const challengesPerTenant: string[] = [];
 	for (const t of tenants) {
