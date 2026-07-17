@@ -54,5 +54,6 @@ slice1 (activity-pack) で是正した値: basePoints 10000→100 / age 18→20 
 ## 結果
 
 - #3132 class (値域ドリフト) の再混入は unit fitness (T1、<30s) が per-PR で検出し、重量 e2e まで到達しない (shift-left、ADR-0061 整合)
-- COVERED は activity-pack / reward-set の 2 type。残 3 type (checklist / challenge-set / rule-preset) の SSOT 化、parse-don't-validate 全面化 (選択肢 B 方向)、fast-check property 格上げ、snapshot canary は EPIC #3151 の残 phase で段階消化 (fitness test の RANGE_SSOT_TODO が pin)
+- COVERED は activity-pack / reward-set / checklist の 3 type。残 2 type (challenge-set / rule-preset) の SSOT 化、parse-don't-validate 全面化 (選択肢 B 方向)、fast-check property 格上げ、snapshot canary は EPIC #3151 の残 phase で段階消化 (fitness test の RANGE_SSOT_TODO が pin)。checklist は SSOT 化前に domain validator が不在で admin authoring 経路が label / icon 長を無制限に受理していた (往復不能データを authoring 可能) ため、slice3 で domain validator (`checklistItemSchema`) を新設し admin authoring 経路と wire schema の両方を値域定数へ揃えた
 - トレードオフ: schema 構造の二重定義は残る (値域のみ SSOT)。構造の不一致は round-trip テスト群 (#3143) が引き続き担う
+- accepted residual (checklist icon grapheme narrowing、slice3): icon 判定を旧 UTF-16 units (20) から grapheme (≤2) へ統一した結果、ZWJ 家族絵文字 2 個 (22 units) は widening で往復可能化した一方、絵文字 3 個以上を含む icon は narrowing で拒否する。SSOT 化前は admin authoring が icon 長を無制限に受理していたため、既存ユーザーが絵文字 3 個以上の checklist icon を作成済の場合は import 時に throw する round-trip 破壊が理論上残る。ただし (a) 絵文字 3 個以上の icon は単一絵文字意図に反する異常データ、(b) Pre-PMF で実ユーザー僅少、(c) preset / demo fixture は違反 0 件を全数走査で確認済、のため本 narrowing 方針を維持し既存データへの影響は PO 受容とする (import tolerance の要否は EPIC #3151 残 slice で再評価。原則 4「既存データの往復を壊さない側」は widening 分で満たし、narrowing 分は上記異常データ限定として受容)

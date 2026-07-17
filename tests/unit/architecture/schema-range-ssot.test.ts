@@ -1,5 +1,5 @@
 // tests/unit/architecture/schema-range-ssot.test.ts
-// #3151 slice1/slice2 (ADR-0066): export/import 値域ドリフト根絶の fitness function。
+// #3151 slice1/slice2/slice3 (ADR-0066): export/import 値域ドリフト根絶の fitness function。
 //
 // root class (#3104→#3132 の 2 サイクル連続 blocker): domain validation (Zod) と
 // wire schema (Valibot) が別ファイル・別ライブラリで値域を二重定義し、
@@ -11,14 +11,15 @@
 //       「explicit TODO (RANGE_SSOT_TODO、#3151 残 phase で消化)」のいずれかに分類される。
 //       新 type 追加時に本分類へ登録しなければ CI で fail する (silent skip 禁止、
 //       admin-resource-model-registry の NON_CANONICAL 方式と同型)。
-//   (2) activity-pack / reward-set (COVERED): domain Zod (createActivitySchema /
-//       grantSpecialRewardSchema) と wire Valibot (ActivityPackItemSchema /
-//       RewardSetItemSchema) が値域 SSOT 定数 (`$lib/domain/validation/{activity,special-reward}.ts`)
-//       の同一境界で受理/拒否する (boundary probe による behavior-level の同値表明)。
-//       実 validator を oracle として呼ぶため、どちらか一方が SSOT 定数を離れて
-//       literal を直書き (再ドリフト) すると必ず fail する (#3153 oracle 方式の拡張)。
+//   (2) activity-pack / reward-set / checklist (COVERED): domain Zod (createActivitySchema /
+//       grantSpecialRewardSchema / checklistItemSchema) と wire Valibot (ActivityPackItemSchema /
+//       RewardSetItemSchema / ChecklistItemSchema) が値域 SSOT 定数
+//       (`$lib/domain/validation/{activity,special-reward,checklist}.ts`) の同一境界で受理/拒否する
+//       (boundary probe による behavior-level の同値表明)。実 validator を oracle として呼ぶため、
+//       どちらか一方が SSOT 定数を離れて literal を直書き (再ドリフト) すると必ず fail する
+//       (#3153 oracle 方式の拡張)。
 //
-// 残 3 type (checklist / challenge-set / rule-preset) の SSOT 化は #3151 残 phase で消化する
+// 残 2 type (challenge-set / rule-preset) の SSOT 化は #3151 残 phase で消化する
 // (RANGE_SSOT_TODO で explicit に pin し silent skip しない)。
 
 import * as v from 'valibot';
@@ -36,6 +37,12 @@ import {
 	createActivitySchema,
 } from '$lib/domain/validation/activity';
 import {
+	CHECKLIST_ICON_MAX_GRAPHEMES,
+	CHECKLIST_LABEL_MAX,
+	CHECKLIST_ORDER_MIN,
+	checklistItemSchema,
+} from '$lib/domain/validation/checklist';
+import {
 	grantSpecialRewardSchema,
 	REWARD_CATEGORIES,
 	REWARD_DESCRIPTION_MAX,
@@ -45,20 +52,20 @@ import {
 	REWARD_TITLE_MAX,
 } from '$lib/domain/validation/special-reward';
 import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-schema';
+import { ChecklistItemSchema } from '$lib/marketplace/schemas/checklist-schema';
 import { RewardSetItemSchema } from '$lib/marketplace/schemas/reward-set-schema';
 import { MARKETPLACE_TYPE_CODES, type MarketplaceTypeCode } from '$lib/marketplace/types';
 
 // ── (1) no-silent-gap 分類 ──────────────────────────────────────────
 
 /** 値域 SSOT (domain 定数を domain/wire 両 schema が参照) 適用済の type */
-const COVERED_TYPES: readonly MarketplaceTypeCode[] = ['activity-pack', 'reward-set'];
+const COVERED_TYPES: readonly MarketplaceTypeCode[] = ['activity-pack', 'reward-set', 'checklist'];
 
 /**
  * 値域 SSOT 未適用の type (explicit TODO)。#3151 残 phase で 1 type ずつ SSOT 化し、
  * COVERED_TYPES へ移す。理由なしにこのリストへ追加してはならない (新 type は原則 COVERED で作る)。
  */
 const RANGE_SSOT_TODO: Partial<Record<MarketplaceTypeCode, string>> = {
-	checklist: 'label/icon/order の定数 SSOT 化は #3151 残 phase',
 	'challenge-set': 'durationDays/baseTarget/rewardPoints の定数 SSOT 化は #3151 残 phase',
 	'rule-preset': 'round-trip 網羅自体が未整備 (#3143 追加 finding (a))。#3151 残 phase で消化',
 };
@@ -131,6 +138,33 @@ function expectBothReward(field: string, value: unknown, expected: boolean) {
 		expected,
 	);
 	expect(rewardWireOk(rewardWireItem({ [field]: value })), `wire ${field}=${value}`).toBe(expected);
+}
+
+// ── (2c) checklist boundary probe 用の valid base item ──────────────
+// domain (checklistItemSchema) と wire (ChecklistItemSchema) は共に {label, icon, order} の同一
+// shape のため base item を共有する。SSOT 化前は domain 側 validator が存在せず、admin authoring
+// 経路 (addTemplateItem action) が label 長 / icon 長を無制限に受理していた (domain⊄wire)。
+// checklistItemSchema 新設 + 両 schema を CHECKLIST_* 定数 / isValidChecklistIcon へ揃えたことで、
+// 「authoring 可能な item ⊆ export/import 往復可能な item」が成立する。
+
+const checklistItem = (over: Record<string, unknown> = {}) => ({
+	label: 'はみがき',
+	icon: '🦷',
+	order: 0,
+	...over,
+});
+
+const checklistDomainOk = (data: unknown) => checklistItemSchema.safeParse(data).success;
+const checklistWireOk = (data: unknown) => v.safeParse(ChecklistItemSchema, data).success;
+
+/** checklist の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
+function expectBothChecklist(field: string, value: unknown, expected: boolean) {
+	expect(checklistDomainOk(checklistItem({ [field]: value })), `domain ${field}=${value}`).toBe(
+		expected,
+	);
+	expect(checklistWireOk(checklistItem({ [field]: value })), `wire ${field}=${value}`).toBe(
+		expected,
+	);
 }
 
 describe('#3151 値域 SSOT fitness (domain⊆wire、ADR-0066)', () => {
@@ -230,6 +264,35 @@ describe('#3151 値域 SSOT fitness (domain⊆wire、ADR-0066)', () => {
 			expectBothReward('icon', '🎁🎈', true); // 2 grapheme (境界内)
 			expectBothReward('icon', zwjFamily.repeat(REWARD_ICON_MAX_GRAPHEMES + 1), false); // 3 grapheme
 			expectBothReward('icon', '', false);
+		});
+	});
+
+	describe('(2c) checklist: domain と wire が SSOT 境界で一致 (boundary probe)', () => {
+		it('label: SSOT max 文字 受理 / max+1 拒否 が両 schema で一致', () => {
+			// #3151 slice3 是正の regression lock (failing-test-first): SSOT 化前は domain 側 validator が
+			// 存在せず admin authoring 経路が 100 文字超の label を無制限に受理していた (domain⊄wire)。
+			// export は wire schema を再検証するため往復不能データの authoring を許していた。
+			expectBothChecklist('label', 'あ'.repeat(CHECKLIST_LABEL_MAX), true);
+			expectBothChecklist('label', 'あ'.repeat(CHECKLIST_LABEL_MAX + 1), false);
+			expectBothChecklist('label', '', false);
+		});
+
+		it('order: SSOT min (0) 受理 / min-1 拒否 / 非整数 拒否 が両 schema で一致', () => {
+			expectBothChecklist('order', CHECKLIST_ORDER_MIN, true);
+			expectBothChecklist('order', CHECKLIST_ORDER_MIN - 1, false);
+			expectBothChecklist('order', 1.5, false);
+		});
+
+		it('icon: ZWJ 連結絵文字 2 個 (2 grapheme / 22 UTF-16 units) 受理 / 3 grapheme 拒否 が両 schema で一致', () => {
+			// #3151 slice3 是正: 旧 wire maxLength(20) (UTF-16 units) は ZWJ 家族絵文字 2 個 (22 units) を
+			// 弾き / 絵文字 3 個 (🎁🎈🎀 = 6 units) を受理していた。domain 側は無制限だったため両者が非対称。
+			// isValidChecklistIcon 共有 oracle への統一で domain / wire を同一境界へ揃える (activity / reward と同型)。
+			const zwjFamily = '👨‍👩‍👧‍👦';
+			expect(CHECKLIST_ICON_MAX_GRAPHEMES).toBe(2);
+			expectBothChecklist('icon', zwjFamily.repeat(CHECKLIST_ICON_MAX_GRAPHEMES), true); // 2 grapheme / 22 units
+			expectBothChecklist('icon', '🎁🎈', true); // 2 grapheme (境界内)
+			expectBothChecklist('icon', '🎁🎈🎀', false); // 3 grapheme (旧 wire は 6 units で受理していた)
+			expectBothChecklist('icon', '', false);
 		});
 	});
 });
