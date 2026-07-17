@@ -346,23 +346,30 @@ describe('plan-limit-service', () => {
 	});
 
 	describe('getHistoryCutoffDate', () => {
-		it('free: returns date 90 days ago', () => {
-			const cutoff = getHistoryCutoffDate('free');
-			expect(cutoff).not.toBeNull();
-			// 実装と同じロジックで期待値を算出（setDate ベース）
-			const expected = new Date();
-			expected.setDate(expected.getDate() - 90);
-			const expectedStr = `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`;
-			expect(cutoff).toBe(expectedStr);
+		afterEach(() => {
+			vi.useRealTimers();
 		});
 
-		it('standard: returns date 365 days ago', () => {
+		/** JST 基準で `todayJst - days` の YYYY-MM-DD を算出（runner の local TZ 非依存）。 */
+		const jstCutoff = (todayJst: string, days: number): string => {
+			const d = new Date(`${todayJst}T00:00:00Z`);
+			d.setUTCDate(d.getUTCDate() - days);
+			return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+		};
+
+		it('free: returns date 90 days ago (JST 基準)', () => {
+			const cutoff = getHistoryCutoffDate('free');
+			expect(cutoff).not.toBeNull();
+			// #3593 ②: JST 基準（todayDateJST 起点）で期待値を算出。実 impl と独立に JST 減算する。
+			const todayJst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			expect(cutoff).toBe(jstCutoff(todayJst, 90));
+		});
+
+		it('standard: returns date 365 days ago (JST 基準)', () => {
 			const cutoff = getHistoryCutoffDate('standard');
 			expect(cutoff).not.toBeNull();
-			const expected = new Date();
-			expected.setDate(expected.getDate() - 365);
-			const expectedStr = `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`;
-			expect(cutoff).toBe(expectedStr);
+			const todayJst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+			expect(cutoff).toBe(jstCutoff(todayJst, 365));
 		});
 
 		it('family: returns null (no limit)', () => {
@@ -373,6 +380,19 @@ describe('plan-limit-service', () => {
 		it('cutoff date format is YYYY-MM-DD', () => {
 			const cutoff = getHistoryCutoffDate('free');
 			expect(cutoff).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		});
+
+		// #3593 ②: JST 深夜境界の TZ 整合。UTC 上では前日だが JST では当日となる瞬間
+		// (UTC 20:00 = JST 翌 05:00) では、cutoff は JST 当日基準で算出されねばならない。
+		// 旧実装は new Date() + local getters で Lambda(UTC) だと 1 日ずれ、0:00〜9:00 JST に
+		// 記録された明細が保持期間判定で 1 日早く削除/残置される (retention 監査契約 #729 違反)。
+		it('JST 深夜境界: UTC 前日 20:00 (=JST 当日 05:00) でも cutoff は JST 当日基準', () => {
+			// 2026-01-14T20:00:00Z ⇔ JST 2026-01-15 05:00。JST today = 2026-01-15。
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-01-14T20:00:00Z'));
+			// free = 90 日: 2026-01-15 − 90 日 = 2025-10-17 (JST 基準)。
+			// 旧 UTC-local 実装なら 2026-01-14 − 90 日 = 2025-10-16 となり 1 日ずれる。
+			expect(getHistoryCutoffDate('free')).toBe('2025-10-17');
 		});
 	});
 

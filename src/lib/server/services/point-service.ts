@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/point-service.ts
 // ポイント管理サービス層
 
+import { POINT_LEDGER_LABELS } from '$lib/domain/labels';
 import { type ConvertMode, POINTS_PER_CONVERT_UNIT } from '$lib/domain/validation/point';
 import {
 	findChildById,
@@ -57,33 +58,31 @@ export async function getPointHistory(
 	return { history };
 }
 
-/** 変換モード別の説明文サフィックス */
-function convertDescription(amount: number, mode: ConvertMode): string {
-	const base = `${amount}ポイントをおこづかいにかえました`;
-	if (mode === 'manual') return `${base}（手動入力）`;
-	if (mode === 'receipt') return `${base}（領収書読み取り）`;
-	return base;
-}
-
 /** baby モードの初期ポイント付与（親が設定した積み立てポイント） */
 export async function grantInitialPoints(
 	childId: ChildId,
 	points: number,
 	tenantId: string,
 ): Promise<
-	{ success: true; balance: number } | { error: 'NOT_FOUND' } | { error: 'INVALID_AMOUNT' }
+	| { success: true; balance: number }
+	| { error: 'NOT_FOUND' }
+	| { error: 'INVALID_AMOUNT' }
+	| { error: 'CHILD_ARCHIVED' }
 > {
 	if (points <= 0 || points > 10000) return { error: 'INVALID_AMOUNT' };
 
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND' };
+	// #3593 ④: insertPointEntry (writer) は is_archived を filter しない primitive のため、
+	// archived な子への加点可否は本 service 層 business rule でガードする (archived = 加点不可)。
+	if (child.isArchived) return { error: 'CHILD_ARCHIVED' };
 
 	await insertPointEntry(
 		{
 			childId,
 			amount: points,
 			type: 'initial_setup',
-			description: '親による初期ポイント設定',
+			description: POINT_LEDGER_LABELS.initialSetup,
 		},
 		tenantId,
 	);
@@ -107,7 +106,7 @@ export async function convertPoints(
 		return { error: 'INSUFFICIENT_POINTS' };
 	}
 
-	const description = convertDescription(amount, mode);
+	const description = POINT_LEDGER_LABELS.convert(amount, mode);
 
 	// ポイント消費エントリを台帳に記録（マイナス値）
 	await insertPointEntry(
