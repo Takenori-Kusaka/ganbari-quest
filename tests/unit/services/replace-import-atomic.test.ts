@@ -54,7 +54,7 @@ describe('#3326 置換インポートの原子化 — 途中失敗で旧デー�
 		expect(before.length).toBe(2);
 
 		await expect(
-			runAtomicReplace(T, async () => {
+			runAtomicReplace(async () => {
 				// 全削除を tx 内で実行した直後に import 失敗を注入する
 				await clearAllFamilyData(T);
 				throw new Error('import 途中失敗注入');
@@ -70,7 +70,7 @@ describe('#3326 置換インポートの原子化 — 途中失敗で旧デー�
 	it('成功時は COMMIT され置換結果が確定する', async () => {
 		testDb.insert(schema.children).values({ nickname: '旧', age: 8, theme: 'blue' }).run();
 
-		const r = await runAtomicReplace(T, async () => {
+		const r = await runAtomicReplace(async () => {
 			await clearAllFamilyData(T);
 			testDb.insert(schema.children).values({ nickname: '新', age: 7, theme: 'green' }).run();
 			return 'ok';

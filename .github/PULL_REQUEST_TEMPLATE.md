@@ -67,7 +67,6 @@ closes #
 - [ ] 追加・変更したテストの概要を以下に記載（テスト追加なしなら「N/A」）:
   <!-- 例: tests/e2e/combo-bonus.spec.ts に「ダイアログ表示→閉じる→再表示なし」を追加 -->
 - [ ] **新規 env / secret 追加時**（ADR-0006）: 末尾の「配布済み env / secret」セクションに証跡を記載。該当なければ「N/A」
-- [ ] **DynamoDB 実装変更時**（ADR-0010 / #1021）: SQLite + DynamoDB 両実装完成 + `scripts/check-dynamodb-stub.mjs` PASS。該当なければ「N/A」
 - [ ] **Critical バグ修正の場合**（ADR-0002）: 5 要件（E2E 回帰 / AC 全項目 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更チェック）確認済み。該当なければ「N/A」
 
 ## スクリーンショット / ビジュアルデモ

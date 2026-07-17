@@ -262,9 +262,9 @@ it('is_archived が NULL の既存行もアクティブとして返される', (
 
 CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db/` または `tests/unit/services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]`。
 
-### DynamoDB 並行実装の整合性
+### backend 並行実装の整合性
 
-`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dynamodb/*.ts` のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる。
+`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dsql/*.ts` (cloud、NUC は PGlite が dsql repo を verbatim 再利用) のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる (#3438 で DynamoDB backend は撤去済)。
 
 ## E2E 固有
 

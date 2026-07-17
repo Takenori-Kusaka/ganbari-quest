@@ -127,12 +127,12 @@ describe('dsql/connection 接続層 (M4-B②、§3.3)', () => {
 });
 
 describe('backend 切替 (resolveDbBackend / isDsqlBackend)', () => {
-	it('[T6] DATA_SOURCE 明示引数で SQLite / DSQL / dynamodb / demo を解決', () => {
+	it('[T6] DATA_SOURCE 明示引数で SQLite / DSQL / demo を解決', () => {
 		expect(resolveDbBackend('sqlite')).toBe('sqlite');
 		expect(resolveDbBackend('dsql')).toBe('dsql');
-		expect(resolveDbBackend('dynamodb')).toBe('dynamodb');
 		expect(resolveDbBackend('demo')).toBe('demo');
-		// 未知値 / 未設定は既存挙動どおり sqlite 既定
+		// 未知値 / 未設定は既存挙動どおり sqlite 既定。#3438 で撤去した 'dynamodb' も既定にフォールバック。
+		expect(resolveDbBackend('dynamodb')).toBe('sqlite');
 		expect(resolveDbBackend(undefined)).toBe('sqlite');
 		expect(resolveDbBackend('unknown')).toBe('sqlite');
 	});
@@ -140,6 +140,6 @@ describe('backend 切替 (resolveDbBackend / isDsqlBackend)', () => {
 	it('[T6b] isDsqlBackend は dsql のときだけ true', () => {
 		expect(isDsqlBackend('dsql')).toBe(true);
 		expect(isDsqlBackend('sqlite')).toBe(false);
-		expect(isDsqlBackend('dynamodb')).toBe(false);
+		expect(isDsqlBackend('demo')).toBe(false);
 	});
 });

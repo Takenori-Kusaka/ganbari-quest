@@ -142,10 +142,10 @@ child_activities
 
 **実装状況 PR-A2 (2026-05-26、#2458 Path A の demo + dynamodb 同期)**:
 
-- ✅ `src/lib/server/db/dynamodb/activity-repo.ts` rewrite — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換。ADR-0048 で DynamoDB は production 未使用 (main Lambda は sqlite local file) のため、再実装時は `dynamodb/child-activity-repo.ts` (ADR-0055 per-child schema) 経由で実装し直す構造的ガードを設置 (旧 `activities` partition (`SK=MASTER`) への退行を防止)
+- ✅ 旧 DynamoDB activity-repo rewrite (backend は #3438 Phase 2B で撤去) — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換していた。per-child schema (ADR-0055) 経由で実装し直す構造的ガードを設置し旧 `activities` partition (`SK=MASTER`) への退行を防止していた
 - ✅ `src/lib/server/db/demo/activity-repo.ts` SSOT コメント追記 — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archive / restore / insertActivityLog / insertPointLedger / markActivityLogCancelled / deleteDailyMissionsByActivity / deleteActivityLogsBeforeDate) は元から no-op stub または synthetic 戻り値 (id=0) を返すのみで fixture を mutate しないことを明文化。read 経路は marketplace integration テスト (#2097 Phase B-7) を退行させないため `ALL_DEMO_ACTIVITIES` (hand-curated + marketplace merged) を primary source として保持し、per-child scope queries は別 file (demo/child-activity-repo.ts) 経由で `DEMO_CHILD_ACTIVITIES` から取得する設計
 - ✅ regression test (demo): `tests/unit/services/activity-legacy-table-write-zero-demo.test.ts` (12 test) — 全 11 write/stub method 呼出後に `DEMO_CHILD_ACTIVITIES` / `DEMO_ACTIVITIES` / `DEMO_MARKETPLACE_ACTIVITIES` / `DEMO_ACTIVITY_LOGS` の長さ + flag 不変を assert + read 経路 (marketplace integration) 維持を 2 件確認
-- ✅ regression test (dynamodb): `tests/unit/services/activity-legacy-table-write-zero-dynamodb.test.ts` (11 test) — 全 write method が `NotImplementedError` throw + `mockSend.not.toHaveBeenCalled()` で DynamoDB Client に到達しないこと、エラー message に「ADR-0055」「child-activity-repo」が含まれ再実装方針を誘導することを assert
+- ✅ regression test (dynamodb、#3438 Phase 2B で backend とともに撤去) — 全 write method が `NotImplementedError` throw + DynamoDB Client 未到達を assert し、エラー message に「ADR-0055」「child-activity-repo」を含め再実装方針を誘導していた
 - ✅ schema 不変 (本 PR は backend rewrite のみ、`schema.ts` / `create-tables.ts` / `interfaces/activity-repo.interface.ts` 変更なし。interface.ts は comment 更新のみ)
 - ⏳ physical drop (#2458-C): 3 backend (sqlite / demo / dynamodb) で旧 `activities` table / partition への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema / dynamodb partition から削除
 
@@ -163,9 +163,9 @@ SQLite の `child_activities` は **tenant_id 列を持たず childId scope** �
 | backend | 現設計 | 根拠 |
 |---|---|---|
 | SQLite (`sqlite/child-activity-repo.ts`) | `_tenantId` 受領のみで filter しない（意図的 no-op） | SQLite が選ばれる process は認証 tenantId が `'local'`/`'demo'` 固定の **1 process = 1 DB = 1 tenant**（`auth/providers/local.ts` / `db/factory.ts`）。別 tenant の childId が入力される経路が構造的に存在せず、行レベル tenant filter は冗長 |
-| DynamoDB (`dynamodb/child-activity-repo.ts`) | **本実装済み（#2820）**。`tenantId` は partition key（`PK = T#<tenantId>#CHILD#<childId>`）に組み込まれ、**tenant isolation が key 設計で構造的に強制**される | ADR-0055 per-child schema（child partition 同居、同ファイル冒頭コメント参照） |
+| DSQL (`dsql/child-activity-repo.ts`) | クラウド本番。`family_id` 列で tenant を保持し、pool + 偽造不能 tenantId + アプリ層単一強制点で tenant isolation を強制する（ADR-0063、DSQL は RLS 非対応のため代替防御線） | ADR-0055 per-child schema / ADR-0063 マルチテナント分離 |
 
-- **SQLite を multi-tenant 共有 DB として使う構成は非想定**（SaaS は DynamoDB）。この前提が崩れる設計変更時は tenant_id 列追加が必須化する
+- **SQLite を multi-tenant 共有 DB として使う構成は非想定**（SaaS は Aurora DSQL）。この前提が崩れる設計変更時は tenant_id 列追加が必須化する
 - child 越境（同一 tenant 内の child A→B）IDOR は `findActivityByIdForChild`（id + childId の 2 軸検証）で対処済み（#2524）
 - **Phase 2（tenant_id 列追加 + 全 query filter = interface contract と実装の完全一致）は #2828 で管理**。PO 基準: 「DB リポジトリ層の共通化のために有用であれば必須」— 有用性評価を先行し、有用なら実施する
 

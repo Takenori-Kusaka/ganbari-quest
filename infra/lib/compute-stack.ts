@@ -186,16 +186,17 @@ export class ComputeStack extends cdk.Stack {
 		// + grantReadWriteData、DATA_SOURCE とは別レイヤー)。table 撤去は #3805 (analytics on-demand 化) 後。
 		const dsqlEndpoint = this.node.tryGetContext('dsqlEndpoint') ?? '';
 		const dsqlClusterArn = this.node.tryGetContext('dsqlClusterArn') ?? '';
-		// **本番は DSQL 必須** (endpoint / clusterArn 未注入なら synth を失敗させる、ADR-0006)。
-		// staging は dual-mode: endpoint 注入時のみ dsql (lane)、未注入は dynamodb (安価な PR 検証)。
-		// staging を dsql 既定に統一するのは #3685 (staging=prod 構成一致 + コスト評価 AC)。
-		if (isProd && !dsqlEndpoint) {
+		// **prod / staging とも DSQL 必須** (endpoint / clusterArn 未注入なら synth を失敗させる、ADR-0006)。
+		// #3438 Phase 2B: DynamoDB backend 撤去に伴い staging の dual-mode (未注入時 dynamodb fallback) を
+		// 廃止し prod と同型に統一 (staging=prod 構成一致)。deploy-aws-staging.yml は #3685 で PR trigger でも
+		// DSQL lane を常時実行し endpoint を注入するため fallback は不要 (dead な dynamodb への silent 巻戻し排除)。
+		if (!dsqlEndpoint) {
 			cdk.Annotations.of(this).addError(
-				'[ComputeStack] dsqlEndpoint context が空です。本番は DSQL が唯一の DB backend (#3438 Phase 2A) の' +
-					'ため必須です。DsqlStack deploy 後の ClusterEndpoint 出力を -c dsqlEndpoint=<id>.dsql.<region>.on.aws で渡してください。',
+				'[ComputeStack] dsqlEndpoint context が空です。DSQL は唯一の DB backend (#3438) のため必須です。' +
+					'DsqlStack deploy 後の ClusterEndpoint 出力を -c dsqlEndpoint=<id>.dsql.<region>.on.aws で渡してください。',
 			);
 		}
-		if (isProd && !dsqlClusterArn) {
+		if (!dsqlClusterArn) {
 			cdk.Annotations.of(this).addError(
 				'[ComputeStack] dsqlClusterArn context が空です。dsql:DbConnect の resource 限定 (最小権限) に' +
 					'必須です。-c dsqlClusterArn=arn:aws:dsql:... で渡してください。',
@@ -219,11 +220,12 @@ export class ComputeStack extends cdk.Stack {
 		//     GET のみで ORIGIN 非依存のため縮退可)。
 		const stagingOriginPlaceholder = 'https://staging-origin-placeholder.invalid';
 		const stagingEnvironment: Record<string, string> = {
-			// staging dual-mode (#3438 Phase 2A / #3685): dsqlEndpoint 注入時のみ dsql (lane 検証)、
-			// 未注入は dynamodb (安価な PR 検証)。staging を dsql 既定へ統一するのは #3685。
-			// DYNAMODB_TABLE / ANALYTICS_TABLE_NAME は analytics 保存先として常時維持 (別レイヤー)。
-			DATA_SOURCE: dsqlEndpoint ? 'dsql' : 'dynamodb',
-			...(dsqlEndpoint ? { DSQL_ENDPOINT: dsqlEndpoint, DSQL_USER: 'app_user' } : {}),
+			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (旧 dual-mode の dynamodb fallback 廃止)。
+			// endpoint は上の fail-close で必須化済。DYNAMODB_TABLE / ANALYTICS_TABLE_NAME は analytics
+			// 保存先 (client.ts / analytics provider、#3805 で撤去) として常時維持 (DATA_SOURCE とは別レイヤー)。
+			DATA_SOURCE: 'dsql',
+			DSQL_ENDPOINT: dsqlEndpoint,
+			DSQL_USER: 'app_user',
 			DYNAMODB_TABLE: props.table.tableName!,
 			TABLE_NAME: props.table.tableName!,
 			ASSETS_BUCKET: props.assetsBucket.bucketName,

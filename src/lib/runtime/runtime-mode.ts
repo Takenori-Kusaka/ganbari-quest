@@ -85,7 +85,7 @@ export function resolveRuntimeMode(input: ResolveRuntimeModeInput): RuntimeMode 
 export const RUNTIME_MODE_PROFILES: Record<
 	RuntimeMode,
 	{
-		persistence: 'none' | 'local-sqlite' | 'dynamodb';
+		persistence: 'none' | 'local-sqlite' | 'dsql';
 		authMode: 'none' | 'local' | 'cognito';
 		acceptsWrites: boolean;
 	}
@@ -93,6 +93,7 @@ export const RUNTIME_MODE_PROFILES: Record<
 	build: { persistence: 'none', authMode: 'none', acceptsWrites: false },
 	demo: { persistence: 'none', authMode: 'none', acceptsWrites: false },
 	'local-debug': { persistence: 'local-sqlite', authMode: 'local', acceptsWrites: true },
-	'aws-prod': { persistence: 'dynamodb', authMode: 'cognito', acceptsWrites: true },
+	// #3438 Phase 2B: 本番 (aws-prod) は Aurora DSQL 稼働 (cutover 完了)。
+	'aws-prod': { persistence: 'dsql', authMode: 'cognito', acceptsWrites: true },
 	'nuc-prod': { persistence: 'local-sqlite', authMode: 'cognito', acceptsWrites: true },
 };

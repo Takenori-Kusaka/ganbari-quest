@@ -56,7 +56,7 @@ client (UsageTracker) ─POST /api/v1/usage─→ endpoint ─→ usage-log-serv
 1. **エラーログ汚染の即時解消**: 本番デプロイ後の CloudWatch から `[ERROR] POST /api/v1/usage 500` が消える (PR merge 直後に確認可能)
 2. **UI への影響ゼロ**: `UsageTracker` は fire-and-forget。dummy id `0` を返しても client は body を読まない。admin 画面の使用時間サマリーは「全て 0 分」を表示するが、これは「本機能が dynamodb モードで未提供」を意味する適切な表現
 3. **PMF 後の DynamoDB 完全実装に直結する interface**: service 層の signature を変えていないため、PMF 後に DynamoDB repo を追加すれば `isUsageLogNoopBackend()` の早期 return を削除するだけで完了 (roadmap §3 参照)
-4. **テスト容易性**: `vi.stubEnv('DATA_SOURCE', 'dynamodb')` で no-op 動作を unit test できる (`tests/unit/services/usage-log-service-dynamodb-noop.test.ts` 9 ケース)
+4. **テスト容易性**: `vi.stubEnv('DATA_SOURCE', 'demo')` 等で no-op 動作を unit test できる (`tests/unit/services/usage-log-service-noop.test.ts`。#3438 で DynamoDB backend 撤去に伴い dynamodb ケースは削除)
 
 ### ADR-0010 Bucket 判定との整合
 

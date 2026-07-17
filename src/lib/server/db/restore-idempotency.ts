@@ -7,8 +7,8 @@
 // guard 実装方式」を宣言し、fitness function (tests/unit/db/restore-idempotency-registry.test.ts)
 // が以下を機械検証する (ADR-0061 same-class → guard):
 //   1. no-silent-gap: 各 backend repo の `*ForRestore` 関数は全て本 registry に分類されている
-//   2. guard 対称性: kind='natural-key' の entity は宣言された backend guard (ConditionExpression /
-//      ON CONFLICT / onConflictDoNothing) がソース上に存在する
+//   2. guard 対称性: kind='natural-key' の entity は宣言された backend guard
+//      (ON CONFLICT / onConflictDoNothing) がソース上に存在する
 //   3. demo stub は null / false を返し import カウントを偽装しない (#3420 count 偽装 #2263 class)
 //
 // 統一契約 (機能等価契約、#3394 / #3401):
@@ -31,8 +31,6 @@ export type RestoreIdempotencyKind = 'natural-key' | 'content-dedup' | 'append';
 
 /** backend ごとの guard 実装方式 (fitness function がソース上のマーカーを照合する)。 */
 export type RestoreGuardImpl =
-	/** DynamoDB: PutCommand + ConditionExpression 'attribute_not_exists(PK)' */
-	| 'condition-expression'
 	/** drizzle sqlite: .onConflictDoNothing() + returning/changes 判定 */
 	| 'on-conflict-do-nothing'
 	/** DSQL raw SQL: ON CONFLICT ... DO NOTHING + RETURNING 行有無判定 */
@@ -57,7 +55,6 @@ export interface RestoreIdempotencyEntry {
 	/** backend ごとの guard 実装方式 (fitness 照合対象) */
 	guards: {
 		sqlite: RestoreGuardImpl;
-		dynamodb: RestoreGuardImpl;
 		dsql: RestoreGuardImpl;
 		demo: RestoreGuardImpl;
 	};
@@ -75,10 +72,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'child-challenge-repo',
 		functionNames: ['insertForRestore'],
 		naturalKey:
-			'auto:weekly 行のみ (childId, startDate)。sqlite=部分 unique index idx_child_challenges_auto_weekly_unique / dynamodb=AUTO# 決定的 SK + attribute_not_exists / dsql=weekly_auto_guard UNIQUE。regular 行は新規採番 id キーで衝突しない',
+			'auto:weekly 行のみ (childId, startDate)。sqlite=部分 unique index idx_child_challenges_auto_weekly_unique / dsql=weekly_auto_guard UNIQUE。regular 行は新規採番 id キーで衝突しない',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -90,10 +86,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'stamp-card-repo',
 		functionNames: ['insertCardForRestore'],
 		naturalKey:
-			'(childId, weekStart)。sqlite=idx_stamp_cards_child_week / dynamodb=SK STMPCARD#<weekStart> + attribute_not_exists / dsql=stamp_cards_week_uq',
+			'(childId, weekStart)。sqlite=idx_stamp_cards_child_week / dsql=stamp_cards_week_uq',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -107,7 +102,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 			'(cardId, slot) + (cardId, loginDate)。重複は boolean false を返し stampEntriesImported に加算しない',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -118,10 +112,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'certificate-repo',
 		functionNames: ['insertForRestore'],
 		naturalKey:
-			'(childId, certificateType)。sqlite=idx_certificates_child_type / dynamodb=SK CERT#<type> + attribute_not_exists / dsql=DB 制約なし (§11.2 未設置) のため import-service 層 dedup が唯一の防御',
+			'(childId, certificateType)。sqlite=idx_certificates_child_type / dsql=DB 制約なし (§11.2 未設置) のため import-service 層 dedup が唯一の防御',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'service-layer',
 			demo: 'null-stub',
 		},
@@ -132,11 +125,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		kind: 'natural-key',
 		repoFile: 'activity-pref-repo',
 		functionNames: ['insertForRestore'],
-		naturalKey:
-			'(childId, activityId)。sqlite=idx_child_activity_prefs_unique / dynamodb=SK ACTPREF#<activityId> + attribute_not_exists / dsql=自然複合 PK',
+		naturalKey: '(childId, activityId)。sqlite=idx_child_activity_prefs_unique / dsql=自然複合 PK',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -149,7 +140,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		contentKey: '(childId, messageType, stampCode, body, sentAt) — import-service merge mode',
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -163,7 +153,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		contentKey: '(fromChildId, toChildId, stampCode, sentAt) — import-service merge mode',
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -175,7 +164,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -186,11 +174,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		kind: 'natural-key',
 		repoFile: 'evaluation-repo',
 		functionNames: ['insertRestDayForRestore'],
-		naturalKey:
-			'(childId, date)。sqlite=idx_rest_days_child_date / dsql=自然複合 PK + ON CONFLICT / dynamodb=保存対象外 (no-op stub が undefined を返し skip 計上)',
+		naturalKey: '(childId, date)。sqlite=idx_rest_days_child_date / dsql=自然複合 PK + ON CONFLICT',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'null-stub',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -203,7 +189,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertOverrideForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -221,7 +206,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertRedemptionForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
