@@ -47,13 +47,15 @@ export interface IStatusRepo {
 	/**
 	 * market_benchmarks (世代別平均値) を upsert する。
 	 *
-	 * ⚠️ 書込 authz (#3593 ④、明文化): market_benchmarks は **グローバル master** (tenant 非依存、
-	 * 全テナントで共有される統計基準値) である。したがって本 upsert は「1 テナントの書込が全テナントに
-	 * 波及する」書込であり、**ops/admin 相当の権限に限定**されるべき (通常の保護者操作から到達させない)。
-	 * `tenantId` 引数は audit/observability 用であり分離キーではない (findBenchmark も tenant 非依存で
-	 * 全テナント共通行を返す)。呼出は現状 `/admin/status` (parent-admin ルート、hooks.server.ts の
-	 * admin 認可下) のみ。将来グローバル書込を ops group 限定に厳格化する場合は上位ルート層で行う
-	 * (repo は primitive、権限判断を持たない)。
+	 * ⚠️ 書込 authz (#3593 ④ 明文化 → #3824 実厳格化): market_benchmarks は **グローバル master**
+	 * (tenant 非依存、全テナントで共有される統計基準値) である。したがって本 upsert は「1 テナントの
+	 * 書込が全テナントに波及する」書込であり、**ops/admin 相当の権限に限定**される (通常の保護者操作
+	 * から到達させない、CWE-639 隣接の権限昇格防止)。`tenantId` 引数は audit/observability 用であり
+	 * 分離キーではない (findBenchmark も tenant 非依存で全テナント共通行を返す)。書込到達点は現状
+	 * `/admin/status` の `updateBenchmark` action のみで、そこで `requireGlobalMasterWriteAccess`
+	 * (`src/lib/server/auth/ops-authz.ts`、ops group or NUC local に限定) を強制する。repo は primitive
+	 * のまま権限判断を持たず、認可は上位ルート層の単一強制点に集約する (ADR-0063)。詳細は
+	 * `docs/design/14-セキュリティ設計書.md` §5.2.8。
 	 */
 	upsertBenchmark(
 		age: number,
