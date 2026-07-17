@@ -42,8 +42,13 @@
  * 1.5. `git merge-base --is-ancestor origin/main HEAD` が真 (rebase 済) かつ削除 0 件なら
  *    即 exit 0 (AC2 fast-path、recent merge 走査を省略)
  * 2. 直近 N 日 (default 7) に main に merge された commit (`--merges`) を `git log` で取得
+ * 2.7. **intentional teardown exemption (#3832)**: PR 自身の commit (`<base>..HEAD`) に
+ *    `Deploy-Teardown: <path-regex> <reason>` (or `Migration-Teardown:`) trailer があれば、
+ *    宣言 path にマッチする削除を exempt (BLOCK 対象外 + audit log 出力) にする。宣言外の削除は
+ *    従来通り gate 対象。develop 二層で main live な feature を意図的に撤去する PR が full
+ *    `--no-verify` (account check も飛ぶ) を強いられていた false-positive の構造的解消。
  * 3. 各 merge commit が touch した file (additions / modifications / deletions 不問) と
- *    PR の削除 file を path level で照合
+ *    PR の (teardown exempt 後の) 削除 file を path level で照合
  * 4. 重複 file が存在し、かつ `--ignore-pattern` regex にマッチしない場合 → exit 2
  *    + stderr に違反 listing (file:commit:date)
  * 5. 重複なし → exit 0
@@ -484,6 +489,120 @@ export function findViolations(deletedFiles, recentMerges, ignorePatterns) {
 	return violations;
 }
 
+/**
+ * intentional migration teardown を宣言する commit trailer の key 群 (#3832)。
+ *
+ * develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md) では「main に live な feature を
+ * develop 向け PR が migration で意図的に撤去する」のは正当だが、deploy-deletion gate はそれを
+ * 「直近 deploy feature の削除 = 事故的消失」と区別できず誤 BLOCK し、full `--no-verify`
+ * (account check も飛ぶ) を強いていた (#3821 で観察)。PR 自身の commit に本 trailer で削除対象の
+ * path scope を宣言すれば、該当削除のみを gate が exempt する (無条件全通しにはしない)。
+ */
+export const TEARDOWN_TRAILER_KEYS = ['Deploy-Teardown', 'Migration-Teardown'];
+
+/**
+ * commit message blob 群から teardown trailer の raw value を抽出する純関数 (#3832)。
+ *
+ * `Deploy-Teardown: <value>` / `Migration-Teardown: <value>` の行を検出し value を返す。
+ * git trailer は case-insensitive 慣習のため key は大文字小文字を無視する。複数 commit を
+ * まとめた blob (record separator 混在) でも全 trailer を拾う。
+ *
+ * @param {string} text 1 つ以上の commit message を含む text
+ * @returns {string[]} trailer value (key: の後ろ、trim 済) の配列
+ */
+export function parseTeardownTrailers(text) {
+	if (!text) return [];
+	const keyAlt = TEARDOWN_TRAILER_KEYS.join('|');
+	const re = new RegExp(`^\\s*(?:${keyAlt}):\\s*(.+?)\\s*$`, 'i');
+	/** @type {string[]} */
+	const values = [];
+	for (const line of text.split(/\r?\n/)) {
+		const m = line.match(re);
+		if (m?.[1]) values.push(m[1].trim());
+	}
+	return values;
+}
+
+/**
+ * teardown trailer value を `{ pattern, patternSource, reason }` に compile する純関数 (#3832)。
+ *
+ * value の先頭 whitespace token を **削除対象 path を絞る regex** とみなし、残りを audit 用
+ * reason (通常 `#<issue> <説明>`) とする。path token が空なら明示 Error を throw して
+ * 「無条件全通し」を構造的に防ぐ (audit req 1)。regex compile は `compileIgnorePattern` に委ね、
+ * 長さ上限 + fail-closed (不正 regex で明示 Error) を再利用する (#3766)。
+ *
+ * @param {string} rawValue trailer value (例: `^src/lib/analytics/ #3821 teardown`)
+ * @returns {{ pattern: RegExp, patternSource: string, reason: string }}
+ */
+export function compileTeardownPattern(rawValue) {
+	const trimmed = rawValue.trim();
+	const spaceIdx = trimmed.search(/\s/);
+	const patternSource = spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
+	const reason = spaceIdx === -1 ? '' : trimmed.slice(spaceIdx + 1).trim();
+	if (patternSource === '') {
+		throw new Error(
+			'Deploy-Teardown / Migration-Teardown trailer に path regex がありません (例: `Deploy-Teardown: ^src/lib/analytics/ #3821`)。無条件全通しを防ぐため path scope の宣言が必須です。',
+		);
+	}
+	const pattern = compileIgnorePattern(patternSource);
+	return { pattern, patternSource, reason };
+}
+
+/**
+ * PR 自身の commit (`<base>..HEAD`) から teardown trailer を読み、compile 済 pattern を返す (#3832)。
+ *
+ * two-dot (`<base>..HEAD`) は「HEAD 側にのみ存在する commit」= PR 自身の commit を列挙するため、
+ * base が進んでいても (behind) PR が積んだ commit の trailer だけを読む。trailer は commit と共に
+ * develop → main へ流れるため、develop 向け PR で宣言すれば release/*→main の統合時も同一宣言が
+ * 自動適用され再エスカレーションを防ぐ (#3438 Phase 3 の再発予防)。
+ *
+ * @param {string} base 比較 base (例: 'origin/main')
+ * @returns {{ patterns: Array<{pattern: RegExp, patternSource: string, reason: string}>, rawValues: string[] } | null}
+ *   git 失敗時 null
+ */
+export function getTeardownPatternsFromCommits(base) {
+	// %x1e = record separator。各 commit body を区切って parse する。
+	const output = runGit(['log', `${base}..HEAD`, '--no-merges', '--pretty=format:%B%x1e']);
+	if (output === null) return null;
+	/** @type {string[]} */
+	const rawValues = [];
+	for (const chunk of output.split('\x1e')) {
+		rawValues.push(...parseTeardownTrailers(chunk));
+	}
+	const patterns = rawValues.map((v) => compileTeardownPattern(v));
+	return { patterns, rawValues };
+}
+
+/**
+ * 削除 file を teardown 宣言で分類する純関数 (#3832)。
+ *
+ * 宣言 path (teardownPatterns) にマッチする削除は `exempted` (BLOCK されないが log 出力され
+ * 監査が後追いできる)、それ以外は `remaining` (通常 gate 対象 = 宣言外 = genuine data-loss として
+ * BLOCK 判定に回る)。teardownPatterns が空なら全削除が remaining となり従来挙動と完全一致する。
+ *
+ * @param {string[]} deletedFiles PR 側の削除 file
+ * @param {Array<{pattern: RegExp, patternSource: string, reason: string}>} teardownPatterns
+ * @returns {{ exempted: Array<{file: string, patternSource: string, reason: string}>, remaining: string[] }}
+ */
+export function partitionDeletionsByTeardown(deletedFiles, teardownPatterns) {
+	if (!teardownPatterns || teardownPatterns.length === 0) {
+		return { exempted: [], remaining: [...deletedFiles] };
+	}
+	/** @type {Array<{file: string, patternSource: string, reason: string}>} */
+	const exempted = [];
+	/** @type {string[]} */
+	const remaining = [];
+	for (const file of deletedFiles) {
+		const hit = teardownPatterns.find((t) => t.pattern.test(file));
+		if (hit) {
+			exempted.push({ file, patternSource: hit.patternSource, reason: hit.reason });
+		} else {
+			remaining.push(file);
+		}
+	}
+	return { exempted, remaining };
+}
+
 /** `--ignore-pattern` に許容する最大長 (ReDoS 表面積の上限、operator 誤用の早期検出)。 */
 export const MAX_IGNORE_PATTERN_LENGTH = 200;
 
@@ -590,7 +709,13 @@ export function helpText() {
 		'  検出する (main 進化の追加 file を誤算入しない)。<base> が ancestor (rebase 済) かつ',
 		'  削除 0 件なら early fast-path で即 exit 0 する。',
 		'',
-		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) / #2877 (three-dot) for context.',
+		'#3832: intentional migration teardown exemption。PR 自身の commit (`<base>..HEAD`) に',
+		'  `Deploy-Teardown: <path-regex> #<issue> <理由>` (or `Migration-Teardown:`) trailer が',
+		'  あれば、宣言 path にマッチする削除を exempt する (audit log 出力)。宣言外の削除は BLOCK 維持。',
+		'  develop 二層で main live な feature を撤去する PR が full `--no-verify` を強いられていた',
+		'  false-positive を、account check を温存したまま解消する (gate 本来の data-loss 保護は不変)。',
+		'',
+		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) / #2877 (three-dot) / #3832 (teardown marker) for context.',
 	].join('\n');
 }
 
@@ -688,6 +813,34 @@ async function main() {
 		return 0;
 	}
 
+	// #3832: intentional migration teardown exemption (develop 二層 false-positive 是正)。
+	// PR 自身の commit (<base>..HEAD) に `Deploy-Teardown: <path-regex> <reason>` trailer があれば、
+	// 宣言 path にマッチする削除を exempt (BLOCK 対象外) にしつつ audit log を出力する。宣言外の
+	// 削除は remaining として従来通り gate 対象になり、genuine data-loss 保護は維持される。
+	// これにより意図的 migration 撤去 PR で full `--no-verify` (account check も飛ぶ) を回避できる。
+	const teardown = getTeardownPatternsFromCommits(opts.base);
+	const teardownPatterns = teardown?.patterns ?? [];
+	const { exempted, remaining } = partitionDeletionsByTeardown(deletedFiles, teardownPatterns);
+	if (exempted.length > 0) {
+		// audit trail (#3832 監査要件 1): exempt した削除を必ず log 出力し、監査が後追いできるようにする。
+		process.stdout.write(
+			`[check-recent-deploy-deletion] TEARDOWN-EXEMPT: ${exempted.length} file(s) exempted by intentional teardown trailer (audit trail #3832)${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+		);
+		for (const e of exempted) {
+			process.stdout.write(
+				`  - ${e.file}\n    └ declared teardown /${e.patternSource}/${e.reason ? ` — ${e.reason}` : ''}\n`,
+			);
+		}
+	}
+
+	// exempt 後に削除が 0 件なら、宣言外の削除が無い = 通常 gate 対象なしで即 OK。
+	if (remaining.length === 0) {
+		process.stdout.write(
+			`[check-recent-deploy-deletion] OK: ${deletedFiles.length} file(s) deleted, all covered by intentional teardown declarations${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+		);
+		return 0;
+	}
+
 	// #2615: resolve time-aware window (--since / --since-ref / --since-recent) or fallback to --days
 	const window = resolveSinceWindow(opts);
 	const recentMerges = getMergedFilesSince(opts.base, window.since);
@@ -698,11 +851,11 @@ async function main() {
 		return 3;
 	}
 
-	const violations = findViolations(deletedFiles, recentMerges, opts.ignorePatterns);
+	const violations = findViolations(remaining, recentMerges, opts.ignorePatterns);
 
 	if (violations.length === 0) {
 		process.stdout.write(
-			`[check-recent-deploy-deletion] OK: ${deletedFiles.length} file(s) deleted, none overlap with merges since ${window.note}${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+			`[check-recent-deploy-deletion] OK: ${remaining.length} file(s) deleted (after teardown exemption), none overlap with merges since ${window.note}${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
 		);
 		return 0;
 	}
@@ -718,9 +871,27 @@ async function main() {
 		process.stderr.write(`  - ${v.file}\n    └ touched by ${v.commit} (${v.date})\n`);
 	}
 	process.stderr.write('\n');
-	process.stderr.write('If a deletion is intentional (e.g. ADR archive move, 1-in-1-out),\n');
 	process.stderr.write(
-		'  rerun with `--ignore-pattern <regex>` (e.g. `^docs/decisions/archive/`).\n',
+		'If a deletion is an intentional migration teardown (develop 二層で main live な\n',
+	);
+	process.stderr.write(
+		'  feature を撤去する等、#3832), declare its path scope in a commit trailer so the\n',
+	);
+	process.stderr.write(
+		'  gate exempts it WITHOUT needing `--no-verify` (which also skips the account check):\n',
+	);
+	process.stderr.write('    Deploy-Teardown: <path-regex> #<issue> <理由>\n');
+	process.stderr.write(
+		'    (例: `Deploy-Teardown: ^src/lib/analytics/ #3821 analytics 収集撤去`)\n',
+	);
+	process.stderr.write(
+		'  宣言 path にマッチする削除のみが exempt され (log 出力される), 宣言外の削除は\n',
+	);
+	process.stderr.write(
+		'  引き続き BLOCK されます (data-loss 保護維持)。ADR archive 移動等の非 teardown 除外は\n',
+	);
+	process.stderr.write(
+		'  従来どおり `--ignore-pattern <regex>` (例: `^docs/decisions/archive/`) も使えます。\n',
 	);
 	return 2;
 }
