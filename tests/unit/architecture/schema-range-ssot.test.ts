@@ -120,7 +120,7 @@ const wireItem = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-const domainOk = (data: unknown) => createActivitySchema.safeParse(data).success;
+const domainOk = (data: unknown) => v.safeParse(createActivitySchema, data).success;
 const wireOk = (data: unknown) => v.safeParse(ActivityPackItemSchema, data).success;
 
 /** domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */

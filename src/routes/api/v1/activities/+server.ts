@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import * as v from 'valibot';
 // #3740: client-facing 経路の wire source は信頼せず正準 'custom' を強制する (trust 境界分離)
 import { PARENT_CREATED_SOURCE } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
@@ -15,21 +16,21 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const parsed = activitiesQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+	const parsed = v.safeParse(activitiesQuerySchema, Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
+		return validationError(parsed.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
 	let childAge: number | undefined;
-	if (parsed.data.childId) {
-		const child = await findChildById(parsed.data.childId, tenantId);
+	if (parsed.output.childId) {
+		const child = await findChildById(parsed.output.childId, tenantId);
 		if (child) childAge = child.age;
 	}
 
 	const result = await getActivities(tenantId, {
 		childAge,
-		categoryId: parsed.data.categoryId,
-		includeHidden: parsed.data.includeHidden,
+		categoryId: parsed.output.categoryId,
+		includeHidden: parsed.output.includeHidden,
 	});
 
 	return json({ activities: result });
@@ -42,9 +43,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	const tenantId = context.tenantId;
 	const body = await request.json();
-	const parsed = createActivitySchema.safeParse(body);
+	const parsed = v.safeParse(createActivitySchema, body);
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
+		return validationError(parsed.issues[0]?.message ?? '入力が不正です');
 	}
 
 	// #3740: 親手動作成経路 (admin `create` action と同型) の quota gate。gate 未通過だと
@@ -63,7 +64,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// 注入して上限を回避できるため、client-facing 経路では正準 'custom' を強制する。
 	// seed / curriculum を指定できるのは内部 caller (seed.ts / import-service) のみ (trust 境界分離)。
 	const activity = await createActivity(
-		{ ...parsed.data, source: PARENT_CREATED_SOURCE },
+		{ ...parsed.output, source: PARENT_CREATED_SOURCE },
 		tenantId,
 	);
 	return json(activity, { status: 201 });

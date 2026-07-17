@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 // tests/unit/domain/activity-validation.test.ts
 // 活動バリデーションスキーマのユニットテスト
@@ -63,7 +64,7 @@ describe('#3463 sanitizeActivityNameField (読み仮名/漢字 max 50)', () => {
 
 describe('createActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: 'たいそうした',
 			categoryId: asCategoryId(1),
 			icon: '🤸',
@@ -75,7 +76,7 @@ describe('createActivitySchema', () => {
 	});
 
 	it('name が空文字だとエラー', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: '',
 			categoryId: asCategoryId(1),
 			icon: '🤸',
@@ -87,7 +88,7 @@ describe('createActivitySchema', () => {
 	});
 
 	it('name が50文字を超えるとエラー', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: 'あ'.repeat(51),
 			categoryId: asCategoryId(1),
 			icon: '🤸',
@@ -99,7 +100,7 @@ describe('createActivitySchema', () => {
 	});
 
 	it('不正なカテゴリはエラー', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: 'テスト',
 			categoryId: asCategoryId(99),
 			icon: '✨',
@@ -111,7 +112,7 @@ describe('createActivitySchema', () => {
 	});
 
 	it('basePoints が0以下だとエラー', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: 'テスト',
 			categoryId: asCategoryId(1),
 			icon: '🤸',
@@ -123,7 +124,7 @@ describe('createActivitySchema', () => {
 	});
 
 	it('basePoints が100を超えるとエラー', () => {
-		const result = createActivitySchema.safeParse({
+		const result = v.safeParse(createActivitySchema, {
 			name: 'テスト',
 			categoryId: asCategoryId(1),
 			icon: '🤸',
@@ -137,19 +138,19 @@ describe('createActivitySchema', () => {
 
 describe('updateActivitySchema', () => {
 	it('部分的な更新を受け入れる', () => {
-		const result = updateActivitySchema.safeParse({ name: '新しい名前' });
+		const result = v.safeParse(updateActivitySchema, { name: '新しい名前' });
 		expect(result.success).toBe(true);
 	});
 
 	it('空オブジェクトを受け入れる', () => {
-		const result = updateActivitySchema.safeParse({});
+		const result = v.safeParse(updateActivitySchema, {});
 		expect(result.success).toBe(true);
 	});
 });
 
 describe('recordActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {
-		const result = recordActivitySchema.safeParse({
+		const result = v.safeParse(recordActivitySchema, {
 			childId: asChildId(1),
 			activityId: asActivityId(3),
 		});
@@ -158,7 +159,7 @@ describe('recordActivitySchema', () => {
 
 	it('childId が0以下だとエラー', () => {
 		// #3575: 旧クライアント互換の number 入力。0 以下は旧 schema (int().positive()) 同等に拒否
-		const result = recordActivitySchema.safeParse({
+		const result = v.safeParse(recordActivitySchema, {
 			childId: 0,
 			activityId: asActivityId(3),
 		});
@@ -167,7 +168,7 @@ describe('recordActivitySchema', () => {
 
 	it('activityId が負数だとエラー', () => {
 		// #3575: 旧クライアント互換の number 入力。負数は旧 schema 同等に拒否
-		const result = recordActivitySchema.safeParse({
+		const result = v.safeParse(recordActivitySchema, {
 			childId: asChildId(1),
 			activityId: -1,
 		});
@@ -177,60 +178,60 @@ describe('recordActivitySchema', () => {
 
 describe('activitiesQuerySchema', () => {
 	it('パラメータなしを受け入れる', () => {
-		const result = activitiesQuerySchema.safeParse({});
+		const result = v.safeParse(activitiesQuerySchema, {});
 		expect(result.success).toBe(true);
 	});
 
 	it('childId を数値に変換する', () => {
-		const result = activitiesQuerySchema.safeParse({ childId: '1' });
+		const result = v.safeParse(activitiesQuerySchema, { childId: '1' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe('1');
+			expect(result.output.childId).toBe('1');
 		}
 	});
 
 	it('category フィルタを受け入れる', () => {
-		const result = activitiesQuerySchema.safeParse({ categoryId: asCategoryId(1) });
+		const result = v.safeParse(activitiesQuerySchema, { categoryId: asCategoryId(1) });
 		expect(result.success).toBe(true);
 	});
 
 	it('includeHidden を変換する', () => {
-		const result = activitiesQuerySchema.safeParse({ includeHidden: 'true' });
+		const result = v.safeParse(activitiesQuerySchema, { includeHidden: 'true' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.includeHidden).toBe(true);
+			expect(result.output.includeHidden).toBe(true);
 		}
 	});
 });
 
 describe('activityLogsQuerySchema', () => {
 	it('childId 必須を検証する', () => {
-		const result = activityLogsQuerySchema.safeParse({});
+		const result = v.safeParse(activityLogsQuerySchema, {});
 		expect(result.success).toBe(false);
 	});
 
 	it('有効なクエリを受け入れる', () => {
-		const result = activityLogsQuerySchema.safeParse({ childId: '1' });
+		const result = v.safeParse(activityLogsQuerySchema, { childId: '1' });
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.childId).toBe('1');
-			expect(result.data.period).toBe('week');
+			expect(result.output.childId).toBe('1');
+			expect(result.output.period).toBe('week');
 		}
 	});
 
 	it('period を受け入れる', () => {
-		const result = activityLogsQuerySchema.safeParse({
+		const result = v.safeParse(activityLogsQuerySchema, {
 			childId: '1',
 			period: 'month',
 		});
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.period).toBe('month');
+			expect(result.output.period).toBe('month');
 		}
 	});
 
 	it('不正な period はエラー', () => {
-		const result = activityLogsQuerySchema.safeParse({
+		const result = v.safeParse(activityLogsQuerySchema, {
 			childId: '1',
 			period: 'decade',
 		});

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import * as v from 'valibot';
 import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
 import { apiError, validationError } from '$lib/server/errors';
 import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
@@ -11,12 +12,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	const tenantId = context.tenantId;
 	const body = await request.json();
-	const parsed = recordActivitySchema.safeParse(body);
+	const parsed = v.safeParse(recordActivitySchema, body);
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
+		return validationError(parsed.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = await recordActivity(parsed.data.childId, parsed.data.activityId, tenantId);
+	const result = await recordActivity(parsed.output.childId, parsed.output.activityId, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'ALREADY_RECORDED') {
@@ -39,12 +40,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const parsed = activityLogsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+	const parsed = v.safeParse(activityLogsQuerySchema, Object.fromEntries(url.searchParams));
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
+		return validationError(parsed.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
-	const { childId, period, from, to } = parsed.data;
+	const { childId, period, from, to } = parsed.output;
 
 	// Calculate date range from period if from/to not specified
 	let dateFrom = from;

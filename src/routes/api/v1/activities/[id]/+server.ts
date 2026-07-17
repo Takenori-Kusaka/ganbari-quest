@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import * as v from 'valibot';
 import { asActivityId } from '$lib/domain/ids';
 import { updateActivitySchema } from '$lib/domain/validation/activity';
 import { notFound, validationError } from '$lib/server/errors';
@@ -37,12 +38,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (!existing) return notFound('かつどうがみつかりません');
 
 	const body = await request.json();
-	const parsed = updateActivitySchema.safeParse(body);
+	const parsed = v.safeParse(updateActivitySchema, body);
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
+		return validationError(parsed.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const updated = await updateActivity(id, parsed.data, tenantId);
+	const updated = await updateActivity(id, parsed.output, tenantId);
 	return json(updated);
 };
 
