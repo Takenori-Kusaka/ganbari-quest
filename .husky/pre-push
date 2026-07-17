@@ -118,6 +118,12 @@ if [ -n "$PR_NUM" ]; then
 	# #2959: 比較 base は解決済み base branch (develop 基点 branch で sibling PR の
 	# develop commit を自 PR の削除と誤算入しないため)。deploy file list 自体は
 	# script 内部で本日 deploy tag (main) から取得されるため意味は不変。
+	#
+	# #3832: intentional migration teardown exemption。develop 二層で main live な feature を
+	# 意図的に撤去する PR は、撤去 commit の message 末尾に `Deploy-Teardown: <path-regex> #<issue>`
+	# trailer を書けば、gate が宣言 path の削除を exempt する (引数不要、gate が commit trailer を
+	# 自動で読む)。宣言外の削除は BLOCK 維持。これにより full `--no-verify` (この account check
+	# 段階 1 まで飛ぶ) を使わずに正当な移管撤去を通せる。詳細は ADR-0056 §G / Issue #3832。
 	RECENT_DEPLOY_CHECK_BASE="origin/$BASE_BRANCH" node scripts/check-recent-deploy-deletion.mjs || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: 本日 deploy 全 file 削除検出 (exit $EXIT_CODE)"
