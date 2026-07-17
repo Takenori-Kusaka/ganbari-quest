@@ -102,8 +102,19 @@ async function runConcurrent<T>(
  */
 const RESTORE_DEDUP_FETCH_LIMIT = 100_000;
 
-/** ISO 8601 日時 (先頭 `YYYY-MM-DDTHH:MM` + Date.parse 可) か。restore の verbatim 値検証用 (#3414/#3420)。 */
-const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+/**
+ * 日時 (先頭 `YYYY-MM-DD` + `T` または半角スペース区切り + `HH:MM` + Date.parse 可) か。
+ * restore / cutover の verbatim 値検証用 (#3414/#3420)。
+ *
+ * #3851: 区切りは `T` (ISO 8601) と半角スペース の両方を許容する。通常の親メッセージ / おうえん
+ * 送信経路 (insertMessage / sendCheer) は sent_at を指定せず、SQLite の `CURRENT_TIMESTAMP`
+ * 既定値 = `'YYYY-MM-DD HH:MM:SS'` (スペース区切り、Date.parse 可の正当な日時) が入る。旧実装は
+ * `T` 必須だったため、この正当な legacy 日時を「不正」と誤判定し、NUC cutover の verbatim import で
+ * 親メッセージを silent drop → 件数突合 (parentMessages export=1 imported=0) で abort させていた
+ * (これは dedup ではなく validator 誤判定による真の false-positive data-loss)。区切りを緩めても
+ * `Date.parse` gate が残るため、破損/改竄値 (未知形式・範囲外) は依然 reject される。
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 function isValidIsoDateTime(value: string): boolean {
 	return ISO_DATETIME_RE.test(value) && !Number.isNaN(Date.parse(value));
 }
