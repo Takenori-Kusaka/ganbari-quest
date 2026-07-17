@@ -106,9 +106,10 @@ test.describe('#3829 アプリ側 CSP script-src hash 化 (unsafe-inline 撤廃)
 
 		// /switch は SSR (動的) レスポンス = hooks が resolve(event) 経由で X-Frame-Options を付与する。
 		// 対話 HTML の clickjacking 防御はここで実測する。
-		expect(headers['x-frame-options'], 'SSR HTML に X-Frame-Options: DENY が hooks で付与されている').toBe(
-			'DENY',
-		);
+		expect(
+			headers['x-frame-options'],
+			'SSR HTML に X-Frame-Options: DENY が hooks で付与されている',
+		).toBe('DENY');
 
 		expectNoCspViolations(violations, '/switch');
 	});
@@ -117,9 +118,10 @@ test.describe('#3829 アプリ側 CSP script-src hash 化 (unsafe-inline 撤廃)
 		page,
 	}) => {
 		const response = await page.goto('/sitemap.xml', { waitUntil: 'domcontentloaded' });
-		expect(response?.status(), '/sitemap.xml が 200 で配信される (CSP 一本化後も prerender endpoint 生存)').toBe(
-			200,
-		);
+		expect(
+			response?.status(),
+			'/sitemap.xml が 200 で配信される (CSP 一本化後も prerender endpoint 生存)',
+		).toBe(200);
 
 		// prerender ページ (`export const prerender = true`) は build 時に静的化され request 時に
 		// server hooks (hooks.server.ts) を経由しない。従って hooks が付与する X-Frame-Options: DENY は
