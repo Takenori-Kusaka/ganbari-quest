@@ -41,9 +41,10 @@ on:
       # EPIC #3620 AC-C5: PGlite staging lane (opt-in)。true で snapshot 済み旧 sqlite DB を
       # cutover CLI (export→import、image 同梱) で PGlite へ移行し、DATA_SOURCE=pglite で staging を
       # 起動して health (probePg = 実 backend 実接続) を検証する = NUC cutover の実機リハーサル。
-      # pull_request trigger (統合 PR) では inputs 不在 = 常に現行 sqlite lane (不変)。
+      # #3685: NUC cutover 完遂 (prod=pglite) 後、統合 PR (pull_request) でも PGlite lane を **常時**
+      # 自動実行し「本番構成 = staging 構成」を恒常一致させる (下の PGLITE_LANE 参照)。
       pgliteEnabled:
-        description: 'PGlite backend で staging を deploy (EPIC #3620 cutover リハーサル)'
+        description: 'PGlite backend で staging を deploy (EPIC #3620 cutover リハーサル、手動検証用)'
         type: boolean
         default: false
 
@@ -57,8 +58,10 @@ permissions:
   contents: read
 
 env:
-  # PGlite lane 判定 (AC-C5)。dispatch + pgliteEnabled=true のときのみ 'true'。
-  PGLITE_LANE: ${{ github.event_name == 'workflow_dispatch' && inputs.pgliteEnabled == true && 'true' || 'false' }}
+  # PGlite lane 判定 (AC-C5 / #3685)。NUC cutover 完遂 (prod=pglite) につき、統合 PR (pull_request)
+  # では **常時 pglite lane** を回して「本番構成 = staging 構成」を恒常一致させる。dispatch は手動
+  # opt-in (pgliteEnabled=true) のときのみ。
+  PGLITE_LANE: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.pgliteEnabled == true)) && 'true' || 'false' }}
 
 jobs:
   deploy-nuc-staging:
