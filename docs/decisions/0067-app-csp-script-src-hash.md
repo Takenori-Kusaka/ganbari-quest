@@ -1,11 +1,11 @@
-# 0067. アプリ側 CSP script-src の hash 化 (SvelteKit kit.csp、`'unsafe-inline'` 撤廃)
+# 0067. アプリ側 CSP の `'unsafe-inline'` hardening (script-src = hash 撤廃 / style-src = 維持 + 構造的根拠)
 
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
 | 日付 | 2026-07-17 |
 | 起票者 | Dev (audit team) |
-| 関連 Issue | #3829 (EPIC #3408 slice C) / #3112 |
+| 関連 Issue | #3829 (EPIC #3408 slice C, script-src) / #3828 (slice B, style-src) / #3112 |
 | 関連 ADR | ADR-0029 (LP 側 CSP、**併存**) / ADR-0025 (LP SSOT 注入 XSS) / ADR-0010 (Pre-PMF スコープ) / ADR-0062 (統一エラー通知) |
 
 ## コンテキスト
@@ -38,7 +38,19 @@ impact-analysis の実測で、アプリの inline `<script>` は **SvelteKit hy
 
 **選択肢 A を採用**。`svelte.config.js` `kit.csp` (hash mode) に directive を一本化し、`script-src` から `'unsafe-inline'` を撤廃する (`['self']` のみ → SvelteKit が sha256 を自動付与)。旧 `hooks.server.ts` の `buildCspHeader()` / `CSP_HEADER` / `response.headers.set('Content-Security-Policy', ...)` は二重付与 (clobber) を避けるため撤去する。directive 値は旧 builder を SSOT として 1:1 写経し (img/media/font/connect 等を漏らさない)、`connect-src 'self'` 固定による「外部送信ゼロ」も引き継ぐ。
 
-`style-src 'unsafe-inline'` は本 slice では **維持** (撤廃は #3408 AC2 = slice B で別途扱う)。`frame-ancestors 'none'` は SSR では header で有効、prerender では `X-Frame-Options: DENY` (hooks 継続付与) が backup。
+`frame-ancestors 'none'` は SSR では header で有効、prerender では `X-Frame-Options: DENY` (hooks 継続付与) が backup。
+
+### style-src は `'unsafe-inline'` を維持する (slice B = #3828、案C)
+
+`style-src` は `'unsafe-inline'` を **維持** する。撤廃 (script-src と同じ hash 化) は以下の構造的制約で不可能:
+
+- Svelte は SSR 時、`style:` binding (実測 102 箇所) と `style=` 属性を **inline style 属性 (`style="..."`) としてシリアライズ**する (hydration 後の更新のみ `element.style` = CSSOM 経由で非該当)。
+- **CSP の hash / nonce は `<style>` / `<script>` 要素にのみ適用でき、inline `style=` 属性には適用不可** (属性値ごとの hash + `'unsafe-hashes'` が必要で、`style="width:37%"` 等の動的値は非現実的)。SvelteKit `kit.csp` も自身が生成する inline のみ hash 化し、component の `style=` 属性は対象外。SvelteKit 自身の a11y ルーティング announcer も inline style 属性を持つ。
+- 完全撤廃には 102 箇所の `style:` を `$effect` + CSSOM 直接変更へ書き換える持続的負債が必要で、Pre-PMF (ADR-0010) には過剰。#3828 AC2 の「撤廃が過剰な場合は ADR で根拠 + scope 限定」に合致。
+
+**scope / 残余リスク**: style ベクタの残余リスクは stored-XSS 由来の style 属性ベース defacement / exfiltration に限定され、DOMPurify (ADR-0025) + nosniff + attachment 配信 (#3105/#3111) + user-content 配信不変条件 (#3827 fitness) が実防御を担う。XSS 最重要の script ベクタは script-src hash 撤廃で塞ぐ。
+
+**将来撤廃トリガ**: (a) フレームワークが `style:` の nonce/hash 化を提供、または (b) style 属性ベース攻撃の実害観測。いずれか成立時に slice B' として再評価する。
 
 ## 結果
 
