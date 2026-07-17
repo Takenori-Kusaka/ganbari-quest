@@ -44,6 +44,17 @@ export interface IStatusRepo {
 		tenantId: string,
 	): Promise<MarketBenchmark | undefined>;
 	findAllBenchmarks(tenantId: string): Promise<MarketBenchmark[]>;
+	/**
+	 * market_benchmarks (世代別平均値) を upsert する。
+	 *
+	 * ⚠️ 書込 authz (#3593 ④、明文化): market_benchmarks は **グローバル master** (tenant 非依存、
+	 * 全テナントで共有される統計基準値) である。したがって本 upsert は「1 テナントの書込が全テナントに
+	 * 波及する」書込であり、**ops/admin 相当の権限に限定**されるべき (通常の保護者操作から到達させない)。
+	 * `tenantId` 引数は audit/observability 用であり分離キーではない (findBenchmark も tenant 非依存で
+	 * 全テナント共通行を返す)。呼出は現状 `/admin/status` (parent-admin ルート、hooks.server.ts の
+	 * admin 認可下) のみ。将来グローバル書込を ops group 限定に厳格化する場合は上位ルート層で行う
+	 * (repo は primitive、権限判断を持たない)。
+	 */
 	upsertBenchmark(
 		age: number,
 		categoryId: CategoryId,
