@@ -27,10 +27,12 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
+import { POINT_LEDGER_LABELS } from '../../../src/lib/domain/labels';
 import {
 	convertPoints,
 	getPointBalance,
 	getPointHistory,
+	grantInitialPoints,
 } from '../../../src/lib/server/services/point-service';
 
 beforeAll(() => {
@@ -89,6 +91,52 @@ describe('point-service', () => {
 	it('存在しない子供のポイント残高はNOT_FOUND', async () => {
 		const result = await getPointBalance(asChildId(999), 'test-tenant');
 		expect(result).toEqual({ error: 'NOT_FOUND' });
+	});
+
+	// #3593 ④: archived child への加点は service 層 business rule で拒否する (repo は primitive)。
+	// insertPointEntry (writer) は is_archived を filter せず total_point を加点するため、
+	// 「archived な子には加点しない」判断は service で担保する。
+	describe('grantInitialPoints: archived 子への加点ガード (#3593 ④)', () => {
+		function seedArchivedChild() {
+			resetDb();
+			testDb
+				.insert(schema.children)
+				.values({ nickname: 'アーカイブちゃん', age: 4, theme: 'pink', isArchived: 1 })
+				.run();
+		}
+
+		it('archived child への grantInitialPoints は CHILD_ARCHIVED を返し加点しない', async () => {
+			seedArchivedChild();
+			const result = await grantInitialPoints(asChildId(1), 500, 'test-tenant');
+			expect(result).toEqual({ error: 'CHILD_ARCHIVED' });
+			// 加点されていない (total は 0 のまま)
+			const rows = testDb.select().from(schema.pointLedger).all();
+			expect(rows.length).toBe(0);
+		});
+
+		it('active child への grantInitialPoints は成功して加点する', async () => {
+			seedChild(); // active child (isArchived 未指定 = 0)
+			const result = assertSuccess(await grantInitialPoints(asChildId(1), 500, 'test-tenant'));
+			expect(result.balance).toBe(500);
+		});
+	});
+
+	// #3593 ④: system 生成 ledger description は labels SSOT (POINT_LEDGER_LABELS) 経由。
+	// UI (ポイント履歴) に表示される system 文言をコード直書きせず 1 箇所に集約する (ADR-0045)。
+	describe('ledger description は labels SSOT 経由 (#3593 ④)', () => {
+		it('grantInitialPoints の description は POINT_LEDGER_LABELS.initialSetup と一致', async () => {
+			seedChild();
+			assertSuccess(await grantInitialPoints(asChildId(1), 100, 'test-tenant'));
+			const rows = testDb.select().from(schema.pointLedger).all();
+			expect(rows[0]?.description).toBe(POINT_LEDGER_LABELS.initialSetup);
+		});
+
+		it('convertPoints の description は POINT_LEDGER_LABELS.convert(mode) と一致', async () => {
+			seedChild();
+			addPoints(1, 1000, 'activity', '元手');
+			const result = assertSuccess(await convertPoints(asChildId(1), 500, 'test-tenant', 'manual'));
+			expect(result.message).toBe(POINT_LEDGER_LABELS.convert(500, 'manual'));
+		});
 	});
 
 	// 履歴取得

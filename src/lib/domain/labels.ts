@@ -9381,3 +9381,19 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	pickChildHint: '対象の子供を選んでから取り込みできます。',
 	disabledReason: '権限が不足しています',
 } as const;
+
+// #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。
+// これらは DB に data 値として保存されると同時に、ポイント履歴 UI に表示される system 文言。
+// ADR-0045 に従い service 層のコード直書きを避け、labels compound に集約する
+// (「ポイント」は POINT_TERMS.unitFull atom を参照)。
+export const POINT_LEDGER_LABELS = {
+	/** baby モード初期ポイント付与 (親設定) の ledger description */
+	initialSetup: '親による初期ポイント設定',
+	/** ポイント → おこづかい変換の ledger description (変換モード別サフィックス付き) */
+	convert(amount: number, mode: 'preset' | 'manual' | 'receipt'): string {
+		const base = `${amount}${POINT_TERMS.unitFull}をおこづかいにかえました`;
+		if (mode === 'manual') return `${base}（手動入力）`;
+		if (mode === 'receipt') return `${base}（領収書読み取り）`;
+		return base;
+	},
+} as const;

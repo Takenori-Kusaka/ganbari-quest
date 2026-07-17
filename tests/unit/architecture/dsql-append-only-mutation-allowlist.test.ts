@@ -135,8 +135,10 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		file: 'point-repo.ts',
 		table: 'point_ledger',
 		op: 'DELETE',
-		marker: /created_at\s*<\s*\$\{cutoffDate\}/,
-		reason: 'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + cutoff 述語)',
+		// #3593 ②: cutoff を JST 深夜 0:00 の instant に TZ-qualify (session TZ 非依存)。
+		marker: /created_at\s*<\s*\(\$\{cutoffDate\}\s*\|\|\s*'T00:00:00\+09:00'\)/,
+		reason:
+			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + JST-qualified cutoff 述語、#3593 ②)',
 	},
 	{
 		file: 'status-repo.ts',
