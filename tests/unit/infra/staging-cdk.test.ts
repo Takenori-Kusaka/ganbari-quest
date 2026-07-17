@@ -55,7 +55,6 @@ function buildProdStacks(): {
 	const auth = new AuthStack(app, 'TestAuth', { env });
 	const compute = new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -90,7 +89,6 @@ function buildStagingStacks(): {
 	});
 	const compute = new ComputeStack(app, 'TestComputeStaging', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 		envConfig: STAGING_ENV_CONFIG,
@@ -119,13 +117,13 @@ beforeAll(() => {
 
 describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)', () => {
 	describe('P: prod 不変 guard — envConfig 未指定 synth で従来 prod template を維持', () => {
-		it('P-1: Storage — table=ganbari-quest (Retain) / ECR=ganbari-quest (maxImageCount:10) / Backup vault あり', () => {
-			prodStorage.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
-				TableName: 'ganbari-quest',
-			});
-			prodStorage.hasResource('AWS::DynamoDB::GlobalTable', {
-				DeletionPolicy: 'Retain',
-			});
+		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3438 撤去 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
+			// #3438 (EPIC #3424): DB backend は DSQL に一本化。Storage stack は DynamoDB table も
+			// その AWS Backup (daily plan) も一切構築しない。再度 table を生やしたら CI で落ちる。
+			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
+			prodStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
+			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
+			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
 
 			const repos = prodStorage.findResources('AWS::ECR::Repository');
 			expect(Object.keys(repos).length).toBe(1);
@@ -134,13 +132,6 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			};
 			expect(repo.Properties.RepositoryName).toBe('ganbari-quest');
 			expect(repo.Properties.LifecyclePolicy?.LifecyclePolicyText).toContain('"countNumber":10');
-
-			prodStorage.hasResourceProperties('AWS::Backup::BackupVault', {
-				BackupVaultName: 'ganbari-quest-vault',
-			});
-			prodStorage.hasResourceProperties('AWS::Backup::BackupPlan', {
-				BackupPlan: Match.objectLike({ BackupPlanName: 'ganbari-quest-daily' }),
-			});
 
 			// AssetsBucket は `ganbari-quest-assets-<account>` (prefix 不変)
 			const buckets = prodStorage.findResources('AWS::S3::Bucket');
@@ -213,7 +204,6 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 				() =>
 					new ComputeStack(app, 'GuardCompute', {
 						env,
-						table: storage.table,
 						assetsBucket: storage.assetsBucket,
 						repository: storage.repository,
 					}),
@@ -221,14 +211,10 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 		});
 	});
 
-	describe('S-1: staging Storage — prefix 分離 + Backup 不在 + ECR maxImageCount:3 + DESTROY', () => {
-		it('table=ganbari-quest-staging で DeletionPolicy=Delete', () => {
-			stagingStorage.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
-				TableName: 'ganbari-quest-staging',
-			});
-			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', {
-				DeletionPolicy: 'Delete',
-			});
+	describe('S-1: staging Storage — DynamoDB / Backup 不在 (#3438) + ECR maxImageCount:3 + DESTROY', () => {
+		it('DynamoDB table を構築しない (#3438 撤去、DB backend は DSQL)', () => {
+			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
+			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
 		});
 
 		it('AWS Backup (vault / plan) を構築しない', () => {

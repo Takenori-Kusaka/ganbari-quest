@@ -43,7 +43,7 @@ const staticAssetsSourceDir = staticAssetsS3Offload
 
 const storage = new StorageStack(app, `${appName}Storage`, {
 	env,
-	description: 'DynamoDB + S3 for Ganbari Quest',
+	description: 'S3 + ECR for Ganbari Quest (DB backend は DsqlStack、#3438)',
 });
 
 // Google OAuth (deploy with -c googleClientId=xxx -c googleClientSecret=xxx)
@@ -63,7 +63,6 @@ new AuthStack(app, `${appName}Auth`, {
 const compute = new ComputeStack(app, `${appName}Compute`, {
 	env,
 	description: 'Lambda (SvelteKit) + API Gateway for Ganbari Quest',
-	table: storage.table,
 	assetsBucket: storage.assetsBucket,
 	repository: storage.repository,
 });
@@ -99,7 +98,6 @@ new OpsStack(app, `${appName}Ops`, {
 	env,
 	description: 'Monitoring, Alerts, Budgets, Cost Management for Ganbari Quest',
 	lambdaFn: compute.fn,
-	table: storage.table,
 	distribution: network.distribution,
 	// #1214: health-check Lambda が叩くターゲット。CloudFront 経由は geoRestriction('JP')
 	// に阻まれるため、Function URL (authType: NONE) を直接参照する。
@@ -150,7 +148,7 @@ const stagingEnabled = String(app.node.tryGetContext('stagingEnabled')) === 'tru
 if (stagingEnabled) {
 	const stagingStorage = new StorageStack(app, `${appName}StorageStaging`, {
 		env,
-		description: 'DynamoDB + S3 + ECR for Ganbari Quest (staging, #2873)',
+		description: 'S3 + ECR for Ganbari Quest (staging, #2873 / DB backend は DSQL)',
 		envConfig: STAGING_ENV_CONFIG,
 	});
 
@@ -165,7 +163,6 @@ if (stagingEnabled) {
 	const stagingCompute = new ComputeStack(app, `${appName}ComputeStaging`, {
 		env,
 		description: 'Lambda (SvelteKit) for Ganbari Quest (staging, #2873)',
-		table: stagingStorage.table,
 		assetsBucket: stagingStorage.assetsBucket,
 		repository: stagingStorage.repository,
 		envConfig: STAGING_ENV_CONFIG,

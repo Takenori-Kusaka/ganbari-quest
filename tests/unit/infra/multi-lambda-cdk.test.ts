@@ -74,7 +74,6 @@ function buildStacks(): {
 	const storage = new StorageStack(app, 'TestStorage', { env });
 	const compute = new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});

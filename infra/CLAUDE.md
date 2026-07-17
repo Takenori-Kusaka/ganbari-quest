@@ -24,7 +24,7 @@ SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマン�
 
 **全リソース `us-east-1` 固定**（Cognito custom domain ACM が us-east-1 必須のため統一）。CDK source `infra/bin/app.ts` L13-16 が `region: 'us-east-1'` で全 stack (`Storage` / `Auth` / `Compute` / `Network` / `Ops` / `Ses`) を deploy。
 
-主要リソース: Lambda (アプリ / cron-dispatcher / cognito custom message / SES) / ECR / DynamoDB / S3 / Cognito User Pool v2 (`auth.ganbari-quest.com`) / EventBridge cron rules / CloudWatch Logs / Route 53 (`ganbari-quest.com`) / SES (`noreply@ganbari-quest.com`) / SSM / Secrets Manager。詳細は `infra/lib/*-stack.ts` 参照。
+主要リソース: Lambda (アプリ / cron-dispatcher / cognito custom message / SES) / ECR / Aurora DSQL (DsqlStack) / S3 / Cognito User Pool v2 (`auth.ganbari-quest.com`) / EventBridge cron rules / CloudWatch Logs / Route 53 (`ganbari-quest.com`) / SES (`noreply@ganbari-quest.com`) / SSM / Secrets Manager。DynamoDB table は #3438 で撤去 (DB backend は DSQL 一本化)。詳細は `infra/lib/*-stack.ts` 参照。
 
 CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は本ファイルを SSOT として `us-east-1`。`tests/unit/e2e-helpers/*` の `ap-northeast-1` 言及はテスト fixture（変更不要）。
 
@@ -156,7 +156,7 @@ docker compose logs -f scheduler
 | 外部サービス | Stripe / Discord / Gemini / SES 注入 | 非注入 (副作用ゼロ。SES / CE の IAM grant も無し) |
 | CDK gate | context 無し (staging stack は instantiate されない) | `-c stagingEnabled=true` (`infra/bin/app.ts` context gate) |
 | trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
-| health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。DynamoDB backend のため schema assert 無し — G-MIG は NUC staging が主担保) |
+| health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。schema assert の G-MIG 主担保は NUC staging) |
 
 - **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
 - **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。

@@ -48,7 +48,6 @@ function buildOpsTemplate(opts: { offload: boolean; sourceDir?: string }): Templ
 	const storage = new StorageStack(app, 'TestStorage', { env });
 	const compute = new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -64,7 +63,6 @@ function buildOpsTemplate(opts: { offload: boolean; sourceDir?: string }): Templ
 	const ops = new OpsStack(app, 'TestOps', {
 		env,
 		lambdaFn: compute.fn,
-		table: storage.table,
 		distribution: network.distribution,
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,

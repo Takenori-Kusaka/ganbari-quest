@@ -54,12 +54,11 @@ const envSchema = z.object({
 	COGNITO_LOGOUT_URL: z.string().url().optional(),
 
 	// ----- AWS -----
+	// #3438 (EPIC #3424): DynamoDB → Aurora DSQL 移管完了に伴い DynamoDB 系 env
+	// (DYNAMODB_TABLE / DYNAMODB_TABLE_NAME / TABLE_NAME / DYNAMODB_ENDPOINT) を撤去。
+	// DB backend は DSQL / PGlite / SQLite (DATA_SOURCE で選択、下記 Database 節)。
 	AWS_REGION: z.string().default('us-east-1'),
 	AWS_LAMBDA_FUNCTION_NAME: z.string().optional(),
-	DYNAMODB_TABLE: z.string().optional(),
-	DYNAMODB_TABLE_NAME: z.string().optional(),
-	TABLE_NAME: z.string().optional(),
-	DYNAMODB_ENDPOINT: z.string().url().optional(),
 	ASSETS_BUCKET: z.string().optional(),
 
 	// ----- Database -----

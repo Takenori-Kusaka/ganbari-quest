@@ -87,7 +87,6 @@
 		"check:no-demo-route-dup": "node scripts/check-no-demo-route-duplication.mjs",
 		"check:cron-observability": "node scripts/check-cron-observability.mjs",
 		"ops:reconcile-stripe": "npx tsx scripts/reconcile-stripe-subscriptions.ts",
-		"seed:cognito-test-data": "npx tsx scripts/seed-cognito-test-data.ts",
 		"setup:stripe-portal": "npx tsx scripts/stripe-setup-portal.ts",
 		"verify:pack-coverage": "node scripts/verify-pack-coverage.mjs"
 	},

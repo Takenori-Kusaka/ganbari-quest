@@ -59,7 +59,6 @@ function buildNetwork(opts: {
 	const storage = new StorageStack(opts.app, 'TestStorage', { env });
 	const compute = new ComputeStack(opts.app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});

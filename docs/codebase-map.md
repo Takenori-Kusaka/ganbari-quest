@@ -15,7 +15,7 @@
 | `src/` | SvelteKit アプリケーション本体 (SvelteKit 2 + Svelte 5 Runes + TypeScript strict) | [src/routes/CLAUDE.md](../src/routes/CLAUDE.md) |
 | `tests/` | vitest (unit / integration) + Playwright (E2E) + helpers / fixtures | [tests/CLAUDE.md](../tests/CLAUDE.md) |
 | `docs/` | 設計書 / ADR / rationale / runbooks / sessions ロール定義 | [docs/CLAUDE.md](CLAUDE.md) |
-| `infra/` | AWS CDK 構成 (Lambda / DynamoDB / CloudFront / Cognito) + NUC ローカル構成 | [infra/CLAUDE.md](../infra/CLAUDE.md) |
+| `infra/` | AWS CDK 構成 (Lambda / Aurora DSQL / CloudFront / Cognito) + NUC ローカル構成 | [infra/CLAUDE.md](../infra/CLAUDE.md) |
 | `site/` | LP (GitHub Pages 配信、`site/index.html` 等 10 ページ) + 共通 CSS / labels | (SSOT 統合: ADR-0013 LP truth / ADR-0042 LP Spacing) |
 | `scripts/` | CI / dev / 検証用スクリプト (`capture.mjs` / `measure-lp-dimensions.mjs` / `pre-ready` 等 ~75 本) | (汎用化原則: 使い捨て禁止 #1442) |
 | `.github/` | Issue Templates / workflows / PR Template / CODEOWNERS / Dependabot | [.github/CLAUDE.md](../.github/CLAUDE.md) |
@@ -65,7 +65,7 @@
 | [docs/design/06-UI設計書.md](design/06-UI設計書.md) | UI 機能・画面・オーバーレイ仕様 |
 | [docs/design/07-API設計書.md](design/07-API設計書.md) | API エンドポイント定義 |
 | [docs/design/08-データベース設計書.md](design/08-データベース設計書.md) | DB テーブル・カラム仕様 |
-| [docs/design/13-AWSサーバレスアーキテクチャ設計書.md](design/13-AWSサーバレスアーキテクチャ設計書.md) | AWS Lambda / DynamoDB / CloudFront 構成 |
+| [docs/design/13-AWSサーバレスアーキテクチャ設計書.md](design/13-AWSサーバレスアーキテクチャ設計書.md) | AWS Lambda / Aurora DSQL / CloudFront 構成 |
 | [docs/design/14-セキュリティ設計書.md](design/14-セキュリティ設計書.md) | 認可境界 / 認証 / セキュリティヘッダ / OWASP 対策 |
 | [docs/design/15-ブランドガイドライン.md](design/15-ブランドガイドライン.md) | ブランド・ビジュアル詳細 |
 | [docs/design/asset-catalog.md](design/asset-catalog.md) | 画像アセットカタログ |
