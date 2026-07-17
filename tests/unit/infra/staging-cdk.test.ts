@@ -46,6 +46,9 @@ function buildProdStacks(): {
 				'test-context-token-secret',
 			opsSecretKey: 'test-ops-secret-key',
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			// #3438 Phase 2A: DSQL 無条件 backend の fail-close 回避 (endpoint / clusterArn 必須)
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorage', { env });
@@ -72,6 +75,9 @@ function buildStagingStacks(): {
 	const app = new cdk.App({
 		context: {
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			// #3438 Phase 2A: staging も DSQL 無条件 backend (本番構成一致) の fail-close 回避
+			dsqlEndpoint: 'stagingcluster.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/stagingcluster',
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorageStaging', {
@@ -168,7 +174,7 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 				FunctionName: 'ganbari-quest-app',
 				Environment: {
 					Variables: Match.objectLike({
-						DATA_SOURCE: 'dynamodb',
+						DATA_SOURCE: 'dsql',
 						AUTH_MODE: 'cognito',
 						ORIGIN: 'https://ganbari-quest.com',
 						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
@@ -295,12 +301,12 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			stagingCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 0);
 		});
 
-		it('staging env: DATA_SOURCE=dynamodb + AUTH_MODE=cognito + ORIGIN placeholder + PARENT_GATE_COOKIE_SECRET 注入', () => {
+		it('staging env: DATA_SOURCE=dsql + AUTH_MODE=cognito + ORIGIN placeholder + PARENT_GATE_COOKIE_SECRET 注入 (#3438 Phase 2A)', () => {
 			stagingCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-staging-app',
 				Environment: {
 					Variables: Match.objectLike({
-						DATA_SOURCE: 'dynamodb',
+						DATA_SOURCE: 'dsql',
 						AUTH_MODE: 'cognito',
 						// Function URL 自己参照のため synth 時は placeholder。
 						// deploy-aws-staging.yml の ORIGIN resolve step が実 URL に更新する (縮退可)
