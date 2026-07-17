@@ -10,7 +10,8 @@
 //       DSQL_USER=app_user を Lambda env に持ち、実行 role に dsql:DbConnect (cluster ARN 限定) を
 //       付与し **dsql:DbConnectAdmin は付与しない** (M3 §3.4 B6: DDL/GRANT は migration runner の
 //       別クレデンシャル経路) こと。DATA_SOURCE は決して dynamodb にならない (fallback 撤去の機械保証)。
-//       analytics 保存先の DynamoDB table env は別レイヤーとして維持 (撤去は #3805 後)。
+//       #3438: DynamoDB table + DYNAMODB_TABLE / TABLE_NAME / ANALYTICS_TABLE_NAME env を撤去済
+//       (analytics on-demand 化)。env に DB table 系が残っていないことを regression guard する。
 //   (2) [W2/W3] fail-close: endpoint / clusterArn 未注入なら synth error (dsql は必須 backend、
 //       endpoint 無し deploy = cold start 全 500 化の silent 誤 deploy 防止、ADR-0006)。
 //
@@ -46,7 +47,6 @@ function buildCompute(extraContext: Record<string, string> = {}): ComputeStack {
 	const storage = new StorageStack(app, 'TestStorage', { env });
 	return new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -109,8 +109,11 @@ describe('compute-stack DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A 無条�
 		expect(envVars.DSQL_USER).toBe('app_user');
 		// #3438 Phase 2A: dynamodb fallback は撤去済 (DATA_SOURCE は決して dynamodb にならない)。
 		expect(envVars.DATA_SOURCE).not.toBe('dynamodb');
-		// analytics 保存先の DynamoDB table env は維持 (別レイヤー、撤去は #3805 後)。
-		expect(envVars.ANALYTICS_TABLE_NAME).toBeDefined();
+		// #3438: DynamoDB table 撤去に伴い DB table 系 env は Lambda に一切注入されない
+		// (analytics on-demand 化)。再注入したら CI で落ちる regression guard。
+		expect(envVars.ANALYTICS_TABLE_NAME).toBeUndefined();
+		expect(envVars.DYNAMODB_TABLE).toBeUndefined();
+		expect(envVars.TABLE_NAME).toBeUndefined();
 
 		// DbConnect が cluster ARN 限定で付与される (ワイルドカード禁止)
 		template.hasResourceProperties('AWS::IAM::Policy', {

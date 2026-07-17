@@ -4,7 +4,6 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import type * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
-import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -19,7 +18,6 @@ import type { Construct } from 'constructs';
 
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
-	table: dynamodb.TableV2;
 	distribution: cloudfront.Distribution;
 	/**
 	 * #1214: health-check Lambda が叩くターゲット URL を Function URL に直結するため。
@@ -116,40 +114,9 @@ export class OpsStack extends cdk.Stack {
 		});
 		lambdaConcurrency.addAlarmAction(alarmAction);
 
-		// P1: DynamoDB Throttled Requests
-		const dynamoThrottles = new cloudwatch.Alarm(this, 'DynamoDBThrottles', {
-			alarmName: 'ganbari-quest-dynamodb-throttles',
-			alarmDescription: 'DynamoDB スロットリング: 5分間に1回以上',
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/DynamoDB',
-				metricName: 'ThrottledRequests',
-				dimensionsMap: { TableName: props.table.tableName! },
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 1,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		dynamoThrottles.addAlarmAction(alarmAction);
-
-		// P0: DynamoDB System Errors
-		const dynamoSystemErrors = new cloudwatch.Alarm(this, 'DynamoDBSystemErrors', {
-			alarmName: 'ganbari-quest-dynamodb-system-errors',
-			alarmDescription: 'DynamoDB システムエラー: 5分間に1回以上',
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/DynamoDB',
-				metricName: 'SystemErrors',
-				dimensionsMap: { TableName: props.table.tableName! },
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 1,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		dynamoSystemErrors.addAlarmAction(alarmAction);
-		dynamoSystemErrors.addOkAction(alarmAction);
+		// #3438 (EPIC #3424): DynamoDB alarms (Throttles / SystemErrors / ConsumedCapacity) を撤去。
+		// DB backend は Aurora DSQL に一本化済で DynamoDB table は存在しない (metric の TableName が
+		// 指す table が無く常時 empty)。DSQL の監視は DsqlStack が担う。
 
 		// P0: Lambda Function URL 5xx (used as API Gateway proxy)
 		const lambdaUrl5xx = new cloudwatch.Alarm(this, 'LambdaUrl5xx', {
@@ -206,37 +173,6 @@ export class OpsStack extends cdk.Stack {
 		});
 		cf5xx.addAlarmAction(alarmAction);
 		cf5xx.addOkAction(alarmAction);
-
-		// P1: DynamoDB Consumed Capacity (RCU+WCU combined, hourly)
-		// 無料枠10アラームの最後の1枠を使用（9→10）
-		const dynamoConsumedCapacity = new cloudwatch.Alarm(this, 'DynamoDBConsumedCapacity', {
-			alarmName: 'ganbari-quest-dynamodb-consumed-capacity',
-			alarmDescription: 'DynamoDB 消費容量（RCU+WCU）が1時間で10,000を超過。クエリループの可能性',
-			metric: new cloudwatch.MathExpression({
-				expression: 'rcu + wcu',
-				usingMetrics: {
-					rcu: new cloudwatch.Metric({
-						namespace: 'AWS/DynamoDB',
-						metricName: 'ConsumedReadCapacityUnits',
-						dimensionsMap: { TableName: props.table.tableName! },
-						period: cdk.Duration.hours(1),
-						statistic: 'Sum',
-					}),
-					wcu: new cloudwatch.Metric({
-						namespace: 'AWS/DynamoDB',
-						metricName: 'ConsumedWriteCapacityUnits',
-						dimensionsMap: { TableName: props.table.tableName! },
-						period: cdk.Duration.hours(1),
-						statistic: 'Sum',
-					}),
-				},
-				period: cdk.Duration.hours(1),
-			}),
-			threshold: 10000,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-		});
-		dynamoConsumedCapacity.addAlarmAction(alarmAction);
 
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)
 		// CronDispatcherFn が prop として渡された場合のみアラームを作成する（最小構成）
@@ -348,33 +284,13 @@ export class OpsStack extends cdk.Stack {
 						],
 						width: 12,
 					}),
-					new cloudwatch.GraphWidget({
-						title: 'DynamoDB — Read/Write Capacity',
-						left: [
-							new cloudwatch.Metric({
-								namespace: 'AWS/DynamoDB',
-								metricName: 'ConsumedReadCapacityUnits',
-								dimensionsMap: { TableName: props.table.tableName! },
-								period: cdk.Duration.minutes(5),
-								statistic: 'Sum',
-								label: 'Read CU',
-							}),
-							new cloudwatch.Metric({
-								namespace: 'AWS/DynamoDB',
-								metricName: 'ConsumedWriteCapacityUnits',
-								dimensionsMap: { TableName: props.table.tableName! },
-								period: cdk.Duration.minutes(5),
-								statistic: 'Sum',
-								label: 'Write CU',
-							}),
-						],
-						width: 12,
-					}),
 				],
 				[
 					new cloudwatch.SingleValueWidget({
 						title: 'Alarm Status',
-						metrics: [lambdaErrors.metric, dynamoSystemErrors.metric, lambdaUrl5xx.metric],
+						// #3438: DynamoDB — Read/Write Capacity widget + dynamoSystemErrors metric を撤去
+						// (DB backend は DSQL に一本化、DynamoDB table 無し)。
+						metrics: [lambdaErrors.metric, lambdaUrl5xx.metric],
 						width: 24,
 					}),
 				],
@@ -438,7 +354,8 @@ export class OpsStack extends cdk.Stack {
 				source: ['aws.health'],
 				detailType: ['AWS Health Event'],
 				detail: {
-					service: ['LAMBDA', 'DYNAMODB', 'CLOUDFRONT', 'COGNITO', 'S3'],
+					// #3438: DYNAMODB を除去 (DB backend は DSQL に一本化)。
+					service: ['LAMBDA', 'CLOUDFRONT', 'COGNITO', 'S3'],
 					eventTypeCategory: ['issue', 'scheduledChange'],
 				},
 			},

@@ -13,7 +13,7 @@
     ▼                                                ▼
 [CloudFront CDN (prod)] ── [Lambda (SvelteKitFn)]   [CloudFront CDN (demo)] ── [Lambda (SvelteKitDemoFn)]
     │                            │                       │                              │
-    │                            ├── DynamoDB           │                              └── (CloudWatch Logs のみ、本番リソースアクセスなし)
+    │                            ├── Aurora DSQL       │                              └── (CloudWatch Logs のみ、本番リソースアクセスなし)
     │                            ├── S3                 │
     │                            ├── Cognito           │
     │                            ├── Secrets Manager  │
@@ -32,41 +32,31 @@
 
 | スタック | リソース | 依存 |
 |---------|---------|------|
-| `GanbariQuestStorage` | DynamoDB テーブル, S3 バケット, ECR リポジトリ | なし |
+| `GanbariQuestStorage` | S3 バケット, ECR リポジトリ | なし |
 | `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
-| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Storage, Network |
+| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Network |
+| `GanbariQuestDsql` | Aurora DSQL cluster (context gate `-c dsqlEnabled=true`) | なし |
 | `GanbariQuestSes` | SES Email Identity, Configuration Set, 受信パイプライン (S3 + Lambda) | なし |
 
 ### 3.1 StorageStack
 
-**DynamoDB: シングルテーブル設計**
+DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。StorageStack は
+DB リソースを持たず、S3（アセット / バックアップ）と ECR（Lambda コンテナイメージ）のみを
+提供する。DSQL のリレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
 
-| PK | SK | 用途 |
-|----|-----|------|
-| `TENANT#t1` | `PROFILE` | テナント情報（家族単位） |
-| `TENANT#t1#CHILD#c1` | `PROFILE` | 子供プロフィール |
-| `TENANT#t1#CHILD#c1` | `ACT#2026-03-06#a1` | 活動記録 |
-| `TENANT#t1#CHILD#c1` | `ACHIEVEMENT#ach1` | 実績 |
-| `TENANT#t1#CHILD#c1` | `STATUS` | ステータス（レベル等） |
-| `TENANT#t1` | `CATEGORY#cat1` | 活動カテゴリ |
-| `TENANT#t1` | `ACTIVITY_DEF#ad1` | 活動定義 |
-| `TENANT#t1` | `SETTINGS` | アプリ設定 |
-
-**GSI:**
-- **GSI1** (SK → PK): 逆引きクエリ用（例: 全テナントの特定SKを検索）
-- **GSI2** (GSI2PK → GSI2SK): タイプ別時系列クエリ（例: 日付範囲の活動取得）
-
-**設定:**
-- 課金: オンデマンド（従量課金、Free Tier 25 RCU/WCU含む）
-- Point-in-Time Recovery: 無効（AWS Backup で日次3日保持に代替）
-- 削除保護: RETAIN
+> DynamoDB シングルテーブル + その AWS Backup（daily plan）は #3438 で撤去した。prod は
+> removalPolicy=RETAIN だったため、既存 table は CloudFormation の管理から外れる（orphan）
+> だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
 
 **S3バケット:**
 - アバター画像: `avatars/{tenantId}/{childId}/`
 - バックアップ: `backups/{date}/` （30日で自動削除）
 - パブリックアクセス: 完全ブロック
+
+**ECR リポジトリ:**
+- Lambda コンテナイメージ格納（prod `maxImageCount:10` / staging `maxImageCount:3`）
 
 ### 3.2 AuthStack
 
@@ -192,16 +182,16 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | 2 | Lambda-Throttles | Lambda Throttles | ≥ 1回/5分 | P0 |
 | 3 | Lambda-Duration-p99 | Lambda Duration | ≥ 10秒 | P1 |
 | 4 | Lambda-Concurrent | ConcurrentExecutions | ≥ 50 | P1 |
-| 5 | DynamoDB-Throttles | ThrottledRequests | ≥ 1回/5分 | P1 |
-| 6 | DynamoDB-SystemErrors | SystemErrors | ≥ 1回/5分 | P0 |
-| 7 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
-| 8 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
-| 9 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
-| 10 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
+| 5 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
+| 6 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
+| 7 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
+| 8 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
+
+> DynamoDB alarms（Throttles / SystemErrors / ConsumedCapacity）は #3438 で撤去（DB backend は
+> Aurora DSQL に一本化、DynamoDB table 無し）。DSQL の監視は `DsqlStack` が担う。
 
 **CloudWatch Dashboard:** `ganbari-quest-ops`
 - Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
-- DynamoDB: Read/Write Capacity Units
 - Alarm Status: SingleValueWidget
 
 **AWS Budgets:**
@@ -213,7 +203,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - 通知閾値: $1以上の異常
 
 **AWS Health EventBridge:**
-- 対象サービス: LAMBDA, DYNAMODB, CLOUDFRONT, COGNITO, S3
+- 対象サービス: LAMBDA, CLOUDFRONT, COGNITO, S3（DYNAMODB は #3438 で除外、DB backend は DSQL）
 - イベントカテゴリ: issue（障害）, scheduledChange（計画メンテ）
 - 通知先: SNS Topic（OpsAlerts）
 
@@ -223,7 +213,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | 層 | 実装 | 対象 | 検知できる障害 | 検知できない障害 |
 |----|------|------|--------------|----------------|
-| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DynamoDB / アプリケーションコード | 500 / タイムアウト / DynamoDB スロットル | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
+| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DSQL / アプリケーションコード | 500 / タイムアウト / DB 接続失敗 | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
 | L2: エッジ層 | （別 Issue で補完予定。CloudWatch Synthetics を JP 許可リージョンで、または UptimeRobot 等を `ganbari-quest.com` 宛に設定） | CloudFront / Route 53 / ACM / geoRestriction | L1 で検知できないエッジ層の失敗 | アプリ層の内部障害（L1 の役割） |
 
 **なぜ L1 が Function URL 直叩きなのか（#1214）**: CloudFront に `geoRestriction('JP')` (`infra/lib/network-stack.ts`) が掛かっているため、us-east-1 の Lambda IP から `https://ganbari-quest.com/api/health` を叩くと常時 403 になる（#1121 導入時の盲点）。Function URL (`authType: NONE`) を直接叩くことで地理制限を迂回し、「L1 = アプリ層の生存確認」という責務に集中させる。Function URL は CloudFront 背後の実体なので公開 URL としては露出しない方針を維持する。
@@ -344,7 +334,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 | `DATA_SOURCE` | `dsql` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger (本番 = Aurora DSQL、cutover 完遂 / #3438 で dynamodb backend 撤去) |
 | `AUTH_MODE` | `cognito` | `anonymous` | AnonymousAuthProvider 起動 |
 | `ORIGIN` | `https://ganbari-quest.com` | `https://demo.ganbari-quest.com` | absolute URL 解決 |
-| `DYNAMODB_TABLE` / `TABLE_NAME` | (注入) | **未注入** | demo は in-memory fixture |
+| `DSQL_ENDPOINT` / `DSQL_USER` | (注入) | **未注入** | demo は in-memory fixture（本番は Aurora DSQL、`DYNAMODB_TABLE` / `TABLE_NAME` は #3438 で撤去） |
 | `COGNITO_*` / `CONTEXT_TOKEN_SECRET` | (注入) | **未注入** | demo は anonymous |
 | `STRIPE_*` / `GEMINI_API_KEY` / `AWS_LICENSE_SECRET` | (注入) | **未注入** | demo は課金/外部 API なし |
 | `CRON_SECRET` / `OPS_SECRET_KEY` / `DISCORD_WEBHOOK_*` / `SES_*` | (注入) | **未注入** | demo は ops / 通知系なし |
@@ -385,7 +375,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 2. **C-2**: NetworkStack に CloudFront Distribution が 2 本ある (alias `ganbari-quest.com` と `demo.ganbari-quest.com`)
 3. **C-3**: demo Fn の env に DATA_SOURCE='demo' + AUTH_MODE='anonymous' が含まれる、本番 secret が含まれない
 
-将来「demo に DynamoDB アクセスを追加した方が楽」と誤って `props.table.grantReadData(this.demoFn)` を追加した瞬間に CI が落ちる構造になっている。これがこの設計の最大の load-bearing 保証。
+将来「demo に本番 DB / secret アクセスを追加した方が楽」と誤って IAM grant を追加した瞬間に CI が落ちる構造になっている。これがこの設計の最大の load-bearing 保証。
 
 #### コスト試算
 
@@ -490,12 +480,12 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
 |---|---|---|
 | stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`)、明示列挙 deploy (`--all` 不使用) |
-| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（table / Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
+| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
 | SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
 | ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
 | Cognito | custom domain `auth.ganbari-quest.com` + Google IdP | default domain（prefix `ganbari-quest-staging`）。Google IdP / Route53 省略。SSM `cognito/domain` param は default domain 値で必ず書く |
 | 外部サービス env | Stripe / Discord / Gemini / SES 注入 | **非注入**（本番外部サービスへの副作用ゼロ。SES / Cost Explorer の IAM grant も付与しない） |
-| Backup / demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableBackup` / `enableLogArchiving` = false） |
+| demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
 | ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 3 stack） |
@@ -508,7 +498,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。dispatch の `dsqlEnabled` / `pgliteEnabled` input は develop HEAD を任意 backend で回す手動検証用に残す。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
-- **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。PITR / Backup restore 自動化は不採用 (ADR-0010 Bucket C)。本番相当データが必要になった場合の手動 runbook: 本番 table を AWS Backup の on-demand backup から `ganbari-quest-staging-restore` 等の別名 table に restore し、`aws dynamodb scan` + `batch-write-item`（または S3 export/import）で staging table に流し込む。終了後は restore table を削除する（本番 table へは一切 write しない）。
+- **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。本番相当データが必要になった場合は DSQL の論理エクスポート / import 経由で別 cluster に流し込む（本番 cluster へは一切 write しない）。旧 DynamoDB AWS Backup restore 経路は #3438 で DynamoDB 撤去により廃止。
 - **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
 - **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
@@ -521,8 +511,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
-| DynamoDB制限 | オンデマンド上限設定 | 無料 |
-| CloudWatch Alarms | 9アラーム（Lambda/DynamoDB/CloudFront） | 無料枠10個中9個使用 |
+| CloudWatch Alarms | 8アラーム（Lambda/CloudFront/Cron。DynamoDB alarms は #3438 で撤去） | 無料枠10個中8個使用 |
 | CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
 | AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
 | Cost Anomaly Detection | ML異常検知 | 完全無料 |
@@ -534,7 +523,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | Route 53 | $0.50 | $0.50 | $0.50 |
 | CloudFront | $0 | $0 | ~$0.10 |
 | Lambda | $0 | $0 | ~$0.05 |
-| DynamoDB | $0 | $0 | ~$0.03 |
+| Aurora DSQL | $0 | $0 | ~$0.03 |
 | S3 | $0 | $0 | ~$0.01 |
 | ECR | $0 | $0 | ~$0.01 |
 | ACM | $0 | $0 | $0 |
@@ -551,7 +540,8 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 infra/
 ├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
-│   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
+│   ├── storage-stack.ts  # S3 + ECR (DB backend は dsql-stack.ts、#3438)
+│   ├── dsql-stack.ts     # Aurora DSQL cluster (EPIC #3424)
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離
 │   ├── network-stack.ts  # CloudFront (本番 + demo #2097) + Route53 + ACM + S3エラーページ + S3静的アセットoffload (#3087 解決策B)
@@ -630,7 +620,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 ### モデル選定理由
 
 1. **EoLリスク低減**: Gemini のモデルIDは頻繁にEoLとなり追従が運用負荷。Bedrock はマネージドサービスとしてモデルバージョン管理が安定
-2. **インフラ統一**: Lambda + DynamoDB + Cognito + S3 の AWS 構成に Bedrock を追加することで、IAM ベースの認証に統一。API キー管理（SSM 等）が不要に
+2. **インフラ統一**: Lambda + Aurora DSQL + Cognito + S3 の AWS 構成に Bedrock を追加することで、IAM ベースの認証に統一。API キー管理（SSM 等）が不要に
 3. **構造化出力の信頼性**: Claude の tool_use で JSON スキーマを定義し、確実に構造化された出力を取得。`extractJson()` のような手動パースが不要
 4. **コスト**: 活動提案・レシートOCR は高度な推論不要。Haiku は最安クラスで、tool_use によりリトライ不要（実効コスト同等以下）
 

@@ -1,6 +1,5 @@
 import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
-import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import type * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
@@ -31,7 +30,6 @@ const CRON_JOBS = [
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
-	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
 	/**
@@ -178,8 +176,8 @@ export class ComputeStack extends cdk.Stack {
 		// endpoint / cluster ARN は DsqlStack deploy 後の実値を context で受ける (deploy workflow が
 		// describe-stacks で resolve)。未注入なら synth を失敗させる (endpoint 無しで dsql Lambda を
 		// 上げると cold start で全リクエスト 500 化、ADR-0006 silent fail 防止)。
-		// 注: DynamoDB table (props.table) は **analytics 保存先**として維持する (ANALYTICS_TABLE_NAME
-		// + grantReadWriteData、DATA_SOURCE とは別レイヤー)。table 撤去は #3805 (analytics on-demand 化) 後。
+		// #3438 (本 PR): DynamoDB table + ANALYTICS_TABLE_NAME env + grantReadWriteData を撤去。
+		// analytics は on-demand 化済で DynamoDB を参照しない (`ANALYTICS_TABLE_NAME` の app 側読取 0)。
 		const dsqlEndpoint = this.node.tryGetContext('dsqlEndpoint') ?? '';
 		const dsqlClusterArn = this.node.tryGetContext('dsqlClusterArn') ?? '';
 		// **prod / staging とも DSQL 必須** (endpoint / clusterArn 未注入なら synth を失敗させる、ADR-0006)。
@@ -217,13 +215,11 @@ export class ComputeStack extends cdk.Stack {
 		const stagingOriginPlaceholder = 'https://staging-origin-placeholder.invalid';
 		const stagingEnvironment: Record<string, string> = {
 			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (旧 dual-mode の dynamodb fallback 廃止)。
-			// endpoint は上の fail-close で必須化済。DYNAMODB_TABLE / ANALYTICS_TABLE_NAME は analytics
-			// 保存先 (client.ts / analytics provider、#3805 で撤去) として常時維持 (DATA_SOURCE とは別レイヤー)。
+			// endpoint は上の fail-close で必須化済。#3438 (本 PR): DynamoDB table 撤去に伴い
+			// DYNAMODB_TABLE / TABLE_NAME / ANALYTICS_TABLE_NAME env を撤去 (analytics on-demand 化済)。
 			DATA_SOURCE: 'dsql',
 			DSQL_ENDPOINT: dsqlEndpoint,
 			DSQL_USER: 'app_user',
-			DYNAMODB_TABLE: props.table.tableName!,
-			TABLE_NAME: props.table.tableName!,
 			ASSETS_BUCKET: props.assetsBucket.bucketName,
 			DATABASE_URL: '/tmp/ganbari-quest.db',
 			AWS_LWA_PORT: '3000',
@@ -234,7 +230,6 @@ export class ComputeStack extends cdk.Stack {
 			BODY_SIZE_LIMIT: '10485760',
 			AUTH_MODE: 'cognito',
 			ANALYTICS_ENABLED: 'true',
-			ANALYTICS_TABLE_NAME: props.table.tableName!,
 			COGNITO_USER_POOL_ID: cognitoUserPoolId,
 			COGNITO_CLIENT_ID: cognitoClientId,
 			COGNITO_DOMAIN: cognitoDomain,
@@ -260,13 +255,11 @@ export class ComputeStack extends cdk.Stack {
 				? {
 						// #3438 Phase 2A: DSQL が唯一の DB backend (無条件)。DSQL_USER=app_user (#3646):
 						// dsql:DbConnect は custom db role 専用 (admin は DbConnectAdmin。role 実体は
-						// deploy workflow の dsql:grant が provisioning)。DYNAMODB_TABLE / TABLE_NAME /
-						// ANALYTICS_TABLE_NAME は analytics 保存先として維持 (別レイヤー、撤去は #3805 後)。
+						// deploy workflow の dsql:grant が provisioning)。#3438 (本 PR): DynamoDB table 撤去に
+						// 伴い DYNAMODB_TABLE / TABLE_NAME / ANALYTICS_TABLE_NAME env を撤去。
 						DATA_SOURCE: 'dsql',
 						DSQL_ENDPOINT: dsqlEndpoint,
 						DSQL_USER: 'app_user',
-						DYNAMODB_TABLE: props.table.tableName!,
-						TABLE_NAME: props.table.tableName!,
 						ASSETS_BUCKET: props.assetsBucket.bucketName,
 						DATABASE_URL: '/tmp/ganbari-quest.db',
 						AWS_LWA_PORT: '3000',
@@ -276,12 +269,9 @@ export class ComputeStack extends cdk.Stack {
 						ORIGIN: 'https://ganbari-quest.com',
 						BODY_SIZE_LIMIT: '10485760',
 						AUTH_MODE: 'cognito',
-						// #1591 (ADR-0023 I2): DynamoDB analytics provider を本番有効化。
-						// メインテーブルに ANALYTICS#<date> パーティションを同居させる
-						// (single-table design)。TTL 90 日でレコードは自動削除される (provider 側)。
-						// umami / Sentry は #1591 で削除済み。analytics 系の env はこれだけで完結。
+						// analytics は on-demand 化済 (`analytics-ondemand-service.ts`) で DynamoDB を
+						// 参照しない (`ANALYTICS_TABLE_NAME` の app 側読取 0)。ANALYTICS_ENABLED のみ維持。
 						ANALYTICS_ENABLED: 'true',
-						ANALYTICS_TABLE_NAME: props.table.tableName!,
 						COGNITO_USER_POOL_ID: cognitoUserPoolId,
 						COGNITO_CLIENT_ID: cognitoClientId,
 						COGNITO_DOMAIN: cognitoDomain,
@@ -348,8 +338,7 @@ export class ComputeStack extends cdk.Stack {
 		});
 		this.fn.node.addDependency(logGroup);
 
-		// Grant Lambda access to DynamoDB and S3
-		props.table.grantReadWriteData(this.fn);
+		// Grant Lambda access to S3 (DynamoDB grant は #3438 で撤去、DB backend は DSQL)
 		props.assetsBucket.grantReadWrite(this.fn);
 
 		// EPIC #3424 / #3438 Phase 2A: DSQL 接続権限 (無条件)。dsql:DbConnect は実行時アプリ用の
@@ -566,7 +555,7 @@ export class ComputeStack extends cdk.Stack {
 				// 空 SQLite ファイル作成、demo Repository は factory.ts で別途選択されるためアプリ層では使わない。
 				DATABASE_URL: '/tmp/ganbari-quest.db',
 				// 本番 secret は意図的に NO INJECT:
-				//   - DYNAMODB_TABLE / TABLE_NAME / ASSETS_BUCKET (DynamoDB / S3)
+				//   - ASSETS_BUCKET (S3) / DSQL_ENDPOINT (DSQL backend)
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
 				//   - STRIPE_* (Stripe)
 				//   - GEMINI_API_KEY (Gemini)
