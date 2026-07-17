@@ -10,11 +10,17 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
-import { grantSpecialRewardSchema, REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
+import {
+	grantSpecialRewardSchema,
+	REWARD_CATEGORIES,
+	REWARD_POINTS_MAX,
+} from '$lib/domain/validation/special-reward';
 import { RewardSetPayloadSchema } from '$lib/marketplace/schemas/reward-set-schema';
 
 const CAT = REWARD_CATEGORIES[0];
-const POINTS_MAX = 10000;
+// #3151 slice2 (ADR-0066): 上限を hardcode せず domain 層 SSOT 定数から導出する。
+// domain / wire どちらかが定数を離れて値域を広げれば本 test が落ち、#3132 class の再混入を検出する。
+const POINTS_MAX = REWARD_POINTS_MAX;
 
 const rewardSetPayload = (points: number) => ({
 	rewards: [{ title: 'テスト', points, icon: '🎁', category: CAT }],

@@ -1,5 +1,5 @@
 // tests/unit/architecture/schema-range-ssot.test.ts
-// #3151 slice1 (ADR-0066): export/import 値域ドリフト根絶の fitness function。
+// #3151 slice1/slice2 (ADR-0066): export/import 値域ドリフト根絶の fitness function。
 //
 // root class (#3104→#3132 の 2 サイクル連続 blocker): domain validation (Zod) と
 // wire schema (Valibot) が別ファイル・別ライブラリで値域を二重定義し、
@@ -11,16 +11,19 @@
 //       「explicit TODO (RANGE_SSOT_TODO、#3151 残 phase で消化)」のいずれかに分類される。
 //       新 type 追加時に本分類へ登録しなければ CI で fail する (silent skip 禁止、
 //       admin-resource-model-registry の NON_CANONICAL 方式と同型)。
-//   (2) activity-pack (COVERED): domain Zod (createActivitySchema) と wire Valibot
-//       (ActivityPackItemSchema) が値域 SSOT 定数 (`$lib/domain/validation/activity.ts`)
+//   (2) activity-pack / reward-set (COVERED): domain Zod (createActivitySchema /
+//       grantSpecialRewardSchema) と wire Valibot (ActivityPackItemSchema /
+//       RewardSetItemSchema) が値域 SSOT 定数 (`$lib/domain/validation/{activity,special-reward}.ts`)
 //       の同一境界で受理/拒否する (boundary probe による behavior-level の同値表明)。
 //       実 validator を oracle として呼ぶため、どちらか一方が SSOT 定数を離れて
 //       literal を直書き (再ドリフト) すると必ず fail する (#3153 oracle 方式の拡張)。
 //
-// 他 4 type の SSOT 化は #3151 Phase 2 (Issue コメントの残 phase 分割案) で消化する。
+// 残 3 type (checklist / challenge-set / rule-preset) の SSOT 化は #3151 残 phase で消化する
+// (RANGE_SSOT_TODO で explicit に pin し silent skip しない)。
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import {
 	ACTIVITY_AGE_MAX,
 	ACTIVITY_AGE_MIN,
@@ -32,24 +35,32 @@ import {
 	ACTIVITY_TRIGGER_HINT_MAX,
 	createActivitySchema,
 } from '$lib/domain/validation/activity';
+import {
+	grantSpecialRewardSchema,
+	REWARD_CATEGORIES,
+	REWARD_DESCRIPTION_MAX,
+	REWARD_ICON_MAX_GRAPHEMES,
+	REWARD_POINTS_MAX,
+	REWARD_POINTS_MIN,
+	REWARD_TITLE_MAX,
+} from '$lib/domain/validation/special-reward';
 import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-schema';
+import { RewardSetItemSchema } from '$lib/marketplace/schemas/reward-set-schema';
 import { MARKETPLACE_TYPE_CODES, type MarketplaceTypeCode } from '$lib/marketplace/types';
 
 // ── (1) no-silent-gap 分類 ──────────────────────────────────────────
 
 /** 値域 SSOT (domain 定数を domain/wire 両 schema が参照) 適用済の type */
-const COVERED_TYPES: readonly MarketplaceTypeCode[] = ['activity-pack'];
+const COVERED_TYPES: readonly MarketplaceTypeCode[] = ['activity-pack', 'reward-set'];
 
 /**
- * 値域 SSOT 未適用の type (explicit TODO)。#3151 Phase 2 で 1 type ずつ SSOT 化し、
+ * 値域 SSOT 未適用の type (explicit TODO)。#3151 残 phase で 1 type ずつ SSOT 化し、
  * COVERED_TYPES へ移す。理由なしにこのリストへ追加してはならない (新 type は原則 COVERED で作る)。
  */
 const RANGE_SSOT_TODO: Partial<Record<MarketplaceTypeCode, string>> = {
-	'reward-set':
-		'points 値域は reward-set-roundtrip-domain.test.ts が domain oracle 済。定数 SSOT 化は #3151 Phase 2',
-	checklist: 'label/icon/order の定数 SSOT 化は #3151 Phase 2',
-	'challenge-set': 'durationDays/baseTarget/rewardPoints の定数 SSOT 化は #3151 Phase 2',
-	'rule-preset': 'round-trip 網羅自体が未整備 (#3143 追加 finding (a))。#3151 Phase 2/4 で消化',
+	checklist: 'label/icon/order の定数 SSOT 化は #3151 残 phase',
+	'challenge-set': 'durationDays/baseTarget/rewardPoints の定数 SSOT 化は #3151 残 phase',
+	'rule-preset': 'round-trip 網羅自体が未整備 (#3143 追加 finding (a))。#3151 残 phase で消化',
 };
 
 // ── (2) boundary probe 用の valid base item ────────────────────────
@@ -84,6 +95,42 @@ const wireOk = (data: unknown) => v.safeParse(ActivityPackItemSchema, data).succ
 function expectBothSchemas(field: string, value: unknown, expected: boolean) {
 	expect(domainOk(domainItem({ [field]: value })), `domain ${field}=${value}`).toBe(expected);
 	expect(wireOk(wireItem({ [field]: value })), `wire ${field}=${value}`).toBe(expected);
+}
+
+// ── (2b) reward-set boundary probe 用の valid base item ─────────────
+// 注: domain (grantSpecialRewardSchema) は icon が optional だが、export 経路 (/api/v1/
+// special-rewards/export) は DB の null icon を '🎁' へ既定化してから wire schema へ渡すため、
+// round-trip では icon は常に present。よって本 probe は「present な icon 値」の境界のみ検証し、
+// activity exemplar と同様に「icon 省略」ケースは domain⊆wire の対象外とする。
+
+/** domain (grantSpecialRewardSchema) 用 valid base */
+const rewardDomainItem = (over: Record<string, unknown> = {}) => ({
+	childId: asChildId(1),
+	title: 'ゲームのじかん',
+	points: 50,
+	icon: '🎁',
+	category: REWARD_CATEGORIES[0],
+	...over,
+});
+
+/** wire (RewardSetItemSchema) 用 valid base */
+const rewardWireItem = (over: Record<string, unknown> = {}) => ({
+	title: 'ゲームのじかん',
+	points: 50,
+	icon: '🎁',
+	category: REWARD_CATEGORIES[0],
+	...over,
+});
+
+const rewardDomainOk = (data: unknown) => grantSpecialRewardSchema.safeParse(data).success;
+const rewardWireOk = (data: unknown) => v.safeParse(RewardSetItemSchema, data).success;
+
+/** reward の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
+function expectBothReward(field: string, value: unknown, expected: boolean) {
+	expect(rewardDomainOk(rewardDomainItem({ [field]: value })), `domain ${field}=${value}`).toBe(
+		expected,
+	);
+	expect(rewardWireOk(rewardWireItem({ [field]: value })), `wire ${field}=${value}`).toBe(expected);
 }
 
 describe('#3151 値域 SSOT fitness (domain⊆wire、ADR-0066)', () => {
@@ -149,6 +196,40 @@ describe('#3151 値域 SSOT fitness (domain⊆wire、ADR-0066)', () => {
 			expectBothSchemas('icon', zwjFamily.repeat(ACTIVITY_ICON_MAX_GRAPHEMES), true);
 			expectBothSchemas('icon', zwjFamily.repeat(ACTIVITY_ICON_MAX_GRAPHEMES + 1), false);
 			expectBothSchemas('icon', '', false);
+		});
+	});
+
+	describe('(2b) reward-set: domain と wire が SSOT 境界で一致 (boundary probe)', () => {
+		it('points: SSOT max (10000) 受理 / max+1 拒否 / min (1) 受理 / min-1 拒否 が両 schema で一致', () => {
+			// #3132 root class の regression lock: domain (grantSpecialRewardSchema) と wire
+			// (RewardSetItemSchema) の points 上限が乖離すると export→restore 往復が境界値で破綻する。
+			expectBothReward('points', REWARD_POINTS_MAX, true);
+			expectBothReward('points', REWARD_POINTS_MAX + 1, false);
+			expectBothReward('points', REWARD_POINTS_MIN, true);
+			expectBothReward('points', REWARD_POINTS_MIN - 1, false);
+		});
+
+		it('title: SSOT max 文字 受理 / max+1 拒否 が両 schema で一致', () => {
+			expectBothReward('title', 'あ'.repeat(REWARD_TITLE_MAX), true);
+			expectBothReward('title', 'あ'.repeat(REWARD_TITLE_MAX + 1), false);
+		});
+
+		it('description: SSOT max 文字 受理 / max+1 拒否 が両 schema で一致', () => {
+			expectBothReward('description', 'あ'.repeat(REWARD_DESCRIPTION_MAX), true);
+			expectBothReward('description', 'あ'.repeat(REWARD_DESCRIPTION_MAX + 1), false);
+		});
+
+		it('icon: ZWJ 連結絵文字 (1 grapheme / 11 UTF-16 units) 受理 / 3 grapheme 拒否 が両 schema で一致', () => {
+			// #3151 slice2 是正の regression lock (failing-test-first): 旧 domain icon max(10)
+			// (UTF-16 units) は ZWJ 家族絵文字 1 個 (11 units) を拒否し、wire maxLength(20) は受理して
+			// いたため両者が非対称 (=SSOT 化前は domain=false / wire=true でこの assert が fail していた)。
+			// isValidRewardIcon 共有 oracle への統一で domain / wire を同一境界へ揃える。
+			const zwjFamily = '👨‍👩‍👧‍👦';
+			expect(REWARD_ICON_MAX_GRAPHEMES).toBe(2);
+			expectBothReward('icon', zwjFamily, true);
+			expectBothReward('icon', '🎁🎈', true); // 2 grapheme (境界内)
+			expectBothReward('icon', zwjFamily.repeat(REWARD_ICON_MAX_GRAPHEMES + 1), false); // 3 grapheme
+			expectBothReward('icon', '', false);
 		});
 	});
 });

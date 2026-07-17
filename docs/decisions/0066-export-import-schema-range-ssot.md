@@ -54,5 +54,5 @@ slice1 (activity-pack) で是正した値: basePoints 10000→100 / age 18→20 
 ## 結果
 
 - #3132 class (値域ドリフト) の再混入は unit fitness (T1、<30s) が per-PR で検出し、重量 e2e まで到達しない (shift-left、ADR-0061 整合)
-- 残 4 type (reward-set / checklist / challenge-set / rule-preset) の SSOT 化、parse-don't-validate 全面化 (選択肢 B 方向)、fast-check property 格上げ、snapshot canary は EPIC #3151 の残 phase で段階消化 (fitness test の RANGE_SSOT_TODO が pin)
+- COVERED は activity-pack / reward-set の 2 type。残 3 type (checklist / challenge-set / rule-preset) の SSOT 化、parse-don't-validate 全面化 (選択肢 B 方向)、fast-check property 格上げ、snapshot canary は EPIC #3151 の残 phase で段階消化 (fitness test の RANGE_SSOT_TODO が pin)
 - トレードオフ: schema 構造の二重定義は残る (値域のみ SSOT)。構造の不一致は round-trip テスト群 (#3143) が引き続き担う
