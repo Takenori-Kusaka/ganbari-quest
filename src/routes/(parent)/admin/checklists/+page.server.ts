@@ -202,10 +202,35 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 };
 
 /**
+ * #3788: 上限 hit 後の残 source templates を「既配信 (no-op、quota 非消費)」と「真の上限拒否 (未配信)」に
+ * 分類する。既配信は distributeToChildren が inserted 0 件で skip する no-op 成功で quota を消費しない
+ * ため、上限拒否 (limitRejected) に含めると上限メッセージ件数が過大になる (旧実装は残数を全て limitRejected
+ * に計上し、残 source に既配信が混在すると過大帰属した)。target child に既配信済みの templateId 集合を
+ * 引き当て、集合に含まれる分は alreadyDistributed、含まれない (未配信) 分のみ limitRejected として返す。
+ */
+async function classifyRemainingAfterLimit(
+	remainingTemplateIds: readonly string[],
+	targetChildId: ChildId,
+	tenantId: string,
+): Promise<{ alreadyDistributed: number; limitRejected: number }> {
+	const targetAssignments = await findAssignmentsByChild(targetChildId, tenantId);
+	const targetTemplateIds = new Set(targetAssignments.map((a) => a.templateId));
+	let alreadyDistributed = 0;
+	let limitRejected = 0;
+	for (const remainingId of remainingTemplateIds) {
+		if (targetTemplateIds.has(remainingId)) alreadyDistributed += 1;
+		else limitRejected += 1;
+	}
+	return { alreadyDistributed, limitRejected };
+}
+
+/**
  * #3474: quota を守りつつ source templates を target child に copy する (per-iteration live 再評価)。
  *
  * drop を「上限拒否 (limitRejected)」と「既配信 skip (alreadyDistributed、no-op 成功)」に分離して返す
- * (#3474 item2)。live 再評価の TOCTOU 設計判断は docs/rationale/14-checklist-copy-toctou-rationale.md が SSOT。
+ * (#3474 item2)。上限 hit 後の残 source も既配信 (quota 非消費) を alreadyDistributed に再分類し、
+ * limitRejected を実際の上限拒否数と一致させる (#3788、classifyRemainingAfterLimit)。live 再評価の
+ * TOCTOU 設計判断は docs/rationale/14-checklist-copy-toctou-rationale.md が SSOT。
  */
 async function copyDistributionWithQuota(params: {
 	sourceTemplateIds: readonly string[];
@@ -231,8 +256,16 @@ async function copyDistributionWithQuota(params: {
 			const live = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
 			if (!live.allowed) {
 				// live count が上限到達。現在含む残りの source は target 上限超過になるため copy しない。
+				// #3788: 残 source (現在 index i 以降) の既配信 (quota 非消費) を alreadyDistributed に再分類し、
+				// 未配信のみ limitRejected に計上する (上限メッセージ件数を実際の上限拒否数と一致させる)。
 				limitReached = true;
-				limitRejected = sourceTemplateIds.length - i;
+				const remaining = await classifyRemainingAfterLimit(
+					sourceTemplateIds.slice(i),
+					targetChildId,
+					tenantId,
+				);
+				alreadyDistributed += remaining.alreadyDistributed;
+				limitRejected += remaining.limitRejected;
 				break;
 			}
 		}
