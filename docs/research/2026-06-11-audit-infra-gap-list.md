@@ -212,7 +212,7 @@ audit-team.md §3.7（初回事前準備 5 項目）/ §3.8（毎回 9 ステッ
 **未カバー endpoint 一覧（専用テスト不在、優先度別）**:
 
 - **高（コア業務ロジック / AI）**: `special-rewards/[childId]`・`special-rewards/[rewardId]/shown`・`special-rewards/suggest`・`cheer/suggest`・`checklists/suggest`・`messages/[childId]`(POST)・`messages/[messageId]/shown`・`rest-days/[childId]`(CRUD)・`settings/decay`・`evaluations/[childId]`・`achievements/[childId]`・`points/ocr-receipt`・`children/[id]/voices`(CRUD)
-- **中（admin / データライフサイクル）**: `admin/account/{export,grace-status,restore}`・`admin/downgrade-{archive,preview,restore}`・`admin/invites/[code]`(DELETE)・`admin/members/{[userId],transfer-ownership,leave}`・`admin/trial-expiration`・`admin/viewer-tokens`(CRUD)・`admin/migration`・`admin/cleanup-orphans`・`admin/notifications/{reminder,streak-warning}`
+- **中（admin / データライフサイクル）**: `admin/account/{export,grace-status,restore}`・`admin/downgrade-{archive,preview,restore}`・`admin/invites/[id]`(DELETE)・`admin/members/{[userId],transfer-ownership,leave}`・`admin/trial-expiration`・`admin/viewer-tokens`(CRUD)・`admin/migration`・`admin/cleanup-orphans`・`admin/notifications/{reminder,streak-warning}`
 - **低（export/import / 設定）**: `activities/export`・`special-rewards/export`・`checklists/export`・`export/cloud`(CRUD)・`import/cloud`・`data/{summary,clear}`・`settings/{tutorial,pin-gate-onboarding,vapid-key}`・`notifications/unsubscribe`・`inquiry/founder`・`images`(GET/POST)・`analytics`系
 
 **`07-API設計書.md` doc-vs-code 差分**（AC5 副産物、ADR-0001 同期 gap）:
