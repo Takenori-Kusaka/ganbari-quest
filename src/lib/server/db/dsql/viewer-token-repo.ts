@@ -64,6 +64,15 @@ export function createDsqlViewerTokenRepo(db: SqlExecutor): IViewerTokenRepo {
 		},
 
 		async insert(input, tenantId) {
+			// #3574 ①: expire-then-purge。token は revoke 後の値再発行が前提 (§11.2) だが global
+			// UNIQUE のため、自 family の dead 旧行 (revoke 済 or 期限切れ) が同 token を占有したまま
+			// 再発行すると UNIQUE 衝突で沈黙失敗する。挿入前に自 family の再利用可能な旧行を purge する。
+			// live 行が占有していれば purge 対象外 → UNIQUE 衝突が surface する (= 2 live 行防止は維持、§P9)。
+			await db.execute(sql`
+				DELETE FROM viewer_tokens
+				WHERE family_id = ${tenantId} AND token = ${input.token}
+					AND (revoked_at IS NOT NULL OR (expires_at IS NOT NULL AND expires_at < now()))
+			`);
 			const result = await db.execute(sql`
 				INSERT INTO viewer_tokens (family_id, token, label, expires_at)
 				VALUES (${tenantId}, ${input.token}, ${input.label ?? null},

@@ -98,6 +98,16 @@ export function createDsqlCloudExportRepo(db: SqlExecutor): ICloudExportRepo {
 		},
 
 		async insert(input) {
+			// #3574 ①: expire-then-purge。pin_code は expire 後の値再利用が前提 (§11.2) だが global
+			// UNIQUE のため、自 family の dead 旧行 (期限切れ or DL 上限到達) が同 pin を占有したまま
+			// 再発行すると UNIQUE 衝突で沈黙失敗する。挿入前に自 family の再利用可能な旧行を purge する。
+			// live 行 (自/他 family) が占有していれば purge 対象外 → UNIQUE 衝突が surface する
+			// (= 2 live 行防止は維持)。purge を自 family scope に限定し他 family の行には触れない (§P9)。
+			await db.execute(sql`
+				DELETE FROM cloud_exports
+				WHERE family_id = ${input.tenantId} AND pin_code = ${input.pinCode}
+					AND (expires_at < now() OR download_count >= max_downloads)
+			`);
 			const result = await db.execute(sql`
 				INSERT INTO cloud_exports
 					(family_id, export_type, pin_code, s3_key, file_size_bytes, label, description,

@@ -98,7 +98,45 @@ export async function findById(
 	return res.Item ? mapItem(res.Item) : undefined;
 }
 
+/**
+ * #3574 ①: expire-then-purge (DSQL/sqlite backend と parity)。pin_code は expire 後の値再利用が
+ * 前提。DynamoDB は pin_code に一意制約が無い (PK = tenant+id) ため、dead 旧行 (期限切れ or DL 上限
+ * 到達) が同 pin を持ったまま残ると findByPin が非決定的になる。挿入前に自 tenant partition から
+ * 同 pin の dead 行を purge して findByPin の解決を新 live 行に収束させる。
+ */
+async function purgeReusablePin(tenantId: string, pinCode: string): Promise<void> {
+	const now = new Date().toISOString();
+	const pk = cloudExportTenantPK(tenantId);
+	const keys: Array<{ PK: string; SK: string }> = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const res = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				FilterExpression: 'pinCode = :pin AND (expiresAt < :now OR downloadCount >= maxDownloads)',
+				ExpressionAttributeValues: {
+					':pk': pk,
+					':prefix': cloudExportSKPrefix(),
+					':pin': pinCode,
+					':now': now,
+				},
+				ProjectionExpression: 'PK, SK',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of res.Items ?? []) {
+			keys.push({ PK: item.PK as string, SK: item.SK as string });
+		}
+		lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	for (const key of keys) {
+		await getDocClient().send(new DeleteCommand({ TableName: TABLE_NAME, Key: key }));
+	}
+}
+
 export async function insert(input: InsertCloudExportInput): Promise<CloudExportRecord> {
+	await purgeReusablePin(input.tenantId, input.pinCode);
 	const id = await nextId(ENTITY_NAMES.cloudExport, input.tenantId);
 	const now = new Date().toISOString();
 
