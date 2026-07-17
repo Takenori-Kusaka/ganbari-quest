@@ -269,6 +269,22 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - ワイルドカード証明書: `*.ganbari-quest.com` + `ganbari-quest.com`
 - DNS検証（Route 53自動連携）
 
+#### 3.5.1 user-content 配信の CloudFront/S3 セキュリティ（#3830 / EPIC #3408 slice D）
+
+user-content（avatar / ZIP import 由来ファイル等、attacker が content-type を左右し得るバイト）は 14-セキュリティ設計書 §7.2.1 の不変条件①「常に Lambda 経由配信」に従う。CloudFront/S3 レイヤでこの不変条件を破りうる 2 つの構造リスク（#3112 構造リスク 2 / 3）を以下で評価・防御する。
+
+##### cache TTL の content-type 残存リスク評価（AC1）
+
+- **現行 behavior 実態**: user-content 経路（`/tenants/*` / `/uploads/*`）は専用 behavior を持たず **default behavior に fall-through** する。default behavior の cache policy は **`CACHING_DISABLED`**（min/max/default TTL = 0）であり、**CloudFront エッジは user-content レスポンスを一切 cache しない**。従って「ヘッダ適用前の旧レスポンスが CDN で TTL 期間中 stale な content-type / `Content-Disposition` を保持し、他ユーザーへ配信される」共有 cache poisoning は**構造的に発生しない**。`X-Content-Type-Options: nosniff` は default behavior の `ResponseHeadersPolicy.SECURITY_HEADERS`（CloudFront マネージド）で常に付与され、`Content-Disposition` は Lambda origin（`safeContentDisposition()`）が付与する。
+- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: public, max-age=31536000, immutable` を付与するため **browser 側は 1 年 cache** する。ただし (a) storage key は content-suffix / tenant path 込みで実質 immutable（同一 URL で content-type が変わる再 upload は起きない）、(b) browser が cache するレスポンス自体が既に `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。よって browser cache 由来の残存は per-user かつ防御ヘッダ付きで、リスクは低い（immutable 指定は配信性能のための意図的設計）。
+- **結論（現状は変更不要 / 将来の必須要件）**: 現構成（user-content = `CACHING_DISABLED` の default behavior）は cache TTL 残存リスクを構造的に回避済のため、**cache invalidation / Vary 戦略 / cache TTL の見直しは現時点で不要**。将来 user-content を cache する behavior（短 TTL でも）へ移す場合は、**必ず (i) `Content-Type` / `Content-Disposition` を cache key に含める（Vary 相当）、(ii) 十分短い TTL、(iii) content 変更時の invalidation 経路**を同時に設計すること（これらを欠くと content-type 残存 = stored-XSS 再解釈のリスクが復活する）。**実 CDK（cache policy / behavior）変更は staging smoke test を要するため本 slice では行わず、上記を将来要件として明文化するに留める**（現状は防御が成立しているため実変更不要）。
+
+##### S3 直配信 behavior の bypass 防御（AC3）
+
+- **現状方針**: user-content の S3 直配信 behavior は**採用しない**。CloudFront が S3 origin を直結する behavior は静的アセット 2 種のみ（`/error/*` エラーページ / `/_app/immutable/*` immutable アセット、いずれも attacker-controllable でない）。user-content は常に Lambda（SvelteKit endpoint）が `readFile()` → 認証・tenant 一致・content-type 正規化・`Content-Disposition` 付与を通して配信する。
+- **将来 S3 直配信を足す場合の必須要件**: S3 stored content-type が Lambda ヘッダを bypass するため、**S3 object metadata に `Content-Disposition`（ラスタ画像のみ `inline` / SVG・audio・不明 type は `attachment`）と正規化済 content-type を書き込み**、配信点（Lambda）と同等の防御を object 側で担保する。加えて cross-tenant IDOR 防止（§5.2.1 の tenant 一致検証）を OAC / bucket policy / 署名付き URL 等で別途担保する必要があり、Lambda 経由配信の認証・認可を S3 直配信で再現するのは非自明なため、**Pre-PMF では S3 直配信を採用しない**（ADR-0010）。
+- **機械強制（fitness function）**: `tests/unit/architecture/cloudfront-s3-user-content-bypass-fitness.test.ts` が `infra/lib/network-stack.ts` を静的走査し、S3 origin を持つ behavior が静的アセット allowlist に分類済 / user-content prefix を S3 直配信していない / default behavior が Lambda origin である / `new cloudfront.Distribution` が network-stack.ts のみであることを表明する。user-content を S3 直配信する behavior（例: `/uploads/avatars/*` → S3 origin）を足すと CI が red になり、上記必須要件の伴走なしに bypass が入るのを防ぐ（14-セキュリティ設計書 §7.2.1 の route 層 fitness を補完する CDK 層 fitness）。
+
 ### 3.6 SesStack（メール送信・受信基盤）
 
 **SES Email Identity:**
