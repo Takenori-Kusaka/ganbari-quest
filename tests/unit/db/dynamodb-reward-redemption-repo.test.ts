@@ -369,6 +369,31 @@ describe('findRedemptionRequestsByTenant', () => {
 		const rows = await findRedemptionRequestsByTenant(TENANT, { limit: 2 });
 		expect(rows.map((r) => r.id)).toEqual(['3', '2']);
 	});
+
+	it('#3566 ①: reward 削除後 (item に denorm snapshot が残る) も申請は snapshot 値で残る (snapshot 権威)', async () => {
+		// DynamoDB は JOIN でなく insert 時 denorm 保存のため、reward item 不在でも申請 item の
+		// denorm (rewardTitle/points/icon) が権威となり、申請が Scan 結果から脱落しない
+		// (sqlite/dsql の LEFT JOIN snapshot 権威と cross-backend 等価)。
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				makeItem({
+					id: 1,
+					status: 'approved',
+					rewardTitle: 'ゲーム機',
+					rewardIcon: '🎮',
+					rewardPoints: 500,
+				}),
+			],
+		});
+		const { findRedemptionRequestsByTenant } = await loadRepo();
+		const rows = await findRedemptionRequestsByTenant(TENANT);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			rewardTitle: 'ゲーム機',
+			rewardIcon: '🎮',
+			rewardPoints: 500,
+		});
+	});
 });
 
 // ============================================================

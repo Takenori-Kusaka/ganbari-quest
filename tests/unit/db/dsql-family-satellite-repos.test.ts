@@ -44,6 +44,7 @@
 //   [IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9
 //   [IM2] updateChildAvatarUrl (tenant no-op) + findChildForImage (§P9)
 //   [IM3] deleteByTenantId は §P9 tenant 限定
+//   [IM4] #3566 ③ (§9.4): file_path が tenant プレフィックス外 / cross-tenant / traversal なら insert 拒否 (孤児バイト防止)
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -527,14 +528,16 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 	it('[IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9', async () => {
 		const childId = await newChild('画像一郎');
+		// #3566 ③: file_path は tenant プレフィックス配下必須 (§9.4 孤児バイト防止)。
+		const filePath = `tenants/${FAMILY}/generated/${childId}/hash-1.png`;
 		await imageRepo.insertCharacterImage(
-			{ childId, type: 'avatar', filePath: 'images/av-1.png', promptHash: 'hash-1' },
+			{ childId, type: 'avatar', filePath, promptHash: 'hash-1' },
 			FAMILY,
 		);
 		const cached = await imageRepo.findCachedImage(childId, 'avatar', 'hash-1', FAMILY);
 		expect(cached?.id).toMatch(UUID_RE);
 		expect(cached?.childId).toBe(childId);
-		expect(cached?.filePath).toBe('images/av-1.png');
+		expect(cached?.filePath).toBe(filePath);
 		expect(cached?.promptHash).toBe('hash-1');
 		expect(cached?.generatedAt).toBeTruthy();
 
@@ -564,15 +567,69 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect(await imageRepo.findChildForImage(childId, OTHER_FAMILY)).toBe(undefined);
 	});
 
+	it('[IM4] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert 拒否 (孤児バイト防止)', async () => {
+		const childId = await newChild('画像四郎');
+		const countImages = async (): Promise<number> => {
+			const r = await t.db.execute(
+				sql`SELECT count(*) AS c FROM character_images WHERE family_id = ${FAMILY}`,
+			);
+			return Number((r.rows[0] as { c: unknown }).c);
+		};
+		const before = await countImages();
+		// (a) tenant 配下の key は許容 (正規の generatedImageKey 相当)
+		await imageRepo.insertCharacterImage(
+			{ childId, type: 'avatar', filePath: `tenants/${FAMILY}/generated/ok.png`, promptHash: 'h4' },
+			FAMILY,
+		);
+		// (b) prefix 外 key は拒否 (account 削除 deleteByPrefix で消えない孤児バイトになるため)
+		await expect(
+			imageRepo.insertCharacterImage(
+				{ childId, type: 'avatar', filePath: 'images/loose.png', promptHash: 'h4b' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// (c) cross-tenant key は拒否 (他 family のバイトを A の DB 行が参照する越境 = IDOR/LFI)
+		await expect(
+			imageRepo.insertCharacterImage(
+				{
+					childId,
+					type: 'avatar',
+					filePath: `tenants/${OTHER_FAMILY}/generated/steal.png`,
+					promptHash: 'h4c',
+				},
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// (d) path traversal を含む key は prefix 一致でも拒否
+		await expect(
+			imageRepo.insertCharacterImage(
+				{ childId, type: 'avatar', filePath: `tenants/${FAMILY}/../x.png`, promptHash: 'h4d' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// 拒否ケースでは 1 行のみ (a のみ) 追加され、b/c/d は書かれていない
+		expect(await countImages()).toBe(before + 1);
+	});
+
 	it('[IM3] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {
 		const mine = await newChild('画像三郎');
 		const other = await newChild('他家三郎', OTHER_FAMILY);
 		await imageRepo.insertCharacterImage(
-			{ childId: mine, type: 'avatar', filePath: 'images/m.png', promptHash: 'hm' },
+			{
+				childId: mine,
+				type: 'avatar',
+				filePath: `tenants/${FAMILY}/generated/m.png`,
+				promptHash: 'hm',
+			},
 			FAMILY,
 		);
 		await imageRepo.insertCharacterImage(
-			{ childId: other, type: 'avatar', filePath: 'images/o.png', promptHash: 'ho' },
+			{
+				childId: other,
+				type: 'avatar',
+				filePath: `tenants/${OTHER_FAMILY}/generated/o.png`,
+				promptHash: 'ho',
+			},
 			OTHER_FAMILY,
 		);
 		await imageRepo.deleteByTenantId(FAMILY);

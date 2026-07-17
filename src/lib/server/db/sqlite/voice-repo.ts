@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import { db } from '../client';
 import { childCustomVoices } from '../schema';
 import type { ChildCustomVoice } from '../types';
@@ -58,6 +59,8 @@ export async function findActiveVoice(
 export async function insert(
 	voice: Omit<ChildCustomVoice, 'id' | 'createdAt'>,
 ): Promise<{ id: string }> {
+	// #3566 ③ (§9.4): file_path が tenant プレフィックス配下必須 (孤児バイト防止、DSQL と整合)。
+	assertTenantScopedStorageKey(voice.filePath, voice.tenantId);
 	const now = new Date().toISOString();
 	const result = db
 		.insert(childCustomVoices)
@@ -85,6 +88,9 @@ export async function insertForRestore(
 	voice: Omit<ChildCustomVoice, 'id'>,
 	_tenantId: string,
 ): Promise<{ id: string }> {
+	// #3566 ③ (§9.4): 復元行の file_path も tenant プレフィックス強制 (untrusted backup 由来の
+	// cross-tenant LFI 防止)。呼び出し側 (import-service) は復元先 tenant へ再キー済 = voice.tenantId。
+	assertTenantScopedStorageKey(voice.filePath, voice.tenantId);
 	const result = db
 		.insert(childCustomVoices)
 		.values({ ...voice, childId: Number(voice.childId) })

@@ -22,14 +22,20 @@
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/sibling-cheer-repo.ts (SSOT)
 
-import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { ENTITY_NAMES, siblingCheerKey, siblingCheerPrefix, tenantPK } from './keys';
+import { childKey, ENTITY_NAMES, siblingCheerKey, siblingCheerPrefix, tenantPK } from './keys';
 import { stripKeys } from './repo-helpers';
 
 const PREFIX = siblingCheerPrefix();
@@ -117,6 +123,24 @@ export async function insertForRestore(
 	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
 	tenantId: string,
 ): Promise<SiblingCheer> {
+	// #3566 ②: restore 入力は untrusted backup 由来のため、from/to child が同 tenant に
+	// 実在する (= 同 family に属する) ことを書込前に強制する。DSQL insertForRestore の
+	// INSERT ... SELECT JOIN children guard / storage-key の assertTenantScopedStorageKey と
+	// 同型の defense-in-depth (dangling / cross-tenant 拒否)。childKey は PK に tenantId を
+	// 埋めるため、GetItem が空 = その child は tenant に存在しない → throw で拒否する
+	// (採番より先に検証し、拒否時は counter を消費しない)。
+	const doc = getDocClient();
+	const [fromChild, toChild] = await Promise.all([
+		doc.send(
+			new GetCommand({ TableName: TABLE_NAME, Key: childKey(Number(input.fromChildId), tenantId) }),
+		),
+		doc.send(
+			new GetCommand({ TableName: TABLE_NAME, Key: childKey(Number(input.toChildId), tenantId) }),
+		),
+	]);
+	if (!fromChild.Item || !toChild.Item) {
+		throw new Error('sibling cheer restore rejected: from/to child not in family');
+	}
 	const id = await nextId(ENTITY_NAMES.siblingCheer, tenantId);
 	const cheer: SiblingCheer = { ...input, id: String(id), tenantId };
 	await getDocClient().send(

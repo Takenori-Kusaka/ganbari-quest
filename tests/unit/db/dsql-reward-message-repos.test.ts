@@ -19,10 +19,12 @@
 //   [SR3] updateSpecialReward (composite key、部分更新 / 空更新 = 現状返却 / 他 child no-op)
 //   [SR4] deleteSpecialReward (解決済 redemption も同 txn cascade、他 child no-op) + hasPending は残す
 //   [SR5] deleteByTenantId は §P9 tenant 限定 (他 tenant 無傷)
+//   [SR6] #3566 ③: granted_by (polymorphic text 旧int/新uuid/null) を verbatim 保全 + tenant-scoped read (COPPA 追跡性)
 // ── IRewardRedemptionRepo ──
 //   [RR1] insertRedemptionRequest: pending 固定 + 申請時点 snapshot 保存 + §P9
 //   [RR2] epoch↔timestamptz round-trip (requestedAt を秒精度で保全)
 //   [RR3] findByTenant (JOIN child/reward、snapshot 優先 COALESCE) + countByTenant (limit なし)
+//   [RR3b] #3566 ①: LEFT JOIN で snapshot 権威化 — live reward 削除後も申請が snapshot 値で残る
 //   [RR4] updateRedemptionRequestStatus 遷移 (composite key、resolvedAt epoch 保全、他 child no-op)
 //   [RR5] status CHECK 実効 (不正 status 直 INSERT 拒否)
 //   [RR6] pending dedup (#3356 (1)) / findUnshownResultByChild / markRedemptionResultShown
@@ -39,6 +41,7 @@
 //   [SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)
 //   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
 //         (cross-family child は 0 行 → throw、行は書かれない)
+//   [SC5] #3566 ②: insertForRestore も同型 guard (dangling/cross-family backup 行を repo 入口で拒否)
 // ── ILoginBonusRepo ──
 //   [LB1] insertLoginBonus 冪等 (自然複合 PK ON CONFLICT、id=child:date 合成) + findTodayBonus + §P9
 //   [LB2] findRecentBonuses (login_date 降順 limit) / findChildById (§P9)
@@ -250,6 +253,39 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect((await rewardRepo.findSpecialRewards(keep, FAMILY)).length).toBe(1);
 	});
 
+	it('[SR6] #3566 ③: granted_by (polymorphic text) 付与主体を verbatim 保全 + tenant-scoped read (COPPA 追跡性)', async () => {
+		// granted_by は polymorphic text (旧 int 由来の数値文字列 / 新 uuid / null 混在)。
+		// 付与主体の監査証跡 (誰がごほうびを付与したか) を repo が coerce せず verbatim 保全し、
+		// かつ read が §P9 tenant-scoped であることを担保する (cross-tenant で付与者が漏れない)。
+		const childId = await newChild('付与六郎');
+		const legacyIntGrantor = '42'; // 旧 integer granted_by 由来の数値文字列
+		const uuidGrantor = '00000000-0000-4000-8000-0000000000ab'; // 新 uuid 由来
+		await rewardRepo.insertSpecialReward(
+			{ childId, title: '旧付与', points: 10, category: 'privilege', grantedBy: legacyIntGrantor },
+			FAMILY,
+		);
+		await new Promise((r) => setTimeout(r, 5));
+		await rewardRepo.insertSpecialReward(
+			{ childId, title: '新付与', points: 20, category: 'privilege', grantedBy: uuidGrantor },
+			FAMILY,
+		);
+		await new Promise((r) => setTimeout(r, 5));
+		await rewardRepo.insertSpecialReward(
+			{ childId, title: '付与者なし', points: 30, category: 'privilege' },
+			FAMILY,
+		);
+
+		const list = await rewardRepo.findSpecialRewards(childId, FAMILY);
+		const byTitle = Object.fromEntries(list.map((r) => [r.title, r.grantedBy]));
+		// polymorphic の両形式 + null が coerce されず verbatim で返る (監査で付与主体を追跡可能)
+		expect(byTitle['旧付与']).toBe(legacyIntGrantor);
+		expect(byTitle['新付与']).toBe(uuidGrantor);
+		expect(byTitle['付与者なし']).toBe(null);
+
+		// §P9: cross-tenant read は付与主体 (granted_by) を一切露出しない
+		expect(await rewardRepo.findSpecialRewards(childId, OTHER_FAMILY)).toEqual([]);
+	});
+
 	// ─────────────────── IRewardRedemptionRepo ───────────────────
 
 	it('[RR1] insertRedemptionRequest: pending 固定 + 申請時点 snapshot 保存 + §P9', async () => {
@@ -334,6 +370,49 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			status: 'pending_parent_approval',
 		});
 		expect(pendingOnly.length).toBe(2);
+	});
+
+	it('[RR3b] #3566 ①: 申請一覧は snapshot を権威とする — live reward 削除後も申請が snapshot 値で残る', async () => {
+		// 元 reward が削除・改名された後も「申請時点の約束 (title/points/icon)」を守る。
+		// INNER JOIN special_rewards だと reward 消失で申請行が一覧から脱落し顧客期待報酬が消える。
+		// snapshot 権威 = LEFT JOIN で、reward 不在でも rr.reward_* snapshot を返す。
+		const family = '00000000-0000-4000-8000-0000000000d6';
+		const childId = await newChild('約束六郎', family);
+		const reward = await rewardRepo.insertSpecialReward(
+			{ childId, title: 'ゲーム機', points: 500, icon: '🎮', category: 'physical' },
+			family,
+		);
+		const req = mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				family,
+			),
+		);
+		// 承認 + unshown のまま (child 側 findUnshownResultByChild が拾える状態にする)
+		await redemptionRepo.updateRedemptionRequestStatus(
+			childId,
+			req.id,
+			{ status: 'approved', resolvedAt: Math.floor(Date.now() / 1000) },
+			family,
+		);
+
+		// live reward を物理削除 (backup restore で reward 未再取込 / 将来の削除経路を模した orphan)。
+		await t.db.execute(sql`
+			DELETE FROM special_rewards
+			WHERE family_id = ${family} AND child_id = ${childId} AND reward_id = ${reward.id}
+		`);
+
+		// 親向け申請一覧: reward 消失後も snapshot 値で 1 件残る (顧客期待報酬を消さない)。
+		const details = await redemptionRepo.findRedemptionRequestsByTenant(family);
+		expect(details).toHaveLength(1);
+		expect(details[0]?.rewardTitle).toBe('ゲーム機');
+		expect(details[0]?.rewardPoints).toBe(500);
+		expect(details[0]?.rewardIcon).toBe('🎮');
+
+		// child 側の未表示通知 (承認結果) も snapshot 権威で残る。
+		const unshown = await redemptionRepo.findUnshownResultByChild(childId, family);
+		expect(unshown?.rewardTitle).toBe('ゲーム機');
+		expect(unshown?.rewardIcon).toBe('🎮');
 	});
 
 	it('[RR4] updateRedemptionRequestStatus: 遷移 + resolvedAt epoch 保全 + composite no-op', async () => {
@@ -748,6 +827,66 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 		// 拒否ケースでは 1 行も追加されていない (structural: 0 行挿入)
 		expect((await cheerRepo.findAllByTenant(family)).length).toBe(before);
+	});
+
+	it('[SC5] #3566 ②: insertForRestore も from/to child ∈ family を構造強制 (dangling backup 拒否)', async () => {
+		// restore 経路は untrusted backup 由来。insertCheer の [SC4] guard と同型に、
+		// INSERT ... SELECT JOIN children で from/to child ∈ family を強制する (VALUES 直書きだと
+		// dangling / cross-family 行が入る #3566 ② の gap を repo 入口で塞ぐ)。
+		const family = '00000000-0000-4000-8000-0000000000d6';
+		const from = await newChild('復元元五郎', family);
+		const to = await newChild('復元先五郎', family);
+		const alien = await newChild('他家の復元子', OTHER_FAMILY);
+		const ghost = '00000000-0000-4000-8000-00000000faff' as ChildId;
+
+		const before = (await cheerRepo.findAllByTenant(family)).length;
+
+		// (a) 同一 family の from/to → 成功 (sentAt/shownAt verbatim も保全)
+		const ok = await cheerRepo.insertForRestore(
+			{
+				fromChildId: from,
+				toChildId: to,
+				stampCode: 'restore-ok',
+				sentAt: '2025-10-01T09:00:00+00:00',
+				shownAt: '2025-10-02T09:00:00+00:00',
+			},
+			family,
+		);
+		if (!ok) throw new Error('insertForRestore returned null for fresh in-family row');
+		expect(ok.fromChildId).toBe(from);
+		expect(ok.toChildId).toBe(to);
+		expect(Date.parse(ok.sentAt)).toBe(Date.parse('2025-10-01T09:00:00+00:00'));
+		expect(Date.parse(ok.shownAt ?? '')).toBe(Date.parse('2025-10-02T09:00:00+00:00'));
+
+		const seeded = (await cheerRepo.findAllByTenant(family)).length;
+		expect(seeded).toBe(before + 1);
+
+		// (b1) 送信先が family 外 child → 拒否 (SELECT 0 行 → throw、行は書かれない)
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: from, toChildId: alien, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// (b2) 送信元が family 外 child → 拒否
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: alien, toChildId: to, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// (b3) どの family にも存在しない dangling child id → 拒否
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: from, toChildId: ghost, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// 拒否ケースでは 1 行も追加されていない (structural: guard を外すと dangling 行が入り fail する)
+		expect((await cheerRepo.findAllByTenant(family)).length).toBe(seeded);
 	});
 
 	// ─────────────────── ILoginBonusRepo ───────────────────

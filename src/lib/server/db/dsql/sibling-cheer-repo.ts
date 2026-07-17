@@ -82,15 +82,32 @@ export function createDsqlSiblingCheerRepo(db: SqlExecutor): ISiblingCheerRepo {
 		},
 
 		async insertForRestore(input, tenantId) {
-			// #3329: sent_at / shown_at を verbatim 書き戻す (from/to は呼び出し側が解決済)。
+			// #3329: sent_at / shown_at を verbatim 書き戻す。
+			// #3566 ②: restore 入力は untrusted backup 由来のため、insertCheer と同型に
+			// from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制する
+			// (storage-key の insertForRestore が assertTenantScopedStorageKey で repo 入口を
+			// 防御するのと同じ defense-in-depth)。caller (import-service) は childRef を解決済だが、
+			// crafted backup / 解決バグで family 外・dangling な child を差し込む余地を repo で塞ぐ。
+			// どちらかが tenant の children に不在なら SELECT 0 行 → 挿入なし → RETURNING 空 → throw。
+			// sent_at / shown_at は明示 ::timestamptz cast で verbatim 保全する (shown_at=null は
+			// NULL::timestamptz = NULL)。SELECT 射影列は VALUES と違い型が明示されないため cast する。
 			const result = await db.execute(sql`
 				INSERT INTO sibling_cheers
 					(family_id, from_child_id, to_child_id, stamp_code, sent_at, shown_at)
-				VALUES (${tenantId}, ${input.fromChildId}, ${input.toChildId}, ${input.stampCode},
-					${input.sentAt}, ${input.shownAt})
+				SELECT cf.family_id, cf.child_id, ct.child_id, ${input.stampCode},
+					${input.sentAt}::timestamptz, ${input.shownAt}::timestamptz
+				FROM children cf
+				JOIN children ct ON ct.family_id = cf.family_id AND ct.child_id = ${input.toChildId}
+				WHERE cf.family_id = ${tenantId} AND cf.child_id = ${input.fromChildId}
 				RETURNING ${CHEER_COLUMNS}
 			`);
-			return toCheer(result.rows[0] as unknown as CheerRow);
+			const row = result.rows[0] as unknown as CheerRow | undefined;
+			if (!row) {
+				// from / to のどちらかが tenant の children に不在 (cross-family 混入 or dangling child)。
+				// 戻り値契約 (Promise<SiblingCheer>、非 null) を保つため throw で拒否する (insertCheer と同型)。
+				throw new Error('sibling cheer restore rejected: from/to child not in family');
+			}
+			return toCheer(row);
 		},
 
 		async findUnshownCheers(toChildId, tenantId) {

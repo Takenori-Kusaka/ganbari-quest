@@ -18,23 +18,30 @@ import { asChildId } from '$lib/domain/ids';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // AWS SDK Mock (vi.hoisted で先にモック関数と Command クラスを確保)
-const { mockSend, MockPutCommand, MockQueryCommand, MockUpdateCommand, MockScanCommand } =
-	vi.hoisted(() => {
-		const send = vi.fn();
-		class Cmd {
-			input: unknown;
-			constructor(input: unknown) {
-				this.input = input;
-			}
+const {
+	mockSend,
+	MockGetCommand,
+	MockPutCommand,
+	MockQueryCommand,
+	MockUpdateCommand,
+	MockScanCommand,
+} = vi.hoisted(() => {
+	const send = vi.fn();
+	class Cmd {
+		input: unknown;
+		constructor(input: unknown) {
+			this.input = input;
 		}
-		return {
-			mockSend: send,
-			MockPutCommand: class extends Cmd {},
-			MockQueryCommand: class extends Cmd {},
-			MockUpdateCommand: class extends Cmd {},
-			MockScanCommand: class extends Cmd {},
-		};
-	});
+	}
+	return {
+		mockSend: send,
+		MockGetCommand: class extends Cmd {},
+		MockPutCommand: class extends Cmd {},
+		MockQueryCommand: class extends Cmd {},
+		MockUpdateCommand: class extends Cmd {},
+		MockScanCommand: class extends Cmd {},
+	};
+});
 
 vi.mock('@aws-sdk/client-dynamodb', () => ({
 	DynamoDBClient: class {},
@@ -42,6 +49,7 @@ vi.mock('@aws-sdk/client-dynamodb', () => ({
 
 vi.mock('@aws-sdk/lib-dynamodb', () => ({
 	DynamoDBDocumentClient: { from: () => ({ send: mockSend }) },
+	GetCommand: MockGetCommand,
 	PutCommand: MockPutCommand,
 	QueryCommand: MockQueryCommand,
 	UpdateCommand: MockUpdateCommand,
@@ -121,6 +129,96 @@ describe('insertCheer', () => {
 		expect(putCall.input.Item?.SK).toBe('CHEER#00000101');
 		expect(putCall.input.Item?.fromChildId).toBe(FROM_CHILD);
 		expect(putCall.input.Item?.stampCode).toBe('ganbare');
+	});
+});
+
+// ============================================================
+// insertForRestore — #3566 ② from/to child ∈ family guard (dangling backup 拒否)
+// ============================================================
+
+describe('insertForRestore', () => {
+	it('from/to child 実在を検証 → 採番 → 受信 child partition に PutItem し sentAt/shownAt を verbatim 復元', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Item: { id: FROM_CHILD } }) // Get from child (存在)
+			.mockResolvedValueOnce({ Item: { id: TO_CHILD } }) // Get to child (存在)
+			.mockResolvedValueOnce({ Attributes: { counter: 205 } }) // nextId
+			.mockResolvedValueOnce({}); // PutCommand
+
+		const { insertForRestore } = await loadRepo();
+		const result = await insertForRestore(
+			{
+				fromChildId: asChildId(FROM_CHILD),
+				toChildId: asChildId(TO_CHILD),
+				stampCode: 'restore',
+				sentAt: '2025-11-01T10:00:00.000Z',
+				shownAt: '2025-11-02T10:00:00.000Z',
+			},
+			TENANT,
+		);
+
+		expect(result.id).toBe('205');
+		expect(result).toMatchObject({
+			fromChildId: asChildId(FROM_CHILD),
+			toChildId: asChildId(TO_CHILD),
+			stampCode: 'restore',
+			tenantId: TENANT,
+			sentAt: '2025-11-01T10:00:00.000Z',
+			shownAt: '2025-11-02T10:00:00.000Z', // verbatim (insertCheer は null 固定だが restore は保全)
+		});
+
+		// from/to child は tenant-scoped childKey (PK に tenantId 埋込) で GetItem 検証している
+		const getFrom = mockSend.mock.calls[0]?.[0] as { input: { Key?: Record<string, unknown> } };
+		const getTo = mockSend.mock.calls[1]?.[0] as { input: { Key?: Record<string, unknown> } };
+		expect(getFrom.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${FROM_CHILD}`);
+		expect(getTo.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${TO_CHILD}`);
+		// Put は受信 child (toChildId) partition
+		const putCall = mockSend.mock.calls[3]?.[0] as { input: { Item?: Record<string, unknown> } };
+		expect(putCall.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${TO_CHILD}`);
+		expect(putCall.input.Item?.SK).toBe('CHEER#00000205');
+	});
+
+	it('from child が tenant に不在 → 拒否 (throw、採番も Put もしない = dangling backup 拒否)', async () => {
+		mockSend
+			.mockResolvedValueOnce({}) // Get from child → 不在 (Item なし)
+			.mockResolvedValueOnce({ Item: { id: TO_CHILD } }); // Get to child (存在)
+
+		const { insertForRestore } = await loadRepo();
+		await expect(
+			insertForRestore(
+				{
+					fromChildId: asChildId(999),
+					toChildId: asChildId(TO_CHILD),
+					stampCode: 'x',
+					sentAt: '2025-11-01T10:00:00.000Z',
+					shownAt: null,
+				},
+				TENANT,
+			),
+		).rejects.toThrow(/not in family/);
+
+		// 検証 (Get) 2 回のみ。nextId (counter Update) / Put は呼ばれない (0 行挿入)
+		expect(mockSend.mock.calls.length).toBe(2);
+	});
+
+	it('to child が tenant に不在 → 拒否 (throw)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Item: { id: FROM_CHILD } }) // Get from (存在)
+			.mockResolvedValueOnce({}); // Get to → 不在
+
+		const { insertForRestore } = await loadRepo();
+		await expect(
+			insertForRestore(
+				{
+					fromChildId: asChildId(FROM_CHILD),
+					toChildId: asChildId(888),
+					stampCode: 'x',
+					sentAt: '2025-11-01T10:00:00.000Z',
+					shownAt: null,
+				},
+				TENANT,
+			),
+		).rejects.toThrow(/not in family/);
+		expect(mockSend.mock.calls.length).toBe(2);
 	});
 });
 

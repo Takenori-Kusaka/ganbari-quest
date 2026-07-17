@@ -74,9 +74,12 @@ function toRequestRow(row: RequestRow): RedemptionRequestRow {
 }
 
 // #2832 snapshot fallback: 申請時点 snapshot を優先し、旧行 (NULL) は live JOIN 値に fallback。
-const SNAPSHOT_TITLE = sql`COALESCE(rr.reward_title, sr.title)`;
+// #3566 ①: JOIN は LEFT JOIN のため reward 削除後は sr.* が NULL になりうる。snapshot が権威
+// (申請時点の約束を守る) であり、reward 消失 + 旧行 (snapshot NULL) の稀ケースにも非 NULL の
+// 既定値 (title='' / points=0) を返して RedemptionRequestWithDetails の型契約 (非 null) を満たす。
+const SNAPSHOT_TITLE = sql`COALESCE(rr.reward_title, sr.title, '')`;
 const SNAPSHOT_ICON = sql`COALESCE(rr.reward_icon, sr.icon)`;
-const SNAPSHOT_POINTS = sql`COALESCE(rr.reward_points, sr.points)`;
+const SNAPSHOT_POINTS = sql`COALESCE(rr.reward_points, sr.points, 0)`;
 
 /**
  * DSQL 用 IRewardRedemptionRepo を生成する (db/runner は注入、fitness#8)。
@@ -180,7 +183,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					${SNAPSHOT_POINTS} AS reward_points
 				FROM reward_redemption_requests rr
 				JOIN children c ON c.family_id = rr.family_id AND c.child_id = rr.child_id
-				JOIN special_rewards sr
+				LEFT JOIN special_rewards sr
 					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
 				WHERE ${tenantConditions(tenantId, opts)}
 				ORDER BY rr.requested_at DESC, rr.redemption_id DESC
@@ -242,7 +245,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
 					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon
 				FROM reward_redemption_requests rr
-				JOIN special_rewards sr
+				LEFT JOIN special_rewards sr
 					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
 				WHERE rr.family_id = ${tenantId} AND rr.child_id = ${childId}
 					AND rr.status IN ('approved', 'rejected') AND rr.shown_to_child_at IS NULL

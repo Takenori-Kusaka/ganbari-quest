@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import type { ChildCustomVoice } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -88,6 +89,8 @@ export async function findActiveVoice(
 export async function insert(
 	voice: Omit<ChildCustomVoice, 'id' | 'createdAt'>,
 ): Promise<{ id: string }> {
+	// #3566 ③ (§9.4): file_path が tenant プレフィックス配下必須 (孤児バイト防止、DSQL と整合)。
+	assertTenantScopedStorageKey(voice.filePath, voice.tenantId);
 	const id = await nextId('voice', voice.tenantId);
 	const now = new Date().toISOString();
 	await getDocClient().send(
@@ -135,6 +138,8 @@ export async function insertForRestore(
 	voice: Omit<ChildCustomVoice, 'id'>,
 	_tenantId: string,
 ): Promise<{ id: string }> {
+	// #3566 ③ (§9.4): 復元行の file_path も tenant プレフィックス強制 (cross-tenant LFI 防止)。
+	assertTenantScopedStorageKey(voice.filePath, voice.tenantId);
 	const id = await nextId('voice', voice.tenantId);
 	await getDocClient().send(
 		new PutCommand({

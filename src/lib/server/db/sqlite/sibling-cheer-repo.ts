@@ -2,7 +2,7 @@ import { and, count, eq, gte, isNull } from 'drizzle-orm';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
-import { siblingCheers } from '../schema';
+import { children, siblingCheers } from '../schema';
 import type { InsertSiblingCheerInput, SiblingCheer } from '../types';
 
 type CheerRow = typeof siblingCheers.$inferSelect;
@@ -38,11 +38,29 @@ export async function findAllByTenant(_tenantId: string): Promise<SiblingCheer[]
 	return db.select().from(siblingCheers).orderBy(siblingCheers.sentAt).all().map(toCheer);
 }
 
-/** #3329 backup restore 用: sentAt / shownAt を保全して復元する (from/to childId は呼び出し側が解決済)。 */
+/** #3329 backup restore 用: sentAt / shownAt を保全して復元する。 */
 export async function insertForRestore(
 	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
 	tenantId: string,
 ): Promise<SiblingCheer> {
+	// #3566 ②: restore 入力は untrusted backup 由来のため、from/to child が実在する
+	// (= 同 family に属する) ことを書込前に強制する。DSQL insertForRestore の
+	// INSERT ... SELECT JOIN children guard と同型の defense-in-depth (dangling 拒否)。
+	// sqlite はシングルテナントのため family 帰属 = children テーブル実在で判定する
+	// (FK pragma に依存せず repo 層で fail-loud 拒否)。どちらか不在なら 0 行挿入で throw。
+	const fromExists = db
+		.select({ id: children.id })
+		.from(children)
+		.where(eq(children.id, Number(input.fromChildId)))
+		.get();
+	const toExists = db
+		.select({ id: children.id })
+		.from(children)
+		.where(eq(children.id, Number(input.toChildId)))
+		.get();
+	if (!fromExists || !toExists) {
+		throw new Error('sibling cheer restore rejected: from/to child not in family');
+	}
 	return toCheer(
 		db
 			.insert(siblingCheers)
