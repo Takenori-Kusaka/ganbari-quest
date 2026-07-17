@@ -71,7 +71,7 @@
 | [docs/design/15-ブランドガイドライン.md](design/15-ブランドガイドライン.md) | ブランド・ビジュアル詳細 |
 | [docs/design/asset-catalog.md](design/asset-catalog.md) | 画像アセットカタログ |
 | [docs/design/lp-content-map.md](design/lp-content-map.md) | LP IA (#1163) |
-| [docs/reference/](reference/) | 技術リファレンス (ui_framework / backend_framework / gemini_image_generation_guide 等) |
+| [docs/reference/](reference/) | 技術リファレンス (gemini_image_generation_guide / activity-expansion-guide / color-mapping / child-psychology-ux-research 等) |
 | [docs/troubleshoot/](troubleshoot/) | トラブル対応 KB (screenshot_capture / github_actions 失敗) |
 | [docs/rationale/](rationale/) | 機能別 rationale (なぜそう決めたか narrative) |
 | [docs/runbooks/](runbooks/) | 運用 runbook (Stripe / 通知 / デプロイ) |
