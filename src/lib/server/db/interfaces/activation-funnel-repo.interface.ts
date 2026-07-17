@@ -30,5 +30,8 @@ export interface IActivationFunnelRepo {
 	 * @param sinceIso コホート起点 (ISO8601 UTC)。この時刻以降に登録した家庭のみを cohort とする。
 	 * @param retentionDays retention 判定窓 (日)。signup から本日数以内の活動があれば retained。
 	 */
-	getActivationFunnelCounts(sinceIso: string, retentionDays: number): Promise<ActivationFunnelCounts>;
+	getActivationFunnelCounts(
+		sinceIso: string,
+		retentionDays: number,
+	): Promise<ActivationFunnelCounts>;
 }
