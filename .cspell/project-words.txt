@@ -179,6 +179,7 @@ chukichi
 CKLOG
 CKOVER
 CKTPL
+clickjacking
 clientside
 Cloudflare
 CloudWatch

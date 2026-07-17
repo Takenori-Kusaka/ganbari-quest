@@ -103,31 +103,15 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	);
 }
 
-/**
- * Build CSP header.
- *
- * #1591 (ADR-0023 I2): umami / Sentry プロバイダ削除に伴い、provider 固有ドメインの
- * 追加は不要になった。analytics は AWS 内完結 (DynamoDB) のため connectSrc / scriptSrc
- * に外部ホストを足す必要がない — 'self' で完結する。これにより CSP は静的に決まり、
- * 「外部送信ゼロ」が CSP レイヤでも構造的に保証される。
- */
-function buildCspHeader(): string {
-	return [
-		`default-src 'self'`,
-		`script-src 'self' 'unsafe-inline'`,
-		`style-src 'self' 'unsafe-inline'`,
-		`img-src 'self' data: blob:`,
-		`media-src 'self' blob:`,
-		`font-src 'self'`,
-		`connect-src 'self'`,
-		`object-src 'none'`,
-		`base-uri 'self'`,
-		`frame-ancestors 'none'`,
-	].join('; ');
-}
-
-/** Cached CSP header (built once at startup) */
-const CSP_HEADER = buildCspHeader();
+// #3829 (EPIC #3408 slice C): アプリ側 CSP は SvelteKit 標準 CSP (svelte.config.js kit.csp、
+// hash mode) に一本化した。SvelteKit が hydration bootstrap の inline script を sha256 hash 化して
+// `script-src` に自動注入するため `script-src 'unsafe-inline'` を撤廃できる (stored-XSS の script
+// ベクタ最終防壁化、#3112 構造リスク 1)。旧 `buildCspHeader()` / `CSP_HEADER` / 下記
+// `response.headers.set('Content-Security-Policy', ...)` は clobber (二重付与) を避けるため撤去済。
+// directive 値の SSOT は svelte.config.js kit.csp。「外部送信ゼロ」の connect-src 'self' 固定も
+// 同 config に引き継いでいる (ADR-0067 / ADR-0023 §3.4)。
+// prerender ページ (sitemap 等) では frame-ancestors が meta で無効化されるため、下記
+// `X-Frame-Options: DENY` が clickjacking 防御の backup として引き続き必須。
 
 export const handle: Handle = ({ event, resolve }) =>
 	// #788: リクエスト境界でコンテキストを張る。resolveFullPlanTier / getTrialStatus が
@@ -497,11 +481,14 @@ export const handle: Handle = ({ event, resolve }) =>
 		const response = await resolve(event);
 
 		// 3) セキュリティヘッダ付与
+		// Content-Security-Policy は SvelteKit 標準 CSP (svelte.config.js kit.csp) が
+		// ページレスポンスに付与するため、ここでは set しない (#3829、clobber 除去)。
+		// X-Frame-Options は prerender ページで frame-ancestors が meta 無効化される分の
+		// clickjacking backup として引き続き全レスポンスに付与する。
 		response.headers.set('X-Frame-Options', 'DENY');
 		response.headers.set('X-Content-Type-Options', 'nosniff');
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 		response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-		response.headers.set('Content-Security-Policy', CSP_HEADER);
 		if (authMode === 'cognito') {
 			response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 		}

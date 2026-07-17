@@ -590,7 +590,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 ### CSP との整合
 
-`hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない（`connect-src 'self'` 固定）。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと（ADR-0006 安全弁削除禁止）。
+アプリ側 CSP (`svelte.config.js` `kit.csp`、#3829 / ADR-0067 で `hooks.server.ts buildCspHeader()` から移管) は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
 
 ### Pre-PMF (ADR-0010) スコープ
 
