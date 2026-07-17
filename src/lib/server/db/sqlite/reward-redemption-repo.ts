@@ -33,11 +33,14 @@ const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 // 新規行は insert 時に reward_* snapshot を保存し、編集後も「申請時点の内容 (名前/ポイント)」で
 // 表示・控除する (DynamoDB 非正規化 item と等価の仕様)。snapshot 列導入前の旧行 (NULL) は
 // live JOIN 値に fallback する。
-const snapshotTitle = sql<string>`COALESCE(${rewardRedemptionRequests.rewardTitle}, ${specialRewards.title})`;
+// #3566 ①: JOIN は leftJoin のため reward 削除後は specialRewards.* が NULL になりうる。snapshot が
+// 権威 (申請時点の約束) であり、reward 消失 + 旧行 (snapshot NULL) の稀ケースにも非 NULL 既定値
+// (title='' / points=0) を返して WithDetails の型契約を満たす。
+const snapshotTitle = sql<string>`COALESCE(${rewardRedemptionRequests.rewardTitle}, ${specialRewards.title}, '')`;
 const snapshotIcon = sql<
 	string | null
 >`COALESCE(${rewardRedemptionRequests.rewardIcon}, ${specialRewards.icon})`;
-const snapshotPoints = sql<number>`COALESCE(${rewardRedemptionRequests.rewardPoints}, ${specialRewards.points})`;
+const snapshotPoints = sql<number>`COALESCE(${rewardRedemptionRequests.rewardPoints}, ${specialRewards.points}, 0)`;
 
 /**
  * 交換申請を作成 (#2832: 申請時点 snapshot を保存 / #3356 (1): server-side idempotency 内蔵)。
@@ -208,7 +211,9 @@ export async function findRedemptionRequestsByTenant(
 		})
 		.from(rewardRedemptionRequests)
 		.innerJoin(children, eq(rewardRedemptionRequests.childId, children.id))
-		.innerJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
+		// #3566 ①: leftJoin で snapshot を権威化。reward が改名/削除されても申請行は一覧から
+		// 脱落せず snapshot (申請時点の約束) を返す。INNER だと reward 消失で申請が消え顧客期待報酬が失われる。
+		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
 		.where(conditions.length > 0 ? and(...conditions) : undefined)
 		.orderBy(desc(rewardRedemptionRequests.requestedAt))
 		.limit(opts?.limit ?? 50)
@@ -302,7 +307,8 @@ export async function findUnshownResultByChild(
 			rewardIcon: snapshotIcon,
 		})
 		.from(rewardRedemptionRequests)
-		.innerJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
+		// #3566 ①: leftJoin で snapshot 権威化 (reward 削除後も未表示通知が snapshot 値で残る)。
+		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
 		.where(
 			and(
 				eq(rewardRedemptionRequests.childId, Number(childId)),

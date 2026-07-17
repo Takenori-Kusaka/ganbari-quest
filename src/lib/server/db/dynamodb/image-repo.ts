@@ -4,6 +4,7 @@
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { ChildId } from '$lib/domain/ids';
 import { asChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import type { CharacterImage, InsertCharacterImageInput } from '../types';
 import { deleteChildScopedItems } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -43,6 +44,8 @@ export async function insertCharacterImage(
 	input: InsertCharacterImageInput,
 	tenantId: string,
 ): Promise<void> {
+	// #3566 ③ (§9.4): file_path が tenant プレフィックス配下必須 (孤児バイト防止、DSQL と整合)。
+	assertTenantScopedStorageKey(input.filePath, tenantId);
 	const id = await nextId(ENTITY_NAMES.characterImage, tenantId);
 	const now = new Date().toISOString();
 

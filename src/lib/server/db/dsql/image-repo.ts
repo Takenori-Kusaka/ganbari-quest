@@ -14,6 +14,7 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import type { IImageRepo } from '../interfaces/image-repo.interface';
 import type { CharacterImage } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
@@ -56,6 +57,10 @@ export function createDsqlImageRepo(db: SqlExecutor): IImageRepo {
 		},
 
 		async insertCharacterImage(input, tenantId) {
+			// #3566 ③ (§9.4): file_path が tenant プレフィックス配下であることを DB 書込前に強制する。
+			// prefix 外 / cross-tenant key を永続化すると account 削除の deleteByPrefix で消えない
+			// 孤児バイト (COPPA/GDPR) や越境参照 (IDOR/LFI) を生む。mis-scoped は throw で拒否。
+			assertTenantScopedStorageKey(input.filePath, tenantId);
 			await db.execute(sql`
 				INSERT INTO character_images (family_id, child_id, type, file_path, prompt_hash)
 				VALUES (${tenantId}, ${input.childId}, ${input.type}, ${input.filePath},

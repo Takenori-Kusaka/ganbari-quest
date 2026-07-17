@@ -22,6 +22,7 @@
 //   [V5] findAllByChild (scene 不問、export) + §P9
 //   [V6] insertForRestore: createdAt / filePath / publicUrl / isActive を verbatim 保全 (新 id)
 //   [V7] deleteById / deleteByChild + §P9
+//   [V8] #3566 ③ (§9.4): file_path が tenant プレフィックス外 / cross-tenant なら insert / insertForRestore 拒否
 //
 // ── IGraduationConsentRepo ──
 //   [G1] create + listByTenant (consented_at DESC) + §P9 tenant 分離 + boolean 契約
@@ -234,8 +235,9 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 		voiceRepo.insert({
 			childId,
 			scene,
+			// #3566 ③: file_path は tenant プレフィックス配下必須 (§9.4 孤児バイト防止)。
 			label,
-			filePath: `voices/${String(childId)}/${label}.webm`,
+			filePath: `tenants/${family}/voices/${String(childId)}/${label}.webm`,
 			publicUrl: `https://cdn/${label}.webm`,
 			durationMs: 1234,
 			isActive,
@@ -251,7 +253,9 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 		const complete = await voiceRepo.findByChild(childId, 'complete', FAMILY);
 		expect(complete).toHaveLength(1);
 		expect(complete[0]?.label).toBe('よくできました');
-		expect(complete[0]?.filePath).toBe(`voices/${String(childId)}/よくできました.webm`);
+		expect(complete[0]?.filePath).toBe(
+			`tenants/${FAMILY}/voices/${String(childId)}/よくできました.webm`,
+		);
 		expect(complete[0]?.isActive).toBe(0); // number 0/1 契約
 		expect(complete[0]?.durationMs).toBe(1234);
 		expect(complete[0]?.tenantId).toBe(FAMILY);
@@ -324,7 +328,7 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 				childId,
 				scene: 'complete',
 				label: '復元声',
-				filePath: `voices/${String(childId)}/restored.webm`,
+				filePath: `tenants/${FAMILY}/voices/${String(childId)}/restored.webm`,
 				publicUrl: 'https://cdn/restored.webm',
 				durationMs: 5000,
 				isActive: 1,
@@ -339,9 +343,43 @@ describe('DSQL certificate / voice / graduation-consent repos (PR-R10、実 sche
 		expect(id).toMatch(UUID_RE);
 		const row = await voiceRepo.findById(id, FAMILY);
 		expect(row?.isActive).toBe(1);
-		expect(row?.filePath).toBe(`voices/${String(childId)}/restored.webm`);
+		expect(row?.filePath).toBe(`tenants/${FAMILY}/voices/${String(childId)}/restored.webm`);
 		expect(row?.durationMs).toBe(5000);
 		expect(Date.parse(row?.createdAt ?? '')).toBe(Date.parse('2025-03-04T05:06:07+00:00'));
+	});
+
+	it('[V8] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert / insertForRestore 拒否', async () => {
+		const childId = await newChild('声八郎');
+		const baseVoice = {
+			childId,
+			scene: 'complete',
+			label: '越境声',
+			publicUrl: 'https://cdn/x.webm',
+			durationMs: 100,
+			isActive: 0 as const,
+			tenantId: FAMILY,
+		};
+		// (a) prefix 外 key は拒否
+		await expect(
+			voiceRepo.insert({ ...baseVoice, filePath: 'voices/loose.webm' }),
+		).rejects.toThrow();
+		// (b) cross-tenant key は拒否 (他 family のバイトを A の DB 行が参照する越境)
+		await expect(
+			voiceRepo.insert({ ...baseVoice, filePath: `tenants/${OTHER_FAMILY}/voices/steal.webm` }),
+		).rejects.toThrow();
+		// (c) insertForRestore も同様に tenant プレフィックス強制 (untrusted backup 由来の cross-tenant LFI 防止)
+		await expect(
+			voiceRepo.insertForRestore(
+				{
+					...baseVoice,
+					filePath: `tenants/${OTHER_FAMILY}/voices/steal.webm`,
+					createdAt: '2025-03-04T05:06:07+00:00',
+				},
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// 拒否ケースでは 1 行も追加されていない
+		expect(await voiceRepo.findAllByChild(childId, FAMILY)).toEqual([]);
 	});
 
 	it('[V7] deleteById / deleteByChild + §P9', async () => {
