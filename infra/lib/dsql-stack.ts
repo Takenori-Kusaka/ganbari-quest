@@ -1,8 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
+import * as backup from 'aws-cdk-lib/aws-backup';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dsql from 'aws-cdk-lib/aws-dsql';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import type { Construct } from 'constructs';
@@ -194,6 +198,118 @@ export class DsqlStack extends cdk.Stack {
 				],
 			],
 		});
+
+		// ── 5. AWS Backup (物理 backup、#3437) ──
+		// DSQL は自動 backup 機構を持たないため AWS Backup で cluster 全体の full backup を
+		// 日次取得する。**DSQL の backup は full snapshot のみ (PITR/継続 backup ではない)** —
+		// 復元は AWS Backup が新 cluster を作成し (source 上書きなし)、DSQL_ENDPOINT 切替が必要
+		// (runbook: docs/runbooks/dsql-restore.md)。アプリ層 backup-archive (JSON/CSV、#3376) は
+		// 論理 backup として別レイヤー併存 (役割分担は data-model §6.4)。cluster ARN を **明示 assign**
+		// するため AWS Backup の Service Opt-in は不要 (explicit resource assignment は opt-in 設定に
+		// 依らず対象化される、AWS Backup 仕様)。staging は使い捨て (#2873) のため backup を省略する。
+		const isStaging = nameSuffix === '-staging';
+		if (!isStaging) {
+			const backupVault = new backup.BackupVault(this, 'DsqlBackupVault', {
+				backupVaultName: `ganbari-quest-dsql${nameSuffix}-vault`,
+				// backup vault は誤削除で復元不能ゆえ RETAIN (stack 削除でも backup を残す)。
+				removalPolicy: cdk.RemovalPolicy.RETAIN,
+			});
+			const backupPlan = new backup.BackupPlan(this, 'DsqlBackupPlan', {
+				backupPlanName: `ganbari-quest-dsql${nameSuffix}-daily`,
+				backupPlanRules: [
+					new backup.BackupPlanRule({
+						ruleName: 'daily-7day-retention',
+						// 02:00 UTC (低トラフィック帯)。**月額コスト設計 (< ¥10、マネタイズ整合)**:
+						//   AWS Backup warm storage = $0.05/GB-month (us-east-1、DSQL は cold tier 非対応)。
+						//   月額 ≈ retention_points(7) × ClusterStorageSize × $0.05。
+						//   実測 (2026-07-17) ClusterStorageSize = 1.35 MiB → 7 × 0.00132GiB × $0.05
+						//   ≈ $0.0005/月 ≈ **¥0.07/月** (¥10 の 140 分の 1)。¥10 (≈$0.067) 到達は cluster
+						//   ~190 MiB 相当 (現状の ~145 倍)。下の DsqlBackupBudget が ¥10 接近で通知し、
+						//   その時点で retention を短縮する (runbook: dsql-restore.md §コスト)。
+						scheduleExpression: events.Schedule.cron({ hour: '2', minute: '0' }),
+						deleteAfter: cdk.Duration.days(7),
+						backupVault: backupVault,
+					}),
+				],
+			});
+			// backup / restore を AWS Backup が assume する role を**明示 provision** する (#3437 F-4)。
+			// CDK 自動生成 role は backup 権限のみで restore 権限を持たず、`AWSBackupDefaultServiceRole`
+			// は console 初回操作でしか作られない (IaC 環境では未 provision の可能性)。両 managed policy を
+			// 付けた named role を CDK で確定生成し、backup selection と restore job (runbook §2 の
+			// --iam-role-arn) の双方で同一 role を使う (role 不整合による復元失敗を防止)。
+			const backupRole = new iam.Role(this, 'DsqlBackupRole', {
+				roleName: `ganbari-quest-dsql${nameSuffix}-backup-role`,
+				assumedBy: new iam.ServicePrincipal('backup.amazonaws.com'),
+				description: 'AWS Backup が DSQL cluster の backup / restore を実行する role (#3437)',
+				managedPolicies: [
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForBackup',
+					),
+					iam.ManagedPolicy.fromAwsManagedPolicyName(
+						'service-role/AWSBackupServiceRolePolicyForRestores',
+					),
+				],
+			});
+			backupPlan.addSelection('DsqlCluster', {
+				resources: [backup.BackupResource.fromArn(this.cluster.attrResourceArn)],
+				role: backupRole,
+			});
+
+			// backup ジョブ失敗の検知 (#3437 F-2 / ADR-0024 (d): silent fail 防止)。AWS Backup は
+			// DSQL の唯一の DR 手段のため、日次 backup が毎晩 silent fail しても誰も気づかない =
+			// EPIC #3424 が塞いだはずの DR 空白の再現。EventBridge で Backup Job State Change の
+			// 失敗系 (FAILED / ABORTED / EXPIRED) を捕捉し、上で無条件生成済の DsqlAlerts SNS topic
+			// へ通知する (コスト guardrail の DsqlBackupBudget はコスト検知でありジョブ失敗検知ではない)。
+			// topic は opsEmail 未指定でも存在するため silent skip しない (ADR-0024 ルール 1)。opsEmail
+			// 未注入時は email subscription なし = メール未達だが rule / topic は provision される
+			// (staging は本 backup ブロック自体に入らないため対象外)。vault 名で scope し、同一
+			// アカウントの無関係 backup 失敗を拾わない。
+			new events.Rule(this, 'DsqlBackupJobFailed', {
+				ruleName: `ganbari-quest-dsql${nameSuffix}-backup-failed`,
+				description:
+					'AWS Backup ジョブ失敗 (FAILED/ABORTED/EXPIRED) を検知し DsqlAlerts へ通知 (#3437 / ADR-0024 (d)) 一次対応: docs/runbooks/dsql-restore.md',
+				eventPattern: {
+					source: ['aws.backup'],
+					detailType: ['Backup Job State Change'],
+					detail: {
+						state: ['FAILED', 'ABORTED', 'EXPIRED'],
+						backupVaultName: [backupVault.backupVaultName],
+					},
+				},
+				targets: [new eventsTargets.SnsTopic(topic)],
+			});
+
+			// restore job (runbook §2 の start-restore-job --iam-role-arn) が使う role ARN を配布。
+			new cdk.CfnOutput(this, 'BackupRoleArn', {
+				value: backupRole.roleArn,
+				description: 'AWS Backup backup/restore role ARN (dsql-restore.md の --iam-role-arn)',
+			});
+
+			// 月額 backup コストを ¥10 未満に保つ guardrail (マネタイズ整合)。AWS Backup storage は
+			// DSQL の RDS budget (上記 $1) と別 attribution ('Backup' service) になり得るため専用 budget を
+			// 置き、$0.07 (≈¥10) の 80%/100% で通知する (接近したら retention 短縮 → dsql-restore.md)。
+			if (props?.opsEmail) {
+				new budgets.CfnBudget(this, 'DsqlBackupBudget', {
+					budget: {
+						budgetName: `ganbari-quest-dsql${nameSuffix}-backup-guardrail`,
+						budgetType: 'COST',
+						timeUnit: 'MONTHLY',
+						// $0.07 ≈ ¥10 (¥150/$ 換算)。設計目標「月額 < ¥10」の hard 上限監視。
+						budgetLimit: { amount: 0.07, unit: 'USD' },
+						costFilters: { Service: ['AWS Backup'] },
+					},
+					notificationsWithSubscribers: [80, 100].map((threshold) => ({
+						notification: {
+							notificationType: 'ACTUAL',
+							comparisonOperator: 'GREATER_THAN',
+							threshold,
+							thresholdType: 'PERCENTAGE',
+						},
+						subscribers: [{ subscriptionType: 'EMAIL', address: props.opsEmail as string }],
+					})),
+				});
+			}
+		}
 
 		new cdk.CfnOutput(this, 'ClusterIdentifier', { value: clusterId });
 		new cdk.CfnOutput(this, 'ClusterEndpoint', {
