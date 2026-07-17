@@ -3,6 +3,7 @@ import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { requireGlobalMasterWriteAccess } from '$lib/server/auth/ops-authz';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -96,6 +97,10 @@ export const actions = {
 	},
 
 	updateBenchmark: async ({ request, locals }) => {
+		// #3824 (CWE-639 隣接): market_benchmarks は全テナント共有のグローバル master のため、
+		// 書込は ops/admin 相当 (ops group or NUC local) に限定する。parent-admin は 403。
+		// tenantId 取得より前に評価し、認可判定を単一強制点 (ops-authz) に集約する (ADR-0063)。
+		requireGlobalMasterWriteAccess(locals);
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const age = Number(form.get('age'));
