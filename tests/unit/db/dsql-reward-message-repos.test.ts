@@ -41,6 +41,7 @@
 //   [SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)
 //   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
 //         (cross-family child は 0 行 → throw、行は書かれない)
+//   [SC5] #3566 ②: insertForRestore も同型 guard (dangling/cross-family backup 行を repo 入口で拒否)
 // ── ILoginBonusRepo ──
 //   [LB1] insertLoginBonus 冪等 (自然複合 PK ON CONFLICT、id=child:date 合成) + findTodayBonus + §P9
 //   [LB2] findRecentBonuses (login_date 降順 limit) / findChildById (§P9)
@@ -826,6 +827,66 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 		// 拒否ケースでは 1 行も追加されていない (structural: 0 行挿入)
 		expect((await cheerRepo.findAllByTenant(family)).length).toBe(before);
+	});
+
+	it('[SC5] #3566 ②: insertForRestore も from/to child ∈ family を構造強制 (dangling backup 拒否)', async () => {
+		// restore 経路は untrusted backup 由来。insertCheer の [SC4] guard と同型に、
+		// INSERT ... SELECT JOIN children で from/to child ∈ family を強制する (VALUES 直書きだと
+		// dangling / cross-family 行が入る #3566 ② の gap を repo 入口で塞ぐ)。
+		const family = '00000000-0000-4000-8000-0000000000d6';
+		const from = await newChild('復元元五郎', family);
+		const to = await newChild('復元先五郎', family);
+		const alien = await newChild('他家の復元子', OTHER_FAMILY);
+		const ghost = '00000000-0000-4000-8000-00000000faff' as ChildId;
+
+		const before = (await cheerRepo.findAllByTenant(family)).length;
+
+		// (a) 同一 family の from/to → 成功 (sentAt/shownAt verbatim も保全)
+		const ok = await cheerRepo.insertForRestore(
+			{
+				fromChildId: from,
+				toChildId: to,
+				stampCode: 'restore-ok',
+				sentAt: '2025-10-01T09:00:00+00:00',
+				shownAt: '2025-10-02T09:00:00+00:00',
+			},
+			family,
+		);
+		if (!ok) throw new Error('insertForRestore returned null for fresh in-family row');
+		expect(ok.fromChildId).toBe(from);
+		expect(ok.toChildId).toBe(to);
+		expect(Date.parse(ok.sentAt)).toBe(Date.parse('2025-10-01T09:00:00+00:00'));
+		expect(Date.parse(ok.shownAt ?? '')).toBe(Date.parse('2025-10-02T09:00:00+00:00'));
+
+		const seeded = (await cheerRepo.findAllByTenant(family)).length;
+		expect(seeded).toBe(before + 1);
+
+		// (b1) 送信先が family 外 child → 拒否 (SELECT 0 行 → throw、行は書かれない)
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: from, toChildId: alien, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// (b2) 送信元が family 外 child → 拒否
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: alien, toChildId: to, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// (b3) どの family にも存在しない dangling child id → 拒否
+		await expect(
+			cheerRepo.insertForRestore(
+				{ fromChildId: from, toChildId: ghost, stampCode: 'x', sentAt: ok.sentAt, shownAt: null },
+				family,
+			),
+		).rejects.toThrow();
+
+		// 拒否ケースでは 1 行も追加されていない (structural: guard を外すと dangling 行が入り fail する)
+		expect((await cheerRepo.findAllByTenant(family)).length).toBe(seeded);
 	});
 
 	// ─────────────────── ILoginBonusRepo ───────────────────
