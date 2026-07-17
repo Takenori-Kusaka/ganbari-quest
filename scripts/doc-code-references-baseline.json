@@ -103,6 +103,7 @@
 		"docs/design/billing-redesign/phase5-webhook-idempotency-architecture.md": [
 			"infra/lib/data-stack.ts",
 			"src/lib/server/cron/retention-cron.ts",
+			"src/lib/server/db/dynamodb/keys.ts",
 			"src/lib/server/db/dynamodb/webhook-event-repo.ts",
 			"src/lib/server/db/sqlite/webhook-event-repo.ts",
 			"tests/e2e/billing/webhook-idempotency.spec.ts",
@@ -120,6 +121,7 @@
 			"src/lib/server/db/demo/checklist-repo.ts:既存",
 			"src/lib/server/db/demo/child-activity-repo.ts:既存",
 			"src/lib/server/db/demo/child-repo.ts:既存",
+			"src/lib/server/db/dynamodb/keys.ts",
 			"src/lib/server/db/dynamodb/keys.ts:末尾",
 			"src/lib/server/db/migration/lazy-startup-migrations.ts:末尾",
 			"src/lib/server/db/schema.ts:40,70,109,430",
@@ -135,6 +137,7 @@
 		],
 		"docs/design/billing-redesign/phase6-phase7-execution-ssot.md": [
 			"site/help/license-key.html",
+			"src/lib/server/db/dynamodb/keys.ts",
 			"src/lib/server/db/repos/webhook-event-repo.ts",
 			"tests/e2e/billing",
 			"tests/integration/db/archived-reason-migration.test.ts",
@@ -170,6 +173,7 @@
 		"docs/design/parallel-implementations.md": [
 			"src/lib/domain/navigation.ts",
 			"src/lib/features/tutorial/tutorial-chapters.ts",
+			"src/lib/server/db/dynamodb/keys.ts",
 			"src/routes/demo"
 		],
 		"docs/operations/license-key-secrets.md": ["tests/unit/server/license-key-service.test.ts"],
@@ -193,6 +197,9 @@
 		"docs/rationale/07-usage-log-dynamodb-deferred-rationale.md": [
 			"src/lib/server/db/dynamodb/usage-log-repo.ts"
 		],
+		"docs/rationale/13-aurora-dsql-migration-evaluation-rationale.md": [
+			"src/lib/server/db/dynamodb"
+		],
 		"docs/research/07-research-child-collapsible-prior-art.md": ["src/routes/demo"],
 		"docs/research/2097-multi-lambda-merged-system-design.md": [
 			"scripts/check-demo-prod-schema-parity.mjs",
@@ -200,6 +207,7 @@
 			"src/lib/services/PhotoBrowser.ts"
 		],
 		"docs/runbooks/lp-visual-regression-baseline.md": ["site/screenshots"],
+		"docs/runbooks/operator-pin-reset.md": ["src/lib/server/db/dynamodb"],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
 		],

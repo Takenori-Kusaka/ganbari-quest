@@ -46,8 +46,8 @@ const FORBIDDEN_IMPORT_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 			'backend 固有実装 (db/sqlite/*) を route で直接 import (facade `$lib/server/db/*` 経由にする)',
 	},
 	{
-		pattern: /\$lib\/server\/db\/dynamodb\//,
-		reason: 'backend 固有実装 (db/dynamodb/*) を route で直接 import (facade 経由にする)',
+		pattern: /\$lib\/server\/db\/dsql\//,
+		reason: 'backend 固有実装 (db/dsql/*) を route で直接 import (facade 経由にする)',
 	},
 	{
 		pattern: /\$lib\/server\/db\/demo\//,
@@ -98,7 +98,7 @@ interface Violation {
 // 新規 route がここに該当した場合は **baseline に足すのではなく service / facade へ
 // 移譲する** こと。baseline の縮小 (migration) のみ歓迎、拡大は QM 指摘対象。
 // #3184 item4: 旧 baseline 3 件 (health probe ×2 / tenant-cleanup Scan) は facade 移譲で解消済。
-//   - /api/health → db/probe.ts facade (probeSqlite / probeDynamoDB) 経由
+//   - /api/health → db/probe.ts facade (probeSqlite / probePg) 経由
 //   - /api/v1/admin/tenant-cleanup → auth repo facade (listAllTenants) + client filter 経由
 // baseline は空 = route↔DB 境界違反ゼロ。新規 route が違反したら baseline に足さず facade / service
 // へ移譲すること (append は #3184 item3 の length-freeze test が機械禁止)。

@@ -74,7 +74,6 @@ git diff main -- src/lib/server/db/migration/lazy-startup-migrations.ts | grep -
 - `tests/unit/helpers/test-db.ts`（unit test DB setup）
 - `tests/e2e/global-setup.ts`（E2E DB seed）
 - `src/lib/server/demo/demo-data.ts`（demo fixture）
-- `src/lib/server/db/dynamodb/keys.ts`（DynamoDB key 設計、tenant scope 変更時）
 - `tests/integration/*.test.ts` の `SQL_TABLES` inline CREATE TABLE 群（facade rewrite で SSOT table が flip した時）
 
 > 教訓: activities → child_activities flip（PR #2487）で dim 1/2/3 を同期したが dim 4（data copy）が漏れ、NUC user data が完全消失した（history 全件 orphan、UI 表示 0）。schema 形状の変更（dim 1-3）と row 移動（dim 4）は独立に扱う。設計書 SSOT は `docs/design/08-データベース設計書.md`、再発時 runbook は `docs/runbooks/activities-data-recovery.md`。

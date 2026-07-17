@@ -8,7 +8,7 @@ import type { ChildId } from '$lib/domain/ids';
 // (dynamic import 経由のため route↔DB 境界 fitness function をすり抜けていた)。
 // CLAUDE.md / ADR-0061 の「routes は ORM を直接使用しない (services / db facade 経由)」
 // に整合させるため、route → 本サービス → db facade (child-repo.resetChildProgressData)
-// へ移譲した。raw ORM 操作は repo 層 (db/sqlite, db/dynamodb) に置き、本サービスは
+// へ移譲した。raw ORM 操作は repo 層 (db/sqlite, db/dsql) に置き、本サービスは
 // tenant 検証 + facade 呼び出しのみを担う (services 層は ORM を直接参照しない、
 // no-direct-db-access fitness function)。
 //
