@@ -25,6 +25,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			context: { tenantId: context.tenantId },
 			error: err instanceof Error ? err.message : String(err),
 		});
-		return json({ error: 'Unsubscription failed' }, { status: 500 });
+		return json({ error: 'Unsubscribe failed' }, { status: 500 });
 	}
 };

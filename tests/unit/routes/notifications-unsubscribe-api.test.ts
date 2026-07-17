@@ -77,7 +77,7 @@ describe('POST /api/v1/notifications/unsubscribe (#3814 ADR-0062)', () => {
 
 		const body = (await res.json()) as { error: string };
 		// 汎用 message のみ (subscribe route と対称)
-		expect(body.error).toBe('Unsubscription failed');
+		expect(body.error).toBe('Unsubscribe failed');
 		// 内部例外の詳細 (host / secret) が一切漏れていない
 		expect(body.error).not.toContain('DSQL');
 		expect(body.error).not.toContain('10.0.0.5');
