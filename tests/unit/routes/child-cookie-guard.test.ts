@@ -133,7 +133,12 @@ describe('checklist toggle action の trust 境界 wiring (#3581 ②)', () => {
 
 	async function runToggle(cookieValue: string | undefined) {
 		const { cookies } = makeCookies(cookieValue);
-		const request = makeRequest({ templateId: 't1', itemId: 'i1', checked: '1' });
+		// #3799: templateId は form-field guard 対象のため valid uuid を渡す (本 describe は cookie 経路検証)。
+		const request = makeRequest({
+			templateId: '00000000-0000-4000-8000-0000000000b1',
+			itemId: 'i1',
+			checked: '1',
+		});
 		const toggle = checklistActions.toggle;
 		if (typeof toggle !== 'function') throw new Error('toggle action が未定義');
 		try {
@@ -172,5 +177,75 @@ describe('checklist toggle action の trust 境界 wiring (#3581 ②)', () => {
 		expect(mockToggleCheckItem).toHaveBeenCalledTimes(1);
 		expect(mockToggleCheckItem.mock.calls[0]?.[0]).toBe(VALID_UUID); // childId は cookie 値
 		expect((result as { success?: boolean }).success).toBe(true);
+	});
+});
+
+describe('checklist toggle action の form-field id guard (#3799)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	const VALID_TEMPLATE_UUID = '22222222-2222-4222-8222-2222222222f2';
+
+	function makeRequest(fields: Record<string, string>) {
+		const formData = new FormData();
+		for (const [k, v] of Object.entries(fields)) formData.append(k, v);
+		return { formData: async () => formData };
+	}
+
+	async function runToggleWithFields(cookieValue: string, fields: Record<string, string>) {
+		const { cookies } = makeCookies(cookieValue);
+		const toggle = checklistActions.toggle;
+		if (typeof toggle !== 'function') throw new Error('toggle action が未定義');
+		const result = (await toggle({
+			request: makeRequest(fields),
+			cookies,
+			locals: {},
+		} as never)) as { status?: number } | undefined;
+		return result;
+	}
+
+	it('dsql backend + 有効 cookie + 非 uuid templateId → fail(400) し toggleCheckItem を呼ばない (findTemplateById の 22P02 回避)', async () => {
+		mockIsDsqlBackend.mockReturnValue(true);
+		const result = await runToggleWithFields(VALID_UUID, {
+			templateId: '3', // 旧数値 id / 改竄値
+			itemId: VALID_TEMPLATE_UUID,
+			checked: '1',
+		});
+		expect(result?.status).toBe(400);
+		expect(mockToggleCheckItem).not.toHaveBeenCalled();
+	});
+
+	it('dsql backend + 有効 cookie + 有効 uuid templateId → toggleCheckItem に到達する', async () => {
+		mockIsDsqlBackend.mockReturnValue(true);
+		mockToggleCheckItem.mockResolvedValue({
+			checkedCount: 1,
+			totalCount: 3,
+			completedAll: false,
+			pointsAwarded: 0,
+			newlyCompleted: false,
+		});
+		const result = await runToggleWithFields(VALID_UUID, {
+			templateId: VALID_TEMPLATE_UUID,
+			itemId: 'i1',
+			checked: '1',
+		});
+		expect(mockToggleCheckItem).toHaveBeenCalledTimes(1);
+		expect(mockToggleCheckItem.mock.calls[0]?.[1]).toBe(VALID_TEMPLATE_UUID);
+		expect((result as { success?: boolean } | undefined)?.success).toBe(true);
+	});
+
+	it('非 dsql backend + 数値 templateId → guard を通し toggleCheckItem に到達する', async () => {
+		mockIsDsqlBackend.mockReturnValue(false);
+		mockToggleCheckItem.mockResolvedValue({
+			checkedCount: 1,
+			totalCount: 3,
+			completedAll: false,
+			pointsAwarded: 0,
+			newlyCompleted: false,
+		});
+		await runToggleWithFields('903', { templateId: '5', itemId: 'i1', checked: '1' });
+		expect(mockToggleCheckItem).toHaveBeenCalledTimes(1);
+		expect(mockToggleCheckItem.mock.calls[0]?.[1]).toBe('5');
 	});
 });

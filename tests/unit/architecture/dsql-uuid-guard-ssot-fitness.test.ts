@@ -31,6 +31,8 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SRC_DIR = resolve(REPO_ROOT, 'src');
 const DSQL_DIR = resolve(REPO_ROOT, 'src/lib/server/db/dsql');
 const CHILD_COOKIE_GUARD = resolve(REPO_ROOT, 'src/lib/server/auth/child-cookie-guard.ts');
+// #3799: form-field 由来 id の trust 境界 guard (cookie guard の form 版)。
+const CHILD_FORM_FIELD_GUARD = resolve(REPO_ROOT, 'src/lib/server/auth/child-form-field-guard.ts');
 
 /** uuid 形式判定の SSOT モジュール (単一強制点)。 */
 const UUID_SSOT_FILE = resolve(DSQL_DIR, 'pg-uuid.ts');
@@ -85,10 +87,12 @@ describe('DSQL uuid guard SSOT + observability fitness (#3581 ② / ADR-0061 / A
 	});
 
 	it('[OBS-2] guard module は isUuidFormat guard と同数以上の warnInvalidUuidId を呼ぶ (silent guard 禁止)', () => {
-		// trust 境界 guard modules = dsql repos (pg-uuid.ts 自体は定義元のため除外) + child-cookie-guard。
+		// trust 境界 guard modules = dsql repos (pg-uuid.ts 自体は定義元のため除外) +
+		// child-cookie-guard (cookie 由来) + child-form-field-guard (form-field 由来、#3799)。
 		const guardModules = [
 			...listSourceFiles(DSQL_DIR).filter((f) => f !== UUID_SSOT_FILE),
 			CHILD_COOKIE_GUARD,
+			CHILD_FORM_FIELD_GUARD,
 		];
 
 		const violations: string[] = [];

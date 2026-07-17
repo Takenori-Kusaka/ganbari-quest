@@ -15,7 +15,8 @@
 // ── ISpecialRewardRepo ──
 //   [SR1] insert + findSpecialRewards (降順) + §P9
 //   [SR2] findUnshownReward (shown_at NULL の最新) / markRewardShown (composite key、他 child no-op)
-//   [SR2b] #3581 ②: markRewardShown は非 uuid id で throw せず undefined (/shown +server の 22P02 fail-safe)
+//   [SR2b] #3581 ②: markRewardShown は非 uuid child id で throw せず undefined (/shown +server の 22P02 fail-safe)
+//   [SR2c] #3799: markRewardShown は非 uuid rewardId (URL param) でも throw せず undefined
 //   [SR3] updateSpecialReward (composite key、部分更新 / 空更新 = 現状返却 / 他 child no-op)
 //   [SR4] deleteSpecialReward (解決済 redemption も同 txn cascade、他 child no-op) + hasPending は残す
 //   [SR5] deleteByTenantId は §P9 tenant 限定 (他 tenant 無傷)
@@ -33,7 +34,8 @@
 // ── IMessageRepo ──
 //   [MSG1] insertMessage (icon 既定 💌 は schema DEFAULT 経由) + findMessages 降順 + §P9
 //   [MSG2] findUnshownMessage / countUnshownMessages / markMessageShown (composite、他 child no-op)
-//   [MSG2b] #3581 ②: markMessageShown は非 uuid id で throw せず undefined (/shown +server の 22P02 fail-safe)
+//   [MSG2b] #3581 ②: markMessageShown は非 uuid child id で throw せず undefined (/shown +server の 22P02 fail-safe)
+//   [MSG2c] #3799: markMessageShown は非 uuid messageId (URL param) でも throw せず undefined
 //   [MSG3] insertForRestore (sentAt/shownAt verbatim) + message_type CHECK 実効
 // ── ISiblingCheerRepo ──
 //   [SC1] insertCheer (from/to 2 参照、tenantId=family マップ) + findUnshownCheers + §P9
@@ -180,6 +182,16 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			await expect(rewardRepo.markRewardShown(asChildId(bad), 'r-x', FAMILY)).resolves.toBe(
 				undefined,
 			);
+		}
+	});
+
+	it('[SR2c] #3799: markRewardShown は非 uuid rewardId (URL param) でも throw せず undefined', async () => {
+		// cookie childId が有効 uuid でも、URL param `[rewardId]` が非 uuid だと
+		// `reward_id = <非uuid>` で 22P02 → 500 になる。undefined (endpoint 404) に正規化する。
+		const childId = await newChild('報酬二郎c');
+		await seedReward(childId, 'ある報酬', 10);
+		for (const bad of ['3', 'not-a-uuid', '']) {
+			await expect(rewardRepo.markRewardShown(childId, bad, FAMILY)).resolves.toBe(undefined);
 		}
 	});
 
@@ -673,6 +685,16 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			await expect(messageRepo.markMessageShown(asChildId(bad), 'm-x', FAMILY)).resolves.toBe(
 				undefined,
 			);
+		}
+	});
+
+	it('[MSG2c] #3799: markMessageShown は非 uuid messageId (URL param) でも throw せず undefined', async () => {
+		// cookie childId が有効 uuid でも、URL param `[messageId]` が非 uuid だと
+		// `msg_id = <非uuid>` で 22P02 → 500 になる。undefined (endpoint notFound) に正規化する。
+		const childId = await newChild('伝言二郎c');
+		await messageRepo.insertMessage({ childId, messageType: 'text', body: 'ある' }, FAMILY);
+		for (const bad of ['3', 'not-a-uuid', '']) {
+			await expect(messageRepo.markMessageShown(childId, bad, FAMILY)).resolves.toBe(undefined);
 		}
 	});
 
