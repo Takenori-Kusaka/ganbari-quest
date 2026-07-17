@@ -383,6 +383,35 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findTemplateItems(tpl.id, FAMILY)).toEqual([]);
 	});
 
+	// #3603 ①: DSQL は FK 非対応。存在しない / 他 family の template_id を名乗った item 挿入を
+	// INSERT ... SELECT FROM checklist_templates で構造排除する (0 行 emit → orphan item を作らず
+	// loud に throw。silent drop しない安全側)。assignTemplateToChildren の children JOIN と同型。
+	it('[I1c] insertTemplateItem: 存在しない / 他 family template は orphan item を作らず throw', async () => {
+		const ghostTemplateId = '00000000-0000-4000-8000-00000000f001'; // templates 未登録
+		await expect(
+			repo.insertTemplateItem({ templateId: ghostTemplateId, name: 'ゴースト item' }, FAMILY),
+		).rejects.toThrow();
+		// orphan item 行は物理的に存在しない
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM checklist_template_items
+					WHERE family_id = ${FAMILY} AND template_id = ${ghostTemplateId}`,
+			),
+		).toBe(0);
+
+		// 他 family の実在 template を名乗っても (tenant 越境) 0 行 → throw
+		const foreignTpl = await repo.insertTemplate({ name: '他 family 帳票' }, OTHER_FAMILY);
+		await expect(
+			repo.insertTemplateItem({ templateId: foreignTpl.id, name: '越境 item' }, FAMILY),
+		).rejects.toThrow();
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM checklist_template_items
+					WHERE template_id = ${foreignTpl.id}`,
+			),
+		).toBe(0);
+	});
+
 	// ─────────────────── Logs (§5 items_json text 据置) ───────────────────
 
 	it('[L1] upsertLog insert → findTodayLog が items_json を verbatim 返す', async () => {
@@ -550,6 +579,42 @@ describe('DSQL checklist-repo (PR-R7、実 schema PGlite、family master + per-c
 		expect(await repo.findOverrides(child, '2026-07-08', FAMILY)).toEqual([]);
 		// §P9
 		expect(await repo.findOverrides(child, '2026-07-07', OTHER_FAMILY)).toEqual([]);
+	});
+
+	// #3603 ①: DSQL は FK 非対応。存在しない / 他 family の child_id を名乗った override 挿入を
+	// INSERT ... SELECT FROM children で構造排除する (0 行 emit → orphan override を作らず loud に
+	// throw)。assignTemplateToChildren の children JOIN と同型。insertOverrideForRestore (backup
+	// restore 経路) は child 復元順序に依存するため本 guard 対象外 (issue #3603 ① scope)。
+	it('[O1b] insertOverride: 存在しない / 他 family child は orphan override を作らず throw', async () => {
+		const ghostChild = asChildId('00000000-0000-4000-8000-0000009999f1'); // children 未登録
+		await expect(
+			repo.insertOverride(
+				{ childId: ghostChild, targetDate: '2026-07-07', action: 'add', itemName: 'ゴースト' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// orphan override 行は物理的に存在しない
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM checklist_overrides
+					WHERE family_id = ${FAMILY} AND child_id = ${String(ghostChild)}`,
+			),
+		).toBe(0);
+
+		// 他 family の実在 child を名乗っても (tenant 越境) 0 行 → throw
+		const foreignChild = await newChild('他 family っ子', OTHER_FAMILY);
+		await expect(
+			repo.insertOverride(
+				{ childId: foreignChild, targetDate: '2026-07-07', action: 'add', itemName: '越境' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM checklist_overrides
+					WHERE family_id = ${FAMILY} AND child_id = ${String(foreignChild)}`,
+			),
+		).toBe(0);
 	});
 
 	it('[O2] findOverridesByChild (全日) + insertOverrideForRestore (createdAt verbatim)', async () => {
