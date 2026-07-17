@@ -1,0 +1,24 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`wire format canary snapshot (#3847) > activity-pack の代表 export envelope が既知の wire format と一致する 1`] = `
+{
+  "checksum": "2648d2a0fd26f730a5a2c029b7172a36730cb7f32ef1fd9435fc49d5035e5e4d",
+  "exportedAt": "2026-05-21T00:00:00.000Z",
+  "payload": {
+    "activities": [
+      {
+        "ageMax": 12,
+        "ageMin": 6,
+        "basePoints": 10,
+        "categoryCode": "undou",
+        "gradeLevel": null,
+        "icon": "🏃",
+        "name": "ランニング🏃",
+        "triggerHint": "朝いちばん",
+      },
+    ],
+  },
+  "schemaVersion": 2,
+  "typeCode": "activity-pack",
+}
+`;
