@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import type { ChildId } from '$lib/domain/ids';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
@@ -275,10 +276,10 @@ export async function getRewardTemplates(tenantId: string): Promise<RewardTempla
 	const json = await getSetting(TEMPLATES_KEY, tenantId);
 	if (!json) return [];
 
-	const parsed = rewardTemplatesArraySchema.safeParse(JSON.parse(json));
+	const parsed = v.safeParse(rewardTemplatesArraySchema, JSON.parse(json));
 	if (!parsed.success) return [];
 
-	return parsed.data;
+	return parsed.output;
 }
 
 export async function saveRewardTemplates(

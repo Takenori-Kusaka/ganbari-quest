@@ -154,7 +154,7 @@ const rewardWireItem = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-const rewardDomainOk = (data: unknown) => grantSpecialRewardSchema.safeParse(data).success;
+const rewardDomainOk = (data: unknown) => v.safeParse(grantSpecialRewardSchema, data).success;
 const rewardWireOk = (data: unknown) => v.safeParse(RewardSetItemSchema, data).success;
 
 /** reward の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
