@@ -181,3 +181,41 @@ describe('benchmark 読取 (load) は書込 gate に波及しない (#3824 読�
 		expect(data.benchmarks).toHaveLength(1);
 	});
 });
+
+// #3824 (QM Tier2 H1): benchmark 編集 UI ゲートフラグ。書込 authz と同一境界で load が
+// canEditBenchmark を返し、+page.svelte が {#if data.canEditBenchmark} で編集フォームを出し分ける。
+// parent-admin に false を返すことで「見えるが必ず 403 で失敗する dead-form」を UI 層でも封じる
+// (server enforce = updateBenchmark action 403 と併せた防御多層)。読取 (benchmarks) は現状維持で全 admin 可。
+describe('canEditBenchmark UI ゲートフラグ (#3824 H1, load 出力)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockGetAllChildren.mockResolvedValue([]);
+		mockGetLevelTitleList.mockResolvedValue([]);
+		mockFindAllBenchmarks.mockResolvedValue([]);
+	});
+
+	it('parent-admin (非 ops) は canEditBenchmark=false (編集 UI 非表示)', async () => {
+		const data = (await load(makeLoadEvent(PARENT_ADMIN))) as { canEditBenchmark: boolean };
+		expect(data.canEditBenchmark).toBe(false);
+	});
+
+	it('cognito ops member は canEditBenchmark=true (編集 UI 表示)', async () => {
+		const data = (await load(makeLoadEvent(OPS_MEMBER))) as { canEditBenchmark: boolean };
+		expect(data.canEditBenchmark).toBe(true);
+	});
+
+	it('local identity (NUC セルフホスト) は canEditBenchmark=true (編集 UI 表示)', async () => {
+		const data = (await load(makeLoadEvent(LOCAL))) as { canEditBenchmark: boolean };
+		expect(data.canEditBenchmark).toBe(true);
+	});
+
+	it('anonymous (demo) は canEditBenchmark=false (編集 UI 非表示)', async () => {
+		const data = (await load(makeLoadEvent(ANONYMOUS))) as { canEditBenchmark: boolean };
+		expect(data.canEditBenchmark).toBe(false);
+	});
+
+	it('未認証 (identity=null) は canEditBenchmark=false (fail-closed)', async () => {
+		const data = (await load(makeLoadEvent(null))) as { canEditBenchmark: boolean };
+		expect(data.canEditBenchmark).toBe(false);
+	});
+});
