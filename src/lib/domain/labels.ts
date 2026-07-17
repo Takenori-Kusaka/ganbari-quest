@@ -3988,7 +3988,7 @@ export const OPS_ANALYTICS_LABELS = {
 	// Activation Funnel section (#2285 EPIC #2283: /admin/analytics 撤去で消失する機能を ops 側へ移動)
 	// 内部基盤名 (DynamoDB / Pre-PMF Bucket A) UI 露出禁止 (AN-5 #2180 整合)、「テナント」→「家庭」置換
 	activationFunnelTitle: 'Activation Funnel (直近 30 日)',
-	activationFunnelDesc: 'signup から初回報酬演出までの家庭単位ユニーク件数と遷移率。',
+	activationFunnelDesc: 'signup から 7 日継続までの家庭単位ユニーク件数と遷移率。',
 	activationFunnelStepCol: 'ステップ',
 	activationFunnelCountCol: '件数',
 	activationFunnelConversionCol: '遷移率',
@@ -3996,7 +3996,7 @@ export const OPS_ANALYTICS_LABELS = {
 		activation_signup_completed: '① signup',
 		activation_first_child_added: '② 初回家庭メンバー登録',
 		activation_first_activity_completed: '③ 初回活動完了',
-		activation_first_reward_seen: '④ 初回報酬演出',
+		activation_retained_7d: '④ 7日継続',
 	},
 	activationFunnelEmpty: 'データがありません',
 	activationFunnelHouseholdSuffix: '世帯',

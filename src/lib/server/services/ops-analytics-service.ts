@@ -11,7 +11,10 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
-import { type ActivationFunnelResult, getActivationFunnel } from './analytics-service';
+import {
+	type ActivationFunnelResult,
+	getActivationFunnelOnDemand,
+} from './analytics-ondemand-service';
 
 // ============================================================
 // #1602: Setup challenges preset distribution
@@ -560,12 +563,12 @@ export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
 		});
 	}
 
-	// #2285 (EPIC #2283): Activation Funnel を ops 側に移動
-	// /admin/analytics 撤去で消失する Activation Funnel 機能を /ops/analytics で継続提供する。
+	// #2285 (EPIC #2283): Activation Funnel を ops 側に移動。
+	// #3805: DynamoDB event 集計から DSQL main data 由来の on-demand 集計へ載せ替え。
 	// funnelPeriod = '30d' 固定 (ops 専用、period switch UI なし、Pre-PMF コスト最小化)。
 	let activationFunnel: ActivationFunnelResult | null = null;
 	try {
-		activationFunnel = await getActivationFunnel('30d');
+		activationFunnel = await getActivationFunnelOnDemand('30d');
 	} catch (e) {
 		logger.warn('[OPS/analytics] Failed to load activation funnel', {
 			context: { error: e instanceof Error ? e.message : String(e) },
