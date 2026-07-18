@@ -1,0 +1,320 @@
+[
+  {
+    "type": "cycle",
+    "from": "src/lib/data/preset-rewards.ts",
+    "to": "src/lib/domain/validation/special-reward.ts",
+    "unresolvedTo": "$lib/domain/validation/special-reward",
+    "dependencyTypes": [
+      "undetermined",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/domain/validation/special-reward.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/domain/shop-category.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/data/preset-rewards.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/runtime/evaluation-context.ts",
+    "to": "src/lib/server/request-context.ts",
+    "unresolvedTo": "$lib/server/request-context",
+    "dependencyTypes": [
+      "undetermined",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/request-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/runtime/evaluation-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/debug-plan.ts",
+    "to": "src/lib/server/services/trial-service.ts",
+    "unresolvedTo": "$lib/server/services/trial-service",
+    "dependencyTypes": [
+      "undetermined",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/services/trial-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/debug-plan.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/request-context.ts",
+    "to": "src/lib/server/services/plan-limit-service.ts",
+    "unresolvedTo": "$lib/server/services/plan-limit-service",
+    "dependencyTypes": [
+      "undetermined",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/services/plan-limit-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/request-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/request-context.ts",
+    "to": "src/lib/server/services/trial-service.ts",
+    "unresolvedTo": "$lib/server/services/trial-service",
+    "dependencyTypes": [
+      "undetermined",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/services/trial-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/request-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/services/activity-log-service.ts",
+    "to": "src/lib/server/services/activity-record-dsql.ts",
+    "unresolvedTo": "$lib/server/services/activity-record-dsql",
+    "dependencyTypes": [
+      "undetermined",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/services/activity-record-dsql.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/services/activity-log-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/services/plan-limit-service.ts",
+    "to": "src/lib/server/debug-plan.ts",
+    "unresolvedTo": "$lib/server/debug-plan",
+    "dependencyTypes": [
+      "undetermined",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/debug-plan.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/services/trial-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/request-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/services/plan-limit-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/lib/server/services/plan-limit-service.ts",
+    "to": "src/lib/server/services/trial-service.ts",
+    "unresolvedTo": "$lib/server/services/trial-service",
+    "dependencyTypes": [
+      "undetermined",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/lib/server/services/trial-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/request-context.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "import"
+        ]
+      },
+      {
+        "name": "src/lib/server/services/plan-limit-service.ts",
+        "dependencyTypes": [
+          "undetermined",
+          "type-only",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "module",
+    "from": "src/lib/features/admin/admin-resource-model-registry.ts",
+    "to": "src/lib/features/admin/admin-resource-model-registry.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "src/lib/server/cron/schedule-registry.ts",
+    "to": "src/lib/server/cron/schedule-registry.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "src/lib/server/db/pk-freeze-manifest.ts",
+    "to": "src/lib/server/db/pk-freeze-manifest.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  },
+  {
+    "type": "module",
+    "from": "src/lib/server/db/restore-idempotency.ts",
+    "to": "src/lib/server/db/restore-idempotency.ts",
+    "rule": {
+      "severity": "warn",
+      "name": "no-orphans"
+    }
+  }
+]
