@@ -80,6 +80,14 @@ table を参照する経路は無い（health は probePg、analytics は on-dem
 > function として固定する。B-3850a は「Arn 1 本」ではなく「MainTable 由来 export = {Ref, Arn} が過不足なく
 > 存在」を断言し、Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に再発不能化している。
 
+#### 3.1.1 cross-stack export allowlist ratchet（#3858、ADR-0061 shift-left）
+
+自動 cross-stack export（producer 側 `CfnOutput` + Export / consumer 側 `Fn::ImportValue`）は **synth 時に初めて生成されソースに存在しない**ため、撤去時の in-use 削除制約（#3438 → #3850）は develop 軽量レーンをすり抜け release 統合監査（deploy-aws-staging）で初めて露見していた。`tests/unit/infra/cross-stack-export-ratchet.test.ts` が全 stack（prod 6 + staging 3）を `bin/app.ts` と同一に wire して synth し、`findOutputs('*')` の Export 名 + `Fn::ImportValue` を **allowlist と集合一致**で照合する fitness gate を PR 時点（unit-test 層）に前倒し配備する（cdk-nag / ESLint-AST は自動 export を取りこぼすため、synth 後の template 検査層が唯一確実）。
+
+- **baseline（実測 17 = prod 11 + staging 6）**: prod StorageStack 6（MainTable Ref/Arn + AssetsBucket Ref/Arn + ECR AppRepo Ref/Arn）/ prod ComputeStack 4（main・demo Fn FunctionUrl + main・cron-dispatcher Fn Ref）/ prod NetworkStack 1（CloudFront Distribution Ref）/ staging StorageStack 6（prod Storage と同 hash、stack 名 prefix のみ差）。**属性ごとに別 entry**（#3855 = Ref を Arn と別本と認識する構造的再発防止）。
+- **ratchet 運用（一方通行で減らす）**: cross-stack 境界を SSM 疎結合化 / 撤去したら該当 export を allowlist から削除する（= 疎結合の進捗計測器）。**新規自動 export の追加（allowlist 外）は CI fail** で止める。cross-stack 完全禁止は AWS 公式（同一 App の層状参照は正規手段）に反するため意図的残存を allowlist で管理する（`base-token-routes-ratchet` / `check-cdk-replacement` の承認マーカーと同一思想）。
+- **#3854 との紐付け**: MainTable の Ref/Arn export（prod + staging = 4 本）は Deploy-1 の dangling export（どの consumer も import しない）として allowlist に載る。**Deploy-2（#3854）で table + 両 export を撤去したら allowlist の MainTable 4 entry も削除する**。削除し忘れると「stale allowlist 検出」assert が fail するため、撤去と allowlist 更新が構造的に紐づく。
+
 **S3バケット:**
 - アバター画像: `avatars/{tenantId}/{childId}/`
 - バックアップ: `backups/{date}/` （30日で自動削除）

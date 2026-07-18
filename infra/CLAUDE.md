@@ -26,6 +26,8 @@ SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマン�
 
 主要リソース: Lambda (アプリ / cron-dispatcher / cognito custom message / SES) / ECR / Aurora DSQL (DsqlStack) / S3 / Cognito User Pool v2 (`auth.ganbari-quest.com`) / EventBridge cron rules / CloudWatch Logs / Route 53 (`ganbari-quest.com`) / SES (`noreply@ganbari-quest.com`) / SSM / Secrets Manager。DynamoDB `MainTable` は #3438 → #3850 → #3854 の 2-deploy で撤去中 (DB backend は DSQL 一本化)。cross-stack export の in-use 削除制約により、Deploy-1 (#3850、本リリース) では StorageStack が table + **旧 consumer が import する全 export = `exportValue(table.tableName)` (Ref) + `exportValue(table.tableArn)` (Arn) の 2 本**を保持し、consumer(ComputeStack) 側だけ import を落とす (Arn だけの保持は #3855 で Ref 欠落による再 rollback を招いたため不十分)。Deploy-2 (#3854、follow-up) で consumer の import 消失が本番反映された後に table + 両 export を撤去する (詳細: `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §3.1`)。詳細は `infra/lib/*-stack.ts` 参照。
 
+自動 cross-stack export/import の全集合 (実測 17 = prod 11 + staging 6) は `tests/unit/infra/cross-stack-export-ratchet.test.ts` が allowlist ratchet で PR 時点に機械検出する (#3858、ADR-0061 shift-left / §3.1.1)。新規自動 export の混入は CI fail、SSM 疎結合化 / #3854 撤去で allowlist から一方通行に減らす。
+
 CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は本ファイルを SSOT として `us-east-1`。`tests/unit/e2e-helpers/*` の `ap-northeast-1` 言及はテスト fixture（変更不要）。
 
 ## production env 必須配布 4 経路（#911 / #806）
