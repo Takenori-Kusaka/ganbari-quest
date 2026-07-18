@@ -363,6 +363,35 @@ jobs:
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
+      # #3881: rollback-orphan による named resource "already exists" block の検知。
+      # CDK deploy (DSQL / all stacks) が失敗した場合、stack events / 失敗 change set から
+      # "already exists" を探し、該当時は掃除 runbook link を fail message に埋め込む
+      # (第16回リリースで orphan BackupVault が再 deploy を block し手動介入を要した実障害の再発対応)。
+      - name: Orphan-block detection (already exists -> runbook, #3881)
+        if: failure()
+        run: |
+          RUNBOOK="https://github.com/${{ github.repository }}/blob/main/docs/runbooks/rollback-orphan-cleanup.md"
+          found=0
+          for stack in GanbariQuestDsql GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestSes GanbariQuestOps; do
+            events=$(aws cloudformation describe-stack-events --stack-name "$stack" --max-items 60 \
+              --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
+              --output text 2>/dev/null | grep -i "already exists" || true)
+            changesets=$(aws cloudformation list-change-sets --stack-name "$stack" \
+              --query 'Summaries[?Status==`FAILED`].[ChangeSetName,StatusReason]' \
+              --output text 2>/dev/null | grep -i "already exists" || true)
+            if [ -n "$events" ] || [ -n "$changesets" ]; then
+              found=1
+              echo "::error::[$stack] rollback-orphan による名前衝突 (already exists) を検出:"
+              [ -n "$events" ] && echo "$events"
+              [ -n "$changesets" ] && echo "$changesets"
+            fi
+          done
+          if [ "$found" -eq 1 ]; then
+            echo "::error::orphan named resource が再 deploy を block しています。掃除手順 (判断 gate 含む): $RUNBOOK"
+          else
+            echo "already exists 型の失敗イベントは検出されませんでした (別要因の deploy 失敗)"
+          fi
+
       # Phase 3.5 (#3646 本番 cutover): DSQL app role (app_user) provisioning。Lambda 実行 role は
       # dsql:DbConnect のみ持つ (最小権限) が DSQL 認可仕様では DbConnect は custom database role 専用の
       # ため、CREATE ROLE + AWS IAM GRANT (Lambda role ARN 紐付け) + 表 GRANT を冪等適用する。

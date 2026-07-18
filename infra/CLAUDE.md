@@ -41,7 +41,7 @@ CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は
 | 層 | 検証 | 実体 | 何を最初に捕捉するか |
 |---|---|---|---|
 | **Layer 1: synth 静的 lint** | `cdk synth --all` 出力 template を **cfn-lint** で検査し AWS schema 由来の property 制約違反（charset / allowed-value / type）を synth 時点で hard-fail | `scripts/check-cdk-cfn-lint.mjs` + `infra/.cfnlintrc` + ci.yml `cdk-cfn-lint` job（`infra/**` 変更時、develop 向け PR でも発火） | **Class ①（静的プロパティ制約違反）**。例: IAM Role/ManagedPolicy `Description` の非-ASCII（cfn-lint **E3031**、#3870）を含む全リソースの pattern / allowed-value / type 違反を**カスタムコードなしで**網羅捕捉 |
-| **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858） | **Class ②（stateful なデプロイ順序制約）の一部**。cross-stack export の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
+| **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858）/ `tests/unit/infra/physical-name-ratchet.test.ts`（明示物理名 allowlist ratchet、#3881） | **Class ②（stateful なデプロイ順序制約）の一部 + Class ③（rollback-orphan → named resource `already exists`）**。cross-stack export / 明示物理名の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
 | **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 3 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
 
 **役割分担の要点**: cfn-lint（Layer 1）は「AWS が受け付けない template」を汎用・自動で、assertion（Layer 2）は「本 project の不変条件」を、rehearsal（Layer 3）は「deployed-state 依存の失敗」を守る。3 層は補完関係で、上位ほど安価・高速・shift-left。
@@ -225,6 +225,23 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
 
 - `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は **branch の commit message (body) に** `replacement-approved: <ID>` を記載して承認する (squash message は commit message 由来 — PR body は乗らない) (初出: aws-cdk-lib 2.257→2.258、#2963)。
+
+## 明示物理名は auto-naming が既定 (rollback-orphan 予防、#3881)
+
+明示物理名 (`roleName` / `bucketName` / `functionName` / `backupVaultName` 等) を持つリソースは、create 失敗 → stack rollback の際に削除できず **orphan 化** し、次 deploy が **`already exists`** (名前衝突) で block される (第16回リリースで `DsqlBackupVault` = `ganbari-quest-dsql-vault` が実際に orphan 化し手動削除を要した、#3870 / #3872 / #3881)。これは AWS CloudFormation の設計上の既知挙動で、明示物理名を残す限り任意の create 失敗要因 (quota / IAM 結果整合性 / service エラー / dependency 失敗) で再発する。
+
+**AWS 公式一次情報 (SSOT)**:
+
+- rollback は作成物を削除するが、削除できないリソースは orphan 化する ("Resource removed from stack but not deleted"): <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/troubleshooting.html>
+- 物理名は "unique across all your active stacks"。名前衝突は deploy 失敗。**AWS 推奨回避 = 物理名を明示せず CloudFormation auto-naming に委ねる** ("CloudFormation generates a unique physical ID"): <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-name.html>
+- BackupVault は recovery point があると削除自体が失敗し特に固着する: <https://docs.aws.amazon.com/aws-backup/latest/devguide/deleting-backups.html> / <https://github.com/aws/aws-cdk/issues/33711>
+
+**運用ルール**:
+
+- **新規リソースは物理名 prop を省略する** (CFN auto-naming = ランダム suffix 付き生成名。rollback-orphan が残っても次 deploy と衝突しない)。
+- 明示名が本当に必要な場合 (外部から固定名で参照される契約 / SSM path 規約等) のみ、stack 側に justification コメントを書き、`tests/unit/infra/physical-name-ratchet.test.ts` の `NAMED_RESOURCE_ALLOWLIST` に reason 付き entry を追加する (allowlist 外の明示物理名は CI fail、#3874 Layer 2)。
+- **既存の RETAIN stateful named (vault / UserPool / S3 / ECR / backup-role) は rename しない** (rename = replacement = データ喪失。ADR-0019 gate 対象)。allowlist は一方通行で減らす (リソース撤去時に entry 削除)。
+- orphan 化して deploy が block された場合の掃除手順: [docs/runbooks/rollback-orphan-cleanup.md](../docs/runbooks/rollback-orphan-cleanup.md)。`deploy.yml` の「Orphan-block detection」step が `already exists` 検知時に本 runbook link を fail message に出力する。
 
 ## IAM Role description は ASCII/Latin-1 のみ (AWS 制約、#3870)
 
