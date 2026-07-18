@@ -1,8 +1,8 @@
 # 0007. 静的解析 tier ポリシー (T1/T2/T3/T4 + EPIC-merge / customer-review tier)
 
-- **Status**: Accepted (2026-05-27 EPIC-merge tier 追加、#2544)
+- **Status**: Accepted (2026-05-27 EPIC-merge tier 追加、#2544 / 2026-07-18 §6 eslint-plugin-svelte 追記、#3878)
 - **Date**: 2026-04-20
-- **Related Issue**: #1262 / #1265 / #2544
+- **Related Issue**: #1262 / #1265 / #2544 / #3878
 
 ## コンテキスト
 
@@ -65,6 +65,7 @@ T1 合計が 3min を超えた時は、最も遅いツールを T3 へ降格す�
 | Playwright | T2 | ~2min |
 | `new-env-distribution-check`（ADR-0006） | T1 | — |
 | `schema-change-tests-check` | T1 | — |
+| ESLint Svelte (`lint:svelte`、recommended + suppressions) | T1 | < 30s、merge block、#3878（§6） |
 | jscpd 週次 | T3 | cron |
 | 脆弱性スキャン | T4 | 四半期 / 手動 |
 
@@ -80,6 +81,14 @@ T1-T4 は「実行頻度 × blast radius」で **静的解析・自動テスト*
 - **判定ルール**: 「interactive flow を触る test は per-PR でも act → outcome assert 必須 (render-only 禁止)。ただし CUJ 全網羅貫通 / Cognitive Walkthrough / visual baseline 全件は EPIC-merge / 顧客レビュー gate に置く」。
 - **失敗時の扱い**: EPIC-merge / customer-review gate は **merge を止めるのではなく「顧客に当てる前の必須チェックリスト」** (CX 版 DoR、#2459 C-1)。Pre-PMF では顧客レビュー = 貴重な「最初の 5 人」枠 (NN/G 5-user rule) なので、明白な 85% 級問題はこの gate で潰す。
 - **SSOT**: 横断 cadence ポリシーは本節を SSOT とし、`tests/CLAUDE.md` §interactive flow / §2 層 cadence はその tests/ 視点の抜粋とする。
+
+### 6. eslint-plugin-svelte recommended の活性化と Runes semantic の lint 対象外原則 (#3878 で追加)
+
+`eslint-plugin-svelte` は導入済みだったが `svelte/no-at-html-tags` の 1 本のみ有効で、公式 `svelte.configs.recommended` の十数ルール（Runes/reactivity correctness）が **死蔵**していた。#3878 で recommended を `.svelte` に適用し T1 gate 化した。
+
+- **層の責務分離（二重化しない）**: 型 = `svelte-check --threshold warning`（T1） / a11y = Svelte compiler warning を svelte-check が surface + `@axe-core/playwright` E2E / Runes・reactivity・SvelteKit correctness = `eslint-plugin-svelte` recommended（本節）。**`svelte/valid-compile` は追加しない**（compiler warning の ESLint 再実行 = svelte-check と二重）。**a11y ルールは eslint-plugin-svelte に存在しない**ため追加不能。自作 `local/*`（no-raw-button 等）と重複する opt-in ルール（no-inline-styles 等）も追加しない。
+- **既存違反の baseline 凍結（ratchet）**: recommended 有効化で既存コードに 483 error が出る（内訳: `no-navigation-without-resolve` 166 / `require-each-key` 133 / `no-useless-children-snippet` 113 / `prefer-svelte-reactivity` 15 / `prefer-writable-derived` 11 / `no-unused-svelte-ignore` 7 / `no-useless-mustaches` 2 + 既存 `local/*` 36）。ESLint 10 native bulk suppressions（`eslint --suppress-all` → `eslint-suppressions.json` を commit）で凍結し、**新規違反のみ CI fail**。段階返済後は `eslint --prune-suppressions` で baseline を ratchet down する（assertion 弱体化・ルール一括 disable は ADR-0006 禁止）。SSOT = `eslint.config.js`（recommended spread）+ `eslint-suppressions.json`（baseline）+ `.github/workflows/ci.yml`（`lint:svelte` hard gate）。
+- **Runes semantic 判断は lint 対象外＝PR review 領域**: Svelte 5 公式が最も警告する「`$effect` で state を derive/同期するな、`$derived` を使え」は、静的に捕まるのは `prefer-writable-derived` の単一代入 trivial shape のみ。effect 本体に分岐・複数文が入ると linter は沈黙する。「この effect は derived にすべき」の意図判断は ESLint では原理的に不可能なため、**lint は syntactic footgun を潰し、semantic 判断は PR review で補う**（`.claude/skills/pr-review/SKILL.md` の Svelte 観点で確認）。component 全体（script+template）の cognitive/cyclomatic 複雑度を測る既製 OSS は存在しない（SonarJS は `.svelte` 非サポート）ため深追いせず、自作 `local/max-svelte-lines`(500) を粗い proxy として維持する。
 
 ## 結果
 

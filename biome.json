@@ -148,7 +148,8 @@
 			"!**/.tmp-screenshots",
 			"!**/drizzle",
 			"!tests/fixtures/restore-real-scale-backup.json",
-			"!**/.dependency-cruiser-known-violations.json"
+			"!**/.dependency-cruiser-known-violations.json",
+			"!**/eslint-suppressions.json"
 		]
 	}
 }

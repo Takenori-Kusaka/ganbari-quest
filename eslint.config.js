@@ -19,6 +19,19 @@ import noTailwindArbitraryHex from './eslint-plugin-local/no-tailwind-arbitrary-
 // - src/**/*.ts: SonarJS ルール（文字列重複・認知複雑度・関数重複等）#977
 // - JS/TS の基本 lint は Biome が担当
 export default [
+	// #3878: eslint-plugin-svelte の公式 recommended を .svelte に適用 (Runes/reactivity
+	// correctness の死蔵解消)。svelte-check (型 / a11y compiler warning) と非重複な高 ROV ルール
+	// (prefer-writable-derived / no-unnecessary-state-wrap / no-dom-manipulating / require-each-key /
+	// no-unused-props / no-dupe-* / SvelteKit no-navigation-without-resolve 等) を error で有効化する。
+	// - a11y ルールは eslint-plugin-svelte に存在せず (Svelte compiler warning を svelte-check が surface
+	//   + @axe-core/playwright E2E が担保) 二重化しない。
+	// - svelte/valid-compile は recommended 非収録のため未追加 (compiler warning の再実行 = svelte-check 二重化)。
+	// - 自作 local/* (no-raw-button / no-style-attribute 等) と重複する opt-in ルール (no-inline-styles 等)
+	//   は recommended 非収録のため未追加。
+	// 既存違反は eslint-suppressions.json (ESLint 10 native bulk suppressions, --suppress-all) で baseline
+	// 凍結し、新規違反のみ CI fail させる (ratchet)。この spread は既存 src/**/*.svelte ブロック (parser 設定) の
+	// より前に置き、後続ブロックの languageOptions を authoritative に保つ (#3877 type-aware 設定と非衝突)。
+	...svelte.configs.recommended,
 	// Svelte ファイル共通設定（パーサー）
 	{
 		files: ['src/**/*.svelte'],
@@ -38,6 +51,11 @@ export default [
 			// 正当な sanitize 済 HTML 注入 (ADR-0025 DOMPurify 等) が必要な場合は当該行のみ
 			// eslint-disable-next-line svelte/no-at-html-tags で明示 opt-out する。
 			'svelte/no-at-html-tags': 'error',
+			// #3878: recommended が warn 割当の 2 件 (残置 debug の掃除) を error へ昇格。
+			// bulk suppressions は error severity のみ凍結対象のため、gate 化するには error 必須。
+			// $inspect / {@debug} は本番コードに残さない前提 (Anti-engagement / デバッグ痕跡除去)。
+			'svelte/no-inspect': 'error',
+			'svelte/no-at-debug-tags': 'error',
 		},
 	},
 	// routes 配下: デザインシステム品質ルール

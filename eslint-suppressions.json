@@ -1,0 +1,883 @@
+{
+  "src/lib/features/admin/components/ActivityCreateForm.svelte": {
+    "svelte/prefer-writable-derived": {
+      "count": 7
+    },
+    "svelte/require-each-key": {
+      "count": 5
+    }
+  },
+  "src/lib/features/admin/components/ActivityEditForm.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/ActivityLimitBanner.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/ActivityListItem.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/AdminHome.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 3
+    }
+  },
+  "src/lib/features/admin/components/AdminLayout.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 9
+    },
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/features/admin/components/AiSuggestChecklistPanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/AiSuggestCheerPanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/AiSuggestPanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/AiSuggestRewardPanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/ChildListCard.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/ChildProfileCard.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/features/admin/components/DemoCta.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/admin/components/DowngradeResourceSelector.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 9
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 3
+    }
+  },
+  "src/lib/features/admin/components/NotificationPermissionBanner.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/NucLicensePanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/lib/features/admin/components/OnboardingChecklist.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 3
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/PlanStatusCard.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 4
+    }
+  },
+  "src/lib/features/admin/components/PremiumWelcome.svelte": {
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/RedemptionPendingBanner.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/SaasLicensePanel.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 6
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/features/admin/components/TrialBanner.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/birthday/BirthdayModal.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/certificate/CertificateCard.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/lib/features/certificate/CertificateTemplate.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/certificate/ShareCard.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/character/CharacterTabs.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/features/child-home/BabyHomePage.stories.svelte": {
+    "svelte/prefer-svelte-reactivity": {
+      "count": 3
+    }
+  },
+  "src/lib/features/demo/DemoBanner.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/lib/features/demo/DemoGuideBar.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 3
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/loyalty/ChurnPreventionModal.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/features/usage/WeeklyUsageChart.svelte": {
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/features/value-preview/MilestoneBellButton.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 1
+    }
+  },
+  "src/lib/features/value-preview/MonthlyValuePreview.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/marketplace/ui/UnifiedEmptyState.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/marketplace/ui/UnifiedImportHub.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/ActivityCard.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/ActivityEmptyState.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/AdventureStartOverlay.svelte": {
+    "svelte/require-each-key": {
+      "count": 3
+    }
+  },
+  "src/lib/ui/components/BottomNav.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/CategorySection.svelte": {
+    "svelte/prefer-writable-derived": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/CelebrationEffect.svelte": {
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/ui/components/FeatureGate.stories.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 6
+    }
+  },
+  "src/lib/ui/components/FeatureGate.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/GoogleSignInButton.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/NumPad.svelte": {
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/ui/components/ProgressFill.stories.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/RadarChart.svelte": {
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/ui/components/SiblingCategoryChart.svelte": {
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/lib/ui/components/SiblingCheerOverlay.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/SiblingRanking.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/components/SiblingTrendChart.svelte": {
+    "svelte/require-each-key": {
+      "count": 5
+    }
+  },
+  "src/lib/ui/components/StampCard.svelte": {
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/lib/ui/components/StampPressOverlay.svelte": {
+    "svelte/require-each-key": {
+      "count": 3
+    }
+  },
+  "src/lib/ui/components/TutorialBubble.svelte": {
+    "svelte/no-unused-svelte-ignore": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/primitives/Alert.stories.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/primitives/Button.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/primitives/Dialog.stories.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 4
+    }
+  },
+  "src/lib/ui/primitives/PinInput.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/lib/ui/tutorial/PageGuideTabs.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/(child)/+layout.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/(child)/[uiMode=uiMode]/(character)/challenges/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    }
+  },
+  "src/routes/(child)/[uiMode=uiMode]/(character)/history/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    },
+    "svelte/no-useless-mustaches": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(child)/[uiMode=uiMode]/(character)/status/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(child)/[uiMode=uiMode]/home/+page.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(child)/[uiMode=uiMode]/shop/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    }
+  },
+  "src/routes/(child)/checklist/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/activities/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 3
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/(parent)/admin/activities/[id]/edit/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/billing/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 3
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 7
+    }
+  },
+  "src/routes/(parent)/admin/billing/cancel/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/billing/cancel/graduation/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 5
+    }
+  },
+  "src/routes/(parent)/admin/billing/cancel/thanks/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    }
+  },
+  "src/routes/(parent)/admin/certificates/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/certificates/[id]/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/challenges/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/routes/(parent)/admin/checklists/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 4
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 7
+    },
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/routes/(parent)/admin/cheer/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 4
+    }
+  },
+  "src/routes/(parent)/admin/children/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/growth-book/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 4
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/members/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 10
+    },
+    "svelte/require-each-key": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/packs/+page.svelte": {
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/(parent)/admin/points/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/reports/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 4
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 4
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 7
+    }
+  },
+  "src/routes/(parent)/admin/rewards/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 6
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/rewards/requests/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/+layout.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/account/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/activities/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-writable-derived": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/data/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/notifications/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/(parent)/admin/settings/rules/+page.svelte": {
+    "local/no-style-attribute": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/admin/status/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/(parent)/login/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/+error.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "local/no-raw-button": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 7
+    }
+  },
+  "src/routes/auth/forgot-password/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    }
+  },
+  "src/routes/auth/invite/[code]/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 3
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/auth/login/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/auth/reset-pin/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    }
+  },
+  "src/routes/auth/signup/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 5
+    }
+  },
+  "src/routes/consent/+page.svelte": {
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    }
+  },
+  "src/routes/marketplace/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 2
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 13
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 3
+    },
+    "svelte/prefer-writable-derived": {
+      "count": 1
+    }
+  },
+  "src/routes/marketplace/[type]/[itemId]/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 2
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 19
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 6
+    }
+  },
+  "src/routes/ops/+layout.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 8
+    }
+  },
+  "src/routes/ops/+page.svelte": {
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/ops/analytics/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 6
+    }
+  },
+  "src/routes/ops/business/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/ops/cohort/+page.svelte": {
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/ops/costs/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 1
+    }
+  },
+  "src/routes/ops/pmf-survey/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/no-unused-svelte-ignore": {
+      "count": 5
+    },
+    "svelte/prefer-writable-derived": {
+      "count": 1
+    }
+  },
+  "src/routes/ops/revenue/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 5
+    }
+  },
+  "src/routes/pricing/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/no-useless-children-snippet": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/setup/activities-defaults/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/setup/challenges/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 2
+    }
+  },
+  "src/routes/setup/children/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/setup/complete/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/routes/setup/first-adventure/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    }
+  },
+  "src/routes/setup/packs/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 1
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 2
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  },
+  "src/routes/setup/rewards/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 2
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 2
+    }
+  },
+  "src/routes/setup/rules/+page.svelte": {
+    "local/no-raw-button": {
+      "count": 3
+    },
+    "svelte/no-navigation-without-resolve": {
+      "count": 1
+    },
+    "svelte/prefer-svelte-reactivity": {
+      "count": 2
+    }
+  },
+  "src/routes/survey/sean-ellis/[token]/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    }
+  },
+  "src/routes/switch/+page.svelte": {
+    "svelte/no-navigation-without-resolve": {
+      "count": 2
+    }
+  },
+  "src/routes/view/[token]/+page.svelte": {
+    "local/max-style-lines": {
+      "count": 1
+    },
+    "svelte/require-each-key": {
+      "count": 2
+    }
+  }
+}
