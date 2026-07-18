@@ -223,7 +223,9 @@ const BIN_APP_TS_PATH = resolve(
  * (context gate (`if (dsqlEnabled)` 等) の内側も含めて「instantiate し得る全 stack」を返す)。
  */
 function parseBinStackIds(source: string): string[] {
-	return [...source.matchAll(/new \w+Stack\(\s*app,\s*`\$\{appName\}(\w+)`/g)].map((m) => m[1]);
+	return [...source.matchAll(/new \w+Stack\(\s*app,\s*`\$\{appName\}(\w+)`/g)].flatMap((m) =>
+		m[1] === undefined ? [] : [m[1]],
+	);
 }
 
 /**
