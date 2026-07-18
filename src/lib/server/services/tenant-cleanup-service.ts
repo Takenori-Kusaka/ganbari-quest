@@ -149,9 +149,23 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	}
 
 	// Cloud exports（findByTenant + deleteById 可能）
+	// #3868: DB 行削除の前に S3 実体 (backup ZIP = 子供名・アバター・音声を含む完全 PII) を削除する。
+	// cloudExport の s3Key は `exports/${tenantId}/...` で fullTenantDeletion の
+	// `tenants/${tenantId}/` prefix 一括削除の外側にあるため、ここで明示削除しないと退会後も
+	// S3 lifecycle (30 日) の失効まで孤児として滞留する。個別削除
+	// (cloud-export-service.deleteCloudExport) と同一手段 storage.deleteByPrefix を再利用する。
 	try {
 		const exports = await r.cloudExport.findByTenant(tenantId);
 		for (const exp of exports) {
+			// S3 削除は best-effort: 失敗しても DB 行削除 + account 削除を継続する。
+			// ただし削除漏れを silent にせず warn で記録する (ADR-0006)。
+			try {
+				await r.storage.deleteByPrefix(exp.s3Key);
+			} catch (err) {
+				logger.warn(
+					`[tenant-cleanup] cloudExport S3 実体削除失敗 (DB 行削除は継続) id=${exp.id} s3Key=${exp.s3Key}: ${String(err)}`,
+				);
+			}
 			await r.cloudExport.deleteById(exp.id, tenantId);
 			deleted++;
 		}
