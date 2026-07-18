@@ -74,9 +74,14 @@ const refs = propDecl.findReferences();
 # dead code / 取り残し export
 npx knip --reporter symbols
 
-# モジュール依存グラフ可視化
-npx madge --circular --extensions ts,svelte src/
-npx depcruise --include-only "^src" src/ --output-type dot | dot -T svg > deps.svg
+# 依存境界 gate + 循環/orphan 検出 (#3871 で dependency-cruiser を dev dep 導入済、repo config あり)
+npm run depcruise          # app (src/): 循環=error / orphan=warn / routes↛DB / routes↛raw ORM
+npm run depcruise:infra    # infra (CDK): 循環=error / stack 間直 import=error
+
+# モジュール依存グラフ生成 (.dot は graphviz 不要で常に生成、SVG 化は graphviz `dot` が必要)
+npm run depcruise:graph        # → tmp/dep-graph.dot (graphviz 不要、決定的)
+npm run depcruise:graph:svg    # → tmp/dep-graph.svg (graphviz `dot` が PATH に必要)
+npx madge --circular --extensions ts,svelte src/  # 循環検出のみの補助 (madge)
 
 # call graph (TypeScript)
 npx jelly --target src/lib/server/services/stripe-service.ts
@@ -150,7 +155,7 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 | **fast feedback** | ast-grep + ESLint | `npm i -D @ast-grep/cli` |
 | **rename safety** | ts-morph | `npm i -D ts-morph` |
 | **dead code** | Knip | `npm i -D knip` (既存導入確認) |
-| **依存グラフ** | dependency-cruiser / Madge | `npm i -D dependency-cruiser` |
+| **依存グラフ / 境界 gate** | dependency-cruiser / Madge | 導入済 (#3871): `npm run depcruise` / `depcruise:infra` / `depcruise:graph` (`:svg` は graphviz 要) |
 | **deep semantic (year 1-2 回)** | CodeQL | GitHub Actions |
 | **cross-repo** | Sourcegraph Batch Changes | mono-repo 外波及時のみ |
 
