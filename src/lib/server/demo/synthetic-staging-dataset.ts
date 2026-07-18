@@ -27,6 +27,11 @@
 // DB seed では表現しない。cognito staging のアカウント整備は DEV_USERS 同型で #2873 lane が担う。
 
 import { CATEGORY_CODE_TO_ID, toCategoryCode } from '$lib/domain/categories';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
+import {
+	SUBSCRIPTION_STATUS,
+	type SubscriptionStatus,
+} from '$lib/domain/constants/subscription-status';
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
@@ -39,6 +44,7 @@ import {
 	type ExportTransactionData,
 } from '$lib/domain/export-format';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { LOCAL_TENANT_UUID } from '$lib/server/auth/local-tenant';
 import type { ChildActivity } from '$lib/server/db/types/index.js';
 import { finalizeExport } from '$lib/server/services/export-service';
@@ -130,7 +136,7 @@ export interface SyntheticTrialSpec {
 export interface SyntheticFamilySpec {
 	name: string;
 	/** families.status (subscription-status.ts SSOT) */
-	status: 'active' | 'grace_period' | 'suspended' | 'terminated';
+	status: SubscriptionStatus;
 	/** families.plan (subscription-plan.ts SSOT)。null = free (未課金) */
 	plan: string | null;
 }
@@ -816,15 +822,19 @@ export async function buildSyntheticStagingDataset(
 				tenantUuid: LOCAL_TENANT_UUID,
 				description:
 					'がんばり家 5 人 (demo-data.ts 再利用)。5 age mode × 5 theme × M/F、marketplace 取込済、フル機能表示。NUC local staging の単一 tenant として可視',
-				family: { name: 'がんばり家', status: 'active', plan: 'family-monthly' },
+				family: {
+					name: 'がんばり家',
+					status: SUBSCRIPTION_STATUS.ACTIVE,
+					plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY,
+				},
 				trial: null,
 				data: tenantA,
 			},
 			{
 				key: 'free',
 				tenantUuid: '00000000-0000-4000-8000-0000000000b1',
-				description: '無料プラン。子供 1 人 + 最小データ、marketplace 未取込 (empty admin、D18)',
-				family: { name: 'まなび家', status: 'active', plan: null },
+				description: `${PLAN_FULL_TERMS.free}。子供 1 人 + 最小データ、marketplace 未取込 (empty admin、D18)`,
+				family: { name: 'まなび家', status: SUBSCRIPTION_STATUS.ACTIVE, plan: null },
 				trial: null,
 				data: tenantB,
 			},
@@ -832,7 +842,7 @@ export async function buildSyntheticStagingDataset(
 				key: 'trial-active',
 				tenantUuid: '00000000-0000-4000-8000-0000000000c1',
 				description: 'standard トライアル中 (anchor-2日 開始 / anchor+5日 終了、バナー表示)',
-				family: { name: 'もも家', status: 'active', plan: null },
+				family: { name: 'もも家', status: SUBSCRIPTION_STATUS.ACTIVE, plan: null },
 				trial: { tier: 'standard', startOffsetDays: -2, endOffsetDays: 5 },
 				data: tenantC1,
 			},
@@ -841,7 +851,7 @@ export async function buildSyntheticStagingDataset(
 				tenantUuid: '00000000-0000-4000-8000-0000000000c2',
 				description:
 					'トライアル期限切れ (anchor-30日 開始 / anchor-23日 終了) + archive 済データ (D19)',
-				family: { name: 'そら家', status: 'active', plan: null },
+				family: { name: 'そら家', status: SUBSCRIPTION_STATUS.ACTIVE, plan: null },
 				trial: { tier: 'family', startOffsetDays: -30, endOffsetDays: -23 },
 				data: tenantC2,
 			},
@@ -849,7 +859,7 @@ export async function buildSyntheticStagingDataset(
 				key: 'empty',
 				tenantUuid: '00000000-0000-4000-8000-0000000000d1',
 				description: '空 tenant (子供 0 人)。genuine-empty 全画面 + 初回オンボーディング導線 (D18)',
-				family: { name: 'はじまり家', status: 'active', plan: null },
+				family: { name: 'はじまり家', status: SUBSCRIPTION_STATUS.ACTIVE, plan: null },
 				trial: null,
 				data: null,
 			},
