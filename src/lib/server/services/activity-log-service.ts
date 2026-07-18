@@ -1,6 +1,7 @@
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
+	calcMasteryBonusRefundOnCancel,
 	calcMasteryLevel,
 	getActivityDisplayName,
 	getCategoryById,
@@ -23,6 +24,7 @@ import {
 } from '$lib/server/db/activity-repo';
 // EPIC #3424 Phase Z (#3541): DATA_SOURCE=dsql は core 単一 txn + optional 隔離経路へ dispatch (§8)
 import { isDsqlBackend } from '$lib/server/db/backend';
+import { cancelActivityDsql } from '$lib/server/services/activity-cancel-dsql';
 import {
 	type ActivityLogEntry,
 	type ActivityLogSummary,
@@ -31,7 +33,6 @@ import {
 import { recordActivityDsql } from '$lib/server/services/activity-record-dsql';
 // 書込前計算 (検証 / streak / mastery / bonus-hook) は sqlite / dsql 両経路の共有 SSOT (#3541)
 import { prepareActivityRecord } from '$lib/server/services/activity-record-preparation';
-import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
@@ -153,14 +154,6 @@ export async function recordActivity(
 		},
 		tenantId,
 	);
-
-	// #831: Activation Funnel Step 3 — テナント初の活動記録
-	// この子供のアクティブログが 1 件（今挿入した分のみ）なら初回候補としてトラック。
-	// テナント全体の初回判定は集計層で行う。
-	const activeCount = await countActiveActivityLogs(childId, tenantId);
-	if (activeCount === 1) {
-		trackActivationFirstActivityCompleted(tenantId, childId, activityId);
-	}
 
 	// 習熟度更新（count+1 → レベル再計算。計算は prepareActivityRecord 済、#3541）
 	const masteryLeveledUp =
@@ -391,6 +384,13 @@ export async function cancelActivityLog(
 	logId: string,
 	tenantId: string,
 ): Promise<{ refundedPoints: number } | { error: 'NOT_FOUND' } | { error: 'CANCEL_EXPIRED' }> {
+	// #3596 ②: DSQL backend は cancel core 単一 txn (log-cancel / mastery / ledger+total_point /
+	// status / history を all-or-nothing)。sqlite / dynamo / demo は従来の逐次 await 経路 (以下、
+	// 現行挙動の凍結)。record 経路 (#3541) と同型の backend 分岐。
+	if (isDsqlBackend()) {
+		return cancelActivityDsql(logId, tenantId);
+	}
+
 	const log = await findActivityLogById(logId, tenantId);
 	if (!log) return { error: 'NOT_FOUND' };
 	if (log.cancelled) return { error: 'NOT_FOUND' };
@@ -400,7 +400,13 @@ export async function cancelActivityLog(
 		return { error: 'CANCEL_EXPIRED' };
 	}
 
-	const totalPoints = log.points + log.streakBonus;
+	// #3787: mastery_bonus 対称返金。記録時 ledger / status は base+streak+mastery を計上したため、
+	// cancel も同額を返金しないと record→cancel farming で mastery_bonus が balance に残り point 経済が
+	// 壊れる。mastery_bonus 額は付与時と同一式 (記録前 level) で再構成する (計算 SSOT = activity.ts)。
+	const mastery = await findMastery(log.childId, log.activityId, tenantId);
+	const masteryBonusRefund =
+		mastery && mastery.totalCount > 0 ? calcMasteryBonusRefundOnCancel(mastery.totalCount) : 0;
+	const totalPoints = log.points + log.streakBonus + masteryBonusRefund;
 
 	// 活動のカテゴリを取得してステータスXPを戻す
 	const activity = await findActivityById(log.activityId, tenantId);
@@ -409,7 +415,6 @@ export async function cancelActivityLog(
 	}
 
 	// 習熟度を戻す（count-1、レベル再計算）
-	const mastery = await findMastery(log.childId, log.activityId, tenantId);
 	if (mastery && mastery.totalCount > 0) {
 		const revertedCount = Math.max(0, mastery.totalCount - 1);
 		const revertedLevel = calcMasteryLevel(revertedCount);

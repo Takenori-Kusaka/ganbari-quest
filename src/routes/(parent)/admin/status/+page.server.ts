@@ -3,6 +3,7 @@ import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { isOpsMember, requireGlobalMasterWriteAccess } from '$lib/server/auth/ops-authz';
 import { findAllBenchmarks, upsertBenchmark } from '$lib/server/db/status-repo';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -18,6 +19,15 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
+	// #3824 (QM Tier2 H1): benchmark (market_benchmarks = 全テナント共有グローバル master) の
+	// 編集 UI は書込 authz (requireGlobalMasterWriteAccess) と同一境界で出し分ける。
+	//   parent-admin に編集フォームを描画すると、保存時 server が 403 を返し「見えるが必ず失敗する
+	//   dead-form」+ 内部概念 (global master / ops) の英語露出になる (NN/G #1 visibility 違反)。
+	//   UI hide (本フラグ) + server enforce (updateBenchmark action) の防御多層で、parent-admin は
+	//   read-only 比較 (成長レポート RadarChart) のみを見る。判定基準は書込 guard の許可条件と一致:
+	//   local identity (NUC 単一運用者) or cognito ops group member。
+	const canEditBenchmark =
+		locals.identity?.type === 'local' || isOpsMember(locals.identity ?? null);
 	const [children, benchmarks, levelTitles] = await Promise.all([
 		getAllChildren(tenantId),
 		findAllBenchmarks(tenantId),
@@ -55,7 +65,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				]
 			: childrenWithStatus;
 
-	return { children: sortedChildren, categoryDefs: CATEGORY_DEFS, benchmarks, levelTitles };
+	return {
+		children: sortedChildren,
+		categoryDefs: CATEGORY_DEFS,
+		benchmarks,
+		levelTitles,
+		canEditBenchmark,
+	};
 };
 
 export const actions = {
@@ -96,6 +112,10 @@ export const actions = {
 	},
 
 	updateBenchmark: async ({ request, locals }) => {
+		// #3824 (CWE-639 隣接): market_benchmarks は全テナント共有のグローバル master のため、
+		// 書込は ops/admin 相当 (ops group or NUC local) に限定する。parent-admin は 403。
+		// tenantId 取得より前に評価し、認可判定を単一強制点 (ops-authz) に集約する (ADR-0063)。
+		requireGlobalMasterWriteAccess(locals);
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
 		const age = Number(form.get('age'));

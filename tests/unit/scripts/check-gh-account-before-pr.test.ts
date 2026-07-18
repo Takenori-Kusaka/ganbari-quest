@@ -22,6 +22,7 @@ import {
 	ALLOWED_PR_AUTHOR_DEFAULT,
 	evaluateActiveAccount,
 	extractActiveAccount,
+	extractViewerLoginFromGraphql,
 	QA_ACCOUNT,
 } from '../../../scripts/check-gh-account-before-pr.mjs';
 
@@ -64,6 +65,46 @@ describe('extractActiveAccount', () => {
 			'  - Active account: true',
 		].join('\r\n');
 		expect(extractActiveAccount(output)).toBe('Takenori-Kusaka');
+	});
+});
+
+describe('extractViewerLoginFromGraphql (#3806 — REST /user 503 耐性)', () => {
+	// 真因: GitHub 側で認証付き REST `/user` だけが 503 を返す部分障害時、
+	// `gh auth status` はトークン検証 (REST /user) に失敗し「keyring invalid」と
+	// 誤報する。GraphQL `{viewer{login}}` は REST 503 の影響を受けず active
+	// アカウントを返せるため、これを一次検証ソースにする (hook 誤ブロック根治)。
+	it('正常な GraphQL 応答から viewer.login を抽出する', () => {
+		const json = '{"data":{"viewer":{"login":"Takenori-Kusaka"}}}';
+		expect(extractViewerLoginFromGraphql(json)).toBe('Takenori-Kusaka');
+	});
+
+	it('QA アカウントの viewer.login も抽出できる', () => {
+		const json = '{"data":{"viewer":{"login":"ganbariquestsupport-lab"}}}';
+		expect(extractViewerLoginFromGraphql(json)).toBe('ganbariquestsupport-lab');
+	});
+
+	it('前後に空白/改行があっても抽出できる (gh 出力の trailing newline)', () => {
+		const json = '\n  {"data":{"viewer":{"login":"Takenori-Kusaka"}}}\n';
+		expect(extractViewerLoginFromGraphql(json)).toBe('Takenori-Kusaka');
+	});
+
+	it('REST 503 の HTML エラーページ (invalid JSON) → null', () => {
+		// gh api user が返す「invalid character \'<\'」の元。JSON パース不能。
+		const html = '<!DOCTYPE html>\n<html><body>503 Service Unavailable</body></html>';
+		expect(extractViewerLoginFromGraphql(html)).toBeNull();
+	});
+
+	it('空文字列 → null', () => {
+		expect(extractViewerLoginFromGraphql('')).toBeNull();
+	});
+
+	it('data.viewer が欠落した応答 → null', () => {
+		expect(extractViewerLoginFromGraphql('{"data":{}}')).toBeNull();
+	});
+
+	it('GraphQL errors 応答 (viewer なし) → null', () => {
+		const json = '{"errors":[{"message":"Bad credentials"}]}';
+		expect(extractViewerLoginFromGraphql(json)).toBeNull();
 	});
 });
 

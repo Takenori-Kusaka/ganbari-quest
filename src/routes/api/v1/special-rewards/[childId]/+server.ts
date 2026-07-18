@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import * as v from 'valibot';
 import {
 	grantSpecialRewardSchema,
 	specialRewardQuerySchema,
@@ -16,12 +17,12 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
-	const parsed = specialRewardQuerySchema.safeParse({ childId: params.childId });
+	const parsed = v.safeParse(specialRewardQuerySchema, { childId: params.childId });
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? 'パラメータが不正です');
+		return validationError(parsed.issues[0]?.message ?? 'パラメータが不正です');
 	}
 
-	const result = await getChildSpecialRewards(parsed.data.childId, tenantId);
+	const result = await getChildSpecialRewards(parsed.output.childId, tenantId);
 	return json(result);
 };
 
@@ -33,15 +34,15 @@ export const POST: RequestHandler = async ({ request, params, locals }) => {
 	const tenantId = context.tenantId;
 	const body = await request.json();
 
-	const parsed = grantSpecialRewardSchema.safeParse({
+	const parsed = v.safeParse(grantSpecialRewardSchema, {
 		...body,
 		childId: params.childId,
 	});
 	if (!parsed.success) {
-		return validationError(parsed.error.issues[0]?.message ?? '入力が不正です');
+		return validationError(parsed.issues[0]?.message ?? '入力が不正です');
 	}
 
-	const result = await grantSpecialReward(parsed.data, tenantId);
+	const result = await grantSpecialReward(parsed.output, tenantId);
 
 	if ('error' in result) {
 		if (result.error === 'NOT_FOUND') {

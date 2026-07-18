@@ -175,6 +175,7 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 - 兄弟共通化 = copy（src child → dst child へ行コピー、重複は上書き）。DPU の「コピー vs override」差は DSQL の txn floor（1024B）に吸収されほぼ消える（研究判断⑤の計測根拠、ADR-0010「コスト動機の幻」）。
 - マイグレーション: 既存 `child_activities` をそのまま per-child instance として移送（差分抽出ルール不要 = §10-1 解消）。
 - **移行トリガ（将来）**: 「マスタ編集の全子伝播」需要 or marketplace 大規模化が観測されたら catalog+override を再検討（ADR-0055 に移行条件を注記）。現時点は可逆な per-child instance が期待損失最小。
+- **`IActivityRepo.insertActivity` facade 契約（#3596 ③、再評価確定）**: `insertActivity(input, tenantId)` は child selector を持たない **family-level 互換 API**。per-child instance の新規作成は `IChildActivityRepo.insertActivity(input, childId)`（child を明示）を正経路とし、facade は child 未指定の legacy 呼出のために tenant の**代表 child（最古 created_at）** に bind する暫定 shim を維持する（sqlite facade parity #2458-A1、sqlite は `ORDER BY children.id` = 作成順）。DSQL は integer autoincrement が無いため `ORDER BY created_at, child_id`。**child_id（uuid）を第 2 sort key に置くことで同秒 created_at でも一意・決定的**に代表 child が選ばれる（「同秒 tiebreak 非決定」懸念の解消、`dsql-activity-log-repo.test.ts [A3b]` で pin）。返す Activity shape は child 束縛を露出しない（sqlite parity）ため複数 child 家庭での facade 利用は legacy path のみ。per-child モデル（ADR-0055）との整合上、facade を廃し全呼出を per-child 経路に移す判断は cutover 後の別 Issue に保持（本 shim は cutover parity を壊さないための互換層）。
 - **marketplace 帰属記録（営業 R1）**: 取込は per-child コピー上書きで source item への永続リンクを破棄（自然キー再解決のみ）。有料テンプレ販売・作者還元は後付け表で可能だが、転換/継続の帰属分析が後から再構築不能 → 取込時に **`source_marketplace_item_id` を軽量イベント記録**（今は安く、後は高い）。将来の課金テンプレ収益モデルの裏付けに。
 - **NUC 訴求スコープ（営業 R3 / ADR-0013）**: NUC=SQLite ローカルは越境ゼロ・データ家庭内（顔写真ローカル FS、§9.4）で「米国クラウドに送らない」訴求は実装裏付けあり。ただし NUC auth-repo は throw stub（家族マルチユーザー認証未実装、§10-11）＝「クラウドと**対等機能**」の無条件訴求は ADR-0013 違反。訴求は**実装済スコープ（越境ゼロ・データ家庭内）に限定**し、家族マルチアカウント対等は実装確認後まで販促に書かない。
 
@@ -236,7 +237,7 @@ combo / mission / challenge進捗 / certificate(onConflictDoNothing) / special_r
 
 ### §8.1 cron バッチ書込（全テナント横断）の原則（N2、recordActivity と同格）
 
-`schedule-registry.ts` の全テナント横断バッチ（age 系再計算 / retention-cleanup / grace-period-deletion / trial-notifications / analytics-aggregate）は recordActivity（単一集約）と**別クラスの write path**で、§P8（1 write txn=3,000 行/10MiB）・Write DPU・OCC・cross-tenant txn 禁止に直撃する。**原則**:
+`schedule-registry.ts` の全テナント横断バッチ（age 系再計算 / retention-cleanup / grace-period-deletion / trial-notifications）は recordActivity（単一集約）と**別クラスの write path**で、§P8（1 write txn=3,000 行/10MiB）・Write DPU・OCC・cross-tenant txn 禁止に直撃する。**原則**:
 - **per-tenant ループ + chunk ≤3,000 行/txn + `withOccRetry`**（cross-tenant を 1 txn に混ぜない＝集約境界 = family を跨がない）。`listAllTenants` は created_at cursor ページング（§6.6）。
 - **全行スキャン課金に注意**: 全テナント read は Read DPU バイト課金。フィルタ（`endDate>=today` 等）を素の列 index/PK プレフィクスで効かせる。
 - **age 系バッチは §11.1 の age compute-on-read 化で撤去可能**（N4。age を stored 派生にせず birth_date 算出にすれば日次 age-recalc 自体が不要）。
@@ -394,13 +395,13 @@ children (
 | report_daily_summaries | **廃止**（§7） | — | compute-on-read |
 | achievements / child_achievements | **drop 判断（#322 廃止・データ不在）**: drop なら §3/§5 から除外、存続なら milestone_values 子表化 | — | 要確定（§10 追記） |
 | settings | `(family_id, key)` | — | 自然複合 (anchor (b): KVS の 1 key = 1 value は構造的確実。⚠️ sqlite 現行は tenant_id 列なし = cutover で family_id 追加、単一家族は定数 §P10) |
-| push_subscriptions | `(family_id, subscription_id uuid)` | **UNIQUE(endpoint) global**（無 tenant 単点 findByEndpoint） | UUID surrogate（endpoint は rotate される mutable、anchor 無し） |
+| push_subscriptions | `(family_id, subscription_id uuid)` | **UNIQUE(endpoint) global**（findByEndpoint は endpoint 値単独 lookup 後 family scope 再適用、#3574 ② §P9） | UUID surrogate（endpoint は rotate される mutable、anchor 無し） |
 | notification_logs | `(family_id, log_id uuid[v4])` | sent_at は素の列（sort 用途） | UUID surrogate（append-only log、once-per-period 一意なし） |
 | trial_history | `(family_id, trial_id uuid[v4])` | cross-tenant cron 用 secondary(end_date) は計測後 | UUID surrogate（1 tenant N 回トライアル） |
-| viewer_tokens | `(family_id, token_id uuid)` | **UNIQUE(token) global**（無 tenant 単点 findByToken） | UUID surrogate（token は revoke 後再発行あり） |
-| cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds） | UUID surrogate（pin は expire 後再利用） |
-| cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後 | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
-| graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate） | UUID surrogate（複数子×複数回で多数行が正） |
+| viewer_tokens | `(family_id, token_id uuid)` | **UNIQUE(token) global**（無 tenant 単点 findByToken。insert は revoke/expire 後の値再発行を expire-then-purge で担保、#3574 ①） | UUID surrogate（token は revoke 後再発行あり） |
+| cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds）。insert は expire/DL 上限後の pin 値再発行を expire-then-purge で担保（#3574 ①） | UUID surrogate（pin は expire 後再利用） |
+| cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後（#3574 ③: §P5「投機的に張らない」に従い KPI hot path の実 EXPLAIN ANALYZE で必要確認後に追加。family スケールの aggregateRecent/searchFreeText は当面 PK-prefix scan で許容） | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
+| graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate、cross-tenant KPI hot path は #3574 ③ で §P5 計測後追加判断）。**append-only（COPPA 同意証跡）**: repo は UPDATE を定義せず改竄不能（#3574 ④、`dsql-append-only-mutation-allowlist.test.ts` で機械強制） | UUID surrogate（複数子×複数回で多数行が正） |
 | parent_gate_credentials | `(family_id)` | — | 1:1 従属（M2 §1.1、ADR-0050 保護者ゲート。PIN は平文非保持ハッシュ、失敗回数/ロック解除時刻/リセット痕跡は素の列） |
 | loyalty_state | `(family_id)` | — | 1:0..1 従属（M2 §1.1、記念チケット数=点数経済外の第2通貨カウンタ D-LOYALTY） |
 | account_lifecycle | `(family_id)` | — | 1:1 従属（M2 §1.1、状態機械 active/soft-deleted/purged、猶予プラン層→plan_tiers 論理 FK） |
@@ -427,12 +428,7 @@ DSQL は **1 txn = DDL 1 文・DDL/DML 混在不可**（spike#1）。よって:
 4. `sys.jobs`（job=`completed`）/ `pg_index.indisvalid=true` で **全 index が valid を確認**（F1 実機: dup が残ると job=`failed`・indisvalid=false で**沈黙縮退**＝query 加速されないまま、しかも新 dup 書込は依然 `23505` で制約される）。INVALID なら dedup して drop→再作成。
 5. 接続は IAM トークン、ASYNC index build 完了待ちを CDK/migration に組込。
    - **レイテンシモデル（一次ソース: re:Invent 2025 DAT439 / spike#8 実測）**: 初回**接続確立 ~1.45s（spike#8: connect 562ms + 初回クエリ）**は Firecracker cold start でなく接続パス（SNI→Relay TLS→IAM トークン検証→placement AZ-local QP 割当→sandbox TLS 移行）。DSQL は warm pool 数百 microVM + Snapstart(CoW) で **compute cold start は実質ゼロ**。**確立済み接続の 2 回目以降は warm 高速**（spike#8 はローカル日本→東京から測定＝**client RTT を含む上限値** read p50 ~15ms / write p50 ~24ms。本番の Lambda→DSQL 同一 AZ は client RTT がほぼ消えるため AWS 公表の **local read ~1.2ms / single-digit ms** に近づく＝spike 値より速い）。**接続確立コスト（cold 562ms / reconnect 99ms）は TLS+IAM+placement の接続パス由来で client RTT 依存が小さく、本番でも同程度**（＝connect は path-bound、query は RTT-bound）。**Lambda 実務**: DB client を handler 外生成し warm コンテナで接続再利用→warm 高速。ただし **IAM トークン寿命 1h・接続 age 上限 1h** ゆえ長寿命 warm コンテナは期限/切断を検知して再接続（再接続時は再び接続パスコスト、トークン再生成は SigV4 相当でローカル軽量）。
-6. **⚠️ 非 repo DynamoDB アクセスの完全一覧（N3、scope integrity）**: DynamoDB SDK 使用は全 40 file。36 は `db/dynamodb/` 抽象化レイヤ内（撤去対象）だが、**4 file が抽象化の外に散在**（grep 実測 2026-07-01、DynamoDB アクセスが repo 統一クラスを経ていない残存）:
-   - `src/lib/analytics/providers/dynamo.ts` — analytics event の独自 DynamoDB writer（DB 層と別系統）
-   - `src/lib/server/services/analytics-aggregate-service.ts` — **service 層から DynamoDB を直接 QueryCommand/Put**（`ANALYTICS_AGG#<date>` 集計、repo を経ない散在アクセス）
-   - `src/lib/server/db/probe.ts` — DynamoDB 接続 probe（health/ops、backend 切替で置換/撤去）
-   - `src/lib/server/db/migration/writeback.ts` — migration hydrate writeback（移管ツーリング、撤去対象）
-   → **Phase Z（#3438）は `db/dynamodb/` 39 file だけでなくこの 4 file も scope に含める**。特に analytics 2 file は「DynamoDB 全撤去なら保存先を確定（DSQL 新表 / 別マネージドサービス / noop）」の product 判断が要る。撤去 issue の AC に本 4 file の DynamoDB SDK grep-zero 検証を課し「依存の silent 残存」を防ぐ。
+6. **非 repo DynamoDB アクセス（N3、scope integrity）**: DynamoDB SDK の残存は **リポジトリ全体（`src/` / `tests/` / `scripts/` / `infra/`）で 0 file**（#3438 Phase 3 で完了）。#3805 で analytics 系 2 file（`analytics/providers/dynamo.ts` + `analytics-aggregate-service.ts`）を撤去し on-demand 集計へ載せ替え、#3438 Phase 3-code で probe（DynamoDB 接続 probe）+ migration hydrate writeback を撤去、Phase 3-infra で tooling（`tests/e2e/global-teardown-aws.ts` の SDK 直削除経路 = Cognito 削除のみへ縮退・seed script 廃止）+ infra DynamoDB table 本体を撤去した。regression guard は `tests/unit/architecture/db-access-boundary.test.ts`（`src/` からの `@aws-sdk/*-dynamodb` import 0 を機械強制）が担う。**`@aws-sdk/client-dynamodb` / `@aws-sdk/lib-dynamodb` deps は package.json から撤去済**（実 import 元 0）。infra DynamoDB table 本体は prod removalPolicy=RETAIN のため CDK 管理から外れる（orphan、データ保全）。物理削除は別 ops 手順。
 
 ### §12.2 NUC(SQLite) cutover 移行機構（単一経路に確定、I-4）
 

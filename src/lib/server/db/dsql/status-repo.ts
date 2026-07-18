@@ -23,7 +23,7 @@ import type { IStatusRepo } from '../interfaces/status-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { MarketBenchmark, Status, StatusHistoryEntry } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface StatusRow {
@@ -200,7 +200,11 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 
 		async findChildById(id, tenantId) {
 			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
-			if (!isUuidFormat(id)) return undefined;
+			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('status-repo.findChildById');
+				return undefined;
+			}
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children
 				WHERE family_id = ${tenantId} AND child_id = ${id}
@@ -221,6 +225,22 @@ export function createDsqlStatusRepo<TTx extends SqlExecutor>(
 				category: r.activity_id,
 				lastDate: r.last_date,
 			}));
+		},
+
+		async deleteStatusHistoryBeforeDate(childId, cutoffDate, tenantId) {
+			// #3518-2 retention: cutoffDate (YYYY-MM-DD) 当日 0:00 前の status_history を削除。
+			// point-repo.deletePointLedgerBeforeDate と同じ CTE count 契約 — 削除行を DB 側 count(*) 集約し、
+			// 返すのは単一スカラのみ (長期利用 child の大量履歴で全 hist_id を client に materialize しない)。
+			const deleted = await db.execute(sql`
+				WITH deleted AS (
+					DELETE FROM status_history
+					WHERE family_id = ${tenantId} AND child_id = ${childId}
+						AND recorded_at < ${cutoffDate}::timestamptz
+					RETURNING 1
+				)
+				SELECT count(*)::int AS c FROM deleted
+			`);
+			return Number((deleted.rows[0] as { c: number }).c);
 		},
 
 		async deleteByTenantId(tenantId) {

@@ -40,6 +40,7 @@ const mockFindAllChildren = vi.fn();
 const mockDeleteActivityLogsBeforeDate = vi.fn();
 const mockDeletePointLedgerBeforeDate = vi.fn();
 const mockDeleteLoginBonusesBeforeDate = vi.fn();
+const mockDeleteStatusHistoryBeforeDate = vi.fn(); // #3518-2
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -57,6 +58,9 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 		loginBonus: {
 			deleteLoginBonusesBeforeDate: mockDeleteLoginBonusesBeforeDate,
+		},
+		status: {
+			deleteStatusHistoryBeforeDate: mockDeleteStatusHistoryBeforeDate,
 		},
 	}),
 }));
@@ -92,6 +96,7 @@ beforeEach(() => {
 	mockDeleteActivityLogsBeforeDate.mockResolvedValue(0);
 	mockDeletePointLedgerBeforeDate.mockResolvedValue(0);
 	mockDeleteLoginBonusesBeforeDate.mockResolvedValue(0);
+	mockDeleteStatusHistoryBeforeDate.mockResolvedValue(0);
 });
 
 // ==========================================================
@@ -132,6 +137,8 @@ describe('cleanupExpiredData - プランティア別', () => {
 		expect(mockDeleteActivityLogsBeforeDate).not.toHaveBeenCalled();
 		expect(mockDeletePointLedgerBeforeDate).not.toHaveBeenCalled();
 		expect(mockDeleteLoginBonusesBeforeDate).not.toHaveBeenCalled();
+		// #3518-2: family (無制限) は status_history も剪定しない
+		expect(mockDeleteStatusHistoryBeforeDate).not.toHaveBeenCalled();
 	});
 
 	it('free プラン → 90 日前より古いデータを削除', async () => {
@@ -146,6 +153,7 @@ describe('cleanupExpiredData - プランティア別', () => {
 		mockDeleteActivityLogsBeforeDate.mockResolvedValue(10);
 		mockDeletePointLedgerBeforeDate.mockResolvedValue(5);
 		mockDeleteLoginBonusesBeforeDate.mockResolvedValue(3);
+		mockDeleteStatusHistoryBeforeDate.mockResolvedValue(40); // #3518-2: daily decay 由来の最大母数
 
 		const result = await cleanupExpiredData();
 
@@ -155,6 +163,14 @@ describe('cleanupExpiredData - プランティア別', () => {
 		expect(result.activityLogsDeleted).toBe(20);
 		expect(result.pointLedgerDeleted).toBe(10);
 		expect(result.loginBonusesDeleted).toBe(6);
+		// #3518-2: 2 children × 40 = 80、cutoffDate + tenantId で呼ばれる
+		expect(result.statusHistoryDeleted).toBe(80);
+		expect(mockDeleteStatusHistoryBeforeDate).toHaveBeenCalledTimes(2);
+		const shCall = mockDeleteStatusHistoryBeforeDate.mock.calls[0];
+		if (!shCall) throw new Error('no status history call recorded');
+		expect(shCall[0]).toBe('1'); // childId
+		expect(shCall[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/); // cutoffDate
+		expect(shCall[2]).toBe('t-free'); // tenantId
 
 		// cutoffDate が 90 日前近辺であることを確認（範囲で）
 		expect(mockDeleteActivityLogsBeforeDate).toHaveBeenCalledTimes(2);
@@ -214,6 +230,8 @@ describe('cleanupExpiredData - dry-run', () => {
 		expect(mockDeleteActivityLogsBeforeDate).not.toHaveBeenCalled();
 		expect(mockDeletePointLedgerBeforeDate).not.toHaveBeenCalled();
 		expect(mockDeleteLoginBonusesBeforeDate).not.toHaveBeenCalled();
+		// #3518-2: dryRun は status_history も削除しない
+		expect(mockDeleteStatusHistoryBeforeDate).not.toHaveBeenCalled();
 	});
 });
 

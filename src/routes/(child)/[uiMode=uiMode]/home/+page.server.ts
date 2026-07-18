@@ -2,6 +2,11 @@ import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
+import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
+import {
+	areValidUuidFormFields,
+	isValidUuidFormField,
+} from '$lib/server/auth/child-form-field-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -18,7 +23,6 @@ import {
 	getChildActivities,
 	tryGrantMustCompletionBonus,
 } from '$lib/server/services/activity-service';
-import { trackActivationFirstRewardSeen } from '$lib/server/services/analytics-service';
 import {
 	claimBirthdayBonus,
 	getBirthdayBonusStatus,
@@ -293,10 +297,16 @@ export const actions: Actions = {
 	record: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.record'));
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 
 		if (!childId || !activityId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id) へ
+		// 直達し 22P02 → 500 になる CWE-20 を trust 境界で断つ (自己誘発改竄なので 400 正規化)。
+		if (!isValidUuidFormField(activityId, 'route.home.record.activityId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -309,12 +319,6 @@ export const actions: Actions = {
 				return fail(409, { error: 'きょうはこれいじょうきろくできないよ' });
 			}
 			return fail(404, { error: 'みつかりません' });
-		}
-
-		// #831: Activation Funnel Step 4 — 報酬演出（レベルアップ時）
-		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
-		if (result.levelUp) {
-			trackActivationFirstRewardSeen(tenantId, 'level_up');
 		}
 
 		return {
@@ -339,10 +343,16 @@ export const actions: Actions = {
 	cancelRecord: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.cancelRecord'));
 		const logId = formIdString(formData.get('logId'));
 
 		if (!childId || !logId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 logId が dsql の uuid 列 (activity_logs.log_id) へ直達し
+		// 22P02 → 500 になる CWE-20 を trust 境界で断つ。
+		if (!isValidUuidFormField(logId, 'route.home.cancelRecord.logId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -359,7 +369,8 @@ export const actions: Actions = {
 
 	claimBonus: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBonus'));
 		if (!childId) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
@@ -386,7 +397,10 @@ export const actions: Actions = {
 	/** Unified login stamp: records login + stamps card + auto-redeems previous week */
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
+		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
+		// なる CWE-20 を trust 境界で断つ)。非 dsql (demo/anonymous 等) では空文字を返し下記 no-op 契約を保持。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.loginStamp'));
 		// Issue #2097 B-14a: anonymous / demo flow without selectedChildId cookie is expected.
 		// Previously returned fail(400) which triggered client retry storm (17-52 retries observed).
 		// Return a successful no-op shape so client skips stampPress transition without retrying.
@@ -428,12 +442,6 @@ export const actions: Actions = {
 			weeklyRedeem = null;
 		}
 
-		// #831: Activation Funnel Step 4 — 報酬演出（スタンプ押印成功時）
-		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
-		if (stamp) {
-			trackActivationFirstRewardSeen(tenantId, 'stamp');
-		}
-
 		return {
 			success: true,
 			loginStamp: true,
@@ -451,11 +459,17 @@ export const actions: Actions = {
 	togglePin: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.togglePin'));
 		const activityId = asActivityId(formIdString(formData.get('activityId')));
 		const pinned = formData.get('pinned') === 'true';
 
 		if (!childId || !activityId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 activityId が dsql の uuid 列 (child_activities.activity_id /
+		// child_activity_preferences.activity_id) へ直達し 22P02 になる CWE-20 を trust 境界で断つ。
+		if (!isValidUuidFormField(activityId, 'route.home.togglePin.activityId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -470,7 +484,10 @@ export const actions: Actions = {
 
 	stampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化
+		// (stampToday → getOrCreateCurrentCard → findCardByChildAndWeek へ生 id が直達し 22P02 → 500 に
+		// なる CWE-20 を trust 境界で断つ)。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.stampCard'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await stampToday(childId, tenantId);
@@ -486,10 +503,6 @@ export const actions: Actions = {
 			return fail(400, { error: 'スタンプをおせませんでした' });
 		}
 
-		// #831: Activation Funnel Step 4 — 報酬演出（スタンプ押印成功時）
-		// NOTE: 初回判定は集計層で dedup（Step 2/3 とは異なるアプローチ）
-		trackActivationFirstRewardSeen(tenantId, 'stamp');
-
 		return {
 			success: true,
 			stampName: result.stamp.name,
@@ -500,7 +513,8 @@ export const actions: Actions = {
 
 	redeemStampCard: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.redeemStampCard'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await redeemStampCard(childId, tenantId);
@@ -520,7 +534,8 @@ export const actions: Actions = {
 
 	claimBirthday: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.claimBirthday'));
 		if (!childId) return fail(400, { error: 'パラメータが不正です' });
 
 		const result = await claimBirthdayBonus(childId, tenantId);
@@ -545,10 +560,19 @@ export const actions: Actions = {
 	claimChallengeReward: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.claimChallengeReward'),
+		);
 		const challengeId = formIdString(formData.get('challengeId'));
 
 		if (!childId || !challengeId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 challengeId が dsql の uuid 列 (child_challenges.challenge_id) へ
+		// 直達し 22P02 になる CWE-20 を trust 境界で断つ。下の try/catch は 22P02 を握り潰し
+		// 生 err.message を fail(400) に載せる (ADR-0062 内部例外 leak) ため、事前 guard で防ぐ。
+		if (!isValidUuidFormField(challengeId, 'route.home.claimChallengeReward.challengeId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -573,11 +597,19 @@ export const actions: Actions = {
 	sendCheer: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
-		const childId = asChildId(cookies.get('selectedChildId') ?? '');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.sendCheer'));
 		const toChildId = asChildId(formIdString(formData.get('toChildId')));
 		const stampCode = formData.get('stampCode')?.toString() ?? '';
 
 		if (!childId || !toChildId || !stampCode) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799 (確定残渣): form-field 由来 toChildId が sendCheer → insertCheer の
+		// `JOIN children ct ON ct.child_id = ${toChildId}` (dsql uuid 列) へ無 guard 直達し、
+		// 非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。fromChildId は
+		// requireValidChildCookieFormat で cookie guard 済のため、残る form-field toChildId を検証する。
+		if (!isValidUuidFormField(toChildId, 'route.home.sendCheer.toChildId')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
@@ -599,6 +631,11 @@ export const actions: Actions = {
 			.filter((v) => v !== '');
 
 		if (cheerIds.length === 0) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799: form-field 由来 cheerIds が markShown の `cheer_id IN (${...})` (dsql uuid 列) へ
+		// 無 guard 直達し、非 uuid で 22P02 → uncaught → 500 になる CWE-20 を trust 境界で断つ。
+		if (!areValidUuidFormFields(cheerIds, 'route.home.markCheersShown.cheerIds')) {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 

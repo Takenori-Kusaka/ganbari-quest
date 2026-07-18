@@ -54,12 +54,11 @@ const envSchema = z.object({
 	COGNITO_LOGOUT_URL: z.string().url().optional(),
 
 	// ----- AWS -----
+	// #3438 (EPIC #3424): DynamoDB → Aurora DSQL 移管完了に伴い DynamoDB 系 env
+	// (DYNAMODB_TABLE / DYNAMODB_TABLE_NAME / TABLE_NAME / DYNAMODB_ENDPOINT) を撤去。
+	// DB backend は DSQL / PGlite / SQLite (DATA_SOURCE で選択、下記 Database 節)。
 	AWS_REGION: z.string().default('us-east-1'),
 	AWS_LAMBDA_FUNCTION_NAME: z.string().optional(),
-	DYNAMODB_TABLE: z.string().optional(),
-	DYNAMODB_TABLE_NAME: z.string().optional(),
-	TABLE_NAME: z.string().optional(),
-	DYNAMODB_ENDPOINT: z.string().url().optional(),
 	ASSETS_BUCKET: z.string().optional(),
 
 	// ----- Database -----
@@ -71,7 +70,8 @@ const envSchema = z.object({
 	// EPIC #3620 (ADR-0064 案 C): DATA_SOURCE='pglite' を追加。NUC を組込 Postgres (PGlite) で
 	//   駆動し dsql (pg-core) schema + repos を verbatim 再利用する (dialect 税ゼロ)。cutover まで
 	//   既定は 'sqlite' のまま (旧 NUC 実装)、切替は factory.ts + db/pglite/connection.ts で行う。
-	DATA_SOURCE: z.enum(['sqlite', 'dynamodb', 'demo', 'dsql', 'pglite']).default('sqlite'),
+	// #3438 Phase 2B: 'dynamodb' は cutover 完了により enum から撤去 (DynamoDB backend 選択不可)。
+	DATA_SOURCE: z.enum(['sqlite', 'demo', 'dsql', 'pglite']).default('sqlite'),
 	SCHEMA_VALIDATION_MODE: z.enum(['warn', 'strict']).optional(),
 	// EPIC #3424 M4-B② 接続層: Aurora DSQL cluster 接続情報 (DATA_SOURCE=dsql のとき必須)。
 	//   DSQL_ENDPOINT = CDK GetAtt attrEndpoint (`<id>.dsql.<region>.on.aws`) を Lambda env へ注入。
@@ -135,13 +135,6 @@ const envSchema = z.object({
 	BEDROCK_MODEL_ID: z.string().default('us.anthropic.claude-haiku-4-5-20251001-v1:0'),
 	BEDROCK_REGION: z.string().optional(),
 	BEDROCK_DISABLED: booleanStringSchema,
-
-	// ----- Analytics (#1591 / ADR-0023 I2) -----
-	// AWS 内完結 (DynamoDB) のみ。umami / Sentry は #1591 で削除済み。
-	// 外部 SaaS analytics を再導入する場合は ADR-0023 §3.4 ホワイトリストの更新と
-	// ADR-0010 過剰防衛禁止の照らし合わせを先に行うこと。
-	ANALYTICS_ENABLED: booleanStringSchema,
-	ANALYTICS_TABLE_NAME: z.string().optional(),
 
 	// ----- Context Token -----
 	CONTEXT_TOKEN_SECRET: z.string().optional(),

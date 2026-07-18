@@ -4,13 +4,13 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import type * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
-import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -18,7 +18,6 @@ import type { Construct } from 'constructs';
 
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
-	table: dynamodb.TableV2;
 	distribution: cloudfront.Distribution;
 	/**
 	 * #1214: health-check Lambda が叩くターゲット URL を Function URL に直結するため。
@@ -29,6 +28,11 @@ export interface OpsStackProps extends cdk.StackProps {
 	 * #1376 AC6: cron dispatcher Lambda のエラーを CloudWatch Alarm で通知するため。
 	 */
 	cronDispatcherFn?: lambda.Function;
+	/**
+	 * #3402-1: staticAssetsS3Offload=true 時のみ生成される immutable アセット S3 origin bucket。
+	 * 指定時のみ S3 origin 専用 4xx/5xx alarm を作成する (offload OFF = undefined = alarm も cost も無し)。
+	 */
+	staticAssetsBucket?: s3.Bucket;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
 }
@@ -110,40 +114,9 @@ export class OpsStack extends cdk.Stack {
 		});
 		lambdaConcurrency.addAlarmAction(alarmAction);
 
-		// P1: DynamoDB Throttled Requests
-		const dynamoThrottles = new cloudwatch.Alarm(this, 'DynamoDBThrottles', {
-			alarmName: 'ganbari-quest-dynamodb-throttles',
-			alarmDescription: 'DynamoDB スロットリング: 5分間に1回以上',
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/DynamoDB',
-				metricName: 'ThrottledRequests',
-				dimensionsMap: { TableName: props.table.tableName! },
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 1,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		dynamoThrottles.addAlarmAction(alarmAction);
-
-		// P0: DynamoDB System Errors
-		const dynamoSystemErrors = new cloudwatch.Alarm(this, 'DynamoDBSystemErrors', {
-			alarmName: 'ganbari-quest-dynamodb-system-errors',
-			alarmDescription: 'DynamoDB システムエラー: 5分間に1回以上',
-			metric: new cloudwatch.Metric({
-				namespace: 'AWS/DynamoDB',
-				metricName: 'SystemErrors',
-				dimensionsMap: { TableName: props.table.tableName! },
-				period: cdk.Duration.minutes(5),
-				statistic: 'Sum',
-			}),
-			threshold: 1,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-		});
-		dynamoSystemErrors.addAlarmAction(alarmAction);
-		dynamoSystemErrors.addOkAction(alarmAction);
+		// #3438 (EPIC #3424): DynamoDB alarms (Throttles / SystemErrors / ConsumedCapacity) を撤去。
+		// DB backend は Aurora DSQL に一本化済で DynamoDB table は存在しない (metric の TableName が
+		// 指す table が無く常時 empty)。DSQL の監視は DsqlStack が担う。
 
 		// P0: Lambda Function URL 5xx (used as API Gateway proxy)
 		const lambdaUrl5xx = new cloudwatch.Alarm(this, 'LambdaUrl5xx', {
@@ -201,37 +174,6 @@ export class OpsStack extends cdk.Stack {
 		cf5xx.addAlarmAction(alarmAction);
 		cf5xx.addOkAction(alarmAction);
 
-		// P1: DynamoDB Consumed Capacity (RCU+WCU combined, hourly)
-		// 無料枠10アラームの最後の1枠を使用（9→10）
-		const dynamoConsumedCapacity = new cloudwatch.Alarm(this, 'DynamoDBConsumedCapacity', {
-			alarmName: 'ganbari-quest-dynamodb-consumed-capacity',
-			alarmDescription: 'DynamoDB 消費容量（RCU+WCU）が1時間で10,000を超過。クエリループの可能性',
-			metric: new cloudwatch.MathExpression({
-				expression: 'rcu + wcu',
-				usingMetrics: {
-					rcu: new cloudwatch.Metric({
-						namespace: 'AWS/DynamoDB',
-						metricName: 'ConsumedReadCapacityUnits',
-						dimensionsMap: { TableName: props.table.tableName! },
-						period: cdk.Duration.hours(1),
-						statistic: 'Sum',
-					}),
-					wcu: new cloudwatch.Metric({
-						namespace: 'AWS/DynamoDB',
-						metricName: 'ConsumedWriteCapacityUnits',
-						dimensionsMap: { TableName: props.table.tableName! },
-						period: cdk.Duration.hours(1),
-						statistic: 'Sum',
-					}),
-				},
-				period: cdk.Duration.hours(1),
-			}),
-			threshold: 10000,
-			evaluationPeriods: 1,
-			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
-		});
-		dynamoConsumedCapacity.addAlarmAction(alarmAction);
-
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)
 		// CronDispatcherFn が prop として渡された場合のみアラームを作成する（最小構成）
 		if (props.cronDispatcherFn) {
@@ -246,6 +188,56 @@ export class OpsStack extends cdk.Stack {
 				});
 			cronDispatcherErrors.addAlarmAction(alarmAction);
 			cronDispatcherErrors.addOkAction(alarmAction);
+		}
+
+		// P1: 静的アセット S3 origin 4xx/5xx (#3402-1, ADR-0024 ルール D)
+		// staticAssetsS3Offload=true で /_app/immutable/* を S3(OAC) から配信するとき、部分 upload 失敗 /
+		// OAC 誤設定で S3 が 4xx/5xx を返し、親画面 JS チャンクが欠落して白画面化しうる。既存の
+		// distribution-level CloudFront5xx alarm は S3 origin の 4xx (403/404) を捉えられないため、S3
+		// request metrics (AWS/S3 4xxErrors/5xxErrors) を直接監視して misconfig を継続検知する
+		// (deploy 後の post-deploy smoke を transitive にしか検出しない gap を埋める)。bucket が渡された
+		// とき (= offload 有効時) のみ作成し、offload OFF では alarm も監視 cost も発生させない。
+		if (props.staticAssetsBucket) {
+			const s3OriginDims = {
+				BucketName: props.staticAssetsBucket.bucketName,
+				FilterId: 'EntireBucket',
+			};
+			const staticS3_4xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin4xx', {
+				alarmName: 'ganbari-quest-static-assets-s3-4xx',
+				alarmDescription:
+					'静的アセット S3 origin 4xx (OAC 誤設定 / 部分 upload 欠落): 5分間に10回以上 (#3402)',
+				metric: new cloudwatch.Metric({
+					namespace: 'AWS/S3',
+					metricName: '4xxErrors',
+					dimensionsMap: s3OriginDims,
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 10,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			staticS3_4xx.addAlarmAction(alarmAction);
+			staticS3_4xx.addOkAction(alarmAction);
+
+			const staticS3_5xx = new cloudwatch.Alarm(this, 'StaticAssetsS3Origin5xx', {
+				alarmName: 'ganbari-quest-static-assets-s3-5xx',
+				alarmDescription: '静的アセット S3 origin 5xx (S3 障害): 5分間に5回以上 (#3402)',
+				metric: new cloudwatch.Metric({
+					namespace: 'AWS/S3',
+					metricName: '5xxErrors',
+					dimensionsMap: s3OriginDims,
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 5,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			staticS3_5xx.addAlarmAction(alarmAction);
+			staticS3_5xx.addOkAction(alarmAction);
 		}
 
 		// ================================================================
@@ -292,33 +284,13 @@ export class OpsStack extends cdk.Stack {
 						],
 						width: 12,
 					}),
-					new cloudwatch.GraphWidget({
-						title: 'DynamoDB — Read/Write Capacity',
-						left: [
-							new cloudwatch.Metric({
-								namespace: 'AWS/DynamoDB',
-								metricName: 'ConsumedReadCapacityUnits',
-								dimensionsMap: { TableName: props.table.tableName! },
-								period: cdk.Duration.minutes(5),
-								statistic: 'Sum',
-								label: 'Read CU',
-							}),
-							new cloudwatch.Metric({
-								namespace: 'AWS/DynamoDB',
-								metricName: 'ConsumedWriteCapacityUnits',
-								dimensionsMap: { TableName: props.table.tableName! },
-								period: cdk.Duration.minutes(5),
-								statistic: 'Sum',
-								label: 'Write CU',
-							}),
-						],
-						width: 12,
-					}),
 				],
 				[
 					new cloudwatch.SingleValueWidget({
 						title: 'Alarm Status',
-						metrics: [lambdaErrors.metric, dynamoSystemErrors.metric, lambdaUrl5xx.metric],
+						// #3438: DynamoDB — Read/Write Capacity widget + dynamoSystemErrors metric を撤去
+						// (DB backend は DSQL に一本化、DynamoDB table 無し)。
+						metrics: [lambdaErrors.metric, lambdaUrl5xx.metric],
 						width: 24,
 					}),
 				],
@@ -382,7 +354,8 @@ export class OpsStack extends cdk.Stack {
 				source: ['aws.health'],
 				detailType: ['AWS Health Event'],
 				detail: {
-					service: ['LAMBDA', 'DYNAMODB', 'CLOUDFRONT', 'COGNITO', 'S3'],
+					// #3438: DYNAMODB を除去 (DB backend は DSQL に一本化)。
+					service: ['LAMBDA', 'CLOUDFRONT', 'COGNITO', 'S3'],
 					eventTypeCategory: ['issue', 'scheduledChange'],
 				},
 			},

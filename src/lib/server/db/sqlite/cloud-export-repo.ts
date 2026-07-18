@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { cloudExports } from '../schema';
 import type {
@@ -47,6 +47,22 @@ export async function findById(
 
 export async function insert(input: InsertCloudExportInput): Promise<CloudExportRecord> {
 	const now = new Date().toISOString();
+	// #3574 ①: expire-then-purge (DSQL backend と parity)。pin_code は expire 後の値再利用が前提だが
+	// UNIQUE(pin_code) のため、自 tenant の dead 旧行 (期限切れ or DL 上限到達) が同 pin を占有したまま
+	// 再発行すると UNIQUE 衝突で沈黙失敗する。挿入前に自 tenant の再利用可能な旧行を purge する
+	// (live 行が占有していれば purge 対象外 → UNIQUE 衝突が surface = 2 live 行防止は維持)。
+	db.delete(cloudExports)
+		.where(
+			and(
+				eq(cloudExports.tenantId, input.tenantId),
+				eq(cloudExports.pinCode, input.pinCode),
+				or(
+					lt(cloudExports.expiresAt, now),
+					sql`${cloudExports.downloadCount} >= ${cloudExports.maxDownloads}`,
+				),
+			),
+		)
+		.run();
 	const row = db
 		.insert(cloudExports)
 		.values({
@@ -90,6 +106,32 @@ export async function updateStatus(
 		.set(patch)
 		.where(and(eq(cloudExports.id, Number(id)), eq(cloudExports.tenantId, tenantId)))
 		.run();
+}
+
+/**
+ * #3522: pending → building の CAS claim (楽観ロック)。`status='pending'` 条件付き UPDATE で、
+ * 遷移できた (`changes === 1`) 場合のみ true を返す。複数 worker が同一レコードを掴んでも
+ * SQLite の単一 writer 直列化により 1 worker だけが 1 行更新し他は 0 行更新 (false) になるため、
+ * 二重 build を防げる。'building' 遷移なので buildStartedAt=now / failureReason=null も確定する
+ * (updateStatus('building') と同じ副次値)。
+ */
+export async function claimForBuild(id: string, tenantId: string): Promise<boolean> {
+	const result = db
+		.update(cloudExports)
+		.set({
+			status: 'building',
+			buildStartedAt: new Date().toISOString(),
+			failureReason: null,
+		})
+		.where(
+			and(
+				eq(cloudExports.id, Number(id)),
+				eq(cloudExports.tenantId, tenantId),
+				eq(cloudExports.status, 'pending'),
+			),
+		)
+		.run();
+	return result.changes === 1;
 }
 
 /** #3504: build 待ち (status='pending') を tenant 横断で createdAt asc に最大 limit 件返す。 */

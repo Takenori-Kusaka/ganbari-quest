@@ -5,6 +5,7 @@ import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
 import { deriveShopCategory } from '$lib/domain/shop-category';
+import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
@@ -67,7 +68,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 export const actions: Actions = {
 	requestExchange: async ({ request, locals, cookies }) => {
 		const tenantId = requireTenantId(locals);
-		const childIdStr = cookies.get('selectedChildId');
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childIdStr = requireValidChildCookieFormat(cookies, 'route.shop.requestExchange');
 		if (!childIdStr) return fail(400, { error: 'こどもが選択されていません' });
 		const child = await getChildById(asChildId(childIdStr), tenantId);
 		if (!child) return fail(400, { error: 'こどもが選択されていません' });

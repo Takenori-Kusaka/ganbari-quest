@@ -33,7 +33,7 @@ export const CARD_SIZE_CSS: Record<
  * #2148 (γ 採用、業界 prior art 7/7 整合): 子供画面では `collapsible` は常に false 固定。
  * `ProdDashboardSections.svelte` 側でも `collapsible={false}` を明示しているため、
  * ここで `true` を返すと意味のないデフォルトとして混乱の元となるため `false` で統一する。
- * 詳細: docs/reference/07-research-child-collapsible-prior-art.md
+ * 詳細: docs/research/07-research-child-collapsible-prior-art.md
  */
 export function getDefaultDisplayConfig(age: number): DisplayConfig {
 	if (age <= 2) {

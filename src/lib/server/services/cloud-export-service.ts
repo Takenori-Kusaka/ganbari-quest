@@ -9,7 +9,7 @@ import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
-import { exportFamilyData } from '$lib/server/services/export-service';
+import { exportFamilyDataForZip } from '$lib/server/services/export-service';
 import {
 	getPlanLimits,
 	type PlanTier,
@@ -155,10 +155,11 @@ async function buildTemplateExportData(tenantId: string): Promise<CloudExportArt
  * クラウド完全復元（画像込み）を可能にする。ブラウザ DL を介さないため Safe Browsing 警告も発生しない。
  */
 async function buildFullExportData(tenantId: string): Promise<CloudExportArtifact> {
-	const exportData = await exportFamilyData({ tenantId });
+	// #3518-1: checksum 計算に使った直列化文字列を data.json に流用し二重 JSON.stringify を解消する。
+	const { exportData, dataJson } = await exportFamilyDataForZip({ tenantId });
 	const childCount = exportData.family.children.length;
 	const logCount = exportData.data.activityLogs?.length ?? 0;
-	const zipBytes = await buildFullBackupZip(tenantId, exportData, false);
+	const zipBytes = await buildFullBackupZip(tenantId, exportData, false, dataJson);
 	const description = `フルバックアップ（子供${childCount}人、ログ${logCount}件、画像同梱）`;
 	return {
 		bytes: zipBytes,
@@ -307,6 +308,12 @@ export async function reclaimStaleBuildingExports(
  * limit 件で 30 秒 (アプリ Lambda timeout) を超えうるため、build 間で時間予算を確認し、
  * 予算超過時は残りを build せず次回実行 (5 分毎 cron) に持ち越す (`skipped` で報告)。
  * 予算内に着手した build は完走させる (中断すると #3509 の stale 'building' を自ら量産するため)。
+ *
+ * #3522 (dual-cron 楽観ロック): pending → building は `claimForBuild` の CAS で掴む。dual-cron
+ * (AWS cron-dispatcher + NUC scheduler) や同一 job の重複起動下で複数 worker が同一 pending を
+ * `findPendingBuilds` で拾いうるため、claim に失敗した (別 worker が先取得済み) レコードは
+ * 二重 build せず skip する (contended としてログ可視化)。従来の `updateStatus('building')` は
+ * claim が兼ねるため撤去した (二重 write 回避 + building 遷移の単一化)。
  */
 export async function drainPendingExports(
 	limit = 5,
@@ -318,14 +325,24 @@ export async function drainPendingExports(
 	let ready = 0;
 	let failed = 0;
 	let attempted = 0;
+	let contended = 0;
 
 	for (const record of pending) {
 		// #3695: 予算超過なら残りは次回 5 分毎 cron が拾う (pending のまま残す)。
 		if (budget.exceeded()) break;
-		attempted++;
 		const { id, tenantId, exportType, s3Key } = record;
+		// #3522: pending → building を CAS で claim。別 worker が先に掴んでいれば false (二重 build 回避)。
+		const claimed = await repos.cloudExport.claimForBuild(id, tenantId);
+		if (!claimed) {
+			contended++;
+			logger.info('[cloud-export] pending を別 worker が先取得したため二重 build を回避 (skip)', {
+				context: { id, tenantId, exportType },
+			});
+			continue;
+		}
+		attempted++;
 		try {
-			await repos.cloudExport.updateStatus(id, tenantId, 'building');
+			// claimForBuild が既に status='building' + buildStartedAt=now を確定済 (updateStatus('building') 不要)。
 			const artifact =
 				exportType === 'template'
 					? await buildTemplateExportData(tenantId)
@@ -356,11 +373,13 @@ export async function drainPendingExports(
 		}
 	}
 
-	const skipped = pending.length - attempted;
+	// #3522: 予算超過による持ち越し (skipped) と claim 敗退 (contended) は別事象。
+	// examined = attempted + contended。予算 break で未検査の残件が skipped (次回 cron が拾う)。
+	const skipped = pending.length - attempted - contended;
 	if (skipped > 0) {
 		// #3695: silent 持ち越し禁止 (ADR-0006 整合) — 持ち越し発生を必ずログに残す。
 		logger.warn('[cloud-export] drain 時間予算超過、残件を次回実行へ持ち越し', {
-			context: { skipped, attempted, limit, elapsedMs: budget.elapsedMs() },
+			context: { skipped, attempted, contended, limit, elapsedMs: budget.elapsedMs() },
 		});
 	}
 

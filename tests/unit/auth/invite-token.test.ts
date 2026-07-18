@@ -6,6 +6,7 @@
 
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { hashInviteCode, hashInviteSecret } from '../../../src/lib/server/auth/invite-code-hash';
 import {
 	generateInviteToken,
 	hashInviteToken,
@@ -65,6 +66,21 @@ describe('hashInviteToken', () => {
 
 	it('sha256 hex (64 chars 小文字) を返す', () => {
 		expect(hashInviteToken('any-token')).toMatch(SHA256_HEX_RE);
+	});
+});
+
+// #3588 ①: 招待秘密 hash の SSOT 統合。hashInviteToken / hashInviteCode は hashInviteSecret に
+// 委譲し、同一写像 (sha256 hex) であることを regression guard する。将来アルゴリズムを変えても
+// 片側更新漏れ (invite lookup 不整合) を構造的に起こさない。
+describe('hash SSOT 統合 (#3588 ①)', () => {
+	it('hashInviteToken / hashInviteCode / hashInviteSecret は同一写像', () => {
+		for (const input of ['', 'inv-abc', 'a'.repeat(43), '日本語コード', 'inv-0123-XYZ_-~']) {
+			const secret = hashInviteSecret(input);
+			expect(hashInviteToken(input)).toBe(secret);
+			expect(hashInviteCode(input)).toBe(secret);
+			// 独立に計算した sha256(input) hex とも一致 (アルゴリズム固定の contract)
+			expect(secret).toBe(createHash('sha256').update(input, 'utf8').digest('hex'));
+		}
 	});
 });
 

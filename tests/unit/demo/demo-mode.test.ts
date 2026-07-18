@@ -35,12 +35,12 @@ describe('resolveDemoActive(env) — ADR-0048 PR-B4 / #2189 env-only signature',
 	});
 
 	it('AUTH_MODE=cognito + DATA_SOURCE=sqlite → false (本番 Lambda、NUC local)', () => {
-		// AC6: ganbari-quest.com (本番 Cognito 認証 + sqlite/dynamodb) は当然 demo 扱いしない。
+		// AC6: ganbari-quest.com (本番 Cognito 認証 + sqlite/dsql) は当然 demo 扱いしない。
 		expect(resolveDemoActive(makeEnv('cognito', 'sqlite'))).toBe(false);
 	});
 
-	it('AUTH_MODE=cognito + DATA_SOURCE=dynamodb → false (本番 Lambda、Lambda + DynamoDB)', () => {
-		expect(resolveDemoActive(makeEnv('cognito', 'dynamodb'))).toBe(false);
+	it('AUTH_MODE=cognito + DATA_SOURCE=dsql → false (本番 Lambda、Aurora DSQL)', () => {
+		expect(resolveDemoActive(makeEnv('cognito', 'dsql'))).toBe(false);
 	});
 
 	it('AUTH_MODE=local + DATA_SOURCE=sqlite → false (npm run dev デフォルト)', () => {
@@ -54,9 +54,9 @@ describe('resolveDemoActive(env) — ADR-0048 PR-B4 / #2189 env-only signature',
 		expect(resolveDemoActive(makeEnv('anonymous', 'sqlite'))).toBe(false);
 	});
 
-	it('AUTH_MODE=anonymous + DATA_SOURCE=dynamodb → false (開発者 設定ミス 防止)', () => {
-		// 実 DynamoDB に対する no-op writer 化を防ぐ (同上)。
-		expect(resolveDemoActive(makeEnv('anonymous', 'dynamodb'))).toBe(false);
+	it('AUTH_MODE=anonymous + DATA_SOURCE=dsql → false (開発者 設定ミス 防止)', () => {
+		// 実 DSQL に対する no-op writer 化を防ぐ (同上)。
+		expect(resolveDemoActive(makeEnv('anonymous', 'dsql'))).toBe(false);
 	});
 
 	it('AUTH_MODE=cognito + DATA_SOURCE=demo → false (理論上ありえないが防御)', () => {

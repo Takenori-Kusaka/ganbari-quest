@@ -63,8 +63,9 @@ vi.mock('$lib/server/services/plan-limit-service', () => ({
 	checkFamilyMemberLimit: (...args: unknown[]) => mockCheckFamilyMemberLimit(...args),
 }));
 
+const mockLoggerWarn = vi.fn();
 vi.mock('$lib/server/logger', () => ({
-	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+	logger: { info: vi.fn(), warn: (...a: unknown[]) => mockLoggerWarn(...a), error: vi.fn() },
 }));
 
 const { POST: transferOwnership } = await import(
@@ -75,7 +76,7 @@ const { DELETE: deleteMember } = await import(
 );
 const { POST: createInvitePost } = await import('../../../src/routes/api/v1/admin/invites/+server');
 const { DELETE: revokeInviteDelete } = await import(
-	'../../../src/routes/api/v1/admin/invites/[code]/+server'
+	'../../../src/routes/api/v1/admin/invites/[id]/+server'
 );
 
 // ---------- helpers ----------
@@ -109,7 +110,7 @@ function createInviteCreateEvent(role: Role) {
 
 function createInviteRevokeEvent(role: Role) {
 	return {
-		params: { code: 'invite-code-1' },
+		params: { id: 'invite-code-1' },
 		locals: {
 			context: { tenantId: 't-test', role },
 			identity: { type: 'cognito', userId: 'u-caller' },
@@ -170,6 +171,66 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 			expect(res.status).toBe(403);
 			await expect(res.json()).resolves.toEqual({ error: 'owner のみ権限を移譲できます' });
 			expect(mockRepos.auth.updateTenantOwner).not.toHaveBeenCalled();
+		});
+
+		// #3552 ①: owner 不在化防止 — 移譲先が存在しなければ 404 で早期 return し role を触らない
+		it('移譲先メンバーが存在しなければ 404 + role 変更を一切行わない (owner 不在化防止)', async () => {
+			mockRepos.auth.findMembership.mockResolvedValueOnce(undefined);
+			const res = await transferOwnership(createEvent('owner'));
+			expect(res.status).toBe(404);
+			await expect(res.json()).resolves.toEqual({ error: '移譲先メンバーが見つかりません' });
+			expect(mockRepos.auth.deleteMembership).not.toHaveBeenCalled();
+			expect(mockRepos.auth.createMembership).not.toHaveBeenCalled();
+			expect(mockRepos.auth.updateTenantOwner).not.toHaveBeenCalled();
+		});
+
+		// #3552 ①: 「owner が常に 1 人以上残る」を操作順序で担保 — 新 owner 昇格を旧 owner 降格より
+		// 先に行い、中間状態で owner が 0 人になる window を作らない (fail-safe な順序)
+		it('新 owner の昇格を旧 owner の降格より先に実行する (owner 0 人 window の排除)', async () => {
+			await transferOwnership(createEvent('owner'));
+
+			// target (u-target) を owner に昇格する createMembership 呼び出し
+			const promoteOrder = mockRepos.auth.createMembership.mock.calls.findIndex(
+				([arg]) => arg.userId === 'u-target' && arg.role === 'owner',
+			);
+			// 旧 owner (u-caller) を降格するために先立って行う deleteMembership 呼び出し
+			const demoteDeleteOrder = mockRepos.auth.deleteMembership.mock.calls.findIndex(
+				([userId]) => userId === 'u-caller',
+			);
+			expect(promoteOrder).toBeGreaterThanOrEqual(0);
+			expect(demoteDeleteOrder).toBeGreaterThanOrEqual(0);
+
+			const promoteInvocation =
+				mockRepos.auth.createMembership.mock.invocationCallOrder[promoteOrder];
+			const demoteDeleteInvocation =
+				mockRepos.auth.deleteMembership.mock.invocationCallOrder[demoteDeleteOrder];
+			expect(promoteInvocation).toBeDefined();
+			expect(demoteDeleteInvocation).toBeDefined();
+			// 新 owner を owner に create してから、旧 owner の membership を delete する
+			expect(promoteInvocation as number).toBeLessThan(demoteDeleteInvocation as number);
+			// 最終的に新 owner が tenant owner に確定する
+			expect(mockRepos.auth.updateTenantOwner).toHaveBeenCalledWith('t-test', 'u-target');
+		});
+
+		// #3552 ②: role-mutation の 403 拒否は監査ログに残る (濫用試行の追跡)
+		it('parent の 403 拒否は監査ログ (logger.warn) に action / actor / target を残す', async () => {
+			await transferOwnership(createEvent('parent', { callerUserId: 'u-attacker' }));
+			expect(mockLoggerWarn).toHaveBeenCalledWith(
+				expect.stringContaining('owner-gate'),
+				expect.objectContaining({
+					context: expect.objectContaining({
+						action: 'members.transfer-ownership',
+						actorRole: 'parent',
+						actorUserId: 'u-attacker',
+						targetId: 'u-target',
+					}),
+				}),
+			);
+		});
+
+		it('owner 成功時は監査ログを残さない', async () => {
+			await transferOwnership(createEvent('owner'));
+			expect(mockLoggerWarn).not.toHaveBeenCalled();
 		});
 	});
 
@@ -250,7 +311,7 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 		});
 	});
 
-	describe('DELETE /api/v1/admin/invites/[code] (#3549 (a) 招待取消の owner 専用化)', () => {
+	describe('DELETE /api/v1/admin/invites/[id] (#3549 (a) 招待取消の owner 専用化)', () => {
 		beforeEach(() => {
 			mockRevokeInvite.mockResolvedValue(undefined);
 		});

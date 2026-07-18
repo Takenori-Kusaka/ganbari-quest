@@ -326,12 +326,26 @@ EPIC #2362 P1 Phase 1 で導入された Valibot schema SSOT。`src/lib/marketpl
 
 ### 9.3 `checklist` (`ChecklistPayloadSchema`)
 
+値域は domain 層 SSOT 定数 (`src/lib/domain/validation/checklist.ts` の `CHECKLIST_*`、#3151 slice3 / ADR-0066)
+を参照し、domain validator (`checklistItemSchema`) と完全一致する (domain⊆wire を
+`tests/unit/architecture/schema-range-ssot.test.ts` が機械表明)。admin authoring 経路
+(`/admin/checklists` の `addItem` action) も同 domain validator (`checklistItemSchema.pick({ label, icon })`)
+で label / icon を server 検証し、往復不能 item の作成を default-deny (`fail(400)`) する。
+
 ```ts
 {
   timing: 'morning' | 'evening' | 'weekend' | 'daily' | 'weekly'
-  items: Array<{ label: string (1-100); icon: string (1-10); order: integer ≥ 0 }>  (minLength: 1)
+  items: Array<{
+    label: string (1-100)          // CHECKLIST_LABEL_MIN..MAX
+    icon: string (1-2 grapheme)    // isValidChecklistIcon (ZWJ 連結絵文字 = 1〜2 grapheme)
+    order: integer ≥ 0             // CHECKLIST_ORDER_MIN
+  }>  (minLength: 1)
 }
 ```
+
+icon は旧 wire `maxLength(20)` (UTF-16 units 基準) から grapheme 基準 (1〜2) へ表現方式ごと統一した。
+これに伴う既存データ round-trip の accepted residual (絵文字 3 個以上 icon の import 拒否) は
+[ADR-0066](../decisions/0066-export-import-schema-range-ssot.md) §結果に記録する。
 
 ### 9.4 `rule-preset` (`RulePresetPayloadSchema`)
 

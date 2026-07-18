@@ -578,7 +578,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | **reward 陳列・shop_category / child shop** | 1 ごほうび = 1 カード（陳列クエリが重複行を返さない / null fallback が二重カウントしない / 共有 worker DB を後続 spec が汚染しない） | shop load（`shop/+page.server.ts`）↔ child shop UI ↔ e2e seed（`global-setup.ts` shop_e2e）↔ `test-db.ts` | `child-shop-exchange.spec.ts` / `child-shop-tabs-filter.spec.ts` |
 | **domain validation 値域** | SQL 直挿入 seed 値も含め domain 値域 ⊆ export schema 値域（直接 SQL は validation を迂回するため out-of-domain 値が混入しうる） | `domain/validation/*.ts` ↔ `*-schema.ts` ↔ e2e seed（`global-setup.ts`） | `admin-backup-restore.spec.ts` |
 | **parent-gate（/switch modal + /admin middleware）** | inactivity redirect / session 署名 / onboarding 整合 | §6.5 親 PIN gate の 4 ファイル群 | `parent-gate-*.spec.ts` / `switch-*.spec.ts` |
-| **DB スキーマ変更** | 4 並行実装（schema.ts / create-tables.ts / sqlite repo / dynamodb repo）+ e2e seed + test-db + demo-data 同期 | §7 シードデータ vs マイグレーション | 全 admin / child CUJ spec |
+| **DB スキーマ変更** | 4 並行実装（schema.ts / create-tables.ts / sqlite repo / dsql repo）+ e2e seed + test-db + demo-data 同期 | §7 シードデータ vs マイグレーション | 全 admin / child CUJ spec |
 
 ### 着手・レビュー時の必須アクション（人手 gate、機械側は EPIC #3152）
 

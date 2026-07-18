@@ -24,6 +24,7 @@ import { AuroraDSQLPool } from '@aws/aurora-dsql-node-postgres-connector';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { cancelActivityCore } from '../../../src/lib/server/db/dsql/cancel-activity-core';
 import { isOccConflict } from '../../../src/lib/server/db/dsql/occ-retry';
 import {
 	type RecordActivityCoreInput,
@@ -202,5 +203,59 @@ describe.skipIf(!ENDPOINT)('実 DSQL staging 並行アクセス検証 (#3545/#35
 			sql`SELECT total_xp FROM statuses WHERE family_id = ${FAMILY} AND child_id = ${childId} AND category_id = 'undou'`,
 		);
 		expect(Number((status.rows[0] as { total_xp: unknown }).total_xp)).toBe(PARALLEL * 10);
+	}, 180_000);
+
+	it('[V4] cancel 原子化 (#3596 ②): 同一 log を 8 並行 cancel → exactly-once 返金 (二重返金なし)', async () => {
+		const childId = crypto.randomUUID();
+		const activityId = crypto.randomUUID();
+		await seedChild(childId);
+
+		// 1) 1 件記録 (base 10、cancel 対象の log を作る)
+		const runner = createDsqlTransactionRunner<Tx>(db, { maxAttempts: 12, baseDelayMs: 20 });
+		const rec = await recordActivityCore(runner, coreInput(childId, activityId, 0));
+		expect(rec.ok).toBe(true);
+		if (!rec.ok) return;
+		const logId = rec.logId;
+
+		// 2) 同一 log を 8 並行 cancel。冪等 guard (cancel UPDATE affected 行判定) が
+		//    OCC 40001 retry と協調し exactly-once 返金になることを実 DSQL で確認する。
+		const cancelInput = {
+			familyId: FAMILY,
+			childId,
+			activityId,
+			logId,
+			categoryId: 'undou',
+			refundPoints: 10,
+			recordedDate: TODAY,
+			now: NOW,
+			description: 'キャンセル',
+			changeType: 'activity_cancel',
+			masteryLevelFor: (c: number) => Math.floor(c / 10) + 1,
+			revertStatusXp: (cur: number) => Math.max(0, cur - 10),
+			statusLevelFor: (xp: number) => Math.floor(xp / 100) + 1,
+		};
+		const results = await Promise.all(
+			Array.from({ length: PARALLEL }, () => cancelActivityCore(runner, cancelInput)),
+		);
+		const okCount = results.filter((r) => r.ok).length;
+		const alreadyCount = results.filter((r) => !r.ok && r.reason === 'ALREADY_CANCELLED').length;
+		console.log(`[V4] ok=${okCount} alreadyCancelled=${alreadyCount}`);
+		// 勝者 1 件のみが返金し、残りは ALREADY_CANCELLED (二重返金を serialization anchor が防ぐ)
+		expect(okCount).toBe(1);
+		expect(alreadyCount).toBe(PARALLEL - 1);
+
+		// cancel ledger(−10) は 1 行だけ。原 +10 と相殺し total_point == SUM(ledger) == 0。
+		const cancelLedger = await db.execute(
+			sql`SELECT count(*) AS c FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${childId} AND type = 'cancel'`,
+		);
+		expect(Number((cancelLedger.rows[0] as { c: unknown }).c)).toBe(1);
+		const child = await db.execute(
+			sql`SELECT total_point FROM children WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+		const ledgerSum = await db.execute(
+			sql`SELECT coalesce(sum(amount),0) AS s FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${childId}`,
+		);
+		expect(Number((child.rows[0] as { total_point: unknown }).total_point)).toBe(0);
+		expect(Number((ledgerSum.rows[0] as { s: unknown }).s)).toBe(0);
 	}, 180_000);
 });

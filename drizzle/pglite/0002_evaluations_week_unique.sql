@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "evaluations_week_uq" ON "evaluations" USING btree ("family_id","child_id","week_start");

@@ -15,7 +15,7 @@
 | `src/` | SvelteKit アプリケーション本体 (SvelteKit 2 + Svelte 5 Runes + TypeScript strict) | [src/routes/CLAUDE.md](../src/routes/CLAUDE.md) |
 | `tests/` | vitest (unit / integration) + Playwright (E2E) + helpers / fixtures | [tests/CLAUDE.md](../tests/CLAUDE.md) |
 | `docs/` | 設計書 / ADR / rationale / runbooks / sessions ロール定義 | [docs/CLAUDE.md](CLAUDE.md) |
-| `infra/` | AWS CDK 構成 (Lambda / DynamoDB / CloudFront / Cognito) + NUC ローカル構成 | [infra/CLAUDE.md](../infra/CLAUDE.md) |
+| `infra/` | AWS CDK 構成 (Lambda / Aurora DSQL / CloudFront / Cognito) + NUC ローカル構成 | [infra/CLAUDE.md](../infra/CLAUDE.md) |
 | `site/` | LP (GitHub Pages 配信、`site/index.html` 等 10 ページ) + 共通 CSS / labels | (SSOT 統合: ADR-0013 LP truth / ADR-0042 LP Spacing) |
 | `scripts/` | CI / dev / 検証用スクリプト (`capture.mjs` / `measure-lp-dimensions.mjs` / `pre-ready` 等 ~75 本) | (汎用化原則: 使い捨て禁止 #1442) |
 | `.github/` | Issue Templates / workflows / PR Template / CODEOWNERS / Dependabot | [.github/CLAUDE.md](../.github/CLAUDE.md) |
@@ -37,7 +37,6 @@
 | `src/lib/domain/` | ドメイン: `labels.ts` (compound SSOT、ADR-0045) / `terms.ts` (atom SSOT) / `validation/` (age-tier 等) / 型定義 |
 | `src/lib/policy/` | 認可ポリシー (`authorization.ts` の補助、ルート × ロール × ライセンス三軸判定) |
 | `src/lib/runtime/` | 実行モード判定 (cognito / local / demo 環境) |
-| `src/lib/analytics/` | 分析 (内部メトリクス、PMF 計測) |
 | `src/lib/services/` | client-side service (BFF 呼び出しラッパ) |
 | `src/lib/data/` | static data ロード (プリセット等) |
 | `src/hooks.server.ts` | 全リクエスト前処理: 認証 / 認可 / セキュリティヘッダ / レートリミット |
@@ -66,12 +65,12 @@
 | [docs/design/06-UI設計書.md](design/06-UI設計書.md) | UI 機能・画面・オーバーレイ仕様 |
 | [docs/design/07-API設計書.md](design/07-API設計書.md) | API エンドポイント定義 |
 | [docs/design/08-データベース設計書.md](design/08-データベース設計書.md) | DB テーブル・カラム仕様 |
-| [docs/design/13-AWSサーバレスアーキテクチャ設計書.md](design/13-AWSサーバレスアーキテクチャ設計書.md) | AWS Lambda / DynamoDB / CloudFront 構成 |
+| [docs/design/13-AWSサーバレスアーキテクチャ設計書.md](design/13-AWSサーバレスアーキテクチャ設計書.md) | AWS Lambda / Aurora DSQL / CloudFront 構成 |
 | [docs/design/14-セキュリティ設計書.md](design/14-セキュリティ設計書.md) | 認可境界 / 認証 / セキュリティヘッダ / OWASP 対策 |
 | [docs/design/15-ブランドガイドライン.md](design/15-ブランドガイドライン.md) | ブランド・ビジュアル詳細 |
 | [docs/design/asset-catalog.md](design/asset-catalog.md) | 画像アセットカタログ |
 | [docs/design/lp-content-map.md](design/lp-content-map.md) | LP IA (#1163) |
-| [docs/reference/](reference/) | 技術リファレンス (ui_framework / backend_framework / gemini_image_generation_guide 等) |
+| [docs/reference/](reference/) | 技術リファレンス (gemini_image_generation_guide / activity-expansion-guide / color-mapping / child-psychology-ux-research 等) |
 | [docs/troubleshoot/](troubleshoot/) | トラブル対応 KB (screenshot_capture / github_actions 失敗) |
 | [docs/rationale/](rationale/) | 機能別 rationale (なぜそう決めたか narrative) |
 | [docs/runbooks/](runbooks/) | 運用 runbook (Stripe / 通知 / デプロイ) |

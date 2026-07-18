@@ -189,6 +189,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0064 | [NUC 新 model repo 構築方式 — PGlite 一次採用 (dialect 税ゼロ) + raw SQLite fallback](0064-sqlite-core-repo-strategy.md) | accepted | 2026-07-09 |
 | 0065 | [DSQL DPU コスト規約 — service 層クエリの 5 原則 (実測裏付け)](0065-dsql-dpu-query-rules.md) | accepted | 2026-07-11 |
 | 0066 | [export/import 値域 SSOT — wire schema とドメイン validator は同一値域定数を import する](0066-export-import-schema-range-ssot.md) | accepted | 2026-07-12 |
+| 0067 | [アプリ側 CSP の `'unsafe-inline'` hardening (script-src = hash 撤廃 / style-src = 維持 + 構造的根拠)](0067-app-csp-script-src-hash.md) | accepted | 2026-07-17 |
 
 > 注 (2026-06-04 #2440 PR-A5): 番号は欠番を許容する（削除済 ADR の番号は再利用しない、git 履歴で追跡可能）。新規 ADR は最大番号 +1 で採番する。renumber 規約は §renumber 規約 を参照。
 >
@@ -378,3 +379,13 @@ active 総数: 44 件 (棚卸後、ADR-0065 +1)。
 **1-in-1-out 履行**: ADR-0064 / 0065 起票時と同様、1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補と併せて消化する (本 PR scope 外)。
 
 active 総数: 45 件 (棚卸後、ADR-0066 +1)。
+
+### 2026-07-17 棚卸 (ADR-0067 起票)
+
+**完了項目**:
+
+1. **ADR-0067 新規追加**: アプリ側 CSP の `'unsafe-inline'` hardening。EPIC #3408 の slice C (#3829, script-src) + slice B (#3828, style-src) を 1 ADR に統合。script-src は `hooks.server.ts buildCspHeader()` の `'unsafe-inline'` が残る限り将来の stored-XSS 経路混入時に CSP が最終防壁にならない構造リスク (#3112 リスク 1) を、SvelteKit `kit.csp` hash mode で根治 (inline script が hydration bootstrap 1 種のみと impact-analysis で実測、3 案比較 A 採用)。style-src は Svelte SSR が `style:` binding (102) / `style=` を inline style 属性化し CSP hash が style 属性に効かない構造的制約により撤廃過剰のため案C (維持 + 根拠 + 将来撤廃トリガ、#3828 AC2 fallback 合致)。ADR-0029 (LP 側 CSP、別 origin) は supersede せず併存。Pre-PMF Bucket A (ADR-0010、config 数行 + 依存ゼロ)。
+
+**1-in-1-out 履行**: ADR-0064〜0066 起票時と同様、1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
+
+active 総数: 46 件 (棚卸後、ADR-0067 +1)。

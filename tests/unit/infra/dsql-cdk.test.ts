@@ -5,6 +5,7 @@
 //   - CfnCluster は deletion protection 既定 true (#3429、誤 destroy の物理拒否)
 //   - コストガードレール: TotalDPU 日次 / Storage 80% の 2 alarm + Budgets $1 (80/100%) (#3431)
 //   - 可観測性 dashboard (OccConflicts/QueryTimeouts/CommitLatency/接続数) (#3432)
+//   - AWS Backup: 日次 full backup plan + backup/restore role 明示 provision + 失敗検知 rule (#3437)
 //   - `-c dsqlEnabled=true` 無しでは合成されない (M5 承認前の誤 deploy 防止)
 
 import * as cdk from 'aws-cdk-lib';
@@ -58,6 +59,18 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		});
 	});
 
+	it('[I3b] 両 alarm の description が一次対応 runbook link を含む (#3730、2am 発見時の可観測性)', () => {
+		// runbook link が silent に消えると alarm 発火時の一次対応導線が失われる (#3432 residual)。
+		const alarms = template.findResources('AWS::CloudWatch::Alarm');
+		const descriptions = Object.values(alarms).map(
+			(alarm) => alarm.Properties.AlarmDescription as string,
+		);
+		expect(descriptions).toHaveLength(2);
+		for (const description of descriptions) {
+			expect(description).toContain('docs/runbooks/dsql-alert-response.md');
+		}
+	});
+
 	it('[I4] alarm は SNS topic に通知し、opsEmail が subscribe される', () => {
 		template.resourceCountIs('AWS::SNS::Topic', 1);
 		template.hasResourceProperties('AWS::SNS::Subscription', {
@@ -71,7 +84,8 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 	});
 
 	it('[I5] Budgets $1 が 80% / 100% の 2 段通知で作成される (#3431)', () => {
-		template.resourceCountIs('AWS::Budgets::Budget', 1);
+		// DSQL guardrail ($1) + backup guardrail ($0.07、#3437) の 2 budget。
+		template.resourceCountIs('AWS::Budgets::Budget', 2);
 		template.hasResourceProperties('AWS::Budgets::Budget', {
 			Budget: Match.objectLike({
 				BudgetName: 'ganbari-quest-dsql-guardrail',
@@ -106,6 +120,100 @@ describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 		]) {
 			expect(body).toContain(metric);
 		}
+	});
+
+	it('[I8] AWS Backup: prod は日次 full backup plan (7日保持) + cluster ARN 明示 selection (#3437)', () => {
+		// DSQL は自動 backup を持たないため AWS Backup で cluster full backup を日次取得。
+		template.resourceCountIs('AWS::Backup::BackupVault', 1);
+		template.resourceCountIs('AWS::Backup::BackupPlan', 1);
+		template.resourceCountIs('AWS::Backup::BackupSelection', 1);
+		// daily rule + 7 日保持 (Pre-PMF 最小 DR 窓)。
+		template.hasResourceProperties('AWS::Backup::BackupPlan', {
+			BackupPlan: {
+				BackupPlanRule: Match.arrayWith([Match.objectLike({ Lifecycle: { DeleteAfterDays: 7 } })]),
+			},
+		});
+		// cluster ARN を明示 assign (Service Opt-in 不要の根拠。ARN は cluster の attrResourceArn)。
+		template.hasResourceProperties('AWS::Backup::BackupSelection', {
+			BackupSelection: Match.objectLike({
+				Resources: Match.arrayWith([
+					Match.objectLike({ 'Fn::GetAtt': Match.arrayWith(['ResourceArn']) }),
+				]),
+			}),
+		});
+	});
+
+	it('[I8b] backup 月額コスト guardrail budget $0.07 (≈¥10) が存在する (#3437、マネタイズ整合)', () => {
+		// 月額 backup コスト < ¥10 の設計目標を hard 監視。AWS Backup service filter で $0.07 上限。
+		template.hasResourceProperties('AWS::Budgets::Budget', {
+			Budget: Match.objectLike({
+				BudgetName: 'ganbari-quest-dsql-backup-guardrail',
+				BudgetLimit: { Amount: 0.07, Unit: 'USD' },
+				CostFilters: Match.objectLike({ Service: ['AWS Backup'] }),
+			}),
+		});
+	});
+
+	it('[I8c] backup ジョブ失敗を EventBridge → DsqlAlerts SNS で検知する (#3437 F-2 / ADR-0024 (d))', () => {
+		// 日次 backup が silent fail しても誰も気づかない = DR 空白の再現 (ADR-0024 生成インシデント根本原因 D)。
+		// Backup Job State Change の失敗系を捕捉し、コスト guardrail (budget) ではなく「ジョブ失敗」を検知する。
+		template.hasResourceProperties('AWS::Events::Rule', {
+			EventPattern: Match.objectLike({
+				source: ['aws.backup'],
+				'detail-type': ['Backup Job State Change'],
+				detail: Match.objectLike({
+					state: ['FAILED', 'ABORTED', 'EXPIRED'],
+				}),
+			}),
+		});
+		// alert 先は新規 SNS を作らず既存 DsqlAlerts topic に相乗り (SNS topic は依然 1 個)。
+		template.resourceCountIs('AWS::SNS::Topic', 1);
+		const rules = template.findResources('AWS::Events::Rule', {
+			Properties: {
+				EventPattern: Match.objectLike({ source: ['aws.backup'] }),
+			},
+		});
+		const backupFailRule = Object.values(rules)[0];
+		expect(backupFailRule?.Properties?.Targets).toHaveLength(1);
+		// target は SNS topic (Ref で DsqlAlerts を指す)。
+		expect(JSON.stringify(backupFailRule?.Properties?.Targets)).toContain('DsqlAlerts');
+	});
+
+	it('[I8d] backup/restore role を明示 provision し selection に配線する (#3437 F-4、role 不整合防止)', () => {
+		// CDK 自動生成 role は backup 権限のみ。restore job (runbook §2) が使えるよう backup + restore の
+		// 2 managed policy を付けた named role を確定生成する (AWSBackupDefaultServiceRole 依存を排除)。
+		template.hasResourceProperties('AWS::IAM::Role', {
+			RoleName: 'ganbari-quest-dsql-backup-role',
+			AssumeRolePolicyDocument: Match.objectLike({
+				Statement: Match.arrayWith([
+					Match.objectLike({
+						Principal: Match.objectLike({ Service: 'backup.amazonaws.com' }),
+					}),
+				]),
+			}),
+			ManagedPolicyArns: Match.arrayWith([
+				Match.objectLike({
+					'Fn::Join': Match.arrayWith([
+						Match.arrayWith([Match.stringLikeRegexp('AWSBackupServiceRolePolicyForBackup')]),
+					]),
+				}),
+				Match.objectLike({
+					'Fn::Join': Match.arrayWith([
+						Match.arrayWith([Match.stringLikeRegexp('AWSBackupServiceRolePolicyForRestores')]),
+					]),
+				}),
+			]),
+		});
+		// BackupSelection が上記 role を参照する (自動生成 role でなく named role)。
+		template.hasResourceProperties('AWS::Backup::BackupSelection', {
+			BackupSelection: Match.objectLike({
+				IamRoleArn: Match.objectLike({
+					'Fn::GetAtt': Match.arrayWith([Match.stringLikeRegexp('^DsqlBackupRole')]),
+				}),
+			}),
+		});
+		// restore job が使う role ARN を output で配布する (runbook の --iam-role-arn)。
+		template.hasOutput('BackupRoleArn', {});
 	});
 });
 
@@ -145,5 +253,20 @@ describe('DsqlStack nameSuffix guard (#3703 / #3708 staging・prod 物理名一�
 		const staging = physicalNames('GanbariQuestDsqlStaging');
 		expect(prod.dashboard).not.toBe(staging.dashboard);
 		expect(prod.budget).not.toBe(staging.budget);
+	});
+
+	it('[N4] staging は AWS Backup を作らない / 本番は作る (#3437、使い捨て staging で backup コスト回避)', () => {
+		const app = new cdk.App();
+		const prod = Template.fromStack(new DsqlStack(app, 'GanbariQuestDsql'));
+		const staging = Template.fromStack(new DsqlStack(new cdk.App(), 'GanbariQuestDsqlStaging'));
+		prod.resourceCountIs('AWS::Backup::BackupPlan', 1);
+		staging.resourceCountIs('AWS::Backup::BackupVault', 0);
+		staging.resourceCountIs('AWS::Backup::BackupPlan', 0);
+		staging.resourceCountIs('AWS::Backup::BackupSelection', 0);
+		// backup 付随リソース (role / 失敗検知 rule) も staging では作らない (#3437 F-2/F-4)。
+		prod.resourceCountIs('AWS::IAM::Role', 1);
+		staging.resourceCountIs('AWS::IAM::Role', 0);
+		prod.resourceCountIs('AWS::Events::Rule', 1);
+		staging.resourceCountIs('AWS::Events::Rule', 0);
 	});
 });

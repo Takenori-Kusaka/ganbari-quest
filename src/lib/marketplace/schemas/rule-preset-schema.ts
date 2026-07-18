@@ -2,47 +2,40 @@
  * Marketplace `rule-preset` payload schema (Valibot).
  *
  * Issue #2364 (EPIC #2362 P1): MarketplacePayloadMap 5 type schema SSOT.
+ * Issue #3151 slice4 (ADR-0066): 値域 literal の直書きを禁止し、domain 層の値域 SSOT 定数
+ * (`$lib/domain/validation/rule-preset.ts`) を参照する。
+ * Issue #3852 Phase B-2 (EPIC #3151 選択肢 B): 値域「定数」だけでなく field「schema 構造」も domain 層
+ * の field pipe を import して組み立てる。これにより旧来 domain / wire で 2 回宣言していた
+ * title/description/icon/pointCost/pointBonus の shape が単一定義になり、境界値の再ドリフト
+ * (#3132 class) が構造的に不可能になる (activity Phase B-1 / #3860 と同型)。domain Valibot
+ * (rulePresetItemSchema) と本 wire schema の値域一致 (domain⊆wire) は
+ * tests/unit/architecture/schema-range-ssot.test.ts が boundary probe で機械表明する。
  *
  * 既存 SSOT: src/lib/domain/marketplace-item.ts `RulePresetPayload`
  */
 
 import * as v from 'valibot';
+import {
+	ruleDescriptionSchema,
+	ruleIconSchema,
+	rulePointSchema,
+	ruleTitleSchema,
+} from '$lib/domain/validation/rule-preset.js';
 
 /** ルールタイプ */
 export const RULE_TYPES = ['exchange', 'bonus', 'penalty', 'special'] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 
-/** rule-preset item: 単一のルール (`RulePresetPayload['rules'][number]` の rebuild) */
+/** rule-preset item: 単一のルール (`RulePresetPayload['rules'][number]` の rebuild)。
+ * title/description/icon/pointCost/pointBonus は domain 層 field schema (rule-preset.ts) の再利用。 */
 export const RulePresetItemSchema = v.object({
-	title: v.pipe(
-		v.string('title は文字列で指定してください'),
-		v.minLength(1, 'title は必須です'),
-		v.maxLength(100, 'title は 100 文字以内で指定してください'),
-	),
-	description: v.pipe(
-		v.string('description は文字列で指定してください'),
-		v.minLength(1, 'description は必須です'),
-		v.maxLength(500, 'description は 500 文字以内で指定してください'),
-	),
-	// icon は単一の emoji を想定 (ZWJ 連結 emoji 例: 👨‍👩‍👧‍👦 = 11 UTF-16 code units)
-	// を許容するため maxLength=20 (ZWJ profession sequences は ~17 で安全圏)
-	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(20)),
-	pointCost: v.optional(
-		v.pipe(
-			v.number(),
-			v.integer(),
-			v.minValue(0, 'pointCost は 0 以上で指定してください'),
-			v.maxValue(10000),
-		),
-	),
-	pointBonus: v.optional(
-		v.pipe(
-			v.number(),
-			v.integer(),
-			v.minValue(0, 'pointBonus は 0 以上で指定してください'),
-			v.maxValue(10000),
-		),
-	),
+	title: ruleTitleSchema,
+	description: ruleDescriptionSchema,
+	// icon は domain と同一 oracle (isValidRuleIcon、1〜2 grapheme) で判定 (#3151 slice4)。
+	// 旧 maxLength(20) (UTF-16 units 基準) は ZWJ 連結絵文字 2 個 (22 units) を弾き domain⊆wire を破っていた。
+	icon: ruleIconSchema,
+	pointCost: v.optional(rulePointSchema),
+	pointBonus: v.optional(rulePointSchema),
 });
 
 export const RulePresetPayloadSchema = v.object({

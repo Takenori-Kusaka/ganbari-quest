@@ -119,6 +119,15 @@ export async function findLastActivityDates(
 	return [];
 }
 
+export async function deleteStatusHistoryBeforeDate(
+	_childId: ChildId,
+	_cutoffDate: string,
+	_tenantId: string,
+): Promise<number> {
+	// Stub: demo は書込 no-op のため削除件数 0 を返す。
+	return 0;
+}
+
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	// Stub: no-op
 }

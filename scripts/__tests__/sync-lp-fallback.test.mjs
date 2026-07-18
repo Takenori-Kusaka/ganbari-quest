@@ -35,6 +35,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'parse5';
+import { escapeRegExp } from '../lib/ci/escape-regexp.mjs';
 import {
 	collectHasDescendantLpKey,
 	collectLpKeyElements,
@@ -354,7 +355,7 @@ describe('sync-lp-fallback.mjs --check モード exit code 伝播 (#1974)', () =
 		// AC: error 発生時のログ出力でファイル名が明示される
 		assert.match(
 			stderr,
-			new RegExp(fakePath.replace(/\./g, '\\.')),
+			new RegExp(escapeRegExp(fakePath)),
 			`stderr should mention missing file path '${fakePath}', got: ${stderr}`,
 		);
 		// AC: error 内容が明示される (FAIL 集計メッセージ含む)

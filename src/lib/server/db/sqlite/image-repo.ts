@@ -3,6 +3,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import { db } from '../client';
 import { characterImages, children } from '../schema';
 import type { CharacterImage, Child, InsertCharacterImageInput } from '../types';
@@ -29,7 +30,10 @@ export async function findCachedImage(
 }
 
 /** 画像レコードを挿入 */
-export async function insertCharacterImage(input: InsertCharacterImageInput, _tenantId: string) {
+export async function insertCharacterImage(input: InsertCharacterImageInput, tenantId: string) {
+	// #3566 ③ (§9.4): file_path が tenant プレフィックス配下であることを DB 書込前に強制する
+	// (孤児バイト / cross-tenant 参照防止、DSQL image-repo と cross-backend 整合)。
+	assertTenantScopedStorageKey(input.filePath, tenantId);
 	db.insert(characterImages)
 		.values({ ...input, childId: Number(input.childId) })
 		.run();

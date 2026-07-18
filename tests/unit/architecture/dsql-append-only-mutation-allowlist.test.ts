@@ -135,8 +135,18 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		file: 'point-repo.ts',
 		table: 'point_ledger',
 		op: 'DELETE',
-		marker: /created_at\s*<\s*\$\{cutoffDate\}/,
-		reason: 'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + cutoff 述語)',
+		// #3593 ②: cutoff を JST 深夜 0:00 の instant に TZ-qualify (session TZ 非依存)。
+		marker: /created_at\s*<\s*\(\$\{cutoffDate\}\s*\|\|\s*'T00:00:00\+09:00'\)/,
+		reason:
+			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + JST-qualified cutoff 述語、#3593 ②)',
+	},
+	{
+		file: 'status-repo.ts',
+		table: 'status_history',
+		op: 'DELETE',
+		marker: /recorded_at\s*<\s*\$\{cutoffDate\}/,
+		reason:
+			'retention pruning (ADR-0049、保持期間外の物理削除。child 単位 + recorded_at cutoff 述語、#3518-2)',
 	},
 	// ── 設計済み状態遷移 (行の業務データ本体は不変、フラグ/紐付けのみ) ──
 	{
@@ -146,6 +156,14 @@ const MUTATION_ALLOWLIST: MutationAllowlistEntry[] = [
 		marker: /SET\s+cancelled\s*=\s*true/,
 		reason:
 			'記録取消の soft-cancel flip (P7 設計済み遷移。行は削除せず cancelled=true、台帳側は相殺行を追記)',
+	},
+	{
+		file: 'cancel-activity-core.ts',
+		table: 'activity_logs',
+		op: 'UPDATE',
+		marker: /SET\s+cancelled\s*=\s*true/,
+		reason:
+			'記録取消の単一 txn core (#3596 ②) の soft-cancel flip (activity-repo.ts と同一遷移。cancelled=false 条件で冪等 guard を兼ねる。台帳側は相殺行を追記)',
 	},
 	{
 		file: 'trial-history-repo.ts',

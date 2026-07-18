@@ -231,6 +231,44 @@ function migratePointLedgerIdempotencyUnique(db: Database.Database): void {
 }
 
 /**
+ * #3782: evaluations に (child_id, week_start) unique index を追加。「1子1週1評価」の自然キーを
+ * 兄弟表 (rest_days / login_bonuses / stamp_cards) と同型に DB 層で物理一意化し、service 層
+ * pre-fetch dedup (#3355) を経由しない別 insert 経路・並行 import での重複行を canonical guard で
+ * 不可能化する (ADR-0061 push-down-pyramid)。
+ *
+ * 既存 production DB に重複行 (= service dedup 導入前の再取込 / 並行 insert の実痕跡) があると
+ * CREATE UNIQUE INDEX が失敗するため、先に dedup (各 (child_id, week_start) で最小 id を残し他を
+ * 削除。growth-book/reports が参照する評価は 1 週 1 枚が正で、重複は数値汚染そのもの) してから
+ * index を作成する (#3245 / #3284 と同パターン)。冪等: index 既存なら skip。
+ */
+function migrateEvaluationChildWeekUnique(db: Database.Database): void {
+	if (!tableExists(db, 'evaluations')) return;
+	if (indexExists(db, 'idx_evaluations_child_week')) return;
+
+	const run = db.transaction(() => {
+		const dedup = db
+			.prepare(`
+			DELETE FROM evaluations
+			WHERE id NOT IN (
+				SELECT MIN(id) FROM evaluations GROUP BY child_id, week_start
+			)
+		`)
+			.run();
+		if (dedup.changes > 0) {
+			console.info(
+				`[lazy-migrate #3782] deduped ${dedup.changes} duplicate (child, week) evaluations rows`,
+			);
+		}
+		db.exec(
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_child_week
+			 ON evaluations(child_id, week_start);`,
+		);
+		console.info('[lazy-migrate #3782] created unique index for evaluations (child, week)');
+	});
+	run();
+}
+
+/**
  * #2362 PR-3 (Phase 7b-2a): activity 系テーブルの FK target を
  * 旧 `activities` から `child_activities` に切替。
  *
@@ -989,6 +1027,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3284: point_ledger に付与冪等キー (dedup → 部分 unique index)。#3245 と同パターンで
 		// child_challenges の直後・FK switchover の前に実行 (point_ledger は switchover 対象外)。
 		migratePointLedgerIdempotencyUnique(db);
+		// #3782: evaluations に (child, week) unique index (dedup → index)。evaluations は FK switchover
+		// 対象外だが、重複 dedup は他 dedup 群と同じ FK OFF window で実行するのが安全なため前段に置く。
+		migrateEvaluationChildWeekUnique(db);
 		migrateActivityFkSwitchover(db);
 		// #2510 / #2513: FK switchover (dim 3) の **後** に data copy (dim 4) を実行。
 		// FK target が child_activities になった後でないと remap が整合しないため順序固定。

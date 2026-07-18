@@ -32,16 +32,25 @@ vi.mock('$lib/server/services/plan-limit-service', () => ({
 }));
 
 // モック: export-service
-vi.mock('$lib/server/services/export-service', () => ({
-	exportFamilyData: vi.fn(async () => ({
+vi.mock('$lib/server/services/export-service', () => {
+	const sampleExportData = {
 		format: 'ganbari-quest-backup',
 		version: '1.1.0',
+		checksum: 'sha256:test',
 		family: { children: [{ id: '1', nickname: 'テスト' }] },
 		data: {
-			child_1: { activityLogs: [{ id: '1' }, { id: '2' }] },
+			activityLogs: [{ id: '1' }, { id: '2' }],
 		},
-	})),
-}));
+	};
+	return {
+		exportFamilyData: vi.fn(async () => sampleExportData),
+		// #3518-1: full export build は checksum 計算と data.json を使い回す exportFamilyDataForZip を使う。
+		exportFamilyDataForZip: vi.fn(async () => ({
+			exportData: sampleExportData,
+			dataJson: JSON.stringify(sampleExportData),
+		})),
+	};
+});
 
 // モック: repos
 const mockCloudExportRepo = {
@@ -62,6 +71,8 @@ const mockCloudExportRepo = {
 	// #3504 非同期 build
 	updateStatus: vi.fn(),
 	findPendingBuilds: vi.fn().mockResolvedValue([]),
+	// #3522 dual-cron 楽観ロック: pending→building CAS claim (既定は claim 成功)
+	claimForBuild: vi.fn().mockResolvedValue(true),
 	// #3509 QM 是正: stale 'building' reclaim
 	findStaleBuildingExports: vi.fn().mockResolvedValue([]),
 };
@@ -134,6 +145,8 @@ describe('cloud-export-service', () => {
 		// #3504: 非同期 build mock を毎回リセット (clearAllMocks は実装を残すため override leak を防ぐ)
 		mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
 		mockCloudExportRepo.updateStatus.mockResolvedValue(undefined);
+		// #3522: claim は既定成功 (二重取得の contended ケースは個別 test で false 上書き)
+		mockCloudExportRepo.claimForBuild.mockResolvedValue(true);
 		mockStorageRepo.saveFile.mockReset();
 		mockCloudExportRepo.insert.mockImplementation(async (input: Record<string, unknown>) => ({
 			id: '1',
@@ -266,14 +279,9 @@ describe('cloud-export-service', () => {
 			const result = await drainPendingExports(5);
 
 			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0, skipped: 0 });
-			// building → ready の 2 回
-			expect(mockCloudExportRepo.updateStatus).toHaveBeenNthCalledWith(
-				1,
-				'1',
-				'tenant-1',
-				'building',
-			);
-			const readyCall = mockCloudExportRepo.updateStatus.mock.calls[1];
+			// #3522: building 遷移は claimForBuild (CAS) が担う。updateStatus は ready 遷移の 1 回のみ。
+			expect(mockCloudExportRepo.claimForBuild).toHaveBeenCalledWith('1', 'tenant-1');
+			const readyCall = mockCloudExportRepo.updateStatus.mock.calls[0];
 			expect(readyCall?.[2]).toBe('ready');
 			expect((readyCall?.[3] as { fileSizeBytes: number }).fileSizeBytes).toBeGreaterThan(0);
 			expect((readyCall?.[3] as { description: string }).description).toContain('活動');
@@ -334,7 +342,8 @@ describe('cloud-export-service', () => {
 
 			await drainPendingExports();
 
-			const readyCall = mockCloudExportRepo.updateStatus.mock.calls[1];
+			// #3522: building 遷移は claimForBuild が担うため updateStatus の 1 回目が ready。
+			const readyCall = mockCloudExportRepo.updateStatus.mock.calls[0];
 			expect(readyCall?.[2]).toBe('ready');
 			expect((readyCall?.[3] as { description: string }).description).toContain('フルバックアップ');
 		});
@@ -405,11 +414,9 @@ describe('cloud-export-service', () => {
 			const result = await drainPendingExports(5, budget);
 
 			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0, skipped: 2 });
-			// 2 件目以降は building 遷移していない (pending のまま = 次回 cron が拾う)
-			const buildingIds = mockCloudExportRepo.updateStatus.mock.calls
-				.filter((c) => c[2] === 'building')
-				.map((c) => c[0]);
-			expect(buildingIds).toEqual(['1']);
+			// #3522: 2 件目以降は claim すらせず pending のまま (次回 cron が拾う)。claim は id=1 のみ。
+			const claimedIds = mockCloudExportRepo.claimForBuild.mock.calls.map((c) => c[0]);
+			expect(claimedIds).toEqual(['1']);
 		});
 
 		it('#3695: 開始時点で予算超過なら 1 件も build せず全件持ち越す', async () => {
@@ -422,6 +429,39 @@ describe('cloud-export-service', () => {
 			const result = await drainPendingExports(5, budget);
 
 			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0, skipped: 2 });
+			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
+		});
+
+		it('#3522: claim に失敗した (別 worker が先取得) レコードは二重 build せず skip する', async () => {
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
+				pendingRecord({ id: '1' }),
+				pendingRecord({ id: '2' }),
+			]);
+			// id=1 は別 worker が先に claim 済み (false)、id=2 は自分が claim 成功 (true)
+			mockCloudExportRepo.claimForBuild.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+			const result = await drainPendingExports(5);
+
+			// contended (id=1) は attempted に数えず build もしない。id=2 のみ build して ready。
+			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0, skipped: 0 });
+			// claim は 2 件とも試みる (先取得判定のため)。build (saveFile) は claim 成功の 1 件のみ。
+			expect(mockCloudExportRepo.claimForBuild).toHaveBeenCalledTimes(2);
+			expect(mockStorageRepo.saveFile).toHaveBeenCalledOnce();
+			// contended レコード (id=1) に対して build 系の updateStatus (ready/failed) は発火しない。
+			const touchedIds = mockCloudExportRepo.updateStatus.mock.calls.map((c) => c[0]);
+			expect(touchedIds).not.toContain('1');
+		});
+
+		it('#3522: 全件 claim 敗退なら 1 件も build しない (二重実行防止)', async () => {
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
+				pendingRecord({ id: '1' }),
+				pendingRecord({ id: '2' }),
+			]);
+			mockCloudExportRepo.claimForBuild.mockResolvedValue(false);
+
+			const result = await drainPendingExports(5);
+
+			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0, skipped: 0 });
 			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
 		});
 	});

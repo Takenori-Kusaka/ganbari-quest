@@ -11,7 +11,8 @@
 //   - **invite は token_hash のみ保存** (CWE-522、raw 非保存)。hash SSOT は
 //     $lib/server/auth/invite-code-hash.ts。raw code を知るのは作成時の呼び出し側だけ。
 //   - **invite 受諾は invite-accept.ts が正** (§6.6 厳密分岐の単一 txn)。本 repo の
-//     updateInviteStatus は revoke / expire 等の管理系遷移用で pending 条件を課さない。
+//     updateInviteStatus / deleteInvite は invite_id 鍵の管理系操作 (#3585)。
+//     updateInviteStatus は pending からの遷移のみ許可する状態機械 (#3588 ③)。
 //   - 23505 (email_lower / owner_guard UNIQUE 違反) は throw のまま呼び出し側契約
 //     (dynamo backend の ConditionExpression 失敗 throw / invite-accept の catch と同型)。
 
@@ -137,9 +138,13 @@ const INVITE_COLUMNS = sql.raw(
 	 accepted_by, accepted_at, created_at`,
 );
 
-/** row → Invite。raw code は DB に無い (CWE-522) ため呼び出し側が inviteCode を供給する。 */
+/**
+ * row → Invite。inviteId = invite_id (管理鍵、#3585)。raw code は DB に無い (CWE-522) ため
+ * 呼び出し側が inviteCode を供給する (受諾照合は raw、一覧は '' で raw 非露出)。
+ */
 function toInvite(row: InviteRow, inviteCode: string): Invite {
 	return {
+		inviteId: row.invite_id,
 		inviteCode,
 		tenantId: row.family_id,
 		invitedBy: row.invited_by,
@@ -438,39 +443,44 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 			return row ? toInvite(row, inviteCode) : undefined;
 		},
 
-		async updateInviteStatus(inviteCode, status, acceptedBy) {
-			// 管理系遷移 (revoke / expire / 旧経路 accept)。pending→accepted の厳密分岐
-			// (rowCount=0 / 23505 / 40001) は invite-accept.ts が正 (§6.6)。
+		async updateInviteStatus(inviteId, tenantId, status, acceptedBy) {
+			// 管理系遷移 (revoke / expire / 旧経路 accept)。鍵は invite_id (#3585)。
+			// tenant scope: AND family_id = ${tenantId} で cross-tenant mutation を query 層が物理排除する
+			// (deleteInvite と対称、ADR-0063 §3.4 単一強制点。RLS 非対応の代替防御線。#3588)。
+			// #3588 ③ 状態機械: pending からの遷移のみ許可 (AND status = 'pending')。
+			// 失効済 / 受諾済 invite への再遷移は 0 行 = no-op で乱用余地を塞ぐ。
+			// 全呼び出し側は既に pending を確認してから呼ぶため defense-in-depth。
+			// pending→accepted の厳密分岐 (rowCount=0 / 23505 / 40001) は invite-accept.ts が正 (§6.6)。
 			if (acceptedBy) {
 				await db.execute(sql`
 					UPDATE invites SET status = ${status}, accepted_by = ${acceptedBy}, accepted_at = now()
-					WHERE token_hash = ${hashInviteCode(inviteCode)}
+					WHERE invite_id = ${inviteId} AND family_id = ${tenantId} AND status = 'pending'
 				`);
 				return;
 			}
 			await db.execute(sql`
-				UPDATE invites SET status = ${status} WHERE token_hash = ${hashInviteCode(inviteCode)}
+				UPDATE invites SET status = ${status}
+				WHERE invite_id = ${inviteId} AND family_id = ${tenantId} AND status = 'pending'
 			`);
 		},
 
 		async findTenantInvites(tenantId) {
-			// ⚠️ raw code は非保存で復元不能 (CWE-522)。一覧 entity の inviteCode には
-			// invite_id (uuid) を入れる。したがって一覧から得た「code」を findInviteByCode /
-			// updateInviteStatus / deleteInvite (hash 照合) に渡しても一致しない — 管理操作は
-			// inviteId ベースへの interface 進化が必要 (cutover 配線 PR で対応、issue 起票は
-			// 本体セッション)。この挙動はテスト [I2] で固定している。
+			// #3585: inviteId (= invite_id) を管理鍵として返し、inviteCode は '' (raw 非露出)。
+			// raw code は token_hash のみ保存で復元不能 (CWE-522)。一覧から得た inviteId を
+			// updateInviteStatus / deleteInvite に渡すと invite_id 照合で正しく反応する
+			// (旧: inviteCode 位置に invite_id を入れ hash 照合で不一致 no-op となる債務を解消)。
 			const result = await db.execute(sql`
 				SELECT ${INVITE_COLUMNS} FROM invites
 				WHERE family_id = ${tenantId} ORDER BY created_at, invite_id
 			`);
-			return (result.rows as unknown as InviteRow[]).map((row) => toInvite(row, row.invite_id));
+			return (result.rows as unknown as InviteRow[]).map((row) => toInvite(row, ''));
 		},
 
-		async deleteInvite(inviteCode, tenantId) {
-			// family_id 束縛必須 (§P9): 他 tenant の invite は hash が一致しても消せない。
+		async deleteInvite(inviteId, tenantId) {
+			// 鍵は invite_id (#3585)。family_id 束縛必須 (§P9): 他 tenant の invite は消せない。
 			await db.execute(sql`
 				DELETE FROM invites
-				WHERE token_hash = ${hashInviteCode(inviteCode)} AND family_id = ${tenantId}
+				WHERE invite_id = ${inviteId} AND family_id = ${tenantId}
 			`);
 		},
 

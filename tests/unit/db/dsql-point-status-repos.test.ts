@@ -286,6 +286,39 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(Number((rows.rows[0] as { c: unknown }).c)).toBe(1); // 繰越なし・元 1 件のまま
 	});
 
+	it('[P9c] deletePointLedgerBeforeDate: cutoff を JST 深夜 0:00 境界で TZ-qualified 解釈する (#3593 ②)', async () => {
+		// #3593 ②: cutoffDate は JST 当日境界。deletePointLedgerBeforeDate は
+		// `created_at < cutoffDate::timestamptz` を session TZ 依存で解釈してはならない。
+		// session TZ を UTC に固定した状態で「JST cutoff 当日の未明 (UTC 前日 20:00) の明細」が
+		// 保持 (非削除) されることを検証する。旧実装 (session TZ 依存) では UTC 深夜 0:00 境界に
+		// なり、この明細を誤って削除してしまう。
+		await t.db.execute(sql`SET TIME ZONE 'UTC'`);
+		const childId = await newChild('境界十二郎');
+		const id = String(childId);
+		// Row A: created_at 2026-01-14T20:00Z = JST 2026-01-15 05:00 (business day = cutoff 当日) → 保持
+		// Row B: created_at 2026-01-14T10:00Z = JST 2026-01-14 19:00 (cutoff 前日) → 削除
+		await t.db.execute(sql`
+			INSERT INTO point_ledger (family_id, child_id, amount, type, recorded_date, created_at)
+			VALUES
+				(${FAMILY}, ${id}, 10, 'activity', '2026-01-15', '2026-01-14T20:00:00Z'),
+				(${FAMILY}, ${id}, 5, 'activity', '2026-01-14', '2026-01-14T10:00:00Z')
+		`);
+		await t.db.execute(
+			sql`UPDATE children SET total_point = 15 WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+
+		const deleted = await pointRepo.deletePointLedgerBeforeDate(childId, '2026-01-15', FAMILY);
+		// JST 境界解釈: cutoff 前日の Row B (5) のみ削除。cutoff 当日未明の Row A (10) は保持。
+		expect(deleted).toBe(1);
+		const remaining = await t.db.execute(sql`
+			SELECT amount FROM point_ledger
+			WHERE family_id = ${FAMILY} AND child_id = ${id} ORDER BY amount
+		`);
+		const rows = remaining.rows as { amount: number }[];
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.amount).toBe(10); // JST cutoff 当日の明細は残る
+	});
+
 	it('[P11] spendPointsAtomic 二重引落: FOR UPDATE で残高非負維持 (I-BAL-NONNEG)', async () => {
 		// I-BAL-NONNEG (§6.6, F7): 残高 30 に対し 20 の spend を 2 本並行させる。FOR UPDATE の
 		// write-intent により高々 1 本のみ成功し、最終残高は非負 (真の 40001 write-skew 阻止は
@@ -344,6 +377,39 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(found?.nickname).toBe('存在確認');
 		expect(found?.age).toBe(8);
 		expect(found?.isArchived).toBe(0);
+	});
+
+	it('[P12] child 削除で PII (children 行) + point_ledger が同一 txn 消去される (#3593 ③ 退会 PII)', async () => {
+		// #3593 ③: point-repo.deleteByTenantId は ledger のみ削除する primitive (children 行 =
+		// nickname/birth_date PII は不触)。退会時の PII 物理消去は child 削除 cascade
+		// (deleteChild → children + child-scoped 全表を同一 txn 削除) が担う。本 test は
+		// 「child を消すと point_ledger も children (PII) も両方消える」cutover 配線を回帰固定する。
+		const childId = await newChild('退会PII太郎');
+		const id = String(childId);
+		await pointRepo.insertPointEntry(
+			{ childId, amount: 40, type: 'activity', description: 'x' },
+			FAMILY,
+		);
+		// 削除前: children (PII) + point_ledger の双方が存在
+		const beforeChild = await pointRepo.findChildById(childId, FAMILY);
+		expect(beforeChild?.nickname).toBe('退会PII太郎');
+		const ledgerCount = async () => {
+			const r = await t.db.execute(
+				sql`SELECT count(*)::int AS c FROM point_ledger WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+			);
+			return Number((r.rows[0] as { c: number }).c);
+		};
+		expect(await ledgerCount()).toBe(1);
+
+		await childRepo.deleteChild(childId, FAMILY);
+
+		// 削除後: children 行 (PII) が消え、point_ledger も消えている
+		const piiRow = await t.db.execute(
+			sql`SELECT nickname, birth_date FROM children WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		expect(piiRow.rows).toHaveLength(0);
+		expect(await pointRepo.findChildById(childId, FAMILY)).toBeUndefined();
+		expect(await ledgerCount()).toBe(0);
 	});
 
 	// ─────────────────── IStatusRepo ───────────────────
@@ -429,6 +495,42 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 		expect(await statusRepo.findStatusValueAtDate(childId, catId, '2026-02-01', FAMILY)).toBe(10);
 		expect(await statusRepo.findStatusValueAtDate(childId, catId, '2026-03-01', FAMILY)).toBe(25);
 		expect(await statusRepo.findStatusValueAtDate(childId, catId, '2025-12-01', FAMILY)).toBe(null);
+	});
+
+	it('[S8] deleteStatusHistoryBeforeDate: cutoff 前だけ削除 + tenant 分離 (#3518-2 retention)', async () => {
+		const childId = await newChild('剪定八郎');
+		const id = String(childId);
+		await t.db.execute(sql`
+			INSERT INTO status_history (family_id, child_id, category_id, value, change_amount, change_type, recorded_at)
+			VALUES
+				(${FAMILY}, ${id}, 'social', 10, 10, 'daily_decay', '2025-01-05T00:00:00Z'),
+				(${FAMILY}, ${id}, 'social', 20, 10, 'daily_decay', '2025-06-05T00:00:00Z'),
+				(${FAMILY}, ${id}, 'study', 30, 30, 'activity_record', '2026-06-05T00:00:00Z')
+		`);
+		// 他 tenant の同 child_id 行は消さない (tenant 分離)
+		const otherChild = await newChild('剪定九郎', OTHER_FAMILY);
+		await t.db.execute(sql`
+			INSERT INTO status_history (family_id, child_id, category_id, value, change_amount, change_type, recorded_at)
+			VALUES (${OTHER_FAMILY}, ${String(otherChild)}, 'social', 5, 5, 'daily_decay', '2025-01-05T00:00:00Z')
+		`);
+
+		// cutoff = 2026-01-01: 2025 の 2 行 (全カテゴリ) が削除、2026 行は残る
+		const deleted = await statusRepo.deleteStatusHistoryBeforeDate(childId, '2026-01-01', FAMILY);
+		expect(deleted).toBe(2);
+
+		const remain = await t.db.execute(
+			sql`SELECT count(*)::int AS c FROM status_history WHERE family_id = ${FAMILY} AND child_id = ${id}`,
+		);
+		expect(Number((remain.rows[0] as { c: number }).c)).toBe(1);
+
+		// 他 tenant 行は無傷
+		const other = await t.db.execute(
+			sql`SELECT count(*)::int AS c FROM status_history WHERE family_id = ${OTHER_FAMILY}`,
+		);
+		expect(Number((other.rows[0] as { c: number }).c)).toBe(1);
+
+		// 対象 0 件は 0 を返す
+		expect(await statusRepo.deleteStatusHistoryBeforeDate(childId, '2020-01-01', FAMILY)).toBe(0);
 	});
 
 	it('[S5] benchmark upsert/find: グローバル master (tenant 非依存、sqlite parity)', async () => {

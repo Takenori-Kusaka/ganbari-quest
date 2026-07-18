@@ -46,13 +46,15 @@ function buildProdStacks(): {
 				'test-context-token-secret',
 			opsSecretKey: 'test-ops-secret-key',
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			// #3438 Phase 2A: DSQL 無条件 backend の fail-close 回避 (endpoint / clusterArn 必須)
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorage', { env });
 	const auth = new AuthStack(app, 'TestAuth', { env });
 	const compute = new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -72,6 +74,9 @@ function buildStagingStacks(): {
 	const app = new cdk.App({
 		context: {
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (dual-mode 廃止)。endpoint は必須 (fail-close)。
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorageStaging', {
@@ -84,7 +89,6 @@ function buildStagingStacks(): {
 	});
 	const compute = new ComputeStack(app, 'TestComputeStaging', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 		envConfig: STAGING_ENV_CONFIG,
@@ -113,13 +117,20 @@ beforeAll(() => {
 
 describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)', () => {
 	describe('P: prod 不変 guard — envConfig 未指定 synth で従来 prod template を維持', () => {
-		it('P-1: Storage — table=ganbari-quest (Retain) / ECR=ganbari-quest (maxImageCount:10) / Backup vault あり', () => {
-			prodStorage.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
-				TableName: 'ganbari-quest',
-			});
-			prodStorage.hasResource('AWS::DynamoDB::GlobalTable', {
-				DeletionPolicy: 'Retain',
-			});
+		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3438 撤去 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
+			// #3850: #3438 の MainTable 撤去は CFN cross-stack export の in-use 削除制約により
+			// 2-deploy に分割する。Deploy-1 (本リリース) では ComputeStack が import を落とした状態で
+			// StorageStack は MainTable + その export を保持する (Deploy-2 = 次リリースで撤去)。
+			// producer(Storage) が export を消せるのは consumer(Compute) の import 消失が本番反映された
+			// 後のみ (CFN は in-use export の削除を拒否)。ここで table を消したら #3850 が再発するため落とす。
+			// TableV2 は AWS::DynamoDB::GlobalTable として synth される。
+			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
+			prodStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
+			// prod は removalPolicy=RETAIN 不変 (Deploy-2 の撤去でも物理 table + データは orphan 保全)。
+			prodStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Retain' });
+			// enableBackup=true (prod)。DynamoDB daily backup plan (vault + plan) を保持する。
+			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 1);
+			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 1);
 
 			const repos = prodStorage.findResources('AWS::ECR::Repository');
 			expect(Object.keys(repos).length).toBe(1);
@@ -128,13 +139,6 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			};
 			expect(repo.Properties.RepositoryName).toBe('ganbari-quest');
 			expect(repo.Properties.LifecyclePolicy?.LifecyclePolicyText).toContain('"countNumber":10');
-
-			prodStorage.hasResourceProperties('AWS::Backup::BackupVault', {
-				BackupVaultName: 'ganbari-quest-vault',
-			});
-			prodStorage.hasResourceProperties('AWS::Backup::BackupPlan', {
-				BackupPlan: Match.objectLike({ BackupPlanName: 'ganbari-quest-daily' }),
-			});
 
 			// AssetsBucket は `ganbari-quest-assets-<account>` (prefix 不変)
 			const buckets = prodStorage.findResources('AWS::S3::Bucket');
@@ -163,12 +167,12 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			});
 		});
 
-		it('P-3: Compute — fn=ganbari-quest-app / demo Fn / cron-dispatcher + Rule 7 本 / Firehose / SES env が従来どおり', () => {
+		it('P-3: Compute — fn=ganbari-quest-app / demo Fn / cron-dispatcher + Rule 5 本 / Firehose / SES env が従来どおり', () => {
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app',
 				Environment: {
 					Variables: Match.objectLike({
-						DATA_SOURCE: 'dynamodb',
+						DATA_SOURCE: 'dsql',
 						AUTH_MODE: 'cognito',
 						ORIGIN: 'https://ganbari-quest.com',
 						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
@@ -187,8 +191,9 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-cron-dispatcher',
 			});
-			// CRON_JOBS 7 本 (compute-stack.ts CRON_JOBS SSOT。#3504 で export-build を追加)
-			prodCompute.resourceCountIs('AWS::Events::Rule', 7);
+			// CRON_JOBS 5 本 (compute-stack.ts CRON_JOBS SSOT。#3805 で analytics-aggregator-daily /
+			// challenge-aggregator-daily の DynamoDB 事前集計 cron 2 本を撤去し 7→5 本)
+			prodCompute.resourceCountIs('AWS::Events::Rule', 5);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
 			// SES grant (prod のみ) が従来どおり付与されている
 			const policies = prodCompute.findResources('AWS::IAM::Policy');
@@ -206,7 +211,6 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 				() =>
 					new ComputeStack(app, 'GuardCompute', {
 						env,
-						table: storage.table,
 						assetsBucket: storage.assetsBucket,
 						repository: storage.repository,
 					}),
@@ -214,17 +218,83 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 		});
 	});
 
-	describe('S-1: staging Storage — prefix 分離 + Backup 不在 + ECR maxImageCount:3 + DESTROY', () => {
-		it('table=ganbari-quest-staging で DeletionPolicy=Delete', () => {
-			stagingStorage.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
-				TableName: 'ganbari-quest-staging',
+	describe('#3850: MainTable cross-stack export 2-deploy migration 不変条件 (Deploy-1)', () => {
+		it('B-3850a: prod StorageStack が MainTable の Ref + Arn 両 export を過不足なく保持する (旧 consumer import 全集合、#3855 の Arn 単独欠陥を再発不能化)', () => {
+			// #3850: ComputeStack が import を落とした Deploy-1 状態でも、StorageStack は exportValue で
+			// 旧 (デプロイ済) ComputeStack が import していた export を **全て** 保持する必要がある。
+			//
+			// **なぜ Arn だけでは不十分か (#3855 の 2 度目 rollback の真因)**: 旧 compute-stack.ts
+			// (撤去コミット 9ebd59e1 の親版) の `props.table.*` 全参照を実測すると、consumer が
+			// import する export の完全集合は 2 つある —
+			//   1. Ref export  `ExportsOutputRefMainTable<hash>`
+			//      ← `props.table.tableName!` (= CFN `Ref MainTable`) を参照する env 6 箇所
+			//        (TABLE_NAME / DYNAMODB_TABLE / ANALYTICS_TABLE_NAME × prod + staging block)。
+			//        全て同一 Ref に解決されるため export は 1 本。
+			//   2. Arn export  `ExportsOutputFnGetAttMainTable<hash>Arn`
+			//      ← `props.table.grantReadWriteData(this.fn)` の IAM policy (`Fn::GetAtt Arn`)。
+			// #3855 は Arn だけ exportValue し Ref を保持し忘れた → CDK が未参照の Ref export を
+			// 自動削除 → 未反映 consumer が旧 Ref を import 中で CFN が in-use 削除拒否 →
+			// StorageStack rollback (deploy-aws-staging 貫通で fail ログ `ExportsOutputRefMainTable...`)。
+			//
+			// そこで本 assert は「Arn 1 本」ではなく **MainTable に紐づく export の集合 = {Ref, Arn}
+			// が過不足なく存在する** ことを断言する (Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に
+			// 再発不能にする)。export 名の hash は construct token 由来で stack 名に依存しない (test の
+			// TestStorage も本番 GanbariQuestStorage も同一 logicalId、本番 synth で実測一致済)。
+			const allMainTableExports = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
 			});
-			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', {
-				DeletionPolicy: 'Delete',
+			const refExport = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputRefMainTable[0-9A-F]+$') },
 			});
+			const arnExport = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn.*') },
+			});
+			// Ref (table 名) が保持されている — #3855 で欠落し #3850 を再発させた export。
+			expect(Object.keys(refExport).length).toBe(1);
+			// Arn (grantReadWriteData IAM policy) が保持されている — #3855 が保持した export。
+			expect(Object.keys(arnExport).length).toBe(1);
+			// 集合の過不足ゼロ: MainTable 由来の export はちょうど Ref + Arn の 2 本のみ
+			// (第 3 の export = tableStreamArn 等が旧 consumer に無いことも実測確認済)。
+			expect(Object.keys(allMainTableExports).length).toBe(2);
 		});
 
-		it('AWS Backup (vault / plan) を構築しない', () => {
+		it('B-3850b: prod ComputeStack は MainTable を import / grant しない (Deploy-1 の consumer 状態)', () => {
+			// Deploy-1 の前提 = consumer(Compute) が既に MainTable への参照を落としていること:
+			//   (1) grantReadWriteData 由来の dynamodb: IAM policy が無い
+			//   (2) ExportsOutputFnGetAttMainTable...Arn を Fn::ImportValue する箇所が無い
+			// これらが残ると export が in-use のままで Deploy-2 (次リリース) の table+export 撤去が永遠にできない。
+			const computeJson = JSON.stringify(prodCompute.toJSON());
+			expect(computeJson).not.toContain('MainTable');
+			const policies = prodCompute.findResources('AWS::IAM::Policy');
+			expect(JSON.stringify(policies)).not.toContain('dynamodb:');
+		});
+	});
+
+	describe('S-1: staging Storage — DynamoDB MainTable(=1, DESTROY) + Backup 不在 (#3850 Deploy-1) + ECR maxImageCount:3', () => {
+		it('DynamoDB MainTable + Ref/Arn 両 export を Deploy-1 で保持 (#3850、staging も prod と同型 / removalPolicy=DESTROY)', () => {
+			// #3850: staging も prod と同型に MainTable + export を Deploy-1 で保持する。staging は
+			// removalPolicy=DESTROY。export 名は GanbariQuestStorageStaging: 名前空間で prod と衝突しない
+			// (stack 名 prefix が異なり、hash は同一。両 stack で auto-export と同一名を再生成)。
+			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
+			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
+			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Delete' });
+			// prod と同型に **Ref + Arn 両 export** を保持する (#3855 の Arn 単独欠陥を staging 側でも封じる)。
+			const refExport = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputRefMainTable[0-9A-F]+$') },
+			});
+			const arnExport = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn.*') },
+			});
+			const allMainTableExports = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
+			});
+			expect(Object.keys(refExport).length).toBe(1);
+			expect(Object.keys(arnExport).length).toBe(1);
+			expect(Object.keys(allMainTableExports).length).toBe(2);
+		});
+
+		it('AWS Backup (vault / plan) を構築しない (enableBackup=false)', () => {
+			// staging は enableBackup=false (空 table 起点 + 使い捨て)。table は保持するが Backup plan は持たない。
 			stagingStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
 			stagingStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
 		});
@@ -295,12 +365,12 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			stagingCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 0);
 		});
 
-		it('staging env: DATA_SOURCE=dynamodb + AUTH_MODE=cognito + ORIGIN placeholder + PARENT_GATE_COOKIE_SECRET 注入', () => {
+		it('staging env: DATA_SOURCE=dsql + AUTH_MODE=cognito + ORIGIN placeholder + PARENT_GATE_COOKIE_SECRET 注入 (#3438 Phase 2A)', () => {
 			stagingCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-staging-app',
 				Environment: {
 					Variables: Match.objectLike({
-						DATA_SOURCE: 'dynamodb',
+						DATA_SOURCE: 'dsql',
 						AUTH_MODE: 'cognito',
 						// Function URL 自己参照のため synth 時は placeholder。
 						// deploy-aws-staging.yml の ORIGIN resolve step が実 URL に更新する (縮退可)

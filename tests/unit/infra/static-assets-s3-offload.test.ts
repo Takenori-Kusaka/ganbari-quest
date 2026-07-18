@@ -59,7 +59,6 @@ function buildNetwork(opts: {
 	const storage = new StorageStack(opts.app, 'TestStorage', { env });
 	const compute = new ComputeStack(opts.app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -230,6 +229,44 @@ describe('#3087 解決策 B — /_app/immutable/* S3 origin offload', () => {
 				);
 			});
 			expect(matched.length).toBe(1);
+		});
+	});
+
+	describe('#3402 robustness (offload ON 時のみ)', () => {
+		it('#3402-3: static-assets bucket に _app/immutable/ の 30 日 expiration lifecycle rule がある (旧 hash 無限蓄積の剪定)', () => {
+			onTemplate.hasResourceProperties('AWS::S3::Bucket', {
+				BucketName: Match.stringLikeRegexp('^ganbari-quest-static-assets-'),
+				LifecycleConfiguration: {
+					Rules: Match.arrayWith([
+						Match.objectLike({
+							Prefix: '_app/immutable/',
+							ExpirationInDays: 30,
+							Status: 'Enabled',
+						}),
+					]),
+				},
+			});
+		});
+
+		it('#3402-1: static-assets bucket に request metrics (EntireBucket) が有効 (S3 origin 4xx/5xx alarm 用)', () => {
+			onTemplate.hasResourceProperties('AWS::S3::Bucket', {
+				BucketName: Match.stringLikeRegexp('^ganbari-quest-static-assets-'),
+				MetricsConfigurations: Match.arrayWith([Match.objectLike({ Id: 'EntireBucket' })]),
+			});
+		});
+
+		it('#3402-2: 本番 CDN が BucketDeployment(upload) に依存し、更新順序で 403 propagation 窓を塞ぐ', () => {
+			const distributions = onTemplate.findResources('AWS::CloudFront::Distribution');
+			const cdn = Object.entries(distributions).find(([lid]) => lid.startsWith('CDN'));
+			expect(cdn).toBeDefined();
+			const dependsOn = (cdn?.[1] as { DependsOn?: string[] }).DependsOn ?? [];
+			expect(dependsOn.some((d) => d.startsWith('StaticAssetsDeploy'))).toBe(true);
+		});
+
+		it('flag OFF (default) では lifecycle / request metrics を持つ static-assets bucket が存在しない', () => {
+			// OFF template には ganbari-quest-static-assets bucket 自体が無い (二重防御)。
+			const buckets = offTemplate.findResources('AWS::S3::Bucket');
+			expect(JSON.stringify(buckets)).not.toContain('ganbari-quest-static-assets-');
 		});
 	});
 

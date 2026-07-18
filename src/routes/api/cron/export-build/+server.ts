@@ -6,8 +6,11 @@
 //
 // 使い方:
 //   POST /api/cron/export-build   x-cron-secret: <CRON_SECRET>   Body(任意): { "limit": 5, "dryRun": true }
-//   200 { ok, processed, ready, failed, reclaimed }
-//   (#3509: reclaimed = build 中に kill/timeout し永久 stuck した stale 'building' を pending へ差し戻した件数)
+//   200 { ok, processed, ready, failed, reclaimed, skipped }
+//   (#3509: reclaimed = build 中に kill/timeout し永久 stuck した stale 'building' を 'failed' へ
+//    fail-closed (差し戻しでなく失敗確定) した件数。設計書 §3.2-4 が pending への自動差し戻しを不採用と
+//    明記しているため、QM 2 回目 BLOCK 対応で 'failed' 遷移に是正済 = reclaimStaleBuildingExports の実装)
+//   (#3695: skipped = 30 秒予算超過で今回 build せず次回 5 分毎 cron へ持ち越した件数)
 //   401 Unauthorized / 404 secret 未設定 / 500 Internal Error
 
 import { json } from '@sveltejs/kit';

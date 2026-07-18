@@ -1,7 +1,7 @@
 // tests/e2e/child-category-collapsible-disabled.spec.ts
 // #2148 — 子供画面 CategorySection のカテゴリヘッダー誤タップで活動グリッドが全消失する不具合の回帰テスト
 //
-// 業界 prior art 調査 (docs/reference/07-research-child-collapsible-prior-art.md):
+// 業界 prior art 調査 (docs/research/07-research-child-collapsible-prior-art.md):
 // - Khan Academy Kids / Duolingo ABC / ABCmouse / Prodigy Math / SplashLearn /
 //   Code.org Hour of Code / スマイルゼミ・進研ゼミ の 7 サービス全件で
 //   子供画面のカテゴリヘッダー誤タップによる全コンテンツ消失は存在しない

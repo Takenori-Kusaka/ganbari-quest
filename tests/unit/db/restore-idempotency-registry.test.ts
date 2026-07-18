@@ -2,7 +2,7 @@
 // #3394: restore 冪等 guard 分類 SSOT (restore-idempotency.ts) の fitness function (ADR-0061)。
 //
 // backup-entity-registry.test.ts の no-silent-gap パターンと同型:
-//   1. no-silent-gap: 4 backend (sqlite/dynamodb/dsql/demo) の `*ForRestore` 関数は全て registry に
+//   1. no-silent-gap: 3 backend (sqlite/dsql/demo) の `*ForRestore` 関数は全て registry に
 //      分類されている (新規 restore 関数を追加して分類を忘れると本テストが fail する)
 //   2. guard 対称性: kind='natural-key' entity は宣言された backend guard 実装
 //      (ConditionExpression / onConflictDoNothing / ON CONFLICT) がソース上に存在する
@@ -23,7 +23,8 @@ import {
 } from '../../../src/lib/server/db/restore-idempotency';
 
 const DB_DIR = join(__dirname, '../../../src/lib/server/db');
-const BACKENDS = ['sqlite', 'dynamodb', 'dsql', 'demo'] as const;
+// #3438 Phase 2B: DynamoDB backend 撤去により backend は sqlite / dsql / demo の 3 本。
+const BACKENDS = ['sqlite', 'dsql', 'demo'] as const;
 type Backend = (typeof BACKENDS)[number];
 
 /** backend dir 配下の *-repo.ts から `<basename>:<fn>` の ForRestore 関数集合を抽出する。 */
@@ -34,7 +35,7 @@ function scanRestoreFunctions(backend: Backend): Set<string> {
 		if (!file.endsWith('-repo.ts')) continue;
 		const source = readFileSync(join(dir, file), 'utf-8');
 		const basename = file.replace(/\.ts$/, '');
-		// sqlite/dynamodb/demo: `export async function xxxForRestore(` /
+		// sqlite/demo: `export async function xxxForRestore(` /
 		// dsql (object literal repo): `async xxxForRestore(`
 		const re = /(?:export\s+async\s+function|(?<![\w.])async)\s+(\w*ForRestore)\s*[(<]/g;
 		for (const m of source.matchAll(re)) {
@@ -54,7 +55,6 @@ function functionVicinity(backend: Backend, repoFile: string, fn: string): strin
 
 /** guard 実装方式ごとのソースマーカー。 */
 const GUARD_MARKERS: Record<Exclude<RestoreGuardImpl, 'none' | 'service-layer'>, RegExp> = {
-	'condition-expression': /ConditionExpression/,
 	'on-conflict-do-nothing': /onConflictDoNothing/,
 	'on-conflict-sql': /ON CONFLICT/,
 	'null-stub': /return (?:null|false|undefined)/,

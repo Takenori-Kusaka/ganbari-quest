@@ -242,6 +242,50 @@ describe('DSQL activity-repo (PR-R5、実 schema PGlite)', () => {
 		).rejects.toThrow();
 	});
 
+	it('[A3b] insertActivity facade 契約 (#3596 ③): 同秒 created_at でも child_id tiebreak で決定的に代表 child へ bind', async () => {
+		// facade 契約再評価 (#3596 ③): child selector を持たない family-level 呼出は代表 child
+		// (最古 created_at) に bind する。同秒 created_at 家庭でも `ORDER BY created_at, child_id`
+		// の child_id (uuid) 第 2 sort key で一意・決定的に選ばれる (「同秒 tiebreak 非決定」懸念の解消)。
+		const tieFamily = '00000000-0000-4000-8000-0000000000ca';
+		const sameInstant = '2020-02-02T02:02:02.000Z';
+		// 2 child を **同一 created_at** で seed (child_id uuid は自動採番、非決定に見える条件を作る)。
+		const seedTieChild = async (nickname: string): Promise<string> => {
+			const r = await t.db.execute(sql`
+				INSERT INTO children (family_id, nickname, birth_date, theme, ui_mode, created_at)
+				VALUES (${tieFamily}, ${nickname}, '2018-01-15', 'blue', 'preschool', ${sameInstant})
+				RETURNING child_id
+			`);
+			return (r.rows[0] as { child_id: string }).child_id;
+		};
+		const idA = await seedTieChild('同秒A');
+		const idB = await seedTieChild('同秒B');
+		// created_at が同一なら child_id 昇順で先頭 = lexicographically-min の uuid が代表 child。
+		const expectedRep = [idA, idB].sort()[0];
+
+		const boundChildOf = async (name: string): Promise<string> => {
+			const created = await repo.insertActivity(
+				{
+					name,
+					categoryId: asCategoryId('life'),
+					icon: '🧩',
+					basePoints: 3,
+					ageMin: null,
+					ageMax: null,
+				},
+				tieFamily,
+			);
+			const row = await t.db.execute(sql`
+				SELECT child_id FROM child_activities
+				WHERE family_id = ${tieFamily} AND activity_id = ${String(created.id)}
+			`);
+			return (row.rows[0] as { child_id: string }).child_id;
+		};
+
+		// 2 回連続 insert しても同一の代表 child に bind される (決定的 = 冪等な bind 先)。
+		expect(await boundChildOf('たい1')).toBe(expectedRep);
+		expect(await boundChildOf('たい2')).toBe(expectedRep);
+	});
+
 	it('[A4] countMainQuestActivities / archive / restore', async () => {
 		const family = '00000000-0000-4000-8000-0000000000c5';
 		const childId = await newChild('メイン四郎', family);

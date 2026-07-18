@@ -71,7 +71,7 @@ const icon = $derived(catDef?.icon ?? '');
 const css = $derived(CARD_SIZE_CSS[cardSize]);
 // Collapsible state — compactMode変更に追従
 // #2148: collapsible=false の場合は expanded を常に true 固定（子供画面の誤タップ全消失対策、γ 採用 / 業界 prior art 7/7 整合）。
-// 詳細: docs/reference/07-research-child-collapsible-prior-art.md
+// 詳細: docs/research/07-research-child-collapsible-prior-art.md
 let expanded = $state(true);
 $effect(() => {
 	expanded = collapsible ? !compactMode : true;

@@ -7,8 +7,8 @@
 // guard 実装方式」を宣言し、fitness function (tests/unit/db/restore-idempotency-registry.test.ts)
 // が以下を機械検証する (ADR-0061 same-class → guard):
 //   1. no-silent-gap: 各 backend repo の `*ForRestore` 関数は全て本 registry に分類されている
-//   2. guard 対称性: kind='natural-key' の entity は宣言された backend guard (ConditionExpression /
-//      ON CONFLICT / onConflictDoNothing) がソース上に存在する
+//   2. guard 対称性: kind='natural-key' の entity は宣言された backend guard
+//      (ON CONFLICT / onConflictDoNothing) がソース上に存在する
 //   3. demo stub は null / false を返し import カウントを偽装しない (#3420 count 偽装 #2263 class)
 //
 // 統一契約 (機能等価契約、#3394 / #3401):
@@ -31,8 +31,6 @@ export type RestoreIdempotencyKind = 'natural-key' | 'content-dedup' | 'append';
 
 /** backend ごとの guard 実装方式 (fitness function がソース上のマーカーを照合する)。 */
 export type RestoreGuardImpl =
-	/** DynamoDB: PutCommand + ConditionExpression 'attribute_not_exists(PK)' */
-	| 'condition-expression'
 	/** drizzle sqlite: .onConflictDoNothing() + returning/changes 判定 */
 	| 'on-conflict-do-nothing'
 	/** DSQL raw SQL: ON CONFLICT ... DO NOTHING + RETURNING 行有無判定 */
@@ -57,7 +55,6 @@ export interface RestoreIdempotencyEntry {
 	/** backend ごとの guard 実装方式 (fitness 照合対象) */
 	guards: {
 		sqlite: RestoreGuardImpl;
-		dynamodb: RestoreGuardImpl;
 		dsql: RestoreGuardImpl;
 		demo: RestoreGuardImpl;
 	};
@@ -75,10 +72,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'child-challenge-repo',
 		functionNames: ['insertForRestore'],
 		naturalKey:
-			'auto:weekly 行のみ (childId, startDate)。sqlite=部分 unique index idx_child_challenges_auto_weekly_unique / dynamodb=AUTO# 決定的 SK + attribute_not_exists / dsql=weekly_auto_guard UNIQUE。regular 行は新規採番 id キーで衝突しない',
+			'auto:weekly 行のみ (childId, startDate)。sqlite=部分 unique index idx_child_challenges_auto_weekly_unique / dsql=weekly_auto_guard UNIQUE。regular 行は新規採番 id キーで衝突しない',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -90,10 +86,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'stamp-card-repo',
 		functionNames: ['insertCardForRestore'],
 		naturalKey:
-			'(childId, weekStart)。sqlite=idx_stamp_cards_child_week / dynamodb=SK STMPCARD#<weekStart> + attribute_not_exists / dsql=stamp_cards_week_uq',
+			'(childId, weekStart)。sqlite=idx_stamp_cards_child_week / dsql=stamp_cards_week_uq',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -107,7 +102,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 			'(cardId, slot) + (cardId, loginDate)。重複は boolean false を返し stampEntriesImported に加算しない',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -118,10 +112,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		repoFile: 'certificate-repo',
 		functionNames: ['insertForRestore'],
 		naturalKey:
-			'(childId, certificateType)。sqlite=idx_certificates_child_type / dynamodb=SK CERT#<type> + attribute_not_exists / dsql=DB 制約なし (§11.2 未設置) のため import-service 層 dedup が唯一の防御',
+			'(childId, certificateType)。sqlite=idx_certificates_child_type / dsql=DB 制約なし (§11.2 未設置) のため import-service 層 dedup が唯一の防御',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'service-layer',
 			demo: 'null-stub',
 		},
@@ -132,11 +125,9 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		kind: 'natural-key',
 		repoFile: 'activity-pref-repo',
 		functionNames: ['insertForRestore'],
-		naturalKey:
-			'(childId, activityId)。sqlite=idx_child_activity_prefs_unique / dynamodb=SK ACTPREF#<activityId> + attribute_not_exists / dsql=自然複合 PK',
+		naturalKey: '(childId, activityId)。sqlite=idx_child_activity_prefs_unique / dsql=自然複合 PK',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'condition-expression',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -149,7 +140,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		contentKey: '(childId, messageType, stampCode, body, sentAt) — import-service merge mode',
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -163,7 +153,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		contentKey: '(fromChildId, toChildId, stampCode, sentAt) — import-service merge mode',
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
@@ -175,22 +164,19 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
 		reason:
-			'音声 DB 行は filePath (uuid) が実質識別子で、静的ファイル復元 (#3077) と対で管理される。再取込複製は既知の制約 (backup 対象は同一 uuid path へ上書き復元されるため実害は DB 行の重複のみ)',
+			'音声 DB 行は filePath (uuid) が実質識別子で、静的ファイル復元 (#3077) と対で管理される。再取込複製は既知の制約 (backup 対象は同一 uuid path へ上書き復元されるため実害は DB 行の重複のみ)。#3781: import-service 層で DB 行↔本体ファイル (staticFiles) の相互整合を fail-closed 検証 — 本体を欠く行は insert せず skip + warning で dangling publicUrl を生まない',
 	},
 	restDay: {
 		kind: 'natural-key',
 		repoFile: 'evaluation-repo',
 		functionNames: ['insertRestDayForRestore'],
-		naturalKey:
-			'(childId, date)。sqlite=idx_rest_days_child_date / dsql=自然複合 PK + ON CONFLICT / dynamodb=保存対象外 (no-op stub が undefined を返し skip 計上)',
+		naturalKey: '(childId, date)。sqlite=idx_rest_days_child_date / dsql=自然複合 PK + ON CONFLICT',
 		guards: {
 			sqlite: 'on-conflict-do-nothing',
-			dynamodb: 'null-stub',
 			dsql: 'on-conflict-sql',
 			demo: 'null-stub',
 		},
@@ -203,12 +189,16 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertOverrideForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},
 		reason:
-			'日次 override は (child, targetDate, action, itemName) に DB 一意制約がなく、同日複数 override も正当なため dedup 対象外 (既知の制約、#3329)',
+			'日次 override は (child, targetDate, action, itemName) に DB 一意制約がなく、同日複数 override も正当なため dedup 対象外 (既知の制約、#3329)。' +
+			'#3473 item 2 の「dynamodb に ConditionExpression 冪等 guard を追加 (#3385/#3448/#3465 と同方針)」は再分類の結果 non-applicable: ' +
+			'#3385/#3448/#3465 は決定的 SK (STMPCARD#<weekStart> 等) への無条件 Put が既存行を silent overwrite + count 偽装する欠陥だった。' +
+			'一方 insertOverrideForRestore は id を nextId で新規採番し SK=CKOVER#<date>#<id> が毎回一意になるため silent overwrite は構造的に発生せず、' +
+			'残るのは append 特性 (merge 再取込での重複行) のみ。これは同日複数 override 正当性から dedup してはならない。' +
+			'したがって natural-key guard は追加せず append 分類を維持する (ADR-0066 / #3719 統一契約整合)。',
 	},
 	rewardRedemption: {
 		kind: 'append',
@@ -216,7 +206,6 @@ export const RESTORE_IDEMPOTENCY_REGISTRY: Record<string, RestoreIdempotencyEntr
 		functionNames: ['insertRedemptionForRestore'],
 		guards: {
 			sqlite: 'none',
-			dynamodb: 'none',
 			dsql: 'none',
 			demo: 'null-stub',
 		},

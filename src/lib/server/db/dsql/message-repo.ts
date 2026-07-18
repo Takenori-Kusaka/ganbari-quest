@@ -14,6 +14,7 @@ import { sql } from 'drizzle-orm';
 import { asChildId } from '$lib/domain/ids';
 import type { IMessageRepo } from '../interfaces/message-repo.interface';
 import type { InsertParentMessageInput, ParentMessage } from '../types';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface MessageRow {
@@ -112,6 +113,19 @@ export function createDsqlMessageRepo(db: SqlExecutor): IMessageRepo {
 		},
 
 		async markMessageShown(childId, messageId, tenantId) {
+			// #3581 ②: `/api/v1/messages/[messageId]/shown` POST (+server) が raw cookie id を
+			// 直達させる repo 入口。非 uuid は not-found (undefined) に正規化し 22P02 → 500 を断つ
+			// (endpoint は既存の notFound 経路で graceful 応答。beacon POST のため redirect でなく repo guard)。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('message-repo.markMessageShown');
+				return undefined;
+			}
+			// #3799: messageId は URL param (`[messageId]`) 由来の form-field 同等 opaque id。cookie childId
+			// が有効でも非 uuid messageId が `msg_id = ${messageId}` へ直達すると 22P02 になるため同型 guard。
+			if (!isUuidFormat(String(messageId))) {
+				warnInvalidUuidId('message-repo.markMessageShown');
+				return undefined;
+			}
 			// #2845 課題①: (childId, msgId) 複合キー。不一致なら undefined。
 			const result = await db.execute(sql`
 				UPDATE parent_messages SET shown_at = now()

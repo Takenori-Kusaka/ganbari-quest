@@ -172,7 +172,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 
 		// #3329: 設定 KVS。allowlist キー (point_unit_mode) + 秘匿キー (pin_hash) を seed し、
 		// 秘匿キーが export に載らない (default-deny) こと + allowlist キーが round-trip することを検証。
-		await setSetting('point_unit_mode', 'custom', T);
+		// #3382: import 側で値バリデーションが入ったため、round-trip 検証は妥当値 ('currency') を使う。
+		await setSetting('point_unit_mode', 'currency', T);
 		await setSetting('pin_hash', '$2b$10$fake.hash.not.restored', T);
 
 		// #3329: チャレンジを 1 件 seed し進捗を進める。round-trip 後に currentValue/status が保全されることを検証。
@@ -331,8 +332,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 
 		// --- replace = clear → import ---
+		// #3781: 実 backup ZIP は音声本体を staticFiles に同梱する。DB 行↔本体の相互整合を満たすため
+		// voiceRelPath (voices/1/sample.mp3) の本体を渡す (未指定だと dangling として skip される)。
 		await clearAllFamilyData(T);
-		await importFamilyData(data, T);
+		await importFamilyData(data, T, { 'voices/1/sample.mp3': new Uint8Array([1, 2, 3]) });
 
 		// --- 復元後の child ---
 		const children = testDb.select().from(schema.children).all();
@@ -365,7 +368,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredRedemptions[0]?.rewardTitle, '交換履歴 snapshot 保全').toBe('ごほうびX');
 
 		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
-		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('custom');
+		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('currency');
 		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
 
 		// #3329: チャレンジが進捗 (currentValue) を保って復元される。
@@ -1001,5 +1004,167 @@ describe('#3653 cutover verbatim mode (dedup bypass)', () => {
 			(await findSpecialRewards(asChildId(cid), T)).length,
 			'merge: 同 title は 1 件に dedup (現行挙動の固定)',
 		).toBe(1);
+	});
+});
+
+// ============================================================
+// #3355 / #3464 / #3381: backup restore 冪等 / 再結合クラスタ (failing-test-first、ADR-0061)
+// ============================================================
+
+describe('#3355 評価取込の冪等性 (二重計上根治) + createdAt 保全', () => {
+	// 旧実装 (importEvaluationsData 無条件 insert) は同一 (child, weekStart) の重複行を 2 件 insert し
+	// growth-book/reports の数値を汚染していた。他 importer (loginBonuses/activityLogs) と同型の
+	// pre-fetch dedup を追加し、自然キー (child, weekStart) で 1 件に収束させる。
+	it('同一 (child, weekStart) の評価重複行が dedup され二重計上しない', async () => {
+		testDb.insert(schema.children).values({ nickname: 'ゆい', age: 8, theme: 'blue' }).run();
+		await insertEvaluation(
+			{
+				childId: asChildId(1),
+				weekStart: '2026-04-06',
+				weekEnd: '2026-04-12',
+				scoresJson: '{}',
+				bonusPoints: 10,
+			},
+			T,
+		);
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.evaluations.length, 'export:評価 1 件').toBe(1);
+		// 破損 / 重複 backup 再現: 同一 (childRef, weekStart) の評価を複製する。
+		const dup = { ...(data.data.evaluations[0] as (typeof data.data.evaluations)[number]) };
+		data.data.evaluations.push(dup);
+
+		await clearAllFamilyData(T);
+		const result = await importFamilyData(data, T);
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		// 旧実装: 無条件 insert で 2 件 (二重計上)。本実装: (child, weekStart) 自然キー dedup で 1 件。
+		expect(
+			(await findEvaluationsByChild(asChildId(cid), 999, T)).length,
+			'評価は 1 件 (dedup)',
+		).toBe(1);
+		expect(result.evaluationsImported, 'imported=1').toBe(1);
+		expect(result.evaluationsSkipped, 'skipped=1 (重複)').toBe(1);
+	});
+
+	it('評価の createdAt が round-trip で保全される (取込時刻に書き換わらない)', async () => {
+		testDb.insert(schema.children).values({ nickname: 'かい', age: 9, theme: 'green' }).run();
+		await insertEvaluation(
+			{
+				childId: asChildId(1),
+				weekStart: '2026-04-13',
+				weekEnd: '2026-04-19',
+				scoresJson: '{}',
+				bonusPoints: 5,
+			},
+			T,
+		);
+		const data = await exportFamilyData({ tenantId: T });
+		const seededCreatedAt = data.data.evaluations[0]?.createdAt;
+		expect(seededCreatedAt, 'export:createdAt 非空').toBeTruthy();
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		const restored = await findEvaluationsByChild(asChildId(cid), 999, T);
+		expect(restored.length, '評価 1 件').toBe(1);
+		// 旧実装: createdAt が insertEvaluation に渡らず取込時刻へ書き換わる。本実装: export 値を保全。
+		expect(restored[0]?.createdAt, 'createdAt 保全').toBe(seededCreatedAt);
+	});
+});
+
+describe('#3464 resolvedByParentId restore 時の物理 null 正規化', () => {
+	// #3337 は read 経路で legacy 0/'0' → null を正規化したが、restore write は verbatim 書込のため
+	// legacy 0 を含む旧 backup を復元すると「書込 0 / read null」の物理値ドリフトが残っていた。
+	it('legacy resolvedByParentId=0 が restore で物理 null 化される (0 再混入しない)', async () => {
+		testDb.insert(schema.children).values({ nickname: 'れい', age: 10, theme: 'blue' }).run();
+		const reward = await insertSpecialReward(
+			{
+				childId: asChildId(1),
+				title: 'ごほうびZ',
+				description: undefined,
+				points: 30,
+				icon: undefined,
+				category: 'money',
+				sourcePresetId: null,
+			},
+			T,
+		);
+		const red = await insertRedemptionRequest(
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			T,
+		);
+		if ('error' in red) throw new Error('seed: unexpected DUPLICATE_REQUEST');
+		await updateRedemptionRequestStatus(
+			asChildId(1),
+			red.id,
+			{ status: 'approved', resolvedAt: 1_700_000_100_000, resolvedByParentId: 'parent-1' },
+			T,
+		);
+
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.rewardRedemptions.length, 'export:交換履歴 1 件').toBe(1);
+		// legacy 破損 backup 再現: resolvedByParentId を旧 placeholder '0' に差し替える。
+		(data.data.rewardRedemptions[0] as { resolvedByParentId: string | null }).resolvedByParentId =
+			'0';
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+		// 物理値を raw select で確認: '0' が再混入せず null。
+		const rows = testDb.select().from(schema.rewardRedemptionRequests).all();
+		expect(rows.length, '交換履歴 1 件').toBe(1);
+		expect(rows[0]?.resolvedByParentId, "物理 null 化 (0/'0' 再混入しない)").toBeNull();
+	});
+});
+
+describe('#3381 交換履歴の reward 再結合を安定識別子 (exportId) で行う', () => {
+	// 旧実装は redemption の rewardRef (snapshot title) を取込先 reward の live title で照合するため、
+	// reward が改名されると snapshot ≠ live で交換履歴が silent skip されていた。安定識別子 rewardExportId
+	// で再結合し、title 不一致でも履歴を復元する。
+	it('snapshot title ≠ live title でも rewardExportId 経由で交換履歴が復元される', async () => {
+		testDb.insert(schema.children).values({ nickname: 'そう', age: 8, theme: 'blue' }).run();
+		const reward = await insertSpecialReward(
+			{
+				childId: asChildId(1),
+				title: 'ごほうびA',
+				description: undefined,
+				points: 40,
+				icon: undefined,
+				category: 'money',
+				sourcePresetId: null,
+			},
+			T,
+		);
+		const red = await insertRedemptionRequest(
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			T,
+		);
+		if ('error' in red) throw new Error('seed: unexpected DUPLICATE_REQUEST');
+		await updateRedemptionRequestStatus(
+			asChildId(1),
+			red.id,
+			{ status: 'approved', resolvedAt: 1_700_000_100_000, resolvedByParentId: 'parent-1' },
+			T,
+		);
+
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.rewardRedemptions.length, 'export:交換履歴 1 件').toBe(1);
+		expect(data.data.specialRewards[0]?.exportId, 'reward exportId 発番').toBeTruthy();
+		expect(data.data.rewardRedemptions[0]?.rewardExportId, 'redemption rewardExportId 発番').toBe(
+			data.data.specialRewards[0]?.exportId,
+		);
+		// reward 改名を再現: redemption の snapshot title (rewardRef) を取込先 reward の live title と
+		// 一致しない旧名に固定する。旧実装はこの行を title 照合できず skip する。
+		(data.data.rewardRedemptions[0] as { rewardRef: string }).rewardRef = '改名前の旧い名前';
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		// 旧実装: rewardRef (旧名) が live title (ごほうびA) に一致せず skip → 0 件。
+		// 本実装: rewardExportId で再結合 → 復元 (1 件、status 保全)。
+		const restored = await findRedemptionRequestsByTenant(T, {
+			childId: asChildId(cid),
+			limit: 999,
+		});
+		expect(restored.length, '交換履歴が exportId 再結合で復元 (改名でも skip しない)').toBe(1);
+		expect(restored[0]?.status, 'status 保全').toBe('approved');
 	});
 });

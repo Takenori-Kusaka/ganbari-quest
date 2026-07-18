@@ -39,6 +39,7 @@ import type {
 	ChecklistTemplateAssignment,
 	ChecklistTemplateItem,
 } from '../types';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
 interface TemplateRow {
@@ -306,6 +307,12 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		},
 
 		async findAssignmentsByChild(childId, tenantId) {
+			// #3581 ②: checklist toggle action (child POST) が raw cookie id を最初に渡す repo 経路。
+			// 非 uuid は「配信なし」= 空配列 (not-found と同 shape) を返し、22P02 → 500 を避ける。
+			if (!isUuidFormat(String(childId))) {
+				warnInvalidUuidId('checklist-repo.findAssignmentsByChild');
+				return [];
+			}
 			const result = await db.execute(sql`
 				SELECT ${ASSIGNMENT_COLUMNS} FROM checklist_template_assignments
 				WHERE family_id = ${tenantId} AND child_id = ${String(childId)}
@@ -373,16 +380,29 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		},
 
 		async insertTemplateItem(input, tenantId) {
-			// item_id は schema default (gen_random_uuid())。family_id = tenantId タグ付けで
-			// tenant 越境 write を構造排除 (§P9)。
+			// item_id は schema default (gen_random_uuid())。
+			// #3603 ①: DSQL は FK 非対応。template_id を family タグのみで受理すると、同 family 内でも
+			// 存在しない / archive 済でない別 template を名乗った item が orphan として挿入され得る
+			// (assignTemplateToChildren の children JOIN と同じ穴)。INSERT ... SELECT FROM
+			// checklist_templates で「template が同 family に実在する」ことを構造強制し、family_id は
+			// 親 template 行から採る (§P9: template が別 tenant なら 0 行 → 挿入されない)。0 行 emit は
+			// caller の programming error (実在しない template) ゆえ silent drop せず loud に throw する。
 			const result = await db.execute(sql`
 				INSERT INTO checklist_template_items
 					(family_id, template_id, name, icon, frequency, direction, sort_order)
-				VALUES (${tenantId}, ${input.templateId}, ${input.name}, ${input.icon ?? '🏫'},
-					${input.frequency ?? 'daily'}, ${input.direction ?? 'bring'}, ${input.sortOrder ?? 0})
+				SELECT t.family_id, t.template_id, ${input.name}, ${input.icon ?? '🏫'},
+					${input.frequency ?? 'daily'}, ${input.direction ?? 'bring'}, ${input.sortOrder ?? 0}
+				FROM checklist_templates t
+				WHERE t.family_id = ${tenantId} AND t.template_id = ${input.templateId}
 				RETURNING ${ITEM_COLUMNS}
 			`);
-			return toItem(result.rows[0] as unknown as ItemRow);
+			const row = result.rows[0] as unknown as ItemRow | undefined;
+			if (!row) {
+				throw new Error(
+					'checklist insertTemplateItem: template not found in tenant (orphan item rejected)',
+				);
+			}
+			return toItem(row);
 		},
 
 		async deleteTemplateItem(templateId, id, tenantId) {
@@ -451,13 +471,28 @@ export function createDsqlChecklistRepo<TTx extends SqlExecutor>(
 		},
 
 		async insertOverride(input, tenantId) {
+			// #3603 ①: DSQL は FK 非対応。child_id を family タグのみで受理すると、同 family 内でも
+			// 存在しない child を名乗った override が orphan として挿入され得る
+			// (assignTemplateToChildren の children JOIN と同じ穴)。INSERT ... SELECT FROM children で
+			// 「child が同 family に実在する」ことを構造強制し、family_id は children 行から採る
+			// (§P9: child が別 tenant なら 0 行 → 挿入されない)。0 行 emit は caller の programming error
+			// (実在しない child) ゆえ silent drop せず loud に throw する。backup restore 経路
+			// (insertOverrideForRestore) は child 復元順序に依存するため本 guard の対象外。
 			const result = await db.execute(sql`
 				INSERT INTO checklist_overrides (family_id, child_id, target_date, action, item_name, icon)
-				VALUES (${tenantId}, ${String(input.childId)}, ${input.targetDate}, ${input.action},
-					${input.itemName}, ${input.icon ?? '📦'})
+				SELECT c.family_id, c.child_id, ${input.targetDate}, ${input.action},
+					${input.itemName}, ${input.icon ?? '📦'}
+				FROM children c
+				WHERE c.family_id = ${tenantId} AND c.child_id = ${String(input.childId)}
 				RETURNING ${OVERRIDE_COLUMNS}
 			`);
-			return toOverride(result.rows[0] as unknown as OverrideRow);
+			const row = result.rows[0] as unknown as OverrideRow | undefined;
+			if (!row) {
+				throw new Error(
+					'checklist insertOverride: child not found in tenant (orphan override rejected)',
+				);
+			}
+			return toOverride(row);
 		},
 
 		async findOverridesByChild(childId, tenantId) {

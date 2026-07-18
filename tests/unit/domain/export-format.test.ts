@@ -2,6 +2,7 @@
 // #3104: buildAttachmentContentDisposition の回帰テスト。
 // 日本語名テンプレで Content-Disposition が ByteString 変換 500 になった bug の再発防止。
 
+import * as fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { buildAttachmentContentDisposition } from '../../../src/lib/domain/export-format';
 
@@ -91,5 +92,57 @@ describe('buildAttachmentContentDisposition (#3104)', () => {
 		expect(extValue).toContain('%21');
 		expect(extValue).toContain('%7E');
 		expect(isByteStringSafe(cd)).toBe(true);
+	});
+});
+
+// #3847 (EPIC #3151、RFC 5987/6266): 任意 Unicode ファイル名に対する RFC 6266 準拠を property-based で
+// lock する。既存 example-based test を fast-check で補強し、境界 / Unicode を機械探索して #3104 class
+// (非 ASCII 名の header 破損 / 復元不能) の再発を封じる。
+describe('buildAttachmentContentDisposition property (#3847、RFC 5987/6266)', () => {
+	// grapheme unit: 絵文字 / ZWJ / 結合文字を含む Unicode-aware な任意ファイル名 (lone surrogate なし)。
+	const filenameArb = fc.string({ unit: 'grapheme', minLength: 1, maxLength: 40 });
+
+	it('任意 Unicode 名で: ASCII fallback (filename=) と filename*=UTF-8 の両方を必ず含む', () => {
+		fc.assert(
+			fc.property(filenameArb, (name) => {
+				const cd = buildAttachmentContentDisposition(name);
+				expect(cd.startsWith('attachment;')).toBe(true);
+				expect(cd).toMatch(/filename="[^"]*"/);
+				expect(cd).toContain("filename*=UTF-8''");
+			}),
+		);
+	});
+
+	it('任意 Unicode 名で: 出力は常に ByteString 安全 (new Response が throw しない = 500 にならない)', () => {
+		fc.assert(
+			fc.property(filenameArb, (name) => {
+				const cd = buildAttachmentContentDisposition(name);
+				expect(isByteStringSafe(cd)).toBe(true);
+				expect(() => new Response('{}', { headers: { 'Content-Disposition': cd } })).not.toThrow();
+			}),
+		);
+	});
+
+	it('任意 Unicode 名で: filename* を decode すると元のファイル名が完全復元される (RFC 5987 round-trip)', () => {
+		fc.assert(
+			fc.property(filenameArb, (name) => {
+				const cd = buildAttachmentContentDisposition(name);
+				const ext = cd.match(/filename\*=UTF-8''(.*)$/)?.[1] ?? '';
+				// filename* に格納された percent-encoded 値を decode → 元名と一致 (往復で欠落/破損なし)
+				expect(decodeURIComponent(ext)).toBe(name);
+			}),
+		);
+	});
+
+	it('任意 Unicode 名で: ASCII fallback は printable ASCII のみ + " \\ ; = を含まない (injection 安全)', () => {
+		fc.assert(
+			fc.property(filenameArb, (name) => {
+				const cd = buildAttachmentContentDisposition(name);
+				const fallback = cd.match(/filename="([^"]*)"/)?.[1] ?? '';
+				// 0x20-0x7E の printable ASCII のみ、かつ directive 区切りになる文字を含まない
+				expect(fallback).toMatch(/^[ -~]*$/);
+				expect(fallback).not.toMatch(/["\\;=]/);
+			}),
+		);
 	});
 });

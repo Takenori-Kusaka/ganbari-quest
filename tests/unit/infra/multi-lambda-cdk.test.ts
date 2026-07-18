@@ -54,6 +54,10 @@ function makeApp(): cdk.App {
 			opsSecretKey: 'test-ops-secret-key',
 			// #2310 / #2337 / ADR-0050: parent-gate-session.ts production throw 防止
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			// #3438 Phase 2A: DSQL は無条件 backend ゆえ endpoint / clusterArn context 必須
+			// (未注入だと fail-close で synth error)。deploy workflow が実値を resolve する。
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
 		},
 	});
 	return app;
@@ -70,7 +74,6 @@ function buildStacks(): {
 	const storage = new StorageStack(app, 'TestStorage', { env });
 	const compute = new ComputeStack(app, 'TestCompute', {
 		env,
-		table: storage.table,
 		assetsBucket: storage.assetsBucket,
 		repository: storage.repository,
 	});
@@ -522,14 +525,14 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 	});
 
 	describe('production Lambda preservation (zero regression on prod Fn)', () => {
-		it('production Fn は DATA_SOURCE=dynamodb + AUTH_MODE=cognito を維持する', () => {
+		it('production Fn は DATA_SOURCE=dsql + AUTH_MODE=cognito を維持する (#3438 Phase 2A)', () => {
 			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app',
 				Environment: {
 					Variables: Match.objectLike({
-						DATA_SOURCE: 'dynamodb',
+						DATA_SOURCE: 'dsql',
 						AUTH_MODE: 'cognito',
 					}),
 				},

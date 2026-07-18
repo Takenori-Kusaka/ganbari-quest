@@ -299,8 +299,7 @@ node scripts/check-new-required-env.mjs
 `main` への merge は即 Lambda 本番反映。**段階的・漸進的実装は禁止**。
 
 - stub / no-op / TODO 実装の merge は禁止。「follow-up PR で本実装」前提のレビュー依頼は PO クレーム事案
-- DynamoDB / SQLite 両対応 repo 追加 PR は **両実装完成必須**。CDK 定義も同 PR に含める
-- CI script `scripts/check-dynamodb-stub.mjs` が dynamodb 配下の空実装・TODO を自動検出
+- 複数 backend 対応 repo 追加 PR は **全 backend 実装完成必須** (cloud=DSQL / NUC=PGlite・SQLite)。CDK 定義も同 PR に含める (#3438 で DynamoDB backend は撤去済)
 - Pre-PMF: そもそも interface を追加すべきか ADR-0010 採用マトリクスで判定
 
 ### 本番デプロイ動作確認（critical / 監査 / 認可 / 課金）

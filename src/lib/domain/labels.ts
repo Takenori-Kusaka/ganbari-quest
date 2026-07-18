@@ -2282,6 +2282,21 @@ export const SETTINGS_LABELS = {
 	// 不完全な部分バックアップを黙って作らず明示エラーにする (再生成不能な avatar/voice の silent 欠落防止)。
 	dataExportTooLarge: (maxMb: string) =>
 		`バックアップ対象のデータが上限（${maxMb}MB）を超えています。不要な画像・音声を整理してから、もう一度お試しください。`,
+	// #3405-3: 個々の画像・音声ファイル単体が per-entry 上限を超えたとき、build/parse 対称化のため
+	// build 時点で明示エラーにする (25MB 超 entry を含む ZIP を作らせない = import で silent drop →
+	// 復元不能になる dead-end を根治)。
+	dataExportEntryTooLarge: (maxMb: string) =>
+		`1つの画像・音声ファイルが上限（${maxMb}MB）を超えています。該当ファイルを小さくするか削除してから、もう一度お試しください。`,
+	// #3694: AWS 本番の Function URL (BUFFERED) は response も 6MB hard cap。画像込み ZIP が
+	// 直接ダウンロードの実効上限を超えると edge で沈黙切断されるため、明示エラー + クラウド共有
+	// (PINコード、非同期・上限なし) への誘導を返す (ADR-0062)。
+	dataExportTooLargeForDirectDownload: (maxMb: string) =>
+		`画像・音声を含むファイルが直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
+	// #3775 ①: JSON export (テキストのみ、画像・音声は ZIP 同梱) も aws-prod では Function URL
+	// 6MB response cap を超えると edge 沈黙切断される。JSON は画像・音声を含まないため専用文言で
+	// クラウド共有 (PINコード、非同期・上限なし) へ誘導する (ADR-0062 / dataExportTooLargeForDirectDownload と対)。
+	dataExportJsonTooLargeForDirectDownload: (maxMb: string) =>
+		`${BACKUP_TERMS.canonical}が直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
 	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
 	dataExportZipCloudHint:
@@ -2347,6 +2362,11 @@ export const SETTINGS_LABELS = {
 		`チェックリスト履歴: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultStaticFiles: (restored: number | string, skipped: number | string) =>
 		`画像・音声ファイル: ${restored}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	// #3490: childVoices (お子さまの音声) / 各種設定の復元・skip 件数を summary に surface (silent-skip 可視化)
+	dataImportResultChildVoices: (imported: number | string, skipped: number | string) =>
+		`お子さまの音声: ${imported}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportResultSettings: (imported: number | string, skipped: number | string) =>
+		`各種設定: ${imported}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportWarningsTitle: (n: number | string) => `警告 (${n}件):`,
 	dataImportErrorsTitle: (n: number | string) => `エラー (${n}件):`,
 	// #3095: partial-restore の data-integrity 可視化 — errors があれば「完了」でなく部分復元として警告する。
@@ -2357,6 +2377,17 @@ export const SETTINGS_LABELS = {
 	dataImportPartialBodyAdd:
 		'復元できなかった項目があります。下記の内容をご確認のうえ、必要に応じて再度インポートしてください。',
 	dataImportClose: '閉じる',
+	// #3386: バックアップ ZIP の整合性検証失敗メッセージ (ADR-0062 — 内部 reason コード / 生パスを露出しない
+	// ユーザー向け文言。内部 reason は logger のみに残す)。checksum/size/missing 破損は共通の破損文言で、
+	// unexpected-file (混入) のみ別文言にして「作り直し」の次アクションを促す。
+	dataImportManifestCorrupt:
+		'バックアップファイルが壊れているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupCorrupt:
+		'バックアップファイルの内容が壊れているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupUnexpectedFile:
+		'バックアップファイルに想定外のデータが含まれているため復元できません。もう一度エクスポートしてください',
+	dataImportBackupCountMismatch:
+		'バックアップファイルの一部が欠けているため復元できません。もう一度エクスポートしてください',
 
 	// クラウドエクスポート
 	cloudSectionTitle: '☁️ クラウド共有',
@@ -2960,9 +2991,15 @@ export const POINTS_LABELS = {
 	manualMaxButton: '全額変換',
 
 	// 領収書モード
+	// #3694: OCR 画像は base64 JSON body で送るため、AWS 本番は Function URL 6MB request cap に
+	// 整合した実効上限をサーバが返す (デコード後上限は runtime で下方整合される)。
+	receiptImageTooLarge: (maxMb: string) => `画像サイズは${maxMb}MB以下にしてください`,
 	receiptLabel: '領収書を撮影して金額を読み取り',
 	receiptCaptureButtonTitle: '領収書を撮影 / 画像を選択',
-	receiptCaptureButtonNote: 'JPEG, PNG, WebP（5MB以下）',
+	// #3775 ②: 表示上限 (MB) は実行環境で異なる (aws-prod ~4.1MB / NUC・local 5MB)。静的 5MB 表記は
+	// aws-prod の実効 reject 閾値と乖離し「5MB と書いてあるのに 4.5MB が弾かれる」UX 齟齬を生むため、
+	// server が実際に reject する実効値 (resolveMaxBase64DecodedBytes → toDisplayMb) を load で解決して渡す。
+	receiptCaptureButtonNote: (maxMb: string) => `JPEG, PNG, WebP（${maxMb}MB以下）`,
 	receiptPreviewAlt: '領収書プレビュー',
 	receiptPreviewClose: 'プレビューを閉じる',
 	receiptScanningText: '金額を読み取り中...',
@@ -3745,6 +3782,11 @@ export const MEMBERS_LABELS = {
 	// 取消し → 再発行できる修正導線)
 	inviteEmailBoundPrefix: '宛先: ',
 	inviteRevokeButton: '取消し',
+	// #3552 ③: 招待の発行・取消は owner 専用 (#3549 PO 決裁 (a))。parent には保留中招待
+	// リストは見えるが取消ボタンは非表示のため、「なぜ操作できないか + 誰に依頼するか」を
+	// 案内し「認知的宙吊り」(操作が消えて理由も導線も無い状態) を解消する。
+	inviteOwnerOnlyNote:
+		'招待の発行・取り消しはオーナーのみ行えます。変更が必要な場合はオーナーにご依頼ください。',
 
 	// Error messages
 	inviteCreateError: '招待リンクの作成に失敗しました',
@@ -3946,7 +3988,7 @@ export const OPS_ANALYTICS_LABELS = {
 	// Activation Funnel section (#2285 EPIC #2283: /admin/analytics 撤去で消失する機能を ops 側へ移動)
 	// 内部基盤名 (DynamoDB / Pre-PMF Bucket A) UI 露出禁止 (AN-5 #2180 整合)、「テナント」→「家庭」置換
 	activationFunnelTitle: 'Activation Funnel (直近 30 日)',
-	activationFunnelDesc: 'signup から初回報酬演出までの家庭単位ユニーク件数と遷移率。',
+	activationFunnelDesc: 'signup から 7 日継続までの家庭単位ユニーク件数と遷移率。',
 	activationFunnelStepCol: 'ステップ',
 	activationFunnelCountCol: '件数',
 	activationFunnelConversionCol: '遷移率',
@@ -3954,7 +3996,7 @@ export const OPS_ANALYTICS_LABELS = {
 		activation_signup_completed: '① signup',
 		activation_first_child_added: '② 初回家庭メンバー登録',
 		activation_first_activity_completed: '③ 初回活動完了',
-		activation_first_reward_seen: '④ 初回報酬演出',
+		activation_retained_7d: '④ 7日継続',
 	},
 	activationFunnelEmpty: 'データがありません',
 	activationFunnelHouseholdSuffix: '世帯',
@@ -9338,4 +9380,20 @@ export const UNIFIED_EMPTY_STATE_LABELS = {
 	// Reward / Checklist 等で childId 必須な場合の補助文言
 	pickChildHint: '対象の子供を選んでから取り込みできます。',
 	disabledReason: '権限が不足しています',
+} as const;
+
+// #3593 ④: system 生成 ポイント台帳 (point_ledger) description の SSOT。
+// これらは DB に data 値として保存されると同時に、ポイント履歴 UI に表示される system 文言。
+// ADR-0045 に従い service 層のコード直書きを避け、labels compound に集約する
+// (「ポイント」は POINT_TERMS.unitFull atom を参照)。
+export const POINT_LEDGER_LABELS = {
+	/** baby モード初期ポイント付与 (親設定) の ledger description */
+	initialSetup: '親による初期ポイント設定',
+	/** ポイント → おこづかい変換の ledger description (変換モード別サフィックス付き) */
+	convert(amount: number, mode: 'preset' | 'manual' | 'receipt'): string {
+		const base = `${amount}${POINT_TERMS.unitFull}をおこづかいにかえました`;
+		if (mode === 'manual') return `${base}（手動入力）`;
+		if (mode === 'receipt') return `${base}（領収書読み取り）`;
+		return base;
+	},
 } as const;

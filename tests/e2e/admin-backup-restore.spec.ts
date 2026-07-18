@@ -174,4 +174,29 @@ test.describe('admin/checklists backup/restore (#3079)', () => {
 
 		await fs.unlink(exportPath).catch(() => {});
 	});
+
+	// #3847 (EPIC #3151、RFC 5987/6266): checklist export の Content-Disposition は
+	// buildAttachmentContentDisposition (filename*=UTF-8'' + ASCII fallback) を経由する。
+	// seed のテンプレート名は日本語 (例: がっこうのもちもの) のため、Chromium が filename* を decode し
+	// suggestedFilename に日本語名を復元することを検証する (= #3104 の逆: 非 ASCII 名の往復復元可能性)。
+	test('非 ASCII テンプレート名の export は suggestedFilename に日本語名を復元する (#3847)', async ({
+		page,
+	}) => {
+		await page.goto('/admin/checklists');
+		await openMenuItem(page, 'checklists-overflow-menu', 'overflow-menu-item-export');
+		const exportDialog = page.getByTestId('export-checklist-dialog');
+		await expect(exportDialog).toBeVisible();
+
+		const firstExportItem = exportDialog.locator('[data-testid^="export-checklist-item-"]').first();
+		// seed に日本語名テンプレート (global-setup の 'がっこうのもちもの' 等) が存在する前提。
+		await expect(firstExportItem).toBeVisible();
+
+		const [download] = await Promise.all([page.waitForEvent('download'), firstExportItem.click()]);
+		const suggested = download.suggestedFilename();
+		// Content-Disposition filename* を browser が decode → checklist-<name>.json を復元
+		expect(suggested).toMatch(/^checklist-.*\.json$/);
+		// ASCII fallback (_ 置換) ではなく filename* 由来の非 ASCII 名 (> U+007F) が復元されている
+		const hasNonAscii = [...suggested].some((ch) => (ch.codePointAt(0) ?? 0) > 0x7f);
+		expect(hasNonAscii).toBe(true);
+	});
 });

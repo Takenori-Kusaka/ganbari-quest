@@ -271,10 +271,11 @@ RLS 非対応（P8）ゆえ DB エンジン強制の砦なし。代替防御線�
 
 | 用途 | 接続ロール | 権限 |
 |---|---|---|
-| **アプリ実行時** | 専用最小権限 postgres role `app_user`（`DbConnect` 系 IAM、`DbConnectAdmin` でない。provisioning = `dsql/migration/app-role.ts` + `npm run dsql:grant`、#3646） | tenant 表への SELECT/INSERT/DELETE + 業務上必要な UPDATE のみ。**UPDATE 除外表（`consents`/`point_ledger`/`status_history`/`checklist_logs`/`notification_logs`/`usage_logs`/`cancellation_reasons`/`graduation_consent` — SSOT は `app-role.ts` `UPDATE_EXCLUDED_TABLES`）への UPDATE grant を与えない**（I-CONS 等の追記性 = 改竄不能を DB GRANT で物理担保）。**DELETE は除外しない** — 退会（tenant 全削除）/ retention cleanup（ADR-0049 物理削除）/ child 削除の正当業務経路が DELETE を発行するため（#3646 で「UPDATE/DELETE 除外」から是正）。`activity_logs`（cancelled soft-cancel）/ `trial_history`（状態更新）は実装が UPDATE を必要とするため除外対象外 |
+| **アプリ実行時** | 専用最小権限 postgres role `app_user`（`DbConnect` 系 IAM、`DbConnectAdmin` でない。provisioning = `dsql/migration/app-role.ts` + `npm run dsql:grant`、#3646） | tenant 表への SELECT/INSERT/DELETE + 業務上必要な UPDATE のみ。**UPDATE 除外表（`consents`/`point_ledger`/`status_history`/`checklist_logs`/`notification_logs`/`usage_logs`/`cancellation_reasons`/`graduation_consent` — SSOT は `app-role.ts` `UPDATE_EXCLUDED_TABLES`）への UPDATE grant を与えない**（I-CONS 等の追記性 = 改竄不能を DB GRANT で物理担保）。**UPDATE は deny-by-default**（#3658）: 「除外リストに無い表 = 付与」の fail-open を廃し、`UPDATE_ALLOWED_TABLES` に明示列挙した表にのみ UPDATE を付与する。どちらの集合にも無い未分類の新表は UPDATE 抜き（append-only 側に倒れる安全側）で GRANT する。**DELETE は除外しない** — 退会（tenant 全削除）/ retention cleanup（ADR-0049 物理削除）/ child 削除の正当業務経路が DELETE を発行するため（#3646 で「UPDATE/DELETE 除外」から是正）。`activity_logs`（cancelled soft-cancel）/ `trial_history`（状態更新）は実装が UPDATE を必要とするため除外対象外 |
 | **migration / admin** | 別クレデンシャル（`DbConnectAdmin`） | DDL・GRANT 管理。アプリ実行経路から到達不能 |
 
-- **fitness**: UPDATE 除外表への UPDATE を GRANT 除外（runtime、`tests/unit/db/dsql-app-role.test.ts` [G2]）+ 静的走査（`tests/unit/architecture/dsql-append-only-update-fitness.test.ts`）の 2 層（RLS 不在の代替、台帳改竄の物理防御）。
+- **fitness**: UPDATE 除外表への UPDATE を GRANT 除外（runtime、`tests/unit/db/dsql-app-role.test.ts` [G2]）+ 静的走査（`tests/unit/architecture/dsql-append-only-update-fitness.test.ts`）の 2 層（RLS 不在の代替、台帳改竄の物理防御）。静的走査は #3658 で強化: [A] repo 層 UPDATE 走査を **再帰化**（migration/ 等サブディレクトリの repo も検査）+ [B] **no-silent-gap 分類**（schema.ts 全表 = `UPDATE_EXCLUDED_TABLES` ∪ `UPDATE_ALLOWED_TABLES` かつ disjoint を assert、未分類の新表は CI red で分類を強制。#3134 registry no-silent-gap と同型）。
+- **DELETE 追記性非対称の soft-delete 非採用**（#3658 AC3）: UPDATE は物理禁止だが DELETE は正当業務経路（退会 / ADR-0049 物理削除）ゆえ許可 =「改竄不能・削除可能」の非対称。監査証跡の完全性を要求する将来要件（enterprise 監査等）が発生した時点で soft-delete（`deleted_at` 論理削除）への移行を**検討する**が、Pre-PMF では ADR-0049 の物理削除が正であり実装しない（過剰防衛回避、ADR-0010）。将来トリガ = enterprise 監査要件の発生。
 - **role 分離の実装（#3646 で cutover gate 消化済）**: 実行 role = `app_user`（DbConnect、compute-stack が `DSQL_USER=app_user` 注入）/ migration・grant = `DbConnectAdmin` 経路（`dsql:migrate` → compute deploy → `dsql:grant --iam-role-arn <Lambda 実行 role>` の順で deploy workflow が適用）。DSQL の認可仕様上 DbConnect は custom database role 専用（admin は DbConnectAdmin 必要）のため、この provisioning なしでは DbConnect 最小権限の Lambda は一切接続できない。
 
 ---
@@ -355,6 +356,8 @@ M2 の GrowthJournal 集約 atomic 境界（activity_log 生成 + status 更新 
 
 - **core = 単一 txn**（activity_log + status + status_history + mastery + point_ledger base + total_point 加算）。
 - **optional = core commit 後の独立 best-effort mini-txn**（combo/mission/challenge/certificate/special_reward、各 additive かつ冪等、失敗隔離 + ログ）。**欠落許容は要 PO 確認**（M2/big-policy §10-8: 現状の握り潰しと同等で regression なし）。
+- **cancel も対称に単一 txn**（#3596 ②、`cancel-activity-core.ts`）: activity_log soft-cancel（`cancelled=true`）+ mastery count−1 + point_ledger(−)+total_point 減 + status 復元（clampDecayFloor 契約保存）+ status_history を all-or-nothing 書込。冪等 guard = cancel UPDATE の affected 行判定（2 連打は同一行 UPDATE の OCC 40001 retry で 0 行 → ALREADY_CANCELLED、二重返金なし）。record core と同じく DATA_SOURCE=dsql のみ本経路（sqlite/pglite は逐次 await 経路を温存、単一接続で並行競合なし）。
+- **返金額は base+streak+mastery_bonus の対称返金**（#3787）: record 時 ledger は base+streak+mastery_bonus を計上するため、cancel も同額を相殺しないと record→cancel cycle で mastery_bonus（per-record 付与、`floor(level/5)`）が balance に残り point 経済が壊れる。refundPoints は service 層（`activity-cancel-dsql.ts` / legacy sqlite 経路とも）が `log.points + log.streak_bonus + calcMasteryBonusRefundOnCancel(mastery.total_count)` で算出する（記録前 level = `calcMasteryLevel(count-1)` を基準に付与時と同一式で復元、latest record の cancel で厳密一致）。core は refundPoints を ledger(−)/total_point/status に一貫適用するのみ（額算出責務は service 層に凝集、旧 #3596 ② の非対称挙動を是正）。
 
 ### §6.2 派生列 compute-on-write（total_point 等、構造決定 + PoC 保留）
 

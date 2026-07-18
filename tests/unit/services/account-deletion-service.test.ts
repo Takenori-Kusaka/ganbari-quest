@@ -193,6 +193,13 @@ describe('account-deletion-service', () => {
 			expect(result.pattern).toBe('owner-only');
 			expect(mockAuthRepo.deleteTenant).toHaveBeenCalledWith(TENANT_ID);
 			expect(mockAuthRepo.deleteUser).toHaveBeenCalledWith(OWNER_ID);
+
+			// #3588 ②: DSQL cutover 安全性 — membership (tenant scope) を global user 削除より先に
+			// 掃除する (FK 非対応ゆえ dangling user_id 窓を作らない)。
+			const deleteMembershipOrder =
+				mockAuthRepo.deleteMembership.mock.invocationCallOrder[0] ?? Infinity;
+			const deleteUserOrder = mockAuthRepo.deleteUser.mock.invocationCallOrder[0] ?? -Infinity;
+			expect(deleteMembershipOrder).toBeLessThan(deleteUserOrder);
 		});
 
 		it('他メンバーがいる場合はエラー', async () => {

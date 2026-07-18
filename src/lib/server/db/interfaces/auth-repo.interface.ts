@@ -60,16 +60,30 @@ export interface IAuthRepo {
 	createMembership(input: CreateMembershipInput): Promise<Membership>;
 	deleteMembership(userId: string, tenantId: string): Promise<void>;
 
-	// --- Invite ---
+	// --- Invite (#3585: 管理操作は inviteId 鍵、受諾のみ raw inviteCode 鍵) ---
 	createInvite(input: CreateInviteInput): Promise<Invite>;
+	/** 受諾フロー専用: raw code (capability) から invite を引く。返る Invite の inviteCode は引数の raw。 */
 	findInviteByCode(inviteCode: string): Promise<Invite | undefined>;
+	/**
+	 * 管理系の状態遷移 (revoke / expire / 旧経路 accept)。鍵は inviteId (#3585)。
+	 * pending からの遷移のみ許可する状態機械 (#3588 ③): 失効済 / 受諾済 invite への
+	 * 再遷移は no-op (乱用余地を塞ぐ)。
+	 *
+	 * tenant scope は query 層が `family_id = tenantId` 述語で強制する (deleteInvite と対称、
+	 * ADR-0063 §3.4 単一強制点。RLS 非対応の代替防御線)。他 tenant の inviteId を渡しても
+	 * 述語不一致で 0 行 = no-op となり cross-tenant mutation (他家族の status / accepted_by 書込)
+	 * を物理排除する。呼び出し側の一覧束縛に依存しない (caller-discipline 非依存、#3588)。
+	 */
 	updateInviteStatus(
-		inviteCode: string,
+		inviteId: string,
+		tenantId: string,
 		status: Invite['status'],
 		acceptedBy?: string,
 	): Promise<void>;
+	/** 一覧。各 Invite の inviteId は管理鍵、inviteCode は空 (raw 非露出、#3585)。 */
 	findTenantInvites(tenantId: string): Promise<Invite[]>;
-	deleteInvite(inviteCode: string, tenantId: string): Promise<void>;
+	/** 物理削除。鍵は inviteId、tenant 束縛必須 (他 tenant の invite は消せない、#3585 / §P9)。 */
+	deleteInvite(inviteId: string, tenantId: string): Promise<void>;
 
 	// --- Consent (#0192) ---
 	recordConsent(input: RecordConsentInput): Promise<ConsentRecord>;

@@ -11,7 +11,7 @@ describe('DisplayConfig', () => {
 	describe('getDefaultDisplayConfig', () => {
 		// #2148 (γ 採用): 子供画面では collapsible は全年齢で false 固定。
 		// 業界 prior art 7/7 整合、ADR-0012 Anti-engagement 整合。
-		// 詳細: docs/reference/07-research-child-collapsible-prior-art.md
+		// 詳細: docs/research/07-research-child-collapsible-prior-art.md
 		test('Baby (0-2歳) は large カード + 6件 + 折りたたみなし (#2148)', () => {
 			const config = getDefaultDisplayConfig(1);
 			expect(config).toEqual({ cardSize: 'large', itemsPerCategory: 6, collapsible: false });

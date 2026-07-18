@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type Handle, type HandleServerError, json, redirect } from '@sveltejs/kit';
 import { building } from '$app/environment';
-import { analytics } from '$lib/analytics';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { can } from '$lib/policy/capabilities';
@@ -31,7 +30,6 @@ import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
-import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
@@ -105,34 +103,17 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	);
 }
 
-// Initialize analytics providers (lazy, environment-variable gated)
-analytics.init();
-
-/**
- * Build CSP header.
- *
- * #1591 (ADR-0023 I2): umami / Sentry プロバイダ削除に伴い、provider 固有ドメインの
- * 追加は不要になった。analytics は AWS 内完結 (DynamoDB) のため connectSrc / scriptSrc
- * に外部ホストを足す必要がない — 'self' で完結する。これにより CSP は静的に決まり、
- * 「外部送信ゼロ」が CSP レイヤでも構造的に保証される。
- */
-function buildCspHeader(): string {
-	return [
-		`default-src 'self'`,
-		`script-src 'self' 'unsafe-inline'`,
-		`style-src 'self' 'unsafe-inline'`,
-		`img-src 'self' data: blob:`,
-		`media-src 'self' blob:`,
-		`font-src 'self'`,
-		`connect-src 'self'`,
-		`object-src 'none'`,
-		`base-uri 'self'`,
-		`frame-ancestors 'none'`,
-	].join('; ');
-}
-
-/** Cached CSP header (built once at startup) */
-const CSP_HEADER = buildCspHeader();
+// #3829 (EPIC #3408 slice C): アプリ側 CSP は SvelteKit 標準 CSP (svelte.config.js kit.csp、
+// hash mode) に一本化した。SvelteKit が hydration bootstrap の inline script を sha256 hash 化して
+// `script-src` に自動注入するため `script-src 'unsafe-inline'` を撤廃できる (stored-XSS の script
+// ベクタ最終防壁化、#3112 構造リスク 1)。旧 `buildCspHeader()` / `CSP_HEADER` / 下記
+// `response.headers.set('Content-Security-Policy', ...)` は clobber (二重付与) を避けるため撤去済。
+// directive 値の SSOT は svelte.config.js kit.csp。「外部送信ゼロ」の connect-src 'self' 固定も
+// 同 config に引き継いでいる (ADR-0067 / ADR-0023 §3.4)。
+// clickjacking 防御 (下記 `X-Frame-Options: DENY`) は resolve(event) を通る SSR / 動的レスポンス
+// 全てに付与される。対話 HTML ページは全て SSR のため確実に効く。prerender ページ (唯一 sitemap.xml、
+// 非対話 XML) は build 時に静的化され hooks を経由しないため X-Frame-Options を持たないが、iframe 埋込
+// による clickjacking の実害は無い (QM runtime 検証 #3833 で実挙動を確認)。
 
 export const handle: Handle = ({ event, resolve }) =>
 	// #788: リクエスト境界でコンテキストを張る。resolveFullPlanTier / getTrialStatus が
@@ -502,11 +483,15 @@ export const handle: Handle = ({ event, resolve }) =>
 		const response = await resolve(event);
 
 		// 3) セキュリティヘッダ付与
+		// Content-Security-Policy は SvelteKit 標準 CSP (svelte.config.js kit.csp) が
+		// ページレスポンスに付与するため、ここでは set しない (#3829、clobber 除去)。
+		// X-Frame-Options は SSR / 動的レスポンス全てに付与し、対話 HTML の clickjacking を防ぐ。
+		// prerender ページ (sitemap.xml、非対話 XML) は静的化され本 hooks を経由しないため
+		// 本 header は乗らないが、非対話 XML で実害なし (#3833 で実挙動を確認)。
 		response.headers.set('X-Frame-Options', 'DENY');
 		response.headers.set('X-Content-Type-Options', 'nosniff');
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 		response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-		response.headers.set('Content-Security-Policy', CSP_HEADER);
 		if (authMode === 'cognito') {
 			response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 		}
@@ -544,14 +529,6 @@ export const handle: Handle = ({ event, resolve }) =>
 					},
 				});
 			}
-
-			// Analytics: identify tenant and track page views for HTML requests
-			if (context?.tenantId) {
-				analytics.identify(context.tenantId);
-			}
-			if (event.request.method === 'GET' && acceptsHtml(event.request)) {
-				analytics.trackPageView(path, event.request.headers.get('Referer') ?? undefined);
-			}
 		}
 
 		return response;
@@ -574,11 +551,6 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		error: error instanceof Error ? error.message : String(error),
 		stack,
 	});
-
-	// Analytics: track all server errors
-	if (error instanceof Error) {
-		trackServerError(error, { method, path, status, requestId, tenantId });
-	}
 
 	// 500 系エラーのみ Discord に通知（4xx は通常エラーなので除外）
 	if (status >= 500) {

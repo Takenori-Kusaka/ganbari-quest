@@ -5,7 +5,13 @@ import { asCategoryId } from '$lib/domain/ids';
 // 家族データインポートサービス（Phase 2 / #1254）
 
 import { toLegacyCategoryId } from '$lib/domain/categories';
-import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/domain/export-format';
+import { sanitizeChecklistOverrideRestore } from '$lib/domain/checklist-override';
+import {
+	EXPORT_FORMAT,
+	type ExportData,
+	isExportableSettingKey,
+	isValidSettingValue,
+} from '$lib/domain/export-format';
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
@@ -26,7 +32,11 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
-import { insertEvaluation, insertRestDayForRestore } from '$lib/server/db/evaluation-repo';
+import {
+	findEvaluationsByChild,
+	insertEvaluation,
+	insertRestDayForRestore,
+} from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
@@ -92,8 +102,19 @@ async function runConcurrent<T>(
  */
 const RESTORE_DEDUP_FETCH_LIMIT = 100_000;
 
-/** ISO 8601 日時 (先頭 `YYYY-MM-DDTHH:MM` + Date.parse 可) か。restore の verbatim 値検証用 (#3414/#3420)。 */
-const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+/**
+ * 日時 (先頭 `YYYY-MM-DD` + `T` または半角スペース区切り + `HH:MM` + Date.parse 可) か。
+ * restore / cutover の verbatim 値検証用 (#3414/#3420)。
+ *
+ * #3851: 区切りは `T` (ISO 8601) と半角スペース の両方を許容する。通常の親メッセージ / おうえん
+ * 送信経路 (insertMessage / sendCheer) は sent_at を指定せず、SQLite の `CURRENT_TIMESTAMP`
+ * 既定値 = `'YYYY-MM-DD HH:MM:SS'` (スペース区切り、Date.parse 可の正当な日時) が入る。旧実装は
+ * `T` 必須だったため、この正当な legacy 日時を「不正」と誤判定し、NUC cutover の verbatim import で
+ * 親メッセージを silent drop → 件数突合 (parentMessages export=1 imported=0) で abort させていた
+ * (これは dedup ではなく validator 誤判定による真の false-positive data-loss)。区切りを緩めても
+ * `Date.parse` gate が残るため、破損/改竄値 (未知形式・範囲外) は依然 reject される。
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 function isValidIsoDateTime(value: string): boolean {
 	return ISO_DATETIME_RE.test(value) && !Number.isNaN(Date.parse(value));
 }
@@ -289,6 +310,16 @@ export async function verifyChecksum(data: ExportData): Promise<boolean> {
  * 件数カウント + 重複候補 (活動/ごほうび/持ち物 CL/活動ログ/ログインボーナス) を返す
  */
 export async function previewImport(data: ExportData, tenantId: string): Promise<PreviewResult> {
+	// #3521: preview も importFamilyData と同じ lazy migration seam を通す。現状の STEPS は全て
+	// identity のため件数は不変だが、将来 breaking transform (フィールド rename / 分割 / 件数変化を
+	// 伴う正規化) を導入した際に、置換確認ダイアログで見せる件数プレビューと importFamilyData で
+	// migrate 後に実取込される件数が食い違うのを構造的に防ぐ (実 transform 導入前に seam を揃えておく)。
+	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後に行う)。
+	data = migrateExportData(
+		data as unknown as Record<string, unknown>,
+		data.version,
+	) as unknown as ExportData;
+
 	const duplicates: PreviewResult['duplicates'] = {
 		activities: [],
 		specialRewards: [],
@@ -411,11 +442,13 @@ export async function importFamilyData(
 	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
 	await importRestDaysData(data, childIdMap, tenantId, result);
 	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
-	await importChildVoicesData(data, childIdMap, tenantId, result);
-	await importSpecialRewards(data, childIdMap, tenantId, result, mode);
-	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
-	// importSpecialRewards の後に実行する。
-	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
+	// #3781: DB 行↔ファイル本体の dangling 相互整合を fail-closed 検証するため staticFiles を渡す。
+	await importChildVoicesData(data, childIdMap, tenantId, result, staticFiles);
+	// #3381: importSpecialRewards が返す exportId → 新 rewardId マップを交換履歴の安定再結合に使う。
+	const rewardIdByExportId = await importSpecialRewards(data, childIdMap, tenantId, result, mode);
+	// #3329: ごほうび交換/購入履歴。reward を先に取込済なので importSpecialRewards の後に実行する。
+	// #3381: rewardExportId (安定識別子) 優先 → rewardRef (title) fallback で再結合する。
+	await importRewardRedemptionsData(data, childIdMap, rewardIdByExportId, tenantId, result);
 	// #3329: per-child チャレンジ (auto:weekly 含む) を進捗/完了/請求保全で復元。childIdMap のみ必要。
 	await importChildChallengesData(data, childIdMap, tenantId, result);
 	// #3329: スタンプカード + 押印。card を復元 → 新 cardId に entry を貼り直す。childIdMap のみ必要。
@@ -448,15 +481,43 @@ export async function importFamilyData(
  * 従来 importFamilyData に評価の取込経路が無く、export には含まれるのに restore で全喪失していた
  * 網羅漏れ (本番 t-82c17558 で評価 22→0 を実証) を解消する。
  */
+/** 評価 dedup の既存行 prefetch 上限 (週次 = 年 52 行程度、10 年でも十分な余裕)。 */
+const EVALUATION_DEDUP_PREFETCH = 100_000;
+
 async function importEvaluationsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	for (const ev of data.data.evaluations ?? []) {
+	const evaluations = data.data.evaluations ?? [];
+	if (evaluations.length === 0) return;
+
+	// #3355: (childId, weekStart) は週次評価の自然キー (1 週 1 評価)。他 importer
+	// (importLoginBonusesData / importActivityLogsData) と同型の pre-fetch dedup で、同一 backup の
+	// 再取込 (merge) や重複行を二重計上しない (旧実装は無条件 insert で growth-book/reports の数値汚染)。
+	// 既存 DB 行 + 同一 import 内の両方を dedup 対象にする (loginBonuses と同じく mode 非依存 = 自然キーは
+	// verbatim でも重複が正当化されないため常に dedup)。
+	const existingWeeksByChild = new Map<ChildId, Set<string>>();
+	async function existingWeeks(childId: ChildId): Promise<Set<string>> {
+		let set = existingWeeksByChild.get(childId);
+		if (!set) {
+			const rows = await findEvaluationsByChild(childId, EVALUATION_DEDUP_PREFETCH, tenantId);
+			set = new Set(rows.map((e) => e.weekStart));
+			existingWeeksByChild.set(childId, set);
+		}
+		return set;
+	}
+
+	for (const ev of evaluations) {
 		const childId = childIdMap.get(ev.childRef);
 		if (!childId) {
+			result.evaluationsSkipped++;
+			continue;
+		}
+		const weeks = await existingWeeks(childId);
+		if (weeks.has(ev.weekStart)) {
+			// 既存 or 同一 import 内の同 (child, weekStart) → skip (二重計上防止)。
 			result.evaluationsSkipped++;
 			continue;
 		}
@@ -468,9 +529,12 @@ async function importEvaluationsData(
 					weekEnd: ev.weekEnd,
 					scoresJson: ev.scoresJson,
 					bonusPoints: ev.bonusPoints,
+					// #3355: 作成日時を保全 (取込時刻に書き換えると growth-book/reports の時系列が歪む)。
+					createdAt: ev.createdAt,
 				},
 				tenantId,
 			);
+			weeks.add(ev.weekStart);
 			result.evaluationsImported++;
 		} catch (e) {
 			result.evaluationsSkipped++;
@@ -482,15 +546,20 @@ async function importEvaluationsData(
 }
 
 /**
- * ごほうびショップ交換/購入履歴を復元する (#3329)。
- * FK rewardId は import で振り直されるため、export の `rewardRef` (reward title) を取込先 child の
- * reward 一覧から再解決して結合する。reward が解決できない行 (元 reward 未取込/同名衝突) は
- * skip + warning (FK NOT NULL を満たせないため。残高への影響は別途 pointLedger が真実を持つ)。
- * status / 解決情報 / snapshot は insertRedemptionForRestore で申請時点のまま書き戻す。
+ * ごほうびショップ交換/購入履歴を復元する (#3329 / #3381)。
+ * FK rewardId は import で振り直されるため再結合が必要。
+ * #3381: 安定識別子 `rewardExportId` (importSpecialRewards が返す exportId→新 rewardId マップ) を
+ * 優先キーに再結合し、無い場合 (旧 backup) のみ `rewardRef` (snapshot title) で取込先 child の reward
+ * 一覧から fallback 解決する。これにより reward が redemption 後に改名されても / 同名 reward が複数あっても
+ * 交換履歴が silent skip / collapse しない (旧実装は live title 照合のみで改名後 skip していた)。
+ * reward が解決できない行 (元 reward 未取込) は skip + warning (FK NOT NULL を満たせないため。残高への
+ * 影響は別途 pointLedger が真実を持つ)。status / 解決情報 / snapshot は insertRedemptionForRestore で
+ * 申請時点のまま書き戻す。
  */
 async function importRewardRedemptionsData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
+	rewardIdByExportId: Map<ChildId, Map<string, string>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -515,7 +584,10 @@ async function importRewardRedemptionsData(
 			result.rewardRedemptionsSkipped++;
 			continue;
 		}
-		const rewardId = (await rewardLookup(childId)).get(r.rewardRef);
+		// #3381: 安定識別子 (rewardExportId) を優先、無ければ snapshot title で fallback 解決。
+		const rewardId =
+			(r.rewardExportId ? rewardIdByExportId.get(childId)?.get(r.rewardExportId) : undefined) ??
+			(await rewardLookup(childId)).get(r.rewardRef);
 		if (!rewardId) {
 			result.rewardRedemptionsSkipped++;
 			result.warnings.push(
@@ -568,6 +640,13 @@ async function importSettingsData(
 			// 秘匿 / 非 allowlist キーは書き戻さない (多層防御)。
 			result.settingsSkipped++;
 			result.warnings.push(`設定「${s.key}」は backup 対象外のためスキップしました`);
+			continue;
+		}
+		// #3382: allowlist キーでも値域/型/enum を検証してから書き戻す (改竄/破損 backup の
+		// 範囲外 decay_intensity・非数値 point_rate・未知 enum・制御文字混入を fail-closed で弾く)。
+		if (typeof s.value !== 'string' || !isValidSettingValue(s.key, s.value)) {
+			result.settingsSkipped++;
+			result.warnings.push(`設定「${s.key}」の値が不正なためスキップしました`);
 			continue;
 		}
 		try {
@@ -1108,15 +1187,32 @@ async function importChecklistOverridesData(
 			result.checklistOverridesSkipped++;
 			continue;
 		}
+		// #3473 item 3: untrusted backup 由来の action/itemName/icon/targetDate を restore 境界で
+		// sanitize する。enum 外 action は子供画面フィルタにヒットせず silent 破損になるため、
+		// verbatim 書き戻しをやめ拒否を errors に可視化する (owner 復元でも fail-safe)。
+		const sanitized = sanitizeChecklistOverrideRestore({
+			targetDate: o.targetDate,
+			action: o.action,
+			itemName: o.itemName,
+			icon: o.icon,
+			createdAt: o.createdAt,
+		});
+		if (!sanitized.ok) {
+			result.checklistOverridesSkipped++;
+			result.errors.push(
+				`チェックリスト override 検証失敗 (child=${o.childRef}, date=${String(o.targetDate)}): ${sanitized.reason}`,
+			);
+			continue;
+		}
 		try {
 			const restored = await insertOverrideForRestore(
 				{
 					childId,
-					targetDate: o.targetDate,
-					action: o.action,
-					itemName: o.itemName,
-					icon: o.icon,
-					createdAt: o.createdAt,
+					targetDate: sanitized.value.targetDate,
+					action: sanitized.value.action,
+					itemName: sanitized.value.itemName,
+					icon: sanitized.value.icon,
+					createdAt: sanitized.value.createdAt,
 				},
 				tenantId,
 			);
@@ -1175,14 +1271,26 @@ const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
  * filePath = `<tenantPrefix>voices/<newChildId>/<rest>` / publicUrl = `/<filePath>` を新環境向けに
  * 再構成して書き戻す (音声ファイル本体は #3077 importStaticFiles が同一パスへ復元済)。createdAt/
  * scene/label/durationMs/isActive を保全。child or path 解決不能行は skip。
+ *
+ * #3781: childVoice DB 行 ↔ #3077 ファイル本体の dangling 相互整合を fail-closed 検証する。
+ * - 前方 (DB 行 → 本体): 参照する本体ファイル (voiceRelPath) が同一 import payload (staticFiles) に
+ *   無い行は insert せず skip + warning。JSON-only import (staticFiles 未指定) や ZIP に本体を欠く
+ *   backup で「実体の無い publicUrl を指す DB 行」= dangling を生まない (#3490 AC-3 の deferral 解消)。
+ * - 逆方向 (本体 → DB 行): どの childVoice からも参照されない voices/* 本体は orphan として warning
+ *   で surface する (実害は未参照バイトのみのため fail-closed でなく可視化)。
  */
 async function importChildVoicesData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
+	staticFiles?: Record<string, Uint8Array>,
 ): Promise<void> {
-	for (const v of data.data.childVoices ?? []) {
+	const voices = data.data.childVoices ?? [];
+	// #3781 逆方向: childVoice が参照する本体パス集合。staticFiles 側の未参照 voices/* を orphan 検出。
+	const referencedVoicePaths = new Set(voices.map((v) => v.voiceRelPath));
+
+	for (const v of voices) {
 		const childId = childIdMap.get(v.childRef);
 		if (!childId) {
 			result.childVoicesSkipped++;
@@ -1209,6 +1317,16 @@ async function importChildVoicesData(
 			);
 			continue;
 		}
+		// #3781 前方 (fail-closed): 本体ファイルが同一 import payload に無ければ dangling publicUrl を
+		// 生むため insert しない。staticFiles のキーは export 時の相対パス (voices/<oldChildId>/<rest>) =
+		// v.voiceRelPath と一致する。JSON-only import (staticFiles 未指定) は全 childVoice が本体を欠く。
+		if (!staticFiles || !(v.voiceRelPath in staticFiles)) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: 本体ファイル「${v.voiceRelPath}」が取込データに含まれないため復元しません (child=${v.childRef})`,
+			);
+			continue;
+		}
 		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
 		const publicUrl = storageKeyToPublicUrl(filePath);
 		try {
@@ -1232,6 +1350,29 @@ async function importChildVoicesData(
 		} catch (e) {
 			result.childVoicesSkipped++;
 			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);
+		}
+	}
+
+	// #3781 逆方向: staticFiles に含まれるが、どの childVoice DB 行からも参照されない voices/* 本体を
+	// orphan として surface する (importStaticFiles が storage に配置しても参照する DB 行が無い状態)。
+	warnUnreferencedVoiceFiles(staticFiles, referencedVoicePaths, result);
+}
+
+/**
+ * #3781 逆方向: staticFiles の voices/* のうち、どの childVoice DB 行からも参照されない本体を
+ * orphan として warning で surface する (実害は未参照バイトのみのため fail-closed でなく可視化)。
+ */
+function warnUnreferencedVoiceFiles(
+	staticFiles: Record<string, Uint8Array> | undefined,
+	referencedVoicePaths: Set<string>,
+	result: ImportResult,
+): void {
+	if (!staticFiles) return;
+	for (const relPath of Object.keys(staticFiles)) {
+		if (relPath.startsWith('voices/') && !referencedVoicePaths.has(relPath)) {
+			result.warnings.push(
+				`音声本体「${relPath}」は参照する音声データが無いため未参照ファイルになります`,
+			);
 		}
 	}
 }
@@ -1966,68 +2107,137 @@ async function importStatusHistoryData(
 	});
 }
 
+/** child 単位の specialReward import 状態 (既存 + 当 import で作成した reward の id 解決)。 */
+interface SpecialRewardChildState {
+	titles: Set<string>;
+	presetIds: Set<string>;
+	idByTitle: Map<string, string>;
+	idByPreset: Map<string, string>;
+}
+
+/** child の既存 reward から import 状態を初期化する (#3381)。 */
+async function loadSpecialRewardState(
+	childId: ChildId,
+	tenantId: string,
+): Promise<SpecialRewardChildState> {
+	const rows = await findSpecialRewards(childId, tenantId);
+	return {
+		titles: new Set(rows.map((r) => r.title)),
+		presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
+		idByTitle: new Map(rows.map((r) => [r.title, r.id])),
+		idByPreset: new Map(
+			rows.filter((r) => r.sourcePresetId).map((r) => [r.sourcePresetId as string, r.id]),
+		),
+	};
+}
+
+/**
+ * 1 件の specialReward を import (重複スキップ / 新規作成) し、解決先 rewardId を register に渡す (#3381)。
+ * skip 時も既存 rewardId を register し、交換履歴が正しい reward に再結合できるようにする
+ * (#3107 checklist の register と同型)。
+ */
+// biome-ignore lint/complexity/useMaxParams: import ヘルパ群の既存引数列に合わせる (checklist と同型)。
+async function importOneSpecialReward(
+	sr: ExportData['data']['specialRewards'][number],
+	childId: ChildId,
+	state: SpecialRewardChildState,
+	tenantId: string,
+	result: ImportResult,
+	register: (rewardId: string) => void,
+	mode: ImportMode,
+): Promise<void> {
+	// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
+	// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
+	// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
+	if (mode === 'merge' && sr.sourcePresetId && state.presetIds.has(sr.sourcePresetId)) {
+		result.specialRewardsSkipped++;
+		result.skipped.preset++;
+		const dupId = state.idByPreset.get(sr.sourcePresetId);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+	if (mode === 'merge' && state.titles.has(sr.title)) {
+		result.specialRewardsSkipped++;
+		result.skipped.name++;
+		const dupId = state.idByTitle.get(sr.title);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+
+	try {
+		const created = await insertSpecialReward(
+			{
+				childId,
+				title: sr.title,
+				description: sr.description ?? undefined,
+				points: sr.points,
+				icon: sr.icon ?? undefined,
+				category: sr.category,
+				sourcePresetId: sr.sourcePresetId ?? null,
+			},
+			tenantId,
+		);
+		result.specialRewardsImported++;
+		state.titles.add(sr.title);
+		state.idByTitle.set(sr.title, created.id);
+		if (sr.sourcePresetId) {
+			state.presetIds.add(sr.sourcePresetId);
+			state.idByPreset.set(sr.sourcePresetId, created.id);
+		}
+		register(created.id);
+	} catch (e) {
+		result.errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
+	}
+}
+
+/**
+ * ごほうび (specialReward) を import し、`exportId → 新 rewardId` の再結合マップを返す (#3329 / #3381)。
+ *
+ * #3381: 返すマップは交換履歴 (importRewardRedemptionsData) が **安定識別子 (exportId)** で reward を
+ * 再結合するための SSOT。新規 insert / 重複 skip いずれの reward も exportId → 解決先 rewardId を登録する
+ * ため、reward が改名されても / 同名 reward が複数あっても交換履歴を取り違えない。exportId を持たない旧
+ * backup は本マップに載らず、履歴側が title (rewardRef) で fallback する。
+ */
 async function importSpecialRewards(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 	mode: ImportMode = 'merge',
-): Promise<void> {
-	const { errors, warnings } = result;
-	const existingByChild = new Map<ChildId, { titles: Set<string>; presetIds: Set<string> }>();
+): Promise<Map<ChildId, Map<string, string>>> {
+	// #3381: exportId → 解決先 rewardId (child 単位)。交換履歴の安定再結合キー。
+	const rewardIdByExportId = new Map<ChildId, Map<string, string>>();
+	const stateByChild = new Map<ChildId, SpecialRewardChildState>();
+
 	for (const sr of data.data.specialRewards) {
 		const childId = childIdMap.get(sr.childRef);
 		if (!childId) continue;
 
-		let existing = existingByChild.get(childId);
-		if (!existing) {
-			const rows = await findSpecialRewards(childId, tenantId);
-			existing = {
-				titles: new Set(rows.map((r) => r.title)),
-				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
-			};
-			existingByChild.set(childId, existing);
+		let state = stateByChild.get(childId);
+		if (!state) {
+			state = await loadSpecialRewardState(childId, tenantId);
+			stateByChild.set(childId, state);
 		}
 
-		// #1254 G1: preset_duplicate → name_duplicate の順で判定 (merge のみ、#3653)。
-		// verbatim (cutover) では同 child 同 title の正当な複数行 (title に DB 一意制約なし、
-		// NUC cycle 3 で export=9 → imported=2 の実欠落) を全行復元する。
-		if (mode === 'merge' && sr.sourcePresetId && existing.presetIds.has(sr.sourcePresetId)) {
-			result.specialRewardsSkipped++;
-			result.skipped.preset++;
-			continue;
-		}
-		if (mode === 'merge' && existing.titles.has(sr.title)) {
-			result.specialRewardsSkipped++;
-			result.skipped.name++;
-			continue;
-		}
+		const register = (rewardId: string) => {
+			if (!sr.exportId) return;
+			let m = rewardIdByExportId.get(childId);
+			if (!m) {
+				m = new Map<string, string>();
+				rewardIdByExportId.set(childId, m);
+			}
+			m.set(sr.exportId, rewardId);
+		};
 
-		try {
-			await insertSpecialReward(
-				{
-					childId,
-					title: sr.title,
-					description: sr.description ?? undefined,
-					points: sr.points,
-					icon: sr.icon ?? undefined,
-					category: sr.category,
-					sourcePresetId: sr.sourcePresetId ?? null,
-				},
-				tenantId,
-			);
-			result.specialRewardsImported++;
-			existing.titles.add(sr.title);
-			if (sr.sourcePresetId) existing.presetIds.add(sr.sourcePresetId);
-		} catch (e) {
-			errors.push(`ごほうび「${sr.title}」のインポートに失敗: ${String(e)}`);
-		}
+		await importOneSpecialReward(sr, childId, state, tenantId, result, register, mode);
 	}
+
 	if (result.specialRewardsSkipped > 0) {
-		warnings.push(
+		result.warnings.push(
 			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名または同一プリセットのためスキップされました`,
 		);
 	}
+	return rewardIdByExportId;
 }
 
 // ============================================================
@@ -2041,9 +2251,18 @@ const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
  * 相対 storage パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip / CWE-22 防御)。
  * `STATIC_FILE_PATH_RE` の `rest` (`.+`、importStaticFiles) / `VOICE_REL_PATH_RE` の `rest`
  * (`.+`、importChildVoicesData) は任意文字を許すため、ここで `..` セグメント・先頭スラッシュ・
- * Windows ドライブ・バックスラッシュ等を弾く。安全なら true。
+ * Windows ドライブ・バックスラッシュ・NUL/制御文字等を弾く。安全なら true。
+ *
+ * #3490: NUL/制御文字も拒否する (poison-null-byte / CWE-22 の理論上残余)。本パスは現状 FS read に
+ * 直結せず DB 行 + publicUrl 参照に留まるため実害は無いが、「path に制御文字を混在させない」不変条件を
+ * 明示強制し、将来 storage 実装が FS/URL parse に渡しても切詰め攻撃が成立しないようにする。
  */
 function isSafeRelativePath(relPath: string): boolean {
+	// NUL / 制御文字 (C0 0x00-0x1f / DEL 0x7f / C1 0x80-0x9f) を含むパスは無条件拒否する (#3490)。
+	for (let i = 0; i < relPath.length; i++) {
+		const code = relPath.charCodeAt(i);
+		if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) return false;
+	}
 	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル
 	// 文字になり segment 分割では escape を検知できないため、含むパスはすべて弾く)。
 	if (relPath.includes('\\')) return false;

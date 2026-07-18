@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
 import {
+	assertTenantScopedStorageKey,
 	avatarKey,
 	childPrefix,
 	generatedImageKey,
@@ -80,6 +81,50 @@ describe('storage-keys', () => {
 			expect(storageKeyToPublicUrl('tenants/t1/avatars/1/abc.png')).toBe(
 				'/tenants/t1/avatars/1/abc.png',
 			);
+		});
+	});
+
+	describe('assertTenantScopedStorageKey (#3566 ③ §9.4)', () => {
+		it('tenant プレフィックス配下の key は通す (正規の avatar/generated/voice key)', () => {
+			expect(() =>
+				assertTenantScopedStorageKey(avatarKey(tenantId, asChildId(childId), 'png'), tenantId),
+			).not.toThrow();
+			expect(() =>
+				assertTenantScopedStorageKey(voiceKey(tenantId, asChildId(childId), 'mp3'), tenantId),
+			).not.toThrow();
+			expect(() =>
+				assertTenantScopedStorageKey(`tenants/${tenantId}/generated/x.png`, tenantId),
+			).not.toThrow();
+		});
+
+		it('prefix 外 key は throw (孤児バイト = account 削除 deleteByPrefix で消えない)', () => {
+			expect(() => assertTenantScopedStorageKey('images/loose.png', tenantId)).toThrow();
+			expect(() => assertTenantScopedStorageKey('avatars/1/x.png', tenantId)).toThrow();
+		});
+
+		it('cross-tenant key は throw (他 family バイトの越境参照 = IDOR/LFI)', () => {
+			expect(() =>
+				assertTenantScopedStorageKey('tenants/other-tenant/generated/steal.png', tenantId),
+			).toThrow();
+			// 前方一致だけ満たす別 tenant (prefix 末尾 / が境界を守る) も拒否
+			expect(() =>
+				assertTenantScopedStorageKey(`tenants/${tenantId}-evil/x.png`, tenantId),
+			).toThrow();
+		});
+
+		it('path traversal (..) を含む key は prefix 一致でも throw', () => {
+			expect(() =>
+				assertTenantScopedStorageKey(`tenants/${tenantId}/../other/x.png`, tenantId),
+			).toThrow();
+		});
+
+		it('error message に key 値 (child id / path 等の機微情報) を載せない', () => {
+			try {
+				assertTenantScopedStorageKey('tenants/secret-child-999/x.png', tenantId);
+				throw new Error('should have thrown');
+			} catch (e) {
+				expect((e as Error).message).not.toContain('secret-child-999');
+			}
 		});
 	});
 });

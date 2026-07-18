@@ -179,7 +179,8 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 |---|---|
 | #2607 (deploy) | `scripts/check-recent-deploy-deletion.mjs` 初出 (#2603 で起票、QM Tier 2 Step 5 D 項目) |
 | #2618 (deploy、第 4 弾) | 機構運用層 bypass (worktree HEAD verify) 検出条文 §D 追加 + script self-defense exit 3 実装 |
-| **#2615 (本 PR、time-aware flag 拡張)** | gate に `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` flag 追加。Fix Agent push → Re-Review 間の main 進化による Time-of-Check vs Time-of-Use race 4 ラウンド連続観察 (PR #2607 Round 5) を構造解決。time window 指定で main 進化新規 file を比較対象外化、main 進化 (新規追加) を「削除」と誤検出しない |
+| **#2615 (time-aware flag 拡張)** | gate に `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` flag 追加。Fix Agent push → Re-Review 間の main 進化による Time-of-Check vs Time-of-Use race 4 ラウンド連続観察 (PR #2607 Round 5) を構造解決。time window 指定で main 進化新規 file を比較対象外化、main 進化 (新規追加) を「削除」と誤検出しない |
+| **#3832 (teardown marker exemption、本 §G)** | develop 二層で main live な feature を意図的に撤去する PR の誤 BLOCK (full `--no-verify` 強制) を解消。`Deploy-Teardown: <path-regex>` commit trailer で宣言 path のみ exempt (audit log 出力)、宣言外は BLOCK 維持。account check を温存したまま `--no-verify` 常態化を根絶 (#3821 で観察) |
 
 
 ## §F. push 時自己検証機構 (第 8 弾 deploy、#2598、2026-05-29 追記)
@@ -240,6 +241,39 @@ Step 2.2 (`check-recent-deploy-deletion.mjs`) は **引数なしで呼ぶ** = de
 由来: PR #2645 第 8 弾 deploy 直後の Fix Agent (#2644) 実観察、Issue #2647 で hot fix (第 9 弾 deploy)。
 unit test 検証: `tests/unit/scripts/check-recent-deploy-deletion.test.ts` §「#2647 hook context」 — 引数なし時の `prNumber === null` + worktree HEAD verify skip 仕様を pin。
 
+## §G. intentional migration teardown exemption (develop 二層 false-positive 是正、#3832、2026-07-17 追記)
+
+第 2 弾 gate (`scripts/check-recent-deploy-deletion.mjs`) は「直近 deploy した feature の削除 = 事故的消失」を data-loss として BLOCK する。しかし **develop 二層ブランチ戦略 (`docs/sessions/branch-strategy.md`) では「main に live な feature を develop 向け PR が migration で意図的に撤去する」のは正当**であり、gate はこれを区別できず正当な移管撤去 PR を誤 BLOCK する。
+
+**実害観察 (#3821 analytics Sub-B)**: DynamoDB → DSQL 移管の一環で always-on の analytics 収集 cron / service を撤去 (#3805 AC1 の文書化済み scope) した際、gate が「直近 merge file の削除」と誤検出。`.husky/pre-push` hook は gate が案内する `--ignore-pattern` を渡さないため実質使えず、ユーザ承認のもと **full `--no-verify`** で bypass した。`--no-verify` は全 hook を skip する = **account check (`check-gh-account-before-pr.mjs`) まで飛ぶ**副作用があり、常態化すると QA 機構を毀損する。
+
+### 対策 (commit trailer 宣言 + path scope)
+
+PR 自身の commit (`<base>..HEAD`) に **`Deploy-Teardown: <path-regex> #<issue> <理由>`** (別名 `Migration-Teardown:`) trailer を書けば、gate が宣言 path にマッチする削除を exempt する:
+
+- **path scope 必須 (無条件全通し防止)**: trailer の先頭 token は削除対象 path を絞る regex。宣言 path にマッチする削除のみ exempt し、**宣言外の削除は従来通り BLOCK** (genuine data-loss 保護維持)。path token 空は明示 Error。
+- **audit log 出力 (監査追跡可能)**: exempt した削除は `TEARDOWN-EXEMPT` として stdout に列挙 (file + 宣言 pattern + reason)。監査が後追いできる。
+- **QM-gated**: trailer は git 履歴 / PR body に残り QM / 監査が review する。self-exempt の濫用は path scope + log + QM review で構造的に抑止。
+- **`--no-verify` 常態化の根絶**: 本 exemption は deploy-deletion gate **単体**を対象化し、account check 等の他 hook は必ず走る。hook (`.husky/pre-push`) は trailer を自動で読むため引数不要で exemption が効く。
+- **両 lane 適用**: trailer は commit と共に develop → main へ流れるため、develop 向け PR で 1 度宣言すれば release/*→main 統合時も同一宣言が自動適用され、#3438 Phase 3 等の同種撤去での再エスカレーションを防ぐ。宣言外の削除は両 lane とも hard-block のまま。
+
+### 実装
+
+純関数 `parseTeardownTrailers` / `compileTeardownPattern` / `partitionDeletionsByTeardown` / `getTeardownPatternsFromCommits` を `scripts/check-recent-deploy-deletion.mjs` から export。`main()` は削除検出後に teardown trailer を読み、宣言 path マッチを exempt (log 出力) してから残りを `findViolations` に回す。regex compile は `compileIgnorePattern` (長さ上限 + fail-closed、#3766) を再利用。unit + 実 git fixture test (`tests/unit/scripts/check-recent-deploy-deletion.test.ts` §「#3832」) で「marker 無し BLOCK / marker 有り通過 / 宣言外は BLOCK 維持」の境界を failing-test-first (ADR-0061) で固定。
+
+### 運用 (migration teardown PR の宣言方法)
+
+意図的に main live な file を撤去する PR は、撤去 commit の message 末尾に trailer を付ける:
+
+```
+refactor(analytics): #3821 always-on analytics 収集を撤去
+
+Deploy-Teardown: ^src/lib/analytics/ #3821 analytics Sub-B teardown
+Deploy-Teardown: ^src/routes/api/cron/(analytics|challenge)-aggregate/ #3821
+```
+
+複数 path は trailer を複数行書く。ADR archive 移動等の非 teardown な既知除外は従来どおり `--ignore-pattern` も併用可。
+
 ## 関連
 
 - **Research SSOT**: [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md)
@@ -250,4 +284,5 @@ unit test 検証: `tests/unit/scripts/check-recent-deploy-deletion.test.ts` §�
 - **#2632 (§E 起票元)**: pre-ready CLI Ready checklist gate 統合 + Persona Drift §C fallback 自動化 (QA self-implement 第 5 弾、2026-05-29 deploy)
 - **#2598 (§F 起票元)**: `.husky/pre-push` 軽量 verify chain (QA self-implement 第 8 弾、2026-05-29 deploy、本日 7+ 連続 BLOCK 構造的予防)
 - **#2647 (§F 補足 hotfix 起票元)**: Step 2.2 `--pr` 引数撤去 (QA self-implement 第 9 弾 hotfix deploy、2026-05-29 deploy、第 8 弾 deploy 直後の hook 設計バグ修正、Fix Agent `--no-verify` 強制利用解消)
+- **#3832 (§G 起票元)**: intentional migration teardown exemption (develop 二層 false-positive 是正、2026-07-17 追記、#3821 analytics Sub-B の full `--no-verify` bypass 実害への構造的対処)
 - **archive**: ADR-0031 (1-in-1-out 履行で本 PR で archive 移動)

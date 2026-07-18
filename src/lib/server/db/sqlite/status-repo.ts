@@ -278,6 +278,26 @@ export async function findLastActivityDates(childId: ChildId, _tenantId: string)
  * テナントの全ステータスデータを削除（SQLite: シングルテナントのため全行削除）。
  * market_benchmarks はグローバルなマスター/シードデータのため削除しない。
  */
+/**
+ * #3518-2 retention: 指定した子供の `recorded_at < cutoffDate` の status_history を削除する。
+ * cutoffDate は `YYYY-MM-DD`。recorded_at は ISO timestamp で格納されるが、先頭日付部分が辞書順比較
+ * できるため `recorded_at < cutoffDate` で cutoffDate 当日を含めず安全に境界判定できる
+ * (point-repo.deletePointLedgerBeforeDate と同型)。
+ */
+export async function deleteStatusHistoryBeforeDate(
+	childId: ChildId,
+	cutoffDate: string,
+	_tenantId: string,
+): Promise<number> {
+	const result = db
+		.delete(statusHistory)
+		.where(
+			and(eq(statusHistory.childId, Number(childId)), lt(statusHistory.recordedAt, cutoffDate)),
+		)
+		.run();
+	return result.changes;
+}
+
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(statusHistory).run();
 	db.delete(statuses).run();

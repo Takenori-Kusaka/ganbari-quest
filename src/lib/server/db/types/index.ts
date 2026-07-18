@@ -479,6 +479,10 @@ export interface InsertEvaluationInput {
 	weekEnd: string;
 	scoresJson: string;
 	bonusPoints: number;
+	// #3355: backup restore で作成日時を保全する (省略時は schema default = 取込時刻)。
+	// 週次評価の createdAt は growth-book / reports の時系列軸のため、復元で取込時刻へ
+	// 書き換わると履歴が歪む。旧 backup 後方互換のため optional。
+	createdAt?: string;
 }
 
 export interface InsertLoginBonusInput {

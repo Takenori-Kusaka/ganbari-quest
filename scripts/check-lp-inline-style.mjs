@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck — CLI gate script。unit test が import するため TS graph に入るが untyped JS の CLI ツール。
 /**
  * scripts/check-lp-inline-style.mjs (#1851 Phase 2)
  *
@@ -73,7 +74,14 @@ const NUMERIC_UNIT_RE = /^-?\d+(\.\d+)?(px|em|rem|%)$/;
 const VAR_TOKEN_RE = /^var\(--[\w-]+\)$/;
 const VAR_LEADING_RE = /^var\(--/;
 const VAR_ONLY_VALUE_RE = /^[\s]*var\(--[\w-]+\)([\s]+(var\(--[\w-]+\)|[0]+|auto))*[\s]*$/;
-const ZERO_AUTO_ONLY_RE = /^(\s*(0|auto)\s*)+$/;
+// CodeQL js/redos (#3766): 旧 `/^(\s*(0|auto)\s*)+$/` は繰り返しグループ内の
+// 先頭・末尾 `\s*` が隣接反復とマッチ範囲を奪い合い、非マッチ入力で
+// catastrophic backtracking を起こす (nested quantifier ambiguity)。
+// トークン間の whitespace を必須 `\s+` に固定し前後の trim を 1 回きりにすることで
+// linear-time な等価パターンへ書換える ("0" / "auto" が空白区切りで並ぶ列を許容)。
+// export: CodeQL js/redos の regression guard (tests/unit/scripts/check-lp-inline-style.test.ts)
+// が本 regex の等価性 + 線形性を直接検証するため。
+export const ZERO_AUTO_ONLY_RE = /^\s*(?:0|auto)(?:\s+(?:0|auto))*\s*$/;
 const CALC_LEADING_RE = /^calc\(/;
 const SPECIAL_VALUES = new Set(['0', 'auto', 'inherit', 'unset', 'initial']);
 
@@ -120,7 +128,7 @@ function offsetToLine(html, offset) {
 /**
  * 値が許容パターン (0 / auto / var() のみ / calc() / 0+auto 組合せ) かを判定
  */
-function isAllowedValue(value) {
+export function isAllowedValue(value) {
 	if (SPECIAL_VALUES.has(value)) return true;
 	if (CALC_LEADING_RE.test(value)) return true;
 	if (ZERO_AUTO_ONLY_RE.test(value)) return true;
@@ -298,5 +306,10 @@ function main() {
 	return exceedances.length > 0 ? 1 : 0;
 }
 
-const code = main();
-process.exit(code);
+// CLI として直接起動された時のみ実行する (import 時は main を呼ばない)。
+// regression guard (tests/unit/scripts/check-lp-inline-style.test.ts) が
+// ZERO_AUTO_ONLY_RE / isAllowedValue を import して検証できるようにするため。
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+	const code = main();
+	process.exit(code);
+}

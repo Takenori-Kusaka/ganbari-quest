@@ -43,7 +43,7 @@ export const PROD_ENV_CONFIG: GqEnvConfig = {
 	removalPolicy: cdk.RemovalPolicy.RETAIN,
 };
 
-/** AWS staging (#2873)。idle≈¥0 (Lambda リクエスト課金 / DynamoDB on-demand / 固定費 = ECR repo のみ) */
+/** AWS staging (#2873)。idle≈¥0 (Lambda リクエスト課金 / 固定費 = ECR repo のみ) */
 export const STAGING_ENV_CONFIG: GqEnvConfig = {
 	envName: 'staging',
 	resourcePrefix: 'ganbari-quest-staging',

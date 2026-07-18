@@ -90,6 +90,36 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 		).resolves.toBeUndefined();
 	});
 
+	it('[C4c] #3581 ②: updateChild は非 uuid id で DB 到達せず undefined (not-found 契約)', async () => {
+		// admin の子供編集 form が stale cookie 由来の旧数値 id を渡すケース。guard 無しだと
+		// UPDATE ... WHERE child_id = <非uuid> で 22P02 throw → 500。guard で undefined に正規化。
+		await expect(
+			repo.updateChild(asChildId('3'), { nickname: 'x' }, FAMILY),
+		).resolves.toBeUndefined();
+		await expect(
+			repo.updateChild(asChildId('not-a-uuid'), { nickname: 'x' }, FAMILY),
+		).resolves.toBeUndefined();
+		await expect(
+			repo.updateChild(asChildId(''), { nickname: 'x' }, FAMILY),
+		).resolves.toBeUndefined();
+		// uuid 形式だが存在しない id は従来どおり undefined (UPDATE は実行され 0 行)。
+		await expect(
+			repo.updateChild(
+				asChildId('00000000-0000-4000-8000-00000000dead'),
+				{ nickname: 'x' },
+				FAMILY,
+			),
+		).resolves.toBeUndefined();
+	});
+
+	it('[C4d] #3581 ②: deleteChild は非 uuid id で throw せず no-op (無関係な児は無傷)', async () => {
+		const keep = await repo.insertChild({ nickname: '無傷', age: 7 }, FAMILY);
+		await expect(repo.deleteChild(asChildId('3'), FAMILY)).resolves.toBeUndefined();
+		await expect(repo.deleteChild(asChildId('not-a-uuid'), FAMILY)).resolves.toBeUndefined();
+		// guard は該当行なし = no-op のため、無関係な既存児は削除されない。
+		expect(await repo.findChildById(keep.id, FAMILY)).toBeTruthy();
+	});
+
 	it('[C4] §P9 tenant 分離: 他 family から不可視・更新不能', async () => {
 		const mine = await repo.insertChild({ nickname: 'うち', age: 6 }, FAMILY);
 		expect(await repo.findChildById(mine.id, OTHER_FAMILY)).toBeUndefined();

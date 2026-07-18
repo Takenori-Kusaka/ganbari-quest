@@ -4,6 +4,14 @@
 import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
+/**
+ * 領収書 OCR 画像の受理上限 (bytes)。NUC / local はこの 5MB がそのまま実効上限。
+ * aws-prod では base64 JSON body が Function URL 6MB request cap を超えないよう
+ * `resolveMaxBase64DecodedBytes` が更に下方整合する (~4.1MB)。OCR route の reject 判定と
+ * 撮影ボタン note の表示 MB を同一値から導出する SSOT (#3775 ②)。
+ */
+export const RECEIPT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 export interface ReceiptOcrResult {
 	amount: number;
 	rawText: string;

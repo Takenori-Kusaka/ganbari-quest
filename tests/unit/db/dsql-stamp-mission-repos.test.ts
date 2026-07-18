@@ -7,6 +7,8 @@
 // ── IStampCardRepo ──
 //   [SC1] insertCard findOrCreate 冪等 (week UNIQUE、同一 card_id が返る + 行は 1 件)
 //   [SC2] findCardByChildAndWeek round-trip + §P9 tenant 分離
+//   [SC2b] #3581 ②: find 系 (findCardByChildAndWeek / findCardsByChild) は非 uuid id で throw せず
+//          undefined / [] に正規化 (stampCard/loginStamp POST の repo 層 22P02 → 500 fail-safe)
 //   [SC3] #3562 ①: PK は (family, child, card_id) で week_start を含まない +
 //         週一意は droppable UNIQUE (stamp_cards_week_uq) — 「シーズンカード復活時は
 //         UNIQUE DROP のみで PK 不変」の可逆性設計を catalog レベルで固定
@@ -37,7 +39,12 @@
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type ActivityId, asActivityId, type ChildId } from '../../../src/lib/domain/ids';
+import {
+	type ActivityId,
+	asActivityId,
+	asChildId,
+	type ChildId,
+} from '../../../src/lib/domain/ids';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { completeMissionAndMaybeGrantBonus } from '../../../src/lib/server/db/dsql/daily-mission-complete';
 import { createDsqlDailyMissionRepo } from '../../../src/lib/server/db/dsql/daily-mission-repo';
@@ -142,6 +149,18 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			undefined,
 		);
 		expect(await stampRepo.findCardByChildAndWeek(childId, '2000-01-03', FAMILY)).toBe(undefined);
+	});
+
+	it('[SC2b] #3581 ②: find 系は非 uuid id で throw せず undefined / 空配列 (22P02 正規化)', async () => {
+		// stampCard / loginStamp action (child POST) の stampToday → getOrCreateCurrentCard 経路が
+		// stale cookie 由来の旧数値 id を最初に渡す repo 入口。guard 無しだと WHERE child_id = <非uuid>
+		// で 22P02 throw → 500。undefined / [] = 「カードなし」(not-found と同 shape) に正規化する。
+		for (const bad of ['3', 'not-a-uuid', '']) {
+			await expect(
+				stampRepo.findCardByChildAndWeek(asChildId(bad), '2026-07-06', FAMILY),
+			).resolves.toBe(undefined);
+			await expect(stampRepo.findCardsByChild(asChildId(bad), FAMILY)).resolves.toEqual([]);
+		}
 	});
 
 	it('[SC3] #3562①: week 一意は droppable UNIQUE、PK は week_start を含まない (可逆性設計)', async () => {

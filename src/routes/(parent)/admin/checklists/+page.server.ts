@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import * as v from 'valibot';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
@@ -7,11 +8,16 @@ import { formIdString } from '$lib/domain/form-value';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
+// #3151 slice3 (ADR-0066): item label / icon の値域 SSOT。admin authoring 経路と wire schema が
+// 同一境界を共有し、authoring 可能な item ⊆ export/import 往復可能な item を成立させる。
+// #3852 Phase B-2: domain schema を Zod → Valibot 化。検証は `v.safeParse(v.pick(...), ...)`。
+import { checklistItemSchema } from '$lib/domain/validation/checklist';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
 // #2402 QM must-2: `marketplaceRegistry` 直接参照は dispatchImport API で代替済、import 撤去
 import { dispatchImport } from '$lib/marketplace';
 // #3079: チェックリスト個別 backup/restore — v2 envelope file source adapter
 import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
+import { resolveAuditActor } from '$lib/server/auth/audit-actor';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findAssignmentsByChild,
@@ -200,6 +206,81 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 	}
 };
 
+/**
+ * #3788: 上限 hit 後の残 source templates を「既配信 (no-op、quota 非消費)」と「真の上限拒否 (未配信)」に
+ * 分類する。既配信は distributeToChildren が inserted 0 件で skip する no-op 成功で quota を消費しない
+ * ため、上限拒否 (limitRejected) に含めると上限メッセージ件数が過大になる (旧実装は残数を全て limitRejected
+ * に計上し、残 source に既配信が混在すると過大帰属した)。target child に既配信済みの templateId 集合を
+ * 引き当て、集合に含まれる分は alreadyDistributed、含まれない (未配信) 分のみ limitRejected として返す。
+ */
+async function classifyRemainingAfterLimit(
+	remainingTemplateIds: readonly string[],
+	targetChildId: ChildId,
+	tenantId: string,
+): Promise<{ alreadyDistributed: number; limitRejected: number }> {
+	const targetAssignments = await findAssignmentsByChild(targetChildId, tenantId);
+	const targetTemplateIds = new Set(targetAssignments.map((a) => a.templateId));
+	let alreadyDistributed = 0;
+	let limitRejected = 0;
+	for (const remainingId of remainingTemplateIds) {
+		if (targetTemplateIds.has(remainingId)) alreadyDistributed += 1;
+		else limitRejected += 1;
+	}
+	return { alreadyDistributed, limitRejected };
+}
+
+/**
+ * #3474: quota を守りつつ source templates を target child に copy する (per-iteration live 再評価)。
+ *
+ * drop を「上限拒否 (limitRejected)」と「既配信 skip (alreadyDistributed、no-op 成功)」に分離して返す
+ * (#3474 item2)。上限 hit 後の残 source も既配信 (quota 非消費) を alreadyDistributed に再分類し、
+ * limitRejected を実際の上限拒否数と一致させる (#3788、classifyRemainingAfterLimit)。live 再評価の
+ * TOCTOU 設計判断は docs/rationale/14-checklist-copy-toctou-rationale.md が SSOT。
+ */
+async function copyDistributionWithQuota(params: {
+	sourceTemplateIds: readonly string[];
+	targetChildId: ChildId;
+	tenantId: string;
+	licenseStatus: string;
+	limitMax: number | null;
+}): Promise<{
+	added: number;
+	alreadyDistributed: number;
+	limitRejected: number;
+	limitReached: boolean;
+}> {
+	const { sourceTemplateIds, targetChildId, tenantId, licenseStatus, limitMax } = params;
+	let added = 0;
+	let alreadyDistributed = 0;
+	let limitRejected = 0;
+	let limitReached = false;
+	for (let i = 0; i < sourceTemplateIds.length; i++) {
+		const templateId = sourceTemplateIds[i];
+		if (templateId === undefined) continue;
+		if (limitMax !== null) {
+			const live = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
+			if (!live.allowed) {
+				// live count が上限到達。現在含む残りの source は target 上限超過になるため copy しない。
+				// #3788: 残 source (現在 index i 以降) の既配信 (quota 非消費) を alreadyDistributed に再分類し、
+				// 未配信のみ limitRejected に計上する (上限メッセージ件数を実際の上限拒否数と一致させる)。
+				limitReached = true;
+				const remaining = await classifyRemainingAfterLimit(
+					sourceTemplateIds.slice(i),
+					targetChildId,
+					tenantId,
+				);
+				alreadyDistributed += remaining.alreadyDistributed;
+				limitRejected += remaining.limitRejected;
+				break;
+			}
+		}
+		const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
+		if (inserted.length > 0) added += inserted.length;
+		else alreadyDistributed += 1; // 既に target に配信済み = no-op 成功 (drop ではない)
+	}
+	return { added, alreadyDistributed, limitRejected, limitReached };
+}
+
 export const actions: Actions = {
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -286,6 +367,18 @@ export const actions: Actions = {
 
 		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 		if (!name) return fail(400, { error: 'アイテム名を入力してください' });
+
+		// #3151 slice3 (ADR-0066): label / icon を domain SSOT で検証し、export/import 往復不能な
+		// item (100 文字超 label / 3 個以上の絵文字 icon) の authoring を default-deny する。
+		// order は追加時に自動採番されるため authoring 検証対象外 (label / icon のみ pick)。
+		// #3852 Phase B-2: Valibot 化に伴い `.pick(...).safeParse(...)` → `v.safeParse(v.pick(...), ...)`。
+		const itemCheck = v.safeParse(v.pick(checklistItemSchema, ['label', 'icon']), {
+			label: name,
+			icon,
+		});
+		if (!itemCheck.success) {
+			return fail(400, { error: itemCheck.issues[0]?.message ?? 'アイテムが不正です' });
+		}
 
 		await addTemplateItem({ templateId, name, icon, frequency, direction }, tenantId);
 		return { success: true };
@@ -600,14 +693,25 @@ export const actions: Actions = {
 			return fail(400, { error: '違うお子さまを選んでください' });
 		}
 
+		// #3474 item 3: 監査 actor を全 AUTH_MODE で解決 (NUC=local は nuc-local、旧実装は undefined)。
+		// COPPA / ADR-0010: audit context は内部数値 id (childId / templateId) のみ。氏名等 PII は載せない。
+		const actor = resolveAuditActor(locals.identity);
+
 		// CWE-598 guard: source / target が tenant 配下であることを確認
 		const tenantChildren = await getAllChildren(tenantId);
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
 		if (!allowedChildIdSet.has(sourceChildId) || !allowedChildIdSet.has(targetChildId)) {
+			// #3474 item 3: 拒否 path (tenant-violation / CWE-598) も監査に残す。
 			logger.warn(
 				'[admin/checklists] tenant 外 child ID が copyDistributionFromChild に指定された',
 				{
-					context: { sourceChildId, targetChildId, tenantId },
+					context: {
+						tenantId,
+						actor,
+						sourceChildId,
+						targetChildId,
+						denyReason: 'tenant-violation',
+					},
 				},
 			);
 			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
@@ -619,6 +723,17 @@ export const actions: Actions = {
 		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
 		if (!limit.allowed) {
 			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			// #3474 item 3: 拒否 path (over-limit 403) も監査に残す (success path のみだった欠落を根治)。
+			logger.warn('[admin/checklists] copyDistributionFromChild が plan 上限で拒否された', {
+				context: {
+					tenantId,
+					actor,
+					sourceChildId,
+					targetChildId,
+					denyReason: 'plan-limit',
+					limitMax: limit.max,
+				},
+			});
 			return fail(403, {
 				error: createPlanLimitError(
 					tier,
@@ -635,54 +750,51 @@ export const actions: Actions = {
 			if (sourceTemplateIds.length === 0) {
 				return { copiedFromChild: true, added: 0 };
 			}
-			// #3098 QM BLOCK 対応 + #3181 item1 (quota TOCTOU 緩和): per-iteration の quota enforcement。
-			// 旧実装は「ループ前に 1 回 limit を読むだけ」で、(a) 5 件の source を copy すると free プラン
-			// target の per-child 上限 (maxChecklistTemplates) を超過 (over-grant) し、(b) 並行 POST 2 本が
-			// 同じ snapshot current を読むと app 横断で上限を超えて over-grant し得た (TOCTOU)。
-			// #3181 item1: snapshot 算術 (max - 初回 current) でなく、各 grant 直前に checkChecklistTemplateLimit を
-			// 再評価し live count で判定する。SQLite (NUC、同期 better-sqlite3) では直前 insert が即反映され
-			// race window が消える。DynamoDB でも once-read snapshot より window が大幅に縮小する。
-			// limit.max === null (無制限プラン) → 全件 copy。distributeToChildren は既配信 skip + 実追加 childId を返す。
-			let added = 0;
-			let limitReached = false;
-			for (const templateId of sourceTemplateIds) {
-				if (limit.max !== null) {
-					const live = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
-					if (!live.allowed) {
-						// live count が上限到達。残りの source は target 上限超過になるため copy しない。
-						limitReached = true;
-						break;
-					}
-				}
-				const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
-				added += inserted.length;
-			}
+			// #3098 QM BLOCK 対応 + #3181 item1 (quota TOCTOU 緩和): 各 grant 直前に quota を live 再評価する。
+			// #3474 item2: drop を「上限拒否 (limitRejected)」と「既配信 skip (alreadyDistributed、no-op 成功)」に
+			// 分離する (旧実装は dropped = source - added で両者を混在させ既配信分まで上限拒否と過大帰属した)。
+			// 設計判断 (根治=DB-level atomic count-and-insert は Pre-PMF 過剰) は
+			// docs/rationale/14-checklist-copy-toctou-rationale.md が SSOT。
+			const { added, alreadyDistributed, limitRejected, limitReached } =
+				await copyDistributionWithQuota({
+					sourceTemplateIds,
+					targetChildId,
+					tenantId,
+					licenseStatus,
+					limitMax: limit.max,
+				});
 			// #3181 item3 (success audit、defense-in-depth): 誰が誰の templateId を copy したかを
 			// 構造化 log に残し incident traceability を確保する (汎用 audit log でなく最小限の info、ADR-0010)。
-			const actorUserId = locals.identity?.type === 'cognito' ? locals.identity.userId : undefined;
 			logger.info('[admin/checklists] 別の子から checklist を copy', {
 				context: {
 					tenantId,
-					actorUserId,
+					actor,
 					sourceChildId,
 					targetChildId,
 					requestedTemplateIds: sourceTemplateIds,
 					added,
+					alreadyDistributed,
+					limitRejected,
 					limitReached,
 				},
 			});
-			// #3181 item2 (partial-success の drop 件数明示): drop された件数を message + 戻り値に出す。
-			const dropped = sourceTemplateIds.length - added;
+			// #3181 item2 / #3474 item2: drop 内訳を戻り値に出す (dropped は後方互換の合計値)。
+			const dropped = alreadyDistributed + limitRejected;
 			if (limitReached) {
+				const skipNote =
+					alreadyDistributed > 0 ? `（${alreadyDistributed} 件はすでに配信済みでした）` : '';
 				return {
 					copiedFromChild: true,
 					added,
 					dropped,
+					alreadyDistributed,
+					limitRejected,
 					limitReached: true,
-					message: `${added} 件取り込みました。フリープランの上限に達したため ${dropped} 件は取り込めませんでした。スタンダード以上で無制限。`,
+					// #3474 item2: 上限で取り込めなかった件数は limitRejected のみを提示 (既配信分を過大帰属しない)。
+					message: `${added} 件取り込みました。フリープランの上限に達したため ${limitRejected} 件は取り込めませんでした。スタンダード以上で無制限。${skipNote}`,
 				};
 			}
-			return { copiedFromChild: true, added, dropped };
+			return { copiedFromChild: true, added, dropped, alreadyDistributed, limitRejected };
 		} catch (e) {
 			logger.error('[admin/checklists] 別の子からの copy 失敗', {
 				error: e instanceof Error ? e.message : String(e),

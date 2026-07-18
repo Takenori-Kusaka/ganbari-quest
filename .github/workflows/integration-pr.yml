@@ -27,6 +27,12 @@
 #   初期 = 週 1-2 回 cron (月・木の UTC 21:00 = JST 06:00) から開始。運用安定後に daily へ引き上げる
 #   (daily 化は cron を '0 21 * * *' に変更するだけ、B-6 runbook に手順記載)。
 #   段階導入の意図: drift 蓄積を防ぎつつ GitHub Actions 分の消費を抑制 (Pre-PMF、ADR-0010)。
+#
+# no-diff 早期 exit ガード (branch-strategy.md §10、tracker #3399):
+#   develop==main (git rev-list --count origin/main..origin/develop = 0) の日は upsert / 重量 step を
+#   一切回さず即 skip する (無差分日に重量レーンを空回しさせない)。has_diff==false で後続 upsert 系 step は
+#   skip され、`No-diff early exit (no-op)` step が no-op を job summary に明示する (silent success にしない)。
+#   同ガードは audit run schedule dispatch 側 / staging deploy トリガ側にも徹底する (branch-strategy.md §10)。
 
 name: integration-pr
 
@@ -67,7 +73,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -93,6 +99,21 @@ jobs:
             echo "has_diff=false" >> "$GITHUB_OUTPUT"
             echo "develop と main に差分なし → 統合 PR 不要 (no-op)"
           fi
+
+      # ----------------------------------------------------------------------
+      # 1b. no-diff 早期 exit (no-op) — develop==main の日は後続 upsert / 重量 step を
+      #     一切回さず即 skip し、no-op を job summary に明示する (branch-strategy.md §10 / #3399)。
+      #     後続 step は全て has_diff=='true' gate を持つため、本 step 以降は自動的に skip される。
+      # ----------------------------------------------------------------------
+      - name: No-diff early exit (no-op)
+        if: steps.diff.outputs.has_diff != 'true'
+        run: |
+          echo "::notice::develop==main (no-diff) のため統合 PR upsert / 重量 step を skip します (branch-strategy.md §10 / #3399)。"
+          {
+            echo "### develop→main 統合 PR (#2871)"
+            echo ""
+            echo "- 状態: ⏭️ no-diff early exit (develop==main、統合すべき差分なし)。upsert / 重量 step を skip。"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # ----------------------------------------------------------------------
       # 2. develop の merge 履歴から含有 PR 一覧を取得する (前回統合 merge 以降分、AC3)

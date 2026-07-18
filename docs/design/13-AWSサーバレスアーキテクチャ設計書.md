@@ -13,7 +13,7 @@
     ▼                                                ▼
 [CloudFront CDN (prod)] ── [Lambda (SvelteKitFn)]   [CloudFront CDN (demo)] ── [Lambda (SvelteKitDemoFn)]
     │                            │                       │                              │
-    │                            ├── DynamoDB           │                              └── (CloudWatch Logs のみ、本番リソースアクセスなし)
+    │                            ├── Aurora DSQL       │                              └── (CloudWatch Logs のみ、本番リソースアクセスなし)
     │                            ├── S3                 │
     │                            ├── Cognito           │
     │                            ├── Secrets Manager  │
@@ -32,41 +32,61 @@
 
 | スタック | リソース | 依存 |
 |---------|---------|------|
-| `GanbariQuestStorage` | DynamoDB テーブル, S3 バケット, ECR リポジトリ | なし |
+| `GanbariQuestStorage` | S3 バケット, ECR リポジトリ | なし |
 | `GanbariQuestAuth` | Cognito User Pool, User Pool Client, SSM Parameters | なし |
 | `GanbariQuestCompute` | Lambda (Docker), Function URL | Storage, Auth |
 | `GanbariQuestNetwork` | CloudFront, Route 53, ACM | Compute |
-| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Storage, Network |
+| `GanbariQuestOps` | CloudWatch Alarms/Dashboard, SNS, Budgets, Cost Anomaly Detection | Compute, Network |
+| `GanbariQuestDsql` | Aurora DSQL cluster (context gate `-c dsqlEnabled=true`) | なし |
 | `GanbariQuestSes` | SES Email Identity, Configuration Set, 受信パイプライン (S3 + Lambda) | なし |
 
 ### 3.1 StorageStack
 
-**DynamoDB: シングルテーブル設計**
+DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB
+table を参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL の
+リレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
 
-| PK | SK | 用途 |
-|----|-----|------|
-| `TENANT#t1` | `PROFILE` | テナント情報（家族単位） |
-| `TENANT#t1#CHILD#c1` | `PROFILE` | 子供プロフィール |
-| `TENANT#t1#CHILD#c1` | `ACT#2026-03-06#a1` | 活動記録 |
-| `TENANT#t1#CHILD#c1` | `ACHIEVEMENT#ach1` | 実績 |
-| `TENANT#t1#CHILD#c1` | `STATUS` | ステータス（レベル等） |
-| `TENANT#t1` | `CATEGORY#cat1` | 活動カテゴリ |
-| `TENANT#t1` | `ACTIVITY_DEF#ad1` | 活動定義 |
-| `TENANT#t1` | `SETTINGS` | アプリ設定 |
-
-**GSI:**
-- **GSI1** (SK → PK): 逆引きクエリ用（例: 全テナントの特定SKを検索）
-- **GSI2** (GSI2PK → GSI2SK): タイプ別時系列クエリ（例: 日付範囲の活動取得）
-
-**設定:**
-- 課金: オンデマンド（従量課金、Free Tier 25 RCU/WCU含む）
-- Point-in-Time Recovery: 無効（AWS Backup で日次3日保持に代替）
-- 削除保護: RETAIN
+> **DynamoDB `MainTable` の撤去は cross-stack export の 2-deploy 制約により 2 段で行う（#3438 → #3850 → #3854）。**
+> CloudFormation は「利用中（in-use）の export は削除も値変更もできない」ため、producer（StorageStack）が
+> `MainTable` の cross-stack export を消せるのは、consumer（ComputeStack）の import 消失が本番へ
+> 反映された後に限られる。deploy pipeline は Storage → Auth → Compute の producer-first 固定順（かつ
+> Storage は ECR repo を先に作る必要があり Storage-first は必須制約）で、1 リリース内で consumer を先に
+> 更新できないため、同一 PR での table + export 同時撤去は StorageStack rollback を招く。
+>
+> **保持すべきは Arn だけでなく「旧 consumer が import する全 export」= Ref（table 名）+ Arn の 2 本**
+> （#3850）。旧 ComputeStack は `MainTable` を 2 経路で import しており、どちらか一方でも消すと未反映
+> consumer の in-use 参照が残って削除拒否 → StorageStack rollback になる:
+>
+> | export | CFN 名 | 旧 ComputeStack の参照元 |
+> |---|---|---|
+> | Ref | `<stackName>:ExportsOutputRefMainTable<hash>` | `props.table.tableName!`（= `Ref MainTable`）→ `TABLE_NAME` / `DYNAMODB_TABLE` / `ANALYTICS_TABLE_NAME` env（全て同一 Ref に解決、export は 1 本） |
+> | Arn | `<stackName>:ExportsOutputFnGetAttMainTable<hash>Arn` | `props.table.grantReadWriteData(this.fn)` の IAM policy（`Fn::GetAtt MainTable Arn`） |
+>
+> **Arn だけの保持は不十分**（#3855 が `exportValue(table.tableArn)` のみ追加し、CDK が未参照の Ref
+> export を自動削除 → deploy-aws-staging 貫通で `Cannot delete export ...ExportsOutputRefMainTable...
+> in use` により再 rollback した実害あり）。よって:
+>
+> - **Deploy-1（#3850、本リリース）**: consumer（ComputeStack）は `grantReadWriteData` + `TABLE_NAME` /
+>   `DYNAMODB_TABLE` / `ANALYTICS_TABLE_NAME` env を落とす（#3438 で実施済）。producer（StorageStack）は
+>   `MainTable`（removalPolicy=RETAIN）+ その AWS Backup（daily plan）+ **`exportValue(table.tableName)`
+>   （Ref）と `exportValue(table.tableArn)`（Arn）の両方**による cross-stack export を保持する。
+> - **Deploy-2（#3854、follow-up 次リリース）**: Deploy-1 が本番反映され consumer の import が消失した後、
+>   StorageStack から `MainTable` + **両 `exportValue`（Ref + Arn）** を撤去する（この時点で両 export とも
+>   in-use ではないため削除成功）。prod は removalPolicy=RETAIN のため、この撤去でも table は CloudFormation の
+>   管理から外れる（orphan）だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
+>
+> prod 不変条件（table + Backup + **Ref/Arn 両 export**の Deploy-1 保持 / consumer の table 非参照）は
+> `tests/unit/infra/staging-cdk.test.ts`（P-1 / B-3850a = 全 export 集合の断言 / B-3850b）が fitness
+> function として固定する。B-3850a は「Arn 1 本」ではなく「MainTable 由来 export = {Ref, Arn} が過不足なく
+> 存在」を断言し、Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に再発不能化している。
 
 **S3バケット:**
 - アバター画像: `avatars/{tenantId}/{childId}/`
 - バックアップ: `backups/{date}/` （30日で自動削除）
 - パブリックアクセス: 完全ブロック
+
+**ECR リポジトリ:**
+- Lambda コンテナイメージ格納（prod `maxImageCount:10` / staging `maxImageCount:3`）
 
 ### 3.2 AuthStack
 
@@ -192,16 +212,16 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | 2 | Lambda-Throttles | Lambda Throttles | ≥ 1回/5分 | P0 |
 | 3 | Lambda-Duration-p99 | Lambda Duration | ≥ 10秒 | P1 |
 | 4 | Lambda-Concurrent | ConcurrentExecutions | ≥ 50 | P1 |
-| 5 | DynamoDB-Throttles | ThrottledRequests | ≥ 1回/5分 | P1 |
-| 6 | DynamoDB-SystemErrors | SystemErrors | ≥ 1回/5分 | P0 |
-| 7 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
-| 8 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
-| 9 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
-| 10 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
+| 5 | Lambda-URL-5xx | Url5xxCount | ≥ 5回/5分 | P0 |
+| 6 | Lambda-URL-4xx-Spike | Url4xxCount | ≥ 50回/5分 | P1 |
+| 7 | CloudFront-5xx | 5xxErrorRate | ≥ 5% | P0 |
+| 8 | **CronDispatcherErrors** (#1376) | CronDispatcherFn Errors | ≥ 1回/5分 | P0 |
+
+> DynamoDB alarms（Throttles / SystemErrors / ConsumedCapacity）は #3438 で撤去（DB backend は
+> Aurora DSQL に一本化、DynamoDB table 無し）。DSQL の監視は `DsqlStack` が担う。
 
 **CloudWatch Dashboard:** `ganbari-quest-ops`
 - Lambda: Invocations/Errors, Duration p50/p99, Throttles/Concurrent
-- DynamoDB: Read/Write Capacity Units
 - Alarm Status: SingleValueWidget
 
 **AWS Budgets:**
@@ -213,7 +233,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - 通知閾値: $1以上の異常
 
 **AWS Health EventBridge:**
-- 対象サービス: LAMBDA, DYNAMODB, CLOUDFRONT, COGNITO, S3
+- 対象サービス: LAMBDA, CLOUDFRONT, COGNITO, S3（DYNAMODB は #3438 で除外、DB backend は DSQL）
 - イベントカテゴリ: issue（障害）, scheduledChange（計画メンテ）
 - 通知先: SNS Topic（OpsAlerts）
 
@@ -223,7 +243,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | 層 | 実装 | 対象 | 検知できる障害 | 検知できない障害 |
 |----|------|------|--------------|----------------|
-| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DynamoDB / アプリケーションコード | 500 / タイムアウト / DynamoDB スロットル | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
+| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DSQL / アプリケーションコード | 500 / タイムアウト / DB 接続失敗 | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
 | L2: エッジ層 | （別 Issue で補完予定。CloudWatch Synthetics を JP 許可リージョンで、または UptimeRobot 等を `ganbari-quest.com` 宛に設定） | CloudFront / Route 53 / ACM / geoRestriction | L1 で検知できないエッジ層の失敗 | アプリ層の内部障害（L1 の役割） |
 
 **なぜ L1 が Function URL 直叩きなのか（#1214）**: CloudFront に `geoRestriction('JP')` (`infra/lib/network-stack.ts`) が掛かっているため、us-east-1 の Lambda IP から `https://ganbari-quest.com/api/health` を叩くと常時 403 になる（#1121 導入時の盲点）。Function URL (`authType: NONE`) を直接叩くことで地理制限を迂回し、「L1 = アプリ層の生存確認」という責務に集中させる。Function URL は CloudFront 背後の実体なので公開 URL としては露出しない方針を維持する。
@@ -244,6 +264,10 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
   - origin = S3 `StaticAssetsBucket`（OAC 経由）。**Lambda を一切経由しない**ため、エッジ cache cold 時に ~224 本のチャンクが Lambda origin を一斉直撃して `TooManyRequestsException`(429) + HTTP/1.1 接続キュー輻輳で最遅 ~16s に達していた問題（HAR 実測、#3087）が**構造的に消滅**する
   - 配信元 = deploy 済 Docker image から抽出した `/app/client/_app/immutable`（= Lambda が SSR で参照するのと**同一 build artifact**）を `BucketDeployment` で S3 に upload。HTML が参照する content-hash と S3 の hash が完全一致する（`prune: false` で旧 hash も残し deploy window 中の旧 HTML 参照を 403 にしない）
   - 解決策 A（Origin Shield）からの段階改善。CDK context `staticAssetsS3Offload`（deploy.yml が `true` 指定 + image から asset 抽出）で有効化。flag OFF（default）時は従来構成（下記 `/_app/*` の Origin Shield Lambda が immutable も配信）を維持し、本番 template と byte 一致（非 replacement、ADR-0019）
+  - **robustness (#3402、offload ON 時のみ)**:
+    - **403 propagation 窓の解消 (#3402-2)**: distribution を `StaticAssetsDeploy`（BucketDeployment）に `addDependency` させ、初回有効化時に upload 完了後へ distribution 更新順序を強制する（S3 が空を指す 403 窓を塞ぐ）。Origin Group failover は #3087 の origin index preempt 不変条件を churn させるため不採用、CFN 依存で低リスク解決
+    - **旧 hash 剪定 (#3402-3)**: `prune: false` の旧 content-hash 無限蓄積を、`_app/immutable/` prefix の **30 日 expiration lifecycle rule** で剪定（deploy window は数分、30 日以上前の hash は参照されない）
+    - **S3 origin 4xx/5xx alarm (#3402-1、ADR-0024 ルール D)**: bucket に request metrics（`EntireBucket`）を有効化し、`OpsStack` が `AWS/S3` `4xxErrors`（≥10/5分、OAC 誤設定/部分 upload 欠落）/ `5xxErrors`（≥5/5分、S3 障害）を SNS 通知で継続監視。offload OFF（bucket 不在）時は alarm 未作成 = 監視 cost ゼロ
 - `/_app/*`: SvelteKit の非 immutable 静的アセット（`_app/version.json` 等。burst しない）
   - origin = `staticAssetOrigin`（**Origin Shield 有効 / region `us-east-1`、#3087 解決策 A**）。S3 offload OFF 時は immutable も含め `/_app/*` 全体をここで配信。Origin Shield（regional mid-tier cache）で cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に collapse + 二次キャッシュで Lambda 直撃を激減。region は origin (Lambda) と同一 us-east-1
 - `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）
@@ -264,6 +288,22 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 **ACM（ドメイン設定時のみ）:**
 - ワイルドカード証明書: `*.ganbari-quest.com` + `ganbari-quest.com`
 - DNS検証（Route 53自動連携）
+
+#### 3.5.1 user-content 配信の CloudFront/S3 セキュリティ（#3830 / EPIC #3408 slice D）
+
+user-content（avatar / ZIP import 由来ファイル等、attacker が content-type を左右し得るバイト）は 14-セキュリティ設計書 §7.2.1 の不変条件①「常に Lambda 経由配信」に従う。CloudFront/S3 レイヤでこの不変条件を破りうる 2 つの構造リスク（#3112 構造リスク 2 / 3）を以下で評価・防御する。
+
+##### cache TTL の content-type 残存リスク評価（AC1）
+
+- **現行 behavior 実態**: user-content 経路（`/tenants/*` / `/uploads/*`）は専用 behavior を持たず **default behavior に fall-through** する。default behavior の cache policy は **`CACHING_DISABLED`**（min/max/default TTL = 0）であり、**CloudFront エッジは user-content レスポンスを一切 cache しない**。従って「ヘッダ適用前の旧レスポンスが CDN で TTL 期間中 stale な content-type / `Content-Disposition` を保持し、他ユーザーへ配信される」共有 cache poisoning は**構造的に発生しない**。`X-Content-Type-Options: nosniff` は default behavior の `ResponseHeadersPolicy.SECURITY_HEADERS`（CloudFront マネージド）で常に付与され、`Content-Disposition` は Lambda origin（`safeContentDisposition()`）が付与する。
+- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: public, max-age=31536000, immutable` を付与するため **browser 側は 1 年 cache** する。ただし (a) storage key は content-suffix / tenant path 込みで実質 immutable（同一 URL で content-type が変わる再 upload は起きない）、(b) browser が cache するレスポンス自体が既に `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。よって browser cache 由来の残存は per-user かつ防御ヘッダ付きで、リスクは低い（immutable 指定は配信性能のための意図的設計）。
+- **結論（現状は変更不要 / 将来の必須要件）**: 現構成（user-content = `CACHING_DISABLED` の default behavior）は cache TTL 残存リスクを構造的に回避済のため、**cache invalidation / Vary 戦略 / cache TTL の見直しは現時点で不要**。将来 user-content を cache する behavior（短 TTL でも）へ移す場合は、**必ず (i) `Content-Type` / `Content-Disposition` を cache key に含める（Vary 相当）、(ii) 十分短い TTL、(iii) content 変更時の invalidation 経路**を同時に設計すること（これらを欠くと content-type 残存 = stored-XSS 再解釈のリスクが復活する）。**実 CDK（cache policy / behavior）変更は staging smoke test を要するため本 slice では行わず、上記を将来要件として明文化するに留める**（現状は防御が成立しているため実変更不要）。
+
+##### S3 直配信 behavior の bypass 防御（AC3）
+
+- **現状方針**: user-content の S3 直配信 behavior は**採用しない**。CloudFront が S3 origin を直結する behavior は静的アセット 2 種のみ（`/error/*` エラーページ / `/_app/immutable/*` immutable アセット、いずれも attacker-controllable でない）。user-content は常に Lambda（SvelteKit endpoint）が `readFile()` → 認証・tenant 一致・content-type 正規化・`Content-Disposition` 付与を通して配信する。
+- **将来 S3 直配信を足す場合の必須要件**: S3 stored content-type が Lambda ヘッダを bypass するため、**S3 object metadata に `Content-Disposition`（ラスタ画像のみ `inline` / SVG・audio・不明 type は `attachment`）と正規化済 content-type を書き込み**、配信点（Lambda）と同等の防御を object 側で担保する。加えて cross-tenant IDOR 防止（§5.2.1 の tenant 一致検証）を OAC / bucket policy / 署名付き URL 等で別途担保する必要があり、Lambda 経由配信の認証・認可を S3 直配信で再現するのは非自明なため、**Pre-PMF では S3 直配信を採用しない**（ADR-0010）。
+- **機械強制（fitness function）**: `tests/unit/architecture/cloudfront-s3-user-content-bypass-fitness.test.ts` が `infra/lib/network-stack.ts` を静的走査し、S3 origin を持つ behavior が静的アセット allowlist に分類済 / user-content prefix を S3 直配信していない / default behavior が Lambda origin である / `new cloudfront.Distribution` が network-stack.ts のみであることを表明する。user-content を S3 直配信する behavior（例: `/uploads/avatars/*` → S3 origin）を足すと CI が red になり、上記必須要件の伴走なしに bypass が入るのを防ぐ（14-セキュリティ設計書 §7.2.1 の route 層 fitness を補完する CDK 層 fitness）。
 
 ### 3.6 SesStack（メール送信・受信基盤）
 
@@ -321,10 +361,10 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | キー | 本番 Fn | demo Fn | 用途 |
 |------|--------|--------|------|
-| `DATA_SOURCE` | `dynamodb` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger |
+| `DATA_SOURCE` | `dsql` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger (本番 = Aurora DSQL、cutover 完遂 / #3438 で dynamodb backend 撤去) |
 | `AUTH_MODE` | `cognito` | `anonymous` | AnonymousAuthProvider 起動 |
 | `ORIGIN` | `https://ganbari-quest.com` | `https://demo.ganbari-quest.com` | absolute URL 解決 |
-| `DYNAMODB_TABLE` / `TABLE_NAME` | (注入) | **未注入** | demo は in-memory fixture |
+| `DSQL_ENDPOINT` / `DSQL_USER` | (注入) | **未注入** | demo は in-memory fixture（本番は Aurora DSQL、`DYNAMODB_TABLE` / `TABLE_NAME` は #3438 で撤去） |
 | `COGNITO_*` / `CONTEXT_TOKEN_SECRET` | (注入) | **未注入** | demo は anonymous |
 | `STRIPE_*` / `GEMINI_API_KEY` / `AWS_LICENSE_SECRET` | (注入) | **未注入** | demo は課金/外部 API なし |
 | `CRON_SECRET` / `OPS_SECRET_KEY` / `DISCORD_WEBHOOK_*` / `SES_*` | (注入) | **未注入** | demo は ops / 通知系なし |
@@ -365,7 +405,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 2. **C-2**: NetworkStack に CloudFront Distribution が 2 本ある (alias `ganbari-quest.com` と `demo.ganbari-quest.com`)
 3. **C-3**: demo Fn の env に DATA_SOURCE='demo' + AUTH_MODE='anonymous' が含まれる、本番 secret が含まれない
 
-将来「demo に DynamoDB アクセスを追加した方が楽」と誤って `props.table.grantReadData(this.demoFn)` を追加した瞬間に CI が落ちる構造になっている。これがこの設計の最大の load-bearing 保証。
+将来「demo に本番 DB / secret アクセスを追加した方が楽」と誤って IAM grant を追加した瞬間に CI が落ちる構造になっている。これがこの設計の最大の load-bearing 保証。
 
 #### コスト試算
 
@@ -396,7 +436,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 | Lambda | `AUTH_MODE` | `DATA_SOURCE` | `event.locals.isDemo` |
 |---|---|---|---|
-| Production (`ganbari-quest.com`) | `cognito` | `dynamodb` (本番) / `sqlite` (NUC) | `false` |
+| Production (`ganbari-quest.com`) | `cognito` | `dsql` (AWS 本番) / `sqlite` or `pglite` (NUC) | `false` |
 | Demo (`demo.ganbari-quest.com`) | `anonymous` | `demo` | `true` |
 | 開発者 misconfiguration 防御 | `anonymous` | `sqlite` | `false` (実 DB を no-op writer 化しない) |
 
@@ -470,12 +510,12 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
 |---|---|---|
 | stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`)、明示列挙 deploy (`--all` 不使用) |
-| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（table / Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
+| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
 | SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
 | ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
 | Cognito | custom domain `auth.ganbari-quest.com` + Google IdP | default domain（prefix `ganbari-quest-staging`）。Google IdP / Route53 省略。SSM `cognito/domain` param は default domain 値で必ず書く |
 | 外部サービス env | Stripe / Discord / Gemini / SES 注入 | **非注入**（本番外部サービスへの副作用ゼロ。SES / Cost Explorer の IAM grant も付与しない） |
-| Backup / demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableBackup` / `enableLogArchiving` = false） |
+| demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
 | ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 3 stack） |
@@ -485,8 +525,10 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 - **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
 - **ORIGIN 解決**: Function URL は synth 時未確定（自己参照）のため CDK は placeholder を注入し、workflow が `get-function-url-config` で解決して jq read-modify-write で `update-function-configuration` する（health / smoke は GET のみで ORIGIN 非依存のため縮退可）。
-- **責務分界 (G-PD / G-MIG)**: AWS Lambda は DynamoDB backend で `applyLazyStartupMigrations` を呼ばないため、**migration 込み起動 (G-MIG) の主担保は NUC staging (§4.2 / #2872)**。#2873 の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」であり、migration 検証を AWS に重複実装しない。
-- **データ戦略**: staging table は空作成（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は DynamoDB repository 経路を通らず staging の存在意義が消えるため不採用。PITR / Backup restore 自動化は不採用 (ADR-0010 Bucket C)。本番相当データが必要になった場合の手動 runbook: 本番 table を AWS Backup の on-demand backup から `ganbari-quest-staging-restore` 等の別名 table に restore し、`aws dynamodb scan` + `batch-write-item`（または S3 export/import）で staging table に流し込む。終了後は restore table を削除する（本番 table へは一切 write しない）。
+- **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。dispatch の `dsqlEnabled` / `pgliteEnabled` input は develop HEAD を任意 backend で回す手動検証用に残す。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
+- **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
+- **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
+- **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。本番相当データが必要になった場合は DSQL の論理エクスポート / import 経由で別 cluster に流し込む（本番 cluster へは一切 write しない）。旧 DynamoDB AWS Backup restore 経路は #3438 で DynamoDB 撤去により廃止。
 - **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
 - **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
 - **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
@@ -499,8 +541,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | セキュリティヘッダ | CloudFront ResponseHeadersPolicy | 無料 |
 | Geo制限 | CloudFront（日本のみ、オプション） | 無料 |
 | Lambda認可 | Cognito JWT検証 + ロールベース認可 | 無料 |
-| DynamoDB制限 | オンデマンド上限設定 | 無料 |
-| CloudWatch Alarms | 9アラーム（Lambda/DynamoDB/CloudFront） | 無料枠10個中9個使用 |
+| CloudWatch Alarms | 8アラーム（Lambda/CloudFront/Cron。DynamoDB alarms は #3438 で撤去） | 無料枠10個中8個使用 |
 | CloudWatch Dashboard | 運用ダッシュボード | 無料枠3個中1個使用 |
 | AWS Budgets | $5/月予算・3段階アラート | 無料枠2個中1個使用 |
 | Cost Anomaly Detection | ML異常検知 | 完全無料 |
@@ -512,7 +553,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | Route 53 | $0.50 | $0.50 | $0.50 |
 | CloudFront | $0 | $0 | ~$0.10 |
 | Lambda | $0 | $0 | ~$0.05 |
-| DynamoDB | $0 | $0 | ~$0.03 |
+| Aurora DSQL | $0 | $0 | ~$0.03 |
 | S3 | $0 | $0 | ~$0.01 |
 | ECR | $0 | $0 | ~$0.01 |
 | ACM | $0 | $0 | $0 |
@@ -529,7 +570,8 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 infra/
 ├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
-│   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
+│   ├── storage-stack.ts  # S3 + ECR + MainTable(#3438→#3850 の 2-deploy 撤去中、Deploy-1 は export 保持)
+│   ├── dsql-stack.ts     # Aurora DSQL cluster (EPIC #3424)
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離
 │   ├── network-stack.ts  # CloudFront (本番 + demo #2097) + Route53 + ACM + S3エラーページ + S3静的アセットoffload (#3087 解決策B)
@@ -554,104 +596,42 @@ Dockerfile.lambda        # Lambda Web Adapter用
 └── release.yml          # リリースノートカテゴリ設定
 ```
 
-## 7.2 アナリティクス基盤（DynamoDB 一本化, #1591 / ADR-0023 I2）
+## 7.2 アナリティクス基盤（on-demand DSQL 集計, #3805 / EPIC #3424）
 
 ### 採用方針
 
-**外部 SaaS analytics は採用しない**。子供データ究極ミニマリズム原則 (ADR-0023 §4.4 / A-Q1(C)) に従い、業務イベントは AWS 内完結 (DynamoDB 単一テーブル) に閉じる。
+**外部 SaaS analytics は採用しない**（子供データ究極ミニマリズム原則 ADR-0023 §4.4 / A-Q1(C)）。かつ **always-on の event 収集も持たない**（#3805 で撤去）。marketing 分析（activation funnel / 解約率）は **DSQL の main data から必要時のみ on-demand 集計**する。常設収集・日次 cron・常設 dashboard は Pre-PMF で過剰（維持費 <¥100/月 target のボトルネック）ゆえ撤去し、分析能力のみを維持する。
 
 | 項目 | 内容 |
 |------|------|
-| 採用 provider | DynamoDB のみ (`src/lib/analytics/providers/dynamo.ts`) |
-| 削除済 provider | umami / Sentry (#1591 で `src/lib/analytics/providers/` から物理削除) |
-| 外部送信 | ゼロ (CSP `connect-src 'self'` で構造的に保証) |
-| イベント保持期間 | 90 日 (DynamoDB TTL 自動削除) |
+| 収集方式 | なし（DynamoDB `ANALYTICS#` / `ANALYTICS_AGG#` / `CHALLENGE_AGG#` partition・日次 aggregator cron・provider を全廃、#3805） |
+| 導出元 | DSQL main data（`families` / `children` / `activity_logs` / `cancellation_reasons`） |
+| 実行契機 | 認証済 ops が `/ops/analytics` を開いた時のみ（on-demand、常時コスト 0） |
+| 外部送信 | ゼロ（CSP `connect-src 'self'` で構造的に保証） |
 
-### Key 設計
+### on-demand 集計サービス
 
-| 項目 | 値 |
-|------|----|
-| PK | `ANALYTICS#<YYYY-MM-DD>` |
-| SK | `<ISO timestamp>#<random>` |
-| GSI2PK | `ANALYTICS#EVENT#<eventName>` (イベント別時系列) |
-| GSI2SK | `<YYYY-MM-DD>#<tenantId>` (日付 → テナントで絞込) |
-| TTL | 取込時刻 + 90 日 (epoch seconds) |
+`analytics-ondemand-service.ts` が read-only で 2 指標を DSQL main data から導出する:
 
-メインテーブル (`ganbari-quest`) に同居させる single-table design。専用テーブルは作らない (ADR-0010 過剰防衛禁止)。
-
-### 環境変数
-
-| 変数 | 設定値 | 説明 |
+| 指標 | 導出元 | 方式 |
 |------|--------|------|
-| `ANALYTICS_ENABLED` | `'true'` (本番固定) | DynamoDB provider の有効化トグル。CDK が Lambda env にハードコード注入 (#1591) |
-| `ANALYTICS_TABLE_NAME` | `props.table.tableName` | 書込先テーブル名。メイン DynamoDB を流用 |
+| Activation Funnel（signup → 初回子供登録 → 初回活動 → 7 日継続） | `families.created_at` 起点コホート + `children` / `activity_logs` を JOIN | 単一集約 SQL 1 発（`repos.activationFunnel`、ADR-0065 N+1 禁止） |
+| 解約理由分布（30d / 90d） | `cancellation_reasons` | `repos.cancellationReason.aggregateRecent`（DSQL main data 由来） |
+
+旧 step ④「初回報酬演出」は純 UI view event でデータ痕跡がなく DSQL から導出不能のため drop し、engagement 本質の「7 日 retention」を ④ に据える（#3805）。
+
+### `/ops/analytics` 可視化
+
+`ops_users` group 認証必須。Activation Funnel（on-demand DSQL）+ Retention Cohort（`cohort-analysis-service`）+ Sean Ellis スコア（`pmf-survey-service`）+ 解約理由分布（`cancellation-service`）+ setup チャレンジ選択分布（`settings` を on-demand N+1 read）を `Promise.allSettled` で部分縮退表示する。いずれも tenant 状態・main data のスナップショットで、event log は使わない。旧 `/admin/analytics` は #2283 EPIC で全面撤去済。
 
 ### CSP との整合
 
-`hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
+アプリ側 CSP (`svelte.config.js` `kit.csp`、#3829 / ADR-0067 で `hooks.server.ts buildCspHeader()` から移管) は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
 
-### 可視化 (~~`/admin/analytics`~~ → `/ops/analytics`, #1639 / #2283 EPIC で集約先変更)
+### Pre-PMF (ADR-0010) スコープ
 
-> **2026-05-19 更新 (#2283 EPIC Analytics-Removal)**: `/admin/analytics` を全面撤去し、運用者向け 4 種可視化は **`/ops/analytics` に集約**。詳細は `06-UI設計書.md §11 全ページ一覧` および `tmp/research/analytics-removal-result.md` §1 機能差分マトリクスを参照。本表は run-time の実装方式を継続保持（cron / DynamoDB schema 変更なし）。
-
-`/ops/analytics` ページは **#1639 + #2285 EPIC #2283 で 4 種可視化を実装済み**（Pre-PMF Bucket A 範囲、`ops_users` group 認証必須）。
-
-| セクション | 実装方式 | データ源 |
-|-----------|---------|---------|
-| Activation Funnel (4 step) | DynamoDB GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>`、`GSI2SK >= <since-date>`) を 4 events 並列実行、テナント単位 unique 件数を集計。**#2285 で `/admin/analytics` から `/ops/analytics` へ移動**、`funnelPeriod=30d` 固定 | `ANALYTICS#` partition |
-| Retention Cohort (月次) | `cohort-analysis-service.getCohortAnalysis` を再利用。Day 単位は本 EPIC scope 外 (PO 確定 OQ1 α: 月単位で十分) | tenant 一覧（`auth.listAllTenants()`） |
-| Sean Ellis スコア | `pmf-survey-service.aggregateSurveyResponses` を再利用 | settings KV (`pmf_survey_response_<round>`) |
-| 解約理由分布 | `cancellation-service.getCancellationReasonAggregation` を再利用 | `CANCEL_REASON` partition |
-
-**事前集計レコード（`PK=ANALYTICS_AGG#<YYYY-MM-DD>`, #1693 で導入）**: テナント数増加に備え、cron `gq-analytics-aggregator-daily` (毎日 03:00 JST = 18:00 UTC) で前日分の funnel + cancellation reason を集計し DynamoDB に書き込む。
-
-| 集計種別 | PK | SK | 内容 | TTL |
-|---------|----|----|------|-----|
-| Activation Funnel | `ANALYTICS_AGG#<YYYY-MM-DD>` | `FUNNEL` | その日の event 別 unique tenantId 一覧（最大 4 events） | 365 日 |
-| Cancellation 30d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_30D` | その日時点での過去 30 日 rolling-window 集計結果 | 365 日 |
-| Cancellation 90d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_90D` | その日時点での過去 90 日 rolling-window 集計結果 | 365 日 |
-
-**Read 側のフォールバック構造（`analytics-service.ts`）:**
-1. 集計レコードを期間内日付分取得（`PK BETWEEN ANALYTICS_AGG#<since> AND ANALYTICS_AGG#<yesterday> AND SK=<kind>`）
-2. **Funnel**: 集計済み日付分の tenantId 一覧を union し、不足日付（当日 / cron 失敗で歯抜けの日）のみライブ計算で補う
-3. **Cancellation**: 前日分 rolling-window スナップショットがあれば即採用、無ければ既存ライブ集計 (`getCancellationReasonAggregation`) で fallback
-4. service の interface (`getActivationFunnel` / `getCancellationReasons`) は不変。呼出側 (`+page.server.ts`) は変更不要
-
-**Pre-PMF (ADR-0010) スコープ**:
-- Sean Ellis / retention cohort は集計頻度が低い（半年に 1 round / 月次）ため事前集計対象外
-- HyperLogLog 等の近似 sketch は post-PMF に持ち越し（~100 テナント規模では tenantId 一覧の保持が数 KB で十分）
-- DynamoDB TTL 属性 (`ttl`) を有効化し、365 日経過したレコードは自動失効
-
-**部分縮退方式**: `+page.server.ts` で `Promise.allSettled` を使い、1 セクションが失敗しても他セクションは表示する。`getActivationFunnel` / `getCancellationReasons` 内部の DynamoDB query 失敗時は zero counts / 空 breakdown で fallback（個別エラーログのみ、画面全体は崩さない）。
-
-### 運営内部分析 (`/ops/analytics`, #1602 ADR-0023 I13)
-
-`/ops/analytics` は **DynamoDB のメインテーブル**から直接ライブ集計する。`ANALYTICS#` パーティションは使わない（運営内部の集計対象は tenant 状態と settings のスナップショットであり、event log ではないため）。
-
-| 集計項目 | 集計元 | 取得方法 | 計算量 |
-|---------|--------|---------|--------|
-| LTV / 月次獲得 / コホート / プラン別 MRR | tenant 一覧 | `auth.listAllTenants()`（全 tenant scan） | O(N tenants) |
-| **setup チャレンジ選択分布**（#1602 / #1742） | 集計レコード優先 → 不足時ライブ計算 | 二段構造 (下記) | 通常 O(1)、cron 未稼働時のみ O(N tenants) |
-
-**setup チャレンジ選択分布の事前集計レコード（`PK=CHALLENGE_AGG#<YYYY-MM-DD>`, #1742 で導入）**:
-
-cron `gq-challenge-aggregator-daily` (毎日 03:30 JST = 18:30 UTC、analytics-aggregator-daily と被らないよう 30 分ずらし) で当日時点の全テナント `questionnaire_challenges` 設定値を CSV 配列に集約し、DynamoDB に書き込む。
-
-| 集計種別 | PK | SK | 内容 | TTL |
-|---------|----|----|------|-----|
-| Preset Distribution | `CHALLENGE_AGG#<YYYY-MM-DD>` | `AGGREGATE` | `payload.challengesPerTenant`: 全テナントの `questionnaire_challenges` CSV 配列。`payload.totalTenants`: 集計時のテナント総数 | 365 日 |
-
-**Read 側のフォールバック構造（`ops-analytics-service.fetchChallengesPerTenant`）:**
-1. 直近 7 日分の集計レコードを Scan (`PK BETWEEN CHALLENGE_AGG#<7日前> AND CHALLENGE_AGG#<今日> AND SK=AGGREGATE`) し、最新の `payload.challengesPerTenant` を採用
-2. 集計レコードが見つからない (cron 未稼働 / 障害 / 7 日以上停止) 場合のみ、テナントごと `settings.getSetting('questionnaire_challenges', tenantId)` を呼ぶ N+1 ライブ集計で fallback
-3. `getAnalyticsData` の interface (`presetDistribution`) は不変。呼出側 (`+page.server.ts`) は変更不要
-
-**Pre-PMF (ADR-0010) スコープ**:
-- テナント数 ≦ 数百を想定 → cron 未稼働段階でも N+1 fallback で動作する設計
-- テナント数 1,000+ で N+1 GetItem の表示遅延が顕在化する想定。cron が走り始めれば自然移行
-- DynamoDB TTL 属性 (`ttl`) 365 日で自動失効
-- HyperLogLog 等の近似 sketch は post-PMF (~10,000+ tenants) で再検討
-- 関連: PR #1696 (analytics 事前集計 cron) と同パターン
+- on-demand ゆえ常時コスト 0。実行時のみ DSQL DPU を消費（cross-tenant range scan は少数、ADR-0065 整合）
+- HyperLogLog 等の近似 sketch は post-PMF（~10,000+ tenants）で再検討
 
 ---
 
@@ -670,7 +650,7 @@ cron `gq-challenge-aggregator-daily` (毎日 03:30 JST = 18:30 UTC、analytics-a
 ### モデル選定理由
 
 1. **EoLリスク低減**: Gemini のモデルIDは頻繁にEoLとなり追従が運用負荷。Bedrock はマネージドサービスとしてモデルバージョン管理が安定
-2. **インフラ統一**: Lambda + DynamoDB + Cognito + S3 の AWS 構成に Bedrock を追加することで、IAM ベースの認証に統一。API キー管理（SSM 等）が不要に
+2. **インフラ統一**: Lambda + Aurora DSQL + Cognito + S3 の AWS 構成に Bedrock を追加することで、IAM ベースの認証に統一。API キー管理（SSM 等）が不要に
 3. **構造化出力の信頼性**: Claude の tool_use で JSON スキーマを定義し、確実に構造化された出力を取得。`extractJson()` のような手動パースが不要
 4. **コスト**: 活動提案・レシートOCR は高度な推論不要。Haiku は最安クラスで、tool_use によりリトライ不要（実効コスト同等以下）
 

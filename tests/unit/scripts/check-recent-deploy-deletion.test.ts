@@ -40,15 +40,22 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+	compileIgnorePattern,
+	compileTeardownPattern,
 	DEFAULT_BASE,
 	DEFAULT_DAYS,
 	findViolations,
 	getDeletedFiles,
+	getTeardownPatternsFromCommits,
 	helpText,
 	isAncestor,
 	isIgnored,
+	MAX_IGNORE_PATTERN_LENGTH,
 	parseArgs,
+	parseTeardownTrailers,
+	partitionDeletionsByTeardown,
 	resolveSinceWindow,
+	TEARDOWN_TRAILER_KEYS,
 	verifyWorktreeHeadMatchesPrHead,
 } from '../../../scripts/check-recent-deploy-deletion.mjs';
 
@@ -137,6 +144,47 @@ describe('parseArgs', () => {
 		expect(opts.days).toBe(14);
 		expect(opts.base).toBe('origin/main');
 		expect(opts.ignorePatterns).toHaveLength(1);
+	});
+});
+
+/**
+ * #3766 CodeQL js/regex-injection guard — `--ignore-pattern` の RegExp compile を
+ * fail-closed 化した `compileIgnorePattern` の regression guard。
+ *
+ * 本 script は信頼された CLI operator が `--ignore-pattern <regex>` を明示指定する設計 (attacker
+ * 経路ではない) のため escape は不採用 (regex 機能そのものが失われる)。代わりに ①長さ上限
+ * ②try/catch fail-closed の 2 段防御で ReDoS 表面積 / operator 誤用を早期に止める。
+ *
+ * 判別力 (mutation → fail):
+ *   - 長さ上限 guard を外すと 201 文字 (valid regex) が throw しなくなり (a) が fail する
+ *     (実測: guard 無しでは `new RegExp('a'.repeat(201))` が正常 compile して throw しない)。
+ *   - try/catch を外すと不正 regex が Error ではなく生 SyntaxError を throw し、明示メッセージ
+ *     `不正な正規表現` を assert する (b) が fail する。
+ */
+describe('compileIgnorePattern (#3766 js/regex-injection fail-closed guard)', () => {
+	it('(a) MAX_IGNORE_PATTERN_LENGTH 超で明示 Error を throw する (ReDoS 表面積上限)', () => {
+		const tooLong = 'a'.repeat(MAX_IGNORE_PATTERN_LENGTH + 1);
+		expect(() => compileIgnorePattern(tooLong)).toThrow(/長すぎます/);
+		// 上限ちょうど (valid regex) は throw しない (境界値)。
+		const atLimit = 'a'.repeat(MAX_IGNORE_PATTERN_LENGTH);
+		expect(() => compileIgnorePattern(atLimit)).not.toThrow();
+	});
+
+	it('(b) 不正な正規表現で明示 Error を throw する (fail-closed、生 SyntaxError を握り潰さない)', () => {
+		// `[` は未閉 character class で不正。fail-closed で gate を止める。
+		expect(() => compileIgnorePattern('[')).toThrow(/不正な正規表現/);
+		expect(() => compileIgnorePattern('(unclosed')).toThrow(/不正な正規表現/);
+	});
+
+	it('正当な path 除外 regex は RegExp を返しマッチが機能する (機能保全)', () => {
+		const re = compileIgnorePattern('^docs/decisions/archive/');
+		expect(re).toBeInstanceOf(RegExp);
+		expect(re.test('docs/decisions/archive/0031-foo.md')).toBe(true);
+		expect(re.test('docs/decisions/0056-active.md')).toBe(false);
+	});
+
+	it('MAX_IGNORE_PATTERN_LENGTH は 200 で pin される (閾値回帰検出)', () => {
+		expect(MAX_IGNORE_PATTERN_LENGTH).toBe(200);
 	});
 });
 
@@ -744,5 +792,295 @@ describe('#2877 three-dot (merge-base) integration (実 git fixture)', () => {
 	it('isAncestor: 存在しない base ref → null (git エラーと非 ancestor を区別)', () => {
 		git('checkout', '-q', 'main');
 		expect(isAncestor('no-such-ref-xyz')).toBeNull();
+	});
+});
+
+/**
+ * Issue #3832: intentional migration teardown exemption (develop 二層 false-positive 是正)
+ *
+ * develop 二層ブランチ戦略では「main に live な feature を develop 向け PR が migration で
+ * 意図的に撤去する」のは正当だが、deploy-deletion gate はそれを「直近 deploy feature の削除 =
+ * 事故的消失」と区別できず誤 BLOCK する (#3821 analytics Sub-B で観察、full `--no-verify` を強いた)。
+ *
+ * 対策: PR 自身の commit (<base>..HEAD) に `Deploy-Teardown: <path-regex> <reason/#issue>`
+ * trailer があれば、宣言された path にマッチする削除のみを exempt する。宣言外の削除は従来通り
+ * BLOCK (data-loss 保護維持、audit req 3)。exempt は log 出力し監査が後追いできる (audit req 1)。
+ *
+ * 監査要件 (Issue #3832 comment):
+ *   1. exempt は path scope + log 出力 (無条件全通しにしない / 監査追跡可能)
+ *   2. 本 gate 単体を exempt する機構で、full `--no-verify` (account check も飛ぶ) を根絶
+ *   3. 宣言外の削除は genuine data-loss として BLOCK 維持
+ *   4. failing-test-first (ADR-0061): marker 無し BLOCK / marker 有り通過の境界を先に固定
+ */
+describe('parseTeardownTrailers (#3832 純関数)', () => {
+	it('TEARDOWN_TRAILER_KEYS は Deploy-Teardown / Migration-Teardown の 2 key を含む', () => {
+		expect(TEARDOWN_TRAILER_KEYS).toContain('Deploy-Teardown');
+		expect(TEARDOWN_TRAILER_KEYS).toContain('Migration-Teardown');
+	});
+
+	it('Deploy-Teardown trailer 行から value を抽出する', () => {
+		const msg = [
+			'feat(analytics): #3821 always-on 収集を撤去',
+			'',
+			'Deploy-Teardown: ^src/lib/analytics/ #3821 analytics Sub-B teardown',
+		].join('\n');
+		expect(parseTeardownTrailers(msg)).toEqual([
+			'^src/lib/analytics/ #3821 analytics Sub-B teardown',
+		]);
+	});
+
+	it('Migration-Teardown alias も抽出する', () => {
+		const msg = 'Migration-Teardown: ^src/routes/api/cron/analytics-aggregate/ #3821';
+		expect(parseTeardownTrailers(msg)).toEqual(['^src/routes/api/cron/analytics-aggregate/ #3821']);
+	});
+
+	it('複数 commit 分の blob から全 trailer を抽出する', () => {
+		const blob = [
+			'commit 1 body',
+			'Deploy-Teardown: ^src/lib/analytics/ #3821',
+			'\x1e',
+			'commit 2 body',
+			'Deploy-Teardown: ^src/routes/api/cron/challenge-aggregate/ #3821',
+		].join('\n');
+		expect(parseTeardownTrailers(blob)).toHaveLength(2);
+	});
+
+	it('key の大文字小文字は無視する (git trailer は case-insensitive 慣習)', () => {
+		expect(parseTeardownTrailers('deploy-teardown: ^src/x/')).toEqual(['^src/x/']);
+	});
+
+	it('trailer が無い commit message は空配列', () => {
+		expect(parseTeardownTrailers('fix: something\n\nCo-Authored-By: x <y>')).toEqual([]);
+	});
+
+	it('空文字 / null 相当 → 空配列 (防御)', () => {
+		expect(parseTeardownTrailers('')).toEqual([]);
+	});
+});
+
+describe('compileTeardownPattern (#3832 純関数)', () => {
+	it('先頭 token を path regex、残りを reason として分解する', () => {
+		const r = compileTeardownPattern('^src/lib/analytics/ #3821 analytics teardown');
+		expect(r.patternSource).toBe('^src/lib/analytics/');
+		expect(r.reason).toBe('#3821 analytics teardown');
+		expect(r.pattern.test('src/lib/analytics/index.ts')).toBe(true);
+		expect(r.pattern.test('src/lib/server/services/foo.ts')).toBe(false);
+	});
+
+	it('reason 無し (path のみ) でも compile できる', () => {
+		const r = compileTeardownPattern('^src/lib/analytics/');
+		expect(r.patternSource).toBe('^src/lib/analytics/');
+		expect(r.reason).toBe('');
+	});
+
+	it('path token が無い (空) → 明示 Error (無条件全通し防止)', () => {
+		expect(() => compileTeardownPattern('   ')).toThrow(/path regex/);
+	});
+
+	it('不正な regex → compileIgnorePattern 経由で fail-closed (Error)', () => {
+		expect(() => compileTeardownPattern('[ #reason')).toThrow(/不正な正規表現/);
+	});
+});
+
+describe('partitionDeletionsByTeardown (#3832 純関数、核心の境界)', () => {
+	// AC (marker 無し BLOCK): teardown 宣言 0 件 → 全削除が remaining (通常 gate 対象)
+	it('AC-marker無し: teardown patterns 空 → 全削除が remaining (従来 BLOCK 経路維持)', () => {
+		const deleted = [
+			'src/lib/analytics/index.ts',
+			'src/routes/api/cron/analytics-aggregate/+server.ts',
+		];
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, []);
+		expect(exempted).toEqual([]);
+		expect(remaining).toEqual(deleted);
+	});
+
+	// AC (marker 有り通過): 宣言 path にマッチする削除 → exempted (BLOCK されない)
+	it('AC-marker有り: 宣言 path にマッチする削除 → exempted (BLOCK 回避)', () => {
+		const deleted = ['src/lib/analytics/index.ts', 'src/lib/analytics/providers/dynamo.ts'];
+		const teardown = [compileTeardownPattern('^src/lib/analytics/ #3821')];
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, teardown);
+		expect(exempted).toHaveLength(2);
+		expect(exempted.map((e) => e.file)).toEqual(deleted);
+		expect(exempted[0]?.patternSource).toBe('^src/lib/analytics/');
+		expect(exempted[0]?.reason).toBe('#3821');
+		expect(remaining).toEqual([]);
+	});
+
+	// AC (scope 維持 = data-loss 保護): 宣言外の削除は remaining に残り BLOCK 対象
+	it('AC-scope: 宣言外の削除は remaining に残る (undeclared = genuine data-loss、BLOCK 維持)', () => {
+		const deleted = [
+			'src/lib/analytics/index.ts', // 宣言済 → exempt
+			'docs/decisions/0056-qm-drift-prevention.md', // 宣言外 → BLOCK 対象
+		];
+		const teardown = [compileTeardownPattern('^src/lib/analytics/ #3821')];
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, teardown);
+		expect(exempted.map((e) => e.file)).toEqual(['src/lib/analytics/index.ts']);
+		expect(remaining).toEqual(['docs/decisions/0056-qm-drift-prevention.md']);
+	});
+
+	it('複数 teardown pattern のいずれかにマッチすれば exempt', () => {
+		const deleted = [
+			'src/lib/analytics/index.ts',
+			'src/routes/api/cron/challenge-aggregate/+server.ts',
+		];
+		const teardown = [
+			compileTeardownPattern('^src/lib/analytics/ #3821'),
+			compileTeardownPattern('^src/routes/api/cron/challenge-aggregate/ #3821'),
+		];
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, teardown);
+		expect(exempted).toHaveLength(2);
+		expect(remaining).toEqual([]);
+	});
+
+	it('削除 0 件 → exempted / remaining ともに空', () => {
+		const { exempted, remaining } = partitionDeletionsByTeardown(
+			[],
+			[compileTeardownPattern('^src/lib/analytics/')],
+		);
+		expect(exempted).toEqual([]);
+		expect(remaining).toEqual([]);
+	});
+});
+
+/**
+ * #3832 integration: 実 git fixture で `getTeardownPatternsFromCommits` が PR 自身の commit
+ * (<base>..HEAD) から teardown trailer を読むことを検証する (git 挙動は mock 不能なため実 git)。
+ *
+ * marker 無し BLOCK / marker 有り通過の end-to-end 境界を実 commit で固定し、
+ * findViolations と組み合わせて「exempt された削除は violation にならない」を実証する。
+ */
+describe('#3832 getTeardownPatternsFromCommits (実 git fixture、end-to-end 境界)', () => {
+	let repoDir: string;
+	let originalCwd: string;
+	let baseSha: string;
+
+	function git(...args: string[]): string {
+		return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8' });
+	}
+
+	function writeCommit(file: string, content: string, message: string): void {
+		// nested path (src/lib/analytics/index.ts 等) は親ディレクトリを先に作る
+		execFileSync(
+			'node',
+			[
+				'-e',
+				`const fs=require('fs'),p=require('path');fs.mkdirSync(p.dirname(process.argv[1]),{recursive:true});fs.writeFileSync(process.argv[1], process.argv[2])`,
+				file,
+				content,
+			],
+			{ cwd: repoDir },
+		);
+		git('add', file);
+		git('commit', '-m', message);
+	}
+
+	beforeAll(() => {
+		originalCwd = process.cwd();
+		repoDir = mkdtempSync(join(tmpdir(), 'rdd-3832-'));
+		git('init', '-q', '-b', 'main');
+		git('config', 'user.email', 'test@example.com');
+		git('config', 'user.name', 'Test');
+		git('config', 'commit.gpgsign', 'false');
+		// base: analytics feature を live させる (main に merge 済 = 直近 deploy 相当)
+		writeCommit('src/lib/analytics/index.ts', 'export const x = 1;\n', 'feat: add analytics');
+		writeCommit('docs/keep.md', 'keep\n', 'docs: add keep');
+		baseSha = git('rev-parse', 'HEAD').trim();
+	});
+
+	afterAll(() => {
+		process.chdir(originalCwd);
+		rmSync(repoDir, { recursive: true, force: true });
+	});
+
+	beforeEach(() => {
+		process.chdir(repoDir);
+		execFileSync('git', ['checkout', '-q', 'main'], { cwd: repoDir });
+		execFileSync('git', ['reset', '-q', '--hard', baseSha], { cwd: repoDir });
+		execFileSync('git', ['clean', '-fdq'], { cwd: repoDir });
+		try {
+			execFileSync('git', ['branch', '-D', 'feature'], { cwd: repoDir, stdio: 'ignore' });
+		} catch {
+			// 初回は feature branch 未作成
+		}
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+	});
+
+	it('AC-marker無し (従来 BLOCK): teardown trailer 無しで analytics を削除 → patterns 0 件 → 削除が violation になる', () => {
+		git('checkout', '-q', '-b', 'feature');
+		git('rm', '-q', 'src/lib/analytics/index.ts');
+		git('commit', '-q', '-m', 'refactor: remove analytics (no teardown marker)');
+
+		const teardown = getTeardownPatternsFromCommits('main');
+		if (teardown === null) throw new Error('getTeardownPatternsFromCommits must not be null');
+		expect(teardown.patterns).toHaveLength(0);
+
+		// 削除は exempt されず remaining → 直近 merge と重複すれば violation (BLOCK)
+		const deleted = getDeletedFiles('main');
+		if (deleted === null) throw new Error('getDeletedFiles must not be null');
+		const { remaining } = partitionDeletionsByTeardown(deleted, teardown.patterns);
+		expect(remaining).toContain('src/lib/analytics/index.ts');
+		const merges = [
+			{
+				commit: 'deadbeef',
+				date: '2026-07-16 10:00:00 +0900',
+				files: ['src/lib/analytics/index.ts'],
+			},
+		];
+		expect(findViolations(remaining, merges, [])).toHaveLength(1);
+	});
+
+	it('AC-marker有り (通過): Deploy-Teardown trailer 付きで analytics を削除 → 該当削除が exempt され violation 0 件', () => {
+		git('checkout', '-q', '-b', 'feature');
+		git('rm', '-q', 'src/lib/analytics/index.ts');
+		git(
+			'commit',
+			'-q',
+			'-m',
+			'refactor(analytics): #3821 remove always-on analytics\n\nDeploy-Teardown: ^src/lib/analytics/ #3821 analytics Sub-B teardown',
+		);
+
+		const teardown = getTeardownPatternsFromCommits('main');
+		if (teardown === null) throw new Error('getTeardownPatternsFromCommits must not be null');
+		expect(teardown.patterns).toHaveLength(1);
+		expect(teardown.patterns[0]?.patternSource).toBe('^src/lib/analytics/');
+
+		const deleted = getDeletedFiles('main');
+		if (deleted === null) throw new Error('getDeletedFiles must not be null');
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, teardown.patterns);
+		expect(exempted.map((e) => e.file)).toContain('src/lib/analytics/index.ts');
+		expect(remaining).toEqual([]);
+		// remaining が空なので、直近 merge と重複しても violation 0 件 = BLOCK されない
+		const merges = [
+			{
+				commit: 'deadbeef',
+				date: '2026-07-16 10:00:00 +0900',
+				files: ['src/lib/analytics/index.ts'],
+			},
+		];
+		expect(findViolations(remaining, merges, [])).toHaveLength(0);
+	});
+
+	it('AC-scope (宣言外は BLOCK 維持): teardown trailer で analytics のみ宣言、docs も削除 → docs は remaining に残る', () => {
+		git('checkout', '-q', '-b', 'feature');
+		git('rm', '-q', 'src/lib/analytics/index.ts');
+		git('rm', '-q', 'docs/keep.md');
+		git(
+			'commit',
+			'-q',
+			'-m',
+			'refactor: #3821 remove analytics + accidentally docs\n\nDeploy-Teardown: ^src/lib/analytics/ #3821',
+		);
+
+		const teardown = getTeardownPatternsFromCommits('main');
+		if (teardown === null) throw new Error('getTeardownPatternsFromCommits must not be null');
+		const deleted = getDeletedFiles('main');
+		if (deleted === null) throw new Error('getDeletedFiles must not be null');
+		const { exempted, remaining } = partitionDeletionsByTeardown(deleted, teardown.patterns);
+		expect(exempted.map((e) => e.file)).toEqual(['src/lib/analytics/index.ts']);
+		// docs/keep.md は宣言外 = genuine data-loss として remaining (BLOCK 対象) に残る
+		expect(remaining).toEqual(['docs/keep.md']);
 	});
 });

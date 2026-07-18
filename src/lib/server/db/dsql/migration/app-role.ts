@@ -14,7 +14,12 @@
 //     DELETE は除外しない — 退会 (tenant 全削除) / retention cleanup (ADR-0049 物理削除) /
 //     child 削除の正当業務経路が DELETE を発行するため (M3 §3.4 の「UPDATE/DELETE 除外」は
 //     ADR-0049 と矛盾しており、DELETE 許可へ是正。#3646 記録)。
-//   - その他の表: SELECT/INSERT/UPDATE/DELETE を付与。
+//   - UPDATE 許可表 (下記 UPDATE_ALLOWED_TABLES): SELECT/INSERT/UPDATE/DELETE を付与。
+//   - #3658 deny-by-default: 旧来は「除外リストに無い表 = UPDATE 付与」の fail-open だったが、
+//     新表を追加したとき除外/許可の分類判断が誰にも強制されず、追記型の新表が既定で全権 GRANT
+//     され台帳改竄防御から silent に漏れうる問題を是正。UPDATE は **allowlist 明示付与のみ**とし、
+//     どちらの集合にも無い未分類表は UPDATE 抜き (= append-only 側に倒れる安全側) に GRANT する。
+//     分類の網羅・排他は静的 fitness (dsql-append-only-update-fitness.test.ts) が CI 強制する。
 //   - 表列挙は information_schema から動的に行う (migration で新表が増えても再実行で自動 cover、
 //     GRANT は冪等)。dsql_migrations (適用管理表) はアプリ経路に不要のため付与しない。
 //
@@ -52,6 +57,72 @@ export const UPDATE_EXCLUDED_TABLES: ReadonlySet<string> = new Set([
 	'usage_logs',
 	'cancellation_reasons',
 	'graduation_consent',
+]);
+
+/**
+ * UPDATE を GRANT する表 (= SELECT/INSERT/UPDATE/DELETE 全付与)。
+ * #3658 deny-by-default 化: UPDATE 権限は「除外リストに無い表」への暗黙付与 (fail-open) をやめ、
+ * **本 allowlist に明示列挙した表にのみ付与**する。新表を schema に追加したとき、
+ * UPDATE 除外 (append-only) / UPDATE 許可 のいずれに分類するかを開発者に強制するためのもの。
+ * どちらの集合にも無い新表は runtime で UPDATE を得られない (= append-only 側に倒れる安全側)。
+ *
+ * 分類の網羅・排他は tests/unit/architecture/dsql-append-only-update-fitness.test.ts の
+ * no-silent-gap fitness が CI 強制する (#3134 同型): schema.ts の全表が
+ * UPDATE_EXCLUDED_TABLES ∪ UPDATE_ALLOWED_TABLES に一致し、両集合が disjoint であること。
+ * 未分類の新表があれば CI red で分類判断を強制する。
+ */
+export const UPDATE_ALLOWED_TABLES: ReadonlySet<string> = new Set([
+	'children',
+	'users',
+	'families',
+	'memberships',
+	'invites',
+	'child_activities',
+	'activity_logs',
+	'statuses',
+	'activity_mastery',
+	'daily_missions',
+	'stamp_cards',
+	'stamp_entries',
+	'checklist_templates',
+	'checklist_template_items',
+	'checklist_template_assignments',
+	'evaluations',
+	'rest_days',
+	'daily_battles',
+	'enemy_collection',
+	'checklist_overrides',
+	'child_activity_preferences',
+	'login_bonuses',
+	'certificates',
+	'special_rewards',
+	'reward_redemption_requests',
+	'parent_messages',
+	'sibling_cheers',
+	'character_images',
+	'child_custom_voices',
+	'child_challenges',
+	'market_benchmarks',
+	'settings',
+	'push_subscriptions',
+	'trial_history',
+	'viewer_tokens',
+	'cloud_exports',
+	'inquiries',
+	'parent_gate_credentials',
+	'loyalty_state',
+	'account_lifecycle',
+	'decay_policy',
+	'approval_policy',
+	'point_conversion_policy',
+	'notification_settings',
+	'bonus_rules',
+	'email_login_lockouts',
+	'categories',
+	'stamp_masters',
+	'plans',
+	'plan_tiers',
+	'stripe_webhook_events',
 ]);
 
 export interface AppRoleProvisionOptions {
@@ -122,9 +193,11 @@ export async function provisionAppRole(
 		const table = row.table_name;
 		if (table === 'dsql_migrations') continue; // 適用管理表はアプリ経路に不要
 		assertIdent(table, 'table_name');
-		const privileges = UPDATE_EXCLUDED_TABLES.has(table)
-			? 'SELECT, INSERT, DELETE'
-			: 'SELECT, INSERT, UPDATE, DELETE';
+		// #3658 deny-by-default: UPDATE は allowlist 明示付与のみ (fail-open 廃止)。
+		// 未分類の新表 (どちらの集合にも無い) は UPDATE 抜き = append-only 側に倒れる安全側。
+		const privileges = UPDATE_ALLOWED_TABLES.has(table)
+			? 'SELECT, INSERT, UPDATE, DELETE'
+			: 'SELECT, INSERT, DELETE';
 		await executor.execute(`GRANT ${privileges} ON ${table} TO ${roleName}`);
 		granted.push({ table, privileges });
 	}

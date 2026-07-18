@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildAggregateReport } from '../../../scripts/audit/aggregate-report.mjs';
+import {
+	buildAggregateReport,
+	escapeMarkdownCell,
+} from '../../../scripts/audit/aggregate-report.mjs';
 
 function baseInput(overrides: Record<string, unknown> = {}) {
 	return {
@@ -116,5 +119,56 @@ describe('buildAggregateReport', () => {
 			}),
 		);
 		expect(md).toContain('a \\| b');
+	});
+});
+
+/**
+ * CodeQL js/incomplete-sanitization (#3766) regression guard。
+ *
+ * 旧実装 `.replace(/\|/g, '\\|')` は escape 文字である `\` 自体を escape しないため、
+ * 入力の `\` が未 escape のまま残り markdown table を崩す。修正版
+ * `.replace(/[\\|]/g, '\\$&')` は `\` と `|` の両方を 1 パスで escape する。
+ *
+ * 判別力 (mutation → fail): 旧実装に戻すと「lone backslash」「`\` + `|` 混在」ケースが
+ * 未 escape のまま残るため、下記 exact-string 比較が fail する
+ * (実測: 旧実装で `escapeMarkdownCell('\\')` = `\` / 修正版 = `\\`)。
+ *
+ * String.raw で期待値を可読化 (バックスラッシュを literal 記述)。
+ */
+describe('escapeMarkdownCell (#3766 js/incomplete-sanitization guard)', () => {
+	it('lone backslash を escape する (旧実装は素通し → mutation 判別の核)', () => {
+		// 入力: `\` (1 文字) → 出力: `\\` (2 文字)。
+		// 旧 `.replace(/\|/g, ...)` は `|` が無いため無変換 = `\` を返し、この assert を fail させる。
+		expect(escapeMarkdownCell('\\')).toBe(String.raw`\\`);
+	});
+
+	it('lone pipe を escape する', () => {
+		expect(escapeMarkdownCell('|')).toBe(String.raw`\|`);
+	});
+
+	it('`\\` と `|` 混在 (a\\|b) で両方 escape される', () => {
+		// 入力 a,\,|,b → 出力 a,\,\,\,|,b (先頭 `\` も escape)。
+		// 旧実装は先頭 `\` を素通しし a,\,\,|,b を返すため fail する。
+		expect(escapeMarkdownCell('a\\|b')).toBe(String.raw`a\\\|b`);
+	});
+
+	it('連続する `\\|` で backslash → pipe の順に完全 escape される', () => {
+		// 入力 \,| → 出力 \,\,\,| (`\` を escape した `\\` + `|` を escape した `\|`)。
+		expect(escapeMarkdownCell('\\|')).toBe(String.raw`\\\|`);
+	});
+
+	it('escape 後の文字列を単純 unescape すると原文へ round-trip する (完全性)', () => {
+		// 完全 escape されていれば `\X` を X に戻すだけで原文に一致する。
+		for (const original of ['a\\|b', 'x|y\\z', '\\\\||', 'plain', 'a\\b\\c']) {
+			const escaped = escapeMarkdownCell(original);
+			const unescaped = escaped.replace(/\\(.)/g, '$1');
+			expect(unescaped).toBe(original);
+		}
+	});
+
+	it('null / undefined / 数値を安全に文字列化する (String coercion)', () => {
+		expect(escapeMarkdownCell(null)).toBe('');
+		expect(escapeMarkdownCell(undefined)).toBe('');
+		expect(escapeMarkdownCell(42)).toBe('42');
 	});
 });

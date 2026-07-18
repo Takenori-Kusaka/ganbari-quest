@@ -9,8 +9,11 @@
 //   - **cross-tenant scan の例外 3 種**: findActiveTrials (cron) / aggregateRecent + searchFreeText
 //     (PO KPI 分析) / findPendingBuilds + findStaleBuildingExports + deleteExpired (cron drain /
 //     retention) は §11.2 で明示された tenant 無し走査。containment assert で他テストの行と共存する。
-//   - **無 tenant 単点 lookup の global UNIQUE 3 種**: viewer_tokens.token / push_subscriptions.
-//     endpoint / cloud_exports.pin_code (§11.2 機能要件)。
+//   - **無 tenant 単点 lookup の global UNIQUE (credential 自体が authz)**: viewer_tokens.token /
+//     cloud_exports.pin_code (§11.2 機能要件、findByToken/findByPin は tenant 無し)。
+//   - **push_subscriptions.endpoint は #3574 ② で family scope 再適用**: findByEndpoint /
+//     deleteByEndpoint は endpoint 値単独 lookup 後 family_id で再スコープし cross-family read /
+//     IDOR-delete を遮断する (endpoint は attacker 可制御値、認証済 tenantId を持つ経路のため)。
 //
 // ── Canon TDD test list ──
 // ── ISettingsRepo ──
@@ -24,7 +27,7 @@
 //   [VT1] insert shape + findByTenant (created_at 降順) + §P9
 //   [VT2] findByToken (無 tenant 単点 lookup) / revoke (tenant no-op → soft revoke) / deleteById
 // ── IPushSubscriptionRepo ──
-//   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (無 tenant、sqlite 同 shape)
+//   [PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)
 //   [PS2] insertLog (success boolean→0/1) + countTodayLogs (UTC 日境界) + findRecentLogs 降順 limit
 // ── ICancellationReasonRepo ──
 //   [CR1] create shape + listByTenant 降順 + §P9
@@ -41,6 +44,7 @@
 //   [IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9
 //   [IM2] updateChildAvatarUrl (tenant no-op) + findChildForImage (§P9)
 //   [IM3] deleteByTenantId は §P9 tenant 限定
+//   [IM4] #3566 ③ (§9.4): file_path が tenant プレフィックス外 / cross-tenant / traversal なら insert 拒否 (孤児バイト防止)
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -268,7 +272,7 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 	// ─────────────────── IPushSubscriptionRepo ───────────────────
 
-	it('[PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (無 tenant)', async () => {
+	it('[PS1] insert + findByTenant §P9 + findByEndpoint / deleteByEndpoint (§P9 family scope、#3574 ②)', async () => {
 		const rec = await pushRepo.insert({
 			tenantId: FAMILY,
 			endpoint: 'https://push.example/ep-1',
@@ -292,12 +296,22 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect((await pushRepo.findByTenant(FAMILY)).length).toBe(2);
 		expect(await pushRepo.findByTenant(OTHER_FAMILY)).toEqual([]); // §P9
 
-		// endpoint global UNIQUE の無 tenant lookup (sqlite backend と同 shape、tenantId 無視)
-		const byEp = await pushRepo.findByEndpoint('https://push.example/ep-2', OTHER_FAMILY);
+		// #3574 ②: endpoint (global UNIQUE) の値単独 lookup 後、返却前に family scope を再適用する (§P9)。
+		// 所有 family は取得できるが、他 family を名乗った lookup は cross-family read 遮断で undefined。
+		const byEp = await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY);
 		expect(byEp?.subscriberRole).toBe('owner');
 		expect(byEp?.userAgent).toBe(null); // default
+		expect(await pushRepo.findByEndpoint('https://push.example/ep-2', OTHER_FAMILY)).toBe(
+			undefined,
+		);
 
+		// 他 family を名乗った削除 (unsubscribe が body.endpoint をそのまま渡す IDOR 経路) は no-op。
 		await pushRepo.deleteByEndpoint('https://push.example/ep-2', OTHER_FAMILY);
+		expect(
+			(await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY))?.subscriberRole,
+		).toBe('owner');
+		// 所有 family からの削除は成功する。
+		await pushRepo.deleteByEndpoint('https://push.example/ep-2', FAMILY);
 		expect(await pushRepo.findByEndpoint('https://push.example/ep-2', FAMILY)).toBe(undefined);
 		expect((await pushRepo.findByTenant(FAMILY)).length).toBe(1);
 	});
@@ -514,14 +528,16 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 
 	it('[IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9', async () => {
 		const childId = await newChild('画像一郎');
+		// #3566 ③: file_path は tenant プレフィックス配下必須 (§9.4 孤児バイト防止)。
+		const filePath = `tenants/${FAMILY}/generated/${childId}/hash-1.png`;
 		await imageRepo.insertCharacterImage(
-			{ childId, type: 'avatar', filePath: 'images/av-1.png', promptHash: 'hash-1' },
+			{ childId, type: 'avatar', filePath, promptHash: 'hash-1' },
 			FAMILY,
 		);
 		const cached = await imageRepo.findCachedImage(childId, 'avatar', 'hash-1', FAMILY);
 		expect(cached?.id).toMatch(UUID_RE);
 		expect(cached?.childId).toBe(childId);
-		expect(cached?.filePath).toBe('images/av-1.png');
+		expect(cached?.filePath).toBe(filePath);
 		expect(cached?.promptHash).toBe('hash-1');
 		expect(cached?.generatedAt).toBeTruthy();
 
@@ -551,15 +567,69 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect(await imageRepo.findChildForImage(childId, OTHER_FAMILY)).toBe(undefined);
 	});
 
+	it('[IM4] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert 拒否 (孤児バイト防止)', async () => {
+		const childId = await newChild('画像四郎');
+		const countImages = async (): Promise<number> => {
+			const r = await t.db.execute(
+				sql`SELECT count(*) AS c FROM character_images WHERE family_id = ${FAMILY}`,
+			);
+			return Number((r.rows[0] as { c: unknown }).c);
+		};
+		const before = await countImages();
+		// (a) tenant 配下の key は許容 (正規の generatedImageKey 相当)
+		await imageRepo.insertCharacterImage(
+			{ childId, type: 'avatar', filePath: `tenants/${FAMILY}/generated/ok.png`, promptHash: 'h4' },
+			FAMILY,
+		);
+		// (b) prefix 外 key は拒否 (account 削除 deleteByPrefix で消えない孤児バイトになるため)
+		await expect(
+			imageRepo.insertCharacterImage(
+				{ childId, type: 'avatar', filePath: 'images/loose.png', promptHash: 'h4b' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// (c) cross-tenant key は拒否 (他 family のバイトを A の DB 行が参照する越境 = IDOR/LFI)
+		await expect(
+			imageRepo.insertCharacterImage(
+				{
+					childId,
+					type: 'avatar',
+					filePath: `tenants/${OTHER_FAMILY}/generated/steal.png`,
+					promptHash: 'h4c',
+				},
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// (d) path traversal を含む key は prefix 一致でも拒否
+		await expect(
+			imageRepo.insertCharacterImage(
+				{ childId, type: 'avatar', filePath: `tenants/${FAMILY}/../x.png`, promptHash: 'h4d' },
+				FAMILY,
+			),
+		).rejects.toThrow();
+		// 拒否ケースでは 1 行のみ (a のみ) 追加され、b/c/d は書かれていない
+		expect(await countImages()).toBe(before + 1);
+	});
+
 	it('[IM3] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {
 		const mine = await newChild('画像三郎');
 		const other = await newChild('他家三郎', OTHER_FAMILY);
 		await imageRepo.insertCharacterImage(
-			{ childId: mine, type: 'avatar', filePath: 'images/m.png', promptHash: 'hm' },
+			{
+				childId: mine,
+				type: 'avatar',
+				filePath: `tenants/${FAMILY}/generated/m.png`,
+				promptHash: 'hm',
+			},
 			FAMILY,
 		);
 		await imageRepo.insertCharacterImage(
-			{ childId: other, type: 'avatar', filePath: 'images/o.png', promptHash: 'ho' },
+			{
+				childId: other,
+				type: 'avatar',
+				filePath: `tenants/${OTHER_FAMILY}/generated/o.png`,
+				promptHash: 'ho',
+			},
 			OTHER_FAMILY,
 		);
 		await imageRepo.deleteByTenantId(FAMILY);

@@ -30,8 +30,12 @@ export interface IPointRepo {
 	// Retention cleanup (#717, #729)
 	/**
 	 * 指定した子供の `created_at < cutoffDate` に該当する point_ledger を削除する。
-	 * cutoffDate は `YYYY-MM-DD` 形式。`created_at` は ISO timestamp で格納されているため、
-	 * 実装側で `cutoffDate + 'T00:00:00'` との辞書順比較で判定する。
+	 * cutoffDate は `YYYY-MM-DD` 形式で **JST 当日境界** (getHistoryCutoffDate SSOT、#3593 ②)。
+	 * #729: 過去明細のみが消え残高 (total_point) は不触 (carryover 廃止、reset-plan 決定#4)。
+	 * TZ 整合 (#3593 ②): cutoffDate の「当日 0:00」は JST 深夜 0:00 の instant として解釈する。
+	 * - DSQL: `created_at < (cutoffDate || 'T00:00:00+09:00')::timestamptz` で session TZ 非依存に固定。
+	 * - sqlite/dynamodb: `created_at` (ISO/UTC) を cutoffDate と辞書順比較 (date 境界)。
+	 *   JST 正当性は caller (getHistoryCutoffDate) が JST 基準の date を渡すことで担保する。
 	 * @returns 削除件数
 	 */
 	deletePointLedgerBeforeDate(

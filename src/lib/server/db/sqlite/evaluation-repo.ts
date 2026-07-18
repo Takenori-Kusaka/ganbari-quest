@@ -70,12 +70,30 @@ export async function insertEvaluation(
 	input: InsertEvaluationInput,
 	_tenantId: string,
 ): Promise<Evaluation> {
-	return toEvaluation(
-		db
-			.insert(evaluations)
-			.values({ ...input, childId: Number(input.childId) })
-			.returning()
-			.get(),
+	// #3782: (child_id, week_start) unique index (idx_evaluations_child_week) との衝突は「1週1評価」の
+	// 冪等 no-op として扱う (throw しない)。status page の並行ロード (findWeekEvaluation guard を race)
+	// や restore backstop で二重行を作らず、既存行を返す。
+	const inserted = db
+		.insert(evaluations)
+		.values({ ...input, childId: Number(input.childId) })
+		.onConflictDoNothing()
+		.returning()
+		.get();
+	if (inserted) return toEvaluation(inserted);
+	const existing = db
+		.select()
+		.from(evaluations)
+		.where(
+			and(
+				eq(evaluations.childId, Number(input.childId)),
+				eq(evaluations.weekStart, input.weekStart),
+			),
+		)
+		.get();
+	if (existing) return toEvaluation(existing);
+	// 到達しない: conflict した = 同 (child, week) 行が必ず存在する。型安全 (Evaluation 非 null) のため明示。
+	throw new Error(
+		`insertEvaluation: conflict without existing row (child=${input.childId}, week=${input.weekStart})`,
 	);
 }
 

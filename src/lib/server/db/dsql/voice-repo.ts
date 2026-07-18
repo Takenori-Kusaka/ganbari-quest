@@ -17,6 +17,7 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId } from '$lib/domain/ids';
+import { assertTenantScopedStorageKey } from '$lib/server/storage-keys';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { IVoiceRepo } from '../interfaces/voice-repo.interface';
 import type { ChildCustomVoice } from '../types';
@@ -86,6 +87,9 @@ export function createDsqlVoiceRepo<TTx extends SqlExecutor>(
 		},
 
 		async insert(voice) {
+			// #3566 ③ (§9.4): file_path が tenant プレフィックス配下であることを DB 書込前に強制する
+			// (孤児バイト / cross-tenant 参照防止、image-repo と同判断)。voice.tenantId が family scope の正。
+			assertTenantScopedStorageKey(voice.filePath, voice.tenantId);
 			// isActive number(0/1) → boolean。voice.tenantId が family scope の正 (非 restore 経路)。
 			const result = await db.execute(sql`
 				INSERT INTO child_custom_voices
@@ -105,6 +109,9 @@ export function createDsqlVoiceRepo<TTx extends SqlExecutor>(
 			// #3329 backup restore: created_at / file_path / public_url / is_active を verbatim 保全。
 			// voice_id は新規採番 (schema default)。tenantId 引数が復元先 family の正 (voice.tenantId は
 			// export 時点の旧値のため使わない、certificate insertForRestore と同判断)。
+			// #3566 ③ (§9.4): 呼び出し側 (import-service) は file_path を復元先 tenant へ再キー済だが、
+			// untrusted backup 由来のため repo 入口でも tenant プレフィックスを強制する (cross-tenant LFI 防止)。
+			assertTenantScopedStorageKey(voice.filePath, tenantId);
 			const result = await db.execute(sql`
 				INSERT INTO child_custom_voices
 					(family_id, child_id, scene, label, file_path, public_url, duration_ms, is_active,

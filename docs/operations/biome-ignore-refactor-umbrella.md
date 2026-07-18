@@ -90,7 +90,6 @@ $ grep -rln "biome-ignore.*complexity" src/ | sort -u | wc -l
 | 35 | `src/lib/server/services/rule-preset-import-service.ts` | useMaxParams | 2 | LOW (旧 API 互換) | 低 | **KEEP** | N/A |
 | 36 | `src/lib/server/db/status-repo.ts` | useMaxParams | 2 | LOW (型安全) | 低 | LOW | TBD |
 | 37 | `src/lib/server/db/sqlite/status-repo.ts` | useMaxParams | 2 | LOW (型安全) | 低 | LOW | TBD |
-| 38 | `src/lib/server/db/dynamodb/status-repo.ts` | useMaxParams | 2 | LOW (型安全) | 低 | LOW | TBD |
 | 39 | `src/lib/server/db/demo/status-repo.ts` | useMaxParams | 2 | LOW (型安全) | 低 | LOW | TBD |
 
 **サマリ**:

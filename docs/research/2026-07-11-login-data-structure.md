@@ -12,8 +12,7 @@
 
 | backend | 格納形式 | キー |
 |---|---|---|
-| DynamoDB (`src/lib/server/db/dynamodb/login-bonus-repo.ts`) | `PK=<tenant>CHILD#<id>` / `SK=LOGIN#<date>` の per-date item | 子供 × ログイン日 |
-| DSQL (`src/lib/server/db/dsql/login-bonus-repo.ts` / `dsql/schema.ts`) | `login_bonuses` 表、自然複合 PK `(family_id, child_id, login_date)` | 同上 |
+| DSQL (`src/lib/server/db/dsql/login-bonus-repo.ts` / `dsql/schema.ts`) | `login_bonuses` 表、自然複合 PK `(family_id, child_id, login_date)` | 子供 × ログイン日 |
 | SQLite (`src/lib/server/db/schema.ts` L315) | `login_bonuses` 表 + `uniqueIndex(child_id, login_date)` | 同上 |
 
 1 レコードの内容: `loginDate` / `rank`（おみくじ）/ `basePoints` / `multiplier` / `totalPoints` / `consecutiveDays` / `createdAt`。

@@ -31,7 +31,7 @@ import { todayDateJST } from '$lib/domain/date-utils';
 import type { IPointRepo } from '../interfaces/point-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
-import { isUuidFormat } from './pg-uuid';
+import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import { createPointEntryWriter, LEDGER_COLUMNS, type LedgerRow, toEntry } from './point-write';
 import type { SqlExecutor } from './sql-executor';
 
@@ -99,7 +99,11 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 
 		async findChildById(id, tenantId) {
 			// #3709: 非 uuid の stale id は 22P02 throw ではなく not-found に正規化 (pg-uuid.ts 参照)。
-			if (!isUuidFormat(id)) return undefined;
+			// #3581 ②: guard trip を rate-limited に warn (systematic id バグの observability)。
+			if (!isUuidFormat(id)) {
+				warnInvalidUuidId('point-repo.findChildById');
+				return undefined;
+			}
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children
 				WHERE family_id = ${tenantId} AND child_id = ${id}
@@ -130,11 +134,16 @@ export function createDsqlPointRepo<TTx extends SqlExecutor>(
 			// 長期利用 child の大量明細で全 PK を client に materialize する scale/memory リスクがある。
 			// CTE で削除行を DB 側 count(*) 集約し、返るのは単一スカラのみにする (carryover 廃止済 =
 			// reset-plan 決定#4 のため SUM は不要、件数のみ。sqlite 版 `result.changes` と同じ count 契約)。
+			// #3593 ②: cutoffDate (YYYY-MM-DD) は JST 当日境界 (getHistoryCutoffDate SSOT)。
+			// `${cutoffDate}::timestamptz` は session TZ 依存で「session TZ の深夜 0:00」に解釈され、
+			// DSQL の既定 session (UTC) では JST とずれ、0:00〜9:00 JST の明細を 1 日早く削除する
+			// (#729 retention 監査契約違反)。offset 付き ISO8601 (`...T00:00:00+09:00`) を明示連結して
+			// JST 深夜 0:00 の instant に TZ-qualify し、session TZ に依存しない境界に固定する。
 			const deleted = await db.execute(sql`
 				WITH deleted AS (
 					DELETE FROM point_ledger
 					WHERE family_id = ${tenantId} AND child_id = ${childId}
-						AND created_at < ${cutoffDate}::timestamptz
+						AND created_at < (${cutoffDate} || 'T00:00:00+09:00')::timestamptz
 					RETURNING 1
 				)
 				SELECT count(*)::int AS c FROM deleted

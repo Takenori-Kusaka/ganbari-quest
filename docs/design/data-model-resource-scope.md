@@ -126,8 +126,10 @@ child_activities
 | `parent` (legacy wire 値) | 保存されない (persist 前に `custom` へ正規化)。zod `SOURCES` enum は後方互換で受理のみ | ✅ (防御的) |
 
 - **consumer 共通述語**: `countsTowardActivityQuota(source)` — `checkActivityLimit` (plan-limit-service) / `/admin/subscription` 活動カウンタ / downgrade preview・検証 (downgrade-service) / trial 終了 archive (resource-archive-service) の 4 consumer が同一述語を参照する
-- **producer 側 quota gate (`checkActivityLimit`) 適用経路**: admin/activities `create` / `bulkCreateForChildren` (#2894) / `importPack` / `importPackToChildren` (#2894) / `copyFromChild` (#3740、copy は custom source を保全して quota を消費するため) / `api/v1/activities` POST (#3740)
-- **整合 lock**: `tests/unit/services/activity-source-quota-roundtrip.test.ts` が「UI 作成 → `checkActivityLimit.current` +1」の producer×consumer round-trip を実 SQLite で assert (ADR-0061 same-class guard)。残余 2 経路 (api/v1 POST の wire source 注入 / copyFromChild 未 gate) は `tests/unit/routes/activities-quota-residual-gate.test.ts` が gate + `custom` 強制を assert (#3740)
+- **producer 側 quota gate (`checkActivityLimit`) 適用経路**: admin/activities `create` / `bulkCreateForChildren` (#2894) / `importPack` / `importPackToChildren` (#2894) / `copyFromChild` (#3740、copy は custom source を保全して quota を消費するため) / `api/v1/activities` POST (#3740) / `api/v1/activities/import` mode=merge (#3759、admin `importPack` と同型)。gate が対象とするのは **`custom` source を produce する quota 集計対象の producer 面 = `api/v1/activities`(POST + import mode=merge) と `admin/activities`(create / bulkCreateForChildren / importPack / importPackToChildren / copyFromChild)** に限る。
+  - **意図的除外 (quota 非該当の seed producer)**: `admin/packs` の `importPack` と `setup/packs` の `importPacks` / `skip` も activity-pack producer だが、いずれも `dispatchImport('activity-pack', presetId)` = marketplace preset 取込であり `seed` source を produce する。`countsTowardActivityQuota('seed') = false` (§`source` 列の意味論 SSOT の表) のため quota 非該当で、gate を掛けても current に加算されない ⇒ **設計上 gate 対象外** (これらは取込 seed source であって custom quota を消費しないため、gate を掛けないことによる実 quota bypass は存在しない)。したがって本 gate 群は「activity 追加経路の網羅 (5 producer 全経路の completeness)」ではなく「**`custom` を produce する quota 消費経路の対称化**」である (exhaustive completeness を主張しない)。
+  - **`admin/packs` の route 生死 (orphan 疑い)**: `admin/packs` は nav / goto からの導線が見当たらず (現状の参照は `page-guide-registry.ts` の 1 エントリのみ)、orphan の疑いがある。生死判定と撤去可否は route 棚卸で継続確認する。
+- **整合 lock**: `tests/unit/services/activity-source-quota-roundtrip.test.ts` が「UI 作成 → `checkActivityLimit.current` +1」の producer×consumer round-trip を実 SQLite で assert (ADR-0061 same-class guard)。残余 2 経路 (api/v1 POST の wire source 注入 / copyFromChild 未 gate) は `tests/unit/routes/activities-quota-residual-gate.test.ts` が gate + `custom` 強制を assert (#3740)。api/v1/activities/import mode=merge の gate 対称化は `tests/unit/routes/activities-import-merge-quota-gate.test.ts` が assert (#3759)
 - **禁忌**: `InsertChildActivityInput.source` を経由せず repo 直 insert で source 文字列を直書きしない / consumer 側で `a.source === '...'` の直比較を書かない (必ず SSOT 述語を使う)
 
 **実装状況 PR-A1 (2026-05-26、#2458 Path A)**:
@@ -140,10 +142,10 @@ child_activities
 
 **実装状況 PR-A2 (2026-05-26、#2458 Path A の demo + dynamodb 同期)**:
 
-- ✅ `src/lib/server/db/dynamodb/activity-repo.ts` rewrite — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換。ADR-0048 で DynamoDB は production 未使用 (main Lambda は sqlite local file) のため、再実装時は `dynamodb/child-activity-repo.ts` (ADR-0055 per-child schema) 経由で実装し直す構造的ガードを設置 (旧 `activities` partition (`SK=MASTER`) への退行を防止)
+- ✅ 旧 DynamoDB activity-repo rewrite (backend は #3438 Phase 2B で撤去) — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換していた。per-child schema (ADR-0055) 経由で実装し直す構造的ガードを設置し旧 `activities` partition (`SK=MASTER`) への退行を防止していた
 - ✅ `src/lib/server/db/demo/activity-repo.ts` SSOT コメント追記 — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archive / restore / insertActivityLog / insertPointLedger / markActivityLogCancelled / deleteDailyMissionsByActivity / deleteActivityLogsBeforeDate) は元から no-op stub または synthetic 戻り値 (id=0) を返すのみで fixture を mutate しないことを明文化。read 経路は marketplace integration テスト (#2097 Phase B-7) を退行させないため `ALL_DEMO_ACTIVITIES` (hand-curated + marketplace merged) を primary source として保持し、per-child scope queries は別 file (demo/child-activity-repo.ts) 経由で `DEMO_CHILD_ACTIVITIES` から取得する設計
 - ✅ regression test (demo): `tests/unit/services/activity-legacy-table-write-zero-demo.test.ts` (12 test) — 全 11 write/stub method 呼出後に `DEMO_CHILD_ACTIVITIES` / `DEMO_ACTIVITIES` / `DEMO_MARKETPLACE_ACTIVITIES` / `DEMO_ACTIVITY_LOGS` の長さ + flag 不変を assert + read 経路 (marketplace integration) 維持を 2 件確認
-- ✅ regression test (dynamodb): `tests/unit/services/activity-legacy-table-write-zero-dynamodb.test.ts` (11 test) — 全 write method が `NotImplementedError` throw + `mockSend.not.toHaveBeenCalled()` で DynamoDB Client に到達しないこと、エラー message に「ADR-0055」「child-activity-repo」が含まれ再実装方針を誘導することを assert
+- ✅ regression test (dynamodb、#3438 Phase 2B で backend とともに撤去) — 全 write method が `NotImplementedError` throw + DynamoDB Client 未到達を assert し、エラー message に「ADR-0055」「child-activity-repo」を含め再実装方針を誘導していた
 - ✅ schema 不変 (本 PR は backend rewrite のみ、`schema.ts` / `create-tables.ts` / `interfaces/activity-repo.interface.ts` 変更なし。interface.ts は comment 更新のみ)
 - ⏳ physical drop (#2458-C): 3 backend (sqlite / demo / dynamodb) で旧 `activities` table / partition への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema / dynamodb partition から削除
 
@@ -161,9 +163,9 @@ SQLite の `child_activities` は **tenant_id 列を持たず childId scope** �
 | backend | 現設計 | 根拠 |
 |---|---|---|
 | SQLite (`sqlite/child-activity-repo.ts`) | `_tenantId` 受領のみで filter しない（意図的 no-op） | SQLite が選ばれる process は認証 tenantId が `'local'`/`'demo'` 固定の **1 process = 1 DB = 1 tenant**（`auth/providers/local.ts` / `db/factory.ts`）。別 tenant の childId が入力される経路が構造的に存在せず、行レベル tenant filter は冗長 |
-| DynamoDB (`dynamodb/child-activity-repo.ts`) | **本実装済み（#2820）**。`tenantId` は partition key（`PK = T#<tenantId>#CHILD#<childId>`）に組み込まれ、**tenant isolation が key 設計で構造的に強制**される | ADR-0055 per-child schema（child partition 同居、同ファイル冒頭コメント参照） |
+| DSQL (`dsql/child-activity-repo.ts`) | クラウド本番。`family_id` 列で tenant を保持し、pool + 偽造不能 tenantId + アプリ層単一強制点で tenant isolation を強制する（ADR-0063、DSQL は RLS 非対応のため代替防御線） | ADR-0055 per-child schema / ADR-0063 マルチテナント分離 |
 
-- **SQLite を multi-tenant 共有 DB として使う構成は非想定**（SaaS は DynamoDB）。この前提が崩れる設計変更時は tenant_id 列追加が必須化する
+- **SQLite を multi-tenant 共有 DB として使う構成は非想定**（SaaS は Aurora DSQL）。この前提が崩れる設計変更時は tenant_id 列追加が必須化する
 - child 越境（同一 tenant 内の child A→B）IDOR は `findActivityByIdForChild`（id + childId の 2 軸検証）で対処済み（#2524）
 - **Phase 2（tenant_id 列追加 + 全 query filter = interface contract と実装の完全一致）は #2828 で管理**。PO 基準: 「DB リポジトリ層の共通化のために有用であれば必須」— 有用性評価を先行し、有用なら実施する
 
@@ -212,6 +214,8 @@ checklist_logs       -- 既存維持 (per-child progress、(child_id, template_i
 ```
 
 C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_assignments` 側で表現。C2「たろうにだけ色鉛筆追加」は `checklist_overrides` (既存 per-child override) で表現。
+
+**兄弟共通化 copy の per-child quota (#3474)**: 「別の子から取り込む」copy (`?/copyDistributionFromChild`) は source child の配信 template を target child の `checklist_template_assignments` に追加する (template 複製なし、assignments 行のみ増える)。free プランの per-child テンプレ上限 (`maxChecklistTemplates`) を守るため、各 grant 直前に `checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId)` を **live 再評価** し (`checklist_template_assignments` の per-child 基数を毎回数え直す)、上限到達で残余 source を copy しない。取り込めなかった件数は「上限拒否 (`limitRejected`)」と「既に target に配信済みで no-op skip (`alreadyDistributed`)」に分離集計する (`distributeToChildren` の空戻り = 既配信を no-op 成功として扱い、上限拒否と混同しない)。TOCTOU window の backend 別有無 (SQLite=exact / DynamoDB=bounded over-grant を accepted residual) は [rationale/14-checklist-copy-toctou-rationale.md](../rationale/14-checklist-copy-toctou-rationale.md) が SSOT。
 
 ### 4.3 reward exchange (PR-4、現状 per-child 維持 + UX 整備済)
 

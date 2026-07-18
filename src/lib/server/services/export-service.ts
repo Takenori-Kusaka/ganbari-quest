@@ -101,9 +101,11 @@ async function computeChecksum(data: string): Promise<string> {
 }
 
 /**
- * 家族データをエクスポート
+ * #3518-1: export body (checksum を除いた本体) を DB から組み立てる。
+ * {@link exportFamilyData} / {@link exportFamilyDataForZip} が共有し、直列化 / checksum 付与は
+ * {@link finalizeExport} に一元化する (二重 JSON.stringify 解消のため collect と serialize を分離)。
  */
-export async function exportFamilyData(options: ExportOptions): Promise<ExportData> {
+async function collectExportBody(options: ExportOptions): Promise<Omit<ExportData, 'checksum'>> {
 	const { tenantId, childIds } = options;
 
 	logger.info('[export] エクスポート開始', { context: { tenantId, childIds } });
@@ -173,12 +175,12 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		tenantId,
 	);
 
-	// チェックサム計算用の仮データ構築
-	const exportDataWithoutChecksum = {
+	// #3518-1: checksum を除いた body を返す (直列化 / checksum 付与は finalizeExport が一元化)。
+	// フィールド順は checksum を先頭に差し込む finalizeExport と整合させるため、ここでは checksum を持たない。
+	const body: Omit<ExportData, 'checksum'> = {
 		format: EXPORT_FORMAT,
 		version: EXPORT_VERSION,
 		exportedAt: new Date().toISOString(),
-		checksum: '',
 		master: {
 			categories: CATEGORY_INFO,
 			activities: masterActivities,
@@ -190,18 +192,6 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 			children: exportChildren,
 		},
 		data: transactionData,
-	};
-
-	// チェックサム計算（checksum フィールドを除いたJSON文字列のハッシュ）
-	const checksumPayload = JSON.stringify({
-		...exportDataWithoutChecksum,
-		checksum: undefined,
-	});
-	const checksum = await computeChecksum(checksumPayload);
-
-	const exportData: ExportData = {
-		...exportDataWithoutChecksum,
-		checksum,
 	};
 
 	const totalRecords =
@@ -218,7 +208,58 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		},
 	});
 
+	return body;
+}
+
+/**
+ * #3518-1: export body を **1 回だけ** 直列化し、その文字列を checksum 入力と data.json body の
+ * 双方に流用する (二重 JSON.stringify 解消 = 生成時メモリピーク削減)。
+ *
+ * checksum 正規化は import 側 {@link import('./import-service').validateExportData} 系の
+ * `JSON.stringify({ ...data, checksum: undefined })` (compact / checksum key を除去して再直列化) と
+ * **バイト一致** させる:
+ *   1. checksum key を含まない `serializedBody` を hash する (import が checksum を除去した後の文字列と同一)。
+ *   2. data.json は `serializedBody` の先頭に `"checksum":"..."` を差し込む。import は checksum key を
+ *      除いて再直列化するため、除去後のバイト列は `serializedBody` に一致し checksum 検証が往復一致する。
+ */
+export async function finalizeExport(
+	body: Omit<ExportData, 'checksum'>,
+): Promise<{ exportData: ExportData; dataJson: string }> {
+	// checksum key を含めずに 1 回だけ直列化 (compact)。これが checksum 入力かつ data.json の基底。
+	const serializedBody = JSON.stringify(body);
+	const checksum = await computeChecksum(serializedBody);
+
+	// data.json (compact) = serializedBody 先頭への checksum 差し込み。body は必ず '{' 始まり + 1 key 以上。
+	const checksumField = `${JSON.stringify('checksum')}:${JSON.stringify(checksum)}`;
+	const dataJson =
+		serializedBody.length > 2
+			? `{${checksumField},${serializedBody.slice(1)}`
+			: `{${checksumField}}`;
+
+	// exportData は checksum を先頭に置き data.json のフィールド順と整合させる。
+	const exportData: ExportData = { checksum, ...body };
+	return { exportData, dataJson };
+}
+
+/**
+ * 家族データをエクスポート (object。preview / validate / snapshot 用)。
+ * #3518-1: 内部で body を 1 回直列化して checksum を計算する (ZIP を作らない経路のため dataJson は破棄)。
+ */
+export async function exportFamilyData(options: ExportOptions): Promise<ExportData> {
+	const body = await collectExportBody(options);
+	const { exportData } = await finalizeExport(body);
 	return exportData;
+}
+
+/**
+ * 家族データをエクスポート (ZIP build 用)。#3518-1: checksum 計算に使った直列化文字列を data.json にも
+ * 流用し、backup-archive.buildFullBackupZip での再 stringify を無くす (二重 JSON.stringify 解消)。
+ */
+export async function exportFamilyDataForZip(
+	options: ExportOptions,
+): Promise<{ exportData: ExportData; dataJson: string }> {
+	const body = await collectExportBody(options);
+	return finalizeExport(body);
 }
 
 /**
@@ -431,14 +472,18 @@ async function collectForChild(
 		category: sr.category,
 		grantedAt: sr.grantedAt,
 		sourcePresetId: sr.sourcePresetId,
+		// #3381: 安定 reward 識別子。交換履歴 (rewardExportId) の再結合キー (改名/同名衝突に頑健)。
+		exportId: `reward-${childRef}-${sr.id}`,
 	}));
 
-	// #3329: 交換履歴。FK rewardId は import 後に変わるため rewardRef (reward title) で再結合する。
-	// WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
+	// #3329: 交換履歴。FK rewardId は import 後に変わるため再結合が必要。
+	// #3381: 安定識別子 rewardExportId (reward の exportId) を優先キーにし、rewardRef (snapshot title) は
+	// 旧 backup / fallback 用に残す。WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
 	warnIfTruncated('rewardRedemptions', childId, redemptions.length);
 	const rewardRedemptionsOut: ExportRewardRedemption[] = redemptions.map((r) => ({
 		childRef,
 		rewardRef: r.rewardTitle,
+		rewardExportId: `reward-${childRef}-${r.rewardId}`,
 		requestedAt: r.requestedAt,
 		status: r.status,
 		parentNote: r.parentNote,

@@ -1,6 +1,5 @@
 import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
-import type * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import type * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
@@ -26,16 +25,11 @@ const CRON_JOBS = [
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
-	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
-	{ name: 'analytics-aggregator-daily', utcCronExpression: 'cron(0 18 * * ? *)' },
-	// #1742: challenge (preset distribution) 事前集計バッチ (#1602 N+1 GetItem 移行)
-	{ name: 'challenge-aggregator-daily', utcCronExpression: 'cron(30 18 * * ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
-	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
 	/**
@@ -174,29 +168,32 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
-		// --- DSQL cutover 配線 (EPIC #3424 M5 / #3429) ---
-		// `-c dsqlEnabled=true` のときのみ Lambda を DATA_SOURCE=dsql + DSQL_ENDPOINT で起動し、
-		// 実行 role に dsql:DbConnect (最小権限、DbConnectAdmin は migration runner 専用経路で
-		// 付与しない = M3 §3.4 B6 実行時ロールモデル) を付与する。flag なしの `cdk deploy` では
-		// spread が空になり template は現行 (dynamodb) と完全に同一 (prod template 不変条件 #2873)。
-		// endpoint / cluster ARN は DsqlStack deploy 後の実値を context で受ける (cross-stack 参照
-		// ではなく context 疎結合: DsqlStack は別 gate で instantiate されるため)。
-		const dsqlEnabled = String(this.node.tryGetContext('dsqlEnabled')) === 'true';
+		// --- DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A で無条件既定化) ---
+		// DSQL は本番の唯一の DB backend。DATA_SOURCE=dsql + DSQL_ENDPOINT + dsql:DbConnect を
+		// **無条件**で配線する。旧 `dsqlEnabled` flag と「flag なしは DATA_SOURCE=dynamodb fallback」
+		// (#2873 prod template 不変条件) は #3438 Phase 2A で撤去した: prod は既に DSQL 稼働のため
+		// CDK 既定を実態に一致させ、fallback (dead な dynamodb backend への silent 巻戻し) を排除する。
+		// endpoint / cluster ARN は DsqlStack deploy 後の実値を context で受ける (deploy workflow が
+		// describe-stacks で resolve)。未注入なら synth を失敗させる (endpoint 無しで dsql Lambda を
+		// 上げると cold start で全リクエスト 500 化、ADR-0006 silent fail 防止)。
+		// #3438 (本 PR): DynamoDB table + ANALYTICS_TABLE_NAME env + grantReadWriteData を撤去。
+		// analytics は on-demand 化済で DynamoDB を参照しない (`ANALYTICS_TABLE_NAME` の app 側読取 0)。
 		const dsqlEndpoint = this.node.tryGetContext('dsqlEndpoint') ?? '';
 		const dsqlClusterArn = this.node.tryGetContext('dsqlClusterArn') ?? '';
-		if (dsqlEnabled && !dsqlEndpoint) {
-			// endpoint 未注入で DATA_SOURCE=dsql の Lambda を上げると cold start で
-			// dsql/connection.ts が throw して全リクエスト 500 化するため synth 段階で失敗させる
-			// (parentGateCookieSecret と同じ addError 運用、ADR-0006 silent fail 防止)。
+		// **prod / staging とも DSQL 必須** (endpoint / clusterArn 未注入なら synth を失敗させる、ADR-0006)。
+		// #3438 Phase 2B: DynamoDB backend 撤去に伴い staging の dual-mode (未注入時 dynamodb fallback) を
+		// 廃止し prod と同型に統一 (staging=prod 構成一致)。deploy-aws-staging.yml は #3685 で PR trigger でも
+		// DSQL lane を常時実行し endpoint を注入するため fallback は不要 (dead な dynamodb への silent 巻戻し排除)。
+		if (!dsqlEndpoint) {
 			cdk.Annotations.of(this).addError(
-				'[ComputeStack] dsqlEnabled=true ですが dsqlEndpoint context が空です。' +
+				'[ComputeStack] dsqlEndpoint context が空です。DSQL は唯一の DB backend (#3438) のため必須です。' +
 					'DsqlStack deploy 後の ClusterEndpoint 出力を -c dsqlEndpoint=<id>.dsql.<region>.on.aws で渡してください。',
 			);
 		}
-		if (dsqlEnabled && !dsqlClusterArn) {
+		if (!dsqlClusterArn) {
 			cdk.Annotations.of(this).addError(
-				'[ComputeStack] dsqlEnabled=true ですが dsqlClusterArn context が空です。' +
-					'dsql:DbConnect の resource 限定 (最小権限) に必要です。-c dsqlClusterArn=arn:aws:dsql:... で渡してください。',
+				'[ComputeStack] dsqlClusterArn context が空です。dsql:DbConnect の resource 限定 (最小権限) に' +
+					'必須です。-c dsqlClusterArn=arn:aws:dsql:... で渡してください。',
 			);
 		}
 
@@ -217,9 +214,12 @@ export class ComputeStack extends cdk.Stack {
 		//     GET のみで ORIGIN 非依存のため縮退可)。
 		const stagingOriginPlaceholder = 'https://staging-origin-placeholder.invalid';
 		const stagingEnvironment: Record<string, string> = {
-			DATA_SOURCE: 'dynamodb',
-			DYNAMODB_TABLE: props.table.tableName!,
-			TABLE_NAME: props.table.tableName!,
+			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (旧 dual-mode の dynamodb fallback 廃止)。
+			// endpoint は上の fail-close で必須化済。#3438 (本 PR): DynamoDB table 撤去に伴い
+			// DYNAMODB_TABLE / TABLE_NAME / ANALYTICS_TABLE_NAME env を撤去 (analytics on-demand 化済)。
+			DATA_SOURCE: 'dsql',
+			DSQL_ENDPOINT: dsqlEndpoint,
+			DSQL_USER: 'app_user',
 			ASSETS_BUCKET: props.assetsBucket.bucketName,
 			DATABASE_URL: '/tmp/ganbari-quest.db',
 			AWS_LWA_PORT: '3000',
@@ -230,7 +230,6 @@ export class ComputeStack extends cdk.Stack {
 			BODY_SIZE_LIMIT: '10485760',
 			AUTH_MODE: 'cognito',
 			ANALYTICS_ENABLED: 'true',
-			ANALYTICS_TABLE_NAME: props.table.tableName!,
 			COGNITO_USER_POOL_ID: cognitoUserPoolId,
 			COGNITO_CLIENT_ID: cognitoClientId,
 			COGNITO_DOMAIN: cognitoDomain,
@@ -254,9 +253,13 @@ export class ComputeStack extends cdk.Stack {
 			// が cold start 時に要求する。既存 GitHub Secret を再利用、新規 secret ゼロ)。
 			environment: isProd
 				? {
-						DATA_SOURCE: 'dynamodb',
-						DYNAMODB_TABLE: props.table.tableName!,
-						TABLE_NAME: props.table.tableName!,
+						// #3438 Phase 2A: DSQL が唯一の DB backend (無条件)。DSQL_USER=app_user (#3646):
+						// dsql:DbConnect は custom db role 専用 (admin は DbConnectAdmin。role 実体は
+						// deploy workflow の dsql:grant が provisioning)。#3438 (本 PR): DynamoDB table 撤去に
+						// 伴い DYNAMODB_TABLE / TABLE_NAME / ANALYTICS_TABLE_NAME env を撤去。
+						DATA_SOURCE: 'dsql',
+						DSQL_ENDPOINT: dsqlEndpoint,
+						DSQL_USER: 'app_user',
 						ASSETS_BUCKET: props.assetsBucket.bucketName,
 						DATABASE_URL: '/tmp/ganbari-quest.db',
 						AWS_LWA_PORT: '3000',
@@ -266,12 +269,9 @@ export class ComputeStack extends cdk.Stack {
 						ORIGIN: 'https://ganbari-quest.com',
 						BODY_SIZE_LIMIT: '10485760',
 						AUTH_MODE: 'cognito',
-						// #1591 (ADR-0023 I2): DynamoDB analytics provider を本番有効化。
-						// メインテーブルに ANALYTICS#<date> パーティションを同居させる
-						// (single-table design)。TTL 90 日でレコードは自動削除される (provider 側)。
-						// umami / Sentry は #1591 で削除済み。analytics 系の env はこれだけで完結。
+						// analytics は on-demand 化済 (`analytics-ondemand-service.ts`) で DynamoDB を
+						// 参照しない (`ANALYTICS_TABLE_NAME` の app 側読取 0)。ANALYTICS_ENABLED のみ維持。
 						ANALYTICS_ENABLED: 'true',
-						ANALYTICS_TABLE_NAME: props.table.tableName!,
 						COGNITO_USER_POOL_ID: cognitoUserPoolId,
 						COGNITO_CLIENT_ID: cognitoClientId,
 						COGNITO_DOMAIN: cognitoDomain,
@@ -325,39 +325,27 @@ export class ComputeStack extends cdk.Stack {
 						COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
-						// EPIC #3424 M5: dsqlEnabled 時のみ backend を DSQL へ切替 (後勝ち上書き)。
-						// flag なしでは spread 空 = 上の DATA_SOURCE: 'dynamodb' が維持され template 不変。
-						// DSQL_USER=app_user (#3646): dsql:DbConnect は custom db role 専用 (admin は
-						// DbConnectAdmin が必要)。role 実体は deploy workflow の dsql:grant が provisioning。
-						...(dsqlEnabled
-							? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint, DSQL_USER: 'app_user' }
-							: {}),
+						// #3438 Phase 2A: DATA_SOURCE=dsql は base env に無条件で含む (旧 dsqlEnabled 上書き撤去)。
 					}
 				: {
+						// #3438 Phase 2A: staging も本番同型で DSQL backend (stagingEnvironment に DSQL 一式を
+						// 含む)。本番構成 = staging 構成の一致 (旧 dsqlEnabled 上書き撤去、#2873 fallback 排除)。
 						...stagingEnvironment,
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
-							: {}),
-						// EPIC #3424 M5 DoD4: staging を DSQL backend で起動し §3.7#5 (post-deploy
-						// health green) を新 backend で検証する経路 (deploy-aws-staging.yml が
-						// -c dsqlEnabled=true -c dsqlEndpoint=... を渡したときのみ)。
-						// DSQL_USER=app_user (#3646): 本番側と同型 (dsql:grant が role provisioning)。
-						...(dsqlEnabled
-							? { DATA_SOURCE: 'dsql', DSQL_ENDPOINT: dsqlEndpoint, DSQL_USER: 'app_user' }
 							: {}),
 					},
 		});
 		this.fn.node.addDependency(logGroup);
 
-		// Grant Lambda access to DynamoDB and S3
-		props.table.grantReadWriteData(this.fn);
+		// Grant Lambda access to S3 (DynamoDB grant は #3438 で撤去、DB backend は DSQL)
 		props.assetsBucket.grantReadWrite(this.fn);
 
-		// EPIC #3424 M5: DSQL 接続権限 (dsqlEnabled 時のみ)。dsql:DbConnect は実行時アプリ用の
+		// EPIC #3424 / #3438 Phase 2A: DSQL 接続権限 (無条件)。dsql:DbConnect は実行時アプリ用の
 		// 最小権限で、DDL/GRANT 用の dsql:DbConnectAdmin は付与しない (migration runner が
 		// 別クレデンシャル経路で使う、M3 §3.4 B6 実行時接続ロールモデル)。resource は cluster
-		// ARN に限定する (ワイルドカード禁止)。
-		if (dsqlEnabled && dsqlClusterArn) {
+		// ARN に限定する (ワイルドカード禁止)。clusterArn は上の fail-close で必須化済。
+		if (dsqlClusterArn) {
 			this.fn.addToRolePolicy(
 				new iam.PolicyStatement({
 					actions: ['dsql:DbConnect'],
@@ -567,7 +555,7 @@ export class ComputeStack extends cdk.Stack {
 				// 空 SQLite ファイル作成、demo Repository は factory.ts で別途選択されるためアプリ層では使わない。
 				DATABASE_URL: '/tmp/ganbari-quest.db',
 				// 本番 secret は意図的に NO INJECT:
-				//   - DYNAMODB_TABLE / TABLE_NAME / ASSETS_BUCKET (DynamoDB / S3)
+				//   - ASSETS_BUCKET (S3) / DSQL_ENDPOINT (DSQL backend)
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
 				//   - STRIPE_* (Stripe)
 				//   - GEMINI_API_KEY (Gemini)

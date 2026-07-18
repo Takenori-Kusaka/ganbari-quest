@@ -302,6 +302,12 @@ let levelTitleInputs: Record<number, string> = $state({});
 		{/if}
 	</Card>
 
+	<!-- #3824 (QM Tier2 H1): benchmark (全テナント共有グローバル master) 編集 UI は書込 authz と
+		同一境界でゲートする。parent-admin (非 ops) には描画せず「見えるが必ず 403 で失敗する dead-form」+
+		内部概念の英語露出 (NN/G #1 visibility 違反) を防ぐ。read-only 比較は上の成長レポート
+		(RadarChart + comparisonValues) が担う。書込は updateBenchmark action が server で再強制する
+		(UI hide + server enforce の防御多層)。 -->
+	{#if data.canEditBenchmark}
 	<div>
 		<!-- 機能説明 -->
 		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-4 text-sm text-[var(--color-feedback-info-text)]">
@@ -444,4 +450,5 @@ let levelTitleInputs: Record<number, string> = $state({});
 			{/each}
 		</div>
 	</div>
+	{/if}
 </div>

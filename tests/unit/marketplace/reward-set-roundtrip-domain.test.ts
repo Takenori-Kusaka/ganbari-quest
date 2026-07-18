@@ -10,11 +10,17 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
-import { grantSpecialRewardSchema, REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
+import {
+	grantSpecialRewardSchema,
+	REWARD_CATEGORIES,
+	REWARD_POINTS_MAX,
+} from '$lib/domain/validation/special-reward';
 import { RewardSetPayloadSchema } from '$lib/marketplace/schemas/reward-set-schema';
 
 const CAT = REWARD_CATEGORIES[0];
-const POINTS_MAX = 10000;
+// #3151 slice2 (ADR-0066): 上限を hardcode せず domain 層 SSOT 定数から導出する。
+// domain / wire どちらかが定数を離れて値域を広げれば本 test が落ち、#3132 class の再混入を検出する。
+const POINTS_MAX = REWARD_POINTS_MAX;
 
 const rewardSetPayload = (points: number) => ({
 	rewards: [{ title: 'テスト', points, icon: '🎁', category: CAT }],
@@ -38,14 +44,14 @@ describe('#3132 reward points 値域: domain ⊆ export schema (round-trip 整�
 	});
 
 	it('domain (grantSpecialRewardSchema) も points=10000 受理 / 10001 拒否 (export schema と同一上限)', () => {
-		expect(grantSpecialRewardSchema.safeParse(domainReward(POINTS_MAX)).success).toBe(true);
-		expect(grantSpecialRewardSchema.safeParse(domainReward(POINTS_MAX + 1)).success).toBe(false);
+		expect(v.safeParse(grantSpecialRewardSchema, domainReward(POINTS_MAX)).success).toBe(true);
+		expect(v.safeParse(grantSpecialRewardSchema, domainReward(POINTS_MAX + 1)).success).toBe(false);
 	});
 
 	it('round-trip 不変条件: アプリが許容する最大 reward (domain max) は export schema を必ず通る', () => {
 		// domain が受理する最大 points は export schema でも受理される (= domain 値域 ⊆ export schema 値域)。
 		// どちらか一方の上限を変更すると本 test が落ち、round-trip 破綻の再混入を CI で検出する。
-		expect(grantSpecialRewardSchema.safeParse(domainReward(POINTS_MAX)).success).toBe(true);
+		expect(v.safeParse(grantSpecialRewardSchema, domainReward(POINTS_MAX)).success).toBe(true);
 		expect(v.safeParse(RewardSetPayloadSchema, rewardSetPayload(POINTS_MAX)).success).toBe(true);
 	});
 });

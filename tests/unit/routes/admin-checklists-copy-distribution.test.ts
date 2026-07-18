@@ -12,6 +12,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChildId } from '$lib/domain/ids';
 
+// #3474 item 3: 拒否 path の監査 log を assert するため logger を spy 化する。
+const mockLoggerWarn = vi.fn();
+const mockLoggerInfo = vi.fn();
+const mockLoggerError = vi.fn();
+vi.mock('$lib/server/logger', () => ({
+	logger: {
+		warn: (...a: unknown[]) => mockLoggerWarn(...a),
+		info: (...a: unknown[]) => mockLoggerInfo(...a),
+		error: (...a: unknown[]) => mockLoggerError(...a),
+	},
+}));
+
 const mockResolveFullPlanTier = vi.fn();
 const mockGetAllChildren = vi.fn();
 const mockFindAssignmentsByChild = vi.fn();
@@ -102,7 +114,11 @@ function createRequest(formValues: Record<string, string>): Request {
 
 function createEvent(
 	formValues: Record<string, string>,
-	options: { tenantId?: string; licenseStatus?: string } = {},
+	options: {
+		tenantId?: string;
+		licenseStatus?: string;
+		identity?: { type: string; userId?: string };
+	} = {},
 ) {
 	return {
 		request: createRequest(formValues),
@@ -112,6 +128,7 @@ function createEvent(
 				licenseStatus: options.licenseStatus ?? 'none',
 				role: 'owner',
 			},
+			identity: options.identity,
 		},
 	} as unknown as Parameters<NonNullable<typeof actions.copyDistributionFromChild>>[0];
 }
@@ -120,6 +137,21 @@ function createEvent(
 // テスト mock も「target child の per-child テンプレ数が insert ごとに増える」 live DB を模す
 // (静的 count では re-count 化した実装の挙動を検証できない = mock fidelity)。
 let liveTargetCount = 0;
+
+// #3788: findAssignmentsByChild は childId で分岐する live DB を模す。
+// - source child ('1') → setSourceAssignments で設定した source 配信一覧
+// - target child ('2') → targetAssignedSet を assignments 形状で返す (= target に既配信済みの templateId)。
+//   上限 hit 後の残 source 分類 (既配信=alreadyDistributed / 未配信=limitRejected) は
+//   実装が findAssignmentsByChild(targetChildId) を引き当てるため、target の集合を stubDistribute と
+//   同一の SSOT (targetAssignedSet) で駆動して mock fidelity を保つ。
+const SOURCE_CHILD_ID = '1';
+let sourceAssignmentList: { templateId: number }[] = [];
+let targetAssignedSet = new Set<number>();
+
+/** source child ('1') の配信一覧を設定する (findAssignmentsByChild(source) の戻り値)。 */
+function setSourceAssignments(list: { templateId: number }[]) {
+	sourceAssignmentList = list;
+}
 
 /** target child の現在のテンプレ数 (= per-child quota の current) を設定する。 */
 function setTargetInitialCount(n: number) {
@@ -133,6 +165,9 @@ function setTargetInitialCount(n: number) {
  * assignedTemplateIds に含まれる templateId は inserted 0 件 (skip)、それ以外は呼ばれた childIds を返す。
  * 実 insert 時は liveTargetCount を +1 し、後続の checkChecklistTemplateLimit re-count に反映させる。 */
 function stubDistribute(assignedTemplateIds: Set<number>) {
+	// #3788: 「target に既配信済みの templateId 集合」は distribute の skip 挙動と
+	// findAssignmentsByChild(target) の戻り値の共通 SSOT。両者を同一 set で駆動する。
+	targetAssignedSet = new Set(assignedTemplateIds);
 	mockDistributeToChildren.mockImplementation(
 		async (templateId: string, childIds: readonly ChildId[]) => {
 			if (assignedTemplateIds.has(Number(templateId))) return [];
@@ -147,7 +182,15 @@ const TENANT_CHILDREN = [{ id: '1' }, { id: '2' }, { id: '3' }];
 beforeEach(() => {
 	vi.clearAllMocks();
 	liveTargetCount = 0;
+	sourceAssignmentList = [];
+	targetAssignedSet = new Set<number>();
 	mockGetAllChildren.mockResolvedValue(TENANT_CHILDREN);
+	// #3788: childId 分岐の findAssignmentsByChild (clearAllMocks で消えるため毎回再設定)。
+	mockFindAssignmentsByChild.mockImplementation(async (childId: ChildId) =>
+		String(childId) === SOURCE_CHILD_ID
+			? sourceAssignmentList
+			: [...targetAssignedSet].map((templateId) => ({ templateId })),
+	);
 });
 
 describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-grant 根治 (#3098)', () => {
@@ -156,7 +199,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 		// target child(2) は現在 2 件 (2/3)
 		setTargetInitialCount(2);
 		// source child(1) は 5 件配信済 (target には未配信なので distribute で全部 insert 候補)
-		mockFindAssignmentsByChild.mockResolvedValue([
+		setSourceAssignments([
 			{ templateId: 200 },
 			{ templateId: 201 },
 			{ templateId: 202 },
@@ -192,7 +235,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 	it('Free target 既に 3/3 到達 → 1 件も copy せず 403 + upgradeRequired', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		setTargetInitialCount(3); // 3/3
-		mockFindAssignmentsByChild.mockResolvedValue([{ templateId: 200 }]);
+		setSourceAssignments([{ templateId: 200 }]);
 
 		const result = (await actions.copyDistributionFromChild!(
 			createEvent({ sourceChildId: '1', targetChildId: '2' }),
@@ -206,7 +249,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 	it('無制限プラン (standard) → source 全件 copy (cap なし)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('standard');
-		mockFindAssignmentsByChild.mockResolvedValue([
+		setSourceAssignments([
 			{ templateId: 200 },
 			{ templateId: 201 },
 			{ templateId: 202 },
@@ -229,7 +272,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 	it('Free target 0/3 + source の一部が既配信 → 既配信 skip 分を残スロットから消費しない', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		setTargetInitialCount(0); // 0/3 → 残スロット 3
-		mockFindAssignmentsByChild.mockResolvedValue([
+		setSourceAssignments([
 			{ templateId: 200 }, // 既配信 → insert 0
 			{ templateId: 201 }, // 新規 → insert 1
 			{ templateId: 202 }, // 既配信 → insert 0
@@ -254,7 +297,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 	it('source に配信なし → added 0 (early return)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		setTargetInitialCount(0);
-		mockFindAssignmentsByChild.mockResolvedValue([]);
+		setSourceAssignments([]);
 
 		const result = (await actions.copyDistributionFromChild!(
 			createEvent({ sourceChildId: '1', targetChildId: '2' }),
@@ -283,5 +326,175 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 		expect(result.status).toBe(400);
 		expect(mockDistributeToChildren).not.toHaveBeenCalled();
+	});
+});
+
+// #3474 item 2: drop 件数を「上限拒否」と「既配信 skip」に分離する failing-test-first。
+describe('POST /admin/checklists?/copyDistributionFromChild — drop 件数分離 (#3474 item2)', () => {
+	it('limitReached + 既配信混在: 上限拒否は limitRejected のみ計上し既配信を過大帰属しない', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('free');
+		// target child(2) は 2/3 (残スロット 1)
+		setTargetInitialCount(2);
+		// source 5 件: 先頭 2 件は target に既配信、残り 3 件は新規
+		setSourceAssignments([
+			{ templateId: 200 }, // 既配信
+			{ templateId: 201 }, // 既配信
+			{ templateId: 202 }, // 新規 → insert (残スロット消費、3/3 到達)
+			{ templateId: 203 }, // 上限で拒否
+			{ templateId: 204 }, // 上限で拒否
+		]);
+		stubDistribute(new Set([200, 201])); // 200/201 は既配信 → insert 0
+
+		const result = (await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '2' }),
+		)) as {
+			added: number;
+			dropped: number;
+			alreadyDistributed: number;
+			limitRejected: number;
+			limitReached?: boolean;
+			message?: string;
+		};
+
+		// 新規 insert は 1 件 (202) のみ
+		expect(result.added).toBe(1);
+		expect(result.alreadyDistributed).toBe(2);
+		// 上限で拒否されたのは 203/204 の 2 件のみ (既配信 200/201 を含めない)
+		expect(result.limitRejected).toBe(2);
+		expect(result.dropped).toBe(4); // 後方互換合計 (2 既配信 + 2 上限拒否)
+		expect(result.limitReached).toBe(true);
+		// message は「上限に達したため 2 件」であって「4 件」ではない (過大帰属しない)
+		expect(result.message).toContain('2 件は取り込めませんでした');
+		expect(result.message).not.toContain('4 件は取り込めませんでした');
+		expect(result.message).toContain('2 件はすでに配信済み');
+	});
+
+	it('上限に達しない場合も alreadyDistributed / limitRejected を返す', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('standard');
+		setSourceAssignments([{ templateId: 200 }, { templateId: 201 }]);
+		stubDistribute(new Set([200])); // 200 は既配信、201 は新規
+
+		const result = (await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '2' }, { licenseStatus: 'active' }),
+		)) as { added: number; alreadyDistributed: number; limitRejected: number };
+
+		expect(result.added).toBe(1);
+		expect(result.alreadyDistributed).toBe(1);
+		expect(result.limitRejected).toBe(0);
+	});
+});
+
+// #3788 (#3474 item2 follow-up): 上限 hit 後の残 source に既配信が混在する edge-case。
+// 旧実装は上限 hit 時に「残数を全て limitRejected」に計上したため、残 source に既配信 (quota 非消費)
+// が含まれると上限メッセージ件数が過大になった。既配信を alreadyDistributed に再分類し、limitRejected を
+// 真の上限拒否数と一致させる failing-test-first (ADR-0061)。
+describe('POST /admin/checklists?/copyDistributionFromChild — 上限 hit 後の既配信混在再分類 (#3788)', () => {
+	it('上限 hit 後の残 source に既配信混在: 既配信は alreadyDistributed、limitRejected は真の上限拒否数のみ', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('free');
+		// target child(2) は 2/3 (残スロット 1)
+		setTargetInitialCount(2);
+		// source 4 件: 先頭 202 が新規 (残スロット 1 を消費 → 3/3 到達)、以降 [200(既配信),203,204] は上限 hit 後。
+		// 旧実装は残 3 件 [200,203,204] を全て limitRejected に計上したが、200 は既配信 (quota 非消費) で
+		// 本来 alreadyDistributed。limitRejected は 203/204 の 2 件だけであるべき。
+		setSourceAssignments([
+			{ templateId: 202 }, // 新規 → insert (残スロット消費、3/3 到達)
+			{ templateId: 200 }, // 上限 hit 後・かつ既配信 → alreadyDistributed に再分類 (limitRejected でない)
+			{ templateId: 203 }, // 上限 hit 後・未配信 → limitRejected
+			{ templateId: 204 }, // 上限 hit 後・未配信 → limitRejected
+		]);
+		stubDistribute(new Set([200])); // 200 は target に既配信 (targetAssignedSet={200})
+
+		const result = (await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '2' }),
+		)) as {
+			added: number;
+			dropped: number;
+			alreadyDistributed: number;
+			limitRejected: number;
+			limitReached?: boolean;
+			message?: string;
+		};
+
+		// 新規 insert は 1 件 (202) のみ
+		expect(result.added).toBe(1);
+		// 既配信 200 は quota を消費しないため alreadyDistributed に計上 (上限拒否ではない)
+		expect(result.alreadyDistributed).toBe(1);
+		// 真に上限で拒否されたのは 203/204 の 2 件のみ (旧実装は既配信 200 を含め 3 件と過大計上した)
+		expect(result.limitRejected).toBe(2);
+		expect(result.dropped).toBe(3); // 後方互換合計 (1 既配信 + 2 上限拒否)
+		expect(result.limitReached).toBe(true);
+		// 上限メッセージ件数は「2 件」= 真の上限拒否数。旧実装の「3 件」ではない (過大帰属しない)
+		expect(result.message).toContain('2 件は取り込めませんでした');
+		expect(result.message).not.toContain('3 件は取り込めませんでした');
+		expect(result.message).toContain('1 件はすでに配信済み');
+	});
+});
+
+// #3474 item 1: quota TOCTOU の設計判断 (live 再評価が exact = over-grant なし) の regression。
+// SQLite/NUC は同期単一 writer で insert が即反映されるため live 再評価が確定 count を読む。
+// 本テストは live count が操作間で共有・持続することを固定し、snapshot staleness による
+// over-grant 退行 (ループ前 1 回読みへの巻き戻し) を検出する。設計 SSOT: docs/rationale/14-checklist-copy-toctou-rationale.md
+describe('POST /admin/checklists?/copyDistributionFromChild — quota TOCTOU live 再評価 (#3474 item1)', () => {
+	it('連続 2 copy でも live count が共有され per-child 上限 (3) を超えない (over-grant なし)', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('free');
+		setTargetInitialCount(0); // target 0/3
+		setSourceAssignments([
+			{ templateId: 300 },
+			{ templateId: 301 },
+			{ templateId: 302 },
+			{ templateId: 303 },
+			{ templateId: 304 },
+		]);
+		stubDistribute(new Set());
+
+		// 1 回目: 0/3 → 3 件 copy で 3/3 到達、残り 2 件は上限拒否
+		const first = (await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '2' }),
+		)) as { added: number; limitReached?: boolean };
+		expect(first.added).toBe(3);
+		expect(first.limitReached).toBe(true);
+
+		// 2 回目: live count は 3/3 のまま持続 → entry-limit で即 403 (1 件も付与しない)
+		const second = (await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '2' }),
+		)) as { status?: number };
+		expect(second.status).toBe(403);
+
+		// 累計 insert は 3 件 = max。over-grant なし。
+		expect(liveTargetCount).toBe(FREE_MAX);
+	});
+});
+
+// #3474 item 3: 拒否 path の監査 log + NUC actor 解決の failing-test-first。
+describe('POST /admin/checklists?/copyDistributionFromChild — 拒否 path 監査 (#3474 item3)', () => {
+	it('plan 上限拒否 (403) を actor 付きで warn 監査する', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('free');
+		setTargetInitialCount(3); // 3/3
+
+		await actions.copyDistributionFromChild!(
+			createEvent(
+				{ sourceChildId: '1', targetChildId: '2' },
+				{ identity: { type: 'cognito', userId: 'user-abc' } },
+			),
+		);
+
+		const call = mockLoggerWarn.mock.calls.find((c) => String(c[0]).includes('plan 上限で拒否'));
+		expect(call, 'plan 上限拒否の監査 warn が呼ばれる').toBeDefined();
+		expect(call?.[1]?.context?.denyReason).toBe('plan-limit');
+		expect(call?.[1]?.context?.actor).toBe('user-abc');
+	});
+
+	it('tenant 外 child 拒否 (CWE-598) を actor 付きで warn 監査する', async () => {
+		mockResolveFullPlanTier.mockResolvedValue('free');
+
+		await actions.copyDistributionFromChild!(
+			createEvent({ sourceChildId: '1', targetChildId: '999' }, { identity: { type: 'local' } }),
+		);
+
+		const call = mockLoggerWarn.mock.calls.find((c) => String(c[0]).includes('tenant 外 child'));
+		expect(call, 'tenant-violation の監査 warn が呼ばれる').toBeDefined();
+		expect(call?.[1]?.context?.denyReason).toBe('tenant-violation');
+		// NUC (local) は nuc-local に解決される (旧実装は undefined だった)
+		expect(call?.[1]?.context?.actor).toBe('nuc-local');
 	});
 });

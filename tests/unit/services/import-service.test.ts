@@ -62,6 +62,13 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	insertChild: (...args: unknown[]) => mockInsertChild(...args),
 }));
 
+// #3382: 各種設定 (settings) の書き戻しは setSetting 経由。値バリデーションで skip される値は
+// setSetting が呼ばれないことを検証するため spy 化する。
+const mockSetSetting = vi.fn();
+vi.mock('$lib/server/db/settings-repo', () => ({
+	setSetting: (...args: unknown[]) => mockSetSetting(...args),
+}));
+
 vi.mock('$lib/server/db/status-repo', () => ({
 	upsertStatus: (...args: unknown[]) => mockUpsertStatus(...args),
 	insertStatusHistory: (...args: unknown[]) => mockInsertStatusHistory(...args),
@@ -462,6 +469,20 @@ describe('previewImport', () => {
 		expect(preview.checklistTemplates).toBe(0);
 		expect(preview.specialRewards).toBe(0);
 	});
+
+	// #3521: preview も importFamilyData と同じ migration seam を通す。将来 breaking transform 時に
+	// preview 件数と実取込件数が食い違わないよう、seam の存在を wiring test で機械的に固定する。
+	it('移行経路が未定義の version は migrateExportData 経由で fail-loud する (#3521 preview 側 seam)', async () => {
+		const data = makeExportData({ version: '99.0.0' });
+		await expect(previewImport(data, TENANT)).rejects.toThrow('移行経路が未定義');
+	});
+
+	it('現行 version は migrate を通しても件数が保たれる (identity transform)', async () => {
+		const data = makeExportData();
+		data.family.children = [makeChild('c1'), makeChild('c2', 'テスト花子')];
+		const preview = await previewImport(data, TENANT);
+		expect(preview.children).toBe(2);
+	});
 });
 
 // ============================================================
@@ -469,6 +490,15 @@ describe('previewImport', () => {
 // ============================================================
 
 describe('importFamilyData', () => {
+	// #3521: importFamilyData も冒頭で migrateExportData を通す。移行経路未定義の version は
+	// DB へ触れる前に fail-loud する (silent に旧 shape のまま取り込まない)。restoreFromSnapshot の
+	// 最終防衛線がこの seam を通ることの根拠 (dynamo テストの migrate 失敗シナリオを現実に接地する)。
+	it('移行経路が未定義の version は取込前に fail-loud する (#3521 import 側 seam)', async () => {
+		const data = makeExportData({ version: '99.0.0' });
+		data.family.children = [makeChild('c1')];
+		await expect(importFamilyData(data, TENANT)).rejects.toThrow('移行経路が未定義');
+	});
+
 	describe('空データのインポート', () => {
 		it('子供なし・ログなしの場合は全カウントがゼロになる', async () => {
 			const data = makeExportData();
@@ -1610,7 +1640,10 @@ describe('importFamilyData', () => {
 			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
 			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
-			const result = await importFamilyData(data, TENANT);
+			// #3781: DB 行の本体ファイルが staticFiles に存在するときのみ復元される (dangling fail-closed)。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/abcd-1234.mp3': new Uint8Array([1, 2, 3]),
+			});
 
 			expect(result.childVoicesImported).toBe(1);
 			expect(result.childVoicesSkipped).toBe(0);
@@ -1633,7 +1666,10 @@ describe('importFamilyData', () => {
 			// #3394 統一冪等契約: 永続化成功は non-null ({ id }) を返す (undefined/null は skip 計上される)
 			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
 
-			const result = await importFamilyData(data, TENANT);
+			// 正常エントリのみ本体を同梱。トラバーサル 3 件は path-safety で本体チェック前に落ちる。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/safe.mp3': new Uint8Array([1]),
+			});
 
 			// 正常 1 件のみ insert、トラバーサル 3 件は skip
 			expect(result.childVoicesImported).toBe(1);
@@ -1649,6 +1685,150 @@ describe('importFamilyData', () => {
 				expect(String(row.filePath).startsWith(`tenants/${TENANT}/voices/`)).toBe(true);
 			}
 			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
+		});
+
+		it('#3490: voiceRelPath の rest に NUL/制御文字が含まれると insert されず skip + warning になる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			const NUL = String.fromCharCode(0);
+			data.data.childVoices = [
+				makeVoice('c1', `voices/7/evil${NUL}.mp3`), // rest に NUL (poison-null-byte)
+				makeVoice('c1', 'voices/7/safe.mp3'), // 正常エントリ (1 件だけ通る)
+			];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// 正常エントリのみ本体を同梱。NUL エントリは path-safety で本体チェック前に落ちる。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/safe.mp3': new Uint8Array([1]),
+			});
+
+			expect(result.childVoicesImported).toBe(1);
+			expect(result.childVoicesSkipped).toBe(1);
+			expect(mockVoiceInsertForRestore).toHaveBeenCalledTimes(1);
+			// 制御文字混入パスは一切 insert されない
+			for (const call of mockVoiceInsertForRestore.mock.calls) {
+				const [row] = call;
+				expect(String(row.filePath)).not.toContain(NUL);
+			}
+			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
+		});
+
+		it('#3781: 本体ファイルが取込データ (staticFiles) に無い DB 行は insert されず skip + warning (dangling fail-closed)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [makeVoice('c1', 'voices/7/abcd-1234.mp3')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// staticFiles に本体が無い (別の voice のみ) → 参照先ファイル欠落 = dangling publicUrl になるため skip。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/other-file.mp3': new Uint8Array([9]),
+			});
+
+			expect(result.childVoicesImported).toBe(0);
+			expect(result.childVoicesSkipped).toBe(1);
+			// insert は一切呼ばれない (dangling 行を作らない)
+			expect(mockVoiceInsertForRestore).not.toHaveBeenCalled();
+			expect(result.warnings.some((w) => w.includes('取込データに含まれない'))).toBe(true);
+		});
+
+		it('#3781: JSON-only import (staticFiles 未指定) では全 childVoice が本体欠落で skip される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [
+				makeVoice('c1', 'voices/7/a.mp3'),
+				makeVoice('c1', 'voices/7/b.mp3'),
+			];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// staticFiles 未指定 = JSON-only → 全行が本体を持たず dangling。1 件も復元されない。
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.childVoicesImported).toBe(0);
+			expect(result.childVoicesSkipped).toBe(2);
+			expect(mockVoiceInsertForRestore).not.toHaveBeenCalled();
+		});
+
+		it('#3781: どの childVoice からも参照されない voices 本体は orphan warning で surface される (逆方向)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [makeVoice('c1', 'voices/7/referenced.mp3')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockVoiceInsertForRestore.mockResolvedValue({ id: '1' });
+
+			// referenced.mp3 は DB 行と対 (正常復元)、orphan.mp3 は参照する DB 行が無い (未参照本体)。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/referenced.mp3': new Uint8Array([1]),
+				'voices/7/orphan.mp3': new Uint8Array([2]),
+			});
+
+			expect(result.childVoicesImported).toBe(1);
+			expect(
+				result.warnings.some((w) => w.includes('orphan.mp3') && w.includes('未参照ファイル')),
+			).toBe(true);
+		});
+	});
+
+	describe('各種設定 (settings) のインポート (#3382 値バリデーション)', () => {
+		const makeSetting = (key: string, value: string) => ({ key, value });
+
+		it('allowlist キーの正常値は setSetting で書き戻され settingsImported に計上される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('decay_intensity', 'normal'),
+				makeSetting('point_rate', '2'),
+				makeSetting('weekly_report_day', 'friday'),
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(3);
+			expect(result.settingsSkipped).toBe(0);
+			expect(mockSetSetting).toHaveBeenCalledTimes(3);
+		});
+
+		it('範囲外/型不正/未知 enum の値は書き戻されず skip + warning になる (fail-closed)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('decay_intensity', 'EXTREME'), // 未知 enum
+				makeSetting('point_rate', 'not-a-number'), // 非数値
+				makeSetting('point_unit_mode', 'bitcoin'), // 未知 enum
+				makeSetting('decay_intensity', 'gentle'), // 正常 (1 件だけ通る)
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			// 正常 1 件のみ setSetting、不正 3 件は skip
+			expect(result.settingsImported).toBe(1);
+			expect(result.settingsSkipped).toBe(3);
+			expect(mockSetSetting).toHaveBeenCalledTimes(1);
+			expect(mockSetSetting).toHaveBeenCalledWith('decay_intensity', 'gentle', TENANT);
+			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
+		});
+
+		it('秘匿/非 allowlist キーは値の妥当性以前に書き戻されない (多層防御)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('pin_hash', '$2b$10$whatever'), // 秘匿キー (allowlist 外)
+				makeSetting('session_token', 'abc'), // 秘匿キー (allowlist 外)
+			];
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(0);
+			expect(result.settingsSkipped).toBe(2);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+			expect(result.warnings.some((w) => w.includes('backup 対象外'))).toBe(true);
 		});
 	});
 
