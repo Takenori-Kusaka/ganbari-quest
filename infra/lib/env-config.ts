@@ -19,8 +19,6 @@ export interface GqEnvConfig {
 	readonly resourcePrefix: string;
 	/** SSM パラメータ prefix (例: '/ganbari-quest' / '/ganbari-quest-staging') */
 	readonly ssmPrefix: string;
-	/** AWS Backup (daily plan) を構築するか。staging は空 table のため不要 */
-	readonly enableBackup: boolean;
 	/** demo Lambda (ADR-0048) を構築するか。staging は不要 */
 	readonly enableDemoLambda: boolean;
 	/** cron-dispatcher + EventBridge Rules (#1376) を構築するか。staging は不要 */
@@ -36,7 +34,6 @@ export const PROD_ENV_CONFIG: GqEnvConfig = {
 	envName: 'prod',
 	resourcePrefix: 'ganbari-quest',
 	ssmPrefix: '/ganbari-quest',
-	enableBackup: true,
 	enableDemoLambda: true,
 	enableCronDispatcher: true,
 	enableLogArchiving: true,
@@ -48,7 +45,6 @@ export const STAGING_ENV_CONFIG: GqEnvConfig = {
 	envName: 'staging',
 	resourcePrefix: 'ganbari-quest-staging',
 	ssmPrefix: '/ganbari-quest-staging',
-	enableBackup: false,
 	enableDemoLambda: false,
 	enableCronDispatcher: false,
 	enableLogArchiving: false,

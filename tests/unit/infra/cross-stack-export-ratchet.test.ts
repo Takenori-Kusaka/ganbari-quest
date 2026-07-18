@@ -31,10 +31,10 @@
 //
 // ## #3850 MainTable export と #3854 の紐付け (AC4)
 // MainTable の Ref/Arn export (prod + staging = 計 4 本) は #3850 Deploy-1 で「consumer(Compute) は
-// import を落としたが producer(Storage) は export を保持する」過渡状態のため allowlist に載る。これらは
-// どの consumer にも import されない **dangling export** (下記 assert で明示検証)。**Deploy-2 (#3854) で
-// StorageStack から table + 両 export を撤去したら、本 allowlist からも MainTable 4 entry を削除する**。
-// 削除し忘れると「stale allowlist 検出」assert が fail するため、撤去と allowlist 更新が構造的に紐づく。
+// import を落としたが producer(Storage) は export を保持する」過渡状態として allowlist に載っていた。
+// **Deploy-2 (#3854) で StorageStack から table + 両 export を撤去したため、本 allowlist からも MainTable
+// 4 entry を削除した (計 17 → 13)**。以後 MainTable 由来 export が synth に現れないことを下記 assert が
+// 断言し、export が復活したら (table 復元等) 即 fail する (撤去の完遂 guard)。
 
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
@@ -77,31 +77,19 @@ const CTX: Record<string, unknown> = {
 /**
  * allowlist entry。export 名は construct token 由来の hash を含み stack 名で prefix される
  * (staging-cdk.test.ts で本番 synth 実測一致を確認済)。attr ごとに別 entry (#3855 = Ref を Arn と
- * 別本と認識する構造的再発防止)。`removeOnDeploy2` = #3854 で撤去する MainTable の dangling export。
+ * 別本と認識する構造的再発防止)。
  */
 interface ExportEntry {
 	name: string;
 	producer: string;
 	descriptor: string;
-	removeOnDeploy2?: boolean;
 }
 
-// #3858 実測 baseline (2026-07-18、全 9 stack synth findOutputs 実測)。
-// prod 11 export (Storage 6 / Compute 4 / Network 1) + staging 6 export (StorageStaging 6) = 計 17。
+// #3858 実測 baseline。#3854 Deploy-2 で MainTable + 両 export を撤去したため、prod/staging とも
+// MainTable Ref/Arn を allowlist から削除した (計 17 → 13)。
+// prod 9 export (Storage 4 / Compute 4 / Network 1) + staging 4 export (StorageStaging 4) = 計 13。
 const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
-	// --- prod StorageStack (6) — Compute が assets/repo を import。MainTable Ref/Arn は #3850 dangling ---
-	{
-		name: 'GanbariQuestStorage:ExportsOutputRefMainTable74195DAB4503BD7E',
-		producer: 'GanbariQuestStorage',
-		descriptor: 'MainTable Ref (テーブル名) — #3850 Deploy-1 で保持する dangling export',
-		removeOnDeploy2: true,
-	},
-	{
-		name: 'GanbariQuestStorage:ExportsOutputFnGetAttMainTable74195DABArnE0EC388B',
-		producer: 'GanbariQuestStorage',
-		descriptor: 'MainTable Arn — #3850 Deploy-1 で保持する dangling export',
-		removeOnDeploy2: true,
-	},
+	// --- prod StorageStack (4) — Compute が assets/repo を import (MainTable Ref/Arn は #3854 で撤去) ---
 	{
 		name: 'GanbariQuestStorage:ExportsOutputRefAssetsBucket5CB761808BF2E271',
 		producer: 'GanbariQuestStorage',
@@ -150,19 +138,7 @@ const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
 		producer: 'GanbariQuestNetwork',
 		descriptor: 'CloudFront Distribution Ref → OpsStack が 5xx alarm dimension で import',
 	},
-	// --- staging StorageStack (6) — 同 hash / stack 名 prefix のみ prod と異なる ---
-	{
-		name: 'GanbariQuestStorageStaging:ExportsOutputRefMainTable74195DAB4503BD7E',
-		producer: 'GanbariQuestStorageStaging',
-		descriptor: 'staging MainTable Ref — #3850 Deploy-1 dangling export',
-		removeOnDeploy2: true,
-	},
-	{
-		name: 'GanbariQuestStorageStaging:ExportsOutputFnGetAttMainTable74195DABArnE0EC388B',
-		producer: 'GanbariQuestStorageStaging',
-		descriptor: 'staging MainTable Arn — #3850 Deploy-1 dangling export',
-		removeOnDeploy2: true,
-	},
+	// --- staging StorageStack (4) — 同 hash / stack 名 prefix のみ prod と異なる (MainTable は #3854 で撤去) ---
 	{
 		name: 'GanbariQuestStorageStaging:ExportsOutputRefAssetsBucket5CB761808BF2E271',
 		producer: 'GanbariQuestStorageStaging',
@@ -309,7 +285,7 @@ describe('#3858 cross-stack 自動 export/ImportValue allowlist ratchet (ADR-006
 		).toEqual([]);
 	});
 
-	it('生成 Export と allowlist が集合として過不足なく一致する (計 17 = prod 11 + staging 6)', () => {
+	it('生成 Export と allowlist が集合として過不足なく一致する (計 13 = prod 9 + staging 4)', () => {
 		// 上記 2 assert の統合表明 (数の drift を 1 行で可視化)。実測とズレたら人手承認 (本 test 更新) を要する。
 		expect(synthResult.exports.size).toBe(AUTO_EXPORT_ALLOWLIST.length);
 		expect(new Set(synthResult.exports)).toEqual(ALLOWLIST_NAMES);
@@ -324,20 +300,17 @@ describe('#3858 cross-stack 自動 export/ImportValue allowlist ratchet (ADR-006
 		).toEqual([]);
 	});
 
-	it('MainTable の Ref/Arn export は dangling である (#3850 Deploy-1 = どの consumer も import しない)', () => {
-		// #3850: consumer(Compute) は MainTable import を落とし、producer(Storage) だけ export を保持する
-		// 過渡状態。MainTable export がどれかに import されていたら Deploy-1 の前提 (consumer 参照除去) が
-		// 崩れており、#3854 の撤去が永久にできなくなる (in-use export 削除不可)。
-		const mainTableExports = AUTO_EXPORT_ALLOWLIST.filter((e) => e.removeOnDeploy2).map(
-			(e) => e.name,
-		);
-		expect(mainTableExports.length).toBe(4); // prod Ref/Arn + staging Ref/Arn
-		for (const name of mainTableExports) {
-			expect(
-				synthResult.imports.has(name),
-				`MainTable export ${name} が import されている (Deploy-1 前提違反 = #3850 再発リスク)`,
-			).toBe(false);
-		}
+	it('MainTable 由来の export が全 stack で 1 本も生成されない (#3854 Deploy-2 撤去完了)', () => {
+		// #3854 Deploy-2: StorageStack から MainTable + 両 export を撤去した。prod / staging とも
+		// MainTable 由来 export (Ref / Arn) が synth 結果に 1 本も現れないことを断言する
+		// (旧 #3850 Deploy-1 の「dangling export として保持」の逆条件 = 撤去の完遂 guard)。
+		const mainTableExports = [...synthResult.exports].filter((n) => /MainTable/.test(n)).sort();
+		expect(
+			mainTableExports,
+			`MainTable export が残存 (${mainTableExports.length} 件):\n${mainTableExports.join('\n')}\n\n` +
+				'#3854 Deploy-2 で MainTable + 両 export を撤去済のはず。残っていたら storage-stack.ts の ' +
+				'table / exportValue が消えていないか確認する。',
+		).toEqual([]);
 	});
 });
 
