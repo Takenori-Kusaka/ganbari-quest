@@ -96,11 +96,11 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 				ageMax: null,
 			});
 			// domain validator の境界を実 validator で確認 (hardcode でなく SSOT 定数 + validator が boundary を決める)。
-			expect(createActivitySchema.safeParse(domainActivity(ACTIVITY_BASE_POINTS_MAX)).success).toBe(
-				true,
-			);
 			expect(
-				createActivitySchema.safeParse(domainActivity(ACTIVITY_BASE_POINTS_MAX + 1)).success,
+				v.safeParse(createActivitySchema, domainActivity(ACTIVITY_BASE_POINTS_MAX)).success,
+			).toBe(true);
+			expect(
+				v.safeParse(createActivitySchema, domainActivity(ACTIVITY_BASE_POINTS_MAX + 1)).success,
 			).toBe(false);
 			// domain が受理する最大値は export schema を必ず通る (domain ⊆ schema)。
 			expect(

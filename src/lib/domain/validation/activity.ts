@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 import { ACTIVITY_SOURCE_WIRE_VALUES } from '$lib/domain/activity-source';
 import {
 	CATEGORY_CODES,
@@ -6,8 +6,7 @@ import {
 	type CategoryCode,
 	type CategoryName,
 } from '$lib/domain/categories';
-import { asCategoryId, type CategoryId } from '$lib/domain/ids';
-import { activityIdSchema, categoryIdSchema, childIdSchema } from './id-schema';
+import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 
 export type { CategoryCode };
 // #3607: カテゴリ id↔code↔表示メタの SSOT は $lib/domain/categories.ts へ移設。
@@ -68,7 +67,7 @@ export const GRADE_LEVELS = [
 export type GradeLevel = (typeof GRADE_LEVELS)[number];
 
 // #3669: source 意味論の SSOT は $lib/domain/activity-source.ts。本 tuple は wire 受理値域
-// (zod enum 用) の再 export。'parent' は legacy wire 値で persist 前に 'custom' へ正規化される。
+// (v.picklist 用) の再 export。'parent' は legacy wire 値で persist 前に 'custom' へ正規化される。
 export const SOURCES = ACTIVITY_SOURCE_WIRE_VALUES;
 
 export type Source = (typeof SOURCES)[number];
@@ -76,7 +75,7 @@ export type Source = (typeof SOURCES)[number];
 // ============================================================
 // 活動 値域 SSOT (#3151 / ADR-0066)
 // ============================================================
-// domain Zod schema (本ファイル createActivitySchema) と wire Valibot schema
+// domain Valibot schema (本ファイル createActivitySchema) と wire Valibot schema
 // (src/lib/marketplace/schemas/activity-pack-schema.ts) の両方が本定数を参照する。
 // 値域 literal の二重定義は #3132 (値域ドリフト blocker) の root class のため禁止。
 // domain⊆wire 包含は tests/unit/architecture/schema-range-ssot.test.ts が機械表明する。
@@ -107,7 +106,7 @@ export function countIconGraphemes(val: string): number {
 }
 
 /**
- * icon 値域 (1〜2 grapheme) 判定。domain Zod refine と wire Valibot check の共有 oracle (#3151)。
+ * icon 値域 (1〜2 grapheme) 判定。domain / wire の Valibot check の共有 oracle (#3151 / #3852 Phase B-1)。
  * 旧 wire 側 maxLength(20) (UTF-16 units 基準) は ZWJ 連結絵文字 2 個 (22 units) を弾き
  * domain⊆wire を破っていたため、本関数への統一で値域を表現方式ごと SSOT 化した。
  */
@@ -116,33 +115,116 @@ export function isValidActivityIcon(val: string): boolean {
 	return count >= ACTIVITY_ICON_MIN_GRAPHEMES && count <= ACTIVITY_ICON_MAX_GRAPHEMES;
 }
 
-export const createActivitySchema = z.object({
-	name: z.string().min(ACTIVITY_NAME_MIN).max(ACTIVITY_NAME_MAX),
-	// #3575: id は opaque string。旧クライアント/テストの number も境界で as* 変換して受ける
-	categoryId: z
-		.union([z.string(), z.number()])
-		.transform((v) => asCategoryId(v))
-		.refine((v) => CATEGORY_DEFS.some((c) => c.id === v), {
-			message: 'カテゴリが不正です',
-		}),
-	icon: z
-		.string()
-		.min(1)
-		.refine(isValidActivityIcon, { message: 'アイコンは1〜2つの絵文字で指定してください' }),
-	basePoints: z.number().int().min(ACTIVITY_BASE_POINTS_MIN).max(ACTIVITY_BASE_POINTS_MAX),
-	ageMin: z.number().int().min(ACTIVITY_AGE_MIN).max(ACTIVITY_AGE_MAX).nullable(),
-	ageMax: z.number().int().min(ACTIVITY_AGE_MIN).max(ACTIVITY_AGE_MAX).nullable(),
-	source: z.enum(SOURCES).optional(),
-	gradeLevel: z.enum(GRADE_LEVELS).nullable().optional(),
-	subcategory: z.string().max(ACTIVITY_SUBCATEGORY_MAX).nullable().optional(),
-	description: z.string().max(ACTIVITY_DESCRIPTION_MAX).nullable().optional(),
-	dailyLimit: z.number().int().min(DAILY_LIMIT_MIN).max(DAILY_LIMIT_MAX).nullable().optional(),
-	nameKana: z.string().max(ACTIVITY_NAME_FIELD_MAX).nullable().optional(),
-	nameKanji: z.string().max(ACTIVITY_NAME_FIELD_MAX).nullable().optional(),
-	triggerHint: z.string().max(ACTIVITY_TRIGGER_HINT_MAX).nullable().optional(),
+// ============================================================
+// field 単位の Valibot schema (domain / wire 共有 SSOT、#3852 Phase B-1 / EPIC #3151 選択肢 B)
+// ============================================================
+// 旧: 同じ name/icon/basePoints/age/gradeLevel/triggerHint/description の shape を domain Zod と
+// wire Valibot (activity-pack-schema.ts) で 2 回宣言。新: field pipe を本節に 1 回だけ定義し、
+// domain object (下記 createActivitySchema) と wire object の双方が import して組み立てる。
+// 構造の二重定義を排し、境界値の再ドリフト (#3132 class) を構造的に不可能にする。special-reward
+// (Phase B-0 / #3853) と同型。値域定数 (ACTIVITY_*) + 述語 (isValidActivityIcon) は本ファイルに維持。
+
+/** 活動名 (1〜50 文字) */
+export const activityNameSchema = v.pipe(
+	v.string('活動名は文字列で指定してください'),
+	v.minLength(ACTIVITY_NAME_MIN, '活動名は必須です'),
+	v.maxLength(ACTIVITY_NAME_MAX, `活動名は ${ACTIVITY_NAME_MAX} 文字以内で指定してください`),
+);
+
+/** 活動アイコン (1〜2 grapheme の絵文字)。isValidActivityIcon を共有 oracle に判定 (#3151) */
+export const activityIconSchema = v.pipe(
+	v.string(),
+	v.minLength(1, 'アイコンは必須です'),
+	v.check(isValidActivityIcon, 'アイコンは1〜2つの絵文字で指定してください'),
+);
+
+/** 活動の基礎ポイント (1〜100 の整数) */
+export const activityBasePointsSchema = v.pipe(
+	v.number('basePoints は数値で指定してください'),
+	v.integer('basePoints は整数で指定してください'),
+	v.minValue(
+		ACTIVITY_BASE_POINTS_MIN,
+		`basePoints は ${ACTIVITY_BASE_POINTS_MIN} 以上で指定してください`,
+	),
+	v.maxValue(
+		ACTIVITY_BASE_POINTS_MAX,
+		`basePoints は ${ACTIVITY_BASE_POINTS_MAX} 以下で指定してください`,
+	),
+);
+
+/**
+ * 年齢境界 (0〜20 の整数)。`null` (年齢制限なし) は object 側で `v.nullable(activityAgeSchema)` で表現する。
+ * ageMin / ageMax の両方が本 field schema を共有する。
+ */
+export const activityAgeSchema = v.pipe(
+	v.number(),
+	v.integer(),
+	v.minValue(ACTIVITY_AGE_MIN),
+	v.maxValue(ACTIVITY_AGE_MAX),
+);
+
+/** 学年区分。`null` (未設定) は object 側で `v.nullable(...)` で表現する */
+export const activityGradeLevelSchema = v.picklist(GRADE_LEVELS);
+
+/** 「今日のおやくそく」推奨トリガーヒント (最大 30 文字) */
+export const activityTriggerHintSchema = v.pipe(v.string(), v.maxLength(ACTIVITY_TRIGGER_HINT_MAX));
+
+/** 活動説明 (最大 200 文字) */
+export const activityDescriptionSchema = v.pipe(v.string(), v.maxLength(ACTIVITY_DESCRIPTION_MAX));
+
+// id-schema.ts (Zod) 等価の局所 Valibot 版。query / body 由来の string と旧クライアント互換の number を
+// 受け branded 化する。id-schema 全体の Valibot 化は activity/reward 以外の schema へ波及するため本 scope
+// 外 (special-reward Phase B-0 と同方針で局所定義)。
+const idLikeSchema = v.union([
+	v.pipe(v.string(), v.minLength(1)),
+	v.pipe(v.number(), v.integer(), v.minValue(1)),
+]);
+const childIdLikeSchema = v.pipe(
+	idLikeSchema,
+	v.transform((val) => asChildId(val)),
+);
+const activityIdLikeSchema = v.pipe(
+	idLikeSchema,
+	v.transform((val) => asActivityId(val)),
+);
+const categoryIdLikeSchema = v.pipe(
+	idLikeSchema,
+	v.transform((val) => asCategoryId(val)),
+);
+
+// ============================================================
+// domain object schema (Valibot、#3852 Phase B-1)
+// ============================================================
+
+export const createActivitySchema = v.object({
+	name: activityNameSchema,
+	// #3575: id は opaque string。旧クライアント/テストの number も境界で as* 変換して受ける。
+	// createActivitySchema の categoryId は idLike (min/positive) ではなく CATEGORY_DEFS 実在 check で
+	// 妥当性を担保する (query 経路の categoryIdLikeSchema とは別軸)。
+	categoryId: v.pipe(
+		v.union([v.string(), v.number()]),
+		v.transform((val) => asCategoryId(val)),
+		v.check((val) => CATEGORY_DEFS.some((c) => c.id === val), 'カテゴリが不正です'),
+	),
+	icon: activityIconSchema,
+	basePoints: activityBasePointsSchema,
+	ageMin: v.nullable(activityAgeSchema),
+	ageMax: v.nullable(activityAgeSchema),
+	source: v.optional(v.picklist(SOURCES)),
+	gradeLevel: v.optional(v.nullable(activityGradeLevelSchema)),
+	subcategory: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(ACTIVITY_SUBCATEGORY_MAX)))),
+	description: v.optional(v.nullable(activityDescriptionSchema)),
+	dailyLimit: v.optional(
+		v.nullable(
+			v.pipe(v.number(), v.integer(), v.minValue(DAILY_LIMIT_MIN), v.maxValue(DAILY_LIMIT_MAX)),
+		),
+	),
+	nameKana: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(ACTIVITY_NAME_FIELD_MAX)))),
+	nameKanji: v.optional(v.nullable(v.pipe(v.string(), v.maxLength(ACTIVITY_NAME_FIELD_MAX)))),
+	triggerHint: v.optional(v.nullable(activityTriggerHintSchema)),
 });
 
-export const updateActivitySchema = createActivitySchema.partial();
+export const updateActivitySchema = v.partial(createActivitySchema);
 
 /**
  * #3463 item1/item4: dailyLimit を `[0, 99]` の整数 or null に正規化する (import 境界 + server clamp 共用)。
@@ -173,25 +255,27 @@ export function sanitizeActivityNameField(raw: unknown): string | null {
 	return s.length > ACTIVITY_NAME_FIELD_MAX ? s.slice(0, ACTIVITY_NAME_FIELD_MAX) : s;
 }
 
-export const recordActivitySchema = z.object({
-	childId: childIdSchema,
-	activityId: activityIdSchema,
+export const recordActivitySchema = v.object({
+	childId: childIdLikeSchema,
+	activityId: activityIdLikeSchema,
 });
 
-export const activityLogsQuerySchema = z.object({
-	childId: childIdSchema,
-	period: z.enum(['week', 'month', 'year']).default('week'),
-	from: z.string().optional(),
-	to: z.string().optional(),
+export const activityLogsQuerySchema = v.object({
+	childId: childIdLikeSchema,
+	period: v.optional(v.picklist(['week', 'month', 'year']), 'week'),
+	from: v.optional(v.string()),
+	to: v.optional(v.string()),
 });
 
-export const activitiesQuerySchema = z.object({
-	childId: childIdSchema.optional(),
-	categoryId: categoryIdSchema.optional(),
-	includeHidden: z
-		.string()
-		.transform((v) => v === 'true')
-		.optional(),
+export const activitiesQuerySchema = v.object({
+	childId: v.optional(childIdLikeSchema),
+	categoryId: v.optional(categoryIdLikeSchema),
+	includeHidden: v.optional(
+		v.pipe(
+			v.string(),
+			v.transform((val) => val === 'true'),
+		),
+	),
 });
 
 /** 漢字表記に切り替える年齢閾値（小学1年生以上） */
