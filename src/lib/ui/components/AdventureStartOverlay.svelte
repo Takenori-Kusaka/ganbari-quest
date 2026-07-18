@@ -45,6 +45,7 @@ $effect(() => {
 		);
 		return () => timers.forEach(clearTimeout);
 	}
+	return;
 });
 
 function handleClose() {

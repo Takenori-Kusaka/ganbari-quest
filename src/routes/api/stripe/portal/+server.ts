@@ -38,17 +38,17 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 		}
 		const result = await verifyPin(body.pin, tenantId);
 		if (!result.ok) {
+			// error() は throw する (never) ため各 case を `throw error(...)` で明示終端する。
+			// これにより tsc allowUnreachableCode (旧 break が到達不能) と biome
+			// noFallthroughSwitchClause (case 終端が必要) の両方を満たす。
 			switch (result.error) {
 				case 'INVALID_PIN':
-					error(401, 'INVALID_PIN');
-					break;
+					throw error(401, 'INVALID_PIN');
 				case 'LOCKED_OUT':
-					error(423, `LOCKED_OUT:${result.lockedUntil}`);
-					break;
+					throw error(423, `LOCKED_OUT:${result.lockedUntil}`);
 				case 'PIN_NOT_SET':
 					// isPinConfigured と矛盾するが念のため
-					error(401, 'PIN_NOT_SET');
-					break;
+					throw error(401, 'PIN_NOT_SET');
 			}
 		}
 	} else {

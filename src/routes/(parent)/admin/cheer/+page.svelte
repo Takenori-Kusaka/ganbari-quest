@@ -64,6 +64,7 @@ $effect(() => {
 		}, 3000);
 		return () => clearTimeout(timer);
 	}
+	return;
 });
 </script>
 
