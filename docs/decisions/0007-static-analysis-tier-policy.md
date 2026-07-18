@@ -1,8 +1,8 @@
 # 0007. 静的解析 tier ポリシー (T1/T2/T3/T4 + EPIC-merge / customer-review tier)
 
-- **Status**: Accepted (2026-05-27 EPIC-merge tier 追加、#2544 / 2026-07-18 §6 eslint-plugin-svelte 追記、#3878)
+- **Status**: Accepted (2026-05-27 EPIC-merge tier 追加、#2544 / 2026-07-18 §6 eslint-plugin-svelte 追記、#3878 / 2026-07-19 §7 dependency-cruiser required 昇格 ratify、#3895)
 - **Date**: 2026-04-20
-- **Related Issue**: #1262 / #1265 / #2544 / #3878
+- **Related Issue**: #1262 / #1265 / #2544 / #3878 / #3895
 
 ## コンテキスト
 
@@ -53,6 +53,7 @@ T1 合計が 3min を超えた時は、最も遅いツールを T3 へ降格す�
 - 昇格 / 降格は本 ADR に追記する（別 ADR 不要、文書同期のみ）
 - 新ツール導入 Issue には「想定階層」欄を必須化
 - T1 / T2 job の実行時間を定期モニタ
+- **required 化（merge block 化）の実装点は `ci.yml` の `ci-gate` job `needs:` 登録**（#3895）。branch ruleset (`PR_Mearge`) は `ci-gate` 単一 context を required とする集約設計のため、個別 job の required / advisory は needs 登録の有無で決まる（ruleset 変更は不要）。`ci-gate` の `needs:` に job を追加 / 削除する PR は、本 ADR の階層マッピング表を**同 PR で同期**する（silent な gating policy 変更の禁止）
 
 ### 既存 CI の階層マッピング（baseline）
 
@@ -66,6 +67,8 @@ T1 合計が 3min を超えた時は、最も遅いツールを T3 へ降格す�
 | `new-env-distribution-check`（ADR-0006） | T1 | — |
 | `schema-change-tests-check` | T1 | — |
 | ESLint Svelte (`lint:svelte`、recommended + suppressions) | T1 | < 30s、merge block、#3878（§6） |
+| `dependency-cruiser`（app + infra、#3871） | T2 | 並行 job、merge block（`ci-gate` needs 登録、#3895 ratify、§7）。baseline 12 件（循環 8 + orphan 4）は `--ignore-known` で pin、新規違反のみ block |
+| `cdk-cfn-lint`（#3874） | T2 | 並行 job、merge block（`ci-gate` needs 登録） |
 | jscpd 週次 | T3 | cron |
 | 脆弱性スキャン | T4 | 四半期 / 手動 |
 
@@ -89,6 +92,14 @@ T1-T4 は「実行頻度 × blast radius」で **静的解析・自動テスト*
 - **層の責務分離（二重化しない）**: 型 = `svelte-check --threshold warning`（T1） / a11y = Svelte compiler warning を svelte-check が surface + `@axe-core/playwright` E2E / Runes・reactivity・SvelteKit correctness = `eslint-plugin-svelte` recommended（本節）。**`svelte/valid-compile` は追加しない**（compiler warning の ESLint 再実行 = svelte-check と二重）。**a11y ルールは eslint-plugin-svelte に存在しない**ため追加不能。自作 `local/*`（no-raw-button 等）と重複する opt-in ルール（no-inline-styles 等）も追加しない。
 - **既存違反の baseline 凍結（ratchet）**: recommended 有効化で既存コードに 483 error が出る（内訳: `no-navigation-without-resolve` 166 / `require-each-key` 133 / `no-useless-children-snippet` 113 / `prefer-svelte-reactivity` 15 / `prefer-writable-derived` 11 / `no-unused-svelte-ignore` 7 / `no-useless-mustaches` 2 + 既存 `local/*` 36）。ESLint 10 native bulk suppressions（`eslint --suppress-all` → `eslint-suppressions.json` を commit）で凍結し、**新規違反のみ CI fail**。段階返済後は `eslint --prune-suppressions` で baseline を ratchet down する（assertion 弱体化・ルール一括 disable は ADR-0006 禁止）。SSOT = `eslint.config.js`（recommended spread）+ `eslint-suppressions.json`（baseline）+ `.github/workflows/ci.yml`（`lint:svelte` hard gate）。
 - **Runes semantic 判断は lint 対象外＝PR review 領域**: Svelte 5 公式が最も警告する「`$effect` で state を derive/同期するな、`$derived` を使え」は、静的に捕まるのは `prefer-writable-derived` の単一代入 trivial shape のみ。effect 本体に分岐・複数文が入ると linter は沈黙する。「この effect は derived にすべき」の意図判断は ESLint では原理的に不可能なため、**lint は syntactic footgun を潰し、semantic 判断は PR review で補う**（`.claude/skills/pr-review/SKILL.md` の Svelte 観点で確認）。component 全体（script+template）の cognitive/cyclomatic 複雑度を測る既製 OSS は存在しない（SonarJS は `.svelte` 非サポート）ため深追いせず、自作 `local/max-svelte-lines`(500) を粗い proxy として維持する。
+
+### 7. dependency-cruiser の required gate 昇格 ratify (#3895 で追加)
+
+`dependency-cruiser`（#3871 導入、ADR-0061 Phase 2）は導入 PR 時点で `ci-gate` の `needs:` 未登録＝advisory-only（job は走るが failure が merge を block しない）だった。#3890 の rebase 時に `ci-gate` + `integration-evidence` の `needs:` へ登録され required gate に昇格した。本 ADR で以下を正式決定として ratify する:
+
+- **dependency-cruiser は T2 required gate（merge block）が正**。「gate は block すべき」（ADR-0061 shift-left 機械強制）に整合し、advisory-only は導入 PR の gap であって設計意図ではない
+- **既存 PR を誤 block しない**: baseline 12 件（循環 8 + orphan 4）は `.dependency-cruiser-known-violations.json` に pin され、`npm run depcruise`（`--ignore-known` 内蔵）が新規違反のみ fail する（`depcruise:infra` は baseline 0 で全数 gate）
+- 今後の gating policy 変更（needs 追加 / 削除）は §4 の運用ルールに従い本 ADR へ同 PR で追記する
 
 ## 結果
 
