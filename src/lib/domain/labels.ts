@@ -2298,9 +2298,14 @@ export const SETTINGS_LABELS = {
 	dataExportJsonTooLargeForDirectDownload: (maxMb: string) =>
 		`${BACKUP_TERMS.canonical}が直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
-	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
+	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線（SaaS 版専用）。
 	dataExportZipCloudHint:
 		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。画像も含めて安全に残すなら、下の「クラウドバックアップ」がおすすめです。',
+	// #3867: セルフホスト版（authMode≠cognito）はクラウドバックアップ導線が無いため、
+	// 「クラウドバックアップ」に言及しない代替文言。ブラウザ安全性警告は正常である旨の安心情報のみ残す
+	// （下にクラウドセクションが無いのに「下のクラウドバックアップがおすすめ」と案内する dangling を防ぐ）。
+	dataExportZipLocalHint:
+		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。そのまま保存していただいて問題ありません。',
 	dataExportCompact: 'ファイルサイズを小さくする（圧縮）',
 	dataExporting: '書き出し中...',
 	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
