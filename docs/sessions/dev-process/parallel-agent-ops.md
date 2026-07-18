@@ -14,6 +14,19 @@
 - 並列 Agent 数の目安: 3-4（worktree 分離前提）。同一 directory での並列は 1 Agent のみに制限
 - 完了後は worktree が自動 cleanup（変更なし時）または path / branch 名が返却される（変更あり時）
 
+### 1.1 worktree では pre-ready 前に `npm ci` が必要（#3857）
+
+隔離 worktree (`.claude/worktrees/`) は生成時に `node_modules` を持たない（自動 install されない）。依存欠落のまま `npm run pre-ready` を回すと Step 2/3（svelte-check / vitest）が**変更と無関係な**大量 error / spawn 失敗になり、「品質ゲートを通した」証跡が worktree 内で空振りする（#3855 / #3856 の 2 Agent が共に遭遇）。着手直後に依存を揃えること:
+
+```bash
+npm ci                    # 本体依存 (svelte-check / vitest / tsx / biome など)
+cd infra && npm ci        # CDK 単体テスト (cd infra && npx vitest) を回す場合のみ
+```
+
+- **fail-fast ガード**: `npm run pre-ready` は着手前に依存 sentinel を検査し、欠落時は「worktree では先に `npm ci`」の明示ガイダンス付きで exit 1 する（silent に pass しない、ADR-0006 整合 / #3857 Fix C）。
+- **biome の「Checked 0 files」false-negative は根治済み**: `biome.json` の `.claude` ignore を repo 相対 anchor (`!.claude`) 化したため、worktree 絶対パス (`.../.claude/worktrees/...`) を巻き込む誤 ignore は再発しない（#3857 Fix B）。repo root の `.claude`（config / skills / agents）は従来どおり lint 対象外を維持。
+- Agent への prompt に「worktree では着手直後に `npm ci`（+ 必要なら `cd infra && npm ci`）を流す」を明示する。
+
 ---
 
 ## 2. Agent の「push 済」報告は trust but verify

@@ -37,7 +37,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/ci/resolve-base-branch.mjs';
@@ -280,6 +280,59 @@ function fetchPrBodyAndLabels(prNumber) {
 		});
 		child.on('error', () => resolveP(null));
 	});
+}
+
+// ---------------------------------------------------------------------------
+// #3857: worktree 依存 preflight (silent false-negative 防止)
+// ---------------------------------------------------------------------------
+
+/**
+ * 隔離 worktree (`.claude/worktrees/`) では worktree 生成後に `node_modules` が
+ * 自動 install されない。依存欠落のまま pre-ready を回すと Step 2/3 (svelte-check /
+ * vitest) が「変更と無関係な」大量 error / spawn 失敗になり、品質ゲートが空振りする
+ * (#3855 / #3856 の 2 agent が共に遭遇)。これを silent に通さず、着手前に明示ガイダンス付きで
+ * fail-fast する (ADR-0006 no-silent-fail 整合 / #3857 AC1「依存欠落を silent に pass しない」)。
+ *
+ * biome の「Checked 0 files」false-negative は本体側 (biome.json の `.claude` ignore を
+ * repo 相対 `!.claude` に anchor 化) で根治済み (#3857 Fix B)。本 preflight は残る
+ * node_modules 欠落 (Step 2/3 svelte-check/vitest、Step 11 tsx) を対象とする。
+ *
+ * 検出:
+ *   - worktree 判定: `repoRoot/.git` が「ファイル」(linked worktree の gitdir ポインタ) なら worktree。
+ *     通常 clone では `.git` はディレクトリなので false。
+ *   - 依存欠落判定: pre-ready 各 step が依存する代表 sentinel の存在確認。root `node_modules` に加え、
+ *     `infra/node_modules/aws-cdk-lib` も検査する — Step 3 vitest の scope (`tests/unit/**`) には
+ *     `tests/unit/infra/*.test.ts` が含まれ aws-cdk-lib (infra 配下) を要求するため (tests/CLAUDE.md)。
+ *     `npm ci` の prepare が `cd infra && npm ci` を warn-only で実行する構造上、root だけ入って
+ *     infra が欠ける組合せがあり得るので両方を sentinel にする (#3857 で報告された aws-cdk-lib 欠落を捕捉)。
+ *
+ * pre-ready Step 1/2/3/11 が依存する代表 sentinel。1 つでも欠落したら install 未完了とみなす。
+ * (export: tests/unit/scripts/pre-ready-preflight.test.ts が root 差替えで検証する)
+ */
+export const PREFLIGHT_SENTINELS = [
+	'node_modules', // 本体
+	'node_modules/.bin', // spawn する CLI 群 (svelte-check / vitest / tsx / biome)
+	'node_modules/svelte-check', // Step 2
+	'node_modules/vitest', // Step 3
+	'node_modules/tsx', // Step 11 (npx tsx check-terminology-coherence.ts)
+	'node_modules/@biomejs/biome', // Step 1
+	'infra/node_modules/aws-cdk-lib', // Step 3 vitest (tests/unit/infra/*.test.ts、tests/CLAUDE.md)
+];
+
+/**
+ * @param {string} [root] 検査対象ルート (既定: repoRoot、test では depsless な temp dir を渡す)
+ * @returns {{ ok: boolean, isWorktree: boolean, missing: string[] }}
+ */
+export function preflightWorktreeDeps(root = repoRoot) {
+	const gitPath = resolve(root, '.git');
+	let isWorktree = false;
+	try {
+		isWorktree = existsSync(gitPath) && statSync(gitPath).isFile();
+	} catch {
+		// stat 失敗時は worktree 判定を false に倒す (guidance の文言差のみに影響)
+	}
+	const missing = PREFLIGHT_SENTINELS.filter((s) => !existsSync(resolve(root, s)));
+	return { ok: missing.length === 0, isWorktree, missing };
 }
 
 // ---------------------------------------------------------------------------
@@ -572,6 +625,29 @@ async function main() {
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
 	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9, 12 はスキップ)'}`);
 
+	// #3857: 依存 preflight — 欠落のまま Step 2/3 を回すと変更無関係の false-negative になるため fail-fast
+	const pf = preflightWorktreeDeps();
+	if (!pf.ok) {
+		console.error(
+			`\n[pre-ready] ✗ preflight FAIL — 依存が未 install です (欠落 sentinel: ${pf.missing.join(', ')})`,
+		);
+		if (pf.isWorktree) {
+			console.error(
+				'  隔離 worktree (.claude/worktrees/) では worktree 生成後に node_modules が自動 install されません (#3857)。',
+			);
+		}
+		console.error('  以下を実行してから pre-ready を再実行してください:');
+		console.error('    npm ci');
+		console.error(
+			'    cd infra && npm ci   # CDK 単体テスト (cd infra && npx vitest) を回す場合のみ',
+		);
+		console.error(
+			'  (依存欠落のまま Step 2/3 svelte-check / vitest を実行すると変更と無関係な大量 error / spawn 失敗になり、\n' +
+				'   「pre-ready を回した」証跡が空振りします。ADR-0006 no-silent-fail 整合で着手前に fail-fast します。#3857)',
+		);
+		return 1;
+	}
+
 	// base branch 解決 (#2959 / develop 二層 cutover #2870)
 	let baseBranch = 'main';
 	try {
@@ -644,9 +720,23 @@ async function main() {
 	return 0;
 }
 
-main()
-	.then((code) => process.exit(code))
-	.catch((err) => {
-		console.error('[pre-ready] internal error:', err);
-		process.exit(2);
-	});
+// import 時 (unit test) は main() を走らせない。CLI 直接起動時のみ実行する
+// (パターンは scripts/check-pr-body.mjs と同一)。
+const isMain = (() => {
+	try {
+		const here = resolve(fileURLToPath(import.meta.url));
+		const argv1 = resolve(process.argv[1] || '');
+		return here === argv1;
+	} catch {
+		return false;
+	}
+})();
+
+if (isMain) {
+	main()
+		.then((code) => process.exit(code))
+		.catch((err) => {
+			console.error('[pre-ready] internal error:', err);
+			process.exit(2);
+		});
+}
