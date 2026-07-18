@@ -1,6 +1,7 @@
 // src/lib/domain/export-format.ts
 // エクスポートファイルのフォーマット型定義
 import type { CategoryId, ChildId } from '$lib/domain/ids';
+import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
@@ -136,8 +137,10 @@ function hasControlChar(value: string): boolean {
 const BOOL_SETTING_VALUES = new Set(['true', 'false', '0', '1']);
 // HH:MM (24h)。notifications / quiet hours の time input が生成する形式。
 const TIME_HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-// tutorial_started_at / completed_at は `new Date().toISOString()`。
-const ISO_DATETIME_PREFIX_RE = /^\d{4}-\d{2}-\d{2}T/;
+// tutorial_started_at / completed_at の現行書込は `new Date().toISOString()` (T 区切り) だが、
+// 受理形式は round-trip 日時 SSOT ($lib/domain/validation/datetime、#3859) に従い SQL datetime
+// (スペース区切り) も許容する。#3851 で import-service 側だけ両区切り化した結果、settings 側に
+// T 必須 regex が残る片側ドリフトが生じていた — 形式定数の二重定義を排し同一述語を import する。
 const DECAY_INTENSITY_VALUES = new Set(['none', 'gentle', 'normal', 'strict']); // validation/status.ts DecayIntensity SSOT
 const POINT_UNIT_MODE_VALUES = new Set(['point', 'currency']); // point-display.ts PointUnitMode SSOT
 const CURRENCY_CODE_VALUES = new Set(['JPY', 'USD', 'EUR', 'GBP', 'AUD', 'CAD']); // point-display.ts CurrencyCode SSOT
@@ -154,8 +157,7 @@ const WEEKDAY_VALUES = new Set([
 
 const isBoolSetting = (v: string): boolean => BOOL_SETTING_VALUES.has(v);
 const isTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
-const isIsoDatetime = (v: string): boolean =>
-	v.length <= 40 && ISO_DATETIME_PREFIX_RE.test(v) && !Number.isNaN(Date.parse(v));
+const isIsoDatetime = (v: string): boolean => v.length <= 40 && isLegacyCompatibleDateTime(v);
 
 /**
  * 設定キーごとの値バリデータ (allowlist の 20 キー全てを網羅)。
