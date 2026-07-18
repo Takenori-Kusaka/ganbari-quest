@@ -459,8 +459,13 @@ function resetCloudImport() {
 	childSelectionOpen = false;
 }
 
+// #3867: クラウドエクスポート (クラウドバックアップ) セクションは SaaS モード (authMode==='cognito') 専用。
+// hint 文言とセクション本体を同一条件でガードし、NUC (self-host) で「下のクラウドバックアップ」が
+// dangling する（誘導先セクションが描画されないのに推奨文言だけ出る）状態を防ぐ (AC1)。
+const cloudExportAvailable = $derived($page.data.authMode === 'cognito');
+
 $effect(() => {
-	if ($page.data.authMode === 'cognito' && data.maxCloudExports > 0) {
+	if (cloudExportAvailable && data.maxCloudExports > 0) {
 		loadCloudExports();
 	}
 });
@@ -569,13 +574,23 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 								{SETTINGS_LABELS.dataExportIncludeFilesHint}
 							</p>
 						</div>
-					{:else}
+					{:else if cloudExportAvailable}
 						<div
 							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-3"
 							data-testid="data-export-zip-cloud-hint"
 						>
 							<p class="text-xs text-[var(--color-feedback-info-text)]">
 								{SETTINGS_LABELS.dataExportZipCloudHint}
+							</p>
+						</div>
+					{:else}
+						<!-- #3867: NUC (self-host) はクラウドバックアップ導線が無いため代替文言 (AC2) -->
+						<div
+							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-3"
+							data-testid="data-export-zip-local-hint"
+						>
+							<p class="text-xs text-[var(--color-feedback-info-text)]">
+								{SETTINGS_LABELS.dataExportZipLocalHint}
 							</p>
 						</div>
 					{/if}
@@ -928,8 +943,8 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 		</div>
 	</Card>
 
-	<!-- クラウドエクスポート (SaaS モード専用) -->
-	{#if $page.data.authMode === 'cognito'}
+	<!-- クラウドエクスポート (SaaS モード専用) — #3867: ZIP hint と同一条件 (cloudExportAvailable) でガード -->
+	{#if cloudExportAvailable}
 		<Card padding="lg" data-testid="cloud-export-card">
 			<div class="flex items-center gap-2 mb-4">
 				<h3 class="text-lg font-bold text-[var(--color-text)]">
