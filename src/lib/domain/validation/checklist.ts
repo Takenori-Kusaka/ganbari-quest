@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 // #3151 slice3 (ADR-0066): icon の値域は「grapheme 数」で判定する。grapheme 計数は activity /
 // reward と同一実装 (countIconGraphemes) を共有し、値でなく述語を SSOT 化する (ADR-0066 原則 2)。
 import { countIconGraphemes } from './activity';
@@ -6,7 +6,7 @@ import { countIconGraphemes } from './activity';
 // ============================================================
 // チェックリスト item 値域 SSOT (#3151 slice3 / ADR-0066)
 // ============================================================
-// domain Zod schema (本ファイル checklistItemSchema) と wire Valibot schema
+// domain Valibot schema (本ファイル checklistItemSchema) と wire Valibot schema
 // (src/lib/marketplace/schemas/checklist-schema.ts の ChecklistItemSchema) の両方が本定数を参照する。
 // 値域 literal の二重定義は #3132 class (値域ドリフト blocker) の root class のため禁止。
 // domain⊆wire 包含は tests/unit/architecture/schema-range-ssot.test.ts が boundary probe で機械表明する。
@@ -26,7 +26,7 @@ export const CHECKLIST_ICON_MIN_GRAPHEMES = 1;
 export const CHECKLIST_ICON_MAX_GRAPHEMES = 2;
 
 /**
- * チェックリスト item icon 値域 (1〜2 grapheme) 判定。domain Zod refine と wire Valibot check の
+ * チェックリスト item icon 値域 (1〜2 grapheme) 判定。domain / wire 両 Valibot check の
  * 共有 oracle (#3151 slice3)。旧 wire 側 `maxLength(20)` (UTF-16 units 基準) は ZWJ 連結絵文字
  * 2 個 (👨‍👩‍👧‍👦👨‍👩‍👧‍👦 = 22 units) を弾き (往復不能)、逆に絵文字 3 個以上 (🎁🎈🎀 = 6 units) を
  * 受理していた (単一〜少数の絵文字という意図に反する)。grapheme 判定への統一で「1〜2 個の絵文字」
@@ -37,6 +37,36 @@ export function isValidChecklistIcon(val: string): boolean {
 	return count >= CHECKLIST_ICON_MIN_GRAPHEMES && count <= CHECKLIST_ICON_MAX_GRAPHEMES;
 }
 
+// ============================================================
+// field 単位の Valibot schema (domain / wire 共有 SSOT、#3852 Phase B-2 / EPIC #3151 選択肢 B)
+// ============================================================
+// 旧: 同じ label/icon/order の shape を domain Zod と wire Valibot (checklist-schema.ts) で 2 回宣言
+// (slice3 では値域「定数」だけを共有し、field「schema 構造」は依然 2 重定義だった)。新: field pipe を
+// 本節に 1 回だけ定義し、domain object (下記 checklistItemSchema) と wire object の双方が import して
+// 組み立てる。構造の二重定義を排し、境界値の再ドリフト (#3132 class) を構造的に不可能にする。
+// activity (Phase B-1 / #3860) / reward (Phase B-0 / #3853) と同型。
+
+/** チェックリスト項目名 (1〜100 文字) */
+export const checklistLabelSchema = v.pipe(
+	v.string('label は文字列で指定してください'),
+	v.minLength(CHECKLIST_LABEL_MIN, 'label は必須です'),
+	v.maxLength(CHECKLIST_LABEL_MAX, `label は ${CHECKLIST_LABEL_MAX} 文字以内で指定してください`),
+);
+
+/** チェックリスト項目 icon (1〜2 grapheme の絵文字)。isValidChecklistIcon を共有 oracle に判定 (#3151) */
+export const checklistIconSchema = v.pipe(
+	v.string(),
+	v.minLength(1, 'icon は必須です'),
+	v.check(isValidChecklistIcon, 'icon は 1〜2 個の絵文字で指定してください'),
+);
+
+/** チェックリスト項目の並び順 (0 以上の整数)。追加時に自動採番される */
+export const checklistOrderSchema = v.pipe(
+	v.number('order は数値で指定してください'),
+	v.integer('order は整数で指定してください'),
+	v.minValue(CHECKLIST_ORDER_MIN, `order は ${CHECKLIST_ORDER_MIN} 以上で指定してください`),
+);
+
 /**
  * チェックリスト item の domain validator (SSOT)。
  *
@@ -44,17 +74,14 @@ export function isValidChecklistIcon(val: string): boolean {
  * 上記 SSOT を参照し、wire schema (ChecklistItemSchema) と同一境界で受理/拒否する。
  *
  * 実利用箇所 (dead code ではない):
- *   - admin authoring 経路: `/admin/checklists` の addTemplateItem action が
- *     `checklistItemSchema.pick({ label: true, icon: true })` で label / icon を検証する
+ *   - admin authoring 経路: `/admin/checklists` の addItem action が
+ *     `v.pick(checklistItemSchema, ['label', 'icon'])` で label / icon を検証する
  *     (order は追加時に自動採番されるため authoring 対象外)。
  *   - fitness probe: tests/unit/architecture/schema-range-ssot.test.ts が本 schema を
  *     domain oracle として wire schema と cross-assert する。
  */
-export const checklistItemSchema = z.object({
-	label: z.string().min(CHECKLIST_LABEL_MIN).max(CHECKLIST_LABEL_MAX),
-	icon: z
-		.string()
-		.min(1)
-		.refine(isValidChecklistIcon, { message: 'アイコンは1〜2つの絵文字で指定してください' }),
-	order: z.number().int().min(CHECKLIST_ORDER_MIN),
+export const checklistItemSchema = v.object({
+	label: checklistLabelSchema,
+	icon: checklistIconSchema,
+	order: checklistOrderSchema,
 });

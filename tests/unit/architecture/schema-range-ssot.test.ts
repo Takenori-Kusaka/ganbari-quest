@@ -1,10 +1,12 @@
 // tests/unit/architecture/schema-range-ssot.test.ts
-// #3151 slice1/slice2/slice3/slice4 (ADR-0066): export/import 値域ドリフト根絶の fitness function。
+// #3151 slice1/slice2/slice3/slice4 (ADR-0066) + #3852 Phase B (選択肢 B): export/import 値域
+// ドリフト根絶の fitness function。
 //
-// root class (#3104→#3132 の 2 サイクル連続 blocker): domain validation (Zod) と
-// wire schema (Valibot) が別ファイル・別ライブラリで値域を二重定義し、
-// 「アプリが許容する値域 ⊆ export/import が往復できる値域 (domain⊆wire)」という
-// 不変条件がどこにも機械表明されていなかった。
+// root class (#3104→#3132 の 2 サイクル連続 blocker): domain validation と wire schema が
+// 別ファイルで値域を二重定義し、「アプリが許容する値域 ⊆ export/import が往復できる値域
+// (domain⊆wire)」という不変条件がどこにも機械表明されていなかった。#3852 で domain / wire を
+// 単一 Valibot schema に統合し (5 type 全て domain の field pipe を wire が import)、構造の二重
+// 定義自体を排したうえで、本 fitness が値域境界の一致を behavior-level で表明し続ける。
 //
 // 本テストの表明:
 //   (1) no-silent-gap: marketplace 全 type が「値域 SSOT 適用済 (COVERED)」か
@@ -12,8 +14,9 @@
 //       新 type 追加時に本分類へ登録しなければ CI で fail する (silent skip 禁止、
 //       admin-resource-model-registry の NON_CANONICAL 方式と同型)。slice4 (#3151) で
 //       challenge-set / rule-preset を COVERED 化し RANGE_SSOT_TODO を空にした = 5 type 全 COVERED。
-//   (2) 全 5 type (COVERED): domain Zod (createActivitySchema / grantSpecialRewardSchema /
-//       checklistItemSchema / challengeSetItemSchema / rulePresetItemSchema) と wire Valibot
+//   (2) 全 5 type (COVERED): domain Valibot (createActivitySchema / grantSpecialRewardSchema /
+//       checklistItemSchema / challengeSetItemSchema / rulePresetItemSchema、#3852 で Zod→Valibot 統合済)
+//       と wire Valibot
 //       (ActivityPackItemSchema / RewardSetItemSchema / ChecklistItemSchema / ChallengeSetItemSchema /
 //       RulePresetItemSchema) が値域 SSOT 定数
 //       (`$lib/domain/validation/{activity,special-reward,checklist,challenge-set,rule-preset}.ts`)
@@ -179,7 +182,7 @@ const checklistItem = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-const checklistDomainOk = (data: unknown) => checklistItemSchema.safeParse(data).success;
+const checklistDomainOk = (data: unknown) => v.safeParse(checklistItemSchema, data).success;
 const checklistWireOk = (data: unknown) => v.safeParse(ChecklistItemSchema, data).success;
 
 /** checklist の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
@@ -195,8 +198,9 @@ function expectBothChecklist(field: string, value: unknown, expected: boolean) {
 // ── (2d) challenge-set boundary probe 用の valid base item ──────────
 // domain (challengeSetItemSchema) と wire (ChallengeSetItemSchema) の共通 shape。base に categoryId
 // を含めるのは wire 側 picklist が必須のため。domain schema は categoryId (意味的カテゴリ enum、
-// 値域ではない) を対象外とし Zod default で無視する。SSOT 化前は domain 側 validator が存在せず、
-// wire icon が maxLength(20) (UTF-16 units) で domain の grapheme 意図と非対称だった。
+// 値域ではない) を対象外とし、v.object の未知 entry 無視で受理する (#3852 で Zod→Valibot 統合後も
+// 同挙動)。SSOT 化前は domain 側 validator が存在せず、wire icon が maxLength(20) (UTF-16 units) で
+// domain の grapheme 意図と非対称だった。
 
 const challengeItem = (over: Record<string, unknown> = {}) => ({
 	title: 'ひなまつりチャレンジ',
@@ -210,7 +214,7 @@ const challengeItem = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-const challengeDomainOk = (data: unknown) => challengeSetItemSchema.safeParse(data).success;
+const challengeDomainOk = (data: unknown) => v.safeParse(challengeSetItemSchema, data).success;
 const challengeWireOk = (data: unknown) => v.safeParse(ChallengeSetItemSchema, data).success;
 
 /** challenge の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
@@ -236,7 +240,7 @@ const ruleItem = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-const ruleDomainOk = (data: unknown) => rulePresetItemSchema.safeParse(data).success;
+const ruleDomainOk = (data: unknown) => v.safeParse(rulePresetItemSchema, data).success;
 const ruleWireOk = (data: unknown) => v.safeParse(RulePresetItemSchema, data).success;
 
 /** rule の domain / wire 両 schema が同一 field 値で受理/拒否一致することを表明する */
