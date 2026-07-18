@@ -219,16 +219,43 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 	});
 
 	describe('#3850: MainTable cross-stack export 2-deploy migration 不変条件 (Deploy-1)', () => {
-		it('B-3850a: prod StorageStack が MainTable ARN の cross-stack export を保持する (Deploy-1 の肝)', () => {
+		it('B-3850a: prod StorageStack が MainTable の Ref + Arn 両 export を過不足なく保持する (旧 consumer import 全集合、#3855 の Arn 単独欠陥を再発不能化)', () => {
 			// #3850: ComputeStack が import を落とした Deploy-1 状態でも、StorageStack は exportValue で
-			// `<stackName>:ExportsOutputFnGetAttMainTable<hash>Arn` の export を明示保持する。これが無いと
-			// 未反映 consumer が旧 export を import 中に CFN が in-use 削除を拒否 → StorageStack rollback (#3850)。
-			// エラーログの export 名 `GanbariQuest{,Staging}Storage:ExportsOutputFnGetAttMainTable...Arn` と
-			// 同一 shape (test では stack 名 prefix が TestStorage、本番 synth は GanbariQuestStorage で実測一致済)。
-			const exportOutputs = prodStorage.findOutputs('*', {
-				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn') },
+			// 旧 (デプロイ済) ComputeStack が import していた export を **全て** 保持する必要がある。
+			//
+			// **なぜ Arn だけでは不十分か (#3855 の 2 度目 rollback の真因)**: 旧 compute-stack.ts
+			// (撤去コミット 9ebd59e1 の親版) の `props.table.*` 全参照を実測すると、consumer が
+			// import する export の完全集合は 2 つある —
+			//   1. Ref export  `ExportsOutputRefMainTable<hash>`
+			//      ← `props.table.tableName!` (= CFN `Ref MainTable`) を参照する env 6 箇所
+			//        (TABLE_NAME / DYNAMODB_TABLE / ANALYTICS_TABLE_NAME × prod + staging block)。
+			//        全て同一 Ref に解決されるため export は 1 本。
+			//   2. Arn export  `ExportsOutputFnGetAttMainTable<hash>Arn`
+			//      ← `props.table.grantReadWriteData(this.fn)` の IAM policy (`Fn::GetAtt Arn`)。
+			// #3855 は Arn だけ exportValue し Ref を保持し忘れた → CDK が未参照の Ref export を
+			// 自動削除 → 未反映 consumer が旧 Ref を import 中で CFN が in-use 削除拒否 →
+			// StorageStack rollback (deploy-aws-staging 貫通で fail ログ `ExportsOutputRefMainTable...`)。
+			//
+			// そこで本 assert は「Arn 1 本」ではなく **MainTable に紐づく export の集合 = {Ref, Arn}
+			// が過不足なく存在する** ことを断言する (Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に
+			// 再発不能にする)。export 名の hash は construct token 由来で stack 名に依存しない (test の
+			// TestStorage も本番 GanbariQuestStorage も同一 logicalId、本番 synth で実測一致済)。
+			const allMainTableExports = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
 			});
-			expect(Object.keys(exportOutputs).length).toBe(1);
+			const refExport = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputRefMainTable[0-9A-F]+$') },
+			});
+			const arnExport = prodStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn.*') },
+			});
+			// Ref (table 名) が保持されている — #3855 で欠落し #3850 を再発させた export。
+			expect(Object.keys(refExport).length).toBe(1);
+			// Arn (grantReadWriteData IAM policy) が保持されている — #3855 が保持した export。
+			expect(Object.keys(arnExport).length).toBe(1);
+			// 集合の過不足ゼロ: MainTable 由来の export はちょうど Ref + Arn の 2 本のみ
+			// (第 3 の export = tableStreamArn 等が旧 consumer に無いことも実測確認済)。
+			expect(Object.keys(allMainTableExports).length).toBe(2);
 		});
 
 		it('B-3850b: prod ComputeStack は MainTable を import / grant しない (Deploy-1 の consumer 状態)', () => {
@@ -244,12 +271,26 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 	});
 
 	describe('S-1: staging Storage — DynamoDB MainTable(=1, DESTROY) + Backup 不在 (#3850 Deploy-1) + ECR maxImageCount:3', () => {
-		it('DynamoDB MainTable を Deploy-1 で保持 (#3850、staging も prod と同型 / removalPolicy=DESTROY)', () => {
-			// #3850: staging も prod と同型に MainTable + export を Deploy-1 で保持する (staging 側 export 名は
-			// GanbariQuestStorageStaging: 名前空間で prod と衝突しない)。staging は removalPolicy=DESTROY。
+		it('DynamoDB MainTable + Ref/Arn 両 export を Deploy-1 で保持 (#3850、staging も prod と同型 / removalPolicy=DESTROY)', () => {
+			// #3850: staging も prod と同型に MainTable + export を Deploy-1 で保持する。staging は
+			// removalPolicy=DESTROY。export 名は GanbariQuestStorageStaging: 名前空間で prod と衝突しない
+			// (stack 名 prefix が異なり、hash は同一。両 stack で auto-export と同一名を再生成)。
 			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
 			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
 			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Delete' });
+			// prod と同型に **Ref + Arn 両 export** を保持する (#3855 の Arn 単独欠陥を staging 側でも封じる)。
+			const refExport = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputRefMainTable[0-9A-F]+$') },
+			});
+			const arnExport = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn.*') },
+			});
+			const allMainTableExports = stagingStorage.findOutputs('*', {
+				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
+			});
+			expect(Object.keys(refExport).length).toBe(1);
+			expect(Object.keys(arnExport).length).toBe(1);
+			expect(Object.keys(allMainTableExports).length).toBe(2);
 		});
 
 		it('AWS Backup (vault / plan) を構築しない (enableBackup=false)', () => {
