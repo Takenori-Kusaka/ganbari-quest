@@ -251,7 +251,7 @@ LP 9 セクションを 4 トーンに分類し、各トーンに「規範のど
 - **補足テキスト**: 「家族何人でも無料ではじめられます / クレジットカード登録不要」
 - **ビジュアル**: ヒーローイラスト + アプリスクショ（モバイル/デスクトップで切替）
 - **PC 横長レイアウト** (#1617 R13 / Phase 5 P2):
-  - `<br>` 強制改行は使わず `text-wrap: balance; word-break: auto-phrase;` (ADR-0016) で自然折り返し
+  - `<br>` 強制改行は使わず `text-wrap: balance; word-break: auto-phrase;` (DESIGN.md §3) で自然折り返し
   - `h1` の `max-width` は 1200px、PC (≥1024px) では `font-size: 2.9rem` / `padding: 80px 24px 64px` に拡大
   - `hero-sub` は `max-width: 780px` / `font-size: 1.12rem` (PC のみ)
 

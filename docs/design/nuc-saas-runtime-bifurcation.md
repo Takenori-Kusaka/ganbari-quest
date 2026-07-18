@@ -1,6 +1,6 @@
 # NUC vs SaaS runtime bifurcation
 
-> SSOT 起点: [ADR-0051 (NUC-SaaS Bifurcation)](../decisions/0051-license-page-nuc-saas-bifurcation.md) / [ADR-0040 (runtime-mode SSOT、archive)](../decisions/archive/0040-runtime-mode-license-unified-architecture.md) / EPIC #2327
+> 本設計書が NUC/SaaS 分岐 (Edition badge + 簡略表示型 + `locals.runtimeMode` SSOT 経由分岐) の SSOT (旧 ADR-0051 を 2026-07-19 棚卸で吸収、選定比較は git 履歴)。runtime-mode 決定背景: [ADR-0040 (archive)](../decisions/archive/0040-runtime-mode-license-unified-architecture.md) / EPIC #2327
 
 ## §1. 設計背景
 
@@ -120,11 +120,10 @@ export const NUC_EDITION_TERMS = {
 2. NUC 専用 panel と SaaS 専用 panel を `src/lib/features/<feature>/components/` に配置
 3. NUC で削除すべきセクションを上記 2.3 と同型の表で先に整理
 4. labels.ts に NUC 専用 namespace (例: `NUC_FOO_LABELS`) を terms.ts atom で組み立て (ADR-0045)
-5. ADR-0051 を参照する派生 ADR を起票 (適用 route が 3+ に増えたら共通化検討)
+5. 適用 route が 3+ に増えたら共通化を検討し ADR を起票 (本設計書を SSOT 起点として参照)
 
 ## 関連
 
-- ADR-0051: NUC-SaaS Bifurcation (license/billing 領域、Edition badge + 簡略表示型採用)
 - ADR-0040 (archive): 実行モード × ライセンス統括アーキテクチャ
 - ADR-0015: 年齢帯 variant アーキテクチャ (context 注入同型)
 - ADR-0014: labels / i18n 機構選定 (OSS 先調査)

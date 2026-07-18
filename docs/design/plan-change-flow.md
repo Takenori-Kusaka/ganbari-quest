@@ -689,7 +689,7 @@ Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の
   - #786 — 月額↔年額切替の UI 導線改善 / proration 仕様
   - #823 — Tenant plan 状態マシン統一 EPIC
 - ADR
-  - [ADR-0022（archive）](../decisions/archive/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0049](../decisions/0049-retention-physical-delete-extended.md) — プラン別履歴保持 + 物理削除ポリシー（旧 archive ADR-0022 の課金×データライフサイクル整合原則は本文と git 履歴に統合）
 - 実装
   - `src/routes/(parent)/admin/license/+page.svelte`
   - `src/routes/(parent)/admin/license/+page.server.ts`

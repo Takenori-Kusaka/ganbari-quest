@@ -220,5 +220,5 @@ PR #2480 (checklist_templates flip) は **PR #2509 で per-child → assignments
 - 関連 PR: [#2509](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2509) (lazy-startup-migrations.ts 枠組) / [#2512](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2512) (緊急 recovery script + runbook)
 - 原因 PR: [#2487](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2487) (activity-repo facade rewrite)
 - 同型対応 ref PR: [#2509](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2509) (checklist_templates flip data copy)
-- ADR: [ADR-0002](../decisions/0002-critical-fix-quality-gate.md) (Critical 5 要件)、[ADR-0031](../decisions/archive/0031-schema-change-compat-testing.md) (SQLite ADD COLUMN only)、[ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md) (Bucket A)
+- ADR: [ADR-0002](../decisions/0002-critical-fix-quality-gate.md) (Critical 5 要件)、スキーマ互換テスト義務 ([tests/CLAUDE.md](../../tests/CLAUDE.md)、旧 archive ADR-0031)、[ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md) (Bucket A)
 - 教訓 memory: `feedback_schema_ssot_create_tables_sync.md` (4 dimension SSOT)

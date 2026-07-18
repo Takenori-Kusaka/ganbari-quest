@@ -6,7 +6,7 @@
 | 日付 | 2026-05-15 |
 | 起票者 | Takenori Kusaka |
 | 関連 Issue | #2097 |
-| 関連 ADR | ADR-0010 (Pre-PMF scope 判断、本決定の許容根拠) / ADR-0014 (#1350 OSS 先調査ルール) / ADR-0039 (re-activated、demo 実行モード化、本決定で §3 data layer を supersede) / ADR-0040 (re-activated、Typed env + EvaluationContext + Policy Gate、本決定で env 駆動を一層活用) / ADR-0046 (Service Interface + Context DI、本決定でも UI ↔ Service 経路は同じ) / ADR-0047 (UI Contract SSOT、ViewModel shape は production / demo で同一) |
+| 関連 ADR | ADR-0010 (Pre-PMF scope 判断、本決定の許容根拠) / #1350 OSS 先調査ルール (`docs/decisions/README.md`) / ADR-0039 (archive、demo 実行モード化、本決定で §3 data layer を supersede) / ADR-0040 (archive、Typed env + EvaluationContext + Policy Gate、本決定で env 駆動を一層活用) / 旧 ADR-0046・旧 ADR-0047 (2026-07-19 棚卸で本 ADR §統合 に吸収) |
 | supersedes (部分) | ADR-0039 §決定 §3 データレイヤ (single Lambda + in-memory context 合成 → Multi-Lambda + env 駆動 stateless fixture) |
 
 ## コンテキスト
@@ -73,7 +73,7 @@
 - **Test Double (Martin Fowler)**: demo Lambda は **「Fake (read) + Stub (write) hybrid」** で位置付け
   - read API (find / get / list): Fake = demo-data.ts fixture から返却
   - write API (insert / update / delete): Stub = `{ ok: true, demo: true }` 200 no-op response (§P-1.7)
-- **Anti-Corruption Layer (Evans DDD)**: production / demo Service が `toViewModel()` で同 ChildHomeViewModel に正規化 (ADR-0047 既存)
+- **Anti-Corruption Layer (Evans DDD)**: production / demo Service が `toViewModel()` で同 ChildHomeViewModel に正規化 (旧 ADR-0047、§統合)
 - **Lambda stateless** (AWS Lambda Best Practices doc 公式): module-level singleton で **user-specific mutable state を保持しない**。「demo で記録 → リロードで保持」は **client sessionStorage 限定** (tab 閉じで消失、§P-1.1)
 
 ### 3. CDK 構成 (Part I §4 + §10)
@@ -128,6 +128,14 @@
 3. **週 4**: CDK `ComputeStack` に `SvelteKitDemoFn` + `demo-lambda-role` 追加、CloudFront alt domain + Route 53 record
 4. **週 5**: hooks.server.ts から demo cookie / `locals.isDemo` 検出を削除 (env 駆動になるため不要、PR-B4 #2189 で完了)、LP demo リンクを `demo.ganbari-quest.com` に再変更
 5. **週 6**: E2E test 更新、5 年齢モード SS 視覚等価性検証、PR Ready 化
+
+## 統合 (2026-07-19 棚卸、旧 ADR-0046 / 旧 ADR-0047 を吸収)
+
+demo/本番 UI 統合 3 部作 (0046 → 0047 → 0048) のうち、#2097 EPIC 完遂で経緯 record 化した 2 件を削除し (git 履歴で追跡)、現役の決定核のみ本 ADR に集約する:
+
+- **Service Interface + Context DI (旧 ADR-0046)**: `$lib/services/types.ts` の `ChildDashboardService` interface + `context.ts` の `setContext`/`getContext` (symbol key) DI は本番 routes で現役。demo Lambda は env (`DATA_SOURCE=demo`) で `DemoDashboardService` を選択し同一 UI を駆動する。`if (isDemo)` 分岐の UI 混入は本パターンで構造的に禁止。ADR-0052 (MarketplaceTypeRegistry) の Registry 配布も同型パターンを再利用する
+- **UI Contract / ViewModel 型強制 (旧 ADR-0047)**: production / demo 両 Service が `toViewModel()` で同一 `ChildHomeViewModel` shape に正規化する (§2 Anti-Corruption Layer)。逃げ語 12 語の禁止語 SSOT は [forbidden-escape-language.md](forbidden-escape-language.md) が独立保持
+- POC 経緯 / 5 phase 計画 / PO 13 質問回答などの narrative は git 履歴 (旧 `0046-svelte5-service-interface-context-di.md` / `0047-demo-prod-ui-contract-ssot.md`) 参照
 
 ## 関連 Issue
 

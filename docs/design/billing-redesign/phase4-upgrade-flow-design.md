@@ -88,7 +88,7 @@ Phase 3 #2567 (`/admin/subscription`) で「アップグレード」「ダウン
 | ADR-0013 (LP truth) | 実装の事実 SSOT | ✅ LP / app / 法務文書 (tokushoho.html) の 3 経路で `family` atom 表示名「ファミリー」維持 (Phase 3 #2609 SSOT 衝突解決後の Phase 7 で rename 判断、本書では現 atom 維持) |
 | ADR-0045 (terms.ts 2 階層) | atom / compound 責務分離 | ✅ Phase 2 #2549 で確定済 `PLAN_CHANGE_TERMS` atom + `PLAN_CHANGE_LABELS` compound を再利用 (本書で新規追加せず、二重実装禁止) |
 | ADR-0050 (Parent-Gate session cookie) | 子供 UI 課金圧排除 | ✅ アップ動線は `/admin/*` 配下のため Parent-Gate 通過後のみ表示 (子供画面非露出、ADR-0012 整合) |
-| ADR-0051 (NUC-SaaS Bifurcation) | NUC 環境では Edition badge 経路 | ✅ NUC 環境では本動線非表示 (Edition badge 経路、別 issue で扱う) |
+| NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md) | NUC 環境では Edition badge 経路 | ✅ NUC 環境では本動線非表示 (Edition badge 経路、別 issue で扱う) |
 
 ---
 
@@ -466,7 +466,7 @@ test('動線 8: trial→in-app paywall 経由のアップ動線 (Phase 4 #2622 �
 | ADR-0013 (LP truth) | ✅ LP / app / 法務文書 3 経路で `family` atom 表示名「ファミリー」維持 (Phase 3 #2609 SSOT 衝突解決後の Phase 7 で rename 判断) |
 | ADR-0045 (terms.ts 2 階層) | ✅ Phase 2 #2549 + Phase 3 #2570/#2573 既存 atom を再利用 + 新規 UPGRADE_FLOW_LABELS compound のみ追加 (atom は新規なし、二重実装禁止) |
 | ADR-0050 (Parent-Gate) | ✅ /admin/* 配下、子供 UI に課金圧表示なし |
-| ADR-0051 (NUC-SaaS Bifurcation) | ✅ NUC 環境では本動線非表示 (Edition badge 経路、別 issue で扱う) |
+| NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md) | ✅ NUC 環境では本動線非表示 (Edition badge 経路、別 issue で扱う) |
 
 ---
 
@@ -594,7 +594,7 @@ test('動線 8: trial→in-app paywall 経由のアップ動線 (Phase 4 #2622 �
 - ADR-0013 (LP truth、3 経路 SSOT 整合)
 - ADR-0045 (terms.ts 2 階層、UPGRADE_FLOW_LABELS compound 責務 + 既存 atom 再利用)
 - ADR-0050 (Parent-Gate session cookie)
-- ADR-0051 (NUC-SaaS Bifurcation)
+- NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md)
 - ADR-0056 (QM drift prevention、Adversarial Reviewer business/UX/security 3 軸 §13 整合)
 - skill `impact-analysis` (4 layer 防御 + 21 カテゴリ checklist)
 - 関連 memory: feedback_billing_critical_extra_caution / feedback_adr0010_interpretation / feedback_scope_customer_experience_layer / feedback_design_intent_grounding / feedback_test_coverage_every_issue / feedback_deep_research_product_specific / reference_per_issue_execution_workflow / reference_impact_analysis_methodology / feedback_pr_review_recurring_blocks

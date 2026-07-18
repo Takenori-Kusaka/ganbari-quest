@@ -250,7 +250,7 @@ soft delete 状態のテナントに対し、物理削除実行の **14 日前 (
   - #742 — グレースピリオド
   - #738 / #754 — ダウングレード前確認 / 超過リソース処理
 - ADR
-  - [ADR-0022（archive）](../decisions/archive/0022-billing-data-lifecycle-consistency.md) — 課金サイクルとデータライフサイクルの整合性
+  - [ADR-0049](../decisions/0049-retention-physical-delete-extended.md) — プラン別履歴保持 + 物理削除ポリシー（旧 archive ADR-0022 の課金×データライフサイクル整合原則は本文と git 履歴に統合）
   - [ADR-0001](../decisions/0001-design-doc-as-source-of-truth.md) — 設計書 SSOT
 - 実装
   - `src/lib/server/services/account-deletion-service.ts`

@@ -7,7 +7,7 @@
 | 起票者 | Dev (Issue #2363 / EPIC #2362) |
 | 関連 Issue | #2362 (EPIC) / #2363 (本 ADR の起票元) / #2365-2369 (concrete strategy 実装) |
 
-> **番号衝突メモ**: 元 Issue #2363 では「ADR-0051」と指示されていたが、起票時点で `0051-license-page-nuc-saas-bifurcation.md` (2026-05-20) が確保済のため renumber 規約 (`docs/decisions/README.md` §renumber) に従い **0052** に振り直した。
+> **番号衝突メモ**: 元 Issue #2363 では「ADR-0051」と指示されていたが、起票時点で旧 ADR-0051 (NUC-SaaS Bifurcation、2026-05-20。2026-07-19 棚卸で削除、現状 SSOT は `docs/design/nuc-saas-runtime-bifurcation.md`) が確保済のため renumber 規約 (`docs/decisions/README.md` §renumber) に従い **0052** に振り直した。
 
 ## コンテキスト
 
@@ -38,7 +38,7 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
   - **discriminated union 型安全**: `registry.get('activity-pack')` がリテラル型 narrow
   - **eager-load パターン**: `src/lib/marketplace/index.ts` で `import './types/<type>'` の side-effect により全 type が起動時登録 (VSCode / Obsidian と同型)
   - **テスト容易性**: Strategy を mock 化して Registry 単体テストが書ける
-  - **既存 ADR-0046 (Service Interface + Context DI) と相補的**: Registry の SSR / CSR 配布は ADR-0046 と同じ `setContext` / `getContext` パターンを再利用
+  - **既存 Service Interface + Context DI (ADR-0048 §統合、旧 ADR-0046) と相補的**: Registry の SSR / CSR 配布は同じ `setContext` / `getContext` パターンを再利用
 - **デメリット**:
   - register 忘れで Registry が空のまま動く可能性 → `marketplace/index.ts` の side-effect import 行が SSOT、CI gate (#11 #12 で別途検討) で補強予定
 - **Pre-PMF コスト (ADR-0010)**:
@@ -72,7 +72,7 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
 
 1. **`src/lib/marketplace/types.ts`** (~130 行): `ImportContext` / `ImportPreview` / `ImportResult` / `ImportStrategy<T>` / `MarketplaceTypeDescriptor<T>` interface + `MARKETPLACE_TYPE_CODES` SSOT (5 type)
 2. **`src/lib/marketplace/registry.ts`** (~110 行): `MarketplaceTypeRegistry` class with register / get / has / list / size / clear、未登録 type は明確な error で fail-fast
-3. **`src/lib/marketplace/context.ts`** (~65 行): Svelte 5 Context DI ヘルパー (`setMarketplaceRegistryContext` / `getMarketplaceRegistry`、ADR-0046 同型 symbol key パターン)
+3. **`src/lib/marketplace/context.ts`** (~65 行): Svelte 5 Context DI ヘルパー (`setMarketplaceRegistryContext` / `getMarketplaceRegistry`、ADR-0048 §統合と同型の symbol key パターン)
 4. **`src/lib/marketplace/index.ts`** (~30 行): 公開 API + 5 type の side-effect import スロット (concrete strategy 実装後に有効化)
 5. **`tests/unit/marketplace/registry.test.ts`** (~200 行、15 テストケース): register / get / list / has / size / clear / discriminated union / strategy 呼出契約 / `MARKETPLACE_TYPE_CODES` SSOT
 6. **`docs/design/marketplace-architecture.md`**: アーキ概念図 + Registry / Strategy / Hub の関係 SSOT
@@ -91,7 +91,7 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
 - 5 type 横断の import/export 振る舞いが 1 箇所の SSOT で SOLID に整列
 - 新 type 追加コストが 1 ファイル増分 (Descriptor) + 1 行 (`marketplace/index.ts` の side-effect import) に減る
 - copy-paste 再発を構造的に阻止 (新 type は Strategy 実装で `parse/preview/apply` 契約を強制される)
-- ADR-0046 / ADR-0047 の Service Interface + Context DI パターンと同型のため、既存実装者が再学習不要
+- Service Interface + Context DI パターン (ADR-0048 §統合、旧 ADR-0046 / 0047) と同型のため、既存実装者が再学習不要
 - Pre-PMF (Bucket A): EPIC #2362 の 5 EPIC 浪費防止に直結、本基盤なしに次 Issue が動かない
 - 1-in-1-out (README §10 枠超過時の義務): TOP10 の actual active 数は 27 件で既に大幅超過しており、本 PR では追加のみ。1-in-1-out 履行は別 follow-up Issue (#1924 系の継続棚卸) で扱う
 
@@ -100,6 +100,6 @@ PO が 1 枚の `/admin/activities` SS から構造的欠陥 4 件を同時指�
 - EPIC #2362 (PO 4 問題の構造的解決)
 - ADR-0010 (Pre-PMF Bucket A)
 - ADR-0014 / #1350 (OSS 先調査ルール)
-- ADR-0046 (Service Interface + Context DI) — 本 ADR の Registry 配布パターンの参照元
+- ADR-0048 §統合 (Service Interface + Context DI、旧 ADR-0046) — 本 ADR の Registry 配布パターンの参照元
 - ADR-0023 archive (tenant isolation 強制) — 本 ADR の `ImportContext.tenantId` 必須性の根拠
 - `docs/design/marketplace-architecture.md` (本 PR で新規追加、アーキ概念図)

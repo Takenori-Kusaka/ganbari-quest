@@ -99,7 +99,9 @@ function main() {
 	console.warn('⚠️  If this PR is a pure format/comment change, add');
 	console.warn(`⚠️  "${SKIP_MARKER}" to the PR body to silence this warning.`);
 	console.warn('');
-	console.warn('⚠️  Reference: docs/decisions/archive/0031-schema-change-compat-testing.md');
+	console.warn(
+		'⚠️  Reference: tests/CLAUDE.md (schema change compat testing、旧 archive ADR-0031 は git 履歴)',
+	);
 	console.warn('');
 }
 

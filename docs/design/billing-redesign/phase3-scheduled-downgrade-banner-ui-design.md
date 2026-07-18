@@ -73,7 +73,7 @@
 | キーボード | CTA ボタンは Tab 到達可能、Enter / Space で発火 |
 | コントラスト | `Alert` primitive の既存 `--color-feedback-info-*` / `--color-feedback-warning-*` (DESIGN.md §2 Feedback トークン) を使用、WCAG AA 4.5:1 達成済 |
 | 縮小表示 | mobile (375px) で `flex-col` に折り返し、CTA は full-width |
-| BudouX (ADR-0016) | 主文に `use:budoux` 適用 (例: 「次回 YYYY 年 M 月 D 日から `${PLAN_FULL_TERMS.standard}` に」が「次回 YYYY 年 M 月 / D 日から / `${PLAN_FULL_TERMS.standard}` に」のように整う) |
+| BudouX (DESIGN.md §3) | 主文に `use:budoux` 適用 (例: 「次回 YYYY 年 M 月 D 日から `${PLAN_FULL_TERMS.standard}` に」が「次回 YYYY 年 M 月 / D 日から / `${PLAN_FULL_TERMS.standard}` に」のように整う) |
 | Reduced motion | 表示・非表示遷移は `prefers-reduced-motion` で fade-only に縮退 |
 
 ### 3.4 既存 primitive との関係 (再実装禁止、DESIGN.md §5)
@@ -228,7 +228,7 @@ stateDiagram-v2
 | ADR-0010 (Pre-PMF) | ✅ 既存 primitive (Alert) 再利用、新規 component 1 ファイル追加のみ。proration 計算 / カスタム視覚要素なし |
 | ADR-0001 (設計書 SSOT) | ✅ 本 doc が SSOT、Phase 7 実装は本仕様に準拠 |
 | ADR-0013 (LP 文言の事実 SSOT) | △ LP 影響なし。ただし pricing ページの「いつでも解約 OK」訴求と整合 (本 banner も同じ「いつでも復活」哲学) |
-| ADR-0016 (日本語折り返し) | ✅ §3.3 で `use:budoux` 適用方針記載 |
+| DESIGN.md §3 (日本語折り返し) | ✅ §3.3 で `use:budoux` 適用方針記載 |
 | DESIGN.md §5 (primitives 再実装禁止) | ✅ Alert primitive ラップ、新規 primitive 追加なし |
 | DESIGN.md §10 (z-index 階層) | ✅ `--z-banner` (= 30) を採用、生数値直書きなし |
 | Phase 2 #2549 (Tier Change) | ✅ §「Phase 3 申し送り 3」「次回 YYYY/MM/DD から standard に変更 / それまで family 維持」を本仕様で具体化 |
@@ -323,5 +323,5 @@ QM Tier 2 Re-Review で Adversarial Reviewer (ADR-0056 / `.claude/skills/adversa
   - [phase2-plan-change-journey.md](phase2-plan-change-journey.md) (#2549) — ダウン ジャーニー #5 / Phase 3 申し送り 3 / 文言 atom 拡張
   - [phase2-cancellation-journey.md](phase2-cancellation-journey.md) — 期末解約と integrate (`cancel_at_period_end` と本 banner の表示優先順位は Phase 7 で扱う)
 - **ADR / 設計書**:
-  - ADR-0012 (Anti-engagement) / ADR-0045 (terms.ts SSOT) / ADR-0010 (Pre-PMF) / ADR-0016 (日本語折り返し)
+  - ADR-0012 (Anti-engagement) / ADR-0045 (terms.ts SSOT) / ADR-0010 (Pre-PMF) / DESIGN.md §3 (日本語折り返し)
   - DESIGN.md §2 (カラートークン) / §5 (primitive 再実装禁止) / §10 (z-index 階層 `--z-banner`)
