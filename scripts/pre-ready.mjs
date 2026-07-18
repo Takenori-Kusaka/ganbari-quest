@@ -300,9 +300,11 @@ function fetchPrBodyAndLabels(prNumber) {
  * 検出:
  *   - worktree 判定: `repoRoot/.git` が「ファイル」(linked worktree の gitdir ポインタ) なら worktree。
  *     通常 clone では `.git` はディレクトリなので false。
- *   - 依存欠落判定: pre-ready 各 step が依存する代表 sentinel の存在確認。root `node_modules` のみ検査する
- *     (infra 単体テストは `cd infra && npx vitest` の別レーンで root vitest scope 外のため sentinel には含めず、
- *      ガイダンス文で `cd infra && npm ci` を併記する)。
+ *   - 依存欠落判定: pre-ready 各 step が依存する代表 sentinel の存在確認。root `node_modules` に加え、
+ *     `infra/node_modules/aws-cdk-lib` も検査する — Step 3 vitest の scope (`tests/unit/**`) には
+ *     `tests/unit/infra/*.test.ts` が含まれ aws-cdk-lib (infra 配下) を要求するため (tests/CLAUDE.md)。
+ *     `npm ci` の prepare が `cd infra && npm ci` を warn-only で実行する構造上、root だけ入って
+ *     infra が欠ける組合せがあり得るので両方を sentinel にする (#3857 で報告された aws-cdk-lib 欠落を捕捉)。
  *
  * pre-ready Step 1/2/3/11 が依存する代表 sentinel。1 つでも欠落したら install 未完了とみなす。
  * (export: tests/unit/scripts/pre-ready-preflight.test.ts が root 差替えで検証する)
@@ -314,6 +316,7 @@ export const PREFLIGHT_SENTINELS = [
 	'node_modules/vitest', // Step 3
 	'node_modules/tsx', // Step 11 (npx tsx check-terminology-coherence.ts)
 	'node_modules/@biomejs/biome', // Step 1
+	'infra/node_modules/aws-cdk-lib', // Step 3 vitest (tests/unit/infra/*.test.ts、tests/CLAUDE.md)
 ];
 
 /**
