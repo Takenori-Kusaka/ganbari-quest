@@ -25,6 +25,7 @@ description: Use when reviewing a pull request. Enforces the mandatory 9-point c
 - [ ] **failing-test-first（ADR-0061）**: バグ修正 PR は「再現テスト → 修正」順か。修正前に失敗し修正後に green になるテストで原因が pin されているか（修正だけで再現テストなしは差し戻し）
 - [ ] **push-down-the-pyramid（ADR-0061 / ADR-0007）**: 重量レーン（e2e / 統合監査）で露見した不具合は、同条件を unit / lint / fitness function で捕捉できないか検討し、可能なら下位層に降ろしてあるか
 - [ ] **same-class-N→guard（ADR-0061）**: 同一バグ class が 2 回以上再発している領域は、別 instance パッチでなく CI gate / lint / property test / fitness function で class 全体を lock しているか（instance パッチのみは Done にしない）
+- [ ] **Svelte Runes semantic（ADR-0007 §6 / #3878、lint 対象外の領域）**: `.svelte` 変更は `eslint-plugin-svelte` recommended（`lint:svelte`）が syntactic footgun を潰すが、**「この `$effect` は `$derived` にすべき」の意図判断は lint では原理的に不可能**（`prefer-writable-derived` は単一代入 trivial shape のみ検出）。effect で state を derive/同期していないか、新規 `eslint-suppressions.json` エントリ増（baseline 悪化）がないかを目視で確認する
 
 ### D. 横展開（parallel-implementations.md）
 - [ ] labels.ts の変更 → site/ + tutorial-chapters.ts も同期
