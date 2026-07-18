@@ -62,7 +62,8 @@ else                              pattern = 'member';
 | 対象 | 1. owner-only | 2a. transfer | 2b. full-delete | 3. child | 4. member |
 |------|---|---|---|---|---|
 | Stripe Subscription（#741 必須） | ✔ | ✘ | ✔ | ✘ | ✘ |
-| S3 / ストレージ（`tenants/{tenantId}/`） | ✔ | ✘ | ✔ | ✘ | ✘ |
+| S3 / ストレージ（`tenants/{tenantId}/` prefix） | ✔ | ✘ | ✔ | ✘ | ✘ |
+| S3 / クラウドバックアップ実体（`exports/{tenantId}/` prefix、#3868） | ✔ | ✘ | ✔ | ✘ | ✘ |
 | `deleteTenantScopedData` (activities, viewerTokens, cloudExports, pushSubscriptions, voice) | ✔ | ✘ | ✔ | ✘ | ✘ |
 | 子供データ全件 (`deleteAllChildrenData`) | ✔ | ✘ | ✔ | ✘ | ✘ |
 | 全メンバーシップ (`deleteAllMemberships`) | ✔ | ✘ | ✔ | ✘ | ✘ |
@@ -77,6 +78,8 @@ else                              pattern = 'member';
 | Discord 通知（`notifyDeletionComplete`） | ✔ | — | ✔ | — | — |
 
 > **重要**: パターン 3 (`deleteChildAccount`) は子供レコード自体を削除しない（活動履歴・実績は残す）。代わりに `child.userId` を `null` にしてアカウントだけ切り離す。これは「子供がスマホを返した」「再ログインのため UID を作り直したい」等のケースを想定したもの。
+
+> **S3 実体削除は 2 prefix に及ぶ（#3868）**: 「テナントスコープのデータ削除」は DB 行だけでなく S3 上の payload まで含む。① `fullTenantDeletion` / `deleteOwnerFullDelete` が `deleteByPrefix('tenants/{tenantId}/')` でアバター・音声・画像を削除する（§3 シーケンスの「S3 削除」）のに加え、② クラウドバックアップ ZIP は `exports/{tenantId}/{pinCode}/...` という**別 prefix**に置かれるため `tenants/{tenantId}/` の一括削除では消えない。これを `deleteTenantScopedData` の cloudExports 削除ループ内で、DB 行削除の**前**に `storage.deleteByPrefix(exp.s3Key)` を呼んで削除する（個別削除 `cloud-export-service.deleteCloudExport` と同一手段を再利用）。S3 削除失敗は best-effort（`logger.warn` で記録し DB 行削除・account 削除は継続）。これを怠ると退会後も子供の完全 PII を含むバックアップが S3 lifecycle（30 日）失効まで孤児として滞留する。
 
 ---
 
