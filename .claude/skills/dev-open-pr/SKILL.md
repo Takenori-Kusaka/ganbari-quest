@@ -52,6 +52,7 @@ Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **
 | **SKILL.md** (本ファイル) | PR 起票 4 ステップ (雛形展開 / 穴埋め / 検証 / Draft → Ready) |
 | [ready-gate-checklist.md](./ready-gate-checklist.md) | Ready 化前の 4 必須 CI gate 通過チェックリスト (Wave 1 知見) |
 | `templates/pr-body-{default,lp,critical-fix,refactor-ssot}.md` | kind 別 PR body 雛形 |
+| `templates/po-decision-brief.md` | **PO 決裁ブリーフ条件付きセクション雛形 (#3862、po-decision:required PR のみ append)** |
 | `scripts/init-pr-body.mjs` | Issue から `{{ISSUE_TITLE}}` `{{AC_TABLE}}` 等を自動穴埋め |
 
 各 PR 起票前に `node .claude/skills/dev-open-pr/scripts/init-pr-body.mjs --issue <num> --kind <type>` で `tmp/pr-bodies/<slug>.md` に雛形を展開してから穴埋めする。Ready 化直前に [ready-gate-checklist.md](./ready-gate-checklist.md) で 4 gate を順に確認する。
@@ -301,6 +302,25 @@ rm tmp/pr-bodies/<num>-<slug>.md
 | 設計書同期忘れで design-doc-check fail | Step 5 (pre-ready 4 種 check) |
 
 `--kind` を省略すると `default`。Issue label から推定する自動選択は導入しない（曖昧さによる事故回避、Agent が明示指定する）。
+
+## PO 決裁ブリーフ（po-decision:required 条件付きセクション、#3862）
+
+**PR が高リスク・不可逆変更に該当する場合**（`.github/labeler.yml` の `po-decision:required` glob 該当 = labeler 自動付与、または [pr-review SKILL.md](../pr-review/SKILL.md) §「Step 0-2」の判断層 checklist 該当 = 手動付与）、PR body 末尾（PR template 共通セクション + kind 別追加セクションの後ろ）に **`templates/po-decision-brief.md` を append** する。
+
+### 生成手順（6 項目）
+
+1. **triage 自己判定**: PR 起票前に変更 file 一覧を `.github/labeler.yml` の `po-decision:required` glob と突合 + Step 0-2 checklist（運用/保守コスト増・新規デザインアーキテクチャパターン採用・技術負債積み残し 等）を自問。該当なしなら本セクション不要（append しない）
+2. **雛形 append**: `templates/po-decision-brief.md` を PR body 末尾にコピー
+3. **項目 1〜3 記入**: リスク分類（可逆/不可逆 + 顧客面）/ ロールバック可否・データ破壊 / trade-off（ADR-0010 紐付け + PO 追加軸）
+4. **項目 4 記入**: `adversarial-reviewer` skill を dispatch し `tmp/adversarial-evidence/<pr>.json` の objections 3 件（business / UX / security）を表に転記 + 自身の推奨を 1 行
+5. **項目 5 記入**: 実機 SS（UI 変更時、screenshots branch）+ 顧客面の変化を具体的に。**PO がプロダクト実態を把握するための核**であり「テスト green」の羅列で代替しない
+6. **項目 6 記入**: PO への判断依頼を Yes/No 形式 1〜3 個に絞る
+
+### ルール
+
+- 本セクションは **必須 13 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
+- `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
+- label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する
 
 ## SSOT alignment 原則
 
