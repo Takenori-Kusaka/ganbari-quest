@@ -47,6 +47,7 @@ import { OpsStack } from '../../../infra/lib/ops-stack';
 import { SesStack } from '../../../infra/lib/ses-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
 
+// cspell:ignore TESTPOOL ZTEST
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
 const APP_NAME = 'GanbariQuest';
 const DOMAIN = 'ganbari-quest.com';
