@@ -164,7 +164,10 @@ function collectImportGraph(entryAbs: string): { files: string[]; unresolved: st
 
 /** 検証対象: Dockerfile → image 同梱 entry (CMD / cutover rehearsal が実行するもの)。 */
 const TARGETS: { dockerfile: string; entries: string[] }[] = [
-	{ dockerfile: 'Dockerfile', entries: ['scripts/nuc-pglite-cutover.ts'] },
+	{
+		dockerfile: 'Dockerfile',
+		entries: ['scripts/nuc-pglite-cutover.ts', 'scripts/seed-staging.ts'],
+	},
 	{ dockerfile: 'Dockerfile.scheduler', entries: ['scripts/scheduler.ts'] },
 ];
 
