@@ -141,7 +141,7 @@
 			"!**/cdk.out",
 			"!**/storybook-static",
 			"!**/app.css",
-			"!**/.claude",
+			"!.claude",
 			"!**/*.md",
 			"!**/lp-metrics.json",
 			"!**/tmp",
