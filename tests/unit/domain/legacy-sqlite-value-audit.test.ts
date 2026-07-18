@@ -35,7 +35,7 @@ const DT_ISO_MINUTE = '2026-01-02T03:04';
 /** 真に破損した日時 (negative)。 */
 const DT_BROKEN = 'not-a-valid-date';
 /** 形は合うが Date.parse 不能 (negative、Date.parse gate の実効性)。 */
-const DT_UNPARSEABLE = '2026-13-99 99:99:99';
+const DT_UNPARSABLE = '2026-13-99 99:99:99';
 
 describe('legacy SQLite 値表現 監査 (#3859) — settings validator (export-format)', () => {
 	// #3851 同 class の是正対象: tutorial_*_at の datetime validator。
@@ -54,7 +54,7 @@ describe('legacy SQLite 値表現 監査 (#3859) — settings validator (export-
 	it('tutorial_*_at: 真破損の日時は依然 reject する (negative、握り潰し過剰でない)', () => {
 		for (const key of ['tutorial_started_at', 'tutorial_completed_at']) {
 			expect(isValidSettingValue(key, DT_BROKEN), `${key} × BROKEN`).toBe(false);
-			expect(isValidSettingValue(key, DT_UNPARSEABLE), `${key} × UNPARSEABLE`).toBe(false);
+			expect(isValidSettingValue(key, DT_UNPARSABLE), `${key} × UNPARSABLE`).toBe(false);
 			expect(isValidSettingValue(key, ''), `${key} × 空文字`).toBe(false);
 			// 40 char 超の bound は維持 (DoS 的長大値の排除)
 			expect(isValidSettingValue(key, `${DT_ISO}${'0'.repeat(40)}`), `${key} × 長大`).toBe(false);
