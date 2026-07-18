@@ -106,6 +106,7 @@ Agent が実装完了後、Skill 出力の雛形に対して以下を埋める:
 | スクリーンショット | UI 変更時 4 スロット必須、それ以外は「該当なし（理由）」 |
 | 横展開 | 並行実装ペア確認、N/A 可 |
 | 配布済み env / secret | ADR-0006 該当時のみ、それ以外 N/A |
+| **変更タイプ** | **`- [x]` 1 つ以上必須 (#3846)**。Issue に `type:*` label があれば雛形展開時に自動 `[x]` 化されるが、label 無し Issue では全て `- [ ]` のまま出力されるため**必ず手動で主変更タイプを選択**する（未選択は CI 必須 gate hard-fail、ステップ 3 の `--body-file` 検証で PR 作成前に検出される） |
 
 雛形の `<!-- ... -->` Markdown コメントは説明用ヒント。書き換える必要なし（コメントのまま残してよい）。
 
@@ -143,6 +144,7 @@ npm run pre-ready -- --pr <PR番号後で発番>
 - 禁止語混入（`予定` / `follow-up` / `PENDING` / `DEFERRED` / `別途` / `個別起票` / `TODO`）
 - AC 検証マップの 4 列空セル / コメントのみセル
 - Ready チェックリスト未チェック残置
+- **変更タイプ checkbox 未選択（`- [x]` 1 つ以上必須、#3846）** — CI 必須 gate「変更タイプの選択」(`pr-template-gate.yml`) と同一 SSOT (`scripts/pr-template-gate-checks.mjs` `checkChangeType`) を PR 作成前に実行。未選択のまま提出して CI hard-fail → QM body-only remediation が 3 PR 連続再発 (#3835 / #3837 / #3844) した same-class defect (ADR-0061) の shift-left 対策。**`gh pr create` 前に必ず本 `--body-file` 検証を PASS させる**
 
 検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT (`.github/PR_TEMPLATE_SECTIONS.json` 経由) に完全準拠** した状態で提供されるが、雛形時点では「AC 検証マップの検証手段 / 結果列」「Ready for Review チェックリスト」が空のため `check-pr-body.mjs` は fail する。**Agent がステップ 2 の穴埋めを完了してから検証 PASS する**設計。穴埋め完了の signal として、本検証 CLI の PASS を使用する。
 

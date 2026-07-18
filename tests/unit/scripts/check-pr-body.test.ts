@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	checkAcMap,
+	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
 	checkSelfReviewEvidence,
 	detectMojibake,
@@ -635,5 +636,79 @@ describe('checkSelfReviewEvidence (#2475 Phase 2 / #2815 D-1)', () => {
 			'- [ ] **SOLID**: 未確認',
 		].join('\n');
 		expect(checkSelfReviewEvidence(body)).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #3846: 変更タイプ checkbox 未選択の shift-left 検出
+// CI 必須 gate「変更タイプの選択」hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844) した
+// same-class defect (ADR-0061) を、PR 作成前 (--body-file) / pre-ready Step 9 (--pr) で機械検出する。
+// 判定 SSOT は scripts/pr-template-gate-checks.mjs の checkChangeType (二重実装なし)。
+// ---------------------------------------------------------------------------
+
+describe('checkChangeTypeSelection (#3846)', () => {
+	// detectChangeTypeHeading は「`- [ ]` を 3 行以上持つ ## セクション」を変更タイプと判定する。
+	// 実 template (.github/PULL_REQUEST_TEMPLATE.md) と同構造の最小 fixture。
+	const TEMPLATE = [
+		'## 顧客価値・目的',
+		'',
+		'本文',
+		'',
+		'## 変更タイプ',
+		'',
+		'- [ ] feat: 新機能',
+		'- [ ] fix: バグ修正',
+		'- [ ] refactor: リファクタリング',
+		'- [ ] infra: インフラ・CI/CD',
+		'',
+		'## 関連 Issue',
+	].join('\n');
+
+	it('FAIL: checkbox 未選択 (- [ ] のみ) → change-type-unselected (#3835/#3837/#3844 再発 pattern)', () => {
+		const body = [
+			'## 変更タイプ',
+			'',
+			'- [ ] feat: 新機能',
+			'- [ ] fix: バグ修正',
+			'- [ ] refactor: リファクタリング',
+			'- [ ] infra: インフラ・CI/CD',
+			'',
+			'## 関連 Issue',
+		].join('\n');
+		const result = checkChangeTypeSelection(body, TEMPLATE);
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe('change-type-unselected');
+		// self-serve 修正を高速化する guidance を含む (issue #3846 提案 2)
+		expect(result?.message).toMatch(/- \[x\]/);
+		expect(result?.message).toMatch(/--body-file/);
+		expect(result?.message).toMatch(/#3835/);
+	});
+
+	it('PASS: 1 つ以上 [x] 選択済み → null', () => {
+		const body = [
+			'## 変更タイプ',
+			'',
+			'- [ ] feat: 新機能',
+			'- [ ] fix: バグ修正',
+			'- [x] infra: インフラ・CI/CD',
+			'',
+			'## 関連 Issue',
+		].join('\n');
+		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
+	});
+
+	it('PASS: 大文字 [X] も選択として認める (CI gate checkChangeType と同一判定)', () => {
+		const body = ['## 変更タイプ', '', '- [X] fix: バグ修正', '', '## 関連 Issue'].join('\n');
+		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
+	});
+
+	it('セクション欠落は missing-required-sections gate に委譲 (null)', () => {
+		const body = '## 顧客価値・目的\n本文\n';
+		expect(checkChangeTypeSelection(body, TEMPLATE)).toBeNull();
+	});
+
+	it('dependencies label PR は skip (Dependabot exempt、#1808 整合)', () => {
+		const body = ['## 変更タイプ', '', '- [ ] feat: 新機能', '', '## 関連 Issue'].join('\n');
+		expect(checkChangeTypeSelection(body, TEMPLATE, ['dependencies'])).toBeNull();
 	});
 });

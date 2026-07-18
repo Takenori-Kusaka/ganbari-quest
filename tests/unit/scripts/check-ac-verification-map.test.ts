@@ -73,7 +73,8 @@ const FEATURE_AC_MAP_SLUG_FOLLOWUP_VARIANTS = `
 `;
 
 // #3488: 未完了マーカーは区切り 1 文字（空白 or ハイフン）を必ず持つため検出継続する。
-// strip を全廃したので code span / `/` 隣接 / 日本語連続トークンに置いても生 cell に当たる。
+// prose（inline-code 外）の `/` 隣接 / 日本語連続トークンは生 cell に当たる
+// （#3846 で inline-code 内のみ strip 対象になったが、prose 検出は不変）。
 const FEATURE_AC_MAP_TODO_FOLLOWUP_SPACE = `
 ## AC 検証マップ
 
@@ -101,6 +102,35 @@ const FEATURE_AC_MAP_TODO_JP_TOKEN = `
 const FEATURE_AC_MAP_MISSING_SECTION = `
 ## 概要
 AC マップ section が無い PR
+`;
+
+// #3846 / #3844 BLOCK fix: inline-code (`...`) 内の定数名 \`RANGE_SSOT_TODO\` が
+// TODO_PATTERN の \`todo\` に部分一致して false-positive gate fail していた。
+// inline-code は機械トークン（定数名 / コマンド / ファイル参照）であり未完了宣言の prose ではない。
+const FEATURE_AC_MAP_INLINE_CODE_CONSTANT = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC2 | 値域定数 SSOT 化 | grep | HEAD \`abc1234\` / \`RANGE_SSOT_TODO\` を domain 層へ集約 (src/lib/domain/range.ts:12) |
+`;
+
+// #3846: inline-code 内にコマンド由来の "todo" / "予定" 相当トークンがあっても PASS する。
+const FEATURE_AC_MAP_INLINE_CODE_COMMAND = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC1 | todo list 機能の unit 検証 | vitest | \`npx vitest run tests/unit/todo-list.test.ts\` 12 passed |
+`;
+
+// #3846: inline-code strip 後も prose 側の未完了表記は従来どおり検出する（strip し過ぎ防止）。
+const FEATURE_AC_MAP_INLINE_CODE_PLUS_PROSE_TODO = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC1 | ログイン | vitest | \`RANGE_SSOT_TODO\` は集約済、残りは後で対応 |
 `;
 
 const INTEGRATION_EVIDENCE_PASS = `
@@ -214,6 +244,24 @@ describe('checkPerPrAcMap (feature/hotfix lane、AC4)', () => {
 		const r = checkPerPrAcMap(FEATURE_AC_MAP_PASS, 'hotfix');
 		expect(r.ok).toBe(true);
 		expect(r.lane).toBe('hotfix');
+	});
+
+	// --- #3846 / #3844: evidence cell の inline-code strip (定数名 false-positive 解消) ---
+
+	it('PASS: inline-code 内の定数名 `RANGE_SSOT_TODO` を未完了表記と誤検出しない (#3846 / #3844)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_CONSTANT, 'feature');
+		expect(r.ok).toBe(true);
+	});
+
+	it('PASS: inline-code 内のコマンド (`npx vitest run tests/unit/todo-list.test.ts`) を誤検出しない (#3846)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_COMMAND, 'feature');
+		expect(r.ok).toBe(true);
+	});
+
+	it('FAIL: inline-code strip 後も prose 側の未完了表記 (「後で対応」) は検出継続 (#3846 strip し過ぎ防止)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_INLINE_CODE_PLUS_PROSE_TODO, 'feature');
+		expect(r.ok).toBe(false);
+		expect(r.error).toContain('未完了表記');
 	});
 });
 
