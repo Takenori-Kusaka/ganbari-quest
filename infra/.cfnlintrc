@@ -1,0 +1,21 @@
+# cfn-lint 設定 (#3874 Layer 1 — synth 静的 lint gate)
+#
+# `scripts/check-cdk-cfn-lint.mjs` が `cdk synth --all` 出力 (infra/cdk.out/*.template.json) を
+# 本設定で検査する。目的は AWS::* リソースの property 制約違反 (charset / allowed-value / type)
+# を deploy 前 (synth 時点) に hard-fail させ、#3870 (IAM Role Description 非-ASCII → deploy
+# rollback) 級の "unit test も staging もすり抜け本番 deploy で初露見" する回帰を根絶すること。
+#
+# gate semantics: error (E ルール) のみ hard-fail。warning / informational は advisory
+#   (`--non-zero-exit-code error` を script が付与)。E3031 (IAM Description charset) 等が
+#   該当する。役割分担 = cfn-lint は AWS schema 由来の網羅的 property 制約 (汎用・自動) /
+#   カスタム assertion (tests/unit/infra/*.test.ts) は project 固有の意図 (logical ID 固定等)。
+#
+# ignore_checks: CDK 生成テンプレ由来のノイズ (実害なし) を抑制し false-positive ゼロにする。
+#   - W3005: CDK が GetAtt 参照に加えて明示 DependsOn を出すため "dependency already enforced" 警告
+#            (14 件、実際に synth 出力に現れる CDK 固有ノイズ)
+#   - W2001: CDK が未使用 Parameter を出すことがある (Fn::If gate 等)
+#   - I1022: Fn::Sub over Fn::Join の style 情報 (機能影響なし)
+ignore_checks:
+  - W3005
+  - W2001
+  - I1022
