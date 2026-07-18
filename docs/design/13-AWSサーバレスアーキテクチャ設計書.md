@@ -42,51 +42,35 @@
 
 ### 3.1 StorageStack
 
-DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB
-table を参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL の
-リレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
+`StorageStack` は S3（assets）+ ECR（Lambda container image）のみを提供する。DB backend は Aurora DSQL
+（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を参照する経路は無い（health は
+probePg、analytics は on-demand 化済）。DSQL のリレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
 
-> **DynamoDB `MainTable` の撤去は cross-stack export の 2-deploy 制約により 2 段で行う（#3438 → #3850 → #3854）。**
-> CloudFormation は「利用中（in-use）の export は削除も値変更もできない」ため、producer（StorageStack）が
-> `MainTable` の cross-stack export を消せるのは、consumer（ComputeStack）の import 消失が本番へ
-> 反映された後に限られる。deploy pipeline は Storage → Auth → Compute の producer-first 固定順（かつ
-> Storage は ECR repo を先に作る必要があり Storage-first は必須制約）で、1 リリース内で consumer を先に
-> 更新できないため、同一 PR での table + export 同時撤去は StorageStack rollback を招く。
+> **DynamoDB `MainTable` は撤去済（#3438 → #3850 → #3854）。** cross-stack export の in-use 削除制約
+> （CloudFormation は「利用中の export は削除も値変更もできない」）により、producer（StorageStack）が
+> export を消せるのは consumer（ComputeStack）の import 消失が本番反映された後に限られるため、CFN 標準の
+> 2-deploy strangler で撤去した:
 >
-> **保持すべきは Arn だけでなく「旧 consumer が import する全 export」= Ref（table 名）+ Arn の 2 本**
-> （#3850）。旧 ComputeStack は `MainTable` を 2 経路で import しており、どちらか一方でも消すと未反映
-> consumer の in-use 参照が残って削除拒否 → StorageStack rollback になる:
+> - **Deploy-1（#3850 / #3855 / #3864）**: consumer（ComputeStack）は `MainTable` への参照（`grantReadWriteData`
+>   + `TABLE_NAME` / `DYNAMODB_TABLE` / `ANALYTICS_TABLE_NAME` env）を全撤去（#3438）。producer（StorageStack）は
+>   `MainTable` + AWS Backup + 旧 consumer が import する **Ref（table 名）+ Arn の両 `exportValue`** を保持した
+>   （Arn だけの保持は #3855 で Ref 欠落による再 rollback を招いたため両方が必須）。
+> - **Deploy-2（#3854）**: Deploy-1 が本番反映され consumer の import が消失した後、StorageStack から
+>   `MainTable` + AWS Backup + **両 `exportValue`** を撤去した（両 export とも in-use でないため削除成功）。
+>   prod は removalPolicy=RETAIN だったため、table は CloudFormation の管理から外れる（orphan）だけで物理
+>   table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
 >
-> | export | CFN 名 | 旧 ComputeStack の参照元 |
-> |---|---|---|
-> | Ref | `<stackName>:ExportsOutputRefMainTable<hash>` | `props.table.tableName!`（= `Ref MainTable`）→ `TABLE_NAME` / `DYNAMODB_TABLE` / `ANALYTICS_TABLE_NAME` env（全て同一 Ref に解決、export は 1 本） |
-> | Arn | `<stackName>:ExportsOutputFnGetAttMainTable<hash>Arn` | `props.table.grantReadWriteData(this.fn)` の IAM policy（`Fn::GetAtt MainTable Arn`） |
->
-> **Arn だけの保持は不十分**（#3855 が `exportValue(table.tableArn)` のみ追加し、CDK が未参照の Ref
-> export を自動削除 → deploy-aws-staging 貫通で `Cannot delete export ...ExportsOutputRefMainTable...
-> in use` により再 rollback した実害あり）。よって:
->
-> - **Deploy-1（#3850、本リリース）**: consumer（ComputeStack）は `grantReadWriteData` + `TABLE_NAME` /
->   `DYNAMODB_TABLE` / `ANALYTICS_TABLE_NAME` env を落とす（#3438 で実施済）。producer（StorageStack）は
->   `MainTable`（removalPolicy=RETAIN）+ その AWS Backup（daily plan）+ **`exportValue(table.tableName)`
->   （Ref）と `exportValue(table.tableArn)`（Arn）の両方**による cross-stack export を保持する。
-> - **Deploy-2（#3854、follow-up 次リリース）**: Deploy-1 が本番反映され consumer の import が消失した後、
->   StorageStack から `MainTable` + **両 `exportValue`（Ref + Arn）** を撤去する（この時点で両 export とも
->   in-use ではないため削除成功）。prod は removalPolicy=RETAIN のため、この撤去でも table は CloudFormation の
->   管理から外れる（orphan）だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
->
-> prod 不変条件（table + Backup + **Ref/Arn 両 export**の Deploy-1 保持 / consumer の table 非参照）は
-> `tests/unit/infra/staging-cdk.test.ts`（P-1 / B-3850a = 全 export 集合の断言 / B-3850b）が fitness
-> function として固定する。B-3850a は「Arn 1 本」ではなく「MainTable 由来 export = {Ref, Arn} が過不足なく
-> 存在」を断言し、Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に再発不能化している。
+> 撤去完遂の不変条件（StorageStack が MainTable / AWS Backup / MainTable 由来 export を一切持たない /
+> consumer が MainTable 非参照）は `tests/unit/infra/staging-cdk.test.ts`（P-1 / B-3854a / B-3854b、prod +
+> staging）が fitness function として固定する。MainTable export が復活したら（table 復元等）即 fail する。
 
 #### 3.1.1 cross-stack export allowlist ratchet（#3858、ADR-0061 shift-left）
 
 自動 cross-stack export（producer 側 `CfnOutput` + Export / consumer 側 `Fn::ImportValue`）は **synth 時に初めて生成されソースに存在しない**ため、撤去時の in-use 削除制約（#3438 → #3850）は develop 軽量レーンをすり抜け release 統合監査（deploy-aws-staging）で初めて露見していた。`tests/unit/infra/cross-stack-export-ratchet.test.ts` が全 stack（prod 6 + staging 3）を `bin/app.ts` と同一に wire して synth し、`findOutputs('*')` の Export 名 + `Fn::ImportValue` を **allowlist と集合一致**で照合する fitness gate を PR 時点（unit-test 層）に前倒し配備する（cdk-nag / ESLint-AST は自動 export を取りこぼすため、synth 後の template 検査層が唯一確実）。
 
-- **baseline（実測 17 = prod 11 + staging 6）**: prod StorageStack 6（MainTable Ref/Arn + AssetsBucket Ref/Arn + ECR AppRepo Ref/Arn）/ prod ComputeStack 4（main・demo Fn FunctionUrl + main・cron-dispatcher Fn Ref）/ prod NetworkStack 1（CloudFront Distribution Ref）/ staging StorageStack 6（prod Storage と同 hash、stack 名 prefix のみ差）。**属性ごとに別 entry**（#3855 = Ref を Arn と別本と認識する構造的再発防止）。
+- **baseline（実測 13 = prod 9 + staging 4）**: prod StorageStack 4（AssetsBucket Ref/Arn + ECR AppRepo Ref/Arn）/ prod ComputeStack 4（main・demo Fn FunctionUrl + main・cron-dispatcher Fn Ref）/ prod NetworkStack 1（CloudFront Distribution Ref）/ staging StorageStack 4（prod Storage と同 hash、stack 名 prefix のみ差）。**属性ごとに別 entry**（#3855 = Ref を Arn と別本と認識する構造的再発防止）。#3854 Deploy-2 で MainTable Ref/Arn（prod + staging = 4 本）を撤去したため 17 → 13。
 - **ratchet 運用（一方通行で減らす）**: cross-stack 境界を SSM 疎結合化 / 撤去したら該当 export を allowlist から削除する（= 疎結合の進捗計測器）。**新規自動 export の追加（allowlist 外）は CI fail** で止める。cross-stack 完全禁止は AWS 公式（同一 App の層状参照は正規手段）に反するため意図的残存を allowlist で管理する（`base-token-routes-ratchet` / `check-cdk-replacement` の承認マーカーと同一思想）。
-- **#3854 との紐付け**: MainTable の Ref/Arn export（prod + staging = 4 本）は Deploy-1 の dangling export（どの consumer も import しない）として allowlist に載る。**Deploy-2（#3854）で table + 両 export を撤去したら allowlist の MainTable 4 entry も削除する**。削除し忘れると「stale allowlist 検出」assert が fail するため、撤去と allowlist 更新が構造的に紐づく。
+- **#3854 撤去完遂の guard**: #3850 Deploy-1 で dangling export として allowlist に載せた MainTable Ref/Arn（prod + staging = 4 本）は、Deploy-2（#3854）で table + 両 export を撤去したため allowlist からも削除した。以後 MainTable 由来 export が synth に現れないことを本 test が断言し、export が復活したら（table 復元等）「新規 export = allowlist 外」assert が fail する。
 
 **S3バケット:**
 - アバター画像: `avatars/{tenantId}/{childId}/`
@@ -578,7 +562,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 infra/
 ├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
-│   ├── storage-stack.ts  # S3 + ECR + MainTable(#3438→#3850 の 2-deploy 撤去中、Deploy-1 は export 保持)
+│   ├── storage-stack.ts  # S3 + ECR (MainTable は #3438→#3850→#3854 の 2-deploy で撤去済、DB backend は DSQL)
 │   ├── dsql-stack.ts     # Aurora DSQL cluster (EPIC #3424)
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離

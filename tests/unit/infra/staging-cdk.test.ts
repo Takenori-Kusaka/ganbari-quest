@@ -3,12 +3,12 @@
 //
 // このテストは 2 つの責務を持つ:
 //   (1) prod 不変 guard (load-bearing): `stagingEnabled` 無し (= envConfig 未指定) で synth した
-//       prod template の物理名 (`ganbari-quest` table / `ganbari-quest-app` Fn /
-//       `ganbari-quest-users-v2` pool 等) と構成 (Backup / demo Fn / cron Rule / Firehose /
-//       SES env) が従来どおりであることを assertion する。optional envConfig 導入で
-//       prod template が変わった瞬間に CI が落ちる (ADR-0019 rename=Replacement 等価の防御)。
+//       prod template の物理名 (`ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等) と
+//       構成 (demo Fn / cron Rule / Firehose / SES env) が従来どおりであること、および #3854
+//       Deploy-2 で MainTable + AWS Backup + 両 export が撤去済であることを assertion する。
+//       optional envConfig 導入で prod template が変わった瞬間に CI が落ちる (ADR-0019 防御)。
 //   (2) staging template assert: STAGING_ENV_CONFIG で synth した staging stack が
-//       prefix 分離 / Backup・demo Fn・cron Rule・Firehose 不在 / staging env
+//       prefix 分離 / MainTable・Backup・demo Fn・cron Rule・Firehose 不在 / staging env
 //       (外部サービス secret 非注入) になっていることを assertion する。
 //
 // context stub パターンは tests/unit/infra/multi-lambda-cdk.test.ts を踏襲。
@@ -117,20 +117,17 @@ beforeAll(() => {
 
 describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)', () => {
 	describe('P: prod 不変 guard — envConfig 未指定 synth で従来 prod template を維持', () => {
-		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3438 撤去 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
-			// #3850: #3438 の MainTable 撤去は CFN cross-stack export の in-use 削除制約により
-			// 2-deploy に分割する。Deploy-1 (本リリース) では ComputeStack が import を落とした状態で
-			// StorageStack は MainTable + その export を保持する (Deploy-2 = 次リリースで撤去)。
-			// producer(Storage) が export を消せるのは consumer(Compute) の import 消失が本番反映された
-			// 後のみ (CFN は in-use export の削除を拒否)。ここで table を消したら #3850 が再発するため落とす。
-			// TableV2 は AWS::DynamoDB::GlobalTable として synth される。
-			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
+		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3854 Deploy-2 撤去完了 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
+			// #3854 Deploy-2: #3850 の 2-deploy strangler の後半。Deploy-1 (#3855/#3864) が本番反映され
+			// consumer(ComputeStack) の MainTable import が消失した後、StorageStack から MainTable +
+			// AWS Backup + 両 export を撤去した (この時点で export は in-use でないため削除成功)。
+			// prod は removalPolicy=RETAIN のため物理 table + データは orphan 保全 (物理削除は別 ops)。
+			// TableV2 は AWS::DynamoDB::GlobalTable として synth されるため、撤去後は両型とも 0 本になる。
+			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
 			prodStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
-			// prod は removalPolicy=RETAIN 不変 (Deploy-2 の撤去でも物理 table + データは orphan 保全)。
-			prodStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Retain' });
-			// enableBackup=true (prod)。DynamoDB daily backup plan (vault + plan) を保持する。
-			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 1);
-			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 1);
+			// AWS Backup (vault / plan) も MainTable 撤去に伴い持たない (バックアップ対象消失)。
+			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
+			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
 
 			const repos = prodStorage.findResources('AWS::ECR::Repository');
 			expect(Object.keys(repos).length).toBe(1);
@@ -218,28 +215,12 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 		});
 	});
 
-	describe('#3850: MainTable cross-stack export 2-deploy migration 不変条件 (Deploy-1)', () => {
-		it('B-3850a: prod StorageStack が MainTable の Ref + Arn 両 export を過不足なく保持する (旧 consumer import 全集合、#3855 の Arn 単独欠陥を再発不能化)', () => {
-			// #3850: ComputeStack が import を落とした Deploy-1 状態でも、StorageStack は exportValue で
-			// 旧 (デプロイ済) ComputeStack が import していた export を **全て** 保持する必要がある。
-			//
-			// **なぜ Arn だけでは不十分か (#3855 の 2 度目 rollback の真因)**: 旧 compute-stack.ts
-			// (撤去コミット 9ebd59e1 の親版) の `props.table.*` 全参照を実測すると、consumer が
-			// import する export の完全集合は 2 つある —
-			//   1. Ref export  `ExportsOutputRefMainTable<hash>`
-			//      ← `props.table.tableName!` (= CFN `Ref MainTable`) を参照する env 6 箇所
-			//        (TABLE_NAME / DYNAMODB_TABLE / ANALYTICS_TABLE_NAME × prod + staging block)。
-			//        全て同一 Ref に解決されるため export は 1 本。
-			//   2. Arn export  `ExportsOutputFnGetAttMainTable<hash>Arn`
-			//      ← `props.table.grantReadWriteData(this.fn)` の IAM policy (`Fn::GetAtt Arn`)。
-			// #3855 は Arn だけ exportValue し Ref を保持し忘れた → CDK が未参照の Ref export を
-			// 自動削除 → 未反映 consumer が旧 Ref を import 中で CFN が in-use 削除拒否 →
-			// StorageStack rollback (deploy-aws-staging 貫通で fail ログ `ExportsOutputRefMainTable...`)。
-			//
-			// そこで本 assert は「Arn 1 本」ではなく **MainTable に紐づく export の集合 = {Ref, Arn}
-			// が過不足なく存在する** ことを断言する (Arn だけ見て Ref を見逃す #3855 の欠陥を構造的に
-			// 再発不能にする)。export 名の hash は construct token 由来で stack 名に依存しない (test の
-			// TestStorage も本番 GanbariQuestStorage も同一 logicalId、本番 synth で実測一致済)。
+	describe('#3854: MainTable cross-stack export 2-deploy migration 完遂 (Deploy-2)', () => {
+		it('B-3854a: prod StorageStack は MainTable の Ref / Arn export を一切持たない (Deploy-2 撤去完了)', () => {
+			// #3854 Deploy-2: Deploy-1 (#3850) が保持していた MainTable の Ref (table 名) / Arn の 2 本の
+			// cross-stack export を撤去した。Deploy-1 が本番反映され consumer(Compute) の import が消失した
+			// 後のため、両 export とも in-use ではなく安全に削除できた。撤去後は MainTable 由来 export が
+			// 1 本も残らない (Ref = 0 / Arn = 0 / 集合 = 0)。旧 B-3850a の「Ref + Arn 両保持」assert を反転。
 			const allMainTableExports = prodStorage.findOutputs('*', {
 				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
 			});
@@ -249,20 +230,16 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			const arnExport = prodStorage.findOutputs('*', {
 				Export: { Name: Match.stringLikeRegexp('ExportsOutputFnGetAttMainTable.*Arn.*') },
 			});
-			// Ref (table 名) が保持されている — #3855 で欠落し #3850 を再発させた export。
-			expect(Object.keys(refExport).length).toBe(1);
-			// Arn (grantReadWriteData IAM policy) が保持されている — #3855 が保持した export。
-			expect(Object.keys(arnExport).length).toBe(1);
-			// 集合の過不足ゼロ: MainTable 由来の export はちょうど Ref + Arn の 2 本のみ
-			// (第 3 の export = tableStreamArn 等が旧 consumer に無いことも実測確認済)。
-			expect(Object.keys(allMainTableExports).length).toBe(2);
+			expect(Object.keys(refExport).length).toBe(0);
+			expect(Object.keys(arnExport).length).toBe(0);
+			expect(Object.keys(allMainTableExports).length).toBe(0);
 		});
 
-		it('B-3850b: prod ComputeStack は MainTable を import / grant しない (Deploy-1 の consumer 状態)', () => {
-			// Deploy-1 の前提 = consumer(Compute) が既に MainTable への参照を落としていること:
+		it('B-3854b: prod ComputeStack は MainTable を import / grant しない (Deploy-1 で除去済、Deploy-2 でも不変)', () => {
+			// consumer(Compute) が MainTable への参照を持たないこと (Deploy-1 #3438 で除去、Deploy-2 でも維持):
 			//   (1) grantReadWriteData 由来の dynamodb: IAM policy が無い
 			//   (2) ExportsOutputFnGetAttMainTable...Arn を Fn::ImportValue する箇所が無い
-			// これらが残ると export が in-use のままで Deploy-2 (次リリース) の table+export 撤去が永遠にできない。
+			// producer(Storage) 側で export を撤去できた前提 = consumer が既に非参照であること。
 			const computeJson = JSON.stringify(prodCompute.toJSON());
 			expect(computeJson).not.toContain('MainTable');
 			const policies = prodCompute.findResources('AWS::IAM::Policy');
@@ -270,15 +247,12 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 		});
 	});
 
-	describe('S-1: staging Storage — DynamoDB MainTable(=1, DESTROY) + Backup 不在 (#3850 Deploy-1) + ECR maxImageCount:3', () => {
-		it('DynamoDB MainTable + Ref/Arn 両 export を Deploy-1 で保持 (#3850、staging も prod と同型 / removalPolicy=DESTROY)', () => {
-			// #3850: staging も prod と同型に MainTable + export を Deploy-1 で保持する。staging は
-			// removalPolicy=DESTROY。export 名は GanbariQuestStorageStaging: 名前空間で prod と衝突しない
-			// (stack 名 prefix が異なり、hash は同一。両 stack で auto-export と同一名を再生成)。
-			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 1);
+	describe('S-1: staging Storage — DynamoDB MainTable / Backup 不在 (#3854 Deploy-2 撤去完了) + ECR maxImageCount:3', () => {
+		it('DynamoDB MainTable + Ref/Arn 両 export を持たない (#3854 Deploy-2、staging も prod と同型に撤去)', () => {
+			// #3854 Deploy-2: staging も prod と同型に MainTable + 両 export を撤去した。撤去後は table・
+			// export ともに 0 本。旧 S-1「MainTable=1 + Ref/Arn export 保持」assert を反転。
+			stagingStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
 			stagingStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
-			stagingStorage.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Delete' });
-			// prod と同型に **Ref + Arn 両 export** を保持する (#3855 の Arn 単独欠陥を staging 側でも封じる)。
 			const refExport = stagingStorage.findOutputs('*', {
 				Export: { Name: Match.stringLikeRegexp('ExportsOutputRefMainTable[0-9A-F]+$') },
 			});
@@ -288,13 +262,13 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			const allMainTableExports = stagingStorage.findOutputs('*', {
 				Export: { Name: Match.stringLikeRegexp('ExportsOutput(Ref|FnGetAtt)MainTable.*') },
 			});
-			expect(Object.keys(refExport).length).toBe(1);
-			expect(Object.keys(arnExport).length).toBe(1);
-			expect(Object.keys(allMainTableExports).length).toBe(2);
+			expect(Object.keys(refExport).length).toBe(0);
+			expect(Object.keys(arnExport).length).toBe(0);
+			expect(Object.keys(allMainTableExports).length).toBe(0);
 		});
 
-		it('AWS Backup (vault / plan) を構築しない (enableBackup=false)', () => {
-			// staging は enableBackup=false (空 table 起点 + 使い捨て)。table は保持するが Backup plan は持たない。
+		it('AWS Backup (vault / plan) を構築しない (MainTable 撤去に伴い全環境で不在)', () => {
+			// #3854: MainTable 撤去でバックアップ対象が消失したため vault / plan とも持たない (staging / prod 共通)。
 			stagingStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
 			stagingStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
 		});
