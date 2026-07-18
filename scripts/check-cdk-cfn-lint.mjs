@@ -40,7 +40,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,23 +49,39 @@ const repoRoot = resolve(__dirname, '..');
 const infraDir = join(repoRoot, 'infra');
 const cdkOutDir = join(infraDir, 'cdk.out');
 const cfnlintrc = join(infraDir, '.cfnlintrc');
+const cdkContextFile = join(infraDir, 'cdk.context.json');
+
+// synth を決定的にするため account を固定する (CI の CDK_DEFAULT_ACCOUNT 有無に依存しない)。
+// これにより hosted-zone lookup key の account 部が常に一致し、下記 context cache が確実に効く。
+const SYNTH_ACCOUNT = '000000000000';
 
 /**
- * `cdk synth --all` に渡す context。addError guard (parentGateCookieSecret / opsSecretKey /
- * dsqlEndpoint / dsqlClusterArn 非空要求) を満たす**非秘密のダミー値**と、全 stack を synth 対象に
- * するための context gate (dsqlEnabled / dsqlStagingEnabled / stagingEnabled) で構成する。
- * これにより #3870 の DsqlBackupRole を含む全 stack (prod 6 + Dsql + DsqlStaging + staging 3 = 11)
- * を cfn-lint の検査対象にする (`tests/unit/infra/iam-role-description-ascii.test.ts` と同じ網羅性)。
+ * `cdk synth --all` を **AWS 認証・ネット不要**で全 stack 合成するための context。
+ * 一時 `cdk.context.json` に書き込んで synth 後に元へ戻す (gitignored な build artifact、
+ * CLI の JSON quoting を跨がず cross-platform で決定的)。
+ *
+ * - addError guard (parentGateCookieSecret / opsSecretKey / dsqlEndpoint / dsqlClusterArn の
+ *   非空要求) を満たす**非秘密のダミー値**
+ * - 全 stack を synth 対象にする context gate (dsqlEnabled / dsqlStagingEnabled / stagingEnabled)。
+ *   #3870 の DsqlBackupRole を含む全 11 stack (prod 6 + Dsql + DsqlStaging + staging 3) を検査対象化
+ *   (`tests/unit/infra/iam-role-description-ascii.test.ts` と同じ網羅性)
+ * - **hosted-zone lookup の cache**: `ses-stack.ts` の `HostedZone.fromLookup` は無条件に
+ *   `ganbari-quest.com` を引くため、cache が無いと CI (creds 無し) で AWS 呼び出しに落ちる。
+ *   `tests/unit/infra/iam-role-description-ascii.test.ts` の `makeApp()` と同じダミー値を与える。
  */
-const SYNTH_CONTEXT = [
-	['parentGateCookieSecret', 'cfnlint-dummy-parent-gate-secret-0000000000'],
-	['opsSecretKey', 'cfnlint-dummy-ops-secret-key'],
-	['dsqlEndpoint', 'cfnlintdummy1234.dsql.us-east-1.on.aws'],
-	['dsqlClusterArn', 'arn:aws:dsql:us-east-1:000000000000:cluster/cfnlintdummy1234'],
-	['dsqlEnabled', 'true'],
-	['dsqlStagingEnabled', 'true'],
-	['stagingEnabled', 'true'],
-];
+const SYNTH_CONTEXT = {
+	parentGateCookieSecret: 'cfnlint-dummy-parent-gate-secret-0000000000',
+	opsSecretKey: 'cfnlint-dummy-ops-secret-key',
+	dsqlEndpoint: 'cfnlintdummy1234.dsql.us-east-1.on.aws',
+	dsqlClusterArn: `arn:aws:dsql:us-east-1:${SYNTH_ACCOUNT}:cluster/cfnlintdummy1234`,
+	dsqlEnabled: true,
+	dsqlStagingEnabled: true,
+	stagingEnabled: true,
+	[`hosted-zone:account=${SYNTH_ACCOUNT}:domainName=ganbari-quest.com:region=us-east-1`]: {
+		Id: '/hostedzone/Z00000000000000000000',
+		Name: 'ganbari-quest.com.',
+	},
+};
 
 /** cfn-lint 実体を解決する。CFN_LINT_BIN で明示可 (Windows で Scripts が PATH 外の場合等)。 */
 function resolveCfnLintBin() {
@@ -75,6 +91,45 @@ function resolveCfnLintBin() {
 function fail(message, code = 1) {
 	console.error(`[check-cdk-cfn-lint] ✗ ${message}`);
 	process.exit(code);
+}
+
+/**
+ * SYNTH_CONTEXT を一時 `cdk.context.json` にマージ書き込みしてから `cdk synth --all` を実行し、
+ * 完了後に元の cdk.context.json を復元する (存在しなければ削除)。context を CLI の `-c` で渡すと
+ * hosted-zone の JSON 値の shell quoting が cross-platform で壊れるため、file 経由にして決定的にする。
+ * cdk.context.json は gitignored な build artifact なので commit されない。
+ */
+function runSynth() {
+	const hadContextFile = existsSync(cdkContextFile);
+	const originalContent = hadContextFile ? readFileSync(cdkContextFile, 'utf8') : null;
+	const base = originalContent ? JSON.parse(originalContent) : {};
+	writeFileSync(cdkContextFile, JSON.stringify({ ...base, ...SYNTH_CONTEXT }, null, 2));
+
+	try {
+		// npx は Windows で npx.cmd。Node の .cmd spawn 制約 (要 shell) を跨ぐため shell:true。
+		// 引数は固定 (context は cdk.context.json 経由) なので注入リスクなし。
+		console.log('[check-cdk-cfn-lint] cdk synth --all (dummy context、全 11 stack)...');
+		const synth = spawnSync('npx cdk synth --all --quiet', {
+			cwd: infraDir,
+			stdio: 'inherit',
+			shell: true,
+			// account を固定して synth を決定的にする (hosted-zone lookup key の一致 + 実 AWS 呼び出し回避)。
+			env: { ...process.env, CDK_DEFAULT_ACCOUNT: SYNTH_ACCOUNT },
+		});
+		if (synth.error) {
+			fail(`cdk synth の起動に失敗しました: ${synth.error.message}`, 1);
+		}
+		if (synth.status !== 0) {
+			fail(`cdk synth が失敗しました (exit ${synth.status})。infra/ の依存 (npm ci) を確認。`, 1);
+		}
+	} finally {
+		// 元の cdk.context.json を復元 (無ければ削除)。synth が cache を追記していても元に戻す。
+		if (originalContent !== null) {
+			writeFileSync(cdkContextFile, originalContent);
+		} else {
+			rmSync(cdkContextFile, { force: true });
+		}
+	}
 }
 
 function main() {
@@ -97,27 +152,7 @@ function main() {
 
 	// --- 2. cdk synth --all (全 stack の template を cdk.out に生成) ---
 	if (!skipSynth) {
-		// npx は Windows で npx.cmd。Node の .cmd spawn 制約 (要 shell) を跨ぐため
-		// shell:true + コマンド文字列で起動する (context 値は controlled constant、注入リスクなし)。
-		const ctxFlags = SYNTH_CONTEXT.map(([k, v]) => `-c "${k}=${v}"`).join(' ');
-		const synthCmd = `npx cdk synth --all --quiet ${ctxFlags}`;
-		console.log('[check-cdk-cfn-lint] cdk synth --all (dummy context、全 11 stack)...');
-		const synth = spawnSync(synthCmd, {
-			cwd: infraDir,
-			stdio: 'inherit',
-			shell: true,
-			// synth の addError guard を満たすダミー account (env-agnostic stack 合成)。
-			env: {
-				...process.env,
-				CDK_DEFAULT_ACCOUNT: process.env.CDK_DEFAULT_ACCOUNT || '000000000000',
-			},
-		});
-		if (synth.error) {
-			fail(`cdk synth の起動に失敗しました: ${synth.error.message}`, 1);
-		}
-		if (synth.status !== 0) {
-			fail(`cdk synth が失敗しました (exit ${synth.status})。infra/ の依存 (npm ci) を確認。`, 1);
-		}
+		runSynth();
 	}
 
 	// --- 3. cdk.out の template ファイルを列挙 (glob をシェルに委ねず自前展開) ---
