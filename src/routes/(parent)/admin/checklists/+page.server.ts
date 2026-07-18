@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import * as v from 'valibot';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
@@ -9,6 +10,7 @@ import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #3151 slice3 (ADR-0066): item label / icon の値域 SSOT。admin authoring 経路と wire schema が
 // 同一境界を共有し、authoring 可能な item ⊆ export/import 往復可能な item を成立させる。
+// #3852 Phase B-2: domain schema を Zod → Valibot 化。検証は `v.safeParse(v.pick(...), ...)`。
 import { checklistItemSchema } from '$lib/domain/validation/checklist';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
 // #2402 QM must-2: `marketplaceRegistry` 直接参照は dispatchImport API で代替済、import 撤去
@@ -369,11 +371,13 @@ export const actions: Actions = {
 		// #3151 slice3 (ADR-0066): label / icon を domain SSOT で検証し、export/import 往復不能な
 		// item (100 文字超 label / 3 個以上の絵文字 icon) の authoring を default-deny する。
 		// order は追加時に自動採番されるため authoring 検証対象外 (label / icon のみ pick)。
-		const itemCheck = checklistItemSchema
-			.pick({ label: true, icon: true })
-			.safeParse({ label: name, icon });
+		// #3852 Phase B-2: Valibot 化に伴い `.pick(...).safeParse(...)` → `v.safeParse(v.pick(...), ...)`。
+		const itemCheck = v.safeParse(v.pick(checklistItemSchema, ['label', 'icon']), {
+			label: name,
+			icon,
+		});
 		if (!itemCheck.success) {
-			return fail(400, { error: itemCheck.error.issues[0]?.message ?? 'アイテムが不正です' });
+			return fail(400, { error: itemCheck.issues[0]?.message ?? 'アイテムが不正です' });
 		}
 
 		await addTemplateItem({ templateId, name, icon, frequency, direction }, tenantId);
