@@ -185,8 +185,11 @@ fi
 #       continue-on-error 無しで走らせる唯一の eslint merge blocker (baseline 0 error)。
 #       変更 file の部分集合を push 前に block して shift-left する。
 #   (B) warn-only: src/**/*.{ts,svelte}。CI は SonarJS / local design rules を
-#       continue-on-error で走らせる (svelte は #3450 の 36 error baseline が green 化不能
-#       のため warn 導入)。hook でも block せず違反表示のみ = CI merge policy と同格。
+#       continue-on-error で走らせる。svelte recommended (svelte/*) は #3878 で bulk
+#       suppressions により hard gate 化したが、同 .svelte file に同居する local design
+#       rules (no-raw-button 等) は依然 continue-on-error のため、hook 側は「hook が CI
+#       より strict にならない」原則 (--no-verify 常態化回避) を優先し warn-only を維持する
+#       (新規 svelte/* 違反の hard block は CI lint:svelte が担う)。hook は違反表示のみ。
 #
 # 設計境界 (ADR-0030 / ADR-0010 / ADR-0007): 型情報ロードを要する type-aware rules
 # (#3877 で導入する parserOptions.project 系) は現 eslint.config.js に不在で、本 hook は fast rules
