@@ -562,9 +562,10 @@ function buildTenantABody(anchorDate: string): ExportBody {
 			{
 				childRef: 'child-2',
 				messageType: 'stamp',
-				stampCode: 'nikoniko',
+				// STAMP_PRESETS (message-service.ts) の実在 code を使う
+				stampCode: 'sugoi',
 				body: null,
-				icon: '😊',
+				icon: '🌟',
 				sentAt: ts('2026-03-26T18:00:00.000Z'),
 				shownAt: ts('2026-03-26T18:30:00.000Z'),
 				bonusPoints: null,
