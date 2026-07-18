@@ -197,3 +197,11 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
 
 - `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は **branch の commit message (body) に** `replacement-approved: <ID>` を記載して承認する (squash message は commit message 由来 — PR body は乗らない) (初出: aws-cdk-lib 2.257→2.258、#2963)。
+
+## IAM Role description は ASCII/Latin-1 のみ (AWS 制約、#3870)
+
+`iam.Role` / `iam.ManagedPolicy` の `description` は AWS IAM 制約により **ASCII / Latin-1 (U+00FF 以下) のみ許容**。日本語 (U+3000 以上) を入れると deploy 時に `InvalidRequest` → `CREATE_FAILED` → **stack rollback** になる (第16回リリースで `DsqlBackupRole` の日本語 description が本番 deploy を rollback させた回帰、staging は backup role 非生成のためすり抜けた)。
+
+- **IAM Role / ManagedPolicy の `description` は英語 ASCII で書く**。日本語で説明したい背景はコード直上の `// コメント` に書く (コメントは synth 対象外なので日本語可)。
+- **`CfnOutput` / CloudWatch `Alarm` (AlarmDescription) / SSM Parameter の `description` は ASCII 制約が無い** ため日本語のままで良い (過剰に ASCII 化しない)。
+- **fitness guard**: `tests/unit/infra/iam-role-description-ascii.test.ts` が全 stack を synth し、全 `AWS::IAM::Role` / `AWS::IAM::ManagedPolicy` の `Description` が `^[\t\n\r\x20-\x7E\xA1-\xFF]*$` にマッチすることを CI で assert する。新 stack を追加したら同 test の対象本数を増やす。

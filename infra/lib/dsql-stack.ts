@@ -240,7 +240,9 @@ export class DsqlStack extends cdk.Stack {
 			const backupRole = new iam.Role(this, 'DsqlBackupRole', {
 				roleName: `ganbari-quest-dsql${nameSuffix}-backup-role`,
 				assumedBy: new iam.ServicePrincipal('backup.amazonaws.com'),
-				description: 'AWS Backup が DSQL cluster の backup / restore を実行する role (#3437)',
+				// NOTE: IAM Role description は AWS 制約により ASCII/Latin-1 (U+00FF 以下) のみ許容。
+				// 日本語を入れると deploy 時 InvalidRequest → CREATE_FAILED → stack rollback になる (#3870)。
+				description: 'AWS Backup role for DSQL cluster backup / restore (#3437)',
 				managedPolicies: [
 					iam.ManagedPolicy.fromAwsManagedPolicyName(
 						'service-role/AWSBackupServiceRolePolicyForBackup',
