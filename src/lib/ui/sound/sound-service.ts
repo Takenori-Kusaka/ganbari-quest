@@ -27,7 +27,7 @@ export class SoundService {
 
 		// suspended 状態の場合は resume
 		if (this.context.state === 'suspended') {
-			this.context.resume();
+			void this.context.resume();
 		}
 	}
 
@@ -94,7 +94,7 @@ export class SoundService {
 
 		// suspended 状態の場合は resume 完了後に再生
 		if (ctx.state === 'suspended') {
-			ctx.resume().then(doPlay);
+			void ctx.resume().then(doPlay);
 		} else {
 			doPlay();
 		}
@@ -109,7 +109,7 @@ export class SoundService {
 		this._customRecordSoundPath = path;
 		this._customRecordBuffer = null;
 		if (path) {
-			this.loadCustomSound(path);
+			void this.loadCustomSound(path);
 		}
 	}
 
@@ -154,7 +154,7 @@ export class SoundService {
 		};
 
 		if (ctx.state === 'suspended') {
-			ctx.resume().then(doPlay);
+			void ctx.resume().then(doPlay);
 		} else {
 			doPlay();
 		}
@@ -203,7 +203,7 @@ export class SoundService {
 	/** AudioContext を破棄 */
 	destroy(): void {
 		if (this.context) {
-			this.context.close();
+			void this.context.close();
 			this.context = null;
 			this.gainNode = null;
 		}

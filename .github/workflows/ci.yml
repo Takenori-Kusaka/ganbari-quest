@@ -267,6 +267,15 @@ jobs:
       - name: ESLint Playwright (no-networkidle / no-wait-for-timeout, #1259)
         run: npx eslint "tests/**/*.ts"
 
+      # #3877 AC3: type-aware lint の hard gate (CI 限定)。tsc に等価フラグの無い await 漏れ /
+      # 未処理 Promise rejection (no-floating-promises / no-misused-promises) を型情報で機械捕捉する。
+      # 型情報ロードで重いため分離 config (eslint.typed.config.js) に隔離し、ローカル / pre-push /
+      # pre-ready は非 type-aware のまま高速維持する (docs/design/typescript-strictness-policy.md §3.3)。
+      # scope = アプリ src + CDK infra/lib・infra/bin の production / server コード (tests/ は除外)。
+      # SonarJS step (continue-on-error) と異なり本 step は error 検出で CI を fail させる。
+      - name: ESLint type-aware (no-floating-promises / no-misused-promises, #3877 — CI 限定)
+        run: npm run lint:typed
+
       # #3878: eslint-plugin-svelte recommended (Runes/reactivity correctness) を hard gate 化。
       # 既存違反 483 errors (svelte recommended + local design rules) は ESLint 10 native bulk
       # suppressions (eslint-suppressions.json) で baseline 凍結済のため green 化可能になり、
@@ -283,6 +292,12 @@ jobs:
 
       - name: Svelte check (#1432 — warning=error)
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold warning
+
+      # #3877 AC2: CDK 側の独立型検査 gate。アプリ側 svelte-check に対応する CDK 版で、
+      # 従来 infra は synth / vitest 依存で型 gate が無かった (アプリとの厳格度差)。
+      # infra/tsconfig.json (Phase 1 flags + noUncheckedIndexedAccess 有効) で tsc --noEmit。
+      - name: CDK type check (infra tsc --noEmit, #3877)
+        run: cd infra && npx tsc --noEmit
 
       - name: Type coverage ratchet check (#978)
         run: npm run type-coverage

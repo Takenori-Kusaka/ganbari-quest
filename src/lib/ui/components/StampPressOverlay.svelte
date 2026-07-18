@@ -99,6 +99,7 @@ $effect(() => {
 			clearTimeout(t2);
 		};
 	}
+	return;
 });
 
 function handleClose() {

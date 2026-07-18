@@ -155,6 +155,11 @@ export default [
 			'sonarjs/no-nested-template-literals': 'off',
 		},
 	},
+	// #3877: type-aware lint (no-floating-promises / no-misused-promises) は本 config には載せない。
+	// parserOptions.projectService を常時付けるとローカル / pre-push / pre-ready の eslint 全体が
+	// 型プログラムをロードして遅くなるため、型情報を要するルールは分離 config `eslint.typed.config.js`
+	// に隔離し CI 専用 step (`npm run lint:typed`) でのみ実行する。ローカルは本 config (非 type-aware)
+	// のまま高速維持する (docs/design/typescript-strictness-policy.md §3.3)。
 	...storybook.configs['flat/recommended'],
 	// Playwright: tests/**/*.ts で非推奨 API の新規流入を error で自動拒否 (#1259 Phase 3)
 	// - no-wait-for-timeout: 固定待機禁止 (tests/CLAUDE.md 明記済み、Phase 2 で既存箇所排除)
