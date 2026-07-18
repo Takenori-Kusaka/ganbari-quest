@@ -30,6 +30,28 @@ SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマン�
 
 CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は本ファイルを SSOT として `us-east-1`。`tests/unit/e2e-helpers/*` の `ap-northeast-1` 言及はテスト fixture（変更不要）。
 
+## CDK deploy 失敗の層別 未然防止（#3874、どの層で最初に落ちるか SSOT）
+
+「synth 成功・unit test 通過・staging すり抜けで**本番 deploy の実 AWS で初めて失敗**する」CDK トラブル（第16回リリースで 2 class 連続発生）を、人の注意ではなく CI で未然に捕捉する層別防御。AWS 推奨の shift-left（synth 静的検査）→ fitness function → rehearsal（staging 実 deploy）の重ねに整合。**新しい deploy 失敗に遭遇したら、まず「どの層が最初に捕捉すべきか」を本表で判定してから対策を実装する**。
+
+| 層 | 検証 | 実体 | 何を最初に捕捉するか |
+|---|---|---|---|
+| **Layer 1: synth 静的 lint** | `cdk synth --all` 出力 template を **cfn-lint** で検査し AWS schema 由来の property 制約違反（charset / allowed-value / type）を synth 時点で hard-fail | `scripts/check-cdk-cfn-lint.mjs` + `infra/.cfnlintrc` + ci.yml `cdk-cfn-lint` job（`infra/**` 変更時、develop 向け PR でも発火） | **Class ①（静的プロパティ制約違反）**。例: IAM Role/ManagedPolicy `Description` の非-ASCII（cfn-lint **E3031**、#3870）を含む全リソースの pattern / allowed-value / type 違反を**カスタムコードなしで**網羅捕捉 |
+| **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858） | **Class ②（stateful なデプロイ順序制約）の一部**。cross-stack export の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
+| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 3 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
+
+**役割分担の要点**: cfn-lint（Layer 1）は「AWS が受け付けない template」を汎用・自動で、assertion（Layer 2）は「本 project の不変条件」を、rehearsal（Layer 3）は「deployed-state 依存の失敗」を守る。3 層は補完関係で、上位ほど安価・高速・shift-left。
+
+**ローカル実行**:
+
+```bash
+npm run check:cfn-lint                 # cdk synth --all → cfn-lint（要 pip install cfn-lint）
+node scripts/check-cdk-cfn-lint.mjs --skip-synth   # 既存 cdk.out を再 synth せず lint のみ
+CFN_LINT_BIN=<path> npm run check:cfn-lint          # Windows で Scripts が PATH 外の場合
+```
+
+cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bundle には含まれず、AWS 認証・ネット不要で offline 動作する。CI の `cdk-cfn-lint` job が pin 版を install する。`.cfnlintrc` の `ignore_checks`（W3005 等）は CDK 生成テンプレのノイズ抑制で false-positive をゼロにする（error = E ルールのみ hard-fail）。
+
 ## production env 必須配布 4 経路（#911 / #806）
 
 新規 env 追加時は以下 4 経路すべてに配布。欠けると本番デプロイで起動失敗（#911 で 25 連続失敗の原因）:

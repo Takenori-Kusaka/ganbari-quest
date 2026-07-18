@@ -41,6 +41,7 @@ jobs:
       cognito: ${{ steps.filter.outputs.cognito }}
       docker: ${{ steps.filter.outputs.docker }}
       docs: ${{ steps.filter.outputs.docs }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v7
 
@@ -146,6 +147,13 @@ jobs:
               - 'scripts/check-doc-code-references.mjs'
               - 'scripts/doc-code-references-baseline.json'
               - 'scripts/__tests__/**'
+              - '.github/workflows/ci.yml'
+            # #3874 Layer 1: CDK synth 静的 lint (cfn-lint) gate の起動条件。
+            # infra/ (stack / lambda) 変更・cfn-lint gate 本体・ci.yml 変更で発火。
+            infra:
+              - 'infra/**'
+              - 'scripts/check-cdk-cfn-lint.mjs'
+              - 'scripts/__tests__/check-cdk-cfn-lint.test.mjs'
               - '.github/workflows/ci.yml'
 
   lint-and-test:
@@ -382,6 +390,54 @@ jobs:
 
       - name: Dependency boundaries — infra CDK stacks (循環/stack 間直 import, #3871 AC3)
         run: npm run depcruise:infra
+
+  # #3874 Layer 1: CDK synth 静的 lint (cfn-lint) gate。
+  # `cdk synth --all` 出力 (cdk.out/*.template.json) を cfn-lint で検査し、AWS::* リソースの
+  # property 制約違反 (charset / allowed-value / type) を deploy 前 (synth 時点) に hard-fail する。
+  # #3870 (IAM Role Description 非-ASCII → 本番 deploy rollback) 級の「synth 成功・unit test 通過・
+  # staging すり抜けで本番 deploy 初露見」する回帰を、カスタムコードなしで根絶する (E3031 等)。
+  # develop 向け PR でも発火させることで ADR-0019 replacement gate の「develop で効かない」gap を補完。
+  # 役割分担: cfn-lint = AWS schema 由来の網羅的 property 制約 (汎用) /
+  #           assertion = project 固有の意図 (tests/unit/infra/*.test.ts)。
+  # infra/ 変更時のみ実行 (軽量。node ci + infra ci + synth + cfn-lint で ~1-2 分)。
+  cdk-cfn-lint:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # tsx (cdk.json app) と aws-cdk / aws-cdk-lib は infra/package.json SSOT (root は持たない)。
+      - name: Install infra dependencies
+        run: cd infra && npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # cfn-lint は Python dev tool (本番 bundle 0、外部送信なし、offline、AWS 認証不要)。
+      # 版を pin して synth template 検査の決定性を担保する (#3874 実機実証版)。
+      - name: Install cfn-lint (pinned)
+        run: pip install "cfn-lint==1.53.0"
+
+      # synth → cfn-lint。E ルール (property 制約違反) のみ hard-fail。CDK ノイズ (W3005 等) は
+      # infra/.cfnlintrc の ignore_checks で抑制済 (false-positive ゼロ)。
+      - name: cfn-lint synth gate (property 制約違反 hard-fail、#3874 Layer 1)
+        run: node scripts/check-cdk-cfn-lint.mjs
+
+      # #3870 相当の非-ASCII IAM Description を gate が E3031 で捕捉することを再現実証 (#3874 AC1)。
+      # cfn-lint (Python) を要するため本 job (install 済) で実行する。
+      - name: cfn-lint regression test (#3870 相当を再現、#3874 AC1)
+        run: node --test scripts/__tests__/check-cdk-cfn-lint.test.mjs
 
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
@@ -1123,6 +1179,8 @@ jobs:
         lint-and-test,
         marketplace-registry-integrity-check,
         deps-supply-chain-check,
+        dependency-cruiser,
+        cdk-cfn-lint,
         unit-test,
         unit-test-merge,
         storybook-test,
@@ -1171,6 +1229,8 @@ jobs:
         lint-and-test,
         marketplace-registry-integrity-check,
         deps-supply-chain-check,
+        dependency-cruiser,
+        cdk-cfn-lint,
         unit-test,
         unit-test-merge,
         storybook-test,
