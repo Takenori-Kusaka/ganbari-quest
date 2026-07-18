@@ -74,7 +74,12 @@ async function runApply(opts: Record<string, string>): Promise<void> {
 	}
 
 	const dataset = JSON.parse(readFileSync(inPath, 'utf-8'));
-	if (dataset?.format !== 'ganbari-quest-synthetic-staging-seed') {
+	// format 識別子は dataset module の SSOT 定数を参照する (リテラル二重化しない)。
+	// この import は fixture / pure module のみで DB 接続を伴わない (generate と同一 graph)。
+	const { SYNTHETIC_DATASET_FORMAT } = await import(
+		'../src/lib/server/demo/synthetic-staging-dataset'
+	);
+	if (dataset?.format !== SYNTHETIC_DATASET_FORMAT) {
 		fail(`dataset の format が不正です: ${String(dataset?.format)}`);
 	}
 
