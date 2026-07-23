@@ -156,7 +156,7 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0004 | [レビュー & AC 検証品質](0004-review-and-ac-verification.md) | accepted | 2026-04-20 |
 | 0005 | [テスト品質 ratchet](0005-test-quality-ratchet.md) | accepted | 2026-04-20 |
 | 0006 | [Safety Assertion Erosion Ban](0006-safety-assertion-erosion-ban.md) | accepted | 2026-04-20 |
-| 0007 | [静的解析 tier ポリシー (T1/T2/T3/T4)](0007-static-analysis-tier-policy.md) | accepted | 2026-04-20 |
+| 0007 | [静的解析 tier ポリシー (T1/T2/T3/T4)](0007-static-analysis-tier-policy.md) | accepted (2026-07-19 §7 dependency-cruiser required 昇格 ratify、#3895) | 2026-04-20 |
 | 0008 | [設計ポリシー先行確認フロー](0008-design-policy-pre-approval.md) | accepted | 2026-04-20 |
 | 0010 | [Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）](0010-pre-pmf-scope-judgment.md) | accepted | 2026-04-20 |
 | 0011 | [0-2 歳 baby モードは「親の準備モード」](0011-baby-mode-as-parent-preparation.md) | accepted | 2026-04-21 |
