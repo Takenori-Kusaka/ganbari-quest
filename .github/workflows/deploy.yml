@@ -649,6 +649,78 @@ jobs:
         if: always()
         run: cat cdk-outputs.json 2>/dev/null || echo "No outputs file"
 
+      # #3808 (#3437 F-3 / ADR-0024 (c)): DSQL AWS Backup 構成の post-deploy smoke test。
+      # CDK 単体テストは synth 段階 (template にリソースが存在すること) のみを検証し、AWS 上で
+      # backup plan / selection / vault が実在し日次 backup が回っている保証はゼロだった。
+      # #1586 (Cron dispatcher smoke test) と同型の「deploy 後に実 AWS 構成を assert する」パターン。
+      # - vault / plan の実在 + selection が本番 DSQL cluster ARN と確定 role (#3437 F-4) を指すことを assert
+      # - recovery point は日次 02:00 UTC 生成のため deploy 直後に無いのが正常 —
+      #   「存在すれば最新の age < 48h」の条件付き check とし、初回 deploy の false-fail を避ける。
+      #   存在するのに 48h 超 stale = 日次 backup の沈黙停止 → hard fail (ADR-0006 silent skip 禁止)。
+      # 失敗時は deploy job 全体が fail 扱い (health check 通過後のため app rollback は発火しない —
+      # backup 構成不備は app image の問題ではないため rollback 対象外が正しい)。
+      - name: DSQL backup smoke test (#3808)
+        run: |
+          set -euo pipefail
+          VAULT="ganbari-quest-dsql-vault"
+          PLAN_NAME="ganbari-quest-dsql-daily"
+          ROLE_NAME="ganbari-quest-dsql-backup-role"
+
+          # 1. backup vault 実在 (dsql-stack.ts DsqlBackupVault、RETAIN)
+          aws backup describe-backup-vault \
+            --backup-vault-name "$VAULT" --region "$AWS_REGION" > /dev/null
+          echo "::notice::backup vault OK: $VAULT"
+
+          # 2. backup plan 実在 (名前一致で解決、dsql-stack.ts DsqlBackupPlan)
+          PLAN_ID=$(aws backup list-backup-plans --region "$AWS_REGION" \
+            --query "BackupPlansList[?BackupPlanName=='$PLAN_NAME'] | [0].BackupPlanId" \
+            --output text)
+          if [ -z "$PLAN_ID" ] || [ "$PLAN_ID" = "None" ]; then
+            echo "::error::backup plan '$PLAN_NAME' が AWS 上に存在しません (#3808 / dsql-stack.ts DsqlBackupPlan)"
+            exit 1
+          fi
+          echo "::notice::backup plan OK: $PLAN_NAME ($PLAN_ID)"
+
+          # 3. selection が本番 DSQL cluster ARN + 確定 role (#3437 F-4) を指す
+          SELECTION_ID=$(aws backup list-backup-selections \
+            --backup-plan-id "$PLAN_ID" --region "$AWS_REGION" \
+            --query 'BackupSelectionsList[0].SelectionId' --output text)
+          if [ -z "$SELECTION_ID" ] || [ "$SELECTION_ID" = "None" ]; then
+            echo "::error::backup plan '$PLAN_NAME' に resource selection がありません (#3808)"
+            exit 1
+          fi
+          SEL_JSON=$(aws backup get-backup-selection \
+            --backup-plan-id "$PLAN_ID" --selection-id "$SELECTION_ID" --region "$AWS_REGION")
+          if ! echo "$SEL_JSON" | grep -qF "$DSQL_CLUSTER_ARN"; then
+            echo "::error::backup selection が本番 DSQL cluster ($DSQL_CLUSTER_ARN) を含みません (#3808)"
+            exit 1
+          fi
+          if ! echo "$SEL_JSON" | grep -qF "$ROLE_NAME"; then
+            echo "::error::backup selection の IAM role が $ROLE_NAME ではありません (#3437 F-4 / #3808)"
+            exit 1
+          fi
+          echo "::notice::backup selection OK: DSQL cluster + $ROLE_NAME"
+
+          # 4. recovery point (条件付き): 無し = 初回 deploy 直後の正常状態 (日次 02:00 UTC 生成)。
+          #    有るのに最新が 48h 超 stale = 日次 backup が 2 日以上生成されていない → hard fail。
+          LATEST=$(aws backup list-recovery-points-by-backup-vault \
+            --backup-vault-name "$VAULT" --region "$AWS_REGION" \
+            --query 'max_by(RecoveryPoints, &CreationDate).CreationDate' --output text)
+          if [ -z "$LATEST" ] || [ "$LATEST" = "None" ]; then
+            echo "::notice::recovery point は未生成 (日次 02:00 UTC 生成のため初回 deploy 直後は正常、#3808)"
+          else
+            # AWS CLI v2 既定は iso8601、v1 互換 (epoch float) にも fallback で対応
+            LATEST_SEC=$(date -u -d "$LATEST" +%s 2>/dev/null || printf '%.0f' "$LATEST")
+            NOW_SEC=$(date -u +%s)
+            AGE_H=$(( (NOW_SEC - LATEST_SEC) / 3600 ))
+            if [ "$AGE_H" -ge 48 ]; then
+              echo "::error::最新 recovery point が ${AGE_H}h 前 — 日次 backup が 2 日以上生成されていません (#3808 / runbook: docs/runbooks/dsql-restore.md)"
+              exit 1
+            fi
+            echo "::notice::recovery point OK: 最新は ${AGE_H}h 前 (< 48h)"
+          fi
+          echo "::notice::DSQL backup smoke test passed (#3808)"
+
   e2e-production:
     needs: deploy
     runs-on: ubuntu-latest
