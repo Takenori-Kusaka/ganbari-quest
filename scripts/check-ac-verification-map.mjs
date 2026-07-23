@@ -56,8 +56,27 @@ export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
  * 区切り 1 文字必須にすれば slug `followup` を除外しつつ「別途 follow-up で対応」等は検出し続ける。
  * 拡張子 whitelist による strip 前処理は脆く（bypass + 非収録拡張子の FP）、撤去して生 cell に
  * 本パターンを直接適用する方針に戻した（#3488）。
+ *
+ * **inline-code strip（#3846 / #3844 BLOCK fix）**: 拡張子 whitelist strip（#3488 で撤去）とは別に、
+ * evidence cell の **inline-code (`...`) 内トークンのみ** は判定前に strip する。inline-code は
+ * 定数名 / コマンド / ファイル参照などの機械トークンであり（例: 定数名 `RANGE_SSOT_TODO` が
+ * #3844 で `todo` に部分一致し false-positive gate fail）、未完了宣言の prose ではない。
+ * 未完了マーカーを backtick で囲んで逃避する pattern は QM レビュー + PR body 禁止語 gate
+ * (`check-pr-body.mjs`) の別層で扱う。prose（コード外）の未完了表記検出は従来どおり生 cell。
  */
 const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]up|後で/i;
+
+/**
+ * evidence cell 内の inline-code span（`...`）を除去する（#3846）。
+ * table cell は `|` split 済のため改行を含まず、backtick 対を単純除去すれば十分。
+ * 対にならない孤立 backtick は残す（除去しすぎによる検出漏れ防止）。
+ *
+ * @param {string} cell
+ * @returns {string}
+ */
+function stripInlineCode(cell) {
+	return cell.replace(/`[^`]*`/g, '');
+}
 
 /** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
 const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;
@@ -192,7 +211,8 @@ export function checkPerPrAcMap(body, lane) {
 				.slice(1, -1)
 				.map((c) => c.trim());
 			const evidenceCell = cells[3] ?? '';
-			if (TODO_PATTERN.test(evidenceCell)) {
+			// #3846: inline-code 内の機械トークン（定数名 / コマンド / ファイル参照）は判定対象外
+			if (TODO_PATTERN.test(stripInlineCode(evidenceCell))) {
 				const acId = cells[0] || `行 ${idx + 1}`;
 				return { acId, evidenceCell };
 			}

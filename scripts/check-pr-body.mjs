@@ -11,6 +11,8 @@
  *   3. AC 検証マップの 4 列フォーマット欠落 / 空行
  *   4. Ready for Review チェックリストの未チェック残置
  *   5. `mergeable: CONFLICTING` 事前検知（GitHub API 経由）
+ *   6. 変更タイプ checkbox 未選択（#3846、CI gate「変更タイプの選択」の shift-left。
+ *      判定は scripts/pr-template-gate-checks.mjs の checkChangeType を SSOT として再利用）
  *
  * 必須セクション SSOT:
  *   `.github/PULL_REQUEST_TEMPLATE.md` を runtime parse し、
@@ -32,6 +34,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkChangeType } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -427,6 +430,48 @@ export function detectMojibake(body) {
 }
 
 // ---------------------------------------------------------------------------
+// 変更タイプ checkbox 未選択検出 (#3846、shift-left)
+// ---------------------------------------------------------------------------
+
+/**
+ * `## 変更タイプ` セクションで `- [x]` が 1 つも選択されていない場合に violation を返す (#3846)。
+ *
+ * 背景: PR body の変更タイプ checkbox 未選択のまま提出 → CI 必須 gate「変更タイプの選択」
+ * (`pr-template-gate.yml`) hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844)。いずれも実装は
+ * 健全で body checkbox のみが原因 = ADR-0061 same-class-N→guard 対象。本検出により
+ * `--body-file` mode (PR 作成前) / `--pr` mode (pre-ready Step 9 / pre-push hook) の両方で
+ * CI より手前 (shift-left) で機械検出する。
+ *
+ * 検証ロジックは CI gate と同一 SSOT (`scripts/pr-template-gate-checks.mjs` の `checkChangeType`)
+ * を再利用する (二重実装なし)。lane は本 CLI の対象 (feature / hotfix per-PR self-check) で
+ * 判定が同一のため 'feature' 固定。section 欠落時は missing-required-sections gate に委譲
+ * (checkChangeType 側が skipped=true を返す)。
+ *
+ * @param {string} body
+ * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容
+ * @param {string[]} labels PR ラベル (dependencies label skip は SSOT 側で処理)
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkChangeTypeSelection(body, template, labels = []) {
+	const result = checkChangeType({
+		body,
+		labels,
+		template,
+		ssotSections: null,
+		lane: 'feature',
+	});
+	if (result.ok) return null;
+	return {
+		id: 'change-type-unselected',
+		message:
+			`${result.message}\n` +
+			'背景: 未選択のまま提出 → CI 必須 gate「変更タイプの選択」hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844)。\n' +
+			'対応: PR 作成前に `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable` で本検証を PASS させる。\n' +
+			'      `npm run dev:open-pr -- --issue <num>` 経由なら Issue の type:* label から自動 [x] 化される (init-pr-body.mjs)。',
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Self-Review 証跡検出 (#2475 Phase 2 / #2815 D-1、PO 判断 2026-06-04: 導入必須)
 // ---------------------------------------------------------------------------
 
@@ -648,6 +693,7 @@ Detected violations:
   5. PR が CONFLICTING (--pr 指定時)
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
+  8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
 
 Exit codes:
   0 = OK
@@ -691,10 +737,11 @@ function loadPrBody(args) {
  * PR body と template から全違反リストを計算する。
  * @param {string} body
  * @param {string[]} requiredSections
+ * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
  * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-function collectViolations(body, requiredSections, args) {
+function collectViolations(body, requiredSections, template, args) {
 	const violations = [];
 	const labels = args.labels ?? [];
 
@@ -764,6 +811,12 @@ function collectViolations(body, requiredSections, args) {
 		violations.push({ ...selfReviewEvidence, issue: '#2475/#2815 D-1' });
 	}
 
+	// #3846: 変更タイプ checkbox 未選択の shift-left 検出 (CI gate と同一 SSOT を再利用)
+	const changeType = checkChangeTypeSelection(body, template, labels);
+	if (changeType) {
+		violations.push({ ...changeType, issue: '#3835/#3837/#3844/#3846' });
+	}
+
 	return violations;
 }
 
@@ -792,7 +845,7 @@ export async function main(argv = process.argv.slice(2)) {
 				.filter(Boolean)
 		: fetchPrLabels(args.pr);
 
-	const violations = collectViolations(body, requiredSections, { ...args, labels });
+	const violations = collectViolations(body, requiredSections, template, { ...args, labels });
 
 	if (violations.length === 0) {
 		console.log('[check-pr-body] OK — 違反なし');

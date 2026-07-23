@@ -34,6 +34,9 @@ closes #
 
 ## 変更タイプ
 
+<!-- ⚠️ 1 つ以上 [x] を必ず選択 — 未選択のままだと CI 必須 gate「変更タイプの選択」が hard-fail する (#3846、3 PR 連続再発 #3835/#3837/#3844)。
+     PR 作成前に `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable` で機械検証できる -->
+
 - [ ] feat: 新機能
 - [ ] fix: バグ修正
 - [ ] refactor: リファクタリング
