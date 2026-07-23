@@ -52,6 +52,9 @@ COPY --from=build /app/drizzle.config.ts ./
 # docs/runbooks/nuc-pglite-cutover.md。
 COPY --from=build /app/src ./src
 COPY --from=build /app/scripts/nuc-pglite-cutover.ts ./scripts/nuc-pglite-cutover.ts
+# #3412: staging 用 PII-free 合成 seed CLI (deploy-nuc-staging.yml synthetic lane が
+# `docker compose run --rm app npx tsx scripts/seed-staging.ts <generate|apply>` で実行)。
+COPY --from=build /app/scripts/seed-staging.ts ./scripts/seed-staging.ts
 # CLI が import する scripts/lib/runtime/ (nuc-cutover-verify 等) を dir ごと同梱する — 単体ファイル
 # COPY だと lib module 追加のたびに漏れる (staging PGlite cycle 2 で ERR_MODULE_NOT_FOUND 実機露呈、#3620)。
 # CI/dev 専用 helper は scripts/lib/ci/ に分離し image に入れない (#3659、image 純度 / attack surface)。
