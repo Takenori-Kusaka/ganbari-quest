@@ -5,7 +5,10 @@
 # main → develop の back-merge PR を自動発行する。
 #
 # 判定 SSOT: scripts/hotfix-back-merge.mjs (pure function、unit test 済)。
-# 本 workflow は薄い orchestrator。判定 logic は yml に分散させない。
+# PR body 生成 SSOT: scripts/back-merge-pr-body.mjs (#3879、PR template gate 準拠 13 section +
+# AC 検証マップ 4 列を生成し、既存 gate 検証ロジックで生成時に自己検証する。違反時は exit 1 で
+# workflow ごと fail = gate 非準拠 body を silent に発行しない)。
+# 本 workflow は薄い orchestrator。判定 / body 生成 logic は yml に分散させない。
 #
 # 設計原則 (Issue #2951 no-gos):
 #   - conflict 時に強制 push / 自動 force resolve しない。conflict 明示 PR + status:blocked label
@@ -243,6 +246,7 @@ jobs:
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
+            const { execFileSync } = require('node:child_process');
             const { owner, repo } = context.repo;
             const branch = process.env.BRANCH;
             const hotfixPr = process.env.HOTFIX_PR;
@@ -254,39 +258,20 @@ jobs:
               ? `[back-merge CONFLICT] hotfix #${hotfixPr} → develop (手動解決必要, #2951)`
               : `[back-merge] hotfix #${hotfixPr} (${hotfixHead}) → develop (#2951)`;
 
-            const body = [
-              '## hotfix back-merge (自動発行, #2951 / branch-strategy.md §5)',
-              '',
-              `main に merge された hotfix #${hotfixPr} (\`${hotfixHead}\`, ${mergeSha.slice(0, 7)}) を`,
-              'develop に取り込む back-merge PR です (main / develop drift 防止)。',
-              '',
-              isConflict
-                ? [
-                    '### ⚠️ CONFLICT — 手動解決が必要',
-                    '',
-                    '自動 merge で conflict が発生したため、conflict marker を残したまま branch を作成しました。',
-                    '**自動 force resolve は行っていません** (#2951 no-go)。`status:blocked` label が付与されています。',
-                    '',
-                    '解決手順:',
-                    '1. `git fetch origin && git switch ' + branch + '`',
-                    '2. conflict を手動解決して commit',
-                    '3. `git push` 後、本 PR の `status:blocked` を外して develop 軽量レーン gate を通す',
-                  ].join('\n')
-                : [
-                    '### clean merge',
-                    '',
-                    'conflict なく develop に取り込めました。develop 軽量レーン gate (branch-strategy.md §4) を',
-                    '通過後に merge してください。',
-                  ].join('\n'),
-              '',
-              '---',
-              '- base: `develop` (軽量レーン、`pr-lane.mjs` rule 4 = feature)',
-              '- author: GitHub App ボット名義 (ADR-0022 Amendment 5、承認は人間/lab)',
-              `- 元 hotfix: #${hotfixPr}`,
-              '- drift contract label: `back-merge` (B-3 統合 PR §6 が未取込 hotfix として読む)',
-              '',
-              'closes #2951 の機械強制対象 (本 PR 自体は #2951 を close しない)',
-            ].join('\n');
+            // PR body は template gate 準拠形式で SSOT script が生成する (#3879)。
+            // 同 script は生成 body を既存 gate 検証ロジック (check-pr-body / AC map /
+            // template-gate / merge-gate) で自己検証し、違反があれば exit 1 → 本 step ごと fail
+            // させる (gate 違反 body を silent に発行しない、ADR-0006)。
+            // body 生成 logic は yml に分散させない (hotfix-back-merge.mjs / integration-pr-body.mjs と同型)。
+            const bodyArgs = [
+              'scripts/back-merge-pr-body.mjs',
+              '--hotfix-pr', hotfixPr,
+              '--hotfix-head', hotfixHead,
+              '--merge-sha', mergeSha,
+              '--branch', branch,
+            ];
+            if (isConflict) bodyArgs.push('--conflict');
+            const body = execFileSync('node', bodyArgs, { encoding: 'utf8' });
 
             // 既存 open back-merge PR があれば本文更新 (upsert)、無ければ新規作成。
             const existing = await github.rest.pulls.list({
