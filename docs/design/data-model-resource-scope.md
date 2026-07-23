@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 関連 ADR | [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master 原則) / ADR-0052 (Strategy + Registry) / ADR-0046 (Service Interface + Context DI) |
+| 関連 ADR | [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master 原則) / ADR-0052 (Strategy + Registry) / ADR-0048 §統合 (Service Interface + Context DI、旧 ADR-0046) |
 | 関連 Issue | EPIC #2362 / 派生 I1 #2445 / I2 #2446 / I3 #2447 / I4 #2448 |
 | 更新タイミング | 新 MarketplaceType 追加 / 既存 type の scope 変更 / aggregate root 変更時 |
 

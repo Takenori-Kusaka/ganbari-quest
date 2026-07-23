@@ -13,7 +13,7 @@
 ## 基本方針
 
 - **課金フローは差別化要素でない → 業界標準・Stripe 公式推奨をそのまま採択**
-- **license key 撤廃 → Stripe Subscription をプラン状態の唯一 SSOT に** / **lifetime 廃止** (subscription 一本化、NUC は Edition 軸 ADR-0051)
+- **license key 撤廃 → Stripe Subscription をプラン状態の唯一 SSOT に** / **lifetime 廃止** (subscription 一本化、NUC は Edition 軸 nuc-saas-runtime-bifurcation.md)
 - **account-first** (signup → login → checkout) / **webhook が権限付与 SSOT** / **任意タイミングトライアル**
 - 詳細: [billing-redesign-policy.md](billing-redesign-policy.md)
 
@@ -46,7 +46,7 @@
 | アップ/ダウングレード | #2549 | Tier Change / Expansion / Contraction / NRR | 超過リソース既に Notion 型 Pattern A 実装済、proration UX (Preview API) のみ新規必要、`PLAN_CHANGE_TERMS` atom 拡張案 | [plan-change](phase2-plan-change-journey.md) |
 | 解約・退会 | #2550 | Voluntary churn / Save flow / Account deletion | 解約 = 無料に戻る・データ保持 / 退会 = 全削除、ADR-0012 引き止めない | [cancellation](phase2-cancellation-journey.md) |
 | dunning | #2551 | Involuntary churn / Dunning mgmt / Stripe Smart Retries | 子供視点 zero touch、grace 2週移行、無料化新規 (Phase 1 確定) | [dunning](phase2-dunning-journey.md) |
-| NUC | #2552 | Self-hosted / Edition Bifurcation / Trust-based (DRM-less) | 課金導線なし、ADR-0051 整合、NRR 計算外 | [nuc](phase2-nuc-journey.md) |
+| NUC | #2552 | Self-hosted / Edition Bifurcation / Trust-based (DRM-less) | 課金導線なし、nuc-saas-runtime-bifurcation.md 整合、NRR 計算外 | [nuc](phase2-nuc-journey.md) |
 
 ### Phase 2 横断確定事項
 

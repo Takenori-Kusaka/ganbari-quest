@@ -36,7 +36,7 @@
 
 1. **課金フローは差別化要素ではない → 業界標準・Stripe 公式推奨をそのまま採択** (独自設計しない)。コア価値は子供のゲーミフィケーション体験であり、購入フローで差別化しない (`feedback_oss_first_principle` 整合)。
 2. **license key 撤廃 → Stripe Subscription をプラン状態の唯一 SSOT に**。3 SSOT 並存・2 認可経路を解消。
-3. **lifetime (買い切り) 廃止 → subscription 一本化**。NUC セルフホストの「無制限」は買い切り課金ではなく **Edition 配布形態 (ADR-0051 NUC-SaaS Bifurcation)** として表現。
+3. **lifetime (買い切り) 廃止 → subscription 一本化**。NUC セルフホストの「無制限」は買い切り課金ではなく **Edition 配布形態 (NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md))** として表現。
 4. **account-first** (signup → login → checkout)。未ログイン購入 → 後紐づけは**不採用** (誤紐づけ・乗っ取りの温床、Stripe 公式も非推奨)。
 5. **webhook が権限付与の SSOT**。`checkout.session.completed` 等の webhook でプラン状態を確定。redirect / success_url では権限付与しない。
 6. **任意タイミングトライアル** (カード登録なし、無料プラン共存、1 回制限は自社管理)。
@@ -84,7 +84,7 @@ flowchart TD
 
 - **subscription 一本化** (standard/family × 月額/年額 の 4 SKU のみ)
 - 根拠: lifetime は SaaS のコア課金として非標準 (継続コストと一回収入の構造的ミスマッチ)。Stripe Billing の全機能 (trial / Portal / proration / dunning) が subscription 前提。子供/家族向け SaaS 実例も全て subscription
-- NUC セルフホストの「無制限」は lifetime 課金 SKU ではなく **Edition 配布形態** (ADR-0051) として整理。課金軸と分離
+- NUC セルフホストの「無制限」は lifetime 課金 SKU ではなく **Edition 配布形態** (nuc-saas-runtime-bifurcation.md) として整理。課金軸と分離
 - ※ trust but verify 注記: lifetime 失敗率の数値は二次情報依拠。「subscription 一本化が標準」自体は Stripe 設計思想 + 実例で裏付け済み。**最終的な買い切り廃止は PO 事業判断** (本方針書で承認を仰ぐ)
 
 ---

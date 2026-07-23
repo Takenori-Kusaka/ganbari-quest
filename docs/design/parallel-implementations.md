@@ -104,7 +104,7 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 | `src/lib/server/demo/demo-data.ts` | デモ用シードデータ（静的、`src/lib/server/db/demo/*.ts` factory pattern 経由で本番 routes に注入予定 ADR-0048） |
 
 **同期メカニズム**:
-- **本番 / demo の UI 並行は存在しない (#2097 / ADR-0046 / ADR-0048)**: child home は `ProdDashboardSections.svelte` 単独構成、demo Lambda は AnonymousAuth + DATA_SOURCE=demo で本番 routes を直接 host。`src/routes/demo/**` 配下は 0 file
+- **本番 / demo の UI 並行は存在しない (#2097 / ADR-0048)**: child home は `ProdDashboardSections.svelte` 単独構成、demo Lambda は AnonymousAuth + DATA_SOURCE=demo で本番 routes を直接 host。`src/routes/demo/**` 配下は 0 file
 - **legacy URL 救済 (永久保持)**: `legacy-url-map.ts` に `/demo/<5-mode>/<path>` → `/<uiMode>/<path>` / `/demo/checklist` → `/checklist` / `/demo/admin/**` → `/admin/**` 等を保持
 
 **修正時チェック**:
@@ -230,7 +230,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
-#### 6.6 NUC (nuc-prod) vs SaaS (aws-prod) UI 分岐 (EPIC #2327 / ADR-0051)
+#### 6.6 NUC (nuc-prod) vs SaaS (aws-prod) UI 分岐 (EPIC #2327 / nuc-saas-runtime-bifurcation.md)
 
 | 場所 | 内容 |
 |------|------|
@@ -243,7 +243,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **同期メカニズム**:
 - **現状 (集約)**: `locals.runtimeMode` を `+layout.server.ts` 1 箇所で `data` に配布、`+page.svelte` 1 箇所で 2 分岐
-- **拡張時**: 他 admin route に NUC/SaaS 分岐が必要になったら同パターンを踏襲 (ADR-0051 §3.4)
+- **拡張時**: 他 admin route に NUC/SaaS 分岐が必要になったら同パターンを踏襲 (nuc-saas-runtime-bifurcation.md)
 
 **修正時チェック**:
 - `runtime-mode.ts` (ADR-0040) の値変更 → 全 panel の `{#if data.runtimeMode === ...}` を grep で全件確認
@@ -609,7 +609,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを `node scripts/check-lp-ssot.mjs` で確認
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
 - [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
-- [ ] **日本語折り返し** (ADR-0016) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
+- [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap
 - [ ] **route 分割 / rename / `data-testid` 移動** (#2410) → `scripts/capture-hp-screenshots.mjs` の `HERO_CAROUSEL_SCREENSHOTS` / `FEATURE_SCREENSHOTS` / `GROWTH_STAGE_SCREENSHOTS` / `AGE_SCREENSHOTS` 全 4 配列の `url:` と `scrollTo:` selector を grep し、移動先 URL に同期する。`docs/design/asset-catalog.md` §「LP スクショ」表 + `tests/e2e/lp-screenshot-baseline/README.md` の撮影元 URL 列も同期。同期漏れ実例: #2319 で `/admin/settings` 分割した際 capture script の URL 未更新で 19 連続 deploy fail (`feature-auto-sleep` の `[data-testid="settings-decay-section"]` が空 wrapper 経由で 10s timeout)
 
 ---

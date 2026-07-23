@@ -35,7 +35,7 @@ These are the highest-priority review items. Always check for:
 - **Null/undefined safety**: Optional chaining where required, nullish coalescing with correct fallback values, TypeScript strict compliance
 - **Data integrity**: DB transactions where multiple writes must be atomic, race conditions in concurrent operations
 
-## Priority 2: Design System & CSS Rules ([archive/0014](../docs/decisions/archive/0014-css-token-architecture.md), Project Rule)
+## Priority 2: Design System & CSS Rules ([docs/DESIGN.md §2](../docs/DESIGN.md), Project Rule)
 
 This project enforces a 3-layer CSS token architecture. Violations are `[must]` findings:
 
@@ -91,7 +91,7 @@ If the PR has no design doc impact, that is acceptable — but the omission shou
   - Test code that re-implements business logic (e.g., `Math.random` probability simulation)
 - **Feature PRs must include tests**: A PR adding a new service file without a corresponding test file is a `[must]` finding. The test must call the service's public API, not manipulate the DB directly.
 
-## Priority 6: Image Asset Protection ([archive/0007](../docs/decisions/archive/0007-image-asset-protection.md))
+## Priority 6: Image Asset Protection ([docs/DESIGN.md §7](../docs/DESIGN.md) / [asset-catalog.md](../docs/design/asset-catalog.md))
 
 This is a children's gamification app where visual quality is core to the product experience:
 
@@ -111,7 +111,7 @@ This is a children's gamification app where visual quality is core to the produc
 - **Business logic must not live in route files** (`src/routes/`). Logic belongs in `$lib/server/services/` or `$lib/domain/`.
 - **DB access must go through `$lib/server/db`**, never direct ORM calls from `+server.ts`.
 - **API errors** must use `@sveltejs/kit`'s `error()` and `json()` for consistent responses.
-- **URL redirects**: When URLs are renamed or retired, add entries to `src/lib/server/routing/legacy-url-map.ts` instead of writing `redirect()` in individual route files ([archive/0001](../docs/decisions/archive/0001-rename-backward-compat.md)).
+- **URL redirects**: When URLs are renamed or retired, add entries to `src/lib/server/routing/legacy-url-map.ts` instead of writing `redirect()` in individual route files ([src/routes/CLAUDE.md](../src/routes/CLAUDE.md) §旧 URL 廃止ルール #578).
 - **Data fetching**: Use `+page.ts` / `+layout.ts` `load` functions. No direct `fetch()` inside components.
 
 ## Priority 9: Performance
@@ -144,7 +144,7 @@ Breaking this chain is a `[must]` finding:
 
 - **Coverage threshold changes (ADR-0005)**: If `vite.config.ts` `thresholds` values are lowered, this is a `[must]` finding. Lowering thresholds requires an ADR with a restoration plan and explicit PO approval.
 - **Issue close quality (ADR-0003)**: If a PR closes an Issue that lacks root cause analysis or acceptance criteria, flag as `[ask]`.
-- **Dialog management ([archive/0019](../docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md))**: Dialog/overlay display on the child home page must use the FSM scrap-and-rebuild approach. New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding.
+- **Dialog management (Project Rule、旧 archive ADR-0019 は git 履歴)**: Dialog/overlay display on the child home page must use the FSM scrap-and-rebuild approach (`dialog-state-machine.ts`). New `xxxOpen = true` direct state manipulation for overlays is a `[must]` finding.
 - **Design doc sync (ADR-0001)**: Verify design docs are updated for API/DB/UI changes (see Priority 4).
 
 ## Additional Context
@@ -178,18 +178,10 @@ The project maintains ADRs in `docs/decisions/`. #1262 で旧 0001-0044 を 10 �
 
 archive 配下のファイルは supersede ヘッダで新 ADR への統合先を明示。参照が必要な場合のみ `docs/decisions/archive/` を辿ること。代表例:
 
-- 技術スタック採用: SvelteKit 2 + Svelte 5 / DynamoDB 単一テーブル / Cognito + Google OAuth / 3-layer CSS トークン / Repository pattern → [archive/0011-0015](../docs/decisions/archive/)
-- Dialog FSM scrap-and-rebuild → [archive/0019-dialog-fsm-scrap-and-rebuild.md](../docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md)
-- Billing/License: Stripe causality / license key HMAC / retention physical delete → [archive/0022 / 0025 / 0026 / 0028](../docs/decisions/archive/)
-- E2E / schema / ops authz: Cognito E2E user lifecycle / schema change compat testing / ops dashboard authz → [archive/0030 / 0031 / 0033](../docs/decisions/archive/)
-- Marketplace: public access / naming / gender variant → [archive/0036 / 0041 / 0042](../docs/decisions/archive/)
+- Cognito E2E user lifecycle (D-2〜D-5 条項) → [archive/0030](../docs/decisions/archive/0030-cognito-e2e-user-lifecycle.md)
 - Demo mode / runtime mode: demo 統合 / 実行モード × license 統括 → [archive/0039-0040](../docs/decisions/archive/)
-- Primitive / bypass evidence: native select / admin bypass evidence → [archive/0043-0044](../docs/decisions/archive/)
-
-### ADR 棚卸レポート
-
-- [adr-inventory-2026-04-19.md](../docs/decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
-- [adr-inventory-2026-04-20.md](../docs/decisions/adr-inventory-2026-04-20.md) — 新体系 0001-0010 + archive 25 件の最終棚卸 (#1262 sub-7 完了)
+- plan tier 解決 / gender variant / bypass evidence → [archive/0024 / 0042 / 0044](../docs/decisions/archive/)
+- 上記以外の旧 archive ADR (技術スタック採用 / Dialog FSM / Billing-License / schema compat / marketplace 小方針 等) は 2026-07-19 棚卸で削除済 — 内容は docs/DESIGN.md / 各設計書 / tests/CLAUDE.md に移管、経緯は git 履歴
 
 ### Team Structure
 

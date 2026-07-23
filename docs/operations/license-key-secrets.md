@@ -10,7 +10,7 @@
 | 最終更新 | 2026-04-11 |
 | 対象シークレット | `AWS_LICENSE_SECRET`, `AWS_LICENSE_SECRET_PREVIOUS` |
 | 対象環境 | Lambda (prod / staging), ローカル dev |
-| 関連 ADR | [ADR-0026（archive）](../decisions/archive/0026-license-key-architecture.md) |
+| 関連 ADR | 旧 archive ADR-0026（ライセンスキーアーキテクチャ、license key 全廃 #2813 に伴い 2026-07-19 棚卸で削除・git 履歴参照） |
 | 関連 Issue | #807, #806 |
 | 関連設計書 | `license-key-requirements.md`, `license-subscription-causality.md`（いずれも Epic #2525 で全廃・削除済、git 履歴参照） |
 | 関連 runbook | [stripe-dashboard-runbook.md](stripe-dashboard-runbook.md) — Stripe Dashboard 立ち上げ / Webhook signing secret 配布証跡（#2101）|
@@ -250,7 +250,7 @@ export function verifyLicenseKey(licenseKey: string): boolean {
 
 | ドキュメント | 役割 |
 |------------|------|
-| [ADR-0026（archive）](../decisions/archive/0026-license-key-architecture.md) | ライセンスキーアーキテクチャ決定記録（上位） |
+| 旧 archive ADR-0026（削除済、git 履歴） | ライセンスキーアーキテクチャ決定記録（上位） |
 | `license-key-requirements.md`（削除済） | 要件定義書（should-be） |
 | `license-subscription-causality.md`（削除済） | License ↔ Stripe 因果関係マップ |
 | [runbook.md](./runbook.md) | 障害対応ランブック（上位） |
