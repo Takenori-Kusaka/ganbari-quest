@@ -40,7 +40,7 @@
 | 集約ルート | 主な子エンティティ | txn 境界根拠 |
 |---|---|---|
 | **Family（テナントルート）** | users, memberships, invites, consents, settings, push_subscriptions, notification_logs, trial_history, viewer_tokens, cloud_exports, cancellation_reasons, graduation_consent（**subscription 状態は families 行の属性**、独立表でない＝§6.6） | auth ドメイン。SQL で初めて正式化 |
-| **Child** | **child_activities**, activity_logs, point_ledger(+total_point 派生列), statuses, status_history, evaluations, activity_mastery, **child_activity_preferences**, daily_missions, login_bonuses, special_rewards, reward_redemption_requests, certificates, parent_messages, sibling_cheers, character_images, **child_custom_voices**, checklist_logs(+items), checklist_overrides, child_challenges, daily_battles, enemy_collection, usage_logs, rest_days（report_daily_summaries は §7 で**廃止**、achievements/child_achievements/title は #322 廃止で **drop 確定**＝§10-10、新スキーマに作らない） | `deleteChild` が 11+ 表を 1 txn 削除＝最強シグナル |
+| **Child** | **child_activities**, activity_logs, point_ledger(+total_point 派生列), statuses, status_history, evaluations, activity_mastery, **child_activity_preferences**, daily_missions, login_streaks (#3330 counter 縮約), special_rewards, reward_redemption_requests, certificates, parent_messages, sibling_cheers, character_images, **child_custom_voices**, checklist_logs(+items), checklist_overrides, child_challenges, daily_battles, enemy_collection, usage_logs, rest_days（report_daily_summaries は §7 で**廃止**、achievements/child_achievements/title は #322 廃止で **drop 確定**＝§10-10、新スキーマに作らない） | `deleteChild` が 11+ 表を 1 txn 削除＝最強シグナル |
 | **StampCard**（Child サブ集約） | stamp_entries | card 単位で entry を扱う |
 | **ChecklistTemplate**（Family master） | checklist_template_items, checklist_template_assignments(N:M child) | family master。進捗は Child 集約側 |
 | **グローバル master**（tenant 非依存） | categories, achievements, stamp_masters, market_benchmarks, stripe_webhook_events | tenant プレフィクスなし |
@@ -66,7 +66,7 @@
 | H7/H8 | layout | findCardByChildAndWeek + findEntriesWithMasterByCardId | stamp_cards / stamp_entries⋈stamp_masters | read(LEFT JOIN) |
 | H9 | home | findActivitiesByChild | child_activities | read |
 | H10 | home | getTodayActivityCountsByChild | activity_logs | aggregate GROUP |
-| H11/H12 | home | findTodayBonus + findRecentBonuses(1)[+60 if未claim] | login_bonuses | read |
+| H11/H12 | home | findStreak (counter 1 行 O(1)、#3330) | login_streaks | read |
 | H13/H14 | home | findTodayMissions + findMissionBonusRecord | daily_missions⋈child_activities / point_ledger | read(JOIN) |
 | H15 | home | getStampCardStatus（**H7/H8 重複**） | stamp_cards+stamp_entries | read×2 |
 | H16 | home | findStatuses（**H3 重複**、getCategoryXpSummary） | statuses | read |
@@ -123,7 +123,7 @@ SQLite 実装は大半の表で `tenantId` を WHERE に使わず（`_tenantId` 
 - **自然複合 identity の子表は複合自然 PK 昇格**（surrogate + counter.ts + padId 全廃）。例:
   - `statuses (family_id, child_id, category_id) PK`（旧 surrogate id + unique(child,category)）
   - `activity_mastery (family_id, child_id, activity_id) PK`
-  - `login_bonuses (family_id, child_id, login_date) PK`
+  - `login_streaks (family_id, child_id) PK`（#3330 counter 縮約: 子供ごと 1 行）
   - `daily_missions (family_id, child_id, mission_date, activity_id) PK`
   - `stamp_entries (family_id, card_id, slot) PK`
   - `checklist_logs (family_id, child_id, template_id, checked_date) PK`
@@ -137,7 +137,7 @@ SQLite 実装は大半の表で `tenantId` を WHERE に使わず（`_tenantId` 
 
 DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE covering**（heap 不在）。secondary は btree のみ + ASYNC 強制（INCLUDE 列は scan qualifier 不可）、式・部分・GIN 不可、≤24 本/≤8 列/≤1KiB。secondary 1 本 = 全書込に複合 PK 幅の Write DPU 加算 → **PK プレフィクスを access pattern に合わせ hot path の大半を secondary 0 本で賄い、各表 ≤3 本**。
 
-- **PK covering が想定以上に強力（spike#5 実機確証）**: planner は単一 child 規模で **PK-prefix `(family_id,child_id)` の Index Only Scan + 残差 filter** を既定の access path に選ぶ（recorded_date/type/cancelled は `Filters` で処理）。`al_pkey ... INCLUDE(全非キー列)` で heap fetch 無しを実測。→ **hot path の大半は secondary 0 本**: children / child_activities / activity_mastery / activity_pref / statuses / status_history / stamp_cards / daily_missions / login_bonuses / checklist_logs / daily_battles / consents / settings。
+- **PK covering が想定以上に強力（spike#5 実機確証）**: planner は単一 child 規模で **PK-prefix `(family_id,child_id)` の Index Only Scan + 残差 filter** を既定の access path に選ぶ（recorded_date/type/cancelled は `Filters` で処理）。`al_pkey ... INCLUDE(全非キー列)` で heap fetch 無しを実測。→ **hot path の大半は secondary 0 本**: children / child_activities / activity_mastery / activity_pref / statuses / status_history / stamp_cards / daily_missions / login_streaks / checklist_logs / daily_battles / consents / settings。
 - **secondary は投機的に張らない（spike#5 で方針保守化）**: recorded_date/type 系 secondary（activity_logs `(…,recorded_date,category_id)`、point_ledger `(…,type,recorded_date)`）は **単一 child の履歴が大量化し date/type filter が full-child scan を大幅削減する規模で初めて planner が採用**（小規模では PK-prefix が選ばれ secondary 不使用を実測）。→ **初期は PK のみで開始し、実データ規模の EXPLAIN ANALYZE で必要を確認してから追加**。Write DPU 予算は当初想定よりさらに小。`findUserTenants` 用 memberships `(user_id)` 等、PK プレフィクスで届かない「別軸引き」のみ最初から secondary を張る。
 - **式 index 不可の回避（素の列に materialize）**: `recorded_date` は **アプリ set の素の date 列**（生成列にしない。`CAST(created_at AS date)` は immutable でなく GENERATED 不可＝spike#5 `42P17`。`(created_at AT TIME ZONE 'UTC')::date` 等の immutable 変種は可だが、現 activity_logs 同様アプリ set が両 backend で timezone 曖昧さ無く SQLite parity 容易）/ `activity_logs.category_id` を記録時アプリ snapshot / `users.email_lower GENERATED lower(email)`（lower は immutable で OK）/ `statuses.last_decay_date`（`LIKE 'today%'` スキャン撤去）。
 - **時刻列は PK に入れない（§P3）**: findPointHistory は PK プレフィクス `(family,child)` の covering scan + `ORDER BY created_at DESC` LIMIT（家庭 ~数百行/child で ~1.5ms、spike#7）。keyset/secondary は大規模化時のみ後付け（可逆）。UUID v4 PK で hot-partition 懸念ゼロ。
@@ -356,9 +356,9 @@ children (
 ### §11.2 全テナント表 PK 凍結表（§P1、自然複合 PK 昇格 vs UUID）
 
 > 下表で全テナント表の PK を確定する。「自然複合 PK」= surrogate id + counter.ts + padId 全廃。auth 5 表は §6.6。**テナント表の PK 先頭は `family_id`**（グローバル master・auth の users/invites/consents は自然キー/UUID 単独 PK で例外）。per-column 完全 DDL は §11.3（別途生成）。Family 系 8 表の確定は 2026-07-03 実クエリ調査（governing rule 適用: 自然複合は settings のみ、他 7 表は UUID surrogate + 機能上必須の global UNIQUE）。
-> **⚠️ 自然複合 PK 凍結の governing rule（戦略/PO パネル 2026-07-01、監査可能な線引き）**: 自然複合 PK の凍結（§P1 不可逆）は、once-per-period 一意が **(a) policy invariant（ADR 参照必須、例 ADR-0012 anti-engagement）** または **(b) 構造的確実性（他 cardinality が product 上存在しないことの明示）** のいずれかに anchor される表のみ許す。**「現状そうなっている（mutable product default）」だけを根拠とする表は UUID PK + droppable UNIQUE** に落とす（UNIQUE でも 2 件目拒否の enforcement は同一に効く／失う可逆性は不変条件が反転した時にしか要らない）。判定結果: daily_battles/login_bonuses/rest_days = anchor (a) ADR-0012 ✅ 凍結 / ~~stamp_cards = anchor (b) シーズン撤去前提~~ → **PO 決裁 2026-07-03 (PR #3547): 復活があり得るため anchor (b) 不成立、UUID surrogate 化**/ **certificates = anchor 無し ❌ → UUID surrogate 化（上表反映済）**。
+> **⚠️ 自然複合 PK 凍結の governing rule（戦略/PO パネル 2026-07-01、監査可能な線引き）**: 自然複合 PK の凍結（§P1 不可逆）は、once-per-period 一意が **(a) policy invariant（ADR 参照必須、例 ADR-0012 anti-engagement）** または **(b) 構造的確実性（他 cardinality が product 上存在しないことの明示）** のいずれかに anchor される表のみ許す。**「現状そうなっている（mutable product default）」だけを根拠とする表は UUID PK + droppable UNIQUE** に落とす（UNIQUE でも 2 件目拒否の enforcement は同一に効く／失う可逆性は不変条件が反転した時にしか要らない）。判定結果: daily_battles/~~login_bonuses~~/rest_days = anchor (a) ADR-0012 ✅ 凍結（login_bonuses は #3330 counter 縮約で表ごと廃止 → login_streaks (family,child) anchor (b) に置換、PO 決裁 2026-07-19） / ~~stamp_cards = anchor (b) シーズン撤去前提~~ → **PO 決裁 2026-07-03 (PR #3547): 復活があり得るため anchor (b) 不成立、UUID surrogate 化**/ **certificates = anchor 無し ❌ → UUID surrogate 化（上表反映済）**。
 >
-> **自然複合 PK 昇格の一意性根拠（全昇格表で確認済 2026-07-01）**: 下表の昇格表 11 件（statuses `unique(child,category)` / activity_mastery `unique(child,activity)` / daily_missions `unique(child,mission_date,activity)` / login_bonuses `unique(child,login_date)` / stamp_cards `unique(child,week_start)` / checklist_logs `unique(...daily)` / certificates `unique(child,type)` / daily_battles `unique(child,date)` / rest_days `unique(child,date)` / enemy_collection `unique(child,enemy)` / checklist_template_assignments `unique(template,child)`）は、**現 schema に対応する UNIQUE index が全て既存**＝提案 PK と一致し恒久一意が裏付け済（grep 実測）。governing rule 適用後の判定: daily_battles/login_bonuses/rest_days は ADR-0012 policy invariant（1日/1期間1回 = anti-engagement の直接帰結、PO 決裁済）で凍結維持。stamp_cards は PO 決裁 2026-07-03（復活あり得る）で certificates と同じく surrogate 化済 = **全昇格表の product 確認完了**。
+> **自然複合 PK 昇格の一意性根拠（全昇格表で確認済 2026-07-01）**: 下表の昇格表 11 件（statuses `unique(child,category)` / activity_mastery `unique(child,activity)` / daily_missions `unique(child,mission_date,activity)` / ~~login_bonuses `unique(child,login_date)`~~（#3330 で login_streaks `unique(child)` に縮約） / stamp_cards `unique(child,week_start)` / checklist_logs `unique(...daily)` / certificates `unique(child,type)` / daily_battles `unique(child,date)` / rest_days `unique(child,date)` / enemy_collection `unique(child,enemy)` / checklist_template_assignments `unique(template,child)`）は、**現 schema に対応する UNIQUE index が全て既存**＝提案 PK と一致し恒久一意が裏付け済（grep 実測）。governing rule 適用後の判定: daily_battles/rest_days は ADR-0012 policy invariant（1日/1期間1回 = anti-engagement の直接帰結、PO 決裁済）で凍結維持。stamp_cards は PO 決裁 2026-07-03（復活あり得る）で certificates と同じく surrogate 化済 = **全昇格表の product 確認完了**。
 
 | 表 | 確定 PK | 補助 UNIQUE/secondary | 種別 |
 |---|---|---|---|
@@ -371,7 +371,7 @@ children (
 | activity_mastery | `(family_id, child_id, activity_id)` | — | 自然複合 |
 | activity_pref (child_activity_preferences) | `(family_id, child_id, activity_id)` | — | 自然複合（**§3 欠落→編入**） |
 | daily_missions | `(family_id, child_id, mission_date, activity_id)` | — | 自然複合 |
-| login_bonuses | `(family_id, child_id, login_date)` | — | 自然複合 |
+| login_streaks | `(family_id, child_id)` | — | 自然複合（#3330 counter 縮約、旧 login_bonuses。child-level counter 1 行、anchor (b) 構造的確実性） |
 | stamp_cards | `(family_id, child_id, card_id uuid[v4])` | **UNIQUE(family_id, child_id, week_start)**（「1子1週1枚」の現行制約、droppable） | **UUID surrogate（PO 決裁 2026-07-03、PR #3547）**: シーズン/イベントカード復活が roadmap 上あり得る＝同一週複数カードの cardinality 可変で anchor (b) 不成立 → governing rule により自然複合凍結不可（certificates と同判定）。週1枚制約は droppable UNIQUE で維持し、復活時は UNIQUE を DROP するだけで PK 不変 |
 | stamp_entries | `(family_id, card_id, slot)` | UNIQUE `(family_id, card_id, login_date)`（1日1押印、consistency minor） | 自然複合 |
 | checklist_logs | `(family_id, child_id, template_id, checked_date)` | — | 自然複合。itemsJson は `items_json` text 列に据置（子表 checklist_log_items を作らない、§4.2 [must]A / reset-plan 決定#1） |
@@ -482,7 +482,7 @@ PK 凍結と共有プリミティブの順序を誤ると下流が手戻るた�
 | 7 | **core txn work 内の await は tx-bound call のみ許す allowlist**（QM B1: denylist だと `await sleep`/`await db2.x`/helper 経由の transitive await を見逃す。`work` 内の全 `AwaitExpression` は `tx` binding への call であること、それ以外 fail）（§8、yield 汚染防止） | AST allowlist |
 | 8 | **tx-handle escape guard**（QM B1、最重要非対称バグ）: tenant/write-path repo メソッドは `tx` を必須引数に取り、module-level `db` 直結 import を write-path モジュールで禁止（SQLite 単一接続で隠蔽・pg で部分コミット＝E2E緑で本番崩壊）。pg-backend CI を recordActivity write-path に拡張（local-only SQLite は構造的に検出不能） | write-path repo の tx 引数 AST + module db import ban + pg write-path integration test |
 | 9 | **PK-freeze drift manifest**（QM B3、§P1 唯一の不可逆不変条件を機械強制）: drizzle pg/sqlite schema の PK == 凍結 PK manifest。変更は manifest 更新 + migration ADR 必須（cardinality 恒久性の product 判断は人手のまま明示 scope） | schema PK == manifest test（PR-0 で導入） |
-| 10 | **once-per-period bonus の冪等 guard**（QM R3、double-award 防止）: mission-bonus 等の point_ledger は unique 制約なし＝count-then-insert が OCC/double-tap 下で TOCTOU→二重付与（fitness#14 の total_point 突合は self-consistent で検出不能）。once-per-day 系は自然キー UNIQUE（login_bonuses は既に `(child,login_date)` で安全、mission bonus に相当 guard 追加）or serialization test | 冪等 unit/integration test |
+| 10 | **once-per-period bonus の冪等 guard**（QM R3、double-award 防止）: mission-bonus 等の point_ledger は unique 制約なし＝count-then-insert が OCC/double-tap 下で TOCTOU→二重付与（fitness#14 の total_point 突合は self-consistent で検出不能）。once-per-day 系は自然キー UNIQUE or conditional write（login_bonuses は #3330 counter 縮約で login_streaks の conditional write が担保、race 回帰 = dsql-login-streak-repo.test.ts。mission bonus に相当 guard 追加）or serialization test | 冪等 unit/integration test |
 | 11 | **optional 欠落の可観測化**: fitness#14 は total_point/total_xp/streak をカバーするが **optional 欠落（行が書かれず drift=0）を検出できない**（DB R1/QM R4/PO R1）→ optional-write 失敗時に**観測カウンタ（ログでなく metric）**を emit し欠落率を可観測化。fitness#14 は optional omission を除く旨を注記 | optional-write failure metric + 注記 |
 | 12 | cross-tenant E2E（他テナント childId で 404 + storage 非到達、#3139 踏襲） | 既存 IDOR test 移植 |
 | 13 | DDL 二重ソース drift 防止: pg DDL と sqlite DDL の生成列式・CHECK 値が文字列一致（create-tables.ts 手書き path 縮退、SQLite parity Finding 4） | 新規 parity test |

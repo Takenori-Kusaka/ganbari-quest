@@ -326,24 +326,23 @@ export const characterImages = sqliteTable('character_images', {
 });
 
 // ============================================================
-// login_bonuses - ログインボーナス
+// login_streaks - ログインボーナス counter (#3330 案 B counter 縮約)
 // ============================================================
-export const loginBonuses = sqliteTable(
-	'login_bonuses',
+// per-date 行 (旧 login_bonuses) は廃止し、子供ごとに 1 行の counter のみ保持する。
+// 当日冪等 (1日1回 = ADR-0012) は claimToday の conditional write が担保する。
+// 旧 login_bonuses からの fold は lazy-startup-migrations.ts (#3330) 参照。
+export const loginStreaks = sqliteTable(
+	'login_streaks',
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
-		loginDate: text('login_date').notNull(),
-		rank: text('rank').notNull(),
-		basePoints: integer('base_points').notNull(),
-		multiplier: real('multiplier').notNull().default(1.0),
-		totalPoints: integer('total_points').notNull(),
-		consecutiveDays: integer('consecutive_days').notNull().default(1),
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		lastLoginDate: text('last_login_date').notNull(),
+		currentStreak: integer('current_streak').notNull().default(1),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [uniqueIndex('idx_login_bonuses_child_date').on(table.childId, table.loginDate)],
+	(table) => [uniqueIndex('idx_login_streaks_child').on(table.childId)],
 );
 
 // ============================================================

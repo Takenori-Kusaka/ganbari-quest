@@ -311,8 +311,8 @@ describe('DSQL child-repo (PR-R1、実 schema PGlite)', () => {
 			sql`UPDATE children SET total_point = 50 WHERE family_id = ${FAMILY} AND child_id = ${id}`,
 		);
 		await t.db.execute(sql`
-			INSERT INTO login_bonuses (family_id, child_id, login_date, rank, base_points, total_points)
-			VALUES (${FAMILY}, ${id}, '2026-07-04', 'daikichi', 5, 5)
+			INSERT INTO login_streaks (family_id, child_id, last_login_date, current_streak)
+			VALUES (${FAMILY}, ${id}, '2026-07-04', 3)
 		`);
 		await t.db.execute(sql`
 			INSERT INTO statuses (family_id, child_id, category_id, total_xp, updated_at)

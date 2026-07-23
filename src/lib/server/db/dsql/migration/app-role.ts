@@ -93,7 +93,7 @@ export const UPDATE_ALLOWED_TABLES: ReadonlySet<string> = new Set([
 	'enemy_collection',
 	'checklist_overrides',
 	'child_activity_preferences',
-	'login_bonuses',
+	'login_streaks',
 	'certificates',
 	'special_rewards',
 	'reward_redemption_requests',

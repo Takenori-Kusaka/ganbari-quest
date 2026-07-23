@@ -95,7 +95,7 @@ export const CHILD_SCOPED_TABLES = [
 	'activity_mastery',
 	'child_activity_preferences',
 	'daily_missions',
-	'login_bonuses',
+	'login_streaks',
 	'stamp_cards',
 	// checklist_logs.itemsJson は text 据置 (子表 checklist_log_items 廃止、M3 §4.2)。
 	'checklist_logs',
@@ -239,7 +239,7 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 				`);
 				const bonuses = await tx.execute(sql`
 					WITH deleted AS (
-						DELETE FROM login_bonuses WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1
+						DELETE FROM login_streaks WHERE family_id = ${tenantId} AND child_id = ${id} RETURNING 1
 					)
 					SELECT count(*)::int AS c FROM deleted
 				`);

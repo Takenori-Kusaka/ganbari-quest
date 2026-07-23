@@ -2,7 +2,7 @@
 // #3328: backup の export → clear → import (replace) で **全 source 実体**が件数一致で復元されるかを
 // 実 SQLite で検証する round-trip 完全性テスト。
 //
-// 活動だけでなく activityLogs / pointLedger / statuses / statusHistory / loginBonuses / evaluations /
+// 活動だけでなく activityLogs / pointLedger / statuses / statusHistory / loginStreaks / evaluations /
 // specialRewards まで全種別を seed し、replace round-trip 後に各種別が復元されることを assert する。
 // 未実装の取込 (現状 evaluations は import 関数が無い、#3327) を **赤で機械再現** し、failing-test-first で
 // 潰す。新種別を export に足したら本テストへ assert を追加する規律で「silent な取りこぼし」を防ぐ。
@@ -47,7 +47,7 @@ import {
 	insertEvaluation,
 } from '../../../src/lib/server/db/evaluation-repo';
 import { getRepos } from '../../../src/lib/server/db/factory';
-import { findRecentBonuses, insertLoginBonus } from '../../../src/lib/server/db/login-bonus-repo';
+import { findStreak, upsertStreak } from '../../../src/lib/server/db/login-bonus-repo';
 import { findPointHistory } from '../../../src/lib/server/db/point-repo';
 import {
 	findRedemptionRequestsByTenant,
@@ -121,18 +121,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			},
 			T,
 		);
-		await insertLoginBonus(
-			{
-				childId: asChildId(1),
-				loginDate: '2026-03-01',
-				rank: 'normal',
-				basePoints: 5,
-				multiplier: 1,
-				totalPoints: 5,
-				consecutiveDays: 1,
-			},
-			T,
-		);
+		// #3330 counter 縮約: per-date 行に代わり counter 1 行を seed
+		await upsertStreak({ childId: asChildId(1), lastLoginDate: '2026-03-01', currentStreak: 1 }, T);
 		await insertEvaluation(
 			{
 				childId: asChildId(1),
@@ -354,7 +344,9 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			(await findRecentStatusHistory(asChildId(cid), asCategoryId(1), T, 999)).length,
 			'ステータス履歴',
 		).toBe(1);
-		expect((await findRecentBonuses(asChildId(cid), T, 999)).length, 'ログインボーナス').toBe(1);
+		expect((await findStreak(asChildId(cid), T))?.currentStreak, 'ログインボーナス counter').toBe(
+			1,
+		);
 		expect((await findEvaluationsByChild(asChildId(cid), 999, T)).length, '評価').toBe(1);
 		expect((await findSpecialRewards(asChildId(cid), T)).length, 'ごほうび').toBe(1);
 

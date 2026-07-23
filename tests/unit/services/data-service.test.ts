@@ -45,7 +45,7 @@ vi.mock('$lib/server/db/factory', () => ({
 					.delete(schema.childAchievements)
 					.where(eq(schema.childAchievements.childId, id))
 					.run();
-				testDb.delete(schema.loginBonuses).where(eq(schema.loginBonuses.childId, id)).run();
+				testDb.delete(schema.loginStreaks).where(eq(schema.loginStreaks.childId, id)).run();
 				testDb.delete(schema.characterImages).where(eq(schema.characterImages.childId, id)).run();
 				testDb.delete(schema.evaluations).where(eq(schema.evaluations.childId, id)).run();
 				testDb.delete(schema.statusHistory).where(eq(schema.statusHistory.childId, id)).run();

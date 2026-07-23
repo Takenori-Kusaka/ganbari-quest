@@ -13,8 +13,7 @@ const mockInsertPointLedger = vi.fn();
 const mockInsertChild = vi.fn();
 const mockUpsertStatus = vi.fn();
 const mockInsertStatusHistory = vi.fn();
-const mockFindRecentBonuses = vi.fn();
-const mockInsertLoginBonus = vi.fn();
+const mockUpsertStreak = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
@@ -51,8 +50,7 @@ vi.mock('$lib/server/db/status-repo', () => ({
 }));
 
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
-	findRecentBonuses: (...args: unknown[]) => mockFindRecentBonuses(...args),
-	insertLoginBonus: (...args: unknown[]) => mockInsertLoginBonus(...args),
+	upsertStreak: (...args: unknown[]) => mockUpsertStreak(...args),
 }));
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
@@ -113,7 +111,7 @@ function makeExportData(overrides: Partial<ExportData> = {}): ExportData {
 			statusHistory: [],
 			childAchievements: [],
 			childTitles: [],
-			loginBonuses: [],
+			loginStreaks: [],
 			evaluations: [],
 			specialRewards: [],
 			checklistTemplates: [],
@@ -155,7 +153,7 @@ beforeEach(() => {
 	mockChildActivityFindByChild.mockResolvedValue([]);
 	mockChildActivityInsert.mockResolvedValue({ id: '1' });
 	mockFindActivityLogs.mockResolvedValue([]);
-	mockFindRecentBonuses.mockResolvedValue([]);
+	mockUpsertStreak.mockResolvedValue(true);
 	mockFindSpecialRewards.mockResolvedValue([]);
 	mockFindTemplatesByChild.mockResolvedValue([]);
 });
@@ -290,31 +288,27 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 		expect(mockInsertActivityLog).not.toHaveBeenCalled();
 	});
 
-	it('既存 loginBonus (childId + loginDate) があれば insertLoginBonus を呼ばず skip + skipped.constraint 加算', async () => {
-		const data = makeExportData();
+	it('既存 counter の方が新しい場合は upsertStreak=false で skip + skipped.constraint 加算 (#3330)', async () => {
+		// 新形式 (1.8.0) backup: fold seam を通らず loginStreaks がそのまま import される
+		const data = makeExportData({ version: '1.8.0' });
 		data.family.children = [makeChild('c1')];
-		data.data.loginBonuses = [
+		data.data.loginStreaks = [
 			{
 				childRef: 'c1',
-				loginDate: '2026-03-15',
-				rank: 'gold',
-				basePoints: 5,
-				multiplier: 1.5,
-				totalPoints: 8,
-				consecutiveDays: 3,
-				createdAt: '2026-03-15T00:00:00Z',
+				lastLoginDate: '2026-03-15',
+				currentStreak: 3,
+				updatedAt: '2026-03-15T00:00:00Z',
 			},
 		];
 
 		mockInsertChild.mockResolvedValue({ id: '101' });
-		mockFindRecentBonuses.mockResolvedValue([{ loginDate: '2026-03-15' }]);
+		mockUpsertStreak.mockResolvedValue(false); // repo: 既存 counter の方が新しい → skip
 
 		const result = await importFamilyData(data, TENANT);
 
 		expect(result.loginBonusesImported).toBe(0);
 		expect(result.loginBonusesSkipped).toBe(1);
 		expect(result.skipped.constraint).toBe(1);
-		expect(mockInsertLoginBonus).not.toHaveBeenCalled();
 	});
 
 	// #3327 P3 撤去: 旧「マスタ活動の名前重複は skipped.name に計上」は importActivityMaster の

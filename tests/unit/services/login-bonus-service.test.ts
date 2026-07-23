@@ -1,6 +1,10 @@
 import { asChildId } from '$lib/domain/ids';
 // tests/unit/services/login-bonus-service.test.ts
-// ログインボーナスサービスのユニットテスト
+// ログインボーナスサービスのユニットテスト (#3330 案 B counter 縮約)
+//
+// per-date 行 (旧 login_bonuses) は廃止。counter (login_streaks: lastLoginDate + currentStreak)
+// に対する status 導出 / claim (conditional write) / 二重 claim 拒否 / point_ledger 単一記帳を検証。
+// UI から見える観測契約 (claimedToday / consecutiveLoginDays / 倍率 / message) は旧実装と不変。
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
@@ -39,12 +43,13 @@ vi.mock('$lib/domain/date-utils', () => ({
 
 import {
 	calcLoginBonusPoints,
+	deriveConsecutiveDays,
+	deriveStreakCounter,
 	drawOmikuji,
 	getLoginMultiplier,
 	OMIKUJI_RANKS,
 } from '../../../src/lib/domain/validation/login-bonus';
 import {
-	calculateConsecutiveDays,
 	claimLoginBonus,
 	getLoginBonusStatus,
 } from '../../../src/lib/server/services/login-bonus-service';
@@ -68,19 +73,9 @@ function seedChild() {
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 }
 
-function addBonus(childId: number, date: string, consecutiveDays = 1) {
-	testDb
-		.insert(schema.loginBonuses)
-		.values({
-			childId,
-			loginDate: date,
-			rank: '吉',
-			basePoints: 3,
-			multiplier: 1.0,
-			totalPoints: 3,
-			consecutiveDays,
-		})
-		.run();
+/** counter 状態を直接 seed する (#3330: per-date 行の代わり) */
+function seedStreak(childId: number, lastLoginDate: string, currentStreak: number) {
+	testDb.insert(schema.loginStreaks).values({ childId, lastLoginDate, currentStreak }).run();
 }
 
 describe('OMIKUJI_RANKS', () => {
@@ -157,33 +152,63 @@ describe('calcLoginBonusPoints', () => {
 	});
 });
 
-describe('calculateConsecutiveDays', () => {
-	beforeEach(() => {
-		seedChild();
+// ============================================================
+// deriveStreakCounter / deriveConsecutiveDays (#3330 fold / 導出 helper)
+// ============================================================
+describe('deriveStreakCounter (旧 per-date → counter fold)', () => {
+	it('空集合は null', () => {
+		expect(deriveStreakCounter([])).toBeNull();
 	});
 
-	it('初回は1日', async () => {
-		expect(await calculateConsecutiveDays(asChildId(1), '2026-02-21', 'test-tenant')).toBe(1);
+	it('単日は streak 1', () => {
+		expect(deriveStreakCounter(['2026-02-21'])).toEqual({
+			lastLoginDate: '2026-02-21',
+			currentStreak: 1,
+		});
 	});
 
-	it('連続2日', async () => {
-		addBonus(1, '2026-02-20');
-		expect(await calculateConsecutiveDays(asChildId(1), '2026-02-21', 'test-tenant')).toBe(2);
+	it('連続 5 日 (順不同・重複あり) を最新日から数える', () => {
+		expect(
+			deriveStreakCounter([
+				'2026-02-18',
+				'2026-02-16',
+				'2026-02-20',
+				'2026-02-17',
+				'2026-02-19',
+				'2026-02-19', // 重複は無視
+			]),
+		).toEqual({ lastLoginDate: '2026-02-20', currentStreak: 5 });
 	});
 
-	it('連続5日', async () => {
-		addBonus(1, '2026-02-16');
-		addBonus(1, '2026-02-17');
-		addBonus(1, '2026-02-18');
-		addBonus(1, '2026-02-19');
-		addBonus(1, '2026-02-20');
-		expect(await calculateConsecutiveDays(asChildId(1), '2026-02-21', 'test-tenant')).toBe(6);
+	it('途切れがあれば最新 run のみ数える (旧 calculateConsecutiveDays と同一論理)', () => {
+		expect(deriveStreakCounter(['2026-02-10', '2026-02-11', '2026-02-14', '2026-02-15'])).toEqual({
+			lastLoginDate: '2026-02-15',
+			currentStreak: 2,
+		});
+	});
+});
+
+describe('deriveConsecutiveDays (status 表示用の導出)', () => {
+	it('counter 無しは 1 (初回)', () => {
+		expect(deriveConsecutiveDays(null, '2026-03-10')).toBe(1);
 	});
 
-	it('途切れた場合は1日', async () => {
-		addBonus(1, '2026-02-18'); // 3日前
-		// 2/19, 2/20 なし
-		expect(await calculateConsecutiveDays(asChildId(1), '2026-02-21', 'test-tenant')).toBe(1);
+	it('当日 claim 済は currentStreak 据置', () => {
+		expect(
+			deriveConsecutiveDays({ lastLoginDate: '2026-03-10', currentStreak: 3 }, '2026-03-10'),
+		).toBe(3);
+	});
+
+	it('昨日まで連続なら +1 (今日 claim すると何日目か)', () => {
+		expect(
+			deriveConsecutiveDays({ lastLoginDate: '2026-03-09', currentStreak: 2 }, '2026-03-10'),
+		).toBe(3);
+	});
+
+	it('途切れていれば 1', () => {
+		expect(
+			deriveConsecutiveDays({ lastLoginDate: '2026-03-07', currentStreak: 5 }, '2026-03-10'),
+		).toBe(1);
 	});
 });
 
@@ -213,7 +238,7 @@ describe('getLoginBonusStatus', () => {
 	});
 
 	it('今日受取済みの場合claimedTodayがtrue', async () => {
-		addBonus(1, '2026-03-10', 3);
+		seedStreak(1, '2026-03-10', 3);
 		const result = await getLoginBonusStatus(asChildId(1), 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
@@ -222,20 +247,20 @@ describe('getLoginBonusStatus', () => {
 		}
 	});
 
-	it('過去にボーナスがある場合lastClaimedAtが返る', async () => {
-		addBonus(1, '2026-03-09', 2);
+	it('昨日まで連続の場合lastClaimedAtが返り、今日を含めた連続日数になる', async () => {
+		seedStreak(1, '2026-03-09', 1);
 		const result = await getLoginBonusStatus(asChildId(1), 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
 			expect(result.claimedToday).toBe(false);
 			expect(result.lastClaimedAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
-			// 昨日(03/09)のボーナスがあるので、今日を含めて2日連続
+			// 昨日(03/09)まで 1 日連続 → 今日を含めて 2 日連続
 			expect(result.consecutiveLoginDays).toBe(2);
 		}
 	});
 
 	it('連続が途切れた場合は1日目として返る', async () => {
-		addBonus(1, '2026-03-07', 5); // 3日前 → 途切れ
+		seedStreak(1, '2026-03-07', 5); // 3日前 → 途切れ
 		const result = await getLoginBonusStatus(asChildId(1), 'test-tenant');
 		expect('error' in result).toBe(false);
 		if (!('error' in result)) {
@@ -260,7 +285,7 @@ describe('claimLoginBonus', () => {
 	});
 
 	it('既に受取済みの場合ALREADY_CLAIMEDエラー', async () => {
-		addBonus(1, '2026-03-10');
+		seedStreak(1, '2026-03-10', 1);
 		const result = await claimLoginBonus(asChildId(1), 'test-tenant');
 		expect(result).toEqual({ error: 'ALREADY_CLAIMED' });
 	});
@@ -288,9 +313,8 @@ describe('claimLoginBonus', () => {
 	});
 
 	it('連続ログインで倍率付きボーナス受取', async () => {
-		// 2日分の過去ボーナスを追加 → 今日で3日連続 → 1.5倍
-		addBonus(1, '2026-03-08', 1);
-		addBonus(1, '2026-03-09', 2);
+		// 昨日まで 2 日連続の counter → 今日で3日連続 → 1.5倍
+		seedStreak(1, '2026-03-09', 2);
 
 		// Math.random を制御して「中吉」(basePoints=7) を確定
 		// 累積: 大大吉(1), 大吉(6), 中吉(21)
@@ -312,16 +336,17 @@ describe('claimLoginBonus', () => {
 		randomSpy.mockRestore();
 	});
 
-	it('ボーナス受取後にDBにレコードが保存される', async () => {
+	it('ボーナス受取後にcounterが更新されpoint_ledgerに1件だけ記帳される', async () => {
 		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 
 		await claimLoginBonus(asChildId(1), 'test-tenant');
 
-		// login_bonuses テーブルにレコードがあるか確認
-		const bonuses = testDb.select().from(schema.loginBonuses).all();
-		expect(bonuses.length).toBe(1);
-		expect(bonuses[0]?.loginDate).toBe('2026-03-10');
-		expect(bonuses[0]?.childId).toBe(1);
+		// login_streaks に counter 1 行 (per-date 行は作られない)
+		const streaks = testDb.select().from(schema.loginStreaks).all();
+		expect(streaks.length).toBe(1);
+		expect(streaks[0]?.lastLoginDate).toBe('2026-03-10');
+		expect(streaks[0]?.currentStreak).toBe(1);
+		expect(streaks[0]?.childId).toBe(1);
 
 		// point_ledger テーブルにレコードがあるか確認
 		const points = testDb.select().from(schema.pointLedger).all();
@@ -332,13 +357,28 @@ describe('claimLoginBonus', () => {
 		randomSpy.mockRestore();
 	});
 
+	it('二重 claim (同時 2 連発) は 1 回のみ加点される (conditional write 冪等、ADR-0061)', async () => {
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+		const [r1, r2] = await Promise.all([
+			claimLoginBonus(asChildId(1), 'test-tenant'),
+			claimLoginBonus(asChildId(1), 'test-tenant'),
+		]);
+		const winners = [r1, r2].filter((r) => !('error' in r));
+		const losers = [r1, r2].filter((r) => 'error' in r);
+		expect(winners.length).toBe(1);
+		expect(losers).toEqual([{ error: 'ALREADY_CLAIMED' }]);
+
+		// counter 1 行 / point_ledger 1 件のみ (二重加点なし)
+		expect(testDb.select().from(schema.loginStreaks).all().length).toBe(1);
+		expect(testDb.select().from(schema.pointLedger).all().length).toBe(1);
+
+		randomSpy.mockRestore();
+	});
+
 	it('7日連続で2.0倍のメッセージ', async () => {
-		// 6日分の過去ボーナスを追加
-		for (let i = 3; i <= 8; i++) {
-			const date = `2026-03-0${i}`;
-			addBonus(1, date, i - 2);
-		}
-		addBonus(1, '2026-03-09', 7);
+		// 昨日まで 7 日連続の counter → 今日で 8 日連続
+		seedStreak(1, '2026-03-09', 7);
 
 		// 大吉 (basePoints=15) を確定
 		// random=3 → 3-1=2, 2-5=-3 ≤ 0 → 大吉
@@ -352,6 +392,23 @@ describe('claimLoginBonus', () => {
 			expect(result.totalPoints).toBe(30); // floor(15 * 2.0) = 30
 			expect(result.message).toContain('8にちれんぞくで2ばい');
 		}
+
+		randomSpy.mockRestore();
+	});
+
+	it('途切れ後の claim は streak 1 にリセットされる', async () => {
+		seedStreak(1, '2026-03-07', 10); // 3日前 → 途切れ
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+		const result = await claimLoginBonus(asChildId(1), 'test-tenant');
+		expect('error' in result).toBe(false);
+		if (!('error' in result)) {
+			expect(result.consecutiveLoginDays).toBe(1);
+			expect(result.multiplier).toBe(1.0);
+		}
+		const streaks = testDb.select().from(schema.loginStreaks).all();
+		expect(streaks[0]?.currentStreak).toBe(1);
+		expect(streaks[0]?.lastLoginDate).toBe('2026-03-10');
 
 		randomSpy.mockRestore();
 	});

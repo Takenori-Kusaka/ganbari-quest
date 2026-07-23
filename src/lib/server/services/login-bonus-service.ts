@@ -1,19 +1,19 @@
 import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/login-bonus-service.ts
-// ログインボーナスサービス層
+// ログインボーナスサービス層 (#3330 案 B counter 縮約)
+//
+// per-date 行 (旧 login_bonuses) を廃し、子供ごとの counter (lastLoginDate + currentStreak)
+// のみで status / claim を賄う。旧 O(60) 遡り再計算は O(1) 参照になる。
+// 倍率テーブル / おみくじ / point_ledger 記帳は不変 (UI から見える観測契約は不変)。
 
 import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import {
 	calcLoginBonusPoints,
+	deriveConsecutiveDays,
 	drawOmikuji,
 	getLoginMultiplier,
 } from '$lib/domain/validation/login-bonus';
-import {
-	findChildById,
-	findRecentBonuses,
-	findTodayBonus,
-	insertLoginBonus,
-} from '$lib/server/db/login-bonus-repo';
+import { claimToday, findChildById, findStreak } from '$lib/server/db/login-bonus-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 
 /** 今日の日付をYYYY-MM-DD形式で取得 (JST) */
@@ -21,33 +21,6 @@ const todayDate = todayDateJST;
 
 /** 前日の日付をYYYY-MM-DD形式で取得 */
 const prevDate = prevDateJST;
-
-/** 連続ログイン日数を計算 */
-export async function calculateConsecutiveDays(
-	childId: ChildId,
-	today: string,
-	tenantId: string,
-): Promise<number> {
-	const bonuses = await findRecentBonuses(childId, tenantId, 60);
-
-	if (bonuses.length === 0) return 1;
-
-	// 昨日のログインがあるか確認
-	const yesterday = prevDate(today);
-	let consecutive = 1;
-	let checkDate = yesterday;
-
-	for (const bonus of bonuses) {
-		if (bonus.loginDate === checkDate) {
-			consecutive++;
-			checkDate = prevDate(checkDate);
-		} else {
-			break;
-		}
-	}
-
-	return consecutive;
-}
 
 export interface LoginBonusStatus {
 	childId: ChildId;
@@ -66,7 +39,7 @@ export interface ClaimResult {
 	message: string;
 }
 
-/** ログインボーナスの状態を取得 */
+/** ログインボーナスの状態を取得 (counter 1 行の O(1) 参照) */
 export async function getLoginBonusStatus(
 	childId: ChildId,
 	tenantId: string,
@@ -75,16 +48,13 @@ export async function getLoginBonusStatus(
 	if (!child) return { error: 'NOT_FOUND' };
 
 	const today = todayDate();
-	const todayBonus = await findTodayBonus(childId, today, tenantId);
-	const recentBonuses = await findRecentBonuses(childId, tenantId, 1);
+	const streak = await findStreak(childId, tenantId);
 
 	return {
 		childId,
-		claimedToday: !!todayBonus,
-		consecutiveLoginDays: todayBonus
-			? todayBonus.consecutiveDays
-			: await calculateConsecutiveDays(childId, today, tenantId),
-		lastClaimedAt: recentBonuses[0]?.createdAt ?? null,
+		claimedToday: streak?.lastLoginDate === today,
+		consecutiveLoginDays: deriveConsecutiveDays(streak, today),
+		lastClaimedAt: streak?.updatedAt ?? null,
 	};
 }
 
@@ -98,15 +68,15 @@ export async function claimLoginBonus(
 
 	const today = todayDate();
 
-	// 既に受取済みかチェック
-	const existing = await findTodayBonus(childId, today, tenantId);
-	if (existing) return { error: 'ALREADY_CLAIMED' };
+	// counter への conditional write (当日冪等 + increment/reset を単一 SQL 文で原子的に実行)。
+	// 同時 claim 2 連発でも勝者は 1 つだけで、敗者は ALREADY_CLAIMED になる (二重加点なし)。
+	const claimed = await claimToday(childId, today, prevDate(today), tenantId);
+	if (!claimed) return { error: 'ALREADY_CLAIMED' };
+
+	const consecutiveDays = claimed.currentStreak;
 
 	// おみくじ抽選
 	const omikuji = drawOmikuji();
-
-	// 連続ログイン日数計算
-	const consecutiveDays = await calculateConsecutiveDays(childId, today, tenantId);
 
 	// 倍率計算（連続ログイン）
 	const streakMultiplier = getLoginMultiplier(consecutiveDays);
@@ -128,23 +98,6 @@ export async function claimLoginBonus(
 	const totalPoints = Math.round(
 		calcLoginBonusPoints(omikuji.basePoints, multiplier) * loyaltyMultiplier,
 	);
-
-	// DB保存（レースコンディション対策: onConflictDoNothing で重複insert回避）
-	const inserted = await insertLoginBonus(
-		{
-			childId,
-			loginDate: today,
-			rank: omikuji.rank,
-			basePoints: omikuji.basePoints,
-			multiplier,
-			totalPoints,
-			consecutiveDays,
-		},
-		tenantId,
-	);
-
-	// 競合で挿入できなかった場合は既受取扱い
-	if (!inserted) return { error: 'ALREADY_CLAIMED' as const };
 
 	// ポイント台帳に記録
 	await insertPointEntry(

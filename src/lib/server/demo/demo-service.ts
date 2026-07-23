@@ -25,7 +25,7 @@ import {
 	DEMO_ACTIVITIES,
 	DEMO_ACTIVITY_LOGS,
 	DEMO_CHILDREN,
-	DEMO_LOGIN_BONUSES,
+	DEMO_LOGIN_STREAKS,
 	DEMO_POINT_BALANCES,
 	getDemoActivitiesForChild,
 	getDemoChecklistsForChild,
@@ -151,14 +151,14 @@ export function getDemoHomeData(childId: ChildId): DemoHomeData {
 		count,
 	}));
 
-	// Login bonus
-	const bonus = DEMO_LOGIN_BONUSES.find((b) => b.childId === childId);
-	const loginBonusStatus: LoginBonusStatus | null = bonus
+	// Login bonus (#3330 counter 縮約: fixture の counter 1 行から status を導出)
+	const streak = DEMO_LOGIN_STREAKS.find((s) => s.childId === childId);
+	const loginBonusStatus: LoginBonusStatus | null = streak
 		? {
 				childId,
 				claimedToday: true,
-				consecutiveLoginDays: bonus.consecutiveDays,
-				lastClaimedAt: bonus.createdAt,
+				consecutiveLoginDays: streak.currentStreak,
+				lastClaimedAt: streak.updatedAt,
 			}
 		: childId === asChildId(901)
 			? null // baby has no login bonus
