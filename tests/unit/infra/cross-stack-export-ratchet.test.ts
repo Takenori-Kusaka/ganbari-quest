@@ -35,12 +35,25 @@
 // **Deploy-2 (#3854) で StorageStack から table + 両 export を撤去したため、本 allowlist からも MainTable
 // 4 entry を削除した (計 17 → 13)**。以後 MainTable 由来 export が synth に現れないことを下記 assert が
 // 断言し、export が復活したら (table 復元等) 即 fail する (撤去の完遂 guard)。
+//
+// ## stack 数 guard (#3882、no-silent-gap)
+// 本 test の synth 対象 (SYNTH_STACK_IDS) は hardcode であり、bin/app.ts に新 stack が追加されても
+// ratchet が自動追随しない (= その stack の export/import が検査から silent に漏れる growth-drift)。
+// これを塞ぐため、bin/app.ts のソースを parse して instantiate される stack id 集合を抽出し、
+// 「synth 対象 ∪ 明示除外 (RATCHET_EXCLUDED_STACK_IDS)」と**集合として過不足なく一致**することを
+// assert する (#3872 の `templates.length === 11` guard / admin-resource-model-registry の
+// NON_CANONICAL 明示除外 no-silent-gap guard と同型思想)。除外 entry は理由付き登録 + 除外根拠
+// (cross-stack export 0 本) を実 synth で自己検証し、根拠が崩れたら fail して組み込みを強制する。
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AuthStack } from '../../../infra/lib/auth-stack';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
+import { DsqlStack } from '../../../infra/lib/dsql-stack';
 import { STAGING_ENV_CONFIG } from '../../../infra/lib/env-config';
 import { NetworkStack } from '../../../infra/lib/network-stack';
 import { OpsStack } from '../../../infra/lib/ops-stack';
@@ -163,6 +176,79 @@ const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
 
 const ALLOWLIST_NAMES: ReadonlySet<string> = new Set(AUTO_EXPORT_ALLOWLIST.map((e) => e.name));
 
+// --- #3882: stack 数 guard (no-silent-gap) の SSOT ---
+
+/**
+ * 本 ratchet が synth する stack id (`${APP_NAME}` prefix 抜き)。synthAllStacks() の wire /
+ * Template 化と下記 no-silent-gap guard の両方がこの配列を参照する。bin/app.ts に stack を
+ * 追加したら、ここに追加して wire するか、RATCHET_EXCLUDED_STACK_IDS に理由付きで登録する。
+ */
+const SYNTH_STACK_IDS = [
+	'Storage',
+	'Auth',
+	'Compute',
+	'Network',
+	'Ses',
+	'Ops',
+	'StorageStaging',
+	'AuthStaging',
+	'ComputeStaging',
+] as const;
+
+/**
+ * ratchet synth から意図的に除外する stack (id → 除外理由)。除外は「cross-stack export /
+ * import を 1 本も持たない」ことが前提であり、DsqlStack についてはその前提を下記
+ * describe '#3882' の自己検証 assert が実 synth で担保する (根拠が崩れたら fail →
+ * SYNTH_STACK_IDS への組み込みを強制)。
+ */
+const RATCHET_EXCLUDED_STACK_IDS: Readonly<Record<string, string>> = {
+	Dsql:
+		'`-c dsqlEnabled=true` context gate で既定非合成 + 他 stack から construct 参照ゼロ ' +
+		'(接続情報は SSM / workflow output 経由) + CfnOutput 4 本すべて exportName 無し = ' +
+		'cross-stack export 0 本 (除外根拠は本 test の自己検証 assert が synth 実測で保証)',
+	DsqlStaging:
+		'`-c dsqlStagingEnabled=true` context gate で既定非合成。除外根拠は Dsql と同一 ' +
+		'(同一 DsqlStack class、deletionProtection のみ差分)',
+};
+
+const BIN_APP_TS_PATH = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	'../../../infra/bin/app.ts',
+);
+
+/**
+ * bin/app.ts のソースから instantiate される stack id (`${appName}` prefix 抜き) を抽出する。
+ * bin/app.ts は module scope で `app.synth()` まで実行する実行スクリプトのため import できず、
+ * `new XxxStack(app, `${appName}<Id>`, ...)` の定型 instantiation をソース parse で拾う
+ * (context gate (`if (dsqlEnabled)` 等) の内側も含めて「instantiate し得る全 stack」を返す)。
+ */
+function parseBinStackIds(source: string): string[] {
+	return [...source.matchAll(/new \w+Stack\(\s*app,\s*`\$\{appName\}(\w+)`/g)].flatMap((m) =>
+		m[1] === undefined ? [] : [m[1]],
+	);
+}
+
+/**
+ * bin/app.ts の stack 集合 vs 「ratchet synth 対象 ∪ 明示除外」の差分を返す (pure 関数。
+ * negative test で「guard に歯がある」ことを直接実証できるよう判定ロジックを分離)。
+ */
+function computeStackCoverageGaps(
+	binStackIds: readonly string[],
+	coveredIds: readonly string[],
+	excludedIds: readonly string[],
+): { uncovered: string[]; stale: string[]; overlap: string[] } {
+	const bin = new Set(binStackIds);
+	const registered = new Set([...coveredIds, ...excludedIds]);
+	return {
+		// bin/app.ts にあるが未登録 = 新 stack の growth-drift (export 検査から silent に漏れる)
+		uncovered: [...bin].filter((id) => !registered.has(id)).sort(),
+		// 登録済だが bin/app.ts に無い = stack 撤去 / rename 後の stale entry
+		stale: [...registered].filter((id) => !bin.has(id)).sort(),
+		// synth 対象と除外の二重登録 (定義矛盾)
+		overlap: coveredIds.filter((id) => excludedIds.includes(id)).sort(),
+	};
+}
+
 /** template JSON を再帰走査し全 Fn::ImportValue (string 形) を収集する。 */
 function collectImportValues(obj: unknown, acc: Set<string>): void {
 	if (Array.isArray(obj)) {
@@ -230,22 +316,19 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		envConfig: STAGING_ENV_CONFIG,
 	});
 
-	// 全 stack build 完了後に Template 化 (synth は tree を lock するため順序が重要)
-	const stackNames = [
-		`${APP_NAME}Storage`,
-		`${APP_NAME}Auth`,
-		`${APP_NAME}Compute`,
-		`${APP_NAME}Network`,
-		`${APP_NAME}Ses`,
-		`${APP_NAME}Ops`,
-		`${APP_NAME}StorageStaging`,
-		`${APP_NAME}AuthStaging`,
-		`${APP_NAME}ComputeStaging`,
-	];
+	// 全 stack build 完了後に Template 化 (synth は tree を lock するため順序が重要)。
+	// synth 対象の SSOT は SYNTH_STACK_IDS (#3882 stack 数 guard と共有)。
 	const exports = new Set<string>();
 	const imports = new Set<string>();
-	for (const name of stackNames) {
-		const stack = app.node.tryFindChild(name) as cdk.Stack;
+	for (const id of SYNTH_STACK_IDS) {
+		const name = `${APP_NAME}${id}`;
+		const stack = app.node.tryFindChild(name) as cdk.Stack | undefined;
+		if (!stack) {
+			throw new Error(
+				`SYNTH_STACK_IDS の '${id}' が synthAllStacks() で wire されていない。` +
+					'bin/app.ts と同一の instantiation を本関数に追加する (#3882)。',
+			);
+		}
 		const template = Template.fromStack(stack);
 		collectExportNames(template, exports);
 		collectImportValues(template.toJSON(), imports);
@@ -340,4 +423,85 @@ describe('#3858 ratchet が有効に機能する (negative test / failing-test-f
 		expect(unexpected.length).toBeGreaterThan(0);
 		expect(unexpected.some((n) => n.includes('SvelteKitFn') && n.includes('Arn'))).toBe(true);
 	}, 120_000);
+});
+
+describe('#3882 stack 数 guard (bin/app.ts vs ratchet synth 対象の no-silent-gap)', () => {
+	const binStackIds = parseBinStackIds(readFileSync(BIN_APP_TS_PATH, 'utf8'));
+	const excludedIds = Object.keys(RATCHET_EXCLUDED_STACK_IDS);
+
+	it('bin/app.ts の stack instantiation を parser が抽出できる (parser 陳腐化 guard)', () => {
+		// bin/app.ts の instantiation 定型 (`new XxxStack(app, `${appName}<Id>`, ...)`) が
+		// リファクタで変わり regex が 0 件になった場合に guard 全体が silent 無効化しないための下限 assert。
+		expect(
+			binStackIds.length,
+			`bin/app.ts から抽出できた stack が ${binStackIds.length} 件しかない。instantiation の書式が ` +
+				'変わった場合は parseBinStackIds() の regex を追随させる (#3882)。',
+		).toBeGreaterThanOrEqual(6);
+		expect(binStackIds).toContain('Storage');
+		expect(binStackIds).toContain('Compute');
+		expect(new Set(binStackIds).size).toBe(binStackIds.length);
+	});
+
+	it('bin/app.ts の全 stack が「synth 対象 ∪ 意図除外」に過不足なく登録されている', () => {
+		const gaps = computeStackCoverageGaps(binStackIds, SYNTH_STACK_IDS, excludedIds);
+		expect(
+			gaps.uncovered,
+			`bin/app.ts に追加された stack が ratchet に未登録 (${gaps.uncovered.length} 件): ` +
+				`${gaps.uncovered.join(', ')}\n\n` +
+				'この stack の cross-stack export/import は本 ratchet の検査から漏れている (growth-drift)。' +
+				'SYNTH_STACK_IDS に追加して synthAllStacks() で wire するか、cross-stack export 0 本を確認の ' +
+				'うえ RATCHET_EXCLUDED_STACK_IDS に理由付きで登録する (#3882)。',
+		).toEqual([]);
+		expect(
+			gaps.stale,
+			`bin/app.ts に存在しない stack が ratchet に登録されたまま (${gaps.stale.length} 件): ` +
+				`${gaps.stale.join(', ')}\n\nstack 撤去 / rename 後は登録も同期して削除する (#3882)。`,
+		).toEqual([]);
+		expect(gaps.overlap, 'synth 対象と意図除外の二重登録 (定義矛盾)').toEqual([]);
+	});
+
+	it('意図除外 DsqlStack / DsqlStaging は cross-stack export 0 本である (除外根拠の自己検証)', () => {
+		// 除外の前提 =「exportName 付き output を 1 本も持たない」を実 synth で断言する。
+		// 将来 DSQL cutover で Compute↔Dsql を cross-stack 化 (exportName 付与) したら本 assert が
+		// fail し、SYNTH_STACK_IDS への組み込み + allowlist 管理への移行を強制する。
+		// (自動 export は consumer 参照が無い限り生成されないため、明示 exportName の有無が判定対象。)
+		const dsqlExports = new Set<string>();
+		collectExportNames(
+			Template.fromStack(
+				new DsqlStack(new cdk.App(), `${APP_NAME}Dsql`, { env, opsEmail: 'ops@example.com' }),
+			),
+			dsqlExports,
+		);
+		collectExportNames(
+			Template.fromStack(
+				new DsqlStack(new cdk.App(), `${APP_NAME}DsqlStaging`, {
+					env,
+					deletionProtection: false,
+				}),
+			),
+			dsqlExports,
+		);
+		expect(
+			[...dsqlExports].sort(),
+			'DsqlStack に exportName 付き output が追加され、意図除外の根拠 (cross-stack export 0 本) が ' +
+				'崩れた。RATCHET_EXCLUDED_STACK_IDS から外し、SYNTH_STACK_IDS + AUTO_EXPORT_ALLOWLIST で ' +
+				'管理する (#3882)。',
+		).toEqual([]);
+	});
+
+	it('新 stack が bin/app.ts に追加されたのに未登録なら uncovered として検出される (negative)', () => {
+		// AC2: 「新 stack を追加した場合に gate が fail する」ことの suite 内回帰実証。
+		// bin/app.ts に `new ProbeStack(app, `${appName}Probe`, ...)` が増えた状況を模擬する。
+		const gaps = computeStackCoverageGaps([...binStackIds, 'Probe'], SYNTH_STACK_IDS, excludedIds);
+		expect(gaps.uncovered).toEqual(['Probe']);
+	});
+
+	it('登録済 stack が bin/app.ts から消えたら stale として検出される (negative)', () => {
+		const gaps = computeStackCoverageGaps(
+			binStackIds.filter((id) => id !== 'Ses'),
+			SYNTH_STACK_IDS,
+			excludedIds,
+		);
+		expect(gaps.stale).toEqual(['Ses']);
+	});
 });
