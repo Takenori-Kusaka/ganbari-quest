@@ -42,9 +42,10 @@
 
 ### 3.1 StorageStack
 
-`StorageStack` は S3（assets）+ ECR（Lambda container image）のみを提供する。DB backend は Aurora DSQL
-（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を参照する経路は無い（health は
-probePg、analytics は on-demand 化済）。DSQL のリレーショナルスキーマは [dsql-data-model.md](dsql-data-model.md) を参照。
+`StorageStack` は S3（assets）+ ECR（Lambda container image）+ AWS Backup vault（RETAIN-orphan、prod のみ）を
+提供する。DB backend は Aurora DSQL（`DsqlStack`）が唯一の SSOT（EPIC #3424）。runtime で DynamoDB table を
+参照する経路は無い（health は probePg、analytics は on-demand 化済）。DSQL のリレーショナルスキーマは
+[dsql-data-model.md](dsql-data-model.md) を参照。
 
 > **DynamoDB `MainTable` は撤去済（#3438 → #3850 → #3854）。** cross-stack export の in-use 削除制約
 > （CloudFormation は「利用中の export は削除も値変更もできない」）により、producer（StorageStack）が
@@ -56,13 +57,40 @@ probePg、analytics は on-demand 化済）。DSQL のリレーショナルス�
 >   `MainTable` + AWS Backup + 旧 consumer が import する **Ref（table 名）+ Arn の両 `exportValue`** を保持した
 >   （Arn だけの保持は #3855 で Ref 欠落による再 rollback を招いたため両方が必須）。
 > - **Deploy-2（#3854）**: Deploy-1 が本番反映され consumer の import が消失した後、StorageStack から
->   `MainTable` + AWS Backup + **両 `exportValue`** を撤去した（両 export とも in-use でないため削除成功）。
->   prod は removalPolicy=RETAIN だったため、table は CloudFormation の管理から外れる（orphan）だけで物理
->   table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
+>   `MainTable` + AWS Backup **plan / selection / role** + **両 `exportValue`** を撤去した（両 export とも
+>   in-use でないため削除成功）。prod は removalPolicy=RETAIN だったため、table は CloudFormation の管理から
+>   外れる（orphan）だけで物理 table + データは AWS 上に保全される（物理削除は別 ops 手順 / PO 承認）。
 >
-> 撤去完遂の不変条件（StorageStack が MainTable / AWS Backup / MainTable 由来 export を一切持たない /
-> consumer が MainTable 非参照）は `tests/unit/infra/staging-cdk.test.ts`（P-1 / B-3854a / B-3854b、prod +
-> staging）が fitness function として固定する。MainTable export が復活したら（table 復元等）即 fail する。
+> **AWS Backup `BackupVault`（`ganbari-quest-vault`）だけは撤去せず RETAIN で残す（#3854 の是正）。** #3854 の
+> 当初実装は vault も撤去しようとしたが、この vault は旧 daily plan が作成した **recovery point 2 件を保持** して
+> おり、**AWS Backup は「recovery point を持つ vault の削除」を API レベルで拒否する**（CloudFormation も同じ）。
+> よって vault 撤去は deploy 失敗 → StorageStack rollback → 本番 deploy 停止（#3881 と同一クラスの orphan 事故）を
+> 招く。canonical 解は、移行中の backup データ削除（破壊的・不可逆）を避けて **vault を残しつつ `removalPolicy`
+> を `RETAIN` に是正**することであり、これは旧 table を RETAIN-orphan で残した判断と一貫する（recovery point
+> 2 件は移行安定までの安全網）。旧 vault は `removalPolicy: DESTROY`（= `DeletionPolicy: Delete`）で、これは
+> AWS Backup の CDK 既定 RETAIN に反しており削除を試みさせていた元凶。RETAIN に是正することで将来 vault を
+> template から外す時も orphan 化で安全に外せる。plan / selection / role は table を参照する stateless リソースの
+> ため撤去済 = **新規 backup は取らない**。staging（`enableBackup=false`）は残すべき recovery point が無いため
+> vault 自体を構築しない。
+>
+> **vault の物理 empty→delete（移行安定後の gated out-of-band ops、PO 承認必須）**: 移行が完全に安定し
+> recovery point の安全網が不要と判断した後、次の手順で out-of-band に片付ける（CDK からは扱わず、CLI で明示実行）:
+>
+> ```bash
+> # 1. vault 内の recovery point を列挙（2 件想定）
+> aws backup list-recovery-points-by-backup-vault --backup-vault-name ganbari-quest-vault --region us-east-1
+> # 2. recovery point を 1 件ずつ削除（PO 承認後、不可逆）
+> aws backup delete-recovery-point --backup-vault-name ganbari-quest-vault \
+>   --recovery-point-arn <arn> --region us-east-1   # ×2
+> # 3. 空になった vault を削除
+> aws backup delete-backup-vault --backup-vault-name ganbari-quest-vault --region us-east-1
+> # 4. vault が RETAIN-orphan のため CDK template からの記述削除は別途（orphan なので deploy は失敗しない）
+> ```
+>
+> 撤去完遂の不変条件（StorageStack が MainTable / BackupPlan / BackupSelection / MainTable 由来 export を一切
+> 持たない / vault は prod で RETAIN 1 本 / consumer が MainTable 非参照）は `tests/unit/infra/staging-cdk.test.ts`
+> （P-1 / B-3854a / B-3854b、prod + staging）が fitness function として固定する。BackupPlan や MainTable export が
+> 復活したら（table 復元等）即 fail し、vault の DeletionPolicy が Retain 以外に変わっても fail する。
 
 #### 3.1.1 cross-stack export allowlist ratchet（#3858、ADR-0061 shift-left）
 
@@ -562,7 +590,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 infra/
 ├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
-│   ├── storage-stack.ts  # S3 + ECR (MainTable は #3438→#3850→#3854 の 2-deploy で撤去済、DB backend は DSQL)
+│   ├── storage-stack.ts  # S3 + ECR + BackupVault(RETAIN-orphan、prod のみ、#3881 class 回避)。MainTable + BackupPlan/Selection は #3438→#3850→#3854 で撤去済、DB backend は DSQL
 │   ├── dsql-stack.ts     # Aurora DSQL cluster (EPIC #3424)
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
 │   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離

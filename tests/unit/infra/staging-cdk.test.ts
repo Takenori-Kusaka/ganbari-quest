@@ -117,17 +117,33 @@ beforeAll(() => {
 
 describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)', () => {
 	describe('P: prod 不変 guard — envConfig 未指定 synth で従来 prod template を維持', () => {
-		it('P-1: Storage — DynamoDB table / AWS Backup を持たない (#3854 Deploy-2 撤去完了 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
+		it('P-1: Storage — DynamoDB table / Backup plan・selection を持たず Vault は RETAIN で残す (#3854 撤去 + #3881 class 回避 regression guard) / ECR=ganbari-quest (maxImageCount:10) / S3 prefix 不変', () => {
 			// #3854 Deploy-2: #3850 の 2-deploy strangler の後半。Deploy-1 (#3855/#3864) が本番反映され
 			// consumer(ComputeStack) の MainTable import が消失した後、StorageStack から MainTable +
-			// AWS Backup + 両 export を撤去した (この時点で export は in-use でないため削除成功)。
+			// BackupPlan/Selection/Role + 両 export を撤去した (export は in-use でないため削除成功)。
 			// prod は removalPolicy=RETAIN のため物理 table + データは orphan 保全 (物理削除は別 ops)。
 			// TableV2 は AWS::DynamoDB::GlobalTable として synth されるため、撤去後は両型とも 0 本になる。
 			prodStorage.resourceCountIs('AWS::DynamoDB::GlobalTable', 0);
 			prodStorage.resourceCountIs('AWS::DynamoDB::Table', 0);
-			// AWS Backup (vault / plan) も MainTable 撤去に伴い持たない (バックアップ対象消失)。
-			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
+
+			// BackupPlan / BackupSelection は table を参照する stateless リソースのため撤去済 =
+			// 新規 backup は取らない。再度生やしたら CI で落ちる。
 			prodStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
+			prodStorage.resourceCountIs('AWS::Backup::BackupSelection', 0);
+
+			// #3881 class 回避: 旧 MainTable 日次 backup 用 vault (ganbari-quest-vault) は recovery point
+			// 2 件を保持し、AWS Backup が「recovery point 有り vault の削除」を拒否するため、撤去すると
+			// deploy 失敗 → rollback → orphan になる。canonical 解 = vault を RETAIN-orphan で残す
+			// (破壊的な backup データ削除は行わない)。vault は 1 本だけ存在し、DeletionPolicy は必ず
+			// Retain (旧 removalPolicy DESTROY = DeletionPolicy Delete が CDK 既定 RETAIN に反していた元凶)。
+			prodStorage.resourceCountIs('AWS::Backup::BackupVault', 1);
+			const vaults = prodStorage.findResources('AWS::Backup::BackupVault');
+			const vault = Object.values(vaults)[0] as {
+				DeletionPolicy?: string;
+				Properties: { BackupVaultName?: string };
+			};
+			expect(vault.DeletionPolicy).toBe('Retain');
+			expect(vault.Properties.BackupVaultName).toBe('ganbari-quest-vault');
 
 			const repos = prodStorage.findResources('AWS::ECR::Repository');
 			expect(Object.keys(repos).length).toBe(1);
@@ -267,10 +283,14 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			expect(Object.keys(allMainTableExports).length).toBe(0);
 		});
 
-		it('AWS Backup (vault / plan) を構築しない (MainTable 撤去に伴い全環境で不在)', () => {
-			// #3854: MainTable 撤去でバックアップ対象が消失したため vault / plan とも持たない (staging / prod 共通)。
+		it('AWS Backup (vault / plan / selection) を構築しない (enableBackup=false)', () => {
+			// staging は enableBackup=false (空 table 起点 + 使い捨て可能で backup 対象が無い) のため
+			// vault / plan / selection とも一切構築しない。prod は #3881 class 回避で vault のみ
+			// RETAIN-orphan で残す (P-1 参照) が、staging には残すべき recovery point が存在しないため
+			// vault も出さない (env 分岐の非対称性は enableBackup gate が担保)。
 			stagingStorage.resourceCountIs('AWS::Backup::BackupVault', 0);
 			stagingStorage.resourceCountIs('AWS::Backup::BackupPlan', 0);
+			stagingStorage.resourceCountIs('AWS::Backup::BackupSelection', 0);
 		});
 
 		it('ECR repo=ganbari-quest-staging (専用 repo) + maxImageCount:3', () => {

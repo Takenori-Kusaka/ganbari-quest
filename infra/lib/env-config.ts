@@ -19,6 +19,16 @@ export interface GqEnvConfig {
 	readonly resourcePrefix: string;
 	/** SSM パラメータ prefix (例: '/ganbari-quest' / '/ganbari-quest-staging') */
 	readonly ssmPrefix: string;
+	/**
+	 * AWS Backup vault (RETAIN-orphan) を構築するか。prod のみ true。
+	 * #3854 で DynamoDB MainTable + BackupPlan/Selection/Role を撤去した際、vault も撤去すると
+	 * recovery point 2 件を持つ `ganbari-quest-vault` が「recovery point 有り vault は削除不可」
+	 * の AWS Backup API 制約で deploy 失敗 → rollback → orphan (#3881 class) になる。よって vault
+	 * は `removalPolicy: RETAIN` で保持し (旧 MainTable RETAIN-orphan と一貫)、backup データ
+	 * (recovery point) は移行安定までの安全網として非削除で残す。物理 empty→delete は移行安定後の
+	 * gated out-of-band ops (PO 承認必須)。詳細は infra/CLAUDE.md / 設計書 §3.1。
+	 */
+	readonly enableBackup: boolean;
 	/** demo Lambda (ADR-0048) を構築するか。staging は不要 */
 	readonly enableDemoLambda: boolean;
 	/** cron-dispatcher + EventBridge Rules (#1376) を構築するか。staging は不要 */
@@ -34,6 +44,7 @@ export const PROD_ENV_CONFIG: GqEnvConfig = {
 	envName: 'prod',
 	resourcePrefix: 'ganbari-quest',
 	ssmPrefix: '/ganbari-quest',
+	enableBackup: true,
 	enableDemoLambda: true,
 	enableCronDispatcher: true,
 	enableLogArchiving: true,
@@ -45,6 +56,7 @@ export const STAGING_ENV_CONFIG: GqEnvConfig = {
 	envName: 'staging',
 	resourcePrefix: 'ganbari-quest-staging',
 	ssmPrefix: '/ganbari-quest-staging',
+	enableBackup: false,
 	enableDemoLambda: false,
 	enableCronDispatcher: false,
 	enableLogArchiving: false,
