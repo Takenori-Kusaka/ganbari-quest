@@ -112,6 +112,7 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 		setSetting: 1,
 		upsertLog: 1,
 		upsertStatus: 1,
+		upsertStreak: 1,
 	},
 	'notification-service.ts': {
 		deleteByEndpoint: 2,
@@ -129,7 +130,6 @@ const LOOP_WRITE_BASELINE: Record<string, Record<string, number>> = {
 	},
 	'retention-cleanup-service.ts': {
 		deleteActivityLogsBeforeDate: 1,
-		deleteLoginBonusesBeforeDate: 1,
 		deletePointLedgerBeforeDate: 1,
 		deleteStatusHistoryBeforeDate: 1,
 	},
