@@ -1127,10 +1127,22 @@ describe('applyLazyStartupMigrations', () => {
 			// child 3: 行なし → counter 行を作らない
 		}
 
-		function streakRows(): { child_id: number; last_login_date: string; current_streak: number; updated_at: string }[] {
+		function streakRows(): {
+			child_id: number;
+			last_login_date: string;
+			current_streak: number;
+			updated_at: string;
+		}[] {
 			return db
-				.prepare('SELECT child_id, last_login_date, current_streak, updated_at FROM login_streaks ORDER BY child_id')
-				.all() as { child_id: number; last_login_date: string; current_streak: number; updated_at: string }[];
+				.prepare(
+					'SELECT child_id, last_login_date, current_streak, updated_at FROM login_streaks ORDER BY child_id',
+				)
+				.all() as {
+				child_id: number;
+				last_login_date: string;
+				current_streak: number;
+				updated_at: string;
+			}[];
 		}
 
 		it('per-date 行が counter に fold され旧表が DROP される (導出正当性)', () => {

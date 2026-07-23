@@ -67,11 +67,7 @@ describe('pg migration 0004: login_bonuses → login_streaks fold (#3330)', () =
 				CHILD_2,
 				d,
 			]),
-			...['2026-07-18', '2026-07-19'].map((d): [string, string, string] => [
-				FAMILY_B,
-				CHILD_1,
-				d,
-			]),
+			...['2026-07-18', '2026-07-19'].map((d): [string, string, string] => [FAMILY_B, CHILD_1, d]),
 		];
 		for (const [family, child, date] of rows) {
 			await client.query(
