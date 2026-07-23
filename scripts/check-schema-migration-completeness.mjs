@@ -156,6 +156,10 @@ function collectColumnsInAddedTables(added, addedTables, removedTables) {
 	const cols = new Set();
 	/** @type {string | null} */
 	let currentNewTable = null;
+	// #3330 fix: biome 整形で `sqliteTable(` と `'<name>',` が別行に割れる multi-line 開始
+	// (`export const x = sqliteTable(` + 次行 `'x_table',`) を追跡できず、新規 table 配下の列が
+	// 検出 (6) で「既存 table への NOT NULL no-default 追加」に誤判定される false positive を是正。
+	let pendingTableOpen = false;
 	for (const line of added) {
 		const tableStart = line.match(TABLE_START_RE);
 		if (tableStart) {
@@ -163,6 +167,20 @@ function collectColumnsInAddedTables(added, addedTables, removedTables) {
 			// 真の新規 table (追加側のみ) のときだけ追跡開始。rename / 行移動は対象外。
 			currentNewTable =
 				name !== '' && addedTables.has(name) && !removedTables.has(name) ? name : null;
+			pendingTableOpen = false;
+			continue;
+		}
+		if (pendingTableOpen) {
+			pendingTableOpen = false;
+			const nameOnly = line.match(/^\s*['"]([\w]+)['"],?\s*$/);
+			if (nameOnly?.[1]) {
+				const name = nameOnly[1];
+				currentNewTable = addedTables.has(name) && !removedTables.has(name) ? name : null;
+				continue;
+			}
+		}
+		if (/sqliteTable\(\s*$/.test(line)) {
+			pendingTableOpen = true;
 			continue;
 		}
 		// table ブロック終端 (drizzle 定義の閉じ `}` / `});`) で追跡解除

@@ -338,6 +338,8 @@ export const loginStreaks = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
+		// NOT NULL no-default で問題ない: 本 table は CREATE TABLE で丸ごと新規作成され
+		// (lazy fold migration + create-tables.ts)、既存 DB への ALTER ADD COLUMN 経路に乗らない
 		lastLoginDate: text('last_login_date').notNull(),
 		currentStreak: integer('current_streak').notNull().default(1),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
