@@ -8192,7 +8192,7 @@ export const LP_PRICING_EXTRA_LABELS = {
  * 表示言語（日本語）に統一する。理由:
  *
  * 1. アプリ本体 UI は全て日本語であり、Storybook で実際の見た目を確認する用途上
- *    日本語で揃える方が UI 折り返し（ADR-0016）・タイポグラフィ検証で有用
+ *    日本語で揃える方が UI 折り返し（旧 ADR-0016、方針は docs/DESIGN.md §3）・タイポグラフィ検証で有用
  * 2. 既存 stories の多数派（Alert / FormField / IconButton / NativeSelect / Select /
  *    BirthdayInput / ErrorAlert）が既に日本語で実装されており、Badge / Button / Card /
  *    LoadingButton / Toast の英語表示テキストだけが不一致だった
