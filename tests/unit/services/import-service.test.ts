@@ -1814,6 +1814,47 @@ describe('importFamilyData', () => {
 			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
 		});
 
+		it('#3859: tutorial_*_at の SQL datetime 表現 (スペース区切り) は drop されず書き戻される (positive)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				// SQLite CURRENT_TIMESTAMP 既定値の形 (#3851 と同 class の legacy 表現)
+				makeSetting('tutorial_started_at', '2026-01-02 03:04:05'),
+				// JS toISOString の形 (現行書込経路)
+				makeSetting('tutorial_completed_at', '2026-01-02T03:04:05.000Z'),
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(2);
+			expect(result.settingsSkipped).toBe(0);
+			expect(mockSetSetting).toHaveBeenCalledWith(
+				'tutorial_started_at',
+				'2026-01-02 03:04:05',
+				TENANT,
+			);
+		});
+
+		it('#3859: tutorial_*_at の真破損日時は依然 skip される (negative、握り潰し過剰でない)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('tutorial_started_at', 'not-a-valid-date'),
+				makeSetting('tutorial_completed_at', '2026-13-99 99:99:99'), // Date.parse 不能
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(0);
+			expect(result.settingsSkipped).toBe(2);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
+		});
+
 		it('秘匿/非 allowlist キーは値の妥当性以前に書き戻されない (多層防御)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];

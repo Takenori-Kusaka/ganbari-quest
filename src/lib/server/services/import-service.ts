@@ -15,6 +15,7 @@ import {
 import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
+import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
 import {
 	findActivities,
@@ -103,21 +104,15 @@ async function runConcurrent<T>(
 const RESTORE_DEDUP_FETCH_LIMIT = 100_000;
 
 /**
- * 日時 (先頭 `YYYY-MM-DD` + `T` または半角スペース区切り + `HH:MM` + Date.parse 可) か。
- * restore / cutover の verbatim 値検証用 (#3414/#3420)。
+ * 日時 (ISO 8601 または SQL datetime、`Date.parse` 可) か。restore / cutover の verbatim
+ * 値検証用 (#3414/#3420)。
  *
- * #3851: 区切りは `T` (ISO 8601) と半角スペース の両方を許容する。通常の親メッセージ / おうえん
- * 送信経路 (insertMessage / sendCheer) は sent_at を指定せず、SQLite の `CURRENT_TIMESTAMP`
- * 既定値 = `'YYYY-MM-DD HH:MM:SS'` (スペース区切り、Date.parse 可の正当な日時) が入る。旧実装は
- * `T` 必須だったため、この正当な legacy 日時を「不正」と誤判定し、NUC cutover の verbatim import で
- * 親メッセージを silent drop → 件数突合 (parentMessages export=1 imported=0) で abort させていた
- * (これは dedup ではなく validator 誤判定による真の false-positive data-loss)。区切りを緩めても
- * `Date.parse` gate が残るため、破損/改竄値 (未知形式・範囲外) は依然 reject される。
+ * #3851: SQLite `CURRENT_TIMESTAMP` 既定値 (スペース区切り) を持つ正当な legacy 行が
+ * `T` 必須 regex で silent drop → 件数突合 abort する false-positive data-loss を是正した。
+ * #3859: 形式定数を $lib/domain/validation/datetime に SSOT 集約し、settings validator
+ * (export-format) と同一述語を import する (片側だけ `T` 必須が残る同 class ドリフトの根絶)。
  */
-const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
-function isValidIsoDateTime(value: string): boolean {
-	return ISO_DATETIME_RE.test(value) && !Number.isNaN(Date.parse(value));
-}
+const isValidIsoDateTime = isLegacyCompatibleDateTime;
 
 /** bonusPoints の許容範囲 (null または 0〜99,999 の整数)。改竄 backup の範囲外値を弾く (#3414)。 */
 function isValidBonusPoints(value: number | null): boolean {
