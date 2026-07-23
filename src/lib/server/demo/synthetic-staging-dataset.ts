@@ -59,7 +59,7 @@ import {
 	DEMO_CHILDREN,
 	DEMO_DAILY_MISSIONS,
 	DEMO_EVALUATIONS,
-	DEMO_LOGIN_BONUSES,
+	DEMO_LOGIN_STREAKS,
 	DEMO_MARKETPLACE_SPECIAL_REWARDS,
 	DEMO_POINT_BALANCES,
 	DEMO_SIBLING_CHEERS,
@@ -192,7 +192,7 @@ function emptyTransactionData(): ExportTransactionData {
 		statusHistory: [],
 		childAchievements: [],
 		childTitles: [],
-		loginBonuses: [],
+		loginStreaks: [],
 		evaluations: [],
 		specialRewards: [],
 		rewardRedemptions: [],
@@ -488,19 +488,17 @@ function buildTenantABody(anchorDate: string): ExportBody {
 				},
 			];
 		}),
-		loginBonuses: DEMO_LOGIN_BONUSES.flatMap((b) => {
-			const ref = refOf(b.childId);
+		// #3330 counter 縮約 (wire 1.8.0): 子供ごと 1 行の streak counter。
+		// lastLoginDate は date のため anchor offset で shift し、「今日 claim 済」の意味を anchor 非依存で保つ
+		loginStreaks: DEMO_LOGIN_STREAKS.flatMap((s) => {
+			const ref = refOf(s.childId);
 			if (!ref) return [];
 			return [
 				{
 					childRef: ref,
-					loginDate: d(b.loginDate),
-					rank: b.rank,
-					basePoints: b.basePoints,
-					multiplier: b.multiplier,
-					totalPoints: b.totalPoints,
-					consecutiveDays: b.consecutiveDays,
-					createdAt: ts(b.createdAt),
+					lastLoginDate: d(s.lastLoginDate),
+					currentStreak: s.currentStreak,
+					updatedAt: ts(s.updatedAt),
 				},
 			];
 		}),
