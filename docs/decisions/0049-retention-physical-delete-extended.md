@@ -6,11 +6,22 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted (旧 ADR-0028 の論理継承、archive → active 化、拡張対象表は §拡張 で記載) |
-| 日付 | 2026-04-11 (initial as ADR-0028) / 2026-05-19 (拡張 + renumber to ADR-0049) |
+| ステータス | accepted (旧 ADR-0028 の論理継承、archive → active 化、拡張対象表は §拡張 で記載。**2026-07-19 改訂: login_bonuses を削除対象から除去、#3330**) |
+| 日付 | 2026-04-11 (initial as ADR-0028) / 2026-05-19 (拡張 + renumber to ADR-0049) / 2026-07-19 (#3330 改訂) |
 | 起票者 | Takenori-Kusaka |
-| 関連 Issue | #717（priority:critical）, #729（priority:high）, #2278 (EPIC #2266 押し漏れ調査) |
+| 関連 Issue | #717（priority:critical）, #729（priority:high）, #2278 (EPIC #2266 押し漏れ調査), #3330 (counter 縮約) |
 | 関連 ADR | **旧 ADR-0028 (継承)**, ADR-0022（課金データライフサイクル）, ADR-0024（プラン解決）, ADR-0025（License ↔ Subscription） |
+
+## 2026-07-19 改訂 (#3330 — login_bonuses を削除対象から除去)
+
+PO 決裁 (2026-07-19、#3330 案 B) でログインボーナスを per-date 永続行 (`login_bonuses`) から
+子供ごとの counter 状態 (`login_streaks`: lastLoginDate + currentStreak) に縮約した。
+**削除すべき日次履歴が最初から生まれない構造 (privacy by design)** になったため、
+本 ADR の物理削除対象から `login_bonuses` を除去する (`retention-cleanup-service.ts` の
+削除ロジック・`deleteLoginBonusesBeforeDate` interface とも撤去済)。付与事実は従来どおり
+`point_ledger` (`type='login_bonus'`) に記帳され、point_ledger の retention は本 ADR のまま。
+決定経緯: [docs/rationale/15-login-bonus-counter-rationale.md](../rationale/15-login-bonus-counter-rationale.md) /
+research: `docs/research/2026-07-11-login-data-structure.md`。
 
 ## 2026-05-19 拡張 (#2278 / EPIC #2266)
 
@@ -123,11 +134,11 @@ UX 層はそのまま残す。理由:
    - トライアル中はトライアルティアが優先される（ADR-0024）
    - `family` （`historyRetentionDays === null`）はスキップ
 3. `getHistoryCutoffDate(tier)` で cutoff 日（YYYY-MM-DD）を算出
-4. そのテナントの各 child について以下 4 テーブルから `recorded_date < cutoffDate` を物理削除
+4. そのテナントの各 child について以下 3 テーブルから `recorded_date < cutoffDate` を物理削除
    - `activity_logs`
    - `point_ledger`
-   - `login_bonuses`
    - `status_history`（#3518-2 で追加）
+   - ~~`login_bonuses`~~（#3330 counter 縮約で 2026-07-19 に対象から除去 — 上記改訂節参照）
 5. テナントごとに try/catch — 1 テナントの失敗が他に波及しないこと
 6. 結果 `{tenantsProcessed, childrenProcessed, *Deleted, errors}` を構造化ログに出力
 
@@ -137,7 +148,6 @@ UX 層はそのまま残す。理由:
 |-------------|------|
 | `activity_logs` | 活動ログ本体。pricing の約束の核心 |
 | `point_ledger` | ポイント履歴。**ただし `BALANCE` 集計は削除しない** |
-| `login_bonuses` | ログインボーナス履歴 |
 | `status_history` (#3518-2) | daily decay が child×category×日で機械生成する変動履歴。長期利用で最大母数 (20 年で ~4 万行/child) になり backup 生成メモリ / DSQL read コストの主因のため保持期間超過分を物理削除する。`statuses` (現在値) は削除しない |
 
 | 物理削除しない | 理由 |

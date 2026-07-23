@@ -62,7 +62,7 @@ export default async function globalTeardown() {
 
 		// E2E テスト子供のログインボーナスを削除
 		const deletedBonus = db
-			.prepare(`DELETE FROM login_bonuses WHERE child_id IN (${childIdPlaceholders})`)
+			.prepare(`DELETE FROM login_streaks WHERE child_id IN (${childIdPlaceholders})`)
 			.run(...childIds);
 		if (deletedBonus.changes > 0) {
 			console.log(`[E2E Teardown]   Cleaned ${deletedBonus.changes} login bonus(es).`);

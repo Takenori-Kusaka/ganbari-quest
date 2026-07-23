@@ -29,9 +29,12 @@ export const PK_FREEZE_MANIFEST = {
 	activity_mastery: ['family_id', 'child_id', 'activity_id'],
 	child_activity_preferences: ['family_id', 'child_id', 'activity_id'],
 	daily_missions: ['family_id', 'child_id', 'mission_date', 'activity_id'],
-	// login_bonuses / daily_battles / rest_days: 1日1回 = ADR-0012 anti-engagement の
+	// daily_battles / rest_days: 1日1回 = ADR-0012 anti-engagement の
 	// policy invariant に anchor された自然複合 PK (governing rule (a)、PO 決裁済)。
-	login_bonuses: ['family_id', 'child_id', 'login_date'],
+	// login_streaks (#3330 counter 縮約): 子供ごと counter 1 行 = anchor (b) 構造的確実性
+	// (per-date cardinality は counter 縮約により product 上存在しない)。1日1回の冪等は
+	// claimToday の conditional write が担う (旧 login_bonuses per-date PK は廃止)。
+	login_streaks: ['family_id', 'child_id'],
 	// stamp_cards: UUID surrogate (PO 決裁 2026-07-03、PR #3547: シーズン/イベントカード復活が
 	// あり得る = 同一週複数カードの cardinality 可変で anchor (b) 不成立)。「1子1週1枚」の
 	// 現行制約は droppable UNIQUE(family,child,week_start) で維持 (復活時は UNIQUE DROP のみ)。

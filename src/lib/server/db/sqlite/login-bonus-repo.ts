@@ -1,63 +1,86 @@
-// src/lib/server/db/login-bonus-repo.ts
-// ログインボーナスのリポジトリ層
+// src/lib/server/db/sqlite/login-bonus-repo.ts
+// ログインボーナス counter (#3330 案 B counter 縮約) の SQLite 実装。
+//
+// 当日冪等 (1日1回 = ADR-0012) は単一 INSERT ... ON CONFLICT DO UPDATE ... WHERE の
+// conditional write が原子的に担保する (旧 per-date PK 衝突方式を置換、Duolingo 型)。
 
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
-import { children, loginBonuses } from '../schema';
-import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
+import { children, loginStreaks } from '../schema';
+import type { Child, LoginStreak, UpsertLoginStreakInput } from '../types';
 
-type LoginBonusRow = typeof loginBonuses.$inferSelect;
+type LoginStreakRow = typeof loginStreaks.$inferSelect;
 
-const toLoginBonus = (r: LoginBonusRow): LoginBonus => ({
-	...r,
-	id: String(r.id),
+const toLoginStreak = (r: LoginStreakRow): LoginStreak => ({
 	childId: asChildId(r.childId),
+	lastLoginDate: r.lastLoginDate,
+	currentStreak: r.currentStreak,
+	updatedAt: r.updatedAt,
 });
 
-/** 今日のログインボーナスを取得 */
-export async function findTodayBonus(
+/** 子供の counter 状態を取得 */
+export async function findStreak(
 	childId: ChildId,
-	today: string,
 	_tenantId: string,
-): Promise<LoginBonus | undefined> {
+): Promise<LoginStreak | undefined> {
 	const row = db
 		.select()
-		.from(loginBonuses)
-		.where(and(eq(loginBonuses.childId, Number(childId)), eq(loginBonuses.loginDate, today)))
+		.from(loginStreaks)
+		.where(eq(loginStreaks.childId, Number(childId)))
 		.get();
-	return row ? toLoginBonus(row) : undefined;
+	return row ? toLoginStreak(row) : undefined;
 }
 
-/** 直近のログインボーナスを取得（連続日数計算用） */
-export async function findRecentBonuses(
+/**
+ * 当日 claim (conditional write)。当日 claim 済なら書き込まず undefined。
+ * increment/reset の判定は SQL 内 CASE で行い read-then-write の race 窓を作らない。
+ */
+export async function claimToday(
 	childId: ChildId,
+	today: string,
+	yesterday: string,
 	_tenantId: string,
-	limit = 60,
-): Promise<LoginBonus[]> {
-	return db
-		.select()
-		.from(loginBonuses)
-		.where(eq(loginBonuses.childId, Number(childId)))
-		.orderBy(desc(loginBonuses.loginDate))
-		.limit(limit)
-		.all()
-		.map(toLoginBonus);
+): Promise<{ currentStreak: number } | undefined> {
+	const rows = db.all<{ current_streak: number }>(sql`
+		INSERT INTO login_streaks (child_id, last_login_date, current_streak)
+		VALUES (${Number(childId)}, ${today}, 1)
+		ON CONFLICT (child_id) DO UPDATE SET
+			current_streak = CASE
+				WHEN login_streaks.last_login_date = ${yesterday} THEN login_streaks.current_streak + 1
+				ELSE 1
+			END,
+			last_login_date = excluded.last_login_date,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE login_streaks.last_login_date <> excluded.last_login_date
+		RETURNING current_streak
+	`);
+	const row = rows[0];
+	return row ? { currentStreak: Number(row.current_streak) } : undefined;
 }
 
-/** ログインボーナスを挿入（同日重複時は無視） */
-export async function insertLoginBonus(
-	input: InsertLoginBonusInput,
+/**
+ * counter の直接 upsert (migration / backup import 専用)。
+ * 既存行がある場合は lastLoginDate が新しい方 (同日なら currentStreak が大きい方) を残す。
+ */
+export async function upsertStreak(
+	input: UpsertLoginStreakInput,
 	_tenantId: string,
-): Promise<LoginBonus> {
-	return toLoginBonus(
-		db
-			.insert(loginBonuses)
-			.values({ ...input, childId: Number(input.childId) })
-			.onConflictDoNothing()
-			.returning()
-			.get(),
-	);
+): Promise<boolean> {
+	const updatedAt = input.updatedAt ?? new Date().toISOString();
+	const rows = db.all<{ id: number }>(sql`
+		INSERT INTO login_streaks (child_id, last_login_date, current_streak, updated_at)
+		VALUES (${Number(input.childId)}, ${input.lastLoginDate}, ${input.currentStreak}, ${updatedAt})
+		ON CONFLICT (child_id) DO UPDATE SET
+			last_login_date = excluded.last_login_date,
+			current_streak = excluded.current_streak,
+			updated_at = excluded.updated_at
+		WHERE excluded.last_login_date > login_streaks.last_login_date
+			OR (excluded.last_login_date = login_streaks.last_login_date
+				AND excluded.current_streak > login_streaks.current_streak)
+		RETURNING id
+	`);
+	return rows.length > 0;
 }
 
 /** 子供の存在確認 */
@@ -70,24 +93,7 @@ export async function findChildById(id: ChildId, _tenantId: string): Promise<Chi
 	return row ? { ...row, id: asChildId(row.id) } : undefined;
 }
 
-/** テナントの全ログインボーナスを削除（SQLite: シングルテナントのため全行削除） */
+/** テナントの全 counter を削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	db.delete(loginBonuses).run();
-}
-
-/**
- * 指定した子供の `login_date < cutoffDate` に該当する login_bonuses を削除する。
- * cutoffDate は `YYYY-MM-DD` 形式で、その日自体は削除対象に含まない（strict less than）。
- * #717, #729
- */
-export async function deleteLoginBonusesBeforeDate(
-	childId: ChildId,
-	cutoffDate: string,
-	_tenantId: string,
-): Promise<number> {
-	const result = db
-		.delete(loginBonuses)
-		.where(and(eq(loginBonuses.childId, Number(childId)), lt(loginBonuses.loginDate, cutoffDate)))
-		.run();
-	return result.changes;
+	db.delete(loginStreaks).run();
 }

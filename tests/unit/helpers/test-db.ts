@@ -254,20 +254,16 @@ export const SQL_TABLES = `
 	);
 
 	-- ============================================================
-	-- login_bonuses
+	-- login_streaks (#3330 counter 縮約)
 	-- ============================================================
-	CREATE TABLE login_bonuses (
+	CREATE TABLE login_streaks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		login_date TEXT NOT NULL,
-		rank TEXT NOT NULL,
-		base_points INTEGER NOT NULL,
-		multiplier REAL NOT NULL DEFAULT 1.0,
-		total_points INTEGER NOT NULL,
-		consecutive_days INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		last_login_date TEXT NOT NULL,
+		current_streak INTEGER NOT NULL DEFAULT 1,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
+	CREATE UNIQUE INDEX idx_login_streaks_child ON login_streaks(child_id);
 
 	-- ============================================================
 	-- achievements
@@ -876,7 +872,7 @@ const ALL_TABLES = [
 	'special_rewards',
 	'child_achievements',
 	'achievements',
-	'login_bonuses',
+	'login_streaks',
 	'character_images',
 	'rest_days',
 	'evaluations',

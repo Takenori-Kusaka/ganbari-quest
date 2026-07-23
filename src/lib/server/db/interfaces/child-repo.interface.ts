@@ -25,7 +25,7 @@ export interface IChildRepo {
 	deleteChild(id: ChildId, tenantId: string): Promise<void>;
 
 	/**
-	 * #3152: 子供 1 人分の進捗データ (activity_logs / point_ledger / login_bonuses /
+	 * #3152: 子供 1 人分の進捗データ (activity_logs / point_ledger / login_streaks /
 	 * child_achievements + DynamoDB は派生集計 BALANCE) を全削除する。child 行自体は残す
 	 * (dev-only デバッグ用途、原 switch debug-reset と同一 scope の忠実保持)。
 	 *

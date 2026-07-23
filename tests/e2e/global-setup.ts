@@ -1214,12 +1214,12 @@ export default async function globalSetup() {
 			console.log(`[E2E Setup]   Cleaned ${deleted.changes} activity log(s) from today.`);
 		}
 
-		// 今日のログインボーナスを削除（ログインボーナステストの安定化）
+		// 今日のログインボーナス counter を削除（ログインボーナステストの安定化、#3330 counter 縮約）
 		const deletedBonus = db
-			.prepare("DELETE FROM login_bonuses WHERE login_date = date('now', 'localtime')")
+			.prepare("DELETE FROM login_streaks WHERE last_login_date = date('now', 'localtime')")
 			.run();
 		if (deletedBonus.changes > 0) {
-			console.log(`[E2E Setup]   Cleaned ${deletedBonus.changes} login bonus(es) from today.`);
+			console.log(`[E2E Setup]   Cleaned ${deletedBonus.changes} login streak(s) claimed today.`);
 		}
 
 		// #752: トライアル E2E 用 — dev-tenant-trial-expired に期限切れトライアル履歴をシード

@@ -180,19 +180,13 @@ const mockUnlockedTitles = [
 	{ id: '1', childId: asChildId(1), titleId: 1, unlockedAt: '2026-03-12T00:00:00Z' },
 ];
 
-const mockLoginBonuses = [
-	{
-		id: '1',
-		childId: asChildId(1),
-		loginDate: '2026-03-15',
-		rank: 'gold',
-		basePoints: 5,
-		multiplier: 1.5,
-		totalPoints: 8,
-		consecutiveDays: 7,
-		createdAt: '2026-03-15T07:00:00Z',
-	},
-];
+// #3330 counter 縮約: per-date 行ではなく子供ごと counter 1 行
+const mockLoginStreak = {
+	childId: asChildId(1),
+	lastLoginDate: '2026-03-15',
+	currentStreak: 7,
+	updatedAt: '2026-03-15T07:00:00Z',
+};
 
 const mockEvaluations = [
 	{
@@ -309,8 +303,8 @@ vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findRestDaysByChild: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
-	findRecentBonuses: vi.fn((childId: ChildId) =>
-		childId === '1' ? Promise.resolve(mockLoginBonuses) : Promise.resolve([]),
+	findStreak: vi.fn((childId: ChildId) =>
+		childId === '1' ? Promise.resolve(mockLoginStreak) : Promise.resolve(undefined),
 	),
 }));
 vi.mock('$lib/server/db/point-repo', () => ({
@@ -449,11 +443,11 @@ describe('exportFamilyData', () => {
 		expect(result.data.childTitles).toHaveLength(0);
 	});
 
-	it('ログインボーナスがエクスポートされる', async () => {
+	it('ログインボーナス counter がエクスポートされる (#3330)', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
-		expect(result.data.loginBonuses).toHaveLength(1);
-		expect(result.data.loginBonuses[0]?.rank).toBe('gold');
-		expect(result.data.loginBonuses[0]?.consecutiveDays).toBe(7);
+		expect(result.data.loginStreaks).toHaveLength(1);
+		expect(result.data.loginStreaks[0]?.lastLoginDate).toBe('2026-03-15');
+		expect(result.data.loginStreaks[0]?.currentStreak).toBe(7);
 	});
 
 	it('週次評価がエクスポートされる', async () => {

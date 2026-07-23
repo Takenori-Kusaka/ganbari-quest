@@ -1091,4 +1091,91 @@ describe('applyLazyStartupMigrations', () => {
 			expect(indexExists('idx_evaluations_child_week')).toBe(false);
 		});
 	});
+
+	describe('login_bonuses → login_streaks counter fold (#3330 案 B)', () => {
+		function seedLegacyLoginBonuses(): void {
+			db.exec(`
+				CREATE TABLE children (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					nickname TEXT NOT NULL
+				);
+				CREATE TABLE login_bonuses (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id),
+					login_date TEXT NOT NULL,
+					rank TEXT NOT NULL,
+					base_points INTEGER NOT NULL,
+					multiplier REAL NOT NULL DEFAULT 1.0,
+					total_points INTEGER NOT NULL,
+					consecutive_days INTEGER NOT NULL DEFAULT 1,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+				CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
+				INSERT INTO children (nickname) VALUES ('連続児'), ('途切れ児'), ('未claim児');
+			`);
+			const ins = db.prepare(
+				"INSERT INTO login_bonuses (child_id, login_date, rank, base_points, total_points, created_at) VALUES (?, ?, '吉', 3, 3, ?)",
+			);
+			// child 1: 5 連続日 (07-15..07-19) → streak 5 @ 07-19
+			for (const d of ['2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19']) {
+				ins.run(1, d, `${d}T07:00:00Z`);
+			}
+			// child 2: 途切れあり (07-01, 07-02, 07-10) → 最新 run のみ = streak 1 @ 07-10
+			for (const d of ['2026-07-01', '2026-07-02', '2026-07-10']) {
+				ins.run(2, d, `${d}T07:00:00Z`);
+			}
+			// child 3: 行なし → counter 行を作らない
+		}
+
+		function streakRows(): {
+			child_id: number;
+			last_login_date: string;
+			current_streak: number;
+			updated_at: string;
+		}[] {
+			return db
+				.prepare(
+					'SELECT child_id, last_login_date, current_streak, updated_at FROM login_streaks ORDER BY child_id',
+				)
+				.all() as {
+				child_id: number;
+				last_login_date: string;
+				current_streak: number;
+				updated_at: string;
+			}[];
+		}
+
+		it('per-date 行が counter に fold され旧表が DROP される (導出正当性)', () => {
+			seedLegacyLoginBonuses();
+			applyLazyStartupMigrations(db);
+
+			expect(tableExists(db, 'login_bonuses')).toBe(false);
+			expect(tableExists(db, 'login_streaks')).toBe(true);
+			const rows = streakRows();
+			expect(rows).toHaveLength(2); // child 3 (行なし) は counter を作らない
+			expect(rows[0]).toMatchObject({
+				child_id: 1,
+				last_login_date: '2026-07-19',
+				current_streak: 5,
+				updated_at: '2026-07-19T07:00:00Z', // run 内最新 created_at を保全
+			});
+			expect(rows[1]).toMatchObject({
+				child_id: 2,
+				last_login_date: '2026-07-10',
+				current_streak: 1, // 途切れ後の最新 run のみ
+			});
+		});
+
+		it('冪等: fold 済 DB に再適用しても no-op (counter が劣化しない)', () => {
+			seedLegacyLoginBonuses();
+			applyLazyStartupMigrations(db);
+			const before = streakRows();
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+			expect(streakRows()).toEqual(before);
+		});
+
+		it('login_bonuses 不在 (新規 DB) でも例外を投げない', () => {
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+		});
+	});
 });

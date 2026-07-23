@@ -32,7 +32,7 @@ function makeExportData(overrides: Partial<Record<string, number>> = {}): Export
 			childChallenges: arr('childChallenges'),
 			stampCards: arr('stampCards'),
 			evaluations: arr('evaluations'),
-			loginBonuses: arr('loginBonuses'),
+			loginStreaks: arr('loginStreaks'),
 			checklistTemplates: arr('checklistTemplates'),
 			parentMessages: arr('parentMessages'),
 			siblingCheers: arr('siblingCheers'),

@@ -260,7 +260,7 @@ export const evaluations = sqliteTable(
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
 	// #3782: 「1子1週1評価」の自然キー (childId, weekStart) を DB 層で物理一意化
-	// (兄弟表 rest_days=idx_rest_days_child_date / login_bonuses=idx_login_bonuses_child_date /
+	// (兄弟表 rest_days=idx_rest_days_child_date / login_streaks=idx_login_streaks_child (#3330) /
 	// stamp_cards=idx_stamp_cards_child_week と同型)。service 層 pre-fetch dedup (#3355) を経由しない
 	// 別 insert 経路・並行 import でも重複行を作れない canonical guard (ADR-0061 push-down-pyramid)。
 	(table) => [uniqueIndex('idx_evaluations_child_week').on(table.childId, table.weekStart)],
@@ -326,24 +326,25 @@ export const characterImages = sqliteTable('character_images', {
 });
 
 // ============================================================
-// login_bonuses - ログインボーナス
+// login_streaks - ログインボーナス counter (#3330 案 B counter 縮約)
 // ============================================================
-export const loginBonuses = sqliteTable(
-	'login_bonuses',
+// per-date 行 (旧 login_bonuses) は廃止し、子供ごとに 1 行の counter のみ保持する。
+// 当日冪等 (1日1回 = ADR-0012) は claimToday の conditional write が担保する。
+// 旧 login_bonuses からの fold は lazy-startup-migrations.ts (#3330) 参照。
+export const loginStreaks = sqliteTable(
+	'login_streaks',
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
-		loginDate: text('login_date').notNull(),
-		rank: text('rank').notNull(),
-		basePoints: integer('base_points').notNull(),
-		multiplier: real('multiplier').notNull().default(1.0),
-		totalPoints: integer('total_points').notNull(),
-		consecutiveDays: integer('consecutive_days').notNull().default(1),
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		// NOT NULL no-default で問題ない: 本 table は CREATE TABLE で丸ごと新規作成され
+		// (lazy fold migration + create-tables.ts)、既存 DB への ALTER ADD COLUMN 経路に乗らない
+		lastLoginDate: text('last_login_date').notNull(),
+		currentStreak: integer('current_streak').notNull().default(1),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
-	(table) => [uniqueIndex('idx_login_bonuses_child_date').on(table.childId, table.loginDate)],
+	(table) => [uniqueIndex('idx_login_streaks_child').on(table.childId)],
 );
 
 // ============================================================

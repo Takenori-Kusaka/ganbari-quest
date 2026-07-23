@@ -40,7 +40,7 @@ import {
 } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
-import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
+import { upsertStreak } from '$lib/server/db/login-bonus-repo';
 import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-repo';
 import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
@@ -339,7 +339,7 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 		}
 	}
 
-	// NOTE: activityLogs / loginBonuses の重複検出には子供単位の pre-fetch が必要だが、
+	// NOTE: activityLogs の重複検出には子供単位の pre-fetch が必要だが、
 	//       preview 段階では child_id が確定していない (新規作成前)。
 	//       実インポート時は importFamilyData 側で正確に判定する。
 
@@ -350,7 +350,7 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
 		statuses: data.data.statuses.length,
 		achievements: data.data.childAchievements.length,
 		titles: data.data.childTitles.length,
-		loginBonuses: data.data.loginBonuses.length,
+		loginBonuses: data.data.loginStreaks.length,
 		checklistTemplates: data.data.checklistTemplates.length,
 		specialRewards: data.data.specialRewards.length,
 		duplicates,
@@ -423,7 +423,7 @@ export async function importFamilyData(
 	// 活動 lookup (name→新 id) が必要なので buildActivityLookupByChild の後に実行する。
 	await importActivityPrefsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
-	await importLoginBonusesData(data, childIdMap, tenantId, result);
+	await importLoginStreaksData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(
 		data,
 		childIdMap,
@@ -489,9 +489,9 @@ async function importEvaluationsData(
 	if (evaluations.length === 0) return;
 
 	// #3355: (childId, weekStart) は週次評価の自然キー (1 週 1 評価)。他 importer
-	// (importLoginBonusesData / importActivityLogsData) と同型の pre-fetch dedup で、同一 backup の
+	// (importActivityLogsData) と同型の pre-fetch dedup で、同一 backup の
 	// 再取込 (merge) や重複行を二重計上しない (旧実装は無条件 insert で growth-book/reports の数値汚染)。
-	// 既存 DB 行 + 同一 import 内の両方を dedup 対象にする (loginBonuses と同じく mode 非依存 = 自然キーは
+	// 既存 DB 行 + 同一 import 内の両方を dedup 対象にする (mode 非依存 = 自然キーは
 	// verbatim でも重複が正当化されないため常に dedup)。
 	const existingWeeksByChild = new Map<ChildId, Set<string>>();
 	async function existingWeeks(childId: ChildId): Promise<Set<string>> {
@@ -1751,68 +1751,43 @@ async function importPointLedgerData(
 }
 
 /**
- * ログインボーナス import (#1254 G2: pre-fetch で (childId, loginDate) セット → 事前スキップ)
+ * ログインボーナス counter import (#3330 案 B counter 縮約)。
+ * per-child 1 行の counter を upsertStreak で merge する。repo 側の conditional upsert が
+ * 「lastLoginDate が新しい方 (同日なら streak 大) を残す」ため、同一 backup の再取込 (merge) や
+ * 既存 counter がより新しい場合は skip される (dedup pre-fetch 不要、mode 非依存)。
  */
-async function importLoginBonusesData(
+async function importLoginStreaksData(
 	data: ExportData,
 	childIdMap: Map<string, ChildId>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	const existingBonusesByChild = new Map<ChildId, Set<string>>();
-
-	// #3692 phase 0: 既存 bonus 日付を、登場する child 分だけ並列 prefetch
-	const involvedChildIds = [
-		...new Set(
-			data.data.loginBonuses
-				.map((lb) => childIdMap.get(lb.childRef))
-				.filter((id): id is ChildId => !!id),
-		),
-	];
-	await runConcurrent(involvedChildIds, async (childId) => {
-		const existing = await findRecentBonuses(childId, tenantId, 365);
-		existingBonusesByChild.set(childId, new Set(existing.map((e) => e.loginDate)));
-	});
-
-	// #3692 phase 1 (同期): (childId, loginDate) dedup を同期で確定 (Set race 回避)
-	const tasks: { childId: ChildId; lb: (typeof data.data.loginBonuses)[number] }[] = [];
-	for (const lb of data.data.loginBonuses) {
-		const childId = childIdMap.get(lb.childRef);
+	for (const streak of data.data.loginStreaks ?? []) {
+		const childId = childIdMap.get(streak.childRef);
 		if (!childId) continue;
-
-		const existingDates = existingBonusesByChild.get(childId);
-		if (existingDates?.has(lb.loginDate)) {
-			result.loginBonusesSkipped++;
-			result.skipped.constraint++;
-			continue;
-		}
-		existingDates?.add(lb.loginDate);
-		tasks.push({ childId, lb });
-	}
-
-	// #3692 phase 2: insert を並列チャンク実行
-	await runConcurrent(tasks, async ({ childId, lb }) => {
 		try {
-			await insertLoginBonus(
+			const written = await upsertStreak(
 				{
 					childId,
-					loginDate: lb.loginDate,
-					rank: lb.rank,
-					basePoints: lb.basePoints,
-					multiplier: lb.multiplier,
-					totalPoints: lb.totalPoints,
-					consecutiveDays: lb.consecutiveDays,
+					lastLoginDate: streak.lastLoginDate,
+					currentStreak: streak.currentStreak,
+					updatedAt: streak.updatedAt,
 				},
 				tenantId,
 			);
-			result.loginBonusesImported++;
+			if (written) {
+				result.loginBonusesImported++;
+			} else {
+				result.loginBonusesSkipped++;
+				result.skipped.constraint++;
+			}
 		} catch (e) {
 			result.loginBonusesSkipped++;
 			result.errors.push(
-				`ログインボーナス insert 失敗 (child=${lb.childRef}, date=${lb.loginDate}): ${String(e)}`,
+				`ログインボーナス counter upsert 失敗 (child=${streak.childRef}, lastLoginDate=${streak.lastLoginDate}): ${String(e)}`,
 			);
 		}
-	});
+	}
 }
 
 /** checklistLog の再マップに使う、childId 単位の template id 解決マップ群。 */

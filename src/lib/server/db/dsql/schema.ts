@@ -692,24 +692,22 @@ export const childActivityPreferences = pgTable(
 
 // ── Child 集約 残り表 Slice B: ボーナス・報酬・メッセージ系 10 表 (§11.2 / §5、#3424) ──
 
-// login_bonuses — ログインボーナス (自然複合 PK、anchor (a) ADR-0012: 1日1回 §11.2)。
-// rank はおみくじ演出の増減集合のため CHECK 対象外。
-export const loginBonuses = pgTable(
-	'login_bonuses',
+// login_streaks — ログインボーナス counter (#3330 案 B counter 縮約)。
+// per-date 行 (旧 login_bonuses) は廃止し、子供ごとに 1 行 (child-level 自然 PK) のみ保持する。
+// 当日冪等 (1日1回 = ADR-0012) は claimToday の conditional write (単一 INSERT ... ON CONFLICT
+// DO UPDATE ... WHERE last_login_date <> excluded.last_login_date) が原子的に担保する。
+export const loginStreaks = pgTable(
+	'login_streaks',
 	{
 		familyId: uuid('family_id').notNull(),
 		childId: uuid('child_id').notNull(),
-		loginDate: text('login_date').notNull(),
-		rank: text('rank').notNull(),
-		basePoints: integer('base_points').notNull(),
-		multiplier: real('multiplier').notNull().default(1.0),
-		totalPoints: integer('total_points').notNull(),
-		consecutiveDays: integer('consecutive_days').notNull().default(1),
-		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+		lastLoginDate: text('last_login_date').notNull(),
+		currentStreak: integer('current_streak').notNull().default(1),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.loginDate] })],
+	(t) => [primaryKey({ columns: [t.familyId, t.childId] })],
 );
 
 // certificates — がんばり証明書 (UUID surrogate、§11.2 governing rule: 再発行/周期型証書が

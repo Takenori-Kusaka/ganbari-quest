@@ -193,16 +193,16 @@ export interface CharacterImage {
 	generatedAt: string;
 }
 
-export interface LoginBonus {
-	id: string;
+/**
+ * ログインボーナスの counter 状態 (#3330 案 B counter 縮約)。
+ * per-date 行 (旧 login_bonuses) は廃止し、子供ごとに 1 行のみ保持する。
+ * claimedToday は `lastLoginDate === today` で導出する。
+ */
+export interface LoginStreak {
 	childId: ChildId;
-	loginDate: string;
-	rank: string;
-	basePoints: number;
-	multiplier: number;
-	totalPoints: number;
-	consecutiveDays: number;
-	createdAt: string;
+	lastLoginDate: string;
+	currentStreak: number;
+	updatedAt: string;
 }
 
 export interface Achievement {
@@ -485,14 +485,16 @@ export interface InsertEvaluationInput {
 	createdAt?: string;
 }
 
-export interface InsertLoginBonusInput {
+/**
+ * counter の直接 upsert 入力 (#3330)。migration / backup import 専用。
+ * 通常の claim 経路は ILoginBonusRepo.claimToday (conditional write) を使う。
+ */
+export interface UpsertLoginStreakInput {
 	childId: ChildId;
-	loginDate: string;
-	rank: string;
-	basePoints: number;
-	multiplier: number;
-	totalPoints: number;
-	consecutiveDays: number;
+	lastLoginDate: string;
+	currentStreak: number;
+	/** 省略時は現在時刻 (schema default) */
+	updatedAt?: string;
 }
 
 export interface InsertSpecialRewardInput {

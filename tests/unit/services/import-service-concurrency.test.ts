@@ -1,6 +1,6 @@
 // tests/unit/services/import-service-concurrency.test.ts
 // #3692: 本番 restore 504 (Lambda 30s timeout) の即効対処 — import の件数支配ヘルパ
-// (activityLogs / pointLedger / loginBonuses / statusHistory / stampCards) が
+// (activityLogs / pointLedger / statusHistory / stampCards) が
 // insert を並列チャンク実行することを検証する。
 //
 // 障害の算数: 実バックアップ ≈ 1,200 行 × 1 insert あたり最大 3 DynamoDB 往復
@@ -34,7 +34,6 @@ function makeConcurrencyTracker() {
 const pointLedgerTracker = makeConcurrencyTracker();
 const activityLogTracker = makeConcurrencyTracker();
 const statusHistoryTracker = makeConcurrencyTracker();
-const loginBonusTracker = makeConcurrencyTracker();
 const stampEntryTracker = makeConcurrencyTracker();
 
 // ---------- Top-level mocks (import-service.test.ts と同構成の最小 subset) ----------
@@ -42,7 +41,7 @@ const stampEntryTracker = makeConcurrencyTracker();
 const mockFindActivities = vi.fn();
 const mockFindActivityLogs = vi.fn();
 const mockInsertChild = vi.fn();
-const mockFindRecentBonuses = vi.fn();
+const mockUpsertStreak = vi.fn();
 const mockChildActivityFindByChild = vi.fn();
 const mockStampInsertCardForRestore = vi.fn();
 
@@ -92,8 +91,7 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 }));
 
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
-	findRecentBonuses: (...args: unknown[]) => mockFindRecentBonuses(...args),
-	insertLoginBonus: () => loginBonusTracker.tracked(),
+	upsertStreak: (...args: unknown[]) => mockUpsertStreak(...args),
 }));
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
@@ -177,7 +175,7 @@ function makeExportData(overrides: Partial<ExportData['data']> = {}): ExportData
 			statusHistory: [],
 			childAchievements: [],
 			childTitles: [],
-			loginBonuses: [],
+			loginStreaks: [],
 			evaluations: [],
 			specialRewards: [],
 			checklistTemplates: [],
@@ -195,7 +193,7 @@ beforeEach(() => {
 	mockInsertChild.mockReset().mockResolvedValue({ id: '101' });
 	mockFindActivities.mockReset().mockResolvedValue([]);
 	mockFindActivityLogs.mockReset().mockResolvedValue([]);
-	mockFindRecentBonuses.mockReset().mockResolvedValue([]);
+	mockUpsertStreak.mockReset().mockResolvedValue(true);
 	mockChildActivityFindByChild.mockReset().mockResolvedValue([]);
 	mockStampInsertCardForRestore.mockReset().mockResolvedValue({ id: 'card-1' });
 });
@@ -303,11 +301,13 @@ describe('#3692 import insert 並列チャンク実行', () => {
 		expect(activityLogTracker.max()).toBeGreaterThan(1);
 	});
 
-	it('loginBonuses: insert が並列 in-flight >1 で実行され、既存日付 dedup も保存される', async () => {
-		// 既存 bonus 1 件 (2026-07-01) — この日付の行は skip されるべき
-		mockFindRecentBonuses.mockResolvedValue([{ loginDate: '2026-07-01' }]);
-		const data = makeExportData({
-			loginBonuses: Array.from({ length: N + 1 }, (_, i) => ({
+	it('loginStreaks (#3330): 旧 backup の per-date 行は counter 1 行に fold されて upsert される', async () => {
+		// counter 縮約後は per-child 1 upsert のみ (旧 per-date 並列 insert 経路は消滅)。
+		// 旧 backup (1.1.0) の N+1 連続日を流し、fold 後に upsertStreak が 1 回だけ呼ばれることを確認。
+		const data = makeExportData();
+		(data.data as unknown as Record<string, unknown>).loginBonuses = Array.from(
+			{ length: N + 1 },
+			(_, i) => ({
 				childRef: 'child-1',
 				loginDate: `2026-07-${String(i + 1).padStart(2, '0')}`,
 				rank: 'normal',
@@ -316,12 +316,19 @@ describe('#3692 import insert 並列チャンク実行', () => {
 				totalPoints: 5,
 				consecutiveDays: i + 1,
 				createdAt: '2026-07-01T00:00:00Z',
-			})),
-		});
+			}),
+		);
+
 		const result = await importFamilyData(data, TENANT);
-		expect(result.loginBonusesImported).toBe(N);
-		expect(result.loginBonusesSkipped).toBe(1);
-		expect(loginBonusTracker.max()).toBeGreaterThan(1);
+		expect(result.loginBonusesImported).toBe(1);
+		expect(mockUpsertStreak).toHaveBeenCalledTimes(1);
+		expect(mockUpsertStreak).toHaveBeenCalledWith(
+			expect.objectContaining({
+				lastLoginDate: `2026-07-${String(N + 1).padStart(2, '0')}`,
+				currentStreak: N + 1,
+			}),
+			TENANT,
+		);
 	});
 
 	it('stampCards: entry insert が並列 in-flight >1 で実行され、card/entry とも全件 import される', async () => {

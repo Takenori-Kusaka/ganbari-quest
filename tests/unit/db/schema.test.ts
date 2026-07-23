@@ -166,18 +166,14 @@ beforeAll(() => {
 			generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 
-		CREATE TABLE login_bonuses (
+		CREATE TABLE login_streaks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			child_id INTEGER NOT NULL REFERENCES children(id),
-			login_date TEXT NOT NULL,
-			rank TEXT NOT NULL,
-			base_points INTEGER NOT NULL,
-			multiplier REAL NOT NULL DEFAULT 1.0,
-			total_points INTEGER NOT NULL,
-			consecutive_days INTEGER NOT NULL DEFAULT 1,
-			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			last_login_date TEXT NOT NULL,
+			current_streak INTEGER NOT NULL DEFAULT 1,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
-		CREATE UNIQUE INDEX idx_login_bonuses_child_date ON login_bonuses(child_id, login_date);
+		CREATE UNIQUE INDEX idx_login_streaks_child ON login_streaks(child_id);
 	`);
 });
 
@@ -419,60 +415,32 @@ describe('character_images テーブル', () => {
 	});
 });
 
-describe('login_bonuses テーブル', () => {
-	it('ログインボーナスを登録できる', () => {
+describe('login_streaks テーブル (#3330 counter 縮約)', () => {
+	it('counter を登録できる', () => {
 		const result = db
-			.insert(schema.loginBonuses)
+			.insert(schema.loginStreaks)
 			.values({
 				childId: 1,
-				loginDate: '2026-02-20',
-				rank: '大吉',
-				basePoints: 10,
-				multiplier: 1.0,
-				totalPoints: 10,
-				consecutiveDays: 1,
+				lastLoginDate: '2026-02-20',
+				currentStreak: 3,
 			})
 			.returning()
 			.get();
 
-		expect(result.rank).toBe('大吉');
-		expect(result.totalPoints).toBe(10);
+		expect(result.lastLoginDate).toBe('2026-02-20');
+		expect(result.currentStreak).toBe(3);
 	});
 
-	it('同じ日に2回ログインボーナスを受け取れない', () => {
+	it('同じ子供に 2 行目の counter は作れない (unique index)', () => {
 		expect(() => {
-			db.insert(schema.loginBonuses)
+			db.insert(schema.loginStreaks)
 				.values({
 					childId: 1,
-					loginDate: '2026-02-20',
-					rank: '小吉',
-					basePoints: 5,
-					multiplier: 1.0,
-					totalPoints: 5,
-					consecutiveDays: 1,
+					lastLoginDate: '2026-02-21',
+					currentStreak: 1,
 				})
 				.run();
 		}).toThrow();
-	});
-
-	it('連続ログインの倍率が正しく保存される', () => {
-		const result = db
-			.insert(schema.loginBonuses)
-			.values({
-				childId: 1,
-				loginDate: '2026-02-21',
-				rank: '中吉',
-				basePoints: 7,
-				multiplier: 1.5,
-				totalPoints: 11,
-				consecutiveDays: 3,
-			})
-			.returning()
-			.get();
-
-		expect(result.multiplier).toBe(1.5);
-		expect(result.consecutiveDays).toBe(3);
-		expect(result.totalPoints).toBe(11);
 	});
 });
 
