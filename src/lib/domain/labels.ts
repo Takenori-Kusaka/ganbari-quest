@@ -2173,7 +2173,7 @@ export const IMPORT_LABELS = {
  * スキップ理由 enum (#1254 G2)
  * - preset_duplicate: source_preset_id 一致
  * - name_duplicate: 名前一致
- * - log_constraint: 複合 unique 制約 (activity_logs, login_bonuses, status_history)
+ * - log_constraint: 複合 unique 制約 (activity_logs, login_streaks, status_history)
  */
 export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_constraint';
 

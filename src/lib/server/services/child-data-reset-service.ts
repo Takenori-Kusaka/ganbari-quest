@@ -30,7 +30,7 @@ export interface ResetChildDataResult {
 }
 
 /**
- * 指定 child の進捗データ (activity_logs / point_ledger / login_bonuses /
+ * 指定 child の進捗データ (activity_logs / point_ledger / login_streaks /
  * child_achievements) を全削除する。child 行自体は残す。
  *
  * dev-only デバッグ用途 (route 側で `if (!dev)` ガード済)。

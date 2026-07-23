@@ -11,7 +11,7 @@
 //     - children テーブル + ファイル（アバター/音声/画像）
 //     - child_repo のカスケード削除経由で子供に紐づく全データ（activity_logs,
 //       point_ledger, statuses, status_history, stamp_cards, stamp_entries,
-//       child_achievements, login_bonuses, character_images, evaluations,
+//       child_achievements, login_streaks, character_images, evaluations,
 //       special_rewards, checklist_logs, checklist_overrides）が消える。
 //
 // - `deleteTenantScopedData(tenantId)`:
@@ -47,7 +47,7 @@ const repos = () => getRepos();
  * テナント内の全子供データとファイルを削除する。
  *
  * 子供テーブルの cascade delete により、子供に紐づく activity_logs / point_ledger /
- * statuses / status_history / stamp_cards / achievements / login_bonuses /
+ * statuses / status_history / stamp_cards / achievements / login_streaks /
  * character_images / evaluations / special_rewards / checklist_logs /
  * checklist_overrides が同時に消える。
  *
