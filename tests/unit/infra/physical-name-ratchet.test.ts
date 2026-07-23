@@ -238,7 +238,7 @@ function group(reason: string, keys: readonly string[]): NamedResourceEntry[] {
 	return keys.map((key) => ({ key, reason }));
 }
 
-// #3881 実測 baseline (2026-07-19、全 11 stack synth = 58 件)。既存の明示物理名はここに pin し、
+// #3881 実測 baseline (2026-07-19、全 11 stack synth = 58 件 + #3907 保全 vault 1 件 = 59 件)。既存の明示物理名はここに pin し、
 // **一方通行で減らす** (rename は replacement = データ喪失リスクのため既存は rename しない。
 // リソース撤去時に entry を削除する)。新規追加は「auto-naming で代替できない」justification が
 // ある場合のみ許容し、reason に根拠を書く。
@@ -343,6 +343,10 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestDsql/AWS::Backup::BackupPlan/ganbari-quest-dsql-daily',
 			'GanbariQuestDsql/AWS::IAM::Role/ganbari-quest-dsql-backup-role',
 		],
+	),
+	...group(
+		'#3907 RETAIN-orphan 保全 vault。既存物理 vault (recovery point 保持中、AWS Backup が削除拒否) と同一名の維持が in-place DeletionPolicy 更新の前提であり、rename = replacement CREATE (= #3881 class そのもの) を誘発するため明示名必須。物理 empty→delete は gated ops (storage-stack 設計書 §3.1)',
+		['GanbariQuestStorage/AWS::Backup::BackupVault/ganbari-quest-vault'],
 	),
 	...group('Budgets budgetName は console / cost 監視の識別子 (account 内 unique 制約)', [
 		'GanbariQuestDsql/AWS::Budgets::Budget/ganbari-quest-dsql-backup-guardrail',
