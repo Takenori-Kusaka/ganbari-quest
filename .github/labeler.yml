@@ -45,3 +45,48 @@
           - "tsconfig.json"
           - "svelte.config.js"
           - "vite.config.ts"
+
+# --- PO 決裁 triage (#3862) ---
+# 高リスク・不可逆パス touch で自動付与。付与された PR は PR body に
+# 「## PO 決裁ブリーフ」条件付きセクション (dev-open-pr skill templates/po-decision-brief.md) が必須。
+# パス判定マップの機械層 SSOT = 本エントリ / 判断層 (glob で表現できないシグナル) =
+# .claude/skills/pr-review/SKILL.md「Step 0: PO 決裁 triage」の checklist。
+# 回帰固定 (false negative 0): tests/unit/github/po-decision-labeler.test.ts
+"po-decision:required":
+  - changed-files:
+      - any-glob-to-any-file:
+          # DB スキーマ / migration (SQLite + DSQL 両系統)
+          - "src/lib/server/db/schema.ts"
+          - "src/lib/server/db/schema-validator.ts"
+          - "src/lib/server/db/dsql/schema.ts"
+          - "drizzle/**"
+          # Stripe・billing
+          - "src/lib/server/stripe/**"
+          - "src/routes/api/stripe/**"
+          # auth・認可境界
+          - "src/hooks.server.ts"
+          - "src/lib/policy/**"
+          - "src/lib/server/auth/**"
+          # infra・deploy
+          - "infra/**"
+          - ".github/workflows/deploy*.yml"
+          # DSQL テナント分離 (ADR-0063 単一強制点 + fitness function 弱体化検知)
+          - "src/lib/server/db/dsql/connection.ts"
+          - "tests/unit/architecture/dsql-tenant-predicate-fitness.test.ts"
+          # retention・PII (ADR-0049)
+          - "src/lib/server/services/retention-cleanup-service.ts"
+          - "src/lib/server/services/account-deletion-service.ts"
+          - "src/lib/server/services/deletion-export-service.ts"
+          # env (必須 env 追加は配布証跡 4 経路が必要、ADR-0006)
+          - ".env.example"
+          - "src/lib/runtime/env.ts"
+          # 価格・プラン文字列 (atom SSOT、ADR-0045)
+          - "src/lib/domain/terms.ts"
+          - "src/lib/domain/plan-features.ts"
+          # 法務・LP truth (ADR-0013)
+          - "site/terms.html"
+          - "site/privacy.html"
+          - "site/tokushoho.html"
+          - "site/sla.html"
+          - "site/pricing.html"
+          - "docs/design/19-プライシング戦略書.md"
