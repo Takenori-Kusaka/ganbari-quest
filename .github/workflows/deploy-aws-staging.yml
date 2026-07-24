@@ -212,28 +212,9 @@ jobs:
       # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
       # bin/app.ts は本番 stack 群を無条件 instantiate するため、DsqlStaging のみの deploy でも
       # synth には compute-stack の必須 context (opsSecretKey 等) が要る (cycle 1 の学び)。
-      # #3702 rehearsal: 本番 deploy.yml Phase 2.9 相当の cutover 前 DynamoDB backup を staging で検証。
-      # staging table (ganbari-quest-staging) は空でも create-backup の動作 (fail-closed 含む) を確認する。
-      - name: Pre-cutover DynamoDB backup (staging rehearsal, fail-closed #3702)
-        if: env.DSQL_LANE == 'true'
-        run: |
-          BACKUP_NAME="staging-pre-cutover-$(date -u +%Y%m%d-%H%M%S)"
-          ARN=$(aws dynamodb create-backup --table-name "$ECR_REPOSITORY" --backup-name "$BACKUP_NAME" \
-            --region "$AWS_REGION" --query 'BackupDetails.BackupArn' --output text)
-          echo "::notice::staging DynamoDB backup: $BACKUP_NAME ($ARN)"
-          ST=""
-          for i in $(seq 1 30); do
-            ST=$(aws dynamodb describe-backup --backup-arn "$ARN" --region "$AWS_REGION" \
-              --query 'BackupDescription.BackupDetails.BackupStatus' --output text)
-            echo "backup status: $ST"
-            [ "$ST" = "AVAILABLE" ] && break
-            sleep 5
-          done
-          if [ "$ST" != "AVAILABLE" ]; then
-            echo "::error::staging DynamoDB backup が AVAILABLE になりませんでした"
-            exit 1
-          fi
-
+      # 旧 #3702 の cutover 前 DynamoDB backup rehearsal step は、cutover 完遂 + DynamoDB
+      # 撤去 (#3438 Deploy-2) で対象 table が消滅し obsolete 化したため撤去 (#3921。
+      # TableNotFound で lane が赤化した第17回リリース blocker の根治)。
       - name: Deploy DSQL staging cluster (dsql lane)
         if: env.DSQL_LANE == 'true'
         working-directory: infra/
