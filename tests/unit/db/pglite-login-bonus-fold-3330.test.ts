@@ -118,3 +118,34 @@ describe('pg migration 0004: login_bonuses → login_streaks fold (#3330)', () =
 		expect(tables.rows).toHaveLength(0);
 	});
 });
+
+describe('pg migration 0004: fresh-DB-safe guard (#3925)', () => {
+	it('login_bonuses 未作成の fresh DB でも 0004 全 statement が成功する (staging run 30071244462 の再現封鎖)', async () => {
+		const client = new PGlite();
+		try {
+			// fresh provision 相当: 現 schema は login_bonuses を作らず、0003 で login_streaks のみ存在する
+			await client.exec(`
+				CREATE TABLE "login_streaks" (
+					"family_id" uuid NOT NULL,
+					"child_id" uuid NOT NULL,
+					"last_login_date" text NOT NULL,
+					"current_streak" integer DEFAULT 1 NOT NULL,
+					"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+					CONSTRAINT "login_streaks_family_id_child_id_pk" PRIMARY KEY("family_id","child_id")
+				);
+			`);
+			for (const stmt of loadMigration0004Statements()) {
+				await client.exec(stmt);
+			}
+			// fold は 0 行 no-op、shell も DROP 済で残らない
+			const streaks = await client.query('SELECT count(*)::int AS n FROM login_streaks');
+			expect(streaks.rows).toEqual([{ n: 0 }]);
+			const tables = await client.query(
+				`SELECT table_name FROM information_schema.tables WHERE table_name = 'login_bonuses'`,
+			);
+			expect(tables.rows).toHaveLength(0);
+		} finally {
+			await client.close();
+		}
+	});
+});

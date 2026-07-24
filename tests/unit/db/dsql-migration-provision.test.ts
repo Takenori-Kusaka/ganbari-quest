@@ -123,4 +123,32 @@ describe('DSQL schema provisioning (#3424 M5 DoD2、provision.ts)', () => {
 			expect(plan.ddl.length, `${file.tag} の ddl が空`).toBeGreaterThan(0);
 		}
 	});
+
+	it('[PV6] fresh provision 回帰 (#3925): 実 migration 全 tag が空 PGlite に journal 順で適用できる (prior state 仮定の混入を検出)', async () => {
+		// fresh staging DSQL / 新規 NUC / DR 再構築の「空 DB に全 migration」path を実 SQL で貫通する。
+		// 0004 の login_bonuses fold が fresh DB で 'table does not exist' となった class
+		// (migration が既存 state を仮定する) を、以後どの migration についても機械検出する。
+		const { PGlite } = await import('@electric-sql/pglite');
+		const client = new PGlite();
+		try {
+			const realDir = resolve(process.cwd(), 'drizzle', 'pglite');
+			for (const file of loadMigrationFiles(realDir)) {
+				const statements = file.sqlText
+					.split('--> statement-breakpoint')
+					.map((s) => s.trim())
+					.filter((s) => s.length > 0);
+				for (const stmt of statements) {
+					await expect(client.exec(stmt), `${file.tag} が fresh DB で失敗`).resolves.toBeDefined();
+				}
+			}
+			// 終端 state: 縮約後 schema (login_streaks あり / login_bonuses なし)
+			const tables = await client.query(
+				`SELECT table_name FROM information_schema.tables
+				 WHERE table_name IN ('login_streaks', 'login_bonuses')`,
+			);
+			expect(tables.rows).toEqual([{ table_name: 'login_streaks' }]);
+		} finally {
+			await client.close();
+		}
+	}, 120_000);
 });
