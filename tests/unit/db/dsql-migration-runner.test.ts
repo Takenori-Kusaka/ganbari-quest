@@ -3,20 +3,32 @@
 // 設計 SSOT: docs/design/dsql/m4-implementation-plan.md §3.2 (F2/F3)
 //
 // mock executor で適用順序 (責務 4/6 + ASYNC UNIQUE build 順序 hard 制約) を検証:
-//   - 各 DDL を **1 文ずつ autocommit で適用** (txn 一括しない)。
+//   - 各文を **source 順に 1 文ずつ autocommit で適用** (txn 一括しない、#3928)。
 //   - ASYNC index の直後に poll (completed になるまで書込を開放しない)。
-//   - 全 DDL 完了後に DML(seed) を適用 (DDL⇄DML 分離)。
+//   - DDL→DML→DDL 型 (0004 fold) でも source 順が保持される (#3928 回帰)。
 //   - index build failed で runner が throw し以降を止める。
 
 import { describe, expect, it } from 'vitest';
 import {
 	applyDsqlMigrationPlan,
 	createDrizzleRawExecutor,
+	type DsqlMigrationPlan,
 	type RawSqlExecutor,
 	runDsqlMigration,
 } from '../../../src/lib/server/db/dsql/migration/runner';
+import type { DsqlPlannedStatement } from '../../../src/lib/server/db/dsql/migration/transform';
 
 const BP = '--> statement-breakpoint';
+
+/** source 順 statements から plan を組む test helper (ddl/dml view は transform と同じ導出)。 */
+function makePlan(statements: DsqlPlannedStatement[]): DsqlMigrationPlan {
+	const toView = ({ kind: _kind, ...rest }: DsqlPlannedStatement) => rest;
+	return {
+		statements,
+		ddl: statements.filter((s) => s.kind === 'ddl').map(toView),
+		dml: statements.filter((s) => s.kind === 'dml').map(toView),
+	};
+}
 
 /**
  * 適用文 / watermark 捕捉 / sys.jobs poll を記録する mock。
@@ -57,16 +69,15 @@ describe('applyDsqlMigrationPlan — 適用順序', () => {
 	it('DDL を 1 文ずつ適用し、ASYNC index の後に poll、その後 DML を適用する', async () => {
 		const exec = recordingExecutor();
 		await applyDsqlMigrationPlan(
-			{
-				ddl: [
-					{ sql: 'CREATE TABLE "members" (...)' },
-					{
-						sql: 'CREATE UNIQUE INDEX ASYNC "members_uq" ON "members" ("a")',
-						asyncIndexName: 'members_uq',
-					},
-				],
-				dml: [{ sql: 'INSERT INTO "members" VALUES (1)' }],
-			},
+			makePlan([
+				{ sql: 'CREATE TABLE "members" (...)', kind: 'ddl' },
+				{
+					sql: 'CREATE UNIQUE INDEX ASYNC "members_uq" ON "members" ("a")',
+					asyncIndexName: 'members_uq',
+					kind: 'ddl',
+				},
+				{ sql: 'INSERT INTO "members" VALUES (1)', kind: 'dml' },
+			]),
 			exec,
 		);
 		// 適用は「CREATE TABLE → CREATE INDEX ASYNC → INSERT」の順 (sys.jobs poll は applied に混ざらない)。
@@ -85,13 +96,15 @@ describe('applyDsqlMigrationPlan — 適用順序', () => {
 		const exec = recordingExecutor({ bad_uq: 'failed' });
 		await expect(
 			applyDsqlMigrationPlan(
-				{
-					ddl: [
-						{ sql: 'CREATE TABLE "t" (...)' },
-						{ sql: 'CREATE UNIQUE INDEX ASYNC "bad_uq" ON "t" ("a")', asyncIndexName: 'bad_uq' },
-					],
-					dml: [{ sql: 'INSERT INTO "t" VALUES (1)' }],
-				},
+				makePlan([
+					{ sql: 'CREATE TABLE "t" (...)', kind: 'ddl' },
+					{
+						sql: 'CREATE UNIQUE INDEX ASYNC "bad_uq" ON "t" ("a")',
+						asyncIndexName: 'bad_uq',
+						kind: 'ddl',
+					},
+					{ sql: 'INSERT INTO "t" VALUES (1)', kind: 'dml' },
+				]),
 				exec,
 				{ sleep: async () => {} },
 			),
@@ -108,13 +121,34 @@ describe('applyDsqlMigrationPlan — 適用順序', () => {
 		const exec = recordingExecutor();
 		const seen: Array<[string, string]> = [];
 		await applyDsqlMigrationPlan(
-			{ ddl: [{ sql: 'CREATE TABLE "t" (...)' }], dml: [{ sql: 'INSERT INTO "t" VALUES (1)' }] },
+			makePlan([
+				{ sql: 'CREATE TABLE "t" (...)', kind: 'ddl' },
+				{ sql: 'INSERT INTO "t" VALUES (1)', kind: 'dml' },
+			]),
 			exec,
 			{ onStatement: (phase, s) => seen.push([phase, s]) },
 		);
 		expect(seen).toEqual([
 			['ddl', 'CREATE TABLE "t" (...)'],
 			['dml', 'INSERT INTO "t" VALUES (1)'],
+		]);
+	});
+
+	it('DDL→DML→DDL 型 (0004 fold 同型) を source 順のまま適用する (#3928 回帰: DDL-first 並び替え禁止)', async () => {
+		const exec = recordingExecutor();
+		await applyDsqlMigrationPlan(
+			makePlan([
+				{ sql: 'CREATE TABLE IF NOT EXISTS "old" (...)', kind: 'ddl' },
+				{ sql: 'INSERT INTO "new" SELECT * FROM "old"', kind: 'dml' },
+				{ sql: 'DROP TABLE IF EXISTS "old" CASCADE', kind: 'ddl' },
+			]),
+			exec,
+		);
+		// 旧実装は DDL-first で「CREATE → DROP → INSERT」となり fold が relation 不在で fail した。
+		expect(exec.applied).toEqual([
+			'CREATE TABLE IF NOT EXISTS "old" (...)',
+			'INSERT INTO "new" SELECT * FROM "old"',
+			'DROP TABLE IF EXISTS "old" CASCADE',
 		]);
 	});
 });

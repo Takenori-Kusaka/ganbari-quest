@@ -152,3 +152,72 @@ describe('DSQL schema provisioning (#3424 M5 DoD2、provision.ts)', () => {
 		}
 	}, 120_000);
 });
+
+describe('DSQL pipeline fresh provision 回帰 (#3928、transform + runner 実経路)', () => {
+	// #3926 は raw SQL (PGlite/NUC 経路) のみ verify し DSQL 経路 (transform の ddl/dml 分離 +
+	// runner の DDL-first 適用) で fold が並び替えで fail した。本 test は **実 0003+0004 を
+	// transform + runner (dsql-migrate と同一 pipeline) で適用**し、cross-backend 片側 verify の
+	// 再発を封鎖する (0003/0004 は ASYNC index を含まないため PGlite で実行可能)。
+	async function makePipelineExecutor() {
+		const { PGlite } = await import('@electric-sql/pglite');
+		const client = new PGlite();
+		const executor = {
+			execute: async (sqlText: string) => {
+				const res = await client.query(sqlText);
+				return { rows: res.rows as unknown[] };
+			},
+		};
+		return { client, executor };
+	}
+
+	function loadRealTagSql(tag: '0003' | '0004'): string {
+		const realDir = resolve(process.cwd(), 'drizzle', 'pglite');
+		const file = loadMigrationFiles(realDir).find((f) => f.tag.startsWith(tag));
+		if (!file) throw new Error(`tag ${tag} not found`);
+		return file.sqlText;
+	}
+
+	it('[PV7] fresh DB: 実 0003→0004 が runner 経由で成功する (staging run 30079522945 の再現封鎖)', async () => {
+		const { runDsqlMigration } = await import('../../../src/lib/server/db/dsql/migration/runner');
+		const { client, executor } = await makePipelineExecutor();
+		try {
+			await runDsqlMigration(loadRealTagSql('0003'), executor);
+			await runDsqlMigration(loadRealTagSql('0004'), executor);
+			const tables = await client.query(
+				`SELECT table_name FROM information_schema.tables
+				 WHERE table_name IN ('login_streaks', 'login_bonuses')`,
+			);
+			expect(tables.rows).toEqual([{ table_name: 'login_streaks' }]);
+		} finally {
+			await client.close();
+		}
+	}, 60_000);
+
+	it('[PV8] 既存 DB: seed 済 login_bonuses が runner 経由の 0004 で fold されてから DROP される (本番 data 保全)', async () => {
+		const { runDsqlMigration } = await import('../../../src/lib/server/db/dsql/migration/runner');
+		const { client, executor } = await makePipelineExecutor();
+		try {
+			await runDsqlMigration(loadRealTagSql('0003'), executor);
+			// 旧 login_bonuses (0000 時点 DDL の要点列) + 3 連続日 seed
+			await client.exec(`
+				CREATE TABLE "login_bonuses" (
+					"family_id" uuid NOT NULL,
+					"child_id" uuid NOT NULL,
+					"login_date" text NOT NULL,
+					"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+					CONSTRAINT "lb_pk" PRIMARY KEY("family_id","child_id","login_date")
+				);
+				INSERT INTO login_bonuses (family_id, child_id, login_date) VALUES
+					('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c1', '2026-07-21'),
+					('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c1', '2026-07-22'),
+					('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000c1', '2026-07-23');
+			`);
+			await runDsqlMigration(loadRealTagSql('0004'), executor);
+			// 旧実装 (DDL-first) は DROP が fold より先に走り data 喪失 or fail していた。
+			const res = await client.query('SELECT last_login_date, current_streak FROM login_streaks');
+			expect(res.rows).toEqual([{ last_login_date: '2026-07-23', current_streak: 3 }]);
+		} finally {
+			await client.close();
+		}
+	}, 60_000);
+});

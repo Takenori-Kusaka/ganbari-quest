@@ -264,3 +264,22 @@ describe('transformDrizzleSqlToDsql — 変換後 DDL が Postgres valid (PGlite
 		expect(idx.rows[0]?.n).toBe(2);
 	});
 });
+
+describe('transformDrizzleSqlToDsql — source 順 statements (#3928)', () => {
+	it('DDL→DML→DDL 混在入力の source 順を statements が保持する (ddl/dml は導出 view)', () => {
+		const input = [
+			'CREATE TABLE IF NOT EXISTS "old_t" ("id" uuid PRIMARY KEY NOT NULL)',
+			'INSERT INTO "new_t" SELECT * FROM "old_t"',
+			'DROP TABLE IF EXISTS "old_t" CASCADE',
+		].join(`;\n${BP}\n`);
+		const plan = transformDrizzleSqlToDsql(input);
+		expect(plan.statements.map((s) => [s.kind, s.sql.split(' ')[0]])).toEqual([
+			['ddl', 'CREATE'],
+			['dml', 'INSERT'],
+			['ddl', 'DROP'],
+		]);
+		// 導出 view は従来どおり分類のみ (件数整合)。
+		expect(plan.ddl).toHaveLength(2);
+		expect(plan.dml).toHaveLength(1);
+	});
+});
