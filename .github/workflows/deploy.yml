@@ -228,28 +228,11 @@ jobs:
           fi
           # Note: Cost Anomaly Monitoring はデフォルトモニターを使用（CDK管理外）
 
-      # Phase 2.9 (EPIC #3424 M5 本番 cutover / #3702): cutover 前 DynamoDB backup + DSQL cluster/schema。
-      # deploy-aws-staging.yml の dsql lane を本番へ移植。backup fail-closed → cluster deploy → schema migrate。
+      # Phase 2.9 (EPIC #3424 M5 本番 cutover): DSQL cluster/schema の deploy + migrate。
       # 本番は cutover 恒久化のため常時 DSQL (staging の workflow_dispatch opt-in と異なり常時実行)。
-      # DynamoDB データは PO 合意でデータ移行不要 (zero users) だが、#2510 教訓で backup-first 厳守。
-      - name: Pre-cutover DynamoDB backup (fail-closed, #3702)
-        run: |
-          BACKUP_NAME="pre-dsql-cutover-$(date -u +%Y%m%d-%H%M%S)"
-          ARN=$(aws dynamodb create-backup --table-name "$ECR_REPOSITORY" --backup-name "$BACKUP_NAME" \
-            --region "$AWS_REGION" --query 'BackupDetails.BackupArn' --output text)
-          echo "::notice::DynamoDB backup 作成: $BACKUP_NAME ($ARN)"
-          ST=""
-          for i in $(seq 1 30); do
-            ST=$(aws dynamodb describe-backup --backup-arn "$ARN" --region "$AWS_REGION" \
-              --query 'BackupDescription.BackupDetails.BackupStatus' --output text)
-            echo "backup status: $ST"
-            [ "$ST" = "AVAILABLE" ] && break
-            sleep 5
-          done
-          if [ "$ST" != "AVAILABLE" ]; then
-            echo "::error::DynamoDB backup が AVAILABLE になりませんでした (cutover 中止)"
-            exit 1
-          fi
+      # 旧 #3702 の cutover 前 DynamoDB backup step (fail-closed) は、cutover 完遂 + DynamoDB
+      # 撤去 (#3438 Deploy-2) で対象 table が消滅し obsolete 化したため撤去 (#3921。撤去後の
+      # 初回 deploy で TableNotFound により本番 deploy が停止する class の根治)。
 
       # DSQL cluster を deploy (GanbariQuestDsql, DP=true)。bin/app.ts は本番 stack 群を無条件 synth
       # するため、cluster のみの deploy でも Phase 3 と同じ全 context が synth に要る。
@@ -585,7 +568,7 @@ jobs:
           aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].{Name:FunctionName,Memory:MemorySize,Timeout:Timeout}' --output table
 
           echo ""
-          echo "=== DynamoDB Tables (expected: 1) ==="
+          echo "=== DynamoDB Tables (#3438 で CDK 撤去済。RETAIN-orphan が物理削除まで残存し得るため expected: 0-1) ==="
           aws dynamodb list-tables --query 'TableNames[?contains(@,`ganbari`)]' --output text
 
           echo ""
