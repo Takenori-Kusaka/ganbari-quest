@@ -1,6 +1,6 @@
 ---
 name: impact-analysis
-description: 大規模リファクタリング/モデル変更/rename の影響範囲調査 (Change Impact Analysis)。grep 単独は禁止、4 layer 防御 (構文/意味/構造/派生 artifact 21 カテゴリ) で網羅性を担保する
+description: 大規模リファクタリング/モデル変更/rename の影響範囲調査 (Change Impact Analysis)。grep 単独は禁止、4 layer 防御 (構文/意味/構造/派生 artifact 22 カテゴリ) で網羅性を担保する
 trigger: rename PR / モデル変更 / API 廃止 / DB schema 変更 / 大規模リファクタリング着手前
 ---
 
@@ -17,6 +17,7 @@ trigger: rename PR / モデル変更 / API 廃止 / DB schema 変更 / 大規模
 - 設計層の境界変更 (feature 移動・モジュール分割)
 - LP / 法務文書 / 用語辞書の改訂
 - 50 ファイル超の影響を伴う可能性のある変更
+- **resource / 機構の撤去 (teardown)** — table・stack・workflow step・vault・CFN export 等を消す変更 (§H 残置参照 sweep 必須)
 
 **禁止**: 「grep で○○件確認、影響範囲調査完了」と書くこと。grep は L1 構文層の一部のみ。
 
@@ -89,11 +90,11 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 
 検出するもの: N hop 先の依存 / 取り残し / boundary 違反
 
-### L4: 派生 artifact (21 カテゴリ checklist、人間目視)
+### L4: 派生 artifact (22 カテゴリ checklist、人間目視)
 
-下記 §「21 カテゴリ checklist」を 1 件ずつ確認。grep / AST では原理的に検出できない。
+下記 §「22 カテゴリ checklist」を 1 件ずつ確認。grep / AST では原理的に検出できない。
 
-## 21 カテゴリ Checklist (Pre-flight、PR body に記載)
+## 22 カテゴリ Checklist (Pre-flight、PR body に記載)
 
 ```markdown
 ## 影響範囲調査 (Change Impact Analysis)
@@ -110,7 +111,7 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 - [ ] Knip 取り残し export: N 件
 - [ ] 依存グラフで N hop 先確認: 完了/未完了
 
-### L4 派生 artifact (人間目視 21 カテゴリ)
+### L4 派生 artifact (人間目視 22 カテゴリ)
 
 #### A. データ永続層
 - [ ] 1. DB schema (column / table / enum / FK / view / trigger / BI tool)
@@ -146,6 +147,15 @@ npx jelly --target src/lib/server/services/stripe-service.ts
 - [ ] 19. fixture / seed / golden / snapshot (`__snapshots__/*.snap`)
 - [ ] 20. 過去 PR / commit / Issue / ADR (検索性のため**更新しない**)
 - [ ] 21. audit log / 過去レコード (「old → new mapping table」で保全)
+
+#### H. 撤去系 (teardown、#3930 — 第17回リリース 4 連続 blocker の 5-why Top3)
+- [ ] 22. 残置参照 sweep — 撤去対象の識別子 (table 名 / stack 名 / workflow step 名 / vault 名 /
+      CFN export 名) を `.github/workflows` + `scripts` + `infra` + `docs/runbooks` に対して
+      grep し、残置参照 0 を PR で証跡化。destroy 時挙動 (RETAIN / rollback-orphan /
+      recovery point 残存) も明記する。事例: #3921 (撤去済 table を参照する workflow step が
+      TableNotFound で release 赤化) / #3907 (vault destroy が recovery point で block) /
+      #3881 (rollback-orphan の named resource "already exists")。「本番は既存 state で動くが
+      fresh provision / destroy 時に壊れる」class は本 sweep でしか事前検出できない
 ```
 
 ## ツール推奨 stack (TS / SvelteKit、Pre-PMF コスト最良)
@@ -187,9 +197,9 @@ CodeQL は重く Pre-PMF オーバーキル、security review 用途で別軸。
 
 1. **Issue 起票時**: 影響範囲調査の規模見積を Issue body に記載 (50 ファイル超なら本 skill 適用宣言)
 2. **着手前**: L1 → L2 → L3 → L4 の 4 layer を順次実行、結果を tmp/ に保存
-3. **PR body**: 上記 §21 カテゴリ checklist を PR body にコピー、各項目に確認結果記載
+3. **PR body**: 上記 §22 カテゴリ checklist を PR body にコピー、各項目に確認結果記載
 4. **CI gate**: ast-grep + Knip + baseline pinning を CI に組込
-5. **review**: QA レビューで「L4 21 カテゴリの確認漏れ」を必ずチェック
+5. **review**: QA レビューで「L4 22 カテゴリの確認漏れ」を必ずチェック
 
 ## 関連 SSOT
 
@@ -201,7 +211,7 @@ CodeQL は重く Pre-PMF オーバーキル、security review 用途で別軸。
 ## 禁忌
 
 - **「grep だけで影響範囲調査完了」と PR body に書く** → 必ず L1-L4 全実行確認結果を併記
-- **21 カテゴリ checklist を skip** → 漏れたカテゴリは PR で明示 (例:「14 bookmarks/SEO は新規プロダクトのため対象外」)
+- **22 カテゴリ checklist を skip** → 漏れたカテゴリは PR で明示 (例:「14 bookmarks/SEO は新規プロダクトのため対象外」)
 - **CI gate なしで rename PR をマージ** → ast-grep CI gate 未整備なら整備 PR を先行
 - **「現利用ユーザーゼロだから影響範囲調査不要」と判断** → Pre-PMF でも将来ユーザーの bookmarks / SEO / 法務文書整合は必要
 
