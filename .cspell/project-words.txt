@@ -545,3 +545,4 @@ blocklist
 NFKC
 inlang
 jscodeshift
+mebibytes
