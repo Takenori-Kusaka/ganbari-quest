@@ -9,11 +9,13 @@
 // だけ独自」)。
 //
 // ── 適用順序 (責務 4/6 + ASYNC UNIQUE build 順序、hard 制約) ─────────────────
-//   1. plan.ddl を順に適用。各文は **autocommit (1 DDL/txn)** — txn 一括禁止 (検証 2)。
+//   1. plan.statements を **source 順に** 適用。各文は **autocommit (1 文/txn)** — txn 一括禁止
+//      (検証 2)。DSQL 制約は「同一 txn に複数 DDL / DDL⇄DML を混在させない」であり、per-statement
+//      autocommit で満たされる。旧「DDL 全適用 → DML」並び替えは DDL→DML→DDL 型 migration
+//      (0004 fold) の依存順序を壊し fresh DSQL provision を fail させたため廃止 (#3928)。
 //   2. ASYNC index は「発行前に watermark 捕捉 → CREATE INDEX ASYNC → 今回 build に限定した
 //      sys.jobs status='completed' poll」の順で適用 (検証 3)。
 //      → CREATE TABLE → watermark → ASYNC UNIQUE CREATE → job=completed poll → 書込開放 を保証。
-//   3. 全 DDL 適用後に plan.dml (seed) を **別 txn** で適用 — DDL⇄DML 混在禁止 (検証 2)。
 //
 // ⚠️ executor は **autocommit** であること (drizzle transaction の中で呼ばない)。
 //    複数文を 1 BEGIN で束ねると `multiple ddl` / `ddl and dml` で 0A000 になる (検証 2)。
@@ -66,13 +68,13 @@ export async function applyDsqlMigrationPlan(
 	executor: RawSqlExecutor,
 	opts: ApplyMigrationOptions = {},
 ): Promise<void> {
-	// 1. DDL を autocommit で 1 文ずつ適用 + ASYNC index の後に build 完了 poll。
-	for (const stmt of plan.ddl) {
+	// source 順に autocommit で 1 文ずつ適用 (#3928) + ASYNC index の後に build 完了 poll。
+	for (const stmt of plan.statements) {
 		if (stmt.asyncIndexName) {
 			// 発行**前**に watermark を捕捉し、今回の build (watermark より新しい行) に限定して
 			// poll する (過去 build の completed 行による fail-open を排除、検証 3)。
 			const watermark = await captureIndexBuildWatermark(executor, stmt.asyncIndexName);
-			opts.onStatement?.('ddl', stmt.sql);
+			opts.onStatement?.(stmt.kind, stmt.sql);
 			await executor.execute(stmt.sql);
 			// 書込を開放する前に build=completed を待つ (F3 hard 制約)。失敗/timeout は throw。
 			await pollAsyncIndexBuild(executor, stmt.asyncIndexName, {
@@ -80,14 +82,9 @@ export async function applyDsqlMigrationPlan(
 				afterWatermark: watermark,
 			});
 		} else {
-			opts.onStatement?.('ddl', stmt.sql);
+			opts.onStatement?.(stmt.kind, stmt.sql);
 			await executor.execute(stmt.sql);
 		}
-	}
-	// 2. 全 DDL 完了後に seed(DML) を別 txn で適用 (DDL⇄DML 混在禁止)。
-	for (const stmt of plan.dml) {
-		opts.onStatement?.('dml', stmt.sql);
-		await executor.execute(stmt.sql);
 	}
 }
 

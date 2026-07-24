@@ -24,7 +24,8 @@
 //   5. SERIAL/SEQUENCE   — SERIAL は reject (UUID PK 前提)。明示 SEQUENCE は CACHE≥65536 or =1 のみ許容。
 //                         (実測: 42704 `type "serial" does not exist` /
 //                          0A000 `CREATE SEQUENCE is not supported without an explicit cache size`)。
-//   6. DDL/DML 分離      — DDL と seed(DML) を別リストへ (runner が別 txn で適用)。
+//   6. DDL/DML 非混在    — 各文を kind (ddl/dml) 付きで source 順 statements に保持し、runner が
+//                         per-statement autocommit で適用 (同一 txn に混在させない、#3928)。
 //                         (実測: 0A000 `ddl and dml are not supported in the same transaction`)。
 
 /** DSQL に適用可能な 1 文の DDL/DML。 */
@@ -38,12 +39,21 @@ export interface DsqlStatement {
 	asyncIndexName?: string;
 }
 
+/** source 順の適用単位。kind は観測 hook / 表示用の分類 (適用 semantics は同一 = autocommit 1 文)。 */
+export interface DsqlPlannedStatement extends DsqlStatement {
+	kind: 'ddl' | 'dml';
+}
+
 /**
  * drizzle-kit 出力 SQL を DSQL 用に変換した適用計画。
- * runner は **ddl を全て適用 (各 autocommit + ASYNC poll) → その後 dml を別 txn で適用**する
- * (責務 4/6、DDL⇄DML 混在禁止)。
+ * runner は **statements を source 順に、各文 autocommit (1 文/txn) で適用**する (#3928)。
+ * DSQL 制約 (責務 4/6) は「同一 txn に複数 DDL / DDL⇄DML を混在させない」であり、per-statement
+ * autocommit で満たされる。旧「DDL 全適用 → DML」の並び替えは DDL→DML→DDL 型 migration
+ * (0004 fold: CREATE shell → INSERT fold → DROP) の依存順序を壊すため廃止した。
+ * ddl / dml は statements から導出される分類 view (dry-run 表示 / ASYNC 集計用)。
  */
 export interface DsqlMigrationPlan {
+	statements: DsqlPlannedStatement[];
 	ddl: DsqlStatement[];
 	dml: DsqlStatement[];
 }
@@ -219,11 +229,13 @@ function transformUniqueAlterToAsyncIndex(stmt: string): DsqlStatement {
  * @throws SERIAL 検出時 / 非準拠 CREATE SEQUENCE 時 / 非 FK・非 UNIQUE の ADD CONSTRAINT ALTER 時。
  */
 export function transformDrizzleSqlToDsql(sqlText: string): DsqlMigrationPlan {
-	const statements = splitStatements(sqlText);
-	const ddl: DsqlStatement[] = [];
-	const dml: DsqlStatement[] = [];
+	const raw = splitStatements(sqlText);
+	const statements: DsqlPlannedStatement[] = [];
+	// source 順を保持したまま分類 view へも積む helper (#3928)。
+	const pushDdl = (s: DsqlStatement) => statements.push({ ...s, kind: 'ddl' });
+	const pushDml = (s: DsqlStatement) => statements.push({ ...s, kind: 'dml' });
 
-	for (const stmt of statements) {
+	for (const stmt of raw) {
 		// ── ALTER TABLE … ADD CONSTRAINT の網羅処理 (責務 1 + fail-close) ──
 		// DSQL は `ALTER TABLE ADD CONSTRAINT` を非対応 (検証 2)。制約種別ごとに:
 		//   FK     → 除去 (app 層 relations() + fitness で整合担保)
@@ -239,7 +251,7 @@ export function transformDrizzleSqlToDsql(sqlText: string): DsqlMigrationPlan {
 				continue; // FK 除去
 			}
 			if (/\bUNIQUE\b/i.test(structural)) {
-				ddl.push(transformUniqueAlterToAsyncIndex(stmt));
+				pushDdl(transformUniqueAlterToAsyncIndex(stmt));
 				continue;
 			}
 			throw new Error(
@@ -252,33 +264,38 @@ export function transformDrizzleSqlToDsql(sqlText: string): DsqlMigrationPlan {
 
 		// 責務 6: DML (seed) は別リストへ。
 		if (startsWith(stmt, 'INSERT') || startsWith(stmt, 'UPDATE') || startsWith(stmt, 'DELETE')) {
-			dml.push({ sql: stmt });
+			pushDml({ sql: stmt });
 			continue;
 		}
 
 		// 責務 2: index は ASYNC 化。
 		if (/^CREATE\s+(?:UNIQUE\s+)?INDEX\b/i.test(stmt.trimStart())) {
-			ddl.push(transformIndex(stmt));
+			pushDdl(transformIndex(stmt));
 			continue;
 		}
 
 		// 責務 5: SEQUENCE は CACHE 準拠を検証。
 		if (startsWith(stmt, 'CREATE\\s+SEQUENCE')) {
 			assertSequenceCacheCompliant(stmt);
-			ddl.push({ sql: stmt });
+			pushDdl({ sql: stmt });
 			continue;
 		}
 
 		// 責務 5 + 1: CREATE TABLE は SERIAL 拒否 + inline/表レベル FK 除去。
 		if (startsWith(stmt, 'CREATE\\s+TABLE')) {
 			assertNoSerial(stmt);
-			ddl.push({ sql: stripForeignKeys(stmt) });
+			pushDdl({ sql: stripForeignKeys(stmt) });
 			continue;
 		}
 
 		// その他 DDL (CREATE TYPE / ALTER TABLE ADD COLUMN 等) はそのまま DDL として保持。
-		ddl.push({ sql: stmt });
+		pushDdl({ sql: stmt });
 	}
 
-	return { ddl, dml };
+	const toView = ({ kind: _kind, ...rest }: DsqlPlannedStatement): DsqlStatement => rest;
+	return {
+		statements,
+		ddl: statements.filter((s) => s.kind === 'ddl').map(toView),
+		dml: statements.filter((s) => s.kind === 'dml').map(toView),
+	};
 }
