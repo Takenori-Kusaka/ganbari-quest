@@ -217,7 +217,8 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 **運用定義**:
 
 1. **抽出**: 統合 PR 監査 run（§3.8）ごとに、含有 feature/fix PR のうち `po-decision:required` 非該当のものから **無作為に 1〜2 件**を audit-manager が抽出する（run 内に非該当 PR が無ければ skip し evidence に明記）。
-2. **提示**: 抽出 PR について audit-manager が「変更概要 / 顧客面の変化（実機挙動）/ AI（QM・監査）の判定結果」を 5 分読了以内の人間可読サマリで PO に提示し、**PO が直接レビュー**する（ブリーフ 6 項目のうち 1 / 5 / 6 相当の縮約版で足りる）。
+2. **提示**: 抽出 PR について audit-manager が「変更概要 / 顧客面の変化（実機挙動）/ AI（QM・監査）の判定結果」を 5 分読了以内の人間可読サマリで PO に提示し、**PO が直接レビュー**する（ブリーフ一枚絵 (#3918) のうち ①リスク / ④顧客面の変化 / ⑤判断依頼 相当の縮約版で足りる）。
+   - **一枚絵の可読性も評価軸に含める** (#3918 AC4): 抽出 PR が `po-decision:required` ブリーフを持つ場合、「PO が図 1 枚 + SS だけで判断できたか / 補足を開かざるを得なかったか」を evidence に記録し、不可読なら様式改善を #3918 系 follow-up に乗せる。
 3. **complacency 指標**: PO 判定と AI 判定の一致 / 不一致を run ごとに evidence へ記録する。**高一致の継続は good performance ではなく complacency の兆候**として扱う（LLM review 追認バイアスの実証研究、#3862 deep research）。不一致 0 が続く場合は「AI が正しい」と結論せず、(a) 抽出件数を増やす、(b) triage パス表（`.github/labeler.yml` `po-decision:required`）と Step 0-2 判断層 checklist を見直す、のいずれかを実施する。
 4. **不一致時**: PO 指摘は §3.6 の起票/棄却 flow に乗せる。triage の false negative（本来 `po-decision:required` であるべきだった）と判明した場合は、labeler glob + `tests/unit/github/po-decision-labeler.test.ts` の代表パスを同一 PR で追加し class を lock する（ADR-0061 原則 2）。
 

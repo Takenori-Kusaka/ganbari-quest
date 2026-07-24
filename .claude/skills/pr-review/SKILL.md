@@ -41,7 +41,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 
 ### 0-3. label 付与時の義務
 
-`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、6 項目）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
+`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、**mermaid 一枚絵** = リスク・可逆性 / trade-off / 反対理由 3 軸 / 顧客面の変化 / 判断依頼を 1 図に圧縮、#3918 PO 恒久要件）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
 
 ## 必須 9 項目（A〜I 全項目）
 

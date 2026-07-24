@@ -309,14 +309,16 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 **PR が高リスク・不可逆変更に該当する場合**（`.github/labeler.yml` の `po-decision:required` glob 該当 = labeler 自動付与、または [pr-review SKILL.md](../pr-review/SKILL.md) §「Step 0-2」の判断層 checklist 該当 = 手動付与）、PR body 末尾（PR template 共通セクション + kind 別追加セクションの後ろ）に **`templates/po-decision-brief.md` を append** する。
 
-### 生成手順（6 項目）
+### 生成手順（一枚絵、#3918 — PO 恒久要件 2026-07-23）
+
+**主成果物は mermaid 一枚絵**（雛形の flowchart ①〜⑤）。PO は原則その図 1 枚（+ UI 変更時は実機 SS）だけを見て Yes/No を判断する。長文説明を主成果物にしない。
 
 1. **triage 自己判定**: PR 起票前に変更 file 一覧を `.github/labeler.yml` の `po-decision:required` glob と突合 + Step 0-2 checklist（運用/保守コスト増・新規デザインアーキテクチャパターン採用・技術負債積み残し 等）を自問。該当なしなら本セクション不要（append しない）
 2. **雛形 append**: `templates/po-decision-brief.md` を PR body 末尾にコピー
-3. **項目 1〜3 記入**: リスク分類（可逆/不可逆 + 顧客面）/ ロールバック可否・データ破壊 / trade-off（ADR-0010 紐付け + PO 追加軸）
-4. **項目 4 記入**: `adversarial-reviewer` skill を dispatch し `tmp/adversarial-evidence/<pr>.json` の objections 3 件（business / UX / security）を表に転記 + 自身の推奨を 1 行
-5. **項目 5 記入**: 実機 SS（UI 変更時、screenshots branch）+ 顧客面の変化を具体的に。**PO がプロダクト実態を把握するための核**であり「テスト green」の羅列で代替しない
-6. **項目 6 記入**: PO への判断依頼を Yes/No 形式 1〜3 個に絞る
+3. **図 ①〜④ 記入**: リスク・可逆性 / trade-off / 反対理由 / 顧客面の変化 の各 node の `___` を **1 行 15〜25 字で言い切る**（5 秒把握、ADR-0012 整合）。③ は `adversarial-reviewer` skill を dispatch し `tmp/adversarial-evidence/<pr>.json` の objections 3 件（business / UX / security）を転記（未生成のまま埋めない）
+4. **図 ⑤ 記入**: PO への判断依頼を Yes/No 形式 1〜3 個に絞る（Q2/Q3 が要るなら ASK subgraph に node 追加）
+5. **④ の実体**: UI 変更なら mermaid 直下に実機 SS（screenshots branch）を embed。**PO がプロダクト実態を把握するための核**であり「テスト green」の羅列で代替しない。非 UI なら「変化なし + 根拠」を node に書く
+6. **視認性の自己検証**: PR body preview で mermaid が GitHub 上で描画されることを確認（syntax error で図が出ない = ブリーフ不成立）。図に収まらない根拠は `<details>` 折りたたみへ（PO は原則読まない前提）
 
 ### ルール
 
