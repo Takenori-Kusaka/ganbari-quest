@@ -64,6 +64,7 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 
 - [ ] `/switch`（子供切替の入口）が到達する
 - [ ] AWS は `deploy.yml` の e2e-production（post-deploy smoke on Lambda URL）+ demo Lambda smoke（#2130）が緑
+- [ ] AWS は `deploy.yml` の DSQL backup smoke（#3808）が緑（vault / plan / selection 実在 + recovery point 鮮度 < 48h。初回 deploy 後の on-demand 実発火確認と alarm 実通知テストは [dsql-restore.md §post-deploy backup smoke](../../docs/runbooks/dsql-restore.md)）
 - [ ] 管理画面（`/admin`）が PIN gate を返す
 
 ### §3.8 step 9 = AWS + NUC 両 health を 1 run で確認（SSOT、4 系統形）

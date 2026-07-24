@@ -92,6 +92,7 @@ export function setupTutorialActiveFlag() {
 			return () => document.documentElement.removeAttribute('data-tutorial-active');
 		}
 		document.documentElement.removeAttribute('data-tutorial-active');
+		return;
 	});
 }
 
@@ -129,6 +130,7 @@ export function setupStepTracking() {
 			return () => controller.abort();
 		}
 		targetRect = null;
+		return;
 	});
 }
 

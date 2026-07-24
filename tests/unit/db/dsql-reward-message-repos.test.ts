@@ -8,8 +8,8 @@
 //     したがって本 5 repo は §5 P7 の共更新対象外。付与経路が repo に無いことを [RD-note] で明示。
 //   - **§11.3 temporal 正規化**: reward_redemption の requested/resolved/shown は entity=epoch(number)、
 //     DSQL 格納=timestamptz。repo が epoch↔ISO を境界変換する ([RR2] round-trip で検証)。
-//   - **login_bonuses は surrogate id 無しの自然複合 PK** (family, child, login_date、daily-mission と
-//     同型): entity.id は `child:login_date` 合成 ([LB1])。
+//   - **login_streaks は counter 縮約 (#3330 案 B)**: 子供ごと 1 行 (family, child) の counter。
+//     当日冪等は claimToday の conditional write ([LB1]、race 詳細は dsql-login-streak-repo.test.ts)。
 //
 // ── Canon TDD test list ──
 // ── ISpecialRewardRepo ──
@@ -44,10 +44,10 @@
 //   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
 //         (cross-family child は 0 行 → throw、行は書かれない)
 //   [SC5] #3566 ②: insertForRestore も同型 guard (dangling/cross-family backup 行を repo 入口で拒否)
-// ── ILoginBonusRepo ──
-//   [LB1] insertLoginBonus 冪等 (自然複合 PK ON CONFLICT、id=child:date 合成) + findTodayBonus + §P9
-//   [LB2] findRecentBonuses (login_date 降順 limit) / findChildById (§P9)
-//   [LB3] deleteLoginBonusesBeforeDate (strict less than) / deleteByTenantId §P9
+// ── ILoginBonusRepo (#3330 counter 縮約) ──
+//   [LB1] claimToday 当日冪等 (conditional write、同日 2 回目は undefined) + findStreak + §P9
+//   [LB2] claimToday increment (前日連続 +1) / reset (途切れ 1) / findChildById (§P9)
+//   [LB3] upsertStreak merge (新しい lastLoginDate 優先、同日は streak 大) / deleteByTenantId §P9
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -911,108 +911,96 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect((await cheerRepo.findAllByTenant(family)).length).toBe(seeded);
 	});
 
-	// ─────────────────── ILoginBonusRepo ───────────────────
+	// ─────────────────── ILoginBonusRepo (#3330 counter 縮約) ───────────────────
 
-	it('[LB1] insertLoginBonus 冪等 (自然複合 PK、id=child:date) + findTodayBonus + §P9', async () => {
+	it('[LB1] claimToday 当日冪等 (conditional write) + findStreak + §P9', async () => {
 		const childId = await newChild('ボーナス一郎');
-		const input = {
-			childId,
-			loginDate: '2026-07-01',
-			rank: 'daikichi',
-			basePoints: 10,
-			multiplier: 1.5,
-			totalPoints: 15,
-			consecutiveDays: 3,
-		};
-		const first = await loginBonusRepo.insertLoginBonus(input, FAMILY);
-		expect(first.id).toBe(`${childId}:2026-07-01`); // 合成 id
-		expect(first.totalPoints).toBe(15);
-		expect(first.multiplier).toBe(1.5);
-		// 同日再挿入は ON CONFLICT DO NOTHING で既存行を冪等に返す (1日1回)
-		const second = await loginBonusRepo.insertLoginBonus({ ...input, totalPoints: 999 }, FAMILY);
-		expect(second.id).toBe(first.id);
-		expect(second.totalPoints).toBe(15); // 上書きされない
+		// 初回 claim → streak 1
+		const first = await loginBonusRepo.claimToday(childId, '2026-07-01', '2026-06-30', FAMILY);
+		expect(first).toEqual({ currentStreak: 1 });
+		// 同日 2 回目 → conditional write が 0 行で claim 敗北 (undefined)
+		const second = await loginBonusRepo.claimToday(childId, '2026-07-01', '2026-06-30', FAMILY);
+		expect(second).toBe(undefined);
+		// counter は 1 行のまま
 		expect(
 			await countRows(sql`
-				SELECT count(*) AS c FROM login_bonuses
-				WHERE family_id = ${FAMILY} AND child_id = ${String(childId)} AND login_date = '2026-07-01'
+				SELECT count(*) AS c FROM login_streaks
+				WHERE family_id = ${FAMILY} AND child_id = ${String(childId)}
 			`),
 		).toBe(1);
 
-		const today = await loginBonusRepo.findTodayBonus(childId, '2026-07-01', FAMILY);
-		expect(today?.id).toBe(first.id);
-		expect(await loginBonusRepo.findTodayBonus(childId, '2026-07-01', OTHER_FAMILY)).toBe(
-			undefined,
-		);
-		expect(await loginBonusRepo.findTodayBonus(childId, '2000-01-01', FAMILY)).toBe(undefined);
+		const streak = await loginBonusRepo.findStreak(childId, FAMILY);
+		expect(streak?.lastLoginDate).toBe('2026-07-01');
+		expect(streak?.currentStreak).toBe(1);
+		expect(streak?.updatedAt).toBeTruthy();
+		// §P9: 他 family からは見えない
+		expect(await loginBonusRepo.findStreak(childId, OTHER_FAMILY)).toBe(undefined);
 	});
 
-	it('[LB2] findRecentBonuses (login_date 降順 limit) / findChildById (§P9)', async () => {
+	it('[LB2] claimToday increment (前日連続) / reset (途切れ) / findChildById (§P9)', async () => {
 		const childId = await newChild('ボーナス二郎');
-		for (const d of ['2026-06-01', '2026-06-03', '2026-06-02']) {
-			await loginBonusRepo.insertLoginBonus(
-				{
-					childId,
-					loginDate: d,
-					rank: 'kichi',
-					basePoints: 5,
-					multiplier: 1,
-					totalPoints: 5,
-					consecutiveDays: 1,
-				},
-				FAMILY,
-			);
-		}
-		const recent = await loginBonusRepo.findRecentBonuses(childId, FAMILY, 2);
-		expect(recent.map((b) => b.loginDate)).toEqual(['2026-06-03', '2026-06-02']); // 降順 + limit
+		expect(await loginBonusRepo.claimToday(childId, '2026-06-01', '2026-05-31', FAMILY)).toEqual({
+			currentStreak: 1,
+		});
+		// 翌日 claim (yesterday=06-01 一致) → increment
+		expect(await loginBonusRepo.claimToday(childId, '2026-06-02', '2026-06-01', FAMILY)).toEqual({
+			currentStreak: 2,
+		});
+		// 1 日空けて claim (yesterday=06-03 ≠ lastLoginDate=06-02) → reset
+		expect(await loginBonusRepo.claimToday(childId, '2026-06-04', '2026-06-03', FAMILY)).toEqual({
+			currentStreak: 1,
+		});
+		const streak = await loginBonusRepo.findStreak(childId, FAMILY);
+		expect(streak?.lastLoginDate).toBe('2026-06-04');
+		expect(streak?.currentStreak).toBe(1);
 
 		const child = await loginBonusRepo.findChildById(childId, FAMILY);
 		expect(child?.nickname).toBe('ボーナス二郎');
 		expect(await loginBonusRepo.findChildById(childId, OTHER_FAMILY)).toBe(undefined);
 	});
 
-	it('[LB3] deleteLoginBonusesBeforeDate (strict <) / deleteByTenantId §P9', async () => {
+	it('[LB3] upsertStreak merge (新 lastLoginDate 優先 / 同日は streak 大) + deleteByTenantId §P9', async () => {
 		const childId = await newChild('ボーナス三郎');
-		for (const d of ['2026-05-01', '2026-05-15', '2026-06-01']) {
-			await loginBonusRepo.insertLoginBonus(
-				{
-					childId,
-					loginDate: d,
-					rank: 'kichi',
-					basePoints: 5,
-					multiplier: 1,
-					totalPoints: 5,
-					consecutiveDays: 1,
-				},
+		// 新規 upsert
+		expect(
+			await loginBonusRepo.upsertStreak(
+				{ childId, lastLoginDate: '2026-05-10', currentStreak: 3 },
 				FAMILY,
-			);
-		}
-		// cutoff 2026-05-15: 当日は残す (strict less than)
-		const deleted = await loginBonusRepo.deleteLoginBonusesBeforeDate(
-			childId,
-			'2026-05-15',
-			FAMILY,
-		);
-		expect(deleted).toBe(1); // 05-01 のみ
-		const remain = await loginBonusRepo.findRecentBonuses(childId, FAMILY);
-		expect(remain.map((b) => b.loginDate).sort()).toEqual(['2026-05-15', '2026-06-01']);
+			),
+		).toBe(true);
+		// 古い lastLoginDate は skip (merge import の劣化防止)
+		expect(
+			await loginBonusRepo.upsertStreak(
+				{ childId, lastLoginDate: '2026-05-01', currentStreak: 9 },
+				FAMILY,
+			),
+		).toBe(false);
+		// 同日で streak が大きい方は採用
+		expect(
+			await loginBonusRepo.upsertStreak(
+				{ childId, lastLoginDate: '2026-05-10', currentStreak: 5 },
+				FAMILY,
+			),
+		).toBe(true);
+		// より新しい lastLoginDate は採用
+		expect(
+			await loginBonusRepo.upsertStreak(
+				{ childId, lastLoginDate: '2026-05-11', currentStreak: 6 },
+				FAMILY,
+			),
+		).toBe(true);
+		const streak = await loginBonusRepo.findStreak(childId, FAMILY);
+		expect(streak?.lastLoginDate).toBe('2026-05-11');
+		expect(streak?.currentStreak).toBe(6);
 
 		// §P9 tenant 限定削除
 		const otherChild = await newChild('他家三郎', OTHER_FAMILY);
-		await loginBonusRepo.insertLoginBonus(
-			{
-				childId: otherChild,
-				loginDate: '2026-06-01',
-				rank: 'kichi',
-				basePoints: 5,
-				multiplier: 1,
-				totalPoints: 5,
-				consecutiveDays: 1,
-			},
+		await loginBonusRepo.upsertStreak(
+			{ childId: otherChild, lastLoginDate: '2026-06-01', currentStreak: 1 },
 			OTHER_FAMILY,
 		);
 		await loginBonusRepo.deleteByTenantId(FAMILY);
-		expect((await loginBonusRepo.findRecentBonuses(childId, FAMILY)).length).toBe(0);
-		expect((await loginBonusRepo.findRecentBonuses(otherChild, OTHER_FAMILY)).length).toBe(1);
+		expect(await loginBonusRepo.findStreak(childId, FAMILY)).toBe(undefined);
+		expect((await loginBonusRepo.findStreak(otherChild, OTHER_FAMILY))?.currentStreak).toBe(1);
 	});
 });

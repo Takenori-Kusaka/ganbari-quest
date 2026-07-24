@@ -134,7 +134,7 @@ Recovery script は **一度切りの copy** であり、その後に `activitie
 
 - [ADR-0002 Critical 5 要件](../decisions/0002-critical-fix-quality-gate.md)
 - [ADR-0010 Pre-PMF Bucket A](../decisions/0010-pre-pmf-scope-judgment.md)
-- [ADR-0031 SQLite ADD COLUMN only (archive)](../decisions/archive/0031-schema-change-compat-testing.md)
+- スキーマ互換テスト義務（[tests/CLAUDE.md](../../tests/CLAUDE.md)、`scripts/check-schema-change-tests.mjs` が機械強制。旧 archive ADR-0031、git 履歴）
 - [ADR-0055 per-child 主軸 + 限定 family master](../decisions/0055-per-child-primary-data-model-pattern.md)
 - [docs/design/08-データベース設計書.md §8.6](../design/08-データベース設計書.md) (4 dim SSOT)
 - [docs/runbooks/activities-data-recovery.md](../runbooks/activities-data-recovery.md) (緊急復旧 runbook)

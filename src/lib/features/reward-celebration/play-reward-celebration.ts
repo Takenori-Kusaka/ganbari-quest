@@ -71,7 +71,7 @@ export async function playRewardCelebration(options: CelebrationOptions = {}): P
 			// - particleCount: 80 (過剰でない適度な量)
 			// - spread: 70 (画面中央上に拡散)
 			// - origin.y: 0.6 (画面やや上から発火)
-			confetti({
+			void confetti({
 				particleCount: 80,
 				spread: 70,
 				origin: { y: 0.6 },

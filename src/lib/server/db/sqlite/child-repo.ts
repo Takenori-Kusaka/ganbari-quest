@@ -15,7 +15,7 @@ import {
 	childAchievements,
 	children,
 	evaluations,
-	loginBonuses,
+	loginStreaks,
 	pointLedger,
 	specialRewards,
 	statuses,
@@ -160,7 +160,7 @@ export async function deleteChild(childIdArg: ChildId, _tenantId: string) {
 		tx.delete(checklistLogs).where(eq(checklistLogs.childId, id)).run();
 		tx.delete(specialRewards).where(eq(specialRewards.childId, id)).run();
 		tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run();
-		tx.delete(loginBonuses).where(eq(loginBonuses.childId, id)).run();
+		tx.delete(loginStreaks).where(eq(loginStreaks.childId, id)).run();
 		tx.delete(characterImages).where(eq(characterImages.childId, id)).run();
 		tx.delete(evaluations).where(eq(evaluations.childId, id)).run();
 		tx.delete(statusHistory).where(eq(statusHistory.childId, id)).run();
@@ -182,7 +182,7 @@ export async function resetChildProgressData(
 	return db.transaction((tx) => ({
 		activityLogs: tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run().changes,
 		pointLedger: tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run().changes,
-		loginBonuses: tx.delete(loginBonuses).where(eq(loginBonuses.childId, id)).run().changes,
+		loginBonuses: tx.delete(loginStreaks).where(eq(loginStreaks.childId, id)).run().changes,
 		childAchievements: tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run()
 			.changes,
 		pointBalance: 0,

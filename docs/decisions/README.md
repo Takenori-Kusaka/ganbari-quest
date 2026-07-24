@@ -68,7 +68,7 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 | 領域 | 採用 OSS | 採用 PR / Issue | 採用根拠 |
 |------|---------|----------------|---------|
-| LP テキスト折り返し (日本語) | BudouX (CDN Web Component) | ADR-0016 | OS-non-dependent + 0 KB (CDN) |
+| LP テキスト折り返し (日本語) | BudouX (CDN Web Component) | #584 / #1353 (旧 ADR-0016、git 履歴。運用ルール: docs/DESIGN.md §3) | OS-non-dependent + 0 KB (CDN)。tiny-segmenter (切れすぎ) / kuromoji.js (辞書 17MB) / mecab (WASM 複雑) は不採用 |
 | LP SSOT 注入 (XSS 設計) | DOMPurify | ADR-0025 / #1683 | innerHTML 経路の XSS 防御、業界標準 |
 | Parent-Gate session cookie 署名 | cookie-signature | ADR-0050 / #2310 | HMAC-SHA256 検証、4 OSS 比較 |
 | **Marketplace schema validation (5 type SSOT)** | **Valibot + @standard-schema/spec** | **#2362 EPIC / #2364** | **bundle 92% 削減 (vs Zod v3)、Standard Schema spec で将来 Zod/ArkType 切替自由度** |
@@ -119,9 +119,9 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 
 ## archive 運用ルール（削除主義への移行、#2440 PR-A5）
 
-> **方針転換 (#2440 PR-A5)**: 役目を終えた record は archive ではなく **削除**する（履歴は git で追跡）。**今後の新規 archive 移動は行わない**。既存の `docs/decisions/archive/` 26 件は本 PR では触らず、月 1 棚卸（`docs/CLAUDE.md` §ADR 月 1 棚卸）で削除 / 残置を個別判断する。
+> **方針転換 (#2440 PR-A5)**: 役目を終えた record は archive ではなく **削除**する（履歴は git で追跡）。**今後の新規 archive 移動は行わない**。既存の `docs/decisions/archive/` は 2026-07-19 棚卸 (#3908) で 28 件 → 6 件に削減済（削除内訳は「削除済み」節）。
 
-`docs/decisions/archive/` は過去に退避された ADR の保管先（移行期の残存）。再活性化が必要になった場合は git 履歴または archive 配下から直下に戻す。新規退避は行わないため、以下の旧 archive 運用は既存 26 件の参照・再活性化時のみ適用する:
+`docs/decisions/archive/` は過去に退避された ADR の保管先（移行期の残存）。再活性化が必要になった場合は git 履歴または archive 配下から直下に戻す。新規退避は行わないため、以下の旧 archive 運用は残存 6 件の参照・再活性化時のみ適用する:
 
 - **再活性化**: archive から直下に戻す際は、同 PR 内で active から役目を終えた 1 件を削除する
 - **完全削除判断**: archive 内でも以下に該当すれば削除可（月 1 棚卸で判断）
@@ -156,13 +156,12 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0004 | [レビュー & AC 検証品質](0004-review-and-ac-verification.md) | accepted | 2026-04-20 |
 | 0005 | [テスト品質 ratchet](0005-test-quality-ratchet.md) | accepted | 2026-04-20 |
 | 0006 | [Safety Assertion Erosion Ban](0006-safety-assertion-erosion-ban.md) | accepted | 2026-04-20 |
-| 0007 | [静的解析 tier ポリシー (T1/T2/T3/T4)](0007-static-analysis-tier-policy.md) | accepted | 2026-04-20 |
+| 0007 | [静的解析 tier ポリシー (T1/T2/T3/T4)](0007-static-analysis-tier-policy.md) | accepted (2026-07-19 §7 dependency-cruiser required 昇格 ratify、#3895) | 2026-04-20 |
 | 0008 | [設計ポリシー先行確認フロー](0008-design-policy-pre-approval.md) | accepted | 2026-04-20 |
 | 0010 | [Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）](0010-pre-pmf-scope-judgment.md) | accepted | 2026-04-20 |
 | 0011 | [0-2 歳 baby モードは「親の準備モード」](0011-baby-mode-as-parent-preparation.md) | accepted | 2026-04-21 |
 | 0012 | [Anti-engagement 原則（滞在時間 = 価値毀損）](0012-anti-engagement-principle.md) | accepted | 2026-04-21 |
 | 0013 | [LP 文言は実装の事実を SSOT とする](0013-lp-truth-from-implementation.md) | accepted | 2026-04-21 |
-| 0016 | [日本語テキスト折り返し方針](0016-japanese-text-wrap.md) | accepted (2026-06-04 昇格、#2440 PR-A5) | 2026-04-21 |
 | 0019 | [CDK Replacement 検知を deploy 前必須ゲートとして組み込む](0019-cdk-replacement-detection-gate.md) | accepted | 2026-04-24 |
 | 0022 | [admin bypass 禁止と ganbariquestsupport-lab QM Approve 体制の確立](0022-admin-bypass-disable-qm-approve.md) | accepted (2026-06-04 amendment 4: lab merge 2 role 区別 + 統合 PR 作成者ルール、#2863) | 2026-04-25 |
 | 0024 | [インフラ PR 必須要件 — ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm](0024-infra-pr-required-baseline.md) | accepted | 2026-04-27 |
@@ -172,12 +171,9 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 | 0030 | [`npm run pre-ready` CLI 採用と pre-push hook 非採用](0030-pre-ready-cli-and-no-pre-push-hook.md) | accepted (2026-05-27 stale-context 補追) | 2026-05-01 |
 | 0042 | [LP CSS Spacing/Layout 3 層トークン化 (Base → Semantic → Component SSOT)](0042-lp-spacing-layout-tokens.md) | accepted | 2026-05-02 |
 | 0045 | [terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)](0045-terms-ssot-2-layer.md) | accepted | 2026-05-07 |
-| 0046 | [Svelte 5 Service Interface + Context DI による本番/デモ UI 統合 (POC)](0046-svelte5-service-interface-context-di.md) | accepted (POC: child home 1 ページ) | 2026-05-14 |
-| 0047 | [Demo / 本番 UI Contract SSOT (ViewModel 型強制 + 禁止語 + 5 phase 分割)](0047-demo-prod-ui-contract-ssot.md) | accepted (Phase 1 = 型 + ADR + 禁止語 SSOT のみ) | 2026-05-14 |
-| 0048 | [Multi-Lambda Demo Deployment (env 駆動 + IAM role 分離 + client-side state)](0048-multi-lambda-demo-deployment.md) | accepted | 2026-05-15 |
+| 0048 | [Multi-Lambda Demo Deployment (env 駆動 + IAM role 分離 + client-side state)](0048-multi-lambda-demo-deployment.md) | accepted (2026-07-19 棚卸で旧 ADR-0046 / 0047 の決定核を §統合 に吸収) | 2026-05-15 |
 | 0049 | [プラン別履歴保持期間ポリシー — 物理削除対象テーブル拡張 (旧 ADR-0028 un-archived + 拡張)](0049-retention-physical-delete-extended.md) | accepted (un-archived 2026-05-19) | 2026-04-11 (initial) / 2026-05-19 (拡張) |
 | 0050 | [Parent-Gate Session Cookie 署名方式: cookie-signature (OSS 4 件比較)](0050-parent-gate-session-cookie-signature.md) | accepted (2026-06-17 §7 改訂: federated PIN reset を email-OTP 化、#3070) | 2026-05-20 |
-| 0051 | [NUC-SaaS Bifurcation (license/billing 領域、Edition badge + 簡略表示型採用)](0051-license-page-nuc-saas-bifurcation.md) | accepted | 2026-05-20 |
 | 0052 | [MarketplaceTypeRegistry + ImportStrategy パターンによる 5 type 統一抽象化](0052-marketplace-type-registry.md) | accepted | 2026-05-21 |
 | 0053 | [LP visual regression: pixelmatch (OSS 6 件比較)](0053-lp-visual-regression-pixelmatch.md) | accepted | 2026-05-23 |
 | 0055 | [Per-child 主軸 + 限定 family master データモデル原則 (6 type SSOT)](0055-per-child-primary-data-model-pattern.md) | accepted | 2026-05-23 |
@@ -195,58 +191,20 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 >
 > **ADR-0055 番号衝突メモ (2026-05-23、QM Re-Review feedback #2449)**: 本 PR (#2449) で per-child データモデル原則 ADR を当初 0053 として起票したが、同日 PR #2435 で 0053 (LP visual regression pixelmatch) が確保済の番号衝突が QM Re-Review で発覚。0054 は別 PR (#2441 / #2443) の revert cycle で burn 済 (git 履歴のみ、active 不在) のため、renumber 規約 (§renumber 規約) に従い本 ADR を 0055 に振り直した。
 >
-> **ADR-0052 番号衝突メモ (2026-05-21)**: Issue #2363 は当初 ADR-0051 と指示されていたが、起票時点で既に ADR-0051 (NUC-SaaS Bifurcation) が確保済のため renumber 規約 (§renumber 規約) に従い 0052 に振り直した。1-in-1-out の履行は active 27 件超過の現状とあわせて別 follow-up Issue (#1924 系の継続棚卸) で扱う。
+> **ADR-0052 番号衝突メモ (2026-05-21)**: Issue #2363 は当初 ADR-0051 と指示されていたが、起票時点で既に旧 ADR-0051 (NUC-SaaS Bifurcation、2026-07-19 棚卸で削除、現状 SSOT は `docs/design/nuc-saas-runtime-bifurcation.md`) が確保済のため renumber 規約 (§renumber 規約) に従い 0052 に振り直した。
 
-## archive 一覧（26 件）
+## archive 一覧（6 件）
 
-`docs/decisions/archive/` 配下。現場の常時参照ルールではないが歴史的価値で保全。再活性化時は本 README の「archive 運用ルール」を参照。
+`docs/decisions/archive/` 配下。現場の常時参照ルールではないが、現役コード / 運用が参照する record として保全。再活性化時は本 README の「archive 運用ルール」を参照（2026-07-19 棚卸で 28 件 → 6 件に削減、削除内訳は「削除済み」節）。
 
-### 技術選定の背景（7 件）
-
-| # | タイトル |
-|---|--------|
-| 0011 | [SvelteKit 2 + Svelte 5 採用](archive/0011-sveltekit-svelte5.md) |
-| 0012 | [DynamoDB シングルテーブル設計](archive/0012-dynamodb-single-table.md) |
-| 0013 | [Cognito + Google OAuth](archive/0013-cognito-google-oauth.md) |
-| 0014 | [3 層 CSS トークンアーキテクチャ](archive/0014-css-token-architecture.md) |
-| 0015 | [Repository パターン](archive/0015-repository-pattern.md) |
-| 0040 | [実行モード × ライセンス統括](archive/0040-runtime-mode-license-unified-architecture.md) |
-| 0043 | [NativeSelect primitive](archive/0043-native-select-primitive.md) |
-
-### 現行ルール（TOP10 落ち）（12 件）
-
-| # | タイトル |
-|---|--------|
-| 0001 | [リネーム時の後方互換必須](archive/0001-rename-backward-compat.md) |
-| 0004 | [スタンプカード正仕様](archive/0004-stamp-card-spec.md) |
-| 0007 | [画像アセット保護](archive/0007-image-asset-protection.md) |
-| 0009 | [labels.ts SSOT 化原則](archive/0009-labels-ssot-principle.md) — superseded by ADR-0045 (2026-05-07) |
-| 0019 | [ダイアログ FSM](archive/0019-dialog-fsm-scrap-and-rebuild.md) |
-| 0021 | [デプロイ検証ゲート](archive/0021-deploy-verification-gate.md) |
-| 0022 | [課金 × データライフサイクル整合](archive/0022-billing-data-lifecycle-consistency.md) |
-| 0023 | [LP マーケティングポリシー Pre-PMF](archive/0023-marketing-policy-pre-pmf.md) — deprecated by ADR-0031 (2026-05-01) |
-| 0024 | [resolvePlanTier 責務分離](archive/0024-plan-tier-resolution-pattern.md) |
-| 0025 | [License × Stripe 因果関係](archive/0025-license-subscription-causality.md) |
-| 0026 | [ライセンスキーアーキテクチャ](archive/0026-license-key-architecture.md) |
-| 0031 | [スキーマ互換テスト義務化](archive/0031-schema-change-compat-testing.md) |
-| 0031 | [ADR-0023 廃案 + sub-Issue 7 件帰属マップ](archive/0031-adr-0023-deprecation-and-attribution-map.md) — archived 2026-05-28 (1-in-1-out for ADR-0056、内容統合済 historical record) |
-
-### 実装ポリシー（5 件）
-
-| # | タイトル |
-|---|--------|
-| 0030 | [Cognito E2E user lifecycle](archive/0030-cognito-e2e-user-lifecycle.md) |
-| 0033 | [/ops Cognito ops group 認可](archive/0033-ops-dashboard-cognito-authz.md) |
-| 0036 | [マーケット公開アクセス設計](archive/0036-marketplace-public-access.md) |
-| 0039 | [デモモード統合](archive/0039-demo-mode-app-execution-mode.md) |
-| 0044 | [admin bypass 証跡運用](archive/0044-admin-bypass-evidence.md) |
-
-### 小規模方針（2 件）
-
-| # | タイトル |
-|---|--------|
-| 0041 | [マーケット命名テンプレート](archive/0041-marketplace-naming-template.md) |
-| 0042 | [マーケット性別バリアント方針](archive/0042-marketplace-gender-variant-policy.md) |
+| # | タイトル | 保全理由 |
+|---|--------|---------|
+| 0024 | [resolvePlanTier 責務分離](archive/0024-plan-tier-resolution-pattern.md) | ALS cache key / invalidate 規約が他 doc に移管されていない |
+| 0030 | [Cognito E2E user lifecycle](archive/0030-cognito-e2e-user-lifecycle.md) | E2E helpers / fixtures が「ADR-0030 D-2〜D-5」条項を拒否 guard / email 命名規則の SSOT として参照 |
+| 0039 | [デモモード統合](archive/0039-demo-mode-app-execution-mode.md) | src / ci.yml / check-no-demo-route-duplication.mjs が設計根拠として現役参照 (supersede 先: ADR-0048) |
+| 0040 | [実行モード × ライセンス統括](archive/0040-runtime-mode-license-unified-architecture.md) | runtime-mode P1〜P5 (Typed env / EvaluationContext / Policy Gate) の Phase 定義 SSOT。src 30+ 箇所が「ADR-0040 Px」を参照 |
+| 0042 | [マーケット性別バリアント方針](archive/0042-marketplace-gender-variant-policy.md) | PO 3 回誤提案の判断根拠 (stated vs revealed)。読まないと同じ誤提案を繰り返す |
+| 0044 | [admin bypass 証跡運用](archive/0044-admin-bypass-evidence.md) | 本番 ops UI + bot コメントが GitHub URL で現役リンク (上位: ADR-0022) |
 
 ## 削除済み（git 履歴で追跡）
 
@@ -263,10 +221,18 @@ ADR を現場の常時参照ルールとして機能させるため、以下の�
 - **採択されなかった / reference 化済の調査**: 0014（labels / i18n 機構選定、`.claude/skills/issue-triage/SKILL.md` の OSS 先調査テンプレートとして役割移管済）/ 0015（年齢帯 variant 管理アーキテクチャ）/ 0057（Vale vs Node prose linter 選定）
 - **完遂済の一回限り決定記録**: 0020（NUC スケジューラ node-cron 選定、採用済）/ 0027（チェックリスト責務純化 + must 属性、実装済）/ 0028（Pre-PMF founder 直対応動線 LP 不要、適用済。retention 拡張は ADR-0049 が SSOT）/ 0032（LP 静的コンテンツ コンポーネント設計、適用済）/ 0044（Birthday Input Component Choice、`BirthdayInput.svelte` 実装済）/ 0059（Phase 7 cutover sequence、完遂済）
 
+### 2026-07-19 削除（#3908 月次棚卸前倒し、PO 指示「ADR は最小限に維持」）
+
+役目を終えた record **28 file** を削除（履歴は git で追跡、番号は再利用しない）。判定基準 =「その ADR を読まないと誤る判断が今後あるか? — No なら削除」。判定表 SSOT: PR #3908 系棚卸 PR body + `tmp/adr-audit-2026-07-19.md`（Agent 報告）。内訳:
+
+- **active 削除 (2 件)**: 0016（日本語テキスト折り返し — 運用ポリシーは docs/DESIGN.md §3 + src/routes/CLAUDE.md に完全移管済、BudouX 選定根拠は本 README §OSS 採用記録が保持）/ 0051（NUC-SaaS Bifurcation — 一回限りの画面分割決定は実装完遂済、現状 SSOT は `docs/design/nuc-saas-runtime-bifurcation.md`）
+- **active 統合 (2 件)**: 0046（Svelte5 Service Interface + Context DI POC）/ 0047（Demo/本番 UI Contract）→ **ADR-0048 §統合** に決定核を吸収（demo/本番統合 3 部作の経緯 narrative は git 履歴）
+- **棚卸レポート削除 (2 件)**: adr-inventory-2026-04-19 / adr-inventory-2026-04-20（一回限りの棚卸 record、旧番号体系の記述で現状の正解を含まない）
+- **archive 削除 (22 件)**: 0001（rename 後方互換 → `src/routes/CLAUDE.md` へ移管）/ 0004（スタンプカード → 06-UI設計書 + 26-ゲーミフィケーション設計書）/ 0007（画像アセット保護 → DESIGN.md §7）/ 0009（superseded by ADR-0045）/ 0011-0015（技術選定 5 件: SvelteKit / DynamoDB (撤去済 #3438) / Cognito / CSS 3 層 (→DESIGN.md §2) / Repository (→ADR-0063/0064)）/ 0017（rejected、supersede チェーン終結）/ 0019（Dialog FSM → copilot-instructions が自持ち）/ 0021（deploy 検証 → CI 機械化完遂）/ 0022（課金×データライフサイクル → account-deletion-flow.md 等 3 設計書）/ 0023（廃案 placeholder）/ 0025・0026（license key 全廃 #2813 で対象消滅）/ 0031×2（schema 互換 → tests/CLAUDE.md + check-schema-change-tests.mjs、ADR-0023 帰属マップは役割完了自認）/ 0033（/ops 認可 → 07-API + 14-セキュリティ設計書）/ 0036（marketplace 公開 → marketplace-import-flow.md + DESIGN.md §10）/ 0041（命名 → terms.ts + DESIGN.md §6）/ 0043（NativeSelect → DESIGN.md §5）
+
 ## 棚卸レポート
 
-- [adr-inventory-2026-04-19.md](adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸（0008 / 0009 / 0016 を supersede）
-- [adr-inventory-2026-04-20.md](adr-inventory-2026-04-20.md) — #1262 sub-7 完了時の刷新
+過去の棚卸レポート file（adr-inventory-*）は 2026-07-19 棚卸で削除（git 履歴で追跡）。以降の棚卸結果は本節のサブセクションに直接記録する。
 
 ### 2026-05-09 棚卸 (#1924 Phase 6 G3)
 
@@ -389,3 +355,21 @@ active 総数: 45 件 (棚卸後、ADR-0066 +1)。
 **1-in-1-out 履行**: ADR-0064〜0066 起票時と同様、1-in-1-out は **2026-07 最終週の月 1 棚卸** で archive 候補 (ADR-0014 proposed 据置 / per-ADR ボリューム超過) と併せて消化する (本 PR scope 外)。
 
 active 総数: 46 件 (棚卸後、ADR-0067 +1)。
+
+### 2026-07-19 棚卸 (#3908、月次棚卸前倒し — PO 指示「ADR は最小限に維持」)
+
+**完了項目**:
+
+1. **全 active + archive 68 file を 4 分類で棚卸**（(i) 常時参照ルール/gate / (ii) 技術選定根拠・supersede 記録 / (iii) 役目終了 → 削除 / (iv) 統合）。判定基準 =「その ADR を読まないと誤る判断が今後あるか?」、迷いは保全。削除候補は全件原文精読で再検証 (ADR-0060)
+2. **28 file 削除 + 2 件統合**（内訳は §削除済み「2026-07-19 削除」）: active 40 → **36** / archive 28 → **6** / 棚卸レポート file 2 件削除
+3. **参照整合**: 削除 file への markdown リンク / パス参照を全件是正（DESIGN.md / CLAUDE.md 系 / 設計書 / copilot-instructions / ci.yml / check-schema-change-tests.mjs / doc-code-references-baseline.json）。コードコメント内の bare 番号 mention は git 履歴 pointer として現状維持（renumber 規約整合）。番号が現役コードの生きた SSOT shorthand として機能する archive 0030 (E2E D-2〜D-5) / 0039 / 0040 (runtime-mode P1〜P5) は削除せず保全
+4. **旧 active 総数記載の是正**: 過去棚卸節の「active 総数 46 件」は表 40 行と乖離が累積していた（起票 +1 のみ記録し削除反映漏れ）。本棚卸で実 file 数と照合し 36 件に確定
+
+**TOP 10 への残 gap と次回 (2026-08 月次棚卸) の消化計画**:
+
+- active 36 件は依然 TOP 10 目安超過。ただし分類 A（毎週参照の常時参照ルール/gate）は 0001-0008 / 0010 / 0012 / 0013 / 0045 / 0055 / 0061 / 0062 / 0065 / 0066 の 17 件前後で、残りは (ii) 技術選定根拠・現行アーキ SSOT。追加削除は「役目終了」の発生（機構撤去 / 設計書への完全移管）を待って個別判断（虚偽根拠での削減は行わない）
+- **per-ADR 150 行超過 3 件の分離/圧縮**: 0056 (288 行 → §D-§G を qa-session.md へ) / 0049 (266 行 → DynamoDB 時代の実装詳細を 08-DB 設計書へ分離 + 削除) / 0010 (219 行 → §7 Phase 由来細則を Issue テンプレへ)
+- **統合候補の再評価**: 0008 (設計ポリシー先行確認) ↔ 0010 の統合可否 / DSQL 系 (0063 / 0064 / 0065) の EPIC #3424 完遂後 1 本化
+- forbidden-escape-language.md の機械検証 (`check-no-escape-language.mjs`) は未実装のまま — 実装するか SSOT を check-pr-body 系に統合するかを次回判断
+
+active 総数: **36 件** (棚卸後、-4: 0016 / 0051 削除 + 0046 / 0047 → 0048 統合)。archive: **6 件**。

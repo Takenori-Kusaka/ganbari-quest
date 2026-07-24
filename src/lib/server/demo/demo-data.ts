@@ -58,7 +58,7 @@ import type {
 	ChildChallenge,
 	DailyMission,
 	Evaluation,
-	LoginBonus,
+	LoginStreak,
 	// #2458 (Path B sibling drop): SiblingChallenge / SiblingChallengeProgress 型削除済 (2026-05-26)、
 	// per-child ChildChallenge 型へ完全移行 (ADR-0055 / User §6)
 	SiblingCheer,
@@ -2439,43 +2439,14 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 // Login Bonus
 // ============================================================
 
-export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
-	// 902 ひなちゃん (preschool)
-	{
-		id: '1',
-		childId: asChildId(902),
-		loginDate: TODAY,
-		rank: 'dai-kichi',
-		basePoints: 10,
-		multiplier: 1.5,
-		totalPoints: 15,
-		consecutiveDays: 5,
-		createdAt: NOW,
-	},
-	// 903 けんた (elementary)
-	{
-		id: '2',
-		childId: asChildId(903),
-		loginDate: TODAY,
-		rank: 'kichi',
-		basePoints: 5,
-		multiplier: 2.0,
-		totalPoints: 10,
-		consecutiveDays: 14,
-		createdAt: NOW,
-	},
-	// 904 さくら (junior)
-	{
-		id: '3',
-		childId: asChildId(904),
-		loginDate: TODAY,
-		rank: 'chu-kichi',
-		basePoints: 3,
-		multiplier: 2.0,
-		totalPoints: 6,
-		consecutiveDays: 14,
-		createdAt: NOW,
-	},
+export const DEMO_LOGIN_STREAKS: LoginStreak[] = [
+	// #3330 counter 縮約: 子供ごと 1 行 (lastLoginDate=TODAY = claim 済 fixture)
+	// 902 ひなちゃん (preschool): 5 日連続
+	{ childId: asChildId(902), lastLoginDate: TODAY, currentStreak: 5, updatedAt: NOW },
+	// 903 けんた (elementary): 14 日連続
+	{ childId: asChildId(903), lastLoginDate: TODAY, currentStreak: 14, updatedAt: NOW },
+	// 904 さくら (junior): 14 日連続
+	{ childId: asChildId(904), lastLoginDate: TODAY, currentStreak: 14, updatedAt: NOW },
 ];
 
 // ============================================================

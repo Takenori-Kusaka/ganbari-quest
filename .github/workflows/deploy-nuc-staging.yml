@@ -47,6 +47,14 @@ on:
         description: 'PGlite backend で staging を deploy (EPIC #3620 cutover リハーサル、手動検証用)'
         type: boolean
         default: false
+      # #3412: PII-free 合成ダミー seed (opt-in)。true で本番 DB snapshot (Step 4) を skip し、
+      # scripts/seed-staging.ts (demo-data.ts 再利用の合成 5 tenant) で data/pglite を構築して
+      # 起動する = staging に本番 PII を複製しない (#2999 根本解決)。pgliteEnabled=true が前提
+      # (合成 seed は pg-core backend 専用)。false (既定) は従来どおり snapshot 経路で不変。
+      syntheticSeed:
+        description: 'PII-free 合成ダミー seed で staging を deploy (#3412、pgliteEnabled=true が前提)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-nuc-staging
@@ -62,6 +70,10 @@ env:
   # では **常時 pglite lane** を回して「本番構成 = staging 構成」を恒常一致させる。dispatch は手動
   # opt-in (pgliteEnabled=true) のときのみ。
   PGLITE_LANE: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.pgliteEnabled == true)) && 'true' || 'false' }}
+  # 合成 seed lane 判定 (#3412)。workflow_dispatch で syntheticSeed=true かつ pglite lane のときのみ。
+  # 統合 PR (pull_request) は従来どおり snapshot + cutover rehearsal 経路 (既存検証フロー不変)。
+  # snapshot 経路の完全置換 (統合 PR でも合成 seed 化) は staging 実機での合成 seed 検証後に判断する。
+  SYNTHETIC_SEED: ${{ (github.event_name == 'workflow_dispatch' && inputs.syntheticSeed == true && inputs.pgliteEnabled == true) && 'true' || 'false' }}
 
 jobs:
   deploy-nuc-staging:
@@ -167,7 +179,9 @@ jobs:
       # 本番 container 不在/停止時 (初回 provision 等) は従来同様 fixture fallback で継続し、staging は
       # fresh DB で起動する (lazy migration が初期 schema を構築)。container 稼働中でも本番 DB file
       # 不在なら script 自身が exit 0 + fixture fallback する (tmp file 非生成 → move skip)。
+      # #3412: 合成 seed lane では本番 snapshot を実行しない (staging に本番 PII を複製しない)。
       - name: Snapshot prod DB to staging DB (in prod app container)
+        if: env.SYNTHETIC_SEED != 'true'
         run: |
           $prodCid = (& docker compose -p ganbari-quest ps -q app | Select-Object -First 1)
           if (-not $prodCid) {
@@ -212,7 +226,7 @@ jobs:
       # 旧 DB 不在 (fixture fallback) の場合は cutover を skip し fresh PGlite で起動する
       # (health/probePg は migration 適用済み schema を検証する)。
       - name: PGlite cutover rehearsal (pglite lane)
-        if: env.PGLITE_LANE == 'true'
+        if: env.PGLITE_LANE == 'true' && env.SYNTHETIC_SEED != 'true'
         run: |
           if (Test-Path ".\data\pglite") {
             Remove-Item -Recurse -Force ".\data\pglite"
@@ -228,6 +242,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "cutover import failed (exit $LASTEXITCODE; count-mismatch or errors>0 abort, legacy DB untouched)" }
           Remove-Item -Force ".\data\.cutover-export.json" -ErrorAction SilentlyContinue
           Write-Host "::notice::cutover rehearsal passed (export -> import -> count verification). Booting with PGlite backend"
+
+      # Step 5.6 (#3412、synthetic seed lane のみ): PII-free 合成ダミー seed。
+      # scripts/seed-staging.ts (generate=決定的 dataset 生成 / apply=fresh PGlite 構築 +
+      # importFamilyData verbatim + 件数突合) を image 同梱 CLI で実行する。generate と apply は
+      # factory singleton 制約 (nuc-pglite-cutover.ts と同じ) のため別プロセス (別 docker run)。
+      # anchor に当日を渡し、demo 由来の活動履歴が「直近 14 日」として描画されるようにする。
+      - name: Synthetic seed (PII-free, synthetic lane)
+        if: env.SYNTHETIC_SEED == 'true'
+        run: |
+          if (Test-Path ".\data\pglite") {
+            Remove-Item -Recurse -Force ".\data\pglite"
+            Write-Host "removed previous staging pglite dataDir (fresh synthetic seed)"
+          }
+          $anchor = (Get-Date -Format "yyyy-MM-dd")
+          docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/seed-staging.ts generate --out /app/data/.synthetic-seed.json --anchor $anchor
+          if ($LASTEXITCODE -ne 0) { throw "synthetic seed generate failed (exit $LASTEXITCODE)" }
+          docker compose -p ganbari-quest-staging run --rm --no-deps app npx tsx scripts/seed-staging.ts apply --in /app/data/.synthetic-seed.json --data-dir /app/data/pglite
+          if ($LASTEXITCODE -ne 0) { throw "synthetic seed apply failed (exit $LASTEXITCODE; count-mismatch or errors>0 abort)" }
+          Remove-Item -Force ".\data\.synthetic-seed.json" -ErrorAction SilentlyContinue
+          Write-Host "::notice::synthetic seed applied (no prod PII in staging, #3412). Booting with PGlite backend"
 
       - name: Start (staging)
         run: |

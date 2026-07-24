@@ -14,9 +14,11 @@
 #   3. PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify
 #      (#2576 / #2586 / #2633 第 5 弾、PR が既に存在する場合のみ)
 #   4. biome check (軽量 lint、重い vitest / playwright は CI 委ね)
+#   5. eslint fast check (#3880、変更 file 絞り込み。tests/**/*.ts は hard-block =
+#      CI 唯一の eslint merge blocker、src/**/*.{ts,svelte} は warn-only = CI continue-on-error 同格)
 #
 # # 設計境界 (Pre-PMF / ADR-0010 整合)
-# 重い検査 (vitest / playwright / svelte-check) は本 hook に **追加しない**。
+# 重い検査 (vitest / playwright / svelte-check / type-aware eslint #3877) は本 hook に **追加しない**。
 # 理由: push 速度を保ち、BLOCK 早期検出と push hook cost のバランスを取る。
 # 全 step は CI / `npm run pre-ready` が二重で実行する設計 (defense in depth)。
 #
@@ -31,6 +33,7 @@
 #   - ADR-0030 (pre-ready CLI と本 hook の defense in depth 関係)
 #   - #2598 (本実装、QA self-implement 第 8 弾、本日 7+ 連続 BLOCK 構造的予防)
 #   - #2633 (第 5 弾 pre-ready Step 9 強化 — 本 hook と相補的に Dev / push 経路を 2 層化)
+#   - #3880 (Step 2.5 eslint fast check、biome と対で shift-left。CI eslint 挙動を忠実 mirror)
 #
 # # bypass
 # `git push --no-verify` で skip 可能だが、ADR-0026 で discouraged。
@@ -171,5 +174,58 @@ if command -v npx >/dev/null 2>&1; then
 	fi
 else
 	echo "[pre-push] WARN: npx 未インストール、biome check skip"
+fi
+
+# --- Step 2.5: eslint fast check (変更 file 絞り込み、#3880) ---
+# biome (Step 2.4) と対で eslint も push レイヤで実行し、CI で初めて eslint 違反に気づく
+# 往復を減らす (shift-left)。CI (.github/workflows/ci.yml) の eslint 挙動を忠実に mirror し、
+# 「hook が CI merge policy より strict」= --no-verify 常態化を招く事故を避けるため 2 段構成:
+#
+#   (A) hard-block: tests/**/*.ts (Playwright rules)。CI は `npx eslint "tests/**/*.ts"` を
+#       continue-on-error 無しで走らせる唯一の eslint merge blocker (baseline 0 error)。
+#       変更 file の部分集合を push 前に block して shift-left する。
+#   (B) warn-only: src/**/*.{ts,svelte}。CI は SonarJS / local design rules を
+#       continue-on-error で走らせる。svelte recommended (svelte/*) は #3878 で bulk
+#       suppressions により hard gate 化したが、同 .svelte file に同居する local design
+#       rules (no-raw-button 等) は依然 continue-on-error のため、hook 側は「hook が CI
+#       より strict にならない」原則 (--no-verify 常態化回避) を優先し warn-only を維持する
+#       (新規 svelte/* 違反の hard block は CI lint:svelte が担う)。hook は違反表示のみ。
+#
+# 設計境界 (ADR-0030 / ADR-0010 / ADR-0007): 型情報ロードを要する type-aware rules
+# (#3877 で導入する parserOptions.project 系) は現 eslint.config.js に不在で、本 hook は fast rules
+# のみ走らせる (変更 file 数件で ~8s、type-aware は CI 限定側 #3877 に置き hook を遅くしない)。
+# 重い svelte-check / vitest / playwright は従来どおり CI / npm run pre-ready 委ね (defense in depth)。
+# 抽出は既存 biome step と同じ three-dot (origin/<base>...HEAD)。base は Step 2.0 で解決済み。
+echo "[pre-push] eslint fast check (変更 file 絞り込み、#3880)"
+if command -v npx >/dev/null 2>&1; then
+	CHANGED_ESLINT_FILES=$(git diff --name-only --diff-filter=AM "origin/$BASE_BRANCH...HEAD" 2>/dev/null || true)
+	# (A) hard-block: tests/**/*.ts (CI 唯一の eslint merge blocker、green baseline)
+	CHANGED_TEST_TS=$(echo "$CHANGED_ESLINT_FILES" | grep -E '^tests/.*\.ts$' || true)
+	if [ -n "$CHANGED_TEST_TS" ]; then
+		echo "$CHANGED_TEST_TS" | head -5
+		if ! echo "$CHANGED_TEST_TS" | xargs npx eslint; then
+			echo "[pre-push] FAIL: eslint (tests/**/*.ts, Playwright rules) 違反"
+			echo "          対処: npx eslint --fix <file> (no-wait-for-timeout / no-networkidle 等は手修正)"
+			echo "          理由: CI の tests eslint は continue-on-error 無し = merge blocker。"
+			echo "          skip (非推奨): git push --no-verify (ADR-0026 で discouraged)"
+			exit 1
+		fi
+		echo "[pre-push]     OK: eslint (tests/**/*.ts)"
+	fi
+	# (B) warn-only: src/**/*.{ts,svelte} (CI continue-on-error 同格、block しない)
+	CHANGED_SRC_LINT=$(echo "$CHANGED_ESLINT_FILES" | grep -E '^src/.*\.(ts|svelte)$' || true)
+	if [ -n "$CHANGED_SRC_LINT" ]; then
+		if echo "$CHANGED_SRC_LINT" | xargs npx eslint; then
+			echo "[pre-push]     OK: eslint (src 変更 file、違反なし)"
+		else
+			echo "[pre-push]     WARN: src eslint 違反あり (上記)。CI continue-on-error 同格で block しない。"
+			echo "                 push 前に npx eslint --fix <file> での修正を推奨 (design rules / SonarJS)。"
+		fi
+	fi
+	if [ -z "$CHANGED_TEST_TS" ] && [ -z "$CHANGED_SRC_LINT" ]; then
+		echo "[pre-push]     OK: eslint 対象 file 変更なし、skip"
+	fi
+else
+	echo "[pre-push] WARN: npx 未インストール、eslint check skip"
 fi
 echo "[pre-push] OK: QA self-implement 第 8 弾 verify chain 全 PASS (#2598)"

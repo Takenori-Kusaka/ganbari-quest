@@ -41,6 +41,16 @@ DSQL の課金は DPU (処理バイト + CPU 秒) で、行数課金ではない
 
 **EXPLAIN 運用**: `EXPLAIN ANALYZE VERBOSE` の Statement DPU Estimate は **相対比較 (変更前後の回帰確認) 用**とし、絶対閾値の CI gate にはしない (Estimate は billing-grade でない + データ量依存)。重い新規クエリ (集計 / cross-tenant cron) を追加する PR は、PR body に代表データでの DPU Estimate を記録する (レビュー判断材料。機械 gate 化は実運用の回帰実績が出てから再判断)
 
+## 機械強制の適用状況 (原則 1 / 2、#3682 AC1)
+
+- **原則 1 (PK prefix 必須) = 既存 fitness 2 本の合成でカバー済 (新規 fitness 不要)**。
+  (a) `tests/unit/db/pk-freeze-manifest.test.ts` [2b] が全テナント表の PK 先頭 = `family_id` を強制し、
+  (b) `tests/unit/architecture/dsql-tenant-predicate-fitness.test.ts` (ADR-0063) が dsql module の全 SQL 文に `family_id` 述語を強制する (例外は閉じた allowlist)。
+  ∴ family_id 述語 = 複合 PK 先頭列アクセス = PK prefix であり、原則 1 は tenant 分離と同一強制点で機械強制済。allowlist 例外 (global-UNIQUE capability lookup = UNIQUE index 経由 / cross-tenant cron §11.2) は原則 1 の明示例外と同一集合
+- **原則 2 (ループ内逐次 txn 禁止) = `tests/unit/architecture/dsql-loop-sequential-write-fitness.test.ts` (#3682) で機械強制**。
+  TS AST でループ body 内の awaited write call (`await repo.insertX(...)` 等) を検出し、既存分は baseline に file × method × count で pin (ratchet、増加 = CI fail / 減少 = baseline 更新)。正当な例外 (cross-tenant cron の per-tenant txn 分離 / 非 DB write) は `// dpu2-allow: <理由>` で明示除外
+- **静的検出の限界 (残余はレビュー基準で担保)**: helper 関数経由の transitive write (`await processChild(...)` 等) と `Promise.all(map(...))` 並行形状は静的追跡不能。原則 3〜5 も定量判断 / 実測依存のため機械 gate 化しない (per-query DPU 予算 gate は #3682 AC2 = cutover 後 1 ヶ月の CloudWatch 実測で要否判断)
+
 ## 結果
 
 - コスト事故 (full scan 常態化 / N+1) がコードレビューの明文基準になる。監視側は CloudWatch TotalDPU 日次 alarm (#3431) が defense-in-depth

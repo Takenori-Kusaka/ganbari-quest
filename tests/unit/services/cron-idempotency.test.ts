@@ -47,7 +47,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 	const findAllChildrenMock = vi.fn();
 	const deleteActivityLogsMock = vi.fn();
 	const deletePointLedgerMock = vi.fn();
-	const deleteLoginBonusesMock = vi.fn();
 	const deleteStatusHistoryMock = vi.fn(); // #3518-2
 
 	beforeEach(() => {
@@ -75,7 +74,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 				child: { findAllChildren: findAllChildrenMock },
 				activity: { deleteActivityLogsBeforeDate: deleteActivityLogsMock },
 				point: { deletePointLedgerBeforeDate: deletePointLedgerMock },
-				loginBonus: { deleteLoginBonusesBeforeDate: deleteLoginBonusesMock },
 				status: { deleteStatusHistoryBeforeDate: deleteStatusHistoryMock },
 			}),
 		}));
@@ -98,7 +96,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 		findAllChildrenMock.mockResolvedValueOnce([{ id: '1', tenantId: 't-1' }]);
 		deleteActivityLogsMock.mockResolvedValueOnce(5);
 		deletePointLedgerMock.mockResolvedValueOnce(2);
-		deleteLoginBonusesMock.mockResolvedValueOnce(1);
 
 		// 2 回目: 同じ tenant / 子供だが、削除対象なし (1 回目で sweep 済み)
 		listAllTenantsMock.mockResolvedValueOnce([
@@ -107,7 +104,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 		findAllChildrenMock.mockResolvedValueOnce([{ id: '1', tenantId: 't-1' }]);
 		deleteActivityLogsMock.mockResolvedValueOnce(0);
 		deletePointLedgerMock.mockResolvedValueOnce(0);
-		deleteLoginBonusesMock.mockResolvedValueOnce(0);
 
 		const { cleanupExpiredData } = await import(
 			'../../../src/lib/server/services/retention-cleanup-service'
@@ -120,7 +116,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 		// 冪等: 2 回目は削除 0 件 (= 1 回目に sweep 済み)
 		expect(r2.activityLogsDeleted).toBe(0);
 		expect(r2.pointLedgerDeleted).toBe(0);
-		expect(r2.loginBonusesDeleted).toBe(0);
 	});
 
 	it('dryRun=true は delete 関数を呼ばない (副作用なし保証)', async () => {
@@ -136,7 +131,6 @@ describe('#1377 idempotency — cleanupExpiredData', { timeout: 30_000 }, () => 
 		await cleanupExpiredData({ dryRun: true });
 		expect(deleteActivityLogsMock).not.toHaveBeenCalled();
 		expect(deletePointLedgerMock).not.toHaveBeenCalled();
-		expect(deleteLoginBonusesMock).not.toHaveBeenCalled();
 	});
 });
 

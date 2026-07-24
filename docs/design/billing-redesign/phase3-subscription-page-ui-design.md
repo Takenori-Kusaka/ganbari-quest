@@ -286,7 +286,7 @@ SUBSCRIPTION_PAGE_LABELS = {
 - Phase 5 補強 (#2798) §2 原則 4「naming rename ≠ license key 削除」を Phase 3 UI 設計でも踏襲
 - Phase 2 補強 (#2585 URL / #2596 プラン命名)
 - 既存実装: `SaasLicensePanel.svelte:165-763` (現名、Phase 7 で rename)
-- ADR-0012 (Anti-engagement) / ADR-0045 (terms.ts 2 階層) / ADR-0051 (NUC-SaaS Bifurcation)
+- ADR-0012 (Anti-engagement) / ADR-0045 (terms.ts 2 階層) / NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md)
 - Kinde Plan Change Best Practices / Netflix +124% conversion / Cornell center-stage effect
 - skill `impact-analysis` (4 layer 防御 + 21 カテゴリ checklist)
 - 関連 memory: feedback_plan_name_implementation_gap / feedback_roi_framing_customer_anxiety_axis / reference_impact_analysis_methodology

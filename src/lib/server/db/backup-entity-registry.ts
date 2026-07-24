@@ -88,11 +88,12 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 		backupStatus: 'exported',
 		reason: '週次評価 (#3327/#3328 で import 実装)',
 	},
-	loginBonus: {
+	loginStreak: {
 		classification: 'source',
-		schemaTable: 'loginBonuses',
+		schemaTable: 'loginStreaks',
 		backupStatus: 'exported',
-		reason: 'ログインボーナス記録 (streak は派生だがレコードは source)',
+		reason:
+			'ログインボーナス counter (lastLoginDate + currentStreak、#3330 案 B 縮約)。付与事実は point_ledger が保持するが counter 自体は再構成不能のため source',
 	},
 	specialReward: {
 		classification: 'source',

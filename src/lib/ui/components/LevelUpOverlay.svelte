@@ -60,6 +60,7 @@ $effect(() => {
 
 		return () => clearTimeout(timer);
 	}
+	return;
 });
 
 function handleClose() {

@@ -210,19 +210,15 @@ export const SQL_CREATE_TABLES = `
 		generated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS login_bonuses (
+	CREATE TABLE IF NOT EXISTS login_streaks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		login_date TEXT NOT NULL,
-		rank TEXT NOT NULL,
-		base_points INTEGER NOT NULL,
-		multiplier REAL NOT NULL DEFAULT 1.0,
-		total_points INTEGER NOT NULL,
-		consecutive_days INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		last_login_date TEXT NOT NULL,
+		current_streak INTEGER NOT NULL DEFAULT 1,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_login_bonuses_child_date
-		ON login_bonuses(child_id, login_date);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_login_streaks_child
+		ON login_streaks(child_id);
 
 	CREATE TABLE IF NOT EXISTS achievements (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

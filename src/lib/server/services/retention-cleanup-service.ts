@@ -3,7 +3,9 @@
 //
 // プランごとの保持期間（free: 90 日 / standard: 365 日 / family: 無制限）を元に、
 // 各テナントの全ての子について `recorded_date < cutoffDate` の活動ログ・ポイント台帳・
-// ログインボーナスを削除する。pricing 画面の約束を実データ削除で履行するためのバッチ。
+// ステータス履歴を削除する。pricing 画面の約束を実データ削除で履行するためのバッチ。
+// (#3330: login_bonuses は counter 縮約 = 履歴自体が生まれない構造になり retention 対象から消滅、
+//  ADR-0049 改訂)
 //
 // - トライアル期間中はその時点のトライアルティアが適用される（`resolveFullPlanTier`）
 // - `family` (無制限) の場合は何も削除しない
@@ -33,7 +35,6 @@ export interface RetentionCleanupResult {
 	childrenProcessed: number;
 	activityLogsDeleted: number;
 	pointLedgerDeleted: number;
-	loginBonusesDeleted: number;
 	statusHistoryDeleted: number; // #3518-2
 	errors: Array<{ tenantId: string; error: string }>;
 }
@@ -82,7 +83,6 @@ export async function cleanupExpiredData(
 		childrenProcessed: 0,
 		activityLogsDeleted: 0,
 		pointLedgerDeleted: 0,
-		loginBonusesDeleted: 0,
 		statusHistoryDeleted: 0, // #3518-2
 		errors: [],
 	};
@@ -120,7 +120,6 @@ export async function cleanupExpiredData(
 
 			let tenantActivityLogsDeleted = 0;
 			let tenantPointLedgerDeleted = 0;
-			let tenantLoginBonusesDeleted = 0;
 			let tenantStatusHistoryDeleted = 0; // #3518-2
 
 			for (const child of children) {
@@ -141,11 +140,6 @@ export async function cleanupExpiredData(
 					cutoffDate,
 					tenant.tenantId,
 				);
-				const loginBonuses = await repos.loginBonus.deleteLoginBonusesBeforeDate(
-					child.id,
-					cutoffDate,
-					tenant.tenantId,
-				);
 				// #3518-2: daily decay が child×category×日で機械生成する status_history を retention 対象化。
 				// backup 生成メモリ / DSQL read コストの主因になる最大母数を保持期間超過分だけ物理削除する。
 				const statusHistory = await repos.status.deleteStatusHistoryBeforeDate(
@@ -156,14 +150,12 @@ export async function cleanupExpiredData(
 
 				tenantActivityLogsDeleted += activityLogs;
 				tenantPointLedgerDeleted += pointLedger;
-				tenantLoginBonusesDeleted += loginBonuses;
 				tenantStatusHistoryDeleted += statusHistory;
 				result.childrenProcessed++;
 			}
 
 			result.activityLogsDeleted += tenantActivityLogsDeleted;
 			result.pointLedgerDeleted += tenantPointLedgerDeleted;
-			result.loginBonusesDeleted += tenantLoginBonusesDeleted;
 			result.statusHistoryDeleted += tenantStatusHistoryDeleted;
 			result.tenantsProcessed++;
 
@@ -176,7 +168,6 @@ export async function cleanupExpiredData(
 					childCount: children.length,
 					activityLogsDeleted: tenantActivityLogsDeleted,
 					pointLedgerDeleted: tenantPointLedgerDeleted,
-					loginBonusesDeleted: tenantLoginBonusesDeleted,
 					statusHistoryDeleted: tenantStatusHistoryDeleted,
 					dryRun,
 				},

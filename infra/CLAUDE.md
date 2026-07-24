@@ -24,9 +24,37 @@ SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマン�
 
 **全リソース `us-east-1` 固定**（Cognito custom domain ACM が us-east-1 必須のため統一）。CDK source `infra/bin/app.ts` L13-16 が `region: 'us-east-1'` で全 stack (`Storage` / `Auth` / `Compute` / `Network` / `Ops` / `Ses`) を deploy。
 
-主要リソース: Lambda (アプリ / cron-dispatcher / cognito custom message / SES) / ECR / Aurora DSQL (DsqlStack) / S3 / Cognito User Pool v2 (`auth.ganbari-quest.com`) / EventBridge cron rules / CloudWatch Logs / Route 53 (`ganbari-quest.com`) / SES (`noreply@ganbari-quest.com`) / SSM / Secrets Manager。DynamoDB `MainTable` は #3438 → #3850 → #3854 の 2-deploy で撤去中 (DB backend は DSQL 一本化)。cross-stack export の in-use 削除制約により、Deploy-1 (#3850、本リリース) では StorageStack が table + **旧 consumer が import する全 export = `exportValue(table.tableName)` (Ref) + `exportValue(table.tableArn)` (Arn) の 2 本**を保持し、consumer(ComputeStack) 側だけ import を落とす (Arn だけの保持は #3855 で Ref 欠落による再 rollback を招いたため不十分)。Deploy-2 (#3854、follow-up) で consumer の import 消失が本番反映された後に table + 両 export を撤去する (詳細: `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §3.1`)。詳細は `infra/lib/*-stack.ts` 参照。
+主要リソース: Lambda (アプリ / cron-dispatcher / cognito custom message / SES) / ECR / Aurora DSQL (DsqlStack) / S3 / AWS Backup vault (`ganbari-quest-vault`、RETAIN-orphan、prod のみ) / Cognito User Pool v2 (`auth.ganbari-quest.com`) / EventBridge cron rules / CloudWatch Logs / Route 53 (`ganbari-quest.com`) / SES (`noreply@ganbari-quest.com`) / SSM / Secrets Manager。DynamoDB `MainTable` は #3438 → #3850 → #3854 の 2-deploy strangler で**撤去済** (DB backend は DSQL 一本化)。cross-stack export の in-use 削除制約により、Deploy-1 (#3850 / #3855 / #3864) で StorageStack が table + **旧 consumer が import する全 export = `exportValue(table.tableName)` (Ref) + `exportValue(table.tableArn)` (Arn) の 2 本**を保持しつつ consumer(ComputeStack) 側だけ import を落とし、Deploy-2 (#3854) で consumer の import 消失が本番反映された後に table + AWS Backup **plan / selection / role** + 両 export を撤去した (この時点で export は in-use でないため削除成功。prod は RETAIN のため物理 table + データは orphan 保全、物理削除は別 ops)。詳細: `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §3.1` / `infra/lib/*-stack.ts`。
+
+### AWS Backup vault RETAIN-orphan (#3881 class 回避)
+
+`ganbari-quest-vault` は旧 MainTable の日次 backup 用 vault。#3854 が vault も撤去しようとしたが、この vault は旧 daily plan が作成した **recovery point 2 件を保持**しており **AWS Backup は「recovery point 有り vault の削除」を API レベルで拒否する** (CloudFormation も同じ)。撤去すると deploy 失敗 → StorageStack rollback → 本番 deploy 停止 (#3881 と同一クラス) になる。canonical 解 = 破壊的な backup データ削除を避け **vault を残しつつ `removalPolicy: RETAIN` に是正** (旧 `DESTROY` = CDK 既定 RETAIN に反していた元凶)。plan / selection / role のみ撤去 (= 新規 backup は取らない)。staging (`enableBackup=false`) は vault 自体を構築しない。vault の物理 empty→delete は移行安定後の **gated out-of-band ops (PO 承認必須)**: `aws backup list-recovery-points-by-backup-vault` → `aws backup delete-recovery-point` ×2 → `aws backup delete-backup-vault` (手順 SSOT は設計書 §3.1)。不変条件は `tests/unit/infra/staging-cdk.test.ts` P-1 (vault RETAIN 1 本 / Plan・Selection 0 本) が fitness function として固定する。
+
+自動 cross-stack export/import の全集合 (実測 13 = prod 9 + staging 4、#3854 で MainTable Ref/Arn 4 本を撤去し 17 → 13) は `tests/unit/infra/cross-stack-export-ratchet.test.ts` が allowlist ratchet で PR 時点に機械検出する (#3858、ADR-0061 shift-left / §3.1.1)。新規自動 export の混入は CI fail、SSM 疎結合化 / 撤去で allowlist から一方通行に減らす。
 
 CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は本ファイルを SSOT として `us-east-1`。`tests/unit/e2e-helpers/*` の `ap-northeast-1` 言及はテスト fixture（変更不要）。
+
+## CDK deploy 失敗の層別 未然防止（#3874、どの層で最初に落ちるか SSOT）
+
+「synth 成功・unit test 通過・staging すり抜けで**本番 deploy の実 AWS で初めて失敗**する」CDK トラブル（第16回リリースで 2 class 連続発生）を、人の注意ではなく CI で未然に捕捉する層別防御。AWS 推奨の shift-left（synth 静的検査）→ fitness function → rehearsal（staging 実 deploy）の重ねに整合。**新しい deploy 失敗に遭遇したら、まず「どの層が最初に捕捉すべきか」を本表で判定してから対策を実装する**。
+
+| 層 | 検証 | 実体 | 何を最初に捕捉するか |
+|---|---|---|---|
+| **Layer 1: synth 静的 lint** | `cdk synth --all` 出力 template を **cfn-lint** で検査し AWS schema 由来の property 制約違反（charset / allowed-value / type）を synth 時点で hard-fail | `scripts/check-cdk-cfn-lint.mjs` + `infra/.cfnlintrc` + ci.yml `cdk-cfn-lint` job（`infra/**` 変更時、develop 向け PR でも発火） | **Class ①（静的プロパティ制約違反）**。例: IAM Role/ManagedPolicy `Description` の非-ASCII（cfn-lint **E3031**、#3870）を含む全リソースの pattern / allowed-value / type 違反を**カスタムコードなしで**網羅捕捉 |
+| **Layer 2: project 固有 fitness** | 「本 project が壊してはいけない不変条件」を `Template.fromStack` synth 後に assert（AWS schema には無い project 固有の意図） | `tests/unit/infra/iam-role-description-ascii.test.ts`（IAM description ASCII、#3870）/ `tests/unit/infra/cross-stack-export-ratchet.test.ts`（自動 export/import allowlist ratchet、#3858）/ `tests/unit/infra/physical-name-ratchet.test.ts`（明示物理名 allowlist ratchet、#3881） | **Class ②（stateful なデプロイ順序制約）の一部 + Class ③（rollback-orphan → named resource `already exists`）**。cross-stack export / 明示物理名の新規混入を PR 時点で検出（deployed-state 依存の in-use 削除ロックの残りは Layer 3 が担う）。Layer 1 と冗長化する IAM ASCII assertion は上位互換の fallback として保持 |
+| **Layer 3: rehearsal（staging 実 deploy）** | prod 経路（CDK synth → ECR push → Lambda update → health）を統合 PR で実 AWS 貫通。ADR-0019 replacement gate（`scripts/check-cdk-replacement.mjs`）も staging diff に適用 | `.github/workflows/deploy-aws-staging.yml`（AWS staging 3 stack）/ `.github/workflows/deploy-nuc-staging.yml`（NUC staging） | **Class ②（export-in-use ロック等 deployed-state 依存の失敗）**。静的では原理的に catch 不能なため実 deploy でのみ露見する class を統合監査で捕捉 |
+
+**役割分担の要点**: cfn-lint（Layer 1）は「AWS が受け付けない template」を汎用・自動で、assertion（Layer 2）は「本 project の不変条件」を、rehearsal（Layer 3）は「deployed-state 依存の失敗」を守る。3 層は補完関係で、上位ほど安価・高速・shift-left。
+
+**ローカル実行**:
+
+```bash
+npm run check:cfn-lint                 # cdk synth --all → cfn-lint（要 pip install cfn-lint）
+node scripts/check-cdk-cfn-lint.mjs --skip-synth   # 既存 cdk.out を再 synth せず lint のみ
+CFN_LINT_BIN=<path> npm run check:cfn-lint          # Windows で Scripts が PATH 外の場合
+```
+
+cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bundle には含まれず、AWS 認証・ネット不要で offline 動作する。CI の `cdk-cfn-lint` job が pin 版を install する。`.cfnlintrc` の `ignore_checks`（W3005 等）は CDK 生成テンプレのノイズ抑制で false-positive をゼロにする（error = E ルールのみ hard-fail）。
 
 ## production env 必須配布 4 経路（#911 / #806）
 
@@ -197,6 +225,23 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
 
 - `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は **branch の commit message (body) に** `replacement-approved: <ID>` を記載して承認する (squash message は commit message 由来 — PR body は乗らない) (初出: aws-cdk-lib 2.257→2.258、#2963)。
+
+## 明示物理名は auto-naming が既定 (rollback-orphan 予防、#3881)
+
+明示物理名 (`roleName` / `bucketName` / `functionName` / `backupVaultName` 等) を持つリソースは、create 失敗 → stack rollback の際に削除できず **orphan 化** し、次 deploy が **`already exists`** (名前衝突) で block される (第16回リリースで `DsqlBackupVault` = `ganbari-quest-dsql-vault` が実際に orphan 化し手動削除を要した、#3870 / #3872 / #3881)。これは AWS CloudFormation の設計上の既知挙動で、明示物理名を残す限り任意の create 失敗要因 (quota / IAM 結果整合性 / service エラー / dependency 失敗) で再発する。
+
+**AWS 公式一次情報 (SSOT)**:
+
+- rollback は作成物を削除するが、削除できないリソースは orphan 化する ("Resource removed from stack but not deleted"): <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/troubleshooting.html>
+- 物理名は "unique across all your active stacks"。名前衝突は deploy 失敗。**AWS 推奨回避 = 物理名を明示せず CloudFormation auto-naming に委ねる** ("CloudFormation generates a unique physical ID"): <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-name.html>
+- BackupVault は recovery point があると削除自体が失敗し特に固着する: <https://docs.aws.amazon.com/aws-backup/latest/devguide/deleting-backups.html> / <https://github.com/aws/aws-cdk/issues/33711>
+
+**運用ルール**:
+
+- **新規リソースは物理名 prop を省略する** (CFN auto-naming = ランダム suffix 付き生成名。rollback-orphan が残っても次 deploy と衝突しない)。
+- 明示名が本当に必要な場合 (外部から固定名で参照される契約 / SSM path 規約等) のみ、stack 側に justification コメントを書き、`tests/unit/infra/physical-name-ratchet.test.ts` の `NAMED_RESOURCE_ALLOWLIST` に reason 付き entry を追加する (allowlist 外の明示物理名は CI fail、#3874 Layer 2)。
+- **既存の RETAIN stateful named (vault / UserPool / S3 / ECR / backup-role) は rename しない** (rename = replacement = データ喪失。ADR-0019 gate 対象)。allowlist は一方通行で減らす (リソース撤去時に entry 削除)。
+- orphan 化して deploy が block された場合の掃除手順: [docs/runbooks/rollback-orphan-cleanup.md](../docs/runbooks/rollback-orphan-cleanup.md)。`deploy.yml` の「Orphan-block detection」step が `already exists` 検知時に本 runbook link を fail message に出力する。
 
 ## IAM Role description は ASCII/Latin-1 のみ (AWS 制約、#3870)
 

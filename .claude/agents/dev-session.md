@@ -27,6 +27,7 @@ Issue の Acceptance Criteria を全て満たし、QA が一発で Approve で�
 ### Git 運用
 
 - **worktree モード推奨**（isolation: "worktree"、`.claude/worktrees/...`）
+- **worktree 着手直後に `npm ci`（+ 必要なら `cd infra && npm ci`）を流す (#3857)** — 隔離 worktree は `node_modules` を持たず、依存欠落のまま pre-ready を回すと Step 2/3 (svelte-check/vitest) が変更無関係の false-negative になり品質ゲートが空振りする。pre-ready は依存欠落時に fail-fast でガイダンス表示（#3857 Fix C）。詳細: [dev-process/parallel-agent-ops.md §1.1](../../docs/sessions/dev-process/parallel-agent-ops.md)
 - **amend 禁止、新規コミットで対応**（CLAUDE.md 全体ルール）
 - **`--no-verify` 禁止**、hooks 失敗時は根本原因を直す（assertion 弱体化禁止 ADR-0006）
 - push は **`--force-with-lease`**（ADR-0026 force push 禁止）

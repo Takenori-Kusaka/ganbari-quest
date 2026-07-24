@@ -25,6 +25,43 @@ backup は全 tenant 共有の 1 cluster 単位課金 (per-tenant ではない) 
 - **hard 監視**: `DsqlBackupBudget` ($0.07 ≈ ¥10、AWS Backup service filter) が 80% / 100% で通知する。
 - **¥10 接近時の対処**: budget 通知が来たら **retention_points を短縮** する (`dsql-stack.ts` の `deleteAfter` を 7→3 日等)。7→3 で月額 3/7 に、tenant 単位細粒度復元は論理 backup-archive が担保するため DR 実害は小。復元 RPO が要件を満たす範囲で最短化する。
 
+## post-deploy backup smoke (#3808 / ADR-0024 (c))
+
+CDK 単体テストは synth 段階のみの検証のため、AWS 上の backup 構成は `deploy.yml` の
+`DSQL backup smoke test (#3808)` step が deploy 毎に機械検証する (fail = deploy fail 扱い):
+
+| assert | 内容 | 失敗時の意味 |
+|---|---|---|
+| vault 実在 | `describe-backup-vault ganbari-quest-dsql-vault` | vault 消失 / stack drift |
+| plan 実在 | `list-backup-plans` に `ganbari-quest-dsql-daily` | plan 消失 / rename drift |
+| selection 整合 | selection が本番 DSQL cluster ARN + `ganbari-quest-dsql-backup-role` を指す | 対象外れ = backup が空回り |
+| recovery point 鮮度 (条件付き) | 未生成なら正常 (日次 02:00 UTC のため deploy 直後に無いのが通常)。存在するのに最新が 48h 超なら hard fail | 日次 backup の沈黙停止 (DR 空白) |
+
+### 初回 deploy 後の実発火確認 (one-time、on-demand backup)
+
+日次 backup を待たずに「recovery point が実際に生成できる」ことを初回 deploy 後に 1 回確認する
+(lifecycle 1 日で自動削除されるため恒常コストなし。CI には組み込まない — deploy 毎の full backup はコスト/時間の無駄):
+
+```bash
+ROLE_ARN=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsql --region us-east-1 \
+  --query "Stacks[0].Outputs[?OutputKey=='BackupRoleArn'].OutputValue" --output text)
+CLUSTER_ARN=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsql --region us-east-1 \
+  --query "Stacks[0].Outputs[?OutputKey=='ClusterArn'].OutputValue" --output text)
+JOB_ID=$(aws backup start-backup-job --region us-east-1 \
+  --backup-vault-name ganbari-quest-dsql-vault \
+  --resource-arn "$CLUSTER_ARN" --iam-role-arn "$ROLE_ARN" \
+  --lifecycle DeleteAfterDays=1 --query 'BackupJobId' --output text)
+aws backup describe-backup-job --backup-job-id "$JOB_ID" --region us-east-1 \
+  --query '{state:State,message:StatusMessage}'   # COMPLETED まで数分間隔で再実行
+```
+
+### alarm (SNS→opsEmail) 実通知テスト (one-time)
+
+`ganbari-quest-dsql-backup-failed` rule は実際の backup 失敗でしか発火しないため、経路を分けて確認する:
+
+1. **rule pattern**: `aws events test-event-pattern` に `{"source":["aws.backup"],"detail-type":["Backup Job State Change"],"detail":{"state":["FAILED"],"backupVaultName":["ganbari-quest-dsql-vault"]}}` 相当のテストイベントを渡し match を確認
+2. **SNS→email 疎通**: `aws sns publish --topic-arn <DsqlAlerts topic ARN> --subject "test" --message "DsqlAlerts 疎通テスト (#3808)"` を実行し opsEmail 受信を実確認 (subscription が PendingConfirmation のままだと届かない)
+
 ## 復元手順 (#3437 AC2)
 
 > **前提**: 同時 restore は最大 4。復元は新 cluster を作成し **source cluster を上書きしない** (= 常にロールバック可能)。full-cluster 単位のみ。

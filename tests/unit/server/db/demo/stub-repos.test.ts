@@ -162,16 +162,21 @@ describe('demo/inquiry-repo', () => {
 	});
 });
 
-describe('demo/login-bonus-repo', () => {
-	it('findTodayBonus は fixture から該当があれば返す', async () => {
-		// 902 の TODAY (2026-03-27) ボーナスは fixture に存在
-		const r = await loginBonusRepo.findTodayBonus(asChildId(902), '2026-03-27', 'demo');
+describe('demo/login-bonus-repo (#3330 counter 縮約)', () => {
+	it('findStreak は fixture から該当 counter を返す', async () => {
+		const r = await loginBonusRepo.findStreak(asChildId(902), 'demo');
 		expect(r).toBeDefined();
 		expect(r?.childId).toBe('902');
+		expect(r?.currentStreak).toBeGreaterThan(0);
 	});
-	it('未存在 child + 別 date は undefined', async () => {
+	it('未存在 child は undefined', async () => {
+		expect(await loginBonusRepo.findStreak(asChildId(99999), 'demo')).toBeUndefined();
+	});
+	it('claimToday は fixture 上 claim 済 (lastLoginDate=TODAY) なら undefined', async () => {
+		const streak = await loginBonusRepo.findStreak(asChildId(902), 'demo');
+		if (!streak) throw new Error('fixture missing');
 		expect(
-			await loginBonusRepo.findTodayBonus(asChildId(99999), '2020-01-01', 'demo'),
+			await loginBonusRepo.claimToday(asChildId(902), streak.lastLoginDate, '2000-01-01', 'demo'),
 		).toBeUndefined();
 	});
 });

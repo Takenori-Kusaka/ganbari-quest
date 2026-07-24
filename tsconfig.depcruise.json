@@ -1,0 +1,16 @@
+{
+	"//": "dependency-cruiser 専用 tsconfig (#3871)。root tsconfig を extends しつつ baseUrl='.' と",
+	"//2": "repo root 相対の paths を上書きする。SvelteKit 生成の .svelte-kit/tsconfig.json は baseUrl 無し +",
+	"//3": ".svelte-kit/ 相対 paths のため depcruise の path 解決で $lib が couldNotResolve になる。ここで",
+	"//4": "$lib / $app を repo root 相対に固定し、routes↛DB 等の forbidden ルールが resolved path に確実にマッチ",
+	"//5": "するようにする。IDE / svelte-check は引き続き root tsconfig.json を使う (本ファイルは depcruise 専用)。",
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"$lib": ["src/lib"],
+			"$lib/*": ["src/lib/*"],
+			"$app/*": [".svelte-kit/runtime/app/*"]
+		}
+	}
+}

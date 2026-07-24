@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2552 (NUC のジャーニー) |
 | 親 | #2527 (Phase 2 UX) / 上位 #2525 |
-| ステータス | 既存実装前提で設計 (2026-05-28、ADR-0051 NUC-SaaS Bifurcation 整合) |
+| ステータス | 既存実装前提で設計 (2026-05-28、NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md) 整合) |
 | 対応 Phase 1 要件 | phase1-nuc-requirements.md (#2539: 完全無料 OSS / 信頼ベース DRM なし / family 固定) |
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 担当、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。NUC 側は `NucLicensePanel` → Phase 5 design review。**ライセンスキー全廃** ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md) §3.4/§3.8 + OQ-4 確定): `LICENSE_KEY_STATUS` / `LICENSE_PLAN` enum + `licenseKey` 列 + `LicenseRecord` table + `/ops/license/*` 発行 UI + `license-key-service.ts` は SaaS / NUC 問わず物理削除 (legacy 互換維持はしない、expand-contract §3.8)。NUC は信頼ベースで Edition flag 判定のみ、ライセンスキー判定は存在しない |
 | プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / NUC は **完全無料 OSS で課金概念なし** ([phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。NUC では `family 相当 capability` → 表示「プレミアム相当 capability」rename、内部 `IS_NUC_DEPLOY=true` / `PLAN_LIMITS.family` 等は現名維持 |
@@ -14,7 +14,7 @@
 
 ## 既存実装の事実
 
-- ADR-0051 NUC-SaaS Bifurcation: NUC は Edition badge + 簡略表示型、billing 領域は SaaS と分岐
+- NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md): NUC は Edition badge + 簡略表示型、billing 領域は SaaS と分岐
 - `IS_NUC_DEPLOY` edition flag で実行モード判別 (既存)
 - NUC は OSS (セルフホスト)、DRM なし (信頼ベース)、機能上は family 相当
 - **ライセンスキー機構は SaaS / NUC 双方から全廃済** ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md) §2.1): SaaS の認可は Stripe Subscription ベース (ライセンスキーは冗長な入力経路に過ぎず除去)、NUC は信頼ベースで Edition flag のみ判定 (`nuc-prod && !licenseKey.valid` deny も撤廃)。NUC では Stripe / dunning / trial 等の課金機構も存在しない (badge で明示)
@@ -27,21 +27,21 @@
 | 1 | セルフホスト設定 | OSS docs / docker compose 等 | 自宅 NUC / Raspberry Pi 等にデプロイ | 達成感 | 高 |
 | 2 | 起動・初期設定 | signup (Cognito 非経由・local auth) → /setup | 家族用に立ち上げ | 期待 | 中 |
 | 3 | family 機能フル利用 | IS_NUC_DEPLOY=true → family 相当 capability | 子供無制限・全機能 | 満足 ← 山 | — |
-| 4 | プラン画面アクセス | **Edition badge 表示** (簡略型、ADR-0051) | 「セルフホスト版・全機能利用可能」 | 安心 (課金導線なし) | — |
+| 4 | プラン画面アクセス | **Edition badge 表示** (簡略型、nuc-saas-runtime-bifurcation.md) | 「セルフホスト版・全機能利用可能」 | 安心 (課金導線なし) | — |
 | 5 | 継続利用 | 課金・dunning・trial なし | 何も払わず使い続ける | 信頼 | — |
 
 ## 感情曲線と既存実装に即した対策
 
 - **谷①② 技術ハードル**: NUC 選択者は技術スキルあり前提だが、ドキュメント整備が離脱対策
 - **山③ family 相当の解放**: SaaS の有料機能を完全無料で利用可能 = OSS の価値
-- **④ Edition badge の明示 (ADR-0051)**: 「セルフホスト版」badge で課金導線を出さず、SaaS と動線分岐。NUC ユーザーが Stripe / トライアル / dunning UI に迷い込まない
+- **④ Edition badge の明示 (nuc-saas-runtime-bifurcation.md)**: 「セルフホスト版」badge で課金導線を出さず、SaaS と動線分岐。NUC ユーザーが Stripe / トライアル / dunning UI に迷い込まない
 
 ## 既存からの変更点 (delta)
 
 | # | 既存 | 要件 | 扱い |
 |---|---|---|---|
 | 1 | `IS_NUC_DEPLOY` edition flag | 維持 | ✅ 既存活用 |
-| 2 | license/billing 領域の NUC 分岐 | Edition badge + 簡略型 (ADR-0051) | ✅ 既存方針 |
+| 2 | license/billing 領域の NUC 分岐 | Edition badge + 簡略型 (nuc-saas-runtime-bifurcation.md) | ✅ 既存方針 |
 | 3 | DRM (NUC) | なし、信頼ベース | ✅ 既存整合 (Pre-PMF 過剰防衛除外) |
 | 4 | NUC で trial / dunning / Stripe UI | 非表示 (Edition badge 経由で分岐) | Phase 3 UI で UI 分岐確定 |
 
@@ -65,7 +65,7 @@ PLAN_LIMITS の family capability は SaaS family と NUC で同一。`resolveFu
 
 ## 業界呼称・PO 既出指摘との整合性 (2026-05-28 追補)
 
-- **業界用語**: **Self-hosted edition** / **OSS edition** / **Edition Bifurcation** (SaaS / Self-hosted の機能・課金軸分離、ADR-0051) / **Trust-based licensing** (DRM-less、HashiCorp / GitLab Community Edition / Sentry / PostHog 等の業界標準)
+- **業界用語**: **Self-hosted edition** / **OSS edition** / **Edition Bifurcation** (SaaS / Self-hosted の機能・課金軸分離、nuc-saas-runtime-bifurcation.md) / **Trust-based licensing** (DRM-less、HashiCorp / GitLab Community Edition / Sentry / PostHog 等の業界標準)
 - **NRR には含めない**: NUC は完全無料 OSS = MRR 0、SaaS metric の外側 (副次経路、ADR-0010 Pre-PMF Bucket C)
 - **4 谷参照 (大半が不適用)**: NUC は課金導線なし → 谷①プラン選択 / 谷②金額説得力 / 谷③解約柔軟性 / 谷④購入動線 はいずれも**非該当**。代わりに **「セットアップハードル」「アップデート不安」「データバックアップ責任」** が NUC 固有の谷
 - **Reverse Trial 整合**: NUC では trial 概念なし、最初から family 相当機能 (IS_NUC_DEPLOY flag で恒久解放)
@@ -94,7 +94,7 @@ journey
       OSS アップデート自主管理: 3: 親
 ```
 
-### 図 2: SaaS / NUC Edition Bifurcation (stateDiagram、ADR-0051)
+### 図 2: SaaS / NUC Edition Bifurcation (stateDiagram、nuc-saas-runtime-bifurcation.md)
 
 ```mermaid
 stateDiagram-v2
@@ -114,7 +114,7 @@ stateDiagram-v2
     end note
 ```
 
-### 図 3: NUC vs SaaS 機能・課金軸の Bifurcation (flowchart、ADR-0051)
+### 図 3: NUC vs SaaS 機能・課金軸の Bifurcation (flowchart、nuc-saas-runtime-bifurcation.md)
 
 ```mermaid
 flowchart TB
@@ -132,6 +132,6 @@ flowchart TB
 
 ## 根拠
 
-- 既存実装: `IS_NUC_DEPLOY` edition flag / Edition badge (ADR-0051) / `plan-limit-service` capability matrix (SaaS/NUC 共有)
-- Phase 1 phase1-nuc-requirements.md (#2539) / phase1-security (DRM なし・過剰防衛除外) / ADR-0051 NUC-SaaS Bifurcation / ADR-0010 (Pre-PMF DRM 不要)
+- 既存実装: `IS_NUC_DEPLOY` edition flag / Edition badge (nuc-saas-runtime-bifurcation.md) / `plan-limit-service` capability matrix (SaaS/NUC 共有)
+- Phase 1 phase1-nuc-requirements.md (#2539) / phase1-security (DRM なし・過剰防衛除外) / NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md) / ADR-0010 (Pre-PMF DRM 不要)
 - site/selfhost.html (LP NUC 訴求)

@@ -1,6 +1,7 @@
 // src/lib/domain/export-format.ts
 // エクスポートファイルのフォーマット型定義
 import type { CategoryId, ChildId } from '$lib/domain/ids';
+import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
@@ -17,7 +18,11 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 //   reward 再結合を mutable な title でなく安定識別子 (rewardId 由来の exportId) で行い、reward 改名後 /
 //   同名 reward 複数時に交換履歴が silent skip / collapse する restore edge を根治する。いずれも optional で
 //   後方互換 (旧 backup は rewardRef=title で従来どおり fallback 再結合、#3107 checklist exportId と同型)。
-export const EXPORT_VERSION = '1.7.0' as const;
+// #3330: 1.8.0 で per-date `loginBonuses[]` を counter `loginStreaks[]` に縮約 (案 B、PO 決裁 2026-07-19)。
+//   初の breaking transform: 旧 backup の loginBonuses[] は export-migrations の 1.7.0→1.8.0 step が
+//   childRef ごとに fold (deriveStreakCounter) して loginStreaks[] へ変換する (旧 backup 読込可)。
+//   退役キー `loginBonuses` / `consecutiveDays` は RESERVED_EXPORT_KEYS に登録。
+export const EXPORT_VERSION = '1.8.0' as const;
 
 // ============================================================
 // 退役キー名の予約 (Protobuf `reserved` / Avro alias の安価な代替)。
@@ -28,9 +33,15 @@ export const EXPORT_VERSION = '1.7.0' as const;
 // 退役名を登録し、(3) 代替は**新しいキー名の追加** + export-migrations の transform で旧→新を変換する。
 // 本配列に載った名前は二度と Export* 型のフィールド名に再利用してはならない
 // (`tests/unit/domain/export-key-stability.test.ts` が export-format.ts の宣言済キー名と本配列の
-//  非交差を機械検証する)。現状は退役キーなし。
+//  非交差を機械検証する)。
 // ============================================================
-export const RESERVED_EXPORT_KEYS: readonly string[] = [];
+export const RESERVED_EXPORT_KEYS: readonly string[] = [
+	// #3330 (1.8.0): per-date loginBonuses[] → counter loginStreaks[] 縮約で退役。
+	// 旧 backup は export-migrations の 1.7.0→1.8.0 fold step が読み替える。
+	// (`loginDate` は ExportStampEntry が現役使用のため退役登録しない)
+	'loginBonuses',
+	'consecutiveDays',
+];
 
 // ============================================================
 // #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
@@ -136,8 +147,10 @@ function hasControlChar(value: string): boolean {
 const BOOL_SETTING_VALUES = new Set(['true', 'false', '0', '1']);
 // HH:MM (24h)。notifications / quiet hours の time input が生成する形式。
 const TIME_HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-// tutorial_started_at / completed_at は `new Date().toISOString()`。
-const ISO_DATETIME_PREFIX_RE = /^\d{4}-\d{2}-\d{2}T/;
+// tutorial_started_at / completed_at の現行書込は `new Date().toISOString()` (T 区切り) だが、
+// 受理形式は round-trip 日時 SSOT ($lib/domain/validation/datetime、#3859) に従い SQL datetime
+// (スペース区切り) も許容する。#3851 で import-service 側だけ両区切り化した結果、settings 側に
+// T 必須 regex が残る片側ドリフトが生じていた — 形式定数の二重定義を排し同一述語を import する。
 const DECAY_INTENSITY_VALUES = new Set(['none', 'gentle', 'normal', 'strict']); // validation/status.ts DecayIntensity SSOT
 const POINT_UNIT_MODE_VALUES = new Set(['point', 'currency']); // point-display.ts PointUnitMode SSOT
 const CURRENCY_CODE_VALUES = new Set(['JPY', 'USD', 'EUR', 'GBP', 'AUD', 'CAD']); // point-display.ts CurrencyCode SSOT
@@ -154,8 +167,7 @@ const WEEKDAY_VALUES = new Set([
 
 const isBoolSetting = (v: string): boolean => BOOL_SETTING_VALUES.has(v);
 const isTimeSetting = (v: string): boolean => TIME_HHMM_RE.test(v);
-const isIsoDatetime = (v: string): boolean =>
-	v.length <= 40 && ISO_DATETIME_PREFIX_RE.test(v) && !Number.isNaN(Date.parse(v));
+const isIsoDatetime = (v: string): boolean => v.length <= 40 && isLegacyCompatibleDateTime(v);
 
 /**
  * 設定キーごとの値バリデータ (allowlist の 20 キー全てを網羅)。
@@ -343,15 +355,16 @@ export interface ExportChildTitle {
 	unlockedAt: string;
 }
 
-export interface ExportLoginBonus {
+/**
+ * ログインボーナス counter (#3330 案 B counter 縮約、1.8.0)。
+ * 旧 per-date `ExportLoginBonus` (loginBonuses[]) は退役 (RESERVED_EXPORT_KEYS)。
+ * 旧 backup は export-migrations の 1.7.0→1.8.0 step が本形式へ fold する。
+ */
+export interface ExportLoginStreak {
 	childRef: string;
-	loginDate: string;
-	rank: string;
-	basePoints: number;
-	multiplier: number;
-	totalPoints: number;
-	consecutiveDays: number;
-	createdAt: string;
+	lastLoginDate: string;
+	currentStreak: number;
+	updatedAt: string;
 }
 
 export interface ExportEvaluation {
@@ -622,7 +635,8 @@ export interface ExportTransactionData {
 	statusHistory: ExportStatusHistory[];
 	childAchievements: ExportChildAchievement[];
 	childTitles: ExportChildTitle[];
-	loginBonuses: ExportLoginBonus[];
+	/** #3330: 子供ごと 1 行の counter (旧 per-date loginBonuses[] は 1.8.0 で縮約・退役) */
+	loginStreaks: ExportLoginStreak[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
 	/** #3329: ごほうびショップ交換/購入履歴 (per-child、rewardRef で reward に再結合) */

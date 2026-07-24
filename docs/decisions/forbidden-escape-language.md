@@ -1,6 +1,6 @@
 # Forbidden Escape Language SSOT (PR body / commit message / Issue body)
 
-> 関連 ADR: [ADR-0047 Demo / 本番 UI Contract SSOT](0047-demo-prod-ui-contract-ssot.md) §決定 Q8
+> 関連 ADR: [ADR-0048 Multi-Lambda Demo Deployment](0048-multi-lambda-demo-deployment.md) §統合（旧 ADR-0047 §決定 Q8 由来、2026-07-19 棚卸で統合）
 > 関連 memory: `feedback_no_escape_to_haribote_implementation.md` / `feedback_demo_prod_ui_unification_blocker.md`
 > 関連 Issue: #2097 (6 回目の demo/本番統合要求 + 深層調査 §6 Q8)
 
@@ -68,7 +68,7 @@ PR body / commit message / Issue body / comment / コードコメント 等の *
 ## Phase 1 で本 SSOT が達成する効果
 
 - 禁止語が **文書として明示**されたため、Phase 1 完了直後から Reviewer (人間 / Agent) が PR レビュー時にチェックリストとして使える
-- Phase 2-5 の各 PR レビューで「ADR-0047 + 禁止語 SSOT 整合」を AC 検証マップに含めることで、機械検証なしでも禁止語使用が議論の俎上に上がる
+- PR レビューで「禁止語 SSOT 整合」を AC 検証マップに含めることで、機械検証なしでも禁止語使用が議論の俎上に上がる
 - Phase 5 で機械検証 (`check-no-escape-language.mjs`) を CI gate に追加 → 構造的阻止に昇格
 
 ## 関連 SSOT
@@ -77,10 +77,10 @@ PR body / commit message / Issue body / comment / コードコメント 等の *
   - `feedback_no_escape_to_haribote_implementation.md` — 困難時の はりぼて実装逃避禁止 (本 SSOT の母体)
   - `feedback_demo_prod_ui_unification_blocker.md` — 7 回失敗パターン分析
 - ADR:
-  - ADR-0047 (本 SSOT の意思決定背景)
+  - ADR-0048 §統合 (本 SSOT の意思決定背景、旧 ADR-0047)
   - ADR-0001 (設計書 SSOT) — 仕様が書かれていなければ存在しない
   - ADR-0003 (Issue 品質) — 根本原因 + 構造的解決
-  - ADR-0046 (Service Interface + Context DI) — 本 SSOT が守ろうとしている既存基盤
+  - ADR-0048 §統合 (Service Interface + Context DI、旧 ADR-0046) — 本 SSOT が守ろうとしている既存基盤
 
 ## 改訂履歴
 

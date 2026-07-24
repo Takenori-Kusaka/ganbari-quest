@@ -15,7 +15,7 @@ description: Use when changing database schema (adding/modifying tables, columns
 - [ ] `tests/e2e/global-setup.ts` — E2E テスト用のシードデータ
 - [ ] `tests/unit/helpers/test-db.ts` — ユニットテスト用のヘルパー
 - [ ] `src/lib/server/demo/demo-data.ts` — デモモード用のサンプルデータ
-- [ ] `src/lib/server/db/types.ts` — 型定義（DynamoDB の場合）
+- [ ] `src/lib/server/db/dsql/schema.ts` — cloud (DSQL) / NUC (PGlite) 共用 pg schema
 - [ ] `docs/design/08-データベース設計書.md` — 設計書
 - [ ] マイグレーションファイル — `npx drizzle-kit generate`
 
@@ -25,11 +25,21 @@ description: Use when changing database schema (adding/modifying tables, columns
 - [ ] backfill UPDATE — 新カラム追加時は既存行のデフォルト値更新を同梱
 - [ ] NOT NULL 制約追加時は先に backfill してから制約追加
 
-### 3. DynamoDB 固有チェック
+### 3. fresh-DB 互換 + cross-backend 3 経路検証（#3925 / #3928、第17回リリース 4 連続 blocker の教訓）
 
-- [ ] PK/SK の設計は `src/lib/server/db/dynamodb/keys.ts` に準拠
-- [ ] GSI の追加は最小限（既存 GSI で対応できないか先に検討）
-- [ ] 新エンティティの ID 採番は `counter.ts` の `nextId()` を使用
+ADR-0031 (既存データ互換) と**対**で必須。migration は「既存 state を持つ本番」だけでなく
+「**空 DB からの全 migration 貫通**」(fresh staging provision / 新規 NUC / DR 再構築) でも成立させる:
+
+- [ ] **fresh-DB 貫通**: 空 DB に全 migration を journal 順で通して成功するか。既存 table / 行の
+      存在を仮定する文 (`SELECT FROM <旧表>` 等) は IF (NOT) EXISTS guard で fresh-safe 化する
+      (`tests/unit/db/dsql-migration-provision.test.ts` [PV6] が機械検出)
+- [ ] **cross-backend 3 経路**: 同一 migration SQL でも実行 semantics が backend で異なる —
+      ① PGlite/NUC = raw SQL 記載順 ② sqlite = lazy-startup (`tableExists` guard) ③ DSQL =
+      `transform.ts` plan 経由 (runner が source 順 statements を per-statement autocommit 適用、#3928)。
+      **片側 (PGlite) の verify だけで Done としない**。順序依存 migration (DDL→DML→DDL 型の
+      fold 等) は transform+runner pipeline test ([PV7]/[PV8]) でも確認する
+- [ ] **不変条件**: 「同一 migration は全 executor で同一終端 schema に到達する」— 逸脱は
+      staging (release gate) でなく unit 層で検出する (ADR-0061 push-down-pyramid)
 
 ### 4. startup migration の fail-fast 落とし穴（#3286 infra-1）
 

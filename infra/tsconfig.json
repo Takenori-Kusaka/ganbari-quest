@@ -1,4 +1,5 @@
 {
+	// strict 系フラグの採用 / 見送り判断は docs/design/typescript-strictness-policy.md が SSOT (#3877)。
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "commonjs",
@@ -12,7 +13,11 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noImplicitReturns": true,
-		"noFallthroughCasesInSwitch": false,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"noUncheckedIndexedAccess": true,
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"experimentalDecorators": true,

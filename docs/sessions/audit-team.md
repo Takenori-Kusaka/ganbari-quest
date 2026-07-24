@@ -210,6 +210,17 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 - **冗長テスト回避（step 4）**: develop 取込時点で feature PR が追加済みのテストと突合し、同一観点の二重追加を避ける。監査チームが足すのは「統合状態でしか検出できない CUJ 横断テスト」に限る（§3.4 二重判定回避と同型）。
 - **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DynamoDB backend で lazy migration を呼ばないため schema assert 無し）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
 
+### §3.9 非 critical PR サンプリング監査（complacency 対策、#3862）
+
+`po-decision:required` label（[pr-review SKILL.md](../../.claude/skills/pr-review/SKILL.md) §Step 0 の triage）が付かない非 critical PR は、PO 決裁ブリーフを経由せず QM / 監査チームの判定のみで merge される。この経路を放置すると **PO がプロダクトの実態を知る機会を失う** + **AI レビューへの追認（automation complacency / rubber-stamping）が検知不能になる**ため、抜き取り監査を運用に組み込む。
+
+**運用定義**:
+
+1. **抽出**: 統合 PR 監査 run（§3.8）ごとに、含有 feature/fix PR のうち `po-decision:required` 非該当のものから **無作為に 1〜2 件**を audit-manager が抽出する（run 内に非該当 PR が無ければ skip し evidence に明記）。
+2. **提示**: 抽出 PR について audit-manager が「変更概要 / 顧客面の変化（実機挙動）/ AI（QM・監査）の判定結果」を 5 分読了以内の人間可読サマリで PO に提示し、**PO が直接レビュー**する（ブリーフ 6 項目のうち 1 / 5 / 6 相当の縮約版で足りる）。
+3. **complacency 指標**: PO 判定と AI 判定の一致 / 不一致を run ごとに evidence へ記録する。**高一致の継続は good performance ではなく complacency の兆候**として扱う（LLM review 追認バイアスの実証研究、#3862 deep research）。不一致 0 が続く場合は「AI が正しい」と結論せず、(a) 抽出件数を増やす、(b) triage パス表（`.github/labeler.yml` `po-decision:required`）と Step 0-2 判断層 checklist を見直す、のいずれかを実施する。
+4. **不一致時**: PO 指摘は §3.6 の起票/棄却 flow に乗せる。triage の false negative（本来 `po-decision:required` であるべきだった）と判明した場合は、labeler glob + `tests/unit/github/po-decision-labeler.test.ts` の代表パスを同一 PR で追加し class を lock する（ADR-0061 原則 2）。
+
 ## §4 関連参照
 
 | 参照先 | 役割 |

@@ -1014,6 +1014,57 @@ function migrateCloudExportBuildStartedAtColumn(db: Database.Database): void {
 	console.info('[lazy-migrate #3509] added cloud_exports.build_started_at (nullable)');
 }
 
+/**
+ * #3330 (案 B counter 縮約): per-date `login_bonuses` を子供ごと 1 行の counter 表
+ * `login_streaks` (last_login_date + current_streak) に fold し、旧表を DROP する。
+ *
+ * fold は「最新ログイン日を終端に、前日が存在する限り遡って連続日数を数える」
+ * (旧 calculateConsecutiveDays / domain の deriveStreakCounter と同一論理) を
+ * window function の gaps-and-islands (login_date = max_d - (rn-1) days) で SQL 一括実行する。
+ * updated_at は連続 run 内の最新 created_at を保全する (lastClaimedAt 表示の連続性)。
+ *
+ * 冪等: login_bonuses 不在 (新規 DB / fold 済) なら skip。login_streaks に既に行がある
+ * child は ON CONFLICT DO NOTHING で上書きしない。tx で fold + DROP を atomic 化 (#2509)。
+ */
+function migrateLoginBonusesToStreaks(db: Database.Database): void {
+	// guard (read-only): 旧表が無ければ何もしない (fold 済 or 新規 DB)
+	if (!tableExists(db, 'login_bonuses')) return;
+
+	const run = db.transaction(() => {
+		// 受け皿 (create-tables.ts SQL_CREATE_TABLES と同一 DDL、本 migration は同 SQL より前に走る)
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS login_streaks (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				last_login_date TEXT NOT NULL,
+				current_streak INTEGER NOT NULL DEFAULT 1,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_login_streaks_child ON login_streaks(child_id);
+		`);
+		const folded = db
+			.prepare(`
+			INSERT INTO login_streaks (child_id, last_login_date, current_streak, updated_at)
+			SELECT s.child_id, max(s.login_date), count(*), max(s.created_at)
+			FROM (
+				SELECT child_id, login_date, created_at,
+					row_number() OVER (PARTITION BY child_id ORDER BY login_date DESC) AS rn,
+					max(login_date) OVER (PARTITION BY child_id) AS max_d
+				FROM login_bonuses
+			) s
+			WHERE date(s.login_date) = date(s.max_d, '-' || (s.rn - 1) || ' days')
+			GROUP BY s.child_id
+			ON CONFLICT(child_id) DO NOTHING
+		`)
+			.run();
+		db.exec('DROP TABLE login_bonuses;');
+		console.info(
+			`[lazy-migrate #3330] folded login_bonuses → login_streaks (${folded.changes} children) and dropped login_bonuses`,
+		);
+	});
+	run();
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -1048,6 +1099,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3509: cloud_exports に build_started_at カラムを追加 (stale building reclaim 用)。
 		// status カラムの存在を前提としないが、同機能追加の直後に実行する。
 		migrateCloudExportBuildStartedAtColumn(db);
+		// #3330: login_bonuses (per-date) → login_streaks (counter) fold + 旧表 DROP。
+		// 他表と独立のため末尾で実行 (SQL_CREATE_TABLES より前なら順序制約なし)。
+		migrateLoginBonusesToStreaks(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険

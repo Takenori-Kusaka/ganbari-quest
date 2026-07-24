@@ -1,9 +1,47 @@
 ---
 name: PR Review
-description: Use when reviewing a pull request. Enforces the mandatory 9-point checklist (file existence, dependencies, AC verification, E2E, lateral spread, CSS, design docs, documentation, recent-deploy deletion guard).
+description: Use when reviewing a pull request. Enforces Step 0 PO-decision triage (po-decision:required label for high-risk irreversible paths, #3862) plus the mandatory 9-point checklist (file existence, dependencies, AC verification, E2E, lateral spread, CSS, design docs, documentation, recent-deploy deletion guard).
 ---
 
 # PR レビューチェックリスト
+
+## Step 0: PO 決裁 triage（#3862、高リスク・不可逆変更の機械判定）
+
+A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判定する。AI は triage + ブリーフ生成のみを担い、**判断と実態把握は PO が握る**（automation complacency / rubber-stamping への構造的対処）。
+
+### 0-1. パス判定マップ（機械層）
+
+**SSOT = `.github/labeler.yml` の `po-decision:required` エントリ**。`actions/labeler@v6`（`.github/workflows/labeler.yml`）が PR opened / synchronize で自動付与する。領域一覧（glob 実体は labeler.yml 参照）:
+
+| 領域 | 代表パス |
+|---|---|
+| DB スキーマ / migration | `src/lib/server/db/schema.ts` / `src/lib/server/db/dsql/schema.ts` / `drizzle/**` |
+| Stripe・billing | `src/lib/server/stripe/**` / `src/routes/api/stripe/**` |
+| auth・認可境界 | `src/hooks.server.ts` / `src/lib/policy/**` / `src/lib/server/auth/**` |
+| infra・deploy | `infra/**` / `.github/workflows/deploy*.yml` |
+| DSQL テナント分離（ADR-0063） | `src/lib/server/db/dsql/connection.ts` + tenant-predicate fitness test |
+| retention・PII（ADR-0049） | retention-cleanup / account-deletion / deletion-export service |
+| env（ADR-0006） | `.env.example` / `src/lib/runtime/env.ts` |
+| 価格・プラン文字列（ADR-0045） | `src/lib/domain/terms.ts` / `src/lib/domain/plan-features.ts` |
+| 法務・LP truth（ADR-0013） | `site/{terms,privacy,tokushoho,sla,pricing}.html` / プライシング戦略書 |
+
+回帰固定: `tests/unit/github/po-decision-labeler.test.ts`（高リスク代表パス → label 期待、false negative 0）。glob 追加・変更時は同テストの代表パスも同 PR で更新する。
+
+### 0-2. glob で表現できない triage シグナル（判断層 checklist、PO 決裁 2026-07-19 追加軸込み）
+
+パス非該当でも、以下に 1 つでも該当すれば `gh pr edit <N> --add-label "po-decision:required"` で手動付与する:
+
+- [ ] **運用コスト / 保守コストが増える変更**（定常運用手順の追加・監視対象の増加・手動運転の恒常化）
+- [ ] **新規デザインアーキテクチャパターンの採用**（既存 registry / Strategy / 3 層トークン等に無い新パターン導入）
+- [ ] **技術負債としての積み残しが発生する変更**（暫定実装のまま完了扱い・migration 半端・fallback の恒久化）
+- [ ] 変更ファイル数が大きい（50 file 超、レビュー shallow 化の実証リスク）
+- [ ] 5 年齢モード横断波及（`regression-check` / `impact-analysis` skill 該当）
+- [ ] `priority:critical`（ADR-0002）
+- [ ] ロールバック不能なデータ破壊 / 不可逆 migration を含む
+
+### 0-3. label 付与時の義務
+
+`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、6 項目）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
 
 ## 必須 9 項目（A〜I 全項目）
 
@@ -25,6 +63,7 @@ description: Use when reviewing a pull request. Enforces the mandatory 9-point c
 - [ ] **failing-test-first（ADR-0061）**: バグ修正 PR は「再現テスト → 修正」順か。修正前に失敗し修正後に green になるテストで原因が pin されているか（修正だけで再現テストなしは差し戻し）
 - [ ] **push-down-the-pyramid（ADR-0061 / ADR-0007）**: 重量レーン（e2e / 統合監査）で露見した不具合は、同条件を unit / lint / fitness function で捕捉できないか検討し、可能なら下位層に降ろしてあるか
 - [ ] **same-class-N→guard（ADR-0061）**: 同一バグ class が 2 回以上再発している領域は、別 instance パッチでなく CI gate / lint / property test / fitness function で class 全体を lock しているか（instance パッチのみは Done にしない）
+- [ ] **Svelte Runes semantic（ADR-0007 §6 / #3878、lint 対象外の領域）**: `.svelte` 変更は `eslint-plugin-svelte` recommended（`lint:svelte`）が syntactic footgun を潰すが、**「この `$effect` は `$derived` にすべき」の意図判断は lint では原理的に不可能**（`prefer-writable-derived` は単一代入 trivial shape のみ検出）。effect で state を derive/同期していないか、新規 `eslint-suppressions.json` エントリ増（baseline 悪化）がないかを目視で確認する
 
 ### D. 横展開（parallel-implementations.md）
 - [ ] labels.ts の変更 → site/ + tutorial-chapters.ts も同期

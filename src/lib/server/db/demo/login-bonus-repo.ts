@@ -1,42 +1,36 @@
 import type { ChildId } from '$lib/domain/ids';
-// Demo ILoginBonusRepo implementation
+// Demo ILoginBonusRepo implementation (#3330 counter 縮約)
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
-import { DEMO_CHILDREN, DEMO_LOGIN_BONUSES } from '$lib/server/demo/demo-data';
-import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
+import { DEMO_CHILDREN, DEMO_LOGIN_STREAKS } from '$lib/server/demo/demo-data';
+import type { Child, LoginStreak, UpsertLoginStreakInput } from '../types';
 
-export async function findTodayBonus(
+export async function findStreak(
+	childId: ChildId,
+	_tenantId: string,
+): Promise<LoginStreak | undefined> {
+	return DEMO_LOGIN_STREAKS.find((s) => s.childId === childId);
+}
+
+export async function claimToday(
 	childId: ChildId,
 	today: string,
+	yesterday: string,
 	_tenantId: string,
-): Promise<LoginBonus | undefined> {
-	return DEMO_LOGIN_BONUSES.find((b) => b.childId === childId && b.loginDate === today);
+): Promise<{ currentStreak: number } | undefined> {
+	// Fake: fixture の counter 状態に対する conditional write 意味論を再現 (非永続)。
+	const existing = DEMO_LOGIN_STREAKS.find((s) => s.childId === childId);
+	if (existing?.lastLoginDate === today) return undefined;
+	if (existing?.lastLoginDate === yesterday) return { currentStreak: existing.currentStreak + 1 };
+	return { currentStreak: 1 };
 }
 
-export async function findRecentBonuses(
-	childId: ChildId,
+export async function upsertStreak(
+	_input: UpsertLoginStreakInput,
 	_tenantId: string,
-	limit?: number,
-): Promise<LoginBonus[]> {
-	const filtered = DEMO_LOGIN_BONUSES.filter((b) => b.childId === childId);
-	return typeof limit === 'number' ? filtered.slice(0, limit) : filtered;
-}
-
-export async function insertLoginBonus(
-	input: InsertLoginBonusInput,
-	_tenantId: string,
-): Promise<LoginBonus> {
-	return {
-		id: '0',
-		childId: input.childId,
-		loginDate: input.loginDate,
-		rank: input.rank,
-		basePoints: input.basePoints,
-		multiplier: input.multiplier,
-		totalPoints: input.totalPoints,
-		consecutiveDays: input.consecutiveDays,
-		createdAt: new Date().toISOString(),
-	};
+): Promise<boolean> {
+	// Stub: no-op
+	return true;
 }
 
 export async function findChildById(id: ChildId, _tenantId: string): Promise<Child | undefined> {
@@ -45,12 +39,4 @@ export async function findChildById(id: ChildId, _tenantId: string): Promise<Chi
 
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	// Stub: no-op
-}
-
-export async function deleteLoginBonusesBeforeDate(
-	_childId: ChildId,
-	_cutoffDate: string,
-	_tenantId: string,
-): Promise<number> {
-	return 0;
 }

@@ -429,7 +429,7 @@ test('「やめる」で /admin/subscription に戻る', async ({ page }) => {
 | ADR-0013 (LP truth) | ✅ tokushoho.html / Stripe custom_text / 本画面 3 経路で SSOT 整合 |
 | ADR-0045 (terms.ts 2 階層) | ✅ TOKUSHOHO_TERMS atom + SUBSCRIPTION_CONFIRM_LABELS compound 分離 |
 | ADR-0050 (Parent-Gate) | ✅ /admin/* 配下、子供 UI に課金圧表示なし |
-| ADR-0051 (NUC-SaaS Bifurcation) | ✅ NUC 環境では本画面非表示 (Edition badge 経路) |
+| NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md) | ✅ NUC 環境では本画面非表示 (Edition badge 経路) |
 
 ---
 
@@ -457,7 +457,7 @@ test('「やめる」で /admin/subscription に戻る', async ({ page }) => {
 | 1 | Phase 1 SSOT「5 項目」と本画面「6 ブロック」差異の Phase 1 補強記載 (Phase 7 着手前に Phase 1 #2541 補強 PR)。**現時点の解釈整合**: Phase 1 #2541「5 項目」は **改正特商法第12条の6 第1項各号 (① 分量 / ② 販売価格 / ③ 支払時期・方法 / ④ 引渡時期 / ⑤ 申込撤回・解除) の法的最低要件**を指し、本画面の「6 ブロック」は **5 法定項目 + 自動更新明示 (③ の subset を独立 UI 配置、誤認防止強化目的)** を指す。両者は矛盾せず、視覚的 6 ブロック = 法定 5 項目 + 自動更新独立配置 1 の構成。Phase 1 #2541 側を Phase 7 着手前に「UI 表示粒度は 6 ブロック、法定要件は 5 項目」と補強する PR を切る (#2535 SSOT と整合確認も同 PR) | 推奨、要 PO 判断 |
 | 2 | 同意 checkbox 文言「上記内容を確認し、お申し込みに同意します」の法務確認 (誤認表示禁止違反性) | **法務 review 必須** |
 | 3 | proration 差額表示の小数点処理 (¥530 表示時の rounding 規則) | Phase 7 実装時、Stripe 側 cents 単位整合確認 |
-| 4 | NUC 環境 (`/admin/subscription/confirm` 非表示) の代替動線 | ADR-0051 整合、別 issue で扱う |
+| 4 | NUC 環境 (`/admin/subscription/confirm` 非表示) の代替動線 | nuc-saas-runtime-bifurcation.md 整合、別 issue で扱う |
 | 5 | scope 外: 年額プラン (Phase 1 #2588 で月額のみ確定済) — 将来年額追加時は本画面の「次回更新」表記を「次回 (毎年)」に拡張 | 不要 (月額のみ確定) |
 | 6 | proration 戻入が ¥0 になるエッジケース (即時 upgrade) の表示 | Phase 7 実装時 |
 | 7 | **法務 expert review の取扱い明確化** (本 docs PR は『法務 review 前の暫定設計書』として merge、Phase 7 着手前に法務 review round を 1 回必須挟む)。本設計書 (`§9.3` で `ADR-0010 Bucket A` 法令必須と整合) は deep-research primary source (§12) に基づく **暫定設計**。Phase 7 実装 PR 着手前に本設計書を **法務 expert (社外 / 顧問弁護士) review** に通し、判断結果を本設計書 §12.4 または別 ADR に追記する補強 PR で更新する。本 docs PR を merge する判断 = 「実装着手の事前合意」ではなく「設計たたき台合意」と位置付ける | **必須プロセス**、Phase 7 着手前に法務 review round 完了確認 |
@@ -502,6 +502,6 @@ test('「やめる」で /admin/subscription に戻る', async ({ page }) => {
 - ADR-0013 (LP truth、tokushoho.html / Stripe / 本画面 3 経路 SSOT)
 - ADR-0045 (terms.ts 2 階層、TOKUSHOHO_TERMS / SUBSCRIPTION_CONFIRM_LABELS 責務分離)
 - ADR-0050 (Parent-Gate session cookie)
-- ADR-0051 (NUC-SaaS Bifurcation)
+- NUC-SaaS Bifurcation (nuc-saas-runtime-bifurcation.md)
 - skill `impact-analysis` (4 layer 防御 + 21 カテゴリ checklist)
 - 関連 memory: feedback_billing_critical_extra_caution / feedback_adr0010_interpretation / feedback_scope_customer_experience_layer / feedback_design_intent_grounding / feedback_test_coverage_every_issue / feedback_deep_research_product_specific

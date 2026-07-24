@@ -29,7 +29,7 @@ import {
 	type ExportChildVoice,
 	type ExportData,
 	type ExportEvaluation,
-	type ExportLoginBonus,
+	type ExportLoginStreak,
 	type ExportOptions,
 	type ExportParentMessage,
 	type ExportPointLedger,
@@ -54,7 +54,7 @@ import {
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { findEvaluationsByChild, findRestDaysByChild } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
-import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
+import { findStreak } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
 import { findRedemptionRequestsByTenant } from '$lib/server/db/reward-redemption-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
@@ -284,7 +284,7 @@ interface ChildTransactionData {
 	pointLedger: ExportPointLedger[];
 	statuses: ExportStatus[];
 	statusHistory: ExportStatusHistory[];
-	loginBonuses: ExportLoginBonus[];
+	loginStreaks: ExportLoginStreak[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
 	rewardRedemptions: ExportRewardRedemption[];
@@ -326,7 +326,7 @@ async function collectForChild(
 		activityLogs,
 		pointHistory,
 		statuses,
-		loginBonuses,
+		loginStreak,
 		evaluations,
 		specialRewards,
 		redemptions,
@@ -342,7 +342,8 @@ async function collectForChild(
 		findActivityLogs(childId, tenantId),
 		findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
 		findStatuses(childId, tenantId),
-		findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
+		// #3330 (案 B counter 縮約): per-date 全件ではなく counter 1 行のみ (backup 固定サイズ化)
+		findStreak(childId, tenantId),
 		findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 		findSpecialRewards(childId, tenantId),
 		// #3329: ごほうびショップ交換/購入履歴を backup に保持 (WithDetails = snapshot 解決済の
@@ -395,7 +396,6 @@ async function collectForChild(
 
 	// #3259 perf-6: cap 到達 (= 取りこぼし可能性) を observable 化
 	warnIfTruncated('pointLedger', childId, pointHistory.length);
-	warnIfTruncated('loginBonuses', childId, loginBonuses.length);
 	warnIfTruncated('evaluations', childId, evaluations.length);
 	for (const entries of statusHistoryResults) {
 		warnIfTruncated('statusHistory', childId, entries.length);
@@ -443,16 +443,17 @@ async function collectForChild(
 
 	// 実績システム廃止（#322）— Achievements / Titles スキップ
 
-	const loginBonusesOut: ExportLoginBonus[] = loginBonuses.map((lb) => ({
-		childRef,
-		loginDate: lb.loginDate,
-		rank: lb.rank,
-		basePoints: lb.basePoints,
-		multiplier: lb.multiplier,
-		totalPoints: lb.totalPoints,
-		consecutiveDays: lb.consecutiveDays,
-		createdAt: lb.createdAt,
-	}));
+	// #3330: counter 1 行 (未 claim 児は 0 行)
+	const loginStreaksOut: ExportLoginStreak[] = loginStreak
+		? [
+				{
+					childRef,
+					lastLoginDate: loginStreak.lastLoginDate,
+					currentStreak: loginStreak.currentStreak,
+					updatedAt: loginStreak.updatedAt,
+				},
+			]
+		: [];
 
 	const evaluationsOut: ExportEvaluation[] = evaluations.map((ev) => ({
 		childRef,
@@ -691,7 +692,7 @@ async function collectForChild(
 		pointLedger: pointLedgerOut,
 		statuses: statusesOut,
 		statusHistory: statusHistoryOut,
-		loginBonuses: loginBonusesOut,
+		loginStreaks: loginStreaksOut,
 		evaluations: evaluationsOut,
 		specialRewards: specialRewardsOut,
 		rewardRedemptions: rewardRedemptionsOut,
@@ -753,7 +754,7 @@ async function collectTransactionData(
 		statusHistory: perChild.flatMap((p) => p.statusHistory),
 		childAchievements: [], // 実績システム廃止（#322）
 		childTitles: [], // 称号システム廃止（#322）
-		loginBonuses: perChild.flatMap((p) => p.loginBonuses),
+		loginStreaks: perChild.flatMap((p) => p.loginStreaks),
 		evaluations: perChild.flatMap((p) => p.evaluations),
 		specialRewards: perChild.flatMap((p) => p.specialRewards),
 		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),

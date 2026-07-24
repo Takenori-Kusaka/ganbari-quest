@@ -212,28 +212,9 @@ jobs:
       # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
       # bin/app.ts は本番 stack 群を無条件 instantiate するため、DsqlStaging のみの deploy でも
       # synth には compute-stack の必須 context (opsSecretKey 等) が要る (cycle 1 の学び)。
-      # #3702 rehearsal: 本番 deploy.yml Phase 2.9 相当の cutover 前 DynamoDB backup を staging で検証。
-      # staging table (ganbari-quest-staging) は空でも create-backup の動作 (fail-closed 含む) を確認する。
-      - name: Pre-cutover DynamoDB backup (staging rehearsal, fail-closed #3702)
-        if: env.DSQL_LANE == 'true'
-        run: |
-          BACKUP_NAME="staging-pre-cutover-$(date -u +%Y%m%d-%H%M%S)"
-          ARN=$(aws dynamodb create-backup --table-name "$ECR_REPOSITORY" --backup-name "$BACKUP_NAME" \
-            --region "$AWS_REGION" --query 'BackupDetails.BackupArn' --output text)
-          echo "::notice::staging DynamoDB backup: $BACKUP_NAME ($ARN)"
-          ST=""
-          for i in $(seq 1 30); do
-            ST=$(aws dynamodb describe-backup --backup-arn "$ARN" --region "$AWS_REGION" \
-              --query 'BackupDescription.BackupDetails.BackupStatus' --output text)
-            echo "backup status: $ST"
-            [ "$ST" = "AVAILABLE" ] && break
-            sleep 5
-          done
-          if [ "$ST" != "AVAILABLE" ]; then
-            echo "::error::staging DynamoDB backup が AVAILABLE になりませんでした"
-            exit 1
-          fi
-
+      # 旧 #3702 の cutover 前 DynamoDB backup rehearsal step は、cutover 完遂 + DynamoDB
+      # 撤去 (#3438 Deploy-2) で対象 table が消滅し obsolete 化したため撤去 (#3921。
+      # TableNotFound で lane が赤化した第17回リリース blocker の根治)。
       - name: Deploy DSQL staging cluster (dsql lane)
         if: env.DSQL_LANE == 'true'
         working-directory: infra/
@@ -409,6 +390,50 @@ jobs:
             exit 1
           fi
           echo "::notice::staging smoke test passed (/ and /switch reachable)"
+
+      # Step 15.5 (#3683、DSQL lane のみ): 実 DSQL staging cluster での並行検証 test を lane 内で自動実行。
+      # deploy → migrate → grant → health/smoke green の後、lane が整えた endpoint (GITHUB_ENV の
+      # DSQL_ENDPOINT) + OIDC creds (dsql:migrate と同一、DbConnectAdmin) をそのまま test に渡す。
+      # 実行コマンドは test ヘッダー SSOT (tests/integration/db/dsql-staging-concurrency.test.ts 冒頭) と同一。
+      # - AC2 (graceful skip): DSQL lane 非活性 / endpoint 未解決時は step 自体を if で明示 skip
+      #   (run UI に skipped と出る。silent fail ではない、ADR-0006)。
+      # - test fail 時は step fail = lane fail (本 workflow は advisory / required 未登録のため
+      #   merge は block しないが red が見える。既存 lane の advisory 位置付けは不変)。
+      # - 固定 FAMILY uuid の相互破壊 flake (issue #3683 コメント 2026-07-16) は、本 workflow の
+      #   concurrency group (deploy-aws-staging, cancel-in-progress) が同時 run を 1 本に制限する
+      #   ことで本 test に関しては顕在化しない (afterAll が family 全行を削除し原状復帰する)。
+      - name: DSQL staging concurrency test (dsql lane, #3683)
+        if: env.DSQL_LANE == 'true' && env.DSQL_ENDPOINT != ''
+        timeout-minutes: 20
+        env:
+          DSQL_ENDPOINT: ${{ env.DSQL_ENDPOINT }}
+        run: |
+          START=$(date +%s)
+          set +e
+          npx vitest run tests/integration/db/dsql-staging-concurrency.test.ts
+          STATUS=$?
+          set -e
+          DURATION=$(( $(date +%s) - START ))
+          if [ "$STATUS" = "0" ]; then
+            RESULT="PASS"
+          else
+            RESULT="FAIL (exit $STATUS)"
+          fi
+          {
+            echo "## DSQL staging 並行検証 test (#3683、AC1)"
+            echo ""
+            echo "| 項目 | 値 |"
+            echo "|---|---|"
+            echo "| test file | \`tests/integration/db/dsql-staging-concurrency.test.ts\` (V1-V4: OCC 実発生 / 冪等 guard / lost update なし / cancel 原子化) |"
+            echo "| 結果 | $RESULT |"
+            echo "| 所要 | ${DURATION}s |"
+            echo "| endpoint | $DSQL_ENDPOINT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" != "0" ]; then
+            echo "::error::DSQL staging 並行検証 test が fail しました (exit $STATUS)。advisory lane のため merge は block しませんが、staging drift の可能性を確認してください (#3683)"
+            exit "$STATUS"
+          fi
+          echo "::notice::DSQL staging 並行検証 test passed (${DURATION}s、#3683)"
 
       # Step 16: Rollback on failure — staging ECR の previous digest に戻す
       # (deploy.yml Phase 5b 同型。staging repo は maxImageCount:3 のため直近 2 世代まで戻せる)。

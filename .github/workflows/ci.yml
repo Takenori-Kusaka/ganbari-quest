@@ -41,6 +41,7 @@ jobs:
       cognito: ${{ steps.filter.outputs.cognito }}
       docker: ${{ steps.filter.outputs.docker }}
       docs: ${{ steps.filter.outputs.docs }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v7
 
@@ -62,6 +63,9 @@ jobs:
               - 'playwright*.config.*'
               - 'vitest.config.*'
               - 'Dockerfile*'
+              # #3871: dependency-cruiser config 変更で依存境界 gate を再検査
+              - '.dependency-cruiser.cjs'
+              - 'infra/.dependency-cruiser.cjs'
               - '.github/workflows/ci.yml'
             deps:
               - 'package.json'
@@ -143,6 +147,13 @@ jobs:
               - 'scripts/check-doc-code-references.mjs'
               - 'scripts/doc-code-references-baseline.json'
               - 'scripts/__tests__/**'
+              - '.github/workflows/ci.yml'
+            # #3874 Layer 1: CDK synth 静的 lint (cfn-lint) gate の起動条件。
+            # infra/ (stack / lambda) 変更・cfn-lint gate 本体・ci.yml 変更で発火。
+            infra:
+              - 'infra/**'
+              - 'scripts/check-cdk-cfn-lint.mjs'
+              - 'scripts/__tests__/check-cdk-cfn-lint.test.mjs'
               - '.github/workflows/ci.yml'
 
   lint-and-test:
@@ -256,13 +267,23 @@ jobs:
       - name: ESLint Playwright (no-networkidle / no-wait-for-timeout, #1259)
         run: npx eslint "tests/**/*.ts"
 
-      # #3450 item1: svelte/no-at-html-tags (XSS) の AST 検出を CI で二重化。
-      # XSS の hard merge-blocker は scripts/check-no-at-html.mjs (lint-parallel job) が担い、
-      # 本 step は AST 層の secondary 検出。既存違反 38 errors は全て local design rules
-      # (no-raw-button / max-style-lines 等、svelte/no-at-html-tags は 0 件) のため
-      # SonarJS step と同格の warn-only で導入 (green 化できない hard gate を足さない)。
-      - name: ESLint Svelte (svelte/no-at-html-tags AST XSS 二重化, #3450)
-        continue-on-error: true
+      # #3877 AC3: type-aware lint の hard gate (CI 限定)。tsc に等価フラグの無い await 漏れ /
+      # 未処理 Promise rejection (no-floating-promises / no-misused-promises) を型情報で機械捕捉する。
+      # 型情報ロードで重いため分離 config (eslint.typed.config.js) に隔離し、ローカル / pre-push /
+      # pre-ready は非 type-aware のまま高速維持する (docs/design/typescript-strictness-policy.md §3.3)。
+      # scope = アプリ src + CDK infra/lib・infra/bin の production / server コード (tests/ は除外)。
+      # SonarJS step (continue-on-error) と異なり本 step は error 検出で CI を fail させる。
+      - name: ESLint type-aware (no-floating-promises / no-misused-promises, #3877 — CI 限定)
+        run: npm run lint:typed
+
+      # #3878: eslint-plugin-svelte recommended (Runes/reactivity correctness) を hard gate 化。
+      # 既存違反 483 errors (svelte recommended + local design rules) は ESLint 10 native bulk
+      # suppressions (eslint-suppressions.json) で baseline 凍結済のため green 化可能になり、
+      # #3450 時点の warn-only (green 化できない hard gate を足さない) 制約が解消した。
+      # 以後は新規違反のみ CI fail (ratchet)。svelte/no-at-html-tags (XSS) の hard merge-blocker は
+      # 引き続き scripts/check-no-at-html.mjs (lint-parallel job) が主で、本 step は AST 層の
+      # 二重化 + recommended 全ルールの gate を兼ねる。詳細 SSOT: ADR-0007 §6。
+      - name: ESLint Svelte (eslint-plugin-svelte recommended + XSS AST, #3878/#3450)
         run: npm run lint:svelte
 
       - name: Knip (unused exports/files/deps detection, #970)
@@ -271,6 +292,12 @@ jobs:
 
       - name: Svelte check (#1432 — warning=error)
         run: npx svelte-kit sync && npx svelte-check --tsconfig ./tsconfig.json --threshold warning
+
+      # #3877 AC2: CDK 側の独立型検査 gate。アプリ側 svelte-check に対応する CDK 版で、
+      # 従来 infra は synth / vitest 依存で型 gate が無かった (アプリとの厳格度差)。
+      # infra/tsconfig.json (Phase 1 flags + noUncheckedIndexedAccess 有効) で tsc --noEmit。
+      - name: CDK type check (infra tsc --noEmit, #3877)
+        run: cd infra && npx tsc --noEmit
 
       - name: Type coverage ratchet check (#978)
         run: npm run type-coverage
@@ -343,6 +370,89 @@ jobs:
       # (GitHub 公式 security hardening guide が SHA pin 推奨)。#3298。
       - name: 高権限 GitHub Actions SHA pin guard (#3298)
         run: node scripts/check-action-sha-pin.mjs
+
+  # #3871 (ADR-0061 Phase 2): 依存境界の宣言的 gate (dependency-cruiser)。
+  # app (src/) の 循環依存=error / orphan=warn / routes↛DB 直 import / routes↛raw ORM と、
+  # infra (CDK) の 循環=error / stack 間直 import=error を AST 依存解決ベースで検査する。
+  # 既存 Vitest fitness (route-db-boundary 等) と補完関係 (rip-replace せず、AC5)。
+  dependency-cruiser:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # infra depcruise 用に infra/ 配下も install (#2476 と同型、AC1 = app root + infra/)
+      - name: Install infra dependencies (#2097 ADR-0048 / #2476)
+        run: cd infra && npm ci
+
+      # depcruise の tsConfig 解決に `$lib` alias (.svelte-kit/tsconfig.json) が必要。
+      # npm ci の prepare で sync 済だが冪等に明示実行する。
+      - name: Sync SvelteKit ($lib alias for depcruise tsConfig)
+        run: npx svelte-kit sync
+
+      - name: Dependency boundaries — app (循環/orphan/forbidden import, #3871 / ADR-0061 Phase 2)
+        run: npm run depcruise
+
+      - name: Dependency boundaries — infra CDK stacks (循環/stack 間直 import, #3871 AC3)
+        run: npm run depcruise:infra
+
+  # #3874 Layer 1: CDK synth 静的 lint (cfn-lint) gate。
+  # `cdk synth --all` 出力 (cdk.out/*.template.json) を cfn-lint で検査し、AWS::* リソースの
+  # property 制約違反 (charset / allowed-value / type) を deploy 前 (synth 時点) に hard-fail する。
+  # #3870 (IAM Role Description 非-ASCII → 本番 deploy rollback) 級の「synth 成功・unit test 通過・
+  # staging すり抜けで本番 deploy 初露見」する回帰を、カスタムコードなしで根絶する (E3031 等)。
+  # develop 向け PR でも発火させることで ADR-0019 replacement gate の「develop で効かない」gap を補完。
+  # 役割分担: cfn-lint = AWS schema 由来の網羅的 property 制約 (汎用) /
+  #           assertion = project 固有の意図 (tests/unit/infra/*.test.ts)。
+  # infra/ 変更時のみ実行 (軽量。node ci + infra ci + synth + cfn-lint で ~1-2 分)。
+  cdk-cfn-lint:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # tsx (cdk.json app) と aws-cdk / aws-cdk-lib は infra/package.json SSOT (root は持たない)。
+      - name: Install infra dependencies
+        run: cd infra && npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # cfn-lint は Python dev tool (本番 bundle 0、外部送信なし、offline、AWS 認証不要)。
+      # 版を pin して synth template 検査の決定性を担保する (#3874 実機実証版)。
+      - name: Install cfn-lint (pinned)
+        run: pip install "cfn-lint==1.53.0"
+
+      # synth → cfn-lint。E ルール (property 制約違反) のみ hard-fail。CDK ノイズ (W3005 等) は
+      # infra/.cfnlintrc の ignore_checks で抑制済 (false-positive ゼロ)。
+      - name: cfn-lint synth gate (property 制約違反 hard-fail、#3874 Layer 1)
+        run: node scripts/check-cdk-cfn-lint.mjs
+
+      # #3870 相当の非-ASCII IAM Description を gate が E3031 で捕捉することを再現実証 (#3874 AC1)。
+      # cfn-lint (Python) を要するため本 job (install 済) で実行する。
+      - name: cfn-lint regression test (#3870 相当を再現、#3874 AC1)
+        run: node --test scripts/__tests__/check-cdk-cfn-lint.test.mjs
 
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
@@ -968,9 +1078,8 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/check-new-required-env.mjs
 
-  # archive ADR-0031 (旧 schema-change-compat-testing) / #963: スキーマ変更時のテスト追加 warn チェック
-  # 注: 本ジョブが参照する旧 ADR-0031 は archive 済 (`docs/decisions/archive/0031-schema-change-compat-testing.md`)。
-  # 現役 ADR-0031 は ADR-0023 廃案 + 帰属マップ (#1780) で番号が再採番されている。
+  # 旧 archive ADR-0031 (schema-change-compat-testing、2026-07-19 棚卸で削除・git 履歴) / #963:
+  # スキーマ変更時のテスト追加 warn チェック。ルール本文は tests/CLAUDE.md 参照。
   # src/lib/server/db/schema.ts が変更された PR で、tests/unit/db|services/ に
   # テスト追加/変更が無い場合 warn を出す (exit 0 で blocker にはしない)。
   # Issue #962 (is_archived NULL 混在で本番全停止) の再発防止。
@@ -1084,6 +1193,8 @@ jobs:
         lint-and-test,
         marketplace-registry-integrity-check,
         deps-supply-chain-check,
+        dependency-cruiser,
+        cdk-cfn-lint,
         unit-test,
         unit-test-merge,
         storybook-test,
@@ -1132,6 +1243,8 @@ jobs:
         lint-and-test,
         marketplace-registry-integrity-check,
         deps-supply-chain-check,
+        dependency-cruiser,
+        cdk-cfn-lint,
         unit-test,
         unit-test-merge,
         storybook-test,

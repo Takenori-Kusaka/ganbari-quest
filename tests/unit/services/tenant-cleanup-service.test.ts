@@ -40,6 +40,12 @@ const mockCloudExportRepo = {
 	deleteById: vi.fn().mockResolvedValue(undefined),
 };
 
+// #3868: cloudExport の S3 実体 (backup ZIP = 完全 PII) 削除に使う storage repo mock。
+// 個別削除 (cloud-export-service.deleteCloudExport) と同一の deleteByPrefix を再利用する。
+const mockStorageRepo = {
+	deleteByPrefix: vi.fn().mockResolvedValue(0),
+};
+
 const mockPushSubscriptionRepo = {
 	findByTenant: vi.fn().mockResolvedValue([]),
 	deleteByEndpoint: vi.fn().mockResolvedValue(undefined),
@@ -78,6 +84,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		childActivity: mockChildActivityRepo,
 		viewerToken: mockViewerTokenRepo,
 		cloudExport: mockCloudExportRepo,
+		storage: mockStorageRepo,
 		pushSubscription: mockPushSubscriptionRepo,
 		voice: mockVoiceRepo,
 		settings: mockSettingsRepo,
@@ -119,6 +126,7 @@ vi.mock('./child-service', () => ({
 
 // --- Imports (after mocks) ---
 
+import { logger } from '$lib/server/logger';
 import {
 	deleteAllChildrenData,
 	deleteTenantScopedData,
@@ -294,7 +302,9 @@ describe('deleteTenantScopedData', () => {
 			.mockResolvedValueOnce([{ id: '1001' }, { id: '1002' }])
 			.mockResolvedValueOnce([{ id: '2001' }]);
 		mockViewerTokenRepo.findByTenant.mockResolvedValue([{ id: 'tk1' }]);
-		mockCloudExportRepo.findByTenant.mockResolvedValue([{ id: 'ex1' }]);
+		mockCloudExportRepo.findByTenant.mockResolvedValue([
+			{ id: 'ex1', s3Key: 'exports/test-tenant-739/pin1/backup.zip' },
+		]);
 		mockPushSubscriptionRepo.findByTenant.mockResolvedValue([{ endpoint: 'https://push1' }]);
 
 		await deleteTenantScopedData(TENANT);
@@ -316,6 +326,83 @@ describe('deleteTenantScopedData', () => {
 		expect(mockViewerTokenRepo.deleteById).toHaveBeenCalledWith('tk1', TENANT);
 		expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex1', TENANT);
 		expect(mockPushSubscriptionRepo.deleteByEndpoint).toHaveBeenCalledWith('https://push1', TENANT);
+	});
+
+	// =========================================================
+	// #3868: cloudExports の S3 実体 (backup ZIP = 完全 PII) を退会時に削除する
+	// =========================================================
+
+	describe('#3868 cloudExports S3 実体削除', () => {
+		it('account 削除後、各 cloudExport の S3 実体を deleteByPrefix で削除し DB 行も 0 にする', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
+				{ id: 'ex2', s3Key: `exports/${TENANT}/pin2/backup.zip` },
+			]);
+
+			await deleteTenantScopedData(TENANT);
+
+			// AC1: S3 実体を各 record の s3Key で削除 (個別削除と同一手段 deleteByPrefix を再利用)
+			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledTimes(2);
+			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
+				`exports/${TENANT}/pin1/backup.zip`,
+			);
+			expect(mockStorageRepo.deleteByPrefix).toHaveBeenCalledWith(
+				`exports/${TENANT}/pin2/backup.zip`,
+			);
+			// AC3: DB 行も 0 件になる (退会後 cloudExports の DB 行 0 + 対応 S3 object 0)
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledTimes(2);
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex1', TENANT);
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex2', TENANT);
+		});
+
+		it('AC1: S3 削除は DB 行削除より先に実行される (孤児化を防ぐ順序)', async () => {
+			const callOrder: string[] = [];
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
+			]);
+			mockStorageRepo.deleteByPrefix.mockImplementationOnce(async () => {
+				callOrder.push('s3');
+				return 1;
+			});
+			mockCloudExportRepo.deleteById.mockImplementationOnce(async () => {
+				callOrder.push('db');
+			});
+
+			await deleteTenantScopedData(TENANT);
+
+			expect(callOrder).toEqual(['s3', 'db']);
+		});
+
+		it('AC2: S3 削除が失敗しても DB 行削除は継続する (best-effort)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
+				{ id: 'ex2', s3Key: `exports/${TENANT}/pin2/backup.zip` },
+			]);
+			// 1 件目の S3 削除を失敗させる
+			mockStorageRepo.deleteByPrefix
+				.mockRejectedValueOnce(new Error('s3 err'))
+				.mockResolvedValueOnce(1);
+
+			await deleteTenantScopedData(TENANT);
+
+			// S3 削除失敗しても両 record の DB 行削除は実行される
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledTimes(2);
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex1', TENANT);
+			expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex2', TENANT);
+		});
+
+		it('AC2: S3 削除失敗を silent にせず logger.warn で記録する (ADR-0006)', async () => {
+			mockCloudExportRepo.findByTenant.mockResolvedValue([
+				{ id: 'ex1', s3Key: `exports/${TENANT}/pin1/backup.zip` },
+			]);
+			mockStorageRepo.deleteByPrefix.mockRejectedValueOnce(new Error('s3 err'));
+
+			await deleteTenantScopedData(TENANT);
+
+			expect(logger.warn).toHaveBeenCalledWith(
+				expect.stringContaining('cloudExport S3 実体削除失敗'),
+			);
+		});
 	});
 
 	it('1 つの repo の削除失敗は他の削除をブロックしない', async () => {

@@ -37,7 +37,7 @@ function buildExportJson(options: {
 			statuses: [],
 			childAchievements: [],
 			childTitles: [],
-			loginBonuses: [],
+			loginStreaks: [],
 			checklistTemplates: [],
 			specialRewards: [],
 			statusHistory: [],

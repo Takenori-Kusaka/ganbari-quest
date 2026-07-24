@@ -62,7 +62,7 @@
   - senior: 1.0 (最小)
 - **詳細**: [docs/design/22-タイポグラフィ・スペーシングガイドライン.md](design/22-タイポグラフィ・スペーシングガイドライン.md)
 
-### 日本語テキスト折り返し（ADR-0016）
+### 日本語テキスト折り返し
 
 日本語は空白区切りがないため、見出し・ボタン・カードタイトルが不自然な位置で折り返される問題への方針:
 
@@ -70,7 +70,7 @@
 - **フォールバック（BudouX, ~15KB）**: 古いブラウザ / 長文段落 / チュートリアル本文で `use:budoux` Svelte action を必要箇所のみ適用（`$lib/ui/actions/budoux.ts`）
 - **LP 側**: CDN Web Component (`<budoux-ja>`) で追加バンドルなし
 
-SSR 二重適用は `data-budoux-applied` フラグで回避。詳細は [ADR-0016](decisions/0016-japanese-text-wrap.md)。
+SSR 二重適用は `data-budoux-applied` フラグで回避。BudouX の OSS 選定根拠は [decisions/README.md §OSS 採用記録](decisions/README.md)（旧 ADR-0016、git 履歴）。
 
 ---
 
@@ -439,7 +439,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 |------|------|------|
 | Story 名（サイドバー: `Primary` / `Default` / `AllVariants` 等） | 英語 | Storybook の慣習（`autodocs` 自動グルーピング・URL slug） |
 | `argTypes` の制御メタ情報（`control: 'select'` 等） | 英語のまま | Storybook が解釈する設定値 |
-| **コンポーネント表示テキスト**（子要素・`message` プロパティ・トースト本文・ボタンラベル・カードコンテンツ・フォームの `label`/`placeholder`/`error` 等） | **日本語** | アプリ本体 UI が日本語であり、Storybook の用途（実際の見た目検証）上日本語で揃える方が UI 折り返し（ADR-0016）・タイポ検証で有用 |
+| **コンポーネント表示テキスト**（子要素・`message` プロパティ・トースト本文・ボタンラベル・カードコンテンツ・フォームの `label`/`placeholder`/`error` 等） | **日本語** | アプリ本体 UI が日本語であり、Storybook の用途（実際の見た目検証）上日本語で揃える方が UI 折り返し（§3 日本語テキスト折り返し）・タイポ検証で有用 |
 
 #### 強制ルール
 

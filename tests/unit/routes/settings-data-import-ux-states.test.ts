@@ -250,3 +250,88 @@ describe('/admin/settings/data — import UX 条件付き UI レンダリング�
 		});
 	});
 });
+
+// #3867: ZIP エクスポート推奨文言 (dataExportZipCloudHint) が NUC (authMode≠cognito) で dangling
+// する回帰の固定。cloud export セクション (authMode==='cognito' 専用) と hint を同一条件でガードし、
+// NUC / SaaS standard+ / SaaS free の 3 条件で「文言 ↔ CTA (クラウドセクション)」整合を assert する。
+describe('/admin/settings/data — ZIP hint と cloud export セクションの条件整合 (#3867)', () => {
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	/** GET /api/v1/export/cloud (cognito + maxCloudExports>0 の $effect) を空一覧で解決させる。 */
+	function stubCloudExportListEmpty() {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: string) =>
+				typeof url === 'string' && url.includes('/api/v1/export/cloud')
+					? Promise.resolve({ ok: true, json: () => Promise.resolve({ exports: [] }) } as Response)
+					: Promise.reject(new Error(`unexpected fetch: ${url}`)),
+			),
+		);
+	}
+
+	/** 「画像・音声ファイルも含める」チェックを ON にして ZIP hint 領域を描画させる。 */
+	async function enableIncludeFiles(container: HTMLElement) {
+		const checkbox = Array.from(
+			container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+		).find((el) =>
+			el.closest('label')?.textContent?.includes(SETTINGS_LABELS.dataExportIncludeFiles),
+		);
+		if (!checkbox)
+			throw new Error('「画像・音声ファイルも含める」チェックボックスが見つかりません');
+		await fireEvent.click(checkbox);
+	}
+
+	it('NUC (authMode=local): cloud セクション非描画、ZIP hint はクラウド非言及の代替文言', async () => {
+		pageStore.set({ data: { authMode: 'local' } });
+		const { container, queryByTestId, findByTestId } = render(DataPage, {
+			data: makeData({ maxCloudExports: 0 }),
+			form: null,
+		});
+		// cloud export セクションは self-host では描画されない (dangling 誘導先が無いことを固定)
+		expect(queryByTestId('cloud-export-card')).toBeNull();
+
+		await enableIncludeFiles(container);
+		// cloud 版 hint は出さず、local 代替 hint を出す
+		expect(queryByTestId('data-export-zip-cloud-hint')).toBeNull();
+		const localHint = await findByTestId('data-export-zip-local-hint');
+		expect(localHint.textContent).toContain(SETTINGS_LABELS.dataExportZipLocalHint);
+		// AC2: 代替文言は「クラウドバックアップ」に言及しない (dangling 語を含まない)
+		expect(localHint.textContent).not.toContain('クラウドバックアップ');
+	});
+
+	it('SaaS standard+ (authMode=cognito, maxCloudExports>0): cloud セクション描画、ZIP hint はクラウド誘導文言', async () => {
+		pageStore.set({ data: { authMode: 'cognito' } });
+		stubCloudExportListEmpty();
+		const { container, findByTestId, queryByTestId } = render(DataPage, {
+			data: makeData({ maxCloudExports: 3 }),
+			form: null,
+		});
+		// 誘導先の cloud export セクションが実在する (dangling でない)
+		await findByTestId('cloud-export-card');
+
+		await enableIncludeFiles(container);
+		expect(queryByTestId('data-export-zip-local-hint')).toBeNull();
+		const cloudHint = await findByTestId('data-export-zip-cloud-hint');
+		expect(cloudHint.textContent).toContain(SETTINGS_LABELS.dataExportZipCloudHint);
+	});
+
+	it('SaaS free (authMode=cognito, maxCloudExports=0): cloud セクションが upsell 付きで描画され、ZIP hint 誘導先が dead-end でない', async () => {
+		pageStore.set({ data: { authMode: 'cognito' } });
+		const { container, findByTestId } = render(DataPage, {
+			data: makeData({ maxCloudExports: 0 }),
+			form: null,
+		});
+		// free でも cloud セクションは描画され、upsell (アップグレード導線) が出る → hint 誘導先が実在
+		await findByTestId('cloud-export-card');
+		await findByTestId('cloud-export-upsell');
+
+		await enableIncludeFiles(container);
+		// 誘導先セクションが存在するため、cloud 版 hint のままで整合 (dead-end でない)
+		const cloudHint = await findByTestId('data-export-zip-cloud-hint');
+		expect(cloudHint.textContent).toContain(SETTINGS_LABELS.dataExportZipCloudHint);
+	});
+});

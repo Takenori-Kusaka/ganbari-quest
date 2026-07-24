@@ -23,6 +23,9 @@ closes #{{ISSUE_NUMBER}}
 
 ## 変更タイプ
 
+<!-- ⚠️ 1 つ以上 [x] 必須 (CI 必須 gate「変更タイプの選択」hard-fail、#3846)。
+     Issue に type:* label が無い場合は自動 [x] されないため、必ず手動で主変更タイプを選択する -->
+
 {{TYPE_CHECKBOXES}}
 
 ## 影響範囲・変更コンポーネント

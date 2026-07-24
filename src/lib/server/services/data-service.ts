@@ -102,7 +102,7 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 
 	// 2. 子供データ（ファイル含む）を削除
 	//    子供のカスケード削除により activity_logs / point_ledger / statuses /
-	//    stamp_cards / child_achievements / login_bonuses 等も消える
+	//    stamp_cards / child_achievements / login_streaks 等も消える
 	const deletedChildren = await deleteAllChildrenData(tenantId);
 
 	logger.info('[data-clear] データクリア完了', {

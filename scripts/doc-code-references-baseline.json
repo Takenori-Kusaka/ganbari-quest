@@ -5,16 +5,7 @@
 		"docs/decisions/0011-baby-mode-as-parent-preparation.md": ["src/lib/server/marketplace"],
 		"docs/decisions/0029-lp-csp-and-cdn-sri-strategy.md": ["site/vendor"],
 		"docs/decisions/0045-terms-ssot-2-layer.md": ["scripts/check-terms-literal-leak.mjs"],
-		"docs/decisions/0046-svelte5-service-interface-context-di.md": ["src/routes/demo"],
-		"docs/decisions/0047-demo-prod-ui-contract-ssot.md": [
-			"scripts/check-no-escape-language.mjs",
-			"src/routes/demo"
-		],
 		"docs/decisions/0048-multi-lambda-demo-deployment.md": ["scripts/check-multi-lambda-cost.mjs"],
-		"docs/decisions/adr-inventory-2026-04-20.md": ["scripts/check-no-assertion-weakening.mjs"],
-		"docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md": [
-			"src/lib/features/child-home/dialog-state-machine.test.ts"
-		],
 		"docs/decisions/archive/0039-demo-mode-app-execution-mode.md": [
 			"site/screenshots",
 			"site/screenshots/v2",

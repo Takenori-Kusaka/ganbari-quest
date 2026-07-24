@@ -84,6 +84,7 @@
 		"chunker",
 		"datconfig",
 		"datname",
+		"gitdir",
 		"hana",
 		"millis",
 		"multiplexing",
@@ -97,6 +98,7 @@
 		"setrole",
 		"srcs",
 		"tablename",
-		"testcluster"
+		"testcluster",
+		"worktrees"
 	]
 }

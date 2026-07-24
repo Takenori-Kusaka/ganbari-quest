@@ -2173,7 +2173,7 @@ export const IMPORT_LABELS = {
  * スキップ理由 enum (#1254 G2)
  * - preset_duplicate: source_preset_id 一致
  * - name_duplicate: 名前一致
- * - log_constraint: 複合 unique 制約 (activity_logs, login_bonuses, status_history)
+ * - log_constraint: 複合 unique 制約 (activity_logs, login_streaks, status_history)
  */
 export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_constraint';
 
@@ -2298,9 +2298,14 @@ export const SETTINGS_LABELS = {
 	dataExportJsonTooLargeForDirectDownload: (maxMb: string) =>
 		`${BACKUP_TERMS.canonical}が直接ダウンロードの上限（${maxMb}MB）を超えています。「クラウド共有（PINコード）」から${BACKUP_TERMS.exportVerb}してください`,
 	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
-	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
+	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線（SaaS 版専用）。
 	dataExportZipCloudHint:
 		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。画像も含めて安全に残すなら、下の「クラウドバックアップ」がおすすめです。',
+	// #3867: セルフホスト版（authMode≠cognito）はクラウドバックアップ導線が無いため、
+	// 「クラウドバックアップ」に言及しない代替文言。ブラウザ安全性警告は正常である旨の安心情報のみ残す
+	// （下にクラウドセクションが無いのに「下のクラウドバックアップがおすすめ」と案内する dangling を防ぐ）。
+	dataExportZipLocalHint:
+		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。そのまま保存していただいて問題ありません。',
 	dataExportCompact: 'ファイルサイズを小さくする（圧縮）',
 	dataExporting: '書き出し中...',
 	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
@@ -8187,7 +8192,7 @@ export const LP_PRICING_EXTRA_LABELS = {
  * 表示言語（日本語）に統一する。理由:
  *
  * 1. アプリ本体 UI は全て日本語であり、Storybook で実際の見た目を確認する用途上
- *    日本語で揃える方が UI 折り返し（ADR-0016）・タイポグラフィ検証で有用
+ *    日本語で揃える方が UI 折り返し（旧 ADR-0016、方針は docs/DESIGN.md §3）・タイポグラフィ検証で有用
  * 2. 既存 stories の多数派（Alert / FormField / IconButton / NativeSelect / Select /
  *    BirthdayInput / ErrorAlert）が既に日本語で実装されており、Badge / Button / Card /
  *    LoadingButton / Toast の英語表示テキストだけが不一致だった

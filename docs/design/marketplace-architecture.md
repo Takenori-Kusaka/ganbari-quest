@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 関連 ADR | [ADR-0052](../decisions/0052-marketplace-type-registry.md) (Strategy + Registry) / ADR-0046 (Service Interface + Context DI) / ADR-0023 archive (tenant isolation) |
+| 関連 ADR | [ADR-0052](../decisions/0052-marketplace-type-registry.md) (Strategy + Registry) / [ADR-0048 §統合](../decisions/0048-multi-lambda-demo-deployment.md) (Service Interface + Context DI、旧 ADR-0046) |
 | 関連 Issue | EPIC #2362 / 本 Issue #2363 (interface 基盤) / #2365-2369 (5 type concrete strategy) / #8 #9 #10 (UnifiedImportHub / PageGuideRegistry / Round-trip) |
 | 更新タイミング | 新 MarketplaceType 追加 / Registry interface 変更 / Hub 配布パターン変更時 |
 
@@ -42,9 +42,9 @@ UI 側で「N 件追加 / M 件重複スキップ」を事前提示できるよ�
 
 `src/lib/marketplace/index.ts` で `import './types/<type>'` の side-effect により全 type が起動時 register される。SSR と CSR で同じ Registry singleton を共有 (module scope)。実行順序依存なし。
 
-### 2.5 ADR-0046 Context DI 同型
+### 2.5 Context DI 同型 (ADR-0048 §統合)
 
-Registry の SSR / CSR 配布は ADR-0046 と同じ `setContext` / `getContext` + symbol key パターン (`src/lib/marketplace/context.ts`)。本番 / demo / 第三者 host で別 Registry を注入する余地を残す。
+Registry の SSR / CSR 配布は Service Interface + Context DI (ADR-0048 §統合、旧 ADR-0046) と同じ `setContext` / `getContext` + symbol key パターン (`src/lib/marketplace/context.ts`)。本番 / demo / 第三者 host で別 Registry を注入する余地を残す。
 
 ---
 
@@ -83,7 +83,7 @@ Registry の SSR / CSR 配布は ADR-0046 と同じ `setContext` / `getContext` 
 │  └────────────────────────────┬─────────────────────────────────────────┘  │
 │                               │                                              │
 │  ┌────────────────────────────▼─────────────────────────────────────────┐  │
-│  │ context.ts (ADR-0046 同型 Svelte 5 DI)                               │  │
+│  │ context.ts (ADR-0048 同型 Svelte 5 DI)                               │  │
 │  │   setMarketplaceRegistryContext(registry) — +layout.svelte で 1 度  │  │
 │  │   getMarketplaceRegistry() — 配下 component / page                  │  │
 │  └────────────────────────────┬─────────────────────────────────────────┘  │
@@ -268,7 +268,7 @@ PO 指摘 ④ (Export → Import 消失) の構造的回帰防止。以下 2 spe
 ## 8. 関連ドキュメント
 
 - [ADR-0052](../decisions/0052-marketplace-type-registry.md) — 採用根拠 + OSS 4 件比較
-- [ADR-0046](../decisions/0046-svelte5-service-interface-context-di.md) — Service Interface + Context DI の同型パターン
+- [ADR-0048 §統合](../decisions/0048-multi-lambda-demo-deployment.md) — Service Interface + Context DI の同型パターン (旧 ADR-0046)
 - [docs/design/parallel-implementations.md](parallel-implementations.md) — 並行実装ペア (本 Registry 機構が確立した後、import service 並行 → strategy 並行へ移行予定)
 - `src/lib/marketplace/types.ts` / `registry.ts` / `context.ts` / `index.ts` — 実体
 - `tests/unit/marketplace/registry.test.ts` — Registry 単体テスト

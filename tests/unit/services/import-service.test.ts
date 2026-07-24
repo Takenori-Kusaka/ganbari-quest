@@ -16,8 +16,7 @@ const mockUpsertStatus = vi.fn();
 const mockInsertStatusHistory = vi.fn();
 const mockFindAllAchievements = vi.fn();
 const mockInsertChildAchievement = vi.fn();
-const mockFindRecentBonuses = vi.fn();
-const mockInsertLoginBonus = vi.fn();
+const mockUpsertStreak = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
@@ -80,8 +79,7 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 }));
 
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
-	findRecentBonuses: (...args: unknown[]) => mockFindRecentBonuses(...args),
-	insertLoginBonus: (...args: unknown[]) => mockInsertLoginBonus(...args),
+	upsertStreak: (...args: unknown[]) => mockUpsertStreak(...args),
 }));
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
@@ -164,7 +162,7 @@ function makeExportData(overrides: Partial<ExportData> = {}): ExportData {
 			statusHistory: [],
 			childAchievements: [],
 			childTitles: [],
-			loginBonuses: [],
+			loginStreaks: [],
 			evaluations: [],
 			specialRewards: [],
 			checklistTemplates: [],
@@ -203,7 +201,7 @@ beforeEach(() => {
 	mockChildActivityFindByChild.mockResolvedValue([]);
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
-	mockFindRecentBonuses.mockResolvedValue([]);
+	mockUpsertStreak.mockResolvedValue(true);
 	mockFindSpecialRewards.mockResolvedValue([]);
 	mockFindTemplatesByChild.mockResolvedValue([]);
 	mockFindLogsByChild.mockResolvedValue([]);
@@ -389,7 +387,9 @@ describe('previewImport', () => {
 				unlockedAt: '2026-03-12T00:00:00Z',
 			},
 		];
-		data.data.loginBonuses = [
+		// #3330: 旧 backup (≤1.7.0) の per-date 行。previewImport 内の migrate seam が
+		// counter 1 行に fold するため、preview 件数は fold 後の counter 数になる。
+		(data.data as unknown as Record<string, unknown>).loginBonuses = [
 			{
 				childRef: 'c1',
 				loginDate: '2026-03-15',
@@ -450,7 +450,7 @@ describe('previewImport', () => {
 		expect(preview.pointLedger).toBe(2);
 		expect(preview.statuses).toBe(1);
 		expect(preview.achievements).toBe(1);
-		expect(preview.loginBonuses).toBe(2);
+		expect(preview.loginBonuses).toBe(1); // 2 連続日 → counter 1 行に fold (#3330)
 		expect(preview.checklistTemplates).toBe(1);
 		expect(preview.specialRewards).toBe(2);
 		expect(preview.duplicates).toBeDefined();
@@ -1004,11 +1004,23 @@ describe('importFamilyData', () => {
 		});
 	});
 
-	describe('ログインボーナスのインポート', () => {
-		it('正常にインポートされる', async () => {
+	describe('ログインボーナスのインポート (#3330 counter 縮約 + 旧 backup fold)', () => {
+		it('旧 backup (per-date) は counter に fold されて upsert される', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
-			data.data.loginBonuses = [
+			// 旧 1.1.0 backup の per-date 行 (2026-03-14〜15 の 2 連続日)。migrate seam が
+			// deriveStreakCounter で counter (lastLoginDate=03-15, currentStreak=2) に fold する。
+			(data.data as unknown as Record<string, unknown>).loginBonuses = [
+				{
+					childRef: 'c1',
+					loginDate: '2026-03-14',
+					rank: 'silver',
+					basePoints: 3,
+					multiplier: 1.0,
+					totalPoints: 3,
+					consecutiveDays: 1,
+					createdAt: '2026-03-14T00:00:00Z',
+				},
 				{
 					childRef: 'c1',
 					loginDate: '2026-03-15',
@@ -1016,40 +1028,86 @@ describe('importFamilyData', () => {
 					basePoints: 5,
 					multiplier: 1.5,
 					totalPoints: 8,
-					consecutiveDays: 3,
+					consecutiveDays: 2,
 					createdAt: '2026-03-15T00:00:00Z',
 				},
 			];
 
 			mockInsertChild.mockResolvedValue({ id: '101' });
-			mockInsertLoginBonus.mockResolvedValue({});
+			mockUpsertStreak.mockResolvedValue(true);
 
-			await importFamilyData(data, TENANT);
+			const result = await importFamilyData(data, TENANT);
 
-			expect(mockInsertLoginBonus).toHaveBeenCalledWith(
+			expect(mockUpsertStreak).toHaveBeenCalledWith(
 				expect.objectContaining({
 					childId: asChildId(101),
-					loginDate: '2026-03-15',
-					rank: 'gold',
-					consecutiveDays: 3,
+					lastLoginDate: '2026-03-15',
+					currentStreak: 2,
+					updatedAt: '2026-03-15T00:00:00Z',
 				}),
 				TENANT,
 			);
+			expect(result.loginBonusesImported).toBe(1);
+		});
+
+		it('新 backup (loginStreaks) はそのまま upsert される', async () => {
+			const data = makeExportData({ version: '1.8.0' });
+			data.family.children = [makeChild('c1')];
+			data.data.loginStreaks = [
+				{
+					childRef: 'c1',
+					lastLoginDate: '2026-03-15',
+					currentStreak: 7,
+					updatedAt: '2026-03-15T07:00:00Z',
+				},
+			];
+
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockUpsertStreak.mockResolvedValue(true);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(mockUpsertStreak).toHaveBeenCalledWith(
+				expect.objectContaining({
+					childId: asChildId(101),
+					lastLoginDate: '2026-03-15',
+					currentStreak: 7,
+				}),
+				TENANT,
+			);
+			expect(result.loginBonusesImported).toBe(1);
+		});
+
+		it('既存 counter の方が新しい場合は skip 計上される', async () => {
+			const data = makeExportData({ version: '1.8.0' });
+			data.family.children = [makeChild('c1')];
+			data.data.loginStreaks = [
+				{
+					childRef: 'c1',
+					lastLoginDate: '2026-03-10',
+					currentStreak: 2,
+					updatedAt: '2026-03-10T07:00:00Z',
+				},
+			];
+
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			mockUpsertStreak.mockResolvedValue(false); // repo が「既存の方が新しい」で skip
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.loginBonusesImported).toBe(0);
+			expect(result.loginBonusesSkipped).toBe(1);
 		});
 
 		it('childRef が不明な場合はスキップされる', async () => {
-			const data = makeExportData();
+			const data = makeExportData({ version: '1.8.0' });
 			data.family.children = [makeChild('c1')];
-			data.data.loginBonuses = [
+			data.data.loginStreaks = [
 				{
 					childRef: 'unknown_child',
-					loginDate: '2026-03-15',
-					rank: 'gold',
-					basePoints: 5,
-					multiplier: 1.0,
-					totalPoints: 5,
-					consecutiveDays: 1,
-					createdAt: '2026-03-15T00:00:00Z',
+					lastLoginDate: '2026-03-15',
+					currentStreak: 1,
+					updatedAt: '2026-03-15T00:00:00Z',
 				},
 			];
 
@@ -1057,7 +1115,7 @@ describe('importFamilyData', () => {
 
 			await importFamilyData(data, TENANT);
 
-			expect(mockInsertLoginBonus).not.toHaveBeenCalled();
+			expect(mockUpsertStreak).not.toHaveBeenCalled();
 		});
 	});
 
@@ -1811,6 +1869,47 @@ describe('importFamilyData', () => {
 			expect(result.settingsSkipped).toBe(3);
 			expect(mockSetSetting).toHaveBeenCalledTimes(1);
 			expect(mockSetSetting).toHaveBeenCalledWith('decay_intensity', 'gentle', TENANT);
+			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
+		});
+
+		it('#3859: tutorial_*_at の SQL datetime 表現 (スペース区切り) は drop されず書き戻される (positive)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				// SQLite CURRENT_TIMESTAMP 既定値の形 (#3851 と同 class の legacy 表現)
+				makeSetting('tutorial_started_at', '2026-01-02 03:04:05'),
+				// JS toISOString の形 (現行書込経路)
+				makeSetting('tutorial_completed_at', '2026-01-02T03:04:05.000Z'),
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(2);
+			expect(result.settingsSkipped).toBe(0);
+			expect(mockSetSetting).toHaveBeenCalledWith(
+				'tutorial_started_at',
+				'2026-01-02 03:04:05',
+				TENANT,
+			);
+		});
+
+		it('#3859: tutorial_*_at の真破損日時は依然 skip される (negative、握り潰し過剰でない)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: '101' });
+			data.data.settings = [
+				makeSetting('tutorial_started_at', 'not-a-valid-date'),
+				makeSetting('tutorial_completed_at', '2026-13-99 99:99:99'), // Date.parse 不能
+			];
+			mockSetSetting.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.settingsImported).toBe(0);
+			expect(result.settingsSkipped).toBe(2);
+			expect(mockSetSetting).not.toHaveBeenCalled();
 			expect(result.warnings.some((w) => w.includes('値が不正'))).toBe(true);
 		});
 

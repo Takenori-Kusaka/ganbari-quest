@@ -1,107 +1,89 @@
 // src/lib/server/db/dsql/login-bonus-repo.ts
-// EPIC #3424 / PR-R8 (repo 層 build order §12.2.1) / 設計 SSOT: dsql-data-model.md §11.2 / §P9
+// EPIC #3424 / #3330 案 B counter 縮約 / 設計 SSOT: dsql-data-model.md §11.2 / §P9
 //
-// ILoginBonusRepo の DSQL backend 実装。設計契約:
+// ILoginBonusRepo (counter 状態) の DSQL backend 実装。設計契約:
 //   - **factory 注入** (fitness#8)。全メソッドが単文のため TransactionRunner は不要。
 //   - **§P9 tenant 述語**: 全メソッドが family_id = tenantId を WHERE に含む。
-//   - **自然複合 PK (family, child, login_date、§11.2 = ADR-0012 「1日1回」)**: surrogate id 列を
-//     持たないため、entity の id は複合キーの合成文字列 (`child:login_date`) を返す
-//     (daily-mission-repo の §11.2 自然キー戦略と同判断。LoginBonus.id の消費は表示 key のみで
-//     grep 確認済)。
-//   - **挿入冪等 (ON CONFLICT DO NOTHING)**: 同日再挿入は PK 衝突を silent skip し、既存行を
-//     そのまま返す (1日1回)。sqlite backend の onConflictDoNothing().get() は衝突時 undefined を
-//     返し得るが、DSQL 実装は既存行を再 SELECT して返すことで interface の non-null 契約を満たす。
+//   - **child-level 自然 PK (family_id, child_id)**: 子供ごとに counter 1 行 (構造的確実性)。
+//   - **当日冪等 (1日1回 = ADR-0012)**: 旧 per-date PK 衝突方式に代わり、claimToday の
+//     単一 INSERT ... ON CONFLICT DO UPDATE ... WHERE last_login_date <> excluded.last_login_date
+//     (conditional write) が原子的に担保する。increment/reset は SQL 内 CASE で行い
+//     read-then-write の race 窓を作らない (race 回帰: dsql-login-streak-repo.test.ts)。
 //   - findChildById は child-repo の CHILD_COLUMNS / toChild を共有 (mapping 二重実装禁止)。
 
 import { sql } from 'drizzle-orm';
-import { asChildId, type ChildId } from '$lib/domain/ids';
+import { asChildId } from '$lib/domain/ids';
 import type { ILoginBonusRepo } from '../interfaces/login-bonus-repo.interface';
-import type { InsertLoginBonusInput, LoginBonus } from '../types';
+import type { LoginStreak, UpsertLoginStreakInput } from '../types';
 import { CHILD_COLUMNS, type ChildRow, toChild } from './child-repo';
 import { isUuidFormat, warnInvalidUuidId } from './pg-uuid';
 import type { SqlExecutor } from './sql-executor';
 
-interface LoginBonusRow {
+interface LoginStreakRow {
 	child_id: string;
-	login_date: string;
-	rank: string;
-	base_points: number;
-	multiplier: number;
-	total_points: number;
-	consecutive_days: number;
-	created_at: string;
+	last_login_date: string;
+	current_streak: number;
+	updated_at: string;
 }
 
-const LOGIN_BONUS_COLUMNS = sql.raw(
-	`child_id, login_date, rank, base_points, multiplier, total_points, consecutive_days, created_at`,
-);
+const LOGIN_STREAK_COLUMNS = sql.raw(`child_id, last_login_date, current_streak, updated_at`);
 
-/** row → LoginBonus entity (自然複合 PK: id は `child:login_date` 合成)。 */
-function toLoginBonus(row: LoginBonusRow): LoginBonus {
+function toLoginStreak(row: LoginStreakRow): LoginStreak {
 	return {
-		id: `${row.child_id}:${row.login_date}`,
 		childId: asChildId(row.child_id),
-		loginDate: row.login_date,
-		rank: row.rank,
-		basePoints: row.base_points,
-		multiplier: row.multiplier,
-		totalPoints: row.total_points,
-		consecutiveDays: row.consecutive_days,
-		createdAt: row.created_at,
+		lastLoginDate: row.last_login_date,
+		currentStreak: row.current_streak,
+		updatedAt: row.updated_at,
 	};
 }
 
 /** DSQL 用 ILoginBonusRepo を生成する (db は注入、fitness#8)。 */
 export function createDsqlLoginBonusRepo(db: SqlExecutor): ILoginBonusRepo {
-	const findByDate = async (
-		childId: ChildId,
-		date: string,
-		tenantId: string,
-	): Promise<LoginBonus | undefined> => {
-		const result = await db.execute(sql`
-			SELECT ${LOGIN_BONUS_COLUMNS} FROM login_bonuses
-			WHERE family_id = ${tenantId} AND child_id = ${childId} AND login_date = ${date}
-		`);
-		const row = result.rows[0] as unknown as LoginBonusRow | undefined;
-		return row ? toLoginBonus(row) : undefined;
-	};
-
 	return {
-		findTodayBonus(childId, today, tenantId) {
-			return findByDate(childId, today, tenantId);
-		},
-
-		async findRecentBonuses(childId, tenantId, limit = 60) {
+		async findStreak(childId, tenantId) {
 			const result = await db.execute(sql`
-				SELECT ${LOGIN_BONUS_COLUMNS} FROM login_bonuses
+				SELECT ${LOGIN_STREAK_COLUMNS} FROM login_streaks
 				WHERE family_id = ${tenantId} AND child_id = ${childId}
-				ORDER BY login_date DESC
-				LIMIT ${limit}
 			`);
-			return (result.rows as unknown as LoginBonusRow[]).map(toLoginBonus);
+			const row = result.rows[0] as unknown as LoginStreakRow | undefined;
+			return row ? toLoginStreak(row) : undefined;
 		},
 
-		async insertLoginBonus(input: InsertLoginBonusInput, tenantId) {
-			// 自然複合 PK への ON CONFLICT DO NOTHING で冪等 (1日1回)。
+		async claimToday(childId, today, yesterday, tenantId) {
+			// conditional write: 当日 claim 済 (last_login_date = today) は WHERE で弾かれ 0 行。
 			const result = await db.execute(sql`
-				INSERT INTO login_bonuses
-					(family_id, child_id, login_date, rank, base_points, multiplier, total_points,
-					 consecutive_days)
-				VALUES (${tenantId}, ${input.childId}, ${input.loginDate}, ${input.rank},
-					${input.basePoints}, ${input.multiplier}, ${input.totalPoints}, ${input.consecutiveDays})
-				ON CONFLICT (family_id, child_id, login_date) DO NOTHING
-				RETURNING ${LOGIN_BONUS_COLUMNS}
+				INSERT INTO login_streaks (family_id, child_id, last_login_date, current_streak)
+				VALUES (${tenantId}, ${childId}, ${today}, 1)
+				ON CONFLICT (family_id, child_id) DO UPDATE SET
+					current_streak = CASE
+						WHEN login_streaks.last_login_date = ${yesterday} THEN login_streaks.current_streak + 1
+						ELSE 1
+					END,
+					last_login_date = excluded.last_login_date,
+					updated_at = now()
+				WHERE login_streaks.last_login_date <> excluded.last_login_date
+				RETURNING current_streak
 			`);
-			const row = result.rows[0] as unknown as LoginBonusRow | undefined;
-			if (row) return toLoginBonus(row);
-			// 衝突 (既に当日ボーナスあり): 既存行を返す (interface は non-null 契約)。
-			const existing = await findByDate(input.childId, input.loginDate, tenantId);
-			if (!existing) {
-				throw new Error(
-					`insertLoginBonus: conflict but existing row not found (${tenantId}/${input.childId}/${input.loginDate})`,
-				);
-			}
-			return existing;
+			const row = result.rows[0] as unknown as { current_streak: number } | undefined;
+			return row ? { currentStreak: Number(row.current_streak) } : undefined;
+		},
+
+		async upsertStreak(input: UpsertLoginStreakInput, tenantId) {
+			// migration / backup import 専用: lastLoginDate が新しい方 (同日なら streak 大) を残す。
+			const updatedAt = input.updatedAt ?? new Date().toISOString();
+			const result = await db.execute(sql`
+				INSERT INTO login_streaks (family_id, child_id, last_login_date, current_streak, updated_at)
+				VALUES (${tenantId}, ${input.childId}, ${input.lastLoginDate}, ${input.currentStreak}, ${updatedAt})
+				ON CONFLICT (family_id, child_id) DO UPDATE SET
+					last_login_date = excluded.last_login_date,
+					current_streak = excluded.current_streak,
+					updated_at = excluded.updated_at
+				WHERE excluded.last_login_date > login_streaks.last_login_date
+					OR (excluded.last_login_date = login_streaks.last_login_date
+						AND excluded.current_streak > login_streaks.current_streak)
+				RETURNING child_id
+			`);
+			return result.rows.length > 0;
 		},
 
 		async findChildById(id, tenantId) {
@@ -120,21 +102,7 @@ export function createDsqlLoginBonusRepo(db: SqlExecutor): ILoginBonusRepo {
 		},
 
 		async deleteByTenantId(tenantId) {
-			await db.execute(sql`DELETE FROM login_bonuses WHERE family_id = ${tenantId}`);
-		},
-
-		async deleteLoginBonusesBeforeDate(childId, cutoffDate, tenantId) {
-			// #717/#729: login_date < cutoffDate (strict less than、当日は残す)。
-			// #3625: 削除件数は CTE で DB 側 count 集約し、削除全行を client に materialize しない。
-			const result = await db.execute(sql`
-				WITH deleted AS (
-					DELETE FROM login_bonuses
-					WHERE family_id = ${tenantId} AND child_id = ${childId} AND login_date < ${cutoffDate}
-					RETURNING 1
-				)
-				SELECT count(*)::int AS c FROM deleted
-			`);
-			return Number((result.rows[0] as { c: number }).c);
+			await db.execute(sql`DELETE FROM login_streaks WHERE family_id = ${tenantId}`);
 		},
 	};
 }

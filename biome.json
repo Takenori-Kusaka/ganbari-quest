@@ -141,13 +141,15 @@
 			"!**/cdk.out",
 			"!**/storybook-static",
 			"!**/app.css",
-			"!**/.claude",
+			"!.claude",
 			"!**/*.md",
 			"!**/lp-metrics.json",
 			"!**/tmp",
 			"!**/.tmp-screenshots",
 			"!**/drizzle",
-			"!tests/fixtures/restore-real-scale-backup.json"
+			"!tests/fixtures/restore-real-scale-backup.json",
+			"!**/.dependency-cruiser-known-violations.json",
+			"!**/eslint-suppressions.json"
 		]
 	}
 }

@@ -228,28 +228,11 @@ jobs:
           fi
           # Note: Cost Anomaly Monitoring はデフォルトモニターを使用（CDK管理外）
 
-      # Phase 2.9 (EPIC #3424 M5 本番 cutover / #3702): cutover 前 DynamoDB backup + DSQL cluster/schema。
-      # deploy-aws-staging.yml の dsql lane を本番へ移植。backup fail-closed → cluster deploy → schema migrate。
+      # Phase 2.9 (EPIC #3424 M5 本番 cutover): DSQL cluster/schema の deploy + migrate。
       # 本番は cutover 恒久化のため常時 DSQL (staging の workflow_dispatch opt-in と異なり常時実行)。
-      # DynamoDB データは PO 合意でデータ移行不要 (zero users) だが、#2510 教訓で backup-first 厳守。
-      - name: Pre-cutover DynamoDB backup (fail-closed, #3702)
-        run: |
-          BACKUP_NAME="pre-dsql-cutover-$(date -u +%Y%m%d-%H%M%S)"
-          ARN=$(aws dynamodb create-backup --table-name "$ECR_REPOSITORY" --backup-name "$BACKUP_NAME" \
-            --region "$AWS_REGION" --query 'BackupDetails.BackupArn' --output text)
-          echo "::notice::DynamoDB backup 作成: $BACKUP_NAME ($ARN)"
-          ST=""
-          for i in $(seq 1 30); do
-            ST=$(aws dynamodb describe-backup --backup-arn "$ARN" --region "$AWS_REGION" \
-              --query 'BackupDescription.BackupDetails.BackupStatus' --output text)
-            echo "backup status: $ST"
-            [ "$ST" = "AVAILABLE" ] && break
-            sleep 5
-          done
-          if [ "$ST" != "AVAILABLE" ]; then
-            echo "::error::DynamoDB backup が AVAILABLE になりませんでした (cutover 中止)"
-            exit 1
-          fi
+      # 旧 #3702 の cutover 前 DynamoDB backup step (fail-closed) は、cutover 完遂 + DynamoDB
+      # 撤去 (#3438 Deploy-2) で対象 table が消滅し obsolete 化したため撤去 (#3921。撤去後の
+      # 初回 deploy で TableNotFound により本番 deploy が停止する class の根治)。
 
       # DSQL cluster を deploy (GanbariQuestDsql, DP=true)。bin/app.ts は本番 stack 群を無条件 synth
       # するため、cluster のみの deploy でも Phase 3 と同じ全 context が synth に要る。
@@ -362,6 +345,35 @@ jobs:
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
+
+      # #3881: rollback-orphan による named resource "already exists" block の検知。
+      # CDK deploy (DSQL / all stacks) が失敗した場合、stack events / 失敗 change set から
+      # "already exists" を探し、該当時は掃除 runbook link を fail message に埋め込む
+      # (第16回リリースで orphan BackupVault が再 deploy を block し手動介入を要した実障害の再発対応)。
+      - name: Orphan-block detection (already exists -> runbook, #3881)
+        if: failure()
+        run: |
+          RUNBOOK="https://github.com/${{ github.repository }}/blob/main/docs/runbooks/rollback-orphan-cleanup.md"
+          found=0
+          for stack in GanbariQuestDsql GanbariQuestStorage GanbariQuestAuth GanbariQuestCompute GanbariQuestNetwork GanbariQuestSes GanbariQuestOps; do
+            events=$(aws cloudformation describe-stack-events --stack-name "$stack" --max-items 60 \
+              --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
+              --output text 2>/dev/null | grep -i "already exists" || true)
+            changesets=$(aws cloudformation list-change-sets --stack-name "$stack" \
+              --query 'Summaries[?Status==`FAILED`].[ChangeSetName,StatusReason]' \
+              --output text 2>/dev/null | grep -i "already exists" || true)
+            if [ -n "$events" ] || [ -n "$changesets" ]; then
+              found=1
+              echo "::error::[$stack] rollback-orphan による名前衝突 (already exists) を検出:"
+              [ -n "$events" ] && echo "$events"
+              [ -n "$changesets" ] && echo "$changesets"
+            fi
+          done
+          if [ "$found" -eq 1 ]; then
+            echo "::error::orphan named resource が再 deploy を block しています。掃除手順 (判断 gate 含む): $RUNBOOK"
+          else
+            echo "already exists 型の失敗イベントは検出されませんでした (別要因の deploy 失敗)"
+          fi
 
       # Phase 3.5 (#3646 本番 cutover): DSQL app role (app_user) provisioning。Lambda 実行 role は
       # dsql:DbConnect のみ持つ (最小権限) が DSQL 認可仕様では DbConnect は custom database role 専用の
@@ -556,7 +568,7 @@ jobs:
           aws lambda list-functions --query 'Functions[?starts_with(FunctionName,`ganbari`)].{Name:FunctionName,Memory:MemorySize,Timeout:Timeout}' --output table
 
           echo ""
-          echo "=== DynamoDB Tables (expected: 1) ==="
+          echo "=== DynamoDB Tables (#3438 で CDK 撤去済。RETAIN-orphan が物理削除まで残存し得るため expected: 0-1) ==="
           aws dynamodb list-tables --query 'TableNames[?contains(@,`ganbari`)]' --output text
 
           echo ""
@@ -619,6 +631,78 @@ jobs:
         working-directory: infra/
         if: always()
         run: cat cdk-outputs.json 2>/dev/null || echo "No outputs file"
+
+      # #3808 (#3437 F-3 / ADR-0024 (c)): DSQL AWS Backup 構成の post-deploy smoke test。
+      # CDK 単体テストは synth 段階 (template にリソースが存在すること) のみを検証し、AWS 上で
+      # backup plan / selection / vault が実在し日次 backup が回っている保証はゼロだった。
+      # #1586 (Cron dispatcher smoke test) と同型の「deploy 後に実 AWS 構成を assert する」パターン。
+      # - vault / plan の実在 + selection が本番 DSQL cluster ARN と確定 role (#3437 F-4) を指すことを assert
+      # - recovery point は日次 02:00 UTC 生成のため deploy 直後に無いのが正常 —
+      #   「存在すれば最新の age < 48h」の条件付き check とし、初回 deploy の false-fail を避ける。
+      #   存在するのに 48h 超 stale = 日次 backup の沈黙停止 → hard fail (ADR-0006 silent skip 禁止)。
+      # 失敗時は deploy job 全体が fail 扱い (health check 通過後のため app rollback は発火しない —
+      # backup 構成不備は app image の問題ではないため rollback 対象外が正しい)。
+      - name: DSQL backup smoke test (#3808)
+        run: |
+          set -euo pipefail
+          VAULT="ganbari-quest-dsql-vault"
+          PLAN_NAME="ganbari-quest-dsql-daily"
+          ROLE_NAME="ganbari-quest-dsql-backup-role"
+
+          # 1. backup vault 実在 (dsql-stack.ts DsqlBackupVault、RETAIN)
+          aws backup describe-backup-vault \
+            --backup-vault-name "$VAULT" --region "$AWS_REGION" > /dev/null
+          echo "::notice::backup vault OK: $VAULT"
+
+          # 2. backup plan 実在 (名前一致で解決、dsql-stack.ts DsqlBackupPlan)
+          PLAN_ID=$(aws backup list-backup-plans --region "$AWS_REGION" \
+            --query "BackupPlansList[?BackupPlanName=='$PLAN_NAME'] | [0].BackupPlanId" \
+            --output text)
+          if [ -z "$PLAN_ID" ] || [ "$PLAN_ID" = "None" ]; then
+            echo "::error::backup plan '$PLAN_NAME' が AWS 上に存在しません (#3808 / dsql-stack.ts DsqlBackupPlan)"
+            exit 1
+          fi
+          echo "::notice::backup plan OK: $PLAN_NAME ($PLAN_ID)"
+
+          # 3. selection が本番 DSQL cluster ARN + 確定 role (#3437 F-4) を指す
+          SELECTION_ID=$(aws backup list-backup-selections \
+            --backup-plan-id "$PLAN_ID" --region "$AWS_REGION" \
+            --query 'BackupSelectionsList[0].SelectionId' --output text)
+          if [ -z "$SELECTION_ID" ] || [ "$SELECTION_ID" = "None" ]; then
+            echo "::error::backup plan '$PLAN_NAME' に resource selection がありません (#3808)"
+            exit 1
+          fi
+          SEL_JSON=$(aws backup get-backup-selection \
+            --backup-plan-id "$PLAN_ID" --selection-id "$SELECTION_ID" --region "$AWS_REGION")
+          if ! echo "$SEL_JSON" | grep -qF "$DSQL_CLUSTER_ARN"; then
+            echo "::error::backup selection が本番 DSQL cluster ($DSQL_CLUSTER_ARN) を含みません (#3808)"
+            exit 1
+          fi
+          if ! echo "$SEL_JSON" | grep -qF "$ROLE_NAME"; then
+            echo "::error::backup selection の IAM role が $ROLE_NAME ではありません (#3437 F-4 / #3808)"
+            exit 1
+          fi
+          echo "::notice::backup selection OK: DSQL cluster + $ROLE_NAME"
+
+          # 4. recovery point (条件付き): 無し = 初回 deploy 直後の正常状態 (日次 02:00 UTC 生成)。
+          #    有るのに最新が 48h 超 stale = 日次 backup が 2 日以上生成されていない → hard fail。
+          LATEST=$(aws backup list-recovery-points-by-backup-vault \
+            --backup-vault-name "$VAULT" --region "$AWS_REGION" \
+            --query 'max_by(RecoveryPoints, &CreationDate).CreationDate' --output text)
+          if [ -z "$LATEST" ] || [ "$LATEST" = "None" ]; then
+            echo "::notice::recovery point は未生成 (日次 02:00 UTC 生成のため初回 deploy 直後は正常、#3808)"
+          else
+            # AWS CLI v2 既定は iso8601、v1 互換 (epoch float) にも fallback で対応
+            LATEST_SEC=$(date -u -d "$LATEST" +%s 2>/dev/null || printf '%.0f' "$LATEST")
+            NOW_SEC=$(date -u +%s)
+            AGE_H=$(( (NOW_SEC - LATEST_SEC) / 3600 ))
+            if [ "$AGE_H" -ge 48 ]; then
+              echo "::error::最新 recovery point が ${AGE_H}h 前 — 日次 backup が 2 日以上生成されていません (#3808 / runbook: docs/runbooks/dsql-restore.md)"
+              exit 1
+            fi
+            echo "::notice::recovery point OK: 最新は ${AGE_H}h 前 (< 48h)"
+          fi
+          echo "::notice::DSQL backup smoke test passed (#3808)"
 
   e2e-production:
     needs: deploy
