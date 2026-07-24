@@ -537,3 +537,7 @@ misconfig
 upcasting
 Postel
 combinators
+Sigstore
+dsse
+SIGSEGV
+ISTQB
