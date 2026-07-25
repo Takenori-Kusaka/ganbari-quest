@@ -74,12 +74,16 @@ describe('pglite journal monotonicity (#3946)', () => {
 		entries.forEach((e, i) => {
 			expect(e.idx).toBe(i);
 		});
-		for (let i = 1; i < entries.length; i++) {
-			expect(
-				entries[i].when,
-				`journal 逆転: ${entries[i].tag} (when=${entries[i].when}) は直前 ${entries[i - 1].tag} (when=${entries[i - 1].when}) より大きい必要がある (drizzle migrator が skip し本番 DB に未適用のまま残る)`,
-			).toBeGreaterThan(entries[i - 1].when);
-		}
+		// reduce で「直前 entry」を型安全に持ち回る (index アクセスの undefined 混入を避ける)。
+		entries.reduce<JournalEntry | null>((prev, entry) => {
+			if (prev) {
+				expect(
+					entry.when,
+					`journal 逆転: ${entry.tag} (when=${entry.when}) は直前 ${prev.tag} (when=${prev.when}) より大きい必要がある (drizzle migrator が skip し本番 DB に未適用のまま残る)`,
+				).toBeGreaterThan(prev.when);
+			}
+			return entry;
+		}, null);
 	});
 
 	it('[JM2] 適用済み最終 when より過去の後続 migration は drizzle migrator が skip する', async () => {
