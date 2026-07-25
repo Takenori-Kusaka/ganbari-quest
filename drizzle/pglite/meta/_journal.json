@@ -26,14 +26,14 @@
     {
       "idx": 3,
       "version": "7",
-      "when": 1784415769652,
+      "when": 1784500000001,
       "tag": "0003_login_streaks_counter",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1784415789368,
+      "when": 1784500000002,
       "tag": "0004_drop_login_bonuses",
       "breakpoints": true
     }
