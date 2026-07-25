@@ -208,6 +208,11 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			// challenge-aggregator-daily の DynamoDB 事前集計 cron 2 本を撤去し 7→5 本)
 			prodCompute.resourceCountIs('AWS::Events::Rule', 5);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
+			// #3939: L2 化で物理名は固定しない (CFN 自動命名)。固定名に戻すと旧→新置換が
+			// 同名衝突で CFN fail する class が再発するため absent を固定する。
+			prodCompute.hasResourceProperties('AWS::KinesisFirehose::DeliveryStream', {
+				DeliveryStreamName: Match.absent(),
+			});
 			// SES grant (prod のみ) が従来どおり付与されている
 			const policies = prodCompute.findResources('AWS::IAM::Policy');
 			expect(JSON.stringify(policies)).toContain('ses:SendEmail');

@@ -224,13 +224,10 @@ function handler(event) {
 						expiration: cdk.Duration.days(30),
 					},
 				],
+				// #3402-1: S3 origin 専用 4xx/5xx alarm (OpsStack) のため request metrics を有効化する
+				// (#3939: BucketProps.metrics が L2 で公開されているため escape hatch 不要)。
+				metrics: [{ id: 'EntireBucket' }],
 			});
-
-			// #3402-1: S3 origin 専用 4xx/5xx alarm (OpsStack) のため request metrics を有効化する。
-			// escape hatch: L2 Bucket は request metrics config を直接公開しないため CfnBucket に設定する。
-			(staticAssetsBucket.node.defaultChild as s3.CfnBucket).metricsConfigurations = [
-				{ id: 'EntireBucket' },
-			];
 			this.staticAssetsBucket = staticAssetsBucket;
 
 			// content-hash 付きで immutable。prune:false で旧 hash を残し、deploy window 中に
