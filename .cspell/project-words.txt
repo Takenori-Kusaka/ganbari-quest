@@ -537,3 +537,11 @@ misconfig
 upcasting
 Postel
 combinators
+Sigstore
+dsse
+SIGSEGV
+ISTQB
+blocklist
+NFKC
+inlang
+jscodeshift

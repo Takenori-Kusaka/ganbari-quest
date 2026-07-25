@@ -192,17 +192,17 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 
 ### §3.8 毎回 run の標準 9 ステップ（release/* → main 統合監査サイクル、branch-strategy.md §3.1）
 
-事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを順に実行する。audit-manager が orchestrate し、deepresearch / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
+事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを順に実行する。audit-manager が orchestrate し、deep research / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
 
 | step | 内容 | 主体 | 不可逆 |
 |---|---|---|---|
 | 1 | develop→main の変更差分を整理（含有 feature/fix を §3.5 一覧化） | audit-manager | — |
 | 2 | 差分に対し実施すべきテスト範囲を洗い出す（影響領域 × テスト種別） | 技術調査 / テスト品質 | — |
-| 3 | テスト範囲・方針・影響範囲見積もりを deepresearch し抜け漏れを確認 | 技術調査（deep-research） | — |
+| 3 | テスト範囲・方針・影響範囲見積もりを deep research し抜け漏れを確認 | 技術調査（deep-research） | — |
 | 4 | テストケース一覧 + 自動テスト追加（E2E / Storybook / API）。**develop に既存のテストとの網羅性マッピング**を行い冗長を排除 | テスト品質 | — |
 | 5 | 追加テスト一式を **develop ブランチへ PR** として提出 | audit-manager（PR 発行） | **可** |
 | 6 | テスト取込後の develop の**特定コミットを凍結**し `release/<YYYY-MM-DD>` を cut → **release/* → main 統合 PR を発行**（branch-strategy.md §3.1。以後 develop が動いても release HEAD 不変＝frozen 標的で監査が無効化されない） | audit-manager（PR 発行） | **可** |
-| 7 | 統合 PR の全 CI 成功を確認。fail は **1 件で止めず全件洗い出し**、各々 deepresearch で真因特定・なぜなぜ分析・横展開（影響範囲）まで行い **Issue 起票**。監査中の修正は release branch への commit（append）で対応するが、**approve 後に append したら adversarial evidence を再生成し再 approve する**（`PR_Mearge` は `dismiss_stale_reviews_on_push=false` のため stale approval が残り未監査差分が merge され得る。approve HEAD = merge HEAD を一致させる） | audit-manager（起票） + 各領域 agent | **可** |
+| 7 | 統合 PR の全 CI 成功を確認。fail は **1 件で止めず全件洗い出し**、各々 deep research で真因特定・なぜなぜ分析・横展開（影響範囲）まで行い **Issue 起票**。監査中の修正は release branch への commit（append）で対応するが、**approve 後に append したら adversarial evidence を再生成し再 approve する**（`PR_Mearge` は `dismiss_stale_reviews_on_push=false` のため stale approval が残り未監査差分が merge され得る。approve HEAD = merge HEAD を一致させる） | audit-manager（起票） + 各領域 agent | **可** |
 | 8 | 全緑なら統合 PR を **merge commit（`gh pr merge --merge`、squash 禁止、§3.5 / branch-strategy.md §3.1）** で merge → 本番 deploy actions を watch し成功確認 → **main → develop back-merge sync PR** で main の merge commit を develop へ取り込む（§5 / #2951・#3061） | audit-manager（merge） | **可** |
 | 9 | deploy 完了後、本番 **AWS 版・ローカル NUC 版の両方へ health check** | audit-manager + deploy-verify skill | — |
 
@@ -217,7 +217,8 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 **運用定義**:
 
 1. **抽出**: 統合 PR 監査 run（§3.8）ごとに、含有 feature/fix PR のうち `po-decision:required` 非該当のものから **無作為に 1〜2 件**を audit-manager が抽出する（run 内に非該当 PR が無ければ skip し evidence に明記）。
-2. **提示**: 抽出 PR について audit-manager が「変更概要 / 顧客面の変化（実機挙動）/ AI（QM・監査）の判定結果」を 5 分読了以内の人間可読サマリで PO に提示し、**PO が直接レビュー**する（ブリーフ 6 項目のうち 1 / 5 / 6 相当の縮約版で足りる）。
+2. **提示**: 抽出 PR について audit-manager が「変更概要 / 顧客面の変化（実機挙動）/ AI（QM・監査）の判定結果」を 5 分読了以内の人間可読サマリで PO に提示し、**PO が直接レビュー**する（ブリーフ一枚絵 (#3918) のうち ①リスク / ④顧客面の変化 / ⑤判断依頼 相当の縮約版で足りる）。
+   - **一枚絵の可読性も評価軸に含める** (#3918 AC4): 抽出 PR が `po-decision:required` ブリーフを持つ場合、「PO が図 1 枚 + SS だけで判断できたか / 補足を開かざるを得なかったか」を evidence に記録し、不可読なら様式改善を #3918 系 follow-up に乗せる。
 3. **complacency 指標**: PO 判定と AI 判定の一致 / 不一致を run ごとに evidence へ記録する。**高一致の継続は good performance ではなく complacency の兆候**として扱う（LLM review 追認バイアスの実証研究、#3862 deep research）。不一致 0 が続く場合は「AI が正しい」と結論せず、(a) 抽出件数を増やす、(b) triage パス表（`.github/labeler.yml` `po-decision:required`）と Step 0-2 判断層 checklist を見直す、のいずれかを実施する。
 4. **不一致時**: PO 指摘は §3.6 の起票/棄却 flow に乗せる。triage の false negative（本来 `po-decision:required` であるべきだった）と判明した場合は、labeler glob + `tests/unit/github/po-decision-labeler.test.ts` の代表パスを同一 PR で追加し class を lock する（ADR-0061 原則 2）。
 
