@@ -215,6 +215,7 @@ Denorm
 dependabot
 Dependabot
 Deque
+deschain
 describedby
 dflt
 DMARC
