@@ -1145,7 +1145,12 @@ jobs:
   #   - 未設定: gate inactive（既存 open PR を block しない、§8 step 6 の無停止 cutover）
   #   - 設定後: 設定日時より後に作成された main 向け PR のみ enforce
   #     （設定日時より前に作成された open PR は grandfather 免除 = §8 step 6「retarget しない」）
-  # bot（dependabot / renovate）は exempt（dependabot.yml の target-branch 切替は cutover 完了時に別途）。
+  # bot（dependabot / renovate）exempt は #3922 で撤去: dependabot.yml は target-branch=develop
+  # 確立済 (#3072) のため、bot の main 向け PR は本来存在しない。唯一の到達経路 = dependabot
+  # "セキュリティ更新" が target-branch を無視して default branch (main) に直行する仕様であり、
+  # 旧 exempt はこれを素通しして auto-merge が develop 軽量レーン + 8 領域監査をすり抜けていた
+  # (#3158 better-sqlite3 → #3190 SIGSEGV / #3920 hono と same-class 2 例)。bot も enforce し、
+  # required check fail で auto-merge を構造的に阻止 → 人間が develop 経由へ re-route する。
   main-pr-base-guard:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
@@ -1165,8 +1170,9 @@ jobs:
           fi
           case "$PR_ACTOR" in
             dependabot\[bot\]|renovate\[bot\])
-              echo "bot PR ($PR_ACTOR) → exempt"
-              exit 0 ;;
+              # #3922: security 更新の main 直行を検知して fail-close (exempt 廃止)。
+              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。対処: 本 PR は merge せず close し、同 version への更新を develop 向けに反映してください (次回 grouped bump を待つ / 手動で develop 向け bump PR を作成)。緊急の security fix は develop 反映後に統合 release で main へ。背景: #3922 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
+              exit 1 ;;
           esac
           # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
           if [[ "$PR_CREATED_AT" < "$CUTOVER_AT" ]]; then
