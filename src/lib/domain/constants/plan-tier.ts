@@ -8,7 +8,7 @@
 // #3963: 型宣言を domain leaf に置くのは、`request-context.ts` が cache の値型として
 // `PlanTier` を必要とする一方で、実装を持つ `plan-limit-service.ts` は
 // `request-context.ts` を import するため、実装 module に型を置くと循環になるため
-// (depcruise は tsPreCompilationDeps: true なので type-only import も循環に数える)。
+// (dependency-cruiser は tsPreCompilationDeps: true なので type-only import も循環に数える)。
 // 実装 (PLAN_LIMITS / resolveFullPlanTier) は従来どおり plan-limit-service.ts が持つ。
 
 export type PlanTier = 'free' | 'standard' | 'family';
