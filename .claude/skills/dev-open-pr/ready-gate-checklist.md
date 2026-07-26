@@ -55,7 +55,7 @@ node scripts/check-new-required-env.mjs
 **確認方法**:
 ```bash
 # ローカル
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 # CI 上
 gh pr checks <num> --watch
 ```
@@ -95,7 +95,7 @@ SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピ
 **確認方法**:
 ```bash
 # SSOT JSON 経由でローカル検証 (#2060)
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 # template ↔ SSOT JSON 同期検証
 node scripts/check-pr-template-sections-sync.mjs
 # CI: pr-template-gate.yml「必須セクションの存在確認」ジョブ + check-pr-template-sections-sync.yml
@@ -127,7 +127,7 @@ node scripts/check-pr-template-sections-sync.mjs
 
 **確認方法**:
 ```bash
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 # Output: "Ready for Review / 完了チェックリストの未チェック残置" 検出
 ```
 

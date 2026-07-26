@@ -111,7 +111,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    gh pr create --draft --base develop --body-file tmp/pr-bodies/<num>-<slug>.md
    ```
 8. **UI 変更時、Ready 化前に SS 撮影必須**（次節参照）
-9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
+9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --pr <num> --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
 10. CI 全通過後 Ready: `gh pr ready <num>`
 
 ### PR 起票アカウント違反からの復旧 (#1994)
@@ -123,6 +123,22 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 3. `node scripts/check-gh-account-before-pr.mjs` が exit 0 で通過することを確認
 4. 同じブランチから `gh pr create --draft ...` で再起票（既存 commit 履歴は再利用、新ブランチ不要）
 5. 旧 PR (closed) は 違反コメント保全のため reopen / 削除しない (ADR-0022 監査証跡)
+
+### QA 指摘の再発防止台帳（CRITICAL — #3962、PO 指示 2026-07-26）
+
+**同じ class の QA 指摘を 2 度受けたら、その時点で instance 修正ではなく機械 gate 化する。** 記憶と注意力に依存した再発防止は必ず破れる（ADR-0061 same-class-N→guard）。
+
+以下は実際に 2 回以上受けた指摘。**1 は `npm run pre-ready` で機械検出されるため暗記不要。2〜3 は着手時に読む**。
+
+| # | 指摘 class | 発生 PR | 現在の防御 |
+|---|-----------|---------|-----------|
+| 1 | `po-decision:required` label 付きなのに PO 決裁ブリーフが PR body にない | #3944 / #3956 | **機械 gate**: `scripts/check-pr-body.mjs` の `checkPoDecisionBrief`（pre-ready Readiness gate step に内蔵）。見出し欠落 / mermaid 欠落 / 未置換 `___` を fail させる |
+| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 | レビュー観点（下記） |
+| 3 | guard の fixture が「規則に従うデータ」だけで、規則から外れた実在物を含まない | #3956 | レビュー観点（下記） |
+
+**2 の観点 — 命名規則のあるファイル名・ID・key を判定するときは、prefix/suffix 一致ではなく正規表現の完全一致で書く。** 生成側にも同じパターンの assert を置き、命名変更時に silent に壊れないようにする。#3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた。
+
+**3 の観点 — guard を書いたら「その guard を外すと fail するか」を実行して証跡に貼る。** fixture には*規則に従わないが実在するもの*（手動退避ファイル、サブディレクトリ、旧命名の残骸）を実名で混ぜる。規則に従うデータだけを並べた fixture は、規則違反を検出できないことを検出できない。
 
 ## 新規実装時
 
@@ -271,7 +287,7 @@ const source = getEnv().DATA_SOURCE;
 
 ```bash
 # 1. PR body 全体検証 (必須セクション 13 件 / AC マップ 4 列 / 禁止語 / Ready チェックリスト)
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 
 # 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or label exempt 確認)
 PR_FILES="$(gh pr diff <num> --name-only)" \
