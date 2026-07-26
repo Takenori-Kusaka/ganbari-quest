@@ -1,26 +1,26 @@
 // tests/unit/services/context-token.test.ts
 // Context トークン署名/検証のユニットテスト (#0123: viewer廃止)
 
+import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
 import {
+	type ContextTokenClaims,
 	getContextMaxAge,
 	signContext,
 	verifyContext,
 } from '../../../src/lib/server/auth/context-token';
 import type { AuthContext } from '../../../src/lib/server/auth/types';
 
-const ownerContext: AuthContext = {
+const ownerContext: ContextTokenClaims = {
 	tenantId: 't-test',
 	role: 'owner',
-	licenseStatus: 'active',
 };
 
-const childContext: AuthContext = {
+const childContext: ContextTokenClaims = {
 	tenantId: 't-test',
 	role: 'child',
 	childId: asChildId(42),
-	licenseStatus: 'active',
 };
 
 describe('Context Token', () => {
@@ -63,6 +63,58 @@ describe('Context Token', () => {
 			expect(verifyContext('no-dot')).toBeNull();
 			expect(verifyContext('a.b.c')).toBeNull();
 		});
+
+		// #3963: 課金状態をトークンに焼き込むと、DB 反映後も最大 24h 古い値が使われる
+		it('plan / licenseStatus / tenantStatus はトークンに焼き込まれない', () => {
+			const fullContext: AuthContext = {
+				tenantId: 't-test',
+				role: 'owner',
+				licenseStatus: 'active',
+				tenantStatus: 'active',
+				plan: 'family-monthly',
+			};
+
+			const token = signContext(fullContext);
+
+			// payload を直接デコードして、そもそも載っていないことを確認する
+			const payload = JSON.parse(
+				Buffer.from(token.split('.')[0] ?? '', 'base64url').toString(),
+			) as Record<string, unknown>;
+			expect(payload).not.toHaveProperty('plan');
+			expect(payload).not.toHaveProperty('licenseStatus');
+			expect(payload).not.toHaveProperty('tenantStatus');
+
+			expect(verifyContext(token)).toEqual({
+				tenantId: 't-test',
+				role: 'owner',
+				childId: undefined,
+			});
+		});
+
+		// 旧形式トークン (plan 入り) を持つブラウザが強制ログアウトされないこと、かつ
+		// 焼き込まれた古い値が読み出されないこと
+		it('旧形式トークンは受理するが、焼き込まれた課金状態は読まない', () => {
+			const now = Math.floor(Date.now() / 1000);
+			const legacyPayload = {
+				tenantId: 't-test',
+				role: 'owner',
+				licenseStatus: 'active',
+				tenantStatus: 'active',
+				plan: 'monthly',
+				iat: now,
+				exp: now + 3600,
+			};
+			const encoded = Buffer.from(JSON.stringify(legacyPayload)).toString('base64url');
+			const signature = createHmac('sha256', 'test-secret-key-for-unit-tests')
+				.update(encoded)
+				.digest('base64url');
+
+			expect(verifyContext(`${encoded}.${signature}`)).toEqual({
+				tenantId: 't-test',
+				role: 'owner',
+				childId: undefined,
+			});
+		});
 	});
 
 	describe('有効期限', () => {
@@ -84,7 +136,7 @@ describe('Context Token', () => {
 		});
 
 		it('parent は 30分', () => {
-			const parentCtx: AuthContext = { tenantId: 't-1', role: 'parent', licenseStatus: 'active' };
+			const parentCtx: ContextTokenClaims = { tenantId: 't-1', role: 'parent' };
 			expect(getContextMaxAge(parentCtx)).toBe(30 * 60);
 		});
 

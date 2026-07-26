@@ -2,8 +2,6 @@
 // CognitoAuthProvider — Email/Password + MFA + マルチテナント (#0123)
 
 import type { RequestEvent } from '@sveltejs/kit';
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import {
 	CONTEXT_COOKIE_NAME,
 	IDENTITY_COOKIE_NAME,
@@ -16,6 +14,7 @@ import { logger } from '$lib/server/logger';
 import { acceptInvite, getInvite } from '$lib/server/services/invite-service';
 import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
+import { deriveTenantEntitlement, resolveTenantEntitlement } from '../tenant-entitlement';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 import { verifyIdentityToken } from './cognito-jwt';
 import { refreshCognitoIdToken } from './cognito-oauth';
@@ -81,8 +80,12 @@ export class CognitoAuthProvider implements AuthProvider {
 
 	/**
 	 * Layer 2: Context 解決
-	 * context_token Cookie から署名付きトークンをデコード。
-	 * 期限切れの場合は DynamoDB メンバーシップから再発行。
+	 * context_token Cookie から署名付きトークンをデコードし、課金状態は DB から解決する。
+	 * 期限切れの場合はメンバーシップから再発行。
+	 *
+	 * #3963: token が持つのは tenantId / role / childId のみ。plan / licenseStatus /
+	 * tenantStatus を毎リクエスト DB から引くことで、Stripe webhook / 解約 / 再開の
+	 * 反映が次のリクエストで即座に効く（従来は Cookie TTL 分＝最大 24h 遅延した）。
 	 */
 	async resolveContext(
 		event: RequestEvent,
@@ -93,8 +96,14 @@ export class CognitoAuthProvider implements AuthProvider {
 		// 1. 既存の Context Token を検証
 		const contextToken = event.cookies.get(CONTEXT_COOKIE_NAME);
 		if (contextToken) {
-			const context = verifyContext(contextToken);
-			if (context) return context;
+			const claims = verifyContext(contextToken);
+			if (claims) {
+				// 課金状態は token を信用せず DB から解決する。
+				// 解決できなければ context を発行しない (fail-closed、握り潰さない)。
+				const entitlement = await resolveTenantEntitlement(claims.tenantId);
+				if (!entitlement) return null;
+				return { ...claims, ...entitlement };
+			}
 		}
 
 		// 2. Context Token なしまたは期限切れ → メンバーシップから再発行
@@ -108,8 +117,10 @@ export class CognitoAuthProvider implements AuthProvider {
 	/**
 	 * DynamoDB メンバーシップから Context を再発行
 	 * メンバーシップがなければ初回ログインとして自動プロビジョニングする
+	 *
+	 * #3963: 課金状態の導出を `deriveTenantEntitlement` に切り出したことで
+	 * cognitive complexity が閾値を下回り、従来の biome-ignore は不要になった。
 	 */
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	private async issueContextFromMembership(
 		event: RequestEvent,
 		identity: Identity,
@@ -152,23 +163,13 @@ export class CognitoAuthProvider implements AuthProvider {
 			const membership = memberships[0];
 			if (!membership) return null;
 
-			// テナントステータスを取得
+			// テナントの課金状態を取得 (#3963: 導出ロジックの SSOT は tenant-entitlement.ts)
 			const tenant = await repos.auth.findTenantById(membership.tenantId);
-
-			// Stripe サブスクリプション状態からライセンスステータスを判定
-			const licenseStatus: AuthContext['licenseStatus'] = tenant?.stripeSubscriptionId
-				? tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
-					tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
-					? AUTH_LICENSE_STATUS.ACTIVE
-					: AUTH_LICENSE_STATUS.SUSPENDED
-				: AUTH_LICENSE_STATUS.NONE;
 
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
-				licenseStatus,
-				tenantStatus: tenant?.status ?? SUBSCRIPTION_STATUS.ACTIVE,
-				plan: tenant?.plan,
+				...deriveTenantEntitlement(tenant),
 			};
 
 			// child ロールの場合、userId から childId を解決 (#0156)
