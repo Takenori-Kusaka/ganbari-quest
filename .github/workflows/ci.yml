@@ -204,6 +204,13 @@ jobs:
         # 本 gate は 42 個目の方言が持ち込まれるのを機械的に止める。
         run: node scripts/check-cli-entry-guard.mjs
 
+      - name: Workflow sparse-checkout closure guard (#3969)
+        # gate job は sparse-checkout で必要ファイルを個別列挙している。上の CLI entry guard が
+        # scripts/lib/is-main.mjs の利用を強制するため、新しい gate script を列挙するたびに
+        # helper への import が生え、列挙し忘れると ERR_MODULE_NOT_FOUND で job が落ちる
+        # (本 Issue の対応時に必須 gate 6 job が実際に同時 fail した)。列挙の閉包を機械検証する。
+        run: node scripts/check-workflow-sparse-checkout-closure.mjs
+
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。

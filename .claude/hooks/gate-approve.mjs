@@ -41,7 +41,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain } from '../../scripts/lib/is-main.mjs';
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
 export const REQUIRED_OBJECT_COUNT = 3; // must_object_count 強制値 (Echoing 抑制)
@@ -253,8 +253,8 @@ async function main() {
 }
 
 // CLI として直接実行されたときのみ main() を呼ぶ。import 経由 (unit test) では実行されない。
-const isDirectInvocation =
-	process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
-if (isDirectInvocation) {
+// 判定は scripts/lib/is-main.mjs (SSOT, #3969)。従来の `fileURLToPath(import.meta.url) === process.argv[1]`
+// は junction / symlink 経由の起動で常に false になり、**approve を素通しする**側に倒れていた。
+if (isMain(import.meta.url)) {
 	main();
 }

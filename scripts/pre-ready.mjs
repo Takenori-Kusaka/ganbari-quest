@@ -67,6 +67,7 @@ const SKIP_FLAGS = {
 	'--skip-plan-literals': 'skipPlanLiterals',
 	'--skip-license-key-leak': 'skipLicenseKeyLeak',
 	'--skip-cli-entry-guard': 'skipCliEntryGuard',
+	'--skip-sparse-checkout-closure': 'skipSparseCheckoutClosure',
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
@@ -87,6 +88,7 @@ function parseArgs(argv) {
 		skipPlanLiterals: false,
 		skipLicenseKeyLeak: false,
 		skipCliEntryGuard: false,
+		skipSparseCheckoutClosure: false,
 		skipLpLabels: false,
 		skipPrBody: false,
 		skipDocCodeReferences: false,
@@ -130,6 +132,7 @@ Options:
   --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972 / Phase 5 F1)
   --skip-license-key-leak Step 7b license key 再導入防止検査をスキップ (#2836 / Phase 7 PR-L4)
   --skip-cli-entry-guard Step 7c 自前の CLI 直接実行判定 / 手組み file:// URL 検査をスキップ (#3969)
+  --skip-sparse-checkout-closure Step 7d workflow sparse-checkout の import 閉包検査をスキップ (#3969)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
@@ -148,6 +151,7 @@ Steps:
   6.  sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
   7c. check-cli-entry-guard.mjs  — 自前の CLI 直接実行判定 / 手組み file:// URL 禁止 (#3969)
+  7d. check-workflow-sparse-checkout-closure.mjs — workflow sparse-checkout の import 閉包検査 (#3969)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
@@ -381,6 +385,12 @@ function buildSteps(args, changedFiles) {
 	// #3969: 自前の CLI 直接実行判定 / 手組み file:// URL の再混入を止める gate
 	const cliEntryGuardScript = resolve(repoRoot, 'scripts/check-cli-entry-guard.mjs');
 	const cliEntryGuardScriptExists = existsSync(cliEntryGuardScript);
+	// #3969: workflow の sparse-checkout が「実行する script の import 先」まで列挙しているかの検査
+	const sparseClosureScript = resolve(
+		repoRoot,
+		'scripts/check-workflow-sparse-checkout-closure.mjs',
+	);
+	const sparseClosureScriptExists = existsSync(sparseClosureScript);
 
 	return [
 		{
@@ -500,6 +510,26 @@ function buildSteps(args, changedFiles) {
 				'          `if (isMain(import.meta.url)) main();` の形にする\n' +
 				'  - path → URL は node:url の pathToFileURL() を使う (手組みは Windows で常に不一致)\n' +
 				'  - 正当な例外は `allow-argv1: <理由>` / `allow-file-url: <理由>` を当該行か直前行に置く',
+		},
+		// Step 7d: check-workflow-sparse-checkout-closure (#3969)
+		// gate job は sparse-checkout で必要ファイルを個別列挙する。Step 7c が判定 SSOT の利用を
+		// 強制するため、gate script を列挙するたびに helper への import が生え、列挙し忘れると
+		// job が ERR_MODULE_NOT_FOUND で落ちる (#3969 対応時に必須 gate 6 job が同時 fail した)。
+		{
+			name: 'sparse-checkout-closure',
+			label: sparseClosureScriptExists
+				? 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (#3969)'
+				: 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (script 未配備 — skip)',
+			skip: args.skipSparseCheckoutClosure || !sparseClosureScriptExists,
+			runner: () =>
+				run('check-workflow-sparse-checkout-closure', [
+					'node',
+					'scripts/check-workflow-sparse-checkout-closure.mjs',
+				]),
+			fixHint:
+				'  workflow の sparse-checkout に import 先の列挙漏れがあります (#3969)。\n' +
+				'  - 修正: 出力された不足パスを当該 sparse-checkout ブロックに追加する\n' +
+				'  - 放置すると当該 job が ERR_MODULE_NOT_FOUND で落ちる (無言 PASS ではなく hard fail)',
 		},
 		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
 		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。

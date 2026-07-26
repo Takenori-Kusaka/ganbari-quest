@@ -49,10 +49,22 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
-/** 走査対象のルート (repo 相対)。tests/ は node -e 文字列中の argv[1] が正当なため対象外。 */
-const SCAN_ROOTS = ['scripts', 'src', 'infra'];
+/**
+ * 走査対象のルート (repo 相対)。tests/ は node -e 文字列中の argv[1] が正当なため対象外。
+ *
+ * `.claude` を含むのは、hook / skill script も**壊れると無言で PASS する gate** だからである
+ * (`.claude/hooks/gate-approve.mjs` は ADR-0056 evidence を検証して QM の approve を止める hook で、
+ * junction 経由では判定が false になり approve を素通ししていた)。実行経路が `scripts/` と違うだけで
+ * 事故の class は同じなので、走査範囲を実行経路ではなく「壊れたときに無言で PASS するか」で決める。
+ */
+const SCAN_ROOTS = ['scripts', 'src', 'infra', '.claude'];
 const SCAN_EXTS = ['.mjs', '.cjs', '.js', '.ts'];
-/** 走査から外すディレクトリ名。 */
+/**
+ * 走査から外すディレクトリ名。
+ *
+ * `worktrees` は `.claude/worktrees/` に git worktree 実体が置かれる運用があるため必須
+ * (除外しないと他ブランチの全ソースを重複走査し、本ブランチと無関係な違反を報告する)。
+ */
 const SKIP_DIRS = new Set([
 	'node_modules',
 	'.svelte-kit',
@@ -60,6 +72,7 @@ const SKIP_DIRS = new Set([
 	'dist',
 	'build',
 	'__snapshots__',
+	'worktrees',
 ]);
 /** 判定 SSOT 自身は argv[1] を参照してよい (むしろここだけが参照すべき)。 */
 const SSOT_FILE = join('scripts', 'lib', 'is-main.mjs');
@@ -145,6 +158,20 @@ function collectFiles(dir, acc = []) {
 
 /**
  * 1 ファイルを走査して violation を返す (純粋関数、unit test 対象)。
+ *
+ * ## 守備範囲 (意図的な限界)
+ *
+ * 正規表現による行単位の静的検査であり、`process.argv[1]` の**字面**しか見ない。
+ * 以下の等価な書き方は素通りする:
+ *
+ *   - `const [, entry] = process.argv;`
+ *   - `process.argv.at(1)`
+ *   - `process.argv.slice(1)[0]`
+ *
+ * AST 解析まで広げれば塞げるが、本 gate の目的は「41 件あった既知の方言が**再び増えない**こと」であり、
+ * 迂回を試みる書き手を想定していない。上記 3 形を書くのは argv[1] 直参照より手間が多く、
+ * 素で書かれる確率が低い。塞ぐコスト > 得られる保証、と判断して字面検査に留めている。
+ * 迂回形が実際に混入したら、その時点で AST 化する (ADR-0061 same-class-N→guard)。
  *
  * @param {string} relPath repo 相対パス (区切りは OS 依存でよい)
  * @param {string} source ファイル内容

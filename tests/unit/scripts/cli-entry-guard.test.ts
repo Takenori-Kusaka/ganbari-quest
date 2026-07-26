@@ -193,7 +193,7 @@ describe('check-cli-entry-guard scanSource() — 自前判定の再混入検出 
 		expect(scanSource(path.join('scripts', 'lib', 'is-main.mjs'), src)).toEqual([]);
 	});
 
-	// scripts / src / infra 配下を全走査するため既定の 5s では足りない (実測 ~8s)。
+	// scripts / src / infra / .claude 配下を全走査するため既定の 5s では足りない (実測 ~8s)。
 	it('現在の tree は違反 0 件 (gate 本体を repo 全体に対して実行)', () => {
 		const res = spawnSync(process.execPath, ['scripts/check-cli-entry-guard.mjs'], {
 			cwd: REPO_ROOT,
@@ -201,6 +201,58 @@ describe('check-cli-entry-guard scanSource() — 自前判定の再混入検出 
 		});
 		expect(res.status, `違反が検出されました:\n${res.stdout ?? ''}${res.stderr ?? ''}`).toBe(0);
 	}, 60_000);
+});
+
+// ---------------------------------------------------------------------------
+// 2b. 走査範囲 (SCAN_ROOTS / SKIP_DIRS)
+// ---------------------------------------------------------------------------
+
+/**
+ * 走査範囲は「実行経路」ではなく「壊れたときに無言で PASS するか」で決めている。
+ * `.claude/hooks/gate-approve.mjs` は ADR-0056 evidence を検証して QM の approve を止める hook で、
+ * 事故形のままだと junction 経由で approve を素通しする。SCAN_ROOTS の外にあると gate が
+ * それを検出できないため、範囲そのものを test で固定する (レビュー指摘 PR #3979)。
+ */
+describe('check-cli-entry-guard 走査範囲 — .claude を含み worktrees を除く (#3969)', () => {
+	const GATE = path.join(SCRIPTS_DIR, 'check-cli-entry-guard.mjs');
+
+	/** 実在した事故形 (.claude/hooks/gate-approve.mjs の修正前の式) をそのまま fixture にする */
+	const ACCIDENT_FORM = [
+		"import { fileURLToPath } from 'node:url';",
+		'const isDirectInvocation =',
+		'\tprocess.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];',
+		'if (isDirectInvocation) main();',
+		'',
+	].join('\n');
+
+	function fixtureTree(relPath: string): string {
+		const root = makeTempDir('gq-scan-roots-');
+		const abs = path.join(root, ...relPath.split('/'));
+		mkdirSync(path.dirname(abs), { recursive: true });
+		writeFileSync(abs, ACCIDENT_FORM);
+		return root;
+	}
+
+	function runGate(cwd: string) {
+		return spawnSync(process.execPath, [GATE], { cwd, encoding: 'utf8' });
+	}
+
+	it('.claude/hooks/ 配下の事故形を検出する (SCAN_ROOTS に .claude が無いと素通りする)', () => {
+		const res = runGate(fixtureTree('.claude/hooks/gate-approve.mjs'));
+		expect(res.status, `検出されませんでした:\n${res.stdout ?? ''}${res.stderr ?? ''}`).toBe(1);
+		expect(`${res.stderr ?? ''}`).toContain('.claude/hooks/gate-approve.mjs');
+	}, 30_000);
+
+	/**
+	 * fixture の中身は `.claude/worktrees/agent-x/scripts/` — git worktree 実体には
+	 * scripts/ src/ infra/ が dot なしで並ぶため、SKIP_DIRS で切らないと本ブランチと
+	 * 無関係な違反を報告する。`collectFiles` の「dot ディレクトリを飛ばす」規則では
+	 * 止まらない配置を意図的に選んでいる (規則に従わないが実在する形を fixture にする)。
+	 */
+	it('.claude/worktrees/ 配下は走査しない (他ブランチの実体を重複報告しない)', () => {
+		const res = runGate(fixtureTree('.claude/worktrees/agent-x/scripts/gate-approve.mjs'));
+		expect(res.status, `worktrees 配下を走査しています:\n${res.stderr ?? ''}`).toBe(0);
+	}, 30_000);
 });
 
 // ---------------------------------------------------------------------------
@@ -220,6 +272,7 @@ describe('meta-gate — gate が no-op で exit 0 を返さない (#3969)', () =
 		},
 		{ script: 'check-ac-verification-map.mjs', args: ['--body-file', '__gq_missing_body__.md'] },
 		{ script: 'check-cli-entry-guard.mjs', args: ['--__gq_unknown_flag__'] },
+		{ script: 'check-workflow-sparse-checkout-closure.mjs', args: ['--__gq_unknown_flag__'] },
 	];
 
 	for (const { script, args } of CASES) {

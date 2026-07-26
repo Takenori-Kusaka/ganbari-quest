@@ -49,6 +49,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-ac-verification-map.mjs
+            scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
