@@ -92,16 +92,13 @@ export async function updateTenantStatus(
 	// Stub: no-op
 }
 
+// #3982: 引数型を interface から導出する。インラインで再宣言すると、`IAuthRepo` の
+// method shorthand 記法によりパラメータが bivariant になり、**狭めても型エラーにならない**
+// (実測: `string | null` → `string` に戻しても svelte-check 0 errors。末尾の
+// `_typecheck: IAuthRepo` でも検出できない)。導出にすれば乖離自体が表現不能になる。
 export async function updateTenantStripe(
 	_tenantId: string,
-	_data: {
-		stripeCustomerId?: string;
-		stripeSubscriptionId?: string | null;
-		plan?: Tenant['plan'] | null;
-		planExpiresAt?: string;
-		trialUsedAt?: string;
-		status?: Tenant['status'];
-	},
+	_data: Parameters<IAuthRepo['updateTenantStripe']>[1],
 ): Promise<void> {
 	// Stub: no-op
 }
