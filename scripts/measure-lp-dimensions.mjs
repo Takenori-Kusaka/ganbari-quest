@@ -15,9 +15,9 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { waitForStablePage } from './lib/ci/screenshot-helpers.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const log = (...a) => console.log(...a);
 const logErr = (...a) => console.error(...a);
@@ -581,7 +581,7 @@ async function main() {
 }
 
 // CLI として直接実行されたときのみ main() を起動 (#1783: テストで import しても副作用を出さない)
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
 	main().catch((err) => {
 		logErr('[measure] error:', err);
 		process.exit(1);

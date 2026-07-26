@@ -243,9 +243,9 @@ function main() {
 	);
 }
 
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
-const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

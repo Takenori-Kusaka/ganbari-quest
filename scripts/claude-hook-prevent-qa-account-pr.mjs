@@ -31,7 +31,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 export const ALLOWED_PR_AUTHOR_DEFAULT = 'Takenori-Kusaka';
 export const QA_ACCOUNT = 'ganbariquestsupport-lab';
@@ -155,8 +155,7 @@ async function main() {
 }
 
 // CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
-const isDirectInvocation =
-	process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+const isDirectInvocation = isMainModule(import.meta.url);
 if (isDirectInvocation) {
 	main();
 }

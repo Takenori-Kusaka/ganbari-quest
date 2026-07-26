@@ -51,8 +51,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
  * PR の labels（string[] or {name}[]）を string[] に正規化する純粋関数。
@@ -504,13 +503,7 @@ export function parseArgs(argv) {
 	return out;
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));

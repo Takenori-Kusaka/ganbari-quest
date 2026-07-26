@@ -197,6 +197,13 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: CLI entry guard — 自前の isMain 判定 / 手組み file:// URL 禁止 (#3969)
+        # 各 script が自前で書いていた「直接実行判定」は symlink / junction 経由で必ず
+        # false になり、main() が呼ばれず「何も検査せず exit 0 (= PASS)」になっていた
+        # (実測 41/53 ファイル)。判定は scripts/lib/is-main.mjs へ一本化済みで、
+        # 本 gate は 42 個目の方言が持ち込まれるのを機械的に止める。
+        run: node scripts/check-cli-entry-guard.mjs
+
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。

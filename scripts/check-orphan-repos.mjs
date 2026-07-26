@@ -36,6 +36,7 @@ import {
 	reportFindings,
 	walkDir,
 } from './lib/ci/orphan-utils.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const DB_DIR = path.join(REPO_ROOT, 'src', 'lib', 'server', 'db');
 const REPO_LAYER_DIRS = ['sqlite', 'demo', 'dynamodb'];
@@ -111,9 +112,7 @@ function main() {
 	process.exit(exit);
 }
 
-const isMain =
-	import.meta.url === `file://${(process.argv[1] || '').replace(/\\/g, '/')}` ||
-	(process.argv[1] || '').endsWith('check-orphan-repos.mjs');
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

@@ -651,19 +651,9 @@ function mainEmbedGate() {
 	return 1;
 }
 
-import { resolve as pathResolve } from 'node:path';
-// CLI 実行時のみ main を呼ぶ（テスト import 時は呼ばない）
-// Windows では import.meta.url が file:///C:/... 形式、process.argv[1] が C:\... 形式になるため
-// fileURLToPath で双方を絶対パスに正規化して比較する
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
-const isMain = (() => {
-	try {
-		return pathResolve(fileURLToPath(import.meta.url)) === pathResolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	try {

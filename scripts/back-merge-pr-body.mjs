@@ -55,6 +55,7 @@ import {
 	findUncheckedReadyChecklist,
 	scanForbiddenTerms,
 } from './check-pr-body.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 import { CHECKS as TEMPLATE_GATE_CHECKS } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -360,13 +361,7 @@ export function parseArgs(argv) {
 	return out;
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));

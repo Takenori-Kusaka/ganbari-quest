@@ -27,6 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -376,9 +377,7 @@ function main() {
 export { CONCEPT_ICON_RULES, checkFile, shouldExclude, TERM_LITERAL_RULES, VALUE_LITERAL_RULES };
 
 // CLI エントリ (直接実行時のみ)
-const isMain =
-	import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` ||
-	process.argv[1].endsWith('check-no-plan-literals.mjs');
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

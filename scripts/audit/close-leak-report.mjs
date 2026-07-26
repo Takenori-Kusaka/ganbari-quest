@@ -32,7 +32,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { isMain as isMainModule } from '../lib/is-main.mjs';
 
 /** 既定の走査期間 (git approxidate)。週次 cron 運用で直近の close漏れを拾いつつ noise を抑える */
 export const DEFAULT_SINCE = '90 days ago';
@@ -321,5 +321,5 @@ function main() {
 	process.exit(0);
 }
 
-const isMain = process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href;
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

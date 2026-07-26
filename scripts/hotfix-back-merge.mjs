@@ -1,64 +1,5 @@
 #!/usr/bin/env node
-/**
- * scripts/hotfix-back-merge.mjs — Issue #2951 (Phase B/B-5、親 #2949 / EPIC #2861)
- *
- * develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §5「hotfix 経路」) における
- * 「main に merge された PR が hotfix で、main → develop back-merge を発行すべきか」を
- * 判定する **純粋関数 SSOT** (`.github/workflows/hotfix-back-merge.yml` の薄い orchestrator が
- * 本 script を呼ぶ。判定 logic は全て本 file に集約し yml に分散させない)。
- *
- * 背景:
- *   `branch-strategy.md` §5 は「hotfix を main に merge したら同じ修正を develop へ back-merge
- *   する (main / develop の drift 防止)」を **必須** と定めるが、現状 **人手運用で機械強制が無い**。
- *   hotfix は緊急対応で出されるため最も back-merge を忘れやすく、忘れると
- *   (1) develop に hotfix が欠落して次の統合 PR で同バグ再混入
- *   (2) develop → main 統合 PR で hotfix と conflict
- *   (3) main / develop が静かに drift して統合 PR が肥大化
- *   という git flow 典型の失敗が起きる。本 script + workflow がこれを機械強制する。
- *
- * `scripts/pr-lane.mjs` (#2943 A-1) との責務分担:
- *   - pr-lane.mjs = **PR event 基点** の lane 分類 (baseRef/headRef/actor → feature/integration/...)。
- *     back-merge PR (head=main, base=develop) を 'feature' 軽量レーンに分類する (rule 4)。
- *   - hotfix-back-merge.mjs (本 file) = **push[main] event 基点** の back-merge 要否判定。
- *     「今 main に merge された PR が hotfix か (= back-merge を発行すべきか)」を判定する。
- *   両者は入力源 (PR event vs merge commit / push event) と用途 (lane 分類 vs back-merge 起動) が
- *   異なるため統合しない。lane 値の凡例 (feature/integration/hotfix) は共有概念。
- *
- * 判定の核心 (3 つの純粋関数):
- *
- *   1. classifyMergedPr({ headRef, baseRef, labels })
- *      → 'hotfix' | 'integration' | 'other'
- *      main に merge された PR を分類する。
- *      - baseRef === 'main' かつ headRef === 'develop'           → 'integration' (統合 PR)
- *      - baseRef === 'main' かつ (headRef が 'fix/' で始まる       → 'hotfix'
- *           または labels に 'hotfix' / 'priority:critical')
- *      - 上記以外                                                  → 'other'
- *
- *   2. shouldBackMerge(classification)
- *      → boolean
- *      'hotfix' のみ true。'integration' は false (AC2: develop は同期済 = 無限ループ防止)。
- *      'other' も false (通常 push / 非 PR merge)。
- *
- *   3. backMergeBranchName(hotfixRef)
- *      → 'back-merge/<sanitized-hotfix-ref>'
- *      back-merge branch 名を決定的に生成 (同 hotfix の再実行で同名 = upsert 可能)。
- *
- *   no-op 判定 (AC5: 既に develop に同 commit があれば二重適用しない) は
- *   git の `git merge-base --is-ancestor <merge_sha> origin/develop` で workflow 側が行う
- *   (git 状態への副作用を伴うため本 pure script の責務外。本 file は「back-merge を起動すべき
- *   PR か」までを純粋判定し、git 実操作は workflow に委ねる = testability を保つ)。
- *
- * Usage (CLI、workflow から呼ぶ):
- *   node scripts/hotfix-back-merge.mjs --base main --head fix/999-x --labels "priority:critical,type:infra"
- *     → stdout に JSON: {"classification":"hotfix","shouldBackMerge":true,"branch":"back-merge/fix-999-x"}
- *   node scripts/hotfix-back-merge.mjs --base main --head develop
- *     → {"classification":"integration","shouldBackMerge":false,"branch":null}
- *
- * exit: 0 = 判定成功 (JSON を stdout 出力) / 2 = 引数不足
- */
-
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /** hotfix とみなす PR label (headRef が fix/* でなくてもこの label があれば hotfix 扱い)。 */
 export const HOTFIX_LABELS = new Set(['hotfix', 'priority:critical']);
@@ -167,13 +108,7 @@ export function parseArgs(argv) {
 	};
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const { baseRef, headRef, labels } = parseArgs(process.argv.slice(2));

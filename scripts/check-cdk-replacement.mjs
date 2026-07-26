@@ -15,6 +15,7 @@
  */
 
 import * as readline from 'node:readline';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI エスケープコード検出に ESC 文字が必要
 const ANSI_ESCAPE = /\x1b\[[0-9;]*[mGKHF]/g;
@@ -176,7 +177,7 @@ async function main() {
 }
 
 // ESM: import.meta.url で直接実行を判定
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
 	main().catch((err) => {
 		console.error('check-cdk-replacement.mjs fatal error:', err.message);
 		process.exit(1);

@@ -40,6 +40,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -280,15 +281,7 @@ export async function main() {
 	return 0;
 }
 
-const isMain = (() => {
-	try {
-		const here = resolve(fileURLToPath(import.meta.url));
-		const argv1 = resolve(process.argv[1] || '');
-		return here === argv1;
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main()

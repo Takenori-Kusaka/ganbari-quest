@@ -33,6 +33,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PAGE_GUIDE_LABELS } from '../src/lib/domain/labels.js';
 import { MYSTERY_TERMS } from './check-terminology-coherence.ts';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const FAIL_ON_VIOLATION = process.argv.includes('--fail-on-violation');
 
@@ -288,17 +289,8 @@ function main(): number {
 	return FAIL_ON_VIOLATION ? 1 : 0;
 }
 
-const isMain = (() => {
-	if (typeof process === 'undefined') return false;
-	const argv1 = process.argv[1];
-	if (!argv1) return false;
-	try {
-		return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(argv1);
-	} catch {
-		return false;
-	}
-})();
-
-if (isMain) {
+// CLI 直接実行判定は scripts/lib/is-main.mjs (SSOT) に委ねる (#3969)。
+// 自前実装は方言が増えるほど symlink / junction 事故の再発面が広がる。
+if (isMainModule(import.meta.url)) {
 	process.exit(main());
 }

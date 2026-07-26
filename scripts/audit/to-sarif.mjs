@@ -28,8 +28,8 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { isMain as isMainModule } from '../lib/is-main.mjs';
 import { computeFingerprint, VALID_SARIF_LEVELS } from './evidence-schema.mjs';
 
 /** SARIF 2.1.0 JSON schema URI (OASIS 公式) */
@@ -294,13 +294,7 @@ export function runCli(argv = process.argv.slice(2)) {
 	return { sarif, outPath: /** @type {string} */ (outPath) };
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	runCli();

@@ -29,8 +29,8 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { isMain as isMainModule } from '../lib/is-main.mjs';
 import {
 	evaluateMergeReadiness,
 	formatMergeReadinessMarkdown,
@@ -289,13 +289,7 @@ const internalHelpers = {
 	},
 };
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	runCli();

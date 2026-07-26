@@ -40,9 +40,9 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import { classifyForContainedList } from '../integration-pr-body.mjs';
+import { isMain as isMainModule } from '../lib/is-main.mjs';
 
 /** in-toto attestation statement type (v1) */
 export const STATEMENT_TYPE = 'https://in-toto.io/Statement/v1';
@@ -274,13 +274,7 @@ export function runCli(argv = process.argv.slice(2)) {
 	return { statement, outPath: /** @type {string} */ (outPath) };
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	runCli();

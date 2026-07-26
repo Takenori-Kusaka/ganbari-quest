@@ -31,6 +31,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -219,10 +220,7 @@ function main() {
 }
 
 // ESM の直接実行判定 (import 経由ではテスト時 main() を呼ばない)
-const entryArg = process.argv[1] ?? '';
-const isDirectRun =
-	import.meta.url === `file://${entryArg.replace(/\\/g, '/')}` ||
-	import.meta.url.endsWith(path.basename(entryArg));
+const isDirectRun = isMainModule(import.meta.url);
 if (isDirectRun) {
 	main();
 }

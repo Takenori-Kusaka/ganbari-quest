@@ -1,46 +1,4 @@
-// @ts-check
-/**
- * scripts/check-ac-verification-map.mjs — Issue #2945 (Phase A/A-3、親 #2942 / EPIC #2861)
- *
- * `.github/workflows/pr-ac-verification-check.yml`（required context `Verify AC map in PR body`）の
- * 検証ロジックを lane-aware な純粋関数として切り出した SSOT（unit test 可能化、Issue #2945 実装方針）。
- *
- * ## 背景（#2942 / #2945）
- *
- * develop 二層ブランチ戦略（docs/sessions/branch-strategy.md §3〜§5）で 3 レーン
- * （feature→develop 軽量 / develop→main 統合 PR 重量 / fix/*→main hotfix 重量）が併存する。
- * 旧 workflow は base/head（レーン）を見ず、per-PR の単一 Issue AC 前提の「AC 検証マップ」を
- * 全レーンに一律要求していた。統合 PR（複数 PR の束ね・単一 Issue 非紐づけ）は構造的に
- * 「統合 PR 自身の AC」を持たず、含有 PR の AC は develop 取込時点で QM が検証済
- * （audit-team.md §3.4）。この前提ミスマッチを lane 判定で解消する。
- *
- * ## lane 別の検証観点（Issue #2945 が SSOT）
- *
- * - **feature / hotfix lane**: 現行どおり「AC 検証マップ 4 列 + #1539 未完了表記検出」を検証（AC4 回帰ゼロ）。
- * - **integration lane**: per-PR AC マップの代わりに「マージ判定エビデンス表」セクションの存在 +
- *   4 列（含有 PR / 領域 / テスト / 結果）+「残 NG 0 件」明示を検証（audit-team.md §3.5、AC3）。
- *   `<!-- ac-verification-skip -->` 偽装に依存しない正規観点。表が欠落 or 空行で fail する。
- * - **dependabot lane**: 呼び出し側（job-level if）で従来どおり skip 相当（挙動不変、AC6）。
- *   本関数では `shouldSkip()` が dependencies / type:docs / 明示 skip コメントを判定する。
- *
- * ## 検証の本質を減らさない（#2945 no-go）
- *
- * integration lane で AC マップを外す代わりに必ずエビデンス表を要求する（実検証の総量を減らさない）。
- * skip による検証空洞化（required check が「何も見ずに緑」）は禁止。
- *
- * ## SSOT / 関連
- *
- * - lane 判定: scripts/pr-lane.mjs（A-1、actions/pr-lane composite action 経由で workflow から呼ぶ）
- * - 統合 PR エビデンス基準: docs/sessions/audit-team.md §3.5（4 点 + NG 0 件条件）
- * - 関連 ADR: ADR-0038（AC 検証マップ、docs/decisions/0004-review-and-ac-verification.md 統合）/
- *   ADR-0056（self-report 物理強制）/ ADR-0004（AC 検証）
- * - 関連 Issue: #2945 / #2942 / #1165（ADR-0038 原典）/ #1539（未完了表記検出）/ #1808（Dependabot exempt）
- *
- * exit: 0 = PASS / 1 = 検証失敗 / 2 = 引数不足
- */
-
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /** 統合 PR の検証で要求する section 見出し（暫定。統合 PR template 確定は Phase B #2871）。 */
 export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
@@ -340,13 +298,7 @@ export function checkAcVerification({ body, labels, lane }) {
 
 // --- CLI（ローカル検証用。PR_BODY / PR_LABELS / PR_LANE を env or argv で受ける）---
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const argv = process.argv.slice(2);

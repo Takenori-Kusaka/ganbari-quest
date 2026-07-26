@@ -31,7 +31,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
  * @typedef {object} OverlapEntry
@@ -190,7 +190,7 @@ function main() {
 }
 
 // CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
-const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

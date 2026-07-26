@@ -120,7 +120,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 export const DEFAULT_DAYS = 7;
 export const DEFAULT_BASE = 'origin/main';
@@ -897,6 +897,6 @@ async function main() {
 }
 
 // CLI 実行時のみ main を呼ぶ (vitest import 時は skip)
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
 	main().then((code) => process.exit(code));
 }

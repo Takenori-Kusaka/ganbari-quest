@@ -39,6 +39,7 @@ import {
 	LOGIN_TERMS,
 	TEMPLATE_TERMS,
 } from '../src/lib/domain/terms.js';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -260,18 +261,8 @@ function main() {
 // Main
 // ---------------------------------------------------------------------------
 
-const isMain = (() => {
-	if (typeof process === 'undefined') return false;
-	const argv1 = process.argv[1];
-	if (!argv1) return false;
-	try {
-		return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(argv1);
-	} catch {
-		return false;
-	}
-})();
-
-if (isMain) {
+// CLI 直接実行判定は scripts/lib/is-main.mjs (SSOT) に委ねる (#3969)。
+if (isMainModule(import.meta.url)) {
 	const code = main();
 	process.exit(code);
 }

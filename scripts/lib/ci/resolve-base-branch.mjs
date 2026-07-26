@@ -41,8 +41,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from '../is-main.mjs';
 
 /**
  * base branch 解決の純粋関数 (unit test 対象、Issue #2959 AC1)。
@@ -228,13 +227,7 @@ export function resolveBaseBranchAuto(opts = {}) {
 	});
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	try {
