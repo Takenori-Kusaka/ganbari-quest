@@ -172,6 +172,50 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		expect(partial?.stripeCustomerId).toBe('cus_r2test');
 	});
 
+	// #3982: `undefined` = 更新しない / `null` = NULL クリア の 2 値セマンティクスを実 DB 値で固定する。
+	// 旧 `handleSubscriptionDeleted` は「クリアのつもりで undefined」を渡しており、両方 no-op だった
+	// (結果 stripe_subscription_id が解約後も残り createCheckoutSession が ALREADY_SUBSCRIBED を返した)。
+	it('[T4b] updateTenantStripe: undefined = 保持 / null = NULL クリア (#3982)', async () => {
+		const tenant = await repo.createTenant({ name: '解約家', ownerId: USER_B });
+		await repo.updateTenantStripe(tenant.tenantId, {
+			stripeCustomerId: 'cus_3982',
+			stripeSubscriptionId: 'sub_3982',
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
+			status: 'active',
+		});
+
+		// undefined を渡しても既存値は消えない (= 旧実装が no-op だった証明)
+		await repo.updateTenantStripe(tenant.tenantId, {
+			stripeSubscriptionId: undefined,
+			plan: undefined,
+			status: 'suspended',
+		});
+		const kept = await repo.findTenantById(tenant.tenantId);
+		expect(kept?.stripeSubscriptionId).toBe('sub_3982');
+		expect(kept?.plan).toBe(SUBSCRIPTION_PLAN.MONTHLY);
+		expect(kept?.status).toBe('suspended');
+
+		// null を渡すと実際に NULL が書かれる (handleSubscriptionDeleted の現行経路)
+		await repo.updateTenantStripe(tenant.tenantId, {
+			stripeSubscriptionId: null,
+			plan: null,
+			status: 'suspended',
+		});
+		const cleared = await repo.findTenantById(tenant.tenantId);
+		expect(cleared?.stripeSubscriptionId).toBeUndefined();
+		expect(cleared?.plan).toBeUndefined();
+		// customer は再購読の顧客再利用 + webhook 逆引きの鍵なので残る
+		expect(cleared?.stripeCustomerId).toBe('cus_3982');
+
+		// 実列も NULL であること (entity マッピングの ?? undefined に隠されていないか)
+		const row = await t.db.execute(
+			sql`SELECT stripe_subscription_id, plan FROM families WHERE family_id = ${tenant.tenantId}`,
+		);
+		const record = (row as unknown as { rows: Record<string, unknown>[] }).rows[0];
+		expect(record?.stripe_subscription_id).toBeNull();
+		expect(record?.plan).toBeNull();
+	});
+
 	it('[T5] updateTenantLastActiveAt (存在しない tenant は silent no-op)', async () => {
 		const tenant = await repo.createTenant({ name: '活動家', ownerId: USER_A });
 		const ts = '2026-07-04T01:02:03.000Z';

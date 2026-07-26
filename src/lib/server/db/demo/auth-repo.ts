@@ -96,8 +96,8 @@ export async function updateTenantStripe(
 	_tenantId: string,
 	_data: {
 		stripeCustomerId?: string;
-		stripeSubscriptionId?: string;
-		plan?: Tenant['plan'];
+		stripeSubscriptionId?: string | null;
+		plan?: Tenant['plan'] | null;
 		planExpiresAt?: string;
 		trialUsedAt?: string;
 		status?: Tenant['status'];
