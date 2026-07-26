@@ -21,8 +21,8 @@ import {
 	QA_ACCOUNT,
 } from '../../../scripts/claude-hook-prevent-qa-account-pr.mjs';
 import {
-	IS_MAIN_WITHOUT_EXPORT,
 	bashPayload,
+	IS_MAIN_WITHOUT_EXPORT,
 	runHookInIsolatedTree,
 } from '../helpers/hook-tree-probe';
 

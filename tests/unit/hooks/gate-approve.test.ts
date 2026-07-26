@@ -30,8 +30,8 @@ import {
 	verifyEvidence,
 } from '../../../.claude/hooks/gate-approve.mjs';
 import {
-	IS_MAIN_WITHOUT_EXPORT,
 	bashPayload,
+	IS_MAIN_WITHOUT_EXPORT,
 	runHookInIsolatedTree,
 } from '../helpers/hook-tree-probe';
 
