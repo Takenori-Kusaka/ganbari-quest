@@ -133,12 +133,24 @@ npm run pre-ready -- --pr <N>
 **#2618 deploy 後**: `check-recent-deploy-deletion.mjs` 自身が `--pr` 指定時に HEAD mismatch を検出すると exit 3 で BLOCK する self-defense を実装済 (ADR-0056 §D defense in depth 第 2 層)。**ただし本 prelude (第 1 層) は引き続き必須**。Agent 側で事前 checkout する習慣を default 化することで gate 起動回数自体を最小化する。
 
 ```bash
-# 雛形に直接ローカル検証（PR 未作成でも動く）
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<slug>.md --skip-mergeable
+# 雛形に直接ローカル検証（PR 未作成 = label がまだ存在しないので --no-labels）
+node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<slug>.md --skip-mergeable --no-labels
 
 # pre-ready CLI 経由（ADR-0030、PR 番号不要時は --pr 0 でも内部 skip 設計）
 npm run pre-ready -- --pr <PR番号後で発番>
 ```
+
+### `--no-labels` を書いてよい場面 (#3962 QA 指摘)
+
+`--no-labels` は label 条件付き gate（hotfix env 配布証跡 #2343 / PO 決裁ブリーフ #3962）を **検査しない**宣言。fail-closed の縮退先なので、**PR 番号が取れる呼び出しでは書かない**:
+
+| 場面 | 書き方 |
+|---|---|
+| PR 作成**前**の雛形 dry-run（label がまだ存在しない） | `--body-file <path> --skip-mergeable --no-labels` |
+| PR 作成**後**（Ready 化前検証 / pre-push / pre-ready） | `--pr <num> --body-file <path> --skip-mergeable`（`--no-labels` を書かない） |
+| 付く予定の label を先に検証したい | `--labels po-decision:required --body-file <path>` |
+
+`--no-labels` 指定時は `SKIPPED — label 条件付き gate 2 件は検査していません` が gate 名付きで出力される。**この行が出ている pass は「全部通った」ではない**。label を付けた後に `--pr <num>` で必ず再実行すること。
 
 `check-pr-body.mjs` は以下を検出:
 - 必須セクション欠落（PR template / SSOT JSON との完全一致、#2060 で SSOT 化）
@@ -156,7 +168,8 @@ npm run pre-ready -- --pr <PR番号後で発番>
 ```bash
 # 既存 PR の body を取得して SSOT JSON と diff
 gh pr view <num> --json body --jq .body > /tmp/pr-body-check.md
-node scripts/check-pr-body.mjs --body-file /tmp/pr-body-check.md --skip-mergeable
+# --pr <num> は label 取得用（label 条件付き gate を発火させるため必須）。body は --body-file 優先
+node scripts/check-pr-body.mjs --pr <num> --body-file /tmp/pr-body-check.md --skip-mergeable
 # missing-required-sections 違反が出たら .github/PR_TEMPLATE_SECTIONS.json から逐語コピーして補完
 ```
 
@@ -247,7 +260,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 | # | Gate | ローカル検証 |
 |---|---|---|
-| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
+| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
 | 2 | 必須セクション 12 個 全存在 | 同上 |
 | 3 | Ready チェックリスト `[x]` 完了 (虚偽禁止) | 同上 |
 | 4 | UI 変更時 SS 4 スロット添付 | 修正前 × Mobile/PC + 修正後 × Mobile/PC を `docs/screenshots/pr-<num>/` または screenshots branch に配置 |

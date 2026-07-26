@@ -323,7 +323,7 @@ async function main() {
 	console.log('次の手順:');
 	console.log(`  1. ${relative(REPO_ROOT, outputPath)} を編集して穴埋め`);
 	console.log(
-		`  2. node scripts/check-pr-body.mjs --body-file ${relative(REPO_ROOT, outputPath)} --skip-mergeable で検証`,
+		`  2. node scripts/check-pr-body.mjs --body-file ${relative(REPO_ROOT, outputPath)} --skip-mergeable --no-labels で検証`,
 	);
 	console.log(`  3. node scripts/check-gh-account-before-pr.mjs で gh アカウント確認`);
 	console.log(

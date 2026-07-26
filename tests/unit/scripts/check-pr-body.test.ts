@@ -23,10 +23,13 @@ import {
 	FORBIDDEN_TERMS,
 	findMissingSections,
 	findUncheckedReadyChecklist,
+	formatSkippedLabelGates,
 	HOTFIX_LABELS,
 	hasHotfixLabel,
 	hasPoDecisionLabel,
+	LABEL_CONDITIONAL_GATES,
 	PO_DECISION_LABEL,
+	resolveLabels,
 	scanForbiddenTerms,
 	stripCodeBlocks,
 	stripMarkdownComments,
@@ -823,5 +826,93 @@ describe('PO 決裁ブリーフ gate の SSOT 整合 (#3962)', () => {
 		// 見出しと mermaid は満たす。「___」は記入前提なので残っているのが正しい。
 		const v = checkPoDecisionBrief(template, [PO_DECISION_LABEL]);
 		expect(v?.id).toBe('po-decision-brief-unfilled-placeholder');
+	});
+});
+
+/**
+ * #3962 QA 指摘 (BLOCK 1): label 取得に失敗すると label 条件付き検査が黙って消え、
+ * 出力は `OK — 違反なし` になっていた。
+ *
+ * 原因は `fetchPrLabels()` が gh 失敗を `catch { return [] }` で潰し、
+ * 「label が付いていない」と「label を取得できなかった」を呼び出し側が区別できなかったこと。
+ * `resolveLabels()` はこの 2 状態を型で分離し、**未解決は必ず error** (fail-closed) を返す。
+ */
+describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', () => {
+	const noLabelArgs = { pr: null, labels: null, noLabels: false };
+
+	it('[LB1] --pr 指定で label 取得に失敗したら error を返す (空配列に落とさない)', () => {
+		const r = resolveLabels({ ...noLabelArgs, pr: '3956' }, null);
+		expect(r).not.toHaveProperty('labels');
+		expect('error' in r && r.error).toContain('label を取得できませんでした');
+	});
+
+	it('[LB2] --pr 指定で label が 1 件も無い場合は空配列 (取得成功なので検査は正しく skip される)', () => {
+		const r = resolveLabels({ ...noLabelArgs, pr: '3956' }, []);
+		expect(r).toEqual({ labels: [] });
+	});
+
+	it('[LB3] --body-file 単独 (label を解決する手段が無い) も error にする', () => {
+		const r = resolveLabels(noLabelArgs, null);
+		expect('error' in r && r.error).toContain('--body-file 単独では label を解決できません');
+	});
+
+	it('[LB4] --no-labels は「label が無い」ことの明示なので空配列を返す', () => {
+		expect(resolveLabels({ ...noLabelArgs, noLabels: true }, null)).toEqual({ labels: [] });
+	});
+
+	it('[LB5] --labels の csv は trim して解釈する', () => {
+		const r = resolveLabels({ ...noLabelArgs, labels: 'po-decision:required, hotfix ,' }, null);
+		expect(r).toEqual({ labels: [PO_DECISION_LABEL, 'hotfix'] });
+	});
+
+	it('[LB6] 未解決と label 無しが同じ結果にならない — 同一 body で検査が消えないことの回帰', () => {
+		// QA の再現 (PR #3956 の実 body 相当: po-decision:required 付きだがブリーフ無し)
+		const bodyWithoutBrief = '## 顧客価値・目的\n\n本文\n';
+
+		// A: label 解決済み (po-decision:required あり) → 違反が出る
+		const resolvedA = resolveLabels({ ...noLabelArgs, labels: PO_DECISION_LABEL }, null);
+		expect('labels' in resolvedA).toBe(true);
+		if ('labels' in resolvedA) {
+			expect(checkPoDecisionBrief(bodyWithoutBrief, resolvedA.labels)?.id).toBe(
+				'po-decision-brief-missing-section',
+			);
+		}
+
+		// B: label 未解決 → 旧実装は [] に落ちて checkPoDecisionBrief が null (= 検査消滅) になった。
+		//    現行は error を返すので、そもそも検査を走らせる前に中断できる。
+		const resolvedB = resolveLabels({ ...noLabelArgs, pr: '3956' }, null);
+		expect('labels' in resolvedB).toBe(false);
+		expect(checkPoDecisionBrief(bodyWithoutBrief, [])).toBeNull(); // 旧実装が黙って通していた経路
+	});
+});
+
+/**
+ * #3962 QA 指摘 (2 巡目): `--no-labels` は fail-closed の縮退先なので、
+ * 出力が通常 pass と目視で区別できないと「gate が形式だけ通って実体が無い」class に戻る。
+ * skip した gate 名が出力に含まれることを固定し、将来メッセージを整理した拍子の無言化を防ぐ。
+ */
+describe('formatSkippedLabelGates — --no-labels は何を検査しなかったかを出す (#3962)', () => {
+	it('[LB7] skip した label 条件付き gate の名前と件数が出力に含まれる', () => {
+		const out = formatSkippedLabelGates().join('\n');
+
+		// 件数が LABEL_CONDITIONAL_GATES と一致する (gate を足したのに文言が古い、を防ぐ)
+		expect(out).toContain(`label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件`);
+
+		// 個々の gate 名と発火 label が名指しされている
+		for (const gate of LABEL_CONDITIONAL_GATES) {
+			expect(out).toContain(gate.name);
+			expect(out).toContain(gate.issue);
+		}
+		expect(out).toContain(PO_DECISION_LABEL);
+
+		// 通常 pass (`OK — 違反なし`) と見分けるためのマーカー
+		expect(out).toContain('SKIPPED');
+	});
+
+	it('[LB8] LABEL_CONDITIONAL_GATES が実在の label 条件付き検査を網羅している', () => {
+		// hotfix (#2343) と po-decision (#3962) の 2 件。増えたら本 test が落ちて追記を促す。
+		expect(LABEL_CONDITIONAL_GATES.map((g) => g.issue)).toEqual(['#2343', '#3962']);
+		expect(hasPoDecisionLabel([PO_DECISION_LABEL])).toBe(true);
+		expect(hasHotfixLabel(HOTFIX_LABELS.slice(0, 1))).toBe(true);
 	});
 });

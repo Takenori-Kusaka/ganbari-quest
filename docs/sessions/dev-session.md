@@ -111,7 +111,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    gh pr create --draft --base develop --body-file tmp/pr-bodies/<num>-<slug>.md
    ```
 8. **UI 変更時、Ready 化前に SS 撮影必須**（次節参照）
-9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
+9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --pr <num> --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
 10. CI 全通過後 Ready: `gh pr ready <num>`
 
 ### PR 起票アカウント違反からの復旧 (#1994)
@@ -287,7 +287,7 @@ const source = getEnv().DATA_SOURCE;
 
 ```bash
 # 1. PR body 全体検証 (必須セクション 13 件 / AC マップ 4 列 / 禁止語 / Ready チェックリスト)
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 
 # 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or label exempt 確認)
 PR_FILES="$(gh pr diff <num> --name-only)" \
