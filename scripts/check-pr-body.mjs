@@ -703,16 +703,43 @@ function fetchPrBody(prNumber) {
 function fetchPrLabels(prNumber) {
 	if (!prNumber) return null;
 	try {
-		const raw = execSync(`gh pr view ${prNumber} --json labels --jq '[.labels[].name]'`, {
+		// `--jq '[.labels[].name]'` を使わない (#3962): execSync は Windows で cmd.exe を経由し、
+		// cmd.exe は単一引用符を引用符として扱わないため、jq が `'[.labels[].name]'` を
+		// リテラル受領して `unexpected token "'"` で落ちる。旧実装は catch { return [] } で
+		// これを潰していたので、**Windows のローカル開発機では label 条件付き検査
+		// (hotfix #2343 / po-decision #3962) が一度も実行されないまま `OK — 違反なし` が
+		// 出ていた**。shell の引用規則に依存しないよう、JSON を素で受けて JS 側で取り出す。
+		const raw = execSync(`gh pr view ${prNumber} --json labels`, {
 			encoding: 'utf-8',
 			stdio: ['ignore', 'pipe', 'ignore'],
 			timeout: 15_000,
 		});
-		const parsed = JSON.parse(raw.trim() || '[]');
-		return Array.isArray(parsed) ? parsed.map((l) => String(l)) : null;
+		return extractLabelNames(raw);
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * `gh pr view --json labels` の生 JSON から label 名配列を取り出す (#3962)。
+ *
+ * 取り出せない形 (パース不能 / `labels` が配列でない) は **空配列に落とさず `null`**。
+ * 「label が無い」と「label が読めなかった」を混ぜないのが本 Issue の主題であり、
+ * ここで潰すと `resolveLabels()` の fail-closed が効かなくなる。
+ *
+ * @param {string} raw
+ * @returns {string[] | null} 取り出せなければ null (= 未解決)
+ */
+export function extractLabelNames(raw) {
+	let parsed;
+	try {
+		parsed = JSON.parse(raw.trim() || 'null');
+	} catch {
+		return null;
+	}
+	const labels = parsed && typeof parsed === 'object' ? parsed.labels : null;
+	if (!Array.isArray(labels)) return null;
+	return labels.map((l) => String(l?.name ?? l));
 }
 
 /**

@@ -18,6 +18,7 @@ import {
 	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
+	extractLabelNames,
 	extractPoDecisionSection,
 	extractRequiredSections,
 	FORBIDDEN_TERMS,
@@ -914,5 +915,44 @@ describe('formatSkippedLabelGates — --no-labels は何を検査しなかった
 		expect(LABEL_CONDITIONAL_GATES.map((g) => g.issue)).toEqual(['#2343', '#3962']);
 		expect(hasPoDecisionLabel([PO_DECISION_LABEL])).toBe(true);
 		expect(hasHotfixLabel(HOTFIX_LABELS.slice(0, 1))).toBe(true);
+	});
+});
+
+/**
+ * #3962: fail-closed 化して初めて露見した実バグの回帰。
+ *
+ * `fetchPrLabels` は `gh pr view --json labels --jq '[.labels[].name]'` を execSync していたが、
+ * execSync は Windows で cmd.exe を経由し、cmd.exe は単一引用符を引用符として扱わない。
+ * jq が `'[.labels[].name]'` をリテラル受領して `unexpected token "'"` で落ちるため、
+ * **Windows のローカル開発機では label 条件付き検査が一度も走らないまま
+ * `OK — 違反なし` が出ていた** (旧実装の catch { return [] } が完全に無音化していた)。
+ * shell 引用に依存しない `--json labels` + JS 側パースへ変更した。
+ */
+describe('extractLabelNames — shell 引用に依存せず label を取り出す (#3962)', () => {
+	it('[LB9] gh pr view --json labels の生 JSON から name を取り出す', () => {
+		const raw = JSON.stringify({
+			labels: [{ name: 'type:fix' }, { name: PO_DECISION_LABEL }],
+		});
+		expect(extractLabelNames(raw)).toEqual(['type:fix', PO_DECISION_LABEL]);
+	});
+
+	it('[LB10] label が 0 件なら空配列 (取得成功なので検査は正しく skip される)', () => {
+		expect(extractLabelNames('{"labels":[]}')).toEqual([]);
+	});
+
+	it('[LB11] パース不能 / labels が配列でない場合は null — 空配列に落とさない', () => {
+		// jq が落ちて stdout が空 / エラー文字列だった場合に相当する。
+		// ここで [] を返すと resolveLabels の fail-closed が効かず、本 Issue の欠陥に戻る。
+		expect(extractLabelNames('')).toBeNull();
+		expect(extractLabelNames("failed to parse jq expression\n'[.labels[].name]'")).toBeNull();
+		expect(extractLabelNames('{"labels":null}')).toBeNull();
+		expect(extractLabelNames('{}')).toBeNull();
+	});
+
+	it('[LB12] 未解決 (null) は resolveLabels で error になる — 経路として繋がっていることの固定', () => {
+		const fetched = extractLabelNames('');
+		expect(fetched).toBeNull();
+		const r = resolveLabels({ pr: '3965', labels: null, noLabels: false }, fetched);
+		expect('labels' in r).toBe(false);
 	});
 });
