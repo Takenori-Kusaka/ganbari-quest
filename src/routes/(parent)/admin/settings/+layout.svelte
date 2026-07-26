@@ -9,6 +9,7 @@
 import type { Snippet } from 'svelte';
 import { page } from '$app/stores';
 import { SETTINGS_NAV_LABELS } from '$lib/domain/labels';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 
 interface Props {
 	children: Snippet;
@@ -38,6 +39,9 @@ const navItems: NavItem[] = [
 		icon: '🔔',
 	},
 	{ href: '/admin/settings/data', label: SETTINGS_NAV_LABELS.data, icon: '💾' },
+	// #3954: hub カードと同じ順序で並べる (hub とサブナビで並びが違うと、
+	// どちらを見たかで場所の記憶が食い違う — NN/G #4 consistency)。
+	{ href: '/admin/settings/rules', label: SETTINGS_NAV_LABELS.rules, icon: CONCEPT_ICONS.reward },
 	{ href: '/admin/settings/support', label: SETTINGS_NAV_LABELS.support, icon: '💬' },
 	{
 		href: '/admin/subscription',

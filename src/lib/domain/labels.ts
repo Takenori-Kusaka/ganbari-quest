@@ -2566,6 +2566,10 @@ export const SETTINGS_NAV_LABELS = {
 	activities: '活動・ポイント',
 	notifications: '通知',
 	data: 'データ',
+	// #3954: hub カードと同じ経路をサブナビにも出す (どちらか片方だけだと、
+	// hub 経由で来た人はサブナビのタブが 1 つも選択されていない状態になる)。
+	// サブナビは横並びで幅が限られるため hub カードより短い表記にする。
+	rules: 'ごほうび・ルール',
 	support: 'サポート',
 	plan: 'プラン・課金',
 	externalIndicator: '別ページ',

@@ -20,6 +20,19 @@ import { describe, expect, it } from 'vitest';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SETTINGS_DIR = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings');
 const HUB_PAGE = path.join(SETTINGS_DIR, '+page.svelte');
+const SUBNAV_LAYOUT = path.join(SETTINGS_DIR, '+layout.svelte');
+
+/**
+ * 到達導線は hub カード (`+page.svelte`) と サブナビ (`+layout.svelte`) の **2 箇所**にあり、
+ * どちらも手書きの静的配列。片方だけ追記すると
+ * 「hub からは行けるがサブナビでは選択状態にならない」「サブナビにはあるが hub に無い」
+ * といった非対称が生まれる (parallel-implementations.md のナビ並行実装と同 class)。
+ * #3954 の実装中、実際に hub だけ直してサブナビを取り落としかけたため両方を母数にする。
+ */
+const NAV_SOURCES = [
+	{ label: 'hub カード (+page.svelte)', file: HUB_PAGE },
+	{ label: 'サブナビ (+layout.svelte)', file: SUBNAV_LAYOUT },
+] as const;
 
 /**
  * hub のカードに載せない子 route と、その理由。
@@ -41,9 +54,9 @@ function listSettingsChildRoutes(): string[] {
 		.sort();
 }
 
-/** hub の `groupCards` が持つ `/admin/settings/<name>` の <name> を集める。 */
-function listHubLinkedRoutes(): string[] {
-	const source = fs.readFileSync(HUB_PAGE, 'utf8');
+/** 指定ファイルの配列が持つ `/admin/settings/<name>` の <name> を集める。 */
+function listLinkedRoutes(file: string): string[] {
+	const source = fs.readFileSync(file, 'utf8');
 	const found = new Set<string>();
 	for (const m of source.matchAll(/href:\s*'\/admin\/settings\/([a-z0-9-]+)'/g)) {
 		if (m[1] !== undefined) found.add(m[1]);
@@ -51,22 +64,38 @@ function listHubLinkedRoutes(): string[] {
 	return [...found].sort();
 }
 
+const listHubLinkedRoutes = () => listLinkedRoutes(HUB_PAGE);
+
 describe('#3954 settings hub は全ての子 route を説明する (no-silent-gap)', () => {
 	it('[S0] 子 route を 1 件以上発見する (0 件マッチの素通りを防ぐ)', () => {
 		expect(listSettingsChildRoutes().length).toBeGreaterThan(0);
 	});
 
-	it('[S1] 全ての子 route が hub カードにあるか、理由付きで明示除外されている', () => {
+	it.each(NAV_SOURCES)('[S1] 全ての子 route が $label にあるか、理由付きで明示除外されている', ({
+		file,
+	}) => {
+		const linked = listLinkedRoutes(file);
 		const unexplained = listSettingsChildRoutes().filter(
-			(name) => !listHubLinkedRoutes().includes(name) && !(name in EXCLUDED_FROM_HUB),
+			(name) => !linked.includes(name) && !(name in EXCLUDED_FROM_HUB),
 		);
 		expect(
 			unexplained,
-			`hub (/admin/settings) から辿れない子 route を検出:\n` +
+			`${path.relative(REPO_ROOT, file)} から辿れない子 route を検出:\n` +
 				`${unexplained.map((n) => `  /admin/settings/${n}`).join('\n')}\n` +
-				`→ ${path.relative(REPO_ROOT, HUB_PAGE)} の groupCards にカードを足すか、` +
-				`本 test の EXCLUDED_FROM_HUB に理由付きで登録する`,
+				`→ 同ファイルの導線配列に追加するか、本 test の EXCLUDED_FROM_HUB に理由付きで登録する`,
 		).toEqual([]);
+	});
+
+	// hub とサブナビが両方 route を持っていても、**並び順が食い違う**と
+	// 「さっき下から 3 番目にあったのに」が通じなくなる (NN/G #4 consistency)。
+	it('[S1b] hub カードとサブナビの settings 子 route の並び順が一致する', () => {
+		const order = (file: string) =>
+			[...fs.readFileSync(file, 'utf8').matchAll(/href:\s*'\/admin\/settings\/([a-z0-9-]+)'/g)]
+				.map((m) => m[1])
+				.filter((n): n is string => n !== undefined);
+		expect(order(SUBNAV_LAYOUT), 'サブナビと hub カードで子 route の並び順が異なる').toEqual(
+			order(HUB_PAGE),
+		);
 	});
 
 	it('[S2] hub のリンク先が実在する (typo / 撤去済 route への死にリンクを防ぐ)', () => {
