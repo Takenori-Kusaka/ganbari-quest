@@ -12,6 +12,9 @@
 //   [BK4] ローテーションは保持世代を超えた古い世代だけを消す
 //   [BK5] 失敗した回は **古い世代を消さない** (失敗が続くほど手持ちが減る事故を作らない)
 //   [BK6] 最終成功時刻が状態ファイルに残る (fail が沈黙しないための可視化点)
+//   [BK7] ファイル名は辞書順 = 時系列順 (ローテーションの前提)
+//   [BK8] **命名規則に従わない同 prefix ファイル (手動スナップショット) を世代として数えない**
+//         — 数えると実保持が 3 → 2 世代に減る (QA レビュー #3956 指摘の回帰固定)
 //
 // [BK2] / [BK3] / [BK5] は「gate を書いたが実は何も落とせていない」を防ぐ実効性検証。
 
@@ -25,6 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	backupFilename,
 	loadJournalEntries,
+	PGLITE_BACKUP_FILENAME_PATTERN,
 	PGLITE_BACKUP_PREFIX,
 	PgliteBackupVerificationError,
 	sortBackupsNewestFirst,
@@ -36,6 +40,13 @@ import {
 } from '../../../src/lib/server/services/pglite-backup-service';
 
 const MIGRATIONS_DIR = join(process.cwd(), 'drizzle', 'pglite');
+
+/**
+ * #3947 hotfix の際に本番 BACKUP_DIR へ手で採った暫定スナップショット (#3950 の一次証跡)。
+ * `pglite-` prefix + `.tgz` を持つが日次バックアップの命名規則には従わない実在ファイル名。
+ * 実名で固定しておくことで、緩い一致に戻した瞬間にテストが落ちる。
+ */
+const MANUAL_SNAPSHOT_FILENAME = 'pglite-snapshot-20260726-0738-pre-pr3947.tgz';
 
 const tempDirs: string[] = [];
 function tempDir(prefix: string): string {
@@ -131,9 +142,14 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 		expect(produced).toEqual([]);
 	}, 120_000);
 
-	it('[BK4] ローテーションは保持世代を超えた古い世代だけを消す', async () => {
+	it('[BK4] ローテーションは保持世代を超えた古い世代だけを消す (手動スナップショット同居下でも)', async () => {
 		const client = await migratedClient();
 		const backupDir = tempDir('gq-bk4-');
+
+		// #3950 の一次証跡として本番 BACKUP_DIR に現存する手動スナップショットを実名で同居させる。
+		// prefix / 拡張子は一致するが命名規則には従わないため、世代として数えてはならない
+		// (数えると辞書順で常に「最新」に居座り、実保持が 3 → 2 世代に減る / QA #3956 指摘)。
+		writeFileSync(join(backupDir, MANUAL_SNAPSHOT_FILENAME), 'manual-snapshot');
 
 		const filenames: string[] = [];
 		// 保持 3 世代に対して 4 回取得する。now を注入してファイル名を時系列で固定する。
@@ -153,6 +169,9 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 		// 残るのは新しい 3 世代。最初の 1 世代だけが消える。
 		expect(remaining).toEqual(filenames.slice(1).reverse());
 		expect(remaining).not.toContain(filenames[0]);
+		// 手動スナップショットは世代に数えられず、かつローテーションで削除もされない。
+		expect(remaining).not.toContain(MANUAL_SNAPSHOT_FILENAME);
+		expect(readdirSync(backupDir)).toContain(MANUAL_SNAPSHOT_FILENAME);
 	}, 120_000);
 
 	it('[BK5] 失敗した回は古い世代を消さない', async () => {
@@ -233,5 +252,30 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 			newer,
 			older,
 		]);
+		// 生成側も世代判定パターンに一致する (命名とパターンの片側だけ変える改変を落とす)。
+		expect(PGLITE_BACKUP_FILENAME_PATTERN.test(newer)).toBe(true);
+	});
+
+	it('[BK8] 同 prefix でも命名規則に従わないファイルは世代として数えない', () => {
+		const gen = [
+			backupFilename(new Date(Date.UTC(2026, 6, 27, 3, 0, 0))),
+			backupFilename(new Date(Date.UTC(2026, 6, 28, 3, 0, 0))),
+			backupFilename(new Date(Date.UTC(2026, 6, 29, 3, 0, 0))),
+		];
+		// 命名規則から外れるが prefix + 拡張子は一致する実在ファイル群。
+		const intruders = [
+			MANUAL_SNAPSHOT_FILENAME, // 手動スナップショット (#3950 一次証跡、本番 BACKUP_DIR に現存)
+			'pglite-20260730T030000Z.tgz.tmp', // 取得中に落ちた残骸
+			'pglite-backup-notes.tgz',
+			BACKUP_STATUS_FILENAME,
+		];
+
+		const sorted = sortBackupsNewestFirst([...intruders, ...gen]);
+
+		// 3 世代がそのまま新しい順で返り、混入物は 1 件も含まれない。
+		expect(sorted).toEqual([...gen].reverse());
+		for (const intruder of intruders) expect(sorted).not.toContain(intruder);
+		// 旧実装 (prefix + 拡張子の緩い一致) では手動スナップショットが辞書順で先頭に来ていた。
+		expect(sorted[0]).toBe(gen[2]);
 	});
 });

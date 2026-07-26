@@ -28,6 +28,16 @@ import { PGlite } from '@electric-sql/pglite';
 export const PGLITE_BACKUP_PREFIX = 'pglite-';
 /** バックアップファイルの拡張子 (dumpDataDir('gzip') の出力は gzip 圧縮 tar)。 */
 export const PGLITE_BACKUP_EXT = '.tgz';
+/**
+ * 「日次バックアップの世代」として数えてよいファイル名の厳密形 (`pglite-YYYYMMDDTHHMMSSZ.tgz`)。
+ *
+ * ⚠️ prefix + 拡張子の緩い一致で世代を数えてはいけない。同じ BACKUP_DIR には運用中に採る
+ * **手動の暫定スナップショット** (実例: #3950 一次証跡の `pglite-snapshot-20260726-0738-pre-pr3947.tgz`)
+ * が同居し得る。これは prefix / 拡張子とも一致するうえ、辞書順で `'s'` > 数字のため
+ * `.sort().reverse()` で常に「最新世代」の位置に固定され、恒久的に 1 スロットを占有して
+ * 実保持を 3 → 2 世代に減らす (QA レビュー #3956 指摘)。世代判定は本パターンの完全一致で行う。
+ */
+export const PGLITE_BACKUP_FILENAME_PATTERN = /^pglite-\d{8}T\d{6}Z\.tgz$/;
 /** オーナー決裁 (2026-07-26): 日次取得・3 世代保持。 */
 export const DEFAULT_BACKUP_RETENTION = 3;
 
@@ -170,13 +180,26 @@ export function backupFilename(now: Date): string {
 		.toISOString()
 		.replace(/[-:]/g, '')
 		.replace(/\.\d{3}Z$/, 'Z');
-	return `${PGLITE_BACKUP_PREFIX}${ts}${PGLITE_BACKUP_EXT}`;
+	const filename = `${PGLITE_BACKUP_PREFIX}${ts}${PGLITE_BACKUP_EXT}`;
+	// 命名を変えたのに世代判定パターンを追従し忘れると、生成物がローテーション対象から外れ
+	// 世代が無限に増える (or 新世代が「世代 0 件」に見える) 形で silent に壊れる。生成側で固定する。
+	if (!PGLITE_BACKUP_FILENAME_PATTERN.test(filename)) {
+		throw new Error(
+			`[pglite/backup] 生成したファイル名が世代判定パターンに一致しません: ${filename}`,
+		);
+	}
+	return filename;
 }
 
-/** バックアップディレクトリ内の PGlite バックアップを新しい順に返す。 */
+/**
+ * バックアップディレクトリ内の **日次バックアップ世代のみ**を新しい順に返す。
+ *
+ * `PGLITE_BACKUP_FILENAME_PATTERN` の完全一致で絞る = 命名規則に従わないファイル
+ * (手動スナップショット / `.tmp` 残骸 / 状態ファイル) はローテーション対象にも世代数にも含めない。
+ */
 export function sortBackupsNewestFirst(filenames: string[]): string[] {
 	return filenames
-		.filter((f) => f.startsWith(PGLITE_BACKUP_PREFIX) && f.endsWith(PGLITE_BACKUP_EXT))
+		.filter((f) => PGLITE_BACKUP_FILENAME_PATTERN.test(f))
 		.sort()
 		.reverse();
 }

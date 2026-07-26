@@ -35,6 +35,25 @@ crond (backup コンテナ, 03:00 JST)
        └─ それ以外              → 従来の SQLite 経路 (backup-db.cjs + verify-backup-restore.cjs)
 ```
 
+### 手動スナップショットの命名・退避方針 (CRITICAL)
+
+障害調査や hotfix 前に手で採るスナップショットを、**日次バックアップと同じ `BACKUP_DIR` に
+`pglite-*.tgz` の名前で置いてはならない**。
+
+- 世代判定は `PGLITE_BACKUP_FILENAME_PATTERN` (`pglite-YYYYMMDDTHHMMSSZ.tgz` の完全一致) で行う。
+  この形に一致しないファイルは世代に数えず、ローテーションでも削除しない
+- 実例: `pglite-snapshot-20260726-0738-pre-pr3947.tgz` (#3950 の一次証跡) は本番 `BACKUP_DIR` に現存する。
+  緩い一致 (prefix + 拡張子) で数えていた実装では、辞書順で `'s'` が数字より後ろに来るため
+  **常に「最新世代」の位置に居座り、実保持が 3 → 2 世代に減る**状態だった (QA レビュー #3956 指摘)
+- **運用ルール**: 手動スナップショットは `BACKUP_DIR` 直下ではなく `data/backups/manual/` へ置き、
+  ファイル名は `manual-<用途>-<日時>.tgz` とする。既に `BACKUP_DIR` 直下にあるものは同ディレクトリへ移す
+  (現行実装では世代として数えられないので緊急度は低いが、証跡と世代を混ぜない)
+
+```bash
+# 既存の手動スナップショットを退避する (削除しない — 一次証跡として保全)
+ssh <NUC_USER>@<NUC_IP> "cd /d C:\Docker\ganbari-quest\data\backups && mkdir manual & move pglite-snapshot-*.tgz manual\"
+```
+
 ### 復元検証 3 段 (取得物を実際に別インスタンスへ復元して確認する)
 
 | 段 | 内容 | 落ちたときの意味 |
