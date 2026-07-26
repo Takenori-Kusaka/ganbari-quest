@@ -11,12 +11,140 @@
 		<meta property="og:type" content="website">
 		<meta property="og:image" content="/icons/icon-512.png">
 		<meta property="og:locale" content="ja_JP">
-		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
-		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
-		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+		<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:5173/favicon-32x32.png?v=2">
+		<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:5173/favicon-16x16.png?v=2">
+		<link rel="apple-touch-icon" sizes="180x180" href="http://localhost:5173/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--16n228e--><!----><title>がんばりクエスト</title>
-		<style data-sveltekit="">/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+		<meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!----><title>設定 - がんばりクエスト</title>
+		
+	<style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/routes/(parent)/admin/settings/+layout.svelte?svelte&amp;type=style&amp;lang.css">
+	.settings-subnav.svelte-2jrpmj {
+		margin-bottom: 1rem;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: 0.75rem;
+		padding: 0.5rem;
+	}
+
+	.settings-subnav__list.svelte-2jrpmj {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.settings-subnav__item.svelte-2jrpmj {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.settings-subnav__link.svelte-2jrpmj {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		transition: background-color 0.15s ease, color 0.15s ease;
+		white-space: nowrap;
+	}
+
+	.settings-subnav__link.svelte-2jrpmj:hover {
+		background: var(--color-surface-muted);
+		color: var(--color-text-primary);
+	}
+
+	.settings-subnav__link--active.svelte-2jrpmj {
+		background: var(--color-feedback-info-bg);
+		color: var(--color-text-link);
+		font-weight: 600;
+	}
+
+	.settings-subnav__external.svelte-2jrpmj {
+		font-size: 0.75rem;
+		opacity: 0.6;
+	}
+
+	@media (max-width: 640px) {
+		.settings-subnav__list.svelte-2jrpmj {
+			overflow-x: auto;
+			flex-wrap: nowrap;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		.settings-subnav__item.svelte-2jrpmj {
+			flex: 0 0 auto;
+		}
+
+		.settings-subnav__label.svelte-2jrpmj {
+			font-size: 0.8125rem;
+		}
+	}
+ .svelte-2jrpmj{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/routes/(parent)/admin/settings/+page.svelte?svelte&amp;type=style&amp;lang.css">
+	.settings-hub__grid.svelte-16n228e {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+		gap: 1rem;
+	}
+
+	.settings-hub__card.svelte-16n228e {
+		display: flex;
+		gap: 0.75rem;
+		padding: 1rem;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: 0.75rem;
+		text-decoration: none;
+		transition: border-color 0.15s ease, background-color 0.15s ease,
+			transform 0.15s ease;
+	}
+
+	.settings-hub__card.svelte-16n228e:hover {
+		border-color: var(--color-border-focus);
+		background: var(--color-surface-accent);
+		transform: translateY(-1px);
+	}
+
+	.settings-hub__card-icon.svelte-16n228e {
+		flex: 0 0 auto;
+		font-size: 1.75rem;
+		line-height: 1;
+		padding-top: 0.125rem;
+	}
+
+	.settings-hub__card-body.svelte-16n228e {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.settings-hub__card-title.svelte-16n228e {
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0 0 0.25rem 0;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.settings-hub__card-external.svelte-16n228e {
+		font-size: 0.75rem;
+		opacity: 0.6;
+	}
+
+	.settings-hub__card-desc.svelte-16n228e {
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary);
+		margin: 0;
+		line-height: 1.5;
+	}
+ .svelte-16n228e{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/styles/app.css">/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
 @layer theme {
@@ -3958,13 +4086,11 @@ h1, h2, h3, h4 {
     }
   }
 }
-
-
+</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/features/demo/DemoGuideBar.svelte?svelte&amp;type=style&amp;lang.css">
 	.safe-area-bottom.svelte-hykokx {
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
- .svelte-hykokx{}
-
+ .svelte-hykokx{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/NavigationProgress.svelte?svelte&amp;type=style&amp;lang.css">
 	.navigation-progress.svelte-1p67wbu {
 		position: fixed;
 		top: 0;
@@ -3996,8 +4122,712 @@ h1, h2, h3, h4 {
 			opacity: 0;
 		}
 	}
- .svelte-1p67wbu{}
+ .svelte-1p67wbu{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/routes/+error.svelte?svelte&amp;type=style&amp;lang.css">
+	.error-page.svelte-1j96wlh {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		background: var(--color-surface-base);
+		padding: 1rem;
+	}
 
+	.error-container.svelte-1j96wlh {
+		text-align: center;
+		max-width: 480px;
+	}
+
+	.error-status.svelte-1j96wlh {
+		font-size: 4rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 0 0 0.5rem;
+		line-height: 1;
+	}
+
+	.error-title.svelte-1j96wlh {
+		font-size: 1.25rem;
+		margin: 0 0 1rem;
+		color: var(--color-text);
+	}
+
+	.error-description.svelte-1j96wlh {
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		margin: 0 0 1.5rem;
+	}
+
+	.countdown.svelte-1j96wlh {
+		font-size: 3rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 1rem 0;
+		line-height: 1;
+	}
+
+	.actions.svelte-1j96wlh {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 1.5rem 0;
+	}
+
+	.btn.svelte-1j96wlh {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		font-size: 1rem;
+	}
+
+	.btn-primary.svelte-1j96wlh {
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+	}
+
+	.btn-primary.svelte-1j96wlh:hover {
+		opacity: 0.9;
+	}
+
+	.btn-secondary.svelte-1j96wlh {
+		background: var(--color-surface-card);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+
+	/* child role: larger tap target + simple single action */
+	.error-page[data-role='child'].svelte-1j96wlh .error-title:where(.svelte-1j96wlh) {
+		font-size: 1.75rem;
+	}
+	.error-page[data-role='child'].svelte-1j96wlh .error-description:where(.svelte-1j96wlh) {
+		font-size: 1.125rem;
+	}
+	.btn-child.svelte-1j96wlh {
+		padding: 1.25rem 2rem;
+		font-size: 1.25rem;
+		min-height: 60px;
+	}
+
+	.error-id.svelte-1j96wlh {
+		margin-top: 2rem;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.error-id.svelte-1j96wlh code:where(.svelte-1j96wlh) {
+		font-family: monospace;
+		background: var(--color-surface-card);
+		padding: 0.125rem 0.375rem;
+		border-radius: 4px;
+	}
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/Logo.svelte?svelte&amp;type=style&amp;lang.css">
+	.logo-wrapper.svelte-1n7r250 {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		vertical-align: middle;
+	}
+	.logo.svelte-1n7r250 {
+		display: inline-block;
+		vertical-align: middle;
+		object-fit: contain;
+	}
+	.plan-label.svelte-1n7r250 {
+		font-size: 0.6rem;
+		font-weight: 700;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		white-space: nowrap;
+		line-height: 1.4;
+	}
+	.plan-label--standard.svelte-1n7r250 {
+		background: var(--plan-badge-bg, #f3e8ff);
+		color: var(--plan-badge-text, #6d28d9);
+	}
+	.plan-label--family.svelte-1n7r250 {
+		background: var(--plan-badge-bg, #fef3c7);
+		color: var(--plan-badge-text, #92400e);
+	}
+ .svelte-1n7r250{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/node_modules/driver.js/dist/driver.css">.driver-popover{all:unset;font-family:var(--driver-popover-font-family,"Helvetica Neue", Inter, ui-sans-serif, "Apple Color Emoji", Helvetica, Arial, sans-serif);box-sizing:border-box;color:#2d2d2d;z-index:1000000000;background-color:#fff;border-radius:5px;min-width:250px;max-width:300px;margin:0;padding:15px;position:fixed;top:0;right:0;box-shadow:0 1px 10px #0006}.driver-popover-title{zoom:1;margin:0;font-size:19px;font-weight:700;line-height:1.5;display:block;position:relative}.driver-popover-close-btn{all:unset;cursor:pointer;color:#d2d2d2;z-index:1;text-align:center;width:32px;height:28px;font-size:18px;font-weight:500;transition:color .2s;position:absolute;top:0;right:0}.driver-popover-close-btn:hover,.driver-popover-close-btn:focus{color:#2d2d2d}.driver-popover-title[style*=block]+.driver-popover-description{margin-top:5px}.driver-popover-description{zoom:1;margin-bottom:0;font-size:14px;font-weight:400;line-height:1.5}.driver-popover-footer{text-align:right;zoom:1;justify-content:space-between;align-items:center;margin-top:15px;display:flex}.driver-popover-progress-text{color:#727272;zoom:1;font-size:13px;font-weight:400}.driver-popover-footer-btn{all:unset;box-sizing:border-box;color:#2d2d2d;cursor:pointer;zoom:1;background-color:#fff;border:1px solid #ccc;border-radius:3px;outline:0;padding:3px 7px;font-size:12px;line-height:1.3;text-decoration:none;display:inline-block}.driver-popover-footer .driver-popover-btn-disabled{opacity:.5;pointer-events:none}.driver-popover-footer-btn:hover,.driver-popover-footer-btn:focus{background-color:#f7f7f7}.driver-popover-navigation-btns{flex-grow:1;justify-content:flex-end;display:flex}.driver-popover-navigation-btns button+button{margin-left:4px}.driver-popover-arrow{content:"";border:5px solid #fff;position:absolute}.driver-popover-arrow-side-over{display:none}.driver-popover-arrow-side-left{border-top-color:#0000;border-bottom-color:#0000;border-right-color:#0000;left:100%}.driver-popover-arrow-side-right{border-top-color:#0000;border-bottom-color:#0000;border-left-color:#0000;right:100%}.driver-popover-arrow-side-top{border-bottom-color:#0000;border-left-color:#0000;border-right-color:#0000;top:100%}.driver-popover-arrow-side-bottom{border-top-color:#0000;border-left-color:#0000;border-right-color:#0000;bottom:100%}.driver-popover-arrow-side-center,.driver-popover-arrow-none{display:none}.driver-active .driver-overlay{pointer-events:none}.driver-active.driver-no-scroll{overflow:hidden}.driver-active *{pointer-events:none}.driver-active .driver-active-element,.driver-active .driver-active-element *,.driver-popover,.driver-popover *{pointer-events:auto}@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}.driver-fade .driver-overlay{animation:animate-fade-in var(--driver-animation-duration,.4s) ease-in-out}.driver-fade .driver-popover{animation:animate-fade-in var(--driver-animation-duration,.4s)}.driver-active-element-parent-no-scroll{overflow:hidden!important}.driver-no-interaction,.driver-no-interaction *{pointer-events:none!important}
+</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/tutorial/PageGuideTabs.svelte?svelte&amp;type=style&amp;lang.css">
+	.guide-tabs.svelte-m7e7um {
+		display: flex;
+		padding: 0 12px;
+		gap: 4px;
+	}
+
+	.guide-tab.svelte-m7e7um {
+		flex: 1;
+		padding: 6px 8px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: none;
+		border-radius: 8px 8px 0 0;
+		cursor: pointer;
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+		transition: all 0.15s;
+	}
+
+	.guide-tab.active.svelte-m7e7um {
+		background: var(--color-brand-50, #eff6ff);
+		color: var(--color-action-primary, #3b82f6);
+	}
+
+	.guide-tab.svelte-m7e7um:hover:not(.active) {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-tab-content.svelte-m7e7um {
+		padding: 12px 16px;
+		min-height: 80px;
+		background: var(--color-surface-card, #ffffff);
+		border-top: 2px solid var(--color-brand-50, #eff6ff);
+	}
+
+	.guide-tab-content.svelte-m7e7um p:where(.svelte-m7e7um) {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--color-text-secondary, #475569);
+		line-height: 1.6;
+		white-space: pre-line;
+	}
+
+	.guide-how-text.svelte-m7e7um {
+		font-size: 0.85rem;
+	}
+
+	.guide-tips.svelte-m7e7um {
+		margin-top: 10px;
+		padding: 8px 10px;
+		background: var(--color-surface-muted, #fffbeb);
+		border-radius: 8px;
+	}
+
+	.guide-tips-label.svelte-m7e7um {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-primary, #92400e);
+	}
+
+	.guide-tip.svelte-m7e7um {
+		margin: 4px 0 0 !important;
+		font-size: 0.8rem !important;
+		color: var(--color-text-secondary, #78716c) !important;
+	}
+
+	.guide-links.svelte-m7e7um {
+		margin-top: 8px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.guide-link.svelte-m7e7um {
+		font-size: 0.8rem;
+		color: var(--color-action-primary, #3b82f6);
+		text-decoration: none;
+	}
+
+	.guide-link.svelte-m7e7um:hover {
+		text-decoration: underline;
+	}
+ .svelte-m7e7um{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/tutorial/PageGuideBubble.svelte?svelte&amp;type=style&amp;lang.css">
+	.guide-bubble.svelte-1wbmjuk {
+		/* The driver.js popover wrapper owns viewport placement and caps its own size to
+		   `min(360px, 100vw - 24px)` × `100vh - 24px` (see PageGuideOverlay popover styles).
+		   The bubble fills that wrapper (width:100%) so the wrapper's measured size — which
+		   driver.js uses for collision-aware positioning & viewport clamping — always equals
+		   the rendered bubble size. This prevents CI (taller JP text) from producing a bubble
+		   that overflows the viewport. The bubble scrolls when content exceeds the height cap. */
+		width: 100%;
+		box-sizing: border-box;
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		overflow: hidden;
+		animation: svelte-1wbmjuk-guide-bubble-appear 0.3s ease-out;
+		pointer-events: auto;
+		max-height: calc(100vh - 24px);
+		overflow-y: auto;
+	}
+
+	@keyframes svelte-1wbmjuk-guide-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.guide-header.svelte-1wbmjuk {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		padding: 10px 14px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: white;
+	}
+
+	.guide-header-icon.svelte-1wbmjuk {
+		font-size: 1.1rem;
+	}
+
+	.guide-header-title.svelte-1wbmjuk {
+		font-size: 0.85rem;
+		font-weight: 600;
+		flex: 1;
+	}
+
+	.guide-header-progress.svelte-1wbmjuk {
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
+
+	.guide-step-title.svelte-1wbmjuk {
+		padding: 14px 16px 8px;
+	}
+
+	.guide-step-title.svelte-1wbmjuk h3:where(.svelte-1wbmjuk) {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1e293b);
+	}
+
+	.guide-progress-bar.svelte-1wbmjuk {
+		height: 3px;
+		background: var(--color-surface-muted, #e2e8f0);
+		margin: 0 16px;
+	}
+
+	.guide-progress-fill.svelte-1wbmjuk {
+		height: 100%;
+		background: linear-gradient(90deg, var(--color-action-primary, #3b82f6), var(--color-brand-600, #7c3aed));
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.guide-nav.svelte-1wbmjuk {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 14px 14px;
+		gap: 8px;
+	}
+
+	.guide-nav-right.svelte-1wbmjuk {
+		display: flex;
+		gap: 6px;
+	}
+
+	.guide-nav-btn.svelte-1wbmjuk {
+		padding: 7px 16px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.guide-nav-end.svelte-1wbmjuk {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+	}
+
+	.guide-nav-end.svelte-1wbmjuk:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-prev.svelte-1wbmjuk {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-secondary, #475569);
+	}
+
+	.guide-nav-prev.svelte-1wbmjuk:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-next.svelte-1wbmjuk {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		color: white;
+	}
+
+	.guide-nav-next.svelte-1wbmjuk:hover {
+		filter: brightness(1.1);
+	}
+
+	.guide-nav-next.svelte-1wbmjuk:active {
+		transform: scale(0.97);
+	}
+ .svelte-1wbmjuk{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/PageGuideOverlay.svelte?svelte&amp;type=style&amp;lang.css">
+	/*
+	  Minimal adjustments to the driver.js popover for our guide UI.
+	  PageGuideBubble draws its own white card / header / nav, so we strip only the
+	  default driver.js popover chrome (padding / background / box-shadow) and use the
+	  wrapper as a transparent positioning container. :global overrides the elements
+	  driver.js injects at body level from this component scope.
+	  NOTE: do NOT use `all: unset` — it would also wipe the z-index driver.js gives
+	  `.driver-popover` (above the overlay SVG), dropping the bubble behind the overlay so
+	  button clicks get intercepted by the overlay SVG. Override chrome properties only.
+	*/
+	.driver-popover.page-guide-popover {
+		/*
+		  driver.js positions / viewport-clamps the popover using THIS wrapper's measured
+		  width & height (`se()` → wrapper.getBoundingClientRect()). To guarantee the bubble
+		  can always be placed fully inside the viewport (invariant (b)), the wrapper must
+		  never be wider/taller than the viewport minus a margin. CI (Linux) renders the
+		  Japanese bubble text taller than local, so a fixed 360px without a height cap let
+		  driver place the popover with a negative top / off-viewport edge. We therefore cap
+		  BOTH axes responsively here and make the inner bubble fill the wrapper (width 100%),
+		  so the wrapper's measured size always equals the rendered bubble size and stays
+		  within `100vw - 24px` × `100vh - 24px`. The bubble itself scrolls (overflow-y:auto)
+		  when content exceeds the cap.
+
+		  NOTE (#2971 round5): The CSS `max-width: min(360px, calc(100vw - 24px))` here applies
+		  to the wrapper (driver-popover-content), but the invariant spec measures the inner
+		  `.guide-bubble` element. In CI double-emulation (project=mobile layout 412px, then
+		  invariant spec resizes to 390px), `100vw` evaluates to 412px → 388px max-width,
+		  causing right≈12.5+388=400.5 > 390 invariant failure across all rounds.
+		  The runtime fix is applied in clampPopoverFrame() + renderBubble() via
+		  `bubble.style.maxWidth = Math.min(360, innerWidth-2*pad)px` on the .guide-bubble
+		  directly. This CSS fallback remains for initial load before JS runs.
+		*/
+		max-width: min(360px, calc(100vw - 24px));
+		max-height: calc(100vh - 24px);
+		min-width: 0;
+		background: transparent;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
+		border-radius: 0;
+		color: inherit;
+	}
+
+	/* Hide driver.js's built-in popover UI (title / body / footer / progress / close / arrow)
+	   — the UI is fully delegated to the Svelte PageGuideBubble (AC2). */
+	.driver-popover.page-guide-popover .driver-popover-title,
+	.driver-popover.page-guide-popover .driver-popover-description,
+	.driver-popover.page-guide-popover .driver-popover-footer,
+	.driver-popover.page-guide-popover .driver-popover-progress-text,
+	.driver-popover.page-guide-popover .driver-popover-close-btn,
+	.driver-popover.page-guide-popover .driver-popover-arrow {
+		display: none !important;
+	}
+
+	/*
+	  Stronger spotlight ring (AC6 / PO finding c): put the box-shadow directly on the
+	  .driver-active-element that driver.js applies to the highlighted element. Because it is
+	  the element's own box-shadow, the ring always follows it when driver.js re-positions on
+	  scroll / resize, so it never drifts. Thick blue ring + double glow + pulse make the
+	  focus target obvious at a glance.
+	*/
+	.driver-active-element {
+		border-radius: 12px;
+		box-shadow:
+			0 0 0 3px var(--color-action-primary),
+			0 0 0 6px color-mix(in srgb, var(--color-action-primary) 35%, transparent),
+			0 0 18px 4px color-mix(in srgb, var(--color-action-primary) 45%, transparent) !important;
+		animation: svelte-y136gw-page-guide-ring-pulse 1.8s ease-in-out infinite;
+	}
+
+	@keyframes svelte-y136gw-page-guide-ring-pulse {
+		0%,
+		100% {
+			box-shadow:
+				0 0 0 3px var(--color-action-primary),
+				0 0 0 6px color-mix(in srgb, var(--color-action-primary) 30%, transparent),
+				0 0 14px 3px color-mix(in srgb, var(--color-action-primary) 35%, transparent);
+		}
+		50% {
+			box-shadow:
+				0 0 0 4px var(--color-action-primary),
+				0 0 0 8px color-mix(in srgb, var(--color-action-primary) 40%, transparent),
+				0 0 26px 6px color-mix(in srgb, var(--color-action-primary) 55%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.driver-active-element {
+			animation: none;
+		}
+	}
+ /* (unused) *{}*/</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/TutorialBubble.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-bubble.svelte-9wfq4r {
+		position: fixed;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
+		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
+		z-index: calc(var(--z-tutorial) + 10);
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		padding: 0;
+		overflow: hidden;
+		pointer-events: auto;
+	}
+
+	@keyframes svelte-9wfq4r-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.tutorial-chapter-header.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		padding: 8px 12px;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: white;
+		font-size: 0.8rem;
+		font-weight: 600;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px 4px;
+		border-radius: 4px;
+		width: 100%;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.tutorial-chapter-arrow.svelte-9wfq4r {
+		margin-left: auto;
+		font-size: 0.65rem;
+	}
+
+	.tutorial-chapter-menu.svelte-9wfq4r {
+		background: #f8fafc;
+		border-bottom: 1px solid #e2e8f0;
+		padding: 4px;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 8px 12px;
+		font-size: 0.8rem;
+		border: none;
+		background: none;
+		border-radius: 8px;
+		cursor: pointer;
+		color: #475569;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
+		background: #dbeafe;
+		color: #1d4ed8;
+		font-weight: 600;
+	}
+
+	.tutorial-content.svelte-9wfq4r {
+		padding: 16px 16px 8px;
+	}
+
+	.tutorial-title.svelte-9wfq4r {
+		font-size: 1rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0 0 6px;
+	}
+
+	.tutorial-description.svelte-9wfq4r {
+		font-size: 0.85rem;
+		color: #475569;
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.tutorial-progress.svelte-9wfq4r {
+		padding: 8px 16px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.tutorial-progress-text.svelte-9wfq4r {
+		font-size: 0.7rem;
+		color: #94a3b8;
+		white-space: nowrap;
+		min-width: 36px;
+	}
+
+	.tutorial-progress-bar.svelte-9wfq4r {
+		flex: 1;
+		height: 4px;
+		background: #e2e8f0;
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.tutorial-progress-fill.svelte-9wfq4r {
+		height: 100%;
+		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.tutorial-nav.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 12px 12px;
+		gap: 8px;
+	}
+
+	.tutorial-nav-right.svelte-9wfq4r {
+		display: flex;
+		gap: 6px;
+	}
+
+	.tutorial-nav-btn.svelte-9wfq4r {
+		padding: 6px 14px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #64748b;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #475569;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:hover {
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:active {
+		transform: scale(0.97);
+	}
+
+	/* Age-tier font size adjustments (G3) */
+	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.25rem;
+	}
+
+	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
+		font-size: 1.05rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.125rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
+		font-size: 0.95rem;
+	}
+ .svelte-9wfq4r{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/TutorialQuickCompleteDialog.svelte?svelte&amp;type=style&amp;lang.css">
+	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
+		margin: 0;
+		color: var(--color-text-primary);
+		line-height: 1.5;
+	}
+
+	.dialog-hint.svelte-1hkj8k9 {
+		margin-top: var(--sp-sm) !important;
+		font-size: 0.875rem;
+		color: var(--color-text-secondary) !important;
+	}
+
+	.dialog-actions.svelte-1hkj8k9 {
+		display: flex;
+		gap: var(--sp-sm);
+		justify-content: flex-end;
+		margin-top: var(--sp-md);
+		flex-wrap: wrap;
+	}
+ .svelte-1hkj8k9{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/TutorialOverlay.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-overlay.svelte-c315ht {
+		position: fixed;
+		inset: 0;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
+	}
+
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/features/admin/components/AdminLayout.svelte?svelte&amp;type=style&amp;lang.css">
 	.admin-shell.svelte-wncecx {
 		min-height: 100dvh;
 		background: linear-gradient(to bottom, var(--plan-page-from, #eff6ff), var(--plan-page-to, #dbeafe));
@@ -4245,8 +5075,7 @@ h1, h2, h3, h4 {
 	}
 	/* #2109: .page-guide-badge (red --color-danger notification dot) removed
 	   ADR-0012 anti-engagement + industry prior art (Linear / Notion / GitHub / Stripe / Sentry) */
- .svelte-wncecx{}
-
+ .svelte-wncecx{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/features/admin/components/SetupResumeBanner.svelte?svelte&amp;type=style&amp;lang.css">
 	.setup-resume.svelte-1d4rnwq {
 		display: flex;
 		align-items: center;
@@ -4275,8 +5104,7 @@ h1, h2, h3, h4 {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
 	}
- .svelte-1d4rnwq{}
-
+ .svelte-1d4rnwq{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/features/admin/components/TrialBanner.svelte?svelte&amp;type=style&amp;lang.css">
 	.trial-banner.svelte-7ep5mg {
 		display: flex;
 		align-items: center;
@@ -4329,8 +5157,7 @@ h1, h2, h3, h4 {
 	.trial-cta.svelte-7ep5mg:hover {
 		background: var(--color-action-trial-hover);
 	}
- .svelte-7ep5mg{}
-
+ .svelte-7ep5mg{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/features/admin/components/TrialEndedDialog.svelte?svelte&amp;type=style&amp;lang.css">
 	.trial-ended-body.svelte-d5o3di {
 		display: flex;
 		flex-direction: column;
@@ -4381,8 +5208,7 @@ h1, h2, h3, h4 {
 		width: 100%;
 		margin-top: 4px;
 	}
- .svelte-d5o3di{}
-
+ .svelte-d5o3di{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/src/lib/ui/components/DebugPlanIndicator.svelte?svelte&amp;type=style&amp;lang.css">
 	.debug-plan-indicator.svelte-h6xk8m {
 		position: fixed;
 		bottom: 0.75rem;
@@ -4409,752 +5235,9 @@ h1, h2, h3, h4 {
 		border-radius: 0.25rem;
 		letter-spacing: 0.05em;
 	}
- .svelte-h6xk8m{}
-
-	.logo-wrapper.svelte-1n7r250 {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		vertical-align: middle;
-	}
-	.logo.svelte-1n7r250 {
-		display: inline-block;
-		vertical-align: middle;
-		object-fit: contain;
-	}
-	.plan-label.svelte-1n7r250 {
-		font-size: 0.6rem;
-		font-weight: 700;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		white-space: nowrap;
-		line-height: 1.4;
-	}
-	.plan-label--standard.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
-	}
-	.plan-label--family.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
- .svelte-1n7r250{}
-.driver-popover{all:unset;font-family:var(--driver-popover-font-family,"Helvetica Neue", Inter, ui-sans-serif, "Apple Color Emoji", Helvetica, Arial, sans-serif);box-sizing:border-box;color:#2d2d2d;z-index:1000000000;background-color:#fff;border-radius:5px;min-width:250px;max-width:300px;margin:0;padding:15px;position:fixed;top:0;right:0;box-shadow:0 1px 10px #0006}.driver-popover-title{zoom:1;margin:0;font-size:19px;font-weight:700;line-height:1.5;display:block;position:relative}.driver-popover-close-btn{all:unset;cursor:pointer;color:#d2d2d2;z-index:1;text-align:center;width:32px;height:28px;font-size:18px;font-weight:500;transition:color .2s;position:absolute;top:0;right:0}.driver-popover-close-btn:hover,.driver-popover-close-btn:focus{color:#2d2d2d}.driver-popover-title[style*=block]+.driver-popover-description{margin-top:5px}.driver-popover-description{zoom:1;margin-bottom:0;font-size:14px;font-weight:400;line-height:1.5}.driver-popover-footer{text-align:right;zoom:1;justify-content:space-between;align-items:center;margin-top:15px;display:flex}.driver-popover-progress-text{color:#727272;zoom:1;font-size:13px;font-weight:400}.driver-popover-footer-btn{all:unset;box-sizing:border-box;color:#2d2d2d;cursor:pointer;zoom:1;background-color:#fff;border:1px solid #ccc;border-radius:3px;outline:0;padding:3px 7px;font-size:12px;line-height:1.3;text-decoration:none;display:inline-block}.driver-popover-footer .driver-popover-btn-disabled{opacity:.5;pointer-events:none}.driver-popover-footer-btn:hover,.driver-popover-footer-btn:focus{background-color:#f7f7f7}.driver-popover-navigation-btns{flex-grow:1;justify-content:flex-end;display:flex}.driver-popover-navigation-btns button+button{margin-left:4px}.driver-popover-arrow{content:"";border:5px solid #fff;position:absolute}.driver-popover-arrow-side-over{display:none}.driver-popover-arrow-side-left{border-top-color:#0000;border-bottom-color:#0000;border-right-color:#0000;left:100%}.driver-popover-arrow-side-right{border-top-color:#0000;border-bottom-color:#0000;border-left-color:#0000;right:100%}.driver-popover-arrow-side-top{border-bottom-color:#0000;border-left-color:#0000;border-right-color:#0000;top:100%}.driver-popover-arrow-side-bottom{border-top-color:#0000;border-left-color:#0000;border-right-color:#0000;bottom:100%}.driver-popover-arrow-side-center,.driver-popover-arrow-none{display:none}.driver-active .driver-overlay{pointer-events:none}.driver-active.driver-no-scroll{overflow:hidden}.driver-active *{pointer-events:none}.driver-active .driver-active-element,.driver-active .driver-active-element *,.driver-popover,.driver-popover *{pointer-events:auto}@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}.driver-fade .driver-overlay{animation:animate-fade-in var(--driver-animation-duration,.4s) ease-in-out}.driver-fade .driver-popover{animation:animate-fade-in var(--driver-animation-duration,.4s)}.driver-active-element-parent-no-scroll{overflow:hidden!important}.driver-no-interaction,.driver-no-interaction *{pointer-events:none!important}
-
-
-	/*
-	  Minimal adjustments to the driver.js popover for our guide UI.
-	  PageGuideBubble draws its own white card / header / nav, so we strip only the
-	  default driver.js popover chrome (padding / background / box-shadow) and use the
-	  wrapper as a transparent positioning container. :global overrides the elements
-	  driver.js injects at body level from this component scope.
-	  NOTE: do NOT use `all: unset` — it would also wipe the z-index driver.js gives
-	  `.driver-popover` (above the overlay SVG), dropping the bubble behind the overlay so
-	  button clicks get intercepted by the overlay SVG. Override chrome properties only.
-	*/
-	.driver-popover.page-guide-popover {
-		/*
-		  driver.js positions / viewport-clamps the popover using THIS wrapper's measured
-		  width & height (`se()` → wrapper.getBoundingClientRect()). To guarantee the bubble
-		  can always be placed fully inside the viewport (invariant (b)), the wrapper must
-		  never be wider/taller than the viewport minus a margin. CI (Linux) renders the
-		  Japanese bubble text taller than local, so a fixed 360px without a height cap let
-		  driver place the popover with a negative top / off-viewport edge. We therefore cap
-		  BOTH axes responsively here and make the inner bubble fill the wrapper (width 100%),
-		  so the wrapper's measured size always equals the rendered bubble size and stays
-		  within `100vw - 24px` × `100vh - 24px`. The bubble itself scrolls (overflow-y:auto)
-		  when content exceeds the cap.
-
-		  NOTE (#2971 round5): The CSS `max-width: min(360px, calc(100vw - 24px))` here applies
-		  to the wrapper (driver-popover-content), but the invariant spec measures the inner
-		  `.guide-bubble` element. In CI double-emulation (project=mobile layout 412px, then
-		  invariant spec resizes to 390px), `100vw` evaluates to 412px → 388px max-width,
-		  causing right≈12.5+388=400.5 > 390 invariant failure across all rounds.
-		  The runtime fix is applied in clampPopoverFrame() + renderBubble() via
-		  `bubble.style.maxWidth = Math.min(360, innerWidth-2*pad)px` on the .guide-bubble
-		  directly. This CSS fallback remains for initial load before JS runs.
-		*/
-		max-width: min(360px, calc(100vw - 24px));
-		max-height: calc(100vh - 24px);
-		min-width: 0;
-		background: transparent;
-		box-shadow: none;
-		padding: 0;
-		margin: 0;
-		border-radius: 0;
-		color: inherit;
-	}
-
-	/* Hide driver.js's built-in popover UI (title / body / footer / progress / close / arrow)
-	   — the UI is fully delegated to the Svelte PageGuideBubble (AC2). */
-	.driver-popover.page-guide-popover .driver-popover-title,
-	.driver-popover.page-guide-popover .driver-popover-description,
-	.driver-popover.page-guide-popover .driver-popover-footer,
-	.driver-popover.page-guide-popover .driver-popover-progress-text,
-	.driver-popover.page-guide-popover .driver-popover-close-btn,
-	.driver-popover.page-guide-popover .driver-popover-arrow {
-		display: none !important;
-	}
-
-	/*
-	  Stronger spotlight ring (AC6 / PO finding c): put the box-shadow directly on the
-	  .driver-active-element that driver.js applies to the highlighted element. Because it is
-	  the element's own box-shadow, the ring always follows it when driver.js re-positions on
-	  scroll / resize, so it never drifts. Thick blue ring + double glow + pulse make the
-	  focus target obvious at a glance.
-	*/
-	.driver-active-element {
-		border-radius: 12px;
-		box-shadow:
-			0 0 0 3px var(--color-action-primary),
-			0 0 0 6px color-mix(in srgb, var(--color-action-primary) 35%, transparent),
-			0 0 18px 4px color-mix(in srgb, var(--color-action-primary) 45%, transparent) !important;
-		animation: svelte-y136gw-page-guide-ring-pulse 1.8s ease-in-out infinite;
-	}
-
-	@keyframes svelte-y136gw-page-guide-ring-pulse {
-		0%,
-		100% {
-			box-shadow:
-				0 0 0 3px var(--color-action-primary),
-				0 0 0 6px color-mix(in srgb, var(--color-action-primary) 30%, transparent),
-				0 0 14px 3px color-mix(in srgb, var(--color-action-primary) 35%, transparent);
-		}
-		50% {
-			box-shadow:
-				0 0 0 4px var(--color-action-primary),
-				0 0 0 8px color-mix(in srgb, var(--color-action-primary) 40%, transparent),
-				0 0 26px 6px color-mix(in srgb, var(--color-action-primary) 55%, transparent);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.driver-active-element {
-			animation: none;
-		}
-	}
- /* (unused) *{}*/
-
-	.tutorial-overlay.svelte-c315ht {
-		position: fixed;
-		inset: 0;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
-		z-index: var(--z-tutorial);
-	}
-
-	.tutorial-overlay-svg.svelte-c315ht {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.tutorial-overlay-bg.svelte-c315ht {
-		pointer-events: auto;
-		cursor: default;
-	}
-
-	.tutorial-spotlight-ring.svelte-c315ht {
-		position: absolute;
-		border: 2px solid rgba(59, 130, 246, 0.6);
-		border-radius: 12px;
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-		pointer-events: none;
-		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes svelte-c315ht-ring-pulse {
-		0%, 100% {
-			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-		}
-		50% {
-			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
-		}
-	}
-
-	/* A. During tutorial, suppress nav/header z-index below the overlay */
-	[data-tutorial-active] .z-30 {
-		z-index: 10 !important;
-	}
-	[data-tutorial-active] .desktop-dropdown {
-		z-index: 10 !important;
-	}
- .svelte-c315ht{}
-
-	.guide-bubble.svelte-1wbmjuk {
-		/* The driver.js popover wrapper owns viewport placement and caps its own size to
-		   `min(360px, 100vw - 24px)` × `100vh - 24px` (see PageGuideOverlay popover styles).
-		   The bubble fills that wrapper (width:100%) so the wrapper's measured size — which
-		   driver.js uses for collision-aware positioning & viewport clamping — always equals
-		   the rendered bubble size. This prevents CI (taller JP text) from producing a bubble
-		   that overflows the viewport. The bubble scrolls when content exceeds the height cap. */
-		width: 100%;
-		box-sizing: border-box;
-		background: white;
-		border-radius: 16px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
-		overflow: hidden;
-		animation: svelte-1wbmjuk-guide-bubble-appear 0.3s ease-out;
-		pointer-events: auto;
-		max-height: calc(100vh - 24px);
-		overflow-y: auto;
-	}
-
-	@keyframes svelte-1wbmjuk-guide-bubble-appear {
-		from {
-			opacity: 0;
-			transform: translateY(8px) scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-	}
-
-	.guide-header.svelte-1wbmjuk {
-		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
-		padding: 10px 14px;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		color: white;
-	}
-
-	.guide-header-icon.svelte-1wbmjuk {
-		font-size: 1.1rem;
-	}
-
-	.guide-header-title.svelte-1wbmjuk {
-		font-size: 0.85rem;
-		font-weight: 600;
-		flex: 1;
-	}
-
-	.guide-header-progress.svelte-1wbmjuk {
-		font-size: 0.75rem;
-		opacity: 0.8;
-	}
-
-	.guide-step-title.svelte-1wbmjuk {
-		padding: 14px 16px 8px;
-	}
-
-	.guide-step-title.svelte-1wbmjuk h3:where(.svelte-1wbmjuk) {
-		margin: 0;
-		font-size: 1.05rem;
-		font-weight: 700;
-		color: var(--color-text-primary, #1e293b);
-	}
-
-	.guide-progress-bar.svelte-1wbmjuk {
-		height: 3px;
-		background: var(--color-surface-muted, #e2e8f0);
-		margin: 0 16px;
-	}
-
-	.guide-progress-fill.svelte-1wbmjuk {
-		height: 100%;
-		background: linear-gradient(90deg, var(--color-action-primary, #3b82f6), var(--color-brand-600, #7c3aed));
-		border-radius: 2px;
-		transition: width 0.3s ease;
-	}
-
-	.guide-nav.svelte-1wbmjuk {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 10px 14px 14px;
-		gap: 8px;
-	}
-
-	.guide-nav-right.svelte-1wbmjuk {
-		display: flex;
-		gap: 6px;
-	}
-
-	.guide-nav-btn.svelte-1wbmjuk {
-		padding: 7px 16px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.guide-nav-end.svelte-1wbmjuk {
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #64748b);
-	}
-
-	.guide-nav-end.svelte-1wbmjuk:hover {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-nav-prev.svelte-1wbmjuk {
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-secondary, #475569);
-	}
-
-	.guide-nav-prev.svelte-1wbmjuk:hover {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-nav-next.svelte-1wbmjuk {
-		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
-		color: white;
-	}
-
-	.guide-nav-next.svelte-1wbmjuk:hover {
-		filter: brightness(1.1);
-	}
-
-	.guide-nav-next.svelte-1wbmjuk:active {
-		transform: scale(0.97);
-	}
- .svelte-1wbmjuk{}
-
-	.tutorial-bubble.svelte-9wfq4r {
-		position: fixed;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
-		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
-		z-index: calc(var(--z-tutorial) + 10);
-		background: white;
-		border-radius: 16px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
-		padding: 0;
-		overflow: hidden;
-		pointer-events: auto;
-	}
-
-	@keyframes svelte-9wfq4r-bubble-appear {
-		from {
-			opacity: 0;
-			transform: translateY(8px) scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-	}
-
-	.tutorial-chapter-header.svelte-9wfq4r {
-		background: linear-gradient(135deg, #3b82f6, #2563eb);
-		padding: 8px 12px;
-	}
-
-	.tutorial-chapter-btn.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		color: white;
-		font-size: 0.8rem;
-		font-weight: 600;
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 2px 4px;
-		border-radius: 4px;
-		width: 100%;
-	}
-
-	.tutorial-chapter-btn.svelte-9wfq4r:hover {
-		background: rgba(255, 255, 255, 0.15);
-	}
-
-	.tutorial-chapter-arrow.svelte-9wfq4r {
-		margin-left: auto;
-		font-size: 0.65rem;
-	}
-
-	.tutorial-chapter-menu.svelte-9wfq4r {
-		background: #f8fafc;
-		border-bottom: 1px solid #e2e8f0;
-		padding: 4px;
-	}
-
-	.tutorial-chapter-menu-item.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		width: 100%;
-		padding: 8px 12px;
-		font-size: 0.8rem;
-		border: none;
-		background: none;
-		border-radius: 8px;
-		cursor: pointer;
-		color: #475569;
-	}
-
-	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
-		background: #dbeafe;
-		color: #1d4ed8;
-		font-weight: 600;
-	}
-
-	.tutorial-content.svelte-9wfq4r {
-		padding: 16px 16px 8px;
-	}
-
-	.tutorial-title.svelte-9wfq4r {
-		font-size: 1rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 0 0 6px;
-	}
-
-	.tutorial-description.svelte-9wfq4r {
-		font-size: 0.85rem;
-		color: #475569;
-		line-height: 1.5;
-		margin: 0;
-	}
-
-	.tutorial-progress.svelte-9wfq4r {
-		padding: 8px 16px;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.tutorial-progress-text.svelte-9wfq4r {
-		font-size: 0.7rem;
-		color: #94a3b8;
-		white-space: nowrap;
-		min-width: 36px;
-	}
-
-	.tutorial-progress-bar.svelte-9wfq4r {
-		flex: 1;
-		height: 4px;
-		background: #e2e8f0;
-		border-radius: 2px;
-		overflow: hidden;
-	}
-
-	.tutorial-progress-fill.svelte-9wfq4r {
-		height: 100%;
-		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-		border-radius: 2px;
-		transition: width 0.3s ease;
-	}
-
-	.tutorial-nav.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 8px 12px 12px;
-		gap: 8px;
-	}
-
-	.tutorial-nav-right.svelte-9wfq4r {
-		display: flex;
-		gap: 6px;
-	}
-
-	.tutorial-nav-btn.svelte-9wfq4r {
-		padding: 6px 14px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.tutorial-nav-end.svelte-9wfq4r {
-		background: #f1f5f9;
-		color: #64748b;
-	}
-
-	.tutorial-nav-end.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-nav-prev.svelte-9wfq4r {
-		background: #f1f5f9;
-		color: #475569;
-	}
-
-	.tutorial-nav-prev.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r {
-		background: linear-gradient(135deg, #3b82f6, #2563eb);
-		color: white;
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r:hover {
-		background: linear-gradient(135deg, #2563eb, #1d4ed8);
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r:active {
-		transform: scale(0.97);
-	}
-
-	/* Age-tier font size adjustments (G3) */
-	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
-	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
-		font-size: 1.25rem;
-	}
-
-	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
-	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
-		font-size: 1.05rem;
-	}
-
-	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
-		font-size: 1.125rem;
-	}
-
-	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
-		font-size: 0.95rem;
-	}
- .svelte-9wfq4r{}
-
-	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
-		margin: 0;
-		color: var(--color-text-primary);
-		line-height: 1.5;
-	}
-
-	.dialog-hint.svelte-1hkj8k9 {
-		margin-top: var(--sp-sm) !important;
-		font-size: 0.875rem;
-		color: var(--color-text-secondary) !important;
-	}
-
-	.dialog-actions.svelte-1hkj8k9 {
-		display: flex;
-		gap: var(--sp-sm);
-		justify-content: flex-end;
-		margin-top: var(--sp-md);
-		flex-wrap: wrap;
-	}
- .svelte-1hkj8k9{}
-
-	.guide-tabs.svelte-m7e7um {
-		display: flex;
-		padding: 0 12px;
-		gap: 4px;
-	}
-
-	.guide-tab.svelte-m7e7um {
-		flex: 1;
-		padding: 6px 8px;
-		font-size: 0.75rem;
-		font-weight: 600;
-		border: none;
-		border-radius: 8px 8px 0 0;
-		cursor: pointer;
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #64748b);
-		transition: all 0.15s;
-	}
-
-	.guide-tab.active.svelte-m7e7um {
-		background: var(--color-brand-50, #eff6ff);
-		color: var(--color-action-primary, #3b82f6);
-	}
-
-	.guide-tab.svelte-m7e7um:hover:not(.active) {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-tab-content.svelte-m7e7um {
-		padding: 12px 16px;
-		min-height: 80px;
-		background: var(--color-surface-card, #ffffff);
-		border-top: 2px solid var(--color-brand-50, #eff6ff);
-	}
-
-	.guide-tab-content.svelte-m7e7um p:where(.svelte-m7e7um) {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-text-secondary, #475569);
-		line-height: 1.6;
-		white-space: pre-line;
-	}
-
-	.guide-how-text.svelte-m7e7um {
-		font-size: 0.85rem;
-	}
-
-	.guide-tips.svelte-m7e7um {
-		margin-top: 10px;
-		padding: 8px 10px;
-		background: var(--color-surface-muted, #fffbeb);
-		border-radius: 8px;
-	}
-
-	.guide-tips-label.svelte-m7e7um {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-text-primary, #92400e);
-	}
-
-	.guide-tip.svelte-m7e7um {
-		margin: 4px 0 0 !important;
-		font-size: 0.8rem !important;
-		color: var(--color-text-secondary, #78716c) !important;
-	}
-
-	.guide-links.svelte-m7e7um {
-		margin-top: 8px;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-
-	.guide-link.svelte-m7e7um {
-		font-size: 0.8rem;
-		color: var(--color-action-primary, #3b82f6);
-		text-decoration: none;
-	}
-
-	.guide-link.svelte-m7e7um:hover {
-		text-decoration: underline;
-	}
- .svelte-m7e7um{}
-
-	.settings-subnav.svelte-2jrpmj {
-		margin-bottom: 1rem;
-		background: var(--color-surface-card);
-		border: 1px solid var(--color-border-default);
-		border-radius: 0.75rem;
-		padding: 0.5rem;
-	}
-
-	.settings-subnav__list.svelte-2jrpmj {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.settings-subnav__item.svelte-2jrpmj {
-		flex: 1 1 auto;
-		min-width: 0;
-	}
-
-	.settings-subnav__link.svelte-2jrpmj {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.5rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--color-text-secondary);
-		text-decoration: none;
-		transition: background-color 0.15s ease, color 0.15s ease;
-		white-space: nowrap;
-	}
-
-	.settings-subnav__link.svelte-2jrpmj:hover {
-		background: var(--color-surface-muted);
-		color: var(--color-text-primary);
-	}
-
-	.settings-subnav__link--active.svelte-2jrpmj {
-		background: var(--color-feedback-info-bg);
-		color: var(--color-text-link);
-		font-weight: 600;
-	}
-
-	.settings-subnav__external.svelte-2jrpmj {
-		font-size: 0.75rem;
-		opacity: 0.6;
-	}
-
-	@media (max-width: 640px) {
-		.settings-subnav__list.svelte-2jrpmj {
-			overflow-x: auto;
-			flex-wrap: nowrap;
-			-webkit-overflow-scrolling: touch;
-		}
-
-		.settings-subnav__item.svelte-2jrpmj {
-			flex: 0 0 auto;
-		}
-
-		.settings-subnav__label.svelte-2jrpmj {
-			font-size: 0.8125rem;
-		}
-	}
- .svelte-2jrpmj{}
-
-	.settings-hub__grid.svelte-16n228e {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 1rem;
-	}
-
-	.settings-hub__card.svelte-16n228e {
-		display: flex;
-		gap: 0.75rem;
-		padding: 1rem;
-		background: var(--color-surface-card);
-		border: 1px solid var(--color-border-default);
-		border-radius: 0.75rem;
-		text-decoration: none;
-		transition: border-color 0.15s ease, background-color 0.15s ease,
-			transform 0.15s ease;
-	}
-
-	.settings-hub__card.svelte-16n228e:hover {
-		border-color: var(--color-border-focus);
-		background: var(--color-surface-accent);
-		transform: translateY(-1px);
-	}
-
-	.settings-hub__card-icon.svelte-16n228e {
-		flex: 0 0 auto;
-		font-size: 1.75rem;
-		line-height: 1;
-		padding-top: 0.125rem;
-	}
-
-	.settings-hub__card-body.svelte-16n228e {
-		flex: 1 1 auto;
-		min-width: 0;
-	}
-
-	.settings-hub__card-title.svelte-16n228e {
-		font-size: 1rem;
-		font-weight: 700;
-		color: var(--color-text-primary);
-		margin: 0 0 0.25rem 0;
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.settings-hub__card-external.svelte-16n228e {
-		font-size: 0.75rem;
-		opacity: 0.6;
-	}
-
-	.settings-hub__card-desc.svelte-16n228e {
-		font-size: 0.8125rem;
-		color: var(--color-text-secondary);
-		margin: 0;
-		line-height: 1.5;
-	}
- .svelte-16n228e{}</style>
-	</head>
+ .svelte-h6xk8m{}</style></head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="hidden md:inline-flex svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></span> <span class="inline-flex md:hidden svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/icon-character.png" alt="がんばりクエスト" width="44" height="44" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></span></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[-1--><!--]--> <!--[1--><a href="/admin/subscription" class="plan-badge plan-badge--family svelte-wncecx">プレミアムプラン</a><!--]--> <!--[-1--><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">👨‍👩‍👧</span> 家族 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><!--[--><nav class="settings-subnav svelte-2jrpmj" aria-label="設定サブナビゲーション" data-testid="settings-subnav"><ul class="settings-subnav__list svelte-2jrpmj"><!--[--><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings" class="settings-subnav__link svelte-2jrpmj settings-subnav__link--active" aria-current="page" data-testid="settings-subnav-設定トップ"><span aria-hidden="true" class="svelte-2jrpmj">🏠</span> <span class="settings-subnav__label svelte-2jrpmj">設定トップ</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/account" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-アカウント"><span aria-hidden="true" class="svelte-2jrpmj">🔑</span> <span class="settings-subnav__label svelte-2jrpmj">アカウント</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/activities" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-活動・ポイント"><span aria-hidden="true" class="svelte-2jrpmj">🎯</span> <span class="settings-subnav__label svelte-2jrpmj">活動・ポイント</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/notifications" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-通知"><span aria-hidden="true" class="svelte-2jrpmj">🔔</span> <span class="settings-subnav__label svelte-2jrpmj">通知</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/data" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-データ"><span aria-hidden="true" class="svelte-2jrpmj">💾</span> <span class="settings-subnav__label svelte-2jrpmj">データ</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/rules" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-ごほうび・ルール"><span aria-hidden="true" class="svelte-2jrpmj">🎁</span> <span class="settings-subnav__label svelte-2jrpmj">ごほうび・ルール</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/support" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-サポート"><span aria-hidden="true" class="svelte-2jrpmj">💬</span> <span class="settings-subnav__label svelte-2jrpmj">サポート</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/subscription" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-プラン・課金"><span aria-hidden="true" class="svelte-2jrpmj">💎</span> <span class="settings-subnav__label svelte-2jrpmj">プラン・課金</span> <!--[0--><span class="settings-subnav__external svelte-2jrpmj" aria-label="別ページ">↗</span><!--]--></a></li><!--]--></ul></nav> <div class="settings-content svelte-2jrpmj"><!--[--><div class="space-y-6 svelte-16n228e"><!--[-1--><!--]--> <div data-tutorial="settings-hub-intro" class="svelte-16n228e"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><h2 class="text-xl font-bold text-[var(--color-text)] mb-2 svelte-16n228e">設定</h2> <p class="text-sm text-[var(--color-text-muted)] svelte-16n228e">下のカードから設定したい項目を選んでください。</p><!----></div> <!--[-1--><!--]--></section><!----></div> <div class="settings-hub__grid svelte-16n228e" data-testid="settings-hub-grid"><!--[--><a href="/admin/settings/account" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-account" data-tutorial="settings-first-card"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🔑</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">アカウント <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">おやかぎコード変更・ログアウト・アカウント削除</p></div></a><a href="/admin/settings/activities" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-activities"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🎯</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">活動・ポイント <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ</p></div></a><a href="/admin/settings/notifications" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-notifications"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🔔</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">通知 <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">リマインダー・ストリーク警告・サイレント時間帯</p></div></a><a href="/admin/settings/data" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-data"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💾</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">データ <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">エクスポート・クラウド共有・データクリア</p></div></a><a href="/admin/settings/rules" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-rules"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🎁</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">ごほうび・ボーナスルール <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">ごほうび交換の承認要否・ボーナスポイントの ON / OFF</p></div></a><a href="/admin/settings/support" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-support"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💬</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">サポート・アプリ情報 <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">お問い合わせ・フィードバック・利用規約・バージョン</p></div></a><a href="/admin/subscription" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-plan"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💎</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">プラン・課金 <!--[0--><span class="settings-hub__card-external svelte-16n228e" aria-label="別ページへ">↗</span><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">プラン変更・請求履歴 (別ページ)</p></div></a><!--]--></div></div><!--]--><!----></div><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">👨‍👩‍👧</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">家族</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!----><!--]--></div><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="hidden md:inline-flex svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></span> <span class="inline-flex md:hidden svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/icon-character.png" alt="がんばりクエスト" width="44" height="44" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></span></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[-1--><!--]--> <!--[1--><a href="/admin/subscription" class="plan-badge plan-badge--family svelte-wncecx">プレミアムプラン</a><!--]--> <!--[-1--><button class="page-guide-btn svelte-wncecx" data-tutorial="page-guide-btn" type="button" title="このページの使い方">❓</button><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">👨‍👩‍👧</span> 家族 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><!--[--><nav class="settings-subnav svelte-2jrpmj" aria-label="設定サブナビゲーション" data-testid="settings-subnav"><ul class="settings-subnav__list svelte-2jrpmj"><!--[--><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings" class="settings-subnav__link svelte-2jrpmj settings-subnav__link--active" aria-current="page" data-testid="settings-subnav-設定トップ"><span aria-hidden="true" class="svelte-2jrpmj">🏠</span> <span class="settings-subnav__label svelte-2jrpmj">設定トップ</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/account" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-アカウント"><span aria-hidden="true" class="svelte-2jrpmj">🔑</span> <span class="settings-subnav__label svelte-2jrpmj">アカウント</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/activities" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-活動・ポイント"><span aria-hidden="true" class="svelte-2jrpmj">🎯</span> <span class="settings-subnav__label svelte-2jrpmj">活動・ポイント</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/notifications" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-通知"><span aria-hidden="true" class="svelte-2jrpmj">🔔</span> <span class="settings-subnav__label svelte-2jrpmj">通知</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/data" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-データ"><span aria-hidden="true" class="svelte-2jrpmj">💾</span> <span class="settings-subnav__label svelte-2jrpmj">データ</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/rules" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-ごほうび・ルール"><span aria-hidden="true" class="svelte-2jrpmj">🎁</span> <span class="settings-subnav__label svelte-2jrpmj">ごほうび・ルール</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/settings/support" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-サポート"><span aria-hidden="true" class="svelte-2jrpmj">💬</span> <span class="settings-subnav__label svelte-2jrpmj">サポート</span> <!--[-1--><!--]--></a></li><li class="settings-subnav__item svelte-2jrpmj"><a href="/admin/subscription" class="settings-subnav__link svelte-2jrpmj" data-testid="settings-subnav-プラン・課金"><span aria-hidden="true" class="svelte-2jrpmj">💎</span> <span class="settings-subnav__label svelte-2jrpmj">プラン・課金</span> <!--[0--><span class="settings-subnav__external svelte-2jrpmj" aria-label="別ページ">↗</span><!--]--></a></li><!--]--></ul></nav> <div class="settings-content svelte-2jrpmj"><!--[--><div class="space-y-6 svelte-16n228e"><!--[-1--><!--]--> <div data-tutorial="settings-hub-intro" class="svelte-16n228e"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><h2 class="text-xl font-bold text-[var(--color-text)] mb-2 svelte-16n228e">設定</h2> <p class="text-sm text-[var(--color-text-muted)] svelte-16n228e">下のカードから設定したい項目を選んでください。</p><!----></div> <!--[-1--><!--]--></section><!----></div> <div class="settings-hub__grid svelte-16n228e" data-testid="settings-hub-grid"><!--[--><a href="/admin/settings/account" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-account" data-tutorial="settings-first-card"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🔑</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">アカウント <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">おやかぎコード変更・ログアウト・アカウント削除</p></div></a><a href="/admin/settings/activities" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-activities"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🎯</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">活動・ポイント <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ</p></div></a><a href="/admin/settings/notifications" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-notifications"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🔔</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">通知 <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">リマインダー・ストリーク警告・サイレント時間帯</p></div></a><a href="/admin/settings/data" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-data"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💾</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">データ <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">エクスポート・クラウド共有・データクリア</p></div></a><a href="/admin/settings/rules" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-rules"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">🎁</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">ごほうび・ボーナスルール <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">ごほうび交換の承認要否・ボーナスポイントの ON / OFF</p></div></a><a href="/admin/settings/support" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-support"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💬</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">サポート・アプリ情報 <!--[-1--><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">お問い合わせ・フィードバック・利用規約・バージョン</p></div></a><a href="/admin/subscription" class="settings-hub__card svelte-16n228e" data-testid="settings-hub-card-plan"><div class="settings-hub__card-icon svelte-16n228e" aria-hidden="true">💎</div> <div class="settings-hub__card-body svelte-16n228e"><h3 class="settings-hub__card-title svelte-16n228e">プラン・課金 <!--[0--><span class="settings-hub__card-external svelte-16n228e" aria-label="別ページへ">↗</span><!--]--></h3> <p class="settings-hub__card-desc svelte-16n228e">プラン変更・請求履歴 (別ページ)</p></div></a><!--]--></div></div><!--]--><!----></div><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">👨‍👩‍👧</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">家族</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!----><!--]--></div><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><div id="svelte-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; left: 0; top: 0; clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap; width: 1px; height: 1px"><!----></div><!--]--><!--]-->
 			
 			<script>
 				{
@@ -5171,7 +5254,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 4, 5, 38],
-							data: [{type:"data",data:{role:"owner",requestId:"4ff2989f-e1b6-4ad1-836f-d4473e41116d",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",inviteAcceptError:null,pinGateActive:false,tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null},setupOnboarding:null,runtimeMode:"local-debug",stripeEnabled:false},uses:{search_params:["from"]}},null,{type:"data",data:{},uses:{}}],
+							data: [{type:"data",data:{role:"owner",requestId:"315b6763-6acc-42d8-96ce-d659ca0978bc",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",inviteAcceptError:null,pinGateActive:false,tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null},setupOnboarding:null,runtimeMode:"local-debug",stripeEnabled:false},uses:{search_params:["from"]}},null,{type:"data",data:{},uses:{}}],
 							form: null,
 							error: null
 						});
@@ -5193,4 +5276,4 @@ h1, h2, h3, h4 {
 		</div>
 	
 
-</body></html>
+<!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s1:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s1:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s1:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s1:title" aria-describedby="dialog:s1:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-resume-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s1:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->チュートリアルの続き</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">前回の途中から続けますか？</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->最初から<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続きから<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s2:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s2:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s2:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s2:title" aria-describedby="dialog:s2:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-quick-complete-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s2:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->基本の使い方を確認しました！</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">ここからは実際にお子さまを登録して使い始めましょう。</p> <p class="dialog-hint svelte-1hkj8k9">残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->もっと詳しく見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->使い始める<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s3:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s3:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s3:content" tabindex="-1" data-state="closed" aria-modal="true" aria-label="チュートリアル終了確認" aria-labelledby="dialog:s3:title" aria-describedby="dialog:s3:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-exit-confirm-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s3:title" class="sr-only"><!---->チュートリアル終了確認</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">チュートリアルを終了しますか？</p> <p class="dialog-hint svelte-1hkj8k9">進捗は保存されるので、後から続きを再開できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続ける<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->終了する<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s3:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s4:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s4:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s4:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s4:title" aria-describedby="dialog:s4:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="trial-ended-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s4:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->無料体験が終了しました</h2><!----> <div class="trial-ended-body svelte-d5o3di"><div class="trial-ended-icon svelte-d5o3di" aria-hidden="true">📦</div> <p class="trial-ended-message svelte-d5o3di">無料体験期間が終了しました。<br class="svelte-d5o3di"> フリープランの範囲内で引き続きご利用いただけます。</p> <ul class="trial-ended-notes svelte-d5o3di"><li class="svelte-d5o3di">オリジナル活動やチェックリストの超過分は一時的に非表示になります</li> <li class="svelte-d5o3di">データは削除されません — アップグレードで復活します</li></ul> <div class="trial-ended-actions svelte-d5o3di"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" data-testid="trial-ended-upgrade-cta"><!---->⭐ プランを見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false" data-testid="trial-ended-dismiss"><!---->あとで<!----></button><!----></div></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s4:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----></body></html>
