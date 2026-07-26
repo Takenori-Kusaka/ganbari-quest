@@ -124,6 +124,22 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 4. 同じブランチから `gh pr create --draft ...` で再起票（既存 commit 履歴は再利用、新ブランチ不要）
 5. 旧 PR (closed) は 違反コメント保全のため reopen / 削除しない (ADR-0022 監査証跡)
 
+### QA 指摘の再発防止台帳（CRITICAL — #3962、PO 指示 2026-07-26）
+
+**同じ class の QA 指摘を 2 度受けたら、その時点で instance 修正ではなく機械 gate 化する。** 記憶と注意力に依存した再発防止は必ず破れる（ADR-0061 same-class-N→guard）。
+
+以下は実際に 2 回以上受けた指摘。**1 は `npm run pre-ready` で機械検出されるため暗記不要。2〜3 は着手時に読む**。
+
+| # | 指摘 class | 発生 PR | 現在の防御 |
+|---|-----------|---------|-----------|
+| 1 | `po-decision:required` label 付きなのに PO 決裁ブリーフが PR body にない | #3944 / #3956 | **機械 gate**: `scripts/check-pr-body.mjs` の `checkPoDecisionBrief`（pre-ready Readiness gate step に内蔵）。見出し欠落 / mermaid 欠落 / 未置換 `___` を fail させる |
+| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 | レビュー観点（下記） |
+| 3 | guard の fixture が「規則に従うデータ」だけで、規則から外れた実在物を含まない | #3956 | レビュー観点（下記） |
+
+**2 の観点 — 命名規則のあるファイル名・ID・key を判定するときは、prefix/suffix 一致ではなく正規表現の完全一致で書く。** 生成側にも同じパターンの assert を置き、命名変更時に silent に壊れないようにする。#3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた。
+
+**3 の観点 — guard を書いたら「その guard を外すと fail するか」を実行して証跡に貼る。** fixture には*規則に従わないが実在するもの*（手動退避ファイル、サブディレクトリ、旧命名の残骸）を実名で混ぜる。規則に従うデータだけを並べた fixture は、規則違反を検出できないことを検出できない。
+
 ## 新規実装時
 
 1. AC を読む。不明点は Issue にコメント確認

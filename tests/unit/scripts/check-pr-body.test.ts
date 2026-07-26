@@ -5,22 +5,28 @@
  * GitHub API 呼び出し (gh pr view) は本テストでは触れない（--body-file 経路でテスト可能）。
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
 	checkAcMap,
 	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
+	checkPoDecisionBrief,
 	checkSelfReviewEvidence,
 	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
+	extractPoDecisionSection,
 	extractRequiredSections,
 	FORBIDDEN_TERMS,
 	findMissingSections,
 	findUncheckedReadyChecklist,
 	HOTFIX_LABELS,
 	hasHotfixLabel,
+	hasPoDecisionLabel,
+	PO_DECISION_LABEL,
 	scanForbiddenTerms,
 	stripCodeBlocks,
 	stripMarkdownComments,
@@ -710,5 +716,112 @@ describe('checkChangeTypeSelection (#3846)', () => {
 	it('dependencies label PR は skip (Dependabot exempt、#1808 整合)', () => {
 		const body = ['## 変更タイプ', '', '- [ ] feat: 新機能', '', '## 関連 Issue'].join('\n');
 		expect(checkChangeTypeSelection(body, TEMPLATE, ['dependencies'])).toBeNull();
+	});
+});
+
+describe('checkPoDecisionBrief (#3944 / #3956 / #3962)', () => {
+	const FILLED_BRIEF = [
+		'## PO 決裁ブリーフ (po-decision:required)',
+		'',
+		'```mermaid',
+		'flowchart TB',
+		'  R1["可逆性: 🟢可逆 — revert のみで戻る"]',
+		'  Q1["Q1: 日次バックアップ 3 世代で決裁してよいか"]',
+		'  R1 --> Q1',
+		'```',
+		'',
+	].join('\n');
+
+	it('label なしなら検査自体を skip する (通常 PR に負担を課さない)', () => {
+		expect(checkPoDecisionBrief('## 顧客価値・目的\n本文\n', [])).toBeNull();
+		expect(
+			checkPoDecisionBrief('## 顧客価値・目的\n本文\n', ['type:fix', 'area:admin']),
+		).toBeNull();
+	});
+
+	it('FAIL: label 付きでブリーフ見出しが無い (#3944 / #3956 の実際の形)', () => {
+		const body = [
+			'## 顧客価値・目的',
+			'PGlite 本番データの日次バックアップを取得する。',
+			'',
+			'## 変更内容',
+			'オーナー決裁 2026-07-26: RPO 日次 / 3 世代 / NUC ローカル',
+		].join('\n');
+		const v = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(v?.id).toBe('po-decision-brief-missing-section');
+	});
+
+	it('FAIL: 見出しが HTML コメント内にあるだけでは「存在する」と認めない', () => {
+		const body = ['## 顧客価値・目的', '', '<!-- ## PO 決裁ブリーフ は後で書く -->'].join('\n');
+		const v = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(v?.id).toBe('po-decision-brief-missing-section');
+	});
+
+	it('FAIL: 見出しはあるが mermaid 一枚絵が無い (長文説明だけの代替を認めない)', () => {
+		const body = [
+			'## PO 決裁ブリーフ (po-decision:required)',
+			'',
+			'リスクは低いです。可逆で、ロールバックは revert のみで戻ります。',
+			'',
+			'## 関連 Issue',
+		].join('\n');
+		const v = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(v?.id).toBe('po-decision-brief-missing-diagram');
+	});
+
+	it('FAIL: template の未置換プレースホルダ ___ が残っている', () => {
+		const body = [
+			'## PO 決裁ブリーフ (po-decision:required)',
+			'',
+			'```mermaid',
+			'flowchart TB',
+			'  R1["可逆性: 🟢可逆 / 🔴不可逆 → ___"]',
+			'  Q1["Q1: ___"]',
+			'```',
+		].join('\n');
+		const v = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(v?.id).toBe('po-decision-brief-unfilled-placeholder');
+		expect(v?.message).toContain('2 件');
+	});
+
+	it('PASS: 記入済みブリーフがあれば通る', () => {
+		const body = ['## 顧客価値・目的', '本文', '', FILLED_BRIEF].join('\n');
+		expect(checkPoDecisionBrief(body, [PO_DECISION_LABEL])).toBeNull();
+	});
+
+	it('PASS: 後続セクションの ___ は誤検出しない (セクション境界を守る)', () => {
+		const body = [FILLED_BRIEF, '## 補足', '', 'コード例: `const ___ = 1;`'].join('\n');
+		expect(checkPoDecisionBrief(body, [PO_DECISION_LABEL])).toBeNull();
+	});
+
+	it('label 判定は大小文字を無視する', () => {
+		expect(hasPoDecisionLabel(['PO-Decision:Required'])).toBe(true);
+		expect(hasPoDecisionLabel(['po-decision:optional'])).toBe(false);
+	});
+
+	it('extractPoDecisionSection は次の ## 見出しまでを返す', () => {
+		const body = [FILLED_BRIEF, '## 関連 Issue', 'closes #3962'].join('\n');
+		const section = extractPoDecisionSection(body);
+		expect(section).toContain('```mermaid');
+		expect(section).not.toContain('closes #3962');
+	});
+});
+
+describe('PO 決裁ブリーフ gate の SSOT 整合 (#3962)', () => {
+	const repoRoot = resolve(__dirname, '../../..');
+
+	it('labeler.yml が po-decision:required を定義している (label 名の rename で gate が黙って無効化されない)', () => {
+		const labeler = readFileSync(resolve(repoRoot, '.github/labeler.yml'), 'utf-8');
+		expect(labeler).toContain(`"${PO_DECISION_LABEL}":`);
+	});
+
+	it('template が gate の要求 (見出し + mermaid) を満たす — template だけ通せば必ず PASS する', () => {
+		const template = readFileSync(
+			resolve(repoRoot, '.claude/skills/dev-open-pr/templates/po-decision-brief.md'),
+			'utf-8',
+		);
+		// 見出しと mermaid は満たす。「___」は記入前提なので残っているのが正しい。
+		const v = checkPoDecisionBrief(template, [PO_DECISION_LABEL]);
+		expect(v?.id).toBe('po-decision-brief-unfilled-placeholder');
 	});
 });

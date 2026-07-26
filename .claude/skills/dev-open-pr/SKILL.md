@@ -323,6 +323,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 ### ルール
 
 - 本セクションは **必須 13 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
+- **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QA merge gate 指摘、が 2 回連続したことによる gate 化
 - `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
 - label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する
 

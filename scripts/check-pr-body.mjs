@@ -13,6 +13,7 @@
  *   5. `mergeable: CONFLICTING` 事前検知（GitHub API 経由）
  *   6. 変更タイプ checkbox 未選択（#3846、CI gate「変更タイプの選択」の shift-left。
  *      判定は scripts/pr-template-gate-checks.mjs の checkChangeType を SSOT として再利用）
+ *   7. `po-decision:required` label 付きなのに PO 決裁ブリーフが body にない（#3944/#3956/#3962）
  *
  * 必須セクション SSOT:
  *   `.github/PULL_REQUEST_TEMPLATE.md` を runtime parse し、
@@ -372,6 +373,112 @@ export function checkEnvDistributionForHotfix(body, labels) {
 			`対応 1: env 追加がない hotfix なら明示的に \`- [x] N/A — 新規 env / secret の追加なし\` を本文に記載\n` +
 			`対応 2: env 追加がある hotfix なら 4 経路全て (GitHub Secrets / Lambda / NUC .env / .env.example) の「配布済み:」行を列挙 (#2341 教訓)`,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// PO 決裁ブリーフ欠落チェック (#3962)
+// ---------------------------------------------------------------------------
+
+/**
+ * `.github/labeler.yml` が高リスクパス touch 時に自動付与するラベル (#3862)。
+ * 付与された PR は PR body に PO 決裁ブリーフ (一枚絵 mermaid) が必須。
+ */
+export const PO_DECISION_LABEL = 'po-decision:required';
+
+/**
+ * PO 決裁ブリーフの見出し SSOT。
+ * `.claude/skills/dev-open-pr/templates/po-decision-brief.md` の先頭見出しと一致させること。
+ */
+export const PO_DECISION_HEADING = '## PO 決裁ブリーフ';
+
+/**
+ * @param {string[]} labels
+ * @returns {boolean}
+ */
+export function hasPoDecisionLabel(labels) {
+	return labels.some((l) => l.trim().toLowerCase() === PO_DECISION_LABEL);
+}
+
+/**
+ * `## PO 決裁ブリーフ` セクションを抽出する。`## ` を含む次セクションまでが対象。
+ *
+ * @param {string} body
+ * @returns {string | null}
+ */
+export function extractPoDecisionSection(body) {
+	const startMatch = body.match(/^## PO 決裁ブリーフ.*$/m);
+	if (!startMatch) return null;
+	const startIdx = body.indexOf(startMatch[0]);
+	const remaining = body.slice(startIdx + startMatch[0].length);
+	const nextSectionIdx = remaining.search(/^## /m);
+	return nextSectionIdx === -1 ? remaining : remaining.slice(0, nextSectionIdx);
+}
+
+/**
+ * `po-decision:required` label 付き PR に PO 決裁ブリーフが実体を伴って存在するかを検証する (#3962)。
+ *
+ * 発生経緯: PR #3944 / #3956 の 2 回連続で「label は付いているがブリーフが body にない」まま
+ * Ready 化し、QA レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
+ * 付与に対応する body 要件が人間の記憶に依存していたため同型が再発した。ADR-0061
+ * same-class-N→guard に従い、instance 修正 (その PR にブリーフを足す) ではなく機械 gate 化する。
+ *
+ * 検出する違反 (label 付き PR のみ適用):
+ *   1. `## PO 決裁ブリーフ` 見出しが body にない (#3944 / #3956 の実際の形)
+ *   2. 見出しはあるが mermaid ブロックがない (「一枚絵で判断できる」という様式要件を満たさない)
+ *   3. 見出しはあるが template の未置換プレースホルダ `___` が残っている
+ *
+ * 検出しないもの: ブリーフの中身の妥当性 (判断層は QA / PO レビューの担当)。
+ * ここで固定するのは「label と body の対応が取れていること」だけ。
+ *
+ * @param {string} body
+ * @param {string[]} labels - PR ラベル一覧
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkPoDecisionBrief(body, labels) {
+	if (!hasPoDecisionLabel(labels)) return null;
+
+	// 見出しが HTML コメント内にあるだけのケースを「存在する」と誤判定しないよう、
+	// コメントを剥がしてから探す。コードブロックは mermaid 図の実体なので残す。
+	const cleaned = stripMarkdownComments(body);
+	const section = extractPoDecisionSection(cleaned);
+
+	if (!section) {
+		return {
+			id: 'po-decision-brief-missing-section',
+			message:
+				`\`${PO_DECISION_LABEL}\` label が付いていますが、PR body に \`${PO_DECISION_HEADING}\` ` +
+				`セクションがありません (#3944 / #3956 と同型)。\n` +
+				`対応 1: \`.claude/skills/dev-open-pr/templates/po-decision-brief.md\` を PR body 末尾に append し、\n` +
+				`        「___」を全て実際の内容に置換する (mermaid 一枚絵で PO が Yes/No を判断できること)。\n` +
+				`対応 2: label が誤付与なら、外した理由を PR body に明記したうえで label を外す ` +
+				`(判定 SSOT = .github/labeler.yml の po-decision:required エントリ)。`,
+		};
+	}
+
+	if (!/```mermaid/.test(section)) {
+		return {
+			id: 'po-decision-brief-missing-diagram',
+			message:
+				`\`${PO_DECISION_HEADING}\` セクションに mermaid ブロックがありません。\n` +
+				`様式 SSOT (PO 恒久要件 2026-07-23): PO は mermaid 図 1 枚 (+ UI 変更時は実機 SS) だけで ` +
+				`Yes/No を判断できること。長文説明を主成果物にしない。\n` +
+				`対応: \`.claude/skills/dev-open-pr/templates/po-decision-brief.md\` の flowchart をコピーして記入する。`,
+		};
+	}
+
+	const placeholderCount = (section.match(/___/g) ?? []).length;
+	if (placeholderCount > 0) {
+		return {
+			id: 'po-decision-brief-unfilled-placeholder',
+			message:
+				`\`${PO_DECISION_HEADING}\` セクションに template の未置換プレースホルダ \`___\` が ` +
+				`${placeholderCount} 件残っています。\n` +
+				`対応: 全ての「___」を 1 行 15〜25 字で言い切った内容に置換する。` +
+				`③ 反対理由は tmp/adversarial-evidence/<pr>.json を生成してから転記する (AI 要約への過信を打ち消すため)。`,
+		};
+	}
+
+	return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -810,6 +917,10 @@ function collectViolations(body, requiredSections, template, args) {
 	if (selfReviewEvidence) {
 		violations.push({ ...selfReviewEvidence, issue: '#2475/#2815 D-1' });
 	}
+
+	// #3962: po-decision:required label と PO 決裁ブリーフの対応固定 (#3944 / #3956 同型の再発防止)
+	const poDecision = checkPoDecisionBrief(body, labels);
+	if (poDecision) violations.push({ ...poDecision, issue: '#3944/#3956/#3962' });
 
 	// #3846: 変更タイプ checkbox 未選択の shift-left 検出 (CI gate と同一 SSOT を再利用)
 	const changeType = checkChangeTypeSelection(body, template, labels);
