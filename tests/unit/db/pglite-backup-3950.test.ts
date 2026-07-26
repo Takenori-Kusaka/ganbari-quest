@@ -15,6 +15,8 @@
 //   [BK7] ファイル名は辞書順 = 時系列順 (ローテーションの前提)
 //   [BK8] **命名規則に従わない同 prefix ファイル (手動スナップショット) を世代として数えない**
 //         — 数えると実保持が 3 → 2 世代に減る (QA レビュー #3956 指摘の回帰固定)
+//   [BK9] Runbook の退避先 `manual/` が実 FS 上に同居してもローテーションは世代だけを削る
+//         (readdir → フィルタ → rm の実経路。ディレクトリが混ざれば rm が EISDIR で落ちる)
 //
 // [BK2] / [BK3] / [BK5] は「gate を書いたが実は何も落とせていない」を防ぐ実効性検証。
 
@@ -278,4 +280,30 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 		// 旧実装 (prefix + 拡張子の緩い一致) では手動スナップショットが辞書順で先頭に来ていた。
 		expect(sorted[0]).toBe(gen[2]);
 	});
+
+	it('[BK9] Runbook の退避先 manual/ が同居してもローテーションは世代だけを削る', async () => {
+		const client = await migratedClient();
+		const backupDir = tempDir('gq-bk9-');
+
+		// Runbook が指示する退避先。readdir はディレクトリ名も返すため、フィルタが緩いと
+		// ローテーションの rm がディレクトリを掴んで EISDIR で落ちる (= 日次バックアップが毎日 fail)。
+		mkdirSync(join(backupDir, 'manual'), { recursive: true });
+		writeFileSync(join(backupDir, 'manual', MANUAL_SNAPSHOT_FILENAME), 'manual-snapshot');
+
+		const filenames: string[] = [];
+		for (let i = 0; i < 4; i++) {
+			const result = await runPgliteBackup({
+				client,
+				backupDir,
+				migrationsDir: MIGRATIONS_DIR,
+				retention: 3,
+				now: new Date(Date.UTC(2026, 6, 20 + i, 3, 0, 0)),
+			});
+			filenames.push(result.filename);
+		}
+
+		expect(sortBackupsNewestFirst(readdirSync(backupDir))).toEqual(filenames.slice(1).reverse());
+		// 退避先ディレクトリと中身が無傷で残る。
+		expect(readdirSync(join(backupDir, 'manual'))).toEqual([MANUAL_SNAPSHOT_FILENAME]);
+	}, 120_000);
 });
