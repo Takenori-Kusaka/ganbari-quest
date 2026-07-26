@@ -27,10 +27,26 @@
 //
 // ## grandfather (既存の手書き値の許容)
 //
-// `GRANDFATHERED_WHEN` の 3 値は #3946 以前に手書きで journal へ入り、**既に本番 DB の
-// `__drizzle_migrations.created_at` として記録済み**のため、今から実生成時刻へ書き換えると
-// 「適用済みだが journal 上は未適用」の不整合が起きる (再適用 or 永久 skip)。したがって値そのものは
-// 修正せず、R2 の例外として固定する。R1 (未来でない) は 3 値とも既に満たしている。
+// `GRANDFATHERED_WHEN` の 3 値は #3946 以前に手書きで journal へ入ったものだが、
+// **実生成時刻へ書き戻してはならない**。値そのものは修正せず R2 の例外として固定する
+// (R1 = 未来でない は 3 値とも既に満たしている)。
+//
+// 理由は **#3947 以前の backup から restore した DB で #3946 がそのまま再発する**からである。
+// migrator は「適用済み最大 `created_at` の 1 行」だけを見て
+// `lastDbMigration.created_at < folderMillis` で判定し、**per-tag の突合はしない**
+// (drizzle-orm/pg-core/dialect.js `migrate()`)。したがって:
+//
+//   - 現行の本番 DB (適用済み最大 = 1784500000002) では、値を書き戻しても
+//     **再適用も skip も起きない** (「適用済みだが journal 上は未適用」という状態は
+//     この migrator には存在しない)。
+//   - 一方、**適用済み最大が 1784500000000 の DB** — すなわち #3947 以前の backup を
+//     restore した DB — では、実生成時刻 (1784415769652 / 1784415789368) はそれより小さいため
+//     **0003/0004 が永久 skip され、`login_streaks` 未作成 → #3946 が再発する**。
+//
+// pre-hotfix backup (`pglite-snapshot-20260726-0738-pre-pr3947.tgz` 等) は #3950 の
+// restore drill 対象として現に存在するため、これは机上の話ではない。
+// この振る舞いは `[WR7]` (tests/unit/db/pglite-journal-when-range-3948.test.ts) が
+// 実 migrator + 実 migration SQL で固定している。
 //
 //   1784500000000 = 0002_evaluations_week_unique  — #3946 の原因値 (手書きの丸め値)
 //   1784500000001 = 0003_login_streaks_counter    — #3947 で 0002 を上回らせるため手書きした連番

@@ -59,7 +59,7 @@ drizzle-orm の migrator（pg-core dialect）は `適用済み最大 created_at 
 - [ ] 既存 migration の `when` を後から編集しない（既に本番 `__drizzle_migrations.created_at` に記録済のため、編集は「適用済みだが journal 上は未適用」の不整合になる）
 - [ ] 機械 gate: `scripts/lib/db/drizzle-journal-gate.mjs`（`tests/unit/db/pglite-journal-when-range-3948.test.ts` が CI で hard-fail）
 
-**grandfather 例外**: `1784500000000` / `1784500000001` / `1784500000002`（0002 / 0003 / 0004）は #3946 以前に手書きで入り、既に本番 DB へ記録済のため値そのものは修正せず gate の例外として固定している。**新規にこの例外を増やさないこと**（根拠と一覧の SSOT は `scripts/lib/db/drizzle-journal-gate.mjs` 冒頭コメント）。
+**grandfather 例外**: `1784500000000` / `1784500000001` / `1784500000002`（0002 / 0003 / 0004）は値そのものを修正せず gate の例外として固定している。実生成時刻へ書き戻すと、**#3947 以前の backup から restore した DB（適用済み最大 `created_at` = 1784500000000）で 0003/0004 が永久 skip され #3946 が再発する**ため（`[WR7]` が実 migrator で固定）。**新規にこの例外を増やさないこと**（根拠と一覧の SSOT は `scripts/lib/db/drizzle-journal-gate.mjs` 冒頭コメント）。
 
 `when` を参照するのは PGlite（NUC）経路のみ。DSQL（cloud）の `provision.ts` は `idx` 順 + tag 単位冪等で `when` を見ない（`[WR4]` で固定）。
 

@@ -10,12 +10,17 @@
 //   [WR2] gate 自体の実効性: 未来値 / 手書き丸め値 / 逆転 / 過去すぎる値 の fixture で fail する
 //   [WR3] grandfather は既存 3 値限定 — 同型の新規丸め値は grandfather されず fail する
 //   [WR4] DSQL provision は `when` を参照しない (idx 順 + tag 冪等) ことの固定
+//   [WR7] grandfather 3 値を「実生成時刻へ直す」と pre-hotfix backup の restore で #3946 が再発する
+//         (grandfather が必要である理由そのものを実 migrator + 実 migration で固定する)
 //
 // [WR2] は「gate を書いたが実は何も落とせていない」を防ぐ実効性検証 (#3072 と同型の考え方)。
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
 	findJournalWhenViolations,
@@ -68,6 +73,29 @@ function makeMigrationsDir(entries: { idx: number; when: number; tag: string }[]
 	return dir;
 }
 
+/** 実 migration SQL を使い、指定 entries の journal を持つ temp migrations dir を作る。 */
+function makeRealMigrationsDir(entries: JournalEntry[]): string {
+	const dir = join(tmpdir(), `journal-when-3948-real-${process.pid}-${tempDirs.length}`);
+	tempDirs.push(dir);
+	mkdirSync(join(dir, 'meta'), { recursive: true });
+	writeFileSync(
+		join(dir, 'meta', '_journal.json'),
+		JSON.stringify({ version: '7', dialect: 'postgresql', entries }),
+	);
+	for (const e of entries) {
+		copyFileSync(join(PGLITE_MIGRATIONS_DIR, `${e.tag}.sql`), join(dir, `${e.tag}.sql`));
+	}
+	return dir;
+}
+
+async function tableExists(client: PGlite, table: string): Promise<boolean> {
+	const result = await client.query<{ exists: boolean }>(
+		'SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1) AS exists',
+		[table],
+	);
+	return result.rows[0]?.exists === true;
+}
+
 describe('drizzle journal `when` 値域 gate (#3948)', () => {
 	it('[WR1] 実 journal (drizzle/pglite) が gate の全ルールを満たす', () => {
 		const entries = loadRealJournal();
@@ -84,7 +112,9 @@ describe('drizzle journal `when` 値域 gate (#3948)', () => {
 		// grandfather を無効化すると、既知 3 値 **だけ** が R2 で落ちる = 例外が増えていない。
 		const withoutGrandfather = findJournalWhenViolations(entries, { grandfathered: [] });
 		expect(withoutGrandfather.every((v) => v.rule === 'R2-handwritten')).toBe(true);
-		expect(withoutGrandfather.map((v) => v.when).sort()).toStrictEqual([...GRANDFATHERED_WHEN]);
+		expect(withoutGrandfather.map((v) => v.when).sort((a, b) => a - b)).toStrictEqual([
+			...GRANDFATHERED_WHEN,
+		]);
 	});
 
 	it('[WR2a] 未来値を末尾に手書きすると fail する (#3946 と同型の再発を hard-fail)', () => {
@@ -210,6 +240,63 @@ describe('drizzle journal `when` 値域 gate (#3948)', () => {
 			expect(v.message, `${v.rule} に次アクションがない`).toContain('→');
 		}
 	});
+
+	it('[WR7] grandfather 3 値を実生成時刻へ直すと pre-hotfix backup の restore で #3946 が再発する', async () => {
+		// grandfather が必要な本当の理由を実 migrator + 実 migration SQL で固定する。
+		// drizzle migrator (pg-core dialect) は `適用済み最大 created_at < folderMillis` の
+		// 1 条件だけで判定し、per-tag の突合はしない。したがって「再適用」は起きない一方、
+		// **適用済み最大が 1784500000000 の DB (= #3947 以前の backup を restore した DB)** では、
+		// 0003/0004 を実生成時刻 (それより小さい) へ「直す」と永久 skip されて #3946 が再発する。
+		// pre-hotfix backup は #3950 の restore drill 対象として現に存在するため、これは机上の話ではない。
+		const entries = loadRealJournal();
+		const idx0002 = entries.findIndex((e) => e.tag.startsWith('0002_'));
+		expect(idx0002).toBeGreaterThanOrEqual(0);
+
+		// 0003/0004 を「drizzle-kit の実生成時刻」へ書き戻した journal (#3947 以前の値)。
+		const REAL_GENERATED_WHEN: Record<string, number> = {
+			'0003_': 1_784_415_769_652,
+			'0004_': 1_784_415_789_368,
+		};
+		const rewritten = entries.map((e) => {
+			const key = Object.keys(REAL_GENERATED_WHEN).find((k) => e.tag.startsWith(k));
+			return key ? { ...e, when: REAL_GENERATED_WHEN[key] as number } : e;
+		});
+		// 「直した」journal は 0002 の grandfather 値より小さくなる = 逆転する。
+		expect(rewritten[idx0002 + 1]?.when).toBeLessThan(HANDWRITTEN_WHEN_0002);
+
+		// pre-hotfix backup 相当 (0000-0002 適用済み) を 2 つ用意し、以後の journal だけを変える。
+		const preHotfixDir = makeRealMigrationsDir(entries.slice(0, idx0002 + 1));
+		const rewrittenDir = makeRealMigrationsDir(rewritten);
+
+		const broken = new PGlite();
+		try {
+			const db = drizzle(broken);
+			await migrate(db, { migrationsFolder: preHotfixDir });
+			expect(await tableExists(broken, 'login_streaks')).toBe(false);
+
+			// 「直した」journal で migrate → 0003/0004 が永久 skip され #3946 が再発する。
+			await migrate(db, { migrationsFolder: rewrittenDir });
+			expect(
+				await tableExists(broken, 'login_streaks'),
+				'grandfather を外すと pre-hotfix restore で login_streaks が作られず #3946 が再発する',
+			).toBe(false);
+			expect(await tableExists(broken, 'login_bonuses')).toBe(true);
+		} finally {
+			await broken.close();
+		}
+
+		// 対照: grandfather を維持した現行 journal なら同じ backup から正しく復旧する。
+		const healthy = new PGlite();
+		try {
+			const db = drizzle(healthy);
+			await migrate(db, { migrationsFolder: preHotfixDir });
+			await migrate(db, { migrationsFolder: PGLITE_MIGRATIONS_DIR });
+			expect(await tableExists(healthy, 'login_streaks')).toBe(true);
+			expect(await tableExists(healthy, 'login_bonuses')).toBe(false);
+		} finally {
+			await healthy.close();
+		}
+	}, 120_000);
 
 	it('[WR4] DSQL provision は `when` を参照しない (idx 順 + tag 冪等) — 影響波及なしの固定', () => {
 		// `when` を意図的に逆転させても、DSQL の loadMigrationFiles は idx 順で読む。
