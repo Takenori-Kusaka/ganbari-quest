@@ -29,7 +29,7 @@ export const PGLITE_BACKUP_PREFIX = 'pglite-';
 /** バックアップファイルの拡張子 (dumpDataDir('gzip') の出力は gzip 圧縮 tar)。 */
 export const PGLITE_BACKUP_EXT = '.tgz';
 /**
- * 「日次バックアップの世代」として数えてよいファイル名の厳密形 (`pglite-YYYYMMDDTHHMMSSZ.tgz`)。
+ * 「日次バックアップの世代」として数えてよいファイル名の厳密形 (`pglite-<YYYYMMDD>T<HHMMSS>Z.tgz`)。
  *
  * ⚠️ prefix + 拡張子の緩い一致で世代を数えてはいけない。同じ BACKUP_DIR には運用中に採る
  * **手動の暫定スナップショット** (実例: #3950 一次証跡の `pglite-snapshot-20260726-0738-pre-pr3947.tgz`)

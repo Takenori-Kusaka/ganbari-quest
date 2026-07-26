@@ -23,7 +23,7 @@ import { logger } from '$lib/server/logger';
  * 最終成功/最終失敗を残すファイル名。fail が沈黙しないための可視化点 (#3950 AC)。
  *
  * 世代判定は `PGLITE_BACKUP_FILENAME_PATTERN` の完全一致で行うため本ファイルは世代に数えられないが、
- * 命名を `pglite-YYYYMMDDTHHMMSSZ.tgz` 形に寄せないこと (意図しない結合を作らない)。
+ * 命名を `pglite-<YYYYMMDD>T<HHMMSS>Z.tgz` 形に寄せないこと (意図しない結合を作らない)。
  */
 export const BACKUP_STATUS_FILENAME = 'backup-status-pglite.json';
 

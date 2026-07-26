@@ -40,7 +40,7 @@ crond (backup コンテナ, 03:00 JST)
 障害調査や hotfix 前に手で採るスナップショットを、**日次バックアップと同じ `BACKUP_DIR` に
 `pglite-*.tgz` の名前で置いてはならない**。
 
-- 世代判定は `PGLITE_BACKUP_FILENAME_PATTERN` (`pglite-YYYYMMDDTHHMMSSZ.tgz` の完全一致) で行う。
+- 世代判定は `PGLITE_BACKUP_FILENAME_PATTERN` (`pglite-<YYYYMMDD>T<HHMMSS>Z.tgz` の完全一致) で行う。
   この形に一致しないファイルは世代に数えず、ローテーションでも削除しない
 - 実例: `pglite-snapshot-20260726-0738-pre-pr3947.tgz` (#3950 の一次証跡) は本番 `BACKUP_DIR` に現存する。
   緩い一致 (prefix + 拡張子) で数えていた実装では、辞書順で `'s'` が数字より後ろに来るため
