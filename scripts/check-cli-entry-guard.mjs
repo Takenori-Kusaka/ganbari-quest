@@ -56,8 +56,12 @@ import { isMain as isMainModule } from './lib/is-main.mjs';
  * (`.claude/hooks/gate-approve.mjs` は ADR-0056 evidence を検証して QM の approve を止める hook で、
  * junction 経由では判定が false になり approve を素通ししていた)。実行経路が `scripts/` と違うだけで
  * 事故の class は同じなので、走査範囲を実行経路ではなく「壊れたときに無言で PASS するか」で決める。
+ *
+ * export しているのは test 用である。SCAN_ROOTS を広げたら `.github/workflows/ci.yml` の
+ * `paths-filter` (`app`) も広げないと、その root だけを変更した PR で job ごと skip され
+ * gate が 1 度も走らない。対応関係を tests/unit/scripts/cli-entry-guard.test.ts が機械検証する。
  */
-const SCAN_ROOTS = ['scripts', 'src', 'infra', '.claude'];
+export const SCAN_ROOTS = ['scripts', 'src', 'infra', '.claude'];
 const SCAN_EXTS = ['.mjs', '.cjs', '.js', '.ts'];
 /**
  * 走査から外すディレクトリ名。
@@ -222,20 +226,33 @@ function main() {
 	}
 	const root = process.cwd();
 	const violations = [];
+	// 走査量を root ごとに数える。件数を出さないと「違反 0 件」と「1 ファイルも走査していない」が
+	// 同じ文言の exit 0 になり、SCAN_ROOT が checkout に無い状態を PASS と読み違える
+	// (レビュー指摘 PR #3979)。本 gate が塞いでいる「壊れると無言で PASS」と同じ class。
+	/** @type {string[]} */
+	const scanned = [];
 	for (const scanRoot of SCAN_ROOTS) {
 		const abs = join(root, scanRoot);
 		try {
-			if (!statSync(abs).isDirectory()) continue;
+			if (!statSync(abs).isDirectory()) {
+				scanned.push(`${scanRoot}=対象外`);
+				continue;
+			}
 		} catch {
+			scanned.push(`${scanRoot}=未検出`);
 			continue;
 		}
-		for (const file of collectFiles(abs)) {
+		const files = collectFiles(abs);
+		scanned.push(`${scanRoot}=${files.length}`);
+		for (const file of files) {
 			violations.push(...scanSource(relative(root, file), readFileSync(file, 'utf8')));
 		}
 	}
 
 	if (violations.length === 0) {
-		console.log('[check-cli-entry-guard] OK: 自前の CLI 実行判定 / 手組み file:// URL は 0 件');
+		console.log(
+			`[check-cli-entry-guard] OK: 自前の CLI 実行判定 / 手組み file:// URL は 0 件 (走査 ${scanned.join(' / ')})`,
+		);
 		return 0;
 	}
 

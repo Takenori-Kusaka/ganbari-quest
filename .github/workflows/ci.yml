@@ -55,6 +55,12 @@ jobs:
               - 'tests/**'
               - 'infra/**'
               - 'scripts/**'
+              # #3969: check-cli-entry-guard.mjs の走査範囲 (SCAN_ROOTS) に .claude を含めたため、
+              # 発火条件も揃える。列挙しないと `.claude/**` だけを変更する PR で 4 filter すべてが
+              # false になり lint-and-test ごと skip され、gate が 1 度も走らない。守る対象が
+              # ADR-0056 の approve gate 本体 (.claude/hooks/gate-approve.mjs) なので必須。
+              # 対応関係は tests/unit/scripts/cli-entry-guard.test.ts が機械検証する。
+              - '.claude/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'

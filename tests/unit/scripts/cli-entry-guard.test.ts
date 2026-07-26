@@ -32,14 +32,14 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { scanSource } from '../../../scripts/check-cli-entry-guard.mjs';
+import { SCAN_ROOTS, scanSource } from '../../../scripts/check-cli-entry-guard.mjs';
 import { isMain } from '../../../scripts/lib/is-main.mjs';
 
 const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '../../../..');
@@ -272,6 +272,77 @@ describe('check-cli-entry-guard 走査範囲 — .claude を含み worktrees を
 		const res = runGate(fixtureTree('.claude/worktrees/agent-x/scripts/gate-approve.mjs'));
 		expect(res.status, `worktrees 配下を走査しています:\n${res.stderr ?? ''}`).toBe(0);
 	}, 30_000);
+
+	/**
+	 * PASS 文言に走査量を含める。件数が無いと「違反 0 件」と「1 ファイルも走査していない」が
+	 * 区別できず、SCAN_ROOT が checkout に無い状態を PASS と読み違える (レビュー指摘 PR #3979)。
+	 */
+	it('PASS 時に root ごとの走査件数を出力する (0 件走査と違反 0 件を区別できる)', () => {
+		const res = spawnSync(process.execPath, [GATE], { cwd: REPO_ROOT, encoding: 'utf8' });
+		expect(res.status, `${res.stdout ?? ''}${res.stderr ?? ''}`).toBe(0);
+		for (const root of SCAN_ROOTS) {
+			expect(res.stdout, `${root} の走査件数が出力されていません: ${res.stdout}`).toMatch(
+				new RegExp(`${root.replace('.', '\\.')}=\\d+`),
+			);
+		}
+	}, 60_000);
+});
+
+// ---------------------------------------------------------------------------
+// 2b. CI 発火条件
+// ---------------------------------------------------------------------------
+
+/**
+ * gate の走査範囲 (`SCAN_ROOTS`) と CI の発火条件 (`paths-filter` の `app`) の対応を固定する。
+ *
+ * `check-cli-entry-guard` を実行するのは `ci.yml` の `lint-and-test` job だけで、この job は
+ * `changes` の 4 filter (app / deps / stories / docs) がすべて false なら **job ごと skip** される。
+ * SCAN_ROOTS を広げても filter を広げ忘れると、その root だけを変更した PR で gate が
+ * **1 度も走らない**。守る対象が ADR-0056 の approve gate 本体 (`.claude/hooks/gate-approve.mjs`)
+ * なので、対応漏れは「gate があるのに発火しない」= 本 test が塞ぐ class に戻る
+ * (レビュー指摘 PR #3979 BLOCK 4)。
+ */
+describe('CI 発火条件 — SCAN_ROOTS が paths-filter の app に列挙されている (#3969)', () => {
+	/**
+	 * `filters: |` block scalar 内の 1 named filter からパスパターンを抜く。
+	 * 完全な YAML parse はしない (依存を増やさない)。名前行より深い字下げの `- '...'` を拾い、
+	 * 字下げが名前行以下に戻った時点で終端する。
+	 */
+	function extractFilterPaths(yaml: string, name: string): string[] {
+		const lines = yaml.split(/\r?\n/);
+		const start = lines.findIndex((l) => new RegExp(`^(\\s+)${name}:\\s*$`).test(l));
+		if (start < 0) return [];
+		const baseIndent = (lines[start]?.match(/^\s*/)?.[0] ?? '').length;
+		const paths: string[] = [];
+		for (let i = start + 1; i < lines.length; i++) {
+			const line = lines[i] ?? '';
+			if (line.trim() === '') continue;
+			const indent = (line.match(/^\s*/)?.[0] ?? '').length;
+			if (indent <= baseIndent) break;
+			const m = line.trim().match(/^-\s*'([^']+)'\s*$/);
+			if (m?.[1]) paths.push(m[1]);
+		}
+		return paths;
+	}
+
+	const CI_YML = readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+	const appPaths = extractFilterPaths(CI_YML, 'app');
+
+	// 陽性対照: parser が空配列を返しているだけの偽 PASS を防ぐ (proposal 005 / #3979)。
+	it('app filter を抽出できている (parser 自体の健全性)', () => {
+		expect(appPaths.length).toBeGreaterThan(5);
+		expect(appPaths).toContain('src/**');
+	});
+
+	for (const root of SCAN_ROOTS) {
+		it(`app filter が '${root}/**' を含む`, () => {
+			expect(
+				appPaths,
+				`SCAN_ROOTS に '${root}' があるのに ci.yml の paths-filter app に '${root}/**' がありません。` +
+					`'${root}/**' だけを変更した PR で lint-and-test が skip され、gate が走りません。`,
+			).toContain(`${root}/**`);
+		});
+	}
 });
 
 // ---------------------------------------------------------------------------
