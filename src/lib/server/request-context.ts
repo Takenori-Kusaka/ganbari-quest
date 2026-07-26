@@ -15,9 +15,9 @@
 // 同一リクエスト内で状態が変わる操作の直後に呼ぶ。
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import type { EvaluationContext } from '$lib/runtime/evaluation-context';
-import type { TenantEntitlement } from '$lib/server/auth/tenant-entitlement';
-import type { PlanTier } from '$lib/server/services/plan-limit-service';
+import type { TenantEntitlement } from '$lib/server/auth/types';
 import type { TrialStatus } from '$lib/server/services/trial-service';
 
 interface RequestContext {

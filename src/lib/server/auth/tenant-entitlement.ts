@@ -16,14 +16,9 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getRequestContext } from '$lib/server/request-context';
-import type { AuthContext } from './types';
+import type { AuthContext, TenantEntitlement } from './types';
 
-/** context_token に焼き込まず、毎リクエスト DB から解決する部分 */
-export interface TenantEntitlement {
-	licenseStatus: AuthContext['licenseStatus'];
-	tenantStatus: NonNullable<AuthContext['tenantStatus']>;
-	plan?: string;
-}
+export type { TenantEntitlement };
 
 /**
  * Tenant から課金状態を導出する。
@@ -46,15 +41,37 @@ export function deriveTenantEntitlement(tenant: Tenant | undefined): TenantEntit
 }
 
 /**
+ * DB から課金状態を解決できなかったことを表す。
+ *
+ * `null` (= 権限なし) と区別できる型にしているのは 2 つの理由による。
+ *   1. **UX**: 「DB 障害で剥奪」をログイン画面へのリダイレクトで表現すると、
+ *      ユーザーは「ログアウトさせられた / アカウントが消えた」と誤解する。
+ *      hooks.server.ts はこの型を捕捉して 503「一時的な障害」を返す。
+ *   2. **可観測性**: 「DB 障害で剥奪」と「正当に無権限」が同じ見え方だと、
+ *      incident 時に原因の切り分けができない。`ALERT_KIND` で検索可能にする。
+ */
+export class TenantEntitlementUnavailableError extends Error {
+	/** CloudWatch Logs Insights / Discord alert の検索 key */
+	static readonly ALERT_KIND = 'auth-entitlement-db-unavailable';
+
+	constructor(
+		readonly tenantId: string,
+		/** DB 側の原因 (Error.cause は型が緩いため専用フィールドで保持する) */
+		readonly dbError: unknown,
+	) {
+		super(`Failed to resolve tenant entitlement from DB: tenantId=${tenantId}`);
+		this.name = 'TenantEntitlementUnavailableError';
+	}
+}
+
+/**
  * テナントの課金状態を DB から解決する。同一リクエスト内では 1 回だけ DB を引く。
  *
- * **解決に失敗した場合は `null` を返す (fail-closed)。** 呼び出し側は context を
- * 発行してはならない。DB 障害時に古い Cookie の値で有料機能を通し続けるのは
- * 本 Issue が塞ごうとしている挙動そのものであるため、握り潰さない (ADR-0061)。
+ * **解決に失敗した場合は `TenantEntitlementUnavailableError` を throw する (fail-closed)。**
+ * 呼び出し側は context を発行してはならない。DB 障害時に古い Cookie の値で有料機能を
+ * 通し続けるのは本 Issue が塞ごうとしている挙動そのものであるため、握り潰さない。
  */
-export async function resolveTenantEntitlement(
-	tenantId: string,
-): Promise<TenantEntitlement | null> {
+export async function resolveTenantEntitlement(tenantId: string): Promise<TenantEntitlement> {
 	const cache = getRequestContext()?.tenantEntitlementCache;
 	const cached = cache?.get(tenantId);
 	if (cached) return cached;
@@ -67,8 +84,8 @@ export async function resolveTenantEntitlement(
 	} catch (e) {
 		logger.error('[AUTH] Failed to resolve tenant entitlement from DB', {
 			error: e instanceof Error ? e.message : String(e),
-			context: { tenantId },
+			context: { kind: TenantEntitlementUnavailableError.ALERT_KIND, tenantId },
 		});
-		return null;
+		throw new TenantEntitlementUnavailableError(tenantId, e);
 	}
 }

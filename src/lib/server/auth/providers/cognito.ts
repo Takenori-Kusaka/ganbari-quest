@@ -14,7 +14,7 @@ import { logger } from '$lib/server/logger';
 import { acceptInvite, getInvite } from '$lib/server/services/invite-service';
 import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
-import { deriveTenantEntitlement, resolveTenantEntitlement } from '../tenant-entitlement';
+import { resolveTenantEntitlement, TenantEntitlementUnavailableError } from '../tenant-entitlement';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 import { verifyIdentityToken } from './cognito-jwt';
 import { refreshCognitoIdToken } from './cognito-oauth';
@@ -98,10 +98,10 @@ export class CognitoAuthProvider implements AuthProvider {
 		if (contextToken) {
 			const claims = verifyContext(contextToken);
 			if (claims) {
-				// 課金状態は token を信用せず DB から解決する。
-				// 解決できなければ context を発行しない (fail-closed、握り潰さない)。
+				// 課金状態は token を信用せず DB から解決する。解決できなければ
+				// `TenantEntitlementUnavailableError` が throw され context は発行されない
+				// (fail-closed、握り潰さない)。呼び出し元の hooks.server.ts が 503 に変換する。
 				const entitlement = await resolveTenantEntitlement(claims.tenantId);
-				if (!entitlement) return null;
 				return { ...claims, ...entitlement };
 			}
 		}
@@ -118,8 +118,9 @@ export class CognitoAuthProvider implements AuthProvider {
 	 * DynamoDB メンバーシップから Context を再発行
 	 * メンバーシップがなければ初回ログインとして自動プロビジョニングする
 	 *
-	 * #3963: 課金状態の導出を `deriveTenantEntitlement` に切り出したことで
-	 * cognitive complexity が閾値を下回り、従来の biome-ignore は不要になった。
+	 * #3963: 課金状態の解決失敗 (`TenantEntitlementUnavailableError`) を rethrow する分岐が
+	 * 増えたため、メンバーシップ解決を `resolveMembership` に切り出して
+	 * cognitive complexity を閾値内に収めた (従来の biome-ignore は不要になった)。
 	 */
 	private async issueContextFromMembership(
 		event: RequestEvent,
@@ -130,46 +131,15 @@ export class CognitoAuthProvider implements AuthProvider {
 
 			const repos = getRepos();
 
-			// Cognito sub → 内部 userId の解決
-			// identity.userId は Cognito sub だが、DynamoDB は u-<uuid> で管理
-			const existingUser = await repos.auth.findUserByEmail(identity.email);
-			const internalUserId = existingUser?.userId ?? identity.userId;
-
-			// メンバーシップから取得（1ユーザー=1テナント）
-			let memberships = await repos.auth.findUserTenants(internalUserId);
-
-			// 初回ログイン: 招待コード or 自動プロビジョニング
-			if (memberships.length === 0) {
-				// 招待コード Cookie があれば招待受諾を試行
-				const inviteCode = event.cookies.get(INVITE_COOKIE_NAME);
-				if (inviteCode) {
-					const membership = await this.acceptInviteForUser(event, identity, inviteCode);
-					if (membership) {
-						memberships = [membership];
-					}
-				}
-
-				// 招待受諾失敗 or 招待なし → 新規テナント自動作成
-				if (memberships.length === 0) {
-					logger.info('[AUTH] First login detected, auto-provisioning', {
-						context: { userId: identity.userId, email: identity.email },
-					});
-					const membership = await this.provisionNewUser(identity);
-					if (!membership) return null;
-					memberships = [membership];
-				}
-			}
-
-			const membership = memberships[0];
+			const membership = await this.resolveMembership(event, identity);
 			if (!membership) return null;
 
-			// テナントの課金状態を取得 (#3963: 導出ロジックの SSOT は tenant-entitlement.ts)
-			const tenant = await repos.auth.findTenantById(membership.tenantId);
-
+			// テナントの課金状態を取得 (#3963: 解決の SSOT は tenant-entitlement.ts)。
+			// DB 障害時は下の catch で握り潰さず rethrow し、hooks が 503 に変換する。
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
-				...deriveTenantEntitlement(tenant),
+				...(await resolveTenantEntitlement(membership.tenantId)),
 			};
 
 			// child ロールの場合、userId から childId を解決 (#0156)
@@ -183,12 +153,49 @@ export class CognitoAuthProvider implements AuthProvider {
 			this.setContextCookie(event, context);
 			return context;
 		} catch (e) {
+			// #3963: 課金状態の解決失敗は握り潰さない。null (= 未認証扱い → ログイン画面)
+			// にしてしまうと「DB 障害で剥奪」と「正当に無権限」が区別できなくなる。
+			if (e instanceof TenantEntitlementUnavailableError) throw e;
 			logger.error('[AUTH] Failed to issue context from membership', {
 				error: e instanceof Error ? e.message : String(e),
 			});
 		}
 
 		return null;
+	}
+
+	/**
+	 * Cognito identity から所属メンバーシップを解決する (1ユーザー=1テナント)。
+	 * メンバーシップが無い場合は初回ログインとして招待受諾 → 自動プロビジョニングを試みる。
+	 *
+	 * #3963: `issueContextFromMembership` から切り出した。挙動は変えていない。
+	 */
+	private async resolveMembership(
+		event: RequestEvent,
+		identity: Extract<Identity, { type: 'cognito' }>,
+	): Promise<import('$lib/server/auth/entities').Membership | null> {
+		const repos = getRepos();
+
+		// Cognito sub → 内部 userId の解決
+		// identity.userId は Cognito sub だが、DynamoDB は u-<uuid> で管理
+		const existingUser = await repos.auth.findUserByEmail(identity.email);
+		const internalUserId = existingUser?.userId ?? identity.userId;
+
+		const memberships = await repos.auth.findUserTenants(internalUserId);
+		if (memberships.length > 0) return memberships[0] ?? null;
+
+		// 初回ログイン: 招待コード Cookie があれば招待受諾を試行
+		const inviteCode = event.cookies.get(INVITE_COOKIE_NAME);
+		if (inviteCode) {
+			const membership = await this.acceptInviteForUser(event, identity, inviteCode);
+			if (membership) return membership;
+		}
+
+		// 招待受諾失敗 or 招待なし → 新規テナント自動作成
+		logger.info('[AUTH] First login detected, auto-provisioning', {
+			context: { userId: identity.userId, email: identity.email },
+		});
+		return this.provisionNewUser(identity);
 	}
 
 	/**

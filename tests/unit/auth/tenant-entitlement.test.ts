@@ -6,7 +6,8 @@
 // - deriveTenantEntitlement: Tenant.status → licenseStatus の正規化が全 status で正しいこと
 //   (auth-license-status.ts のマッピング表が壊れると課金・権限の両方が壊れる)
 // - resolveTenantEntitlement: 同一リクエスト内で DB を 1 回だけ引くこと (AC4)
-// - resolveTenantEntitlement: DB 障害時に fail-closed で null を返すこと
+// - resolveTenantEntitlement: DB 障害時に fail-closed で TenantEntitlementUnavailableError を投げること
+//   (null = 正当に無権限 と区別できる型にする。呼び出し側 hooks が 503 に変換する)
 //   (握り潰して古い値を返すと本 Issue の再発そのものになる)
 // - invalidateRequestCaches: 解約 / 再開の書き込み直後に同一リクエスト内でも新しい値になること
 
@@ -29,9 +30,8 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-const { deriveTenantEntitlement, resolveTenantEntitlement } = await import(
-	'../../../src/lib/server/auth/tenant-entitlement'
-);
+const { deriveTenantEntitlement, resolveTenantEntitlement, TenantEntitlementUnavailableError } =
+	await import('../../../src/lib/server/auth/tenant-entitlement');
 const { runWithRequestContext, invalidateRequestCaches } = await import(
 	'../../../src/lib/server/request-context'
 );
@@ -178,12 +178,28 @@ describe('resolveTenantEntitlement (#3963)', () => {
 	});
 
 	// fail-closed: DB 障害で古い Cookie の値を通すのは本 Issue の再発そのもの
-	it('DB が throw したら null を返す (fail-closed、握り潰さない)', async () => {
+	it('DB が throw したら TenantEntitlementUnavailableError を投げる (fail-closed、握り潰さない)', async () => {
 		findTenantById.mockRejectedValue(new Error('DSQL connection refused'));
 
-		const result = await runWithRequestContext(() => resolveTenantEntitlement('t-1'));
+		await expect(
+			runWithRequestContext(() => resolveTenantEntitlement('t-1')),
+		).rejects.toBeInstanceOf(TenantEntitlementUnavailableError);
+	});
 
-		expect(result).toBeNull();
+	// 「DB 障害で剥奪」と「正当に無権限」を呼び出し側が区別できること (PO 条件 2026-07-26)
+	it('例外は tenantId と DB 側原因を保持し、alert kind を持つ', async () => {
+		const dbError = new Error('DSQL connection refused');
+		findTenantById.mockRejectedValue(dbError);
+
+		const caught = await runWithRequestContext(() =>
+			resolveTenantEntitlement('t-1').catch((e: unknown) => e),
+		);
+
+		expect(caught).toBeInstanceOf(TenantEntitlementUnavailableError);
+		const err = caught as InstanceType<typeof TenantEntitlementUnavailableError>;
+		expect(err.tenantId).toBe('t-1');
+		expect(err.dbError).toBe(dbError);
+		expect(TenantEntitlementUnavailableError.ALERT_KIND).toBe('auth-entitlement-db-unavailable');
 	});
 
 	it('DB 障害の結果はキャッシュせず、次の呼び出しで再試行する', async () => {
@@ -191,8 +207,10 @@ describe('resolveTenantEntitlement (#3963)', () => {
 		findTenantById.mockResolvedValueOnce(makeTenant({ stripeSubscriptionId: 'sub_1' }));
 
 		await runWithRequestContext(async () => {
-			expect(await resolveTenantEntitlement('t-1')).toBeNull();
-			expect((await resolveTenantEntitlement('t-1'))?.licenseStatus).toBe(
+			await expect(resolveTenantEntitlement('t-1')).rejects.toBeInstanceOf(
+				TenantEntitlementUnavailableError,
+			);
+			expect((await resolveTenantEntitlement('t-1')).licenseStatus).toBe(
 				AUTH_LICENSE_STATUS.ACTIVE,
 			);
 		});

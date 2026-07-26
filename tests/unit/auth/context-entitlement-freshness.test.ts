@@ -42,6 +42,9 @@ vi.mock('$lib/server/logger', () => ({
 const { CognitoAuthProvider } = await import('../../../src/lib/server/auth/providers/cognito');
 const { signContext } = await import('../../../src/lib/server/auth/context-token');
 const { runWithRequestContext } = await import('../../../src/lib/server/request-context');
+const { TenantEntitlementUnavailableError } = await import(
+	'../../../src/lib/server/auth/tenant-entitlement'
+);
 
 const identity = {
 	type: 'cognito' as const,
@@ -171,16 +174,16 @@ describe('resolveContext の課金状態は常に DB の現在値 (#3963)', () =
 		expect(context?.childId).toBe(asChildId(42));
 	});
 
-	// fail-closed: DB 障害時に古い Cookie の値で有料機能を通し続けない
-	it('DB 解決に失敗したら context を発行しない (null)', async () => {
+	// fail-closed: DB 障害時に古い Cookie の値で有料機能を通し続けない。
+	// null (= 正当に無権限 → ログイン画面) ではなく専用の例外を投げ、
+	// hooks 側が「一時的な障害」として 503 を返せるようにする (PO 条件 2026-07-26)。
+	it('DB 解決に失敗したら context を発行せず TenantEntitlementUnavailableError を投げる', async () => {
 		const token = signContext({ tenantId: 't-1', role: 'owner' });
 		findTenantById.mockRejectedValue(new Error('DSQL unavailable'));
 
-		const context = await runWithRequestContext(() =>
-			provider.resolveContext(makeEvent(token), identity),
-		);
-
-		expect(context).toBeNull();
+		await expect(
+			runWithRequestContext(() => provider.resolveContext(makeEvent(token), identity)),
+		).rejects.toBeInstanceOf(TenantEntitlementUnavailableError);
 	});
 
 	it('identity が無ければ DB を引かずに null', async () => {
