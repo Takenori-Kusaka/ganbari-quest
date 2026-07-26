@@ -97,12 +97,12 @@ function runNode(script: string, cwd: string): string {
 
 describe('isMain() — CLI 直接実行判定 (#3969)', () => {
 	it('実体パスで起動された script は main と判定する', () => {
-		const dir = makeTempDir('gq-ismain-real-');
+		const dir = makeTempDir('gq-is-main-real-');
 		expect(runNode(writeProbe(dir), dir)).toBe('MAIN');
 	});
 
 	it.skipIf(!SYMLINK_OK)('symlink 経由で起動されても main と判定する (本 Issue の再発防止)', () => {
-		const dir = makeTempDir('gq-ismain-link-');
+		const dir = makeTempDir('gq-is-main-link-');
 		const realDir = path.join(dir, 'real');
 		mkdirSync(realDir);
 		const script = writeProbe(realDir);
