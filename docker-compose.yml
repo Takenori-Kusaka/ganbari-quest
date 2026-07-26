@@ -19,6 +19,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=./data/ganbari-quest.db
+      # #3950: PGlite バックアップはアプリプロセス内で採るため、取得先と保持世代は app 側が読む
+      # (backup コンテナは /api/cron/pglite-backup を叩くだけ)。保持 3 世代 = オーナー決裁。
+      - BACKUP_DIR=./data/backups
+      - BACKUP_RETENTION=3
       - HOST=0.0.0.0
       - PORT=3000
       - ORIGIN=${ORIGIN:-http://localhost:3000}
@@ -33,17 +37,21 @@ services:
   # Enable: docker compose --profile backup up -d
   #
   # #2519: backup → restore 検証を chain する。backup の「存在」だけでなく
-  # 「restore 可能 + 中身が壊れていない」を毎日確認し、verify 失敗時は
-  # verify-backup-restore.cjs が Discord alert を送る (DISCORD_ALERT_WEBHOOK_URL)。
-  # GDrive アップロードは BACKUP_POST_HOOK (.env) 経由で backup-db.cjs が実行する。
+  # 「restore 可能 + 中身が壊れていない」を毎日確認し、verify 失敗時は Discord alert を送る
+  # (DISCORD_ALERT_WEBHOOK_URL)。GDrive アップロードは BACKUP_POST_HOOK (.env) 経由。
+  #
+  # #3950: 入口を scripts/backup-nuc.cjs に一本化した。DATA_SOURCE を見て backend ごとの経路へ
+  # 振り分ける (pglite = アプリの /api/cron/pglite-backup、それ以外 = 従来の SQLite 経路)。
+  # 直接 backup-db.cjs を叩いていた旧構成は、2026-07-12 の PGlite 移行後も旧 SQLite を複製し続け、
+  # **実データが 2 週間以上無保護のまま毎日 fail していた** (#3950)。backend 判定を 1 箇所に集約する。
   backup:
     build: .
     entrypoint: /bin/sh
     command:
       - -c
       - |
-        echo "0 3 * * * cd /app && node scripts/backup-db.cjs >> /proc/1/fd/1 2>&1 && node scripts/verify-backup-restore.cjs >> /proc/1/fd/1 2>&1" | crontab -
-        echo "[Backup] Cron scheduled: daily 3:00 AM JST (backup + restore verification)"
+        echo "0 3 * * * cd /app && node scripts/backup-nuc.cjs >> /proc/1/fd/1 2>&1" | crontab -
+        echo "[Backup] Cron scheduled: daily 3:00 AM JST (backup-nuc: backend 振り分け + 復元検証)"
         crond -f
     # backup コンテナは web server を持たないため Dockerfile の HEALTHCHECK
     # (wget :3000/health) を継承すると恒久的に unhealthy 誤表示になる (#2985)。
@@ -59,7 +67,12 @@ services:
     environment:
       - DATABASE_URL=./data/ganbari-quest.db
       - BACKUP_DIR=./data/backups
-      - BACKUP_RETENTION=7
+      # #3950: 保持世代はオーナー決裁 (2026-07-26) で日次 3 世代。
+      # BACKUP_RETENTION は pglite 経路ではアプリ側 (app サービス) が読むため、両方に設定する。
+      - BACKUP_RETENTION=3
+      # DATA_SOURCE / CRON_SECRET は .env から供給される (env_file required: true)。
+      # backup コンテナは app に HTTP で backup 起動を依頼するため APP_URL が必要。
+      - APP_URL=http://app:3000
       - TZ=Asia/Tokyo
     env_file:
       - path: .env

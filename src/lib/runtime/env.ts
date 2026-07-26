@@ -84,6 +84,12 @@ const envSchema = z.object({
 	//   PGLITE_MIGRATIONS_DIR は生成済み migration (drizzle/pglite) の解決先 (既定 = cwd 相対)。
 	PGLITE_DATA_DIR: z.string().optional(),
 	PGLITE_MIGRATIONS_DIR: z.string().optional(),
+	// #3950 (NUC PGlite 日次バックアップ): 取得先と保持世代。
+	//   BACKUP_DIR は既存 SQLite backup (docker-compose backup service) と同じ既定 `./data/backups`
+	//   を共有する (取得物は prefix `pglite-` で区別)。BACKUP_RETENTION はオーナー決裁で 3 世代。
+	//   いずれも optional — 未設定でも既定値で動く (ADR-0029 の required env 追加に当たらない)。
+	BACKUP_DIR: z.string().optional(),
+	BACKUP_RETENTION: z.coerce.number().int().positive().optional(),
 
 	// ----- Stripe -----
 	STRIPE_SECRET_KEY: z.string().optional(),
