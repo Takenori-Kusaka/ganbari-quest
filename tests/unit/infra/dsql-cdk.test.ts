@@ -16,11 +16,16 @@ import { DsqlStack } from '../../../infra/lib/dsql-stack';
 describe('DsqlStack (EPIC #3424 M4-E item 12)', () => {
 	let template: Template;
 
+	// #3975: CDK 合成 1 回目は `aws-cdk-lib` (jsii bundle) の cold load を含み、Windows ローカルでは
+	// vite.config.ts の既定 `hookTimeout: 10_000` を超える (実測 18.1s / CI Linux は収まるため CI のみ green)。
+	// 「ローカル pre-ready Step 3 だけが恒常 red」= 本物の fail が「またいつものやつ」として無視される状態を作る。
+	// 本ディレクトリの他 6 suite は既に明示 timeout (60s / 120s) を持っており、本 suite だけが未指定だった。
+	// 60s は実測の約 3.3x。合成が壊れて戻らないケースは打ち切られるため無検査化ではない。
 	beforeAll(() => {
 		const app = new cdk.App();
 		const stack = new DsqlStack(app, 'TestDsql', { opsEmail: 'ops@example.com' });
 		template = Template.fromStack(stack);
-	});
+	}, 60_000);
 
 	it('[I1] DSQL cluster が deletion protection true で 1 個作成される (#3429)', () => {
 		template.resourceCountIs('AWS::DSQL::Cluster', 1);

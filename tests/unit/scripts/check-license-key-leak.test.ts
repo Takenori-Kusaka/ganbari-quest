@@ -120,18 +120,29 @@ describe('check-license-key-leak (#2836)', () => {
 	});
 
 	describe('findAllViolations (実 repo gate)', () => {
-		it('現在の src/ + site/ に再導入された license key 参照はゼロ (本 PR 自身が PASS)', () => {
-			const violations = findAllViolations();
-			if (violations.length > 0) {
-				// 失敗時に違反箇所を表示
-				throw new Error(
-					`license key 再導入を ${violations.length} 件検出:\n` +
-						violations
-							.map((v: { file: string; line: number }) => `  ${v.file}:${v.line}`)
-							.join('\n'),
-				);
-			}
-			expect(violations).toHaveLength(0);
-		});
+		// #3972: 本 test の主張は「violations 0 件」であって「速いこと」ではない。
+		// `findAllViolations()` 自体は実測 ~250ms (Dev 261ms / QA 241ms、いずれも 0 件) だが、
+		// repo 全走査を伴うため vitest harness の負荷次第で既定 5s を超え、環境依存で赤になる。
+		// 「pre-ready は 1 件既知 fail」が常態化すると本物の fail が紛れるため、実測の約 120x を
+		// 明示して環境揺らぎを吸収する (走査が壊れて戻らないケースは 30s で打ち切られる)。
+		const REPO_SCAN_TIMEOUT_MS = 30_000;
+
+		it(
+			'現在の src/ + site/ に再導入された license key 参照はゼロ (本 PR 自身が PASS)',
+			() => {
+				const violations = findAllViolations();
+				if (violations.length > 0) {
+					// 失敗時に違反箇所を表示
+					throw new Error(
+						`license key 再導入を ${violations.length} 件検出:\n` +
+							violations
+								.map((v: { file: string; line: number }) => `  ${v.file}:${v.line}`)
+								.join('\n'),
+					);
+				}
+				expect(violations).toHaveLength(0);
+			},
+			REPO_SCAN_TIMEOUT_MS,
+		);
 	});
 });
