@@ -318,6 +318,11 @@ describe('fail-closed — 判定 SSOT の import 解決失敗 (#3999)', () => {
 	 * 判定不能時は approve 系以外も block する、という設計判断そのものを固定する。
 	 * 「approve のときだけ block」へ後から緩めると、SSOT を読めない = CLI 起動か import かを
 	 * 判定できない状態で main() を走らせるかどうかを推測することになり、別の silent failure を作る。
+	 *
+	 * **surgical 案 (approve 系だけ block) は技術的に可能だが、採らない。** approve 判定の regex は
+	 * gate-approve.mjs 内に閉じており is-main.mjs に依存しないので、import 解決に失敗しても
+	 * コマンド分類はできる。この test が固定しているのは能力の欠如ではなく**設計上の選択**。
+	 * 緩める提案をするときは「判定不能状態で main() を走らせる根拠」を先に示すこと。
 	 */
 	it('is-main.mjs が無い tree では非 approve コマンドも block する (判定不能時は大きく止まる)', () => {
 		const res = runHookInIsolatedTree({

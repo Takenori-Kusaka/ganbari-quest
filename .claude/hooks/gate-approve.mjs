@@ -288,6 +288,11 @@ async function main() {
  * 状態であり、そこで main() を走らせるかどうかを推測すると、import 経由の呼び出し元を
  * 無言で exit させる別の silent failure を作る。判定不能時は**大きく・声を上げて止まる**方を採る。
  *
+ * **surgical 案は技術的に不可能ではない**: approve 系かどうかの判定 regex は本 module 内に
+ * 閉じており (isApproveAction、is-main.mjs に依存しない)、dynamic import へ変えた時点で
+ * module 本体はロード済みなのでコマンド分類自体は可能。**できないから採らないのではなく、
+ * 選んで採らない。** 後任が「不可能だった」と誤読しないよう明記する (QM 指摘 / PR #3999 レビュー)。
+ *
  * @param {unknown} err
  */
 function reportIsMainLoadFailure(err) {
