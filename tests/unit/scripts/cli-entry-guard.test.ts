@@ -74,6 +74,25 @@ function canSymlink(): boolean {
 
 const SYMLINK_OK = canSymlink();
 
+/**
+ * skip 条件そのものの健全性を CI で固定する。
+ *
+ * `SYMLINK_OK` が false になると symlink 経路の検証ケースが全て無言 skip になり、
+ * 「1 件も検証しないまま緑」= 本 test が塞いでいる事故と同じ形になる。
+ * ローカルは権限差があるため条件付きだが、CI では probe が true であることを assert する。
+ */
+describe('skip 条件の健全性 (#3969)', () => {
+	// skip 条件: CI 以外 (ローカルは symlink 権限が環境依存のため) — ADR-0006 metadata
+	//   Issue: #3969 / owner: @Takenori-Kusaka / deadline: なし (恒久的な環境条件 skip)
+	//   CI (ubuntu-latest) では常時実行される
+	it.skipIf(!process.env.CI)(
+		'CI では symlink/junction を作成できる (symlink 系ケースが無言 skip にならない)',
+		() => {
+			expect(SYMLINK_OK).toBe(true);
+		},
+	);
+});
+
 /** `isMain(import.meta.url)` の結果だけを stdout に出す probe script を書き出す */
 function writeProbe(dir: string): string {
 	const script = path.join(dir, 'probe.mjs');
