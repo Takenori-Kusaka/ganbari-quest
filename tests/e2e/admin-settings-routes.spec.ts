@@ -1,16 +1,16 @@
 // tests/e2e/admin-settings-routes.spec.ts
-// #2319 (EPIC) / #2320 (子#1): /admin/settings 6 グループ child routes 構造の E2E 検証
+// #2319 (EPIC) / #2320 (子#1) / #3954: /admin/settings 7 グループ child routes 構造の E2E 検証
 //
 // 検証内容:
-// - hub page (`/admin/settings`) が 6 グループへのカード型ナビを表示
-// - 各 child route (account/activities/notifications/data/support) が 200 OK で表示
-// - +layout.svelte サブナビが全 7 リンクを表示 (hub + 5 + plan deep link)
+// - hub page (`/admin/settings`) が 7 グループへのカード型ナビを表示
+// - 各 child route (account/activities/notifications/data/rules/support) が 200 OK で表示
+// - +layout.svelte サブナビが全 8 リンクを表示 (hub + 6 + plan deep link)
 //
 // 認証は AUTH_MODE=local 想定 (常に family プラン相当、所有者扱い)
 
 import { expect, test } from '@playwright/test';
 
-test.describe('#2320 /admin/settings 6 グループ child routes', () => {
+test.describe('#2320 /admin/settings 7 グループ child routes', () => {
 	test('hub page で 7 グループへのカード型ナビが表示される', async ({ page }) => {
 		test.slow();
 		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });

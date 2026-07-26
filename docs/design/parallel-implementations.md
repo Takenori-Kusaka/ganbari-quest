@@ -417,21 +417,22 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
-#### 7f. /admin/settings 6 グループ child routes (#2319 / #2320-2324)
+#### 7f. /admin/settings 7 グループ child routes (#2319 / #2320-2324 / #3954)
 
-旧 `/admin/settings/+page.svelte` (2059 行メガファイル、15 sections) を **SvelteKit child routes 6 グループに分割** (案 2 採用、Material Design / Apple HIG / NN/G Common Region 原則整合)。`accountDelete` (account 内) と `clear` (data 内) は **GitHub Danger Zone パターン** (赤枠 + ページ最下部 + 3-step 確認) を共通適用。
+旧 `/admin/settings/+page.svelte` (2059 行メガファイル、15 sections) を **SvelteKit child routes 6 グループに分割** (案 2 採用、Material Design / Apple HIG / NN/G Common Region 原則整合)。`accountDelete` (account 内) と `clear` (data 内) は **GitHub Danger Zone パターン** (赤枠 + ページ最下部 + 3-step 確認) を共通適用。**#3954 で `rules` を 7 番目のグループとして追加** (分割時にどのグループにも割り当てられず、hub / サブナビ / ページガイドの 3 箇所すべてから欠落したまま残っていた)。
 
 **並行実装ペア (settings UI 修正時の同期対象)**:
 
 | 場所 | 内容 | 技術 |
 |------|------|------|
-| `src/routes/(parent)/admin/settings/+layout.svelte` | 6 グループへのサブナビ (mobile 横スクロール対応) | Svelte |
-| `src/routes/(parent)/admin/settings/+page.svelte` | hub page (6 グループへのカード型ナビ + grace バナー) | Svelte |
+| `src/routes/(parent)/admin/settings/+layout.svelte` | 7 グループへのサブナビ (mobile 横スクロール対応) | Svelte |
+| `src/routes/(parent)/admin/settings/+page.svelte` | hub page (7 グループへのカード型ナビ + grace バナー) | Svelte |
 | `src/routes/(parent)/admin/settings/+page.server.ts` | 空 load (各 child route が独自に load) | TypeScript |
 | `src/routes/(parent)/admin/settings/account/+page.{svelte,server.ts}` | OYAKAGI / logout / accountDelete (Danger Zone) | Svelte / TS |
 | `src/routes/(parent)/admin/settings/activities/+page.{svelte,server.ts}` | decay / point / defaultChild / sibling | Svelte / TS |
 | `src/routes/(parent)/admin/settings/notifications/+page.{svelte,server.ts}` | notification (1 section、軽量) | Svelte / TS |
 | `src/routes/(parent)/admin/settings/data/+page.{svelte,server.ts}` | data / cloud / clear (Danger Zone) | Svelte / TS |
+| `src/routes/(parent)/admin/settings/rules/+page.{svelte,server.ts}` | ごほうび交換の承認要否 (#3339 `reward_auto_approve`) / bonus rule-preset ON・OFF (#2138 MP-3)。**#2320 の分割対象外だった既存 route で、#3954 まで導線 3 箇所すべてから欠落していた** | Svelte / TS |
 | `src/routes/(parent)/admin/settings/support/+page.{svelte,server.ts}` | founderInquiry / feedback / appInfo | Svelte / TS |
 | `src/lib/domain/labels.ts` | `SETTINGS_LABELS` (hub / Danger Zone) + `SETTINGS_NAV_LABELS` (新規、サブナビ専用) | TypeScript |
 | `src/lib/data/setup-defaults-activities.ts` | activities グループ sensible defaults (setup hard-code 代替案 A、rule-preset 集約代替案) | TypeScript |
@@ -440,12 +441,15 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/features/admin/push-subscription.ts` | `unsubscribeFromPush` を `_unsubscribeFromPush` から public export rename (notifications/+page.svelte の onMount 内動的 import 用) | TypeScript |
 
 **同期メカニズム**:
-- hub page から各 child route へのナビは hub の `groupCards` 配列 + `+layout.svelte` の `navItems` 配列の 2 箇所に書く (どちらか欠落時の早期検出)
+- hub page から各 child route へのナビは hub の `groupCards` 配列 + `+layout.svelte` の `navItems` 配列の 2 箇所に書く。**欠落の検出は `tests/unit/routes/settings-hub-coverage.test.ts` が行う** — `settings/` 配下の実 route dir を FS 走査し、`[S1]` 両配列の網羅 / `[S1b]` 並び順一致 / `[S2]` 死にリンク / `[S3]` 陳腐化した除外 / `[S4]` rules の実名固定 を assert する (#3954)
+  - **#3954 まで、この「早期検出」は文書上の主張だけで実体が無かった**。実在しなかったため `settings/rules` が両配列から抜けたまま残り、オーナーの問い合わせで初めて発覚した。上記 test がその実体である
+- ページガイド (`PAGE_GUIDE_LABELS.adminSettings.steps['settings-hub']`) はカードを枚数と順序で列挙するため、**カードを増減したらガイドも同時に直す**。件数の一致は同 test の `[S5]` (列挙件数) / `[S6]` (title・what の「N つ」) が assert する (#3954)
 - e2e `tests/e2e/admin-settings-export-gate.spec.ts` / `account-deletion.spec.ts` / `founder-inquiry.spec.ts` / `import-verify-dialog.spec.ts` / `plan-{free,standard,family}.spec.ts` は新 path (`/admin/settings/<group>`) でアクセス。レガシー URL マッピングは設けない (hub から個別ページへの link が機能するため)
 
 **修正時チェック**:
 - 新規 settings section 追加時はどの child route に属するか判断し、該当 child route の `+page.svelte` と `+page.server.ts` 双方を更新
 - hub page のカードと `+layout.svelte` サブナビにも追加 (`SETTINGS_NAV_LABELS` と `SETTINGS_LABELS.group<Name>Title/Desc` を新設)
+- **ページガイドの `settings-hub` step (件数 + 上→下の列挙) も同時に更新する** — ここが古いと、カードを足してもガイドに従う保護者はそのカードの存在を知らないままになる (#3954 / #2905 と同 class)
 - Danger Zone セクションを追加する場合は account / data の既存実装 (`.danger-zone` CSS + 3-step) を 1:1 で踏襲
 
 ---

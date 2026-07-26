@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -117,5 +118,51 @@ describe('#3954 settings hub は全ての子 route を説明する (no-silent-ga
 	it('[S4] ごほうび交換の承認要否 (/admin/settings/rules) は hub から辿れる', () => {
 		expect(listHubLinkedRoutes()).toContain('rules');
 		expect(fs.readFileSync(HUB_PAGE, 'utf8')).toContain('settings-hub-card-rules');
+	});
+});
+
+/**
+ * #3954 (QM 指摘 2026-07-26 22:46): カードとサブナビに導線を足しても、**ページガイドが
+ * 「6つのカードに分かれます」と言い続けていたら保護者は到達できない**。
+ * これは #3954 が class 1 件目に挙げた #2905 (ページガイドと実態の乖離) そのものなので、
+ * 「導線 3 箇所のうちガイドだけ手で直し忘れる」経路を [S1] / [S1b] と同じ強さで塞ぐ。
+ *
+ * 件数だけを assert する理由: 文言そのもの (順番・説明) の妥当性は機械判定できないが、
+ * **枚数のずれは今回実際に起きた drift そのもの**で、カードを 1 枚増やせば必ず踏む。
+ * 名前の一致まで縛ると hub カード名 (`サポート・アプリ情報`) とガイド表記 (`サポート`) の
+ * 正当な差分まで fail させてしまうため、ここでは件数に絞る。
+ */
+describe('#3954 settings hub のページガイドがカード枚数と一致する', () => {
+	const HUB_GUIDE = PAGE_GUIDE_LABELS.adminSettings.steps['settings-hub'];
+
+	/** hub の全カード枚数 (plan deep link を含む。`testid` は 1 カード 1 個)。 */
+	function countHubCards(): number {
+		return [...fs.readFileSync(HUB_PAGE, 'utf8').matchAll(/testid:\s*'settings-hub-card-/g)].length;
+	}
+
+	/** 文中の「N つ」「N枚」等の算用数字を集める (`${...}` 参照は含まれない前提)。 */
+	function numbersIn(text: string): number[] {
+		return [...text.matchAll(/(\d+)\s*つ/g)].map((m) => Number(m[1]));
+	}
+
+	it('[S5] ガイドの「上から順に」の列挙件数が hub のカード枚数と一致する', () => {
+		const enumerated = [...HUB_GUIDE.how.matchAll(/^\d+\.\s/gm)].length;
+		expect(
+			enumerated,
+			`ページガイド (PAGE_GUIDE_LABELS.adminSettings.steps['settings-hub'].how) の列挙が ` +
+				`${enumerated} 件、hub のカードが ${countHubCards()} 枚で食い違っている。\n` +
+				'→ カードを増減したらガイドの列挙も同じ順序で更新すること (ガイドが古いと導線があっても辿れない)',
+		).toBe(countHubCards());
+	});
+
+	it('[S6] ガイドの title / what が書いている件数が hub のカード枚数と一致する', () => {
+		const declared = [...numbersIn(HUB_GUIDE.title), ...numbersIn(HUB_GUIDE.what)];
+		expect(declared.length, 'title / what のどちらにも件数の記載が無い').toBeGreaterThan(0);
+		for (const n of declared) {
+			expect(
+				n,
+				`ガイドの文言が「${n}つ」と書いているが、hub のカードは ${countHubCards()} 枚`,
+			).toBe(countHubCards());
+		}
 	});
 });
