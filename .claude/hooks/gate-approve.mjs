@@ -31,6 +31,11 @@
  *   - allow: exit 0 (stdout/stderr 何も出さない)
  *   - deny:  exit 2 + stderr に修正手順 ("Adversarial Reviewer subagent を先に dispatch")
  *
+ * fail-closed (#3999):
+ *   判定 SSOT (`scripts/lib/is-main.mjs`) の import 解決失敗・main() 内の想定外例外は、
+ *   いずれも exit 2 (block) に倒す。Claude Code は exit 2 のみを block として扱うため、
+ *   これらを既定の exit 1 のまま落とすと **tool 実行が継続し approve が素通しする**。
+ *
  * 関連:
  *   - ADR-0056 (本 hook の設計根拠 SSOT)
  *   - docs/research/qm-drift-prevention-2026-05-28.md (research primary source)
@@ -41,7 +46,26 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isMain } from '../../scripts/lib/is-main.mjs';
+
+/**
+ * 判定 SSOT (`scripts/lib/is-main.mjs`) を **dynamic import** で読み込む理由 (#3999)。
+ *
+ * static import にすると解決失敗が module 評価前の `ERR_MODULE_NOT_FOUND` になり、Node は
+ * **exit 1** で落ちる。Claude Code の PreToolUse hook は **exit 2 のみ**を block として扱い、
+ * それ以外の非 0 は non-blocking error として tool 実行を継続する。つまり `scripts/` を含まない
+ * checkout では **evidence 無しで approve / merge が通っていた** (fail-open)。
+ *
+ * security control は「判定不能」を「許可」ではなく **block** に倒す (fail-closed)。
+ * dynamic import なら解決失敗を catch でき、exit 2 を自分で選べる。
+ */
+let isMain;
+/** @type {unknown} import 解決に失敗したときの error (成功時は null) */
+let isMainLoadError = null;
+try {
+	({ isMain } = await import('../../scripts/lib/is-main.mjs'));
+} catch (err) {
+	isMainLoadError = err;
+}
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
 export const REQUIRED_OBJECT_COUNT = 3; // must_object_count 強制値 (Echoing 抑制)
@@ -252,9 +276,46 @@ async function main() {
 	process.exit(2);
 }
 
+/**
+ * 判定 SSOT を読み込めなかったときの fail-closed 終了 (#3999 AC1)。
+ *
+ * exit 2 は Claude Code が tool 実行を block する唯一の exit code。判定不能のまま exit 1 で
+ * 落ちると tool 実行が継続し、evidence 無し approve が通る (= 本 Issue の事故形)。
+ *
+ * 副作用として、この状態では **approve 系以外の Bash コマンドも全て block される**
+ * (本 hook は PreToolUse の Bash matcher で毎回起動されるため)。「approve 系のときだけ
+ * block する」surgical 案も検討したが、SSOT を読めない = 「CLI 起動か import か」を判定できない
+ * 状態であり、そこで main() を走らせるかどうかを推測すると、import 経由の呼び出し元を
+ * 無言で exit させる別の silent failure を作る。判定不能時は**大きく・声を上げて止まる**方を採る。
+ *
+ * @param {unknown} err
+ */
+function reportIsMainLoadFailure(err) {
+	const msg = err instanceof Error ? err.message : String(err);
+	process.stderr.write(
+		`[gate-approve] BLOCK: 判定 SSOT scripts/lib/is-main.mjs を読み込めませんでした。\n`,
+	);
+	process.stderr.write(`  reason: ${msg}\n`);
+	process.stderr.write(
+		`  ADR-0056 の approve gate は判定不能時に block 側へ倒します (fail-closed / #3999)。\n`,
+	);
+	process.stderr.write(
+		`  対処: checkout に scripts/lib/is-main.mjs があるか、hook を repo root から起動しているかを確認してください。\n`,
+	);
+}
+
 // CLI として直接実行されたときのみ main() を呼ぶ。import 経由 (unit test) では実行されない。
 // 判定は scripts/lib/is-main.mjs (SSOT, #3969)。従来の `fileURLToPath(import.meta.url) === process.argv[1]`
 // は junction / symlink 経由の起動で常に false になり、**approve を素通しする**側に倒れていた。
-if (isMain(import.meta.url)) {
-	main();
+if (isMainLoadError) {
+	reportIsMainLoadFailure(isMainLoadError);
+	process.exit(2);
+} else if (isMain(import.meta.url)) {
+	// main() 内の想定外例外も unhandled rejection (= exit 1 = 素通し) にせず block へ倒す (#3999)。
+	main().catch((err) => {
+		const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+		process.stderr.write(`[gate-approve] BLOCK: hook が想定外の例外で失敗しました。\n`);
+		process.stderr.write(`  ${detail}\n`);
+		process.exit(2);
+	});
 }

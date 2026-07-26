@@ -7,10 +7,12 @@
  *   - isApproveAction: Bash command が approve 系か判定する regex
  *   - extractPrNumber: command から PR 番号を抽出する regex
  *   - verifyEvidence: tmp/adversarial-evidence/<pr>.json の schema 検証
+ *   - fail-closed: 判定 SSOT の import 解決失敗時に exit 2 (block) で終了する (#3999)
  *
  * 関連:
  *   - ADR-0056 (本テストの設計根拠 SSOT)
  *   - docs/research/qm-drift-prevention-2026-05-28.md
+ *   - Issue #3999 (fail-open の fail-closed 化) / Issue #3969 / PR #3979
  */
 
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
@@ -27,6 +29,7 @@ import {
 	REQUIRED_OBJECT_COUNT,
 	verifyEvidence,
 } from '../../../.claude/hooks/gate-approve.mjs';
+import { bashPayload, runHookInIsolatedTree } from '../helpers/hook-tree-probe';
 
 describe('isApproveAction', () => {
 	it('gh pr merge を含む command → true', () => {
@@ -248,4 +251,80 @@ describe('verifyEvidence', () => {
 	it('MIN_REASON_LENGTH は literal 100 (将来の作為的緩和を防ぐ)', () => {
 		expect(MIN_REASON_LENGTH).toBe(100);
 	});
+});
+
+// ---------------------------------------------------------------------------
+// fail-closed (#3999 AC1 / AC2)
+// ---------------------------------------------------------------------------
+
+/**
+ * 判定 SSOT (`scripts/lib/is-main.mjs`) の import 解決に失敗したとき、hook が
+ * **exit 2 (block)** で終了することを固定する。
+ *
+ * ## 何を守っているか
+ *
+ * Claude Code の PreToolUse hook は **exit 2 のみ**を block として扱い、それ以外の非 0 は
+ * non-blocking error として tool 実行を継続する。static import の解決失敗は
+ * `ERR_MODULE_NOT_FOUND` = **exit 1** なので、`scripts/` を含まない checkout では
+ * **evidence 無しで approve / merge が通っていた** (QM が PR #3979 のレビューで実測)。
+ *
+ * ## 陽性対照を必ず併置する
+ *
+ * 「exit 2 が返った」だけでは、fail-closed が効いたのか hook が常に落ちているだけなのかを
+ * 区別できない。`withIsMain: true` の tree で (a) 非 approve コマンドが exit 0 無出力になり
+ * (b) approve コマンドが *evidence 不在* を理由に exit 2 になることを併せて assert する。
+ * 陽性対照が無い guard は「規則違反を検出できないことを検出できない」(dev-session.md 台帳 3)。
+ */
+describe('fail-closed — 判定 SSOT の import 解決失敗 (#3999)', () => {
+	const HOOK = '.claude/hooks/gate-approve.mjs';
+	const APPROVE_CMD = 'gh pr merge 3999 --squash';
+	const HARMLESS_CMD = 'git status --short';
+
+	it('陽性対照: is-main.mjs のある tree では非 approve コマンドを素通しする (exit 0 / 無出力)', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: true,
+			stdin: bashPayload(HARMLESS_CMD),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(0);
+		expect(res.combined.trim()).toBe('');
+	}, 30_000);
+
+	it('陽性対照: is-main.mjs のある tree では evidence 不在の approve を exit 2 で block する', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: true,
+			stdin: bashPayload(APPROVE_CMD),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+		expect(res.stderr).toContain('evidence file 不在');
+	}, 30_000);
+
+	it('is-main.mjs が無い tree で approve コマンド → exit 2 (exit 1 = 素通しに倒れない)', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: false,
+			stdin: bashPayload(APPROVE_CMD),
+		});
+		expect(
+			res.status,
+			`exit 1 は Claude Code では non-blocking error として tool 実行が継続する (= approve 素通し)。出力:\n${res.combined}`,
+		).toBe(2);
+		expect(res.stderr).toContain('scripts/lib/is-main.mjs');
+		expect(res.stderr).toContain('fail-closed');
+	}, 30_000);
+
+	/**
+	 * 判定不能時は approve 系以外も block する、という設計判断そのものを固定する。
+	 * 「approve のときだけ block」へ後から緩めると、SSOT を読めない = CLI 起動か import かを
+	 * 判定できない状態で main() を走らせるかどうかを推測することになり、別の silent failure を作る。
+	 */
+	it('is-main.mjs が無い tree では非 approve コマンドも block する (判定不能時は大きく止まる)', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: false,
+			stdin: bashPayload(HARMLESS_CMD),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+	}, 30_000);
 });
