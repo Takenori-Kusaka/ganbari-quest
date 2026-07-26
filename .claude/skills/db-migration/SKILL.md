@@ -49,6 +49,20 @@ ADR-0031 (既存データ互換) と**対**で必須。migration は「既存 st
 - [ ] 不可逆 / 失敗時に手当てが要る migration は startup ではなく **明示的な運用手順（runbook）** に置く
 - [ ] migration が throw しうる場合、cold-start brick の影響範囲（全リクエスト 5xx）を許容できるか事前評価する
 
+### 5. journal `when` を手で書き換えない（#3946 本番 500 / #3948 class-lock）
+
+`drizzle/pglite/meta/_journal.json` の `when` は **drizzle-kit が入れた `Date.now()` をそのまま使う**。手で書き換えてはならない。
+
+drizzle-orm の migrator（pg-core dialect）は `適用済み最大 created_at < folderMillis` の migration だけを適用する。つまり **実時刻より未来の `when` を一度でも本番 DB へ適用すると、以降 drizzle-kit が生成する全 migration（`when` は実時刻）が既存 DB で永久に skip される**。#3946 はこれで NUC 本番の `/preschool/home` が 500 になった（0002 の手書き丸め値 1784500000000 が未来 → 0003/0004 が永久 skip → `login_streaks` 未作成）。
+
+- [ ] `when` は `npx drizzle-kit generate` の出力のまま（丸め値・連番・未来値にしない）
+- [ ] 既存 migration の `when` を後から編集しない（既に本番 `__drizzle_migrations.created_at` に記録済のため、編集は「適用済みだが journal 上は未適用」の不整合になる）
+- [ ] 機械 gate: `scripts/lib/db/drizzle-journal-gate.mjs`（`tests/unit/db/pglite-journal-when-range-3948.test.ts` が CI で hard-fail）
+
+**grandfather 例外**: `1784500000000` / `1784500000001` / `1784500000002`（0002 / 0003 / 0004）は値そのものを修正せず gate の例外として固定している。実生成時刻へ書き戻すと、**#3947 以前の backup から restore した DB（適用済み最大 `created_at` = 1784500000000）で 0003/0004 が永久 skip され #3946 が再発する**ため（`[WR7]` が実 migrator で固定）。**新規にこの例外を増やさないこと**（根拠と一覧の SSOT は `scripts/lib/db/drizzle-journal-gate.mjs` 冒頭コメント）。
+
+`when` を参照するのは PGlite（NUC）経路のみ。DSQL（cloud）の `provision.ts` は `idx` 順 + tag 単位冪等で `when` を見ない（`[WR4]` で固定）。
+
 ## 出力フォーマット
 
 ```markdown
