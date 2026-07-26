@@ -743,18 +743,6 @@ export function extractLabelNames(raw) {
 }
 
 /**
- * CLI 引数と `fetchPrLabels()` の結果から、検査に使う label 一覧を確定する (#3962)。
- *
- * label 条件付き検査 (hotfix #2343 / po-decision #3962) は「label が無い」なら
- * 正しく skip されるべきだが、「label が分からない」で skip すると gate が消える。
- * この 2 つを型で分離するのが本関数の目的で、**未解決は必ず error を返す** (fail-closed)。
- * dry-run で label がまだ存在しないことが分かっている場合は `--no-labels` で明示する。
- *
- * @param {{ pr: string | null; labels: string | null; noLabels: boolean }} args
- * @param {string[] | null} fetched `fetchPrLabels()` の戻り (未解決なら null)
- * @returns {{ labels: string[] } | { error: string }}
- */
-/**
  * label が付いているときだけ発火する gate の SSOT (#3962 QA 指摘)。
  *
  * `--no-labels` は「label が無い」ことの明示なので、これらの gate は正しく skip される。
@@ -793,6 +781,18 @@ export function formatSkippedLabelGates() {
 	];
 }
 
+/**
+ * CLI 引数と `fetchPrLabels()` の結果から、検査に使う label 一覧を確定する (#3962)。
+ *
+ * label 条件付き検査 (hotfix #2343 / po-decision #3962) は「label が無い」なら
+ * 正しく skip されるべきだが、「label が分からない」で skip すると gate が消える。
+ * この 2 つを型で分離するのが本関数の目的で、**未解決は必ず error を返す** (fail-closed)。
+ * dry-run で label がまだ存在しないことが分かっている場合は `--no-labels` で明示する。
+ *
+ * @param {{ pr: string | null; labels: string | null; noLabels: boolean }} args
+ * @param {string[] | null} fetched `fetchPrLabels()` の戻り (未解決なら null)
+ * @returns {{ labels: string[] } | { error: string }}
+ */
 export function resolveLabels(args, fetched) {
 	if (args.noLabels) return { labels: [] };
 	if (args.labels !== null) {
