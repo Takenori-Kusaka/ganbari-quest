@@ -34,7 +34,10 @@ import { redactPii, redactPiiInTags } from '$lib/server/stripe/pii-redaction';
 export type StripeAlertKind =
 	| 'stripe-lookup-failed'
 	| 'stripe-webhook-unknown-type'
-	| 'stripe-webhook-handler-typeerror';
+	| 'stripe-webhook-handler-typeerror'
+	// #3960: webhook payload から plan を確定できなかった。silent fallback で
+	// 誤った plan を書き込む代わりに既存 plan を保持し、本 alert で観測可能化する。
+	| 'stripe-plan-unresolved';
 
 export interface StripeAlertOptions {
 	/** alert 種別 (Phase 6 子 5 §6 SSOT 3 種) */
