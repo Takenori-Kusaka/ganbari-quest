@@ -16,12 +16,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
+import { ADMIN_RULES_PAGE_LABELS, PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SETTINGS_DIR = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings');
 const HUB_PAGE = path.join(SETTINGS_DIR, '+page.svelte');
 const SUBNAV_LAYOUT = path.join(SETTINGS_DIR, '+layout.svelte');
+const RULES_PAGE = path.join(SETTINGS_DIR, 'rules/+page.svelte');
+const RULES_GUIDE_DEF = path.join(SETTINGS_DIR, 'rules/_guide.ts');
 
 /**
  * 到達導線は hub カード (`+page.svelte`) と サブナビ (`+layout.svelte`) の **2 箇所**にあり、
@@ -164,5 +166,62 @@ describe('#3954 settings hub のページガイドがカード枚数と一致す
 				`ガイドの文言が「${n}つ」と書いているが、hub のカードは ${countHubCards()} 枚`,
 			).toBe(countHubCards());
 		}
+	});
+});
+
+/**
+ * #3954: 到達先 (`/admin/settings/rules`) 側のガイドも同じ class で古くなっていた。
+ * ページには「ごほうび交換の承認要否」(`rules-reward-approval-section`) と
+ * 「取り込んだボーナスルール」の 2 セクションがあるのに、ガイドは後者しか案内しておらず、
+ * **ガイドに従う保護者は #3954 が到達させたい当の機能を素通りしていた**。
+ * 加えてガイド title (`とくべつルール`) がページ title と食い違っていた。
+ *
+ * 限界を明記する: [S8] は「anchor を張ったのにガイドから案内しない」非対称を塞ぐが、
+ * **anchor を張り忘れた新規セクション**は母数に入らないため検出できない。
+ * セクションの重要度は機械判定できないので、そこは手のレビューに残す。
+ */
+describe('#3954 rules ページのガイドが画面の実態と一致する', () => {
+	const RULES_GUIDE = PAGE_GUIDE_LABELS.adminSettingsRules;
+
+	/** `data-tutorial="X"` の X を集める (ページ側 = ガイドが指せる anchor の母数)。 */
+	function anchorsInPage(): string[] {
+		const found = [...fs.readFileSync(RULES_PAGE, 'utf8').matchAll(/data-tutorial="([a-z0-9-]+)"/g)]
+			.map((m) => m[1])
+			.filter((n): n is string => n !== undefined);
+		return [...new Set(found)].sort();
+	}
+
+	/** `_guide.ts` の step が指す `[data-tutorial="X"]` の X を集める。 */
+	function anchorsInGuide(): string[] {
+		const found = [
+			...fs.readFileSync(RULES_GUIDE_DEF, 'utf8').matchAll(/\[data-tutorial="([a-z0-9-]+)"\]/g),
+		]
+			.map((m) => m[1])
+			.filter((n): n is string => n !== undefined);
+		return [...new Set(found)].sort();
+	}
+
+	it('[S7] ガイドの title がページの title と一致する (同じ画面が 2 つの名前を持たない)', () => {
+		expect(
+			RULES_GUIDE.title,
+			'PAGE_GUIDE_LABELS.adminSettingsRules.title と ADMIN_RULES_PAGE_LABELS.pageTitle が食い違っている',
+		).toBe(ADMIN_RULES_PAGE_LABELS.pageTitle);
+	});
+
+	it('[S8] ページの data-tutorial anchor とガイドの selector が過不足なく対応する', () => {
+		const page = anchorsInPage();
+		expect(page.length, 'rules ページに data-tutorial anchor が 1 件も無い').toBeGreaterThan(0);
+		expect(
+			anchorsInGuide(),
+			'ガイドが案内していない anchor、または実在しない anchor を指す step がある\n' +
+				`  ページ側: ${page.join(', ')}\n` +
+				`  ガイド側: ${anchorsInGuide().join(', ')}`,
+		).toEqual(page);
+	});
+
+	// #3954 の当該機能を実名で固定する ([S8] は anchor ごと消せば通ってしまうため)。
+	it('[S9] ごほうび交換の承認要否セクションがガイドで案内されている', () => {
+		expect(fs.readFileSync(RULES_PAGE, 'utf8')).toContain('data-tutorial="rules-reward-approval"');
+		expect(anchorsInGuide()).toContain('rules-reward-approval');
 	});
 });

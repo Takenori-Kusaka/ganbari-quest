@@ -289,12 +289,12 @@ export const NON_CANONICAL_ADMIN_RESOURCES = {
 	rules: {
 		route: '/admin/settings/rules',
 		/**
-		 * `/admin/settings/` 配下の settings サブページ (とくべつルール設定)。rule-preset (#2368) の marketplace
-		 * 取込先ではあるが、per-child / family-master の resource-list 画面ではない (settings 内の一機能) ため、
-		 * 正準スロット契約の対象外。
+		 * `/admin/settings/` 配下の settings サブページ (#3954 でページ名は「ごほうび・ボーナスルール」)。
+		 * rule-preset (#2368) の marketplace 取込先ではあるが、per-child / family-master の
+		 * resource-list 画面ではない (settings 内の一機能) ため、正準スロット契約の対象外。
 		 */
 		reason:
-			'settings サブページ (とくべつルール) で、rule-preset (#2368) marketplace 取込先だが resource-list ではない',
+			'settings サブページ (ごほうび・ボーナスルール) で、rule-preset (#2368) marketplace 取込先だが resource-list ではない',
 	},
 } as const;
 
@@ -331,7 +331,7 @@ export const ALL_ADMIN_RESOURCE_PAGES = [
  * resource-list 管理画面 (AdminResourceHeader / child-tabs を持つ §10 対象) のみを列挙する。
  * value は `ADMIN_RESOURCE_MODEL_REGISTRY` (正準) か `NON_CANONICAL_ADMIN_RESOURCES` (明示除外) の key。
  *
- * #3171: FS 走査を recursive 化したため、nested route の `settings/rules` (とくべつルール、rule-preset
+ * #3171: FS 走査を recursive 化したため、nested route の `settings/rules` (ごほうび・ボーナスルール、rule-preset
  * marketplace 取込先) も母数に含まれるようになった。これを NON_CANONICAL の `rules` key に map し、
  * 「nested に新規 resource 管理画面を追加すると guard が検出せず silent-pass する」理論的 gap を封じる。
  */
