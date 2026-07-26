@@ -10,6 +10,7 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
+import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
 	CURRENCY,
@@ -17,6 +18,7 @@ import {
 	getPlans,
 	getWebhookSecret,
 	type PlanId,
+	planIdFromLookupKey,
 	planIdFromPriceId,
 } from '$lib/server/stripe/config';
 
@@ -264,12 +266,25 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	// 認可は `tenant.stripeSubscriptionId` + `tenant.status` から計算される
 	// (license key を読まない)。Phase 1 補強 3 §3.3 でライセンスキー発行 +
 	// メール送信の冗長層 (issueLicenseKey / sendLicenseKeyEmail) を削除した。
-	const plan = (planId as Tenant['plan']) ?? SUBSCRIPTION_PLAN.MONTHLY;
+	//
+	// #3960: `planId` は自前で `metadata` に載せた値なので通常必ず解決するが、
+	// 旧 silent fallback (`?? MONTHLY`) は「未知の planId が来たらスタンダードとして
+	// 課金確定する」挙動だった。未知値は plan を書かずに alert を上げ、
+	// status のみ ACTIVE にする (support で正しい plan を確定させる)。
+	const plan = isKnownPlanId(planId) ? planId : null;
+	if (!plan) {
+		notifyStripeAlert({
+			kind: 'stripe-plan-unresolved',
+			message: `checkout.session.completed の metadata.planId が未知のため plan を更新しませんでした (status のみ ACTIVE)`,
+			errorSummary: `plan_unresolved:checkout.session.completed:${session.id}`,
+			tags: { tenantId, event: 'checkout.session.completed', receivedPlanId: String(planId) },
+		});
+	}
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenantId, {
 		stripeCustomerId: customerId ?? undefined,
 		stripeSubscriptionId: subscriptionId ?? undefined,
-		plan,
+		plan: plan ?? undefined,
 		status: SUBSCRIPTION_STATUS.ACTIVE,
 		trialUsedAt: new Date().toISOString(),
 	});
@@ -285,26 +300,32 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 	const subscriptionId = extractSubscriptionId(invoice);
 	if (!subscriptionId) return;
 
-	const tenant = await findTenantBySubscription(subscriptionId);
-	if (!tenant) {
+	const context = await resolveSubscriptionContext(subscriptionId);
+	if (!context) {
 		logger.warn(`[STRIPE] invoice.paid — tenant not found for subscription=${subscriptionId}`);
 		return;
 	}
+	const { tenant, subscription } = context;
 
-	// Determine plan from invoice line items
-	const lineItem = invoice.lines?.data?.[0];
-	const priceDetails = lineItem?.pricing?.price_details;
-	const priceId =
-		typeof priceDetails?.price === 'string' ? priceDetails.price : priceDetails?.price?.id;
-	const plan = priceId ? planIdFromPriceId(priceId) : null;
+	// #3960: plan は invoice の line item から推測せず、**subscription の現行 price** を SSOT とする。
+	//
+	// 旧実装は `invoice.lines.data[0]` を盲目参照していた。プラン変更 (proration) の invoice は
+	// 複数行になり、`data[0]` は「変更前プランの未使用分クレジット行」であるため、
+	// スタンダード → プレミアムの変更で `plan=monthly` (変更前) を書き込んでいた。
+	// Stripe は `customer.subscription.updated` と `invoice.paid` の配信順序を保証しないので、
+	// invoice.paid が後着すると正しく書かれた plan を巻き戻すレースになる (#3960 実測)。
+	// subscription を SSOT にすれば、どちらの順序でも最終状態は現行 price に収束する。
+	const plan = resolvePlanFromSubscription(subscription);
 
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
 		status: SUBSCRIPTION_STATUS.ACTIVE,
-		plan: plan ?? tenant.plan ?? SUBSCRIPTION_PLAN.MONTHLY,
+		// #3960: plan 未解決時は silent fallback せず **既存 plan を保持** する
+		// (`plan: undefined` は repo 実装で「更新しない」として扱われる)。
+		...planUpdateOrKeep(plan, tenant, 'invoice.paid', subscription.id),
 	});
 
-	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId}`);
+	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId} plan=${plan ?? 'unresolved'}`);
 
 	notifyBillingEvent(tenant.tenantId, 'invoice_paid', `plan=${plan ?? 'unknown'}`).catch(() => {});
 }
@@ -313,7 +334,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	const subscriptionId = extractSubscriptionId(invoice);
 	if (!subscriptionId) return;
 
-	const tenant = await findTenantBySubscription(subscriptionId);
+	const tenant = (await resolveSubscriptionContext(subscriptionId))?.tenant;
 	if (!tenant) {
 		logger.warn(
 			`[STRIPE] invoice.payment_failed — tenant not found for subscription=${subscriptionId}`,
@@ -339,12 +360,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 	const tenantId = subscription.metadata?.tenantId;
 	const tenant = tenantId
 		? await getRepos().auth.findTenantById(tenantId)
-		: await findTenantBySubscription(subscription.id);
+		: (await resolveSubscriptionContext(subscription.id))?.tenant;
 	if (!tenant) return;
 
-	const item = subscription.items?.data?.[0];
-	const priceId = item?.price?.id;
-	const plan = priceId ? planIdFromPriceId(priceId) : null;
+	const plan = resolvePlanFromSubscription(subscription);
 
 	const repos = getRepos();
 	// Stripe SDK 側の subscription.status ('active'|'trialing'|'past_due'|…) を
@@ -357,7 +376,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 				: SUBSCRIPTION_STATUS.SUSPENDED;
 
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		plan: plan ?? tenant.plan ?? SUBSCRIPTION_PLAN.MONTHLY,
+		// #3960: silent fallback (`?? MONTHLY`) 廃止。未解決時は既存 plan を保持 + alert。
+		...planUpdateOrKeep(plan, tenant, 'customer.subscription.updated', subscription.id),
 		status,
 	});
 
@@ -374,7 +394,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 	const tenantId = subscription.metadata?.tenantId;
 	const tenant = tenantId
 		? await getRepos().auth.findTenantById(tenantId)
-		: await findTenantBySubscription(subscription.id);
+		: (await resolveSubscriptionContext(subscription.id))?.tenant;
 	if (!tenant) return;
 
 	const repos = getRepos();
@@ -401,15 +421,85 @@ function extractSubscriptionId(invoice: Stripe.Invoice): string | undefined {
 	return typeof sub === 'string' ? sub : sub?.id;
 }
 
-async function findTenantBySubscription(subscriptionId: string): Promise<Tenant | undefined> {
-	// Look up via Stripe API to get customer, then find tenant by customer ID
+/**
+ * subscription ID から tenant と **Stripe 上の現行 subscription** を同時に解決する (#3960)。
+ *
+ * 旧 `findTenantBySubscription()` は同じ `subscriptions.retrieve()` を呼びながら
+ * customer だけ取り出して subscription 本体を捨てていた。plan 判定の SSOT を
+ * subscription の現行 price に寄せるため、retrieve 結果をそのまま返す
+ * (Stripe API 呼び出し回数は従来と同じ 1 回)。
+ */
+async function resolveSubscriptionContext(
+	subscriptionId: string,
+): Promise<{ tenant: Tenant; subscription: Stripe.Subscription } | undefined> {
 	try {
 		const stripe = getStripeClient();
-		const sub = await stripe.subscriptions.retrieve(subscriptionId);
-		const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+		const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+		const customerId =
+			typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
 		if (!customerId) return undefined;
-		return await getRepos().auth.findTenantByStripeCustomerId(customerId);
+		const tenant = await getRepos().auth.findTenantByStripeCustomerId(customerId);
+		if (!tenant) return undefined;
+		return { tenant, subscription };
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * subscription の現行 price から plan を解決する (#3960)。
+ *
+ * 解決順:
+ *   1. `planIdFromPriceId()` — env var (`STRIPE_PRICE_*_MONTHLY`) 由来の priceId 逆引き
+ *   2. `planIdFromLookupKey()` — `USE_LOOKUP_KEY=true` 経路で env var と異なる Price を
+ *      指し得るため、Price object の `lookup_key` で 2 段目の逆引きを行う
+ *
+ * どちらでも確定できない場合は `null` を返し、呼び出し側は plan を更新しない。
+ */
+function resolvePlanFromSubscription(subscription: Stripe.Subscription): PlanId | null {
+	const price = subscription.items?.data?.[0]?.price;
+	if (!price) return null;
+	return planIdFromPriceId(price.id) ?? planIdFromLookupKey(price.lookup_key);
+}
+
+/** `metadata.planId` 等の外部由来文字列が既知の PlanId か判定する (#3960) */
+function isKnownPlanId(value: string | null | undefined): value is PlanId {
+	return value === SUBSCRIPTION_PLAN.MONTHLY || value === SUBSCRIPTION_PLAN.FAMILY_MONTHLY;
+}
+
+/**
+ * plan の更新差分を組み立てる (#3960 silent fallback 廃止の SSOT)。
+ *
+ * 解決できた場合は `{ plan }`、できなかった場合は **空オブジェクト**を返す。
+ * `updateTenantStripe()` は `data.plan === undefined` を「更新しない」として扱うため、
+ * 空オブジェクトを spread すれば既存 plan が保持される。
+ *
+ * 旧実装の `plan ?? tenant.plan ?? MONTHLY` は、解決失敗時に暗黙で
+ * スタンダードへ落とす silent fallback であり、今回の課金 incident 系列
+ * (#3957 / #3958 / #3960) で繰り返し現れたパターン。未解決は「観測すべき異常」として扱う。
+ */
+function planUpdateOrKeep(
+	plan: PlanId | null,
+	tenant: Tenant,
+	eventType: string,
+	subscriptionId: string,
+): { plan?: PlanId } {
+	if (plan) return { plan };
+
+	logger.warn(
+		`[STRIPE] ${eventType} — plan を解決できませんでした。既存 plan を保持します: ` +
+			`tenant=${tenant.tenantId} subscription=${subscriptionId} currentPlan=${tenant.plan ?? 'none'}`,
+	);
+	notifyStripeAlert({
+		kind: 'stripe-plan-unresolved',
+		message: `${eventType} で subscription の現行 price から plan を確定できませんでした (既存 plan を保持)`,
+		errorSummary: `plan_unresolved:${eventType}:${subscriptionId}`,
+		tags: {
+			tenantId: tenant.tenantId,
+			event: eventType,
+			subscriptionId,
+			currentPlan: tenant.plan ?? 'none',
+		},
+	});
+	return {};
 }

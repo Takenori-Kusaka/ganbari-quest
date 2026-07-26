@@ -25,7 +25,7 @@ vi.mock('../../../../src/lib/server/stripe/alert', () => ({
 }));
 
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
-import { getPriceId, isLookupKeyEnabled } from '$lib/server/stripe/config';
+import { getPriceId, isLookupKeyEnabled, planIdFromLookupKey } from '$lib/server/stripe/config';
 import { getPriceByLookupKey } from '$lib/server/stripe/price-cache';
 
 const ENV_KEYS = ['USE_LOOKUP_KEY', 'STRIPE_PRICE_STANDARD_MONTHLY', 'STRIPE_PRICE_FAMILY_MONTHLY'];
@@ -171,5 +171,29 @@ describe('getPriceId — 並行運用整合 (両モードで同じ Price ID 解�
 
 		expect(offResult).toBe(onResult);
 		expect(offResult).toBe('price_same');
+	});
+});
+
+// ==========================================================
+// planIdFromLookupKey (#3960)
+// ==========================================================
+
+describe('planIdFromLookupKey (#3960)', () => {
+	// `planIdFromPriceId()` は env var (`STRIPE_PRICE_*_MONTHLY`) 由来の priceId しか
+	// 逆引きできない。`USE_LOOKUP_KEY=true` 経路では lookup_key から解決した Price が
+	// env var と別 Price を指し得るため、2 段目の逆引き経路として lookup_key を使う。
+	it('standard_monthly → monthly', () => {
+		expect(planIdFromLookupKey('standard_monthly')).toBe('monthly');
+	});
+
+	it('premium_monthly → family-monthly', () => {
+		expect(planIdFromLookupKey('premium_monthly')).toBe('family-monthly');
+	});
+
+	it('未知の lookup_key / null / undefined → null (silent fallback しない)', () => {
+		expect(planIdFromLookupKey('standard_yearly')).toBeNull();
+		expect(planIdFromLookupKey('')).toBeNull();
+		expect(planIdFromLookupKey(null)).toBeNull();
+		expect(planIdFromLookupKey(undefined)).toBeNull();
 	});
 });

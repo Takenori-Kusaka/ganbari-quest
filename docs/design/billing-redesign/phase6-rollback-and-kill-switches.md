@@ -162,7 +162,16 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **ロールバック手順** | (1) Dashboard で **新 destination を新 api_version で新規作成** (副次制約 4 整合) (2) Phase 6 子 1 #2667 §3 Step 4-a (shadow mode) → §3 Step 4-b (cutover) → §3 Step 4-c (retire) の 5 phase migration を改めて実施 (3) 旧 destination は cutover 完了まで disabled で残置 |
 | **再発防止** | (a) [phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md) #2683 副次制約 4 を SSOT として参照必須化 (b) Phase 7 Step 4 (および将来の apiVersion bump PR) の Pre-Ready unit test で **`webhookEndpoints.update({api_version})` が 400 を返すことを assert** (c) Phase 6 子 1 #2667 §5 Webhook 5 phase migration を Pre-Ready 必須化 |
 
-### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化)
+### 3.10-a R10 (#3960 新規): webhook payload から plan を確定できない → silent fallback で誤 plan 書込み
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | `invoice.paid` / `customer.subscription.updated` / `checkout.session.completed` の各 handler が plan を解決できなかったとき、旧実装は `plan ?? tenant.plan ?? SUBSCRIPTION_PLAN.MONTHLY` で**暗黙にスタンダードへ落として書き込んでいた**。プレミアム契約者の plan が standard に巻き戻り、顧客は上位プランの代金を払いながら下位プランの機能しか使えない。2026-07-26 の課金 incident (#3957 系列) の調査で `invoice.paid` の `lines.data[0]` 盲目参照と併せて確認された |
+| **検知 method** | (a) Discord alert `stripe-plan-unresolved` (warning level、本 #3960 で新規追加) (b) CloudWatch Logs Insights `filter kind = "stripe-plan-unresolved"` で tenantId / event / currentPlan を特定 (c) `[STRIPE] <event> — plan を解決できませんでした` の `logger.warn` |
+| **ロールバック手順** | (1) alert の `tags.subscriptionId` で Stripe 上の現行 price を確認 (2) price が env var (`STRIPE_PRICE_*_MONTHLY`) / lookup_key (`standard_monthly` / `premium_monthly`) のどちらにも一致しない原因を切り分け (Price 差し替え / env var 未同期 / `transfer_lookup_key` 実行中) (3) env var を Stripe の現行 Price に同期して Lambda 再 deploy。**plan は既存値が保持されているため DB の手動修復は不要** |
+| **再発防止** | (a) plan 解決を `resolvePlanFromSubscription()` (subscription の現行 price → priceId 逆引き → lookup_key 逆引き) に集約し SSOT 化 (b) `planUpdateOrKeep()` で silent fallback を構造的に不能化 (未解決時は `plan` キー自体を渡さず既存値保持 + alert) (c) proration 複数行 invoice fixture + `subscription.updated` / `invoice.paid` の**両配信順序**の unit test (`tests/unit/services/stripe-service.test.ts`) |
+
+### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
 |---|---|---|---|---|
@@ -175,6 +184,7 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | R7 | archive 未呼出 (forward-fix) | シナリオ 5 E2E + cutover 後整合チェック | Phase 7 PR-X で `handleSubscriptionDeleted` archive 追加 | シナリオ 5 Pre-Ready 必須化 + integration test |
 | **R8 (#2683 新規)** | **ダウン credit memo の顧客信頼毀損** | 顧客 inquiry + シナリオ 3 E2E | Phase 3 hybrid confirm UI + 請求履歴 credit memo 表示 | Step 3 hybrid confirm UI 実装 + シナリオ 3 E2E |
 | **R9 (#2683 新規)** | **Webhook destination api_version immutable 見落とし** | Dashboard UI エラー + Stripe SDK `StripeInvalidRequestError` | 新 destination 新規作成 + 5 phase migration 再実施 | Pre-Ready unit test (`webhookEndpoints.update({api_version})` 400 assert) + Phase 6 子 1 §5 Webhook 5 phase migration 必須化 |
+| **R10 (#3960 新規)** | **plan 未解決時の silent fallback で誤 plan 書込み** | Discord alert `stripe-plan-unresolved` + CloudWatch Logs Insights | env var / lookup_key を Stripe 現行 Price に同期 + Lambda 再 deploy (plan は既存値保持のため DB 修復不要) | `resolvePlanFromSubscription()` / `planUpdateOrKeep()` に集約 + proration 複数行 fixture + 両配信順序 unit test |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 

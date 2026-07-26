@@ -43,10 +43,23 @@ vi.mock('$lib/server/stripe/config', () => ({
 		if (priceId === 'price_family_monthly_789') return 'family-monthly';
 		return null;
 	},
+	// #3960: `USE_LOOKUP_KEY=true` 経路で env var と異なる Price を指し得るため、
+	// priceId 逆引き失敗時の 2 段目として lookup_key を突き合わせる。
+	planIdFromLookupKey: (lookupKey: string | null | undefined) => {
+		if (lookupKey === 'standard_monthly') return 'monthly';
+		if (lookupKey === 'premium_monthly') return 'family-monthly';
+		return null;
+	},
 	getWebhookSecret: () => 'whsec_test',
 	TRIAL_PERIOD_DAYS: 7,
 	GRACE_PERIOD_DAYS: 7,
 	CURRENCY: 'jpy',
+}));
+
+// #3960: plan 未解決時は silent fallback せず alert を上げる。発火を assert するため spy 化。
+const mockNotifyStripeAlert = vi.fn();
+vi.mock('$lib/server/stripe/alert', () => ({
+	notifyStripeAlert: (...args: unknown[]) => mockNotifyStripeAlert(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -85,6 +98,56 @@ function makeTenant(overrides: Record<string, unknown> = {}) {
 		createdAt: '2026-01-01T00:00:00Z',
 		updatedAt: '2026-01-01T00:00:00Z',
 		...overrides,
+	};
+}
+
+/**
+ * Stripe subscription の mock (#3960)。
+ *
+ * `handleInvoicePaid` は plan を invoice の line item ではなく **subscription の現行 price**
+ * から解決するため、`subscriptions.retrieve()` の戻り値に `items.data[0].price` が必要。
+ */
+function makeSubscription(
+	priceId: string,
+	overrides: { lookupKey?: string | null; status?: string; id?: string } = {},
+) {
+	return {
+		id: overrides.id ?? 'sub_123',
+		customer: 'cus_123',
+		status: overrides.status ?? 'active',
+		metadata: {},
+		items: { data: [{ price: { id: priceId, lookup_key: overrides.lookupKey ?? null } }] },
+	};
+}
+
+/**
+ * プラン変更 (proration) の invoice.paid payload (#3960 実測 fixture)。
+ *
+ * スタンダード → プレミアム変更時、Stripe は 2 行の invoice を発行する:
+ *   line 0: amount -499 / standard の未使用時間クレジット  ← 旧実装が盲目参照していた行
+ *   line 1: amount  779 / premium の残り時間
+ * つまり `lines.data[0]` は **変更前**の price であり、plan の SSOT にしてはならない。
+ */
+function makeProrationInvoicePaidEvent(subscriptionId = 'sub_123') {
+	return {
+		type: 'invoice.paid',
+		data: {
+			object: {
+				parent: { subscription_details: { subscription: subscriptionId } },
+				lines: {
+					data: [
+						{
+							amount: -499,
+							pricing: { price_details: { price: 'price_monthly_123' } },
+						},
+						{
+							amount: 779,
+							pricing: { price_details: { price: 'price_family_monthly_789' } },
+						},
+					],
+				},
+			},
+		},
 	};
 }
 
@@ -328,9 +391,9 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('invoice.paid → テナントステータスを active に更新', async () => {
-		const mockSubscriptionsRetrieve = vi.fn().mockResolvedValue({
-			customer: 'cus_123',
-		});
+		const mockSubscriptionsRetrieve = vi
+			.fn()
+			.mockResolvedValue(makeSubscription('price_monthly_123'));
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
@@ -363,6 +426,156 @@ describe('handleWebhookEvent', () => {
 				status: 'active',
 				plan: 'monthly',
 			}),
+		);
+	});
+
+	// ==========================================================
+	// #3960: invoice.paid の plan 解決を subscription の現行 price に寄せる
+	// ==========================================================
+
+	it('invoice.paid — proration 複数行 invoice で lines.data[0] (変更前 price) に引きずられず premium になる (#3960)', async () => {
+		// 実測 (2026-07-26 本番 live subscription への create_preview):
+		//   line 0 = standard の未使用時間クレジット / line 1 = premium の残り時間
+		// 旧実装は line 0 を読んで plan=monthly を書き込み、プレミアム契約者を
+		// スタンダード扱いに巻き戻していた。
+		const mockSubscriptionsRetrieve = vi
+			.fn()
+			.mockResolvedValue(makeSubscription('price_family_monthly_789'));
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: mockSubscriptionsRetrieve },
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active', plan: 'family-monthly' }),
+		);
+	});
+
+	it('invoice.paid — env var と異なる Price でも lookup_key から plan を解決する (#3960 USE_LOOKUP_KEY 経路)', async () => {
+		// `USE_LOOKUP_KEY=true` では lookup_key 経由で解決した Price が env var
+		// (`STRIPE_PRICE_FAMILY_MONTHLY`) と別 Price を指し得る。priceId 逆引きが
+		// null でも Price object の lookup_key で確定できることを担保する。
+		const mockSubscriptionsRetrieve = vi
+			.fn()
+			.mockResolvedValue(
+				makeSubscription('price_unknown_to_env', { lookupKey: 'premium_monthly' }),
+			);
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: mockSubscriptionsRetrieve },
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active', plan: 'family-monthly' }),
+		);
+	});
+
+	it('invoice.paid — plan が解決できない場合は plan を上書きせず既存値を保持し alert を上げる (#3960 silent fallback 廃止)', async () => {
+		// 旧実装は `plan ?? tenant.plan ?? MONTHLY` で暗黙にスタンダードへ落としていた。
+		// premium 契約者の plan を誤って書き換えるより、更新せず観測する方が安全。
+		const mockSubscriptionsRetrieve = vi
+			.fn()
+			.mockResolvedValue(makeSubscription('price_unknown_to_env', { lookupKey: null }));
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: mockSubscriptionsRetrieve },
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		// plan キー自体が渡らない = repo 実装 (`if (data.plan !== undefined)`) で既存値保持
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
+		);
+	});
+
+	it('#3960 — customer.subscription.updated → invoice.paid の順で最終 plan が premium になる', async () => {
+		const subscription = makeSubscription('price_family_monthly_789');
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
+		});
+		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: { object: { ...subscription, metadata: { tenantId: 't-test' } } },
+		} as never);
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		for (const call of mockUpdateTenantStripe.mock.calls) {
+			expect(call[1].plan).toBe('family-monthly');
+		}
+	});
+
+	it('#3960 — invoice.paid → customer.subscription.updated の逆順でも最終 plan が premium になる', async () => {
+		// Stripe は 2 event の配信順序を保証しない。subscription を SSOT にすることで
+		// どちらの順序でも最終状態が現行 price に収束することを担保する。
+		const subscription = makeSubscription('price_family_monthly_789');
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
+		});
+		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: { object: { ...subscription, metadata: { tenantId: 't-test' } } },
+		} as never);
+
+		for (const call of mockUpdateTenantStripe.mock.calls) {
+			expect(call[1].plan).toBe('family-monthly');
+		}
+	});
+
+	it('customer.subscription.updated — plan 未解決なら plan を上書きせず alert を上げる (#3960)', async () => {
+		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					id: 'sub_123',
+					metadata: { tenantId: 't-test' },
+					status: 'active',
+					items: { data: [{ price: { id: 'price_unknown_to_env', lookup_key: null } }] },
+				},
+			},
+		} as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
+		);
+	});
+
+	it('checkout.session.completed — 未知の metadata.planId なら plan を書かず alert を上げる (#3960)', async () => {
+		await handleWebhookEvent({
+			type: 'checkout.session.completed',
+			data: {
+				object: {
+					id: 'cs_unknown_plan',
+					metadata: { tenantId: 't-test', planId: 'lifetime' },
+					customer: 'cus_new',
+					subscription: 'sub_new',
+				},
+			},
+		} as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active', plan: undefined }),
+		);
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);
 	});
 
