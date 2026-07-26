@@ -216,6 +216,96 @@ describe('DSQL auth-repo (PR-R2、実 schema PGlite)', () => {
 		expect(record?.plan).toBeNull();
 	});
 
+	// #3976: 部分更新セマンティクスは #3960 (plan 解決失敗時に既存 plan を壊さない) の前提そのもの。
+	// 「undefined = 更新しない」を DSQL 実装が守り続けることを **全 6 キー** で固定する。
+	// plan だけ守っても他キーで同型事故 (未指定キーが NULL 落ちする) が起きるため全キーを対象にする。
+	it('[T4c] updateTenantStripe: 全 6 キーで undefined = 保持 / 値 = 更新 (#3976)', async () => {
+		const tenant = await repo.createTenant({ name: '契約家', ownerId: USER_A });
+		const seeded = {
+			stripeCustomerId: 'cus_3976',
+			stripeSubscriptionId: 'sub_3976',
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
+			planExpiresAt: '2026-09-01T00:00:00.000Z',
+			trialUsedAt: '2026-06-01T00:00:00.000Z',
+			status: 'active',
+		} as const;
+		await repo.updateTenantStripe(tenant.tenantId, { ...seeded });
+
+		const readAll = async () => {
+			const t2 = await repo.findTenantById(tenant.tenantId);
+			return {
+				stripeCustomerId: t2?.stripeCustomerId,
+				stripeSubscriptionId: t2?.stripeSubscriptionId,
+				plan: t2?.plan,
+				planExpiresAt: t2?.planExpiresAt,
+				trialUsedAt: t2?.trialUsedAt,
+				status: t2?.status,
+			};
+		};
+		const expectSeeded = (
+			actual: Awaited<ReturnType<typeof readAll>>,
+			except: keyof typeof seeded | null,
+			exceptValue?: string,
+		) => {
+			for (const key of Object.keys(seeded) as (keyof typeof seeded)[]) {
+				const want = key === except ? exceptValue : seeded[key];
+				if (key === 'planExpiresAt' || key === 'trialUsedAt') {
+					expect(Date.parse(actual[key] ?? '')).toBe(Date.parse(want ?? ''));
+				} else {
+					expect(actual[key]).toBe(want);
+				}
+			}
+		};
+		expectSeeded(await readAll(), null);
+
+		// 各キーを単独で更新 → そのキーだけ変わり、残り 5 キーは不変であること
+		const updates: { key: keyof typeof seeded; value: string }[] = [
+			{ key: 'stripeCustomerId', value: 'cus_3976_new' },
+			{ key: 'stripeSubscriptionId', value: 'sub_3976_new' },
+			{ key: 'plan', value: SUBSCRIPTION_PLAN.FAMILY_MONTHLY },
+			{ key: 'planExpiresAt', value: '2026-12-31T00:00:00.000Z' },
+			{ key: 'trialUsedAt', value: '2026-06-15T00:00:00.000Z' },
+			{ key: 'status', value: 'suspended' },
+		];
+		for (const { key, value } of updates) {
+			// 都度 seed 値に戻してから 1 キーだけ更新する (キー間の干渉を排除)
+			await repo.updateTenantStripe(tenant.tenantId, { ...seeded });
+			await repo.updateTenantStripe(tenant.tenantId, {
+				[key]: value,
+			} as Parameters<typeof repo.updateTenantStripe>[1]);
+			expectSeeded(await readAll(), key, value);
+		}
+	});
+
+	// #3976: 全キー undefined (SET 句 0 件) のとき UPDATE 自体を発行しない契約。
+	// updated_at が動かないことで「SQL を撃っていない」を観測する (発行していれば now() で必ず動く)。
+	it('[T4d] updateTenantStripe: 全キー undefined なら SQL を発行しない (#3976)', async () => {
+		const tenant = await repo.createTenant({ name: '無更新家', ownerId: USER_B });
+		await repo.updateTenantStripe(tenant.tenantId, { stripeCustomerId: 'cus_noop' });
+		const before = await t.db.execute(
+			sql`SELECT updated_at FROM families WHERE family_id = ${tenant.tenantId}`,
+		);
+		const beforeAt = (before as unknown as { rows: Record<string, unknown>[] }).rows[0]
+			?.updated_at as unknown;
+
+		await repo.updateTenantStripe(tenant.tenantId, {});
+		await repo.updateTenantStripe(tenant.tenantId, {
+			stripeCustomerId: undefined,
+			stripeSubscriptionId: undefined,
+			plan: undefined,
+			planExpiresAt: undefined,
+			trialUsedAt: undefined,
+			status: undefined,
+		});
+
+		const after = await t.db.execute(
+			sql`SELECT updated_at, stripe_customer_id FROM families WHERE family_id = ${tenant.tenantId}`,
+		);
+		const afterRow = (after as unknown as { rows: Record<string, unknown>[] }).rows[0];
+		expect(String(afterRow?.updated_at)).toBe(String(beforeAt));
+		expect(afterRow?.stripe_customer_id).toBe('cus_noop');
+	});
+
 	it('[T5] updateTenantLastActiveAt (存在しない tenant は silent no-op)', async () => {
 		const tenant = await repo.createTenant({ name: '活動家', ownerId: USER_A });
 		const ts = '2026-07-04T01:02:03.000Z';
