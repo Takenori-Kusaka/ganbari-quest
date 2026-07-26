@@ -86,6 +86,7 @@
 		"datname",
 		"gitdir",
 		"hana",
+		"jsii",
 		"millis",
 		"multiplexing",
 		"multitenant",
