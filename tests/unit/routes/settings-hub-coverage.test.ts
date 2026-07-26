@@ -15,8 +15,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import { describe, expect, it } from 'vitest';
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const SETTINGS_DIR = path.join(REPO_ROOT, 'src/routes/(parent)/admin/settings');
