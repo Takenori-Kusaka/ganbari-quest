@@ -2538,6 +2538,10 @@ export const SETTINGS_LABELS = {
 	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
+	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
+	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
+	groupRulesTitle: 'ごほうび・ボーナスルール',
+	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
 	groupPlanTitle: 'プラン・課金',
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',

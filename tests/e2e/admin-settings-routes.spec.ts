@@ -11,16 +11,17 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('#2320 /admin/settings 6 グループ child routes', () => {
-	test('hub page で 6 グループへのカード型ナビが表示される', async ({ page }) => {
+	test('hub page で 7 グループへのカード型ナビが表示される', async ({ page }) => {
 		test.slow();
 		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
 
-		// 6 カードすべて表示
+		// 7 カードすべて表示 (#3954 で rules を追加)
 		await expect(page.getByTestId('settings-hub-grid')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-account')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-activities')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-notifications')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-data')).toBeVisible();
+		await expect(page.getByTestId('settings-hub-card-rules')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-support')).toBeVisible();
 		await expect(page.getByTestId('settings-hub-card-plan')).toBeVisible();
 
@@ -87,5 +88,23 @@ test.describe('#2320 /admin/settings 6 グループ child routes', () => {
 		await expect(page.locator('[data-tutorial="feedback-section"]')).toBeVisible();
 		await expect(page.getByRole('radio', { name: /感想・要望/ })).toBeVisible();
 		await expect(page.getByRole('radio', { name: /相談・困りごと/ })).toBeVisible();
+	});
+
+	// #3954: 実オーナーが「ごほうび交換の承認要否をどこから変更するか」に到達できなかった経路。
+	// render-only では再発を捕捉できない (tests/CLAUDE.md「act → outcome assert 必須」) ため、
+	// hub からクリックして実際に設定 UI まで届くことを goal 完遂で検証する。
+	test('hub の「ごほうび・ボーナスルール」から交換の承認要否設定まで到達できる', async ({
+		page,
+	}) => {
+		test.slow();
+		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+
+		const card = page.getByTestId('settings-hub-card-rules');
+		await expect(card).toHaveAttribute('href', '/admin/settings/rules');
+		await card.click();
+
+		await page.waitForURL('**/admin/settings/rules');
+		// 到達先に #3339 の承認要否セクションが実在すること (リンクだけ通って中身が無い状態を弾く)
+		await expect(page.getByTestId('rules-reward-approval-section')).toBeVisible();
 	});
 });
