@@ -36,6 +36,7 @@ import {
 	reportFindings,
 	walkDir,
 } from './lib/ci/orphan-utils.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const TEST_DIRS = ['tests', 'src'];
 const TEST_EXTENSIONS = ['.ts', '.mjs', '.spec.ts', '.test.ts', '.test.mjs'];
@@ -167,9 +168,7 @@ function main() {
 	process.exit(exit);
 }
 
-const isMain =
-	import.meta.url === `file://${(process.argv[1] || '').replace(/\\/g, '/')}` ||
-	(process.argv[1] || '').endsWith('check-skip-deadlines.mjs');
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

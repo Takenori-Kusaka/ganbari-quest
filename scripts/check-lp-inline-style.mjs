@@ -48,6 +48,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -309,7 +310,7 @@ function main() {
 // CLI として直接起動された時のみ実行する (import 時は main を呼ばない)。
 // regression guard (tests/unit/scripts/check-lp-inline-style.test.ts) が
 // ZERO_AUTO_ONLY_RE / isAllowedValue を import して検証できるようにするため。
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
 	const code = main();
 	process.exit(code);
 }

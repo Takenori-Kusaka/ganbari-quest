@@ -25,6 +25,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain } from '../../../../scripts/lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = resolve(__dirname, '..');
@@ -333,17 +334,9 @@ async function main() {
 	return 0;
 }
 
-const isMain = (() => {
-	try {
-		const here = resolve(fileURLToPath(import.meta.url));
-		const argv1 = resolve(process.argv[1] || '');
-		return here === argv1;
-	} catch {
-		return false;
-	}
-})();
-
-if (isMain) {
+// 判定は scripts/lib/is-main.mjs (SSOT, #3969)。自前の resolve 比較は junction / symlink 経由で
+// 常に false になり、雛形が生成されないまま exit 0 になっていた。
+if (isMain(import.meta.url)) {
 	main()
 		.then((code) => process.exit(code))
 		.catch((err) => {

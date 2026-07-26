@@ -35,6 +35,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
+            scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
@@ -165,6 +166,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
+            scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
@@ -217,6 +219,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-ss-blob-sha-uniqueness.mjs
+            scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
@@ -266,6 +269,7 @@ jobs:
           sparse-checkout: |
             scripts/check-ss-render-health.mjs
             scripts/lib/ci/screenshot-helpers.mjs
+            scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
       - name: Run check-ss-render-health.mjs

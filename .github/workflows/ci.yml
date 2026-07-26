@@ -55,6 +55,12 @@ jobs:
               - 'tests/**'
               - 'infra/**'
               - 'scripts/**'
+              # #3969: check-cli-entry-guard.mjs の走査範囲 (SCAN_ROOTS) に .claude を含めたため、
+              # 発火条件も揃える。列挙しないと `.claude/**` だけを変更する PR で 4 filter すべてが
+              # false になり lint-and-test ごと skip され、gate が 1 度も走らない。守る対象が
+              # ADR-0056 の approve gate 本体 (.claude/hooks/gate-approve.mjs) なので必須。
+              # 対応関係は tests/unit/scripts/cli-entry-guard.test.ts が機械検証する。
+              - '.claude/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'
@@ -196,6 +202,20 @@ jobs:
 
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
+
+      - name: CLI entry guard — 自前の isMain 判定 / 手組み file:// URL 禁止 (#3969)
+        # 各 script が自前で書いていた「直接実行判定」は symlink / junction 経由で必ず
+        # false になり、main() が呼ばれず「何も検査せず exit 0 (= PASS)」になっていた
+        # (実測 41/53 ファイル)。判定は scripts/lib/is-main.mjs へ一本化済みで、
+        # 本 gate は 42 個目の方言が持ち込まれるのを機械的に止める。
+        run: node scripts/check-cli-entry-guard.mjs
+
+      - name: Workflow sparse-checkout closure guard (#3969)
+        # gate job は sparse-checkout で必要ファイルを個別列挙している。上の CLI entry guard が
+        # scripts/lib/is-main.mjs の利用を強制するため、新しい gate script を列挙するたびに
+        # helper への import が生え、列挙し忘れると ERR_MODULE_NOT_FOUND で job が落ちる
+        # (本 Issue の対応時に必須 gate 6 job が実際に同時 fail した)。列挙の閉包を機械検証する。
+        run: node scripts/check-workflow-sparse-checkout-closure.mjs
 
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に

@@ -42,6 +42,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -269,13 +270,7 @@ function main() {
 }
 
 // Run as CLI (not when imported as a module)
-const isMain = (() => {
-	try {
-		return path.resolve(process.argv[1]) === __filename;
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main();

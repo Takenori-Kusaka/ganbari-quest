@@ -1,45 +1,4 @@
-// @ts-check
-/**
- * scripts/check-merge-gate-checklist.mjs — Issue #2945 (Phase A/A-3、親 #2942 / EPIC #2861)
- *
- * `.github/workflows/pr-merge-gate.yml`（required context `PR チェックリスト完了確認`）の
- * 検証ロジックを lane-aware な純粋関数として切り出した SSOT（unit test 可能化、Issue #2945 実装方針）。
- *
- * ## 背景（#2942 / #2945）
- *
- * 旧 workflow は base/head（レーン）を見ず、per-PR の「Ready for Review チェックリスト」/
- * 「完了チェックリスト」の `- [ ]` 全消化を全レーンに一律要求していた。統合 PR
- * （develop→main、複数 PR の束ね）はこの per-PR チェックリスト前提に構造的に適合せず、
- * 検証単位（バッチ）と gate の前提（per-PR）が不整合だった。
- *
- * ## lane 別の対象 section（Issue #2945 AC5 が SSOT）
- *
- * - **feature / hotfix lane**: 現行 2 section（`## Ready for Review チェックリスト` /
- *   `## 完了チェックリスト`）の `- [ ]` 全消化を検証（AC4 回帰ゼロ）。
- * - **integration lane**: 統合 PR 用 section の `- [ ]` 全消化を検証。
- *   section 名は **Phase B template で確定する**ため、本 phase では「lane=integration なら
- *   統合用 section を対象にする」分岐ロジックまでを実装し、section 名は **設定値（env / 定数）で
- *   差替可能**にする（targetSections をハードコードで統合用に置換しない、#2945 no-go）。
- * - **dependabot lane**: 呼び出し側（job-level if）で従来どおり skip 相当（AC6）。
- *   本関数では `shouldSkip()` が dependencies ラベルを判定する。
- *
- * ## integration lane の最小要件（統合 PR template 未導入の暫定期間、#2945）
- *
- * 統合 PR template（Phase B #2871）が未導入のため、暫定 section 名を既定とする。
- * 必須セクションが本文に存在しない場合は **fail**（warning で素通りさせない、#2945 no-go）。
- *
- * ## SSOT / 関連
- *
- * - lane 判定: scripts/pr-lane.mjs（A-1、actions/pr-lane composite action 経由で workflow から呼ぶ）
- * - 統合 PR チェックリスト確定: Phase B #2871（本 phase は分岐 + section 名設定可能化まで）
- * - 関連 ADR: ADR-0056（self-report 物理強制）/ ADR-0022（役割分離）
- * - 関連 Issue: #2945 / #2942 / #1481（merge gate 原典）/ #1808（Dependabot exempt）
- *
- * exit: 0 = PASS / 1 = 検証失敗 / 2 = 引数不足
- */
-
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /** feature / hotfix lane の対象 section（現行 2 section、AC5 で不変）。 */
 export const LIGHT_LANE_SECTIONS = ['## Ready for Review チェックリスト', '## 完了チェックリスト'];
@@ -200,13 +159,7 @@ export function checkMergeGateChecklist({ body, labels, lane, integrationSection
 
 // --- CLI（ローカル検証用）---
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const argv = process.argv.slice(2);

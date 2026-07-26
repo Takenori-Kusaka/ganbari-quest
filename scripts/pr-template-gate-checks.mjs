@@ -40,9 +40,8 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { extractClosedIssues } from './integration-pr-body.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
  * @typedef {'feature' | 'integration' | 'hotfix' | 'dependabot'} Lane
@@ -775,13 +774,7 @@ export function parseArgs(argv) {
 	return out;
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));

@@ -1,77 +1,5 @@
 #!/usr/bin/env node
-
-/**
- * scripts/check-ss-blob-sha-uniqueness.mjs (#2063)
- *
- * PR body の Before / After SS が **完全同一画像** (Blob SHA 一致) でないことを検証する CI gate。
- *
- * # 設計背景
- *
- * 2026-05-09 PR-2054 (#1912 LP 文言顧客語彙化) で SS 偽装が 3 ラウンド連続発生し、
- * 最終的に user 判断で PR close。実装ブランチを `git push --force` で 3 回 rebase したものの、
- * **`screenshots` branch (独立 branch) が更新されず**、Before / After SS が 1 byte も違わない
- * **完全同一画像** のまま PR body に貼られ続けた。
- *
- * QA bot が GitHub `gh api repos/.../contents/<path>?ref=screenshots` で
- * Blob SHA (Git の content-addressable hash) を取得・比較し偽装を検出した手動運用を、
- * **CI workflow に組み込み systematic に強制する** のが本スクリプトの責務。
- *
- * # 偽装パターン (PR-2054 実例)
- *
- * - `before-index-desktop.png` SHA `f4d9eebfca72e9efd30cf1c67621b3647357c0ba`
- * - `after-index-desktop.png`  SHA `f4d9eebfca72e9efd30cf1c67621b3647357c0ba` ← 完全一致
- *
- * SHA 完全一致 = 同一 Blob 参照 = 同一画像 1 px 違い無し。
- * これを「視覚的に変化があった証拠」として PR body に貼ると偽装。
- *
- * # 検出ロジック
- *
- * 1. PR body から SS URL を regex で抽出 (`raw.githubusercontent.com/.../screenshots/<path>`)
- * 2. URL から `(owner, repo, ref, path)` を parse
- * 3. `before-` / `after-` prefix で始まる SS をペアリング
- *    (例: `before-index-mobile.png` <-> `after-index-mobile.png`)
- * 4. `gh api repos/{owner}/{repo}/contents/{path}?ref=screenshots` で Blob SHA 取得
- * 5. ペアの SHA が同一 → fail (`core.setFailed`)
- *
- * # スキップ条件 (AC3)
- *
- * - PR ラベル `refactor:internal-no-doc-impact` 付与時 (visual diff ゼロ refactor)
- *   → check-pr-screenshot.mjs / design-doc-check.mjs と同パターン (#2017 / #1985)
- * - SS 1 件のみ / before-only / after-only → 比較対象なし、skip
- *
- * # OSS 先調査 (ADR-0014 / #1350)
- *
- * Issue #2063 本文に 3 選択肢比較記載済 (再記載不要)。本スクリプトは **選択肢 A** を実装:
- * - 採用: GitHub Actions `gh api` + Blob SHA 比較 (確立パターン、~30 行 script)
- * - 不採用: pixelmatch / sharp 画素差分 (Pre-PMF overkill、ADR-0010)
- * - 不採用: 独自 A+B 結合ツール (Pre-PMF overkill)
- *
- * # 環境変数
- *
- *   PR_BODY      — PR body Markdown (github.event.pull_request.body)
- *   PR_LABELS    — カンマ区切りの PR ラベル (gh pr view --json labels --jq ...)
- *   GH_TOKEN     — GitHub API token (gh CLI 経由 or env)
- *   GITHUB_REPOSITORY — `owner/repo` (Actions では自動設定、ローカルなら手動指定)
- *   CHECK_MODE   — 'warn' (default) | 'error'
- *                  'error' で fail 時 exit 1。dogfooding 期間後に昇格。
- *
- * # ローカル実行
- *
- *   PR_BODY="$(gh pr view 2054 --json body --jq .body)" \
- *   PR_LABELS="$(gh pr view 2054 --json labels --jq '[.labels[].name] | join(",")')" \
- *   GITHUB_REPOSITORY=Takenori-Kusaka/ganbari-quest \
- *   CHECK_MODE=error \
- *     node scripts/check-ss-blob-sha-uniqueness.mjs
- *
- * # exit code
- *
- *   0 — OK / skip / warn モードで違反あり
- *   1 — error モードで違反あり
- *   2 — internal error (API rate limit / 認証失敗 / etc)
- */
-
-import { resolve as pathResolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const MODE = (process.env.CHECK_MODE || 'warn').toLowerCase();
 // #2946 (Phase A/A-4): lane は SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由で渡される。
@@ -385,13 +313,7 @@ async function main() {
 	return isError ? 1 : 0;
 }
 
-const isMain = (() => {
-	try {
-		return pathResolve(fileURLToPath(import.meta.url)) === pathResolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main().then(

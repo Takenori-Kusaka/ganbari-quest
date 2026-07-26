@@ -35,6 +35,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -189,6 +190,6 @@ function main() {
 }
 
 // CLI として直接実行された時のみ main() を走らせる (import 時は副作用なし → テスト容易)
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isMainModule(import.meta.url)) {
 	main();
 }

@@ -33,6 +33,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -319,7 +320,7 @@ function main() {
 }
 
 // CLI 実行時のみ main() を起動 (import 時は副作用なし)。
-const isCli = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isCli = isMainModule(import.meta.url);
 if (isCli) {
 	main();
 }

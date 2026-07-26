@@ -38,6 +38,8 @@
  * **テスト**: `scripts/__tests__/check-design-doc-sync.test.mjs` (node --test)。
  */
 
+import { isMain as isMainModule } from './lib/is-main.mjs';
+
 const ROUTE_PREFIX = 'src/routes/';
 const DESIGN_DOC_PREFIX = 'docs/design/';
 
@@ -236,11 +238,10 @@ async function main() {
 	}
 }
 
-// import.meta.url が CLI エントリの場合のみ main 実行 (test では import 経由)
-const argv1 = process.argv[1] ?? '';
-const isCliInvocation =
-	argv1 !== '' &&
-	(import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/')));
+// import.meta.url が CLI エントリの場合のみ main 実行 (test では import 経由)。
+// 判定は scripts/lib/is-main.mjs (SSOT) に委ねる — 自前比較は symlink / junction 経由で
+// 必ず false になり、何も検査しないまま exit 0 になる (#3969)。
+const isCliInvocation = isMainModule(import.meta.url);
 
 if (isCliInvocation) {
 	main();

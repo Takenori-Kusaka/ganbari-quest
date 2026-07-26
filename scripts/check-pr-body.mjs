@@ -32,9 +32,10 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1104,33 +1105,10 @@ export async function main(argv = process.argv.slice(2)) {
 	return 1;
 }
 
-/**
- * #3962 (QA 指摘): `import.meta.url` は symlink / junction 解決後、`process.argv[1]` は解決前の
- * パスなので、junction 経由の checkout では両者が一致せず `main()` が呼ばれないまま
- * **無出力 exit 0** になっていた。gate が無音で成功扱いになる最も危険な形なので、
- * 両辺を `realpathSync` で正規化してから比較する。
- *
- * @param {string} p
- * @returns {string}
- */
-function normalizeEntryPath(p) {
-	const abs = resolve(p);
-	try {
-		return realpathSync(abs);
-	} catch {
-		return abs;
-	}
-}
-
-const isMain = (() => {
-	try {
-		const here = normalizeEntryPath(fileURLToPath(import.meta.url));
-		const argv1 = normalizeEntryPath(process.argv[1] || '');
-		return here === argv1;
-	} catch {
-		return false;
-	}
-})();
+// #3962 が本ファイルにインラインで入れた realpath 正規化は、#3969 で判定 SSOT
+// (`scripts/lib/is-main.mjs`) に統合した。同じ判定を各 script が自前で持つ構造が
+// 「6 方言のうち 40 箇所が無言 exit 0」の原因だったため、ここでは helper を使う。
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main()
