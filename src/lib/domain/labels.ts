@@ -5653,9 +5653,12 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 export const ADMIN_RULES_PAGE_LABELS = {
-	pageTitle: 'ボーナスルール',
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
 	pageDescription:
-		'お子さまの活動記録時に発火するボーナスポイントのルールです。ON / OFF で有効化を切り替えられます。',
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
 	emptyTitle: 'ボーナスルールがありません',
 	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
 	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
