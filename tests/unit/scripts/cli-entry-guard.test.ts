@@ -101,6 +101,9 @@ describe('isMain() — CLI 直接実行判定 (#3969)', () => {
 		expect(runNode(writeProbe(dir), dir)).toBe('MAIN');
 	});
 
+	// skip 条件: symlink/junction を作成できない環境のみ (ADR-0006 metadata)
+	//   Issue: #3969 / owner: @Takenori-Kusaka / deadline: なし (恒久的な環境条件 skip)
+	//   CI (ubuntu-latest) では常時実行される — 本 Issue の再発検出はここが担保する
 	it.skipIf(!SYMLINK_OK)('symlink 経由で起動されても main と判定する (本 Issue の再発防止)', () => {
 		const dir = makeTempDir('gq-is-main-link-');
 		const realDir = path.join(dir, 'real');
@@ -242,6 +245,8 @@ describe('meta-gate — gate が no-op で exit 0 を返さない (#3969)', () =
 		).not.toBe(0);
 	});
 
+	// skip 条件: symlink/junction を作成できない環境のみ (ADR-0006 metadata)
+	//   Issue: #3969 / owner: @Takenori-Kusaka / deadline: なし (恒久的な環境条件 skip)
 	it.skipIf(!SYMLINK_OK)('symlink 経由の repo からでも gate が同じ結果を返す', () => {
 		const dir = makeTempDir('gq-repo-link-');
 		const link = path.join(dir, 'repo');
@@ -281,6 +286,10 @@ describe('meta-gate — gate が no-op で exit 0 を返さない (#3969)', () =
  *
  * 除外: `claude-hook-prevent-qa-account-pr.mjs` は通過時に**意図的に無出力 exit 0** を返す
  * PreToolUse hook なので、本 probe では判定できない (静的 gate 側でカバー)。
+ *
+ * skip 条件: symlink/junction を作成できない環境のみ (ADR-0006 metadata)
+ *   Issue: #3969 / owner: @Takenori-Kusaka / deadline: なし (恒久的な環境条件 skip)
+ *   CI (ubuntu-latest) では常時実行される
  */
 describe.skipIf(!SYMLINK_OK)(
 	'symlink 経由と実体経由で主要 gate の結果が一致する (#3969 AC3)',
