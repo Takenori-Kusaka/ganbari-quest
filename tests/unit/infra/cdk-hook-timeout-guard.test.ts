@@ -46,8 +46,8 @@ function readHookTimeouts(source: string): (number | null)[] {
 		const open = m.index + m[0].length - 1;
 		const args = extractCallArgs(source, open);
 		// 末尾引数が数値リテラル (`60_000` / `60000`) のときだけ timeout 指定とみなす。
-		const tail = args?.trimEnd().match(/,\s*([\d_]+)\s*$/);
-		results.push(tail ? Number(tail[1].replaceAll('_', '')) : null);
+		const digits = args?.trimEnd().match(/,\s*([\d_]+)\s*$/)?.[1];
+		results.push(digits === undefined ? null : Number(digits.replaceAll('_', '')));
 		m = marker.exec(source);
 	}
 	return results;
