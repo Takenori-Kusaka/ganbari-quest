@@ -1,6 +1,7 @@
 <script lang="ts">
 // #2320 (EPIC #2319 ①): /admin/settings 配下のサブナビ統合 layout。
-// Settings 6 グループ (account / activities / notifications / data / support + plan deep link)
+// Settings 7 グループ (account / activities / notifications / data / rules / support + plan deep link。
+// rules は #3954 で追加 — 分割時にどのグループにも割り当てられず到達不能だった)
 // への遷移を提供。Material Design / Apple HIG / NN/G Common Region 原則 + GitHub
 // (organization > repo > personal 3 階層) prior art 整合。
 //
