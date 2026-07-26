@@ -58,6 +58,7 @@ import { resolve } from 'node:path';
  * security control は「判定不能」を「許可」ではなく **block** に倒す (fail-closed)。
  * dynamic import なら解決失敗を catch でき、exit 2 を自分で選べる。
  */
+/** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMain;
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
@@ -312,8 +313,12 @@ function reportIsMainLoadFailure(err) {
 // CLI として直接実行されたときのみ main() を呼ぶ。import 経由 (unit test) では実行されない。
 // 判定は scripts/lib/is-main.mjs (SSOT, #3969)。従来の `fileURLToPath(import.meta.url) === process.argv[1]`
 // は junction / symlink 経由の起動で常に false になり、**approve を素通しする**側に倒れていた。
-if (isMainLoadError) {
-	reportIsMainLoadFailure(isMainLoadError);
+// `typeof isMain !== 'function'` も block 側に含める。module が読めても isMain を export して
+// いなければ判定不能であることに変わりはなく、ここを allow に倒すと同じ fail-open に戻る。
+if (isMainLoadError || typeof isMain !== 'function') {
+	reportIsMainLoadFailure(
+		isMainLoadError ?? new Error('scripts/lib/is-main.mjs が isMain を export していません'),
+	);
 	process.exit(2);
 } else if (isMain(import.meta.url)) {
 	// main() 内の想定外例外も unhandled rejection (= exit 1 = 素通し) にせず block へ倒す (#3999)。

@@ -48,6 +48,7 @@ import { spawnSync } from 'node:child_process';
  * tree 横断 import に比べ到達条件は狭い (`scripts/` の部分 checkout 等)。それでも security
  * control が「依存欠落 = 許可」に倒れる形は残さない。
  */
+/** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMainModule;
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
@@ -196,8 +197,12 @@ function reportIsMainLoadFailure(err) {
 }
 
 // CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
-if (isMainLoadError) {
-	reportIsMainLoadFailure(isMainLoadError);
+// `typeof isMainModule !== 'function'` も block 側に含める。module が読めても isMain を export
+// していなければ判定不能であることに変わりはなく、ここを allow に倒すと同じ fail-open に戻る。
+if (isMainLoadError || typeof isMainModule !== 'function') {
+	reportIsMainLoadFailure(
+		isMainLoadError ?? new Error('scripts/lib/is-main.mjs が isMain を export していません'),
+	);
 	process.exit(2);
 } else if (isMainModule(import.meta.url)) {
 	// main() 内の想定外例外も unhandled rejection (= exit 1 = 素通し) にせず block へ倒す (#3999)。

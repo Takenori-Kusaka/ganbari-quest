@@ -20,7 +20,11 @@ import {
 	parseActiveAccount,
 	QA_ACCOUNT,
 } from '../../../scripts/claude-hook-prevent-qa-account-pr.mjs';
-import { bashPayload, runHookInIsolatedTree } from '../helpers/hook-tree-probe';
+import {
+	IS_MAIN_WITHOUT_EXPORT,
+	bashPayload,
+	runHookInIsolatedTree,
+} from '../helpers/hook-tree-probe';
 
 describe('containsGhPrCreate', () => {
 	it('gh pr create を含む command → true', () => {
@@ -150,5 +154,17 @@ describe('fail-closed — 判定 SSOT の import 解決失敗 (#3999 AC3)', () =
 		).toBe(2);
 		expect(res.stderr).toContain('scripts/lib/is-main.mjs');
 		expect(res.stderr).toContain('fail-closed');
+	}, 30_000);
+
+	/** module は読めるが `isMain` を export していない劣化パターン。`gate-approve` と同一 class。 */
+	it('is-main.mjs が isMain を export していない tree → exit 2', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: true,
+			isMainSource: IS_MAIN_WITHOUT_EXPORT,
+			stdin: bashPayload('gh pr create --draft --title "x"'),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+		expect(res.stderr).toContain('isMain を export していません');
 	}, 30_000);
 });

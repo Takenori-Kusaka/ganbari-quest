@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,6 +45,14 @@ export interface HookProbeOptions {
 	hookRelPath: string;
 	/** false にすると temp tree に `scripts/lib/is-main.mjs` を置かない = import 解決が失敗する */
 	withIsMain: boolean;
+	/**
+	 * `withIsMain: true` のとき、実物を複製する代わりにこの中身で `scripts/lib/is-main.mjs` を作る。
+	 *
+	 * 「module は解決できるが `isMain` を export していない」劣化 module を模すのに使う。
+	 * import 解決失敗 (`ERR_MODULE_NOT_FOUND`) とは別経路で、こちらは `isMain` が `undefined`
+	 * になるため呼び出すと `TypeError` になる = 素通し側に倒れうる。
+	 */
+	isMainSource?: string;
 	/** hook に渡す stdin (Claude Code の PreToolUse payload JSON) */
 	stdin: string;
 }
@@ -62,11 +70,19 @@ function copyInto(root: string, relPath: string): void {
  * temp tree 側を見るため、実 repo の evidence file に結果が左右されない。
  */
 export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResult {
-	const { hookRelPath, withIsMain, stdin } = options;
+	const { hookRelPath, withIsMain, isMainSource, stdin } = options;
 	const root = mkdtempSync(path.join(tmpdir(), 'gq-hook-probe-'));
 	try {
 		copyInto(root, hookRelPath);
-		if (withIsMain) copyInto(root, IS_MAIN_REL);
+		if (withIsMain) {
+			if (isMainSource === undefined) {
+				copyInto(root, IS_MAIN_REL);
+			} else {
+				const dest = path.join(root, ...IS_MAIN_REL.split('/'));
+				mkdirSync(path.dirname(dest), { recursive: true });
+				writeFileSync(dest, isMainSource, 'utf8');
+			}
+		}
 
 		const res = spawnSync(process.execPath, [path.join(root, ...hookRelPath.split('/'))], {
 			cwd: root,
@@ -80,6 +96,14 @@ export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResul
 		rmSync(root, { recursive: true, force: true });
 	}
 }
+
+/**
+ * `isMain` を export しない `scripts/lib/is-main.mjs` の代替中身。
+ *
+ * import は成功するが `isMain` が `undefined` になるため、hook が素朴に呼ぶと `TypeError`
+ * (= exit 1 = 素通し) になる。`isMainSource` に渡して「劣化 module」を再現する。
+ */
+export const IS_MAIN_WITHOUT_EXPORT = 'export const somethingElse = true;\n';
 
 /** Claude Code の PreToolUse payload を組み立てる */
 export function bashPayload(command: string): string {

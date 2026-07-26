@@ -29,7 +29,11 @@ import {
 	REQUIRED_OBJECT_COUNT,
 	verifyEvidence,
 } from '../../../.claude/hooks/gate-approve.mjs';
-import { bashPayload, runHookInIsolatedTree } from '../helpers/hook-tree-probe';
+import {
+	IS_MAIN_WITHOUT_EXPORT,
+	bashPayload,
+	runHookInIsolatedTree,
+} from '../helpers/hook-tree-probe';
 
 describe('isApproveAction', () => {
 	it('gh pr merge を含む command → true', () => {
@@ -331,5 +335,21 @@ describe('fail-closed — 判定 SSOT の import 解決失敗 (#3999)', () => {
 			stdin: bashPayload(HARMLESS_CMD),
 		});
 		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+	}, 30_000);
+
+	/**
+	 * import 解決失敗とは別経路の劣化: **module は読めるが `isMain` を export していない**。
+	 * この場合 `isMain` は `undefined` なので素朴に呼ぶと `TypeError` = exit 1 = 素通しに倒れる。
+	 * 「依存が壊れている」という点で AC1 と同一 class なので同じく exit 2 に倒す。
+	 */
+	it('is-main.mjs が isMain を export していない tree → exit 2', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK,
+			withIsMain: true,
+			isMainSource: IS_MAIN_WITHOUT_EXPORT,
+			stdin: bashPayload(APPROVE_CMD),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+		expect(res.stderr).toContain('isMain を export していません');
 	}, 30_000);
 });
