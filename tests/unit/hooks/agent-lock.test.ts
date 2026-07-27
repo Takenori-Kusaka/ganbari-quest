@@ -13,7 +13,15 @@
  * 関連:
  *   - docs/sessions/agent-concurrency.md (運用 SSOT)
  *   - .claude/hooks/heavy-run-lock.mjs / heavy-run-unlock.mjs
+ *
+ * cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
+ *   - `pushx`: 「`push` で始まるが push ではない」負例 fixture。前方一致で判定していたら
+ *     通ってしまう形を実名で置いている (dev-session §QA 指摘台帳 観点 2 の prefix 一致問題)。
+ *     綴りを直すと fixture の意味が失われるため、語そのものを残す
+ *   - `sess`: session id の fixture 値 (`sess-1`)
+ *   global 辞書に足すと `sess` の打ち間違いが repo 全体で素通りするため、file scope に閉じる。
  */
+// cspell:ignore pushx sess
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -163,7 +171,7 @@ describe('agent-lock', () => {
 		// 別セッションを模す: 自分以外の生きた PID として process.ppid を使う
 		const other = acquire('heavy', { ownerPid: process.ppid, target: 'PR #2' });
 		expect(other.ok).toBe(false);
-		expect(other.holder.target).toBe('PR #1');
+		expect(other.holder?.target).toBe('PR #1');
 		// 保持者の記録は上書きされない
 		expect(readLock('heavy')?.target).toBe('PR #1');
 	});

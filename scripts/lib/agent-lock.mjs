@@ -48,6 +48,43 @@ import { join } from 'node:path';
 /** 既定 TTL: 重い検証の実測最長 (統合 e2e 909s) に余裕を見た値。 */
 export const DEFAULT_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * lock ファイルに書かれる保持者レコード。
+ *
+ * `object` のままだと TS strict (svelte-check) が `holder.ownerPid` 等の参照を
+ * 「Property does not exist on type 'object'」で弾く。lock の中身は本 module が
+ * 唯一の書き手なので、形を typedef として明示する。
+ *
+ * @typedef {object} LockHolder
+ * @property {string} [key] lock の key
+ * @property {number} ownerPid 保持者 (Claude セッション) の PID
+ * @property {string | null} [agent] エージェント名 (GQ-Dev 等)
+ * @property {string | null} [target] 作業対象 (PR #1234 等)
+ * @property {string | null} [cwd] 実行 checkout
+ * @property {string | null} [sessionId] セッション識別子
+ * @property {number} [startedAt] 取得時刻 (epoch ms)
+ * @property {number} [ttlMs] TTL
+ */
+
+/**
+ * catch した値から errno / message を安全に取り出す。
+ *
+ * TS strict では catch 変数が `unknown` になるため、`err.code` / `err.message` を
+ * そのまま触れない。実行時の挙動は変えず、型の上でだけ絞る。
+ *
+ * @param {unknown} err
+ * @returns {{code: string | undefined, message: string}}
+ */
+function errInfo(err) {
+	const e = /** @type {{code?: unknown, message?: unknown}} */ (
+		err && typeof err === 'object' ? err : {}
+	);
+	return {
+		code: typeof e.code === 'string' ? e.code : undefined,
+		message: typeof e.message === 'string' ? e.message : String(err),
+	};
+}
+
 /** lock 置き場。テストからは `AGENT_LOCK_DIR` で差し替える。 */
 export function lockDir() {
 	return process.env.AGENT_LOCK_DIR || join(homedir(), '.buzz', '.locks');
@@ -82,22 +119,30 @@ export function isProcessAlive(pid) {
 		process.kill(pid, 0);
 		return true;
 	} catch (err) {
-		return err && err.code === 'EPERM';
+		return errInfo(err).code === 'EPERM';
 	}
 }
 
 /**
  * lock が失効しているか (持ち主が死んだ / TTL 超過)。
  *
- * @param {object} holder
+ * @param {LockHolder | null} holder
  * @param {number} now
  * @returns {boolean}
  */
 export function isStale(holder, now = Date.now()) {
 	if (!holder || typeof holder !== 'object') return true;
 	if (!isProcessAlive(holder.ownerPid)) return true;
-	const ttl = Number.isFinite(holder.ttlMs) ? holder.ttlMs : DEFAULT_TTL_MS;
-	const started = Number.isFinite(holder.startedAt) ? holder.startedAt : 0;
+	// `Number.isFinite(x)` は型述語ではないため、TS strict では x が
+	// `number | undefined` のままになる。数値を先に取り出してから判定する。
+	const ttl =
+		typeof holder.ttlMs === 'number' && Number.isFinite(holder.ttlMs)
+			? holder.ttlMs
+			: DEFAULT_TTL_MS;
+	const started =
+		typeof holder.startedAt === 'number' && Number.isFinite(holder.startedAt)
+			? holder.startedAt
+			: 0;
 	return now - started > ttl;
 }
 
@@ -108,7 +153,7 @@ export function isStale(holder, now = Date.now()) {
  * 成立しているか判定できない状態であり、黙って奪うと二重実行を許すためである。
  *
  * @param {string} key
- * @returns {object | null}
+ * @returns {LockHolder | null}
  */
 export function readLock(key) {
 	const path = lockPath(key);
@@ -117,14 +162,14 @@ export function readLock(key) {
 	try {
 		raw = readFileSync(path, 'utf8');
 	} catch (err) {
-		throw new Error(`agent-lock: lock を読めません (${path}): ${err.message}`);
+		throw new Error(`agent-lock: lock を読めません (${path}): ${errInfo(err).message}`);
 	}
 	try {
 		const parsed = JSON.parse(raw);
 		if (!parsed || typeof parsed !== 'object') throw new Error('object ではありません');
-		return parsed;
+		return /** @type {LockHolder} */ (parsed);
 	} catch (err) {
-		throw new Error(`agent-lock: lock が壊れています (${path}): ${err.message}`);
+		throw new Error(`agent-lock: lock が壊れています (${path}): ${errInfo(err).message}`);
 	}
 }
 
@@ -136,7 +181,7 @@ export function readLock(key) {
  *
  * @param {string} key
  * @param {{ownerPid: number, agent?: string, target?: string, cwd?: string, sessionId?: string, ttlMs?: number, now?: number}} opts
- * @returns {{ok: true, holder: object} | {ok: false, holder: object}}
+ * @returns {{ok: true, holder: LockHolder} | {ok: false, holder: LockHolder | null}}
  */
 export function acquire(key, opts) {
 	const now = Number.isFinite(opts?.now) ? opts.now : Date.now();
@@ -164,7 +209,7 @@ export function acquire(key, opts) {
 		writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx' });
 		return { ok: true, holder: record };
 	} catch (err) {
-		if (err.code !== 'EEXIST') throw err;
+		if (errInfo(err).code !== 'EEXIST') throw err;
 	}
 
 	const current = readLock(key);
@@ -198,7 +243,7 @@ export function release(key, ownerPid) {
 /**
  * 保持中の lock を人間可読の 1 行にする (block メッセージ用)。
  *
- * @param {object} holder
+ * @param {LockHolder | null} holder
  * @param {number} now
  * @returns {string}
  */

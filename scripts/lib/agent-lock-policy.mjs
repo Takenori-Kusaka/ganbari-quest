@@ -54,7 +54,8 @@ const READ_ONLY_HEADS = new Set([
 function headToken(command) {
 	const trimmed = String(command ?? '').trimStart();
 	const match = trimmed.match(/^([\w.\-/\\]+)/);
-	return match ? match[1].split(/[/\\]/).pop().toLowerCase() : '';
+	// `String.split` は必ず 1 要素以上返すが TS はそれを知らないため既定値を置く。
+	return match ? (match[1]?.split(/[/\\]/).pop() ?? '').toLowerCase() : '';
 }
 
 /**
@@ -90,7 +91,9 @@ export function extractTarget(command) {
 	if (pr) return `PR #${pr[1]}`;
 	// Windows の `tests\unit\...` も拾えるよう区切りは両方許す。
 	const spec = text.match(/(tests[/\\][^\s"']+)/);
-	if (spec) return spec[1];
+	// capture group は match 成立時に必ず存在するが、TS の型は `string | undefined`。
+	// 戻り値契約 (`string | null`) に合わせて明示的に落とす。
+	if (spec) return spec[1] ?? null;
 	return null;
 }
 
