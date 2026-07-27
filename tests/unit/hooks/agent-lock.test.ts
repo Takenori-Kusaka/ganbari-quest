@@ -37,6 +37,7 @@ import {
 	lockPath,
 	readLock,
 	release,
+	sameOwner,
 } from '../../../scripts/lib/agent-lock.mjs';
 import {
 	extractTarget,
@@ -44,6 +45,7 @@ import {
 	isHeavyCommand,
 	taskKeyFromBranch,
 } from '../../../scripts/lib/agent-lock-policy.mjs';
+import { resolveSessionOwner } from '../../../scripts/lib/session-owner.mjs';
 
 /** 生存していないことが確実な PID。Windows / POSIX とも未使用値を使う。 */
 const DEAD_PID = 0x7ffffff0;
@@ -292,5 +294,187 @@ describe('lock ファイルの中身', () => {
 			sessionId: 'sess-1',
 		});
 		expect(typeof parsed.startedAt).toBe('number');
+	});
+
+	it('持ち主 PID をどう決めたかを記録する (実環境で解決に失敗していないか後から見えるように)', () => {
+		acquire('heavy', { sessionId: 'sess-1', ownerPid: process.pid, ownerVia: 'ancestor' });
+		expect(readLock('heavy')?.ownerVia).toBe('ancestor');
+	});
+});
+
+/**
+ * #4013 の回帰テスト。
+ *
+ * 実測 (2026-07-27): 同一セッションの hook 呼び出しが毎回別の `process.ppid` を持ち、
+ * 1 分以内に全て死亡していた。PID を同一性にも生存判定にも使っていたため、
+ * 再入・解放・stale 判定の 3 つが同時に壊れ、排他が成立していなかった。
+ */
+describe('#4013 持ち主の同一性は sessionId で持つ', () => {
+	let dir: string;
+	const original = process.env.AGENT_LOCK_DIR;
+
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), 'agent-lock-4013-'));
+		process.env.AGENT_LOCK_DIR = dir;
+	});
+
+	afterEach(() => {
+		if (original === undefined) delete process.env.AGENT_LOCK_DIR;
+		else process.env.AGENT_LOCK_DIR = original;
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('sameOwner は sessionId を優先し、片方だけ持つ場合は別物と判定する', () => {
+		expect(sameOwner({ sessionId: 'a', ownerPid: 1 }, { sessionId: 'a', ownerPid: 2 })).toBe(true);
+		expect(sameOwner({ sessionId: 'a', ownerPid: 1 }, { sessionId: 'b', ownerPid: 1 })).toBe(false);
+		// PID が偶然一致しただけで再入とみなすと、他セッションの lock を奪ってしまう。
+		expect(sameOwner({ sessionId: 'a', ownerPid: 1 }, { sessionId: null, ownerPid: 1 })).toBe(
+			false,
+		);
+		expect(sameOwner({ sessionId: null, ownerPid: 1 }, { sessionId: null, ownerPid: 1 })).toBe(
+			true,
+		);
+		expect(sameOwner(null, { sessionId: 'a' })).toBe(false);
+	});
+
+	it('同じセッションなら ownerPid が変わっても再入できる (呼び出しごとに PID が変わる実環境)', () => {
+		const first = acquire('heavy', { sessionId: 'session-a', ownerPid: process.pid, now: 1_000 });
+		expect(first.ok).toBe(true);
+		// 次の hook 呼び出しでは別の (しかも既に死んでいる) PID になる。
+		const second = acquire('heavy', { sessionId: 'session-a', ownerPid: process.ppid, now: 2_000 });
+		expect(second.ok).toBe(true);
+		expect(readLock('heavy')?.startedAt).toBe(2_000);
+	});
+
+	it('別セッションなら ownerPid が同じでも取得できない', () => {
+		acquire('heavy', { sessionId: 'session-a', ownerPid: process.pid, target: 'PR #1' });
+		const other = acquire('heavy', { sessionId: 'session-b', ownerPid: process.pid, target: 'PR #2' });
+		expect(other.ok).toBe(false);
+		expect(other.holder.target).toBe('PR #1');
+	});
+
+	it('取得時と解放時で PID が変わっても解放できる (解放が no-op にならない)', () => {
+		acquire('heavy', { sessionId: 'session-a', ownerPid: process.pid });
+		expect(release('heavy', { sessionId: 'session-a', ownerPid: DEAD_PID })).toBe(true);
+		expect(existsSync(lockPath('heavy'))).toBe(false);
+	});
+
+	it('別セッションは解放できない', () => {
+		acquire('heavy', { sessionId: 'session-a', ownerPid: process.pid });
+		expect(release('heavy', { sessionId: 'session-b', ownerPid: process.pid })).toBe(false);
+		expect(existsSync(lockPath('heavy'))).toBe(true);
+	});
+
+	it('ownerPid が無い lock は生存判定せず TTL のみで判定する', () => {
+		const now = 10_000_000;
+		const holder = { ownerPid: null, sessionId: 'session-a', startedAt: now, ttlMs: DEFAULT_TTL_MS };
+		// PID が無いことを「死んでいる」と読むと、生きているセッションの lock を全員が奪える。
+		expect(isStale(holder, now + 1_000)).toBe(false);
+		expect(isStale(holder, now + DEFAULT_TTL_MS + 1)).toBe(true);
+	});
+
+	it('ownerPid が解決できなくても sessionId だけで取得・排他・解放できる', () => {
+		expect(acquire('heavy', { sessionId: 'session-a', ownerPid: null, now: 1_000 }).ok).toBe(true);
+		expect(acquire('heavy', { sessionId: 'session-b', ownerPid: null, now: 1_100 }).ok).toBe(false);
+		expect(release('heavy', { sessionId: 'session-a' })).toBe(true);
+		expect(acquire('heavy', { sessionId: 'session-b', ownerPid: null, now: 1_200 }).ok).toBe(true);
+	});
+
+	it('sessionId も ownerPid も無い取得は例外にする (持ち主を識別できない)', () => {
+		expect(() => acquire('heavy', { sessionId: null, ownerPid: null })).toThrow(/識別できません/);
+	});
+
+	it('不正な ownerPid は黙って無視せず例外にする', () => {
+		expect(() => acquire('heavy', { sessionId: 'session-a', ownerPid: -1 })).toThrow(/ownerPid/);
+	});
+
+	it('describeHolder は PID 不明の lock をそう表示する', () => {
+		const text = describeHolder(
+			{ ownerPid: null, sessionId: 'session-a', startedAt: 0 },
+			1_000,
+		);
+		expect(text).toContain('pid=不明');
+		expect(text).toContain('session-a');
+	});
+});
+
+/**
+ * 実測したプロセスツリー (2026-07-27, Windows / Buzz) を再現した table で固定する。
+ *
+ *   buzz-acp.exe(30980) → buzz-acp.exe(33476) → cmd.exe(25916)
+ *     → node.exe claude-agent-acp(7840) → claude.exe(28348) → bash(6492) → node hook(26100)
+ */
+describe('#4013 resolveSessionOwner', () => {
+	const table = new Map<number, { pid: number; ppid: number; name: string; cmd: string }>([
+		[26100, { pid: 26100, ppid: 6492, name: 'node.exe', cmd: 'node hook.mjs' }],
+		[6492, { pid: 6492, ppid: 28348, name: 'bash.exe', cmd: 'bash -c ...' }],
+		[28348, { pid: 28348, ppid: 7840, name: 'claude.exe', cmd: 'claude.exe --output-format' }],
+		[
+			7840,
+			{
+				pid: 7840,
+				ppid: 25916,
+				name: 'node.exe',
+				cmd: 'node @agentclientprotocol/claude-agent-acp/dist/index.js',
+			},
+		],
+		// 実測の CommandLine をそのまま入れる。acp 名を含むため、シェル除外が無いと
+		// 「最も外側のセッションらしいプロセス」としてこの cmd.exe が選ばれてしまう。
+		[
+			25916,
+			{
+				pid: 25916,
+				ppid: 33476,
+				name: 'cmd.exe',
+				cmd: 'cmd.exe /e:ON /v:OFF /d /c ""C:\\Users\\kokor\\AppData\\Roaming\\npm\\claude-agent-acp.cmd""',
+			},
+		],
+		[33476, { pid: 33476, ppid: 30980, name: 'buzz-acp.exe', cmd: 'buzz-acp.exe' }],
+		[30980, { pid: 30980, ppid: 1, name: 'buzz-acp.exe', cmd: 'buzz-acp.exe' }],
+	]);
+
+	it('共有境界の手前で最も外側のセッションプロセスを選ぶ', () => {
+		const owner = resolveSessionOwner(6492, table);
+		// claude.exe (28348) はセッションごとに複数生まれるため持ち主にしない。
+		// acp の node (7840) はセッション開始時に 1 個だけ作られ常駐する。
+		expect(owner.pid).toBe(7840);
+		expect(owner.via).toBe('ancestor');
+	});
+
+	it('全セッション共有の buzz-acp を持ち主にしない (掴むと排他が消える)', () => {
+		const owner = resolveSessionOwner(6492, table);
+		expect(owner.pid).not.toBe(30980);
+		expect(owner.pid).not.toBe(33476);
+		expect(owner.chain).not.toContain(30980);
+	});
+
+	it('acp を起動したシェル (cmd.exe) を持ち主にしない', () => {
+		// cmd.exe(25916) の CommandLine は実測で `claude-agent-acp.cmd` を含み、
+		// node(7840) より外側にある。シェル除外が無いとこちらが選ばれる。
+		const owner = resolveSessionOwner(6492, table);
+		expect(owner.pid).not.toBe(25916);
+		expect(owner.name).toBe('node.exe');
+	});
+
+	it('セッションらしい祖先が無ければ null を返す (ppid へ黙って戻さない)', () => {
+		const shellOnly = new Map([
+			[10, { pid: 10, ppid: 11, name: 'node.exe', cmd: 'node hook.mjs' }],
+			[11, { pid: 11, ppid: 1, name: 'bash.exe', cmd: 'bash' }],
+		]);
+		const owner = resolveSessionOwner(10, shellOnly);
+		expect(owner.pid).toBeNull();
+		expect(owner.via).toBe('not-found');
+	});
+
+	it('プロセス一覧が取れなければ no-process-table を返す', () => {
+		expect(resolveSessionOwner(1, new Map()).via).toBe('no-process-table');
+	});
+
+	it('親子関係が循環していても無限ループしない', () => {
+		const loop = new Map([
+			[1, { pid: 1, ppid: 2, name: 'a', cmd: 'a' }],
+			[2, { pid: 2, ppid: 1, name: 'b', cmd: 'b' }],
+		]);
+		expect(resolveSessionOwner(1, loop).pid).toBeNull();
 	});
 });
