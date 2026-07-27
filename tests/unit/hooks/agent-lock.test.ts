@@ -171,7 +171,7 @@ describe('agent-lock', () => {
 		// 別セッションを模す: 自分以外の生きた PID として process.ppid を使う
 		const other = acquire('heavy', { ownerPid: process.ppid, target: 'PR #2' });
 		expect(other.ok).toBe(false);
-		expect(other.holder.target).toBe('PR #1');
+		expect(other.holder?.target).toBe('PR #1');
 		// 保持者の記録は上書きされない
 		expect(readLock('heavy')?.target).toBe('PR #1');
 	});
