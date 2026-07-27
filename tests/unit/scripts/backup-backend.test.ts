@@ -5,6 +5,12 @@
 // 黙って SQLite 経路に落ちた。現状は SQLite 経路が必ず fail するため沈黙しないが、
 // 依存しているのは「たまたま失敗すること」であり設計上の保証ではない。
 // 本 test は「**判定できないなら実行しない**」を実行可能な形で固定する。
+//
+// cspell 例外 (本 file 限定):
+//   - `pglte`: 「`pglite` の typo」を再現する負例 fixture。綴りを直すと negative case が
+//     成立しなくなる (typo を検出できないことを検出できなくなる)。global 辞書に足すと
+//     repo 全体で `pglite` の打ち間違いが素通りするため file scope に閉じる。
+// cspell:ignore pglte
 
 import { describe, expect, it } from 'vitest';
 

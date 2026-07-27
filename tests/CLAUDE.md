@@ -225,6 +225,16 @@ interactive primitive の play 関数 coverage:
 - 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR 12 条件ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 12 条件チェック)
 - 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3 (DoR 1-8 起源) + `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §1-§9 (DoR 9-12 拡張根拠)
 
+## 負例 fixture と cspell（#4009 / #3967 で 2 回連続で踏んだ）
+
+本リポジトリは guard / gate を多く書くため、**「規則から外れた形」を実名で置く負例 fixture** が頻出する（`git pushx` = push で始まるが push でない / `pglte` = `pglite` の typo / `sess-1` = session id）。これらは **cspell の未知語として CI `lint-and-test` で落ちる**。
+
+- **綴りを直して回避しない。** 綴りを直すと negative case が成立しなくなり、*規則違反を検出できないことを検出できなくなる*
+- **`.cspell.json` の global `words` に足さない。** `sess` を global 許可すると `session` の打ち間違いが repo 全体で素通りする
+- **当該 file 冒頭に `// cspell:ignore <語>` を置き、なぜその綴りが必要かをコメントで書く**（file scope に閉じる）
+
+`npm run cspell` は `tests/**/*.ts` を対象に含むため、**push 前にローカルで 1 回走らせれば CI 往復を防げる**（対象 glob は `package.json` の `cspell` script が SSOT）。
+
 ## 禁止事項
 
 - **カバレッジ閾値の引き下げ** — `vite.config.ts` `thresholds` 引き下げ PR は CI 自動拒否（`scripts/check-coverage-threshold.js`）。引き下げ必要なら ADR で復元計画と同時コミット
