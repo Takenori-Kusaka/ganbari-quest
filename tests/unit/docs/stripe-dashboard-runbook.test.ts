@@ -18,6 +18,45 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const RUNBOOK_PATH = resolve(process.cwd(), 'docs/operations/stripe-dashboard-runbook.md');
+const STRIPE_SERVICE_PATH = resolve(process.cwd(), 'src/lib/server/services/stripe-service.ts');
+
+/**
+ * #3990: 「購読する event 一覧」と「handler が持つ case 一覧」の乖離を機械検知する。
+ *
+ * 手順書は `invoice.payment_succeeded` を 4 種の 1 つとして挙げていたが、コードが持つ case は
+ * `invoice.paid` / `invoice.payment_failed` を含む 5 種で、**両者は Stripe 上の別 event**。
+ * どちらか一方だけを購読していると、もう一方の handler は永久に発火しない。
+ *
+ * この乖離が厄介なのは **動作結果に現れない**ことにある。購読漏れは「その event が来ない」
+ * だけなので、ログにも UI にも「何も起きなかった」以上のものが残らない。#3985 (dedup 未配線) と
+ * 同じく、設定と実装のズレが沈黙する class である。
+ *
+ * したがって「手順書を直す」だけでは再発する。手順書とコードを**同時に落とす**ことで、
+ * どちらか片方だけを変更できないようにする。
+ */
+function readStripeService(): string {
+	return readFileSync(STRIPE_SERVICE_PATH, 'utf-8');
+}
+
+/** `handleWebhookEvent` の switch から `case 'xxx':` の event 名を抽出する。 */
+function handledEventTypes(source: string): string[] {
+	const fn = source.match(/export async function handleWebhookEvent[\s\S]*?^}/m);
+	if (!fn) throw new Error('handleWebhookEvent が見つかりません (関数名が変わった?)');
+	return [...fn[0].matchAll(/case '([\w.]+)':/g)]
+		.map((m) => m[1])
+		.filter((v): v is string => v !== undefined)
+		.sort();
+}
+
+/** 手順書の「Events to send」直後の箇条書きから event 名を抽出する。 */
+function subscribedEventTypes(content: string): string[] {
+	const section = content.match(/\*\*Events to send\*\*[\s\S]*?(?=^\d+\. )/m);
+	if (!section) throw new Error('「Events to send」節が見つかりません (手順書の構造が変わった?)');
+	return [...section[0].matchAll(/^\s*- `([\w.]+)`/gm)]
+		.map((m) => m[1])
+		.filter((v): v is string => v !== undefined)
+		.sort();
+}
 
 function readRunbook(): string {
 	if (!existsSync(RUNBOOK_PATH)) {
@@ -157,6 +196,38 @@ describe('Stripe Dashboard 立ち上げランブック (#2098 AC7)', () => {
 
 		it('ADR-0006 への参照がある', () => {
 			expect(content).toMatch(/ADR-0006/);
+		});
+	});
+
+	// #3990: 手順書とコードの乖離を「両方同時に落ちる」形で固定する。
+	describe('#3990: 購読 event 一覧 ↔ handleWebhookEvent の case 一覧', () => {
+		const handled = handledEventTypes(readStripeService());
+		const subscribed = subscribedEventTypes(content);
+
+		it('[W0] 双方から event を 1 件以上抽出できる (0 件マッチの素通りを防ぐ)', () => {
+			expect(handled.length).toBeGreaterThan(0);
+			expect(subscribed.length).toBeGreaterThan(0);
+		});
+
+		it('[W1] 手順書の購読一覧と handler の case 一覧が完全一致する', () => {
+			expect(
+				subscribed,
+				[
+					'手順書とコードで webhook event 一覧が食い違っています。',
+					`  手順書: ${subscribed.join(', ')}`,
+					`  コード: ${handled.join(', ')}`,
+					'',
+				].join('\n') +
+					'→ 購読しているのに handler が無い / handler があるのに永久に発火しない、のどちらかが起きます。' +
+					'この乖離は動作結果に現れない (沈黙する) ため、ここで落とします',
+			).toEqual(handled);
+		});
+
+		// `invoice.paid` と `invoice.payment_succeeded` は Stripe 上の別 event。
+		// 実際に手順書が後者を挙げていたのが本 Issue の発端なので、実名で固定する。
+		it('[W2] 手順書は invoice.payment_succeeded を挙げない (invoice.paid とは別 event)', () => {
+			expect(subscribed).not.toContain('invoice.payment_succeeded');
+			expect(subscribed).toContain('invoice.paid');
 		});
 	});
 
