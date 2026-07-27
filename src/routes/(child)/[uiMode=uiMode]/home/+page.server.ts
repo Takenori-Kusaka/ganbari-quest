@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
@@ -59,9 +60,19 @@ import {
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
 import type { Actions, PageServerLoad } from './$types';
 
+/**
+ * #4020: 旧実装は `new Date()` のローカル日付要素で「今日」を組んでいた。
+ *
+ * 本番 Lambda は TZ 未設定 (= UTC) のため、**JST 00:00〜09:00 の 9 時間**は前日を「今日」と
+ * 見なす。一方、活動記録の**書き込み側**は `todayDateJST()` (JST 固定) を使う
+ * (`activity-record-preparation.ts`)。読み書きで基準がずれるため、その時間帯は
+ * 「記録したのに今日のおやくそくが埋まらない」「チェックリストの進捗が戻る」が起きる。
+ *
+ * ローカル定義を廃し `date-utils.ts` の SSOT (`todayDateJST`) を直接使う。
+ * `(child)` 配下の他 route (checklist / status / history) は既に JST 経由。
+ */
 function todayDate(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+	return todayDateJST();
 }
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
