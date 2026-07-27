@@ -37,6 +37,8 @@ Tier 2: Per-PR Review Agent（独立 ctx、5 手順全実行）
 
 **2 層化の理由**: 1 セッション複数 PR 処理は context 肥大化で手順省略・判断ブレ発生（PR 末尾で初期手順に戻れない）。各 PR 独立 Agent で新鮮 ctx 維持。
 
+**並行セッション前提**: QM のセッションも Dev / PO / 監査と同一マシンで並走する。手順 4 (CI 確認) の一部やローカル再現で重い検証を回すときは、**hook が機械的に排他**しており他セッションが実行中なら exit 2 で止まる。止められたら待たず、CI の結果を正として判定できないかを先に検討する。QM 自身の検証コマンドが並走下で出した red は、それ単独では BLOCK の根拠にならない → **[agent-concurrency.md](agent-concurrency.md)**。
+
 ## Tier 1: Orchestrator 4 ステップ
 
 ```bash
