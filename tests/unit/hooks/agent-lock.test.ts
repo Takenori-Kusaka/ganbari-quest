@@ -348,7 +348,11 @@ describe('#4013 持ち主の同一性は sessionId で持つ', () => {
 
 	it('別セッションなら ownerPid が同じでも取得できない', () => {
 		acquire('heavy', { sessionId: 'session-a', ownerPid: process.pid, target: 'PR #1' });
-		const other = acquire('heavy', { sessionId: 'session-b', ownerPid: process.pid, target: 'PR #2' });
+		const other = acquire('heavy', {
+			sessionId: 'session-b',
+			ownerPid: process.pid,
+			target: 'PR #2',
+		});
 		expect(other.ok).toBe(false);
 		expect(other.holder.target).toBe('PR #1');
 	});
@@ -367,7 +371,12 @@ describe('#4013 持ち主の同一性は sessionId で持つ', () => {
 
 	it('ownerPid が無い lock は生存判定せず TTL のみで判定する', () => {
 		const now = 10_000_000;
-		const holder = { ownerPid: null, sessionId: 'session-a', startedAt: now, ttlMs: DEFAULT_TTL_MS };
+		const holder = {
+			ownerPid: null,
+			sessionId: 'session-a',
+			startedAt: now,
+			ttlMs: DEFAULT_TTL_MS,
+		};
 		// PID が無いことを「死んでいる」と読むと、生きているセッションの lock を全員が奪える。
 		expect(isStale(holder, now + 1_000)).toBe(false);
 		expect(isStale(holder, now + DEFAULT_TTL_MS + 1)).toBe(true);
@@ -389,10 +398,7 @@ describe('#4013 持ち主の同一性は sessionId で持つ', () => {
 	});
 
 	it('describeHolder は PID 不明の lock をそう表示する', () => {
-		const text = describeHolder(
-			{ ownerPid: null, sessionId: 'session-a', startedAt: 0 },
-			1_000,
-		);
+		const text = describeHolder({ ownerPid: null, sessionId: 'session-a', startedAt: 0 }, 1_000);
 		expect(text).toContain('pid=不明');
 		expect(text).toContain('session-a');
 	});

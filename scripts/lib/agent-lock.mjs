@@ -230,12 +230,10 @@ export function readLock(key) {
  * @returns {{ok: true, holder: LockHolder} | {ok: false, holder: LockHolder | null}}
  */
 export function acquire(key, opts) {
-	const now =
-		typeof opts?.now === 'number' && Number.isFinite(opts.now) ? opts.now : Date.now();
+	const now = typeof opts?.now === 'number' && Number.isFinite(opts.now) ? opts.now : Date.now();
 	const rawPid = opts?.ownerPid;
-	const ownerPid = typeof rawPid === 'number' && Number.isInteger(rawPid) && rawPid > 0
-		? rawPid
-		: null;
+	const ownerPid =
+		typeof rawPid === 'number' && Number.isInteger(rawPid) && rawPid > 0 ? rawPid : null;
 	const sessionId = opts?.sessionId ?? null;
 	if (ownerPid === null && sessionId === null) {
 		throw new Error('agent-lock: 持ち主を識別できません (sessionId と ownerPid がどちらも空)');
@@ -256,9 +254,7 @@ export function acquire(key, opts) {
 		sessionId,
 		startedAt: now,
 		ttlMs:
-			typeof opts?.ttlMs === 'number' && Number.isFinite(opts.ttlMs)
-				? opts.ttlMs
-				: DEFAULT_TTL_MS,
+			typeof opts?.ttlMs === 'number' && Number.isFinite(opts.ttlMs) ? opts.ttlMs : DEFAULT_TTL_MS,
 	};
 
 	mkdirSync(lockDir(), { recursive: true });

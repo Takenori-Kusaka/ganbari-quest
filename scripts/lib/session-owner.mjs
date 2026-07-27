@@ -42,7 +42,8 @@ import { spawnSync } from 'node:child_process';
 export const MAX_ANCESTOR_DEPTH = 16;
 
 /** 全セッションで共有されるプロセス。ここへ到達したら打ち切る。 */
-const SHARED_BOUNDARY = /^(buzz-acp(\.exe)?|explorer\.exe|services\.exe|wininit\.exe|systemd|init)$/i;
+const SHARED_BOUNDARY =
+	/^(buzz-acp(\.exe)?|explorer\.exe|services\.exe|wininit\.exe|systemd|init)$/i;
 
 /**
  * 汎用シェル。持ち主にしない。
@@ -53,7 +54,8 @@ const SHARED_BOUNDARY = /^(buzz-acp(\.exe)?|explorer\.exe|services\.exe|wininit\
  * セッションごとに 1 個という性質は満たすが、持ち主として意味を持つのは実体である
  * acp の node プロセスなので、シェルは除外する。
  */
-const SHELL_WRAPPER = /^(cmd(\.exe)?|bash(\.exe)?|sh|dash|zsh|powershell(\.exe)?|pwsh(\.exe)?|conhost\.exe)$/i;
+const SHELL_WRAPPER =
+	/^(cmd(\.exe)?|bash(\.exe)?|sh|dash|zsh|powershell(\.exe)?|pwsh(\.exe)?|conhost\.exe)$/i;
 
 /** セッションの持ち主になりうるか。 */
 function isSessionLike(proc) {
