@@ -146,6 +146,8 @@ npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必�
 | `DATA_SOURCE=demo` | `createInvite` が非永続 stub (一覧に出ず受諾不可) |
 | `DATA_SOURCE=pglite` | `DEV_USERS` の tenant id が非 UUID のため uuid 型 column で 22P02 (全 admin ページ 500) |
 
+cognito + DSQL 経路 (招待 / メンバー / 課金状態の解決) を staging で実機検証する手順は [runbooks/staging-live-verification.md](runbooks/staging-live-verification.md) が SSOT。
+
 ## 巨大 docs refactor PR 分割ガイドライン (#2225)
 
 #2223 (Epic 2 / 142 file) / #2224 (Epic 3 / 146 file) で連続発生した「docs/sessions/ SSOT 削除 + 60+ ファイル参照未更新 + 機械生成ツール暴走」(両 PR BLOCK / Close) の構造的再発防止。

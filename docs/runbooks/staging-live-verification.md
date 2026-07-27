@@ -1,0 +1,150 @@
+# Runbook: staging 実機検証（cognito + DSQL 経路）
+
+> **対象**: ローカルのどの backend でも実行されない `AUTH_MODE=cognito` + DSQL 経路（課金状態の解決 / entitlement / parent-gate / 招待・メンバー）を、AWS staging（`ganbari-quest-staging-app`）で 1 回通して観測するための手順。
+> **実行主体**: リリース発火 = GQ-Audit / 検証実行と証跡提出 = GQ-Dev / 秘匿値・権限の配置 = オーナー。
+
+## 1. 適用範囲
+
+### 本 runbook で検証する
+
+| 対象 | ローカルで実行されない理由 | staging で通る経路 |
+|---|---|---|
+| cognito provider（`src/lib/server/auth/providers/cognito.ts`） | `npm run dev` は `local.ts` / `dev:cognito` は `cognito-dev.ts` / demo は `anonymous.ts` を使い、`cognito.ts` を通らない | staging Lambda env `AUTH_MODE=cognito`（`infra/lib/compute-stack.ts` の `stagingEnvironment`） |
+| DSQL `families` 行を読む課金・権限解決 | ローカルは sqlite / PGlite / demo stub で `families` の DSQL 行を読まない | staging Lambda env `DATA_SOURCE=dsql` + `DSQL_USER=app_user` |
+| 招待 / メンバー（invites / memberships） | sqlite / demo / PGlite の 3 backend すべてで検証不可（`docs/CLAUDE.md` §「local 検証不可: invite / members (auth repo) 系 (#3732)」） | 同上 |
+
+### 本 runbook で検証しない（staging に存在しない）
+
+| 対象 | 根拠 |
+|---|---|
+| Stripe webhook / checkout の実イベント | `.github/workflows/deploy-aws-staging.yml` 冒頭「外部サービス副作用ゼロ: Stripe / Discord / Gemini / SES 系 secret は一切渡さない」。`compute-stack.ts` の `stagingEnvironment` にも Stripe 系 env は無い |
+| cron / 定期ジョブ | staging は cron-dispatcher を構築しない（`compute-stack.ts`、`enableCronDispatcher=false`） |
+| demo Lambda / log archiving | staging は構築しない（`infra/lib/env-config.ts` の staging 設定） |
+| SES 経由のメール送信 | `infra/lib/auth-stack.ts` は非 prod で SES を構成せず Cognito default email に fallback する |
+
+Stripe 実イベントが必要な検証は staging では原理的に再現できない。その場合は本 runbook を使わず、本番反映後の実測を証跡とする判断をオーナーに仰ぐ。
+
+## 2. 役割分担
+
+| 工程 | 担当 | 実行内容 | 前提 |
+|---|---|---|---|
+| リリース発火 | GQ-Audit | `deploy-aws-staging.yml` を `workflow_dispatch` + `dsqlEnabled=true` で起動 | 検証対象コミットが `develop` に入っていること（§3） |
+| 検証実行・証跡提出 | GQ-Dev | DSQL 対象行の書き換え → 観測 → 原状復帰 → PR body へ貼付 | AWS credential（§6 の gap 参照） |
+| 秘匿値・権限の配置 | オーナー | 検証用 Cognito アカウント / AWS 権限の可否判断 | — |
+
+## 3. Step 1 — リリース発火（GQ-Audit）
+
+`workflow_dispatch` の checkout ref は `develop` 固定（`deploy-aws-staging.yml` Step 1）。**検証したい修正が `develop` に merge されていなければ、staging には反映されない**。未 merge の修正を検証したい場合は、統合 PR（develop → main）を立てれば `pull_request` trigger 側で当該 PR HEAD が deploy される（この経路では DSQL lane が常時 ON）。
+
+```bash
+gh workflow run deploy-aws-staging.yml -f dsqlEnabled=true
+gh run list --workflow=deploy-aws-staging.yml --limit 1
+gh run watch <run-id>
+```
+
+- **actor guard**: job は `Takenori-Kusaka` / `ganbariquestsupport-lab` の 2 アカウントでのみ実行される。他アカウントで dispatch すると job 自体が skip される。
+- **concurrency**: group `deploy-aws-staging` / `cancel-in-progress: true`。同時に走らせると前の run が cancel されるため、検証中は他の統合 PR と重ならない時間帯を選ぶ。
+- DSQL lane では cluster deploy → `npm run dsql:migrate`（schema provisioning）→ staging 3 stack deploy → `npm run dsql:grant`（Lambda 実行 role への app_user 付与）→ health / smoke → 実 DSQL 並行検証 test の順に実行される。
+
+## 4. Step 2 — deploy 完了確認
+
+workflow run が緑であれば health（`/api/health`、5 回 retry）と smoke（`/` と `/switch` が 200 か 302）は既に PASS している。手元で再確認する場合:
+
+```bash
+BASE=$(aws lambda get-function-url-config --function-name ganbari-quest-staging-app \
+  --region us-east-1 --query 'FunctionUrl' --output text)
+BASE="${BASE%/}"
+curl -s -o /dev/null -w "%{http_code}\n" "$BASE/api/health"   # 200
+```
+
+Lambda のログは `/aws/lambda/ganbari-quest-staging-app`（`compute-stack.ts` の `AppLogGroup`）:
+
+```bash
+aws logs tail /aws/lambda/ganbari-quest-staging-app --region us-east-1 --since 10m --follow
+```
+
+## 5. Step 3 — 検証用アカウント
+
+- staging の Cognito user pool は `ganbari-quest-staging-users-v2`（`infra/lib/auth-stack.ts` の `UserPoolV2` + `env-config.ts` の `resourcePrefix`）。`selfSignUpEnabled: true` / email 検証あり / パスワードは 8 文字以上・大小英字・数字を含むこと。
+- **`DEV_USERS`（`src/lib/server/auth/providers/cognito-dev.ts`）は staging に存在しない**。あれは `COGNITO_DEV_MODE` 前提のローカル専用定義で、staging Lambda env に `COGNITO_DEV_MODE` は入っていない。
+- **staging DSQL には seed 配線が無い**（`docs/design/staging-synthetic-seed.md` §5「AWS staging: 構造準備済 / 配線は #2873」）。検証対象の家族データは、sign-up して自分で作ったものになる。
+- サインアップ確認メールは Cognito default email 送信（SES 非構成）。届かない場合は §6 の gap に従いオーナーに依頼する。
+
+## 6. Step 4 — DSQL の対象行を書き換える / 戻す
+
+`families` 行（`src/lib/server/db/dsql/schema.ts` の `families`）を検証用の状態に変え、アプリがそれを読むかを観測する。
+
+### 6.1 接続情報
+
+```bash
+DSQL_ENDPOINT=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsqlStaging \
+  --region us-east-1 --query "Stacks[0].Outputs[?OutputKey=='ClusterEndpoint'].OutputValue" --output text)
+```
+
+接続パラメータはリポジトリ内の DSQL CLI（`scripts/dsql-migrate.ts` / `scripts/dsql-grant.ts`）と同一: user = `admin`（`DbConnectAdmin` 経路、アプリ実行時の `app_user` とは分離）/ database = `postgres` / TLS 必須。パスワードには IAM 認証トークンを投入する:
+
+```bash
+aws dsql generate-db-connect-admin-auth-token --hostname "$DSQL_ENDPOINT" \
+  --region us-east-1 --expires-in 3600
+```
+
+> **リポジトリに任意 SQL を流す汎用 CLI は無い**（`dsql:migrate` は migration 適用、`dsql:grant` は role 付与の専用ツール）。上記トークンを外部 PostgreSQL クライアント（psql 等）のパスワードとして渡して接続する。この接続方式は `docs/research/dsql-poc-phase1-results-2026-07-05.md` の実クラスタ PoC で確認されているが、**staging cluster で本 runbook 作成時に再実行はしていない**（§8 参照）。
+
+### 6.2 書き換え手順（必ず 5 段で行う）
+
+`families.plan` の値は `src/lib/domain/constants/subscription-plan.ts`（`monthly` / `yearly` / `family-monthly` / `family-yearly` / `lifetime`）、`families.status` は `src/lib/domain/constants/subscription-status.ts`（`active` / `grace_period` / `suspended` / `terminated`）が SSOT。SSOT 外の値を入れると `families_status_ck` で拒否される。
+
+```sql
+-- (1) 変更前の値を控える（この出力を PR body に貼る）
+SELECT family_id, plan, status, plan_expires_at, updated_at
+FROM families WHERE family_id = '<検証対象の family uuid>';
+
+-- (2) 検証したい状態に書き換える
+UPDATE families
+SET plan = 'family-monthly', status = 'active', updated_at = now()
+WHERE family_id = '<検証対象の family uuid>';
+
+-- (3) → §7 の観測を実施
+
+-- (4) 控えた値へ戻す（NULL だった列は NULL に戻す）
+UPDATE families
+SET plan = <控えた plan>, status = '<控えた status>', updated_at = now()
+WHERE family_id = '<検証対象の family uuid>';
+
+-- (5) 復旧確認（(1) と plan / status / plan_expires_at が一致すること）
+SELECT family_id, plan, status, plan_expires_at FROM families
+WHERE family_id = '<検証対象の family uuid>';
+```
+
+- 書き換えるのは**自分が sign-up して作った family の行だけ**。他の行に触らない。
+- `updated_at` は復旧後も (1) とは異なる値になる。差分ゼロを確認するのは `plan` / `status` / `plan_expires_at`。
+- (4) を実行せずに終わらない。次の検証者が汚れた行を掴む。
+
+## 7. Step 5 — 観測
+
+| 観測点 | 手順 | AC 充足と言える状態 |
+|---|---|---|
+| プラン表示 | staging の Function URL でログイン → `/admin/subscription`（parent-gate PIN を通す） | 表示プラン / 上限が §6.2 (2) で書き込んだ値と一致する |
+| 権限（entitlement） | 当該プランでのみ使える機能を 1 つ操作する | プランに応じて許可 / 拒否が切り替わる |
+| サーバ側の解決 | `aws logs tail /aws/lambda/ganbari-quest-staging-app --since 10m` | 例外・fail-closed による 5xx が出ていない |
+
+再ログインせずに反映されるかを見る検証では、**書き換え後にログアウトしない**こと（Cookie を作り直すと「毎リクエスト DB から解決しているか」を確認できなくなる）。
+
+証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。
+
+## 8. 本 runbook が保証できない点
+
+| 項目 | 状態 | 対処 |
+|---|---|---|
+| §6 の psql 接続と UPDATE の実行 | AWS credential（`DbConnectAdmin` 相当）が必要で、リポジトリ内からは検証できない | 実行者が初回実行時に結果を PR に記録し、齟齬があれば本 runbook を修正する |
+| staging Cognito でのサインアップ完了 | SES 非構成のため確認コードの到達性が未確認 | 届かない場合はオーナーに Cognito 側でのユーザー作成を依頼する（admin 権限が必要） |
+| staging DSQL の初期データ | seed 配線が未実施（`docs/design/staging-synthetic-seed.md` §5） | 検証者が sign-up してデータを作る |
+| Stripe 経路 | staging に存在しない（§1） | 本番実測での代替可否をオーナーに確認する |
+
+## 9. 関連
+
+- [docs/runbooks/staging-gate-required-checks.md](staging-gate-required-checks.md) — staging deploy gate の required 化手順
+- [docs/design/staging-synthetic-seed.md](../design/staging-synthetic-seed.md) — PII-free 合成 seed の設計と配線状況
+- [docs/runbooks/dsql-restore.md](dsql-restore.md) — DSQL の backup / 復元
+- `.github/workflows/deploy-aws-staging.yml` / `infra/lib/compute-stack.ts` / `infra/lib/auth-stack.ts` / `infra/lib/env-config.ts`
+- Issue #2873（AWS staging stack）/ #3732（invite / members の local 検証不可）
