@@ -1,29 +1,58 @@
-// tests/unit/scripts/pre-ready-skip-classification.test.ts
-// #4018 — pre-ready が「条件による自動 skip」と「--skip 指定」を区別する。
-//
-// ## 何が壊れていたか
-//
-// `pre-ready.mjs` は両者を同じ `skipped[]` に入れており、`--skip-*` を 1 つも渡していない
-// 実行でも summary が `PARTIAL PASS — N step が --skip 指定で未実行です` になっていた。
-// `lp-dimensions` は `site/**` を触る PR でしか実行されないため、**LP を触らない PR は
-// 原理的に ALL PASS を表示できない**。summary 自身が「Ready 化には skip なしの全 step PASS
-// が必要」と書くので、到達不能な条件を Ready 化要件として提示する状態だった。
-//
-// 実害は既に出ている: merge 済 #4011 (変更 3 file、LP 0 件) の PR body には
-// 「pre-ready 全 Step PASS」の `[x]` が 2 箇所あるが、実際の出力は PARTIAL PASS だった。
-// tool の出力と self-report が食い違ったまま merge されている (#4006 が指す
-// 「証跡なしの自己申告」が tool 側の欠陥によって強制されている形)。
-//
-// ## 本 test が固定すること
-//
-// 「適用対象外だけなら ALL PASS」と「--skip 指定があれば PARTIAL PASS」の両方。
-// 片方だけだと、分類を捨てて常に ALL PASS を返す修正でも緑になってしまう。
+/**
+ * tests/unit/scripts/pre-ready-skip-classification.test.ts (#4018)
+ *
+ * ## 何が壊れていたか
+ *
+ * `pre-ready.mjs` は「条件による自動 skip」と「`--skip-*` flag による明示 skip」を同じ
+ * `skipped[]` に入れており、`--skip-*` を 1 つも渡していない実行でも summary が
+ * `PARTIAL PASS — N step が --skip 指定で未実行です` になっていた。
+ *
+ * `lp-dimensions` は `site/` 配下を触る PR でしか実行されないため、**LP を触らない PR は
+ * 原理的に ALL PASS を表示できない**。summary 自身が「Ready 化には skip なしの全 step PASS
+ * が必要」と書くので、到達不能な条件を Ready 化要件として提示する状態だった。
+ *
+ * 実害は既に出ている: merge 済 #4011 (変更 3 file、LP 0 件) の PR body には
+ * 「pre-ready 全 Step PASS」の `[x]` が 2 箇所あるが、実際の出力は PARTIAL PASS だった。
+ * tool の出力と self-report が食い違ったまま merge されている (#4006 が指す
+ * 「証跡なしの自己申告」が tool 側の欠陥によって強制されている形)。
+ *
+ * ## 本 test が固定すること
+ *
+ * 「適用対象外だけなら ALL PASS」と「--skip 指定があれば PARTIAL PASS」の両方。
+ * 片方だけだと、分類を捨てて常に ALL PASS を返す修正でも緑になってしまう。
+ *
+ * ## 呼び出し方式
+ *
+ * `pre-ready.mjs` は plain .mjs (未 JSDoc 型) で、.ts から静的 import すると svelte-check の
+ * 型 program に取り込まれ既存の implicit-any を大量に露出する。`pre-ready-preflight.test.ts`
+ * (#3857) と同じく node 子プロセスの dynamic import 経由で呼ぶ (isMain guard により
+ * import 時に main() は走らない)。
+ */
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error — .mjs (JSDoc 型) を TS から読む。他の scripts 系 test と同じ扱い
-import { buildSummary, skipStateOf } from '../../../scripts/pre-ready.mjs';
+
+const repoRoot = resolve(fileURLToPath(import.meta.url), '../../../..');
+const preReadyUrl = pathToFileURL(resolve(repoRoot, 'scripts/pre-ready.mjs')).href;
+
+/** pre-ready.mjs の named export を子プロセスで呼び、戻り値を JSON で受け取る。 */
+function callExport<T>(fnName: string, arg: unknown): T {
+	const code = `const m = await import(${JSON.stringify(preReadyUrl)});
+process.stdout.write(JSON.stringify(m[${JSON.stringify(fnName)}](${JSON.stringify(arg)})));`;
+	const out = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+		encoding: 'utf8',
+	});
+	return JSON.parse(out) as T;
+}
+
+type SkipState = { skip: boolean; skipKind: 'flag' | 'script-missing' | 'n/a' | null };
+type Summary = { status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string };
+
+const skipStateOf = (arg: Record<string, boolean>) => callExport<SkipState>('skipStateOf', arg);
+const buildSummary = (arg: Record<string, unknown>) => callExport<Summary>('buildSummary', arg);
 
 describe('#4018 skipStateOf — skip 理由の分類', () => {
 	it('[K1] --skip flag が最優先で flag に分類される', () => {
@@ -91,8 +120,9 @@ describe('#4018 buildSummary — ALL PASS 到達可能性', () => {
 			skippedNotApplicable: ['lp-dimensions', 'capture'],
 			pr: '3996',
 		});
-		const skipLine = summary.text.split('\n').find((l) => l.includes('--skip 指定'));
-		const naLine = summary.text.split('\n').find((l) => l.includes('適用対象外'));
+		const lines = summary.text.split('\n');
+		const skipLine = lines.find((l) => l.includes('--skip 指定'));
+		const naLine = lines.find((l) => l.includes('適用対象外'));
 		expect(skipLine).toBeDefined();
 		expect(naLine).toBeDefined();
 		expect(skipLine).not.toBe(naLine);
@@ -131,7 +161,7 @@ describe('#4018 回帰 gate — 新しい step が分類を迂回しないこと
 	// 集計ループの else 分岐で n/a に落ちる = **明示 skip が ALL PASS を妨げなくなる**。
 	// その方向の劣化は summary が緑になるだけで誰も気づけないため、ソース側で禁じる。
 	it('[K10] buildSteps 内に skip: の直書きが残っていない', () => {
-		const src = readFileSync(resolve(process.cwd(), 'scripts/pre-ready.mjs'), 'utf8');
+		const src = readFileSync(resolve(repoRoot, 'scripts/pre-ready.mjs'), 'utf8');
 		const offenders = src
 			.split('\n')
 			.map((line, i) => ({ line: line.trim(), no: i + 1 }))
