@@ -354,7 +354,7 @@ describe('#4013 持ち主の同一性は sessionId で持つ', () => {
 			target: 'PR #2',
 		});
 		expect(other.ok).toBe(false);
-		expect(other.holder.target).toBe('PR #1');
+		expect(other.holder?.target).toBe('PR #1');
 	});
 
 	it('取得時と解放時で PID が変わっても解放できる (解放が no-op にならない)', () => {

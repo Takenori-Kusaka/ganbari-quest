@@ -57,7 +57,22 @@ const SHARED_BOUNDARY =
 const SHELL_WRAPPER =
 	/^(cmd(\.exe)?|bash(\.exe)?|sh|dash|zsh|powershell(\.exe)?|pwsh(\.exe)?|conhost\.exe)$/i;
 
-/** セッションの持ち主になりうるか。 */
+/**
+ * プロセス一覧の 1 行。`snapshotProcesses` / テスト table の共通の形。
+ *
+ * @typedef {object} ProcInfo
+ * @property {number} pid
+ * @property {number} ppid
+ * @property {string} name 実行ファイル名
+ * @property {string} cmd コマンドライン全体
+ */
+
+/**
+ * セッションの持ち主になりうるか。
+ *
+ * @param {ProcInfo | undefined} proc
+ * @returns {boolean}
+ */
 function isSessionLike(proc) {
 	if (!proc) return false;
 	if (SHELL_WRAPPER.test(proc.name ?? '')) return false;
@@ -71,9 +86,10 @@ function isSessionLike(proc) {
  * 1 回の spawn で全件を取る。祖先 1 段ごとに spawn すると、hook の実行時間が
  * 段数分だけ伸びるため。
  *
- * @returns {Map<number, {pid: number, ppid: number, name: string, cmd: string}>}
+ * @returns {Map<number, ProcInfo>}
  */
 export function snapshotProcesses() {
+	/** @type {Map<number, ProcInfo>} */
 	const table = new Map();
 	if (process.platform === 'win32') {
 		const script =
@@ -119,7 +135,7 @@ export function snapshotProcesses() {
  * 祖先を辿ってセッションの持ち主プロセスを決める。
  *
  * @param {number} startPid 辿り始める PID (通常は `process.ppid`)
- * @param {Map<number, object>} [table] プロセス一覧 (テストから差し替える)
+ * @param {Map<number, ProcInfo>} [table] プロセス一覧 (テストから差し替える)
  * @returns {{pid: number | null, name: string | null, via: string, chain: number[]}}
  *   `via` は判定経路の記録。lock ファイルに残し、実環境での挙動を後から検証できるようにする。
  */
@@ -127,8 +143,10 @@ export function resolveSessionOwner(startPid, table) {
 	const procs = table ?? snapshotProcesses();
 	if (procs.size === 0) return { pid: null, name: null, via: 'no-process-table', chain: [] };
 
+	/** @type {number[]} */
 	const chain = [];
 	const seen = new Set();
+	/** @type {ProcInfo | null} */
 	let owner = null;
 	let cursor = Number(startPid);
 
