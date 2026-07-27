@@ -13,6 +13,7 @@ import {
 	checkAcMap,
 	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
+	checkPlaceholders,
 	checkPoDecisionBrief,
 	checkSelfReviewEvidence,
 	detectMojibake,
@@ -29,9 +30,12 @@ import {
 	hasHotfixLabel,
 	hasPoDecisionLabel,
 	LABEL_CONDITIONAL_GATES,
+	PLACEHOLDER_PATTERNS,
 	PO_DECISION_LABEL,
+	parsePlaceholderScanSkip,
 	resolveLabels,
 	scanForbiddenTerms,
+	scanPlaceholders,
 	stripCodeBlocks,
 	stripMarkdownComments,
 } from '../../../scripts/check-pr-body.mjs';
@@ -954,5 +958,119 @@ describe('extractLabelNames — shell 引用に依存せず label を取り出�
 		expect(fetched).toBeNull();
 		const r = resolveLabels({ pr: '3965', labels: null, noLabels: false }, fetched);
 		expect('labels' in r).toBe(false);
+	});
+});
+
+describe('未置換プレースホルダ検出 (#4002 / #4029)', () => {
+	// #4002 の body 断片。`[x]` の根拠が code fence 内の未置換トークンだけ、という実例。
+	const PR4002_FRAGMENT = [
+		'## テスト & 安全装置セルフチェック',
+		'',
+		'- [x] **`npm run pre-ready` 全 Step PASS** — ログは下記',
+		'',
+		'```console',
+		'PRE_READY_LOG_PLACEHOLDER',
+		'```',
+		'',
+	].join('\n');
+
+	it('[PH1] fence 内の *_PLACEHOLDER を検出する — 本 Issue の実例', () => {
+		const found = scanPlaceholders(PR4002_FRAGMENT);
+		expect(found).toHaveLength(1);
+		expect(found[0]?.token).toBe('PRE_READY_LOG_PLACEHOLDER');
+		expect(found[0]?.id).toBe('placeholder-token');
+		// 行番号は raw body の行番号と一致する (HTML コメント除去で行がずれない)
+		expect(found[0]?.lineNo).toBe(6);
+	});
+
+	it('[PH2] 置換すれば pass する (mutation の裏返し)', () => {
+		const replaced = PR4002_FRAGMENT.replace(
+			'PRE_READY_LOG_PLACEHOLDER',
+			'Step 1/12 biome check ... PASS',
+		);
+		expect(scanPlaceholders(replaced)).toEqual([]);
+		expect(checkPlaceholders(replaced).violation).toBeNull();
+	});
+
+	it('[PH3] checkPlaceholders は違反として返す (gate として繋がっている)', () => {
+		const result = checkPlaceholders(PR4002_FRAGMENT);
+		expect(result.violation?.id).toBe('unreplaced-placeholder');
+		expect(result.violation?.message).toContain('PRE_READY_LOG_PLACEHOLDER');
+	});
+
+	it('[PH4] 各トークン種別を body のどこにあっても検出する', () => {
+		const body = [
+			'普通の本文 ___',
+			'結果: TBD',
+			'担当: XXX',
+			'| AC1 | <ここに AC 内容> | grep | OK |',
+			'```',
+			'PLACEHOLDER',
+			'```',
+		].join('\n');
+		const ids = new Set(scanPlaceholders(body).map((v) => v.id));
+		expect([...ids].sort()).toEqual(
+			['japanese-angle-slot', 'placeholder-token', 'tbd', 'underscore-blank', 'xxx'].sort(),
+		);
+	});
+
+	it('[PH5] HTML コメント内の記入ガイドは対象外 (template 由来で開発者の本文ではない)', () => {
+		expect(scanPlaceholders('<!-- 例: ___ を実際の値に置換する / TBD 禁止 -->\n本文\n')).toEqual(
+			[],
+		);
+	});
+
+	it('[PH6] XXX は #XXX / URL path / 語中を拾わない (誤検出の狭め、#4029)', () => {
+		const body = [
+			'関連 Issue の書式は #XXX のように書く',
+			'https://example.com/XXX/detail',
+			'識別子 XXXY は語中なので対象外',
+		].join('\n');
+		expect(scanPlaceholders(body).filter((v) => v.id === 'xxx')).toEqual([]);
+	});
+
+	it('[PH7] 小文字の placeholder という英単語は拾わない', () => {
+		expect(scanPlaceholders('this is a placeholder image for the LP')).toEqual([]);
+	});
+
+	it('[PH8] 宣言があるときだけ skip され、理由が短ければ違反になる', () => {
+		const skipped = `${PR4002_FRAGMENT}\n<!-- placeholder-scan-skip: 本 gate の検出トークンを body 内で説明するため -->\n`;
+		const r1 = checkPlaceholders(skipped);
+		expect(r1.violation).toBeNull();
+		expect(r1.notes.join('\n')).toContain('SKIPPED');
+
+		const emptyReason = `${PR4002_FRAGMENT}\n<!-- placeholder-scan-skip: - -->\n`;
+		expect(checkPlaceholders(emptyReason).violation?.id).toBe(
+			'placeholder-scan-skip-reason-missing',
+		);
+	});
+
+	it('[PH9] label 相当の文字列を body に書いても skip されない (fail-open にしない)', () => {
+		const labelish = `${PR4002_FRAGMENT}\nlabels: placeholder-allowed\n`;
+		expect(checkPlaceholders(labelish).violation?.id).toBe('unreplaced-placeholder');
+		expect(parsePlaceholderScanSkip(labelish).declared).toBe(false);
+	});
+
+	it('[PH10] PO 決裁セクションの ___ 検出は従来どおり動く (回帰なし)', () => {
+		const body = [
+			'## PO 決裁ブリーフ',
+			'',
+			'```mermaid',
+			'flowchart TD',
+			'  A --> B',
+			'```',
+			'',
+			'- 影響: ___',
+		].join('\n');
+		const r = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(r?.id).toBe('po-decision-brief-unfilled-placeholder');
+	});
+
+	it('[PH11] パターン定義はヘルプ表示用の label を全件持つ', () => {
+		expect(PLACEHOLDER_PATTERNS.length).toBeGreaterThanOrEqual(5);
+		for (const p of PLACEHOLDER_PATTERNS) {
+			expect(p.id).toBeTruthy();
+			expect(p.label).toBeTruthy();
+		}
 	});
 });

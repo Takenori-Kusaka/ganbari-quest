@@ -108,7 +108,8 @@ closes #{{ISSUE_NUMBER}}
 
 ## Ready for Review チェックリスト
 
-- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
+<!-- pre-ready の実行証跡はチェック項目にしない（本リストの未チェックを check-pr-body が block し、その check-pr-body を pre-ready 自身が呼ぶため自己参照 deadlock、#4022）。ログのパスと結果を PR body 本文に記載する。 -->
+
 - [ ] LP メトリクス全指標 PASS をローカル確認した（`measure-lp-dimensions.mjs`）
 - [ ] セルフレビュー済み
 - [ ] 全 AC が実装済み
