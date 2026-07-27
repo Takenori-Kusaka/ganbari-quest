@@ -61,15 +61,15 @@ npx vitest run tests/unit/services/trial-notification-service.test.ts
 # scheduler コンテナを含めて起動
 ssh <NUC_USER>@<NUC_HOST> "cd <NUC_APP_DIR> && docker compose --profile scheduler up -d"
 
-# scheduler 登録確認 (起動ログに 9 jobs registered と出る)
+# scheduler 登録確認 (起動ログに 7 jobs registered と出る)
 ssh <NUC_USER>@<NUC_HOST> "cd <NUC_APP_DIR> && docker compose logs scheduler | head -30"
 
 # 期待出力:
-#   [scheduler] registered: license-expire (0 0 * * * JST) → http://app:3000/api/cron/license-expire
+#   [scheduler] registered: age-recalc (0 0 * * * JST) → http://app:3000/api/cron/age-recalc
 #   [scheduler] registered: retention-cleanup (0 1 * * * JST) → http://app:3000/api/cron/retention-cleanup
 #   [scheduler] registered: trial-notifications (0 9 * * * JST) → http://app:3000/api/cron/trial-notifications
 #   ...
-#   [scheduler] started. APP_URL=http://app:3000, jobs=9
+#   [scheduler] started. APP_URL=http://app:3000, jobs=7
 
 # 手動 dryRun テスト (副作用なし)
 ssh <NUC_USER>@<NUC_HOST> "curl -s -X POST http://localhost:3000/api/cron/retention-cleanup \
@@ -84,19 +84,18 @@ ssh <NUC_USER>@<NUC_HOST> "curl -s -X POST http://localhost:3000/api/cron/retent
 > これは「申し送り」ではなく Issue 設計時点で PO scope として明示済み (#1377 本文「開発チームへの注記 (AWS CLI 権限)」参照)。
 
 ```bash
-# 1. EventBridge Rule の登録確認 (Sub A-3 対象 3 rule 含む全 6 rule)
+# 1. EventBridge Rule の登録確認 (CRON_JOBS = compute-stack.ts の 5 rule)
 aws events list-rules --name-prefix ganbari-quest-cron --region us-east-1
 
-# 期待: 以下の name で 6 件以上 (#1377 時点 6 rule, #1601/#1598/#1693 で増加)
-#   - ganbari-quest-cron-license-expire
+# 期待: 以下の 5 件 (SSOT: infra/lib/compute-stack.ts の CRON_JOBS)
 #   - ganbari-quest-cron-retention-cleanup
 #   - ganbari-quest-cron-trial-notifications
 #   - ganbari-quest-cron-lifecycle-emails
 #   - ganbari-quest-cron-pmf-survey
-#   - ganbari-quest-cron-analytics-aggregator-daily
+#   - ganbari-quest-cron-export-build
 
 # 2. dispatcher Lambda の dryRun smoke test (deploy.yml で自動実行済みだが手動でも可能)
-for job in license-expire retention-cleanup trial-notifications; do
+for job in retention-cleanup trial-notifications lifecycle-emails; do
   aws lambda invoke \
     --function-name ganbari-quest-cron-dispatcher \
     --payload "{\"cronJob\":\"$job\",\"dryRun\":true}" \
@@ -112,12 +111,12 @@ done
 
 # 3. CloudWatch Logs での実行ログ確認 (schedule 時刻前後)
 aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 \
-  --since 24h | grep -E "(license-expire|retention-cleanup|trial-notifications)"
+  --since 24h | grep -E "(retention-cleanup|trial-notifications|lifecycle-emails)"
 
 # 期待: schedule 時刻に dispatcher → endpoint が呼ばれた形跡 (status 200)
 
 # 4. 本番 invoke (dryRun なし — 実ジョブ実行)
-# 注意: retention-cleanup / license-expire は副作用あり。本番で手動 invoke する際は注意
+# 注意: retention-cleanup / lifecycle-emails は副作用あり。本番で手動 invoke する際は注意
 aws lambda invoke \
   --function-name ganbari-quest-cron-dispatcher \
   --payload '{"cronJob":"trial-notifications"}' \
@@ -140,7 +139,6 @@ curl -s -X POST <APP_URL>/api/cron/retention-cleanup
 # 期待: HTTP 401 (production) / 200 or 500 (AUTH_MODE=local)
 
 # C. 冪等性 (2 回連続 dryRun=false で副作用が増えないこと)
-# license-expire: 1 回目で revoke=N, 2 回目で revoke=0 になる
 # retention-cleanup: 1 回目で activityLogsDeleted=N, 2 回目で 0
 # trial-notifications: 同じ日付で再実行しても sent が増えない
 #   (notification-service が `getNotificationSchedule` で日付閾値判定)
