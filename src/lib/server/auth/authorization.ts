@@ -169,7 +169,17 @@ function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 	}
 
 	if (licenseStatus === AUTH_LICENSE_STATUS.SUSPENDED) {
-		// suspended = 読み取り専用。GET は許可、POST/PUT/DELETE は API レイヤで制御
+		// #3993: 旧コメントは「suspended = 読み取り専用。POST/PUT/DELETE は API レイヤで制御」
+		// と書いていたが、**その制御は存在しなかった**。読み手の全分岐が `allowed: true` を返し、
+		// API レイヤにも suspended を見て書き込みを拒む経路は無い。
+		//
+		// PO 判断 (#3993): `suspended` は「解約完了 = 無料プラン相当」であり読み取り専用にしない
+		// (`phase1-cancellation-requirements.md` FR-3「解約は無料プランに移行 (データ保持)」)。
+		// 退会 (アカウント削除) とは別動線であり、そちらの読み取り専用ロックは
+		// `hooks.server.ts` が `soft_deleted_at` で判定する。
+		//
+		// したがって**実装は正しく、コメントが誤っていた**。無料プラン相当として書き込みを許可し、
+		// 上限は free tier の plan limit が担う。
 		return { allowed: true };
 	}
 
