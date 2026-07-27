@@ -112,6 +112,10 @@ async function main() {
 	const common = {
 		ownerPid: owner.pid,
 		ownerVia: owner.via,
+		// 辿った祖先鎖をそのまま残す。hook 経路の実祖先鎖は登録するまで観測できないため、
+		// 「意図した acp の node を選べているか」を lock ファイルだけで後から検証できる
+		// ようにしておく (#4013)。
+		ownerChain: owner.chain,
 		agent: process.env.BUZZ_AGENT_NAME ?? null,
 		sessionId,
 		cwd,

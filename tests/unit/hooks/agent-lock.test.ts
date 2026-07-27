@@ -484,3 +484,143 @@ describe('#4013 resolveSessionOwner', () => {
 		expect(resolveSessionOwner(1, loop).pid).toBeNull();
 	});
 });
+
+/**
+ * #4013 / QM 申し送り 1: `readLock` の JSDoc cast は runtime validation ではない。
+ *
+ * lock file は `~/.buzz/.locks/` にあり同一マシンの任意プロセスが書ける。壊れた値の
+ * 落とし先はフィールドごとに違い、**「奪う方向」に倒れないこと**が本 describe の主題。
+ */
+describe('#4013 readLock は lock レコードのフィールドを検証する', () => {
+	let dir: string;
+	const original = process.env.AGENT_LOCK_DIR;
+
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), 'agent-lock-validate-'));
+		process.env.AGENT_LOCK_DIR = dir;
+	});
+
+	afterEach(() => {
+		if (original === undefined) delete process.env.AGENT_LOCK_DIR;
+		else process.env.AGENT_LOCK_DIR = original;
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	/** 壊れた lock を直接置く (本 module 以外の書き手を模す)。 */
+	function writeRawLock(record: Record<string, unknown>): void {
+		writeFileSync(lockPath('heavy'), `${JSON.stringify(record)}\n`);
+	}
+
+	it('ownerPid が数値でなければ null に落ちる (「死んでいる」と読まない)', () => {
+		writeRawLock({ key: 'heavy', ownerPid: 'not-a-pid', sessionId: 'session-a', startedAt: 0 });
+		expect(readLock('heavy')?.ownerPid).toBeNull();
+	});
+
+	it('ownerPid が壊れた lock は TTL 内なら奪えない', () => {
+		const now = 10_000_000;
+		writeRawLock({
+			key: 'heavy',
+			ownerPid: 'not-a-pid',
+			sessionId: 'session-a',
+			startedAt: now,
+			ttlMs: DEFAULT_TTL_MS,
+		});
+		// 修正前は isProcessAlive('not-a-pid') === false → stale 扱いで奪えていた。
+		// 「持ち主が誰か分からない」を「持ち主が死んでいる」と読むと排他が消える。
+		const result = acquire('heavy', { sessionId: 'session-b', now: now + 1_000 });
+		expect(result.ok).toBe(false);
+		expect(result.holder?.sessionId).toBe('session-a');
+	});
+
+	it('ownerPid が壊れた lock も TTL を超えれば奪える (永久ブロックにしない)', () => {
+		const now = 10_000_000;
+		writeRawLock({
+			key: 'heavy',
+			ownerPid: 'not-a-pid',
+			sessionId: 'session-a',
+			startedAt: now,
+			ttlMs: DEFAULT_TTL_MS,
+		});
+		const result = acquire('heavy', { sessionId: 'session-b', now: now + DEFAULT_TTL_MS + 1 });
+		expect(result.ok).toBe(true);
+	});
+
+	it('ownerPid が 0 / 負数 / 小数なら null に落ちる', () => {
+		for (const bad of [0, -1, 3.5]) {
+			writeRawLock({ key: 'heavy', ownerPid: bad, sessionId: 'session-a', startedAt: 0 });
+			expect(readLock('heavy')?.ownerPid).toBeNull();
+		}
+	});
+
+	it('startedAt が数値でなければ例外にする (TTL 判定の基準を失った lock を奪わせない)', () => {
+		writeRawLock({ key: 'heavy', ownerPid: process.pid, sessionId: 'session-a', startedAt: 'x' });
+		expect(() => readLock('heavy')).toThrow(/startedAt/);
+	});
+
+	it('startedAt が欠落していても例外にする', () => {
+		writeRawLock({ key: 'heavy', ownerPid: process.pid, sessionId: 'session-a' });
+		expect(() => readLock('heavy')).toThrow(/startedAt/);
+	});
+
+	it('ttlMs が壊れていれば DEFAULT_TTL_MS で判定する', () => {
+		const now = 10_000_000;
+		writeRawLock({
+			key: 'heavy',
+			ownerPid: null,
+			sessionId: 'session-a',
+			startedAt: now,
+			ttlMs: 'x',
+		});
+		expect(readLock('heavy')?.ttlMs).toBe(DEFAULT_TTL_MS);
+		expect(isStale(readLock('heavy'), now + DEFAULT_TTL_MS - 1)).toBe(false);
+		expect(isStale(readLock('heavy'), now + DEFAULT_TTL_MS + 1)).toBe(true);
+	});
+
+	it('sessionId が文字列でなければ null に落ち、同一性が成立しない', () => {
+		const now = 10_000_000;
+		writeRawLock({ key: 'heavy', ownerPid: null, sessionId: { a: 1 }, startedAt: now });
+		const holder = readLock('heavy');
+		expect(holder?.sessionId).toBeNull();
+		// 同一性が取れない lock は再入も解放もできず、TTL 満了まで誰も取れない (fail closed)。
+		expect(sameOwner(holder, { sessionId: 'session-a', ownerPid: null })).toBe(false);
+		expect(release('heavy', { sessionId: 'session-a', ownerPid: null })).toBe(false);
+	});
+
+	it('chain は正常なら保持される (ownerVia と対で証跡になる)', () => {
+		acquire('heavy', {
+			sessionId: 'session-a',
+			ownerPid: process.pid,
+			ownerVia: 'ancestor',
+			ownerChain: [26100, 6492, 28348, 7840],
+		});
+		expect(readLock('heavy')?.chain).toEqual([26100, 6492, 28348, 7840]);
+		expect(readLock('heavy')?.ownerVia).toBe('ancestor');
+	});
+
+	it('chain は 1 要素でも不正なら配列ごと null にする (半分正しい証跡を作らない)', () => {
+		writeRawLock({
+			key: 'heavy',
+			ownerPid: null,
+			sessionId: 'session-a',
+			startedAt: 0,
+			chain: [26100, 'x', 7840],
+		});
+		expect(readLock('heavy')?.chain).toBeNull();
+	});
+
+	it('chain が配列でなければ null にする', () => {
+		writeRawLock({
+			key: 'heavy',
+			ownerPid: null,
+			sessionId: 'session-a',
+			startedAt: 0,
+			chain: 7840,
+		});
+		expect(readLock('heavy')?.chain).toBeNull();
+	});
+
+	it('JSON として object でなければ従来どおり例外にする', () => {
+		writeFileSync(lockPath('heavy'), '"just a string"\n');
+		expect(() => readLock('heavy')).toThrow(/壊れています/);
+	});
+});

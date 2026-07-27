@@ -74,6 +74,7 @@ export const DEFAULT_TTL_MS = 60 * 60 * 1000;
  * @property {string} [key] lock の key
  * @property {number | null} ownerPid 保持者 (Claude セッション) の PID。解決できなければ null (#4013)
  * @property {string | null} [ownerVia] 持ち主 PID をどう決めたか (`session-owner.mjs` の判定経路)
+ * @property {number[] | null} [chain] 持ち主に辿り着くまでに通った祖先 PID 列 (#4013 の証跡)
  * @property {string | null} [agent] エージェント名 (GQ-Dev 等)
  * @property {string | null} [target] 作業対象 (PR #1234 等)
  * @property {string | null} [cwd] 実行 checkout
@@ -191,10 +192,93 @@ export function isStale(holder, now = Date.now()) {
 }
 
 /**
+ * 文字列フィールドを正規化する。空文字・非文字列は「無い」= null に落とす。
+ *
+ * @param {unknown} v
+ * @returns {string | null}
+ */
+function asStringOrNull(v) {
+	return typeof v === 'string' && v !== '' ? v : null;
+}
+
+/**
+ * PID 列フィールドを正規化する。**1 要素でも PID として不正なら配列ごと null** にする。
+ *
+ * 部分的に壊れた鎖を残すと、後から検証する人が「辿れた経路」として読んでしまう。
+ * 証跡は「正しいか、無いか」のどちらかであるべきで、半分だけ正しい形を作らない。
+ *
+ * @param {unknown} v
+ * @returns {number[] | null}
+ */
+function asPidArrayOrNull(v) {
+	if (!Array.isArray(v) || v.length === 0) return null;
+	return v.every((p) => typeof p === 'number' && Number.isInteger(p) && p > 0)
+		? /** @type {number[]} */ (v)
+		: null;
+}
+
+/**
+ * パース済みの lock レコードを `LockHolder` の形に正規化する。
+ *
+ * lock ファイルは `~/.buzz/.locks/` にあり、**同一マシンの任意のプロセスが書ける**。
+ * 本 module が唯一の書き手であるという前提は保証されていないので、JSDoc の cast
+ * (`/** @type {LockHolder} *\/`) は runtime の保証にならない (#4013 / QM 指摘)。
+ * `ownerVia` / `chain` を「後から検証できる証跡」として載せる以上、その土台を
+ * 未検証のままにはできないため、読み出し時に 1 枚挟む。
+ *
+ * 壊れた値の落とし先は**フィールドごとに違う**。理由は「安全な既定値があるか」である。
+ *
+ * | フィールド | 壊れていたら | なぜ |
+ * |---|---|---|
+ * | `ownerPid` | `null` に落とす | `null` = 「持ち主を解決できなかった」は本設計に既存の正当な状態。以降は生存判定せず TTL のみで判定する。**「死んでいる」と読んで奪うと排他が消える** (#4013 の根と同型) |
+ * | `startedAt` | **例外** | TTL 判定の基準時刻であり、安全な既定値が存在しない。`0` に落とすと `now - 0 > ttl` で即 stale = 生きている lock を奪う。判定できないなら通さない (fail closed) |
+ * | `ttlMs` | `DEFAULT_TTL_MS` | 最大 1 時間で回収されるだけで、奪う方向には効かない |
+ * | `chain` | `null` に落とす (1 要素でも不正なら配列ごと) | 半分だけ正しい証跡は誤読の元。証跡は「正しいか、無いか」のどちらかにする |
+ * | `sessionId` / その他 | `null` に落とす | 同一性が取れなくなるので再入・解放が no-op になり、TTL 満了まで**誰も取れない**。fail closed 側 |
+ *
+ * @param {unknown} parsed
+ * @returns {LockHolder}
+ */
+function normalizeHolder(parsed) {
+	if (!parsed || typeof parsed !== 'object') throw new Error('object ではありません');
+	const o = /** @type {Record<string, unknown>} */ (parsed);
+
+	const rawStarted = o.startedAt;
+	if (typeof rawStarted !== 'number' || !Number.isFinite(rawStarted)) {
+		// ここだけ例外。TTL 判定の基準を失った lock は「まだ生きている」とも
+		// 「もう死んでいる」とも言えない。判定できない状態で奪わせない。
+		throw new Error(`startedAt が数値ではありません (received: ${JSON.stringify(rawStarted)})`);
+	}
+
+	const rawPid = o.ownerPid;
+	const ownerPid =
+		typeof rawPid === 'number' && Number.isInteger(rawPid) && rawPid > 0 ? rawPid : null;
+
+	const rawTtl = o.ttlMs;
+	const ttlMs = typeof rawTtl === 'number' && Number.isFinite(rawTtl) ? rawTtl : DEFAULT_TTL_MS;
+
+	return {
+		key: asStringOrNull(o.key) ?? undefined,
+		ownerPid,
+		ownerVia: asStringOrNull(o.ownerVia),
+		chain: asPidArrayOrNull(o.chain),
+		agent: asStringOrNull(o.agent),
+		target: asStringOrNull(o.target),
+		cwd: asStringOrNull(o.cwd),
+		sessionId: asStringOrNull(o.sessionId),
+		startedAt: rawStarted,
+		ttlMs,
+	};
+}
+
+/**
  * lock の現在の持ち主を読む。未取得なら null。
  *
  * 壊れた lock ファイルは **stale ではなく例外**にする。中身が読めない = 排他が
  * 成立しているか判定できない状態であり、黙って奪うと二重実行を許すためである。
+ *
+ * フィールド単位の検証は `normalizeHolder` が行う。**型 cast は runtime validation
+ * ではない**ので、ここを通さずに `LockHolder` として扱ってはならない。
  *
  * @param {string} key
  * @returns {LockHolder | null}
@@ -209,9 +293,7 @@ export function readLock(key) {
 		throw new Error(`agent-lock: lock を読めません (${path}): ${errInfo(err).message}`);
 	}
 	try {
-		const parsed = JSON.parse(raw);
-		if (!parsed || typeof parsed !== 'object') throw new Error('object ではありません');
-		return /** @type {LockHolder} */ (parsed);
+		return normalizeHolder(JSON.parse(raw));
 	} catch (err) {
 		throw new Error(`agent-lock: lock が壊れています (${path}): ${errInfo(err).message}`);
 	}
@@ -226,7 +308,7 @@ export function readLock(key) {
  * `sessionId` と `ownerPid` の**どちらも無い**呼び出しは、持ち主を識別できないため例外にする。
  *
  * @param {string} key
- * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number}} opts
+ * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, ownerChain?: number[] | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number}} opts
  * @returns {{ok: true, holder: LockHolder} | {ok: false, holder: LockHolder | null}}
  */
 export function acquire(key, opts) {
@@ -248,6 +330,7 @@ export function acquire(key, opts) {
 		// 持ち主 PID をどう決めたかの記録。実環境で解決に失敗していないかを、
 		// lock ファイルを見るだけで後から検証できるようにする (#4013)。
 		ownerVia: opts?.ownerVia ?? null,
+		chain: asPidArrayOrNull(opts?.ownerChain),
 		agent: opts?.agent ?? null,
 		target: opts?.target ?? null,
 		cwd: opts?.cwd ?? null,
