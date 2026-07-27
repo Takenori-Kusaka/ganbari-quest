@@ -70,7 +70,12 @@ lock ファイルは `~/.buzz/.locks/` にあり **同一マシンの任意の�
 | `chain` | 1 要素でも不正なら**配列ごと** `null` | 半分だけ正しい証跡は誤読の元。証跡は「正しいか、無いか」のどちらかにする |
 | `sessionId` ほか | `null` に落とす | 同一性が取れず再入・解放が no-op になる = TTL まで誰も取れない。fail closed 側 |
 
-壊れた lock は最大 1 時間 (既定 TTL) で回収される。急ぐ場合は `~/.buzz/.locks/` の該当ファイルを手で消す。
+**回収されるまでの時間はフィールドによって違う。ここを一律に書くと、実際より強い保証を約束することになる。**
+
+- `ownerPid` / `ttlMs` / `chain` / `sessionId` の破損 → **最大 1 時間 (既定 TTL) で自動回収される**。読み出しは成功し、TTL 判定に入るため
+- `startedAt` の破損 → **自動回収されない。手で消すまで恒久的に block する**。`readLock` が throw し、`acquire` / `release` はこれを try/catch していない (`scripts/lib/agent-lock.mjs`) ので、hook の `main().catch` が exit 2 に倒す。TTL 判定に到達しない
+
+どちらの場合も、hook の block メッセージが `~/.buzz/.locks/` の確認と削除を案内する。急ぐ場合は該当ファイルを手で消す。
 
 #### なぜ `process.ppid` を使わないか (#4013)
 

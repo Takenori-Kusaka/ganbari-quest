@@ -232,6 +232,11 @@ function asPidArrayOrNull(v) {
  * |---|---|---|
  * | `ownerPid` | `null` に落とす | `null` = 「持ち主を解決できなかった」は本設計に既存の正当な状態。以降は生存判定せず TTL のみで判定する。**「死んでいる」と読んで奪うと排他が消える** (#4013 の根と同型) |
  * | `startedAt` | **例外** | TTL 判定の基準時刻であり、安全な既定値が存在しない。`0` に落とすと `now - 0 > ttl` で即 stale = 生きている lock を奪う。判定できないなら通さない (fail closed) |
+ *
+ * **`startedAt` の破損だけは TTL で回収されない。** 本関数の throw は `acquire` /
+ * `release` が catch しないためそのまま伝播し、TTL 判定に到達しない。他フィールドの
+ * 破損は読み出しに成功するので最大 `DEFAULT_TTL_MS` で自動回収されるが、`startedAt`
+ * は手で lock ファイルを消すまで block が続く。hook 側の catch が削除を案内する。
  * | `ttlMs` | `DEFAULT_TTL_MS` | 最大 1 時間で回収されるだけで、奪う方向には効かない |
  * | `chain` | `null` に落とす (1 要素でも不正なら配列ごと) | 半分だけ正しい証跡は誤読の元。証跡は「正しいか、無いか」のどちらかにする |
  * | `sessionId` / その他 | `null` に落とす | 同一性が取れなくなるので再入・解放が no-op になり、TTL 満了まで**誰も取れない**。fail closed 側 |
