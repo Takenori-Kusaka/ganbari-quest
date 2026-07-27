@@ -169,7 +169,12 @@ function formatImportedAt(iso: string): string {
 	<!-- #3339: ごほうび交換のしかた（即時交換 / 親承認）。settings KVS reward_auto_approve、既定=承認必須。 -->
 	<Card padding="lg" variant="elevated">
 		{#snippet children()}
-		<section class="space-y-3" data-testid="rules-reward-approval-section">
+		<!-- #3954: ページガイド (settings-rules-approval) の anchor。常在セクション。 -->
+		<section
+			class="space-y-3"
+			data-testid="rules-reward-approval-section"
+			data-tutorial="rules-reward-approval"
+		>
 			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
 				{ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}
 			</h2>

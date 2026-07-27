@@ -1529,10 +1529,14 @@ export const PAGE_GUIDE_LABELS = {
 				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
 				goal: `必要な設定にすぐたどり着けるので、${OYAKAGI_TERMS.shortName}の変更やバックアップなどの「念のための備え」を迷わず行えます。`,
 			},
+			// #3954: hub のカードが 6→7 枚になったため、件数と「上から順に」の並びを実装に合わせる。
+			// ここが古いと、ガイドに従う保護者は列挙された 6 件の中に ごほうび・ボーナスルール を
+			// 見つけられず、カードを追加しても到達できない (#2905 と同じ形)。
+			// 件数と列挙数の一致は tests/unit/routes/settings-hub-coverage.test.ts [S5] / [S6] で gate 化。
 			'settings-hub': {
-				title: '画面の見方（6つの設定グループ）',
-				what: '設定は目的別に6つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. サポート — 感想・要望や規約\n6. プラン・課金 — 契約と支払い`,
+				title: '画面の見方（7つの設定グループ）',
+				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
 			},
 			'settings-account': {
@@ -1647,16 +1651,28 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminSettingsRules: {
-		title: 'とくべつルール',
+		// #3954: 本ページは #3339 で「ごほうび交換の承認要否」を持つようになったが、ガイドは
+		// 取り込んだボーナスルールしか案内しておらず、ガイドに従う保護者が承認要否に到達できなかった
+		// (hub カード / サブナビと同じ取り落とし。導線を直してもガイドが古いままなら未達)。
+		// title は ADMIN_RULES_PAGE_LABELS.pageTitle と同一文字列にする — 定数参照にしないのは
+		// ADMIN_RULES_PAGE_LABELS が本定義より後方で宣言されるため。一致は
+		// tests/unit/routes/settings-hub-coverage.test.ts [S7] で機械強制する。
+		title: 'ごほうび・ボーナスルール',
 		steps: {
 			'settings-rules-intro': {
 				title: 'このページについて',
-				what: `${TEMPLATE_TERMS.userFacing}から取り込んだ、ボーナスのルールを確認するページです。`,
-				how: '取り込んだルールがある時は一覧で並び、オン・オフや削除ができます。',
-				goal: '今どんなボーナスルールが効いているかを、まとめて確認できます。',
+				what: `ごほうび交換に保護者の承認が必要かどうかと、${TEMPLATE_TERMS.userFacing}から取り込んだボーナスのルールを決めるページです。`,
+				how: '上でごほうび交換の承認を切り替え、下で取り込んだルールを管理します。',
+				goal: '交換に承認を挟むかどうかと、効かせるボーナスをここでまとめて決められます。',
+			},
+			'settings-rules-approval': {
+				title: '画面の見方（ごほうび交換の承認）',
+				what: 'お子さまがごほうびを交換するときに、保護者の承認を必要とするかどうかをここで切り替えます。',
+				how: '1. 切り替えを操作します\n2. 承認なしにすると、お子さまはその場で交換できます',
+				goal: 'ご家庭の方針に合わせて、交換の承認を必要にするか選べます。',
 			},
 			'settings-rules-list': {
-				title: '画面の見方（取り込んだルール）',
+				title: 'よく使う操作（取り込んだルール）',
 				what: '取り込んだボーナスルールがここに並びます。まだ無いときは、その案内が表示されます。',
 				how: '1. ルールのオン・オフを切り替えます\n2. いらないルールは削除できます',
 				goal: 'ご家庭に合うルールだけを残して、ボーナスを整理できます。',
@@ -2538,6 +2554,10 @@ export const SETTINGS_LABELS = {
 	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
+	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
+	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
+	groupRulesTitle: 'ごほうび・ボーナスルール',
+	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
 	groupPlanTitle: 'プラン・課金',
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',
@@ -2562,6 +2582,10 @@ export const SETTINGS_NAV_LABELS = {
 	activities: '活動・ポイント',
 	notifications: '通知',
 	data: 'データ',
+	// #3954: hub カードと同じ経路をサブナビにも出す (どちらか片方だけだと、
+	// hub 経由で来た人はサブナビのタブが 1 つも選択されていない状態になる)。
+	// サブナビは横並びで幅が限られるため hub カードより短い表記にする。
+	rules: 'ごほうび・ルール',
 	support: 'サポート',
 	plan: 'プラン・課金',
 	externalIndicator: '別ページ',
@@ -5645,9 +5669,12 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 export const ADMIN_RULES_PAGE_LABELS = {
-	pageTitle: 'ボーナスルール',
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
 	pageDescription:
-		'お子さまの活動記録時に発火するボーナスポイントのルールです。ON / OFF で有効化を切り替えられます。',
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
 	emptyTitle: 'ボーナスルールがありません',
 	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
 	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,

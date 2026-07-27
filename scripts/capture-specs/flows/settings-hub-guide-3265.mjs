@@ -1,7 +1,9 @@
 /**
  * scripts/capture-specs/flows/settings-hub-guide-3265.mjs
- * PR #3265 (#3260 C1): /admin/settings ハブガイドの ②画面の見方（6グループ俯瞰）step を撮影。
- * 6 グループ全カードを上→下順に案内する改訂版の証跡。
+ * PR #3265 (#3260 C1): /admin/settings ハブガイドの ②画面の見方（7グループ俯瞰）step を撮影。
+ * 7 グループ全カードを上→下順に案内する改訂版の証跡。
+ * #3954: ごほうび・ボーナスルールの追加で 6→7 グループになったため件数表記を更新
+ * (本 spec は枚数を assert しないので CI は落ちないが、撮り直した SS に写る文言と食い違う)。
  */
 import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
 
@@ -23,7 +25,7 @@ export default async (page, capture) => {
 	await btn.first().click({ force: true });
 	const dialog = page.locator('[role="dialog"][aria-labelledby="page-guide-title"]');
 	await dialog.waitFor({ state: 'visible', timeout: 8_000 });
-	// ① 概要 → ② 画面の見方（6グループ俯瞰）へ「つぎへ」で進む
+	// ① 概要 → ② 画面の見方（7グループ俯瞰）へ「つぎへ」で進む
 	await dialog.getByRole('button', { name: /つぎへ/ }).click();
 	// step 2 (settings-hub) の bubble が確定し進捗が「2 / 3」になるまで待つ（遷移途中の空吹き出し回避）
 	await page.locator('.guide-bubble[data-step-id="settings-hub"]').waitFor({

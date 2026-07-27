@@ -9,6 +9,7 @@
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS, SETTINGS_NAV_LABELS } from '$lib/domain/labels';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import ErrorAlert from '$lib/ui/components/ErrorAlert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -51,6 +52,16 @@ const groupCards: GroupCard[] = [
 		desc: SETTINGS_LABELS.groupDataDesc,
 		icon: '💾',
 		testid: 'settings-hub-card-data',
+	},
+	{
+		// #3954: 実装済みの「ごほうび交換の承認要否」(#3339) / ボーナスルール ON/OFF が
+		// hub から辿れず、実オーナーから「どこから変更可能ですか」と問い合わせが来た。
+		// 活動・ポイント (activities) と紛らわしくならないよう、ごほうび文脈を先頭に置く。
+		href: '/admin/settings/rules',
+		title: SETTINGS_LABELS.groupRulesTitle,
+		desc: SETTINGS_LABELS.groupRulesDesc,
+		icon: CONCEPT_ICONS.reward,
+		testid: 'settings-hub-card-rules',
 	},
 	{
 		href: '/admin/settings/support',
