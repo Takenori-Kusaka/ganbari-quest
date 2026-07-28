@@ -996,6 +996,31 @@ describe('#4006 pre-ready receipt gate', () => {
 		expect(claimsPreReadyPass(`<!--\n${CHECKED}\n-->`)).toBe(false);
 	});
 
+	it('[PR1b] PR template の実文言を宣言として検出する (matcher の空振り防止)', () => {
+		// template 側の文言が変わって matcher が空振りすると、gate が黙って無効化される (#4001 同 class)。
+		// template から pre-ready 行を実際に抜き、[x] 化して検出できることを固定する。
+		const template = readFileSync(
+			resolve(__dirname, '../../../.github/PULL_REQUEST_TEMPLATE.md'),
+			'utf8',
+		);
+		const claimLines = template
+			.split('\n')
+			.filter((l) => /^\s*-\s*\[\s*\]/.test(l) && /pre-ready/i.test(l))
+			.map((l) => l.replace(/\[\s*\]/, '[x]'));
+		expect(claimLines.length).toBeGreaterThanOrEqual(2); // テスト欄 + Ready checklist 欄
+		for (const line of claimLines) {
+			expect(claimsPreReadyPass(line)).toBe(true);
+		}
+	});
+
+	it('[PR1c] pre-ready を単に言及するだけの [x] は宣言と誤認しない', () => {
+		// セルフレビュー欄の「`pre-ready.mjs` と `check-pr-body.mjs` が同一 SSOT を参照する」等。
+		// 誤認すると、pre-ready の話題に触れた PR すべてに receipt を要求してしまう。
+		const mention =
+			'- [x] **DRY**: 検証 script を新設せず `check-pr-body.mjs` (pre-ready Step 9 が呼ぶ file) を拡張した';
+		expect(claimsPreReadyPass(mention)).toBe(false);
+	});
+
 	it('[PR2] [x] なのに receipt が無い body は落ちる', () => {
 		const v = checkPreReadyReceipt(bodyWith(CHECKED), { pr: '4006', actualHeadSha: HEAD_SHA });
 		expect(v?.id).toBe('pre-ready-receipt-missing');

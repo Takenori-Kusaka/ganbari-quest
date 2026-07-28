@@ -649,9 +649,27 @@ export function checkSelfReviewEvidence(body) {
  */
 export function claimsPreReadyPass(body) {
 	const stripped = stripMarkdownComments(body);
-	return stripped
-		.split('\n')
-		.some((line) => /^\s*-\s*\[x\]/i.test(line) && /pre-ready/i.test(line));
+	return stripped.split('\n').some((line) => isPreReadyPassClaim(line));
+}
+
+/**
+ * 1 行が「pre-ready 全 Step PASS を実行済と宣言する checkbox」かを判定する。
+ *
+ * `pre-ready` の語だけで判定すると、セルフレビュー欄の
+ * 「`pre-ready.mjs` と `check-pr-body.mjs` が同一 SSOT を参照する」のような**単なる言及**まで
+ * 宣言とみなし receipt を要求してしまう (本 PR 自身で誤検出を観測)。宣言文の骨である
+ * 「全 Step PASS」との同時出現を要求する。
+ *
+ * template 側の文言が変わってこの matcher が空振りすると gate が黙って無効化されるため、
+ * `tests/unit/scripts/check-pr-body.test.ts` [PR1b] が PR template の実文言で検出できることを
+ * 固定する (matcher の穴を放置しない、#4001 と同 class)。
+ *
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isPreReadyPassClaim(line) {
+	if (!/^\s*-\s*\[x\]/i.test(line)) return false;
+	return /pre-ready/i.test(line) && /全\s*step\s*pass/i.test(line);
 }
 
 /**
