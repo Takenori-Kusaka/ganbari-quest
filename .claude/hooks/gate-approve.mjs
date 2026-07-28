@@ -46,8 +46,17 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+	findGhInvocations,
+	isPullsSubresourcePath,
+	normalizeCommand,
+	parseGhApiInvocation,
+	sanitizeForDetection,
+} from '../../scripts/lib/gh-command.mjs';
 import { isMain } from '../../scripts/lib/is-main.mjs';
 import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
+
+export { normalizeCommand };
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
 export const REQUIRED_OBJECT_COUNT = 3; // must_object_count 強制値 (Echoing 抑制)
@@ -82,39 +91,28 @@ async function readStdin() {
  */
 export function isApproveAction(command) {
 	if (typeof command !== 'string') return false;
-	const normalized = normalizeCommand(command);
+	// #4027: `--body` / `--body-file` / heredoc の中身は判定材料にしない。
+	// hook 自身を説明する Issue / PR 本文に approve コマンド例を書くだけで BLOCK される事故の再発防止。
+	const sanitized = sanitizeForDetection(command);
 	// gh pr merge
-	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(normalized)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return true;
 	// gh pr review --approve
-	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(normalized)) return true;
-	// gh api .../pulls/<N>/merge (REST 直叩き)
-	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/merge\b/.test(normalized)) return true;
-	// gh api .../pulls/<N>/reviews (review 系 REST)
-	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/reviews\b/.test(normalized)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return true;
+	// gh api .../pulls/<N>/{merge,reviews} (REST 直叩き)。
+	// #4027: 部分一致でなく **引数として渡された API パス** で判定する。method は問わない
+	// (approve 相当を method 表記で回避されないよう検出幅は従来どおり維持する)。
+	for (const { argv } of findGhInvocations(sanitized)) {
+		const api = parseGhApiInvocation(argv);
+		if (!api.isApi) continue;
+		if (
+			api.paths.some(
+				(p) => isPullsSubresourcePath(p, 'merge') || isPullsSubresourcePath(p, 'reviews'),
+			)
+		) {
+			return true;
+		}
+	}
 	return false;
-}
-
-/**
- * PowerShell 経路で現れる表記ゆれを吸収してから regex 判定するための正規化 (#4001)。
- *
- * 吸収する差分 (Windows agent が自然に書く形):
- *   - 呼び出し演算子 + 引用符付き exe: `& 'gh' pr merge 1` / `& "gh.exe" pr merge 1`
- *   - backtick 行継続: "gh pr `\n merge 1"
- *   - 連続空白 / タブ
- *
- * 変換は「検出側を広げる」方向にのみ効く (正規化しても既存 Bash 表記の判定は変わらない)。
- * 変数間接参照 (`$c = 'gh pr merge 1'; iex $c`) 等の任意難読化は文字列検査では原理的に
- * 追えないが、それは Bash 経路にも元からある性質であり本 fix で新たに開いた穴ではない。
- *
- * @param {string} command
- * @returns {string}
- */
-export function normalizeCommand(command) {
-	return command
-		.replace(/`\r?\n/g, ' ') // PowerShell 行継続
-		.replace(/&\s*(['"])([^'"]+)\1/g, '$2') // & 'gh' → gh
-		.replace(/(['"])(gh(?:\.exe)?)\1/gi, '$2') // 'gh' → gh
-		.replace(/[ \t]+/g, ' ');
 }
 
 /**
@@ -187,7 +185,8 @@ export function collectStrings(value, depth = 0) {
 export function extractPrNumber(command) {
 	if (typeof command !== 'string') return null;
 	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
-	const normalized = normalizeCommand(command);
+	// #4027: あわせて --body / heredoc の中身を除去し、body 内の PR 番号を拾わないようにする
+	const normalized = sanitizeForDetection(command);
 	// gh pr <merge|review> [args] <N>
 	const m1 = normalized.match(/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
 	if (m1) return Number(m1[1]);
