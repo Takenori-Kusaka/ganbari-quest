@@ -276,7 +276,7 @@ export function parseReceiptFromBody(body) {
 	const fence = /```(?:json)?\s*\n([\s\S]*?)```/g;
 	let m = fence.exec(body);
 	while (m !== null) {
-		const inner = m[1];
+		const inner = m[1] ?? '';
 		if (inner.includes(`"${RECEIPT_TOOL}"`)) {
 			try {
 				const parsed = JSON.parse(inner);
