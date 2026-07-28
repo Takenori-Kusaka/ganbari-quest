@@ -5685,6 +5685,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	enableButton: '有効化',
 	disableButton: '無効化',
 	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
 	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
 	importedAtLabel: '取込日時',
 	rulesLabel: '含まれるルール',
@@ -5713,6 +5714,12 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	rewardApprovalEnableInstantButton: '即時交換にする',
 	rewardApprovalDisableInstantButton: '承認を必須に戻す',
 	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
