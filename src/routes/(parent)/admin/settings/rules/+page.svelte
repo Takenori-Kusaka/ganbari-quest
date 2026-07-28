@@ -445,7 +445,7 @@ function formatImportedAt(iso: string): string {
 		if (!details.open) dismissConfirm();
 	}}
 	title={pendingConfirm?.title ?? ''}
-	size="sm"
+	size="md"
 	testid="rules-confirm-dialog"
 >
 	{#snippet children()}
