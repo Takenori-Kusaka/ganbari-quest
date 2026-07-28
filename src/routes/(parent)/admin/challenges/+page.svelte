@@ -7,12 +7,14 @@ import {
 	APP_LABELS,
 	CHALLENGES_LABELS,
 	PAGE_TITLES,
+	UI_LABELS,
 } from '$lib/domain/labels';
 // CX-DoR #9・#11: empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 // #3195 (EPIC #3193): 親手動作成 / 競争モード / marketplace challenge-set 取込を撤去。
 // チャレンジはアプリが毎週自動生成する (child-challenge-service.getOrCreateWeeklyChildChallenge)。
@@ -20,6 +22,43 @@ import Button from '$lib/ui/primitives/Button.svelte';
 // 全プランに開放 (旧 family 限定 gate を撤去)。
 
 let { data, form } = $props();
+
+// #4023 横展開: 削除の確認ガード (admin/settings/rules と同一方式)。
+//
+// 停止は use:enhance の cancel() で行う。`onsubmit` + `e.preventDefault()` では
+// use:enhance が form に自前で登録する submit listener が defaultPrevented を見ない
+// (@sveltejs/kit/src/runtime/app/forms.js の handle_submit) ため、キャンセルしても
+// 削除 action が実行されていた。確認 UI は DESIGN.md §5 の Dialog primitive を使う。
+type PendingConfirm = { formEl: HTMLFormElement; title: string; body: string };
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(formEl: HTMLFormElement, title: string, body: string): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
 
 interface RewardConfig {
 	points: number;
@@ -211,11 +250,32 @@ function tabHref(childId: ChildId | 'all'): string {
 					<div class="flex justify-end gap-1 flex-wrap">
 						{#each group.instances as instance (instance.id)}
 							{@const child = data.children.find((c) => c.id === instance.childId)}
-							<form method="POST" action="?/delete" use:enhance
-								onsubmit={(e) => { if (!confirm(`「${group.title}」(${child?.nickname ?? '#' + instance.childId}) を削除しますか？`)) e.preventDefault(); }}
+							<form
+								method="POST"
+								action="?/delete"
+								use:enhance={({ formElement, cancel }) => {
+									// #4023 横展開: 削除は取り消せないので確認を 1 枚挟む。
+									if (
+										!passConfirm(
+											formElement,
+											ADMIN_CHALLENGES_PAGE_LABELS.deleteConfirmTitle,
+											ADMIN_CHALLENGES_PAGE_LABELS.deleteConfirmBody(
+												group.title,
+												child?.nickname ?? `#${instance.childId}`,
+											),
+										)
+									) {
+										cancel();
+									}
+								}}
 							>
 								<input type="hidden" name="id" value={instance.id} />
-								<Button type="submit" variant="ghost" size="sm">
+								<Button
+									type="submit"
+									variant="ghost"
+									size="sm"
+									data-testid="admin-challenge-delete-{instance.id}"
+								>
 									{group.instances.length >= 2 ? `${child?.nickname ?? '#' + instance.childId} を削除` : CHALLENGES_LABELS.deleteButton}
 								</Button>
 							</form>
@@ -226,3 +286,40 @@ function tabHref(childId: ChildId | 'all'): string {
 		</div>
 	{/if}
 </div>
+
+<!-- #4023 横展開: 削除確認ダイアログ (DESIGN.md §5 Dialog primitive) -->
+<Dialog
+	bind:open={confirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissConfirm();
+	}}
+	title={pendingConfirm?.title ?? ''}
+	size="md"
+	testid="admin-challenges-confirm-dialog"
+>
+	{#snippet children()}
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingConfirm?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissConfirm}
+			data-testid="admin-challenges-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="danger"
+			size="sm"
+			onclick={acceptConfirm}
+			data-testid="admin-challenges-confirm-accept"
+		>
+			{CHALLENGES_LABELS.deleteButton}
+		</Button>
+	</div>
+	{/snippet}
+</Dialog>

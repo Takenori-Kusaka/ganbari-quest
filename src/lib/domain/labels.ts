@@ -5265,6 +5265,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4023 横展開: 削除確認。旧実装は onsubmit + preventDefault で、キャンセルしても
+	// use:enhance 側の submit listener が走り削除が通っていた (admin/settings/rules と同型)。
+	deleteConfirmTitle: 'このチャレンジを削除しますか？',
+	deleteConfirmBody: (challengeTitle: string, childName: string) =>
+		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
