@@ -940,13 +940,15 @@ export function resolveDraftState(args, fetched) {
 	return { isDraft: false, source: 'unresolved' };
 }
 
+/** @typedef {{ id: string; issue: string; message: string }} Violation */
+
 /**
  * violations を「Draft では deferred するもの」と「常に enforce するもの」に分ける (#3997)。
  * `isDraft` が false のときは deferred が必ず空 (= 従来の挙動と完全一致)。
  *
- * @param {{ id: string; issue: string; message: string }[]} violations
+ * @param {Violation[]} violations
  * @param {boolean} isDraft
- * @returns {{ enforced: typeof violations; deferred: typeof violations }}
+ * @returns {{ enforced: Violation[]; deferred: Violation[] }}
  */
 export function partitionReadyOnlyViolations(violations, isDraft) {
 	if (!isDraft) return { enforced: violations, deferred: [] };

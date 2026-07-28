@@ -23,8 +23,10 @@ import {
 	resolveDraftState,
 } from '../../../scripts/check-pr-body.mjs';
 
+type Violation = { id: string; issue: string; message: string };
+
 /** 実運用で observed した violation id を並べた fixture (#3989 の実 fail + 体裁系)。 */
-const VIOLATIONS = [
+const VIOLATIONS: Violation[] = [
 	{ id: 'unchecked-ready-checklist', issue: '#1481', message: '未チェック 3 件' },
 	{ id: 'po-decision-brief-missing-section', issue: '#3962', message: 'ブリーフ欠落' },
 	{ id: 'missing-required-sections', issue: '#1718', message: 'セクション欠落' },
