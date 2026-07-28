@@ -87,6 +87,44 @@ export function fetchPrHeadSha(prNumber, deps = {}) {
 	return { ok: true, sha };
 }
 
+/**
+ * pre-ready が Step 9 の子プロセスに渡す「実行中」フラグの env 名。
+ *
+ * 値 `'1'` のときだけ receipt gate が適用対象外になる (`isPreReadyReceiptGateApplicable`)。
+ * pre-ready 自身が spawn 時に注入する内部フラグであり、人が設定する用途は無い。
+ */
+export const PRE_READY_IN_PROGRESS_ENV = 'PRE_READY_IN_PROGRESS';
+
+/**
+ * pre-push 実行環境の健全性を検査する。
+ *
+ * `PRE_READY_IN_PROGRESS` が shell / profile / ラッパースクリプトに残っていると、
+ * `.husky/pre-push` が呼ぶ check-pr-body で receipt gate が毎回 skip される。SKIPPED 行は
+ * 出るが hook 出力に流れるだけで push は止まらず、**env 1 つで gate を無効化できる**状態になる
+ * (ADR-0006 禁止 5 項目「`ALLOW_*=true` で gate を無効化」と同型)。
+ *
+ * **pre-ready は push しないため、pre-push 実行時にこの env が立っている正当なケースは存在しない。**
+ * したがって「無視して続行」ではなく、環境汚染または gate 迂回として hard fail させる。
+ * 値が `'1'` 以外でも、立っていること自体が異常なので落とす (将来 `'true'` 等を許容値に
+ * 増やした瞬間に穴が開くのを防ぐ)。
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {{ ok: true } | { ok: false; message: string }}
+ */
+export function checkPrePushEnvIntegrity(env = process.env) {
+	const value = env[PRE_READY_IN_PROGRESS_ENV];
+	if (value === undefined || value === '') return { ok: true };
+	return {
+		ok: false,
+		message:
+			`${PRE_READY_IN_PROGRESS_ENV}=${JSON.stringify(value)} が pre-push 実行時に設定されています。\n` +
+			`  この env は pre-ready が Step 9 の子プロセスにだけ渡す内部フラグで、'1' のとき receipt gate を無効化します。\n` +
+			'  pre-ready は push しないため、pre-push 実行時にこの env が立っていることはあり得ません。\n' +
+			`  対応: シェルから unset してください (bash: \`unset ${PRE_READY_IN_PROGRESS_ENV}\` / PowerShell: \`Remove-Item Env:\\${PRE_READY_IN_PROGRESS_ENV}\`)。\n` +
+			'  ラッパースクリプトや profile で export していないかも確認してください (一度 export すると以後ずっと gate が素通りします)。',
+	};
+}
+
 // ---------------------------------------------------------------------------
 // 並走検知 (AC5)
 // ---------------------------------------------------------------------------

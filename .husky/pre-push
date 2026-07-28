@@ -141,7 +141,10 @@ if [ -n "$PR_NUM" ]; then
 	# (#2060 / #2576 / #2586 / #2633 第 5 弾)。
 	# #3962: `po-decision:required` label 付き PR の PO 決裁ブリーフ欠落もここで落ちる
 	# (label は labeler.yml が自動付与するため、body 側の追従漏れが #3944 / #3956 で 2 回連続した)。
-	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable || {
+	# #4006: --pre-push を渡すと、gate 無効化 env (PRE_READY_IN_PROGRESS) が環境に残っていないことを
+	# 先に検証する。pre-ready は push しないため、pre-push 実行時にこの env が立っている正当なケースは
+	# 無い。立っていれば receipt gate が黙って skip されるので、無視して続行せず hard fail させる。
+	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable --pre-push || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: PR body 検証 fail (exit $EXIT_CODE)"
 		echo "          対処: tmp/pr-bodies/<slug>.md を編集 + gh pr edit --body-file"

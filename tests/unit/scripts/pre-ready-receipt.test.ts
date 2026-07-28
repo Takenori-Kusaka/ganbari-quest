@@ -20,14 +20,17 @@
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
 	acquireRunLock,
 	buildReceipt,
+	checkPrePushEnvIntegrity,
 	countOtherLivePreReadyRuns,
 	fetchPrHeadSha,
 	formatReceiptBlock,
+	PRE_READY_IN_PROGRESS_ENV,
 	parseReceiptFromBody,
 	RECEIPT_SCHEMA_VERSION,
 	releaseRunLock,
@@ -35,6 +38,7 @@ import {
 	writeReceipt,
 } from '../../../scripts/lib/ci/pre-ready-receipt.mjs';
 
+const repoRoot = resolve(fileURLToPath(import.meta.url), '../../../..');
 const HEAD = 'a'.repeat(40);
 const OTHER_HEAD = 'b'.repeat(40);
 const tempRoots: string[] = [];
@@ -127,6 +131,38 @@ describe('#4006 receipt writer — 実行の事実が落ちずに記録される
 		expect(countOtherLivePreReadyRuns(root, process.pid + 1)).toBe(1);
 		releaseRunLock(lockPath);
 		expect(countOtherLivePreReadyRuns(root, process.pid + 1)).toBe(0);
+	});
+});
+
+describe('#4006 gate 無効化 env の遮断 (pre-push)', () => {
+	// PRE_READY_IN_PROGRESS=1 は receipt gate を無効化する。pre-ready は push しないので、
+	// pre-push 実行時にこの env が立っているのは環境汚染か gate 迂回のいずれかしかない。
+	// 「無視して続行」にすると ADR-0006 禁止の「env 1 つで gate を切れる」状態に戻る。
+	it('[R14] env が立っていたら拒否する', () => {
+		const denied = checkPrePushEnvIntegrity({ [PRE_READY_IN_PROGRESS_ENV]: '1' });
+		expect(denied.ok).toBe(false);
+		if (denied.ok === false) {
+			expect(denied.message).toContain('unset');
+			expect(denied.message).toContain('pre-ready は push しない');
+		}
+		// '1' 以外でも立っている時点で異常 (将来 '1' 以外を許容値に増やした瞬間に穴が開くのを防ぐ)
+		expect(checkPrePushEnvIntegrity({ [PRE_READY_IN_PROGRESS_ENV]: 'true' }).ok).toBe(false);
+		expect(checkPrePushEnvIntegrity({ [PRE_READY_IN_PROGRESS_ENV]: '0' }).ok).toBe(false);
+	});
+
+	it('[R15] env が無い / 空なら通す', () => {
+		expect(checkPrePushEnvIntegrity({})).toEqual({ ok: true });
+		expect(checkPrePushEnvIntegrity({ [PRE_READY_IN_PROGRESS_ENV]: '' })).toEqual({ ok: true });
+	});
+
+	it('[R16] .husky/pre-push が --pre-push を渡している (検査が実際に配線されている)', () => {
+		// 関数だけ足して hook 側に渡し忘れると、実運用では 1 度も呼ばれない。
+		const hook = readFileSync(resolve(repoRoot, '.husky/pre-push'), 'utf8');
+		const invocation = hook
+			.split('\n')
+			.find((l) => l.includes('scripts/check-pr-body.mjs') && !l.trimStart().startsWith('#'));
+		expect(invocation).toBeDefined();
+		expect(invocation).toContain('--pre-push');
 	});
 });
 

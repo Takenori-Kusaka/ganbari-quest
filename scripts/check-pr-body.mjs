@@ -36,7 +36,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	checkPrePushEnvIntegrity,
 	fetchPrHeadSha,
+	PRE_READY_IN_PROGRESS_ENV,
 	parseReceiptFromBody,
 	verifyReceipt,
 } from './lib/ci/pre-ready-receipt.mjs';
@@ -698,7 +700,7 @@ export function checkPreReadyReceipt(body, ctx) {
  * @returns {boolean}
  */
 export function isPreReadyReceiptGateApplicable(env = process.env) {
-	return env.PRE_READY_IN_PROGRESS !== '1';
+	return env[PRE_READY_IN_PROGRESS_ENV] !== '1';
 }
 
 /**
@@ -964,16 +966,17 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; prePush: boolean; help: boolean }}
  */
 function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; help: boolean }} */
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; prePush: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
 		noLabels: false,
 		skipMergeable: false,
+		prePush: false,
 		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -998,6 +1001,7 @@ function parseArgs(argv) {
 		const a = argv[i];
 		if (a === '--skip-mergeable') args.skipMergeable = true;
 		else if (a === '--no-labels') args.noLabels = true;
+		else if (a === '--pre-push') args.prePush = true;
 		else if (a === '--help' || a === '-h') args.help = true;
 	}
 	return args;
@@ -1026,6 +1030,8 @@ Options:
   --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
   --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
+  --pre-push          pre-push hook からの呼び出し。gate 無効化 env (PRE_READY_IN_PROGRESS) が
+                      環境に残っていたら exit 2 で中断する (#4006)
   --help, -h          このヘルプを表示
 
 Detected violations:
@@ -1201,6 +1207,16 @@ export async function main(argv = process.argv.slice(2)) {
 	if (args.help) {
 		printHelp();
 		return 0;
+	}
+
+	// #4006: pre-push から呼ばれた実行では、gate 無効化 env が環境に残っていないことを先に確認する。
+	// この env は pre-ready が Step 9 の子プロセスに渡す内部フラグであり、pre-ready は push しない。
+	if (args.prePush) {
+		const envIntegrity = checkPrePushEnvIntegrity();
+		if (!envIntegrity.ok) {
+			console.error(`[check-pr-body] ERROR: ${envIntegrity.message}`);
+			return 2;
+		}
 	}
 
 	const { body, exitCode } = loadPrBody(args);
