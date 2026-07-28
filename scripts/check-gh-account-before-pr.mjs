@@ -250,6 +250,14 @@ function main() {
 		process.exit(1);
 	}
 
+	// #4006: 許可 author を env で上書きすると ADR-0022 の QA アカウント PR 禁止を無効化できる。
+	// 上書き自体は運用上ありうるが、silent に効かせず必ず出力する (env 1 つで gate が変わる状態を可視化)。
+	if (ALLOWED_PR_AUTHOR !== ALLOWED_PR_AUTHOR_DEFAULT) {
+		process.stderr.write(
+			`[check-gh-account-before-pr] WARN: ALLOWED_PR_AUTHOR=${ALLOWED_PR_AUTHOR} で許可 author を上書きしています (既定: ${ALLOWED_PR_AUTHOR_DEFAULT})。意図しない場合は unset してください。\n`,
+		);
+	}
+
 	const verdict = evaluateActiveAccount(account, { allowed: ALLOWED_PR_AUTHOR });
 
 	if (verdict.ok) {

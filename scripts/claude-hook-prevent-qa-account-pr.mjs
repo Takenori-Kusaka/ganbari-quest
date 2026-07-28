@@ -134,6 +134,14 @@ async function main() {
 		process.exit(0);
 	}
 
+	// #4006: env で許可 author を上書きすると本 hook の QA アカウント遮断が無効化される。
+	// 通過させる場合でも上書きの事実は必ず出力する (silent に gate の判定基準を変えない)。
+	if (ALLOWED_PR_AUTHOR !== ALLOWED_PR_AUTHOR_DEFAULT) {
+		process.stderr.write(
+			`[claude-hook-prevent-qa-account-pr] WARN: ALLOWED_PR_AUTHOR=${ALLOWED_PR_AUTHOR} で許可 author を上書きしています (既定: ${ALLOWED_PR_AUTHOR_DEFAULT})。\n`,
+		);
+	}
+
 	if (active === ALLOWED_PR_AUTHOR) {
 		process.exit(0);
 	}

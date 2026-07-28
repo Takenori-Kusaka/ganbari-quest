@@ -407,7 +407,14 @@ function collectMissingScreenshotViolations(r) {
 	// #1783: 全ページ共通 — `<img src="screenshots/...">` 物理欠落は 1 件でも fail
 	// （ADR-0029 / Issue #1783 — broken image を本番 LP に並べない）
 	// 環境変数 SKIP_SCREENSHOT_EXISTENCE_CHECK=1 で skip 可能（ローカル開発 / Issue 検証時の段階確認用）
-	if (process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK === '1') return null;
+	// #4006: skip したことを silent にしない。3 workflow が意図的に設定する正当な env だが、
+	// shell に残ったまま local の pre-ready Step 5 を回すと本 gate が無言で素通りする。
+	if (process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK === '1') {
+		log(
+			`[measure] WARN: SKIP_SCREENSHOT_EXISTENCE_CHECK=1 — [${r.target}] の screenshot 実体欠落検査を skip しました (意図しない場合は unset してください)`,
+		);
+		return null;
+	}
 	if (!Array.isArray(r.missingScreenshots) || r.missingScreenshots.length === 0) return null;
 	return `[${r.target}] missingScreenshots (${r.missingScreenshots.length} 件): ${r.missingScreenshots.join(', ')}`;
 }
