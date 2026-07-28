@@ -37,6 +37,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { escapeRegExp } from './lib/ci/escape-regexp.mjs';
 import {
 	loadBaseline,
 	parseArgs,
@@ -151,15 +152,19 @@ function main() {
 			const locations = [];
 			const layer = path.basename(path.dirname(repoFile));
 			const importNeedle = `${layer}/${base}`;
+			// #4030: 素の includes() だと `sqlite/activity-repo` が
+			// `sqlite/activity-repo-archive` の import にも一致し、結線が切れているのに
+			// 「結線済」と誤判定する。末尾に単語文字 / ハイフンが続かないことを要求する。
+			const needleRe = new RegExp(`${escapeRegExp(importNeedle)}(\\.js)?(?![\\w-])`);
 			for (const src of callerSources) {
 				// 自分自身は除く
 				if (src.file === repoFile) continue;
-				if (!src.text.includes(importNeedle)) continue;
+				if (!needleRe.test(src.text)) continue;
 				const lines = src.text.split(/\r?\n/);
 				for (let i = 0; i < lines.length; i++) {
 					const line = lines[i];
 					if (!/\b(import|from|require)\b/.test(line)) continue;
-					if (line.includes(importNeedle)) {
+					if (needleRe.test(line)) {
 						found = true;
 						locations.push(`${path.relative(REPO_ROOT, src.file).replace(/\\/g, '/')}:${i + 1}`);
 					}
