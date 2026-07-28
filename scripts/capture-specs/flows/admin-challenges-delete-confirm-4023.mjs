@@ -44,8 +44,14 @@ export default async (page, capture) => {
 	// これを hydration gate として使う (Ark Portal の attach は gate にならない)。
 	// hydration 前に押すと use:enhance 未装着で native submit = 確認なしで削除されてしまう。
 	const hydratedDelete = page.locator('[data-testid^="admin-challenge-delete-"]').first();
+	// 修正後 build では確認ダイアログ (Ark Portal) の attach が hydration 完了の直接シグナル。
+	// 削除ボタンの testid は dev server の SSR 出力に現れないため、両方を待つ。
+	await page
+		.getByTestId('admin-challenges-confirm-dialog')
+		.waitFor({ state: 'attached', timeout: 60_000 })
+		.catch(() => {});
 	const hydrated = await hydratedDelete
-		.waitFor({ state: 'visible', timeout: 20_000 })
+		.waitFor({ state: 'visible', timeout: 5_000 })
 		.then(() => true)
 		.catch(() => false);
 
@@ -55,6 +61,15 @@ export default async (page, capture) => {
 
 	const dialog = page.getByTestId('admin-challenges-confirm-dialog');
 	const dialogExists = (await dialog.count()) > 0;
+
+	// 修正後 build (SS_PHASE=after-*) で hydration が終わっていない状態のまま撮ると、
+	// native submit で削除された「確認が効いていない画面」を後 SS として貼ってしまう。
+	// 握りつぶさず throw して撮影自体を失敗させる (SS 捏造の構造的防止)。
+	if (PHASE.startsWith('after') && !dialogExists) {
+		throw new Error(
+			'[flow] 修正後 build なのに確認ダイアログが DOM に無い (hydration 未完了)。撮影を中止する。',
+		);
+	}
 
 	await target.click();
 
