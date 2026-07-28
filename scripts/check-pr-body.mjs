@@ -35,6 +35,11 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+	fetchPrHeadSha,
+	parseReceiptFromBody,
+	verifyReceipt,
+} from './lib/ci/pre-ready-receipt.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
 
@@ -628,6 +633,73 @@ export function checkSelfReviewEvidence(body) {
 }
 
 // ---------------------------------------------------------------------------
+// pre-ready receipt gate (#4006 AC2 / AC3)
+// ---------------------------------------------------------------------------
+
+/**
+ * `- [x]` が付いた pre-ready チェックボックスが body にあるかを判定する。
+ *
+ * PR template は「テスト & 安全装置セルフチェック」と「Ready for Review チェックリスト」の
+ * 2 箇所に同じ宣言を持つため、どちらかが `[x]` なら「pre-ready 全 Step PASS」を主張したとみなす。
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function claimsPreReadyPass(body) {
+	const stripped = stripMarkdownComments(body);
+	return stripped
+		.split('\n')
+		.some((line) => /^\s*-\s*\[x\]/i.test(line) && /pre-ready/i.test(line));
+}
+
+/**
+ * pre-ready チェックボックスの `[x]` に対し、対応する receipt が body にあり、かつ
+ * その PR 番号 / HEAD SHA が実物と一致することを検証する (#4006 AC2 / AC3)。
+ *
+ * `[x]` が付いていなければ何も要求しない (未チェック残置は既存の unchecked-ready-checklist gate の担当)。
+ * つまり本 gate は **既存の検査を 1 つも緩めず、自己申告だった 1 項目だけを機械検証に置き換える**。
+ *
+ * @param {string} body
+ * @param {{ pr: string | null; actualHeadSha: string | null }} ctx
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkPreReadyReceipt(body, ctx) {
+	if (!claimsPreReadyPass(body)) return null;
+	const receipt = parseReceiptFromBody(stripMarkdownComments(body));
+	const result = verifyReceipt({ receipt, pr: ctx.pr, actualHeadSha: ctx.actualHeadSha });
+	if (result.ok) return null;
+	return {
+		id: `pre-ready-receipt-${result.code}`,
+		message:
+			`${result.message}\n` +
+			'  背景: 本チェックボックスは長らく機械検証できない自己申告で、実際に「存在しない PR 番号を証跡に引用」(#3994) と\n' +
+			'        「未実行のまま [x]」(#4002) が単日で発生した。receipt は事故の検出用であり、意図的な偽造は防げない。',
+	};
+}
+
+/**
+ * gate 用に PR の実 HEAD SHA を取得する。取得できない場合は理由を返す。
+ * @param {string|number} prNumber
+ * @returns {{ sha: string | null; warning: string | null }}
+ */
+function resolveActualHeadSha(prNumber) {
+	const head = fetchPrHeadSha(prNumber);
+	if (head.ok) return { sha: head.sha, warning: null };
+	if (head.notFound) {
+		return {
+			sha: null,
+			warning:
+				`PR #${prNumber} が gh api repos/{owner}/{repo}/pulls/${prNumber} で見つかりません (404)。` +
+				' receipt の HEAD SHA 一致検証は実施できません。',
+		};
+	}
+	return {
+		sha: null,
+		warning: `PR #${prNumber} の HEAD SHA 取得に失敗しました (${head.message})。receipt の HEAD SHA 一致検証は未実施です。`,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // mergeable: CONFLICTING 事前検知（GitHub API）
 // ---------------------------------------------------------------------------
 
@@ -925,6 +997,7 @@ Detected violations:
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
+  9. pre-ready チェックボックス [x] に対応する receipt が無い / 別 PR / 古い HEAD (#4006)
 
 Exit codes:
   0 = OK
@@ -1024,6 +1097,24 @@ function collectViolations(body, requiredSections, template, args) {
 	if (args.pr && !args.skipMergeable) {
 		const mergeable = checkMergeable(args.pr);
 		if (mergeable) violations.push({ ...mergeable, issue: '#1672/#1675/#1718/#1753' });
+	}
+
+	// #4006: pre-ready チェックボックス `[x]` の receipt 検証。
+	// HEAD SHA が取れない場合も receipt 不在 / 別 PR の receipt は検出できるため gate は止めない。
+	// 取れなかった事実は silent にせず WARN 行で出す (ADR-0006 no-silent-skip)。
+	if (claimsPreReadyPass(body)) {
+		let actualHeadSha = null;
+		if (args.pr) {
+			const resolvedHead = resolveActualHeadSha(args.pr);
+			actualHeadSha = resolvedHead.sha;
+			if (resolvedHead.warning) console.log(`[check-pr-body] WARN: ${resolvedHead.warning}`);
+		} else {
+			console.log(
+				'[check-pr-body] WARN: --pr 未指定のため pre-ready receipt の PR 番号 / HEAD SHA 一致検証は未実施です (receipt の有無のみ検査)。',
+			);
+		}
+		const preReadyReceipt = checkPreReadyReceipt(body, { pr: args.pr, actualHeadSha });
+		if (preReadyReceipt) violations.push({ ...preReadyReceipt, issue: '#3994/#4002/#4006' });
 	}
 
 	// #2343: hotfix label PR の配布証跡欄強化チェック

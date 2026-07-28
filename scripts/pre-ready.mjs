@@ -36,10 +36,18 @@
  *   2 = internal error
  */
 
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+	acquireRunLock,
+	buildReceipt,
+	fetchPrHeadSha,
+	formatReceiptBlock,
+	releaseRunLock,
+	writeReceipt,
+} from './lib/ci/pre-ready-receipt.mjs';
 import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/ci/resolve-base-branch.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
@@ -159,9 +167,15 @@ Steps:
   11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918、CI screenshot-check と SSOT 共有)
   12. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
+Receipt (#4006):
+  --pr 指定時は起動時に gh api repos/{owner}/{repo}/pulls/<num> で PR の実在を確認する
+  (存在しなければ着手前に exit 1)。実行後は tmp/pre-ready-receipts/ に receipt JSON を書き、
+  同じ内容を stdout にも出す。PR body に貼ると check-pr-body.mjs (Step 9) が
+  「PR 番号 / HEAD SHA が実物と一致する ALL_PASS の receipt か」を機械検証する。
+
 Exit codes:
   0 = 全 Step PASS
-  1 = いずれかの Step FAIL (即停止 + 修正方針表示)
+  1 = いずれかの Step FAIL (即停止 + 修正方針表示) / --pr が実在しない PR
   2 = internal error
 `);
 }
@@ -784,6 +798,31 @@ async function main() {
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
 	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9, 12 はスキップ)'}`);
 
+	// #4006 AC4: --pr に渡された番号が実在する PR かを起動時に検証する。
+	// #3994 では Issue 番号 (3993) を PR 番号として pre-ready に渡し、その実行ログが
+	// AC 検証マップの証跡として引用された。この 1 行があれば防げた事故なので着手前に落とす。
+	let prExistenceVerified = false;
+	if (args.pr) {
+		const head = fetchPrHeadSha(args.pr);
+		if (head.ok) {
+			prExistenceVerified = true;
+			console.log(`[pre-ready] PR #${args.pr} 実在確認 OK (PR HEAD: ${head.sha})`);
+		} else if (head.notFound) {
+			console.error(
+				`\n[pre-ready] ✗ --pr ${args.pr} は PR として存在しません (gh api repos/{owner}/{repo}/pulls/${args.pr} が 404)。\n` +
+					'  Issue 番号を PR 番号として渡していないか確認してください (#3994 の実例)。\n' +
+					'  PR 未作成なら --pr を付けずに実行してください (Step 9 / 11b / 12 は skip されます)。',
+			);
+			return 1;
+		} else {
+			// 未認証 / offline は「不在の確定」ではないため止めない。ただし黙って通さず receipt に残す。
+			console.warn(
+				`[pre-ready] WARN: PR #${args.pr} の実在確認ができませんでした (${head.message})。` +
+					' receipt には prExistenceVerified=false を記録します。',
+			);
+		}
+	}
+
 	// #3857: 依存 preflight — 欠落のまま Step 2/3 を回すと変更無関係の false-negative になるため fail-fast
 	const pf = preflightWorktreeDeps();
 	if (!pf.ok) {
@@ -826,6 +865,43 @@ async function main() {
 		console.log(`[pre-ready] 変更ファイル数: ${changedFiles.length}`);
 	}
 
+	// #4006 AC1 / AC5: 実行の receipt を残す。lock file は「起動時に生きていた他の pre-ready 数」
+	// の計測にも使うため、step 実行前に取得する。
+	const startedAt = new Date().toISOString();
+	const headSha = currentHeadSha();
+	const { lockPath, otherLivePreReadyRuns } = acquireRunLock(repoRoot);
+	if (otherLivePreReadyRuns > 0) {
+		console.warn(
+			`[pre-ready] WARN: 他に pre-ready が ${otherLivePreReadyRuns} 件実行中です。` +
+				' 並走下の実行は負荷起因の偽 red を作ることがあります (#3975 / #3994 で実測)。',
+		);
+	}
+	/** @type {{ name: string; outcome: string; durationMs?: number }[]} */
+	const stepOutcomes = [];
+	/**
+	 * step 結果と実行環境を receipt file に書き出し、PR body 貼付用ブロックを stdout に出す。
+	 * @param {'ALL_PASS' | 'PARTIAL_PASS' | 'FAIL'} status
+	 */
+	const emitReceipt = (status) => {
+		const receipt = buildReceipt({
+			pr: args.pr,
+			headSha,
+			startedAt,
+			finishedAt: new Date().toISOString(),
+			status,
+			steps: stepOutcomes,
+			otherLivePreReadyRuns,
+			prExistenceVerified,
+		});
+		const path = writeReceipt(repoRoot, receipt);
+		console.log(`\n[pre-ready] receipt: ${path}`);
+		console.log(
+			'[pre-ready] ↓ この JSON ブロックをそのまま PR body に貼り付けてください' +
+				' (receipt file はローカルにしか無いため、貼らないとレビュー側に届きません)',
+		);
+		console.log(formatReceiptBlock(receipt));
+	};
+
 	const steps = buildSteps(args, changedFiles);
 	const failed = [];
 	/** `--skip-*` を明示指定した step (#3649: ALL PASS を名乗らない) */
@@ -835,27 +911,43 @@ async function main() {
 	/** 変更内容が適用対象外の step (#4018: ALL PASS を妨げない) */
 	const skippedNotApplicable = [];
 
-	for (const step of steps) {
-		if (step.skip) {
-			console.log(`[pre-ready] ⊘ ${step.label}`);
-			if (step.skipKind === 'flag') skippedByFlag.push(step.name);
-			else if (step.skipKind === 'script-missing') skippedScriptMissing.push(step.name);
-			else skippedNotApplicable.push(step.name);
-			continue;
+	try {
+		for (const step of steps) {
+			if (step.skip) {
+				console.log(`[pre-ready] ⊘ ${step.label}`);
+				if (step.skipKind === 'flag') {
+					skippedByFlag.push(step.name);
+					stepOutcomes.push({ name: step.name, outcome: 'skipped-flag' });
+				} else if (step.skipKind === 'script-missing') {
+					skippedScriptMissing.push(step.name);
+					stepOutcomes.push({ name: step.name, outcome: 'skipped-script-missing' });
+				} else {
+					skippedNotApplicable.push(step.name);
+					stepOutcomes.push({ name: step.name, outcome: 'skipped-na' });
+				}
+				continue;
+			}
+			const stepStart = Date.now();
+			const code = await step.runner();
+			const durationMs = Date.now() - stepStart;
+			if (code !== 0) {
+				stepOutcomes.push({ name: step.name, outcome: 'fail', durationMs });
+				console.log(`\n[pre-ready] ✗ ${step.label} FAILED (exit ${code})`);
+				console.log('[pre-ready] 修正方針:');
+				console.log(step.fixHint);
+				failed.push(step.name);
+				// 即停止 (AC1 「各 Step で fail で即 exit 1 + 修正方針表示」)
+				console.log(
+					`\n[pre-ready] FAIL — Step ${step.name} で停止しました。修正後に再実行してください。`,
+				);
+				emitReceipt('FAIL');
+				return 1;
+			}
+			stepOutcomes.push({ name: step.name, outcome: 'pass', durationMs });
+			console.log(`[pre-ready] ✓ ${step.label}`);
 		}
-		const code = await step.runner();
-		if (code !== 0) {
-			console.log(`\n[pre-ready] ✗ ${step.label} FAILED (exit ${code})`);
-			console.log('[pre-ready] 修正方針:');
-			console.log(step.fixHint);
-			failed.push(step.name);
-			// 即停止 (AC1 「各 Step で fail で即 exit 1 + 修正方針表示」)
-			console.log(
-				`\n[pre-ready] FAIL — Step ${step.name} で停止しました。修正後に再実行してください。`,
-			);
-			return 1;
-		}
-		console.log(`[pre-ready] ✓ ${step.label}`);
+	} finally {
+		releaseRunLock(lockPath);
 	}
 
 	// #2929 項目 3: fail-open / 明示 skip した gate を summary で可視化 (silent pass の誤認防止)
@@ -872,7 +964,24 @@ async function main() {
 		pr: args.pr,
 	});
 	console.log(summary.text);
+	emitReceipt(summary.status);
 	return 0;
+}
+
+/**
+ * 実行時点の HEAD SHA (#4006 AC1)。receipt の改竄耐性はこの値と PR 実 HEAD の一致が担う。
+ * @returns {string}
+ */
+function currentHeadSha() {
+	try {
+		return execSync('git rev-parse HEAD', {
+			cwd: repoRoot,
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+		}).trim();
+	} catch {
+		return 'unknown';
+	}
 }
 
 // import 時 (unit test) は main() を走らせない。CLI 直接起動時のみ実行する

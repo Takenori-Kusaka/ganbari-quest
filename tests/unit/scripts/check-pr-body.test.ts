@@ -14,7 +14,9 @@ import {
 	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
 	checkPoDecisionBrief,
+	checkPreReadyReceipt,
 	checkSelfReviewEvidence,
+	claimsPreReadyPass,
 	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
@@ -954,5 +956,79 @@ describe('extractLabelNames — shell 引用に依存せず label を取り出�
 		expect(fetched).toBeNull();
 		const r = resolveLabels({ pr: '3965', labels: null, noLabels: false }, fetched);
 		expect('labels' in r).toBe(false);
+	});
+});
+
+/**
+ * #4006: pre-ready チェックボックスの `[x]` に receipt の裏付けを要求する gate。
+ * 「宣言だけで通る」経路が 1 つでも残ると #3994 / #4002 の流用がそのまま復活する。
+ */
+describe('#4006 pre-ready receipt gate', () => {
+	const HEAD_SHA = 'c'.repeat(40);
+	const receiptJson = (over: Record<string, unknown> = {}) =>
+		JSON.stringify(
+			{
+				schemaVersion: 1,
+				tool: 'pre-ready',
+				pr: 4006,
+				headSha: HEAD_SHA,
+				startedAt: '2026-07-28T00:00:00.000Z',
+				finishedAt: '2026-07-28T00:20:00.000Z',
+				status: 'ALL_PASS',
+				steps: [{ name: 'biome', outcome: 'pass' }],
+				...over,
+			},
+			null,
+			2,
+		);
+	const bodyWith = (checkbox: string, receipt?: string) =>
+		`## Ready for Review チェックリスト\n\n${checkbox}\n\n${
+			receipt ? ['```json', receipt, '```'].join('\n') : ''
+		}\n`;
+	const CHECKED = '- [x] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した';
+	const UNCHECKED = '- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した';
+
+	it('[PR1] [x] 宣言のみ検知する ([ ] は既存 gate の担当なので二重に鳴らさない)', () => {
+		expect(claimsPreReadyPass(bodyWith(CHECKED))).toBe(true);
+		expect(claimsPreReadyPass(bodyWith(UNCHECKED))).toBe(false);
+		// コメントアウトされた template 例は宣言ではない
+		expect(claimsPreReadyPass(`<!--\n${CHECKED}\n-->`)).toBe(false);
+	});
+
+	it('[PR2] [x] なのに receipt が無い body は落ちる', () => {
+		const v = checkPreReadyReceipt(bodyWith(CHECKED), { pr: '4006', actualHeadSha: HEAD_SHA });
+		expect(v?.id).toBe('pre-ready-receipt-missing');
+	});
+
+	it('[PR3] 別 PR / 古い HEAD の receipt は理由を分けて落ちる', () => {
+		const otherPr = checkPreReadyReceipt(bodyWith(CHECKED, receiptJson({ pr: 3993 })), {
+			pr: '4006',
+			actualHeadSha: HEAD_SHA,
+		});
+		expect(otherPr?.id).toBe('pre-ready-receipt-pr-mismatch');
+
+		const stale = checkPreReadyReceipt(
+			bodyWith(CHECKED, receiptJson({ headSha: 'd'.repeat(40) })),
+			{
+				pr: '4006',
+				actualHeadSha: HEAD_SHA,
+			},
+		);
+		expect(stale?.id).toBe('pre-ready-receipt-head-mismatch');
+	});
+
+	it('[PR4] 一致する receipt があれば通る', () => {
+		expect(
+			checkPreReadyReceipt(bodyWith(CHECKED, receiptJson()), {
+				pr: '4006',
+				actualHeadSha: HEAD_SHA,
+			}),
+		).toBeNull();
+	});
+
+	it('[PR5] 未チェックの body には receipt を要求しない', () => {
+		expect(
+			checkPreReadyReceipt(bodyWith(UNCHECKED), { pr: '4006', actualHeadSha: HEAD_SHA }),
+		).toBeNull();
 	});
 });
