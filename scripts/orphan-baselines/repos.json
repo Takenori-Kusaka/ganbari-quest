@@ -1,15 +1,17 @@
 {
 	"allowed": [
 		"src/lib/server/db/demo/webhook-event-repo.ts",
-		"src/lib/server/db/dynamodb/client.ts",
-		"src/lib/server/db/dynamodb/keys.ts",
+		"src/lib/server/db/dsql/grant-optional-points.ts",
+		"src/lib/server/db/dsql/invite-accept.ts",
+		"src/lib/server/db/dsql/webhook-event-repo.ts",
 		"src/lib/server/db/sqlite/run-in-transaction.ts"
 	],
 	"reasons": {
-		"src/lib/server/db/dynamodb/client.ts": "DynamoDB client 初期化 helper。#3438 で repo 層撤去後も residual DynamoDB アクセス (migration hydrate writeback.ts / probe.ts / analytics provider) が参照。table 撤去は Phase 3。",
-		"src/lib/server/db/dynamodb/keys.ts": "DynamoDB partition/sort key 構築 helper。#3438 で repo 層撤去後も migration hydrate / probe / backup-entity-registry test が参照。table 撤去は Phase 3。",
 		"src/lib/server/db/demo/webhook-event-repo.ts": "Phase 7 PR-1 expand 段階で配備 (in-memory webhook event repo for demo backend)。facade (`db/webhook-events.ts`) / factory (`factory.ts` `createWebhookEventRepo`) からの import は Phase 7 PR-4a (webhook handler 統合 + sqlite repo 実装と同時) で追加。expand-then-contract pattern 整合 (Phase 6 子 5 #2678 SSOT)。本 PR では in-memory 実装 + unit test (tests/unit/db/webhook-event-repo.test.ts) のみ配備し、PR-4a 着手時に本 entry を baseline から削除する。",
-		"src/lib/server/db/sqlite/run-in-transaction.ts": "EPIC #3424 Phase A cycle-1 (#3531)。runInTransaction / withOccRetry の SQLite 実装 port + unit test のみ本 PR で配備し、既存 write path からの facade/factory 結線は後続サイクルで行う (expand-then-contract pattern、Phase 6 子 5 #2678 SSOT 整合)。結線完了時に本 entry を baseline から削除する。"
+		"src/lib/server/db/sqlite/run-in-transaction.ts": "EPIC #3424 Phase A cycle-1 (#3531)。runInTransaction / withOccRetry の SQLite 実装 port + unit test のみ本 PR で配備し、既存 write path からの facade/factory 結線は後続サイクルで行う (expand-then-contract pattern、Phase 6 子 5 #2678 SSOT 整合)。結線完了時に本 entry を baseline から削除する。",
+		"src/lib/server/db/dsql/webhook-event-repo.ts": "EPIC #3424 M4-E PR8c で DSQL backend 実装 + unit test のみ配備。facade (`db/webhook-events.ts`) / factory 結線は #3985 (webhook event.id dedup が設計・DB・repo・テストまで揃って未配線) で行う。expand-then-contract pattern 整合で、同 layer の demo 実装 (本 baseline の既存 entry) と同じ段階にある。結線時に両 entry を削除する。",
+		"src/lib/server/db/dsql/grant-optional-points.ts": "EPIC #3424 / #3541 (#N4-2 Phase C cycle 2) で配備した optional point 付与プリミティブ。#4030 A-1 で母数を実 FS 由来に変えた結果、repo 全体のどこからも import されていないことが初めて可視化された。結線するか撤去するかの判断は #4039 で行う (guard の母数是正と、それで見つかった違反の是正は別物 — #4030 AC2)。",
+		"src/lib/server/db/dsql/invite-accept.ts": "EPIC #3424 / #3528 (#N2-1 Phase B cycle (b)) で配備した invite 受諾 txn。#4030 A-1 で母数を実 FS 由来に変えた結果、repo 全体のどこからも import されていないことが初めて可視化された。判断は #4039 (#4030 AC2 に従い本 PR では是正しない)。"
 	},
 	"version": "1.0.0",
 	"generated": "2026-07-02T04:27:39.813Z"
