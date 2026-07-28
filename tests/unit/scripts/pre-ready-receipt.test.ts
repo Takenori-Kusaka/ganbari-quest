@@ -102,6 +102,22 @@ describe('#4006 receipt writer — 実行の事実が落ちずに記録される
 		expect(parseReceiptFromBody(`前置き\n${formatReceiptBlock(receipt)}\n後書き`)).toEqual(receipt);
 	});
 
+	it('[R3b] 先行する ```console ブロックがあっても receipt を取り出せる', () => {
+		// info string を json に限定すると、先行ブロックの閉じ fence を開き fence と誤認し
+		// receipt を丸ごと飲み込んで「receipt 不在」の誤検出になる (実 PR body で観測)。
+		const receipt = makeReceipt();
+		const body = [
+			'## 検証ログ',
+			'```console',
+			'$ node scripts/check-pr-body.mjs --pr 4043',
+			'[check-pr-body] OK',
+			'```',
+			'## receipt',
+			formatReceiptBlock(receipt),
+		].join('\n');
+		expect(parseReceiptFromBody(body)).toEqual(receipt);
+	});
+
 	it('[R4] lock file で他 run 数を数え、release 後は 0 に戻る', () => {
 		const root = makeTempRoot();
 		const { lockPath, otherLivePreReadyRuns } = acquireRunLock(root);

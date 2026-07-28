@@ -273,7 +273,10 @@ export function formatReceiptBlock(receipt) {
  */
 export function parseReceiptFromBody(body) {
 	if (!body) return null;
-	const fence = /```(?:json)?\s*\n([\s\S]*?)```/g;
+	// info string (```json / ```console / ```) を問わず fence を対で数える。
+	// `(?:json)?` だけに限定すると、先行する ```console ブロックの**閉じ** fence を開き fence と
+	// 誤認し、その後の receipt ブロックを丸ごと飲み込んで「receipt 不在」の誤検出になる (実測)。
+	const fence = /```[^\n]*\n([\s\S]*?)```/g;
 	let m = fence.exec(body);
 	while (m !== null) {
 		const inner = m[1] ?? '';
