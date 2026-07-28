@@ -170,6 +170,28 @@ describe('#4006 gate — receipt の 4 つの不合格理由を区別する (AC2
 		expect(result).toMatchObject({ ok: false, code: 'head-mismatch' });
 	});
 
+	it('[R9b] これから push する commit の receipt は通る (pre-push は push 反映前に走る)', () => {
+		// pre-push hook 時点では PR 側 HEAD は 1 つ前のまま。PR 側だけを基準にすると
+		// 「pre-ready 実行 → push」という正しい順序が常に落ちる。
+		expect(
+			verifyReceipt({
+				receipt: makeReceipt({ headSha: OTHER_HEAD }),
+				pr: 4006,
+				actualHeadSha: HEAD,
+				localHeadSha: OTHER_HEAD,
+			}),
+		).toEqual({ ok: true });
+		// どちらとも一致しない receipt は落ちたまま
+		expect(
+			verifyReceipt({
+				receipt: makeReceipt({ headSha: 'e'.repeat(40) }),
+				pr: 4006,
+				actualHeadSha: HEAD,
+				localHeadSha: OTHER_HEAD,
+			}),
+		).toMatchObject({ ok: false, code: 'head-mismatch' });
+	});
+
 	it('[R10] PARTIAL_PASS / FAIL の receipt で「全 Step PASS」を名乗らせない', () => {
 		for (const status of ['PARTIAL_PASS', 'FAIL']) {
 			const result = verifyReceipt({

@@ -293,14 +293,20 @@ export function parseReceiptFromBody(body) {
 /**
  * receipt が「この PR の、この HEAD に対する、全 step PASS の実行」であることを検証する。
  *
+ * HEAD SHA は **PR の実 HEAD (push 済の状態) または ローカル HEAD (これから push する commit)**
+ * のどちらかと一致すれば良い。pre-push hook は push が反映される前に走るため、PR 側 HEAD だけを
+ * 基準にすると「実行 → push」という正しい順序が常に落ちる。どちらとも一致しない receipt
+ * (= 別 commit を検査したログ) は従来どおり落ちる。
+ *
  * @param {{
  *   receipt: Record<string, any> | null;
  *   pr: string | number | null;
  *   actualHeadSha: string | null;
+ *   localHeadSha?: string | null;
  * }} input
  * @returns {{ ok: true } | { ok: false; code: 'missing' | 'pr-mismatch' | 'head-mismatch' | 'status-not-all-pass' | 'schema-unsupported'; message: string }}
  */
-export function verifyReceipt({ receipt, pr, actualHeadSha }) {
+export function verifyReceipt({ receipt, pr, actualHeadSha, localHeadSha = null }) {
 	if (!receipt) {
 		return {
 			ok: false,
@@ -328,15 +334,17 @@ export function verifyReceipt({ receipt, pr, actualHeadSha }) {
 				'  他 PR の実行ログを流用しています。この PR 番号を指定して pre-ready を実行し直してください (#3994 と同型)。',
 		};
 	}
-	if (actualHeadSha && String(receipt.headSha) !== String(actualHeadSha)) {
+	const knownHeads = [actualHeadSha, localHeadSha].filter(Boolean).map(String);
+	if (knownHeads.length > 0 && !knownHeads.includes(String(receipt.headSha))) {
 		return {
 			ok: false,
 			code: 'head-mismatch',
 			message:
-				`receipt の HEAD SHA が PR の実 HEAD と一致しません（3 種の失敗のうち「古い HEAD の receipt」）:\n` +
-				`    receipt.headSha = ${receipt.headSha}\n` +
-				`    PR の実 HEAD    = ${actualHeadSha}\n` +
-				'  receipt 取得後に push した差分は未検証です。最新 HEAD で pre-ready を再実行してください。',
+				'receipt の HEAD SHA が、この PR のどの HEAD とも一致しません（3 種の失敗のうち「古い HEAD の receipt」）:\n' +
+				`    receipt.headSha  = ${receipt.headSha}\n` +
+				`    PR の実 HEAD     = ${actualHeadSha ?? '(取得できず)'}\n` +
+				`    ローカル HEAD    = ${localHeadSha ?? '(取得できず)'}\n` +
+				'  receipt 取得後に変わった差分は未検証です。現在の HEAD で pre-ready を再実行してください。',
 		};
 	}
 	if (receipt.status !== 'ALL_PASS') {

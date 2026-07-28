@@ -660,13 +660,18 @@ export function claimsPreReadyPass(body) {
  * つまり本 gate は **既存の検査を 1 つも緩めず、自己申告だった 1 項目だけを機械検証に置き換える**。
  *
  * @param {string} body
- * @param {{ pr: string | null; actualHeadSha: string | null }} ctx
+ * @param {{ pr: string | null; actualHeadSha: string | null; localHeadSha?: string | null }} ctx
  * @returns {{ id: string; message: string } | null}
  */
 export function checkPreReadyReceipt(body, ctx) {
 	if (!claimsPreReadyPass(body)) return null;
 	const receipt = parseReceiptFromBody(stripMarkdownComments(body));
-	const result = verifyReceipt({ receipt, pr: ctx.pr, actualHeadSha: ctx.actualHeadSha });
+	const result = verifyReceipt({
+		receipt,
+		pr: ctx.pr,
+		actualHeadSha: ctx.actualHeadSha,
+		localHeadSha: ctx.localHeadSha ?? null,
+	});
 	if (result.ok) return null;
 	return {
 		id: `pre-ready-receipt-${result.code}`,
@@ -694,6 +699,22 @@ export function checkPreReadyReceipt(body, ctx) {
  */
 export function isPreReadyReceiptGateApplicable(env = process.env) {
 	return env.PRE_READY_IN_PROGRESS !== '1';
+}
+
+/**
+ * ローカル HEAD SHA (取得できなければ null)。
+ * @returns {string | null}
+ */
+function localHeadSha() {
+	try {
+		return execSync('git rev-parse HEAD', {
+			cwd: repoRoot,
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+		}).trim();
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -1137,7 +1158,12 @@ function collectViolations(body, requiredSections, template, args) {
 				'[check-pr-body] WARN: --pr 未指定のため pre-ready receipt の PR 番号 / HEAD SHA 一致検証は未実施です (receipt の有無のみ検査)。',
 			);
 		}
-		const preReadyReceipt = checkPreReadyReceipt(body, { pr: args.pr, actualHeadSha });
+		const preReadyReceipt = checkPreReadyReceipt(body, {
+			pr: args.pr,
+			actualHeadSha,
+			// pre-push hook は push が反映される前に走るため、これから push する commit も許容する
+			localHeadSha: localHeadSha(),
+		});
 		if (preReadyReceipt) violations.push({ ...preReadyReceipt, issue: '#3994/#4002/#4006' });
 	}
 
