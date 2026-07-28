@@ -1,9 +1,9 @@
 {
-  "$comment": "Claude Code session settings. PreToolUse hooks: (1) #1879 — prevent QA account (ganbariquestsupport-lab) from `gh pr create`. (2) ADR-0056 — gate `gh pr merge/review --approve` behind Adversarial Reviewer evidence (must_object_count=3 schema). (3) 複数エージェントセッションの重い検証を排他する (docs/sessions/agent-concurrency.md)。PostToolUse は (3) の lock 解放。See ADR-0022 amendment / ADR-0056 / docs/sessions/qa-session.md.",
+  "$comment": "Claude Code session settings. PreToolUse hooks: (1) #1879 — prevent QA account (ganbariquestsupport-lab) from `gh pr create`. (2) ADR-0056 — gate `gh pr merge/review --approve` behind Adversarial Reviewer evidence (must_object_count=3 schema). (3) 複数エージェントセッションの重い検証を排他する (docs/sessions/agent-concurrency.md)。PostToolUse は (3) の lock 解放。matcher はコマンド実行系ツール全経路を覆うこと — SSOT は .claude/hooks/command-execution-tools.mjs の COMMAND_EXECUTION_MATCHER で、tests/unit/hooks/command-execution-tools.test.ts が一致を機械検証する (#4001: matcher が Bash だけの間、PowerShell 経由で全 hook を bypass できた)。See ADR-0022 amendment / ADR-0056 / docs/sessions/qa-session.md.",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -22,7 +22,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",

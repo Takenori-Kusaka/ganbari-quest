@@ -59,7 +59,8 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 
 ### 1. PreToolUse hook (`.claude/hooks/gate-approve.mjs`)
 
-- `Bash` matcher で `/gh pr (merge|review --approve)/i` を捕捉
+- **コマンド実行系ツール全経路**の matcher で `/gh pr (merge|review --approve)/i` を捕捉 (#4001)。対象ツールの SSOT は `.claude/hooks/command-execution-tools.mjs`、`.claude/settings.json` との一致は `tests/unit/hooks/command-execution-tools.test.ts` が機械検証する。`Bash` のみを対象にすると PowerShell 経由で gate 自体が起動せず bypass できる
+- 判別できない入力 (stdin JSON parse 不能 / `tool_name` 欠落 / command 非文字列) は **allow ではなく block** する。SSOT 未登録ツール名で呼ばれた場合も allow に倒さず `tool_input` 内の全文字列を走査する
 - `tmp/adversarial-evidence/<pr-number>.json` の **存在 + 30 分 TTL + schema 必須 field** を検証
 - 不在 / TTL 切れ / schema 不正で exit 2 + stderr に修正手順 ("Adversarial Reviewer subagent を先に dispatch")
 - recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は無条件 allow
@@ -81,7 +82,7 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 
 ### 4. settings 統合
 
-`.claude/settings.json` の既存 `hooks.PreToolUse[].hooks[]` に gate-approve.mjs を追加 (既存 prevent-qa-account hook を破壊せず追加)。
+`.claude/settings.json` の既存 `hooks.PreToolUse[].hooks[]` に gate-approve.mjs を追加 (既存 prevent-qa-account hook を破壊せず追加)。matcher は `COMMAND_EXECUTION_MATCHER` (現状 `Bash|PowerShell`) と一致させる。ツール経路を増やすときは SSOT (`command-execution-tools.mjs`) と settings.json を同時に更新する — 片方だけ直すと上記 test が落ちる (#4001)。
 
 ### 5. 1-in-1-out 履行
 
@@ -193,7 +194,7 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 
 1. **origin/main rebase drift verify** (#2557 / 本日 7+ 連続 BLOCK の root cause): `git merge-base origin/main HEAD` vs `git rev-parse origin/main` で同期確認、未取込なら exit 1 + 修正手順 stderr
 2. **本日 deploy 全 file 削除 0 verify** (PR 存在時のみ、#2603 / #2628 第 4 弾 gate 経由): `scripts/check-recent-deploy-deletion.mjs --pr <N>` 実行
-3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行
+3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行。**Draft PR では Ready 化要件 (Ready チェックリスト全 `[x]` / PO 決裁ブリーフ) のみ deferred する** (#3997)。Draft は「まだ Ready の要件を満たしていない」宣言であり、これを要求すると Draft に 1 commit も push できず成果物が local に滞留する (#3989 実例)。体裁・事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING / hotfix env 配布証跡) は Draft でも enforce し、deferred した gate 名は必ず標準出力に出す (無言 skip は #3969 と同じ失敗 class)
 4. **biome check** (軽量 lint): 重い svelte-check / vitest / playwright は CI 委ね、push レイヤは lint のみ
 
 ### 設計境界 (Pre-PMF / ADR-0010 整合)

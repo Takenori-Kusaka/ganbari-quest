@@ -141,6 +141,12 @@ if [ -n "$PR_NUM" ]; then
 	# (#2060 / #2576 / #2586 / #2633 第 5 弾)。
 	# #3962: `po-decision:required` label 付き PR の PO 決裁ブリーフ欠落もここで落ちる
 	# (label は labeler.yml が自動付与するため、body 側の追従漏れが #3944 / #3956 で 2 回連続した)。
+	#
+	# #3997: PR が **Draft** の場合、check-pr-body 側が Ready 化要件 (Ready チェックリスト全 [x] /
+	# PO 決裁ブリーフ) だけを deferred する。Draft は「まだ Ready の要件を満たしていない」宣言であり、
+	# それを push の条件にすると Draft PR に 1 commit も置けず成果物が local に滞留する (#3989 実例)。
+	# 体裁 / 事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ) は Draft でも
+	# 落ちる。deferred したことは check-pr-body の標準出力に必ず出る (無言 skip にしない)。
 	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: PR body 検証 fail (exit $EXIT_CODE)"

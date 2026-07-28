@@ -824,6 +824,164 @@ export function resolveLabels(args, fetched) {
 }
 
 // ---------------------------------------------------------------------------
+// Draft PR での Ready 化要件 deferral (#3997)
+// ---------------------------------------------------------------------------
+
+/**
+ * **Ready 化の要件そのもの**を検査する gate の SSOT (#3997)。
+ *
+ * Draft は「まだ Ready の要件を満たしていない」ことを宣言する状態なので、これらを Draft に
+ * 要求すると **Draft PR へ 1 commit も push できなくなる** (`.husky/pre-push` Step 3 が
+ * PR の存在だけで発火するため)。実際 #3989 で「local に commit があるのに remote が
+ * 7 時間前の HEAD のまま」という宙吊りが発生した。
+ *
+ * ここに載せる / 載せない の線引き:
+ *   - 載せる (= Draft では deferred): 「Ready にしてよい状態か」を問う検査。
+ *     Ready checklist の全 [x] (完遂宣言そのもの) / PO 決裁ブリーフ (PO に決裁を仰ぐ材料)。
+ *     Draft の定義上まだ満たしていないのが正常な項目。
+ *   - 載せない (= Draft でも enforce): 本文の体裁 / 事実性の検査。
+ *     必須セクション網羅・AC 4 列・禁止語・mojibake・変更タイプ・CONFLICTING・hotfix env 配布証跡。
+ *     これらは「Ready かどうか」と無関係に常に正しくあるべきで、Draft のうちに直すほど安い。
+ *     特に禁止語 / mojibake / CONFLICTING は放置するほど是正コストが上がるため Draft でも止める。
+ *
+ * **Ready 化の瞬間に必ず検査される**ことは変わらない (Ready 後の push / `npm run pre-ready`
+ * Step 9 / CI PR body gate はいずれも Draft ではないので本 deferral が効かない)。
+ *
+ * @type {ReadonlyArray<{ id: string; name: string; issue: string }>}
+ */
+export const READY_ONLY_GATES = [
+	{
+		id: 'unchecked-ready-checklist',
+		name: 'Ready for Review / 完了チェックリスト 全 [x]',
+		issue: '#1481',
+	},
+	{
+		id: 'po-decision-brief-missing-section',
+		name: 'PO 決裁ブリーフ (見出し欠落)',
+		issue: '#3962',
+	},
+	{
+		id: 'po-decision-brief-missing-diagram',
+		name: 'PO 決裁ブリーフ (mermaid 欠落)',
+		issue: '#3962',
+	},
+	{
+		id: 'po-decision-brief-unfilled-placeholder',
+		name: 'PO 決裁ブリーフ (未置換プレースホルダ)',
+		issue: '#3962',
+	},
+];
+
+/** @type {ReadonlySet<string>} */
+export const READY_ONLY_VIOLATION_IDS = new Set(READY_ONLY_GATES.map((g) => g.id));
+
+/**
+ * `gh pr view <num> --json isDraft` で Draft 状態を取得する (#3997)。
+ *
+ * `--jq` は使わない (#3962 の Windows cmd.exe 引用問題と同じ理由)。
+ * 取得不能 (gh 未認証 / オフライン / PR 未作成) は `null` を返し、呼び出し側は
+ * **Ready 扱い (= 全 gate enforce)** に倒す。gate が緩む方向へ黙って倒れないための fail-closed。
+ *
+ * @param {string|number|null} prNumber
+ * @returns {boolean | null} 取得できなければ null (= 未解決)
+ */
+function fetchPrIsDraft(prNumber) {
+	if (!prNumber) return null;
+	try {
+		const raw = execSync(`gh pr view ${prNumber} --json isDraft`, {
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 15_000,
+		});
+		return extractIsDraft(raw);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * `gh pr view --json isDraft` の生 JSON から boolean を取り出す (#3997)。
+ * boolean 以外 / パース不能は `null` (= 未解決)。false に潰すと「Draft ではない」と
+ * 「読めなかった」が混ざるため、`extractLabelNames` と同じ方針で分離する。
+ *
+ * @param {string} raw
+ * @returns {boolean | null}
+ */
+export function extractIsDraft(raw) {
+	let parsed;
+	try {
+		parsed = JSON.parse(raw.trim() || 'null');
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object') return null;
+	return typeof parsed.isDraft === 'boolean' ? parsed.isDraft : null;
+}
+
+/**
+ * 検査対象が Draft PR かを確定する (#3997)。
+ *
+ * - `--pr` 指定時は **gh の実状態だけ**を採用する (`--draft` フラグは無視)。
+ *   フラグで Ready PR の Ready 化要件を外せると、それ自体が bypass 経路になるため。
+ * - `--pr` なし (`--body-file` dry-run) では `--draft` フラグの申告を採用する。
+ *   この経路には Ready 化する PR が存在しないので、緩める対象がそもそも無い。
+ * - 未解決 (gh 失敗 / 申告なし) は **Ready 扱い** (= 従来どおり全 gate enforce)。
+ *
+ * @param {{ pr: string | null; draft: boolean }} args
+ * @param {boolean | null} fetched `fetchPrIsDraft()` の戻り (未解決なら null)
+ * @returns {{ isDraft: boolean; source: 'gh' | 'flag' | 'unresolved' }}
+ */
+export function resolveDraftState(args, fetched) {
+	if (args.pr) {
+		if (fetched === null) return { isDraft: false, source: 'unresolved' };
+		return { isDraft: fetched, source: 'gh' };
+	}
+	if (args.draft) return { isDraft: true, source: 'flag' };
+	return { isDraft: false, source: 'unresolved' };
+}
+
+/**
+ * violations を「Draft では deferred するもの」と「常に enforce するもの」に分ける (#3997)。
+ * `isDraft` が false のときは deferred が必ず空 (= 従来の挙動と完全一致)。
+ *
+ * @param {{ id: string; issue: string; message: string }[]} violations
+ * @param {boolean} isDraft
+ * @returns {{ enforced: typeof violations; deferred: typeof violations }}
+ */
+export function partitionReadyOnlyViolations(violations, isDraft) {
+	if (!isDraft) return { enforced: violations, deferred: [] };
+	const enforced = [];
+	const deferred = [];
+	for (const v of violations) {
+		if (READY_ONLY_VIOLATION_IDS.has(v.id)) deferred.push(v);
+		else enforced.push(v);
+	}
+	return { enforced, deferred };
+}
+
+/**
+ * Draft のため deferred した gate を明示する出力行を組み立てる (#3997 AC3)。
+ *
+ * **違反が 0 件でも必ず出す**。無言で緩めると「Draft のときだけ gate が空振りする」形になり、
+ * #3969 (gate が生きているつもりで死んでいた) と同じ class になるため。
+ *
+ * @param {{ id: string; message: string }[]} deferred
+ * @param {string|number|null} prNumber
+ * @returns {string[]}
+ */
+export function formatDraftDeferredGates(deferred, prNumber = null) {
+	const target = prNumber ? `PR #${prNumber}` : 'この PR';
+	return [
+		`[check-pr-body] NOTE: ${target} は Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件を deferred しました (#3997)`,
+		...READY_ONLY_GATES.map((g) => {
+			const hit = deferred.find((d) => d.id === g.id);
+			return `  - ${g.name} (${g.issue}) — ${hit ? '未達 (Draft のため今回は fail させない)' : '現時点で違反なし'}`;
+		}),
+		`  ※ Ready 化 (gh pr ready) 後の push / npm run pre-ready / CI では上記が全て必須になります`,
+	];
+}
+
+// ---------------------------------------------------------------------------
 // CLI 引数パース
 // ---------------------------------------------------------------------------
 
@@ -852,16 +1010,17 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; help: boolean }}
  */
-function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; help: boolean }} */
+export function parseArgs(argv) {
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
 		noLabels: false,
 		skipMergeable: false,
+		draft: false,
 		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -886,6 +1045,8 @@ function parseArgs(argv) {
 		const a = argv[i];
 		if (a === '--skip-mergeable') args.skipMergeable = true;
 		else if (a === '--no-labels') args.noLabels = true;
+		// #3997: --pr 指定時は gh の isDraft が優先され、本フラグは無視される (bypass 防止)
+		else if (a === '--draft') args.draft = true;
 		else if (a === '--help' || a === '-h') args.help = true;
 	}
 	return args;
@@ -913,6 +1074,8 @@ Options:
   --body-file <path>  ローカルファイルから body を読む（PR 未作成時の dry-run 用）
   --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
   --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
+  --draft             Draft 相当として検査（--body-file dry-run 専用、#3997）
+                      --pr 指定時は gh pr view --json isDraft の実状態が優先され本フラグは無視される
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
   --help, -h          このヘルプを表示
 
@@ -925,6 +1088,11 @@ Detected violations:
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
+
+Draft PR の扱い (#3997):
+  Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
+  のみ deferred する。それ以外 (必須セクション / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING /
+  hotfix env 配布証跡) は Draft でも従来どおり fail させる。deferred したことは必ず標準出力に出る。
 
 Exit codes:
   0 = OK
@@ -1086,13 +1254,26 @@ export async function main(argv = process.argv.slice(2)) {
 		for (const line of formatSkippedLabelGates()) console.log(line);
 	}
 
-	const violations = collectViolations(body, requiredSections, template, { ...args, labels });
+	const allViolations = collectViolations(body, requiredSections, template, { ...args, labels });
+
+	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
+	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
+	const { enforced: violations, deferred } = partitionReadyOnlyViolations(
+		allViolations,
+		draftState.isDraft,
+	);
+	if (draftState.isDraft) {
+		for (const line of formatDraftDeferredGates(deferred, args.pr)) console.log(line);
+	}
 
 	if (violations.length === 0) {
+		const draftNote = draftState.isDraft
+			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
+			: '';
 		console.log(
 			args.noLabels
-				? `[check-pr-body] OK (label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は未検査) — 違反なし`
-				: '[check-pr-body] OK — 違反なし',
+				? `[check-pr-body] OK (label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は未検査)${draftNote} — 違反なし`
+				: `[check-pr-body] OK${draftNote} — 違反なし`,
 		);
 		return 0;
 	}

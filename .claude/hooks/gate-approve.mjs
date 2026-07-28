@@ -6,10 +6,15 @@
  * Claude Code `PreToolUse` hook で呼出される検査スクリプト。
  *
  * 機能:
- *   stdin から Claude Code が渡す tool_input JSON を読み取り、Bash command 文字列が
+ *   stdin から Claude Code が渡す tool_input JSON を読み取り、command 文字列が
  *   `gh pr (merge|review --approve)` を含むとき、`tmp/adversarial-evidence/<pr-number>.json`
  *   の存在 + TTL (30 分) + schema 必須 field 充足を検証する。検証 fail なら exit 2 で
  *   approve action を物理 block する。
+ *
+ * 対象経路 (#4001):
+ *   Bash だけでなく **コマンド実行系ツール全経路** (SSOT: ./command-execution-tools.mjs)。
+ *   matcher が `"Bash"` だけだった間、PowerShell ツールで同じコマンドを叩けば gate が
+ *   起動せず素通しできた (gate bypass)。判別できない入力は allow ではなく block する。
  *
  * 設計根拠 (Research SSOT §5.1 / §5.2):
  *   - arXiv:2511.09710 で structured response schema 強制が echoing 30-40% → <10% を実証
@@ -42,6 +47,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isMain } from '../../scripts/lib/is-main.mjs';
+import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
 export const REQUIRED_OBJECT_COUNT = 3; // must_object_count 強制値 (Echoing 抑制)
@@ -76,15 +82,93 @@ async function readStdin() {
  */
 export function isApproveAction(command) {
 	if (typeof command !== 'string') return false;
+	const normalized = normalizeCommand(command);
 	// gh pr merge
-	if (/\bgh\s+pr\s+merge\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(normalized)) return true;
 	// gh pr review --approve
-	if (/\bgh\s+pr\s+review\b[^\n]*--approve\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(normalized)) return true;
 	// gh api .../pulls/<N>/merge (REST 直叩き)
-	if (/\bgh\s+api\b[^\n]*\/pulls\/\d+\/merge\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/merge\b/.test(normalized)) return true;
 	// gh api .../pulls/<N>/reviews (review 系 REST)
-	if (/\bgh\s+api\b[^\n]*\/pulls\/\d+\/reviews\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/reviews\b/.test(normalized)) return true;
 	return false;
+}
+
+/**
+ * PowerShell 経路で現れる表記ゆれを吸収してから regex 判定するための正規化 (#4001)。
+ *
+ * 吸収する差分 (Windows agent が自然に書く形):
+ *   - 呼び出し演算子 + 引用符付き exe: `& 'gh' pr merge 1` / `& "gh.exe" pr merge 1`
+ *   - backtick 行継続: "gh pr `\n merge 1"
+ *   - 連続空白 / タブ
+ *
+ * 変換は「検出側を広げる」方向にのみ効く (正規化しても既存 Bash 表記の判定は変わらない)。
+ * 変数間接参照 (`$c = 'gh pr merge 1'; iex $c`) 等の任意難読化は文字列検査では原理的に
+ * 追えないが、それは Bash 経路にも元からある性質であり本 fix で新たに開いた穴ではない。
+ *
+ * @param {string} command
+ * @returns {string}
+ */
+export function normalizeCommand(command) {
+	return command
+		.replace(/`\r?\n/g, ' ') // PowerShell 行継続
+		.replace(/&\s*(['"])([^'"]+)\1/g, '$2') // & 'gh' → gh
+		.replace(/(['"])(gh(?:\.exe)?)\1/gi, '$2') // 'gh' → gh
+		.replace(/[ \t]+/g, ' ');
+}
+
+/**
+ * hook payload から「検査すべきコマンド文字列」を取り出す (#4001)。
+ *
+ * fail-closed 方針: **抽出できない = approve ではない、とは扱わない**。
+ *   - tool_name が無い / 文字列でない → BLOCK (どの経路か判別できない)
+ *   - SSOT (COMMAND_EXECUTION_TOOLS) のツールなのに `tool_input.command` が文字列でない
+ *     → BLOCK (検査対象を読めない = 素通しさせない)
+ *   - SSOT に無いツール名 → allow に倒さず、tool_input 内の全文字列 (+ 連結形) を走査する。
+ *     matcher だけ広げて SSOT 更新を忘れた場合でも approve 系を掴めるようにするため。
+ *
+ * @param {unknown} payload
+ * @returns {{ ok: true; commands: string[] } | { ok: false; reason: string }}
+ */
+export function resolveInspectableCommands(payload) {
+	const toolName = /** @type {{ tool_name?: unknown }} */ (payload ?? {}).tool_name;
+	const toolInput = /** @type {{ tool_input?: unknown }} */ (payload ?? {}).tool_input;
+	if (typeof toolName !== 'string' || toolName.trim() === '') {
+		return {
+			ok: false,
+			reason: 'payload に tool_name がありません (どの実行経路か判別できないため block)',
+		};
+	}
+	if (COMMAND_EXECUTION_TOOLS.includes(toolName)) {
+		const command = /** @type {{ command?: unknown }} */ (toolInput ?? {}).command;
+		if (typeof command !== 'string') {
+			return {
+				ok: false,
+				reason: `${toolName} の tool_input.command が文字列ではありません (検査できないため block)`,
+			};
+		}
+		return { ok: true, commands: [command] };
+	}
+	const strings = collectStrings(toolInput);
+	// 引数配列 (["gh","pr","merge","4001"]) 形式にも当たるよう連結形も候補に入れる
+	return { ok: true, commands: strings.length > 1 ? [...strings, strings.join(' ')] : strings };
+}
+
+/**
+ * 任意 JSON 値から string を再帰収集する (#4001、未知ツールの走査用)。
+ *
+ * @param {unknown} value
+ * @param {number} depth
+ * @returns {string[]}
+ */
+export function collectStrings(value, depth = 0) {
+	if (depth > 6) return [];
+	if (typeof value === 'string') return [value];
+	if (Array.isArray(value)) return value.flatMap((v) => collectStrings(v, depth + 1));
+	if (value && typeof value === 'object') {
+		return Object.values(value).flatMap((v) => collectStrings(v, depth + 1));
+	}
+	return [];
 }
 
 /**
@@ -102,11 +186,13 @@ export function isApproveAction(command) {
  */
 export function extractPrNumber(command) {
 	if (typeof command !== 'string') return null;
+	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
+	const normalized = normalizeCommand(command);
 	// gh pr <merge|review> [args] <N>
-	const m1 = command.match(/\bgh\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
+	const m1 = normalized.match(/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
 	if (m1) return Number(m1[1]);
 	// gh api .../pulls/<N>/...
-	const m2 = command.match(/\/pulls\/(\d{1,6})\b/);
+	const m2 = normalized.match(/\/pulls\/(\d{1,6})\b/);
 	if (m2) return Number(m2[1]);
 	return null;
 }
@@ -202,12 +288,31 @@ async function main() {
 		const raw = await readStdin();
 		payload = raw.trim() ? JSON.parse(raw) : {};
 	} catch {
-		// JSON parse 失敗時は通過 (hook の異常で Claude を止めない、既存 hook と同方針)
-		process.exit(0);
+		// #4001: 旧実装は parse 失敗を exit 0 (通過) にしていたが、これは
+		// 「読めなかった」を「approve ではない」に潰す fail-open だった。読めない入力は block する。
+		process.stderr.write(
+			`[gate-approve] BLOCK: hook payload (stdin JSON) を parse できませんでした。\n`,
+		);
+		process.stderr.write(
+			`  approve 系コマンドか判別できないため、pass 側に倒さず block します (ADR-0056 / #4001)。\n`,
+		);
+		process.exit(2);
 	}
 
-	const command = payload?.tool_input?.command;
-	if (!isApproveAction(command)) {
+	const resolved = resolveInspectableCommands(payload);
+	if (!resolved.ok) {
+		process.stderr.write(`[gate-approve] BLOCK: ${resolved.reason}\n`);
+		process.stderr.write(
+			`  対処: コマンド実行経路のツールを追加した場合は .claude/hooks/command-execution-tools.mjs の\n`,
+		);
+		process.stderr.write(
+			`        COMMAND_EXECUTION_TOOLS と .claude/settings.json の matcher を同時に更新してください (#4001)。\n`,
+		);
+		process.exit(2);
+	}
+
+	const command = resolved.commands.find((c) => isApproveAction(c));
+	if (command === undefined) {
 		// approve 系コマンドでなければ対象外
 		process.exit(0);
 	}
