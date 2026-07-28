@@ -113,7 +113,8 @@ export function splitCommandSegments(command) {
 	let cur = '';
 	let quote = null;
 	for (let i = 0; i < command.length; i += 1) {
-		const ch = command[i];
+		// charAt は範囲外でも '' を返すため、index アクセスと違い undefined を持ち込まない
+		const ch = command.charAt(i);
 		if (quote) {
 			cur += ch;
 			if (ch === quote) quote = null;
@@ -129,7 +130,10 @@ export function splitCommandSegments(command) {
 			cur = '';
 			continue;
 		}
-		if ((ch === '&' && command[i + 1] === '&') || (ch === '|' && command[i + 1] === '|')) {
+		if (
+			(ch === '&' && command.charAt(i + 1) === '&') ||
+			(ch === '|' && command.charAt(i + 1) === '|')
+		) {
 			segments.push(cur);
 			cur = '';
 			i += 1;
@@ -174,8 +178,8 @@ export function findGhInvocations(command) {
 	const invocations = [];
 	for (const segment of splitCommandSegments(command)) {
 		const tokens = tokenizeSegment(segment);
-		for (let i = 0; i < tokens.length; i += 1) {
-			if (/^gh(?:\.exe)?$/i.test(tokens[i])) {
+		for (const [i, token] of tokens.entries()) {
+			if (/^gh(?:\.exe)?$/i.test(token)) {
 				invocations.push({ segment: segment.trim(), argv: tokens.slice(i + 1) });
 			}
 		}
@@ -232,44 +236,68 @@ export function normalizeApiPath(token) {
  * @returns {{ isApi: boolean; method: string; paths: string[] }}
  */
 export function parseGhApiInvocation(argv) {
-	if (!Array.isArray(argv) || argv.length === 0 || argv[0] !== 'api') {
+	if (!Array.isArray(argv) || argv.at(0) !== 'api') {
 		return { isApi: false, method: 'GET', paths: [] };
 	}
+	/** @type {string|null} */
 	let explicitMethod = null;
 	let impliesPost = false;
+	// 値を伴う flag なのに値が無い = 解析できなかったケース。allow 側ではなく POST (= BLOCK 側) に倒す。
+	let unresolvedValue = false;
 	/** @type {string[]} */
 	const paths = [];
-	for (let i = 1; i < argv.length; i += 1) {
-		const token = argv[i];
-		const eq = token.indexOf('=');
-		const flagName = token.startsWith('-') && eq > 0 ? token.slice(0, eq) : token;
-		const inlineValue = token.startsWith('-') && eq > 0 ? token.slice(eq + 1) : null;
+	let index = 1;
+	while (index < argv.length) {
+		const token = argv.at(index);
+		index += 1;
+		if (token === undefined) {
+			// 配列長と要素の整合が崩れている = 解析不能。fail-closed (#3999 と同じ穴を開けない)。
+			unresolvedValue = true;
+			break;
+		}
 		if (token.startsWith('-')) {
-			if (VALUE_FLAGS.has(flagName)) {
-				const value = inlineValue ?? argv[i + 1];
-				if (inlineValue === null) i += 1;
-				if (flagName === '-X' || flagName === '--method') {
-					if (value) explicitMethod = value.toUpperCase();
-				} else {
-					if (IMPLIES_POST.has(flagName)) impliesPost = true;
-				}
+			const eq = token.indexOf('=');
+			const flagName = eq > 0 ? token.slice(0, eq) : token;
+			const inlineValue = eq > 0 ? token.slice(eq + 1) : null;
+			if (!VALUE_FLAGS.has(flagName)) continue;
+			let value = inlineValue;
+			if (value === null) {
+				value = argv.at(index) ?? null;
+				index += 1;
+			}
+			if (flagName === '-X' || flagName === '--method') {
+				if (value === null) unresolvedValue = true;
+				else explicitMethod = value.toUpperCase();
+			} else if (IMPLIES_POST.has(flagName)) {
+				impliesPost = true;
 			}
 			continue;
 		}
-		if (PULLS_PATH_RE.test(token) || /^(?:\/)?graphql$/i.test(token)) {
+		if (PULLS_PATH_RE.test(token) || /^\/?graphql$/i.test(token)) {
 			paths.push(normalizeApiPath(token));
 		}
 	}
-	const method = explicitMethod ?? (impliesPost ? 'POST' : 'GET');
+	const method = explicitMethod ?? (impliesPost || unresolvedValue ? 'POST' : 'GET');
 	return { isApi: true, method, paths };
 }
 
-/** `repos/<owner>/<repo>/pulls` (コレクション) か。 */
+/**
+ * `repos/<owner>/<repo>/pulls` (コレクション) か。
+ *
+ * @param {string} path  normalizeApiPath 済みのパス
+ * @returns {boolean}
+ */
 export function isPullsCollectionPath(path) {
 	return /^repos\/[^/]+\/[^/]+\/pulls$/i.test(path);
 }
 
-/** `repos/<owner>/<repo>/pulls/<n>/<subresource>` か。 */
+/**
+ * `repos/<owner>/<repo>/pulls/<n>/<subresource>` か。
+ *
+ * @param {string} path  normalizeApiPath 済みのパス
+ * @param {string} subresource  `reviews` / `merge` 等 (正規表現に埋め込むため呼出側で定数を渡すこと)
+ * @returns {boolean}
+ */
 export function isPullsSubresourcePath(path, subresource) {
 	return new RegExp(`^repos/[^/]+/[^/]+/pulls/\\d+/${subresource}(?:/.*)?$`, 'i').test(path);
 }

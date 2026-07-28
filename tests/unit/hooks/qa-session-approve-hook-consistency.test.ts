@@ -44,11 +44,16 @@ function readApproveCodeBlock(): string {
 		);
 	}
 	const after = md.slice(headingIndex);
-	const block = after.match(/```bash\n([\s\S]*?)```/);
-	if (!block) {
+	const body = after.match(/```bash\n([\s\S]*?)```/)?.[1];
+	if (body === undefined) {
 		throw new Error('approve & merge セクション直下に bash コードブロックがありません');
 	}
-	return block[1];
+	return body;
+}
+
+/** it.each のラベル用に先頭行を取り出す。 */
+function firstLine(statement: string): string {
+	return (statement.split('\n')[0] ?? statement).slice(0, 90);
 }
 
 /**
@@ -64,9 +69,9 @@ function splitStatements(block: string): string[] {
 			if (line.trim() === heredocDelimiter) heredocDelimiter = null;
 			continue;
 		}
-		const heredocStart = line.match(/<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/);
-		if (heredocStart) {
-			heredocDelimiter = heredocStart[1];
+		const heredocStart = line.match(/<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/)?.[1];
+		if (heredocStart !== undefined) {
+			heredocDelimiter = heredocStart;
 			continue;
 		}
 		const opens = (current.match(/\(/g) ?? []).length;
@@ -100,13 +105,13 @@ describe('qa-session.md の approve / merge コマンドを両 hook に通す (#
 	});
 
 	it.each(
-		statements.map((s) => [s.split('\n')[0].slice(0, 90), s] as const),
+		statements.map((s) => [firstLine(s), s] as const),
 	)('account guard で BLOCK されない: %s', (_label, statement) => {
 		expect(containsGhPrCreate(statement)).toBe(false);
 	});
 
 	it.each(
-		approveStatements.map((s) => [s.split('\n')[0].slice(0, 90), s] as const),
+		approveStatements.map((s) => [firstLine(s), s] as const),
 	)('gate-approve が approve 操作として捕捉する: %s', (_label, statement) => {
 		expect(isApproveAction(statement)).toBe(true);
 		expect(extractPrNumber(statement)).toBe(FIXTURE_PR_NUMBER);
