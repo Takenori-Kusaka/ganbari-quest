@@ -3,7 +3,13 @@
  *
  * scripts/check-pr-body.mjs の純粋関数（検出ロジック）の unit test。
  * GitHub API 呼び出し (gh pr view) は本テストでは触れない（--body-file 経路でテスト可能）。
+ *
+ * 検出器の負例 fixture には「検出されない側」を示すためのわざとらしい綴りが含まれる
+ * (`XXXY` = 語境界を持たないので XXX として検出されない / `labelish` = PLACEHOLDER 等の
+ * token に見えるが該当しない語)。これらは typo ではなく検査対象そのものなので、
+ * .cspell.json の辞書 (= 本物の語彙) には入れず file-scoped ignore で閉じる。
  */
+// cspell:ignore XXXY labelish
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
