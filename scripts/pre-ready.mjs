@@ -676,7 +676,14 @@ function buildSteps(args, changedFiles) {
 				? `Step 9/12: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
 				: 'Step 9/12: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
 			...skipStateOf({ byFlag: args.skipPrBody, notApplicable: !args.pr }),
-			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
+			// #4006: 本 step 実行時点では今回の receipt はまだ存在しない (実行完了後に生成される)。
+			// receipt gate をここで適用すると「receipt を作るには Step 9 が必要 / Step 9 には receipt が必要」
+			// の循環になるため、PRE_READY_IN_PROGRESS=1 で受信側に「実行中」を伝える。
+			// gate 本体は実行後の push (.husky/pre-push) / 手動実行で効く。
+			runner: () =>
+				runWithEnv('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr], {
+					PRE_READY_IN_PROGRESS: '1',
+				}),
 			fixHint:
 				'  Readiness gate FAIL — Ready 化前必須 (本日 7 連続再発 #2625 / #2626 / #2629 / #2630、#2632 で gate 強化)\n' +
 				'  検出対象:\n' +

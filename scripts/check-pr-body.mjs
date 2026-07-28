@@ -678,6 +678,25 @@ export function checkPreReadyReceipt(body, ctx) {
 }
 
 /**
+ * receipt gate が適用可能な呼び出しかを判定する。
+ *
+ * **pre-ready 自身の Step 9 からの呼び出しでは適用しない**。receipt は「その実行が終わった事実」
+ * の記録であり、実行中に PR body へ存在し得ない。ここで要求すると
+ * 「receipt を作るには Step 9 を通す必要があり、Step 9 を通すには receipt が要る」という
+ * 循環になり、**どの PR も永遠にチェックを付けられなくなる** (自 PR だけの問題ではない)。
+ *
+ * 適用されるのは実行後の呼び出し — `.husky/pre-push` の PR body 検証、レビュー側の手動実行、
+ * Ready 化前の再確認。したがって「receipt を貼らずに push する」経路は塞がったままになる。
+ * skip したことは silent にせず呼び出し側が WARN 行で出す (ADR-0006 no-silent-skip)。
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {boolean}
+ */
+export function isPreReadyReceiptGateApplicable(env = process.env) {
+	return env.PRE_READY_IN_PROGRESS !== '1';
+}
+
+/**
  * gate 用に PR の実 HEAD SHA を取得する。取得できない場合は理由を返す。
  * @param {string|number} prNumber
  * @returns {{ sha: string | null; warning: string | null }}
@@ -1102,7 +1121,12 @@ function collectViolations(body, requiredSections, template, args) {
 	// #4006: pre-ready チェックボックス `[x]` の receipt 検証。
 	// HEAD SHA が取れない場合も receipt 不在 / 別 PR の receipt は検出できるため gate は止めない。
 	// 取れなかった事実は silent にせず WARN 行で出す (ADR-0006 no-silent-skip)。
-	if (claimsPreReadyPass(body)) {
+	if (claimsPreReadyPass(body) && !isPreReadyReceiptGateApplicable()) {
+		console.log(
+			'[check-pr-body] SKIPPED: pre-ready 実行中のため receipt gate は対象外です' +
+				' (receipt は実行完了後にしか存在しない)。実行後の push / 手動実行で検証されます (#4006)。',
+		);
+	} else if (claimsPreReadyPass(body)) {
 		let actualHeadSha = null;
 		if (args.pr) {
 			const resolvedHead = resolveActualHeadSha(args.pr);

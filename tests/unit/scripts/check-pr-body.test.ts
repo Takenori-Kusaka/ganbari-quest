@@ -30,6 +30,7 @@ import {
 	HOTFIX_LABELS,
 	hasHotfixLabel,
 	hasPoDecisionLabel,
+	isPreReadyReceiptGateApplicable,
 	LABEL_CONDITIONAL_GATES,
 	PO_DECISION_LABEL,
 	resolveLabels,
@@ -1024,6 +1025,16 @@ describe('#4006 pre-ready receipt gate', () => {
 				actualHeadSha: HEAD_SHA,
 			}),
 		).toBeNull();
+	});
+
+	it('[PR6] pre-ready 実行中だけ gate 対象外 — 実行後の呼び出しでは必ず適用される', () => {
+		// receipt は実行完了後にしか存在しないため、pre-ready の Step 9 内で要求すると
+		// 「receipt を作るには Step 9 が必要 / Step 9 には receipt が必要」の循環になる。
+		// 逆に言えば、実行中フラグが無い呼び出し (pre-push / 手動 / QM) では常に適用される必要がある。
+		expect(isPreReadyReceiptGateApplicable({ PRE_READY_IN_PROGRESS: '1' })).toBe(false);
+		expect(isPreReadyReceiptGateApplicable({})).toBe(true);
+		expect(isPreReadyReceiptGateApplicable({ PRE_READY_IN_PROGRESS: '0' })).toBe(true);
+		expect(isPreReadyReceiptGateApplicable({ PRE_READY_IN_PROGRESS: 'true' })).toBe(true);
 	});
 
 	it('[PR5] 未チェックの body には receipt を要求しない', () => {
