@@ -83,7 +83,9 @@ async function readStdin() {
  *   - `gh api repos/.../pulls/<N>/merge` (REST 直叩き、PR merge 相当)
  *   - `gh api repos/.../pulls/<N>/reviews` POST (REST 直叩き、approve review 相当)
  *
- * 誤検知側に倒す方針 (既存 scripts/claude-hook-prevent-qa-account-pr.mjs と同方針)。
+ * 判定材料は **サブコマンドと API パス**に限る (#4027)。引数の値 (`--body` / `--body-file` /
+ * heredoc) は見ない — hook 自身を説明する文書に approve コマンド例を書くだけで止まる誤検知を防ぐ。
+ * そのうえで検出幅は従来どおり (method を問わない / 引用符や別 shell 経由でも捕捉する):
  * 過剰 block コスト < drift identification trap が穴になるコスト。
  *
  * @param {unknown} command  Bash tool_input.command 文字列
