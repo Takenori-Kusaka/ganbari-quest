@@ -92,6 +92,26 @@ a:hover{text-decoration:underline}
 }
 
 /**
+ * #3963 (PO 決裁 2026-07-29): 課金状態の解決失敗 (fail-closed 503) から除外する probe パス。
+ *
+ * health / readiness は「アプリのプロセスが生きているか」を問う外形監視であり、課金状態に
+ * 一切依存しない。ここを 503 にすると、DSQL 障害時に Lambda health / LWA readiness /
+ * `deploy-aws-staging.yml` の post-deploy health / ロールバック判定がまとめて誤作動し、
+ * 「DB が一時的に不調」だけの状況が「デプロイ失敗 / アプリ死亡」として扱われる。
+ *
+ * 実運用の probe は未認証 (identity=null) で `resolveContext` の DB 経路に入らないが、
+ * それは probe の呼ばれ方に依存した暗黙の前提でしかない (認証 Cookie を持つブラウザや
+ * 将来の認証付き probe で崩れる)。前提に頼らず path で明示除外する。
+ */
+const ENTITLEMENT_FAILURE_EXEMPT_PATHS = ['/api/health', '/api/ready'] as const;
+
+function isEntitlementFailureExemptPath(path: string): boolean {
+	return ENTITLEMENT_FAILURE_EXEMPT_PATHS.some(
+		(exempt) => path === exempt || path.startsWith(`${exempt}/`),
+	);
+}
+
+/**
  * #3963: 課金状態を DB から解決できず context を発行できなかった場合の応答。
  *
  * fail-closed の副作用として、認証は生きているのに context だけが無い状態が生じる。
@@ -451,7 +471,12 @@ export const handle: Handle = ({ event, resolve }) =>
 			resolvedContext = await provider.resolveContext(event, identity);
 		} catch (e) {
 			if (!(e instanceof TenantEntitlementUnavailableError)) throw e;
-			return respondEntitlementUnavailable(event, e);
+			// health / readiness probe は課金状態に依存しないため 503 にしない
+			// (PO 決裁 2026-07-29 merge 条件、`ENTITLEMENT_FAILURE_EXEMPT_PATHS` 参照)。
+			if (!isEntitlementFailureExemptPath(path)) {
+				return respondEntitlementUnavailable(event, e);
+			}
+			resolvedContext = null;
 		}
 
 		// DEBUG_PLAN / DEBUG_TRIAL による上書きは、以降の認可・tenantStatus チェックにも
