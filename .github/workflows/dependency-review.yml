@@ -35,7 +35,10 @@ jobs:
           # 前提に依存しているため明示する (v5 src/schemas.ts: fail_on_scopes.default(['runtime']))。
           # 既定が変わったときに waiver の根拠が黙って崩れるのを防ぐ。
           fail-on-scopes: runtime
-          # --- waiver (#4017、オーナー承認 2026-07-28) ---------------------------------
+          # --- waiver (#4017) ---------------------------------------------------------
+          # PO 決裁記録 (承認の正本):
+          #   https://github.com/Takenori-Kusaka/ganbari-quest/issues/4017#issuecomment-5113776277
+          #
           # GHSA-mh99-v99m-4gvg / brace-expansion <= 5.0.7 / DoS via unbounded expansion。
           #
           # 対象は `infra/package-lock.json` の 1 経路のみ (実 job ログで確認済):
@@ -43,20 +46,29 @@ jobs:
           #   `overrides` では差し替えられず、patched 5.0.8 を同梱した aws-cdk-lib のリリース待ち。
           #
           # なぜ waiver が必要か:
-          #   - infra/ は CDK synth 用で **CI と開発機のビルド時にしか実行されない**。glob の入力は
-          #     リポジトリ内の記述であり、攻撃者が制御する経路が無い
+          #   - `infra/node_modules` は CDK synth 専用で、**本番イメージに一度も install されない**
+          #     (Dockerfile が実行する npm ci は root の package*.json のみ。runtime stage も
+          #     `infra/` 配下を COPY しない)。よって本 advisory の
+          #     brace-expansion は **顧客リクエスト経路に存在しない**。実エクスポージャは CI ランナーと
+          #     開発機のビルド時に限られ、glob の入力はリポジトリ内の記述 (攻撃者非制御)
           #   - main 側も 5.0.6 で同じ advisory 範囲 (<= 5.0.7) の中にある。dependency-review は
           #     base↔head の差分しか見ないため、5.0.6 に revert すると **赤だけ消えて脆弱性は残る**
           #   - 本 advisory を放置すると lock を触る PR (Dependabot 含む) が全て赤になり、
           #     統合レーンが無期限に止まる
           #
+          # ルート側 (`package-lock.json`) について (誤解防止):
+          #   本リポジトリの Dockerfile は runtime stage に devDeps 込みで node_modules を COPY する
+          #   ため、**ルート側の brace-expansion は本番イメージのディスク上に存在する**。ただし
+          #   server bundle の実行経路から require されず、glob の入力も攻撃者非制御であるため
+          #   実エクスポージャは無い (「dev だから載らない」という説明は事実に反するので使わない)。
+          #
           # 残存リスク (受容済み):
           #   `allow-ghsas` は GHSA ID 単位で、**path / manifest / scope では絞れない** (v5 の
           #   input / config-file いずれにも該当キー無し)。したがって将来 brace-expansion が
           #   **ランタイム依存**として入っても同 advisory なら本 gate は黙る。この穴は
-          #   `tests/unit/infra/dependency-review-waiver.test.ts` が塞ぐ (root lock に
-          #   brace-expansion が非 dev 依存として現れたら fail)。
+          #   `tests/unit/infra/dependency-review-waiver.test.ts` が塞ぐ (`[W1]` root lock で非 dev 化
+          #   したら fail = 入口を狭める / `[W5]` bundled が 5.0.8 以上になったら fail = 撤去を強制)。
           #
           # 撤去条件: aws-cdk-lib が brace-expansion 5.0.8 以上を同梱したら lock を上げて
-          #   本 waiver と上記 test の waiver 節を削除する。追跡札は #4017 (open のまま維持)。
+          #   本 waiver と上記 test の `[W5]` を削除する。到達検知は `[W5]` が機械的に行う。
           allow-ghsas: GHSA-mh99-v99m-4gvg
