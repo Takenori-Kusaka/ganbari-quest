@@ -52,9 +52,11 @@ describe('renderBackMergePrBody (#3879 AC1: template gate 準拠 body の生成)
 	it.each([
 		['clean', cleanBody],
 		['conflict', conflictBody],
-	])('%s: 必須 13 セクション見出しが完全一致で全て存在する (check-pr-body SSOT)', (_kind, body) => {
+	])('%s: 必須セクション見出しが完全一致で全て存在する (check-pr-body SSOT)', (_kind, body) => {
 		const required = extractRequiredSections(template);
-		expect(required.length).toBeGreaterThanOrEqual(13);
+		// 件数はマジックナンバーで固定しない (#4097 で 13 → 11 になった際にここが stale hard-fail した)。
+		// template と SSOT JSON の一致を assert すれば、件数変更に追従しつつ drift は検出できる。
+		expect(required).toEqual(ssotSections);
 		expect(findMissingSections(body, required)).toEqual([]);
 	});
 
