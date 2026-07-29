@@ -7,7 +7,12 @@
  * - isFileAllowlisted: LEGACY_URL_MAP file のみ allowlist (旧 DB 層 allowlist は撤去済)
  * - isCommentLine: 履歴コメント行を許容
  * - findViolationsInContent: allowlist 外のコード行 license key 参照を検出
- * - findAllViolations: 実 repo (src/ + site/) で再導入ゼロを保証
+ * - findAllViolations: 固定 fixture ツリーに対する走査 (再帰 / 拡張子 filter / allowlist)
+ * - parseBudgetMs: `--budget-ms` の解釈 (#4000)
+ *
+ * 実 repo (src/ + site/) の再導入ゼロ検査は unit lane では行わない (#4000)。cold FS cache で
+ * 走査が 18s 規模になり per-test timeout と衝突するため、per-test timeout を持たない
+ * pre-ready Step 7b / CI gate step に委ねる。本 file はその **配線が消えていないこと**を守る。
  */
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -150,7 +155,7 @@ describe('check-license-key-leak (#2836)', () => {
 	//   - `npm run pre-ready` Step 7b (`node scripts/check-license-key-leak.mjs`)
 	//   - CI `.github/workflows/ci.yml` の License key re-introduction guard step
 	//
-	// unit lane が担うのは「その配線が消えていないこと」= 下の 2 test。gate が片方の lane から
+	// unit lane が担うのは「その配線が消えていないこと」= 下の 3 test。gate が片方の lane から
 	// 落ちれば unit test が落ちる (「検査していない」が緑に見える状態を作らせない)。
 	describe('実 repo gate の配線 (#4000)', () => {
 		const repoRoot = resolve(__dirname, '../../..');
