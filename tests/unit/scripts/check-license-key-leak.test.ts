@@ -7,17 +7,29 @@
  * - isFileAllowlisted: LEGACY_URL_MAP file のみ allowlist (旧 DB 層 allowlist は撤去済)
  * - isCommentLine: 履歴コメント行を許容
  * - findViolationsInContent: allowlist 外のコード行 license key 参照を検出
- * - findAllViolations: 実 repo (src/ + site/) で再導入ゼロを保証
+ * - findAllViolations: 固定 fixture ツリーに対する走査 (再帰 / 拡張子 filter / allowlist)
+ * - parseBudgetMs: `--budget-ms` の解釈 (#4000)
+ *
+ * 実 repo (src/ + site/) の再導入ゼロ検査は unit lane では行わない (#4000)。cold FS cache で
+ * 走査が 18s 規模になり per-test timeout と衝突するため、per-test timeout を持たない
+ * pre-ready Step 7b / CI gate step に委ねる。本 file はその **配線が消えていないこと**を守る。
  */
 
-import { describe, expect, it } from 'vitest';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
 	findAllViolations,
 	findViolationsInContent,
 	isCommentLine,
 	isFileAllowlisted,
+	parseBudgetMs,
 } from '../../../scripts/check-license-key-leak.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('check-license-key-leak (#2836)', () => {
 	describe('isFileAllowlisted', () => {
@@ -119,30 +131,108 @@ describe('check-license-key-leak (#2836)', () => {
 		});
 	});
 
-	describe('findAllViolations (実 repo gate)', () => {
-		// #3972: 本 test の主張は「violations 0 件」であって「速いこと」ではない。
-		// `findAllViolations()` 自体は実測 ~250ms (Dev 261ms / QA 241ms、いずれも 0 件) だが、
-		// repo 全走査を伴うため vitest harness の負荷次第で既定 5s を超え、環境依存で赤になる。
-		// 「pre-ready は 1 件既知 fail」が常態化すると本物の fail が紛れるため、実測の約 120x を
-		// 明示して環境揺らぎを吸収する (走査が壊れて戻らないケースは 30s で打ち切られる)。
-		const REPO_SCAN_TIMEOUT_MS = 30_000;
+	// #4000: 「実 repo 全走査」を unit lane から外し、gate が両 lane に配線されていることの
+	// 検証に置き換える。
+	//
+	// ## なぜ外すか (計測結果)
+	//
+	// `findAllViolations()` は src/ + site/ の **986 file / 6.5MB を実際に開いて読む**。
+	// 素の node プロセス (vitest harness なし) での実測は:
+	//
+	//   - cold FS cache (その日の初回 / fresh clone): **18,756ms**
+	//   - warm (同一 file を再走査):                  **~285ms**
+	//
+	// 66x の差が harness の外側、走査そのものの中に出る (Windows Defender 下で初回 open が
+	// ~19ms/file)。**#4000 の起票時仮説「harness コストが実処理の 100x」は誤りで、cold の
+	// コストは走査自身の file open が支配する。** よって timeout をいくら上げても、
+	// 走査 file 数 × 初回 open 遅延が per-test timeout を超えうる構造は残る (30s は cold 実測
+	// 18.8s の 1.6x しかなく、より遅い環境では超える)。
+	//
+	// ## 外しても検査は失われない (ADR-0006 弱体化ではない)
+	//
+	// 同一の `findAllViolations()` による実 repo 検査は、per-test timeout を持たない専用 lane
+	// で **2 箇所** 走る:
+	//   - `npm run pre-ready` Step 7b (`node scripts/check-license-key-leak.mjs`)
+	//   - CI `.github/workflows/ci.yml` の License key re-introduction guard step
+	//
+	// unit lane が担うのは「その配線が消えていないこと」= 下の 3 test。gate が片方の lane から
+	// 落ちれば unit test が落ちる (「検査していない」が緑に見える状態を作らせない)。
+	describe('実 repo gate の配線 (#4000)', () => {
+		const repoRoot = resolve(__dirname, '../../..');
+		const readRepoFile = (rel: string) => readFileSync(resolve(repoRoot, rel), 'utf8');
 
-		it(
-			'現在の src/ + site/ に再導入された license key 参照はゼロ (本 PR 自身が PASS)',
-			() => {
-				const violations = findAllViolations();
-				if (violations.length > 0) {
-					// 失敗時に違反箇所を表示
-					throw new Error(
-						`license key 再導入を ${violations.length} 件検出:\n` +
-							violations
-								.map((v: { file: string; line: number }) => `  ${v.file}:${v.line}`)
-								.join('\n'),
-					);
-				}
-				expect(violations).toHaveLength(0);
-			},
-			REPO_SCAN_TIMEOUT_MS,
-		);
+		it('pre-ready が check-license-key-leak.mjs を実行する', () => {
+			expect(readRepoFile('scripts/pre-ready.mjs')).toContain(
+				"['node', 'scripts/check-license-key-leak.mjs']",
+			);
+		});
+
+		it('CI が check-license-key-leak.mjs を実行する', () => {
+			expect(readRepoFile('.github/workflows/ci.yml')).toContain(
+				'node scripts/check-license-key-leak.mjs',
+			);
+		});
+
+		it('CI は cold 実行の所要を budget で機械検知する', () => {
+			// CI runner は fresh clone = 常に cold FS cache。そこで budget を課すこと自体が
+			// 「cold 条件の回帰検知」になる (専用の cold 再現 job を別に持たない)。
+			expect(readRepoFile('.github/workflows/ci.yml')).toMatch(
+				/check-license-key-leak\.mjs --budget-ms \d+/,
+			);
+		});
+	});
+
+	// 走査関数そのものの検証は、実 repo ではなく **固定 fixture ツリー**に対して行う。
+	// 走査 (再帰 / 拡張子 filter / allowlist / コメント行) の振る舞いを、file 数に依存しない
+	// 一定コストで固定する。
+	describe('findAllViolations (fixture ツリー)', () => {
+		let dir: string;
+
+		beforeAll(() => {
+			dir = mkdtempSync(join(tmpdir(), 'license-key-leak-'));
+			mkdirSync(join(dir, 'src', 'lib', 'server', 'routing'), { recursive: true });
+			mkdirSync(join(dir, 'site'), { recursive: true });
+			writeFileSync(join(dir, 'src', 'clean.ts'), 'const ok = true;\n');
+			writeFileSync(join(dir, 'src', 'commented.ts'), '// 旧 licenseKey は撤去済 (#2818)\n');
+			writeFileSync(join(dir, 'src', 'violating.ts'), "const msg = 'ライセンスキー';\n");
+			writeFileSync(
+				join(dir, 'src', 'lib', 'server', 'routing', 'legacy-url-map.ts'),
+				"{ from: '/help/license-key', to: '/admin/subscription' },\n",
+			);
+			writeFileSync(join(dir, 'site', 'page.html'), '<p>LICENSE_KEY</p>\n');
+			// 対象外拡張子は走査しない
+			writeFileSync(join(dir, 'site', 'notes.md'), 'licenseKey\n');
+		});
+
+		afterAll(() => {
+			rmSync(dir, { recursive: true, force: true });
+		});
+
+		it('コード行の違反のみを、再帰走査した対象拡張子から検出する', () => {
+			const violations = findAllViolations(dir).map((v: { file: string }) =>
+				v.file.replace(/\\/g, '/'),
+			);
+			expect(violations.sort()).toEqual(['site/page.html', 'src/violating.ts']);
+		});
+
+		it('allowlist file / コメント行 / 対象外拡張子は検出しない', () => {
+			const files = findAllViolations(dir).map((v: { file: string }) => v.file.replace(/\\/g, '/'));
+			expect(files).not.toContain('src/lib/server/routing/legacy-url-map.ts');
+			expect(files).not.toContain('src/commented.ts');
+			expect(files).not.toContain('site/notes.md');
+		});
+	});
+
+	describe('parseBudgetMs (#4000)', () => {
+		it('--budget-ms の値を読む / 未指定は null', () => {
+			expect(parseBudgetMs(['--budget-ms', '60000'])).toBe(60000);
+			expect(parseBudgetMs([])).toBe(null);
+		});
+
+		it('不正値は例外にする (silent に検査を無効化しない)', () => {
+			expect(() => parseBudgetMs(['--budget-ms', 'abc'])).toThrow();
+			expect(() => parseBudgetMs(['--budget-ms'])).toThrow();
+			expect(() => parseBudgetMs(['--budget-ms', '0'])).toThrow();
+		});
 	});
 });
