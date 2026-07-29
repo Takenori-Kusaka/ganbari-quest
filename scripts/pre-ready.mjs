@@ -473,6 +473,7 @@ export const STEP_COST_CLASS_BY_NAME = {
 	'license-key-leak': 'static',
 	'cli-entry-guard': 'static',
 	'sparse-checkout-closure': 'static',
+	'readdir-rotation-guard': 'static',
 	'lp-labels': 'static',
 	'doc-code-references': 'static',
 	'terminology-coherence': 'static',
