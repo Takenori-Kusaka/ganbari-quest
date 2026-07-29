@@ -91,6 +91,23 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `new-env-distribution-check` / `schema-change-tests-check` / `schema-migration-completeness-check` | env 配布証跡 / スキーマ互換 | ≤ 53s |
 | PR テンプレ gate（`pr-template-gate.yml` 6 job / `pr-ac-verification-check.yml`） | 必須セクション / AC マップ / closing keyword（#3458） | ≤ 53s |
 
+### §4.1 Ready 判定の根拠 — フルスイートはローカルではなく CI で測る（#4007）
+
+16 コアのマシンを 4 エージェントが共有する運用では、全員が約 30 分のフルスイートを回す限り必ず重なる。重なった結果の red は「本 PR の diff が触れていない test が負荷で落ちた」であり、**判定として偽**である（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は `unit-test (1)` 8m58s / `(2)` 9m15s とも pass）。そこで Ready 判定の根拠を、**並走の影響を受けない場所での実測**に置く。
+
+| 判定 | 実行場所 | 内容 |
+|---|---|---|
+| ローカル `pre-ready` | 開発マシン | Step 1〜2 / 4〜12（biome / cspell / svelte-check / 各 SSOT gate / PR body gate）。`--skip-vitest` で Step 3 を CI へ委譲する |
+| フルスイート（vitest） | CI `unit-test`（×2 shard）+ `unit-test-merge` | Ready 判定はこちらを正とする |
+| 単独実行が必要な重い測定 | 開発マシン（排他） | 実行前にチャンネルで一報し、他セッションと重ならない窓を作る |
+
+**skip は pass ではない（例外なし）**:
+
+- `unit-test` / `unit-test-merge` が skip された PR は Ready にしない。`gh pr checks <num>` で `pass` を確認する
+- **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `failure` / `cancelled` のみを数え `skipped` を数えない（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）。これは意図された設計であり本 Issue でも変えない。したがって「見ていない gate が pass に見える」状態を Ready 判定側で塞ぐ
+- skip された場合の代替は「該当 vitest をローカルで単独実行し、ログを PR body に貼る」
+- そもそも skip が起きないよう、`ci.yml` の `app` filter は `tests/unit` + `tests/integration` が実行時に読む repo パスの root（`docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` 等）を含み、その閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する
+
 ### 重量レーン（release/* → main 統合 PR、§3.1）
 
 | job | 内容 | 実測 |

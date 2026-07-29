@@ -27,7 +27,7 @@
  *
  * Usage:
  *   npm run pre-ready -- --pr 1920
- *   npm run pre-ready -- --pr 1920 --skip-vitest          # 重い vitest をスキップして高速確認
+ *   npm run pre-ready -- --pr 1920 --skip-vitest          # vitest 判定を CI unit-test へ委譲 (#4007)
  *   npm run pre-ready                                      # PR 未作成時 (PR body / mergeable 検証はスキップ)
  *
  * exit:
@@ -125,7 +125,10 @@ Options:
   --skip-biome           Step 1 biome check をスキップ
   --skip-cspell          Step 1b cspell spell check をスキップ
   --skip-svelte-check    Step 2 svelte-check をスキップ
-  --skip-vitest          Step 3 vitest をスキップ (重いので高速確認時のみ)
+  --skip-vitest          Step 3 vitest をローカルで実行せず CI job unit-test へ委譲 (#4007)
+                         Ready 化前に gh pr checks <num> で unit-test が pass (skipped でない)
+                         ことを確認すること。ci-gate は skipped を failure として数えないため
+                         ci-gate green は委譲先が走った証拠にならない
   --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
   --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
   --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
@@ -425,8 +428,19 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/12: vitest run (unit test)',
+			label: args.skipVitest
+				? 'Step 3/12: vitest run (unit test) — ローカル未実行 / CI unit-test へ委譲 (#4007)'
+				: 'Step 3/12: vitest run (unit test)',
 			skip: args.skipVitest,
+			// #4007: `--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」。
+			// 16 コアを 4 エージェントで共有する運用ではローカルのフルスイートが並走で落ち、
+			// その red は PR の欠陥ではなく実行環境の産物になる (同一 HEAD 対照実測: ローカル 1753s /
+			// 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass)。
+			// ただし委譲先が **実行された** ことの確認は省略できない (skip された job は pass ではない)。
+			delegatedToCi: {
+				job: 'unit-test',
+				howToVerify: 'gh pr checks <num> --watch  # unit-test (1) / (2) が pass であること',
+			},
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
 				'  失敗テストを修正。assertion を弱める変更は禁止 (ADR-0006)。\n' +
@@ -726,9 +740,16 @@ async function main() {
 	const steps = buildSteps(args, changedFiles);
 	const failed = [];
 	const skipped = [];
+	/** #4007: skip ではなく「CI の特定 job へ委譲」した step */
+	const delegated = [];
 
 	for (const step of steps) {
 		if (step.skip) {
+			if (step.delegatedToCi) {
+				console.log(`[pre-ready] → ${step.label}`);
+				delegated.push({ name: step.name, ...step.delegatedToCi });
+				continue;
+			}
 			console.log(`[pre-ready] ⊘ ${step.label}`);
 			skipped.push(step.name);
 			continue;
@@ -753,25 +774,50 @@ async function main() {
 		console.log(`\n[pre-ready] ⚠ fail-open: ${note}`);
 	}
 
-	// #3649: --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は開発中の
-	// 部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には skip なし
-	// 実行が必要 (skip 込みで ALL PASS 表示すると self-report ↔ CI 乖離の温床になる)。
+	// #4007: 委譲した step は「未実行」ではなく「判定の場所を CI に移した」。ただし委譲先が
+	// **実行された** ことの確認までは省略できない。`ci-gate` は skipped を failure として数えない
+	// 設計 (`so skipped jobs (via path filter) don't block merges`) なので、`ci-gate` green は
+	// 委譲先が走った証拠にならない。ここで job 名と確認方法を必ず出す (沈黙 skip を作らない)。
+	const delegationBlock =
+		delegated.length > 0
+			? `  CI へ委譲した step (${delegated.map((d) => d.name).join(', ')}):\n` +
+				delegated
+					.map(
+						(d) =>
+							`    - ${d.name} → CI job \`${d.job}\`。Ready 化前に **実行されて pass した** ことを確認する:\n` +
+							`        ${d.howToVerify}\n` +
+							`      \`${d.job}\` が skipped の PR は Ready にしない (skipped は pass ではない)。\n` +
+							`      \`ci-gate\` は skipped を failure として数えないため、ci-gate green を根拠にしない。\n`,
+					)
+					.join('')
+			: '';
+
+	// #3649 (#4007 改訂): --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は
+	// 開発中の部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には
+	// skip なし実行が必要 (skip 込みで ALL PASS 表示すると self-report ↔ CI 乖離の温床になる)。
+	// ただし **CI に等価な job があり、そこへ委譲した step は本条の対象外**とする (#4007)。
+	// 旧文言は「skip なしの全 step PASS が必要」と述べており、vitest を CI 判定へ移す運用と
+	// 正面から矛盾していた。
 	if (skipped.length > 0) {
 		console.log(
-			`\n[pre-ready] PARTIAL PASS — 実行した ${steps.length - skipped.length} step は PASS しましたが、` +
+			`\n[pre-ready] PARTIAL PASS — 実行した ${steps.length - skipped.length - delegated.length} step は PASS しましたが、` +
 				`${skipped.length} step が --skip 指定で未実行です (${skipped.join(', ')})。\n` +
-				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
-				`  skip なしの \`npm run pre-ready -- --pr ${args.pr ?? '<num>'}\` 全 step PASS が必要です。\n`,
+				`  これらは CI に等価な job が無い / 委譲先が定義されていない step です。\n` +
+				`  Ready 化 (gh pr ready) 判定には、これらを skip せずに\n` +
+				`  \`npm run pre-ready -- --pr ${args.pr ?? '<num>'}\` を再実行して PASS させる必要があります。\n` +
+				delegationBlock,
 		);
 		return 0;
 	}
 
 	console.log(
-		`\n[pre-ready] ALL PASS${failOpenNotes.length > 0 ? ` (fail-open ${failOpenNotes.length} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+		`\n[pre-ready] ALL PASS${delegated.length > 0 ? ` (${delegated.length} step は CI へ委譲 — 下記を確認)` : ''}${failOpenNotes.length > 0 ? ` (fail-open ${failOpenNotes.length} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+			delegationBlock +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
-			`    2. gh pr ready ${args.pr ?? '<num>'}                            # Ready for Review に変更\n` +
-			`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`,
+			`    2. gh pr checks ${args.pr ?? '<num>'}                            # unit-test が pass (skipped でない) ことを確認\n` +
+			`    3. gh pr ready ${args.pr ?? '<num>'}                            # Ready for Review に変更\n` +
+			`    4. CI 全緑になるまで待機し、QM レビューを依頼\n`,
 	);
 	return 0;
 }
