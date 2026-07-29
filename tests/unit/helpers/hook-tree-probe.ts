@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,6 +64,35 @@ function copyInto(root: string, relPath: string): void {
 }
 
 /**
+ * hook script が相対パスで import している `.mjs` module を複製する (static / dynamic 両方)。
+ *
+ * `scripts/lib/is-main.mjs` (= 意図的に有無を切り替える対象) と違い、これらは
+ * **probe が再現したい欠落ではなく、単に一緒に無いと hook が起動しない付随依存**である。
+ * 明示列挙にすると依存が増えるたびに probe が腐って「fail-closed が効いた」ではなく
+ * 「依存が無くて落ちた」を測る test に化けるため、hook 本文から機械的に抽出する。
+ *
+ * 対象は `./` / `../` 始まりの相対 import 全部 (#4027 で `.claude/hooks/gate-approve.mjs` が
+ * `../../scripts/lib/gh-command.mjs` を、`scripts/claude-hook-prevent-qa-account-pr.mjs` が
+ * `./lib/gh-command.mjs` を読むようになったため、同階層限定では足りない)。
+ * `is-main.mjs` だけは **除外** し、`withIsMain` の明示制御に委ねる。
+ */
+function copyRelativeImports(root: string, hookRelPath: string): void {
+	const hookDir = hookRelPath.split('/').slice(0, -1).join('/');
+	const source = readFileSync(path.join(REPO_ROOT, ...hookRelPath.split('/')), 'utf8');
+	// `from '<rel>'` (static) と `import('<rel>')` (dynamic) の両方を拾う
+	const patterns = [/from\s+'(\.[^']+\.mjs)'/g, /import\(\s*'(\.[^']+\.mjs)'\s*\)/g];
+	for (const pattern of patterns) {
+		for (const match of source.matchAll(pattern)) {
+			const spec = match[1] as string;
+			// hookDir 基準で解決して repo 相対 (POSIX 区切り) に正規化する
+			const rel = path.posix.normalize(path.posix.join(hookDir, spec));
+			if (rel === IS_MAIN_REL) continue; // withIsMain で制御する対象は複製しない
+			copyInto(root, rel);
+		}
+	}
+}
+
+/**
  * hook を隔離 tree で起動し、exit code と出力を返す。
  *
  * `cwd` は temp tree root にする。hook が参照する `tmp/adversarial-evidence/` も
@@ -74,6 +103,7 @@ export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResul
 	const root = mkdtempSync(path.join(tmpdir(), 'gq-hook-probe-'));
 	try {
 		copyInto(root, hookRelPath);
+		copyRelativeImports(root, hookRelPath);
 		if (withIsMain) {
 			if (isMainSource === undefined) {
 				copyInto(root, IS_MAIN_REL);

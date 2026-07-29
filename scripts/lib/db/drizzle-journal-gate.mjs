@@ -55,6 +55,9 @@
 // **新規 migration でこの例外を増やしてはならない**。`npx drizzle-kit generate` が入れた `when` を
 // 手で書き換えないこと (手順 SSOT: `.claude/skills/db-migration/SKILL.md`)。
 
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 /** 0002_evaluations_week_unique の手書き `when` — #3946 の原因値。 */
 export const HANDWRITTEN_WHEN_0002 = 1784500000000;
 /** 0003_login_streaks_counter の手書き `when` — #3947 で 0002 を上回らせるために採番した連番。 */
@@ -108,9 +111,8 @@ export function findJournalWhenViolations(entries, options = {}) {
 				rule: 'R4-idx',
 				tag,
 				when,
-				message:
-					`idx が配列順と一致しない (idx=${idx}, 期待=${i})。
-` + `    → entries の並べ替え・手編集を戻し、drizzle-kit が生成した idx 連番へ戻してください。`,
+				message: `idx が配列順と一致しない (idx=${idx}, 期待=${i})。
+    → entries の並べ替え・手編集を戻し、drizzle-kit が生成した idx 連番へ戻してください。`,
 			});
 		}
 
@@ -184,4 +186,119 @@ export function findJournalWhenViolations(entries, options = {}) {
  */
 export function formatJournalWhenViolations(violations) {
 	return violations.map((v) => `  [${v.rule}] ${v.tag}: ${v.message}`).join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// 全 dialect 走査 (#3953 — #3951 監査 accepted-residual 対象 1)
+//
+// #3948 初版は journal を **PGlite 固定パス** (`drizzle/pglite/meta/_journal.json`) で読んでいた。
+// 現時点で journal はリポジトリ全体で 1 本しかないため実害はなかったが、将来 drizzle の別 dialect
+// 用 journal (例: `drizzle/dsql/meta/_journal.json`) が増えたとき **gate に一切かからないまま通る**。
+// #3946 は「journal を手で触れる」ことに起因する class なので、新しい journal が増えた瞬間に
+// 同じ窓が開く。走査を glob 化しておけば追加コストなしで塞げる。
+//
+// glob 化で新たに生まれる silent skip (「0 件マッチ = 素通り」) は R0-no-journal で fail させる。
+// ---------------------------------------------------------------------------
+
+/** journal を探すルート (repoRoot 相対)。`<root>/<dialect>/meta/_journal.json` を走査する。 */
+export const JOURNAL_ROOT_DIR = 'drizzle';
+/** 走査パターンの人間向け表現 (エラーメッセージ / --help 用)。 */
+export const JOURNAL_GLOB = 'drizzle/*/meta/_journal.json';
+
+/**
+ * `drizzle/<dialect>/meta/_journal.json` を全て見つけて repo 相対パス (POSIX 区切り) で返す。
+ *
+ * @param {string} repoRoot
+ * @returns {string[]} 発見順 (dialect ディレクトリ名の昇順)
+ */
+export function findJournalFiles(repoRoot) {
+	const root = join(repoRoot, JOURNAL_ROOT_DIR);
+	if (!existsSync(root)) return [];
+	/** @type {string[]} */
+	const found = [];
+	for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) =>
+		a.name.localeCompare(b.name),
+	)) {
+		if (!entry.isDirectory()) continue;
+		const rel = `${JOURNAL_ROOT_DIR}/${entry.name}/meta/_journal.json`;
+		if (existsSync(join(repoRoot, rel))) found.push(rel);
+	}
+	return found;
+}
+
+/**
+ * 発見した **全 journal** に `findJournalWhenViolations` を適用する。
+ *
+ * 判定ロジックは `findJournalWhenViolations` の 1 本のみ (複製しない)。本関数は
+ * 「どの journal に適用するか」と「1 本も見つからない = gate が空振り」の検出だけを担う。
+ *
+ * @param {string} repoRoot
+ * @param {{ now?: number, grandfathered?: readonly number[] }} [options]
+ * @returns {{ files: string[], violations: Array<{ file: string, rule: string, tag: string, when: number, message: string }> }}
+ */
+export function checkAllJournals(repoRoot, options = {}) {
+	const files = findJournalFiles(repoRoot);
+	/** @type {Array<{ file: string, rule: string, tag: string, when: number, message: string }>} */
+	const violations = [];
+
+	// glob 化の副作用で「対象 0 件だから PASS」という新しい silent skip を作らない (#3953 AC2)。
+	if (files.length === 0) {
+		violations.push({
+			file: JOURNAL_GLOB,
+			rule: 'R0-no-journal',
+			tag: '(none)',
+			when: 0,
+			message:
+				`${JOURNAL_GLOB} に一致する journal が 1 本も見つかりません。gate が何も検査せず ` +
+				'PASS している状態です。\n' +
+				'    → repo root で実行しているか、drizzle/ が checkout に含まれているかを確認してください。',
+		});
+		return { files, violations };
+	}
+
+	for (const file of files) {
+		let entries;
+		try {
+			const parsed = JSON.parse(readFileSync(join(repoRoot, file), 'utf-8'));
+			entries = parsed.entries;
+		} catch (err) {
+			violations.push({
+				file,
+				rule: 'R0-parse',
+				tag: '(file)',
+				when: 0,
+				message:
+					`journal を JSON として読めません: ${err instanceof Error ? err.message : String(err)}\n` +
+					'    → 手編集した JSON の構文を戻してください。',
+			});
+			continue;
+		}
+		if (!Array.isArray(entries) || entries.length === 0) {
+			violations.push({
+				file,
+				rule: 'R0-parse',
+				tag: '(file)',
+				when: 0,
+				message:
+					'journal に entries がありません (空 journal は migration 消失と区別できない)。\n' +
+					'    → drizzle-kit が生成した journal へ戻してください。',
+			});
+			continue;
+		}
+		for (const v of findJournalWhenViolations(entries, options)) {
+			violations.push({ file, ...v });
+		}
+	}
+
+	return { files, violations };
+}
+
+/**
+ * `checkAllJournals` の結果を人間可読な 1 本のメッセージへ整形する (file 名付き)。
+ *
+ * @param {Array<{ file: string, rule: string, tag: string, when: number, message: string }>} violations
+ * @returns {string}
+ */
+export function formatAllJournalViolations(violations) {
+	return violations.map((v) => `  ${v.file} [${v.rule}] ${v.tag}: ${v.message}`).join('\n');
 }

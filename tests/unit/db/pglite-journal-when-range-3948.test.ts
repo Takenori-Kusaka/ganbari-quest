@@ -6,12 +6,15 @@
 // 生成する全 migration が本番既存 DB で永久 skip される (#3946 と完全に同型の本番 500)。
 // 本テストはその穴を塞ぐ gate (scripts/lib/db/drizzle-journal-gate.mjs) を CI で hard-fail させる。
 //
-//   [WR1] 実 journal (drizzle/pglite/meta/_journal.json) が gate の全ルールを満たす
+//   [WR1] 実 journal (drizzle/<dialect>/meta/_journal.json、glob で発見した全件) が gate の全ルールを満たす
 //   [WR2] gate 自体の実効性: 未来値 / 手書き丸め値 / 逆転 / 過去すぎる値 の fixture で fail する
 //   [WR3] grandfather は既存 3 値限定 — 同型の新規丸め値は grandfather されず fail する
 //   [WR4] DSQL provision は `when` を参照しない (idx 順 + tag 冪等) ことの固定
 //   [WR7] grandfather 3 値を「実生成時刻へ直す」と pre-hotfix backup の restore で #3946 が再発する
 //         (grandfather が必要である理由そのものを実 migrator + 実 migration で固定する)
+//   [WR8] gate の適用先が全 dialect (#3953 — 走査の glob 化が実際に効いていることの検証)
+//         - 0 件マッチ = fail (glob 化で「素通り」という新しい silent skip を作らない)
+//         - 複数 journal がある状態で **2 本目に違反があれば fail する**
 //
 // [WR2] は「gate を書いたが実は何も落とせていない」を防ぐ実効性検証 (#3072 と同型の考え方)。
 
@@ -23,8 +26,10 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+	checkAllJournals,
+	findJournalFiles,
 	findJournalWhenViolations,
-	formatJournalWhenViolations,
+	formatAllJournalViolations,
 	GRANDFATHERED_WHEN,
 	HANDWRITTEN_WHEN_0002,
 	MIN_PLAUSIBLE_WHEN,
@@ -97,22 +102,26 @@ async function tableExists(client: PGlite, table: string): Promise<boolean> {
 }
 
 describe('drizzle journal `when` 値域 gate (#3948)', () => {
-	it('[WR1] 実 journal (drizzle/pglite) が gate の全ルールを満たす', () => {
-		const entries = loadRealJournal();
-		expect(entries.length).toBeGreaterThan(0);
-		const violations = findJournalWhenViolations(entries);
+	it('[WR1] 実 journal (glob で発見した全 dialect) が gate の全ルールを満たす', () => {
+		// #3953 AC1: PGlite 固定パスではなく drizzle/*/meta/_journal.json の glob 走査。
+		// 将来 drizzle/dsql/meta/_journal.json 等が増えたら、追加作業なしでこの assert の対象になる。
+		const { files, violations } = checkAllJournals(process.cwd());
+		expect(files.length, 'journal が 1 本も見つからない').toBeGreaterThan(0);
+		expect(files, 'PGlite journal が走査対象に含まれていない').toContain(
+			'drizzle/pglite/meta/_journal.json',
+		);
 		expect(
 			violations,
-			`journal 違反あり:\n${formatJournalWhenViolations(violations)}`,
+			`journal 違反あり:\n${formatAllJournalViolations(violations)}`,
 		).toStrictEqual([]);
 	});
 
 	it('[WR1b] 実 journal の grandfather 例外は既知 3 値のみ (新規追加が混ざっていない)', () => {
-		const entries = loadRealJournal();
 		// grandfather を無効化すると、既知 3 値 **だけ** が R2 で落ちる = 例外が増えていない。
-		const withoutGrandfather = findJournalWhenViolations(entries, { grandfathered: [] });
-		expect(withoutGrandfather.every((v) => v.rule === 'R2-handwritten')).toBe(true);
-		expect(withoutGrandfather.map((v) => v.when).sort((a, b) => a - b)).toStrictEqual([
+		// #3953 AC1: 判定対象は glob で発見した全 journal。
+		const { violations } = checkAllJournals(process.cwd(), { grandfathered: [] });
+		expect(violations.every((v) => v.rule === 'R2-handwritten')).toBe(true);
+		expect(violations.map((v) => v.when).sort((a, b) => a - b)).toStrictEqual([
 			...GRANDFATHERED_WHEN,
 		]);
 	});
@@ -297,6 +306,86 @@ describe('drizzle journal `when` 値域 gate (#3948)', () => {
 			await healthy.close();
 		}
 	}, 120_000);
+
+	// -------------------------------------------------------------------------
+	// [WR8] gate の適用先が全 dialect であることの検証 (#3953 AC1-AC3)
+	//
+	// 「glob にした」と書くだけでは、実際に 2 本目以降へ適用されている保証がない。
+	// 複数 journal を持つ fake repo root を作り、**2 本目にだけ違反を置いて** fail することを固定する。
+	// -------------------------------------------------------------------------
+
+	/** `<root>/drizzle/<dialect>/meta/_journal.json` を持つ fake repo root を作る。 */
+	function makeFakeRepoRoot(journals: Record<string, JournalEntry[]>): string {
+		const root = join(tmpdir(), `journal-glob-3953-${process.pid}-${tempDirs.length}`);
+		tempDirs.push(root);
+		for (const [dialect, entries] of Object.entries(journals)) {
+			const metaDir = join(root, 'drizzle', dialect, 'meta');
+			mkdirSync(metaDir, { recursive: true });
+			writeFileSync(
+				join(metaDir, '_journal.json'),
+				JSON.stringify({ version: '7', dialect: 'postgresql', entries }),
+			);
+		}
+		return root;
+	}
+
+	it('[WR8a] journal が 1 本も無ければ fail する (glob 化で「0 件マッチ = 素通り」を作らない)', () => {
+		const emptyRoot = join(tmpdir(), `journal-glob-3953-empty-${process.pid}`);
+		tempDirs.push(emptyRoot);
+		mkdirSync(emptyRoot, { recursive: true });
+
+		const { files, violations } = checkAllJournals(emptyRoot);
+		expect(files).toStrictEqual([]);
+		expect(violations.map((v) => v.rule)).toStrictEqual(['R0-no-journal']);
+		// 踏んだ人が次に何をすればいいか分かること (既存 gate と同じ「→」始まりの次アクション行)。
+		expect(violations[0]?.message).toContain('→');
+	});
+
+	it('[WR8b] 複数 journal のうち 2 本目に違反があれば fail する (glob が実際に効いている)', () => {
+		const now = 1_785_000_000_000;
+		const root = makeFakeRepoRoot({
+			// 1 本目は健全。固定パス実装ならここだけを見て PASS してしまう。
+			pglite: healthyEntries(),
+			// 2 本目に #3946 と同型の未来値。glob 化していなければ検査対象にすらならない。
+			// 丸め値 (R2) ではなく **未来値 (R1) だけ**で落ちる値にして、検出理由を一意にする。
+			dsql: [
+				...healthyEntries(),
+				{ idx: 3, when: 1_900_000_123_456, tag: '0003_far_future_on_second_journal' },
+			],
+		});
+
+		const { files, violations } = checkAllJournals(root, { now });
+		expect(files).toStrictEqual([
+			'drizzle/dsql/meta/_journal.json',
+			'drizzle/pglite/meta/_journal.json',
+		]);
+		expect(violations.map((v) => v.rule)).toStrictEqual(['R1-future']);
+		expect(violations[0]?.file).toBe('drizzle/dsql/meta/_journal.json');
+		expect(violations[0]?.tag).toBe('0003_far_future_on_second_journal');
+		// 出力に file 名が出ること (どの journal を直せばいいか分かる)。
+		expect(formatAllJournalViolations(violations)).toContain('drizzle/dsql/meta/_journal.json');
+	});
+
+	it('[WR8c] 複数 journal がすべて健全なら違反 0 件 (false positive を出さない)', () => {
+		const root = makeFakeRepoRoot({ pglite: healthyEntries(), dsql: healthyEntries() });
+		const { files, violations } = checkAllJournals(root, { now: 1_785_000_000_000 });
+		expect(files).toHaveLength(2);
+		expect(violations).toStrictEqual([]);
+	});
+
+	it('[WR8d] findJournalFiles は dialect ディレクトリのみを拾う (meta 無しは無視)', () => {
+		const root = makeFakeRepoRoot({ pglite: healthyEntries() });
+		// journal を持たない dialect ディレクトリ (SQL だけ置いた作業中ディレクトリ等) は対象外。
+		mkdirSync(join(root, 'drizzle', 'work-in-progress'), { recursive: true });
+		expect(findJournalFiles(root)).toStrictEqual(['drizzle/pglite/meta/_journal.json']);
+	});
+
+	it('[WR8e] JSON として壊れた journal は R0-parse で fail する', () => {
+		const root = makeFakeRepoRoot({ pglite: healthyEntries() });
+		writeFileSync(join(root, 'drizzle', 'pglite', 'meta', '_journal.json'), '{ broken');
+		const { violations } = checkAllJournals(root);
+		expect(violations.map((v) => v.rule)).toStrictEqual(['R0-parse']);
+	});
 
 	it('[WR4] DSQL provision は `when` を参照しない (idx 順 + tag 冪等) — 影響波及なしの固定', () => {
 		// `when` を意図的に逆転させても、DSQL の loadMigrationFiles は idx 順で読む。

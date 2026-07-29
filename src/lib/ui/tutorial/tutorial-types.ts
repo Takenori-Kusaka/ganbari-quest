@@ -1,4 +1,8 @@
-export type PlanTier = 'free' | 'standard' | 'family';
+// #3963: 型の SSOT は $lib/domain/constants/plan-tier.ts に集約した。
+// ここで同じ union を再宣言すると 2 つ目の定義になり、プラン追加時に片方だけ更新される。
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
+
+export type { PlanTier };
 
 /**
  * プランティアの序列（`free < standard < family`）。

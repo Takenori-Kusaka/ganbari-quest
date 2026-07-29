@@ -22,6 +22,7 @@ import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { invalidateRequestCaches } from '$lib/server/request-context';
 import { notifyCancellation } from '$lib/server/services/discord-notify-service';
 import { sendCancellationEmail } from '$lib/server/services/email-service';
 import { cancelSubscription } from '$lib/server/services/stripe-service';
@@ -80,6 +81,10 @@ export const POST: RequestHandler = async ({ locals }) => {
 		status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
 		planExpiresAt: graceEndAt,
 	});
+
+	// #3963: 課金状態はリクエスト単位でキャッシュしているため、書き込み直後に破棄する。
+	// 次リクエスト以降は DB から再解決されるので、権限剥奪が即座に効く。
+	invalidateRequestCaches(tenantId);
 
 	// 通知（非同期、エラーは握りつぶす）
 	const graceEndDate = graceEnd.toLocaleDateString('ja-JP');

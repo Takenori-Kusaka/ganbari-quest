@@ -6,10 +6,15 @@
  * Claude Code `PreToolUse` hook で呼出される検査スクリプト。
  *
  * 機能:
- *   stdin から Claude Code が渡す tool_input JSON を読み取り、Bash command 文字列が
+ *   stdin から Claude Code が渡す tool_input JSON を読み取り、command 文字列が
  *   `gh pr (merge|review --approve)` を含むとき、`tmp/adversarial-evidence/<pr-number>.json`
  *   の存在 + TTL (30 分) + schema 必須 field 充足を検証する。検証 fail なら exit 2 で
  *   approve action を物理 block する。
+ *
+ * 対象経路 (#4001):
+ *   Bash だけでなく **コマンド実行系ツール全経路** (SSOT: ./command-execution-tools.mjs)。
+ *   matcher が `"Bash"` だけだった間、PowerShell ツールで同じコマンドを叩けば gate が
+ *   起動せず素通しできた (gate bypass)。判別できない入力は allow ではなく block する。
  *
  * 設計根拠 (Research SSOT §5.1 / §5.2):
  *   - arXiv:2511.09710 で structured response schema 強制が echoing 30-40% → <10% を実証
@@ -46,9 +51,10 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
 
 /**
- * 判定 SSOT (`scripts/lib/is-main.mjs`) を **dynamic import** で読み込む理由 (#3999)。
+ * `scripts/lib/` の SSOT module を **dynamic import** で読み込む理由 (#3999 / #4027)。
  *
  * static import にすると解決失敗が module 評価前の `ERR_MODULE_NOT_FOUND` になり、Node は
  * **exit 1** で落ちる。Claude Code の PreToolUse hook は **exit 2 のみ**を block として扱い、
@@ -57,15 +63,54 @@ import { resolve } from 'node:path';
  *
  * security control は「判定不能」を「許可」ではなく **block** に倒す (fail-closed)。
  * dynamic import なら解決失敗を catch でき、exit 2 を自分で選べる。
+ *
+ * 対象は `../../scripts/lib/` を辿る **2 本とも**: `is-main.mjs` (実行主体判定) と
+ * `gh-command.mjs` (#4027 で導入した gh コマンド解析 SSOT)。gh-command.mjs を static import に
+ * 戻すと、同じ「`scripts/` 欠落 checkout で exit 1 = 素通し」が再発する。
  */
 /** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMain;
+/** @type {typeof import('../../scripts/lib/gh-command.mjs') | undefined} */
+let gh;
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
 try {
 	({ isMain } = await import('../../scripts/lib/is-main.mjs'));
 } catch (err) {
 	isMainLoadError = err;
+}
+try {
+	gh = await import('../../scripts/lib/gh-command.mjs');
+} catch (err) {
+	isMainLoadError ??= err;
+}
+
+/**
+ * gh-command SSOT を取り出す。読み込めていなければ throw する (呼出元は main() 経由で
+ * exit 2 に倒れる。判定材料が無いまま `false` を返して素通しさせない)。
+ *
+ * @returns {typeof import('../../scripts/lib/gh-command.mjs')}
+ */
+function ghLib() {
+	if (!gh) {
+		throw isMainLoadError instanceof Error
+			? isMainLoadError
+			: new Error('scripts/lib/gh-command.mjs を読み込めません');
+	}
+	return gh;
+}
+
+/**
+ * `scripts/lib/gh-command.mjs` の同名関数への薄い委譲 (既存呼出し互換の re-export)。
+ *
+ * dynamic import 化 (上記) により `export { normalizeCommand }` の static 再 export が
+ * 使えないため wrapper で公開する。
+ *
+ * @param {string} command
+ * @returns {string}
+ */
+export function normalizeCommand(command) {
+	return ghLib().normalizeCommand(command);
 }
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
@@ -93,7 +138,9 @@ async function readStdin() {
  *   - `gh api repos/.../pulls/<N>/merge` (REST 直叩き、PR merge 相当)
  *   - `gh api repos/.../pulls/<N>/reviews` POST (REST 直叩き、approve review 相当)
  *
- * 誤検知側に倒す方針 (既存 scripts/claude-hook-prevent-qa-account-pr.mjs と同方針)。
+ * 判定材料は **サブコマンドと API パス**に限る (#4027)。引数の値 (`--body` / `--body-file` /
+ * heredoc) は見ない — hook 自身を説明する文書に approve コマンド例を書くだけで止まる誤検知を防ぐ。
+ * そのうえで検出幅は従来どおり (method を問わない / 引用符や別 shell 経由でも捕捉する):
  * 過剰 block コスト < drift identification trap が穴になるコスト。
  *
  * @param {unknown} command  Bash tool_input.command 文字列
@@ -101,15 +148,83 @@ async function readStdin() {
  */
 export function isApproveAction(command) {
 	if (typeof command !== 'string') return false;
+	// #4027: `--body` / `--body-file` / heredoc の中身は判定材料にしない。
+	// hook 自身を説明する Issue / PR 本文に approve コマンド例を書くだけで BLOCK される事故の再発防止。
+	const lib = ghLib();
+	const sanitized = lib.sanitizeForDetection(command);
 	// gh pr merge
-	if (/\bgh\s+pr\s+merge\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return true;
 	// gh pr review --approve
-	if (/\bgh\s+pr\s+review\b[^\n]*--approve\b/.test(command)) return true;
-	// gh api .../pulls/<N>/merge (REST 直叩き)
-	if (/\bgh\s+api\b[^\n]*\/pulls\/\d+\/merge\b/.test(command)) return true;
-	// gh api .../pulls/<N>/reviews (review 系 REST)
-	if (/\bgh\s+api\b[^\n]*\/pulls\/\d+\/reviews\b/.test(command)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return true;
+	// gh api .../pulls/<N>/{merge,reviews} (REST 直叩き)。
+	// #4027: 部分一致でなく **引数として渡された API パス** で判定する。method は問わない
+	// (approve 相当を method 表記で回避されないよう検出幅は従来どおり維持する)。
+	for (const { argv } of lib.findGhInvocations(sanitized)) {
+		const api = lib.parseGhApiInvocation(argv);
+		if (!api.isApi) continue;
+		if (
+			api.paths.some(
+				(p) => lib.isPullsSubresourcePath(p, 'merge') || lib.isPullsSubresourcePath(p, 'reviews'),
+			)
+		) {
+			return true;
+		}
+	}
 	return false;
+}
+
+/**
+ * hook payload から「検査すべきコマンド文字列」を取り出す (#4001)。
+ *
+ * fail-closed 方針: **抽出できない = approve ではない、とは扱わない**。
+ *   - tool_name が無い / 文字列でない → BLOCK (どの経路か判別できない)
+ *   - SSOT (COMMAND_EXECUTION_TOOLS) のツールなのに `tool_input.command` が文字列でない
+ *     → BLOCK (検査対象を読めない = 素通しさせない)
+ *   - SSOT に無いツール名 → allow に倒さず、tool_input 内の全文字列 (+ 連結形) を走査する。
+ *     matcher だけ広げて SSOT 更新を忘れた場合でも approve 系を掴めるようにするため。
+ *
+ * @param {unknown} payload
+ * @returns {{ ok: true; commands: string[] } | { ok: false; reason: string }}
+ */
+export function resolveInspectableCommands(payload) {
+	const toolName = /** @type {{ tool_name?: unknown }} */ (payload ?? {}).tool_name;
+	const toolInput = /** @type {{ tool_input?: unknown }} */ (payload ?? {}).tool_input;
+	if (typeof toolName !== 'string' || toolName.trim() === '') {
+		return {
+			ok: false,
+			reason: 'payload に tool_name がありません (どの実行経路か判別できないため block)',
+		};
+	}
+	if (COMMAND_EXECUTION_TOOLS.includes(toolName)) {
+		const command = /** @type {{ command?: unknown }} */ (toolInput ?? {}).command;
+		if (typeof command !== 'string') {
+			return {
+				ok: false,
+				reason: `${toolName} の tool_input.command が文字列ではありません (検査できないため block)`,
+			};
+		}
+		return { ok: true, commands: [command] };
+	}
+	const strings = collectStrings(toolInput);
+	// 引数配列 (["gh","pr","merge","4001"]) 形式にも当たるよう連結形も候補に入れる
+	return { ok: true, commands: strings.length > 1 ? [...strings, strings.join(' ')] : strings };
+}
+
+/**
+ * 任意 JSON 値から string を再帰収集する (#4001、未知ツールの走査用)。
+ *
+ * @param {unknown} value
+ * @param {number} depth
+ * @returns {string[]}
+ */
+export function collectStrings(value, depth = 0) {
+	if (depth > 6) return [];
+	if (typeof value === 'string') return [value];
+	if (Array.isArray(value)) return value.flatMap((v) => collectStrings(v, depth + 1));
+	if (value && typeof value === 'object') {
+		return Object.values(value).flatMap((v) => collectStrings(v, depth + 1));
+	}
+	return [];
 }
 
 /**
@@ -127,11 +242,14 @@ export function isApproveAction(command) {
  */
 export function extractPrNumber(command) {
 	if (typeof command !== 'string') return null;
+	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
+	// #4027: あわせて --body / heredoc の中身を除去し、body 内の PR 番号を拾わないようにする
+	const normalized = ghLib().sanitizeForDetection(command);
 	// gh pr <merge|review> [args] <N>
-	const m1 = command.match(/\bgh\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
+	const m1 = normalized.match(/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
 	if (m1) return Number(m1[1]);
 	// gh api .../pulls/<N>/...
-	const m2 = command.match(/\/pulls\/(\d{1,6})\b/);
+	const m2 = normalized.match(/\/pulls\/(\d{1,6})\b/);
 	if (m2) return Number(m2[1]);
 	return null;
 }
@@ -227,12 +345,31 @@ async function main() {
 		const raw = await readStdin();
 		payload = raw.trim() ? JSON.parse(raw) : {};
 	} catch {
-		// JSON parse 失敗時は通過 (hook の異常で Claude を止めない、既存 hook と同方針)
-		process.exit(0);
+		// #4001: 旧実装は parse 失敗を exit 0 (通過) にしていたが、これは
+		// 「読めなかった」を「approve ではない」に潰す fail-open だった。読めない入力は block する。
+		process.stderr.write(
+			`[gate-approve] BLOCK: hook payload (stdin JSON) を parse できませんでした。\n`,
+		);
+		process.stderr.write(
+			`  approve 系コマンドか判別できないため、pass 側に倒さず block します (ADR-0056 / #4001)。\n`,
+		);
+		process.exit(2);
 	}
 
-	const command = payload?.tool_input?.command;
-	if (!isApproveAction(command)) {
+	const resolved = resolveInspectableCommands(payload);
+	if (!resolved.ok) {
+		process.stderr.write(`[gate-approve] BLOCK: ${resolved.reason}\n`);
+		process.stderr.write(
+			`  対処: コマンド実行経路のツールを追加した場合は .claude/hooks/command-execution-tools.mjs の\n`,
+		);
+		process.stderr.write(
+			`        COMMAND_EXECUTION_TOOLS と .claude/settings.json の matcher を同時に更新してください (#4001)。\n`,
+		);
+		process.exit(2);
+	}
+
+	const command = resolved.commands.find((c) => isApproveAction(c));
+	if (command === undefined) {
 		// approve 系コマンドでなければ対象外
 		process.exit(0);
 	}

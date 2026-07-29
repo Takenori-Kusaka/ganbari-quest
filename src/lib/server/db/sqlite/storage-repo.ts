@@ -128,6 +128,11 @@ export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
 	const dir = join(baseDir, dirname(prefix));
 	if (!existsSync(dir)) return [];
 	const baseName = prefix.split('/').pop() ?? '';
+	// rotation-gate-ok: ここの startsWith は「プレフィックス検索」という API 仕様そのものであり、
+	// 命名規則のあるファイル名から**世代を数える** class (#3956 / #3978) ではない。
+	// ただし deleteByPrefix がこの戻りを無条件に全件 unlinkSync するため、`prefix="avatars/child1"`
+	// が `avatars/child10.png` まで巻き込む **プレフィックス境界の欠落**という別 class の欠陥は
+	// 残っている (#3978 の調査で記録済み、本 Issue の対象外)。境界を入れる修正は別 Issue で扱う。
 	return readdirSync(dir)
 		.filter((f) => {
 			const full = join(dir, f);

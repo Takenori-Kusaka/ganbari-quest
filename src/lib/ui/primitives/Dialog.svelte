@@ -10,6 +10,14 @@ interface Props {
 	children: Snippet;
 	title?: string;
 	closable?: boolean;
+	/**
+	 * Esc キーで閉じられるか (#4050)。既定 true。
+	 * `closable` は「× ボタン + 外側クリック」を制御するが、Esc は zag-js 側の別 prop
+	 * (`closeOnEscape`) で、既定値のままでは closable=false でも Esc で閉じてしまう。
+	 * 強制オンボーディング等で「閉じさせない」modal は `closable={false}` と併せて
+	 * `closeOnEscape={false}` を明示する (既定挙動は他 modal と不変)。
+	 */
+	closeOnEscape?: boolean;
 	testid?: string;
 	size?: 'sm' | 'md' | 'lg';
 	ariaLabel?: string;
@@ -32,6 +40,7 @@ let {
 	children,
 	title,
 	closable = true,
+	closeOnEscape = true,
 	testid,
 	size = 'md',
 	ariaLabel,
@@ -71,7 +80,7 @@ function handleOpenChange(details: { open: boolean }) {
 }
 </script>
 
-<ArkDialog.Root {open} onOpenChange={handleOpenChange} closeOnInteractOutside={closable}>
+<ArkDialog.Root {open} onOpenChange={handleOpenChange} closeOnInteractOutside={closable} {closeOnEscape}>
 	<Portal>
 		<ArkDialog.Backdrop
 			class="fixed inset-0 {layer.backdrop} bg-black/50 backdrop-blur-sm transition-opacity {backdropClass}"

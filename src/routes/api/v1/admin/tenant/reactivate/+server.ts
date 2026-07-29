@@ -14,6 +14,7 @@ import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { invalidateRequestCaches } from '$lib/server/request-context';
 import { notifyCancellationReverted } from '$lib/server/services/discord-notify-service';
 
 export const POST: RequestHandler = async ({ locals }) => {
@@ -64,6 +65,9 @@ export const POST: RequestHandler = async ({ locals }) => {
 		status: SUBSCRIPTION_STATUS.ACTIVE,
 		planExpiresAt: undefined,
 	});
+
+	// #3963: 課金状態のリクエストキャッシュを破棄し、次リクエストで DB から再解決させる
+	invalidateRequestCaches(tenantId);
 
 	notifyCancellationReverted(tenantId).catch(() => {});
 

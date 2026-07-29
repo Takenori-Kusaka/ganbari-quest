@@ -662,9 +662,6 @@
     }
   },
   "src/routes/auth/invite/[code]/+page.svelte": {
-    "svelte/no-navigation-without-resolve": {
-      "count": 3
-    },
     "svelte/no-useless-children-snippet": {
       "count": 1
     }

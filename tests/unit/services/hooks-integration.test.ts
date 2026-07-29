@@ -352,4 +352,130 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			expect(response.status).toBe(200);
 		});
 	});
+
+	// #3963: fail-closed の副作用 UX。DB 障害で context を発行できないとき、ログイン画面へ
+	// 飛ばすと「ログアウトさせられた / アカウントが消えた」と誤解される (PO 条件 2026-07-26)。
+	describe('課金状態を DB から解決できない場合 (#3963 fail-closed)', () => {
+		async function importError() {
+			const mod = await import('../../../src/lib/server/auth/tenant-entitlement');
+			return mod.TenantEntitlementUnavailableError;
+		}
+
+		it('HTML リクエストは 503 + 「一時的」と読めるメッセージ (ログイン画面へ送らない)', async () => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+
+			const event = createMockEvent('/admin');
+			event.request.headers.set('Accept', 'text/html');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
+			const body = await response.text();
+
+			expect(response.status).toBe(503);
+			expect(response.headers.get('Retry-After')).toBe('30');
+			expect(body).toContain('一時的にご利用いただけません');
+			expect(body).toContain('ログアウトはされていません');
+			// ログイン画面へのリダイレクトになっていないこと (誤解の元)
+			expect(response.headers.get('Location')).toBeNull();
+			// ルートハンドラまで到達していないこと (fail-closed)
+			expect(resolve).not.toHaveBeenCalled();
+		});
+
+		it('API リクエストは 503 JSON + alert kind を含む', async () => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+
+			const event = createMockEvent('/api/v1/quests');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
+			const body = (await response.json()) as { error: string; kind: string };
+
+			expect(response.status).toBe(503);
+			expect(body.kind).toBe('auth-entitlement-db-unavailable');
+			expect(resolve).not.toHaveBeenCalled();
+		});
+
+		it('「DB 障害で剥奪」を「正当に無権限」と区別できるログ / alert を出す', async () => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await handle({ event, resolve } as any);
+
+			const { logger } = await import('$lib/server/logger');
+			expect(logger.error).toHaveBeenCalledWith(
+				expect.stringContaining('auth-entitlement-db-unavailable'),
+				expect.objectContaining({
+					tenantId: 't-1',
+					context: expect.objectContaining({ kind: 'auth-entitlement-db-unavailable' }),
+				}),
+			);
+
+			const { sendDiscordAlert } = await import('$lib/server/discord-alert');
+			expect(sendDiscordAlert).toHaveBeenCalledWith(
+				expect.objectContaining({ errorSummary: 'auth-entitlement-db-unavailable', status: 503 }),
+			);
+		});
+
+		it('課金状態の解決失敗以外の例外はそのまま伝播する (握り潰さない)', async () => {
+			currentAuthMode = 'cognito';
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(new Error('unexpected'));
+
+			const event = createMockEvent('/admin');
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await expect(handle({ event, resolve } as any)).rejects.toThrow('unexpected');
+		});
+
+		// #3963 (PO 決裁 2026-07-29 merge 条件): health / readiness probe は課金状態に依存しない。
+		// ここが 503 化すると DSQL 障害時に Lambda health / LWA readiness /
+		// deploy-aws-staging.yml の post-deploy health / ロールバック判定が誤作動し、
+		// 「DB が一時的に不調」だけの状況が「デプロイ失敗」として扱われる。
+		it.each([
+			'/api/health',
+			'/api/ready',
+		])('%s は課金状態を DB から解決できなくても 503 にならず通常応答する', async (probePath) => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			// 認証 Cookie を持つクライアントからの probe (identity あり) でも DB 障害で落とさない。
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+			mockAuthorize.mockReturnValue({ allowed: true });
+
+			const event = createMockEvent(probePath);
+			const resolve = createMockResolve();
+
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
+
+			expect(response.status).toBe(200);
+			// ルートハンドラまで到達していること (503 で早期 return していない)
+			expect(resolve).toHaveBeenCalled();
+			// context なしで通す (課金権限は与えない)
+			expect(event.locals.context).toBeNull();
+		});
+	});
 });

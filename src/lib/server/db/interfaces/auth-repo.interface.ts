@@ -17,6 +17,39 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
+import type { Role } from '$lib/server/auth/types';
+
+/**
+ * invite 受諾 txn の業務失敗 (#4039 / dsql-data-model.md §6.6)。
+ *
+ * いずれも **retry してはいけない**確定失敗であり、例外ではなく戻り値で運ぶ。
+ * 競合 (40001) は backend 側の runner が txn 全体を再実行するためここには現れない。
+ */
+export type AcceptInviteFailure =
+	| 'INVALID_OR_EXPIRED'
+	| 'ALREADY_IN_TENANT'
+	| 'EMAIL_MISMATCH'
+	| 'EMAIL_UNVERIFIED';
+
+export interface AcceptInviteTxnInput {
+	/** invite の管理鍵 (#3585)。raw code ではない。 */
+	inviteId: string;
+	/** 受諾する user (users.user_id)。 */
+	userId: string;
+	/** 受諾 user の email (invite.email 束縛の再検証に使う)。 */
+	userEmail: string;
+	/**
+	 * 受諾 user の email が IdP で検証済みか (Cognito `email_verified` claim、#3555 ③ / #3742)。
+	 * `false` は fail-closed で拒否、`undefined` は claim を持たない provider との後方互換で許容。
+	 */
+	userEmailVerified?: boolean;
+	/** 判定基準時刻 (ISO 8601)。呼び出し側が注入する (テスト決定性 + txn 内で一貫)。 */
+	now: string;
+}
+
+export type AcceptInviteTxnResult =
+	| { ok: true; familyId: string; role: Role; invitedBy?: string; joinedAt: string }
+	| { ok: false; reason: AcceptInviteFailure };
 
 export interface IAuthRepo {
 	// --- User ---
@@ -93,6 +126,23 @@ export interface IAuthRepo {
 		status: Invite['status'],
 		acceptedBy?: string,
 	): Promise<void>;
+	/**
+	 * invite 受諾 = **単一 txn** (dsql-data-model.md §6.6、結線 #4039)。
+	 *
+	 * `UPDATE invites ... WHERE status='pending' AND expires_at > now RETURNING` と
+	 * membership INSERT を 1 txn に閉じ、以下を厳密分岐する:
+	 *   - rowCount = 0 → `INVALID_OR_EXPIRED` (業務失敗。retry 禁止)
+	 *   - membership INSERT の 23505 → `ALREADY_IN_TENANT` (invite の accepted 化も rollback)
+	 *   - 40001 (OCC) → backend の runner が txn 全体を再実行 (呼び出し側には現れない)
+	 *
+	 * `updateInviteStatus` + `createMembership` の 2 回呼びでは、片方だけ commit された
+	 * 「membership はあるのに invite は pending のまま」という部分コミットが起きる。
+	 * 受諾経路は必ず本メソッドを使うこと (updateInviteStatus は revoke / expire 用)。
+	 *
+	 * email 束縛 (§6.6 ⚠️) は txn 内でも再検証する (SSOT: `auth/invite-email-binding.ts`)。
+	 * 招待の存在 / 自己招待 / 1 user 1 tenant / tenant active 判定は service 層の read 責務。
+	 */
+	acceptInviteTransactional(input: AcceptInviteTxnInput): Promise<AcceptInviteTxnResult>;
 	/** 一覧。各 Invite の inviteId は管理鍵、inviteCode は空 (raw 非露出、#3585)。 */
 	findTenantInvites(tenantId: string): Promise<Invite[]>;
 	/** 物理削除。鍵は inviteId、tenant 束縛必須 (他 tenant の invite は消せない、#3585 / §P9)。 */

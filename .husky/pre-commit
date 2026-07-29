@@ -49,3 +49,26 @@ if echo "$STAGED" | grep -qE "(src/lib/domain/labels\.ts|src/lib/domain/terms\.t
 
   echo "[pre-commit] SSOT companion 整合検査 OK"
 fi
+
+# ---------------------------------------------------------------------------
+# drizzle journal (`drizzle/<dialect>/meta/_journal.json`) の `when` 値域検査 (#3953)
+#
+# #3946 は「journal の `when` を手で書き換えた」ことで本番 500 になった class。#3948 で gate を
+# 入れたが発火点が CI (vitest) のみで、手編集した開発者が気づくのは push 後だった。
+# 上の labels.ts / terms.ts と同じ「staged path 限定検査」の形で commit 時点に前倒しする。
+#
+# 判定ロジックは scripts/lib/db/drizzle-journal-gate.mjs (SSOT) の再利用のみ (複製しない)。
+# ---------------------------------------------------------------------------
+if echo "$STAGED" | grep -qE "^drizzle/[^/]+/meta/_journal\.json$"; then
+  echo "[pre-commit] drizzle journal 変更検出 — \`when\` 値域検査を実行"
+
+  node scripts/check-drizzle-journal.mjs || {
+    echo "[pre-commit] check-drizzle-journal FAILED"
+    echo "  → drizzle-kit が生成した \`when\` を手で書き換えないでください。書き換えを戻すか、"
+    echo "    \`npx drizzle-kit generate\` をやり直して実時刻を入れ直してください"
+    echo "    (手順 SSOT: .claude/skills/db-migration/SKILL.md)"
+    exit 1
+  }
+
+  echo "[pre-commit] drizzle journal 検査 OK"
+fi
