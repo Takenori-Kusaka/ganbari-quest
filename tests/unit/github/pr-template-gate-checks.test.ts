@@ -851,6 +851,20 @@ describe('実 PULL_REQUEST_TEMPLATE.md に対して gate が空洞化しない (
 		expect(r.message).toContain('対象ユーザー');
 	});
 
+	// 現行 template はたまたま `## ` 始まりなので、旧 no-op 実装でも上の test は通ってしまう。
+	// 「template の先頭に HTML コメントを足す」= #4097 以前の形に戻す変更で gate が再び空洞化
+	// しないことを、実 template + 先頭コメントの組み合わせで固定する。
+	it('customer-value: 実 template の先頭に HTML コメントを足しても検出力が落ちない (#4097 再発防止)', () => {
+		const withLeadingComment = `<!-- hotfix は --kind critical-fix を使う -->\n\n${realTemplate}`;
+		const r = checkCustomerValue({
+			...base,
+			template: withLeadingComment,
+			body: realTemplate,
+		});
+		expect(r.ok, '先頭コメントで field 抽出範囲が縮退している = #4097 の回帰').toBe(false);
+		expect(r.message).toContain('対象ユーザー');
+	});
+
 	it('customer-value: 3 field すべてを抽出対象にしている', () => {
 		const filled = realTemplate
 			.replace('**対象ユーザー**: <!-- 子供 / 親（管理者） / 運営 / システム全体 -->', '**対象ユーザー**: 親')
