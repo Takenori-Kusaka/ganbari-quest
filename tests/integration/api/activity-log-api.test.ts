@@ -436,14 +436,34 @@ describe('API-LOG-04: DELETE /api/v1/activity-logs/:id (cancel within window)', 
 // ===================================================================
 // API-LOG-05: DELETE /api/v1/activity-logs/:id → キャンセル期限超過 (400)
 // ===================================================================
+/**
+ * #4051 AC3: 挿入行の `recordedAt` から `recordedDate` を導く。
+ * 「今日」を実時計から**二重に読まない**ことがこの関数の存在理由。
+ */
+function recordedDateOf(recordedAtIso: string): string {
+	return recordedAtIso.slice(0, 10);
+}
+
 describe('API-LOG-05: DELETE /api/v1/activity-logs/:id (cancel expired)', () => {
+	// #4051 AC3: UTC 深夜を跨いだ固定時刻で、同一ソース導出なら乖離しないことを示す。
+	// 実時計を 2 回読む旧形では、同じ瞬間に recordedAt=前日 / recordedDate=当日 になる。
+	it('[AC3] recordedDate は recordedAt と同一ソースなので UTC 深夜跨ぎでも乖離しない', () => {
+		const insertedAt = new Date('2026-07-27T00:00:00.050Z'); // UTC 日付が変わった 50ms 後
+		const recordedAt = new Date(insertedAt.getTime() - 10_000).toISOString(); // 10 秒前 = 前日
+
+		// 同一ソース導出 (本 PR の形): 行として整合する
+		expect(recordedDateOf(recordedAt)).toBe('2026-07-26');
+		// 実時計を別途読む旧形: 同じ瞬間に当日を返し、挿入行と 1 日ずれる
+		expect(insertedAt.toISOString().slice(0, 10)).toBe('2026-07-27');
+	});
+
 	it('5秒超過後はキャンセル不可 (400)', async () => {
 		// 古い記録を直接挿入 (10秒前)
 		const pastTime = new Date(Date.now() - 10_000).toISOString();
 		// #4051 AC3: recordedDate は recordedAt と同じソース (pastTime) から導く。
 		// 実時計から別途 `new Date()` で作ると、UTC 深夜を跨いだ瞬間に recordedAt が前日・
-		// recordedDate が当日という**行として矛盾した fixture** になる。
-		const today = pastTime.slice(0, 10);
+		// recordedDate が当日という**行として矛盾した fixture** になる (下の [AC3] test で実証)。
+		const today = recordedDateOf(pastTime);
 
 		testDb
 			.insert(schema.activityLogs)
