@@ -46,9 +46,11 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 ### Ready 化前チェック（必須）
 
-`npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 15 step (Step 1〜12 + 1b / 7b / 11b) を順次実行し各 fail で即停止 + 修正方針表示。**step 一覧の SSOT は `npm run pre-ready -- --help`** (#2929 で同期):
+`npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 17 step (Step 1〜12 + 1b / 7b / 7c / 7d / 11b) を順次実行し各 fail で即停止 + 修正方針表示。**step 一覧の SSOT は `npm run pre-ready -- --help`** (#2929 で同期):
 
 1. biome check / 1b. cspell (#3649, CI 同一コマンド) / 2. svelte-check / 3. vitest run / 4. check-hardcoded-strings (#1452) / 5. measure-lp-dimensions (#1163, LP 変更時のみ) / 6. sync-lp-fallback --check (#1945, LP / labels.ts 変更時のみ) / 7. check-no-plan-literals (#972) / 7b. check-license-key-leak (#2836) / 8. generate-lp-labels --check (#1917, labels.ts / terms.ts / age-tier.ts 変更時のみ) / 9. Readiness gate = check-pr-body (PR 番号必須) / 10. check-doc-code-references (#2577) / 11. check-terminology-coherence (#2555) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail) / 12. capture (UI 変更時のみガイダンス)
+
+**Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 1b / 4 / 6 / 7 / 7b / 7c / 7d / 8 / 10 / 11) → 型検査 (2) → テスト (3) → ブラウザ実測 (5) → SS 系 (11b / 12) の順。検査の集合・合否条件は番号順実行時と同一。
 
 E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 
