@@ -3,8 +3,15 @@
 // docker-compose の backup サービス (crond) から 1 日 1 回呼ばれる。DATA_SOURCE を見て
 // 実データの backend に対応した経路へ振り分ける。
 //
-//   DATA_SOURCE=pglite  -> アプリの /api/cron/pglite-backup を叩く (本番 NUC の現行構成)
-//   それ以外            -> 従来の SQLite 経路 (backup-db.cjs + verify-backup-restore.cjs)
+//   pglite  -> アプリの /api/cron/pglite-backup を叩く (本番 NUC の現行構成)
+//   それ以外 -> 従来の SQLite 経路 (backup-db.cjs + verify-backup-restore.cjs)
+//
+// ── backend の決め方 (#3967) ────────────────────────────────────────────
+// 判定の一次情報は **env ではなく /api/health の dataSource** (= アプリが実際に使っている
+// backend)。env の DATA_SOURCE は照合にのみ使い、食い違ったら実行前に落とす。
+// 旧実装 `process.env.DATA_SOURCE || 'sqlite'` は未設定・typo・配布漏れのいずれでも黙って
+// SQLite 経路に落ちるため、間違った backend を「成功」と報告しうる形だった。
+// 判定ロジック本体は scripts/lib/backup-backend.cjs (unit test 対象)。
 //
 // ── なぜ HTTP 越しなのか ────────────────────────────────────────────────
 // PGlite は dataDir を単一プロセスで占有するため、backup コンテナから直接 open できない。
@@ -17,7 +24,7 @@
 // 二度と作らないため、backend の判定をこの 1 箇所に集約し、対象外の経路は明示的に skip する。
 //
 // Environment variables:
-//   DATA_SOURCE          - 実データの backend (pglite / sqlite ...)
+//   DATA_SOURCE          - 実データの backend (pglite / sqlite ...)。/api/health との照合用
 //   APP_URL              - アプリのベース URL (default: http://app:3000)
 //   CRON_SECRET          - /api/cron/* の認証シークレット (pglite 経路で必須)
 //   DISCORD_ALERT_WEBHOOK_URL - 失敗通知先 (任意)
@@ -25,6 +32,7 @@
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
+const { resolveBackupBackend } = require('./lib/backup-backend.cjs');
 
 // .env 読み込み (backup-db.cjs と同じ最小実装)
 const envPath = path.join(__dirname, '..', '.env');
@@ -43,7 +51,9 @@ if (fs.existsSync(envPath)) {
 	}
 }
 
-const DATA_SOURCE = process.env.DATA_SOURCE || 'sqlite';
+// #3967: 既定値を置かない。未設定は「未設定」のまま resolveBackupBackend に渡し、
+// /api/health を真実の源として解決させる (暗黙の sqlite フォールバックを作らない)。
+const ENV_DATA_SOURCE = process.env.DATA_SOURCE;
 const APP_URL = process.env.APP_URL || 'http://app:3000';
 const CRON_SECRET = process.env.CRON_SECRET || process.env.OPS_SECRET_KEY || '';
 const DISCORD_WEBHOOK =
@@ -62,7 +72,7 @@ async function notifyFailure(detail) {
 	}
 	const embed = {
 		title: '🚨 [CRITICAL] NUC バックアップ 失敗',
-		description: `DATA_SOURCE=${DATA_SOURCE} のバックアップに失敗しました。data 保全リスク。`,
+		description: `NUC のバックアップに失敗しました。data 保全リスク。`,
 		color: 10038562,
 		fields: [
 			{ name: 'Detail', value: `\`\`\`${detail.slice(0, 800)}\`\`\`` },
@@ -121,18 +131,50 @@ async function runPgliteBackup() {
 
 /** SQLite 経路: 従来どおり backup-db.cjs + verify-backup-restore.cjs を直列実行する。 */
 function runSqliteBackup() {
-	console.log('[backup-nuc] DATA_SOURCE が pglite ではないため SQLite 経路で実行します');
+	console.log('[backup-nuc] backend が pglite ではないため SQLite 経路で実行します');
 	for (const script of ['backup-db.cjs', 'verify-backup-restore.cjs']) {
 		execFileSync(process.execPath, [path.join(__dirname, script)], { stdio: 'inherit' });
+	}
+}
+
+/**
+ * `/api/health` を叩いて JSON を返す。到達できなければ null。
+ *
+ * ここで例外にせず null を返すのは、「取得できなかった」ことの扱いを
+ * resolveBackupBackend 側に一本化するため (env フォールバックの有無を 1 箇所で決める)。
+ */
+async function fetchHealth() {
+	const url = `${APP_URL.replace(/\/$/, '')}/api/health`;
+	try {
+		const res = await fetch(url);
+		// 503 (DB 到達不可) でも body に dataSource は載る。backend の同定には使えるので
+		// status では弾かず、dataSource の有無だけを resolveBackupBackend に判定させる。
+		return { url, body: await res.json() };
+	} catch (err) {
+		console.error(
+			`[backup-nuc] ${url} に到達できません:`,
+			err instanceof Error ? err.message : String(err),
+		);
+		return { url, body: null };
 	}
 }
 
 async function main() {
 	console.log('=== Ganbari Quest NUC Backup ===');
 	console.log(`Time: ${new Date().toISOString()}`);
-	console.log(`DATA_SOURCE: ${DATA_SOURCE}`);
+	console.log(`env DATA_SOURCE: ${ENV_DATA_SOURCE ?? '(未設定)'}`);
 
-	if (DATA_SOURCE === 'pglite') {
+	const health = await fetchHealth();
+	// 判定できない / env と食い違う場合はここで throw され、main().catch が alert する。
+	// **backend が確定するまでバックアップを実行しない** (間違った backend を成功と報告しない)。
+	const resolved = resolveBackupBackend({
+		envDataSource: ENV_DATA_SOURCE,
+		health: health.body,
+		healthUrl: health.url,
+	});
+	console.log(`[backup-nuc] backend=${resolved.backend} (${resolved.source}) — ${resolved.detail}`);
+
+	if (resolved.backend === 'pglite') {
 		await runPgliteBackup();
 	} else {
 		runSqliteBackup();

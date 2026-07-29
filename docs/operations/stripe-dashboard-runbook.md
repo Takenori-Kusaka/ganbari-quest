@@ -131,11 +131,18 @@ Phase 2 月次運用 / Phase 3 incident は頻度低 / ad-hoc のため最小限
    - Live mode: `https://ganbari-quest.com/api/stripe/webhook`
    - Test mode: `https://your-ngrok-or-staging-url/api/stripe/webhook`（ローカル検証時）
 2. Description: `がんばりクエスト Webhook（本番）`
-3. **Events to send** で以下 4 種を選択:
-   - `checkout.session.completed`（新規購入完了 → license 発行 + tenant plan 更新）
-   - `invoice.payment_succeeded`（継続課金成功 → license.expiresAt 延長）
-   - `customer.subscription.deleted`（解約 → 期限切れ予告 → 無料プラン移行、`license-key-requirements.md` §2.9）
+3. **Events to send** で以下 5 種を選択:
+   - `checkout.session.completed`（新規購入完了 → tenant plan 更新 + subscription 割り当て）
+   - `invoice.paid`（継続課金成功 → plan を subscription の現行 price から再解決）
+   - `invoice.payment_failed`（支払い失敗 → dunning 猶予へ）
    - `customer.subscription.updated`（プラン変更 / status 遷移 → tenant plan 反映）
+   - `customer.subscription.deleted`（解約 → subscription 割り当て解除）
+
+   > **この一覧はアプリの `handleWebhookEvent` の `case` と 1:1 で対応している**（`src/lib/server/services/stripe-service.ts`）。
+   > 片方だけ増減すると「購読しているのに handler が無い」「handler があるのに永久に発火しない」状態になり、
+   > **どちらも動作結果に現れない**（沈黙する）。`tests/unit/docs/stripe-dashboard-runbook.test.ts` が両者の一致を機械検証する（#3990）。
+   >
+   > `invoice.paid` と `invoice.payment_succeeded` は Stripe 上で**別 event**。本アプリが購読するのは `invoice.paid` のみ。
 4. 「Add endpoint」で保存
 5. 発行された **Signing secret（`whsec_xxx` で始まる文字列）をメモ**
 6. **Signing secret の配布証跡（ADR-0006 整合）**を以下 3 箇所に配備:
