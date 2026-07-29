@@ -5267,6 +5267,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4023 横展開: 削除確認。旧実装は onsubmit + preventDefault で、キャンセルしても
+	// use:enhance 側の submit listener が走り削除が通っていた (admin/settings/rules と同型)。
+	deleteConfirmTitle: 'このチャレンジを削除しますか？',
+	deleteConfirmBody: (challengeTitle: string, childName: string) =>
+		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
@@ -5687,6 +5692,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	enableButton: '有効化',
 	disableButton: '無効化',
 	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
 	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
 	importedAtLabel: '取込日時',
 	rulesLabel: '含まれるルール',
@@ -5715,6 +5721,12 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	rewardApprovalEnableInstantButton: '即時交換にする',
 	rewardApprovalDisableInstantButton: '承認を必須に戻す',
 	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
