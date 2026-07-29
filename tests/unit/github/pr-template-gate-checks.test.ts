@@ -843,7 +843,12 @@ describe('実 PULL_REQUEST_TEMPLATE.md に対して gate が空洞化しない (
 		resolve(dirname(fileURLToPath(import.meta.url)), '../../../.github/PULL_REQUEST_TEMPLATE.md'),
 		'utf-8',
 	);
-	const base = { labels: [] as string[], template: realTemplate, lane: 'feature' as const };
+	const base = {
+		labels: [] as string[],
+		template: realTemplate,
+		ssotSections: null,
+		lane: 'feature' as const,
+	};
 
 	it('customer-value: 未記入の素の template は fail する (= field を検出できている)', () => {
 		const r = checkCustomerValue({ ...base, body: realTemplate });
