@@ -3,6 +3,14 @@
 > **対象**: ローカルのどの backend でも実行されない `AUTH_MODE=cognito` + DSQL 経路（課金状態の解決 / entitlement / parent-gate / 招待・メンバー）を、AWS staging（`ganbari-quest-staging-app`）で 1 回通して観測するための手順。
 > **実行主体**: リリース発火 = GQ-Audit / 検証実行と証跡提出 = GQ-Dev / 秘匿値・権限の配置 = オーナー。
 
+## ⚠️ ステータス: 未実証（2026-07 時点）
+
+**本 runbook は通しで実行されていない。** 初回実行は Issue [#4099](https://github.com/Takenori-Kusaka/ganbari-quest/issues/4099) で行う（検証主体 = オーナー（AWS SSO 対話ログインが必須）+ GQ-Audit（staging リリース発火））。
+
+未実証の 4 項目は [§8 本 runbook が保証できない点](#8-本-runbook-が保証できない点) を参照 — psql 接続と UPDATE / staging sign-up の確認コード到達性 / staging DSQL の初期データ / Stripe 経路の不在。
+
+初回実行で手順との齟齬が出た場合は、**本 runbook を是正してから**証跡とする。是正の結果として本ステータス見出しを撤去できることが #4099 の close 判定。
+
 ## 1. 適用範囲
 
 ### 本 runbook で検証する
@@ -147,4 +155,4 @@ WHERE family_id = '<検証対象の family uuid>';
 - [docs/design/staging-synthetic-seed.md](../design/staging-synthetic-seed.md) — PII-free 合成 seed の設計と配線状況
 - [docs/runbooks/dsql-restore.md](dsql-restore.md) — DSQL の backup / 復元
 - `.github/workflows/deploy-aws-staging.yml` / `infra/lib/compute-stack.ts` / `infra/lib/auth-stack.ts` / `infra/lib/env-config.ts`
-- Issue #2873（AWS staging stack）/ #3732（invite / members の local 検証不可）
+- Issue #2873（AWS staging stack）/ #3732（invite / members の local 検証不可）/ #4099（本 runbook の初回実行と gap 4 項目の確定）
