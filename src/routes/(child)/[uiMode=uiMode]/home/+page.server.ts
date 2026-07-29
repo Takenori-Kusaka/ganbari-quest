@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { formIdString } from '$lib/domain/form-value';
 import { asActivityId, asCategoryId, asChildId, type CategoryId } from '$lib/domain/ids';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
@@ -59,11 +60,22 @@ import {
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
 import type { Actions, PageServerLoad } from './$types';
 
-function todayDate(): string {
-	const now = new Date();
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
+/**
+ * #4020: この route の「今日」は `date-utils.ts` の SSOT (`todayDateJST`) を直接呼ぶ。
+ *
+ * 旧実装は `todayDate()` というファイル内ローカル関数を持ち、中身は `new Date()` の
+ * ローカル日付要素だった。本番 Lambda は TZ 未設定 (= UTC) のため **JST 00:00〜09:00 の
+ * 9 時間**は前日を「今日」と見なし、活動記録の**書き込み側** (`activity-record-preparation.ts`
+ * の JST 固定) と食い違って「記録したのに今日のおやくそくが埋まらない」が起きていた。
+ *
+ * **`todayDate` という名前をこのファイルに残さない。** `validation/activity.ts:314` に
+ * `export { todayDateJST as todayDate }` という**同名の JST 別名**が存在するため、
+ * ローカル関数が同名で居ると呼び出し側の見た目が JST 版と完全に一致し、grep でも
+ * 目視でも区別できない。この「名前による隠蔽」が #4020 が 5 か月間検出されなかった
+ * 直接の機構であり (Issue 5 Whys の 4)、wrapper として名前だけ残すと機構は残る。
+ *
+ * `(child)` 配下の他 route (checklist / status / history) は既に JST 経由。
+ */
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
@@ -150,7 +162,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getLoginBonusStatus(child.id, tenantId),
 		getUnshownReward(child.id, tenantId),
 		getUnshownMessage(child.id, tenantId),
-		getChecklistsForChild(child.id, todayDate(), tenantId),
+		getChecklistsForChild(child.id, todayDateJST(), tenantId),
 		getTodayMissions(child.id, tenantId),
 		getStampCardStatus(child.id, tenantId),
 		getCategoryXpSummary(child.id, tenantId),
@@ -189,7 +201,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	activitiesWithMission.sort((a, b) => (b.isMainQuest ? 1 : 0) - (a.isMainQuest ? 1 : 0));
 
 	// フォーカスモード: おすすめ活動の選定 (#0264)
-	const recommendations = selectRecommendations(rawActivities, todayDate());
+	const recommendations = selectRecommendations(rawActivities, todayDateJST());
 	const recommendedIds = new Set(recommendations.map((r) => r.activityId));
 
 	const birthdayBonus =
@@ -222,7 +234,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 	try {
 		mustStatus = await tryGrantMustCompletionBonus(
 			child.id,
-			todayDate(),
+			todayDateJST(),
 			parentData.uiMode as Parameters<typeof tryGrantMustCompletionBonus>[2],
 			tenantId,
 		);
