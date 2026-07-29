@@ -33,9 +33,26 @@ export interface OpsStackProps extends cdk.StackProps {
 	 * 指定時のみ S3 origin 専用 4xx/5xx alarm を作成する (offload OFF = undefined = alarm も cost も無し)。
 	 */
 	staticAssetsBucket?: s3.Bucket;
+	/**
+	 * #3998: アプリ Lambda の LogGroup (ComputeStack が生成)。
+	 * 指定時のみ log 由来 MetricFilter + Alarm を作成する (未指定 = 監視 cost ゼロ)。
+	 */
+	appLogGroup?: logs.ILogGroup;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
 }
+
+/**
+ * #3998: entitlement fail-closed が 503 として表面化したことを表す log の検索語。
+ *
+ * SSOT は `TenantEntitlementUnavailableError.ALERT_KIND`
+ * (`src/lib/server/auth/tenant-entitlement.ts`) と `src/hooks.server.ts` の
+ * `[auth-alert] ${kind}` prefix。CDK の tsconfig rootDir は infra/ 固定でアプリ側 src を
+ * import できないため literal で持つが、
+ * `tests/unit/infra/entitlement-fail-closed-alarm.test.ts` が両者の drift を機械検証する
+ * (CRON_JOBS ↔ schedule-registry と同じ構図)。
+ */
+export const ENTITLEMENT_FAIL_CLOSED_LOG_TERM = '[auth-alert] auth-entitlement-db-unavailable';
 
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
@@ -173,6 +190,55 @@ export class OpsStack extends cdk.Stack {
 		});
 		cf5xx.addAlarmAction(alarmAction);
 		cf5xx.addOkAction(alarmAction);
+
+		// P0: entitlement 解決 fail-closed (#3998)
+		//
+		// #3963 で `resolveContext` は課金状態を毎リクエスト DB から引くようになり、解決に
+		// 失敗したら context を発行しない (fail-closed)。この副作用として DB 障害中は有効な
+		// Cookie を持つユーザーが軒並み 503 になる。PO はこの trade-off を承認したが、
+		// **承認の前提は「起きたら気付けること」**である。
+		//
+		// 既存 alarm では拾えない:
+		//   - Lambda Errors …… hooks.server.ts が例外を握って 503 Response を返すため invocation error にならない
+		//   - Url5xx ………… 拾える可能性はあるが「DB 由来の権限剥奪」と他の 5xx を区別できず、
+		//                     原因の切り分け (= incident 対応の最初の分岐) ができない
+		//   - Url4xx spike … 3xx / 4xx ではないため乗らない
+		// そのため log 本文を唯一の情報源として MetricFilter で metric 化する。
+		if (props.appLogGroup) {
+			const entitlementFailClosed = new logs.MetricFilter(this, 'EntitlementFailClosedFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${ENTITLEMENT_FAIL_CLOSED_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Auth',
+				metricName: 'EntitlementDbUnavailable',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			// 閾値の根拠 (#3998 AC3):
+			//   1 件 = 1 リクエストが 503 になった、という単位になるように filter は
+			//   hooks.server.ts の 503 応答 1 行だけを数える (DB 解決失敗そのものの log 行は
+			//   `auth-entitlement-db-unavailable` で Logs Insights から追えるが metric には数えない)。
+			//   DSQL は OCC 競合 / 瞬断で単発の解決失敗が起こりうるため 1 件では鳴らさない。
+			//   5 分間に 5 リクエスト = 一過性ではなく継続してユーザーが弾かれている状態、という線を引く。
+			//   これは既存 `ganbari-quest-lambda-url-5xx` (5 分 5 件) と同じ粒度で、運用者が
+			//   「5 分 5 件で鳴る」という 1 つの感覚だけを覚えれば済むようにするため意図的に揃えている。
+			//   metric は該当 log が無い間データ点を持たないため treatMissingData=NOT_BREACHING。
+			const entitlementFailClosedAlarm = new cloudwatch.Alarm(this, 'EntitlementFailClosed', {
+				alarmName: 'ganbari-quest-auth-entitlement-db-unavailable',
+				alarmDescription:
+					'課金状態を DB から解決できず 503 になったリクエスト: 5分間に5件以上 (#3998 fail-closed)',
+				metric: entitlementFailClosed.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 5,
+				evaluationPeriods: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
+			entitlementFailClosedAlarm.addOkAction(alarmAction);
+		}
 
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)
 		// CronDispatcherFn が prop として渡された場合のみアラームを作成する（最小構成）

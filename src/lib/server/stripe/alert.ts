@@ -50,7 +50,12 @@ export type StripeAlertKind =
 	| 'stripe-subscription-multi-item'
 	// #3981: subscription から tenant を解決する経路が **障害で** 落ちた。
 	// 「tenant が本当に不在」とは区別する (不在は warn のみで alert しない)。
-	| 'stripe-context-unresolved';
+	| 'stripe-context-unresolved'
+	// #3959: webhook が Lambda に到達していない (沈黙) の検知。cron が 1 時間毎に Stripe API と
+	// 自 DB を突き合わせて発火する。上の `stripe-webhook-handler-failed` は「到達したが handler が
+	// 失敗した」側を所有し、本 kind とは発火条件が重ならない
+	// (責務分界は stripe-webhook-delivery-monitor.ts 冒頭)。
+	| 'stripe-webhook-undelivered';
 
 export interface StripeAlertOptions {
 	/** alert 種別 (Phase 6 子 5 §6 SSOT 3 種) */

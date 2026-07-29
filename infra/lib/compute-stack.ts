@@ -28,6 +28,8 @@ const CRON_JOBS = [
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
+	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
+	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
@@ -44,6 +46,15 @@ export interface ComputeStackProps extends cdk.StackProps {
 export class ComputeStack extends cdk.Stack {
 	public readonly fn: lambda.Function;
 	public readonly functionUrl: lambda.FunctionUrl;
+	/**
+	 * アプリ Lambda の CloudWatch LogGroup (#3998)。
+	 *
+	 * OpsStack が log 由来 MetricFilter (例外にならず 503 応答として表面化する fail-closed 等、
+	 * Lambda / CloudFront の既定 metric に乗らない事象) を張るために公開する。
+	 * `fn.logGroup` の暗黙解決に頼ると「名前が一致しているつもりの別 LogGroup」に filter を
+	 * 張っても誰も気付けないため、実体を明示的に受け渡す。
+	 */
+	public readonly appLogGroup: logs.LogGroup;
 	/** cron-dispatcher (#1376)。enableCronDispatcher=false (staging) では未構築 */
 	public readonly cronDispatcherFn?: lambda.Function;
 
@@ -79,6 +90,7 @@ export class ComputeStack extends cdk.Stack {
 			retention: logs.RetentionDays.ONE_MONTH, // 30 日、課金 path post-mortem SSOT
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
+		this.appLogGroup = logGroup;
 
 		// --- Cognito 設定を SSM から取得（cross-stack export を回避） ---
 		// staging (#2873) は ssmPrefix='/ganbari-quest-staging' の staging 専用 param を参照する。
