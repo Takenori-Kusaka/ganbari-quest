@@ -133,4 +133,17 @@ export function taskKeyFromBranch(branch) {
 	return match ? `task-${match[1]}` : null;
 }
 
+/** 現状再現 shim (failing-test-first 用。次コミットで本実装に差し替える)。 */
+export function resolvePushRefBranch() {
+	return null;
+}
+/** 現状再現 shim。 */
+export function resolveCommandCwd(_command, fallbackCwd) {
+	return fallbackCwd;
+}
+/** 現状再現 shim。 */
+export function isBulkProcessKillCommand() {
+	return false;
+}
+
 export default { isHeavyCommand, isBranchPublishCommand, extractTarget, taskKeyFromBranch };

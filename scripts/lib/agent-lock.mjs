@@ -388,6 +388,11 @@ export function release(key, owner) {
 	return true;
 }
 
+/** 現状再現 shim (failing-test-first 用。次コミットで本実装に差し替える)。 */
+export function releaseUnlessGuarded(key, owner) {
+	return { released: release(key, owner), guardedPids: [] };
+}
+
 /**
  * 保持中の lock を人間可読の 1 行にする (block メッセージ用)。
  *
