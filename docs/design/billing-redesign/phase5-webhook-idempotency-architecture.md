@@ -240,11 +240,17 @@ handler 失敗を記録しない方針 (§4.2) のため常に null。
 **不採用**: handler 失敗時も row を insert して 200 を返す案。この案は同一 event の無限 retry を
 避けられる一方、**一過性の障害 (DB / Stripe API の瞬断) で event を恒久的に失う**。実測でも
 2026-07-26 の配信失敗 22 分は Stripe の再送で復旧しており、retry 経路を潰す副作用の方が大きい。
-恒久的な handler バグで再送が続く場合は Stripe 側が 3 日で配信を諦め、その間 500 が観測される
-(沈黙して失敗するより検知しやすい)。
+**再送に委ねる以上、再送が尽きる前に人が気づける導線を必須とする**。Stripe は 3 日で配信を
+諦めるため、恒久的な handler バグを log だけに残すと課金 event を無通知で失う。`handleWebhookEvent`
+の catch 1 箇所で **初回失敗の時点から** Discord alert (`stripe-webhook-handler-failed`) を上げる。
+同一 `event.id` の反復は `sendDiscordAlert` の throttle (errorSummary key / 5 分 window / 3 件で
+まとめ通知) が抑制するため、失敗回数を数える機構は持たない。alert SSOT は
+[phase6-rollback-and-kill-switches.md §3.10-b R11](phase6-rollback-and-kill-switches.md)。
+event が Lambda に到達しないケース (配信そのものの未達) の検知は #3959 が担う。
 
 回帰: `tests/unit/services/stripe-webhook-dedup.test.ts` の
-「handler が失敗した event は台帳に残らず、再送で再処理される」。
+「handler が失敗した event は台帳に残らず、再送で再処理される」 /
+「handler 失敗は初回から Discord alert に上がる」。
 
 ### 4.3 dedup 機構の影響を受ける handler 一覧
 
@@ -437,7 +443,7 @@ table は配備済 (`schema.ts` / `create-tables.ts` / `lazy-startup-migrations.
 | 3 | **security** | error_message に Stripe customer email 等の PII が流入する可能性 (Stripe.Error の `param` 等). 500 文字 truncate で十分か? | (a) `Stripe.Error` 型から `param` / `code` / `type` のみ抽出するヘルパで PII strip、(b) 500 文字 truncate は二重防御 — 両方実装 (Phase 7) | Phase 7 実装時に確定 |
 | 4 | **security (adversarial)** | dedup row 自体への DoS 攻撃 (偽 webhook で signature 失敗 → dedup row 0 件で table 膨張なし、ただし署名検証通過済の event を 100k 並列送信で table 膨張) | 署名検証通過 event のみ dedup 対象、DynamoDB は item 数 1000 万件まで partition 制約なし (BillingMode=PayPerRequest)、SQLite は cron 削除で 30 日上限維持。攻撃成立条件 = Stripe 内部からの大量正規 event のみ (Stripe API 自体が rate limit) | 仕様、対応不要 |
 | 5 | **security (adversarial)** | 未購読 event 型は `handler_result='skipped'` で row が残る。後から handler を実装した場合、30 日以内に再送された同一 event が skip され handler が走らない | 現状は購読 5 種と handler が 1:1 で、購読を増やすとき (Stripe Dashboard の enabled_events 追加) に初めて発生する。新 handler を足す PR で `handler_result='skipped'` の row を dedup 対象外にするか、当該 event を `stripe events resend` で再送する | 購読拡張時に確定 |
-| 6 | **security (adversarial)** | `findByEventId` → `insert` の間に同一 event が並列到達すると、両者が「未処理」を読んで handler を 2 回実行しうる | repo 層は PK への `ON CONFLICT DO NOTHING` (dsql / sqlite) で二重 row を物理拒否する (first-writer-wins) が、**handler 実行そのものの並列は防げない**。現状 endpoint は 1 本で、Stripe の再送間隔は秒〜分単位のため実害は観測されていない。完全に閉じるには claim-first (insert で先に権利を取ってから handler を走らせる) への変更が必要で、handler 失敗時の row 取り消しと引き換えになる | 未解決 (残リスクとして明示) |
+| 6 | **security (adversarial)** | `findByEventId` → `insert` の間に同一 event が並列到達すると、両者が「未処理」を読んで handler を 2 回実行しうる | repo 層は PK への `ON CONFLICT DO NOTHING` (dsql / sqlite) で二重 row を物理拒否する (first-writer-wins) が、**handler 実行そのものの並列は防げない**。現状 endpoint は 1 本で、Stripe の再送間隔は秒〜分単位のため実害は観測されていない。完全に閉じるには claim-first (insert で先に権利を取ってから handler を走らせる) への変更が必要で、handler 失敗時の row 取り消しと引き換えになる。**再評価トリガ (下記 3 条件のいずれかを満たしたら claim-first を再検討する)**: (a) webhook endpoint を 2 本以上運用する構成になったとき (b) Lambda の同時実行が常態化するほど契約数が増えたとき (c) 二重処理を 1 件でも観測したとき | 受容 (再評価トリガ付き) |
 
 ## 14. 関連 (2026-05-29 整合)
 

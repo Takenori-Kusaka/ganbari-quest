@@ -60,7 +60,10 @@ vi.mock('$lib/server/stripe/config', () => ({
 	CURRENCY: 'jpy',
 }));
 
-vi.mock('$lib/server/stripe/alert', () => ({ notifyStripeAlert: vi.fn() }));
+const mockNotifyStripeAlert = vi.fn();
+vi.mock('$lib/server/stripe/alert', () => ({
+	notifyStripeAlert: (...args: unknown[]) => mockNotifyStripeAlert(...args),
+}));
 
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -263,6 +266,36 @@ describe('handleWebhookEvent — event.id dedup (#3985)', () => {
 		expect(await demoWebhookEventRepo.findByEventId(event.id)).toMatchObject({
 			handlerResult: 'success',
 		});
+	});
+
+	it('handler 失敗は初回から Discord alert に上がる (再送が尽きる前に人が気づける)', async () => {
+		// 台帳に残さず Stripe の再送に載せる (§4.2) 判断は、再送が 3 日で尽きる前に
+		// 人が気づけることとセットでのみ成立する。log だけで終わらせない回帰。
+		const event = WEBHOOK_EVENTS[0].event; // checkout.session.completed
+		mockUpdateTenantStripe.mockRejectedValueOnce(new Error('DB 一時障害'));
+
+		await expect(handleWebhookEvent(event as never)).rejects.toThrow('DB 一時障害');
+
+		expect(mockNotifyStripeAlert).toHaveBeenCalledTimes(1);
+		const alert = mockNotifyStripeAlert.mock.calls[0][0] as {
+			kind: string;
+			errorSummary: string;
+			tags: Record<string, unknown>;
+		};
+		expect(alert.kind).toBe('stripe-webhook-handler-failed');
+		// throttle key は event.id 単位 (別 event の失敗を巻き込んで無音化しない)
+		expect(alert.errorSummary).toBe(`webhook-handler-failed:${event.id}`);
+		expect(alert.tags).toMatchObject({ eventId: event.id, eventType: event.type });
+		expect(alert.tags.error).toBe('DB 一時障害');
+	});
+
+	it('handler 成功時は failure alert を出さない', async () => {
+		await handleWebhookEvent(WEBHOOK_EVENTS[0].event as never);
+		expect(
+			mockNotifyStripeAlert.mock.calls.filter(
+				(call) => (call[0] as { kind: string }).kind === 'stripe-webhook-handler-failed',
+			),
+		).toHaveLength(0);
 	});
 
 	it('checkout の dedup row には analytics 用の tenantId が入る (PII は入れない)', async () => {

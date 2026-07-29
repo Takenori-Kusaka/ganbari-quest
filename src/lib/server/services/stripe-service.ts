@@ -265,7 +265,29 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 		return;
 	}
 
-	const handlerResult = await dispatchWebhookEvent(event);
+	let handlerResult: 'success' | 'skipped';
+	try {
+		handlerResult = await dispatchWebhookEvent(event);
+	} catch (err) {
+		// 台帳に残さず再 throw する (§4.2) 以上、失敗の観測は Stripe の再送が尽きる前に
+		// 人に届く必要がある。Stripe は 3 日で配信を諦めるため、log だけでは
+		// 「誰も気づかないまま課金 event が消える」経路が残る。
+		//
+		// 初回失敗の時点で alert する (N 回まで待たない)。同一 event.id の反復は
+		// `sendDiscordAlert` の throttle (errorSummary key / 5 分 window / 3 件でまとめ通知)
+		// が抑制するため、新規の計数機構を持たない。
+		notifyStripeAlert({
+			kind: 'stripe-webhook-handler-failed',
+			message: `webhook handler が失敗 (台帳に残さず Stripe の再送に載せる): ${event.type}`,
+			errorSummary: `webhook-handler-failed:${event.id}`,
+			tags: {
+				eventId: event.id,
+				eventType: event.type,
+				error: err instanceof Error ? err.message : String(err),
+			},
+		});
+		throw err;
+	}
 
 	await webhookEvents.insert({
 		eventId: event.id,
