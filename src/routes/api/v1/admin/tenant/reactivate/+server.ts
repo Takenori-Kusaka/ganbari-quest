@@ -1,21 +1,29 @@
 // src/routes/api/v1/admin/tenant/reactivate/+server.ts
-// 解約キャンセル（active に復帰）— owner 限定
+// 解約の取り消し（期末解約の予約を解除）— owner 限定
 //
-// #784: cancel エンドポイントが Stripe を即時キャンセルするようになったため、
-// grace_period 中に reactivate する際は Stripe Subscription が既に消えている。
-// DB 上のテナント状態だけを active に戻しても課金は復活しないため、
-// ここでは 409 で明示的に「再購読が必要」と返し、フロント側で Checkout へ
-// 誘導する。
+// #3991: 「解約申請中か」の判定を **Stripe の `cancel_at_period_end`** に一本化した (NFR-2)。
+//
+// 旧実装は DB の `status === grace_period` を「解約申請中」と読んでいたが、この値は
+// **支払い失敗の dunning 猶予** (`handlePaymentFailed`) でも書かれる同じ値だった (#3986)。
+// そのため (a) 支払いが未了のテナントが本 API を通過して ACTIVE に戻り課金なしで有料機能が復活する、
+// (b) 本来の解約申請者は即時キャンセル直後の `customer.subscription.deleted` で `suspended` に
+// 上書きされてこの 409 に必ず弾かれる、という二重の誤りが同時に起きていた。
+//
+// 期末解約では契約が期末まで生き続けるため、取り消しは `cancel_at_period_end=false` に戻すだけで
+// 完了する (Checkout のやり直し不要)。DB の契約状態は解約申請中も `active` のままなので、
+// **本エンドポイントは DB を一切書き換えない**。
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { error, json } from '@sveltejs/kit';
 import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { invalidateRequestCaches } from '$lib/server/request-context';
 import { notifyCancellationReverted } from '$lib/server/services/discord-notify-service';
+import {
+	type ResumeSubscriptionResult,
+	resumeSubscription,
+} from '$lib/server/services/stripe-service';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	const context = locals.context;
@@ -39,16 +47,20 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ error: 'テナントが見つかりません' }, { status: 404 });
 	}
 
-	if (tenant.status !== SUBSCRIPTION_STATUS.GRACE_PERIOD) {
-		return json({ error: '解約手続き中ではありません' }, { status: 409 });
+	let result: ResumeSubscriptionResult;
+	try {
+		result = await resumeSubscription(tenantId);
+	} catch (err) {
+		logger.error('[tenant] 解約キャンセル: Stripe 予約解除に失敗', {
+			context: { tenantId, error: String(err) },
+		});
+		throw error(500, '決済サービスとの通信に失敗しました。時間をおいて再度お試しください。');
 	}
 
-	// #784: Stripe Subscription が既にキャンセル済みの場合、単に DB を active に
-	// 戻しても課金は復活しない。再購読が必要な旨を明示して Checkout に誘導する。
-	// Stripe webhook (customer.subscription.deleted) により stripeSubscriptionId は
-	// undefined にクリアされているはずだが、webhook 到達前でも tenant.plan は
-	// 保持されているため、状態遷移は「要再購読」で一貫させる。
-	if (!tenant.stripeSubscriptionId) {
+	// **到達する経路**: 期末が到来して `customer.subscription.deleted` が契約を終端させた後
+	// (`stripeSubscriptionId` が NULL 化済) に取り消しを試みたケース。この時点では Stripe 側に
+	// 復元できる契約が無いため、Checkout をやり直す必要がある。
+	if (result.status === 'not_subscribed') {
 		return json(
 			{
 				error: '再購読が必要です',
@@ -59,21 +71,17 @@ export const POST: RequestHandler = async ({ locals }) => {
 		);
 	}
 
-	// 防御的: 万一 Subscription がまだ残っている場合（本来到達しない）、
-	// その場合のみ DB 上で active に戻す。
-	await repos.auth.updateTenantStripe(tenantId, {
-		status: SUBSCRIPTION_STATUS.ACTIVE,
-		planExpiresAt: undefined,
-	});
-
-	// #3963: 課金状態のリクエストキャッシュを破棄し、次リクエストで DB から再解決させる
-	invalidateRequestCaches(tenantId);
+	// #3986: 支払い失敗で dunning 中のテナントはここで止まる (`cancel_at_period_end=false`)。
+	// 未払いのまま有料機能を復活させない。
+	if (result.status === 'not_scheduled') {
+		return json({ error: '解約手続き中ではありません' }, { status: 409 });
+	}
 
 	notifyCancellationReverted(tenantId).catch(() => {});
 
-	logger.info('[tenant] 解約キャンセル', {
-		context: { tenantId },
+	logger.info('[tenant] 解約キャンセル (期末解約の予約を解除)', {
+		context: { tenantId, subscriptionId: result.state.subscriptionId },
 	});
 
-	return json({ success: true });
+	return json({ success: true, cancelAtPeriodEnd: false });
 };

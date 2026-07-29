@@ -168,8 +168,8 @@
 | POST | /api/v1/admin/members/[userId]/transfer-ownership | owner権限移譲 | owner |
 | POST | /api/v1/admin/members/leave | テナントから脱退 | 全ロール |
 | GET | /api/v1/admin/tenant/status | テナントステータス取得 | owner/parent |
-| POST | /api/v1/admin/tenant/cancel | テナント解約（graceful） | owner |
-| POST | /api/v1/admin/tenant/reactivate | テナント再有効化 | owner |
+| POST | /api/v1/admin/tenant/cancel | 解約申請（期末解約を予約、`cancel_at_period_end=true`。DB は書かない、#3991） | owner |
+| POST | /api/v1/admin/tenant/reactivate | 解約の取り消し（`cancel_at_period_end=false`。予約が無ければ 409、#3986） | owner |
 | POST | /api/v1/admin/tenant-cleanup | テナントクリーンアップ（管理用） | 内部API |
 | POST | /api/v1/admin/cleanup-orphans | 孤立データクリーンアップ | 内部API |
 | GET | /api/v1/admin/migration | マイグレーション統計取得 | 内部API |

@@ -19,19 +19,26 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
+import { getCancellationState } from '$lib/server/services/stripe-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
-	const [license, loyaltyInfo, children, trialStatus, pinConfigured] = await Promise.all([
-		getLicenseInfo(tenantId),
-		getLoyaltyInfo(tenantId).catch(() => null),
-		getAllChildren(tenantId),
-		getTrialStatus(tenantId),
-		isPinConfigured(tenantId),
-	]);
+	const [license, loyaltyInfo, children, trialStatus, pinConfigured, cancellation] =
+		await Promise.all([
+			getLicenseInfo(tenantId),
+			getLoyaltyInfo(tenantId).catch(() => null),
+			getAllChildren(tenantId),
+			getTrialStatus(tenantId),
+			isPinConfigured(tenantId),
+			// #3991: 「解約申請中か」「いつまで使えるか」の SSOT は Stripe の subscription (NFR-2)。
+			// DB に猶予期限を持たせると `grace_period` (dunning) と再び多重定義になる (#3986) ため、
+			// 本画面を開いたときに都度取得する (subscription 画面限定 = 低頻度、admin layout には載せない)。
+			// Stripe 障害でプラン画面全体が 500 にならないよう、失敗時は null に落として表示だけ諦める。
+			getCancellationState(tenantId).catch(() => null),
+		]);
 
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
 	const tier = await resolveFullPlanTier(
@@ -80,6 +87,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			trialEndDate: trialStatus.trialEndDate,
 			trialTier: trialStatus.trialTier,
 		},
+		// #3991: 期末解約の予約状態 (null = 契約なし / Stripe 未設定 / 取得失敗)
+		cancellation,
 		// EPIC #2327 / #2328: runtimeMode は +layout.server.ts (admin layout) で
 		// 全 admin route の data に配布済み。NucLicensePanel / SaasLicensePanel の
 		// 分岐に使用する (#2329 / #2330 / #2331)。

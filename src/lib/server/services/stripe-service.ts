@@ -161,7 +161,13 @@ export type CancelSubscriptionResult =
 	| { status: 'not_subscribed' };
 
 /**
- * テナントの Stripe Subscription を即時キャンセルする (#741)
+ * テナントの Stripe Subscription を**即時**キャンセルする (#741) — **退会 (アカウント削除) 専用**。
+ *
+ * #3991: 解約 (subscription を終わらせるが家族データは残す) は
+ * `scheduleCancellationAtPeriodEnd()` の期末解約が正 (FR-1)。本関数は
+ * **退会 (アカウント削除)** の軸でのみ使う。退会は家族データそのものを消すので、
+ * 支払済期間の残りを使わせる意味が無く、即時停止が正しい (残期間の課金継続は
+ * 「削除したアカウントに請求が続く」クレームになる)。
  *
  * アカウント削除フローから呼び出される。DB 削除の前に必ず呼び出し、
  * Stripe 側の呼び出しで予期しないエラーが発生した場合は例外を投げて
@@ -198,10 +204,7 @@ export async function cancelSubscription(tenantId: string): Promise<CancelSubscr
 		return { status: 'cancelled', subscriptionId };
 	} catch (err) {
 		// Stripe returns 'resource_missing' when the subscription is already gone
-		const errorCode =
-			(err as { code?: string; raw?: { code?: string } })?.code ??
-			(err as { raw?: { code?: string } })?.raw?.code;
-		if (errorCode === 'resource_missing') {
+		if (isResourceMissing(err)) {
 			logger.info(
 				`[STRIPE] Subscription already cancelled: tenant=${tenantId} subscription=${subscriptionId}`,
 			);
@@ -212,6 +215,172 @@ export async function cancelSubscription(tenantId: string): Promise<CancelSubscr
 		});
 		throw err;
 	}
+}
+
+// ============================================================
+// 期末解約 / 解約取り消し (#3991 — FR-1 / NFR-2)
+// ============================================================
+
+/**
+ * Stripe 上の「解約予約」状態 (#3991)。
+ *
+ * **「解約申請中か」の SSOT は Stripe の `cancel_at_period_end`** であり、DB の
+ * `families.status` ではない (NFR-2: webhook が SSOT)。DB に別途フラグを持たせると、
+ * `grace_period` が「支払い失敗の猶予」と「解約申請の猶予」を兼ねて壊れた #3986 と
+ * 同じ多重定義をもう 1 本作ることになる。
+ */
+export interface SubscriptionCancellationState {
+	subscriptionId: string;
+	/** 期末解約が予約されているか */
+	cancelAtPeriodEnd: boolean;
+	/** 現在の請求期間の終了日時 (ISO)。予約中はこの日時まで有料機能を使える */
+	currentPeriodEnd: string;
+}
+
+export type ScheduleCancellationResult =
+	| { status: 'scheduled'; state: SubscriptionCancellationState }
+	| { status: 'already_scheduled'; state: SubscriptionCancellationState }
+	| { status: 'not_subscribed' };
+
+export type ResumeSubscriptionResult =
+	| { status: 'resumed'; state: SubscriptionCancellationState }
+	| { status: 'not_scheduled'; state: SubscriptionCancellationState }
+	| { status: 'not_subscribed' };
+
+/**
+ * 期間終了日時を Stripe subscription から解決する。
+ *
+ * apiVersion `2026-04-22.dahlia` では `current_period_end` は Subscription 直下ではなく
+ * **subscription item** に載る (Stripe API 2025-03-31 の破壊的変更)。複数 item を持つ
+ * 契約 (#3980 で異常として検知する形) でも「最後に切れる期間」を採れば顧客に不利にならないため
+ * max を採る。
+ */
+function resolveCurrentPeriodEnd(subscription: Stripe.Subscription): string {
+	const ends = (subscription.items?.data ?? [])
+		.map((item) => (item as unknown as { current_period_end?: number }).current_period_end)
+		.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+	// item から取れない契約 (Stripe 側の予期しない payload) では `cancel_at` を最後の拠り所にする。
+	const fallback = typeof subscription.cancel_at === 'number' ? subscription.cancel_at : undefined;
+	const epochSeconds = ends.length > 0 ? Math.max(...ends) : fallback;
+	// 解決できない場合は「不明な期限」を偽の日付で埋めない。呼び出し側が空文字で分岐できるようにする。
+	return epochSeconds === undefined ? '' : new Date(epochSeconds * 1000).toISOString();
+}
+
+/** Stripe が「その subscription はもう存在しない」と返したか (`resource_missing`) */
+function isResourceMissing(err: unknown): boolean {
+	const code =
+		(err as { code?: string; raw?: { code?: string } })?.code ??
+		(err as { raw?: { code?: string } })?.raw?.code;
+	return code === 'resource_missing';
+}
+
+function toCancellationState(subscription: Stripe.Subscription): SubscriptionCancellationState {
+	return {
+		subscriptionId: subscription.id,
+		cancelAtPeriodEnd: subscription.cancel_at_period_end === true,
+		currentPeriodEnd: resolveCurrentPeriodEnd(subscription),
+	};
+}
+
+/**
+ * テナントの現行 subscription を Stripe から取得する。
+ *
+ * subscription を持たない / Stripe 無効 / Stripe 上に既に存在しない場合は `undefined`。
+ * 「解約申請中か」の判定は必ずここを通す (DB の status を判定に使わない、NFR-2)。
+ */
+async function retrieveTenantSubscription(
+	tenantId: string,
+): Promise<Stripe.Subscription | undefined> {
+	const tenant = await getRepos().auth.findTenantById(tenantId);
+	if (!tenant?.stripeSubscriptionId) return undefined;
+	if (!isStripeEnabled()) {
+		// #741 と同じ判断: subscription があるのに Stripe を叩けない状態を成功として扱わない。
+		const msg = `[STRIPE] Cannot read subscription ${tenant.stripeSubscriptionId}: Stripe is disabled but tenant has active subscription`;
+		logger.error(msg);
+		throw new Error(msg);
+	}
+	try {
+		return await getStripeClient().subscriptions.retrieve(tenant.stripeSubscriptionId);
+	} catch (err) {
+		if (isResourceMissing(err)) {
+			logger.info(
+				`[STRIPE] Subscription not found on Stripe: tenant=${tenantId} subscription=${tenant.stripeSubscriptionId}`,
+			);
+			return undefined;
+		}
+		throw err;
+	}
+}
+
+/**
+ * 解約申請の現在状態を返す (#3991)。UI が「解約申請中 / 利用できる最終日」を出すための唯一の入口。
+ *
+ * 契約が無い (未購読 / 期末到来後) 場合は `null`。
+ */
+export async function getCancellationState(
+	tenantId: string,
+): Promise<SubscriptionCancellationState | null> {
+	const subscription = await retrieveTenantSubscription(tenantId);
+	return subscription ? toCancellationState(subscription) : null;
+}
+
+/**
+ * 解約を**期末解約として予約**する (#3991 FR-1) — アプリ内解約の正経路。
+ *
+ * 旧実装は `stripe.subscriptions.cancel()` で即時キャンセルしていた。即時キャンセルは
+ * `customer.subscription.deleted` を直後に発火させるため、#784 が約束した「解約後の取り消し」が
+ * 一度も成立せず、かつ特商法表示「解約後は現在の請求期間終了まで引き続きご利用いただけます」
+ * とも一致していなかった。
+ */
+export async function scheduleCancellationAtPeriodEnd(
+	tenantId: string,
+): Promise<ScheduleCancellationResult> {
+	const subscription = await retrieveTenantSubscription(tenantId);
+	if (!subscription) {
+		logger.info(`[STRIPE] scheduleCancellation skipped (no subscription): tenant=${tenantId}`);
+		return { status: 'not_subscribed' };
+	}
+
+	if (subscription.cancel_at_period_end === true) {
+		// 二重申請は Stripe 状態を変えずに冪等に返す (再送・二重クリック対策)。
+		return { status: 'already_scheduled', state: toCancellationState(subscription) };
+	}
+
+	const updated = await getStripeClient().subscriptions.update(subscription.id, {
+		cancel_at_period_end: true,
+	});
+	const state = toCancellationState(updated);
+	logger.info(
+		`[STRIPE] Cancellation scheduled at period end: tenant=${tenantId} subscription=${state.subscriptionId} periodEnd=${state.currentPeriodEnd}`,
+	);
+	return { status: 'scheduled', state };
+}
+
+/**
+ * 期末解約の予約を取り消す (#3991) — #784 が約束していた「解約の取り消し」の実体。
+ *
+ * 契約は生きたままなので Checkout をやり直す必要がない。DB は一切書き換えない
+ * (status は解約申請中も `active` のままであり、変える必要が無い)。
+ */
+export async function resumeSubscription(tenantId: string): Promise<ResumeSubscriptionResult> {
+	const subscription = await retrieveTenantSubscription(tenantId);
+	if (!subscription) {
+		logger.info(`[STRIPE] resumeSubscription skipped (no subscription): tenant=${tenantId}`);
+		return { status: 'not_subscribed' };
+	}
+
+	if (subscription.cancel_at_period_end !== true) {
+		// #3986: 支払い失敗で dunning 中 (status=grace_period) のテナントはここで止まる。
+		// 旧実装は DB の `status === grace_period` を「解約申請中」と読んでいたため、
+		// dunning 中のテナントが本 API を通過して ACTIVE に戻り、未払いのまま有料機能が復活していた。
+		return { status: 'not_scheduled', state: toCancellationState(subscription) };
+	}
+
+	const updated = await getStripeClient().subscriptions.update(subscription.id, {
+		cancel_at_period_end: false,
+	});
+	logger.info(`[STRIPE] Cancellation reverted: tenant=${tenantId} subscription=${subscription.id}`);
+	return { status: 'resumed', state: toCancellationState(updated) };
 }
 
 // ============================================================
@@ -472,6 +641,14 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 		return;
 	}
 
+	// #3986 / #3991: `grace_period` の書き手は **支払い失敗 (dunning) 経路だけ** に一意化された。
+	// 旧実装では `/api/v1/admin/tenant/cancel` も同じ値を書いていたため、`grace_period` は
+	// 「支払い失敗の猶予」と「解約申請の猶予」の 2 概念を兼ね、`reactivate` が両者を区別できず
+	// **dunning 中のテナントが未払いのまま ACTIVE に戻せる**状態になっていた。
+	// 案 A (期末解約) で解約申請の SSOT が Stripe の `cancel_at_period_end` に移り、
+	// 解約経路は DB status を一切書かなくなった。以後この状態を書いてよいのは本 handler と、
+	// 同じ dunning を表す `handleSubscriptionUpdated` の `past_due` 分岐だけである
+	// (いずれも #4077 の単一強制点 `applyTenantContractState` を経由する)。
 	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString();
 	const applied = await applyTenantContractState(
 		tenant,
