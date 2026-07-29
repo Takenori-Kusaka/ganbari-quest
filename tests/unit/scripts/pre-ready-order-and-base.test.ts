@@ -81,7 +81,9 @@ describe('#4048 実行順が cheap-fail-first であること', () => {
 	it('[O3] 実行順のコストクラスが単調非減少である (安い順)', () => {
 		const classes = costClasses();
 		const registry = costClassByName();
-		const ranks = orderedStepNames().map((name) => classes.indexOf(registry[name]));
+		const ranks = orderedStepNames().map((name) => classes.indexOf(registry[name] ?? '(未登録)'));
+		// 未登録があれば indexOf は -1 になり、単調非減少の assert より先にここで落とす
+		expect(ranks.every((r) => r >= 0)).toBe(true);
 		expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
 	});
 
