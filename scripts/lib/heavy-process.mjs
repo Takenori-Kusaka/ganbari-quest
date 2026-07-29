@@ -123,14 +123,23 @@ export function collectDescendants(table, rootPid) {
  * 実際の kill は行わない。「何を落とすか」を決める判断だけを純関数に切り出し、
  * 破壊的操作は CLI (`scripts/agent-cleanup.mjs`) が担う。
  *
+ * ## `unowned` を必ず報告する理由 (実測)
+ *
+ * ハーネスが起動した検証チェーンは**セッションの子孫から外れる**ことがある
+ * (本 PR の作業中に実測: `pre-ready --pr 4094` の親が session owner ではなく別 PID
+ * だった)。この場合 `targets` は空になるが、**残骸が無いわけではない**。
+ * 「対象なし」とだけ出すと、実際には残っている残骸を見落として全 kill に手が伸びる —
+ * 本 Issue が塞ごうとしている行動そのものである。よって所有者を辿れない重い検証は
+ * `unowned` として**必ず可視化**する (kill 対象には決してしない)。
+ *
  * @param {{table: Map<number, ProcInfo>, ownerPid: number | null, protectedPids?: number[]}} opts
- * @returns {{targets: ProcInfo[], excluded: {pid: number, name: string, reason: string}[]}}
+ * @returns {{targets: ProcInfo[], excluded: {pid: number, name: string, reason: string}[], unowned: ProcInfo[]}}
  */
 export function planProcessCleanup(opts) {
 	const table = opts.table;
 	const ownerPid = opts.ownerPid;
 	if (!Number.isInteger(ownerPid) || Number(ownerPid) <= 0) {
-		return { targets: [], excluded: [] };
+		return { targets: [], excluded: [], unowned: [] };
 	}
 
 	/** lock 保持者とその子孫。除外集合。 */
@@ -145,7 +154,9 @@ export function planProcessCleanup(opts) {
 	const targets = [];
 	/** @type {{pid: number, name: string, reason: string}[]} */
 	const excluded = [];
-	for (const pid of collectDescendants(table, Number(ownerPid))) {
+	const ownDescendants = collectDescendants(table, Number(ownerPid));
+	const ownSet = new Set([Number(ownerPid), ...ownDescendants]);
+	for (const pid of ownDescendants) {
 		const proc = table.get(pid);
 		if (!proc) continue;
 		// 掃除の目的は「重い検証の残骸」の回収。shell 等の中間プロセスは、落とすと
@@ -157,9 +168,16 @@ export function planProcessCleanup(opts) {
 		}
 		targets.push(proc);
 	}
+	// 所有者を辿れない重い検証 (ハーネスが detach した自分の残骸 / 他セッションの実行中)。
+	// **kill 対象にはしない**が、見えないままにもしない。
+	const unowned = findHeavyProcesses(table, {
+		excludePids: [...ownSet, ...protectedSet],
+	});
+
 	return {
 		targets: targets.sort((a, b) => a.pid - b.pid),
 		excluded: excluded.sort((a, b) => a.pid - b.pid),
+		unowned,
 	};
 }
 

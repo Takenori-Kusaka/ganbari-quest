@@ -121,6 +121,7 @@ function main() {
 					lockHolders: holders,
 					targets: plan.targets.map((p) => ({ pid: p.pid, name: p.name, cmd: p.cmd })),
 					excluded: plan.excluded,
+					unowned: plan.unowned.map((p) => ({ pid: p.pid, name: p.name, cmd: p.cmd })),
 					killed: doKill,
 				},
 				null,
@@ -138,10 +139,23 @@ function main() {
 			process.stdout.write(`  除外 pid=${ex.pid} (${ex.reason})\n`);
 		}
 		if (plan.targets.length === 0) {
-			process.stdout.write('  対象なし (残骸はありません)\n');
+			process.stdout.write('  自分の子孫に残骸なし\n');
 		}
 		for (const proc of plan.targets) {
 			process.stdout.write(`  対象 pid=${proc.pid} ${proc.cmd.slice(0, 160)}\n`);
+		}
+		// 「対象なし」だけを見せると、detach された自分の残骸を見落として全 kill に
+		// 手が伸びる。所有者を辿れないものは必ず出す (kill はしない)。
+		if (plan.unowned.length > 0) {
+			process.stdout.write(
+				'  ⚠ 所有者を辿れない重い検証プロセス (kill しません。他セッションの実行中かもしれません):\n',
+			);
+			for (const proc of plan.unowned) {
+				process.stdout.write(`    pid=${proc.pid} ${proc.cmd.slice(0, 160)}\n`);
+			}
+			process.stdout.write(
+				'    自分の残骸だと確信できる場合のみ、その起点 PID を --pid <n> で指定して再実行してください。\n',
+			);
 		}
 	}
 

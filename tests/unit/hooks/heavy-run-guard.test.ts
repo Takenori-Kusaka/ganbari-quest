@@ -25,7 +25,7 @@
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -130,18 +130,30 @@ describe('#4076 push 対象ブランチで判定する', () => {
 	});
 
 	it('AC2: cwd は「コマンドが実行される場所」から解決する', () => {
+		// 実測はメインクローン `E:\Github\ganbari-quest-dev` だが、期待値は
+		// `resolve` で組む — Windows パスを Linux CI (絶対パスと見なされない) で
+		// `join` 比較すると cwd が前置されて落ちる。ここで固定したい不変条件は
+		// 「**基準ディレクトリからの相対解決**であって payload cwd のままではない」
+		// ことなので、プラットフォーム非依存に書く。
 		const main = 'E:\\Github\\ganbari-quest-dev';
+		const worktree = resolve(main, '.claude/worktrees/agent-a1ef5ad9e76bd9d2f');
+
 		// worktree へ cd してから push する形
-		expect(
-			resolveCommandCwd(
-				'cd .claude/worktrees/agent-a1ef5ad9e76bd9d2f && git push origin HEAD',
-				main,
-			),
-		).toBe(join(main, '.claude', 'worktrees', 'agent-a1ef5ad9e76bd9d2f'));
+		const afterCd = resolveCommandCwd(
+			'cd .claude/worktrees/agent-a1ef5ad9e76bd9d2f && git push origin HEAD',
+			main,
+		);
+		expect(afterCd).toBe(worktree);
+		expect(afterCd).not.toBe(main); // payload cwd のまま返していないこと (#4076 の核)
+
 		// git -C 指定
-		expect(
-			resolveCommandCwd('git -C .claude/worktrees/agent-a1ef5ad9e76bd9d2f push origin HEAD', main),
-		).toBe(join(main, '.claude', 'worktrees', 'agent-a1ef5ad9e76bd9d2f'));
+		const afterDashC = resolveCommandCwd(
+			'git -C .claude/worktrees/agent-a1ef5ad9e76bd9d2f push origin HEAD',
+			main,
+		);
+		expect(afterDashC).toBe(worktree);
+		expect(afterDashC).not.toBe(main);
+
 		// 手がかりが無ければ hook payload の cwd
 		expect(resolveCommandCwd('git push origin HEAD', main)).toBe(main);
 	});
@@ -182,6 +194,24 @@ describe('#4069 所有権に基づく掃除', () => {
 		expect(plan.targets.map((p) => p.pid).sort()).toEqual([120, 121]);
 		// 他セッションのプロセスは候補にすら入らない
 		expect(plan.targets.some((p) => p.pid === 210)).toBe(false);
+	});
+
+	it('AC1: 所有者を辿れない残骸は kill 対象にせず、しかし必ず可視化する', () => {
+		// 実測: ハーネス起動の検証チェーンはセッションの子孫から外れることがある
+		// (本 PR 作業中に pre-ready の親が session owner ではなかった)。
+		// ここで報告しないと「残骸なし」と読んで全 kill に手が伸びる (#4069 の再発)。
+		const detached = makeTable([
+			{ pid: 100, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
+			{ pid: 900, ppid: 1, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4094' },
+		]);
+		const plan = planProcessCleanup({ table: detached, ownerPid: 100, protectedPids: [] });
+		expect(plan.targets).toEqual([]);
+		expect(plan.unowned.map((p) => p.pid)).toEqual([900]);
+	});
+
+	it('AC2: lock 保持者は unowned にも出さない (他者の実行中を掃除候補に見せない)', () => {
+		const plan = planProcessCleanup({ table, ownerPid: 100, protectedPids: [210] });
+		expect(plan.unowned.map((p) => p.pid)).toEqual([]);
 	});
 
 	it('AC2: lock 保持者とその子孫は除外される', () => {
