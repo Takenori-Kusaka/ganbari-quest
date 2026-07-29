@@ -74,7 +74,7 @@ node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
 
 1. **origin/main rebase drift verify** (#2557 / 本日 7+ 連続 BLOCK の root cause)
 2. **本日 deploy 全 file 削除 0 verify** (PR 存在時、#2603 / #2628 第 4 弾 gate)
-3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時、#2576 / #2586 / #2633 第 5 弾)
+3. **PR body 11 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時、#2576 / #2586 / #2633 第 5 弾)
 4. **biome check** (軽量 lint)
 
 重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ**。Pre-PMF / ADR-0010 整合。

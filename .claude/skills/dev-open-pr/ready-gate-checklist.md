@@ -22,7 +22,7 @@ Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate �
 `priority:critical` / `hotfix` label PR は urgency 文脈で 4 PR 連続 fail (#2318 / #2340 / #2341 / #2342) した教訓に基づき、Ready 化前に以下 4 種を**順次**実行:
 
 ```bash
-# 1. PR body 全体 (必須セクション 13 件 / AC マップ / 禁止語 / hotfix 配布証跡欄強化チェック)
+# 1. PR body 全体 (必須セクション 11 件 / AC マップ / 禁止語 / hotfix 配布証跡欄強化チェック)
 #    Ready 化前 = PR は既に存在するので --pr を渡し、label は PR の実値を使う (#3983)。
 #    --labels は「手で主張した label」なので、間違っていても検出できない。
 #    実 label に po-decision:required が付いていれば PO 決裁ブリーフ gate もここで発火する。
@@ -84,23 +84,21 @@ gh pr checks <num> --watch
 
 **条件**: `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) の `sections` 配列にある `## ` 全見出しを PR body に**全て含める**こと。SSOT JSON が template と同期しているかは `check-pr-template-sections-sync.yml` が別途検証する。
 
-**必須セクション (削除禁止、#2060 で 12 → 13 に拡張、`## QM レビュー結果` も SSOT 内)**:
+**必須セクション (削除禁止、`## QM レビュー結果` も SSOT 内)**:
 
-SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 13 件 (template 更新時は本ファイル `--fix` で再生成、`scripts/check-pr-template-sections-sync.mjs`):
+SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 11 件 (#4097 で 13 → 11、template 更新時は `scripts/check-pr-template-sections-sync.mjs --fix` で再生成):
 
-1. `## 顧客価値・目的`
+1. `## 顧客価値・目的` (3 field すべて記入。プレースホルダー残置は CI hard-fail)
 2. `## 関連 Issue`
 3. `## AC 検証マップ (ADR-0004)`
 4. `## 変更タイプ` (1 つ以上 `[x]`)
-5. `## 影響範囲・変更コンポーネント`
-6. `## テスト & 安全装置セルフチェック`
+5. `## 影響範囲・横展開チェック`
+6. `## テスト・品質セルフチェック` (結果表の「結果」列を全行記入。placeholder 残置は CI hard-fail)
 7. `## スクリーンショット / ビジュアルデモ`
-8. `## コード品質セルフレビュー (#1481)`
-9. `## 横展開・影響波及チェック`
-10. `## レビュー依頼事項・破壊的変更`
-11. `## 配布済み env / secret (ADR-0006)`
-12. `## Ready for Review チェックリスト`
-13. `## QM レビュー結果` (QM 記入欄、Dev は雛形のまま残す)
+8. `## レビュー依頼事項・破壊的変更`
+9. `## 配布済み env / secret (ADR-0006)`
+10. `## Ready for Review チェックリスト`
+11. `## QM レビュー結果` (QM 記入欄、Dev は雛形のまま残す)
 
 **確認方法**:
 ```bash
@@ -385,7 +383,7 @@ npm run pre-ready -- --pr <num> && gh pr ready <num>
 
 | Wave 1 PR | 初回 fail 内容 | 修正手順 |
 |---|---|---|
-| Agent #5 PR | gate 2 (必須セクション「コード品質セルフレビュー」欠落) | Skill 雛形を再生成して書き直し |
+| Agent #5 PR | gate 2 (必須セクション欠落) | Skill 雛形を再生成して書き直し |
 | Agent #7 PR | gate 1 (AC1 検証手段列が空) | `node scripts/check-pr-body.mjs --body-file ...` で diff 表示 → 検証コマンド追記 |
 | Agent #8 PR | gate 4 (UI 変更ありなのに SS なし) | Section 2 の修正前/後 4 スロット撮影手順実行 |
 | Agent #9 PR | gate 3 (`[ ]` のまま Ready 化) | 各項目検証後 `[x]` 化、該当なしは `[N/A]` |

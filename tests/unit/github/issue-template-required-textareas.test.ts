@@ -133,3 +133,60 @@ describe('GitHub Issue Forms — required textareas (#2090)', () => {
 		});
 	});
 });
+
+/**
+ * #4097: Web UI 経路 (Issue Forms) と `--body-file` 経路 (issue-triage SKILL.md) の項目集合を一致させる。
+ *
+ * `.github/CLAUDE.md` は「補佐の `--body-file` 経由起票も同 4 見出しを markdown body に含める」と定めるが、
+ * SKILL.md §ステップ 7 のテンプレには alternatives / no-gos に対応する見出しが無く、実起票では
+ * Web UI で必須の 2 項目が構造的に常に欠落していた。両経路の対応を機械照合して drift を止める。
+ */
+describe('--body-file 経路 (SKILL.md) が Web UI 必須 4 項目を網羅する (#4097)', () => {
+	const skill = readFileSync(
+		resolve(process.cwd(), '.claude/skills/issue-triage/SKILL.md'),
+		'utf8',
+	);
+	/** Issue Forms の field id → SKILL.md §ステップ 7 テンプレの対応見出し。 */
+	const FIELD_TO_HEADING: Record<string, string> = {
+		alternatives: '## Alternatives + Prior art',
+		'no-gos': '## No-gos（今回スコープ外）',
+		'research-link': '## Deep Research 添付',
+		'pre-pmf-check': '## Pre-PMF チェック結果',
+	};
+
+	it('REQUIRED_TEXTAREA_IDS と対応表のキー集合が一致する (対応表の網羅漏れ防止)', () => {
+		expect(Object.keys(FIELD_TO_HEADING).sort()).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
+	});
+
+	it.each(REQUIRED_TEXTAREA_IDS)(
+		'必須 field `%s` に対応する見出しが SKILL.md ステップ 7 テンプレに存在する',
+		(id) => {
+			const heading = FIELD_TO_HEADING[id];
+			expect(
+				skill,
+				`SKILL.md に "${heading}" が無い → --body-file 起票で ${id} が欠落する`,
+			).toContain(heading);
+		},
+	);
+
+	it('17 項目 checklist の本文 SSOT が SKILL.md 側にあり、yml は本文を複製しない', () => {
+		// 本文 SSOT (手順 E) 側には 4 層すべての見出しが揃っている
+		for (const section of [
+			'### permission 系 5 項目',
+			'### marketplace 系 4 層',
+			'### 子供向け機能 6 項目',
+			'### ナビ / 情報アーキテクチャ系 2 項目',
+		]) {
+			expect(skill, `手順 E に "${section}" が無い`).toContain(section);
+		}
+		// yml 側は本文を複製せず SKILL.md を指すだけ
+		for (const filename of TARGET_TEMPLATES) {
+			const block = extractFieldBlock(loadTemplate(filename), 'auxiliary-feature-ux-checklist');
+			if (block === null) continue; // bug_report は本 field を持たない
+			expect(block, `${filename} が checklist 本文を複製している`).toContain(
+				'.claude/skills/issue-triage/SKILL.md',
+			);
+			expect(block, `${filename} に 17 項目本文が残っている`).not.toContain('**Loading state**');
+		}
+	});
+});
