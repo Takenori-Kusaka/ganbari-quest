@@ -301,3 +301,48 @@ export function isPullsCollectionPath(path) {
 export function isPullsSubresourcePath(path, subresource) {
 	return new RegExp(`^repos/[^/]+/[^/]+/pulls/\\d+/${subresource}(?:/.*)?$`, 'i').test(path);
 }
+
+/**
+ * `repos/<owner>/<repo>/pulls/<何か>/<subresource>` か — **PR 識別子の形を問わない** (#4057)。
+ *
+ * `isPullsSubresourcePath` は PR 番号を `\d+` に固定していたため、`.../pulls/$n/reviews` の
+ * ようにループ変数で書くだけで approve 検出をすり抜けた (QM 実測。同時刻にリテラル形は
+ * 正しく BLOCK されており、**番号の書き方だけで gate の有無が変わっていた**)。
+ *
+ * approve 行為か否かは「PR 番号がリテラルで書かれているか」とは無関係なので、判定は
+ * subresource だけで行い、番号の確定は別工程 (取れなければ block) に分ける。
+ *
+ * @param {string} path  normalizeApiPath 済みのパス
+ * @param {string} subresource  `reviews` / `merge` 等
+ * @returns {boolean}
+ */
+export function isPullsSubresourcePathAnyRef(path, subresource) {
+	return new RegExp(`^repos/[^/]+/[^/]+/pulls/[^/]+/${subresource}(?:/.*)?$`, 'i').test(path);
+}
+
+/**
+ * `repos/<owner>/<repo>/pulls/<何か>…` — 特定 PR (またはその subresource) を指すパスか。
+ *
+ * コレクション (`…/pulls`) は含まない。PR 作成 (コレクション POST) は ADR-0022 L1 の責務で、
+ * 本判定の対象ではないため。
+ *
+ * @param {string} path  normalizeApiPath 済みのパス
+ * @returns {boolean}
+ */
+export function isPullsScopedPath(path) {
+	return /^repos\/[^/]+\/[^/]+\/pulls\/.+$/i.test(path);
+}
+
+/**
+ * token に **未展開のシェル展開**が残っているか (#4057)。
+ *
+ * `$(cmd)` / `` `cmd` `` / `$VAR` / `${VAR}` / `%VAR%` (cmd.exe)。これらを含むパスは
+ * hook 側から見て**実際に叩かれる URL を確定できない**。確定できないものを「approve ではない」
+ * 側に倒すと、書き方を変えるだけで gate を抜けられる (#4057 の実測形がまさにこれ)。
+ *
+ * @param {string} token
+ * @returns {boolean}
+ */
+export function hasUnresolvedExpansion(token) {
+	return /\$\(|\$\{|\$[A-Za-z_]|`|%[A-Za-z_][A-Za-z0-9_]*%/.test(String(token ?? ''));
+}

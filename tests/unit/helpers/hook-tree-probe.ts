@@ -53,6 +53,16 @@ export interface HookProbeOptions {
 	 * になるため呼び出すと `TypeError` になる = 素通し側に倒れうる。
 	 */
 	isMainSource?: string;
+	/**
+	 * 複製から **除外** する repo 相対パス (#4075)。
+	 *
+	 * `is-main.mjs` 以外の sibling module (`./command-execution-tools.mjs` 等) が欠落した
+	 * checkout を再現するために使う。#3999 が `is-main.mjs` だけを fail-closed 化した結果、
+	 * 同 class の穴が別の import に残っていた (= 同 class の網羅漏れ) ことを probe できる。
+	 */
+	omitRelPaths?: string[];
+	/** hook プロセスに追加で渡す環境変数 (`CLAUDE_SUBAGENT_ID` 等) */
+	env?: Record<string, string>;
 	/** hook に渡す stdin (Claude Code の PreToolUse payload JSON) */
 	stdin: string;
 }
@@ -76,7 +86,7 @@ function copyInto(root: string, relPath: string): void {
  * `./lib/gh-command.mjs` を読むようになったため、同階層限定では足りない)。
  * `is-main.mjs` だけは **除外** し、`withIsMain` の明示制御に委ねる。
  */
-function copyRelativeImports(root: string, hookRelPath: string): void {
+function copyRelativeImports(root: string, hookRelPath: string, omit: string[] = []): void {
 	const hookDir = hookRelPath.split('/').slice(0, -1).join('/');
 	const source = readFileSync(path.join(REPO_ROOT, ...hookRelPath.split('/')), 'utf8');
 	// `from '<rel>'` (static) と `import('<rel>')` (dynamic) の両方を拾う
@@ -87,6 +97,7 @@ function copyRelativeImports(root: string, hookRelPath: string): void {
 			// hookDir 基準で解決して repo 相対 (POSIX 区切り) に正規化する
 			const rel = path.posix.normalize(path.posix.join(hookDir, spec));
 			if (rel === IS_MAIN_REL) continue; // withIsMain で制御する対象は複製しない
+			if (omit.includes(rel)) continue; // 欠落を再現したい module (#4075)
 			copyInto(root, rel);
 		}
 	}
@@ -99,11 +110,11 @@ function copyRelativeImports(root: string, hookRelPath: string): void {
  * temp tree 側を見るため、実 repo の evidence file に結果が左右されない。
  */
 export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResult {
-	const { hookRelPath, withIsMain, isMainSource, stdin } = options;
+	const { hookRelPath, withIsMain, isMainSource, stdin, omitRelPaths, env } = options;
 	const root = mkdtempSync(path.join(tmpdir(), 'gq-hook-probe-'));
 	try {
 		copyInto(root, hookRelPath);
-		copyRelativeImports(root, hookRelPath);
+		copyRelativeImports(root, hookRelPath, omitRelPaths);
 		if (withIsMain) {
 			if (isMainSource === undefined) {
 				copyInto(root, IS_MAIN_REL);
@@ -118,6 +129,9 @@ export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResul
 			cwd: root,
 			input: stdin,
 			encoding: 'utf8',
+			// `CLAUDE_SUBAGENT_ID` は実セッションの env に混ざりうる。probe 側で明示指定が
+			// 無いときは必ず外し、「たまたま env が立っていたので通った」を作らない (#4082 R2)。
+			env: { ...process.env, CLAUDE_SUBAGENT_ID: undefined, ...env },
 		});
 		const stdout = `${res.stdout ?? ''}`;
 		const stderr = `${res.stderr ?? ''}`;

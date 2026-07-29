@@ -51,7 +51,6 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
 
 /**
  * `scripts/lib/` の SSOT module を **dynamic import** で読み込む理由 (#3999 / #4027)。
@@ -64,26 +63,47 @@ import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
  * security control は「判定不能」を「許可」ではなく **block** に倒す (fail-closed)。
  * dynamic import なら解決失敗を catch でき、exit 2 を自分で選べる。
  *
- * 対象は `../../scripts/lib/` を辿る **2 本とも**: `is-main.mjs` (実行主体判定) と
- * `gh-command.mjs` (#4027 で導入した gh コマンド解析 SSOT)。gh-command.mjs を static import に
- * 戻すと、同じ「`scripts/` 欠落 checkout で exit 1 = 素通し」が再発する。
+ * 対象は **相対 import の全部**: `../../scripts/lib/is-main.mjs` (実行主体判定) /
+ * `../../scripts/lib/gh-command.mjs` (#4027 の gh コマンド解析 SSOT) /
+ * `./command-execution-tools.mjs` (#4082 R1 の対象ツール SSOT)。
+ *
+ * **1 本だけ dynamic 化しても同 class の穴は残る** (#4075): #3999 が `is-main.mjs` を塞いだ後も
+ * `command-execution-tools.mjs` は static import のままで、当該ファイルを含まない checkout では
+ * `ERR_MODULE_NOT_FOUND` = exit 1 = 素通しに倒れていた。以後 sibling を 1 本足しただけで
+ * 穴が復活しないよう、`tests/unit/hooks/gate-approve-fail-closed.test.ts` の fitness function が
+ * **hook 本文に相対 module の static import が 0 件**であることを機械検証する。
  */
 /** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMain;
 /** @type {typeof import('../../scripts/lib/gh-command.mjs') | undefined} */
 let gh;
+/** @type {typeof import('./command-execution-tools.mjs') | undefined} */
+let tools;
+/**
+ * 読み込めなかった module の一覧 (repo 相対パス + error)。
+ * 1 本でも欠けたら fail-closed で exit 2 に倒す。どの module が欠けたかを stderr に出すため、
+ * 「最初の 1 件」ではなく全件を保持する。
+ * @type {{ path: string; err: unknown }[]}
+ */
+const moduleLoadFailures = [];
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
 try {
 	({ isMain } = await import('../../scripts/lib/is-main.mjs'));
 } catch (err) {
-	isMainLoadError = err;
+	moduleLoadFailures.push({ path: 'scripts/lib/is-main.mjs', err });
 }
 try {
 	gh = await import('../../scripts/lib/gh-command.mjs');
 } catch (err) {
-	isMainLoadError ??= err;
+	moduleLoadFailures.push({ path: 'scripts/lib/gh-command.mjs', err });
 }
+try {
+	tools = await import('./command-execution-tools.mjs');
+} catch (err) {
+	moduleLoadFailures.push({ path: '.claude/hooks/command-execution-tools.mjs', err });
+}
+if (moduleLoadFailures.length > 0) isMainLoadError = moduleLoadFailures[0].err;
 
 /**
  * gh-command SSOT を取り出す。読み込めていなければ throw する (呼出元は main() 経由で
@@ -98,6 +118,23 @@ function ghLib() {
 			: new Error('scripts/lib/gh-command.mjs を読み込めません');
 	}
 	return gh;
+}
+
+/**
+ * 対象ツール SSOT を取り出す。読み込めていなければ throw する (#4075)。
+ *
+ * `?? []` のような既定値で代用すると「どのツールが shell か分からないまま検査を続ける」ことに
+ * なり、`tool_input.command` を読めないまま allow に倒れうる。判定材料が無いなら止める。
+ *
+ * @returns {typeof import('./command-execution-tools.mjs')}
+ */
+function toolsLib() {
+	if (!tools) {
+		throw isMainLoadError instanceof Error
+			? isMainLoadError
+			: new Error('.claude/hooks/command-execution-tools.mjs を読み込めません');
+	}
+	return tools;
 }
 
 /**
@@ -156,21 +193,73 @@ export function isApproveAction(command) {
 	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return true;
 	// gh pr review --approve
 	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return true;
-	// gh api .../pulls/<N>/{merge,reviews} (REST 直叩き)。
+	// gh api .../pulls/<ref>/{merge,reviews} (REST 直叩き)。
 	// #4027: 部分一致でなく **引数として渡された API パス** で判定する。method は問わない
 	// (approve 相当を method 表記で回避されないよう検出幅は従来どおり維持する)。
+	// #4057: `<ref>` は数字リテラルに限定しない。番号の書き方 (`4002` / `$n` / `$(…)`) で
+	// gate の有無が変わってはならない。番号が確定できるかどうかは別工程で扱う。
+	return findApprovePathHits(sanitized).length > 0;
+}
+
+/**
+ * approve 相当の API パスを列挙する (#4057)。
+ *
+ * 2 種類を拾う:
+ *   - `repos/o/r/pulls/<ref>/{reviews,merge}` … ref の形 (数字 / 変数 / 置換) を問わない
+ *   - **確定できない pulls 配下パス** … `$(…)` / `$VAR` / backtick 等で実際に叩かれる URL が
+ *     決まらないもの。分類不能を「approve ではない」に潰すと、書き方を変えるだけで抜けられる
+ *
+ * コレクション (`repos/o/r/pulls`) は対象外 (PR 作成 = ADR-0022 L1 の責務)。
+ *
+ * @param {string} sanitized  sanitizeForDetection 済み文字列
+ * @returns {{ path: string; method: string; indeterminate: boolean }[]}
+ */
+function findApprovePathHits(sanitized) {
+	const lib = ghLib();
+	/** @type {{ path: string; method: string; indeterminate: boolean }[]} */
+	const hits = [];
 	for (const { argv } of lib.findGhInvocations(sanitized)) {
 		const api = lib.parseGhApiInvocation(argv);
 		if (!api.isApi) continue;
-		if (
-			api.paths.some(
-				(p) => lib.isPullsSubresourcePath(p, 'merge') || lib.isPullsSubresourcePath(p, 'reviews'),
-			)
-		) {
-			return true;
+		for (const path of api.paths) {
+			const isSubresource =
+				lib.isPullsSubresourcePathAnyRef(path, 'merge') ||
+				lib.isPullsSubresourcePathAnyRef(path, 'reviews');
+			const indeterminate = lib.isPullsScopedPath(path) && lib.hasUnresolvedExpansion(path);
+			if (isSubresource || indeterminate) {
+				hits.push({ path, method: api.method, indeterminate });
+			}
 		}
 	}
-	return false;
+	return hits;
+}
+
+/**
+ * subagent context で許してよい **読み取り専用**の approve パス参照か (#4082 R2)。
+ *
+ * Adversarial Reviewer subagent は evidence 生成のために「既存 review の一覧」を読む。これは
+ * `pulls/<n>/reviews` を叩くため本 gate の検出網 (method 非依存) に掛かるが、**副作用は無い**。
+ * 旧実装はこれを通すために `CLAUDE_SUBAGENT_ID` が立っていれば**どのコマンドでも無条件 allow**
+ * にしていた (= どのツール経由でも素通り、#4082 R2)。loop 防止に必要なのは「読む」ことだけなので、
+ * 許可をそこまで絞る。
+ *
+ * 以下はいずれも false (= subagent でも evidence gate に掛ける):
+ *   - `gh pr merge` / `gh pr review --approve` (CLI の変更操作)
+ *   - method が GET でない `gh api` (POST / PUT / PATCH / DELETE、method 不明も POST 扱い)
+ *   - パスが確定できない形 (分類不能を allow に倒さない)
+ *
+ * @param {string} command
+ * @returns {boolean}
+ */
+export function isReadOnlyApproveInspection(command) {
+	if (typeof command !== 'string') return false;
+	const lib = ghLib();
+	const sanitized = lib.sanitizeForDetection(command);
+	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return false;
+	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return false;
+	const hits = findApprovePathHits(sanitized);
+	if (hits.length === 0) return false;
+	return hits.every((hit) => !hit.indeterminate && hit.method === 'GET');
 }
 
 /**
@@ -178,10 +267,12 @@ export function isApproveAction(command) {
  *
  * fail-closed 方針: **抽出できない = approve ではない、とは扱わない**。
  *   - tool_name が無い / 文字列でない → BLOCK (どの経路か判別できない)
- *   - SSOT (COMMAND_EXECUTION_TOOLS) のツールなのに `tool_input.command` が文字列でない
+ *   - shell ツール (SHELL_COMMAND_TOOLS) なのに `tool_input.command` が文字列でない
  *     → BLOCK (検査対象を読めない = 素通しさせない)
- *   - SSOT に無いツール名 → allow に倒さず、tool_input 内の全文字列 (+ 連結形) を走査する。
- *     matcher だけ広げて SSOT 更新を忘れた場合でも approve 系を掴めるようにするため。
+ *   - コード実行ツール (CODE_EXECUTION_TOOLS) / SSOT に無いツール名 → allow に倒さず、
+ *     tool_input 内の全文字列 (+ 連結形) を走査する。payload の key 名 (`code` / `script` / …)
+ *     はツールごとに違うため、key を決め打ちせず値の型で拾う (#4082 R1)
+ *   - 走査できる文字列が **1 つも無い** → BLOCK (検査していないのに通した、を作らない)
  *
  * @param {unknown} payload
  * @returns {{ ok: true; commands: string[] } | { ok: false; reason: string }}
@@ -195,7 +286,7 @@ export function resolveInspectableCommands(payload) {
 			reason: 'payload に tool_name がありません (どの実行経路か判別できないため block)',
 		};
 	}
-	if (COMMAND_EXECUTION_TOOLS.includes(toolName)) {
+	if (toolsLib().SHELL_COMMAND_TOOLS.includes(toolName)) {
 		const command = /** @type {{ command?: unknown }} */ (toolInput ?? {}).command;
 		if (typeof command !== 'string') {
 			return {
@@ -206,8 +297,37 @@ export function resolveInspectableCommands(payload) {
 		return { ok: true, commands: [command] };
 	}
 	const strings = collectStrings(toolInput);
+	if (strings.length === 0) {
+		return {
+			ok: false,
+			reason: `${toolName} の tool_input に検査できる文字列がありません (検査せずに通さない)`,
+		};
+	}
 	// 引数配列 (["gh","pr","merge","4001"]) 形式にも当たるよう連結形も候補に入れる
-	return { ok: true, commands: strings.length > 1 ? [...strings, strings.join(' ')] : strings };
+	const candidates = strings.length > 1 ? [...strings, strings.join(' ')] : [...strings];
+	// コード実行 payload は shell 文字列ではなく**プログラム言語の構文**なので、コマンドが
+	// `subprocess.run(["gh","pr","merge","4082"])` のように区切り文字で分断されて現れる (#4082 R1)。
+	// 区切り文字を空白に均した変種も候補に足し、言語構文に埋まった形でも掴めるようにする。
+	for (const s of [...candidates]) {
+		const flattened = flattenCodePunctuation(s);
+		if (flattened !== s) candidates.push(flattened);
+	}
+	return { ok: true, commands: candidates };
+}
+
+/**
+ * コード片に含まれる区切り文字を空白に均す (#4082 R1、shell 以外の payload 専用)。
+ *
+ * **限界**: 任意言語の構文を完全に解釈することはできない (変数経由の組み立て・base64・
+ * 動的 eval は原理的に検出できない)。ここで塞げるのは「コマンドがリテラルとして書かれている」
+ * 場合だけである。残余は ADR-0056 の残存 bypass として記録し、事後監査
+ * (`scripts/audit-approve-evidence.mjs`) が経路非依存の検知層を担う。
+ *
+ * @param {string} code
+ * @returns {string}
+ */
+function flattenCodePunctuation(code) {
+	return code.replace(/["'`[\](),]/g, ' ').replace(/[ \t]+/g, ' ');
 }
 
 /**
@@ -241,17 +361,41 @@ export function collectStrings(value, depth = 0) {
  * @returns {number|null}
  */
 export function extractPrNumber(command) {
-	if (typeof command !== 'string') return null;
+	return extractPrNumbers(command).at(0) ?? null;
+}
+
+/**
+ * command が approve 対象にしている PR 番号を **全て** 返す (#4057)。
+ *
+ * 1 コマンドで複数 PR を叩く形 (`gh pr merge 4002 && gh pr merge 4010` / ループ) があるため、
+ * 「最初の 1 件」だけ検証すると 1 件分の evidence で複数 PR が通る。呼出側は返った番号
+ * **全件**について evidence を検証し、approve 行為なのに 1 件も取れなければ block する。
+ *
+ * 番号を「推測」しないことが本関数の役割である。`for n in 4002 4010; do … /pulls/$n/reviews`
+ * の `4002` はループの列挙値であって、そのコマンドが叩く PR とは限らない。近くにある数字を
+ * 拾うと、evidence のある PR の番号で別 PR の approve が通ってしまう。
+ *
+ * @param {string} command
+ * @returns {number[]}  昇順・重複排除
+ */
+export function extractPrNumbers(command) {
+	if (typeof command !== 'string') return [];
 	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
 	// #4027: あわせて --body / heredoc の中身を除去し、body 内の PR 番号を拾わないようにする
 	const normalized = ghLib().sanitizeForDetection(command);
+	/** @type {Set<number>} */
+	const numbers = new Set();
 	// gh pr <merge|review> [args] <N>
-	const m1 = normalized.match(/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
-	if (m1) return Number(m1[1]);
+	for (const m of normalized.matchAll(
+		/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/g,
+	)) {
+		numbers.add(Number(m[1]));
+	}
 	// gh api .../pulls/<N>/...
-	const m2 = normalized.match(/\/pulls\/(\d{1,6})\b/);
-	if (m2) return Number(m2[1]);
-	return null;
+	for (const m of normalized.matchAll(/\/pulls\/(\d{1,6})\b/g)) {
+		numbers.add(Number(m[1]));
+	}
+	return [...numbers].sort((a, b) => a - b);
 }
 
 /**
@@ -335,11 +479,6 @@ export function verifyEvidence(prNumber, cwd = process.cwd()) {
 }
 
 async function main() {
-	// Recursive loop 防止: subagent context は無条件 allow
-	if (process.env.CLAUDE_SUBAGENT_ID) {
-		process.exit(0);
-	}
-
 	let payload;
 	try {
 		const raw = await readStdin();
@@ -368,33 +507,62 @@ async function main() {
 		process.exit(2);
 	}
 
-	const command = resolved.commands.find((c) => isApproveAction(c));
-	if (command === undefined) {
+	const approveCommands = resolved.commands.filter((c) => isApproveAction(c));
+	if (approveCommands.length === 0) {
 		// approve 系コマンドでなければ対象外
 		process.exit(0);
 	}
 
-	const prNumber = extractPrNumber(command);
-	if (prNumber === null) {
+	// Recursive loop 防止 (#4082 R2): subagent が evidence 生成のために review を **読む**のは通す。
+	// 旧実装は subagent context を無条件 allow にしていたため、この env が立った context では
+	// どのツール経由でも approve が素通りした。許可を「読み取り専用」に絞る。
+	if (process.env.CLAUDE_SUBAGENT_ID && approveCommands.every((c) => isReadOnlyApproveInspection(c))) {
+		process.exit(0);
+	}
+
+	// PR 番号は全件抽出する。1 コマンドで複数 PR を叩く形があるため、1 件の evidence で
+	// 残りを通さない。1 件も取れない = 検証対象を特定できない = block (#4057)。
+	const prNumbers = [...new Set(approveCommands.flatMap((c) => extractPrNumbers(c)))].sort(
+		(a, b) => a - b,
+	);
+	if (prNumbers.length === 0) {
 		process.stderr.write(
 			`[gate-approve] BLOCK: approve 系コマンドだが PR 番号を command から抽出できませんでした。\n`,
 		);
 		process.stderr.write(
-			`  対処: PR 番号を command に明示してから再実行してください (例: \`gh pr merge 2588 --squash\`)。\n`,
+			`  検出したコマンド: ${(approveCommands.at(0) ?? '').slice(0, 200).replace(/\n/g, ' ')}\n`,
+		);
+		process.stderr.write(
+			`  対処: PR 番号を command に **リテラルで** 明示してから再実行してください (例: \`gh pr merge 2588 --squash\`)。\n`,
+		);
+		process.stderr.write(
+			`  Why: ループ変数 / コマンド置換 (\`/pulls/$n/reviews\`) では hook がどの PR の evidence を\n`,
+		);
+		process.stderr.write(
+			`       検証すべきか確定できません。確定できないものは通さない側に倒します (#4057 / ADR-0056)。\n`,
 		);
 		process.exit(2);
 	}
 
-	const result = verifyEvidence(prNumber);
-	if (result.ok) {
+	/** @type {{ prNumber: number; reason: string }[]} */
+	const failures = [];
+	for (const prNumber of prNumbers) {
+		const result = verifyEvidence(prNumber);
+		if (!result.ok) failures.push({ prNumber, reason: result.reason });
+	}
+	if (failures.length === 0) {
 		process.exit(0);
 	}
 
+	const [first] = failures;
+	const prNumber = first.prNumber;
 	// deny: stderr に修正手順を出す
 	process.stderr.write(
-		`[gate-approve] BLOCK: PR #${prNumber} の Adversarial Reviewer evidence 検証 fail.\n`,
+		`[gate-approve] BLOCK: PR #${failures.map((f) => f.prNumber).join(', #')} の Adversarial Reviewer evidence 検証 fail.\n`,
 	);
-	process.stderr.write(`  reason: ${result.reason}\n`);
+	for (const failure of failures) {
+		process.stderr.write(`  reason (#${failure.prNumber}): ${failure.reason}\n`);
+	}
 	process.stderr.write(`  対処:\n`);
 	process.stderr.write(
 		`    1. Adversarial Reviewer subagent を dispatch する (\`.claude/skills/adversarial-reviewer/SKILL.md\` 参照)\n`,
@@ -434,16 +602,24 @@ async function main() {
  * @param {unknown} err
  */
 function reportIsMainLoadFailure(err) {
-	const msg = err instanceof Error ? err.message : String(err);
+	// どの module が欠けたかを列挙する。#4075 では `command-execution-tools.mjs` の欠落を
+	// `is-main.mjs` の話として報告していると原因に辿り着けない。
+	const failures =
+		moduleLoadFailures.length > 0
+			? moduleLoadFailures
+			: [{ path: 'scripts/lib/is-main.mjs', err }];
 	process.stderr.write(
-		`[gate-approve] BLOCK: 判定 SSOT scripts/lib/is-main.mjs を読み込めませんでした。\n`,
+		`[gate-approve] BLOCK: 判定 SSOT module を読み込めませんでした (${failures.map((f) => f.path).join(' / ')})。\n`,
 	);
-	process.stderr.write(`  reason: ${msg}\n`);
+	for (const failure of failures) {
+		const msg = failure.err instanceof Error ? failure.err.message : String(failure.err);
+		process.stderr.write(`  reason (${failure.path}): ${msg}\n`);
+	}
 	process.stderr.write(
-		`  ADR-0056 の approve gate は判定不能時に block 側へ倒します (fail-closed / #3999)。\n`,
+		`  ADR-0056 の approve gate は判定不能時に block 側へ倒します (fail-closed / #3999 / #4075)。\n`,
 	);
 	process.stderr.write(
-		`  対処: checkout に scripts/lib/is-main.mjs があるか、hook を repo root から起動しているかを確認してください。\n`,
+		`  対処: checkout に上記 module があるか、hook を repo root から起動しているかを確認してください。\n`,
 	);
 }
 

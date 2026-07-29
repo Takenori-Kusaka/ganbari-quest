@@ -63,20 +63,34 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 - 判別できない入力 (stdin JSON parse 不能 / `tool_name` 欠落 / command 非文字列) は **allow ではなく block** する。SSOT 未登録ツール名で呼ばれた場合も allow に倒さず `tool_input` 内の全文字列を走査する
 - `tmp/adversarial-evidence/<pr-number>.json` の **存在 + 30 分 TTL + schema 必須 field** を検証
 - 不在 / TTL 切れ / schema 不正で exit 2 + stderr に修正手順 ("Adversarial Reviewer subagent を先に dispatch")
-- recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は無条件 allow
+- recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は **読み取り専用の review 参照だけ** allow。approve mutation (`gh pr merge` / `--approve` / 非 GET の `gh api`) は subagent でも evidence gate に掛ける (#4082 R2)
+- **approve 行為の識別を「PR 番号の書き方」から切り離す** (#4057): `pulls/<ref>/{reviews,merge}` は ref の形 (`4002` / `$n` / `$(…)`) を問わず approve 行為として捕捉し、**番号が確定できないなら block** する。番号は全件抽出し、1 コマンドが複数 PR を叩く形では全 PR の evidence を要求する
 - 既存 `scripts/claude-hook-prevent-qa-account-pr.mjs` の規約 (exit 2 / stdin JSON / `.claude/settings.json` の `hooks[].hooks[]` ネスト) を踏襲
 
-#### 既知の残存 bypass (#4001 棚卸、未解消)
+#### 残存 bypass の棚卸 (#4001 起票 → #4057 / #4075 / #4082 で処理)
 
-本 gate は「approve 系コマンドの文字列検査」であり、以下は**塞げていない**。塞いだ範囲を過大評価しないため明示する (silent gap 化の防止)。
+本 gate は「approve 相当操作の検査」であり、塞いだ範囲を過大評価しないため状態を明示する (silent gap 化の防止)。
 
-| # | 残存経路 | 状態 |
+| # | 経路 | 状態 |
 |---|---|---|
-| R1 | `mcp__ide__executeCode` 等の汎用コード実行系 MCP ツール — matcher にも `command-execution-tools.mjs` の棚卸しにも不在で、gate 自体が起動しない | 未対処 |
-| R2 | `process.env.CLAUDE_SUBAGENT_ID` の無条件 allow — subagent context を騙れば**どのツール経由でも**素通りする (recursive loop 防止の代償) | 設計上の受容、代替案未検討 |
-| R3 | `Agent` tool の `isolation: "remote"` 実行時に hook が継承されるか未検証 | 未検証 |
-| R4 | `isApproveAction` の `/pulls/\d+/reviews` が**数字リテラル依存**のため、ループ変数形 (`/pulls/$n/reviews`) は `exit 0` で evidence 検証ごと素通りする | **Issue #4057** |
-| R5 | stdin JSON parse 失敗の fail-closed が導入した新障害モードが `isMain` ガード内で未テスト | test gap |
+| R1 | 汎用コード実行系 MCP ツール (`mcp__ide__executeCode` 等) — matcher にも SSOT にも不在で gate 自体が起動しなかった | **対処 (#4082)**: 判定軸を「shell か」から「任意の副作用を起こせるか」に変更し SSOT + matcher に収録。payload は key 決め打ちせず全文字列 + 区切り均し変種を走査。**残余は accepted residual (下記)** |
+| R2 | `CLAUDE_SUBAGENT_ID` の無条件 allow — subagent context ではどのツール経由でも素通りした | **対処 (#4082)**: 許可を「GET の review 参照」だけに絞り、approve mutation は subagent でも block |
+| R3 | `Agent` tool の `isolation: "remote"` で hook が継承されるか | **accepted residual (下記)**: このリポジトリからは制御も検証もできない。検知層で代替 |
+| R4 | `isApproveAction` の `/pulls/\d+/reviews` が数字リテラル依存で、ループ変数形が素通りした | **対処 (#4057)**: ref の形を問わず捕捉し、番号未確定は block |
+| R5 | sibling module の static import 欠落が exit 1 (= 素通し) に倒れる | **対処 (#4075)**: 相対 import を全て dynamic + exit 2 化。static import 0 件を fitness function で機械強制 |
+
+#### accepted residual — 塞げないと判断したもの (#4082 AC5)
+
+**列挙型の防御は原理的に「次に増える経路」を先回りできない**。以下 2 つは prevention では閉じないと判断し、**検知層**で代替する。
+
+| 残余 | なぜ塞げないか | 代替 (検知) |
+|---|---|---|
+| **R1 残余**: 未棚卸のコード実行ツール / 動的組み立て (変数経由・base64・eval) されたコマンド | 任意言語の構文を完全解釈することは不可能。リテラルで書かれた形しか掴めない | `scripts/audit-approve-evidence.mjs` |
+| **R3**: remote isolation での hook 継承 | 実行基盤側の仕様であり、リポジトリ内の設定では保証も検証もできない | 同上 |
+
+検知層 `scripts/audit-approve-evidence.mjs` は **効果が着地した場所 (GitHub の review 一覧)** を入力にするため、approve がどの経路で行われたかに依存しない。`--pr <n>` で APPROVE を列挙し evidence と突き合わせ、裏付けの無い approve を exit 1 で報告する。限界 (evidence は git 管理外のためローカル実行前提 / TTL 30 分) は script 冒頭に明記してある。
+
+**運用**: QM は merge 前に `node scripts/audit-approve-evidence.mjs --pr <n>` を実行する。remote / 未棚卸経路で approve された場合はここで検出し、経路を本表に追記する。
 
 ### 2. Adversarial Reviewer subagent (`.claude/skills/adversarial-reviewer/SKILL.md`)
 
