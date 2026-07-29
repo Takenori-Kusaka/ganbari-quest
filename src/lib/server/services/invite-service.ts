@@ -7,6 +7,7 @@ import type { Invite, Membership } from '$lib/server/auth/entities';
 import { checkInviteEmailBinding } from '$lib/server/auth/invite-email-binding';
 import type { Role } from '$lib/server/auth/types';
 import { getRepos } from '$lib/server/db/factory';
+import type { AcceptInviteFailure } from '$lib/server/db/interfaces/auth-repo.interface';
 import { logger } from '$lib/server/logger';
 
 const repos = () => getRepos();
@@ -54,6 +55,76 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 // (service 層は事前 read で早期 return、txn 内は defense-in-depth の再検証)。
 // 判定結果の招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
 
+/**
+ * 受諾前の **read だけの業務ガード** (#4039)。失敗時は error 文字列、通過時は null。
+ *
+ * 書込を伴わないため txn の外に置く。txn 内で守るべき不変条件は「invite の accepted 化と
+ * membership 作成が一括で成立する」ことだけで、それは `acceptInviteTransactional` が担う。
+ */
+async function preflightAcceptInvite(
+	invite: Invite,
+	userId: string,
+	userEmail: string | undefined,
+	emailVerified: boolean | undefined,
+): Promise<string | null> {
+	// 自己招待防止 (#0203)
+	if (invite.invitedBy === userId) return 'SELF_INVITE_NOT_ALLOWED';
+
+	if (invite.email) {
+		const bindingError = checkInviteEmailBinding(invite.email, userEmail, emailVerified);
+		if (bindingError) return bindingError;
+	}
+
+	// 1ユーザー=1テナント制約チェック
+	const existingTenants = await repos().auth.findUserTenants(userId);
+	if (existingTenants.length > 0) {
+		// owner が child ロールの招待を受けてダウングレードされるのを防止 (#0203)
+		const existing = existingTenants.find((m) => m.tenantId === invite.tenantId);
+		return existing?.role === 'owner' ? 'OWNER_CANNOT_BE_DOWNGRADED' : 'ALREADY_IN_TENANT';
+	}
+
+	// テナントの存在確認
+	const tenant = await repos().auth.findTenantById(invite.tenantId);
+	if (!tenant || tenant.status !== SUBSCRIPTION_STATUS.ACTIVE) return 'TENANT_NOT_FOUND';
+
+	return null;
+}
+
+/**
+ * childId 招待は子供プロフィールに userId を紐づける (#0156)。
+ * 紐付けの失敗は受諾自体を無効にしない (受諾済 membership は有効なまま warn で残す)。
+ */
+async function linkInviteChildToUser(invite: Invite, userId: string): Promise<void> {
+	if (!invite.childId) return;
+	try {
+		const child = await repos().child.findChildById(invite.childId, invite.tenantId);
+		if (!child) return;
+		await repos().child.updateChild(invite.childId, { userId }, invite.tenantId);
+		logger.info('[invite] Child linked to user', {
+			context: { childId: invite.childId, userId, tenantId: invite.tenantId },
+		});
+	} catch (e) {
+		logger.warn('[invite] Failed to link child to user', {
+			context: {
+				childId: invite.childId,
+				userId,
+				error: e instanceof Error ? e.message : String(e),
+			},
+		});
+	}
+}
+
+/**
+ * 受諾 txn の業務失敗 → 呼び出し側 (`auth/providers/cognito.ts`) が分岐する error 文字列。
+ * email 束縛の 2 種は `checkInviteEmailBinding` の戻り値名に合わせる (#3742 / #3555 ③)。
+ */
+const ACCEPT_INVITE_FAILURE_ERRORS: Record<AcceptInviteFailure, string> = {
+	INVALID_OR_EXPIRED: 'INVALID_OR_EXPIRED',
+	ALREADY_IN_TENANT: 'ALREADY_IN_TENANT',
+	EMAIL_MISMATCH: 'INVITE_EMAIL_MISMATCH',
+	EMAIL_UNVERIFIED: 'INVITE_EMAIL_UNVERIFIED',
+};
+
 /** 招待を受諾してテナントに参加 */
 export async function acceptInvite(
 	inviteCode: string,
@@ -73,33 +144,14 @@ export async function acceptInvite(
 		return { error: 'INVALID_OR_EXPIRED' };
 	}
 
-	// 自己招待防止 (#0203)
-	if (invite.invitedBy === userId) {
-		return { error: 'SELF_INVITE_NOT_ALLOWED' };
-	}
-
-	if (invite.email) {
-		const bindingError = checkInviteEmailBinding(invite.email, userEmail, opts?.emailVerified);
-		if (bindingError) {
-			return { error: bindingError };
-		}
-	}
-
-	// 1ユーザー=1テナント制約チェック
-	const existingTenants = await repos().auth.findUserTenants(userId);
-	if (existingTenants.length > 0) {
-		// owner が child ロールの招待を受けてダウングレードされるのを防止 (#0203)
-		const existingMembership = existingTenants.find((m) => m.tenantId === invite.tenantId);
-		if (existingMembership && existingMembership.role === 'owner') {
-			return { error: 'OWNER_CANNOT_BE_DOWNGRADED' };
-		}
-		return { error: 'ALREADY_IN_TENANT' };
-	}
-
-	// テナントの存在確認
-	const tenant = await repos().auth.findTenantById(invite.tenantId);
-	if (!tenant || tenant.status !== SUBSCRIPTION_STATUS.ACTIVE) {
-		return { error: 'TENANT_NOT_FOUND' };
+	const preflightError = await preflightAcceptInvite(
+		invite,
+		userId,
+		userEmail,
+		opts?.emailVerified,
+	);
+	if (preflightError) {
+		return { error: preflightError };
 	}
 
 	// 受諾 = invite の accepted 化 + membership INSERT を **単一 txn** で実行する (§6.6、#4039)。
@@ -115,11 +167,7 @@ export async function acceptInvite(
 		now: new Date().toISOString(),
 	});
 	if (!accepted.ok) {
-		// txn 内の email 束縛判定は service 層と同一 SSOT (#3742)。呼び出し側 (cognito.ts) が
-		// 分岐する文字列に合わせて写像する。
-		if (accepted.reason === 'EMAIL_MISMATCH') return { error: 'INVITE_EMAIL_MISMATCH' };
-		if (accepted.reason === 'EMAIL_UNVERIFIED') return { error: 'INVITE_EMAIL_UNVERIFIED' };
-		return { error: accepted.reason };
+		return { error: ACCEPT_INVITE_FAILURE_ERRORS[accepted.reason] };
 	}
 	const membership: Membership = {
 		userId,
@@ -129,26 +177,7 @@ export async function acceptInvite(
 		invitedBy: accepted.invitedBy,
 	};
 
-	// childId が指定されている場合、子供プロフィールに userId を紐づけ (#0156)
-	if (invite.childId) {
-		try {
-			const child = await repos().child.findChildById(invite.childId, invite.tenantId);
-			if (child) {
-				await repos().child.updateChild(invite.childId, { userId }, invite.tenantId);
-				logger.info('[invite] Child linked to user', {
-					context: { childId: invite.childId, userId, tenantId: invite.tenantId },
-				});
-			}
-		} catch (e) {
-			logger.warn('[invite] Failed to link child to user', {
-				context: {
-					childId: invite.childId,
-					userId,
-					error: e instanceof Error ? e.message : String(e),
-				},
-			});
-		}
-	}
+	await linkInviteChildToUser(invite, userId);
 
 	return { membership };
 }
