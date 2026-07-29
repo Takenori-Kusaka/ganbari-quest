@@ -234,6 +234,15 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 `scripts/check-pr-body.mjs` の `ac-map-incomplete` / `ac-map-empty` は 4 列未満 or 空セルを exit 1 で検出する。Ready 化前に必ず `node scripts/check-pr-body.mjs --pr <N>` PASS を verify する。
 
+#### 根拠コマンドの `--pr <番号>` は自 PR に一致させる — #4074
+
+根拠欄に `--pr <番号>` を書くときは、**その番号が本 PR 自身**でなければならない。別 PR / 存在しない番号を指した証跡は「宛先違い」であり、その PR を検証した根拠にならない。
+
+- 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。#4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は「OK — 違反なし」を返し CI も全 pass した
+- **`gh pr view <N> --json <単一フィールド>` は存在しない PR でも値を返す**。AI が生成した PR 番号は検証なしに信用できない。番号を書いたら `gh api repos/<owner>/<repo>/pulls/<N>` で実在を確認する
+- 現在は `check-pr-body.mjs` が `evidence-pr-mismatch` として exit 1 にする（AC 検証マップセクション内の `--pr <数字>` が対象。body の他所での他 PR 言及は対象外）
+- 番号を書かない `--pr <num>` 等のプレースホルダ形式は従来どおり通る。**実際に実行した番号を書くなら自 PR 番号にする**
+
 ```bash
 # gh アカウント確認 (ADR-0022 / #1728)
 node scripts/check-gh-account-before-pr.mjs

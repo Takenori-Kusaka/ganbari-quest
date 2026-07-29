@@ -240,6 +240,14 @@ jobs:
         # 3 度目を待たず機械 gate 化した (ADR-0061 same-class-N → guard)。
         run: node scripts/check-readdir-rotation-guard.mjs
 
+      - name: repo 走査 test の区分宣言 guard (#4085)
+        # repo 全体の file を実読する test は実行時間が入力サイズに比例する。既定 timeout (5s) の
+        # まま unit lane に置くと並列実行の負荷で落ちるが壊れてはいないため、毎回「本物か負荷か」の
+        # 切り分けが発生し、間違えれば本物の回帰を「また負荷だろう」と見逃す。同 class 4 例目
+        # (#3972/#4000 / #3978 / page-guide-coverage 6240ms / path-filter-closure 5533ms) で
+        # instance 修正をやめ、追加時に区分の判断を必ず発生させる gate にした (ADR-0061)。
+        run: node scripts/check-repo-scan-test-declaration.mjs
+
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。

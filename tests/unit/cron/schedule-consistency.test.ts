@@ -29,7 +29,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// #4085: repo 走査 test (実行時間が入力サイズに比例する)。既定 5s のままだと unit lane の
+// 並列実行の負荷で落ち、「本物の回帰か負荷か」の切り分けが毎回発生するため file 単位で明示する。
+// 区分は scripts/lib/ci/repo-scan-test-registry.mjs が SSOT (未宣言 / timeout 欠落は CI が fail)。
+vi.setConfig({ testTimeout: 60_000 });
+
 import { scheduleRegistry } from '../../../src/lib/server/cron/schedule-registry';
 
 // Sub A-3 で検証対象となる既存 endpoint

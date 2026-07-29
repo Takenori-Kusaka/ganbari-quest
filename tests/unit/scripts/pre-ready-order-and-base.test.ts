@@ -61,8 +61,19 @@ function costClasses(): string[] {
 	return evalInModule(preReadyUrl, 'm.STEP_COST_CLASSES') as string[];
 }
 
-function costClassByName(): Record<string, string> {
-	return evalInModule(preReadyUrl, 'm.STEP_COST_CLASS_BY_NAME') as Record<string, string>;
+/**
+ * step 名 → コストクラスの対応。
+ *
+ * #4086 で第 2 registry (`STEP_COST_CLASS_BY_NAME`) を廃止し、`costClass` は step 定義
+ * オブジェクト自身が持つようになった。取得元が変わっただけで [O1]〜[O8] が固定する不変条件
+ * (全 step が有効なクラスを持ち、実行順が単調非減少で、同一クラス内は定義順) は同一。
+ * shape 不備そのものの検出は `pre-ready-step-shape.test.ts` [S2]〜[S5] が担う (#4086)。
+ */
+function costClassByName(changedFiles: string[] = []): Record<string, string> {
+	return evalInModule(
+		preReadyUrl,
+		`Object.fromEntries(m.buildSteps(${JSON.stringify(DEFAULT_ARGS)}, ${JSON.stringify(changedFiles)}).map((s) => [s.name, s.costClass]))`,
+	) as Record<string, string>;
 }
 
 describe('#4048 実行順が cheap-fail-first であること', () => {
@@ -100,6 +111,13 @@ describe('#4048 実行順が cheap-fail-first であること', () => {
 
 	it('[O6] 型検査 → テスト → ブラウザ実測 → UI 系 の相対順序を保つ', () => {
 		const order = orderedStepNames(['site/index.html', 'src/lib/ui/x.svelte']);
+		// LP / UI 変更ありの step 集合でも全 step にクラスが付いていること (旧 [O1] の条件付き step 分)
+		const classes = costClasses();
+		expect(
+			Object.entries(costClassByName(['site/index.html', 'src/lib/ui/x.svelte'])).filter(
+				([, c]) => !classes.includes(c),
+			),
+		).toEqual([]);
 		const at = (n: string) => order.indexOf(n);
 		expect(at('svelte-check')).toBeLessThan(at('vitest'));
 		expect(at('vitest')).toBeLessThan(at('lp-dimensions'));
@@ -132,7 +150,9 @@ describe('#4048 実行順が cheap-fail-first であること', () => {
 			`(() => { try { m.orderSteps([{ name: 'brand-new-step' }]); return null; } catch (e) { return e.message; } })()`,
 		) as string | null;
 		expect(thrown).toContain('brand-new-step');
-		expect(thrown).toContain('STEP_COST_CLASS_BY_NAME');
+		// #4086: 未登録の指摘先は「第 2 registry」ではなく step 定義自身の costClass になった
+		expect(thrown).toContain('costClass');
+		expect(thrown).toContain('buildSteps');
 	});
 });
 

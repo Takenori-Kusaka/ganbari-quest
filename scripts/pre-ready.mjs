@@ -73,6 +73,7 @@ const SKIP_FLAGS = {
 	'--skip-cli-entry-guard': 'skipCliEntryGuard',
 	'--skip-sparse-checkout-closure': 'skipSparseCheckoutClosure',
 	'--skip-readdir-rotation-guard': 'skipReaddirRotationGuard',
+	'--skip-repo-scan-test-declaration': 'skipRepoScanTestDeclaration',
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
@@ -95,6 +96,7 @@ function parseArgs(argv) {
 		skipCliEntryGuard: false,
 		skipSparseCheckoutClosure: false,
 		skipReaddirRotationGuard: false,
+		skipRepoScanTestDeclaration: false,
 		skipLpLabels: false,
 		skipPrBody: false,
 		skipDocCodeReferences: false,
@@ -143,6 +145,7 @@ Options:
   --skip-cli-entry-guard Step 7c 自前の CLI 直接実行判定 / 手組み file:// URL 検査をスキップ (#3969)
   --skip-sparse-checkout-closure Step 7d workflow sparse-checkout の import 閉包検査をスキップ (#3969)
   --skip-readdir-rotation-guard Step 7e readdir の緩い一致 × 破壊的操作の検査をスキップ (#3978)
+  --skip-repo-scan-test-declaration Step 7f repo 走査 test の区分宣言検査をスキップ (#4085)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
@@ -163,6 +166,7 @@ Steps (番号は表示上の識別子。実行順は下記「実行順」を参�
   7c. check-cli-entry-guard.mjs  — 自前の CLI 直接実行判定 / 手組み file:// URL 禁止 (#3969)
   7d. check-workflow-sparse-checkout-closure.mjs — workflow sparse-checkout の import 閉包検査 (#3969)
   7e. check-readdir-rotation-guard.mjs — readdir の緩い一致で世代を数える class の検出 (#3978)
+  7f. check-repo-scan-test-declaration.mjs — repo 走査 test の区分宣言 + 明示 timeout 検査 (#4085)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
@@ -453,61 +457,83 @@ export const STEP_COST_CLASSES = /** @type {const} */ ([
 ]);
 
 /**
- * step 名 → コストクラスの SSOT (#4048 AC2)。
+ * step 定義オブジェクトの必須フィールド SSOT (#4086)。
  *
- * **新しい step を buildSteps に足したら、必ずここにも登録する。** 登録漏れは
- * `orderSteps` が throw して即座に落ちる (末尾に黙って足されて cheap-fail-first が
- * 崩れる劣化は、動いてしまうと誰も気づけないため fail closed にする / ADR-0061 same-class→guard)。
+ * **step を 1 つ足すのに必要な登録はここに並ぶ 7 フィールドだけ**であり、他の registry への
+ * 二重登録は要らない。旧実装は `skipStateOf()` 経由の skip 分類 (#4018 `[K10]`) と
+ * `STEP_COST_CLASS_BY_NAME` (#4048 `[O1]`) の 2 registry への同時登録を要求しており、片方を
+ * 直しても残りは次の CI が回るまで分からず、PR #4066 が 2 度連続 red になった (#4086 実測)。
  *
- * @type {Record<string, typeof STEP_COST_CLASSES[number]>}
+ * `costClass` を step 定義に取り込んで registry を 1 本化し、欠落・不正値は
+ * `assertStepShapes` (= `orderSteps` の入口) が throw する。強度は旧 `[O1]` / `[O9]` と同じか
+ * それ以上 (runner / fixHint / skipKind の欠落も同じ 1 箇所で落ちる)。
  */
-export const STEP_COST_CLASS_BY_NAME = {
-	// meta — PR body のテキストだけを見る。最も早く落ちうる
-	'pr-body': 'meta',
-	// static — 静的テキスト / 単一ファイル検査
-	biome: 'static',
-	cspell: 'static',
-	'hardcoded-strings': 'static',
-	'lp-fallback': 'static',
-	'plan-literals': 'static',
-	'license-key-leak': 'static',
-	'cli-entry-guard': 'static',
-	'sparse-checkout-closure': 'static',
-	'readdir-rotation-guard': 'static',
-	'lp-labels': 'static',
-	'doc-code-references': 'static',
-	'terminology-coherence': 'static',
-	// typecheck / test
-	'svelte-check': 'typecheck',
-	vitest: 'test',
-	// browser — LP を実ブラウザで描画して寸法を測る
-	'lp-dimensions': 'browser',
-	// ui — SS 撮影 / embed 検証
-	'ss-embed-gate': 'ui',
-	capture: 'ui',
-};
+export const REQUIRED_STEP_FIELDS = /** @type {const} */ ([
+	'name',
+	'label',
+	'costClass',
+	'skip',
+	'skipKind',
+	'runner',
+	'fixHint',
+]);
+
+/**
+ * step 定義の shape を検証し、欠落 / 不正値があれば throw する (#4086 案 A + 案 B)。
+ *
+ * 登録漏れを silent に通さない (ADR-0061 same-class→guard)。`skipKind` は `null` を取り得るので
+ * 「値が falsy か」ではなく **キーが存在するか** で判定する。
+ *
+ * @param {{ name?: string }[]} steps
+ * @returns {void}
+ */
+export function assertStepShapes(steps) {
+	const problems = [];
+	for (const [index, step] of steps.entries()) {
+		const label = step?.name ?? `(name 未設定 / index ${index})`;
+		const missing = REQUIRED_STEP_FIELDS.filter((f) => !(step && f in step));
+		// 型も見る: runner が関数でない / label・fixHint が文字列でない step は実行時に落ちる
+		const typeErrors = [];
+		if (step && 'runner' in step && typeof step.runner !== 'function')
+			typeErrors.push('runner (関数であること)');
+		if (step && 'skip' in step && typeof step.skip !== 'boolean')
+			typeErrors.push('skip (boolean であること)');
+		if (missing.length > 0 || typeErrors.length > 0) {
+			problems.push(`  - ${label}: 必須フィールド不足 [${[...missing, ...typeErrors].join(', ')}]`);
+			continue;
+		}
+		if (!STEP_COST_CLASSES.includes(step.costClass)) {
+			problems.push(
+				`  - ${label}: costClass の値が不正 (${JSON.stringify(step.costClass)}) — ` +
+					`許容値: ${STEP_COST_CLASSES.join(' / ')}`,
+			);
+		}
+	}
+	if (problems.length > 0) {
+		throw new Error(
+			`[pre-ready] step 定義が不完全です (#4086):\n${problems.join('\n')}\n` +
+				`  対応: scripts/pre-ready.mjs の buildSteps() の当該 step に ` +
+				`${REQUIRED_STEP_FIELDS.join(' / ')} を揃える。\n` +
+				`  skip / skipKind は \`...skipStateOf({...})\` の spread で入る (#4018)。` +
+				`costClass は step 定義に直接書く (第 2 registry は #4086 で廃止)。`,
+		);
+	}
+}
 
 /**
  * step 配列を cheap-fail-first に並べ替える (#4048 AC1)。
  *
  * - 検査の集合・合否条件は変えない。**順序だけ**を変える (AC2)
  * - 同一クラス内は定義順 (= Step 番号順) を保つ安定ソート
- * - `STEP_COST_CLASS_BY_NAME` に未登録の step があれば throw (登録漏れを silent に通さない)
+ * - shape 不備 (costClass 欠落 / 不正値 / runner 欠落 等) があれば throw (#4086)
  *
  * @template {{ name: string }} T
  * @param {T[]} steps
  * @returns {T[]}
  */
 export function orderSteps(steps) {
-	const unknown = steps.filter((s) => !(s.name in STEP_COST_CLASS_BY_NAME)).map((s) => s.name);
-	if (unknown.length > 0) {
-		throw new Error(
-			`[pre-ready] step のコストクラス未登録: ${unknown.join(', ')} — ` +
-				'scripts/pre-ready.mjs の STEP_COST_CLASS_BY_NAME に追加してください (#4048)',
-		);
-	}
-	const rank = (/** @type {{ name: string }} */ s) =>
-		STEP_COST_CLASSES.indexOf(STEP_COST_CLASS_BY_NAME[s.name]);
+	assertStepShapes(steps);
+	const rank = (/** @type {{ costClass: string }} */ s) => STEP_COST_CLASSES.indexOf(s.costClass);
 	// index を tiebreaker にして安定ソートを明示 (Array#sort の安定性に依存しない)
 	return steps
 		.map((step, index) => ({ step, index }))
@@ -720,10 +746,14 @@ export function buildSteps(args, changedFiles) {
 	// #3978: readdir の緩い一致で世代を数え、その結果を破壊的操作の対象にする class の検出
 	const readdirRotationScript = resolve(repoRoot, 'scripts/check-readdir-rotation-guard.mjs');
 	const readdirRotationScriptExists = existsSync(readdirRotationScript);
+	// #4085: repo 走査 test の区分宣言 gate (未宣言 / 明示 timeout 欠落を検出)
+	const repoScanTestScript = resolve(repoRoot, 'scripts/check-repo-scan-test-declaration.mjs');
+	const repoScanTestScriptExists = existsSync(repoScanTestScript);
 
 	return [
 		{
 			name: 'biome',
+			costClass: 'static',
 			label: 'Step 1/12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			...skipStateOf({ byFlag: args.skipBiome }),
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
@@ -736,6 +766,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'cspell',
+			costClass: 'static',
 			label: 'Step 1b/12: cspell (CI lint-and-test と同一コマンド — #3649)',
 			...skipStateOf({ byFlag: args.skipCspell }),
 			// #3649: CI lint-and-test の `npm run cspell` (#1432 warning=error) と同一。
@@ -747,6 +778,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
+			costClass: 'typecheck',
 			label: 'Step 2/12: svelte-check (TS strict)',
 			...skipStateOf({ byFlag: args.skipSvelteCheck }),
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
@@ -754,6 +786,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'vitest',
+			costClass: 'test',
 			label: args.skipVitest
 				? 'Step 3/12: vitest run (unit test) — ローカル未実行 / CI unit-test へ委譲 (#4007)'
 				: 'Step 3/12: vitest run (unit test)',
@@ -776,6 +809,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
+			costClass: 'static',
 			label: 'Step 4/12: check-hardcoded-strings.mjs (#1452 Phase A)',
 			...skipStateOf({ byFlag: args.skipHardcoded }),
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
@@ -785,6 +819,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
+			costClass: 'browser',
 			label: `Step 5/12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			...skipStateOf({ byFlag: args.skipLpDimensions, notApplicable: !lpChanged }),
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
@@ -796,6 +831,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-fallback',
+			costClass: 'static',
 			label: `Step 6/12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
 			...skipStateOf({ byFlag: args.skipLpFallback, notApplicable: !lpFallbackTrigger }),
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
@@ -809,6 +845,7 @@ export function buildSteps(args, changedFiles) {
 		// scripts/check-no-plan-literals.mjs 自体は #972 で main 取込済 (本 step は無条件で実行する)
 		{
 			name: 'plan-literals',
+			costClass: 'static',
 			label: planLiteralsScriptExists
 				? 'Step 7/12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
 				: 'Step 7/12: check-no-plan-literals.mjs (script 未配備 — skip)',
@@ -824,6 +861,7 @@ export function buildSteps(args, changedFiles) {
 		// license key 全廃の再導入防止。allowlist 外のコード行に license key 参照を検出したら fail。
 		{
 			name: 'license-key-leak',
+			costClass: 'static',
 			label: licenseKeyLeakScriptExists
 				? 'Step 7b/12: check-license-key-leak.mjs (#2836 / Phase 7 PR-L4)'
 				: 'Step 7b/12: check-license-key-leak.mjs (script 未配備 — skip)',
@@ -844,6 +882,7 @@ export function buildSteps(args, changedFiles) {
 		// scripts/lib/is-main.mjs で、本 step は次の方言が持ち込まれるのを止める。
 		{
 			name: 'cli-entry-guard',
+			costClass: 'static',
 			label: cliEntryGuardScriptExists
 				? 'Step 7c/12: check-cli-entry-guard.mjs (#3969)'
 				: 'Step 7c/12: check-cli-entry-guard.mjs (script 未配備 — skip)',
@@ -862,6 +901,7 @@ export function buildSteps(args, changedFiles) {
 		// job が ERR_MODULE_NOT_FOUND で落ちる (#3969 対応時に必須 gate 6 job が同時 fail した)。
 		{
 			name: 'sparse-checkout-closure',
+			costClass: 'static',
 			label: sparseClosureScriptExists
 				? 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (#3969)'
 				: 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (script 未配備 — skip)',
@@ -885,6 +925,7 @@ export function buildSteps(args, changedFiles) {
 		// (docs/sessions/dev-session.md §「QA 指摘の再発防止台帳」#2 / ADR-0061)。
 		{
 			name: 'readdir-rotation-guard',
+			costClass: 'static',
 			label: readdirRotationScriptExists
 				? 'Step 7e/12: check-readdir-rotation-guard.mjs (#3978)'
 				: 'Step 7e/12: check-readdir-rotation-guard.mjs (script 未配備 — skip)',
@@ -900,11 +941,40 @@ export function buildSteps(args, changedFiles) {
 				'  - 生成側にも同じパターンの assert を置く (命名変更で silent に壊れないようにする)\n' +
 				'  - 別 class だと判断した場合のみ `rotation-gate-ok: <理由>` を当該行/直前行に置く',
 		},
+		// Step 7f: check-repo-scan-test-declaration (#4085)
+		// repo 全体を実読する test を既定 timeout (5s) のまま unit lane に置くと、並列実行の負荷で
+		// 落ちる。壊れてはいないので毎回「本物か負荷か」の切り分けが発生し、間違えれば本物の回帰を
+		// 「また負荷だろう」と見逃す。同 class 4 例目で機械 gate 化した (ADR-0061 same-class-N→guard)。
+		//
+		// 本 step は #4086 で step 定義を 1 箇所化した後に追加した最初の step であり、
+		// `costClass` を step 定義に直接書くだけで登録が完結する (第 2 registry への同時登録は不要)。
+		{
+			name: 'repo-scan-test-declaration',
+			costClass: 'static',
+			label: repoScanTestScriptExists
+				? 'Step 7f/12: check-repo-scan-test-declaration.mjs (#4085)'
+				: 'Step 7f/12: check-repo-scan-test-declaration.mjs (script 未配備 — skip)',
+			...skipStateOf({
+				byFlag: args.skipRepoScanTestDeclaration,
+				scriptMissing: !repoScanTestScriptExists,
+			}),
+			runner: () =>
+				run('check-repo-scan-test-declaration', [
+					'node',
+					'scripts/check-repo-scan-test-declaration.mjs',
+				]),
+			fixHint:
+				'  repo 走査 test の区分が未宣言 / 明示 timeout 欠落です (#4085)。\n' +
+				'  - 判定と貼り付け用エントリ: `node scripts/check-repo-scan-test-declaration.mjs --list`\n' +
+				'  - 宣言先: scripts/lib/ci/repo-scan-test-registry.mjs\n' +
+				'  - scope=repo の test には `vi.setConfig({ testTimeout: 60_000 })` 等の明示 timeout を置く',
+		},
 		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
 		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。
 		// labels.ts / terms.ts / age-tier.ts いずれかの変更検知時のみ実行 (LP shared-labels.js への波及)
 		{
 			name: 'lp-labels',
+			costClass: 'static',
 			label: !lpLabelsScriptExists
 				? 'Step 8/12: generate-lp-labels --check (script 未配備 — skip)'
 				: `Step 8/12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
@@ -922,6 +992,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'pr-body',
+			costClass: 'meta',
 			// #2632: Step 9 ラベルに「Ready checklist + AC 4 列 + forbidden-terms」を明示。
 			// 本日 (2026-05-29) 7 連続再発 (#2625 / #2626 / #2629 / #2630) で「Step 9 が何を見ているか」が
 			// 実装者に伝わっていない問題が露出した。check-pr-body.mjs は既に Ready checklist `[ ]` / AC 4 列 /
@@ -951,6 +1022,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'doc-code-references',
+			costClass: 'static',
 			label: 'Step 10/12: check-doc-code-references.mjs (#2577)',
 			...skipStateOf({ byFlag: args.skipDocCodeReferences }),
 			runner: () =>
@@ -962,6 +1034,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'terminology-coherence',
+			costClass: 'static',
 			label: 'Step 11/12: check-terminology-coherence.ts (#2555)',
 			...skipStateOf({ byFlag: args.skipTerminologyCoherence }),
 			runner: () =>
@@ -982,6 +1055,7 @@ export function buildSteps(args, changedFiles) {
 		// UI 変更がない / --pr 未指定 / exempt label 時は gate 内部で skip。
 		{
 			name: 'ss-embed-gate',
+			costClass: 'ui',
 			label:
 				uiChanged && args.pr
 					? 'Step 11b/12: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
@@ -1026,6 +1100,7 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'capture',
+			costClass: 'ui',
 			label: `Step 12/12: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
 			...skipStateOf({ byFlag: args.skipCapture, prMissing: !args.pr, notApplicable: !uiChanged }),
 			runner: async () => {
