@@ -1,5 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { probePg, probeSqlite, type SqliteProbeResult } from '$lib/server/db/probe';
+import {
+	getPgliteBackupStatus,
+	type PgliteBackupStatus,
+} from '$lib/server/services/pglite-backup-service';
 import { APP_VERSION } from '$lib/version';
 import type { RequestHandler } from './$types';
 
@@ -28,6 +32,19 @@ export const GET: RequestHandler = async () => {
 		);
 	}
 
+	// #3977: PGlite (= NUC セルフホスト) のときだけ最終バックアップ状態を載せる。
+	//
+	// なぜ pglite 限定か: 本フィールドは「いつからバックアップが止まっているか」を外部に
+	// 教えうる運用情報である。クラウド (dsql) の /api/health は未認証で公開されているため、
+	// そこに載せるのは露出範囲の判断 (PO 決裁) を要する。**pglite は NUC 内でしか成立しない
+	// 分岐**なので、クラウド公開 Lambda のレスポンスは本変更で一切変わらない。
+	//
+	// なぜ載せるか: #3967 の backup-nuc.cjs が backend 同定のために既に /api/health を
+	// 参照する。バックアップの生死も同じ口から読めると、運用側の参照点が 1 つで済む。
+	// (`getPgliteBackupStatus` は #3950 で「運用調査から読む口」として export されたが
+	//  caller が存在せず dead export になっていた。本配線がその caller である)
+	const backup = DATA_SOURCE === 'pglite' ? await readBackupStatus() : undefined;
+
 	return json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
@@ -36,5 +53,20 @@ export const GET: RequestHandler = async () => {
 		region: process.env.AWS_REGION ?? 'local',
 		uptime: Math.floor(process.uptime()),
 		schema: schemaInfo,
+		...(backup ? { backup } : {}),
 	});
 };
+
+/**
+ * バックアップ状態の読み取り。**liveness probe を落とさない**ことを優先する。
+ *
+ * 状態ファイルが読めないこと自体は DB の生死と無関係なので、ここで 503 にすると
+ * 「バックアップ状態ファイルが無いだけでヘルスチェックが赤」になり、監視の意味が変わる。
+ */
+async function readBackupStatus(): Promise<PgliteBackupStatus | undefined> {
+	try {
+		return await getPgliteBackupStatus();
+	} catch {
+		return undefined;
+	}
+}

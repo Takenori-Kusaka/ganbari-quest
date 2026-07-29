@@ -31,12 +31,25 @@ export interface IAuthRepo {
 	listAllTenants(): Promise<Tenant[]>;
 	createTenant(input: CreateTenantInput): Promise<Tenant>;
 	updateTenantStatus(tenantId: string, status: Tenant['status']): Promise<void>;
+	/**
+	 * テナントの Stripe 関連属性を **部分更新**する。
+	 *
+	 * フィールドごとの意味論 (#3982):
+	 * - `undefined` (キー省略含む) = **その列を更新しない**。既存値を保持する。
+	 *   `handleInvoicePaid` / `handleSubscriptionUpdated` が plan を解決できなかったとき、
+	 *   既存 plan を壊さないためにこの意味論に依存している (#3960)。
+	 * - `null` = **その列を NULL でクリアする**。`customer.subscription.deleted` で
+	 *   subscription 参照を解消する用途 (null を渡せるのは nullable 列のみ)。
+	 *
+	 * 実装は「渡されたキーだけ SET 句を積む」方式であり、全フィールド `undefined`
+	 * (= SET 句 0 件) の場合は UPDATE 自体を発行しない。
+	 */
 	updateTenantStripe(
 		tenantId: string,
 		data: {
 			stripeCustomerId?: string;
-			stripeSubscriptionId?: string;
-			plan?: Tenant['plan'];
+			stripeSubscriptionId?: string | null;
+			plan?: Tenant['plan'] | null;
 			planExpiresAt?: string;
 			trialUsedAt?: string;
 			status?: Tenant['status'];

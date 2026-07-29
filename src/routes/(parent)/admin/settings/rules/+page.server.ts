@@ -82,6 +82,12 @@ export const actions: Actions = {
 		const enabled = String(formData.get('enabled') ?? '').trim() === 'true';
 		try {
 			await setSetting('reward_auto_approve', enabled ? 'true' : 'false', tenantId);
+			// #4023 AC4: 承認必須の ON / OFF は信頼機能の切替なので成功時も 1 行残す。
+			// 汎用監査ログ基盤は作らない (ADR-0010)。`[AUDIT]` prefix は
+			// src/lib/server/services/pin-operator-reset.ts の既存表記に揃える。
+			logger.info('[AUDIT] [REWARD_AUTO_APPROVE] ごほうび交換の親承認設定を変更しました', {
+				context: { tenantId, rewardAutoApprove: enabled },
+			});
 			return { rewardAutoApproveSuccess: true, rewardAutoApprove: enabled };
 		} catch (e) {
 			logger.error('[admin/settings/rules] setRewardAutoApprove 失敗', {

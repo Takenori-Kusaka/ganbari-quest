@@ -18,7 +18,7 @@ import {
 	CATEGORY_CODES,
 	CATEGORY_NUMERIC_IDS,
 } from '$lib/domain/categories';
-import { todayDateJST } from '$lib/domain/date-utils';
+import { todayDateJST, weekStartJST } from '$lib/domain/date-utils';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -102,18 +102,22 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Get the current Monday's date string (YYYY-MM-DD) for a given date.
- * Uses local date components to avoid timezone issues.
+ * その週の月曜 (YYYY-MM-DD) を **JST 基準**で返す。
+ *
+ * #4003: 旧実装は `new Date()` のローカル日付要素 (`getDay` / `getFullYear` / `getMonth` /
+ * `getDate`) で週頭を算出しており、doc comment は "Uses local date components to avoid
+ * timezone issues" と書いていたが、**ローカル日付要素を使うことが timezone issue の原因
+ * そのもの**だった。
+ *
+ * 本関数の戻り値は `child_challenges.start_date` に書かれる一方、active 判定は
+ * `todayDateJST()` (JST 固定) で行われる。プロセス TZ が UTC (CI runner / Lambda) のとき、
+ * UTC 日曜 15:00〜24:00 = JST 月曜 00:00〜09:00 の 9 時間だけ両者の週がずれ、
+ * `endDate >= today` が false になって**週次チャレンジのバッジが全カテゴリで消えていた**。
+ *
+ * 算出は `weekStartJST()` に委譲する (ローカル TZ getter を使わない実装は SSOT 側に置く)。
  */
 export function getWeekStart(date: Date = new Date()): string {
-	const d = new Date(date);
-	const day = d.getDay(); // 0=Sun, 1=Mon, ...
-	const diff = day === 0 ? -6 : 1 - day; // Adjust to Monday
-	d.setDate(d.getDate() + diff);
-	const yyyy = d.getFullYear();
-	const mm = String(d.getMonth() + 1).padStart(2, '0');
-	const dd = String(d.getDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	return weekStartJST(date);
 }
 
 /** weekStart (YYYY-MM-DD, Monday) の 1 週間前の Monday を返す。 */

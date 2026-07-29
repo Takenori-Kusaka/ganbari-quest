@@ -115,7 +115,8 @@ UI 描画が変わる場合: 4 スロット必須。
 
 ## Ready for Review チェックリスト
 
-- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
+<!-- pre-ready の実行証跡はチェック項目にしない（本リストの未チェックを check-pr-body が block し、その check-pr-body を pre-ready 自身が呼ぶため自己参照 deadlock、#4022）。ログのパスと結果を PR body 本文に記載する。 -->
+
 - [ ] 移動先対応マップが全件埋まっている（旧 path 参照 0 件確認済み）
 - [ ] セルフレビュー済み
 - [ ] 全 AC が実装済み

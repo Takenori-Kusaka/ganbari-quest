@@ -58,10 +58,20 @@ function blockWithHolder(holder, describeHolder) {
 /**
  * 現在の branch 名を返す。取得できなければ null (task lock は諦めて heavy 判定のみ行う)。
  * git 呼び出しは push 系コマンドのときだけ行う — 全 Bash 呼び出しで毎回 spawn すると遅い。
+ *
+ * `cwd` は **hook payload の値**を優先する。hook プロセスの `process.cwd()` は
+ * セッションの起動ディレクトリであり、Buzz エージェントではリポジトリ外
+ * (`~/.buzz`) になる。そこで叩くと `git rev-parse` が常に失敗し、task lock が
+ * 永久に発火しない (#4013)。
+ *
+ * @param {string | null} cwd
  */
-async function currentBranch() {
+async function currentBranch(cwd) {
 	const { spawnSync } = await import('node:child_process');
-	const r = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' });
+	const r = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+		encoding: 'utf8',
+		cwd: cwd || undefined,
+	});
 	if (r.status !== 0) return null;
 	return (r.stdout || '').trim() || null;
 }
@@ -71,9 +81,11 @@ async function main() {
 	const [
 		{ acquire, describeHolder },
 		{ isHeavyCommand, isBranchPublishCommand, extractTarget, taskKeyFromBranch },
+		{ resolveSessionOwner },
 	] = await Promise.all([
 		import('../../scripts/lib/agent-lock.mjs'),
 		import('../../scripts/lib/agent-lock-policy.mjs'),
+		import('../../scripts/lib/session-owner.mjs'),
 	]);
 
 	const raw = await readStdin();
@@ -87,17 +99,31 @@ async function main() {
 	}
 
 	const command = payload?.tool_input?.command ?? '';
-	const ownerPid = process.ppid;
+	const sessionId = payload?.session_id ?? null;
+	const cwd = payload?.cwd ?? process.cwd();
+
+	// 対象コマンドでなければ、プロセス一覧の取得 (spawn 1 回) すら不要。
+	const needsLock = isBranchPublishCommand(command) || isHeavyCommand(command);
+	if (!needsLock) process.exit(0);
+
+	// `process.ppid` は hook 呼び出しごとに変わる短命プロセスなので持ち主にできない (#4013)。
+	// 祖先を辿ってセッションプロセスを取り、解決できなければ PID なし (TTL のみ) で記録する。
+	const owner = resolveSessionOwner(process.ppid);
 	const common = {
-		ownerPid,
+		ownerPid: owner.pid,
+		ownerVia: owner.via,
+		// 辿った祖先鎖をそのまま残す。hook 経路の実祖先鎖は登録するまで観測できないため、
+		// 「意図した acp の node を選べているか」を lock ファイルだけで後から検証できる
+		// ようにしておく (#4013)。
+		ownerChain: owner.chain,
 		agent: process.env.BUZZ_AGENT_NAME ?? null,
-		sessionId: payload?.session_id ?? null,
-		cwd: process.cwd(),
+		sessionId,
+		cwd,
 	};
 
 	// task lock: 同じ branch (= 同じ Issue) を 2 セッションが押すのを止める。
 	if (isBranchPublishCommand(command)) {
-		const branch = await currentBranch();
+		const branch = await currentBranch(cwd);
 		const key = taskKeyFromBranch(branch);
 		if (key) {
 			const claimed = acquire(key, { ...common, target: branch, ttlMs: 4 * 60 * 60 * 1000 });

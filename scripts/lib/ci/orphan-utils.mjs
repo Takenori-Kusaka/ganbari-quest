@@ -128,6 +128,26 @@ export function walkDir(dir, options = {}) {
 export const escapeRegex = escapeRegExp;
 
 /**
+ * baseline の entry のうち、**実在しないファイルを指しているもの**を返す (#4030)。
+ *
+ * 免除 entry は「実在する違反を意図的に許す」記録なので、対象ファイルが消えたら記録も消す。
+ * entry が path でない category (env / labels / routes 等は識別子を入れる) を誤検出しないよう、
+ * 「拡張子を持ち、かつ `/` を含む」= repo 相対 path とみなせるものだけを対象にする。
+ *
+ * @param {{ allowed: string[] }} baseline
+ * @returns {string[]} 実在しない entry
+ */
+export function staleBaselineEntries(baseline) {
+	return (baseline.allowed ?? []).filter(
+		(entry) =>
+			typeof entry === 'string' &&
+			entry.includes('/') &&
+			/\.[a-z]+$/.test(entry) &&
+			!fs.existsSync(path.join(REPO_ROOT, entry)),
+	);
+}
+
+/**
  * 結果 print + exit。
  *  - clean (新規 orphan 0): exit 0
  *  - new orphan あり: exit 1 (CI 用)
@@ -190,6 +210,24 @@ export function reportFindings(category, findings, options) {
 	}
 
 	// check mode (default)
+	//
+	// #4030: baseline に「実在しないファイル」の entry が残っていても、従来は誰も気づけなかった。
+	// 実際 repos.json には #3438 で撤去済の `dynamodb/` 配下 2 件が残り続けていた。
+	// 免除は「実在する違反を意図的に許す」ための記録なので、対象が消えたら記録も消す
+	// (放置すると baseline が「かつて何かがあった跡」の墓場になり、reason の信頼性が落ちる)。
+	const stale = staleBaselineEntries(baseline);
+	if (stale.length > 0) {
+		process.stderr.write(
+			`[check-orphan-${category}] NG — baseline に実在しないファイルの entry が ${stale.length} 件あります:\n`,
+		);
+		for (const s of stale) process.stderr.write(`  - ${s}\n`);
+		process.stderr.write(
+			`\n対応: scripts/orphan-baselines/${category}.json の "allowed" / "reasons" から該当 entry を削除する\n` +
+				'  (対象が消えている以上、その entry は何も免除していない)。\n',
+		);
+		return 1;
+	}
+
 	if (newOrphans.length === 0) {
 		process.stdout.write(
 			`[check-orphan-${category}] OK — ${findings.length} known orphan(s) all in baseline\n`,

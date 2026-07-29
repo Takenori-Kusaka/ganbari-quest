@@ -483,6 +483,178 @@ export function checkPoDecisionBrief(body, labels) {
 }
 
 // ---------------------------------------------------------------------------
+// 未置換プレースホルダ検出 (body 全体、code fence 内を含む) — #4029
+// ---------------------------------------------------------------------------
+
+/**
+ * 「置換されていないテンプレート断片」を示すトークン SSOT (#4029)。
+ *
+ * 発生経緯: PR #4002 の body L208 が `PRE_READY_LOG_PLACEHOLDER` のまま残り、その block を
+ * 根拠に 2 箇所が `- [x]` を立てていた (成果物のない `[x]`)。当時の未置換検出は
+ * `___` を PO 決裁セクション内でのみ見ていたため、**code fence 内の別表記**は素通りした。
+ * fence を除外すると今回の実例をそのまま逃すので、**fence 内も対象**にする。
+ *
+ * HTML コメントだけは除外する (template 由来の記入ガイドが `<!-- 例: ___ -->` の形で
+ * 残るのは正常であり、開発者が書いた本文ではないため)。除外は行番号を保つマスクで行う。
+ *
+ * 各 pattern の狭め方 (誤検出との境界、#4029):
+ *   - `PLACEHOLDER` は**大文字のみ**。英文中の "placeholder" という単語を拾わない
+ *   - `XXX` は `#XXX` (Issue 番号の伏せ字引用) / URL path (`/XXX`) / 語中 (`XXXY`) を除外
+ *   - `___` は 3 連続以上のアンダースコア。Markdown の水平線 (`---`) とは別字
+ */
+export const PLACEHOLDER_PATTERNS = [
+	{
+		id: 'underscore-blank',
+		label: '___ (template の空欄)',
+		re: /_{3,}/g,
+	},
+	{
+		id: 'placeholder-token',
+		label: 'PLACEHOLDER / *_PLACEHOLDER',
+		// `PRE_READY_LOG_PLACEHOLDER` のように接頭辞が付く形を確実に拾うため `\b` は使わない
+		// (`_` は word 文字なので接頭辞境界に `\b` が立たず、#4002 の実例を取り逃がす)。
+		re: /[A-Z0-9_]*PLACEHOLDER[A-Z0-9_]*/g,
+	},
+	{
+		id: 'tbd',
+		label: 'TBD',
+		re: /\bTBD\b/g,
+	},
+	{
+		id: 'xxx',
+		label: 'XXX',
+		re: /(?<![#/\w-])XXX(?![\w-])/g,
+	},
+	{
+		id: 'japanese-angle-slot',
+		label: '<ここに…> 型スロット',
+		re: /<ここに[^>\n]*>/g,
+	},
+];
+
+/**
+ * 誤検出時の唯一の逃げ道 (#4029)。
+ *
+ * 本 gate 自身を直す PR / template を編集する PR は、プレースホルダ文字列を
+ * 正当に本文へ書く。label による一括 skip は fail-open (label を付けるだけで gate が
+ * 消える) なので採らず、**PR body に理由付きの宣言を 1 行書いた場合のみ**通す。
+ */
+export const PLACEHOLDER_SCAN_SKIP_RE = /<!--\s*placeholder-scan-skip:\s*([^>]*?)\s*-->/;
+
+/** 宣言の理由に求める最小文字数 (「-」等の空宣言で gate を消させない)。 */
+const PLACEHOLDER_SKIP_REASON_MIN_LENGTH = 10;
+
+/**
+ * HTML コメントを**行番号を保ったまま**空白化する (#4029)。
+ * `stripMarkdownComments` は行ごと消えるため、検出行番号を PR body の実行番号と
+ * 一致させたい本 gate では使えない。
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function maskMarkdownComments(body) {
+	return body.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
+/**
+ * 未置換プレースホルダを PR body 全体 (code fence 内を含む) からスキャンする (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ id: string; token: string; line: string; lineNo: number }[]}
+ */
+export function scanPlaceholders(body) {
+	const masked = maskMarkdownComments(body);
+	const lines = masked.split('\n');
+	const rawLines = body.split('\n');
+	const violations = [];
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+		for (const pattern of PLACEHOLDER_PATTERNS) {
+			const re = new RegExp(pattern.re.source, pattern.re.flags);
+			let m = re.exec(line);
+			while (m !== null) {
+				violations.push({
+					id: pattern.id,
+					token: m[0],
+					line: (rawLines[i] ?? '').trim(),
+					lineNo: i + 1,
+				});
+				m = re.exec(line);
+			}
+		}
+	}
+	return violations;
+}
+
+/**
+ * `<!-- placeholder-scan-skip: 理由 -->` 宣言を解釈する (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ declared: boolean; reason: string }}
+ */
+export function parsePlaceholderScanSkip(body) {
+	const m = body.match(PLACEHOLDER_SCAN_SKIP_RE);
+	if (!m) return { declared: false, reason: '' };
+	return { declared: true, reason: (m[1] ?? '').trim() };
+}
+
+/**
+ * 未置換プレースホルダ gate 本体 (#4029)。
+ *
+ * 宣言がある場合は「何を見逃したか」を violation ではなく notes として返す
+ * (#3962 と同じ方針 — 見分けのつかない pass を作らない)。
+ *
+ * @param {string} body
+ * @returns {{ violation: { id: string; message: string } | null; notes: string[] }}
+ */
+export function checkPlaceholders(body) {
+	const found = scanPlaceholders(body);
+	const skip = parsePlaceholderScanSkip(body);
+
+	if (skip.declared) {
+		if (skip.reason.length < PLACEHOLDER_SKIP_REASON_MIN_LENGTH) {
+			return {
+				violation: {
+					id: 'placeholder-scan-skip-reason-missing',
+					message:
+						`\`<!-- placeholder-scan-skip: 理由 -->\` の理由が ${PLACEHOLDER_SKIP_REASON_MIN_LENGTH} 文字未満です ` +
+						`(実際: ${JSON.stringify(skip.reason)})。\n` +
+						'  対応: 「なぜこの PR が正当にプレースホルダ文字列を本文へ書くのか」を具体的に書く ' +
+						'(例: 本 gate の検出対象トークンを PR body 内で説明するため)。',
+				},
+				notes: [],
+			};
+		}
+		return {
+			violation: null,
+			notes: [
+				`[check-pr-body] SKIPPED — 未置換プレースホルダ検査 (#4029) を宣言により skip しました (検出 ${found.length} 件)`,
+				`  理由: ${skip.reason}`,
+			],
+		};
+	}
+
+	if (found.length === 0) return { violation: null, notes: [] };
+
+	const sample = found
+		.slice(0, 6)
+		.map((v) => `  - L${v.lineNo} 「${v.token}」(${v.id}): ${v.line.slice(0, 80)}`)
+		.join('\n');
+	return {
+		violation: {
+			id: 'unreplaced-placeholder',
+			message:
+				`PR body に未置換プレースホルダが ${found.length} 件あります ` +
+				`(code fence 内も対象、#4002 の実例がまさに fence 内でした):\n${sample}\n` +
+				'対応 1: 実際の内容 (実行ログ / パス / 結果) に置換する。埋められないなら、それを根拠にした `[x]` を外す。\n' +
+				'対応 2: 本 gate や template を直す PR で正当にプレースホルダ文字列を書く場合のみ、\n' +
+				'        `<!-- placeholder-scan-skip: 理由 -->` を PR body に 1 行書く (label では通らない)。',
+		},
+		notes: [],
+	};
+}
+
+// ---------------------------------------------------------------------------
 // 文字化け検出 (BOM / heuristic) — #2562 / #2576
 // ---------------------------------------------------------------------------
 
@@ -925,6 +1097,8 @@ Detected violations:
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
+  9. 未置換プレースホルダ (${PLACEHOLDER_PATTERNS.map((p) => p.label).join(' / ')}) が body のどこかに残存 (code fence 内も対象、#4002 / #4029)
+     正当にプレースホルダ文字列を書く PR は \`<!-- placeholder-scan-skip: 理由 -->\` を body に 1 行書く (label では通らない)
 
 Exit codes:
   0 = OK
@@ -970,9 +1144,10 @@ function loadPrBody(args) {
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
  * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
+ * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-function collectViolations(body, requiredSections, template, args) {
+function collectViolations(body, requiredSections, template, args, notes = []) {
 	const violations = [];
 	const labels = args.labels ?? [];
 
@@ -1030,6 +1205,11 @@ function collectViolations(body, requiredSections, template, args) {
 	const hotfixEnvCheck = checkEnvDistributionForHotfix(body, labels);
 	if (hotfixEnvCheck) violations.push({ ...hotfixEnvCheck, issue: '#2343' });
 
+	// #4029: 未置換プレースホルダ検出 (body 全体 / code fence 内も対象)
+	const placeholders = checkPlaceholders(body);
+	notes.push(...placeholders.notes);
+	if (placeholders.violation) violations.push({ ...placeholders.violation, issue: '#4002/#4029' });
+
 	// #2562 / #2576: PR body 文字化け検出 (BOM / `??` heuristic)
 	const mojibake = detectMojibake(body);
 	for (const m of mojibake) {
@@ -1086,7 +1266,16 @@ export async function main(argv = process.argv.slice(2)) {
 		for (const line of formatSkippedLabelGates()) console.log(line);
 	}
 
-	const violations = collectViolations(body, requiredSections, template, { ...args, labels });
+	/** @type {string[]} */
+	const notes = [];
+	const violations = collectViolations(
+		body,
+		requiredSections,
+		template,
+		{ ...args, labels },
+		notes,
+	);
+	for (const line of notes) console.log(line);
 
 	if (violations.length === 0) {
 		console.log(

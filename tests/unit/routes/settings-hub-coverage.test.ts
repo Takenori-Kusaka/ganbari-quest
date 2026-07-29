@@ -13,6 +13,7 @@
 // (`admin-resource-model-registry.ts` の no-silent-gap パターン #3134 / #3164 / #3171 を踏襲)。
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -47,21 +48,51 @@ const EXCLUDED_FROM_HUB: Record<string, string> = {
 	// 追加する場合は「なぜ hub から辿れなくてよいか」を 1 行で書くこと。
 };
 
-/** `src/routes/(parent)/admin/settings/<name>/+page.svelte` を持つ子 route 名を実 FS から集める。 */
-function listSettingsChildRoutes(): string[] {
-	return fs
-		.readdirSync(SETTINGS_DIR, { withFileTypes: true })
-		.filter((e) => e.isDirectory())
-		.map((e) => e.name)
-		.filter((name) => fs.existsSync(path.join(SETTINGS_DIR, name, '+page.svelte')))
-		.sort();
+/**
+ * `+page.svelte` を持つ子 route を **再帰**で集める (#4025)。
+ *
+ * 初版 (#3954) は `readdirSync` 1 階層のみで、`settings/data/export` のような 2 階層目を
+ * 母数に含めなかった。**同じ gap を #3171 が admin-resource-model-registry 側で既に塞いでおり、
+ * 兄弟 guard には再帰実装がある** (`admin-resource-model-registry.test.ts:43-59`)。
+ * 先例があるのに 1 階層で書いたのが初版の誤りで、ここではその形に揃える。
+ *
+ * 戻り値は `data/export` のように `/` 区切りの相対 route。
+ *
+ * @param dir 走査起点。**引数化しているのは fixture で再帰の発火を固定するため** —
+ *   `settings/` 配下に 2 階層目が現存しないので、実 FS だけを根拠にすると
+ *   「再帰にした」と「再帰が効いた」を区別できない (#4025 条件 B)。
+ */
+function listSettingsChildRoutes(dir: string = SETTINGS_DIR): string[] {
+	const routes: string[] = [];
+	const walk = (absDir: string, relPath: string): void => {
+		for (const e of fs.readdirSync(absDir, { withFileTypes: true })) {
+			if (!e.isDirectory()) continue;
+			const childAbs = path.join(absDir, e.name);
+			const childRel = relPath ? `${relPath}/${e.name}` : e.name;
+			if (fs.existsSync(path.join(childAbs, '+page.svelte'))) routes.push(childRel);
+			walk(childAbs, childRel);
+		}
+	};
+	walk(dir, '');
+	return routes.sort();
 }
 
-/** 指定ファイルの配列が持つ `/admin/settings/<name>` の <name> を集める。 */
+/**
+ * 導線配列が持つ `/admin/settings/<path>` の `<path>` を集める。
+ *
+ * #4025 条件 A: 文字クラスに `/` が無いと nested href (`/admin/settings/data/export`) を
+ * capture できず、**母数だけ再帰化すると「正しくリンクされているのに未リンク扱い」で
+ * 偽陽性が出る**。母数の再帰化と抽出の nested 対応は同時でなければならない。
+ */
+function linkedRoutePattern(): RegExp {
+	return /href:\s*'\/admin\/settings\/([a-z0-9-]+(?:\/[a-z0-9-]+)*)'/g;
+}
+
+/** 指定ファイルの配列が持つ `/admin/settings/<path>` の `<path>` を集める。 */
 function listLinkedRoutes(file: string): string[] {
 	const source = fs.readFileSync(file, 'utf8');
 	const found = new Set<string>();
-	for (const m of source.matchAll(/href:\s*'\/admin\/settings\/([a-z0-9-]+)'/g)) {
+	for (const m of source.matchAll(linkedRoutePattern())) {
 		if (m[1] !== undefined) found.add(m[1]);
 	}
 	return [...found].sort();
@@ -92,8 +123,10 @@ describe('#3954 settings hub は全ての子 route を説明する (no-silent-ga
 	// hub とサブナビが両方 route を持っていても、**並び順が食い違う**と
 	// 「さっき下から 3 番目にあったのに」が通じなくなる (NN/G #4 consistency)。
 	it('[S1b] hub カードとサブナビの settings 子 route の並び順が一致する', () => {
+		// #4025 条件 A: 抽出 regex は listLinkedRoutes と同一のものを使う
+		// (2 箇所に別々の regex を置くと、片方だけ nested 対応して食い違う)。
 		const order = (file: string) =>
-			[...fs.readFileSync(file, 'utf8').matchAll(/href:\s*'\/admin\/settings\/([a-z0-9-]+)'/g)]
+			[...fs.readFileSync(file, 'utf8').matchAll(linkedRoutePattern())]
 				.map((m) => m[1])
 				.filter((n): n is string => n !== undefined);
 		expect(order(SUBNAV_LAYOUT), 'サブナビと hub カードで子 route の並び順が異なる').toEqual(
@@ -113,6 +146,61 @@ describe('#3954 settings hub は全ての子 route を説明する (no-silent-ga
 			(name) => !listSettingsChildRoutes().includes(name),
 		);
 		expect(stale, `実在しない route の除外エントリ: ${stale.join(', ')}`).toEqual([]);
+	});
+
+	// #4025 AC4: 除外の「理由」は宣言だけでは守られない。初版は value を読む assertion が
+	// 0 件で、**実在 route + 空文字の理由**を登録すれば全 assertion を通過した
+	// (`{ foo: '' }` は [S3] の実在チェックに捕まるが、`{ support: '' }` は通る)。
+	// 先例は admin-resource-model-registry.test.ts:85-89。
+	it('[S10] 除外エントリは空でない理由を持つ (silent 除外を作らない)', () => {
+		for (const [name, reason] of Object.entries(EXCLUDED_FROM_HUB)) {
+			expect(
+				reason.trim().length,
+				`${name} の除外理由が空。「なぜ hub から辿れなくてよいか」を 1 行で書くこと`,
+			).toBeGreaterThan(0);
+		}
+	});
+
+	// #4025 条件 B: settings/ 配下に 2 階層目が現存しないため、実 FS に対しては
+	// 再帰化してもしなくても出力が同じになる。**「再帰にした」と「再帰が効いた」を
+	// 区別する**ために、nested 構造を持つ一時 fixture で発火を固定する。
+	it('[S11] 走査は nested route を母数に含める (再帰が効いていることの固定)', () => {
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-scan-'));
+		try {
+			// 1 階層: alpha/+page.svelte / 2 階層: beta/gamma/+page.svelte
+			// beta 自身は +page.svelte を持たない (中間ディレクトリだけの形も混ぜる)
+			fs.mkdirSync(path.join(tmp, 'alpha'), { recursive: true });
+			fs.writeFileSync(path.join(tmp, 'alpha', '+page.svelte'), '');
+			fs.mkdirSync(path.join(tmp, 'beta', 'gamma'), { recursive: true });
+			fs.writeFileSync(path.join(tmp, 'beta', 'gamma', '+page.svelte'), '');
+			// +page.svelte を持たないディレクトリは route ではない
+			fs.mkdirSync(path.join(tmp, 'delta'), { recursive: true });
+
+			expect(listSettingsChildRoutes(tmp)).toEqual(['alpha', 'beta/gamma']);
+		} finally {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		}
+	});
+
+	// #4025 条件 A: 母数を再帰化しても href 抽出が nested を読めなければ
+	// 「正しくリンクされているのに未リンク扱い」で偽陽性になる。
+	it('[S12] href 抽出が nested path を capture する', () => {
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-href-'));
+		try {
+			const f = path.join(tmp, 'nav.svelte');
+			fs.writeFileSync(
+				f,
+				[
+					"{ href: '/admin/settings/account' },",
+					"{ href: '/admin/settings/data/export' },",
+					"{ href: '/admin/subscription' },",
+				].join('\n'),
+			);
+			// nested を拾い、settings 配下でない /admin/subscription は拾わない
+			expect(listLinkedRoutes(f)).toEqual(['account', 'data/export']);
+		} finally {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		}
 	});
 
 	// #3954 の当該 route を実名で固定する。上の [S1] は将来 EXCLUDED_FROM_HUB に

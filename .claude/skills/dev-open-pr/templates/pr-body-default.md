@@ -112,7 +112,8 @@ UI 変更を含まない PR は本セクションに「**該当なし（理由�
 
 ## Ready for Review チェックリスト
 
-- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
+<!-- pre-ready の実行証跡はチェック項目にしない（本リストの未チェックを check-pr-body が block し、その check-pr-body を pre-ready 自身が呼ぶため自己参照 deadlock、#4022）。ログのパスと結果を PR body 本文に記載する。 -->
+
 - [ ] セルフレビュー済み（不要な差分・デバッグコードなし）
 - [ ] 全 AC が実装済み
 - [ ] UI 変更時: SS が GitHub 上で表示確認 + DOM HTML 併記 + DESIGN.md §9 禁忌 6 点を目視確認

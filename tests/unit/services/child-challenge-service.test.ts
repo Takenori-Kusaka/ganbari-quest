@@ -66,7 +66,13 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (...a: unknown[]) => mockFindAllChildren(...a),
 }));
 
-vi.mock('$lib/domain/date-utils', () => ({
+// #4003: `todayDateJST` だけを固定し、他は実装を通す部分 mock にする。
+// 全 export を差し替える形だと、date-utils に関数が増えたとき
+// 「No "xxx" export is defined on the mock」で**この test file 全体が落ちる**
+// (weekStartJST 追加時に実際に 10 件落ちた)。テストが固定したいのは「今日」だけなので、
+// 曜日計算 (weekStartJST) は実物を使う — mock で置き換えると検証対象が消える。
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => '2026-05-25',
 }));
 
