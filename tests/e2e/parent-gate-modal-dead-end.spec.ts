@@ -1,4 +1,4 @@
-// tests/e2e/parent-gate-modal-deadend.spec.ts
+// tests/e2e/parent-gate-modal-dead-end.spec.ts
 // #4050: おやカギコード modal の dead-end (無限ロックアウト) 回帰。
 //
 // 事象: 新規オーナーが初回の「おやカギコードをつくってください」modal を外側クリック /

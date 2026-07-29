@@ -349,13 +349,13 @@ async function handlePinComplete(details: { valueAsString: string }) {
 					: OYAKAGI_LABELS.gateCreateConfirmDescription}
 			</p>
 			{#key pinInputKey}
-				<PinInput length={4} mask onComplete={handleCreateComplete} />
+				<PinInput length={4} mask autoFocus onComplete={handleCreateComplete} />
 			{/key}
 		</div>
 	{:else}
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
 		{#key pinInputKey}
-			<PinInput length={4} mask onComplete={handlePinComplete} />
+			<PinInput length={4} mask autoFocus onComplete={handlePinComplete} />
 		{/key}
 	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->
