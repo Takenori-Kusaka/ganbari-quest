@@ -950,6 +950,49 @@ describe('handleWebhookEvent', () => {
 		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
 	});
 
+	// ======================================================
+	// #4077 (PO 決裁 Q1 条件): 割り当て NULL の tenant への mismatch は
+	// 「event の subscription が生きているか」で沈黙させ方を変える。
+	//
+	// 「Stripe 上は課金中なのに DB に割り当てが無い」= 親は請求だけ増え、子供側の機能は
+	// 開かない最悪クラスの失敗モードで、しかも顧客からは原因が見えない。warn (誰も見ない)
+	// では問い合わせが来るまで発見されないため alert を上げる。
+	// 逆に解約済み契約への後着 (終端) は正常な skip なので鳴らさない (alert 疲れの回避)。
+	// ======================================================
+
+	it('#4077 — 割り当て NULL の tenant に非終端 event が来たら alert を上げる', async () => {
+		// checkout webhook の恒久失敗 / Dashboard 手動作成で生じる「課金済み未紐付け」tenant。
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+
+		await handleWebhookEvent(updatedEvent('sub_live', 'active') as never);
+
+		// 適用しない判断は #4026 のまま (割り当て前の event を書き込む方が危険)
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-contract-target-mismatch',
+				tags: expect.objectContaining({
+					tenantId: 't-test',
+					event: 'customer.subscription.updated',
+					eventSubscriptionId: 'sub_live',
+					currentSubscriptionId: 'none',
+					mismatchKind: 'tenant-unassigned-live-subscription',
+				}),
+			}),
+		);
+	});
+
+	it('#4077 — 割り当て NULL の tenant への終端 event は alert を上げない (正常な後着)', async () => {
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+
+		// deleted (= 契約消滅) と updated(canceled) の両方が終端扱い
+		await handleWebhookEvent(deletedEvent('sub_gone') as never);
+		await handleWebhookEvent(cancelledUpdatedEvent() as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalled();
+	});
+
 	it('未対応のイベント型 → エラーなし', async () => {
 		const event = {
 			type: 'payment_intent.created',

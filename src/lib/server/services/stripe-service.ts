@@ -337,7 +337,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 
 	const applied = await applyTenantContractState(
 		tenant,
-		{ mode: 'current-contract', subscriptionId: subscription.id },
+		// ここに到達する時点で終端でないことは上で確定済 (#4077 観測レベルの出し分けに使う)
+		{ mode: 'current-contract', subscriptionId: subscription.id, subscriptionTerminal: false },
 		'invoice.paid',
 		() => ({
 			status: SUBSCRIPTION_STATUS.ACTIVE,
@@ -379,7 +380,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString();
 	const applied = await applyTenantContractState(
 		tenant,
-		{ mode: 'current-contract', subscriptionId: subscription.id },
+		// 同上: 終端は上で早期 return 済
+		{ mode: 'current-contract', subscriptionId: subscription.id, subscriptionTerminal: false },
 		'invoice.payment_failed',
 		() => ({
 			status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
@@ -407,9 +409,14 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 	// 書き戻すと「subscription 参照なし・plan あり」という DB 上ありえない組み合わせが残る。
 	// canceled は Stripe 上 revert しない終端状態なので、**deleted と同じ終端状態へ収束**させる。
 	// これで deleted→updated / updated→deleted のどちらの順序でも最終状態が一致する。
-	const target = { mode: 'current-contract', subscriptionId: subscription.id } as const;
+	const terminal = isSubscriptionTerminal(subscription);
+	const target = {
+		mode: 'current-contract',
+		subscriptionId: subscription.id,
+		subscriptionTerminal: terminal,
+	} as const;
 
-	if (isSubscriptionTerminal(subscription)) {
+	if (terminal) {
 		const cleared = await applyTenantContractState(
 			tenant,
 			target,
@@ -473,7 +480,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 	const applied = await applyTenantContractState(
 		tenant,
-		{ mode: 'current-contract', subscriptionId: subscription.id },
+		// deleted は契約消滅の確定通知なので、payload の status に依らず終端として扱う (#4077)
+		{ mode: 'current-contract', subscriptionId: subscription.id, subscriptionTerminal: true },
 		'customer.subscription.deleted',
 		() => TERMINAL_CONTRACT_STATE,
 	);
@@ -548,9 +556,12 @@ const TERMINAL_CONTRACT_STATE = {
  *   `createCheckoutSession()` の ALREADY_SUBSCRIBED ガードが外れて二重課金が成立し得る)。
  * - `assign-contract`: `checkout.session.completed` のみ。契約を**新規に割り当てる** event なので
  *   突合対象がまだ存在しない (突合すると新規購入が永久に適用されなくなる)。
+ *
+ * `subscriptionTerminal` は「その event が指す subscription が Stripe 上でもう生きていないか」
+ * (#4077)。突合しなかったときの**観測レベルの出し分け**にだけ使う (適用可否は変えない)。
  */
 type ContractEventTarget =
-	| { mode: 'current-contract'; subscriptionId: string }
+	| { mode: 'current-contract'; subscriptionId: string; subscriptionTerminal: boolean }
 	| { mode: 'assign-contract' };
 
 /**
@@ -576,7 +587,7 @@ async function applyTenantContractState(
 	if (target.mode === 'current-contract') {
 		const current = tenant.stripeSubscriptionId ?? null;
 		if (current !== target.subscriptionId) {
-			notifyContractTargetMismatch(tenant, target.subscriptionId, eventType, current);
+			notifyContractTargetMismatch(tenant, target, eventType, current);
 			return false;
 		}
 	}
@@ -586,35 +597,44 @@ async function applyTenantContractState(
 }
 
 /**
- * event 対象が現行契約でなかったことを観測可能にする (#4026)。
+ * event 対象が現行契約でなかったことを観測可能にする (#4026 / #4077)。
  *
- * 2 つの事実を区別する。潰すと「解約済みに後着した正常な event」で alert が鳴り続け、
- * 本当に危険な「別契約の event」が埋もれる:
- * - 割り当て無し (`null`) = 契約未確立 (checkout 前) or 解約済み。**正常な skip** なので warn のみ
+ * 3 つの事実を区別する。潰すと「解約済みに後着した正常な event」で alert が鳴り続け、
+ * 本当に危険な mismatch が埋もれる:
+ * - 割り当て無し (`null`) × 終端 event = 解約済み契約への正常な後着。**正常な skip** なので warn のみ
+ * - 割り当て無し (`null`) × 非終端 event = **Stripe 上は生きている契約なのに DB に紐付いていない**。
+ *   親は課金明細だけ増え、有料機能は開かないまま顧客からは原因が見えない。必ず人が介入するので alert
+ *   (#4077 PO 決裁 Q1 条件。checkout webhook の恒久失敗 / Dashboard 手動作成が代表的な発生源)
  * - 別 subscription = 旧契約の後着 or tenant 同定ミス。**現行契約を壊しかけた**ので alert
  */
 function notifyContractTargetMismatch(
 	tenant: Pick<Tenant, 'tenantId'>,
-	eventSubscriptionId: string,
+	target: Extract<ContractEventTarget, { mode: 'current-contract' }>,
 	eventType: string,
 	currentSubscriptionId: string | null,
 ): void {
+	const eventSubscriptionId = target.subscriptionId;
 	logger.warn(
 		`[STRIPE] ${eventType} — event 対象が tenant の現行契約ではないため状態を更新しません: ` +
 			`tenant=${tenant.tenantId} eventSubscription=${eventSubscriptionId} ` +
 			`currentSubscription=${currentSubscriptionId ?? 'none'}`,
 	);
-	if (currentSubscriptionId === null) return;
+	// 終端 event が割り当て無しの tenant に後着するのは解約済みの正常系。鳴らさない。
+	if (currentSubscriptionId === null && target.subscriptionTerminal) return;
 
+	const unassigned = currentSubscriptionId === null;
 	notifyStripeAlert({
 		kind: 'stripe-contract-target-mismatch',
-		message: `${eventType} が tenant の現行契約とは別の subscription を指しています (適用せず skip)`,
+		message: unassigned
+			? `${eventType} の subscription は Stripe 上で継続中ですが tenant に割り当てられていません (課金済み未紐付けの可能性、適用せず skip)`
+			: `${eventType} が tenant の現行契約とは別の subscription を指しています (適用せず skip)`,
 		errorSummary: `contract_target_mismatch:${eventType}:${eventSubscriptionId}`,
 		tags: {
 			tenantId: tenant.tenantId,
 			event: eventType,
 			eventSubscriptionId,
-			currentSubscriptionId,
+			currentSubscriptionId: currentSubscriptionId ?? 'none',
+			mismatchKind: unassigned ? 'tenant-unassigned-live-subscription' : 'other-subscription',
 		},
 	});
 }
