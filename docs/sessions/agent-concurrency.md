@@ -33,7 +33,7 @@
 | | |
 |---|---|
 | 置き場 | `~/.buzz/.locks/<key>.lock` (**repo の外**。checkout / worktree が複数あっても同じマシンなら同じ lock を見る) |
-| 実装 | [`scripts/lib/agent-lock.mjs`](../../scripts/lib/agent-lock.mjs) (lock 実体) / [`scripts/lib/agent-lock-policy.mjs`](../../scripts/lib/agent-lock-policy.mjs) (対象コマンド判定) |
+| 実装 | [`scripts/lib/agent-lock.mjs`](../../scripts/lib/agent-lock.mjs) (lock 実体) / [`scripts/lib/agent-lock-policy.mjs`](../../scripts/lib/agent-lock-policy.mjs) (対象コマンド判定) / [`scripts/lib/session-owner.mjs`](../../scripts/lib/session-owner.mjs) (持ち主プロセスの解決) |
 | 強制点 | `PreToolUse` hook [`.claude/hooks/heavy-run-lock.mjs`](../../.claude/hooks/heavy-run-lock.mjs) / 解放は `PostToolUse` [`heavy-run-unlock.mjs`](../../.claude/hooks/heavy-run-unlock.mjs) |
 | 環境変数 | `AGENT_LOCK_DIR` で置き場を差し替え可 (テスト用) |
 
@@ -42,13 +42,60 @@
 | `heavy` | `pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test\|check\|e2e` | **マシン全体で 1 本** | 60 分 |
 | `task-<Issue番号>` | `git push` (branch 名から Issue 番号を導出) | Issue 単位 | 4 時間 |
 
-### §3.2 保持者の生存判定
+### §3.2 保持者の同一性と生存判定
 
-lock の持ち主は **Claude セッションのプロセス** (hook から見た `process.ppid`)。
+**同一性と生存判定で別の値を使う** (Issue #4013 の修正)。
+
+| 役割 | 使う値 |
+|---|---|
+| 同一性 (再入・解放の照合) | hook payload の `session_id`。無ければ `ownerPid` にフォールバック |
+| 生存判定 (セッション断の回収) | `ownerPid` = 祖先を辿って得た**セッションプロセス** |
 
 - 持ち主のプロセスが死んでいれば lock は stale として**奪える**。Buzz のセッション断で lock が残り続けることはない
 - TTL は「プロセスは生きているが処理が終わらない」場合の保険であり、生存判定の代替ではない
 - 同じセッションからの再取得は成功する (再入可能)
+- **持ち主 PID を解決できなかった場合は `ownerPid: null` を記録し、生存判定を行わず TTL のみで判定する。** 解決の経路は lock ファイルの `ownerVia` に、辿った祖先 PID 列は `chain` に残るので、実環境で意図どおりのプロセスを掴めているかは lock を読めば分かる
+
+#### lock ファイルの中身は信用しない (読み出し時に検証する)
+
+lock ファイルは `~/.buzz/.locks/` にあり **同一マシンの任意のプロセスが書ける**。「本 module が唯一の書き手」という前提は保証されていないので、`readLock` は読み出し時にフィールドを検証する。JSDoc の型 cast は runtime の保証にならない。
+
+壊れた値の落とし先はフィールドごとに違う。判断軸は「**奪う方向に倒れないか**」である。
+
+| フィールド | 壊れていたら | なぜ |
+|---|---|---|
+| `ownerPid` | `null` に落とす | `null` は「解決できなかった」という**設計上の正当な状態**。以降 TTL のみで判定する。「死んでいる」と読んで奪うと排他が消える |
+| `startedAt` | **例外 (= block)** | TTL 判定の基準時刻。安全な既定値が無い。`0` に落とすと即 stale 扱いで生きた lock を奪う |
+| `ttlMs` | 既定 (1 時間) | 回収が遅れるだけで、奪う方向には効かない |
+| `chain` | 1 要素でも不正なら**配列ごと** `null` | 半分だけ正しい証跡は誤読の元。証跡は「正しいか、無いか」のどちらかにする |
+| `sessionId` ほか | `null` に落とす | 同一性が取れず再入・解放が no-op になる = TTL まで誰も取れない。fail closed 側 |
+
+**回収されるまでの時間はフィールドによって違う。ここを一律に書くと、実際より強い保証を約束することになる。**
+
+- `ownerPid` / `ttlMs` / `chain` / `sessionId` の破損 → **最大 1 時間 (既定 TTL) で自動回収される**。読み出しは成功し、TTL 判定に入るため
+- `startedAt` の破損 → **自動回収されない。手で消すまで恒久的に block する**。`readLock` が throw し、`acquire` / `release` はこれを try/catch していない (`scripts/lib/agent-lock.mjs`) ので、hook の `main().catch` が exit 2 に倒す。TTL 判定に到達しない
+
+どちらの場合も、hook の block メッセージが `~/.buzz/.locks/` の確認と削除を案内する。急ぐ場合は該当ファイルを手で消す。
+
+#### なぜ `process.ppid` を使わないか (#4013)
+
+当初は持ち主を `process.ppid` の 1 値で表していたが、**hook の親プロセスは短命**である。
+
+```
+buzz-acp.exe                          ← 全セッション共有。持ち主にすると排他が消える
+  buzz-acp.exe → cmd.exe
+    node.exe @agentclientprotocol/claude-agent-acp   ← セッションごとに 1 個・常駐 = 持ち主
+      claude.exe (複数・後から増える)
+        bash → bash → node (hook)     ← process.ppid はこの辺り。呼び出しごとに変わる
+```
+
+2026-07-27 の実測では、同一 `session_id` の lock 5 本がすべて別の `ownerPid` を記録し、取得の 1 分後には全て死亡していた。結果として
+
+- 再入判定 (`ownerPid` 一致) が効かない
+- `release` が持ち主不一致で常に no-op になり lock ファイルが残り続ける
+- `isProcessAlive(ownerPid)` が常に false を返し、lock が取得直後から stale になる
+
+の三重の破綻が同時に起きており、**排他はまったく成立していなかった**。「hook が入っている」ことと「排他が効いている」ことは別である。
 
 ### §3.3 判定できないときは通さない (fail closed)
 
@@ -72,6 +119,7 @@ lock ディレクトリが読めない、lock ファイルが壊れている等�
 
 - **worktree 分離は別の層**: ファイルの相互上書きは「チャンネルごとに専用 worktree を使う」ことで防ぐ。lock は**マシン資源と作業の重複**を防ぐもので、両方が要る
 - **hook が効くのは Claude Code 経由の Bash のみ**: 人間が直接ターミナルで叩く分には効かない。オーナーが手で重い検証を回すときは、エージェントが動いていないことを確認する
+- **hook はセッションの設定に登録されて初めて効く**: 本リポジトリの `.claude/settings.json` は **project 設定**なので、リポジトリを起動ディレクトリにしていないセッションには読み込まれない。Buzz エージェントの起動ディレクトリは `~/.buzz` であり、**`~/.buzz/.claude/settings.json` に登録しない限り本 hook は 1 度も走らない** (2026-07-27 実測: Buzz セッションから `git push` しても `task-<n>.lock` が作られなかった)。登録する場合は (a) `command` を絶対パスにする、(b) `matcher` を `"Bash|PowerShell"` にする (PowerShell tool 経由が素通りするため) の 2 点が要る
 - **`gh pr merge` / `gh pr edit` は task lock の対象外**: これらは PR 番号で他人の PR を操作する role (QM / 監査) のコマンドで、自分の branch とは対応しないため。ここを排他するなら PR 単位の別 key が要る (未実装)
 - **判定は文字列マッチ**: セグメント (`&&` / `;` / `|`) 単位で判定するため無害な前置きでは回避できないが、新しい重量コマンドを足したら `HEAVY_PATTERNS` の更新が要る
 
