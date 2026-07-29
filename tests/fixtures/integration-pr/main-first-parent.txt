@@ -1,0 +1,20 @@
+7821e9ff6ec7d949fffbdda236cd65a9dd105944|2026-07-26T08:01:03+09:00|Merge pull request #3947 from Takenori-Kusaka/fix/3946-pglite-journal-monotonic
+62236700c3cfde78f936bb6659b036dc384e0244|2026-07-24T19:54:00+09:00|release: [第17回] develop→main 統合 (2026-07-24) — Deploy-2 DynamoDB撤去完遂 (#3931)
+42c8e18a4b9ac2f854532316b4d64871c8e34734|2026-07-18T19:28:01+09:00|fix(deploy): 第16回リリース完遂 — ADR-0019 replacement 承認 (#3885)
+318e43a5b23fb6b35e25668f8f034d5044090ab4|2026-07-18T18:35:13+09:00|fix: #3870 DsqlBackupRole の IAM description を ASCII 化 (本番 deploy rollback 解消 + 全 IAM Role description ASCII fitness) (#3872)
+d062222e10ffd020d8f877f7775dc4c2fad47f70|2026-07-18T17:35:17+09:00|release: [第16回] develop→main 統合 (2026-07-18) — 67 commits, blocker #3850/#3851 恒久解消 (#3866)
+48f12a569d2d97a1c407d4a737cd3bd274854bba|2026-07-16T16:41:37+09:00|release: [第15回] develop→main 統合 (2026-07-16) — 119 commits / 117 PR (#3762)
+ba7da8712b0ef6e7a1d9698a2dd30c6214c09543|2026-07-13T12:54:16+09:00|fix(test): #3424 本番 smoke ヘルスチェックの dataSource 期待値を dsql に更新 (cutover 完遂) (#3707)
+33bc1cb10bb3bbb76fac28e8ef18ecc97db31077|2026-07-13T07:25:41+09:00|fix(infra): #3703 DSQL dashboard/budget 名を staging/prod で一意化 (#3705)
+ef9c39e385fc71b50eabbc1399b02c92b3aa6d26|2026-07-13T07:00:01+09:00|feat(infra): #3424/#3620 本番 DSQL/PGlite cutover (#3703)
+dc60e987fe71e718b391a2e86670125fc5abebf2|2026-07-12T18:32:25+09:00|fix: logger.info 握りつぶし修正 + import 段階別 timing (restore 504 真因調査基盤) (#3700)
+389dd88509ce82fbbd4ce50aa099d22e157b252d|2026-07-12T16:28:36+09:00|fix: #3692 本番 restore 504 即効対処を main 反映 (develop #3696 cherry-pick、import 並列化) (#3698)
+72524d089ed22fafc31318a19b5a4ab79e9bd7a4|2026-07-12T11:19:26+09:00|fix(ci): deploy の COMMIT_MSG を 64KB truncate (統合 merge commit 147KB で env 上限超過 → exit 126 の根治) (#3689)
+5852ebb348496099e3863e13ec7ed3a7e42cb435|2026-07-12T10:55:59+09:00|release: #3063 [第14回] develop→main 統合 — DSQL/PGlite 移管完遂 (staging 両トラック green、50 PR) (#3686)
+b2396a6aee2315f6e232aae25bcf3117621140fe|2026-07-04T09:08:48+09:00|fix(infra): #3570 AWS deploy DKIM replacement 承認 (#3576)
+6aefcb4e9d94d588ab71c2640d7d91eb145e1f76|2026-07-03T22:23:52+09:00|Merge pull request #3570 from Takenori-Kusaka/release/2026-07-03
+bea9d8303222e6ba2c8dadfb24b361e750e2d9c9|2026-06-28T07:26:12+09:00|Merge pull request #3357 from Takenori-Kusaka/release/2026-06-27
+61842ab43dfd7a7ce7be9e6790c77ece7d964718|2026-06-24T13:31:12+09:00|Merge pull request #3281 from Takenori-Kusaka/release/2026-06-24
+1e78c4575cf951c6c18ed4a7ebce12969d927a51|2026-06-22T16:55:17+09:00|fix: #3190 better-sqlite3 12.11.1→12.10.0 exact pin で demo/SQLite SIGSEGV 根治 [HOTFIX] (#3192)
+2e801864f908fcc050f780562dfb9f900f0d858f|2026-06-19T22:51:13+09:00|build(deps): Bump the npm-minor-patch group with 35 updates (#3158)
+c53952047456d895f2ae1294788c3e858e056ad6|2026-06-19T21:59:51+09:00|build(deps-dev): Bump undici from 7.25.0 to 7.28.0 (#3160)

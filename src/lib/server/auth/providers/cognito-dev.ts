@@ -170,11 +170,22 @@ export class DevCognitoAuthProvider implements AuthProvider {
 	): Promise<AuthContext | null> {
 		if (!identity) return null;
 
-		// 既存 Context Token を検証
+		// 既存 Context Token を検証。
+		// #3963: token は tenantId / role / childId しか持たない。dev では plan /
+		// licenseStatus の SSOT が devUsers 定義なので、毎回そこから解決し直す
+		// (本番 CognitoAuthProvider が毎回 DB から解決するのと同じ扱い)。
 		const contextToken = event.cookies.get(CONTEXT_COOKIE_NAME);
-		if (contextToken) {
-			const context = verifyContext(contextToken);
-			if (context) return context;
+		if (contextToken && identity.type === 'cognito') {
+			const claims = verifyContext(contextToken);
+			const devUser = claims ? findDevUser(identity.email) : undefined;
+			if (claims && devUser) {
+				return {
+					...claims,
+					licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
+					tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
+					plan: devUser.plan,
+				};
+			}
 		}
 
 		// Context Token なし → ダミーメンバーシップから発行

@@ -67,3 +67,16 @@ export interface AuthProvider {
 	resolveContext(event: RequestEvent, identity: Identity | null): Promise<AuthContext | null>;
 	authorize(path: string, identity: Identity | null, context: AuthContext | null): AuthResult;
 }
+
+/**
+ * context_token に焼き込まず、毎リクエスト DB から解決する部分 (#3963)。
+ *
+ * 型をここ (leaf) に置くのは、`request-context.ts` が値の型を必要とする一方で
+ * `tenant-entitlement.ts` は `request-context.ts` の cache を使うため、
+ * 実装 module 側に型を置くと循環になるため。
+ */
+export interface TenantEntitlement {
+	licenseStatus: AuthContext['licenseStatus'];
+	tenantStatus: NonNullable<AuthContext['tenantStatus']>;
+	plan?: string;
+}
