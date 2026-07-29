@@ -1342,6 +1342,30 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 }
 ```
 
+**`backup` フィールド（`DATA_SOURCE=pglite` のときだけ付与、#3977）:**
+
+```json
+{
+  "backup": {
+    "lastSuccessAt": "2026-07-27T18:00:00.000Z",
+    "lastSuccessFilename": "pglite-20260727-180000.tgz",
+    "lastSuccessBytes": 1234567,
+    "lastSuccessDurationMs": 4210,
+    "lastFailureAt": null,
+    "lastFailureMessage": null
+  }
+}
+```
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `DATA_SOURCE === 'pglite'`（= NUC セルフホスト）のときのみ。**クラウド（`dsql`）の公開 Lambda のレスポンスは本フィールドを持たない** |
+| なぜ pglite 限定か | 「いつからバックアップが止まっているか」は外部に教えうる運用情報で、`/api/health` は未認証公開のため。露出範囲の拡大は PO 決裁事項とし、NUC 内でしか成立しない分岐に閉じる |
+| なぜ載せるか | `scripts/backup-nuc.cjs` が backend 同定のため既に `/api/health` を参照する（#3967）。バックアップの生死も同じ口から読めれば運用側の参照点が 1 つで済む。`getPgliteBackupStatus` は #3950 で export されたが caller 不在の dead export で、本配線がその caller |
+| 取得失敗時 | **フィールドを省略するだけで 503 にしない**。状態ファイルが読めないことは DB の生死と無関係で、ここで落とすと「状態ファイルが無いだけで liveness が赤」になり監視の意味が変わる |
+
+回帰は `tests/unit/routes/health-backup-status.test.ts`（付与条件と失敗時の省略）が固定する。
+
 #### GET /api/ready
 
 readiness probe（shallow、#3657）。**プロセスが HTTP を受けられることのみを証明し、DB には一切接触しない**。LWA（Lambda Web Adapter）の `AWS_LWA_READINESS_CHECK_PATH` が参照する（`Dockerfile.lambda`）。readiness を `/api/health`（deep DB probe）に結合すると DB 障害時に LWA が never-ready → 全リクエスト 502 + cold start init timeout ループになるため分離する（13-AWSサーバレスアーキテクチャ設計書 §3.3）。
