@@ -23,7 +23,13 @@ let { data } = $props();
 				<p class="text-base font-semibold text-[var(--color-danger)] mb-2">{data.error}</p>
 				<!-- #3555 ①: email mismatch 等、エラー種別ごとの次アクション案内 (未指定時は再発行案内) -->
 				<p class="text-sm text-[var(--color-neutral-500)] mb-6">{data.errorDesc ?? AUTH_INVITE_LABELS.invalidLinkDesc}</p>
-				<a href="/auth/login" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.loginPageLink}</a>
+				<!-- #4049 AC3: ログイン中のユーザーに必要な行動はログアウト。
+				     「ログインページへ」だけを出口にすると案内と導線が正反対になる。 -->
+				{#if data.sessionActive}
+					<a href="/auth/logout" data-testid="invite-error-logout" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.logoutButton}</a>
+				{:else}
+					<a href="/auth/login" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.loginPageLink}</a>
+				{/if}
 			</div>
 		{:else}
 			<div class="mb-7">
