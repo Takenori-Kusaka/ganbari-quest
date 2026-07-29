@@ -8,6 +8,7 @@ import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { CHECKOUT_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
+import { getDebugCancelAtPeriodEnd } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
@@ -320,6 +321,16 @@ async function retrieveTenantSubscription(
 export async function getCancellationState(
 	tenantId: string,
 ): Promise<SubscriptionCancellationState | null> {
+	// #3991: dev 限定 override。ローカル backend は Stripe を持たないため、
+	// これが無いと解約手続き中バナーを一度も目視検証できない (#758 DEBUG_PLAN と同型、本番無効)。
+	const debugPeriodEnd = getDebugCancelAtPeriodEnd();
+	if (debugPeriodEnd) {
+		return {
+			subscriptionId: 'sub_debug',
+			cancelAtPeriodEnd: true,
+			currentPeriodEnd: debugPeriodEnd,
+		};
+	}
 	const subscription = await retrieveTenantSubscription(tenantId);
 	return subscription ? toCancellationState(subscription) : null;
 }
