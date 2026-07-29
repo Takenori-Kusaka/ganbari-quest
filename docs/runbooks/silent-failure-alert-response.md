@@ -56,6 +56,40 @@ alarm が鳴っているのに 503 が観測できない場合、metric filter �
 両者の一致は `tests/unit/infra/entitlement-fail-closed-alarm.test.ts` が CI で検証しているため、
 まず同 test が緑かを確認する。
 
+### 1.5 実機での発火確認 (deploy 直後に 1 度実行する)
+
+filter は「定義されているが 1 件もマッチしない」形で壊れうる。deploy 後、**アプリを壊さずに
+log を 1 行注入して metric が立つこと**を確かめる。
+
+```bash
+# 1. 注入先の log stream を 1 本用意する
+LG=/aws/lambda/ganbari-quest-app
+LS="alarm-firecheck-$(date +%s)"
+aws logs create-log-stream --log-group-name "$LG" --log-stream-name "$LS"
+
+# 2. hooks.server.ts が 503 時に出すのと同じ形の行を 5 本入れる (閾値 = 5 分 5 件)
+NOW=$(($(date +%s) * 1000))
+aws logs put-log-events --log-group-name "$LG" --log-stream-name "$LS" --log-events "$(
+  for i in 1 2 3 4 5; do
+    printf '{"timestamp":%d,"message":"[ERROR] [auth-alert] auth-entitlement-db-unavailable: firecheck"}\n' "$NOW"
+  done | paste -sd, - | sed 's/^/[/;s/$/]/'
+)"
+
+# 3. metric に値が立つことを確認 (反映まで数分)
+aws cloudwatch get-metric-statistics \
+  --namespace GanbariQuest/Auth --metric-name EntitlementDbUnavailable \
+  --start-time "$(date -u -d '15 minutes ago' +%Y-%m-%dT%H:%M:%SZ)" \
+  --end-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --period 300 --statistics Sum
+
+# 4. alarm が ALARM に遷移し SNS が飛んだことを確認 → 数分後に OK へ戻る
+aws cloudwatch describe-alarms --alarm-names ganbari-quest-auth-entitlement-db-unavailable \
+  --query 'MetricAlarms[0].[StateValue,StateReason]'
+```
+
+注入した log stream は確認後に削除してよい (`aws logs delete-log-stream`)。
+metric が 0 のままなら、filter pattern と実 log 行の形が合っていない
+(`ENTITLEMENT_FAIL_CLOSED_LOG_TERM` と `hooks.server.ts` の出力を突き合わせる)。
+
 ---
 
 ## 2. `stripe-webhook-undelivered` — Stripe webhook の未達
