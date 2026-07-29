@@ -116,6 +116,19 @@ function makeTenant(overrides: Record<string, unknown> = {}) {
 }
 
 /**
+ * **現行契約を持つ** tenant の mock (#4026)。
+ *
+ * 契約状態を書き換える webhook (`invoice.paid` / `invoice.payment_failed` /
+ * `customer.subscription.updated` / `...deleted`) は、event 対象の subscription が
+ * tenant の現行契約であるときだけ適用される。したがって「その webhook が適用される」
+ * ことを検証する fixture は、tenant 側にも同じ subscription が割り当たっている必要がある
+ * (割り当てが無い tenant = 契約未確立 or 解約済み)。
+ */
+function makeSubscribedTenant(overrides: Record<string, unknown> = {}) {
+	return makeTenant({ stripeSubscriptionId: 'sub_123', ...overrides });
+}
+
+/**
  * Stripe subscription の mock (#3960)。
  *
  * `handleInvoicePaid` は plan を invoice の line item ではなく **subscription の現行 price**
@@ -427,7 +440,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'invoice.paid',
@@ -474,7 +487,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -496,7 +509,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -515,7 +528,9 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(
+			makeSubscribedTenant({ plan: 'family-monthly' }),
+		);
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -531,8 +546,8 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent({
 			type: 'customer.subscription.updated',
@@ -552,8 +567,8 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 		await handleWebhookEvent({
@@ -567,7 +582,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated — plan 未解決なら plan を上書きせず alert を上げる (#3960)', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'family-monthly' }));
 
 		await handleWebhookEvent({
 			type: 'customer.subscription.updated',
@@ -611,12 +626,16 @@ describe('handleWebhookEvent', () => {
 
 	it('invoice.payment_failed → grace_period に変更', async () => {
 		const mockSubscriptionsRetrieve = vi.fn().mockResolvedValue({
+			// 実 Stripe subscription は必ず id / status を持つ。id は「この event が
+			// tenant の現行契約を指すか」の突合に使われる (#4026)
+			id: 'sub_123',
 			customer: 'cus_123',
+			status: 'past_due',
 		});
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'invoice.payment_failed',
@@ -639,7 +658,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated → ステータス反映', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.updated',
@@ -666,7 +685,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated — past_due → grace_period', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.updated',
@@ -695,7 +714,7 @@ describe('handleWebhookEvent', () => {
 	// **no-op をそのまま追認していた** (updateTenantStripe は undefined = 更新しない)。
 	// クリアの意図を DB まで届かせるには null でなければならないため、null を固定する。
 	it('customer.subscription.deleted → suspended + subscriptionId/plan を null でクリア (#3982)', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.deleted',
@@ -712,6 +731,8 @@ describe('handleWebhookEvent', () => {
 			status: 'suspended',
 			stripeSubscriptionId: null,
 			plan: null,
+			// #4026: 終端状態は契約に紐づく列を網羅的に書く (期限だけ残る孤児を作らない)
+			planExpiresAt: null,
 		});
 		// stripeCustomerId は再購読時の customer 再利用 + webhook 逆引きの鍵なので消さない
 		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).not.toHaveProperty('stripeCustomerId');
@@ -734,7 +755,12 @@ describe('handleWebhookEvent', () => {
 		return makeTenant({ stripeSubscriptionId: undefined, plan: undefined, status: 'suspended' });
 	}
 
-	const TERMINAL_STATE = { status: 'suspended', stripeSubscriptionId: null, plan: null };
+	const TERMINAL_STATE = {
+		status: 'suspended',
+		stripeSubscriptionId: null,
+		plan: null,
+		planExpiresAt: null,
+	};
 
 	function deletedEvent(subscriptionId = 'sub_123') {
 		return {
@@ -756,28 +782,31 @@ describe('handleWebhookEvent', () => {
 	}
 
 	it('#3982 — deleted → updated(canceled) の順でも plan が復活せず終端状態に収束する', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
 		// deleted 適用後の tenant を読む (id / plan はクリア済み)
 		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
 		await handleWebhookEvent(cancelledUpdatedEvent() as never);
 
-		// 2 event とも同じ終端状態を書く = 到着順に依らず収束する
-		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		// 書き込まれた状態は全て終端 = 到着順に依らず収束する。
+		// #4026 以降、2 通目は「割り当ての無い tenant への event」として適用されない
+		// (先着が既に終端へ収束させているので、最終状態は変わらない)。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 		for (const call of mockUpdateTenantStripe.mock.calls) {
 			expect(call[1]).toEqual(TERMINAL_STATE);
 		}
 	});
 
 	it('#3982 — updated(canceled) → deleted の逆順でも最終状態が一致する', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent(cancelledUpdatedEvent() as never);
 		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
 		await handleWebhookEvent(deletedEvent() as never);
 
-		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		// 逆順でも同じ: 先着が終端へ収束させ、後着は現行契約を指さないため適用されない
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 		for (const call of mockUpdateTenantStripe.mock.calls) {
 			expect(call[1]).toEqual(TERMINAL_STATE);
 		}
@@ -792,7 +821,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
 			},
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
@@ -811,7 +840,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
 			},
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
@@ -833,7 +862,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'past_due' })),
 			},
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent({
 			type: 'invoice.payment_failed',
@@ -844,6 +873,138 @@ describe('handleWebhookEvent', () => {
 			't-test',
 			expect.objectContaining({ status: 'grace_period' }),
 		);
+	});
+
+	// ======================================================
+	// #4026 / #4055: 契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ
+	//
+	// tenant の同定は `subscription.metadata.tenantId` (無ければ customer 逆引き) で行うため、
+	// **その tenant が今どの subscription を持っているか**とは独立に handler へ到達する。
+	// 突合が無いと (a) 旧 subscription の後着 event が現行契約を壊し
+	// (b) 解約済み (割り当て NULL) の tenant に非終端 event が plan / ACTIVE を書き戻す。
+	// ======================================================
+
+	function updatedEvent(
+		subscriptionId: string,
+		status = 'active',
+		priceId = 'price_family_monthly_789',
+	) {
+		return {
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					...makeSubscription(priceId, { status, id: subscriptionId }),
+					metadata: { tenantId: 't-test' },
+				},
+			},
+		};
+	}
+
+	it('#4026 — 旧 sub の deleted が後着しても、再購読済み tenant の現行契約を壊さない', async () => {
+		// 解約 → 再購読を通った tenant。現行契約は sub_new (課金中)。
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'family-monthly', status: 'active' }),
+		);
+
+		await handleWebhookEvent(deletedEvent('sub_old') as never);
+
+		// 旧契約の event で現行契約の列を 1 つも書かない
+		// (書くと id=NULL → createCheckoutSession の ALREADY_SUBSCRIBED ガードが外れ二重課金し得る)
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-contract-target-mismatch',
+				tags: expect.objectContaining({
+					tenantId: 't-test',
+					eventSubscriptionId: 'sub_old',
+					currentSubscriptionId: 'sub_new',
+				}),
+			}),
+		);
+	});
+
+	it('#4026 — 旧 sub の updated(active) が後着しても、再購読済み tenant の plan を巻き戻さない', async () => {
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'family-monthly', status: 'active' }),
+		);
+
+		await handleWebhookEvent(updatedEvent('sub_old', 'active', 'price_monthly_123') as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#4026 — 終端状態は planExpiresAt も含めて網羅的に書く (孤児列を残さない)', async () => {
+		// アプリ内解約 (`/api/v1/admin/tenant/cancel`) は grace_period + planExpiresAt を書いてから
+		// Stripe を即時キャンセルする。直後の deleted が planExpiresAt を書かないと、
+		// 契約が無いのに期限だけ残る (SaasLicensePanel / lifecycle-email-service が読む)。
+		mockFindTenantById.mockResolvedValue(
+			makeSubscribedTenant({ status: 'grace_period', planExpiresAt: '2026-08-28T00:00:00Z' }),
+		);
+
+		await handleWebhookEvent(deletedEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'suspended',
+			stripeSubscriptionId: null,
+			plan: null,
+			planExpiresAt: null,
+		});
+	});
+
+	it('#4055 — deleted の後に非終端 updated(active) が後着しても終端状態を維持する', async () => {
+		mockFindTenantById.mockResolvedValueOnce(makeSubscribedTenant());
+		await handleWebhookEvent(deletedEvent() as never);
+
+		// deleted 適用後の tenant を読む (割り当てはクリア済み)
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+		await handleWebhookEvent(updatedEvent('sub_123', 'active') as never);
+
+		// 2 通目は「現行契約でない」として適用されない = plan / ACTIVE が復活しない
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
+	});
+
+	// ======================================================
+	// #4077 (PO 決裁 Q1 条件): 割り当て NULL の tenant への mismatch は
+	// 「event の subscription が生きているか」で沈黙させ方を変える。
+	//
+	// 「Stripe 上は課金中なのに DB に割り当てが無い」= 親は請求だけ増え、子供側の機能は
+	// 開かない最悪クラスの失敗モードで、しかも顧客からは原因が見えない。warn (誰も見ない)
+	// では問い合わせが来るまで発見されないため alert を上げる。
+	// 逆に解約済み契約への後着 (終端) は正常な skip なので鳴らさない (alert 疲れの回避)。
+	// ======================================================
+
+	it('#4077 — 割り当て NULL の tenant に非終端 event が来たら alert を上げる', async () => {
+		// checkout webhook の恒久失敗 / Dashboard 手動作成で生じる「課金済み未紐付け」tenant。
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+
+		await handleWebhookEvent(updatedEvent('sub_live', 'active') as never);
+
+		// 適用しない判断は #4026 のまま (割り当て前の event を書き込む方が危険)
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-contract-target-mismatch',
+				tags: expect.objectContaining({
+					tenantId: 't-test',
+					event: 'customer.subscription.updated',
+					eventSubscriptionId: 'sub_live',
+					currentSubscriptionId: 'none',
+					mismatchKind: 'tenant-unassigned-live-subscription',
+				}),
+			}),
+		);
+	});
+
+	it('#4077 — 割り当て NULL の tenant への終端 event は alert を上げない (正常な後着)', async () => {
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+
+		// deleted (= 契約消滅) と updated(canceled) の両方が終端扱い
+		await handleWebhookEvent(deletedEvent('sub_gone') as never);
+		await handleWebhookEvent(cancelledUpdatedEvent() as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalled();
 	});
 
 	it('未対応のイベント型 → エラーなし', async () => {

@@ -68,7 +68,7 @@
 
 1. `session.metadata.tenantId` を取得（Checkout 作成時に埋め込み済み）
 2. `session.metadata.planId` を取得し `Tenant['plan']` にキャスト
-3. `repos.auth.updateTenantStripe()` で以下を更新:
+3. `applyTenantContractState()`（契約を**新規割り当て**するため突合対象を持たない `assign-contract`、§10.5.1 P3）で以下を更新:
    - `stripeCustomerId`
    - `stripeSubscriptionId`
    - `plan` = 新プラン
@@ -305,7 +305,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 | 操作 | Webhook | DB 反映 |
 |------|---------|---------|
 | プラン変更（standard ↔ family、月 ↔ 年） | `customer.subscription.updated` | `plan` を `planIdFromPriceId(item.price.id)` で更新、`status='active'` |
-| サブスク解約（即時 or 期末） | `customer.subscription.deleted` | `stripeSubscriptionId=undefined, plan=undefined, status='suspended'` |
+| サブスク解約（即時 or 期末） | `customer.subscription.deleted` | `stripeSubscriptionId=null, plan=null, planExpiresAt=null, status='suspended'`（終端 4 列、§10.5.1 P3） |
 | 支払い方法更新 | （Stripe 側のみ） | DB 変更なし |
 | 請求書履歴閲覧 | （Stripe 側のみ） | DB 変更なし |
 
@@ -329,28 +329,31 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    | `past_due` | `'grace_period'` |
    | `unpaid` / `paused` / `incomplete` | `'suspended'` |
    | `canceled` / `incomplete_expired` | 終端収束（手順 2 で処理済、§10.5） |
-5. `repos.auth.updateTenantStripe()` で `plan, status` を保存
+5. `applyTenantContractState()`（契約状態を書き換える唯一の経路、§10.5.1 P3）で `plan, status` を保存。
+   **event 対象の subscription が tenant の現行契約でなければ適用しない**（#4026）
 6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_updated', 'status=..., plan=...')`
 
 ### 3.4 Webhook 処理 — `customer.subscription.deleted`
 
-`stripe-service.ts:handleSubscriptionDeleted()` → `clearSubscriptionAssignment()`
+`stripe-service.ts:handleSubscriptionDeleted()` → `applyTenantContractState()` + `TERMINAL_CONTRACT_STATE`
 
 1. テナント特定（同上）
-2. `repos.auth.updateTenantStripe()` で:
+2. event 対象が tenant の現行契約であることを突合（§10.5.1 P3）。不一致なら適用しない（#4026）
+3. 終端状態（`TERMINAL_CONTRACT_STATE`、契約に紐づく列を網羅）を書く:
    - `stripeSubscriptionId` = **`null`**（= SQL で `NULL` を書く）
    - `plan` = **`null`**（同上）
+   - `planExpiresAt` = **`null`**（契約が無いのに期限だけ残る孤児を作らない、#4026）
    - `status` = `'suspended'`
    - `stripeCustomerId` は**意図的に残す**（再購読時の Stripe customer 再利用 + 後続 webhook の逆引き鍵）
-3. **`undefined` ではなく `null` である理由 (#3982)**: `updateTenantStripe` は部分更新 API で、
+4. **`undefined` ではなく `null` である理由 (#3982)**: `updateTenantStripe` は部分更新 API で、
    `undefined` = 「その列を更新しない」、`null` = 「NULL でクリアする」という 2 値セマンティクス
    （契約は `IAuthRepo.updateTenantStripe` の JSDoc が SSOT）。
    旧実装は `undefined` を渡しており **クリアが丸ごと no-op** だった。その結果
    `stripe_subscription_id` が解約後も残り、`createCheckoutSession()` の
    `if (tenant.stripeSubscriptionId) return { error: 'ALREADY_SUBSCRIBED' }` が発火して
    **解約済みユーザーの再購読導線が塞がっていた**
-4. **重要**: テナント・子供データ・活動履歴は削除しない（解約と削除は別概念。アカウント削除は `/admin/settings` 経由 → `account-deletion-flow.md` 参照）
-5. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_deleted')`
+5. **重要**: テナント・子供データ・活動履歴は削除しない（解約と削除は別概念。アカウント削除は `/admin/settings` 経由 → `account-deletion-flow.md` 参照）
+6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_deleted')`
 
 ---
 
@@ -367,7 +370,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    ```ts
    const graceExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
    ```
-3. `repos.auth.updateTenantStripe()` で:
+3. `applyTenantContractState()`（§10.5.1 P3、event 対象が現行契約のときのみ適用）で:
    - `status` = `'grace_period'`
    - `planExpiresAt` = `graceExpires`
 4. Discord 通知: `notifyBillingEvent(tenantId, 'payment_failed', '猶予期間: ...')`
@@ -616,14 +619,17 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 > で設計確定済だが **実装は未着手**（同 doc のステータス欄「コード変更は Phase 7」）。
 > 順序ガード（本節）と dedup（#2641 設計）は別の防御であり、片方では他方を代替できない。
 
-#### 10.5.1 収束の 2 原則
+#### 10.5.1 収束の 3 原則
 
 | # | 原則 | 実装 |
 |---|------|------|
-| **P1** | **可変な属性は「event の payload」ではなく「Stripe 上の現行 subscription」から解決する** | `handleInvoicePaid` は `invoice.lines` を読まず `subscriptions.retrieve()` の現行 price を SSOT にする（#3960）。retrieve は常に最新を返すため、後着 event でも古い値を書かない |
-| **P2** | **終端状態 (`canceled` / `incomplete_expired`) を検出した handler は、契約ありきの状態を書き戻さない** | `isSubscriptionTerminal()`（`stripe-service.ts`）。この 2 status は Stripe 上で他の status に戻らないため、「契約はもう存在しない」ことの確定印として使える（#3982） |
+| **P1** | **可変な属性は「event の payload」ではなく「Stripe 上の現行 subscription」から解決する** | `handleInvoicePaid` のみ。`invoice.lines` を読まず `subscriptions.retrieve()` の現行 price を SSOT にする（#3960）。**`handleSubscriptionUpdated` は P1 の対象外** — payload の subscription から plan を解決する（`metadata.tenantId` が無いときに通る `resolveSubscriptionContext()` の retrieve は tenant 特定にのみ使う） |
+| **P2** | **終端状態 (`canceled` / `incomplete_expired`) を検出した handler は、契約ありきの状態を書き戻さない** | `isSubscriptionTerminal()`（`stripe-service.ts`）。この 2 status は Stripe 上で他の status に戻らないため、「契約はもう存在しない」ことの確定印として使える（#3982）。判定対象は **payload の status** なので、終端の後に非終端 event が後着するケースは P3 が担う |
+| **P3** | **契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ適用する。終端状態は列の集合として 1 箇所で定義し全列を書く** | `applyTenantContractState()` が唯一の書き込み経路（#4026）。`tenant.stripeSubscriptionId` と event の subscription が一致しなければ適用しない。不一致の観測レベルは 3 分岐（`tags.mismatchKind`）: 割り当てなし × 終端 event = warn のみ（解約済みへの正常な後着）/ 割り当てなし × **非終端** event = `stripe-contract-target-mismatch` alert（`tenant-unassigned-live-subscription`。Stripe 上は課金中なのに DB に紐付いておらず「払っているのに機能が開かない」ため人の介入が要る）/ 別 subscription = 同 alert（`other-subscription`）。終端は `TERMINAL_CONTRACT_STATE` = `stripe_subscription_id` / `plan` / `plan_expires_at` を null + `status=suspended`。迂回は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts` が禁止する |
 
 `paused` / `unpaid` / `incomplete` は復帰し得るため終端に含めない（含めると復帰経路を殺す）。
+
+P3 の突合は tenant 同定の経路（`metadata.tenantId` / customer 逆引き）が「その tenant が今どの subscription を持つか」と独立であることから必要になる。`checkout.session.completed` だけは契約を**新規に割り当てる** event なので突合対象を持たない（`assign-contract`）。
 
 #### 10.5.2 ユースケース × 到着順 収束表
 
@@ -631,17 +637,20 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 | # | ユースケース | 発火 event | 到着順 | 最終状態 | 担保 |
 |---|---|---|---|---|---|
-| U1 | 新規購入 | `checkout.session.completed`, `customer.subscription.updated`(active) | どちらでも | `id=sub_x` / `plan=購入プラン` / `active` | P1（updated は現行 price を書く） |
+| U1 | 新規購入 | `checkout.session.completed`, `customer.subscription.updated`(active) | どちらでも | `id=sub_x` / `plan=購入プラン` / `active` | `checkout` が契約を割り当てる。`updated` は payload の price から plan を解決するが、新規購入では payload の price と現行 price が一致するため結果が正しい（P1 ではない）。`updated` が先着した場合は割り当て前なので P3 が適用を見送り、後着の `checkout` が確定させる |
 | U2 | プラン変更（standard → premium） | `customer.subscription.updated`(active), `invoice.paid` | どちらでも | `plan=premium` | P1（#3960。旧実装は `invoice.lines.data[0]` = 変更前 price を書いて巻き戻していた） |
 | U3 | 支払い失敗 | `invoice.payment_failed` | — | `grace_period` / `planExpiresAt=+7d` | — |
 | U4 | 支払い失敗 → 更新して復帰 | `invoice.payment_failed`, `invoice.paid` | 実時系列どおり | `active` | Stripe が時系列に発火（同時発火ではない） |
-| U5 | **解約** | `customer.subscription.updated`(canceled), `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `suspended` | **P2**（updated 側も終端収束させる。P2 がないと updated 後着で `id=NULL` かつ `plan≠NULL` という DB 上ありえない組合せが残る） |
+| U5 | **解約** | `customer.subscription.updated`(canceled), `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P2 + P3**（先着が終端 4 列を書き、後着は割り当てが消えているため適用されない。P2 がないと updated 後着で `id=NULL` かつ `plan≠NULL`、P3 がないと **非終端** の updated 後着で同じ組合せが残る = U9） |
 | U6 | **解約後に当期分請求が後着** | `customer.subscription.deleted`, `invoice.paid` | **どちらでも** | `id=NULL` / `plan=NULL` / `suspended` | **P2**（P2 がないと `invoice.paid` が `status=active` を書き戻し、**解約済みテナントが課金中として復活**する） |
 | U7 | **解約後に payment_failed が後着** | `customer.subscription.deleted`, `invoice.payment_failed` | **どちらでも** | 同上 | **P2**（P2 がないと `grace_period` へ巻き戻る） |
-| U8 | 解約 → 再購読 | `...deleted`, `checkout.session.completed`(新 sub) | 実時系列どおり | `id=sub_new` / `plan=新プラン` / `active` | `stripeCustomerId` を残すこと。かつ U5/U6/U7 の収束が効いていること（`id` が残っていると `createCheckoutSession` が `ALREADY_SUBSCRIBED` で弾き、そもそも U8 に入れない = #3982 の実害） |
+| U8 | 解約 → 再購読 | `...deleted`, `checkout.session.completed`(新 sub) | **どちらでも** | `id=sub_new` / `plan=新プラン` / `active` | `stripeCustomerId` を残すこと + U5/U6/U7 の収束（`id` が残っていると `createCheckoutSession` が `ALREADY_SUBSCRIBED` で弾き、そもそも U8 に入れない = #3982 の実害）+ **P3**（旧 sub の event が後着しても現行契約 `sub_new` を指さないため適用されない。P3 がないと新契約の `id` が NULL 化し、ALREADY_SUBSCRIBED ガードが外れて二重課金が成立し得る） |
+| U9 | **解約後に非終端の `updated` が後着** | `customer.subscription.deleted`, `customer.subscription.updated`(active) | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（P2 は payload の status を見るため、この `updated` は終端分岐に入らない。割り当てが消えているため P3 が適用を見送る。P3 がないと `id=NULL` + `plan≠NULL` + `status=active` が残る） |
+| U10 | **アプリ内解約 → 即時 cancel → `deleted` 後着** | `/api/v1/admin/tenant/cancel`（`grace_period` + `exp=+30d` を書く）, `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（終端は列の集合として定義され `plan_expires_at` も null で書く。P3 がないと契約が無いのに期限だけ残り、`SaasLicensePanel` が有効期限を表示し `lifecycle-email-service` が期限判断に使う = X3） |
 
 回帰テスト: `tests/unit/services/stripe-service.test.ts`
-（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本）。
+（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本 / U8・U9・U10 = `#4026 — ...` 3 本 + `#4055 — ...` 1 本）。
+単一強制点の迂回禁止は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts`。
 
 #### 10.5.3 未カバー（既知の残課題）
 
@@ -650,6 +659,7 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 | 同一 `event.id` の重複到達（dedup） | 設計確定・**実装未着手**（#2641 / phase5-webhook-idempotency-architecture.md） |
 | 同一 tenant への webhook 並行処理（handler 間の競合） | 未設計。Lambda 並行実行下では U1〜U8 の順序ガードも read-modify-write の間に割り込まれ得る |
 | DB ↔ Stripe の定期 reconcile | 未実装（#823、§10.4） |
+| 解約後の猶予期限の顧客向け表示 | 終端クリア（U10）で `plan_expires_at` が null になるため、解約後は画面（`SaasLicensePanel` の「有効期限」行）から期限が消える。顧客への期限告知は解約完了メール（`sendCancellationEmail` の `graceEndDate`）が担う（暫定）。表示の担い手は #3991 で決める |
 
 ---
 
