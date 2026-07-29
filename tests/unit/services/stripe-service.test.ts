@@ -102,6 +102,19 @@ function makeTenant(overrides: Record<string, unknown> = {}) {
 }
 
 /**
+ * **現行契約を持つ** tenant の mock (#4026)。
+ *
+ * 契約状態を書き換える webhook (`invoice.paid` / `invoice.payment_failed` /
+ * `customer.subscription.updated` / `...deleted`) は、event 対象の subscription が
+ * tenant の現行契約であるときだけ適用される。したがって「その webhook が適用される」
+ * ことを検証する fixture は、tenant 側にも同じ subscription が割り当たっている必要がある
+ * (割り当てが無い tenant = 契約未確立 or 解約済み)。
+ */
+function makeSubscribedTenant(overrides: Record<string, unknown> = {}) {
+	return makeTenant({ stripeSubscriptionId: 'sub_123', ...overrides });
+}
+
+/**
  * Stripe subscription の mock (#3960)。
  *
  * `handleInvoicePaid` は plan を invoice の line item ではなく **subscription の現行 price**
@@ -830,6 +843,95 @@ describe('handleWebhookEvent', () => {
 			't-test',
 			expect.objectContaining({ status: 'grace_period' }),
 		);
+	});
+
+	// ======================================================
+	// #4026 / #4055: 契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ
+	//
+	// tenant の同定は `subscription.metadata.tenantId` (無ければ customer 逆引き) で行うため、
+	// **その tenant が今どの subscription を持っているか**とは独立に handler へ到達する。
+	// 突合が無いと (a) 旧 subscription の後着 event が現行契約を壊し
+	// (b) 解約済み (割り当て NULL) の tenant に非終端 event が plan / ACTIVE を書き戻す。
+	// ======================================================
+
+	function updatedEvent(
+		subscriptionId: string,
+		status = 'active',
+		priceId = 'price_family_monthly_789',
+	) {
+		return {
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					...makeSubscription(priceId, { status, id: subscriptionId }),
+					metadata: { tenantId: 't-test' },
+				},
+			},
+		};
+	}
+
+	it('#4026 — 旧 sub の deleted が後着しても、再購読済み tenant の現行契約を壊さない', async () => {
+		// 解約 → 再購読を通った tenant。現行契約は sub_new (課金中)。
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'family-monthly', status: 'active' }),
+		);
+
+		await handleWebhookEvent(deletedEvent('sub_old') as never);
+
+		// 旧契約の event で現行契約の列を 1 つも書かない
+		// (書くと id=NULL → createCheckoutSession の ALREADY_SUBSCRIBED ガードが外れ二重課金し得る)
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-contract-target-mismatch',
+				tags: expect.objectContaining({
+					tenantId: 't-test',
+					eventSubscriptionId: 'sub_old',
+					currentSubscriptionId: 'sub_new',
+				}),
+			}),
+		);
+	});
+
+	it('#4026 — 旧 sub の updated(active) が後着しても、再購読済み tenant の plan を巻き戻さない', async () => {
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'family-monthly', status: 'active' }),
+		);
+
+		await handleWebhookEvent(updatedEvent('sub_old', 'active', 'price_monthly_123') as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#4026 — 終端状態は planExpiresAt も含めて網羅的に書く (孤児列を残さない)', async () => {
+		// アプリ内解約 (`/api/v1/admin/tenant/cancel`) は grace_period + planExpiresAt を書いてから
+		// Stripe を即時キャンセルする。直後の deleted が planExpiresAt を書かないと、
+		// 契約が無いのに期限だけ残る (SaasLicensePanel / lifecycle-email-service が読む)。
+		mockFindTenantById.mockResolvedValue(
+			makeSubscribedTenant({ status: 'grace_period', planExpiresAt: '2026-08-28T00:00:00Z' }),
+		);
+
+		await handleWebhookEvent(deletedEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'suspended',
+			stripeSubscriptionId: null,
+			plan: null,
+			planExpiresAt: null,
+		});
+	});
+
+	it('#4055 — deleted の後に非終端 updated(active) が後着しても終端状態を維持する', async () => {
+		mockFindTenantById.mockResolvedValueOnce(makeSubscribedTenant());
+		await handleWebhookEvent(deletedEvent() as never);
+
+		// deleted 適用後の tenant を読む (割り当てはクリア済み)
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+		await handleWebhookEvent(updatedEvent('sub_123', 'active') as never);
+
+		// 2 通目は「現行契約でない」として適用されない = plan / ACTIVE が復活しない
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
 	});
 
 	it('未対応のイベント型 → エラーなし', async () => {

@@ -33,6 +33,9 @@ import { redactPii, redactPiiInTags } from '$lib/server/stripe/pii-redaction';
  */
 export type StripeAlertKind =
 	| 'stripe-lookup-failed'
+	// #4026: 契約状態を書き換える event が、tenant の**現行契約とは別の** subscription を
+	// 指していた。適用せず skip したうえで観測する (旧契約の後着 or tenant 同定ミス)。
+	| 'stripe-contract-target-mismatch'
 	| 'stripe-webhook-unknown-type'
 	| 'stripe-webhook-handler-typeerror'
 	// #3960: webhook payload から plan を確定できなかった。silent fallback で

@@ -72,7 +72,9 @@ export interface IAuthRepo {
 	 *   `handleInvoicePaid` / `handleSubscriptionUpdated` が plan を解決できなかったとき、
 	 *   既存 plan を壊さないためにこの意味論に依存している (#3960)。
 	 * - `null` = **その列を NULL でクリアする**。`customer.subscription.deleted` で
-	 *   subscription 参照を解消する用途 (null を渡せるのは nullable 列のみ)。
+	 *   subscription 参照 / plan / 期限を解消する用途 (null を渡せるのは nullable 列のみ)。
+	 *   終端状態は `stripeSubscriptionId` / `plan` / `planExpiresAt` を**同時に** null で
+	 *   クリアする (片方だけ残すと contract-state-matrix の X1 / X3 を作る、#4026)。
 	 *
 	 * 実装は「渡されたキーだけ SET 句を積む」方式であり、全フィールド `undefined`
 	 * (= SET 句 0 件) の場合は UPDATE 自体を発行しない。
@@ -83,7 +85,7 @@ export interface IAuthRepo {
 			stripeCustomerId?: string;
 			stripeSubscriptionId?: string | null;
 			plan?: Tenant['plan'] | null;
-			planExpiresAt?: string;
+			planExpiresAt?: string | null;
 			trialUsedAt?: string;
 			status?: Tenant['status'];
 		},
