@@ -225,26 +225,98 @@ export async function verifyWebhookSignature(
 	return stripe.webhooks.constructEvent(body, signature, getWebhookSecret());
 }
 
+/**
+ * Stripe webhook の単一 dedup 点 (#3985)。
+ *
+ * Stripe の at-least-once delivery では **同一 `event.id` の再到達が正規動作**
+ * (<https://docs.stripe.com/webhooks#handle-duplicate-events>)。dedup が無いと
+ * welcome メール 2 通 / past_due ↔ active の振動 / 解約 → 再活性化の振動が素通しになる。
+ *
+ * dedup は event 型ごとに分散させず **dispatcher 入口 1 箇所**で行う
+ * (設計 SSOT: `billing-redesign/phase5-webhook-idempotency-architecture.md` §2 / §4.1)。
+ * 新しい event 型が増えても dedup の書き忘れが構造的に起きない。
+ *
+ * 処理順序と失敗時の保証:
+ *
+ * 1. `findByEventId` が既存 row を返す → **handler を呼ばず** retry_count を +1 して return。
+ *    呼び出し元 (`+server.ts`) は 200 を返す (4xx/5xx は Stripe の retry を誘発する、§2)。
+ * 2. 未処理 → handler を実行し、**完了後に** dedup row を insert する。
+ *    - handler が throw した場合は row を insert せず例外を伝播する。次回到達で再処理され、
+ *      呼び出し元は 500 を返して Stripe の retry に載る (§2 が transaction で担保しようとした
+ *      「row 書込み失敗 = 次回再実行」を、insert を後段に置くことで満たす)。
+ *    - 設計書 §4.2 の選択肢 A (handler 失敗時も row を insert し 200 を返す) は**採らない**。
+ *      A は一過性の障害 (DB / Stripe API の瞬断) で event を恒久的に失う。実際 2026-07-26 の
+ *      配信失敗 22 分は Stripe の再送で復旧しており、retry 経路を潰す副作用の方が大きい。
+ *      結果として `stripe_webhook_events` は「**完了した** event の台帳」を意味する。
+ *
+ * 単一 tenant の契約状態を書く側のガード (event 対象と現行契約の突合) は別レイヤーの防御であり、
+ * 本 dedup はそれを代替しない (逆も同じ)。
+ */
 export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
+	const webhookEvents = getRepos().webhookEvent;
+
+	const existing = await webhookEvents.findByEventId(event.id);
+	if (existing) {
+		await webhookEvents.incrementRetryCount(event.id);
+		logger.info(
+			`[STRIPE] Duplicate webhook event skipped: ${event.id} type=${event.type} ` +
+				`retry=${existing.retryCount + 1} firstResult=${existing.handlerResult}`,
+		);
+		return;
+	}
+
+	const handlerResult = await dispatchWebhookEvent(event);
+
+	await webhookEvents.insert({
+		eventId: event.id,
+		eventType: event.type,
+		processedAt: new Date().toISOString(),
+		handlerResult,
+		errorMessage: null,
+		retryCount: 0,
+		tenantId: resolveEventTenantId(event),
+	});
+}
+
+/**
+ * event 型ごとの handler dispatch (dedup 判定を通過した初回到達のみ到達する)。
+ *
+ * @returns 未購読 event 型なら `'skipped'`、購読済なら `'success'` (例外は伝播する)
+ */
+async function dispatchWebhookEvent(event: Stripe.Event): Promise<'success' | 'skipped'> {
 	switch (event.type) {
 		case 'checkout.session.completed':
 			await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
-			break;
+			return 'success';
 		case 'invoice.paid':
 			await handleInvoicePaid(event.data.object as Stripe.Invoice);
-			break;
+			return 'success';
 		case 'invoice.payment_failed':
 			await handlePaymentFailed(event.data.object as Stripe.Invoice);
-			break;
+			return 'success';
 		case 'customer.subscription.updated':
 			await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-			break;
+			return 'success';
 		case 'customer.subscription.deleted':
 			await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-			break;
+			return 'success';
 		default:
 			logger.info(`[STRIPE] Unhandled event type: ${event.type}`);
+			return 'skipped';
 	}
+}
+
+/**
+ * dedup row の analytics 属性 `tenant_id` を payload から解決する (解決不能なら null)。
+ *
+ * PII は載せない (interface SSOT)。tenant を payload に持つのは checkout のみで、他の event 型は
+ * subscription / customer から DB 逆引きする必要があるため、ここでは解決しない。
+ */
+function resolveEventTenantId(event: Stripe.Event): string | null {
+	if (event.type === 'checkout.session.completed') {
+		return (event.data.object as Stripe.Checkout.Session).metadata?.tenantId ?? null;
+	}
+	return null;
 }
 
 // --- Webhook handlers ---

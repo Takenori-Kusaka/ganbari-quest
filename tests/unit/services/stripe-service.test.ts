@@ -9,12 +9,26 @@ const mockFindTenantById = vi.fn();
 const mockUpdateTenantStripe = vi.fn();
 const mockFindTenantByStripeCustomerId = vi.fn();
 
+// #3985: `handleWebhookEvent` は dispatcher 入口で event.id dedup 台帳を参照する。
+// 本 file の関心は **handler の意味論** (どの列をどう書くか / 到着順の収束) であり、
+// dedup そのものではないため、ここでは「常に未処理」を返す stub を渡して handler を毎回走らせる
+// (fixture の多くが event.id を持たない複数 event を連続投入するため)。
+// dedup の挙動 (5 handler の重複到達 = 副作用 1 回 / retryCount / 失敗時の非記録) は
+// `tests/unit/services/stripe-webhook-dedup.test.ts` が実 repo 実装で検証する。
+const mockWebhookEventInsert = vi.fn();
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findTenantById: mockFindTenantById,
 			updateTenantStripe: mockUpdateTenantStripe,
 			findTenantByStripeCustomerId: mockFindTenantByStripeCustomerId,
+		},
+		webhookEvent: {
+			findByEventId: async () => null,
+			insert: (...args: unknown[]) => mockWebhookEventInsert(...args),
+			incrementRetryCount: async () => {},
+			deleteOlderThan: async () => 0,
 		},
 	}),
 }));
