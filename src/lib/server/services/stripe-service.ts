@@ -307,6 +307,19 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 	}
 	const { tenant, subscription } = context;
 
+	// #3982: Stripe は配信順序を保証しないため、解約後に当期分の invoice.paid が**後着**し得る。
+	// `subscription` は Stripe から retrieve した現行状態なので、terminal ならその契約は
+	// 二度と復活しない (Stripe 仕様)。ここで ACTIVE を書くと `customer.subscription.deleted` が
+	// 確定させた終端状態を巻き戻し、**解約済みテナントが課金中として復活する**。
+	// 到着順に依らず終端へ収束させるため skip する (#3960 と同じ「現行 subscription が SSOT」原則)。
+	if (isSubscriptionTerminal(subscription)) {
+		logger.warn(
+			`[STRIPE] invoice.paid — subscription が終端状態 (${subscription.status}) のため状態を更新しません: ` +
+				`tenant=${tenant.tenantId} subscription=${subscription.id}`,
+		);
+		return;
+	}
+
 	// #3960: plan は invoice の line item から推測せず、**subscription の現行 price** を SSOT とする。
 	//
 	// 旧実装は `invoice.lines.data[0]` を盲目参照していた。プラン変更 (proration) の invoice は
@@ -334,10 +347,21 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	const subscriptionId = extractSubscriptionId(invoice);
 	if (!subscriptionId) return;
 
-	const tenant = (await resolveSubscriptionContext(subscriptionId))?.tenant;
-	if (!tenant) {
+	const context = await resolveSubscriptionContext(subscriptionId);
+	if (!context) {
 		logger.warn(
 			`[STRIPE] invoice.payment_failed — tenant not found for subscription=${subscriptionId}`,
+		);
+		return;
+	}
+	const { tenant, subscription } = context;
+
+	// #3982: invoice.paid と同様、解約後に後着した payment_failed で
+	// 終端状態 (suspended + subscription 参照なし) を grace_period へ巻き戻さない。
+	if (isSubscriptionTerminal(subscription)) {
+		logger.warn(
+			`[STRIPE] invoice.payment_failed — subscription が終端状態 (${subscription.status}) のため状態を更新しません: ` +
+				`tenant=${tenant.tenantId} subscription=${subscription.id}`,
 		);
 		return;
 	}
@@ -362,6 +386,25 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 		? await getRepos().auth.findTenantById(tenantId)
 		: (await resolveSubscriptionContext(subscription.id))?.tenant;
 	if (!tenant) return;
+
+	// #3982: `customer.subscription.deleted` と `customer.subscription.updated` (status=canceled) は
+	// 解約時に**両方**飛び、Stripe は到着順を保証しない。updated 側が後着したときに plan だけ
+	// 書き戻すと「subscription 参照なし・plan あり」という DB 上ありえない組み合わせが残る。
+	// canceled は Stripe 上 revert しない終端状態なので、**deleted と同じ終端状態へ収束**させる。
+	// これで deleted→updated / updated→deleted のどちらの順序でも最終状態が一致する。
+	if (isSubscriptionTerminal(subscription)) {
+		await clearSubscriptionAssignment(tenant.tenantId);
+		logger.info(
+			`[STRIPE] Subscription updated (terminal=${subscription.status}): ` +
+				`tenant=${tenant.tenantId} — subscription 参照と plan をクリアし suspended へ収束`,
+		);
+		notifyBillingEvent(
+			tenant.tenantId,
+			'subscription_updated',
+			`status=${SUBSCRIPTION_STATUS.SUSPENDED}, plan=cleared`,
+		).catch(() => {});
+		return;
+	}
 
 	const plan = resolvePlanFromSubscription(subscription);
 
@@ -397,12 +440,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 		: (await resolveSubscriptionContext(subscription.id))?.tenant;
 	if (!tenant) return;
 
-	const repos = getRepos();
-	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		stripeSubscriptionId: undefined,
-		plan: undefined,
-		status: SUBSCRIPTION_STATUS.SUSPENDED,
-	});
+	await clearSubscriptionAssignment(tenant.tenantId);
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);
 
@@ -412,6 +450,49 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 // ============================================================
 // Helpers
 // ============================================================
+
+/**
+ * Stripe subscription の **終端状態** (#3982)。
+ *
+ * この 2 値は Stripe 上で二度と他の status に戻らない (公式: Subscription lifecycle)。
+ * よって「この subscription はもう契約として存在しない」ことが確定した印として使える。
+ *
+ * Stripe は webhook の配信順序を保証しないため、解約後に `invoice.paid` /
+ * `invoice.payment_failed` / `customer.subscription.updated` が後着し得る。
+ * 終端状態を検出したハンドラは、契約ありきの状態 (ACTIVE / GRACE_PERIOD / plan) を
+ * **書き戻さない**。これにより到着順に依らず最終状態が一致する。
+ *
+ * `paused` / `unpaid` / `incomplete` は復帰し得るため終端に含めない。
+ */
+const TERMINAL_SUBSCRIPTION_STATUSES = [
+	'canceled',
+	'incomplete_expired',
+] as const satisfies readonly Stripe.Subscription.Status[];
+
+function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
+	return (TERMINAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(subscription.status);
+}
+
+/**
+ * subscription 参照と plan を解除し、テナントを解約済み終端状態にする (#3982)。
+ *
+ * 旧 `handleSubscriptionDeleted` は `undefined` を渡していたが、`updateTenantStripe` の
+ * 部分更新セマンティクス (undefined = その列を更新しない) により **両方とも no-op** だった。
+ * 結果 `stripe_subscription_id` が解約後も残り、`createCheckoutSession()` の
+ * `if (tenant.stripeSubscriptionId)` ガードが ALREADY_SUBSCRIBED を返して
+ * **再購読導線が塞がっていた**。クリアは `null` (= NULL を書く) で表現する。
+ *
+ * `stripeCustomerId` は意図的に残す: 同一顧客の再購読で Stripe customer を再利用するため
+ * (`resolveSubscriptionContext` の customer 逆引きの鍵でもあり、消すと後続 webhook が
+ * tenant を解決できなくなる)。
+ */
+async function clearSubscriptionAssignment(tenantId: string): Promise<void> {
+	await getRepos().auth.updateTenantStripe(tenantId, {
+		stripeSubscriptionId: null,
+		plan: null,
+		status: SUBSCRIPTION_STATUS.SUSPENDED,
+	});
+}
 
 /** Invoice から subscription ID を抽出（Stripe SDK v21: parent.subscription_details） */
 function extractSubscriptionId(invoice: Stripe.Invoice): string | undefined {
