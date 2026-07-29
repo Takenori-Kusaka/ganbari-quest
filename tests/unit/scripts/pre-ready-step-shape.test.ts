@@ -17,6 +17,11 @@
  * 経由で実関数を呼ぶ (svelte-check の型 program に取り込ませないため)。
  */
 
+// cspell:ignore skipkind statik
+// 上記は意図的な負例 fixture。`no-skipkind-step` は skipKind を欠いた step 名、`statik` は
+// costClass の typo を再現するための値であり、綴りを直すと negative case が成立しなくなる
+// (= 登録漏れ / typo を検出できないことを検出できなくなる)。tests/CLAUDE.md §負例 fixture と cspell。
+
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

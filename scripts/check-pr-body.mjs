@@ -275,6 +275,7 @@ export function checkAcMap(body) {
 export function extractEvidencePrNumbers(body) {
 	const section = extractAcMapSection(body);
 	if (!section) return [];
+	/** @type {number[]} */
 	const found = [];
 	for (const m of section.matchAll(/--pr[=\s]+(\d+)\b/g)) {
 		const n = Number(m[1]);

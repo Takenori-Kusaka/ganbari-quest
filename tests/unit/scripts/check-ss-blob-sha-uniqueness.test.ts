@@ -58,7 +58,8 @@ function canonicalBody(extra = ''): string {
 /** path → sha を返す fetch mock。 */
 function shaFetcher(shaByPath: Record<string, string>): typeof fetch {
 	return (async (url: string) => {
-		const path = decodeURIComponent(String(url).split('/contents/')[1].split('?')[0]);
+		const afterContents = String(url).split('/contents/')[1] ?? '';
+		const path = decodeURIComponent(afterContents.split('?')[0] ?? '');
 		const sha = shaByPath[path];
 		if (!sha) throw new Error(`fixture に sha 未定義: ${path}`);
 		return { ok: true, status: 200, statusText: 'OK', json: async () => ({ sha }) };

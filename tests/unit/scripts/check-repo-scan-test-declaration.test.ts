@@ -56,7 +56,7 @@ function runGate(
 ) {
 	return checkRepoScanTestDeclarations({
 		files: Object.keys(files),
-		readFile: (p) => files[p],
+		readFile: (p) => files[p] ?? '',
 		registry,
 	});
 }
@@ -69,9 +69,9 @@ describe('#4085 repo 走査 test の区分宣言 gate', () => {
 		);
 		const undeclared = violations.filter((v) => v.id === 'undeclared');
 		expect(undeclared).toHaveLength(1);
-		expect(undeclared[0].path).toBe('tests/unit/x/new-scan.test.ts');
+		expect(undeclared[0]?.path).toBe('tests/unit/x/new-scan.test.ts');
 		// 貼り付け用のエントリを出して「どう直すか」を示す
-		expect(undeclared[0].message).toContain("scope: 'repo'");
+		expect(undeclared[0]?.message).toContain("scope: 'repo'");
 	});
 
 	it('[R2] scope=repo で明示 timeout が無ければ fail (例3 / 例4 の再発を止める)', () => {
@@ -82,7 +82,7 @@ describe('#4085 repo 走査 test の区分宣言 gate', () => {
 			},
 		);
 		expect(violations.map((v) => v.id)).toContain('missing-timeout');
-		expect(violations[0].message).toContain(String(MIN_REPO_SCAN_TIMEOUT_MS));
+		expect(violations[0]?.message).toContain(String(MIN_REPO_SCAN_TIMEOUT_MS));
 	});
 
 	it('[R3] scope=repo + 明示 timeout なら pass', () => {

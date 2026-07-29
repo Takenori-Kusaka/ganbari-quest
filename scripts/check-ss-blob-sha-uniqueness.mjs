@@ -51,7 +51,7 @@ const RAW_GITHUB_PATTERN =
 export function extractScreenshotRefs(body) {
 	const refs = [];
 	for (const m of body.matchAll(RAW_GITHUB_PATTERN)) {
-		const [url, owner, repo, ref, path] = m;
+		const [url, owner = '', repo = '', ref = '', path = ''] = m;
 		if (ref !== 'screenshots') continue;
 		refs.push({ owner, repo, ref, path, url });
 	}
@@ -138,7 +138,7 @@ const STUB_REASONS = new Set([
 export function parseReasonDeclaration(body, key) {
 	const m = body.match(new RegExp(`<!--\\s*${key}\\s*:([^>]*?)-->`));
 	if (!m) return { present: false, reason: '', valid: false };
-	const reason = m[1].trim();
+	const reason = (m[1] ?? '').trim();
 	const normalized = reason.toLowerCase();
 	const valid =
 		reason.length >= MIN_REASON_LENGTH &&
@@ -162,11 +162,11 @@ export function parseReasonDeclaration(body, key) {
 export function parsePairDeclarations(body) {
 	const prefixes = [];
 	for (const m of body.matchAll(/<!--\s*ss-pair-prefix\s*:\s*before=(\S+)\s+after=(\S+)\s*-->/g)) {
-		prefixes.push({ before: m[1], after: m[2] });
+		prefixes.push({ before: m[1] ?? '', after: m[2] ?? '' });
 	}
 	const explicit = [];
 	for (const m of body.matchAll(/<!--\s*ss-pair\s*:\s*before=(\S+)\s+after=(\S+)\s*-->/g)) {
-		explicit.push({ before: toScreenshotPath(m[1]), after: toScreenshotPath(m[2]) });
+		explicit.push({ before: toScreenshotPath(m[1] ?? ''), after: toScreenshotPath(m[2] ?? '') });
 	}
 	return { prefixes, explicit };
 }
@@ -181,7 +181,7 @@ function toScreenshotPath(value) {
 	const m = value.match(
 		/https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/screenshots\/([^\s)]+)/,
 	);
-	return m ? m[1] : value;
+	return m?.[1] ?? value;
 }
 
 /**
@@ -240,12 +240,13 @@ export function pairScreenshots(paths, decls = { prefixes: [], explicit: [] }) {
  * Actions runner では `GH_TOKEN` / `GITHUB_TOKEN` 経由で自動認証。
  *
  * @param {{ owner: string; repo: string; ref: string; path: string }} loc
- * @param {typeof fetch} [fetcher] — DI 用 (test では mock)
+ * @param {typeof fetch} [fetcher] - DI 用 (test では mock)
  * @returns {Promise<string>}
  */
 export async function fetchBlobSha(loc, fetcher = fetch) {
 	const { owner, repo, ref, path } = loc;
 	const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ref)}`;
+	/** @type {Record<string, string>} */
 	const headers = {
 		Accept: 'application/vnd.github+json',
 		'X-GitHub-Api-Version': '2022-11-28',
@@ -327,7 +328,10 @@ export const PR_2054_SENTINEL_FIXTURE = Object.freeze({
  * 本体処理。fetcher を DI 可能にして test で mock 注入する。
  *
  * @param {{ body: string; labels: string[]; fetcher?: typeof fetch }} input
- * @returns {Promise<{ status: 'pass' | 'fail' | 'skip'; reason: string; violations?: Array<{ key: string; before: string; after: string; sha: string }> }>}
+ * @returns {Promise<{ status: 'pass' | 'fail' | 'skip'; reason: string;
+ *   violations?: Array<{ key: string; before: string; after: string; sha: string }>;
+ *   acknowledgedIdenticalPairs?: Array<{ key: string; before: string; after: string; sha: string }>;
+ *   pairingHelp?: boolean }>}
  */
 export async function checkSsBlobShaUniqueness({ body, labels, fetcher = fetch }) {
 	// AC3: label exempt
@@ -435,7 +439,10 @@ async function main() {
 	try {
 		result = await checkSsBlobShaUniqueness({ body: PR_BODY, labels: PR_LABELS });
 	} catch (err) {
-		console.error('[ss-blob-sha-uniqueness] internal error:', err.message);
+		console.error(
+			'[ss-blob-sha-uniqueness] internal error:',
+			err instanceof Error ? err.message : String(err),
+		);
 		return 2;
 	}
 
@@ -484,8 +491,9 @@ async function main() {
 		return isError ? 1 : 0;
 	}
 
+	const violations = result.violations ?? [];
 	console.log(`\nSS forging detected (Blob SHA 完全一致):`);
-	for (const v of result.violations) {
+	for (const v of violations) {
 		console.log(`  - ${v.before} == ${v.after} (SHA: ${v.sha})`);
 	}
 	console.log(
@@ -504,7 +512,7 @@ async function main() {
 			`     理由が空 / TODO 等の定型 stub では受理しません (#4084 AC3 / #3956)。`,
 	);
 	console.log(
-		`\n[${prefix.replace(/[[\]]/g, '')}] mode=${MODE}, violations=${result.violations.length} ` +
+		`\n[${prefix.replace(/[[\]]/g, '')}] mode=${MODE}, violations=${violations.length} ` +
 			`(${isError ? 'CI を red にします' : '段階適用中: warning として記録、CI は通過させます'})`,
 	);
 

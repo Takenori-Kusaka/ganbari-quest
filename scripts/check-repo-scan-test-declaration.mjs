@@ -95,7 +95,7 @@ export function analyzeTestSource(source) {
 	const scope = usesScanApi && REPO_ROOT_DIR_PATTERN.test(source) ? 'repo' : 'bounded';
 	let maxTimeoutMs = 0;
 	for (const m of source.matchAll(EXPLICIT_TIMEOUT_PATTERN)) {
-		const value = Number(m[1].replace(/_/g, ''));
+		const value = Number((m[1] ?? '').replace(/_/g, ''));
 		if (Number.isFinite(value)) maxTimeoutMs = Math.max(maxTimeoutMs, value);
 	}
 	return { usesScanApi, scope, maxTimeoutMs };
