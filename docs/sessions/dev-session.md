@@ -141,7 +141,7 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 | # | 指摘 class | 発生 PR | 現在の防御 |
 |---|-----------|---------|-----------|
 | 1 | `po-decision:required` label 付きなのに PO 決裁ブリーフが PR body にない | #3944 / #3956 | **機械 gate**: `scripts/check-pr-body.mjs` の `checkPoDecisionBrief`（pre-ready Readiness gate step に内蔵）。見出し欠落 / mermaid 欠落 / 未置換 `___` を fail させる |
-| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 | レビュー観点（下記） |
+| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 / #3978 | **機械 gate**: `scripts/check-readdir-rotation-guard.mjs`（pre-ready Step 7e + CI `lint-and-test`）。`readdir` の緩い一致 × 近接する破壊的操作を検出。別 class なら `rotation-gate-ok: <理由>` で明示的に opt-out する + レビュー観点（下記） |
 | 3 | guard の fixture が「規則に従うデータ」だけで、規則から外れた実在物を含まない | #3956 | レビュー観点（下記） |
 
 **2 の観点 — 命名規則のあるファイル名・ID・key を判定するときは、prefix/suffix 一致ではなく正規表現の完全一致で書く。** 生成側にも同じパターンの assert を置き、命名変更時に silent に壊れないようにする。#3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた。
