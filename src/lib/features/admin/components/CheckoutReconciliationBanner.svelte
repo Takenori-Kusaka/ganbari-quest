@@ -14,6 +14,7 @@
  */
 import { onMount } from 'svelte';
 import { invalidateAll, replaceState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import type {
 	CheckoutReconciliationResult,
@@ -68,9 +69,7 @@ onMount(() => {
 	// URL 更新後に再読込することで、ヘッダー等の他 load も反映後の状態に揃う。
 	if (!terminal || !page.url.searchParams.has('session_id')) return;
 	pinned = status;
-	const next = new URL(page.url);
-	next.searchParams.delete('session_id');
-	replaceState(next, page.state);
+	replaceState(resolve('/admin/subscription'), page.state);
 	void invalidateAll();
 });
 </script>
