@@ -353,15 +353,19 @@ function run(file, args) {
 }
 
 /**
+ * @typedef {{ number: number; title?: string; headRefName?: string; labels?: Array<string|{name:string}>; mergedAt?: string; body?: string }} PrMeta
+ */
+
+/**
  * PR メタデータを gh から取得する (CLI 専用)。
  * base=develop の merged PR を一括取得し、取りこぼした番号のみ個別 fetch する。
  *
  * @param {number[]} numbers
- * @returns {Array<Record<string, unknown>>}
+ * @returns {PrMeta[]}
  */
 function fetchPrsViaGh(numbers) {
 	const fields = 'number,title,headRefName,labels,mergedAt,body';
-	/** @type {Map<number, Record<string, unknown>>} */
+	/** @type {Map<number, PrMeta>} */
 	const found = new Map();
 	const bulk = JSON.parse(
 		run('gh', [
@@ -433,6 +437,7 @@ if (isMain) {
 		const driftDays = anchorIso ? computeDriftDays(anchorIso, nowIso) : 0;
 
 		// 3. PR メタデータを取得し、git 側の実数と突き合わせる。
+		/** @type {PrMeta[]} */
 		const prs = args.prs
 			? JSON.parse(readFileSync(args.prs, 'utf8'))
 			: fetchPrsViaGh(mergedPrNumbers);
