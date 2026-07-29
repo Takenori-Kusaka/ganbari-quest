@@ -11,19 +11,27 @@
  *   の存在 + TTL (30 分) + schema 必須 field 充足を検証する。検証 fail なら exit 2 で
  *   approve action を物理 block する。
  *
- * 対象経路 (#4001):
- *   Bash だけでなく **コマンド実行系ツール全経路** (SSOT: ./command-execution-tools.mjs)。
+ * 対象経路 (#4001 / #4082 R1):
+ *   Bash だけでなく **任意の副作用を起こしうるツール全経路** (SSOT: ./command-execution-tools.mjs)。
  *   matcher が `"Bash"` だけだった間、PowerShell ツールで同じコマンドを叩けば gate が
- *   起動せず素通しできた (gate bypass)。判別できない入力は allow ではなく block する。
+ *   起動せず素通しできた (gate bypass)。判定軸は「shell か」ではなく「任意の副作用を
+ *   起こせるか」であり、汎用コード実行 MCP も対象に含む。判別できない入力は allow ではなく block。
+ *
+ * 検出の原則 (#4057):
+ *   approve 行為の識別は **PR 番号の書き方に依存させない**。`pulls/<ref>/{reviews,merge}` は
+ *   ref がリテラルでも変数展開 (`$n`) でもコマンド置換でも approve として捕捉し、番号を
+ *   確定できない場合は block する (「番号が取れない = 検証不能 = 通さない」)。
  *
  * 設計根拠 (Research SSOT §5.1 / §5.2):
  *   - arXiv:2511.09710 で structured response schema 強制が echoing 30-40% → <10% を実証
  *   - Sleeper Agents (Hubinger 2024): instruction 経由の役割強化は drift trigger に対処できない
  *     → agent 内部自覚に依存せず Bash command を物理 block する hook が必要
  *
- * Recursive loop 防止:
+ * Recursive loop 防止 (#4082 R2 で範囲を絞った):
  *   `process.env.CLAUDE_SUBAGENT_ID` 存在時 (Adversarial Reviewer subagent context) は
- *   無条件 allow。subagent が evidence 生成中に approve 系コマンドを叩いても block されない。
+ *   **読み取り専用の review 参照だけ** allow する。旧実装は無条件 allow だったため、この env が
+ *   立った context ではどのツール経由でも approve が素通りした。loop 防止に必要なのは
+ *   「evidence 生成のために review を読む」ことだけなので、mutation は subagent でも block する。
  *
  * 入力 (stdin, JSON):
  *   {
