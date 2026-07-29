@@ -204,6 +204,19 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 - `ChildSelectionDialog` の取込確定ボタンは `confirmLoading` prop で本機構を内包する。marketplace 取込 4 type (`?import=` 受領 admin 画面) の `handleChildSelectionConfirm` 中は `confirmLoading={isImporting}` + `closeOnConfirm={false}` で「取込実行中」を表示し、完了後 (finally) に親が `open=false` する
 - 旧 `components/LoadingButton.svelte` は文言固定の限定 variant。新規実装は `Button` の `loading` prop を優先する
 
+### Dialog の `closable` / `closeOnEscape`（#4050）
+
+Dialog を「閉じさせない」modal（強制オンボーディング等）にするには **2 つの prop を両方 false にする**。`closable` は × ボタンの描画と外側クリック (`closeOnInteractOutside`) のみを制御し、Esc キーは zag-js の別 prop (`closeOnEscape`、既定 true) が担うため、`closable={false}` だけでは Esc でバイパスできてしまう。
+
+```svelte
+<!-- おやカギコード初回作成 modal: 作成完了まで閉じさせない -->
+<Dialog bind:open closable={false} closeOnEscape={false} title="…">…</Dialog>
+```
+
+- 既定は `closable=true` / `closeOnEscape=true`（他 modal の挙動は不変。opt-in で無効化する）
+- **閉じさせない modal は「出口」を必ず用意する**: 閉じられない = 完了操作だけが唯一の出口になるため、その操作が失敗しても回復できること（エラー表示 + 再入力）を確認する
+- Esc / 外側クリックの close 挙動は Ark UI のグローバル listener 依存で jsdom / Storybook vitest では非決定のため、回帰検証は Playwright 層で行う（`tests/CLAUDE.md` §Storybook interaction test 整合）
+
 ### FormField の `type` 一覧（#1191）
 
 `<input>` / `<textarea>` 直書きの代替として `FormField.svelte` が以下 variant を提供する。

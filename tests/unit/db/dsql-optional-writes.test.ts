@@ -2,8 +2,11 @@
 // EPIC #3424 / 実装 #3541 (#N4-2 Phase C cycle 2) / 設計 SSOT: dsql-data-model.md §8 / §13.1 fitness#10,#11
 //
 // optional 書込の隔離 3 点セット (§8: optional は core commit 後の独立 mini-txn):
-//   1. grantOptionalPoints: optional の point 付与も「point_ledger INSERT + total_point 加算」を
-//      1 txn にする (§5 P7 不変条件を core/optional 問わず維持 → fitness#14 が 0 drift)
+//   1. optional の point 付与も「point_ledger INSERT + total_point 加算」を 1 txn にする
+//      (§5 P7 不変条件を core/optional 問わず維持 → fitness#14 が 0 drift)。
+//      #4039: 検証対象を point 書込単一プリミティブ createPointEntryWriter に統一した
+//      (旧 grantOptionalPoints は本 writer と同義の重複プリミティブで、live な optional 経路は
+//       元から本 writer を通っていたため撤去。不変条件のカバレッジは本 test が引き継ぐ)
 //   2. fitness#10 (TOCTOU 防止): mission bonus は count-then-insert だと double-tap/OCC 下で
 //      二重付与 (fitness#14 は self-consistent で検出不能)。daily_missions の自然複合 PK 行への
 //      conditional UPDATE (completed=false→true) を serialization point にし、
@@ -12,7 +15,7 @@
 //      行が書かれない欠落は fitness#14 drift=0 で検出不能 → 失敗時に観測カウンタを emit
 //
 // ── Canon TDD test list ──
-//   [O1] grantOptionalPoints: ledger + total_point が 1 txn (drift 0)
+//   [O1] optional 付与: ledger + total_point が 1 txn (drift 0)
 //   [O2] 対象 child 不在 → throw + ledger も rollback (total_point 共更新不能な片肺書込を禁止)
 //   [F10-1] 同一 mission への二連打: completed 遷移 1 回のみ、bonus 1 回のみ
 //   [F10-2] 複数 mission: 最後の 1 件を flip した呼び出しだけが daily bonus を付与
@@ -25,6 +28,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000e1';
 const NOW = '2026-07-02T10:00:00+00:00';
@@ -97,43 +101,32 @@ describe('#N4-2 cycle2: optional 書込の隔離 (§8 / fitness#10,#11)', () => 
 			)
 		).rows as { amount: number }[];
 
-	it('[O1] grantOptionalPoints: ledger INSERT + total_point 加算が 1 txn (§5 P7)', async () => {
-		const { grantOptionalPoints } = await import(
-			'../../../src/lib/server/db/dsql/grant-optional-points'
-		);
+	const optionalPointWriter = async () => {
+		const { createPointEntryWriter } = await import('../../../src/lib/server/db/dsql/point-write');
+		return createPointEntryWriter(await makeRunner());
+	};
+
+	it('[O1] optional 付与: ledger INSERT + total_point 加算が 1 txn (§5 P7)', async () => {
 		const { findTotalPointDrift } = await import('../../../src/lib/server/db/dsql/derived-drift');
 		const { childId } = await newIds();
-		await grantOptionalPoints(await makeRunner(), {
-			familyId: FAMILY,
-			childId,
-			amount: 7,
-			type: 'combo_bonus',
-			description: 'コンボ',
-			referenceId: null,
-			recordedDate: TODAY,
-			now: NOW,
-		});
+		const grant = await optionalPointWriter();
+		await grant(
+			{ childId: asChildId(childId), amount: 7, type: 'combo_bonus', description: 'コンボ' },
+			FAMILY,
+		);
 		expect(await totalPoint(childId)).toBe(7);
 		expect(await ledgerRows(childId, 'combo_bonus')).toHaveLength(1);
 		expect(await findTotalPointDrift(db)).toEqual([]);
 	});
 
 	it('[O2] 対象 child 不在 → throw + ledger も rollback (片肺書込禁止)', async () => {
-		const { grantOptionalPoints } = await import(
-			'../../../src/lib/server/db/dsql/grant-optional-points'
-		);
 		const ghost = 'd9999999-0000-4000-8000-000000000999';
+		const grant = await optionalPointWriter();
 		await expect(
-			grantOptionalPoints(await makeRunner(), {
-				familyId: FAMILY,
-				childId: ghost,
-				amount: 5,
-				type: 'combo_bonus',
-				description: 'x',
-				referenceId: null,
-				recordedDate: TODAY,
-				now: NOW,
-			}),
+			grant(
+				{ childId: asChildId(ghost), amount: 5, type: 'combo_bonus', description: 'x' },
+				FAMILY,
+			),
 		).rejects.toThrow();
 		expect(await ledgerRows(ghost, 'combo_bonus')).toHaveLength(0);
 	});

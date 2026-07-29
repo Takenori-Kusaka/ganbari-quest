@@ -514,9 +514,135 @@ export function orderSteps(steps) {
 /**
  * 各 Step は { name, label, runner, fixHint, skip? } を返す。
  * runner は () => Promise<number> (exit code)。
+ */
+/**
+ * step の skip 理由を分類する (#4018)。
+ *
+ * `--skip-*` flag による明示 skip と、変更内容に依存する自動 skip (LP を触っていないので
+ * LP 検査は適用対象外、等) を同じ配列に混ぜると、**LP を触らない PR は原理的に ALL PASS を
+ * 表示できなくなる**。summary 自身が「Ready 化には skip なしの全 step PASS が必要」と書くため、
+ * 到達不能な条件を Ready 化要件として提示する状態になっていた (実測: PR #3996 / merge 済 #4011)。
+ *
+ * 分類:
+ *   - `flag`           `--skip-*` を明示指定した。開発中の部分確認であり ALL PASS を名乗らない (#3649 の意図)
+ *   - `script-missing` 検査 script 自体が未配備。gate が存在しないので ALL PASS を名乗らない
+ *   - `pr-missing`     **前提 (`--pr <num>`) が未充足**で Readiness gate 系を実行できていない。
+ *                      「内容的に適用対象外」ではなく「Ready 化に必須の gate を回していない」ので
+ *                      **ALL PASS を名乗らない** (下記「n/a と pr-missing の線引き」参照)
+ *   - `n/a`            変更内容が検査の適用対象外。**ALL PASS を妨げない**
+ *
+ * 優先順位は flag > script-missing > pr-missing > n/a。明示 skip したのに「適用対象外」と
+ * 表示すると skip した事実が summary から消えるため。
+ *
+ * ### n/a と pr-missing の線引き (#4018 QM 指摘、本 script の中核)
+ *
+ * `!lpChanged` / `!uiChanged` 等の条件 skip は「LP を触っていないので LP 検査は不要」であり、
+ * 実行者が何をしても満たせない到達不能条件ではない = ALL PASS を妨げてはならない (本 Issue の主目的)。
+ *
+ * 一方 `--pr` 未指定は「Ready 化に必須の前提を実行者が渡していない」だけであり、`--pr <num>` を
+ * 渡せば必ず実行できる。ここを n/a にすると `npm run pre-ready` (`--pr` なし) が Readiness gate
+ * (check-pr-body = Ready checklist / AC 4 列 / forbidden-terms / mergeable 判定) を一度も回さずに
+ * 「ALL PASS — Ready for Review に進めます」と案内してしまい、**gate を素通りする新しい抜け穴**に
+ * なる (ADR-0060「チケット close ≠ 完了」と同型の self-report 汚染)。よって別分類にして blocking 側に置く。
+ *
+ * @param {{ byFlag?: boolean; scriptMissing?: boolean; prMissing?: boolean; notApplicable?: boolean }} reasons
+ * @returns {{ skip: boolean; skipKind: 'flag' | 'script-missing' | 'pr-missing' | 'n/a' | null }}
+ */
+export function skipStateOf({
+	byFlag = false,
+	scriptMissing = false,
+	prMissing = false,
+	notApplicable = false,
+}) {
+	if (byFlag) return { skip: true, skipKind: 'flag' };
+	if (scriptMissing) return { skip: true, skipKind: 'script-missing' };
+	if (prMissing) return { skip: true, skipKind: 'pr-missing' };
+	if (notApplicable) return { skip: true, skipKind: 'n/a' };
+	return { skip: false, skipKind: null };
+}
+
+/**
+ * 最終 summary の文言と判定を組み立てる (#4018)。
+ *
+ * 判定は 2 値:
+ *   - `ALL_PASS`     実行すべき step を全て実行して PASS した。適用対象外 (n/a) があっても妨げない
+ *   - `PARTIAL_PASS` 明示 skip / 検査 script 未配備 / `--pr` 未指定で「実行すべきだったのに
+ *                    実行していない」step がある
+ *
+ * console.log を持たない純関数にしてあるのは、AC1〜AC3 (適用対象外のみなら ALL PASS /
+ * flag 指定なら PARTIAL PASS / 両者を別行表示) を全 step を回さずに unit test で固定するため。
+ *
+ * @param {{ totalSteps: number; skippedByFlag: string[]; skippedScriptMissing: string[];
+ *           skippedPrMissing?: string[]; skippedNotApplicable: string[];
+ *           failOpenCount?: number; pr?: string | null }} input
+ * @returns {{ status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string }}
+ */
+export function buildSummary({
+	totalSteps,
+	skippedByFlag,
+	skippedScriptMissing,
+	skippedPrMissing = [],
+	skippedNotApplicable,
+	failOpenCount = 0,
+	pr = null,
+}) {
+	// 適用対象外 (n/a) は「実行しなくてよいので実行していない」であり ALL PASS を妨げない。
+	const notApplicableLine =
+		skippedNotApplicable.length > 0
+			? `  適用対象外 ${skippedNotApplicable.length} step (${skippedNotApplicable.join(', ')}) — 変更内容が検査対象を含まないため未実行 (#4018)\n`
+			: '';
+
+	// #3649: --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は開発中の
+	// 部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には skip なし
+	// 実行が必要。検査 script 未配備も「gate が存在しない」ので同様に ALL PASS を名乗らせない。
+	const blocking = [...skippedByFlag, ...skippedScriptMissing, ...skippedPrMissing];
+	if (blocking.length > 0) {
+		const detail = [
+			skippedByFlag.length > 0
+				? `--skip 指定 ${skippedByFlag.length} step (${skippedByFlag.join(', ')})`
+				: null,
+			skippedScriptMissing.length > 0
+				? `検査 script 未配備 ${skippedScriptMissing.length} step (${skippedScriptMissing.join(', ')})`
+				: null,
+			skippedPrMissing.length > 0
+				? `--pr 未指定で Readiness gate ${skippedPrMissing.length} step (${skippedPrMissing.join(', ')})`
+				: null,
+		]
+			.filter(Boolean)
+			.join(' / ');
+		const ran = totalSteps - blocking.length - skippedNotApplicable.length;
+		return {
+			status: 'PARTIAL_PASS',
+			text:
+				`\n[pre-ready] PARTIAL PASS — 実行した ${ran} step は PASS しましたが、` +
+				`${detail} が未実行です。\n` +
+				notApplicableLine +
+				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
+				`  skip なしの \`npm run pre-ready -- --pr ${pr ?? '<num>'}\` 全 step PASS が必要です。\n`,
+		};
+	}
+
+	return {
+		status: 'ALL_PASS',
+		text:
+			`\n[pre-ready] ALL PASS${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+			notApplicableLine +
+			`  次の手順:\n` +
+			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
+			`    2. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
+			`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`,
+	};
+}
+
+/**
+ * step 定義を組み立てる。unit test から skip 分類 (`skipKind`) を配線ごと検証するため export する
+ * (#4018 QM 指摘: `skipStateOf` 単体では「step 定義側が正しい引数を渡しているか」を固定できない)。
+ * unit test は同時に「全 step にコストクラスが登録済」も本 export 経由で検証する (#4048)。
  *
  * **配列の並びは Step 番号順**であり実行順ではない。実行順は `orderSteps` が決める (#4048)。
- * export しているのは unit test が「全 step にコストクラスが登録済」を検証するため。
+ *
+ * @param {Record<string, unknown>} args      parseArgs() の戻り値相当
+ * @param {string[]} changedFiles             base branch との差分ファイル一覧
  */
 export function buildSteps(args, changedFiles) {
 	const lpChanged = changedFiles.some((f) => f.startsWith('site/'));
@@ -562,7 +688,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'biome',
 			label: 'Step 1/12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
-			skip: args.skipBiome,
+			...skipStateOf({ byFlag: args.skipBiome }),
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
 			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
 			// 旧来は `--error-on-warnings` 欠落で local PASS / CI FAIL 乖離が発生していた。
@@ -574,7 +700,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'cspell',
 			label: 'Step 1b/12: cspell (CI lint-and-test と同一コマンド — #3649)',
-			skip: args.skipCspell,
+			...skipStateOf({ byFlag: args.skipCspell }),
 			// #3649: CI lint-and-test の `npm run cspell` (#1432 warning=error) と同一。
 			// pre-ready に本 step が無かった gap により「pre-ready ALL PASS ↔ CI cspell red」の
 			// self-report 乖離が反復 (PR #3647 の Millis 等)。glob は package.json "cspell" が SSOT。
@@ -585,14 +711,14 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'svelte-check',
 			label: 'Step 2/12: svelte-check (TS strict)',
-			skip: args.skipSvelteCheck,
+			...skipStateOf({ byFlag: args.skipSvelteCheck }),
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
 			label: 'Step 3/12: vitest run (unit test)',
-			skip: args.skipVitest,
+			...skipStateOf({ byFlag: args.skipVitest }),
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
 				'  失敗テストを修正。assertion を弱める変更は禁止 (ADR-0006)。\n' +
@@ -601,7 +727,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'hardcoded-strings',
 			label: 'Step 4/12: check-hardcoded-strings.mjs (#1452 Phase A)',
-			skip: args.skipHardcoded,
+			...skipStateOf({ byFlag: args.skipHardcoded }),
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
 				'  baseline (1607 件) より JP ハードコードが増えています。\n' +
@@ -610,7 +736,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'lp-dimensions',
 			label: `Step 5/12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
-			skip: args.skipLpDimensions || !lpChanged,
+			...skipStateOf({ byFlag: args.skipLpDimensions, notApplicable: !lpChanged }),
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
 				'  LP 寸法 / 禁止語の閾値違反 (#1163 ratchet)。\n' +
@@ -621,7 +747,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'lp-fallback',
 			label: `Step 6/12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
-			skip: args.skipLpFallback || !lpFallbackTrigger,
+			...skipStateOf({ byFlag: args.skipLpFallback, notApplicable: !lpFallbackTrigger }),
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
 			fixHint:
 				'  site/*.html の data-lp-key fallback テキストが labels.ts と乖離しています (#1945)。\n' +
@@ -636,7 +762,7 @@ export function buildSteps(args, changedFiles) {
 			label: planLiteralsScriptExists
 				? 'Step 7/12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
 				: 'Step 7/12: check-no-plan-literals.mjs (script 未配備 — skip)',
-			skip: args.skipPlanLiterals || !planLiteralsScriptExists,
+			...skipStateOf({ byFlag: args.skipPlanLiterals, scriptMissing: !planLiteralsScriptExists }),
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
 				'  プラン / ステータスのリテラル直書きが検出されました (#972)。\n' +
@@ -651,7 +777,10 @@ export function buildSteps(args, changedFiles) {
 			label: licenseKeyLeakScriptExists
 				? 'Step 7b/12: check-license-key-leak.mjs (#2836 / Phase 7 PR-L4)'
 				: 'Step 7b/12: check-license-key-leak.mjs (script 未配備 — skip)',
-			skip: args.skipLicenseKeyLeak || !licenseKeyLeakScriptExists,
+			...skipStateOf({
+				byFlag: args.skipLicenseKeyLeak,
+				scriptMissing: !licenseKeyLeakScriptExists,
+			}),
 			runner: () => run('check-license-key-leak', ['node', 'scripts/check-license-key-leak.mjs']),
 			fixHint:
 				'  allowlist 外のコード行に license key 参照を検出しました (#2836)。\n' +
@@ -668,7 +797,7 @@ export function buildSteps(args, changedFiles) {
 			label: cliEntryGuardScriptExists
 				? 'Step 7c/12: check-cli-entry-guard.mjs (#3969)'
 				: 'Step 7c/12: check-cli-entry-guard.mjs (script 未配備 — skip)',
-			skip: args.skipCliEntryGuard || !cliEntryGuardScriptExists,
+			...skipStateOf({ byFlag: args.skipCliEntryGuard, scriptMissing: !cliEntryGuardScriptExists }),
 			runner: () => run('check-cli-entry-guard', ['node', 'scripts/check-cli-entry-guard.mjs']),
 			fixHint:
 				'  自前の CLI 直接実行判定 / 手組み file:// URL を検出しました (#3969)。\n' +
@@ -686,7 +815,10 @@ export function buildSteps(args, changedFiles) {
 			label: sparseClosureScriptExists
 				? 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (#3969)'
 				: 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (script 未配備 — skip)',
-			skip: args.skipSparseCheckoutClosure || !sparseClosureScriptExists,
+			...skipStateOf({
+				byFlag: args.skipSparseCheckoutClosure,
+				scriptMissing: !sparseClosureScriptExists,
+			}),
 			runner: () =>
 				run('check-workflow-sparse-checkout-closure', [
 					'node',
@@ -705,7 +837,11 @@ export function buildSteps(args, changedFiles) {
 			label: !lpLabelsScriptExists
 				? 'Step 8/12: generate-lp-labels --check (script 未配備 — skip)'
 				: `Step 8/12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
-			skip: args.skipLpLabels || !lpLabelsScriptExists || !lpLabelsTrigger,
+			...skipStateOf({
+				byFlag: args.skipLpLabels,
+				scriptMissing: !lpLabelsScriptExists,
+				notApplicable: !lpLabelsTrigger,
+			}),
 			runner: () =>
 				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
 			fixHint:
@@ -724,7 +860,7 @@ export function buildSteps(args, changedFiles) {
 			label: args.pr
 				? `Step 9/12: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
 				: 'Step 9/12: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
-			skip: args.skipPrBody || !args.pr,
+			...skipStateOf({ byFlag: args.skipPrBody, prMissing: !args.pr }),
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
 				'  Readiness gate FAIL — Ready 化前必須 (本日 7 連続再発 #2625 / #2626 / #2629 / #2630、#2632 で gate 強化)\n' +
@@ -745,7 +881,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'doc-code-references',
 			label: 'Step 10/12: check-doc-code-references.mjs (#2577)',
-			skip: args.skipDocCodeReferences,
+			...skipStateOf({ byFlag: args.skipDocCodeReferences }),
 			runner: () =>
 				run('check-doc-code-references', ['node', 'scripts/check-doc-code-references.mjs']),
 			fixHint:
@@ -756,7 +892,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'terminology-coherence',
 			label: 'Step 11/12: check-terminology-coherence.ts (#2555)',
-			skip: args.skipTerminologyCoherence,
+			...skipStateOf({ byFlag: args.skipTerminologyCoherence }),
 			runner: () =>
 				run('check-terminology-coherence', [
 					'npx',
@@ -779,7 +915,11 @@ export function buildSteps(args, changedFiles) {
 				uiChanged && args.pr
 					? 'Step 11b/12: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
 					: `Step 11b/12: SS embed gate (${!args.pr ? '--pr 未指定 — skip' : 'UI 変更なし — skip'}、#2918)`,
-			skip: args.skipSsEmbedGate || !uiChanged || !args.pr,
+			...skipStateOf({
+				byFlag: args.skipSsEmbedGate,
+				prMissing: !args.pr,
+				notApplicable: !uiChanged,
+			}),
 			runner: async () => {
 				const pr = await fetchPrBodyAndLabels(args.pr);
 				if (!pr) {
@@ -816,7 +956,7 @@ export function buildSteps(args, changedFiles) {
 		{
 			name: 'capture',
 			label: `Step 12/12: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
-			skip: args.skipCapture || !uiChanged || !args.pr,
+			...skipStateOf({ byFlag: args.skipCapture, prMissing: !args.pr, notApplicable: !uiChanged }),
 			runner: async () => {
 				console.log(
 					`[pre-ready] UI 変更を検知しました。スクリーンショット撮影は手動実行を推奨します:\n` +
@@ -895,12 +1035,22 @@ async function main() {
 		`[pre-ready] 実行順 (cheap-fail-first、#4048): ${steps.map((s) => s.name).join(' → ')}`,
 	);
 	const failed = [];
-	const skipped = [];
+	/** `--skip-*` を明示指定した step (#3649: ALL PASS を名乗らない) */
+	const skippedByFlag = [];
+	/** 検査 script 自体が未配備の step (gate 不在なので ALL PASS を名乗らない) */
+	const skippedScriptMissing = [];
+	/** `--pr` 未指定で Readiness gate を回せていない step (#4018 QM 指摘: ALL PASS を名乗らない) */
+	const skippedPrMissing = [];
+	/** 変更内容が適用対象外の step (#4018: ALL PASS を妨げない) */
+	const skippedNotApplicable = [];
 
 	for (const step of steps) {
 		if (step.skip) {
 			console.log(`[pre-ready] ⊘ ${step.label}`);
-			skipped.push(step.name);
+			if (step.skipKind === 'flag') skippedByFlag.push(step.name);
+			else if (step.skipKind === 'script-missing') skippedScriptMissing.push(step.name);
+			else if (step.skipKind === 'pr-missing') skippedPrMissing.push(step.name);
+			else skippedNotApplicable.push(step.name);
 			continue;
 		}
 		const code = await step.runner();
@@ -923,26 +1073,16 @@ async function main() {
 		console.log(`\n[pre-ready] ⚠ fail-open: ${note}`);
 	}
 
-	// #3649: --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は開発中の
-	// 部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には skip なし
-	// 実行が必要 (skip 込みで ALL PASS 表示すると self-report ↔ CI 乖離の温床になる)。
-	if (skipped.length > 0) {
-		console.log(
-			`\n[pre-ready] PARTIAL PASS — 実行した ${steps.length - skipped.length} step は PASS しましたが、` +
-				`${skipped.length} step が --skip 指定で未実行です (${skipped.join(', ')})。\n` +
-				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
-				`  skip なしの \`npm run pre-ready -- --pr ${args.pr ?? '<num>'}\` 全 step PASS が必要です。\n`,
-		);
-		return 0;
-	}
-
-	console.log(
-		`\n[pre-ready] ALL PASS${failOpenNotes.length > 0 ? ` (fail-open ${failOpenNotes.length} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
-			`  次の手順:\n` +
-			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
-			`    2. gh pr ready ${args.pr ?? '<num>'}                            # Ready for Review に変更\n` +
-			`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`,
-	);
+	const summary = buildSummary({
+		totalSteps: steps.length,
+		skippedByFlag,
+		skippedScriptMissing,
+		skippedPrMissing,
+		skippedNotApplicable,
+		failOpenCount: failOpenNotes.length,
+		pr: args.pr,
+	});
+	console.log(summary.text);
 	return 0;
 }
 

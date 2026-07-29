@@ -9,7 +9,9 @@
 //   'suspended'               → 'suspended'
 //   'terminated' / undefined  → 'none'
 //
-// この正規化は src/lib/server/auth/providers/cognito.ts で実装されている。
+// この正規化の実装 SSOT は src/lib/server/auth/tenant-entitlement.ts
+// (`deriveTenantEntitlement`)。#3963 で cognito.ts から切り出した。
+// 課金状態は context_token に焼き込まず毎リクエスト DB から解決する。
 
 export const AUTH_LICENSE_STATUS = {
 	/** 有効 (active / grace_period の正規化結果) */

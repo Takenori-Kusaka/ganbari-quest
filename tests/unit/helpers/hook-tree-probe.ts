@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,6 +64,25 @@ function copyInto(root: string, relPath: string): void {
 }
 
 /**
+ * hook script が同ディレクトリから `./x.mjs` で static import している module を複製する。
+ *
+ * `scripts/lib/is-main.mjs` (= 意図的に有無を切り替える対象) と違い、これらは
+ * **probe が再現したい欠落ではなく、単に一緒に無いと hook が起動しない付随依存**である。
+ * 明示列挙にすると sibling が増えるたびに probe が腐って「fail-closed が効いた」ではなく
+ * 「依存が無くて落ちた」を測る test に化けるため、hook 本文から機械的に抽出する。
+ *
+ * 対象は `./` 始まりの同階層 import のみ (`../` を辿る依存は is-main.mjs の 1 本だけであり、
+ * それは withIsMain で明示制御する)。
+ */
+function copySiblingImports(root: string, hookRelPath: string): void {
+	const hookDir = hookRelPath.split('/').slice(0, -1).join('/');
+	const source = readFileSync(path.join(REPO_ROOT, ...hookRelPath.split('/')), 'utf8');
+	for (const match of source.matchAll(/from\s+'\.\/([\w.-]+\.mjs)'/g)) {
+		copyInto(root, `${hookDir}/${match[1]}`);
+	}
+}
+
+/**
  * hook を隔離 tree で起動し、exit code と出力を返す。
  *
  * `cwd` は temp tree root にする。hook が参照する `tmp/adversarial-evidence/` も
@@ -74,6 +93,7 @@ export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResul
 	const root = mkdtempSync(path.join(tmpdir(), 'gq-hook-probe-'));
 	try {
 		copyInto(root, hookRelPath);
+		copySiblingImports(root, hookRelPath);
 		if (withIsMain) {
 			if (isMainSource === undefined) {
 				copyInto(root, IS_MAIN_REL);
