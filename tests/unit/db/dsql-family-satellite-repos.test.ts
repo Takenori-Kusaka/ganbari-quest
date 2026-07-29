@@ -341,7 +341,12 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect(ng.success).toBe(0);
 		expect(ng.errorMessage).toBe('endpoint gone');
 
-		const today = new Date().toISOString().slice(0, 10);
+		// #4051 AC3: 「今日」を test プロセスの実時計から作らない。挿入行の sent_at (= DB が
+		// 打刻した実際の値) と同じソースから UTC 日付を導く。プロセス時計由来だと UTC 深夜を
+		// 跨いだ瞬間に「挿入行の日付」と「assertion の日付」が別日になり得る。
+		const today = new Date(ok.sentAt as string | number | Date).toISOString().slice(0, 10);
+		// 2 行が同じ UTC 日に入ったことを明示 (跨いだ場合は count 2 の前提が崩れるため先に落とす)
+		expect(new Date(ng.sentAt as string | number | Date).toISOString().slice(0, 10)).toBe(today);
 		expect(await pushRepo.countTodayLogs(FAMILY, today)).toBe(2);
 		expect(await pushRepo.countTodayLogs(OTHER_FAMILY, today)).toBe(0); // §P9
 		expect(await pushRepo.countTodayLogs(FAMILY, '2000-01-01')).toBe(0); // 日境界

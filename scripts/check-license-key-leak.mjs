@@ -161,8 +161,43 @@ export function findAllViolations(repoRoot = REPO_ROOT) {
 	return violations;
 }
 
+/**
+ * `--budget-ms <n>` の値を返す (未指定は null)。
+ * @param {string[]} argv
+ * @returns {number | null}
+ */
+export function parseBudgetMs(argv) {
+	const i = argv.indexOf('--budget-ms');
+	if (i === -1) return null;
+	const raw = argv[i + 1];
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0) {
+		throw new Error(`--budget-ms には正の数値が必要です (受領: ${String(raw)})`);
+	}
+	return n;
+}
+
 function main() {
+	// #4000: 走査自体の所要を必ず出す。CI runner は fresh clone = 常に cold FS cache なので、
+	// この数値が「cold 条件での実測」そのものになる (別途 cold 再現 job を作る必要がない)。
+	// 実測 (#4000): warm ~285ms / cold ~18.8s (986 file・6.5MB、Windows Defender 下で ~19ms/file)。
+	// 走査コストは harness ではなく **走査自身の初回 file open** が支配する。
+	const startedAt = Date.now();
 	const violations = findAllViolations();
+	const elapsedMs = Date.now() - startedAt;
+	console.log(`[check-license-key-leak] scan 所要: ${elapsedMs}ms`);
+
+	// budget 超過は「走査の構造が変わった (対象が膨らんだ / I/O が増えた)」の機械検知。
+	// 通常変動で鳴らないよう桁違いの余裕を持たせ、catastrophic な回帰だけを落とす。
+	const budgetMs = parseBudgetMs(process.argv.slice(2));
+	if (budgetMs !== null && elapsedMs > budgetMs) {
+		console.error(
+			`[check-license-key-leak] ✗ scan が budget を超過しました (${elapsedMs}ms > ${budgetMs}ms)\n` +
+				'  走査対象 (SEARCH_ROOTS / EXTENSIONS) が想定外に膨らんでいないか確認してください。',
+		);
+		process.exit(1);
+	}
+
 	if (violations.length === 0) {
 		console.log(
 			'[check-license-key-leak] OK — allowlist 外のコード行に license key 参照なし (再導入なし)',

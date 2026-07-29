@@ -221,7 +221,13 @@ jobs:
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。
         # DB 層 / LEGACY_URL_MAP entry は PR-L5 担当の FILE_ALLOWLIST、履歴コメントは許容。
-        run: node scripts/check-license-key-leak.mjs
+        #
+        # --budget-ms (#4000): 本 step は per-test timeout を持たない専用 lane であり、
+        # runner は fresh clone = 常に cold FS cache なので、ここが cold 条件の実測点になる。
+        # 実測は src/ + site/ の 986 file / 6.5MB 走査で warm ~285ms / cold ~18.8s (Windows)。
+        # budget は通常変動で鳴らない桁違いの余裕を取り、走査対象が想定外に膨らんだ場合
+        # (SEARCH_ROOTS / EXTENSIONS の誤拡張等) だけを機械検知する。
+        run: node scripts/check-license-key-leak.mjs --budget-ms 120000
 
       - name: Internal terms UI exposure check (#2288 AN-5 #2180 補強)
         # 親 UI (admin / 親管理画面) で内部用語 (DynamoDB / Pre-PMF Bucket A /

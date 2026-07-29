@@ -440,7 +440,10 @@ describe('API-LOG-05: DELETE /api/v1/activity-logs/:id (cancel expired)', () => 
 	it('5秒超過後はキャンセル不可 (400)', async () => {
 		// 古い記録を直接挿入 (10秒前)
 		const pastTime = new Date(Date.now() - 10_000).toISOString();
-		const today = new Date().toISOString().slice(0, 10);
+		// #4051 AC3: recordedDate は recordedAt と同じソース (pastTime) から導く。
+		// 実時計から別途 `new Date()` で作ると、UTC 深夜を跨いだ瞬間に recordedAt が前日・
+		// recordedDate が当日という**行として矛盾した fixture** になる。
+		const today = pastTime.slice(0, 10);
 
 		testDb
 			.insert(schema.activityLogs)

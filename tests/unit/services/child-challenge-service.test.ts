@@ -7,7 +7,7 @@
 //   - getChallengeGroupsForAdmin (sourceTemplateId / (title + 期間) group 化)
 //   - updateChildChallengeProgress (count 増分 + completed 判定)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { asActivityId, asCategoryId, asChildId } from '$lib/domain/ids';
 
 const mockInsert = vi.fn();
@@ -97,6 +97,78 @@ const TENANT = 'test-tenant-001';
 beforeEach(() => {
 	vi.clearAllMocks();
 });
+
+// ============================================================
+// #4051: 固定時計 + 固定期待値 (期待値を被検証対象から作らない)
+//
+// 旧実装は fixture の `startDate` / prior 週を **`getWeekStart()` 呼び出しで組み立てて**
+// いた。SUT (`getOrCreateWeeklyChildChallenge`) も同じ `getWeekStart()` を呼ぶため、
+// 両者はどの週に実行しても必ず一致し、**`getWeekStart()` 自体が壊れても test は緑のまま**
+// だった (実際 #4003 の週頭ずれを本 test は一度も検出していない)。
+//
+// 対処: 時計を固定し、期待値は SUT を通さない固定文字列 (下の MONDAYS) で置く。
+//
+// TZ の扱い: `getWeekStart()` の戻り値はプロセス TZ に依存しうるため、各 case は
+// 実運用で使われる 2 つの TZ (CI runner / 本番 Lambda = UTC、Dev ローカル = Asia/Tokyo)
+// を明示 pin して両方で同じ固定値になることまで assert する。固定時刻は「JST 月曜 00:00
+// (= UTC 日曜 15:00) の前後」を跨ぐ 2 点を選ぶ。
+// ============================================================
+
+/** 2026 年の月曜日 (index = 基準週から何週前か)。SUT を経由しない固定値。 */
+const MONDAYS = [
+	'2026-07-27',
+	'2026-07-20',
+	'2026-07-13',
+	'2026-07-06',
+	'2026-06-29',
+	'2026-06-22',
+	'2026-06-15',
+] as const;
+
+/** 期待値を pin する固定時計。週境界 (JST 月曜 00:00 = UTC 日曜 15:00) の前後 2 点。 */
+const FIXED_CLOCKS = [
+	{
+		label: 'JST 日曜 23:00 (週境界の手前)',
+		iso: '2026-07-26T14:00:00Z',
+		weekStart: '2026-07-20',
+	},
+	{
+		label: 'JST 月曜 09:00 (週境界の直後)',
+		iso: '2026-07-27T00:00:00Z',
+		weekStart: '2026-07-27',
+	},
+] as const;
+
+/** 実運用で使われるプロセス TZ。どちらでも同じ固定値になることを assert する。 */
+const PINNED_TIMEZONES = ['UTC', 'Asia/Tokyo'] as const;
+
+const ORIGINAL_TZ = process.env.TZ;
+
+/** プロセス TZ を pin し、Date のみ fake にして時刻を固定する (timer 系は素のまま)。 */
+function freezeClock(iso: string, tz: string): void {
+	process.env.TZ = tz;
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date(iso));
+}
+
+function restoreClock(): void {
+	vi.useRealTimers();
+	if (ORIGINAL_TZ === undefined) {
+		delete process.env.TZ;
+	} else {
+		process.env.TZ = ORIGINAL_TZ;
+	}
+}
+
+/** 固定 weekStart から n 週前の月曜を **表引き**で返す (日付計算も SUT も経由しない)。 */
+function fixedWeeksAgo(weekStart: string, n: number): string {
+	const base = MONDAYS.indexOf(weekStart as (typeof MONDAYS)[number]);
+	const value = MONDAYS[base + n];
+	if (base < 0 || value === undefined) {
+		throw new Error(`MONDAYS 表に ${weekStart} の ${n} 週前がない`);
+	}
+	return value;
+}
 
 // ============================================================
 // 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service.test.ts より移設)
@@ -314,24 +386,70 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		expect(input.targetValue).toBeGreaterThanOrEqual(2); // MIN_TARGET
 	});
 
-	it('当週分が既にあれば再生成しない (冪等)', async () => {
-		const { getWeekStart } = await import(
-			'../../../src/lib/server/services/child-challenge-service'
-		);
-		const existing = {
-			id: '99',
-			childId: asChildId(10),
-			sourceTemplateId: 'auto:weekly',
-			startDate: getWeekStart(),
-			targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
-		};
-		mockFindByChildId.mockResolvedValue([existing]);
+	// #4051 AC1: fixture の startDate を getWeekStart() ではなく固定日付で置く。
+	// getWeekStart() が壊れれば「当週分」と一致しなくなり、再生成が走って本 test が落ちる。
+	describe.each(FIXED_CLOCKS)('当週分が既にあれば再生成しない (冪等) — $label', (clock) => {
+		afterEach(() => {
+			restoreClock();
+		});
 
-		const result = await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
-		expect(result).toBe(existing);
-		expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
-		expect(mockInsert).not.toHaveBeenCalled();
-		expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
+		it.each(PINNED_TIMEZONES)('TZ=%s', async (tz) => {
+			freezeClock(clock.iso, tz);
+			// 週頭の固定値そのものを先に pin する (SUT の内部一致だけでなく戻り値も検証)
+			expect(getWeekStart()).toBe(clock.weekStart);
+
+			const existing = {
+				id: '99',
+				childId: asChildId(10),
+				sourceTemplateId: 'auto:weekly',
+				startDate: clock.weekStart,
+				targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
+			};
+			mockFindByChildId.mockResolvedValue([existing]);
+
+			const result = await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
+			expect(result).toBe(existing);
+			expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
+			expect(mockInsert).not.toHaveBeenCalled();
+			expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
+		});
+	});
+
+	// #4051 AC1: 固定日付でない (= 当週でない) 行しかなければ生成が走ることも pin する。
+	// 上の冪等 test だけだと「常に再生成しない」実装でも緑になるため、対の負例を置く。
+	describe.each(FIXED_CLOCKS)('前週分しかなければ当週分を生成する — $label', (clock) => {
+		afterEach(() => {
+			restoreClock();
+		});
+
+		it.each(PINNED_TIMEZONES)('TZ=%s', async (tz) => {
+			freezeClock(clock.iso, tz);
+			mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+			mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
+				id: '1',
+				currentValue: 0,
+				completed: 0,
+				...input,
+			}));
+			mockFindByChildId.mockResolvedValue([
+				{
+					id: '98',
+					childId: asChildId(10),
+					sourceTemplateId: 'auto:weekly',
+					startDate: fixedWeeksAgo(clock.weekStart, 1),
+					targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
+					targetValue: 3,
+					currentValue: 3,
+					completed: 1,
+					status: 'completed',
+				},
+			]);
+
+			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
+
+			expect(mockGetOrCreateWeeklyAuto).toHaveBeenCalledTimes(1);
+			expect(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].startDate).toBe(clock.weekStart);
+		});
 	});
 
 	// #3472 (integration): getOrCreateWeeklyChildChallenge 経由で priorAuto 採用 + weeksBetween-1 の
@@ -353,17 +471,21 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 				...over,
 			};
 		}
-		/** weekStart を n 週前へ戻す。 */
-		async function weeksAgo(n: number): Promise<string> {
-			const { getWeekStart, getLastWeekStart } = await import(
-				'../../../src/lib/server/services/child-challenge-service'
-			);
-			let w = getWeekStart();
-			for (let i = 0; i < n; i++) w = getLastWeekStart(w);
-			return w;
+		// #4051 AC1: 起点を `getWeekStart()` から作らない。時計を固定し、n 週前は MONDAYS の
+		// 表引きで得る (被検証対象と同じ関数で期待値を作ると、その関数の欠陥を検出できない)。
+		const CLOCK = FIXED_CLOCKS[1]; // JST 月曜 09:00 → 当週 = 2026-07-27
+
+		/** 当週 (固定) から n 週前の月曜。SUT も日付計算も経由しない表引き。 */
+		function weeksAgo(n: number): string {
+			return fixedWeeksAgo(CLOCK.weekStart, n);
 		}
 
+		afterEach(() => {
+			restoreClock();
+		});
+
 		beforeEach(() => {
+			freezeClock(CLOCK.iso, 'UTC');
 			mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 }); // 非 explore
 			mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
 				id: '1',
@@ -374,7 +496,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		});
 
 		it('完了後 3 週前の prior のみ (= 2 週 skip) → rescue-strength を生成', async () => {
-			const w3 = await weeksAgo(3); // 3 週前 → weeksBetween=3 → skip=2
+			const w3 = weeksAgo(3); // 3 週前 → weeksBetween=3 → skip=2
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w3)]);
 
 			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
@@ -384,7 +506,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		});
 
 		it('連続週 (1 週前完了、skip 0) → rescue にならない', async () => {
-			const w1 = await weeksAgo(1); // 1 週前 → weeksBetween=1 → skip=0
+			const w1 = weeksAgo(1); // 1 週前 → weeksBetween=1 → skip=0
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w1)]);
 
 			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
@@ -394,8 +516,8 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		});
 
 		it('複数 prior 行から最新週を prev に採用する (sort 検証)', async () => {
-			const w1 = await weeksAgo(1);
-			const w4 = await weeksAgo(4);
+			const w1 = weeksAgo(1);
+			const w4 = weeksAgo(4);
 			// 順不同で渡しても最新 (w1) が prev → skip 0
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w4), priorAutoRow(w1)]);
 
@@ -405,7 +527,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		});
 
 		it('同一 startDate の prior 重複時も決定的に動く (skip 一意)', async () => {
-			const w2 = await weeksAgo(2); // skip=1
+			const w2 = weeksAgo(2); // skip=1
 			mockFindByChildId.mockResolvedValue([priorAutoRow(w2), priorAutoRow(w2)]);
 
 			await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT);
