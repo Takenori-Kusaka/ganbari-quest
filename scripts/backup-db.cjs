@@ -137,9 +137,10 @@ async function main() {
 	try {
 		const bdb = new Database(backupPath, { readonly: true });
 		try {
-			const tableCount = bdb
-				.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'")
-				.get().cnt;
+			const tableCountRow = /** @type {{ cnt: number }} */ (
+				bdb.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'").get()
+			);
+			const tableCount = tableCountRow.cnt;
 
 			const integrity = bdb.pragma('integrity_check');
 			const integrityOk =
@@ -148,7 +149,7 @@ async function main() {
 				throw new Error(`integrity_check failed: ${JSON.stringify(integrity)}`);
 			}
 
-			const fkViolations = bdb.pragma('foreign_key_check');
+			const fkViolations = /** @type {unknown[]} */ (bdb.pragma('foreign_key_check'));
 			if (!Array.isArray(fkViolations) || fkViolations.length > 0) {
 				throw new Error(
 					`foreign_key_check found ${fkViolations.length} violation(s): ${JSON.stringify(fkViolations.slice(0, 5))}`,
@@ -207,7 +208,7 @@ async function main() {
 			}
 		} catch (err) {
 			console.warn(
-				`[backup-db] WARNING: BACKUP_POST_HOOK failed: ${err.message}, backup itself succeeded`,
+				`[backup-db] WARNING: BACKUP_POST_HOOK failed: ${err instanceof Error ? err.message : String(err)}, backup itself succeeded`,
 			);
 			// Hook failure is non-fatal - local backup is already saved
 		}
