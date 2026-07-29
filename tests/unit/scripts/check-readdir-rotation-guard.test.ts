@@ -127,19 +127,15 @@ describe('check-readdir-rotation-guard (#3978)', () => {
 	// 既定 testTimeout (5s、vite.config.ts) では並列実行の負荷次第で timeout する
 	// (#3972 / #4005 と同 class)。assertion を弱めるのではなく、本 test の性質に見合う
 	// 明示 timeout を与える (cli-entry-guard.test.ts の spawn 系 test と同じ扱い)。
-	it(
-		'[RG5] repo 全体に違反 0 件、かつ 1 件以上のファイルを実際に走査している',
-		() => {
-			const { violations, fileCount } = findAllViolations(REPO_ROOT);
-			expect(
-				violations,
-				`違反:\n${violations.map((v) => `  ${v.file}:${v.line} ${v.text}`).join('\n')}`,
-			).toStrictEqual([]);
-			// 「0 件走査だから 0 件違反」= 無言の PASS を弾く (本 gate が塞ぐ class と同型)。
-			expect(fileCount).toBeGreaterThan(100);
-		},
-		60_000,
-	);
+	it('[RG5] repo 全体に違反 0 件、かつ 1 件以上のファイルを実際に走査している', () => {
+		const { violations, fileCount } = findAllViolations(REPO_ROOT);
+		expect(
+			violations,
+			`違反:\n${violations.map((v) => `  ${v.file}:${v.line} ${v.text}`).join('\n')}`,
+		).toStrictEqual([]);
+		// 「0 件走査だから 0 件違反」= 無言の PASS を弾く (本 gate が塞ぐ class と同型)。
+		expect(fileCount).toBeGreaterThan(100);
+	}, 60_000);
 
 	it('[RG6] storage-repo.ts の抑制コメントに別 class である理由が書かれている (#3978 AC4)', () => {
 		const source = readFileSync(
