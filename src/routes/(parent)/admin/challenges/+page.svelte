@@ -297,7 +297,6 @@ function tabHref(childId: ChildId | 'all'): string {
 	size="md"
 	testid="admin-challenges-confirm-dialog"
 >
-	{#snippet children()}
 	<p class="text-sm text-[var(--color-text-secondary)]">
 		{pendingConfirm?.body ?? ''}
 	</p>
@@ -321,5 +320,4 @@ function tabHref(childId: ChildId | 'all'): string {
 			{CHALLENGES_LABELS.deleteButton}
 		</Button>
 	</div>
-	{/snippet}
 </Dialog>

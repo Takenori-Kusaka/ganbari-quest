@@ -448,7 +448,6 @@ function formatImportedAt(iso: string): string {
 	size="md"
 	testid="rules-confirm-dialog"
 >
-	{#snippet children()}
 	<p class="text-sm text-[var(--color-text-secondary)]">
 		{pendingConfirm?.body ?? ''}
 	</p>
@@ -472,5 +471,4 @@ function formatImportedAt(iso: string): string {
 			{pendingConfirm?.acceptLabel ?? UI_LABELS.confirm}
 		</Button>
 	</div>
-	{/snippet}
 </Dialog>
