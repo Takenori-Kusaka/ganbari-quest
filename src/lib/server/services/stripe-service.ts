@@ -21,6 +21,7 @@ import {
 	planIdFromLookupKey,
 	planIdFromPriceId,
 } from '$lib/server/stripe/config';
+import { redactPii } from '$lib/server/stripe/pii-redaction';
 
 // ============================================================
 // Checkout Session
@@ -752,18 +753,76 @@ function extractSubscriptionId(invoice: Stripe.Invoice): string | undefined {
 async function resolveSubscriptionContext(
 	subscriptionId: string,
 ): Promise<{ tenant: Tenant; subscription: Stripe.Subscription } | undefined> {
+	let subscription: Stripe.Subscription;
 	try {
-		const stripe = getStripeClient();
-		const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-		const customerId =
-			typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
-		if (!customerId) return undefined;
-		const tenant = await getRepos().auth.findTenantByStripeCustomerId(customerId);
-		if (!tenant) return undefined;
-		return { tenant, subscription };
-	} catch {
+		subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
+	} catch (error) {
+		notifyContextUnresolved('stripe_api_error', subscriptionId, error, 'Stripe API 障害');
 		return undefined;
 	}
+
+	const customerId =
+		typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+	if (!customerId) {
+		// 障害ではなく payload の事実。alert は上げない。
+		logger.warn(
+			`[STRIPE] subscription に customer 参照がありません: subscription=${subscriptionId}`,
+		);
+		return undefined;
+	}
+
+	let tenant: Tenant | undefined;
+	try {
+		tenant = await getRepos().auth.findTenantByStripeCustomerId(customerId);
+	} catch (error) {
+		notifyContextUnresolved('repo_error', subscriptionId, error, 'データストア障害');
+		return undefined;
+	}
+
+	if (!tenant) {
+		// 本当に該当 tenant が無いケース。これは異常ではなく正常な結果 (他システムの
+		// customer / 削除済みテナント) なので warn のみ。
+		logger.warn(
+			`[STRIPE] customer に対応する tenant が見つかりません (tenant 不在): ` +
+				`subscription=${subscriptionId} customer=${customerId}`,
+		);
+		return undefined;
+	}
+
+	return { tenant, subscription };
+}
+
+/**
+ * `resolveSubscriptionContext` の **障害** 経路を観測可能にする (#3981)。
+ *
+ * 旧実装は bare `catch {}` で全経路を `undefined` に潰しており、呼び出し側
+ * (`handleInvoicePaid` 等) には「tenant not found」としか見えなかった。結果、
+ * Stripe API 障害 / DB 障害が事実と異なるログに化け、`stripe-plan-unresolved`
+ * alert も (context 解決の手前で return するため) 発火しなかった。
+ *
+ * 挙動は変えない — 返り値は従来どおり `undefined`。retry / fallback も入れない
+ * (Stripe は webhook を再送するため、ここで retry すると二重処理の検討が要る)。
+ */
+function notifyContextUnresolved(
+	reason: 'stripe_api_error' | 'repo_error',
+	subscriptionId: string,
+	error: unknown,
+	label: string,
+): void {
+	const detail = redactPii(String(error));
+	logger.error(
+		`[STRIPE] subscription context の解決に失敗しました (${label}): ` +
+			`subscription=${subscriptionId} reason=${reason} error=${detail}`,
+	);
+	notifyStripeAlert({
+		kind: 'stripe-context-unresolved',
+		// #3985 の dedup 台帳が入った後は、この経路の handler は「正常終了」として記録されるため
+		// Stripe の再送 / Dashboard の Resend は同一 event.id で skip される。**再送では収束しない**。
+		// 復旧後の手動突合手順は phase6-rollback-and-kill-switches.md R13 (恒久対策は #4108)。
+		message: `${label}により subscription から tenant を解決できませんでした (再送では収束しないため復旧後に手動突合が必要)`,
+		errorSummary: `context_unresolved:${reason}:${subscriptionId}`,
+		tags: { subscriptionId, reason },
+	});
 }
 
 /**
@@ -777,7 +836,31 @@ async function resolveSubscriptionContext(
  * どちらでも確定できない場合は `null` を返し、呼び出し側は plan を更新しない。
  */
 function resolvePlanFromSubscription(subscription: Stripe.Subscription): PlanId | null {
-	const price = subscription.items?.data?.[0]?.price;
+	const items = subscription.items?.data ?? [];
+
+	// #3980: 先頭参照は「subscription item は常に 1 件」という現行の Stripe 商品構成
+	// (checkout は単一 line_item / 2 Product × 各 1 Price) に依存している。add-on ・
+	// 従量課金 item・年額 item の同居のいずれかが入った瞬間、`data[0]` が plan を表す
+	// item である保証は消え、#3960 と同じ「課金は変わったのに plan は据え置き」に戻る。
+	//
+	// 前提が崩れたこと自体を検知する。plan 解決を lookup_key で選別するような一般化は
+	// 意図的に行わない — 現に単一 item なので、検証できない分岐が増えるだけになる。
+	if (items.length > 1) {
+		notifyStripeAlert({
+			kind: 'stripe-subscription-multi-item',
+			message:
+				'subscription item が複数あります。plan 解決は先頭 item を使うため、' +
+				'plan を表す item が先頭でない場合は誤った plan を解決し得ます',
+			errorSummary: `subscription_multi_item:${subscription.id}`,
+			tags: {
+				subscriptionId: subscription.id,
+				itemCount: items.length,
+				priceIds: items.map((item) => item.price?.id ?? 'unknown').join(','),
+			},
+		});
+	}
+
+	const price = items[0]?.price;
 	if (!price) return null;
 	return planIdFromPriceId(price.id) ?? planIdFromLookupKey(price.lookup_key);
 }
