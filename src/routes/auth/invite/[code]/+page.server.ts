@@ -16,8 +16,10 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	if (!invite) {
 		return {
 			valid: false as const,
-			error: 'この招待リンクは無効または期限切れです。',
-			errorDesc: undefined,
+			error: AUTH_INVITE_LABELS.invalidLink,
+			errorDesc: AUTH_INVITE_LABELS.invalidLinkDesc,
+			// 次アクションは「招待の再発行を依頼する」であり、ログアウトでは解決しない
+			sessionActive: false,
 		};
 	}
 
@@ -33,16 +35,22 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 				valid: false as const,
 				error: AUTH_INVITE_LABELS.emailMismatch,
 				errorDesc: AUTH_INVITE_LABELS.emailMismatchDesc,
+				// ログイン中なので、別アカウントで受け直すためのログアウト導線を出す
+				sessionActive: true,
 			};
 		}
 		const existingTenants = await getRepos().auth.findUserTenants(locals.identity.userId);
 		if (existingTenants.length > 0) {
 			// 既にテナント所属 → 招待 Cookie を保存せず警告表示
 			cookies.delete(INVITE_COOKIE_NAME, { path: '/' });
+			// #4049: errorDesc を undefined にすると画面が invalidLinkDesc (再発行依頼) に
+			// フォールバックし、本経路で必要な「ログアウト → 招待リンク再タップ」案内が消える。
+			// 共有端末で親が子の招待リンクを踏む標準ユースケースの唯一の出口なので専用文言を返す。
 			return {
 				valid: false as const,
-				error: '既に別のグループに所属しているため、この招待を受けることはできません。',
-				errorDesc: undefined,
+				error: AUTH_INVITE_LABELS.alreadyInTenant,
+				errorDesc: AUTH_INVITE_LABELS.alreadyInTenantDesc,
+				sessionActive: true,
 			};
 		}
 

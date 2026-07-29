@@ -5360,10 +5360,22 @@ export const CHILD_STATUS_LABELS = {
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
+	invalidLink: 'この招待リンクは無効または期限切れです。',
 	invalidLinkDesc: '招待した方に新しいリンクを発行してもらってください。',
 	loginPageLink: 'ログインページへ',
+	// #4049: 家庭内共有端末 (親の端末で子の招待リンクを踏む) の正しい次アクションを案内する。
+	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
+	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
+	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
+	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
+	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)
+	logoutButton: 'ログアウトする',
 	inviteMessage: '家族グループへの招待が届いています。',
 	roleLabel: '参加ロール:',
+	// 招待の参加ロール表示 (内部コード role を露出しない、DESIGN.md §6)
+	roleParent: PARENT_TERMS.honorific,
+	roleChild: CHILD_TERMS.hiragana,
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
 	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
