@@ -616,14 +616,17 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 > で設計確定済だが **実装は未着手**（同 doc のステータス欄「コード変更は Phase 7」）。
 > 順序ガード（本節）と dedup（#2641 設計）は別の防御であり、片方では他方を代替できない。
 
-#### 10.5.1 収束の 2 原則
+#### 10.5.1 収束の 3 原則
 
 | # | 原則 | 実装 |
 |---|------|------|
-| **P1** | **可変な属性は「event の payload」ではなく「Stripe 上の現行 subscription」から解決する** | `handleInvoicePaid` は `invoice.lines` を読まず `subscriptions.retrieve()` の現行 price を SSOT にする（#3960）。retrieve は常に最新を返すため、後着 event でも古い値を書かない |
-| **P2** | **終端状態 (`canceled` / `incomplete_expired`) を検出した handler は、契約ありきの状態を書き戻さない** | `isSubscriptionTerminal()`（`stripe-service.ts`）。この 2 status は Stripe 上で他の status に戻らないため、「契約はもう存在しない」ことの確定印として使える（#3982） |
+| **P1** | **可変な属性は「event の payload」ではなく「Stripe 上の現行 subscription」から解決する** | `handleInvoicePaid` のみ。`invoice.lines` を読まず `subscriptions.retrieve()` の現行 price を SSOT にする（#3960）。**`handleSubscriptionUpdated` は P1 の対象外** — payload の subscription から plan を解決する（`metadata.tenantId` が無いときに通る `resolveSubscriptionContext()` の retrieve は tenant 特定にのみ使う） |
+| **P2** | **終端状態 (`canceled` / `incomplete_expired`) を検出した handler は、契約ありきの状態を書き戻さない** | `isSubscriptionTerminal()`（`stripe-service.ts`）。この 2 status は Stripe 上で他の status に戻らないため、「契約はもう存在しない」ことの確定印として使える（#3982）。判定対象は **payload の status** なので、終端の後に非終端 event が後着するケースは P3 が担う |
+| **P3** | **契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ適用する。終端状態は列の集合として 1 箇所で定義し全列を書く** | `applyTenantContractState()` が唯一の書き込み経路（#4026）。`tenant.stripeSubscriptionId` と event の subscription が一致しなければ適用しない（不一致は warn、別 subscription を指す場合は `stripe-contract-target-mismatch` alert）。終端は `TERMINAL_CONTRACT_STATE` = `stripe_subscription_id` / `plan` / `plan_expires_at` を null + `status=suspended`。迂回は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts` が禁止する |
 
 `paused` / `unpaid` / `incomplete` は復帰し得るため終端に含めない（含めると復帰経路を殺す）。
+
+P3 の突合は tenant 同定の経路（`metadata.tenantId` / customer 逆引き）が「その tenant が今どの subscription を持つか」と独立であることから必要になる。`checkout.session.completed` だけは契約を**新規に割り当てる** event なので突合対象を持たない（`assign-contract`）。
 
 #### 10.5.2 ユースケース × 到着順 収束表
 
@@ -631,17 +634,20 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 | # | ユースケース | 発火 event | 到着順 | 最終状態 | 担保 |
 |---|---|---|---|---|---|
-| U1 | 新規購入 | `checkout.session.completed`, `customer.subscription.updated`(active) | どちらでも | `id=sub_x` / `plan=購入プラン` / `active` | P1（updated は現行 price を書く） |
+| U1 | 新規購入 | `checkout.session.completed`, `customer.subscription.updated`(active) | どちらでも | `id=sub_x` / `plan=購入プラン` / `active` | `checkout` が契約を割り当てる。`updated` は payload の price から plan を解決するが、新規購入では payload の price と現行 price が一致するため結果が正しい（P1 ではない）。`updated` が先着した場合は割り当て前なので P3 が適用を見送り、後着の `checkout` が確定させる |
 | U2 | プラン変更（standard → premium） | `customer.subscription.updated`(active), `invoice.paid` | どちらでも | `plan=premium` | P1（#3960。旧実装は `invoice.lines.data[0]` = 変更前 price を書いて巻き戻していた） |
 | U3 | 支払い失敗 | `invoice.payment_failed` | — | `grace_period` / `planExpiresAt=+7d` | — |
 | U4 | 支払い失敗 → 更新して復帰 | `invoice.payment_failed`, `invoice.paid` | 実時系列どおり | `active` | Stripe が時系列に発火（同時発火ではない） |
-| U5 | **解約** | `customer.subscription.updated`(canceled), `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `suspended` | **P2**（updated 側も終端収束させる。P2 がないと updated 後着で `id=NULL` かつ `plan≠NULL` という DB 上ありえない組合せが残る） |
+| U5 | **解約** | `customer.subscription.updated`(canceled), `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P2 + P3**（先着が終端 4 列を書き、後着は割り当てが消えているため適用されない。P2 がないと updated 後着で `id=NULL` かつ `plan≠NULL`、P3 がないと **非終端** の updated 後着で同じ組合せが残る = U9） |
 | U6 | **解約後に当期分請求が後着** | `customer.subscription.deleted`, `invoice.paid` | **どちらでも** | `id=NULL` / `plan=NULL` / `suspended` | **P2**（P2 がないと `invoice.paid` が `status=active` を書き戻し、**解約済みテナントが課金中として復活**する） |
 | U7 | **解約後に payment_failed が後着** | `customer.subscription.deleted`, `invoice.payment_failed` | **どちらでも** | 同上 | **P2**（P2 がないと `grace_period` へ巻き戻る） |
-| U8 | 解約 → 再購読 | `...deleted`, `checkout.session.completed`(新 sub) | 実時系列どおり | `id=sub_new` / `plan=新プラン` / `active` | `stripeCustomerId` を残すこと。かつ U5/U6/U7 の収束が効いていること（`id` が残っていると `createCheckoutSession` が `ALREADY_SUBSCRIBED` で弾き、そもそも U8 に入れない = #3982 の実害） |
+| U8 | 解約 → 再購読 | `...deleted`, `checkout.session.completed`(新 sub) | **どちらでも** | `id=sub_new` / `plan=新プラン` / `active` | `stripeCustomerId` を残すこと + U5/U6/U7 の収束（`id` が残っていると `createCheckoutSession` が `ALREADY_SUBSCRIBED` で弾き、そもそも U8 に入れない = #3982 の実害）+ **P3**（旧 sub の event が後着しても現行契約 `sub_new` を指さないため適用されない。P3 がないと新契約の `id` が NULL 化し、ALREADY_SUBSCRIBED ガードが外れて二重課金が成立し得る） |
+| U9 | **解約後に非終端の `updated` が後着** | `customer.subscription.deleted`, `customer.subscription.updated`(active) | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（P2 は payload の status を見るため、この `updated` は終端分岐に入らない。割り当てが消えているため P3 が適用を見送る。P3 がないと `id=NULL` + `plan≠NULL` + `status=active` が残る） |
+| U10 | **アプリ内解約 → 即時 cancel → `deleted` 後着** | `/api/v1/admin/tenant/cancel`（`grace_period` + `exp=+30d` を書く）, `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（終端は列の集合として定義され `plan_expires_at` も null で書く。P3 がないと契約が無いのに期限だけ残り、`SaasLicensePanel` が有効期限を表示し `lifecycle-email-service` が期限判断に使う = X3） |
 
 回帰テスト: `tests/unit/services/stripe-service.test.ts`
-（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本）。
+（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本 / U8・U9・U10 = `#4026 — ...` 3 本 + `#4055 — ...` 1 本）。
+単一強制点の迂回禁止は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts`。
 
 #### 10.5.3 未カバー（既知の残課題）
 

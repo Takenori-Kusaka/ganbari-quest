@@ -426,7 +426,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'invoice.paid',
@@ -473,7 +473,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -495,7 +495,7 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -514,7 +514,9 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(
+			makeSubscribedTenant({ plan: 'family-monthly' }),
+		);
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
@@ -530,8 +532,8 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent({
 			type: 'customer.subscription.updated',
@@ -551,8 +553,8 @@ describe('handleWebhookEvent', () => {
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: vi.fn().mockResolvedValue(subscription) },
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'monthly' }));
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant({ plan: 'monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
 
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 		await handleWebhookEvent({
@@ -566,7 +568,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated — plan 未解決なら plan を上書きせず alert を上げる (#3960)', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant({ plan: 'family-monthly' }));
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant({ plan: 'family-monthly' }));
 
 		await handleWebhookEvent({
 			type: 'customer.subscription.updated',
@@ -610,12 +612,16 @@ describe('handleWebhookEvent', () => {
 
 	it('invoice.payment_failed → grace_period に変更', async () => {
 		const mockSubscriptionsRetrieve = vi.fn().mockResolvedValue({
+			// 実 Stripe subscription は必ず id / status を持つ。id は「この event が
+			// tenant の現行契約を指すか」の突合に使われる (#4026)
+			id: 'sub_123',
 			customer: 'cus_123',
+			status: 'past_due',
 		});
 		mockGetStripeClient.mockReturnValue({
 			subscriptions: { retrieve: mockSubscriptionsRetrieve },
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'invoice.payment_failed',
@@ -638,7 +644,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated → ステータス反映', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.updated',
@@ -665,7 +671,7 @@ describe('handleWebhookEvent', () => {
 	});
 
 	it('customer.subscription.updated — past_due → grace_period', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.updated',
@@ -694,7 +700,7 @@ describe('handleWebhookEvent', () => {
 	// **no-op をそのまま追認していた** (updateTenantStripe は undefined = 更新しない)。
 	// クリアの意図を DB まで届かせるには null でなければならないため、null を固定する。
 	it('customer.subscription.deleted → suspended + subscriptionId/plan を null でクリア (#3982)', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		const event = {
 			type: 'customer.subscription.deleted',
@@ -711,6 +717,8 @@ describe('handleWebhookEvent', () => {
 			status: 'suspended',
 			stripeSubscriptionId: null,
 			plan: null,
+			// #4026: 終端状態は契約に紐づく列を網羅的に書く (期限だけ残る孤児を作らない)
+			planExpiresAt: null,
 		});
 		// stripeCustomerId は再購読時の customer 再利用 + webhook 逆引きの鍵なので消さない
 		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).not.toHaveProperty('stripeCustomerId');
@@ -733,7 +741,12 @@ describe('handleWebhookEvent', () => {
 		return makeTenant({ stripeSubscriptionId: undefined, plan: undefined, status: 'suspended' });
 	}
 
-	const TERMINAL_STATE = { status: 'suspended', stripeSubscriptionId: null, plan: null };
+	const TERMINAL_STATE = {
+		status: 'suspended',
+		stripeSubscriptionId: null,
+		plan: null,
+		planExpiresAt: null,
+	};
 
 	function deletedEvent(subscriptionId = 'sub_123') {
 		return {
@@ -755,28 +768,31 @@ describe('handleWebhookEvent', () => {
 	}
 
 	it('#3982 — deleted → updated(canceled) の順でも plan が復活せず終端状態に収束する', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
 		// deleted 適用後の tenant を読む (id / plan はクリア済み)
 		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
 		await handleWebhookEvent(cancelledUpdatedEvent() as never);
 
-		// 2 event とも同じ終端状態を書く = 到着順に依らず収束する
-		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		// 書き込まれた状態は全て終端 = 到着順に依らず収束する。
+		// #4026 以降、2 通目は「割り当ての無い tenant への event」として適用されない
+		// (先着が既に終端へ収束させているので、最終状態は変わらない)。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 		for (const call of mockUpdateTenantStripe.mock.calls) {
 			expect(call[1]).toEqual(TERMINAL_STATE);
 		}
 	});
 
 	it('#3982 — updated(canceled) → deleted の逆順でも最終状態が一致する', async () => {
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent(cancelledUpdatedEvent() as never);
 		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
 		await handleWebhookEvent(deletedEvent() as never);
 
-		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		// 逆順でも同じ: 先着が終端へ収束させ、後着は現行契約を指さないため適用されない
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 		for (const call of mockUpdateTenantStripe.mock.calls) {
 			expect(call[1]).toEqual(TERMINAL_STATE);
 		}
@@ -791,7 +807,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
 			},
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
@@ -810,7 +826,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
 			},
 		});
-		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
 		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
 
 		await handleWebhookEvent(deletedEvent() as never);
@@ -832,7 +848,7 @@ describe('handleWebhookEvent', () => {
 					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'past_due' })),
 			},
 		});
-		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
 
 		await handleWebhookEvent({
 			type: 'invoice.payment_failed',
