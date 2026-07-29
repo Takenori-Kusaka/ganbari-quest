@@ -452,30 +452,30 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 		// ここが 503 化すると DSQL 障害時に Lambda health / LWA readiness /
 		// deploy-aws-staging.yml の post-deploy health / ロールバック判定が誤作動し、
 		// 「DB が一時的に不調」だけの状況が「デプロイ失敗」として扱われる。
-		it.each(['/api/health', '/api/ready'])(
-			'%s は課金状態を DB から解決できなくても 503 にならず通常応答する',
-			async (probePath) => {
-				const TenantEntitlementUnavailableError = await importError();
-				currentAuthMode = 'cognito';
-				// 認証 Cookie を持つクライアントからの probe (identity あり) でも DB 障害で落とさない。
-				mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
-				mockResolveContext.mockRejectedValue(
-					new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
-				);
-				mockAuthorize.mockReturnValue({ allowed: true });
+		it.each([
+			'/api/health',
+			'/api/ready',
+		])('%s は課金状態を DB から解決できなくても 503 にならず通常応答する', async (probePath) => {
+			const TenantEntitlementUnavailableError = await importError();
+			currentAuthMode = 'cognito';
+			// 認証 Cookie を持つクライアントからの probe (identity あり) でも DB 障害で落とさない。
+			mockResolveIdentity.mockResolvedValue({ type: 'cognito', userId: 'u-1' });
+			mockResolveContext.mockRejectedValue(
+				new TenantEntitlementUnavailableError('t-1', new Error('DSQL unavailable')),
+			);
+			mockAuthorize.mockReturnValue({ allowed: true });
 
-				const event = createMockEvent(probePath);
-				const resolve = createMockResolve();
+			const event = createMockEvent(probePath);
+			const resolve = createMockResolve();
 
-				// biome-ignore lint/suspicious/noExplicitAny: test mock
-				const response = await handle({ event, resolve } as any);
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			const response = await handle({ event, resolve } as any);
 
-				expect(response.status).toBe(200);
-				// ルートハンドラまで到達していること (503 で早期 return していない)
-				expect(resolve).toHaveBeenCalled();
-				// context なしで通す (課金権限は与えない)
-				expect(event.locals.context).toBeNull();
-			},
-		);
+			expect(response.status).toBe(200);
+			// ルートハンドラまで到達していること (503 で早期 return していない)
+			expect(resolve).toHaveBeenCalled();
+			// context なしで通す (課金権限は与えない)
+			expect(event.locals.context).toBeNull();
+		});
 	});
 });
