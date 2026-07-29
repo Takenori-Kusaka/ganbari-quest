@@ -292,7 +292,9 @@ function normalizeHolder(parsed) {
 		if (rawGuarded.length > 0) {
 			guardedPids = asPidArrayOrNull(rawGuarded);
 			if (guardedPids === null) {
-				throw new Error(`guardedPids に不正な PID があります (received: ${JSON.stringify(rawGuarded)})`);
+				throw new Error(
+					`guardedPids に不正な PID があります (received: ${JSON.stringify(rawGuarded)})`,
+				);
 			}
 		}
 	}

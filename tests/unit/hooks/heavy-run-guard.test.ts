@@ -16,9 +16,12 @@
  *
  * 関連: docs/sessions/agent-concurrency.md / .claude/hooks/heavy-run-lock.mjs
  *
- * cspell 例外 (本 file 限定): `sess` = session id の fixture 値。
+ * cspell 例外 (本 file 限定、`.cspell.json` の global words には足さない):
+ *   - `sess`: session id の fixture 値 (`sess-1`)。global 許可すると `session` の打ち間違いが素通りする
+ *   - `cmdline` / `pids`: プロセス表の用語。実装 (`heavy-process.mjs`) の識別子と綴りを揃える必要がある
+ *   - `killall`: 実在の POSIX コマンド名。負例 fixture なので綴りを直すと検出対象でなくなる
  */
-// cspell:ignore sess
+// cspell:ignore sess cmdline pids killall
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -111,11 +114,13 @@ describe('#4076 push 対象ブランチで判定する', () => {
 			'fix/3980-3981-stripe-plan-resolution',
 		);
 		expect(
-			resolvePushRefBranch('git push --force-with-lease origin fix/3980-3981-stripe-plan-resolution'),
+			resolvePushRefBranch(
+				'git push --force-with-lease origin fix/3980-3981-stripe-plan-resolution',
+			),
 		).toBe('fix/3980-3981-stripe-plan-resolution');
-		expect(resolvePushRefBranch('git push origin HEAD:refs/heads/fix/4017-dependency-review-waiver')).toBe(
-			'fix/4017-dependency-review-waiver',
-		);
+		expect(
+			resolvePushRefBranch('git push origin HEAD:refs/heads/fix/4017-dependency-review-waiver'),
+		).toBe('fix/4017-dependency-review-waiver');
 	});
 
 	it('AC1: refspec が無ければ null (cwd 解決にフォールバックする)', () => {
@@ -128,7 +133,10 @@ describe('#4076 push 対象ブランチで判定する', () => {
 		const main = 'E:\\Github\\ganbari-quest-dev';
 		// worktree へ cd してから push する形
 		expect(
-			resolveCommandCwd('cd .claude/worktrees/agent-a1ef5ad9e76bd9d2f && git push origin HEAD', main),
+			resolveCommandCwd(
+				'cd .claude/worktrees/agent-a1ef5ad9e76bd9d2f && git push origin HEAD',
+				main,
+			),
 		).toBe(join(main, '.claude', 'worktrees', 'agent-a1ef5ad9e76bd9d2f'));
 		// git -C 指定
 		expect(
@@ -142,12 +150,14 @@ describe('#4076 push 対象ブランチで判定する', () => {
 		// メインクローン = fix/4017 / worktree = fix/3980 の実測構成。
 		// worktree からの push は自分のブランチで判定され、
 		// 同じ fix/4017 を押す 2 本目は同じ key に落ちる。
-		const worktreePush = resolvePushRefBranch('git push origin fix/3980-3981-stripe-plan-resolution');
+		const worktreePush = resolvePushRefBranch(
+			'git push origin fix/3980-3981-stripe-plan-resolution',
+		);
 		const mainPush = resolvePushRefBranch('git push origin fix/4017-dependency-review-waiver');
 		expect(worktreePush).not.toBe(mainPush);
-		expect(resolvePushRefBranch('git push --force-with-lease origin fix/4017-dependency-review-waiver')).toBe(
-			mainPush,
-		);
+		expect(
+			resolvePushRefBranch('git push --force-with-lease origin fix/4017-dependency-review-waiver'),
+		).toBe(mainPush);
 	});
 });
 

@@ -158,12 +158,15 @@ function main() {
 			process.kill(proc.pid, 'SIGKILL');
 		} catch (err) {
 			failed++;
-			const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
+			const message =
+				err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err);
 			process.stderr.write(`[agent-cleanup] pid=${proc.pid} を停止できませんでした: ${message}\n`);
 		}
 	}
 	if (!asJson) {
-		process.stdout.write(`[agent-cleanup] 停止 ${plan.targets.length - failed} 件 / 失敗 ${failed} 件\n`);
+		process.stdout.write(
+			`[agent-cleanup] 停止 ${plan.targets.length - failed} 件 / 失敗 ${failed} 件\n`,
+		);
 	}
 	return failed > 0 ? 1 : 0;
 }

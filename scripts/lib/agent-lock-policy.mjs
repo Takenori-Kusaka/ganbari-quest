@@ -82,7 +82,10 @@ function tokenize(segment) {
  * @returns {string}
  */
 function binName(token) {
-	const last = String(token ?? '').split(/[/\\]/).pop() ?? '';
+	const last =
+		String(token ?? '')
+			.split(/[/\\]/)
+			.pop() ?? '';
 	return last.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase();
 }
 
@@ -436,12 +439,16 @@ export function isBulkProcessKillCommand(command) {
 		const words = tokens.map((t) => t.text);
 		if (head === 'taskkill') {
 			// `/IM <image>` はイメージ名一括。`/PID <n>` は対象が特定されているので通す。
-			return words.some((w, idx) => /^\/im$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''));
+			return words.some(
+				(w, idx) => /^\/im$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''),
+			);
 		}
 		if (head === 'killall') return words.slice(1).some((w) => /^node(\.exe)?$/i.test(w));
 		if (head === 'pkill') return words.slice(1).some((w) => /^node(\.exe)?$/i.test(w));
 		if (head === 'stop-process') {
-			return words.some((w, idx) => /^-name$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''));
+			return words.some(
+				(w, idx) => /^-name$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''),
+			);
 		}
 		return false;
 	});
