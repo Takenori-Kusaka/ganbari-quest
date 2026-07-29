@@ -44,7 +44,7 @@ GitHub の auto-merge は「approve + 全 required checks 通過時に自動 squ
 
 手順書依存（人間 / Agent の規律）は忘却・スキップが構造的に発生し、PR #1875 / #1982 で `ganbariquestsupport-lab` 起票違反が再発した。GitHub PR author は事後変更不可のため事前防止が必要。amendment 1 の「pre-push hook 不採用」を supersede し 3 層防御を導入:
 
-- **L1 Claude Code hook** (`.claude/settings.json` PreToolUse → `scripts/claude-hook-prevent-qa-account-pr.mjs`): Claude / Agent 経由の `gh pr create` を捕捉。
+- **L1 Claude Code hook** (`.claude/settings.json` PreToolUse → `scripts/claude-hook-prevent-qa-account-pr.mjs`): Claude / Agent 経由の `gh pr create` を捕捉。matcher は **コマンド実行系ツール全経路** (SSOT: `.claude/hooks/command-execution-tools.mjs`) を覆う — `Bash` のみだと PowerShell ツール経由で L1 が起動せず素通りする (#4001)。
 - **L2 git pre-push hook** (`.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`): 手動 `git push` 直前に捕捉。OSS は husky を採用（デファクト、devDep、Pre-PMF コスト極小）。
 - **L3 server side gate** (`.github/workflows/pr-author-guard.yml`): `pull_request: opened/reopened/ready_for_review` で発火、author が許可リスト外なら PR 自動 close + 違反コメント + workflow fail。Web UI / 別 client / REST 直叩き等 L1/L2 で抜けた全経路を捕捉。
 
