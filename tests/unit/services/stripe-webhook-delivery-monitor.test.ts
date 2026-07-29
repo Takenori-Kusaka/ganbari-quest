@@ -52,6 +52,8 @@ function checkoutEvent(opts: {
 	minutesAgo?: number;
 	pendingWebhooks?: number;
 	tenantId?: string | null;
+	/** この checkout が成立させた subscription id (Stripe 側の事実) */
+	subscriptionId?: string;
 	/** Stripe が返す payload に混ざる顧客情報 (通知に載ってはならない) */
 	customerEmail?: string;
 }) {
@@ -63,6 +65,7 @@ function checkoutEvent(opts: {
 		data: {
 			object: {
 				metadata: opts.tenantId === null ? {} : { tenantId: opts.tenantId ?? 'tenant-1' },
+				subscription: opts.subscriptionId ?? 'sub_123',
 				customer_email: opts.customerEmail ?? 'parent@example.com',
 			},
 		},
@@ -111,6 +114,18 @@ describe('#3959 [D1] 未達 (2026-07-26 と同型) を検知して通知する',
 		const result = await checkWebhookDelivery(NOW);
 
 		expect(result.unreflectedCheckouts[0]?.reason).toBe('tenant-id-missing');
+		expect(result.alerted).toBe(true);
+	});
+
+	it('既存契約者のプラン変更 checkout が反映されていない場合も検知する', async () => {
+		// tenant は「変更前の」subscription を持ったまま。subscription の有無だけを見ると
+		// 「反映済み」と誤判定され、代金だけ取られて機能が開かない状態を見逃す。
+		mockEventsList.mockResolvedValue({ data: [checkoutEvent({ subscriptionId: 'sub_new' })] });
+		mockFindTenantById.mockResolvedValue({ id: 'tenant-1', stripeSubscriptionId: 'sub_old' });
+
+		const result = await checkWebhookDelivery(NOW);
+
+		expect(result.unreflectedCheckouts[0]?.reason).toBe('subscription-mismatch');
 		expect(result.alerted).toBe(true);
 	});
 

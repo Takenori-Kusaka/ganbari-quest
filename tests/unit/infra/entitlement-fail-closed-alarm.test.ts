@@ -108,7 +108,10 @@ describe('#3998 [A] entitlement fail-closed の MetricFilter / Alarm が CDK に
 		});
 	});
 
-	it('[A2] Alarm が閾値 5 / 5 分 / 既存 SNS topic に接続されている', () => {
+	// 低トラフィック環境で鳴らない設定 (件数閾値) への退行を固定する。
+	// 契約世帯が数戸の段階では「5 分 5 件」型の閾値は夜間障害中に到達せず、
+	// 全員が終夜 503 のまま誰も気付けない。継続時間 (M-out-of-N) で判定すること。
+	it('[A2] Alarm が「1 件 × 15 分内 2 window」/ 既存 SNS topic に接続されている', () => {
 		const template = withLogGroupTemplate;
 
 		template.hasResourceProperties('AWS::CloudWatch::Alarm', {
@@ -117,8 +120,9 @@ describe('#3998 [A] entitlement fail-closed の MetricFilter / Alarm が CDK に
 			MetricName: 'EntitlementDbUnavailable',
 			Statistic: 'Sum',
 			Period: 300,
-			Threshold: 5,
-			EvaluationPeriods: 1,
+			Threshold: 1,
+			EvaluationPeriods: 3,
+			DatapointsToAlarm: 2,
 			ComparisonOperator: 'GreaterThanOrEqualToThreshold',
 			TreatMissingData: 'notBreaching',
 			// 既存アラームと同じ通知先 (OpsAlerts SNS topic) に接続されていること

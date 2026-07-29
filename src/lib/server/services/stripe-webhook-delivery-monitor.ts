@@ -87,7 +87,7 @@ export interface UnreflectedCheckoutSummary {
 	createdIso: string;
 	/** session.metadata.tenantId (未設定なら null)。PII ではない内部 ID */
 	tenantId: string | null;
-	reason: 'tenant-not-found' | 'no-subscription' | 'tenant-id-missing';
+	reason: 'tenant-not-found' | 'no-subscription' | 'subscription-mismatch' | 'tenant-id-missing';
 }
 
 export interface WebhookDeliveryCheckResult {
@@ -123,11 +123,20 @@ function toIso(unixSeconds: number): string {
 	return new Date(unixSeconds * 1000).toISOString();
 }
 
+/** Stripe の `session.subscription` は id 文字列か展開済オブジェクトのどちらでも来る。 */
+function subscriptionIdOf(session: Stripe.Checkout.Session): string | null {
+	const sub = session.subscription;
+	if (!sub) return null;
+	return typeof sub === 'string' ? sub : sub.id;
+}
+
 /**
  * checkout の効果が DB に反映されているかを確認する。
  *
- * 反映済み = その tenant に Stripe subscription が結び付いている状態。
- * 支払いが成立していれば `checkout.session.completed` handler が `stripeSubscriptionId` を書く。
+ * 「tenant が subscription を 1 本持っている」だけを条件にすると、**既存契約者のプラン変更**
+ * checkout が常に「反映済み」と誤判定される (変更前の subscription が残っているため)。
+ * その場合は代金だけ取られて機能が開かない状態を見逃すので、Stripe が言う
+ * 「この checkout が作った subscription」と DB が指す subscription の一致まで見る。
  */
 async function inspectCheckout(event: Stripe.Event): Promise<UnreflectedCheckoutSummary | null> {
 	const session = event.data.object as Stripe.Checkout.Session;
@@ -146,6 +155,12 @@ async function inspectCheckout(event: Stripe.Event): Promise<UnreflectedCheckout
 	}
 	if (!tenant.stripeSubscriptionId) {
 		return { eventId: event.id, createdIso, tenantId, reason: 'no-subscription' };
+	}
+
+	const sessionSubscriptionId = subscriptionIdOf(session);
+	if (sessionSubscriptionId && sessionSubscriptionId !== tenant.stripeSubscriptionId) {
+		// この checkout で成立した subscription を DB が指していない = 反映されていない。
+		return { eventId: event.id, createdIso, tenantId, reason: 'subscription-mismatch' };
 	}
 	return null;
 }

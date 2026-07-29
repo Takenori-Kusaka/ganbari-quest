@@ -61,6 +61,12 @@ alarm が鳴っているのに 503 が観測できない場合、metric filter �
 filter は「定義されているが 1 件もマッチしない」形で壊れうる。deploy 後、**アプリを壊さずに
 log を 1 行注入して metric が立つこと**を確かめる。
 
+> **注入は監査証跡を汚す**。この LogGroup は課金 path の post-mortem 用に 30 日保持されており、
+> 注入した行は本物の障害行と文字列上区別できない。実行するときは (a) 専用 log stream
+> (`alarm-firecheck-*`) にのみ書く (b) 確認後にその stream を消す (c) 実行日時と実行者を
+> 本節に追記するのではなく PR / Issue に残す、の 3 点を守る。後日の調査で「その時刻の
+> `[auth-alert]` は本物か」を判定できる状態にしておくこと。
+
 ```bash
 # 1. 注入先の log stream を 1 本用意する
 LG=/aws/lambda/ganbari-quest-app

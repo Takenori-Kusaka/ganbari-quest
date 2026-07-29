@@ -218,21 +218,27 @@ export class OpsStack extends cdk.Stack {
 			//   1 件 = 1 リクエストが 503 になった、という単位になるように filter は
 			//   hooks.server.ts の 503 応答 1 行だけを数える (DB 解決失敗そのものの log 行は
 			//   `auth-entitlement-db-unavailable` で Logs Insights から追えるが metric には数えない)。
-			//   DSQL は OCC 競合 / 瞬断で単発の解決失敗が起こりうるため 1 件では鳴らさない。
-			//   5 分間に 5 リクエスト = 一過性ではなく継続してユーザーが弾かれている状態、という線を引く。
-			//   これは既存 `ganbari-quest-lambda-url-5xx` (5 分 5 件) と同じ粒度で、運用者が
-			//   「5 分 5 件で鳴る」という 1 つの感覚だけを覚えれば済むようにするため意図的に揃えている。
+			//
+			//   **一過性かどうかは「件数」ではなく「継続時間」で判定する**。
+			//   件数で引く (例: 5 分 5 件) と、契約世帯が数戸という現在の規模では夜間・早朝の障害中に
+			//   閾値へ到達せず、全員が終夜 503 のまま誰も気付けない (既存 lambda-url-5xx と粒度を
+			//   揃えたくなるが、あちらはトラフィック量に比例する metric、こちらは 1 件出た時点で
+			//   「DB が読めていない」を意味する全ユーザー同時被弾型で、性質が異なる)。
+			//   そこで 1 件を閾値としつつ、15 分 (5 分 × 3) のうち 2 window で発生したときに鳴らす。
+			//   DSQL の OCC 競合 / 瞬断による単発失敗は 1 window で収まるため鳴らず、
+			//   5 分以上継続する障害は低トラフィックでも捕捉できる。
 			//   metric は該当 log が無い間データ点を持たないため treatMissingData=NOT_BREACHING。
 			const entitlementFailClosedAlarm = new cloudwatch.Alarm(this, 'EntitlementFailClosed', {
 				alarmName: 'ganbari-quest-auth-entitlement-db-unavailable',
 				alarmDescription:
-					'課金状態を DB から解決できず 503 になったリクエスト: 5分間に5件以上 (#3998 fail-closed)',
+					'課金状態を DB から解決できず 503 になったリクエスト: 15分内の2つの5分window で発生 (#3998 fail-closed)',
 				metric: entitlementFailClosed.metric({
 					period: cdk.Duration.minutes(5),
 					statistic: 'Sum',
 				}),
-				threshold: 5,
-				evaluationPeriods: 1,
+				threshold: 1,
+				evaluationPeriods: 3,
+				datapointsToAlarm: 2,
 				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
 			});
