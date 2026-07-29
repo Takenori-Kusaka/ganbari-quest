@@ -15,8 +15,9 @@
 // 同一リクエスト内で状態が変わる操作の直後に呼ぶ。
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import type { EvaluationContext } from '$lib/runtime/evaluation-context';
-import type { PlanTier } from '$lib/server/services/plan-limit-service';
+import type { TenantEntitlement } from '$lib/server/auth/types';
 import type { TrialStatus } from '$lib/server/services/trial-service';
 
 interface RequestContext {
@@ -24,6 +25,12 @@ interface RequestContext {
 	planTierCache: Map<string, PlanTier>;
 	/** key: tenantId */
 	trialStatusCache: Map<string, TrialStatus>;
+	/**
+	 * #3963: context_token から plan / licenseStatus を外し、毎リクエスト DB から
+	 * 解決するようにしたことで増える `findTenantById` を 1 回/req に抑える。
+	 * key: tenantId
+	 */
+	tenantEntitlementCache: Map<string, TenantEntitlement>;
 	/**
 	 * ADR-0040 P3 (#1215): hooks.server.ts で認証解決完了後に 1 回だけ構築される
 	 * 実行文脈。Policy Gate (P4) が `can()` で参照する。
@@ -48,6 +55,7 @@ export function runWithRequestContext<T>(fn: () => Promise<T>): Promise<T> {
 		{
 			planTierCache: new Map(),
 			trialStatusCache: new Map(),
+			tenantEntitlementCache: new Map(),
 		},
 		fn,
 	);
@@ -69,6 +77,8 @@ export function invalidateRequestCaches(tenantId: string): void {
 	const ctx = store.getStore();
 	if (!ctx) return;
 	ctx.trialStatusCache.delete(tenantId);
+	// #3963: 解約 / 再開など、同一リクエスト内で課金状態が変わる操作の直後に効かせる
+	ctx.tenantEntitlementCache.delete(tenantId);
 	// planTier は key に tenantId prefix を含むため前方一致で削除
 	const prefix = `${tenantId}::`;
 	for (const key of ctx.planTierCache.keys()) {
