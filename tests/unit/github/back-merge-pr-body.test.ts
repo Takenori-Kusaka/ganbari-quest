@@ -175,10 +175,11 @@ describe('validateBackMergePrBody (#3879: 生成時自己検証 = 生成→検�
 	});
 
 	it('禁止語 (未完遂マーカー) が混入すると違反を検出する', () => {
-		const tampered = cleanBody.replace(
-			'**影響を受ける画面・機能**: hotfix #3872 と同一。',
-			'**影響を受ける画面・機能**: あとで対応TODO',
-		);
+		// 禁止語 scan は body 全文が対象なので、特定行を狙った `.replace` にはしない。
+		// アンカー文字列に依存すると body 文言の変更で replace が no-op 化し、
+		// 「禁止語を入れていないのに通った」= 検査が空洞化したことに気づけない (#4097 で実際に踏んだ)。
+		const tampered = `${cleanBody}\n\n**補足**: あとで対応TODO\n`;
+		expect(tampered, '禁止語が実際に混入していること').toContain('あとで対応TODO');
 		const violations = validateBackMergePrBody(tampered);
 		expect(violations.map((v) => v.gate).join(' ')).toContain('forbidden-terms');
 	});
