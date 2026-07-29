@@ -1,4 +1,5 @@
 <script lang="ts">
+import { resolve } from '$app/paths';
 import { APP_LABELS, AUTH_INVITE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -26,9 +27,9 @@ let { data } = $props();
 				<!-- #4049 AC3: ログイン中のユーザーに必要な行動はログアウト。
 				     「ログインページへ」だけを出口にすると案内と導線が正反対になる。 -->
 				{#if data.sessionActive}
-					<a href="/auth/logout" data-testid="invite-error-logout" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.logoutButton}</a>
+					<a href={resolve('/auth/logout')} data-testid="invite-error-logout" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.logoutButton}</a>
 				{:else}
-					<a href="/auth/login" class="invite-button invite-button--error">{AUTH_INVITE_LABELS.loginPageLink}</a>
+					<a href={resolve('/auth/login')} class="invite-button invite-button--error">{AUTH_INVITE_LABELS.loginPageLink}</a>
 				{/if}
 			</div>
 		{:else}
@@ -39,16 +40,16 @@ let { data } = $props();
 				<div class="flex justify-center gap-2 py-3 px-4 bg-[var(--color-brand-50)] rounded-[var(--radius-sm)]">
 					<span class="text-sm text-[var(--color-neutral-500)]">{AUTH_INVITE_LABELS.roleLabel}</span>
 					<span class="text-sm font-semibold text-[var(--color-brand-700)]">
-						{data.invite.role === 'parent' ? '保護者' : 'こども'}
+						{data.invite.role === 'parent' ? AUTH_INVITE_LABELS.roleParent : AUTH_INVITE_LABELS.roleChild}
 					</span>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-3">
-				<a href="/auth/signup" class="invite-button invite-button--primary">
+				<a href={resolve('/auth/signup')} class="invite-button invite-button--primary">
 					{AUTH_INVITE_LABELS.signupButton}
 				</a>
-				<a href="/auth/login" class="invite-button invite-button--secondary">
+				<a href={resolve('/auth/login')} class="invite-button invite-button--secondary">
 					{AUTH_INVITE_LABELS.loginButton}
 				</a>
 			</div>

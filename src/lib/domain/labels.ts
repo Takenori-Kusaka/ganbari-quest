@@ -5373,6 +5373,9 @@ export const AUTH_INVITE_LABELS = {
 	logoutButton: 'ログアウトする',
 	inviteMessage: '家族グループへの招待が届いています。',
 	roleLabel: '参加ロール:',
+	// 招待の参加ロール表示 (内部コード role を露出しない、DESIGN.md §6)
+	roleParent: PARENT_TERMS.honorific,
+	roleChild: CHILD_TERMS.hiragana,
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
 	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
