@@ -123,24 +123,27 @@ jobs:
         if: steps.diff.outputs.has_diff == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAIN_HEAD: ${{ steps.diff.outputs.main_head }}
         run: |
           set -euo pipefail
-          # 前回統合 merge = 現 main HEAD の committer 日時。これ以降に develop へ merge された PR を含有とする。
-          SINCE_ISO=$(git show -s --format=%cI "$MAIN_HEAD")
-          SINCE_DATE=${SINCE_ISO%%T*}
-          UNTIL_DATE=$(date -u +%F)
-          echo "since=$SINCE_DATE" >> "$GITHUB_OUTPUT"
-          echo "until=$UNTIL_DATE" >> "$GITHUB_OUTPUT"
-
-          # develop に merge された PR (mergedAt が前回統合以降) を JSON 取得。
-          # gh pr list の searchで base=develop + merged を絞る。--json で機械可読化 (AC3)。
+          # #4053: 含有候補 PR は **main..develop の first-parent merge 履歴** から直接取る。
+          # 旧実装は `git show -s --format=%cI main HEAD` を anchor に `mergedAt >= anchor` を
+          # jq の**文字列比較**で行っていたため、(1) TZ 表記混在 (+09:00 と Z) で時刻比較にならず、
+          # (2) anchor が hotfix の main 直 merge で前進して含有 PR が構造的に脱落していた
+          # (実測: 21 本中 3 本しか出ていない)。候補収集を git の構造的事実に置き換え、
+          # 時刻は「統合対象期間の表示 / drift 日数」にのみ使う (epoch 正規化して比較)。
+          # 生成した一覧が main..develop の実数と一致しない場合は非 0 で終了する (silent 脱落禁止)。
           # #3423: body も取得し、含有 PR の closing keyword (closes/fixes/resolves #N) を
           # 統合 PR 本文へ Closes 集約する (main merge 時 auto-close で close漏れを構造的に防ぐ)。
-          gh pr list --base develop --state merged --limit 200 \
-            --json number,title,headRefName,labels,mergedAt,body \
-            --jq "[.[] | select(.mergedAt >= \"$SINCE_ISO\")]" > /tmp/develop-merged.json
+          node scripts/collect-integration-prs.mjs \
+            --base origin/main --head origin/develop \
+            --out /tmp/develop-merged.json \
+            --reconcile-out /tmp/integration-reconcile.json
           echo "含有候補 PR 件数: $(jq 'length' /tmp/develop-merged.json)"
+          {
+            echo "since=$(jq -r '.sinceDate' /tmp/integration-reconcile.json)"
+            echo "until=$(jq -r '.untilDate' /tmp/integration-reconcile.json)"
+            echo "expected_contained=$(jq -r '.expectedContained' /tmp/integration-reconcile.json)"
+          } >> "$GITHUB_OUTPUT"
 
           # B-5 contract: 未取込 hotfix back-merge PR (open, label:back-merge, base:develop) を drift 状態として取得。
           gh pr list --state open --base develop --label back-merge --limit 50 \
@@ -153,11 +156,10 @@ jobs:
             --json number > /tmp/epic-issues.json || echo '[]' > /tmp/epic-issues.json
           echo "tracking (epic) issue 件数: $(jq 'length' /tmp/epic-issues.json)"
 
-          # drift 日数 = 前回統合 merge からの経過日数。
-          NOW_EPOCH=$(date -u +%s)
-          SINCE_EPOCH=$(date -u -d "$SINCE_ISO" +%s)
-          DRIFT_DAYS=$(( (NOW_EPOCH - SINCE_EPOCH) / 86400 ))
-          echo "drift_days=$DRIFT_DAYS" >> "$GITHUB_OUTPUT"
+          # drift 日数 = **前回統合 merge** (main 上の直近の develop→main 統合 commit) からの経過日数。
+          # anchor 探索と epoch 正規化は collect-integration-prs.mjs が担う (#4053 AC1/AC2)。
+          echo "drift_days=$(jq -r '.driftDays' /tmp/integration-reconcile.json)" >> "$GITHUB_OUTPUT"
+          echo "anchor: $(jq -r '.anchorSha + \" \" + .anchorSubject' /tmp/integration-reconcile.json)"
 
       # ----------------------------------------------------------------------
       # 3. 統合 PR 本文を生成する (pure function SSOT 経由、手書きなし、AC3)
@@ -170,8 +172,11 @@ jobs:
           SINCE: ${{ steps.collect.outputs.since }}
           UNTIL: ${{ steps.collect.outputs.until }}
           DRIFT_DAYS: ${{ steps.collect.outputs.drift_days }}
+          EXPECTED_CONTAINED: ${{ steps.collect.outputs.expected_contained }}
         run: |
           set -euo pipefail
+          # --expected-contained: git の main..develop merge 履歴由来の実数。生成表の行数と
+          # 一致しなければ script が非 0 で終了し、少ない一覧が PR へ書かれるのを防ぐ (#4053 AC5)。
           node scripts/integration-pr-body.mjs \
             --template .github/INTEGRATION_PR_TEMPLATE.md \
             --prs /tmp/develop-merged.json \
@@ -179,6 +184,7 @@ jobs:
             --tracking-issues /tmp/epic-issues.json \
             --develop-head "$DEVELOP_HEAD" \
             --since "$SINCE" --until "$UNTIL" --drift-days "$DRIFT_DAYS" \
+            --expected-contained "$EXPECTED_CONTAINED" \
             > /tmp/integration-pr-body.md
           echo "生成 body 行数: $(wc -l < /tmp/integration-pr-body.md)"
           {
