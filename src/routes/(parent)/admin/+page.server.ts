@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { requireTenantId } from '$lib/server/auth/factory';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
@@ -149,8 +150,9 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 			}),
 	]);
 
-	const now = new Date();
-	const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	// 当月キーは JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) で月初
+	// 00:00〜09:00 に前月キーで集計を取得していた。
+	const yearMonth = monthKeyJST();
 	const isPaid = isPaidTier(tier);
 
 	// #3088: 以降の 6 ブロックは children + tenantId のみ依存で相互独立 → 並列実行して wall-clock を短縮。

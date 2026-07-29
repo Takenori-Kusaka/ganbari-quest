@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { monthKeyJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -20,10 +21,9 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	const tenantId = requireTenantId(locals);
 
-	// 月パラメータ（デフォルト: 今月）
-	const now = new Date();
-	const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-	const selectedMonth = url.searchParams.get('month') ?? defaultMonth;
+	// 月パラメータ（デフォルト: 今月）。月キーは JST SSOT 経由 (#4015) —
+	// ローカル getter だと Lambda (UTC) で月初 00:00〜09:00 に前月レポートが既定表示になる。
+	const selectedMonth = url.searchParams.get('month') ?? monthKeyJST();
 
 	const [children, reportSettings] = await Promise.all([
 		getAllChildren(tenantId),

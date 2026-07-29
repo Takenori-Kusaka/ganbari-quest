@@ -6,6 +6,7 @@
 
 import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -98,8 +99,7 @@ function generateMockMetrics(): StripeMetricsWithTrend {
 	// 過去 6 か月のダミートレンド
 	const trend: MonthlyMetricPoint[] = [];
 	for (let i = 5; i >= 0; i--) {
-		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-		const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+		const month = shiftMonthKey(monthKeyJST(now), -i);
 		const paidCount = Math.max(1, 6 - i);
 		trend.push({
 			month,
@@ -287,7 +287,9 @@ export async function getStripeMetrics(): Promise<StripeMetricsWithTrend> {
 		const tenants = await repos.auth.listAllTenants();
 
 		const now = new Date();
-		const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+		// 月キーは JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) では JST 月初
+		// 00:00〜09:00 に前月キーとなり、churn / MRR が誤った月に載っていた。
+		const currentMonth = monthKeyJST(now);
 
 		const activePaidCount = countActivePaid(tenants);
 		const mrr = calculateMRR(tenants);
@@ -312,8 +314,7 @@ export async function getStripeMetrics(): Promise<StripeMetricsWithTrend> {
 		// 過去 6 か月のトレンド
 		const trend: MonthlyMetricPoint[] = [];
 		for (let i = 5; i >= 0; i--) {
-			const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-			const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+			const month = shiftMonthKey(monthKeyJST(now), -i);
 			const churnRate = calculateMonthlyChurnRate(tenants, month);
 
 			// 過去月のスナップショットはDB状態から正確には取れないため、

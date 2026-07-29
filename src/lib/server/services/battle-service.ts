@@ -6,7 +6,7 @@ import { getEnemyById, selectDailyEnemy } from '$lib/domain/battle-enemies';
 import { executeBattle, scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
-import { todayDateJST } from '$lib/domain/date-utils';
+import { jstDayOfWeek, todayDateJST } from '$lib/domain/date-utils';
 import {
 	completeBattle,
 	countConsecutiveLosses,
@@ -76,7 +76,9 @@ export async function getTodayBattle(
 	if (!battle) {
 		// 新しいバトルを生成
 		const consecutiveLosses = await countConsecutiveLosses(childId, tenantId);
-		const dayOfWeek = new Date().getDay();
+		// 曜日は JST SSOT 経由 (#4015)。同 function の `today` は todayDateJST() なので、
+		// ローカル getter のままだと UTC runtime で「日付は今日 / 敵は前日の曜日」が混在していた。
+		const dayOfWeek = jstDayOfWeek();
 		const enemy = selectDailyEnemy(dayOfWeek, Math.random(), consecutiveLosses);
 		const playerStats = convertToBattleStats(categoryXp);
 

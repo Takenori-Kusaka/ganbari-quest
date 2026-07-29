@@ -36,12 +36,9 @@ import {
  * monthDay が「今日より過去」なら来年の同月日とする
  * (例: 2026/05/19 時点で「03-03 ひな祭り」を import すると 2027/03/03 になる)。
  *
- * 日付計算は **JST 基準で統一** する (#966 / date-utils.ts SSOT)。
- * Lambda は UTC で稼働するため、`Date.getFullYear()` / `Date.getMonth()` /
- * `Date.toISOString()` をそのまま使うと、0:00〜9:00 JST (= 15:00〜24:00 UTC 前日)
- * の境界で年判定がずれる。例: 2025-12-31 23:30 UTC = 2026-01-01 08:30 JST のとき、
- * UTC 基準の `getFullYear()` は 2025 を返してしまう。toJSTDateString() 経由で
- * JST の YYYY-MM-DD 文字列を取得し、そこから年を抽出することで境界を正しく扱う。
+ * 日付計算は `$lib/domain/date-utils.ts` の JST SSOT 経由で行う
+ * (同 module 冒頭の「SSOT 宣言」を参照、#966 / #4015)。ここでは toJSTDateString() で
+ * JST の YYYY-MM-DD を取得し、そこから年を抽出する。
  *
  * @param monthDay 'MM-DD' 形式 (例: '03-03')
  * @param durationDays 期間 (日数)。startDate = endDate の (durationDays - 1) 日前

@@ -174,9 +174,10 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 
 	// 直近 N ヶ月分のコホートを抽出。
 	// #3449: cohort 鍵 (getSignupMonth = createdAt.slice(0,7) = UTC 月) と一致させるため、月列挙も
-	// **UTC 基準**で行う (旧実装は now.getFullYear()/getMonth() のローカル月でズレ、JST 月初 = UTC 前月末に
-	// signup したテナントが key mismatch で取りこぼされ /ops の retention/ARPU/churn が境界分過小集計、
-	// Lambda(UTC)/dev(JST) で結果分岐していた)。UTC を月境界 SSOT に統一する。
+	// **UTC 基準**で行う。ローカル TZ getter が環境ごとに違う日付を返す理由は
+	// `$lib/domain/date-utils.ts` 冒頭の「SSOT 宣言」を参照 (#4015)。本 module が JST ではなく
+	// UTC を月境界に選ぶのは、鍵が createdAt (ISO UTC) 由来だからで、ops-analytics-service の
+	// getMonthKey() もこの決定に揃えている。
 	const targetMonths: string[] = [];
 	for (let i = monthsBack - 1; i >= 0; i--) {
 		const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));

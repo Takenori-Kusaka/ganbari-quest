@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
 import { page } from '$app/state';
+import { toJSTDateString } from '$lib/domain/date-utils';
 import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, UI_LABELS } from '$lib/domain/labels';
 // #2895: marketplace 陳列の in-page browse UI / OverflowMenu / help-restore-export dialog を撤去し、
 // 本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
@@ -160,10 +161,12 @@ async function cleanupImportQueryParam() {
 	}
 }
 
+// 取込日時の日付化は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) と
+// client (ブラウザ TZ) で表示日が変わり、JST 00:00〜09:00 の取込が前日表示になる。
 function formatImportedAt(iso: string): string {
 	try {
-		const d = new Date(iso);
-		return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+		const [y, m, d] = toJSTDateString(new Date(iso)).split('-');
+		return `${y}/${Number(m)}/${Number(d)}`;
 	} catch {
 		return iso;
 	}

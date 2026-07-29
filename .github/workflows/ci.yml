@@ -248,6 +248,13 @@ jobs:
         # instance 修正をやめ、追加時に区分の判断を必ず発生させる gate にした (ADR-0061)。
         run: node scripts/check-repo-scan-test-declaration.mjs
 
+      - name: Local TZ date getter guard (#4015 / ADR-0061 same-class-N)
+        # 実時刻から `getFullYear()` / `getMonth()` / `getDate()` / `getDay()` で暦要素を取り出すと、
+        # Lambda (UTC) と NUC (JST) で同じコードが違う日付を返す。#4003 ではこれで週次チャレンジが
+        # 毎週 9 時間消えた (3 例目)。日付計算は date-utils.ts の JST SSOT 経由に統一し、
+        # TZ 非依存と言える箇所のみ理由付き allowlist で pin する (理由が空だと gate 自身が fail)。
+        run: node scripts/check-local-tz-date-getters.mjs
+
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。

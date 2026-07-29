@@ -71,6 +71,7 @@ const SKIP_FLAGS = {
 	'--skip-plan-literals': 'skipPlanLiterals',
 	'--skip-license-key-leak': 'skipLicenseKeyLeak',
 	'--skip-cli-entry-guard': 'skipCliEntryGuard',
+	'--skip-local-tz-getters': 'skipLocalTzGetters',
 	'--skip-sparse-checkout-closure': 'skipSparseCheckoutClosure',
 	'--skip-readdir-rotation-guard': 'skipReaddirRotationGuard',
 	'--skip-repo-scan-test-declaration': 'skipRepoScanTestDeclaration',
@@ -94,6 +95,7 @@ function parseArgs(argv) {
 		skipPlanLiterals: false,
 		skipLicenseKeyLeak: false,
 		skipCliEntryGuard: false,
+		skipLocalTzGetters: false,
 		skipSparseCheckoutClosure: false,
 		skipReaddirRotationGuard: false,
 		skipRepoScanTestDeclaration: false,
@@ -146,6 +148,7 @@ Options:
   --skip-sparse-checkout-closure Step 7d workflow sparse-checkout の import 閉包検査をスキップ (#3969)
   --skip-readdir-rotation-guard Step 7e readdir の緩い一致 × 破壊的操作の検査をスキップ (#3978)
   --skip-repo-scan-test-declaration Step 7f repo 走査 test の区分宣言検査をスキップ (#4085)
+  --skip-local-tz-getters Step 7g ローカル TZ 日付 getter 検査をスキップ (#4015 / ADR-0061)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
@@ -163,10 +166,12 @@ Steps (番号は表示上の識別子。実行順は下記「実行順」を参�
   5.  measure-lp-dimensions.mjs   — LP 寸法 / 禁止語 (LP 変更時のみ)
   6.  sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
+  7b. check-license-key-leak.mjs — license key 再導入防止 (#2836 / Phase 7 PR-L4)
   7c. check-cli-entry-guard.mjs  — 自前の CLI 直接実行判定 / 手組み file:// URL 禁止 (#3969)
   7d. check-workflow-sparse-checkout-closure.mjs — workflow sparse-checkout の import 閉包検査 (#3969)
   7e. check-readdir-rotation-guard.mjs — readdir の緩い一致で世代を数える class の検出 (#3978)
   7f. check-repo-scan-test-declaration.mjs — repo 走査 test の区分宣言 + 明示 timeout 検査 (#4085)
+  7g. check-local-tz-date-getters.mjs — ローカル TZ 日付 getter 禁止 / JST SSOT 強制 (#4015 / ADR-0061)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
@@ -178,7 +183,7 @@ Steps (番号は表示上の識別子。実行順は下記「実行順」を参�
   Step 番号は PR body / docs / Issue から広く参照されるため変更しない。実行順だけを
   「判定に要する時間と参照する情報の量」で並べ替える。同一クラス内は上記の番号順を保つ。
     1) meta      PR body / メタ情報だけを見る    — Step 9
-    2) static    静的テキスト / 単一ファイル検査 — Step 1 / 1b / 4 / 6 / 7 / 7b / 7c / 7d / 8 / 10 / 11
+    2) static    静的テキスト / 単一ファイル検査 — Step 1 / 1b / 4 / 6 / 7 / 7b / 7c / 7d / 7e / 7f / 7g / 8 / 10 / 11
     3) typecheck 型検査                          — Step 2
     4) test      テスト実行                      — Step 3
     5) browser   ヘッドレスブラウザ実測          — Step 5
@@ -734,6 +739,9 @@ export function buildSteps(args, changedFiles) {
 	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃の再導入防止 gate
 	const licenseKeyLeakScript = resolve(repoRoot, 'scripts/check-license-key-leak.mjs');
 	const licenseKeyLeakScriptExists = existsSync(licenseKeyLeakScript);
+	// #4015: ローカル TZ 日付 getter の再混入を止める gate (ADR-0061 same-class-N → guard)
+	const localTzGetterScript = resolve(repoRoot, 'scripts/check-local-tz-date-getters.mjs');
+	const localTzGetterScriptExists = existsSync(localTzGetterScript);
 	// #3969: 自前の CLI 直接実行判定 / 手組み file:// URL の再混入を止める gate
 	const cliEntryGuardScript = resolve(repoRoot, 'scripts/check-cli-entry-guard.mjs');
 	const cliEntryGuardScriptExists = existsSync(cliEntryGuardScript);
@@ -968,6 +976,28 @@ export function buildSteps(args, changedFiles) {
 				'  - 判定と貼り付け用エントリ: `node scripts/check-repo-scan-test-declaration.mjs --list`\n' +
 				'  - 宣言先: scripts/lib/ci/repo-scan-test-registry.mjs\n' +
 				'  - scope=repo の test には `vi.setConfig({ testTimeout: 60_000 })` 等の明示 timeout を置く',
+		},
+		// Step 7g: check-local-tz-date-getters (#4015 / ADR-0061 same-class-N → guard)
+		// 実時刻からローカル TZ getter で暦要素を取り出す形 (#4003 と同 class) の再混入を止める。
+		{
+			name: 'local-tz-getters',
+			costClass: 'static',
+			label: localTzGetterScriptExists
+				? 'Step 7g/12: check-local-tz-date-getters.mjs (#4015)'
+				: 'Step 7g/12: check-local-tz-date-getters.mjs (script 未配備 — skip)',
+			...skipStateOf({
+				byFlag: args.skipLocalTzGetters,
+				scriptMissing: !localTzGetterScriptExists,
+			}),
+			runner: () =>
+				run('check-local-tz-date-getters', ['node', 'scripts/check-local-tz-date-getters.mjs']),
+			fixHint:
+				'  ローカル TZ 日付 getter を検出しました (#4015)。\n' +
+				'  - 実時刻 (new Date() / DB timestamp) から暦要素を取り出しているなら欠陥です。\n' +
+				'    $lib/domain/date-utils.ts の JST SSOT (todayDateJST / weekStartJST / weekEndJST /\n' +
+				'    addDaysJST / jstDayOfWeek / jstYearMonth / monthKeyJST 等) に置換してください。\n' +
+				'  - TZ 非依存と言える場合のみ script の ALLOWLIST に file / max / reason を追加します\n' +
+				'    (reason が空だと gate 自身が fail します)。',
 		},
 		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
 		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。

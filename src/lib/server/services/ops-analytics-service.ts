@@ -151,9 +151,18 @@ const PLAN_MRR_UNIT: Record<string, number> = {
 // Helpers (exported for tests)
 // ============================================================
 
+/**
+ * 月キー (YYYY-MM) を **UTC 基準**で返す (#4015)。
+ *
+ * 旧実装はローカル TZ getter で、Lambda (UTC) と dev (JST) で結果が分岐していた。
+ * ここを JST ではなく UTC に固定するのは、本 module の月キーが `tenant.createdAt`
+ * (ISO UTC 文字列) を直接 key 化するためで、cohort-analysis-service が #3449 で
+ * 同じ理由から UTC を月境界 SSOT に選んだ決定に揃える (両者の月バケットが食い違うと
+ * /ops 上で retention / acquisition が不整合になる)。
+ */
 export function getMonthKey(date: Date | string): string {
 	const d = typeof date === 'string' ? new Date(date) : date;
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export function monthDiff(from: string, to: string): number {
@@ -192,7 +201,7 @@ export function computeAnalytics(
 	// ── 1. Monthly Acquisitions (過去 12 ヶ月) ──
 	const acquisitionMap = new Map<string, MonthlyAcquisition>();
 	for (let i = 11; i >= 0; i--) {
-		const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+		const d = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - i, 1));
 		const key = getMonthKey(d);
 		acquisitionMap.set(key, { month: key, organic: 0, total: 0 });
 	}

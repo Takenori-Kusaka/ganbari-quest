@@ -1,12 +1,14 @@
 // src/routes/ops/export/+page.server.ts
 // CSVエクスポートページ (#0176 Phase 4)
 
+import { jstYearMonth } from '$lib/domain/date-utils';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const now = new Date();
+	// 既定年月は JST SSOT 経由 (#4015)
+	const { year, month } = jstYearMonth();
 	return {
-		currentYear: now.getFullYear(),
-		currentMonth: now.getMonth() + 1,
+		currentYear: year,
+		currentMonth: month,
 	};
 };

@@ -3,6 +3,7 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -6917,16 +6918,13 @@ export const USAGE_TIME_LABELS = {
 	minutesUnitDisplay: '（分）',
 	dayOfWeek: (date: string) => {
 		const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
-		const d = new Date(date);
-		// date は YYYY-MM-DD (UTC) で渡されるため、JST に補正
-		const jstDay = new Date(d.getTime() + 9 * 60 * 60 * 1000).getDay();
-		return days[jstDay];
+		// 曜日は JST SSOT 経由 (#4015)。旧実装は +9h の手組みオフセット後に
+		// ローカル TZ getter を読む形で、date-utils と同じ計算を二重に持っていた。
+		return days[jstDayOfWeek(new Date(date))];
 	},
 	chartBarAriaLabel: (childName: string, date: string, min: number) => {
 		const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
-		const d = new Date(date);
-		const jstDay = new Date(d.getTime() + 9 * 60 * 60 * 1000).getDay();
-		return `${childName} ${days[jstDay]}曜日 ${min}分`;
+		return `${childName} ${days[jstDayOfWeek(new Date(date))]}曜日 ${min}分`;
 	},
 } as const;
 
