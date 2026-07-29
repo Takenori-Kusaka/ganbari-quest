@@ -142,6 +142,16 @@ const FIXED_CLOCKS = [
 /** 実運用で使われるプロセス TZ。どちらでも同じ固定値になることを assert する。 */
 const PINNED_TIMEZONES = ['UTC', 'Asia/Tokyo'] as const;
 
+/**
+ * 週境界の 9 時間窓 (JST 月曜 00:00〜09:00 = UTC 日曜 15:00〜24:00) の内側にある時刻。
+ * この窓では JST の暦日と UTC の暦日が別日になるため、**週頭を JST 以外の基準で出す実装は
+ * 必ず前週を返す**。#4003 の実害 (週次チャレンジのバッジが毎週 9 時間消える) の発生条件そのもの。
+ */
+const JST_WEEK_BOUNDARY_WINDOW = {
+	iso: '2026-07-26T15:30:00Z', // JST 月曜 00:30 / UTC 日曜 15:30
+	weekStart: '2026-07-27',
+} as const;
+
 const ORIGINAL_TZ = process.env.TZ;
 
 /** プロセス TZ を pin し、Date のみ fake にして時刻を固定する (timer 系は素のまま)。 */
@@ -412,6 +422,37 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 			expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
 			expect(mockInsert).not.toHaveBeenCalled();
 			expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
+		});
+	});
+
+	// #4051 AC2: 週境界の 9 時間窓 (JST 月曜 00:00〜09:00) を固定値で pin する。
+	// この窓では JST 暦日 ≠ UTC 暦日 なので、**週頭を JST 以外の日付要素で算出する実装
+	// (= #4003 で顕在化した欠陥クラス) はここで前週を返し、必ず落ちる**。
+	// TZ は Asia/Tokyo に pin する: 窓の内側で「JST 基準の正解」を固定するのが本 case の目的で、
+	// プロセス TZ が UTC の runner で同じ正解を保証するのは週頭関数側の責務 (#4003)。
+	describe('週境界の 9 時間窓 (JST 月曜 00:00〜09:00) でも当週は JST 基準で決まる', () => {
+		afterEach(() => {
+			restoreClock();
+		});
+
+		it('週頭が翌週の月曜になる (前週を返さない)', () => {
+			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, 'Asia/Tokyo');
+			expect(getWeekStart()).toBe(JST_WEEK_BOUNDARY_WINDOW.weekStart);
+		});
+
+		it('当週分の行があれば再生成しない (窓の内側でも冪等)', async () => {
+			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, 'Asia/Tokyo');
+			const existing = {
+				id: '97',
+				childId: asChildId(10),
+				sourceTemplateId: 'auto:weekly',
+				startDate: JST_WEEK_BOUNDARY_WINDOW.weekStart,
+				targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
+			};
+			mockFindByChildId.mockResolvedValue([existing]);
+
+			expect(await getOrCreateWeeklyChildChallenge(asChildId(10), TENANT)).toBe(existing);
+			expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
 		});
 	});
 
