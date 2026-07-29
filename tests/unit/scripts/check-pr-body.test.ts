@@ -3,7 +3,13 @@
  *
  * scripts/check-pr-body.mjs の純粋関数（検出ロジック）の unit test。
  * GitHub API 呼び出し (gh pr view) は本テストでは触れない（--body-file 経路でテスト可能）。
+ *
+ * 検出器の負例 fixture には「検出されない側」を示すためのわざとらしい綴りが含まれる
+ * (`XXXY` = 語境界を持たないので XXX として検出されない / `labelish` = PLACEHOLDER 等の
+ * token に見えるが該当しない語)。これらは typo ではなく検査対象そのものなので、
+ * .cspell.json の辞書 (= 本物の語彙) には入れず file-scoped ignore で閉じる。
  */
+// cspell:ignore XXXY labelish
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,6 +19,7 @@ import {
 	checkAcMap,
 	checkChangeTypeSelection,
 	checkEnvDistributionForHotfix,
+	checkPlaceholders,
 	checkPoDecisionBrief,
 	checkSelfReviewEvidence,
 	detectMojibake,
@@ -29,9 +36,13 @@ import {
 	hasHotfixLabel,
 	hasPoDecisionLabel,
 	LABEL_CONDITIONAL_GATES,
+	PLACEHOLDER_PATTERNS,
 	PO_DECISION_LABEL,
+	parsePlaceholderScanSkip,
 	resolveLabels,
 	scanForbiddenTerms,
+	scanPlaceholders,
+	selectSkippedLabelGates,
 	stripCodeBlocks,
 	stripMarkdownComments,
 } from '../../../scripts/check-pr-body.mjs';
@@ -866,6 +877,16 @@ describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', 
 		expect(r).toEqual({ labels: [PO_DECISION_LABEL, 'hotfix'] });
 	});
 
+	it('[LB5b] --labels が trim 後に空リストになったら error にする (#3983 沈黙 fail-open)', () => {
+		// `--labels "$LABELS"` で変数が空だった事故の形。label 条件付き gate 2 件が
+		// 全 skip されるのに出力は通常 pass と同じ、という #3965 の残穴。
+		for (const raw of ['', ' ', ',', ' , ', ',,']) {
+			const r = resolveLabels({ ...noLabelArgs, labels: raw }, null);
+			expect('labels' in r).toBe(false);
+			expect('error' in r && r.error).toContain('--no-labels');
+		}
+	});
+
 	it('[LB6] 未解決と label 無しが同じ結果にならない — 同一 body で検査が消えないことの回帰', () => {
 		// QA の再現 (PR #3956 の実 body 相当: po-decision:required 付きだがブリーフ無し)
 		const bodyWithoutBrief = '## 顧客価値・目的\n\n本文\n';
@@ -894,7 +915,7 @@ describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', 
  */
 describe('formatSkippedLabelGates — --no-labels は何を検査しなかったかを出す (#3962)', () => {
 	it('[LB7] skip した label 条件付き gate の名前と件数が出力に含まれる', () => {
-		const out = formatSkippedLabelGates().join('\n');
+		const out = formatSkippedLabelGates([], '--no-labels').join('\n');
 
 		// 件数が LABEL_CONDITIONAL_GATES と一致する (gate を足したのに文言が古い、を防ぐ)
 		expect(out).toContain(`label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件`);
@@ -915,6 +936,47 @@ describe('formatSkippedLabelGates — --no-labels は何を検査しなかった
 		expect(LABEL_CONDITIONAL_GATES.map((g) => g.issue)).toEqual(['#2343', '#3962']);
 		expect(hasPoDecisionLabel([PO_DECISION_LABEL])).toBe(true);
 		expect(hasHotfixLabel(HOTFIX_LABELS.slice(0, 1))).toBe(true);
+	});
+});
+
+/**
+ * #3983: #3962 が塞いだ失敗 class (「検査していない gate が通常 pass に見える」) が
+ * `--labels <csv>` 経路にだけ残っていた。`--labels "priority:critical,hotfix"`
+ * (ready-gate-checklist.md の hotfix 手順そのまま) は po-decision gate を落とすが、
+ * 出力は `OK — 違反なし` で完全な pass と区別がつかなかった。
+ *
+ * 「発火しなかった gate だけ」を SKIPPED として出す形に変え、誤表示 (発火した gate まで
+ * SKIPPED に出す) の回帰も同時に固定する。
+ */
+describe('selectSkippedLabelGates / formatSkippedLabelGates — --labels でも未検査を可視化 (#3983)', () => {
+	it('[LB9] --labels "priority:critical,hotfix" で po-decision gate が SKIPPED に出る', () => {
+		const labels = ['priority:critical', 'hotfix'];
+		const out = formatSkippedLabelGates(labels, '--labels').join('\n');
+
+		expect(out).toContain('SKIPPED');
+		expect(out).toContain('--labels');
+		expect(out).toContain('PO 決裁ブリーフ');
+		expect(out).toContain(PO_DECISION_LABEL);
+		expect(out).toContain('label 条件付き gate 1 件');
+		// 発火した hotfix gate は「検査していない」ではないので出さない
+		expect(out).not.toContain('hotfix env 配布証跡');
+	});
+
+	it('[LB10] 発火した gate は SKIPPED に出ない — 誤表示の回帰', () => {
+		const labels = ['priority:critical', 'hotfix', PO_DECISION_LABEL];
+		expect(selectSkippedLabelGates(labels)).toEqual([]);
+		// 全 gate 発火なら SKIPPED 行そのものを出さない (空配列)
+		expect(formatSkippedLabelGates(labels, '--labels')).toEqual([]);
+	});
+
+	it('[LB11] label 0 件 (--no-labels) は全 gate が skip 対象になる特殊ケース', () => {
+		expect(selectSkippedLabelGates([])).toHaveLength(LABEL_CONDITIONAL_GATES.length);
+	});
+
+	it('[LB12] 大文字 / 前後空白の label でも発火判定される (skip 誤表示の回帰)', () => {
+		expect(selectSkippedLabelGates([' PO-Decision:Required '])).toEqual([
+			LABEL_CONDITIONAL_GATES[0],
+		]);
 	});
 });
 
@@ -954,5 +1016,119 @@ describe('extractLabelNames — shell 引用に依存せず label を取り出�
 		expect(fetched).toBeNull();
 		const r = resolveLabels({ pr: '3965', labels: null, noLabels: false }, fetched);
 		expect('labels' in r).toBe(false);
+	});
+});
+
+describe('未置換プレースホルダ検出 (#4002 / #4029)', () => {
+	// #4002 の body 断片。`[x]` の根拠が code fence 内の未置換トークンだけ、という実例。
+	const PR4002_FRAGMENT = [
+		'## テスト & 安全装置セルフチェック',
+		'',
+		'- [x] **`npm run pre-ready` 全 Step PASS** — ログは下記',
+		'',
+		'```console',
+		'PRE_READY_LOG_PLACEHOLDER',
+		'```',
+		'',
+	].join('\n');
+
+	it('[PH1] fence 内の *_PLACEHOLDER を検出する — 本 Issue の実例', () => {
+		const found = scanPlaceholders(PR4002_FRAGMENT);
+		expect(found).toHaveLength(1);
+		expect(found[0]?.token).toBe('PRE_READY_LOG_PLACEHOLDER');
+		expect(found[0]?.id).toBe('placeholder-token');
+		// 行番号は raw body の行番号と一致する (HTML コメント除去で行がずれない)
+		expect(found[0]?.lineNo).toBe(6);
+	});
+
+	it('[PH2] 置換すれば pass する (mutation の裏返し)', () => {
+		const replaced = PR4002_FRAGMENT.replace(
+			'PRE_READY_LOG_PLACEHOLDER',
+			'Step 1/12 biome check ... PASS',
+		);
+		expect(scanPlaceholders(replaced)).toEqual([]);
+		expect(checkPlaceholders(replaced).violation).toBeNull();
+	});
+
+	it('[PH3] checkPlaceholders は違反として返す (gate として繋がっている)', () => {
+		const result = checkPlaceholders(PR4002_FRAGMENT);
+		expect(result.violation?.id).toBe('unreplaced-placeholder');
+		expect(result.violation?.message).toContain('PRE_READY_LOG_PLACEHOLDER');
+	});
+
+	it('[PH4] 各トークン種別を body のどこにあっても検出する', () => {
+		const body = [
+			'普通の本文 ___',
+			'結果: TBD',
+			'担当: XXX',
+			'| AC1 | <ここに AC 内容> | grep | OK |',
+			'```',
+			'PLACEHOLDER',
+			'```',
+		].join('\n');
+		const ids = new Set(scanPlaceholders(body).map((v) => v.id));
+		expect([...ids].sort()).toEqual(
+			['japanese-angle-slot', 'placeholder-token', 'tbd', 'underscore-blank', 'xxx'].sort(),
+		);
+	});
+
+	it('[PH5] HTML コメント内の記入ガイドは対象外 (template 由来で開発者の本文ではない)', () => {
+		expect(scanPlaceholders('<!-- 例: ___ を実際の値に置換する / TBD 禁止 -->\n本文\n')).toEqual(
+			[],
+		);
+	});
+
+	it('[PH6] XXX は #XXX / URL path / 語中を拾わない (誤検出の狭め、#4029)', () => {
+		const body = [
+			'関連 Issue の書式は #XXX のように書く',
+			'https://example.com/XXX/detail',
+			'識別子 XXXY は語中なので対象外',
+		].join('\n');
+		expect(scanPlaceholders(body).filter((v) => v.id === 'xxx')).toEqual([]);
+	});
+
+	it('[PH7] 小文字の placeholder という英単語は拾わない', () => {
+		expect(scanPlaceholders('this is a placeholder image for the LP')).toEqual([]);
+	});
+
+	it('[PH8] 宣言があるときだけ skip され、理由が短ければ違反になる', () => {
+		const skipped = `${PR4002_FRAGMENT}\n<!-- placeholder-scan-skip: 本 gate の検出トークンを body 内で説明するため -->\n`;
+		const r1 = checkPlaceholders(skipped);
+		expect(r1.violation).toBeNull();
+		expect(r1.notes.join('\n')).toContain('SKIPPED');
+
+		const emptyReason = `${PR4002_FRAGMENT}\n<!-- placeholder-scan-skip: - -->\n`;
+		expect(checkPlaceholders(emptyReason).violation?.id).toBe(
+			'placeholder-scan-skip-reason-missing',
+		);
+	});
+
+	it('[PH9] label 相当の文字列を body に書いても skip されない (fail-open にしない)', () => {
+		const labelish = `${PR4002_FRAGMENT}\nlabels: placeholder-allowed\n`;
+		expect(checkPlaceholders(labelish).violation?.id).toBe('unreplaced-placeholder');
+		expect(parsePlaceholderScanSkip(labelish).declared).toBe(false);
+	});
+
+	it('[PH10] PO 決裁セクションの ___ 検出は従来どおり動く (回帰なし)', () => {
+		const body = [
+			'## PO 決裁ブリーフ',
+			'',
+			'```mermaid',
+			'flowchart TD',
+			'  A --> B',
+			'```',
+			'',
+			'- 影響: ___',
+		].join('\n');
+		const r = checkPoDecisionBrief(body, [PO_DECISION_LABEL]);
+		expect(r?.id).toBe('po-decision-brief-unfilled-placeholder');
+	});
+
+	it('[PH11] パターン定義はヘルプ表示用の label を全件持つ', () => {
+		expect(PLACEHOLDER_PATTERNS.length).toBeGreaterThanOrEqual(5);
+		for (const p of PLACEHOLDER_PATTERNS) {
+			expect(p.id).toBeTruthy();
+			expect(p.label).toBeTruthy();
+		}
 	});
 });

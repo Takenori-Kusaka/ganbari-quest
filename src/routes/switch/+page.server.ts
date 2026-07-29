@@ -38,8 +38,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	const authMode = getAuthMode();
-	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
-	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
+	// #4050: 親ゲート modal をクライアント側で開けるか (= 既にログイン済で /admin を要求できる状態)。
+	// 旧実装は cognito モードで adminLink を常に '/auth/login' 固定にしていたため、ログイン済
+	// ユーザが「ご家族の見守り画面」を click すると client 側 handler が早期 return し、
+	// /auth/login → /admin → /switch?pinRequired=1 の同一 URL 往復に落ちていた。往復後は
+	// component が再マウントされず data.pinRequired も true のままなので modal 自動 open の
+	// $effect が no-op になり、modal が二度と開かない dead-end が発生する (無限ロックアウト)。
+	const parentGateInteractive = authMode !== 'cognito' || locals.identity != null;
+	// 未ログイン (cognito) のみ /auth/login。ログイン済 / local は /admin (JS 無効時も
+	// middleware redirect で /switch?pinRequired=1 に戻り modal が初期表示される)。
+	const adminLink = parentGateInteractive ? '/admin' : '/auth/login';
 	// child ロールにはご家族の見守り画面リンクを非表示（local モードでは常に表示）
 	const showAdminLink = authMode === 'local' || locals.context?.role !== 'child';
 
@@ -64,6 +72,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		children,
 		adminLink,
+		parentGateInteractive,
 		showAdminLink,
 		reason,
 		timedOut,

@@ -2584,8 +2584,10 @@ export const SETTINGS_NAV_LABELS = {
 	data: 'データ',
 	// #3954: hub カードと同じ経路をサブナビにも出す (どちらか片方だけだと、
 	// hub 経由で来た人はサブナビのタブが 1 つも選択されていない状態になる)。
-	// サブナビは横並びで幅が限られるため hub カードより短い表記にする。
-	rules: 'ごほうび・ルール',
+	// #4024: 当初は「サブナビは幅が限られる」として短縮形にしたが、**短縮しても 1280px で
+	// サブナビは 2 行に折り返しており、短縮の目的を達成していなかった** (#3996 の SS が反証)。
+	// 折り返しが避けられない以上、同じ画面に名前を 2 つ持つ対価に見合わないため長い名前に統一する。
+	rules: 'ごほうび・ボーナスルール',
 	support: 'サポート',
 	plan: 'プラン・課金',
 	externalIndicator: '別ページ',
@@ -5265,6 +5267,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4023 横展開: 削除確認。旧実装は onsubmit + preventDefault で、キャンセルしても
+	// use:enhance 側の submit listener が走り削除が通っていた (admin/settings/rules と同型)。
+	deleteConfirmTitle: 'このチャレンジを削除しますか？',
+	deleteConfirmBody: (challengeTitle: string, childName: string) =>
+		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
@@ -5353,10 +5360,22 @@ export const CHILD_STATUS_LABELS = {
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
+	invalidLink: 'この招待リンクは無効または期限切れです。',
 	invalidLinkDesc: '招待した方に新しいリンクを発行してもらってください。',
 	loginPageLink: 'ログインページへ',
+	// #4049: 家庭内共有端末 (親の端末で子の招待リンクを踏む) の正しい次アクションを案内する。
+	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
+	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
+	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
+	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
+	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)
+	logoutButton: 'ログアウトする',
 	inviteMessage: '家族グループへの招待が届いています。',
 	roleLabel: '参加ロール:',
+	// 招待の参加ロール表示 (内部コード role を露出しない、DESIGN.md §6)
+	roleParent: PARENT_TERMS.honorific,
+	roleChild: CHILD_TERMS.hiragana,
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
 	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
@@ -5685,6 +5704,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	enableButton: '有効化',
 	disableButton: '無効化',
 	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
 	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
 	importedAtLabel: '取込日時',
 	rulesLabel: '含まれるルール',
@@ -5713,6 +5733,12 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	rewardApprovalEnableInstantButton: '即時交換にする',
 	rewardApprovalDisableInstantButton: '承認を必須に戻す',
 	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {

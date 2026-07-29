@@ -92,16 +92,13 @@ export async function updateTenantStatus(
 	// Stub: no-op
 }
 
+// #3982: 引数型を interface から導出する。インラインで再宣言すると、`IAuthRepo` の
+// method shorthand 記法によりパラメータが bivariant になり、**狭めても型エラーにならない**
+// (実測: `string | null` → `string` に戻しても svelte-check 0 errors。末尾の
+// `_typecheck: IAuthRepo` でも検出できない)。導出にすれば乖離自体が表現不能になる。
 export async function updateTenantStripe(
 	_tenantId: string,
-	_data: {
-		stripeCustomerId?: string;
-		stripeSubscriptionId?: string;
-		plan?: Tenant['plan'];
-		planExpiresAt?: string;
-		trialUsedAt?: string;
-		status?: Tenant['status'];
-	},
+	_data: Parameters<IAuthRepo['updateTenantStripe']>[1],
 ): Promise<void> {
 	// Stub: no-op
 }
@@ -203,6 +200,14 @@ export async function updateInviteStatus(
 	// Stub: no-op (#3585: 管理鍵は inviteId、#3588: tenant scope 引数)
 }
 
+// #4039: 受諾は単一 txn の acceptInviteTransactional に一本化した。demo backend は invite を
+// 永続しない (findInviteByCode が常に undefined) ため、受諾可能な invite は存在しない。
+// service 層はここへ到達しないが、到達しても「無効な招待」として確定失敗を返す (fail-closed)。
+export const acceptInviteTransactional: IAuthRepo['acceptInviteTransactional'] = async () => ({
+	ok: false,
+	reason: 'INVALID_OR_EXPIRED',
+});
+
 export async function findTenantInvites(_tenantId: string): Promise<Invite[]> {
 	return [];
 }
@@ -259,6 +264,7 @@ const _typecheck: IAuthRepo = {
 	createInvite,
 	findInviteByCode,
 	updateInviteStatus,
+	acceptInviteTransactional,
 	findTenantInvites,
 	deleteInvite,
 	recordConsent,

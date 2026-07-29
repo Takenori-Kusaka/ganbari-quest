@@ -88,6 +88,12 @@ export const findInviteByCode: IAuthRepo['findInviteByCode'] = async () => {
 export const updateInviteStatus: IAuthRepo['updateInviteStatus'] = async () => {
 	// no-op in local mode
 };
+// #4039: 受諾は単一 txn の acceptInviteTransactional に一本化した。local (SQLite) モードは
+// invite 自体が未対応 (createInvite / findMembership も NOT_SUPPORTED) のため同じ扱いにする。
+// findInviteByCode が undefined を返すので service 層はここへ到達しない (defense-in-depth)。
+export const acceptInviteTransactional: IAuthRepo['acceptInviteTransactional'] = async () => {
+	throw new Error(NOT_SUPPORTED);
+};
 export const findTenantInvites: IAuthRepo['findTenantInvites'] = async () => {
 	return [];
 };

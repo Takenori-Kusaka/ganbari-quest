@@ -483,6 +483,178 @@ export function checkPoDecisionBrief(body, labels) {
 }
 
 // ---------------------------------------------------------------------------
+// 未置換プレースホルダ検出 (body 全体、code fence 内を含む) — #4029
+// ---------------------------------------------------------------------------
+
+/**
+ * 「置換されていないテンプレート断片」を示すトークン SSOT (#4029)。
+ *
+ * 発生経緯: PR #4002 の body L208 が `PRE_READY_LOG_PLACEHOLDER` のまま残り、その block を
+ * 根拠に 2 箇所が `- [x]` を立てていた (成果物のない `[x]`)。当時の未置換検出は
+ * `___` を PO 決裁セクション内でのみ見ていたため、**code fence 内の別表記**は素通りした。
+ * fence を除外すると今回の実例をそのまま逃すので、**fence 内も対象**にする。
+ *
+ * HTML コメントだけは除外する (template 由来の記入ガイドが `<!-- 例: ___ -->` の形で
+ * 残るのは正常であり、開発者が書いた本文ではないため)。除外は行番号を保つマスクで行う。
+ *
+ * 各 pattern の狭め方 (誤検出との境界、#4029):
+ *   - `PLACEHOLDER` は**大文字のみ**。英文中の "placeholder" という単語を拾わない
+ *   - `XXX` は `#XXX` (Issue 番号の伏せ字引用) / URL path (`/XXX`) / 語中 (`XXXY`) を除外
+ *   - `___` は 3 連続以上のアンダースコア。Markdown の水平線 (`---`) とは別字
+ */
+export const PLACEHOLDER_PATTERNS = [
+	{
+		id: 'underscore-blank',
+		label: '___ (template の空欄)',
+		re: /_{3,}/g,
+	},
+	{
+		id: 'placeholder-token',
+		label: 'PLACEHOLDER / *_PLACEHOLDER',
+		// `PRE_READY_LOG_PLACEHOLDER` のように接頭辞が付く形を確実に拾うため `\b` は使わない
+		// (`_` は word 文字なので接頭辞境界に `\b` が立たず、#4002 の実例を取り逃がす)。
+		re: /[A-Z0-9_]*PLACEHOLDER[A-Z0-9_]*/g,
+	},
+	{
+		id: 'tbd',
+		label: 'TBD',
+		re: /\bTBD\b/g,
+	},
+	{
+		id: 'xxx',
+		label: 'XXX',
+		re: /(?<![#/\w-])XXX(?![\w-])/g,
+	},
+	{
+		id: 'japanese-angle-slot',
+		label: '<ここに…> 型スロット',
+		re: /<ここに[^>\n]*>/g,
+	},
+];
+
+/**
+ * 誤検出時の唯一の逃げ道 (#4029)。
+ *
+ * 本 gate 自身を直す PR / template を編集する PR は、プレースホルダ文字列を
+ * 正当に本文へ書く。label による一括 skip は fail-open (label を付けるだけで gate が
+ * 消える) なので採らず、**PR body に理由付きの宣言を 1 行書いた場合のみ**通す。
+ */
+export const PLACEHOLDER_SCAN_SKIP_RE = /<!--\s*placeholder-scan-skip:\s*([^>]*?)\s*-->/;
+
+/** 宣言の理由に求める最小文字数 (「-」等の空宣言で gate を消させない)。 */
+const PLACEHOLDER_SKIP_REASON_MIN_LENGTH = 10;
+
+/**
+ * HTML コメントを**行番号を保ったまま**空白化する (#4029)。
+ * `stripMarkdownComments` は行ごと消えるため、検出行番号を PR body の実行番号と
+ * 一致させたい本 gate では使えない。
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function maskMarkdownComments(body) {
+	return body.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
+/**
+ * 未置換プレースホルダを PR body 全体 (code fence 内を含む) からスキャンする (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ id: string; token: string; line: string; lineNo: number }[]}
+ */
+export function scanPlaceholders(body) {
+	const masked = maskMarkdownComments(body);
+	const lines = masked.split('\n');
+	const rawLines = body.split('\n');
+	const violations = [];
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+		for (const pattern of PLACEHOLDER_PATTERNS) {
+			const re = new RegExp(pattern.re.source, pattern.re.flags);
+			let m = re.exec(line);
+			while (m !== null) {
+				violations.push({
+					id: pattern.id,
+					token: m[0],
+					line: (rawLines[i] ?? '').trim(),
+					lineNo: i + 1,
+				});
+				m = re.exec(line);
+			}
+		}
+	}
+	return violations;
+}
+
+/**
+ * `<!-- placeholder-scan-skip: 理由 -->` 宣言を解釈する (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ declared: boolean; reason: string }}
+ */
+export function parsePlaceholderScanSkip(body) {
+	const m = body.match(PLACEHOLDER_SCAN_SKIP_RE);
+	if (!m) return { declared: false, reason: '' };
+	return { declared: true, reason: (m[1] ?? '').trim() };
+}
+
+/**
+ * 未置換プレースホルダ gate 本体 (#4029)。
+ *
+ * 宣言がある場合は「何を見逃したか」を violation ではなく notes として返す
+ * (#3962 と同じ方針 — 見分けのつかない pass を作らない)。
+ *
+ * @param {string} body
+ * @returns {{ violation: { id: string; message: string } | null; notes: string[] }}
+ */
+export function checkPlaceholders(body) {
+	const found = scanPlaceholders(body);
+	const skip = parsePlaceholderScanSkip(body);
+
+	if (skip.declared) {
+		if (skip.reason.length < PLACEHOLDER_SKIP_REASON_MIN_LENGTH) {
+			return {
+				violation: {
+					id: 'placeholder-scan-skip-reason-missing',
+					message:
+						`\`<!-- placeholder-scan-skip: 理由 -->\` の理由が ${PLACEHOLDER_SKIP_REASON_MIN_LENGTH} 文字未満です ` +
+						`(実際: ${JSON.stringify(skip.reason)})。\n` +
+						'  対応: 「なぜこの PR が正当にプレースホルダ文字列を本文へ書くのか」を具体的に書く ' +
+						'(例: 本 gate の検出対象トークンを PR body 内で説明するため)。',
+				},
+				notes: [],
+			};
+		}
+		return {
+			violation: null,
+			notes: [
+				`[check-pr-body] SKIPPED — 未置換プレースホルダ検査 (#4029) を宣言により skip しました (検出 ${found.length} 件)`,
+				`  理由: ${skip.reason}`,
+			],
+		};
+	}
+
+	if (found.length === 0) return { violation: null, notes: [] };
+
+	const sample = found
+		.slice(0, 6)
+		.map((v) => `  - L${v.lineNo} 「${v.token}」(${v.id}): ${v.line.slice(0, 80)}`)
+		.join('\n');
+	return {
+		violation: {
+			id: 'unreplaced-placeholder',
+			message:
+				`PR body に未置換プレースホルダが ${found.length} 件あります ` +
+				`(code fence 内も対象、#4002 の実例がまさに fence 内でした):\n${sample}\n` +
+				'対応 1: 実際の内容 (実行ログ / パス / 結果) に置換する。埋められないなら、それを根拠にした `[x]` を外す。\n' +
+				'対応 2: 本 gate や template を直す PR で正当にプレースホルダ文字列を書く場合のみ、\n' +
+				'        `<!-- placeholder-scan-skip: 理由 -->` を PR body に 1 行書く (label では通らない)。',
+		},
+		notes: [],
+	};
+}
+
+// ---------------------------------------------------------------------------
 // 文字化け検出 (BOM / heuristic) — #2562 / #2576
 // ---------------------------------------------------------------------------
 
@@ -751,33 +923,61 @@ export function extractLabelNames(raw) {
  * 見分けがつかない pass は本 Issue が塞ごうとしている失敗 class そのものなので、
  * skip した gate 名を件数付きで出すための一覧をここに固定する。
  *
- * @type {ReadonlyArray<{ name: string; issue: string; label: string }>}
+ * `triggers` は発火 label の実値、`label` は表示用の文字列。
+ *
+ * @type {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
  */
 export const LABEL_CONDITIONAL_GATES = [
 	{
 		name: 'hotfix env 配布証跡 (ADR-0006)',
 		issue: '#2343',
 		label: HOTFIX_LABELS.join(' / '),
+		triggers: [...HOTFIX_LABELS],
 	},
 	{
 		name: 'PO 決裁ブリーフ',
 		issue: '#3962',
 		label: PO_DECISION_LABEL,
+		triggers: [PO_DECISION_LABEL],
 	},
 ];
 
 /**
- * `--no-labels` 指定時に「検査しなかった gate」を明示する出力行を組み立てる (#3962 QA 指摘)。
+ * 与えた label 一覧で **発火しなかった** label 条件付き gate を返す (#3983)。
  *
- * 呼び出し側が `console.log` するだけで済むよう、行配列で返す。
+ * `--no-labels` (labels = []) は全件が未発火になるので、全件 skip の特殊ケースになる。
+ *
+ * @param {string[]} labels
+ * @returns {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
+ */
+export function selectSkippedLabelGates(labels) {
+	const normalized = labels.map((l) => l.trim().toLowerCase());
+	return LABEL_CONDITIONAL_GATES.filter((g) => !g.triggers.some((t) => normalized.includes(t)));
+}
+
+/**
+ * 「検査しなかった gate」を明示する出力行を組み立てる (#3962 QA 指摘 / #3983)。
+ *
+ * #3962 は `--no-labels` にだけ本出力を入れたため、`--labels <csv>` で
+ * 発火しなかった gate は **通常 pass と見分けがつかない**まま残っていた (#3983)。
+ * 「label をこちらが手で主張した」経路 (`--no-labels` / `--labels`) は、その主張が
+ * 誤っていても検出できない以上、どちらも「検査していない」と表示する。
+ * `--pr <N>` の実 label は PR の事実そのものなので「発火しなかった = 正しい判定」であり
+ * 本出力の対象外 (毎回の pre-ready を無意味な SKIPPED 行で埋めない)。
+ *
+ * 呼び出し側が `console.log` するだけで済むよう、行配列で返す。skip 0 件なら空配列。
  * 将来メッセージを整理した拍子に無言化しないよう、gate 名の出現を test で固定している ([LB7])。
  *
+ * @param {string[]} labels 検査に使う label 一覧
+ * @param {string} source 経路の表示名 (`--no-labels` / `--labels`)
  * @returns {string[]}
  */
-export function formatSkippedLabelGates() {
+export function formatSkippedLabelGates(labels, source) {
+	const skipped = selectSkippedLabelGates(labels);
+	if (skipped.length === 0) return [];
 	return [
-		`[check-pr-body] SKIPPED — label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は検査していません (--no-labels)`,
-		...LABEL_CONDITIONAL_GATES.map((g) => `  - ${g.name} (${g.issue}) — 発火 label: ${g.label}`),
+		`[check-pr-body] SKIPPED — label 条件付き gate ${skipped.length} 件は検査していません (${source})`,
+		...skipped.map((g) => `  - ${g.name} (${g.issue}) — 発火 label: ${g.label}`),
 		`  ※ label が付いた後に --pr <N> で再実行しないと、上記 gate は一度も動きません`,
 	];
 }
@@ -797,12 +997,24 @@ export function formatSkippedLabelGates() {
 export function resolveLabels(args, fetched) {
 	if (args.noLabels) return { labels: [] };
 	if (args.labels !== null) {
-		return {
-			labels: args.labels
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean),
-		};
+		const parsed = args.labels
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		// #3983: `--labels ""` / `--labels " , "` は「label 0 件の明示」ではなく、
+		// `--labels "$LABELS"` で変数が空だった事故の形。#3965 が消した
+		// `catch { return [] }` と同じ沈黙 fail-open になるので受理しない。
+		// 「label が 0 件」を主張する引数は `--no-labels` が既にある。
+		if (parsed.length === 0) {
+			return {
+				error:
+					`--labels に有効な label がありません (受け取った値: ${JSON.stringify(args.labels)})。\n` +
+					`  label 条件付き検査 (hotfix #2343 / po-decision #3962) が黙って全 skip されるのを防ぐため、\n` +
+					`  空の --labels は受理しません (--labels "$VAR" で変数が空だった場合を含む)。\n` +
+					`  対応: label 0 件を明示したいなら --no-labels を使ってください。`,
+			};
+		}
+		return { labels: parsed };
 	}
 	if (fetched !== null) return { labels: fetched };
 	if (args.pr) {
@@ -1068,13 +1280,15 @@ Usage:
 label の解決方法 (#3962):
   label 条件付き gate (hotfix env 配布証跡 #2343 / PO 決裁ブリーフ #3962) が黙って
   skip されるのを防ぐため、label が解決できない呼び出しは exit 2 で中断する (fail-closed)。
-  PR 番号が取れるなら --pr を渡すこと。--no-labels は PR 作成前の dry-run 専用で、
-  指定すると「検査しなかった gate」が SKIPPED 行として出力される。
+  PR 番号が取れるなら --pr を渡すこと。--no-labels / --labels は PR 作成前の dry-run 専用で、
+  どちらも「発火しなかった label 条件付き gate」を SKIPPED 行として出力する (#3983)。
+  空の --labels ("" / " , ") は沈黙 fail-open になるため exit 2 で中断する (#3983)。
 
 Options:
   --pr <num>          GitHub PR 番号 (gh pr view で body 取得 + label 自動検出)
   --body-file <path>  ローカルファイルから body を読む（PR 未作成時の dry-run 用）
   --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
+                      空文字は不可 — label 0 件の明示は --no-labels を使う (#3983)
   --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
   --draft             Draft 相当として検査（--body-file dry-run 専用、#3997）
                       --pr 指定時は gh pr view --json isDraft の実状態が優先され本フラグは無視される
@@ -1090,6 +1304,13 @@ Detected violations:
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
+  9. 未置換プレースホルダ (${PLACEHOLDER_PATTERNS.map((p) => p.label).join(' / ')}) が body のどこかに残存 (code fence 内も対象、#4002 / #4029)
+     正当にプレースホルダ文字列を書く PR は \`<!-- placeholder-scan-skip: 理由 -->\` を body に 1 行書く (label では通らない)
+
+Draft PR の扱い (#3997):
+  Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
+  のみ deferred する。それ以外 (必須セクション / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING /
+  hotfix env 配布証跡) は Draft でも従来どおり fail させる。deferred したことは必ず標準出力に出る。
 
 Draft PR の扱い (#3997):
   Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
@@ -1140,9 +1361,10 @@ function loadPrBody(args) {
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
  * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
+ * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-function collectViolations(body, requiredSections, template, args) {
+function collectViolations(body, requiredSections, template, args, notes = []) {
 	const violations = [];
 	const labels = args.labels ?? [];
 
@@ -1200,6 +1422,11 @@ function collectViolations(body, requiredSections, template, args) {
 	const hotfixEnvCheck = checkEnvDistributionForHotfix(body, labels);
 	if (hotfixEnvCheck) violations.push({ ...hotfixEnvCheck, issue: '#2343' });
 
+	// #4029: 未置換プレースホルダ検出 (body 全体 / code fence 内も対象)
+	const placeholders = checkPlaceholders(body);
+	notes.push(...placeholders.notes);
+	if (placeholders.violation) violations.push({ ...placeholders.violation, issue: '#4002/#4029' });
+
 	// #2562 / #2576: PR body 文字化け検出 (BOM / `??` heuristic)
 	const mojibake = detectMojibake(body);
 	for (const m of mojibake) {
@@ -1251,12 +1478,26 @@ export async function main(argv = process.argv.slice(2)) {
 	}
 	const labels = resolved.labels;
 
-	// #3962 (QA 指摘): skip した gate を通常 pass と見分けられる形で先に出す。
-	if (args.noLabels) {
-		for (const line of formatSkippedLabelGates()) console.log(line);
-	}
+	// #3962 (QA 指摘) / #3983: skip した gate を通常 pass と見分けられる形で先に出す。
+	// 対象は「label を手で主張した」経路 (--no-labels / --labels) の未発火 gate。
+	const skippedLines = args.noLabels
+		? formatSkippedLabelGates(labels, '--no-labels')
+		: args.labels !== null
+			? formatSkippedLabelGates(labels, '--labels')
+			: [];
+	for (const line of skippedLines) console.log(line);
+	const skippedCount = skippedLines.length === 0 ? 0 : selectSkippedLabelGates(labels).length;
 
-	const allViolations = collectViolations(body, requiredSections, template, { ...args, labels });
+	/** @type {string[]} */
+	const notes = [];
+	const allViolations = collectViolations(
+		body,
+		requiredSections,
+		template,
+		{ ...args, labels },
+		notes,
+	);
+	for (const line of notes) console.log(line);
 
 	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
 	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
@@ -1273,8 +1514,8 @@ export async function main(argv = process.argv.slice(2)) {
 			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
 			: '';
 		console.log(
-			args.noLabels
-				? `[check-pr-body] OK (label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は未検査)${draftNote} — 違反なし`
+			skippedCount > 0
+				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote} — 違反なし`
 				: `[check-pr-body] OK${draftNote} — 違反なし`,
 		);
 		return 0;

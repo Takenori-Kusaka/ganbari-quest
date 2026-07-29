@@ -10,8 +10,9 @@
 //     await は tx.execute(...) 直呼びのみ (fitness#7、helper 閉包経由 await 禁止 — PR-R1 教訓)。
 //   - **invite は token_hash のみ保存** (CWE-522、raw 非保存)。hash SSOT は
 //     $lib/server/auth/invite-code-hash.ts。raw code を知るのは作成時の呼び出し側だけ。
-//   - **invite 受諾は invite-accept.ts が正** (§6.6 厳密分岐の単一 txn)。本 repo の
-//     updateInviteStatus / deleteInvite は invite_id 鍵の管理系操作 (#3585)。
+//   - **invite 受諾は invite-accept.ts が正** (§6.6 厳密分岐の単一 txn)。#4039 で
+//     acceptInviteTransactional として IAuthRepo に公開し、service 層の受諾経路を本 txn に
+//     結線した。本 repo の updateInviteStatus / deleteInvite は invite_id 鍵の管理系操作 (#3585)。
 //     updateInviteStatus は pending からの遷移のみ許可する状態機械 (#3588 ③)。
 //   - 23505 (email_lower / owner_guard UNIQUE 違反) は throw のまま呼び出し側契約
 //     (dynamo backend の ConditionExpression 失敗 throw / invite-accept の catch と同型)。
@@ -33,6 +34,7 @@ import { hashInviteCode } from '$lib/server/auth/invite-code-hash';
 import type { Role } from '$lib/server/auth/types';
 import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import { acceptInvite } from './invite-accept';
 import type { SqlExecutor } from './sql-executor';
 
 // ---------------------------------------------------------------- row 型 + mapper
@@ -283,6 +285,9 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		},
 
 		async updateTenantStripe(tenantId, data) {
+			// #3982: `!== undefined` ガードは「渡されたキーだけ SET を積む」部分更新の SSOT。
+			// `null` は SET を積んだうえで NULL を書くため、クリアは null で表現する
+			// (interface の JSDoc が契約、`dsql-auth-repo.test.ts` [T4b] が固定)。
 			const sets: ReturnType<typeof sql>[] = [];
 			if (data.stripeCustomerId !== undefined)
 				sets.push(sql`stripe_customer_id = ${data.stripeCustomerId}`);
@@ -462,6 +467,12 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 				UPDATE invites SET status = ${status}
 				WHERE invite_id = ${inviteId} AND family_id = ${tenantId} AND status = 'pending'
 			`);
+		},
+
+		acceptInviteTransactional(input) {
+			// 受諾の厳密分岐 (rowCount=0 / 23505 / 40001) は invite-accept.ts が正 (§6.6)。
+			// 本 repo はその単一 txn を IAuthRepo 契約として公開するだけで、判定は複製しない (#4039)。
+			return acceptInvite(runner, input);
 		},
 
 		async findTenantInvites(tenantId) {

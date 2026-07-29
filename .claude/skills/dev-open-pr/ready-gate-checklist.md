@@ -23,8 +23,11 @@ Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate �
 
 ```bash
 # 1. PR body 全体 (必須セクション 13 件 / AC マップ / 禁止語 / hotfix 配布証跡欄強化チェック)
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md \
-  --labels "priority:critical,hotfix" --skip-mergeable
+#    Ready 化前 = PR は既に存在するので --pr を渡し、label は PR の実値を使う (#3983)。
+#    --labels は「手で主張した label」なので、間違っていても検出できない。
+#    実 label に po-decision:required が付いていれば PO 決裁ブリーフ gate もここで発火する。
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md \
+  --skip-mergeable
 
 # 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or refactor:internal-no-doc-impact label exempt)
 PR_FILES="$(gh pr diff <num> --name-only)" \
@@ -37,6 +40,13 @@ node scripts/check-no-direct-env-access.mjs
 # 4. 新規 env 配布証跡 (ADR-0006)
 node scripts/check-new-required-env.mjs
 ```
+
+> **PR 作成前に先出しで検証したい場合 (#3983)**: `--pr` が使えないので
+> `--labels "priority:critical,hotfix"` を渡す。このとき **発火しなかった label 条件付き gate は
+> `[check-pr-body] SKIPPED — …` 行に列挙される**ので、その行を読んで「まだ検査していない gate」を
+> 把握すること (`OK — 違反なし` だけ見て全 gate 通過と誤読しない)。
+> label が 1 件も付かない見込みなら `--labels ""` ではなく **`--no-labels`** を使う
+> (空の `--labels` は沈黙 fail-open のため exit 2 で中断する)。
 
 詳細 narrative + 4 PR root cause: `docs/rationale/08-hotfix-pr-ci-fail-prevention.md` / `docs/sessions/dev-session.md` §hotfix PR runbook
 
@@ -118,7 +128,6 @@ node scripts/check-pr-template-sections-sync.mjs
 **条件**: `## Ready for Review チェックリスト` の項目を**実機検証してから** `[x]` に変更。虚偽チェック禁止。
 
 ```markdown
-- [x] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
 - [x] セルフレビュー済み（不要な差分・デバッグコードなし）
 - [x] 全 AC が実装済み
 - [x] UI 変更時: SS が GitHub 上で表示確認 + DOM HTML 併記 + DESIGN.md §9 禁忌 6 点を目視確認

@@ -17,38 +17,24 @@
 // result に写像し、呼び出し側には throw しない)。
 
 import { sql } from 'drizzle-orm';
+import type { Role } from '$lib/server/auth/types';
 import { checkInviteEmailBinding } from '../../auth/invite-email-binding';
+import type {
+	AcceptInviteFailure,
+	AcceptInviteTxnInput,
+	AcceptInviteTxnResult,
+} from '../interfaces/auth-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { isUniqueViolation } from './dsql-errors';
 import type { SqlExecutor } from './sql-executor';
 
 export type { SqlExecutor } from './sql-executor';
 
-export interface AcceptInviteInput {
-	inviteId: string;
-	/** 受諾する user (users.user_id)。 */
-	userId: string;
-	/** 受諾 user の email (invite.email 束縛検証に使用)。 */
-	userEmail: string;
-	/**
-	 * 受諾 user の email が IdP で検証済みか (Cognito `email_verified` claim、#3555 ③ / #3742)。
-	 * email 束縛招待でのみ判定に使う。`false` は fail-closed で拒否、`undefined` は
-	 * claim を持たない provider (local / dev) との後方互換のため許容 (service 層と同一契約)。
-	 */
-	userEmailVerified?: boolean;
-	/** 判定基準時刻 (ISO 8601)。呼び出し側が注入する (テスト決定性 + txn 内で一貫)。 */
-	now: string;
-}
-
-export type AcceptInviteFailure =
-	| 'INVALID_OR_EXPIRED'
-	| 'ALREADY_IN_TENANT'
-	| 'EMAIL_MISMATCH'
-	| 'EMAIL_UNVERIFIED';
-
-export type AcceptInviteResult =
-	| { ok: true; familyId: string; role: string }
-	| { ok: false; reason: AcceptInviteFailure };
+// 入力 / 結果の型は backend 非依存の repo 契約 (IAuthRepo.acceptInviteTransactional) が SSOT。
+// 本 txn はその DSQL 実装であり、独自の型を持たない (#4039)。
+export type AcceptInviteInput = AcceptInviteTxnInput;
+export type AcceptInviteResult = AcceptInviteTxnResult;
+export type { AcceptInviteFailure };
 
 /** txn を rollback させつつ business 失敗を運ぶ内部シグナル。 */
 class AcceptInviteAbort extends Error {
@@ -60,7 +46,7 @@ class AcceptInviteAbort extends Error {
 interface AcceptedInviteRow {
 	family_id: string;
 	role: string;
-	invited_by: string;
+	invited_by: string | null;
 	email: string | null;
 }
 
@@ -101,7 +87,15 @@ export async function acceptInvite<TTx extends SqlExecutor>(
 				INSERT INTO memberships (family_id, user_id, role, invited_by, joined_at)
 				VALUES (${invite.family_id}, ${userId}, ${invite.role}, ${invite.invited_by}, ${now})
 			`);
-			return { ok: true, familyId: invite.family_id, role: invite.role } as const;
+			// 呼び出し側 (service 層) が Membership entity を組み立てられるよう、
+			// 書いた行の値をそのまま返す (追加 SELECT を発行しない、#4039)。
+			return {
+				ok: true,
+				familyId: invite.family_id,
+				role: invite.role as Role,
+				invitedBy: invite.invited_by ?? undefined,
+				joinedAt: now,
+			} as const;
 		});
 	} catch (err) {
 		if (err instanceof AcceptInviteAbort) return { ok: false, reason: err.reason };

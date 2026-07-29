@@ -171,8 +171,17 @@ gh pr checks <num>
 
 - **軽量レーン（→ develop）**: 軽量 gate の required（lint-and-test / unit ×2 + merge / PR テンプレ gate / site-check / schema 系）が全 green → 手順 5。e2e / a11y / storybook / visual regression は**不発火・skip で正常**（統合 PR で集約検証、§レビュー対象レーン）— これらの不在を理由に approve を保留しない
 - **hotfix / 統合 PR（→ main）**: 全 job green 必須（重量 / 最重厚 gate）
-- `skipping` 無視可
+- `skipping` 無視可 — **ただし `unit-test` / `unit-test-merge` は例外（下記）**
 - red → CI Fix Agent spawn（後述）
+
+##### `unit-test` / `unit-test-merge` が skip された PR は approve / Ready にしない（例外なし、#4007）
+
+vitest の実行結果を Ready / approve 判定の根拠にする以上、その job が **実行されて pass した**ことを確認する。
+
+- **`ci-gate` green を判定の根拠にしてはならない**。`ci-gate` は `result == 'failure' or 'cancelled'` のみを数え、`skipped` を数えない（`ci.yml` の `so skipped jobs (via path filter) don't block merges`、実測: #3992 の needs 25 件が `skipping` でも ci-gate は pass）。required check として登録されているのは個別 job ではなく `ci-gate` なので、`unit-test` が skip されても merge は止まらない
+- 確認方法: `gh pr checks <num>` の出力で `unit-test (1)` / `unit-test (2)`（統合 PR は `unit-test-merge` も）が **`pass`** であること。`skipping` は pass ではない
+- skip されていた場合の代替: 作者に「該当 vitest をローカルで単独実行したログを PR body に貼る」ことを求め、それを確認するまで approve しない
+- 本来 skip は起きない想定（`ci.yml` の `app` filter が `docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` まで含み、`tests/unit` + `tests/integration` の参照先閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する）。それでも skip が観測されたら filter に穴が残っている合図なので、approve せず Issue 化する
 
 ##### 重量 e2e 敏感領域の追加判定（#3172、軽量レーン緑だけで approve しない領域）
 

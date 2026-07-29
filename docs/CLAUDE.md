@@ -14,6 +14,7 @@
 | UI プラン仕様 (#743) | `06-UI設計書.md §10` |
 | アカウント削除フロー (#746) | `account-deletion-flow.md` |
 | プラン変更フロー (#747) | `plan-change-flow.md` |
+| 契約状態の組み合わせ・遷移 (#3988) | `billing-redesign/contract-state-matrix.md` (`families` 4 列の許容組み合わせ / 不正状態 / 書き手 9 箇所 / 導出値 SSOT。webhook handler を追加・変更する前に読む) |
 | AWS インフラ | `13-AWSサーバレスアーキテクチャ設計書.md` |
 | 認証・セキュリティ | `14-セキュリティ設計書.md` |
 | デザイン・ビジュアル | `15-ブランドガイドライン.md` |

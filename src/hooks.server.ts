@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { type Handle, type HandleServerError, json, redirect } from '@sveltejs/kit';
+import {
+	type Handle,
+	type HandleServerError,
+	json,
+	type RequestEvent,
+	redirect,
+} from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
@@ -8,6 +14,8 @@ import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
+import type { AuthContext } from '$lib/server/auth/types';
 import { getOrInitDb } from '$lib/server/db/client';
 // #3620 AC-C2: DATA_SOURCE=pglite の非同期 init guard 用 (import は side-effect free、
 // PGlite instance は initPgliteConnection() 呼び出し時のみ生成)。
@@ -32,6 +40,7 @@ import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legac
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
+import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
 import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import { isSetupRequired } from '$lib/server/services/setup-service';
@@ -82,6 +91,91 @@ a:hover{text-decoration:underline}
 </html>`;
 }
 
+/**
+ * #3963 (PO 決裁 2026-07-29): 課金状態の解決失敗 (fail-closed 503) から除外する probe パス。
+ *
+ * health / readiness は「アプリのプロセスが生きているか」を問う外形監視であり、課金状態に
+ * 一切依存しない。ここを 503 にすると、DSQL 障害時に Lambda health / LWA readiness /
+ * `deploy-aws-staging.yml` の post-deploy health / ロールバック判定がまとめて誤作動し、
+ * 「DB が一時的に不調」だけの状況が「デプロイ失敗 / アプリ死亡」として扱われる。
+ *
+ * 実運用の probe は未認証 (identity=null) で `resolveContext` の DB 経路に入らないが、
+ * それは probe の呼ばれ方に依存した暗黙の前提でしかない (認証 Cookie を持つブラウザや
+ * 将来の認証付き probe で崩れる)。前提に頼らず path で明示除外する。
+ */
+const ENTITLEMENT_FAILURE_EXEMPT_PATHS = ['/api/health', '/api/ready'] as const;
+
+function isEntitlementFailureExemptPath(path: string): boolean {
+	return ENTITLEMENT_FAILURE_EXEMPT_PATHS.some(
+		(exempt) => path === exempt || path.startsWith(`${exempt}/`),
+	);
+}
+
+/**
+ * #3963: 課金状態を DB から解決できず context を発行できなかった場合の応答。
+ *
+ * fail-closed の副作用として、認証は生きているのに context だけが無い状態が生じる。
+ * これをログイン画面へのリダイレクトで表現すると「ログアウトさせられた」と誤解される
+ * ため、一時的な障害であることが読み取れる 503 を返す。
+ *
+ * 併せて alert kind `auth-entitlement-db-unavailable` で観測可能にする。
+ * 「DB 障害で剥奪」と「正当に無権限」が同じ見え方だと incident の切り分けができない
+ * (#3968 の `stripe-plan-unresolved` と同じ発想)。
+ */
+function respondEntitlementUnavailable(
+	event: RequestEvent,
+	error: TenantEntitlementUnavailableError,
+): Response {
+	const kind = TenantEntitlementUnavailableError.ALERT_KIND;
+	logger.error(`[auth-alert] ${kind}: 課金状態を DB から解決できず context を発行しませんでした`, {
+		requestId: event.locals.requestId,
+		tenantId: error.tenantId,
+		context: {
+			kind,
+			path: event.url.pathname,
+			errorSummary: error.dbError instanceof Error ? error.dbError.message : String(error.dbError),
+		},
+	});
+
+	// fire-and-forget (alert 失敗でリクエスト処理をブロックしない)
+	void sendDiscordAlert({
+		level: 'critical',
+		message: `[${kind}] 課金状態を DB から解決できず全リクエストが 503 になっています`,
+		path: event.url.pathname,
+		method: event.request.method,
+		status: 503,
+		requestId: event.locals.requestId,
+		tenantId: error.tenantId,
+		errorSummary: kind,
+	}).catch(() => {
+		// recursive alert を避けるため握り潰す (上の logger.error で観測は担保済み)
+	});
+
+	if (acceptsHtml(event.request)) {
+		return new Response(
+			renderErrorHtml(
+				503,
+				'一時的にご利用いただけません',
+				'システムが一時的に混み合っています。ログアウトはされていませんので、しばらくしてから再度お試しください。',
+			),
+			{
+				status: 503,
+				headers: { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '30' },
+			},
+		);
+	}
+	return new Response(
+		JSON.stringify({
+			error: 'システムが一時的に混み合っています。しばらくしてから再度お試しください。',
+			kind,
+		}),
+		{
+			status: 503,
+			headers: { 'Content-Type': 'application/json', 'Retry-After': '30' },
+		},
+	);
+}
+
 const provider = getAuthProvider();
 
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
@@ -101,6 +195,26 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	return (
 		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
 	);
+}
+
+/**
+ * 退会 (アカウント削除) 申請済みか。#3993 の読み取り専用ロックの判定に使う。
+ *
+ * **判定できないときは通す (fail-open)。** ロックの目的は「退会申請中の家庭が
+ * データを増やし続けるのを防ぐ」ことであり、settings が読めない瞬間に書き込みを
+ * 止めると、**DB 障害が「子どもが記録できない」という顧客影響に化ける**。
+ * ここは #3963 の entitlement (課金権限) とは逆で、fail-open が安全側になる。
+ */
+async function isTenantSoftDeleted(tenantId: string): Promise<boolean> {
+	try {
+		return (await getGracePeriodStatus(tenantId)).isSoftDeleted;
+	} catch (err) {
+		logger.warn('[hooks] 退会申請状態を判定できませんでした (書き込みは許可)', {
+			context: { tenantId },
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return false;
+	}
 }
 
 // #3829 (EPIC #3408 slice C): アプリ側 CSP は SvelteKit 標準 CSP (svelte.config.js kit.csp、
@@ -347,7 +461,24 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		const identity = await provider.resolveIdentity(event);
-		const resolvedContext = await provider.resolveContext(event, identity);
+
+		// #3963: 課金状態を DB から解決できない場合、context は発行されない (fail-closed)。
+		// これを「未認証」として扱ってログイン画面へ送ると、認証は生きているのに
+		// 「ログアウトさせられた / アカウントが消えた」とユーザーに誤解される。
+		// 一時的な障害であることが読み取れる 503 を返す (PO 判断 2026-07-26)。
+		let resolvedContext: AuthContext | null;
+		try {
+			resolvedContext = await provider.resolveContext(event, identity);
+		} catch (e) {
+			if (!(e instanceof TenantEntitlementUnavailableError)) throw e;
+			// health / readiness probe は課金状態に依存しないため 503 にしない
+			// (PO 決裁 2026-07-29 merge 条件、`ENTITLEMENT_FAILURE_EXEMPT_PATHS` 参照)。
+			if (!isEntitlementFailureExemptPath(path)) {
+				return respondEntitlementUnavailable(event, e);
+			}
+			resolvedContext = null;
+		}
+
 		// DEBUG_PLAN / DEBUG_TRIAL による上書きは、以降の認可・tenantStatus チェックにも
 		// 一貫して適用する必要があるため、ローカル変数 context 自体を上書き後の値で統一する。
 		const context = applyDebugPlanOverride(resolvedContext);
@@ -427,26 +558,47 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(302, authResult.redirect);
 		}
 
-		// grace_period 読み取り専用制御（#0193）
-		if (context?.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
-			const method = event.request.method;
-			const isWrite = method !== 'GET' && method !== 'HEAD';
+		// 退会 (アカウント削除) 申請済みテナントの読み取り専用制御（#0193 / #3993）
+		//
+		// #3993: 旧実装は条件が `tenantStatus === GRACE_PERIOD` だった。しかし `grace_period` は
+		// **支払い失敗の dunning 猶予**でも書かれる (`handlePaymentFailed`)。その結果、
+		// カードの期限切れで決済が 1 回失敗しただけで **7 日間すべての書き込みが 403** になり、
+		// 子どもががんばりを 1 件も記録できなくなっていた。
+		//
+		// これは要件の明文違反である (`phase1-dunning-requirements.md`):
+		//   FR-1  invoice.payment_failed で past_due 記録、**plan tier は有料維持**
+		//   NFR-3 **子供の利用体験は支払い状態で突然中断しない**
+		//   US-4  (子供) 親の支払い状態に関わらず通知・アクセス断を経験しない
+		//
+		// 本ロックが本来対象とすべきは **退会 (アカウント削除) 申請済み**のテナントであり
+		// (#0193「アカウント削除UI・猶予期間制御・データ削除バッチ」)、その状態は
+		// `families.status` ではなく settings の `soft_deleted_at` が持つ
+		// (`grace-period-service.softDeleteTenant` は families を一切触らない)。
+		//
+		// 判定を `soft_deleted_at` に付け替える。**書き込み要求のときだけ**問い合わせるのは、
+		// 読み取りが大半を占める中で全リクエストに settings 参照を足さないため。
+		const method = event.request.method;
+		const isWriteRequest = method !== 'GET' && method !== 'HEAD';
+		if (isWriteRequest && context?.tenantId) {
+			// 退会申請中でも「データを持ち出す」「退会を取り消す」「ログアウトする」は通す。
+			// これらを塞ぐと、申請を撤回する手段まで失う。
 			const isAllowedWritePath = [
-				'/api/v1/admin/tenant/reactivate',
+				'/api/v1/admin/account/restore',
+				'/api/v1/admin/account/export',
 				'/api/v1/export',
 				'/api/v1/auth/logout',
 				'/auth/logout',
 			].some((p) => path.startsWith(p));
 
-			if (isWrite && !isAllowedWritePath) {
+			if (!isAllowedWritePath && (await isTenantSoftDeleted(context.tenantId))) {
 				if (path.startsWith('/api/')) {
 					return new Response(
-						JSON.stringify({ error: 'テナントは解約手続き中です。読み取り専用モードです。' }),
+						JSON.stringify({ error: 'アカウント削除の手続き中です。読み取り専用モードです。' }),
 						{ status: 403, headers: { 'Content-Type': 'application/json' } },
 					);
 				}
 				// フォーム送信等は設定画面にリダイレクト
-				redirect(302, '/admin/settings?reason=grace_period');
+				redirect(302, '/admin/settings?reason=account_deletion_pending');
 			}
 		}
 

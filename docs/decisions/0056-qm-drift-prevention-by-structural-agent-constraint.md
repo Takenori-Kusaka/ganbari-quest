@@ -66,6 +66,18 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 - recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は無条件 allow
 - 既存 `scripts/claude-hook-prevent-qa-account-pr.mjs` の規約 (exit 2 / stdin JSON / `.claude/settings.json` の `hooks[].hooks[]` ネスト) を踏襲
 
+#### 既知の残存 bypass (#4001 棚卸、未解消)
+
+本 gate は「approve 系コマンドの文字列検査」であり、以下は**塞げていない**。塞いだ範囲を過大評価しないため明示する (silent gap 化の防止)。
+
+| # | 残存経路 | 状態 |
+|---|---|---|
+| R1 | `mcp__ide__executeCode` 等の汎用コード実行系 MCP ツール — matcher にも `command-execution-tools.mjs` の棚卸しにも不在で、gate 自体が起動しない | 未対処 |
+| R2 | `process.env.CLAUDE_SUBAGENT_ID` の無条件 allow — subagent context を騙れば**どのツール経由でも**素通りする (recursive loop 防止の代償) | 設計上の受容、代替案未検討 |
+| R3 | `Agent` tool の `isolation: "remote"` 実行時に hook が継承されるか未検証 | 未検証 |
+| R4 | `isApproveAction` の `/pulls/\d+/reviews` が**数字リテラル依存**のため、ループ変数形 (`/pulls/$n/reviews`) は `exit 0` で evidence 検証ごと素通りする | **Issue #4057** |
+| R5 | stdin JSON parse 失敗の fail-closed が導入した新障害モードが `isMain` ガード内で未テスト | test gap |
+
 ### 2. Adversarial Reviewer subagent (`.claude/skills/adversarial-reviewer/SKILL.md`)
 
 - role identity: `"adversarial_reviewer (NOT QM, NOT Dev)"` を出力 schema に強制
