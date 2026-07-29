@@ -17,6 +17,5 @@ import { basename } from 'node:path';
 
 export const MARKER = 'crlf-shebang-ok';
 
-export function baseOf(p) {
-	return basename(p);
-}
+// module 評価時に hoist 済み import を実際に使う (transform が壊れていれば評価できない)
+export const BASE_OF_SAMPLE = basename('/tmp/foo/bar.mjs');

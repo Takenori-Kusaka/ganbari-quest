@@ -23,7 +23,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // この import 自体が回帰の本体 — plugin が無いと本 file 全体が読み込めず fail する
-import { baseOf, MARKER } from '../../fixtures/crlf/crlf-shebang-module.mjs';
+import { BASE_OF_SAMPLE, MARKER } from '../../fixtures/crlf/crlf-shebang-module.mjs';
 
 const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/crlf/crlf-shebang-module.mjs');
 
@@ -41,8 +41,8 @@ describe('CRLF shebang module import (#3984)', () => {
 	});
 
 	it('import 文を持つ module でも transform が壊れない (hoist 済み import との衝突回帰)', () => {
-		// baseOf() は fixture が import した `node:path` の basename を呼ぶ。
+		// BASE_OF_SAMPLE は fixture が module 評価時に `node:path` の basename を呼んだ結果。
 		// import 文が先頭行へ hoist されるため #3984 の衝突条件を満たす。
-		expect(baseOf('/tmp/foo/bar.mjs')).toBe('bar.mjs');
+		expect(BASE_OF_SAMPLE).toBe('bar.mjs');
 	});
 });
