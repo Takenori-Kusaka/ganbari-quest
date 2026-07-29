@@ -2779,6 +2779,30 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 } as const;
 
 // ============================================================
+// CHECKOUT_RECONCILIATION_LABELS — checkout 完了照合の結果表示 (#3958)
+// ============================================================
+//
+// Stripe checkout の success_url (`/admin/subscription?session_id=cs_…`) から戻ったときに、
+// サーバー側で照合した結果を顧客に伝える文言。webhook 未達時の救済経路であることは
+// 顧客の関心事ではないため、内部事情 (webhook / session_id / Stripe API) を露出させない。
+
+export const CHECKOUT_RECONCILIATION_LABELS = {
+	/** 反映できた (webhook 未達の救済が成立したケースを含む) */
+	applied: 'お支払いを確認しました。プランを反映しました。',
+	/** 既に反映済み (webhook 先着 / 同じ URL の再訪) */
+	alreadyApplied: 'お支払いは反映済みです。',
+	/** Stripe 側でまだ支払いが確定していない */
+	pending: 'お支払いの確認をしています。少し時間をおいて「最新の状態を確認」を押してください。',
+	/** 照合できなかった (期限切れ / 不正な値 / 一時的な障害)。現在のプラン表示にフォールバック */
+	unresolved:
+		'お支払い状況を確認できませんでした。反映されない場合はサポートまでお問い合わせください。',
+	/** 再確認ボタン */
+	recheckButton: '最新の状態を確認',
+	/** 再確認中 (進行中である旨の可視化、NN/G #1) */
+	rechecking: '確認しています…',
+} as const;
+
+// ============================================================
 // LICENSE_PAGE_LABELS — 旧名称 alias (共存期間、Phase 7 PR-2c #2699 で rename)
 // ============================================================
 //

@@ -13,19 +13,31 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { TRIAL_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { resolveTenantEntitlement } from '$lib/server/auth/tenant-entitlement';
 import { getActivities } from '$lib/server/services/activity-service';
 import { isPinConfigured } from '$lib/server/services/auth-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { getCancellationState } from '$lib/server/services/stripe-service';
+import { getCancellationState, reconcileCheckoutSession } from '$lib/server/services/stripe-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
+
+	// #3958: Stripe checkout の success_url は `?session_id=cs_…` を付けてこの画面に戻る。
+	// webhook (`checkout.session.completed`) が未達でも、この照合だけでプランが反映される
+	// (webhook が唯一の反映経路だった頃は、1 通落ちるだけで顧客が永久に無料プランのまま
+	// だった — 2026-07-26 本番 incident)。他の load より先に await して、下の
+	// `getLicenseInfo` / `resolveFullPlanTier` が反映後の状態を読むようにする。
+	const sessionId = url.searchParams.get('session_id');
+	const checkoutReconciliation = sessionId
+		? await reconcileCheckoutSession({ tenantId, sessionId })
+		: null;
+
 	const [license, loyaltyInfo, children, trialStatus, pinConfigured, cancellation] =
 		await Promise.all([
 			getLicenseInfo(tenantId),
@@ -41,11 +53,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		]);
 
 	// プラン利用状況 (#732: resolveFullPlanTier に統一)
-	const tier = await resolveFullPlanTier(
-		tenantId,
-		locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-		locals.context?.plan,
-	);
+	// #3958: `locals.context` は hooks.server.ts が load 前に解決した値なので、本 request 内で
+	// reconcile が契約を反映した場合は古い (無料プランのまま)。反映したときだけ DB から
+	// 引き直す (reconcile 側が request キャッシュを破棄済みなので最新値が返る)。
+	const entitlement =
+		checkoutReconciliation?.status === 'applied'
+			? await resolveTenantEntitlement(tenantId)
+			: {
+					licenseStatus: locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+					plan: locals.context?.plan,
+				};
+	const tier = await resolveFullPlanTier(tenantId, entitlement.licenseStatus, entitlement.plan);
 	const planLimits = getPlanLimits(tier);
 	let activityCount = 0;
 	try {
@@ -80,6 +98,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		planStats,
 		downgradeRetentionDays,
 		pinConfigured,
+		// #3958: null = success_url 経由ではない通常表示。値があるときだけ画面に結果を出す。
+		checkoutReconciliation,
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			trialUsed: trialStatus.trialUsed,
