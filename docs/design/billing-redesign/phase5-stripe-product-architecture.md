@@ -155,11 +155,11 @@ webhook 購読 event リスト (#2683 補強後、Phase 7 Dashboard 設定):
 
 - `customer.subscription.updated` (現行、必須)
 - `customer.subscription.deleted` (現行、必須)
-- `invoice.payment_succeeded` (アップ即時の差額請求成功確認、Phase 5 子 2 §3.1 整合)
+- `invoice.paid` (アップ即時の差額請求成功確認、Phase 5 子 2 §3.1 整合)
 - `invoice.payment_failed` (dunning 連動、Phase 1 #2537)
 - `credit_note.created` (ダウン即時の credit memo 自動発行確認、Stripe `proration_behavior='always_invoice'` の副次効果)
 
-旧 (1 Product 2 Price 案) で計画されていた `subscription_schedule.aborted` / `_canceled` / `_completed` 3 event は購読不要化。Phase 6 子 1 #2667 §3 Step 4 Webhook event 5 → 8 種拡張は **5 種維持** (新規 3 種 = `invoice.payment_succeeded` / `invoice.payment_failed` / `credit_note.created` に振替) として Phase 7 で実装。
+旧 (1 Product 2 Price 案) で計画されていた `subscription_schedule.aborted` / `_canceled` / `_completed` 3 event は購読不要化。Phase 6 子 1 #2667 §3 Step 4 Webhook event 5 → 8 種拡張は **5 種維持** (新規 3 種 = `invoice.paid` / `invoice.payment_failed` / `credit_note.created` に振替) として Phase 7 で実装。
 
 ### 4.4 Webhook destination api_version 不変性 (#2683 で新規追加、Phase 6 子 1 #2667 §5 Webhook 5 phase migration の根拠)
 
@@ -311,7 +311,7 @@ webhook 購読 event リスト (#2683 補強後、Phase 7 Dashboard 設定):
 | 2 (#2683 訂正) | apiVersion `'2026-04-22.dahlia'` (`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数) | **`'2026-04-22.dahlia'` 維持** (preview `'2026-05-27.dahlia'` 不採用、本 PR §3.4 訂正) | **継続** (Phase 7 でも維持、次回 stable リリース採用時に再評価) |
 | 3 (#2683 補強) | 4 種別 plan config (MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY、`src/lib/server/stripe/config.ts` の `STRIPE_PRICES` 定数全体) | 2 種別 (`standard_monthly` / `premium_monthly`)、Stripe Dashboard 側は **2 Product 各 1 Price** (`prod_STANDARD` + `prod_PREMIUM`、代替案 D) | **変更** (Phase 1 補強 2 + #2683 連動、Phase 7 で同時実施) |
 | 4 (#2683 補強) | `docs/guides/stripe-setup-guide.md` 4 商品手動作成手順 (Step 3-2 〜 3-5) | **2 Product 各 1 Price + lookup_key 手順** (代替案 D)、Portal `subscription_update.products` に 2 entries 設定手順 | **変更** (Phase 7、本 PR は設計のみ) |
-| 5 (#2683 訂正) | webhook 購読 event 5 種 (`docs/guides/stripe-setup-guide.md` Step 5) | 5 種維持 (`customer.subscription.updated` / `_deleted` / `invoice.payment_succeeded` / `_failed` / **`credit_note.created` (新規 #2683)**)、旧計画の `subscription_schedule.*` 3 種は scope 外 (本 PR §4.3 整合) | **変更** (Phase 7、本 PR は設計のみ) |
+| 5 (#2683 訂正) | webhook 購読 event 5 種 (`docs/guides/stripe-setup-guide.md` Step 5) | 5 種維持 (`customer.subscription.updated` / `_deleted` / `invoice.paid` / `_failed` / **`credit_note.created` (新規 #2683)**)、旧計画の `subscription_schedule.*` 3 種は scope 外 (本 PR §4.3 整合) | **変更** (Phase 7、本 PR は設計のみ) |
 | 6 (#2683 補強) | Customer Portal 設定 (`docs/guides/stripe-setup-guide.md` Step 4 簡易記載) | §3.2 の 12 項目詳細設定 (`subscription_update.products` に 2 entries + `proration_behavior='always_invoice'` + `schedule_at_period_end` 撤去) | **変更** (Phase 7、本 PR は設計のみ) |
 | 7 (#2683 補強) | `src/lib/server/services/stripe-service.ts` の `createCheckoutSession` 関数 | `subscriptions.update` で **アップ即時 + ダウン即時 + Stripe proration credit (`always_invoice`) パターン**、Subscription Schedule API 不使用 | **拡張** (Phase 1 plan-change FR-3 整合 + Phase 5 子 2 #2640 整合、Phase 7 実装) |
 

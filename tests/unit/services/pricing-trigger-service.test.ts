@@ -42,6 +42,7 @@ vi.mock('../../../src/lib/server/services/ops-service', () => ({
 // --- Import after mocks ---
 
 import {
+	collectMonthlyMetrics,
 	evaluateAllTriggers,
 	evaluateTrigger,
 	getTriggerDefinitions,
@@ -435,5 +436,58 @@ describe('getTriggerDefinitions', () => {
 		expect(ids).toContain('high_churn');
 		expect(ids).toContain('high_family_ratio');
 		expect(ids).toContain('high_aws_cost_ratio');
+	});
+});
+
+describe('#3987: collectMonthlyMetrics の churnRate が実データで 0 以外を返す', () => {
+	// terminated は退会 (アカウント削除) を意味し物理削除で families 行ごと消えるため、
+	// 旧実装 (`t.status !== TERMINATED` で除外) は恒常的に 0 を返していた。
+	beforeEach(() => {
+		mockIsStripeEnabled.mockReturnValue(false);
+	});
+
+	const YEAR = 2026;
+	const MONTH = 3;
+	const inMonth = '2026-03-10T00:00:00Z';
+
+	it('S5 契約終了 (suspended + subscription なし) を当月解約として数える', async () => {
+		const tenants = [
+			makePaidTenant({ tenantId: 'p1' }),
+			makePaidTenant({ tenantId: 'p2' }),
+			// 解約確定: TERMINAL_CONTRACT_STATE で sub / plan が NULL クリアされる
+			makeTenant({
+				tenantId: 'churned',
+				status: 'suspended',
+				stripeSubscriptionId: undefined,
+				plan: undefined,
+				updatedAt: inMonth,
+			}),
+		];
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const metrics = await collectMonthlyMetrics(YEAR, MONTH);
+
+		expect(metrics.paidUsers).toBe(2);
+		// 旧実装ではここが 0 になっていた
+		expect(metrics.churnRate).toBeGreaterThan(0);
+		expect(metrics.churnRate).toBe(0.5);
+	});
+
+	it('S4 停止 (suspended + subscription あり) は解約に数えない', async () => {
+		mockListAllTenants.mockResolvedValue([
+			makePaidTenant({ tenantId: 'p1' }),
+			makePaidTenant({ tenantId: 'p2' }),
+			makeTenant({
+				tenantId: 'suspended-but-contracted',
+				status: 'suspended',
+				plan: 'monthly',
+				stripeSubscriptionId: 'sub_still_there',
+				updatedAt: inMonth,
+			}),
+		]);
+
+		const metrics = await collectMonthlyMetrics(YEAR, MONTH);
+
+		expect(metrics.churnRate).toBe(0);
 	});
 });

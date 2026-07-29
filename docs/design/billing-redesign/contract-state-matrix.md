@@ -58,7 +58,7 @@
 | **S3** | 支払い失敗猶予 | `grace_period` | あり | あり | あり（猶予終了日） | dunning 中。**有料機能は維持されるべき** | `active` | `standard` / `family` | 課金ユーザー |
 | **S4** | 停止 | `suspended` | あり | あり | 任意 | Stripe が `unpaid` / `incomplete_expired` 等 | `suspended` | `free`（trial 判定へ落ちる） | 対象外 |
 | **S5** | 契約終了 | `suspended` | なし | なし | なし | 解約が確定し subscription 割り当てが解けた状態 | `none` | `free` | 対象外 |
-| **S6** | データ削除済 | `terminated` | 任意 | 任意 | 任意 | 退会猶予満了で物理削除済 | `suspended` or `none` | `free` | **チャーン** |
+| **S6** | 退会済 | `terminated` | 任意 | 任意 | 任意 | 退会（アカウント削除）が確定した印。**通常運用では観測されない**（下記） | `none` | `free` | チャーン（legacy 行のみ） |
 
 ### 不正状態（書いてはならない組み合わせ）
 
@@ -68,6 +68,36 @@
 | **X2** | `sub` あり + `plan` なし | 課金しているのにプラン不明。`planTier` が `standard` に丸められ、premium 契約者が standard 扱いになる | 起きうる（checkout の `metadata.planId` が未知のとき。alert は出る） |
 | **X3** | `status=active` + `exp` あり | `active` に期限は無い。dunning / 解約の残骸 | **起きる**（§5 D2） |
 | **X4** | `status=grace_period` + `sub` なし | 猶予の対象となる契約が存在しない | 起きうる |
+
+### 4.1 S6 (`terminated`) は通常運用では観測されない
+
+`terminated` は **退会（アカウント削除）済み**を意味する。解約ではない。意味は読み手 3 箇所が一致して示している:
+
+| 読み手 | 挙動 |
+|---|---|
+| `hooks.server.ts` | 当該テナントを**完全ブロック**。`/auth/login?reason=deleted` へ redirect、API は「アカウントは削除済みです。」 |
+| `auth-license-status.ts` | `terminated` → `licenseStatus='none'` |
+| `SaasLicensePanel.svelte` | `SUBSCRIPTION_PAGE_LABELS.statusTerminated` を表示 |
+
+一方、退会の物理削除（`purgeExpiredSoftDeletedTenants` → `deleteOwnerOnlyAccount` / `deleteOwnerFullDelete` → `deleteTenant()`）は **`families` 行ごと削除する**。したがって「削除完了を status で表す」ことは構造上できない（status を保持する行が残らない）。残りうるのは legacy 行と手動介入のみである。
+
+**この状態を KPI の分子に使ってはならない** — 恒常的に 0 になる。`hooks.server.ts` の締め出しは legacy 行に対する防御として維持する。
+
+なお退会**申請中**（猶予期間）の状態も `families.status` は持たない。§6 のとおり `settings` の `soft_deleted_at` / `physical_deletion_date` が別軸で持ち、`hooks.server.ts` はそれを読んで読み取り専用ロックをかける。申請時に `terminated` を書くと猶予中に完全ブロックされ、退会の取り消し導線が塞がる。
+
+### 4.2 チャーン（解約）の判定は S5
+
+解約は **S5 = `suspended` かつ `sub` なし**で表現される（`TERMINAL_CONTRACT_STATE` が書く終端）。`suspended` は S4（契約が残り復帰しうる停止）も兼ねるため、`status` 単独では判定できない。
+
+判定の SSOT は `isChurnedContract(tenant)`（`src/lib/domain/constants/subscription-status.ts`）:
+
+```
+S5 (suspended + sub なし) → チャーン
+S6 (terminated)          → チャーン（legacy 行の救済）
+S4 (suspended + sub あり) → チャーンではない（復帰しうる）
+```
+
+KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-metrics`）は本関数を経由する。直接比較は `tests/unit/architecture/churn-status-predicate-ssot.test.ts` が禁止する。
 
 ---
 
@@ -84,7 +114,7 @@
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
 | W6 | アプリ内解約 | `tenant/cancel/+server.ts:79` | `status=grace_period` / `exp = now + 30d` | S2 → S3 |
 | W7 | 解約取り消し | `tenant/reactivate/+server.ts:63` | `status=active` / `exp=undefined` | S3 → S2 |
-| W8 | 退会猶予満了バッチ | `tenant-cleanup/+server.ts:64` | `status=terminated` | → S6 |
+| W8 | （欠番）退会猶予満了バッチ | — | **書き手なし**。退会の物理削除は `families` 行ごと削除するため status を書かない（§4.1） | — |
 | W9 | （テナント作成） | `createTenant` | `status=active` のみ | → S1 |
 
 ### 表と実装のズレ（実読で確認、いずれも別 Issue で対処中）
@@ -92,7 +122,7 @@
 | ID | ズレ | 実装の事実 | Issue |
 |---|---|---|---|
 | **D2** | W6 と W3 が同じ `grace_period` に書く | 「支払い失敗の猶予」と「解約申請の猶予」が同一値。しかも W6 は 30 日固定、W3 は 7 日で**日数も規約と不一致** | #3986 → #3991 に統合 |
-| **D3** | S6 (`terminated`) の書き手が W8 のみ | しかも W8 は cron 未登録（`CRON_JOBS` に `tenant-cleanup` 無し）+ `dryRun` 既定 true。**実質書き手ゼロ**でチャーン KPI が恒常 0 になりうる | #3987 |
+| **D3** | S6 (`terminated`) に書き手がいない | 退会の物理削除は行ごと消すため status を残せない（§4.1）。`terminated` だけを見ていた KPI 3 本は恒常 0 を返していた。**解約は S5 で数える**ように是正済（`isChurnedContract`、§4.2） | #3987（解消済） |
 | **D4** | S4 に実効果が無い | `authorization.ts:171-173` は `suspended` でも `allowed: true` を返す。「読み取り専用」というコメントと実装が不一致 | #3982 / #3993 |
 | **D5** | W3 が退会向け機構を誤発火させる | `grace_period` は `hooks.server.ts:430` の**読み取り専用ロック**と `tenant-cleanup` の**物理削除対象**のトリガでもある。支払い失敗しただけで子どもが記録できなくなる | **#3993（critical）** |
 
