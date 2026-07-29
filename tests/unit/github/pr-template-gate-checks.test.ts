@@ -225,20 +225,21 @@ describe('feature lane: 現行観点維持 (#2944 AC4)', () => {
 	it('customer-value PASS: placeholder 残存なし', () => {
 		expect(checkCustomerValue({ ...base, body: VALID_FEATURE_BODY }).ok).toBe(true);
 	});
-	// customer-value の placeholder 検出は「1 番目の ## section が顧客価値 section」前提で動く。
-	// 現行 PULL_REQUEST_TEMPLATE.md は先頭コメント (<!-- ... -->) で始まるため、検出ロジックは
-	// 先頭コメントを「1 番目の section」とみなし inline field 0 件 → 常に PASS する (現行の no-op 挙動)。
-	// #2944 は lane-aware 化のみで検証ロジックを一切変えないため、この pre-existing 挙動を固定する (AC4)。
-	it('customer-value: 先頭コメント template では field 0 件 → placeholder でも PASS (現行 no-op 挙動の固定、AC4)', () => {
+	// #4097: 旧実装は「2 番目の `## `」を狙う findIndex だったため、template が HTML コメントで
+	// 始まると抽出範囲が先頭コメントに縮退し field 0 件 = 常に PASS する no-op になっていた。
+	// (#2944 が「検証ロジックを一切変えない」方針でこの挙動を pin していた。#4097 で pin を解除)
+	it('customer-value FAIL: 先頭コメント始まりの template でも placeholder を検出する (#4097 no-op 解消)', () => {
+		const tplWithLeadingComment = `<!-- 冒頭コメント -->\n\n${TEMPLATE}`;
 		const r = checkCustomerValue({
 			...base,
+			template: tplWithLeadingComment,
 			body: VALID_FEATURE_BODY.replace(
 				'**対象ユーザー**: システム全体（開発フロー）',
 				'**対象ユーザー**: <!-- 子供 / 親 -->',
 			),
 		});
-		// 先頭コメント template (現行 PR template と同型) では検出されず PASS (production と byte 一致)
-		expect(r.ok).toBe(true);
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('対象ユーザー');
 	});
 	it('customer-value FAIL: 先頭コメントなし template では placeholder を検出して fail (検出機構の実証)', () => {
 		// 顧客価値 section を 1 番目に置いた template なら inline field を検出する
@@ -826,5 +827,55 @@ describe('parseArgs (#2944 CLI)', () => {
 			check: 'issue-reference',
 			lane: 'feature',
 		});
+	});
+});
+
+// =====================================================================
+// #4097: gate 空洞化の fitness function (ADR-0061)。
+//
+// 本 describe だけは fixture ではなく **実 template** (.github/PULL_REQUEST_TEMPLATE.md) を
+// 入力にする。fixture ベースの検証は実 template が改訂されて gate が no-op に縮退しても
+// 緑のままになり、実際 #2944〜#4097 の間そのまま放置された (customer-value は常時 PASS /
+// test-results は常時 skip)。以後、template を「gate が効かない形」に変えたら本 test が落ちる。
+// =====================================================================
+describe('実 PULL_REQUEST_TEMPLATE.md に対して gate が空洞化しない (#4097 fitness)', () => {
+	const realTemplate = readFileSync(
+		resolve(dirname(fileURLToPath(import.meta.url)), '../../../.github/PULL_REQUEST_TEMPLATE.md'),
+		'utf-8',
+	);
+	const base = { labels: [] as string[], template: realTemplate, lane: 'feature' as const };
+
+	it('customer-value: 未記入の素の template は fail する (= field を検出できている)', () => {
+		const r = checkCustomerValue({ ...base, body: realTemplate });
+		expect(r.ok, 'placeholder 残存を検出できていない = gate が no-op').toBe(false);
+		expect(r.message).toContain('対象ユーザー');
+	});
+
+	it('customer-value: 3 field すべてを抽出対象にしている', () => {
+		const filled = realTemplate
+			.replace('**対象ユーザー**: <!-- 子供 / 親（管理者） / 運営 / システム全体 -->', '**対象ユーザー**: 親')
+			.replace(
+				'**解決する課題**: <!-- ユーザーが抱えている問題、または実現したい体験を 1-2 文で -->',
+				'**解決する課題**: 課題',
+			)
+			.replace(
+				'**期待される効果**: <!-- この変更により、ユーザー体験がどう改善されるか -->',
+				'**期待される効果**: 効果',
+			);
+		const r = checkCustomerValue({ ...base, body: filled });
+		expect(r.ok).toBe(true);
+		expect(r.message, '3 field 全部を見ているか').toContain('3 フィールド');
+	});
+
+	it('test-results: 実 template から結果表セクションを解決でき skip に落ちない', () => {
+		expect(detectTestSectionKeyword(realTemplate)).toBe('テスト・品質セルフチェック');
+		const r = checkTestResults({ ...base, body: realTemplate });
+		expect(r.skipped, 'セクション未解決で skip = gate が no-op').toBeFalsy();
+		expect(r.ok, '結果列 placeholder 残存を検出できていない').toBe(false);
+	});
+
+	it('change-type / issue-reference の見出し解決も実 template で成立する', () => {
+		expect(detectChangeTypeHeading(realTemplate)).toBe('## 変更タイプ');
+		expect(detectIssueSectionHeading(realTemplate)).toBe('## 関連 Issue');
 	});
 });

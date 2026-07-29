@@ -532,8 +532,29 @@ export function checkChangeType({ body, labels, template, lane }) {
 }
 
 /**
+ * template の「最初の `## ` セクション本文」(見出し行から次の `## ` の直前まで) を返す。
+ *
+ * 旧実装は `findIndex((l, i) => i > 0 && /^## /.test(l))` で「2 番目の `## `」を狙っていたが、
+ * template が HTML コメントで始まる場合は最初の `## ` がその index に該当してしまい、
+ * 抽出範囲が先頭コメントブロックに縮退して field 0 件 = 常時 PASS の no-op になっていた
+ * (#4097。#2944 が「検証ロジックを一切変えない」方針でこの挙動を pin したまま放置されていた)。
+ * 見出し位置を起点に取り直すことで、先頭コメントの有無に依存しなくなる。
+ *
+ * @param {string} template
+ * @returns {string[]}
+ */
+export function extractFirstSectionLines(template) {
+	const lines = template.split('\n');
+	const startIdx = lines.findIndex((l) => /^## (?!#)/.test(l));
+	if (startIdx === -1) return lines.slice(0, 25);
+	const rest = lines.slice(startIdx + 1);
+	const endOffset = rest.findIndex((l) => /^## (?!#)/.test(l));
+	return endOffset === -1 ? rest : rest.slice(0, endOffset);
+}
+
+/**
  * Check 4: 顧客価値・目的の記入 (lane-aware)。
- * - feature/hotfix: 現行どおり 1 番目 ## section の **field**: placeholder 残存検出。
+ * - feature/hotfix: 1 番目 ## section の **field**: placeholder 残存検出。
  * - integration: per-PR 顧客価値でなく「placeholder 残存検出のみ維持」(#2944)。
  *   → 統合 PR では field 構成が Phase B template で確定するため、現行 template の field に対し
  *     placeholder 残存のみを検出する (= feature と同一ロジックだが「リリースバッチ顧客価値サマリ」
@@ -550,9 +571,7 @@ export function checkCustomerValue({ body, labels, template, lane }) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
 
-	const lines = template.split('\n');
-	const secondSectionIdx = lines.findIndex((l, i) => i > 0 && /^## /.test(l));
-	const firstSectionLines = lines.slice(0, secondSectionIdx > 0 ? secondSectionIdx : 25);
+	const firstSectionLines = extractFirstSectionLines(template);
 
 	/** @type {string[]} */
 	const inlineFields = [];

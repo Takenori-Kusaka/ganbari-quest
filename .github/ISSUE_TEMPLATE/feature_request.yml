@@ -8,23 +8,6 @@ body:
       value: |
         機能の提案ありがとうございます。以下の項目を記入してください。
 
-  - type: checkboxes
-    id: pre_pmf_check
-    attributes:
-      label: Pre-PMF チェック（type:feat 必須 / ADR-0010）
-      description: |
-        新規機能を起票する前に、エンジニアバイアス (「課金基盤を完璧にしたのにユーザーがいない」状態) を防ぐためのチェック。
-        `priority:critical` な bug fix / 法務 / セキュリティ対応はチェック不要。
-        詳細: [ADR-0010](../../docs/decisions/0010-pre-pmf-scope-judgment.md)
-      options:
-        - label: "どのペルソナ (`docs/design/11-ペルソナ定義書.md` の P1/P2) のどの課題を解決するか、本文に明記した"
-        - label: "`docs/design/34-V2MOM.md` の Method (M1〜M4) に紐づけた"
-        - label: "この機能がなくても Pre-PMF サインアップ 20 名/月 (V2MOM Q2 目標) に到達できるかを自問した（できる → medium 以下 / できない → high 以上 + 本文に根拠記載）"
-        - label: "直近に ユーザー獲得 / オンボーディング / 採算性 系 Issue を 1 本以上起票した（連続する新機能 Issue はバイアスの兆候）"
-        - label: "工数と `docs/design/12-事業計画書.md` Year 1 KPI（EOY MAU 500 / MRR ¥12,000）への寄与が釣り合っている"
-    validations:
-      required: true
-
   - type: textarea
     id: customer-value
     attributes:
@@ -130,133 +113,76 @@ body:
   - type: textarea
     id: auxiliary-feature-ux-checklist
     attributes:
-      label: 機能完成度 checklist 9 層 17 項目（permission / marketplace / 子供向け機能 / ナビ系のみ必須、#2117 / #2139 / #2159 / #2171 / #2180）
+      label: 機能完成度 checklist 9 層 17 項目（該当層のみ）
       description: |
-        新機能が以下のいずれかに該当する場合は該当層の checklist を AC として複製する。
-        該当しない Issue は「N/A（permission / marketplace / 子供向け機能 / ナビ系ではない）」と明記。
-        SSOT: ADR-0010 §7 / `.claude/skills/issue-triage/SKILL.md`。
-
-        - permission 系: Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard 等)
-        - marketplace 系: 一覧 + 詳細 + import + アプリ反映の 2 hop 構造
-        - 子供向け機能 (#2159 RS-5 由来 3 項目 + #2171 MN-4 由来 3 項目): 子供画面で表示 / 操作 / 通知される機能
-        - **ナビ / 情報アーキテクチャ系 (#2180 AN-5 由来 2 項目)**: NAV_CATEGORIES / admin-ia.md / 親管理画面ナビ / 子供画面ナビ 等 ナビ階層変更
-      value: |
-        <!-- permission 系 5 項目 (#2117): 該当する場合 AC に複製 -->
-        - [ ] **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
-        - [ ] **Failure handling**: 失敗時の try/catch + ユーザーフィードバック (Toast / inline error / 設定画面誘導)
-        - [ ] **Informed consent**: 許可リクエスト前の説明 (頻度 / 内容 / 送信先 / quiet hours 等)
-        - [ ] **State feedback**: 成功時 / 失敗時 / pending 中の UI 状態フィードバック
-        - [ ] **Settings fallback**: 後から ON/OFF できる設定画面 link
-
-        <!-- marketplace 系 4 層 (#2139): 該当する場合 AC に複製 -->
-        - [ ] **表示層**: マーケットプレイス一覧 + 詳細ページで preview 可能
-        - [ ] **import 層**: import service / DB 反映機構 / 重複検出
-        - [ ] **アプリ反映層**: 取込後に既存機能 (special_rewards / checklist_templates / settings 等) と整合動作
-        - [ ] **setup 連携層**: 新規ユーザー setup フローで一括追加経路あり
-
-        <!-- 子供向け機能 3 項目 (#2159 RS-5): 該当する場合 AC に複製 -->
-        - [ ] **業界 prior art 比較 (3 件以上)**: 子供向け対象 (Khan Academy Kids / Duolingo ABC / Lingokids 等) の同等機能を最低 3 件比較、UX チープさを起票時点で検出
-        - [ ] **レスポンシブ完成度 (5 breakpoint)**: PC / Tablet / Mobile (375 / 768 / 1024 / 1280 / 1440) の 5 breakpoint で表示確認、PC 1 列中央寄せ等の崩れなし
-        - [ ] **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出、子供 UX コア体験のチープさ防止
-
-        <!-- 子供向け機能 3 項目 (#2171 MN-4): 該当する場合 AC に複製 -->
-        - [ ] **対象ペルソナと表示画面の整合性**: 起票時点で「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」明示、実装後に再確認
-        - [ ] **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner\|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離の判断
-        - [ ] **語彙統一の年齢整合 (ADR-0015)**: ひらがな / 漢字混在は ADR-0015 `getLabel(key, ctx)` 整合確認、年齢別 variant 化
-
-        <!-- ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5): 該当する場合 AC に複製 -->
-        - [ ] **過去設計整合性確認 (closed Issue / 設計書 / ADR の SSOT 突合)**: 起票時点で関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等の設計書を grep で全件確認、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記
-        - [ ] **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認**: `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅、1-2 種だけ変更する漏れがないか確認
-
-        または: N/A（permission / marketplace / 子供向け機能 / ナビ系ではない新機能）
+        permission 系 5 / marketplace 系 4 / 子供向け機能 6 / ナビ・情報アーキテクチャ系 2 のうち、
+        該当層の項目を AC に複製する。17 項目の本文 SSOT は
+        `.claude/skills/issue-triage/SKILL.md` §手順 E（上位ポリシーは ADR-0010 §7）。
+        「JSON + UI 表示のみ + import 未実装」状態での起票は禁止（ADR-0013 LP truth 違反）。
+      placeholder: |
+        該当層: marketplace 系 4 層 → AC に複製済
+        または: N/A（permission / marketplace / 子供向け機能 / ナビ系ではない）
     validations:
       required: false
 
   - type: textarea
     id: oss-research
     attributes:
-      label: OSS / 確立パターン調査結果（#1350 実装 Issue 必須）
-      description: |
-        独自実装前に **OSS / 確立パターンを最低 2 件**調査すること（#1350 / ADR-0009 派生ルール）。
-        「世間が使っているものを見もしないまま独自実装」を構造的に防ぐ。
-        該当が無い場合は「探した範囲」を書くこと（どのキーワードで探し、なぜ該当がなかったか）。
+      label: OSS / 確立パターン調査結果（独自実装 10 行超時に必須、#1350）
+      description: OSS / 確立パターンを 2 件以上調査し採用判断を残す。docs/fix/test 等の保守は「N/A」可。
       placeholder: |
-        例:
-        - 候補 A: svelte-i18n (https://github.com/kaisermann/svelte-i18n) — stars 1.6k / 採用実績あり / bundle 12KB / 学習コスト低。△ runtime 束縛のみで CI 検出は別実装
-        - 候補 B: Paraglide JS (https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — 型安全 / CI 検出あり / bundle 8KB / 学習コスト中
-        - 候補 C: 独自実装 — labels.ts + data-label + runtime resolver。2 件と比較して...
-        - 決定: 候補 B を採用 / 独自を採用（理由: ...）
-    validations:
-      required: false
+        - 候補 A: <名前> — stars / bundle / 型推論。△ <弱点>
+        - 候補 B: <名前> — <特徴>。△ <弱点>
+        - 決定: A / Pre-PMF コスト (ADR-0010): <許容根拠>
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives + Prior art（Rust RFC 抜粋、#2090）
+      label: Alternatives + Prior art
       description: |
-        検討した他案 + 不採用理由を列挙。Prior art (採用 OSS / 競合の同等機能) を含めること。
-        該当が無い場合は「探した範囲」を書く（どのキーワードで探し、なぜ該当がなかったか）。
-      value: |
-        <!-- 例:
-        - 案 A: 既存設定画面に option 追加 — メリット: 既存統合 / デメリット: 既存 UI 圧迫（不採用）
-        - 案 B: 新規 dedicated 画面 — メリット: 単一責務 / デメリット: 工数 +4h（採用）
-        - Prior art: 競合 Bedrock の同等機能 / iOS Screen Time 設定パターン
-        -->
+        検討した他案と不採用理由。Prior art（採用 OSS / 競合の同等機能）を含めること。
+        該当が無い場合は「探した範囲」（どのキーワードで探し、なぜ該当がなかったか）を書く。
+      placeholder: |
+        - 案 A: 既存 hook を拡張 — 0 行追加 / 副作用増（不採用）
+        - 案 B: 新規 service 層 — 単一責務 / 工数 +2h（採用）
+        - Prior art: <OSS / 競合> の同等パターン
     validations:
       required: true
 
   - type: textarea
     id: no-gos
     attributes:
-      label: No-gos / 今回スコープ外（Shape Up 抜粋、#2090）
-      description: |
-        今回意図的にスコープ外とする範囲を明示する（YAGNI 適用 / 将来 Issue 候補）。
-        該当が無い場合は「特になし」と明記すること（空欄不可）。
-      value: |
-        <!-- 例:
+      label: No-gos / 今回スコープ外
+      description: 今回意図的にスコープ外とする範囲（YAGNI 適用 / 将来 Issue 候補）。無い場合も「特になし」と明記する。
+      placeholder: |
+        - 既存 open Issue への retroactive 適用（新規のみ）
         - i18n 対応（別 Issue 候補）
-        - mobile 横向き対応（usage 1% 未満のため別 Issue）
-        - PMF 後 A/B test 実装（Pre-PMF では不要）
-        -->
     validations:
       required: true
 
   - type: textarea
     id: research-link
     attributes:
-      label: research-link（Deep Research 結果リンク、#2090）
-      description: |
-        `docs/reference/NN-research-*.md` への link を貼る、または "N/A" を明記。
-        OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
-      value: |
-        <!-- 例:
-        - docs/reference/NN-research-feature-name.md
+      label: research-link（Deep Research 結果リンク）
+      description: OSS 比較 / 競合調査 / 学術参照の記録へのリンク。不要なら「N/A」+ 理由を明記する。
+      placeholder: |
+        - docs/reference/NN-research-<topic>.md §2.1
         - または: N/A（既存パターン適用のため新規調査不要）
-        -->
     validations:
       required: true
 
   - type: textarea
     id: pre-pmf-check
     attributes:
-      label: Pre-PMF check（ADR-0010 §3 自由記述、#2090）
+      label: Pre-PMF check（ADR-0010 §3）
       description: |
-        上記 checkboxes 版に加え、ADR-0010 §3 の 5 質問への具体回答を自由記述で残す。
-        checkboxes は機械的チェック、textarea は根拠記述用（2 段階防御）。
-      value: |
-        <!--
-        Q1: どのペルソナ (P1/P2) のどの課題を解決するか？
-        →
-        Q2: V2MOM Method (M1〜M4) のどれに紐づくか？
-        →
-        Q3: この機能なしで Pre-PMF サインアップ 20 名/月 (V2MOM Q2) に到達できるか？ (可能→medium 以下 / 不可能→high 以上 + 根拠)
-        →
-        Q4: 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか？
-        →
-        Q5: 工数と Year 1 KPI (MAU 500 / MRR ¥12,000) への寄与が釣り合っているか？
-        →
-        または: 免除 (priority:critical bug fix / 法務 / セキュリティ)
-        -->
+        起票バイアスを防ぐため 5 質問に回答する。priority:critical bug fix / 法務・セキュリティは「免除」+ 理由で可。
+      placeholder: |
+        Q1 ペルソナ (P1/P2) とその課題:
+        Q2 V2MOM Method (M1〜M4) 紐付け:
+        Q3 この機能なしで サインアップ 20 名/月 に到達できるか (可→medium 以下 / 不可→high 以上 + 根拠):
+        Q4 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか:
+        Q5 工数と Year 1 KPI への寄与は釣り合うか:
     validations:
       required: true
 
@@ -294,9 +220,7 @@ body:
     id: phase
     attributes:
       label: 工程区分（P0-P7 / N/A）
-      description: |
-        下流 Phase の Issue は上流 Phase が閉じるまで着手しない。
-        新機能は通常 P6 だが、ADR / 企画 / アーキ判断を伴う場合は上流の工程を選択。
+      description: 下流 Phase は上流が閉じるまで着手しない。複数該当時は最も上流を選ぶ（SSOT は .github/CLAUDE.md）。
       options:
         - "P0: インフラ・プロセス更改"
         - "P1: ポリシー・判断基準 (ADR)"
