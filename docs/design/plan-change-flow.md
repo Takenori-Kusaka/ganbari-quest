@@ -625,7 +625,7 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 |---|------|------|
 | **P1** | **可変な属性は「event の payload」ではなく「Stripe 上の現行 subscription」から解決する** | `handleInvoicePaid` のみ。`invoice.lines` を読まず `subscriptions.retrieve()` の現行 price を SSOT にする（#3960）。**`handleSubscriptionUpdated` は P1 の対象外** — payload の subscription から plan を解決する（`metadata.tenantId` が無いときに通る `resolveSubscriptionContext()` の retrieve は tenant 特定にのみ使う） |
 | **P2** | **終端状態 (`canceled` / `incomplete_expired`) を検出した handler は、契約ありきの状態を書き戻さない** | `isSubscriptionTerminal()`（`stripe-service.ts`）。この 2 status は Stripe 上で他の status に戻らないため、「契約はもう存在しない」ことの確定印として使える（#3982）。判定対象は **payload の status** なので、終端の後に非終端 event が後着するケースは P3 が担う |
-| **P3** | **契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ適用する。終端状態は列の集合として 1 箇所で定義し全列を書く** | `applyTenantContractState()` が唯一の書き込み経路（#4026）。`tenant.stripeSubscriptionId` と event の subscription が一致しなければ適用しない（不一致は warn、別 subscription を指す場合は `stripe-contract-target-mismatch` alert）。終端は `TERMINAL_CONTRACT_STATE` = `stripe_subscription_id` / `plan` / `plan_expires_at` を null + `status=suspended`。迂回は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts` が禁止する |
+| **P3** | **契約状態の書き換えは「event 対象 = tenant の現行契約」のときだけ適用する。終端状態は列の集合として 1 箇所で定義し全列を書く** | `applyTenantContractState()` が唯一の書き込み経路（#4026）。`tenant.stripeSubscriptionId` と event の subscription が一致しなければ適用しない。不一致の観測レベルは 3 分岐（`tags.mismatchKind`）: 割り当てなし × 終端 event = warn のみ（解約済みへの正常な後着）/ 割り当てなし × **非終端** event = `stripe-contract-target-mismatch` alert（`tenant-unassigned-live-subscription`。Stripe 上は課金中なのに DB に紐付いておらず「払っているのに機能が開かない」ため人の介入が要る）/ 別 subscription = 同 alert（`other-subscription`）。終端は `TERMINAL_CONTRACT_STATE` = `stripe_subscription_id` / `plan` / `plan_expires_at` を null + `status=suspended`。迂回は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts` が禁止する |
 
 `paused` / `unpaid` / `incomplete` は復帰し得るため終端に含めない（含めると復帰経路を殺す）。
 
@@ -659,6 +659,7 @@ P3 の突合は tenant 同定の経路（`metadata.tenantId` / customer 逆引�
 | 同一 `event.id` の重複到達（dedup） | 設計確定・**実装未着手**（#2641 / phase5-webhook-idempotency-architecture.md） |
 | 同一 tenant への webhook 並行処理（handler 間の競合） | 未設計。Lambda 並行実行下では U1〜U8 の順序ガードも read-modify-write の間に割り込まれ得る |
 | DB ↔ Stripe の定期 reconcile | 未実装（#823、§10.4） |
+| 解約後の猶予期限の顧客向け表示 | 終端クリア（U10）で `plan_expires_at` が null になるため、解約後は画面（`SaasLicensePanel` の「有効期限」行）から期限が消える。顧客への期限告知は解約完了メール（`sendCancellationEmail` の `graceEndDate`）が担う（暫定）。表示の担い手は #3991 で決める |
 
 ---
 
