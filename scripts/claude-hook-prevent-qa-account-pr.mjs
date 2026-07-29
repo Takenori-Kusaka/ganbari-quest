@@ -23,6 +23,10 @@
  *   - 通過時: exit 0 (stdout/stderr 何も出さない、Claude にも干渉しない)
  *   - abort 時: exit 2 + stderr に対処方法を出力
  *
+ * fail-closed (#3999 AC3):
+ *   判定 SSOT (`./lib/is-main.mjs`) の import 解決失敗・main() 内の想定外例外は exit 2 に倒す。
+ *   Claude Code は exit 2 のみを block として扱うため、既定の exit 1 では tool 実行が継続する。
+ *
  * 関連:
  *   - ADR-0022 amendment 1 / amendment 3 (#1879)
  *   - scripts/check-gh-account-before-pr.mjs (.husky/pre-push 経由で同等チェック)
@@ -31,7 +35,28 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { isMain as isMainModule } from './lib/is-main.mjs';
+
+/**
+ * 判定 SSOT を **dynamic import** で読み込む理由 (#3999 AC3)。
+ *
+ * static import は解決失敗時に `ERR_MODULE_NOT_FOUND` (exit 1) になる。Claude Code の
+ * PreToolUse hook は **exit 2 のみ**を block として扱うため、exit 1 では tool 実行が継続し
+ * **QA アカウントからの `gh pr create` が素通しする** (fail-open)。
+ * `.claude/hooks/gate-approve.mjs` と同一の失敗 class なので同じ形で塞ぐ。
+ *
+ * なお本 script の import は同一 tree 内 (`scripts/` → `scripts/lib/`) なので、gate-approve の
+ * tree 横断 import に比べ到達条件は狭い (`scripts/` の部分 checkout 等)。それでも security
+ * control が「依存欠落 = 許可」に倒れる形は残さない。
+ */
+/** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
+let isMainModule;
+/** @type {unknown} import 解決に失敗したときの error (成功時は null) */
+let isMainLoadError = null;
+try {
+	({ isMain: isMainModule } = await import('./lib/is-main.mjs'));
+} catch (err) {
+	isMainLoadError = err;
+}
 
 export const ALLOWED_PR_AUTHOR_DEFAULT = 'Takenori-Kusaka';
 export const QA_ACCOUNT = 'ganbariquestsupport-lab';
@@ -154,8 +179,39 @@ async function main() {
 	process.exit(2);
 }
 
+/**
+ * 判定 SSOT を読み込めなかったときの fail-closed 終了 (#3999 AC3)。
+ * 判定不能を「許可」ではなく block に倒す。理由の詳細は上部の dynamic import コメント参照。
+ *
+ * @param {unknown} err
+ */
+function reportIsMainLoadFailure(err) {
+	const msg = err instanceof Error ? err.message : String(err);
+	process.stderr.write(
+		`[claude-hook-prevent-qa-account-pr] BLOCK: 判定 SSOT scripts/lib/is-main.mjs を読み込めませんでした。\n`,
+	);
+	process.stderr.write(`  reason: ${msg}\n`);
+	process.stderr.write(
+		`  hook は判定不能時に block 側へ倒します (fail-closed / #3999)。checkout に scripts/lib/is-main.mjs があるか確認してください。\n`,
+	);
+}
+
 // CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
-const isDirectInvocation = isMainModule(import.meta.url);
-if (isDirectInvocation) {
-	main();
+// `typeof isMainModule !== 'function'` も block 側に含める。module が読めても isMain を export
+// していなければ判定不能であることに変わりはなく、ここを allow に倒すと同じ fail-open に戻る。
+if (isMainLoadError || typeof isMainModule !== 'function') {
+	reportIsMainLoadFailure(
+		isMainLoadError ?? new Error('scripts/lib/is-main.mjs が isMain を export していません'),
+	);
+	process.exit(2);
+} else if (isMainModule(import.meta.url)) {
+	// main() 内の想定外例外も unhandled rejection (= exit 1 = 素通し) にせず block へ倒す (#3999)。
+	main().catch((err) => {
+		const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+		process.stderr.write(
+			`[claude-hook-prevent-qa-account-pr] BLOCK: hook が想定外の例外で失敗しました。\n`,
+		);
+		process.stderr.write(`  ${detail}\n`);
+		process.exit(2);
+	});
 }

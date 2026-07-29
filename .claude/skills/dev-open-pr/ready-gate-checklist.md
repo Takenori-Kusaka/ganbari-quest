@@ -118,7 +118,6 @@ node scripts/check-pr-template-sections-sync.mjs
 **条件**: `## Ready for Review チェックリスト` の項目を**実機検証してから** `[x]` に変更。虚偽チェック禁止。
 
 ```markdown
-- [x] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
 - [x] セルフレビュー済み（不要な差分・デバッグコードなし）
 - [x] 全 AC が実装済み
 - [x] UI 変更時: SS が GitHub 上で表示確認 + DOM HTML 併記 + DESIGN.md §9 禁忌 6 点を目視確認

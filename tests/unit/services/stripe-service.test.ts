@@ -207,6 +207,22 @@ describe('createCheckoutSession', () => {
 		expect(result).toEqual({ error: 'ALREADY_SUBSCRIBED' });
 	});
 
+	// #3982: 解約 (customer.subscription.deleted) 後に `stripe_subscription_id` が残っていると
+	// この経路が ALREADY_SUBSCRIBED を返し、**再購読導線が塞がる**。クリアが効いていることを
+	// 「解約後の tenant 形状で checkout が通る」側から固定する (上の ALREADY_SUBSCRIBED と対)。
+	it('解約後 (subscriptionId クリア済み) のテナントは再購読の checkout を開始できる (#3982)', async () => {
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: undefined, plan: undefined, status: 'suspended' }),
+		);
+		const result = await createCheckoutSession({
+			tenantId: 't-test',
+			planId: 'monthly',
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+		expect(result).toEqual({ url: 'https://checkout.stripe.com/session_1' });
+	});
+
 	it('正常にチェックアウトURL返却', async () => {
 		const result = await createCheckoutSession({
 			tenantId: 't-test',
@@ -661,7 +677,10 @@ describe('handleWebhookEvent', () => {
 		);
 	});
 
-	it('customer.subscription.deleted → suspended + サブスクリプションID解除', async () => {
+	// #3982: 旧 assertion は `stripeSubscriptionId: undefined` / `plan: undefined` を期待しており、
+	// **no-op をそのまま追認していた** (updateTenantStripe は undefined = 更新しない)。
+	// クリアの意図を DB まで届かせるには null でなければならないため、null を固定する。
+	it('customer.subscription.deleted → suspended + subscriptionId/plan を null でクリア (#3982)', async () => {
 		mockFindTenantById.mockResolvedValue(makeTenant());
 
 		const event = {
@@ -675,13 +694,141 @@ describe('handleWebhookEvent', () => {
 		};
 
 		await handleWebhookEvent(event as never);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'suspended',
+			stripeSubscriptionId: null,
+			plan: null,
+		});
+		// stripeCustomerId は再購読時の customer 再利用 + webhook 逆引きの鍵なので消さない
+		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).not.toHaveProperty('stripeCustomerId');
+	});
+
+	// ======================================================
+	// #3982: 解約の終端状態が「後着イベント」で巻き戻らないこと
+	//
+	// Stripe は webhook の配信順序を保証しない (公式)。解約時は
+	// `customer.subscription.updated` (status=canceled) と `customer.subscription.deleted` が
+	// **両方**飛び、さらに当期分の `invoice.paid` / `invoice.payment_failed` が後着し得る。
+	// #3982 で `deleted` が実際に NULL を書くようになったため、後着イベントが
+	// 契約ありきの状態 (ACTIVE / GRACE_PERIOD / plan) を書き戻すと
+	// 「subscription 参照なし・plan あり」「解約済みなのに ACTIVE」という不整合が生まれる。
+	// 終端状態 (canceled / incomplete_expired) を検出して skip / 収束させることで担保する。
+	// ======================================================
+
+	/** 解約済み tenant の形状 (deleted 適用後に DB から読み直したときの値) */
+	function makeCancelledTenant() {
+		return makeTenant({ stripeSubscriptionId: undefined, plan: undefined, status: 'suspended' });
+	}
+
+	const TERMINAL_STATE = { status: 'suspended', stripeSubscriptionId: null, plan: null };
+
+	function deletedEvent(subscriptionId = 'sub_123') {
+		return {
+			type: 'customer.subscription.deleted',
+			data: { object: { id: subscriptionId, metadata: { tenantId: 't-test' } } },
+		};
+	}
+
+	function cancelledUpdatedEvent(priceId = 'price_family_monthly_789') {
+		return {
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					...makeSubscription(priceId, { status: 'canceled' }),
+					metadata: { tenantId: 't-test' },
+				},
+			},
+		};
+	}
+
+	it('#3982 — deleted → updated(canceled) の順でも plan が復活せず終端状態に収束する', async () => {
+		mockFindTenantById.mockResolvedValue(makeTenant());
+
+		await handleWebhookEvent(deletedEvent() as never);
+		// deleted 適用後の tenant を読む (id / plan はクリア済み)
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+		await handleWebhookEvent(cancelledUpdatedEvent() as never);
+
+		// 2 event とも同じ終端状態を書く = 到着順に依らず収束する
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		for (const call of mockUpdateTenantStripe.mock.calls) {
+			expect(call[1]).toEqual(TERMINAL_STATE);
+		}
+	});
+
+	it('#3982 — updated(canceled) → deleted の逆順でも最終状態が一致する', async () => {
+		mockFindTenantById.mockResolvedValue(makeTenant());
+
+		await handleWebhookEvent(cancelledUpdatedEvent() as never);
+		mockFindTenantById.mockResolvedValue(makeCancelledTenant());
+		await handleWebhookEvent(deletedEvent() as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(2);
+		for (const call of mockUpdateTenantStripe.mock.calls) {
+			expect(call[1]).toEqual(TERMINAL_STATE);
+		}
+	});
+
+	it('#3982 — 解約後に invoice.paid が後着しても status が active に戻らない', async () => {
+		// Stripe から retrieve される現行 subscription は canceled (終端)
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
+			},
+		});
+		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
+
+		await handleWebhookEvent(deletedEvent() as never);
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		// deleted の 1 回だけ。invoice.paid は終端検出で skip されるため書き込まない
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
+	});
+
+	it('#3982 — 解約後に invoice.payment_failed が後着しても grace_period に戻らない', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
+			},
+		});
+		mockFindTenantById.mockResolvedValue(makeTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeCancelledTenant());
+
+		await handleWebhookEvent(deletedEvent() as never);
+		await handleWebhookEvent({
+			type: 'invoice.payment_failed',
+			data: { object: { parent: { subscription_details: { subscription: 'sub_123' } } } },
+		} as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
+	});
+
+	it('#3982 — 終端でない subscription (past_due) の invoice.payment_failed は従来どおり grace_period にする', async () => {
+		// 終端判定が「解約以外まで巻き込んで無効化」していないことの対照 (guard の空振り検出)
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'past_due' })),
+			},
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
+
+		await handleWebhookEvent({
+			type: 'invoice.payment_failed',
+			data: { object: { parent: { subscription_details: { subscription: 'sub_123' } } } },
+		} as never);
+
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
 			't-test',
-			expect.objectContaining({
-				status: 'suspended',
-				stripeSubscriptionId: undefined,
-				plan: undefined,
-			}),
+			expect.objectContaining({ status: 'grace_period' }),
 		);
 	});
 

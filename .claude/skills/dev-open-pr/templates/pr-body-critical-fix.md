@@ -46,7 +46,7 @@ closes #{{ISSUE_NUMBER}}
 
 ### 要件 2: AC 全項目完了（部分実装で closes 禁止）
 
-- [ ] Issue の全 AC が本 PR で完了している（残存 TODO / 「予定」なし）
+- [ ] Issue の全 AC が本 PR で完了している（未実装・先送りのまま残っている AC がない）
 
 ### 要件 3: 提案全実装
 
@@ -139,7 +139,8 @@ UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）*
 
 ## Ready for Review チェックリスト
 
-- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
+<!-- pre-ready の実行証跡はチェック項目にしない（本リストの未チェックを check-pr-body が block し、その check-pr-body を pre-ready 自身が呼ぶため自己参照 deadlock、#4022）。ログのパスと結果を PR body 本文に記載する。 -->
+
 - [ ] **ADR-0002 5 要件全て満たした**（再掲、自己確認）
 - [ ] セルフレビュー済み
 - [ ] 全 AC が実装済み

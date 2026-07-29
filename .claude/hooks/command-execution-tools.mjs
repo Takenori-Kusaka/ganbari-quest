@@ -18,9 +18,19 @@
  * 以下は**コマンド実行経路ではない**ため対象外:
  *   - `Read` / `Write` / `Edit` / `Glob` / `Grep` … ファイル操作のみ
  *   - `Agent` / `Skill` … 子セッションを起こすが、子側でも同じ hook 設定が適用される
- *   - MCP ツール群 (`mcp__*`) … 現行の登録サーバに汎用 shell 実行ツールは無い
- *     (chrome-devtools / playwright / discord / gmail / calendar / drive / aws 系 / youtube。
- *      `browser_run_code_unsafe` や `evaluate_script` はブラウザ内 JS であってシェルではない)
+ *     (ただし `Agent` の `isolation: "remote"` での hook 継承は未検証 — ADR-0056 §残存 bypass R3)
+ *   - `Read` / `Write` / `Edit` / `Glob` / `Grep` … ファイル操作のみ
+ *   - MCP ツール群 (`mcp__*`) の大半 … chrome-devtools / playwright / discord / gmail /
+ *     calendar / drive / aws 系 / youtube。`browser_run_code_unsafe` や `evaluate_script` は
+ *     ブラウザ内 JS であってシェルではない
+ *
+ * # 対象外にしているが実際は危険な経路 (訂正、ADR-0056 §残存 bypass R1)
+ * 上記の「MCP に汎用 shell 実行は無い」は**実態より狭い**。`mcp__ide__executeCode` は
+ * Jupyter kernel 上で**任意コードを実行できる**ため、`gh pr merge` 相当の副作用を出せる。
+ * shell 文字列ではないので `tool_input.command` 検査が効かず、本 SSOT にも matcher にも
+ * 載っていない = gate がそもそも起動しない。同 class の code-execution 系 MCP ツールが
+ * 増えるたびに同じ穴が開くため、「shell か否か」ではなく
+ * **「任意の副作用を起こせるか」**で棚卸しする必要がある (未対処、R1)。
  *
  * # 将来ツールが増えたときに漏れない仕組み (#4001 AC3)
  * 手動の列挙メンテは形骸化するため、以下 2 段で守る:

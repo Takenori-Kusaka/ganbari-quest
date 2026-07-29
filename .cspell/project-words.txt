@@ -548,3 +548,5 @@ inlang
 jscodeshift
 mebibytes
 crond
+# ===== #3982 demo auth-repo の型導出コメント (TS の method shorthand はパラメータが双変) =====
+bivariant

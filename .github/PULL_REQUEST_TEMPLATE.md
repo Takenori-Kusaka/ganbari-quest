@@ -163,11 +163,12 @@ UI 変更を含まない PR (refactor / docs / infra のみ) は本セクショ�
 
 ## Ready for Review チェックリスト
 
-<!-- Draft → Ready 前に確認。CI 全緑は GitHub Status Checks 側で別途検証されるため本リストには含めない（#1775 自己言及循環の解消） -->
+<!-- Draft → Ready 前に確認。CI 全緑は GitHub Status Checks 側で別途検証されるため本リストには含めない（#1775 自己言及循環の解消）
+     pre-ready の実行証跡もチェック項目にしない（本リストの未チェックを check-pr-body が block し、その check-pr-body を
+     pre-ready 自身が呼ぶため自己参照 deadlock になる、#4022）。実行証跡はログのパスと結果を PR body 本文に記載する。 -->
 
-- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
 - [ ] セルフレビュー済み（不要な差分・デバッグコードなし）
-- [ ] 全 AC が実装済み（TODO / 「予定」のまま残っている AC がない）
+- [ ] 全 AC が実装済み（未実装・先送りのまま残っている AC がない）
 - [ ] Phase 分割した場合: 着手前に PO と合意し、子 Issue を起票済み
 - [ ] UI 変更時: SS が GitHub 上で表示確認 + DOM HTML 併記（#1741 / #1747）+ DESIGN.md §9 禁忌 6 点を目視確認
 - [ ] 認証画面変更時: `npm run dev:cognito` (#1026) で実ブラウザ操作した SS を添付
