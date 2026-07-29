@@ -79,6 +79,14 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 各採用 OSS の詳細根拠は対応する ADR / 設計書 (`docs/design/*-architecture.md`) を参照。本表は採用済み OSS の「インデックス」として機能し、新規実装者が `npm install` 前にまず参照する SSOT。
 
+### OSS 調査済み・不採用記録 (#1350 整合)
+
+調査したが採用しなかった OSS。同じ候補の再調査を繰り返さないためのインデックス。再評価トリガを満たした場合のみ再検討する。
+
+| 領域 | 調査 OSS | 調査日 | 不採用根拠 | 再評価トリガ |
+|------|---------|-------|-----------|------------|
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0、YC S26) | 2026-07-29 | 実測ビルド済 (20,973 nodes / 39,750 edges / 2m13s / ローカル AST のみ・API キー不要、日本語 UTF-8 健全)。`god-nodes` は中核 (`ChildId` / `getRepos()` / `requireTenantId()`) を正しく検出するが、**`tree-sitter-svelte` 非対応で `.svelte` 238 files が全て `L1` ファイルレベル node のみ (479 nodes)** = UI 層が空白。SvelteKit の `+page.server.ts` / `+server.ts` 同名衝突で `explain` / `path` がルート層で識別不能。`query` は BFS が 434 nodes → 42 件 truncate されハブノイズ優位で狙った Grep 以下。`cites` (code→ADR 979 edge) は `git grep -ohE 'ADR-[0-9]{4}'` で代替可 (ADR 月1棚卸の現役参照判定はこれで足りる)。`affected` は import 逆引きで dependency-cruiser (ADR-0007 §7) + `impact-analysis` skill の layer 1-2 と重複し、同 skill が本来狙う派生 artifact 22 カテゴリ (testid / baseline / SS / 設計書参照 / CI config) は非カバー。運用面も `graph.json` 21.6MB (commit 不可 / 未 commit なら全員 2m13s 再ビルド + 陳腐化) + `graphify claude install` が CLAUDE.md 追記と **`Bash\|Grep` / `Read\|Glob` への PreToolUse hook** を仕込み、CLAUDE.md 階層 + `docs/codebase-map.md` の SSOT ナビを劣化 BFS に誘導するため侵襲的 | `tree-sitter-svelte` 対応が入る (本評価の決定要因) / v1.0.0 正式リリース時の Svelte・SvelteKit 対応状況 |
+
 ## ボリューム上限ルール（削除主義、#2440 PR-A5 改定）
 
 ADR を現場の常時参照ルールとして機能させるため、以下の上限を設ける。
