@@ -158,16 +158,15 @@ describe('--body-file 経路 (SKILL.md) が Web UI 必須 4 項目を網羅す�
 		expect(Object.keys(FIELD_TO_HEADING).sort()).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
 	});
 
-	it.each(REQUIRED_TEXTAREA_IDS)(
-		'必須 field `%s` に対応する見出しが SKILL.md ステップ 7 テンプレに存在する',
-		(id) => {
-			const heading = FIELD_TO_HEADING[id];
-			expect(
-				skill,
-				`SKILL.md に "${heading}" が無い → --body-file 起票で ${id} が欠落する`,
-			).toContain(heading);
-		},
-	);
+	it.each(
+		REQUIRED_TEXTAREA_IDS,
+	)('必須 field `%s` に対応する見出しが SKILL.md ステップ 7 テンプレに存在する', (id) => {
+		const heading = FIELD_TO_HEADING[id];
+		expect(
+			skill,
+			`SKILL.md に "${heading}" が無い → --body-file 起票で ${id} が欠落する`,
+		).toContain(heading);
+	});
 
 	it('17 項目 checklist の本文 SSOT が SKILL.md 側にあり、yml は本文を複製しない', () => {
 		// 本文 SSOT (手順 E) 側には 4 層すべての見出しが揃っている
