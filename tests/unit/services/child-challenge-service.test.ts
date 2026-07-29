@@ -426,22 +426,21 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 	});
 
 	// #4051 AC2: 週境界の 9 時間窓 (JST 月曜 00:00〜09:00) を固定値で pin する。
-	// この窓では JST 暦日 ≠ UTC 暦日 なので、**週頭を JST 以外の日付要素で算出する実装
-	// (= #4003 で顕在化した欠陥クラス) はここで前週を返し、必ず落ちる**。
-	// TZ は Asia/Tokyo に pin する: 窓の内側で「JST 基準の正解」を固定するのが本 case の目的で、
-	// プロセス TZ が UTC の runner で同じ正解を保証するのは週頭関数側の責務 (#4003)。
+	// この窓では JST 暦日 ≠ UTC 暦日 なので、**週頭をローカル日付要素で算出する実装
+	// (= #4003 で直す前の getWeekStart)** は TZ=UTC の runner で前週を返し、必ず落ちる。
+	// 本番 Lambda / CI runner は TZ 未設定 (= UTC) なので、UTC 側こそが実害の起きる条件。
 	describe('週境界の 9 時間窓 (JST 月曜 00:00〜09:00) でも当週は JST 基準で決まる', () => {
 		afterEach(() => {
 			restoreClock();
 		});
 
-		it('週頭が翌週の月曜になる (前週を返さない)', () => {
-			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, 'Asia/Tokyo');
+		it.each(PINNED_TIMEZONES)('TZ=%s で週頭が翌週の月曜になる (前週を返さない)', (tz) => {
+			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, tz);
 			expect(getWeekStart()).toBe(JST_WEEK_BOUNDARY_WINDOW.weekStart);
 		});
 
-		it('当週分の行があれば再生成しない (窓の内側でも冪等)', async () => {
-			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, 'Asia/Tokyo');
+		it.each(PINNED_TIMEZONES)('TZ=%s で当週分の行があれば再生成しない (冪等)', async (tz) => {
+			freezeClock(JST_WEEK_BOUNDARY_WINDOW.iso, tz);
 			const existing = {
 				id: '97',
 				childId: asChildId(10),
