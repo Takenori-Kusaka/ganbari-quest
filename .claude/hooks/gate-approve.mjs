@@ -111,7 +111,7 @@ try {
 } catch (err) {
 	moduleLoadFailures.push({ path: '.claude/hooks/command-execution-tools.mjs', err });
 }
-if (moduleLoadFailures.length > 0) isMainLoadError = moduleLoadFailures[0].err;
+isMainLoadError = moduleLoadFailures.at(0)?.err ?? null;
 
 /**
  * gh-command SSOT を取り出す。読み込めていなければ throw する (呼出元は main() 経由で
@@ -558,11 +558,12 @@ async function main() {
 		const result = verifyEvidence(prNumber);
 		if (!result.ok) failures.push({ prNumber, reason: result.reason });
 	}
-	if (failures.length === 0) {
+	const first = failures.at(0);
+	if (first === undefined) {
 		process.exit(0);
 	}
 
-	const [first] = failures;
+	// 修正手順の例示に使う代表 PR (複数 fail 時は先頭)。全 PR 番号は下の一覧で出す。
 	const prNumber = first.prNumber;
 	// deny: stderr に修正手順を出す
 	process.stderr.write(
