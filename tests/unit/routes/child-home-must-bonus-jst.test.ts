@@ -131,8 +131,10 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 // #4020 AC1 の 3 呼び出しすべてが同じ JST 当日を見ることを [B5] で確認する。
 // ------------------------------------------------------------------
 
-const getChecklistsForChild = vi.fn(async () => []);
-const selectRecommendations = vi.fn(() => []);
+const getChecklistsForChild = vi.fn(
+	async (_childId: unknown, _today: string, _tenantId: string) => [],
+);
+const selectRecommendations = vi.fn((_activities: unknown, _today: string) => []);
 
 vi.mock('$lib/server/auth/factory', () => ({ requireTenantId: () => 'test-tenant' }));
 vi.mock('$lib/server/logger', () => ({
@@ -282,10 +284,12 @@ describe('#4020 AC3 — 全達成ボーナスは JST の当日で判定される
 
 		// point_ledger に当日の 1 行が入っていること
 		expect(ledger).toHaveLength(1);
-		expect(ledger[0].type).toBe(MUST_COMPLETION_BONUS_TYPE);
-		expect(ledger[0].amount).toBe(5);
-		expect(ledger[0].recordedDate).toBe('2026-07-27');
-		expect(ledger[0].description).toContain('2026-07-27');
+		const [row] = ledger;
+		if (!row) throw new Error('point_ledger に行が入っていない');
+		expect(row.type).toBe(MUST_COMPLETION_BONUS_TYPE);
+		expect(row.amount).toBe(5);
+		expect(row.recordedDate).toBe('2026-07-27');
+		expect(row.description).toContain('2026-07-27');
 	});
 
 	it('[B3] 窓の内側で 2 回 load しても付与は 1 回だけ (冪等 / 演出 1 回限り)', async () => {
