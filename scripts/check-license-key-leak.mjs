@@ -204,6 +204,16 @@ function main() {
 		process.exit(0);
 	}
 
+	// 引数は走査前に解釈する (不正指定で 18s 走査してから落ちるのを避ける)。
+	/** @type {number | null} */
+	let budgetMs = null;
+	try {
+		budgetMs = parseBudgetMs(process.argv.slice(2));
+	} catch (e) {
+		console.error(`[check-license-key-leak] ✗ ${e instanceof Error ? e.message : String(e)}`);
+		process.exit(1);
+	}
+
 	// #4000: 走査自体の所要を必ず出す。CI runner は fresh clone = 常に cold FS cache なので、
 	// この数値が「cold 条件での実測」そのものになる (別途 cold 再現 job を作る必要がない)。
 	// 実測 (#4000): warm ~285ms / cold ~18.8s (986 file・6.5MB、Windows Defender 下で ~19ms/file)。
@@ -215,7 +225,6 @@ function main() {
 
 	// budget 超過は「走査の構造が変わった (対象が膨らんだ / I/O が増えた)」の機械検知。
 	// 通常変動で鳴らないよう桁違いの余裕を持たせ、catastrophic な回帰だけを落とす。
-	const budgetMs = parseBudgetMs(process.argv.slice(2));
 	if (budgetMs !== null && elapsedMs > budgetMs) {
 		console.error(
 			`[check-license-key-leak] ✗ scan が budget を超過しました (${elapsedMs}ms > ${budgetMs}ms)\n` +
