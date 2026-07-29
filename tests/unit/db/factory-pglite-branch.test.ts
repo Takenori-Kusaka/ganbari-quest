@@ -66,6 +66,7 @@ const REPOSITORY_KEYS = [
 	'trialHistory',
 	'viewerToken',
 	'voice',
+	'webhookEvent', // #3985: Stripe webhook の event.id dedup 台帳
 ] as const;
 
 async function importFreshFactory() {

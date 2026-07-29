@@ -40,8 +40,10 @@ function readStripeService(): string {
 
 /** `handleWebhookEvent` の switch から `case 'xxx':` の event 名を抽出する。 */
 function handledEventTypes(source: string): string[] {
-	const fn = source.match(/export async function handleWebhookEvent[\s\S]*?^}/m);
-	if (!fn) throw new Error('handleWebhookEvent が見つかりません (関数名が変わった?)');
+	// #3985: dedup 配線に伴い switch は `handleWebhookEvent` から `dispatchWebhookEvent` へ移した。
+	// 「switch を持つ関数」を見に行かないと 0 件マッチで素通りするため、抽出元も一緒に動かす。
+	const fn = source.match(/async function dispatchWebhookEvent[\s\S]*?^}/m);
+	if (!fn) throw new Error('dispatchWebhookEvent が見つかりません (関数名が変わった?)');
 	return [...fn[0].matchAll(/case '([\w.]+)':/g)]
 		.map((m) => m[1])
 		.filter((v): v is string => v !== undefined)
