@@ -111,9 +111,8 @@ export function findJournalWhenViolations(entries, options = {}) {
 				rule: 'R4-idx',
 				tag,
 				when,
-				message:
-					`idx が配列順と一致しない (idx=${idx}, 期待=${i})。
-` + `    → entries の並べ替え・手編集を戻し、drizzle-kit が生成した idx 連番へ戻してください。`,
+				message: `idx が配列順と一致しない (idx=${idx}, 期待=${i})。
+    → entries の並べ替え・手編集を戻し、drizzle-kit が生成した idx 連番へ戻してください。`,
 			});
 		}
 
