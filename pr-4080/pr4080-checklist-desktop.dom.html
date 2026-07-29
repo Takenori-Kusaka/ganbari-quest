@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1amflqm--><!----><title>子供登録 - がんばりクエスト セットアップ</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--403spx--><!----><title>がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -3998,137 +3998,871 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.setup-page.svelte-a9mpxv {
-		min-height: 100dvh;
-		background: linear-gradient(to bottom, var(--color-brand-100), var(--color-brand-200));
+	.milestone-bell.svelte-1h1heob {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 16px;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.25);
+		border: none;
+		border-radius: 50%;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
 	}
 
-	.step.svelte-a9mpxv {
+	.milestone-bell.svelte-1h1heob:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+
+	.milestone-bell__icon.svelte-1h1heob {
+		font-size: 0.95rem;
+		line-height: 1;
+	}
+
+	.milestone-bell__badge.svelte-1h1heob {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 3px;
+		background: var(--color-feedback-error-text, #dc2626);
+		color: white;
+		font-size: 0.65rem;
+		font-weight: 700;
+		line-height: 16px;
+		border-radius: 8px;
+		border: 1.5px solid var(--theme-primary, #5ba3e6);
+		text-align: center;
+		box-sizing: border-box;
+	}
+ .svelte-1h1heob{}
+
+	.safe-area-bottom.svelte-1sje7wr {
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
+ .svelte-1sje7wr{}
+
+	.stamp-mini.svelte-1i1e82e {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		background: rgba(255, 255, 255, 0.2);
+		border: none;
+		border-radius: var(--radius-sm, 6px);
+		padding: 2px 6px;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.stamp-mini.svelte-1i1e82e:hover {
+		background: rgba(255, 255, 255, 0.3);
+	}
+	.help-btn.svelte-1i1e82e {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background: rgba(255, 255, 255, 0.25);
+		border: none;
+		border-radius: 50%;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.help-btn.svelte-1i1e82e:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+	.premium-star.svelte-1i1e82e {
+		font-size: 0.6em;
+		margin-left: 2px;
+		vertical-align: super;
+		opacity: 0.8;
+	}
+ .svelte-1i1e82e{}
+
+	.stamp-card.svelte-1h04p5k {
+		background: linear-gradient(135deg, var(--color-surface-card, #fffbeb) 0%, var(--color-surface-card, #fef3c7) 100%);
+		border: 2px solid var(--theme-accent, #f59e0b);
+		border-radius: 16px;
+		padding: 12px;
+		position: relative;
+		overflow: hidden;
+	}
+
+	/* Decorative corner dots */
+	.stamp-card.svelte-1h04p5k::before,
+	.stamp-card.svelte-1h04p5k::after {
+		content: '';
+		position: absolute;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--theme-accent, #f59e0b);
+		opacity: 0.3;
+	}
+
+	.stamp-card.svelte-1h04p5k::before {
+		top: 6px;
+		left: 6px;
+	}
+
+	.stamp-card.svelte-1h04p5k::after {
+		top: 6px;
+		right: 6px;
+	}
+
+	/* Header */
+	.stamp-card__header.svelte-1h04p5k {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 10px;
+		padding-bottom: 6px;
+		border-bottom: 1px dashed var(--theme-accent, #f59e0b);
+	}
+
+	.stamp-card__title.svelte-1h04p5k {
+		font-size: 0.75rem;
+		font-weight: 800;
+		color: var(--color-text, #92400e);
+	}
+
+	.stamp-card__period.svelte-1h04p5k {
+		font-size: 0.625rem;
+		color: var(--color-text-muted, #9ca3af);
+	}
+
+	/* Stamp body */
+	.stamp-card__body.svelte-1h04p5k {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 4px;
+		gap: 8px;
+		margin-bottom: 10px;
 	}
 
-	.step-circle.svelte-a9mpxv {
-		width: 32px;
-		height: 32px;
+	.stamp-card__row.svelte-1h04p5k {
+		display: flex;
+		gap: 12px;
+		justify-content: center;
+	}
+
+	/* Stamp slot */
+	.stamp-slot.svelte-1h04p5k {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
+		animation: svelte-1h04p5k-pulse-today 1.2s ease-in-out infinite;
+		border-color: var(--theme-accent, #f59e0b);
+		box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+	}
+
+	.stamp-slot__circle.svelte-1h04p5k {
+		width: 52px;
+		height: 52px;
+		border-radius: 50%;
+		border: 2px dashed var(--color-text-muted, #d1d5db);
+		background: rgba(255, 255, 255, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.3s ease;
+	}
+
+	.stamp-slot__circle--filled.svelte-1h04p5k {
+		border-style: solid;
+		border-color: transparent;
+		background: transparent;
+	}
+
+	.stamp-slot__img.svelte-1h04p5k {
+		width: 48px;
+		height: 48px;
+		object-fit: contain;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+	}
+
+	.stamp-slot__number.svelte-1h04p5k {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #d1d5db);
+	}
+
+	/* Progress bar */
+	.stamp-card__progress.svelte-1h04p5k {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 6px;
+	}
+
+	.stamp-card__progress-bar.svelte-1h04p5k {
+		flex: 1;
+		height: 6px;
+		background: rgba(0, 0, 0, 0.06);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.stamp-card__progress-fill.svelte-1h04p5k {
+		height: 100%;
+		background: linear-gradient(90deg, var(--theme-accent, #f59e0b), var(--theme-sub, #fbbf24));
+		border-radius: 3px;
+		transition: width 0.5s ease;
+	}
+
+	.stamp-card__progress-text.svelte-1h04p5k {
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #9ca3af);
+		white-space: nowrap;
+	}
+
+	/* Status messages */
+	.stamp-card__hint.svelte-1h04p5k {
+		text-align: center;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-text-muted, #9ca3af);
+		margin: 0;
+	}
+
+	.stamp-card__done.svelte-1h04p5k {
+		text-align: center;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--theme-accent, #f59e0b);
+		margin: 0;
+	}
+
+	.stamp-card__complete.svelte-1h04p5k {
+		text-align: center;
+		padding: 4px 0;
+	}
+
+	.stamp-card__complete-text.svelte-1h04p5k {
+		font-size: 1rem;
+		font-weight: 900;
+		color: var(--theme-accent, #f59e0b);
+		margin: 0;
+	}
+
+	.stamp-card__complete-sub.svelte-1h04p5k {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-text-muted, #92400e);
+		margin: 2px 0 0;
+	}
+
+	/* Animations */
+	@keyframes svelte-1h04p5k-pulse-today {
+		0%, 100% { transform: scale(1); opacity: 1; }
+		50% { transform: scale(1.1); opacity: 0.7; }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
+			animation: none;
+		}
+	}
+ .svelte-1h04p5k{}
+
+	.tutorial-overlay.svelte-c315ht {
+		position: fixed;
+		inset: 0;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
+	}
+
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}
+
+	.avatar-wrap.svelte-1uv6grs {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		flex-shrink: 0;
+	}
+
+	.avatar-ring.svelte-1uv6grs {
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.875rem;
-		font-weight: 700;
-		background: var(--color-neutral-200);
-		color: var(--color-neutral-400);
-		transition: all 0.2s;
+		overflow: hidden;
 	}
 
-	.step--active.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-brand-600); color: white; }
-	.step--done.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-success); color: white; }
+	.avatar-img.svelte-1uv6grs {
+		border-radius: 50%;
+		object-fit: cover;
+	}
 
-	.step-label.svelte-a9mpxv { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
-	.step--active.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-brand-600); font-weight: 600; }
-	.step--done.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-success); }
+	.avatar-fallback.svelte-1uv6grs {
+		line-height: 1;
+	}
 
-	.step-line.svelte-a9mpxv { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
-	.step-line--done.svelte-a9mpxv { background: var(--color-success); }
- .svelte-a9mpxv{}
+	/* --- Effects --- */
+	.avatar-effect-sparkle {
+		animation: avatar-sparkle 2s ease-in-out infinite;
+	}
+	.avatar-effect-pulse {
+		animation: avatar-pulse 1.5s ease-in-out infinite;
+	}
+	.avatar-effect-glow {
+		filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
+		animation: avatar-glow 2s ease-in-out infinite;
+	}
+	.avatar-effect-rainbow {
+		animation: avatar-rainbow 3s linear infinite;
+	}
 
-	.logo-wrapper.svelte-1n7r250 {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		vertical-align: middle;
+	@keyframes avatar-sparkle {
+		0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
+		50% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
 	}
-	.logo.svelte-1n7r250 {
-		display: inline-block;
-		vertical-align: middle;
-		object-fit: contain;
+	@keyframes avatar-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.06); }
 	}
-	.plan-label.svelte-1n7r250 {
-		font-size: 0.6rem;
-		font-weight: 700;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		white-space: nowrap;
-		line-height: 1.4;
+	@keyframes avatar-glow {
+		0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
+		50% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); }
 	}
-	.plan-label--standard.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
+	@keyframes avatar-rainbow {
+		0% { filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
+		33% { filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(0,255,0,0.4)); }
+		66% { filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(0,0,255,0.4)); }
+		100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
 	}
-	.plan-label--family.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
- .svelte-1n7r250{}
+ .svelte-1uv6grs{}
 
-	.theme-card.svelte-1amflqm {
+	.tutorial-bubble.svelte-9wfq4r {
+		position: fixed;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
+		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
+		z-index: calc(var(--z-tutorial) + 10);
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		padding: 0;
+		overflow: hidden;
+		pointer-events: auto;
+	}
+
+	@keyframes svelte-9wfq4r-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.tutorial-chapter-header.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		padding: 8px 12px;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		gap: 4px;
-		padding: 12px 8px;
-		border: 2px solid var(--color-neutral-200);
-		border-radius: 12px;
+		gap: 6px;
+		color: white;
+		font-size: 0.8rem;
+		font-weight: 600;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px 4px;
+		border-radius: 4px;
+		width: 100%;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.tutorial-chapter-arrow.svelte-9wfq4r {
+		margin-left: auto;
+		font-size: 0.65rem;
+	}
+
+	.tutorial-chapter-menu.svelte-9wfq4r {
+		background: #f8fafc;
+		border-bottom: 1px solid #e2e8f0;
+		padding: 4px;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 8px 12px;
+		font-size: 0.8rem;
+		border: none;
+		background: none;
+		border-radius: 8px;
+		cursor: pointer;
+		color: #475569;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
+		background: #dbeafe;
+		color: #1d4ed8;
+		font-weight: 600;
+	}
+
+	.tutorial-content.svelte-9wfq4r {
+		padding: 16px 16px 8px;
+	}
+
+	.tutorial-title.svelte-9wfq4r {
+		font-size: 1rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0 0 6px;
+	}
+
+	.tutorial-description.svelte-9wfq4r {
+		font-size: 0.85rem;
+		color: #475569;
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.tutorial-progress.svelte-9wfq4r {
+		padding: 8px 16px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.tutorial-progress-text.svelte-9wfq4r {
+		font-size: 0.7rem;
+		color: #94a3b8;
+		white-space: nowrap;
+		min-width: 36px;
+	}
+
+	.tutorial-progress-bar.svelte-9wfq4r {
+		flex: 1;
+		height: 4px;
+		background: #e2e8f0;
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.tutorial-progress-fill.svelte-9wfq4r {
+		height: 100%;
+		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.tutorial-nav.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 12px 12px;
+		gap: 8px;
+	}
+
+	.tutorial-nav-right.svelte-9wfq4r {
+		display: flex;
+		gap: 6px;
+	}
+
+	.tutorial-nav-btn.svelte-9wfq4r {
+		padding: 6px 14px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
-	.theme-card.svelte-1amflqm:hover {
-		border-color: var(--color-neutral-300);
+	.tutorial-nav-end.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #64748b;
 	}
 
-	.peer:checked ~ .theme-card--pink.svelte-1amflqm {
-		border-color: var(--color-pink-400);
-		background-color: var(--color-pink-50);
+	.tutorial-nav-end.svelte-9wfq4r:hover {
+		background: #e2e8f0;
 	}
 
-	.peer:checked ~ .theme-card--blue.svelte-1amflqm {
-		border-color: var(--color-blue-400);
-		background-color: var(--color-blue-50);
+	.tutorial-nav-prev.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #475569;
 	}
- .svelte-1amflqm{}
 
-	.password-toggle.svelte-pwdxgn {
+	.tutorial-nav-prev.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:hover {
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:active {
+		transform: scale(0.97);
+	}
+
+	/* Age-tier font size adjustments (G3) */
+	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.25rem;
+	}
+
+	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
+		font-size: 1.05rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.125rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
+		font-size: 0.95rem;
+	}
+ .svelte-9wfq4r{}
+
+	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
+		margin: 0;
+		color: var(--color-text-primary);
+		line-height: 1.5;
+	}
+
+	.dialog-hint.svelte-1hkj8k9 {
+		margin-top: var(--sp-sm) !important;
+		font-size: 0.875rem;
+		color: var(--color-text-secondary) !important;
+	}
+
+	.dialog-actions.svelte-1hkj8k9 {
+		display: flex;
+		gap: var(--sp-sm);
+		justify-content: flex-end;
+		margin-top: var(--sp-md);
+		flex-wrap: wrap;
+	}
+ .svelte-1hkj8k9{}
+
+	.celeb.svelte-dvv180 {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	/* ===== Confetti ===== */
+	.confetti-piece.svelte-dvv180 {
+		position: absolute;
+		top: -10%;
+		left: var(--x);
+		width: 8px;
+		height: 8px;
+		background: var(--color);
+		border-radius: 2px;
+		animation: svelte-dvv180-confetti-fall 1.5s ease-in var(--delay) forwards;
+	}
+
+	@keyframes svelte-dvv180-confetti-fall {
+		0% {
+			transform: translateY(0) rotate(0deg);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(300px) rotate(720deg);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Fireworks ===== */
+	.firework.svelte-dvv180 {
+		position: absolute;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		animation: svelte-dvv180-firework-burst 1s ease-out forwards;
+	}
+
+	.firework--1.svelte-dvv180 {
+		top: 30%;
+		left: 20%;
+		box-shadow:
+			0 0 0 0 #ff6b6b,
+			20px -30px 0 0 #ff6b6b,
+			-20px -30px 0 0 #ff6b6b,
+			30px 0 0 0 #ff6b6b,
+			-30px 0 0 0 #ff6b6b,
+			20px 30px 0 0 #ff6b6b,
+			-20px 30px 0 0 #ff6b6b,
+			0 -40px 0 0 #ff6b6b;
+		animation-delay: 0s;
+	}
+
+	.firework--2.svelte-dvv180 {
+		top: 20%;
+		left: 70%;
+		box-shadow:
+			0 0 0 0 #4ecdc4,
+			20px -30px 0 0 #4ecdc4,
+			-20px -30px 0 0 #4ecdc4,
+			30px 0 0 0 #4ecdc4,
+			-30px 0 0 0 #4ecdc4,
+			20px 30px 0 0 #4ecdc4,
+			-20px 30px 0 0 #4ecdc4,
+			0 -40px 0 0 #4ecdc4;
+		animation-delay: 0.3s;
+	}
+
+	.firework--3.svelte-dvv180 {
+		top: 50%;
+		left: 45%;
+		box-shadow:
+			0 0 0 0 #ffe66d,
+			20px -30px 0 0 #ffe66d,
+			-20px -30px 0 0 #ffe66d,
+			30px 0 0 0 #ffe66d,
+			-30px 0 0 0 #ffe66d,
+			20px 30px 0 0 #ffe66d,
+			-20px 30px 0 0 #ffe66d,
+			0 -40px 0 0 #ffe66d;
+		animation-delay: 0.6s;
+	}
+
+	@keyframes svelte-dvv180-firework-burst {
+		0% {
+			opacity: 0;
+			transform: scale(0);
+		}
+		30% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.5);
+		}
+	}
+
+	/* ===== Stars ===== */
+	.star-particle.svelte-dvv180 {
+		position: absolute;
+		top: var(--x);
+		left: var(--x);
+		width: var(--size);
+		height: var(--size);
+		background: #ffd54f;
+		clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+		animation: svelte-dvv180-star-twinkle 1.5s ease-out var(--delay) forwards;
+	}
+
+	@keyframes svelte-dvv180-star-twinkle {
+		0% {
+			transform: scale(0) rotate(0deg);
+			opacity: 1;
+		}
+		50% {
+			transform: scale(1.2) rotate(180deg);
+			opacity: 1;
+		}
+		100% {
+			transform: scale(0.5) rotate(360deg) translateY(60px);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Cracker ===== */
+	.cracker-piece.svelte-dvv180 {
 		position: absolute;
 		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
+		left: 50%;
+		width: 6px;
+		height: 6px;
+		background: var(--color);
+		border-radius: 50%;
+		animation: svelte-dvv180-cracker-explode 0.8s ease-out var(--delay) forwards;
+		--rad: 80px;
 	}
 
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
+	@keyframes svelte-dvv180-cracker-explode {
+		0% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+			opacity: 1;
+		}
+		100% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(var(--rad));
+			opacity: 0;
+		}
 	}
 
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
+	/* ===== Rainbow ===== */
+	.rainbow-ring.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		border-radius: 50%;
+		border: 3px solid transparent;
+		transform: translate(-50%, -50%) scale(0);
+		animation: svelte-dvv180-rainbow-expand 1.2s ease-out forwards;
 	}
- .svelte-pwdxgn{}</style>
+
+	.rainbow-ring--1.svelte-dvv180 {
+		width: 80px;
+		height: 80px;
+		border-color: #ff6b6b #ff9800 #ffe66d #4ecdc4;
+		animation-delay: 0s;
+	}
+
+	.rainbow-ring--2.svelte-dvv180 {
+		width: 140px;
+		height: 140px;
+		border-color: #4ecdc4 #2196f3 #9c27b0 #ff6b6b;
+		animation-delay: 0.2s;
+	}
+
+	.rainbow-ring--3.svelte-dvv180 {
+		width: 200px;
+		height: 200px;
+		border-color: #dda0dd #ff6b6b #ff9800 #ffe66d;
+		animation-delay: 0.4s;
+	}
+
+	@keyframes svelte-dvv180-rainbow-expand {
+		0% {
+			transform: translate(-50%, -50%) scale(0);
+			opacity: 1;
+		}
+		70% {
+			opacity: 0.8;
+		}
+		100% {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 0;
+		}
+	}
+
+	/* ===== Legend ===== */
+	.legend-aura.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 120px;
+		height: 120px;
+		border-radius: 50%;
+		background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
+		transform: translate(-50%, -50%);
+		animation: svelte-dvv180-legend-pulse 1.5s ease-in-out infinite;
+	}
+
+	.legend-particle.svelte-dvv180 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 4px;
+		height: 4px;
+		background: #ffd700;
+		border-radius: 50%;
+		box-shadow: 0 0 6px #ffd700;
+		animation: svelte-dvv180-legend-orbit 2s linear var(--delay) infinite;
+	}
+
+	@keyframes svelte-dvv180-legend-pulse {
+		0%,
+		100% {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 0.4;
+		}
+		50% {
+			transform: translate(-50%, -50%) scale(1.3);
+			opacity: 0.7;
+		}
+	}
+
+	@keyframes svelte-dvv180-legend-orbit {
+		0% {
+			transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-50px) scale(1);
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.6;
+		}
+		100% {
+			transform: translate(-50%, -50%) rotate(calc(var(--angle) + 360deg)) translateY(-50px) scale(0.5);
+			opacity: 0;
+		}
+	}
+ .svelte-dvv180{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div class="setup-page svelte-a9mpxv"><div class="w-full max-w-[480px] svelte-a9mpxv"><div class="text-center mb-6 svelte-a9mpxv"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="200" height="81" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <p class="text-sm text-[var(--color-text-muted)] mt-1 svelte-a9mpxv">初期セットアップ</p></div> <div class="flex items-center justify-center mb-6 svelte-a9mpxv"><!--[--><div class="step svelte-a9mpxv step--active"><div class="step-circle svelte-a9mpxv"><!--[-1-->1<!--]--></div> <span class="step-label svelte-a9mpxv">子供登録</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->2<!--]--></div> <span class="step-label svelte-a9mpxv">かんたん質問</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->3<!--]--></div> <span class="step-label svelte-a9mpxv">活動</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->4<!--]--></div> <span class="step-label svelte-a9mpxv">ごほうび</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->5<!--]--></div> <span class="step-label svelte-a9mpxv">ルール</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->6<!--]--></div> <span class="step-label svelte-a9mpxv">活動初期設定</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->7<!--]--></div> <span class="step-label svelte-a9mpxv">家族チャレンジ</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->8<!--]--></div> <span class="step-label svelte-a9mpxv">はじめての冒険</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->9<!--]--></div> <span class="step-label svelte-a9mpxv">冒険の始まり</span></div> <!--[-1--><!--]--><!--]--></div> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><!--[-1--><!--[--><h2 class="text-lg font-bold text-[var(--color-text)] mb-2 svelte-1amflqm">子供を登録しよう</h2> <p class="text-sm text-[var(--color-text-muted)] mb-4 svelte-1amflqm">がんばりクエストを使う子供を登録してください（1人以上）。</p> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <form method="POST" action="?/addChild" class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)] svelte-1amflqm"><h3 class="text-sm font-bold text-[var(--color-text-secondary)] svelte-1amflqm">子供を追加</h3> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-ニックネーム" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">ニックネーム</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="text" id="field-ニックネーム" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="nickname" required="" placeholder="たろうくん" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-年齢" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">年齢</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="number" id="field-年齢" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="age" min="0" max="18" required="" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="svelte-1amflqm"><label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1 svelte-1amflqm">テーマカラー</label> <div class="grid grid-cols-2 gap-2 svelte-1amflqm"><label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="pink" checked="" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--pink svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👧</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ピンク</span></div></label> <label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="blue" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--blue svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👦</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ブルー</span></div></label></div></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" type="submit"><!--[-1--><!--]--><!---->追加する<!----></button><!--]--><!----></form> <!--[-1--><!--]-->   <div class="mt-4 text-center svelte-1amflqm"><a href="/switch" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)] svelte-1amflqm" data-testid="setup-skip-link">ホームに戻る</a></div><!--]--><!--]--><!----><!----></div> <!--[-1--><!--]--></section><!----></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[0--><div class="sticky top-0 z-50 flex items-center gap-2 px-3 py-2 text-sm border-b bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]" role="status" data-testid="demo-banner"><span class="shrink-0" aria-hidden="true">🧪</span> <div class="flex-1 min-w-0"><p class="font-bold leading-tight">おためしモード</p> <p class="text-xs leading-snug opacity-90">これはおためしです。記録やせっていはほぞんされません。</p></div> <a href="https://www.ganbari-quest.com/auth/signup" class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary-strong)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap" data-testid="demo-banner-signup">本当に始める</a> <a href="https://www.ganbari-quest.com/" class="shrink-0 px-2 py-1 text-xs underline whitespace-nowrap" data-testid="demo-banner-exit">おためしをやめる</a></div><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="green" data-age-tier="elementary" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[-1--><span class="avatar-fallback svelte-1uv6grs" style="font-size: 1rem;">👤</span><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">けんたくん<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[0--><button type="button" class="milestone-bell svelte-1h1heob" data-testid="milestone-bell" data-pending-count="5" aria-label="新着のおしらせ 5件 を見る"><span class="milestone-bell__icon svelte-1h1heob" aria-hidden="true">🔔</span> <span class="milestone-bell__badge svelte-1h1heob" aria-hidden="true">5</span></button><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカードを見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">0/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e">3,400P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[-1--><!--[--><div class="px-[var(--sp-sm)] py-[var(--sp-sm)]"><div class="text-center mb-[var(--sp-md)]"><p class="text-sm text-[var(--color-text-muted)]">きょうは</p> <p class="text-lg font-bold">すいようび</p> <p class="text-sm text-[var(--color-text-muted)]">🌙 いまは <span class="font-bold">よる</span> のじかん</p></div> <!--[-1--><!--[--><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] mb-[var(--sp-md)] opacity-70"><!--[-1--><!--]--> <div><div class="px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary-light)] flex items-center justify-between"><div class="flex items-center gap-[var(--sp-xs)]"><span class="text-xl">🏊</span> <span class="font-bold">プールの もちもの</span> <!--[0--><span class="text-xs px-1.5 py-0.5 bg-white/50 rounded"> </span><!--]--></div> <div class="text-sm"><span class="font-bold">0</span> <span class="text-[var(--color-text-muted)]">/ 10</span></div></div> <div class="h-1.5 bg-[var(--color-surface-secondary)]"><div class="h-full bg-[var(--theme-primary)] transition-all duration-300" style="width: 0%;"></div></div> <div class="divide-y divide-[var(--color-border)]"><!--[--><form data-testid="checklist-item-6000" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6000" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">👙</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">みずぎ・ラッシュガード</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6001" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6001" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🎒</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">プールバッグ</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6002" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6002" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🏖️</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">ビーチタオル・バスタオル</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6003" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6003" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🧢</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">プールぼうし</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6004" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6004" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🥽</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">ゴーグル</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6005" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6005" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🛍️</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">ビニールぶくろ（ぬれたもの用）</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6006" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6006" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">📋</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">プールカード・けんこうチェック表</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6007" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6007" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🧴</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">日やけどめ（学校許可時のみ）</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6008" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6008" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🩴</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">サンダル（屋外プール時）</span><!----></button><!--]--><!----></form><form data-testid="checklist-item-6009" method="POST" action="?/toggle"><input type="hidden" name="templateId" value="5000" style=""> <input type="hidden" name="itemId" value="6009" style=""> <input type="hidden" name="checked" value="1" style=""> <!--[-1--><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-full flex items-center gap-[var(--sp-sm)] px-[var(--sp-md)] py-[var(--sp-sm)] text-left transition-colors hover:bg-[var(--color-surface-muted)]" aria-busy="false" type="submit"><!--[-1--><!--]--><span class="text-2xl flex-shrink-0 opacity-30">☐</span> <span class="flex-shrink-0"><span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🥤</span> <!--[-1--><!--]--></span><!----></span> <span class="flex-1 font-medium ">飲みもの（水筒）</span><!----></button><!--]--><!----></form><!--]--></div> <div class="px-[var(--sp-md)] py-[var(--sp-xs)] bg-[var(--color-surface-muted)] text-center text-sm text-[var(--color-text-muted)]"><!--[-1-->ぜんぶチェックしたら <span class="font-bold text-[var(--color-point)]">+30P</span><!--]--></div><!----></div> <!--[-1--><!--]--></section><!----><!--]--><!--]--></div> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!----><!--]--></main> <!--[0--><nav class="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around bg-[var(--theme-nav)] border-t border-black/10 safe-area-bottom svelte-1sje7wr" data-testid="bottom-nav" aria-label="メインナビゲーション"><!--[--><a href="/elementary/home" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-muted)] svelte-1sje7wr" data-testid="nav-home"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🏠</span> <!--[0--><span class="text-xs svelte-1sje7wr">ホーム</span><!--]--></a><a href="/checklist" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--theme-primary)] font-bold svelte-1sje7wr" aria-current="page" data-testid="nav-checklist"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">📋</span> <!--[0--><span class="text-xs svelte-1sje7wr">持ち物チェック</span><!--]--></a><a href="/elementary/shop" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-muted)] svelte-1sje7wr" data-testid="nav-shop"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">🎁</span> <!--[0--><span class="text-xs svelte-1sje7wr">ショップ</span><!--]--></a><a href="/elementary/status" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-muted)] svelte-1sje7wr" data-testid="nav-status" data-tutorial="nav-status"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">⭐</span> <!--[0--><span class="text-xs svelte-1sje7wr">つよさ</span><!--]--></a><a href="/switch" class="tap-target flex flex-col items-center justify-center gap-0.5 flex-1 py-[var(--sp-sm)] transition-colors min-h-16 text-[var(--color-text-muted)] svelte-1sje7wr" data-testid="nav-switch"><span class="text-2xl svelte-1sje7wr" aria-hidden="true">👨‍👩‍👧‍👦</span> <!--[0--><span class="text-xs svelte-1sje7wr">かぞく</span><!--]--></a><!--]--></nav><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--></div> <!--[0--><!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--> <!--[0--><!--[--><!--$s6--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL(".", location).pathname.slice(0, -1),
 						env: {}
 					};
 
@@ -4139,15 +4873,15 @@ h1, h2, h3, h4 {
 						import("/@fs/E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a565b06d39fa0dc17/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 8, 72],
-							data: [{type:"data",data:{role:"owner",requestId:"3abf43a5-c847-4bab-aef3-0a185e7ee027",isDemo:false},uses:{}},null,{type:"data",data:{children:[]},uses:{}}],
+							node_ids: [0, 2, 10],
+							data: [{type:"data",data:{role:"owner",requestId:"2080fbc4-ec0c-4950-b8b1-af4b3c6b9fd9",isDemo:true},uses:{}},(function(a){a.id="903";a.nickname="けんたくん";a.age=8;a.birthDate="2018-03-22";a.theme="green";a.uiMode="elementary";a.uiModeManuallySet=0;a.avatarUrl=null;a.displayConfig=null;a.userId=null;a.birthdayBonusMultiplier=1;a.lastBirthdayBonusYear=null;a.isArchived=0;a.archivedReason=null;a.createdAt="2025-04-01T00:00:00.000Z";a.updatedAt="2026-03-27T09:00:00.000Z";return {type:"data",data:{child:a,balance:3400,level:8,levelTitle:"きせきのマスター",allChildren:[{id:"901",nickname:"たろうくん",age:1,birthDate:"2025-01-15",theme:"blue",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2026-01-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"902",nickname:"ひなちゃん",age:5,birthDate:"2020-06-10",theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-09-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},a,{id:"904",nickname:"さくらちゃん",age:14,birthDate:"2011-08-05",theme:"purple",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"},{id:"906",nickname:"けいすけくん",age:17,birthDate:"2008-11-20",theme:"orange",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,isArchived:0,archivedReason:null,createdAt:"2025-04-01T00:00:00.000Z",updatedAt:"2026-03-27T09:00:00.000Z"}],uiMode:"elementary",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:0,total:5},stampCard:{id:"0",childId:"903",weekStart:"2026-07-27",weekEnd:"2026-08-02",status:"collecting",entries:[],canStampToday:true,totalSlots:5,filledSlots:0,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:true,achievedAt:"2026-03-14"},{id:"records_5",threshold:5,achieved:true,achievedAt:"2026-03-15"},{id:"records_10",threshold:10,achieved:true,achievedAt:"2026-03-16"},{id:"streak_7",threshold:7,achieved:true,achievedAt:null},{id:"streak_14",threshold:14,achieved:true,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:true},uses:{url:1}}}({})),{type:"data",data:{checklists:[{templateId:"5000",templateName:"プールの もちもの",templateIcon:"🏊",timeSlot:"daily",pointsPerItem:2,completionBonus:10,items:[{id:"6000",name:"みずぎ・ラッシュガード",icon:"👙",checked:false,source:"template"},{id:"6001",name:"プールバッグ",icon:"🎒",checked:false,source:"template"},{id:"6002",name:"ビーチタオル・バスタオル",icon:"🏖️",checked:false,source:"template"},{id:"6003",name:"プールぼうし",icon:"🧢",checked:false,source:"template"},{id:"6004",name:"ゴーグル",icon:"🥽",checked:false,source:"template"},{id:"6005",name:"ビニールぶくろ（ぬれたもの用）",icon:"🛍️",checked:false,source:"template"},{id:"6006",name:"プールカード・けんこうチェック表",icon:"📋",checked:false,source:"template"},{id:"6007",name:"日やけどめ（学校許可時のみ）",icon:"🧴",checked:false,source:"template"},{id:"6008",name:"サンダル（屋外プール時）",icon:"🩴",checked:false,source:"template"},{id:"6009",name:"飲みもの（水筒）",icon:"🥤",checked:false,source:"template"}],checkedCount:0,totalCount:10,completedAll:false,pointsAwarded:0}],currentTimeSlot:"evening"},uses:{parent:1}}],
 							form: null,
 							error: null
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = './service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }
