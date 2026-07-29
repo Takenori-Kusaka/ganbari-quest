@@ -32,6 +32,7 @@ import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legac
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
+import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
 import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import { isSetupRequired } from '$lib/server/services/setup-service';
@@ -101,6 +102,26 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	return (
 		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
 	);
+}
+
+/**
+ * 退会 (アカウント削除) 申請済みか。#3993 の読み取り専用ロックの判定に使う。
+ *
+ * **判定できないときは通す (fail-open)。** ロックの目的は「退会申請中の家庭が
+ * データを増やし続けるのを防ぐ」ことであり、settings が読めない瞬間に書き込みを
+ * 止めると、**DB 障害が「子どもが記録できない」という顧客影響に化ける**。
+ * ここは #3963 の entitlement (課金権限) とは逆で、fail-open が安全側になる。
+ */
+async function isTenantSoftDeleted(tenantId: string): Promise<boolean> {
+	try {
+		return (await getGracePeriodStatus(tenantId)).isSoftDeleted;
+	} catch (err) {
+		logger.warn('[hooks] 退会申請状態を判定できませんでした (書き込みは許可)', {
+			context: { tenantId },
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return false;
+	}
 }
 
 // #3829 (EPIC #3408 slice C): アプリ側 CSP は SvelteKit 標準 CSP (svelte.config.js kit.csp、
@@ -427,26 +448,47 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(302, authResult.redirect);
 		}
 
-		// grace_period 読み取り専用制御（#0193）
-		if (context?.tenantStatus === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
-			const method = event.request.method;
-			const isWrite = method !== 'GET' && method !== 'HEAD';
+		// 退会 (アカウント削除) 申請済みテナントの読み取り専用制御（#0193 / #3993）
+		//
+		// #3993: 旧実装は条件が `tenantStatus === GRACE_PERIOD` だった。しかし `grace_period` は
+		// **支払い失敗の dunning 猶予**でも書かれる (`handlePaymentFailed`)。その結果、
+		// カードの期限切れで決済が 1 回失敗しただけで **7 日間すべての書き込みが 403** になり、
+		// 子どもががんばりを 1 件も記録できなくなっていた。
+		//
+		// これは要件の明文違反である (`phase1-dunning-requirements.md`):
+		//   FR-1  invoice.payment_failed で past_due 記録、**plan tier は有料維持**
+		//   NFR-3 **子供の利用体験は支払い状態で突然中断しない**
+		//   US-4  (子供) 親の支払い状態に関わらず通知・アクセス断を経験しない
+		//
+		// 本ロックが本来対象とすべきは **退会 (アカウント削除) 申請済み**のテナントであり
+		// (#0193「アカウント削除UI・猶予期間制御・データ削除バッチ」)、その状態は
+		// `families.status` ではなく settings の `soft_deleted_at` が持つ
+		// (`grace-period-service.softDeleteTenant` は families を一切触らない)。
+		//
+		// 判定を `soft_deleted_at` に付け替える。**書き込み要求のときだけ**問い合わせるのは、
+		// 読み取りが大半を占める中で全リクエストに settings 参照を足さないため。
+		const method = event.request.method;
+		const isWriteRequest = method !== 'GET' && method !== 'HEAD';
+		if (isWriteRequest && context?.tenantId) {
+			// 退会申請中でも「データを持ち出す」「退会を取り消す」「ログアウトする」は通す。
+			// これらを塞ぐと、申請を撤回する手段まで失う。
 			const isAllowedWritePath = [
-				'/api/v1/admin/tenant/reactivate',
+				'/api/v1/admin/account/restore',
+				'/api/v1/admin/account/export',
 				'/api/v1/export',
 				'/api/v1/auth/logout',
 				'/auth/logout',
 			].some((p) => path.startsWith(p));
 
-			if (isWrite && !isAllowedWritePath) {
+			if (!isAllowedWritePath && (await isTenantSoftDeleted(context.tenantId))) {
 				if (path.startsWith('/api/')) {
 					return new Response(
-						JSON.stringify({ error: 'テナントは解約手続き中です。読み取り専用モードです。' }),
+						JSON.stringify({ error: 'アカウント削除の手続き中です。読み取り専用モードです。' }),
 						{ status: 403, headers: { 'Content-Type': 'application/json' } },
 					);
 				}
 				// フォーム送信等は設定画面にリダイレクト
-				redirect(302, '/admin/settings?reason=grace_period');
+				redirect(302, '/admin/settings?reason=account_deletion_pending');
 			}
 		}
 
