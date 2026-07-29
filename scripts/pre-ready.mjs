@@ -887,7 +887,10 @@ export function buildSteps(args, changedFiles) {
 			label: readdirRotationScriptExists
 				? 'Step 7e/12: check-readdir-rotation-guard.mjs (#3978)'
 				: 'Step 7e/12: check-readdir-rotation-guard.mjs (script 未配備 — skip)',
-			skip: args.skipReaddirRotationGuard || !readdirRotationScriptExists,
+			...skipStateOf({
+				byFlag: args.skipReaddirRotationGuard,
+				scriptMissing: !readdirRotationScriptExists,
+			}),
 			runner: () =>
 				run('check-readdir-rotation-guard', ['node', 'scripts/check-readdir-rotation-guard.mjs']),
 			fixHint:
