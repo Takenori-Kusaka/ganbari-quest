@@ -15,3 +15,9 @@
 *.ttf binary
 *.eot binary
 *.db binary
+
+# #3984: CRLF 回帰テストの fixture のみ、意図的に CRLF で checkout させる。
+# 「CRLF の shebang 付き .mjs を import しても壊れない」ことを全環境 (CI Linux 含む) で
+# 決定的に検証するため、上の `* text=auto eol=lf` を本 1 行で上書きする。
+# 検証: tests/unit/scripts/crlf-shebang-import.test.ts / 対処: vite.config.ts stripShebangPlugin
+tests/fixtures/crlf/*.mjs text eol=crlf
