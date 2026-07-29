@@ -249,6 +249,8 @@ gh auth switch --user Takenori-Kusaka
 
 PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可。`Takenori-Kusaka` で approve → `ganbariquestsupport-lab` で merge。
 
+**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qa-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
+
 **hotfix merge 後の back-merge（branch-strategy.md §5）**: hotfix を main に merge したら、同一 run 内で develop への back-merge PR（または fast-forward 可能なら直接 merge）を Fix Agent で実施し、main / develop の drift を残さない。back-merge 完了までを hotfix 処理の Done 条件とする。
 
 #### BLOCK → 指摘コメント
@@ -300,7 +302,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **hotfix merge 後の develop back-merge を省略**（main/develop drift の温床）
 - **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。Fix Agent で base を develop へ訂正 + rebase が正 — 2026-06-11 User 指示）
 - **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
-    - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` / `gh api .../pulls` を捕捉、#1879)
+    - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` と **`gh api .../pulls` コレクションへの POST** を捕捉、#1879 / #4027)。判定はサブコマンドと API パスで行い、`--body` / `--body-file` / heredoc の中身と `/pulls/<n>/reviews` 等の subresource 操作は対象外（approve 経路を止めないため）
     - L2: `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`（`git push` 直前検査、#1879）
     - L3: `.github/workflows/pr-author-guard.yml` server side gate (`pull_request: opened/reopened/ready_for_review` で発火、Web UI / 別 client / API 直叩きを含む全経路を捕捉して PR を即時 close + 違反コメント投稿、#1994)
     - L1/L2 が事前防止層、L3 が事後 close 層。違反 PR が L3 で close された場合の再起票手順は `docs/sessions/dev-session.md §PR 起票アカウント違反からの復旧` を参照

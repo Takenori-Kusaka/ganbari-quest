@@ -54,7 +54,7 @@ import { resolve } from 'node:path';
 import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
 
 /**
- * 判定 SSOT (`scripts/lib/is-main.mjs`) を **dynamic import** で読み込む理由 (#3999)。
+ * `scripts/lib/` の SSOT module を **dynamic import** で読み込む理由 (#3999 / #4027)。
  *
  * static import にすると解決失敗が module 評価前の `ERR_MODULE_NOT_FOUND` になり、Node は
  * **exit 1** で落ちる。Claude Code の PreToolUse hook は **exit 2 のみ**を block として扱い、
@@ -63,15 +63,54 @@ import { COMMAND_EXECUTION_TOOLS } from './command-execution-tools.mjs';
  *
  * security control は「判定不能」を「許可」ではなく **block** に倒す (fail-closed)。
  * dynamic import なら解決失敗を catch でき、exit 2 を自分で選べる。
+ *
+ * 対象は `../../scripts/lib/` を辿る **2 本とも**: `is-main.mjs` (実行主体判定) と
+ * `gh-command.mjs` (#4027 で導入した gh コマンド解析 SSOT)。gh-command.mjs を static import に
+ * 戻すと、同じ「`scripts/` 欠落 checkout で exit 1 = 素通し」が再発する。
  */
 /** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMain;
+/** @type {typeof import('../../scripts/lib/gh-command.mjs') | undefined} */
+let gh;
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
 try {
 	({ isMain } = await import('../../scripts/lib/is-main.mjs'));
 } catch (err) {
 	isMainLoadError = err;
+}
+try {
+	gh = await import('../../scripts/lib/gh-command.mjs');
+} catch (err) {
+	isMainLoadError ??= err;
+}
+
+/**
+ * gh-command SSOT を取り出す。読み込めていなければ throw する (呼出元は main() 経由で
+ * exit 2 に倒れる。判定材料が無いまま `false` を返して素通しさせない)。
+ *
+ * @returns {typeof import('../../scripts/lib/gh-command.mjs')}
+ */
+function ghLib() {
+	if (!gh) {
+		throw isMainLoadError instanceof Error
+			? isMainLoadError
+			: new Error('scripts/lib/gh-command.mjs を読み込めません');
+	}
+	return gh;
+}
+
+/**
+ * `scripts/lib/gh-command.mjs` の同名関数への薄い委譲 (既存呼出し互換の re-export)。
+ *
+ * dynamic import 化 (上記) により `export { normalizeCommand }` の static 再 export が
+ * 使えないため wrapper で公開する。
+ *
+ * @param {string} command
+ * @returns {string}
+ */
+export function normalizeCommand(command) {
+	return ghLib().normalizeCommand(command);
 }
 
 export const EVIDENCE_TTL_MS = 30 * 60 * 1000; // 30 分 (ADR-0056 §決定 1)
@@ -99,7 +138,9 @@ async function readStdin() {
  *   - `gh api repos/.../pulls/<N>/merge` (REST 直叩き、PR merge 相当)
  *   - `gh api repos/.../pulls/<N>/reviews` POST (REST 直叩き、approve review 相当)
  *
- * 誤検知側に倒す方針 (既存 scripts/claude-hook-prevent-qa-account-pr.mjs と同方針)。
+ * 判定材料は **サブコマンドと API パス**に限る (#4027)。引数の値 (`--body` / `--body-file` /
+ * heredoc) は見ない — hook 自身を説明する文書に approve コマンド例を書くだけで止まる誤検知を防ぐ。
+ * そのうえで検出幅は従来どおり (method を問わない / 引用符や別 shell 経由でも捕捉する):
  * 過剰 block コスト < drift identification trap が穴になるコスト。
  *
  * @param {unknown} command  Bash tool_input.command 文字列
@@ -107,39 +148,29 @@ async function readStdin() {
  */
 export function isApproveAction(command) {
 	if (typeof command !== 'string') return false;
-	const normalized = normalizeCommand(command);
+	// #4027: `--body` / `--body-file` / heredoc の中身は判定材料にしない。
+	// hook 自身を説明する Issue / PR 本文に approve コマンド例を書くだけで BLOCK される事故の再発防止。
+	const lib = ghLib();
+	const sanitized = lib.sanitizeForDetection(command);
 	// gh pr merge
-	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(normalized)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return true;
 	// gh pr review --approve
-	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(normalized)) return true;
-	// gh api .../pulls/<N>/merge (REST 直叩き)
-	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/merge\b/.test(normalized)) return true;
-	// gh api .../pulls/<N>/reviews (review 系 REST)
-	if (/\bgh(?:\.exe)?\s+api\b[^\n]*\/pulls\/\d+\/reviews\b/.test(normalized)) return true;
+	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return true;
+	// gh api .../pulls/<N>/{merge,reviews} (REST 直叩き)。
+	// #4027: 部分一致でなく **引数として渡された API パス** で判定する。method は問わない
+	// (approve 相当を method 表記で回避されないよう検出幅は従来どおり維持する)。
+	for (const { argv } of lib.findGhInvocations(sanitized)) {
+		const api = lib.parseGhApiInvocation(argv);
+		if (!api.isApi) continue;
+		if (
+			api.paths.some(
+				(p) => lib.isPullsSubresourcePath(p, 'merge') || lib.isPullsSubresourcePath(p, 'reviews'),
+			)
+		) {
+			return true;
+		}
+	}
 	return false;
-}
-
-/**
- * PowerShell 経路で現れる表記ゆれを吸収してから regex 判定するための正規化 (#4001)。
- *
- * 吸収する差分 (Windows agent が自然に書く形):
- *   - 呼び出し演算子 + 引用符付き exe: `& 'gh' pr merge 1` / `& "gh.exe" pr merge 1`
- *   - backtick 行継続: "gh pr `\n merge 1"
- *   - 連続空白 / タブ
- *
- * 変換は「検出側を広げる」方向にのみ効く (正規化しても既存 Bash 表記の判定は変わらない)。
- * 変数間接参照 (`$c = 'gh pr merge 1'; iex $c`) 等の任意難読化は文字列検査では原理的に
- * 追えないが、それは Bash 経路にも元からある性質であり本 fix で新たに開いた穴ではない。
- *
- * @param {string} command
- * @returns {string}
- */
-export function normalizeCommand(command) {
-	return command
-		.replace(/`\r?\n/g, ' ') // PowerShell 行継続
-		.replace(/&\s*(['"])([^'"]+)\1/g, '$2') // & 'gh' → gh
-		.replace(/(['"])(gh(?:\.exe)?)\1/gi, '$2') // 'gh' → gh
-		.replace(/[ \t]+/g, ' ');
 }
 
 /**
@@ -212,7 +243,8 @@ export function collectStrings(value, depth = 0) {
 export function extractPrNumber(command) {
 	if (typeof command !== 'string') return null;
 	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
-	const normalized = normalizeCommand(command);
+	// #4027: あわせて --body / heredoc の中身を除去し、body 内の PR 番号を拾わないようにする
+	const normalized = ghLib().sanitizeForDetection(command);
 	// gh pr <merge|review> [args] <N>
 	const m1 = normalized.match(/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/);
 	if (m1) return Number(m1[1]);

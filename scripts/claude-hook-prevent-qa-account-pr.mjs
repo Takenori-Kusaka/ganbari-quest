@@ -6,9 +6,11 @@
  * Claude Code `PreToolUse` hook で呼出される検査スクリプト。
  *
  * 機能:
- *   stdin から Claude Code が渡す tool_input JSON を読み取り、Bash command 文字列に
- *   `gh pr create` が含まれているとき、active gh アカウントが Takenori-Kusaka 以外
+ *   stdin から Claude Code が渡す tool_input JSON を読み取り、command 文字列が
+ *   **PR 作成に相当する操作** (`gh pr create` / `gh api` の pulls コレクションへの POST) を
+ *   含むとき、active gh アカウントが Takenori-Kusaka 以外
  *   (典型的には ganbariquestsupport-lab) なら exit 2 で abort する。
+ *   approve / merge / comment 等の subresource 操作は対象外 (#4027)。
  *   exit 2 は Claude Code に「ブロッキング error として LLM にフィードバック」される
  *   仕様 (PreToolUse hook の規約)。
  *
@@ -37,25 +39,47 @@
 import { spawnSync } from 'node:child_process';
 
 /**
- * 判定 SSOT を **dynamic import** で読み込む理由 (#3999 AC3)。
+ * 判定 SSOT を **dynamic import** で読み込む理由 (#3999 AC3 / #4027)。
  *
  * static import は解決失敗時に `ERR_MODULE_NOT_FOUND` (exit 1) になる。Claude Code の
  * PreToolUse hook は **exit 2 のみ**を block として扱うため、exit 1 では tool 実行が継続し
  * **QA アカウントからの `gh pr create` が素通しする** (fail-open)。
  * `.claude/hooks/gate-approve.mjs` と同一の失敗 class なので同じ形で塞ぐ。
  *
- * なお本 script の import は同一 tree 内 (`scripts/` → `scripts/lib/`) なので、gate-approve の
- * tree 横断 import に比べ到達条件は狭い (`scripts/` の部分 checkout 等)。それでも security
- * control が「依存欠落 = 許可」に倒れる形は残さない。
+ * 対象は `./lib/` の 2 本とも: `is-main.mjs` (実行主体判定) と `gh-command.mjs`
+ * (#4027 で導入した gh コマンド解析 SSOT)。どちらも `scripts/lib/` の部分欠落で
+ * 同じ fail-open に倒れるため、static import には戻さない。
  */
 /** @type {((importMetaUrl: string, argv1?: string) => boolean) | undefined} */
 let isMainModule;
+/** @type {typeof import('./lib/gh-command.mjs') | undefined} */
+let gh;
 /** @type {unknown} import 解決に失敗したときの error (成功時は null) */
 let isMainLoadError = null;
 try {
 	({ isMain: isMainModule } = await import('./lib/is-main.mjs'));
 } catch (err) {
 	isMainLoadError = err;
+}
+try {
+	gh = await import('./lib/gh-command.mjs');
+} catch (err) {
+	isMainLoadError ??= err;
+}
+
+/**
+ * gh-command SSOT を取り出す。読み込めていなければ throw する (呼出元は main() 経由で
+ * exit 2 に倒れる。判定材料が無いまま「PR 作成ではない」と返して素通しさせない)。
+ *
+ * @returns {typeof import('./lib/gh-command.mjs')}
+ */
+function ghLib() {
+	if (!gh) {
+		throw isMainLoadError instanceof Error
+			? isMainLoadError
+			: new Error('scripts/lib/gh-command.mjs を読み込めません');
+	}
+	return gh;
 }
 
 export const ALLOWED_PR_AUTHOR_DEFAULT = 'Takenori-Kusaka';
@@ -75,27 +99,64 @@ async function readStdin() {
 }
 
 /**
- * Bash command 文字列が `gh pr create` を含むか判定。
+ * command 文字列が「PR 作成」に相当する操作を含むか判定し、捕捉した実コマンドを返す (#4027)。
  *
- * #1994 で検出範囲を拡張: `gh api repos/.../pulls` 等の REST API 直接呼び出しも
- * PR 作成相当の操作として捕捉する。`gh pr create` だけを見ると Claude / Agent が
- * 同等操作を `gh api` 経由で行った場合 hook をすり抜けるため。
+ * 判定対象は **サブコマンドと API パス**のみ。`--body` / `--body-file` / heredoc の中身は
+ * `sanitizeForDetection` で落としてから評価する (引数値に書かれた例示コマンドで止めない)。
  *
- * 単純な部分一致で誤検知を許容（誤検知側に倒す方が安全）。
+ * PR 作成とみなす形:
+ *   - `gh pr create`
+ *   - `gh api` の **`repos/<owner>/<repo>/pulls` コレクションへの POST** (#1994 の REST 迂回対策)
+ *   - `gh api graphql` の POST で `createPullRequest` mutation を投げる形
  *
- * @param {unknown} command  Bash tool_input.command 文字列
+ * PR 作成とみなさない形 (#4027 で是正):
+ *   - `repos/.../pulls/<n>/reviews` (= QM の approve。`docs/sessions/qa-session.md` が SSOT として
+ *     掲げる正規経路であり、旧実装の `/pulls` 部分一致では必ず BLOCK されていた)
+ *   - `repos/.../pulls/<n>/{merge,comments,files,…}` 等の subresource
+ *   - `repos/.../pulls` への GET (一覧取得)
+ *
+ * コレクション判定はパスの query / fragment / 末尾スラッシュ / `https://api.github.com` prefix を
+ * 落としてから行うため、`repos/o/r/pulls?ref=/pulls/1/reviews` のように「subresource に見せかけた
+ * コレクション POST」も PR 作成として捕捉する。
+ *
+ * @param {unknown} command  tool_input.command 文字列
+ * @returns {{ blocked: boolean; kind?: string; matched?: string }}
+ */
+export function detectPrCreation(command) {
+	if (typeof command !== 'string') return { blocked: false };
+	const lib = ghLib();
+	const sanitized = lib.sanitizeForDetection(command);
+	if (/\bgh(?:\.exe)?\s+pr\s+create\b/.test(sanitized)) {
+		const m = sanitized.match(/\bgh(?:\.exe)?\s+pr\s+create\b[^\n;|&]*/);
+		return { blocked: true, kind: 'gh pr create', matched: (m?.[0] ?? sanitized).trim() };
+	}
+	for (const { segment, argv } of lib.findGhInvocations(sanitized)) {
+		const api = lib.parseGhApiInvocation(argv);
+		if (!api.isApi || api.method !== 'POST') continue;
+		if (api.paths.some((p) => lib.isPullsCollectionPath(p))) {
+			return { blocked: true, kind: 'gh api (pulls コレクションへの POST)', matched: segment };
+		}
+		// graphql は path が 1 種類しかないため、mutation 名で PR 作成かを判別する。
+		// mutation 本文は引用符ごと token 分割されるので segment 全体 (body / heredoc は除去済) を見る。
+		if (api.paths.includes('graphql') && /createPullRequest/i.test(segment)) {
+			return {
+				blocked: true,
+				kind: 'gh api graphql (createPullRequest mutation)',
+				matched: segment,
+			};
+		}
+	}
+	return { blocked: false };
+}
+
+/**
+ * `detectPrCreation` の boolean ラッパ (既存呼出し互換)。
+ *
+ * @param {unknown} command  tool_input.command 文字列
  * @returns {boolean}        対象操作なら true
  */
 export function containsGhPrCreate(command) {
-	if (typeof command !== 'string') return false;
-	if (/\bgh\s+pr\s+create\b/.test(command)) return true;
-	// `gh api repos/<owner>/<repo>/pulls` で POST する経路 (#1994)
-	// `--method POST` 明示 / `-X POST` / 明示なしの POST default を全て捕捉する。
-	// false-positive: `gh api repos/.../pulls/123/comments` 等の subresource にも match するが、
-	// QA セッションで PR 作成系操作以外で QA アカウントから `gh api .../pulls` を叩く合理的経路は無く、
-	// 過剰停止のコストは「違反 PR 起票による品質ゲート崩壊コスト」より十分小さい。
-	if (/\bgh\s+api\b[^\n]*\/pulls\b/.test(command)) return true;
-	return false;
+	return detectPrCreation(command).blocked;
 }
 
 /**
@@ -136,6 +197,18 @@ function extractActiveAccount() {
 	return parseActiveAccount(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
 }
 
+/**
+ * BLOCK メッセージ用にコマンドを 1 行へ丸める (#4027)。
+ *
+ * @param {string} text
+ * @param {number} max
+ * @returns {string}
+ */
+export function truncate(text, max = 300) {
+	const oneLine = String(text).replace(/\s+/g, ' ').trim();
+	return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
+}
+
 async function main() {
 	let payload;
 	try {
@@ -147,8 +220,9 @@ async function main() {
 	}
 
 	const command = payload?.tool_input?.command;
-	if (!containsGhPrCreate(command)) {
-		// gh pr create 以外は対象外
+	const detection = detectPrCreation(command);
+	if (!detection.blocked) {
+		// PR 作成に相当しない操作 (approve / merge / comment / 一覧取得 等) は対象外
 		process.exit(0);
 	}
 
@@ -165,9 +239,12 @@ async function main() {
 
 	// 違反検出 → exit 2 で Claude にブロッキング通知
 	const isQa = active === QA_ACCOUNT;
+	// #4027: 「`gh pr create` を実行しようとしました」固定をやめ、捕捉した実コマンドを出す。
+	// 誤検知時に「実行していない操作名」を報告して原因追跡を阻害しないため。
 	process.stderr.write(
-		`[claude-hook-prevent-qa-account-pr] BLOCK: active gh account = ${active} で \`gh pr create\` を実行しようとしました。\n`,
+		`[claude-hook-prevent-qa-account-pr] BLOCK: active gh account = ${active} で PR 作成に相当する操作 (${detection.kind}) を実行しようとしました。\n`,
 	);
+	process.stderr.write(`  捕捉したコマンド: ${truncate(detection.matched ?? '')}\n`);
 	if (isQa) {
 		process.stderr.write(
 			`  ${QA_ACCOUNT} は QA レビュー (approve / merge) 専用アカウントです。PR 作成は禁止 (ADR-0022 amendment 1 / #1728 / #1879)。\n`,
