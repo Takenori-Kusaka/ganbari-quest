@@ -10,7 +10,7 @@ import {
 	PMF_SURVEY_LABELS,
 } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
-import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
+import { ADMIN_VIEW_TERMS, CANCEL_TERMS, PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
@@ -321,13 +321,13 @@ export async function sendCancellationEmail(
 		htmlBody: wrapTemplate(`
       <h2>解約手続きを受け付けました</h2>
       <p><strong>${untilPhrase}</strong>、現在の有料プランをそのままご利用いただけます。</p>
-      <p>その後は無料プランに切り替わります。お子さまの記録は残りますので、引き続き無料プランの範囲でご利用いただけます。</p>
-      <p>それまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からいつでも解約を取り消して継続できます。</p>
+      <p>その後は${PLAN_FULL_TERMS.free}に切り替わります。お子さまの記録は残りますので、引き続き${PLAN_FULL_TERMS.free}の範囲でご利用いただけます。</p>
+      <p>それまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から${CANCEL_TERMS.anytime}のお手続きを取り消して継続できます。</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="https://ganbari-quest.com/admin/subscription" class="button">プラン・お支払いを開く</a>
       </p>
     `),
-		textBody: `解約手続きを受け付けました\n\n${untilPhrase}、現在の有料プランをそのままご利用いただけます。\nその後は無料プランに切り替わります（お子さまの記録は残ります）。\n\nそれまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からいつでも解約を取り消して継続できます。`,
+		textBody: `解約手続きを受け付けました\n\n${untilPhrase}、現在の有料プランをそのままご利用いただけます。\nその後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。\n\nそれまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から${CANCEL_TERMS.anytime}のお手続きを取り消して継続できます。`,
 	});
 }
 
