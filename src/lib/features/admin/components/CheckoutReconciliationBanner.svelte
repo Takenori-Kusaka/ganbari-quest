@@ -67,7 +67,9 @@ onMount(() => {
 	// 反映が確定したら session_id を URL から外す。残したままだと再読込のたびに
 	// Stripe へ照会が飛ぶうえ、共有・ブックマークで決済 ID が持ち回られる。
 	// URL 更新後に再読込することで、ヘッダー等の他 load も反映後の状態に揃う。
-	if (!terminal || !page.url.searchParams.has('session_id')) return;
+	// SvelteKit router の外 (Storybook 等) では page.url を持たないため、URL 操作は行わない
+	const currentUrl: URL | undefined = page.url;
+	if (!terminal || !currentUrl?.searchParams.has('session_id')) return;
 	pinned = status;
 	replaceState(resolve('/admin/subscription'), page.state);
 	void invalidateAll();
