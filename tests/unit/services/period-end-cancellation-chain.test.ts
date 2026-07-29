@@ -26,6 +26,15 @@ vi.mock('$lib/server/db/factory', () => ({
 			updateTenantStripe: mockUpdateTenantStripe,
 			findTenantByStripeCustomerId: mockFindTenantByStripeCustomerId,
 		},
+		// #3985 (PR #4079): handleWebhookEvent は dispatcher 入口で event.id dedup を行う。
+		// 本 spec の関心は「予約 → webhook → 取り消し → webhook → 期末」の状態遷移なので、
+		// dedup は常に「初回到達」として素通しする。
+		webhookEvent: {
+			findByEventId: async () => null,
+			insert: async () => {},
+			incrementRetryCount: async () => {},
+			deleteOlderThan: async () => 0,
+		},
 	}),
 }));
 
@@ -146,6 +155,7 @@ describe('期末解約の連鎖 (#3991)', () => {
 		// --- 2. 予約直後に届く customer.subscription.updated ---
 		// 即時キャンセルではないので status は active のまま。有料機能を落としてはならない。
 		await handleWebhookEvent({
+			id: 'evt_scheduled',
 			type: 'customer.subscription.updated',
 			data: { object: makeSubscription({ cancelAtPeriodEnd: true }) },
 		} as never);
@@ -163,6 +173,7 @@ describe('期末解約の連鎖 (#3991)', () => {
 
 		// --- 4. 取り消し後の customer.subscription.updated ---
 		await handleWebhookEvent({
+			id: 'evt_resumed',
 			type: 'customer.subscription.updated',
 			data: { object: makeSubscription({ cancelAtPeriodEnd: false }) },
 		} as never);
@@ -171,6 +182,7 @@ describe('期末解約の連鎖 (#3991)', () => {
 		// --- 5. 期末到来 (取り消さなかった場合の終端) ---
 		mockUpdateTenantStripe.mockClear();
 		await handleWebhookEvent({
+			id: 'evt_deleted',
 			type: 'customer.subscription.deleted',
 			data: { object: makeSubscription({ cancelAtPeriodEnd: true, status: 'canceled' }) },
 		} as never);
