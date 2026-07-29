@@ -37,7 +37,11 @@ export type StripeAlertKind =
 	| 'stripe-webhook-handler-typeerror'
 	// #3960: webhook payload から plan を確定できなかった。silent fallback で
 	// 誤った plan を書き込む代わりに既存 plan を保持し、本 alert で観測可能化する。
-	| 'stripe-plan-unresolved';
+	| 'stripe-plan-unresolved'
+	// #3985: webhook handler が失敗した。dedup 台帳には残さず Stripe の再送に載せるため
+	// (phase5-webhook-idempotency-architecture.md §4.2)、再送が 3 日で尽きる前に
+	// 人が気づける導線として初回失敗の時点で alert する。
+	| 'stripe-webhook-handler-failed';
 
 export interface StripeAlertOptions {
 	/** alert 種別 (Phase 6 子 5 §6 SSOT 3 種) */

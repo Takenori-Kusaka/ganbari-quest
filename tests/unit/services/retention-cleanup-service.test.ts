@@ -40,6 +40,7 @@ const mockFindAllChildren = vi.fn();
 const mockDeleteActivityLogsBeforeDate = vi.fn();
 const mockDeletePointLedgerBeforeDate = vi.fn();
 const mockDeleteStatusHistoryBeforeDate = vi.fn(); // #3518-2
+const mockDeleteWebhookEventsOlderThan = vi.fn(); // #3985
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -57,6 +58,10 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 		status: {
 			deleteStatusHistoryBeforeDate: mockDeleteStatusHistoryBeforeDate,
+		},
+		// #3985: Stripe webhook dedup 台帳の 30 日 retention (tenant 非依存のグローバル表)
+		webhookEvent: {
+			deleteOlderThan: mockDeleteWebhookEventsOlderThan,
 		},
 	}),
 }));
@@ -92,6 +97,43 @@ beforeEach(() => {
 	mockDeleteActivityLogsBeforeDate.mockResolvedValue(0);
 	mockDeletePointLedgerBeforeDate.mockResolvedValue(0);
 	mockDeleteStatusHistoryBeforeDate.mockResolvedValue(0);
+	mockDeleteWebhookEventsOlderThan.mockResolvedValue(0);
+});
+
+// ==========================================================
+// #3985: Stripe webhook dedup 台帳の 30 日 retention
+// ==========================================================
+
+describe('stripe_webhook_events retention (#3985)', () => {
+	it('30 日より古い webhook dedup row を削除し、件数を結果に載せる', async () => {
+		mockDeleteWebhookEventsOlderThan.mockResolvedValue(7);
+
+		const result = await cleanupExpiredData();
+
+		expect(mockDeleteWebhookEventsOlderThan).toHaveBeenCalledTimes(1);
+		const cutoff = new Date(mockDeleteWebhookEventsOlderThan.mock.calls[0]?.[0] as string);
+		const days = (Date.now() - cutoff.getTime()) / 86_400_000;
+		// Stripe Events API の保持期間 (30 日) と同期。それ以上保持しても replay が来ない
+		expect(days).toBeGreaterThan(29.9);
+		expect(days).toBeLessThan(30.1);
+		expect(result.webhookEventsDeleted).toBe(7);
+	});
+
+	it('dryRun では削除しない', async () => {
+		const result = await cleanupExpiredData({ dryRun: true });
+
+		expect(mockDeleteWebhookEventsOlderThan).not.toHaveBeenCalled();
+		expect(result.webhookEventsDeleted).toBe(0);
+	});
+
+	it('webhook 台帳の削除失敗はテナント処理を巻き込まず errors に記録される', async () => {
+		mockDeleteWebhookEventsOlderThan.mockRejectedValue(new Error('table locked'));
+
+		const result = await cleanupExpiredData();
+
+		expect(result.webhookEventsDeleted).toBe(0);
+		expect(result.errors).toContainEqual({ tenantId: '(global)', error: 'table locked' });
+	});
 });
 
 // ==========================================================

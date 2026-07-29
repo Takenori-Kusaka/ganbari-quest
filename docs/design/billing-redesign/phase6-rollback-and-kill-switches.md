@@ -171,7 +171,16 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **ロールバック手順** | (1) alert の `tags.subscriptionId` で Stripe 上の現行 price を確認 (2) price が env var (`STRIPE_PRICE_*_MONTHLY`) / lookup_key (`standard_monthly` / `premium_monthly`) のどちらにも一致しない原因を切り分け (Price 差し替え / env var 未同期 / `transfer_lookup_key` 実行中) (3) env var を Stripe の現行 Price に同期して Lambda 再 deploy。**plan は既存値が保持されているため DB の手動修復は不要** |
 | **再発防止** | (a) plan 解決を `resolvePlanFromSubscription()` (subscription の現行 price → priceId 逆引き → lookup_key 逆引き) に集約し SSOT 化 (b) `planUpdateOrKeep()` で silent fallback を構造的に不能化 (未解決時は `plan` キー自体を渡さず既存値保持 + alert) (c) proration 複数行 invoice fixture + `subscription.updated` / `invoice.paid` の**両配信順序**の unit test (`tests/unit/services/stripe-service.test.ts`) |
 
-### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10)
+### 3.10-b R11 (#3985 新規): webhook handler の恒久的失敗が誰にも気づかれないまま Stripe の再送が尽きる
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | dedup 台帳 `stripe_webhook_events` は「**完了した** event の台帳」であり、handler 失敗時は row を残さず再 throw して Stripe の再送に載せる ([phase5-webhook-idempotency-architecture.md §4.2](phase5-webhook-idempotency-architecture.md))。恒久的な handler バグ / 依存先障害では再送も失敗し続け、**Stripe は 3 日で配信を諦める**。その間に決済した家庭は有料機能が開かないまま放置される |
+| **検知 method** | (a) Discord alert `stripe-webhook-handler-failed` (**初回失敗の時点**で発火。同一 `event.id` の反復は `sendDiscordAlert` の throttle = errorSummary key / 5 分 window / 3 件でまとめ通知 が抑制する) (b) CloudWatch Logs Insights `filter kind = "stripe-webhook-handler-failed"` で eventId / eventType / error を特定 (c) webhook endpoint の 500 応答率 |
+| **ロールバック手順** | (1) alert の `tags.eventType` から失敗 handler を特定 (2) 原因が依存先の一過性障害なら Stripe の再送で自然復旧するため待機 (3) 恒久バグなら fix を deploy。台帳に row が無いため**再送到達分がそのまま再処理される** (4) 3 日の再送期限を過ぎた event は Stripe Dashboard / `stripe events resend` で手動再送 |
+| **再発防止** | (a) 失敗時 alert を `handleWebhookEvent` の catch 1 箇所に集約 (event 型ごとに分散させない) (b) `tests/unit/services/stripe-webhook-dedup.test.ts` の「handler 失敗は初回から Discord alert に上がる」で回帰 (c) event の未達そのものの検知は #3959 (Stripe 側 `pending_webhooks` 滞留の cron 検査) が担う |
+
+### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10、#3985 で +R11)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
 |---|---|---|---|---|
@@ -185,6 +194,7 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **R8 (#2683 新規)** | **ダウン credit memo の顧客信頼毀損** | 顧客 inquiry + シナリオ 3 E2E | Phase 3 hybrid confirm UI + 請求履歴 credit memo 表示 | Step 3 hybrid confirm UI 実装 + シナリオ 3 E2E |
 | **R9 (#2683 新規)** | **Webhook destination api_version immutable 見落とし** | Dashboard UI エラー + Stripe SDK `StripeInvalidRequestError` | 新 destination 新規作成 + 5 phase migration 再実施 | Pre-Ready unit test (`webhookEndpoints.update({api_version})` 400 assert) + Phase 6 子 1 §5 Webhook 5 phase migration 必須化 |
 | **R10 (#3960 新規)** | **plan 未解決時の silent fallback で誤 plan 書込み** | Discord alert `stripe-plan-unresolved` + CloudWatch Logs Insights | env var / lookup_key を Stripe 現行 Price に同期 + Lambda 再 deploy (plan は既存値保持のため DB 修復不要) | `resolvePlanFromSubscription()` / `planUpdateOrKeep()` に集約 + proration 複数行 fixture + 両配信順序 unit test |
+| **R11 (#3985 新規)** | **handler の恒久的失敗が無通知のまま Stripe の 3 日再送を使い切る** | Discord alert `stripe-webhook-handler-failed` (初回失敗で発火) + CloudWatch Logs Insights | 一過性なら再送で自然復旧 / 恒久バグは fix deploy 後に再送分が再処理される。期限切れ分は `stripe events resend` | 失敗 alert を `handleWebhookEvent` catch 1 箇所に集約 + `stripe-webhook-dedup.test.ts` の失敗 alert 回帰 (未達検知は #3959) |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 

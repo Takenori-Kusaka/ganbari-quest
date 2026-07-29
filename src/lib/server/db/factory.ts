@@ -40,6 +40,7 @@ import * as demoStorageRepo from './demo/storage-repo';
 import * as demoTrialHistoryRepo from './demo/trial-history-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
+import { demoWebhookEventRepo } from './demo/webhook-event-repo';
 import { createDsqlAccountLockoutRepo } from './dsql/account-lockout-repo';
 import { createDsqlActivationFunnelRepo } from './dsql/activation-funnel-repo';
 import { createDsqlActivityMasteryRepo } from './dsql/activity-mastery-repo';
@@ -78,6 +79,7 @@ import { createDsqlStatusRepo } from './dsql/status-repo';
 import { createDsqlTrialHistoryRepo } from './dsql/trial-history-repo';
 import { createDsqlViewerTokenRepo } from './dsql/viewer-token-repo';
 import { createDsqlVoiceRepo } from './dsql/voice-repo';
+import { createDsqlWebhookEventRepo } from './dsql/webhook-event-repo';
 // #3438 Phase 2B: dynamodb/*-repo は撤去 (storage は Phase 1 #3786 で s3/ へ移設済)。
 import type { IAccountLockoutRepo } from './interfaces/account-lockout-repo.interface';
 import type { IActivationFunnelRepo } from './interfaces/activation-funnel-repo.interface';
@@ -116,6 +118,7 @@ import type { TransactionRunner } from './interfaces/transaction.interface';
 import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interface';
 import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
+import type { IWebhookEventRepo } from './interfaces/webhook-event-repo.interface';
 // #3620 AC-C2 (ADR-0064 案 C): NUC=PGlite は dsql (pg-core) repos を verbatim 再利用する。
 // getPglite*Sync は init 済み前提の同期アクセサ (async init は hooks.server.ts の 1st-request
 // guard で await 済み)。pglite 分岐内でのみ呼ぶこと (他 backend で PGlite を open させない)。
@@ -157,6 +160,7 @@ import * as sqliteStorageRepo from './sqlite/storage-repo';
 import * as sqliteTrialHistoryRepo from './sqlite/trial-history-repo';
 import * as sqliteViewerTokenRepo from './sqlite/viewer-token-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
+import * as sqliteWebhookEventRepo from './sqlite/webhook-event-repo';
 
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
@@ -207,6 +211,12 @@ export interface Repositories {
 	storage: IStorageRepo;
 	trialHistory: ITrialHistoryRepo;
 	viewerToken: IViewerTokenRepo;
+	/**
+	 * #3985: Stripe webhook の event.id dedup (`stripe_webhook_events`)。
+	 * `handleWebhookEvent` dispatcher 入口の単一 dedup 点が唯一の消費者
+	 * (設計 SSOT: billing-redesign/phase5-webhook-idempotency-architecture.md §2 / §4.1)。
+	 */
+	webhookEvent: IWebhookEventRepo;
 	voice: IVoiceRepo;
 }
 
@@ -258,6 +268,7 @@ function buildPgBackendRepos<TTx extends SqlExecutor>(
 		storage: s3StorageRepo,
 		trialHistory: createDsqlTrialHistoryRepo(db),
 		viewerToken: createDsqlViewerTokenRepo(db),
+		webhookEvent: createDsqlWebhookEventRepo(db),
 		voice: createDsqlVoiceRepo(db, runner),
 	};
 }
@@ -307,6 +318,7 @@ export function getRepos(): Repositories {
 			storage: demoStorageRepo,
 			trialHistory: demoTrialHistoryRepo,
 			viewerToken: demoViewerTokenRepo,
+			webhookEvent: demoWebhookEventRepo,
 			voice: demoVoiceRepo,
 		};
 		_repos = repos;
@@ -361,6 +373,7 @@ export function getRepos(): Repositories {
 		storage: sqliteStorageRepo,
 		trialHistory: sqliteTrialHistoryRepo,
 		viewerToken: sqliteViewerTokenRepo,
+		webhookEvent: sqliteWebhookEventRepo,
 		voice: sqliteVoiceRepo,
 	};
 	_repos = repos;
