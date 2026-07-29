@@ -31,6 +31,7 @@
 		"test:all": "vitest run && npm run test:storybook && playwright test",
 		"quality-gate": "biome check . && svelte-check --tsconfig ./tsconfig.json && vitest run --coverage && npm run test:storybook && playwright test",
 		"pre-ready": "node scripts/pre-ready.mjs",
+		"agent:cleanup": "node scripts/agent-cleanup.mjs",
 		"check:pr-body": "node scripts/check-pr-body.mjs",
 		"lint": "biome check . && eslint --no-error-on-unmatched-pattern 'src/**/*.svelte' && stylelint 'src/**/*.css'",
 		"lint:svelte": "eslint --no-error-on-unmatched-pattern 'src/**/*.svelte'",

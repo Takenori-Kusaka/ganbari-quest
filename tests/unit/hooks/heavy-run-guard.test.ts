@@ -160,7 +160,7 @@ describe('#4069 所有権に基づく掃除', () => {
 		{ pid: 100, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
 		{ pid: 110, ppid: 100, name: 'bash.exe', cmd: 'bash -c ...' },
 		{ pid: 120, ppid: 110, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4081' },
-		{ pid: 121, ppid: 120, name: 'node.exe', cmd: 'node vitest.mjs run' },
+		{ pid: 121, ppid: 120, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs run' },
 		// 別セッション (lock 保持者)。PR #4063 / worktree agent-ae876294c8c0a2e71
 		{ pid: 200, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
 		{ pid: 210, ppid: 200, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4063' },

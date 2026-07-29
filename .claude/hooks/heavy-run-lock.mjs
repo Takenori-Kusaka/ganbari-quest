@@ -59,10 +59,10 @@ function blockWithHolder(holder, describeHolder) {
  * 現在の branch 名を返す。取得できなければ null (task lock は諦めて heavy 判定のみ行う)。
  * git 呼び出しは push 系コマンドのときだけ行う — 全 Bash 呼び出しで毎回 spawn すると遅い。
  *
- * `cwd` は **hook payload の値**を優先する。hook プロセスの `process.cwd()` は
- * セッションの起動ディレクトリであり、Buzz エージェントではリポジトリ外
- * (`~/.buzz`) になる。そこで叩くと `git rev-parse` が常に失敗し、task lock が
- * 永久に発火しない (#4013)。
+ * `cwd` は **コマンドが実行される場所** を渡す (`resolveCommandCwd`)。hook プロセスの
+ * `process.cwd()` はセッションの起動ディレクトリであり、Buzz エージェントではリポジトリ外
+ * (`~/.buzz`) になる (#4013)。加えて payload の cwd も「セッションの作業ディレクトリ」
+ * であってコマンドの実行先とは限らない (#4076)。
  *
  * @param {string | null} cwd
  */
@@ -76,16 +76,46 @@ async function currentBranch(cwd) {
 	return (r.stdout || '').trim() || null;
 }
 
+/**
+ * イメージ名一括 kill を止める (#4069 AC4)。
+ *
+ * @param {string} command
+ */
+function blockBulkKill(command) {
+	process.stderr.write(
+		'[heavy-run-lock] BLOCK: 全 node プロセスの一括停止は、他セッションの実行中検証を巻き込みます。\n',
+	);
+	process.stderr.write(`  検出したコマンド: ${command}\n`);
+	process.stderr.write('  対処 (所有権単位で掃除する):\n');
+	process.stderr.write('    1. npm run agent:cleanup           # 自分の残骸を一覧 (kill しない)\n');
+	process.stderr.write('    2. npm run agent:cleanup -- --kill  # lock 保持者を除外して自分の分だけ停止\n');
+	process.stderr.write('    3. 特定 PID だけ落とす場合は taskkill /F /PID <pid> を使う\n');
+	process.stderr.write(
+		'  Why: 2026-07-29 に `taskkill /F /IM node.exe` が lock 保持中の別セッション (PR #4063) を停止させた (#4069)\n',
+	);
+	process.exit(2);
+}
+
 async function main() {
 	// 動的 import。解決に失敗しても catch して exit 2 に倒すため static import にしない (#3999)。
 	const [
 		{ acquire, describeHolder },
-		{ isHeavyCommand, isBranchPublishCommand, extractTarget, taskKeyFromBranch },
-		{ resolveSessionOwner },
+		{
+			isHeavyCommand,
+			isBranchPublishCommand,
+			isBulkProcessKillCommand,
+			extractTarget,
+			taskKeyFromBranch,
+			resolvePushRefBranch,
+			resolveCommandCwd,
+		},
+		{ resolveSessionOwner, snapshotProcesses },
+		{ findHeavyProcesses, collectDescendants },
 	] = await Promise.all([
 		import('../../scripts/lib/agent-lock.mjs'),
 		import('../../scripts/lib/agent-lock-policy.mjs'),
 		import('../../scripts/lib/session-owner.mjs'),
+		import('../../scripts/lib/heavy-process.mjs'),
 	]);
 
 	const raw = await readStdin();
@@ -101,6 +131,9 @@ async function main() {
 	const command = payload?.tool_input?.command ?? '';
 	const sessionId = payload?.session_id ?? null;
 	const cwd = payload?.cwd ?? process.cwd();
+
+	// イメージ名一括 kill は lock とは別軸で止める (#4069 AC4)。
+	if (isBulkProcessKillCommand(command)) blockBulkKill(command);
 
 	// 対象コマンドでなければ、プロセス一覧の取得 (spawn 1 回) すら不要。
 	const needsLock = isBranchPublishCommand(command) || isHeavyCommand(command);
@@ -122,8 +155,11 @@ async function main() {
 	};
 
 	// task lock: 同じ branch (= 同じ Issue) を 2 セッションが押すのを止める。
+	// 判定対象は **push しようとしている branch** であって、セッションの cwd が
+	// checkout している branch ではない (#4076)。
 	if (isBranchPublishCommand(command)) {
-		const branch = await currentBranch(cwd);
+		const branch =
+			resolvePushRefBranch(command) ?? (await currentBranch(resolveCommandCwd(command, cwd)));
 		const key = taskKeyFromBranch(branch);
 		if (key) {
 			const claimed = acquire(key, { ...common, target: branch, ttlMs: 4 * 60 * 60 * 1000 });
@@ -141,6 +177,32 @@ async function main() {
 	}
 
 	if (!isHeavyCommand(command)) process.exit(0);
+
+	// 排他の判定は lock ファイルの有無ではなく **保護対象プロセスの実在** に紐づける (#4083 AC2)。
+	// 起動元セッションが先に終了すると lock だけが消え、走行中の検証と並列に 2 本目が
+	// 始められてしまう。プロセス表を直接見ることで、lock が無くても並走を止める。
+	// 自分の系列 (セッションプロセスの子孫) は除外する — 自分自身を BLOCK しないため。
+	const procTable = snapshotProcesses();
+	const ownPids = owner.pid ? [owner.pid, ...collectDescendants(procTable, owner.pid)] : [];
+	const running = findHeavyProcesses(procTable, { excludePids: ownPids });
+	if (running.length > 0) {
+		process.stderr.write(
+			'[heavy-run-lock] BLOCK: 重い検証プロセスが実際に走っています (lock ファイルの有無に関わらず並走させません)。\n',
+		);
+		for (const proc of running) {
+			process.stderr.write(`  実行中: pid=${proc.pid} / ${proc.cmd.slice(0, 160)}\n`);
+		}
+		process.stderr.write('  対処 (待たない):\n');
+		process.stderr.write('    1. チャンネルに「他セッションが重い検証中のため見送った」と報告する\n');
+		process.stderr.write('    2. PR 本文整備 / Issue 起票 / レビュー対応など別の作業に移る\n');
+		process.stderr.write(
+			'    3. 上記が自分の残骸 (起動元セッションが終了済) なら `npm run agent:cleanup -- --kill` で回収する\n',
+		);
+		process.stderr.write(
+			'  Why: 並走した検証結果は「落ちた」も「通った」も根拠にならない (docs/sessions/agent-concurrency.md)\n',
+		);
+		process.exit(2);
+	}
 
 	const result = acquire(HEAVY_KEY, { ...common, target: extractTarget(command) });
 	if (result.ok) process.exit(0);

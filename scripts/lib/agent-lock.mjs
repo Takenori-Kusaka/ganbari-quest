@@ -73,6 +73,7 @@ export const DEFAULT_TTL_MS = 60 * 60 * 1000;
  * @typedef {object} LockHolder
  * @property {string} [key] lock の key
  * @property {number | null} ownerPid 保持者 (Claude セッション) の PID。解決できなければ null (#4013)
+ * @property {number[] | null} [guardedPids] **保護対象**の検証プロセス PID 群 (#4083)。1 つでも生きていれば lock は失効しない
  * @property {string | null} [ownerVia] 持ち主 PID をどう決めたか (`session-owner.mjs` の判定経路)
  * @property {number[] | null} [chain] 持ち主に辿り着くまでに通った祖先 PID 列 (#4013 の証跡)
  * @property {string | null} [agent] エージェント名 (GQ-Dev 等)
@@ -172,6 +173,12 @@ export function sameOwner(a, b) {
  */
 export function isStale(holder, now = Date.now()) {
 	if (!holder || typeof holder !== 'object') return true;
+	// **保護対象プロセスが実在する限り lock は生きている** (#4083 AC1)。
+	// 起動元セッションが先に落ちても、検証プロセスは detach して走り続ける。
+	// ここで「持ち主が死んだ」だけを見て奪わせると、走行中の検証と並列に 2 本目が
+	// 始まり、両方の結果が根拠として使えなくなる (2026-07-29 21:11-21:18 実測)。
+	// TTL より優先する — 1 時間を超えても走っている検証は保護対象である。
+	if (livePids(holder.guardedPids).length > 0) return false;
 	const pid = holder.ownerPid;
 	// PID があるときだけ生存判定する。無い (null) のは「解決できなかった」であって
 	// 「死んでいる」ではない。
@@ -189,6 +196,17 @@ export function isStale(holder, now = Date.now()) {
 			? holder.startedAt
 			: 0;
 	return now - started > ttl;
+}
+
+/**
+ * 与えられた PID 群のうち、実際に生きているものだけを返す。
+ *
+ * @param {number[] | null | undefined} pids
+ * @returns {number[]}
+ */
+export function livePids(pids) {
+	if (!Array.isArray(pids)) return [];
+	return pids.filter((p) => Number.isInteger(p) && p > 0 && isProcessAlive(p));
 }
 
 /**
@@ -262,9 +280,27 @@ function normalizeHolder(parsed) {
 	const rawTtl = o.ttlMs;
 	const ttlMs = typeof rawTtl === 'number' && Number.isFinite(rawTtl) ? rawTtl : DEFAULT_TTL_MS;
 
+	// `guardedPids` は「奪ってよいか」を左右する値なので、`startedAt` と同じ扱いにする。
+	// 壊れた値を `null` に落とすと「保護対象なし」= 奪える方向に倒れ、走行中の検証を
+	// 巻き込む (#4083 の再発)。判定できないなら通さない。空配列は「保護対象なし」で正当。
+	const rawGuarded = o.guardedPids;
+	let guardedPids = null;
+	if (rawGuarded !== undefined && rawGuarded !== null) {
+		if (!Array.isArray(rawGuarded)) {
+			throw new Error(`guardedPids が配列ではありません (received: ${JSON.stringify(rawGuarded)})`);
+		}
+		if (rawGuarded.length > 0) {
+			guardedPids = asPidArrayOrNull(rawGuarded);
+			if (guardedPids === null) {
+				throw new Error(`guardedPids に不正な PID があります (received: ${JSON.stringify(rawGuarded)})`);
+			}
+		}
+	}
+
 	return {
 		key: asStringOrNull(o.key) ?? undefined,
 		ownerPid,
+		guardedPids,
 		ownerVia: asStringOrNull(o.ownerVia),
 		chain: asPidArrayOrNull(o.chain),
 		agent: asStringOrNull(o.agent),
@@ -313,7 +349,7 @@ export function readLock(key) {
  * `sessionId` と `ownerPid` の**どちらも無い**呼び出しは、持ち主を識別できないため例外にする。
  *
  * @param {string} key
- * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, ownerChain?: number[] | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number}} opts
+ * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, ownerChain?: number[] | null, guardedPids?: number[] | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number}} opts
  * @returns {{ok: true, holder: LockHolder} | {ok: false, holder: LockHolder | null}}
  */
 export function acquire(key, opts) {
@@ -332,6 +368,9 @@ export function acquire(key, opts) {
 	const record = {
 		key,
 		ownerPid,
+		// 取得時点では検証プロセスはまだ起動していない。実 PID は `releaseUnlessGuarded`
+		// (PostToolUse) が走行中プロセスを見つけたときに書き込む (#4083)。
+		guardedPids: asPidArrayOrNull(opts?.guardedPids),
 		// 持ち主 PID をどう決めたかの記録。実環境で解決に失敗していないかを、
 		// lock ファイルを見るだけで後から検証できるようにする (#4013)。
 		ownerVia: opts?.ownerVia ?? null,
@@ -388,9 +427,37 @@ export function release(key, owner) {
 	return true;
 }
 
-/** 現状再現 shim (failing-test-first 用。次コミットで本実装に差し替える)。 */
-export function releaseUnlessGuarded(key, owner) {
-	return { released: release(key, owner), guardedPids: [] };
+/**
+ * lock を返す。ただし**保護対象プロセスがまだ走っていれば返さない** (#4083 AC1)。
+ *
+ * `release` との違いはここだけである。PostToolUse は「Bash tool が終わった」時点で
+ * 走るが、それは**検証プロセスが終わったこと**を意味しない。ハーネスが tool を kill
+ * した場合、プロセスは detach したまま走り続ける。そこで無条件に解放すると
+ * 「走っているのに lock が無い」状態が生まれ、第三者が並列に検証を始められてしまう。
+ *
+ * 保護対象が残っている場合は解放せず、その PID を lock に書き戻す。これにより
+ * 以後の `isStale` が**プロセスの実在**で判定できるようになり、逆に全部死んだ後は
+ * 自動的に stale として回収される (#4069 AC3 と同一判定)。
+ *
+ * @param {string} key
+ * @param {{sessionId?: string | null, ownerPid?: number | null} | number} owner
+ * @param {number[]} guardedPids 解放時点で走っている検証プロセスの PID 群
+ * @returns {{released: boolean, guardedPids: number[]}}
+ */
+export function releaseUnlessGuarded(key, owner, guardedPids = []) {
+	const claim = typeof owner === 'number' ? { ownerPid: owner, sessionId: null } : owner;
+	const current = readLock(key);
+	if (!current) return { released: false, guardedPids: [] };
+	if (!sameOwner(current, claim)) return { released: false, guardedPids: [] };
+
+	const alive = livePids(guardedPids);
+	if (alive.length === 0) {
+		rmSync(lockPath(key), { force: true });
+		return { released: true, guardedPids: [] };
+	}
+	const next = { ...current, guardedPids: alive };
+	writeFileSync(lockPath(key), `${JSON.stringify(next, null, 2)}\n`);
+	return { released: false, guardedPids: alive };
 }
 
 /**

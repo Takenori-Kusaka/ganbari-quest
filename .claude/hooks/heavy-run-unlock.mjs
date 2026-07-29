@@ -28,11 +28,13 @@ async function readStdin() {
 }
 
 async function main() {
-	const [{ release }, { isHeavyCommand }, { resolveSessionOwner }] = await Promise.all([
-		import('../../scripts/lib/agent-lock.mjs'),
-		import('../../scripts/lib/agent-lock-policy.mjs'),
-		import('../../scripts/lib/session-owner.mjs'),
-	]);
+	const [{ releaseUnlessGuarded }, { isHeavyCommand }, { resolveSessionOwner, snapshotProcesses }, { findHeavyProcesses }] =
+		await Promise.all([
+			import('../../scripts/lib/agent-lock.mjs'),
+			import('../../scripts/lib/agent-lock-policy.mjs'),
+			import('../../scripts/lib/session-owner.mjs'),
+			import('../../scripts/lib/heavy-process.mjs'),
+		]);
 
 	const raw = await readStdin();
 	let payload;
@@ -50,7 +52,22 @@ async function main() {
 	// `sessionId` が取れない実行環境でだけ、祖先を辿って持ち主 PID を解決する。
 	const sessionId = payload?.session_id ?? null;
 	const owner = sessionId ? { sessionId, ownerPid: null } : resolveSessionOwner(process.ppid);
-	release(HEAVY_KEY, sessionId ? owner : { sessionId: null, ownerPid: owner.pid });
+
+	// **走行中の検証プロセスがあれば解放しない** (#4083 AC1)。
+	// PostToolUse は「Bash tool が終わった」時点で走るが、ハーネスが tool を kill した
+	// 場合、検証プロセスは detach したまま生き続ける。そこで無条件に解放すると
+	// 「走っているのに lock が無い」時間帯が生まれ、第三者が並列に検証を始められる。
+	const guarded = findHeavyProcesses(snapshotProcesses(), { excludePids: [] }).map((p) => p.pid);
+	const result = releaseUnlessGuarded(
+		HEAVY_KEY,
+		sessionId ? owner : { sessionId: null, ownerPid: owner.pid },
+		guarded,
+	);
+	if (!result.released && result.guardedPids.length > 0) {
+		process.stderr.write(
+			`[heavy-run-unlock] 保持継続: 検証プロセスが走行中のため lock を返しません (pid=${result.guardedPids.join(', ')})。\n`,
+		);
+	}
 }
 
 main()
