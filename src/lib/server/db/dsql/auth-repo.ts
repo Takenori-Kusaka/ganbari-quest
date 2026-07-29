@@ -283,6 +283,9 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		},
 
 		async updateTenantStripe(tenantId, data) {
+			// #3982: `!== undefined` ガードは「渡されたキーだけ SET を積む」部分更新の SSOT。
+			// `null` は SET を積んだうえで NULL を書くため、クリアは null で表現する
+			// (interface の JSDoc が契約、`dsql-auth-repo.test.ts` [T4b] が固定)。
 			const sets: ReturnType<typeof sql>[] = [];
 			if (data.stripeCustomerId !== undefined)
 				sets.push(sql`stripe_customer_id = ${data.stripeCustomerId}`);
