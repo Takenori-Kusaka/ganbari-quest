@@ -8,8 +8,12 @@
 //     - `IActivityRepo.insertPointLedger` は本 writer に委譲する (戻り値を捨てる)。
 //   これにより DSQL backend 内に INSERT + total_point 加算のコピーを 2 つ持たない
 //   (reset-plan 決定#3: 重複プリミティブ廃止)。※ 裁量消費 (spendPointsAtomic) は残高非負
-//   ガード (FOR UPDATE, I-BAL-NONNEG) を伴う別プリミティブ。optional 付与
-//   (grant-optional-points) は core commit 後の独立 mini-txn (§8) で契約が異なる。
+//   ガード (FOR UPDATE, I-BAL-NONNEG) を伴う別プリミティブ。
+//   **optional 付与 (§8: core commit 後の独立 mini-txn) も本 writer を使う** (#4039)。
+//   本 writer 自体が 1 回の呼び出し = 1 txn なので、core txn の外から呼べばそれがそのまま
+//   optional の独立 mini-txn になり、§5 P7 (ledger INSERT と total_point 加算は同一 txn) も
+//   満たす。専用の optional 変種 (旧 grant-optional-points.ts) は本 writer と同義の重複
+//   プリミティブだったため #4039 で撤去した。
 //
 // **total_point compute-on-write (M3 §6.2 / §5 P7)**: ledger INSERT と同一 txn 内で
 //   `children.total_point += amount` **のみ** を更新する (SUM 再計算の本番経路を作らない。

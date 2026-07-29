@@ -50,7 +50,8 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 }
 
 // 宛先 email 束縛判定は `$lib/server/auth/invite-email-binding` が SSOT (#3742)。
-// DSQL txn 変種 (`db/dsql/invite-accept.ts`) と同一関数を共有し parity を機械保証する。
+// 受諾 txn (`db/dsql/invite-accept.ts`) と同一関数を共有し parity を機械保証する
+// (service 層は事前 read で早期 return、txn 内は defense-in-depth の再検証)。
 // 判定結果の招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
 
 /** 招待を受諾してテナントに参加 */
@@ -101,23 +102,32 @@ export async function acceptInvite(
 		return { error: 'TENANT_NOT_FOUND' };
 	}
 
-	// メンバーシップ作成
-	const membership = await repos().auth.createMembership({
+	// 受諾 = invite の accepted 化 + membership INSERT を **単一 txn** で実行する (§6.6、#4039)。
+	// 旧実装は createMembership → updateInviteStatus の 2 回呼びで、後者の失敗を握り潰していた
+	// ため「membership はあるのに invite は pending のまま」= 招待リンクが再利用可能な部分
+	// コミットが起きえた。txn 化で rowCount=0 / 23505 を確定失敗として厳密分岐する。
+	// #3585: 鍵は inviteId (invite は getInvite が raw code で引いた本物)。
+	const accepted = await repos().auth.acceptInviteTransactional({
+		inviteId: invite.inviteId,
 		userId,
-		tenantId: invite.tenantId,
-		role: invite.role,
-		invitedBy: invite.invitedBy,
+		userEmail: userEmail ?? '',
+		userEmailVerified: opts?.emailVerified,
+		now: new Date().toISOString(),
 	});
-
-	// 招待ステータス更新（accepted）
-	try {
-		// #3585: 状態遷移は inviteId 鍵 (invite は getInvite が raw code で引いた本物)
-		// #3588: tenant scope は invite.tenantId (受諾対象 family) を query 層 family_id 述語で強制
-		await repos().auth.updateInviteStatus(invite.inviteId, invite.tenantId, 'accepted', userId);
-	} catch {
-		// conditional write failure — 既に受諾済み（race condition）
-		// メンバーシップは作成済みなので続行
+	if (!accepted.ok) {
+		// txn 内の email 束縛判定は service 層と同一 SSOT (#3742)。呼び出し側 (cognito.ts) が
+		// 分岐する文字列に合わせて写像する。
+		if (accepted.reason === 'EMAIL_MISMATCH') return { error: 'INVITE_EMAIL_MISMATCH' };
+		if (accepted.reason === 'EMAIL_UNVERIFIED') return { error: 'INVITE_EMAIL_UNVERIFIED' };
+		return { error: accepted.reason };
 	}
+	const membership: Membership = {
+		userId,
+		tenantId: accepted.familyId,
+		role: accepted.role,
+		joinedAt: accepted.joinedAt,
+		invitedBy: accepted.invitedBy,
+	};
 
 	// childId が指定されている場合、子供プロフィールに userId を紐づけ (#0156)
 	if (invite.childId) {

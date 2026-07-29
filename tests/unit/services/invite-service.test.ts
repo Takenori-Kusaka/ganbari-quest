@@ -83,6 +83,40 @@ const mockAuthRepo: Partial<IAuthRepo> = {
 		membershipStore.push(membership);
 		return membership;
 	}),
+	// #4039: 受諾は「invite の accepted 化 + membership INSERT」を単一 txn で行う repo 契約
+	// (dsql-data-model.md §6.6)。mock も 1 呼び出しで両方を反映し、業務失敗時は何も書かない
+	// (部分コミットが起きえないことを service 層の test から観測できるようにする)。
+	acceptInviteTransactional: vi.fn(async (input) => {
+		const invite = [...inviteStore.values()].find((i) => i.inviteId === input.inviteId);
+		if (
+			!invite ||
+			invite.status !== 'pending' ||
+			new Date(invite.expiresAt) < new Date(input.now)
+		) {
+			return { ok: false as const, reason: 'INVALID_OR_EXPIRED' as const };
+		}
+		if (membershipStore.some((m) => m.tenantId === invite.tenantId && m.userId === input.userId)) {
+			// membership の PK 重複 (23505) 相当。invite の accepted 化ごと rollback される。
+			return { ok: false as const, reason: 'ALREADY_IN_TENANT' as const };
+		}
+		invite.status = 'accepted';
+		invite.acceptedBy = input.userId;
+		invite.acceptedAt = input.now;
+		membershipStore.push({
+			userId: input.userId,
+			tenantId: invite.tenantId,
+			role: invite.role,
+			joinedAt: input.now,
+			invitedBy: invite.invitedBy,
+		});
+		return {
+			ok: true as const,
+			familyId: invite.tenantId,
+			role: invite.role,
+			invitedBy: invite.invitedBy,
+			joinedAt: input.now,
+		};
+	}),
 };
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -182,6 +216,51 @@ describe('acceptInvite', () => {
 		const result = assertSuccess(await acceptInvite('acc-1', 'new-user'));
 		expect(result.membership.tenantId).toBe('t-test');
 		expect(result.membership.role).toBe('parent');
+	});
+
+	// #4039: 受諾経路が「単一 txn の repo 契約」に結線されていることを固定する。
+	// 旧実装 (createMembership → updateInviteStatus の 2 回呼び、後者の失敗は握り潰し) に
+	// 戻ると、membership だけ commit されて invite が pending のまま残る部分コミットが
+	// 復活する。本 test は結線が外れた瞬間に落ちる。
+	it('受諾は単一 txn の acceptInviteTransactional 経由で行う (部分コミット禁止、§6.6)', async () => {
+		inviteStore.set('acc-txn', makePendingInvite({ inviteCode: 'acc-txn' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		assertSuccess(await acceptInvite('acc-txn', 'txn-user'));
+
+		expect(mockAuthRepo.acceptInviteTransactional).toHaveBeenCalledWith(
+			expect.objectContaining({ inviteId: 'id-acc-txn', userId: 'txn-user' }),
+		);
+		// 受諾を 2 回の書込に分解しない (membership 作成と invite 遷移は txn 側の責務)
+		expect(mockAuthRepo.createMembership).not.toHaveBeenCalled();
+		expect(mockAuthRepo.updateInviteStatus).not.toHaveBeenCalled();
+		// 片方だけ commit された状態にならない
+		expect(inviteStore.get('acc-txn')?.status).toBe('accepted');
+		expect(membershipStore).toHaveLength(1);
+	});
+
+	it('txn が業務失敗を返したら membership も invite 遷移も起きない (ALREADY_IN_TENANT)', async () => {
+		inviteStore.set('acc-dup', makePendingInvite({ inviteCode: 'acc-dup' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+		membershipStore.push({
+			userId: 'dup-user',
+			tenantId: 't-test',
+			role: 'parent',
+			joinedAt: new Date().toISOString(),
+		});
+
+		const result = assertError(await acceptInvite('acc-dup', 'dup-user'));
+		expect(result.error).toBe('ALREADY_IN_TENANT');
+		expect(inviteStore.get('acc-dup')?.status).toBe('pending');
+		expect(membershipStore).toHaveLength(1);
 	});
 
 	it('無効な招待コードはエラー', async () => {
