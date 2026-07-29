@@ -99,6 +99,8 @@ S4 (suspended + sub あり) → チャーンではない（復帰しうる）
 
 KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-metrics`）は本関数を経由する。直接比較は `tests/unit/architecture/churn-status-predicate-ssot.test.ts` が禁止する。
 
+**既知の残課題**: 退会（アカウント削除）は行ごと消えるため、`families` を集計する限り KPI から観測できない。解約（S5）は数えられるが、退会は数えられない。観測するには削除前の事実を別テーブルに残す必要があり、本表の 4 列の範囲では解けない。
+
 ---
 
 ## 5. 遷移トリガ一覧（書き手 9 箇所、実読）
