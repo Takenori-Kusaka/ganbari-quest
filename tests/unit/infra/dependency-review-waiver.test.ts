@@ -67,18 +67,29 @@ const PATCHED_BRACE_EXPANSION = [5, 0, 8] as const;
 
 /** `1.2.3` / `1.2.3-rc.1` を `[1,2,3]` に落とす (prerelease 差は本 gate では無視)。 */
 function parseVersion(version: string): [number, number, number] {
-	const [core] = version.split(/[-+]/);
+	const core = version.split(/[-+]/)[0] ?? '';
 	const parts = core.split('.').map((n) => Number.parseInt(n, 10));
-	if (parts.length !== 3 || parts.some((n) => !Number.isInteger(n))) {
+	const [major, minor, patch] = parts;
+	if (
+		parts.length !== 3 ||
+		major === undefined ||
+		minor === undefined ||
+		patch === undefined ||
+		!Number.isInteger(major) ||
+		!Number.isInteger(minor) ||
+		!Number.isInteger(patch)
+	) {
 		throw new Error(`brace-expansion の version を解釈できません: ${version}`);
 	}
-	return [parts[0], parts[1], parts[2]];
+	return [major, minor, patch];
 }
 
 function isBelow(version: string, bound: readonly [number, number, number]): boolean {
 	const v = parseVersion(version);
 	for (let i = 0; i < 3; i++) {
-		if (v[i] !== bound[i]) return v[i] < bound[i];
+		const actual = v[i] as number;
+		const expected = bound[i] as number;
+		if (actual !== expected) return actual < expected;
 	}
 	return false;
 }
@@ -142,7 +153,9 @@ describe('#4017 dependency-review waiver の適用範囲を狭める', () => {
 			'aws-cdk-lib の bundled brace-expansion が infra lock から消えたら waiver を見直す',
 		).toEqual(['node_modules/aws-cdk-lib/node_modules/brace-expansion']);
 
-		const version = bundled[0][1].version ?? '';
+		const bundledEntry = bundled[0];
+		expect(bundledEntry, 'bundled entry が取得できない').toBeDefined();
+		const version = bundledEntry?.[1].version ?? '';
 		expect(version, 'bundled entry に version がない').not.toBe('');
 		expect(
 			isBelow(version, PATCHED_BRACE_EXPANSION),
