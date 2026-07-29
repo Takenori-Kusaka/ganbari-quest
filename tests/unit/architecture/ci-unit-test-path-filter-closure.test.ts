@@ -26,7 +26,7 @@
  *
  * 「実行時に本当に読むか」を静的に完全判定することはできない (`loadHtml('site/index.html')` のような
  * ローカル helper 経由もあれば、`join(process.cwd(), 'drizzle', 'pglite')` のような分割リテラルもある)。
- * そこで本 scanner は **「repo 内に実在するファイルを指す文字列リテラル」を全部拾う**。
+ * そこで本 scanner は **「git 追跡ファイルを指す文字列リテラル」を全部拾う**。
  *
  * - 誤検出 (読んでいないのに拾う) の影響は「filter を広げる」方向にしか働かない = 安全側
  * - 検出漏れの影響は「gate が発火しない」= 本 test が塞ぎたい事故そのもの
@@ -34,7 +34,8 @@
  * したがって迷った場合は拾う。分割リテラル (`join(cwd, 'a', 'b')`) も連結して評価する。
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,21 +48,19 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 const SCAN_DIRS = ['tests/unit', 'tests/integration'];
 
 /**
- * 参照先として拾わない root (git 管理外の生成物)。
+ * git 追跡ファイルの集合 (repo 相対、`/` 区切り)。
  *
- * `node_modules/**` は `package.json` / `package-lock.json` から復元される生成物で、`deps` filter が
- * その 2 ファイルを見ている。生成物そのものを paths-filter に列挙する意味はない (PR の diff に現れない)。
- * `tmp/` / `.svelte-kit/` / `build/` / `coverage/` / `test-results/` も同様。
+ * 「実在するか」の判定に `existsSync` を使うと、`node_modules/` / `tmp/` / `.svelte-kit/` /
+ * `coverage/` のような **その時たまたま生成されていたファイル**を拾い、実行タイミングで結論が
+ * 変わる (実際に `npm ci` 直後だけ `node_modules/tsx/dist/cli.mjs` を拾って fail した)。
+ * paths-filter が判定するのは **PR の diff に現れるファイル** = git 追跡ファイルだけなので、
+ * 判定材料も git 追跡ファイルに揃える。gate が実行環境で揺れないことを優先する。
  */
-const IGNORED_ROOTS = new Set([
-	'node_modules',
-	'tmp',
-	'.svelte-kit',
-	'build',
-	'coverage',
-	'test-results',
-	'playwright-report',
-]);
+const TRACKED_FILES: ReadonlySet<string> = new Set(
+	execFileSync('git', ['ls-files', '-z'], { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64e6 })
+		.split('\0')
+		.filter(Boolean),
+);
 
 // ---------------------------------------------------------------------------
 // ci.yml paths-filter parser
@@ -150,17 +149,15 @@ function isNonRepoLiteral(literal: string): boolean {
 	return literal.startsWith('$lib') || literal.startsWith('@') || literal.startsWith('/');
 }
 
-/** literal が指す実在ファイルを repo 相対で返す (無ければ null)。IGNORED_ROOTS は null 扱い。 */
+/** literal が指す git 追跡ファイルを repo 相対で返す (無ければ null)。 */
 function resolveRepoFile(literal: string, fileDir: string, root: string): string | null {
 	const candidates = literal.startsWith('.')
 		? [path.resolve(fileDir, literal)]
 		: [path.resolve(root, literal), path.resolve(fileDir, literal)];
 	for (const abs of candidates) {
 		if (!abs.startsWith(root)) continue;
-		if (!existsSync(abs)) continue;
-		if (!statSync(abs).isFile()) continue;
 		const rel = path.relative(root, abs).split(path.sep).join('/');
-		return IGNORED_ROOTS.has(rel.split('/')[0] ?? '') ? null : rel;
+		if (TRACKED_FILES.has(rel)) return rel;
 	}
 	return null;
 }
@@ -185,10 +182,10 @@ function collectRepoPathsFrom(sourcePath: string, source: string, root: string):
 	for (const m of source.matchAll(
 		/((?:['"]([^'"\n]{1,80})['"]\s*,\s*){1,6}['"]([^'"\n]{1,80})['"])/g,
 	)) {
-		const segs = [...(m[1] ?? '').matchAll(/['"]([^'"\n]{1,80})['"]/g)].map((x) => x[1] ?? '');
-		for (let start = 0; start < segs.length; start++) {
-			for (let end = start + 2; end <= segs.length; end++) {
-				consider(segs.slice(start, end).join('/'));
+		const segments = [...(m[1] ?? '').matchAll(/['"]([^'"\n]{1,80})['"]/g)].map((x) => x[1] ?? '');
+		for (let start = 0; start < segments.length; start++) {
+			for (let end = start + 2; end <= segments.length; end++) {
+				consider(segments.slice(start, end).join('/'));
 			}
 		}
 	}
@@ -229,6 +226,10 @@ describe('unit-test 発火条件の閉包 (#4007 AC2)', () => {
 	});
 
 	it('[PC2] scanner が実在パス参照を拾えている (scanner の健全性)', () => {
+		// git ls-files が空を返すと「参照 0 件 → 未カバー 0 件」で FC1 が空振り PASS する。
+		// 判定材料そのものが空でないことを先に固定する (#3979 と同じ陽性対照の考え方)。
+		expect(TRACKED_FILES.size).toBeGreaterThan(500);
+		expect(TRACKED_FILES.has('.github/workflows/ci.yml')).toBe(true);
 		const refs = collectAll(REPO_ROOT);
 		expect(refs.size).toBeGreaterThan(50);
 		// #4007 で穴として特定された 4 本の実読先が拾えていること
