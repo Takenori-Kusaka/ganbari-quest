@@ -277,16 +277,18 @@ describe('handleWebhookEvent — event.id dedup (#3985)', () => {
 		await expect(handleWebhookEvent(event as never)).rejects.toThrow('DB 一時障害');
 
 		expect(mockNotifyStripeAlert).toHaveBeenCalledTimes(1);
-		const alert = mockNotifyStripeAlert.mock.calls[0][0] as {
-			kind: string;
-			errorSummary: string;
-			tags: Record<string, unknown>;
-		};
-		expect(alert.kind).toBe('stripe-webhook-handler-failed');
-		// throttle key は event.id 単位 (別 event の失敗を巻き込んで無音化しない)
-		expect(alert.errorSummary).toBe(`webhook-handler-failed:${event.id}`);
-		expect(alert.tags).toMatchObject({ eventId: event.id, eventType: event.type });
-		expect(alert.tags.error).toBe('DB 一時障害');
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-webhook-handler-failed',
+				// throttle key は event.id 単位 (別 event の失敗を巻き込んで無音化しない)
+				errorSummary: `webhook-handler-failed:${event.id}`,
+				tags: expect.objectContaining({
+					eventId: event.id,
+					eventType: event.type,
+					error: 'DB 一時障害',
+				}),
+			}),
+		);
 	});
 
 	it('handler 成功時は failure alert を出さない', async () => {
