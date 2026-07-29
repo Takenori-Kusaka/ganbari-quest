@@ -48,11 +48,30 @@ process.stdout.write(JSON.stringify(m[${JSON.stringify(fnName)}](${JSON.stringif
 	return JSON.parse(out) as T;
 }
 
-type SkipState = { skip: boolean; skipKind: 'flag' | 'script-missing' | 'n/a' | null };
+type SkipKind = 'flag' | 'script-missing' | 'pr-missing' | 'n/a' | null;
+type SkipState = { skip: boolean; skipKind: SkipKind };
 type Summary = { status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string };
+type StepShape = { name: string; skip: boolean; skipKind: SkipKind };
 
 const skipStateOf = (arg: Record<string, boolean>) => callExport<SkipState>('skipStateOf', arg);
 const buildSummary = (arg: Record<string, unknown>) => callExport<Summary>('buildSummary', arg);
+
+/**
+ * `buildSteps(args, changedFiles)` を子プロセスで呼び、name / skip / skipKind だけを取り出す。
+ * step は runner (関数) を含むため JSON 直列化できず callExport が使えない。
+ */
+function buildStepShapes(args: Record<string, unknown>, changedFiles: string[]): StepShape[] {
+	const code = `const m = await import(${JSON.stringify(preReadyUrl)});
+const steps = m.buildSteps(${JSON.stringify(args)}, ${JSON.stringify(changedFiles)});
+process.stdout.write(JSON.stringify(steps.map((s) => ({ name: s.name, skip: !!s.skip, skipKind: s.skipKind ?? null }))));`;
+	const out = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+		encoding: 'utf8',
+	});
+	return JSON.parse(out) as StepShape[];
+}
+
+/** Readiness gate 系 (`--pr` を前提とする 3 step) */
+const READINESS_GATE_STEPS = ['pr-body', 'ss-embed-gate', 'capture'] as const;
 
 describe('#4018 skipStateOf — skip 理由の分類', () => {
 	it('[K1] --skip flag が最優先で flag に分類される', () => {
@@ -80,6 +99,25 @@ describe('#4018 skipStateOf — skip 理由の分類', () => {
 
 	it('[K4] どの理由も無ければ skip しない', () => {
 		expect(skipStateOf({})).toEqual({ skip: false, skipKind: null });
+	});
+
+	it('[K11] 前提 (--pr) 未充足は pr-missing で、n/a より優先される', () => {
+		// `--pr` は「渡せば必ず実行できる前提」であり「内容的に適用対象外」ではない。
+		// n/a に落とすと Readiness gate 未実行のまま ALL PASS を名乗れてしまう (#4018 QM 指摘)。
+		expect(skipStateOf({ prMissing: true })).toEqual({ skip: true, skipKind: 'pr-missing' });
+		expect(skipStateOf({ prMissing: true, notApplicable: true })).toEqual({
+			skip: true,
+			skipKind: 'pr-missing',
+		});
+		// flag / script-missing は pr-missing より優先 (明示 skip / gate 不在の事実を消さない)
+		expect(skipStateOf({ byFlag: true, prMissing: true })).toEqual({
+			skip: true,
+			skipKind: 'flag',
+		});
+		expect(skipStateOf({ scriptMissing: true, prMissing: true })).toEqual({
+			skip: true,
+			skipKind: 'script-missing',
+		});
 	});
 });
 
@@ -143,6 +181,27 @@ describe('#4018 buildSummary — ALL PASS 到達可能性', () => {
 		expect(summary.text).toContain('検査 script 未配備');
 	});
 
+	it('[K12] --pr 未指定で Readiness gate 系が未実行なら PARTIAL PASS のまま', () => {
+		const summary = buildSummary({
+			totalSteps: 17,
+			skippedByFlag: [],
+			skippedScriptMissing: [],
+			skippedPrMissing: ['pr-body'],
+			skippedNotApplicable: ['lp-dimensions'],
+			pr: null,
+		});
+		expect(summary.status).toBe('PARTIAL_PASS');
+		expect(summary.text).toContain('PARTIAL PASS');
+		expect(summary.text).toContain('--pr 未指定');
+		expect(summary.text).toContain('pr-body');
+		// 「--skip 指定」と誤って説明しない (#4018 の本旨は分類の正確さ)
+		expect(summary.text).not.toContain('--skip 指定');
+		// 適用対象外側に混ぜない (混ぜると ALL PASS を妨げなくなる)
+		const naLine = summary.text.split('\n').find((l) => l.includes('適用対象外'));
+		expect(naLine).toBeDefined();
+		expect(naLine).not.toContain('pr-body');
+	});
+
 	it('[K9] 実行 step 数から適用対象外と skip の両方が差し引かれる', () => {
 		const summary = buildSummary({
 			totalSteps: 17,
@@ -152,6 +211,58 @@ describe('#4018 buildSummary — ALL PASS 到達可能性', () => {
 			pr: '3996',
 		});
 		expect(summary.text).toContain('実行した 14 step');
+	});
+});
+
+describe('#4018 QM 指摘 — --pr 未指定は ALL PASS を名乗れない (Readiness gate 素通り防止)', () => {
+	/** main() と同じ手順で step 分類 → summary を組み立てる (配線ごと検証する)。 */
+	function summarizeRun(args: Record<string, unknown>, changedFiles: string[]): Summary {
+		const steps = buildStepShapes(args, changedFiles);
+		const pick = (kind: SkipKind) =>
+			steps.filter((s) => s.skip && s.skipKind === kind).map((s) => s.name);
+		return buildSummary({
+			totalSteps: steps.length,
+			skippedByFlag: pick('flag'),
+			skippedScriptMissing: pick('script-missing'),
+			skippedPrMissing: pick('pr-missing'),
+			skippedNotApplicable: pick('n/a'),
+			pr: args.pr ?? null,
+		});
+	}
+
+	it('[K13] --pr 未指定なら Readiness gate 3 step が blocking (pr-missing) に分類される', () => {
+		// UI 変更あり = 3 step すべてが本来実行対象。`--pr` を渡していないだけなので n/a ではない。
+		const steps = buildStepShapes({ pr: null }, ['src/routes/foo/+page.svelte']);
+		for (const name of READINESS_GATE_STEPS) {
+			const step = steps.find((s) => s.name === name);
+			expect(step, `step ${name} が見つからない`).toBeDefined();
+			expect(step?.skip, `step ${name} は --pr 未指定で skip されるはず`).toBe(true);
+			expect(step?.skipKind, `step ${name} を n/a にすると ALL PASS を妨げなくなる`).toBe(
+				'pr-missing',
+			);
+		}
+	});
+
+	it('[K14] --pr 未指定の実行は (UI 変更の有無に関わらず) PARTIAL PASS になる', () => {
+		// 本 PR 自身と同型のケース: LP / UI を触らない script 修正 PR で `npm run pre-ready` を素で叩く。
+		const nonUi = summarizeRun({ pr: null }, ['scripts/pre-ready.mjs']);
+		expect(nonUi.status).toBe('PARTIAL_PASS');
+		expect(nonUi.text).toContain('--pr 未指定');
+		expect(nonUi.text).toContain('pr-body');
+		// Ready 化案内 (gh pr ready) を出さないこと = 抜け穴が塞がっている証跡
+		expect(nonUi.text).not.toContain('Ready for Review に進めます');
+
+		const uiChanged = summarizeRun({ pr: null }, ['src/routes/foo/+page.svelte']);
+		expect(uiChanged.status).toBe('PARTIAL_PASS');
+		expect(uiChanged.text).toContain('ss-embed-gate');
+	});
+
+	it('[K15] --pr 指定 + LP/UI 非変更なら ALL PASS に到達できる (#4018 本来の成果を壊さない)', () => {
+		// 条件 skip (lp-dimensions / ss-embed-gate / capture 等) は n/a のままで ALL PASS を妨げない。
+		const summary = summarizeRun({ pr: '4037' }, ['scripts/pre-ready.mjs']);
+		expect(summary.status).toBe('ALL_PASS');
+		expect(summary.text).toContain('適用対象外');
+		expect(summary.text).not.toContain('--pr 未指定');
 	});
 });
 

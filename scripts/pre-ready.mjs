@@ -363,17 +363,37 @@ export function preflightWorktreeDeps(root = repoRoot) {
  * 分類:
  *   - `flag`           `--skip-*` を明示指定した。開発中の部分確認であり ALL PASS を名乗らない (#3649 の意図)
  *   - `script-missing` 検査 script 自体が未配備。gate が存在しないので ALL PASS を名乗らない
+ *   - `pr-missing`     **前提 (`--pr <num>`) が未充足**で Readiness gate 系を実行できていない。
+ *                      「内容的に適用対象外」ではなく「Ready 化に必須の gate を回していない」ので
+ *                      **ALL PASS を名乗らない** (下記「n/a と pr-missing の線引き」参照)
  *   - `n/a`            変更内容が検査の適用対象外。**ALL PASS を妨げない**
  *
- * 優先順位は flag > script-missing > n/a。明示 skip したのに「適用対象外」と表示すると
- * skip した事実が summary から消えるため。
+ * 優先順位は flag > script-missing > pr-missing > n/a。明示 skip したのに「適用対象外」と
+ * 表示すると skip した事実が summary から消えるため。
  *
- * @param {{ byFlag?: boolean; scriptMissing?: boolean; notApplicable?: boolean }} reasons
- * @returns {{ skip: boolean; skipKind: 'flag' | 'script-missing' | 'n/a' | null }}
+ * ### n/a と pr-missing の線引き (#4018 QM 指摘、本 script の中核)
+ *
+ * `!lpChanged` / `!uiChanged` 等の条件 skip は「LP を触っていないので LP 検査は不要」であり、
+ * 実行者が何をしても満たせない到達不能条件ではない = ALL PASS を妨げてはならない (本 Issue の主目的)。
+ *
+ * 一方 `--pr` 未指定は「Ready 化に必須の前提を実行者が渡していない」だけであり、`--pr <num>` を
+ * 渡せば必ず実行できる。ここを n/a にすると `npm run pre-ready` (`--pr` なし) が Readiness gate
+ * (check-pr-body = Ready checklist / AC 4 列 / forbidden-terms / mergeable 判定) を一度も回さずに
+ * 「ALL PASS — Ready for Review に進めます」と案内してしまい、**gate を素通りする新しい抜け穴**に
+ * なる (ADR-0060「チケット close ≠ 完了」と同型の self-report 汚染)。よって別分類にして blocking 側に置く。
+ *
+ * @param {{ byFlag?: boolean; scriptMissing?: boolean; prMissing?: boolean; notApplicable?: boolean }} reasons
+ * @returns {{ skip: boolean; skipKind: 'flag' | 'script-missing' | 'pr-missing' | 'n/a' | null }}
  */
-export function skipStateOf({ byFlag = false, scriptMissing = false, notApplicable = false }) {
+export function skipStateOf({
+	byFlag = false,
+	scriptMissing = false,
+	prMissing = false,
+	notApplicable = false,
+}) {
 	if (byFlag) return { skip: true, skipKind: 'flag' };
 	if (scriptMissing) return { skip: true, skipKind: 'script-missing' };
+	if (prMissing) return { skip: true, skipKind: 'pr-missing' };
 	if (notApplicable) return { skip: true, skipKind: 'n/a' };
 	return { skip: false, skipKind: null };
 }
@@ -383,19 +403,22 @@ export function skipStateOf({ byFlag = false, scriptMissing = false, notApplicab
  *
  * 判定は 2 値:
  *   - `ALL_PASS`     実行すべき step を全て実行して PASS した。適用対象外 (n/a) があっても妨げない
- *   - `PARTIAL_PASS` 明示 skip / 検査 script 未配備で「実行すべきだったのに実行していない」step がある
+ *   - `PARTIAL_PASS` 明示 skip / 検査 script 未配備 / `--pr` 未指定で「実行すべきだったのに
+ *                    実行していない」step がある
  *
  * console.log を持たない純関数にしてあるのは、AC1〜AC3 (適用対象外のみなら ALL PASS /
  * flag 指定なら PARTIAL PASS / 両者を別行表示) を全 step を回さずに unit test で固定するため。
  *
  * @param {{ totalSteps: number; skippedByFlag: string[]; skippedScriptMissing: string[];
- *           skippedNotApplicable: string[]; failOpenCount?: number; pr?: string | null }} input
+ *           skippedPrMissing?: string[]; skippedNotApplicable: string[];
+ *           failOpenCount?: number; pr?: string | null }} input
  * @returns {{ status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string }}
  */
 export function buildSummary({
 	totalSteps,
 	skippedByFlag,
 	skippedScriptMissing,
+	skippedPrMissing = [],
 	skippedNotApplicable,
 	failOpenCount = 0,
 	pr = null,
@@ -409,7 +432,7 @@ export function buildSummary({
 	// #3649: --skip-* で step を飛ばした実行は「ALL PASS」を名乗らない。skip flag は開発中の
 	// 部分確認用であり、Ready 化判定 (=「pre-ready ALL PASS」という self-report) には skip なし
 	// 実行が必要。検査 script 未配備も「gate が存在しない」ので同様に ALL PASS を名乗らせない。
-	const blocking = [...skippedByFlag, ...skippedScriptMissing];
+	const blocking = [...skippedByFlag, ...skippedScriptMissing, ...skippedPrMissing];
 	if (blocking.length > 0) {
 		const detail = [
 			skippedByFlag.length > 0
@@ -417,6 +440,9 @@ export function buildSummary({
 				: null,
 			skippedScriptMissing.length > 0
 				? `検査 script 未配備 ${skippedScriptMissing.length} step (${skippedScriptMissing.join(', ')})`
+				: null,
+			skippedPrMissing.length > 0
+				? `--pr 未指定で Readiness gate ${skippedPrMissing.length} step (${skippedPrMissing.join(', ')})`
 				: null,
 		]
 			.filter(Boolean)
@@ -445,7 +471,14 @@ export function buildSummary({
 	};
 }
 
-function buildSteps(args, changedFiles) {
+/**
+ * step 定義を組み立てる。unit test から skip 分類 (`skipKind`) を配線ごと検証するため export する
+ * (#4018 QM 指摘: `skipStateOf` 単体では「step 定義側が正しい引数を渡しているか」を固定できない)。
+ *
+ * @param {Record<string, unknown>} args      parseArgs() の戻り値相当
+ * @param {string[]} changedFiles             base branch との差分ファイル一覧
+ */
+export function buildSteps(args, changedFiles) {
 	const lpChanged = changedFiles.some((f) => f.startsWith('site/'));
 	const labelsChanged = changedFiles.some(
 		(f) => f === 'src/lib/domain/labels.ts' || f === 'src/lib/domain/terms.ts',
@@ -661,7 +694,7 @@ function buildSteps(args, changedFiles) {
 			label: args.pr
 				? `Step 9/12: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
 				: 'Step 9/12: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
-			...skipStateOf({ byFlag: args.skipPrBody, notApplicable: !args.pr }),
+			...skipStateOf({ byFlag: args.skipPrBody, prMissing: !args.pr }),
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
 				'  Readiness gate FAIL — Ready 化前必須 (本日 7 連続再発 #2625 / #2626 / #2629 / #2630、#2632 で gate 強化)\n' +
@@ -716,7 +749,11 @@ function buildSteps(args, changedFiles) {
 				uiChanged && args.pr
 					? 'Step 11b/12: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
 					: `Step 11b/12: SS embed gate (${!args.pr ? '--pr 未指定 — skip' : 'UI 変更なし — skip'}、#2918)`,
-			...skipStateOf({ byFlag: args.skipSsEmbedGate, notApplicable: !uiChanged || !args.pr }),
+			...skipStateOf({
+				byFlag: args.skipSsEmbedGate,
+				prMissing: !args.pr,
+				notApplicable: !uiChanged,
+			}),
 			runner: async () => {
 				const pr = await fetchPrBodyAndLabels(args.pr);
 				if (!pr) {
@@ -753,7 +790,7 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'capture',
 			label: `Step 12/12: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
-			...skipStateOf({ byFlag: args.skipCapture, notApplicable: !uiChanged || !args.pr }),
+			...skipStateOf({ byFlag: args.skipCapture, prMissing: !args.pr, notApplicable: !uiChanged }),
 			runner: async () => {
 				console.log(
 					`[pre-ready] UI 変更を検知しました。スクリーンショット撮影は手動実行を推奨します:\n` +
@@ -832,6 +869,8 @@ async function main() {
 	const skippedByFlag = [];
 	/** 検査 script 自体が未配備の step (gate 不在なので ALL PASS を名乗らない) */
 	const skippedScriptMissing = [];
+	/** `--pr` 未指定で Readiness gate を回せていない step (#4018 QM 指摘: ALL PASS を名乗らない) */
+	const skippedPrMissing = [];
 	/** 変更内容が適用対象外の step (#4018: ALL PASS を妨げない) */
 	const skippedNotApplicable = [];
 
@@ -840,6 +879,7 @@ async function main() {
 			console.log(`[pre-ready] ⊘ ${step.label}`);
 			if (step.skipKind === 'flag') skippedByFlag.push(step.name);
 			else if (step.skipKind === 'script-missing') skippedScriptMissing.push(step.name);
+			else if (step.skipKind === 'pr-missing') skippedPrMissing.push(step.name);
 			else skippedNotApplicable.push(step.name);
 			continue;
 		}
@@ -867,6 +907,7 @@ async function main() {
 		totalSteps: steps.length,
 		skippedByFlag,
 		skippedScriptMissing,
+		skippedPrMissing,
 		skippedNotApplicable,
 		failOpenCount: failOpenNotes.length,
 		pr: args.pr,
