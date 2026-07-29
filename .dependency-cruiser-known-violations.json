@@ -105,38 +105,6 @@
   {
     "type": "cycle",
     "from": "src/lib/server/request-context.ts",
-    "to": "src/lib/server/services/plan-limit-service.ts",
-    "unresolvedTo": "$lib/server/services/plan-limit-service",
-    "dependencyTypes": [
-      "undetermined",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "src/lib/server/services/plan-limit-service.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "type-only",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/request-context.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/lib/server/request-context.ts",
     "to": "src/lib/server/services/trial-service.ts",
     "unresolvedTo": "$lib/server/services/trial-service",
     "dependencyTypes": [
@@ -189,90 +157,6 @@
       },
       {
         "name": "src/lib/server/services/activity-log-service.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "type-only",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/lib/server/services/plan-limit-service.ts",
-    "to": "src/lib/server/debug-plan.ts",
-    "unresolvedTo": "$lib/server/debug-plan",
-    "dependencyTypes": [
-      "undetermined",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "src/lib/server/debug-plan.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/services/trial-service.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "type-only",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/request-context.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/services/plan-limit-service.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "type-only",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/lib/server/services/plan-limit-service.ts",
-    "to": "src/lib/server/services/trial-service.ts",
-    "unresolvedTo": "$lib/server/services/trial-service",
-    "dependencyTypes": [
-      "undetermined",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "src/lib/server/services/trial-service.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/request-context.ts",
-        "dependencyTypes": [
-          "undetermined",
-          "import"
-        ]
-      },
-      {
-        "name": "src/lib/server/services/plan-limit-service.ts",
         "dependencyTypes": [
           "undetermined",
           "type-only",

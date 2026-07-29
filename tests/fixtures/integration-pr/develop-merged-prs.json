@@ -1,0 +1,397 @@
+[
+	{
+		"number": 3932,
+		"title": "build(deps): Bump fast-uri from 3.1.2 to 3.1.4",
+		"headRefName": "dependabot/npm_and_yarn/fast-uri-3.1.4",
+		"labels": [
+			{
+				"name": "dependencies"
+			},
+			{
+				"name": "javascript"
+			}
+		],
+		"mergedAt": "2026-07-24T13:03:03Z",
+		"body": ""
+	},
+	{
+		"number": 3933,
+		"title": "[back-merge] 第17回統合 + Deploy-2 (#3931) → develop",
+		"headRefName": "back-merge/main-to-develop-20260724",
+		"labels": [
+			{
+				"name": "back-merge"
+			}
+		],
+		"mergedAt": "2026-07-24T11:31:50Z",
+		"body": "## 関連 Issue\n\n関連: #3931(第17回統合) / #3854(Deploy-2) / #3907 #3923 #3926 #3929(4 blocker 根治)。履歴同期のため単一 Issue を close しない。\n\n<!-- no-issue-close: back-merge (履歴同期のみ) -->"
+	},
+	{
+		"number": 3934,
+		"title": "build(deps): Bump the infra-npm-minor-patch group in /infra with 3 updates",
+		"headRefName": "dependabot/npm_and_yarn/infra/develop/infra-npm-minor-patch-cad106438d",
+		"labels": [
+			{
+				"name": "dependencies"
+			},
+			{
+				"name": "area: infra"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-24T12:59:16Z",
+		"body": ""
+	},
+	{
+		"number": 3935,
+		"title": "build(deps): Bump the github-actions group with 3 updates",
+		"headRefName": "dependabot/github_actions/develop/github-actions-33c23d4792",
+		"labels": [
+			{
+				"name": "dependencies"
+			},
+			{
+				"name": "area: infra"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-24T13:14:40Z",
+		"body": ""
+	},
+	{
+		"number": 3936,
+		"title": "build(deps): Bump the npm-minor-patch group with 24 updates",
+		"headRefName": "dependabot/npm_and_yarn/develop/npm-minor-patch-9f057ae56e",
+		"labels": [
+			{
+				"name": "dependencies"
+			},
+			{
+				"name": "area: config"
+			}
+		],
+		"mergedAt": "2026-07-24T13:01:49Z",
+		"body": ""
+	},
+	{
+		"number": 3938,
+		"title": "docs(process): #3930 impact-analysis に「撤去系: 残置参照 sweep」カテゴリ追加 (21→22、第17回 5-why Top3)",
+		"headRefName": "docs/3930-teardown-residual-sweep",
+		"labels": [
+			{
+				"name": "type:docs"
+			},
+			{
+				"name": "area: docs"
+			}
+		],
+		"mergedAt": "2026-07-24T13:00:38Z",
+		"body": "## 関連 Issue\n\nCloses #3930\n\n- 事例: #3921 (撤去済 table を参照する workflow step) / #3907 (vault destroy が recovery point で block) / #3881 (rollback-orphan) / 5-why 全文: PR #3929 §横展開 + issue #3930 本文"
+	},
+	{
+		"number": 3941,
+		"title": "fix(ci): #3922 main-pr-base-guard の bot exempt 撤去 — dependabot security 更新の main 直行を fail-close",
+		"headRefName": "fix/3922-dependabot-main-guard",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: infra"
+			}
+		],
+		"mergedAt": "2026-07-25T08:00:49Z",
+		"body": "## 関連 Issue\n\nCloses #3922\n\n- same-class: #3158 → #3190 (SIGSEGV chain) / 検知事例: #3920 / 既存 guard: #3191 (dependabot.yml の target-branch 喪失検出 — security 経路は範囲外だった) / #3072 (target-branch=develop 確立)"
+	},
+	{
+		"number": 3942,
+		"title": "feat(process): #3918 PO 決裁ブリーフを一枚絵 (mermaid) 型に改修 — 図 1 枚で Yes/No 判断可能に",
+		"headRefName": "feat/3918-po-brief-one-picture",
+		"labels": [
+			{
+				"name": "type:feat"
+			},
+			{
+				"name": "area: docs"
+			}
+		],
+		"mergedAt": "2026-07-25T08:01:22Z",
+		"body": "## 関連 Issue\n\n- #3918（tracking、AC5 実地検証後に close）\n- 親: #3862（framework 配線、close 済）/ 適用第 1 号 (text 様式): #3912 / 別論点: #3916"
+	},
+	{
+		"number": 3944,
+		"title": "refactor(infra): #3939 log archiving を aws-cdk-lib GA L2 (firehose.DeliveryStream) へ移行 + S3 metrics escape hatch 撤去",
+		"headRefName": "refactor/3939-firehose-l2",
+		"labels": [
+			{
+				"name": "type:refactor"
+			},
+			{
+				"name": "area: infra"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-25T09:03:07Z",
+		"body": "## 関連 Issue\n\nCloses #3939\n\n- 調査元: #3909 (AC2 評価で community construct 該当なし = GA L2 が最適と確定) / sweep 規律: #3930 / gate: ADR-0019 / ADR-0014"
+	},
+	{
+		"number": 3945,
+		"title": "chore(deps): #3940 better-sqlite3 13.x を dependabot ignore に追加 (12.10.0 維持の判断反映)",
+		"headRefName": "chore/3940-dependabot-ignore-13x",
+		"labels": [],
+		"mergedAt": "2026-07-26T22:00:42Z",
+		"body": "## 関連 Issue\n\nrefs #3940 (**close しません**)\n\n**`closes` を使わない理由** (QM BLOCK 指摘、PR #3945 レビュー): 13.x を ignore に入れると dependabot の再提案が止まり、**再提案そのものが果たしていた再評価リマインダー機能が同時に消える** (#3937 → #3940 の評価はまさにその経路で起動した)。ここで #3940 も close すると、再評価条件 (13.1.x 以降 or 13.0.x の 1 ヶ月 soak + upstream WiseLibs/better-sqlite3#1503 close) は yml コメントと閉じた Issue にしか残らず、**トリガー成立を見る主体がいなくなる**。よって #3940 は open のまま「13.x ignore 解除の再評価 watcher」として残す。本 PR 自体の変更 (ignore 追加) は #3940 の AC4 を満たすが、Issue の残スコープは再評価そのものである。\n\n- #3937 (dependabot PR、QM が 2026-07-25 に close 済み) / #3302 (pin gate) / #3190/#3192 (SIGSEGV pin chain) / #3191 (native-dep-smoke) / EPIC #3424 / ADR-0064"
+	},
+	{
+		"number": 3949,
+		"title": "[back-merge] hotfix #3947 (fix/3946-pglite-journal-monotonic) → develop (#2951)",
+		"headRefName": "back-merge/fix-3946-pglite-journal-monotonic",
+		"labels": [
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "back-merge"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-25T23:26:50Z",
+		"body": "## 関連 Issue\n\nhotfix #3947 (元 PR) の main→develop back-merge (機械同期、#2951 / branch-strategy.md §5)。\n本 PR 自体が close する Issue はない (close は元 hotfix PR 側で完結済)。\n\n<!-- no-issue-close: back-merge は既 merge 済 hotfix の機械同期であり、独自の close 対象 Issue を持たない (#3879) -->"
+	},
+	{
+		"number": 3951,
+		"title": "fix(db): #3948 drizzle journal `when` の値域 gate を追加 — #3946 同型事故の class-lock",
+		"headRefName": "fix/3948-journal-when-range-gate",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			}
+		],
+		"mergedAt": "2026-07-26T00:36:09Z",
+		"body": "## 関連 Issue\r\n\r\ncloses #3948\r\n\r\n関連: #3946（instance / 本番 500）/ #3947（instance の hotfix）/ ADR-0061 原則 2（shift-left / class-lock）"
+	},
+	{
+		"number": 3956,
+		"title": "fix(db): #3950 PGlite 本番データの日次バックアップを実装 — 取得 → 復元検証 → 3 世代ローテーション",
+		"headRefName": "fix/3950-pglite-backup",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: infra"
+			},
+			{
+				"name": "area: frontend"
+			},
+			{
+				"name": "area: backend"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-26T09:41:05Z",
+		"body": "## 関連 Issue\n\ncloses #3950\n\n関連 (直近 30 日の同一ファイル変更): 「ADR-0002 Critical 修正 5 要件チェック」の要件 5 を参照。"
+	},
+	{
+		"number": 3965,
+		"title": "fix: #3962 po-decision:required label 付き PR の PO 決裁ブリーフ欠落を機械検出する",
+		"headRefName": "fix/3962-po-decision-brief-gate",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			}
+		],
+		"mergedAt": "2026-07-26T10:04:03Z",
+		"body": "## 関連 Issue\n\ncloses #3962\n\n<!-- 関連 Issue / ADR があれば追記 -->"
+	},
+	{
+		"number": 3968,
+		"title": "fix: #3960 invoice.paid の plan 判定を subscription 現行 price SSOT へ + silent fallback 廃止",
+		"headRefName": "fix/3960-invoice-paid-plan-ssot",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: backend"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			},
+			{
+				"name": "po-decision:required"
+			}
+		],
+		"mergedAt": "2026-07-26T09:40:35Z",
+		"body": "## 関連 Issue\n\ncloses #3960\n\n**直近 30 日の同一ファイル変更 PR**: **該当なし**（後述「要件 5」に検証コマンドと結果）\n\n同 incident から派生した別 Issue: #3957（webhook 到達経路の IaC 恒久化） / #3958（reconciliation） / #3959（未達アラート） / #3963（context_token の古い plan）。本 PR は PO の Wave 1 定義における 1 件目。"
+	},
+	{
+		"number": 3979,
+		"title": "fix(ci): #3969 CLI 直接実行判定を SSOT 化 — junction 経由で gate が無言で exit 0 になる構造を潰す",
+		"headRefName": "fix/3969-gate-ismain-realpath",
+		"labels": [
+			{
+				"name": "area: config"
+			},
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: infra"
+			},
+			{
+				"name": "area: backend"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			}
+		],
+		"mergedAt": "2026-07-26T22:03:33Z",
+		"body": "## 関連 Issue\n\ncloses #3969\n\n関連: #3960 / #3963（同一 class の silent fallback）/ ADR-0061（same-class N 回 → guard 化）/ ADR-0019・#1400（`check-cdk-replacement.mjs`）"
+	},
+	{
+		"number": 3994,
+		"title": "fix(test): #3972 #3975 ローカル pre-ready の恒常 red 2 件を解消し同 class を gate 化",
+		"headRefName": "fix/3972-3975-local-gate-timeouts",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: tests"
+			}
+		],
+		"mergedAt": "2026-07-26T22:10:26Z",
+		"body": "## 関連 Issue\n\ncloses #3972\ncloses #3975\n\n**2 件を 1 PR にまとめた理由**: どちらも「CI green / ローカル red」の同一 class で、**どちらか一方を残すと pre-ready は red のままとなり、もう一方の PR が全 Step PASS を証明できない**（相互に前提となる）。分割すると先行 PR が「既知 fail 込みで Ready」となり、本 PR が解消しようとしている状態そのものを再生産する。\n\n- #3969 — 同じく「ローカル gate の結果が信用できない」class（別 PR #3979 で対応中）\n- #3984 — 同じ pre-ready 信頼性の別 class（CRLF + shebang、本 PR スコープ外）"
+	},
+	{
+		"number": 3996,
+		"title": "fix: #3954 設定ハブに「ごほうび・ボーナスルール」導線を追加し、到達不能な子 route を gate 化",
+		"headRefName": "fix/3954-settings-hub-rules-link",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: frontend"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			}
+		],
+		"mergedAt": "2026-07-27T03:04:26Z",
+		"body": "## 関連 Issue\n\ncloses #3954\n\n- #3339 — 到達先の機能本体（本 PR で到達可能になる）\n- #2905 — 「実装済み機能に到達できない」同一 class の 1 件目（ページガイド）\n- #3134 / #3164 / #3171 — 本 PR の guard が踏襲する no-silent-gap パターン"
+	},
+	{
+		"number": 4005,
+		"title": "fix(test): #3972 同 class 3 例目 — export authz テストの初回 import timeout (#3994 追補)",
+		"headRefName": "fix/3972-export-authz-import-timeout",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: tests"
+			}
+		],
+		"mergedAt": "2026-07-27T05:05:52Z",
+		"body": "## 関連 Issue\r\n\r\n<!-- no-issue-close: 本 PR は PR #3994 (#3972 / #3975) の追補であり、単独で close する Issue を持たない。#3972 / #3975 は #3994 に closing keyword があり develop→main 反映時に close される。ここで重複して closing keyword を置くと、本 PR が先に main へ入った場合に #3994 未反映のまま Issue が閉じる。 -->\r\n\r\n- #3972 / #3975 — 同 class の 1・2 例目（PR #3994 で merge 済み）\r\n\r\n本 PR は #3994 の追補です。**#3994 の Ready 化後に本件を発見**したため間に合わず、独立 PR にしました。#3972 / #3975 は develop→main 反映時に close されるため、本 PR に closing keyword は置いていません（`Refs` のみ）。"
+	},
+	{
+		"number": 4009,
+		"title": "infra: #4008 並行エージェントセッションの重い検証・二重着手を hook で機械排他する",
+		"headRefName": "infra/agent-concurrency-lock",
+		"labels": [
+			{
+				"name": "type:infra"
+			},
+			{
+				"name": "priority:medium"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			},
+			{
+				"name": "area: docs"
+			}
+		],
+		"mergedAt": "2026-07-27T00:03:09Z",
+		"body": "## 関連 Issue\n\ncloses #4008"
+	},
+	{
+		"number": 4011,
+		"title": "fix(ci): #4009 の cspell / TS strict 違反で develop が赤 — pre-ready を回復する",
+		"headRefName": "fix/4009-cspell-agent-lock-fixtures",
+		"labels": [
+			{
+				"name": "type:fix"
+			},
+			{
+				"name": "area: database"
+			},
+			{
+				"name": "area: tests"
+			}
+		],
+		"mergedAt": "2026-07-27T00:56:47Z",
+		"body": "## 関連 Issue\r\n\r\n<!-- no-issue-close: 本 PR は PR #4009 (#4008) merge 後に develop で顕在化した gate red (cspell / svelte-check) の解消であり、単独で close する Issue を持たない。#4008 は #4009 に closing keyword があり develop→main 反映時に close される。 -->\r\n\r\n- #4008 / PR #4009 — 当該 fixture の出所（並行セッション排他 hook）"
+	}
+]

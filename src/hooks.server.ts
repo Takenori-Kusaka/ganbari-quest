@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { type Handle, type HandleServerError, json, redirect } from '@sveltejs/kit';
+import {
+	type Handle,
+	type HandleServerError,
+	json,
+	type RequestEvent,
+	redirect,
+} from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
@@ -8,6 +14,8 @@ import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { TenantEntitlementUnavailableError } from '$lib/server/auth/tenant-entitlement';
+import type { AuthContext } from '$lib/server/auth/types';
 import { getOrInitDb } from '$lib/server/db/client';
 // #3620 AC-C2: DATA_SOURCE=pglite の非同期 init guard 用 (import は side-effect free、
 // PGlite instance は initPgliteConnection() 呼び出し時のみ生成)。
@@ -81,6 +89,91 @@ a:hover{text-decoration:underline}
 </div>
 </body>
 </html>`;
+}
+
+/**
+ * #3963 (PO 決裁 2026-07-29): 課金状態の解決失敗 (fail-closed 503) から除外する probe パス。
+ *
+ * health / readiness は「アプリのプロセスが生きているか」を問う外形監視であり、課金状態に
+ * 一切依存しない。ここを 503 にすると、DSQL 障害時に Lambda health / LWA readiness /
+ * `deploy-aws-staging.yml` の post-deploy health / ロールバック判定がまとめて誤作動し、
+ * 「DB が一時的に不調」だけの状況が「デプロイ失敗 / アプリ死亡」として扱われる。
+ *
+ * 実運用の probe は未認証 (identity=null) で `resolveContext` の DB 経路に入らないが、
+ * それは probe の呼ばれ方に依存した暗黙の前提でしかない (認証 Cookie を持つブラウザや
+ * 将来の認証付き probe で崩れる)。前提に頼らず path で明示除外する。
+ */
+const ENTITLEMENT_FAILURE_EXEMPT_PATHS = ['/api/health', '/api/ready'] as const;
+
+function isEntitlementFailureExemptPath(path: string): boolean {
+	return ENTITLEMENT_FAILURE_EXEMPT_PATHS.some(
+		(exempt) => path === exempt || path.startsWith(`${exempt}/`),
+	);
+}
+
+/**
+ * #3963: 課金状態を DB から解決できず context を発行できなかった場合の応答。
+ *
+ * fail-closed の副作用として、認証は生きているのに context だけが無い状態が生じる。
+ * これをログイン画面へのリダイレクトで表現すると「ログアウトさせられた」と誤解される
+ * ため、一時的な障害であることが読み取れる 503 を返す。
+ *
+ * 併せて alert kind `auth-entitlement-db-unavailable` で観測可能にする。
+ * 「DB 障害で剥奪」と「正当に無権限」が同じ見え方だと incident の切り分けができない
+ * (#3968 の `stripe-plan-unresolved` と同じ発想)。
+ */
+function respondEntitlementUnavailable(
+	event: RequestEvent,
+	error: TenantEntitlementUnavailableError,
+): Response {
+	const kind = TenantEntitlementUnavailableError.ALERT_KIND;
+	logger.error(`[auth-alert] ${kind}: 課金状態を DB から解決できず context を発行しませんでした`, {
+		requestId: event.locals.requestId,
+		tenantId: error.tenantId,
+		context: {
+			kind,
+			path: event.url.pathname,
+			errorSummary: error.dbError instanceof Error ? error.dbError.message : String(error.dbError),
+		},
+	});
+
+	// fire-and-forget (alert 失敗でリクエスト処理をブロックしない)
+	void sendDiscordAlert({
+		level: 'critical',
+		message: `[${kind}] 課金状態を DB から解決できず全リクエストが 503 になっています`,
+		path: event.url.pathname,
+		method: event.request.method,
+		status: 503,
+		requestId: event.locals.requestId,
+		tenantId: error.tenantId,
+		errorSummary: kind,
+	}).catch(() => {
+		// recursive alert を避けるため握り潰す (上の logger.error で観測は担保済み)
+	});
+
+	if (acceptsHtml(event.request)) {
+		return new Response(
+			renderErrorHtml(
+				503,
+				'一時的にご利用いただけません',
+				'システムが一時的に混み合っています。ログアウトはされていませんので、しばらくしてから再度お試しください。',
+			),
+			{
+				status: 503,
+				headers: { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '30' },
+			},
+		);
+	}
+	return new Response(
+		JSON.stringify({
+			error: 'システムが一時的に混み合っています。しばらくしてから再度お試しください。',
+			kind,
+		}),
+		{
+			status: 503,
+			headers: { 'Content-Type': 'application/json', 'Retry-After': '30' },
+		},
+	);
 }
 
 const provider = getAuthProvider();
@@ -368,7 +461,24 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		const identity = await provider.resolveIdentity(event);
-		const resolvedContext = await provider.resolveContext(event, identity);
+
+		// #3963: 課金状態を DB から解決できない場合、context は発行されない (fail-closed)。
+		// これを「未認証」として扱ってログイン画面へ送ると、認証は生きているのに
+		// 「ログアウトさせられた / アカウントが消えた」とユーザーに誤解される。
+		// 一時的な障害であることが読み取れる 503 を返す (PO 判断 2026-07-26)。
+		let resolvedContext: AuthContext | null;
+		try {
+			resolvedContext = await provider.resolveContext(event, identity);
+		} catch (e) {
+			if (!(e instanceof TenantEntitlementUnavailableError)) throw e;
+			// health / readiness probe は課金状態に依存しないため 503 にしない
+			// (PO 決裁 2026-07-29 merge 条件、`ENTITLEMENT_FAILURE_EXEMPT_PATHS` 参照)。
+			if (!isEntitlementFailureExemptPath(path)) {
+				return respondEntitlementUnavailable(event, e);
+			}
+			resolvedContext = null;
+		}
+
 		// DEBUG_PLAN / DEBUG_TRIAL による上書きは、以降の認可・tenantStatus チェックにも
 		// 一貫して適用する必要があるため、ローカル変数 context 自体を上書き後の値で統一する。
 		const context = applyDebugPlanOverride(resolvedContext);
