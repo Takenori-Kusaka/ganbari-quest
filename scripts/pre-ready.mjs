@@ -72,6 +72,7 @@ const SKIP_FLAGS = {
 	'--skip-license-key-leak': 'skipLicenseKeyLeak',
 	'--skip-cli-entry-guard': 'skipCliEntryGuard',
 	'--skip-sparse-checkout-closure': 'skipSparseCheckoutClosure',
+	'--skip-readdir-rotation-guard': 'skipReaddirRotationGuard',
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
@@ -93,6 +94,7 @@ function parseArgs(argv) {
 		skipLicenseKeyLeak: false,
 		skipCliEntryGuard: false,
 		skipSparseCheckoutClosure: false,
+		skipReaddirRotationGuard: false,
 		skipLpLabels: false,
 		skipPrBody: false,
 		skipDocCodeReferences: false,
@@ -140,6 +142,7 @@ Options:
   --skip-license-key-leak Step 7b license key 再導入防止検査をスキップ (#2836 / Phase 7 PR-L4)
   --skip-cli-entry-guard Step 7c 自前の CLI 直接実行判定 / 手組み file:// URL 検査をスキップ (#3969)
   --skip-sparse-checkout-closure Step 7d workflow sparse-checkout の import 閉包検査をスキップ (#3969)
+  --skip-readdir-rotation-guard Step 7e readdir の緩い一致 × 破壊的操作の検査をスキップ (#3978)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
@@ -159,6 +162,7 @@ Steps (番号は表示上の識別子。実行順は下記「実行順」を参�
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
   7c. check-cli-entry-guard.mjs  — 自前の CLI 直接実行判定 / 手組み file:// URL 禁止 (#3969)
   7d. check-workflow-sparse-checkout-closure.mjs — workflow sparse-checkout の import 閉包検査 (#3969)
+  7e. check-readdir-rotation-guard.mjs — readdir の緩い一致で世代を数える class の検出 (#3978)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
@@ -469,6 +473,7 @@ export const STEP_COST_CLASS_BY_NAME = {
 	'license-key-leak': 'static',
 	'cli-entry-guard': 'static',
 	'sparse-checkout-closure': 'static',
+	'readdir-rotation-guard': 'static',
 	'lp-labels': 'static',
 	'doc-code-references': 'static',
 	'terminology-coherence': 'static',
@@ -712,6 +717,9 @@ export function buildSteps(args, changedFiles) {
 		'scripts/check-workflow-sparse-checkout-closure.mjs',
 	);
 	const sparseClosureScriptExists = existsSync(sparseClosureScript);
+	// #3978: readdir の緩い一致で世代を数え、その結果を破壊的操作の対象にする class の検出
+	const readdirRotationScript = resolve(repoRoot, 'scripts/check-readdir-rotation-guard.mjs');
+	const readdirRotationScriptExists = existsSync(readdirRotationScript);
 
 	return [
 		{
@@ -870,6 +878,27 @@ export function buildSteps(args, changedFiles) {
 				'  workflow の sparse-checkout に import 先の列挙漏れがあります (#3969)。\n' +
 				'  - 修正: 出力された不足パスを当該 sparse-checkout ブロックに追加する\n' +
 				'  - 放置すると当該 job が ERR_MODULE_NOT_FOUND で落ちる (無言 PASS ではなく hard fail)',
+		},
+		// Step 7e: check-readdir-rotation-guard (#3978)
+		// readdir の戻りを prefix / suffix の緩い一致で絞り込み、その結果を削除対象にする class。
+		// 同じ指摘を #3956 / #3978 と 2 度受けたため、3 度目を待たず機械 gate 化した
+		// (docs/sessions/dev-session.md §「QA 指摘の再発防止台帳」#2 / ADR-0061)。
+		{
+			name: 'readdir-rotation-guard',
+			label: readdirRotationScriptExists
+				? 'Step 7e/12: check-readdir-rotation-guard.mjs (#3978)'
+				: 'Step 7e/12: check-readdir-rotation-guard.mjs (script 未配備 — skip)',
+			...skipStateOf({
+				byFlag: args.skipReaddirRotationGuard,
+				scriptMissing: !readdirRotationScriptExists,
+			}),
+			runner: () =>
+				run('check-readdir-rotation-guard', ['node', 'scripts/check-readdir-rotation-guard.mjs']),
+			fixHint:
+				'  readdir の緩い一致 (startsWith / endsWith) の結果を破壊的操作の対象にしています (#3978)。\n' +
+				'  - 修正: 命名規則を `*_PATTERN` 名の正規表現 const にし、その完全一致で絞り込む\n' +
+				'  - 生成側にも同じパターンの assert を置く (命名変更で silent に壊れないようにする)\n' +
+				'  - 別 class だと判断した場合のみ `rotation-gate-ok: <理由>` を当該行/直前行に置く',
 		},
 		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
 		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。

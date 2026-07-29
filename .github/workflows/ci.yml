@@ -233,6 +233,13 @@ jobs:
         # (本 Issue の対応時に必須 gate 6 job が実際に同時 fail した)。列挙の閉包を機械検証する。
         run: node scripts/check-workflow-sparse-checkout-closure.mjs
 
+      - name: readdir rotation guard — 緩い一致で世代を数える class の禁止 (#3978)
+        # readdir の戻りを prefix / suffix の緩い一致で絞り込み、その結果を削除対象にすると、
+        # 命名規則から外れた同居物 (手動退避 / 旧命名の残骸 / ディレクトリ) が「世代」として
+        # 数えられ保持枠を食う。同じ指摘を #3956 (PGlite 側) / #3978 (SQLite 側) と 2 度受けたため、
+        # 3 度目を待たず機械 gate 化した (ADR-0061 same-class-N → guard)。
+        run: node scripts/check-readdir-rotation-guard.mjs
+
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。
