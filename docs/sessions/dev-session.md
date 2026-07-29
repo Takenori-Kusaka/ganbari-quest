@@ -103,6 +103,13 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
 4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 14 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / check-no-plan-literals (#972) / check-license-key-leak (#2836) / generate-lp-labels --check (#1917) / Readiness gate = check-pr-body / doc-code-references (#2577) / terminology-coherence (#2555) / **SS embed gate (#2918)** / capture) を順次実行、fail で即停止 + 修正方針表示。**一覧 SSOT は `npm run pre-ready -- --help`** (#2929)。E2E / Storybook は別途
+
+   **vitest (Step 3) の判定は CI `unit-test` へ移す (#4007)**。16 コアを 4 エージェントで共有する運用では、ローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。`--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」意味であり、pre-ready はその旨と確認先 job 名を出力する。
+
+   - **`unit-test` / `unit-test-merge` が skip された PR は Ready にしない（例外なし）**。`gh pr checks <num>` で `unit-test (1)` / `(2)` が **`pass`**（`skipping` ではない）ことを確認してから `gh pr ready`
+   - **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `skipped` を failure として数えない設計（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）なので、job が 1 度も走らなくても green になる
+   - skip された場合の代替: 該当 vitest をローカルで単独実行し、そのログを PR body に貼る
+   - **単独実行が必要な重い測定を回すときはチャンネルで一報して排他を作る**（他セッションの並走 red を作らない）
 5. **AC 検証マップ全行埋める** (ADR-0004) — 空行 = 実装未了。コマンド結果 / SS パス / grep 結果で埋める
 6. **gh アカウント確認** (#1728 / ADR-0022)：
    ```bash
