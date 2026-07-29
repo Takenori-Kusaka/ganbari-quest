@@ -68,7 +68,7 @@
 
 1. `session.metadata.tenantId` を取得（Checkout 作成時に埋め込み済み）
 2. `session.metadata.planId` を取得し `Tenant['plan']` にキャスト
-3. `repos.auth.updateTenantStripe()` で以下を更新:
+3. `applyTenantContractState()`（契約を**新規割り当て**するため突合対象を持たない `assign-contract`、§10.5.1 P3）で以下を更新:
    - `stripeCustomerId`
    - `stripeSubscriptionId`
    - `plan` = 新プラン
@@ -305,7 +305,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 | 操作 | Webhook | DB 反映 |
 |------|---------|---------|
 | プラン変更（standard ↔ family、月 ↔ 年） | `customer.subscription.updated` | `plan` を `planIdFromPriceId(item.price.id)` で更新、`status='active'` |
-| サブスク解約（即時 or 期末） | `customer.subscription.deleted` | `stripeSubscriptionId=undefined, plan=undefined, status='suspended'` |
+| サブスク解約（即時 or 期末） | `customer.subscription.deleted` | `stripeSubscriptionId=null, plan=null, planExpiresAt=null, status='suspended'`（終端 4 列、§10.5.1 P3） |
 | 支払い方法更新 | （Stripe 側のみ） | DB 変更なし |
 | 請求書履歴閲覧 | （Stripe 側のみ） | DB 変更なし |
 
@@ -329,28 +329,31 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    | `past_due` | `'grace_period'` |
    | `unpaid` / `paused` / `incomplete` | `'suspended'` |
    | `canceled` / `incomplete_expired` | 終端収束（手順 2 で処理済、§10.5） |
-5. `repos.auth.updateTenantStripe()` で `plan, status` を保存
+5. `applyTenantContractState()`（契約状態を書き換える唯一の経路、§10.5.1 P3）で `plan, status` を保存。
+   **event 対象の subscription が tenant の現行契約でなければ適用しない**（#4026）
 6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_updated', 'status=..., plan=...')`
 
 ### 3.4 Webhook 処理 — `customer.subscription.deleted`
 
-`stripe-service.ts:handleSubscriptionDeleted()` → `clearSubscriptionAssignment()`
+`stripe-service.ts:handleSubscriptionDeleted()` → `applyTenantContractState()` + `TERMINAL_CONTRACT_STATE`
 
 1. テナント特定（同上）
-2. `repos.auth.updateTenantStripe()` で:
+2. event 対象が tenant の現行契約であることを突合（§10.5.1 P3）。不一致なら適用しない（#4026）
+3. 終端状態（`TERMINAL_CONTRACT_STATE`、契約に紐づく列を網羅）を書く:
    - `stripeSubscriptionId` = **`null`**（= SQL で `NULL` を書く）
    - `plan` = **`null`**（同上）
+   - `planExpiresAt` = **`null`**（契約が無いのに期限だけ残る孤児を作らない、#4026）
    - `status` = `'suspended'`
    - `stripeCustomerId` は**意図的に残す**（再購読時の Stripe customer 再利用 + 後続 webhook の逆引き鍵）
-3. **`undefined` ではなく `null` である理由 (#3982)**: `updateTenantStripe` は部分更新 API で、
+4. **`undefined` ではなく `null` である理由 (#3982)**: `updateTenantStripe` は部分更新 API で、
    `undefined` = 「その列を更新しない」、`null` = 「NULL でクリアする」という 2 値セマンティクス
    （契約は `IAuthRepo.updateTenantStripe` の JSDoc が SSOT）。
    旧実装は `undefined` を渡しており **クリアが丸ごと no-op** だった。その結果
    `stripe_subscription_id` が解約後も残り、`createCheckoutSession()` の
    `if (tenant.stripeSubscriptionId) return { error: 'ALREADY_SUBSCRIBED' }` が発火して
    **解約済みユーザーの再購読導線が塞がっていた**
-4. **重要**: テナント・子供データ・活動履歴は削除しない（解約と削除は別概念。アカウント削除は `/admin/settings` 経由 → `account-deletion-flow.md` 参照）
-5. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_deleted')`
+5. **重要**: テナント・子供データ・活動履歴は削除しない（解約と削除は別概念。アカウント削除は `/admin/settings` 経由 → `account-deletion-flow.md` 参照）
+6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_deleted')`
 
 ---
 
@@ -367,7 +370,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    ```ts
    const graceExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
    ```
-3. `repos.auth.updateTenantStripe()` で:
+3. `applyTenantContractState()`（§10.5.1 P3、event 対象が現行契約のときのみ適用）で:
    - `status` = `'grace_period'`
    - `planExpiresAt` = `graceExpires`
 4. Discord 通知: `notifyBillingEvent(tenantId, 'payment_failed', '猶予期間: ...')`
