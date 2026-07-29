@@ -23,12 +23,9 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // この import 自体が回帰の本体 — plugin が無いと本 file 全体が読み込めず fail する
-import { MARKER, baseOf } from '../../fixtures/crlf/crlf-shebang-module.mjs';
+import { baseOf, MARKER } from '../../fixtures/crlf/crlf-shebang-module.mjs';
 
-const fixturePath = path.resolve(
-	process.cwd(),
-	'tests/fixtures/crlf/crlf-shebang-module.mjs',
-);
+const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/crlf/crlf-shebang-module.mjs');
 
 describe('CRLF shebang module import (#3984)', () => {
 	it('fixture は CRLF 改行 + shebang で保存されている (前提条件の固定)', () => {
