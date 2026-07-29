@@ -27,7 +27,7 @@
  *
  * Usage:
  *   npm run pre-ready -- --pr 1920
- *   npm run pre-ready -- --pr 1920 --skip-vitest          # 重い vitest をスキップして高速確認
+ *   npm run pre-ready -- --pr 1920 --skip-vitest          # vitest 判定を CI unit-test へ委譲 (#4007)
  *   npm run pre-ready                                      # PR 未作成時 (PR body / mergeable 検証はスキップ)
  *
  * exit:
@@ -36,11 +36,15 @@
  *   2 = internal error
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/ci/resolve-base-branch.mjs';
+import {
+	isAllowedBaseBranch,
+	isSafeGitRefName,
+	resolveBaseBranchAuto,
+} from './lib/ci/resolve-base-branch.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -127,7 +131,10 @@ Options:
   --skip-biome           Step 1 biome check をスキップ
   --skip-cspell          Step 1b cspell spell check をスキップ
   --skip-svelte-check    Step 2 svelte-check をスキップ
-  --skip-vitest          Step 3 vitest をスキップ (重いので高速確認時のみ)
+  --skip-vitest          Step 3 vitest をローカルで実行せず CI job unit-test へ委譲 (#4007)
+                         Ready 化前に gh pr checks <num> で unit-test が pass (skipped でない)
+                         ことを確認すること。ci-gate は skipped を failure として数えないため
+                         ci-gate green は委譲先が走った証拠にならない
   --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
   --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
   --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
@@ -144,7 +151,7 @@ Options:
   --skip-capture         Step 12 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
-Steps:
+Steps (番号は表示上の識別子。実行順は下記「実行順」を参照 — #4048):
   1.  biome check                 — lint
   1b. cspell                      — spell check (CI lint-and-test と同一コマンド、#3649)
   2.  svelte-check                — TS strict 型チェック
@@ -162,6 +169,17 @@ Steps:
   11. check-terminology-coherence.ts — 用語不統一・add 経路重複検知 (#2555)
   11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918、CI screenshot-check と SSOT 共有)
   12. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+
+実行順 (cheap-fail-first、#4048):
+  Step 番号は PR body / docs / Issue から広く参照されるため変更しない。実行順だけを
+  「判定に要する時間と参照する情報の量」で並べ替える。同一クラス内は上記の番号順を保つ。
+    1) meta      PR body / メタ情報だけを見る    — Step 9
+    2) static    静的テキスト / 単一ファイル検査 — Step 1 / 1b / 4 / 6 / 7 / 7b / 7c / 7d / 8 / 10 / 11
+    3) typecheck 型検査                          — Step 2
+    4) test      テスト実行                      — Step 3
+    5) browser   ヘッドレスブラウザ実測          — Step 5
+    6) ui        SS 系                           — Step 11b / 12
+  検査の集合・合否条件は並べ替えの前後で同一 (tests/unit/scripts/pre-ready-order-and-base.test.ts が固定)。
 
 Exit codes:
   0 = 全 Step PASS
@@ -199,23 +217,88 @@ function run(cmd, argv) {
 }
 
 /**
+ * 変更集合の算出に使う base ref を決定する純関数 (#4046、unit test 対象)。
+ *
+ * 旧実装は lane whitelist (main / develop) 外の base を無条件で `origin/main` に clamp していた。
+ * stacked PR (別 PR の branch を base にする PR) はこれに該当し、**変更集合が PR の実差分と
+ * 一致しなくなる**。変更集合は条件付き step (`lpChanged` / `lpFallbackTrigger` /
+ * `lpLabelsTrigger` / `uiChanged`) の判定入力なので、over-inclusive な差分は
+ * 「他 PR の `.svelte` 変更で `uiChanged` が YES になる」→ SS embed gate が
+ * 「この PR は UI 変更 PR だ」という誤った前提で走る、という false-pass 経路を作る (#4046 §何が壊れるか 3)。
+ *
+ * 本関数は lane ではなく「shell 展開に安全な名前で、かつ remote ref が実在すること」だけを要求する
+ * (#2982 の injection 防御目的はこれで満たされる)。実在しない ref を渡すと `git diff` が失敗して
+ * 変更集合が空になり、全条件付き step が黙って NO 判定になるため、その場合のみ main に clamp する。
+ *
+ * @param {{ base: string; refExists: (base: string) => boolean }} input
+ * @returns {{ base: string; clamped: boolean; reason: 'unsafe-name' | 'ref-missing' | null }}
+ */
+export function resolveDiffBase({ base, refExists }) {
+	if (!isSafeGitRefName(base)) return { base: 'main', clamped: true, reason: 'unsafe-name' };
+	if (!refExists(base)) return { base: 'main', clamped: true, reason: 'ref-missing' };
+	return { base, clamped: false, reason: null };
+}
+
+/**
+ * clamp 発生時の監査注記文言 (#4046 AC1 / AC2、unit test 対象)。
+ *
+ * #2929 が定めた「fail-open / 明示 skip した gate は summary で 1 行明示する」原則の適用漏れを塞ぐ。
+ * WARN 1 行が長い出力の途中に流れるだけだと、clamp された事実が summary に残らず
+ * 「ローカル ALL PASS = この PR の差分を検査済」と誤認される。
+ *
+ * @param {string} original 解決された (clamp 前の) base branch 名
+ * @param {'unsafe-name' | 'ref-missing'} reason
+ * @returns {string}
+ */
+export function buildBaseClampNote(original, reason) {
+	const why =
+		reason === 'ref-missing'
+			? `origin/${original} がローカルに存在しない (git fetch origin ${original} で解消)`
+			: `base 名 "${original}" が ref 名として安全でない`;
+	return (
+		`base-clamp: base を origin/main に clamp しました (理由: ${why}) — ` +
+		'変更集合が PR の実差分と一致していません。条件付き step ' +
+		'(lp-dimensions / lp-fallback / lp-labels / ss-embed-gate / capture) の判定は ' +
+		'PR の実差分ではなく clamp 後の差分に基づきます (#4046)'
+	);
+}
+
+/**
+ * `origin/<base>` がローカルに実在するか。
+ * @param {string} base `isSafeGitRefName` を通過済みの branch 名
+ * @returns {boolean}
+ */
+function remoteRefExists(base) {
+	const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${base}`], {
+		cwd: repoRoot,
+		stdio: ['ignore', 'pipe', 'ignore'],
+		shell: true,
+	});
+	return r.status === 0;
+}
+
+/**
  * `git diff origin/<base>...HEAD --name-only` で変更ファイル一覧を取得する。
  * base は scripts/lib/ci/resolve-base-branch.mjs (#2959 SSOT) で解決する
  * (develop 二層 cutover #2870 後、feature branch は develop 基点のため
  *  origin/main 固定だと sibling PR の develop commit を誤算入する)。
- * @param {string} baseBranch 解決済み base branch 名 ('develop' | 'main')
+ * stacked PR の base (lane 外) もそのまま使う (#4046)。
+ * @param {string} baseBranch 解決済み base branch 名 (通常は 'develop' | 'main'、stacked PR では任意の branch 名)
  * @returns {Promise<string[]>}
  */
 async function getChangedFiles(baseBranch) {
-	// #2982: shell:true 下で `origin/${baseBranch}` をコマンド文字列に展開するため、展開前に
-	// whitelist (main / develop の 2 lane) で防御的に clamp する。脅威モデルは「本人の local tool」
-	// のため理論枠 (ADR-0010 整合で非 BLOCK 裁定済) だが、injection 面を構造的に閉じる。
-	let base = baseBranch;
-	if (!isAllowedBaseBranch(base)) {
-		console.warn(
-			`[pre-ready] WARN: 想定外の base branch "${base}" (whitelist: main / develop) — origin/main に clamp します (#2982)`,
+	const decision = resolveDiffBase({ base: baseBranch, refExists: remoteRefExists });
+	const base = decision.base;
+	if (decision.clamped) {
+		const note = buildBaseClampNote(baseBranch, decision.reason);
+		console.warn(`[pre-ready] WARN: ${note}`);
+		failOpenNotes.push(note);
+	} else if (!isAllowedBaseBranch(base)) {
+		// lane 外 base (= stacked PR)。誤 base への PR を静かに通さないよう事実だけ告知する
+		// (変更集合自体は実差分と一致しているので clamp も fail-open 注記もしない)。
+		console.log(
+			`[pre-ready] stacked PR base を検出: origin/${base} (lane: main / develop 以外)。変更集合は本 base との差分で算出します (#4046)`,
 		);
-		base = 'main';
 	}
 	return new Promise((resolveP) => {
 		const child = spawn('git', ['diff', `origin/${base}...HEAD`, '--name-only'], {
@@ -349,6 +432,89 @@ export function preflightWorktreeDeps(root = repoRoot) {
 }
 
 // ---------------------------------------------------------------------------
+// 実行順 SSOT (cheap-fail-first、#4048)
+// ---------------------------------------------------------------------------
+
+/**
+ * 実行順のコストクラス。左が安く、早く落ちうる。
+ *
+ * 旧実装は step 定義配列の並び (= Step 番号順) をそのまま実行順にしていたため、
+ * PR body の体裁ミス 1 つ (Step 9 = ファイルを 1 行も読まない、1 分未満で判定できる検査) を
+ * 検出するのに vitest / svelte-check / cspell の完走を待つ必要があり、実測 23 分を捨てていた
+ * (PR #4043、2026-07-28)。判定内容は正しく順序だけが損をしていたので、順序だけを入れ替える。
+ */
+export const STEP_COST_CLASSES = /** @type {const} */ ([
+	'meta', // PR body / メタ情報だけを見る。ファイルを読まない
+	'static', // 静的テキスト / 単一ファイル検査
+	'typecheck', // 型検査
+	'test', // テスト実行
+	'browser', // ヘッドレスブラウザでの実測
+	'ui', // SS 系 (撮影 / embed 検証)
+]);
+
+/**
+ * step 名 → コストクラスの SSOT (#4048 AC2)。
+ *
+ * **新しい step を buildSteps に足したら、必ずここにも登録する。** 登録漏れは
+ * `orderSteps` が throw して即座に落ちる (末尾に黙って足されて cheap-fail-first が
+ * 崩れる劣化は、動いてしまうと誰も気づけないため fail closed にする / ADR-0061 same-class→guard)。
+ *
+ * @type {Record<string, typeof STEP_COST_CLASSES[number]>}
+ */
+export const STEP_COST_CLASS_BY_NAME = {
+	// meta — PR body のテキストだけを見る。最も早く落ちうる
+	'pr-body': 'meta',
+	// static — 静的テキスト / 単一ファイル検査
+	biome: 'static',
+	cspell: 'static',
+	'hardcoded-strings': 'static',
+	'lp-fallback': 'static',
+	'plan-literals': 'static',
+	'license-key-leak': 'static',
+	'cli-entry-guard': 'static',
+	'sparse-checkout-closure': 'static',
+	'lp-labels': 'static',
+	'doc-code-references': 'static',
+	'terminology-coherence': 'static',
+	// typecheck / test
+	'svelte-check': 'typecheck',
+	vitest: 'test',
+	// browser — LP を実ブラウザで描画して寸法を測る
+	'lp-dimensions': 'browser',
+	// ui — SS 撮影 / embed 検証
+	'ss-embed-gate': 'ui',
+	capture: 'ui',
+};
+
+/**
+ * step 配列を cheap-fail-first に並べ替える (#4048 AC1)。
+ *
+ * - 検査の集合・合否条件は変えない。**順序だけ**を変える (AC2)
+ * - 同一クラス内は定義順 (= Step 番号順) を保つ安定ソート
+ * - `STEP_COST_CLASS_BY_NAME` に未登録の step があれば throw (登録漏れを silent に通さない)
+ *
+ * @template {{ name: string }} T
+ * @param {T[]} steps
+ * @returns {T[]}
+ */
+export function orderSteps(steps) {
+	const unknown = steps.filter((s) => !(s.name in STEP_COST_CLASS_BY_NAME)).map((s) => s.name);
+	if (unknown.length > 0) {
+		throw new Error(
+			`[pre-ready] step のコストクラス未登録: ${unknown.join(', ')} — ` +
+				'scripts/pre-ready.mjs の STEP_COST_CLASS_BY_NAME に追加してください (#4048)',
+		);
+	}
+	const rank = (/** @type {{ name: string }} */ s) =>
+		STEP_COST_CLASSES.indexOf(STEP_COST_CLASS_BY_NAME[s.name]);
+	// index を tiebreaker にして安定ソートを明示 (Array#sort の安定性に依存しない)
+	return steps
+		.map((step, index) => ({ step, index }))
+		.sort((a, b) => rank(a.step) - rank(b.step) || a.index - b.index)
+		.map(({ step }) => step);
+}
+
+// ---------------------------------------------------------------------------
 // Step 定義
 // ---------------------------------------------------------------------------
 
@@ -413,8 +579,13 @@ export function skipStateOf({
  * console.log を持たない純関数にしてあるのは、AC1〜AC3 (適用対象外のみなら ALL PASS /
  * flag 指定なら PARTIAL PASS / 両者を別行表示) を全 step を回さずに unit test で固定するため。
  *
+ * #4007: `delegated` は「未実行」ではなく「判定の場所を CI に移した」step。ALL PASS を妨げないが、
+ * 委譲先 job が **実行されて pass した** ことの確認手順を必ず出す (`ci-gate` は skipped を failure
+ * として数えないため ci-gate green は委譲先が走った証拠にならない = 沈黙 skip を作らない)。
+ *
  * @param {{ totalSteps: number; skippedByFlag: string[]; skippedScriptMissing: string[];
  *           skippedPrMissing?: string[]; skippedNotApplicable: string[];
+ *           delegated?: { name: string; job: string; howToVerify: string }[];
  *           failOpenCount?: number; pr?: string | null }} input
  * @returns {{ status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string }}
  */
@@ -424,9 +595,24 @@ export function buildSummary({
 	skippedScriptMissing,
 	skippedPrMissing = [],
 	skippedNotApplicable,
+	delegated = [],
 	failOpenCount = 0,
 	pr = null,
 }) {
+	// #4007: CI へ委譲した step の確認手順ブロック (委譲が無ければ空文字)
+	const delegationBlock =
+		delegated.length > 0
+			? `  CI へ委譲した step (${delegated.map((d) => d.name).join(', ')}):\n` +
+				delegated
+					.map(
+						(d) =>
+							`    - ${d.name} → CI job \`${d.job}\`。Ready 化前に **実行されて pass した** ことを確認する:\n` +
+							`        ${d.howToVerify}\n` +
+							`      \`${d.job}\` が skipped の PR は Ready にしない (skipped は pass ではない)。\n` +
+							`      \`ci-gate\` は skipped を failure として数えないため、ci-gate green を根拠にしない。\n`,
+					)
+					.join('')
+			: '';
 	// 適用対象外 (n/a) は「実行しなくてよいので実行していない」であり ALL PASS を妨げない。
 	const notApplicableLine =
 		skippedNotApplicable.length > 0
@@ -451,7 +637,7 @@ export function buildSummary({
 		]
 			.filter(Boolean)
 			.join(' / ');
-		const ran = totalSteps - blocking.length - skippedNotApplicable.length;
+		const ran = totalSteps - blocking.length - skippedNotApplicable.length - delegated.length;
 		return {
 			status: 'PARTIAL_PASS',
 			text:
@@ -459,25 +645,34 @@ export function buildSummary({
 				`${detail} が未実行です。\n` +
 				notApplicableLine +
 				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
-				`  skip なしの \`npm run pre-ready -- --pr ${pr ?? '<num>'}\` 全 step PASS が必要です。\n`,
+				`  skip なしの \`npm run pre-ready -- --pr ${pr ?? '<num>'}\` 全 step PASS が必要です。\n` +
+				delegationBlock,
 		};
 	}
 
 	return {
 		status: 'ALL_PASS',
 		text:
-			`\n[pre-ready] ALL PASS${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+			`\n[pre-ready] ALL PASS${delegated.length > 0 ? ` (${delegated.length} step は CI へ委譲 — 下記を確認)` : ''}${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
 			notApplicableLine +
+			delegationBlock +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
-			`    2. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
-			`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`,
+			(delegated.length > 0
+				? `    2. gh pr checks ${pr ?? '<num>'}                           # 委譲先 job が pass (skipped でない) ことを確認\n` +
+					`    3. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
+					`    4. CI 全緑になるまで待機し、QM レビューを依頼\n`
+				: `    2. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
+					`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`),
 	};
 }
 
 /**
  * step 定義を組み立てる。unit test から skip 分類 (`skipKind`) を配線ごと検証するため export する
  * (#4018 QM 指摘: `skipStateOf` 単体では「step 定義側が正しい引数を渡しているか」を固定できない)。
+ * unit test は同時に「全 step にコストクラスが登録済」も本 export 経由で検証する (#4048)。
+ *
+ * **配列の並びは Step 番号順**であり実行順ではない。実行順は `orderSteps` が決める (#4048)。
  *
  * @param {Record<string, unknown>} args      parseArgs() の戻り値相当
  * @param {string[]} changedFiles             base branch との差分ファイル一覧
@@ -558,8 +753,21 @@ export function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/12: vitest run (unit test)',
+			label: args.skipVitest
+				? 'Step 3/12: vitest run (unit test) — ローカル未実行 / CI unit-test へ委譲 (#4007)'
+				: 'Step 3/12: vitest run (unit test)',
+			// #4018 の skip 分類 (flag / script-missing / pr-missing / n/a) は維持する。
+			// 本 step は `delegatedToCi` を持つため、main() のループが分類より先に委譲へ振り分ける。
 			...skipStateOf({ byFlag: args.skipVitest }),
+			// #4007: `--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」。
+			// 16 コアを 4 エージェントで共有する運用ではローカルのフルスイートが並走で落ち、
+			// その red は PR の欠陥ではなく実行環境の産物になる (同一 HEAD 対照実測: ローカル 1753s /
+			// 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass)。
+			// ただし委譲先が **実行された** ことの確認は省略できない (skip された job は pass ではない)。
+			delegatedToCi: {
+				job: 'unit-test',
+				howToVerify: 'gh pr checks <num> --watch  # unit-test (1) / (2) が pass であること',
+			},
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
 				'  失敗テストを修正。assertion を弱める変更は禁止 (ADR-0006)。\n' +
@@ -888,7 +1096,11 @@ async function main() {
 		console.log(`[pre-ready] 変更ファイル数: ${changedFiles.length}`);
 	}
 
-	const steps = buildSteps(args, changedFiles);
+	// #4048: 定義順 (Step 番号順) ではなく cheap-fail-first で実行する。
+	const steps = orderSteps(buildSteps(args, changedFiles));
+	console.log(
+		`[pre-ready] 実行順 (cheap-fail-first、#4048): ${steps.map((s) => s.name).join(' → ')}`,
+	);
 	const failed = [];
 	/** `--skip-*` を明示指定した step (#3649: ALL PASS を名乗らない) */
 	const skippedByFlag = [];
@@ -898,9 +1110,16 @@ async function main() {
 	const skippedPrMissing = [];
 	/** 変更内容が適用対象外の step (#4018: ALL PASS を妨げない) */
 	const skippedNotApplicable = [];
+	/** #4007: skip ではなく「CI の特定 job へ委譲」した step */
+	const delegated = [];
 
 	for (const step of steps) {
 		if (step.skip) {
+			if (step.delegatedToCi) {
+				console.log(`[pre-ready] → ${step.label}`);
+				delegated.push({ name: step.name, ...step.delegatedToCi });
+				continue;
+			}
 			console.log(`[pre-ready] ⊘ ${step.label}`);
 			if (step.skipKind === 'flag') skippedByFlag.push(step.name);
 			else if (step.skipKind === 'script-missing') skippedScriptMissing.push(step.name);
@@ -934,6 +1153,7 @@ async function main() {
 		skippedScriptMissing,
 		skippedPrMissing,
 		skippedNotApplicable,
+		delegated,
 		failOpenCount: failOpenNotes.length,
 		pr: args.pr,
 	});

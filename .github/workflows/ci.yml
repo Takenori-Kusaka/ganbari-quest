@@ -61,6 +61,22 @@ jobs:
               # ADR-0056 の approve gate 本体 (.claude/hooks/gate-approve.mjs) なので必須。
               # 対応関係は tests/unit/scripts/cli-entry-guard.test.ts が機械検証する。
               - '.claude/**'
+              # #4007: unit-test は `app || deps` で発火する。tests/unit/** には repo 内の
+              # コード以外のファイルを実行時に読む fitness test が実在するため、その参照先 root を
+              # 列挙しないと「守っている test が 1 本も走らないまま ci-gate が green」になる
+              # (ci-gate は skipped を failure として数えない設計)。
+              #   docs/**    dsql-auth-schema / pk-freeze-manifest / stripe-dashboard-runbook 等
+              #   site/**    site-terminology (顧客に直接届く LP なので docs より実害が重い)
+              #   .github/** labeler.yml / INTEGRATION_PR_TEMPLATE*.{md,json} (workflows は deps 側)
+              #   drizzle/** pglite journal 単調増加 / migration SSOT 貫通
+              #   actions/** composite action を参照する sparse-checkout closure gate
+              # 対応関係は tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts が
+              # 機械検証する (参照先が増えたらここも増える、を人の注意に依存させない)。
+              - 'docs/**'
+              - 'site/**'
+              - '.github/**'
+              - 'drizzle/**'
+              - 'actions/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'
