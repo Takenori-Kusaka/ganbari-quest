@@ -1312,11 +1312,6 @@ Draft PR の扱い (#3997):
   のみ deferred する。それ以外 (必須セクション / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING /
   hotfix env 配布証跡) は Draft でも従来どおり fail させる。deferred したことは必ず標準出力に出る。
 
-Draft PR の扱い (#3997):
-  Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
-  のみ deferred する。それ以外 (必須セクション / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING /
-  hotfix env 配布証跡) は Draft でも従来どおり fail させる。deferred したことは必ず標準出力に出る。
-
 Exit codes:
   0 = OK
   1 = 違反検出
