@@ -11,8 +11,37 @@ import { defineConfig } from 'vitest/config';
 const dirname =
 	typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * #3984: CRLF の shebang 付き `.mjs` を import すると vite ssr transform が壊れる問題の根本対処。
+ *
+ * vite 本体の shebang 除去は `hashbangRE = /^#!.*\n/`
+ * (`node_modules/vite/dist/node/chunks/node.js` の `getFileStartIndex`) で実装されている。
+ * JS の `.` は行終端子 (LF / CR / U+2028 / U+2029) にマッチしないため、`#!/usr/bin/env node` + CRLF
+ * では `.*` が `\r` の手前で止まり、続く `\n` を要求する本 RE が **マッチしない**。
+ * 結果 shebang が除去されないまま ssr transform が import 文を先頭へ hoist し、
+ * hoist された `const x = __vite__cjsImport0_...;` の直後 (同一行) に `#!` が残る。
+ * rolldown が `!` を不正文字として parse に失敗し、`Invalid Character \`!\`` で
+ * **test file 自体が読み込めない** (`Tests no tests`) 状態になる。
+ *
+ * 対処: ssr transform より前 (`enforce: 'pre'`) に、CRLF / LF / CR いずれの改行でも
+ * shebang 行を除去する。行数を保つため空行に置換する (source map / stack trace 整合)。
+ * 回帰テスト: `tests/unit/scripts/crlf-shebang-import.test.ts`
+ * (`tests/fixtures/crlf/crlf-shebang-module.mjs` は `.gitattributes` で `eol=crlf` 固定)。
+ */
+const stripShebangPlugin = {
+	name: 'ganbari-strip-shebang',
+	enforce: 'pre' as const,
+	transform(code: string, id: string) {
+		if (!/\.(?:mjs|js|cjs|ts|mts|cts)(?:\?|$)/.test(id)) return null;
+		if (!code.startsWith('#!')) return null;
+		// shebang 行を「改行を残したまま」空に置換する (LF / CRLF / CR いずれにも対応)
+		const transformed = code.replace(/^#![^\r\n]*/, '');
+		return { code: transformed, map: null };
+	},
+};
+
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [stripShebangPlugin, tailwindcss(), sveltekit()],
 	server: {
 		fs: {
 			// git worktree (`tmp/wt-XXXX/` または `.claude/worktrees/<name>/`) で起動した時、

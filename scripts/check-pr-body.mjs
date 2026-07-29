@@ -923,33 +923,61 @@ export function extractLabelNames(raw) {
  * 見分けがつかない pass は本 Issue が塞ごうとしている失敗 class そのものなので、
  * skip した gate 名を件数付きで出すための一覧をここに固定する。
  *
- * @type {ReadonlyArray<{ name: string; issue: string; label: string }>}
+ * `triggers` は発火 label の実値、`label` は表示用の文字列。
+ *
+ * @type {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
  */
 export const LABEL_CONDITIONAL_GATES = [
 	{
 		name: 'hotfix env 配布証跡 (ADR-0006)',
 		issue: '#2343',
 		label: HOTFIX_LABELS.join(' / '),
+		triggers: [...HOTFIX_LABELS],
 	},
 	{
 		name: 'PO 決裁ブリーフ',
 		issue: '#3962',
 		label: PO_DECISION_LABEL,
+		triggers: [PO_DECISION_LABEL],
 	},
 ];
 
 /**
- * `--no-labels` 指定時に「検査しなかった gate」を明示する出力行を組み立てる (#3962 QA 指摘)。
+ * 与えた label 一覧で **発火しなかった** label 条件付き gate を返す (#3983)。
  *
- * 呼び出し側が `console.log` するだけで済むよう、行配列で返す。
+ * `--no-labels` (labels = []) は全件が未発火になるので、全件 skip の特殊ケースになる。
+ *
+ * @param {string[]} labels
+ * @returns {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
+ */
+export function selectSkippedLabelGates(labels) {
+	const normalized = labels.map((l) => l.trim().toLowerCase());
+	return LABEL_CONDITIONAL_GATES.filter((g) => !g.triggers.some((t) => normalized.includes(t)));
+}
+
+/**
+ * 「検査しなかった gate」を明示する出力行を組み立てる (#3962 QA 指摘 / #3983)。
+ *
+ * #3962 は `--no-labels` にだけ本出力を入れたため、`--labels <csv>` で
+ * 発火しなかった gate は **通常 pass と見分けがつかない**まま残っていた (#3983)。
+ * 「label をこちらが手で主張した」経路 (`--no-labels` / `--labels`) は、その主張が
+ * 誤っていても検出できない以上、どちらも「検査していない」と表示する。
+ * `--pr <N>` の実 label は PR の事実そのものなので「発火しなかった = 正しい判定」であり
+ * 本出力の対象外 (毎回の pre-ready を無意味な SKIPPED 行で埋めない)。
+ *
+ * 呼び出し側が `console.log` するだけで済むよう、行配列で返す。skip 0 件なら空配列。
  * 将来メッセージを整理した拍子に無言化しないよう、gate 名の出現を test で固定している ([LB7])。
  *
+ * @param {string[]} labels 検査に使う label 一覧
+ * @param {string} source 経路の表示名 (`--no-labels` / `--labels`)
  * @returns {string[]}
  */
-export function formatSkippedLabelGates() {
+export function formatSkippedLabelGates(labels, source) {
+	const skipped = selectSkippedLabelGates(labels);
+	if (skipped.length === 0) return [];
 	return [
-		`[check-pr-body] SKIPPED — label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は検査していません (--no-labels)`,
-		...LABEL_CONDITIONAL_GATES.map((g) => `  - ${g.name} (${g.issue}) — 発火 label: ${g.label}`),
+		`[check-pr-body] SKIPPED — label 条件付き gate ${skipped.length} 件は検査していません (${source})`,
+		...skipped.map((g) => `  - ${g.name} (${g.issue}) — 発火 label: ${g.label}`),
 		`  ※ label が付いた後に --pr <N> で再実行しないと、上記 gate は一度も動きません`,
 	];
 }
@@ -969,12 +997,24 @@ export function formatSkippedLabelGates() {
 export function resolveLabels(args, fetched) {
 	if (args.noLabels) return { labels: [] };
 	if (args.labels !== null) {
-		return {
-			labels: args.labels
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean),
-		};
+		const parsed = args.labels
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		// #3983: `--labels ""` / `--labels " , "` は「label 0 件の明示」ではなく、
+		// `--labels "$LABELS"` で変数が空だった事故の形。#3965 が消した
+		// `catch { return [] }` と同じ沈黙 fail-open になるので受理しない。
+		// 「label が 0 件」を主張する引数は `--no-labels` が既にある。
+		if (parsed.length === 0) {
+			return {
+				error:
+					`--labels に有効な label がありません (受け取った値: ${JSON.stringify(args.labels)})。\n` +
+					`  label 条件付き検査 (hotfix #2343 / po-decision #3962) が黙って全 skip されるのを防ぐため、\n` +
+					`  空の --labels は受理しません (--labels "$VAR" で変数が空だった場合を含む)。\n` +
+					`  対応: label 0 件を明示したいなら --no-labels を使ってください。`,
+			};
+		}
+		return { labels: parsed };
 	}
 	if (fetched !== null) return { labels: fetched };
 	if (args.pr) {
@@ -1240,13 +1280,15 @@ Usage:
 label の解決方法 (#3962):
   label 条件付き gate (hotfix env 配布証跡 #2343 / PO 決裁ブリーフ #3962) が黙って
   skip されるのを防ぐため、label が解決できない呼び出しは exit 2 で中断する (fail-closed)。
-  PR 番号が取れるなら --pr を渡すこと。--no-labels は PR 作成前の dry-run 専用で、
-  指定すると「検査しなかった gate」が SKIPPED 行として出力される。
+  PR 番号が取れるなら --pr を渡すこと。--no-labels / --labels は PR 作成前の dry-run 専用で、
+  どちらも「発火しなかった label 条件付き gate」を SKIPPED 行として出力する (#3983)。
+  空の --labels ("" / " , ") は沈黙 fail-open になるため exit 2 で中断する (#3983)。
 
 Options:
   --pr <num>          GitHub PR 番号 (gh pr view で body 取得 + label 自動検出)
   --body-file <path>  ローカルファイルから body を読む（PR 未作成時の dry-run 用）
   --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
+                      空文字は不可 — label 0 件の明示は --no-labels を使う (#3983)
   --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
   --draft             Draft 相当として検査（--body-file dry-run 専用、#3997）
                       --pr 指定時は gh pr view --json isDraft の実状態が優先され本フラグは無視される
@@ -1431,10 +1473,15 @@ export async function main(argv = process.argv.slice(2)) {
 	}
 	const labels = resolved.labels;
 
-	// #3962 (QA 指摘): skip した gate を通常 pass と見分けられる形で先に出す。
-	if (args.noLabels) {
-		for (const line of formatSkippedLabelGates()) console.log(line);
-	}
+	// #3962 (QA 指摘) / #3983: skip した gate を通常 pass と見分けられる形で先に出す。
+	// 対象は「label を手で主張した」経路 (--no-labels / --labels) の未発火 gate。
+	const skippedLines = args.noLabels
+		? formatSkippedLabelGates(labels, '--no-labels')
+		: args.labels !== null
+			? formatSkippedLabelGates(labels, '--labels')
+			: [];
+	for (const line of skippedLines) console.log(line);
+	const skippedCount = skippedLines.length === 0 ? 0 : selectSkippedLabelGates(labels).length;
 
 	/** @type {string[]} */
 	const notes = [];
@@ -1462,8 +1509,8 @@ export async function main(argv = process.argv.slice(2)) {
 			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
 			: '';
 		console.log(
-			args.noLabels
-				? `[check-pr-body] OK (label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件は未検査)${draftNote} — 違反なし`
+			skippedCount > 0
+				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote} — 違反なし`
 				: `[check-pr-body] OK${draftNote} — 違反なし`,
 		);
 		return 0;

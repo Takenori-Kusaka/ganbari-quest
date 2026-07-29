@@ -42,6 +42,7 @@ import {
 	resolveLabels,
 	scanForbiddenTerms,
 	scanPlaceholders,
+	selectSkippedLabelGates,
 	stripCodeBlocks,
 	stripMarkdownComments,
 } from '../../../scripts/check-pr-body.mjs';
@@ -876,6 +877,16 @@ describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', 
 		expect(r).toEqual({ labels: [PO_DECISION_LABEL, 'hotfix'] });
 	});
 
+	it('[LB5b] --labels が trim 後に空リストになったら error にする (#3983 沈黙 fail-open)', () => {
+		// `--labels "$LABELS"` で変数が空だった事故の形。label 条件付き gate 2 件が
+		// 全 skip されるのに出力は通常 pass と同じ、という #3965 の残穴。
+		for (const raw of ['', ' ', ',', ' , ', ',,']) {
+			const r = resolveLabels({ ...noLabelArgs, labels: raw }, null);
+			expect('labels' in r).toBe(false);
+			expect('error' in r && r.error).toContain('--no-labels');
+		}
+	});
+
 	it('[LB6] 未解決と label 無しが同じ結果にならない — 同一 body で検査が消えないことの回帰', () => {
 		// QA の再現 (PR #3956 の実 body 相当: po-decision:required 付きだがブリーフ無し)
 		const bodyWithoutBrief = '## 顧客価値・目的\n\n本文\n';
@@ -904,7 +915,7 @@ describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', 
  */
 describe('formatSkippedLabelGates — --no-labels は何を検査しなかったかを出す (#3962)', () => {
 	it('[LB7] skip した label 条件付き gate の名前と件数が出力に含まれる', () => {
-		const out = formatSkippedLabelGates().join('\n');
+		const out = formatSkippedLabelGates([], '--no-labels').join('\n');
 
 		// 件数が LABEL_CONDITIONAL_GATES と一致する (gate を足したのに文言が古い、を防ぐ)
 		expect(out).toContain(`label 条件付き gate ${LABEL_CONDITIONAL_GATES.length} 件`);
@@ -925,6 +936,47 @@ describe('formatSkippedLabelGates — --no-labels は何を検査しなかった
 		expect(LABEL_CONDITIONAL_GATES.map((g) => g.issue)).toEqual(['#2343', '#3962']);
 		expect(hasPoDecisionLabel([PO_DECISION_LABEL])).toBe(true);
 		expect(hasHotfixLabel(HOTFIX_LABELS.slice(0, 1))).toBe(true);
+	});
+});
+
+/**
+ * #3983: #3962 が塞いだ失敗 class (「検査していない gate が通常 pass に見える」) が
+ * `--labels <csv>` 経路にだけ残っていた。`--labels "priority:critical,hotfix"`
+ * (ready-gate-checklist.md の hotfix 手順そのまま) は po-decision gate を落とすが、
+ * 出力は `OK — 違反なし` で完全な pass と区別がつかなかった。
+ *
+ * 「発火しなかった gate だけ」を SKIPPED として出す形に変え、誤表示 (発火した gate まで
+ * SKIPPED に出す) の回帰も同時に固定する。
+ */
+describe('selectSkippedLabelGates / formatSkippedLabelGates — --labels でも未検査を可視化 (#3983)', () => {
+	it('[LB9] --labels "priority:critical,hotfix" で po-decision gate が SKIPPED に出る', () => {
+		const labels = ['priority:critical', 'hotfix'];
+		const out = formatSkippedLabelGates(labels, '--labels').join('\n');
+
+		expect(out).toContain('SKIPPED');
+		expect(out).toContain('--labels');
+		expect(out).toContain('PO 決裁ブリーフ');
+		expect(out).toContain(PO_DECISION_LABEL);
+		expect(out).toContain('label 条件付き gate 1 件');
+		// 発火した hotfix gate は「検査していない」ではないので出さない
+		expect(out).not.toContain('hotfix env 配布証跡');
+	});
+
+	it('[LB10] 発火した gate は SKIPPED に出ない — 誤表示の回帰', () => {
+		const labels = ['priority:critical', 'hotfix', PO_DECISION_LABEL];
+		expect(selectSkippedLabelGates(labels)).toEqual([]);
+		// 全 gate 発火なら SKIPPED 行そのものを出さない (空配列)
+		expect(formatSkippedLabelGates(labels, '--labels')).toEqual([]);
+	});
+
+	it('[LB11] label 0 件 (--no-labels) は全 gate が skip 対象になる特殊ケース', () => {
+		expect(selectSkippedLabelGates([])).toHaveLength(LABEL_CONDITIONAL_GATES.length);
+	});
+
+	it('[LB12] 大文字 / 前後空白の label でも発火判定される (skip 誤表示の回帰)', () => {
+		expect(selectSkippedLabelGates([' PO-Decision:Required '])).toEqual([
+			LABEL_CONDITIONAL_GATES[0],
+		]);
 	});
 });
 
