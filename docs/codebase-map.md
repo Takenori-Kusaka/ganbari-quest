@@ -157,7 +157,7 @@
 | ディレクトリ | 役割 |
 |---|---|
 | `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化)。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
-| `.claude/skills/` | タスク固有 Skills (14 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 22 カテゴリ checklist (§H 撤去系 残置参照 sweep #3930 含む)) |
+| `.claude/skills/` | タスク固有 Skills (19 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / `adversarial-reviewer` / `cognitive-walkthrough` / `competitive-research` / `policy-compliance` / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 22 カテゴリ checklist (§H 撤去系 残置参照 sweep #3930 含む)) / **`live-ui-verification`** (deploy 済み環境をブラウザで実機確認。**確認型** = 条件が事前に決まっているとき。snapshot の `href` で死んだ CTA を検出 / 本番 read-only 原則 / 未達の明示 / コード裏取り後に起票判断。3 skill 共通の作法 SSOT) / **`ui-defect-hunt`** (**探索型** = 未知の不具合を探す。本番 / LP / デモ横断、8 観点マトリクス = 構造導線・状態網羅・入力検証・レスポンシブ×5年齢モード・CWV・ネットワーク耐性・a11y・表示品質。既存 CI 資産と重複しない範囲のみ手で歩く) |
 | `.claude/settings.json` | 全体設定 (permissions / hooks / env) |
 | `.claude/worktrees/` | 並行 Agent 用 worktree 分離 dir (Agent tool `isolation: "worktree"` 必須) |
 
@@ -198,4 +198,6 @@
 | Issue 起票 | [docs/sessions/po-session.md](sessions/po-session.md) + `.claude/skills/issue-triage/SKILL.md` |
 | PR を出す | `.claude/skills/dev-open-pr/SKILL.md` + `npm run pre-ready -- --pr <num>` |
 | PR レビュー | [docs/sessions/qa-session.md](sessions/qa-session.md) + `.claude/skills/pr-review/SKILL.md` |
+| deploy 済み環境をブラウザで確認（条件が決まっている） | `.claude/skills/live-ui-verification/SKILL.md`（release 後の目視 / EPIC close 前 / 顧客報告の再現） |
+| 未知の不具合を探す（共同テスト / 総ざらい） | `.claude/skills/ui-defect-hunt/SKILL.md`（8 観点 × 本番・LP・デモ・5 年齢モード） |
 | ADR 起票 | [docs/decisions/README.md](decisions/README.md) (10 枠 + 1-in-1-out + OSS 先調査ルール) |
