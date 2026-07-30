@@ -81,11 +81,19 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 ### OSS 調査済み・不採用記録 (#1350 整合)
 
-調査したが採用しなかった OSS。同じ候補の再調査を繰り返さないためのインデックス。再評価トリガを満たした場合のみ再検討する。
+調査したが採用しなかった OSS の**薄いインデックス**。同じ候補の再調査ループを断つことが目的。再評価トリガを満たした場合のみ再検討する。
 
-| 領域 | 調査 OSS | 調査日 | 不採用根拠 | 再評価トリガ |
-|------|---------|-------|-----------|------------|
-| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0、YC S26) | 2026-07-29 | 実測ビルド済 (20,973 nodes / 39,750 edges / 2m13s / ローカル AST のみ・API キー不要、日本語 UTF-8 健全)。`god-nodes` は中核 (`ChildId` / `getRepos()` / `requireTenantId()`) を正しく検出するが、**`tree-sitter-svelte` 非対応で `.svelte` 238 files が全て `L1` ファイルレベル node のみ (479 nodes)** = UI 層が空白。SvelteKit の `+page.server.ts` / `+server.ts` 同名衝突で `explain` / `path` がルート層で識別不能。`query` は BFS が 434 nodes → 42 件 truncate されハブノイズ優位で狙った Grep 以下。`cites` (code→ADR 979 edge) は `git grep -ohE 'ADR-[0-9]{4}'` で代替可 (ADR 月1棚卸の現役参照判定はこれで足りる)。`affected` は import 逆引きで dependency-cruiser (ADR-0007 §7) + `impact-analysis` skill の layer 1-2 と重複し、同 skill が本来狙う派生 artifact 22 カテゴリ (testid / baseline / SS / 設計書参照 / CI config) は非カバー。運用面も `graph.json` 21.6MB (commit 不可 / 未 commit なら全員 2m13s 再ビルド + 陳腐化) + `graphify claude install` が CLAUDE.md 追記と **`Bash\|Grep` / `Read\|Glob` への PreToolUse hook** を仕込み、CLAUDE.md 階層 + `docs/codebase-map.md` の SSOT ナビを劣化 BFS に誘導するため侵襲的 | `tree-sitter-svelte` 対応が入る (本評価の決定要因) / v1.0.0 正式リリース時の Svelte・SvelteKit 対応状況 |
+| 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 詳細 |
+|------|---------|-------|------------|------------|------|
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-07-29 | `tree-sitter-svelte` 非対応で UI 層がグラフ上の空白、増分機能は既存資産と重複 | `tree-sitter-svelte` 対応が入る / v1.0.0 の Svelte・SvelteKit 対応状況 | [rationale](../rationale/16-graphify-evaluation-rationale.md) |
+
+**記録する基準**: 10 行超の独自実装 / 既存機構の置換候補として**実測評価した**もののみ。カタログを見て軽く外したものは記録しない (記録の価値 = 再調査コストの回避であり、再調査が安いものは対象外)。
+
+**書き方**: 本表は 1 行 = 1 候補のインデックスに保つ。実測値・棄却理由・確度 (実測か推測か) は `docs/rationale/` 側に置く (`docs/CLAUDE.md` §docs SSOT 原則「棄却案比較 → `docs/rationale/`」整合)。
+
+**削除トリガ**: (a) 再評価トリガを満たして再検討が完了した行 (採用したなら §OSS 採用記録 へ移し、再度不採用なら結論と調査日を更新する) / (b) 対象 OSS が廃止・アーカイブされた行。いずれも削除し、履歴は git で追跡する。
+
+**§ボリューム上限ルールとの関係**: 同ルールの削除主義が挙げる「採択されなかった調査」は、**再評価トリガが生きている間は役目を終えた record ではない**ため本表は削除対象外とする。上記削除トリガを満たした時点で通常の削除主義に戻る。
 
 ## ボリューム上限ルール（削除主義、#2440 PR-A5 改定）
 

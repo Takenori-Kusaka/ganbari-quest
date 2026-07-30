@@ -118,6 +118,7 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 | [11-branch-strategy-rationale.md](11-branch-strategy-rationale.md) | git ブランチ戦略 (develop 二層 + gate 二層、3 案比較) | 2026-06-04 | #2858 |
 | [12-auto-challenge-generation-rationale.md](12-auto-challenge-generation-rationale.md) | 自動生成週間チャレンジ アルゴリズム (child_challenges 一本化) | 2026-06-20 | #3194, #3213 |
 | [13-aurora-dsql-migration-evaluation-rationale.md](13-aurora-dsql-migration-evaluation-rationale.md) | Aurora DSQL 移管評価 (DB バックエンド一本化。superseded by EPIC #3424) | 2026-06-28 | #3424, #3461 |
+| [16-graphify-evaluation-rationale.md](16-graphify-evaluation-rationale.md) | Graphify (コードベース knowledge graph 化) 評価 — 不採用 + 再評価トリガ | 2026-07-29 | PR #4092, #1350 |
 
 ---
 
