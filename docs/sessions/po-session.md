@@ -99,7 +99,6 @@ gh issue list --search "preset 取込" --state all --limit 20
 #### 関連リソース
 
 - 詳細手順: [Skill: issue-triage](../../.claude/skills/issue-triage/SKILL.md) §「手順 F: 補佐設計品質ガード 6」
-- 監視 script: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）
 - 親 SSOT: AN-5 #2180（機能完成度 9 層 17 項目）
 
 ## タスク 4: 起票前 Deep Research 添付 (#2088 / #2089)

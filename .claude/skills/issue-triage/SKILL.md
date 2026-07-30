@@ -28,17 +28,17 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 > 本手順は起票時の事前検査であり、7 ステップとは独立した補助手順。Issue body draft が SSOT namespace を扱う場合のみ実行。
 
 Issue body draft 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、
-`src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を機械的に検査する。
+`src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を確認する。
 
 **起票事故の前例**: PR #2041 (#1898) / PR #2044 (#1896) で同名 `LP_FAQ_TERMS` を別 scope で
 2 回 export しようとして TypeScript duplicate identifier conflict が発生 (Issue #2061)。
 
 ```bash
-# Issue body を tmp/issue-bodies/<slug>.md に Write tool で保存した直後に実行
-node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md
+# 既存 namespace との衝突確認
+grep -n "XXX_TERMS\|XXX_LABELS" src/lib/domain/terms.ts src/lib/domain/labels.ts
 
-# open Issue も同時に検索 (gh CLI 認証済みが前提)
-node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md --check-open-issues
+# open Issue 側の先行起票確認
+gh issue list --state open --search "XXX_TERMS"
 ```
 
 衝突検出時の対応指針 (script 出力にも含まれる):
@@ -280,15 +280,6 @@ gh issue list --search "notification push" --state all --limit 20
 
 判断保留時のフォールバック: 「3 件目起票時に抽象化判断を保留した」を明記し、4 件目起票時に同判断を再実行。
 
-### 監視 script
-
-```bash
-node scripts/check-import-service-duplication.mjs
-# → src/lib/server/services/*-import-service.ts のうち 150 行超のものを列挙 (warning のみ)
-```
-
-CI 必須化ではなく awareness 用途。3 件目以降の検出時、本手順 F の MUST-DO 2 を実行する awareness を補佐に与える。
-
 ### 起票時の判定フロー
 
 1. 新規 EPIC 起票時 → MUST-DO 1（同領域 6 ヶ月確認）を必須実行
@@ -348,8 +339,8 @@ CI 必須化ではなく awareness 用途。3 件目以降の検出時、本手�
 ```bash
 # 1. 本文を Write tool または cat で tmp/issue-bodies/ に保存
 #    例: tmp/issue-bodies/cron-secret-rotation.md
-# 2. (#2061) SSOT namespace 重複検査 — body 内に XXX_LABELS / XXX_TERMS があれば実行
-node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md --check-open-issues
+# 2. (#2061) SSOT namespace 重複確認 — body 内に XXX_LABELS / XXX_TERMS があれば
+#    src/lib/domain/{terms,labels}.ts と open Issue を grep / gh issue list で確認
 # 3. 起票
 gh issue create --title "..." --label "..." --body-file tmp/issue-bodies/<slug>.md
 # 4. 起票成功を確認してから削除（古い draft が混ざらないように）

@@ -97,3 +97,32 @@ jobs:
               return;
             }
             core.setFailed(result.error || '❌ PR チェックリスト検証に失敗しました');
+
+  # ============================================================
+  # Job 2: PR body 検証 (#3973 / #4054 / #4107 / #4111 — 同一欠陥が 4 回起票された)
+  #   `scripts/check-pr-body.mjs` は pre-ready Step 9 と .husky/pre-push からしか
+  #   呼ばれておらず、**CI から実行する job が 1 本も存在しなかった**。どちらもローカル実行に
+  #   依存するため、pre-ready を回さず `--no-verify` で push すれば gate は 1 度も動かない。
+  #   本 job はその欠落を塞ぐ (label 付与は push の後なので pre-push では発火しない、という
+  #   #3973 の指摘もここで解消する — CI は label 確定後に走る)。
+  #
+  #   `--pr` を渡すことで body / label / Draft 状態 / mergeable を gh 実状態から取得する
+  #   (fail-closed。label 解決不能なら script が exit 2 で止まる)。
+  # ============================================================
+  pr-body-check:
+    name: PR body 検証 (必須セクション / AC 4 列 / 禁止語 / PO 決裁ブリーフ)
+    runs-on: ubuntu-latest
+    # dependabot / renovate は PR template を持たないため skip (Job 1 と同条件、挙動を揃える)。
+    if: "github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Run check-pr-body.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/check-pr-body.mjs --pr "${{ github.event.pull_request.number }}"

@@ -184,7 +184,6 @@ aws cloudwatch describe-alarms \
 | `tests/unit/cron/schedule-consistency.test.ts` | registry / CDK / dispatcher 整合性 |
 | `tests/unit/routes/cron-auth-3-endpoints.test.ts` | 認証共通テスト |
 | `tests/unit/services/cron-idempotency.test.ts` | idempotency テスト |
-| `scripts/check-cron-observability.mjs` | observability 静的検査 |
 
 ## §6. 関連 Issue / ADR
 
