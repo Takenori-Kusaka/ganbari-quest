@@ -76,8 +76,15 @@ vi.mock('$lib/server/stripe/alert', () => ({
 	notifyStripeAlert: (...args: unknown[]) => mockNotifyStripeAlert(...args),
 }));
 
+// #3981: 「Stripe API 障害」と「tenant 不在」がログ本文で区別できることを assert するため、
+// logger を spy 化して呼び出し引数を検査できるようにする。
+const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 vi.mock('$lib/server/logger', () => ({
-	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+	logger: {
+		info: (...args: unknown[]) => mockLogger.info(...args),
+		warn: (...args: unknown[]) => mockLogger.warn(...args),
+		error: (...args: unknown[]) => mockLogger.error(...args),
+	},
 }));
 
 vi.mock('$lib/server/services/discord-notify-service', () => ({
@@ -1005,6 +1012,195 @@ describe('handleWebhookEvent', () => {
 
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 		expect(mockNotifyStripeAlert).not.toHaveBeenCalled();
+	});
+
+	// ==========================================================
+	// #3980: subscription item が複数になった瞬間に先頭参照が壊れることを検知する
+	// ==========================================================
+
+	it('#3980 — subscription item が複数なら alert を上げる (plan 解決自体は先頭のまま)', async () => {
+		// add-on / 従量課金 item が 1 つ足された瞬間、`items.data[0]` が plan を表す item
+		// である保証は消える。挙動 (先頭参照) は変えず、前提が崩れたことだけを観測する。
+		const multiItemSubscription = {
+			id: 'sub_multi',
+			customer: 'cus_123',
+			status: 'active',
+			metadata: {},
+			items: {
+				data: [
+					{ price: { id: 'price_family_monthly_789', lookup_key: null } },
+					{ price: { id: 'price_addon_seat', lookup_key: null } },
+				],
+			},
+		};
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: { retrieve: vi.fn().mockResolvedValue(multiItemSubscription) },
+		});
+		// #4026: 契約状態の書き換えは「event 対象 = tenant の現行契約」でのみ適用されるため、
+		// 適用まで見る fixture は tenant 側にも同じ subscription が割り当たっている必要がある。
+		mockFindTenantByStripeCustomerId.mockResolvedValue(
+			makeSubscribedTenant({ stripeSubscriptionId: 'sub_multi', plan: 'monthly' }),
+		);
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent('sub_multi') as never);
+
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-subscription-multi-item',
+				tags: expect.objectContaining({ subscriptionId: 'sub_multi', itemCount: 2 }),
+			}),
+		);
+		// 壊れていない挙動は変えない: 先頭 item から plan は従来どおり解決される
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active', plan: 'family-monthly' }),
+		);
+	});
+
+	it('#3980 — subscription item が 1 件なら multi-item alert は飛ばない (誤発火の回帰)', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi.fn().mockResolvedValue(makeSubscription('price_family_monthly_789')),
+			},
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant({ plan: 'monthly' }));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-subscription-multi-item' }),
+		);
+	});
+
+	// ==========================================================
+	// #3981: context 解決失敗の 4 経路を分離する。
+	// 旧 bare `catch {}` はこれらをすべて `undefined` に潰しており、呼び出し側からは
+	// 一律「tenant not found」にしか見えなかった。
+	//   (1) Stripe API 障害   → alert (reason=stripe_api_error) + error ログ
+	//   (2) repo (DB) 障害    → alert (reason=repo_error)       + error ログ
+	//   (3) customer 参照なし → alert なし (payload の事実) + 専用 warn
+	//   (4) tenant 不在       → alert なし (正常な結果)     + 専用 warn
+	// 各 test は **本 PR が追加した固有のログ本文**を pin する。呼び出し側の既存 warn
+	// (`invoice.paid — tenant not found for subscription=`) でも満たせる緩い部分一致
+	// (例: `includes('tenant')`) にすると、新規コードを消しても PASS してしまう。
+	// ==========================================================
+
+	it('#3981 — subscriptions.retrieve が throw したら Stripe API 障害として alert + error ログを出す', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi.fn().mockRejectedValue(new Error('Stripe API connection error')),
+			},
+		});
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-context-unresolved',
+				// throttle key (= `path:errorSummary`) は reason 単位。subscriptionId を含めると
+				// 広域障害で subscription 数ぶん Discord に飛ぶため、集約されることを固定する。
+				errorSummary: 'context_unresolved:stripe_api_error',
+				tags: expect.objectContaining({ reason: 'stripe_api_error', subscriptionId: 'sub_123' }),
+			}),
+		);
+		// ログ本文で「API 障害」と判別できること (tenant 不在 / データストア障害と同じ文言に潰れない)
+		const errorLogs = mockLogger.error.mock.calls.map((c) => String(c[0]));
+		expect(
+			errorLogs.some(
+				(line) =>
+					line.includes('subscription context の解決に失敗しました (Stripe API 障害)') &&
+					line.includes('reason=stripe_api_error'),
+			),
+		).toBe(true);
+		// 取り違え防止: DB 側障害の label が混ざっていない
+		expect(errorLogs.some((line) => line.includes('データストア障害'))).toBe(false);
+		// 返り値の契約は不変: tenant 未解決なので DB 更新は起きない
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#3981 — tenant 逆引きが throw したらデータストア障害として区別して alert を上げる', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')),
+			},
+		});
+		mockFindTenantByStripeCustomerId.mockRejectedValue(new Error('DSQL connection refused'));
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: 'stripe-context-unresolved',
+				tags: expect.objectContaining({ reason: 'repo_error' }),
+			}),
+		);
+		// #3981 AC3 の両側: tags だけでなく **ログ本文でも** DB 側障害と判別できること。
+		// label 引数を 'Stripe API 障害' に取り違えたら落ちる。
+		const errorLogs = mockLogger.error.mock.calls.map((c) => String(c[0]));
+		expect(
+			errorLogs.some(
+				(line) =>
+					line.includes('subscription context の解決に失敗しました (データストア障害)') &&
+					line.includes('reason=repo_error'),
+			),
+		).toBe(true);
+		expect(errorLogs.some((line) => line.includes('Stripe API 障害'))).toBe(false);
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#3981 — subscription に customer 参照が無ければ alert は飛ばず専用 warn に留まる', async () => {
+		// Stripe の payload としてはあり得る形 (deleted customer 等)。障害ではないので
+		// alert を鳴らさないが、tenant 不在とは別の事実なので専用 warn で区別する。
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue({ ...makeSubscription('price_monthly_123'), customer: null }),
+			},
+		});
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-context-unresolved' }),
+		);
+		// customer 逆引き自体に到達しない (customer が無いので repo を呼ばない)
+		expect(mockFindTenantByStripeCustomerId).not.toHaveBeenCalled();
+		const warnLogs = mockLogger.warn.mock.calls.map((c) => String(c[0]));
+		expect(
+			warnLogs.some((line) =>
+				line.includes('subscription に customer 参照がありません: subscription=sub_123'),
+			),
+		).toBe(true);
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#3981 — tenant が本当に不在なだけなら alert は飛ばず warn に留まる (誤発火の回帰)', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi.fn().mockResolvedValue(makeSubscription('price_monthly_123')),
+			},
+		});
+		mockFindTenantByStripeCustomerId.mockResolvedValue(undefined);
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-context-unresolved' }),
+		);
+		// 本 PR が `resolveSubscriptionContext` に追加した warn **だけ**を pin する。
+		// `includes('tenant')` では呼び出し側の既存 warn
+		// (`invoice.paid — tenant not found for subscription=`) でも真になり、
+		// 新規 warn を消しても PASS してしまう (mutation 生存)。
+		const warnLogs = mockLogger.warn.mock.calls.map((c) => String(c[0]));
+		expect(
+			warnLogs.some(
+				(line) =>
+					line.includes('customer に対応する tenant が見つかりません (tenant 不在)') &&
+					line.includes('customer=cus_123'),
+			),
+		).toBe(true);
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 	});
 
 	it('未対応のイベント型 → エラーなし', async () => {

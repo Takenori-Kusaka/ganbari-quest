@@ -44,7 +44,13 @@ export type StripeAlertKind =
 	// #3985: webhook handler が失敗した。dedup 台帳には残さず Stripe の再送に載せるため
 	// (phase5-webhook-idempotency-architecture.md §4.2)、再送が 3 日で尽きる前に
 	// 人が気づける導線として初回失敗の時点で alert する。
-	| 'stripe-webhook-handler-failed';
+	| 'stripe-webhook-handler-failed'
+	// #3980: subscription item が 2 件以上になった。plan 解決が前提にしている
+	// 「item は常に 1 件」が崩れた瞬間を検知する (先頭参照そのものは維持)。
+	| 'stripe-subscription-multi-item'
+	// #3981: subscription から tenant を解決する経路が **障害で** 落ちた。
+	// 「tenant が本当に不在」とは区別する (不在は warn のみで alert しない)。
+	| 'stripe-context-unresolved';
 
 export interface StripeAlertOptions {
 	/** alert 種別 (Phase 6 子 5 §6 SSOT 3 種) */
