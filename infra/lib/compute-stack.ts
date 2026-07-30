@@ -120,6 +120,24 @@ export class ComputeStack extends cdk.Stack {
 		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
 		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
+
+		// 逆方向 (本番に test key が入る) の allowlist (#4104 PO 指摘 2026-07-31)。
+		// staging に live が入る事故は「live webhook secret を入れる」+「Stripe を live mode に切り替えて
+		// staging の endpoint を登録する」の二重の誤操作を要し、単体では副作用が起きない。
+		// これに対し **本番に test key が入る事故は単体で成立し、しかも無通知**である —
+		// 顧客の決済がすべて test mode に流れ、顧客は払ったつもりで実際には 1 円も入らない
+		// (2026-07-26 の webhook 未達と同じ「誰も気づかないまま課金が成立しない」型)。
+		// 実害が大きいのはこちらのため、prod 側も同じ allowlist 形で止める。
+		// denylist (`sk_test_` を弾く) にしないのは staging 側と同じ理由で、将来 Stripe が prefix を
+		// 増やしたときに黙って通るため。既知の live prefix 以外を落とす。
+		if (stripeSecretKey && !/^(sk|rk)_live_/.test(stripeSecretKey)) {
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] stripeSecretKey が live mode の key ではありません (#4104)。' +
+					'本番には `sk_live_` / `rk_live_` で始まる key のみ配備できます。' +
+					'test key を本番に配備すると顧客の決済が test mode に流れ、' +
+					'決済成功に見えたまま入金されない状態が無通知で成立するため synth を停止します。',
+			);
+		}
 		// #2719 (Phase 7 PR-3b prerequisite): yearly 4 種 + legacy `stripePriceMonthly` /
 		// `stripePriceYearly` は物理削除済。monthly 2 種のみ Lambda env に inject する。
 		// 過去 yearly 契約者の MRR 表示は `stripe-metrics-service.ts` の `HISTORICAL_YEARLY_AMOUNTS`
