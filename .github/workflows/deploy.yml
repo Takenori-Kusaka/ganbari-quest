@@ -106,6 +106,17 @@ jobs:
             echo "::error::$missing required secret(s) missing — aborting deploy (#1586)"
             exit 1
           fi
+          # #4104: 本番に test key が入る事故は単体で成立し、しかも無通知で成立する
+          # (顧客の決済がすべて test mode に流れ、決済成功に見えたまま入金されない)。
+          # staging の逆方向と対称に allowlist で止める。denylist (sk_test_ を弾く) だと
+          # 将来 Stripe が prefix を増やしたとき黙って通るため、既知の live prefix 以外を落とす。
+          case "$STRIPE_SECRET_KEY" in
+            sk_live_*|rk_live_*)
+              echo "::notice::STRIPE_SECRET_KEY is a live mode key" ;;
+            *)
+              echo "::error::STRIPE_SECRET_KEY is NOT a live mode key (must start with sk_live_ / rk_live_). 本番に test key は配備できません (#4104)"
+              exit 1 ;;
+          esac
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3

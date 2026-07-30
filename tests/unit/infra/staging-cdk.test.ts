@@ -97,6 +97,37 @@ function buildStagingStacks(extraContext: Record<string, string> = {}): {
 	return { storage, auth, compute };
 }
 
+/**
+ * prod (envConfig 未指定 = 本番) の ComputeStack を任意 context で synth する。
+ * S-5 (#4104 逆方向 allowlist) 用。
+ */
+function buildProdCompute(extraContext: Record<string, string> = {}): ComputeStack {
+	const app = new cdk.App({
+		context: {
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/user-pool-id:region=us-east-1':
+				'us-east-1_TESTPOOL',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/client-id:region=us-east-1':
+				'test-client-id',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/domain:region=us-east-1':
+				'auth.ganbari-quest.com',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
+				'test-context-token-secret',
+			// prod stack は cron-dispatcher を持つため #1586 fail-close で必須
+			opsSecretKey: 'test-ops-secret-key',
+			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			...extraContext,
+		},
+	});
+	const storage = new StorageStack(app, 'TestStorageProdKeyGuard', { env });
+	return new ComputeStack(app, 'TestComputeProdKeyGuard', {
+		env,
+		assetsBucket: storage.assetsBucket,
+		repository: storage.repository,
+	});
+}
+
 let prodStorage: Template;
 let prodAuth: Template;
 let prodCompute: Template;
@@ -572,6 +603,45 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			// #2716 PR-3b cutover)。staging 側の分岐とは別経路であることを固定する
 			// (staging context を渡しても prod の値は prod の既定のまま)。
 			expect(prodEnv.USE_LOOKUP_KEY).toBe('true');
+		});
+	});
+
+	describe('S-5: 逆方向 — 本番に test key が入るのを止める (#4104 PO 指摘 2026-07-31)', () => {
+		// staging に live が入る事故は二重の誤操作を要し単体では副作用が起きないのに対し、
+		// 本番に test key が入る事故は単体で成立し、しかも無通知で成立する
+		// (顧客の決済がすべて test mode に流れ、決済成功に見えたまま入金されない)。
+		// 実害が大きいのは逆方向のため、prod 側にも同じ allowlist 形の gate を置く。
+		const dummyKey = (prefix: string) => `${prefix}_${'0'.repeat(28)}`;
+
+		it.each([
+			[dummyKey('sk_test'), 'test secret key (ダミー)'],
+			[dummyKey('rk_test'), 'test restricted key (ダミー)'],
+			[dummyKey('pk_live'), 'publishable key (secret ではない)'],
+			['not-a-stripe-key', '未知の形式'],
+		])('本番に非 live prefix (%s) を渡すと synth を停止する: %s', (key) => {
+			const compute = buildProdCompute({ stripeSecretKey: key });
+			Annotations.fromStack(compute as unknown as cdk.Stack).hasError(
+				'*',
+				Match.stringLikeRegexp('live mode の key ではありません'),
+			);
+		});
+
+		it('live prefix の key は synth を通す', () => {
+			const compute = buildProdCompute({ stripeSecretKey: dummyKey('sk_live') });
+			const errors = Annotations.fromStack(compute as unknown as cdk.Stack).findError(
+				'*',
+				Match.anyValue(),
+			);
+			expect(errors).toHaveLength(0);
+		});
+
+		it('stripeSecretKey 未指定 (local synth / staging deploy) は素通しする', () => {
+			const compute = buildProdCompute();
+			const errors = Annotations.fromStack(compute as unknown as cdk.Stack).findError(
+				'*',
+				Match.anyValue(),
+			);
+			expect(errors).toHaveLength(0);
 		});
 	});
 });
