@@ -37,7 +37,9 @@ Tier 2: Per-PR Review Agent（独立 ctx、5 手順全実行）
 
 **2 層化の理由**: 1 セッション複数 PR 処理は context 肥大化で手順省略・判断ブレ発生（PR 末尾で初期手順に戻れない）。各 PR 独立 Agent で新鮮 ctx 維持。
 
-**並行セッション前提**: QM のセッションも Dev / PO / 監査と同一マシンで並走する。手順 4 (CI 確認) の一部やローカル再現で重い検証を回すときは、**hook が機械的に排他**しており他セッションが実行中なら exit 2 で止まる。止められたら待たず、CI の結果を正として判定できないかを先に検討する。QM 自身の検証コマンドが並走下で出した red は、それ単独では BLOCK の根拠にならない → **[agent-concurrency.md](agent-concurrency.md)**。
+**並行セッション前提**: QM のセッションも Dev / PO / 監査と同一マシンで並走する。手順 4 (CI 確認) の一部やローカル再現で**重い検証** (vitest / pre-ready / playwright / svelte-check) を回すときは、**heavy lock が機械的に排他**しており他セッションが実行中なら exit 2 で止まる。止められたら待たず、CI の結果を正として判定できないかを先に検討する。QM 自身の検証コマンドが並走下で出した red は、それ単独では BLOCK の根拠にならない → **[agent-concurrency.md](agent-concurrency.md)**。
+
+> **`git push` は排他されない (2026-07-30)**: branch 単位の task lock は #4076 で撤去した (#4094 は PO 判断で棄却)。残るのは heavy lock のみで、push が他セッションの作業を理由に止まることはない。
 
 ## Tier 1: Orchestrator 4 ステップ
 
@@ -265,6 +267,20 @@ PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可。
 **approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qa-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
 
 **hotfix merge 後の back-merge（branch-strategy.md §5）**: hotfix を main に merge したら、同一 run 内で develop への back-merge PR（または fast-forward 可能なら直接 merge）を Fix Agent で実施し、main / develop の drift を残さない。back-merge 完了までを hotfix 処理の Done 条件とする。
+
+#### BLOCK 基準 — 3 類型のみ (2026-07-30)
+
+BLOCK してよいのは次の 3 類型に該当する場合に限る。該当しないものは **approve + follow-up** に降格する。
+
+| # | 類型 | 例 |
+|---|---|---|
+| ① | **顧客に実害がある** | データ不整合 / 課金の誤り / 認可の穴 / 日付境界のずれ / 画面が使えない |
+| ② | **証跡の真正性を弱める** | PR body の主張が HEAD に存在しない / SS の Before-After 偽装 / 実行していない検証を実行したと書く |
+| ③ | **不可逆** | 本番データ・課金・削除・DB スキーマに触れ、戻せない |
+
+- **② は当初「gate を弱める」だった。これを改める** — **gate の削除・warn 降格は PO 承認事項であり、QA の BLOCK 事由にしない**。gate を減らす PR は「PO 承認があるか」だけを確認し、承認があれば内容の是非で BLOCK しない
+- **記録の不整合 (body の書式 / チェックボックス / 表の体裁) は BLOCK しない** → approve + follow-up に降格する。**降格の条件は「独立に実 diff を確認し、実害がないと確認できた場合のみ」**。確認せずに降格しない
+- **follow-up は PR コメント止まりにし、Issue 化しない**。Issue 化するのは「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ (装置起因の指摘は Issue にしない)
 
 #### BLOCK → 指摘コメント
 
