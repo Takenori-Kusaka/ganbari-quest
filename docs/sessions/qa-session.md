@@ -6,6 +6,23 @@
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（develop 二層 + gate 二層。QM のレビュー対象・gate 範囲は §「レビュー対象レーン」参照）
 
+## セッション起動時の必須手順: mailbox cron を作る
+
+**SSOT**: [label-mailbox.md](label-mailbox.md)
+
+各ロールは別クローン・別セッションで動き、セッション間の直接通信手段は無い。**セッション起動直後に自分の mailbox を polling する cron を 1 本作る**（`gh pr list` の手動実行を待たない）。
+
+```
+CronCreate(cron: "23 * * * *", recurring: true, prompt: <label-mailbox.md §4「QM セッション用」テンプレート>)
+```
+
+QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。
+
+- **報告は「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。** 「BLOCK 3 類型に非該当」は CI 緑を含意しない（結論を先に置いたため PO が merge 可と誤読した実例あり、2026-07-31）
+- **`state:ready-to-merge` でも `gh pr checks` で緑を確認してから merge する。** 赤を跨いだ merge は理由が正当でも外形が admin bypass と区別できない
+- **approve の依頼は label でなく reviewer request**（`gh pr edit <N> --add-reviewer`）。gate 修理 PR を QM の Fix Agent が作った場合、approve は Dev（ADR-0022 作成者 ≠ 承認者、例外運用は label-mailbox.md §3.2）
+- **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
+
 ## レビュー対象レーン（git flow 二層、#2858）
 
 QM は PR の **base branch でレーンを判別**し、レーンごとに gate 範囲を変える。

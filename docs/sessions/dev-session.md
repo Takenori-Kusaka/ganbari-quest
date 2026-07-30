@@ -8,6 +8,25 @@
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
+## セッション起動時の必須手順: mailbox cron を作る
+
+**SSOT**: [label-mailbox.md](label-mailbox.md)
+
+各ロールは別クローン・別セッションで動き、セッション間の直接通信手段は無い。オーナーの手動中継を待たずに自分の仕事を拾うため、**セッション起動直後に mailbox を polling する cron を 1 本作る**。
+
+```
+CronCreate(cron: "13 * * * *", recurring: true, prompt: <label-mailbox.md §4「Dev セッション用」テンプレート>)
+```
+
+Dev が拾うのは **`state:qm-blocked`**（QM からの差し戻し）と **自分に来た reviewer request**（`review-requested:@me`）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
+
+- **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
+- **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
+- **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**
+- **`state:needs-owner` は自分で進めない。** 不可逆 4 操作（削除 = gate / guard / test の削除を含む / 本番 deploy / 課金書込 / スキーマ変更）に気づいたら、Dev からでも label を付けてオーナーへ上げる
+- **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込み、そうでなければ拾ったことだけ報告して主線に戻る
+- **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
+
 ## セッション設計原則
 
 ### 並行セッション前提（CRITICAL）
