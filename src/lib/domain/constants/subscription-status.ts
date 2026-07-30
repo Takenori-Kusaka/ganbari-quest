@@ -6,6 +6,7 @@
 //   active → grace_period (支払い失敗の猶予期間)
 //          → suspended (猶予期間経過で機能停止 / 解約確定)
 //   cancel_at_period_end で suspended に移行する経路もある
+//   terminated (退会済) への遷移は本図に無い — 現在は書き手が存在せず legacy 行としてのみ残りうる (#3987)
 
 export const SUBSCRIPTION_STATUS = {
 	/** 購読中 (Stripe subscription active) */

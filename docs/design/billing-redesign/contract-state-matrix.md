@@ -56,7 +56,7 @@
 | **S1** | 未課金 | `active` | なし | なし | なし | サインアップ直後 / トライアル | `none` | trial 中は `trialTier`、外なら `free` | 対象外 |
 | **S2** | 課金中 | `active` | あり | あり | なし | 正常な有料契約 | `active` | `plan` に応じ `standard` / `family` | **課金ユーザー** |
 | **S3** | 支払い失敗猶予 | `grace_period` | あり | あり | あり（猶予終了日） | dunning 中。**有料機能は維持されるべき** | `active` | `standard` / `family` | 課金ユーザー |
-| **S4** | 停止 | `suspended` | あり | あり | 任意 | Stripe が `unpaid` / `incomplete_expired` 等 | `suspended` | `free`（trial 判定へ落ちる） | 対象外 |
+| **S4** | 停止 | `suspended` | あり | あり | 任意 | Stripe が `unpaid` / `paused` / `incomplete` 等（`canceled` / `incomplete_expired` は終端なので S5 へ落ちる） | `suspended` | `free`（trial 判定へ落ちる） | 対象外 |
 | **S5** | 契約終了 | `suspended` | なし | なし | なし | 解約が確定し subscription 割り当てが解けた状態 | `none` | `free` | 対象外 |
 | **S6** | 退会済 | `terminated` | 任意 | 任意 | 任意 | 退会（アカウント削除）が確定した印。**通常運用では観測されない**（下記） | `none` | `free` | チャーン（legacy 行のみ） |
 
@@ -99,7 +99,12 @@ S4 (suspended + sub あり) → チャーンではない（復帰しうる）
 
 KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-metrics`）は本関数を経由する。直接比較は `tests/unit/architecture/churn-status-predicate-ssot.test.ts` が禁止する。
 
-**既知の残課題**: 退会（アカウント削除）は行ごと消えるため、`families` を集計する限り KPI から観測できない。解約（S5）は数えられるが、退会は数えられない。観測するには削除前の事実を別テーブルに残す必要があり、本表の 4 列の範囲では解けない。
+**過去分の扱い（バックフィル不要）**: S5 の 4 列は `handleSubscriptionDeleted` が以前から書いていた（`clearSubscriptionAssignment()` が `sub=NULL` / `plan=NULL` / `status=suspended` を書いていた。#4026 で `TERMINAL_CONTRACT_STATE` に集約された際も同じ 4 列）。よって**過去に解約した行も既に S5 の形で残っており、`updated_at` も解約時刻を保持している**。`isChurnedContract` は過去分も遡って数えるため、データ移行やバックフィルは不要。
+
+**既知の残課題**:
+
+- 退会（アカウント削除）は行ごと消えるため、`families` を集計する限り KPI から観測できない。解約（S5）は数えられるが、退会は数えられない。観測するには削除前の事実を別テーブルに残す必要があり、本表の 4 列の範囲では解けない。
+- 「当月チャーン」の時刻軸が `families.updated_at` 依存。`families` 行は解約以外の理由でも更新されるため、**過去に解約したテナントが当月チャーンとして再計上されうる**。解約時刻を保持する列（`cancelled_at` 相当）が無い限り構造的に解けない。同様に `ops-analytics` の cohort は分母が無料含む全テナント・分子が有料解約で母集団が揃っていない。
 
 ---
 

@@ -103,11 +103,16 @@
    - URL: `https://ganbari-quest.com/api/stripe/webhook`
    - 説明: がんばりクエスト本番Webhook
    - 受信するイベント（以下の5つを選択）:
+
+     <!-- webhook-subscribed-events:start -->
      - `checkout.session.completed`
      - `invoice.paid`
      - `invoice.payment_failed`
      - `customer.subscription.deleted`
      - `customer.subscription.updated`
+     <!-- webhook-subscribed-events:end -->
+
+     > この一覧は実装の `dispatchWebhookEvent` の `case` と 1:1 対応する。`tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` が突合するため、handler 追加と同一 PR でのみ増減する（#3990）。
 3. 作成後、**Webhook 署名シークレット**（`whsec_xxxxxxxxxxxxx` 形式）をメモ
 
 > **テスト環境用も同様に作成**:
