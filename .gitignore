@@ -131,3 +131,6 @@ docs/pr-assets/
 
 
 
+
+# autopilot orchestrator の state / ログ (#4112)
+scripts/.autopilot/
