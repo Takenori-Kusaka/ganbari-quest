@@ -609,6 +609,36 @@ export async function reconcileCheckoutSession(input: {
 		return { status: 'already_applied' };
 	}
 
+	// #4081: `handleCheckoutCompleted` (assign-contract) は「checkout.session.completed は
+	// 購入時に 1 回だけ配信される」前提で突合を行わない。reconcileCheckoutSession はこの前提を
+	// 「顧客が success_url を何度でも再訪できる経路」に接続しているため、以下の replay で
+	// 二重課金が成立し得る:
+	//   - 解約済みテナント (stripeSubscriptionId=null) が古い session_id を再訪 → 契約が復活する
+	//   - 再購読済みテナント (stripeSubscriptionId=sub_new) が古い session_id を再訪 →
+	//     現行契約が古い subscription で上書きされ、`createCheckoutSession()` の
+	//     ALREADY_SUBSCRIBED ガードが外れて二重課金の温床になる
+	// session が指す subscription を Stripe から re-retrieve し、終端状態
+	// (canceled / incomplete_expired、#3982 `isSubscriptionTerminal` と同一基準) なら
+	// handleCheckoutCompleted に合流させない。
+	if (subscriptionId) {
+		let subscription: Stripe.Subscription;
+		try {
+			subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
+		} catch (err) {
+			logger.warn(`[STRIPE] reconcile: subscription retrieve failed tenant=${tenantId}`, {
+				error: String(err),
+			});
+			return { status: 'not_found' };
+		}
+		if (isSubscriptionTerminal(subscription)) {
+			logger.warn(
+				`[STRIPE] reconcile: subscription が終端状態 (${subscription.status}) のため反映しません: ` +
+					`tenant=${tenantId} subscription=${subscriptionId}`,
+			);
+			return { status: 'not_found' };
+		}
+	}
+
 	await handleCheckoutCompleted(session);
 	// hooks.server.ts が解決済みの entitlement / planTier は本 request 内で古くなる。
 	// 破棄しないと「反映したのに画面は無料プランのまま」という本 Issue の症状が残る。

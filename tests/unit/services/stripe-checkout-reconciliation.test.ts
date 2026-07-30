@@ -113,6 +113,7 @@ function makePaidSession(overrides: Record<string, unknown> = {}) {
 }
 
 const mockSessionRetrieve = vi.fn();
+const mockSubscriptionsRetrieve = vi.fn();
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -120,8 +121,13 @@ beforeEach(() => {
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
 	mockSessionRetrieve.mockResolvedValue(makePaidSession());
+	// #4081: reconcileCheckoutSession は session.subscription を Stripe から再 retrieve して
+	// 終端状態 (canceled / incomplete_expired) でないかを確認する。既定は「生きている」
+	// subscription を返し、既存の正常系 (AC1〜AC4) が壊れないようにする。
+	mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_new', status: 'active' });
 	mockGetStripeClient.mockReturnValue({
 		checkout: { sessions: { retrieve: mockSessionRetrieve } },
+		subscriptions: { retrieve: mockSubscriptionsRetrieve },
 	});
 });
 
@@ -325,5 +331,95 @@ describe('reconcileCheckoutSession — フォールバック (AC4)', () => {
 
 		expect(result.status).toBe('not_found');
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+});
+
+// ==========================================================
+// AC5 (#4081): 古い success_url の replay で二重課金が成立しない
+// ==========================================================
+//
+// `assign-contract` (handleCheckoutCompleted の書き込みモード) は「checkout.session.completed は
+// 購入時に 1 回だけ配信される」前提で突合を行わない。reconcileCheckoutSession はこの前提を
+// 「顧客が何度でも叩ける経路」に接続しているため、解約後に古い session_id を再訪すると
+// - 解約済みテナント (stripeSubscriptionId=null) に古い subscription が復活する
+// - 再購読済みテナント (stripeSubscriptionId=sub_new) の現行契約が古い subscription で
+//   上書きされ、`createCheckoutSession()` の ALREADY_SUBSCRIBED ガードが外れて二重課金が成立し得る
+//
+// 対策: session.subscription を Stripe から re-retrieve し、終端状態 (canceled /
+// incomplete_expired) なら handleCheckoutCompleted に合流させない。
+
+describe('reconcileCheckoutSession — 二重課金ガード (AC5、#4081)', () => {
+	it('解約済みテナントが古い session_id (canceled subscription) を再訪しても契約は復活しない', async () => {
+		// 解約済み = stripeSubscriptionId は null (TERMINAL_CONTRACT_STATE)
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: null, plan: null, status: 'suspended' }),
+		);
+		// 古い success_url が指す session の subscription は Stripe 上では既に解約済み
+		mockSessionRetrieve.mockResolvedValue(makePaidSession({ subscription: 'sub_old' }));
+		mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_old', status: 'canceled' });
+
+		const result = await reconcileCheckoutSession({
+			tenantId: TENANT_ID,
+			sessionId: SESSION_ID,
+		});
+
+		expect(result.status).not.toBe('applied');
+		expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith('sub_old');
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('再購読済みテナントの現行 subscription が、古い session の canceled subscription で上書きされない', async () => {
+		// 解約 → 再購読済み。現行契約は sub_new
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'monthly', status: 'active' }),
+		);
+		// ブックマーク / 履歴から古い (解約済み) checkout session を再訪
+		mockSessionRetrieve.mockResolvedValue(makePaidSession({ subscription: 'sub_old' }));
+		mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_old', status: 'canceled' });
+
+		const result = await reconcileCheckoutSession({
+			tenantId: TENANT_ID,
+			sessionId: SESSION_ID,
+		});
+
+		expect(result.status).not.toBe('applied');
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('incomplete_expired の subscription も終端として扱い、反映しない', async () => {
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: null, plan: null, status: 'suspended' }),
+		);
+		mockSessionRetrieve.mockResolvedValue(makePaidSession({ subscription: 'sub_old' }));
+		mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_old', status: 'incomplete_expired' });
+
+		const result = await reconcileCheckoutSession({
+			tenantId: TENANT_ID,
+			sessionId: SESSION_ID,
+		});
+
+		expect(result.status).not.toBe('applied');
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('正常系 (回帰): 初回購入で subscription が生きていれば従来通り反映される', async () => {
+		// tenant は未契約、session の subscription (sub_new) は Stripe 上でも active
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: null, plan: 'free', status: 'active' }),
+		);
+		mockSessionRetrieve.mockResolvedValue(makePaidSession({ subscription: 'sub_new' }));
+		mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_new', status: 'active' });
+
+		const result = await reconcileCheckoutSession({
+			tenantId: TENANT_ID,
+			sessionId: SESSION_ID,
+		});
+
+		expect(result.status).toBe('applied');
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			TENANT_ID,
+			expect.objectContaining({ stripeSubscriptionId: 'sub_new', status: 'active' }),
+		);
 	});
 });
