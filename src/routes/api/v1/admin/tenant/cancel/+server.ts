@@ -1,19 +1,20 @@
 // src/routes/api/v1/admin/tenant/cancel/+server.ts
-// 解約申請（grace_period 開始）— owner 限定
+// 解約申請（期末解約の予約）— owner 限定
 //
-// #784: Stripe Subscription を即時キャンセルしてから grace_period に遷移する。
-// 旧実装は DB のテナント状態だけを更新しており、Stripe 側の課金が継続する
-// クリティカルバグ（チャージバック・Stripe アカウントリスク）があった。
+// #3991 (FR-1 / NFR-2、PO 確定 2026-05-27 の未実装分):
+// 解約は **期末解約** (`cancel_at_period_end=true`) で予約する。支払済の請求期間が終わるまでは
+// 有料機能をそのまま使え、その間はいつでも取り消せる。
 //
-// 設計: 解約時は Stripe を即時キャンセル（cancel_at_period_end=false）し、
-// データは 30 日間の grace_period で保持する。これにより：
-//   - 課金は即座に停止（本 issue の主目的）
-//   - ユーザーは 30 日間のデータ保持期間中に気が変わればアカウント削除を撤回できる
-//   - ただし解約キャンセル（reactivate）後の再購読は Stripe Checkout を再度通す
-//     必要がある。reactivate 側でガードを設けている。
+// 旧実装 (#784) は `stripe.subscriptions.cancel()` の即時キャンセル + DB を
+// `status=grace_period` / `planExpiresAt=now+30d` に書き換える形だった。これには 3 つの欠陥があった:
+//   1. 即時キャンセルの直後に `customer.subscription.deleted` が届き、書いたばかりの
+//      `grace_period` を `suspended` へ上書きするため、**約束した取り消し導線が 1 度も機能しない**
+//   2. 特商法表示「解約後は現在の請求期間終了まで引き続きご利用いただけます」と実装が不一致
+//   3. `GRACE_PERIOD_DAYS = 30` のプラン非依存固定が、利用規約のプラン別猶予 (standard 7 日) とも不一致
 //
-// 因果順序: Stripe cancel → DB 更新。Stripe 呼び出しが失敗した場合は例外を投げ、
-// DB 更新をスキップさせる（#741 のアカウント削除と同じパターン）。
+// 案 A ではこの 3 つがまとめて消える。**このエンドポイントは DB の契約状態を一切書かない**。
+// 「解約申請中か」の SSOT は Stripe の `cancel_at_period_end` であり (NFR-2)、期末到来時に
+// Stripe が発火する `customer.subscription.deleted` が終端状態への収束を担う。
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
@@ -22,12 +23,12 @@ import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { invalidateRequestCaches } from '$lib/server/request-context';
 import { notifyCancellation } from '$lib/server/services/discord-notify-service';
 import { sendCancellationEmail } from '$lib/server/services/email-service';
-import { cancelSubscription } from '$lib/server/services/stripe-service';
-
-const GRACE_PERIOD_DAYS = 30;
+import {
+	type ScheduleCancellationResult,
+	scheduleCancellationAtPeriodEnd,
+} from '$lib/server/services/stripe-service';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	const context = locals.context;
@@ -51,57 +52,52 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ error: 'テナントが見つかりません' }, { status: 404 });
 	}
 
-	if (tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
-		return json({ error: '既に解約手続き中です' }, { status: 409 });
-	}
+	// #3991: `grace_period` (= 支払い失敗の dunning 猶予) は解約を妨げない。支払いが通らない
+	// テナントこそ解約したいのであり、旧実装の `grace_period → 409` は解約軸と dunning 軸の
+	// 混同から来ていた。解約済みかどうかの判定は Stripe (`already_scheduled`) に委ねる。
 	if (tenant.status === SUBSCRIPTION_STATUS.TERMINATED) {
 		return json({ error: 'アカウントは既に削除済みです' }, { status: 409 });
 	}
 
-	// #784: Stripe Subscription を即時キャンセル（DB 更新より前に実行）
-	// 失敗した場合は 500 で返し、DB 状態は変更しない（課金継続防止）
-	let stripeCancelResult: Awaited<ReturnType<typeof cancelSubscription>>;
+	// Stripe 呼び出しが失敗した場合は 500。DB は元から書かないので整合性の問題は起きない。
+	let result: ScheduleCancellationResult;
 	try {
-		stripeCancelResult = await cancelSubscription(tenantId);
+		result = await scheduleCancellationAtPeriodEnd(tenantId);
 	} catch (err) {
-		logger.error('[tenant] 解約申請: Stripe キャンセル失敗', {
+		logger.error('[tenant] 解約申請: Stripe 期末解約の予約に失敗', {
 			context: { tenantId, error: String(err) },
 		});
-		// 50x で返すことで、フロントエンドが「解約申請に失敗しました」を表示し
-		// 再試行を促す。DB は未更新なので整合性は保たれる。
 		throw error(500, '決済サービスとの通信に失敗しました。時間をおいて再度お試しください。');
 	}
 
-	// 猶予期間終了日を計算
-	const graceEnd = new Date();
-	graceEnd.setDate(graceEnd.getDate() + GRACE_PERIOD_DAYS);
-	const graceEndAt = graceEnd.toISOString();
+	if (result.status === 'not_subscribed') {
+		return json({ error: '有料プランを契約していません' }, { status: 409 });
+	}
+	if (result.status === 'already_scheduled') {
+		return json({ error: '既に解約手続き中です' }, { status: 409 });
+	}
 
-	await repos.auth.updateTenantStripe(tenantId, {
-		status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
-		planExpiresAt: graceEndAt,
-	});
-
-	// #3963: 課金状態はリクエスト単位でキャッシュしているため、書き込み直後に破棄する。
-	// 次リクエスト以降は DB から再解決されるので、権限剥奪が即座に効く。
-	invalidateRequestCaches(tenantId);
+	const periodEndAt = result.state.currentPeriodEnd;
+	// #4015 整合: サーバの TZ に依存させず JST 固定で整形する (メール文面と Discord 通知に載る)。
+	const periodEndDate = periodEndAt
+		? new Date(periodEndAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
+		: '';
 
 	// 通知（非同期、エラーは握りつぶす）
-	const graceEndDate = graceEnd.toLocaleDateString('ja-JP');
 	const ownerEmail = locals.identity?.type === 'cognito' ? locals.identity.email : undefined;
 	if (ownerEmail) {
-		sendCancellationEmail(ownerEmail, graceEndDate).catch(() => {});
+		sendCancellationEmail(ownerEmail, periodEndDate).catch(() => {});
 	}
-	notifyCancellation(tenantId, graceEndDate).catch(() => {});
+	notifyCancellation(tenantId, periodEndDate).catch(() => {});
 
-	logger.info('[tenant] 解約申請', {
-		context: { tenantId, graceEndAt, stripeResult: stripeCancelResult.status },
+	logger.info('[tenant] 解約申請 (期末解約を予約)', {
+		context: { tenantId, periodEndAt, subscriptionId: result.state.subscriptionId },
 	});
 
 	return json({
 		success: true,
-		graceEndAt,
-		graceEndDate,
-		stripeCancelStatus: stripeCancelResult.status,
+		cancelAtPeriodEnd: true,
+		periodEndAt,
+		periodEndDate,
 	});
 };

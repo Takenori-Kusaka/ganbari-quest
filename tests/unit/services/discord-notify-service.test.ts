@@ -141,14 +141,16 @@ describe('discord-notify-service', () => {
 	});
 
 	describe('notifyCancellation', () => {
-		it('退会申請通知を送信する', async () => {
+		// #3991: 呼び出し元は /api/v1/admin/tenant/cancel (= 解約) であって退会ではない。
+		// 軸を取り違えたままだと churn 分析で退会と解約が混ざるため、名称と項目名を固定する。
+		it('解約 (期末解約) 申請通知を送信する', async () => {
 			await notifyCancellation('tenant-123', '2026-04-28');
 
 			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('⚠️ 退会申請');
+			expect(body.embeds[0].title).toBe('⚠️ 解約申請 (期末解約)');
 			expect(body.embeds[0].fields).toEqual(
 				expect.arrayContaining([
-					expect.objectContaining({ name: '猶予期間終了', value: '2026-04-28' }),
+					expect.objectContaining({ name: '利用可能な最終日', value: '2026-04-28' }),
 				]),
 			);
 		});

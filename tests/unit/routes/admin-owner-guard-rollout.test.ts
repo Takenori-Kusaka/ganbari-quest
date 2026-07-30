@@ -62,9 +62,13 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const mockCancelSubscription = vi.fn();
+// #3991: 解約は期末解約 (cancel_at_period_end) の予約に変わり、cancel / reactivate は
+// DB の契約状態を書かなくなった。本 spec の関心は role gate なので service 側を丸ごと mock する。
+const mockScheduleCancellation = vi.fn();
+const mockResumeSubscription = vi.fn();
 vi.mock('$lib/server/services/stripe-service', () => ({
-	cancelSubscription: (...args: unknown[]) => mockCancelSubscription(...args),
+	scheduleCancellationAtPeriodEnd: (...args: unknown[]) => mockScheduleCancellation(...args),
+	resumeSubscription: (...args: unknown[]) => mockResumeSubscription(...args),
 }));
 
 vi.mock('$lib/server/services/discord-notify-service', () => ({
@@ -159,7 +163,6 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			stripeSubscriptionId: 'sub_1',
 		});
 		mockRepos.auth.updateTenantStripe.mockResolvedValue(undefined);
-		mockCancelSubscription.mockResolvedValue({ status: 'canceled' });
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		mockDeleteOwnerOnlyAccount.mockResolvedValue({ success: true, pattern: 'owner-only' });
 		mockDeleteOwnerFullDelete.mockResolvedValue({ success: true, pattern: 'owner-full-delete' });
@@ -168,6 +171,22 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			pattern: 'owner-with-transfer',
 		});
 		mockGetOwnerDeletionInfo.mockResolvedValue({ members: [], transferCandidates: [] });
+		mockScheduleCancellation.mockResolvedValue({
+			status: 'scheduled',
+			state: {
+				subscriptionId: 'sub_1',
+				cancelAtPeriodEnd: true,
+				currentPeriodEnd: '2026-02-01T00:00:00.000Z',
+			},
+		});
+		mockResumeSubscription.mockResolvedValue({
+			status: 'resumed',
+			state: {
+				subscriptionId: 'sub_1',
+				cancelAtPeriodEnd: false,
+				currentPeriodEnd: '2026-02-01T00:00:00.000Z',
+			},
+		});
 	});
 
 	describe('POST /api/v1/admin/tenant/cancel', () => {
@@ -175,7 +194,7 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			const res = await tenantCancel(createSimpleEvent('owner'));
 			expect(res.status).toBe(200);
 			await expect(res.json()).resolves.toMatchObject({ success: true });
-			expect(mockCancelSubscription).toHaveBeenCalledWith('t-test');
+			expect(mockScheduleCancellation).toHaveBeenCalledWith('t-test');
 		});
 
 		it('owner 判定は requireRole seam 経由で行われる (red → green)', async () => {
@@ -187,7 +206,7 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			const res = await tenantCancel(createSimpleEvent('parent'));
 			expect(res.status).toBe(403);
 			await expect(res.json()).resolves.toEqual({ error: 'owner のみ解約申請できます' });
-			expect(mockCancelSubscription).not.toHaveBeenCalled();
+			expect(mockScheduleCancellation).not.toHaveBeenCalled();
 			expect(mockRepos.auth.updateTenantStripe).not.toHaveBeenCalled();
 		});
 
@@ -195,7 +214,7 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 			const res = await tenantCancel(createSimpleEvent('child'));
 			expect(res.status).toBe(403);
 			await expect(res.json()).resolves.toEqual({ error: 'owner のみ解約申請できます' });
-			expect(mockCancelSubscription).not.toHaveBeenCalled();
+			expect(mockScheduleCancellation).not.toHaveBeenCalled();
 		});
 	});
 
@@ -210,8 +229,10 @@ describe('owner-only ad-hoc guard 残存 route の requireRole seam 統一 (#355
 		it('owner は成功経路に入る (positive、回帰固定)', async () => {
 			const res = await tenantReactivate(createSimpleEvent('owner'));
 			expect(res.status).toBe(200);
-			await expect(res.json()).resolves.toEqual({ success: true });
-			expect(mockRepos.auth.updateTenantStripe).toHaveBeenCalled();
+			await expect(res.json()).resolves.toMatchObject({ success: true });
+			expect(mockResumeSubscription).toHaveBeenCalledWith('t-test');
+			// #3991: 契約は生きたままなので DB の契約状態は書き換えない
+			expect(mockRepos.auth.updateTenantStripe).not.toHaveBeenCalled();
 		});
 
 		it('owner 判定は requireRole seam 経由で行われる (red → green)', async () => {

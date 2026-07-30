@@ -12,11 +12,11 @@
 | **アップグレード (プラン昇格)** | `/admin/license` 「プラン変更・支払い管理」 | PIN 確認 → `POST /api/stripe/portal` → Stripe Customer Portal → `customer.subscription.updated` Webhook | Portal の return URL = `/admin/license` → 新プラン反映 |
 | **ダウングレード** | 同上（Customer Portal） | 同上 → Portal で下位プランに変更 → `customer.subscription.updated` Webhook | 同上 → 新プラン反映＋PlanStatusCard で超過リソースを警告 |
 | **月額↔年額切替** | 同上（Customer Portal） | 同上（Stripe 標準 UI） | 同上 |
-| **解約 (cancel)** | 同上（Customer Portal） | 同上 → Portal で「解約」 → `customer.subscription.deleted` Webhook | DB: `stripe_subscription_id=NULL, plan=NULL, status=suspended`（テナントは残る、#3982）。到着順に依らない収束規則は §10.5 |
+| **解約 (cancel)** | Customer Portal または `/admin/subscription` (アプリ内 API) | `cancel_at_period_end=true` を予約 → 期末に `customer.subscription.deleted` Webhook | DB: `stripe_subscription_id=NULL, plan=NULL, status=suspended`（テナントは残る、#3982）。到着順に依らない収束規則は §10.5 |
 | **支払い失敗** | Stripe (自動) | `invoice.payment_failed` Webhook | DB: `status=grace_period, planExpiresAt=now+7d` → 猶予期間中は機能維持 |
 | **ライセンスキー適用** | `/admin/license` フォーム | `applyLicenseKey` action → `consumeLicenseKey` (Stripe を経由しない) | テナント plan を直接昇格、Stripe 課金は発生しない |
 
-> **重要**: プラン昇降格と月年額切替は **Stripe Customer Portal に委譲** している (#771)。ただし解約については `/admin/settings` から `POST /api/v1/admin/tenant/cancel` を呼ぶアプリ内フローも存在する（#784: Stripe 即時キャンセル → `status=grace_period` + `planExpiresAt` 更新、30日間のデータ保持）。本ドキュメント §3 のスコープは `/admin/license` 経由の Customer Portal 操作に限定し、`/admin/settings` 経由の解約フローは [`account-deletion-flow.md`](account-deletion-flow.md) に記載する。
+> **重要**: プラン昇降格と月年額切替は **Stripe Customer Portal に委譲** している (#771)。解約は Portal に加えてアプリ内 API (`POST /api/v1/admin/tenant/cancel`) からも実行でき、いずれも **期末解約** (`cancel_at_period_end=true`) で予約する (#3991 / FR-1)。アプリ内 API は DB の契約状態を書かず、Stripe の `cancel_at_period_end` が「解約申請中か」の SSOT である (NFR-2)。期末が到来すると `customer.subscription.deleted` が §10.5 U5 の終端状態へ収束させる。取り消しは `POST /api/v1/admin/tenant/reactivate` (`cancel_at_period_end=false`) で、契約が生きているため Checkout の再実行は不要。
 
 ---
 
@@ -646,10 +646,11 @@ P3 の突合は tenant 同定の経路（`metadata.tenantId` / customer 逆引�
 | U7 | **解約後に payment_failed が後着** | `customer.subscription.deleted`, `invoice.payment_failed` | **どちらでも** | 同上 | **P2**（P2 がないと `grace_period` へ巻き戻る） |
 | U8 | 解約 → 再購読 | `...deleted`, `checkout.session.completed`(新 sub) | **どちらでも** | `id=sub_new` / `plan=新プラン` / `active` | `stripeCustomerId` を残すこと + U5/U6/U7 の収束（`id` が残っていると `createCheckoutSession` が `ALREADY_SUBSCRIBED` で弾き、そもそも U8 に入れない = #3982 の実害）+ **P3**（旧 sub の event が後着しても現行契約 `sub_new` を指さないため適用されない。P3 がないと新契約の `id` が NULL 化し、ALREADY_SUBSCRIBED ガードが外れて二重課金が成立し得る） |
 | U9 | **解約後に非終端の `updated` が後着** | `customer.subscription.deleted`, `customer.subscription.updated`(active) | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（P2 は payload の status を見るため、この `updated` は終端分岐に入らない。割り当てが消えているため P3 が適用を見送る。P3 がないと `id=NULL` + `plan≠NULL` + `status=active` が残る） |
-| U10 | **アプリ内解約 → 即時 cancel → `deleted` 後着** | `/api/v1/admin/tenant/cancel`（`grace_period` + `exp=+30d` を書く）, `customer.subscription.deleted` | **どちらでも** | `id=NULL` / `plan=NULL` / `exp=NULL` / `suspended` | **P3**（終端は列の集合として定義され `plan_expires_at` も null で書く。P3 がないと契約が無いのに期限だけ残り、`SaasLicensePanel` が有効期限を表示し `lifecycle-email-service` が期限判断に使う = X3） |
+| U10 | **アプリ内解約（期末解約の予約）** | `/api/v1/admin/tenant/cancel`（**DB を書かない**）, `customer.subscription.updated`(active, `cancel_at_period_end=true`) | **どちらでも** | `id=sub_x` / `plan` 維持 / `active` | #3991。予約は Stripe 側だけで完結し、契約は期末まで生きているので `status` は `active` のまま。期末到来時の `deleted` が U5 の終端 4 列へ収束させる（旧実装が `grace_period` + `exp=+30d` を書いて X3 を作っていた経路は消滅した） |
+| U11 | **期末解約の取り消し** | `/api/v1/admin/tenant/reactivate`（**DB を書かない**）, `customer.subscription.updated`(active, `cancel_at_period_end=false`) | **どちらでも** | `id=sub_x` / `plan` 維持 / `active` | #3991。取り消しも Stripe 側だけで完結する。`updated` は現行 price と status を反映するだけなので、どちらが先着しても最終状態は同一 |
 
 回帰テスト: `tests/unit/services/stripe-service.test.ts`
-（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本 / U8・U9・U10 = `#4026 — ...` 3 本 + `#4055 — ...` 1 本）。
+（U2 = `#3960 — ... の順で` 2 本 / U5・U6・U7 = `#3982 — ...` 4 本 + 終端でない `past_due` の対照 1 本 / U8・U9・U10 = `#4026 — ...` 3 本 + `#4055 — ...` 1 本）。U10・U11 の連鎖は `tests/unit/services/period-end-cancellation-chain.test.ts`。
 単一強制点の迂回禁止は `tests/unit/architecture/stripe-contract-write-single-enforcement.test.ts`。
 
 #### 10.5.3 未カバー（既知の残課題）
@@ -657,6 +658,7 @@ P3 の突合は tenant 同定の経路（`metadata.tenantId` / customer 逆引�
 | 項目 | 状態 |
 |---|---|
 | 同一 `event.id` の重複到達（dedup） | 設計確定・**実装未着手**（#2641 / phase5-webhook-idempotency-architecture.md） |
+| 解約予約中の「利用できる最終日」の保持先 | Stripe (`items[].current_period_end`) のみ。DB に列を持たない。`/admin/subscription` の load が都度取得して表示する（#3991。DB に持たせると `plan_expires_at` が dunning 猶予と解約予定日を兼ねて #3986 と同じ多重定義になる） |
 | 同一 tenant への webhook 並行処理（handler 間の競合） | 未設計。Lambda 並行実行下では U1〜U8 の順序ガードも read-modify-write の間に割り込まれ得る |
 | DB ↔ Stripe の定期 reconcile | 未実装（#823、§10.4） |
 | 解約後の猶予期限の顧客向け表示 | 終端クリア（U10）で `plan_expires_at` が null になるため、解約後は画面（`SaasLicensePanel` の「有効期限」行）から期限が消える。顧客への期限告知は解約完了メール（`sendCancellationEmail` の `graceEndDate`）が担う（暫定）。表示の担い手は #3991 で決める |

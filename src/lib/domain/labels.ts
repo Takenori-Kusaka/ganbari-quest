@@ -2199,12 +2199,14 @@ export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_cons
 // ============================================================
 
 export const SETTINGS_LABELS = {
-	// grace_period バナー
-	gracePeriodTitle: '解約手続き中です',
+	// #3991: `grace_period` の意味は「支払い失敗の猶予 (dunning)」に一意化された。
+	// 旧文言は解約申請の猶予を指しており (#3986 の多重定義)、支払い失敗のテナントに
+	// 「解約手続き中です」+ 解約取り消しボタンを見せていた。解約申請中の表示と取り消し導線は
+	// `/admin/subscription` (SaasLicensePanel) が Stripe の `cancel_at_period_end` を SSOT に担う。
+	gracePeriodTitle: 'お支払いを確認できていません',
 	gracePeriodDesc:
-		'現在、アカウントは解約手続き中で読み取り専用モードです。期限までにキャンセルしないとデータが完全に削除されます。',
-	reactivateSubmitting: 'キャンセル中...',
-	reactivateAction: '解約をキャンセルして通常利用に戻る',
+		'カードの有効期限切れなどでお支払いが完了していない可能性があります。プラン・お支払い画面からお支払い方法をご確認ください。お子さまの記録はそのままご利用いただけます。',
+	gracePeriodAction: 'プラン・お支払いを確認する',
 
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
@@ -2661,6 +2663,17 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	trialStartButton: '無料トライアルを開始する',
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
+
+	// #3991: 期末解約 (cancel_at_period_end) の予約中バナー。
+	// 「解約申請中か」「いつまで使えるか」は Stripe が SSOT のため、load で都度取得した値を表示する。
+	cancelPendingTitle: `${CANCEL_TERMS.canonical}手続き中です`,
+	cancelPendingDesc: (date: string) =>
+		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+	cancelPendingRevertAction: `${CANCEL_TERMS.canonical}を取り消して継続する`,
+	cancelPendingRevertSubmitting: '取り消しています…',
+	cancelPendingRevertError: `${CANCEL_TERMS.canonical}の取り消しに失敗しました。時間をおいて再度お試しください`,
+	cancelPendingExpiryLabel: 'ご利用いただける最終日',
 
 	// ステータス別メッセージ
 	gracePeriodTitle: '⚠️ 猶予期間中',
@@ -7632,7 +7645,7 @@ export const LP_FAQ_LABELS = {
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
-	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	text28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	text29: '料金・課金について',
 	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
@@ -8936,7 +8949,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
-	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	k27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	k28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',

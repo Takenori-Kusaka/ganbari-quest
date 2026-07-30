@@ -65,6 +65,37 @@ const churnLostRetentionLabel = $derived(
 		: SUBSCRIPTION_PAGE_LABELS.churnLostRetentionDays(downgradeRetentionDays),
 );
 
+// #3991: 期末解約 (cancel_at_period_end) の予約状態。SSOT は Stripe (NFR-2) で、
+// page load が `getCancellationState()` 経由で都度取得する。null = 契約なし / 取得失敗。
+const cancellation = $derived(data.cancellation ?? null);
+const cancelPending = $derived(cancellation?.cancelAtPeriodEnd === true);
+const cancelPeriodEndDate = $derived(
+	cancellation?.currentPeriodEnd
+		? new Date(cancellation.currentPeriodEnd).toLocaleDateString('ja-JP', {
+				timeZone: 'Asia/Tokyo',
+			})
+		: '',
+);
+let revertSubmitting = $state(false);
+let revertError = $state('');
+
+async function handleRevertCancellation() {
+	if (revertSubmitting) return;
+	revertSubmitting = true;
+	revertError = '';
+	try {
+		const res = await fetch('/api/v1/admin/tenant/reactivate', { method: 'POST' });
+		const body = (await res.json()) as { error?: string };
+		if (!res.ok) throw new Error(body.error ?? SUBSCRIPTION_PAGE_LABELS.cancelPendingRevertError);
+		await invalidateAll();
+	} catch (err) {
+		revertError =
+			err instanceof Error ? err.message : SUBSCRIPTION_PAGE_LABELS.cancelPendingRevertError;
+	} finally {
+		revertSubmitting = false;
+	}
+}
+
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
 // #2941 項目 2 (#3033 で TrialBanner not-started form から本 panel へ移植):
@@ -340,6 +371,40 @@ async function openPortal() {
 </svelte:head>
 
 <div class="space-y-6" data-testid="saas-license-panel">
+	<!-- #3991: 解約 (期末解約) 申請中バナー + 取り消し導線。
+	     「いつまで使えるか」を親が画面で再確認できる唯一の場所であり、
+	     解約完了メールの猶予期限と同じ日付 (Stripe の請求期間終了日) を示す。 -->
+	{#if cancelPending}
+		<section
+			class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]"
+			data-testid="subscription-cancel-pending-banner"
+		>
+			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">
+				{SUBSCRIPTION_PAGE_LABELS.cancelPendingTitle}
+			</h3>
+			<p class="text-sm text-[var(--color-feedback-warning-text)] mb-3">
+				{cancelPeriodEndDate
+					? SUBSCRIPTION_PAGE_LABELS.cancelPendingDesc(cancelPeriodEndDate)
+					: SUBSCRIPTION_PAGE_LABELS.cancelPendingDescUnknownDate}
+			</p>
+			{#if revertError}
+				<Alert variant="danger" message={revertError} />
+			{/if}
+			<Button
+				type="button"
+				variant="success"
+				size="md"
+				loading={revertSubmitting}
+				onclick={handleRevertCancellation}
+				data-testid="subscription-cancel-revert"
+			>
+				{revertSubmitting
+					? SUBSCRIPTION_PAGE_LABELS.cancelPendingRevertSubmitting
+					: SUBSCRIPTION_PAGE_LABELS.cancelPendingRevertAction}
+			</Button>
+		</section>
+	{/if}
+
 	<!-- 現在のプラン -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
@@ -359,7 +424,12 @@ async function openPortal() {
 				</span>
 			</div>
 
-			{#if license.planExpiresAt}
+			{#if cancelPending && cancelPeriodEndDate}
+				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]" data-testid="subscription-cancel-period-end">
+					<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.cancelPendingExpiryLabel}</span>
+					<span class="text-sm text-[var(--color-text-primary)]">{cancelPeriodEndDate}</span>
+				</div>
+			{:else if license.planExpiresAt}
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
 					<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanExpiry}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">

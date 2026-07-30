@@ -123,7 +123,39 @@ export function getDebugTrialOverride(): DebugTrialOverride | null {
  * 上書きを撤廃。`DEBUG_PLAN` (subscription tier 切替) / `DEBUG_TRIAL` は残す。
  */
 export function isDebugPlanActive(): boolean {
-	return getDebugPlanOverride() !== null || getDebugTrialOverride() !== null;
+	return (
+		getDebugPlanOverride() !== null ||
+		getDebugTrialOverride() !== null ||
+		getDebugCancelAtPeriodEnd() !== null
+	);
+}
+
+/**
+ * DEBUG_CANCEL_AT_PERIOD_END env に基づく「期末解約の予約中」上書きを返す (#3991)。
+ *
+ * 期末解約の予約状態は Stripe が SSOT (NFR-2) なので、`STRIPE_SECRET_KEY` を持たない
+ * ローカル backend (sqlite / demo / pglite) では `getCancellationState()` が必ず null を返し、
+ * 解約手続き中バナーの表示・取り消し導線を**一度も目視検証できない**。DEBUG_PLAN (#758) と
+ * 同じ dev 限定 override でこれを検証可能にする。
+ *
+ * 値は請求期間の終了日 (`YYYY-MM-DD`)。`true` / `1` を渡した場合は 14 日後を使う。
+ * dev でない、または env 未設定 / 不正値の場合は null (本番ビルドでは常に無効)。
+ */
+export function getDebugCancelAtPeriodEnd(): string | null {
+	if (!dev) return null;
+	const raw = process.env.DEBUG_CANCEL_AT_PERIOD_END?.trim();
+	if (!raw) return null;
+	if (raw === 'true' || raw === '1') {
+		return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+	}
+	const parsed = new Date(raw);
+	if (Number.isNaN(parsed.getTime())) {
+		console.warn(
+			`[debug-plan] DEBUG_CANCEL_AT_PERIOD_END="${raw}" is invalid. Expected YYYY-MM-DD or true`,
+		);
+		return null;
+	}
+	return parsed.toISOString();
 }
 
 /**

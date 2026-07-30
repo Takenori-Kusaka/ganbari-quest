@@ -119,8 +119,8 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 | W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2 → S3 |
 | W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化） / 終端: W5 と同じ 4 列 | S2 ⇄ S3 / → S4 / → S5 |
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
-| W6 | アプリ内解約 | `tenant/cancel/+server.ts:79` | `status=grace_period` / `exp = now + 30d` | S2 → S3 |
-| W7 | 解約取り消し | `tenant/reactivate/+server.ts:63` | `status=active` / `exp=undefined` | S3 → S2 |
+| W6 | アプリ内解約 | `tenant/cancel/+server.ts` | **書かない**（Stripe に `cancel_at_period_end=true` を予約するのみ、#3991） | S2 → S2（期末に W5 で S5 へ） |
+| W7 | 解約取り消し | `tenant/reactivate/+server.ts` | **書かない**（Stripe の `cancel_at_period_end=false`、#3991） | S2 → S2 |
 | W8 | （欠番）退会猶予満了バッチ | — | **書き手なし**。退会の物理削除は `families` 行ごと削除するため status を書かない（§4.1） | — |
 | W9 | （テナント作成） | `createTenant` | `status=active` のみ | → S1 |
 
@@ -128,7 +128,7 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 
 | ID | ズレ | 実装の事実 | Issue |
 |---|---|---|---|
-| **D2** | W6 と W3 が同じ `grace_period` に書く | 「支払い失敗の猶予」と「解約申請の猶予」が同一値。しかも W6 は 30 日固定、W3 は 7 日で**日数も規約と不一致** | #3986 → #3991 に統合 |
+| **D2** | W6 と W3 が同じ `grace_period` に書く | **解消済**。W6 / W7 は DB の契約状態を書かなくなり、`grace_period` の書き手は W3 / W4 (`past_due`) = **支払い失敗の dunning のみ**に一意化された。「解約申請中か」の SSOT は Stripe の `cancel_at_period_end` | #3986 → #3991（解消済） |
 | **D3** | S6 (`terminated`) に書き手がいない | 退会の物理削除は行ごと消すため status を残せない（§4.1）。`terminated` だけを見ていた KPI 3 本は恒常 0 を返していた。**解約は S5 で数える**ように是正済（`isChurnedContract`、§4.2） | #3987（解消済） |
 | **D4** | S4 に実効果が無い | `authorization.ts:171-173` は `suspended` でも `allowed: true` を返す。「読み取り専用」というコメントと実装が不一致 | #3982 / #3993 |
 | **D5** | W3 が退会向け機構を誤発火させる | `grace_period` は `hooks.server.ts:430` の**読み取り専用ロック**と `tenant-cleanup` の**物理削除対象**のトリガでもある。支払い失敗しただけで子どもが記録できなくなる | **#3993（critical）** |

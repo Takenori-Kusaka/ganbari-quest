@@ -10,7 +10,7 @@ import {
 	PMF_SURVEY_LABELS,
 } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
-import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
+import { ADMIN_VIEW_TERMS, CANCEL_TERMS, PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
@@ -299,22 +299,35 @@ export async function sendInquiryConfirmationEmail(
 	});
 }
 
-/** 解約受付通知メール */
-export async function sendCancellationEmail(email: string, graceEndDate: string): Promise<boolean> {
+/**
+ * 解約受付通知メール (#3991)。
+ *
+ * `periodEndDate` は **現在の請求期間の終了日** であり、退会 (アカウント削除) の猶予期限ではない。
+ * 旧文面は「期間終了後、すべてのデータが完全に削除されます」と退会側の説明を載せていたが、
+ * 解約の結果は「無料プランに移行 (データ保持)」であり (phase1-cancellation-requirements.md)、
+ * 特商法表示「解約後は現在の請求期間終了まで引き続きご利用いただけます」とも食い違っていた。
+ *
+ * ここで伝える日付は `/admin/subscription` の解約申請中バナーにも表示されるため、
+ * メールを消してしまった親も画面でいつでも再確認できる。
+ */
+export async function sendCancellationEmail(
+	email: string,
+	periodEndDate: string,
+): Promise<boolean> {
+	const untilPhrase = periodEndDate ? `${periodEndDate} まで` : '現在の請求期間の終了日まで';
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】解約手続きを受け付けました',
 		htmlBody: wrapTemplate(`
       <h2>解約手続きを受け付けました</h2>
-      <p><strong>${graceEndDate}</strong> まではデータの閲覧・エクスポートが可能です。</p>
-      <p>この期間中に解約をキャンセルすることもできます。</p>
-      <p>期間終了後、すべてのデータが完全に削除されます。削除後の復旧はできません。</p>
-      <p>データのバックアップが必要な場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」からエクスポートしてください。</p>
+      <p><strong>${untilPhrase}</strong>、現在の有料プランをそのままご利用いただけます。</p>
+      <p>その後は${PLAN_FULL_TERMS.free}に切り替わります。お子さまの記録は残りますので、引き続き${PLAN_FULL_TERMS.free}の範囲でご利用いただけます。</p>
+      <p>それまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から${CANCEL_TERMS.anytime}のお手続きを取り消して継続できます。</p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/settings" class="button">設定画面を開く</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">プラン・お支払いを開く</a>
       </p>
     `),
-		textBody: `解約手続きを受け付けました\n\n${graceEndDate} まではデータの閲覧・エクスポートが可能です。\nこの期間中に解約をキャンセルすることもできます。\n\n期間終了後、すべてのデータが完全に削除されます。`,
+		textBody: `解約手続きを受け付けました\n\n${untilPhrase}、現在の有料プランをそのままご利用いただけます。\nその後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。\n\nそれまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から${CANCEL_TERMS.anytime}のお手続きを取り消して継続できます。`,
 	});
 }
 
