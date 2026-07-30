@@ -435,3 +435,35 @@ describe('reconcileCheckoutSession — 二重課金ガード (AC5、#4081)', () 
 		);
 	});
 });
+
+// ==========================================================
+// AC6 (PO 追加ガード): 既存 binding と別の (かつ生きている) subscription を
+// 指す session では反映しない — reconcile は binding を「差し替える」権限を持たない
+// ==========================================================
+//
+// AC5 の isSubscriptionTerminal ガードは「session が指す subscription が終端状態」の
+// ケースしか塞がない。sub_old が Stripe 上でまだ active なテナントが古い session_id を
+// 再訪した場合 (= 解約されていない sub が 2 本ある異常状態) は AC5 のガードを素通りし、
+// tenant.stripeSubscriptionId が sub_new から sub_old へ上書きされてしまう。これは
+// `createCheckoutSession()` の ALREADY_SUBSCRIBED ガードを外し二重課金の温床になる。
+
+describe('reconcileCheckoutSession — 既存 binding 保護 (AC6)', () => {
+	it('stripeSubscriptionId=sub_new のテナントが sub_old (active) の session_id で reconcile しても binding が上書きされない', async () => {
+		// 再購読済みテナント。現行契約は sub_new
+		mockFindTenantById.mockResolvedValue(
+			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'monthly', status: 'active' }),
+		);
+		// 古い success_url が指す session の subscription は Stripe 上ではまだ active
+		// (= 解約済みではない。isSubscriptionTerminal ガードでは弾けないケース)
+		mockSessionRetrieve.mockResolvedValue(makePaidSession({ subscription: 'sub_old' }));
+		mockSubscriptionsRetrieve.mockResolvedValue({ id: 'sub_old', status: 'active' });
+
+		const result = await reconcileCheckoutSession({
+			tenantId: TENANT_ID,
+			sessionId: SESSION_ID,
+		});
+
+		expect(result.status).toBe('unresolved');
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+});

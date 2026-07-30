@@ -609,6 +609,19 @@ export async function reconcileCheckoutSession(input: {
 		return { status: 'already_applied' };
 	}
 
+	// 既存 binding があり、session が別の subscription を指す場合は反映しない。
+	// reconcile は binding を「埋める / 確認する」だけで、「差し替える」権限を持たない。
+	if (
+		tenant.stripeSubscriptionId &&
+		subscriptionId &&
+		tenant.stripeSubscriptionId !== subscriptionId
+	) {
+		logger.warn(
+			`[STRIPE] reconcile: 既存 binding と別 subscription のため反映しません: tenant=${tenantId} current=${tenant.stripeSubscriptionId} session=${subscriptionId}`,
+		);
+		return { status: 'unresolved' };
+	}
+
 	// #4081: `handleCheckoutCompleted` (assign-contract) は「checkout.session.completed は
 	// 購入時に 1 回だけ配信される」前提で突合を行わない。reconcileCheckoutSession はこの前提を
 	// 「顧客が success_url を何度でも再訪できる経路」に接続しているため、以下の replay で
@@ -635,7 +648,7 @@ export async function reconcileCheckoutSession(input: {
 				`[STRIPE] reconcile: subscription が終端状態 (${subscription.status}) のため反映しません: ` +
 					`tenant=${tenantId} subscription=${subscriptionId}`,
 			);
-			return { status: 'not_found' };
+			return { status: 'unresolved' };
 		}
 	}
 

@@ -13,6 +13,9 @@
  * - `pending` — Stripe 上まだ支払いが確定していない
  * - `tenant_mismatch` — session の `metadata.tenantId` がログイン中 tenant と一致しない
  * - `not_found` — session_id 不正 / Stripe に存在しない / 期限切れ / tenant 不在
+ * - `unresolved` — session が指す subscription が終端状態、または既存 binding と別の
+ *   subscription を指しているため反映を見送った (「古い URL を再訪した」ことが分かる状態。
+ *   `not_found` = Stripe 側の障害・不整合と区別することで観測性を保つ、#4108 / #4081)
  * - `unavailable` — Stripe 連携が無効な環境 (NUC / local)
  */
 export type CheckoutReconciliationStatus =
@@ -21,6 +24,7 @@ export type CheckoutReconciliationStatus =
 	| 'pending'
 	| 'tenant_mismatch'
 	| 'not_found'
+	| 'unresolved'
 	| 'unavailable';
 
 export interface CheckoutReconciliationResult {

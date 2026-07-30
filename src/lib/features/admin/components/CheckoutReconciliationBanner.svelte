@@ -44,6 +44,7 @@ function display(): { variant: 'success' | 'info' | 'warning'; message: string }
 			return { variant: 'info', message: CHECKOUT_RECONCILIATION_LABELS.pending };
 		case 'tenant_mismatch':
 		case 'not_found':
+		case 'unresolved':
 			return { variant: 'warning', message: CHECKOUT_RECONCILIATION_LABELS.unresolved };
 		default:
 			// unavailable (Stripe 無効環境) は顧客に伝えることがないため何も出さない
