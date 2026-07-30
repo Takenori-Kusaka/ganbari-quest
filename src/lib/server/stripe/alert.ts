@@ -50,7 +50,16 @@ export type StripeAlertKind =
 	| 'stripe-subscription-multi-item'
 	// #3981: subscription から tenant を解決する経路が **障害で** 落ちた。
 	// 「tenant が本当に不在」とは区別する (不在は warn のみで alert しない)。
-	| 'stripe-context-unresolved';
+	| 'stripe-context-unresolved'
+	// #3959: webhook が Lambda に到達していない (沈黙) の検知。cron が 1 時間毎に Stripe API と
+	// 自 DB を突き合わせて発火する。上の `stripe-webhook-handler-failed` は「到達したが handler が
+	// 失敗した」側を所有し、本 kind とは発火条件が重ならない
+	// (責務分界は stripe-webhook-delivery-monitor.ts 冒頭)。
+	| 'stripe-webhook-undelivered'
+	// #3959: 上の未達検知そのものが失敗した (Stripe API 障害 / DB 障害 等)。検知器が動いて
+	// いない間は未達を見逃すため、検知器の停止自体を 1 つの障害として鳴らす。cron dispatcher は
+	// 非 2xx を throw せず返すため Lambda の error alarm では表面化しない (#4102 QM 指摘 M3)。
+	| 'stripe-webhook-monitor-failed';
 
 export interface StripeAlertOptions {
 	/** alert 種別 (Phase 6 子 5 §6 SSOT 3 種) */
@@ -64,14 +73,91 @@ export interface StripeAlertOptions {
 }
 
 /**
- * Stripe 領域専用 Discord alert wrapper (fire-and-forget)。
+ * tags を `key=value` 列の 1 行に畳む。
+ *
+ * **なぜ必要か (#4102 QM 指摘 M1)**: `logger` の `writeLog` は console に `message` 本文しか
+ * 出さず `context` を捨てる (src/lib/server/logger.ts)。したがって triage 用の id を
+ * structured context にだけ置くと、Lambda 上では CloudWatch にも Discord にも一切現れない。
+ * runbook が「alert の `oldestEventId` を Stripe で開く」と書いても実行できない状態になるため、
+ * 同じ内容を **人が読める 1 行**にして message 本文と Discord embed の両方に載せる。
+ *
+ * context への構造化出力は (logger を JSON 出力化したときに効くよう) 従来どおり併存させる。
+ */
+export function formatAlertTags(
+	tags: Record<string, string | number | boolean> | undefined,
+): string {
+	if (!tags) return '';
+	const entries = Object.entries(tags);
+	if (entries.length === 0) return '';
+	return entries.map(([key, value]) => `${key}=${value}`).join(' ');
+}
+
+/**
+ * Stripe 領域専用 Discord alert (送信完了まで await できる版)。
  *
  * 動作:
- *   1. `logger.warn` で structured context (kind + tags) を出力 (CloudWatch Logs Insights 検索可能)
- *   2. `sendDiscordAlert` を fire-and-forget で起動 (alert 失敗は課金 path をブロックしない)
+ *   1. `logger.warn` で message 本文 + structured context (kind + tags) を出力
+ *   2. `sendDiscordAlert` の完了まで待つ
+ *
+ * **await 版が要る理由 (#4102 QM 指摘 M2)**: Lambda はレスポンス返却後に実行環境が freeze
+ * されるため、`void sendDiscordAlert(...)` の送信中 fetch はそのまま凍結されうる。HTTP request
+ * 処理が続く経路では実質問題にならないが、**alert 送信が最終処理になる cron** では
+ * 「送られないまま消える」ため、レスポンス前に完了させる必要がある。
+ *
+ * 本関数は throw しない (送信失敗は logger.warn に落とす)。呼び出し側の業務処理を
+ * alert の失敗で壊さないため。
+ */
+export async function notifyStripeAlertAsync(options: StripeAlertOptions): Promise<void> {
+	const { kind, message, errorSummary, tags } = options;
+
+	// PII redaction (Issue #2738 / QA Adversarial security 軸 V-3 解消):
+	//   Stripe error message に含まれる customer email / phone / card last4 を
+	//   Discord webhook + structured logger 送信前に redact する。Stripe 内部 ID
+	//   (cus_* / sub_* 等) は debug 用途で維持。
+	const redactedMessage = redactPii(message);
+	const redactedErrorSummary = errorSummary ? redactPii(errorSummary) : undefined;
+	const redactedTags = redactPiiInTags(tags);
+	// redact 済 tags から組み立てるため、本文に畳んでも PII は載らない
+	const details = formatAlertTags(redactedTags);
+
+	// 1. structured logger (CloudWatch Logs Insights 検索 key: `kind` / `tags.*`)
+	//    message 本文にも details を畳む = console 出力しか見えない Lambda でも triage できる
+	logger.warn(`[stripe-alert] ${kind}: ${redactedMessage}${details ? ` | ${details}` : ''}`, {
+		service: 'stripe',
+		context: {
+			kind,
+			...(redactedErrorSummary ? { errorSummary: redactedErrorSummary } : {}),
+			...(redactedTags ?? {}),
+		},
+	});
+
+	// 2. Discord alert。details は embed の Details field に出す (title は 200 文字で切られ、
+	//    errorSummary は throttle key 兼用で毎回変わる値を入れられないため)
+	try {
+		await sendDiscordAlert({
+			level: 'error',
+			message: `[${kind}] ${redactedMessage}`,
+			errorSummary: redactedErrorSummary ?? kind,
+			details: details || undefined,
+		});
+	} catch (err) {
+		// alert 自体の失敗は logger.warn で記録 (recursive alert を避ける)
+		//   err.message にも PII が含まれる可能性があるため redact
+		logger.warn(
+			`[stripe-alert] Discord alert dispatch failed for ${kind}: ${redactPii(String(err))}`,
+		);
+	}
+}
+
+/**
+ * Stripe 領域専用 Discord alert wrapper (fire-and-forget)。
  *
  * silent return しないことで kill switch fallback 発動時に observability gap を回避する
  * (QM Adversarial security 軸所見 #2720 直対処)。
+ *
+ * 課金 path (webhook handler / checkout 等) のように「この後もリクエスト処理が続く」経路向け。
+ * **alert 送信が最後の処理になる cron からは `notifyStripeAlertAsync` を await すること**
+ * (Lambda freeze で送信が消える、#4102 M2)。
  *
  * @param options - alert kind + message + structured tags
  *
@@ -85,39 +171,6 @@ export interface StripeAlertOptions {
  *   });
  */
 export function notifyStripeAlert(options: StripeAlertOptions): void {
-	const { kind, message, errorSummary, tags } = options;
-
-	// PII redaction (Issue #2738 / QA Adversarial security 軸 V-3 解消):
-	//   Stripe error message に含まれる customer email / phone / card last4 を
-	//   Discord webhook + structured logger 送信前に redact する。Stripe 内部 ID
-	//   (cus_* / sub_* 等) は debug 用途で維持。
-	const redactedMessage = redactPii(message);
-	const redactedErrorSummary = errorSummary ? redactPii(errorSummary) : undefined;
-	const redactedTags = redactPiiInTags(tags);
-
-	// 1. structured logger (CloudWatch Logs Insights 検索 key: `kind` / `tags.*`)
-	//    Sentry SaaS 統合は別 Issue だが、本 logger output は CloudWatch Logs Insights で
-	//    `fields @timestamp, kind, message | filter kind = "stripe-lookup-failed"` で query 可能
-	logger.warn(`[stripe-alert] ${kind}: ${redactedMessage}`, {
-		service: 'stripe',
-		context: {
-			kind,
-			...(redactedErrorSummary ? { errorSummary: redactedErrorSummary } : {}),
-			...(redactedTags ?? {}),
-		},
-	});
-
-	// 2. Discord alert (fire-and-forget、課金 path をブロックしない)
-	//    discord-alert.ts の fire-and-forget pattern 整合
-	void sendDiscordAlert({
-		level: 'error',
-		message: `[${kind}] ${redactedMessage}`,
-		errorSummary: redactedErrorSummary ?? kind,
-	}).catch((err) => {
-		// alert 自体の失敗は logger.warn で記録 (recursive alert を避ける)
-		//   err.message にも PII が含まれる可能性があるため redact
-		logger.warn(
-			`[stripe-alert] Discord alert dispatch failed for ${kind}: ${redactPii(String(err))}`,
-		);
-	});
+	// notifyStripeAlertAsync は throw しないため .catch は不要 (送信失敗は内部で logger.warn)
+	void notifyStripeAlertAsync(options);
 }

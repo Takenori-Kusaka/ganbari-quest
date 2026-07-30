@@ -37,6 +37,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'pmf-survey': '/api/cron/pmf-survey',
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	'export-build': '/api/cron/export-build',
+	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
+	'stripe-webhook-delivery-check': '/api/cron/stripe-webhook-delivery-check',
 };
 
 interface CronEvent {

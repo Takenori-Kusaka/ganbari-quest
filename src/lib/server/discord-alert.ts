@@ -14,6 +14,15 @@ export interface AlertOptions {
 	tenantId?: string;
 	errorSummary?: string;
 	stackSummary?: string;
+	/**
+	 * triage に必要な補足情報 (event id / 件数など) を 1 行で表したもの。
+	 *
+	 * `message` は embed title に展開される際 200 文字で切られ、`errorSummary` は
+	 * スロットリング key を兼ねるため実行ごとに変わる値を入れられない。両方に載せられない
+	 * 「毎回変わるが受け手が必要とする情報」の置き場としてこの field を使う (#4102 / #3959)。
+	 * スロットリング key には含めない (同一事象は変わらず 1 通にまとまる)。
+	 */
+	details?: string;
 }
 
 // スロットリング用メモリマップ
@@ -105,6 +114,11 @@ export async function sendDiscordAlert(options: AlertOptions): Promise<void> {
 		options.errorSummary && {
 			name: 'Error',
 			value: `\`\`\`${options.errorSummary.slice(0, 500)}\`\`\``,
+		},
+		options.details && {
+			name: 'Details',
+			// Discord の embed field value 上限は 1024 文字。code block の記号分を引いて余裕を取る
+			value: `\`\`\`${options.details.slice(0, 900)}\`\`\``,
 		},
 		options.stackSummary && {
 			name: 'Stack (先頭3行)',

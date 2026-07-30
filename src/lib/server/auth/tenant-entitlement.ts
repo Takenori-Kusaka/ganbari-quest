@@ -82,10 +82,17 @@ export async function resolveTenantEntitlement(tenantId: string): Promise<Tenant
 		cache?.set(tenantId, entitlement);
 		return entitlement;
 	} catch (e) {
-		logger.error('[AUTH] Failed to resolve tenant entitlement from DB', {
-			error: e instanceof Error ? e.message : String(e),
-			context: { kind: TenantEntitlementUnavailableError.ALERT_KIND, tenantId },
-		});
+		// #3998: Lambda 上で logger が CloudWatch に書くのは console 出力 = `message` 本文だけで、
+		// `context` は載らない。kind を message に含めないと Logs Insights から
+		// `auth-entitlement-db-unavailable` で辿れる行が「503 を返した側」だけになるため、
+		// DB 解決失敗そのものの行にも kind を持たせる。
+		logger.error(
+			`[AUTH] ${TenantEntitlementUnavailableError.ALERT_KIND}: Failed to resolve tenant entitlement from DB`,
+			{
+				error: e instanceof Error ? e.message : String(e),
+				context: { kind: TenantEntitlementUnavailableError.ALERT_KIND, tenantId },
+			},
+		);
 		throw new TenantEntitlementUnavailableError(tenantId, e);
 	}
 }

@@ -92,4 +92,14 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(0/5 * * * ? *)', // 5 分毎 (UTC、JST と同一間隔)
 		description: 'クラウドエクスポート非同期 build バッチ (#3504)',
 	},
+	{
+		// #3959: Stripe webhook が Lambda に到達していない (沈黙) を外から検知する。
+		// 検知遅延 1 時間以内という要件から毎時実行。毎時 5 分に寄せているのは、他の日次 cron が
+		// 00 分に集中しており同時実行で 30 秒予算を圧迫するのを避けるため。
+		name: 'stripe-webhook-delivery-check',
+		endpoint: '/api/cron/stripe-webhook-delivery-check',
+		cronExpression: '5 * * * *', // 毎時 5 分 (JST)
+		utcCronExpression: 'cron(5 * * * ? *)', // 毎時 5 分 (UTC、JST と同一間隔)
+		description: 'Stripe webhook 未達の検知バッチ (#3959)',
+	},
 ];

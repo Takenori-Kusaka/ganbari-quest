@@ -198,7 +198,25 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **ロールバック手順** | (1) **CloudWatch Logs Insights の `tags.reason`** (または (c) の `logger.error` 本文) で Stripe 側障害か DB 側障害かを切り分け (2) Stripe 側なら status.stripe.com と API key の有効性を確認、DB 側なら DSQL の接続状況を確認 (3) **障害中に到達した event は自然収束しない。手動突合が必須**。`resolveSubscriptionContext` は障害時も例外を投げず `undefined` を返すため handler は正常終了し、`stripe_webhook_events` に `handlerResult='success'` として記録される ([phase5-webhook-idempotency-architecture.md](phase5-webhook-idempotency-architecture.md) の dedup 台帳、#3985)。以後、同一 `event.id` の Stripe 再送は skip され、**Dashboard からの Resend も同一 `event.id` のため skip される**。復旧後は (a) CloudWatch Logs Insights で alert 期間の `subscriptionId` を列挙 → (b) Stripe 上の現行 subscription / price と DB の `plan` / `status` を突合 → (c) 差分があれば手動修復する。恒久対策 (障害時は台帳に記録せず Stripe の再送に載せる) は #4108 で追跡 |
 | **再発防止** | (a) try の範囲を Stripe 呼び出し / repo 呼び出しに分割し、bare `catch {}` を構造的に不能化 (b) 「tenant が本当に不在」は正常な結果として warn のみに留め、alert を誤発火させない (c) 3 経路 (API throw / repo throw / tenant 不在) の unit test で分類を固定。retry / fallback は Stripe 再送と二重処理検討を避けるため**入れない** |
 
-### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10、#3985 で +R11、#3980 / #3981 で +R12 / +R13)
+### 3.10-e R14 (#3959 新規): webhook が Lambda に 1 度も到達せず、alert も 1 つも鳴らない
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | 2026-07-26 の本番課金 incident。CloudFront edge が Stripe (海外 IP) からのリクエストを 403 で弾き、**リクエストが Lambda に 1 度も到達しなかった**。アプリ内の通知経路 (`notifyStripeAlert` / `sendDiscordAlert`) はすべて「アプリのコードが実行された」ことを前提にするため、初の有料課金が丸ごと落ちても alert は 0 件で、顧客申告で発覚した |
+| **検知 method** | (a) Discord alert `stripe-webhook-undelivered` (cron `stripe-webhook-delivery-check`、毎時 5 分)。S1 (Stripe の event が `pending_webhooks > 0` のまま 30 分以上滞留) ∧ S2 (`checkout.session.completed` から 30 分以上経過しても tenant に subscription が結び付いていない) の**論理積**で発火 (b) CloudWatch Logs Insights `filter @message like "stripe-webhook-undelivered"` (c) 実装 SSOT: `src/lib/server/services/stripe-webhook-delivery-monitor.ts` |
+| **ロールバック手順** | (1) alert の `oldestEventId` / `sampleCheckoutEventId` で Stripe Dashboard の配信状況と顧客影響を確定 (2) 配信経路 (CloudFront geo restriction / WAF / DNS / Stripe の宛先設定) を修復 (3) `stripe events resend <event_id>` で滞留分を再送 (Stripe の保持は 30 日) (4) 対象 tenant のプラン表示で反映を確認。詳細手順は [silent-failure-alert-response.md §2.3](../../runbooks/silent-failure-alert-response.md) |
+| **再発防止** | (a) 未達検知 cron を `schedule-registry.ts` に登録し drift を `tests/unit/cron/schedule-consistency.test.ts` で CI 検出 (b) `tests/unit/services/stripe-webhook-delivery-monitor.test.ts` が発火側 / 沈黙側の両方を回帰固定 (c) 経路の恒久対処は #3957、取りこぼし突合は #3958 (d) **既知の穴**: handler が throw せず 200 を返す経路 (#4108) は S1 が偽になるため本 alert でも #4079 の `stripe-webhook-handler-failed` でも検知できない。恒久対処は #4108 が所有する |
+
+### 3.10-f R15 (#3959 新規): 未達検知 cron 自体が落ちて、検知の不在が無通知になる
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | R14 の検知 cron が例外で終了する (Stripe API 障害 / rate limit / DSQL 障害)。cron-dispatcher は非 2xx を throw せず返すため **Lambda Errors alarm では表面化せず**、検知器が止まっている間の未達は誰も気づけない (検知層の単一障害点) |
+| **検知 method** | (a) Discord alert `stripe-webhook-monitor-failed` (cron endpoint の catch から **await 送出**。fire-and-forget では Lambda freeze で送信自体が落ちるため) (b) CloudWatch Logs Insights `filter @message like "stripe-webhook-delivery-check] cron failed"` (c) 毎時の完了 log (`endpoint completed`) の不在 |
+| **ロールバック手順** | (1) alert には例外クラス名のみを載せている (接続情報を Discord に出さないため) → 詳細は CW log 本文 + stack で確認 (2) Stripe の一時障害 / rate limit なら次の実行 (1 時間後) で自然復旧するか見る (3) DSQL 側なら [dsql-alert-response.md](../../runbooks/dsql-alert-response.md) (4) **復旧まで未達検知は動いていない**ため、その間の課金は §2.3 の手順で手動確認する。詳細は [silent-failure-alert-response.md §2.5](../../runbooks/silent-failure-alert-response.md) |
+| **再発防止** | (a) cron endpoint の catch で alert を await 送出することを `tests/unit/routes/cron-stripe-webhook-delivery-check.test.ts` が回帰固定 (b) `notifyStripeAlertAsync` (await 可能版) を `alert.ts` に用意し、cron 経路では fire-and-forget を使わない (c) dispatcher の非 2xx → throw 化は他 cron に波及するため別途 (現状は本 alert が代替) |
+
+### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10、#3985 で +R11、#3980 / #3981 で +R12 / +R13、#3959 で +R14 / +R15)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
 |---|---|---|---|---|
@@ -215,6 +233,8 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **R11 (#3985 新規)** | **handler の恒久的失敗が無通知のまま Stripe の 3 日再送を使い切る** | Discord alert `stripe-webhook-handler-failed` (初回失敗で発火) + CloudWatch Logs Insights | 一過性なら再送で自然復旧 / 恒久バグは fix deploy 後に再送分が再処理される。期限切れ分は `stripe events resend` | 失敗 alert を `handleWebhookEvent` catch 1 箇所に集約 + `stripe-webhook-dedup.test.ts` の失敗 alert 回帰 (未達検知は #3959) |
 | **R12 (#3980 新規)** | **subscription item 複数化で `items.data[0]` が plan を表さなくなる** | Discord alert `stripe-subscription-multi-item` (通知) + CloudWatch Logs Insights (`tags.priceIds`、切り分け) | plan item を lookup_key で選別する分岐を追加して deploy + 誤解決 tenant を Stripe 現行 price と突合修復 | `items.length > 1` / `=== 1` 双方の unit test で発火・誤発火を固定 |
 | **R13 (#3981 新規)** | **context 解決の bare `catch {}` が障害を「tenant not found」に化けさせる** | Discord alert `stripe-context-unresolved` (通知) + CloudWatch Logs Insights (`tags.reason`) + `logger.error` | CloudWatch の `reason` で Stripe 側 / DB 側を切り分け → 復旧。**再送では収束しない**ため CloudWatch → Stripe / DB 突合で手動修復 (恒久対策 #4108) | try 範囲を分割し bare `catch {}` を不能化 + 3 経路 (API throw / repo throw / tenant 不在) unit test |
+| **R14 (#3959 新規)** | **webhook が Lambda に到達せず alert が 0 件のまま課金が落ちる** | Discord alert `stripe-webhook-undelivered` (cron 毎時、S1 滞留 ∧ S2 plan 未反映) + CloudWatch Logs Insights | 配信経路 (CloudFront geo / WAF / DNS / 宛先設定) を修復 → `stripe events resend` で滞留分を再送 → プラン反映を確認 | cron を `schedule-registry.ts` に登録 + `schedule-consistency.test.ts` の drift 検出 + `stripe-webhook-delivery-monitor.test.ts` の発火 / 沈黙両側回帰。**穴**: throw しない handler 失敗 (#4108) はどちらの alert でも検知不能 |
+| **R15 (#3959 新規)** | **未達検知 cron 自体の失敗が Lambda Errors alarm に出ず、検知の不在が無通知になる** | Discord alert `stripe-webhook-monitor-failed` (cron endpoint の catch から await 送出) + 毎時の完了 log の不在 | 例外クラス名から一次切り分け (Stripe 一時障害は次回実行で自然復旧 / DSQL は dsql-alert-response.md)。復旧まで課金は §2.3 で手動確認 | endpoint catch の await 送出を `cron-stripe-webhook-delivery-check.test.ts` が回帰固定 + `notifyStripeAlertAsync` (await 可能版) を cron 経路で必須化 |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 
