@@ -4,7 +4,8 @@
 // (check-pr-body / Verify AC map / pr-template-gate 6 job / PR チェックリスト完了確認) を
 // pass すること。gate ロジックは再実装せず、CI と同一の SSOT 関数 (実 template /
 // 実 PR_TEMPLATE_SECTIONS.json 入力) を import して assert する — 実例 #3876 の
-// 「必須 13 セクション + AC マップ 4 列欠落 → QM 手作業 remediation」の構造的再発防止。
+// 「必須セクション (件数の SSOT は .github/PR_TEMPLATE_SECTIONS.json) + AC マップ 4 列欠落
+// → QM 手作業 remediation」の構造的再発防止。
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {

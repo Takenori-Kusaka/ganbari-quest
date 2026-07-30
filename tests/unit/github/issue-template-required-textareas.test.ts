@@ -158,6 +158,51 @@ describe('--body-file 経路 (SKILL.md) が Web UI 必須 4 項目を網羅す�
 		expect(Object.keys(FIELD_TO_HEADING).sort()).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
 	});
 
+	/**
+	 * `.github/CLAUDE.md` §Issue 起票ルール の「N textarea (id / id / …) 必須化」行から
+	 * field id 集合を抽出する。CLAUDE.md 側が SSOT 記述であり、yml / SKILL.md との drift を
+	 * 機械照合するための parser (#4097 AC2 bullet 2)。
+	 */
+	function parseRequiredFieldIdsFromClaudeMd(md: string): { count: number; ids: string[] } {
+		const m = md.match(/\*\*(\d+) textarea \(([^)]+)\) 必須化\*\*/);
+		if (m === null) {
+			throw new Error(
+				'.github/CLAUDE.md に「N textarea (…) 必須化」ルール行が無い → 必須項目の SSOT 記述が失われている',
+			);
+		}
+		return { count: Number(m[1]), ids: m[2].split('/').map((s) => s.trim()) };
+	}
+
+	const claudeMd = readFileSync(resolve(process.cwd(), '.github/CLAUDE.md'), 'utf8');
+	const claudeRule = parseRequiredFieldIdsFromClaudeMd(claudeMd);
+
+	it('.github/CLAUDE.md が列挙する必須 field 集合が Issue Forms の実 field 集合と一致する', () => {
+		expect(
+			[...claudeRule.ids].sort(),
+			'.github/CLAUDE.md の必須 field 列挙と Issue Forms (yml) の required textarea が乖離している',
+		).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
+		// 「4 textarea」の宣言件数自体も列挙数と一致していること (片方だけ増減する drift を検出)
+		expect(claudeRule.count).toBe(claudeRule.ids.length);
+	});
+
+	it('.github/CLAUDE.md が `--body-file` 経路にも同一見出しを要求している', () => {
+		expect(claudeMd).toMatch(/gh issue create --body-file`? 経由起票も同 \d+ 見出しを/);
+	});
+
+	it.each(
+		claudeRule.ids,
+	)('.github/CLAUDE.md が要求する `%s` に対応する見出しが SKILL.md テンプレに存在する', (id) => {
+		const heading = FIELD_TO_HEADING[id];
+		expect(
+			heading,
+			`.github/CLAUDE.md が要求する field "${id}" が対応表 (FIELD_TO_HEADING) に無い`,
+		).toBeDefined();
+		expect(
+			skill,
+			`SKILL.md に "${heading}" が無い → CLAUDE.md の要求が --body-file 経路で満たされない`,
+		).toContain(heading);
+	});
+
 	it.each(
 		REQUIRED_TEXTAREA_IDS,
 	)('必須 field `%s` に対応する見出しが SKILL.md ステップ 7 テンプレに存在する', (id) => {
