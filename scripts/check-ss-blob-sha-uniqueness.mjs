@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const MODE = (process.env.CHECK_MODE || 'warn').toLowerCase();
@@ -105,47 +106,10 @@ export function pairBeforeAfter(paths) {
 // ---------------------------------------------------------------------------
 
 /**
- * 理由記述を要求する宣言の最小長 (全角前提の目安)。
- *
- * 「理由の非強制」を作らないための下限 (#3956 教訓 / #4084 AC3)。空欄・`TODO`・`n/a` のような
- * 定型 stub は理由として認めない。lint の `-- <reason>` 付き抑制コメントと同じ思想。
+ * 理由の実体判定は `scripts/lib/ci/reason-declaration.mjs` が SSOT (#4129 AC5 で集約)。
+ * 本 module からの re-export は既存の import 経路を壊さないために維持する。
  */
-export const MIN_REASON_LENGTH = 12;
-
-/** 理由として認めない定型 stub (小文字化して完全一致で判定)。 */
-const STUB_REASONS = new Set([
-	'todo',
-	'tbd',
-	'n/a',
-	'na',
-	'-',
-	'—',
-	'なし',
-	'後で書く',
-	'あとで書く',
-	'理由',
-	'wip',
-	'fixme',
-]);
-
-/**
- * `<!-- <key>: <理由> -->` 形式の宣言を読み、理由の実体があるかを判定する (#4084 AC3)。
- *
- * @param {string} body
- * @param {string} key 例: `ss-identical-ok` / `ss-pair-none`
- * @returns {{ present: boolean; reason: string; valid: boolean }}
- */
-export function parseReasonDeclaration(body, key) {
-	const m = body.match(new RegExp(`<!--\\s*${key}\\s*:([^>]*?)-->`));
-	if (!m) return { present: false, reason: '', valid: false };
-	const reason = (m[1] ?? '').trim();
-	const normalized = reason.toLowerCase();
-	const valid =
-		reason.length >= MIN_REASON_LENGTH &&
-		!STUB_REASONS.has(normalized) &&
-		!/^[-—\s]*$/.test(reason);
-	return { present: true, reason, valid };
-}
+export { MIN_REASON_LENGTH, parseReasonDeclaration };
 
 /**
  * ペアリング宣言を読む (#4084 AC2)。

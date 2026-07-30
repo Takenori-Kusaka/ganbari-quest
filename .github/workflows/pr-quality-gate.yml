@@ -219,6 +219,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-ss-blob-sha-uniqueness.mjs
+            scripts/lib/ci/reason-declaration.mjs
             scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
 
