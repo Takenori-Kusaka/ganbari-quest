@@ -44,7 +44,7 @@
 		"check:lp-residue": "node scripts/check-lp-removal-residue.mjs",
 		"check:lp-residue:update-baseline": "node scripts/check-lp-removal-residue.mjs --update-baseline",
 		"check:marketplace-registry-integrity": "node scripts/check-marketplace-registry-integrity.mjs",
-		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-plan-sync.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && node scripts/check-no-at-html.mjs && tsx scripts/check-terminology-coherence.ts",
+		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && node scripts/check-no-at-html.mjs && tsx scripts/check-terminology-coherence.ts",
 		"lint:lp-innerhtml-tags": "node scripts/check-lp-innerhtml-tags.mjs",
 		"lint:fix": "biome check --write .",
 		"generate:lp-labels": "node scripts/generate-lp-labels.mjs",
@@ -91,11 +91,9 @@
 		"optimize:lp-images": "node scripts/optimize-lp-images.mjs",
 		"optimize:lp-images:check": "node scripts/optimize-lp-images.mjs --check",
 		"check:no-demo-route-dup": "node scripts/check-no-demo-route-duplication.mjs",
-		"check:cron-observability": "node scripts/check-cron-observability.mjs",
 		"check:cfn-lint": "node scripts/check-cdk-cfn-lint.mjs",
 		"ops:reconcile-stripe": "npx tsx scripts/reconcile-stripe-subscriptions.ts",
-		"setup:stripe-portal": "npx tsx scripts/stripe-setup-portal.ts",
-		"verify:pack-coverage": "node scripts/verify-pack-coverage.mjs"
+		"setup:stripe-portal": "npx tsx scripts/stripe-setup-portal.ts"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.114.0",

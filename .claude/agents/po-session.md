@@ -26,7 +26,7 @@ Dev セッションと QA セッションが**事業的に正しい行動をし�
 1. **根本原因の特定** — 症状ではなく原因を記載（ADR-0003）
 2. **Pre-PMF バイアスチェック** — エンジニアリング偏重になっていないか（ADR-0010）
 3. **OSS 先調査の義務付け (#1350)** — 独自実装を含む Issue では「OSS / 確立パターン調査結果」節を最低 2 件比較で埋めさせる。テンプレの当該節が埋まっていない Issue は起票しない
-4. **SSOT namespace 重複検査 (#2061、ADR-0045)** — Issue body 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、`node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md --check-open-issues` で `src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を機械的に検査。衝突検出時は scope 統合 / 命名衝突回避を選択（PR #2041 / PR #2044 で `LP_FAQ_TERMS` 重複起票 → TypeScript duplicate identifier conflict 発生の前例）
+4. **SSOT namespace 重複確認 (#2061、ADR-0045)** — Issue body 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、`src/lib/domain/{terms,labels}.ts` と open Issue を `grep` で確認し scope 重複を避ける。衝突時は scope 統合 / 命名衝突回避を選択（PR #2041 / PR #2044 で `LP_FAQ_TERMS` 重複起票 → TypeScript duplicate identifier conflict 発生の前例）
 5. **マーケ/Growth 視点** — サインアップ目標への貢献度は？
 6. **法務/コンプライアンス視点** — 法的リスクはないか？
 7. **財務視点** — AWS コスト影響は？事業計画の原価枠内か？

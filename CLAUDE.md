@@ -92,7 +92,6 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 1. **同領域 EPIC 既起票確認**: 新規 EPIC 起票前に `gh issue list --search "<keyword>" --state all` で過去 6 ヶ月の同領域 Issue を確認、「関連 Issue」セクションに列挙
 2. **抽象パターン MUST-DO**: 3 つ目の類似 service / component を起票する前、Strategy / Factory / Registry 適用判断を PO に必須確認
 
-監視: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）。
 
 ## Session Agents & Skills
 

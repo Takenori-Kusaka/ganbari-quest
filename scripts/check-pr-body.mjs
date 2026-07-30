@@ -1248,15 +1248,27 @@ export function partitionReadyOnlyViolations(violations, isDraft) {
  * @param {string|number|null} prNumber
  * @returns {string[]}
  */
-export function formatDraftDeferredGates(deferred, prNumber = null) {
+export function formatDraftDeferredGates(deferred, prNumber = null, reason = 'draft') {
 	const target = prNumber ? `PR #${prNumber}` : 'この PR';
+	const head =
+		reason === 'skip-flag'
+			? `[check-pr-body] NOTE: ${target} は --skip-ready-only 指定のため Ready 化要件 ${READY_ONLY_GATES.length} 件を検査しませんでした (#4121)`
+			: `[check-pr-body] NOTE: ${target} は Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件を deferred しました (#3997)`;
+	const perGateSuffix =
+		reason === 'skip-flag'
+			? '未達 (本呼び出しでは fail させない)'
+			: '未達 (Draft のため今回は fail させない)';
+	const tail =
+		reason === 'skip-flag'
+			? `  ※ 同 section は pr-merge-gate.yml (check-merge-gate-checklist) が CI で検査します`
+			: `  ※ Ready 化 (gh pr ready) 後の push / npm run pre-ready / CI では上記が全て必須になります`;
 	return [
-		`[check-pr-body] NOTE: ${target} は Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件を deferred しました (#3997)`,
+		head,
 		...READY_ONLY_GATES.map((g) => {
 			const hit = deferred.find((d) => d.id === g.id);
-			return `  - ${g.name} (${g.issue}) — ${hit ? '未達 (Draft のため今回は fail させない)' : '現時点で違反なし'}`;
+			return `  - ${g.name} (${g.issue}) — ${hit ? perGateSuffix : '現時点で違反なし'}`;
 		}),
-		`  ※ Ready 化 (gh pr ready) 後の push / npm run pre-ready / CI では上記が全て必須になります`,
+		tail,
 	];
 }
 
@@ -1289,10 +1301,10 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
 export function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; help: boolean }} */
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
@@ -1300,6 +1312,7 @@ export function parseArgs(argv) {
 		noLabels: false,
 		skipMergeable: false,
 		draft: false,
+		skipReadyOnly: false,
 		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -1326,6 +1339,7 @@ export function parseArgs(argv) {
 		else if (a === '--no-labels') args.noLabels = true;
 		// #3997: --pr 指定時は gh の isDraft が優先され、本フラグは無視される (bypass 防止)
 		else if (a === '--draft') args.draft = true;
+		else if (a === '--skip-ready-only') args.skipReadyOnly = true;
 		else if (a === '--help' || a === '-h') args.help = true;
 	}
 	return args;
@@ -1357,6 +1371,9 @@ Options:
   --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
   --draft             Draft 相当として検査（--body-file dry-run 専用、#3997）
                       --pr 指定時は gh pr view --json isDraft の実状態が優先され本フラグは無視される
+  --skip-ready-only   Ready 化要件 ${READY_ONLY_GATES.length} 件を検査しない (#4121、push レイヤ専用)
+                      同 section は pr-merge-gate.yml が CI で検査するため純粋な重複。
+                      skip したことは必ず標準出力に出る (無言 skip にしない)
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
   --help, -h          このヘルプを表示
 
@@ -1565,18 +1582,24 @@ export async function main(argv = process.argv.slice(2)) {
 
 	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
 	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
+	// #4121: `--skip-ready-only` は Draft/Ready を問わず Ready 化要件を検査対象から外す
+	// (push レイヤ専用。CI は pr-merge-gate.yml が同 section を検査する)。
+	const deferReadyOnly = draftState.isDraft || args.skipReadyOnly;
 	const { enforced: violations, deferred } = partitionReadyOnlyViolations(
 		allViolations,
-		draftState.isDraft,
+		deferReadyOnly,
 	);
-	if (draftState.isDraft) {
-		for (const line of formatDraftDeferredGates(deferred, args.pr)) console.log(line);
+	if (deferReadyOnly) {
+		const reason = draftState.isDraft ? 'draft' : 'skip-flag';
+		for (const line of formatDraftDeferredGates(deferred, args.pr, reason)) console.log(line);
 	}
 
 	if (violations.length === 0) {
 		const draftNote = draftState.isDraft
 			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
-			: '';
+			: args.skipReadyOnly
+				? ` (--skip-ready-only のため Ready 化要件 ${READY_ONLY_GATES.length} 件は未検査)`
+				: '';
 		console.log(
 			skippedCount > 0
 				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote} — 違反なし`

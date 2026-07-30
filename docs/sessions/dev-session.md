@@ -412,7 +412,6 @@ PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」
 
 実装着手前に PO 合意根拠が無い場合、ADR-0008（設計ポリシー先行確認）違反となる。判定保留時は Issue にコメントで PO 確認を待ってから着手する。
 
-監視 script: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）。CI 必須化ではなく awareness。
 
 ### 役割境界（#1022）
 

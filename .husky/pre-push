@@ -142,12 +142,15 @@ if [ -n "$PR_NUM" ]; then
 	# #3962: `po-decision:required` label 付き PR の PO 決裁ブリーフ欠落もここで落ちる
 	# (label は labeler.yml が自動付与するため、body 側の追従漏れが #3944 / #3956 で 2 回連続した)。
 	#
-	# #3997: PR が **Draft** の場合、check-pr-body 側が Ready 化要件 (Ready チェックリスト全 [x] /
-	# PO 決裁ブリーフ) だけを deferred する。Draft は「まだ Ready の要件を満たしていない」宣言であり、
-	# それを push の条件にすると Draft PR に 1 commit も置けず成果物が local に滞留する (#3989 実例)。
-	# 体裁 / 事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ) は Draft でも
-	# 落ちる。deferred したことは check-pr-body の標準出力に必ず出る (無言 skip にしない)。
-	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable || {
+	# #4121 (ADR-0056 §F 改訂): Ready 化要件 (Ready チェックリスト全 [x] / PO 決裁ブリーフ) は
+	# `--skip-ready-only` で **Draft / Ready を問わず push レイヤでは検査しない**。
+	# 同じ section は pr-merge-gate.yml → check-merge-gate-checklist.mjs の LIGHT_LANE_SECTIONS が
+	# CI で検査済で純粋な重複であり、外しても検査は 1 件も減らない。加えて Ready 時点の申告を
+	# push 時点で問うのは検査の置き場所の誤りで、Draft へ 1 commit 置くだけで Ready 申告を要求され
+	# 成果物が local に滞留していた (#3989 / #3997 は Draft 限定の対症だった)。
+	# 体裁 / 事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ) は引き続き落ちる。
+	# skip したことは check-pr-body の標準出力に必ず出る (無言 skip にしない)。
+	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable --skip-ready-only || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: PR body 検証 fail (exit $EXIT_CODE)"
 		echo "          対処: tmp/pr-bodies/<slug>.md を編集 + gh pr edit --body-file"
