@@ -8,7 +8,7 @@
  * ## 背景 (#3879 / 実例 #3876)
  *
  * 旧 workflow は back-merge 説明のみの最小 body を inline 生成しており、PR template の
- * 必須 13 セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT) と AC 検証マップ 4 列を欠くため、
+ * 必須 11 セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT) と AC 検証マップ 4 列を欠くため、
  * CI 必須 gate 2 件 (`Verify AC map in PR body` / `必須セクションの存在確認`) が hard-fail
  * → hotfix のたびに QM が手作業で compliant body を補完していた。本 script は自動発行 body を
  * **生成時点で gate 準拠**にし、QM 手作業 remediation を構造的に廃す。
@@ -55,6 +55,7 @@ import {
 	findUncheckedReadyChecklist,
 	scanForbiddenTerms,
 } from './check-pr-body.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 import { CHECKS as TEMPLATE_GATE_CHECKS } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -103,7 +104,7 @@ function conflictInstructions(branch) {
 /**
  * back-merge PR body 全文を生成する純粋関数 (#3879 AC1)。
  *
- * PR template の必須 13 セクション (`## ` 見出し完全一致) + AC 検証マップ 4 列を備え、
+ * PR template の必須 11 セクション (`## ` 見出し完全一致) + AC 検証マップ 4 列を備え、
  * feature lane (base=develop) の全 body gate — 必須セクション存在 / AC マップ / 禁止語 /
  * Ready checklist / closing keyword (back-merge label skip) — を生成時点で満たす。
  *
@@ -162,32 +163,26 @@ export function renderBackMergePrBody({ hotfixPr, hotfixHead, mergeSha, branch, 
 		'',
 		`- [x] fix: バグ修正 (hotfix #${pr} の main→develop 機械同期)`,
 		'',
-		'## 影響範囲・変更コンポーネント',
+		'## 影響範囲・横展開チェック',
 		'',
-		`**変更レイヤー**: hotfix #${pr} の変更内容に準ずる (元 PR の「影響範囲・変更コンポーネント」参照)。本 PR は git merge による同期のみで新規変更を含まない。`,
+		`**影響を受ける画面・機能**: hotfix #${pr} と同一 (元 PR の同名セクション参照)。本 PR は git merge による同期のみで新規変更を含まない。`,
 		'',
-		`**影響を受ける画面・機能**: hotfix #${pr} と同一。`,
+		`- [x] N/A — 並行実装の影響範囲外 (hotfix #${pr} の develop 同期のみ。横展開判断・設計書同期・LP 整合はいずれも元 PR 側で完了済)`,
 		'',
-		'## テスト & 安全装置セルフチェック',
+		'## テスト・品質セルフチェック',
 		'',
-		`- [x] hotfix #${pr} は main merge 前に QM Approve + CI 全 gate green を通過済 (ADR-0022)`,
+		'| テスト種別 | コマンド | 結果 |',
+		'|---|---|---|',
+		`| hotfix #${pr} 側 gate | main merge 前の QM Approve + CI 全 gate (ADR-0022) | PASS (元 PR で検証済) |`,
+		'| body 自己検証 | `node scripts/back-merge-pr-body.mjs` | PASS (check-pr-body / AC map / template-gate / merge-gate、#3879) |',
+		'',
 		'- [x] 本 PR は同一変更の機械同期のため、追加・変更したテストは「N/A」',
-		'- [x] 本 body は生成時に `node scripts/back-merge-pr-body.mjs` が gate 検証ロジック (check-pr-body / AC map / template-gate / merge-gate) で自己検証済 (#3879)',
+		`- [x] \`git merge\` による機械同期で新規コードを含まない (SOLID / DRY / Security / A11y / Performance の検証は hotfix #${pr} 側で完了済)`,
 		'- [x] 新規 env / secret の追加なし (ADR-0006): 「N/A」',
 		'',
 		'## スクリーンショット / ビジュアルデモ',
 		'',
 		`**該当なし** (hotfix #${pr} で QM 検証済の変更の機械同期であり、本 PR 固有の新規 UI 変更はない。UI 変更の SS 証跡は元 hotfix PR 側に添付済)。`,
-		'',
-		'## コード品質セルフレビュー (#1481)',
-		'',
-		`- [x] 本 PR は \`git merge\` による機械同期で新規コードを含まない (SOLID / DRY / Security / A11y / Performance の検証は hotfix #${pr} 側で完了済)`,
-		'',
-		'## 横展開・影響波及チェック',
-		'',
-		`- [x] N/A — 並行実装の影響範囲外 (hotfix #${pr} の develop 同期のみ。横展開判断は元 PR 側で完了済)`,
-		'',
-		'**LP / 販促文言変更時** (ADR-0013 / #1314): N/A (機械同期で新規文言変更を含まない)',
 		'',
 		'## レビュー依頼事項・破壊的変更',
 		'',
@@ -206,7 +201,7 @@ export function renderBackMergePrBody({ hotfixPr, hotfixHead, mergeSha, branch, 
 		'',
 		'- [x] back-merge branch が origin/develop 起点で作成されている (workflow step「Create back-merge branch」)',
 		`- [x] merge SHA \`${sha7}\` が develop 未取込であることを no-op guard (\`git merge-base --is-ancestor\`、#2951 AC5) で確認済`,
-		'- [x] 本 body は必須 13 セクション + AC 検証マップ 4 列を生成時に自己検証済 (`node scripts/back-merge-pr-body.mjs`、#3879)',
+		'- [x] 本 body は必須 11 セクション + AC 検証マップ 4 列を生成時に自己検証済 (`node scripts/back-merge-pr-body.mjs`、#3879)',
 		'- [x] drift contract label `back-merge` を付与済 (B-3 統合 PR §6 が未取込 hotfix として読む、#2951 AC6)',
 		conflict
 			? '- [x] conflict marker を残した branch を作成し `status:blocked` を付与した (自動 force resolve なし、#2951 AC3)'
@@ -360,13 +355,7 @@ export function parseArgs(argv) {
 	return out;
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));

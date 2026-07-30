@@ -41,7 +41,7 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 
 ### 0-3. label 付与時の義務
 
-`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、6 項目）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
+`po-decision:required` の PR は、PR body に **「## PO 決裁ブリーフ」条件付きセクション**（`dev-open-pr` skill の `templates/po-decision-brief.md`、**mermaid 一枚絵** = リスク・可逆性 / trade-off / 反対理由 3 軸 / 顧客面の変化 / 判断依頼を 1 図に圧縮、#3918 PO 恒久要件）を必須添付し、**PO の Yes/No 判断を得てから merge する**（QM / audit-manager 単独で merge しない）。ブリーフ生成手順は [dev-open-pr SKILL.md](../dev-open-pr/SKILL.md) §「PO 決裁ブリーフ」を参照。非該当 PR は通常フロー（A〜I → QM 判定）で進み、抜き取り監査（`docs/sessions/audit-team.md` §3.9）の対象になる。
 
 ## 必須 9 項目（A〜I 全項目）
 
@@ -100,5 +100,18 @@ A〜I のレビューに入る前に、本 PR が **PO 決裁対象か** を判�
 ## 判定
 
 - 全項目 OK → Approve
-- 1 つでも NG → Request Changes + 具体的な修正指示
 - Copilot の COMMENTED は承認扱いにしない
+
+### BLOCK は 3 類型のみ (2026-07-30、SSOT: `docs/sessions/qa-session.md` §BLOCK 基準)
+
+A〜I で NG が出ても、**自動的に Request Changes にはしない**。BLOCK してよいのは次の 3 類型だけで、該当しないものは **Approve + follow-up（PR コメント止まり）** に降格する。
+
+| # | 類型 | 例 |
+|---|---|---|
+| ① | **顧客に実害がある** | データ不整合 / 課金の誤り / 認可の穴 / 日付境界のずれ / 画面が使えない |
+| ② | **証跡の真正性を弱める** | PR body の主張が HEAD に存在しない / SS の Before-After 偽装 / 実行していない検証を実行したと書く |
+| ③ | **不可逆** | 本番データ・課金・削除・DB スキーマに触れ、戻せない |
+
+- **gate の削除・warn 降格は BLOCK 事由にしない**。gate を減らす PR は **PO 承認があるかだけ**を確認し、承認があれば内容の是非で BLOCK しない（gate の増減は PO 承認事項であり QA の判断領域ではない）
+- **記録の不整合（body の書式 / チェックボックス / 表の体裁）は BLOCK しない**。降格の条件は **「独立に実 diff を確認し、実害がないと確認できた場合のみ」** — 確認せずに降格しない
+- follow-up は **PR コメント止まり**。Issue 化は「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ（装置起因は Issue にしない、`docs/sessions/po-session.md` §Issue 起票基準）

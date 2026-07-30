@@ -121,7 +121,7 @@ vision LLM (Claude / GPT-4o) に critical flow の screenshot 連番 (`scripts/c
 
 ## セッションシート (出力フォーマット)
 
-walkthrough 1 セッション = 1 critical flow × 1 persona。以下を Markdown table で記録し、customer-facing PR の body or EPIC umbrella の「テスト & 安全装置セルフチェック」section に証跡として添付する:
+walkthrough 1 セッション = 1 critical flow × 1 persona。以下を Markdown table で記録し、customer-facing PR の body or EPIC umbrella の「テスト・品質セルフチェック」section に証跡として添付する:
 
 ```markdown
 ### Cognitive Walkthrough session - {flow 名} × {persona}

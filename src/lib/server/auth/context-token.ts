@@ -24,17 +24,31 @@ function getSecret(): string {
 	return _secret;
 }
 
-interface ContextPayload extends AuthContext {
+/**
+ * トークンに載せる claim (#3963)。
+ *
+ * **`plan` / `licenseStatus` / `tenantStatus` は意図的に含めない。** これらは
+ * Stripe webhook / 解約 / 再開で随時変わる「状態」であり、TTL 付きトークンに
+ * 焼き込むと DB 反映後も最大 24 時間 (owner の TTL) 古い値が使われ続ける。
+ * 課金状態の解決 SSOT は `./tenant-entitlement.ts`（毎リクエスト DB 解決）。
+ */
+export type ContextTokenClaims = Pick<AuthContext, 'tenantId' | 'role' | 'childId'>;
+
+interface ContextPayload extends ContextTokenClaims {
 	exp: number; // Unix timestamp (seconds)
 	iat: number;
 }
 
 /** Context を署名付きトークンにエンコード */
-export function signContext(context: AuthContext): string {
+export function signContext(context: ContextTokenClaims): string {
 	const now = Math.floor(Date.now() / 1000);
 	const ttl = CONTEXT_TTL[context.role] ?? CONTEXT_TTL.child;
+	// #3963: 明示的に claim を列挙する。spread にすると呼び出し側が AuthContext を
+	// 渡したときに plan / licenseStatus が黙って載り、本 Issue が再発する。
 	const payload: ContextPayload = {
-		...context,
+		tenantId: context.tenantId,
+		role: context.role,
+		childId: context.childId,
 		iat: now,
 		exp: now + ttl,
 	};
@@ -44,8 +58,15 @@ export function signContext(context: AuthContext): string {
 	return `${encoded}.${signature}`;
 }
 
-/** トークンを検証してデコード。無効なら null。 */
-export function verifyContext(token: string): AuthContext | null {
+/**
+ * トークンを検証してデコード。無効なら null。
+ *
+ * #3963: 返すのは claim のみ。課金状態は含まれないため、呼び出し側は
+ * `resolveTenantEntitlement()` で DB から補完してから `AuthContext` を組み立てる。
+ * 旧形式トークン（plan / licenseStatus 入り）も署名は有効なので受理されるが、
+ * ここで焼き込み値を読まないため、古い値が使われることはない。
+ */
+export function verifyContext(token: string): ContextTokenClaims | null {
 	const dotIndex = token.indexOf('.');
 	if (dotIndex === -1) return null;
 
@@ -70,9 +91,6 @@ export function verifyContext(token: string): AuthContext | null {
 			tenantId: payload.tenantId,
 			role: payload.role,
 			childId: payload.childId === undefined ? undefined : asChildId(payload.childId),
-			licenseStatus: payload.licenseStatus,
-			tenantStatus: payload.tenantStatus,
-			plan: payload.plan,
 		};
 	} catch {
 		return null;
@@ -80,6 +98,6 @@ export function verifyContext(token: string): AuthContext | null {
 }
 
 /** Context トークンの MaxAge（秒）を取得 */
-export function getContextMaxAge(context: AuthContext): number {
+export function getContextMaxAge(context: ContextTokenClaims): number {
 	return CONTEXT_TTL[context.role] ?? CONTEXT_TTL.child;
 }

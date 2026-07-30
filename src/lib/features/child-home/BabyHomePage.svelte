@@ -1,4 +1,5 @@
 <script lang="ts">
+import { jstYearMonth } from '$lib/domain/date-utils';
 import { BABY_HOME_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -15,11 +16,15 @@ const ageInfo = $derived.by(() => {
 	if (!child)
 		return { months: 0, weeksUntil3: 36, monthsUntil3: 36, hasDate: false, reached: false };
 	if (child.birthDate) {
-		const birth = new Date(child.birthDate);
+		// 月齢 / 3 歳到達日は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) と
+		// client (ブラウザ TZ) で月齢が 1 ヶ月ずれ、hydration で表示が切り替わる。
+		const [birthYear = 0, birthMonth = 1, birthDay = 1] = child.birthDate.split('-').map(Number);
 		const now = new Date();
-		const months =
-			(now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-		const thirdBirthday = new Date(birth.getFullYear() + 3, birth.getMonth(), birth.getDate());
+		const nowJst = jstYearMonth(now);
+		const months = (nowJst.year - birthYear) * 12 + (nowJst.month - birthMonth);
+		const thirdBirthday = new Date(
+			`${birthYear + 3}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}T00:00:00+09:00`,
+		);
 		const msUntil3 = thirdBirthday.getTime() - now.getTime();
 		const weeksUntil3 = Math.max(0, Math.ceil(msUntil3 / (1000 * 60 * 60 * 24 * 7)));
 		const monthsUntil3 = Math.max(0, Math.ceil(msUntil3 / (1000 * 60 * 60 * 24 * 30.44)));

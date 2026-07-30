@@ -148,17 +148,31 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 
 | 項目 | 内容 |
 |---|---|
-| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 種維持 (#2683 訂正: 旧計画の `subscription_schedule.*` 3 種は scope 外、代わりに `invoice.payment_succeeded` / `invoice.payment_failed` / `credit_note.created` 3 種を追加して 5 種維持) + shadow mode → cutover → retire の 3 sub step。**Phase 5 子 1 #2644 §4.4 副次制約 4 (Webhook destination api_version immutable)** が本 step の 5 phase migration 設計根拠 (#2683 で明文化、Step 4-a で新 destination 作成 → Step 4-b cutover → Step 4-c retire の手順は Stripe API 仕様により**強制必須**) |
+| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 種維持 (下記「購読 event SSOT」ブロックと同一集合。旧計画の `subscription_schedule.*` 3 種 / `credit_note.created` は handler が無いため購読しない) + shadow mode → cutover → retire の 3 sub step。**Phase 5 子 1 #2644 §4.4 副次制約 4 (Webhook destination api_version immutable)** が本 step の 5 phase migration 設計根拠 (#2683 で明文化、Step 4-a で新 destination 作成 → Step 4-b cutover → Step 4-c retire の手順は Stripe API 仕様により**強制必須**) |
 | **詳細順序** | 本 step を以下 3 sub step に分割 (Stripe webhook migration 5 phase 整合): |
 | | **4-a (shadow mode)**: 新 Webhook handler (`/api/stripe/webhook-v2`) を新規 route で実装、DB write せず log のみ。`STRIPE_WEBHOOK_SHADOW_MODE=true` で 24-48h 検証 |
 | | **4-b (cutover)**: shadow mode log で 0 件 silent drop 確認後、新 handler に切替 + 旧 handler は 200 OK + log のみ (`STRIPE_WEBHOOK_SHADOW_MODE=false`)。Stripe Dashboard で新 Webhook destination を有効化 + 旧 destination は disabled |
 | | **4-c (retire)**: cutover 後 1 週間 smoke test PASS で旧 Webhook destination を delete + 旧 handler コードを削除 |
 | **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口で `webhookEventRepo.findByEventId` dedup) / [src/routes/api/stripe/webhook-v2/+server.ts](src/routes/api/stripe/webhook-v2/+server.ts) (新規 route、4-a) / `src/routes/api/stripe/webhook/+server.ts` (旧 route、4-c で削除) / `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` feature flag) / [src/lib/server/db/repos/webhook-event-repo.ts](src/lib/server/db/repos/webhook-event-repo.ts) (sqlite / dynamodb 実装、子 3 §3) / [tests/integration/stripe-webhook-dedup.test.ts](tests/integration/stripe-webhook-dedup.test.ts) (新規) / [tests/integration/stripe-webhook-credit-note.test.ts](tests/integration/stripe-webhook-credit-note.test.ts) (#2683 新規、ダウン即時の credit memo 受信検証) / [tests/integration/stripe-webhook-api-version-immutable.test.ts](tests/integration/stripe-webhook-api-version-immutable.test.ts) (#2683 新規、副次制約 4 検証) |
-| **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で新 5 event 全種 (`customer.subscription.updated` / `_deleted` / `invoice.payment_succeeded` / `_failed` / `credit_note.created`) を受信 + DB に `handler_result='success'` 物理確認 (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) #2683 副次制約 4: `webhookEndpoints.update({api_version})` が Stripe API 400 を返すことを unit test で assert (e) `npm run pre-ready -- --pr <step4-pr>` PASS |
+| **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で「購読 event SSOT」ブロックの 5 event 全種を受信 + DB に `handler_result='success'` 物理確認 (新規購入経路 = `checkout.session.completed` を含む) (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) #2683 副次制約 4: `webhookEndpoints.update({api_version})` が Stripe API 400 を返すことを unit test で assert (e) `npm run pre-ready -- --pr <step4-pr>` PASS |
 | **ロールバック判断基準** | (a) 4-a で silent drop > 0 件 → 旧 handler 継続、新 handler 修正 (b) 4-b でエラー率 > 1% / 顧客 inquiry > 3 件 → `STRIPE_WEBHOOK_SHADOW_MODE=true` で 4-a 状態に即時戻し + Stripe Dashboard で旧 destination 再有効化 (c) 4-c で DB inconsistency 検出 → 旧 destination un-delete (Stripe 公式 archive 解除) + コード revert |
 | **kill switch** | `STRIPE_WEBHOOK_SHADOW_MODE` env var (4-a/4-b/4-c 各段階で個別切替可) |
 | **Stripe Dashboard 同期** | **4-a 前**: Test mode で新 Webhook destination 作成 (disabled)。**4-b**: Production mode で新 destination 有効化 + 旧 destination disabled。**4-c**: 旧 destination delete |
 | **前提 PR** | Step 1 + Step 2 + Step 3 マージ済 + Stripe Dashboard Production mode 構築完了 (PO #2627) |
+
+#### 購読 event SSOT (Step 4-b Dashboard 設定 / AC (b) の対象集合)
+
+実装の `dispatchWebhookEvent` の `case` と同一集合。Phase 5 子 1 §4.3 のブロックと一致する:
+
+<!-- webhook-subscribed-events:start -->
+- `checkout.session.completed`
+- `invoice.paid`
+- `invoice.payment_failed`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+<!-- webhook-subscribed-events:end -->
+
+本ブロックは `tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` が実装と突合する。handler の無い event を足すと Dashboard で購読しても永久に沈黙するため、`case` 追加と同一 PR でのみ変更する。
 
 #### Step 4-a 実装完了記録 (PR #2714 / Issue #2713)
 
@@ -195,7 +209,7 @@ Stripe Dashboard #2627 で PO が手動操作する 7 領域 (A-G) と、Phase 7
 |---|---|---|
 | **A** | Test mode で **2 Product (`prod_STANDARD` + `prod_PREMIUM`) 各 1 Price** (`standard_monthly` / `premium_monthly` lookup_key、`inclusive` 税込) (#2683 代替案 D) | **Step 3 マージ前**必須 (Step 3 PR の Pre-Ready CI が Test mode lookup_key 解決確認を含む) |
 | **B** | Test mode で Customer Portal config 設定 (子 1 §3.2 の 12 項目、**`subscription_update.products` に 2 entries** + `proration_behavior='always_invoke'` + `schedule_at_period_end` 撤去、#2683) | Step 3 マージ前 (A と同時、PO 1 セッションで完遂) |
-| **C** | Test mode で Webhook destination 作成 (disabled、子 1 §4.3 の **5 event** 購読: `customer.subscription.*` 2 + `invoice.payment_*` 2 + `credit_note.created` 1、#2683 訂正) | **Step 4-a マージ前**必須 |
+| **C** | Test mode で Webhook destination 作成 (disabled、購読 event は Step 4 の「購読 event SSOT」ブロックの 5 種をそのまま設定する) | **Step 4-a マージ前**必須 |
 | **D** | Test mode で Test clock customer 作成 (子 2 #2662 連動、6 シナリオ用、#2683 でダウンシナリオは即時 + credit memo 検証に変更) | Step 4-a 着手前 (E2E 計画段階で PO が事前構築) |
 | **E** | Production mode で 2 Product / 各 1 Price / lookup_key / Customer Portal config を Test mode と同設定で作成 (#2683 反映) | **Step 4-b マージ前**必須 (Production cutover 前) |
 | **F** | Production mode で Webhook destination 作成 (disabled、Step 4-b マージ時に有効化、#2683 副次制約 4: api_version は新 destination 作成時の Dashboard 設定値で immutable) | Step 4-b マージ時に PO が Dashboard で有効化 (同期コミット) |
@@ -236,7 +250,7 @@ gantt
 | A+B 未完で Step 3 マージ | Step 3 PR の Pre-Ready で `prices.list({ lookup_keys })` mock 解決成功するが、本番 staging 起動で `INVALID_LOOKUP_KEY` | Step 3 を revert、PO #2627 で A+B 完遂後再 push |
 | C 未完で Step 4-a マージ | shadow mode で event 受信 0 件、log に新 destination 反映なし | Step 4-a を `STRIPE_WEBHOOK_SHADOW_MODE=false` に切替、PO #2627 で C 完遂後 shadow mode 再有効化 |
 | E 未完で Step 4-b マージ | Production cutover で新 lookup_key 解決失敗 (Production mode Price 不在) | Step 4-b 即時 revert (kill switch `USE_LOOKUP_KEY=false` 有効化)、PO #2627 で E 完遂後再 push |
-| F 同期遅延 (Step 4-b マージ後 Dashboard 未有効化) | 新 5 event のうち 3 種新規 (`invoice.payment_succeeded` / `_failed` / `credit_note.created`、#2683 訂正) が silent drop | PO に Discord alert 通知、Dashboard で F 即時有効化 (5 分以内対応) |
+| F 同期遅延 (Step 4-b マージ後 Dashboard 未有効化) | 「購読 event SSOT」ブロックの 5 event が silent drop (新規購入 `checkout.session.completed` を含むため課金反映が止まる) | PO に Discord alert 通知、Dashboard で F 即時有効化 (5 分以内対応) |
 | G 早期実行 (Step 5 マージ前に旧 4 Price archive) | active subscription 顧客の請求継続失敗 (Phase 1 補強 2 Open question 4 が崩れた場合) | Stripe API で旧 4 Price un-archive (Stripe 公式 archive 解除)、Step 5 マージまで再 archive 保留 |
 
 ## 5. Stripe Webhook migration 5 phase 自プロダクト転用 (§5、#2683 補強で副次制約 4 を根拠化)

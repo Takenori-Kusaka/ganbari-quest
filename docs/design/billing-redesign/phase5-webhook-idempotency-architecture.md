@@ -5,7 +5,7 @@
 | 孫 issue | #2641 (Phase 5 子 2 — webhook 冪等性 DB 設計) |
 | 親 | #2530 (Phase 5 アーキ) / Epic #2525 |
 | 上位 (Phase 1) | #2537 (dunning) / #2540 (security) |
-| ステータス | 設計確定 (deep-research: Stripe 公式 Webhook 一次 6 URL 検証済 → 本 PR で docs 確定、コード変更は Phase 7) |
+| ステータス | 実装済 (#3985 で `handleWebhookEvent` dispatcher 入口に配線、購読 5 種 + 未購読型を一律 dedup) |
 | 依存 (Phase 5 同位) | 子 1 ([phase5-stripe-product-architecture.md](phase5-stripe-product-architecture.md)) Webhook endpoint 設計と統合 |
 | Phase 7 連動 | webhook handler 全 5 種 (現行) + 3 種 (子 1 新規 `subscription_schedule.*`) を本 DB 経由 |
 | 起点 | Phase 1 dunning NFR-1 (webhook 冪等性) + Phase 1 security FR-4 (event.id で冪等性管理) + security 既存実装 delta #3 (「event.id dedup なし → 新規構築」) の合流地点 |
@@ -68,10 +68,10 @@ Stripe 公式 (<https://docs.stripe.com/webhooks#handle-duplicate-events>) よ�
 |------|------|------|
 | **handler 横断の dedup 機構** | `handleWebhookEvent` dispatcher 入口 (L221) で 1 箇所 dedup、全 event 型を一律処理 | Stripe 公式 best practice / future-proof (新規 event 追加時の散在防止) |
 | **event.id PK** | Stripe `evt_*` の immutable な ID を SSOT、replay/resend で同一 ID を活用 | Stripe 公式 API events object 仕様 |
-| **handler 実行と dedup row 書込みを同一 transaction** | SQLite は `BEGIN ... COMMIT`、DynamoDB は `TransactWriteItems`、in-memory は同期 Map に統一 | partial failure (handler 成功 + dedup row insert 失敗) で次回到達時に再実行されることを保証 (at-most-once は無理、at-least-once で冪等 handler を作る Stripe 推奨パターン) |
+| **dedup row の書込みは handler 完了後** | handler が成功したときだけ row を insert する。row 書込みが失敗すれば row は残らず、次回到達で handler が再実行される (この順序が transaction と同じ保証を与えるため、handler と row を 1 transaction に閉じ込めない — handler は Stripe API 呼び出しを含み、transaction 内に network I/O を抱えるのは不可) | partial failure で event を失わないことを保証 (at-most-once は原理的に不可、at-least-once で冪等 handler を作る Stripe 推奨パターン) |
 | **30 日 retention (ADR-0049 整合)** | `processed_at` 30 日経過で物理削除 (Stripe 公式 `Events API` は 30 日でも保持される為、replay window 内のみカバーすれば足りる) | Stripe 公式 events object docs (30 日後 list API から消える) / PIPC データ最小化 / Pre-PMF dedup row 量を膨張させない |
 | **4 backend 整合** | SQLite (Drizzle) / DynamoDB (single table) / in-memory (demo & test) で同一 interface (`IWebhookEventRepo`) | `parallel-implementations.md` の DB スキーマ整合ルール (§9 並行ペア整合) |
-| **error_message + retry_count 記録** | handler 例外時は `handler_result: 'error'` で row insert + error_message に Stripe.Error message を保存、retry_count を increment | Phase 7 retry 戦略の基礎データ (本 PR scope 外、retry 自動化は PMF 後判断) |
+| **retry_count 記録** | 同一 event.id の再到達ごとに `retry_count` を +1 する | 「どの event が何回再送されたか」を運用で見るための基礎データ。`handler_result` は `'success'` / `'skipped'` の 2 値で、失敗は row を残さない (§4.2) ため `error_message` は常に null |
 | **HTTP status は常に 200 (重複検知時も)** | Stripe 公式: 4xx/5xx 返却は Stripe 側 retry をトリガし重複到達を増やす | Stripe 公式 webhook best practice (`Acknowledge events immediately`) |
 
 ## 3. 確定案: stripe_webhook_events table
@@ -168,7 +168,7 @@ export const STRIPE_WEBHOOK_EVENT_TTL_DAYS = 30;
 ### 3.3 in-memory schema (demo & test、`src/lib/server/db/demo/` 配下に新規 file)
 
 ```typescript
-// src/lib/server/db/demo/webhook-event-repo.ts (Phase 7 で新規作成、本 PR scope 外)
+// src/lib/server/db/demo/webhook-event-repo.ts
 // in-memory Map で 4 backend 整合を保つ。demo Lambda + unit test で使用。
 import type { IWebhookEventRepo, WebhookEventRecord } from '../interfaces/webhook-event-repo.interface';
 
@@ -217,85 +217,40 @@ export interface IWebhookEventRepo {
 
 ## 4. 既存 webhook handler との統合方針 (Phase 7 実装)
 
-### 4.1 dispatcher 入口での dedup check (handleWebhookEvent = L221)
+### 4.1 dispatcher 入口での dedup check
 
-```typescript
-// Phase 7 で stripe-service.ts に追加する擬似コード (本 PR scope 外、設計のみ)
-export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
-  const repos = getRepos();
-  const existing = await repos.webhookEvent.findByEventId(event.id);
+`handleWebhookEvent` (`src/lib/server/services/stripe-service.ts`) が唯一の dedup 点。
 
-  if (existing) {
-    // 重複到達 — retry_count++ + 既に処理済みとして skip
-    await repos.webhookEvent.incrementRetryCount(event.id);
-    logger.info(`[STRIPE] Duplicate webhook event skipped: ${event.id} type=${event.type} retry=${existing.retryCount + 1}`);
-    return; // HTTP 200 を返す (上位 +server.ts 側)、Stripe 側 retry を抑止
-  }
+1. `repos.webhookEvent.findByEventId(event.id)` が row を返す → **handler を呼ばず**
+   `incrementRetryCount` して return (呼び出し元は 200 を返す)
+2. row が無い → `dispatchWebhookEvent` で event 型ごとの handler を実行し、**完了後に** row を insert する
+   (`handlerResult` は購読型なら `'success'`、未購読型なら `'skipped'`)
+3. handler が throw した場合は row を insert せず例外を伝播する。`+server.ts` が 500 を返し、
+   Stripe の再送で再処理される
 
-  // 初回到達 — handler 実行 → 結果を insert (transaction で atomic)
-  let handlerResult: 'success' | 'error' | 'skipped' = 'success';
-  let errorMessage: string | undefined;
-  let tenantId: string | undefined;
+`tenant_id` は payload から解決できる `checkout.session.completed` のみ格納する (analytics 属性、
+他の型は subscription / customer から DB 逆引きが必要なため null)。`error_message` は
+handler 失敗を記録しない方針 (§4.2) のため常に null。
 
-  try {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        tenantId = (event.data.object as Stripe.Checkout.Session).metadata?.tenantId;
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
-        break;
-      case 'invoice.paid':
-        await handleInvoicePaid(event.data.object as Stripe.Invoice);
-        break;
-      case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-      case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
-        break;
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
-        break;
-      // Phase 5 子 1 新規 3 種 (Phase 7 で handler 実装)
-      case 'subscription_schedule.aborted':
-      case 'subscription_schedule.canceled':
-      case 'subscription_schedule.completed':
-        await handleSubscriptionScheduleEvent(event); // Phase 7 新規
-        break;
-      default:
-        handlerResult = 'skipped';
-        logger.info(`[STRIPE] Unhandled event type: ${event.type}`);
-    }
-  } catch (err) {
-    handlerResult = 'error';
-    errorMessage = String(err).slice(0, 500); // 500 文字 truncate (PII 流入回避)
-    logger.error(`[STRIPE] Webhook handler failed: ${event.id} type=${event.type}`, { error: errorMessage });
-    // 例外を re-throw しない — dedup row を必ず insert して次回到達時の再処理判断材料を残す
-  }
+### 4.2 設計判断: handler 失敗時は dedup row を残さず再 throw する
 
-  await repos.webhookEvent.insert({
-    eventId: event.id,
-    eventType: event.type,
-    processedAt: new Date().toISOString(),
-    handlerResult,
-    errorMessage,
-    retryCount: 0,
-    tenantId,
-  });
-}
-```
+**採用**: handler 失敗時は dedup row を insert せず例外を伝播し、Stripe の再送に載せる
+(`stripe_webhook_events` は「**完了した** event の台帳」を意味する)。
 
-### 4.2 設計判断: handler 失敗時に exception を re-throw しない
+**不採用**: handler 失敗時も row を insert して 200 を返す案。この案は同一 event の無限 retry を
+避けられる一方、**一過性の障害 (DB / Stripe API の瞬断) で event を恒久的に失う**。実測でも
+2026-07-26 の配信失敗 22 分は Stripe の再送で復旧しており、retry 経路を潰す副作用の方が大きい。
+**再送に委ねる以上、再送が尽きる前に人が気づける導線を必須とする**。Stripe は 3 日で配信を
+諦めるため、恒久的な handler バグを log だけに残すと課金 event を無通知で失う。`handleWebhookEvent`
+の catch 1 箇所で **初回失敗の時点から** Discord alert (`stripe-webhook-handler-failed`) を上げる。
+同一 `event.id` の反復は `sendDiscordAlert` の throttle (errorSummary key / 5 分 window / 3 件で
+まとめ通知) が抑制するため、失敗回数を数える機構は持たない。alert SSOT は
+[phase6-rollback-and-kill-switches.md §3.10-b R11](phase6-rollback-and-kill-switches.md)。
+event が Lambda に到達しないケース (配信そのものの未達) の検知は #3959 が担う。
 
-**選択肢 A (採用)**: handler 失敗時も dedup row を insert、HTTP 200 で Stripe に返答
-**選択肢 B (不採用)**: handler 失敗時は dedup row insert を skip、HTTP 5xx で Stripe 側 retry に委ねる
-
-A 採用根拠:
-- 同一 event の無限 retry loop (handler が永続的なバグで失敗する場合) を回避
-- `handler_result='error'` row が残ることで運用 alert (Sentry / Discord) が発火し、人間が修正できる
-- Stripe 側 retry に頼ると **B プランの handler 修正 deploy 完了前に Stripe retry exhaustion (3 日後) でイベント完全消失**するリスク
-- B が有効なケース (一時的なネットワーク障害等) は Stripe 側 5xx 検知の自動 retry より、自社 alert + 手動 `stripe events resend` の方が運用統制が効く
-
-ただし `handler_result='error'` row は **次回 manual replay (`stripe events resend evt_*`) 時に skip されてしまう** ため、Phase 7 で **error row の手動再処理 endpoint** (`POST /api/admin/stripe/webhook/replay?event_id=evt_*`) を別途検討 (Phase 5 scope 外、Phase 7 follow-up Issue 起票推奨)。
+回帰: `tests/unit/services/stripe-webhook-dedup.test.ts` の
+「handler が失敗した event は台帳に残らず、再送で再処理される」 /
+「handler 失敗は初回から Discord alert に上がる」。
 
 ### 4.3 dedup 機構の影響を受ける handler 一覧
 
@@ -312,19 +267,13 @@ A 採用根拠:
 
 ## 5. 30 日 retention (ADR-0049 整合)
 
-### 5.1 SQLite (Drizzle) — 日次 cron で物理削除
+### 5.1 日次 cron で物理削除
 
-```typescript
-// src/lib/server/services/retention-service.ts (Phase 7 で拡張、本 PR scope 外)
-async function purgeStaleWebhookEvents() {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
-  const deleted = await repos.webhookEvent.deleteOlderThan(cutoff.toISOString());
-  logger.info(`[RETENTION] Purged ${deleted} stale stripe_webhook_events`);
-}
-```
-
-cron 配置: `src/lib/server/cron/retention-cron.ts` の既存 retention cron に統合 (`activity_logs` / `point_ledger` 等と同 batch、Phase 7 拡張)。
+`cleanupExpiredData` (`src/lib/server/services/retention-cleanup-service.ts`) が
+`repos.webhookEvent.deleteOlderThan(now - 30 日)` を 1 回だけ呼ぶ (`stripe_webhook_events` は
+tenant 非依存のグローバル表のため、テナントループの外)。cron は既存の `retention-cleanup`
+(毎日 01:00 JST、`src/lib/server/cron/schedule-registry.ts`) に相乗りし、削除件数は
+`webhookEventsDeleted` として結果に載る。`dryRun` では削除しない。
 
 ### 5.2 DynamoDB — item-level TTL native 機能
 
@@ -374,31 +323,31 @@ await client.put({
 
 ## 7. ADR-0031 (DB migration) 整合: migration script 仕様
 
-新規 table 追加のため SQLite migration が必要 (Phase 7 で `drizzle-kit generate` 実行)。
+table は配備済 (`schema.ts` / `create-tables.ts` / `lazy-startup-migrations.ts` / `tests/e2e/global-setup.ts`)。既存 DB には lazy-startup migration が起動時に `CREATE TABLE` + 2 index を流す。
 
 | 項目 | 仕様 |
 |---|---|
 | migration ファイル | `drizzle/migrations/NNNN_add_stripe_webhook_events.sql` (NNNN は Phase 7 時点の連番) |
 | migration 内容 | `CREATE TABLE stripe_webhook_events (...)` + 2 index 作成 |
 | rollback 戦略 | `DROP TABLE stripe_webhook_events`、active 0 件で再構築可 (data loss tolerable) |
-| 初回 deploy 後の動作 | 初回 webhook 到達時に最初の row が insert される、既存 webhook handler は無改変で動作 (Phase 7 で dispatcher 側に dedup check を追加するまで dedup は無効、ただし table 自体は存在する) |
+| 初回 deploy 後の動作 | 初回 webhook 到達時に最初の row が insert される。handler 本体は無改変で、dedup は dispatcher 入口が担う |
 | DynamoDB の場合 | DynamoDB は schemaless のため migration 不要、TTL 属性は table 設定 (CDK で 1 行追加: `timeToLiveAttribute: 'ttl'`) |
 
 **ADR-0031 (DB migration) 整合**: 本 table 追加は **新規 table 追加のみで既存 schema に変更なし**、ロールバック容易、parallel-implementations.md 並行 4 backend 整合済 → ADR-0031 §3 「破壊的変更時の compat test 義務化」対象外。`tests/unit/db/schema.test.ts` の CREATE TABLE 一覧に 1 行追加で済む。
 
-## 8. テスト計画 (Phase 7 一括実行)
+## 8. テスト
 
-| カテゴリ | テスト内容 | ファイル (Phase 7 新規作成、本 PR scope 外) | 実行 phase |
-|---|---|---|---|
-| **unit test** | dispatcher 入口 dedup check が既存 row を skip する | `tests/unit/services/stripe-service.dedup.test.ts` 新規 | Phase 7 |
-| **unit test** | dispatcher 入口 dedup check が初回 event を insert する | 同上 | Phase 7 |
-| **unit test** | handler 例外時 `handler_result='error'` で row insert | 同上 | Phase 7 |
-| **unit test** | retry_count increment 動作 | 同上 | Phase 7 |
-| **unit test** | 30 日経過 row が `deleteOlderThan` で削除される | `tests/unit/services/retention-service.webhook.test.ts` 新規 | Phase 7 |
-| **integration** | DynamoDB TTL 属性が正しく設定される (mock LocalStack) | `tests/integration/db/dynamodb/webhook-event-repo.test.ts` 新規 | Phase 7 |
-| **integration** | 4 backend (SQLite / DynamoDB / in-memory) で同一 interface 動作 | 同上 + `tests/unit/db/webhook-event-repo-cross-backend.test.ts` | Phase 7 |
-| **E2E** | Stripe CLI `stripe events resend <event_id>` で同一 event を 2 回送信 → license key 1 個のみ発行 | `tests/e2e/billing/webhook-idempotency.spec.ts` 新規 | Phase 7 (Stripe CLI 実機環境必要) |
-| **E2E** | Stripe CLI で異なる 5 event 型を順次送信 → 5 row insert + 全 handler 1 回ずつ実行 | 同上 | Phase 7 |
+| カテゴリ | テスト内容 | ファイル |
+|---|---|---|
+| unit | 購読 5 種すべてで「同一 event.id 2 回到達 → 副作用 1 回」 | `tests/unit/services/stripe-webhook-dedup.test.ts` |
+| unit | 重複到達で throw しない (呼び出し元が 200 を返せる) / retry_count が増える | 同上 |
+| unit | 別 event.id は dedup されない (dedup の空振り検出) | 同上 |
+| unit | 未購読 event 型は `handler_result='skipped'` で記録され、再到達で dispatch されない | 同上 |
+| unit | handler 失敗時は row を残さず再 throw し、再送で再処理される (§4.2) | 同上 |
+| unit | sqlite backend の repo が demo / dsql と同一契約 (first-writer-wins / retry_count / retention) | `tests/unit/db/sqlite/webhook-event-repo.test.ts` |
+| unit | in-memory (demo) backend の 4 メソッド | `tests/unit/db/webhook-event-repo.test.ts` |
+| unit | dsql backend の PK 冪等性 (ON CONFLICT DO NOTHING) | `tests/unit/db/dsql-global-repos.test.ts` |
+| unit | 30 日 purge が cron 経路で走り、件数が結果に載る / dryRun では走らない | `tests/unit/services/retention-cleanup-service.test.ts` |
 
 ## 9. 影響範囲事後検証 (4 layer impact-analysis)
 
@@ -453,9 +402,9 @@ await client.put({
 
 | # | リスク | 対策 | ロールバック |
 |---|---|---|---|
-| R1 | dedup row insert が handler 実行より先に失敗 → 同一 event が次回到達時に再実行され `checkout.session.completed` 二重 license key 発行 | handler 実行 → row insert 順序、insert 失敗時の error log + Sentry alert で人間が検知 | 想定実害は license key 二重発行のみ、運用側で `revokeLicenseKey` で片方 revoke (Phase 7 で「重複 license key 検知 cron」を別途 follow-up Issue で起票推奨) |
+| R1 | handler 成功後の row insert が失敗 → 同一 event が再送時に再実行され、welcome 通知 2 通 / entitlement 二重適用が起きる | insert は handler 完了直後の 1 文で、失敗時は 500 として観測される。窓は極小 | 発生時は Stripe Dashboard で event を確認し、必要なら手動で状態を是正する |
 | R2 | 30 日 retention で削除直後の replay (理論上は 30 日経過で Stripe 側からも消える) | Stripe 側 retention と同期、replay window を超えた event は重複到達しない | 仕様、対応不要 |
-| R3 | handler 例外を re-throw しないため Stripe 側 retry が抑制され、一時的なネットワーク障害復旧前に手動 alert 対応が間に合わない | Sentry / Discord alert (`handler_result='error'` row insert で発火)、手動 `stripe events resend evt_*` で再処理 | Phase 7 で「error row 自動 retry 機構」を別途検討 (Pre-PMF scope 外、PMF 後判断) |
+| R3 | handler が恒久的に失敗する場合、row を残さない (§4.2) ため Stripe が 3 日間再送し続け 500 が繰り返し観測される | 500 は Stripe Dashboard / CloudWatch で可視。恒久バグは修正 deploy で解消し、再送が生きているうちに自動復旧する | 3 日を過ぎた event は `stripe events resend evt_*` で手動再処理 (30 日以内) |
 | R4 | DynamoDB single-partition (`PK=STRIPE_WEBHOOK_EVENT`) の hot partition | Pre-PMF write rate < 100/日、PMF 後 < 10k/日で物理限界 1000/sec 未達 | PMF 後の hot partition 発生時に GSI 追加 (event_type 別 partition 化)、本 PR scope 外 |
 | R5 | 4 backend (SQLite / DynamoDB / in-memory) の interface 乖離で test 通過しても本番 fail | parallel-implementations.md §9 並行ペア整合チェック、test では各 backend で同一 spec 実行 (Phase 7) | interface 修正 → 全 backend 同期、`parallel-implementations.md` 表で漏れ検出 |
 | R6 | Phase 5 子 1 完了前に本 PR 単独マージ → 既存 5 handler に dedup 効果あるが子 1 の 3 種新規 event 未対応 | 本 PR は **table + interface のみ**、dispatcher 側 dedup logic 統合は Phase 7 統合 PR (子 1 と同一 PR) で実施 | Phase 7 統合 PR を rollback、本 table は active 0 件で残置 |
@@ -472,21 +421,20 @@ await client.put({
 
 → **新規 ADR 起票不要** (新規 ADR 追加 gate §3 該当なし)。本 design doc が判断 SSOT として機能。
 
-## 12. 既存実装の現状と変更点 (delta、2026-05-29 検証)
+## 12. 実装配置
 
-| # | 既存実装 (シンボル参照) | 本要件 | 扱い |
-|---|---|---|---|
-| 1 | `handleWebhookEvent` switch dispatcher (`src/lib/server/services/stripe-service.ts` L221) で dedup check なし | dispatcher 入口で `findByEventId` + 既存時 skip / 不在時 handler 実行 → `insert` | **拡張** (Phase 7、本 PR は設計のみ) |
-| 2 | `verifyWebhookSignature` (`stripe-service.ts` L213) は変更なし、署名検証は維持 | 同上 | **不変** |
-| 3 | 5 handler (L245 / L305 / L333 / L359 / L394) 関数本体は **改変なし** | 同上 | **不変** |
-| 4 | DB schema (`src/lib/server/db/schema.ts`) に webhook 関連 table なし | `stripe_webhook_events` table + 2 index 追加 | **新規** (Phase 7、本 PR は設計のみ) |
-| 5 | DynamoDB keys (`src/lib/server/db/dynamodb/keys.ts`) に `STRIPE_WEBHOOK_EVENT_PK` なし | `STRIPE_WEBHOOK_EVENT_PK` 定数 + `stripeWebhookEventKey` 関数追加 | **新規** (Phase 7) |
-| 6 | repository interface (`src/lib/server/db/interfaces/index.ts`) に `IWebhookEventRepo` なし | `IWebhookEventRepo` interface 追加 + 4 backend 実装 | **新規** (Phase 7) |
-| 7 | retention cron (`src/lib/server/cron/retention-cron.ts`、Phase 7 で拡張対象) に webhook events 対象なし | SQLite で `purgeStaleWebhookEvents` 統合、DynamoDB は TTL 自動削除 | **拡張** (Phase 7) |
+| 役割 | 実体 |
+|---|---|
+| dedup 点 (dispatcher 入口) | `handleWebhookEvent` (`src/lib/server/services/stripe-service.ts`) |
+| 署名検証 (dedup とは独立) | `verifyWebhookSignature` (同上)。dedup の前段で必ず通る |
+| handler 5 種 | `handleCheckoutCompleted` / `handleInvoicePaid` / `handlePaymentFailed` / `handleSubscriptionUpdated` / `handleSubscriptionDeleted` (同上)。dedup 配線に伴う本体改変はない |
+| repo interface | `src/lib/server/db/interfaces/webhook-event-repo.interface.ts` |
+| repo 実装 | `src/lib/server/db/sqlite/webhook-event-repo.ts` / `src/lib/server/db/dsql/webhook-event-repo.ts` (DSQL + NUC PGlite 共用) / `src/lib/server/db/demo/webhook-event-repo.ts` |
+| 注入 | `src/lib/server/db/factory.ts` の `Repositories.webhookEvent` |
+| 30 日 retention | `cleanupExpiredData` (`src/lib/server/services/retention-cleanup-service.ts`) |
+| table / index | `src/lib/server/db/schema.ts` / `src/lib/server/db/dsql/schema.ts` / `src/lib/server/db/create-tables.ts` |
 
-シンボル位置は 2026-05-29 検証済 (行番号は Phase 7 実装で陳腐化するためシンボル名・関数名・定数名でのみ参照、L*** は参考)。
-
-## 13. Open question (PO 判断、Phase 7 で確定)
+## 13. Open question (PO 判断)
 
 | # | 軸 | 論点 | 推奨案 | 状態 |
 |---|---|------|------|------|
@@ -494,8 +442,8 @@ await client.put({
 | 2 | **UX** | dedup 検知時の email 重複送信 (license key 等) を防ぐが、handler 例外時の license 発行失敗を顧客がどう知る? | Phase 1 security FR-1 webhook tenant 再検証と整合: 失敗時に Sentry alert + 運用側手動 license 発行 + 顧客への email 通知 (`/admin/license/manual-issue` 経路、Phase 7 follow-up) | Phase 7 確定待ち |
 | 3 | **security** | error_message に Stripe customer email 等の PII が流入する可能性 (Stripe.Error の `param` 等). 500 文字 truncate で十分か? | (a) `Stripe.Error` 型から `param` / `code` / `type` のみ抽出するヘルパで PII strip、(b) 500 文字 truncate は二重防御 — 両方実装 (Phase 7) | Phase 7 実装時に確定 |
 | 4 | **security (adversarial)** | dedup row 自体への DoS 攻撃 (偽 webhook で signature 失敗 → dedup row 0 件で table 膨張なし、ただし署名検証通過済の event を 100k 並列送信で table 膨張) | 署名検証通過 event のみ dedup 対象、DynamoDB は item 数 1000 万件まで partition 制約なし (BillingMode=PayPerRequest)、SQLite は cron 削除で 30 日上限維持。攻撃成立条件 = Stripe 内部からの大量正規 event のみ (Stripe API 自体が rate limit) | 仕様、対応不要 |
-| 5 | **security (adversarial)** | Phase 5 子 1 の `subscription_schedule.*` 3 種新規 event で handler 未実装期間 (本 PR マージ後 → Phase 7 統合 PR マージ前) は `default: skipped` で dedup row insert される。skipped row が 30 日 retention で削除されない間に Phase 7 で handler 実装 → 30 日以内に再送された subscription_schedule event が `existing.handler_result='skipped'` で skip され、handler 実行されない問題 | (a) `handler_result='skipped'` row は dedup 判定対象外とする (skip された event は handler 実装後に再処理する)、(b) または Phase 5 子 1 PR と Phase 7 統合 PR を同時マージで gap を最小化 | Phase 7 実装時に確定 (推奨: 案 a) |
-| 6 | **security (adversarial)** | dispatcher 入口で `findByEventId` → `insert` の間に **並列で同一 event** が到達した場合 (Stripe 公式は順次配信を保証しないため複数 endpoint instance で同時受信ありえる)、両 instance が `findByEventId` で null を取得 → 両者が `insert` 試行で PK 一意性違反 → 1 つは catch して skip、もう 1 つは handler 実行 → license 二重発行回避 | (a) SQLite は `INSERT OR IGNORE` + `RETURNING` で atomic check-and-insert、(b) DynamoDB は `ConditionExpression: 'attribute_not_exists(SK)'` で同等、(c) in-memory は同期 Map の atomic write で物理単一 instance のみ動作 (demo は並列 webhook なし) | Phase 7 実装時に必須 (推奨案 a/b 両方実装) |
+| 5 | **security (adversarial)** | 未購読 event 型は `handler_result='skipped'` で row が残る。後から handler を実装した場合、30 日以内に再送された同一 event が skip され handler が走らない | 現状は購読 5 種と handler が 1:1 で、購読を増やすとき (Stripe Dashboard の enabled_events 追加) に初めて発生する。新 handler を足す PR で `handler_result='skipped'` の row を dedup 対象外にするか、当該 event を `stripe events resend` で再送する | 購読拡張時に確定 |
+| 6 | **security (adversarial)** | `findByEventId` → `insert` の間に同一 event が並列到達すると、両者が「未処理」を読んで handler を 2 回実行しうる | repo 層は PK への `ON CONFLICT DO NOTHING` (dsql / sqlite) で二重 row を物理拒否する (first-writer-wins) が、**handler 実行そのものの並列は防げない**。現状 endpoint は 1 本で、Stripe の再送間隔は秒〜分単位のため実害は観測されていない。完全に閉じるには claim-first (insert で先に権利を取ってから handler を走らせる) への変更が必要で、handler 失敗時の row 取り消しと引き換えになる。**再評価トリガ (下記 3 条件のいずれかを満たしたら claim-first を再検討する)**: (a) webhook endpoint を 2 本以上運用する構成になったとき (b) Lambda の同時実行が常態化するほど契約数が増えたとき (c) 二重処理を 1 件でも観測したとき | 受容 (再評価トリガ付き) |
 
 ## 14. 関連 (2026-05-29 整合)
 

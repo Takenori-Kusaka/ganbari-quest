@@ -1,157 +1,44 @@
 // src/routes/api/v1/admin/tenant-cleanup/+server.ts
-// 猶予期間満了テナントのデータ完全削除バッチ（EventBridge / 手動トリガー用）
+// 退会 (アカウント削除) 猶予満了テナントのデータ完全削除バッチ（手動トリガー用）
+//
+// #3993: 旧実装は独自に「`status === grace_period` かつ `planExpiresAt < now`」で削除対象を
+// 選んでいた。しかし `grace_period` は **支払い失敗の dunning 猶予**でも書かれるため
+// (`handlePaymentFailed`)、**カードの期限切れで決済が失敗しただけのテナントが物理削除の
+// 対象に入っていた**。退会申請の有無を一切見ていなかった。
+//
+// 退会申請の状態は `families.status` ではなく settings の `soft_deleted_at` /
+// `physical_deletion_date` が持つ (`grace-period-service.softDeleteTenant` は families を
+// 触らない)。その条件で削除する実装は **既に `purgeExpiredSoftDeletedTenants()` に存在する**。
+//
+// したがって本 endpoint は条件を書き直すのではなく **委譲する**。旧実装を残して条件だけ
+// 直すと同じ処理が 2 実装に分かれ、しかも本 endpoint 側には以下が無い:
+//   - 件数上限 / 時間予算による self-limiting (#3695)
+//   - owner / 他メンバーを区別した削除 (account-deletion-service 経由)
+//   - 失敗テナントの errors 収集と次回持ち越し
+//
+// 正規の定期実行は `/api/cron/grace-period-deletion` (同じ service を呼ぶ)。本 endpoint は
+// 手動トリガーの入口として残す。**EventBridge Rule は本 endpoint には無い** (#4033 参照)。
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
-import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { notifyDeletionComplete } from '$lib/server/services/discord-notify-service';
-import { sendDeletionCompleteEmail } from '$lib/server/services/email-service';
-import { deleteByPrefix } from '$lib/server/storage';
+import { purgeExpiredSoftDeletedTenants } from '$lib/server/services/grace-period-service';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const authError = verifyCronAuth(request);
 	if (authError) return authError;
 
 	const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
+	// 既定 true は維持 (誤爆で物理削除を走らせない)。
 	const dryRun = body.dryRun ?? true;
 
 	try {
-		const result = await cleanupExpiredTenants(dryRun);
-		logger.info('[tenant-cleanup] バッチ完了', {
-			context: { ...result, dryRun },
-		});
-		return json({ success: true, dryRun, ...result });
+		const result = await purgeExpiredSoftDeletedTenants({ dryRun });
+		logger.info('[tenant-cleanup] バッチ完了', { context: { ...result, dryRun } });
+		return json({ success: true, ...result });
 	} catch (err) {
 		logger.error('[tenant-cleanup] バッチ失敗', { error: String(err) });
 		return json({ error: 'Internal error' }, { status: 500 });
 	}
 };
-
-interface CleanupResult {
-	scanned: number;
-	expired: number;
-	deleted: number;
-	details: Array<{ tenantId: string; items: number; files: number }>;
-}
-
-async function cleanupExpiredTenants(dryRun: boolean): Promise<CleanupResult> {
-	const repos = getRepos();
-	const now = new Date().toISOString();
-
-	// grace_period テナントを検索（全テナントをスキャンして status=grace_period をフィルタ）
-	// 注: 本番スケールが大きくなったら GSI にステータスインデックスを追加
-	const allTenants = await findGracePeriodTenants();
-	const expired = allTenants.filter((t) => t.planExpiresAt && t.planExpiresAt < now);
-
-	const details: CleanupResult['details'] = [];
-	let deletedCount = 0;
-
-	for (const tenant of expired) {
-		if (dryRun) {
-			details.push({ tenantId: tenant.tenantId, items: 0, files: 0 });
-			continue;
-		}
-
-		try {
-			const result = await deleteTenantData(tenant.tenantId);
-			details.push(result);
-			deletedCount++;
-
-			// テナントステータスを terminated に更新
-			await repos.auth.updateTenantStatus(tenant.tenantId, 'terminated');
-
-			// メンバー全員にメール通知
-			const members = await repos.auth.findTenantMembers(tenant.tenantId);
-			for (const member of members) {
-				const user = await repos.auth.findUserById(member.userId);
-				if (user?.email) {
-					sendDeletionCompleteEmail(user.email).catch(() => {});
-				}
-			}
-
-			// Discord 通知
-			notifyDeletionComplete(tenant.tenantId, {
-				items: result.items,
-				files: result.files,
-			}).catch(() => {});
-
-			logger.info('[tenant-cleanup] テナントデータ削除完了', {
-				context: { tenantId: tenant.tenantId, items: result.items, files: result.files },
-			});
-		} catch (err) {
-			logger.error('[tenant-cleanup] テナントデータ削除失敗', {
-				error: String(err),
-				context: { tenantId: tenant.tenantId },
-			});
-		}
-	}
-
-	return {
-		scanned: allTenants.length,
-		expired: expired.length,
-		deleted: deletedCount,
-		details,
-	};
-}
-
-interface TenantInfo {
-	tenantId: string;
-	planExpiresAt?: string;
-}
-
-async function findGracePeriodTenants(): Promise<TenantInfo[]> {
-	// #3184 item4: route から raw DynamoDB Scan を撤去し、auth repo facade (listAllTenants) +
-	// client-side filter に置換 (route↔DB 境界 fitness function / ADR-0061)。tenant 数は Pre-PMF
-	// 規模で小さく、server-side FilterExpression を client filter に変えても実害なし。SQLite/demo は
-	// listAllTenants が各 backend 実装を返すため try/catch の backend 分岐も不要になる。
-	try {
-		const all = await getRepos().auth.listAllTenants();
-		return all
-			.filter((t) => t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD)
-			.map((t) => ({ tenantId: t.tenantId, planExpiresAt: t.planExpiresAt }));
-	} catch {
-		// backend 未初期化等の場合はスキップ (掃除対象なしとして扱う)
-		logger.info('[tenant-cleanup] listAllTenants 不可（backend 未初期化？）');
-		return [];
-	}
-}
-
-async function deleteTenantData(
-	tenantId: string,
-): Promise<{ tenantId: string; items: number; files: number }> {
-	const repos = getRepos();
-	let itemsDeleted = 0;
-
-	// 1. S3 ファイル削除
-	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
-
-	// 2. 子供データ削除
-	const children = await repos.child.findAllChildren(tenantId);
-	for (const child of children) {
-		await repos.child.deleteChild(child.id, tenantId);
-		itemsDeleted++;
-	}
-
-	// 3. メンバーシップ削除
-	const members = await repos.auth.findTenantMembers(tenantId);
-	for (const member of members) {
-		await repos.auth.deleteMembership(member.userId, tenantId);
-		itemsDeleted++;
-	}
-
-	// 4. 招待リンク削除（ステータス更新で無効化）
-	const invites = await repos.auth.findTenantInvites(tenantId);
-	for (const invite of invites) {
-		if (invite.status === 'pending') {
-			// #3585: 管理鍵は inviteId (findTenantInvites の inviteCode は '' で raw 非露出)
-			// #3588: tenant scope は tenantId (family_id 述語) で query 層が強制する
-			await repos.auth.updateInviteStatus(invite.inviteId, tenantId, 'revoked');
-			itemsDeleted++;
-		}
-	}
-
-	return { tenantId, items: itemsDeleted, files: filesDeleted };
-}

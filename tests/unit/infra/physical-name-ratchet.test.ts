@@ -110,6 +110,9 @@ function buildAllTemplates(): Array<[string, Template]> {
 		functionUrl: compute.functionUrl,
 		cronDispatcherFn: compute.cronDispatcherFn,
 		staticAssetsBucket: network.staticAssetsBucket,
+		// #3998: prod (infra/bin/app.ts) と同じ配線にする。渡さないと log 由来 alarm が
+		// この ratchet の観測対象から外れ、明示物理名の増加を見逃す。
+		appLogGroup: compute.appLogGroup,
 		opsEmail: 'ops@example.com',
 	});
 	for (const [name, stack] of [
@@ -305,6 +308,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-lifecycle-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-pmf-survey',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-retention-cleanup',
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-stripe-webhook-delivery-check',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-trial-notifications',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-aws-health',
 			'GanbariQuestOps/AWS::Events::Rule/ganbari-quest-health-check',
@@ -314,6 +318,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 	...group(
 		'CloudWatch Alarm 固定名は ops runbook / Discord 通知の識別子 (infra/CLAUDE.md §CloudWatch Alarm)',
 		[
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-concurrent',

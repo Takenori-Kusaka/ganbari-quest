@@ -4,7 +4,8 @@
 // (check-pr-body / Verify AC map / pr-template-gate 6 job / PR チェックリスト完了確認) を
 // pass すること。gate ロジックは再実装せず、CI と同一の SSOT 関数 (実 template /
 // 実 PR_TEMPLATE_SECTIONS.json 入力) を import して assert する — 実例 #3876 の
-// 「必須 13 セクション + AC マップ 4 列欠落 → QM 手作業 remediation」の構造的再発防止。
+// 「必須セクション (件数の SSOT は .github/PR_TEMPLATE_SECTIONS.json) + AC マップ 4 列欠落
+// → QM 手作業 remediation」の構造的再発防止。
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -52,9 +53,11 @@ describe('renderBackMergePrBody (#3879 AC1: template gate 準拠 body の生成)
 	it.each([
 		['clean', cleanBody],
 		['conflict', conflictBody],
-	])('%s: 必須 13 セクション見出しが完全一致で全て存在する (check-pr-body SSOT)', (_kind, body) => {
+	])('%s: 必須セクション見出しが完全一致で全て存在する (check-pr-body SSOT)', (_kind, body) => {
 		const required = extractRequiredSections(template);
-		expect(required.length).toBeGreaterThanOrEqual(13);
+		// 件数はマジックナンバーで固定しない (#4097 で 13 → 11 になった際にここが stale hard-fail した)。
+		// template と SSOT JSON の一致を assert すれば、件数変更に追従しつつ drift は検出できる。
+		expect(required).toEqual(ssotSections);
 		expect(findMissingSections(body, required)).toEqual([]);
 	});
 
@@ -173,10 +176,11 @@ describe('validateBackMergePrBody (#3879: 生成時自己検証 = 生成→検�
 	});
 
 	it('禁止語 (未完遂マーカー) が混入すると違反を検出する', () => {
-		const tampered = cleanBody.replace(
-			'**影響を受ける画面・機能**: hotfix #3872 と同一。',
-			'**影響を受ける画面・機能**: あとで対応TODO',
-		);
+		// 禁止語 scan は body 全文が対象なので、特定行を狙った `.replace` にはしない。
+		// アンカー文字列に依存すると body 文言の変更で replace が no-op 化し、
+		// 「禁止語を入れていないのに通った」= 検査が空洞化したことに気づけない (#4097 で実際に踏んだ)。
+		const tampered = `${cleanBody}\n\n**補足**: あとで対応TODO\n`;
+		expect(tampered, '禁止語が実際に混入していること').toContain('あとで対応TODO');
 		const violations = validateBackMergePrBody(tampered);
 		expect(violations.map((v) => v.gate).join(' ')).toContain('forbidden-terms');
 	});

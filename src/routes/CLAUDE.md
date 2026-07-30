@@ -91,6 +91,22 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 # 手動運用時は capture 結果を screenshots branch にコミット & push
 ```
 
+##### SS の命名規約と、gate が「検査できなかった」ときの扱い（#4084）
+
+`ss-blob-sha-uniqueness` は **Before / After のペアが取れて初めて偽装を検知できる**。旧実装はペアが 0 件だと `skip` で通していたため、命名を変えるだけで検査が黙って消えた（実測: PR #4080 は SS 20 枚 embed 済で `[ss-blob-sha-uniqueness] SKIP` = 1 ペアも検査されず）。現在は **SS が embed されているのにペア 0 件なら fail** する。
+
+| 状況 | 対応 |
+|---|---|
+| 通常 | file 名を `before-<key>.png` / `after-<key>.png` にする（既定のペアリング） |
+| 別の命名で撮りたい | PR body に prefix 宣言を置く: `<!-- ss-pair-prefix: before=develop- after=pr<PR番号>- -->` |
+| 個別に対応を書きたい | `<!-- ss-pair: before=<raw URL or path> after=<raw URL or path> -->` |
+| ペアが原理的に存在しない（新規画面で修正前が無い 等） | `<!-- ss-pair-none: <12 文字以上の理由> -->` |
+| **Before / After が同一なのが正しい** | `<!-- ss-identical-ok: <12 文字以上の理由> -->` |
+
+- **理由は必須**。空欄 / `TODO` / `n/a` 等の定型 stub は受理されない（理由の非強制を作らない、#3956 教訓）
+- `ss-identical-ok` は「差分が現れる条件の外で撮影したため描画が一致するのが正しい」ケース用（例: JST 00:00〜09:00 だけ日付がずれる修正を JST 日中に撮影した #4080）。**撮り直し漏れの言い訳には使わない**。宣言しても同一だったペアは出力に列挙される
+- `refactor:internal-no-doc-impact` label（視覚差分ゼロの内部 refactor 用）とは意味が違う。**顧客に見える挙動を変える PR には label を付けず、`ss-identical-ok` を使う**
+
 ## 局所テストコマンド (#2184)
 
 routes 配下のみ修正時は全体テストを待たず以下で高速検証:

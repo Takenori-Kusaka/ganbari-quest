@@ -16,6 +16,14 @@ interface Props {
 	 * 表示用クラスを渡す (Ark の Label → input 関連付けで重複なく 1 ラベルになる)。
 	 */
 	labelClass?: string;
+	/**
+	 * mount 時に 1 桁目へ自動フォーカスするか (既定 false、#4050)。
+	 * `{#key}` で remount して入力欄をリセットする画面 (おやカギ作成の確認ステップ / 入力失敗後の
+	 * やり直し) では、remount 後にフォーカスが失われ「打っても何も入らない」状態になるため
+	 * opt-in で true にする。既定 false のまま他画面 (reset-pin のように 1 画面 2 個並ぶ場合を含む)
+	 * の挙動は変えない。
+	 */
+	autoFocus?: boolean;
 	onComplete?: (details: { value: string[]; valueAsString: string }) => void;
 }
 
@@ -24,6 +32,7 @@ let {
 	mask = true,
 	label = UI_PRIMITIVES_LABELS.pinCodeLabel,
 	labelClass = 'sr-only',
+	autoFocus = false,
 	onComplete,
 }: Props = $props();
 
@@ -35,7 +44,7 @@ function handleValueComplete(details: { value: string[]; valueAsString: string }
 <!-- Root は flex-col だが gap を持たない: 視覚差分ゼロを保つため、ラベル ↔ 桁行の余白は
 	可視ラベル側の margin (labelClass の mb-* 等) に委ねる。sr-only ラベル時は余白ゼロで
 	桁行が最上段に来る (旧実装の単独桁行と同一)。桁ボックス間の gap は Control が持つ。 -->
-<ArkPinInput.Root onValueComplete={handleValueComplete} {mask} type="numeric" class="flex flex-col">
+<ArkPinInput.Root onValueComplete={handleValueComplete} {mask} {autoFocus} type="numeric" class="flex flex-col">
 	<ArkPinInput.Label class={labelClass}>{label}</ArkPinInput.Label>
 	<ArkPinInput.Control class="flex gap-[var(--sp-sm)] justify-center">
 		{#each Array(length) as _, i}

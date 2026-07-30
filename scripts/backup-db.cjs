@@ -42,6 +42,63 @@ const BACKUP_DIR = process.env.BACKUP_DIR
 const MAX_BACKUPS = Number(process.env.BACKUP_RETENTION) || 7;
 const POST_HOOK = process.env.BACKUP_POST_HOOK || '';
 
+/** バックアップファイル名の prefix。 */
+const SQLITE_BACKUP_PREFIX = 'ganbari-quest-';
+/** バックアップファイルの拡張子。 */
+const SQLITE_BACKUP_EXT = '.db';
+/**
+ * 「日次バックアップの世代」として数えてよいファイル名の厳密形 (`ganbari-quest-<YYYYMMDDHHMMSS>.db`)。
+ *
+ * ⚠️ prefix + 拡張子の緩い一致 (`startsWith('ganbari-quest-') && endsWith('.db')`) で世代を
+ * 数えてはいけない。同じ BACKUP_DIR には運用中に置かれる **命名規則外のファイル**が同居し得る:
+ *
+ *   - 手動退避 (`ganbari-quest-manual-pre-hotfix.db`) — 辞書順で `'m'` > 数字のため
+ *     `.sort().reverse()` の先頭 (= 最新世代扱い) に恒久的に居座り、保持枠を 1 つ食う。
+ *     結果として実バックアップの最古 1 世代が本来より 1 日早く消える。
+ *   - 旧命名の残骸 (`ganbari-quest-2026-07-26.db`) — 同じく prefix / 拡張子に一致してしまう。
+ *   - 世代を退避したディレクトリ (`ganbari-quest-archive.db`) — 名前だけでは file と区別できず、
+ *     削除対象に入ると `unlinkSync` が EISDIR / EPERM で落ちてローテーション自体が停止する。
+ *
+ * これは PGlite 側 (`src/lib/server/db/pglite/backup.ts` の `PGLITE_BACKUP_FILENAME_PATTERN`)
+ * で #3956 の QA 指摘により是正済みの class と同一 (辞書順の向きが違うだけ)。SQLite 側も
+ * **本パターンの完全一致 + Dirent の isFile()** の 2 段で世代を決める (#3978)。
+ */
+const SQLITE_BACKUP_FILENAME_PATTERN = /^ganbari-quest-\d{14}\.db$/;
+
+/**
+ * `ganbari-quest-<YYYYMMDDHHMMSS>.db` 形式のファイル名を作る (UTC、辞書順 = 時系列順)。
+ *
+ * 命名を変えたのに世代判定パターンを追従し忘れると、生成物がローテーション対象から外れて
+ * 世代が無限に増える (or 新世代が「世代 0 件」に見える) 形で silent に壊れる。生成側で固定する。
+ *
+ * @param {Date} now
+ * @returns {string}
+ */
+function buildBackupFilename(now) {
+	const ts = now
+		.toISOString()
+		.replace(/[-:T.Z]/g, '')
+		.slice(0, 14);
+	const filename = `${SQLITE_BACKUP_PREFIX}${ts}${SQLITE_BACKUP_EXT}`;
+	if (!SQLITE_BACKUP_FILENAME_PATTERN.test(filename)) {
+		throw new Error(`[backup-db] 生成したファイル名が世代判定パターンに一致しません: ${filename}`);
+	}
+	return filename;
+}
+
+/**
+ * ディレクトリ内の **日次バックアップ世代のみ**を新しい順 (辞書順降順 = 新しい順) に返す。
+ *
+ * @param {string[]} filenames 通常ファイルの名前のみ (ディレクトリは呼び出し側で除外済)
+ * @returns {string[]}
+ */
+function selectBackupGenerations(filenames) {
+	return filenames
+		.filter((f) => SQLITE_BACKUP_FILENAME_PATTERN.test(f))
+		.sort()
+		.reverse();
+}
+
 async function main() {
 	console.log('=== Ganbari Quest Backup ===');
 	console.log(`Time: ${new Date().toISOString()}`);
@@ -59,12 +116,7 @@ async function main() {
 	}
 
 	// Create backup
-	const now = new Date();
-	const ts = now
-		.toISOString()
-		.replace(/[-:T.Z]/g, '')
-		.slice(0, 14);
-	const backupFilename = `ganbari-quest-${ts}.db`;
+	const backupFilename = buildBackupFilename(new Date());
 	const backupPath = path.join(BACKUP_DIR, backupFilename);
 
 	const db = new Database(DB_PATH);
@@ -85,9 +137,10 @@ async function main() {
 	try {
 		const bdb = new Database(backupPath, { readonly: true });
 		try {
-			const tableCount = bdb
-				.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'")
-				.get().cnt;
+			const tableCountRow = /** @type {{ cnt: number }} */ (
+				bdb.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'").get()
+			);
+			const tableCount = tableCountRow.cnt;
 
 			const integrity = bdb.pragma('integrity_check');
 			const integrityOk =
@@ -96,7 +149,7 @@ async function main() {
 				throw new Error(`integrity_check failed: ${JSON.stringify(integrity)}`);
 			}
 
-			const fkViolations = bdb.pragma('foreign_key_check');
+			const fkViolations = /** @type {unknown[]} */ (bdb.pragma('foreign_key_check'));
 			if (!Array.isArray(fkViolations) || fkViolations.length > 0) {
 				throw new Error(
 					`foreign_key_check found ${fkViolations.length} violation(s): ${JSON.stringify(fkViolations.slice(0, 5))}`,
@@ -115,11 +168,14 @@ async function main() {
 	}
 
 	// Rotate old backups
-	const files = fs
-		.readdirSync(BACKUP_DIR)
-		.filter((f) => f.startsWith('ganbari-quest-') && f.endsWith('.db'))
-		.sort()
-		.reverse();
+	// 世代判定は「命名パターンの完全一致」+「通常ファイルであること」の 2 段 (#3978)。
+	// 手動退避 / 旧命名の残骸 / 退避ディレクトリを世代に数えないことで、保持世代数と削除対象が
+	// 同居物に左右されないようにする。
+	const regularFileNames = fs
+		.readdirSync(BACKUP_DIR, { withFileTypes: true })
+		.filter((entry) => entry.isFile())
+		.map((entry) => entry.name);
+	const files = selectBackupGenerations(regularFileNames);
 	if (files.length > MAX_BACKUPS) {
 		for (const old of files.slice(MAX_BACKUPS)) {
 			fs.unlinkSync(path.join(BACKUP_DIR, old));
@@ -152,7 +208,7 @@ async function main() {
 			}
 		} catch (err) {
 			console.warn(
-				`[backup-db] WARNING: BACKUP_POST_HOOK failed: ${err.message}, backup itself succeeded`,
+				`[backup-db] WARNING: BACKUP_POST_HOOK failed: ${err instanceof Error ? err.message : String(err)}, backup itself succeeded`,
 			);
 			// Hook failure is non-fatal - local backup is already saved
 		}
@@ -161,7 +217,17 @@ async function main() {
 	console.log('=== Backup complete ===');
 }
 
-main().catch((err) => {
-	console.error('Fatal error:', err);
-	process.exit(1);
-});
+module.exports = {
+	SQLITE_BACKUP_FILENAME_PATTERN,
+	buildBackupFilename,
+	selectBackupGenerations,
+};
+
+// CJS の直接実行判定。require.main / module はいずれも realpath 解決済みのため
+// symlink / junction 経由で起動しても一致する (ESM 側の判定 SSOT は scripts/lib/is-main.mjs)。
+if (require.main === module) {
+	main().catch((err) => {
+		console.error('Fatal error:', err);
+		process.exit(1);
+	});
+}

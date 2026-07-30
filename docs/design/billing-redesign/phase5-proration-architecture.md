@@ -74,7 +74,7 @@ Phase 3 #2573 §3.3 で確定済の proration 差額表示 (機能 3):
 | 2 | UI: 自社 `/admin/subscription/confirm` で差額表示 (Phase 3 #2573 §3.3) + 同意 checkbox | — | 特商法第12条の6 6 項目確認 |
 | 3 | `subscriptions.update` | `items[{id, price: premium_monthly_id}]`, `proration_behavior: 'always_invoice'`, `proration_date: <step 1 と同一>`, `payment_behavior: 'pending_if_incomplete'` | 即時差額請求 + 即時 capability 解放 |
 | 4 | webhook `customer.subscription.updated` 受信 | `subscription.status`, `subscription.current_period_end`, `subscription.items[0].price.id` | DB 反映 (`tenants.stripePriceId` / `tenants.plan_tier` 更新) |
-| 5 | webhook `invoice.payment_succeeded` 受信 | `invoice.amount_paid` | 課金履歴 DB 反映 (任意、Pre-PMF Bucket A) |
+| 5 | webhook `invoice.paid` 受信 | `invoice.amount_paid` | 課金履歴 DB 反映 (任意、Pre-PMF Bucket A) |
 
 ### 3.2 mermaid 図 1: アップ即時 API 呼出シーケンス
 
@@ -96,7 +96,7 @@ sequenceDiagram
     Stripe-->>App: 200 OK (subscription 更新)
     Stripe-->>Webhook: customer.subscription.updated
     Webhook->>Webhook: DB 反映<br/>(tenants.stripePriceId = premium)
-    Stripe-->>Webhook: invoice.payment_succeeded
+    Stripe-->>Webhook: invoice.paid
     Webhook->>Webhook: 課金履歴 DB 反映 (任意)
     App->>User: /admin/subscription/success<br/>(processing gap polling #2572)
 ```
@@ -154,7 +154,7 @@ export async function executePlanChange(params: {
 
 | ケース | 挙動 | 対策 |
 |---|---|---|
-| カード決済失敗 (`payment_behavior: 'pending_if_incomplete'`) | invoice 作成されるが status `open` で incomplete | Stripe 標準 dunning (Phase 1 #2538 dunning 整合) でリトライ。capability 解放は webhook `invoice.payment_succeeded` 後 |
+| カード決済失敗 (`payment_behavior: 'pending_if_incomplete'`) | invoice 作成されるが status `open` で incomplete | Stripe 標準 dunning (Phase 1 #2538 dunning 整合) でリトライ。capability 解放は webhook `invoice.paid` 後 |
 | `proration_date` が 5 分超過 | Stripe API エラー (Preview と乖離) | 再 preview + UI 再描画 + 顧客に再同意要求 |
 | webhook 受信遅延 | UI 「processing...」polling (Phase 3 #2572) | `/admin/subscription/success` で max 10 秒 polling、その後 DB 反映確認 |
 
@@ -171,7 +171,7 @@ export async function executePlanChange(params: {
 | 3 | `subscriptions.update` | `items[{id, price: standard_monthly_id}]`, `proration_behavior: 'always_invoice'`, `proration_date: <step 1 と同一>` | 即時 standard 切替 + Stripe が未消費 premium 期間を credit memo として自動発行 |
 | 4 | webhook `customer.subscription.updated` 受信 | `subscription.items[0].price.id` = standard | DB 反映 (`tenants.stripePriceId` 更新、`tenants.plan_tier='standard'`) |
 | 5 | webhook `credit_note.created` 受信 | `credit_note.amount`, `credit_note.invoice` | DB 反映 (credit memo の発行を顧客可視化のため記録、`/admin/subscription` の請求履歴セクションで表示) |
-| 6 | 翌月 invoice 自動発行時 | (Stripe 側自動) | credit memo 残高を自動控除、`invoice.payment_succeeded` で webhook 受信 |
+| 6 | 翌月 invoice 自動発行時 | (Stripe 側自動) | credit memo 残高を自動控除、`invoice.paid` で webhook 受信 |
 
 ### 4.2 mermaid 図 2: ダウン即時 + credit memo API 呼出シーケンス (#2683)
 
@@ -201,7 +201,7 @@ sequenceDiagram
     App->>User: 「standard プラン適用中」<br/>+ 「credit ¥250 が次回請求時に控除されます」<br/>+ 超過分 read-only
     Note over User, Stripe: ... 翌月 ...
     Stripe-->>Stripe: 月次 invoice 発行 (¥500)<br/>credit ¥250 自動控除
-    Stripe-->>Webhook: invoice.payment_succeeded<br/>(amount_paid = ¥250)
+    Stripe-->>Webhook: invoice.paid<br/>(amount_paid = ¥250)
     Webhook->>Webhook: 課金履歴 DB 反映
 ```
 
@@ -209,7 +209,7 @@ sequenceDiagram
 
 | ケース | 挙動 | 対策 |
 |---|---|---|
-| カード決済失敗 (アップ時 only、ダウン時は credit 発行のみで決済なし) | invoice 作成されるが status `open` (アップ時のみ、`payment_behavior: 'pending_if_incomplete'` で標準 dunning 合流) | Phase 1 #2538 dunning 整合。capability 解放は webhook `invoice.payment_succeeded` 後 |
+| カード決済失敗 (アップ時 only、ダウン時は credit 発行のみで決済なし) | invoice 作成されるが status `open` (アップ時のみ、`payment_behavior: 'pending_if_incomplete'` で標準 dunning 合流) | Phase 1 #2538 dunning 整合。capability 解放は webhook `invoice.paid` 後 |
 | `proration_date` が 5 分超過 | Stripe API エラー (Preview と乖離) | 再 preview + UI 再描画 + 顧客に再同意要求 (Phase 5 子 2 §3.3) |
 | webhook 受信遅延 | UI 「processing...」polling (Phase 3 #2572) | `/admin/subscription/success` で max 10 秒 polling、その後 DB 反映確認 |
 | credit memo 残高 > 次回 invoice 金額 | Stripe が credit 残高を将来 invoice に持ち越し | `/admin/subscription` で credit 残高を顧客可視化 (Phase 5 子 1 §8 R8 整合) |

@@ -75,8 +75,25 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 | **E2E Accessibility audit (WCAG 2.2 AA、CX-DoR #10)** | **@axe-core/playwright** | **Round 18 PR-A11Y-2 (A-5)** | **Deque 公式 (axe-core 同元)、Playwright `Page` を直接受ける AxeBuilder で inline inject 不要。dev dependency のみ (本番 bundle 0、ADR-0010)。既存 axe-runner.mjs の inline inject は Stagehand v3 専用回避策のため通常 E2E では本 OSS を採用** |
 | **ページガイド positioning (collision-aware + spotlight)** | **driver.js (MIT)** | **#2926 (EPIC #2925 Sub-1)** | **side/align 宣言 + viewport 自動調整 + scroll-into-view + backdrop cutout (spotlight) を標準装備。手動 positioning (PageGuideOverlay 独自の targetRect 計測 / 固定クランプ / 自前 SVG spotlight) を撤去し本来機能に委譲。intro.js / shepherd.js は AGPL or 商用で商用 SaaS 不適、floating-ui は positioning のみ (spotlight + scroll は別実装) のため driver.js を採用 (research SSOT: `tmp/research-page-guide-redesign-2026-06-05.md` §3)。PR #2387 で callsite 0 を理由に一旦撤去 → #2930 で PageGuideOverlay の手動 positioning を実委譲し再採用 (Issue #2406 の「Driver.js 不使用」前提を supersede)** |
 | **DSQL pg integration test 基盤 (fitness#8 部分コミット再現)** | **@electric-sql/pglite (Apache-2.0)** | **#3531 (#N1-1、EPIC #3424)** | **WASM Postgres で Docker 不要 (Windows dev + CI 直動)、drizzle 公式 driver あり。dev dependency のみ (本番 bundle 0、ADR-0010)。testcontainers (実 pg) と比較: Docker 常設要 + DSQL 固有 OCC 40001 は実 pg でも再現不能で優位性薄。単一接続制約 (tx 内 await deadlock) は test 側 fire→settle パターンで回避 (issue #3531 記録)** |
+| **CW Logs → S3 log archiving (IaC)** | **aws-cdk-lib GA L2 `aws-kinesisfirehose` (DeliveryStream) + `aws-logs-destinations` (FirehoseDestination)** | **#3939 (#3909 調査 (a))** | **追加依存ゼロ (aws-cdk-lib 同梱)。L1 CfnDeliveryStream + 手動 IAM role 2 本 + CfnSubscriptionFilter (~60 行) → L2 ~20 行、delivery/subscription role は L2 が最小権限で自動生成。community construct は該当なし (#3909 AC2 評価)** |
 
 各採用 OSS の詳細根拠は対応する ADR / 設計書 (`docs/design/*-architecture.md`) を参照。本表は採用済み OSS の「インデックス」として機能し、新規実装者が `npm install` 前にまず参照する SSOT。
+
+### OSS 調査済み・不採用記録 (#1350 整合)
+
+調査したが採用しなかった OSS の**薄いインデックス**。同じ候補の再調査ループを断つことが目的。再評価トリガを満たした場合のみ再検討する。
+
+| 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 詳細 |
+|------|---------|-------|------------|------------|------|
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-07-29 | `tree-sitter-svelte` 非対応で UI 層がグラフ上の空白、増分機能は既存資産と重複 | `tree-sitter-svelte` 対応が入る / v1.0.0 の Svelte・SvelteKit 対応状況 | [rationale](../rationale/16-graphify-evaluation-rationale.md) |
+
+**記録する基準**: 10 行超の独自実装 / 既存機構の置換候補として**実測評価した**もののみ。カタログを見て軽く外したものは記録しない (記録の価値 = 再調査コストの回避であり、再調査が安いものは対象外)。
+
+**書き方**: 本表は 1 行 = 1 候補のインデックスに保つ。実測値・棄却理由・確度 (実測か推測か) は `docs/rationale/` 側に置く (`docs/CLAUDE.md` §docs SSOT 原則「棄却案比較 → `docs/rationale/`」整合)。
+
+**削除トリガ**: (a) 再評価トリガを満たして再検討が完了した行 (採用したなら §OSS 採用記録 へ移し、再度不採用なら結論と調査日を更新する) / (b) 対象 OSS が廃止・アーカイブされた行。いずれも削除し、履歴は git で追跡する。
+
+**§ボリューム上限ルールとの関係**: 同ルールの削除主義が挙げる「採択されなかった調査」は、**再評価トリガが生きている間は役目を終えた record ではない**ため本表は削除対象外とする。上記削除トリガを満たした時点で通常の削除主義に戻る。
 
 ## ボリューム上限ルール（削除主義、#2440 PR-A5 改定）
 

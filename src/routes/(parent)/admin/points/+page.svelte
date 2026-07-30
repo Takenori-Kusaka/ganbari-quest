@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { isInJstMonth, monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
@@ -57,25 +58,16 @@ const convertHistory = $derived(selectedChild?.convertHistory ?? []);
 let historyPeriod = $state<'this-month' | 'last-month' | 'all'>('all');
 const filteredHistory = $derived.by(() => {
 	if (historyPeriod === 'all') return convertHistory;
-	const now = new Date();
-	const year =
-		historyPeriod === 'last-month' && now.getMonth() === 0
-			? now.getFullYear() - 1
-			: now.getFullYear();
-	const month =
-		historyPeriod === 'last-month'
-			? now.getMonth() === 0
-				? 12
-				: now.getMonth()
-			: now.getMonth() + 1;
-	const prefix = `${year}-${String(month).padStart(2, '0')}`;
-	return convertHistory.filter((h) => h.createdAt?.startsWith(prefix));
+	// 月キーは JST SSOT 経由 (#4015)。旧実装はローカル TZ getter で月キーを作り、
+	// UTC ISO 文字列の createdAt に startsWith 比較していたため、SSR (UTC) と
+	// client (ブラウザ TZ) で結果が変わり、月初 9 時間分の履歴が集計から落ちていた。
+	const prefix = historyPeriod === 'last-month' ? shiftMonthKey(monthKeyJST(), -1) : monthKeyJST();
+	return convertHistory.filter((h) => isInJstMonth(h.createdAt, prefix));
 });
 const thisMonthTotal = $derived.by(() => {
-	const now = new Date();
-	const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	const monthKey = monthKeyJST();
 	return convertHistory
-		.filter((h) => h.createdAt?.startsWith(monthStart))
+		.filter((h) => isInJstMonth(h.createdAt, monthKey))
 		.reduce((sum, h) => sum + Math.abs(h.amount), 0);
 });
 const allTimeTotal = $derived(convertHistory.reduce((sum, h) => sum + Math.abs(h.amount), 0));

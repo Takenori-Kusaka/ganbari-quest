@@ -21,6 +21,7 @@ import {
 	type AuthLicenseStatus,
 } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -36,8 +37,19 @@ export interface RetentionCleanupResult {
 	activityLogsDeleted: number;
 	pointLedgerDeleted: number;
 	statusHistoryDeleted: number; // #3518-2
+	/**
+	 * #3985: `stripe_webhook_events` の 30 日超過 row 削除数 (tenant 非依存のグローバル表)。
+	 * Stripe Events API 自体が 30 日で replay 不能になるため、それ以上保持しても dedup 効果がない。
+	 */
+	webhookEventsDeleted: number;
 	errors: Array<{ tenantId: string; error: string }>;
 }
+
+/**
+ * Stripe webhook dedup 台帳の保持期間 (日)。
+ * Stripe Events API の保持期間 (30 日) と同期する (ADR-0049 / phase5 §5.3)。
+ */
+const WEBHOOK_EVENT_RETENTION_DAYS = 30;
 
 export interface RetentionCleanupOptions {
 	/** true の場合、削除を実行せず件数カウントのみ返す */
@@ -84,6 +96,7 @@ export async function cleanupExpiredData(
 		activityLogsDeleted: 0,
 		pointLedgerDeleted: 0,
 		statusHistoryDeleted: 0, // #3518-2
+		webhookEventsDeleted: 0, // #3985
 		errors: [],
 	};
 
@@ -179,6 +192,26 @@ export async function cleanupExpiredData(
 			logger.error('[retention-cleanup] tenant failed', {
 				service: 'retention-cleanup',
 				tenantId: tenant.tenantId,
+				error: errMsg,
+				stack: e instanceof Error ? e.stack : undefined,
+			});
+		}
+	}
+
+	// #3985: Stripe webhook dedup 台帳の 30 日 retention。tenant ループの外で 1 回だけ実行する
+	// (`stripe_webhook_events` は tenant 非依存のグローバル表)。
+	// 1 テナントの失敗が他に波及しないのと同じ理由で、ここの失敗も cleanup 全体を落とさない。
+	if (!dryRun) {
+		try {
+			const cutoffIso = new Date(
+				Date.now() - WEBHOOK_EVENT_RETENTION_DAYS * MS_PER_DAY,
+			).toISOString();
+			result.webhookEventsDeleted = await repos.webhookEvent.deleteOlderThan(cutoffIso);
+		} catch (e) {
+			const errMsg = e instanceof Error ? e.message : String(e);
+			result.errors.push({ tenantId: '(global)', error: errMsg });
+			logger.error('[retention-cleanup] webhook events purge failed', {
+				service: 'retention-cleanup',
 				error: errMsg,
 				stack: e instanceof Error ? e.stack : undefined,
 			});

@@ -34,6 +34,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const BASE_REF = process.env.BASE_REF || 'origin/main';
 const PR_BODY = process.env.PR_BODY || '';
@@ -378,10 +379,7 @@ function main() {
 
 // CLI 起動時のみ main を呼ぶ。`import { detectNewRequiredEnvs }` 経由のテスト時は呼ばない。
 // (#2337 / Issue #2337 AC: regex unit test 追加のため export 化、CLI 互換性維持)
-const argv1 = process.argv[1];
-const isDirectInvocation =
-	!!argv1 &&
-	(import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/')));
+const isDirectInvocation = isMainModule(import.meta.url);
 if (isDirectInvocation) {
 	main();
 }

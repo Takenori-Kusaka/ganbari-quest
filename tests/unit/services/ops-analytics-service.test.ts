@@ -40,7 +40,17 @@ describe('getMonthKey', () => {
 	});
 
 	it('月が 1 桁の場合ゼロ埋めされる', () => {
-		expect(getMonthKey(new Date(2026, 0, 1))).toBe('2026-01');
+		// #4015: 入力を UTC 明示にする。`new Date(2026, 0, 1)` はローカル TZ で解釈されるため
+		// 実行環境 (dev=JST / CI=UTC) で結果が分岐し、test 自体が TZ 依存になっていた (#4051 教訓)。
+		expect(getMonthKey(new Date('2026-01-01T00:00:00Z'))).toBe('2026-01');
+	});
+
+	it('月キーは UTC 基準 — JST 深夜 (前日 UTC) は前月に入る', () => {
+		// 2026-01-01T05:00+09:00 = 2025-12-31T20:00Z。
+		// getMonthKey は createdAt (ISO UTC) を直接 key 化するため UTC 境界を採る。
+		// cohort-analysis-service が #3449 で UTC を月境界 SSOT に選んだ決定と同一 (両者の
+		// 月バケットが食い違うと /ops で retention と acquisition が不整合になる)。
+		expect(getMonthKey(new Date('2025-12-31T20:00:00Z'))).toBe('2025-12');
 	});
 });
 
@@ -229,6 +239,70 @@ describe('computeAnalytics', () => {
 		// churnRate = 1 churned / 2 total = 50%
 		expect(result.ltv.churnRate).toBe(50);
 		expect(result.ltv.churned).toBe(1);
+	});
+
+	// #3987: 旧実装は `terminated || suspended` を丸ごと解約扱いし、契約が残り復帰しうる S4 (停止)
+	// までチャーンに混ぜていた。契約終了 (S5) / 退会済 (S6) のみを数える。
+	it('churn は S5 (sub なし suspended) / S6 (terminated) のみで、S4 (sub ありの停止) を数えない', () => {
+		const tenants = [
+			makeTenant({
+				tenantId: 't-active',
+				status: 'active',
+				plan: 'monthly',
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-s4',
+				status: 'suspended',
+				plan: 'monthly',
+				stripeSubscriptionId: 'sub_alive', // 契約が残っている = 復帰しうる
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-s5',
+				status: 'suspended', // 契約終了 (TERMINAL_CONTRACT_STATE)
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-s6',
+				status: 'terminated',
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+		];
+
+		const result = computeAnalytics(tenants, now);
+
+		// S5 + S6 = 2 件のみ (旧実装は S4 も数えて 3 件 = 75% になっていた)
+		expect(result.ltv.churned).toBe(2);
+		expect(result.ltv.churnRate).toBe(50);
+
+		// cohort retention も同じ分子を使う (2026-02 cohort、monthsFromNow=2 → 長さ 3)
+		const cohort = result.cohorts.find((c) => c.month === '2026-02');
+		expect(cohort?.totalSignups).toBe(4);
+		expect(cohort?.retention).toEqual([4, 3, 2]);
+	});
+
+	it('S4 (sub ありの停止) だけならチャーン 0 件', () => {
+		const tenants = [
+			makeTenant({
+				tenantId: 't-active',
+				status: 'active',
+				plan: 'monthly',
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-s4',
+				status: 'suspended',
+				plan: 'monthly',
+				stripeSubscriptionId: 'sub_alive',
+				createdAt: '2026-02-01T00:00:00Z',
+			}),
+		];
+
+		const result = computeAnalytics(tenants, now);
+
+		expect(result.ltv.churned).toBe(0);
+		expect(result.ltv.churnRate).toBe(0);
 	});
 
 	it('monthlyAcquisitions は過去 12 ヶ月分を返す', () => {

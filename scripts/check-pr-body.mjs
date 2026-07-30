@@ -13,6 +13,7 @@
  *   5. `mergeable: CONFLICTING` 事前検知（GitHub API 経由）
  *   6. 変更タイプ checkbox 未選択（#3846、CI gate「変更タイプの選択」の shift-left。
  *      判定は scripts/pr-template-gate-checks.mjs の checkChangeType を SSOT として再利用）
+ *   7. `po-decision:required` label 付きなのに PO 決裁ブリーフが body にない（#3944/#3956/#3962）
  *
  * 必須セクション SSOT:
  *   `.github/PULL_REQUEST_TEMPLATE.md` を runtime parse し、
@@ -21,7 +22,7 @@
  *
  * Usage:
  *   node scripts/check-pr-body.mjs --pr 1775
- *   node scripts/check-pr-body.mjs --body-file path/to/body.md         # gh pr view 不要なテスト用
+ *   node scripts/check-pr-body.mjs --body-file path/to/body.md --no-labels  # PR 未作成の dry-run
  *   node scripts/check-pr-body.mjs --pr 1775 --skip-mergeable          # GitHub API を呼ばない
  *
  * exit:
@@ -34,6 +35,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -259,6 +261,71 @@ export function checkAcMap(body) {
 }
 
 // ---------------------------------------------------------------------------
+// AC 検証マップ 根拠の参照整合 (#4074)
+// ---------------------------------------------------------------------------
+
+/**
+ * 根拠欄に現れる `--pr <番号>` の PR 番号を抽出する (#4074)。
+ *
+ * `--pr <num>` / `--pr <N>` 等のプレースホルダは数字でないので拾わない (AC3 後方互換)。
+ *
+ * @param {string} body
+ * @returns {number[]} 出現順・重複除去済みの PR 番号
+ */
+export function extractEvidencePrNumbers(body) {
+	const section = extractAcMapSection(body);
+	if (!section) return [];
+	/** @type {number[]} */
+	const found = [];
+	for (const m of section.matchAll(/--pr[=\s]+(\d+)\b/g)) {
+		const n = Number(m[1]);
+		if (!found.includes(n)) found.push(n);
+	}
+	return found;
+}
+
+/**
+ * AC 検証マップの根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
+ *
+ * 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。
+ * #4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は
+ * 「OK — 違反なし」を返し CI も全 pass した。**宛先違いの証跡でも Ready 化を通過できた。**
+ *
+ * 番号の実在確認 (GitHub API) ではなく **自 PR 番号との一致**で判定する。
+ * `gh pr view <N> --json <単一フィールド>` は存在しない PR でも値を返すため実在確認は当てにならず、
+ * 一方「自 PR と一致しない番号」は実在・非実在を問わず宛先違いなので、一致判定だけで
+ * 本 Issue の欠陥 (実在しない 4059 / 別 PR の番号) を両方とも落とせる。ネットワーク非依存。
+ *
+ * 対象は AC 検証マップセクションのみ。body の他所 (背景・関連 PR への言及) は正当に他 PR 番号を
+ * 含むため対象外にして誤検出を作らない (AC3)。
+ *
+ * @param {string} body
+ * @param {string | number | null | undefined} prNumber 自 PR 番号 (`--body-file` dry-run では null)
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkEvidencePrReferences(body, prNumber) {
+	// 自 PR 番号が分からない dry-run では「一致」を判定できない。ここで嘘の pass / fail を作らない
+	// (`--pr` 指定の pre-ready Step 9 / CI では必ず判定される)。
+	if (prNumber === null || prNumber === undefined || String(prNumber).trim() === '') return null;
+	const self = Number(String(prNumber).trim());
+	if (!Number.isFinite(self)) return null;
+
+	const mismatched = extractEvidencePrNumbers(body).filter((n) => n !== self);
+	if (mismatched.length === 0) return null;
+
+	return {
+		id: 'evidence-pr-mismatch',
+		message:
+			`AC 検証マップの根拠が本 PR (#${self}) 以外の PR 番号を指しています: ` +
+			`${mismatched.map((n) => `--pr ${n}`).join(' / ')}\n` +
+			`  根拠コマンドの \`--pr <番号>\` は **その PR 自身**を検証したものでなければ証跡になりません ` +
+			`(別 PR / 存在しない番号を指した状態で Ready 化を通した実測: PR #4063 の \`--pr 4059\`)。\n` +
+			`  対応: 根拠欄の番号を ${self} に直し、\`npm run pre-ready -- --pr ${self}\` を実際に実行し直して結果を貼る。\n` +
+			`  番号を書かない形式 (\`--pr <num>\` 等のプレースホルダ) は従来どおり通ります。`,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Ready for Review チェックリスト未チェック検出
 // ---------------------------------------------------------------------------
 
@@ -375,6 +442,284 @@ export function checkEnvDistributionForHotfix(body, labels) {
 }
 
 // ---------------------------------------------------------------------------
+// PO 決裁ブリーフ欠落チェック (#3962)
+// ---------------------------------------------------------------------------
+
+/**
+ * `.github/labeler.yml` が高リスクパス touch 時に自動付与するラベル (#3862)。
+ * 付与された PR は PR body に PO 決裁ブリーフ (一枚絵 mermaid) が必須。
+ */
+export const PO_DECISION_LABEL = 'po-decision:required';
+
+/**
+ * PO 決裁ブリーフの見出し SSOT。
+ * `.claude/skills/dev-open-pr/templates/po-decision-brief.md` の先頭見出しと一致させること。
+ */
+export const PO_DECISION_HEADING = '## PO 決裁ブリーフ';
+
+/**
+ * @param {string[]} labels
+ * @returns {boolean}
+ */
+export function hasPoDecisionLabel(labels) {
+	return labels.some((l) => l.trim().toLowerCase() === PO_DECISION_LABEL);
+}
+
+/**
+ * `## PO 決裁ブリーフ` セクションを抽出する。`## ` を含む次セクションまでが対象。
+ *
+ * @param {string} body
+ * @returns {string | null}
+ */
+export function extractPoDecisionSection(body) {
+	const startMatch = body.match(/^## PO 決裁ブリーフ.*$/m);
+	if (!startMatch) return null;
+	const startIdx = body.indexOf(startMatch[0]);
+	const remaining = body.slice(startIdx + startMatch[0].length);
+	const nextSectionIdx = remaining.search(/^## /m);
+	return nextSectionIdx === -1 ? remaining : remaining.slice(0, nextSectionIdx);
+}
+
+/**
+ * `po-decision:required` label 付き PR に PO 決裁ブリーフが実体を伴って存在するかを検証する (#3962)。
+ *
+ * 発生経緯: PR #3944 / #3956 の 2 回連続で「label は付いているがブリーフが body にない」まま
+ * Ready 化し、QA レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
+ * 付与に対応する body 要件が人間の記憶に依存していたため同型が再発した。ADR-0061
+ * same-class-N→guard に従い、instance 修正 (その PR にブリーフを足す) ではなく機械 gate 化する。
+ *
+ * 検出する違反 (label 付き PR のみ適用):
+ *   1. `## PO 決裁ブリーフ` 見出しが body にない (#3944 / #3956 の実際の形)
+ *   2. 見出しはあるが mermaid ブロックがない (「一枚絵で判断できる」という様式要件を満たさない)
+ *   3. 見出しはあるが template の未置換プレースホルダ `___` が残っている
+ *
+ * 検出しないもの: ブリーフの中身の妥当性 (判断層は QA / PO レビューの担当)。
+ * ここで固定するのは「label と body の対応が取れていること」だけ。
+ *
+ * @param {string} body
+ * @param {string[]} labels - PR ラベル一覧
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkPoDecisionBrief(body, labels) {
+	if (!hasPoDecisionLabel(labels)) return null;
+
+	// 見出しが HTML コメント内にあるだけのケースを「存在する」と誤判定しないよう、
+	// コメントを剥がしてから探す。コードブロックは mermaid 図の実体なので残す。
+	const cleaned = stripMarkdownComments(body);
+	const section = extractPoDecisionSection(cleaned);
+
+	if (!section) {
+		return {
+			id: 'po-decision-brief-missing-section',
+			message:
+				`\`${PO_DECISION_LABEL}\` label が付いていますが、PR body に \`${PO_DECISION_HEADING}\` ` +
+				`セクションがありません (#3944 / #3956 と同型)。\n` +
+				`対応 1: \`.claude/skills/dev-open-pr/templates/po-decision-brief.md\` を PR body 末尾に append し、\n` +
+				`        「___」を全て実際の内容に置換する (mermaid 一枚絵で PO が Yes/No を判断できること)。\n` +
+				`対応 2: label が誤付与なら、外した理由を PR body に明記したうえで label を外す ` +
+				`(判定 SSOT = .github/labeler.yml の po-decision:required エントリ)。`,
+		};
+	}
+
+	if (!/```mermaid/.test(section)) {
+		return {
+			id: 'po-decision-brief-missing-diagram',
+			message:
+				`\`${PO_DECISION_HEADING}\` セクションに mermaid ブロックがありません。\n` +
+				`様式 SSOT (PO 恒久要件 2026-07-23): PO は mermaid 図 1 枚 (+ UI 変更時は実機 SS) だけで ` +
+				`Yes/No を判断できること。長文説明を主成果物にしない。\n` +
+				`対応: \`.claude/skills/dev-open-pr/templates/po-decision-brief.md\` の flowchart をコピーして記入する。`,
+		};
+	}
+
+	const placeholderCount = (section.match(/___/g) ?? []).length;
+	if (placeholderCount > 0) {
+		return {
+			id: 'po-decision-brief-unfilled-placeholder',
+			message:
+				`\`${PO_DECISION_HEADING}\` セクションに template の未置換プレースホルダ \`___\` が ` +
+				`${placeholderCount} 件残っています。\n` +
+				`対応: 全ての「___」を 1 行 15〜25 字で言い切った内容に置換する。` +
+				`③ 反対理由は tmp/adversarial-evidence/<pr>.json を生成してから転記する (AI 要約への過信を打ち消すため)。`,
+		};
+	}
+
+	return null;
+}
+
+// ---------------------------------------------------------------------------
+// 未置換プレースホルダ検出 (body 全体、code fence 内を含む) — #4029
+// ---------------------------------------------------------------------------
+
+/**
+ * 「置換されていないテンプレート断片」を示すトークン SSOT (#4029)。
+ *
+ * 発生経緯: PR #4002 の body L208 が `PRE_READY_LOG_PLACEHOLDER` のまま残り、その block を
+ * 根拠に 2 箇所が `- [x]` を立てていた (成果物のない `[x]`)。当時の未置換検出は
+ * `___` を PO 決裁セクション内でのみ見ていたため、**code fence 内の別表記**は素通りした。
+ * fence を除外すると今回の実例をそのまま逃すので、**fence 内も対象**にする。
+ *
+ * HTML コメントだけは除外する (template 由来の記入ガイドが `<!-- 例: ___ -->` の形で
+ * 残るのは正常であり、開発者が書いた本文ではないため)。除外は行番号を保つマスクで行う。
+ *
+ * 各 pattern の狭め方 (誤検出との境界、#4029):
+ *   - `PLACEHOLDER` は**大文字のみ**。英文中の "placeholder" という単語を拾わない
+ *   - `XXX` は `#XXX` (Issue 番号の伏せ字引用) / URL path (`/XXX`) / 語中 (`XXXY`) を除外
+ *   - `___` は 3 連続以上のアンダースコア。Markdown の水平線 (`---`) とは別字
+ */
+export const PLACEHOLDER_PATTERNS = [
+	{
+		id: 'underscore-blank',
+		label: '___ (template の空欄)',
+		re: /_{3,}/g,
+	},
+	{
+		id: 'placeholder-token',
+		label: 'PLACEHOLDER / *_PLACEHOLDER',
+		// `PRE_READY_LOG_PLACEHOLDER` のように接頭辞が付く形を確実に拾うため `\b` は使わない
+		// (`_` は word 文字なので接頭辞境界に `\b` が立たず、#4002 の実例を取り逃がす)。
+		re: /[A-Z0-9_]*PLACEHOLDER[A-Z0-9_]*/g,
+	},
+	{
+		id: 'tbd',
+		label: 'TBD',
+		re: /\bTBD\b/g,
+	},
+	{
+		id: 'xxx',
+		label: 'XXX',
+		re: /(?<![#/\w-])XXX(?![\w-])/g,
+	},
+	{
+		id: 'japanese-angle-slot',
+		label: '<ここに…> 型スロット',
+		re: /<ここに[^>\n]*>/g,
+	},
+];
+
+/**
+ * 誤検出時の唯一の逃げ道 (#4029)。
+ *
+ * 本 gate 自身を直す PR / template を編集する PR は、プレースホルダ文字列を
+ * 正当に本文へ書く。label による一括 skip は fail-open (label を付けるだけで gate が
+ * 消える) なので採らず、**PR body に理由付きの宣言を 1 行書いた場合のみ**通す。
+ */
+export const PLACEHOLDER_SCAN_SKIP_RE = /<!--\s*placeholder-scan-skip:\s*([^>]*?)\s*-->/;
+
+/** 宣言の理由に求める最小文字数 (「-」等の空宣言で gate を消させない)。 */
+const PLACEHOLDER_SKIP_REASON_MIN_LENGTH = 10;
+
+/**
+ * HTML コメントを**行番号を保ったまま**空白化する (#4029)。
+ * `stripMarkdownComments` は行ごと消えるため、検出行番号を PR body の実行番号と
+ * 一致させたい本 gate では使えない。
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function maskMarkdownComments(body) {
+	return body.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
+/**
+ * 未置換プレースホルダを PR body 全体 (code fence 内を含む) からスキャンする (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ id: string; token: string; line: string; lineNo: number }[]}
+ */
+export function scanPlaceholders(body) {
+	const masked = maskMarkdownComments(body);
+	const lines = masked.split('\n');
+	const rawLines = body.split('\n');
+	const violations = [];
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+		for (const pattern of PLACEHOLDER_PATTERNS) {
+			const re = new RegExp(pattern.re.source, pattern.re.flags);
+			let m = re.exec(line);
+			while (m !== null) {
+				violations.push({
+					id: pattern.id,
+					token: m[0],
+					line: (rawLines[i] ?? '').trim(),
+					lineNo: i + 1,
+				});
+				m = re.exec(line);
+			}
+		}
+	}
+	return violations;
+}
+
+/**
+ * `<!-- placeholder-scan-skip: 理由 -->` 宣言を解釈する (#4029)。
+ *
+ * @param {string} body
+ * @returns {{ declared: boolean; reason: string }}
+ */
+export function parsePlaceholderScanSkip(body) {
+	const m = body.match(PLACEHOLDER_SCAN_SKIP_RE);
+	if (!m) return { declared: false, reason: '' };
+	return { declared: true, reason: (m[1] ?? '').trim() };
+}
+
+/**
+ * 未置換プレースホルダ gate 本体 (#4029)。
+ *
+ * 宣言がある場合は「何を見逃したか」を violation ではなく notes として返す
+ * (#3962 と同じ方針 — 見分けのつかない pass を作らない)。
+ *
+ * @param {string} body
+ * @returns {{ violation: { id: string; message: string } | null; notes: string[] }}
+ */
+export function checkPlaceholders(body) {
+	const found = scanPlaceholders(body);
+	const skip = parsePlaceholderScanSkip(body);
+
+	if (skip.declared) {
+		if (skip.reason.length < PLACEHOLDER_SKIP_REASON_MIN_LENGTH) {
+			return {
+				violation: {
+					id: 'placeholder-scan-skip-reason-missing',
+					message:
+						`\`<!-- placeholder-scan-skip: 理由 -->\` の理由が ${PLACEHOLDER_SKIP_REASON_MIN_LENGTH} 文字未満です ` +
+						`(実際: ${JSON.stringify(skip.reason)})。\n` +
+						'  対応: 「なぜこの PR が正当にプレースホルダ文字列を本文へ書くのか」を具体的に書く ' +
+						'(例: 本 gate の検出対象トークンを PR body 内で説明するため)。',
+				},
+				notes: [],
+			};
+		}
+		return {
+			violation: null,
+			notes: [
+				`[check-pr-body] SKIPPED — 未置換プレースホルダ検査 (#4029) を宣言により skip しました (検出 ${found.length} 件)`,
+				`  理由: ${skip.reason}`,
+			],
+		};
+	}
+
+	if (found.length === 0) return { violation: null, notes: [] };
+
+	const sample = found
+		.slice(0, 6)
+		.map((v) => `  - L${v.lineNo} 「${v.token}」(${v.id}): ${v.line.slice(0, 80)}`)
+		.join('\n');
+	return {
+		violation: {
+			id: 'unreplaced-placeholder',
+			message:
+				`PR body に未置換プレースホルダが ${found.length} 件あります ` +
+				`(code fence 内も対象、#4002 の実例がまさに fence 内でした):\n${sample}\n` +
+				'対応 1: 実際の内容 (実行ログ / パス / 結果) に置換する。埋められないなら、それを根拠にした `[x]` を外す。\n' +
+				'対応 2: 本 gate や template を直す PR で正当にプレースホルダ文字列を書く場合のみ、\n' +
+				'        `<!-- placeholder-scan-skip: 理由 -->` を PR body に 1 行書く (label では通らない)。',
+		},
+		notes: [],
+	};
+}
+
+// ---------------------------------------------------------------------------
 // 文字化け検出 (BOM / heuristic) — #2562 / #2576
 // ---------------------------------------------------------------------------
 
@@ -466,7 +811,7 @@ export function checkChangeTypeSelection(body, template, labels = []) {
 		message:
 			`${result.message}\n` +
 			'背景: 未選択のまま提出 → CI 必須 gate「変更タイプの選択」hard-fail が 3 PR 連続再発 (#3835 / #3837 / #3844)。\n' +
-			'対応: PR 作成前に `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable` で本検証を PASS させる。\n' +
+			'対応: PR 作成前に `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable --no-labels` で本検証を PASS させる。\n' +
 			'      `npm run dev:open-pr -- --issue <num>` 経由なら Issue の type:* label から自動 [x] 化される (init-pr-body.mjs)。',
 	};
 }
@@ -582,24 +927,349 @@ function fetchPrBody(prNumber) {
 
 /**
  * `gh pr view <num> --json labels` で PR ラベル一覧を取得する (#2343)。
- * gh CLI 未インストール / オフライン / PR 未作成時は空配列を返す。
+ *
+ * #3962 (QA 指摘): 旧実装は gh 失敗を `catch { return [] }` で潰していたため、
+ * 「label が付いていない」と「label を取得できなかった」を呼び出し側が区別できず、
+ * label 条件付き検査 (hotfix / po-decision) が**黙って消えたうえで `OK — 違反なし`**
+ * と表示された。gate の縮退方向が pass 側に倒れる典型なので、
+ * **取得不能は `null` を返して呼び出し側で fail-closed させる**。
+ * 空配列は「gh 取得に成功し、label が 1 件も無い」場合だけを意味する。
  *
  * @param {string|number|null} prNumber
- * @returns {string[]}
+ * @returns {string[] | null} 取得できなければ null (= 未解決)
  */
 function fetchPrLabels(prNumber) {
-	if (!prNumber) return [];
+	if (!prNumber) return null;
 	try {
-		const raw = execSync(`gh pr view ${prNumber} --json labels --jq '[.labels[].name]'`, {
+		// `--jq '[.labels[].name]'` を使わない (#3962): execSync は Windows で cmd.exe を経由し、
+		// cmd.exe は単一引用符を引用符として扱わないため、jq が `'[.labels[].name]'` を
+		// リテラル受領して `unexpected token "'"` で落ちる。旧実装は catch { return [] } で
+		// これを潰していたので、**Windows のローカル開発機では label 条件付き検査
+		// (hotfix #2343 / po-decision #3962) が一度も実行されないまま `OK — 違反なし` が
+		// 出ていた**。shell の引用規則に依存しないよう、JSON を素で受けて JS 側で取り出す。
+		const raw = execSync(`gh pr view ${prNumber} --json labels`, {
 			encoding: 'utf-8',
 			stdio: ['ignore', 'pipe', 'ignore'],
 			timeout: 15_000,
 		});
-		const parsed = JSON.parse(raw.trim() || '[]');
-		return Array.isArray(parsed) ? parsed.map((l) => String(l)) : [];
+		return extractLabelNames(raw);
 	} catch {
-		return [];
+		return null;
 	}
+}
+
+/**
+ * `gh pr view --json labels` の生 JSON から label 名配列を取り出す (#3962)。
+ *
+ * 取り出せない形 (パース不能 / `labels` が配列でない) は **空配列に落とさず `null`**。
+ * 「label が無い」と「label が読めなかった」を混ぜないのが本 Issue の主題であり、
+ * ここで潰すと `resolveLabels()` の fail-closed が効かなくなる。
+ *
+ * @param {string} raw
+ * @returns {string[] | null} 取り出せなければ null (= 未解決)
+ */
+export function extractLabelNames(raw) {
+	let parsed;
+	try {
+		parsed = JSON.parse(raw.trim() || 'null');
+	} catch {
+		return null;
+	}
+	const labels = parsed && typeof parsed === 'object' ? parsed.labels : null;
+	if (!Array.isArray(labels)) return null;
+	return labels.map((l) => String(l?.name ?? l));
+}
+
+/**
+ * label が付いているときだけ発火する gate の SSOT (#3962 QA 指摘)。
+ *
+ * `--no-labels` は「label が無い」ことの明示なので、これらの gate は正しく skip される。
+ * ただし **何を検査しなかったかが出力に出ない限り、通常 pass と見分けがつかない**。
+ * 見分けがつかない pass は本 Issue が塞ごうとしている失敗 class そのものなので、
+ * skip した gate 名を件数付きで出すための一覧をここに固定する。
+ *
+ * `triggers` は発火 label の実値、`label` は表示用の文字列。
+ *
+ * @type {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
+ */
+export const LABEL_CONDITIONAL_GATES = [
+	{
+		name: 'hotfix env 配布証跡 (ADR-0006)',
+		issue: '#2343',
+		label: HOTFIX_LABELS.join(' / '),
+		triggers: [...HOTFIX_LABELS],
+	},
+	{
+		name: 'PO 決裁ブリーフ',
+		issue: '#3962',
+		label: PO_DECISION_LABEL,
+		triggers: [PO_DECISION_LABEL],
+	},
+];
+
+/**
+ * 与えた label 一覧で **発火しなかった** label 条件付き gate を返す (#3983)。
+ *
+ * `--no-labels` (labels = []) は全件が未発火になるので、全件 skip の特殊ケースになる。
+ *
+ * @param {string[]} labels
+ * @returns {ReadonlyArray<{ name: string; issue: string; label: string; triggers: string[] }>}
+ */
+export function selectSkippedLabelGates(labels) {
+	const normalized = labels.map((l) => l.trim().toLowerCase());
+	return LABEL_CONDITIONAL_GATES.filter((g) => !g.triggers.some((t) => normalized.includes(t)));
+}
+
+/**
+ * 「検査しなかった gate」を明示する出力行を組み立てる (#3962 QA 指摘 / #3983)。
+ *
+ * #3962 は `--no-labels` にだけ本出力を入れたため、`--labels <csv>` で
+ * 発火しなかった gate は **通常 pass と見分けがつかない**まま残っていた (#3983)。
+ * 「label をこちらが手で主張した」経路 (`--no-labels` / `--labels`) は、その主張が
+ * 誤っていても検出できない以上、どちらも「検査していない」と表示する。
+ * `--pr <N>` の実 label は PR の事実そのものなので「発火しなかった = 正しい判定」であり
+ * 本出力の対象外 (毎回の pre-ready を無意味な SKIPPED 行で埋めない)。
+ *
+ * 呼び出し側が `console.log` するだけで済むよう、行配列で返す。skip 0 件なら空配列。
+ * 将来メッセージを整理した拍子に無言化しないよう、gate 名の出現を test で固定している ([LB7])。
+ *
+ * @param {string[]} labels 検査に使う label 一覧
+ * @param {string} source 経路の表示名 (`--no-labels` / `--labels`)
+ * @returns {string[]}
+ */
+export function formatSkippedLabelGates(labels, source) {
+	const skipped = selectSkippedLabelGates(labels);
+	if (skipped.length === 0) return [];
+	return [
+		`[check-pr-body] SKIPPED — label 条件付き gate ${skipped.length} 件は検査していません (${source})`,
+		...skipped.map((g) => `  - ${g.name} (${g.issue}) — 発火 label: ${g.label}`),
+		`  ※ label が付いた後に --pr <N> で再実行しないと、上記 gate は一度も動きません`,
+	];
+}
+
+/**
+ * CLI 引数と `fetchPrLabels()` の結果から、検査に使う label 一覧を確定する (#3962)。
+ *
+ * label 条件付き検査 (hotfix #2343 / po-decision #3962) は「label が無い」なら
+ * 正しく skip されるべきだが、「label が分からない」で skip すると gate が消える。
+ * この 2 つを型で分離するのが本関数の目的で、**未解決は必ず error を返す** (fail-closed)。
+ * dry-run で label がまだ存在しないことが分かっている場合は `--no-labels` で明示する。
+ *
+ * @param {{ pr: string | null; labels: string | null; noLabels: boolean }} args
+ * @param {string[] | null} fetched `fetchPrLabels()` の戻り (未解決なら null)
+ * @returns {{ labels: string[] } | { error: string }}
+ */
+export function resolveLabels(args, fetched) {
+	if (args.noLabels) return { labels: [] };
+	if (args.labels !== null) {
+		const parsed = args.labels
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean);
+		// #3983: `--labels ""` / `--labels " , "` は「label 0 件の明示」ではなく、
+		// `--labels "$LABELS"` で変数が空だった事故の形。#3965 が消した
+		// `catch { return [] }` と同じ沈黙 fail-open になるので受理しない。
+		// 「label が 0 件」を主張する引数は `--no-labels` が既にある。
+		if (parsed.length === 0) {
+			return {
+				error:
+					`--labels に有効な label がありません (受け取った値: ${JSON.stringify(args.labels)})。\n` +
+					`  label 条件付き検査 (hotfix #2343 / po-decision #3962) が黙って全 skip されるのを防ぐため、\n` +
+					`  空の --labels は受理しません (--labels "$VAR" で変数が空だった場合を含む)。\n` +
+					`  対応: label 0 件を明示したいなら --no-labels を使ってください。`,
+			};
+		}
+		return { labels: parsed };
+	}
+	if (fetched !== null) return { labels: fetched };
+	if (args.pr) {
+		return {
+			error:
+				`PR #${args.pr} の label を取得できませんでした (gh 未認証 / オフライン / timeout など)。\n` +
+				`  label 条件付き検査 (hotfix #2343 / po-decision #3962) を実行できないため、pass 側に倒さず中断します。\n` +
+				`  対応: gh auth status を確認して再実行するか、--labels <csv> / --no-labels で明示してください。`,
+		};
+	}
+	return {
+		error:
+			`--body-file 単独では label を解決できません。\n` +
+			`  label 条件付き検査 (hotfix #2343 / po-decision #3962) が黙って skip されるのを防ぐため、\n` +
+			`  --labels <csv> か --no-labels のどちらかを明示してください。\n` +
+			`  例: --no-labels                      # PR 未作成で label がまだ付いていない\n` +
+			`      --labels po-decision:required    # 付く予定の label を先に検証する`,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Draft PR での Ready 化要件 deferral (#3997)
+// ---------------------------------------------------------------------------
+
+/**
+ * **Ready 化の要件そのもの**を検査する gate の SSOT (#3997)。
+ *
+ * Draft は「まだ Ready の要件を満たしていない」ことを宣言する状態なので、これらを Draft に
+ * 要求すると **Draft PR へ 1 commit も push できなくなる** (`.husky/pre-push` Step 3 が
+ * PR の存在だけで発火するため)。実際 #3989 で「local に commit があるのに remote が
+ * 7 時間前の HEAD のまま」という宙吊りが発生した。
+ *
+ * ここに載せる / 載せない の線引き:
+ *   - 載せる (= Draft では deferred): 「Ready にしてよい状態か」を問う検査。
+ *     Ready checklist の全 [x] (完遂宣言そのもの) / PO 決裁ブリーフ (PO に決裁を仰ぐ材料)。
+ *     Draft の定義上まだ満たしていないのが正常な項目。
+ *   - 載せない (= Draft でも enforce): 本文の体裁 / 事実性の検査。
+ *     必須セクション網羅・AC 4 列・禁止語・mojibake・変更タイプ・CONFLICTING・hotfix env 配布証跡。
+ *     これらは「Ready かどうか」と無関係に常に正しくあるべきで、Draft のうちに直すほど安い。
+ *     特に禁止語 / mojibake / CONFLICTING は放置するほど是正コストが上がるため Draft でも止める。
+ *
+ * **Ready 化の瞬間に必ず検査される**ことは変わらない (Ready 後の push / `npm run pre-ready`
+ * Step 9 / CI PR body gate はいずれも Draft ではないので本 deferral が効かない)。
+ *
+ * @type {ReadonlyArray<{ id: string; name: string; issue: string }>}
+ */
+export const READY_ONLY_GATES = [
+	{
+		id: 'unchecked-ready-checklist',
+		name: 'Ready for Review / 完了チェックリスト 全 [x]',
+		issue: '#1481',
+	},
+	{
+		id: 'po-decision-brief-missing-section',
+		name: 'PO 決裁ブリーフ (見出し欠落)',
+		issue: '#3962',
+	},
+	{
+		id: 'po-decision-brief-missing-diagram',
+		name: 'PO 決裁ブリーフ (mermaid 欠落)',
+		issue: '#3962',
+	},
+	{
+		id: 'po-decision-brief-unfilled-placeholder',
+		name: 'PO 決裁ブリーフ (未置換プレースホルダ)',
+		issue: '#3962',
+	},
+];
+
+/** @type {ReadonlySet<string>} */
+export const READY_ONLY_VIOLATION_IDS = new Set(READY_ONLY_GATES.map((g) => g.id));
+
+/**
+ * `gh pr view <num> --json isDraft` で Draft 状態を取得する (#3997)。
+ *
+ * `--jq` は使わない (#3962 の Windows cmd.exe 引用問題と同じ理由)。
+ * 取得不能 (gh 未認証 / オフライン / PR 未作成) は `null` を返し、呼び出し側は
+ * **Ready 扱い (= 全 gate enforce)** に倒す。gate が緩む方向へ黙って倒れないための fail-closed。
+ *
+ * @param {string|number|null} prNumber
+ * @returns {boolean | null} 取得できなければ null (= 未解決)
+ */
+function fetchPrIsDraft(prNumber) {
+	if (!prNumber) return null;
+	try {
+		const raw = execSync(`gh pr view ${prNumber} --json isDraft`, {
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 15_000,
+		});
+		return extractIsDraft(raw);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * `gh pr view --json isDraft` の生 JSON から boolean を取り出す (#3997)。
+ * boolean 以外 / パース不能は `null` (= 未解決)。false に潰すと「Draft ではない」と
+ * 「読めなかった」が混ざるため、`extractLabelNames` と同じ方針で分離する。
+ *
+ * @param {string} raw
+ * @returns {boolean | null}
+ */
+export function extractIsDraft(raw) {
+	let parsed;
+	try {
+		parsed = JSON.parse(raw.trim() || 'null');
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object') return null;
+	return typeof parsed.isDraft === 'boolean' ? parsed.isDraft : null;
+}
+
+/**
+ * 検査対象が Draft PR かを確定する (#3997)。
+ *
+ * - `--pr` 指定時は **gh の実状態だけ**を採用する (`--draft` フラグは無視)。
+ *   フラグで Ready PR の Ready 化要件を外せると、それ自体が bypass 経路になるため。
+ * - `--pr` なし (`--body-file` dry-run) では `--draft` フラグの申告を採用する。
+ *   この経路には Ready 化する PR が存在しないので、緩める対象がそもそも無い。
+ * - 未解決 (gh 失敗 / 申告なし) は **Ready 扱い** (= 従来どおり全 gate enforce)。
+ *
+ * @param {{ pr: string | null; draft: boolean }} args
+ * @param {boolean | null} fetched `fetchPrIsDraft()` の戻り (未解決なら null)
+ * @returns {{ isDraft: boolean; source: 'gh' | 'flag' | 'unresolved' }}
+ */
+export function resolveDraftState(args, fetched) {
+	if (args.pr) {
+		if (fetched === null) return { isDraft: false, source: 'unresolved' };
+		return { isDraft: fetched, source: 'gh' };
+	}
+	if (args.draft) return { isDraft: true, source: 'flag' };
+	return { isDraft: false, source: 'unresolved' };
+}
+
+/** @typedef {{ id: string; issue: string; message: string }} Violation */
+
+/**
+ * violations を「Draft では deferred するもの」と「常に enforce するもの」に分ける (#3997)。
+ * `isDraft` が false のときは deferred が必ず空 (= 従来の挙動と完全一致)。
+ *
+ * @param {Violation[]} violations
+ * @param {boolean} isDraft
+ * @returns {{ enforced: Violation[]; deferred: Violation[] }}
+ */
+export function partitionReadyOnlyViolations(violations, isDraft) {
+	if (!isDraft) return { enforced: violations, deferred: [] };
+	const enforced = [];
+	const deferred = [];
+	for (const v of violations) {
+		if (READY_ONLY_VIOLATION_IDS.has(v.id)) deferred.push(v);
+		else enforced.push(v);
+	}
+	return { enforced, deferred };
+}
+
+/**
+ * Draft のため deferred した gate を明示する出力行を組み立てる (#3997 AC3)。
+ *
+ * **違反が 0 件でも必ず出す**。無言で緩めると「Draft のときだけ gate が空振りする」形になり、
+ * #3969 (gate が生きているつもりで死んでいた) と同じ class になるため。
+ *
+ * @param {{ id: string; message: string }[]} deferred
+ * @param {string|number|null} prNumber
+ * @returns {string[]}
+ */
+export function formatDraftDeferredGates(deferred, prNumber = null, reason = 'draft') {
+	const target = prNumber ? `PR #${prNumber}` : 'この PR';
+	const head =
+		reason === 'skip-flag'
+			? `[check-pr-body] NOTE: ${target} は --skip-ready-only 指定のため Ready 化要件 ${READY_ONLY_GATES.length} 件を検査しませんでした (#4121)`
+			: `[check-pr-body] NOTE: ${target} は Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件を deferred しました (#3997)`;
+	const perGateSuffix =
+		reason === 'skip-flag'
+			? '未達 (本呼び出しでは fail させない)'
+			: '未達 (Draft のため今回は fail させない)';
+	const tail =
+		reason === 'skip-flag'
+			? `  ※ 同 section は pr-merge-gate.yml (check-merge-gate-checklist) が CI で検査します`
+			: `  ※ Ready 化 (gh pr ready) 後の push / npm run pre-ready / CI では上記が全て必須になります`;
+	return [
+		head,
+		...READY_ONLY_GATES.map((g) => {
+			const hit = deferred.find((d) => d.id === g.id);
+			return `  - ${g.name} (${g.issue}) — ${hit ? perGateSuffix : '現時点で違反なし'}`;
+		}),
+		tail,
+	];
 }
 
 // ---------------------------------------------------------------------------
@@ -631,15 +1301,18 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; skipMergeable: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
-function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; skipMergeable: boolean; help: boolean }} */
+export function parseArgs(argv) {
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
+		noLabels: false,
 		skipMergeable: false,
+		draft: false,
+		skipReadyOnly: false,
 		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -663,6 +1336,10 @@ function parseArgs(argv) {
 		}
 		const a = argv[i];
 		if (a === '--skip-mergeable') args.skipMergeable = true;
+		else if (a === '--no-labels') args.noLabels = true;
+		// #3997: --pr 指定時は gh の isDraft が優先され、本フラグは無視される (bypass 防止)
+		else if (a === '--draft') args.draft = true;
+		else if (a === '--skip-ready-only') args.skipReadyOnly = true;
 		else if (a === '--help' || a === '-h') args.help = true;
 	}
 	return args;
@@ -674,14 +1351,29 @@ check-pr-body.mjs — PR body のセルフチェック (Issue #1775 AC2)
 
 Usage:
   node scripts/check-pr-body.mjs --pr <number>
-  node scripts/check-pr-body.mjs --body-file <path>      # 単体テスト・dry-run 用
   node scripts/check-pr-body.mjs --pr <number> --skip-mergeable
+  node scripts/check-pr-body.mjs --pr <number> --body-file <path> --skip-mergeable
+  node scripts/check-pr-body.mjs --body-file <path> --no-labels          # PR 未作成の dry-run
   node scripts/check-pr-body.mjs --body-file <path> --labels priority:critical,hotfix
+
+label の解決方法 (#3962):
+  label 条件付き gate (hotfix env 配布証跡 #2343 / PO 決裁ブリーフ #3962) が黙って
+  skip されるのを防ぐため、label が解決できない呼び出しは exit 2 で中断する (fail-closed)。
+  PR 番号が取れるなら --pr を渡すこと。--no-labels / --labels は PR 作成前の dry-run 専用で、
+  どちらも「発火しなかった label 条件付き gate」を SKIPPED 行として出力する (#3983)。
+  空の --labels ("" / " , ") は沈黙 fail-open になるため exit 2 で中断する (#3983)。
 
 Options:
   --pr <num>          GitHub PR 番号 (gh pr view で body 取得 + label 自動検出)
   --body-file <path>  ローカルファイルから body を読む（PR 未作成時の dry-run 用）
   --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
+                      空文字は不可 — label 0 件の明示は --no-labels を使う (#3983)
+  --no-labels         label が 1 件も無いことを明示（--body-file dry-run 用、#3962）
+  --draft             Draft 相当として検査（--body-file dry-run 専用、#3997）
+                      --pr 指定時は gh pr view --json isDraft の実状態が優先され本フラグは無視される
+  --skip-ready-only   Ready 化要件 ${READY_ONLY_GATES.length} 件を検査しない (#4121、push レイヤ専用)
+                      同 section は pr-merge-gate.yml が CI で検査するため純粋な重複。
+                      skip したことは必ず標準出力に出る (無言 skip にしない)
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
   --help, -h          このヘルプを表示
 
@@ -694,6 +1386,13 @@ Detected violations:
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
   7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
+  9. 未置換プレースホルダ (${PLACEHOLDER_PATTERNS.map((p) => p.label).join(' / ')}) が body のどこかに残存 (code fence 内も対象、#4002 / #4029)
+     正当にプレースホルダ文字列を書く PR は \`<!-- placeholder-scan-skip: 理由 -->\` を body に 1 行書く (label では通らない)
+
+Draft PR の扱い (#3997):
+  Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
+  のみ deferred する。それ以外 (必須セクション / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING /
+  hotfix env 配布証跡) は Draft でも従来どおり fail させる。deferred したことは必ず標準出力に出る。
 
 Exit codes:
   0 = OK
@@ -739,9 +1438,10 @@ function loadPrBody(args) {
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
  * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
+ * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-function collectViolations(body, requiredSections, template, args) {
+function collectViolations(body, requiredSections, template, args, notes = []) {
 	const violations = [];
 	const labels = args.labels ?? [];
 
@@ -777,6 +1477,10 @@ function collectViolations(body, requiredSections, template, args) {
 	const acMap = checkAcMap(body);
 	if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
 
+	// #4074: 根拠欄の `--pr <番号>` が自 PR を指しているか (宛先違いの証跡を通さない)
+	const evidencePrRef = checkEvidencePrReferences(body, args.pr);
+	if (evidencePrRef) violations.push({ ...evidencePrRef, issue: '#4074' });
+
 	const unchecked = findUncheckedReadyChecklist(body);
 	if (unchecked.length > 0) {
 		violations.push({
@@ -799,6 +1503,11 @@ function collectViolations(body, requiredSections, template, args) {
 	const hotfixEnvCheck = checkEnvDistributionForHotfix(body, labels);
 	if (hotfixEnvCheck) violations.push({ ...hotfixEnvCheck, issue: '#2343' });
 
+	// #4029: 未置換プレースホルダ検出 (body 全体 / code fence 内も対象)
+	const placeholders = checkPlaceholders(body);
+	notes.push(...placeholders.notes);
+	if (placeholders.violation) violations.push({ ...placeholders.violation, issue: '#4002/#4029' });
+
 	// #2562 / #2576: PR body 文字化け検出 (BOM / `??` heuristic)
 	const mojibake = detectMojibake(body);
 	for (const m of mojibake) {
@@ -810,6 +1519,10 @@ function collectViolations(body, requiredSections, template, args) {
 	if (selfReviewEvidence) {
 		violations.push({ ...selfReviewEvidence, issue: '#2475/#2815 D-1' });
 	}
+
+	// #3962: po-decision:required label と PO 決裁ブリーフの対応固定 (#3944 / #3956 同型の再発防止)
+	const poDecision = checkPoDecisionBrief(body, labels);
+	if (poDecision) violations.push({ ...poDecision, issue: '#3944/#3956/#3962' });
 
 	// #3846: 変更タイプ checkbox 未選択の shift-left 検出 (CI gate と同一 SSOT を再利用)
 	const changeType = checkChangeTypeSelection(body, template, labels);
@@ -837,18 +1550,61 @@ export async function main(argv = process.argv.slice(2)) {
 	const template = readFileSync(TEMPLATE_PATH, 'utf-8');
 	const requiredSections = extractRequiredSections(template);
 
-	// #2343: hotfix label 検出のためラベル取得
-	const labels = args.labels
-		? args.labels
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean)
-		: fetchPrLabels(args.pr);
+	// #2343: hotfix label 検出のためラベル取得 / #3962: 未解決は fail-closed
+	const needsFetch = args.labels === null && !args.noLabels;
+	const resolved = resolveLabels(args, needsFetch ? fetchPrLabels(args.pr) : null);
+	if ('error' in resolved) {
+		console.error(`[check-pr-body] ERROR: ${resolved.error}`);
+		return 2;
+	}
+	const labels = resolved.labels;
 
-	const violations = collectViolations(body, requiredSections, template, { ...args, labels });
+	// #3962 (QA 指摘) / #3983: skip した gate を通常 pass と見分けられる形で先に出す。
+	// 対象は「label を手で主張した」経路 (--no-labels / --labels) の未発火 gate。
+	const skippedLines = args.noLabels
+		? formatSkippedLabelGates(labels, '--no-labels')
+		: args.labels !== null
+			? formatSkippedLabelGates(labels, '--labels')
+			: [];
+	for (const line of skippedLines) console.log(line);
+	const skippedCount = skippedLines.length === 0 ? 0 : selectSkippedLabelGates(labels).length;
+
+	/** @type {string[]} */
+	const notes = [];
+	const allViolations = collectViolations(
+		body,
+		requiredSections,
+		template,
+		{ ...args, labels },
+		notes,
+	);
+	for (const line of notes) console.log(line);
+
+	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
+	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
+	// #4121: `--skip-ready-only` は Draft/Ready を問わず Ready 化要件を検査対象から外す
+	// (push レイヤ専用。CI は pr-merge-gate.yml が同 section を検査する)。
+	const deferReadyOnly = draftState.isDraft || args.skipReadyOnly;
+	const { enforced: violations, deferred } = partitionReadyOnlyViolations(
+		allViolations,
+		deferReadyOnly,
+	);
+	if (deferReadyOnly) {
+		const reason = draftState.isDraft ? 'draft' : 'skip-flag';
+		for (const line of formatDraftDeferredGates(deferred, args.pr, reason)) console.log(line);
+	}
 
 	if (violations.length === 0) {
-		console.log('[check-pr-body] OK — 違反なし');
+		const draftNote = draftState.isDraft
+			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
+			: args.skipReadyOnly
+				? ` (--skip-ready-only のため Ready 化要件 ${READY_ONLY_GATES.length} 件は未検査)`
+				: '';
+		console.log(
+			skippedCount > 0
+				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote} — 違反なし`
+				: `[check-pr-body] OK${draftNote} — 違反なし`,
+		);
 		return 0;
 	}
 
@@ -860,15 +1616,10 @@ export async function main(argv = process.argv.slice(2)) {
 	return 1;
 }
 
-const isMain = (() => {
-	try {
-		const here = resolve(fileURLToPath(import.meta.url));
-		const argv1 = resolve(process.argv[1] || '');
-		return here === argv1;
-	} catch {
-		return false;
-	}
-})();
+// #3962 が本ファイルにインラインで入れた realpath 正規化は、#3969 で判定 SSOT
+// (`scripts/lib/is-main.mjs`) に統合した。同じ判定を各 script が自前で持つ構造が
+// 「6 方言のうち 40 箇所が無言 exit 0」の原因だったため、ここでは helper を使う。
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main()

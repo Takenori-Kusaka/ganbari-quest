@@ -3,7 +3,8 @@ import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { ADMIN_RULES_PAGE_LABELS, APP_LABELS } from '$lib/domain/labels';
+import { toJSTDateString } from '$lib/domain/date-utils';
+import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, UI_LABELS } from '$lib/domain/labels';
 // #2895: marketplace 陳列の in-page browse UI / OverflowMenu / help-restore-export dialog を撤去し、
 // 本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // marketplace 詳細 → `?import=<presetId>` の bonus auto-import 経路は bonus 取込導線として維持する。
@@ -12,9 +13,57 @@ import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
+
+// #4023: 「保護を外す方向」「取り消せない方向」の操作にだけ確認を 1 枚挟む共通ガード。
+//
+// 停止は use:enhance の cancel() で行う。`onsubmit` + `e.preventDefault()` では
+// use:enhance が form に別途登録する submit listener が defaultPrevented を見ないため、
+// キャンセルしても action が実行されてしまう (旧 removePreset の確認はこの経路で無効化されていた)。
+// 確認 UI は docs/DESIGN.md §5 の Dialog primitive を使う (native confirm() は不採用)。
+type PendingConfirm = {
+	formEl: HTMLFormElement;
+	title: string;
+	body: string;
+	acceptLabel: string;
+};
+let pendingConfirm = $state<PendingConfirm | null>(null);
+let confirmOpen = $state(false);
+// 確認済みの form は 1 回だけ素通しする (requestSubmit で再入する submit を通すため)。
+let confirmedForm: HTMLFormElement | null = null;
+
+/** 確認済みなら true (flag を消費)。未確認なら確認ダイアログを開いて false を返す。 */
+function passConfirm(
+	formEl: HTMLFormElement,
+	title: string,
+	body: string,
+	acceptLabel: string,
+): boolean {
+	if (confirmedForm === formEl) {
+		confirmedForm = null;
+		return true;
+	}
+	pendingConfirm = { formEl, title, body, acceptLabel };
+	confirmOpen = true;
+	return false;
+}
+
+function acceptConfirm() {
+	const p = pendingConfirm;
+	confirmOpen = false;
+	pendingConfirm = null;
+	if (!p) return;
+	confirmedForm = p.formEl;
+	p.formEl.requestSubmit();
+}
+
+function dismissConfirm() {
+	confirmOpen = false;
+	pendingConfirm = null;
+}
 
 // `?import=<presetId>` auto-import 制御 (load 側で validate 済)。1 度だけ form を programmatic submit + URL cleanup。
 let autoImportTriggered = $state(false);
@@ -112,10 +161,12 @@ async function cleanupImportQueryParam() {
 	}
 }
 
+// 取込日時の日付化は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) と
+// client (ブラウザ TZ) で表示日が変わり、JST 00:00〜09:00 の取込が前日表示になる。
 function formatImportedAt(iso: string): string {
 	try {
-		const d = new Date(iso);
-		return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+		const [y, m, d] = toJSTDateString(new Date(iso)).split('-');
+		return `${y}/${Number(m)}/${Number(d)}`;
 	} catch {
 		return iso;
 	}
@@ -169,7 +220,12 @@ function formatImportedAt(iso: string): string {
 	<!-- #3339: ごほうび交換のしかた（即時交換 / 親承認）。settings KVS reward_auto_approve、既定=承認必須。 -->
 	<Card padding="lg" variant="elevated">
 		{#snippet children()}
-		<section class="space-y-3" data-testid="rules-reward-approval-section">
+		<!-- #3954: ページガイド (settings-rules-approval) の anchor。常在セクション。 -->
+		<section
+			class="space-y-3"
+			data-testid="rules-reward-approval-section"
+			data-tutorial="rules-reward-approval"
+		>
 			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
 				{ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}
 			</h2>
@@ -198,9 +254,27 @@ function formatImportedAt(iso: string): string {
 				<form
 					method="POST"
 					action="?/setRewardAutoApprove"
-					use:enhance={() => async ({ update }) => {
-						await update();
-						await invalidateAll();
+					use:enhance={({ formElement, formData, cancel }) => {
+						// #4023 AC1 / AC2: 承認必須を外す方向 (承認必須 → 即時交換 = enabled true) だけ確認する。
+						// 承認必須に戻す安全側の操作は 1 クリックのまま遅くしない。
+						// 方向判定は submit される値 (formData) から取る。`data` を本 callback 内で読むと
+						// use:enhance の parameter 式が reactive になり action の再セットアップを招くため。
+						if (
+							formData.get('enabled') === 'true' &&
+							!passConfirm(
+								formElement,
+								ADMIN_RULES_PAGE_LABELS.rewardApprovalInstantConfirmTitle,
+								ADMIN_RULES_PAGE_LABELS.rewardApprovalInstantConfirmBody,
+								ADMIN_RULES_PAGE_LABELS.rewardApprovalEnableInstantButton,
+							)
+						) {
+							cancel();
+							return;
+						}
+						return async ({ update }) => {
+							await update();
+							await invalidateAll();
+						};
 					}}
 				>
 					<input type="hidden" name="enabled" value={data.rewardAutoApprove ? 'false' : 'true'} />
@@ -326,14 +400,25 @@ function formatImportedAt(iso: string): string {
 								<form
 									method="POST"
 									action="?/removePreset"
-									use:enhance={() => async ({ update }) => {
-										await update();
-										await invalidateAll();
-									}}
-									onsubmit={(e) => {
-										if (!confirm(ADMIN_RULES_PAGE_LABELS.removeConfirm)) {
-											e.preventDefault();
+									use:enhance={({ formElement, cancel }) => {
+										// #4023: 旧実装は onsubmit + preventDefault だったため
+										// キャンセルしても enhance 側の submit listener が走り削除が通っていた。
+										// 同一ページ内で確認機構を 1 つに揃える。
+										if (
+											!passConfirm(
+												formElement,
+												ADMIN_RULES_PAGE_LABELS.removeConfirmTitle,
+												ADMIN_RULES_PAGE_LABELS.removeConfirm,
+												ADMIN_RULES_PAGE_LABELS.removeButton,
+											)
+										) {
+											cancel();
+											return;
 										}
+										return async ({ update }) => {
+											await update();
+											await invalidateAll();
+										};
 									}}
 								>
 									<input type="hidden" name="presetId" value={preset.presetId} />
@@ -355,3 +440,38 @@ function formatImportedAt(iso: string): string {
 		</Card>
 	{/if}
 </div>
+
+<!-- #4023: 確認ダイアログ (DESIGN.md §5 Dialog primitive)。承認必須の解除 / ルール削除で共用。 -->
+<Dialog
+	bind:open={confirmOpen}
+	onOpenChange={(details) => {
+		if (!details.open) dismissConfirm();
+	}}
+	title={pendingConfirm?.title ?? ''}
+	size="md"
+	testid="rules-confirm-dialog"
+>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{pendingConfirm?.body ?? ''}
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			onclick={dismissConfirm}
+			data-testid="rules-confirm-cancel"
+		>
+			{UI_LABELS.cancel}
+		</Button>
+		<Button
+			type="button"
+			variant="primary"
+			size="sm"
+			onclick={acceptConfirm}
+			data-testid="rules-confirm-accept"
+		>
+			{pendingConfirm?.acceptLabel ?? UI_LABELS.confirm}
+		</Button>
+	</div>
+</Dialog>

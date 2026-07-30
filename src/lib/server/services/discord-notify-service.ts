@@ -128,13 +128,22 @@ export async function notifyBillingEvent(
 }
 
 /** 退会申請通知 */
-export async function notifyCancellation(tenantId: string, graceEndDate: string): Promise<void> {
+/**
+ * 解約 (期末解約) 申請の ops 通知 (#3991)。
+ *
+ * 旧タイトルは「退会申請」だったが、本関数を呼ぶのは `/api/v1/admin/tenant/cancel`
+ * (= 解約 = 有料契約の終了、家族データは残る) であって退会 (アカウント削除) ではない。
+ * 軸を取り違えると churn 分析で退会と解約が混ざるため、名称と項目名を実態に合わせる。
+ *
+ * @param periodEndDate 現在の請求期間の終了日 (この日まで有料機能を使える)
+ */
+export async function notifyCancellation(tenantId: string, periodEndDate: string): Promise<void> {
 	await notifyDiscord('churn', {
-		title: '⚠️ 退会申請',
+		title: '⚠️ 解約申請 (期末解約)',
 		color: 0xe67e22, // orange
 		fields: [
 			{ name: 'テナントID', value: tenantId, inline: true },
-			{ name: '猶予期間終了', value: graceEndDate, inline: true },
+			{ name: '利用可能な最終日', value: periodEndDate, inline: true },
 		],
 	});
 }

@@ -2,6 +2,13 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/sibling-ranking-service.ts
 // きょうだいランキング — 既存データからリアルタイム算出
 
+import {
+	addDaysJST,
+	monthEndJST,
+	monthStartJST,
+	weekEndJST,
+	weekStartJST,
+} from '$lib/domain/date-utils';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
@@ -26,25 +33,10 @@ export interface WeeklyRankingResult {
 	encouragement: string;
 }
 
-/** 週の開始日（月曜）を取得 */
-function getWeekStart(): string {
-	const now = new Date();
-	const day = now.getDay();
-	const diff = day === 0 ? 6 : day - 1; // Monday = 0
-	const monday = new Date(now);
-	monday.setDate(now.getDate() - diff);
-	return monday.toISOString().slice(0, 10);
-}
-
-/** 週の終了日（日曜）を取得 */
-function getWeekEnd(): string {
-	const now = new Date();
-	const day = now.getDay();
-	const diff = day === 0 ? 0 : 7 - day;
-	const sunday = new Date(now);
-	sunday.setDate(now.getDate() + diff);
-	return sunday.toISOString().slice(0, 10);
-}
+// 週 / 月の境界は JST SSOT (date-utils) 経由で決める (#4015)。
+// 旧実装は `new Date().getDay()` / `setDate(now.getDate() - diff)` のローカル TZ 算術に
+// `toISOString()` の UTC 日付化を重ねており、Lambda (UTC) では JST 月曜 00:00〜09:00 に
+// 前週の範囲を、NUC (JST) では朝 09:00 前に前日側の範囲を返していた。
 
 /** ランキングが有効かチェック（デフォルト: OFF） */
 export async function isRankingEnabled(tenantId: string): Promise<boolean> {
@@ -54,8 +46,8 @@ export async function isRankingEnabled(tenantId: string): Promise<boolean> {
 
 /** 今週のきょうだいランキングを算出 */
 export async function getWeeklyRanking(tenantId: string): Promise<WeeklyRankingResult> {
-	const weekStart = getWeekStart();
-	const weekEnd = getWeekEnd();
+	const weekStart = weekStartJST();
+	const weekEnd = weekEndJST();
 
 	const result = await getRankingForPeriod(tenantId, weekStart, weekEnd);
 
@@ -105,25 +97,18 @@ export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<R
 		weekStart: string;
 		weekEnd: string;
 		weekLabel: string;
-		monday: Date;
 	}
 	const weekBoundaries: WeekBoundary[] = [];
+	// 今週の月曜 (JST) を起点に 7 日ずつ遡る。暦日文字列上の加算なので TZ 非依存 (#4015)。
+	const currentMonday = weekStartJST(now);
 	for (let w = numWeeks - 1; w >= 0; w--) {
-		const refDate = new Date(now);
-		refDate.setDate(refDate.getDate() - w * 7);
-
-		const day = refDate.getDay();
-		const mondayOffset = day === 0 ? 6 : day - 1;
-		const monday = new Date(refDate);
-		monday.setDate(refDate.getDate() - mondayOffset);
-		const sunday = new Date(monday);
-		sunday.setDate(monday.getDate() + 6);
-
+		const monday = addDaysJST(currentMonday, -w * 7);
+		const sunday = addDaysJST(monday, 6);
+		const [, mm, dd] = monday.split('-');
 		weekBoundaries.push({
-			weekStart: monday.toISOString().slice(0, 10),
-			weekEnd: sunday.toISOString().slice(0, 10),
-			weekLabel: `${monday.getMonth() + 1}/${monday.getDate()}〜`,
-			monday,
+			weekStart: monday,
+			weekEnd: sunday,
+			weekLabel: `${Number(mm)}/${Number(dd)}〜`,
 		});
 	}
 
@@ -168,12 +153,7 @@ export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<R
 
 /** 今月のきょうだいランキングを算出 */
 export async function getMonthlyRanking(tenantId: string): Promise<WeeklyRankingResult> {
-	const now = new Date();
-	const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-	const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-	const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-
-	return getRankingForPeriod(tenantId, monthStart, monthEnd);
+	return getRankingForPeriod(tenantId, monthStartJST(), monthEndJST());
 }
 
 /** 期間指定のきょうだいランキング（週次・月次共通ロジック） */

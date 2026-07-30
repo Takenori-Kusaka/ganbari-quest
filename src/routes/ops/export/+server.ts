@@ -2,6 +2,7 @@
 // CSVダウンロードAPI (#0176 Phase 4)
 
 import { error } from '@sveltejs/kit';
+import { jstYearMonth } from '$lib/domain/date-utils';
 import {
 	generateExpenseLedgerCsv,
 	generatePLSummary,
@@ -13,10 +14,8 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const type = url.searchParams.get('type');
-	const year = Number.parseInt(
-		url.searchParams.get('year') ?? String(new Date().getFullYear()),
-		10,
-	);
+	// 既定の対象年は JST SSOT 経由 (#4015)
+	const year = Number.parseInt(url.searchParams.get('year') ?? String(jstYearMonth().year), 10);
 	const fromMonth = Number.parseInt(url.searchParams.get('from') ?? '1', 10);
 	const toMonth = Number.parseInt(url.searchParams.get('to') ?? '12', 10);
 

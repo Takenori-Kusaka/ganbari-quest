@@ -108,17 +108,15 @@ describe('diffSections', () => {
 		expect(r.orderMismatch).toBe(false);
 	});
 
-	it('#2060 reproduction: 13 件 SSOT 全件一致パターン (PULL_REQUEST_TEMPLATE.md 現状)', () => {
+	it('#2060 reproduction: SSOT 全件一致パターン (PULL_REQUEST_TEMPLATE.md 現状 11 件、#4097 で 13 → 11)', () => {
 		const sections = [
 			'## 顧客価値・目的',
 			'## 関連 Issue',
 			'## AC 検証マップ (ADR-0004)',
 			'## 変更タイプ',
-			'## 影響範囲・変更コンポーネント',
-			'## テスト & 安全装置セルフチェック',
+			'## 影響範囲・横展開チェック',
+			'## テスト・品質セルフチェック',
 			'## スクリーンショット / ビジュアルデモ',
-			'## コード品質セルフレビュー (#1481)',
-			'## 横展開・影響波及チェック',
 			'## レビュー依頼事項・破壊的変更',
 			'## 配布済み env / secret (ADR-0006)',
 			'## Ready for Review チェックリスト',

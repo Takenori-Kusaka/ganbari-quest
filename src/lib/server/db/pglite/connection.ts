@@ -135,6 +135,23 @@ export async function getPgliteDb(): Promise<PgliteDatabase> {
 	return _db;
 }
 
+/**
+ * #3950: PGlite の **生 client** を返す (singleton、await 必須)。
+ *
+ * PGlite は dataDir を単一プロセスで占有するため、バックアップを外部プロセスから取ろうとすると
+ * 「稼働中ディレクトリの tar」= crash-consistent 相当のコピーしか採れない。整合したスナップショットを
+ * 得る唯一の経路が本 client の `dumpDataDir()` (プロセス内で一貫性を取って tarball を吐く公式 API)
+ * であるため、drizzle 面 (SqlExecutor) ではなく生 client を返す口をここに 1 つだけ開ける。
+ *
+ * ⚠️ 用途は **バックアップ/診断に限る**。データ読み書きは必ず repo (drizzle db + runner) を経由すること
+ * — 生 client で SQL を直接発行すると tenant 述語 (ADR-0063) と txn guard を素通りする。
+ */
+export async function getPgliteClient(): Promise<PGlite> {
+	await initPgliteConnection();
+	if (!_client) throw new Error('[pglite/connection] init 後も client が null です (到達不能)');
+	return _client;
+}
+
 /** PGlite backend の TransactionRunner を返す (singleton、await 必須)。 */
 export async function getPgliteTransactionRunner(): Promise<TransactionRunner<PgliteTx>> {
 	await initPgliteConnection();

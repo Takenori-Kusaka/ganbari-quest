@@ -34,6 +34,7 @@ import {
 	reportFindings,
 	walkDir,
 } from './lib/ci/orphan-utils.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const ROUTES_DIR = path.join(REPO_ROOT, 'src', 'routes');
 const LEGACY_URL_MAP = path.join(REPO_ROOT, 'src', 'lib', 'server', 'routing', 'legacy-url-map.ts');
@@ -164,9 +165,7 @@ function main() {
 	process.exit(exit);
 }
 
-const isMain =
-	import.meta.url === `file://${(process.argv[1] || '').replace(/\\/g, '/')}` ||
-	(process.argv[1] || '').endsWith('check-orphan-routes.mjs');
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
 	main();
 }

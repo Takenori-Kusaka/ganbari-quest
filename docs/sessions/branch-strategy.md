@@ -22,6 +22,7 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 - **main 不変条件の保全**: develop 導入後も「main = 本番」を崩さない。deploy トリガー（main push）には一切手を入れない。develop は本番反映前の集約・検証バッファであり、deploy 経路を持たない。
 - **外部品質監査チームの責務境界**: develop → main 統合 PR の発行・最重厚 gate 判定・merge を担う。問題は 1 件で即棄却せず**全件を発露させてから** Issue 起票 + 棄却する（Pre-PMF の「最初の 5 人」レビュー枠を最大活用する NN/G 思想）。ロール定義の詳細は外部品質監査チーム EPIC で整備し、本ファイルでは責務境界のみを定める。
 - **統合 PR の自動発行 + merge 戦略 = merge commit（#2871）**: develop → main 統合 PR は `integration-pr.yml`（schedule + dispatch、release PR パターン）が **GitHub App ボット名義**で自動発行・常時更新する（手動発行は廃止、作成者≠承認者分離は「ボット作成 → 人間/lab 承認」で担保、ADR-0022 Amendment 5、#3067。認証は `actions/create-github-app-token` の短命トークン、§7）。本文（含有 PR 一覧・統合サマリ）は `scripts/integration-pr-body.mjs`（pure function SSOT）が develop の merge 履歴から自動生成し、散文 self-report 退化（ADR-0056）を防ぐ。**統合 PR の merge は merge commit を採り、squash は採らない** — develop 上の各 feature PR は QM 取込時に既に squash 済で、統合 PR を squash すると含有 PR の commit 粒度が潰れ、B-4 の in-toto 構成 link / DORA per-PR instability 計測（audit-team.md §3.5）が成立しなくなる（release-please も「atomic commit を保持したい場合は merge / rebase 可」と明記）。発行は `integration-pr.yml` までで、approve / merge は audit-manager 専権（ADR-0056 §E、本 workflow は不可逆 action をしない）。
+- **含有候補 PR の収集は `git log --first-parent origin/main..origin/develop` の merge 履歴が SSOT（#4053）**: 収集は `scripts/collect-integration-prs.mjs`（pure function + CLI）が担い、**時刻 anchor での絞り込みは行わない**（「main に未取込か」は git が構造として持つ事実であり、時計・TZ・anchor に依存させない）。時刻は「統合対象期間の表示」と `drift_days` にのみ使い、比較は必ず epoch 正規化を通す（ISO8601 の文字列比較は `+09:00` 形と `Z` 形が混在すると時刻順にならない）。anchor は **main 上の直近の統合 merge**（`Merge pull request #N from <owner>/develop` / `Merge branch 'develop'` / `develop→main` を含む release commit）から取り、hotfix の main 直 merge では前進させない。生成した「含有 PR 一覧」の行数は `含有 + 除外（back-merge / 統合 PR 自身）= main..develop の merged PR 数` の突合式で自己検証し、一致しなければ収集・本文生成の両方が非 0 で終了する（少ない一覧を silent に PR へ書かない）。
 
 ## §3 ブランチ規則
 
@@ -57,7 +58,10 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 
 develop 二層では feature/fix/docs PR の base が `develop`（非 default branch）であり、かつ本リポジトリの commit 規約が conventional-commit prefix（`fix: #N` / `feat: #N` / `docs: #N`）であるため、**個別 PR の develop merge では Issue は auto-close しない**。GitHub の closing-keyword 連動は (1) `Closes #N` / `Fixes #N` のような closing keyword（keyword の直後に `#番号`）が、(2) default branch（= `main`）に到達した時にのみ発火する。`fix: #N` 等のコロンを挟む形は Issue **参照**であって closing keyword ではない。close は **個別 PR では発火させず、統合 PR の `Closes #N` 集約で main 反映時に一括 auto-close する**（#3423）。運用を以下に統一する。
 
-- **develop merge 時点では Issue を手動 close しない**。`closes #N` を付けた PR を develop へ merge しても Issue は **OPEN のまま**で正常。これを「未対応」と誤認しない。
+- **develop merge 時点で Issue を close し、`status:awaiting-release` label を付与する（2026-07-30 改訂）**。main 到達時にラベルを外す。GitHub の auto-close は default branch 到達時にしか発火しないため、この close は **統合 PR 側の `Closes #N` 集約とは独立に、merge 実施者が明示的に行う**。
+  - **根拠**: 旧運用（develop merge 後も OPEN のまま保持し「未対応と誤認しない」と注意喚起する）は、統制を**人間の注意力**に依存していた。実際に誤認が起き、open 126 件のうち **53 件が develop 解決済み**であるにもかかわらず未対応として危機報告され、**4 日間の滞留**を生んだ。統制を注意力から**数字の正しさ**へ移す。
+  - **実装は `integration-pr-body.mjs` の `extractClosedIssues` を再利用する**（二重実装しない）。close 対象の抽出規約は統合 PR 集約と同一関数を共有する。
+  - `epic` label 付き tracking issue は従来どおり除外する（AC 未検証 force-close 防止）。
 - **個別 feature/fix PR の commit prefix では auto-close しない**。本リポジトリの commit 規約は conventional-commit prefix（`fix: #N` / `feat: #N` / `docs: #N`）で、コロンを挟む形は Issue **参照**であって closing keyword ではないため、develop merge / 個別 PR では auto-close は発火しない。
 - **統合 PR は含有 PR の close 宣言を集約し、main 反映で一括 auto-close する（#3423）**。`integration-pr-body.mjs`（pure function SSOT）が各含有 PR の `## 関連 Issue` section に書かれた `closes/fixes/resolves #N` を収集し、統合 PR（`release/* → main`）本文に `Closes #N` を集約する。merge commit が main に到達すると GitHub が該当 issue を auto-close し、close漏れ（fix は main 反映済だが issue が OPEN のまま）を構造的に防ぐ。集約は **`## 関連 Issue` section 内の行頭 closing keyword のみ**を対象とし、code fence / inline code / 否定文中の引用・本文中の参照（`#3133 (#3131 監査検出)` 等）は除外する（over-close 防止、#3444）。GitHub 許容形のコロン `Closes: #N` / 全角 `＃` も拾う。closing keyword の無い部分対応 PR（`関連: #N`）は閉じない（partial を尊重）。集約が空振りしないよう、develop 向け `type:feat` / `type:fix` PR には `pr-template-gate.yml` job 6（`closing keyword の記入 (feat/fix)`、#3458）が `## 関連 Issue` への closing keyword 記入を必須化する（issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip。検出規約は同じ `extractClosedIssues` を共有し二重実装しない）。residual edge 3 件は #3462 で封鎖: conventional-commit prefix 行（`fix: #N subject…`、issue 番号後に subject テキストを伴うコロン形）は集約しない / `## 関連 Issue` 見出しは軽微な揺れ（前後空白・`##`〜`####` レベル差・「関連Issue」空白有無・末尾コロン）を正規化検出する（under-close 防止）/ **`epic` label 付き tracking issue は集約 `Closes` から除外**し統合 PR 本文に「(tracking, close 対象外)」と注記する（AC 未検証 force-close 防止。tracking issue の close は AC 検証のうえ手動で行う。除外一覧は `integration-pr.yml` が `gh issue list --label epic` で取得し `--tracking-issues` で script へ渡す）。
 - **統合 PR の一括 auto-close は issue-close-gate を素通りする**。`issue-close-gate.yml` は PR/commit keyword 経由の auto-close を skip するため（[.github/CLAUDE.md](../../.github/CLAUDE.md) §「issue-close-gate auto-reopen の挙動」）、統合 PR merge による一括 close で AC gate の reopen storm は起きない。
@@ -90,6 +94,23 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `site-check` | site/ HTML / forbidden terms（site 変更時） | ≤ 53s |
 | `new-env-distribution-check` / `schema-change-tests-check` / `schema-migration-completeness-check` | env 配布証跡 / スキーマ互換 | ≤ 53s |
 | PR テンプレ gate（`pr-template-gate.yml` 6 job / `pr-ac-verification-check.yml`） | 必須セクション / AC マップ / closing keyword（#3458） | ≤ 53s |
+
+### §4.1 Ready 判定の根拠 — フルスイートはローカルではなく CI で測る（#4007）
+
+16 コアのマシンを 4 エージェントが共有する運用では、全員が約 30 分のフルスイートを回す限り必ず重なる。重なった結果の red は「本 PR の diff が触れていない test が負荷で落ちた」であり、**判定として偽**である（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は `unit-test (1)` 8m58s / `(2)` 9m15s とも pass）。そこで Ready 判定の根拠を、**並走の影響を受けない場所での実測**に置く。
+
+| 判定 | 実行場所 | 内容 |
+|---|---|---|
+| ローカル `pre-ready` | 開発マシン | Step 1〜2 / 4〜12（biome / cspell / svelte-check / 各 SSOT gate / PR body gate）。`--skip-vitest` で Step 3 を CI へ委譲する |
+| フルスイート（vitest） | CI `unit-test`（×2 shard）+ `unit-test-merge` | Ready 判定はこちらを正とする |
+| 単独実行が必要な重い測定 | 開発マシン（排他） | 実行前にチャンネルで一報し、他セッションと重ならない窓を作る |
+
+**skip は pass ではない（例外なし）**:
+
+- `unit-test` / `unit-test-merge` が skip された PR は Ready にしない。`gh pr checks <num>` で `pass` を確認する
+- **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `failure` / `cancelled` のみを数え `skipped` を数えない（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）。これは意図された設計であり本 Issue でも変えない。したがって「見ていない gate が pass に見える」状態を Ready 判定側で塞ぐ
+- skip された場合の代替は「該当 vitest をローカルで単独実行し、ログを PR body に貼る」
+- そもそも skip が起きないよう、`ci.yml` の `app` filter は `tests/unit` + `tests/integration` が実行時に読む repo パスの root（`docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` 等）を含み、その閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する
 
 ### 重量レーン（release/* → main 統合 PR、§3.1）
 

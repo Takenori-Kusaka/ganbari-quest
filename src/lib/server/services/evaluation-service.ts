@@ -2,7 +2,13 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/evaluation-service.ts
 // 週次評価・日次ステータス減少サービス
 
-import { todayDateJST } from '$lib/domain/date-utils';
+import {
+	addDaysJST,
+	jstDayOfWeek,
+	todayDateJST,
+	toJSTDateString,
+	weekStartJST,
+} from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDecay, type DecayIntensity } from '$lib/domain/validation/status';
 import {
@@ -51,19 +57,16 @@ export function getWeekRange(date: Date = new Date()): {
 	weekStart: string;
 	weekEnd: string;
 } {
-	const d = new Date(date);
-	// 前の週の月曜〜日曜を対象
-	const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon, ...
-	const daysToLastSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
-	const lastSunday = new Date(d);
-	lastSunday.setDate(d.getDate() - daysToLastSunday);
-
-	const lastMonday = new Date(lastSunday);
-	lastMonday.setDate(lastSunday.getDate() - 6);
+	// 前の週の月曜〜日曜を対象。JST SSOT 経由で決める (#4015)。
+	// 旧実装は `d.getDay()` / `setDate(d.getDate() - n)` のローカル TZ 算術に `toISOString()` の
+	// UTC 日付化を重ねており、Lambda (UTC) では JST 00:00〜09:00 に週範囲が 1 日ずれていた。
+	const todayJST = toJSTDateString(date);
+	// 「直近の日曜」= 当日が日曜ならその日、そうでなければ今週月曜の前日
+	const lastSunday = jstDayOfWeek(date) === 0 ? todayJST : addDaysJST(weekStartJST(date), -1);
 
 	return {
-		weekStart: lastMonday.toISOString().slice(0, 10),
-		weekEnd: lastSunday.toISOString().slice(0, 10),
+		weekStart: addDaysJST(lastSunday, -6),
+		weekEnd: lastSunday,
 	};
 }
 

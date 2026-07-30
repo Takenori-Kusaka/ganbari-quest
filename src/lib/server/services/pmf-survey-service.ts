@@ -18,6 +18,7 @@
 // ops 集計 (ops/pmf-survey/+page.server.ts) はテナント全件走査で取得。
 // Pre-PMF 規模 (~100 テナント) では DynamoDB Scan でも問題ない。
 
+import { jstYearMonth } from '$lib/domain/date-utils';
 import type { PmfSurveyQ1, PmfSurveyQ3 } from '$lib/domain/labels';
 import { getEnv } from '$lib/runtime/env';
 import { getRepos } from '$lib/server/db/factory';
@@ -103,8 +104,9 @@ export interface PmfSurveyRunResult {
  * 手動 invoke 時の round 推定もこの関数を SSOT とする。
  */
 export function getCurrentRound(now: Date = new Date()): string {
-	const year = now.getFullYear();
-	const month = now.getMonth() + 1; // 1-12
+	// 年 / 月は JST SSOT 経由 (#4015)。配信 cron は 6/1・12/1 09:00 JST = 月境界の直上で、
+	// ローカル getter だと Lambda (UTC) で H1/H2 が反転しうる。
+	const { year, month } = jstYearMonth(now); // month は 1-12
 	const half = month <= 6 ? 'H1' : 'H2';
 	return `${year}-${half}`;
 }

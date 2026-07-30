@@ -3355,7 +3355,10 @@ function seed() {
 // Export for programmatic use (e.g. Lambda cold-start init)
 export { db as seedDb, seed };
 
-// Only auto-run when executed directly as a CLI script
+// Only auto-run when executed directly as a CLI script.
+// allow-argv1: basename 一致判定のため symlink / junction でも正しく動く (#3969 の事故形ではない)。
+// scripts/lib/is-main.mjs へ寄せない理由: 本 module は Lambda cold-start init から import される
+// アプリ側コードで、src/ → scripts/ 依存を作ると scripts/ が本番 bundle に混入する。
 const isDirectRun = process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js');
 if (isDirectRun) {
 	seed();

@@ -8,6 +8,7 @@ import * as firehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as logsDestinations from 'aws-cdk-lib/aws-logs-destinations';
 import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
@@ -27,6 +28,8 @@ const CRON_JOBS = [
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
+	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
+	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
@@ -43,6 +46,15 @@ export interface ComputeStackProps extends cdk.StackProps {
 export class ComputeStack extends cdk.Stack {
 	public readonly fn: lambda.Function;
 	public readonly functionUrl: lambda.FunctionUrl;
+	/**
+	 * アプリ Lambda の CloudWatch LogGroup (#3998)。
+	 *
+	 * OpsStack が log 由来 MetricFilter (例外にならず 503 応答として表面化する fail-closed 等、
+	 * Lambda / CloudFront の既定 metric に乗らない事象) を張るために公開する。
+	 * `fn.logGroup` の暗黙解決に頼ると「名前が一致しているつもりの別 LogGroup」に filter を
+	 * 張っても誰も気付けないため、実体を明示的に受け渡す。
+	 */
+	public readonly appLogGroup: logs.LogGroup;
 	/** cron-dispatcher (#1376)。enableCronDispatcher=false (staging) では未構築 */
 	public readonly cronDispatcherFn?: lambda.Function;
 
@@ -78,6 +90,7 @@ export class ComputeStack extends cdk.Stack {
 			retention: logs.RetentionDays.ONE_MONTH, // 30 日、課金 path post-mortem SSOT
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
+		this.appLogGroup = logGroup;
 
 		// --- Cognito 設定を SSM から取得（cross-stack export を回避） ---
 		// staging (#2873) は ssmPrefix='/ganbari-quest-staging' の staging 専用 param を参照する。
@@ -582,64 +595,26 @@ export class ComputeStack extends cdk.Stack {
 	}
 
 	private setupLogArchiving(logGroup: logs.LogGroup, bucket: s3.Bucket): void {
-		// Firehose delivery role
-		const firehoseRole = new iam.Role(this, 'LogArchiveFirehoseRole', {
-			assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),
-		});
-		firehoseRole.addToPolicy(
-			new iam.PolicyStatement({
-				actions: [
-					's3:AbortMultipartUpload',
-					's3:GetBucketLocation',
-					's3:GetObject',
-					's3:ListBucket',
-					's3:ListBucketMultipartUploads',
-					's3:PutObject',
-				],
-				resources: [bucket.bucketArn, `${bucket.bucketArn}/logs/*`],
-			}),
-		);
-
-		// Firehose delivery stream → S3
-		const stream = new firehose.CfnDeliveryStream(this, 'LogArchiveStream', {
-			deliveryStreamName: 'ganbari-quest-log-archive',
-			s3DestinationConfiguration: {
-				bucketArn: bucket.bucketArn,
-				prefix: 'logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/',
+		// #3939: aws-cdk-lib GA L2 (firehose.DeliveryStream + logsDestinations.FirehoseDestination)。
+		// delivery role / subscription role は L2 が最小権限で自動生成する (旧 L1 + 手動 IAM 2 本は撤去)。
+		// 物理名は固定しない (CFN 自動命名): 旧 stream `ganbari-quest-log-archive` からの置換を
+		// 同名衝突なしの 1 deploy (create 新 → delete 旧) で成立させるため。stream は stateless
+		// (バッファ中データのみ) で S3 の既 archive は無傷。切替瞬断 (数秒) は Glacier archive 用途で許容。
+		const stream = new firehose.DeliveryStream(this, 'LogArchiveDelivery', {
+			destination: new firehose.S3Bucket(bucket, {
+				dataOutputPrefix: 'logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/',
 				errorOutputPrefix: 'logs-error/',
-				roleArn: firehoseRole.roleArn,
-				bufferingHints: {
-					sizeInMBs: 5,
-					intervalInSeconds: 900,
-				},
-				compressionFormat: 'GZIP',
-			},
+				bufferingSize: cdk.Size.mebibytes(5),
+				bufferingInterval: cdk.Duration.seconds(900),
+				compression: firehose.Compression.GZIP,
+			}),
 		});
 
-		// CloudWatch Logs → Firehose subscription role (inline policy to avoid race condition)
-		const subscriptionRole = new iam.Role(this, 'CWLogsToFirehoseRole', {
-			assumedBy: new iam.ServicePrincipal(`logs.${this.region}.amazonaws.com`),
-			inlinePolicies: {
-				FirehoseAccess: new iam.PolicyDocument({
-					statements: [
-						new iam.PolicyStatement({
-							actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
-							resources: [stream.attrArn],
-						}),
-					],
-				}),
-			},
+		// Subscription filter: all log events → Firehose (role は FirehoseDestination が自動生成)。
+		new logs.SubscriptionFilter(this, 'LogArchiveSubscriptionFilter', {
+			logGroup,
+			destination: new logsDestinations.FirehoseDestination(stream),
+			filterPattern: logs.FilterPattern.allEvents(),
 		});
-
-		// Subscription filter: all log events → Firehose
-		const subscription = new logs.CfnSubscriptionFilter(this, 'LogArchiveSubscription', {
-			logGroupName: logGroup.logGroupName,
-			filterPattern: '',
-			destinationArn: stream.attrArn,
-			roleArn: subscriptionRole.roleArn,
-		});
-		// Ensure IAM role + Firehose are fully created before subscription
-		subscription.node.addDependency(subscriptionRole);
-		subscription.node.addDependency(stream);
 	}
 }

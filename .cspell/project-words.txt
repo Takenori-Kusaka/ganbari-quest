@@ -215,6 +215,7 @@ Denorm
 dependabot
 Dependabot
 Deque
+deschain
 describedby
 dflt
 DMARC
@@ -537,3 +538,15 @@ misconfig
 upcasting
 Postel
 combinators
+Sigstore
+dsse
+SIGSEGV
+ISTQB
+blocklist
+NFKC
+inlang
+jscodeshift
+mebibytes
+crond
+# ===== #3982 demo auth-repo の型導出コメント (TS の method shorthand はパラメータが双変) =====
+bivariant

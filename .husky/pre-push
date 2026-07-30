@@ -11,7 +11,7 @@
 # Dev が pre-ready CLI (#2633 第 5 弾) を skip した場合でも push レイヤで以下を機械検出:
 #   1. origin/main rebase drift verify (#2557 stale cache / 本日 7+ 連続 BLOCK の root cause)
 #   2. 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾 gate を branch ベースで実行)
-#   3. PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify
+#   3. PR body 11 セクション + AC 4 列 + 禁止語 + mojibake verify
 #      (#2576 / #2586 / #2633 第 5 弾、PR が既に存在する場合のみ)
 #   4. biome check (軽量 lint、重い vitest / playwright は CI 委ね)
 #   5. eslint fast check (#3880、変更 file 絞り込み。tests/**/*.ts は hard-block =
@@ -136,17 +136,28 @@ if [ -n "$PR_NUM" ]; then
 	}
 	echo "[pre-push]     OK: 本日 deploy 削除 0 件"
 
-	echo "[pre-push] (3/3) PR body 13 セクション + AC 4 列 + 禁止語 verify (PR #$PR_NUM)"
-	# 本 step は PR body の 13 セクション網羅 + AC 4 列 + 禁止語 0 件 + mojibake 不在を検証する
+	echo "[pre-push] (3/3) PR body 11 セクション + AC 4 列 + 禁止語 + PO 決裁ブリーフ verify (PR #$PR_NUM)"
+	# 本 step は PR body の 11 セクション網羅 + AC 4 列 + 禁止語 0 件 + mojibake 不在を検証する
 	# (#2060 / #2576 / #2586 / #2633 第 5 弾)。
-	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable || {
+	# #3962: `po-decision:required` label 付き PR の PO 決裁ブリーフ欠落もここで落ちる
+	# (label は labeler.yml が自動付与するため、body 側の追従漏れが #3944 / #3956 で 2 回連続した)。
+	#
+	# #4121 (ADR-0056 §F 改訂): Ready 化要件 (Ready チェックリスト全 [x] / PO 決裁ブリーフ) は
+	# `--skip-ready-only` で **Draft / Ready を問わず push レイヤでは検査しない**。
+	# 同じ section は pr-merge-gate.yml → check-merge-gate-checklist.mjs の LIGHT_LANE_SECTIONS が
+	# CI で検査済で純粋な重複であり、外しても検査は 1 件も減らない。加えて Ready 時点の申告を
+	# push 時点で問うのは検査の置き場所の誤りで、Draft へ 1 commit 置くだけで Ready 申告を要求され
+	# 成果物が local に滞留していた (#3989 / #3997 は Draft 限定の対症だった)。
+	# 体裁 / 事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ) は引き続き落ちる。
+	# skip したことは check-pr-body の標準出力に必ず出る (無言 skip にしない)。
+	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable --skip-ready-only || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: PR body 検証 fail (exit $EXIT_CODE)"
 		echo "          対処: tmp/pr-bodies/<slug>.md を編集 + gh pr edit --body-file"
 		echo "                詳細: .claude/skills/dev-open-pr/SKILL.md §「Ready 化前必須」"
 		exit 1
 	}
-	echo "[pre-push]     OK: PR body 13 セクション + AC 4 列 + 禁止語 0 件"
+	echo "[pre-push]     OK: PR body 11 セクション + AC 4 列 + 禁止語 0 件 + PO 決裁ブリーフ"
 else
 	echo "[pre-push] (2/3) PR 未作成のため deploy 削除 / PR body verify を skip"
 	echo "[pre-push] (3/3) (同上)"

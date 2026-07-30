@@ -59,11 +59,46 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 
 ### 1. PreToolUse hook (`.claude/hooks/gate-approve.mjs`)
 
-- `Bash` matcher で `/gh pr (merge|review --approve)/i` を捕捉
+- **コマンド実行系ツール全経路**の matcher で `/gh pr (merge|review --approve)/i` を捕捉 (#4001)。対象ツールの SSOT は `.claude/hooks/command-execution-tools.mjs`、`.claude/settings.json` との一致は `tests/unit/hooks/command-execution-tools.test.ts` が機械検証する。`Bash` のみを対象にすると PowerShell 経由で gate 自体が起動せず bypass できる
+- 判別できない入力 (stdin JSON parse 不能 / `tool_name` 欠落 / command 非文字列) は **allow ではなく block** する。SSOT 未登録ツール名で呼ばれた場合も allow に倒さず `tool_input` 内の全文字列を走査する
 - `tmp/adversarial-evidence/<pr-number>.json` の **存在 + 30 分 TTL + schema 必須 field** を検証
 - 不在 / TTL 切れ / schema 不正で exit 2 + stderr に修正手順 ("Adversarial Reviewer subagent を先に dispatch")
-- recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は無条件 allow
+- recursive loop 防止: `CLAUDE_SUBAGENT_ID` env 設定時 (subagent context) は **読み取り専用の review 参照だけ** allow。approve mutation (`gh pr merge` / `--approve` / 非 GET の `gh api`) は subagent でも evidence gate に掛ける (#4082 R2)
+- **approve 行為の識別を「PR 番号の書き方」から切り離す** (#4057): `pulls/<ref>/{reviews,merge}` は ref の形 (`4002` / `$n` / `$(…)`) を問わず approve 行為として捕捉し、**番号が確定できないなら block** する。番号は全件抽出し、1 コマンドが複数 PR を叩く形では全 PR の evidence を要求する
+- **検証対象 PR は「実際に叩かれる invocation」からのみ確定する** (#4095): 番号は同一 `gh` invocation の argv / API パスから取り、コマンド全体の走査はしない。確定不能な hit が 1 件でもあれば、他にリテラル番号があっても block する (近くの数字を採ると evidence のある PR の番号で別 PR が通る)
+- **flag の長短 / API 種別で穴を作らない** (#4095): `gh pr review` の approve 指定は `--approve` と短縮 `-a` (cluster 含む) の両方を argv token 単位で判定し、`gh api graphql` の `addPullRequestReview` / `mergePullRequest` / `event: APPROVE` も approve 相当として捕捉する
 - 既存 `scripts/claude-hook-prevent-qa-account-pr.mjs` の規約 (exit 2 / stdin JSON / `.claude/settings.json` の `hooks[].hooks[]` ネスト) を踏襲
+
+#### 残存 bypass の棚卸 (#4001 起票 → #4057 / #4075 / #4082 で処理)
+
+本 gate は「approve 相当操作の検査」であり、塞いだ範囲を過大評価しないため状態を明示する (silent gap 化の防止)。
+
+| # | 経路 | 状態 |
+|---|---|---|
+| R1 | 汎用コード実行系 MCP ツール (`mcp__ide__executeCode` 等) — matcher にも SSOT にも不在で gate 自体が起動しなかった | **対処 (#4082)**: 判定軸を「shell か」から「任意の副作用を起こせるか」に変更し SSOT + matcher に収録。payload は key 決め打ちせず全文字列 + 区切り均し変種を走査。**残余は accepted residual (下記)** |
+| R2 | `CLAUDE_SUBAGENT_ID` の無条件 allow — subagent context ではどのツール経由でも素通りした | **対処 (#4082)**: 許可を「GET の review 参照」だけに絞り、approve mutation は subagent でも block |
+| R3 | `Agent` tool の `isolation: "remote"` で hook が継承されるか | **accepted residual (下記)**: このリポジトリからは制御も検証もできない。検知層で代替 |
+| R4 | `isApproveAction` の `/pulls/\d+/reviews` が数字リテラル依存で、ループ変数形が素通りした | **対処 (#4057)**: ref の形を問わず捕捉し、番号未確定は block |
+| R5 | sibling module の static import 欠落が exit 1 (= 素通し) に倒れる | **対処 (#4075)**: 相対 import を全て dynamic + exit 2 化。static import 0 件を fitness function で機械強制 |
+| R6 | `gh pr review -a` (`--approve` の正式な短縮 flag) — 検出 regex が長形しか見ておらず素通りした | **対処 (#4095)**: `gh pr review` の argv を token 単位で見て `-a` / short flag cluster (`-ab`) も捕捉。`-c` / `-r` は非対象 |
+| R7 | `gh api graphql` の `addPullRequestReview` / `mergePullRequest` mutation — `parseGhApiInvocation` が `graphql` を path として収集していたのに、参照側が pulls 系しか見ず**死んだ枝**になっていた | **対処 (#4095)**: graphql エンドポイント × approve 相当 mutation 名 / `event: APPROVE` の論理積で捕捉。PR は node ID 指定のため番号確定不能 = 常に block。**payload をファイル / 変数から渡す形は残余 (下記)** |
+| R8 | PR 番号確定がコマンド全体 regex で、「実際に叩かれる PR」ではなく近くの数字を採っていた。`for n in 4002 4010; do gh pr merge $n; done # rollup for 4002` が **4002 の evidence で 4010 を merge** できた | **対処 (#4095)**: 番号は同一 `gh` invocation の argv / API パスからのみ取る (shell コメント以降は打ち切り)。確定不能 hit が 1 件でもあれば、他にリテラル番号があっても block |
+
+R6 / R7 / R8 はいずれも **literal 形**であり、下記 accepted residual の定義 (動的組み立て / 未棚卸ツール) には該当しない。塞ぐべきものとして #4095 で処理した。
+
+#### accepted residual — 塞げないと判断したもの (#4082 AC5 / #4095 で追補)
+
+**列挙型の防御は原理的に「次に増える経路」を先回りできない**。以下は prevention では閉じないと判断し、**検知層**で代替する。
+
+| 残余 | なぜ塞げないか | 代替 (検知) |
+|---|---|---|
+| **R1 残余**: 未棚卸のコード実行ツール / 動的組み立て (変数経由・base64・eval) されたコマンド | 任意言語の構文を完全解釈することは不可能。リテラルで書かれた形しか掴めない | `scripts/audit-approve-evidence.mjs` |
+| **R3**: remote isolation での hook 継承 | 実行基盤側の仕様であり、リポジトリ内の設定では保証も検証もできない | 同上 |
+| **R7 残余**: GraphQL payload を `--input <file>` / 変数経由で渡す形 | hook はコマンド文字列しか見ないため、外部ファイルの中身は判定材料にできない (R1 残余と同一 class) | 同上 |
+
+検知層 `scripts/audit-approve-evidence.mjs` は **効果が着地した場所 (GitHub の review 一覧)** を入力にするため、approve がどの経路で行われたかに依存しない。`--pr <n>` で APPROVE を列挙し evidence と突き合わせ、裏付けの無い approve を exit 1 で報告する。限界 (evidence は git 管理外のためローカル実行前提 / TTL 30 分) は script 冒頭に明記してある。
+
+**運用**: QM は merge 前に `node scripts/audit-approve-evidence.mjs --pr <n>` を実行する。remote / 未棚卸経路で approve された場合はここで検出し、経路を本表に追記する。
 
 ### 2. Adversarial Reviewer subagent (`.claude/skills/adversarial-reviewer/SKILL.md`)
 
@@ -81,7 +116,7 @@ memory / ADR で覆せない理論根拠 (詳細は research SSOT §3):
 
 ### 4. settings 統合
 
-`.claude/settings.json` の既存 `hooks.PreToolUse[].hooks[]` に gate-approve.mjs を追加 (既存 prevent-qa-account hook を破壊せず追加)。
+`.claude/settings.json` の既存 `hooks.PreToolUse[].hooks[]` に gate-approve.mjs を追加 (既存 prevent-qa-account hook を破壊せず追加)。matcher は `COMMAND_EXECUTION_MATCHER` (現状 `Bash|PowerShell`) と一致させる。ツール経路を増やすときは SSOT (`command-execution-tools.mjs`) と settings.json を同時に更新する — 片方だけ直すと上記 test が落ちる (#4001)。
 
 ### 5. 1-in-1-out 履行
 
@@ -193,8 +228,10 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 
 1. **origin/main rebase drift verify** (#2557 / 本日 7+ 連続 BLOCK の root cause): `git merge-base origin/main HEAD` vs `git rev-parse origin/main` で同期確認、未取込なら exit 1 + 修正手順 stderr
 2. **本日 deploy 全 file 削除 0 verify** (PR 存在時のみ、#2603 / #2628 第 4 弾 gate 経由): `scripts/check-recent-deploy-deletion.mjs --pr <N>` 実行
-3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行
+3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行。**Draft PR では Ready 化要件 (Ready チェックリスト全 `[x]` / PO 決裁ブリーフ) のみ deferred する** (#3997)。Draft は「まだ Ready の要件を満たしていない」宣言であり、これを要求すると Draft に 1 commit も push できず成果物が local に滞留する (#3989 実例)。体裁・事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING / hotfix env 配布証跡) は Draft でも enforce し、deferred した gate 名は必ず標準出力に出す (無言 skip は #3969 と同じ失敗 class)
 4. **biome check** (軽量 lint): 重い svelte-check / vitest / playwright は CI 委ね、push レイヤは lint のみ
+
+**2026-07-30 改訂 — 第 4 層から READY_ONLY_GATES を除外する**: 上記 3 のうち **Ready 化要件 (`unchecked-ready-checklist` / PO 決裁ブリーフ) は pre-push で検査しない**。`pr-merge-gate.yml` → `check-merge-gate-checklist.mjs` の `LIGHT_LANE_SECTIONS` が、`check-pr-body.mjs` の `findUncheckedReadyChecklist` と**同一 section** (`## Ready for Review チェックリスト` / `## 完了チェックリスト`) を CI で検査済であり、pre-push の同検査は純粋な重複で、外しても検査は 1 件も減らない。加えて **Ready 時点の申告を push 時点で問うのは検査の置き場所の誤り**である (Draft へ 1 commit push するだけで Ready 申告を要求され、成果物が local に滞留する — #3997 で Draft のみ deferred にした対症を、置き場所の是正で根治する)。体裁・事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / CONFLICTING / hotfix env 配布証跡) は pre-push で引き続き enforce する。
 
 ### 設計境界 (Pre-PMF / ADR-0010 整合)
 

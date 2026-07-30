@@ -171,13 +171,24 @@ async function handleCreateComplete(details: { valueAsString: string }) {
 	}
 }
 
-async function handleAdminLinkClick(e: MouseEvent) {
-	// cognito モードで /auth/login に飛ばす場合は本フローをスキップ (子供画面では本リンク自体が非表示)
-	if (data.adminLink !== '/admin') return;
+function handleAdminLinkClick(e: MouseEvent) {
+	// #4050: 「サーバが親ゲートを client 側で処理できると判断したか」で分岐する。
+	// 旧実装は `data.adminLink !== '/admin'` で早期 return していたため、cognito 本番モード
+	// (adminLink='/auth/login') では常に modal を開かず同一 URL 往復に落ち、一度 modal を
+	// 閉じた保護者が二度と開けない dead-end になっていた。未ログイン時のみ素の <a> 遷移
+	// (/auth/login) に委ねる。
+	if (!data.parentGateInteractive) return;
 	e.preventDefault();
 	soundService.ensureContext();
 	soundService.play('tap');
-	pinError = '';
+	// lockout 中は解除時刻の案内を残す (消すと「押しても無反応」に見えるため)
+	if (!lockedNow) pinError = '';
+	// 閉じた時の入力残骸をクリアして常に同じ初期状態から再開できるようにする
+	if (pinCreateMode) {
+		resetCreateFlow();
+	} else {
+		pinInputKey += 1;
+	}
 	pinModalOpen = true;
 }
 
@@ -326,6 +337,8 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		: OYAKAGI_LABELS.gateModalTitle}
 	testid="parent-gate-modal"
 	size="sm"
+	closable={!pinCreateMode}
+	closeOnEscape={!pinCreateMode}
 >
 	{#if pinCreateMode}
 		<!-- #2992: 初回作成フロー (入力→確認の 2 段)。未設定 tenant に既定 PIN を要求しない -->
@@ -336,13 +349,13 @@ async function handlePinComplete(details: { valueAsString: string }) {
 					: OYAKAGI_LABELS.gateCreateConfirmDescription}
 			</p>
 			{#key pinInputKey}
-				<PinInput length={4} mask onComplete={handleCreateComplete} />
+				<PinInput length={4} mask autoFocus onComplete={handleCreateComplete} />
 			{/key}
 		</div>
 	{:else}
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
 		{#key pinInputKey}
-			<PinInput length={4} mask onComplete={handlePinComplete} />
+			<PinInput length={4} mask autoFocus onComplete={handlePinComplete} />
 		{/key}
 	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->

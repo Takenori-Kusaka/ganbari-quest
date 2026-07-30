@@ -1,69 +1,6 @@
 #!/usr/bin/env node
-
-/**
- * scripts/check-ss-render-health.mjs (#3012)
- *
- * screenshots branch に push された PR SS の **render 健全性** (500 / error ページ混入) を
- * 検証する CI gate (補完層)。
- *
- * # 設計背景
- *
- * PR #3006 で /admin/rewards・/admin/checklists の 500 サーバーエラーページが
- * 「実画面 SS」として screenshots branch (`pr-3006/`) に 2 度 push され、既存 CI gate
- * (`ss-blob-sha-uniqueness-check` #2063 / `screenshot-quality-check` #1740/#1741) を
- * green で素通りした。既存 gate は「偽装 (同一画像)」「ローカルパス」を見るが、
- * 「SS が正常画面か」は誰も見ていなかった。
- *
- * # 2 層防御における位置付け
- *
- * - 根本層 (撮影時 assert): `scripts/lib/ci/screenshot-helpers.mjs` `checkRenderHealth`
- *   — capture.mjs / capture-app-baseline.mjs が撮影直前に error ページを検出して exit 1。
- *   error ページ SS はそもそも生成・push されない。
- * - 補完層 (本 script): 旧版 capture script の使用 / 手動 push 等で撮影時 assert を
- *   バイパスされた場合に備え、screenshots branch `pr-<N>/` の `.dom.html`
- *   (SS と同一 page から取得される DOM snapshot、#1766) を text scan して
- *   error ページ marker を検出する。画像解析 (OCR / pixelmatch) は行わない
- *   (Pre-PMF 軽量方針、ADR-0010 — marker 定義は撮影時 assert と同一 SSOT
- *   `detectErrorMarkersInHtml` を共有 #1442)。
- *
- * 加えて、画像 (png/webp/jpeg) が push されているのに対応する `.dom.html` が
- * 存在しないものは **warning として列挙** する (#3006 の実事故 push `744dc5c3a` は
- * dom.html なしの PNG のみ = capture.mjs 正規経路をバイパスした手動 push であり、
- * dom scan では検出不能なため、QM レビュー時の手掛かりとして可視化する)。
- * legit な欠落ケース (before-* rename 運用 / --no-dom-snapshot / *-flow.webp 合成) が
- * あるため hard-fail にはしない。
- *
- * # スキップ条件
- *
- * - PR ラベル `refactor:internal-no-doc-impact` (SS 不要 refactor、#2017 と同パターン)
- * - PR ラベル `ss:error-page-intended` (エラーページ自体のデザイン変更 PR で
- *   error ページ SS の添付が正当な場合。capture.mjs --allow-error-page と対)
- * - screenshots branch に `pr-<N>/` が存在しない / `.dom.html` が 0 件
- *
- * # 環境変数
- *
- *   PR_NUMBER         — PR 番号 (github.event.pull_request.number)
- *   PR_LABELS         — カンマ区切りの PR ラベル
- *   GH_TOKEN          — GitHub API token
- *   GITHUB_REPOSITORY — `owner/repo`
- *   CHECK_MODE        — 'warn' | 'error' (default: 'error'。error ページ混入は顧客提示物の
- *                       毀損で致命的なため #2063 と同様 warn 段階を経ず hard-fail)
- *
- * # ローカル実行
- *
- *   PR_NUMBER=3006 GITHUB_REPOSITORY=Takenori-Kusaka/ganbari-quest \
- *   CHECK_MODE=error node scripts/check-ss-render-health.mjs
- *
- * # exit code
- *
- *   0 — OK / skip / warn モードで違反あり
- *   1 — error モードで違反あり
- *   2 — internal error (API 失敗等)
- */
-
-import { resolve as pathResolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { detectErrorMarkersInHtml } from './lib/ci/screenshot-helpers.mjs';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const MODE = (process.env.CHECK_MODE || 'error').toLowerCase();
 const PR_NUMBER = process.env.PR_NUMBER || '';
@@ -309,13 +246,7 @@ async function main() {
 	return isError ? 1 : 0;
 }
 
-const isMain = (() => {
-	try {
-		return pathResolve(fileURLToPath(import.meta.url)) === pathResolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	main().then(

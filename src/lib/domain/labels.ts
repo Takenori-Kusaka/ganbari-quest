@@ -3,6 +3,7 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
@@ -1529,10 +1530,14 @@ export const PAGE_GUIDE_LABELS = {
 				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
 				goal: `必要な設定にすぐたどり着けるので、${OYAKAGI_TERMS.shortName}の変更やバックアップなどの「念のための備え」を迷わず行えます。`,
 			},
+			// #3954: hub のカードが 6→7 枚になったため、件数と「上から順に」の並びを実装に合わせる。
+			// ここが古いと、ガイドに従う保護者は列挙された 6 件の中に ごほうび・ボーナスルール を
+			// 見つけられず、カードを追加しても到達できない (#2905 と同じ形)。
+			// 件数と列挙数の一致は tests/unit/routes/settings-hub-coverage.test.ts [S5] / [S6] で gate 化。
 			'settings-hub': {
-				title: '画面の見方（6つの設定グループ）',
-				what: '設定は目的別に6つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
-				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. サポート — 感想・要望や規約\n6. プラン・課金 — 契約と支払い`,
+				title: '画面の見方（7つの設定グループ）',
+				what: '設定は目的別に7つのカードに分かれ、上から順に並びます。それぞれで何ができるかを上から見ていきます。',
+				how: `上から順に:\n1. アカウント — ${OYAKAGI_TERMS.shortName}の変更や${CANCEL_TERMS.account}\n2. 活動・ポイント — やる気が続く設定\n3. 通知 — お知らせの受け取り\n4. データ — ${BACKUP_TERMS.exportNoun}と${BACKUP_TERMS.restoreVerb}\n5. ごほうび・ボーナスルール — 交換の承認要否とボーナス\n6. サポート — 感想・要望や規約\n7. プラン・課金 — 契約と支払い`,
 				goal: '設定項目が多くても、目的のカードを1枚選ぶだけで迷わずたどり着けます。',
 			},
 			'settings-account': {
@@ -1647,16 +1652,28 @@ export const PAGE_GUIDE_LABELS = {
 		},
 	},
 	adminSettingsRules: {
-		title: 'とくべつルール',
+		// #3954: 本ページは #3339 で「ごほうび交換の承認要否」を持つようになったが、ガイドは
+		// 取り込んだボーナスルールしか案内しておらず、ガイドに従う保護者が承認要否に到達できなかった
+		// (hub カード / サブナビと同じ取り落とし。導線を直してもガイドが古いままなら未達)。
+		// title は ADMIN_RULES_PAGE_LABELS.pageTitle と同一文字列にする — 定数参照にしないのは
+		// ADMIN_RULES_PAGE_LABELS が本定義より後方で宣言されるため。一致は
+		// tests/unit/routes/settings-hub-coverage.test.ts [S7] で機械強制する。
+		title: 'ごほうび・ボーナスルール',
 		steps: {
 			'settings-rules-intro': {
 				title: 'このページについて',
-				what: `${TEMPLATE_TERMS.userFacing}から取り込んだ、ボーナスのルールを確認するページです。`,
-				how: '取り込んだルールがある時は一覧で並び、オン・オフや削除ができます。',
-				goal: '今どんなボーナスルールが効いているかを、まとめて確認できます。',
+				what: `ごほうび交換に保護者の承認が必要かどうかと、${TEMPLATE_TERMS.userFacing}から取り込んだボーナスのルールを決めるページです。`,
+				how: '上でごほうび交換の承認を切り替え、下で取り込んだルールを管理します。',
+				goal: '交換に承認を挟むかどうかと、効かせるボーナスをここでまとめて決められます。',
+			},
+			'settings-rules-approval': {
+				title: '画面の見方（ごほうび交換の承認）',
+				what: 'お子さまがごほうびを交換するときに、保護者の承認を必要とするかどうかをここで切り替えます。',
+				how: '1. 切り替えを操作します\n2. 承認なしにすると、お子さまはその場で交換できます',
+				goal: 'ご家庭の方針に合わせて、交換の承認を必要にするか選べます。',
 			},
 			'settings-rules-list': {
-				title: '画面の見方（取り込んだルール）',
+				title: 'よく使う操作（取り込んだルール）',
 				what: '取り込んだボーナスルールがここに並びます。まだ無いときは、その案内が表示されます。',
 				how: '1. ルールのオン・オフを切り替えます\n2. いらないルールは削除できます',
 				goal: 'ご家庭に合うルールだけを残して、ボーナスを整理できます。',
@@ -2182,12 +2199,14 @@ export type ImportSkipReason = 'preset_duplicate' | 'name_duplicate' | 'log_cons
 // ============================================================
 
 export const SETTINGS_LABELS = {
-	// grace_period バナー
-	gracePeriodTitle: '解約手続き中です',
+	// #3991: `grace_period` の意味は「支払い失敗の猶予 (dunning)」に一意化された。
+	// 旧文言は解約申請の猶予を指しており (#3986 の多重定義)、支払い失敗のテナントに
+	// 「解約手続き中です」+ 解約取り消しボタンを見せていた。解約申請中の表示と取り消し導線は
+	// `/admin/subscription` (SaasLicensePanel) が Stripe の `cancel_at_period_end` を SSOT に担う。
+	gracePeriodTitle: 'お支払いを確認できていません',
 	gracePeriodDesc:
-		'現在、アカウントは解約手続き中で読み取り専用モードです。期限までにキャンセルしないとデータが完全に削除されます。',
-	reactivateSubmitting: 'キャンセル中...',
-	reactivateAction: '解約をキャンセルして通常利用に戻る',
+		'カードの有効期限切れなどでお支払いが完了していない可能性があります。プラン・お支払い画面からお支払い方法をご確認ください。お子さまの記録はそのままご利用いただけます。',
+	gracePeriodAction: 'プラン・お支払いを確認する',
 
 	// #1781: 削除グレースピリオド（soft-delete）バナー
 	deletionGraceTitle: 'アカウント削除のお手続き中です',
@@ -2538,6 +2557,10 @@ export const SETTINGS_LABELS = {
 	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
 	groupSupportTitle: 'サポート・アプリ情報',
 	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
+	// #3954: /admin/settings/rules への導線。実装済み (#3339 ごほうび交換の承認要否) に
+	// 保護者が到達できず「どこから変更できますか」と問い合わせが来たため hub にカードを追加する。
+	groupRulesTitle: 'ごほうび・ボーナスルール',
+	groupRulesDesc: 'ごほうび交換の承認要否・ボーナスポイントの ON / OFF',
 	groupPlanTitle: 'プラン・課金',
 	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
 	backToHub: '← 設定トップへ',
@@ -2562,6 +2585,12 @@ export const SETTINGS_NAV_LABELS = {
 	activities: '活動・ポイント',
 	notifications: '通知',
 	data: 'データ',
+	// #3954: hub カードと同じ経路をサブナビにも出す (どちらか片方だけだと、
+	// hub 経由で来た人はサブナビのタブが 1 つも選択されていない状態になる)。
+	// #4024: 当初は「サブナビは幅が限られる」として短縮形にしたが、**短縮しても 1280px で
+	// サブナビは 2 行に折り返しており、短縮の目的を達成していなかった** (#3996 の SS が反証)。
+	// 折り返しが避けられない以上、同じ画面に名前を 2 つ持つ対価に見合わないため長い名前に統一する。
+	rules: 'ごほうび・ボーナスルール',
 	support: 'サポート',
 	plan: 'プラン・課金',
 	externalIndicator: '別ページ',
@@ -2634,6 +2663,17 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	trialStartButton: '無料トライアルを開始する',
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
+
+	// #3991: 期末解約 (cancel_at_period_end) の予約中バナー。
+	// 「解約申請中か」「いつまで使えるか」は Stripe が SSOT のため、load で都度取得した値を表示する。
+	cancelPendingTitle: `${CANCEL_TERMS.canonical}手続き中です`,
+	cancelPendingDesc: (date: string) =>
+		`${date} まで現在のプランをそのままご利用いただけます。この日を過ぎると${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+	cancelPendingDescUnknownDate: `現在の請求期間の終了日まで現在のプランをそのままご利用いただけます。その後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。`,
+	cancelPendingRevertAction: `${CANCEL_TERMS.canonical}を取り消して継続する`,
+	cancelPendingRevertSubmitting: '取り消しています…',
+	cancelPendingRevertError: `${CANCEL_TERMS.canonical}の取り消しに失敗しました。時間をおいて再度お試しください`,
+	cancelPendingExpiryLabel: 'ご利用いただける最終日',
 
 	// ステータス別メッセージ
 	gracePeriodTitle: '⚠️ 猶予期間中',
@@ -2736,6 +2776,30 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	demoCheckoutNote: 'デモでは実際の決済は行われません',
 	demoPlanManagementTitle: 'プラン管理',
 	demoPaymentHistoryTitle: '支払い履歴',
+} as const;
+
+// ============================================================
+// CHECKOUT_RECONCILIATION_LABELS — checkout 完了照合の結果表示 (#3958)
+// ============================================================
+//
+// Stripe checkout の success_url (`/admin/subscription?session_id=cs_…`) から戻ったときに、
+// サーバー側で照合した結果を顧客に伝える文言。webhook 未達時の救済経路であることは
+// 顧客の関心事ではないため、内部事情 (webhook / session_id / Stripe API) を露出させない。
+
+export const CHECKOUT_RECONCILIATION_LABELS = {
+	/** 反映できた (webhook 未達の救済が成立したケースを含む) */
+	applied: 'お支払いを確認しました。プランを反映しました。',
+	/** 既に反映済み (webhook 先着 / 同じ URL の再訪) */
+	alreadyApplied: 'お支払いは反映済みです。',
+	/** Stripe 側でまだ支払いが確定していない */
+	pending: 'お支払いの確認をしています。少し時間をおいて「最新の状態を確認」を押してください。',
+	/** 照合できなかった (期限切れ / 不正な値 / 一時的な障害)。現在のプラン表示にフォールバック */
+	unresolved:
+		'お支払い状況を確認できませんでした。反映されない場合はサポートまでお問い合わせください。',
+	/** 再確認ボタン */
+	recheckButton: '最新の状態を確認',
+	/** 再確認中 (進行中である旨の可視化、NN/G #1) */
+	rechecking: '確認しています…',
 } as const;
 
 // ============================================================
@@ -5241,6 +5305,11 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #4023 横展開: 削除確認。旧実装は onsubmit + preventDefault で、キャンセルしても
+	// use:enhance 側の submit listener が走り削除が通っていた (admin/settings/rules と同型)。
+	deleteConfirmTitle: 'このチャレンジを削除しますか？',
+	deleteConfirmBody: (challengeTitle: string, childName: string) =>
+		`「${challengeTitle}」（${childName}）を削除します。削除すると、このお子さまの今の進捗も一緒に消えます。`,
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {
@@ -5329,10 +5398,22 @@ export const CHILD_STATUS_LABELS = {
 
 export const AUTH_INVITE_LABELS = {
 	appTitle: 'がんばりクエスト',
+	invalidLink: 'この招待リンクは無効または期限切れです。',
 	invalidLinkDesc: '招待した方に新しいリンクを発行してもらってください。',
 	loginPageLink: 'ログインページへ',
+	// #4049: 家庭内共有端末 (親の端末で子の招待リンクを踏む) の正しい次アクションを案内する。
+	// #0203 の残留防止でログアウト時に招待 Cookie が消えるため、ログアウト後は
+	// 「招待リンクをもう一度タップする」必要がある。これを明示しないと、そのまま
+	// /auth/signup に進んで新規家族グループの owner になってしまう。
+	alreadyInTenant: '既に別のグループに所属しているため、この招待を受けることはできません。',
+	alreadyInTenantDesc: `${CHILD_TERMS.hiragana}用のアカウントを新しく作る場合は、一度ログアウトしてから、招待リンクをもう一度タップしてください。`,
+	// #4049 AC3: ログイン中に出るエラー画面の主導線 (「ログインページへ」だけを出口にしない)
+	logoutButton: 'ログアウトする',
 	inviteMessage: '家族グループへの招待が届いています。',
 	roleLabel: '参加ロール:',
+	// 招待の参加ロール表示 (内部コード role を露出しない、DESIGN.md §6)
+	roleParent: PARENT_TERMS.honorific,
+	roleChild: CHILD_TERMS.hiragana,
 	signupButton: '新規アカウントを作成して参加',
 	loginButton: '既存アカウントでログインして参加',
 	// #3555 ①: 招待 email 束縛 (#3549 判断2) の不一致を顧客向けに案内する文言。
@@ -5645,9 +5726,12 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
 // 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 export const ADMIN_RULES_PAGE_LABELS = {
-	pageTitle: 'ボーナスルール',
+	// #3954: 本画面は #3339 で「ごほうび交換の承認要否」も持つようになったが、title / description は
+	// ボーナスルールしか説明しておらず、探しに来た保護者が「ここではない」と引き返す状態だった。
+	// hub カード (SETTINGS_LABELS.groupRulesTitle) と同じ名前にして、同じものを指すと分かるようにする。
+	pageTitle: 'ごほうび・ボーナスルール',
 	pageDescription:
-		'お子さまの活動記録時に発火するボーナスポイントのルールです。ON / OFF で有効化を切り替えられます。',
+		'ごほうび交換に保護者の承認が必要かどうかと、活動記録時に発火するボーナスポイントのルールを設定できます。',
 	emptyTitle: 'ボーナスルールがありません',
 	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
 	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
@@ -5658,6 +5742,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	enableButton: '有効化',
 	disableButton: '無効化',
 	removeButton: '削除',
+	removeConfirmTitle: 'このルールを削除しますか？',
 	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
 	importedAtLabel: '取込日時',
 	rulesLabel: '含まれるルール',
@@ -5686,6 +5771,12 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	rewardApprovalEnableInstantButton: '即時交換にする',
 	rewardApprovalDisableInstantButton: '承認を必須に戻す',
 	rewardApprovalSuccess: 'ごほうび交換の設定を更新しました',
+	// #4023: 承認必須を「外す」方向 (承認必須 → 即時交換) にだけ確認を挟む。
+	// 承認必須に戻す安全側の操作は確認しない (AC2)。文言は「よろしいですか」で終わらせず
+	// 解除後に何が起きるか (結果) を書く (AC3)。
+	rewardApprovalInstantConfirmTitle: '承認なしで交換できるようにしますか？',
+	rewardApprovalInstantConfirmBody:
+		'解除すると、お子さまは保護者の承認なしでポイントを使ってごほうびと交換できるようになります。あとから「承認を必須に戻す」でいつでも元に戻せます。',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
@@ -6864,16 +6955,13 @@ export const USAGE_TIME_LABELS = {
 	minutesUnitDisplay: '（分）',
 	dayOfWeek: (date: string) => {
 		const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
-		const d = new Date(date);
-		// date は YYYY-MM-DD (UTC) で渡されるため、JST に補正
-		const jstDay = new Date(d.getTime() + 9 * 60 * 60 * 1000).getDay();
-		return days[jstDay];
+		// 曜日は JST SSOT 経由 (#4015)。旧実装は +9h の手組みオフセット後に
+		// ローカル TZ getter を読む形で、date-utils と同じ計算を二重に持っていた。
+		return days[jstDayOfWeek(new Date(date))];
 	},
 	chartBarAriaLabel: (childName: string, date: string, min: number) => {
 		const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
-		const d = new Date(date);
-		const jstDay = new Date(d.getTime() + 9 * 60 * 60 * 1000).getDay();
-		return `${childName} ${days[jstDay]}曜日 ${min}分`;
+		return `${childName} ${days[jstDayOfWeek(new Date(date))]}曜日 ${min}分`;
 	},
 } as const;
 
@@ -7581,7 +7669,7 @@ export const LP_FAQ_LABELS = {
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
-	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	text27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	text28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	text29: '料金・課金について',
 	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
@@ -8885,7 +8973,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
-	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	k27: `${CANCEL_TERMS.canonical}のお手続き後、現在の請求期間の終了日までは有料プランをそのままご利用いただけます。その間はいつでも${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.canonical}を取り消して継続できます。`,
 	k28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',

@@ -27,6 +27,11 @@ export type PlanId = typeof SUBSCRIPTION_PLAN.MONTHLY | typeof SUBSCRIPTION_PLAN
 
 export interface PlanConfig {
 	priceId: string;
+	/**
+	 * Stripe Price の `lookup_key` (#3960)。plan ⇄ lookup_key マッピングの SSOT。
+	 * webhook payload の Price から plan を逆引きする `planIdFromLookupKey()` が参照する。
+	 */
+	lookupKey: LookupKey;
 	amount: number;
 	interval: 'month';
 	tier: 'standard' | 'family';
@@ -46,6 +51,7 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 	return {
 		[SUBSCRIPTION_PLAN.MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? '',
+			lookupKey: 'standard_monthly',
 			amount: 500,
 			interval: 'month',
 			tier: 'standard',
@@ -53,6 +59,9 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 		},
 		[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? '',
+			// premium = family (PLAN_TERMS.premium / .family は同値、ADR-0058 rename 過渡期)。
+			// lookup_key 側は `premium_` 接頭辞で、`tier` の 'family' とは語彙が異なる。
+			lookupKey: 'premium_monthly',
 			amount: 780,
 			interval: 'month',
 			tier: 'family',
@@ -76,6 +85,28 @@ export function planIdFromPriceId(priceId: string): PlanId | null {
 	const plans = getPlans();
 	for (const [id, config] of Object.entries(plans)) {
 		if (config.priceId === priceId) return id as PlanId;
+	}
+	return null;
+}
+
+/**
+ * lookup_key からプラン種別を逆引き (#3960)。
+ *
+ * `planIdFromPriceId()` は env var (`STRIPE_PRICE_*_MONTHLY`) 由来の priceId しか
+ * 逆引きできない。`USE_LOOKUP_KEY=true` 経路 (`getPriceId()`) では lookup_key から
+ * 解決した Price が env var と異なる Price を指し得るため、priceId 逆引き失敗時の
+ * 2 段目として lookup_key を突き合わせる。
+ *
+ * Stripe の Price object は `lookup_key` を保持するので、subscription item の
+ * price から version 差異に依存せず plan を確定できる。
+ *
+ * **マッピングは新規定義せず `PlanConfig.lookupKey` を SSOT とする**
+ * (`buildPlanConfigs()` が唯一の定義箇所)。lookup_key の命名が変わっても追従は 1 箇所。
+ */
+export function planIdFromLookupKey(lookupKey: string | null | undefined): PlanId | null {
+	if (!lookupKey) return null;
+	for (const [id, config] of Object.entries(getPlans())) {
+		if (config.lookupKey === lookupKey) return id as PlanId;
 	}
 	return null;
 }

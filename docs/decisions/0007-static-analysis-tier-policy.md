@@ -20,8 +20,25 @@
 |------|---------|-----------|-------------|----------|
 | **T1 PR ゲート** | 全 push / PR 毎 | < 30s AND merge されたら致命的 | CI 失敗 / merge block | biome check / svelte-check / stylelint / vitest unit / knip（fast） / type-coverage 閾値チェック |
 | **T2 PR 並行レーン** | 全 PR、別 job | 30s-3min AND 誤検知があっても merge 判断は人間 | CI 失敗 / merge block（override 可） | Playwright E2E / sonarjs（要計測） |
-| **T3 nightly / 週次** | main に schedule | > 3min OR 広域 debt 検知 | **PR は止めない** / finding を Issue 自動起票 | jscpd / cspell / Biome 広域 / madge circular |
-| **T4 四半期 / 手動** | cron quarterly or workflow_dispatch | 重い / 外部 API コスト | 発見 → Issue 自動起票 | 脆弱性スキャン / type-coverage ベースライン更新 |
+| **T3 nightly / 週次** | main に schedule | > 3min OR 広域 debt 検知 | **PR は止めない** / finding は PR コメント or Accepted residual に記録 (2026-07-30 改訂) | jscpd / cspell / Biome 広域 / madge circular |
+| **T4 四半期 / 手動** | cron quarterly or workflow_dispatch | 重い / 外部 API コスト | 発見 → PR コメント or Accepted residual に記録 (2026-07-30 改訂) | 脆弱性スキャン / type-coverage ベースライン更新 |
+
+**T3 / T4 finding の Issue 化基準 (2026-07-30 改訂)**: **Issue 化するのは、顧客の金・データ・法務に接続する finding のみ**とする。それ以外は PR コメント / 統合 PR の Accepted residual に記録して閉じる。旧「finding を Issue 自動起票」は装置起因の Issue を量産し、backlog の 10% が「同 class N 例目」を名乗る装置修理 Issue で占められた (#4121 棚卸の実測)。ADR-0061 原則 2 の適用対象限定 (装置の不具合に class-lock を掛けない) と同じ理由による。
+
+### 1-2. gate を残すか消すかの判断原則 v2 (2026-07-30、#4121)
+
+装置 (CI gate / hook / check script) を減らすときは、**まず何を守っているかで類型を決める**。
+
+| # | 何を守るか | 扱い |
+|---|---|---|
+| 1 | **証跡の真正性 / 不可逆な損失**（偽装・成果物の消失・自己承認） | **hard-fail で残す** |
+| 2 | **顧客に見える正しさ**（XSS / LP の嘘 / 用語） | **残す**。cheap なら hard-fail、重ければ warn |
+| 3 | 書式・網羅性・手続きの整合 | **warn 降格 or 撤去** |
+| 4 | 参照ゼロ | **削除** |
+
+**「稼働中だが keep list に無い」は削除理由にならない。** keep list は hard-fail の一覧であって「守る価値のあるものの全集」ではない。削除の前に類型 1〜4 のどれかを明示する。
+
+> 本原則は #4121 で「消すか keep list に入れるかの二択」と書いた誤りの訂正である。二択のままだと、稼働中で価値のある gate に対して消す以外の選択肢が無くなる (実際に `check-recent-deploy-deletion` = 類型 1 と `check-lp-innerhtml-tags` = 類型 2 が削除候補に載った)。
 
 ### 2. 新ツール導入時の判断フロー
 
@@ -54,6 +71,7 @@ T1 合計が 3min を超えた時は、最も遅いツールを T3 へ降格す�
 - 新ツール導入 Issue には「想定階層」欄を必須化
 - T1 / T2 job の実行時間を定期モニタ
 - **required 化（merge block 化）の実装点は `ci.yml` の `ci-gate` job `needs:` 登録**（#3895）。branch ruleset (`PR_Mearge`) は `ci-gate` 単一 context を required とする集約設計のため、個別 job の required / advisory は needs 登録の有無で決まる（ruleset 変更は不要）。`ci-gate` の `needs:` に job を追加 / 削除する PR は、本 ADR の階層マッピング表を**同 PR で同期**する（silent な gating policy 変更の禁止）
+- **warn 降格の実装点も同じ `ci-gate` の `needs:`**（2026-07-30 明記）。job を `needs:` から外せば job 自体は走り続けるが merge を止めなくなる = advisory 化である。`continue-on-error` を足す必要はない。降格した job は階層マッピング表の「階層」列を T1/T2 → T3 相当 (advisory) に更新し、**同 PR で表を同期**する
 
 ### 既存 CI の階層マッピング（baseline）
 

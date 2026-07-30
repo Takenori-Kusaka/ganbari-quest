@@ -102,7 +102,7 @@
 | POST | /api/v1/reward-redemption-requests | 交換申請作成（子供） | 全ロール（child 含む） |
 | GET | /api/v1/reward-redemption-requests | 申請一覧取得（親用管理画面） | owner/parent |
 | PATCH | /api/v1/reward-redemption-requests/:id | 申請承認/却下（親） | owner/parent |
-| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（日次 cron） | cron 認証 |
+| POST | /api/cron/expire-redemptions | 30 日経過申請を expired に移行（手動 / 外部呼び出し。`scheduleRegistry` / EventBridge / dispatcher には未登録） | cron 認証 |
 
 ### チェックリスト
 
@@ -168,8 +168,8 @@
 | POST | /api/v1/admin/members/[userId]/transfer-ownership | owner権限移譲 | owner |
 | POST | /api/v1/admin/members/leave | テナントから脱退 | 全ロール |
 | GET | /api/v1/admin/tenant/status | テナントステータス取得 | owner/parent |
-| POST | /api/v1/admin/tenant/cancel | テナント解約（graceful） | owner |
-| POST | /api/v1/admin/tenant/reactivate | テナント再有効化 | owner |
+| POST | /api/v1/admin/tenant/cancel | 解約申請（期末解約を予約、`cancel_at_period_end=true`。DB は書かない、#3991） | owner |
+| POST | /api/v1/admin/tenant/reactivate | 解約の取り消し（`cancel_at_period_end=false`。予約が無ければ 409、#3986） | owner |
 | POST | /api/v1/admin/tenant-cleanup | テナントクリーンアップ（管理用） | 内部API |
 | POST | /api/v1/admin/cleanup-orphans | 孤立データクリーンアップ | 内部API |
 | GET | /api/v1/admin/migration | マイグレーション統計取得 | 内部API |
@@ -1341,6 +1341,30 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
   "schema": { "schemaValid": true, "migrationsApplied": 0, "schemaWarnings": 0 }
 }
 ```
+
+**`backup` フィールド（`DATA_SOURCE=pglite` のときだけ付与、#3977）:**
+
+```json
+{
+  "backup": {
+    "lastSuccessAt": "2026-07-27T18:00:00.000Z",
+    "lastSuccessFilename": "pglite-20260727-180000.tgz",
+    "lastSuccessBytes": 1234567,
+    "lastSuccessDurationMs": 4210,
+    "lastFailureAt": null,
+    "lastFailureMessage": null
+  }
+}
+```
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `DATA_SOURCE === 'pglite'`（= NUC セルフホスト）のときのみ。**クラウド（`dsql`）の公開 Lambda のレスポンスは本フィールドを持たない** |
+| なぜ pglite 限定か | 「いつからバックアップが止まっているか」は外部に教えうる運用情報で、`/api/health` は未認証公開のため。露出範囲の拡大は PO 決裁事項とし、NUC 内でしか成立しない分岐に閉じる |
+| なぜ載せるか | `scripts/backup-nuc.cjs` が backend 同定のため既に `/api/health` を参照する（#3967）。バックアップの生死も同じ口から読めれば運用側の参照点が 1 つで済む。`getPgliteBackupStatus` は #3950 で export されたが caller 不在の dead export で、本配線がその caller |
+| 取得失敗時 | **フィールドを省略するだけで 503 にしない**。状態ファイルが読めないことは DB の生死と無関係で、ここで落とすと「状態ファイルが無いだけで liveness が赤」になり監視の意味が変わる |
+
+回帰は `tests/unit/routes/health-backup-status.test.ts`（付与条件と失敗時の省略）が固定する。
 
 #### GET /api/ready
 
@@ -2525,11 +2549,10 @@ if (authError) return authError;
 |------|---------|------|
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
-| `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。EventBridge 02:00 JST 実行 |
+| `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` は 02:00 JST で定義するが AWS 側は EventBridge Rule 未作成のため未駆動で、現状は NUC scheduler のみが起動する (#4033) |
 | `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
-| `/api/cron/analytics-aggregate` | POST / GET | analytics 事前集計バッチ（#1693, #1639 follow-up）。EventBridge cron `cron(0 18 * * ? *)` (UTC) = 03:00 JST 実行。`analytics-aggregate-service.ts runAnalyticsAggregation` が前日 (UTC) 1 日分の activation funnel + cancellation reason 集計を計算し、DynamoDB `PK=ANALYTICS_AGG#<YYYY-MM-DD>` (SK=`FUNNEL` / `CANCELLATION_30D` / `CANCELLATION_90D`, TTL 365 日) に書き込む。`/admin/analytics` の read 側 (`analytics-service.ts`) は集計レコードを優先取得し、無い分のみライブ計算で fallback する設計（service interface は不変）。`dryRun=true` で計算のみ実行 (smoke test 用)、`targetDate=YYYY-MM-DD` で過去日を再集計可能。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照 |
-| `/api/cron/challenge-aggregate` | POST / GET | challenge (preset distribution) 事前集計バッチ（#1742, #1602 N+1 GetItem 移行）。EventBridge cron `cron(30 18 * * ? *)` (UTC) = 03:30 JST 実行 (analytics-aggregator-daily と被らないよう 30 分ずらし)。`challenge-aggregate-service.ts runChallengeAggregation` が当日時点の全テナント `questionnaire_challenges` 設定値を CSV 配列に集約し、DynamoDB `PK=CHALLENGE_AGG#<YYYY-MM-DD>` (SK=`AGGREGATE`, TTL 365 日) に書き込む。`/ops/analytics` プリセット選択分布画面の read 側 (`ops-analytics-service.fetchChallengesPerTenant`) は直近 7 日分の集計レコードから最新を採用し、無ければライブ集計 (settings repo を tenant ごと N+1 で叩く #1602 既存実装) で fallback。`dryRun=true` で計算のみ実行 (smoke test 用)、`targetDate=YYYY-MM-DD` で過去日を再集計可能。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §6.x ops/analytics` を参照 |
 | `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる |
+| `/api/cron/pglite-backup` | POST | **NUC 専用** PGlite 本番データの日次バックアップ（#3950）。NUC ローカルの crond（`docker-compose.yml` backup profile、03:00 JST）が `scripts/backup-nuc.cjs` 経由で起動する。`runPgliteBackup()` が PGlite 公式 `dumpDataDir()` でダウンタイム 0 の整合スナップショットを取得し、**取得物を別インスタンスへ実際に復元して検証**（V1 全テーブル `count(*)` / V2 `__drizzle_migrations` 非空 / V3 journal ↔ 適用実績の突合）した上で確定、3 世代へローテーションする。`DATA_SOURCE != pglite` では 409 を返す（AWS は DSQL のため対象外）。EventBridge / `scheduleRegistry` には登録しない（NUC 専用のため）。運用手順は `docs/runbooks/pglite-restore-drill.md` |
 | `/api/v1/admin/tenant-cleanup` | POST | テナントクリーンアップ |
 | `/api/v1/admin/cleanup-orphans` | POST | 孤立データクリーンアップ |
 | `/api/v1/admin/migration` | GET / POST | マイグレーション統計取得・実行 |
@@ -2571,3 +2594,4 @@ if (authError) return authError;
 | 2026-04-29 | 2.24 | #1693 §5 cron 使用エンドポイント一覧に `/api/cron/analytics-aggregate` を追加。EventBridge `cron(0 18 * * ? *)` (UTC) = 03:00 JST 実行で前日分 funnel + cancellation reason を `PK=ANALYTICS_AGG#<date>` (TTL 365 日) に書き込み、`/admin/analytics` read 側の集計優先 → ライブ計算 fallback ロジックを駆動 (#1639 follow-up) |
 | 2026-04-30 | 2.25 | #1742 §5 cron 使用エンドポイント一覧に `/api/cron/challenge-aggregate` を追加。EventBridge `cron(30 18 * * ? *)` (UTC) = 03:30 JST 実行で当日分の全テナント `questionnaire_challenges` 設定値スナップショットを `PK=CHALLENGE_AGG#<date>` (TTL 365 日) に書き込み、`/ops/analytics` プリセット選択分布画面の `fetchChallengesPerTenant` N+1 GetItem を集計テーブル方式へ移行（#1602 follow-up）。集計優先 → ライブ計算 fallback の二段構造で post-PMF テナント数 1,000+ 想定に対応 |
 | 2026-05-17 | 2.26 | #2138 (MP-3) マーケットプレイス rule-preset 4 ruleType 全対応 API 追加。`POST /marketplace/[type]/[itemId] ?/importRulePreset` (4 ruleType 分岐: exchange→`special_rewards` 挿入 / bonus→`settings.rule_preset_bonus_overrides` JSON / penalty / special→audit log のみ)、`POST /admin/settings/rules ?/togglePreset` (bonus preset enabled 切替)、`POST /admin/settings/rules ?/removePreset` (bonus preset 削除)。`bonus-hook-service.ts` が `activity-log-service.recordActivity()` から呼ばれ、enabled な 6 bonus preset (streak-bonus / early-bird / weekend-special / category-challenge / sibling-coop / self-study-reward) を活動記録時に評価。ADR-0012 §6 細則表に penalty / special 行追加 |
+| 2026-07-26 | 2.27 | #3950 §5 cron 使用エンドポイント一覧に `/api/cron/pglite-backup` を追加。NUC 専用の PGlite 日次バックアップ（RPO 日次 / 保持 3 世代 / ダウンタイム 0、オーナー決裁 2026-07-26）。PGlite は dataDir を単一プロセスで占有するため、整合スナップショットを採れるのは DB を掴んでいるアプリプロセスのみ = `dumpDataDir()` をアプリ内で実行し、外部の crond は本エンドポイントを起動するだけの役割に分離。取得物は毎回別インスタンスへ復元して V1/V2/V3 を検証し、通ったものだけを確定する（verify-then-commit）。V3 は journal と `__drizzle_migrations` の突合で、#3951 の gate が塞げていなかった「journal と本番適用実績の関係」を日次で担保する |

@@ -5,7 +5,8 @@
 // 12-事業計画書.md §7.2 / 19-プライシング戦略書.md §8.1 の KPI 定義に準拠。
 
 import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -98,8 +99,7 @@ function generateMockMetrics(): StripeMetricsWithTrend {
 	// 過去 6 か月のダミートレンド
 	const trend: MonthlyMetricPoint[] = [];
 	for (let i = 5; i >= 0; i--) {
-		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-		const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+		const month = shiftMonthKey(monthKeyJST(now), -i);
 		const paidCount = Math.max(1, 6 - i);
 		trend.push({
 			month,
@@ -205,23 +205,23 @@ export function calculateMonthlyChurnRate(tenants: Tenant[], yearMonth: string):
 	const monthStart = new Date(year, month - 1, 1);
 	const monthEnd = new Date(year, month, 0, 23, 59, 59);
 
-	// 月初時点でアクティブだったテナント（月初以前に作成され、月初時点でまだ terminated ではない推定）
+	// 月初時点でアクティブだったテナント（月初以前に作成され、月初時点でまだ解約していない推定）。
+	// #3987: 解約の印は `terminated` ではなく「契約終了 (S5)」。terminated は退会済みを意味し
+	// 物理削除で families 行ごと消えるため、旧判定は分子・分母とも実データを拾えていなかった。
 	const activeAtStart = tenants.filter(
 		(t) =>
 			new Date(t.createdAt) < monthStart &&
 			(t.status === SUBSCRIPTION_STATUS.ACTIVE ||
 				t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD ||
-				// terminated だが月内に変わった場合もカウント
-				(t.status === SUBSCRIPTION_STATUS.TERMINATED &&
-					t.updatedAt &&
-					new Date(t.updatedAt) >= monthStart)),
+				// 解約済みだが月内に変わった場合もカウント
+				(isChurnedContract(t) && t.updatedAt && new Date(t.updatedAt) >= monthStart)),
 	);
 
 	if (activeAtStart.length === 0) return 0;
 
 	const churned = tenants.filter(
 		(t) =>
-			t.status === SUBSCRIPTION_STATUS.TERMINATED &&
+			isChurnedContract(t) &&
 			t.updatedAt &&
 			new Date(t.updatedAt) >= monthStart &&
 			new Date(t.updatedAt) <= monthEnd,
@@ -287,7 +287,9 @@ export async function getStripeMetrics(): Promise<StripeMetricsWithTrend> {
 		const tenants = await repos.auth.listAllTenants();
 
 		const now = new Date();
-		const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+		// 月キーは JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) では JST 月初
+		// 00:00〜09:00 に前月キーとなり、churn / MRR が誤った月に載っていた。
+		const currentMonth = monthKeyJST(now);
 
 		const activePaidCount = countActivePaid(tenants);
 		const mrr = calculateMRR(tenants);
@@ -312,8 +314,7 @@ export async function getStripeMetrics(): Promise<StripeMetricsWithTrend> {
 		// 過去 6 か月のトレンド
 		const trend: MonthlyMetricPoint[] = [];
 		for (let i = 5; i >= 0; i--) {
-			const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-			const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+			const month = shiftMonthKey(monthKeyJST(now), -i);
 			const churnRate = calculateMonthlyChurnRate(tenants, month);
 
 			// 過去月のスナップショットはDB状態から正確には取れないため、

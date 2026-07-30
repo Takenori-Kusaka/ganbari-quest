@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { glob } from 'glob';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { asChildId } from '$lib/domain/ids';
 
 const ROOT = resolve(__dirname, '../../..');
@@ -68,9 +68,28 @@ async function callGet(
 	}
 }
 
+const ROUTE_MODULES = [
+	'../../../src/routes/api/v1/special-rewards/export/+server',
+	'../../../src/routes/api/v1/checklists/export/+server',
+	'../../../src/routes/api/v1/activities/export/+server',
+];
+
 describe('#3246 (B) child role は export に到達できない (403)', () => {
+	// #3972 / #3975 と同 class の 3 例目。本 describe の主張は「child は 403」であって
+	// 「速いこと」ではないのに、**最初の 1 件だけ**が既定 testTimeout (5s) を超えて落ちていた
+	// (route module の初回 dynamic import が service / db グラフごと transform するため。
+	// 2 件目以降は module cache に載るので速い = 先頭 1 件だけ赤くなる紛らわしい壊れ方)。
+	//
+	// 各 it に timeout を配るのではなく beforeAll で module を温める:
+	// そうすれば **it 側は既定 5s のまま**でよく、「GET が本当に固まる」回帰は今までどおり
+	// 素早く落ちる。時間の猶予を与える対象を「module ロード」に限定するのが要点
+	// (it に 60s を配ると、ハングする実装回帰まで 60s 待って通ってしまう)。
+	beforeAll(async () => {
+		await Promise.all(ROUTE_MODULES.map((m) => import(m)));
+	}, 60_000);
+
 	it('special-rewards/export: child=403 / parent はgate通過 (childId 無で 400)', async () => {
-		const p = '../../../src/routes/api/v1/special-rewards/export/+server';
+		const p = ROUTE_MODULES[0] as string;
 		const child = await callGet(
 			p,
 			childLocals(),
@@ -83,7 +102,7 @@ describe('#3246 (B) child role は export に到達できない (403)', () => {
 
 	it('checklists/export: child=403', async () => {
 		const child = await callGet(
-			'../../../src/routes/api/v1/checklists/export/+server',
+			ROUTE_MODULES[1] as string,
 			childLocals(),
 			'http://x/api/v1/checklists/export?templateId=5',
 		);
@@ -92,7 +111,7 @@ describe('#3246 (B) child role は export に到達できない (403)', () => {
 
 	it('activities/export: child=403', async () => {
 		const child = await callGet(
-			'../../../src/routes/api/v1/activities/export/+server',
+			ROUTE_MODULES[2] as string,
 			childLocals(),
 			'http://x/api/v1/activities/export',
 		);

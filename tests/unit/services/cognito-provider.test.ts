@@ -155,13 +155,17 @@ describe('CognitoAuthProvider', () => {
 			expect(context).toBeNull();
 		});
 
-		it('有効な Context Token Cookie から Context を返す', async () => {
-			const storedContext: AuthContext = {
+		// #3963: Cookie から取るのは claim (tenantId / role / childId) のみ。
+		// 課金状態 (licenseStatus / tenantStatus / plan) は毎リクエスト DB から解決する。
+		// 以前は Cookie の値をそのまま返していたため、Stripe webhook / 解約が DB を
+		// 更新しても最大 24h 古い値が使われ続けた。
+		it('有効な Context Token Cookie の claim を使い、課金状態は DB から解決する', async () => {
+			mockVerifyContext.mockReturnValue({
 				tenantId: 't-cached',
 				role: 'owner',
-				licenseStatus: 'active',
-			};
-			mockVerifyContext.mockReturnValue(storedContext);
+			});
+			// DB 側は subscription 無し (= 無料) の状態
+			mockFindTenantById.mockResolvedValue({ tenantId: 't-cached', status: 'active' });
 
 			const { CognitoAuthProvider } = await import(
 				'../../../src/lib/server/auth/providers/cognito'
@@ -172,8 +176,44 @@ describe('CognitoAuthProvider', () => {
 
 			const context = await provider.resolveContext(event, identity);
 
-			expect(context).toEqual(storedContext);
+			expect(context).toEqual({
+				tenantId: 't-cached',
+				role: 'owner',
+				licenseStatus: 'none',
+				tenantStatus: 'active',
+				plan: undefined,
+			});
+			// Cookie が有効なのでメンバーシップ再解決は走らないが、課金状態のため DB は引く
 			expect(mockFindUserTenants).not.toHaveBeenCalled();
+			expect(mockFindTenantById).toHaveBeenCalledWith('t-cached');
+		});
+
+		// Cookie に古い課金状態が焼き込まれていても DB の現在値が勝つこと
+		it('Cookie が無料 (none) を焼き込んでいても DB が有料なら DB の plan を返す', async () => {
+			mockVerifyContext.mockReturnValue({
+				tenantId: 't-cached',
+				role: 'owner',
+				licenseStatus: 'none',
+				plan: undefined,
+			} as AuthContext);
+			mockFindTenantById.mockResolvedValue({
+				tenantId: 't-cached',
+				status: 'active',
+				stripeSubscriptionId: 'sub_1',
+				plan: 'monthly',
+			});
+
+			const { CognitoAuthProvider } = await import(
+				'../../../src/lib/server/auth/providers/cognito'
+			);
+			const provider = new CognitoAuthProvider();
+			const identity: Identity = { type: 'cognito', userId: 'u-1', email: 'a@b.com' };
+			const event = createMockEvent({ context_token: 'valid-context-token' });
+
+			const context = await provider.resolveContext(event, identity);
+
+			expect(context?.licenseStatus).toBe('active');
+			expect(context?.plan).toBe('monthly');
 		});
 
 		it('Context Token がない場合、メンバーシップから Context を発行する', async () => {

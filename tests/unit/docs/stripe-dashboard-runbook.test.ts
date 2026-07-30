@@ -160,6 +160,11 @@ describe('Stripe Dashboard 立ち上げランブック (#2098 AC7)', () => {
 		});
 	});
 
+	// #3990: 「購読 event 一覧 ↔ 実装の case 一覧」の突合は、本手順書だけでなく
+	// 同じ集合を書いている設計文書 (phase5 §4.3 / phase6 Step 4 / stripe-setup-guide Step 5) も
+	// 対象にする必要があるため `tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` に移設した。
+	// 手順書 1 本だけを見ていたために設計文書側の乖離を見逃した経緯は同ファイル冒頭に記載。
+
 	describe('AC7-7: 関連 Issue / ADR / 設計書への横断 link', () => {
 		it('親 EPIC #2098 への参照', () => {
 			expect(content).toMatch(/#2098/);

@@ -10,6 +10,14 @@
 
 ## セッション設計原則
 
+### 並行セッション前提（CRITICAL）
+
+**あなたのセッションは 1 本ではない。** 同じ Dev エージェントでも、参加チャンネルの数だけセッションが同一マシンで並走しうる。重い検証 (`pre-ready` / `vitest` / `playwright` / `svelte-check`) と `git push` は **hook で機械的に排他**されており、他セッションが実行中なら exit 2 で止まる。
+
+止められたら**待たずに別の作業へ移る** (PR 本文整備 / Issue 起票 / レビュー対応)。並走した検証結果は「落ちた」も「通った」も根拠にならないため、待って回しても得られるものが増えない。
+
+→ 詳細・実測値・限界は **[agent-concurrency.md](agent-concurrency.md)** を参照。
+
 ### 委任ポリシー（CRITICAL）
 
 Dev セッションの**開発責任者である Claude 本体**が Issue を進める。デフォルトは **1 件ずつ直列**（前 Issue PR が Ready / CI 全緑 → 次へ）。重大変更でルール見落とし・手戻りを防ぐため。
@@ -95,6 +103,13 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
 4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 14 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / check-no-plan-literals (#972) / check-license-key-leak (#2836) / generate-lp-labels --check (#1917) / Readiness gate = check-pr-body / doc-code-references (#2577) / terminology-coherence (#2555) / **SS embed gate (#2918)** / capture) を順次実行、fail で即停止 + 修正方針表示。**一覧 SSOT は `npm run pre-ready -- --help`** (#2929)。E2E / Storybook は別途
+
+   **vitest (Step 3) の判定は CI `unit-test` へ移す (#4007)**。16 コアを 4 エージェントで共有する運用では、ローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。`--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」意味であり、pre-ready はその旨と確認先 job 名を出力する。
+
+   - **`unit-test` / `unit-test-merge` が skip された PR は Ready にしない（例外なし）**。`gh pr checks <num>` で `unit-test (1)` / `(2)` が **`pass`**（`skipping` ではない）ことを確認してから `gh pr ready`
+   - **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `skipped` を failure として数えない設計（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）なので、job が 1 度も走らなくても green になる
+   - skip された場合の代替: 該当 vitest をローカルで単独実行し、そのログを PR body に貼る
+   - **単独実行が必要な重い測定を回すときはチャンネルで一報して排他を作る**（他セッションの並走 red を作らない）
 5. **AC 検証マップ全行埋める** (ADR-0004) — 空行 = 実装未了。コマンド結果 / SS パス / grep 結果で埋める
 6. **gh アカウント確認** (#1728 / ADR-0022)：
    ```bash
@@ -111,7 +126,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    gh pr create --draft --base develop --body-file tmp/pr-bodies/<num>-<slug>.md
    ```
 8. **UI 変更時、Ready 化前に SS 撮影必須**（次節参照）
-9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
+9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション (`.github/PR_TEMPLATE_SECTIONS.json` SSOT 13 件、#2060) / `[x]` 完了 / SS 4 スロット を機械的に確認。**特に必須セクション全件確認は PR #2039 / #2043 で「12 件全欠落」が連続再発した教訓に基づき、`gh pr ready` 直前の `node scripts/check-pr-body.mjs --pr <num> --body-file <PR body取得物> --skip-mergeable` 実行を skill 内で必須化** (#2060)
 10. CI 全通過後 Ready: `gh pr ready <num>`
 
 ### PR 起票アカウント違反からの復旧 (#1994)
@@ -123,6 +138,22 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 3. `node scripts/check-gh-account-before-pr.mjs` が exit 0 で通過することを確認
 4. 同じブランチから `gh pr create --draft ...` で再起票（既存 commit 履歴は再利用、新ブランチ不要）
 5. 旧 PR (closed) は 違反コメント保全のため reopen / 削除しない (ADR-0022 監査証跡)
+
+### QA 指摘の再発防止台帳（CRITICAL — #3962、PO 指示 2026-07-26）
+
+**同じ class の QA 指摘を 2 度受けたら、その時点で instance 修正ではなく機械 gate 化する。** 記憶と注意力に依存した再発防止は必ず破れる（ADR-0061 same-class-N→guard）。
+
+以下は実際に 2 回以上受けた指摘。**1 は `npm run pre-ready` で機械検出されるため暗記不要。2〜3 は着手時に読む**。
+
+| # | 指摘 class | 発生 PR | 現在の防御 |
+|---|-----------|---------|-----------|
+| 1 | `po-decision:required` label 付きなのに PO 決裁ブリーフが PR body にない | #3944 / #3956 | **機械 gate**: `scripts/check-pr-body.mjs` の `checkPoDecisionBrief`（pre-ready Readiness gate step に内蔵）。見出し欠落 / mermaid 欠落 / 未置換 `___` を fail させる |
+| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 / #3978 | **機械 gate**: `scripts/check-readdir-rotation-guard.mjs`（pre-ready Step 7e + CI `lint-and-test`）。`readdir` の緩い一致 × 近接する破壊的操作を検出。別 class なら `rotation-gate-ok: <理由>` で明示的に opt-out する + レビュー観点（下記） |
+| 3 | guard の fixture が「規則に従うデータ」だけで、規則から外れた実在物を含まない | #3956 | レビュー観点（下記） |
+
+**2 の観点 — 命名規則のあるファイル名・ID・key を判定するときは、prefix/suffix 一致ではなく正規表現の完全一致で書く。** 生成側にも同じパターンの assert を置き、命名変更時に silent に壊れないようにする。#3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた。
+
+**3 の観点 — guard を書いたら「その guard を外すと fail するか」を実行して証跡に貼る。** fixture には*規則に従わないが実在するもの*（手動退避ファイル、サブディレクトリ、旧命名の残骸）を実名で混ぜる。規則に従うデータだけを並べた fixture は、規則違反を検出できないことを検出できない。
 
 ## 新規実装時
 
@@ -271,7 +302,7 @@ const source = getEnv().DATA_SOURCE;
 
 ```bash
 # 1. PR body 全体検証 (必須セクション 13 件 / AC マップ 4 列 / 禁止語 / Ready チェックリスト)
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 
 # 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or label exempt 確認)
 PR_FILES="$(gh pr diff <num> --name-only)" \
@@ -305,9 +336,13 @@ node scripts/check-new-required-env.mjs
 ### 本番デプロイ動作確認（critical / 監査 / 認可 / 課金）
 
 PR 本文 Test plan に以下 3 点を明記:
-- [ ] `DATA_SOURCE=dynamodb` 相当（staging）で実機動作確認
-- [ ] DynamoDB コンソールで当該テーブルに書込み確認
+- [ ] staging（`AUTH_MODE=cognito` + `DATA_SOURCE=dsql`）で実機動作確認
+- [ ] 対象テーブルの行が想定どおり更新されたことを確認
 - [ ] Lambda CloudWatch Logs に想定イベント出現確認
+
+staging での実機確認手順（deploy 発火 / DSQL 行の書き換えと復旧 / 観測 / 役割分担）は
+[docs/runbooks/staging-live-verification.md](../runbooks/staging-live-verification.md) を参照する。
+ローカルのどの backend でも通らない cognito + DSQL 経路（課金状態の解決 / 招待・メンバー）は本 runbook が唯一の検証手順。
 
 follow-up に逃がせるのは「本番に存在しなくても顧客に気付かれない」場合のみ。顧客提供価値（不正検知 / 監査 / 保証）に直結する機能は同一 PR 完結必須。
 
@@ -377,7 +412,6 @@ PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」
 
 実装着手前に PO 合意根拠が無い場合、ADR-0008（設計ポリシー先行確認）違反となる。判定保留時は Issue にコメントで PO 確認を待ってから着手する。
 
-監視 script: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）。CI 必須化ではなく awareness。
 
 ### 役割境界（#1022）
 

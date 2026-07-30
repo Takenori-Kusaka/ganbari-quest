@@ -2,6 +2,7 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/status-service.ts
 // ステータス管理サービス層
 
+import { monthStartJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import {
 	calcCharacterType,
@@ -138,10 +139,10 @@ export async function getMonthlyComparison(
 
 	const statusRows = await findStatuses(childId, tenantId);
 
-	// 先月末の日付を計算
-	const now = new Date();
-	const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-	const lastMonthEnd = firstOfMonth.toISOString();
+	// 先月末の日付を計算。月初境界は JST SSOT 経由で決める (#4015)。
+	// 旧実装は `now.getFullYear()/getMonth()` のローカル月で、Lambda (UTC) では JST 月初
+	// 00:00〜09:00 に前月 1 日が基準となり前月比が 1 ヶ月ずれていた。
+	const lastMonthEnd = `${monthStartJST()}T00:00:00.000Z`;
 
 	const current: Record<string, number> = {};
 	const previous: Record<string, number> = {};

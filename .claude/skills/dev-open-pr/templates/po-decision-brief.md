@@ -1,44 +1,61 @@
 ## PO 決裁ブリーフ (po-decision:required)
 
-<!-- #3862: pr-review skill「Step 0: PO 決裁 triage」該当 PR にのみ添付する条件付きセクション。
-     kind 別追加セクションと同じ慣行で、PR template 共通セクションの後ろに append する
-     (PR_TEMPLATE_SECTIONS.json の必須 13 セクションには含めない = 全 PR 強制ではない)。
-     ADR 型 1 ページ・5 分読了。AI は triage + ブリーフ生成のみ、判断は PO が行う。 -->
+<!-- #3862 / #3918: pr-review skill「Step 0: PO 決裁 triage」該当 PR にのみ添付する条件付きセクション。
+     PR template 共通セクションの後ろに append する (PR_TEMPLATE_SECTIONS.json の必須セクション外)。
 
-### 1. リスク分類
+     様式 = 一枚絵 (PO 恒久要件 2026-07-23): PO は下の mermaid 図 1 枚 (+ UI 変更時は実機 SS) だけを
+     見て Yes/No を判断できること。長文説明を主成果物にしない (補足は折りたたみへ)。
+     記入原則: 各 node は 1 行 15〜25 字で言い切る / 5 秒で要点把握 (ADR-0012 整合、装飾より情報設計) /
+     深刻度は 🔴🟡🟢 絵文字 + classDef 色で二重表現 / 「___」を全て置換してから起票する。 -->
 
-<!-- 可逆 / 不可逆の別 + 影響する顧客面 (子供画面 / 親画面 / 課金 / データ / 法務) を 1-2 行で -->
+```mermaid
+flowchart TB
+  classDef danger fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef warn fill:#fef3c7,stroke:#b45309,color:#78350f
+  classDef ok fill:#dcfce7,stroke:#15803d,color:#14532d
+  classDef ask fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
 
-### 2. ロールバック可否 / データ破壊の有無
+  subgraph RISK["① リスク・可逆性"]
+    R1["可逆性: 🟢可逆 / 🔴不可逆 → ___"]
+    R2["顧客面: 子供画面/親画面/課金/データ/法務 → ___"]
+    R3["ロールバック: revert のみで戻る? データ破壊? → ___"]
+  end
+  subgraph TRADE["② trade-off (ADR-0010)"]
+    T1["得る: ___"]
+    T2["捨てる/負債: 運用保守コスト・新アーキ・積み残し → ___"]
+  end
+  subgraph OBJ["③ 反対理由 (adversarial-reviewer 転記)"]
+    O1["business: ___"]
+    O2["UX: ___"]
+    O3["security: ___"]
+  end
+  subgraph CUST["④ 顧客面の変化 (プロダクト実態)"]
+    C1["___ (UI 変更なら直下の実機 SS / 変化なしなら根拠)"]
+  end
+  subgraph ASK["⑤ PO 判断依頼 (Yes/No で回答可能に、1〜3 個)"]
+    Q1["Q1: ___"]
+  end
 
-<!-- revert PR だけで戻るか。migration / 物理削除等でデータが破壊されるなら復旧手段を明記 -->
+  RISK --> ASK
+  TRADE --> ASK
+  OBJ --> ASK
+  CUST --> ASK
 
-### 3. trade-off (Pre-PMF スコープ判断、ADR-0010)
+  class R1,R3 danger
+  class T2,O1,O2,O3 warn
+  class T1,C1 ok
+  class Q1 ask
+```
 
-<!-- 何を得て何を捨てるか。運用コスト / 保守コスト増・新規デザインアーキテクチャパターン採用・
-     技術負債の積み残しの有無 (PO 決裁 2026-07-19 追加軸) を明示 -->
+<!-- UI 変更時: mermaid 直下に実機 SS (screenshots branch) を embed する。図 + SS の 2 点で完結させる。
+     mermaid で表現しきれない複雑な構図 (アーキ図等) が要る場合のみ画像 SS 添付に切替可 (GitHub 上で
+     直接視認できる形が必須。外部ツールを開かせない)。 -->
 
-### 4. 推奨 + 反対理由 3 つ
+<details>
+<summary>補足 (PO は原則読まなくてよい — 図の根拠・詳細)</summary>
 
-<!-- 推奨 (merge すべきか) を 1 行 + adversarial-reviewer skill の objections 3 件を転記。
-     tmp/adversarial-evidence/<pr>.json が未生成なら .claude/skills/adversarial-reviewer/SKILL.md の
-     手順で生成してから転記する (AI 要約への過信を構造的に打ち消す) -->
+<!-- 図に収まらない根拠のみ簡潔に。③ の反対理由は tmp/adversarial-evidence/<pr>.json を
+     .claude/skills/adversarial-reviewer/SKILL.md の手順で生成してから転記する
+     (AI 要約への過信を構造的に打ち消す)。未生成のまま ③ を埋めない -->
 
-**推奨**:
-
-| 軸 | 反対理由 (adversarial-reviewer 転記) |
-|---|---|
-| business | |
-| UX | |
-| security | |
-
-### 5. プロダクト実態 (実機 SS + 顧客面の変化)
-
-<!-- PO が「プロダクトで何が起きるか」を読む核。UI 変更なら実機 SS (screenshots branch 参照)、
-     非 UI なら顧客に届く挙動・データ・料金面の変化を具体的に。「変化なし」ならその根拠を書く -->
-
-### 6. PO への判断依頼事項 (1〜3 個)
-
-<!-- Yes/No で答えられる形に絞る。例: 「この migration を本番適用してよいか (Yes/No)」 -->
-
-1.
+</details>

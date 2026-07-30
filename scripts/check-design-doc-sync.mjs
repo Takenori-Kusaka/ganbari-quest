@@ -13,7 +13,8 @@
  * **判定ロジック (新)**:
  * 1. `src/routes/` 変更なし → skip
  * 2. `docs/design/` 同期あり → pass
- * 3. (file-pattern exempt) 全変更ファイルが CLAUDE.md / scripts/ / docs/ / infra/ / .github/ / site/ → skip
+ * 3. (file-pattern exempt) 全変更ファイルが CLAUDE.md / scripts/ / tests/ / docs/ / infra/ /
+ *    .github/ / site/ / .claude/**\/*.md → skip
  * 4. (label exempt #1985 NEW) PR ラベルに `refactor:internal-no-doc-impact` 含む → skip
  * 5. それ以外 → fail
  *
@@ -38,6 +39,8 @@
  * **テスト**: `scripts/__tests__/check-design-doc-sync.test.mjs` (node --test)。
  */
 
+import { isMain as isMainModule } from './lib/is-main.mjs';
+
 const ROUTE_PREFIX = 'src/routes/';
 const DESIGN_DOC_PREFIX = 'docs/design/';
 
@@ -55,6 +58,12 @@ const FILE_EXEMPT_MATCHERS = [
 	/^infra\//, // インフラ設定
 	/^\.github\//, // CI 設定
 	/^site\//, // LP (設計書管轄外)
+	// #4085: .claude 配下の **markdown のみ** (Skill / agent 定義などのプロセス文書)。
+	// docs/ と同じく「文書そのもの」であり src/routes/ の挙動を変えない。
+	// `.claude/hooks/*.mjs` / `.claude/settings.json` は実行される設定・コードなので exempt しない
+	// (`.claude/` 全体を exempt にすると gate が空洞化する)。
+	// #3152 で `tests/` が同じ理由 (列挙漏れによる false fail) で追加されたのと同 class の 2 例目。
+	/^\.claude\/.*\.md$/,
 ];
 
 /**
@@ -146,7 +155,7 @@ export function checkDesignDocSync({ files, labels = [] }) {
 		return {
 			status: 'skip',
 			reason:
-				'変更ファイルが全て設計書更新不要なパターン (CLAUDE.md / scripts/ / docs/ / infra/ / .github/ / site/) のみ (ADR-0003)',
+				'変更ファイルが全て設計書更新不要なパターン (CLAUDE.md / scripts/ / tests/ / docs/ / infra/ / .github/ / site/ / .claude/**/*.md) のみ (ADR-0003)',
 		};
 	}
 
@@ -236,11 +245,10 @@ async function main() {
 	}
 }
 
-// import.meta.url が CLI エントリの場合のみ main 実行 (test では import 経由)
-const argv1 = process.argv[1] ?? '';
-const isCliInvocation =
-	argv1 !== '' &&
-	(import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/')));
+// import.meta.url が CLI エントリの場合のみ main 実行 (test では import 経由)。
+// 判定は scripts/lib/is-main.mjs (SSOT) に委ねる — 自前比較は symlink / junction 経由で
+// 必ず false になり、何も検査しないまま exit 0 になる (#3969)。
+const isCliInvocation = isMainModule(import.meta.url);
 
 if (isCliInvocation) {
 	main();

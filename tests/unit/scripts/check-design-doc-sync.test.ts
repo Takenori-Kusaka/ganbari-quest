@@ -41,3 +41,34 @@ describe('#3152 check-design-doc-sync exempt 判定', () => {
 		expect(result.status).not.toBe('fail');
 	});
 });
+
+// #4085: #3152 と同 class の 2 例目。`.claude/` 配下の markdown (Skill / agent 定義) が
+// FILE_EXEMPT_MATCHERS に無かったため、「src/routes/CLAUDE.md + .claude/skills/*/SKILL.md」だけの
+// 文書 PR が誤って fail していた (PR #4105 実測)。`.claude/` 全体ではなく **markdown のみ**を
+// exempt にして、hooks / settings.json (実行される設定・コード) の gate は維持する。
+describe('#4085 .claude 配下 markdown の exempt 判定', () => {
+	it('.claude 配下の markdown は exempt (Skill / agent 定義はプロセス文書)', () => {
+		expect(isAllFilesExempt(['.claude/skills/dev-open-pr/SKILL.md'])).toBe(true);
+		expect(isAllFilesExempt(['.claude/agents/dev-session.md'])).toBe(true);
+	});
+
+	it('src/routes/CLAUDE.md + .claude/skills/*.md のみの文書 PR は skip する (誤 fail 回帰)', () => {
+		const files = [
+			'src/routes/CLAUDE.md',
+			'.claude/skills/dev-open-pr/SKILL.md',
+			'tests/CLAUDE.md',
+			'scripts/check-pr-body.mjs',
+		];
+		expect(hasRouteChanges(files)).toBe(true);
+		expect(isAllFilesExempt(files)).toBe(true);
+		expect(checkDesignDocSync({ files, labels: [] }).status).toBe('skip');
+	});
+
+	it('.claude 配下でも markdown 以外 (hooks / settings) は exempt しない (gate を弱めない)', () => {
+		expect(isAllFilesExempt(['.claude/hooks/gate-approve.mjs'])).toBe(false);
+		expect(isAllFilesExempt(['.claude/settings.json'])).toBe(false);
+		// route 変更と併せて出てきたら従来どおり fail する
+		const files = ['src/routes/(parent)/admin/foo/+page.svelte', '.claude/hooks/gate-approve.mjs'];
+		expect(checkDesignDocSync({ files, labels: [] }).status).toBe('fail');
+	});
+});

@@ -33,6 +33,16 @@
 - **顧客価値 ABC**: A. 誰が / B. どんな状況で / C. 何を得るか
 - **本番動作**: `DATA_SOURCE=dynamodb` 相当で動作する状態を完了条件に。「土台提供」「follow-up で本実装」禁止
 
+### Issue 起票基準 / WIP 上限 / 本文の書き方 (2026-07-30)
+
+| 規律 | 内容 |
+|---|---|
+| **起票基準** | **E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する**場合のみ Issue にする。**装置起因**（CI gate / hook / PR body 検査 / テンプレート整合 / script 自身の不具合）は **PR コメント止まり**にし Issue 化しない |
+| **WIP 上限 4** | 同時進行は **レーンごと 1 本 × 4 レーン**まで。上限に達している間は新規着手しない（起票そのものは可だが着手順に入れない） |
+| **推測を書かない** | Issue 本文に「おそらく」「〜のはず」で書いた前提を残さない。実測していない事象は「未確認」と明示する。#4116 は推測を前提に着手した結果 **diff ゼロの虚偽完了**になった |
+
+装置起因を Issue にしない理由: 装置の不具合に個別 Issue を立てると「装置を守る装置」が増え、それがまた新しい不具合の発生源になる（ADR-0061 §決定 原則 2 の適用対象限定）。装置に対する処方は **削減**であり、選択肢は「消す」か「残す 8 本に入れる」の二択で「直す」を選ばない（#4121）。
+
 ## Goal 2 (LP レビュー) — PO 統合判断
 
 詳細手順 → [Skill: lp-review](../../.claude/skills/lp-review/SKILL.md)。PO 固有:
@@ -99,7 +109,6 @@ gh issue list --search "preset 取込" --state all --limit 20
 #### 関連リソース
 
 - 詳細手順: [Skill: issue-triage](../../.claude/skills/issue-triage/SKILL.md) §「手順 F: 補佐設計品質ガード 6」
-- 監視 script: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）
 - 親 SSOT: AN-5 #2180（機能完成度 9 層 17 項目）
 
 ## タスク 4: 起票前 Deep Research 添付 (#2088 / #2089)

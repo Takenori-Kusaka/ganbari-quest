@@ -29,9 +29,14 @@ updates:
         update-types: ["version-update:semver-patch"]
       # #3302: better-sqlite3 12.11.x は demo/SQLite (file-backed + WAL) を SIGSEGV crash させる
       # (#3190/#3192 で 12.10.0 exact pin に根治)。upstream 修正確認まで 12.11.x を ignore。
-      # 12.12+ は再提案を許可 (修正版採用時は scripts/check-native-dep-pin.mjs の pin と同期更新)。
+      # #3940: 13.x は N-API 全面 rewrite (2026-07-21 リリース) を評価のうえ不採用 (12.10.0 維持) と判断。
+      # smoke は #3190 SIGSEGV class を再現できない (gate 空洞化) ため CI green を採用根拠にできず、
+      # EPIC #3424 (PGlite 一本化) で依存縮小方向のため実機検証投資も defer。#3937 close 済み。
+      # 【再評価条件】13.1.x 以降 or 13.0.x の 1 ヶ月 soak + upstream WiseLibs/better-sqlite3#1503
+      # (Windows install regression) close。解除時は本 ignore から "13.x" を外し、採用時は
+      # scripts/check-native-dep-pin.mjs の pin と同期更新 (Issue #3940 再開手順参照)。
       - dependency-name: "better-sqlite3"
-        versions: ["12.11.x"]
+        versions: ["12.11.x", "13.x"]
       # #3636: typescript 7.x は @sveltejs/kit@2.69.x の peer (^5.3.3 || ^6.0.0) が除外し
       # npm ci が ERESOLVE で失敗する。kit が TS7 peer 対応版を出したら本 ignore を削除して TS7 を取り込む。
       # major (6→7) のみ保留し 6.x の minor/patch 更新は許可する。

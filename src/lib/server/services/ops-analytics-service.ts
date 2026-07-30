@@ -6,7 +6,7 @@
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -151,9 +151,18 @@ const PLAN_MRR_UNIT: Record<string, number> = {
 // Helpers (exported for tests)
 // ============================================================
 
+/**
+ * 月キー (YYYY-MM) を **UTC 基準**で返す (#4015)。
+ *
+ * 旧実装はローカル TZ getter で、Lambda (UTC) と dev (JST) で結果が分岐していた。
+ * ここを JST ではなく UTC に固定するのは、本 module の月キーが `tenant.createdAt`
+ * (ISO UTC 文字列) を直接 key 化するためで、cohort-analysis-service が #3449 で
+ * 同じ理由から UTC を月境界 SSOT に選んだ決定に揃える (両者の月バケットが食い違うと
+ * /ops 上で retention / acquisition が不整合になる)。
+ */
 export function getMonthKey(date: Date | string): string {
 	const d = typeof date === 'string' ? new Date(date) : date;
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export function monthDiff(from: string, to: string): number {
@@ -192,7 +201,7 @@ export function computeAnalytics(
 	// ── 1. Monthly Acquisitions (過去 12 ヶ月) ──
 	const acquisitionMap = new Map<string, MonthlyAcquisition>();
 	for (let i = 11; i >= 0; i--) {
-		const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+		const d = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - i, 1));
 		const key = getMonthKey(d);
 		acquisitionMap.set(key, { month: key, organic: 0, total: 0 });
 	}
@@ -208,16 +217,17 @@ export function computeAnalytics(
 
 	// ── 2. Cohort Analysis (入会月別の残存率、最大 6 ヶ月) ──
 	const MAX_COHORT_MONTHS = 6;
-	const cohortMap = new Map<string, { total: number; statuses: string[] }>();
+	const cohortMap = new Map<string, { total: number; churned: number }>();
 	for (const t of tenants) {
 		const key = getMonthKey(t.createdAt);
 		if (!cohortMap.has(key)) {
-			cohortMap.set(key, { total: 0, statuses: [] });
+			cohortMap.set(key, { total: 0, churned: 0 });
 		}
 		const c = cohortMap.get(key);
 		if (!c) continue;
 		c.total += 1;
-		c.statuses.push(t.status);
+		// #3987: 解約判定は isChurnedContract (契約終了 S5 / 退会済 S6) に集約。
+		if (isChurnedContract(t)) c.churned += 1;
 	}
 
 	const cohorts: CohortRow[] = [];
@@ -231,9 +241,9 @@ export function computeAnalytics(
 		const retentionLength = Math.min(monthsFromNow + 1, MAX_COHORT_MONTHS + 1);
 		const retention: number[] = [];
 
-		const terminatedCount = c.statuses.filter(
-			(s) => s === SUBSCRIPTION_STATUS.TERMINATED || s === SUBSCRIPTION_STATUS.SUSPENDED,
-		).length;
+		// #3987: 旧実装は suspended を丸ごと解約扱いし、契約が残り復帰しうる S4 (停止) まで
+		// チャーンに混ぜていた。契約終了 (S5) / 退会済 (S6) のみを数える。
+		const terminatedCount = c.churned;
 
 		for (let i = 0; i < retentionLength; i++) {
 			if (i === 0) {
@@ -250,10 +260,7 @@ export function computeAnalytics(
 
 	// ── 3. LTV Estimate ──
 	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
-	const churnedTenants = tenants.filter(
-		(t) =>
-			t.status === SUBSCRIPTION_STATUS.TERMINATED || t.status === SUBSCRIPTION_STATUS.SUSPENDED,
-	);
+	const churnedTenants = tenants.filter(isChurnedContract);
 
 	const paidActive = activeTenants.filter((t) => t.plan);
 

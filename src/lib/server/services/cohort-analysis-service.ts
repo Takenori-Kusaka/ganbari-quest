@@ -3,7 +3,7 @@
 // 12-事業計画書 §7.3 の LTV 計算式と整合する実測値を算出
 
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -174,9 +174,10 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 
 	// 直近 N ヶ月分のコホートを抽出。
 	// #3449: cohort 鍵 (getSignupMonth = createdAt.slice(0,7) = UTC 月) と一致させるため、月列挙も
-	// **UTC 基準**で行う (旧実装は now.getFullYear()/getMonth() のローカル月でズレ、JST 月初 = UTC 前月末に
-	// signup したテナントが key mismatch で取りこぼされ /ops の retention/ARPU/churn が境界分過小集計、
-	// Lambda(UTC)/dev(JST) で結果分岐していた)。UTC を月境界 SSOT に統一する。
+	// **UTC 基準**で行う。ローカル TZ getter が環境ごとに違う日付を返す理由は
+	// `$lib/domain/date-utils.ts` 冒頭の「SSOT 宣言」を参照 (#4015)。本 module が JST ではなく
+	// UTC を月境界に選ぶのは、鍵が createdAt (ISO UTC) 由来だからで、ops-analytics-service の
+	// getMonthKey() もこの決定に揃えている。
 	const targetMonths: string[] = [];
 	for (let i = monthsBack - 1; i >= 0; i--) {
 		const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
@@ -192,12 +193,14 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 
 	// 月次解約率。#3449: 「今月」境界も UTC 基準に統一 (cohort 鍵 = UTC 月と整合)。
 	const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-	const terminatedThisMonth = tenants.filter((t) => {
-		if (t.status !== SUBSCRIPTION_STATUS.TERMINATED) return false;
+	// #3987: 解約は `terminated` ではなく「契約終了 (S5)」で判定する。terminated は退会済みを
+	// 意味し物理削除で families 行ごと消えるため、旧判定は恒常的に 0 を返していた。
+	const churnedThisMonth = tenants.filter((t) => {
+		if (!isChurnedContract(t)) return false;
 		const updated = new Date(t.updatedAt);
 		return updated >= monthStart;
 	}).length;
-	const monthlyChurnRate = paidTenants.length > 0 ? terminatedThisMonth / paidTenants.length : 0;
+	const monthlyChurnRate = paidTenants.length > 0 ? churnedThisMonth / paidTenants.length : 0;
 
 	// 理論値 LTV = ARPU / 月次解約率 (12-事業計画書 §7.3)
 	const theoreticalLtv = monthlyChurnRate > 0 ? Math.round(arpu / monthlyChurnRate) : 0;

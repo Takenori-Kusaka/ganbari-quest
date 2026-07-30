@@ -55,6 +55,28 @@ jobs:
               - 'tests/**'
               - 'infra/**'
               - 'scripts/**'
+              # #3969: check-cli-entry-guard.mjs の走査範囲 (SCAN_ROOTS) に .claude を含めたため、
+              # 発火条件も揃える。列挙しないと `.claude/**` だけを変更する PR で 4 filter すべてが
+              # false になり lint-and-test ごと skip され、gate が 1 度も走らない。守る対象が
+              # ADR-0056 の approve gate 本体 (.claude/hooks/gate-approve.mjs) なので必須。
+              # 対応関係は tests/unit/scripts/cli-entry-guard.test.ts が機械検証する。
+              - '.claude/**'
+              # #4007: unit-test は `app || deps` で発火する。tests/unit/** には repo 内の
+              # コード以外のファイルを実行時に読む fitness test が実在するため、その参照先 root を
+              # 列挙しないと「守っている test が 1 本も走らないまま ci-gate が green」になる
+              # (ci-gate は skipped を failure として数えない設計)。
+              #   docs/**    dsql-auth-schema / pk-freeze-manifest / stripe-dashboard-runbook 等
+              #   site/**    site-terminology (顧客に直接届く LP なので docs より実害が重い)
+              #   .github/** labeler.yml / INTEGRATION_PR_TEMPLATE*.{md,json} (workflows は deps 側)
+              #   drizzle/** pglite journal 単調増加 / migration SSOT 貫通
+              #   actions/** composite action を参照する sparse-checkout closure gate
+              # 対応関係は tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts が
+              # 機械検証する (参照先が増えたらここも増える、を人の注意に依存させない)。
+              - 'docs/**'
+              - 'site/**'
+              - '.github/**'
+              - 'drizzle/**'
+              - 'actions/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'
@@ -194,14 +216,64 @@ jobs:
         # 「parser バグ」と「反映漏れ」の両面を捕捉する。
         run: npm run lint:parallel
 
+      - name: LP plan sync check (advisory、#4121 warn 降格)
+        # ADR-0007 §1-2 類型 2 (顧客に見える正しさ = LP にプランの嘘を書かない、ADR-0013)。
+        # 価値はあるが merge を止めるほどではないため hard-fail から warn へ降格した (#4121)。
+        # step 単位の continue-on-error で job 全体を落とさない (job を ci-gate needs から
+        # 外すと同 job の他 check まで advisory になるため、ここは step 単位で降格する)。
+        continue-on-error: true
+        run: node scripts/check-lp-plan-sync.mjs --check
+
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
+
+      - name: CLI entry guard — 自前の isMain 判定 / 手組み file:// URL 禁止 (#3969)
+        # 各 script が自前で書いていた「直接実行判定」は symlink / junction 経由で必ず
+        # false になり、main() が呼ばれず「何も検査せず exit 0 (= PASS)」になっていた
+        # (実測 41/53 ファイル)。判定は scripts/lib/is-main.mjs へ一本化済みで、
+        # 本 gate は 42 個目の方言が持ち込まれるのを機械的に止める。
+        run: node scripts/check-cli-entry-guard.mjs
+
+      - name: Workflow sparse-checkout closure guard (#3969)
+        # gate job は sparse-checkout で必要ファイルを個別列挙している。上の CLI entry guard が
+        # scripts/lib/is-main.mjs の利用を強制するため、新しい gate script を列挙するたびに
+        # helper への import が生え、列挙し忘れると ERR_MODULE_NOT_FOUND で job が落ちる
+        # (本 Issue の対応時に必須 gate 6 job が実際に同時 fail した)。列挙の閉包を機械検証する。
+        run: node scripts/check-workflow-sparse-checkout-closure.mjs
+
+      - name: readdir rotation guard — 緩い一致で世代を数える class の禁止 (#3978)
+        # readdir の戻りを prefix / suffix の緩い一致で絞り込み、その結果を削除対象にすると、
+        # 命名規則から外れた同居物 (手動退避 / 旧命名の残骸 / ディレクトリ) が「世代」として
+        # 数えられ保持枠を食う。同じ指摘を #3956 (PGlite 側) / #3978 (SQLite 側) と 2 度受けたため、
+        # 3 度目を待たず機械 gate 化した (ADR-0061 same-class-N → guard)。
+        run: node scripts/check-readdir-rotation-guard.mjs
+
+      - name: repo 走査 test の区分宣言 guard (#4085)
+        # repo 全体の file を実読する test は実行時間が入力サイズに比例する。既定 timeout (5s) の
+        # まま unit lane に置くと並列実行の負荷で落ちるが壊れてはいないため、毎回「本物か負荷か」の
+        # 切り分けが発生し、間違えれば本物の回帰を「また負荷だろう」と見逃す。同 class 4 例目
+        # (#3972/#4000 / #3978 / page-guide-coverage 6240ms / path-filter-closure 5533ms) で
+        # instance 修正をやめ、追加時に区分の判断を必ず発生させる gate にした (ADR-0061)。
+        run: node scripts/check-repo-scan-test-declaration.mjs
+
+      - name: Local TZ date getter guard (#4015 / ADR-0061 same-class-N)
+        # 実時刻から `getFullYear()` / `getMonth()` / `getDate()` / `getDay()` で暦要素を取り出すと、
+        # Lambda (UTC) と NUC (JST) で同じコードが違う日付を返す。#4003 ではこれで週次チャレンジが
+        # 毎週 9 時間消えた (3 例目)。日付計算は date-utils.ts の JST SSOT 経由に統一し、
+        # TZ 非依存と言える箇所のみ理由付き allowlist で pin する (理由が空だと gate 自身が fail)。
+        run: node scripts/check-local-tz-date-getters.mjs
 
       - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
         # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
         # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。
         # DB 層 / LEGACY_URL_MAP entry は PR-L5 担当の FILE_ALLOWLIST、履歴コメントは許容。
-        run: node scripts/check-license-key-leak.mjs
+        #
+        # --budget-ms (#4000): 本 step は per-test timeout を持たない専用 lane であり、
+        # runner は fresh clone = 常に cold FS cache なので、ここが cold 条件の実測点になる。
+        # 実測は src/ + site/ の 986 file / 6.5MB 走査で warm ~285ms / cold ~18.8s (Windows)。
+        # budget は通常変動で鳴らない桁違いの余裕を取り、走査対象が想定外に膨らんだ場合
+        # (SEARCH_ROOTS / EXTENSIONS の誤拡張等) だけを機械検知する。
+        run: node scripts/check-license-key-leak.mjs --budget-ms 120000
 
       - name: Internal terms UI exposure check (#2288 AN-5 #2180 補強)
         # 親 UI (admin / 親管理画面) で内部用語 (DynamoDB / Pre-PMF Bucket A /
@@ -435,7 +507,7 @@ jobs:
       - name: Install infra dependencies
         run: cd infra && npm ci
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -671,6 +743,20 @@ jobs:
         # 必須要求するため同じくダミー値で注入する (length >= 16 satisfy)。
         env:
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
+        # #4004: ここは **意図的に --no-deps を付けていない**。
+        # mobile project の `dependencies: ['tablet']` により、--shard を付けても tablet 904 test が
+        # 全 shard で重複実行される (公式 docs test-projects §Dependencies: filtering で選ばれた test が
+        # dependency を持つ project に属する場合、その dependency の全 test も実行される)。
+        # 実測では --no-deps で 1196 → 594/593/593 に正しく分割される。
+        #
+        # ただし --no-deps は同時に「これまで一度も実行されていなかった mobile 876 test を走らせる」
+        # ことを意味し、実測で 40 件が fail する (803 passed / 40 failed)。この 40 件は --no-deps が
+        # 原因ではなく (child-form-birthday-age.spec.ts は tablet 単独実行でも同じ 4 件が fail)、
+        # mobile が走っていなかったために隠れていた既存の壊れ + そもそも mobile 前提で書かれていない
+        # spec (visual-regression の Kinder スクショ / admin-nav-* の "Desktop dropdown" 検証 等) である。
+        #
+        # → mobile でどの spec を走らせるかを決めてから shard 側を切り替える (#4004 follow-up)。
+        #   先に切り替えると統合レーンが恒常赤になり、リリースが止まる。
         run: npx playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload blob report
@@ -736,7 +822,11 @@ jobs:
         # E2E と同じくダミー固定 secret を注入 (vite preview NODE_ENV=production 要求)。
         env:
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
-        run: npx playwright test tests/e2e/a11y-critical-cuj.spec.ts
+        # #4004: `--no-deps` が無いと、spec を 1 本に絞っても mobile の dependency 経由で
+        # tablet 全 test が実行され、**a11y と無関係の spec の fail で本 job が red になる**
+        # (= gate の red/green が a11y について何も言わない状態)。
+        # 実測: 912 test → --no-deps で 16 test (8 route × 2 project)。
+        run: npx playwright test tests/e2e/a11y-critical-cuj.spec.ts --no-deps
 
       - name: Upload a11y test results
         if: always()
@@ -1145,7 +1235,12 @@ jobs:
   #   - 未設定: gate inactive（既存 open PR を block しない、§8 step 6 の無停止 cutover）
   #   - 設定後: 設定日時より後に作成された main 向け PR のみ enforce
   #     （設定日時より前に作成された open PR は grandfather 免除 = §8 step 6「retarget しない」）
-  # bot（dependabot / renovate）は exempt（dependabot.yml の target-branch 切替は cutover 完了時に別途）。
+  # bot（dependabot / renovate）exempt は #3922 で撤去: dependabot.yml は target-branch=develop
+  # 確立済 (#3072) のため、bot の main 向け PR は本来存在しない。唯一の到達経路 = dependabot
+  # "セキュリティ更新" が target-branch を無視して default branch (main) に直行する仕様であり、
+  # 旧 exempt はこれを素通しして auto-merge が develop 軽量レーン + 8 領域監査をすり抜けていた
+  # (#3158 better-sqlite3 → #3190 SIGSEGV / #3920 hono と same-class 2 例)。bot も enforce し、
+  # required check fail で auto-merge を構造的に阻止 → 人間が develop 経由へ re-route する。
   main-pr-base-guard:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
@@ -1165,8 +1260,9 @@ jobs:
           fi
           case "$PR_ACTOR" in
             dependabot\[bot\]|renovate\[bot\])
-              echo "bot PR ($PR_ACTOR) → exempt"
-              exit 0 ;;
+              # #3922: security 更新の main 直行を検知して fail-close (exempt 廃止)。
+              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。対処: 本 PR は merge せず close し、同 version への更新を develop 向けに反映してください (次回 grouped bump を待つ / 手動で develop 向け bump PR を作成)。緊急の security fix は develop 反映後に統合 release で main へ。背景: #3922 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
+              exit 1 ;;
           esac
           # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
           if [[ "$PR_CREATED_AT" < "$CUTOVER_AT" ]]; then

@@ -34,6 +34,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'parse5';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -468,7 +469,7 @@ function main() {
 }
 
 // CLI 実行時のみ main() を呼ぶ。テストから import される場合は副作用なし
-const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+const invokedAsCli = isMainModule(import.meta.url);
 if (invokedAsCli) {
 	main();
 }

@@ -4,7 +4,8 @@
 
 import { env } from '$env/dynamic/private';
 import { FAMILY_PLANS } from '$lib/domain/constants/subscription-plan';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { jstYearMonth } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
@@ -158,15 +159,16 @@ export async function collectMonthlyMetrics(year: number, month: number): Promis
 
 	const conversionRate = totalActiveUsers > 0 ? paidUsers / totalActiveUsers : 0;
 
-	// 解約率: 当月 terminated になったテナント / 月初の有料ユーザー数
+	// 解約率: 当月に契約終了 (S5) したテナント / 月初の有料ユーザー数。
+	// #3987: 旧実装は `terminated` (= 退会済み) だけを見ており恒常的に 0 を返していた。
 	const monthStart = new Date(year, month - 1, 1);
 	const monthEnd = new Date(year, month, 0); // 月末
-	const terminatedThisMonth = tenants.filter((t) => {
-		if (t.status !== SUBSCRIPTION_STATUS.TERMINATED) return false;
+	const churnedThisMonth = tenants.filter((t) => {
+		if (!isChurnedContract(t)) return false;
 		const updated = new Date(t.updatedAt);
 		return updated >= monthStart && updated <= monthEnd;
 	}).length;
-	const churnRate = paidUsers > 0 ? terminatedThisMonth / paidUsers : 0;
+	const churnRate = paidUsers > 0 ? churnedThisMonth / paidUsers : 0;
 
 	// 収益
 	let monthlyRevenue = 0;
@@ -354,8 +356,10 @@ async function sendPricingTriggerNotification(report: PricingTriggerReport): Pro
  * collectMonthlyMetrics を呼んで最新のメトリクスで判定する
  */
 export async function getActiveTriggers(): Promise<PricingTriggerReport> {
-	const now = new Date();
-	return runPricingTriggerCheck(now.getFullYear(), now.getMonth() + 1);
+	// 対象年月は JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) で月初 00:00〜09:00 に
+	// 前月メトリクスでトリガー判定していた。
+	const { year, month } = jstYearMonth();
+	return runPricingTriggerCheck(year, month);
 }
 
 /**

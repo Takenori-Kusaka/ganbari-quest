@@ -192,7 +192,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 |---|---|
 | 概要 | ADR-0014 (OSS 先調査) を本研究の新方針で supersede |
 | メリット | ADR 数削減 |
-| デメリット | ADR-0014 は機械強制 (`check-namespace-duplicate.mjs` 等) と整合する技術選定 SSOT で、本 Issue の運用責務とは責務が異なる。supersede すると機械強制側の参照が不安定化 |
+| デメリット | ADR-0014 は機械強制と整合する技術選定 SSOT で、本 Issue の運用責務とは責務が異なる。supersede すると機械強制側の参照が不安定化 |
 | 採用判定 | **棄却** (ADR-0014 と本 SSOT は補完関係) |
 
 ### 4.5 軸 C 採用

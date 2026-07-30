@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
@@ -25,7 +26,9 @@ export interface PlanLimits {
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
 
-export type PlanTier = 'free' | 'standard' | 'family';
+// #3963: 型宣言の SSOT は domain leaf に移した (request-context との循環回避)。
+// 既存の 50 箇所以上ある import 元を壊さないため、ここから再 export する。
+export type { PlanTier };
 
 const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 	free: {

@@ -27,7 +27,7 @@ Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行
 |---|---|---|---|
 | 1 | origin/&lt;base&gt; rebase drift verify (#2557 / base は `scripts/lib/ci/resolve-base-branch.mjs` で解決 #2959) | 全 push | `--no-verify` で skip 可だが discouraged (ADR-0026) |
 | 2 | 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾) | PR 存在時のみ | 同上 |
-| 3 | PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
+| 3 | PR body 11 セクション + AC 4 列 + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
 | 4 | biome check (軽量 lint) | 全 push | 同上 |
 
 重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ** (push 速度保持 + Pre-PMF / ADR-0010 整合)。
@@ -100,16 +100,15 @@ Agent が実装完了後、Skill 出力の雛形に対して以下を埋める:
 
 | セクション | 埋める内容 |
 |---|---|
-| 顧客価値・目的 | Issue 本文「顧客価値・目的」転記 + 期待される効果 |
+| **顧客価値・目的** | **3 field (`対象ユーザー` / `解決する課題` / `期待される効果`) すべてを実値で埋める**。プレースホルダーコメントを残すと CI 必須 gate「顧客価値・目的の記入」が hard-fail する (#4097 で本 gate の no-op を解消) |
 | AC 検証マップ | 検証手段（コマンド / ファイルパス）+ 結果（PASS / 値） |
-| 影響範囲 | 変更レイヤー checkbox + 影響画面 |
-| テスト & 安全装置 | pre-ready 結果 + 追加テスト概要 |
+| 影響範囲・横展開チェック | 影響画面 + 並行実装ペア / 設計書同期 / LP 整合の確認、N/A 可 |
+| **テスト・品質セルフチェック** | **結果表の「結果」列を全行記入**する。`<!-- PASS / FAIL -->` を残すと CI 必須 gate「テスト実行結果の記入」が hard-fail する (#4097 で本 gate の常時 skip を解消) |
 | スクリーンショット | UI 変更時 4 スロット必須、それ以外は「該当なし（理由）」 |
-| 横展開 | 並行実装ペア確認、N/A 可 |
 | 配布済み env / secret | ADR-0006 該当時のみ、それ以外 N/A |
 | **変更タイプ** | **`- [x]` 1 つ以上必須 (#3846)**。Issue に `type:*` label があれば雛形展開時に自動 `[x]` 化されるが、label 無し Issue では全て `- [ ]` のまま出力されるため**必ず手動で主変更タイプを選択**する（未選択は CI 必須 gate hard-fail、ステップ 3 の `--body-file` 検証で PR 作成前に検出される） |
 
-雛形の `<!-- ... -->` Markdown コメントは説明用ヒント。書き換える必要なし（コメントのまま残してよい）。
+雛形の `<!-- ... -->` コメントは基本的に説明用ヒントで、残したままでよい。**ただし上記太字 2 セクション（顧客価値・目的の 3 field / テスト結果表の「結果」列）だけは例外**で、コメントのまま残すと CI が hard-fail する。
 
 ## ステップ 3: PR body 検証
 
@@ -133,12 +132,24 @@ npm run pre-ready -- --pr <N>
 **#2618 deploy 後**: `check-recent-deploy-deletion.mjs` 自身が `--pr` 指定時に HEAD mismatch を検出すると exit 3 で BLOCK する self-defense を実装済 (ADR-0056 §D defense in depth 第 2 層)。**ただし本 prelude (第 1 層) は引き続き必須**。Agent 側で事前 checkout する習慣を default 化することで gate 起動回数自体を最小化する。
 
 ```bash
-# 雛形に直接ローカル検証（PR 未作成でも動く）
-node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<slug>.md --skip-mergeable
+# 雛形に直接ローカル検証（PR 未作成 = label がまだ存在しないので --no-labels）
+node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<slug>.md --skip-mergeable --no-labels
 
 # pre-ready CLI 経由（ADR-0030、PR 番号不要時は --pr 0 でも内部 skip 設計）
 npm run pre-ready -- --pr <PR番号後で発番>
 ```
+
+### `--no-labels` を書いてよい場面 (#3962 QA 指摘)
+
+`--no-labels` は label 条件付き gate（hotfix env 配布証跡 #2343 / PO 決裁ブリーフ #3962）を **検査しない**宣言。fail-closed の縮退先なので、**PR 番号が取れる呼び出しでは書かない**:
+
+| 場面 | 書き方 |
+|---|---|
+| PR 作成**前**の雛形 dry-run（label がまだ存在しない） | `--body-file <path> --skip-mergeable --no-labels` |
+| PR 作成**後**（Ready 化前検証 / pre-push / pre-ready） | `--pr <num> --body-file <path> --skip-mergeable`（`--no-labels` を書かない） |
+| 付く予定の label を先に検証したい | `--labels po-decision:required --body-file <path>` |
+
+`--no-labels` 指定時は `SKIPPED — label 条件付き gate 2 件は検査していません` が gate 名付きで出力される。**この行が出ている pass は「全部通った」ではない**。label を付けた後に `--pr <num>` で必ず再実行すること。
 
 `check-pr-body.mjs` は以下を検出:
 - 必須セクション欠落（PR template / SSOT JSON との完全一致、#2060 で SSOT 化）
@@ -156,7 +167,8 @@ npm run pre-ready -- --pr <PR番号後で発番>
 ```bash
 # 既存 PR の body を取得して SSOT JSON と diff
 gh pr view <num> --json body --jq .body > /tmp/pr-body-check.md
-node scripts/check-pr-body.mjs --body-file /tmp/pr-body-check.md --skip-mergeable
+# --pr <num> は label 取得用（label 条件付き gate を発火させるため必須）。body は --body-file 優先
+node scripts/check-pr-body.mjs --pr <num> --body-file /tmp/pr-body-check.md --skip-mergeable
 # missing-required-sections 違反が出たら .github/PR_TEMPLATE_SECTIONS.json から逐語コピーして補完
 ```
 
@@ -221,6 +233,15 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 `scripts/check-pr-body.mjs` の `ac-map-incomplete` / `ac-map-empty` は 4 列未満 or 空セルを exit 1 で検出する。Ready 化前に必ず `node scripts/check-pr-body.mjs --pr <N>` PASS を verify する。
 
+#### 根拠コマンドの `--pr <番号>` は自 PR に一致させる — #4074
+
+根拠欄に `--pr <番号>` を書くときは、**その番号が本 PR 自身**でなければならない。別 PR / 存在しない番号を指した証跡は「宛先違い」であり、その PR を検証した根拠にならない。
+
+- 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。#4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は「OK — 違反なし」を返し CI も全 pass した
+- **`gh pr view <N> --json <単一フィールド>` は存在しない PR でも値を返す**。AI が生成した PR 番号は検証なしに信用できない。番号を書いたら `gh api repos/<owner>/<repo>/pulls/<N>` で実在を確認する
+- 現在は `check-pr-body.mjs` が `evidence-pr-mismatch` として exit 1 にする（AC 検証マップセクション内の `--pr <数字>` が対象。body の他所での他 PR 言及は対象外）
+- 番号を書かない `--pr <num>` 等のプレースホルダ形式は従来どおり通る。**実際に実行した番号を書くなら自 PR 番号にする**
+
 ```bash
 # gh アカウント確認 (ADR-0022 / #1728)
 node scripts/check-gh-account-before-pr.mjs
@@ -247,7 +268,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 | # | Gate | ローカル検証 |
 |---|---|---|
-| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
+| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
 | 2 | 必須セクション 12 個 全存在 | 同上 |
 | 3 | Ready チェックリスト `[x]` 完了 (虚偽禁止) | 同上 |
 | 4 | UI 変更時 SS 4 スロット添付 | 修正前 × Mobile/PC + 修正後 × Mobile/PC を `docs/screenshots/pr-<num>/` または screenshots branch に配置 |
@@ -273,7 +294,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 1. 「該当 PR が customer-facing か」を Issue / 変更 file から判定 (`src/routes/**` UI 変更 or `src/lib/marketplace/**` or `src/lib/features/**` に該当)
 2. customer-facing なら 8 条件のうち per-PR 列を満たすことを `pre-ready` + 該当 E2E + SS で確認
-3. EPIC 完了時 / 顧客レビュー前は重量列も満たし、PR body or EPIC umbrella の「テスト & 安全装置セルフチェック」section に証跡を集約
+3. EPIC 完了時 / 顧客レビュー前は重量列も満たし、PR body or EPIC umbrella の「テスト・品質セルフチェック」section に証跡を集約
 
 **禁忌**:
 - customer-facing PR で「機能 E2E 緑だけで Ready 化」(条件 1 だけで判定すると bug-2/3/4 級が露出する、#2558 教訓)
@@ -297,7 +318,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 | fail パターン | 対策 (本 template 内蔵) |
 |---|---|
-| 必須セクション 13 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
+| 必須セクション 11 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
 | `refactor:internal-no-doc-impact` ラベル未付与で design-doc-check fail (#2318 / #2340) | Step 2 (ラベル判断 + 起票時付与) |
 | 新規 env / secret 配布証跡が 4 経路揃わず new-env-distribution-check fail | Step 3 (4 経路明示) |
 | `process.env.X` 直接参照で lint-and-test fail (#2342) | Step 4 (`$lib/runtime/env` 経由) |
@@ -309,18 +330,21 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 **PR が高リスク・不可逆変更に該当する場合**（`.github/labeler.yml` の `po-decision:required` glob 該当 = labeler 自動付与、または [pr-review SKILL.md](../pr-review/SKILL.md) §「Step 0-2」の判断層 checklist 該当 = 手動付与）、PR body 末尾（PR template 共通セクション + kind 別追加セクションの後ろ）に **`templates/po-decision-brief.md` を append** する。
 
-### 生成手順（6 項目）
+### 生成手順（一枚絵、#3918 — PO 恒久要件 2026-07-23）
+
+**主成果物は mermaid 一枚絵**（雛形の flowchart ①〜⑤）。PO は原則その図 1 枚（+ UI 変更時は実機 SS）だけを見て Yes/No を判断する。長文説明を主成果物にしない。
 
 1. **triage 自己判定**: PR 起票前に変更 file 一覧を `.github/labeler.yml` の `po-decision:required` glob と突合 + Step 0-2 checklist（運用/保守コスト増・新規デザインアーキテクチャパターン採用・技術負債積み残し 等）を自問。該当なしなら本セクション不要（append しない）
 2. **雛形 append**: `templates/po-decision-brief.md` を PR body 末尾にコピー
-3. **項目 1〜3 記入**: リスク分類（可逆/不可逆 + 顧客面）/ ロールバック可否・データ破壊 / trade-off（ADR-0010 紐付け + PO 追加軸）
-4. **項目 4 記入**: `adversarial-reviewer` skill を dispatch し `tmp/adversarial-evidence/<pr>.json` の objections 3 件（business / UX / security）を表に転記 + 自身の推奨を 1 行
-5. **項目 5 記入**: 実機 SS（UI 変更時、screenshots branch）+ 顧客面の変化を具体的に。**PO がプロダクト実態を把握するための核**であり「テスト green」の羅列で代替しない
-6. **項目 6 記入**: PO への判断依頼を Yes/No 形式 1〜3 個に絞る
+3. **図 ①〜④ 記入**: リスク・可逆性 / trade-off / 反対理由 / 顧客面の変化 の各 node の `___` を **1 行 15〜25 字で言い切る**（5 秒把握、ADR-0012 整合）。③ は `adversarial-reviewer` skill を dispatch し `tmp/adversarial-evidence/<pr>.json` の objections 3 件（business / UX / security）を転記（未生成のまま埋めない）
+4. **図 ⑤ 記入**: PO への判断依頼を Yes/No 形式 1〜3 個に絞る（Q2/Q3 が要るなら ASK subgraph に node 追加）
+5. **④ の実体**: UI 変更なら mermaid 直下に実機 SS（screenshots branch）を embed。**PO がプロダクト実態を把握するための核**であり「テスト green」の羅列で代替しない。非 UI なら「変化なし + 根拠」を node に書く
+6. **視認性の自己検証**: PR body preview で mermaid が GitHub 上で描画されることを確認（syntax error で図が出ない = ブリーフ不成立）。図に収まらない根拠は `<details>` 折りたたみへ（PO は原則読まない前提）
 
 ### ルール
 
-- 本セクションは **必須 13 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
+- 本セクションは **必須 11 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
+- **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QA merge gate 指摘、が 2 回連続したことによる gate 化
 - `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
 - label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する
 

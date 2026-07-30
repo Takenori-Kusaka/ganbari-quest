@@ -73,10 +73,10 @@
 | # | 既存実装 (file:line) | 本要件 | 扱い |
 |---|---|---|---|
 | 1 | cancellation-service 3分類+自由記述 (`src/lib/server/services/cancellation-service.ts`:51-87、submitCancellationReason=L51) / cancelSubscription 冪等 (`src/lib/server/services/stripe-service.ts`:165-207、cancelSubscription=L165) / Portal (`src/routes/api/stripe/portal/+server.ts`) | 骨格維持 | ✅ 実装済み |
-| 2 | **即時キャンセルのみ** (`stripe.subscriptions.cancel`) | **期末解約** (cancel_at_period_end=true) | **変更** (FR-1) |
+| 2 | 即時キャンセルのみ (`stripe.subscriptions.cancel`) | **期末解約** (`cancel_at_period_end=true`、`scheduleCancellationAtPeriodEnd` / `resumeSubscription`) | ✅ **実装済み** (FR-1 / #3991)。即時 `cancelSubscription()` は退会 (アカウント削除) 専用として残す |
 | 3 | 解約理由 **必須** (呼び出し側で強制) | 解約確定後に**任意収集 (skip 可)** | **変更** (FR-4) |
 
-**影響範囲**: 解約猶予 (grace-period-service standard 7日) は読み取り専用猶予で別概念、変更なし。実装は Phase 6/7。関数位置は 2026-05-28 検証済。
+**影響範囲**: 退会猶予 (grace-period-service standard 7日) は別概念、変更なし。期末解約中も `families.status` は `active` のままで、利用できる最終日 (`items[].current_period_end`) は Stripe が保持する (DB 列を持たない、#3991)。
 
 ## 根拠 (primary source)
 

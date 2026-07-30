@@ -37,6 +37,10 @@ Tier 2: Per-PR Review Agent（独立 ctx、5 手順全実行）
 
 **2 層化の理由**: 1 セッション複数 PR 処理は context 肥大化で手順省略・判断ブレ発生（PR 末尾で初期手順に戻れない）。各 PR 独立 Agent で新鮮 ctx 維持。
 
+**並行セッション前提**: QM のセッションも Dev / PO / 監査と同一マシンで並走する。手順 4 (CI 確認) の一部やローカル再現で**重い検証** (vitest / pre-ready / playwright / svelte-check) を回すときは、**heavy lock が機械的に排他**しており他セッションが実行中なら exit 2 で止まる。止められたら待たず、CI の結果を正として判定できないかを先に検討する。QM 自身の検証コマンドが並走下で出した red は、それ単独では BLOCK の根拠にならない → **[agent-concurrency.md](agent-concurrency.md)**。
+
+> **`git push` は排他されない (2026-07-30)**: branch 単位の task lock は #4076 で撤去した (#4094 は PO 判断で棄却)。残るのは heavy lock のみで、push が他セッションの作業を理由に止まることはない。
+
 ## Tier 1: Orchestrator 4 ステップ
 
 ```bash
@@ -87,6 +91,19 @@ gh pr diff <num> --repo Takenori-Kusaka/ganbari-quest --name-only
 git ls-remote origin refs/heads/<branch>    # → 返値 SHA を以降の検証で固定参照
 node scripts/verify-pr-head.mjs <num> <branch>   # ls-remote と gh pr view の乖離を自動警告
 ```
+
+#### base 側ファイルも API から取得する（working tree 不使用）
+
+レビュー時の SSOT はローカル working tree ではなく API（`gh api` / `git show origin/develop:<path>`）から取得する。QA クローンの working tree は stale になりうる。上記の HEAD SHA 固定規律は PR 側 (headRefOid) の staleness 対策だが、比較対象となる base 側ファイルにも同じ規律を適用する。
+
+QA クローンは Dev と別クローンのため working tree が stale になりやすく、stale な base と PR を比較すると **存在しない矛盾を報告する（false positive）**、**実在する矛盾を見逃す（false negative）**の両方が起きる。false negative の場合は BLOCK すべきものを通してしまう。
+
+```bash
+git show origin/develop:<path>              # base 側ファイルを API 相当で取得（working tree 不参照）
+gh api repos/<owner>/<repo>/contents/<path>?ref=develop   # gh api 経由でも可
+```
+
+**「無い」と結論する前に、読めているかを確認する。** 検索が 0 件を返したときは「対象が無い」と「読み方が違う」を区別する。API / artifact の形式（flatted / 圧縮 / 参照）を確認してから結論を出す。
 
 ### 手順 1: Issue 照合
 
@@ -169,8 +186,17 @@ gh pr checks <num>
 
 - **軽量レーン（→ develop）**: 軽量 gate の required（lint-and-test / unit ×2 + merge / PR テンプレ gate / site-check / schema 系）が全 green → 手順 5。e2e / a11y / storybook / visual regression は**不発火・skip で正常**（統合 PR で集約検証、§レビュー対象レーン）— これらの不在を理由に approve を保留しない
 - **hotfix / 統合 PR（→ main）**: 全 job green 必須（重量 / 最重厚 gate）
-- `skipping` 無視可
+- `skipping` 無視可 — **ただし `unit-test` / `unit-test-merge` は例外（下記）**
 - red → CI Fix Agent spawn（後述）
+
+##### `unit-test` / `unit-test-merge` が skip された PR は approve / Ready にしない（例外なし、#4007）
+
+vitest の実行結果を Ready / approve 判定の根拠にする以上、その job が **実行されて pass した**ことを確認する。
+
+- **`ci-gate` green を判定の根拠にしてはならない**。`ci-gate` は `result == 'failure' or 'cancelled'` のみを数え、`skipped` を数えない（`ci.yml` の `so skipped jobs (via path filter) don't block merges`、実測: #3992 の needs 25 件が `skipping` でも ci-gate は pass）。required check として登録されているのは個別 job ではなく `ci-gate` なので、`unit-test` が skip されても merge は止まらない
+- 確認方法: `gh pr checks <num>` の出力で `unit-test (1)` / `unit-test (2)`（統合 PR は `unit-test-merge` も）が **`pass`** であること。`skipping` は pass ではない
+- skip されていた場合の代替: 作者に「該当 vitest をローカルで単独実行したログを PR body に貼る」ことを求め、それを確認するまで approve しない
+- 本来 skip は起きない想定（`ci.yml` の `app` filter が `docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` まで含み、`tests/unit` + `tests/integration` の参照先閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する）。それでも skip が観測されたら filter に穴が残っている合図なので、approve せず Issue 化する
 
 ##### 重量 e2e 敏感領域の追加判定（#3172、軽量レーン緑だけで approve しない領域）
 
@@ -238,7 +264,23 @@ gh auth switch --user Takenori-Kusaka
 
 PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可。`Takenori-Kusaka` で approve → `ganbariquestsupport-lab` で merge。
 
+**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qa-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
+
 **hotfix merge 後の back-merge（branch-strategy.md §5）**: hotfix を main に merge したら、同一 run 内で develop への back-merge PR（または fast-forward 可能なら直接 merge）を Fix Agent で実施し、main / develop の drift を残さない。back-merge 完了までを hotfix 処理の Done 条件とする。
+
+#### BLOCK 基準 — 3 類型のみ (2026-07-30)
+
+BLOCK してよいのは次の 3 類型に該当する場合に限る。該当しないものは **approve + follow-up** に降格する。
+
+| # | 類型 | 例 |
+|---|---|---|
+| ① | **顧客に実害がある** | データ不整合 / 課金の誤り / 認可の穴 / 日付境界のずれ / 画面が使えない |
+| ② | **証跡の真正性を弱める** | PR body の主張が HEAD に存在しない / SS の Before-After 偽装 / 実行していない検証を実行したと書く |
+| ③ | **不可逆** | 本番データ・課金・削除・DB スキーマに触れ、戻せない |
+
+- **② は当初「gate を弱める」だった。これを改める** — **gate の削除・warn 降格は PO 承認事項であり、QA の BLOCK 事由にしない**。gate を減らす PR は「PO 承認があるか」だけを確認し、承認があれば内容の是非で BLOCK しない
+- **記録の不整合 (body の書式 / チェックボックス / 表の体裁) は BLOCK しない** → approve + follow-up に降格する。**降格の条件は「独立に実 diff を確認し、実害がないと確認できた場合のみ」**。確認せずに降格しない
+- **follow-up は PR コメント止まりにし、Issue 化しない**。Issue 化するのは「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ (装置起因の指摘は Issue にしない)
 
 #### BLOCK → 指摘コメント
 
@@ -289,7 +331,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **hotfix merge 後の develop back-merge を省略**（main/develop drift の温床）
 - **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。Fix Agent で base を develop へ訂正 + rebase が正 — 2026-06-11 User 指示）
 - **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
-    - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` / `gh api .../pulls` を捕捉、#1879)
+    - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` と **`gh api .../pulls` コレクションへの POST** を捕捉、#1879 / #4027)。判定はサブコマンドと API パスで行い、`--body` / `--body-file` / heredoc の中身と `/pulls/<n>/reviews` 等の subresource 操作は対象外（approve 経路を止めないため）
     - L2: `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`（`git push` 直前検査、#1879）
     - L3: `.github/workflows/pr-author-guard.yml` server side gate (`pull_request: opened/reopened/ready_for_review` で発火、Web UI / 別 client / API 直叩きを含む全経路を捕捉して PR を即時 close + 違反コメント投稿、#1994)
     - L1/L2 が事前防止層、L3 が事後 close 層。違反 PR が L3 で close された場合の再起票手順は `docs/sessions/dev-session.md §PR 起票アカウント違反からの復旧` を参照

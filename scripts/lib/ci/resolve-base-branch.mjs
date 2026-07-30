@@ -41,8 +41,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from '../is-main.mjs';
 
 /**
  * base branch 解決の純粋関数 (unit test 対象、Issue #2959 AC1)。
@@ -93,6 +92,34 @@ export function resolveBaseBranch({
  */
 export function isAllowedBaseBranch(name) {
 	return /^(main|develop)$/.test(name);
+}
+
+/**
+ * shell 展開に対して安全な branch 名かの判定 (#4046)。
+ *
+ * `isAllowedBaseBranch` は「lane が main / develop の 2 つしかない」ことを前提とした強い制約で、
+ * `--verify-base` の**基点鮮度検証**にはそれが正しい (二層戦略の lane 外へ向かう PR は
+ * そもそも drift 検査の対象外)。一方、**変更集合の算出**には lane 制約は不適切である。
+ * stacked PR (別 PR の branch を base にする PR、docs/CLAUDE.md §巨大 docs refactor PR 分割
+ * ガイドラインで推奨) の base は lane 名ではないため、lane whitelist で clamp すると
+ * 「変更集合が PR の実差分と一致しない」= 条件付き step の判定入力が壊れる (#4046 の事象)。
+ *
+ * そこで変更集合の算出側では lane ではなく **shell メタ文字を含まないこと** だけを要求する
+ * (`shell: true` のコマンド文字列に `origin/${base}` を展開するための injection 防御、#2982 の
+ * 元の目的はこちら)。実在確認は呼び出し側が `git rev-parse` で行う。
+ *
+ * 許可: 英数字 / `.` / `_` / `/` / `-`。git の refname 規則で禁じられる `..` と、
+ *       先頭 `-` (オプション誤解釈) と 先頭 `/` も弾く。
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isSafeGitRefName(name) {
+	if (typeof name !== 'string' || name === '') return false;
+	if (!/^[A-Za-z0-9._/-]+$/.test(name)) return false;
+	if (name.includes('..')) return false;
+	if (name.startsWith('-') || name.startsWith('/')) return false;
+	return true;
 }
 
 /**
@@ -228,13 +255,7 @@ export function resolveBaseBranchAuto(opts = {}) {
 	});
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	try {

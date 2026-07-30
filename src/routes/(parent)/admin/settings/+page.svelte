@@ -9,7 +9,7 @@
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS, SETTINGS_NAV_LABELS } from '$lib/domain/labels';
-import ErrorAlert from '$lib/ui/components/ErrorAlert.svelte';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -53,6 +53,16 @@ const groupCards: GroupCard[] = [
 		testid: 'settings-hub-card-data',
 	},
 	{
+		// #3954: 実装済みの「ごほうび交換の承認要否」(#3339) / ボーナスルール ON/OFF が
+		// hub から辿れず、実オーナーから「どこから変更可能ですか」と問い合わせが来た。
+		// 活動・ポイント (activities) と紛らわしくならないよう、ごほうび文脈を先頭に置く。
+		href: '/admin/settings/rules',
+		title: SETTINGS_LABELS.groupRulesTitle,
+		desc: SETTINGS_LABELS.groupRulesDesc,
+		icon: CONCEPT_ICONS.reward,
+		testid: 'settings-hub-card-rules',
+	},
+	{
 		href: '/admin/settings/support',
 		title: SETTINGS_LABELS.groupSupportTitle,
 		desc: SETTINGS_LABELS.groupSupportDesc,
@@ -69,26 +79,11 @@ const groupCards: GroupCard[] = [
 	},
 ];
 
-// grace バナー (cancellation grace) を hub にも表示 — どの child route に行っても
-// 同じ警告を見せる代わりに hub で 1 度だけ示し、child route 側では再表示しない方針
-let reactivateSubmitting = $state(false);
-let cancelError = $state('');
-
-async function handleReactivate() {
-	if (reactivateSubmitting) return;
-	reactivateSubmitting = true;
-	cancelError = '';
-	try {
-		const res = await fetch('/api/v1/admin/tenant/reactivate', { method: 'POST' });
-		const d = await res.json();
-		if (!res.ok) throw new Error(d.error ?? '解約キャンセルに失敗しました');
-		window.location.reload();
-	} catch (err) {
-		cancelError = err instanceof Error ? err.message : '解約キャンセルに失敗しました';
-	} finally {
-		reactivateSubmitting = false;
-	}
-}
+// #3991 / #3986: `grace_period` は **支払い失敗 (dunning) の猶予** のみを意味する。
+// 解約申請中かどうかは Stripe の `cancel_at_period_end` が SSOT であり、その表示と
+// 「解約を取り消す」導線は /admin/subscription (SaasLicensePanel) が担う。
+// 旧実装はここに解約取り消しボタンを置いていたため、支払い失敗しただけのテナントが
+// それを押して未払いのまま ACTIVE に戻せてしまっていた (#3986)。
 </script>
 
 <svelte:head>
@@ -108,19 +103,8 @@ async function handleReactivate() {
 			<p class="text-sm text-[var(--color-feedback-error-text)] mb-4">
 				{SETTINGS_LABELS.gracePeriodDesc}
 			</p>
-			{#if cancelError}
-				<ErrorAlert message={cancelError} severity="error" action="retry" />
-			{/if}
-			<Button
-				type="button"
-				variant="success"
-				size="md"
-				disabled={reactivateSubmitting}
-				onclick={handleReactivate}
-			>
-				{reactivateSubmitting
-					? SETTINGS_LABELS.reactivateSubmitting
-					: SETTINGS_LABELS.reactivateAction}
+			<Button href="/admin/subscription" variant="primary" size="md">
+				{SETTINGS_LABELS.gracePeriodAction}
 			</Button>
 		</div>
 	{/if}

@@ -139,6 +139,7 @@
 			"!**/*.db",
 			"!**/site",
 			"!**/cdk.out",
+			"!**/cdk.context.json",
 			"!**/storybook-static",
 			"!**/app.css",
 			"!.claude",
@@ -148,6 +149,7 @@
 			"!**/.tmp-screenshots",
 			"!**/drizzle",
 			"!tests/fixtures/restore-real-scale-backup.json",
+			"!tests/fixtures/crlf",
 			"!**/.dependency-cruiser-known-violations.json",
 			"!**/eslint-suppressions.json"
 		]

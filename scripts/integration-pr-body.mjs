@@ -47,12 +47,11 @@
  *     --tracking-issues epic-issues.json
  *   → stdout に統合 PR 本文全文
  *
- * exit: 0 = 生成成功 / 2 = 引数不足 / 3 = template 読込失敗
+ * exit: 0 = 生成成功 / 2 = 引数不足 / 3 = template 読込失敗 / 4 = 含有 PR 一覧の件数不一致（#4053 AC5）
  */
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
  * PR の labels（string[] or {name}[]）を string[] に正規化する純粋関数。
@@ -149,6 +148,25 @@ export function buildContainedPrTable(prs) {
 	});
 
 	return `${header}\n${rows.join('\n')}`;
+}
+
+/**
+ * 生成 body の「含有 PR 一覧」表に実際に出力された PR 行数を数える純粋関数（#4053 AC5）。
+ *
+ * 表の data 行は必ず `| #<番号> |` で始まる（buildContainedPrTable）。空表の
+ * `| _(含有 PR なし …)_ |` は `#` 始まりでないため 0 と数えられる。
+ * CLI は本関数の結果を `--expected-contained`（git の main..develop merge 履歴由来の実数）と
+ * 突き合わせ、一致しなければ非 0 で終了する（silent に少ない一覧を出さない）。
+ *
+ * @param {string} body 生成済み統合 PR 本文
+ * @returns {number}
+ */
+export function countContainedTableRows(body) {
+	let count = 0;
+	for (const line of String(body ?? '').split('\n')) {
+		if (/^\|\s*#\d+\s*\|/.test(line)) count += 1;
+	}
+	return count;
 }
 
 /**
@@ -504,13 +522,7 @@ export function parseArgs(argv) {
 	return out;
 }
 
-const isMain = (() => {
-	try {
-		return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1] || '');
-	} catch {
-		return false;
-	}
-})();
+const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));
@@ -561,6 +573,26 @@ if (isMain) {
 		driftDays: Number.isFinite(driftDays) ? driftDays : null,
 		trackingIssues,
 	});
+
+	// #4053 AC5: 「含有 PR 一覧」の行数を git 側の実数（collect-integration-prs.mjs が
+	// main..develop の merge 履歴から算出した expectedContained）と突き合わせる。
+	// 一致しなければ body を出力せず非 0 で終了する（少ない一覧を silent に PR へ書かない）。
+	if (args['expected-contained'] !== undefined && args['expected-contained'] !== '') {
+		const expected = Number(args['expected-contained']);
+		const actual = countContainedTableRows(body);
+		if (!Number.isInteger(expected) || expected < 0) {
+			console.error(
+				`[integration-pr-body] --expected-contained が不正: ${args['expected-contained']}`,
+			);
+			process.exit(4);
+		}
+		if (actual !== expected) {
+			console.error(
+				`[integration-pr-body] 含有 PR 一覧の行数が git 側の実数と一致しません: 表 ${actual} 行 / 期待 ${expected} 件（main..develop の merged PR から back-merge / 統合 PR 自身を除いた数）。候補収集が取りこぼしています（#4053）。`,
+			);
+			process.exit(4);
+		}
+	}
 
 	process.stdout.write(body);
 	process.exit(0);
