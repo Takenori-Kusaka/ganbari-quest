@@ -5,6 +5,7 @@
 import { env } from '$env/dynamic/private';
 import { FAMILY_PLANS } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { jstYearMonth } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
@@ -355,8 +356,10 @@ async function sendPricingTriggerNotification(report: PricingTriggerReport): Pro
  * collectMonthlyMetrics を呼んで最新のメトリクスで判定する
  */
 export async function getActiveTriggers(): Promise<PricingTriggerReport> {
-	const now = new Date();
-	return runPricingTriggerCheck(now.getFullYear(), now.getMonth() + 1);
+	// 対象年月は JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) で月初 00:00〜09:00 に
+	// 前月メトリクスでトリガー判定していた。
+	const { year, month } = jstYearMonth();
+	return runPricingTriggerCheck(year, month);
 }
 
 /**

@@ -31,6 +31,7 @@ import { asCategoryId } from '$lib/domain/ids';
 // today categories count を使う形式とする。
 
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
+import { jstDayOfWeek } from '$lib/domain/date-utils';
 import { calcStreakBonus } from '$lib/domain/validation/activity';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 // 本 import は新 SSOT を直接参照 (旧 rule-preset-import-service の re-export 経由を撤去)。
@@ -162,7 +163,9 @@ export async function evaluateBonusHooks(
 
 			case 'weekend-special': {
 				// 土日: ポイント 2 倍 (relative)
-				const day = ctx.recordedAt.getDay(); // 0=日, 6=土
+				// 曜日は JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) で
+				// JST 月曜 00:00〜09:00 に「週末 2 倍」が誤付与され、土曜同時刻は付与漏れになる。
+				const day = jstDayOfWeek(ctx.recordedAt); // 0=日, 6=土
 				if (day === 0 || day === 6) {
 					const doublePoints = preset.rules.find((r) => r.title === 'しゅうまつ2ばいボーナス');
 					if (doublePoints) {

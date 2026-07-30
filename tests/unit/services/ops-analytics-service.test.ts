@@ -40,7 +40,17 @@ describe('getMonthKey', () => {
 	});
 
 	it('月が 1 桁の場合ゼロ埋めされる', () => {
-		expect(getMonthKey(new Date(2026, 0, 1))).toBe('2026-01');
+		// #4015: 入力を UTC 明示にする。`new Date(2026, 0, 1)` はローカル TZ で解釈されるため
+		// 実行環境 (dev=JST / CI=UTC) で結果が分岐し、test 自体が TZ 依存になっていた (#4051 教訓)。
+		expect(getMonthKey(new Date('2026-01-01T00:00:00Z'))).toBe('2026-01');
+	});
+
+	it('月キーは UTC 基準 — JST 深夜 (前日 UTC) は前月に入る', () => {
+		// 2026-01-01T05:00+09:00 = 2025-12-31T20:00Z。
+		// getMonthKey は createdAt (ISO UTC) を直接 key 化するため UTC 境界を採る。
+		// cohort-analysis-service が #3449 で UTC を月境界 SSOT に選んだ決定と同一 (両者の
+		// 月バケットが食い違うと /ops で retention と acquisition が不整合になる)。
+		expect(getMonthKey(new Date('2025-12-31T20:00:00Z'))).toBe('2025-12');
 	});
 });
 

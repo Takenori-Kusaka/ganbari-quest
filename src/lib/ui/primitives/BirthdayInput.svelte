@@ -1,5 +1,6 @@
 <script lang="ts">
 import { untrack } from 'svelte';
+import { jstYearMonth } from '$lib/domain/date-utils';
 import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 import FormField from './FormField.svelte';
 import NativeSelect from './NativeSelect.svelte';
@@ -24,7 +25,9 @@ let {
 	hint,
 }: Props = $props();
 
-const currentYear = new Date().getFullYear();
+// 年の選択肢は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC) と client で
+// 年始 00:00〜09:00 に選択肢の範囲が 1 年ずれる。
+const currentYear = jstYearMonth().year;
 const years = Array.from({ length: 19 }, (_, i) => currentYear - i);
 const yearOptions = years.map((y) => ({
 	value: String(y),

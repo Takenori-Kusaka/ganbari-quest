@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { formIdString } from '$lib/domain/form-value';
 import { asCategoryId, asChildId } from '$lib/domain/ids';
@@ -31,15 +32,11 @@ import {
 } from '$lib/server/services/voice-service';
 import type { Actions, PageServerLoad } from './$types';
 
+// 年齢計算は date-utils の SSOT (calculateAgeFromBirthDate) に委譲する (#4015)。
+// 旧実装は `new Date()` のローカル TZ getter で「今日」を決めており、Lambda (UTC) では
+// JST 00:00〜09:00 に誕生日当日の年齢が 1 歳ずれていた。
 function calculateAge(birthDate: string): number {
-	const birth = new Date(birthDate);
-	const today = new Date();
-	let age = today.getFullYear() - birth.getFullYear();
-	const monthDiff = today.getMonth() - birth.getMonth();
-	if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-		age--;
-	}
-	return Math.max(0, Math.min(18, age));
+	return Math.min(18, calculateAgeFromBirthDate(birthDate));
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定

@@ -4,6 +4,7 @@
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
+import { monthStartJST } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -63,8 +64,9 @@ async function getTenantStats(): Promise<TenantStats> {
 	const repos = getRepos();
 	const tenants = await repos.auth.listAllTenants();
 
-	const now = new Date();
-	const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+	// 月初境界は JST SSOT 経由 (#4015)。旧実装はローカル月初 (Lambda=UTC / dev=JST) で
+	// 環境ごとに「今月の新規テナント数」が変わっていた。
+	const monthStart = new Date(`${monthStartJST()}T00:00:00+09:00`);
 
 	return {
 		total: tenants.length,

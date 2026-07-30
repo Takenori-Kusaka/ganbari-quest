@@ -1,4 +1,5 @@
 <script lang="ts">
+import { jstYearMonth } from '$lib/domain/date-utils';
 import { OPS_EXPORT_LABELS } from '$lib/domain/labels';
 import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -7,9 +8,11 @@ import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
 let { data } = $props();
 
-let year = $state(new Date().getFullYear());
+// 初期値も JST SSOT 経由 (#4015)。$effect で server 値に収束するが、SSR (UTC) と
+// client (ブラウザ TZ) で初回描画が食い違うのを避ける。
+let year = $state(jstYearMonth().year);
 let monthFrom = $state(1);
-let monthTo = $state(new Date().getMonth() + 1);
+let monthTo = $state(jstYearMonth().month);
 // サーバーデータから年月を同期
 $effect(() => {
 	year = data.currentYear;

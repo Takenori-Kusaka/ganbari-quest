@@ -10,6 +10,7 @@ import { selectDailyEnemy } from '$lib/domain/battle-enemies';
 import { scaleEnemyStats } from '$lib/domain/battle-engine';
 import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-calculator';
 import type { BattleStats, Enemy } from '$lib/domain/battle-types';
+import { jstDayOfWeek } from '$lib/domain/date-utils';
 import { type ActivityId, asCategoryId, asChildId, type ChildId } from '$lib/domain/ids';
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
@@ -451,7 +452,9 @@ export function getDemoBattleData(childId: ChildId): DemoBattleData {
 	}
 
 	const playerStats = convertToBattleStats(categoryXp);
-	const dayOfWeek = new Date().getDay();
+	// 曜日は JST SSOT 経由 (#4015)。demo Lambda も UTC 稼働のため、ローカル getter だと
+	// JST 00:00〜09:00 に前日の曜日の敵が出て LP / デモ画面が本番と乖離する。
+	const dayOfWeek = jstDayOfWeek();
 	const enemy = selectDailyEnemy(dayOfWeek, 0.5, 0);
 	const scaling = getAgeScaling(child.uiMode ?? 'preschool');
 	const scaledEnemyStats = scaleEnemyStats(enemy.stats, scaling);

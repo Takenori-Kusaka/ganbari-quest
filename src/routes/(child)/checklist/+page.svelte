@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { jstDayOfWeek } from '$lib/domain/date-utils';
 import { APP_LABELS, CHILD_CHECKLIST_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
@@ -31,7 +32,9 @@ const DAY_NAMES = [
 	'どようび',
 ];
 
-const todayDayName = $derived(DAY_NAMES[new Date().getDay()]);
+// 曜日は JST SSOT 経由 (#4015)。ローカル getter だと SSR (UTC Lambda) が JST 00:00〜09:00 に
+// 前日の曜日を描画し、hydration で切り替わる (子供画面に誤情報 + ちらつき)。
+const todayDayName = $derived(DAY_NAMES[jstDayOfWeek()]);
 
 // 時間帯ラベル
 const TIME_SLOT_LABELS: Record<string, string> = {

@@ -4,6 +4,7 @@
 // 19-プライシング戦略書.md §6 の損益分岐点分析に準拠。
 // Stripe 売上 + AWS Cost Explorer データを統合して事業採算性を算出。
 
+import { jstYearMonth, monthKeyJST } from '$lib/domain/date-utils';
 import { logger } from '$lib/server/logger';
 import { type AWSCostData, getAWSCostData } from '$lib/server/services/ops-service';
 import { getStripeMetrics, type StripeMetrics } from '$lib/server/services/stripe-metrics-service';
@@ -211,7 +212,7 @@ function generateMockBreakevenData(): BreakevenData {
 	};
 
 	const mockAwsCosts: AWSCostData = {
-		month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+		month: monthKeyJST(now),
 		services: [
 			{ service: 'AWS Lambda', amount: 0.5, unit: 'USD' },
 			{ service: 'Amazon DynamoDB', amount: 2.8, unit: 'USD' },
@@ -267,8 +268,9 @@ export async function getBreakevenData(): Promise<BreakevenData> {
 
 	try {
 		const now = new Date();
-		const year = now.getFullYear();
-		const month = now.getMonth() + 1;
+		// 対象年月は JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) では JST 月初 /
+		// 年始の 00:00〜09:00 に前月 / 前年のコストを照会していた。
+		const { year, month } = jstYearMonth(now);
 
 		// 並列取得: Stripe 指標 + AWS 原価 (既存データソースを再利用)
 		const [metricsResult, awsCosts] = await Promise.all([

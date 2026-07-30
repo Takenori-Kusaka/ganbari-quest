@@ -1,3 +1,5 @@
+import { addDaysJST, jstYearMonth, monthEndOfKey, toJSTDateString } from '$lib/domain/date-utils';
+
 // Preset cooperative challenge catalog — 新規ユーザー向けの家族チャレンジテンプレート (#2298)
 //
 // Issue #2298 (EPIC #2294 ④): デフォルトプリセット 5-7 件 + setup フロー統合
@@ -145,16 +147,14 @@ export function resolvePresetChallengeDates(
 	preset: PresetChallenge,
 	now: Date = new Date(),
 ): { startDate: string; endDate: string } {
-	const year = now.getFullYear();
-	const month = now.getMonth() + 1; // 1-12
-	const day = now.getDate();
+	// 暦要素は JST SSOT 経由 (#4015)。ローカル getter だと Lambda (UTC) では JST 00:00〜09:00 に
+	// チャレンジ期間が 1 日 (月初 / 年始は 1 ヶ月 / 1 年) ずれる。
+	const todayStr = toJSTDateString(now);
+	const { year, month } = jstYearMonth(now);
+	const day = Number(todayStr.slice(8, 10));
 
 	function pad(n: number): string {
 		return String(n).padStart(2, '0');
-	}
-
-	function formatDate(d: Date): string {
-		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 	}
 
 	function resolveToken(token: string, isEnd: boolean): string {
@@ -162,23 +162,20 @@ export function resolvePresetChallengeDates(
 			return `${year}-${pad(month)}-01`;
 		}
 		if (token === 'this-month-end') {
-			const lastDay = new Date(year, month, 0).getDate(); // month は 1-12 だが Date(year, month, 0) で当月末日
-			return `${year}-${pad(month)}-${pad(lastDay)}`;
+			return monthEndOfKey(`${year}-${pad(month)}`);
 		}
 		if (token === 'today') {
-			return formatDate(now);
+			return todayStr;
 		}
 		if (token.startsWith('today-plus-')) {
 			const offset = Number(token.slice('today-plus-'.length));
-			const d = new Date(now);
-			d.setDate(d.getDate() + offset);
-			return formatDate(d);
+			return addDaysJST(todayStr, offset);
 		}
 		// MM-DD 形式
 		const match = /^(\d{2})-(\d{2})$/.exec(token);
 		if (!match) {
 			// fallback: 不正値は今日
-			return formatDate(now);
+			return todayStr;
 		}
 		const mm = Number(match[1]);
 		const dd = Number(match[2]);

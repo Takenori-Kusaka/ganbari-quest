@@ -1,5 +1,13 @@
 import { json } from '@sveltejs/kit';
 import * as v from 'valibot';
+import {
+	addDaysJST,
+	jstDayOfWeek,
+	jstYearMonth,
+	monthStartJST,
+	todayDateJST,
+	weekStartJST,
+} from '$lib/domain/date-utils';
 import { activityLogsQuerySchema, recordActivitySchema } from '$lib/domain/validation/activity';
 import { apiError, validationError } from '$lib/server/errors';
 import { getActivityLogs, recordActivity } from '$lib/server/services/activity-log-service';
@@ -52,20 +60,21 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	const dateTo = to;
 
 	if (!dateFrom) {
-		const now = new Date();
+		// 期間の起点は JST SSOT 経由 (#4015)。旧実装は「ローカル TZ の曜日で週頭を決めて
+		// UTC 文字列化」という #4003 と同型の混在で、JST 00:00〜09:00 に 1 日ずれていた。
 		switch (period) {
 			case 'week': {
-				const d = new Date(now);
-				d.setDate(d.getDate() - d.getDay()); // Start of week (Sunday)
-				dateFrom = d.toISOString().slice(0, 10);
+				// 週の起点は日曜 (本 API の既存仕様)。weekStartJST() は月曜始まりのため 1 日戻す。
+				const monday = weekStartJST();
+				dateFrom = jstDayOfWeek() === 0 ? todayDateJST() : addDaysJST(monday, -1);
 				break;
 			}
 			case 'month': {
-				dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+				dateFrom = monthStartJST();
 				break;
 			}
 			case 'year': {
-				dateFrom = `${now.getFullYear()}-01-01`;
+				dateFrom = `${jstYearMonth().year}-01-01`;
 				break;
 			}
 		}

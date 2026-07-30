@@ -2,7 +2,7 @@
 // トライアル管理サービス (#314 リファクタ)
 // trial_history テーブルベースに移行。settings の trial_* は後方互換用に読み取りのみ。
 
-import { toJSTDateString } from '$lib/domain/date-utils';
+import { addDaysJST, toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugTrialOverride } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
@@ -153,12 +153,12 @@ export async function startTrial(input: StartTrialInput): Promise<boolean> {
 		return false;
 	}
 
-	const now = new Date();
-	const end = new Date(now);
-	end.setDate(end.getDate() + durationDays);
-
-	const startStr = formatDate(now);
-	const endStr = formatDate(end);
+	// トライアル開始日 / 終了日は顧客可視かつプラン判定に直結する暦日。JST SSOT 経由で決める (#4015)。
+	// 旧実装はローカル TZ getter の独自 formatDate() で、Lambda (UTC) では JST 00:00〜09:00 に
+	// 開始したトライアルの開始日 / 終了日が 1 日前倒しになっていた
+	// (読み出し側 getTrialStatus は toJSTDateString() で JST 判定しており基準が不一致)。
+	const startStr = toJSTDateString(new Date());
+	const endStr = addDaysJST(startStr, durationDays);
 
 	await getRepos().trialHistory.insert({
 		tenantId,
@@ -208,11 +208,4 @@ export async function getTrialTier(tenantId: string): Promise<TrialTier | null> 
 
 	const status = await getTrialStatus(tenantId);
 	return status.isTrialActive ? status.trialTier : null;
-}
-
-function formatDate(d: Date): string {
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, '0');
-	const day = String(d.getDate()).padStart(2, '0');
-	return `${y}-${m}-${day}`;
 }
