@@ -150,12 +150,69 @@ WHERE family_id = '<検証対象の family uuid>';
 | §6 の psql 接続と UPDATE の実行 | AWS credential（`DbConnectAdmin` 相当）が必要で、リポジトリ内からは検証できない | 実行者が初回実行時に結果を PR に記録し、齟齬があれば本 runbook を修正する |
 | staging Cognito でのサインアップ完了 | SES 非構成のため確認コードの到達性が未確認 | 届かない場合はオーナーに Cognito 側でのユーザー作成を依頼する（admin 権限が必要） |
 | staging DSQL の初期データ | seed 配線が未実施（`docs/design/staging-synthetic-seed.md` §5） | 検証者が sign-up してデータを作る |
-| Stripe 経路 | staging に存在しない（§1） | 本番実測での代替可否をオーナーに確認する |
+| Stripe 経路 | **配線済（#4104）**。ただし webhook endpoint 登録と `STRIPE_WEBHOOK_SECRET_TEST` の登録が未完のため、実往復は未実証 | §10 の手順で endpoint を登録し、S-0〜S-5 を実施する |
 
-## 9. 関連
+## 9. Stripe test mode（#4104）
+
+staging には **test mode の Stripe 資格情報だけ**を配備する。test mode は本番顧客・本番決済・本番 Dashboard に一切影響しない。
+
+### 9.1 secret（GitHub Actions Secrets のみ）
+
+| secret | 状態 | 用途 |
+|---|---|---|
+| `STRIPE_SECRET_KEY_TEST` | 登録済 | staging Lambda の `STRIPE_SECRET_KEY` |
+| `STRIPE_WEBHOOK_SECRET_TEST` | **未登録**（§9.2 で登録） | staging webhook の署名検証 |
+| `STRIPE_PRICE_*` | **不要** | `USE_LOOKUP_KEY=true` で Stripe API の lookup_key から解決するため |
+
+### 9.2 staging webhook endpoint の登録手順（PO 作業、AC4）
+
+**staging の Function URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
+
+1. staging deploy 完了後、Function URL を取得する:
+
+```bash
+aws lambda get-function-url-config --function-name ganbari-quest-staging-app   --region us-east-1 --query FunctionUrl --output text
+```
+
+2. Stripe Dashboard を **test mode** に切り替え、Developers → Webhooks → 「Add endpoint」
+3. Endpoint URL に `<FunctionUrl>api/stripe/webhook` を入力
+4. 購読 event は `docs/design/billing-redesign/` の購読 event 一覧（#3990 で整合済）に合わせる
+5. 発行された signing secret を登録し、staging を再 deploy する:
+
+```bash
+gh secret set STRIPE_WEBHOOK_SECRET_TEST --body "whsec_xxxxxxxx" --repo Takenori-Kusaka/ganbari-quest
+```
+
+### 9.3 live 混入の機械強制（2 段）
+
+| 段 | 実体 | 停止タイミング |
+|---|---|---|
+| 1 | `deploy-aws-staging.yml` の `Validate required secrets` | synth 前 |
+| 2 | `infra/lib/compute-stack.ts` の allowlist（`sk_test_` / `rk_test_` 以外を `Annotations.addError`） | synth 時（deploy に進まない） |
+
+**検証には実 live key を使わない。** `sk_live_` + `0` を 28 個並べた、**prefix だけが本物のダミー文字列**で確認する。判定は prefix の形にのみ依存させてあるため、ダミーで落ちる。**ダミーで落ちなければ実装の欠陥**である。
+
+実 live key を staging env に投入する操作は行わない。万一 hard-fail が効かなかった場合、本番課金鍵が staging に配備された状態が成立し、これは不可逆である。
+
+**守れない範囲（明示）**: webhook signing secret は test / live とも `whsec_` で prefix が同一のため、文字列から判別できない。形式検査のみで、live 判別は secret key 側の allowlist が担う。
+
+### 9.4 検証項目 S-0〜S-5（#4104 の close 条件）
+
+| # | 項目 | 合格条件 |
+|---|---|---|
+| **S-0** | test card で checkout を完了し、**webhook が実際に届き**、**DB の plan が変わり**、**`/admin/subscription` の実画面に反映が出る** | **3 つ全部**。1 つでも欠けたら不合格 |
+| S-1 | Lambda env に Stripe test key が入る | `isStripeEnabled()=true` |
+| S-2 | **ダミー** live prefix で deploy を試み hard-fail する | synth が error で停止（実 live key は使わない） |
+| S-3 | staging webhook endpoint 登録 + 本節の手順が読める | endpoint が test mode に存在する |
+| S-4 | #4081 AC6（webhook 未達時の `success_url` 救済経路） | reconciliation が `applied` を返す |
+| S-5 | #4096 Q2（解約 → 期末まで利用可 → 取り消し） | 各段で契約状態が期待どおり |
+
+**S-0 が通って初めて #4104 を close する。** S-4（救済経路）が通ることは S-0（本線）が通ることの代わりにならない。救済経路は本線が落ちたときのためのものであり、2026-07-26 に落ちたのは本線（webhook 到達）である。
+
+## 10. 関連
 
 - [docs/runbooks/staging-gate-required-checks.md](staging-gate-required-checks.md) — staging deploy gate の required 化手順
 - [docs/design/staging-synthetic-seed.md](../design/staging-synthetic-seed.md) — PII-free 合成 seed の設計と配線状況
 - [docs/runbooks/dsql-restore.md](dsql-restore.md) — DSQL の backup / 復元
 - `.github/workflows/deploy-aws-staging.yml` / `infra/lib/compute-stack.ts` / `infra/lib/auth-stack.ts` / `infra/lib/env-config.ts`
-- Issue #2873（AWS staging stack）/ #3732（invite / members の local 検証不可）/ #4099（本 runbook の初回実行と gap 4 項目の確定）
+- Issue #2873（AWS staging stack）/ #3732（invite / members の local 検証不可）/ #4099（本 runbook の初回実行と gap 4 項目の確定）/ #4104（staging Stripe test mode）/ #4117（EPIC E1）

@@ -9,7 +9,17 @@ name: Deploy to AWS (Staging)
 #   - CDK は `-c stagingEnabled=true` の context gate でのみ staging stack を instantiate する。
 #     本番 deploy.yml の `cdk deploy --all` / `cdk diff --all` (context 無し) は挙動不変。
 #   - staging 3 stack は**明示列挙**で deploy する (`--all` 不使用、本番 6 stack との混線防止)。
-#   - 外部サービス副作用ゼロ: Stripe / Discord / Gemini / SES 系 secret は一切渡さない。
+#   - 外部サービス副作用ゼロ (Stripe は test mode のみ例外、#4104):
+#     Discord / Gemini / SES 系 secret は一切渡さない。**Stripe は test mode の資格情報だけ**を渡す。
+#     なぜ安全か: Stripe の test mode は本番顧客・本番決済・本番 Dashboard に一切影響しない独立空間で、
+#     防ぎたかったもの (本番顧客への副作用) は test mode では原理的に起こらない。逆に secret を一切
+#     渡さない運用は「課金修正が本番に出るまで一度も実 Stripe を通らない」状態を作り、#3958 (初の有料
+#     課金が丸ごと落ちて無通知) と同じ轍を踏む。
+#     live は禁止し、人の注意力ではなく機械で止める (2 段):
+#       (1) 本 workflow の `Validate required secrets` step が synth 前に prefix を検査
+#       (2) ComputeStack が synth 時に allowlist (`sk_test_` / `rk_test_` 以外) を addError で停止
+#     webhook signing secret は test / live とも `whsec_` で **prefix から判別できない**。ここは守れない
+#     範囲として明示する (live 側の実行権限は secret key が握るため secret key の allowlist が防御線)。
 #
 # 責務分界 (docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3):
 #   - 本 workflow の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
@@ -102,6 +112,8 @@ jobs:
           AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
+          STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          STRIPE_WEBHOOK_SECRET_TEST: ${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
         run: |
           missing=0
           for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY; do
@@ -116,6 +128,30 @@ jobs:
           if [ $missing -gt 0 ]; then
             echo "::error::$missing required secret(s) missing — aborting staging deploy (#2873)"
             exit 1
+          fi
+
+          # #4104: Stripe は test mode のみ許可。live prefix を synth 前に止める (機械強制 1 段目)。
+          # allowlist 判定 — 既知の test prefix 以外は全て停止する (未知 prefix の素通り防止)。
+          if [ -n "$STRIPE_SECRET_KEY_TEST" ]; then
+            case "$STRIPE_SECRET_KEY_TEST" in
+              sk_test_*|rk_test_*)
+                echo "::notice::STRIPE_SECRET_KEY_TEST is a test mode key" ;;
+              *)
+                echo "::error::STRIPE_SECRET_KEY_TEST is NOT a test mode key (must start with sk_test_ / rk_test_). staging に live key は配備できません (#4104)"
+                exit 1 ;;
+            esac
+          else
+            echo "::warning::STRIPE_SECRET_KEY_TEST 未登録 — staging は Stripe 無効 (isStripeEnabled()=false) で起動します (#4104)"
+          fi
+          if [ -n "$STRIPE_WEBHOOK_SECRET_TEST" ]; then
+            case "$STRIPE_WEBHOOK_SECRET_TEST" in
+              whsec_*) echo "::notice::STRIPE_WEBHOOK_SECRET_TEST format OK" ;;
+              *)
+                echo "::error::STRIPE_WEBHOOK_SECRET_TEST の形式が不正です (whsec_ で始まる必要があります、#4104)"
+                exit 1 ;;
+            esac
+          else
+            echo "::warning::STRIPE_WEBHOOK_SECRET_TEST 未登録 — webhook 受信は検証できません (#4104 S-3 で PO が登録)"
           fi
 
       # Step 4: AWS OIDC 認証 (deploy.yml と同 action / 同 secret)
@@ -262,6 +298,8 @@ jobs:
             -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
+            -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 11: staging 3 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
@@ -281,7 +319,9 @@ jobs:
             npx cdk deploy "$stack" --require-approval never \
               -c stagingEnabled=true $DSQL_CTX \
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
-              -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+              -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+              -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
+              -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done
 
       # Step 11.5 (#3646、DSQL lane のみ): アプリ実行 role (app_user) の provisioning。

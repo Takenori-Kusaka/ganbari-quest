@@ -533,7 +533,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
 | ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
 | Cognito | custom domain `auth.ganbari-quest.com` + Google IdP | default domain（prefix `ganbari-quest-staging`）。Google IdP / Route53 省略。SSM `cognito/domain` param は default domain 値で必ず書く |
-| 外部サービス env | Stripe / Discord / Gemini / SES 注入 | **非注入**（本番外部サービスへの副作用ゼロ。SES / Cost Explorer の IAM grant も付与しない） |
+| 外部サービス env | Stripe / Discord / Gemini / SES 注入 | Discord / Gemini / SES は**非注入**（SES / Cost Explorer の IAM grant も付与しない）。**Stripe は test mode のみ注入**（#4104。test mode は本番顧客・本番決済に影響しないため「本番への副作用ゼロ」は保たれる。live は 2 段の機械強制で停止 — workflow の synth 前 prefix 検査 + ComputeStack の allowlist `sk_test_`/`rk_test_`。price id は `USE_LOOKUP_KEY=true` で lookup_key 解決に寄せ env を増やさない。webhook signing secret は test/live とも `whsec_` で判別不能なため形式検査のみ = 守れない範囲として明示。手順 SSOT: [runbooks/staging-live-verification.md §9](../runbooks/staging-live-verification.md)） |
 | demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
