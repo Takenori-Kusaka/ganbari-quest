@@ -77,6 +77,7 @@ aws logs tail /aws/lambda/ganbari-quest-staging-app --region us-east-1 --since 1
 - **`DEV_USERS`（`src/lib/server/auth/providers/cognito-dev.ts`）は staging に存在しない**。あれは `COGNITO_DEV_MODE` 前提のローカル専用定義で、staging Lambda env に `COGNITO_DEV_MODE` は入っていない。
 - **staging DSQL には seed 配線が無い**（`docs/design/staging-synthetic-seed.md` §5「AWS staging: 構造準備済 / 配線は #2873」）。検証対象の家族データは、sign-up して自分で作ったものになる。
 - サインアップ確認メールは Cognito default email 送信（SES 非構成）。届かない場合は §6 の gap に従いオーナーに依頼する。
+- **検証が終わったら作成した Cognito ユーザーを削除する**（`aws cognito-idp admin-delete-user --user-pool-id <staging pool id> --username <検証用ユーザー>`）。放置すると staging に検証者の実メールアドレスが残り続ける。削除権限が無い場合はオーナーに依頼する。
 
 ## 6. Step 4 — DSQL の対象行を書き換える / 戻す
 
@@ -96,11 +97,13 @@ aws dsql generate-db-connect-admin-auth-token --hostname "$DSQL_ENDPOINT" \
   --region us-east-1 --expires-in 3600
 ```
 
+> **トークンの取扱い**: 有効期限は 3600 秒（`--expires-in` の値）。**PR body / Issue / チャットに貼らない**、シェル履歴に残さない（変数へ代入するか `HISTCONTROL=ignorespace` 下で先頭スペース付き実行）、検証完了後は変数を破棄（`unset`）してターミナルを閉じる。`aws dsql` は AWS CLI v2 の新しめのバージョンでのみ提供されるサブコマンド。`aws dsql help` が引けない場合は CLI を最新に更新してから再実行する（リポジトリ内の DSQL 経路は SDK 実装で CLI の前例が無いため、初回実行者は先に疎通を確認すること）。
+
 > **リポジトリに任意 SQL を流す汎用 CLI は無い**（`dsql:migrate` は migration 適用、`dsql:grant` は role 付与の専用ツール）。上記トークンを外部 PostgreSQL クライアント（psql 等）のパスワードとして渡して接続する。この接続方式は `docs/research/dsql-poc-phase1-results-2026-07-05.md` の実クラスタ PoC で確認されているが、**staging cluster で本 runbook 作成時に再実行はしていない**（§8 参照）。
 
 ### 6.2 書き換え手順（必ず 5 段で行う）
 
-`families.plan` の値は `src/lib/domain/constants/subscription-plan.ts`（`monthly` / `yearly` / `family-monthly` / `family-yearly` / `lifetime`）、`families.status` は `src/lib/domain/constants/subscription-status.ts`（`active` / `grace_period` / `suspended` / `terminated`）が SSOT。SSOT 外の値を入れると `families_status_ck` で拒否される。
+`families.plan` の値は `src/lib/domain/constants/subscription-plan.ts`（`monthly` / `yearly` / `family-monthly` / `family-yearly` / `lifetime`）、`families.status` は `src/lib/domain/constants/subscription-status.ts`（`active` / `grace_period` / `suspended` / `terminated`）が SSOT。**DB が拒否するのは `status` だけ**（`families_status_ck`）で、**`plan` には CHECK が無い**（`src/lib/server/db/dsql/schema.ts` の `families` 定義コメント: plans lookup 表参照のため CHECK を張らない）。SSOT 外の plan を書いても DB は黙って受理するので、投入前に値を目視確認すること（typo を「拒否されなかった = 正しい値」と誤認すると §7 の観測結果がバグか typo か切り分けられなくなる）。
 
 ```sql
 -- (1) 変更前の値を控える（この出力を PR body に貼る）
@@ -138,7 +141,7 @@ WHERE family_id = '<検証対象の family uuid>';
 
 再ログインせずに反映されるかを見る検証では、**書き換え後にログアウトしない**こと（Cookie を作り直すと「毎リクエスト DB から解決しているか」を確認できなくなる）。
 
-証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。
+証跡は「(1) の SELECT 出力 → (2) の UPDATE → 観測結果（スクリーンショット / ログ）→ (5) の SELECT 出力」の順に PR body へ貼る。**本リポジトリは OSS 公開前提のため、貼付時に `family_id`（UUID）とメールアドレスをマスクする**（`family_id=<masked>` に置換するか、出力を貼らず「(1) と (5) の plan / status / plan_expires_at が一致することを確認した」と記す）。スクリーンショットに課金状態以外の識別情報が写り込んでいないかも貼る前に確認する。
 
 ## 8. 本 runbook が保証できない点
 
