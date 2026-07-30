@@ -137,7 +137,7 @@
 | `npm run dev` | 開発サーバー (port 5173、local モード) |
 | `npm run dev:cognito` | Cognito 認証画面 (#1026、認証画面 PR Ready 前必須) |
 | `npm run build` | SvelteKit production build |
-| `npm run pre-ready -- --pr <num>` | Ready 化前 全 20 step 検証 (ADR-0030 / #1920 / #2918 / #4015。一覧 SSOT は `--help`。実行順は cheap-fail-first で Step 番号順ではない、#4048) |
+| `npm run pre-ready -- --pr <num>` | Ready 化前 全 6 step 検証 (ADR-0030 / #4121。選定基準は ADR-0007 §1-2 判断原則 v2、外した検査は CI で hard-fail 継続。一覧・対応表 SSOT は `--help`。実行順は cheap-fail-first で Step 番号順ではない、#4048) |
 | `npx biome check .` | Biome lint (Tier T1) |
 | `npx svelte-check` | Svelte 型チェック |
 | `npx vitest run` | unit / integration テスト |

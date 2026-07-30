@@ -8,12 +8,13 @@
  * mergeable: CONFLICTING / ローカル biome / svelte-check / vitest 忘れ を、
  * Ready 化前に開発者がローカルで一括検出できるようにする。
  *
- * Issue #1920 で SSOT 検証 3 step を追加 (1 step は既存): check-no-plan-literals (#972 /
- * Phase 5 F1) / sync-lp-fallback (#1945 / Phase 5 F2、既存) / generate-lp-labels --check
- * (#1917 / Phase 1 B1)。F1 #1918 未 merge でも graceful degradation で skip + warning とし、
- * 本 PR を独立に Ready 化可能にする。
+ * #4121 (E5 Wave 2): step が 20 本まで増えて 1 PR が 1 日で回らなくなったため、
+ * **hard-fail は 6 本**に絞った。選定は ADR-0007 §1-2「判断原則 v2」に従い、
+ * 類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを残す。
+ * **外した検査は消していない** — CI (ci.yml lint-and-test / unit-test、lp-metrics.yml、
+ * lp-fallback-check.yml) で hard-fail のまま走る。対応表は `--help` を参照。
  *
- * Step 1-10 を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
+ * 6 step を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
  * 各 Step は既存の `scripts/*.mjs` / `npm run *` を子プロセスで呼ぶラッパー（独自実装は最小化）。
  *
  * 設計選定 (Issue #1775 / OSS 比較):
@@ -27,7 +28,7 @@
  *
  * Usage:
  *   npm run pre-ready -- --pr 1920
- *   npm run pre-ready -- --pr 1920 --skip-vitest          # vitest 判定を CI unit-test へ委譲 (#4007)
+ *   npm run pre-ready -- --pr 1920 --skip-svelte-check     # 部分確認 (ALL PASS は名乗らない)
  *   npm run pre-ready                                      # PR 未作成時 (PR body / mergeable 検証はスキップ)
  *
  * exit:
@@ -62,25 +63,11 @@ const failOpenNotes = [];
 
 const SKIP_FLAGS = {
 	'--skip-biome': 'skipBiome',
-	'--skip-cspell': 'skipCspell',
 	'--skip-svelte-check': 'skipSvelteCheck',
-	'--skip-vitest': 'skipVitest',
-	'--skip-hardcoded': 'skipHardcoded',
-	'--skip-lp-dimensions': 'skipLpDimensions',
-	'--skip-lp-fallback': 'skipLpFallback',
 	'--skip-plan-literals': 'skipPlanLiterals',
-	'--skip-license-key-leak': 'skipLicenseKeyLeak',
-	'--skip-cli-entry-guard': 'skipCliEntryGuard',
 	'--skip-local-tz-getters': 'skipLocalTzGetters',
-	'--skip-sparse-checkout-closure': 'skipSparseCheckoutClosure',
-	'--skip-readdir-rotation-guard': 'skipReaddirRotationGuard',
-	'--skip-repo-scan-test-declaration': 'skipRepoScanTestDeclaration',
-	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
-	'--skip-doc-code-references': 'skipDocCodeReferences',
-	'--skip-terminology-coherence': 'skipTerminologyCoherence',
 	'--skip-ss-embed-gate': 'skipSsEmbedGate',
-	'--skip-capture': 'skipCapture',
 };
 
 function parseArgs(argv) {
@@ -88,23 +75,10 @@ function parseArgs(argv) {
 		pr: null,
 		skipBiome: false,
 		skipSvelteCheck: false,
-		skipVitest: false,
-		skipHardcoded: false,
-		skipLpDimensions: false,
-		skipLpFallback: false,
 		skipPlanLiterals: false,
-		skipLicenseKeyLeak: false,
-		skipCliEntryGuard: false,
 		skipLocalTzGetters: false,
-		skipSparseCheckoutClosure: false,
-		skipReaddirRotationGuard: false,
-		skipRepoScanTestDeclaration: false,
-		skipLpLabels: false,
 		skipPrBody: false,
-		skipDocCodeReferences: false,
-		skipTerminologyCoherence: false,
 		skipSsEmbedGate: false,
-		skipCapture: false,
 		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
@@ -128,66 +102,50 @@ pre-ready — Ready for Review 前のローカル一括セルフチェック (Is
 
 Usage:
   npm run pre-ready -- --pr <number>
-  npm run pre-ready                                # PR 未作成時 (Step 9, 12 はスキップ)
+  npm run pre-ready                                # PR 未作成時 (Step 9 / 11b はスキップ)
 
 Options:
   --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
   --skip-biome           Step 1 biome check をスキップ
-  --skip-cspell          Step 1b cspell spell check をスキップ
   --skip-svelte-check    Step 2 svelte-check をスキップ
-  --skip-vitest          Step 3 vitest をローカルで実行せず CI job unit-test へ委譲 (#4007)
-                         Ready 化前に gh pr checks <num> で unit-test が pass (skipped でない)
-                         ことを確認すること。ci-gate は skipped を failure として数えないため
-                         ci-gate green は委譲先が走った証拠にならない
-  --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
-  --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
-  --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
-  --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972 / Phase 5 F1)
-  --skip-license-key-leak Step 7b license key 再導入防止検査をスキップ (#2836 / Phase 7 PR-L4)
-  --skip-cli-entry-guard Step 7c 自前の CLI 直接実行判定 / 手組み file:// URL 検査をスキップ (#3969)
-  --skip-sparse-checkout-closure Step 7d workflow sparse-checkout の import 閉包検査をスキップ (#3969)
-  --skip-readdir-rotation-guard Step 7e readdir の緩い一致 × 破壊的操作の検査をスキップ (#3978)
-  --skip-repo-scan-test-declaration Step 7f repo 走査 test の区分宣言検査をスキップ (#4085)
+  --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972)
   --skip-local-tz-getters Step 7g ローカル TZ 日付 getter 検査をスキップ (#4015 / ADR-0061)
-  --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
-  --skip-pr-body         Step 9 PR body 検査をスキップ
-  --skip-doc-code-references Step 10 デッドリンク検査をスキップ
-  --skip-terminology-coherence Step 11 用語不統一・add 経路重複検査をスキップ
+  --skip-pr-body         Step 9 Readiness gate をスキップ
   --skip-ss-embed-gate   Step 11b SS embed gate (UI 変更 PR の SS 未 embed hard-fail、#2918) をスキップ
-  --skip-capture         Step 12 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
-Steps (番号は表示上の識別子。実行順は下記「実行順」を参照 — #4048):
-  1.  biome check                 — lint
-  1b. cspell                      — spell check (CI lint-and-test と同一コマンド、#3649)
+Steps (6 本。番号は既存の識別子を維持 — 実行順は下記「実行順」を参照、#4048 / #4121):
+  1.  biome check                 — lint (recommended の correctness / suspicious を含む)
   2.  svelte-check                — TS strict 型チェック
-  3.  vitest run                  — unit test (storybook 以外)
-  4.  check-hardcoded-strings.mjs — JP ハードコード baseline 監視 (#1452)
-  5.  measure-lp-dimensions.mjs   — LP 寸法 / 禁止語 (LP 変更時のみ)
-  6.  sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
-  7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
-  7b. check-license-key-leak.mjs — license key 再導入防止 (#2836 / Phase 7 PR-L4)
-  7c. check-cli-entry-guard.mjs  — 自前の CLI 直接実行判定 / 手組み file:// URL 禁止 (#3969)
-  7d. check-workflow-sparse-checkout-closure.mjs — workflow sparse-checkout の import 閉包検査 (#3969)
-  7e. check-readdir-rotation-guard.mjs — readdir の緩い一致で世代を数える class の検出 (#3978)
-  7f. check-repo-scan-test-declaration.mjs — repo 走査 test の区分宣言 + 明示 timeout 検査 (#4085)
-  7g. check-local-tz-date-getters.mjs — ローカル TZ 日付 getter 禁止 / JST SSOT 強制 (#4015 / ADR-0061)
-  8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
+  7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972)
+  7g. check-local-tz-date-getters.mjs — ローカル TZ 日付 getter 禁止 / JST SSOT 強制 (#4015)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
-  10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
-  11. check-terminology-coherence.ts — 用語不統一・add 経路重複検知 (#2555)
   11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918、CI screenshot-check と SSOT 共有)
-  12. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+
+選定基準 (ADR-0007 §1-2 判断原則 v2、#4121):
+  類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを
+  pre-ready に残す。残りは CI 側で hard-fail のまま走る。
+    - 類型 1: Step 9 (Ready checklist / AC 証跡 / 禁止語) / Step 11b (SS 証跡)
+    - 類型 2: Step 1 / 2 / 7 / 7g
+
+pre-ready から外した検査の行き先 (**検査を消したわけではない** — CI で hard-fail のまま走る、#4121):
+  cspell / hardcoded-strings / license-key-leak / cli-entry-guard /
+  sparse-checkout-closure / readdir-rotation-guard / repo-scan-test-declaration /
+  doc-code-references / terminology-coherence / generate-lp-labels --check
+                                  → .github/workflows/ci.yml (lint-and-test)
+  vitest                          → .github/workflows/ci.yml (unit-test、2 shard)
+  measure-lp-dimensions           → .github/workflows/lp-metrics.yml
+  sync-lp-fallback --check        → .github/workflows/lp-fallback-check.yml
+  capture (撮影ガイダンス表示のみで検査ではなかった) → 撤去。SS 未 embed は Step 11b が検出する
+  ローカルで個別に回したいときは npm run cspell / npx vitest run 等を直接叩く。
 
 実行順 (cheap-fail-first、#4048):
   Step 番号は PR body / docs / Issue から広く参照されるため変更しない。実行順だけを
   「判定に要する時間と参照する情報の量」で並べ替える。同一クラス内は上記の番号順を保つ。
     1) meta      PR body / メタ情報だけを見る    — Step 9
-    2) static    静的テキスト / 単一ファイル検査 — Step 1 / 1b / 4 / 6 / 7 / 7b / 7c / 7d / 7e / 7f / 7g / 8 / 10 / 11
+    2) static    静的テキスト / 単一ファイル検査 — Step 1 / 7 / 7g
     3) typecheck 型検査                          — Step 2
-    4) test      テスト実行                      — Step 3
-    5) browser   ヘッドレスブラウザ実測          — Step 5
-    6) ui        SS 系                           — Step 11b / 12
+    4) ui        SS 系                           — Step 11b
   検査の集合・合否条件は並べ替えの前後で同一 (tests/unit/scripts/pre-ready-order-and-base.test.ts が固定)。
 
 Exit codes:
@@ -393,35 +351,30 @@ function fetchPrBodyAndLabels(prNumber) {
 
 /**
  * 隔離 worktree (`.claude/worktrees/`) では worktree 生成後に `node_modules` が
- * 自動 install されない。依存欠落のまま pre-ready を回すと Step 2/3 (svelte-check /
- * vitest) が「変更と無関係な」大量 error / spawn 失敗になり、品質ゲートが空振りする
+ * 自動 install されない。依存欠落のまま pre-ready を回すと Step 2 (svelte-check) が
+ * 「変更と無関係な」大量 error / spawn 失敗になり、品質ゲートが空振りする
  * (#3855 / #3856 の 2 agent が共に遭遇)。これを silent に通さず、着手前に明示ガイダンス付きで
  * fail-fast する (ADR-0006 no-silent-fail 整合 / #3857 AC1「依存欠落を silent に pass しない」)。
  *
  * biome の「Checked 0 files」false-negative は本体側 (biome.json の `.claude` ignore を
- * repo 相対 `!.claude` に anchor 化) で根治済み (#3857 Fix B)。本 preflight は残る
- * node_modules 欠落 (Step 2/3 svelte-check/vitest、Step 11 tsx) を対象とする。
+ * repo 相対 `!.claude` に anchor 化) で根治済み (#3857 Fix B)。
  *
  * 検出:
  *   - worktree 判定: `repoRoot/.git` が「ファイル」(linked worktree の gitdir ポインタ) なら worktree。
  *     通常 clone では `.git` はディレクトリなので false。
- *   - 依存欠落判定: pre-ready 各 step が依存する代表 sentinel の存在確認。root `node_modules` に加え、
- *     `infra/node_modules/aws-cdk-lib` も検査する — Step 3 vitest の scope (`tests/unit/**`) には
- *     `tests/unit/infra/*.test.ts` が含まれ aws-cdk-lib (infra 配下) を要求するため (tests/CLAUDE.md)。
- *     `npm ci` の prepare が `cd infra && npm ci` を warn-only で実行する構造上、root だけ入って
- *     infra が欠ける組合せがあり得るので両方を sentinel にする (#3857 で報告された aws-cdk-lib 欠落を捕捉)。
+ *   - 依存欠落判定: pre-ready 各 step が依存する代表 sentinel の存在確認。
+ *     #4121 で 6 step に絞ったため、vitest / tsx / infra の aws-cdk-lib は pre-ready の依存では
+ *     なくなった (それぞれ CI job 側の依存)。sentinel を過剰に要求すると、pre-ready が回せない
+ *     理由を本来不要な install に求めることになるため、残す 6 step が実際に spawn するものだけを見る。
  *
- * pre-ready Step 1/2/3/11 が依存する代表 sentinel。1 つでも欠落したら install 未完了とみなす。
+ * pre-ready Step 1 / 2 が依存する代表 sentinel。1 つでも欠落したら install 未完了とみなす。
  * (export: tests/unit/scripts/pre-ready-preflight.test.ts が root 差替えで検証する)
  */
 export const PREFLIGHT_SENTINELS = [
 	'node_modules', // 本体
-	'node_modules/.bin', // spawn する CLI 群 (svelte-check / vitest / tsx / biome)
+	'node_modules/.bin', // spawn する CLI 群 (svelte-check / biome)
 	'node_modules/svelte-check', // Step 2
-	'node_modules/vitest', // Step 3
-	'node_modules/tsx', // Step 11 (npx tsx check-terminology-coherence.ts)
 	'node_modules/@biomejs/biome', // Step 1
-	'infra/node_modules/aws-cdk-lib', // Step 3 vitest (tests/unit/infra/*.test.ts、tests/CLAUDE.md)
 ];
 
 /**
@@ -611,13 +564,13 @@ export function skipStateOf({
  * console.log を持たない純関数にしてあるのは、AC1〜AC3 (適用対象外のみなら ALL PASS /
  * flag 指定なら PARTIAL PASS / 両者を別行表示) を全 step を回さずに unit test で固定するため。
  *
- * #4007: `delegated` は「未実行」ではなく「判定の場所を CI に移した」step。ALL PASS を妨げないが、
- * 委譲先 job が **実行されて pass した** ことの確認手順を必ず出す (`ci-gate` は skipped を failure
- * として数えないため ci-gate green は委譲先が走った証拠にならない = 沈黙 skip を作らない)。
+ * #4007 / #4121: pre-ready は 6 step に絞り、残りの検査は CI で hard-fail のまま走る。
+ * 「pre-ready ALL PASS = 全部通った」と誤読されると沈黙 skip と同じ害になるため、summary は
+ * 必ず「pre-ready 外で走る検査と、その確認方法」を出す (`ci-gate` は skipped を failure として
+ * 数えないため ci-gate green は委譲先が走った証拠にならない)。
  *
  * @param {{ totalSteps: number; skippedByFlag: string[]; skippedScriptMissing: string[];
  *           skippedPrMissing?: string[]; skippedNotApplicable: string[];
- *           delegated?: { name: string; job: string; howToVerify: string }[];
  *           failOpenCount?: number; pr?: string | null }} input
  * @returns {{ status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string }}
  */
@@ -627,24 +580,20 @@ export function buildSummary({
 	skippedScriptMissing,
 	skippedPrMissing = [],
 	skippedNotApplicable,
-	delegated = [],
 	failOpenCount = 0,
 	pr = null,
 }) {
-	// #4007: CI へ委譲した step の確認手順ブロック (委譲が無ければ空文字)
-	const delegationBlock =
-		delegated.length > 0
-			? `  CI へ委譲した step (${delegated.map((d) => d.name).join(', ')}):\n` +
-				delegated
-					.map(
-						(d) =>
-							`    - ${d.name} → CI job \`${d.job}\`。Ready 化前に **実行されて pass した** ことを確認する:\n` +
-							`        ${d.howToVerify}\n` +
-							`      \`${d.job}\` が skipped の PR は Ready にしない (skipped は pass ではない)。\n` +
-							`      \`ci-gate\` は skipped を failure として数えないため、ci-gate green を根拠にしない。\n`,
-					)
-					.join('')
-			: '';
+	// #4121: pre-ready 外 (CI 側 hard-fail) で走る検査の確認手順。step から外したことと
+	// 検査を消したことは別なので、外した先を必ず名指しする。
+	const ciSideBlock =
+		`  pre-ready 外の検査 (CI で hard-fail、#4121):\n` +
+		`    - unit-test        vitest (2 shard)\n` +
+		`    - lint-and-test    cspell / hardcoded-strings / doc-code-references / terminology-coherence /\n` +
+		`                       license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
+		`    - lp-metrics       LP 寸法・禁止語 (LP 変更時)\n` +
+		`    - lp-fallback-check LP fallback 同期 (LP / labels.ts 変更時)\n` +
+		`    Ready 化前に \`gh pr checks ${pr ?? '<num>'}\` でこれらが **pass (skipped でない)** ことを確認する。\n` +
+		`    \`ci-gate\` は skipped を failure として数えないため、ci-gate green を根拠にしない。\n`;
 	// 適用対象外 (n/a) は「実行しなくてよいので実行していない」であり ALL PASS を妨げない。
 	const notApplicableLine =
 		skippedNotApplicable.length > 0
@@ -669,7 +618,7 @@ export function buildSummary({
 		]
 			.filter(Boolean)
 			.join(' / ');
-		const ran = totalSteps - blocking.length - skippedNotApplicable.length - delegated.length;
+		const ran = totalSteps - blocking.length - skippedNotApplicable.length;
 		return {
 			status: 'PARTIAL_PASS',
 			text:
@@ -678,24 +627,21 @@ export function buildSummary({
 				notApplicableLine +
 				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
 				`  skip なしの \`npm run pre-ready -- --pr ${pr ?? '<num>'}\` 全 step PASS が必要です。\n` +
-				delegationBlock,
+				ciSideBlock,
 		};
 	}
 
 	return {
 		status: 'ALL_PASS',
 		text:
-			`\n[pre-ready] ALL PASS${delegated.length > 0 ? ` (${delegated.length} step は CI へ委譲 — 下記を確認)` : ''}${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+			`\n[pre-ready] ALL PASS (pre-ready 6 step)${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
 			notApplicableLine +
-			delegationBlock +
+			ciSideBlock +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
-			(delegated.length > 0
-				? `    2. gh pr checks ${pr ?? '<num>'}                           # 委譲先 job が pass (skipped でない) ことを確認\n` +
-					`    3. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
-					`    4. CI 全緑になるまで待機し、QM レビューを依頼\n`
-				: `    2. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
-					`    3. CI 全緑になるまで待機し、QM レビューを依頼\n`),
+			`    2. gh pr checks ${pr ?? '<num>'}                           # 上記 CI job が pass (skipped でない) ことを確認\n` +
+			`    3. gh pr ready ${pr ?? '<num>'}                            # Ready for Review に変更\n` +
+			`    4. CI 全緑になるまで待機し、QM レビューを依頼\n`,
 	};
 }
 
@@ -710,15 +656,6 @@ export function buildSummary({
  * @param {string[]} changedFiles             base branch との差分ファイル一覧
  */
 export function buildSteps(args, changedFiles) {
-	const lpChanged = changedFiles.some((f) => f.startsWith('site/'));
-	const labelsChanged = changedFiles.some(
-		(f) => f === 'src/lib/domain/labels.ts' || f === 'src/lib/domain/terms.ts',
-	);
-	const ageTierChanged = changedFiles.some((f) => f === 'src/lib/domain/validation/age-tier.ts');
-	// LP fallback 同期は LP / labels.ts どちらかが変わると影響を受ける
-	const lpFallbackTrigger = lpChanged || labelsChanged;
-	// LP labels (site/shared-labels.js) 同期は labels.ts / terms.ts / age-tier.ts いずれかが変わると影響を受ける
-	const lpLabelsTrigger = labelsChanged || ageTierChanged;
 	const uiChanged = changedFiles.some(
 		(f) => /\.(svelte|css|scss)$/.test(f) || f.startsWith('site/'),
 	);
@@ -731,38 +668,21 @@ export function buildSteps(args, changedFiles) {
 		);
 	}
 
-	// graceful degradation: 未実装 / 移動済の検査 script は skip + warning に倒す (Issue #1920 設計判断)
-	const planLiteralsScript = resolve(repoRoot, 'scripts/check-no-plan-literals.mjs');
-	const lpLabelsScript = resolve(repoRoot, 'scripts/generate-lp-labels.mjs');
-	const planLiteralsScriptExists = existsSync(planLiteralsScript);
-	const lpLabelsScriptExists = existsSync(lpLabelsScript);
-	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃の再導入防止 gate
-	const licenseKeyLeakScript = resolve(repoRoot, 'scripts/check-license-key-leak.mjs');
-	const licenseKeyLeakScriptExists = existsSync(licenseKeyLeakScript);
-	// #4015: ローカル TZ 日付 getter の再混入を止める gate (ADR-0061 same-class-N → guard)
-	const localTzGetterScript = resolve(repoRoot, 'scripts/check-local-tz-date-getters.mjs');
-	const localTzGetterScriptExists = existsSync(localTzGetterScript);
-	// #3969: 自前の CLI 直接実行判定 / 手組み file:// URL の再混入を止める gate
-	const cliEntryGuardScript = resolve(repoRoot, 'scripts/check-cli-entry-guard.mjs');
-	const cliEntryGuardScriptExists = existsSync(cliEntryGuardScript);
-	// #3969: workflow の sparse-checkout が「実行する script の import 先」まで列挙しているかの検査
-	const sparseClosureScript = resolve(
-		repoRoot,
-		'scripts/check-workflow-sparse-checkout-closure.mjs',
+	// graceful degradation: 検査 script が未配備なら skip + warning に倒す (Issue #1920 設計判断)。
+	// skipKind='script-missing' は ALL PASS を名乗らせないので、gate 不在は summary に必ず残る。
+	const planLiteralsScriptExists = existsSync(
+		resolve(repoRoot, 'scripts/check-no-plan-literals.mjs'),
 	);
-	const sparseClosureScriptExists = existsSync(sparseClosureScript);
-	// #3978: readdir の緩い一致で世代を数え、その結果を破壊的操作の対象にする class の検出
-	const readdirRotationScript = resolve(repoRoot, 'scripts/check-readdir-rotation-guard.mjs');
-	const readdirRotationScriptExists = existsSync(readdirRotationScript);
-	// #4085: repo 走査 test の区分宣言 gate (未宣言 / 明示 timeout 欠落を検出)
-	const repoScanTestScript = resolve(repoRoot, 'scripts/check-repo-scan-test-declaration.mjs');
-	const repoScanTestScriptExists = existsSync(repoScanTestScript);
+	// #4015: ローカル TZ 日付 getter の再混入を止める gate (ADR-0061 same-class-N → guard)
+	const localTzGetterScriptExists = existsSync(
+		resolve(repoRoot, 'scripts/check-local-tz-date-getters.mjs'),
+	);
 
 	return [
 		{
 			name: 'biome',
 			costClass: 'static',
-			label: 'Step 1/12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
+			label: 'Step 1: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			...skipStateOf({ byFlag: args.skipBiome }),
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
 			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
@@ -773,80 +693,12 @@ export function buildSteps(args, changedFiles) {
 				'  remaining warning / error は手動で修正してから再実行 (CI は warning=error 扱い)',
 		},
 		{
-			name: 'cspell',
-			costClass: 'static',
-			label: 'Step 1b/12: cspell (CI lint-and-test と同一コマンド — #3649)',
-			...skipStateOf({ byFlag: args.skipCspell }),
-			// #3649: CI lint-and-test の `npm run cspell` (#1432 warning=error) と同一。
-			// pre-ready に本 step が無かった gap により「pre-ready ALL PASS ↔ CI cspell red」の
-			// self-report 乖離が反復 (PR #3647 の Millis 等)。glob は package.json "cspell" が SSOT。
-			runner: () => run('cspell', ['npm', 'run', 'cspell']),
-			fixHint:
-				'  typo なら修正 / 正当な技術語・固有名詞なら .cspell.json の words に追加 (小文字で登録、大文字小文字非依存)',
-		},
-		{
 			name: 'svelte-check',
 			costClass: 'typecheck',
-			label: 'Step 2/12: svelte-check (TS strict)',
+			label: 'Step 2: svelte-check (TS strict)',
 			...skipStateOf({ byFlag: args.skipSvelteCheck }),
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
-		},
-		{
-			name: 'vitest',
-			costClass: 'test',
-			label: args.skipVitest
-				? 'Step 3/12: vitest run (unit test) — ローカル未実行 / CI unit-test へ委譲 (#4007)'
-				: 'Step 3/12: vitest run (unit test)',
-			// #4018 の skip 分類 (flag / script-missing / pr-missing / n/a) は維持する。
-			// 本 step は `delegatedToCi` を持つため、main() のループが分類より先に委譲へ振り分ける。
-			...skipStateOf({ byFlag: args.skipVitest }),
-			// #4007: `--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」。
-			// 16 コアを 4 エージェントで共有する運用ではローカルのフルスイートが並走で落ち、
-			// その red は PR の欠陥ではなく実行環境の産物になる (同一 HEAD 対照実測: ローカル 1753s /
-			// 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass)。
-			// ただし委譲先が **実行された** ことの確認は省略できない (skip された job は pass ではない)。
-			delegatedToCi: {
-				job: 'unit-test',
-				howToVerify: 'gh pr checks <num> --watch  # unit-test (1) / (2) が pass であること',
-			},
-			runner: () => run('vitest', ['npx', 'vitest', 'run']),
-			fixHint:
-				'  失敗テストを修正。assertion を弱める変更は禁止 (ADR-0006)。\n' +
-				'  storybook テストは `npm run test:storybook` で別途確認。',
-		},
-		{
-			name: 'hardcoded-strings',
-			costClass: 'static',
-			label: 'Step 4/12: check-hardcoded-strings.mjs (#1452 Phase A)',
-			...skipStateOf({ byFlag: args.skipHardcoded }),
-			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
-			fixHint:
-				'  baseline (1607 件) より JP ハードコードが増えています。\n' +
-				'  src/lib/domain/labels.ts に定数追加して `data-label` / import 経由に置換 (ADR-0009)。',
-		},
-		{
-			name: 'lp-dimensions',
-			costClass: 'browser',
-			label: `Step 5/12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
-			...skipStateOf({ byFlag: args.skipLpDimensions, notApplicable: !lpChanged }),
-			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
-			fixHint:
-				'  LP 寸法 / 禁止語の閾値違反 (#1163 ratchet)。\n' +
-				'  - mobileHeight ≤ 15000px / desktopHeight ≤ 8000px\n' +
-				'  - 禁止語 (ガチャ / 抽選 / コンプリート / git clone 等) を含めない\n' +
-				'  - CTA は 3 種以下',
-		},
-		{
-			name: 'lp-fallback',
-			costClass: 'static',
-			label: `Step 6/12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
-			...skipStateOf({ byFlag: args.skipLpFallback, notApplicable: !lpFallbackTrigger }),
-			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
-			fixHint:
-				'  site/*.html の data-lp-key fallback テキストが labels.ts と乖離しています (#1945)。\n' +
-				'  修正: `node scripts/sync-lp-fallback.mjs` を実行して fallback を再生成し、\n' +
-				'        生成された site/*.html の差分をコミットしてください。',
 		},
 		// Step 7: check-no-plan-literals (#972 / Phase 5 F1 / #1918)
 		// Issue #1920 graceful degradation: 検査 script が未配備 (F1 #1918 未 merge 等) なら skip + warning。
@@ -855,8 +707,8 @@ export function buildSteps(args, changedFiles) {
 			name: 'plan-literals',
 			costClass: 'static',
 			label: planLiteralsScriptExists
-				? 'Step 7/12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
-				: 'Step 7/12: check-no-plan-literals.mjs (script 未配備 — skip)',
+				? 'Step 7: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
+				: 'Step 7: check-no-plan-literals.mjs (script 未配備 — skip)',
 			...skipStateOf({ byFlag: args.skipPlanLiterals, scriptMissing: !planLiteralsScriptExists }),
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
@@ -865,126 +717,14 @@ export function buildSteps(args, changedFiles) {
 				"  - 例: 'family-monthly' → SUBSCRIPTION_PLAN.FAMILY_MONTHLY\n" +
 				"  - 例: 'grace_period' → SUBSCRIPTION_STATUS.GRACE_PERIOD",
 		},
-		// Step 7b: check-license-key-leak (#2836 / Epic #2525 Phase 7 PR-L4)
-		// license key 全廃の再導入防止。allowlist 外のコード行に license key 参照を検出したら fail。
-		{
-			name: 'license-key-leak',
-			costClass: 'static',
-			label: licenseKeyLeakScriptExists
-				? 'Step 7b/12: check-license-key-leak.mjs (#2836 / Phase 7 PR-L4)'
-				: 'Step 7b/12: check-license-key-leak.mjs (script 未配備 — skip)',
-			...skipStateOf({
-				byFlag: args.skipLicenseKeyLeak,
-				scriptMissing: !licenseKeyLeakScriptExists,
-			}),
-			runner: () => run('check-license-key-leak', ['node', 'scripts/check-license-key-leak.mjs']),
-			fixHint:
-				'  allowlist 外のコード行に license key 参照を検出しました (#2836)。\n' +
-				'  - LP / メール / ラベル / UI で license key 概念を再導入しないでください。\n' +
-				'  - entitlement は Stripe Subscription (tenant.status=ACTIVE) が唯一 SSOT です。\n' +
-				'  - DB 層 / LEGACY_URL_MAP entry は PR-L5 担当の allowlist (FILE_ALLOWLIST)。',
-		},
-		// Step 7c: check-cli-entry-guard (#3969)
-		// 各 script が自前で書く「直接実行判定」は symlink / junction 経由で必ず false になり、
-		// main() が呼ばれず「何も検査せず exit 0 (= PASS)」になる。判定 SSOT は
-		// scripts/lib/is-main.mjs で、本 step は次の方言が持ち込まれるのを止める。
-		{
-			name: 'cli-entry-guard',
-			costClass: 'static',
-			label: cliEntryGuardScriptExists
-				? 'Step 7c/12: check-cli-entry-guard.mjs (#3969)'
-				: 'Step 7c/12: check-cli-entry-guard.mjs (script 未配備 — skip)',
-			...skipStateOf({ byFlag: args.skipCliEntryGuard, scriptMissing: !cliEntryGuardScriptExists }),
-			runner: () => run('check-cli-entry-guard', ['node', 'scripts/check-cli-entry-guard.mjs']),
-			fixHint:
-				'  自前の CLI 直接実行判定 / 手組み file:// URL を検出しました (#3969)。\n' +
-				"  - 修正: import { isMain } from '<rel>/lib/is-main.mjs' を使い、\n" +
-				'          `if (isMain(import.meta.url)) main();` の形にする\n' +
-				'  - path → URL は node:url の pathToFileURL() を使う (手組みは Windows で常に不一致)\n' +
-				'  - 正当な例外は `allow-argv1: <理由>` / `allow-file-url: <理由>` を当該行か直前行に置く',
-		},
-		// Step 7d: check-workflow-sparse-checkout-closure (#3969)
-		// gate job は sparse-checkout で必要ファイルを個別列挙する。Step 7c が判定 SSOT の利用を
-		// 強制するため、gate script を列挙するたびに helper への import が生え、列挙し忘れると
-		// job が ERR_MODULE_NOT_FOUND で落ちる (#3969 対応時に必須 gate 6 job が同時 fail した)。
-		{
-			name: 'sparse-checkout-closure',
-			costClass: 'static',
-			label: sparseClosureScriptExists
-				? 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (#3969)'
-				: 'Step 7d/12: check-workflow-sparse-checkout-closure.mjs (script 未配備 — skip)',
-			...skipStateOf({
-				byFlag: args.skipSparseCheckoutClosure,
-				scriptMissing: !sparseClosureScriptExists,
-			}),
-			runner: () =>
-				run('check-workflow-sparse-checkout-closure', [
-					'node',
-					'scripts/check-workflow-sparse-checkout-closure.mjs',
-				]),
-			fixHint:
-				'  workflow の sparse-checkout に import 先の列挙漏れがあります (#3969)。\n' +
-				'  - 修正: 出力された不足パスを当該 sparse-checkout ブロックに追加する\n' +
-				'  - 放置すると当該 job が ERR_MODULE_NOT_FOUND で落ちる (無言 PASS ではなく hard fail)',
-		},
-		// Step 7e: check-readdir-rotation-guard (#3978)
-		// readdir の戻りを prefix / suffix の緩い一致で絞り込み、その結果を削除対象にする class。
-		// 同じ指摘を #3956 / #3978 と 2 度受けたため、3 度目を待たず機械 gate 化した
-		// (docs/sessions/dev-session.md §「QA 指摘の再発防止台帳」#2 / ADR-0061)。
-		{
-			name: 'readdir-rotation-guard',
-			costClass: 'static',
-			label: readdirRotationScriptExists
-				? 'Step 7e/12: check-readdir-rotation-guard.mjs (#3978)'
-				: 'Step 7e/12: check-readdir-rotation-guard.mjs (script 未配備 — skip)',
-			...skipStateOf({
-				byFlag: args.skipReaddirRotationGuard,
-				scriptMissing: !readdirRotationScriptExists,
-			}),
-			runner: () =>
-				run('check-readdir-rotation-guard', ['node', 'scripts/check-readdir-rotation-guard.mjs']),
-			fixHint:
-				'  readdir の緩い一致 (startsWith / endsWith) の結果を破壊的操作の対象にしています (#3978)。\n' +
-				'  - 修正: 命名規則を `*_PATTERN` 名の正規表現 const にし、その完全一致で絞り込む\n' +
-				'  - 生成側にも同じパターンの assert を置く (命名変更で silent に壊れないようにする)\n' +
-				'  - 別 class だと判断した場合のみ `rotation-gate-ok: <理由>` を当該行/直前行に置く',
-		},
-		// Step 7f: check-repo-scan-test-declaration (#4085)
-		// repo 全体を実読する test を既定 timeout (5s) のまま unit lane に置くと、並列実行の負荷で
-		// 落ちる。壊れてはいないので毎回「本物か負荷か」の切り分けが発生し、間違えれば本物の回帰を
-		// 「また負荷だろう」と見逃す。同 class 4 例目で機械 gate 化した (ADR-0061 same-class-N→guard)。
-		//
-		// 本 step は #4086 で step 定義を 1 箇所化した後に追加した最初の step であり、
-		// `costClass` を step 定義に直接書くだけで登録が完結する (第 2 registry への同時登録は不要)。
-		{
-			name: 'repo-scan-test-declaration',
-			costClass: 'static',
-			label: repoScanTestScriptExists
-				? 'Step 7f/12: check-repo-scan-test-declaration.mjs (#4085)'
-				: 'Step 7f/12: check-repo-scan-test-declaration.mjs (script 未配備 — skip)',
-			...skipStateOf({
-				byFlag: args.skipRepoScanTestDeclaration,
-				scriptMissing: !repoScanTestScriptExists,
-			}),
-			runner: () =>
-				run('check-repo-scan-test-declaration', [
-					'node',
-					'scripts/check-repo-scan-test-declaration.mjs',
-				]),
-			fixHint:
-				'  repo 走査 test の区分が未宣言 / 明示 timeout 欠落です (#4085)。\n' +
-				'  - 判定と貼り付け用エントリ: `node scripts/check-repo-scan-test-declaration.mjs --list`\n' +
-				'  - 宣言先: scripts/lib/ci/repo-scan-test-registry.mjs\n' +
-				'  - scope=repo の test には `vi.setConfig({ testTimeout: 60_000 })` 等の明示 timeout を置く',
-		},
 		// Step 7g: check-local-tz-date-getters (#4015 / ADR-0061 same-class-N → guard)
 		// 実時刻からローカル TZ getter で暦要素を取り出す形 (#4003 と同 class) の再混入を止める。
 		{
 			name: 'local-tz-getters',
 			costClass: 'static',
 			label: localTzGetterScriptExists
-				? 'Step 7g/12: check-local-tz-date-getters.mjs (#4015)'
-				: 'Step 7g/12: check-local-tz-date-getters.mjs (script 未配備 — skip)',
+				? 'Step 7g: check-local-tz-date-getters.mjs (#4015)'
+				: 'Step 7g: check-local-tz-date-getters.mjs (script 未配備 — skip)',
 			...skipStateOf({
 				byFlag: args.skipLocalTzGetters,
 				scriptMissing: !localTzGetterScriptExists,
@@ -999,27 +739,6 @@ export function buildSteps(args, changedFiles) {
 				'  - TZ 非依存と言える場合のみ script の ALLOWLIST に file / max / reason を追加します\n' +
 				'    (reason が空だと gate 自身が fail します)。',
 		},
-		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
-		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。
-		// labels.ts / terms.ts / age-tier.ts いずれかの変更検知時のみ実行 (LP shared-labels.js への波及)
-		{
-			name: 'lp-labels',
-			costClass: 'static',
-			label: !lpLabelsScriptExists
-				? 'Step 8/12: generate-lp-labels --check (script 未配備 — skip)'
-				: `Step 8/12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
-			...skipStateOf({
-				byFlag: args.skipLpLabels,
-				scriptMissing: !lpLabelsScriptExists,
-				notApplicable: !lpLabelsTrigger,
-			}),
-			runner: () =>
-				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
-			fixHint:
-				'  site/shared-labels.js が labels.ts / terms.ts / age-tier.ts と同期していません (Phase 1 B1 / #1917)。\n' +
-				'  修正: `node scripts/generate-lp-labels.mjs` を実行して再生成し、\n' +
-				'        site/shared-labels.js の差分をコミットしてください。',
-		},
 		{
 			name: 'pr-body',
 			costClass: 'meta',
@@ -1030,8 +749,8 @@ export function buildSteps(args, changedFiles) {
 			// が `check-pr-body.mjs` だけだと「PR body 表面チェック」と誤認され skip されやすい。
 			// ADR-0056 §E (#2632 で新設) 整合の構造的予防。
 			label: args.pr
-				? `Step 9/12: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
-				: 'Step 9/12: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
+				? `Step 9: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
+				: 'Step 9: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
 			...skipStateOf({ byFlag: args.skipPrBody, prMissing: !args.pr }),
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
@@ -1050,33 +769,6 @@ export function buildSteps(args, changedFiles) {
 				'    - 禁止語は PR で完遂 or Issue 起票して PR から完全除去 (partial PR 禁止)\n' +
 				'    - 詳細は scripts/check-pr-body.mjs --help を参照。',
 		},
-		{
-			name: 'doc-code-references',
-			costClass: 'static',
-			label: 'Step 10/12: check-doc-code-references.mjs (#2577)',
-			...skipStateOf({ byFlag: args.skipDocCodeReferences }),
-			runner: () =>
-				run('check-doc-code-references', ['node', 'scripts/check-doc-code-references.mjs']),
-			fixHint:
-				'  ドキュメント内の実装コードパスが実在しません (デッドリンク)。\n' +
-				'  修正: bare path 表記を Markdown link 形式 `[site/pricing.html L297-301](path/to/file)` に変更するか、\n' +
-				'        意図的な追加なら `node scripts/check-doc-code-references.mjs --update-baseline` を実行してください。',
-		},
-		{
-			name: 'terminology-coherence',
-			costClass: 'static',
-			label: 'Step 11/12: check-terminology-coherence.ts (#2555)',
-			...skipStateOf({ byFlag: args.skipTerminologyCoherence }),
-			runner: () =>
-				run('check-terminology-coherence', [
-					'npx',
-					'tsx',
-					'scripts/check-terminology-coherence.ts',
-				]),
-			fixHint:
-				'  用語の不統一、または add 経路の重複を検知しました。\n' +
-				'  修正: labels.ts の当該箇所を SSOT 用語 (terms.ts) に合わせるか、add 経路を集約してください。',
-		},
 		// Step 11b: SS embed gate (#2918)
 		// UI 変更 PR が「SS は後で push する」未来形のまま / embed 画像なしで Ready 化され、
 		// CI screenshot-check fail → Fix Agent 往復 が 4 件連続 (#2913 / #2914 / #2915 / #2909) した
@@ -1088,8 +780,8 @@ export function buildSteps(args, changedFiles) {
 			costClass: 'ui',
 			label:
 				uiChanged && args.pr
-					? 'Step 11b/12: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
-					: `Step 11b/12: SS embed gate (${!args.pr ? '--pr 未指定 — skip' : 'UI 変更なし — skip'}、#2918)`,
+					? 'Step 11b: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
+					: `Step 11b: SS embed gate (${!args.pr ? '--pr 未指定 — skip' : 'UI 変更なし — skip'}、#2918)`,
 			...skipStateOf({
 				byFlag: args.skipSsEmbedGate,
 				prMissing: !args.pr,
@@ -1128,24 +820,6 @@ export function buildSteps(args, changedFiles) {
 				'  UI 変更を含まない PR の場合は PR body に「該当なし（refactor / docs / chore）」と明記、\n' +
 				'  または視覚差分ゼロの内部 refactor なら refactor:internal-no-doc-impact ラベルを付与。',
 		},
-		{
-			name: 'capture',
-			costClass: 'ui',
-			label: `Step 12/12: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
-			...skipStateOf({ byFlag: args.skipCapture, prMissing: !args.pr, notApplicable: !uiChanged }),
-			runner: async () => {
-				console.log(
-					`[pre-ready] UI 変更を検知しました。スクリーンショット撮影は手動実行を推奨します:\n` +
-						`  MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url <path> --presets mobile,desktop --pr ${args.pr}\n` +
-						`  詳細は docs/sessions/dev-session.md §「Screenshot Agent」を参照。\n` +
-						`  本 Step は実行ガイダンスのみで PASS 扱いとします (実機 dev server 起動を要求しないため)。`,
-				);
-				return 0;
-			},
-			fixHint:
-				'  `npm run capture -- --url <path> --pr <num>` で撮影し PR body に貼り付け。\n' +
-				'  /demo/* は実アプリ検証証跡として禁止 (#1026)。',
-		},
 	];
 }
 
@@ -1161,9 +835,9 @@ async function main() {
 	}
 
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
-	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9, 12 はスキップ)'}`);
+	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9 / 11b はスキップ)'}`);
 
-	// #3857: 依存 preflight — 欠落のまま Step 2/3 を回すと変更無関係の false-negative になるため fail-fast
+	// #3857: 依存 preflight — 欠落のまま Step 2 を回すと変更無関係の false-negative になるため fail-fast
 	const pf = preflightWorktreeDeps();
 	if (!pf.ok) {
 		console.error(
@@ -1180,7 +854,7 @@ async function main() {
 			'    cd infra && npm ci   # CDK 単体テスト (cd infra && npx vitest) を回す場合のみ',
 		);
 		console.error(
-			'  (依存欠落のまま Step 2/3 svelte-check / vitest を実行すると変更と無関係な大量 error / spawn 失敗になり、\n' +
+			'  (依存欠落のまま Step 2 svelte-check を実行すると変更と無関係な大量 error / spawn 失敗になり、\n' +
 				'   「pre-ready を回した」証跡が空振りします。ADR-0006 no-silent-fail 整合で着手前に fail-fast します。#3857)',
 		);
 		return 1;
@@ -1219,16 +893,9 @@ async function main() {
 	const skippedPrMissing = [];
 	/** 変更内容が適用対象外の step (#4018: ALL PASS を妨げない) */
 	const skippedNotApplicable = [];
-	/** #4007: skip ではなく「CI の特定 job へ委譲」した step */
-	const delegated = [];
 
 	for (const step of steps) {
 		if (step.skip) {
-			if (step.delegatedToCi) {
-				console.log(`[pre-ready] → ${step.label}`);
-				delegated.push({ name: step.name, ...step.delegatedToCi });
-				continue;
-			}
 			console.log(`[pre-ready] ⊘ ${step.label}`);
 			if (step.skipKind === 'flag') skippedByFlag.push(step.name);
 			else if (step.skipKind === 'script-missing') skippedScriptMissing.push(step.name);
@@ -1262,7 +929,6 @@ async function main() {
 		skippedScriptMissing,
 		skippedPrMissing,
 		skippedNotApplicable,
-		delegated,
 		failOpenCount: failOpenNotes.length,
 		pr: args.pr,
 	});
