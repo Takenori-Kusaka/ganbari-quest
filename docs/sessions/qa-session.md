@@ -90,6 +90,19 @@ git ls-remote origin refs/heads/<branch>    # → 返値 SHA を以降の検証�
 node scripts/verify-pr-head.mjs <num> <branch>   # ls-remote と gh pr view の乖離を自動警告
 ```
 
+#### base 側ファイルも API から取得する（working tree 不使用）
+
+レビュー時の SSOT はローカル working tree ではなく API（`gh api` / `git show origin/develop:<path>`）から取得する。QA クローンの working tree は stale になりうる。上記の HEAD SHA 固定規律は PR 側 (headRefOid) の staleness 対策だが、比較対象となる base 側ファイルにも同じ規律を適用する。
+
+QA クローンは Dev と別クローンのため working tree が stale になりやすく、stale な base と PR を比較すると **存在しない矛盾を報告する（false positive）**、**実在する矛盾を見逃す（false negative）**の両方が起きる。false negative の場合は BLOCK すべきものを通してしまう。
+
+```bash
+git show origin/develop:<path>              # base 側ファイルを API 相当で取得（working tree 不参照）
+gh api repos/<owner>/<repo>/contents/<path>?ref=develop   # gh api 経由でも可
+```
+
+**「無い」と結論する前に、読めているかを確認する。** 検索が 0 件を返したときは「対象が無い」と「読み方が違う」を区別する。API / artifact の形式（flatted / 圧縮 / 参照）を確認してから結論を出す。
+
 ### 手順 1: Issue 照合
 
 ```bash
