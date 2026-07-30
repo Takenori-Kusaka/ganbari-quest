@@ -16,6 +16,9 @@ const mockReconcile = vi.fn();
 const mockGetLicenseInfo = vi.fn();
 const mockResolveTenantEntitlement = vi.fn();
 const mockResolveFullPlanTier = vi.fn();
+// #3991: load は解約予約状態 (`getCancellationState`) も並行取得するようになった
+// (Stripe subscription が SSOT、本 file の関心は reconciliation のみのため常に null で吸収する)。
+const mockGetCancellationState = vi.fn().mockResolvedValue(null);
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: (locals: { context?: { tenantId?: string } }) => {
@@ -26,6 +29,7 @@ vi.mock('$lib/server/auth/factory', () => ({
 
 vi.mock('$lib/server/services/stripe-service', () => ({
 	reconcileCheckoutSession: (...args: unknown[]) => mockReconcile(...args),
+	getCancellationState: (...args: unknown[]) => mockGetCancellationState(...args),
 }));
 
 vi.mock('$lib/server/auth/tenant-entitlement', () => ({
