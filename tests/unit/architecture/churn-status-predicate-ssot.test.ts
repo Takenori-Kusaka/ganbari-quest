@@ -28,7 +28,12 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// 走査 test (scope: 'bounded'、scripts/lib/ci/repo-scan-test-registry.mjs で宣言済、#4085)。
+// 走査は service 層の単一サブツリーに閉じているが 110+ file を実読するため、既定 timeout
+// (5s、vite.config.ts) だと並列実行の負荷次第で偽陽性 fail になりうる。予防的に明示 timeout を置く。
+vi.setConfig({ testTimeout: 60_000 });
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const SCAN_DIR = 'src/lib/server/services';

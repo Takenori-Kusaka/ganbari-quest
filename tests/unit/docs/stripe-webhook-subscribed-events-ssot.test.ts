@@ -20,7 +20,12 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// repo 走査 test (scope: 'repo'、scripts/lib/ci/repo-scan-test-registry.mjs で宣言済、#4085)。
+// docs/ ツリー全体を実読するため実行時間が入力サイズに比例する。既定 timeout (5s、vite.config.ts)
+// のままだと他 worker との CPU / FS 競合で偽陽性 fail になるため明示 timeout を置く。
+vi.setConfig({ testTimeout: 60_000 });
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const STRIPE_SERVICE = 'src/lib/server/services/stripe-service.ts';
