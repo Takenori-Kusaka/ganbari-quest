@@ -31,8 +31,11 @@ context を発行せず (fail-closed)、`hooks.server.ts` が 503 を返す。
 5 分 3 件までにまとめられ以降は無音になるため、**件数と継続の判断は SNS (本 alarm) が正**。
 Discord だけを見て「収まった」と判断しない。
 
-`GanbariQuest/Auth` / `EntitlementDbUnavailable` が **5 分間に 5 件以上**。
-1 件 = 503 になったリクエスト 1 本。DSQL の瞬断・OCC 競合による単発失敗では鳴らない。
+`GanbariQuest/Auth` / `EntitlementDbUnavailable` が **15 分 (5 分 window × 3) のうち 2 つの window で
+1 件以上**（`threshold: 1` / `evaluationPeriods: 3` / `datapointsToAlarm: 2`、`infra/lib/ops-stack.ts`）。
+1 件 = 503 になったリクエスト 1 本。**件数ではなく継続時間で判定する**ため、契約世帯が少なく
+夜間に 1 件しか出ない規模でも 5 分以上続けば鳴り、DSQL の瞬断・OCC 競合による単発失敗
+（1 window で収まる）では鳴らない。
 
 ### 1.3 一次対応
 
@@ -81,18 +84,26 @@ LG=/aws/lambda/ganbari-quest-app
 LS="alarm-firecheck-$(date +%s)"
 aws logs create-log-stream --log-group-name "$LG" --log-stream-name "$LS"
 
-# 2. hooks.server.ts が 503 時に出すのと同じ形の行を 5 本入れる (閾値 = 5 分 5 件)
-NOW=$(($(date +%s) * 1000))
-aws logs put-log-events --log-group-name "$LG" --log-stream-name "$LS" --log-events "$(
-  for i in 1 2 3 4 5; do
-    printf '{"timestamp":%d,"message":"[ERROR] [auth-alert] auth-entitlement-db-unavailable: firecheck"}\n' "$NOW"
-  done | paste -sd, - | sed 's/^/[/;s/$/]/'
-)"
+# 2. hooks.server.ts が 503 時に出すのと同じ形の行を入れる。
+#    alarm は `datapointsToAlarm: 2` = **異なる 2 つの 5 分 window** で 1 件以上を要求するため、
+#    1 回の put では (何行入れても同一 window に落ちるので) 永久に ALARM にならない。
+#    **6 分あけて 2 回 put する**こと。
+put_firecheck() {
+  aws logs put-log-events --log-group-name "$LG" --log-stream-name "$LS" --log-events "$(
+    printf '[{"timestamp":%d,"message":"[ERROR] [auth-alert] auth-entitlement-db-unavailable: firecheck"}]' \
+      "$(($(date +%s) * 1000))"
+  )"
+}
 
-# 3. metric に値が立つことを確認 (反映まで数分)
+put_firecheck            # window 1
+sleep 360                # 5 分 window をまたぐ (6 分)
+put_firecheck            # window 2 → ここで datapointsToAlarm=2 を満たす
+
+# 3. 2 つの 5 分 window それぞれに値が立つことを確認 (反映まで数分)
+#    Sum が 1 の datapoint が 2 つ並んでいなければ window をまたげていない → 2 回目の put をやり直す
 aws cloudwatch get-metric-statistics \
   --namespace GanbariQuest/Auth --metric-name EntitlementDbUnavailable \
-  --start-time "$(date -u -d '15 minutes ago' +%Y-%m-%dT%H:%M:%SZ)" \
+  --start-time "$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)" \
   --end-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --period 300 --statistics Sum
 
 # 4. alarm が ALARM に遷移し SNS が飛んだことを確認 → 数分後に OK へ戻る
@@ -127,6 +138,21 @@ tenant にプランが反映されていない。2026-07-26 の incident (CloudF
 
 `stripe-webhook-undelivered` は「滞留」と「顧客影響」の両方が揃ったときだけ鳴るため、
 **単独で鳴っているなら経路側を先に疑う**。
+
+#### どちらの alert も鳴らない穴 (#4108、既知)
+
+**handler が例外を握り潰して 200 を返す経路では、上の表のどちらの alert も鳴らない。**
+
+| | 理由 |
+|---|---|
+| `stripe-webhook-handler-failed` が鳴らない | 同 alert は handler の throw を前提にしている。#4108 の経路 (`resolveSubscriptionContext` の bare catch → 呼び出し側が正常終了) では throw しない |
+| `stripe-webhook-undelivered` が鳴らない | 200 を返したので Stripe 側は配信成功扱い = `pending_webhooks = 0` → S1 (滞留) が偽。本 alert は S1 ∧ S2 を条件にするため、S2 (plan 未反映) 単独では発火しない |
+
+したがって **「支払い済みなのに plan が反映されない」という顧客申告が来たのに alert が 1 つも
+鳴っていない**場合、それは「異常が無い」ことを意味しない。#4108 の経路を疑い、§2.3 の手順 3
+(checkout session → `metadata.tenantId` → 実プラン照合) を **alert を待たずに**実行する。
+
+恒久対処 (throw しない障害経路の re-throw + fitness function) は #4108 が所有する。
 
 ### 2.3 一次対応
 

@@ -28,10 +28,25 @@
 //
 // Stripe API だけでは「未達」と「到達したが 500 を返した」を判別できない (どちらも
 // `pending_webhooks > 0` のまま)。そのため本 module は**単独の pending だけでは鳴らさず**、
-// S1 と S2 の**論理積**を条件にする (下記 `shouldAlert`)。handler が個別に失敗している場合、
-// checkout の効果は他経路 (subscription webhook / Portal) や再送で反映されうるため S2 は立たず、
-// 本 alert は沈黙して #4079 側が所有する。両方が立つのは「支払いが起きたのに何も反映されていない」
-// = 2026-07-26 と同型の事象に限られる。
+// S1 と S2 の**論理積**を条件にする (下記 `shouldAlert`)。handler が **throw して**失敗した場合、
+// Stripe は再送するため checkout の効果は他経路 (subscription webhook / Portal) や再送で
+// 反映されうる。両方が立つのは「支払いが起きたのに何も反映されていない」= 2026-07-26 と同型の
+// 事象に限られる。
+//
+// ## どちらの alert も所有しない穴 (#4108、既知・本 PR では塞がない)
+//
+// handler が **throw せずに** 200 を返してしまう経路 (#4108: `resolveSubscriptionContext` が
+// bare catch で一過性障害を潰し、呼び出し側が `if (!tenant) return` で正常終了する) は、
+// **本 module と #4079 のどちらも検知しない**:
+//
+//   - `stripe-webhook-handler-failed` (#4079) は handler の throw を前提にするため発火しない。
+//   - 200 が返っているので Stripe 側は配信成功扱いになり `pending_webhooks = 0` → **S1 が偽**。
+//     本 module は S1 ∧ S2 を条件にするため、S2 (plan 未反映) が立っていても発火しない。
+//
+// つまり「支払い済みなのに plan が反映されない」状態が**無通知で継続する**。恒久対処 (throw しない
+// 障害経路の re-throw + fitness function) は #4108 が所有する。S2 単独で鳴らす別 kind を足す案は
+// 検知条件そのものの変更 (false positive の再評価が必要) になるため本 PR の scope 外とし、PO 判断に
+// 委ねる。runbook 側の記述は `docs/runbooks/silent-failure-alert-response.md` §2.2 が SSOT。
 //
 // 1 回の実行で Discord に送るのは **最大 1 通**。findings は 1 通にまとめる (通知の重複を作らない)。
 //
