@@ -37,6 +37,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 /** 祖先を辿る上限。無限ループと、境界を越えて OS プロセスまで昇るのを防ぐ。 */
 export const MAX_ANCESTOR_DEPTH = 16;
@@ -81,14 +82,72 @@ function isSessionLike(proc) {
 }
 
 /**
- * 実行中プロセスの一覧を {pid → {pid, ppid, name, cmd}} で返す。
+ * プロセス表の取得結果。
+ *
+ * **失敗を戻り値に載せる** (#4094 QA M4)。以前は失敗時に空 Map を返していたため、
+ * 呼び出し側は「重い検証が 1 本も走っていない」と区別できなかった。#4083 の主防御は
+ * プロセスの実在判定なので、表が取れないことが黙って素通りすると**主防御が無警告で
+ * 消える**。空表と取得失敗は別の事実であり、別の値で返す。
+ *
+ * @typedef {object} ProcessSnapshot
+ * @property {Map<number, ProcInfo>} table 取得できたプロセス表 (失敗時は空)
+ * @property {boolean} ok 取得に成功したか
+ * @property {string | null} error 失敗理由 (成功時 null)
+ */
+
+/**
+ * テスト用の差し替え口。
+ *
+ * `AGENT_PROCESS_TABLE_FILE` に `[{pid, ppid, name, cmd}, ...]` の JSON ファイルを
+ * 指すと、実プロセス表の代わりにそれを読む。hook 本体 (stdin → 判定 → exit code) を
+ * **実プロセスに依存せず**検証するために要る — 実プロセス表を使う test は、たまたま
+ * 走っている別セッションの検証プロセスで結果が変わってしまう (それ自体が本 PR で
+ * 直している欠陥なので、test が同じ穴を踏んではいけない)。
+ *
+ * 明示的に env を置いたときだけ有効で、読めなければ **`ok:false`** に倒す (fail closed)。
+ *
+ * @returns {ProcessSnapshot | null} env 未設定なら null
+ */
+function readInjectedTable() {
+	const path = process.env.AGENT_PROCESS_TABLE_FILE;
+	if (!path) return null;
+	/** @type {Map<number, ProcInfo>} */
+	const table = new Map();
+	try {
+		const rows = JSON.parse(readFileSync(path, 'utf8'));
+		for (const row of Array.isArray(rows) ? rows : []) {
+			const pid = Number(row?.pid);
+			if (!Number.isInteger(pid)) continue;
+			table.set(pid, {
+				pid,
+				ppid: Number(row?.ppid) || 0,
+				name: String(row?.name ?? ''),
+				cmd: String(row?.cmd ?? ''),
+			});
+		}
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		return {
+			table: new Map(),
+			ok: false,
+			error: `AGENT_PROCESS_TABLE_FILE を読めません: ${message}`,
+		};
+	}
+	return { table, ok: true, error: null };
+}
+
+/**
+ * 実行中プロセスの一覧を取得し、**成否つき**で返す。
  *
  * 1 回の spawn で全件を取る。祖先 1 段ごとに spawn すると、hook の実行時間が
  * 段数分だけ伸びるため。
  *
- * @returns {Map<number, ProcInfo>}
+ * @returns {ProcessSnapshot}
  */
-export function snapshotProcesses() {
+export function snapshotProcessesResult() {
+	const injected = readInjectedTable();
+	if (injected) return injected;
+
 	/** @type {Map<number, ProcInfo>} */
 	const table = new Map();
 	if (process.platform === 'win32') {
@@ -96,16 +155,30 @@ export function snapshotProcesses() {
 			'[Console]::OutputEncoding=[Text.Encoding]::UTF8; ' +
 			'@(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine) ' +
 			'| ConvertTo-Json -Compress -Depth 3';
-		const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
-			encoding: 'utf8',
-			maxBuffer: 64 * 1024 * 1024,
-		});
-		if (r.status !== 0 || !r.stdout) return table;
+		let r;
+		try {
+			r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
+				encoding: 'utf8',
+				maxBuffer: 64 * 1024 * 1024,
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			return { table, ok: false, error: `powershell を起動できません: ${message}` };
+		}
+		if (r.error) return { table, ok: false, error: `powershell 起動失敗: ${r.error.message}` };
+		if (r.status !== 0 || !r.stdout) {
+			return {
+				table,
+				ok: false,
+				error: `Get-CimInstance が失敗しました (status=${r.status}): ${String(r.stderr ?? '').slice(0, 200)}`,
+			};
+		}
 		let rows;
 		try {
 			rows = JSON.parse(r.stdout);
-		} catch {
-			return table;
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			return { table, ok: false, error: `プロセス表の JSON を解釈できません: ${message}` };
 		}
 		for (const row of Array.isArray(rows) ? rows : [rows]) {
 			const pid = Number(row?.ProcessId);
@@ -117,18 +190,47 @@ export function snapshotProcesses() {
 				cmd: String(row?.CommandLine ?? ''),
 			});
 		}
-		return table;
+		return { table, ok: true, error: null };
 	}
 
-	const r = spawnSync('ps', ['-A', '-o', 'pid=,ppid=,comm=,args='], { encoding: 'utf8' });
-	if (r.status !== 0 || !r.stdout) return table;
+	let r;
+	try {
+		r = spawnSync('ps', ['-A', '-o', 'pid=,ppid=,comm=,args='], { encoding: 'utf8' });
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		return { table, ok: false, error: `ps を起動できません: ${message}` };
+	}
+	if (r.error) return { table, ok: false, error: `ps 起動失敗: ${r.error.message}` };
+	if (r.status !== 0 || !r.stdout) {
+		return { table, ok: false, error: `ps が失敗しました (status=${r.status})` };
+	}
 	for (const line of r.stdout.split('\n')) {
 		const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s*(.*)$/);
 		if (!m) continue;
 		const pid = Number(m[1]);
 		table.set(pid, { pid, ppid: Number(m[2]) || 0, name: m[3] ?? '', cmd: m[4] ?? '' });
 	}
-	return table;
+	return { table, ok: true, error: null };
+}
+
+/**
+ * 実行中プロセスの一覧を {pid → {pid, ppid, name, cmd}} で返す。
+ *
+ * **取得失敗を知りたい呼び出し側は `snapshotProcessesResult()` を使うこと。**
+ * 本関数は失敗時も空 Map を返すが、その場合は stderr に警告を出す (無言で
+ * 主防御を失わないため、#4094 QA M4)。
+ *
+ * @returns {Map<number, ProcInfo>}
+ */
+export function snapshotProcesses() {
+	const result = snapshotProcessesResult();
+	if (!result.ok) {
+		process.stderr.write(
+			`[session-owner] WARN: プロセス表を取得できませんでした (${result.error})。` +
+				' 実在ベースの並走判定は行われていません。\n',
+		);
+	}
+	return result.table;
 }
 
 /**

@@ -169,16 +169,26 @@ export function sameOwner(a, b) {
  *
  * @param {LockHolder | null} holder
  * @param {number} now
+ * @param {{isGuardedPidAlive?: (pid: number) => boolean}} [opts]
+ *   `isGuardedPidAlive` は「その PID は**今も**保護対象か」を答える述語。既定は
+ *   存在確認のみ (`isProcessAlive`)。プロセス表を持っている呼び出し側は
+ *   `createHeavyPidVerifier` を渡して **PID 再利用**を弾くこと (#4094 QA M2)。
  * @returns {boolean}
  */
-export function isStale(holder, now = Date.now()) {
+export function isStale(holder, now = Date.now(), opts) {
 	if (!holder || typeof holder !== 'object') return true;
 	// **保護対象プロセスが実在する限り lock は生きている** (#4083 AC1)。
 	// 起動元セッションが先に落ちても、検証プロセスは detach して走り続ける。
 	// ここで「持ち主が死んだ」だけを見て奪わせると、走行中の検証と並列に 2 本目が
 	// 始まり、両方の結果が根拠として使えなくなる (2026-07-29 21:11-21:18 実測)。
 	// TTL より優先する — 1 時間を超えても走っている検証は保護対象である。
-	if (livePids(holder.guardedPids).length > 0) return false;
+	//
+	// ただし「生きている」の判定は**存在確認だけでは足りない** (#4094 QA M2)。
+	// Windows は PID を早く再利用するため、記録された PID が無関係なプロセスに
+	// 再割当されると lock が二度と stale にならない (TTL も `ownerPid` 死亡も
+	// バイパスされる)。呼び出し側がプロセス表を持っているときは cmdline まで
+	// 検証する述語を渡し、#4083 の逆向きの故障モード (終わっているのに消えない) を塞ぐ。
+	if (livePids(holder.guardedPids, opts?.isGuardedPidAlive).length > 0) return false;
 	const pid = holder.ownerPid;
 	// PID があるときだけ生存判定する。無い (null) のは「解決できなかった」であって
 	// 「死んでいる」ではない。
@@ -201,12 +211,17 @@ export function isStale(holder, now = Date.now()) {
 /**
  * 与えられた PID 群のうち、実際に生きているものだけを返す。
  *
+ * `isAlive` を差し替えると「生きている」の意味を強められる。既定は存在確認だけだが、
+ * 保護対象の判定に使う場合は **cmdline まで見る述語**を渡すこと (PID 再利用対策、
+ * #4094 QA M2 / `heavy-process.mjs` の `createHeavyPidVerifier`)。
+ *
  * @param {number[] | null | undefined} pids
+ * @param {(pid: number) => boolean} [isAlive]
  * @returns {number[]}
  */
-export function livePids(pids) {
+export function livePids(pids, isAlive = isProcessAlive) {
 	if (!Array.isArray(pids)) return [];
-	return pids.filter((p) => Number.isInteger(p) && p > 0 && isProcessAlive(p));
+	return pids.filter((p) => Number.isInteger(p) && p > 0 && isAlive(p));
 }
 
 /**
@@ -351,7 +366,7 @@ export function readLock(key) {
  * `sessionId` と `ownerPid` の**どちらも無い**呼び出しは、持ち主を識別できないため例外にする。
  *
  * @param {string} key
- * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, ownerChain?: number[] | null, guardedPids?: number[] | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number}} opts
+ * @param {{ownerPid?: number | null, sessionId?: string | null, ownerVia?: string | null, ownerChain?: number[] | null, guardedPids?: number[] | null, agent?: string | null, target?: string | null, cwd?: string | null, ttlMs?: number, now?: number, isGuardedPidAlive?: (pid: number) => boolean}} opts
  * @returns {{ok: true, holder: LockHolder} | {ok: false, holder: LockHolder | null}}
  */
 export function acquire(key, opts) {
@@ -403,8 +418,27 @@ export function acquire(key, opts) {
 		writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
 		return { ok: true, holder: record };
 	}
-	if (isStale(current, now)) {
-		writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+	if (isStale(current, now, { isGuardedPidAlive: opts?.isGuardedPidAlive })) {
+		// **stale の奪取も CAS で行う** (#4094 QM 指摘 4)。read-modify-write のまま
+		// `writeFileSync` すると、同じ stale lock を同時に見た 2 セッションが**両方
+		// `ok:true`** を得る (直前のプロセス表スキャンは「まだ起動していないプロセス」を
+		// 見られないので二重防御にならない)。消してから `wx` (O_EXCL) で作り直し、
+		// **書けた 1 本だけが勝つ**ようにする。
+		rmSync(path, { force: true });
+		try {
+			writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx' });
+		} catch (err) {
+			if (errInfo(err).code !== 'EEXIST') throw err;
+			// 競合相手が先に作った。奪取は失敗。
+			return { ok: false, holder: readLock(key) };
+		}
+		// 相手が「自分の rmSync → wx」の順で割り込むと、こちらの record が消されて
+		// 相手のものに置き換わりうる。書いた後に読み直し、**自分のものになっている
+		// ことを確認**して初めて成功と答える (両者成功を残さない)。
+		const after = readLock(key);
+		if (!after || !sameOwner(after, record) || after.startedAt !== record.startedAt) {
+			return { ok: false, holder: after };
+		}
 		return { ok: true, holder: record };
 	}
 	return { ok: false, holder: current };

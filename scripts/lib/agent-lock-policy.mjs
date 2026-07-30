@@ -52,6 +52,35 @@ const SHELLS = new Set(['bash', 'sh', 'dash', 'zsh', 'pwsh', 'powershell', 'cmd'
 const SHELL_SCRIPT_FLAGS = new Set(['-c', '-command', '/c', '/k', '-noprofile', '-noninteractive']);
 
 /**
+ * **値を取るフラグ**。次のトークンは operand ではなくフラグの値なので、
+ * command position の探索から外す。
+ *
+ * これを見ないと `npm --prefix . run pre-ready` の `.` をサブコマンドとして読み、
+ * 実際に pre-ready を起動するコマンドが素通りする (#4094 QM 指摘 1)。
+ */
+const PKG_VALUE_FLAGS = new Set([
+	'--prefix',
+	'-C',
+	'--workspace',
+	'-w',
+	'--filter',
+	'--cwd',
+	'--dir',
+]);
+
+/**
+ * `git push` の**値を取るフラグ**。これを見ないと `git push -o ci.skip origin br` の
+ * `ci.skip` が operand に混じり、refspec の位置がずれて branch を `origin` と
+ * 読んでしまう (#4094 QA I2 — 誤った key で無関係な lock を掴む方向の誤爆)。
+ *
+ * `--force-with-lease` / `--signed` は**値を取らない形が既定**で、値を渡す場合は
+ * `=` 付き (`--force-with-lease=<ref>`) になる。ここに入れると
+ * `git push --force-with-lease origin <branch>` の `origin` を値として食べてしまい、
+ * refspec を見失う (= 実際に効いている判定を壊す) ので入れない。
+ */
+const PUSH_VALUE_FLAGS = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
+
+/**
  * 1 セグメントをトークン列にする。クォートは**中身を 1 トークンにまとめ、
  * 引用されていた事実を保持する**。
  *
@@ -98,13 +127,19 @@ function binName(token) {
  *
  * @param {{text: string, quoted: boolean}[]} tokens
  * @param {number} from
+ * @param {Set<string>} [valueFlags] 「次のトークンが値」であるフラグ集合
  * @returns {number}
  */
-function nextWordIndex(tokens, from) {
+function nextWordIndex(tokens, from, valueFlags) {
 	for (let i = from; i < tokens.length; i++) {
 		const t = tokens[i];
 		if (!t || t.quoted) return -1;
-		if (t.text.startsWith('-') || t.text.startsWith('/')) continue;
+		if (t.text.startsWith('-') || t.text.startsWith('/')) {
+			// 値を取るフラグは、その値ごと読み飛ばす。飛ばさないと値を
+			// サブコマンド / bin 名として読んでしまう (#4094 QM 指摘 1)。
+			if (valueFlags?.has(t.text)) i++;
+			continue;
+		}
 		return i;
 	}
 	return -1;
@@ -119,8 +154,12 @@ function nextWordIndex(tokens, from) {
  */
 function isHeavyBin(bin, next) {
 	const name = binName(bin);
-	if (name === 'pre-ready.mjs' || /^pre-ready\.(m?js|cjs)$/.test(name)) return true;
-	if (HEAVY_BINS.has(name)) return true;
+	// `node node_modules/vitest/vitest.mjs run` のようにスクリプト実体を直接叩く形も
+	// 同じ bin として扱う。ここを見ないと「起動は許可されるのに、走り出したら
+	// `heavy-process.mjs` に重い検証として検出されて他セッションを全 BLOCK する」
+	// という非対称が生まれる (#4094 QM 指摘 1)。
+	const stem = name.replace(/\.(m?js|cjs)$/, '');
+	if (HEAVY_BINS.has(stem)) return true;
 	if (name === 'playwright') return binName(next ?? '') === 'test';
 	return false;
 }
@@ -169,27 +208,31 @@ function isHeavyTokens(tokens, depth) {
 	}
 
 	if (PACKAGE_MANAGERS.has(head)) {
-		const subIdx = nextWordIndex(tokens, i + 1);
+		const subIdx = nextWordIndex(tokens, i + 1, PKG_VALUE_FLAGS);
 		if (subIdx === -1) return false;
 		const sub = tokens[subIdx]?.text ?? '';
 		// `npm run <script>` / `pnpm run <script>`
 		if (sub === 'run' || sub === 'run-script') {
-			const scriptIdx = nextWordIndex(tokens, subIdx + 1);
+			const scriptIdx = nextWordIndex(tokens, subIdx + 1, PKG_VALUE_FLAGS);
 			if (scriptIdx === -1) return false;
 			return HEAVY_NPM_SCRIPTS.test(tokens[scriptIdx]?.text ?? '');
 		}
 		// `npm exec vitest` / `pnpm dlx vitest`
 		if (PACKAGE_RUNNERS.has(sub)) {
-			const binIdx = nextWordIndex(tokens, subIdx + 1);
+			const binIdx = nextWordIndex(tokens, subIdx + 1, PKG_VALUE_FLAGS);
 			if (binIdx === -1) return false;
 			return isHeavyBin(tokens[binIdx]?.text ?? '', tokens[binIdx + 1]?.text ?? null);
 		}
 		// `npm test` (run 省略形)
-		return HEAVY_NPM_SCRIPTS.test(sub);
+		if (HEAVY_NPM_SCRIPTS.test(sub)) return true;
+		// `yarn vitest` / `pnpm vitest run` — パッケージマネージャ直下の bin 実行形。
+		// yarn v1 は `yarn <bin>` で node_modules/.bin を叩くのが慣用で、pnpm も同様。
+		// ここを見ないと**旧実装が止めていた形が通ってしまう** (ADR-0006、#4094 QM 指摘 1)。
+		return isHeavyBin(sub, tokens[subIdx + 1]?.text ?? null);
 	}
 
 	if (PACKAGE_RUNNERS.has(head)) {
-		const binIdx = nextWordIndex(tokens, i + 1);
+		const binIdx = nextWordIndex(tokens, i + 1, PKG_VALUE_FLAGS);
 		if (binIdx === -1) return false;
 		return isHeavyBin(tokens[binIdx]?.text ?? '', tokens[binIdx + 1]?.text ?? null);
 	}
@@ -368,7 +411,12 @@ export function resolvePushRefBranch(command) {
 		for (let k = parsed.pushIndex + 1; k < parsed.tokens.length; k++) {
 			const t = parsed.tokens[k];
 			if (!t || t.quoted) break;
-			if (t.text.startsWith('-')) continue;
+			if (t.text.startsWith('-')) {
+				// 値を取るフラグ (`-o ci.skip` / `--repo <url>`) は値ごと飛ばす。
+				// 飛ばさないと値が operand に混じり refspec の位置がずれる (#4094 QA I2)。
+				if (PUSH_VALUE_FLAGS.has(t.text)) k++;
+				continue;
+			}
 			operands.push(t.text);
 		}
 		// operands = [remote, refspec?]。refspec が無い形 (`git push` / `git push origin`) は null。
@@ -395,18 +443,56 @@ export function resolvePushRefBranch(command) {
  * @returns {string | null}
  */
 export function resolveCommandCwd(command, fallbackCwd) {
+	return resolveCommandCwdEvidence(command, fallbackCwd).cwd;
+}
+
+/**
+ * `resolveCommandCwd` と同じ解決を行い、**コマンド自身が実行先の根拠を持っていたか**も返す。
+ *
+ * これが必要なのは #4076 の root class が「判定の入力に実行文脈を使うと、対象と無関係な
+ * branch で BLOCK する」ことだからである。`git push` 単独 / `git push -u origin HEAD` の
+ * ように refspec も `cd` / `-C` も無い形では、hook から見て**押す先の branch を知る手段が
+ * 無い** (Bash tool の cwd はツール呼び出しをまたいで保持されるが、hook payload の `cwd` は
+ * セッションの作業ディレクトリであって、それとは限らない)。
+ *
+ * `fromCommand === false` は「解決したのではなく、セッションの cwd をそのまま使った」という
+ * 意味であり、**その値を branch 判定の入力にしてはならない**。
+ *
+ * @param {string} command
+ * @param {string | null} fallbackCwd
+ * @returns {{cwd: string | null, fromCommand: boolean}}
+ */
+export function resolveCommandCwdEvidence(command, fallbackCwd) {
 	let cwd = fallbackCwd ?? null;
+	let fromCommand = false;
 	for (const segment of splitSegments(command)) {
 		const parsed = pushTokens(segment);
-		if (parsed?.dashCDir) return resolvePath(cwd, parsed.dashCDir);
+		if (parsed?.dashCDir) return { cwd: resolvePath(cwd, parsed.dashCDir), fromCommand: true };
 		const tokens = tokenize(segment);
 		const head = tokens[0];
 		if (!head || head.quoted || binName(head.text) !== 'cd') continue;
-		const dir = tokens[1];
-		if (!dir || dir.text.startsWith('-')) continue;
+		// `cd /d E:\path` (cmd.exe) の `/d` はディレクトリではなくスイッチ。
+		// 弾かないと `/d` を作業ディレクトリとして解決してしまう (#4094 QA I3)。
+		const dir = tokens.slice(1).find((t) => !isCdSwitch(t.text));
+		if (!dir) continue;
 		cwd = resolvePath(cwd, dir.text);
+		fromCommand = true;
 	}
-	return cwd;
+	return { cwd, fromCommand };
+}
+
+/**
+ * `cd` のスイッチか (ディレクトリではない)。
+ *
+ * POSIX の `-P` / `-L` と cmd.exe の `/d` の両方を弾く。Windows の絶対パスは
+ * `E:\...` / `\\server\share` の形で、`/d` のような 1〜2 文字の `/` 始まりとは
+ * 区別できる。
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+function isCdSwitch(text) {
+	return text.startsWith('-') || /^\/[A-Za-z]$/.test(text);
 }
 
 /**
@@ -433,25 +519,84 @@ function resolvePath(base, dir) {
  * @returns {boolean}
  */
 export function isBulkProcessKillCommand(command) {
-	return splitSegments(command).some((segment) => {
-		const tokens = tokenize(segment).filter((t) => !t.quoted);
-		const head = binName(tokens[0]?.text ?? '');
-		const words = tokens.map((t) => t.text);
-		if (head === 'taskkill') {
-			// `/IM <image>` はイメージ名一括。`/PID <n>` は対象が特定されているので通す。
-			return words.some(
-				(w, idx) => /^\/im$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''),
-			);
+	const segments = splitSegments(command);
+	if (segments.some((segment) => isBulkKillSegment(segment))) return true;
+	// PowerShell の pipeline 形 (`Get-Process node | Stop-Process -Force`) は
+	// **セグメントをまたぐ**ので、セグメント単体では判定できない。この環境の
+	// `.claude/settings.json` matcher は `Bash|PowerShell` なので実際に到達する形であり、
+	// #4069 の実害 (他セッションの巻き込み kill) が最も起きやすい書き方でもある
+	// (#4094 QM 指摘 2 / QA N1)。
+	return isProcessPipelineKill(segments);
+}
+
+/**
+ * 1 セグメント単体でイメージ名一括 kill か。
+ *
+ * 引用トークンを**捨てずに正規化して**評価する。捨てると `taskkill /F /IM "node.exe"` の
+ * ように引用するだけで回避できてしまう (#4094 QM 指摘 2)。ただし**先頭 (実行される
+ * コマンド) が引用されていない**ことは要求する — `gh issue create --title "taskkill …"` の
+ * ような言及を実行と誤認しないため (#4071 と同じ原則)。
+ *
+ * @param {string} segment
+ * @returns {boolean}
+ */
+function isBulkKillSegment(segment) {
+	const tokens = tokenize(segment);
+	const headTok = tokens[0];
+	if (!headTok || headTok.quoted) return false;
+	const head = binName(headTok.text);
+	const words = tokens.map((t) => t.text);
+	const isNode = (/** @type {string | undefined} */ w) => /^node(\.exe)?$/i.test(w ?? '');
+	if (head === 'taskkill') {
+		// `/IM <image>` はイメージ名一括。`/PID <n>` は対象が特定されているので通す。
+		return words.some((w, idx) => /^\/im$/i.test(w) && isNode(words[idx + 1]));
+	}
+	if (head === 'killall' || head === 'pkill') return words.slice(1).some((w) => isNode(w));
+	if (head === 'stop-process' || head === 'spps') {
+		return words.some((w, idx) => /^-name$/i.test(w) && isNode(words[idx + 1]));
+	}
+	if (head === 'wmic') {
+		// `wmic process where name='node.exe' delete`
+		const lower = segment.toLowerCase();
+		return lower.includes('node.exe') && /\b(delete|terminate)\b/.test(lower);
+	}
+	return false;
+}
+
+/**
+ * PowerShell の「列挙 → 停止」pipeline か。
+ *
+ * `Get-Process node | Stop-Process -Force` / `Get-Process -Name node | Stop-Process` /
+ * `gps node | kill` を止める。停止側のセグメントが無ければ (`Get-Process node |
+ * Select-Object`) 通す — 列挙自体は無害である。
+ *
+ * @param {string[]} segments
+ * @returns {boolean}
+ */
+function isProcessPipelineKill(segments) {
+	let enumeratesNode = false;
+	for (const segment of segments) {
+		const tokens = tokenize(segment);
+		const headTok = tokens[0];
+		if (!headTok || headTok.quoted) continue;
+		const head = binName(headTok.text);
+		const words = tokens.slice(1).map((t) => t.text);
+		if (head === 'get-process' || head === 'gps' || head === 'ps') {
+			if (words.some((w) => /^node(\.exe)?$/i.test(w))) enumeratesNode = true;
+			continue;
 		}
-		if (head === 'killall') return words.slice(1).some((w) => /^node(\.exe)?$/i.test(w));
-		if (head === 'pkill') return words.slice(1).some((w) => /^node(\.exe)?$/i.test(w));
-		if (head === 'stop-process') {
-			return words.some(
-				(w, idx) => /^-name$/i.test(w) && /^node(\.exe)?$/i.test(words[idx + 1] ?? ''),
-			);
+		// 絞り込み側 (`ps -ef | grep node | xargs kill` / `… | Where-Object {$_.Name -eq 'node'}`)。
+		if (head === 'grep' || head === 'select-string' || head === 'where-object') {
+			if (words.some((w) => /node(\.exe)?/i.test(w))) enumeratesNode = true;
+			continue;
 		}
-		return false;
-	});
+		if (!enumeratesNode) continue;
+		// 停止側。`-Id <n>` で個別指定されていても、入力は pipeline の列挙結果なので
+		// 一括であることに変わりはない。
+		if (head === 'stop-process' || head === 'spps' || head === 'kill') return true;
+		if (head === 'xargs' && words.some((w) => binName(w) === 'kill')) return true;
+	}
+	return false;
 }
 
 /**
@@ -479,4 +624,5 @@ export default {
 	taskKeyFromBranch,
 	resolvePushRefBranch,
 	resolveCommandCwd,
+	resolveCommandCwdEvidence,
 };

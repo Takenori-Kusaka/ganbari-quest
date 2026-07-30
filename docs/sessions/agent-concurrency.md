@@ -50,7 +50,14 @@
 |---|---|
 | 同一性 (再入・解放の照合) | hook payload の `session_id`。無ければ `ownerPid` にフォールバック |
 | 生存判定 (セッション断の回収) | `ownerPid` = 祖先を辿って得た**セッションプロセス** |
-| **寿命 (走行中の保護)** | `guardedPids` = **実際に走っている検証プロセス**。1 つでも生きていれば lock は失効しない (`ownerPid` の死亡・TTL 超過より優先) |
+| **寿命 (走行中の保護)** | `guardedPids` = **自セッションが起動した検証プロセス**。1 つでも「生存 **かつ** 今も重い検証」なら lock は失効しない (`ownerPid` の死亡・TTL 超過より優先) |
+
+`guardedPids` には 2 つの制約がある。どちらも「止め続ける」と「無関係を巻き込まない」を両立させるために要る。
+
+| 制約 | 何を防ぐか |
+|---|---|
+| **範囲は自セッションの系列に限る** (`buildGuardedPids`) | マシン全体の heavy を書き込むと、別クローンのセッション / hook を読み込まない Buzz セッション / 人間の `vitest --watch` / オーファンまで自分の lock に入り、**自分の検証が終わっているのに lock が返らず、TTL でも回収されない**。「無関係を止める」の再導入になる |
+| **生存確認だけで「生きている」と読まない** (`createHeavyPidVerifier`) | Windows は PID を早く再利用する。記録した PID が別プロセスに再割当されると、`ownerPid` 死亡でも TTL 超過でも**二度と stale にならない**。プロセス表は hook 内で取得済みなので cmdline まで検証する。**表が取れないときは検証を渡さない** (全部「重くない」に倒れて奪う方向に緩むため) |
 
 #### 排他は「lock ファイルの有無」ではなく「プロセスの実在」で判定する (#4083)
 
@@ -72,6 +79,8 @@
 |---|---|---|
 | 重い検証か (`heavy`) | 実行される**先頭コマンド + サブコマンド**の構造 (`npm run <script>` / `npx <bin>` / `node <script>`)。シェル (`bash -c "…"`) は中身を再帰判定 | コマンド文字列の部分一致。引数・パス・引用符の中の出現は**実行ではない** |
 | どの branch の作業か (`task-<n>`) | **push refspec** (`git push origin fix/3980-…`)。無ければ `git -C` / `cd` で解決した**コマンドの実行先**の HEAD | hook プロセス / セッションの cwd (worktree 併用時にメインクローンの branch を見てしまう) |
+
+**どちらの根拠も無い形 (`git push` 単独 / `git push -u origin HEAD`) では task lock を取らない。** hook payload の `cwd` はセッションの作業ディレクトリで、Bash tool が前の呼び出しの `cd` を引き継いでいても反映されない。そこから導いた branch は「押す先」ではないので、掴む lock は二重作業を 1 件も防がず、**無関係な branch を BLOCK するだけ**になる (#4076 の実害そのもの)。判定できないときは黙って代用せず、stderr で `git push origin <branch>` の形を促す。
 
 いずれも「実行しない・触らないものを止めない」ためであって、**実行するものは引き続き止まる**。前置き (`echo x && npx vitest`) やシェル経由 (`bash -c "npx vitest"`) では回避できない。
 
@@ -154,6 +163,17 @@ npm run agent:cleanup -- --pid <n> # 起点セッション PID を明示 (自動
 
 **所有者を辿れない残骸は「⚠ 所有者を辿れない重い検証プロセス」として一覧に出るが、`--kill` でも落とさない。** ハーネス起動の検証チェーンはセッションの子孫から外れることがあり (実測)、そこで「残骸なし」とだけ表示すると見落として全 kill に手が伸びるため、**可視化はするが自動では触らない**。自分の残骸だと確信できる場合だけ、その起点 PID を `--pid <n>` に渡して再実行する。
 
+```bash
+npm run agent:cleanup                        # ① 一覧に出た「⚠ 所有者を辿れない」pid を確認
+npm run agent:cleanup -- --pid <その pid> --kill   # ② その pid 自身と子孫を停止
+```
+
+`--pid <n>` は「**この PID の系列は自分のものだ**」という明示宣言として扱う。したがって
+
+- **起点 PID 自身も対象に入る** (子孫だけではない)。入れないと、案内どおり `--pid <オーファンの pid>` を打っても当の PID は落ちず、**BLOCK されているのに解除手段が無い**状態になる
+- 宣言された系列に限り、lock の `guardedPids` 由来の保護を外す。停止済みセッションの lock に guarded として記録されたオーファンを掃除できるようにするため。系列外の lock 保持者は従来どおり除外される
+- `--pid` の値が数値でなければ**自動解決に落とさず exit 1**。明示引数の誤りを黙って別の起点で実行すると、指定したつもりのものと違うものが落ちる
+
 **イメージ名一括 kill (`taskkill /F /IM node.exe` / `pkill -f node` / `killall node` / `Stop-Process -Name node`) は hook が BLOCK する**。2026-07-29 にこれが、lock を正当に保持して検証中だった別セッション (PR #4063) を巻き込んで停止させたためである。個別に落としたい場合は PID 指定 (`taskkill /F /PID <pid>`) を使う (こちらは通る)。
 
 ## §5 適用範囲と限界
@@ -162,15 +182,24 @@ npm run agent:cleanup -- --pid <n> # 起点セッション PID を明示 (自動
 - **hook が効くのは Claude Code 経由の Bash のみ**: 人間が直接ターミナルで叩く分には効かない。オーナーが手で重い検証を回すときは、エージェントが動いていないことを確認する
 - **hook はセッションの設定に登録されて初めて効く**: 本リポジトリの `.claude/settings.json` は **project 設定**なので、リポジトリを起動ディレクトリにしていないセッションには読み込まれない。Buzz エージェントの起動ディレクトリは `~/.buzz` であり、**`~/.buzz/.claude/settings.json` に登録しない限り本 hook は 1 度も走らない** (2026-07-27 実測: Buzz セッションから `git push` しても `task-<n>.lock` が作られなかった)。登録する場合は (a) `command` を絶対パスにする、(b) `matcher` を `"Bash|PowerShell"` にする (PowerShell tool 経由が素通りするため) の 2 点が要る
 - **`gh pr merge` / `gh pr edit` は task lock の対象外**: これらは PR 番号で他人の PR を操作する role (QM / 監査) のコマンドで、自分の branch とは対応しないため。ここを排他するなら PR 単位の別 key が要る (未実装)
-- **新しい重量コマンドを足したら判定の更新が要る**: 実行判定は `agent-lock-policy.mjs` (`HEAVY_NPM_SCRIPTS` / `HEAVY_BINS`)、走行中プロセスの同定は `heavy-process.mjs` (`HEAVY_PROCESS_PATTERNS`) の **2 箇所**にある (前者は「これから実行する文字列」、後者は「OS が持つ実行中プロセスの cmdline」で対象が違う)
+- **新しい重量コマンドを足したら判定の更新が要る**: 実行判定は `agent-lock-policy.mjs` (`HEAVY_NPM_SCRIPTS` / `HEAVY_BINS`)、走行中プロセスの同定は `heavy-process.mjs` (`HEAVY_PROCESS_PATTERNS`) の **2 箇所**にある (前者は「これから実行する文字列」、後者は「OS が持つ実行中プロセスの cmdline」で対象が違う)。**片方だけ足すと非対称が生まれる**: 起動は許可されるのに、走り出したら重い検証として検出されて他セッションを全部 BLOCK する。この包含関係は `heavy-run-guard.test.ts` の「起動判定と走行中判定の包含関係」で固定している
 - **プロセス表の取得はコストがある**: `snapshotProcesses()` は重い検証コマンドのときだけ呼ぶ。全 Bash 呼び出しで毎回叩くと hook が遅くなる
+- **プロセス表が取れなければ実在判定は行われない**: PowerShell の実行ポリシー / CIM 障害 / 高負荷時の spawn 失敗で起こりうる。この場合 hook は **block せず** lock ファイル経路だけに戻るが、「実在ベースの並走判定を行っていない」と stderr に必ず出す (無言で主防御を失わない)。表を取れないだけで全セッションを止めるのは過剰なので、ここは警告に留める
+- **引用でくるんだ実行は heavy 判定を通り抜ける**: `npm run "pre-ready"` / `& "npx" vitest` のように**実行位置のトークンを引用**すると、判定は「データであって実行ではない」と読んで通す。これは `gh issue create --title "npm run pre-ready …"` を止めないための代償であり (#4071 の誤爆 3 件が実測)、意図的に回避する動機は薄いので許容している。**回避しないこと**が運用上の前提
+
+### task lock がかからない形 (accepted residual)
+
+`git push` 単独 / `git push -u origin HEAD` は、上記のとおり押す先を特定できないため task lock を取らない。**二重作業の検出を効かせたい場合は `git push origin <branch>` の形で押す** (実運用ではこちらが支配的)。heavy lock (マシン全体 1 本) はコマンド形に依存しないので影響を受けない。
 
 ## §6 検証
 
 ```bash
-npx vitest run tests/unit/hooks/agent-lock.test.ts tests/unit/hooks/heavy-run-guard.test.ts
+npx vitest run tests/unit/hooks/agent-lock.test.ts tests/unit/hooks/heavy-run-guard.test.ts tests/unit/hooks/heavy-run-hooks.test.ts
 ```
 
-`heavy-run-guard.test.ts` は #4083 / #4069 / #4071 / #4076 の 4 欠陥を、実測 console 出力を fixture の実名にして固定している (誤爆しないことと、**実行を止め続けること**を対で assert する)。
+| file | 層 | 固定している不変条件 |
+|---|---|---|
+| `heavy-run-guard.test.ts` | lib (純関数) | #4083 / #4069 / #4071 / #4076 の 4 欠陥。実測 console 出力を fixture の実名にし、**誤爆しないこと**と**実行を止め続けること**を対で assert する |
+| `heavy-run-hooks.test.ts` | **hook 本体** | stdin payload を流して exit code と lock ファイルの結果を見る。「lib は正しいが渡している引数が間違っている」class (保護対象の範囲 / プロセス表取得失敗の扱い) はこの層でしか固定できない |
 
-hook 単体の挙動 (block / 奪取 / fail closed / 解放) は上記テストで固定している。lock 置き場は `AGENT_LOCK_DIR` で temp へ逃がしているため、**テスト実行が実際に並走している別セッションの lock を壊すことはない**。
+hook 層のテストは、プロセス表を `AGENT_PROCESS_TABLE_FILE` (テスト専用の差し替え口) で固定する。実プロセス表を使うと**たまたま走っている別セッションの検証**で結果が変わる — それ自体が本 SSOT が扱っている欠陥なので、テストが同じ穴を踏まないようにする。lock 置き場も `AGENT_LOCK_DIR` で temp へ逃がしているため、**テスト実行が実際に並走している別セッションの lock を壊すことはない**。

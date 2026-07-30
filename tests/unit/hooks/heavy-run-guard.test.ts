@@ -19,9 +19,10 @@
  * cspell 例外 (本 file 限定、`.cspell.json` の global words には足さない):
  *   - `sess`: session id の fixture 値 (`sess-1`)。global 許可すると `session` の打ち間違いが素通りする
  *   - `cmdline` / `pids`: プロセス表の用語。実装 (`heavy-process.mjs`) の識別子と綴りを揃える必要がある
- *   - `killall`: 実在の POSIX コマンド名。負例 fixture なので綴りを直すと検出対象でなくなる
+ *   - `killall` / `gps` / `wmic` / `xargs` / `ef`: 実在のコマンド名・オプション。一括 kill の
+ *     負例 / 正例 fixture なので、綴りを直すと検出対象でなくなる
  */
-// cspell:ignore sess cmdline pids killall
+// cspell:ignore sess cmdline pids killall gps wmic xargs ef
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -39,10 +40,13 @@ import {
 	isBulkProcessKillCommand,
 	isHeavyCommand,
 	resolveCommandCwd,
+	resolveCommandCwdEvidence,
 	resolvePushRefBranch,
 } from '../../../scripts/lib/agent-lock-policy.mjs';
 import {
+	buildGuardedPids,
 	collectDescendants,
+	createHeavyPidVerifier,
 	findHeavyProcesses,
 	isHeavyProcessCmdline,
 	planProcessCleanup,
@@ -102,6 +106,44 @@ describe('#4071 コマンド判定は構造で行う (部分一致で誤爆し�
 		expect(isHeavyCommand('bash -c "npx vitest run"')).toBe(true);
 		expect(isHeavyCommand('env CI=1 npx vitest run')).toBe(true);
 	});
+
+	it.each([
+		// パッケージマネージャ直下の bin 実行形。旧実装 (正規表現の部分一致) は止めていた
+		// ので、構造判定への移行でここが抜けると **ガードが正味で弱くなる** (ADR-0006)。
+		'yarn vitest',
+		'pnpm vitest run',
+		'bun vitest run',
+		// 値を取るフラグを挟む形。値をサブコマンドとして読むと素通りする。
+		'npm --prefix . run pre-ready',
+		'pnpm --filter app run test',
+		// スクリプト実体を直接叩く形。
+		'node --experimental-vm-modules node_modules/vitest/vitest.mjs run',
+	])('AC2: 旧実装が止めていた形を引き続き止める (ADR-0006): %s', (command) => {
+		expect(isHeavyCommand(command)).toBe(true);
+	});
+
+	it('AC2: 起動判定と走行中判定の包含関係 (起動を許したものが走行中に全 BLOCK を招かない)', () => {
+		// 起動を許可したのに、走り出したら `heavy-process.mjs` に重い検証として検出され、
+		// 他セッション全部を BLOCK する — という非対称を作らない (#4094 QM 指摘 1)。
+		// 実際に起動されるプロセスの cmdline を左、hook が見るコマンド文字列を右に置く。
+		const pairs: [launchCommand: string, processCmdline: string][] = [
+			['yarn vitest', 'node node_modules/vitest/vitest.mjs'],
+			['pnpm vitest run', 'node node_modules/vitest/vitest.mjs run'],
+			[
+				'node --experimental-vm-modules node_modules/vitest/vitest.mjs run',
+				'node --experimental-vm-modules node_modules/vitest/vitest.mjs run',
+			],
+			['npm --prefix . run pre-ready', 'node scripts/pre-ready.mjs'],
+			['npx playwright test', 'node node_modules/playwright/cli.js test'],
+		];
+		for (const [launchCommand, processCmdline] of pairs) {
+			if (!isHeavyProcessCmdline(processCmdline)) continue;
+			expect(
+				isHeavyCommand(launchCommand),
+				`${launchCommand} は走行中に heavy と検出されるので起動時も止めるべき`,
+			).toBe(true);
+		}
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -156,6 +198,46 @@ describe('#4076 push 対象ブランチで判定する', () => {
 
 		// 手がかりが無ければ hook payload の cwd
 		expect(resolveCommandCwd('git push origin HEAD', main)).toBe(main);
+	});
+
+	it('AC1: 値を取るフラグの値を refspec と読み違えない (#4094 QA I2)', () => {
+		// `-o ci.skip` の値を operand に混ぜると refspec の位置がずれ、branch を
+		// `origin` と解釈して**無関係な lock を掴む**方向に誤爆する。
+		expect(resolvePushRefBranch('git push -o ci.skip origin fix/4083-lock')).toBe('fix/4083-lock');
+		expect(resolvePushRefBranch('git push --repo git@example.com:x.git origin fix/4083-lock')).toBe(
+			'fix/4083-lock',
+		);
+		expect(resolvePushRefBranch('git push --push-option=ci.skip origin fix/4083-lock')).toBe(
+			'fix/4083-lock',
+		);
+		// 値を取らないフラグを「値を食う」側に入れてしまうと、効いている判定が壊れる。
+		expect(resolvePushRefBranch('git push --force-with-lease origin fix/4083-lock')).toBe(
+			'fix/4083-lock',
+		);
+	});
+
+	it('AC2: cmd.exe の `cd /d` をディレクトリと読まない (#4094 QA I3)', () => {
+		const main = 'E:\\Github\\ganbari-quest-dev';
+		const worktree = resolve(main, '.claude/worktrees/agent-a216f1fd6f7cff174');
+		const cwd = resolveCommandCwd(
+			'cd /d .claude/worktrees/agent-a216f1fd6f7cff174 && git push origin HEAD',
+			main,
+		);
+		expect(cwd).toBe(worktree);
+		expect(cwd).not.toBe(resolve(main, '/d'));
+	});
+
+	it('AC2: 実行先の根拠がコマンドに無ければ「解決した」と言わない (#4094 QA I1)', () => {
+		const main = 'E:\\Github\\ganbari-quest-dev';
+		// cd / -C がある = コマンド自身が実行先を示している
+		expect(resolveCommandCwdEvidence('cd sub && git push', main).fromCommand).toBe(true);
+		expect(resolveCommandCwdEvidence('git -C sub push', main).fromCommand).toBe(true);
+		// 単独 push はセッション cwd を返すだけ。**branch 判定の入力にしてはいけない**
+		// (Bash tool の cwd は前の呼び出しの cd を引き継ぐが payload の cwd は引き継がない)
+		const bare = resolveCommandCwdEvidence('git push', main);
+		expect(bare.fromCommand).toBe(false);
+		expect(bare.cwd).toBe(main);
+		expect(resolveCommandCwdEvidence('git push -u origin HEAD', main).fromCommand).toBe(false);
 	});
 
 	it('AC3: 同一ブランチの二重作業は引き続き検出できる (ガードを弱めない)', () => {
@@ -236,8 +318,56 @@ describe('#4069 所有権に基づく掃除', () => {
 		'kill -9 33176',
 		'Stop-Process -Id 33176',
 		'node scripts/agent-cleanup.mjs --kill',
+		'node scripts/agent-cleanup.mjs --pid 33176 --kill',
+		// 列挙だけ / 停止を伴わない pipeline は無害なので通す (誤爆させない)
+		'Get-Process node | Select-Object Id,Path',
 	])('AC4: PID 指定の停止は通す (掃除手段を潰さない): %s', (command) => {
 		expect(isBulkProcessKillCommand(command)).toBe(false);
+	});
+
+	it.each([
+		// この環境で最も自然に書かれる形。matcher は `Bash|PowerShell` なので実際に到達する。
+		'Get-Process node | Stop-Process -Force',
+		'Get-Process -Name node | Stop-Process',
+		'gps node | kill',
+		'ps -ef | grep node | xargs kill -9',
+		// 引用するだけの回避
+		'taskkill /F /IM "node.exe"',
+		"killall 'node'",
+		"wmic process where name='node.exe' delete",
+	])('AC4: 一括 kill は書き方を変えても検出する (#4094 QM 指摘 2): %s', (command) => {
+		expect(isBulkProcessKillCommand(command)).toBe(true);
+	});
+
+	it('AC4: 一括 kill コマンドへの「言及」は BLOCK しない (#4071 と同じ原則)', () => {
+		expect(
+			isBulkProcessKillCommand(
+				'gh issue create --title "taskkill /F /IM node.exe が他セッションを止めた" --body-file tmp/i.md',
+			),
+		).toBe(false);
+	});
+
+	it('M3: --pid で指定した起点 PID 自身も掃除対象になる (BLOCK の出口が機能する)', () => {
+		// #4083 のオーファン: 起動元セッションが死に、誰の子孫でもない残骸。
+		// `collectDescendants` は起点自身を含まないため、doc が案内する
+		// `--pid <そのpid>` でも落とせない = 「BLOCK されるが解除できない」状態だった。
+		const orphaned = makeTable([
+			{ pid: 900, ppid: 1, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4094' },
+			{ pid: 901, ppid: 900, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs run' },
+		]);
+		const plan = planProcessCleanup({ table: orphaned, ownerPid: 900, protectedPids: [] });
+		expect(plan.targets.map((p) => p.pid)).toEqual([900, 901]);
+	});
+
+	it('M3: 起点がセッションプロセスなら自分自身は落とさない', () => {
+		// 自動解決された起点は claude / acp の node であり cmdline が重い検証に
+		// 一致しないので、上の変更で自分のセッションが対象に入ることはない。
+		const table = makeTable([
+			{ pid: 100, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
+			{ pid: 120, ppid: 100, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4081' },
+		]);
+		const plan = planProcessCleanup({ table, ownerPid: 100, protectedPids: [] });
+		expect(plan.targets.map((p) => p.pid)).toEqual([120]);
 	});
 });
 
@@ -322,6 +452,111 @@ describe('#4083 lock の生存判定はプロセスの実在に紐づく', () =>
 		const result = acquire('heavy', { sessionId: 'sess-new' });
 		expect(result.ok).toBe(true);
 		expect(readLock('heavy')?.sessionId).toBe('sess-new');
+	});
+
+	it('M1: 保護対象は自セッションの系列に限る (無関係な heavy を自分の lock に書かない)', () => {
+		// 実測構成: 自分のセッション (100) の下で pre-ready が走っており、同じマシンで
+		// 別クローンの QA セッション (200) と、hook を読み込まない Buzz セッション (300)、
+		// 人間の watch (400) が動いている。
+		const table = makeTable([
+			{ pid: 100, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
+			{ pid: 110, ppid: 100, name: 'bash.exe', cmd: 'bash -c ...' },
+			{ pid: 120, ppid: 110, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4094' },
+			{ pid: 200, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
+			{ pid: 210, ppid: 200, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4063' },
+			{ pid: 300, ppid: 1, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs run' },
+			{ pid: 400, ppid: 1, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs --watch' },
+		]);
+		expect(buildGuardedPids({ table, ownerPid: 100 })).toEqual([120]);
+		// 他人の PID を 1 つでも書き込むと、`isStale` が guarded 生存を TTL より
+		// 優先するせいで**誰も奪えない**状態になる (#4094 QA M1)。
+		expect(buildGuardedPids({ table, ownerPid: 100 })).not.toContain(210);
+		expect(buildGuardedPids({ table, ownerPid: 100 })).not.toContain(300);
+		expect(buildGuardedPids({ table, ownerPid: 100 })).not.toContain(400);
+		// 持ち主を解決できなければ保護対象は空 (誰も保護しない = 通常解放)
+		expect(buildGuardedPids({ table, ownerPid: null })).toEqual([]);
+	});
+
+	it('M1: 自分の系列の heavy は引き続き保護する (ガードを弱めない)', () => {
+		const table = makeTable([
+			{ pid: 100, ppid: 1, name: 'node.exe', cmd: 'node @agentclientprotocol/claude-agent-acp' },
+			{ pid: 120, ppid: 100, name: 'node.exe', cmd: 'node scripts/pre-ready.mjs --pr 4094' },
+			{ pid: 121, ppid: 120, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs run' },
+			// detach されて子孫から外れた自分の残骸は、呼び出し側が明示したときだけ入る
+			{ pid: 130, ppid: 1, name: 'node.exe', cmd: 'node node_modules/vitest/vitest.mjs run' },
+		]);
+		expect(buildGuardedPids({ table, ownerPid: 100 })).toEqual([120, 121]);
+		expect(buildGuardedPids({ table, ownerPid: 100, extraRootPids: [130] })).toEqual([
+			120, 121, 130,
+		]);
+	});
+
+	it('M2: PID 再利用で恒久 BLOCK にならない (生存 + 今も重い検証、を要求する)', () => {
+		// `guardedPids` に記録された PID が別プロセスに再割当されたケース。
+		// 生存確認だけだと TTL も ownerPid 死亡もバイパスされ、lock が二度と stale に
+		// ならない (Windows は PID 再利用が速い)。
+		const table = makeTable([
+			{ pid: process.pid, ppid: 1, name: 'explorer.exe', cmd: 'C:\\Windows\\explorer.exe' },
+		]);
+		const verifier = createHeavyPidVerifier(table, () => true);
+		const holder = {
+			key: 'heavy',
+			ownerPid: DEAD_PID,
+			guardedPids: [process.pid],
+			startedAt: Date.now() - 5 * 60 * 60 * 1000,
+			ttlMs: 60 * 60 * 1000,
+		};
+		// 検証なし = 生きているだけで保護され続ける (旧挙動)
+		expect(isStale(holder, Date.now())).toBe(false);
+		// 検証あり = 重い検証ではないので保護されず、TTL / ownerPid 死亡で奪える
+		expect(isStale(holder, Date.now(), { isGuardedPidAlive: verifier })).toBe(true);
+	});
+
+	it('M2: 本当に重い検証が走っている間は、検証を強めても奪えない (ガードを弱めない)', () => {
+		const table = makeTable([
+			{
+				pid: process.pid,
+				ppid: 1,
+				name: 'node.exe',
+				cmd: 'node scripts/pre-ready.mjs --pr 4094',
+			},
+		]);
+		const verifier = createHeavyPidVerifier(table, () => true);
+		const holder = {
+			key: 'heavy',
+			ownerPid: DEAD_PID,
+			guardedPids: [process.pid],
+			startedAt: Date.now() - 5 * 60 * 60 * 1000,
+			ttlMs: 60 * 60 * 1000,
+		};
+		expect(isStale(holder, Date.now(), { isGuardedPidAlive: verifier })).toBe(false);
+		// プロセス表に無い PID は「消えた」と断定できないので保護側に倒す
+		const unknown = createHeavyPidVerifier(makeTable([]), () => true);
+		expect(isStale(holder, Date.now(), { isGuardedPidAlive: unknown })).toBe(false);
+	});
+
+	it('M2: 検証つきで奪える lock は acquire でも奪える (経路が一致する)', () => {
+		const now = 10_000_000;
+		writeFileSync(
+			lockPath('heavy'),
+			JSON.stringify({
+				key: 'heavy',
+				ownerPid: DEAD_PID,
+				guardedPids: [process.pid],
+				startedAt: now - 5 * 60 * 60 * 1000,
+				ttlMs: 60 * 60 * 1000,
+			}),
+		);
+		const table = makeTable([
+			{ pid: process.pid, ppid: 1, name: 'explorer.exe', cmd: 'C:\\Windows\\explorer.exe' },
+		]);
+		const result = acquire('heavy', {
+			sessionId: 'sess-other',
+			now,
+			isGuardedPidAlive: createHeavyPidVerifier(table, () => true),
+		});
+		expect(result.ok).toBe(true);
+		expect(readLock('heavy')?.sessionId).toBe('sess-other');
 	});
 
 	it('AC1: 解放は保護対象が生きている間 no-op になる (走行中に lock が消えない)', () => {

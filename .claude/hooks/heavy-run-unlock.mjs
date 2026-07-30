@@ -28,13 +28,17 @@ async function readStdin() {
 }
 
 async function main() {
-	const [{ releaseUnlessGuarded }, { isHeavyCommand }, { resolveSessionOwner, snapshotProcesses }, { findHeavyProcesses }] =
-		await Promise.all([
-			import('../../scripts/lib/agent-lock.mjs'),
-			import('../../scripts/lib/agent-lock-policy.mjs'),
-			import('../../scripts/lib/session-owner.mjs'),
-			import('../../scripts/lib/heavy-process.mjs'),
-		]);
+	const [
+		{ releaseUnlessGuarded },
+		{ isHeavyCommand },
+		{ resolveSessionOwner, snapshotProcessesResult },
+		{ buildGuardedPids },
+	] = await Promise.all([
+		import('../../scripts/lib/agent-lock.mjs'),
+		import('../../scripts/lib/agent-lock-policy.mjs'),
+		import('../../scripts/lib/session-owner.mjs'),
+		import('../../scripts/lib/heavy-process.mjs'),
+	]);
 
 	const raw = await readStdin();
 	let payload;
@@ -51,18 +55,30 @@ async function main() {
 	// 永久に no-op になり lock が残り続けるため、`sessionId` を第一の照合キーにする (#4013)。
 	// `sessionId` が取れない実行環境でだけ、祖先を辿って持ち主 PID を解決する。
 	const sessionId = payload?.session_id ?? null;
-	const owner = sessionId ? { sessionId, ownerPid: null } : resolveSessionOwner(process.ppid);
 
 	// **走行中の検証プロセスがあれば解放しない** (#4083 AC1)。
 	// PostToolUse は「Bash tool が終わった」時点で走るが、ハーネスが tool を kill した
 	// 場合、検証プロセスは detach したまま生き続ける。そこで無条件に解放すると
 	// 「走っているのに lock が無い」時間帯が生まれ、第三者が並列に検証を始められる。
-	const guarded = findHeavyProcesses(snapshotProcesses(), { excludePids: [] }).map((p) => p.pid);
-	const result = releaseUnlessGuarded(
-		HEAVY_KEY,
-		sessionId ? owner : { sessionId: null, ownerPid: owner.pid },
-		guarded,
-	);
+	//
+	// ただし保護対象は **自セッションが起動した検証だけ** に限る (#4094 QA M1)。
+	// マシン全体の heavy プロセスを書き込むと、別クローンのセッション / hook を読み込まない
+	// Buzz セッション / 人間の `vitest --watch` / #4083 のオーファンまで自分の lock に
+	// 入り、`isStale` が guarded の生存を TTL より優先するせいで**誰も奪えない**状態が
+	// 生まれる。これは #4076 が直そうとしている「無関係を止める」の再導入である。
+	const snapshot = snapshotProcessesResult();
+	if (!snapshot.ok) {
+		process.stderr.write(
+			`[heavy-run-unlock] WARN: プロセス表を取得できませんでした (${snapshot.error})。` +
+				' 走行中の検証を保護できないため、lock は通常どおり解放されます。\n',
+		);
+	}
+	// 解放の照合は sessionId を第一キーにするが、**保護範囲の判定には PID が要る**ため
+	// セッションプロセスは常に解決する (照合キーとは別の役割、#4013 の 2 分割と同じ)。
+	const session = resolveSessionOwner(process.ppid, snapshot.table);
+	const owner = sessionId ? { sessionId, ownerPid: null } : { sessionId: null, ownerPid: session.pid };
+	const guarded = buildGuardedPids({ table: snapshot.table, ownerPid: session.pid });
+	const result = releaseUnlessGuarded(HEAVY_KEY, owner, guarded);
 	if (!result.released && result.guardedPids.length > 0) {
 		process.stderr.write(
 			`[heavy-run-unlock] 保持継続: 検証プロセスが走行中のため lock を返しません (pid=${result.guardedPids.join(', ')})。\n`,

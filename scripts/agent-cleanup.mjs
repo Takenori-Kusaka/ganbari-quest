@@ -90,12 +90,24 @@ function main() {
 	const doKill = argv.includes('--kill');
 	const asJson = argv.includes('--json');
 	const pidArgIndex = argv.indexOf('--pid');
-	const explicitPid = pidArgIndex >= 0 ? Number(argv[pidArgIndex + 1]) : Number.NaN;
+	/** @type {number | null} */
+	let explicitPid = null;
+	if (pidArgIndex >= 0) {
+		const raw = argv[pidArgIndex + 1];
+		const parsed = Number(raw);
+		// 明示引数の誤りは**黙って自動解決に落とさない**。`--pid abc` を無視して
+		// 別の起点で kill すると、ユーザーが指定したつもりのものと違うものが落ちる。
+		if (!Number.isInteger(parsed) || parsed <= 0) {
+			process.stderr.write(
+				`[agent-cleanup] --pid の値が不正です (received: ${JSON.stringify(raw ?? null)})。正の整数を渡してください。\n`,
+			);
+			return 1;
+		}
+		explicitPid = parsed;
+	}
 
 	const table = snapshotProcesses();
-	const ownerPid = Number.isInteger(explicitPid)
-		? explicitPid
-		: resolveSessionOwner(process.ppid, table).pid;
+	const ownerPid = explicitPid ?? resolveSessionOwner(process.ppid, table).pid;
 
 	if (!ownerPid) {
 		process.stderr.write(
@@ -106,11 +118,17 @@ function main() {
 	}
 
 	const holders = readLockHolderPids(ownerPid);
-	const plan = planProcessCleanup({
-		table,
-		ownerPid,
-		protectedPids: holders.map((h) => h.pid),
-	});
+	// `--pid <n>` は「この PID の系列は自分のものだ」というユーザーの明示宣言である。
+	// ここで guardedPids 由来の保護を残すと、**まさに掃除したいオーファン** (停止した
+	// セッションの lock に guarded として記録されている) が除外され、案内どおりに
+	// 操作しても永久に落とせない (#4094 QA M3)。宣言された系列だけ保護を外す。
+	// 他セッションの lock 保持者 PID そのものは、系列外なら従来どおり除外される。
+	const declaredTree = explicitPid
+		? new Set([explicitPid, ...collectDescendants(table, explicitPid)])
+		: new Set();
+	const protectedPids = holders.map((h) => h.pid).filter((pid) => !declaredTree.has(pid));
+	const droppedProtection = holders.filter((h) => declaredTree.has(h.pid));
+	const plan = planProcessCleanup({ table, ownerPid, protectedPids });
 
 	if (asJson) {
 		process.stdout.write(
@@ -119,6 +137,8 @@ function main() {
 					ownerPid,
 					descendants: collectDescendants(table, ownerPid).length,
 					lockHolders: holders,
+					declaredTree: [...declaredTree],
+					droppedProtection,
 					targets: plan.targets.map((p) => ({ pid: p.pid, name: p.name, cmd: p.cmd })),
 					excluded: plan.excluded,
 					unowned: plan.unowned.map((p) => ({ pid: p.pid, name: p.name, cmd: p.cmd })),
@@ -130,9 +150,17 @@ function main() {
 		);
 	} else {
 		process.stdout.write(`[agent-cleanup] 起点セッション pid=${ownerPid}\n`);
-		if (holders.length > 0) {
+		if (droppedProtection.length > 0) {
 			process.stdout.write(
-				`  lock 保持者 (除外): ${holders.map((h) => `${h.pid} (${h.key})`).join(', ')}\n`,
+				`  --pid ${explicitPid} 系列として保護を外した lock 記録: ${droppedProtection
+					.map((h) => `${h.pid} (${h.key})`)
+					.join(', ')}\n`,
+			);
+		}
+		const keptProtection = holders.filter((h) => !declaredTree.has(h.pid));
+		if (keptProtection.length > 0) {
+			process.stdout.write(
+				`  lock 保持者 (除外): ${keptProtection.map((h) => `${h.pid} (${h.key})`).join(', ')}\n`,
 			);
 		}
 		for (const ex of plan.excluded) {

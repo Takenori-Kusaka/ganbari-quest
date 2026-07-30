@@ -42,13 +42,18 @@ async function readStdin() {
 	return Buffer.concat(chunks).toString('utf8');
 }
 
-function blockWithHolder(holder, describeHolder) {
+function blockWithHolder(holder, describeHolder, lockDirPath) {
 	process.stderr.write('[heavy-run-lock] BLOCK: 重い検証が既に別セッションで実行中です。\n');
 	process.stderr.write(`  保持者: ${describeHolder(holder)}\n`);
 	process.stderr.write('  対処 (待たない):\n');
 	process.stderr.write('    1. チャンネルに「他セッションが重い検証中のため見送った」と報告する\n');
 	process.stderr.write('    2. PR 本文整備 / Issue 起票 / レビュー対応など別の作業に移る\n');
 	process.stderr.write('    3. CI で代替できるならローカル実行を諦めて CI を正とする\n');
+	// 出口が無い block は「全員が止まる」方向の事故になる (#4094 QA M2 / QM 指摘 3)。
+	// 保持者のプロセスが実在しないのに残っている lock は、中身を確認したうえで消せる。
+	process.stderr.write(
+		`    4. 保持者のプロセスが実在しないなら、中身を確認してから lock を消す: ${lockDirPath}/heavy.lock\n`,
+	);
 	process.stderr.write(
 		'  Why: 並走した検証結果は「落ちた」も「通った」も根拠にならない (docs/sessions/agent-concurrency.md)\n',
 	);
@@ -77,6 +82,38 @@ async function currentBranch(cwd) {
 }
 
 /**
+ * **押そうとしている branch** を決める。決められなければ null (#4076 / #4094 QA I1)。
+ *
+ * 入力にしてよいのは「対象そのもの」だけである:
+ *
+ * 1. push refspec (`git push origin fix/3980-…`) — 最も直接的
+ * 2. コマンド自身が示す実行先 (`cd <worktree> && git push` / `git -C <worktree> push`) の HEAD
+ *
+ * どちらも無い形 (`git push` 単独 / `git push -u origin HEAD`) では、hook から押す先を
+ * 知る手段が無い。**セッションの cwd で代用しない** — Bash tool の cwd は前のツール呼び出しの
+ * `cd` を引き継ぐが hook payload の `cwd` は引き継がないため、worktree で作業しながら
+ * メインクローンの branch で lock を掴む (= 無関係な BLOCK を出す) という #4076 の実害が
+ * そのまま残る。誤った key で掴む lock は二重作業を 1 件も防がないので、**掴まないほうが
+ * 正しい**。代わりに refspec 付きの形を促す。
+ *
+ * @param {string} command
+ * @param {string | null} sessionCwd
+ * @param {{resolvePushRefBranch: (c: string) => string | null, resolveCommandCwdEvidence: (c: string, f: string | null) => {cwd: string | null, fromCommand: boolean}}} deps
+ * @returns {Promise<string | null>}
+ */
+async function resolvePushBranch(command, sessionCwd, deps) {
+	const fromRef = deps.resolvePushRefBranch(command);
+	if (fromRef) return fromRef;
+	const evidence = deps.resolveCommandCwdEvidence(command, sessionCwd);
+	if (evidence.fromCommand) return await currentBranch(evidence.cwd);
+	process.stderr.write(
+		'[heavy-run-lock] NOTE: push 先の branch を特定できないため task lock を取りません。\n' +
+			'  二重作業の検出を効かせるには `git push origin <branch>` の形で押してください。\n',
+	);
+	return null;
+}
+
+/**
  * イメージ名一括 kill を止める (#4069 AC4)。
  *
  * @param {string} command
@@ -89,7 +126,10 @@ function blockBulkKill(command) {
 	process.stderr.write('  対処 (所有権単位で掃除する):\n');
 	process.stderr.write('    1. npm run agent:cleanup           # 自分の残骸を一覧 (kill しない)\n');
 	process.stderr.write('    2. npm run agent:cleanup -- --kill  # lock 保持者を除外して自分の分だけ停止\n');
-	process.stderr.write('    3. 特定 PID だけ落とす場合は taskkill /F /PID <pid> を使う\n');
+	process.stderr.write(
+		'    3. 所有者を辿れない残骸は npm run agent:cleanup -- --pid <pid> --kill (その pid 自身と子孫が対象)\n',
+	);
+	process.stderr.write('    4. 単発なら taskkill /F /PID <pid> (PID 指定は通る)\n');
 	process.stderr.write(
 		'  Why: 2026-07-29 に `taskkill /F /IM node.exe` が lock 保持中の別セッション (PR #4063) を停止させた (#4069)\n',
 	);
@@ -99,7 +139,7 @@ function blockBulkKill(command) {
 async function main() {
 	// 動的 import。解決に失敗しても catch して exit 2 に倒すため static import にしない (#3999)。
 	const [
-		{ acquire, describeHolder },
+		{ acquire, describeHolder, isProcessAlive, lockDir },
 		{
 			isHeavyCommand,
 			isBranchPublishCommand,
@@ -107,10 +147,10 @@ async function main() {
 			extractTarget,
 			taskKeyFromBranch,
 			resolvePushRefBranch,
-			resolveCommandCwd,
+			resolveCommandCwdEvidence,
 		},
-		{ resolveSessionOwner, snapshotProcesses },
-		{ findHeavyProcesses, collectDescendants },
+		{ resolveSessionOwner, snapshotProcessesResult },
+		{ findHeavyProcesses, collectDescendants, createHeavyPidVerifier },
 	] = await Promise.all([
 		import('../../scripts/lib/agent-lock.mjs'),
 		import('../../scripts/lib/agent-lock-policy.mjs'),
@@ -139,9 +179,25 @@ async function main() {
 	const needsLock = isBranchPublishCommand(command) || isHeavyCommand(command);
 	if (!needsLock) process.exit(0);
 
+	// プロセス表は **1 回だけ**取る。持ち主の解決 (祖先辿り) と実在判定の両方で使うので、
+	// 別々に呼ぶと spawn が 2 回になり hook が遅くなる。
+	const snapshot = snapshotProcessesResult();
+	if (!snapshot.ok) {
+		// 取得できないことを**黙って通さない** (#4094 QA M4)。ここで無言に倒れると
+		// #4083 の主防御 (実在判定) が消えて lock ファイル経路だけに戻るが、その事実が
+		// 誰にも見えない。block はしない (PowerShell 障害で全セッションが停止するのは
+		// 過剰) が、判定していないことは必ず出す。
+		process.stderr.write(
+			`[heavy-run-lock] WARN: プロセス表を取得できませんでした (${snapshot.error})。\n` +
+				'  実在ベースの並走判定を行っていません (lock ファイルの有無だけで判定しています)。\n' +
+				'  重い検証を回す前に、他セッションが走っていないかを目視で確認してください。\n',
+		);
+	}
+	const procTable = snapshot.table;
+
 	// `process.ppid` は hook 呼び出しごとに変わる短命プロセスなので持ち主にできない (#4013)。
 	// 祖先を辿ってセッションプロセスを取り、解決できなければ PID なし (TTL のみ) で記録する。
-	const owner = resolveSessionOwner(process.ppid);
+	const owner = resolveSessionOwner(process.ppid, procTable);
 	const common = {
 		ownerPid: owner.pid,
 		ownerVia: owner.via,
@@ -158,8 +214,10 @@ async function main() {
 	// 判定対象は **push しようとしている branch** であって、セッションの cwd が
 	// checkout している branch ではない (#4076)。
 	if (isBranchPublishCommand(command)) {
-		const branch =
-			resolvePushRefBranch(command) ?? (await currentBranch(resolveCommandCwd(command, cwd)));
+		const branch = await resolvePushBranch(command, cwd, {
+			resolvePushRefBranch,
+			resolveCommandCwdEvidence,
+		});
 		const key = taskKeyFromBranch(branch);
 		if (key) {
 			const claimed = acquire(key, { ...common, target: branch, ttlMs: 4 * 60 * 60 * 1000 });
@@ -182,7 +240,6 @@ async function main() {
 	// 起動元セッションが先に終了すると lock だけが消え、走行中の検証と並列に 2 本目が
 	// 始められてしまう。プロセス表を直接見ることで、lock が無くても並走を止める。
 	// 自分の系列 (セッションプロセスの子孫) は除外する — 自分自身を BLOCK しないため。
-	const procTable = snapshotProcesses();
 	const ownPids = owner.pid ? [owner.pid, ...collectDescendants(procTable, owner.pid)] : [];
 	const running = findHeavyProcesses(procTable, { excludePids: ownPids });
 	if (running.length > 0) {
@@ -195,8 +252,15 @@ async function main() {
 		process.stderr.write('  対処 (待たない):\n');
 		process.stderr.write('    1. チャンネルに「他セッションが重い検証中のため見送った」と報告する\n');
 		process.stderr.write('    2. PR 本文整備 / Issue 起票 / レビュー対応など別の作業に移る\n');
+		// 案内は「実際にそれで落とせる手順」でなければならない (#4094 QA M3)。
+		// `--kill` 単独は所有者を辿れない残骸 (= まさに #4083 のオーファン) を落とさない。
+		// 起点 PID を明示すれば、その PID 自身と子孫が対象になる。
 		process.stderr.write(
-			'    3. 上記が自分の残骸 (起動元セッションが終了済) なら `npm run agent:cleanup -- --kill` で回収する\n',
+			'    3. 上記が自分の残骸 (起動元セッションが終了済) なら、その pid を指定して回収する:\n',
+		);
+		process.stderr.write('         npm run agent:cleanup                      # まず一覧で確認\n');
+		process.stderr.write(
+			`         npm run agent:cleanup -- --pid ${running[0]?.pid ?? '<pid>'} --kill   # 自分の残骸だと確信できる場合\n`,
 		);
 		process.stderr.write(
 			'  Why: 並走した検証結果は「落ちた」も「通った」も根拠にならない (docs/sessions/agent-concurrency.md)\n',
@@ -204,9 +268,17 @@ async function main() {
 		process.exit(2);
 	}
 
-	const result = acquire(HEAVY_KEY, { ...common, target: extractTarget(command) });
+	const result = acquire(HEAVY_KEY, {
+		...common,
+		target: extractTarget(command),
+		// 保護対象の生存判定を「存在する」ではなく「**今も重い検証である**」に強める。
+		// PID 再利用で lock が永久に stale にならない穴を塞ぐ (#4094 QA M2)。
+		// プロセス表が取れていないときは渡さない — 全部「重くない」に倒れて
+		// 走行中の検証を奪う方向に緩むため (fail closed 側を選ぶ)。
+		isGuardedPidAlive: snapshot.ok ? createHeavyPidVerifier(procTable, isProcessAlive) : undefined,
+	});
 	if (result.ok) process.exit(0);
-	blockWithHolder(result.holder, describeHolder);
+	blockWithHolder(result.holder, describeHolder, lockDir());
 }
 
 main().catch((err) => {
