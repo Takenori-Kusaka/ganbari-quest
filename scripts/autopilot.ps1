@@ -38,6 +38,13 @@ param(
     # 進捗ゼロがこの回数連続したら停止する。
     [int]$MaxNoProgress = 5,
 
+    # total_cost_usd を取得できなかったサイクルに計上する保守的な推定額 (USD)。
+    # 0 にすると上限判定が働かなくなるため 0 を許さない。
+    [double]$FallbackCycleCostUsd = 5.0,
+
+    # コストを計測できないサイクルがこの回数連続したら停止する (上限を保証できないため)。
+    [int]$MaxCostUnknownRuns = 3,
+
     # 起動時に 1 サイクルだけ実行して終了する (動作確認用)。
     [switch]$Once,
 
@@ -49,7 +56,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 # scripts/ 直下に置かれる前提。リポジトリルートは 1 つ上。
-# 別 PC / 別クローンでも動くよう、絶対パスをハードコードしない (#4111)。
+# 別 PC / 別クローンでも動くよう、絶対パスをハードコードしない (#4112)。
 $ScriptDir = $PSScriptRoot
 $RepoDir   = (Resolve-Path (Join-Path $ScriptDir '..')).Path
 $WorkDir   = Join-Path $ScriptDir '.autopilot'
@@ -94,6 +101,7 @@ function Read-State {
         cycle          = 0
         totalCostUsd   = 0.0
         noProgressRuns = 0
+        costUnknownRuns = 0
         recentTargets  = @()
         lastOpenPr     = -1
         lastOpenIssue  = -1
@@ -110,7 +118,7 @@ function Save-State {
 # ---------------------------------------------------------------------------
 
 # gh の JSON 配列を件数にする。
-# 実測 (#4111): `@($json | ConvertFrom-Json).Count` は Windows PowerShell 5.1 で常に 1 を返し、
+# 実測 (#4112): `@($json | ConvertFrom-Json).Count` は Windows PowerShell 5.1 で常に 1 を返し、
 # open PR 11 件 / open issue 118 件を「1 件」と誤認した。-join で 1 本の文字列に正規化してから
 # 変換すると正しく列挙される。件数を誤ると完了判定と進捗ゼロ検出が両方壊れるため関数に固定する。
 function Measure-JsonArray {
@@ -150,7 +158,7 @@ function Invoke-Cycle {
     }
 
     # prompt は stdin から渡す。
-    # 実測 (#4111): `ProcessStartInfo.ArgumentList` は .NET Framework 4.x (Windows PowerShell 5.1)
+    # 実測 (#4112): `ProcessStartInfo.ArgumentList` は .NET Framework 4.x (Windows PowerShell 5.1)
     # に存在せず PropertyNotFoundException になる。長い多行 prompt をコマンドライン引数として
     # quoting するのも壊れやすいため、`claude -p` が stdin から prompt を読む経路を使う。
     #
@@ -176,16 +184,17 @@ function Invoke-Cycle {
     $stdout = if (Test-Path $outFile) { Get-Content $outFile -Raw -Encoding utf8 } else { '' }
 
     $cost = 0.0
+    $costKnown = $false
     $resultText = ''
     # 成否は claude の JSON (`is_error`) を第一の根拠にする。
-    # 実測 (#4111): Start-Process -PassThru の `$proc.ExitCode` は、JSON が
+    # 実測 (#4112): Start-Process -PassThru の `$proc.ExitCode` は、JSON が
     # `is_error:false` / `subtype:success` / `stop_reason:end_turn` を返した成功サイクルでも
     # 非 0 になった。exit code だけを見ると成功を失敗と記録してしまう。
     $okFromJson = $null
     try {
         $json = $stdout | ConvertFrom-Json
         $names = $json.PSObject.Properties.Name
-        if ($names -contains 'total_cost_usd') { $cost = [double]$json.total_cost_usd }
+        if ($names -contains 'total_cost_usd') { $cost = [double]$json.total_cost_usd; $costKnown = $true }
         if ($names -contains 'result')         { $resultText = [string]$json.result }
         if ($names -contains 'is_error')       { $okFromJson = -not [bool]$json.is_error }
     } catch {
@@ -193,8 +202,18 @@ function Invoke-Cycle {
         $resultText = $stdout
     }
 
-    $ok = if ($null -ne $okFromJson) { $okFromJson } else { $proc.ExitCode -eq 0 }
-    return @{ ok = $ok; cost = $cost; result = $resultText; exitCode = $proc.ExitCode }
+    $ok0 = if ($null -ne $okFromJson) { $okFromJson } else { $proc.ExitCode -eq 0 }
+
+    # コスト抽出に失敗したときに 0 として扱わない (fail-open 防止)。
+    # 0 を加算し続けると累計が伸びず `$MaxCostUsd` 判定が永久に成立しないため、
+    # 「コストを計測できない = 上限を保証できない」を保守的な推定値 + 連続失敗カウントで扱う。
+    # 件数バグ (Measure-JsonArray) と同型の「取得失敗が安全側に見える」経路を塞ぐ。
+    if (-not $costKnown) {
+        $cost = $FallbackCycleCostUsd
+        Write-Line ("サイクル $CycleNo の total_cost_usd を取得できませんでした。保守的に `${0:N2} を計上します" -f $FallbackCycleCostUsd) 'WARN'
+    }
+
+    return @{ ok = $ok0; cost = $cost; costKnown = $costKnown; result = $resultText; exitCode = $proc.ExitCode }
 }
 
 function Get-TargetFromResult {
@@ -262,6 +281,19 @@ while ($true) {
     $r = Invoke-Cycle -CycleNo $state.cycle
     $state.totalCostUsd += $r.cost
     $target = Get-TargetFromResult -Text $r.result
+
+    # --- 安全弁 3b: コストを計測できないサイクルが続いたら止める ------------
+    # 上限を保証できない状態で回し続けないため、fail-closed で停止する。
+    if ($r.costKnown) {
+        $state.costUnknownRuns = 0
+    } else {
+        $state.costUnknownRuns++
+        if ($state.costUnknownRuns -ge $MaxCostUnknownRuns) {
+            Save-State $state
+            Write-Line "コストを $MaxCostUnknownRuns 回連続で計測できませんでした。上限を保証できないため終了します" 'STOP'
+            break
+        }
+    }
 
     Write-Line ("cycle $($state.cycle) 終了: ok=$($r.ok) target=$target cost=`${0:N4} 累計=`${1:N2}" -f $r.cost, $state.totalCostUsd)
     if ($r.result) {

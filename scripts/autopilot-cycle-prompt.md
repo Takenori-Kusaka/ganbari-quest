@@ -37,6 +37,12 @@ CI ステータスが必要なら `gh pr checks <N>` を見てください。
 5. **未着手 Issue** — 実装する（priority:critical / high を優先）
 6. **重複 / 実装済み Issue** — 根拠を示して close する
 
+**絶対に触らないもの**（他チーム管轄・autopilot の scope 外）:
+
+- **統合 PR（`[統合] develop → main`、現 #3995）** — 外部品質監査チーム管轄。body 再生成・approve・merge のいずれも行わない
+- **`refactor/4097-*` 等、他セッションが作業中のブランチ** — lock で BLOCK されたら二重作業なので手を出さない
+- **QA が BLOCK コメントを出している PR の、その指摘への対応以外の変更** — レビュー中の diff を動かさない
+
 **飛ばしてよいもの**（ブロックされたら次へ）:
 
 - 他セッションが heavy lock を保持していて重い検証ができない → **待たずに別の作業へ**
@@ -50,7 +56,8 @@ CI ステータスが必要なら `gh pr checks <N>` を見てください。
 ### 並列化してよいもの（サブエージェントを使う）
 
 - **QA レビュー** → `QA Session Agent` サブエージェント
-- **PO 判断** → `PO Session Agent` サブエージェント（`docs/sessions/po-session.md` 準拠）。`po-decision:required` ラベルが付いた PR は**人間を待たず、PO サブエージェントに決裁させてください**
+- **PO 判断** → `PO Session Agent` サブエージェント（`docs/sessions/po-session.md` 準拠）。`po-decision:required` ラベルが付いた PR は**人間を待たず、PO サブエージェントに決裁させてください**（オーナー判断 2026-07-30）。
+  **ただしこれは「プロダクト判断を代行する」ことであって、`approve` / `merge` の代行ではありません。** approve / merge は lab アカウント専権のまま変わりません（ADR-0022）。 PO サブエージェントの決裁結果は PR body / コメントに残し、merge 判断は QA / 監査に委ねてください
 - **実装 / 修正** → `Dev Session Agent` サブエージェント（worktree 分離）
 
 サブエージェントには**必ず以下を伝えてください**:

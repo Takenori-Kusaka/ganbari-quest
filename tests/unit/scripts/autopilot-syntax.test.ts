@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * #4111: autopilot オーケストレーターの構造検証。
+ * #4112: autopilot オーケストレーターの構造検証。
  *
  * 本 script は「無人で長時間動く」ことが目的なので、壊れていることに気づくのが遅れる。
  * 起動できない / 安全弁が消えている / 環境依存パスが再混入した、を CI で検出する。
@@ -39,7 +39,7 @@ function powerShellExe(): string {
 	}
 }
 
-describe('autopilot orchestrator (#4111)', () => {
+describe('autopilot orchestrator (#4112)', () => {
 	it('[A1] 実行体・prompt・設計 doc の 3 点が揃っている', () => {
 		expect(existsSync(SCRIPT), `${SCRIPT} が無い`).toBe(true);
 		expect(existsSync(PROMPT), `${PROMPT} が無い`).toBe(true);
@@ -61,7 +61,9 @@ describe('autopilot orchestrator (#4111)', () => {
 		expect(src, 'サイクル数上限が無い').toMatch(/\$state\.cycle\s+-ge\s+\$MaxCycles/);
 		expect(src, '累計コスト上限が無い').toMatch(/\$state\.totalCostUsd\s+-ge\s+\$MaxCostUsd/);
 		expect(src, '経過時間上限が無い').toMatch(/TotalMinutes\s+-ge\s+\$MaxMinutes/);
-		expect(src, '進捗ゼロ連続の上限が無い').toMatch(/\$state\.noProgressRuns\s+-ge\s+\$MaxNoProgress/);
+		expect(src, '進捗ゼロ連続の上限が無い').toMatch(
+			/\$state\.noProgressRuns\s+-ge\s+\$MaxNoProgress/,
+		);
 	});
 
 	it('[A4] --bare を付けて claude を起動していない (hooks を殺さない)', () => {
@@ -87,8 +89,33 @@ describe('autopilot orchestrator (#4111)', () => {
 		expect(prompt, '結果行のフォーマット指定が無い').toContain('AUTOPILOT_RESULT');
 	});
 
+	it('[A9] コスト取得失敗が「コスト 0」に化けない (上限判定の fail-open 防止)', () => {
+		// QA 指摘 (#4113): total_cost_usd の抽出に失敗したとき 0 を加算し続けると、
+		// 累計が伸びず $MaxCostUsd 判定が永久に成立せず無限に回る。
+		// Measure-JsonArray の件数バグと同型の「取得失敗が安全側に見える」経路。
+		const src = readFileSync(SCRIPT, 'utf8');
+		expect(src, '取得成否を追跡していない').toMatch(/\$costKnown\s*=\s*\$true/);
+		expect(src, '取得失敗時に保守的な推定額を計上していない').toMatch(
+			/-not \$costKnown[\s\S]{0,200}\$cost\s*=\s*\$FallbackCycleCostUsd/,
+		);
+		expect(src, '計測不能が続いたときに停止しない').toMatch(
+			/\$state\.costUnknownRuns\s+-ge\s+\$MaxCostUnknownRuns/,
+		);
+	});
+
+	it('[A10] サイクル prompt が他チーム管轄を scope 外として明示している', () => {
+		// QA 指摘 (#4113): 統合 PR は外部品質監査チーム管轄。無人 worker が触れる設計は不可。
+		const prompt = readFileSync(PROMPT, 'utf8');
+		expect(prompt, '統合 PR の除外が無い').toContain('統合 PR');
+		expect(prompt, 'approve / merge の禁止が無い').toMatch(/approve\s*\/\s*merge/);
+		// PO 決裁の代行が approve 代行に読めないこと。
+		expect(prompt, 'PO 決裁と approve の境界が書かれていない').toContain(
+			'approve` / `merge` の代行ではありません',
+		);
+	});
+
 	it('[A7] .ps1 が UTF-8 BOM 付きで保存されている (Windows PowerShell 5.1 の日本語コメント破損回避)', () => {
-		// 実測 (#4111): BOM 無しだと Windows PowerShell 5.1 が ANSI として読み、
+		// 実測 (#4112): BOM 無しだと Windows PowerShell 5.1 が ANSI として読み、
 		// 日本語コメントが壊れて `}` / `)` の対応が崩れ、7 件の parse error になった。
 		// pwsh 7 では再現しないため、BOM の有無自体を不変条件として固定する。
 		const head = readFileSync(SCRIPT).subarray(0, 3);
