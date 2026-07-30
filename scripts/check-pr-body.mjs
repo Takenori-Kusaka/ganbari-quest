@@ -261,6 +261,71 @@ export function checkAcMap(body) {
 }
 
 // ---------------------------------------------------------------------------
+// AC 検証マップ 根拠の参照整合 (#4074)
+// ---------------------------------------------------------------------------
+
+/**
+ * 根拠欄に現れる `--pr <番号>` の PR 番号を抽出する (#4074)。
+ *
+ * `--pr <num>` / `--pr <N>` 等のプレースホルダは数字でないので拾わない (AC3 後方互換)。
+ *
+ * @param {string} body
+ * @returns {number[]} 出現順・重複除去済みの PR 番号
+ */
+export function extractEvidencePrNumbers(body) {
+	const section = extractAcMapSection(body);
+	if (!section) return [];
+	/** @type {number[]} */
+	const found = [];
+	for (const m of section.matchAll(/--pr[=\s]+(\d+)\b/g)) {
+		const n = Number(m[1]);
+		if (!found.includes(n)) found.push(n);
+	}
+	return found;
+}
+
+/**
+ * AC 検証マップの根拠が **その PR 自身**を検証したものかを検証する (#4074 AC1)。
+ *
+ * 実測 (#4074): PR #4063 の AC 検証マップに `npm run pre-ready -- --pr 4059` と書かれていた。
+ * #4059 は存在しない PR (`gh api .../pulls/4059` → 404) だが、`check-pr-body.mjs --pr 4063` は
+ * 「OK — 違反なし」を返し CI も全 pass した。**宛先違いの証跡でも Ready 化を通過できた。**
+ *
+ * 番号の実在確認 (GitHub API) ではなく **自 PR 番号との一致**で判定する。
+ * `gh pr view <N> --json <単一フィールド>` は存在しない PR でも値を返すため実在確認は当てにならず、
+ * 一方「自 PR と一致しない番号」は実在・非実在を問わず宛先違いなので、一致判定だけで
+ * 本 Issue の欠陥 (実在しない 4059 / 別 PR の番号) を両方とも落とせる。ネットワーク非依存。
+ *
+ * 対象は AC 検証マップセクションのみ。body の他所 (背景・関連 PR への言及) は正当に他 PR 番号を
+ * 含むため対象外にして誤検出を作らない (AC3)。
+ *
+ * @param {string} body
+ * @param {string | number | null | undefined} prNumber 自 PR 番号 (`--body-file` dry-run では null)
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkEvidencePrReferences(body, prNumber) {
+	// 自 PR 番号が分からない dry-run では「一致」を判定できない。ここで嘘の pass / fail を作らない
+	// (`--pr` 指定の pre-ready Step 9 / CI では必ず判定される)。
+	if (prNumber === null || prNumber === undefined || String(prNumber).trim() === '') return null;
+	const self = Number(String(prNumber).trim());
+	if (!Number.isFinite(self)) return null;
+
+	const mismatched = extractEvidencePrNumbers(body).filter((n) => n !== self);
+	if (mismatched.length === 0) return null;
+
+	return {
+		id: 'evidence-pr-mismatch',
+		message:
+			`AC 検証マップの根拠が本 PR (#${self}) 以外の PR 番号を指しています: ` +
+			`${mismatched.map((n) => `--pr ${n}`).join(' / ')}\n` +
+			`  根拠コマンドの \`--pr <番号>\` は **その PR 自身**を検証したものでなければ証跡になりません ` +
+			`(別 PR / 存在しない番号を指した状態で Ready 化を通した実測: PR #4063 の \`--pr 4059\`)。\n` +
+			`  対応: 根拠欄の番号を ${self} に直し、\`npm run pre-ready -- --pr ${self}\` を実際に実行し直して結果を貼る。\n` +
+			`  番号を書かない形式 (\`--pr <num>\` 等のプレースホルダ) は従来どおり通ります。`,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Ready for Review チェックリスト未チェック検出
 // ---------------------------------------------------------------------------
 
@@ -1394,6 +1459,10 @@ function collectViolations(body, requiredSections, template, args, notes = []) {
 
 	const acMap = checkAcMap(body);
 	if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
+
+	// #4074: 根拠欄の `--pr <番号>` が自 PR を指しているか (宛先違いの証跡を通さない)
+	const evidencePrRef = checkEvidencePrReferences(body, args.pr);
+	if (evidencePrRef) violations.push({ ...evidencePrRef, issue: '#4074' });
 
 	const unchecked = findUncheckedReadyChecklist(body);
 	if (unchecked.length > 0) {

@@ -48,6 +48,56 @@ CI ログでも同 warning が出るため、PR の CI fail 調査時にまず�
 判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
 `tests/e2e/integration/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
 
+## repo 走査 test (実行コストが入力サイズに比例する test) — #4085
+
+### 定義
+
+`readdirSync` / `globSync` 等で **repo のディレクトリツリー (`src` / `scripts` / `tests` / `docs` / `site` / `infra` / `.github` / `.claude`) を走査する test**。実行時間が repo の file 数に比例し、unit lane の並列実行で他 worker と CPU / FS を奪い合うと既定 timeout (5s、`vite.config.ts`) を超える。
+
+**落ちても壊れていない**ため、開発者は毎回「本物の回帰か負荷か」を切り分けることになる。切り分けを間違えれば無い回帰を追うか、本物の回帰を「また負荷だろう」と見逃す。同 class が 4 例に達したため機械 gate 化した (ADR-0061 same-class-N→guard)。
+
+### ルール (区分宣言は必須)
+
+| scope | 意味 | 要求 |
+|---|---|---|
+| `repo` | repo ツリーを走査する | **明示 timeout 必須** (`vi.setConfig({ testTimeout: 60_000 })` / `it(..., 60_000)` / `describe(..., { timeout })`)。`MIN_REPO_SCAN_TIMEOUT_MS` = 20s 以上 |
+| `bounded` | 走査 API を使うが入力が fixture / temp dir / 単一 dir で有界 | 追加要求なし |
+
+- **宣言 SSOT**: `scripts/lib/ci/repo-scan-test-registry.mjs`
+- **gate**: `node scripts/check-repo-scan-test-declaration.mjs` (pre-ready Step 7f / CI `lint-and-test`)
+- 未宣言 / `scope` 不一致 / `scope: 'repo'` の timeout 欠落 / stale エントリはすべて **fail**
+- `scope` は gate が静的判定した値と一致していないと fail する。**`bounded` と自己申告するだけで timeout 要求を回避することはできない**
+- 静的判定は保守的なので、実走査しない file が `repo` と判定されることがある (fixture 文字列に走査 API と repo root を含む場合)。判定を緩めるのではなく明示 timeout 1 行を置いて合わせる
+
+追加手順:
+
+```bash
+# 1. test を書く
+# 2. 判定と貼り付け用エントリを出す
+node scripts/check-repo-scan-test-declaration.mjs --list
+node scripts/check-repo-scan-test-declaration.mjs        # 未宣言なら fail + 追加すべき行を表示
+# 3. registry に 1 行足す。scope='repo' なら明示 timeout も置く
+```
+
+### 「全体実行だと落ち単独だと通る」の一次切り分け手順
+
+repo 走査 test が落ちたら、**まず負荷起因かどうかを分離する**。同一 commit で以下 2 つの結果が食い違えば負荷起因であり、走査対象も assertion も壊れていない。
+
+```bash
+# (1) 落ちた test file だけを単独で実行する
+npx vitest run tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts \
+                tests/unit/architecture/page-guide-coverage.test.ts
+#   → 単独で PASS (実測 3.28s) なら他 worker との CPU / FS 競合が原因 (#4085 実測)
+
+# (2) 同時に走っている重いプロセスがないかを確認する (Windows)
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId, CommandLine
+
+# (3) 単独でも落ちるなら本物の回帰。差分を疑う
+git log --oneline -5 -- <走査対象の path>
+```
+
+負荷起因と判明した場合は timeout を都度伸ばすのではなく、**registry の区分が正しいか / 明示 timeout が付いているか**を確認する (付いていなければ gate が落ちているはず)。それでも落ちるなら走査範囲の縮小か専用 CI step への移設を検討する (#4067 が `check-license-key-leak` に対して採った方式)。
+
 ## demo Lambda E2E (`tests/e2e/demo-lambda/`、#2205)
 
 ADR-0048 Multi-Lambda Demo Deployment で導入された demo Lambda (`demo.ganbari-quest.com`、

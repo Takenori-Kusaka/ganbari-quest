@@ -51,7 +51,7 @@ const RAW_GITHUB_PATTERN =
 export function extractScreenshotRefs(body) {
 	const refs = [];
 	for (const m of body.matchAll(RAW_GITHUB_PATTERN)) {
-		const [url, owner, repo, ref, path] = m;
+		const [url, owner = '', repo = '', ref = '', path = ''] = m;
 		if (ref !== 'screenshots') continue;
 		refs.push({ owner, repo, ref, path, url });
 	}
@@ -100,6 +100,139 @@ export function pairBeforeAfter(paths) {
 	return pairs;
 }
 
+// ---------------------------------------------------------------------------
+// #4084: 命名非依存のペアリング宣言 + 理由必須の例外宣言
+// ---------------------------------------------------------------------------
+
+/**
+ * 理由記述を要求する宣言の最小長 (全角前提の目安)。
+ *
+ * 「理由の非強制」を作らないための下限 (#3956 教訓 / #4084 AC3)。空欄・`TODO`・`n/a` のような
+ * 定型 stub は理由として認めない。lint の `-- <reason>` 付き抑制コメントと同じ思想。
+ */
+export const MIN_REASON_LENGTH = 12;
+
+/** 理由として認めない定型 stub (小文字化して完全一致で判定)。 */
+const STUB_REASONS = new Set([
+	'todo',
+	'tbd',
+	'n/a',
+	'na',
+	'-',
+	'—',
+	'なし',
+	'後で書く',
+	'あとで書く',
+	'理由',
+	'wip',
+	'fixme',
+]);
+
+/**
+ * `<!-- <key>: <理由> -->` 形式の宣言を読み、理由の実体があるかを判定する (#4084 AC3)。
+ *
+ * @param {string} body
+ * @param {string} key 例: `ss-identical-ok` / `ss-pair-none`
+ * @returns {{ present: boolean; reason: string; valid: boolean }}
+ */
+export function parseReasonDeclaration(body, key) {
+	const m = body.match(new RegExp(`<!--\\s*${key}\\s*:([^>]*?)-->`));
+	if (!m) return { present: false, reason: '', valid: false };
+	const reason = (m[1] ?? '').trim();
+	const normalized = reason.toLowerCase();
+	const valid =
+		reason.length >= MIN_REASON_LENGTH &&
+		!STUB_REASONS.has(normalized) &&
+		!/^[-—\s]*$/.test(reason);
+	return { present: true, reason, valid };
+}
+
+/**
+ * ペアリング宣言を読む (#4084 AC2)。
+ *
+ * 撮影者の命名自由度を保ったまま機械が対応関係を取れるようにする。実測 (#4080) の
+ * `develop-*` / `pr4080-*` は prefix 宣言 1 行で 20 枚すべてペアになる。
+ *
+ *   <!-- ss-pair-prefix: before=develop- after=pr4080- -->
+ *   <!-- ss-pair: before=<path or raw URL> after=<path or raw URL> -->
+ *
+ * @param {string} body
+ * @returns {{ prefixes: { before: string; after: string }[]; explicit: { before: string; after: string }[] }}
+ */
+export function parsePairDeclarations(body) {
+	const prefixes = [];
+	for (const m of body.matchAll(/<!--\s*ss-pair-prefix\s*:\s*before=(\S+)\s+after=(\S+)\s*-->/g)) {
+		prefixes.push({ before: m[1] ?? '', after: m[2] ?? '' });
+	}
+	const explicit = [];
+	for (const m of body.matchAll(/<!--\s*ss-pair\s*:\s*before=(\S+)\s+after=(\S+)\s*-->/g)) {
+		explicit.push({ before: toScreenshotPath(m[1] ?? ''), after: toScreenshotPath(m[2] ?? '') });
+	}
+	return { prefixes, explicit };
+}
+
+/**
+ * raw URL でも path でも受け取れるように、screenshots branch 以下の path に正規化する。
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+function toScreenshotPath(value) {
+	const m = value.match(
+		/https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/screenshots\/([^\s)]+)/,
+	);
+	return m?.[1] ?? value;
+}
+
+/**
+ * SS path 一覧をペアリングする (#4084 AC2)。
+ *
+ * 優先順位: 明示ペア宣言 → prefix 宣言 → 既定の `before-*` / `after-*` 命名。
+ * どれか 1 つで対応が取れれば SHA 比較まで進む (= 命名を変えただけで検査が消えない)。
+ *
+ * @param {string[]} paths
+ * @param {{ prefixes: { before: string; after: string }[]; explicit: { before: string; after: string }[] }} decls
+ * @returns {Array<{ key: string; before: string; after: string }>}
+ */
+export function pairScreenshots(paths, decls = { prefixes: [], explicit: [] }) {
+	const available = new Set(paths);
+	const used = new Set();
+	const pairs = [];
+
+	for (const { before, after } of decls.explicit ?? []) {
+		if (available.has(before) && available.has(after)) {
+			pairs.push({ key: `${before} ⇄ ${after}`, before, after });
+			used.add(before);
+			used.add(after);
+		}
+	}
+
+	for (const { before: bp, after: ap } of decls.prefixes ?? []) {
+		const beforeMap = new Map();
+		const afterMap = new Map();
+		for (const p of paths) {
+			if (used.has(p)) continue;
+			const slash = p.lastIndexOf('/');
+			const dir = slash >= 0 ? p.slice(0, slash + 1) : '';
+			const basename = slash >= 0 ? p.slice(slash + 1) : p;
+			if (basename.startsWith(bp)) beforeMap.set(`${dir}${basename.slice(bp.length)}`, p);
+			else if (basename.startsWith(ap)) afterMap.set(`${dir}${basename.slice(ap.length)}`, p);
+		}
+		for (const [key, before] of beforeMap) {
+			const after = afterMap.get(key);
+			if (!after) continue;
+			pairs.push({ key, before, after });
+			used.add(before);
+			used.add(after);
+		}
+	}
+
+	for (const pair of pairBeforeAfter(paths.filter((p) => !used.has(p)))) {
+		pairs.push(pair);
+	}
+	return pairs;
+}
+
 /**
  * GitHub Contents API で Blob SHA を取得する。
  *
@@ -107,12 +240,13 @@ export function pairBeforeAfter(paths) {
  * Actions runner では `GH_TOKEN` / `GITHUB_TOKEN` 経由で自動認証。
  *
  * @param {{ owner: string; repo: string; ref: string; path: string }} loc
- * @param {typeof fetch} [fetcher] — DI 用 (test では mock)
+ * @param {typeof fetch} [fetcher] - DI 用 (test では mock)
  * @returns {Promise<string>}
  */
 export async function fetchBlobSha(loc, fetcher = fetch) {
 	const { owner, repo, ref, path } = loc;
 	const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ref)}`;
+	/** @type {Record<string, string>} */
 	const headers = {
 		Accept: 'application/vnd.github+json',
 		'X-GitHub-Api-Version': '2022-11-28',
@@ -194,7 +328,10 @@ export const PR_2054_SENTINEL_FIXTURE = Object.freeze({
  * 本体処理。fetcher を DI 可能にして test で mock 注入する。
  *
  * @param {{ body: string; labels: string[]; fetcher?: typeof fetch }} input
- * @returns {Promise<{ status: 'pass' | 'fail' | 'skip'; reason: string; violations?: Array<{ key: string; before: string; after: string; sha: string }> }>}
+ * @returns {Promise<{ status: 'pass' | 'fail' | 'skip'; reason: string;
+ *   violations?: Array<{ key: string; before: string; after: string; sha: string }>;
+ *   acknowledgedIdenticalPairs?: Array<{ key: string; before: string; after: string; sha: string }>;
+ *   pairingHelp?: boolean }>}
  */
 export async function checkSsBlobShaUniqueness({ body, labels, fetcher = fetch }) {
 	// AC3: label exempt
@@ -214,15 +351,32 @@ export async function checkSsBlobShaUniqueness({ body, labels, fetcher = fetch }
 		};
 	}
 
-	// 2. before/after ペアリング
-	// 同 ref からの path 一覧をペア化
+	// 2. ペアリング (#4084 AC2: 明示宣言 → prefix 宣言 → 既定命名の順で対応を取る)
 	const paths = refs.map((r) => r.path);
-	const pairs = pairBeforeAfter(paths);
+	const decls = parsePairDeclarations(body);
+	const pairs = pairScreenshots(paths, decls);
 
 	if (pairs.length === 0) {
+		// #4084 AC1: SS が embed されているのにペアが 0 件 = **偽装検知が 1 度も実行できていない**。
+		// 旧実装はここを skip にしていたため「20 枚あって 0 ペア」が silent に pass していた
+		// (実測: PR #4080)。検知できなかったことを黙って通さない (#3983 / #4074 と同 class)。
+		const none = parseReasonDeclaration(body, 'ss-pair-none');
+		if (none.present && none.valid) {
+			return {
+				status: 'pass',
+				reason:
+					`SS ${refs.length} 件でペアが 0 件だが、宣言により対象外と判定: ${none.reason} ` +
+					'(<!-- ss-pair-none: <理由> -->、#4084 AC1)',
+			};
+		}
 		return {
-			status: 'skip',
-			reason: `before-* / after-* ペアが 0 件 (SS ${refs.length} 件中)。命名規則 (before-<key> / after-<key>) に従っていない、または single-side のみ`,
+			status: 'fail',
+			reason:
+				`SS ${refs.length} 件が embed されているのに Before/After ペアが 0 件で、偽装検知を 1 ペアも実行できていません (#4084 AC1)。` +
+				(none.present
+					? ' `<!-- ss-pair-none: ... -->` は宣言されていますが理由が空 / 定型 stub のため受理できません。'
+					: ''),
+			pairingHelp: true,
 		};
 	}
 
@@ -250,9 +404,29 @@ export async function checkSsBlobShaUniqueness({ body, labels, fetcher = fetch }
 		};
 	}
 
+	// #4084 AC3: 「Before / After が同一であることが正しい」ケースの明示経路。
+	// 実測 (#4080): JST 00:00〜09:00 の 9 時間帯だけ日付がずれる修正を、その窓の外 (JST 日中) に
+	// 撮影したため描画が一致するのが正しい結果だった。理由の記述を必須とし (空なら fail)、
+	// 同一だった事実自体は握り潰さず列挙する。`refactor:internal-no-doc-impact` (挙動不変の
+	// 内部 refactor 用) とは意味が違うので別経路にする。
+	const identicalOk = parseReasonDeclaration(body, 'ss-identical-ok');
+	if (identicalOk.present && identicalOk.valid) {
+		return {
+			status: 'pass',
+			reason:
+				`${violations.length} ペアが Blob SHA 一致だが、理由付き宣言により正当と判定: ${identicalOk.reason} ` +
+				'(<!-- ss-identical-ok: <理由> -->、#4084 AC3)',
+			acknowledgedIdenticalPairs: violations,
+		};
+	}
+
 	return {
 		status: 'fail',
-		reason: `${violations.length} ペアの SS が完全同一画像 (Blob SHA 一致 = 偽装疑い)`,
+		reason:
+			`${violations.length} ペアの SS が完全同一画像 (Blob SHA 一致 = 偽装疑い)` +
+			(identicalOk.present
+				? '。`<!-- ss-identical-ok: ... -->` は宣言されていますが理由が空 / 定型 stub のため受理できません (理由必須、#4084 AC3 / #3956)'
+				: ''),
 		violations,
 	};
 }
@@ -265,7 +439,10 @@ async function main() {
 	try {
 		result = await checkSsBlobShaUniqueness({ body: PR_BODY, labels: PR_LABELS });
 	} catch (err) {
-		console.error('[ss-blob-sha-uniqueness] internal error:', err.message);
+		console.error(
+			'[ss-blob-sha-uniqueness] internal error:',
+			err instanceof Error ? err.message : String(err),
+		);
 		return 2;
 	}
 
@@ -291,8 +468,32 @@ async function main() {
 
 	// fail
 	console.log(`\n${prefix} ${isError ? 'ERROR' : 'WARN'} — ${result.reason}`);
+
+	// #4084 AC1: ペアが 0 件で検査そのものが実行できなかった場合の対応手順
+	if (result.pairingHelp) {
+		console.log(`\n対応方法 (いずれか 1 つ):`);
+		console.log(`  1. SS の file 名を規約どおり before-<key> / after-<key> にする`);
+		console.log(
+			`  2. 命名を変えたくない場合は PR body に prefix 宣言を置く:\n` +
+				`       <!-- ss-pair-prefix: before=develop- after=pr<PR番号>- -->`,
+		);
+		console.log(
+			`  3. 個別に対応を書く場合:\n` +
+				`       <!-- ss-pair: before=<raw URL or path> after=<raw URL or path> -->`,
+		);
+		console.log(
+			`  4. ペアが原理的に存在しない場合 (新規画面で修正前が無い 等) は理由を書いて宣言する:\n` +
+				`       <!-- ss-pair-none: <${MIN_REASON_LENGTH} 文字以上の理由> -->`,
+		);
+		console.log(
+			`\nSS が embed されているのにペア 0 件を skip で通すと、偽装検知 (#2063) が黙って無効化されます (#4084)。`,
+		);
+		return isError ? 1 : 0;
+	}
+
+	const violations = result.violations ?? [];
 	console.log(`\nSS forging detected (Blob SHA 完全一致):`);
-	for (const v of result.violations) {
+	for (const v of violations) {
 		console.log(`  - ${v.before} == ${v.after} (SHA: ${v.sha})`);
 	}
 	console.log(
@@ -306,7 +507,12 @@ async function main() {
 	console.log(`  2. 撮影したファイルを screenshots branch に push`);
 	console.log(`  3. PR body の after-* URL が新しい SHA を指していることを確認`);
 	console.log(
-		`\n[${prefix.replace(/[[\]]/g, '')}] mode=${MODE}, violations=${result.violations.length} ` +
+		`  4. **同一であることが正しい**場合 (差分が現れる条件の外で撮影した 等) は理由を書いて宣言する:\n` +
+			`       <!-- ss-identical-ok: <${MIN_REASON_LENGTH} 文字以上の理由> -->\n` +
+			`     理由が空 / TODO 等の定型 stub では受理しません (#4084 AC3 / #3956)。`,
+	);
+	console.log(
+		`\n[${prefix.replace(/[[\]]/g, '')}] mode=${MODE}, violations=${violations.length} ` +
 			`(${isError ? 'CI を red にします' : '段階適用中: warning として記録、CI は通過させます'})`,
 	);
 
