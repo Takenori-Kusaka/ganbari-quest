@@ -380,11 +380,16 @@ function detectFailFastGuardedEnvs(lines) {
 	for (const line of lines) {
 		const m = line.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/);
 		if (!m) continue;
-		const envs = [...(m[2] ?? '').matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)].map((x) => x[1]);
-		if (envs.length === 0) continue;
-		const bucket = aliases.get(m[1] ?? '') ?? new Set();
-		for (const env of envs) bucket.add(env);
-		aliases.set(m[1] ?? '', bucket);
+		const varName = m[1];
+		if (!varName) continue;
+		/** @type {Set<string>} */
+		const bucket = aliases.get(varName) ?? new Set();
+		for (const em of (m[2] ?? '').matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)) {
+			const env = em[1];
+			if (env) bucket.add(env);
+		}
+		if (bucket.size === 0) continue;
+		aliases.set(varName, bucket);
 	}
 
 	const negationGuardRe = /if\s*\(\s*!\s*(?:process\.env\.)?([A-Za-z_$][\w$]*)/;
