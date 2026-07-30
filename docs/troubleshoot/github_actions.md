@@ -640,11 +640,29 @@ gh run view <run-id> --log-failed --job <unit-test-merge-job-id>
 gh run download <run-id> -n vitest-blob-N -D tmp/vitest-blob-N
 ```
 
+#### vitest-blob artifact は flatted 形式 — grep 0 件は「無い」の証拠にならない
+
+vitest の blob artifact (`blob-*.json`) は [flatted](https://github.com/rzanoni/flatted) 形式のフラット配列であり、値が文字列インデックスの参照になっている（`"result":"141095"` は「配列の 141095 番を見ろ」、`{"state":"9244", ...}` は「9244 番が実体」の意味）。**`"fail"` という文字列は文字列プールに 1 個だけ存在し、`state:"fail"` という並びはファイル中に一度も現れない。** `grep '"state":"fail"'` が 0 件を返すのは flatted 形式では正常であり、「失敗 0 件」の証拠にはならない。
+
+参照を解決してから判定する:
+
+```js
+const a = JSON.parse(fs.readFileSync('blob-2-2.json', 'utf8'));
+const failIdx = a.findIndex((x) => x === 'fail');
+const hits = a
+	.map((e, i) => [e, i])
+	.filter(([e]) => e && typeof e === 'object' && String(e.state) === String(failIdx));
+// hits の各 index を .result に持つ task を逆引き → name / errors を解決
+```
+
+**判別法**: `failIdx` が **`-1`** ならプールに `"fail"` 自体が無い = 本当に失敗 0 件。`failIdx` が **実値**（例 `9244`）なら `"fail"` は存在しており、参照を辿っていないだけ。この 1 つの値で「無い」と「読めていない」を区別できる。
+
 ### 再発防止策
 
 - `unit-test (N)` が fail したら、まず `unit-test-merge` job の出力を確認する（ログ推測で終わらせない）
 - 再実行して切り分けるより先に artifact を読む（再実行は 8〜9 分かかり、artifact 精読より遅い）
 - `unit-test-merge` の `digest-mismatch: error`（`actions/download-artifact@v8`）は shard の artifact 自体が
   壊れたサインであり、実装の失敗とは別原因（shard artifact の再アップロード / 再実行で切り分ける）
+- blob artifact を直接 grep して 0 件だった場合、`findIndex` で `"fail"` の参照先が本当に存在しないか（`failIdx === -1`）を確認してから「失敗 0 件」と結論する
 
 **参考**: PR #1534, Issue #1335, CI run 24945001950

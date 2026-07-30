@@ -101,6 +101,8 @@ git show origin/develop:<path>              # base 側ファイルを API 相当
 gh api repos/<owner>/<repo>/contents/<path>?ref=develop   # gh api 経由でも可
 ```
 
+**「無い」と結論する前に、読めているかを確認する。** 検索が 0 件を返したときは「対象が無い」と「読み方が違う」を区別する。API / artifact の形式（flatted / 圧縮 / 参照）を確認してから結論を出す。
+
 ### 手順 1: Issue 照合
 
 ```bash
