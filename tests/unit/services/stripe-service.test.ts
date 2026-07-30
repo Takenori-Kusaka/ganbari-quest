@@ -1097,6 +1097,9 @@ describe('handleWebhookEvent', () => {
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				kind: 'stripe-context-unresolved',
+				// throttle key (= `path:errorSummary`) は reason 単位。subscriptionId を含めると
+				// 広域障害で subscription 数ぶん Discord に飛ぶため、集約されることを固定する。
+				errorSummary: 'context_unresolved:stripe_api_error',
 				tags: expect.objectContaining({ reason: 'stripe_api_error', subscriptionId: 'sub_123' }),
 			}),
 		);

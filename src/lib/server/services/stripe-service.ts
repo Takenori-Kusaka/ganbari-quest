@@ -820,7 +820,12 @@ function notifyContextUnresolved(
 		// Stripe の再送 / Dashboard の Resend は同一 event.id で skip される。**再送では収束しない**。
 		// 復旧後の手動突合手順は phase6-rollback-and-kill-switches.md R13 (恒久対策は #4108)。
 		message: `${label}により subscription から tenant を解決できませんでした (再送では収束しないため復旧後に手動突合が必要)`,
-		errorSummary: `context_unresolved:${reason}:${subscriptionId}`,
+		// throttle key は `path:errorSummary` (discord-alert.ts、5 分 window)。subscriptionId を
+		// 含めると Stripe / DSQL の**広域**障害で subscription 数ぶん Discord に飛び、
+		// 「本当に見るべき 1 件」が alert fatigue で埋没する (検知機構が検知で潰れる)。
+		// reason 単位に集約する。切り分けに要る subscriptionId は tags と logger.error
+		// (CloudWatch) に残るので情報は失われない。
+		errorSummary: `context_unresolved:${reason}`,
 		tags: { subscriptionId, reason },
 	});
 }
