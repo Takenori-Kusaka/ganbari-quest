@@ -15,7 +15,7 @@
 **前のサイクルの主張は一切読まないでください。** PR body や Issue コメントに書かれた「対応済み」「全 step PASS」は自己申告であり、事実ではありません。以下のコマンドで実際の状態を取得してください。
 
 ```bash
-cd E:/Github/ganbari-quest-dev
+# カレントは autopilot が渡したリポジトリ (worktree の場合あり)。パスは決め打ちしない。
 git fetch origin develop main --quiet
 gh pr list --state open --limit 30 --json number,isDraft,title,mergeable,statusCheckRollup
 gh issue list --state open --limit 200 --json number,title,labels
