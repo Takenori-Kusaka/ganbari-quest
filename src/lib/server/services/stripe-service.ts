@@ -2,6 +2,7 @@
 // Stripe 決済サービス (#0131)
 
 import type Stripe from 'stripe';
+import type { CheckoutReconciliationResult } from '$lib/domain/checkout-reconciliation';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
@@ -10,6 +11,7 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugCancelAtPeriodEnd } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
+import { invalidateRequestCaches } from '$lib/server/request-context';
 import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
@@ -520,6 +522,143 @@ function resolveEventTenantId(event: Stripe.Event): string | null {
 		return (event.data.object as Stripe.Checkout.Session).metadata?.tenantId ?? null;
 	}
 	return null;
+}
+
+// ============================================================
+// Checkout Reconciliation (#3958)
+// ============================================================
+
+/** Stripe Checkout Session ID の形式 (`cs_test_…` / `cs_live_…`)。 */
+const CHECKOUT_SESSION_ID_PATTERN = /^cs_[A-Za-z0-9_]{8,255}$/;
+
+/**
+ * 支払いが確定したとみなす `payment_status`。
+ * 100% OFF クーポン適用時の subscription checkout は `no_payment_required` で完了する
+ * (`handleCheckoutCompleted` も同じ session を通常購入として扱う、#803)。
+ */
+const PAID_PAYMENT_STATUSES: readonly string[] = ['paid', 'no_payment_required'];
+
+/**
+ * checkout 完了を `success_url` の `session_id` から照合して反映する (#3958)。
+ *
+ * webhook (`checkout.session.completed`) が唯一の反映経路だったため、webhook が 1 通落ちると
+ * 顧客は支払い済みのまま無料プランに据え置かれ、**自力で復旧する手段が無かった**
+ * (2026-07-26 本番 incident、root cause は #3957)。本経路は顧客自身の画面復帰を救済経路にする。
+ *
+ * 設計上の制約:
+ * - 照合は必ずサーバー側で Stripe API に問い合わせる。`session_id` は URL に露出するため、
+ *   ブラウザからの申告 (payment_status / plan / tenantId) を一切信用しない
+ * - 反映の書き込みは webhook handler (`handleCheckoutCompleted`) に合流させる。契約状態の
+ *   書き手を増やさない (二重実装 = 片方だけ直る不整合の温床)
+ * - 冪等は「反映前に現契約と突合し、一致していれば何もしない」で担保する。webhook 先着 /
+ *   同じ URL の再訪 / リロードのいずれも `already_applied` に落ちる
+ * - 例外は投げない。`session_id` が不正でも既存のプラン表示にフォールバックさせる (AC)
+ */
+export async function reconcileCheckoutSession(input: {
+	tenantId: string;
+	sessionId: string;
+}): Promise<CheckoutReconciliationResult> {
+	const { tenantId, sessionId } = input;
+	if (!isStripeEnabled()) return { status: 'unavailable' };
+
+	if (!CHECKOUT_SESSION_ID_PATTERN.test(sessionId)) {
+		logger.warn(`[STRIPE] reconcile: malformed session_id for tenant=${tenantId}`);
+		return { status: 'not_found' };
+	}
+
+	let session: Stripe.Checkout.Session;
+	try {
+		session = await getStripeClient().checkout.sessions.retrieve(sessionId);
+	} catch (err) {
+		// resource_missing (期限切れ / 存在しない) も API 障害も、顧客には同じ
+		// 「反映できなかった」で返す。500 にすると既存のプラン表示ごと落ちる。
+		logger.warn(`[STRIPE] reconcile: session retrieve failed tenant=${tenantId}`, {
+			error: String(err),
+		});
+		return { status: 'not_found' };
+	}
+
+	// 他人の session_id を URL に貼っても契約が付与されないことを保証する境界。
+	if (session.metadata?.tenantId !== tenantId) {
+		logger.warn(
+			`[STRIPE] reconcile: tenant mismatch — session belongs to another tenant (requested by tenant=${tenantId})`,
+		);
+		return { status: 'tenant_mismatch' };
+	}
+
+	if (!PAID_PAYMENT_STATUSES.includes(session.payment_status)) {
+		logger.info(
+			`[STRIPE] reconcile: not paid yet tenant=${tenantId} payment_status=${session.payment_status}`,
+		);
+		return { status: 'pending' };
+	}
+
+	const tenant = await getRepos().auth.findTenantById(tenantId);
+	if (!tenant) return { status: 'not_found' };
+
+	const subscriptionId =
+		typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+	const desiredPlan = (session.metadata?.planId as Tenant['plan']) ?? SUBSCRIPTION_PLAN.MONTHLY;
+	// 冪等判定。subscription が確定していればそれが最も強い同一性の根拠、無い場合のみ
+	// plan / status の一致で代替する。
+	const alreadyApplied = subscriptionId
+		? tenant.stripeSubscriptionId === subscriptionId
+		: tenant.status === SUBSCRIPTION_STATUS.ACTIVE && tenant.plan === desiredPlan;
+	if (alreadyApplied) {
+		logger.info(`[STRIPE] reconcile: already applied tenant=${tenantId}`);
+		return { status: 'already_applied' };
+	}
+
+	// 既存 binding があり、session が別の subscription を指す場合は反映しない。
+	// reconcile は binding を「埋める / 確認する」だけで、「差し替える」権限を持たない。
+	if (
+		tenant.stripeSubscriptionId &&
+		subscriptionId &&
+		tenant.stripeSubscriptionId !== subscriptionId
+	) {
+		logger.warn(
+			`[STRIPE] reconcile: 既存 binding と別 subscription のため反映しません: tenant=${tenantId} current=${tenant.stripeSubscriptionId} session=${subscriptionId}`,
+		);
+		return { status: 'unresolved' };
+	}
+
+	// #4081: `handleCheckoutCompleted` (assign-contract) は「checkout.session.completed は
+	// 購入時に 1 回だけ配信される」前提で突合を行わない。reconcileCheckoutSession はこの前提を
+	// 「顧客が success_url を何度でも再訪できる経路」に接続しているため、以下の replay で
+	// 二重課金が成立し得る:
+	//   - 解約済みテナント (stripeSubscriptionId=null) が古い session_id を再訪 → 契約が復活する
+	//   - 再購読済みテナント (stripeSubscriptionId=sub_new) が古い session_id を再訪 →
+	//     現行契約が古い subscription で上書きされ、`createCheckoutSession()` の
+	//     ALREADY_SUBSCRIBED ガードが外れて二重課金の温床になる
+	// session が指す subscription を Stripe から re-retrieve し、終端状態
+	// (canceled / incomplete_expired、#3982 `isSubscriptionTerminal` と同一基準) なら
+	// handleCheckoutCompleted に合流させない。
+	if (subscriptionId) {
+		let subscription: Stripe.Subscription;
+		try {
+			subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
+		} catch (err) {
+			logger.warn(`[STRIPE] reconcile: subscription retrieve failed tenant=${tenantId}`, {
+				error: String(err),
+			});
+			return { status: 'not_found' };
+		}
+		if (isSubscriptionTerminal(subscription)) {
+			logger.warn(
+				`[STRIPE] reconcile: subscription が終端状態 (${subscription.status}) のため反映しません: ` +
+					`tenant=${tenantId} subscription=${subscriptionId}`,
+			);
+			return { status: 'unresolved' };
+		}
+	}
+
+	await handleCheckoutCompleted(session);
+	// hooks.server.ts が解決済みの entitlement / planTier は本 request 内で古くなる。
+	// 破棄しないと「反映したのに画面は無料プランのまま」という本 Issue の症状が残る。
+	invalidateRequestCaches(tenantId);
+
+	logger.info(`[STRIPE] reconcile: applied via success_url tenant=${tenantId}`);
+	return { status: 'applied' };
 }
 
 // --- Webhook handlers ---

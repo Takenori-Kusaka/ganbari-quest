@@ -124,6 +124,16 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 | W8 | （欠番）退会猶予満了バッチ | — | **書き手なし**。退会の物理削除は `families` 行ごと削除するため status を書かない（§4.1） | — |
 | W9 | （テナント作成） | `createTenant` | `status=active` のみ | → S1 |
 
+### 書き手を増やさない起動点: checkout reconciliation（#3958）
+
+`/admin/subscription?session_id=cs_…`（Stripe checkout の success_url）は `reconcileCheckoutSession`
+（`stripe-service.ts`）を経て **W1 と同じ `handleCheckoutCompleted` に合流する**。webhook が届かなくても
+顧客の画面復帰だけで S1 → S2 に遷移できる救済経路であり、**新しい書き手ではない**（列の書き分けが
+W1 と一致するため、片方だけ直る不整合が生まれない）。
+
+反映前に「session の subscription == `tenants.stripe_subscription_id`」を突合し、一致していれば
+書き込みも通知も行わない。webhook 先着・URL 再訪・リロードはいずれもこの突合で吸収される。
+
 ### 表と実装のズレ（実読で確認、いずれも別 Issue で対処中）
 
 | ID | ズレ | 実装の事実 | Issue |

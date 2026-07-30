@@ -114,6 +114,21 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('menu-item-manual')).toContainText('🔒');
 	});
 
+	// #3958: checkout success_url (`?session_id=…`) 復帰の回帰。
+	//   load が session_id を読むようになったため、Stripe に存在しない / 期限切れの値を
+	//   渡されたときに 500 で画面ごと落ちないことを実サーバーで担保する
+	//   (照合結果は「現在のプラン表示にフォールバック」が仕様)。
+	test('/admin/subscription?session_id=<不正値> でも 500 にならず現在のプラン表示にフォールバックする', async ({
+		page,
+	}) => {
+		const response = await page.goto('/admin/subscription?session_id=cs_test_nonexistent_session');
+		expect(response?.status()).toBe(200);
+
+		const card = page.getByTestId('plan-status-card');
+		await expect(card).toBeVisible();
+		await expect(card).toHaveAttribute('data-plan-tier', 'free');
+	});
+
 	// #2316: 旧 /admin/messages 「ひとことメッセージ」family-only ゲートテストは削除。
 	//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
 	//   メッセージ機能は応援機能の付随要素として全プラン解放された。
