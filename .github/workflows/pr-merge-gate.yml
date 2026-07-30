@@ -38,7 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     # #1808 / #2945 AC6: Dependabot / Renovate は依存更新 PR で PR template チェックリストを
     # 持たないため job レベルで skip (skip=Success で required check 通過、挙動不変)。
-    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    # PR 作成者 (github.event.pull_request.user.login) で判定する。github.actor は「このイベントを
+    # 起こした人」であり、人間が base 変更や label 付与などで dependabot PR に触れると actor が
+    # 人間に変わって gate の挙動が反転してしまうため、actor ではなく author を見る (発見: #4133)。
+    if: "github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
       # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。
@@ -113,7 +116,9 @@ jobs:
     name: PR body 検証 (必須セクション / AC 4 列 / 禁止語 / PO 決裁ブリーフ)
     runs-on: ubuntu-latest
     # dependabot / renovate は PR template を持たないため skip (Job 1 と同条件、挙動を揃える)。
-    if: "github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    # PR 作成者 (github.event.pull_request.user.login) で判定する。人間が触ると github.actor が
+    # 変わり gate の挙動が反転するため、actor ではなく author を見る (発見: #4133)。
+    if: "github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v7

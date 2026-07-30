@@ -37,7 +37,10 @@ jobs:
     # #1808 / #2945 AC6: Dependabot / Renovate は依存更新 PR で AC マップを持たないため job レベルで skip。
     # (skip された job は Success を報告し required check は通過する = 従来どおりの挙動不変。
     #  これは dependabot lane の「観点」であり、他レーンは下記 step で必ず実検証する)
-    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    # PR 作成者 (github.event.pull_request.user.login) で判定する。人間が base 変更や label 付与で
+    # dependabot PR に触れると github.actor が変わり gate の挙動が反転するため、actor ではなく
+    # author を見る (発見: #4133)。
+    if: "github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
       # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。

@@ -69,7 +69,10 @@ jobs:
     timeout-minutes: 2
     # Dependabot / Renovate 等 bot PR は #1808 exempt 同等で skip (#2430)。
     # bot は ADR-0022 の役割分離対象外、`pr-template-gate.yml` line 40 と同パターン。
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
+    # PR 作成者 (github.event.pull_request.user.login) で判定する。人間が base 変更や label 付与で
+    # dependabot PR に触れると github.actor が変わり gate の挙動が反転するため、actor ではなく
+    # author を見る (発見: #4133)。本 job は pull_request_target のため author は常に取得できる。
+    if: github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'renovate[bot]'
     steps:
       - name: Verify PR author
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0

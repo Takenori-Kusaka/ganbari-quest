@@ -165,7 +165,10 @@ jobs:
   type-label:
     name: title 接頭辞から type:* label 付与
     runs-on: ubuntu-latest
-    if: "github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    # PR 作成者 (github.event.pull_request.user.login) で判定する。人間が base 変更や label 付与で
+    # dependabot PR に触れると github.actor が変わり gate の挙動が反転するため、actor ではなく
+    # author を見る (発見: #4133)。
+    if: "github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'renovate[bot]'"
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
