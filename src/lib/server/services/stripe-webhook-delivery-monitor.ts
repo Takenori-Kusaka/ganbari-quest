@@ -41,7 +41,7 @@
 import type Stripe from 'stripe';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { notifyStripeAlert } from '$lib/server/stripe/alert';
+import { notifyStripeAlertAsync } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 
 /**
@@ -240,10 +240,19 @@ export async function checkWebhookDelivery(
 		return result;
 	}
 
-	const oldestStale = staleEvents[0];
+	// `stripe.events.list` は created の**降順** (新しい順) で返すため `staleEvents[0]` は最新。
+	// runbook は障害の開始時刻を推定するために最古から辿るので、明示的に最小を取る (#4102 M4)。
+	// createdIso は UTC の ISO 8601 固定長で、辞書順比較 = 時刻順比較になる。
+	const oldestStale = staleEvents.reduce<StaleEventSummary | undefined>(
+		(oldest, event) => (!oldest || event.createdIso < oldest.createdIso ? event : oldest),
+		undefined,
+	);
 	// 通知には event id / type / tenant id / 件数のみを載せる。顧客の email / 氏名 / カード情報は
-	// 一切参照しない (notifyStripeAlert 側でも redactPii を通す、#2738 整合)。
-	notifyStripeAlert({
+	// 一切参照しない (notifyStripeAlertAsync 側でも redactPii を通す、#2738 整合)。
+	//
+	// alert 送信は **await する**。本 cron は「alert を送って即レスポンス」であり、fire-and-forget の
+	// まま返すと Lambda の freeze で送信中の fetch が凍結され、鳴るはずの通知が消える (#4102 M2)。
+	await notifyStripeAlertAsync({
 		kind: 'stripe-webhook-undelivered',
 		message:
 			`Stripe webhook が ${STALE_MINUTES} 分以上未完了で、支払い済みのプラン反映も行われていません ` +

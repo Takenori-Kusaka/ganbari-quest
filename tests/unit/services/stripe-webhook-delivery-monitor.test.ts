@@ -29,7 +29,11 @@ vi.mock('$lib/server/stripe/client', () => ({
 
 const mockNotifyStripeAlert = vi.fn();
 vi.mock('$lib/server/stripe/alert', () => ({
-	notifyStripeAlert: (...args: unknown[]) => mockNotifyStripeAlert(...args),
+	// cron は alert 送信が最終処理になるため await 可能な版を使う (#4102 M2)
+	notifyStripeAlertAsync: (...args: unknown[]) => {
+		mockNotifyStripeAlert(...args);
+		return Promise.resolve();
+	},
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -238,6 +242,29 @@ describe('#3959 [D6] 1 実行 1 通', () => {
 		expect(result.staleEvents).toHaveLength(3);
 		expect(result.unreflectedCheckouts).toHaveLength(2);
 		expect(mockNotifyStripeAlert).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('#3959 [D8] oldestEventId は最古の滞留 event を指す (#4102 M4)', () => {
+	it('Stripe が新しい順で返しても、alert には最古の event が載る', async () => {
+		// stripe.events.list は created 降順で返す。先頭をそのまま採ると「最新」が
+		// oldestEventId として通知され、runbook の「最古から辿って障害開始時刻を推定する」
+		// triage が誤った時刻を指す。
+		mockEventsList.mockResolvedValue({
+			data: [
+				checkoutEvent({ id: 'evt_newest', minutesAgo: 40 }),
+				checkoutEvent({ id: 'evt_middle', minutesAgo: 120 }),
+				checkoutEvent({ id: 'evt_oldest', minutesAgo: 600 }),
+			],
+		});
+		mockFindTenantById.mockResolvedValue({ id: 'tenant-1', stripeSubscriptionId: null });
+
+		await checkWebhookDelivery(NOW);
+
+		const tags = (mockNotifyStripeAlert.mock.calls[0]?.[0] as { tags: Record<string, unknown> })
+			.tags;
+		expect(tags.oldestEventId).toBe('evt_oldest');
+		expect(tags.oldestCreatedIso).toBe(new Date(createdAt(600) * 1000).toISOString());
 	});
 });
 

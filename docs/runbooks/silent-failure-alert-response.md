@@ -7,6 +7,10 @@
 |---|---|---|
 | `ganbari-quest-auth-entitlement-db-unavailable` (CloudWatch Alarm) | 課金状態を DB から解決できず、認証済みユーザーが 503 を受けている (#3998) | SNS `ganbari-quest-ops-alerts` (既存 alarm と同一) |
 | `stripe-webhook-undelivered` (Discord alert) | Stripe webhook がアプリに届かず、支払い済みのプランが反映されていない (#3959) | Discord (`sendDiscordAlert` 経由) |
+| `stripe-webhook-monitor-failed` (Discord alert) | 上の未達検知 cron 自体が失敗しており、未達を検知できていない (#3959) | Discord (`sendDiscordAlert` 経由) |
+
+triage に必要な id (`oldestEventId` / `sampleCheckoutEventId` 等) は Discord embed の
+**Details field** と CloudWatch の log 本文の両方に `key=value` 形式で出る。
 
 ---
 
@@ -22,6 +26,10 @@ context を発行せず (fail-closed)、`hooks.server.ts` が 503 を返す。
 ユーザーには「一時的にご利用いただけません」が表示され、ログアウトはされていない。
 
 ### 1.2 発火条件
+
+この事象は `hooks.server.ts` から Discord にも通知される。ただし Discord 側は同一 `errorSummary` で
+5 分 3 件までにまとめられ以降は無音になるため、**件数と継続の判断は SNS (本 alarm) が正**。
+Discord だけを見て「収まった」と判断しない。
 
 `GanbariQuest/Auth` / `EntitlementDbUnavailable` が **5 分間に 5 件以上**。
 1 件 = 503 になったリクエスト 1 本。DSQL の瞬断・OCC 競合による単発失敗では鳴らない。
@@ -145,6 +153,28 @@ Stripe を持たない環境 (staging / NUC / ローカル) では検査自体�
 本番で cron が動いているかは、cron endpoint の完了 log (`[stripe-webhook-delivery-check] endpoint completed`)
 が毎時出ているかで確認する。出ていなければ EventBridge Rule / cron-dispatcher 側を疑う
 (登録の drift は `tests/unit/cron/schedule-consistency.test.ts` が CI で検出する)。
+
+なお本 alert は 5 分 window の throttle 対象だが cron は毎時実行のため throttle は効かない。
+**未達が続く間は 1 時間に 1 通鳴り続ける** (止めたい場合は原因を直すか cron を止める)。
+
+### 2.5 `stripe-webhook-monitor-failed` — 検知器が動いていない
+
+未達検知 cron が例外で終了した (Stripe API 障害 / rate limit / DB 障害)。**検知が止まっている間の
+未達は誰も気づけない**ため、未達そのものと同じ重さで扱う。
+
+alert には例外クラス名しか載せていない (接続情報を Discord に出さないため)。詳細は CloudWatch:
+
+```
+fields @timestamp, @message
+| filter @message like "stripe-webhook-delivery-check] cron failed"
+| sort @timestamp desc
+| limit 20
+```
+
+- Stripe 側の一時障害 / rate limit → 次の実行 (1 時間後) で自然復旧するか見る。復旧しなければ
+  Stripe の status を確認する。
+- DB (DSQL) 側 → `docs/runbooks/dsql-alert-response.md`。
+- 復旧まで未達検知は動いていないため、**その間の課金は §2.3 の手順で手動確認する**。
 
 ---
 

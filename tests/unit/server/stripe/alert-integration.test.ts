@@ -44,6 +44,7 @@ vi.mock('../../../../src/lib/server/stripe/price-cache', () => ({
 
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
+import { notifyStripeAlert, notifyStripeAlertAsync } from '$lib/server/stripe/alert';
 import { getPriceId } from '$lib/server/stripe/config';
 import { getPriceByLookupKey } from '$lib/server/stripe/price-cache';
 
@@ -189,5 +190,101 @@ describe('silent degradation end-to-end (#2735 / kill switch fallback alert 統�
 		expect(ctx?.context).toHaveProperty('plan');
 		expect(ctx?.context).toHaveProperty('lookupKey');
 		expect(ctx?.context).toHaveProperty('fallbackUsed');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4102 (QM 指摘 M1 / M2 / M6): alert が「鳴ったあと使えるか」の境界検証。
+//
+// 守る不変条件:
+//   [T1] tags が Discord に**実際に届く** (embed の Details field)
+//   [T2] tags が CloudWatch にも届く (logger は console に message 本文しか出さないため、
+//        structured context だけに置くと Lambda 上では消える)
+//   [T3] 実送出 payload に PII (email) が載らない — 引数ではなく送出内容を見る (ADR-0006)
+//   [T4] await 版は送信完了まで待つ (cron の Lambda freeze で通知が消えないこと)
+//
+// 既存 test との差分: monitor 側の test は `notifyStripeAlert` を丸ごと mock するため、
+// 「tags が外に出るか」を 1 層手前で見失う。本 describe は alert.ts の実装を通す。
+// ---------------------------------------------------------------------------
+describe('#4102 alert の triage 情報が実際に外へ出る (runbook 実行可能性)', () => {
+	const TRIAGE_OPTIONS = {
+		kind: 'stripe-webhook-undelivered' as const,
+		message: 'Stripe webhook が 30 分以上未完了です',
+		errorSummary: 'stripe-webhook-undelivered',
+		tags: {
+			staleCount: 2,
+			oldestEventId: 'evt_oldest_1',
+			sampleCheckoutEventId: 'evt_checkout_9',
+			sampleCheckoutReason: 'no-subscription',
+			truncated: false,
+		},
+	};
+
+	it('[T1] runbook が参照する event id が Discord へ送る payload に載る', async () => {
+		await notifyStripeAlertAsync(TRIAGE_OPTIONS);
+
+		expect(sendDiscordAlertMock).toHaveBeenCalledTimes(1);
+		const payload = JSON.stringify(sendDiscordAlertMock.mock.calls[0]?.[0]);
+		// runbook §2.3 の手順 1 (oldestEventId を Stripe で開く) / 手順 3 (sampleCheckoutEventId
+		// から checkout session を開く) が実行可能であること
+		expect(payload).toContain('evt_oldest_1');
+		expect(payload).toContain('evt_checkout_9');
+		expect(payload).toContain('no-subscription');
+	});
+
+	it('[T2] 同じ id が logger の message 本文にも載る (CloudWatch は context を出さない)', async () => {
+		await notifyStripeAlertAsync(TRIAGE_OPTIONS);
+
+		// 第 1 引数 = console に出る本文。第 2 引数の context は writeLog が捨てるため当てにできない
+		const loggerMessage = loggerWarnMock.mock.calls[0]?.[0] as string;
+		expect(loggerMessage).toContain('evt_oldest_1');
+		expect(loggerMessage).toContain('evt_checkout_9');
+	});
+
+	it('[T3] 実送出 payload に顧客 email が載らない (引数ではなく送出内容で検証)', async () => {
+		await notifyStripeAlertAsync({
+			kind: 'stripe-webhook-undelivered',
+			message: 'checkout の顧客は secret-parent@example.com です',
+			errorSummary: 'stripe-webhook-undelivered',
+			tags: { customerEmail: 'other-parent@example.com', oldestEventId: 'evt_keep_1' },
+		});
+
+		const payload = JSON.stringify(sendDiscordAlertMock.mock.calls[0]?.[0]);
+		expect(payload).not.toContain('secret-parent@example.com');
+		expect(payload).not.toContain('other-parent@example.com');
+		// Stripe 内部 ID は triage に必須なので redact されない
+		expect(payload).toContain('evt_keep_1');
+	});
+
+	it('[T4] await 版は送信完了まで待つ / fire-and-forget 版は待たない', async () => {
+		let delivered = false;
+		let releaseSend: () => void = () => {};
+		const sendGate = new Promise<void>((resolve) => {
+			releaseSend = resolve;
+		});
+		sendDiscordAlertMock.mockImplementation(async () => {
+			await sendGate;
+			delivered = true;
+		});
+
+		// fire-and-forget 版: 呼び出しから戻った時点では送信は完了していない
+		//   (cron がこの状態でレスポンスを返すと Lambda freeze で送信が消える)
+		notifyStripeAlert(TRIAGE_OPTIONS);
+		expect(delivered).toBe(false);
+
+		// await 版: 完了するまで戻らない
+		const pending = notifyStripeAlertAsync(TRIAGE_OPTIONS);
+		expect(delivered).toBe(false);
+		releaseSend();
+		await pending;
+		expect(delivered).toBe(true);
+	});
+
+	it('[T5] Discord 送信が失敗しても await 版は throw しない (呼び出し側の業務処理を壊さない)', async () => {
+		sendDiscordAlertMock.mockRejectedValueOnce(new Error('Discord webhook 503'));
+
+		await expect(notifyStripeAlertAsync(TRIAGE_OPTIONS)).resolves.toBeUndefined();
+		// 送信失敗自体は log に残る (沈黙させない)
+		expect(loggerWarnMock.mock.calls.length).toBeGreaterThanOrEqual(2);
 	});
 });
