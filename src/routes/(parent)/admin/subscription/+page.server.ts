@@ -20,7 +20,10 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { getLoyaltyInfo } from '$lib/server/services/loyalty-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { getCancellationState, reconcileCheckoutSession } from '$lib/server/services/stripe-service';
+import {
+	getCancellationState,
+	reconcileCheckoutSession,
+} from '$lib/server/services/stripe-service';
 import { getTrialStatus, startTrial } from '$lib/server/services/trial-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
