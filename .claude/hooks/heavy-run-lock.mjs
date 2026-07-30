@@ -55,32 +55,11 @@ function blockWithHolder(holder, describeHolder) {
 	process.exit(2);
 }
 
-/**
- * 現在の branch 名を返す。取得できなければ null (task lock は諦めて heavy 判定のみ行う)。
- * git 呼び出しは push 系コマンドのときだけ行う — 全 Bash 呼び出しで毎回 spawn すると遅い。
- *
- * `cwd` は **hook payload の値**を優先する。hook プロセスの `process.cwd()` は
- * セッションの起動ディレクトリであり、Buzz エージェントではリポジトリ外
- * (`~/.buzz`) になる。そこで叩くと `git rev-parse` が常に失敗し、task lock が
- * 永久に発火しない (#4013)。
- *
- * @param {string | null} cwd
- */
-async function currentBranch(cwd) {
-	const { spawnSync } = await import('node:child_process');
-	const r = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-		encoding: 'utf8',
-		cwd: cwd || undefined,
-	});
-	if (r.status !== 0) return null;
-	return (r.stdout || '').trim() || null;
-}
-
 async function main() {
 	// 動的 import。解決に失敗しても catch して exit 2 に倒すため static import にしない (#3999)。
 	const [
 		{ acquire, describeHolder },
-		{ isHeavyCommand, isBranchPublishCommand, extractTarget, taskKeyFromBranch },
+		{ isHeavyCommand, extractTarget },
 		{ resolveSessionOwner },
 	] = await Promise.all([
 		import('../../scripts/lib/agent-lock.mjs'),
@@ -103,8 +82,16 @@ async function main() {
 	const cwd = payload?.cwd ?? process.cwd();
 
 	// 対象コマンドでなければ、プロセス一覧の取得 (spawn 1 回) すら不要。
-	const needsLock = isBranchPublishCommand(command) || isHeavyCommand(command);
-	if (!needsLock) process.exit(0);
+	//
+	// `git push` に対する task lock (branch = Issue 単位の二重作業防止) は #4076 で撤去した。
+	// hook payload の `cwd` は**セッションの起動ディレクトリ**なので、worktree から push しても
+	// main clone の path が来る。そこで `git rev-parse` すると**押す対象と無関係な branch**
+	// (main clone が checkout 中のもの) が取れ、別セッションがその branch の lock を持っている
+	// だけで worktree からの push が全て BLOCK された。押す対象から branch を割り出す精緻化
+	// (refspec 解析 / `git -C` 追跡) は refspec の無い bare `git push` を解決できず穴が残るため、
+	// PO 判断 (2026-07-30) で精緻化ではなく撤去を選ぶ。二重作業の検知は GitHub 側 (同一 branch
+	// への push 競合 / PR の重複) に委ねる。heavy lock (重い検証のマシン全体排他) は維持する。
+	if (!isHeavyCommand(command)) process.exit(0);
 
 	// `process.ppid` は hook 呼び出しごとに変わる短命プロセスなので持ち主にできない (#4013)。
 	// 祖先を辿ってセッションプロセスを取り、解決できなければ PID なし (TTL のみ) で記録する。
@@ -120,27 +107,6 @@ async function main() {
 		sessionId,
 		cwd,
 	};
-
-	// task lock: 同じ branch (= 同じ Issue) を 2 セッションが押すのを止める。
-	if (isBranchPublishCommand(command)) {
-		const branch = await currentBranch(cwd);
-		const key = taskKeyFromBranch(branch);
-		if (key) {
-			const claimed = acquire(key, { ...common, target: branch, ttlMs: 4 * 60 * 60 * 1000 });
-			if (!claimed.ok) {
-				process.stderr.write(
-					`[heavy-run-lock] BLOCK: branch ${branch} は別セッションが作業中です。\n`,
-				);
-				process.stderr.write(`  保持者: ${describeHolder(claimed.holder)}\n`);
-				process.stderr.write(
-					'  対処: 二重作業です。チャンネルで担当を確認し、どちらが進めるかを決めてから再実行してください。\n',
-				);
-				process.exit(2);
-			}
-		}
-	}
-
-	if (!isHeavyCommand(command)) process.exit(0);
 
 	const result = acquire(HEAVY_KEY, { ...common, target: extractTarget(command) });
 	if (result.ok) process.exit(0);

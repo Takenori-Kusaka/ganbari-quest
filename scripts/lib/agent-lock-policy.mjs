@@ -97,40 +97,4 @@ export function extractTarget(command) {
 	return null;
 }
 
-/**
- * branch の成果を公開するコマンドか (`git push`)。
- *
- * ここを task lock の取得点にするのは、**同じ branch を 2 セッションが押す**のが
- * 二重作業の最も分かりやすい形であり、かつ誤爆しにくいからである。`gh pr merge` 等は
- * PR 番号で他人の PR を操作する role (QM / 監査) のコマンドで、自分の branch とは
- * 対応しないため対象にしない。
- *
- * @param {string} command
- * @returns {boolean}
- */
-export function isBranchPublishCommand(command) {
-	const text = String(command ?? '');
-	return text.split(/&&|\|\||;|\|/).some((segment) => {
-		if (READ_ONLY_HEADS.has(headToken(segment))) return false;
-		return /(^|[\s;&|(])git\s+(-C\s+\S+\s+)?push(\s|$)/.test(segment);
-	});
-}
-
-/**
- * branch 名から Issue 番号を取り出し、task lock の key にする。
- *
- * 本リポジトリの branch 命名は `feat/3963-...` / `fix/4001-...` 等
- * (`docs/sessions/branch-strategy.md` §3)。同じ Issue に 2 セッションが着手すると
- * 同じ key になるため、二重着手が機械的に検出できる。
- *
- * @param {string} branch
- * @returns {string | null}
- */
-export function taskKeyFromBranch(branch) {
-	const match = String(branch ?? '').match(
-		/^(?:feat|fix|refactor|design|infra|test|docs|marketing|eval)\/(\d+)[-/]/,
-	);
-	return match ? `task-${match[1]}` : null;
-}
-
-export default { isHeavyCommand, isBranchPublishCommand, extractTarget, taskKeyFromBranch };
+export default { isHeavyCommand, extractTarget };

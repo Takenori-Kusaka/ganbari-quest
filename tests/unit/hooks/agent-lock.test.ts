@@ -15,18 +15,25 @@
  *   - .claude/hooks/heavy-run-lock.mjs / heavy-run-unlock.mjs
  *
  * cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
- *   - `pushx`: 「`push` で始まるが push ではない」負例 fixture。前方一致で判定していたら
- *     通ってしまう形を実名で置いている (dev-session §QA 指摘台帳 観点 2 の prefix 一致問題)。
- *     綴りを直すと fixture の意味が失われるため、語そのものを残す
  *   - `sess`: session id の fixture 値 (`sess-1`)
  *   global 辞書に足すと `sess` の打ち間違いが repo 全体で素通りするため、file scope に閉じる。
  */
-// cspell:ignore pushx sess
+// cspell:ignore sess
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
 	acquire,
@@ -39,12 +46,7 @@ import {
 	release,
 	sameOwner,
 } from '../../../scripts/lib/agent-lock.mjs';
-import {
-	extractTarget,
-	isBranchPublishCommand,
-	isHeavyCommand,
-	taskKeyFromBranch,
-} from '../../../scripts/lib/agent-lock-policy.mjs';
+import { extractTarget, isHeavyCommand } from '../../../scripts/lib/agent-lock-policy.mjs';
 import { resolveSessionOwner } from '../../../scripts/lib/session-owner.mjs';
 
 /** 生存していないことが確実な PID。Windows / POSIX とも未使用値を使う。 */
@@ -108,41 +110,16 @@ describe('extractTarget', () => {
 	});
 });
 
-describe('isBranchPublishCommand', () => {
+describe('push は排他対象ではない (#4076)', () => {
+	// branch 単位の task lock は #4076 で撤去した。policy が push を「排他対象」と
+	// 判定に戻したら、hook が再び branch 名で lock を取り始めるため、ここで固定する。
 	it.each([
 		'git push',
 		'git push -u origin HEAD',
-		'git -C /repo push --force-with-lease',
-	])('push を検出する: %s', (command) => {
-		expect(isBranchPublishCommand(command)).toBe(true);
-	});
-
-	it.each([
-		'git status',
-		'git log --oneline',
-		'gh pr merge 3992',
-		'git pushx',
-	])('push でないものは通す: %s', (command) => {
-		expect(isBranchPublishCommand(command)).toBe(false);
-	});
-
-	it('読み取り専用コマンドの引数に push があっても検出しない', () => {
-		expect(isBranchPublishCommand('grep -rn "git push" docs/')).toBe(false);
-	});
-});
-
-describe('taskKeyFromBranch', () => {
-	it.each([
-		['fix/3963-context-plan-from-db', 'task-3963'],
-		['feat/3438-phase2b-dynamodb-repo-teardown', 'task-3438'],
-		['infra/4004-playwright-shard', 'task-4004'],
-	])('branch %s → %s', (branch, expected) => {
-		expect(taskKeyFromBranch(branch)).toBe(expected);
-	});
-
-	it('Issue 番号を含まない branch は null', () => {
-		expect(taskKeyFromBranch('develop')).toBeNull();
-		expect(taskKeyFromBranch('release/2026-07-27')).toBeNull();
+		'git push --force-with-lease origin fix/4076-worktree-push-no-block',
+		'git -C /repo push',
+	])('push コマンドは重い検証として扱わない: %s', (command) => {
+		expect(isHeavyCommand(command)).toBe(false);
 	});
 });
 
@@ -624,3 +601,100 @@ describe('#4013 readLock は lock レコードのフィールドを検証する'
 		expect(() => readLock('heavy')).toThrow(/壊れています/);
 	});
 });
+
+describe('heavy-run-lock hook: worktree からの push (#4076)', () => {
+	// #4076 の実測再現。main clone が branch A を checkout したまま、worktree の branch B を
+	// push すると、hook が「セッションの cwd = main clone」から branch を解決していたため
+	// **押す対象と無関係な branch A** の lock で BLOCK していた。fixture には当時の実名
+	// (main clone = fix/4017-... / worktree = fix/3980-3981-...) をそのまま置く。
+	// vitest の root は repo root (`vite.config.ts`)。`import.meta.url` は transform 後に
+	// file スキームでなくなることがあるため cwd から解決する。
+	const HOOK = join(process.cwd(), '.claude', 'hooks', 'heavy-run-lock.mjs');
+	const MAIN_BRANCH = 'fix/4017-dependency-review-waiver';
+	const WORKTREE_BRANCH = 'fix/3980-3981-stripe-plan-resolution';
+
+	let root: string;
+	let lockDir: string;
+	let mainClone: string;
+	let worktree: string;
+
+	/** git を temp repo に対して実行する (失敗したら fixture が壊れているので即座に落とす)。 */
+	function git(cwd: string, ...args: string[]): void {
+		const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+		if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失敗: ${r.stderr || r.stdout}`);
+	}
+
+	/** hook を子プロセスで起動し exit code を返す。 */
+	function runHook(command: string, cwd: string): number {
+		const r = spawnSync(process.execPath, [HOOK], {
+			input: JSON.stringify({
+				session_id: 'sess-1',
+				tool_name: 'Bash',
+				tool_input: { command },
+				cwd,
+			}),
+			encoding: 'utf8',
+			env: { ...process.env, AGENT_LOCK_DIR: lockDir },
+		});
+		return r.status ?? -1;
+	}
+
+	beforeAll(() => {
+		root = mkdtempSync(join(tmpdir(), 'wt4076-'));
+		lockDir = join(root, 'locks');
+		mainClone = join(root, 'main-clone');
+		worktree = join(root, 'worktree');
+		mkdirSync(lockDir, { recursive: true });
+		mkdirSync(mainClone, { recursive: true });
+
+		git(root, 'init', '-b', MAIN_BRANCH, mainClone);
+		git(mainClone, 'config', 'user.email', 'test@example.com');
+		git(mainClone, 'config', 'user.name', 'test');
+		writeFileSync(join(mainClone, 'README.md'), '# fixture\n');
+		git(mainClone, 'add', 'README.md');
+		git(mainClone, 'commit', '-m', 'init');
+		git(mainClone, 'worktree', 'add', '-b', WORKTREE_BRANCH, worktree);
+	});
+
+	afterAll(() => {
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	/** lock dir に task-*.lock が 1 つでもできていないこと (= branch 単位の lock を取っていない)。 */
+	function taskLocks(): string[] {
+		return readdirSync(lockDir).filter((name) => name.startsWith('task-'));
+	}
+
+	it('main clone が別 branch を checkout していても worktree からの push を通す', () => {
+		// 旧実装はここで cwd (= main clone) の branch を読み `task-4017.lock` を取っていた。
+		expect(runHook(`git push origin ${WORKTREE_BRANCH}`, mainClone)).toBe(0);
+		expect(taskLocks()).toEqual([]);
+	});
+
+	it('worktree を cwd にした push も通す', () => {
+		expect(runHook('git push --force-with-lease', worktree)).toBe(0);
+		expect(taskLocks()).toEqual([]);
+	});
+
+	it('他セッションが同じ branch を触っていても push は止めない', () => {
+		// 「二重作業だから止める」判定そのものを撤去したことの固定 (PO 判断 2026-07-30)。
+		// 生きた別 PID が持つ lock を置いても、push は排他対象ではないので影響しない。
+		writeFileSync(
+			join(lockDir, 'task-3980.lock'),
+			JSON.stringify({ key: 'task-3980', ownerPid: process.pid, startedAt: Date.now() }),
+		);
+		expect(runHook(`git push origin ${WORKTREE_BRANCH}`, worktree)).toBe(0);
+		rmSync(join(lockDir, 'task-3980.lock'));
+	});
+
+	it('重い検証の排他は残っている (撤去しすぎていない)', () => {
+		// heavy lock まで消すと並走した検証結果が根拠にならなくなる。ここが 0 を返し始めたら
+		// 撤去の範囲が広がりすぎている。
+		writeFileSync(
+			join(lockDir, 'heavy.lock'),
+			JSON.stringify({ key: 'heavy', ownerPid: process.pid, startedAt: Date.now() }),
+		);
+		expect(runHook('npx vitest run tests/unit/foo.test.ts', worktree)).toBe(2);
+		rmSync(join(lockDir, 'heavy.lock'));
+	});
+}, 120_000);

@@ -40,7 +40,8 @@
 | key | 対象 | 粒度 | TTL |
 |---|---|---|---|
 | `heavy` | `pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test\|check\|e2e` | **マシン全体で 1 本** | 60 分 |
-| `task-<Issue番号>` | `git push` (branch 名から Issue 番号を導出) | Issue 単位 | 4 時間 |
+
+`git push` を branch 単位で排他する `task-<Issue番号>` key は **#4076 で撤去した**。hook が受け取る `cwd` はセッションの起動ディレクトリなので、worktree から push しても main clone の branch が読まれ、押す対象と無関係な branch の lock で全 worktree の push が止まっていた。押す対象から branch を割り出す精緻化は refspec の無い bare `git push` を解決できず穴が残るため、精緻化ではなく撤去を選んでいる (PO 判断 2026-07-30)。二重作業の検知は GitHub 側 (同一 branch への push 競合 / PR の重複) に委ねる。
 
 ### §3.2 保持者の同一性と生存判定
 
@@ -113,14 +114,12 @@ lock ディレクトリが読めない、lock ファイルが壊れている等�
 2. PR 本文整備 / Issue 起票 / レビュー対応など、マシンを占有しない作業に移る
 3. CI で代替できるなら**ローカル実行を諦めて CI を正とする**。ローカル完走が必要なのは「CI に無い gate」を回すときだけ
 
-`task-<n>` で止められた場合は二重作業である。チャンネルで担当を確認し、**どちらが進めるかを決めてから**再実行する。
-
 ## §5 適用範囲と限界
 
 - **worktree 分離は別の層**: ファイルの相互上書きは「チャンネルごとに専用 worktree を使う」ことで防ぐ。lock は**マシン資源と作業の重複**を防ぐもので、両方が要る
 - **hook が効くのは Claude Code 経由の Bash のみ**: 人間が直接ターミナルで叩く分には効かない。オーナーが手で重い検証を回すときは、エージェントが動いていないことを確認する
-- **hook はセッションの設定に登録されて初めて効く**: 本リポジトリの `.claude/settings.json` は **project 設定**なので、リポジトリを起動ディレクトリにしていないセッションには読み込まれない。Buzz エージェントの起動ディレクトリは `~/.buzz` であり、**`~/.buzz/.claude/settings.json` に登録しない限り本 hook は 1 度も走らない** (2026-07-27 実測: Buzz セッションから `git push` しても `task-<n>.lock` が作られなかった)。登録する場合は (a) `command` を絶対パスにする、(b) `matcher` を `"Bash|PowerShell"` にする (PowerShell tool 経由が素通りするため) の 2 点が要る
-- **`gh pr merge` / `gh pr edit` は task lock の対象外**: これらは PR 番号で他人の PR を操作する role (QM / 監査) のコマンドで、自分の branch とは対応しないため。ここを排他するなら PR 単位の別 key が要る (未実装)
+- **hook はセッションの設定に登録されて初めて効く**: 本リポジトリの `.claude/settings.json` は **project 設定**なので、リポジトリを起動ディレクトリにしていないセッションには読み込まれない。Buzz エージェントの起動ディレクトリは `~/.buzz` であり、**`~/.buzz/.claude/settings.json` に登録しない限り本 hook は 1 度も走らない**。登録する場合は (a) `command` を絶対パスにする、(b) `matcher` を `"Bash|PowerShell"` にする (PowerShell tool 経由が素通りするため) の 2 点が要る
+- **`git push` / `gh pr merge` / `gh pr edit` は排他対象ではない**: 誰がどの branch を進めているかの重複検知は lock では行わない (上記 §3.1)
 - **判定は文字列マッチ**: セグメント (`&&` / `;` / `|`) 単位で判定するため無害な前置きでは回避できないが、新しい重量コマンドを足したら `HEAVY_PATTERNS` の更新が要る
 
 ## §6 検証
