@@ -154,6 +154,9 @@ describe('--body-file 経路 (SKILL.md) が Web UI 必須 4 項目を網羅す�
 		'pre-pmf-check': '## Pre-PMF チェック結果',
 	};
 
+	// NOTE: 本 it は両辺ともテストローカル定数のため fitness function ではない (純 tautology に近い)。
+	// 「REQUIRED_TEXTAREA_IDS に 5 件目を足したのに FIELD_TO_HEADING を更新し忘れる」編集事故のみを
+	// 検出する編集ガードであり、yml / CLAUDE.md 実体との drift は下の CLAUDE.md 照合 it が担う。
 	it('REQUIRED_TEXTAREA_IDS と対応表のキー集合が一致する (対応表の網羅漏れ防止)', () => {
 		expect(Object.keys(FIELD_TO_HEADING).sort()).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
 	});
@@ -170,16 +173,28 @@ describe('--body-file 経路 (SKILL.md) が Web UI 必須 4 項目を網羅す�
 				'.github/CLAUDE.md に「N textarea (…) 必須化」ルール行が無い → 必須項目の SSOT 記述が失われている',
 			);
 		}
-		return { count: Number(m[1]), ids: m[2].split('/').map((s) => s.trim()) };
+		// TS strict (noUncheckedIndexedAccess): capture group は型上 undefined を含むため明示 guard する。
+		const countRaw = m[1];
+		const idsRaw = m[2];
+		if (countRaw === undefined || idsRaw === undefined) {
+			throw new Error(
+				'.github/CLAUDE.md の「N textarea (…) 必須化」行から件数 / field 列挙を抽出できない',
+			);
+		}
+		return { count: Number(countRaw), ids: idsRaw.split('/').map((s) => s.trim()) };
 	}
 
 	const claudeMd = readFileSync(resolve(process.cwd(), '.github/CLAUDE.md'), 'utf8');
 	const claudeRule = parseRequiredFieldIdsFromClaudeMd(claudeMd);
 
-	it('.github/CLAUDE.md が列挙する必須 field 集合が Issue Forms の実 field 集合と一致する', () => {
+	// 受容した残差 (ADR-0060): 比較相手の REQUIRED_TEXTAREA_IDS はテストローカル定数であり、
+	// yml の required textarea 実集合 (dev=10 / feature=11 / bug=11 / process=13 field) との
+	// 集合一致ではない。yml との結び付きは上の describe.each (この 4 id が全 yml で required か) が
+	// 担う部分集合方向のみで、yml に 5 件目の required textarea が増えても本 test では検出できない。
+	it('.github/CLAUDE.md が列挙する必須 field 集合が本 test の必須 4 field 定義と一致する', () => {
 		expect(
 			[...claudeRule.ids].sort(),
-			'.github/CLAUDE.md の必須 field 列挙と Issue Forms (yml) の required textarea が乖離している',
+			'.github/CLAUDE.md の必須 field 列挙と本 test の必須 4 field 定義 (REQUIRED_TEXTAREA_IDS) が乖離している',
 		).toEqual([...REQUIRED_TEXTAREA_IDS].sort());
 		// 「4 textarea」の宣言件数自体も列挙数と一致していること (片方だけ増減する drift を検出)
 		expect(claudeRule.count).toBe(claudeRule.ids.length);
