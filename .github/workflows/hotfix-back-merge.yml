@@ -5,7 +5,8 @@
 # main → develop の back-merge PR を自動発行する。
 #
 # 判定 SSOT: scripts/hotfix-back-merge.mjs (pure function、unit test 済)。
-# PR body 生成 SSOT: scripts/back-merge-pr-body.mjs (#3879、PR template gate 準拠 13 section +
+# PR body 生成 SSOT: scripts/back-merge-pr-body.mjs (#3879、PR template gate 準拠の必須 section
+# (件数の SSOT は .github/PR_TEMPLATE_SECTIONS.json) +
 # AC 検証マップ 4 列を生成し、既存 gate 検証ロジックで生成時に自己検証する。違反時は exit 1 で
 # workflow ごと fail = gate 非準拠 body を silent に発行しない)。
 # 本 workflow は薄い orchestrator。判定 / body 生成 logic は yml に分散させない。

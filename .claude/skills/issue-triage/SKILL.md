@@ -190,9 +190,10 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 
 詳細プロセス・補佐降格背景は #2088 / memory `feedback_role_demotion_to_po_assistant.md` 参照。
 
-## 手順 E: 補助機能 UX 完成度 checklist (permission 系 / marketplace 系のみ、#2117 / #2139)
+## 手順 E: 機能完成度 checklist 9 層 17 項目 (該当層のみ、#2117 / #2139 / #2159 / #2171 / #2180)
 
-> 本手順は補助機能 (Web Platform API permission 系 / marketplace 系) を扱う Issue 起票時のみ実行する補助手順。SSOT: ADR-0010 §7 / Issue Template `auxiliary-feature-ux-checklist` textarea。
+> 本手順は permission 系 / marketplace 系 / 子供向け機能 / ナビ・情報アーキテクチャ系のいずれかに該当する Issue 起票時のみ実行する補助手順。
+> **本節が 17 項目の本文 SSOT** であり、Issue Template の `auxiliary-feature-ux-checklist` textarea は本節へのポインタとして機能する (#4097 で本文を集約、旧: 4 yml へのコピペ)。上位ポリシーは ADR-0010 §7。
 
 Issue 起票時、対象機能が以下に該当する場合は Issue Template の `auxiliary-feature-ux-checklist` textarea を **AC に複製**すること:
 
@@ -217,12 +218,32 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 
 **「JSON + UI 表示のみ + import 未実装」状態の Issue 起票は禁止** (ADR-0013 LP truth 違反、過去経緯: #585 / #1162 / #1167 / #1758 で marketplace 4 type 中途半端実装が再発)。
 
+### 子供向け機能 6 項目 (#2159 RS-5 由来 3 + #2171 MN-4 由来 3)
+
+子供画面で表示 / 操作 / 通知される機能を扱う場合:
+
+1. **業界 prior art 比較 (3 件以上)**: 子供向け対象 (Khan Academy Kids / Duolingo ABC / Lingokids 等) の同等機能を最低 3 件比較し、UX チープさを起票時点で検出
+2. **レスポンシブ完成度 (5 breakpoint)**: 375 / 768 / 1024 / 1280 / 1440 で表示確認、PC 1 列中央寄せ等の崩れなし
+3. **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出
+4. **対象ペルソナと表示画面の整合性**: 「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」を起票時点で明示し、実装後に再確認
+5. **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離を判断
+6. **語彙統一の年齢整合**: ひらがな / 漢字混在は `getLabel(key, ctx)` 経由で labels.ts に集約し、年齢別 variant 化する
+
+### ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5)
+
+`NAV_CATEGORIES` / `admin-ia.md` / 親管理画面ナビ / 子供画面ナビ 等のナビ階層を変更する場合:
+
+1. **過去設計整合性確認**: 関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等を grep で全件確認し、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記
+2. **ナビ 3 種の SSOT 確認**: `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅し、1-2 種だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保
+
 ### 起票時の判定フロー
 
 1. 対象機能が permission 系 (Web Platform API) → 5 項目を AC に複製
 2. 対象機能が marketplace 系 (取込 → アプリ反映) → 4 層を AC に複製
-3. 両方該当 → 9 項目すべて複製 (実例: marketplace UI で permission 要求も伴う場合)
-4. どちらにも該当しない → Template `auxiliary-feature-ux-checklist` textarea に「N/A」と明記
+3. 対象機能が子供画面に出る → 6 項目を AC に複製
+4. ナビ階層を変更する → 2 項目を AC に複製
+5. 複数該当 → 該当層すべて複製 (最大 17 項目)
+6. どれにも該当しない → Template `auxiliary-feature-ux-checklist` textarea に「N/A」と明記
 
 判定不明な場合は手順 C (research 添付) で業界 prior art を 3-5 件調査して判定する。
 
@@ -303,8 +324,15 @@ CI 必須化ではなく awareness 用途。3 件目以降の検出時、本手�
 ## OSS / 確立パターン調査結果
 [10 行超の独自実装を含む場合は必須、§「OSS 先調査」テンプレ参照]
 
-## 補助機能 UX 完成度 checklist (該当時のみ、#2117 / #2139)
-[permission 系 5 項目 / marketplace 系 4 層を AC に複製、または「N/A」]
+## Alternatives + Prior art
+[検討した他案と不採用理由。Prior art (OSS / 競合の同等機能) を含める。
+ 該当が無い場合は「探した範囲」= どのキーワードで探し、なぜ該当がなかったかを書く]
+
+## No-gos（今回スコープ外）
+[今回意図的にスコープ外とする範囲 (YAGNI 適用 / 将来 Issue 候補)。無い場合も「特になし」と明記]
+
+## 補助機能 UX 完成度 checklist (該当時のみ、#2117 / #2139 / #2159 / #2171 / #2180)
+[該当層を手順 E から AC に複製 (permission 5 / marketplace 4 / 子供向け 6 / ナビ 2)、または「N/A」]
 
 ## Deep Research 添付 (補佐起票時必須、#2088 / 本 SKILL §research 添付)
 - 規模: [軽量 / 中規模 / 大規模]

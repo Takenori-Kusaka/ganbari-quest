@@ -113,11 +113,11 @@ describe('Ready チェックリストに pre-ready 自己参照項目が無い (
 		expect(findPreReadyUncheckedItems(mutated)).toHaveLength(1);
 	});
 
-	it('`## テスト & 安全装置セルフチェック` 側の集約申告は残す (AC7 境界)', () => {
+	it('`## テスト・品質セルフチェック` 側の集約申告は残す (AC7 境界、#4097 で section 統合)', () => {
 		// 当該セクションは findUncheckedReadyChecklist の対象外なので deadlock 経路に無い。
 		const template = readTemplate('.github/PULL_REQUEST_TEMPLATE.md');
-		expect(template).toContain('## テスト & 安全装置セルフチェック');
-		const selfCheckIdx = template.indexOf('## テスト & 安全装置セルフチェック');
+		expect(template).toContain('## テスト・品質セルフチェック');
+		const selfCheckIdx = template.indexOf('## テスト・品質セルフチェック');
 		const readyIdx = template.indexOf(READY_SECTION_HEADING);
 		const selfCheckSection = template.slice(selfCheckIdx, readyIdx);
 		expect(selfCheckSection).toContain('pre-ready');

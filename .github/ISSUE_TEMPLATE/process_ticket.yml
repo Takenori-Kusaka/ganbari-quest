@@ -70,39 +70,14 @@ body:
   - type: textarea
     id: auxiliary-feature-ux-checklist
     attributes:
-      label: 機能完成度 checklist 9 層 17 項目（permission / marketplace / 子供向け機能 / ナビ系のみ必須、#2117 / #2139 / #2159 / #2171 / #2180）
+      label: 機能完成度 checklist 9 層 17 項目（該当層のみ）
       description: |
-        process 系 Issue でも対象機能が permission 系 / marketplace 系 / 子供向け機能 / ナビ系の場合は以下 checklist を AC として複製する。
-        該当しない Issue は「N/A（permission / marketplace / 子供向け機能 / ナビ系ではない）」と明記。
-        SSOT: ADR-0010 §7 / `.claude/skills/issue-triage/SKILL.md`。
-      value: |
-        <!-- permission 系 5 項目 (#2117): 該当する場合 AC に複製 -->
-        - [ ] **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
-        - [ ] **Failure handling**: 失敗時の try/catch + ユーザーフィードバック (Toast / inline error / 設定画面誘導)
-        - [ ] **Informed consent**: 許可リクエスト前の説明 (頻度 / 内容 / 送信先 / quiet hours 等)
-        - [ ] **State feedback**: 成功時 / 失敗時 / pending 中の UI 状態フィードバック
-        - [ ] **Settings fallback**: 後から ON/OFF できる設定画面 link
-
-        <!-- marketplace 系 4 層 (#2139): 該当する場合 AC に複製 -->
-        - [ ] **表示層**: マーケットプレイス一覧 + 詳細ページで preview 可能
-        - [ ] **import 層**: import service / DB 反映機構 / 重複検出
-        - [ ] **アプリ反映層**: 取込後に既存機能 (special_rewards / checklist_templates / settings 等) と整合動作
-        - [ ] **setup 連携層**: 新規ユーザー setup フローで一括追加経路あり
-
-        <!-- 子供向け機能 3 項目 (#2159 RS-5): 該当する場合 AC に複製 -->
-        - [ ] **業界 prior art 比較 (3 件以上)**: 子供向け対象 (Khan Academy Kids / Duolingo ABC / Lingokids 等) の同等機能を最低 3 件比較
-        - [ ] **レスポンシブ完成度 (5 breakpoint)**: PC / Tablet / Mobile (375 / 768 / 1024 / 1280 / 1440) の 5 breakpoint で表示確認
-        - [ ] **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出
-
-        <!-- 子供向け機能 3 項目 (#2171 MN-4): 該当する場合 AC に複製 -->
-        - [ ] **対象ペルソナと表示画面の整合性**: 「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」明示
-        - [ ] **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner\|<.*Overlay" src/lib/ui/components/` 等で重複検出
-        - [ ] **語彙統一の年齢整合 (ADR-0015)**: ひらがな / 漢字混在は ADR-0015 `getLabel(key, ctx)` 整合確認
-
-        <!-- ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5): 該当する場合 AC に複製 -->
-        - [ ] **過去設計整合性確認 (closed Issue / 設計書 / ADR の SSOT 突合)**: 過去 closed Issue / ADR / `docs/design/admin-ia.md` 等の設計書を grep で全件確認、「現状 SSOT」と「本 Issue 提案」の差分を明示
-        - [ ] **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認**: `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅、漏れがないか確認
-
+        permission 系 5 / marketplace 系 4 / 子供向け機能 6 / ナビ・情報アーキテクチャ系 2 のうち、
+        該当層の項目を AC に複製する。17 項目の本文 SSOT は
+        `.claude/skills/issue-triage/SKILL.md` §手順 E（上位ポリシーは ADR-0010 §7）。
+        「JSON + UI 表示のみ + import 未実装」状態での起票は禁止（ADR-0013 LP truth 違反）。
+      placeholder: |
+        該当層: marketplace 系 4 層 → AC に複製済
         または: N/A（permission / marketplace / 子供向け機能 / ナビ系ではない）
     validations:
       required: false
@@ -116,70 +91,51 @@ body:
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives + Prior art（Rust RFC 抜粋、#2090）
+      label: Alternatives + Prior art
       description: |
-        検討した他案 + 不採用理由を列挙。Prior art (採用 OSS / 競合の同等機能) を含めること。
-        該当が無い場合は「探した範囲」を書く（どのキーワードで探し、なぜ該当がなかったか）。
-      value: |
-        <!-- 例:
-        - 案 A: SSOT を docs/CLAUDE.md に追加 — メリット: 既存集約 / デメリット: 散在継続（不採用）
-        - 案 B: 専用 ADR 起票 — メリット: 横断ポリシー化 / デメリット: 10 枠圧迫（採用）
-        - Prior art: kubernetes/community KEP テンプレ
-        -->
+        検討した他案と不採用理由。Prior art（採用 OSS / 競合の同等機能）を含めること。
+        該当が無い場合は「探した範囲」（どのキーワードで探し、なぜ該当がなかったか）を書く。
+      placeholder: |
+        - 案 A: 既存 hook を拡張 — 0 行追加 / 副作用増（不採用）
+        - 案 B: 新規 service 層 — 単一責務 / 工数 +2h（採用）
+        - Prior art: <OSS / 競合> の同等パターン
     validations:
       required: true
 
   - type: textarea
     id: no-gos
     attributes:
-      label: No-gos / 今回スコープ外（Shape Up 抜粋、#2090）
-      description: |
-        今回意図的にスコープ外とする範囲を明示する（YAGNI 適用 / 将来 Issue 候補）。
-        該当が無い場合は「特になし」と明記すること（空欄不可）。
-      value: |
-        <!-- 例:
+      label: No-gos / 今回スコープ外
+      description: 今回意図的にスコープ外とする範囲（YAGNI 適用 / 将来 Issue 候補）。無い場合も「特になし」と明記する。
+      placeholder: |
         - 既存 open Issue への retroactive 適用（新規のみ）
-        - CI 自動 lint（本 Issue では Manual 検証、future work）
-        -->
+        - i18n 対応（別 Issue 候補）
     validations:
       required: true
 
   - type: textarea
     id: research-link
     attributes:
-      label: research-link（Deep Research 結果リンク、#2090）
-      description: |
-        `docs/reference/NN-research-*.md` への link を貼る、または "N/A" を明記。
-        OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
-      value: |
-        <!-- 例:
-        - docs/research/01-research-issue-templating-and-doc-consolidation.md §2.1
+      label: research-link（Deep Research 結果リンク）
+      description: OSS 比較 / 競合調査 / 学術参照の記録へのリンク。不要なら「N/A」+ 理由を明記する。
+      placeholder: |
+        - docs/reference/NN-research-<topic>.md §2.1
         - または: N/A（既存パターン適用のため新規調査不要）
-        -->
     validations:
       required: true
 
   - type: textarea
     id: pre-pmf-check
     attributes:
-      label: Pre-PMF check（ADR-0010 §3、#2090）
+      label: Pre-PMF check（ADR-0010 §3）
       description: |
-        Pre-PMF 段階での起票バイアスを防ぐため、ADR-0010 §3 の 5 質問に回答する。
-        `priority:critical` bug fix / 法務・セキュリティ対応はチェック不要（その旨明記）。
-      value: |
-        <!--
-        Q1: どのペルソナ (P1/P2) のどの課題を解決するか？
-        →
-        Q2: V2MOM Method (M1〜M4) のどれに紐づくか？
-        →
-        Q3: この変更なしで Pre-PMF サインアップ 20 名/月 (V2MOM Q2) に到達できるか？ (可能→medium 以下 / 不可能→high 以上 + 根拠)
-        →
-        Q4: 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか？
-        →
-        Q5: 工数と Year 1 KPI (MAU 500 / MRR ¥12,000) への寄与が釣り合っているか？
-        →
-        または: 免除 (priority:critical bug fix / 法務 / セキュリティ / process: プロセス改善で機構強制)
-        -->
+        起票バイアスを防ぐため 5 質問に回答する。priority:critical bug fix / 法務・セキュリティは「免除」+ 理由で可。
+      placeholder: |
+        Q1 ペルソナ (P1/P2) とその課題:
+        Q2 V2MOM Method (M1〜M4) 紐付け:
+        Q3 この機能なしで サインアップ 20 名/月 に到達できるか (可→medium 以下 / 不可→high 以上 + 根拠):
+        Q4 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか:
+        Q5 工数と Year 1 KPI への寄与は釣り合うか:
     validations:
       required: true
 
