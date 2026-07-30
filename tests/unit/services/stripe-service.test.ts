@@ -1073,7 +1073,16 @@ describe('handleWebhookEvent', () => {
 	});
 
 	// ==========================================================
-	// #3981: context 解決失敗の 3 事実 (API 障害 / customer 不在 / tenant 不在) を分離する
+	// #3981: context 解決失敗の 4 経路を分離する。
+	// 旧 bare `catch {}` はこれらをすべて `undefined` に潰しており、呼び出し側からは
+	// 一律「tenant not found」にしか見えなかった。
+	//   (1) Stripe API 障害   → alert (reason=stripe_api_error) + error ログ
+	//   (2) repo (DB) 障害    → alert (reason=repo_error)       + error ログ
+	//   (3) customer 参照なし → alert なし (payload の事実) + 専用 warn
+	//   (4) tenant 不在       → alert なし (正常な結果)     + 専用 warn
+	// 各 test は **本 PR が追加した固有のログ本文**を pin する。呼び出し側の既存 warn
+	// (`invoice.paid — tenant not found for subscription=`) でも満たせる緩い部分一致
+	// (例: `includes('tenant')`) にすると、新規コードを消しても PASS してしまう。
 	// ==========================================================
 
 	it('#3981 — subscriptions.retrieve が throw したら Stripe API 障害として alert + error ログを出す', async () => {
@@ -1091,9 +1100,17 @@ describe('handleWebhookEvent', () => {
 				tags: expect.objectContaining({ reason: 'stripe_api_error', subscriptionId: 'sub_123' }),
 			}),
 		);
-		// ログ本文で「API 障害」と判別できること (tenant 不在と同じ文言に潰れない)
+		// ログ本文で「API 障害」と判別できること (tenant 不在 / データストア障害と同じ文言に潰れない)
 		const errorLogs = mockLogger.error.mock.calls.map((c) => String(c[0]));
-		expect(errorLogs.some((line) => line.includes('Stripe API'))).toBe(true);
+		expect(
+			errorLogs.some(
+				(line) =>
+					line.includes('subscription context の解決に失敗しました (Stripe API 障害)') &&
+					line.includes('reason=stripe_api_error'),
+			),
+		).toBe(true);
+		// 取り違え防止: DB 側障害の label が混ざっていない
+		expect(errorLogs.some((line) => line.includes('データストア障害'))).toBe(false);
 		// 返り値の契約は不変: tenant 未解決なので DB 更新は起きない
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 	});
@@ -1114,6 +1131,44 @@ describe('handleWebhookEvent', () => {
 				tags: expect.objectContaining({ reason: 'repo_error' }),
 			}),
 		);
+		// #3981 AC3 の両側: tags だけでなく **ログ本文でも** DB 側障害と判別できること。
+		// label 引数を 'Stripe API 障害' に取り違えたら落ちる。
+		const errorLogs = mockLogger.error.mock.calls.map((c) => String(c[0]));
+		expect(
+			errorLogs.some(
+				(line) =>
+					line.includes('subscription context の解決に失敗しました (データストア障害)') &&
+					line.includes('reason=repo_error'),
+			),
+		).toBe(true);
+		expect(errorLogs.some((line) => line.includes('Stripe API 障害'))).toBe(false);
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#3981 — subscription に customer 参照が無ければ alert は飛ばず専用 warn に留まる', async () => {
+		// Stripe の payload としてはあり得る形 (deleted customer 等)。障害ではないので
+		// alert を鳴らさないが、tenant 不在とは別の事実なので専用 warn で区別する。
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue({ ...makeSubscription('price_monthly_123'), customer: null }),
+			},
+		});
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-context-unresolved' }),
+		);
+		// customer 逆引き自体に到達しない (customer が無いので repo を呼ばない)
+		expect(mockFindTenantByStripeCustomerId).not.toHaveBeenCalled();
+		const warnLogs = mockLogger.warn.mock.calls.map((c) => String(c[0]));
+		expect(
+			warnLogs.some((line) =>
+				line.includes('subscription に customer 参照がありません: subscription=sub_123'),
+			),
+		).toBe(true);
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 	});
 
@@ -1130,9 +1185,18 @@ describe('handleWebhookEvent', () => {
 		expect(mockNotifyStripeAlert).not.toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-context-unresolved' }),
 		);
-		// ログ本文で「tenant 不在」と判別できること
+		// 本 PR が `resolveSubscriptionContext` に追加した warn **だけ**を pin する。
+		// `includes('tenant')` では呼び出し側の既存 warn
+		// (`invoice.paid — tenant not found for subscription=`) でも真になり、
+		// 新規 warn を消しても PASS してしまう (mutation 生存)。
 		const warnLogs = mockLogger.warn.mock.calls.map((c) => String(c[0]));
-		expect(warnLogs.some((line) => line.includes('tenant'))).toBe(true);
+		expect(
+			warnLogs.some(
+				(line) =>
+					line.includes('customer に対応する tenant が見つかりません (tenant 不在)') &&
+					line.includes('customer=cus_123'),
+			),
+		).toBe(true);
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 	});
 
