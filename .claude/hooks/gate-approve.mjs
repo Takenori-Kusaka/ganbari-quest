@@ -22,6 +22,18 @@
  *   ref がリテラルでも変数展開 (`$n`) でもコマンド置換でも approve として捕捉し、番号を
  *   確定できない場合は block する (「番号が取れない = 検証不能 = 通さない」)。
  *
+ * 検出の原則 2 — flag の長短・API の種別で穴を作らない (#4095 QM Re-Review):
+ *   - `gh pr review -a` は `--approve` の**正式な短縮 flag**。長形だけを見ていると 1 キーストローク
+ *     分だけ gate が消える。判定は argv token 単位で行い、cluster (`-ab body`) も拾う。
+ *   - `gh api graphql` の `addPullRequestReview` / `mergePullRequest` mutation は REST と同じ効果を
+ *     持つ。REST パスだけを見ていると GraphQL に書き換えるだけで抜けられる。
+ *
+ * 検証対象 PR の確定原則 (#4095 O-3):
+ *   PR 番号は **実際に叩かれる `gh` invocation の argv / API パスからのみ**取る。コマンド全体を
+ *   走査して「近くにある数字」を採ると、`for n in 4002 4010; do gh pr merge $n; done # for 4002`
+ *   のような形で **evidence のある PR の番号で別 PR が merge される**。番号を確定できない hit が
+ *   1 件でもあれば、他にリテラル番号があっても block する (indeterminate → BLOCK)。
+ *
  * 設計根拠 (Research SSOT §5.1 / §5.2):
  *   - arXiv:2511.09710 で structured response schema 強制が echoing 30-40% → <10% を実証
  *   - Sleeper Agents (Hubinger 2024): instruction 経由の役割強化は drift trigger に対処できない
@@ -201,6 +213,8 @@ export function isApproveAction(command) {
 	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return true;
 	// gh pr review --approve
 	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return true;
+	// gh pr review -a (短縮 flag)。上の regex は長形しか見ないため argv 単位でも判定する (#4095 O-1)。
+	if (findPrCliApproveHits(sanitized).length > 0) return true;
 	// gh api .../pulls/<ref>/{merge,reviews} (REST 直叩き)。
 	// #4027: 部分一致でなく **引数として渡された API パス** で判定する。method は問わない
 	// (approve 相当を method 表記で回避されないよう検出幅は従来どおり維持する)。
@@ -210,12 +224,109 @@ export function isApproveAction(command) {
 }
 
 /**
- * approve 相当の API パスを列挙する (#4057)。
+ * `gh pr` サブコマンドのうち **値を次の token に取る flag** (#4095 O-3)。
  *
- * 2 種類を拾う:
+ * PR 番号を positional から取り出すとき、flag の値を positional と誤認しないために使う。
+ * `--body` 系は `sanitizeForDetection` が既に潰しているが、flag 名は残るためここでも列挙する。
+ */
+const PR_CLI_VALUE_FLAGS = new Set([
+	'-R',
+	'--repo',
+	'-b',
+	'--body',
+	'-F',
+	'--body-file',
+	'-t',
+	'--subject',
+	'-A',
+	'--author-email',
+	'--match-head-commit',
+]);
+
+/**
+ * `gh pr review` の argv に **approve 指定**があるか (#4095 O-1)。
+ *
+ * `gh pr review --help` のとおり `-a, --approve` は正式な短縮 flag であり、長形だけを見る regex は
+ * 1 キーストローク分の穴になる (QM 実測: `gh pr review 4010 -a --body ok` が exit 0 で素通り)。
+ *
+ * 誤検出を避けるため、判定は token 単位で行う:
+ *   - `--approve` / `--approve=true` … 長形
+ *   - `-a` および short flag cluster (`-ab body` = `--approve --body body`) … 小文字 `a` を含むもの
+ *   - `-c` (--comment) / `-r` (--request-changes) / `-A` (大文字) は **含まない**
+ *
+ * @param {string[]} argv  `gh` の次の token から始まる配列 (argv[0]='pr', argv[1]='review')
+ * @returns {boolean}
+ */
+export function hasPrReviewApproveFlag(argv) {
+	if (!Array.isArray(argv)) return false;
+	for (const token of argv.slice(2)) {
+		if (typeof token !== 'string') continue;
+		if (token === '--approve' || token.startsWith('--approve=')) return true;
+		// short flag (cluster 可)。`--` 始まりはここに来ない (2 文字目が `-` で regex 不一致)。
+		if (/^-[A-Za-z]+$/.test(token) && token.slice(1).includes('a')) return true;
+	}
+	return false;
+}
+
+/**
+ * approve 相当の `gh pr` CLI 呼び出しを列挙する (#4095 O-1)。
+ *
+ * `gh pr merge` (全て) と `gh pr review` (approve 指定があるもの) を返す。番号確定 (#4095 O-3) と
+ * 検出 (isApproveAction / isReadOnlyApproveInspection) の双方で同じ列挙を使い、判定軸を 1 本にする。
+ *
+ * @param {string} sanitized  sanitizeForDetection 済み文字列
+ * @returns {{ kind: 'merge' | 'review-approve'; argv: string[] }[]}
+ */
+function findPrCliApproveHits(sanitized) {
+	const lib = ghLib();
+	/** @type {{ kind: 'merge' | 'review-approve'; argv: string[] }[]} */
+	const hits = [];
+	for (const { argv } of lib.findGhInvocations(sanitized)) {
+		if (argv.at(0) !== 'pr') continue;
+		const sub = argv.at(1);
+		if (sub === 'merge') hits.push({ kind: 'merge', argv });
+		else if (sub === 'review' && hasPrReviewApproveFlag(argv)) {
+			hits.push({ kind: 'review-approve', argv });
+		}
+	}
+	return hits;
+}
+
+/**
+ * GraphQL payload が approve 相当の mutation か (#4095 O-2)。
+ *
+ * `gh api graphql -f query='mutation{addPullRequestReview(input:{… event:APPROVE …}){…}}'` は REST の
+ * `POST /pulls/<n>/reviews` と同一効果を持つ。`parseGhApiInvocation` は `graphql` を path として
+ * 収集していたが、これを見る側が pulls 系しか扱っていなかったため**死んだ枝**になっていた
+ * (QM 実測: exit 0 で素通り)。
+ *
+ * 判定は「graphql エンドポイントであること」× 「approve 相当 mutation 名 / event が現れること」の
+ * 論理積に限る。単なる `query{…}` の読み取りは対象外 (過剰 block を避ける)。
+ * `addPullRequestReviewComment` / `…Thread` は review comment であり approve ではないため、
+ * `\b` 境界で除外される (後続が語構成文字なら一致しない)。
+ */
+const APPROVE_GRAPHQL_RE =
+	/addPullRequestReview\b|mergePullRequest\b|event\s*[:=]\s*['"]?APPROVE\b/i;
+
+/**
+ * @param {{ paths: string[] }} api  parseGhApiInvocation の結果
+ * @param {string} segment           当該呼び出しを含む生 segment (引用符付きの payload を見るため)
+ * @returns {boolean}
+ */
+function isApproveGraphqlInvocation(api, segment) {
+	if (!api.paths.some((p) => /^graphql$/i.test(p))) return false;
+	return APPROVE_GRAPHQL_RE.test(segment);
+}
+
+/**
+ * approve 相当の API パスを列挙する (#4057 / #4095 O-2)。
+ *
+ * 3 種類を拾う:
  *   - `repos/o/r/pulls/<ref>/{reviews,merge}` … ref の形 (数字 / 変数 / 置換) を問わない
  *   - **確定できない pulls 配下パス** … `$(…)` / `$VAR` / backtick 等で実際に叩かれる URL が
  *     決まらないもの。分類不能を「approve ではない」に潰すと、書き方を変えるだけで抜けられる
+ *   - **GraphQL の approve 相当 mutation** … `addPullRequestReview` / `mergePullRequest` /
+ *     `event: APPROVE`。PR 番号は node ID で表されるため常に indeterminate (= 番号確定不能 → block)
  *
  * コレクション (`repos/o/r/pulls`) は対象外 (PR 作成 = ADR-0022 L1 の責務)。
  *
@@ -226,9 +337,13 @@ function findApprovePathHits(sanitized) {
 	const lib = ghLib();
 	/** @type {{ path: string; method: string; indeterminate: boolean }[]} */
 	const hits = [];
-	for (const { argv } of lib.findGhInvocations(sanitized)) {
+	for (const { segment, argv } of lib.findGhInvocations(sanitized)) {
 		const api = lib.parseGhApiInvocation(argv);
 		if (!api.isApi) continue;
+		if (isApproveGraphqlInvocation(api, segment)) {
+			// node ID 指定のため PR 番号を確定できない = evidence を照合できない → 常に block 側
+			hits.push({ path: 'graphql', method: api.method, indeterminate: true });
+		}
 		for (const path of api.paths) {
 			const isSubresource =
 				lib.isPullsSubresourcePathAnyRef(path, 'merge') ||
@@ -265,6 +380,8 @@ export function isReadOnlyApproveInspection(command) {
 	const sanitized = lib.sanitizeForDetection(command);
 	if (/\bgh(?:\.exe)?\s+pr\s+merge\b/.test(sanitized)) return false;
 	if (/\bgh(?:\.exe)?\s+pr\s+review\b[^\n]*--approve\b/.test(sanitized)) return false;
+	// 短縮 flag (`-a`) 経由の approve も CLI の変更操作 (#4095 O-1)。長形と同じく read-only ではない。
+	if (findPrCliApproveHits(sanitized).length > 0) return false;
 	const hits = findApprovePathHits(sanitized);
 	if (hits.length === 0) return false;
 	return hits.every((hit) => !hit.indeterminate && hit.method === 'GET');
@@ -383,27 +500,89 @@ export function extractPrNumber(command) {
  * の `4002` はループの列挙値であって、そのコマンドが叩く PR とは限らない。近くにある数字を
  * 拾うと、evidence のある PR の番号で別 PR の approve が通ってしまう。
  *
+ * この不変条件を満たすため、番号は **実際に叩かれる `gh` invocation の argv / API パスからのみ**
+ * 取る (#4095 O-3)。コマンド全体を regex で走査する旧実装は、同一行の任意の数字 (`# rollup for
+ * 4002` のコメント) や別 invocation のリテラルを拾い、QM 実測で
+ * `for n in 4002 4010; do gh pr merge $n --squash; done # rollup for 4002` が exit 0 になっていた。
+ *
  * @param {string} command
  * @returns {number[]}  昇順・重複排除
  */
 export function extractPrNumbers(command) {
-	if (typeof command !== 'string') return [];
+	return resolveApproveTargets(command).numbers;
+}
+
+/**
+ * 1 つの `gh pr merge|review` invocation の argv から PR 番号を取り出す (#4095 O-3)。
+ *
+ * positional 引数のみを見る。flag の値 (`--repo X`) は skip し、shell コメント (`# …`) 以降は
+ * 「そのコマンドが叩く対象」ではないため打ち切る。番号を確定できなければ null (呼出側で block)。
+ *
+ * @param {string[]} argv  `gh` の次の token から始まる配列 (argv[0]='pr')
+ * @returns {number|null}
+ */
+function prNumberFromCliArgv(argv) {
+	for (let i = 2; i < argv.length; i += 1) {
+		const token = argv.at(i) ?? '';
+		// shell コメント以降はコマンドの引数ではない (「近くの数字」を拾わない)
+		if (token.startsWith('#')) break;
+		if (token.startsWith('-')) {
+			// `--flag=value` は値を同 token に持つため次を消費しない
+			if (!token.includes('=') && PR_CLI_VALUE_FLAGS.has(token)) i += 1;
+			continue;
+		}
+		if (/^\d{1,6}$/.test(token)) return Number(token);
+		const url = /\/pull\/(\d{1,6})(?:$|[/?#])/.exec(token);
+		if (url?.[1]) return Number(url[1]);
+	}
+	return null;
+}
+
+/**
+ * approve 対象の PR 番号と **確定不能 hit の有無** を返す (#4095 O-3)。
+ *
+ * `indeterminate` が true の場合、たとえ他にリテラル番号が取れていても呼出側は block する。
+ * 「番号が 1 つでも取れたら OK」にすると、`for n in 4002 4010; …` 形で evidence のある 4002 を
+ * 根拠に 4010 まで通ってしまう (本関数のコメントが禁じている挙動そのもの)。
+ *
+ * @param {string} command
+ * @returns {{ numbers: number[]; indeterminate: boolean }}
+ */
+export function resolveApproveTargets(command) {
+	if (typeof command !== 'string') return { numbers: [], indeterminate: false };
 	// #4001: PowerShell 表記ゆれ (& 'gh' / gh.exe / backtick 継続) を吸収してから抽出する
 	// #4027: あわせて --body / heredoc の中身を除去し、body 内の PR 番号を拾わないようにする
-	const normalized = ghLib().sanitizeForDetection(command);
+	const lib = ghLib();
+	const normalized = lib.sanitizeForDetection(command);
 	/** @type {Set<number>} */
 	const numbers = new Set();
-	// gh pr <merge|review> [args] <N>
-	for (const m of normalized.matchAll(
-		/\bgh(?:\.exe)?\s+pr\s+(?:merge|review)\b[^\n]*?\b(\d{1,6})\b/g,
-	)) {
-		numbers.add(Number(m[1]));
+	let indeterminate = false;
+	for (const { segment, argv } of lib.findGhInvocations(normalized)) {
+		if (argv.at(0) === 'pr') {
+			const sub = argv.at(1);
+			if (sub !== 'merge' && sub !== 'review') continue;
+			// approve 指定の無い review (comment / request-changes) は approve 対象ではない
+			if (sub === 'review' && !hasPrReviewApproveFlag(argv)) continue;
+			const prNumber = prNumberFromCliArgv(argv);
+			if (prNumber === null) indeterminate = true;
+			else numbers.add(prNumber);
+			continue;
+		}
+		const api = lib.parseGhApiInvocation(argv);
+		if (!api.isApi) continue;
+		if (isApproveGraphqlInvocation(api, segment)) indeterminate = true;
+		for (const path of api.paths) {
+			const isSubresource =
+				lib.isPullsSubresourcePathAnyRef(path, 'merge') ||
+				lib.isPullsSubresourcePathAnyRef(path, 'reviews');
+			const isUnresolved = lib.isPullsScopedPath(path) && lib.hasUnresolvedExpansion(path);
+			if (!isSubresource && !isUnresolved) continue;
+			const m = /^repos\/[^/]+\/[^/]+\/pulls\/(\d{1,6})(?:\/|$)/i.exec(path);
+			if (m?.[1]) numbers.add(Number(m[1]));
+			else indeterminate = true;
+		}
 	}
-	// gh api .../pulls/<N>/...
-	for (const m of normalized.matchAll(/\/pulls\/(\d{1,6})\b/g)) {
-		numbers.add(Number(m[1]));
-	}
-	return [...numbers].sort((a, b) => a - b);
+	return { numbers: [...numbers].sort((a, b) => a - b), indeterminate };
 }
 
 /**
@@ -530,13 +709,22 @@ async function main() {
 
 	// PR 番号は全件抽出する。1 コマンドで複数 PR を叩く形があるため、1 件の evidence で
 	// 残りを通さない。1 件も取れない = 検証対象を特定できない = block (#4057)。
-	const prNumbers = [...new Set(approveCommands.flatMap((c) => extractPrNumbers(c)))].sort(
-		(a, b) => a - b,
-	);
-	if (prNumbers.length === 0) {
+	// さらに **確定できない hit が 1 件でもあれば、他にリテラル番号があっても block** する (#4095 O-3)。
+	// 「近くにあるリテラル番号」で別 PR が通る経路を残さないため。
+	const targets = approveCommands.map((c) => resolveApproveTargets(c));
+	const prNumbers = [...new Set(targets.flatMap((t) => t.numbers))].sort((a, b) => a - b);
+	const hasIndeterminate = targets.some((t) => t.indeterminate);
+	if (hasIndeterminate || prNumbers.length === 0) {
 		process.stderr.write(
-			`[gate-approve] BLOCK: approve 系コマンドだが PR 番号を command から抽出できませんでした。\n`,
+			hasIndeterminate
+				? `[gate-approve] BLOCK: approve 系コマンドに、どの PR を叩くか確定できない指定が含まれています。\n`
+				: `[gate-approve] BLOCK: approve 系コマンドだが PR 番号を command から抽出できませんでした。\n`,
 		);
+		if (hasIndeterminate && prNumbers.length > 0) {
+			process.stderr.write(
+				`  リテラルで書かれた番号 (#${prNumbers.join(', #')}) は、そのコマンドが実際に叩く PR とは限らないため採用しません。\n`,
+			);
+		}
 		process.stderr.write(
 			`  検出したコマンド: ${(approveCommands.at(0) ?? '').slice(0, 200).replace(/\n/g, ' ')}\n`,
 		);

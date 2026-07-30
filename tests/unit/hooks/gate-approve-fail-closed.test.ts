@@ -141,6 +141,168 @@ describe('#4057 — hook 実行 (exit code) で素通りしないことを固定
 });
 
 // ---------------------------------------------------------------------------
+// #4095 QM Re-Review — 棚卸から漏れていた literal な approve 経路 3 種
+//
+// いずれも「変数経由 / base64 / eval」でも「未棚卸のコード実行ツール」でもない **literal 形**で、
+// ADR-0056 の accepted residual 定義に該当しない。QM が隔離 tree で exit 0 を実測した形を固定する。
+// ---------------------------------------------------------------------------
+
+const HOOK_PATH = '.claude/hooks/gate-approve.mjs';
+
+describe('#4095 O-1 — gh pr review の短縮 flag (-a)', () => {
+	it('`-a` (--approve の正式な短縮形) を approve 行為として捕捉する (QM 実測の素通り形)', () => {
+		expect(isApproveAction('gh pr review 4010 -a --body ok')).toBe(true);
+	});
+
+	it('陽性対照: 長形 --approve は従来どおり捕捉する', () => {
+		expect(isApproveAction('gh pr review 4010 --approve --body ok')).toBe(true);
+	});
+
+	it('short flag cluster (-ab body = --approve --body) も捕捉する', () => {
+		expect(isApproveAction('gh pr review 4010 -ab LGTM')).toBe(true);
+	});
+
+	it('過剰 block しない: -c (--comment) / -r (--request-changes) は approve ではない', () => {
+		expect(isApproveAction('gh pr review 4010 -c --body "質問です"')).toBe(false);
+		expect(isApproveAction('gh pr review 4010 -r --body "BLOCK"')).toBe(false);
+		expect(isApproveAction('gh pr review 4010 -R owner/repo -c -b x')).toBe(false);
+	});
+
+	it('短縮 flag 形は read-only 参照とみなさない (subagent でも block 側)', () => {
+		expect(isReadOnlyApproveInspection('gh pr review 4010 -a')).toBe(false);
+	});
+
+	it('hook 実行: `-a` 形は evidence 不在で exit 2 (旧実装は exit 0)', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002],
+			stdin: bashPayload('gh pr review 4010 -a --body ok'),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+	}, 30_000);
+});
+
+describe('#4095 O-2 — GraphQL の approve 相当 mutation', () => {
+	const GRAPHQL_APPROVE =
+		'gh api graphql -f query=\'mutation{addPullRequestReview(input:{pullRequestId:"PR_kwABC",event:APPROVE,body:"LGTM"}){clientMutationId}}\'';
+	const GRAPHQL_MERGE =
+		'gh api graphql -f query=\'mutation{mergePullRequest(input:{pullRequestId:"PR_kwABC"}){clientMutationId}}\'';
+	const GRAPHQL_READ =
+		'gh api graphql -f query=\'query{repository(owner:"o",name:"r"){pullRequest(number:4010){title}}}\'';
+
+	it('addPullRequestReview mutation を approve 行為として捕捉する (QM 実測の素通り形)', () => {
+		expect(isApproveAction(GRAPHQL_APPROVE)).toBe(true);
+	});
+
+	it('mergePullRequest mutation も捕捉する', () => {
+		expect(isApproveAction(GRAPHQL_MERGE)).toBe(true);
+	});
+
+	it('GraphQL は node ID 指定のため PR 番号を確定できない → 確定不能として扱う', () => {
+		expect(extractPrNumbers(GRAPHQL_APPROVE)).toEqual([]);
+		expect(isReadOnlyApproveInspection(GRAPHQL_APPROVE)).toBe(false);
+	});
+
+	it('過剰 block しない: 読み取り query は approve 判定に入らない', () => {
+		expect(isApproveAction(GRAPHQL_READ)).toBe(false);
+	});
+
+	it('過剰 block しない: review comment 追加 mutation は approve ではない', () => {
+		expect(
+			isApproveAction(
+				'gh api graphql -f query=\'mutation{addPullRequestReviewComment(input:{body:"nit"}){clientMutationId}}\'',
+			),
+		).toBe(false);
+	});
+
+	it('hook 実行: GraphQL approve は evidence の有無に関わらず exit 2', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002, 4010],
+			stdin: bashPayload(GRAPHQL_APPROVE),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+	}, 30_000);
+});
+
+describe('#4095 O-3 — 別 PR の evidence で approve が通らない', () => {
+	/**
+	 * QM 実測 (evidence は 4002 のみ存在):
+	 *   exit=0  for n in 4002 4010; do gh pr merge $n --squash; done # rollup for 4002
+	 *   exit=0  gh pr merge $TARGET --squash --delete-branch # tracked in 4002
+	 *   exit=2  for n in 4002 4010; do gh pr merge $n --squash; done   ← literal が無ければ塞がる
+	 *
+	 * = 番号確定が「同一行 / コマンド全体にある任意の数字」に依存しており、**実際に叩かれる PR**
+	 * ではなく近くの数字を採っていた。既存の `extractPrNumbers(LOOP_VARIABLE_APPROVE) === []` は
+	 * 「他に literal 数字が無い」形しか固定しておらず、この分岐を通していなかった。
+	 */
+	const LOOP_WITH_LITERAL_NEARBY =
+		'for n in 4002 4010; do gh pr merge $n --squash; done # rollup for 4002';
+	const VARIABLE_WITH_LITERAL_COMMENT =
+		'gh pr merge $TARGET --squash --delete-branch # tracked in 4002';
+
+	it('ループ列挙値 / コメント中の literal 番号を PR 番号として採用しない', () => {
+		expect(extractPrNumbers(LOOP_WITH_LITERAL_NEARBY)).toEqual([]);
+		expect(extractPrNumbers(VARIABLE_WITH_LITERAL_COMMENT)).toEqual([]);
+	});
+
+	it('hook 実行: 4002 の evidence があっても $n loop は exit 2', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002],
+			stdin: bashPayload(LOOP_WITH_LITERAL_NEARBY),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+		expect(res.stderr).toContain('PR 番号');
+	}, 30_000);
+
+	it('hook 実行: 4002 の evidence があっても $TARGET + literal コメント形は exit 2', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002],
+			stdin: bashPayload(VARIABLE_WITH_LITERAL_COMMENT),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+	}, 30_000);
+
+	it('陽性対照: evidence のある PR をリテラル指定した merge は通る (過剰 block していない)', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002],
+			stdin: bashPayload('gh pr merge 4002 --squash'),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(0);
+	}, 30_000);
+
+	it('複数 PR をリテラル指定した形は、evidence の無い側で block される', () => {
+		const res = runHookInIsolatedTree({
+			hookRelPath: HOOK_PATH,
+			withIsMain: true,
+			evidencePrNumbers: [4002],
+			stdin: bashPayload('gh pr merge 4002 --squash && gh pr merge 4010 --squash'),
+		});
+		expect(res.status, `出力:\n${res.combined}`).toBe(2);
+		expect(res.stderr).toContain('4010');
+	}, 30_000);
+
+	it('番号は同一 invocation の argv から取る: 別 invocation の literal を混ぜない', () => {
+		// `gh pr view 4002` の 4002 は merge 対象ではない。旧実装は行全体を走査していた。
+		expect(extractPrNumbers('gh pr view 4002 --json title; gh pr merge $PR --squash')).toEqual([]);
+	});
+
+	it('flag の値を positional (PR 番号) と誤認しない', () => {
+		expect(extractPrNumbers('gh pr merge --repo Takenori-Kusaka/ganbari-quest 4002')).toEqual([
+			4002,
+		]);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // #4075 — sibling static import の欠落による fail-open
 // ---------------------------------------------------------------------------
 
@@ -212,9 +374,11 @@ describe('#4075 AC2 — hook の相対 import は全て dynamic (fitness functio
 		scripts.map((p) => [p] as const),
 	)('%s に相対 module の static import が無い', (relPath) => {
 		const source = readFileSync(resolve(process.cwd(), relPath), 'utf8');
+		// quote style を限定しない (#4095 申し送り 1): シングルクォート限定だと
+		// `from "./x.mjs"` を 0 件と誤判定し、guard が静かに空振りする。
 		const staticRelativeImports = [
-			...source.matchAll(/^\s*import\s+[^;]*?from\s+'(\.[^']+)'/gm),
-		].map((m) => m[1]);
+			...source.matchAll(/^\s*import\s+[^;]*?from\s+(['"])(\.[^'"]+)\1/gm),
+		].map((m) => m[2]);
 		expect(
 			staticRelativeImports,
 			`static import は解決失敗が exit 1 (= 素通し) になる。dynamic import + exit 2 に倒すこと (#3999 / #4075)`,

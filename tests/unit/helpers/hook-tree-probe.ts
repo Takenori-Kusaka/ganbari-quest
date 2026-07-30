@@ -63,6 +63,13 @@ export interface HookProbeOptions {
 	omitRelPaths?: string[];
 	/** hook プロセスに追加で渡す環境変数 (`CLAUDE_SUBAGENT_ID` 等) */
 	env?: Record<string, string>;
+	/**
+	 * temp tree の `tmp/adversarial-evidence/<pr>.json` に **schema 適合の evidence** を置く PR 番号 (#4095)。
+	 *
+	 * 「evidence がある PR の番号で、evidence が無い別 PR の approve が通らないか」を実測するために使う
+	 * (QM Re-Review O-3 の再現条件 = evidence は 4002 のみ存在)。
+	 */
+	evidencePrNumbers?: number[];
 	/** hook に渡す stdin (Claude Code の PreToolUse payload JSON) */
 	stdin: string;
 }
@@ -104,15 +111,44 @@ function copyRelativeImports(root: string, hookRelPath: string, omit: string[] =
 }
 
 /**
+ * temp tree に **gate を通る** adversarial evidence を 1 件書く (#4095)。
+ *
+ * 値は `.claude/hooks/gate-approve.mjs` の `verifyEvidence` 要件 (must_object_count 3 / 3 軸 /
+ * reason >= 100 文字 / mtime 30 分以内) を満たす。gate 側の閾値を緩めた変更が入れば、
+ * 「evidence あり = exit 0」の陽性対照が壊れる形で検出される。
+ */
+function writeValidEvidence(root: string, prNumber: number): void {
+	const dir = path.join(root, 'tmp', 'adversarial-evidence');
+	mkdirSync(dir, { recursive: true });
+	const reason = `${'X'.repeat(120)} (probe evidence)`;
+	writeFileSync(
+		path.join(dir, `${prNumber}.json`),
+		JSON.stringify({
+			pr_number: prNumber,
+			my_role: 'adversarial_reviewer (NOT QM, NOT Dev)',
+			must_object_count: 3,
+			objections: [
+				{ axis: 'business', reason },
+				{ axis: 'UX', reason },
+				{ axis: 'security', reason },
+			],
+		}),
+		'utf8',
+	);
+}
+
+/**
  * hook を隔離 tree で起動し、exit code と出力を返す。
  *
  * `cwd` は temp tree root にする。hook が参照する `tmp/adversarial-evidence/` も
  * temp tree 側を見るため、実 repo の evidence file に結果が左右されない。
  */
 export function runHookInIsolatedTree(options: HookProbeOptions): HookProbeResult {
-	const { hookRelPath, withIsMain, isMainSource, stdin, omitRelPaths, env } = options;
+	const { hookRelPath, withIsMain, isMainSource, stdin, omitRelPaths, env, evidencePrNumbers } =
+		options;
 	const root = mkdtempSync(path.join(tmpdir(), 'gq-hook-probe-'));
 	try {
+		for (const prNumber of evidencePrNumbers ?? []) writeValidEvidence(root, prNumber);
 		copyInto(root, hookRelPath);
 		copyRelativeImports(root, hookRelPath, omitRelPaths);
 		if (withIsMain) {
