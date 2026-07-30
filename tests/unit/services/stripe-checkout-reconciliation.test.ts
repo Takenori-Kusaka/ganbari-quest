@@ -22,12 +22,24 @@ const mockFindTenantById = vi.fn();
 const mockUpdateTenantStripe = vi.fn();
 const mockFindTenantByStripeCustomerId = vi.fn();
 
+// #4079: `handleWebhookEvent` はディスパッチャ入口で event.id dedup 台帳 (`repos.webhookEvent`) を
+// 参照するようになった。`reconcileCheckoutSession` は `handleCheckoutCompleted` を直接呼ぶため
+// この dedup 台帳を経由しない (reconcile 経路は #4079 の対象外)。一方、本 file 末尾の相互冪等テスト
+// ('reconcile が先に反映した後に webhook が届いても状態は変わらない') は意図的に `handleWebhookEvent`
+// (webhook の正規入口) も呼ぶため、その呼び出しが動くよう `webhookEvent` repo の stub を用意する
+// (常に未処理を返す stub、`tests/unit/services/stripe-service.test.ts` と同じ形)。
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: {
 			findTenantById: mockFindTenantById,
 			updateTenantStripe: mockUpdateTenantStripe,
 			findTenantByStripeCustomerId: mockFindTenantByStripeCustomerId,
+		},
+		webhookEvent: {
+			findByEventId: async () => null,
+			insert: async () => {},
+			incrementRetryCount: async () => {},
+			deleteOlderThan: async () => 0,
 		},
 	}),
 }));
