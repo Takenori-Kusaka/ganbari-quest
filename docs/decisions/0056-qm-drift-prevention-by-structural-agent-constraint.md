@@ -209,6 +209,8 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行。**Draft PR では Ready 化要件 (Ready チェックリスト全 `[x]` / PO 決裁ブリーフ) のみ deferred する** (#3997)。Draft は「まだ Ready の要件を満たしていない」宣言であり、これを要求すると Draft に 1 commit も push できず成果物が local に滞留する (#3989 実例)。体裁・事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / 変更タイプ / CONFLICTING / hotfix env 配布証跡) は Draft でも enforce し、deferred した gate 名は必ず標準出力に出す (無言 skip は #3969 と同じ失敗 class)
 4. **biome check** (軽量 lint): 重い svelte-check / vitest / playwright は CI 委ね、push レイヤは lint のみ
 
+**2026-07-30 改訂 — 第 4 層から READY_ONLY_GATES を除外する**: 上記 3 のうち **Ready 化要件 (`unchecked-ready-checklist` / PO 決裁ブリーフ) は pre-push で検査しない**。`pr-merge-gate.yml` → `check-merge-gate-checklist.mjs` の `LIGHT_LANE_SECTIONS` が、`check-pr-body.mjs` の `findUncheckedReadyChecklist` と**同一 section** (`## Ready for Review チェックリスト` / `## 完了チェックリスト`) を CI で検査済であり、pre-push の同検査は純粋な重複で、外しても検査は 1 件も減らない。加えて **Ready 時点の申告を push 時点で問うのは検査の置き場所の誤り**である (Draft へ 1 commit push するだけで Ready 申告を要求され、成果物が local に滞留する — #3997 で Draft のみ deferred にした対症を、置き場所の是正で根治する)。体裁・事実性の検査 (セクション網羅 / AC 4 列 / 禁止語 / mojibake / CONFLICTING / hotfix env 配布証跡) は pre-push で引き続き enforce する。
+
 ### 設計境界 (Pre-PMF / ADR-0010 整合)
 
 重い検査 (vitest / playwright / svelte-check) は本 hook に **追加しない**:

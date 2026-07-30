@@ -97,3 +97,13 @@ Issue #1775 AC6 で「オプション推奨」と提案されたが、以下の�
 ただし本 ADR の中心位置付け (`npm run pre-ready` CLI による開発者明示実行 / pre-push hook での重い検査自動実行は不採用) は依然有効。`.husky/pre-push` の現運用 (gh account check のみ) は軽量検査であり、本 ADR の AC6 非採用判断 (重い lint / test を pre-push で走らせない) と矛盾しない。
 
 pre-push hook 拡張 (例: pre-ready 全 step を pre-push で走らせる) は別途 RFC を要する。本 ADR は履歴 record として保持し、現状運用との差分を本節で明示する。
+
+## 2026-07-30 補追: Ready 判定の根拠をローカル pre-ready から CI へ移す
+
+**Ready 判定の必要条件は「CI の全 job pass」とし、ローカル `npm run pre-ready` は Ready の必要条件から外す。** pre-ready は 19 step → 6 step / 300s 以内に縮小し、**shift-left の入口** (着手中に手元で早期に落とす道具) として残す。
+
+根拠 (実測 2026-07-30): 全 step 通しで **1350s**。19 step のうち 14 step は変更内容に関係なく無条件実行されており、Ready 化のたびに 20 分超を要していた。結果として実際には実行されないか、実行しても待ち時間の間に別の作業へ移り結果を確認しない運用になっていた = **「実行されない gate」**であり、gate として機能していなかった。CI は同じ検査を並列で回して数分で終わるため、判定根拠を CI に置く方が速く、かつ「実行したか」を人の申告に頼らずに済む。
+
+- 本 ADR の中心位置付け (**重い検査を pre-push hook で自動実行しない**) は変更しない。pre-push は引き続き軽量検査のみ
+- Ready チェックリストに「pre-ready 全 Step PASS」を項目として置かない (自己参照 deadlock、#4022 / #4103)
+- step 数の縮小は #4121 E5 Wave 2 の実装 PR で行い、`CLAUDE.md` / `docs/codebase-map.md` の step 数記述も同 PR で同期する (先に数字だけ変えると docs が実装と食い違う)
