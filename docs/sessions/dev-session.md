@@ -336,9 +336,13 @@ node scripts/check-new-required-env.mjs
 ### 本番デプロイ動作確認（critical / 監査 / 認可 / 課金）
 
 PR 本文 Test plan に以下 3 点を明記:
-- [ ] `DATA_SOURCE=dynamodb` 相当（staging）で実機動作確認
-- [ ] DynamoDB コンソールで当該テーブルに書込み確認
+- [ ] staging（`AUTH_MODE=cognito` + `DATA_SOURCE=dsql`）で実機動作確認
+- [ ] 対象テーブルの行が想定どおり更新されたことを確認
 - [ ] Lambda CloudWatch Logs に想定イベント出現確認
+
+staging での実機確認手順（deploy 発火 / DSQL 行の書き換えと復旧 / 観測 / 役割分担）は
+[docs/runbooks/staging-live-verification.md](../runbooks/staging-live-verification.md) を参照する。
+ローカルのどの backend でも通らない cognito + DSQL 経路（課金状態の解決 / 招待・メンバー）は本 runbook が唯一の検証手順。
 
 follow-up に逃がせるのは「本番に存在しなくても顧客に気付かれない」場合のみ。顧客提供価値（不正検知 / 監査 / 保証）に直結する機能は同一 PR 完結必須。
 
