@@ -113,6 +113,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src/routes 配下の admin 画面を走査して registry の網羅漏れを検出する (#3134 no-silent-gap)',
 	},
+	'tests/unit/hooks/agent-lock.test.ts': {
+		scope: 'repo',
+		note: 'repo ツリーは走査しない (temp git fixture + lock dir のみ) が、hook を子プロセスで起動するため静的判定が repo になる。git init / worktree add の分だけ既定 timeout を超え得るので明示 timeout を置く',
+	},
 	'tests/unit/scripts/check-orphan-repos-population.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の repo 実装を走査して orphan を検出する',
