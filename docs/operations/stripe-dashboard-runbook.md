@@ -132,15 +132,20 @@ Phase 2 月次運用 / Phase 3 incident は頻度低 / ad-hoc のため最小限
    - Test mode: `https://your-ngrok-or-staging-url/api/stripe/webhook`（ローカル検証時）
 2. Description: `がんばりクエスト Webhook（本番）`
 3. **Events to send** で以下 5 種を選択:
+
+   <!-- webhook-subscribed-events:start -->
    - `checkout.session.completed`（新規購入完了 → tenant plan 更新 + subscription 割り当て）
    - `invoice.paid`（継続課金成功 → plan を subscription の現行 price から再解決）
    - `invoice.payment_failed`（支払い失敗 → dunning 猶予へ）
    - `customer.subscription.updated`（プラン変更 / status 遷移 → tenant plan 反映）
    - `customer.subscription.deleted`（解約 → subscription 割り当て解除）
+   <!-- webhook-subscribed-events:end -->
 
-   > **この一覧はアプリの `handleWebhookEvent` の `case` と 1:1 で対応している**（`src/lib/server/services/stripe-service.ts`）。
+   > **この一覧はアプリの `dispatchWebhookEvent` の `case` と 1:1 で対応している**（`src/lib/server/services/stripe-service.ts`）。
    > 片方だけ増減すると「購読しているのに handler が無い」「handler があるのに永久に発火しない」状態になり、
-   > **どちらも動作結果に現れない**（沈黙する）。`tests/unit/docs/stripe-dashboard-runbook.test.ts` が両者の一致を機械検証する（#3990）。
+   > **どちらも動作結果に現れない**（沈黙する）。`tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` が、本手順書と
+   > 同じ集合を書いている設計文書（Phase 5 子 1 §4.3 / Phase 7 実行 SSOT Step 4 / セットアップガイド Step 5）まで含めて
+   > 実装との一致を機械検証する（#3990）。
    >
    > `invoice.paid` と `invoice.payment_succeeded` は Stripe 上で**別 event**。本アプリが購読するのは `invoice.paid` のみ。
 4. 「Add endpoint」で保存

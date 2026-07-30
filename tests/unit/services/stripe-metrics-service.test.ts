@@ -228,6 +228,48 @@ describe('calculateMonthlyChurnRate', () => {
 		expect(rate).toBeCloseTo(1 / 3, 2);
 	});
 
+	// #3987: 解約の印は `terminated` ではなく「契約終了 (S5) = suspended かつ sub なし」。
+	// 旧実装は `status === TERMINATED` のみを分子・分母に使っており、S5 を 1 件も拾えなかった
+	// (terminated は退会済みを意味し、物理削除で families 行ごと消えるため恒常的に 0)。
+	it('S5 (sub なし suspended) を当月チャーンとして数える', () => {
+		const tenants = [
+			makeTenant({
+				tenantId: 't-s5',
+				status: 'suspended', // 契約終了 (TERMINAL_CONTRACT_STATE、sub なし)
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2026-03-15T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-active',
+				status: 'active',
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2025-01-01T00:00:00Z',
+			}),
+		];
+		// 月初 2 人 (t-s5 は月内解約なので月初カウント) / 解約 1 人。旧実装では 0 だった
+		expect(calculateMonthlyChurnRate(tenants, '2026-03')).toBe(0.5);
+	});
+
+	it('S4 (sub ありの停止) は分子にも分母にも入らない', () => {
+		const tenants = [
+			makeTenant({
+				tenantId: 't-s4',
+				status: 'suspended',
+				stripeSubscriptionId: 'sub_alive', // 契約が残っている = 復帰しうる
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2026-03-20T00:00:00Z',
+			}),
+			makeTenant({
+				tenantId: 't-active',
+				status: 'active',
+				createdAt: '2025-01-01T00:00:00Z',
+				updatedAt: '2025-01-01T00:00:00Z',
+			}),
+		];
+		// 分子 0 (S4 は解約ではない) / 分母は active の 1 人のみ
+		expect(calculateMonthlyChurnRate(tenants, '2026-03')).toBe(0);
+	});
+
 	it('月初アクティブがいない場合は0を返す', () => {
 		const tenants = [
 			makeTenant({

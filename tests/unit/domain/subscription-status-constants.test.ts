@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	ALL_SUBSCRIPTION_STATUSES,
 	ENTITLED_SUBSCRIPTION_STATUSES,
+	isChurnedContract,
 	isEntitledStatus,
 	isSubscriptionActive,
 	isSubscriptionSuspended,
@@ -64,5 +65,53 @@ describe('ヘルパ関数 (単一 status)', () => {
 	it('isSubscriptionTerminated', () => {
 		expect(isSubscriptionTerminated(SUBSCRIPTION_STATUS.TERMINATED)).toBe(true);
 		expect(isSubscriptionTerminated(SUBSCRIPTION_STATUS.ACTIVE)).toBe(false);
+	});
+
+	it('isSubscriptionTerminated は退会済み (S6) のみを指し、解約 (S5) は含まない', () => {
+		// S5 = 解約確定。terminated ではなく suspended + sub なしで表現される (#3987)。
+		expect(isSubscriptionTerminated(SUBSCRIPTION_STATUS.SUSPENDED)).toBe(false);
+	});
+});
+
+describe('#3987: isChurnedContract (チャーン判定 SSOT)', () => {
+	it('S5 契約終了 (suspended + subscription なし) はチャーンに数える', () => {
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: null }),
+		).toBe(true);
+		// undefined (列を読まなかった / 未設定) も「割り当てなし」として扱う
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: undefined }),
+		).toBe(true);
+		expect(isChurnedContract({ status: SUBSCRIPTION_STATUS.SUSPENDED })).toBe(true);
+	});
+
+	it('S4 停止 (suspended + subscription あり) はチャーンに数えない — 復帰しうる', () => {
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.SUSPENDED, stripeSubscriptionId: 'sub_1' }),
+		).toBe(false);
+	});
+
+	it('S6 退会済 (terminated) は subscription の有無に関わらずチャーンに数える', () => {
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.TERMINATED, stripeSubscriptionId: null }),
+		).toBe(true);
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.TERMINATED, stripeSubscriptionId: 'sub_1' }),
+		).toBe(true);
+	});
+
+	it('active / grace_period はチャーンではない', () => {
+		expect(
+			isChurnedContract({ status: SUBSCRIPTION_STATUS.ACTIVE, stripeSubscriptionId: 'sub_1' }),
+		).toBe(false);
+		expect(isChurnedContract({ status: SUBSCRIPTION_STATUS.ACTIVE })).toBe(false);
+		expect(
+			isChurnedContract({
+				status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
+				stripeSubscriptionId: 'sub_1',
+			}),
+		).toBe(false);
+		// 契約が無い grace_period (X4 不正状態) も entitle 中なのでチャーンにはしない
+		expect(isChurnedContract({ status: SUBSCRIPTION_STATUS.GRACE_PERIOD })).toBe(false);
 	});
 });

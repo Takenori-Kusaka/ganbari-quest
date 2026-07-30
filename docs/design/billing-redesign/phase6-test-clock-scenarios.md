@@ -87,10 +87,10 @@ Phase 6 子 1 #2667 §10 Open question 3 で確定済:
 
 | 項目 | 内容 |
 |---|---|
-| **目的** | Phase 1 trial-requirements の「trial 7 日間 → 自動課金」を検証。Reverse Trial パターン C (Phase 2 checkout-journey) + 7 日後の `invoice.payment_succeeded` webhook 受信 |
+| **目的** | Phase 1 trial-requirements の「trial 7 日間 → 自動課金」を検証。Reverse Trial パターン C (Phase 2 checkout-journey) + 7 日後の `invoice.paid` webhook 受信 |
 | **前提 fixture** | PO #2627 領域 D で Test mode に test clock customer (`trial-cust-1`) を作成、subscription を `trial_end=now+7d` で構築。test_clock の `frozen_time` は subscription 作成時刻 |
 | **advance 計画** | **1 回 advance** (`now + 8 days`、trial_end の 1 日後)。1 interval (1 ヶ月) 以内なので 2 interval 制約抵触なし |
-| **想定 webhook 受信** | (a) `customer.subscription.trial_will_end` (advance 前、trial_end 3 日前トリガ、Stripe 公式) (b) `customer.subscription.updated` (status: trialing → active) (c) `invoice.created` + `invoice.finalized` + `invoice.payment_succeeded` |
+| **想定 webhook 受信** | (a) `customer.subscription.trial_will_end` (advance 前、trial_end 3 日前トリガ、Stripe 公式) (b) `customer.subscription.updated` (status: trialing → active) (c) `invoice.created` + `invoice.finalized` + `invoice.paid` |
 | **AC** | (a) advance 後に `tenants.plan_tier` が trial → standard 切替 (b) DB に invoice 履歴 1 件追加 (c) UI `/admin/subscription` で「standard 有料中」表示 (d) trial banner (Phase 3 #2569) 非表示 |
 | **ロールバック確認** | 本シナリオでは kill switch 実演なし (lookup_key / webhook shadow 経路は trial に関与しないため。シナリオ 2 で実演) |
 
@@ -116,7 +116,7 @@ sequenceDiagram
     Stripe-->>Webhook: customer.subscription.updated (status: active)
     Webhook->>DB: tenants.plan_tier = 'standard' (premium → standard ?)
     Note over Webhook,DB: 注: trial → premium 維持の場合は premium。本 PR ではシンプルに standard 想定
-    Stripe-->>Webhook: invoice.payment_succeeded
+    Stripe-->>Webhook: invoice.paid
     Webhook->>DB: invoice_history.insert
     Test->>Test: assert tenants.plan_tier='standard' (or 'premium')
     Test->>Test: assert UI /admin/subscription で「有料中」表示
@@ -129,7 +129,7 @@ sequenceDiagram
 | **目的** | Phase 5 子 2 #2640 §3 「アップ即時 = `always_invoice`」 + Phase 6 子 1 #2667 §3 Step 3 lookup_key 解決 + **kill switch dry-run 実演** (`USE_LOOKUP_KEY=false` fallback) |
 | **前提 fixture** | PO #2627 領域 D で Test mode test clock customer (`upgrade-cust-2`) を作成、standard subscription を `current_period_end=now+30d` で構築 |
 | **advance 計画** | **advance なし** (アップ即時は時間経過不要)。シナリオ完了後に 1 回 advance (`now+15d`) で「アップ後の継続課金 (新 premium 価格)」を確認 |
-| **想定 webhook 受信** | (a) `invoice.created` + `invoice.finalized` + `invoice.payment_succeeded` (差額 ¥530) (b) `customer.subscription.updated` (price.id = premium_monthly_id) |
+| **想定 webhook 受信** | (a) `invoice.created` + `invoice.finalized` + `invoice.paid` (差額 ¥530) (b) `customer.subscription.updated` (price.id = premium_monthly_id) |
 | **AC** | (a) `subscriptions.update` 直後に DB の `tenants.stripePriceId` が premium 切替 (b) invoice_history に差額 invoice ¥530 1 件追加 (c) UI `/admin/subscription/success` で polling 完了 (Phase 3 #2572) (d) `proration_date` が preview / update 間で一致確認 (e) advance 後 15 日経過で次回課金 ¥780 確認 |
 | **ロールバック確認** | (1) `USE_LOOKUP_KEY=true` の状態でアップ即時実行 → 成功 → DB 反映確認 (2) `USE_LOOKUP_KEY=false` に切替 → env var fallback 経路で再度 standard customer 作成 + アップ即時 → 同等成功 → DB 反映確認。両方が動くことで kill switch 機能を担保 |
 
@@ -156,7 +156,7 @@ sequenceDiagram
     App->>Stripe: subscriptions.update<br/>(proration_behavior='always_invoice', proration_date=ts1)
     Stripe-->>Webhook: customer.subscription.updated (premium)
     Webhook->>DB: tenants.stripePriceId=premium
-    Stripe-->>Webhook: invoice.payment_succeeded (¥530)
+    Stripe-->>Webhook: invoice.paid (¥530)
     Test->>Test: assert DB stripePriceId=premium
     Test->>Test: assert invoice_history grew
     end
@@ -179,7 +179,7 @@ sequenceDiagram
     Note over Test,DB: phase 3: advance で次回課金確認
     Test->>TestClock: test_clocks.advance (now+15d)
     Note over TestClock: 1 interval 以内、2 interval 制約抵触なし
-    Stripe-->>Webhook: invoice.payment_succeeded (¥780 = premium 月額)
+    Stripe-->>Webhook: invoice.paid (¥780 = premium 月額)
     Test->>Test: assert 次回課金額 ¥780
     end
 ```
@@ -191,7 +191,7 @@ sequenceDiagram
 | **目的** | Phase 5 子 2 #2640 §4 「ダウン期末 = `subscription_schedules.create from_subscription`」 + 期末到達時の schedule 第 2 phase 開始 + `customer.subscription.updated` (premium → standard) |
 | **前提 fixture** | PO #2627 領域 D で Test mode test clock customer (`downgrade-cust-3`) を作成、premium subscription を `current_period_end=now+30d` で構築 |
 | **advance 計画** | **1 回 advance** (`now+31d`、period_end の 1 日後)。1 interval (1 ヶ月) 直前、2 interval 制約抵触なし。advance 直後に schedule 第 2 phase 自動開始 |
-| **想定 webhook 受信** | (a) `subscriptionSchedules.create` 直後: `subscription_schedule.created` (b) advance 後: `subscription_schedule.completed` + `customer.subscription.updated` (price.id = standard_monthly_id) + `invoice.payment_succeeded` (¥500 = standard 月額) |
+| **想定 webhook 受信** | (a) `subscriptionSchedules.create` 直後: `subscription_schedule.created` (b) advance 後: `subscription_schedule.completed` + `customer.subscription.updated` (price.id = standard_monthly_id) + `invoice.paid` (¥500 = standard 月額) |
 | **AC** | (a) `subscriptionSchedules.create` 直後に DB `tenants.pendingScheduleId` が set (b) UI で「○月○日に standard に切替予約中」banner 表示 (c) advance 後に DB `tenants.stripePriceId` が standard 切替、`pendingScheduleId` clear (d) 超過リソース (Phase 2 ジャーニー B step 2 で archived) が read-only 表示 (e) 次回課金 ¥500 |
 | **ロールバック確認** | 本シナリオでは kill switch 実演なし。subscription_schedule API 経路は lookup_key / shadow mode 経路と独立 |
 
@@ -221,7 +221,7 @@ sequenceDiagram
     Stripe-->>Webhook: customer.subscription.updated (price=standard)
     Webhook->>DB: tenants.stripePriceId=standard,<br/>tenants.pendingScheduleId=null
     Stripe-->>Webhook: subscription_schedule.completed
-    Stripe-->>Webhook: invoice.payment_succeeded (¥500)
+    Stripe-->>Webhook: invoice.paid (¥500)
     Test->>Test: assert DB stripePriceId=standard, pendingScheduleId=null
     Test->>Test: assert UI で超過リソース read-only
     Test->>Test: assert invoice 額 ¥500
@@ -234,7 +234,7 @@ sequenceDiagram
 | **目的** | Phase 5 子 2 #2640 §5 「ダウン取消 = `subscriptionSchedules.release`」 + Phase 5 子 1 #2639 §4.2 Portal ロック制約への構造的回避 + Phase 3 #2573 申し送り cancel-pending banner |
 | **前提 fixture** | シナリオ 3 と類似だが、別 customer (`cancel-pending-cust-4`)。premium subscription + subscription_schedule 既存 (period_end+1 で standard 切替予約) で構築 |
 | **advance 計画** | **0 回 advance** (取消は即時、schedule 第 2 phase 開始前に release)。release 後に 1 回 advance (`now+31d`) で「premium 継続中、standard 切替なし」を確認 |
-| **想定 webhook 受信** | (a) `subscriptionSchedules.release` 直後: `subscription_schedule.released` (b) advance 後: `customer.subscription.updated` (price = premium 継続、変化なし) + `invoice.payment_succeeded` (¥780 = premium 月額) |
+| **想定 webhook 受信** | (a) `subscriptionSchedules.release` 直後: `subscription_schedule.released` (b) advance 後: `customer.subscription.updated` (price = premium 継続、変化なし) + `invoice.paid` (¥780 = premium 月額) |
 | **AC** | (a) `subscriptionSchedules.release` 直後に DB `tenants.pendingScheduleId` が clear (b) UI banner「ダウン予約取消済」表示 → premium プラン継続中表示 (c) advance 後に price は premium 維持、standard 切替なし (d) 次回課金 ¥780 (e) Portal の subscription_update / cancel UI が再度操作可能になることを assert (Stripe 公式制約より、schedule release 後は Portal ロック解除) |
 | **ロールバック確認** | 本シナリオでは kill switch 実演なし |
 
@@ -266,7 +266,7 @@ sequenceDiagram
     Test->>TestClock: test_clocks.advance (now+31d)
     Note over TestClock: 1 interval 直前、2 interval 制約抵触なし
     Stripe-->>Webhook: customer.subscription.updated (price=premium 継続)
-    Stripe-->>Webhook: invoice.payment_succeeded (¥780)
+    Stripe-->>Webhook: invoice.paid (¥780)
     Test->>Test: assert price=premium 維持
     Test->>Test: assert invoice 額 ¥780 (¥500 でない = standard 切替なし)
 ```

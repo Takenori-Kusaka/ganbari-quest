@@ -101,6 +101,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src + .github/workflows を走査して cron schedule の整合を検査する',
 	},
+	'tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts': {
+		scope: 'repo',
+		note: 'docs 配下を走査して Stripe 購読 event 集合を宣言する doc を洗い出し、実装の case 一覧と突合する (#3990)',
+	},
 	'tests/unit/domain/settings-backup-classification.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の settings 定義を走査して backup 分類の網羅を検査する',
@@ -126,6 +130,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/integration/db/legacy-schema-upgrade.test.ts': {
 		scope: 'bounded',
 		note: 'temp dir に作った DB ファイルのみを読む',
+	},
+	'tests/unit/architecture/churn-status-predicate-ssot.test.ts': {
+		scope: 'bounded',
+		note: 'src/lib/server/services のサブツリーのみを走査して churn 判定の直接比較を検出する (#3987)',
 	},
 	'tests/unit/architecture/dsql-append-only-mutation-allowlist.test.ts': {
 		scope: 'bounded',

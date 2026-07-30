@@ -438,3 +438,62 @@ describe('RETENTION_DAYS', () => {
 		expect([...RETENTION_DAYS]).toEqual([1, 7, 14, 30, 60, 90]);
 	});
 });
+
+describe('#3987: チャーン KPI が実データで 0 以外を返す', () => {
+	// terminated は退会 (アカウント削除) を意味し、物理削除で families 行ごと消えるため
+	// 通常運用では観測されない。解約は「契約終了 (S5) = suspended + subscription なし」で
+	// 表現される。旧実装は terminated だけを見ていたため恒常的に 0 を返していた。
+	function paidActive(tenantId: string, month: string): Tenant {
+		return makeTenant({
+			tenantId,
+			createdAt: monthDate(month, 1),
+			plan: SUBSCRIPTION_PLAN.MONTHLY,
+			status: SUBSCRIPTION_STATUS.ACTIVE,
+			stripeSubscriptionId: `sub_${tenantId}`,
+		});
+	}
+
+	it('S5 契約終了 (suspended + subscription なし) を当月チャーンとして数える', async () => {
+		const thisMonth = utcMonthKey(new Date());
+		const tenants = Array.from({ length: 10 }, (_, i) => paidActive(`t${i}`, thisMonth));
+		tenants.push(
+			makeTenant({
+				tenantId: 'churned',
+				createdAt: monthDate(thisMonth, 1),
+				// 解約確定後は plan / sub が NULL クリアされる (TERMINAL_CONTRACT_STATE)
+				status: SUBSCRIPTION_STATUS.SUSPENDED,
+				stripeSubscriptionId: undefined,
+				plan: undefined,
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const result = await getCohortAnalysis(1);
+
+		// 旧実装ではここが 0 になっていた
+		expect(result.monthlyChurnRate).toBeGreaterThan(0);
+		expect(result.monthlyChurnRate).toBe(0.1);
+		expect(result.theoreticalLtv).toBe(5000);
+	});
+
+	it('S4 停止 (suspended + subscription あり) はチャーンに数えない — 復帰しうる', async () => {
+		const thisMonth = utcMonthKey(new Date());
+		const tenants = Array.from({ length: 10 }, (_, i) => paidActive(`t${i}`, thisMonth));
+		tenants.push(
+			makeTenant({
+				tenantId: 'suspended-but-contracted',
+				createdAt: monthDate(thisMonth, 1),
+				plan: SUBSCRIPTION_PLAN.MONTHLY,
+				status: SUBSCRIPTION_STATUS.SUSPENDED,
+				stripeSubscriptionId: 'sub_still_there',
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+		mockListAllTenants.mockResolvedValue(tenants);
+
+		const result = await getCohortAnalysis(1);
+
+		expect(result.monthlyChurnRate).toBe(0);
+	});
+});

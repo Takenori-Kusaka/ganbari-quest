@@ -4,18 +4,34 @@
 //
 // 遷移 (ADR-0022):
 //   active → grace_period (支払い失敗の猶予期間)
-//          → suspended (猶予期間経過で機能停止)
-//          → terminated (解約確定)
+//          → suspended (猶予期間経過で機能停止 / 解約確定)
 //   cancel_at_period_end で suspended に移行する経路もある
+//   terminated (退会済) への遷移は本図に無い — 現在は書き手が存在せず legacy 行としてのみ残りうる (#3987)
 
 export const SUBSCRIPTION_STATUS = {
 	/** 購読中 (Stripe subscription active) */
 	ACTIVE: 'active',
 	/** 支払い失敗の猶予期間 (past_due 相当) */
 	GRACE_PERIOD: 'grace_period',
-	/** 機能停止 (猶予経過後 / cancel_at_period_end 通過後) */
+	/** 機能停止 (猶予経過後 / cancel_at_period_end 通過後 / 解約確定) */
 	SUSPENDED: 'suspended',
-	/** 完全解約 */
+	/**
+	 * 退会 (アカウント削除) 済み。**解約ではない** (#3987)。
+	 *
+	 * 意味の SSOT は読み手 3 箇所が一致して示している:
+	 * - `hooks.server.ts` — 本 status のテナントを完全ブロックし
+	 *   `/auth/login?reason=deleted` へ飛ばす / API は「アカウントは削除済みです。」を返す
+	 * - `auth-license-status.ts` — `terminated` → `licenseStatus='none'`
+	 * - `SaasLicensePanel.svelte` — `SUBSCRIPTION_PAGE_LABELS.statusTerminated` を表示
+	 *
+	 * **通常運用では書かれない**。退会の物理削除 (`purgeExpiredSoftDeletedTenants` →
+	 * `deleteOwnerOnlyAccount` / `deleteOwnerFullDelete`) は `deleteTenant()` で families 行
+	 * ごと消すため、status を保持する行が残らない (contract-state-matrix §4 S6)。
+	 * 残りうるのは legacy 行と手動介入のみで、その行を締め出すための防御として本値を保つ。
+	 *
+	 * **チャーン KPI をこの値だけで数えてはならない** — 恒常的に 0 になる。
+	 * 解約の判定は {@link isChurnedContract} を使う (#3987)。
+	 */
 	TERMINATED: 'terminated',
 } as const;
 
@@ -48,4 +64,31 @@ export function isSubscriptionSuspended(status: SubscriptionStatus): boolean {
 
 export function isSubscriptionTerminated(status: SubscriptionStatus): boolean {
 	return status === SUBSCRIPTION_STATUS.TERMINATED;
+}
+
+/**
+ * チャーン (契約終了) 判定の SSOT (#3987)。
+ *
+ * `families` は「status 単独」では解約を表現できない。`suspended` が 2 つの状態を兼ねるため:
+ *
+ * | 状態 | `status` | `sub` | 意味 | チャーン |
+ * |---|---|---|---|---|
+ * | S4 停止 | `suspended` | **あり** | Stripe が `unpaid` / `incomplete` 等。契約は残り復帰しうる | **数えない** |
+ * | S5 契約終了 | `suspended` | **なし** | 解約が確定し subscription 割り当てが解けた (`TERMINAL_CONTRACT_STATE`) | **数える** |
+ * | S6 退会済 | `terminated` | 任意 | 退会 (アカウント削除)。通常運用では行ごと消えるため観測されない | 数える (legacy 行の救済) |
+ *
+ * `status === TERMINATED` だけで数えると **恒常的に 0** になる (S6 の行は残らない)。
+ * 逆に `suspended` を丸ごと数えると復帰しうる S4 を解約に混ぜてしまう。
+ *
+ * 契約状態の組み合わせ SSOT は `docs/design/billing-redesign/contract-state-matrix.md` §4。
+ * 本判定を経由しない直接比較は
+ * `tests/unit/architecture/churn-status-predicate-ssot.test.ts` が禁止する
+ * (ADR-0061 fitness function — 4 つ目の独自定義が生まれるのを防ぐ)。
+ */
+export function isChurnedContract(tenant: {
+	status: SubscriptionStatus;
+	stripeSubscriptionId?: string | null;
+}): boolean {
+	if (tenant.status === SUBSCRIPTION_STATUS.TERMINATED) return true;
+	return tenant.status === SUBSCRIPTION_STATUS.SUSPENDED && tenant.stripeSubscriptionId == null;
 }
