@@ -602,4 +602,49 @@ test.beforeAll(async () => {
 - 残高の絶対値に依存するテストは必ず `beforeAll` で DB 状態を確認・リセットすること
 - `global-setup.ts` の `shop_test_seed` 調整だけでは workers 並列実行には対応できない
 
+---
+
+## TA-011 — unit-test (shard N) 失敗時、失敗内容は job ログに出ず vitest-blob artifact 内にある
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-07-29 |
+| **PR 番号** | 不明 |
+| **ワークフロー** | CI |
+| **ジョブ名** | unit-test (N) / unit-test-merge |
+| **ステップ名** | Run unit tests (shard) |
+| **ステータス** | resolved |
+
+### エラーメッセージ（原文）
+
+```
+（job ログには失敗した test 名・assertion が一切出力されない。
+ `gh run view <id> --log-failed` / `gh api .../actions/jobs/<job-id>/logs` を grep しても
+ 出るのは artifact upload / git cleanup のログのみ）
+```
+
+### 根本原因
+
+vitest は shard ごとに `vitest-blob-N` という blob artifact をアップロードし、`unit-test-merge` job が
+`actions/download-artifact` で全 shard の blob を集約してから初めてテスト結果（失敗 test 名・assertion）を
+出力する。`unit-test (N)` 単体 job のログには集約前の blob しか残らないため、失敗内容がログに出ない。
+
+### 解決手順
+
+```bash
+# ログ推測ではなく artifact の実物を読む（再実行より速い）
+gh run view <run-id> --log-failed          # → 失敗内容は出ない（artifact upload ログのみ）
+# 1. unit-test-merge job のログを確認する（shard 集約後に失敗 test 名・assertion が出力される）
+gh run view <run-id> --log-failed --job <unit-test-merge-job-id>
+# 2. それでも不足する場合は vitest-blob-N artifact 自体をダウンロードして中身を読む
+gh run download <run-id> -n vitest-blob-N -D tmp/vitest-blob-N
+```
+
+### 再発防止策
+
+- `unit-test (N)` が fail したら、まず `unit-test-merge` job の出力を確認する（ログ推測で終わらせない）
+- 再実行して切り分けるより先に artifact を読む（再実行は 8〜9 分かかり、artifact 精読より遅い）
+- `unit-test-merge` の `digest-mismatch: error`（`actions/download-artifact@v8`）は shard の artifact 自体が
+  壊れたサインであり、実装の失敗とは別原因（shard artifact の再アップロード / 再実行で切り分ける）
+
 **参考**: PR #1534, Issue #1335, CI run 24945001950
