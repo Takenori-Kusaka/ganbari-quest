@@ -308,6 +308,15 @@ describe('check-new-required-env (#4129 AC5 既存 env の必須化)', () => {
 			}
 		});
 
+		it('stub ではないが短すぎる理由も受理しない (最小長 gate)', () => {
+			// stub 一覧に載っていない語でも、実質的な説明になっていなければ受理しない。
+			// stub 一覧だけでは「急ぎ」の一言で解除できてしまい理由の非強制が復活する
+			const map = parseNotNewlyRequiredExemptions(
+				'<!-- env-not-newly-required: SOME_TOKEN 急ぎ -->',
+			);
+			expect(map.get('SOME_TOKEN')?.valid).toBe(false);
+		});
+
 		it('理由が空の宣言は受理しない', () => {
 			const map = parseNotNewlyRequiredExemptions('<!-- env-not-newly-required: SOME_TOKEN -->');
 			expect(map.get('SOME_TOKEN')?.present).toBe(true);
