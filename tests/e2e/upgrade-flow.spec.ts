@@ -126,7 +126,11 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 			/* どちらも起きなければ下の assert で文脈付き fail させる */
 		});
 
-		const reachedStripeCheckout = page.url().startsWith('https://checkout.stripe.com');
+		// origin の完全一致で判定する。`startsWith('https://checkout.stripe.com')` は
+		// `https://checkout.stripe.com.example/` のような別ホストにも一致してしまい
+		// (CodeQL js/incomplete-url-substring-sanitization)、到達先を検証するという
+		// 本 assert の目的を満たさない。上の waitForURL 述語と同じ origin 比較に揃える。
+		const reachedStripeCheckout = new URL(page.url()).origin === 'https://checkout.stripe.com';
 		const portalDialogOpen = await portalConfirm.isVisible().catch(() => false);
 		if (!reachedStripeCheckout && !portalDialogOpen) {
 			const alertText = await page
