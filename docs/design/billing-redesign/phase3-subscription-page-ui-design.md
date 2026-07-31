@@ -1,3 +1,7 @@
+> **#4139 で本設計の 4 ページ分割は解消済み**: `/admin/billing` は `/admin/subscription` に統合され、
+> 契約ステータス表示 1 箇所 / Stripe 請求管理ページを開くボタン 1 個 / 解約導線 1 本 (`/admin/subscription/cancel`) になった。
+> 現状の正解は [06-UI設計書.md](../06-UI設計書.md) の admin ルート表を参照。本ファイルは当時の設計判断の記録。
+
 # `/admin/subscription` プランページ UI 設計 (Phase 3 #2567)
 
 | 項目 | 内容 |

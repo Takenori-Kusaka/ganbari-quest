@@ -410,18 +410,7 @@
       "count": 1
     }
   },
-  "src/routes/(parent)/admin/billing/+page.svelte": {
-    "local/max-style-lines": {
-      "count": 1
-    },
-    "svelte/no-navigation-without-resolve": {
-      "count": 3
-    },
-    "svelte/no-useless-children-snippet": {
-      "count": 7
-    }
-  },
-  "src/routes/(parent)/admin/billing/cancel/+page.svelte": {
+  "src/routes/(parent)/admin/subscription/cancel/+page.svelte": {
     "local/max-style-lines": {
       "count": 1
     },
@@ -429,7 +418,7 @@
       "count": 3
     }
   },
-  "src/routes/(parent)/admin/billing/cancel/graduation/+page.svelte": {
+  "src/routes/(parent)/admin/subscription/cancel/graduation/+page.svelte": {
     "local/max-style-lines": {
       "count": 1
     },
@@ -437,7 +426,7 @@
       "count": 5
     }
   },
-  "src/routes/(parent)/admin/billing/cancel/thanks/+page.svelte": {
+  "src/routes/(parent)/admin/subscription/cancel/thanks/+page.svelte": {
     "svelte/no-useless-children-snippet": {
       "count": 2
     }

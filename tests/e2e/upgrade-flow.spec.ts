@@ -87,6 +87,28 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 			return;
 		}
 	});
+
+	// #4139: standard → premium のアップグレード CTA が「自ページへのリンク」になっていた
+	// (押しても何も起きない = 収益導線が死ぬ)。CTA が実処理を起動する操作要素であることを固定する。
+	test('standard の「プレミアムへ」CTA が自ページを指さず、押すと何かが起きる (#4139)', async ({
+		page,
+	}) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+
+		const cta = page.getByTestId('plan-status-family-cta');
+		await expect(cta).toBeVisible({ timeout: 30_000 });
+		await expect(cta).toContainText(PLAN_TERMS.premium);
+		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
+		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
+
+		// 押下 → 実処理が起動する。契約ありなら Stripe 請求管理ページ確認ダイアログ、
+		// 契約なし / Stripe 無効なら checkout エラー通知が出る。
+		// 旧実装は自ページに再遷移するだけで、どちらも出なかった。
+		await cta.click();
+		await expect(
+			page.getByTestId('portal-confirm-button').or(page.getByRole('alert').first()),
+		).toBeVisible({ timeout: 15_000 });
+	});
 });
 
 // ============================================================

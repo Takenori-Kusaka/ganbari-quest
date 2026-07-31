@@ -32,7 +32,7 @@ let { data } = $props();
 				<Button
 					variant="primary"
 					size="md"
-					href="/admin/billing"
+					href="/admin/subscription"
 					data-testid="cancellation-proceed-stripe"
 				>
 					{CANCELLATION_LABELS.successProceedButton}

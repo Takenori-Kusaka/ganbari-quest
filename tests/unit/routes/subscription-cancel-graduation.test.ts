@@ -1,4 +1,4 @@
-// tests/unit/routes/billing-cancel-graduation.test.ts
+// tests/unit/routes/subscription-cancel-graduation.test.ts
 // 卒業フロー専用ページ load + form action テスト (#1603 / ADR-0023 §3.8 / §5 I10)
 //
 // テスト観点:
@@ -6,8 +6,8 @@
 // - load: child が居ない / point 取得失敗時も totalPoints=0 で表示できる
 // - action: nickname 必須 (consented=true 時)
 // - action: nickname 30 文字超でエラー
-// - action: 課金プラン → /admin/billing にリダイレクト
-// - action: 無料プラン → /admin/billing/cancel/thanks にリダイレクト
+// - action: 課金プラン → /admin/subscription にリダイレクト
+// - action: 無料プラン → /admin/subscription/cancel/thanks にリダイレクト
 
 // biome-ignore-all lint/suspicious/noExplicitAny: テスト用 load/action の型を最小化
 
@@ -57,7 +57,7 @@ type AnyLoad = (...args: unknown[]) => any;
 import {
 	actions as actionsRaw,
 	load as loadRaw,
-} from '../../../src/routes/(parent)/admin/billing/cancel/graduation/+page.server';
+} from '../../../src/routes/(parent)/admin/subscription/cancel/graduation/+page.server';
 
 const load = loadRaw as unknown as AnyLoad;
 const actions = actionsRaw as unknown as { default: AnyAction };
@@ -78,7 +78,7 @@ function buildLoadEvent(tenantId = 'tenant-1') {
 
 function buildActionRequest(form: Record<string, string>): Request {
 	const body = new URLSearchParams(form);
-	return new Request('http://localhost/admin/billing/cancel/graduation', {
+	return new Request('http://localhost/admin/subscription/cancel/graduation', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 		body: body.toString(),
@@ -213,7 +213,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 			});
 		});
 
-		it('課金プラン (stripeCustomerId あり) は /admin/billing に redirect', async () => {
+		it('課金プラン (stripeCustomerId あり) は /admin/subscription に redirect', async () => {
 			mockGetLicenseInfo.mockResolvedValue({
 				createdAt: new Date().toISOString(),
 				stripeSubscriptionId: 'sub_123',
@@ -248,11 +248,11 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 				}),
 			).rejects.toMatchObject({
 				status: 303,
-				location: '/admin/billing',
+				location: '/admin/subscription',
 			});
 		});
 
-		it('無料プランは /admin/billing/cancel/thanks に redirect', async () => {
+		it('無料プランは /admin/subscription/cancel/thanks に redirect', async () => {
 			mockGetLicenseInfo.mockResolvedValue({
 				createdAt: new Date().toISOString(),
 				stripeSubscriptionId: null,
@@ -286,7 +286,7 @@ describe('billing-cancel-graduation +page.server.ts', () => {
 				}),
 			).rejects.toMatchObject({
 				status: 303,
-				location: '/admin/billing/cancel/thanks',
+				location: '/admin/subscription/cancel/thanks',
 			});
 		});
 	});

@@ -11,7 +11,7 @@
 | 観点 | 解約（cancel） | アカウント削除（account deletion） |
 |---|---|---|
 | **対象** | Stripe Subscription（自動更新） | アカウント本体 + 全データ |
-| **入口** | Stripe Customer Portal（[`plan-change-flow.md`](plan-change-flow.md) §3 / §3.0）または `/admin/billing/cancel` | `/admin/settings` の「アカウント削除」ボタン（**本人ログイン必須**） |
+| **入口** | Stripe Customer Portal（[`plan-change-flow.md`](plan-change-flow.md) §3 / §3.0）または `/admin/subscription/cancel` | `/admin/settings` の「アカウント削除」ボタン（**本人ログイン必須**） |
 | **挙動** | サブスクリプションの自動更新停止のみ。データは無料プランに移行し保持期間（90 日）まで閲覧可能 | 本書 §1 の 5 パターンに分岐し、削除範囲は §2 マトリクスに従う。最終的に全データを完全削除 |
 | **データ復旧** | 再課金で復元可能（90 日以内） | 不可（猶予期間経過後は物理削除） |
 | **猶予期間** | Stripe smart retries（7 日）＋ 無料プラン保持（90 日） | 利用プランに応じた猶予期間（無料: 即時 / Standard: 7 日 / Family: 30 日、`terms.html` 第13条） |

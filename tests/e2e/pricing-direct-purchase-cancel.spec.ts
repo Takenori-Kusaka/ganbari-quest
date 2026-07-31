@@ -3,7 +3,7 @@
 //
 // AC4: pricing.html での Standard / Family 直接購入 CTA (Tower 型二段 CTA 下段、#2102 F-1)
 //      が正しい URL (`?direct=true&billing=monthly|yearly`) を持ち、月額/年額トグルで切替される
-// AC5: pricing.html 既存ユーザー向け解約導線 (#2103 F-2) が `/admin/billing` (Stripe Customer
+// AC5: pricing.html 既存ユーザー向け解約導線 (#2103 F-2) が `/admin/subscription` (Stripe Customer
 //      Portal 経由) を正しく指している
 //
 // 設計判断 (Pre-PMF + 静的 LP 配信):
@@ -21,7 +21,7 @@
 //
 // 既存 spec との関係:
 //   - `pricing-page-signup.spec.ts`: 7 日間無料体験 CTA (`?plan=...`) を扱う既存 spec
-//   - `billing-portal.spec.ts`: /admin/billing 内 Stripe Portal 起動を扱う既存 spec
+//   - `billing-portal.spec.ts`: /admin/subscription 内 Stripe Portal 起動を扱う既存 spec
 //   - 本 spec は両者の中間: pricing.html 上の「直接購入」「解約」CTA href 検証
 //
 // 実行: npx playwright test tests/e2e/pricing-direct-purchase-cancel.spec.ts
@@ -148,13 +148,13 @@ test.describe('#2098 AC4: pricing.html 直接購入 CTA (Tower 型二段 CTA 下
 });
 
 test.describe('#2098 AC5: pricing.html 解約 CTA (#2103 F-2 γ ハイブリッド)', () => {
-	test('AC5-1: 既存ユーザー向け解約導線リンクが `/admin/billing` を指す', async ({ page }) => {
+	test('AC5-1: 既存ユーザー向け解約導線リンクが `/admin/subscription` を指す', async ({ page }) => {
 		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-		// .existing-cancel-link 内に admin/billing へのリンク
+		// .existing-cancel-link 内に admin/subscription へのリンク
 		const cancelLink = page
-			.locator('.existing-cancel-link a[href*="/admin/billing"]')
-			.or(page.locator('a[href*="ganbari-quest.com/admin/billing"]'));
+			.locator('.existing-cancel-link a[href*="/admin/subscription"]')
+			.or(page.locator('a[href*="ganbari-quest.com/admin/subscription"]'));
 		const count = await cancelLink.count();
 		expect(count).toBeGreaterThanOrEqual(1);
 
@@ -162,7 +162,7 @@ test.describe('#2098 AC5: pricing.html 解約 CTA (#2103 F-2 γ ハイブリッ�
 		await expect(firstLink).toBeVisible({ timeout: 10_000 });
 
 		const href = (await firstLink.getAttribute('href')) ?? '';
-		expect(href).toContain('/admin/billing');
+		expect(href).toContain('/admin/subscription');
 	});
 
 	test('AC5-2: FAQ で解約経路 (Stripe 請求管理ページ) が明示されている', async ({ page }) => {

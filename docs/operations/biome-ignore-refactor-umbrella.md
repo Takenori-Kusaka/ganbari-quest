@@ -75,7 +75,7 @@ $ grep -rln "biome-ignore.*complexity" src/ | sort -u | wc -l
 | 21 | `src/routes/(parent)/admin/activities/+page.server.ts` | cognitive | 2 | MID (admin) | 中 | MID | TBD |
 | 22 | `src/routes/(parent)/admin/children/+page.server.ts` | cognitive | 1 | MID (admin) | 中 | MID | TBD |
 | 23 | `src/routes/(parent)/admin/challenges/+page.server.ts` | cognitive | 1 | MID (admin) | 中 | MID | TBD |
-| 24 | `src/routes/(parent)/admin/billing/+page.svelte` | cognitive | 1 | MID (billing) | 中 | MID | TBD |
+| 24 | ~~`src/routes/(parent)/admin/billing/+page.svelte`~~ | cognitive | 1 | MID (billing) | 中 | MID | 解消済 (#4139 で `/admin/subscription` に統合、ファイル削除) |
 | 25 | `src/routes/api/v1/admin/account/delete/+server.ts` | cognitive | 1 | MID (削除 flow) | 中 | MID | TBD |
 | 26 | `src/routes/api/v1/admin/cleanup-orphans/+server.ts` | cognitive | 1 | LOW (admin ops) | 低 | LOW | TBD |
 | 27 | `src/routes/api/v1/children/[id]/avatar/+server.ts` | cognitive | 1 | LOW (画像) | 低 | LOW | TBD |

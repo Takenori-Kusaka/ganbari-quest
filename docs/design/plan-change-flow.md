@@ -99,16 +99,16 @@ PO の「解約原因が見えない」「卒業 vs 離反比率が検証され�
 #### 3.0.1 入口
 
 ```
-[/admin/billing]
+[/admin/subscription]
   ├─ 「プラン管理」ボタン → /admin/license
-  └─ 「解約手続き」ボタン → /admin/billing/cancel    ← #1596 入口
+  └─ 「解約手続き」ボタン → /admin/subscription/cancel    ← #1596 入口
 ```
 
 #### 3.0.2 フォーム
 
 ```
-[/admin/billing/cancel]
-  └─ POST /admin/billing/cancel (form action)
+[/admin/subscription/cancel]
+  └─ POST /admin/subscription/cancel (form action)
         │
         ├─ category (必須):
         │    ┌─ 'graduation' (卒業: 子供が自律した) — ポジティブ KPI、緑
@@ -134,7 +134,7 @@ PO の「解約原因が見えない」「卒業 vs 離反比率が検証され�
     │     → customer.subscription.deleted Webhook で DB 更新
     │
     └─ stripeSubscriptionId なし (free プラン)
-          → /admin/billing/cancel/thanks に遷移
+          → /admin/subscription/cancel/thanks に遷移
           → ユーザーが必要に応じて /admin/license や /admin/settings へ
 ```
 
@@ -196,18 +196,18 @@ PO の「『卒業』をプロダクト哲学（ADR-0023 §3.8）として実装
 ##### 動線
 
 ```
-[/admin/billing/cancel]
-  └─ POST /admin/billing/cancel
+[/admin/subscription/cancel]
+  └─ POST /admin/subscription/cancel
        │
        ├─ category='graduation' を選択した場合
        │     ├─ submitCancellationReason() で解約理由保存（共通フロー）
-       │     └─ redirect 303 → /admin/billing/cancel/graduation     ← ★ 専用ページ
+       │     └─ redirect 303 → /admin/subscription/cancel/graduation     ← ★ 専用ページ
        │
        └─ category='churn' / 'pause' を選択した場合
              └─ 既存フローのまま (Stripe Portal or thanks)
 ```
 
-##### `/admin/billing/cancel/graduation` 専用ページ
+##### `/admin/subscription/cancel/graduation` 専用ページ
 
 - 残ポイント表示（全子供の getBalance() 合計）
 - 還元提案テキスト（現金換算想定額 + 物品例 + 体験例）

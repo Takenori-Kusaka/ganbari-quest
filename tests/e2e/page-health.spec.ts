@@ -78,8 +78,8 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin/status', name: 'ステータス管理' },
 		{ path: '/admin/settings', name: '設定' },
 		{ path: '/admin/members', name: 'メンバー管理' },
-		{ path: '/admin/subscription', name: 'ライセンス' },
-		{ path: '/admin/billing', name: '請求管理' },
+		// #4139: /admin/billing は /admin/subscription に統合済 (redirect は legacy-url-redirect.spec.ts)
+		{ path: '/admin/subscription', name: 'プラン・課金' },
 	];
 
 	for (const { path, name } of adminPages) {

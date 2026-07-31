@@ -117,6 +117,28 @@ describe('legacy-url-map', () => {
 			expect(rewriteLegacyPath('/admin/license/key', result!)).toBe('/admin/subscription/key');
 		});
 
+		// #4139: /admin/billing → /admin/subscription 統合 (プラン・課金 2 ページ統合)
+		it('/admin/billing → /admin/subscription (308) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/billing');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/subscription');
+			// status 省略 = 308 Permanent Redirect (規約デフォルト、CLAUDE.md `#578`)
+			expect(entry?.status).toBeUndefined();
+			expect(entry?.issue).toBe('#4139');
+		});
+
+		it('/admin/billing は前方一致で解約フロー配下も統合先に救済する', () => {
+			for (const [from, to] of [
+				['/admin/billing/cancel', '/admin/subscription/cancel'],
+				['/admin/billing/cancel/thanks', '/admin/subscription/cancel/thanks'],
+				['/admin/billing/cancel/graduation', '/admin/subscription/cancel/graduation'],
+			] as const) {
+				const result = findLegacyRedirect(from);
+				expect(result?.from).toBe('/admin/billing');
+				expect(rewriteLegacyPath(from, result!)).toBe(to);
+			}
+		});
+
 		// #2525 Phase 7 PR-L4 (#2836): /help/license-key → /admin/subscription (301、help ページ完全削除)
 		it('/help/license-key → /admin/subscription (301) エントリが存在する', () => {
 			const entry = LEGACY_URL_MAP.find((e) => e.from === '/help/license-key');
@@ -189,7 +211,8 @@ describe('legacy-url-map', () => {
 			['/demo/admin/achievements', '/demo/admin/achievements'],
 			// 親 fallback (`/demo/admin`) — 未登録 sub path も救済
 			['/demo/admin', '/demo/admin'],
-			['/demo/admin/billing', '/demo/admin'], // 未登録 sub path は親 fallback にマッチ
+			// #4139: /demo/admin/billing は明示 entry になった (親 fallback より長い prefix が優先)
+			['/demo/admin/billing', '/demo/admin/billing'],
 			['/demo/admin/some-future-page', '/demo/admin'],
 			// /demo, /demo/exit, /demo/signup
 			['/demo', '/demo'],
@@ -296,6 +319,9 @@ describe('legacy-url-map', () => {
 			['/demo/admin/events', '/admin/challenges'],
 			// #2818 Phase 7 PR-L3: /demo/admin/license も最終 hop を /admin/subscription に 1 段化
 			['/demo/admin/license', '/admin/subscription'],
+			// #4139: /admin/billing 統合。旧 URL と解約フロー配下は 1 段で統合先へ
+			['/admin/billing', '/admin/subscription'],
+			['/admin/billing/cancel', '/admin/subscription/cancel'],
 			['/demo/admin/members', '/admin/members'],
 			// #2270 / #2275 (EPIC #2266): 1 段化済 (/demo/admin/messages → 直接 /admin/cheer)
 			['/demo/admin/messages', '/admin/cheer'],
@@ -308,7 +334,8 @@ describe('legacy-url-map', () => {
 			['/demo/admin/achievements', '/admin/challenges'],
 			// 親 fallback: 明示 entry に無い sub path も /admin/* に救済
 			['/demo/admin', '/admin'],
-			['/demo/admin/billing', '/admin/billing'],
+			// #4139: /admin/billing 統合に伴い 1 段化 (/admin/billing 経由の 2 段 redirect を回避)
+			['/demo/admin/billing', '/admin/subscription'],
 			['/demo/admin/some-future-page', '/admin/some-future-page'],
 			// landing / exit / signup
 			['/demo', '/'],

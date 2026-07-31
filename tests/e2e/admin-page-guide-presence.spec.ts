@@ -38,9 +38,8 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/points',
 	'/admin/reports',
 	'/admin/cheer',
-	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	// #3267 (EPIC #3260 C3): プラン・課金 (#4139 で /admin/billing を統合)
 	'/admin/subscription',
-	'/admin/billing',
 	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
 	'/admin/certificates',
 	'/admin/growth-book',
