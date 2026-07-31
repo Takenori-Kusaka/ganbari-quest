@@ -40,6 +40,11 @@
 
 > 本原則は #4121 で「消すか keep list に入れるかの二択」と書いた誤りの訂正である。二択のままだと、稼働中で価値のある gate に対して消す以外の選択肢が無くなる (実際に `check-recent-deploy-deletion` = 類型 1 と `check-lp-innerhtml-tags` = 類型 2 が削除候補に載った)。
 
+**適用実績 (#4121 Wave 2)**:
+
+- `check-lp-plan-sync` を advisory (`continue-on-error`) から **hard-fail に復帰**。類型 2 かつ静的テキスト比較で cheap のため。回帰ガード: `tests/unit/scripts/pre-ready-step-budget.test.ts` [P6] / [P7]
+- `npm run pre-ready` を **20 step → 6 step** に縮小 (類型 1: pr-body / ss-embed-gate、類型 2 cheap: biome / svelte-check / plan-literals / local-tz-getters)。**外した 14 検査は消していない** — vitest は CI `unit-test`、残りは CI `lint-and-test` / `lp-metrics.yml` / `lp-fallback-check.yml` で hard-fail のまま走る (対応表 SSOT: `npm run pre-ready -- --help`)。`capture` step のみ、検査せずガイダンスを表示するだけ (類型 4 = 参照ゼロ相当) のため撤去
+
 ### 2. 新ツール導入時の判断フロー
 
 ```

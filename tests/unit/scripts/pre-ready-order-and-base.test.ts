@@ -98,18 +98,19 @@ describe('#4048 実行順が cheap-fail-first であること', () => {
 		expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
 	});
 
-	it('[O4] PR body 検査 (pr-body) が型検査 / テストより先に走る (AC1 の核)', () => {
+	it('[O4] PR body 検査 (pr-body) が静的検査 / 型検査より先に走る (AC1 の核)', () => {
+		// #4121 で vitest step は CI unit-test へ移したため、比較対象は残る最重量 step (svelte-check)。
 		const order = orderedStepNames();
 		expect(order.indexOf('pr-body')).toBeGreaterThanOrEqual(0);
+		expect(order.indexOf('pr-body')).toBeLessThan(order.indexOf('biome'));
 		expect(order.indexOf('pr-body')).toBeLessThan(order.indexOf('svelte-check'));
-		expect(order.indexOf('pr-body')).toBeLessThan(order.indexOf('vitest'));
 	});
 
 	it('[O5] pr-body が実行順の先頭である (ファイルを読まない検査が最初)', () => {
 		expect(orderedStepNames()[0]).toBe('pr-body');
 	});
 
-	it('[O6] 型検査 → テスト → ブラウザ実測 → UI 系 の相対順序を保つ', () => {
+	it('[O6] meta → 静的検査 → 型検査 → UI 系 の相対順序を保つ', () => {
 		const order = orderedStepNames(['site/index.html', 'src/lib/ui/x.svelte']);
 		// LP / UI 変更ありの step 集合でも全 step にクラスが付いていること (旧 [O1] の条件付き step 分)
 		const classes = costClasses();
@@ -119,13 +120,12 @@ describe('#4048 実行順が cheap-fail-first であること', () => {
 			),
 		).toEqual([]);
 		const at = (n: string) => order.indexOf(n);
-		expect(at('svelte-check')).toBeLessThan(at('vitest'));
-		expect(at('vitest')).toBeLessThan(at('lp-dimensions'));
-		expect(at('lp-dimensions')).toBeLessThan(at('ss-embed-gate'));
-		expect(at('ss-embed-gate')).toBeLessThan(at('capture'));
-		// 静的検査は型検査より前
+		// #4121: test / browser クラスの step は CI へ移したため、残る鎖は meta → static → typecheck → ui
+		expect(at('pr-body')).toBeLessThan(at('biome'));
 		expect(at('biome')).toBeLessThan(at('svelte-check'));
-		expect(at('terminology-coherence')).toBeLessThan(at('svelte-check'));
+		expect(at('plan-literals')).toBeLessThan(at('svelte-check'));
+		expect(at('local-tz-getters')).toBeLessThan(at('svelte-check'));
+		expect(at('svelte-check')).toBeLessThan(at('ss-embed-gate'));
 	});
 
 	it('[O7] 並べ替えで step の集合が変わらない (AC2 — 検査を増減させていない)', () => {

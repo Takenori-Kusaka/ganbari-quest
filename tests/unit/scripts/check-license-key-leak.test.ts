@@ -151,20 +151,26 @@ describe('check-license-key-leak (#2836)', () => {
 	// ## 外しても検査は失われない (ADR-0006 弱体化ではない)
 	//
 	// 同一の `findAllViolations()` による実 repo 検査は、per-test timeout を持たない専用 lane
-	// で **2 箇所** 走る:
-	//   - `npm run pre-ready` Step 7b (`node scripts/check-license-key-leak.mjs`)
+	// で走る:
 	//   - CI `.github/workflows/ci.yml` の License key re-introduction guard step
 	//
-	// unit lane が担うのは「その配線が消えていないこと」= 下の 3 test。gate が片方の lane から
+	// #4121: pre-ready Step 7b は撤去した (pre-ready の hard-fail を 6 本に絞ったため)。
+	// **gate 自体は CI で hard-fail のまま**であり、消えたのは「ローカルでも重複して回す」ことだけ。
+	// 撤去が silent に起きないよう、pre-ready の `--help` が行き先 (ci.yml) を明示することを下で固定する。
+	//
+	// unit lane が担うのは「その配線が消えていないこと」= 下の 3 test。gate が lane から
 	// 落ちれば unit test が落ちる (「検査していない」が緑に見える状態を作らせない)。
-	describe('実 repo gate の配線 (#4000)', () => {
+	describe('実 repo gate の配線 (#4000 / #4121)', () => {
 		const repoRoot = resolve(__dirname, '../../..');
 		const readRepoFile = (rel: string) => readFileSync(resolve(repoRoot, rel), 'utf8');
 
-		it('pre-ready が check-license-key-leak.mjs を実行する', () => {
-			expect(readRepoFile('scripts/pre-ready.mjs')).toContain(
-				"['node', 'scripts/check-license-key-leak.mjs']",
-			);
+		it('pre-ready から外した事実と行き先 (ci.yml) が --help に明記されている', () => {
+			// pre-ready が実行しなくなったこと自体は問題ないが、**どこで走るのかを書かずに消す**のは
+			// 「検査を消した」と区別が付かなくなる (#4121 の中心的な線引き)。
+			const preReady = readRepoFile('scripts/pre-ready.mjs');
+			expect(preReady).not.toContain("['node', 'scripts/check-license-key-leak.mjs']");
+			expect(preReady).toContain('license-key-leak');
+			expect(preReady).toContain('.github/workflows/ci.yml (lint-and-test)');
 		});
 
 		it('CI が check-license-key-leak.mjs を実行する', () => {

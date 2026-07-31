@@ -101,7 +101,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 | 判定 | 実行場所 | 内容 |
 |---|---|---|
-| ローカル `pre-ready` | 開発マシン | Step 1〜2 / 4〜12（biome / cspell / svelte-check / 各 SSOT gate / PR body gate）。`--skip-vitest` で Step 3 を CI へ委譲する |
+| ローカル `pre-ready` | 開発マシン | 6 step（biome / svelte-check / plan-literals / local-tz-getters / PR body gate / SS embed gate、#4121）。vitest ほかの検査は CI 側 job で hard-fail のまま走る |
 | フルスイート（vitest） | CI `unit-test`（×2 shard）+ `unit-test-merge` | Ready 判定はこちらを正とする |
 | 単独実行が必要な重い測定 | 開発マシン（排他） | 実行前にチャンネルで一報し、他セッションと重ならない窓を作る |
 

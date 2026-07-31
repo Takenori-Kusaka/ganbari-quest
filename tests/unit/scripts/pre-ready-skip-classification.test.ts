@@ -70,8 +70,11 @@ process.stdout.write(JSON.stringify(steps.map((s) => ({ name: s.name, skip: !!s.
 	return JSON.parse(out) as StepShape[];
 }
 
-/** Readiness gate 系 (`--pr` を前提とする 3 step) */
-const READINESS_GATE_STEPS = ['pr-body', 'ss-embed-gate', 'capture'] as const;
+/**
+ * Readiness gate 系 (`--pr` を前提とする step)。
+ * #4121 で `capture` step (撮影ガイダンス表示のみで検査していなかった) を撤去したため 2 step。
+ */
+const READINESS_GATE_STEPS = ['pr-body', 'ss-embed-gate'] as const;
 
 describe('#4018 skipStateOf — skip 理由の分類', () => {
 	it('[K1] --skip flag が最優先で flag に分類される', () => {
