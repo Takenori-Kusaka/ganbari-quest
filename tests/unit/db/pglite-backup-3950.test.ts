@@ -18,6 +18,15 @@
 //   [BK9] Runbook の退避先 `manual/` が実 FS 上に同居してもローテーションは世代だけを削る
 //         (readdir → フィルタ → rm の実経路。ディレクトリが混ざれば rm が EISDIR で落ちる)
 //
+// #4129 (E3) で追加:
+//   [BK10] **retention 引き下げ後の初回ローテーションで一度に複数世代を消さない** (fail-closed)
+//          — #3950 は BACKUP_RETENTION を 7 → 3 に下げており、初回実行で 4 世代が一括物理削除される
+//          状態だった。削除は不可逆で、退避していなければ過去世代は永久に戻らない。
+//          2026-07-31 時点で未発火だったのは「backup job 自体が CRON_SECRET 未配布で止まっていた」
+//          という幸運によるもの (#4119)。job を直した以上、次に動く回で発火する
+//   [BK11] **連続失敗回数が状態ファイルに積算される** — 失敗が「1 回きりの alert」で埋もれると
+//          毎晩失敗し続けていることに誰も気づけない (2026-07-31 は 18 日間気づかれなかった)
+//
 // [BK2] / [BK3] / [BK5] は「gate を書いたが実は何も落とせていない」を防ぐ実効性検証。
 
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -38,6 +47,7 @@ import {
 } from '../../../src/lib/server/db/pglite/backup';
 import {
 	BACKUP_STATUS_FILENAME,
+	PgliteBackupRotationGuardError,
 	runPgliteBackup,
 } from '../../../src/lib/server/services/pglite-backup-service';
 
@@ -306,4 +316,91 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 		// 退避先ディレクトリと中身が無傷で残る。
 		expect(readdirSync(join(backupDir, 'manual'))).toEqual([MANUAL_SNAPSHOT_FILENAME]);
 	}, 120_000);
+
+	it('[BK10] retention 引き下げ後の初回ローテーションは abort し、1 世代も削除しない (#4129 AC2)', async () => {
+		const client = await migratedClient();
+		const backupDir = tempDir('gq-bk10-');
+
+		// retention=7 運用で 7 世代を作る (#3950 引き下げ前の実運用と同じ形)。
+		for (let i = 0; i < 7; i++) {
+			await runPgliteBackup({
+				client,
+				backupDir,
+				migrationsDir: MIGRATIONS_DIR,
+				retention: 7,
+				now: new Date(Date.UTC(2026, 6, 10 + i, 3, 0, 0)),
+			});
+		}
+		const before = sortBackupsNewestFirst(readdirSync(backupDir));
+		expect(before).toHaveLength(7);
+
+		// retention を 3 に引き下げた初回実行。旧実装はここで 4 世代を一括削除していた。
+		await expect(
+			runPgliteBackup({
+				client,
+				backupDir,
+				migrationsDir: MIGRATIONS_DIR,
+				retention: 3,
+				now: new Date(Date.UTC(2026, 6, 17, 3, 0, 0)),
+			}),
+		).rejects.toBeInstanceOf(PgliteBackupRotationGuardError);
+
+		// **1 世代も消えていないこと** が本テストの主眼 (削除は不可逆)。
+		const after = sortBackupsNewestFirst(readdirSync(backupDir));
+		expect(after).toEqual(expect.arrayContaining(before));
+		expect(after.length).toBeGreaterThanOrEqual(before.length);
+	}, 180_000);
+
+	it('[BK10] 定常運用 (1 世代だけ溢れる) は abort せず従来どおり削除する (#4129 AC2 false-positive 抑止)', async () => {
+		const client = await migratedClient();
+		const backupDir = tempDir('gq-bk10b-');
+
+		// retention=3 のまま 5 回連続実行しても、毎回溢れるのは 1 世代だけ。
+		for (let i = 0; i < 5; i++) {
+			await runPgliteBackup({
+				client,
+				backupDir,
+				migrationsDir: MIGRATIONS_DIR,
+				retention: 3,
+				now: new Date(Date.UTC(2026, 6, 10 + i, 3, 0, 0)),
+			});
+		}
+		expect(sortBackupsNewestFirst(readdirSync(backupDir))).toHaveLength(3);
+	}, 180_000);
+
+	it('[BK11] 連続失敗回数が積算され、成功で 0 に戻る (#4129 AC4)', async () => {
+		const client = await migratedClient();
+		const backupDir = tempDir('gq-bk11-');
+
+		const brokenMigrations = tempDir('gq-bk11-journal-');
+		mkdirSync(join(brokenMigrations, 'meta'), { recursive: true });
+		writeFileSync(
+			join(brokenMigrations, 'meta', '_journal.json'),
+			JSON.stringify({ entries: [{ idx: 0, when: 9_999_999_999_999, tag: '9999_unapplied' }] }),
+		);
+
+		const readStatus = () =>
+			JSON.parse(readFileSync(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8')) as Record<
+				string,
+				unknown
+			>;
+
+		// 3 晩連続で失敗する状況 (2026-07-31 に実際に起きた形)。
+		for (let i = 1; i <= 3; i++) {
+			await expect(
+				runPgliteBackup({ client, backupDir, migrationsDir: brokenMigrations, retention: 3 }),
+			).rejects.toThrow();
+			// 「1 回目の alert で埋もれる」を防ぐため、回数そのものを持つ。
+			expect(readStatus().consecutiveFailures).toBe(i);
+		}
+
+		// 成功したらリセットされる (古い連続失敗が残り続けない)。
+		await runPgliteBackup({
+			client,
+			backupDir,
+			migrationsDir: MIGRATIONS_DIR,
+			retention: 3,
+		});
+		expect(readStatus().consecutiveFailures).toBe(0);
+	}, 180_000);
 });

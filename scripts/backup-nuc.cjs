@@ -60,6 +60,26 @@ const DISCORD_WEBHOOK =
 	process.env.DISCORD_ALERT_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_INCIDENT || '';
 
 /**
+ * 状態ファイルから連続失敗回数を読む (#4129 AC4)。読めなければ null。
+ *
+ * 「今日も失敗した」ではなく「**N 晩続けて失敗している**」を出すために使う。
+ * 毎晩同じ alert が流れるだけだと埋もれる (2026-07-31 の実害は 18 日間気づかれなかった)。
+ *
+ * @returns {number | null}
+ */
+function readConsecutiveFailures() {
+	const backupDir = process.env.BACKUP_DIR || path.join(__dirname, '..', 'data', 'backups');
+	try {
+		const raw = fs.readFileSync(path.resolve(backupDir, 'backup-status-pglite.json'), 'utf-8');
+		const parsed = JSON.parse(raw);
+		return typeof parsed.consecutiveFailures === 'number' ? parsed.consecutiveFailures : null;
+	} catch {
+		// 状態ファイルが無い / 壊れている場合は回数を出さないだけ。元の失敗は握り潰さない。
+		return null;
+	}
+}
+
+/**
  * バックアップ失敗を Discord に通知する。webhook 未設定なら no-op。
  * fail が沈黙しないための最小実装 (verify-backup-restore.cjs と同じ形)。
  *
@@ -70,12 +90,26 @@ async function notifyFailure(detail) {
 		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
 		return;
 	}
+	// #4129 AC4: 連続失敗回数を alert 本文に載せる。1 通ずつ見ると同じに見える alert が、
+	// 回数を持つことで「昨日から続いている」と読めるようになる。
+	const streak = readConsecutiveFailures();
+	const streakNote =
+		streak && streak > 1
+			? `**${streak} 晩連続で失敗しています。** 単発の失敗ではありません。`
+			: null;
 	const embed = {
-		title: '🚨 [CRITICAL] NUC バックアップ 失敗',
-		description: `NUC のバックアップに失敗しました。data 保全リスク。`,
+		title:
+			streak && streak > 1
+				? `🚨 [CRITICAL] NUC バックアップ ${streak} 晩連続失敗`
+				: '🚨 [CRITICAL] NUC バックアップ 失敗',
+		description: streakNote
+			? `NUC のバックアップに失敗しました。data 保全リスク。
+${streakNote}`
+			: `NUC のバックアップに失敗しました。data 保全リスク。`,
 		color: 10038562,
 		fields: [
 			{ name: 'Detail', value: `\`\`\`${detail.slice(0, 800)}\`\`\`` },
+			...(streak !== null ? [{ name: '連続失敗', value: `${streak} 回`, inline: true }] : []),
 			{ name: '対応', value: 'docs/runbooks/pglite-restore-drill.md / backup cron を確認' },
 		],
 		timestamp: new Date().toISOString(),
@@ -183,7 +217,11 @@ async function main() {
 
 main().catch(async (err) => {
 	const message = err instanceof Error ? err.message : String(err);
+	const streak = readConsecutiveFailures();
 	console.error('[backup-nuc] FAILED:', message);
+	if (streak !== null && streak > 1) {
+		console.error(`[backup-nuc] ${streak} 晩連続で失敗しています (単発ではありません、#4129 AC4)`);
+	}
 	await notifyFailure(message);
 	process.exit(1);
 });
