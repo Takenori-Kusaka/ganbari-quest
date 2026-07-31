@@ -14,7 +14,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { checkIntegrationEvidenceTable } from '../../../scripts/check-ac-verification-map.mjs';
 import {
@@ -44,8 +44,10 @@ import {
 	PLACEHOLDER_PATTERNS,
 	PO_DECISION_LABEL,
 	parsePlaceholderScanSkip,
+	resolveDraftStateWithFetcher,
 	resolveLabels,
 	resolveLane,
+	resolveLaneWithFetcher,
 	scanForbiddenTerms,
 	scanPlaceholders,
 	selectSkippedLabelGates,
@@ -1295,5 +1297,50 @@ describe('lane-aware 化 (#4130)', () => {
 
 	it('[LN13] 未知の lane 値は受理しない (typo で gate が空振りするのを防ぐ)', () => {
 		expect('error' in resolveLane({ pr: null, lane: 'integratoin' }, null)).toBe(true);
+	});
+
+	// --- 配線の固定 (#4130 QA 指摘) ---
+	// resolveLane / resolveDraftState 単体を正しく書いても、**呼び出し側が「申告があるときは
+	// gh を引かない」形に配線すると申告が勝ってしまう** (実装途中で実際に 1 度その形になった)。
+	// その 1 行を pin するため、fetcher を引数で受ける薄い wrapper を main と共有し、
+	// 「--pr があれば申告の有無にかかわらず fetcher を必ず呼ぶ」ことを spy で固定する。
+	// (main() 自体を execSync mock で回す案は、本 script が vitest の externalized module で
+	//  mock が適用されず実 gh を叩いてしまうため採らない)
+
+	it('[LN15] --pr + --lane でも gh fetcher は必ず呼ばれ、その結果が申告に勝つ (bypass 防止)', () => {
+		const fetcher = vi.fn(() => 'integration' as const);
+		const resolved = resolveLaneWithFetcher({ pr: '4126', lane: 'feature' }, fetcher);
+		expect(fetcher).toHaveBeenCalledWith('4126');
+		expect(resolved).toEqual({ lane: 'integration', source: 'gh' });
+	});
+
+	it('[LN16] --pr + --draft でも isDraft fetcher は必ず呼ばれ、gh=false が申告に勝つ (Ready 化要件を外させない)', () => {
+		const fetcher = vi.fn(() => false);
+		const resolved = resolveDraftStateWithFetcher({ pr: '4147', draft: true }, fetcher);
+		expect(fetcher).toHaveBeenCalledWith('4147');
+		expect(resolved).toEqual({ isDraft: false, source: 'gh' });
+	});
+
+	it('[LN17] gh が Draft と答えたときだけ deferred される / --pr なしでは fetcher を呼ばない', () => {
+		const draftFetcher = vi.fn(() => true);
+		expect(resolveDraftStateWithFetcher({ pr: '4147', draft: false }, draftFetcher)).toEqual({
+			isDraft: true,
+			source: 'gh',
+		});
+
+		// --body-file dry-run では PR が無いので gh を引かない (申告を採用する)
+		const unused = vi.fn(() => false);
+		expect(resolveDraftStateWithFetcher({ pr: null, draft: true }, unused)).toEqual({
+			isDraft: true,
+			source: 'flag',
+		});
+		expect(unused).not.toHaveBeenCalled();
+
+		const laneUnused = vi.fn(() => 'integration' as const);
+		expect(resolveLaneWithFetcher({ pr: null, lane: null }, laneUnused)).toEqual({
+			lane: 'feature',
+			source: 'default',
+		});
+		expect(laneUnused).not.toHaveBeenCalled();
 	});
 });

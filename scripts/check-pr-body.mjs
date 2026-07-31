@@ -1368,6 +1368,36 @@ export function resolveLane(args, fetched) {
 	return { lane: 'feature', source: 'default' };
 }
 
+/**
+ * 「`--pr` があるなら gh を必ず引く」という **配線そのもの**を 1 箇所に固定する (#4130 QA 指摘)。
+ *
+ * `resolveLane` が「取得できた gh を優先する」と正しく書けていても、呼び出し側で
+ * `args.pr && args.lane === null ? fetch(...) : null` のように **申告があるときに fetch を省く**
+ * 配線をすると、gh を引かない → `fetched === null` → 申告採用、となって bypass 経路が生まれる
+ * (本 Issue の実装途中で実際に 1 度この形になった)。fetcher を引数で受けることで、
+ * この 1 行を unit test で pin できるようにする。
+ *
+ * @param {{ pr: string | null; lane: string | null }} args
+ * @param {(pr: string) => 'feature'|'integration'|'hotfix'|'dependabot'|null} fetchLane
+ * @returns {{ lane: string; source: 'gh' | 'flag' | 'default' } | { error: string }}
+ */
+export function resolveLaneWithFetcher(args, fetchLane) {
+	return resolveLane(args, args.pr ? fetchLane(args.pr) : null);
+}
+
+/**
+ * `resolveDraftState` 版の同型 wrapper (#4130 QA 指摘)。
+ * `--draft` 申告で Ready PR の Ready 化要件 (#3997) を外せないことは、
+ * 「`--pr` があるなら isDraft を必ず引く」配線とセットで初めて保証される。
+ *
+ * @param {{ pr: string | null; draft: boolean }} args
+ * @param {(pr: string) => boolean | null} fetchIsDraft
+ * @returns {{ isDraft: boolean; source: 'gh' | 'flag' | 'unresolved' }}
+ */
+export function resolveDraftStateWithFetcher(args, fetchIsDraft) {
+	return resolveDraftState(args, args.pr ? fetchIsDraft(args.pr) : null);
+}
+
 /** @typedef {{ id: string; issue: string; message: string }} Violation */
 
 /**
@@ -1743,7 +1773,7 @@ export async function main(argv = process.argv.slice(2)) {
 
 	// #4130: lane を先に確定する (参照する template / 検証観点が lane で決まるため)。
 	// --pr 指定時は gh の実 lane のみ採用し、未解決は fail-closed で中断する。
-	const resolvedLane = resolveLane(args, args.pr ? fetchPrLane(args.pr) : null);
+	const resolvedLane = resolveLaneWithFetcher(args, fetchPrLane);
 	if ('error' in resolvedLane) {
 		console.error(`[check-pr-body] ERROR: ${resolvedLane.error}`);
 		return 2;
@@ -1797,7 +1827,7 @@ export async function main(argv = process.argv.slice(2)) {
 	for (const line of notes) console.log(line);
 
 	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
-	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
+	const draftState = resolveDraftStateWithFetcher(args, fetchPrIsDraft);
 	// #4121: `--skip-ready-only` は Draft/Ready を問わず Ready 化要件を検査対象から外す
 	// (push レイヤ専用。CI は pr-merge-gate.yml が同 section を検査する)。
 	const deferReadyOnly = draftState.isDraft || args.skipReadyOnly;
