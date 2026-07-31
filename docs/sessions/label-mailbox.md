@@ -84,6 +84,16 @@
 
 ### §3.3.1 orphan 検出（どの mailbox にも入っていないものを見つける）
 
+> **orphan の定義（2026-07-31 初回運用で精緻化）**: `state:*` が 1 つも付いていない open のうち、
+> **`status:on-hold` も `epic` label も付いていないもの**。Draft PR は対象外（まだ誰にも渡していない状態）。
+>
+> **backlog を orphan にしない。** 着手順に入っていないものには `status:on-hold` を付ける
+> （凍結・再開トリガー待ち・EPIC 傘下で着手順待ち を同一に扱う）。これをやらないと、
+> **backlog 全件が orphan として毎回報告され、本当に浮いているものが埋もれる**（初回運用で
+> orphan 16 件が出たが、実際に配るべきだったのは 2 件だけだった）。
+>
+> **EPIC 本体は orphan にしない。** EPIC は「傘」であって着手単位ではないため `epic` label で除外する。
+
 label 運用の最大の失敗モードは「**誰の受信箱にも入っていない open 項目**」である。報告上は全員「mailbox 空」になり、**実際は複数件が止まっている**状態と区別がつかない。
 
 各ロールの cron に以下を含める（PO は必須）。
@@ -91,9 +101,9 @@ label 運用の最大の失敗モードは「**誰の受信箱にも入ってい
 ```bash
 # state:* が 1 つも付いていない open Issue / PR
 gh issue list --state open --limit 100 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN ISSUE #\(.number) \(.title)"'
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN ISSUE #\(.number) \(.title)"'
 gh pr list --state open --limit 50 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
 ```
 
 > **2026-07-31 の実例**: Dev / QM とも「対応事項なし」と報告した時点で、着手すべき Issue が 5 件（`#3950` / `#4087` / `#3970` / `#4117` / `#4139`）滞留していた。全件 `state:*` 未付与だったため、どの mailbox にも現れなかった。
@@ -137,11 +147,11 @@ gh issue list --label "state:needs-dev" --state open --json number,title --jq '.
 gh pr list --label "state:needs-dev" --state open --json number,title --jq '.[]|"着手PR #\(.number) \(.title)"'
 gh pr list --label "state:qm-blocked" --state open --json number,title --jq '.[]|"BLOCKED #\(.number) \(.title)"'
 gh pr list --search "review-requested:@me is:open" --json number,title --jq '.[]|"REVIEW依頼 #\(.number) \(.title)"'
-gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
+gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
 
 - **判断を仰ぐときは `state:needs-po`（不可逆 4 操作以外）か `state:needs-owner`（4 操作）を必ず付ける。**
   mention / Issue コメント / PR body に書いただけでは PO の受信箱に入らない（§3.1.1）
-- ORPHAN（どの state も付いていない open）が出たら、自分の担当かを判断し、担当なら state:needs-dev を
+- ORPHAN（state:* / status:on-hold / epic のいずれも付いていない open）が出たら、自分の担当かを判断し、担当なら state:needs-dev を
   付けて拾う。他ロールの担当なら該当 state を付けて渡す。**放置しない**
 
 - state:qm-blocked があれば、BLOCK 事由（顧客に実害 / 証跡の真正性 / 不可逆 のどれか）を PR コメントから読み、
@@ -180,8 +190,8 @@ gh pr list --label "state:needs-po" --state open --json number,title --jq '.[]|"
 gh issue list --label "state:needs-owner" --state open --json number,title --jq '.[]|"OWNER #\(.number) \(.title)"'
 gh pr list --label "state:needs-owner" --state open --json number,title --jq '.[]|"OWNER PR #\(.number) \(.title)"'
 gh pr list --label "state:ready-to-merge" --state open --json number,title,mergeStateStatus --jq '.[]|"READY #\(.number) [\(.mergeStateStatus)] \(.title)"'
-gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
-gh pr list --state open --limit 50 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
+gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
+gh pr list --state open --limit 50 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
 
 - state:needs-owner は、不可逆 4 操作（削除 / 本番 deploy / 課金書込 / スキーマ変更）のどれに
   該当するかを 1 行で示し、判断材料（実 diff / 影響範囲）を添えてオーナーに提示する
@@ -228,9 +238,9 @@ git fetch origin develop main -q && git rev-list --count origin/main..origin/dev
 ```bash
 # 1. orphan — どの受信箱にも入っていない open
 gh issue list --state open --limit 100 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
 gh pr list --state open --limit 50 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
 
 # 2. 各ロールの受信箱に何件あるか（0 が並ぶこと自体が異常信号）
 for l in needs-dev dev-done qm-blocked ready-to-merge needs-audit needs-po needs-owner; do
