@@ -6,9 +6,8 @@
 // founder 直接相談の独立ページ (/inquiry/founder) は LP / ライセンス導線から到達するため存続。
 
 import { enhance } from '$app/forms';
-import { APP_LABELS, formatCount, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
-import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -29,16 +28,6 @@ let feedbackEmail = $state('');
 let feedbackInquiryId = $state('');
 let feedbackSuccessIntent = $state<FeedbackIntent>('feedback');
 let feedbackSuccessHadEmail = $state(false);
-
-// #4087: server は判定結果だけを渡すので、表示用の日時は経過時間から復元する。
-// (server 側で文字列整形すると TZ が server 依存になり、#4015 のローカル TZ 事故と同型になる)
-const lastSuccessDisplay = $derived(
-	data.backupHealth?.hoursSinceLastSuccess == null
-		? null
-		: new Date(Date.now() - data.backupHealth.hoursSinceLastSuccess * 3_600_000).toLocaleString(
-				'ja-JP',
-			),
-);
 
 const isConsult = $derived(feedbackIntent === 'consult');
 // 相談 (返信前提) で、かつアカウントメールが無いときのみ返信先を必須にする。
@@ -226,52 +215,6 @@ const successMessage = $derived(
 			{SETTINGS_LABELS.feedbackContactSuffix}
 		</p>
 	</Card>
-
-	<!-- #4087 (E3 / EPIC #4119): バックアップ状態。NUC セルフホスト時のみ表示する。
-	     2026-07-31 の実害では 18 日間バックアップが止まっていたのに、気づく手段が
-	     `curl /api/health | jq` しかなかった。家族 (非エンジニア) が見られる場所に出す。
-	     ADR-0012 整合で常時表示の煽りにはせず、設定画面内の静的表示に留める。 -->
-	{#if data.backupHealth}
-		{@const bh = data.backupHealth}
-		<Card padding="lg">
-			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
-				{SETTINGS_LABELS.backupSectionTitle}
-			</h3>
-			<div data-testid="backup-health" data-level={bh.level}>
-				{#if bh.level === 'ok'}
-					<Alert variant="success" message={SETTINGS_LABELS.backupOkTitle} />
-				{:else if bh.level === 'warn'}
-					<Alert variant="warning" message={SETTINGS_LABELS.backupWarnTitle} />
-				{:else}
-					<Alert variant="danger" message={SETTINGS_LABELS.backupCriticalTitle} />
-				{/if}
-
-				<ul class="mt-3 space-y-1 text-sm text-[var(--color-text-muted)]">
-					<li>
-						{SETTINGS_LABELS.backupLastSuccessLabel}{lastSuccessDisplay === null
-							? SETTINGS_LABELS.backupNeverSucceeded
-							: lastSuccessDisplay}
-					</li>
-					{#if bh.consecutiveFailures > 0}
-						<li>
-							{SETTINGS_LABELS.backupConsecutiveFailuresLabel}{formatCount(bh.consecutiveFailures)}
-						</li>
-					{/if}
-					{#if bh.notificationMissing}
-						<li class="text-[var(--color-feedback-warning-text)]">
-							{SETTINGS_LABELS.backupNotificationMissing}
-						</li>
-					{/if}
-				</ul>
-
-				{#if bh.level !== 'ok'}
-					<p class="mt-3 text-sm text-[var(--color-text-muted)]">
-						{SETTINGS_LABELS.backupActionHint}
-					</p>
-				{/if}
-			</div>
-		</Card>
-	{/if}
 
 	<!-- アプリ情報・リンク -->
 	<Card padding="lg">

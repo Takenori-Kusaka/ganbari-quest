@@ -2505,20 +2505,6 @@ export const SETTINGS_LABELS = {
 	feedbackContactSuffix: 'でも受け付けています',
 
 	// アプリ情報
-	// #4087 (E3 / EPIC #4119): バックアップ状態を**家族 (非エンジニア) が見られる場所**に出す。
-	// 2026-07-31 の実害では、バックアップが 18 日止まっていたのに気づく手段が
-	// `curl /api/health | jq` しかなかった。ADR-0012 整合で常時表示の煽りにはせず、
-	// 設定画面内の静的表示に留める (子供画面には一切出さない)。
-	backupSectionTitle: '🗄️ バックアップの状態',
-	backupOkTitle: '正常に取れています',
-	backupWarnTitle: '確認してください',
-	backupCriticalTitle: 'バックアップが取れていません',
-	backupLastSuccessLabel: '最後に成功した日時: ',
-	backupNeverSucceeded: '一度も成功していません',
-	backupConsecutiveFailuresLabel: '連続で失敗した回数: ',
-	backupNotificationMissing:
-		'失敗しても通知が届かない設定です。いま止まっても気づけません (DISCORD_ALERT_WEBHOOK_URL 未設定)。',
-	backupActionHint: 'うまくいっていないときは、下のフォームから相談してください。',
 	appInfoSectionTitle: 'ℹ️ アプリ情報',
 	appInfoTermsLink: '📄 利用規約',
 	appInfoPrivacyLink: '🔒 プライバシーポリシー',
