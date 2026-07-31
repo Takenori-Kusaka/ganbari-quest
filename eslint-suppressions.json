@@ -134,7 +134,7 @@
       "count": 1
     },
     "svelte/no-useless-children-snippet": {
-      "count": 6
+      "count": 5
     },
     "svelte/require-each-key": {
       "count": 2
