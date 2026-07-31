@@ -18,12 +18,14 @@
 CronCreate(cron: "13 * * * *", recurring: true, prompt: <label-mailbox.md §4「Dev セッション用」テンプレート>)
 ```
 
-Dev が拾うのは **`state:qm-blocked`**（QM からの差し戻し）と **自分に来た reviewer request**（`review-requested:@me`）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
+Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの。**Issue と PR の両方**）、**`state:qm-blocked`**（QM からの差し戻し）、**自分に来た reviewer request**（`review-requested:@me`）、そして **ORPHAN**（`state:*` が 1 つも付いていない open）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
 
 - **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
 - **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
 - **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**
-- **`state:needs-owner` は自分で進めない。** 不可逆 4 操作（削除 = gate / guard / test の削除を含む / 本番 deploy / 課金書込 / スキーマ変更）に気づいたら、Dev からでも label を付けてオーナーへ上げる
+- **判断を仰ぐときは必ず label を付ける。** 不可逆 4 操作（削除 = gate / guard / test の削除を含む / 本番 deploy / 課金書込 / スキーマ変更）→ **`state:needs-owner`**。それ以外の PO 判断（方針 / 優先度 / **repo 設定・ruleset** / 受容判断 / 語彙・ルールの改訂）→ **`state:needs-po`**。「4 操作に当たらないから label を付けない」で終わらせない
+- **`@mention` / Issue コメント / PR body に書いただけでは PO の受信箱に入らない**（label-mailbox.md §3.1.1）。各ロールは label を polling しており本文を読みに行かない。**書いたかどうかではなく、相手の polling クエリに出るかどうかが伝達の成否を決める**（2026-07-31: Dev の判断待ち 2 件が PO に届かず、うち 1 件は PR merge で流れた）
+- **`state:*` を外すときは必ず次の state を付ける。** どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える
 - **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込み、そうでなければ拾ったことだけ報告して主線に戻る
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
 

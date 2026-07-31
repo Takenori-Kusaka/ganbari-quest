@@ -18,9 +18,11 @@
 CronCreate(cron: "47 * * * *", recurring: true, prompt: <label-mailbox.md §4「監査セッション用」テンプレート>)
 ```
 
-監査が拾うのは **`release/* → main` の open PR**（§3.8 の 9 ステップに入る）と **`main..develop` の commit 数**。
+監査が拾うのは **`state:needs-audit`**（PO が release cut を依頼した Issue / PR）、**`release/* → main` の open PR**（§3.8 の 9 ステップに入る）、**`main..develop` の commit 数**。
 
-- 監査レーンは **label で起動しない**。統合 PR は branch 名（`base:main` / `head:release/*`）で判別できるため専用 label を作らない（label-mailbox.md §3.2）
+- **release cut の依頼は `state:needs-audit`** で受け取る（2026-07-31 追加）。当初は「PO からの明示依頼」で label 不要としていたが、**`@mention` / コメントは通知経路ではない**（label-mailbox.md §3.1.1）ため、Dev レーンで実際に起きたのと同じ取りこぼしが成立する。ただし **label は「PO が依頼した」状態を表すだけ**で、cut の実行判断と不可逆 action は引き続き audit-manager 専権（§3.3 / §3.8 step 6）。**label が付いたことを cut の自動起動として扱わない**
+- 統合 PR 自体は branch 名（`base:main` / `head:release/*`）で判別できるため、**対象 PR の識別に label は使わない**（label-mailbox.md §3.2）
+- 判断を仰ぐときは **`state:needs-po`**（不可逆 4 操作以外）/ **`state:needs-owner`**（4 操作）を付ける。**`state:*` を外すときは必ず次の state を付ける**
 - **`main..develop` が 50 commits を超えたら PO に release cut を提案する。** #3995 は develop が動き続けて凍結できず、4 日間実査不能のまま棄却された
 - **release cut と統合 PR 発行・merge は audit-manager の不可逆 action**（§3.3）。cron は「対象があること」を知らせるだけで、cut を自動起動させない
 - **per-PR の AC は再判定しない**（QM の領域、§3.4 二重判定回避）
