@@ -42,9 +42,8 @@ const GUIDE_LOADERS: Record<
 	'/admin/settings/data': () => import('../../../routes/(parent)/admin/settings/data/_guide'),
 	'/admin/settings/rules': () => import('../../../routes/(parent)/admin/settings/rules/_guide'),
 	'/admin/settings/support': () => import('../../../routes/(parent)/admin/settings/support/_guide'),
-	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	// #3267 (EPIC #3260 C3): プラン・課金 (#4139 で旧 /admin/billing を統合)
 	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
-	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
 	// #3263 (EPIC #3260 F2): marketplace は AdminLayout 非使用だが admin 取込 CUJ の着地先のため
 	// ガイドを登録する。
 	'/marketplace': () => import('../../../routes/marketplace/_guide'),
@@ -105,7 +104,6 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/admin/settings/support': 'SETTINGS_SUPPORT_GUIDE',
 	// #3267 (EPIC #3260 C3)
 	'/admin/subscription': 'SUBSCRIPTION_GUIDE',
-	'/admin/billing': 'BILLING_GUIDE',
 	// #3263 (EPIC #3260 F2)
 	'/marketplace': 'MARKETPLACE_GUIDE',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
@@ -348,9 +346,8 @@ export const ALL_PAGE_IDS = [
 	'admin-settings-data',
 	'admin-settings-rules',
 	'admin-settings-support',
-	// #3267 (EPIC #3260 C3)
+	// #3267 (EPIC #3260 C3) — #4139 で admin-billing は admin-subscription に統合
 	'admin-subscription',
-	'admin-billing',
 	// #3263 (EPIC #3260 F2)
 	'marketplace',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide

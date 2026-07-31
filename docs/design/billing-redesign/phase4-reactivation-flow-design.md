@@ -444,7 +444,7 @@ PHASE4_REACTIVATION_FLOW_LABELS = {
 | 滞在時間を伸ばさない | ✅ | 原則 1 (flow 配置 + dismiss 可 + session 保持で侵襲感最小化) / 原則 3 (confirm 動線を #2573 と統一して経路数削減) |
 | サプライズ濫用禁止 | ✅ | banner は archived state 駆動の静的表示、新規発生時のみ再露出 (lastIncrementAt 比較、§4 D) |
 | 連続演出 / 煽り禁止 | ✅ | 「あと N 日!」「急いで!」「失う恐怖」型不採用、Phase 3 #2575 禁忌語彙 6 件 SSOT 整合 |
-| 解約動線を隠さない | ✅ | banner は archived 訴求のみ、解約動線 (`/admin/billing/cancel`) は #2567 で独立維持 |
+| 解約動線を隠さない | ✅ | banner は archived 訴求のみ、解約動線 (`/admin/subscription/cancel`) は #2567 で独立維持 |
 | premium 階層 signal 打消 | ✅ | banner 主訴求「保護されています」、副訴求「プレミアム化で復活」(refs #2594 D-2) / context line も「データを復活させるために」が主訴求 |
 | 子供画面ゼロ露出 | ✅ | 3 層担保 (L1 ESLint / L2 repo filter / L3 E2E 5 mode、原則 5) |
 | 通知連打回避 | ✅ | session 保持 dismiss + lastIncrementAt 増加時のみ再露出 |

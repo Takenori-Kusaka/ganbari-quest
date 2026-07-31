@@ -192,8 +192,9 @@ const navCategories: NavCategory[] = $derived([
 		icon: NAV_CATEGORIES.settings.icon,
 		items: [
 			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
+			// #4139: 「請求管理」(/admin/billing) は「プラン」(/admin/subscription) に統合。
+			// プランと課金の入口を 1 本にし、どちらを開けばよいか迷わせない。
 			{ href: `${basePath}/subscription`, label: NAV_ITEM_LABELS.license, icon: '💎' },
-			{ href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
 			// #2178: メンバー → family カテゴリへ移動済
 		],
 	},

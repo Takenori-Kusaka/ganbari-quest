@@ -215,9 +215,9 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET  | /admin/billing/cancel | 解約理由ヒアリングフォーム表示 | owner/parent |
-| POST | /admin/billing/cancel | 解約理由送信（form action）→ Stripe Portal リダイレクト or thanks | owner/parent |
-| GET  | /admin/billing/cancel/thanks | 送信完了画面 | owner/parent |
+| GET  | /admin/subscription/cancel | 解約理由ヒアリングフォーム表示 | owner/parent |
+| POST | /admin/subscription/cancel | 解約理由送信（form action）→ Stripe Portal リダイレクト or thanks | owner/parent |
+| GET  | /admin/subscription/cancel/thanks | 送信完了画面 | owner/parent |
 
 **form action body (form-data):**
 - `category` (必須): `'graduation'` \| `'churn'` \| `'pause'`
@@ -227,7 +227,7 @@
 1. `cancellation-service.submitCancellationReason()` を呼び出して DB 永続化
 2. Discord churn channel へ `notifyCancellationWithReason()` で通知（カテゴリ + 自由記述含む）
 3. 課金プランかつ `stripeCustomerId` 存在 → Stripe Customer Portal セッションを作成して 303 リダイレクト
-4. 無料プラン or Portal 不可 → `/admin/billing/cancel/thanks` に 303 リダイレクト
+4. 無料プラン or Portal 不可 → `/admin/subscription/cancel/thanks` に 303 リダイレクト
 
 **バリデーション:**
 - `category` が 3 分類いずれでもない → 400 + `INVALID_CATEGORY`
@@ -236,14 +236,14 @@
 **`category='graduation'` 選択時の追加分岐（#1603 / ADR-0023 §5 I10）:**
 
 `submitCancellationReason()` 完了後、Stripe Portal リダイレクトの前に専用ページへ 303 redirect:
-- `redirect(303, '/admin/billing/cancel/graduation')`
+- `redirect(303, '/admin/subscription/cancel/graduation')`
 
 ### 卒業フロー（#1603 / ADR-0023 §3.8 / §5 I10）
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET  | /admin/billing/cancel/graduation | 卒業専用ページ表示 | owner/parent |
-| POST | /admin/billing/cancel/graduation | 事例公開承諾送信 → 解約完了 | owner/parent |
+| GET  | /admin/subscription/cancel/graduation | 卒業専用ページ表示 | owner/parent |
+| POST | /admin/subscription/cancel/graduation | 事例公開承諾送信 → 解約完了 | owner/parent |
 
 **load 戻り値:**
 - `totalPoints: number` — 全子供の getBalance() 合計
@@ -261,8 +261,8 @@
 
 **処理:**
 1. `graduation-service.recordGraduationConsent()` で graduation_consent テーブル / DynamoDB に保存
-2. 課金プラン（stripeCustomerId あり）→ `/admin/billing` に 303 redirect
-3. 無料プラン → `/admin/billing/cancel/thanks` に 303 redirect
+2. 課金プラン（stripeCustomerId あり）→ `/admin/subscription` に 303 redirect
+3. 無料プラン → `/admin/subscription/cancel/thanks` に 303 redirect
 
 **バリデーション:**
 - nickname が空 (consented=true 時) → 400 + `errorKey='errorNicknameRequired'`

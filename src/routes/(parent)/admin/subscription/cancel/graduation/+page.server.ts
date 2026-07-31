@@ -1,4 +1,4 @@
-// /admin/billing/cancel/graduation — 卒業フロー専用ページ (#1603 / ADR-0023 §3.8 / §5 I10)
+// /admin/subscription/cancel/graduation — 卒業フロー専用ページ (#1603 / ADR-0023 §3.8 / §5 I10)
 //
 // 解約フロー (#1596) で「卒業」を選んだ親向けの専用ページ。
 // - 残ポイント表示 + 還元提案 (現金換算 / 物品 / 体験)
@@ -96,10 +96,10 @@ export const actions: Actions = {
 		// 卒業セッション記録完了 → 解約完了処理
 		// 課金プランかつ Stripe Customer がある場合 → Customer Portal にリダイレクト
 		if (license?.stripeCustomerId) {
-			throw redirect(303, '/admin/billing');
+			throw redirect(303, '/admin/subscription');
 		}
 
 		// 無料プランは thanks ページへ
-		throw redirect(303, '/admin/billing/cancel/thanks');
+		throw redirect(303, '/admin/subscription/cancel/thanks');
 	},
 };

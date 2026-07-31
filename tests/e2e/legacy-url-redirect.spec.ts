@@ -353,6 +353,41 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/demo/admin/license', '/admin/subscription');
 	});
 
+	// ============================================================
+	// #4139: /admin/billing 廃止 → /admin/subscription 統合 (プラン・課金 2 ページ統合)
+	// 解約フロー配下 (/cancel, /cancel/thanks, /cancel/graduation) も同 entry の前方一致で
+	// 統合先の実ルート (/admin/subscription/cancel/**) に 1 段で着地する。
+	// ============================================================
+	test('/admin/billing → /admin/subscription (308, #4139)', async ({ request }) => {
+		await expectRedirect(request, '/admin/billing', '/admin/subscription');
+	});
+
+	test('/admin/billing/cancel → /admin/subscription/cancel (308, サブパス保持 #4139)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/admin/billing/cancel', '/admin/subscription/cancel');
+	});
+
+	test('/admin/billing/cancel/thanks → /admin/subscription/cancel/thanks (308, #4139)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/admin/billing/cancel/thanks',
+			'/admin/subscription/cancel/thanks',
+		);
+	});
+
+	test('/admin/billing/cancel/graduation → /admin/subscription/cancel/graduation (308, #4139)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/admin/billing/cancel/graduation',
+			'/admin/subscription/cancel/graduation',
+		);
+	});
+
 	// #2525 Phase 7 PR-L4 (#2836): site/help/license-key.html 完全削除 → /admin/subscription 301 redirect
 	test('/help/license-key → /admin/subscription (301, #2836 help ページ完全削除)', async ({
 		request,
@@ -413,10 +448,15 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		);
 	});
 
+	// #4139: /admin/billing → /admin/subscription 統合に伴い /demo/admin/billing も 1 段化
+	test('/demo/admin/billing → /admin/subscription (308) — 統合先へ 1 段', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/billing', '/admin/subscription');
+	});
+
 	// 親 fallback: 未登録 sub path も /admin に救済
-	test('/demo/admin/billing → /admin/billing (308) — 親 fallback (未登録 sub path)', async ({
+	test('/demo/admin/some-future-page → /admin/some-future-page (308) — 親 fallback', async ({
 		request,
 	}) => {
-		await expectRedirect(request, '/demo/admin/billing', '/admin/billing');
+		await expectRedirect(request, '/demo/admin/some-future-page', '/admin/some-future-page');
 	});
 });

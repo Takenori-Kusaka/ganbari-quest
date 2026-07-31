@@ -109,7 +109,7 @@ Phase 2 月次運用 / Phase 3 incident は頻度低 / ad-hoc のため最小限
    - [x] Allow customers to **view invoice history**（請求書履歴閲覧）
 2. **Cancellation** サブセクション:
    - Cancellation mode: **「End of billing period」**（期末解約、即時解約は ¥1,000 程度の Phase 1 では過剰）
-   - Reason collection: **OFF**（アプリ側 `/admin/billing/cancel` で詳細収集するため、Portal 側は不要）
+   - Reason collection: **OFF**（アプリ側 `/admin/subscription/cancel` で詳細収集するため、Portal 側は不要）
 3. **Subscription updates** サブセクション:
    - Allowed products: Standard / Family の両方をチェック
    - Allowed price intervals: Monthly / Yearly の両方をチェック

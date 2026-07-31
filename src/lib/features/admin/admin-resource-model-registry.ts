@@ -356,7 +356,6 @@ export const ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY = {
  */
 export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
 	// --- top-level non-resource ---
-	billing: { reason: '課金・プラン管理画面 (resource-list ではない)' },
 	certificates: { reason: '表彰状の発行・閲覧画面 (resource-list ではない)' },
 	cheer: { reason: 'おうえんメッセージ送信画面 (resource-list ではない)' },
 	children: { reason: 'お子さま登録・編集画面 (resource-list ではない)' },
@@ -367,17 +366,21 @@ export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
 	reports: { reason: 'レポート閲覧画面 (resource-list ではない)' },
 	settings: { reason: '設定ハブ (サブページ集約)。配下の各サブページは個別に分類' },
 	status: { reason: 'ステータス閲覧画面 (resource-list ではない)' },
-	subscription: { reason: 'サブスクリプション管理画面 (resource-list ではない)' },
+	subscription: {
+		reason: 'プラン・課金管理画面 (#4139 で旧 billing を統合、resource-list ではない)',
+	},
 	// --- nested: 詳細・編集ページ (動的セグメント含む、#3171) ---
 	'activities/[id]/edit': { reason: '活動の編集ページ (詳細フォーム、resource-list ではない)' },
 	'certificates/[id]': { reason: '表彰状の個別表示ページ (詳細、resource-list ではない)' },
 	'rewards/requests': {
 		reason: 'ごほうび交換の承認待ち一覧 (redemption sub-page、resource-list ではない)',
 	},
-	// --- nested: 解約フロー (#3171) ---
-	'billing/cancel': { reason: '解約フローの導入ページ (resource-list ではない)' },
-	'billing/cancel/graduation': { reason: '解約フロー (卒業) ページ (resource-list ではない)' },
-	'billing/cancel/thanks': { reason: '解約フロー (完了) ページ (resource-list ではない)' },
+	// --- nested: 解約フロー (#3171、#4139 で /admin/subscription 配下へ移設) ---
+	'subscription/cancel': { reason: '解約フローの導入ページ (resource-list ではない)' },
+	'subscription/cancel/graduation': {
+		reason: '解約フロー (卒業) ページ (resource-list ではない)',
+	},
+	'subscription/cancel/thanks': { reason: '解約フロー (完了) ページ (resource-list ではない)' },
 	// --- nested: settings サブページ (#3171。rules は ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY で resource 扱い) ---
 	'settings/account': { reason: '設定 > アカウント (OYAKAGI / PIN、resource-list ではない)' },
 	'settings/activities': { reason: '設定 > 活動 (ステータス減少設定、resource-list ではない)' },

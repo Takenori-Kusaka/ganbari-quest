@@ -17,6 +17,10 @@
  * 維持セクション: trial banner / 現在のプラン / プラン選択 /
  *   PIN ゲート / DowngradeResourceSelector / Stripe Customer Portal 遷移
  *
+ * #4139: 旧 `/admin/billing` (請求書・支払い管理) を本パネルに統合。プラン・課金の情報と操作を
+ *   1 ページに集約し、契約ステータス表示 1 箇所 / 請求管理ページを開くボタン 1 個 /
+ *   解約導線 1 本 (`/admin/subscription/cancel`) にする。旧 URL は LEGACY_URL_MAP で救済。
+ *
  * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
 
@@ -30,6 +34,7 @@ import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	ACTION_LABELS,
 	APP_LABELS,
+	BILLING_LABELS,
 	OYAKAGI_LABELS,
 	PAGE_TITLES,
 	SUBSCRIPTION_PAGE_LABELS,
@@ -232,6 +237,23 @@ async function startCheckout(planId: string) {
 	} finally {
 		checkoutLoading = false;
 	}
+}
+
+// #4139: プラン利用状況カード (PlanStatusCard) のアップグレード CTA を実処理に接続する。
+// 未接続だと CTA は `/admin/subscription` (= このページ自身) へのリンクにフォールバックし、
+// 押しても何も起きない自己リンクになる (本番実機 2026-07-31 PO 確認)。
+//
+// 契約状態で経路が分かれる:
+//   - 契約なし   → Stripe Checkout (新規契約)
+//   - 契約あり   → Stripe 請求管理ページ (プラン変更)。checkout は ALREADY_SUBSCRIBED (409) で
+//                  弾かれるため、上位プランへの変更は Portal 経由が唯一の正しい経路。
+//                  PIN ゲート + 超過リソース確認も requestPortal() が担う。
+function handlePlanUpgrade(planId: string) {
+	if (hasSubscription) {
+		void requestPortal();
+		return;
+	}
+	void startCheckout(planId);
 }
 
 // #738: ダウングレードプレビュー取得
@@ -463,6 +485,8 @@ async function openPortal() {
 			childMax={planStats.childMax}
 			retentionDays={planStats.retentionDays}
 			{trialStatus}
+			onUpgrade={handlePlanUpgrade}
+			upgradeLoading={checkoutLoading || portalLoading}
 		/>
 	{/if}
 
@@ -592,7 +616,18 @@ async function openPortal() {
 
 		{#if hasSubscription}
 			<!-- サブスクリプション有り → Stripe Customer Portal で管理 (#771: PIN 再確認ゲート付き) -->
+			<!-- #4139: 旧 /admin/billing の「請求書・支払い方法」セクションを統合。
+			     請求管理ページを開くボタンはこの 1 箇所のみ (同じ出口を複数置かない)。 -->
 			<div class="grid gap-3">
+				<p class="text-sm text-[var(--color-text-muted)]">
+					{BILLING_LABELS.billingPortalDesc}
+				</p>
+				<ul class="portal-feature-list">
+					<li>{BILLING_LABELS.featureInvoices}</li>
+					<li>{BILLING_LABELS.featurePaymentMethod}</li>
+					<li>{BILLING_LABELS.featurePlanSwitch}</li>
+					<li>{BILLING_LABELS.featureNextBilling}</li>
+				</ul>
 				<Button
 					onclick={requestPortal}
 					disabled={portalLoading}
@@ -694,40 +729,18 @@ async function openPortal() {
 	</Card>
 	{/if}
 
-	<!-- 支払い履歴 -->
-	<Card variant="default" padding="lg">
-		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.paymentHistoryTitle}</h3>
-		{#if hasSubscription}
-			<p class="text-sm text-[var(--color-text-muted)] text-center py-4">
-				{SUBSCRIPTION_PAGE_LABELS.paymentHistoryPortalNote}
-			</p>
-			<Button
-				onclick={requestPortal}
-				disabled={portalLoading}
-				variant="secondary"
-				size="sm"
-				class="w-full"
-			>
-				{SUBSCRIPTION_PAGE_LABELS.paymentHistoryPortalButton}
-			</Button>
-		{:else}
-			<p class="text-sm text-[var(--color-text-tertiary)] text-center py-4">
-				{SUBSCRIPTION_PAGE_LABELS.paymentHistoryEmpty}
-			</p>
-		{/if}
-		<div class="mt-4 pt-3 border-t border-[var(--color-border-light)]">
-			<a
-				href="/admin/billing"
-				class="flex items-center justify-between text-sm text-[var(--color-text-link)] hover:underline"
-				data-testid="license-to-billing"
-			>
-				<span>{SUBSCRIPTION_PAGE_LABELS.paymentHistoryBillingLink}</span>
-				<span>&rarr;</span>
-			</a>
-		</div>
-		{/snippet}
-	</Card>
+	<!-- #4139: 解約導線。旧 /admin/billing の「解約手続き」リンクを統合先に移設する
+	     (プラン・課金の操作を 1 ページに集約したため、ここが唯一の解約入口)。
+	     Kinde frictionless 整合で控えめ表示 (Phase 3 #2567 §FR-5)。 -->
+	<div class="subscription-cancel-row">
+		<a
+			href="/admin/subscription/cancel"
+			class="subscription-cancel-link"
+			data-testid="subscription-to-cancel"
+		>
+			{SUBSCRIPTION_PAGE_LABELS.cancelLink}
+		</a>
+	</div>
 
 	<!-- #771: プラン変更 (Stripe Portal) 前の二段階確認ダイアログ -->
 	<Dialog bind:open={showPortalConfirm} title={SUBSCRIPTION_PAGE_LABELS.portalConfirmTitle}>
@@ -831,6 +844,46 @@ async function openPortal() {
 	.plan-card.selected {
 		border-color: var(--color-violet-500, #8b5cf6);
 		box-shadow: 0 0 0 1px var(--color-violet-500, #8b5cf6);
+	}
+
+	/* #4139: merged from the former /admin/billing portal feature list */
+	.portal-feature-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.portal-feature-list li {
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
+		padding-left: 1.25rem;
+		position: relative;
+	}
+
+	.portal-feature-list li::before {
+		content: '✓';
+		position: absolute;
+		left: 0;
+		color: var(--color-action-success);
+		font-weight: 700;
+	}
+
+	/* #4139: cancellation entry point (low-emphasis) */
+	.subscription-cancel-row {
+		display: flex;
+		justify-content: center;
+	}
+
+	.subscription-cancel-link {
+		font-size: 0.8rem;
+		color: var(--color-text-tertiary);
+		text-decoration: underline;
+	}
+
+	.subscription-cancel-link:hover {
+		color: var(--color-text-secondary);
 	}
 
 	.recommend-badge {

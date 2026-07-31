@@ -72,7 +72,6 @@ Phase 2 中間山 #4 で定義した PQL = `子供登録 1 件 + 活動カスタ
 
 **実装ルール**:
 - TrialBanner は `+layout.svelte` 配下で `$page.url.pathname.startsWith('/admin/subscription')` なら描画 skip (subscription 内では上部カード SSOT)
-- TrialBanner は `$page.url.pathname.startsWith('/admin/billing')` でも非表示 (請求情報画面では distraction を増やさない)
 - header `plan-badge` は **常時表示**、TrialBanner と内容重複しない短文に統一 (header = 1 行残期 / banner = 進捗内訳)
 
 ### 原則 5: 子供画面ゼロ露出
@@ -368,7 +367,7 @@ Storybook ラベル言語ポリシー (DESIGN.md §6) に従い、stories.svelte
 1. `labels.ts` の `TRIAL_LABELS` に §4 新規 atom 追加 (旧 `bannerTitle*` / `bannerDesc*` は Phase 7 完了時に削除、後方互換期間中は両立)
 2. `TrialBanner.svelte` を 4 variant 拡張: `not-started` / `progress` / `sticky-invite` / `ending-soon` / `final-day` / `recently-downgraded` の 6 variant 判定ロジック実装
 3. `aria-live="polite"` + `aria-atomic="true"` + `aria-label` 追加 (§5)
-4. `+layout.svelte` の `showTrialBanner` derived に `!path.startsWith('/admin/subscription')` + `!path.startsWith('/admin/billing')` 追加 (boundary)
+4. `+layout.svelte` の `showTrialBanner` derived に `!path.startsWith('/admin/subscription')` 追加 (boundary、#4139 で `/admin/billing` は統合済)
 5. PQL 計測 source 確定: `pqlActionCount` を server-side 集計 → `+layout.server.ts` で props 注入（旧 analytics 層は #3805 で撤去、計測 source は本 Phase 実装時に on-demand DSQL 集計として再設計する）
 6. archivedSummary 拡張: 既存 `archivedSummary.archivedChildCount` に加え `archivedActivityCount` / `archivedActivityFreeLimit` を追加 (Notion 型 read-only カウント表示用)
 7. Storybook 9 variant stories 追加 (§8)

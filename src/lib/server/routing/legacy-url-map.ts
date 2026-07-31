@@ -571,6 +571,32 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason:
 			'ライセンスキー販売モデル撤廃に伴う help ページ完全削除 (Epic #2525 Phase 7 PR-L4 / Phase 1 補強 3 #2788 §3.4 OQ-3)',
 	},
+	// #4139: /admin/billing (請求書・支払い管理) 廃止 → /admin/subscription に統合。
+	// プランと課金が 2 ページに分かれ、契約ステータス表示 2 重 / Stripe 請求管理ページを開く
+	// ボタン 3 箇所 / 相互リンクで「どちらがプランのページか」判別できない状態だった。
+	// 前方一致のため解約フロー配下も 1 段で救済される
+	// (/admin/billing/cancel{,/thanks,/graduation} → /admin/subscription/cancel{,...}、
+	//  ルート実体も同 PR で /admin/subscription/cancel へ移設済)。
+	// 永久保持: src/routes/CLAUDE.md `#578` 旧 URL 廃止ルール (ブックマーク維持のため削除禁止)。
+	{
+		from: '/admin/billing',
+		to: '/admin/subscription',
+		deletedAt: '2026-07-31',
+		issue: '#4139',
+		reason:
+			'プラン・課金 2 ページ統合 (契約ステータス 2 重表示 / Stripe 請求管理ページ導線 3 箇所 / 相互リンクによる導線分岐の解消)',
+	},
+	// #4139: /demo/admin/billing は親 fallback (/demo/admin) 経由だと
+	// /admin/billing → /admin/subscription の 2 段 redirect になるため、明示エントリで 1 段化する
+	// (/demo/admin/license と同じ扱い)。
+	{
+		from: '/demo/admin/billing',
+		to: '/admin/subscription',
+		deletedAt: '2026-05-17',
+		issue: '#4139',
+		reason:
+			'#2097 PR-B3: /demo/admin/* 撤去 + #4139 /admin/billing → /admin/subscription 統合 → redirect を 1 段化',
+	},
 	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 + 応援機能 /admin/cheer に統合
 	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」
 	// 旧 messages は P 付与なし = 子供から見て価値が薄いため廃止。スタンプ/メッセージは応援機能の付随要素として cheer に統合。
