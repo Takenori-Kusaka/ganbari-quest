@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
 // #4087 — バックアップ状態カードの 3 状態を Storybook で確認可能にする。
 //
 // 本 component の表示条件は `DATA_SOURCE=pglite` かつ backup status file 存在で、
@@ -6,6 +6,7 @@
 // Storybook なら component 単体で描画できるため、3 状態の見た目を誰も確認できないまま
 // merge される事態を避けられる (PO 決裁 2026-08-01)。
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import type { BackupHealthVerdict } from '$lib/domain/backup-health';
 import BackupHealthCard from './BackupHealthCard.svelte';
 
 const { Story } = defineMeta({
@@ -15,7 +16,7 @@ const { Story } = defineMeta({
 });
 
 /** 正常時。直近成功 + 失敗 0 + 通知経路あり。 */
-const OK = {
+const OK: BackupHealthVerdict = {
 	level: 'ok',
 	reason: 'healthy',
 	hoursSinceLastSuccess: 3,
@@ -25,7 +26,7 @@ const OK = {
 };
 
 /** 通知経路が無いだけの warn。**取れてはいるが、壊れても届かない**状態 (#4087 AC1)。 */
-const WARN_NO_CHANNEL = {
+const WARN_NO_CHANNEL: BackupHealthVerdict = {
 	level: 'warn',
 	reason: 'no-notification-channel',
 	hoursSinceLastSuccess: 5,
@@ -38,7 +39,7 @@ const WARN_NO_CHANNEL = {
  * 2026-07-31 の実害と同じ状態 (#4119)。
  * cutover 以降 1 度も成功せず、18 晩連続で失敗し、通知経路も無かった。
  */
-const CRITICAL_REAL_INCIDENT = {
+const CRITICAL_REAL_INCIDENT: BackupHealthVerdict = {
 	level: 'critical',
 	reason: 'never-succeeded',
 	hoursSinceLastSuccess: null,
@@ -48,7 +49,7 @@ const CRITICAL_REAL_INCIDENT = {
 };
 
 /** ジョブが起動しなかったケース。**失敗 0 回でも成功が古ければ critical** (#4087 AC3)。 */
-const CRITICAL_STALE = {
+const CRITICAL_STALE: BackupHealthVerdict = {
 	level: 'critical',
 	reason: 'stale-critical',
 	hoursSinceLastSuccess: 72,
