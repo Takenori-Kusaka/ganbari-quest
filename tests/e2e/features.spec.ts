@@ -813,11 +813,17 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 		}
 	});
 
-	test('支払い履歴セクションが表示される', async ({ page }) => {
+	// #4139: 「支払い履歴」カード (旧 /admin/billing への 2 個目の Portal 導線を含む) は
+	// プラン・課金統合で撤去。支払い情報はプラン管理カードの請求管理ページ導線 1 本に集約した。
+	test('支払い情報の導線がプラン管理に集約されている (#4139)', async ({ page }) => {
 		await page.goto('/admin/subscription');
-		const paymentHistory = page.getByText('支払い履歴はまだありません');
-		await paymentHistory.scrollIntoViewIfNeeded();
-		await expect(paymentHistory).toBeVisible();
+		// 旧「支払い履歴」カードは存在しない
+		await expect(page.getByText('支払い履歴はまだありません')).toHaveCount(0);
+		await expect(page.getByTestId('license-to-billing')).toHaveCount(0);
+		// 請求管理ページを開くボタンは 1 個以下 (Stripe 無効環境では 0 個)
+		expect(await page.getByTestId('open-portal-button').count()).toBeLessThanOrEqual(1);
+		// 解約導線は統合先に残っている
+		await expect(page.getByTestId('subscription-to-cancel')).toBeVisible();
 	});
 });
 
