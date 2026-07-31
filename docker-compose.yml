@@ -12,7 +12,12 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      - ./data:/app/data
+      # #3970: バックアップの保存先を compose を書き換えずに差し替えられるようにする。
+      # 既定は従来どおり ./data。NAS / SAMBA マウント等へ向けたい場合は .env で
+      # HOST_DATA_DIR=/mnt/nas/ganbari-quest-data のように指定する。
+      # off-site 複製そのものはファイルシステム層 (運用者の責任) で行う — 詳細は
+      # docs/runbooks/pglite-restore-drill.md §オフサイト複製。
+      - ${HOST_DATA_DIR:-./data}:/app/data
       - ./tenants:/app/client/tenants
       - ./uploads:/app/client/uploads
       - ./generated:/app/client/generated
@@ -62,7 +67,9 @@ services:
       timeout: 5s
       retries: 3
     volumes:
-      - ./data:/app/data
+      # #3970: app と同じ実体を指すこと。片方だけ差し替えると backup コンテナが
+      # 別ディレクトリを見て「取れているのに実データではない」#3950 同型になる。
+      - ${HOST_DATA_DIR:-./data}:/app/data
       - ./scripts:/app/scripts:ro
     environment:
       - DATABASE_URL=./data/ganbari-quest.db
