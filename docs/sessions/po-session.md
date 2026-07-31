@@ -171,6 +171,22 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 - 機械強制 CI / 自動 reminder は **不採用** (補佐の自発トリガーで十分、過剰防衛回避)
 - 累積失敗パターン検証 (観点 5) は ADR-0010 §7 機能完成度 checklist と双方向連携
 
+## セッション起動時の必須手順: mailbox cron を作る
+
+**SSOT**: [label-mailbox.md](label-mailbox.md)
+
+各ロールは別クローン・別セッションで動き、セッション間の直接通信手段は無い。オーナーの手動中継に依存しないため、**セッション起動直後に自分の mailbox を polling する cron を 1 本作る**。
+
+```
+CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
+```
+
+PO が拾うのは **`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）と、`state:ready-to-merge` の CI 実測確認。
+
+- **label は状態であって承認ではない。** `state:ready-to-merge` が付いていても CI 緑は自分で確認する（ラベルだけ見て merge 可と判断し、QM が赤を理由に拒否した実例あり）
+- **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
+- **PO の決定は、指示を出した時点で該当 Issue / PR にコメントとして残す。** セッション上の発言は証跡にならない（PR body の「PO 承認条件」に GitHub 上の出典が無く QM が検証できなかった実例あり、2026-07-31）
+
 ## 技術手順 (`--body-file` 運用 / namespace 重複検査)
 
 詳細は SSOT 一本化 (#2089) → [Skill: issue-triage](../../.claude/skills/issue-triage/SKILL.md) §「HEREDOC 禁止 / `--body-file` 運用」「ステップ 1.5: SSOT namespace 重複検査」を参照。
