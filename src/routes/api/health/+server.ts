@@ -1,4 +1,9 @@
 import { json } from '@sveltejs/kit';
+import {
+	type BackupHealthVerdict,
+	evaluateBackupHealth,
+	isBackupNotificationConfigured,
+} from '$lib/domain/backup-health';
 import { probePg, probeSqlite, type SqliteProbeResult } from '$lib/server/db/probe';
 import {
 	getPgliteBackupStatus,
@@ -45,6 +50,26 @@ export const GET: RequestHandler = async () => {
 	//  caller が存在せず dead export になっていた。本配線がその caller である)
 	const backup = DATA_SOURCE === 'pglite' ? await readBackupStatus() : undefined;
 
+	// #4087: 生の status に加えて **判定結果** を載せる。
+	//
+	// 生値だけだと「lastSuccessAt が 3 日前」を読んだ人が毎回自分で深刻度を判断することになり、
+	// 実際 2026-07-31 は 18 日間誰もその判断をしなかった (#4119)。判定は 1 箇所 (domain) に置き、
+	// push (Discord) / pull (本 endpoint / admin 画面) が同じ結論を見る。
+	//
+	// **失敗 0 回でも成功が古ければ critical** になるのが要点 — job が起動しなかった場合、
+	// job 内から投げる push 通知は原理的に発火しないため、鮮度でしか捕まえられない。
+	const backupHealth: BackupHealthVerdict | undefined = backup
+		? evaluateBackupHealth(
+				{
+					lastSuccessAt: backup.lastSuccessAt,
+					consecutiveFailures: backup.consecutiveFailures,
+					lastFailureMessage: backup.lastFailureMessage,
+					notificationConfigured: isBackupNotificationConfigured(process.env),
+				},
+				new Date(),
+			)
+		: undefined;
+
 	return json({
 		status: 'ok',
 		timestamp: new Date().toISOString(),
@@ -54,6 +79,7 @@ export const GET: RequestHandler = async () => {
 		uptime: Math.floor(process.uptime()),
 		schema: schemaInfo,
 		...(backup ? { backup } : {}),
+		...(backupHealth ? { backupHealth } : {}),
 	});
 };
 

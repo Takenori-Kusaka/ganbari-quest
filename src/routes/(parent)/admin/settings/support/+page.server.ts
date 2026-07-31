@@ -3,19 +3,55 @@
 // appInfo / founderInquiry は静的なため load 不要。
 
 import { fail } from '@sveltejs/kit';
+import {
+	type BackupHealthVerdict,
+	evaluateBackupHealth,
+	isBackupNotificationConfigured,
+} from '$lib/domain/backup-health';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { logger } from '$lib/server/logger';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
+import { getPgliteBackupStatus } from '$lib/server/services/pglite-backup-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// #support-unify: 相談 intent の返信先 hint (「○○ に返信します」) でアカウントメールを提示するため、
 	// cognito 認証時のみ識別子メールを渡す (local モードは null = フォームで明示入力を促す)。
 	const accountEmail = locals.identity?.type === 'cognito' ? locals.identity.email : null;
-	return { accountEmail };
+
+	// #4087 (E3 / EPIC #4119): バックアップ状態を家族 (非エンジニア) が見られる場所に出す。
+	//
+	// NUC セルフホスト (DATA_SOURCE=pglite) のときだけ載せる。クラウド (dsql) のバックアップは
+	// AWS Backup が担っており本画面の対象外で、載せると「自分で見るべきもの」を誤らせる。
+	const backupHealth = process.env.DATA_SOURCE === 'pglite' ? await readBackupHealth() : null;
+
+	return { accountEmail, backupHealth };
 };
+
+/**
+ * バックアップ状態を判定して返す。**画面を落とさない**ことを優先する。
+ *
+ * 状態ファイルが読めないこと自体はサポート画面の主目的 (相談フォーム) と無関係なので、
+ * ここで throw すると「バックアップ状態が読めないせいで相談できない」という逆転が起きる。
+ */
+async function readBackupHealth(): Promise<BackupHealthVerdict | null> {
+	try {
+		const status = await getPgliteBackupStatus();
+		return evaluateBackupHealth(
+			{
+				lastSuccessAt: status.lastSuccessAt,
+				consecutiveFailures: status.consecutiveFailures,
+				lastFailureMessage: status.lastFailureMessage,
+				notificationConfigured: isBackupNotificationConfigured(process.env),
+			},
+			new Date(),
+		);
+	} catch {
+		return null;
+	}
+}
 
 // #support-unify: 1 フォーム統合の検証ロジック。intent (用件 2 軸) + 内容分類を併用する。
 //   - intent='feedback' (感想・要望、返信不要): category = feature|bug|other を併記
