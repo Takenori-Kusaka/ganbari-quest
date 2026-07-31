@@ -1366,6 +1366,36 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 
 回帰は `tests/unit/routes/health-backup-status.test.ts`（付与条件と失敗時の省略）が固定する。
 
+**`backupHealth` フィールド（`backup` と同条件で付与、#4087）:**
+
+```json
+{
+  "backupHealth": {
+    "level": "critical",
+    "reason": "never-succeeded",
+    "hoursSinceLastSuccess": null,
+    "consecutiveFailures": 18,
+    "lastFailureMessage": "CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)",
+    "notificationMissing": true
+  }
+}
+```
+
+`backup` が生の状態値であるのに対し、本フィールドは **「いま人間が行動すべきか」の判定結果**を載せる。判定は `src/lib/domain/backup-health.ts`（純粋関数）に集約し、**push（Discord alert）と pull（本 endpoint / admin 画面）が同じ結論を見る**。
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `backup` と同じ（`DATA_SOURCE === 'pglite'` かつ状態ファイルが読めたとき）。読めなければ `backup` ごと省略する |
+| `level` | `ok` / `warn` / `critical`。UI の色分けと通知の強さを 1 箇所で決める |
+| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `notificationMissing` | 失敗通知の宛先（`DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_WEBHOOK_INCIDENT`）が 1 つも無い状態。**`level` と独立に立つ** — critical のときも「届かない」ことは対処が変わるため独立に伝える |
+| 判定順 | **深刻な方から**。stale（動いていない）を failure（落ちている）より先に見る。**job が起動しなかった場合、job 内から投げる push 通知は原理的に発火しない**ため、鮮度でしか捕まえられない |
+| しきい値 | `BACKUP_STALE_WARN_HOURS = 26` / `BACKUP_STALE_CRITICAL_HOURS = 50` / `BACKUP_CONSECUTIVE_FAILURE_CRITICAL = 2`。日次 03:00 実行前提で「1 回飛んだ」「2 回連続で飛んだ」に対応。1 回で critical にすると再起動のたびに狼少年になる（ADR-0012 整合） |
+
+**既知の限界（#4144 由来、未解消）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）も通常の失敗と同じ `catch` で `consecutiveFailures` を増やし、`lastSuccessAt` を更新しない。したがって **guard trip が 2 回続くと「取得は成功しているのに critical」**と判定される。`reason` を家族向け UI に出す際は、この誤解を招く表示にならないか確認すること。
+
+回帰は `tests/unit/domain/backup-health.test.ts`（判定）と `tests/unit/routes/health-backup-status.test.ts`（付与条件）が固定する。
+
 #### GET /api/ready
 
 readiness probe（shallow、#3657）。**プロセスが HTTP を受けられることのみを証明し、DB には一切接触しない**。LWA（Lambda Web Adapter）の `AWS_LWA_READINESS_CHECK_PATH` が参照する（`Dockerfile.lambda`）。readiness を `/api/health`（deep DB probe）に結合すると DB 障害時に LWA が never-ready → 全リクエスト 502 + cold start init timeout ループになるため分離する（13-AWSサーバレスアーキテクチャ設計書 §3.3）。
