@@ -28,13 +28,13 @@
 2. **label は状態であって指示ではない** — `state:ready-to-merge` が付いていても、**CI 緑は自分で確認する**。label は実測を代替しない（PO がラベルだけ見て merge 可と判断し、QM が赤を理由に拒否した実例あり）
 3. **付けた側が意味に責任を持つ** — 自分のレーンから次のレーンへ渡すときに、渡す側が付ける
 4. **不可逆 4 操作だけはオーナーへ上げる** — 削除（gate / guard / test の削除を含む）/ 本番 deploy / 課金書込 / スキーマ変更。それ以外はセッションが自分で判断して進む
-5. **語彙を増やさない** — 4 種で足りている。増やす前に GitHub 標準機能で表せないかを確認する
+5. **語彙を増やさない** — 増やす前に GitHub 標準機能で表せないかを確認する。ただし**渡す経路が存在しない**なら語彙不足であり、増やすのが正しい（§6）
 
 ---
 
 ## §3 仕様
 
-### §3.1 label 語彙（4 種）
+### §3.1 label 語彙（7 種）
 
 | label | 意味 | 付ける人 | 次に動く |
 |---|---|---|---|
@@ -51,7 +51,31 @@
 
 > **§3.1 の欠落で実際に起きたこと（2026-07-31）**: Dev が「ruleset 変更」「node バージョン EBADENGINE」の 2 件を PO 判断待ちとして Issue コメント / PR body に書いたが、**不可逆 4 操作に当たらないため label を付けなかった**。PO はコメントを polling していないため、**どちらも PO の mailbox に入らなかった**。`#4144` の Q1/Q2 が PO に届いたのは、QM が「`po-decision:required` の決裁が GitHub 上に存在しない」として merge を保留したからで、通知経路が機能した結果ではない。
 
-### §3.1.1 mention とコメントは通知経路ではない
+### §3.1.1 遷移表 — **復路を含む全経路**（2026-07-31 追加）
+
+§3.1 は「誰が付けるか / 次に誰が動くか」だけを定めており、**受け取った側が対応を終えたときに何に移すか（復路）が未定義だった**。その結果、Dev が `state:qm-blocked` の差し戻しに対応しても label が `qm-blocked` のまま残り、**QM の受信箱に戻らず、オーナーが手で伝えるまで停止した**（PR #4149 で実発生）。
+
+**受け取った側は、対応を終えたら必ず次の state に移す。** 移し先は以下で固定する。
+
+| 現在の state | 誰が | いつ | **次の state** |
+|---|---|---|---|
+| `state:needs-dev` | Dev | 実装完了・CI 全緑・Ready 化 | **`state:dev-done`** |
+| `state:needs-dev` | Dev | 判断が要ると分かった | `state:needs-po` / `state:needs-owner` |
+| `state:dev-done` | QM | レビューで BLOCK 3 類型に該当 | **`state:qm-blocked`** |
+| `state:dev-done` | QM | approve | **`state:ready-to-merge`** |
+| **`state:qm-blocked`** | **Dev** | **差し戻し対応が完了し CI 全緑** | **`state:dev-done`**（**復路。これが未定義だった**） |
+| `state:ready-to-merge` | QM | merge 実行 | （close / label は残してよい） |
+| `state:needs-po` | PO | 決裁をコメントとして残した | **次の担当の state**（`needs-dev` / `needs-audit` / `dev-done` 等） |
+| `state:needs-owner` | オーナー / PO | 決裁をコメントとして残した | 同上 |
+| `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
+
+**原則**: `state:*` は「**次に動く人**」を指す。自分が動き終わったら、その label は自分を指したままにしない。
+
+> **判断待ちが 2 件以上ある場合**: 1 件目を解決して label を移すと、**2 件目が受信箱から消える**（#4145 の QM approve コメントで報告された orphan と同 class）。**未解決の判断が残っているなら label を移さない。** 移すのは「その受信箱に残る用件がゼロになったとき」だけ。
+
+> **class-lock を今回は作らない理由**: 「label が状態を持つが遷移の網羅性が保証されていない」は同 class 2 回目（orphan / 復路未定義）であり、ADR-0061 原則 2 なら機械 guard の対象になる。ただし **ADR-0061 の適用対象限定**（検証装置・運用装置自身の不具合には適用しない — 装置の class-lock は「装置を守る装置」を生み無限後退する、#4123）に該当するため、**遷移表という定義で塞ぐ**。定義が安定して以降も同 class が再発するなら、そのとき guard 化を判断する。
+
+### §3.1.2 mention とコメントは通知経路ではない
 
 **`@mention` / Issue コメント / PR body に書いただけでは、相手の mailbox に入らない。** 各ロールは label を polling しており、本文を読みに行かない。
 
@@ -64,7 +88,7 @@
 | **approve の依頼** | `gh pr edit <N> --add-reviewer <user>` | GitHub が reviewer request としてモデル化済。label で二重管理しない |
 | 統合監査の**対象 PR** | `base:main head:release/*` の open PR | branch 名で判別できる。label 不要 |
 
-> **release cut の依頼は `state:needs-audit` を使う（2026-07-31 改訂）**。当初は「PO → 監査への明示依頼」で label 不要としていたが、**mention / コメントは通知経路ではない**（§3.1.1）ため、Dev で起きたのと同じ取りこぼしが監査レーンでも成立する。cut を label で**自動起動させない**方針は維持する — `state:needs-audit` は「PO が cut を依頼した」という状態を表すだけで、cut の実行判断と不可逆 action は引き続き audit-manager 専権（[audit-team.md](audit-team.md) §3.3 / §3.8 step 6）。
+> **release cut の依頼は `state:needs-audit` を使う（2026-07-31 改訂）**。当初は「PO → 監査への明示依頼」で label 不要としていたが、**mention / コメントは通知経路ではない**（§3.1.2）ため、Dev で起きたのと同じ取りこぼしが監査レーンでも成立する。cut を label で**自動起動させない**方針は維持する — `state:needs-audit` は「PO が cut を依頼した」という状態を表すだけで、cut の実行判断と不可逆 action は引き続き audit-manager 専権（[audit-team.md](audit-team.md) §3.3 / §3.8 step 6）。
 
 > **例外運用**: gate 欠陥で Dev が PR を出せない場合に限り QM の Fix Agent が修理 PR を作る。その PR の approve は **Dev** が行う（ADR-0022 作成者 ≠ 承認者）。この受け渡しは **reviewer request** で行い、専用 label を作らない。
 
@@ -150,12 +174,14 @@ gh pr list --search "review-requested:@me is:open" --json number,title --jq '.[]
 gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
 
 - **判断を仰ぐときは `state:needs-po`（不可逆 4 操作以外）か `state:needs-owner`（4 操作）を必ず付ける。**
-  mention / Issue コメント / PR body に書いただけでは PO の受信箱に入らない（§3.1.1）
+  mention / Issue コメント / PR body に書いただけでは PO の受信箱に入らない（§3.1.2）
 - ORPHAN（state:* / status:on-hold / epic のいずれも付いていない open）が出たら、自分の担当かを判断し、担当なら state:needs-dev を
   付けて拾う。他ロールの担当なら該当 state を付けて渡す。**放置しない**
 
 - state:qm-blocked があれば、BLOCK 事由（顧客に実害 / 証跡の真正性 / 不可逆 のどれか）を PR コメントから読み、
   症状ではなく事由に対処する。テストの赤は症状であって事由ではない。
+  **対応が完了し CI が緑になったら state:qm-blocked を外して state:dev-done に戻す**（§3.1.1 復路）。
+  戻さないと QM の受信箱に現れず、対応済みであることが誰にも伝わらない（PR #4149 で実発生）。
   テストの削除 / skip / assertion 弱体化で赤を消さない（ADR-0006）
 - reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い（ADR-0022 例外運用）。
   作成者 ≠ 承認者の分離を保つため Dev が approve する。実 diff を読んでから approve する
@@ -223,7 +249,7 @@ git fetch origin develop main -q && git rev-list --count origin/main..origin/dev
 |---|---|
 | **label を付け替えるときは古い state を外す** | 2 つ付いていると「次に誰が動くか」が読めなくなる |
 | **state を外すときは必ず次の state を付ける** | **どの `state:*` も付かない = すべての受信箱から消える。** 報告上は「mailbox 空」になり、滞留と区別がつかない。作業が本当に終わったなら close する。close しないなら次の担当を必ず指す |
-| **判断を仰ぐときは必ず `needs-po` か `needs-owner` を付ける** | 「不可逆 4 操作に当たらないから label を付けない」は、判断が要らないという意味ではない。mention / コメントは通知経路ではない（§3.1.1） |
+| **判断を仰ぐときは必ず `needs-po` か `needs-owner` を付ける** | 「不可逆 4 操作に当たらないから label を付けない」は、判断が要らないという意味ではない。mention / コメントは通知経路ではない（§3.1.2） |
 | **label は状態であって承認ではない** | `state:ready-to-merge` は「QM が approve した」記録であって、CI 緑の保証ではない |
 | **cron の結果が空でも報告する** | 「mailbox 空」が出ないと、cron が動いているのか死んでいるのか分からない |
 | **「mailbox 空」を「やることが無い」と読まない** | orphan（§3.3.1）を必ず併せて確認する。2026-07-31 に Dev / QM とも「対応事項なし」と報告した時点で 5 件が滞留していた |

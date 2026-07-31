@@ -18,6 +18,8 @@ CronCreate(cron: "23 * * * *", recurring: true, prompt: <label-mailbox.md §4「
 
 QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。**外すときは必ず次の state を付ける** — どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える（2026-07-31 に `#4144` で実際に発生）。
 
+**差し戻した PR は `state:qm-blocked` のまま Dev の受信箱に入る。** Dev が対応を終えると `state:dev-done` に戻る（label-mailbox.md §3.1.1 復路）。**この復路が定義されるまで、対応済みの差し戻しが QM に届かず停止していた**（PR #4149）。自衛として `state:qm-blocked` の PR も polling し、**自分が block した時点の HEAD から動いていれば再レビュー**する。
+
 **判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
 
 - **報告は「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。** 「BLOCK 3 類型に非該当」は CI 緑を含意しない（結論を先に置いたため PO が merge 可と誤読した実例あり、2026-07-31）
