@@ -154,6 +154,11 @@ restore (取得物 → 別インスタンス)   :   447ms  → children=2 / logi
 
 ## オフサイト複製 (#3970)
 
+> **先に読んでください**: `HOST_BACKUP_DIR` を NAS 等に向けても、**それだけでは off-site になりません。**
+> 差し替えたのは「バックアップの置き場」であって、**別の場所に控えが増えるわけではありません**。
+> NAS を指定しただけなら、その NAS が壊れれば同じことです。**複製 (2 箇所以上に存在させること) は
+> 運用者がファイルシステム層で行ってください。**
+
 **責任分界**: アプリ側は **バックアップを docker compose の volume 指定領域に出すところまで**を担う。
 そこから先 (NAS / SAMBA / クラウドへの複製) は **運用者がファイルシステム層で行う**。
 
@@ -161,13 +166,23 @@ restore (取得物 → 別インスタンス)   :   447ms  → children=2 / logi
 アプリ側で 1 つに決め打つと合わない家庭で無効化されるためである。**ファイルシステム層に委ねれば、
 運用者が既に使っている仕組み (NAS の同期 / OS のバックアップ機能) をそのまま流用できる。**
 
+### 差し替えられるのは「バックアップだけ」— 稼働中の DB は動かさない
+
+`HOST_BACKUP_DIR` が差し替えるのは **バックアップ (`/app/backups`) だけ**である。
+**稼働中の DB (`/app/data`) はローカルディスク固定**で、差し替える手段を用意していない。
+
+**埋め込み型 DB (PGlite / SQLite) をネットワーク共有上で直接稼働させると、書き込み中の切断で
+DB ファイルが破損する**（既知の危険パターン）。off-site 化のために推奨した設定が、本番 DB の破損という
+別の全損経路を開いてはならない。この不変条件は `tests/unit/infra/compose-backup-volume.test.ts` の
+`[CV4]` が機械で固定している。
+
 ### 複製先を指定する
 
-`.env` の `HOST_DATA_DIR` で、compose を書き換えずに保存先を差し替えられる。
+`.env` の `HOST_BACKUP_DIR` で、compose を書き換えずにバックアップの置き場を差し替えられる。
 
 ```env
-# 既定 (未設定時) は ./data
-HOST_DATA_DIR=/mnt/nas/ganbari-quest-data
+# 既定 (未設定時) は ./data/backups
+HOST_BACKUP_DIR=/mnt/nas/ganbari-quest-backups
 ```
 
 `app` / `backup` の両サービスが同じ値を参照する。**片方だけ差し替えてはいけない** —
@@ -175,6 +190,7 @@ backup コンテナが別ディレクトリを見て「取れているのに実�
 #3950 (PGlite 移行後も旧 SQLite を複製し続けた) と同型の事故になる。
 
 変更後は `docker compose --profile backup up -d` でコンテナを作り直す。
+**既存世代を新しい場所へ移すのは手作業**である (compose は mount 先を変えるだけで中身を移さない)。
 
 ### 複製先を選ぶときの必須条件
 
@@ -190,19 +206,23 @@ backup コンテナが別ディレクトリを見て「取れているのに実�
 
 複製が実際に効いているかは、**NUC の外から見て確認する**。
 
-```bash
-# 1. NUC 側で最新世代のファイル名を確認する
-ssh <NUC_USER>@<NUC_IP> "powershell -NoProfile -Command \"Get-ChildItem '$env:HOST_DATA_DIRackups' -Filter 'pglite-*.tgz' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 Name,Length\""
+```powershell
+# 1. NUC 側で最新世代のファイル名とサイズを確認する
+#    (HOST_BACKUP_DIR 未設定なら C:\Docker\ganbari-quest\dataackups)
+Get-ChildItem 'C:\Docker\ganbari-quest\dataackups' -Filter 'pglite-*.tgz' |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1 Name, Length
+```
 
+```bash
 # 2. 複製先で同名・同サイズのファイルが見えることを確認する
-#    (複製先の確認コマンドは運用者の環境による — NAS のファイラ / rclone ls 等)
+#    (確認コマンドは運用者の環境による — NAS のファイラ / rclone ls 等)
 ```
 
 **サイズまで一致していることを見ること。** ファイル名だけの一致は、途中で切れた複製を成功と誤認する。
 
 ## 残存リスク (本 Runbook 時点で塞げていないもの)
 
-- **複製そのものはアプリ側で検証していない**。`HOST_DATA_DIR` を複製先に向けても、**その先の同期が
+- **複製そのものはアプリ側で検証していない**。`HOST_BACKUP_DIR` を複製先に向けても、**その先の同期が
   止まっていることをアプリは検知できない**。検知できるのは「バックアップが取れているか」までで、
   「複製されているか」は運用者が上記の確認手順で見る必要がある
 - **定期的な restore drill が自動化されていない**。日次の復元検証 (V1/V2/V3) は取得物を毎回別インスタンスへ
