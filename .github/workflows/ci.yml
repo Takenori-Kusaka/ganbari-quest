@@ -1139,8 +1139,9 @@ jobs:
       - name: Forbidden terms check (includes site/)
         run: node scripts/check-forbidden-terms.mjs
 
-  # ADR-0029 / #914: 新規必須 env / secret 追加チェック
-  # PR diff から `assert*Configured()` / `throw new Error('...required...')` 等を検出し、
+  # ADR-0024 ルール 5 / #914 / #4129: 必須化された env / secret の配布証跡チェック
+  # PR diff から `assert*Configured()` / 必須文言 (英語 + 日本語) / fail-fast guard、
+  # および optional → required の変化 (#4129 AC5) を検出し、
   # PR 本文に「配布済み: <ENV>」証跡が無い場合は CI を red にする。
   # Pre-PMF 1 人体制で Assertion Erosion (#911 のような assertion 追加 → 配布忘れ →
   # 連続デプロイ失敗) を機械的に止めるためのゲート。
@@ -1162,7 +1163,7 @@ jobs:
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
-      - name: Check new required env / secret distribution evidence (ADR-0029)
+      - name: Check newly required env / secret distribution evidence (ADR-0024 ルール 5)
         env:
           BASE_REF: origin/${{ github.base_ref }}
           PR_BODY: ${{ github.event.pull_request.body }}
