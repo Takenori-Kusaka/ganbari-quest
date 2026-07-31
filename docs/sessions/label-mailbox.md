@@ -38,20 +38,33 @@
 
 | label | 意味 | 付ける人 | 次に動く |
 |---|---|---|---|
+| `state:needs-dev` | PO / QM が Dev に**着手を渡した** | PO / QM | **Dev** |
 | `state:dev-done` | 実装完了・CI 全緑・Ready 化済 | Dev | **QM** |
 | `state:qm-blocked` | BLOCK 3 類型に該当（顧客に実害 / 証跡の真正性 / 不可逆） | QM | **Dev** |
 | `state:ready-to-merge` | QM approve 済 | QM | **QM**（merge を実行） |
-| `state:needs-owner` | **不可逆 4 操作**を含み PO / オーナー判断が要る | 誰でも | **オーナー** |
+| `state:needs-audit` | 統合監査 / release cut を監査チームに渡した | PO | **監査** |
+| `state:needs-po` | **不可逆 4 操作ではない PO 判断**が要る（方針 / 優先度 / repo 設定 / 受容判断 / 語彙・ルールの改訂） | 誰でも | **PO** |
+| `state:needs-owner` | **不可逆 4 操作**（削除 / 本番 deploy / 課金書込 / スキーマ変更）を含む | 誰でも | **オーナー** |
 
-`state:needs-owner` は**誰が気づいても付けてよい**。Dev が実装中に気づいた場合も付ける。
+- `state:needs-po` / `state:needs-owner` は**誰が気づいても付けてよい**。Dev が実装中に気づいた場合も付ける
+- **判断を仰ぐときは必ずどちらかを付ける。** 「不可逆 4 操作に当たらないから `needs-owner` は付けない」で終わらせない — それは判断が要らないという意味ではない。**`needs-po` がその受け皿**
+
+> **§3.1 の欠落で実際に起きたこと（2026-07-31）**: Dev が「ruleset 変更」「node バージョン EBADENGINE」の 2 件を PO 判断待ちとして Issue コメント / PR body に書いたが、**不可逆 4 操作に当たらないため label を付けなかった**。PO はコメントを polling していないため、**どちらも PO の mailbox に入らなかった**。`#4144` の Q1/Q2 が PO に届いたのは、QM が「`po-decision:required` の決裁が GitHub 上に存在しない」として merge を保留したからで、通知経路が機能した結果ではない。
+
+### §3.1.1 mention とコメントは通知経路ではない
+
+**`@mention` / Issue コメント / PR body に書いただけでは、相手の mailbox に入らない。** 各ロールは label を polling しており、本文を読みに行かない。
+
+> **§2 原則 3「付けた側が意味に責任を持つ」の適用**: 自分のレーンから次のレーンへ渡すとき、**渡す側が label を付ける**。書いたかどうかではなく、**相手の polling クエリに出るかどうか**が伝達の成否を決める。
 
 ### §3.2 label で表さないもの（GitHub 標準を使う）
 
 | 用途 | 使うもの | 理由 |
 |---|---|---|
 | **approve の依頼** | `gh pr edit <N> --add-reviewer <user>` | GitHub が reviewer request としてモデル化済。label で二重管理しない |
-| release cut の依頼 | PO → 監査への明示依頼（[audit-team.md](audit-team.md) §3.8 step 6） | cut は監査 orchestrator の不可逆 action。label で自動起動させない |
-| 統合監査の対象 | `base:main head:release/*` の open PR | branch 名で判別できる。label 不要 |
+| 統合監査の**対象 PR** | `base:main head:release/*` の open PR | branch 名で判別できる。label 不要 |
+
+> **release cut の依頼は `state:needs-audit` を使う（2026-07-31 改訂）**。当初は「PO → 監査への明示依頼」で label 不要としていたが、**mention / コメントは通知経路ではない**（§3.1.1）ため、Dev で起きたのと同じ取りこぼしが監査レーンでも成立する。cut を label で**自動起動させない**方針は維持する — `state:needs-audit` は「PO が cut を依頼した」という状態を表すだけで、cut の実行判断と不可逆 action は引き続き audit-manager 専権（[audit-team.md](audit-team.md) §3.3 / §3.8 step 6）。
 
 > **例外運用**: gate 欠陥で Dev が PR を出せない場合に限り QM の Fix Agent が修理 PR を作る。その PR の approve は **Dev** が行う（ADR-0022 作成者 ≠ 承認者）。この受け渡しは **reviewer request** で行い、専用 label を作らない。
 
@@ -61,10 +74,29 @@
 
 | ロール | 拾うもの | コマンド |
 |---|---|---|
-| **Dev** | `state:qm-blocked` / 自分に来た reviewer request | `gh pr list --label "state:qm-blocked" --state open` / `gh pr list --search "review-requested:@me is:open"` |
+| **Dev** | `state:needs-dev` / `state:qm-blocked` / 自分に来た reviewer request | `gh issue list --label "state:needs-dev" --state open` / `gh pr list --label "state:qm-blocked" --state open` / `gh pr list --search "review-requested:@me is:open"` |
 | **QM** | `state:dev-done` / `state:ready-to-merge`（自分が merge） | `gh pr list --label "state:dev-done" --state open` |
-| **PO / オーナー** | `state:needs-owner` | `gh issue list --label "state:needs-owner" --state open` + PR 側も |
-| **監査** | `release/* → main` の open PR | `gh pr list --base main --state open` |
+| **PO** | `state:needs-po` / `state:needs-owner` | `gh issue list --label "state:needs-po" --state open` + `state:needs-owner` + PR 側も |
+| **オーナー** | `state:needs-owner` | 同上 |
+| **監査** | `state:needs-audit` / `release/* → main` の open PR | `gh issue list --label "state:needs-audit" --state open` / `gh pr list --base main --state open` |
+
+**Issue と PR の両方を見る。** `gh pr list --label` は Issue を返さず、`gh issue list --label` は PR を返さない。片方だけ叩くと取りこぼす。
+
+### §3.3.1 orphan 検出（どの mailbox にも入っていないものを見つける）
+
+label 運用の最大の失敗モードは「**誰の受信箱にも入っていない open 項目**」である。報告上は全員「mailbox 空」になり、**実際は複数件が止まっている**状態と区別がつかない。
+
+各ロールの cron に以下を含める（PO は必須）。
+
+```bash
+# state:* が 1 つも付いていない open Issue / PR
+gh issue list --state open --limit 100 --json number,title,labels \
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN ISSUE #\(.number) \(.title)"'
+gh pr list --state open --limit 50 --json number,title,labels \
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
+```
+
+> **2026-07-31 の実例**: Dev / QM とも「対応事項なし」と報告した時点で、着手すべき Issue が 5 件（`#3950` / `#4087` / `#3970` / `#4117` / `#4139`）滞留していた。全件 `state:*` 未付与だったため、どの mailbox にも現れなかった。
 
 ### §3.4 CronCreate の作り方（各セッション起動時に実行）
 
@@ -101,9 +133,16 @@ CronCreate(cron: "<ロールごとにずらした分>", recurring: true, prompt:
 ```
 Dev mailbox チェック。以下を実行して結果を簡潔に報告する（何も無ければ「mailbox 空」の 1 行でよい）:
 
+gh issue list --label "state:needs-dev" --state open --json number,title --jq '.[]|"着手 #\(.number) \(.title)"'
+gh pr list --label "state:needs-dev" --state open --json number,title --jq '.[]|"着手PR #\(.number) \(.title)"'
 gh pr list --label "state:qm-blocked" --state open --json number,title --jq '.[]|"BLOCKED #\(.number) \(.title)"'
 gh pr list --search "review-requested:@me is:open" --json number,title --jq '.[]|"REVIEW依頼 #\(.number) \(.title)"'
-gh issue list --label "state:needs-owner" --state open --json number,title --jq '.[]|"OWNER待ち #\(.number) \(.title)"'
+gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
+
+- **判断を仰ぐときは `state:needs-po`（不可逆 4 操作以外）か `state:needs-owner`（4 操作）を必ず付ける。**
+  mention / Issue コメント / PR body に書いただけでは PO の受信箱に入らない（§3.1.1）
+- ORPHAN（どの state も付いていない open）が出たら、自分の担当かを判断し、担当なら state:needs-dev を
+  付けて拾う。他ロールの担当なら該当 state を付けて渡す。**放置しない**
 
 - state:qm-blocked があれば、BLOCK 事由（顧客に実害 / 証跡の真正性 / 不可逆 のどれか）を PR コメントから読み、
   症状ではなく事由に対処する。テストの赤は症状であって事由ではない。
@@ -136,9 +175,13 @@ gh pr list --label "state:ready-to-merge" --state open --json number,title,merge
 ```
 PO mailbox チェック。以下を実行して結果を簡潔に報告する（何も無ければ「mailbox 空」の 1 行でよい）:
 
-gh issue list --label "state:needs-owner" --state open --json number,title --jq '.[]|"ISSUE #\(.number) \(.title)"'
-gh pr list --label "state:needs-owner" --state open --json number,title --jq '.[]|"PR #\(.number) \(.title)"'
+gh issue list --label "state:needs-po" --state open --json number,title --jq '.[]|"PO判断 #\(.number) \(.title)"'
+gh pr list --label "state:needs-po" --state open --json number,title --jq '.[]|"PO判断PR #\(.number) \(.title)"'
+gh issue list --label "state:needs-owner" --state open --json number,title --jq '.[]|"OWNER #\(.number) \(.title)"'
+gh pr list --label "state:needs-owner" --state open --json number,title --jq '.[]|"OWNER PR #\(.number) \(.title)"'
 gh pr list --label "state:ready-to-merge" --state open --json number,title,mergeStateStatus --jq '.[]|"READY #\(.number) [\(.mergeStateStatus)] \(.title)"'
+gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
+gh pr list --state open --limit 50 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
 
 - state:needs-owner は、不可逆 4 操作（削除 / 本番 deploy / 課金書込 / スキーマ変更）のどれに
   該当するかを 1 行で示し、判断材料（実 diff / 影響範囲）を添えてオーナーに提示する
@@ -151,6 +194,8 @@ gh pr list --label "state:ready-to-merge" --state open --json number,title,merge
 ```
 監査 mailbox チェック。以下を実行して結果を簡潔に報告する（何も無ければ「統合対象なし」の 1 行でよい）:
 
+gh issue list --label "state:needs-audit" --state open --json number,title --jq '.[]|"CUT依頼 #\(.number) \(.title)"'
+gh pr list --label "state:needs-audit" --state open --json number,title --jq '.[]|"CUT依頼PR #\(.number) \(.title)"'
 gh pr list --base main --state open --json number,title,headRefName --jq '.[]|"統合PR #\(.number) [\(.headRefName)] \(.title)"'
 git fetch origin develop main -q && git rev-list --count origin/main..origin/develop
 
@@ -167,14 +212,62 @@ git fetch origin develop main -q && git rev-list --count origin/main..origin/dev
 | 注意 | 理由 |
 |---|---|
 | **label を付け替えるときは古い state を外す** | 2 つ付いていると「次に誰が動くか」が読めなくなる |
+| **state を外すときは必ず次の state を付ける** | **どの `state:*` も付かない = すべての受信箱から消える。** 報告上は「mailbox 空」になり、滞留と区別がつかない。作業が本当に終わったなら close する。close しないなら次の担当を必ず指す |
+| **判断を仰ぐときは必ず `needs-po` か `needs-owner` を付ける** | 「不可逆 4 操作に当たらないから label を付けない」は、判断が要らないという意味ではない。mention / コメントは通知経路ではない（§3.1.1） |
 | **label は状態であって承認ではない** | `state:ready-to-merge` は「QM が approve した」記録であって、CI 緑の保証ではない |
 | **cron の結果が空でも報告する** | 「mailbox 空」が出ないと、cron が動いているのか死んでいるのか分からない |
+| **「mailbox 空」を「やることが無い」と読まない** | orphan（§3.3.1）を必ず併せて確認する。2026-07-31 に Dev / QM とも「対応事項なし」と報告した時点で 5 件が滞留していた |
+| **「空」が 3 回連続したら生存確認する（§5.1）** | 全員の受信箱が同時に空になるのは、仕事が無いときではなく **渡す経路が壊れているとき**である方が多い |
 | **cron を主線の割り込みにしない** | 拾ったものが数分で終わるなら差し込む。そうでなければ現在の主線を優先し、拾ったことだけ報告する |
 | **セッション終了で cron は消える** | 次のセッション起動時にもう一度作る。§3.4 の制約を参照 |
 
-## §6 現状（2026-07-31 時点）
+### §5.1 「mailbox 空」が 3 回連続したときの生存確認（PO の義務）
 
-- label 4 種は作成済み（QM が作成）
-- 運用開始: `#4134` = `state:qm-blocked` / `#4138` = `state:dev-done`
-- PO セッションの cron は作成済み（`37 * * * *`）
+受信箱が空であることは、**仕事が無いこと**ではなく**渡す経路が壊れていること**の兆候である方が多い。PO は「空」が **3 回連続**したら、次を実行して**誰かが実際に動いているか**を確認する。
+
+```bash
+# 1. orphan — どの受信箱にも入っていない open
+gh issue list --state open --limit 100 --json number,title,labels \
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN #\(.number) \(.title)"'
+gh pr list --state open --limit 50 --json number,title,labels \
+  --jq '.[]|select([.labels[].name]|map(select(startswith("state:")))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
+
+# 2. 各ロールの受信箱に何件あるか（0 が並ぶこと自体が異常信号）
+for l in needs-dev dev-done qm-blocked ready-to-merge needs-audit needs-po needs-owner; do
+  printf "%s: " "$l"
+  echo "issue=$(gh issue list --label "state:$l" --state open --json number --jq 'length') pr=$(gh pr list --label "state:$l" --state open --json number --jq 'length')"
+done
+
+# 3. 直近の活動（人が動いているか）
+gh pr list --state merged --limit 5 --json number,mergedAt,title --jq '.[]|"\(.mergedAt[0:16]) #\(.number) \(.title[0:50])"'
+git fetch origin -q && git rev-list --count origin/main..origin/develop
+
+# 4. EPIC の着手状況（open な EPIC に対して in-flight が 0 でないか）
+gh issue list --state open --label "priority:critical" --json number,title --jq '.[]|"#\(.number) \(.title[0:60])"'
+```
+
+**判定**:
+
+- orphan が 1 件でもある → **渡す経路が壊れている。** 該当する `state:*` を付けて配る
+- 全受信箱 0 かつ merged が数時間停止 → **セッションが落ちているか cron が消えている。** 各ロールに起動確認を求める
+- 全受信箱 0 かつ merged は進んでいる → 正常。ただし **`main..develop` が育っていないか**を併せて見る
+
+> **2026-07-31 の実例**: PO が「mailbox 空」を 4 回連続で報告したあと、Dev / QM 双方が「対応事項なし」と報告した。実際には着手すべき Issue が 5 件滞留し、Dev の判断待ち 2 件が PO に届いていなかった。**全員の受信箱が同時に空になったのは、経路が壊れていたから**である。
+
+## §6 改訂履歴に代えて — 語彙が足りなかった実例
+
+語彙を増やさない原則（§2-5）は維持するが、**渡す経路が存在しない状態は「語彙が足りている」ではない**。以下は 2026-07-31 の実運用 1 日で露見した 2 つの欠落。同種の欠落を疑うときの判断材料として残す。
+
+| 欠落 | 何が起きたか | 追加した語彙 |
+|---|---|---|
+| PO / QM → Dev に**着手を渡す**経路が無い | Dev が拾えるのは QM の差し戻しと reviewer request だけだった。PO が着手順を決めても Dev の受信箱に入らず、**5 件が滞留**したまま Dev は「対応事項なし」と報告した | `state:needs-dev` |
+| **不可逆 4 操作ではない PO 判断**を渡す経路が無い | Dev が「ruleset 変更」「node EBADENGINE」を判断待ちとして書いたが、4 操作に当たらず label を付けられなかった。**PO の mailbox に入らないまま PR が merge されて流れた** | `state:needs-po` |
+| PO → 監査に**release cut を渡す**経路が無い | 「明示依頼で足りる」としていたが、mention / コメントは通知経路ではない。Dev で起きたのと同じ取りこぼしが監査レーンでも成立する | `state:needs-audit` |
+
+**共通の教訓**: 語彙を増やさない原則（§2-5）は、**渡す経路が既にあるとき**にのみ有効。経路が無いまま「増やさない」を守ると、伝達が mention に退化し、mention は誰の受信箱にも入らない。
+
+## §7 現状（2026-07-31 時点）
+
+- label **7 種**（`needs-dev` / `dev-done` / `qm-blocked` / `ready-to-merge` / `needs-audit` / `needs-po` / `needs-owner`）
+- PO セッションの cron は稼働中（`37 * * * *`）
 - **恒久化（GitHub workflow → Discord）は未実施。** 実際に見落としが発生してから作る

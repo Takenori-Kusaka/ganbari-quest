@@ -181,11 +181,15 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
 ```
 
-PO が拾うのは **`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）と、`state:ready-to-merge` の CI 実測確認。
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、そして **ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）。**Issue と PR の両方**を見る。
+
+PO が仕事を渡すときは **`state:needs-dev`**（Dev へ着手）/ **`state:needs-audit`**（監査へ release cut 依頼）を付ける。
 
 - **label は状態であって承認ではない。** `state:ready-to-merge` が付いていても CI 緑は自分で確認する（ラベルだけ見て merge 可と判断し、QM が赤を理由に拒否した実例あり）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
 - **PO の決定は、指示を出した時点で該当 Issue / PR にコメントとして残す。** セッション上の発言は証跡にならない（PR body の「PO 承認条件」に GitHub 上の出典が無く QM が検証できなかった実例あり、2026-07-31）
+- **決裁したら label を次の担当へ付け替える。外して終わりにしない。** どの `state:*` も付かないと全受信箱から消える
+- **「mailbox 空」が 3 回連続したら生存確認を行う**（label-mailbox.md §5.1）。全員の受信箱が同時に空になるのは、仕事が無いときではなく**渡す経路が壊れているとき**の方が多い。2026-07-31 に Dev / QM とも「対応事項なし」と報告した時点で、着手すべき Issue が 5 件・PO への判断待ちが 2 件滞留していた
 
 ## 技術手順 (`--body-file` 運用 / namespace 重複検査)
 
