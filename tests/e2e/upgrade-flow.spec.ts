@@ -101,38 +101,45 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
 		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
 
-		// 押下 → 実処理が起動する。起こりうる正当な結末は 3 つで、旧実装 (自ページへの
-		// `<a href="/admin/subscription">`) はそのいずれにも到達しない:
-		//   (a) 契約あり             → Stripe 請求管理ページの確認ダイアログが開く
-		//   (b) Stripe 無効 / 失敗   → `role="alert"` の通知が出る
-		//   (c) 契約なし + Stripe 有効 → checkout session が作られ checkout.stripe.com へ離脱する
-		// (c) が旧 assertion から欠落しており、cognito-dev の standard fixture は
-		// `stripe_subscription_id` を seed しないため常に (c) に落ちて fail していた
-		// (`SaasLicensePanel.svelte:249` の `hasSubscription` が false)。
-		// 「自ページに留まったまま何も起きない」= 旧欠陥 は 3 つとも満たさないので、
-		// (c) の追加は assertion の弱体化ではない (ADR-0006)。
+		// 押下 → `handlePlanUpgrade` (SaasLicensePanel.svelte:252) が契約状態で分岐する:
+		//   (a) 契約あり (hasSubscription) → `requestPortal()` → 請求管理ページ確認ダイアログ
+		//   (b) 契約なし                   → `startCheckout()` → checkout session を作り
+		//                                     `window.location.href` で checkout.stripe.com へ離脱
+		// cognito-dev の standard fixture は `stripe_subscription_id` を seed しないため (b)。
+		//
+		// **到達先を検証する**。「/admin/subscription から離れた」だけを合格にすると、
+		// セッション失効 redirect (`/auth/login`) や認可拒否 redirect も等しく PASS してしまい、
+		// 課金・認可の退行を検出できない。
+		//
+		// `role="alert"` は成功条件に入れない。checkout 失敗時も `checkoutError` →
+		// `<Alert variant="danger">` (role="alert") が出る (SaasLicensePanel.svelte:228/719) ため、
+		// alert を合格に含めると「アップグレードが常に失敗する」状態まで緑になる。
+		// alert が出た場合はその文言を添えて明示的に fail させる。
 		await cta.click();
+		const portalConfirm = page.getByTestId('portal-confirm-button');
 		await Promise.race([
-			expect(
-				page.getByTestId('portal-confirm-button').or(page.getByRole('alert').first()),
-			).toBeVisible({ timeout: 15_000 }),
-			page.waitForURL((url) => !url.pathname.startsWith('/admin/subscription'), {
-				timeout: 15_000,
+			portalConfirm.waitFor({ state: 'visible', timeout: 20_000 }),
+			page.waitForURL((url) => url.origin === 'https://checkout.stripe.com', {
+				timeout: 20_000,
 			}),
-		]);
-		// 旧欠陥の直接否定: 何も起きずに /admin/subscription に留まっている状態を弾く。
-		const stayedPutWithNoEffect =
-			page.url().includes('/admin/subscription') &&
-			!(await page
-				.getByTestId('portal-confirm-button')
-				.isVisible()
-				.catch(() => false)) &&
-			!(await page
+		]).catch(() => {
+			/* どちらも起きなければ下の assert で文脈付き fail させる */
+		});
+
+		const reachedStripeCheckout = page.url().startsWith('https://checkout.stripe.com');
+		const portalDialogOpen = await portalConfirm.isVisible().catch(() => false);
+		if (!reachedStripeCheckout && !portalDialogOpen) {
+			const alertText = await page
 				.getByRole('alert')
 				.first()
-				.isVisible()
-				.catch(() => false));
-		expect(stayedPutWithNoEffect).toBe(false);
+				.textContent()
+				.catch(() => null);
+			throw new Error(
+				`CTA 押下後に Stripe Checkout への遷移も請求管理ページ確認ダイアログも起きなかった。` +
+					` url=${page.url()} / alert=${alertText?.trim() ?? 'なし'}`,
+			);
+		}
+		expect(reachedStripeCheckout || portalDialogOpen).toBe(true);
 	});
 });
 
