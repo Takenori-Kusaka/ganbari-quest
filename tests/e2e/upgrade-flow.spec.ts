@@ -101,13 +101,38 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
 		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
 
-		// 押下 → 実処理が起動する。契約ありなら Stripe 請求管理ページ確認ダイアログ、
-		// 契約なし / Stripe 無効なら checkout エラー通知が出る。
-		// 旧実装は自ページに再遷移するだけで、どちらも出なかった。
+		// 押下 → 実処理が起動する。起こりうる正当な結末は 3 つで、旧実装 (自ページへの
+		// `<a href="/admin/subscription">`) はそのいずれにも到達しない:
+		//   (a) 契約あり             → Stripe 請求管理ページの確認ダイアログが開く
+		//   (b) Stripe 無効 / 失敗   → `role="alert"` の通知が出る
+		//   (c) 契約なし + Stripe 有効 → checkout session が作られ checkout.stripe.com へ離脱する
+		// (c) が旧 assertion から欠落しており、cognito-dev の standard fixture は
+		// `stripe_subscription_id` を seed しないため常に (c) に落ちて fail していた
+		// (`SaasLicensePanel.svelte:249` の `hasSubscription` が false)。
+		// 「自ページに留まったまま何も起きない」= 旧欠陥 は 3 つとも満たさないので、
+		// (c) の追加は assertion の弱体化ではない (ADR-0006)。
 		await cta.click();
-		await expect(
-			page.getByTestId('portal-confirm-button').or(page.getByRole('alert').first()),
-		).toBeVisible({ timeout: 15_000 });
+		await Promise.race([
+			expect(
+				page.getByTestId('portal-confirm-button').or(page.getByRole('alert').first()),
+			).toBeVisible({ timeout: 15_000 }),
+			page.waitForURL((url) => !url.pathname.startsWith('/admin/subscription'), {
+				timeout: 15_000,
+			}),
+		]);
+		// 旧欠陥の直接否定: 何も起きずに /admin/subscription に留まっている状態を弾く。
+		const stayedPutWithNoEffect =
+			page.url().includes('/admin/subscription') &&
+			!(await page
+				.getByTestId('portal-confirm-button')
+				.isVisible()
+				.catch(() => false)) &&
+			!(await page
+				.getByRole('alert')
+				.first()
+				.isVisible()
+				.catch(() => false));
+		expect(stayedPutWithNoEffect).toBe(false);
 	});
 });
 

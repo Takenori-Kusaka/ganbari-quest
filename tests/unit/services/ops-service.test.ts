@@ -137,10 +137,24 @@ describe('getKpiSummary', () => {
 		});
 	});
 
+	// #4127 (3 instance 目): 実装 (ops-service.ts:69) は `monthStartJST()` 由来の JST 月初で
+	// 「今月」を決めるが、本 test の fixture は `new Date(y, m, d)` = **実行環境ローカル TZ** の
+	// 月で作られていた。CI (UTC) が UTC 月末の 15:00〜24:00 に走ると UTC 月 (例 7 月) と
+	// JST 月 (8 月) が食い違い、「今月 5 日」のつもりの fixture が JST では先月になって 0 件になる。
+	// 実測: TZ=UTC で fail / TZ=Asia/Tokyo で pass (2026-08-01 07:07 JST 時点)。
+	// 実装側は JST で一貫しており本番の /ops KPI は正しい (欠陥は test の前提のみ)。
+	//
+	// 固定クロック + TZ pin で決定的にする (正解パターン: cohort-analysis-service.test.ts:75-113)。
+	// 月央・正午 UTC に固定するため UTC と JST で年月が常に一致し、境界を跨がない。
 	it('newThisMonth は当月作成のテナントをカウントする', async () => {
-		const now = new Date();
-		const thisMonthDate = new Date(now.getFullYear(), now.getMonth(), 5).toISOString();
-		const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 15).toISOString();
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+		// TZ pin が効いていることの machine guard (vacuous 回帰の再発防止 / ADR-0061)。
+		// この assert が落ちる = 下記 fixture が再び環境 TZ 依存に戻った、を即検出する。
+		expect(new Date().toISOString().slice(0, 7)).toBe('2026-06');
+
+		const thisMonthDate = new Date('2026-06-05T12:00:00Z').toISOString();
+		const lastMonthDate = new Date('2026-05-15T12:00:00Z').toISOString();
 
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({ tenantId: 't1', createdAt: thisMonthDate }),
@@ -151,6 +165,7 @@ describe('getKpiSummary', () => {
 		const result = await getKpiSummary();
 
 		expect(result.tenantStats.newThisMonth).toBe(2);
+		vi.useRealTimers();
 	});
 
 	it('stripeEnabled が正しく反映される', async () => {
