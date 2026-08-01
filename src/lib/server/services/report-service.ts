@@ -2,13 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/report-service.ts
 // 月次レポート・成長分析のサービス層
 
-import {
-	addDaysJST,
-	monthEndOfKey,
-	prevDateJST,
-	todayDateJST,
-	toJSTDateString,
-} from '$lib/domain/date-utils';
+import { addDaysJST, monthEndOfKey, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import type { ReportDailySummary } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
@@ -472,14 +466,6 @@ export async function computeAllChildrenDetailedReport(
 // ============================================================
 // ヘルパー
 // ============================================================
-
-// 日付文字列化は JST SSOT (date-utils) に委譲する (#4015)。
-// 旧実装はローカル TZ getter で `YYYY-MM-DD` を組み立てており、当月レポートで
-// `formatDate(limit)` (limit = `new Date()` = 実時刻) を通る経路が Lambda (UTC) では
-// JST 00:00〜09:00 に前日を返し、streak 起点が 1 日ずれていた。
-function formatDate(d: Date): string {
-	return toJSTDateString(d);
-}
 
 function getMonthEndDate(yearMonth: string): string {
 	return monthEndOfKey(yearMonth);
