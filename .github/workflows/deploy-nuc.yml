@@ -92,8 +92,13 @@ jobs:
           # DISCORD_ALERT_WEBHOOK_URL も無いため alert 0 通で誰も気づかなかった (#4119)。
           # 手で .env に足しても次の deploy で消えるので、必ずこの経路で配る。
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          # 通知先。既存の health 通知チャネルを流用する (専用 webhook を増やさない)。
-          DISCORD_ALERT_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_HEALTH }}
+          # 通知先は **障害通知チャネル (incident)**。DISCORD_WEBHOOK_HEALTH は
+          # health-check Lambda の heartbeat / 復旧通知を流す**利用者向け**チャネルなので使わない
+          # (バックエンドの障害を利用者向けチャネルに混ぜると、どちらも読まれなくなる)。
+          # 宛先解決の SSOT は src/lib/server/discord-alert.ts:
+          #   DISCORD_ALERT_WEBHOOK_URL ?? DISCORD_WEBHOOK_INCIDENT
+          # なので、incident の値をそのまま ALERT として渡す。
+          DISCORD_ALERT_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
           # #3970: off-site 退避先。未設定なら従来どおり ./data/backups (検査も走らない)。
           HOST_BACKUP_DIR: ${{ secrets.HOST_BACKUP_DIR }}
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts は NODE_ENV=production で必須要求。
@@ -121,7 +126,7 @@ jobs:
           # 通知先が無くても deploy は止めない (バックアップ自体は動く) が、
           # **失敗しても誰にも届かない状態**なので警告は必ず出す (#4087 AC1 と同じ立場)。
           if (-not $env:DISCORD_ALERT_WEBHOOK_URL) {
-            Write-Host "::warning::DISCORD_WEBHOOK_HEALTH is not set — バックアップが失敗しても通知が 0 通になります (#4119 の実害と同じ状態)。"
+            Write-Host "::warning::DISCORD_WEBHOOK_INCIDENT is not set — バックアップが失敗しても通知が 0 通になります (#4119 の実害と同じ状態)。"
           }
           # `.env` を毎回 GHA Secrets から再生成（rotate 対応・冪等）。
           # ASCII エンコーディング指定で BOM を避ける (docker compose env_file は BOM を弾く)。
