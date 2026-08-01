@@ -1,4 +1,4 @@
-// #4175 — 「component は直したが実画面に届いていない」を機械で閉じる。
+// #4176 — 「component は直したが実画面に届いていない」を機械で閉じる。
 //
 // ## 実際に起きたこと
 //
@@ -47,7 +47,7 @@ const CARD_PATH = join(
 const page = readFileSync(PAGE_PATH, 'utf-8');
 const card = readFileSync(CARD_PATH, 'utf-8');
 
-describe('#4175 バックアップ状態カードの配線', () => {
+describe('#4176 バックアップ状態カードの配線', () => {
 	it('[BW1] 実画面が BackupHealthCard を使っている', () => {
 		// これが無いと、component をいくら直しても家族の画面は変わらない。
 		expect(page).toContain('BackupHealthCard');
@@ -69,7 +69,7 @@ describe('#4175 バックアップ状態カードの配線', () => {
 		expect(
 			reimplemented,
 			`実画面が状態表示を再実装しています: ${reimplemented.join(', ')}。` +
-				'描画は BackupHealthCard に集約してください (#4175 の再発)。',
+				'描画は BackupHealthCard に集約してください (#4176 の再発)。',
 		).toEqual([]);
 	});
 

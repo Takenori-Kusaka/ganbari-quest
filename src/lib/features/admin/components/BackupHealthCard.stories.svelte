@@ -100,7 +100,7 @@ const CRITICAL_ROTATION_BLOCKED: BackupHealthVerdict = {
 <!--
 	args を渡すのは、meta の `component` が指定されている story は args から自動 render される
 	経路があり、`health` が undefined だと `Cannot read properties of undefined (reading 'level')`
-	で落ちるため (#4175 で実測)。`--dangerouslyIgnoreUnhandledErrors` により
+	で落ちるため (#4176 で実測)。`--dangerouslyIgnoreUnhandledErrors` により
 	「passed」に見えていて気づけなかった。
 -->
 <Story name="AllStates" args={{ health: OK }}>

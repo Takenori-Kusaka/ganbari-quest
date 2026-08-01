@@ -233,7 +233,7 @@ const successMessage = $derived(
 	     `curl /api/health | jq` しかなかった。家族 (非エンジニア) が見られる場所に出す。
 	     ADR-0012 整合で常時表示の煽りにはせず、設定画面内の静的表示に留める。
 
-	     #4175: ここは以前 59 行のインライン実装だった。同じ描画が component 側にもあり、
+	     #4176: ここは以前 59 行のインライン実装だった。同じ描画が component 側にもあり、
 	     **component だけを直しても実画面に届かない**状態になっていた (#4162 の
 	     rotation-blocked 文言が実際そうなった)。Storybook が描いていたのも
 	     誰も表示しない component で、SS の代替という主張が成立していなかった。
