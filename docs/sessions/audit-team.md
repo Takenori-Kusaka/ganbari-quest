@@ -28,6 +28,24 @@ CronCreate(cron: "47 * * * *", recurring: true, prompt: <label-mailbox.md §4「
 - **per-PR の AC は再判定しない**（QM の領域、§3.4 二重判定回避）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
 
+### §0.1 Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+**監査は Agent Teams と最も相性がよい。** §3.1 の 8 チーム構成は元々「独立した観点が並列に調べ、結果を集約する」形であり、teammate への割り当てがそのまま対応する。
+
+さらに §3.6 の全件発露原則に対して、**competing hypotheses（互いの仮説を反証させる）**が効く。単一 agent の逐次調査は anchoring に弱く、最初に見つけた説明で止まる。teammate 同士が直接メッセージを送れるため、**A の仮説を B が潰す往復**が起きる。
+
+**ただし不可逆 action は audit-manager 専権のまま**（§3.3）。teammate に許すのは evidence 生成まで。以下は lead が直接実行する。
+
+- release cut / 統合 PR の発行
+- approve / merge
+- Issue 起票の実行
+
+**adversarial reviewer を teammate 型として spawn できる**（`.claude/skills/adversarial-reviewer`）。ただし subagent 定義の `skills` / `mcpServers` frontmatter は teammate では適用されないため、**spawn prompt に必要な skill 名を明記する**。
+
+**重い検証を並列化しても速くならない** — `heavy` lock はマシン全体で 1 本（[agent-concurrency.md](agent-concurrency.md) §3.1）。最重厚レーンの CI は GitHub Actions 側で走るため teammate 数と無関係。
+
 ## §1 設計背景
 
 main = 本番（push 即 deploy、不変条件）であるにもかかわらず、現状の品質ゲートは「Dev 自己レビュー + QM 毎時レビュー（per-PR の機能正しさ判定）」までで止まっている。
