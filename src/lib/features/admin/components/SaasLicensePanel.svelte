@@ -113,6 +113,10 @@ let selectedTier = $state<'standard' | 'family'>('standard');
 // #3204: 年額は #2719 で廃止確定 (checkout が yearly を reject)。月額固定にし、年額トグル UI を撤去。
 // #3204: checkout 失敗時のエラーメッセージ (silent no-op 撲滅、Toast と併用の in-page banner)
 let checkoutError = $state<string | null>(null);
+// #4161: 決済未設定 (stripeEnabled=false) の配備でアップグレード操作を押したときの説明文。
+// `checkoutError` の Alert は `{#if stripeEnabled}` ブロック内にしか無く、決済未設定時は
+// 画面に何も出ないため、ブロック外に出す専用 state を分けている。
+let billingUnavailable = $state<string | null>(null);
 
 // #771 Portal を開く前の PIN / 確認フレーズ入力
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
@@ -248,7 +252,17 @@ async function startCheckout(planId: string) {
 //   - 契約あり   → Stripe 請求管理ページ (プラン変更)。checkout は ALREADY_SUBSCRIBED (409) で
 //                  弾かれるため、上位プランへの変更は Portal 経由が唯一の正しい経路。
 //                  PIN ゲート + 超過リソース確認も requestPortal() が担う。
+//
+// #4161: 決済が有効でない配備 (セルフホスト / STRIPE_SECRET_KEY 未設定の本番) では、
+//   どちらの経路も最後まで到達できない。プラン管理カードは `{#if stripeEnabled}` で
+//   隠れているのに PlanStatusCard の CTA と確認ダイアログはブロックの外にあるため、
+//   放置すると「PIN を入れて確定した末に失敗する」dead-end (#2544 型) が成立する。
+//   押した時点で理由を提示して打ち切る (silent no-op も作らない、#3204 整合)。
 function handlePlanUpgrade(planId: string) {
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
 	if (hasSubscription) {
 		void requestPortal();
 		return;
@@ -307,8 +321,25 @@ async function executeDowngradeArchive(selection: {
 	}
 }
 
+// #4161: 決済未設定を伝える単一箇所 (Toast + in-page banner の 2 層、ADR-0062 / #3204 整合)
+function notifyBillingUnavailable() {
+	billingUnavailable = SUBSCRIPTION_PAGE_LABELS.billingUnavailable;
+	showToast(
+		SUBSCRIPTION_PAGE_LABELS.billingUnavailableToastTitle,
+		SUBSCRIPTION_PAGE_LABELS.billingUnavailable,
+		'error',
+	);
+}
+
 // #771 + #738: Portal 遷移前ダイアログ
 async function requestPortal() {
+	// #4161: 確認ダイアログは `{#if stripeEnabled}` の外にあるため、requestPortal() を
+	//   呼ぶ全経路 (PlanStatusCard CTA / 請求管理ボタン / ダウングレード選択後) で塞ぐ。
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
+	billingUnavailable = null;
 	portalPinValue = '';
 	portalConfirmPhrase = '';
 	portalError = null;
@@ -328,6 +359,13 @@ async function requestPortal() {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: PIN ゲート + Portal 遷移の集中ロジックのため
 async function openPortal() {
 	portalError = null;
+
+	// #4161: ChurnPreventionModal の「解約する」からは requestPortal() を経由せず直接呼ばれる。
+	//   決済未設定の配備で押しても Portal へは行けないため、ここでも同じ理由を返す。
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
 
 	if (pinConfigured) {
 		if (
@@ -392,7 +430,15 @@ async function openPortal() {
 	<title>{PAGE_TITLES.license}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6" data-testid="saas-license-panel">
+<!-- #4161: アップグレード CTA の分岐を決めるのはこの 2 変数だけ (handlePlanUpgrade)。
+     受け入れテストが「いまどちらの経路を検証しているか」を実際に読んで表明できるよう、
+     DOM に出す (結末を or で並べて、どちらが走ったか誰にも見えない形を作らない)。 -->
+<div
+	class="space-y-6"
+	data-testid="saas-license-panel"
+	data-stripe-enabled={stripeEnabled ? 'true' : 'false'}
+	data-has-subscription={hasSubscription ? 'true' : 'false'}
+>
 	<!-- #3991: 解約 (期末解約) 申請中バナー + 取り消し導線。
 	     「いつまで使えるか」を親が画面で再確認できる唯一の場所であり、
 	     解約完了メールの猶予期限と同じ日付 (Stripe の請求期間終了日) を示す。 -->
@@ -488,6 +534,15 @@ async function openPortal() {
 			onUpgrade={handlePlanUpgrade}
 			upgradeLoading={checkoutLoading || portalLoading}
 		/>
+	{/if}
+
+	<!-- #4161: 決済未設定の配備でアップグレード操作を押したときの理由表示。
+	     `checkoutError` の Alert は `{#if stripeEnabled}` の内側にあり決済未設定時は描画されないため、
+	     ここ (ブロック外) に置く。確認ダイアログは開かない = dead-end を作らない。 -->
+	{#if billingUnavailable}
+		<div data-testid="billing-unavailable-alert">
+			<Alert variant="warning" message={billingUnavailable} />
+		</div>
 	{/if}
 
 	<!-- 無料トライアル -->

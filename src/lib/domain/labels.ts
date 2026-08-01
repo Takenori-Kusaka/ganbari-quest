@@ -2712,6 +2712,11 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
+	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
+	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
+	billingUnavailable:
+		'この環境では決済機能が有効になっていないため、プランの変更手続きに進めません',
+	billingUnavailableToastTitle: 'プランの変更手続きに進めません',
 
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
