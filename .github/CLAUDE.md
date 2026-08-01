@@ -150,6 +150,19 @@ AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 
 セットアップ: Branch Ruleset の `required_status_checks` に 6 ジョブ追加（管理者作業。`closing keyword の記入 (feat/fix)` は #3458 で新設、required 化には ruleset 追加登録が必要）。
 
+## workflow の発火 type — commit を伴わない PR イベント（#4171）
+
+PR 本文 / label の編集は `pull_request` の `edited` を発火させるが、**同一 SHA に対する再実行**にしかならない。どの workflow がそれを購読してよいかを `scripts/lib/ci/pr-commitless-trigger-registry.mjs` で宣言し、`tests/unit/architecture/pr-commitless-trigger-guard.test.ts` が機械検証する。
+
+| 宣言 | 意味 | 強制内容 |
+|---|---|---|
+| `bodyGate: true` | PR 本文が入力の軽量 gate（`pr-quality-gate` / `pr-merge-gate` / `pr-template-gate` / `pr-ac-verification-check`） | `edited` 購読が**必須**（本文検査を黙って止めない）+ 重量 step を持たないこと |
+| `bodyGate: false` | それ以外（`ci.yml` / visual regression / staging deploy 等） | commit-less な活動 type（`edited` / `labeled` / …）を購読して**はならない** |
+
+- `on.pull_request(_target)` を持つ workflow は**全数が registry に現れる**（未宣言は fail。新規 workflow 追加時に判断が必ず発生する）
+- `ready_for_review` は別枠。Draft 中に job を skip する workflow の**初回発火に要る**ため購読を禁止せず、**重量 workflow が購読するなら Draft skip 条件（`pull_request.draft == false`）を持つこと**だけを要求する（#1218）
+- 実測（統合 PR #4152）: 本文編集 5 回で走ったのは軽量 gate 4 本のみ（各 10〜40 秒）。CI 本体は 0 回。CI 4 回はすべて別 SHA への push が起点だった
+
 ### type:* label 自動付与 — title 接頭辞が SSOT（#2495）
 
 `type:*` label は **PR title 接頭辞を SSOT** とし `pr-info.yml` の `type-label` job が自動付与する（`feat`/`fix`/`refactor`/`design`/`infra`/`test`/`docs`/`marketing` の 8 種）。`## 変更タイプ` checkbox は人間可読の補助で label の source ではない（title と乖離時は title が正）。`area:*` は `labeler.yml`（file-glob, actions/labeler）が担い、両者は責務分離。
