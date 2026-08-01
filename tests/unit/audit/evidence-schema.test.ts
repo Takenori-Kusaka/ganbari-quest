@@ -230,8 +230,9 @@ describe('validateEvidence', () => {
 	});
 
 	it('CI 共有 fixture (sample-evidence.json) が schema に適合する (workflow との drift 防止)', () => {
-		// audit-run.yml pipeline-selftest job が cp する固定 fixture。schema が変わっても
-		// fixture が追従していなければここで fail させ、CI smoke の偽 PASS を防ぐ。
+		// run-pipeline.mjs の CLI smoke が読む固定 fixture。schema が変わっても fixture が
+		// 追従していなければここで fail させ、偽 PASS を防ぐ。
+		// (#4208 で audit-run.yml を撤去したため、schema 追従の担保は本 test が単独で負う)
 		// Vitest cwd = リポジトリ root。import.meta.url は runner 下で file:// にならず
 		// fileURLToPath が throw するため process.cwd() 起点で解決する。
 		const fixturePath = path.resolve(process.cwd(), 'scripts/audit/fixtures/sample-evidence.json');

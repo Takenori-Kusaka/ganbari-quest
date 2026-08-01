@@ -9,7 +9,7 @@
 			"location": "src/lib/server/foo.ts:1",
 			"severity": 3,
 			"policy_candidate": false,
-			"detail": "pipeline CLI smoke 用の固定 finding。audit-run.yml の pipeline-selftest job と evidence-schema unit test が共有する。",
+			"detail": "pipeline CLI smoke 用の固定 finding。run-pipeline.mjs の CLI smoke と evidence-schema unit test が共有する。",
 			"evidence_urls": [],
 			"ruleId": "smoke/rule",
 			"level": "error",
