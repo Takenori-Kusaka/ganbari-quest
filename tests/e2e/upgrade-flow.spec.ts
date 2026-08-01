@@ -124,6 +124,14 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
 		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
 
+		// hydration gate: この CTA は SSR でも <button> として描画されるため、hydration 前に押すと
+		// onclick が未 attach で空振りし、「押しても何も起きない」ではなく「JS 未起動」を測ってしまう
+		// (Vite dev で実測: 初回 fail → retry で PASS)。確認ダイアログの content は Ark UI の
+		// <Portal> 配下で client mount 後にのみ DOM に現れる (閉じていても hidden で存在する) ので、
+		// その出現を hydration の gate に使う (既存 pattern: admin-challenges-delete-confirm.spec.ts)。
+		// checkout は POST を伴うため click 自体の retry はしない (session を二重に作らない)。
+		await expect(page.getByTestId('portal-confirm-button')).toHaveCount(1, { timeout: 30_000 });
+
 		await cta.click();
 
 		if (stripeEnabled === 'true') {
