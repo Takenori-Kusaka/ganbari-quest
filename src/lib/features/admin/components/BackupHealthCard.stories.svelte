@@ -97,7 +97,13 @@ const CRITICAL_ROTATION_BLOCKED: BackupHealthVerdict = {
 <Story name="WarnRotationBlocked" args={{ health: WARN_ROTATION_BLOCKED }} />
 <Story name="CriticalRotationBlocked" args={{ health: CRITICAL_ROTATION_BLOCKED }} />
 
-<Story name="AllStates">
+<!--
+	args を渡すのは、meta の `component` が指定されている story は args から自動 render される
+	経路があり、`health` が undefined だと `Cannot read properties of undefined (reading 'level')`
+	で落ちるため (#4175 で実測)。`--dangerouslyIgnoreUnhandledErrors` により
+	「passed」に見えていて気づけなかった。
+-->
+<Story name="AllStates" args={{ health: OK }}>
 	<div class="flex flex-col gap-4">
 		<BackupHealthCard health={OK} />
 		<BackupHealthCard health={WARN_NO_CHANNEL} />

@@ -6,7 +6,8 @@
 // founder 直接相談の独立ページ (/inquiry/founder) は LP / ライセンス導線から到達するため存続。
 
 import { enhance } from '$app/forms';
-import { APP_LABELS, formatCount, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import BackupHealthCard from '$lib/features/admin/components/BackupHealthCard.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -230,47 +231,15 @@ const successMessage = $derived(
 	<!-- #4087 (E3 / EPIC #4119): バックアップ状態。NUC セルフホスト時のみ表示する。
 	     2026-07-31 の実害では 18 日間バックアップが止まっていたのに、気づく手段が
 	     `curl /api/health | jq` しかなかった。家族 (非エンジニア) が見られる場所に出す。
-	     ADR-0012 整合で常時表示の煽りにはせず、設定画面内の静的表示に留める。 -->
+	     ADR-0012 整合で常時表示の煽りにはせず、設定画面内の静的表示に留める。
+
+	     #4175: ここは以前 59 行のインライン実装だった。同じ描画が component 側にもあり、
+	     **component だけを直しても実画面に届かない**状態になっていた (#4162 の
+	     rotation-blocked 文言が実際そうなった)。Storybook が描いていたのも
+	     誰も表示しない component で、SS の代替という主張が成立していなかった。
+	     描画は BackupHealthCard 1 箇所に集約する。 -->
 	{#if data.backupHealth}
-		{@const bh = data.backupHealth}
-		<Card padding="lg">
-			<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
-				{SETTINGS_LABELS.backupSectionTitle}
-			</h3>
-			<div data-testid="backup-health" data-level={bh.level}>
-				{#if bh.level === 'ok'}
-					<Alert variant="success" message={SETTINGS_LABELS.backupOkTitle} />
-				{:else if bh.level === 'warn'}
-					<Alert variant="warning" message={SETTINGS_LABELS.backupWarnTitle} />
-				{:else}
-					<Alert variant="danger" message={SETTINGS_LABELS.backupCriticalTitle} />
-				{/if}
-
-				<ul class="mt-3 space-y-1 text-sm text-[var(--color-text-muted)]">
-					<li>
-						{SETTINGS_LABELS.backupLastSuccessLabel}{lastSuccessDisplay === null
-							? SETTINGS_LABELS.backupNeverSucceeded
-							: lastSuccessDisplay}
-					</li>
-					{#if bh.consecutiveFailures > 0}
-						<li>
-							{SETTINGS_LABELS.backupConsecutiveFailuresLabel}{formatCount(bh.consecutiveFailures)}
-						</li>
-					{/if}
-					{#if bh.notificationMissing}
-						<li class="text-[var(--color-feedback-warning-text)]">
-							{SETTINGS_LABELS.backupNotificationMissing}
-						</li>
-					{/if}
-				</ul>
-
-				{#if bh.level !== 'ok'}
-					<p class="mt-3 text-sm text-[var(--color-text-muted)]">
-						{SETTINGS_LABELS.backupActionHint}
-					</p>
-				{/if}
-			</div>
-		</Card>
+		<BackupHealthCard health={data.backupHealth} />
 	{/if}
 
 	<!-- アプリ情報・リンク -->
