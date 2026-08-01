@@ -46,6 +46,9 @@ async function readBackupHealth(): Promise<BackupHealthVerdict | null> {
 				consecutiveFailures: status.consecutiveFailures,
 				lastFailureMessage: status.lastFailureMessage,
 				notificationConfigured: isBackupNotificationConfigured(process.env),
+				// #4162: guard 発火中は「取得は成功 / ローテーションが保留」。
+				// 欠損時 0 扱いで旧 status file と後方互換。
+				rotationPendingCount: status.rotationPendingCount ?? 0,
 			},
 			new Date(),
 		);

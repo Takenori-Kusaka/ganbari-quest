@@ -35,6 +35,7 @@ function healthy(overrides: Partial<BackupHealthInput> = {}): BackupHealthInput 
 		consecutiveFailures: 0,
 		lastFailureMessage: null,
 		notificationConfigured: true,
+		rotationPendingCount: 0,
 		...overrides,
 	};
 }
@@ -120,10 +121,56 @@ describe('#4087 バックアップ状態の判定 (evaluateBackupHealth)', () =>
 				consecutiveFailures: 18,
 				lastFailureMessage: 'CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)',
 				notificationConfigured: false,
+				// 実害時はローテーション以前に取得が 0 件だった (guard は無関係)。
+				rotationPendingCount: 0,
 			},
 			NOW,
 		);
 		expect(v.level).toBe('critical');
+		expect(v.notificationMissing).toBe(true);
+	});
+});
+
+describe('#4162 ローテーション guard 発火中の診断', () => {
+	it('[BH13] 取得は成功していてローテーションだけ止まっているなら warn (critical にしない)', () => {
+		// guard 発火時は新世代の確定に成功しており、**毎晩 1 世代ずつ増え続けている**。
+		// これを critical にすると「job が動いていない」と読まれ、運用者が job の再起動へ
+		// 向かう。実際に必要な行動は「古い世代を退避して手で削除」で、診断が真逆になる。
+		const v = evaluateBackupHealth(healthy({ rotationPendingCount: 3 }), NOW);
+		expect(v.level).toBe('warn');
+		expect(v.reason).toBe('rotation-blocked');
+		expect(v.rotationPendingCount).toBe(3);
+	});
+
+	it('[BH14] 「取れていない」方が常に重い — stale / 連続失敗が rotation-blocked より優先する', () => {
+		// 片付いていないより取れていない方が重い。順序が逆転すると、本当に job が
+		// 止まっているときに warn へ格下げされる。
+		const stale = evaluateBackupHealth(
+			healthy({ lastSuccessAt: hoursAgo(60), rotationPendingCount: 3 }),
+			NOW,
+		);
+		expect(stale.reason).toBe('stale-critical');
+
+		const failing = evaluateBackupHealth(
+			healthy({ consecutiveFailures: 2, rotationPendingCount: 3 }),
+			NOW,
+		);
+		expect(failing.reason).toBe('consecutive-failures-critical');
+	});
+
+	it('[BH15] 保留が解除されたら rotation-blocked を出さない', () => {
+		// 退避して手で削除したのに warn が残り続けると、表示が現実から乖離して固定される。
+		const v = evaluateBackupHealth(healthy({ rotationPendingCount: 0 }), NOW);
+		expect(v.reason).toBe('healthy');
+	});
+
+	it('[BH16] rotation-blocked でも通知経路の欠落は independent に出る', () => {
+		// level と独立に立つ設計 (#4087 AC1) が guard 発火中も維持されること。
+		const v = evaluateBackupHealth(
+			healthy({ rotationPendingCount: 2, notificationConfigured: false }),
+			NOW,
+		);
+		expect(v.reason).toBe('rotation-blocked');
 		expect(v.notificationMissing).toBe(true);
 	});
 });

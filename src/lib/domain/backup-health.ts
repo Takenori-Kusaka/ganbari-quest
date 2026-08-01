@@ -29,6 +29,7 @@ export type BackupHealthReason =
 	| 'stale-warn'
 	| 'consecutive-failures-critical'
 	| 'last-run-failed'
+	| 'rotation-blocked'
 	| 'no-notification-channel'
 	| 'healthy';
 
@@ -47,6 +48,16 @@ export interface BackupHealthInput {
 	 * (「通知できないので黙る」を無くす、#4087 AC1)。
 	 */
 	notificationConfigured: boolean;
+	/**
+	 * ローテーション guard (#4129 AC2) が止めている世代数。止まっていなければ 0。
+	 *
+	 * **取得の成否とは独立した事実**である点が本 field の存在理由 (#4162)。guard 発火時は
+	 * 「新世代の確定は成功したが、古い世代の削除だけを意図的に止めた」状態で、
+	 * **バックアップは毎晩正常に増えている**。これを failure として 1 つの状態に潰すと、
+	 * 判定が `stale-critical` (= 「job が動いていない」) に倒れ、**診断が真逆**になる。
+	 * 実際に必要な行動は「古い世代を退避して手で削除する」であって job の再起動ではない。
+	 */
+	rotationPendingCount: number;
 }
 
 export interface BackupHealthVerdict {
@@ -59,6 +70,8 @@ export interface BackupHealthVerdict {
 	lastFailureMessage: string | null;
 	/** 通知経路が無いこと自体の警告。level とは独立に立つ (critical でも同時に出したい)。 */
 	notificationMissing: boolean;
+	/** ローテーション guard が止めている世代数 (#4162)。0 なら止まっていない。 */
+	rotationPendingCount: number;
 }
 
 /** 「1 回飛んだ」と読める閾値 (h)。日次 03:00 + 実行時間 + 余裕。 */
@@ -88,6 +101,7 @@ export function evaluateBackupHealth(input: BackupHealthInput, now: Date): Backu
 		consecutiveFailures: input.consecutiveFailures,
 		lastFailureMessage: input.lastFailureMessage,
 		notificationMissing: !input.notificationConfigured,
+		rotationPendingCount: input.rotationPendingCount,
 	};
 
 	// 一度も成功していない = 「バックアップがある」と言えない状態。
@@ -110,6 +124,16 @@ export function evaluateBackupHealth(input: BackupHealthInput, now: Date): Backu
 
 	if (input.consecutiveFailures > 0) {
 		return { ...base, level: 'warn', reason: 'last-run-failed' };
+	}
+
+	// #4162: ローテーションだけが止まっている状態。**取得は成功し続けている**ので
+	// critical ではなく warn。stale / consecutive-failures より後に見るのは、
+	// 「取れていない」方が常に重いため (取れているが片付いていない、は次に重い)。
+	//
+	// guard は自己解除しない — 溢れは毎晩 1 ずつ増えるので、人が退避して手で削除するまで続く。
+	// したがってこの warn は「放置すれば消える」類ではなく、**行動を促すもの**である。
+	if (input.rotationPendingCount > 0) {
+		return { ...base, level: 'warn', reason: 'rotation-blocked' };
 	}
 
 	// 直近は成功しているが、次に失敗したとき誰にも届かない状態。

@@ -23,6 +23,7 @@ const OK: BackupHealthVerdict = {
 	consecutiveFailures: 0,
 	lastFailureMessage: null,
 	notificationMissing: false,
+	rotationPendingCount: 0,
 };
 
 /** 通知経路が無いだけの warn。**取れてはいるが、壊れても届かない**状態 (#4087 AC1)。 */
@@ -33,6 +34,7 @@ const WARN_NO_CHANNEL: BackupHealthVerdict = {
 	consecutiveFailures: 0,
 	lastFailureMessage: null,
 	notificationMissing: true,
+	rotationPendingCount: 0,
 };
 
 /**
@@ -46,6 +48,7 @@ const CRITICAL_REAL_INCIDENT: BackupHealthVerdict = {
 	consecutiveFailures: 18,
 	lastFailureMessage: 'CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)',
 	notificationMissing: true,
+	rotationPendingCount: 0,
 };
 
 /** ジョブが起動しなかったケース。**失敗 0 回でも成功が古ければ critical** (#4087 AC3)。 */
@@ -56,6 +59,21 @@ const CRITICAL_STALE: BackupHealthVerdict = {
 	consecutiveFailures: 0,
 	lastFailureMessage: null,
 	notificationMissing: false,
+	rotationPendingCount: 0,
+};
+/**
+ * ローテーションだけが止まっている状態 (#4162)。
+ * **取得は成功し続けている**ので critical ではなく warn。必要な行動は
+ * 「古い控えを移して消す」であり、job の再起動ではない。
+ */
+const WARN_ROTATION_BLOCKED: BackupHealthVerdict = {
+	level: 'warn',
+	reason: 'rotation-blocked',
+	hoursSinceLastSuccess: 4,
+	consecutiveFailures: 0,
+	lastFailureMessage: null,
+	notificationMissing: false,
+	rotationPendingCount: 4,
 };
 </script>
 
@@ -63,6 +81,7 @@ const CRITICAL_STALE: BackupHealthVerdict = {
 <Story name="WarnNoNotificationChannel" args={{ health: WARN_NO_CHANNEL }} />
 <Story name="CriticalNeverSucceeded" args={{ health: CRITICAL_REAL_INCIDENT }} />
 <Story name="CriticalStale" args={{ health: CRITICAL_STALE }} />
+<Story name="WarnRotationBlocked" args={{ health: WARN_ROTATION_BLOCKED }} />
 
 <Story name="AllStates">
 	<div class="flex flex-col gap-4">
@@ -70,5 +89,6 @@ const CRITICAL_STALE: BackupHealthVerdict = {
 		<BackupHealthCard health={WARN_NO_CHANNEL} />
 		<BackupHealthCard health={CRITICAL_REAL_INCIDENT} />
 		<BackupHealthCard health={CRITICAL_STALE} />
+		<BackupHealthCard health={WARN_ROTATION_BLOCKED} />
 	</div>
 </Story>

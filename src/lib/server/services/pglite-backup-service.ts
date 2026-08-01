@@ -57,6 +57,16 @@ export interface PgliteBackupStatus {
 	 * まで一緒に見られなくなる**。状態が変わったときだけ通知する。
 	 */
 	lastOffsiteLevel: OffsiteVerdict['level'] | null;
+	/**
+	 * ローテーション guard (#4129 AC2) が止めている世代数 (#4162)。止まっていなければ 0。
+	 *
+	 * **取得の成否とは独立した事実**。guard 発火時は新世代の確定に成功していて
+	 * 削除だけが止まっているため、これを failure に潰すと判定が「job が動いていない」へ
+	 * 倒れて診断が真逆になる。欠損時は 0 扱い (旧 status file との後方互換)。
+	 */
+	rotationPendingCount: number;
+	/** ローテーションが止まり始めた時刻 (ISO 8601)。止まっていなければ null。 */
+	rotationBlockedSince: string | null;
 }
 
 /**
@@ -150,6 +160,8 @@ async function readStatus(backupDir: string): Promise<PgliteBackupStatus> {
 		lastFailureMessage: null,
 		consecutiveFailures: 0,
 		lastOffsiteLevel: null,
+		rotationPendingCount: 0,
+		rotationBlockedSince: null,
 	};
 	try {
 		const raw = await readFile(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8');
@@ -217,7 +229,28 @@ export async function runPgliteBackup(
 		// 取得した新世代はここまでで確定済みなので、**バックアップは失われず削除だけが止まる**。
 		// 逃げ道 (bypass env) は用意しない — 退避してから手で古い世代を削れば、次回以降は
 		// rotated が 1 件に戻って自然に解除される。env で黙って通せる穴を作らない。
+		// #4162: guard は **throw する前に「取得は成功した」を状態ファイルへ確定させる**。
+		// 新世代は上の rename で既に確定しており、コード自身がそれを知っている
+		// (guard の文言も「今回取得した新しいバックアップは確定済み」と書いている)。
+		// にもかかわらず throw だけすると catch が lastSuccessAt を進めないまま
+		// consecutiveFailures を積み、判定が stale-critical (= 「job が動いていない」) に倒れる。
+		// **実際は毎晩正常に取れており、必要な行動は「古い世代を退避して手で削除」**なので
+		// 診断が真逆になる。取得の成功とローテーションの保留を別々の事実として残す。
 		if (rotated.length > 1) {
+			const previousForGuard = await readStatus(backupDir);
+			await writeStatus(backupDir, {
+				...previousForGuard,
+				lastSuccessAt: new Date().toISOString(),
+				lastSuccessFilename: filename,
+				lastSuccessBytes: bytes.byteLength,
+				lastSuccessDurationMs: Date.now() - startedAt,
+				// 取得は成功しているので連続失敗は 0 に戻す。guard の発火は「失敗」ではない。
+				consecutiveFailures: 0,
+				rotationPendingCount: rotated.length,
+				rotationBlockedSince: previousForGuard.rotationBlockedSince ?? new Date().toISOString(),
+			}).catch(() => {
+				// 状態を書けなくても guard 自体は止める (削除を通してしまう方が重い)。
+			});
 			throw new PgliteBackupRotationGuardError(
 				rotated,
 				retention,
@@ -263,6 +296,11 @@ export async function runPgliteBackup(
 			lastSuccessDurationMs: durationMs,
 			consecutiveFailures: 0,
 			lastOffsiteLevel: offsite.level,
+			// ここまで来た = ローテーションが通った。保留を解除する (#4162)。
+			// 解除を書き忘れると「退避して削除したのに warn が消えない」状態が残り、
+			// 表示が現実から乖離したまま固定される。
+			rotationPendingCount: 0,
+			rotationBlockedSince: null,
 		});
 
 		const result: PgliteBackupResult = {
@@ -283,6 +321,18 @@ export async function runPgliteBackup(
 		});
 		return result;
 	} catch (e) {
+		// #4162: guard の発火は **失敗ではない**。取得は成功しており、削除だけを意図的に
+		// 止めた状態で、その事実は throw の直前に状態ファイルへ書いてある。ここで
+		// consecutiveFailures を積むと判定層が「落ち続けている」と読み、診断が真逆になる。
+		// 状態はもう記録済みなので、そのまま呼び出し側へ投げるだけにする。
+		if (e instanceof PgliteBackupRotationGuardError) {
+			logger.warn('[pglite-backup] rotation blocked (取得は成功)', {
+				service: 'pglite-backup',
+				context: { wouldDelete: e.wouldDelete.length, retention: e.retention },
+			});
+			throw e;
+		}
+
 		const message = e instanceof Error ? e.message : String(e);
 		const previous = await readStatus(backupDir);
 		await writeStatus(backupDir, {
