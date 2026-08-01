@@ -2634,6 +2634,11 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
+// #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
+// 3 つの告知が同じ事実を語るため、文言をここで 1 度だけ組み立てて共有する
+// (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
+const WRITES_CONTINUE_ASSURANCE = `お子さまの記録はそのまま残り、${PLAN_FULL_TERMS.free}の範囲で記録・ポイント付与を続けられます。`;
+
 export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
@@ -2679,6 +2684,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	statusActive: '有効',
 	statusGracePeriod: '猶予期間',
 	statusSuspended: '停止中',
+	/** S5 契約終了 (#4156)。S6 `terminated` (退会) を表す statusTerminated とは別状態 */
+	statusCancelled: `${CANCEL_TERMS.canonical}済み`,
 	statusTerminated: '解約済み',
 
 	// 無料トライアル
@@ -2704,15 +2711,42 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	cancelPendingExpiryLabel: 'ご利用いただける最終日',
 
 	// ステータス別メッセージ
+	//
+	// #4156: 文言は認可の実挙動 (`authorization.ts`) を SSOT とする (ADR-0013)。
+	// #3993 の PO 判断により、支払い停止中も解約後も**無料プラン相当で書き込みは許可される**
+	// (上限は free tier の plan limit が担う)。したがって「記録やポイントの付与はできません」
+	// と書いてはならない。対応表と検証は `contract-state-view.ts` / 同名 test にある。
+	/** 書き込みが許可されている契約状態の告知に必ず添える保証文 */
+	writesContinueAssurance: WRITES_CONTINUE_ASSURANCE,
 	gracePeriodTitle: '⚠️ 猶予期間中',
-	gracePeriodDesc:
-		'お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎるとサービスが停止されます。',
-	suspendedTitle: '⏸️ サービス停止中',
-	suspendedDesc:
-		'ライセンスが停止されています。データは保持されていますが、新しい活動の記録やポイントの付与はできません。',
+	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}`,
+	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
+	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
+	/** S5 契約終了 (解約確定) */
+	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
 	terminatedTitle: '❌ 解約済み',
 	terminatedDesc:
 		'このアカウントは解約されています。データは一定期間保持されますが、その後削除されます。',
+
+	// 請求履歴 (#4156)
+	//
+	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
+	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
+	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
+	billingHistoryTitle: '請求履歴',
+	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
+	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
+	billingHistoryFeatureReceipts: 'お支払い履歴の確認',
+	billingHistoryButton: (loading: boolean) => (loading ? '読み込み中...' : '請求履歴を確認する'),
+	billingHistoryNote: `Stripe の安全な${STRIPE_PORTAL_TERMS.short}に移動します`,
+	billingHistoryPinNote: (usesPin: boolean) =>
+		`⚠️ お支払い情報を開くには${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
+	/** 請求履歴から開くときの確認ダイアログ (操作の目的がプラン変更ではないため文言を分ける) */
+	portalConfirmTitleBillingHistory: '請求履歴を開く確認',
+	portalConfirmDescBillingHistory: `Stripeの${STRIPE_PORTAL_TERMS.short}に移動します。過去の請求書・領収書をご確認いただけます。`,
+	portalConfirmSubmitBillingHistory: `${STRIPE_PORTAL_TERMS.short}へ`,
 
 	// プラン管理
 	planManagementTitle: 'プラン管理',
