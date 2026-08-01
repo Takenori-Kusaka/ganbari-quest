@@ -104,7 +104,11 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 タスク固有: `.claude/skills/` (オンデマンド発火)
 
-**Agent Teams**: 各ロールが**自分のクローン内で**組む (PO チームの team / Dev チームの team、と別々に構築する)。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリ・gh 認証で動くため ADR-0022 の作成者 ≠ 承認者が空洞化する。**重い検証の並列化には使えない** (`heavy` lock はマシン全体で 1 本)。使ってよい / いけない場面の SSOT → @docs/sessions/agent-teams.md
+**Agent Teams**: 各ロールが**自分のクローン内で**組む (PO チームの team / Dev チームの team、と別々に構築する)。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリ・gh 認証で動くため ADR-0022 の作成者 ≠ 承認者が空洞化する。**重い検証の並列化には使えない** (`heavy` lock はマシン全体で 1 本)。
+
+**振り方 (2026-08-01 初回実運用、全ロール共通)**: ① **成果物がファイルに残る仕事を振る** — teammate の報告テキストは届かないことがある (read-only の調査でも出力先ファイルを指定する) / ② **完了は lead が `git diff` で自分で確認する** (通知を待たない) / ③ **teammate の出力は実物と突き合わせる** — teammate は数値・Issue 番号を推測で埋める / ④ **空振り 2 回で引き取る**。
+
+使ってよい / いけない場面 + 振り方の SSOT → @docs/sessions/agent-teams.md
 
 ## Further Context
 

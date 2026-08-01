@@ -34,7 +34,7 @@
 
 ## §3 仕様
 
-### §3.1 label 語彙（7 種）
+### §3.1 label 語彙（8 種）
 
 | label | 意味 | 付ける人 | 次に動く |
 |---|---|---|---|
@@ -43,6 +43,7 @@
 | `state:qm-blocked` | BLOCK 3 類型に該当（顧客に実害 / 証跡の真正性 / 不可逆） | QM | **Dev** |
 | `state:ready-to-merge` | QM approve 済 | QM | **QM**（merge を実行） |
 | `state:needs-audit` | 統合監査 / release cut を監査チームに渡した | PO | **監査** |
+| `state:needs-platform` | **装置の削減 / 統合 / 自動生成**をプラットフォームに渡した（[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | PO / Dev / QM | **Platform** |
 | `state:needs-po` | **不可逆 4 操作ではない PO 判断**が要る（方針 / 優先度 / repo 設定 / 受容判断 / 語彙・ルールの改訂） | 誰でも | **PO** |
 | `state:needs-owner` | **不可逆 4 操作**（削除 / 本番 deploy / 課金書込 / スキーマ変更）を含む | 誰でも | **オーナー** |
 
@@ -68,6 +69,9 @@
 | `state:needs-po` | PO | 決裁をコメントとして残した | **次の担当の state**（`needs-dev` / `needs-audit` / `dev-done` 等） |
 | `state:needs-owner` | オーナー / PO | 決裁をコメントとして残した | 同上 |
 | `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
+| `state:needs-platform` | Platform | 装置の削減 / 生成が完了し CI 全緑 | **`state:dev-done`**（QM レビューへ。**自分の PR を自分で approve しない** — ADR-0022） |
+| `state:needs-platform` | Platform | **削除**（gate / guard / test）が必要と分かった | **`state:needs-owner`**（不可逆 4 操作） |
+| `state:needs-platform` | Platform | gate を**残すか消すか**の方針判断が要る | **`state:needs-po`**（[README.md §4.5](README.md#45-装置開発基盤に関する決定)） |
 
 **原則**: `state:*` は「**次に動く人**」を指す。自分が動き終わったら、その label は自分を指したままにしない。
 
@@ -103,6 +107,7 @@
 | **PO** | `state:needs-po` / `state:needs-owner` | `gh issue list --label "state:needs-po" --state open` + `state:needs-owner` + PR 側も |
 | **オーナー** | `state:needs-owner` | 同上 |
 | **監査** | `state:needs-audit` / `release/* → main` の open PR | `gh issue list --label "state:needs-audit" --state open` / `gh pr list --base main --state open` |
+| **Platform** | `state:needs-platform` | `gh issue list --label "state:needs-platform" --state open` / `gh pr list --label "state:needs-platform" --state open` |
 
 **Issue と PR の両方を見る。** `gh pr list --label` は Issue を返さず、`gh issue list --label` は PR を返さない。片方だけ叩くと取りこぼす。
 
@@ -239,6 +244,26 @@ git fetch origin develop main -q && git rev-list --count origin/main..origin/dev
 - main..develop が 50 commits を超えていたら、バッチが育ちすぎている。PO に release cut を提案する
   （#3995 は凍結できないまま 4 日で実査不能になり棄却された）
 - per-PR の AC は再判定しない（QM の領域、§3.4 二重判定回避）
+```
+
+### Platform セッション用
+
+```
+Platform mailbox チェック。以下を実行して結果を簡潔に報告する（何も無ければ「mailbox 空」の 1 行でよい）:
+
+gh issue list --label "state:needs-platform" --state open --json number,title --jq '.[]|"着手 #\(.number) \(.title)"'
+gh pr list --label "state:needs-platform" --state open --json number,title --jq '.[]|"着手PR #\(.number) \(.title)"'
+gh pr list --label "state:qm-blocked" --state open --search "author:@me" --json number,title --jq '.[]|"BLOCKED #\(.number) \(.title)"'
+
+- **顧客は Dev。成功指標は装置の本数でも CI の緑でもなく、Dev の手戻り**
+  （QM の差し戻し件数 / pre-ready の落ち回数 / PR の往復回数）。README.md §3.4
+- **新しい検査を足すときは、同じ PR で既存を 1 本以上減らす**（装置総数の ratchet）。
+  「直す」より先に「消す」「生成する」が選べないかを検討する
+- 完了して CI が緑になったら state:needs-platform を外して **state:dev-done** に付け替える
+  （自分の PR を自分で approve しない、ADR-0022。§3.1.1 復路）
+- **gate / guard / test の削除は自分で実行しない** → state:needs-owner（不可逆 4 操作）
+- gate を残すか消すかの**方針**は自分で決めない → state:needs-po（README.md §4.5）
+- 製品コードは実装しない（Dev の職掌）。release cut / deploy はしない（監査の職掌）
 ```
 
 ---
