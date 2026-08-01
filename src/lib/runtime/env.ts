@@ -90,6 +90,11 @@ const envSchema = z.object({
 	//   いずれも optional — 未設定でも既定値で動く (ADR-0029 の required env 追加に当たらない)。
 	BACKUP_DIR: z.string().optional(),
 	BACKUP_RETENTION: z.coerce.number().int().positive().optional(),
+	// #3970 AC2: off-site 複製を期待しているか。docker-compose が HOST_BACKUP_DIR の
+	//   有無から `${HOST_BACKUP_DIR:+true}` で導出して渡す (運用者が直接設定する項目ではない)。
+	//   true のときだけ「保存先が稼働中 DB と別デバイスか」を検査する — off-site を運用しない
+	//   家庭まで警告すると警告が常態化して読まれなくなるため。optional (未設定 = 検査しない)。
+	BACKUP_OFFSITE_EXPECTED: z.string().optional(),
 
 	// ----- Stripe -----
 	STRIPE_SECRET_KEY: z.string().optional(),

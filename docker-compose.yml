@@ -32,6 +32,13 @@ services:
       # (backup コンテナは /api/cron/pglite-backup を叩くだけ)。保持 3 世代 = オーナー決裁。
       - BACKUP_DIR=/app/backups
       - BACKUP_RETENTION=3
+      # #3970 AC2: off-site を期待しているかをコンテナ内に伝える。
+      # HOST_BACKUP_DIR は host 側の compose 変数でコンテナからは見えないため、
+      # `:+` 展開で「設定されていれば true」に導出する (運用者の設定項目は増えない)。
+      # これが true のとき、バックアップ後に「保存先が稼働中 DB と別デバイスか」を検査する。
+      # NAS が落ちた状態で起動すると Docker が bind 先にローカルの空ディレクトリを作り、
+      # 書き込みが成功してしまう = 控えが NUC 内にしか無いのに成功と記録される。
+      - BACKUP_OFFSITE_EXPECTED=${HOST_BACKUP_DIR:+true}
       - HOST=0.0.0.0
       - PORT=3000
       - ORIGIN=${ORIGIN:-http://localhost:3000}
