@@ -570,7 +570,7 @@ async function openPortal() {
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
 					<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanExpiry}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">
-						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP')}
+						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 					</span>
 				</div>
 			{/if}
@@ -583,7 +583,7 @@ async function openPortal() {
 			<div class="flex items-center justify-between py-2">
 				<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanCreatedAt}</span>
 				<span class="text-sm text-[var(--color-text-primary)]">
-					{new Date(license.createdAt).toLocaleDateString('ja-JP')}
+					{new Date(license.createdAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 				</span>
 			</div>
 		</div>

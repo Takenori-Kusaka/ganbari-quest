@@ -1,6 +1,7 @@
 // SQLite implementation of IInquiryRepo
 // settings テーブルに inquiry: プレフィックスで問い合わせを保存
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { db } from '../client';
 import type { InquiryRecord } from '../interfaces/inquiry-repo.interface';
 import { settings } from '../schema';
@@ -8,7 +9,8 @@ import { settings } from '../schema';
 /** タイムスタンプベースのID発番（SQLiteモードではアトミックカウンタ不要） */
 export async function generateInquiryId(): Promise<string> {
 	const now = new Date();
-	const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+	// 問い合わせ番号の日付は顧客に見えるため JST (#4127)
+	const dateStr = todayDateJST().replace(/-/g, '');
 	const seq = String(now.getTime() % 10000).padStart(4, '0');
 	return `INQ-${dateStr}-${seq}`;
 }

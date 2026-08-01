@@ -18,7 +18,7 @@ import {
 	CATEGORY_CODES,
 	CATEGORY_NUMERIC_IDS,
 } from '$lib/domain/categories';
-import { todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import { addDaysJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -148,11 +148,8 @@ export async function aggregateCategoryCounts(
 	childId: ChildId,
 	tenantId: string,
 ): Promise<Record<string, number>> {
-	const now = new Date();
-	const twoWeeksAgo = new Date(now);
-	twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-	const fromDate = twoWeeksAgo.toISOString().slice(0, 10);
-	const toDate = now.toISOString().slice(0, 10);
+	const toDate = todayDateJST();
+	const fromDate = addDaysJST(toDate, -14);
 
 	const { summary } = await aggregateActivityLogsByCategory(childId, tenantId, {
 		from: fromDate,

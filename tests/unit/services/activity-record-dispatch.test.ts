@@ -36,12 +36,10 @@ const h = vi.hoisted(() => ({ isDsql: false }));
 
 // todayDate をモックして日付を制御 (既存 activity-log-service.test.ts と同一 pattern)
 const mockToday = '2026-02-20';
-vi.mock('$lib/domain/date-utils', () => ({
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => mockToday,
-	toJSTDateString: (date: Date) => {
-		const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-		return jst.toISOString().slice(0, 10);
-	},
 }));
 
 // DB モック: SQLite リポジトリがテスト用インメモリ DB を使うようにする

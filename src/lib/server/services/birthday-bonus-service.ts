@@ -2,7 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/birthday-bonus-service.ts
 // 誕生日ボーナスポイントの判定・付与サービス
 
-import { todayDateJST } from '$lib/domain/date-utils';
+import { addDaysJST, todayDateJST } from '$lib/domain/date-utils';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { findChildById, updateChild } from '$lib/server/db/child-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
@@ -45,11 +45,11 @@ export interface BirthdayBonusClaimResult {
 
 /** birthDate (YYYY-MM-DD) から年齢を計算 */
 export function calculateAge(birthDate: string, referenceDate: string): number {
-	const birth = new Date(`${birthDate}T00:00:00`);
-	const ref = new Date(`${referenceDate}T00:00:00`);
-	let age = ref.getFullYear() - birth.getFullYear();
-	const monthDiff = ref.getMonth() - birth.getMonth();
-	if (monthDiff < 0 || (monthDiff === 0 && ref.getDate() < birth.getDate())) {
+	// 暦日文字列どうしの比較で完結させる (Date 経由だと runtime TZ で結果が変わりうる、#4127)
+	const [by, bm, bd] = birthDate.split('-').map(Number);
+	const [ry, rm, rd] = referenceDate.split('-').map(Number);
+	let age = (ry ?? 0) - (by ?? 0);
+	if ((rm ?? 0) < (bm ?? 0) || ((rm ?? 0) === (bm ?? 0) && (rd ?? 0) < (bd ?? 0))) {
 		age--;
 	}
 	return Math.max(0, age);
@@ -58,12 +58,9 @@ export function calculateAge(birthDate: string, referenceDate: string): number {
 /** 今日が誕生日当日〜請求期間内かどうか */
 export function isBirthdayWindow(birthDate: string, today: string): boolean {
 	const birthMD = birthDate.slice(5); // "MM-DD"
-	const todayDate = new Date(`${today}T00:00:00Z`);
 
 	for (let i = 0; i < CLAIM_WINDOW_DAYS; i++) {
-		const checkDate = new Date(todayDate);
-		checkDate.setUTCDate(checkDate.getUTCDate() - i);
-		const checkMD = checkDate.toISOString().slice(5, 10);
+		const checkMD = addDaysJST(today, -i).slice(5);
 		if (checkMD === birthMD) {
 			return true;
 		}
@@ -74,11 +71,8 @@ export function isBirthdayWindow(birthDate: string, today: string): boolean {
 /** 誕生日の請求期限日を計算 */
 export function getClaimDeadline(birthDate: string, today: string): string | null {
 	const birthMD = birthDate.slice(5); // "MM-DD"
-	const year = new Date(`${today}T00:00:00Z`).getFullYear();
-	const birthdayThisYear = `${year}-${birthMD}`;
-	const deadline = new Date(`${birthdayThisYear}T00:00:00Z`);
-	deadline.setUTCDate(deadline.getUTCDate() + CLAIM_WINDOW_DAYS - 1);
-	return deadline.toISOString().slice(0, 10);
+	const birthdayThisYear = `${today.slice(0, 4)}-${birthMD}`;
+	return addDaysJST(birthdayThisYear, CLAIM_WINDOW_DAYS - 1);
 }
 
 /** ボーナスポイントを計算 */
@@ -116,7 +110,7 @@ export function checkBirthdayStatus(child: Child, today: string): BirthdayBonusS
 		};
 	}
 
-	const currentYear = new Date(`${today}T00:00:00`).getFullYear();
+	const currentYear = Number(today.slice(0, 4));
 	const alreadyClaimed = child.lastBirthdayBonusYear === currentYear;
 	const inWindow = isBirthdayWindow(child.birthDate, today);
 	const newAge = calculateAge(child.birthDate, today);
@@ -158,7 +152,7 @@ export async function claimBirthdayBonus(
 	const newAge = status.newAge ?? calculateAge(child.birthDate, today);
 	const multiplier = child.birthdayBonusMultiplier ?? 1.0;
 	const totalPoints = calcBirthdayBonus(newAge, multiplier);
-	const currentYear = new Date(`${today}T00:00:00`).getFullYear();
+	const currentYear = Number(today.slice(0, 4));
 
 	// #580: 年齢境界（preschool/elementary/junior/senior）を跨いだ場合、
 	// uiMode も自動的に再計算する。ポリシー: 常に自動上書き（手動設定は誕生日後に再調整）。

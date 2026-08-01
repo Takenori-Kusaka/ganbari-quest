@@ -14,6 +14,7 @@
 //     前提の防御。DSQL uuid は全域一意だが IDOR 形状排除のため両述語を維持、sqlite と同 shape)。
 
 import { sql } from 'drizzle-orm';
+import { todayDateJST } from '$lib/domain/date-utils';
 import type {
 	ITrialHistoryRepo,
 	TrialHistoryRow,
@@ -72,7 +73,7 @@ export function createDsqlTrialHistoryRepo(db: SqlExecutor): ITrialHistoryRepo {
 
 		async findActiveTrials() {
 			// endDate が今日以降のトライアル履歴 (cron 通知対象、cross-tenant scan 許容 §11.2)。
-			const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+			const today = todayDateJST();
 			const result = await db.execute(sql`
 				SELECT ${TRIAL_COLUMNS} FROM trial_history WHERE end_date >= ${today}
 			`);

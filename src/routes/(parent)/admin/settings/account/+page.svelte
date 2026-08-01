@@ -63,6 +63,7 @@ const gracePeriodDeletionDateLabel = $derived.by(() => {
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) return '';
 	return date.toLocaleDateString('ja-JP', {
+		timeZone: 'Asia/Tokyo',
 		year: 'numeric',
 		month: 'long',
 		day: 'numeric',

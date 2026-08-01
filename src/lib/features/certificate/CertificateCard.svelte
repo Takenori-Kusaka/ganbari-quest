@@ -20,6 +20,7 @@ let { certificate, basePath = '/admin/certificates' }: Props = $props();
 
 const formattedDate = $derived(
 	new Date(certificate.issuedAt).toLocaleDateString('ja-JP', {
+		timeZone: 'Asia/Tokyo',
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

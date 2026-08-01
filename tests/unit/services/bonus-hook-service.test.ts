@@ -80,11 +80,11 @@ function selfStudyRewardPreset() {
 }
 
 // Fake datetime: 2026-05-13 (水曜) 06:00 JST -> early-bird 発火条件
-const WEDNESDAY_EARLY = new Date('2026-05-13T06:00:00');
+const WEDNESDAY_EARLY = new Date('2026-05-12T21:00:00Z'); // JST 2026-05-13 06:00
 // 土曜 10:00 -> weekend
-const SATURDAY_DAY = new Date('2026-05-16T10:00:00');
+const SATURDAY_DAY = new Date('2026-05-16T01:00:00Z'); // JST 2026-05-16 10:00
 // 平日昼 -> early-bird 不発
-const WEEKDAY_NOON = new Date('2026-05-13T12:00:00');
+const WEEKDAY_NOON = new Date('2026-05-13T03:00:00Z'); // JST 2026-05-13 12:00
 
 beforeEach(() => {
 	vi.clearAllMocks();

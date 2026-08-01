@@ -12,6 +12,7 @@
 //     ため、in-memory cache (LRU 風 Map) で十分
 //   - cache は 10000 テナント上限で truncation する (Pre-PMF 想定 << 10000)
 
+import { toJSTDateString } from '$lib/domain/date-utils';
 import { LOCAL_TENANT_UUID } from '$lib/server/auth/local-tenant';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -23,7 +24,7 @@ const lastTouchCache = new Map<string, string>();
 
 /** UTC YYYY-MM-DD を返す */
 function getDayKey(now: Date = new Date()): string {
-	return now.toISOString().slice(0, 10); // 2026-04-27
+	return toJSTDateString(now);
 }
 
 /**

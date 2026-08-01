@@ -1,3 +1,4 @@
+import { addDaysJST, todayDateJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/activity-pin-service.ts
 // 活動ピン留め・使用頻度ソートサービス
@@ -102,7 +103,5 @@ export async function sortActivitiesWithPreferences<T extends SortableActivity>(
 }
 
 function getSinceDate(days: number): string {
-	const d = new Date();
-	d.setDate(d.getDate() - days);
-	return d.toISOString().split('T')[0] ?? d.toISOString();
+	return addDaysJST(todayDateJST(), -days);
 }

@@ -1,6 +1,7 @@
 // src/lib/server/services/loyalty-service.ts
 // サブスク継続特典・ロイヤルティシステム
 
+import { monthKeyJST } from '$lib/domain/date-utils';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 
@@ -163,7 +164,16 @@ export async function incrementSubscriptionMonth(tenantId: string): Promise<{
 	ticketsAwarded: number;
 }> {
 	// 二重インクリメント防止
-	const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+	// 二重防止キーは JST 月キー。UTC 月キーだと JST 月初 0:00-9:00 に届いた webhook の
+	// 月が前月として記録され、その月の加算がスキップされうる (常に顧客不利、#4127)。
+	//
+	// **移行時の既知の残リスク (#4127、PO 判断待ち)**: 旧実装は UTC 月キーで保存していた。
+	// deploy 直前の JST 月初 0:00-9:00 に加算したテナントは前月キーが残るため、同じ JST 月に
+	// 2 通目の invoice.paid (リトライ / 日割り / 支払い方法変更) が届くと再加算されうる。
+	// 保存値だけでは「旧実装が当月分として書いた前月キー」と「正当な前月の加算」を区別できず、
+	// どちらに倒しても片方が誤る (再加算 = 未達チケット付与 / 一律 skip = 正当な加算の取りこぼし)。
+	// 選択は既存データの棚卸しを伴う課金判断のため PO 決裁ブリーフ Q1 に上げている。
+	const currentMonth = monthKeyJST();
 	const lastIncrement = await getSetting(KEYS.lastIncrementMonth, tenantId);
 	if (lastIncrement === currentMonth) {
 		const months = await getSubscriptionMonths(tenantId);
