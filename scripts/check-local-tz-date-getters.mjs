@@ -30,7 +30,7 @@
  *      `getTime` / `toISOString` / `toUTCString` / `getTimezoneOffset` 等) を SAFE として列挙し、
  *      **それ以外を全部 TZ 依存として扱う** (deny by default)。`Date.prototype` は言語仕様で
  *      閉じた有限集合なので、これは「記法の列挙」ではなくクラスの表明になる。分類の網羅は
- *      `assertDateMemberClassificationIsTotal()` が自己検査する (将来メンバーが増えたら fail)。
+ *      `findUnclassifiedDateMembers()` が自己検査する (将来メンバーが増えたら fail)。
  *   2. 実時刻から **UTC の暦要素**を切り出す形 (`toISOString()` / `toJSON()` の直後に
  *      `slice` / `substring` / `substr` / `split`) を検出する。TZ 不変でも JST ではないため、
  *      `date-utils.ts` の JST SSOT を経由していない時点で同じクラスの欠陥。
