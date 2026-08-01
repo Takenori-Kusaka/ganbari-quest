@@ -102,7 +102,9 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 - `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
 - `qa-session.md` — QA（PR レビュー・品質ゲート、@docs/sessions/qa-session.md）
 
-タスク固有: `.claude/skills/` (11 Skills、オンデマンド発火)
+タスク固有: `.claude/skills/` (オンデマンド発火)
+
+**Agent Teams**: 各ロールが**自分のクローン内で**組む (PO チームの team / Dev チームの team、と別々に構築する)。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリ・gh 認証で動くため ADR-0022 の作成者 ≠ 承認者が空洞化する。**重い検証の並列化には使えない** (`heavy` lock はマシン全体で 1 本)。使ってよい / いけない場面の SSOT → @docs/sessions/agent-teams.md
 
 ## Further Context
 

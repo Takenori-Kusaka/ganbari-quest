@@ -58,6 +58,14 @@
 - `critical`: 顧客 / 運営が明確に損害（不正検知不能 / 監査ログ欠損 / 課金ずれ / データ喪失）。**本番で動かない / 段階実装で途中までの状態も `critical` 扱い**
 - `high`: 顧客価値劣化、運用回避可能 / `medium`: 内部改善 (DX) / `low`: nice-to-have
 
+### Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
+
+**ロールを跨いだ team を組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから spawn した「QM teammate」は `ganbariquestsupport-lab` にならず、ADR-0022 の作成者 ≠ 承認者が空洞化する。ロール間の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。
+
 ### Pre-PMF バイアスチェック（ADR-0010）
 
 `type:feat` 新規起票時: 「サインアップ 20 名/月（V2MOM Q2）なしで到達できるか」自問。可 → `medium` 以下 / 不可 → `high` 以上で根拠明記。新規機能 Issue 連続時は Growth / Marketing / Activation を 1 本挟む。過剰防衛設計（汎用監査ログ / S3+Athena / WAF / IP ブルートフォース検知）追加禁止。

@@ -27,6 +27,18 @@ QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:read
 - **approve の依頼は label でなく reviewer request**（`gh pr edit <N> --add-reviewer`）。gate 修理 PR を QM の Fix Agent が作った場合、approve は Dev（ADR-0022 作成者 ≠ 承認者、例外運用は label-mailbox.md §3.2）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
 
+### Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
+
+**ただし approve と merge は lead 専権**（ADR-0056 §E と同型。subagent が不可逆 action を肩代わりしないのと同じ）。
+
+**自分の Fix Agent が作った PR の approve は teammate では解けない。** teammate は lead の gh 認証で動くため、作成者 ≠ 承認者の分離が消える。gate 修理 PR の approve は引き続き Dev に reviewer request で渡す（[label-mailbox.md](label-mailbox.md) §3.2 例外運用）。
+
+**重い検証を並列化しても速くならない** — `heavy` lock はマシン全体で 1 本（[agent-concurrency.md](agent-concurrency.md) §3.1）。
+
 ## レビュー対象レーン（git flow 二層、#2858）
 
 QM は PR の **base branch でレーンを判別**し、レーンごとに gate 範囲を変える。
