@@ -389,15 +389,31 @@ export const PRESETS = {
 
 /**
  * プリセット名からビューポート設定を解決する。
- * @param {string} name - 'mobile' | 'tablet' | 'desktop'
+ *
+ * #4156: 名前付きプリセットに加えて `<幅>x<高さ>` 形式（例: `375x812`）を受け付ける。
+ * Issue が特定のブレークポイント（「375px / 1440px の SS を添付」等）を指定したとき、
+ * 近い名前付きプリセットで代用して「指定と違う幅で撮った SS」を証跡にしないため。
+ * deviceScaleFactor は既定 2（Retina 相当、名前付き mobile / tablet と同値）。
+ *
+ * @param {string} name - 'mobile' | 'tablet' | 'desktop' | '<width>x<height>'
  * @returns {{ width: number; height: number; deviceScaleFactor: number }}
  */
 export function resolvePreset(name) {
 	const preset = PRESETS[/** @type {keyof typeof PRESETS} */ (name)];
-	if (!preset) {
-		throw new Error(`Unknown preset: "${name}". Valid options: ${Object.keys(PRESETS).join(', ')}`);
+	if (preset) return preset;
+
+	const explicit = /^(\d{2,5})x(\d{2,5})$/.exec(name.trim());
+	if (explicit) {
+		return {
+			width: Number(explicit[1]),
+			height: Number(explicit[2]),
+			deviceScaleFactor: 2,
+		};
 	}
-	return preset;
+
+	throw new Error(
+		`Unknown preset: "${name}". Valid options: ${Object.keys(PRESETS).join(', ')}, or <width>x<height> (e.g. 375x812)`,
+	);
 }
 
 /**
