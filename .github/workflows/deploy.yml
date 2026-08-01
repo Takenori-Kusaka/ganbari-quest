@@ -271,6 +271,26 @@ jobs:
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
+      # #4174: incident 通知先 (DISCORD_WEBHOOK_INCIDENT) の配布可否をここで宣言する。
+      # compute-stack.ts は `-c discordWebhookIncident` を読む口を持つが、deploy.yml が
+      # 渡していなかったため env ごと Lambda から落ち、**本番の incident 通知は 0 通**だった。
+      #
+      # 欠落しても deploy は止めない (アプリ本体は動く) が、黙って進むと
+      # 「障害が起きても誰にも届かない」状態が再び不可視になるため必ず警告する
+      # (ADR-0024 ENV silent skip 禁止 / #4167 の任意 env と同じ扱い)。
+      #
+      # 判定結果は post-deploy の実 env 検証 (下記 "Incident webhook env verification") が
+      # 参照する。secret 未登録なら検証を skip、登録済みなのに Lambda env に無ければ配線不良で fail。
+      - name: Incident webhook secret presence (#4174)
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_INCIDENT }}" ]; then
+            echo "INCIDENT_WEBHOOK_CONFIGURED=false" >> $GITHUB_ENV
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT secret が空です。本番 Lambda に incident 通知先が入らず、障害が起きても通知は 0 通になります (#4174 / #4119)"
+          else
+            echo "INCIDENT_WEBHOOK_CONFIGURED=true" >> $GITHUB_ENV
+            echo "::notice::DISCORD_WEBHOOK_INCIDENT secret を検出しました。deploy 後に実 Lambda env を検証します"
+          fi
+
       - name: Resolve DSQL outputs (production)
         run: |
           ENDPOINT=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsql \
@@ -321,6 +341,10 @@ jobs:
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
+            -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
+            -c discordWebhookSignup=${{ secrets.DISCORD_WEBHOOK_SIGNUP }} \
+            -c discordWebhookBilling=${{ secrets.DISCORD_WEBHOOK_BILLING }} \
+            -c discordWebhookChurn=${{ secrets.DISCORD_WEBHOOK_CHURN }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -348,6 +372,10 @@ jobs:
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
+          -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
+          -c discordWebhookSignup=${{ secrets.DISCORD_WEBHOOK_SIGNUP }}
+          -c discordWebhookBilling=${{ secrets.DISCORD_WEBHOOK_BILLING }}
+          -c discordWebhookChurn=${{ secrets.DISCORD_WEBHOOK_CHURN }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
@@ -410,6 +438,37 @@ jobs:
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
+
+      # #4174: **synth の diff ではなく、deploy 済み Lambda の実 env** を読んで検証する。
+      # compute-stack.ts は空値のとき env ごと落とす (`...(x ? {KEY: x} : {})`) ため、
+      # 「context を渡し忘れた」「secret 名を間違えた」のいずれでも **deploy は成功したまま
+      # 通知だけが 0 通**になる。#4119 (NUC で 18 晩 alert 0 通) と同型の failure mode で、
+      # 実 env を見る以外に検出手段がない。
+      #
+      # 判定:
+      #   - secret 未登録 (INCIDENT_WEBHOOK_CONFIGURED=false) → skip (前段で warning 済)
+      #   - secret 登録済 かつ env に存在 → pass
+      #   - secret 登録済 なのに env に無い → **配線不良として hard-fail**
+      #
+      # 本 step の失敗は image rollback を起こさない (rollback は health check 失敗時に限定)。
+      # アプリ本体は健全なので巻き戻す理由がなく、deploy を赤くして配線不良を可視化するのが目的。
+      #
+      # `keys()` で **key 名だけ**を取り出す。webhook URL そのものはシェル変数にも載せない。
+      - name: Incident webhook env verification (production, #4174)
+        run: |
+          if [ "$INCIDENT_WEBHOOK_CONFIGURED" != "true" ]; then
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT secret 未登録のため実 env 検証を skip します (#4174)"
+            exit 0
+          fi
+          KEYS=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query 'keys(Environment.Variables)' --output text | tr '\t' '\n')
+          if echo "$KEYS" | grep -qx "DISCORD_WEBHOOK_INCIDENT"; then
+            echo "::notice::DISCORD_WEBHOOK_INCIDENT が本番 Lambda の実 env に存在します (#4174)"
+          else
+            echo "::error::DISCORD_WEBHOOK_INCIDENT が本番 Lambda の env にありません。secret は登録済のため CDK context の配線不良です (#4174)。障害が起きても通知は 0 通になります"
+            exit 1
+          fi
 
       # ADR-0048 hotfix #6 (2026-05-16): demo Lambda は `latest` タグで CDK 管理されるため
       # CloudFormation が新しい image push を検知できない (production と同じ問題)。

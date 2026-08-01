@@ -188,18 +188,37 @@
 | `DISCORD_WEEKLY_REPORT_WEBHOOK_URL` | Variable | GitHub Settings → Variables | 週次レポート |
 | `FEEDBACK_DISCORD_WEBHOOK_URL` | Secret | GitHub Settings → Secrets | フィードバック送信先 |
 | `DISCORD_WEBHOOK_SUPPORT` | Secret | GitHub Settings → Secrets | サポートメール受信通知 |
+| `DISCORD_WEBHOOK_HEALTH` | Secret | GitHub Settings → Secrets | ヘルスチェック / 稼働状況（利用者向け） |
+| `DISCORD_WEBHOOK_INCIDENT` | Secret | GitHub Settings → Secrets | 障害通知（バックエンド向け。`discord-alert.ts` の宛先） |
+| `DISCORD_WEBHOOK_SIGNUP` / `_BILLING` / `_CHURN` | Secret | GitHub Settings → Secrets | 運用通知チャネル（未登録。登録すれば配布経路は通っている） |
 
 ### 4.4 Lambda 環境変数への伝搬
 
-```
-GitHub Secret: FEEDBACK_DISCORD_WEBHOOK_URL
-  → deploy.yml: -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
-  → CDK context → Lambda 環境変数: FEEDBACK_DISCORD_WEBHOOK_URL
+**3 段すべてが揃って初めて Lambda に届く。1 段でも欠けると env ごと落ちるが deploy は成功する**（#4174）:
 
-GitHub Secret: DISCORD_WEBHOOK_SUPPORT
-  → deploy.yml: -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
-  → CDK context → Lambda 環境変数: DISCORD_WEBHOOK_SUPPORT
 ```
+GitHub Secret ─→ deploy.yml の -c <contextKey>=... ─→ CDK context ─→ Lambda 環境変数
+```
+
+| GitHub Secret | CDK context key | Lambda 環境変数 |
+|---|---|---|
+| `FEEDBACK_DISCORD_WEBHOOK_URL` | `feedbackDiscordWebhookUrl` | `FEEDBACK_DISCORD_WEBHOOK_URL` / `DISCORD_WEBHOOK_INQUIRY` |
+| `DISCORD_WEBHOOK_SUPPORT` | `discordWebhookSupport` | (SesStack が受信通知に使用) |
+| `DISCORD_WEBHOOK_INCIDENT` | `discordWebhookIncident` | `DISCORD_WEBHOOK_INCIDENT` |
+| `DISCORD_WEBHOOK_SIGNUP` | `discordWebhookSignup` | `DISCORD_WEBHOOK_SIGNUP` |
+| `DISCORD_WEBHOOK_BILLING` | `discordWebhookBilling` | `DISCORD_WEBHOOK_BILLING` |
+| `DISCORD_WEBHOOK_CHURN` | `discordWebhookChurn` | `DISCORD_WEBHOOK_CHURN` |
+
+`compute-stack.ts` は空値のとき `...(x ? { KEY: x } : {})` で **env ごと落とす**。したがって
+context を渡し忘れても synth も deploy も成功し、**通知だけが 0 通になる**。この穴は 2 層で塞ぐ:
+
+1. `tests/unit/infra/aws-deploy-context-closure.test.ts` — CDK が読む context key が
+   どの workflow からも渡されていなければ CI で fail（`[AD1]`）
+2. deploy.yml の post-deploy step — **deploy 済み Lambda の実 env** を読み、secret 登録済なのに
+   env に無ければ hard-fail（synth の diff では渡し忘れを検出できないため）
+
+チャネルの用途分離（health = 利用者向け / incident = バックエンド障害）は §4.3 の表が SSOT。
+バックエンドの障害を利用者向けチャネルに混ぜると、どちらも読まれなくなる。
 
 ### 4.5 NUC ローカル環境
 
