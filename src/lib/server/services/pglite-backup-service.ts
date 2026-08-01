@@ -4,13 +4,15 @@
 // 純粋な検証・命名ロジックは $lib/server/db/pglite/backup.ts、FS と PGlite client を伴う
 // オーケストレーションは本ファイル、HTTP 面は /api/cron/pglite-backup に分ける。
 
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import {
 	describeOffsiteVerdict,
 	judgeOffsiteReplication,
+	OFFSITE_MARKER_FILENAME,
 	type OffsiteVerdict,
+	shouldNotifyOffsite,
 } from '$lib/domain/backup-offsite';
 import { getEnv } from '$lib/runtime/env';
 import {
@@ -48,6 +50,13 @@ export interface PgliteBackupStatus {
 	 * 「今日も失敗した」ではなく「**N 晩続けて失敗している**」を出せる。
 	 */
 	consecutiveFailures: number;
+	/**
+	 * 前回の off-site 判定 (#3970 AC2)。同じ警告を毎晩投げないための dedup 用。
+	 *
+	 * 同じ警告が毎晩届くと数日で無視され、**同じ通知先を共有している本物の失敗 alert
+	 * まで一緒に見られなくなる**。状態が変わったときだけ通知する。
+	 */
+	lastOffsiteLevel: OffsiteVerdict['level'] | null;
 }
 
 /**
@@ -88,10 +97,10 @@ function resolveBackupDir(explicit?: string): string {
 }
 
 /**
- * #3970 AC2 — 保存先が実際に NUC 外へ出ているかを実 FS から確認する。
+ * #3970 AC2 — 退避先が実際に見えているかを実 FS から確認する。
  *
  * 判定そのものは `$lib/domain/backup-offsite.ts` (純粋関数) が持つ。ここは
- * **事実の採取だけ**を行う。device が読めないケースは null で渡し、判定側で
+ * **事実の採取だけ**を行う。読めないケースを `'unreadable'` として渡し、判定側で
  * 「問題なし」に丸めずに unknown として扱わせる。
  */
 async function probeOffsiteReplication(backupDir: string): Promise<OffsiteVerdict> {
@@ -102,24 +111,22 @@ async function probeOffsiteReplication(backupDir: string): Promise<OffsiteVerdic
 	// bind mount 先を決めるのに使うだけで、コンテナ内は常に BACKUP_DIR=/app/backups)。
 	// そのため compose 側で `BACKUP_OFFSITE_EXPECTED=${HOST_BACKUP_DIR:+true}` と導出して
 	// 渡す。運用者が新しく設定する項目は増えない (HOST_BACKUP_DIR を置いた時点で立つ)。
+	//
+	// 空文字 / 未設定はいずれも「期待していない」= 検査しない。`=== 'true'` の厳密比較なので
+	// `${HOST_BACKUP_DIR:+true}` が空に展開されたケースも自動的にここへ落ちる。
 	const expected = env.BACKUP_OFFSITE_EXPECTED === 'true';
-	if (!expected)
-		return judgeOffsiteReplication({ expected, backupDeviceId: null, liveDataDeviceId: null });
+	if (!expected) return judgeOffsiteReplication({ expected, marker: null });
 
-	const liveDataDir = env.PGLITE_DATA_DIR ?? join(process.cwd(), 'data', 'pglite');
-	const deviceOf = async (p: string): Promise<number | null> => {
-		try {
-			return (await stat(p)).dev;
-		} catch {
-			return null;
-		}
-	};
+	// 目印が読めるか。存在しない (ENOENT) と 読めない (権限 / I/O) を区別する —
+	// 前者は「マウントされていない」、後者は「判定不能」で、運用者の取るべき行動が違う。
+	let marker: string | null | 'unreadable';
+	try {
+		marker = await readFile(join(backupDir, OFFSITE_MARKER_FILENAME), 'utf-8');
+	} catch (e) {
+		marker = (e as NodeJS.ErrnoException)?.code === 'ENOENT' ? null : 'unreadable';
+	}
 
-	return judgeOffsiteReplication({
-		expected,
-		backupDeviceId: await deviceOf(backupDir),
-		liveDataDeviceId: await deviceOf(liveDataDir),
-	});
+	return judgeOffsiteReplication({ expected, marker });
 }
 
 function resolveMigrationsDir(explicit?: string): string {
@@ -142,6 +149,7 @@ async function readStatus(backupDir: string): Promise<PgliteBackupStatus> {
 		lastFailureAt: null,
 		lastFailureMessage: null,
 		consecutiveFailures: 0,
+		lastOffsiteLevel: null,
 	};
 	try {
 		const raw = await readFile(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8');
@@ -229,6 +237,24 @@ export async function runPgliteBackup(
 
 		const durationMs = Date.now() - startedAt;
 		const previous = await readStatus(backupDir);
+
+		// #3970 AC2: **取得の成否とは別に**、控えが実際に退避先へ届いたかを確認する。
+		// 取得が成功していても、マウントが外れていれば控えは筐体内にしか無い
+		// (Docker が bind 先にローカルの空ディレクトリを作るため書き込みは成功する)。
+		// ここで throw しないのは、取得は本当に成功しており、失敗として扱うと
+		// 「取れている控えを無いものとして扱う」誤解を生むため。呼び出し側が alert する。
+		const offsite = await probeOffsiteReplication(backupDir);
+		const offsiteMessage = describeOffsiteVerdict(offsite);
+		// 前回と同じ判定なら通知しない (毎晩同じ警告を投げて mute させない)。
+		// 判定自体は毎回行い、通知するかどうかだけを絞る。
+		const notifyOffsite = shouldNotifyOffsite(offsite, previous.lastOffsiteLevel ?? null);
+		if (offsiteMessage) {
+			logger.error('[pglite-backup] offsite check failed', {
+				service: 'pglite-backup',
+				context: { level: offsite.level, notify: notifyOffsite, message: offsiteMessage },
+			});
+		}
+
 		await writeStatus(backupDir, {
 			...previous,
 			lastSuccessAt: new Date().toISOString(),
@@ -236,21 +262,8 @@ export async function runPgliteBackup(
 			lastSuccessBytes: bytes.byteLength,
 			lastSuccessDurationMs: durationMs,
 			consecutiveFailures: 0,
+			lastOffsiteLevel: offsite.level,
 		});
-
-		// #3970 AC2: **取得の成否とは別に**、控えが実際に NUC 外へ出たかを確認する。
-		// 取得が成功していても、マウントが外れていれば控えは筐体内にしか無い
-		// (Docker が bind 先にローカルの空ディレクトリを作るため書き込みは成功する)。
-		// ここで throw しないのは、取得は本当に成功しており、失敗として扱うと
-		// 「取れている控えを無いものとして扱う」誤解を生むため。呼び出し側が alert する。
-		const offsite = await probeOffsiteReplication(backupDir);
-		const offsiteMessage = describeOffsiteVerdict(offsite);
-		if (offsiteMessage) {
-			logger.error('[pglite-backup] offsite check failed', {
-				service: 'pglite-backup',
-				context: { level: offsite.level, message: offsiteMessage },
-			});
-		}
 
 		const result: PgliteBackupResult = {
 			filename,
@@ -260,7 +273,9 @@ export async function runPgliteBackup(
 			generationsKept: existing.length - rotated.length,
 			durationMs,
 			offsite,
-			offsiteMessage,
+			// 通知しない (= 前回と同じ判定) ときは message を載せない。載せると
+			// 呼び出し側が毎晩 alert してしまい dedup が効かない。
+			offsiteMessage: notifyOffsite ? offsiteMessage : null,
 		};
 		logger.info('[pglite-backup] completed', {
 			service: 'pglite-backup',

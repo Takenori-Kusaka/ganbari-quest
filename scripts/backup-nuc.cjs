@@ -84,18 +84,27 @@ function readConsecutiveFailures() {
  *
  * 通知の失敗でバックアップ処理を落とさない (通知は副次で、取得結果の方が重い)。
  *
+ * `mentionEveryone` は既定 true (取得失敗は全員に届けたい)。off-site 異常のように
+ * 「放置すると危ないが今すぐ叩き起こす事象ではない」ものは false を渡す — 毎回 @everyone を
+ * 付けると通知自体が mute され、同じ webhook を共有する失敗 alert まで見られなくなる。
+ *
  * @param {Record<string, unknown>} embed
+ * @param {{ mentionEveryone?: boolean }} [opts]
  */
-async function postDiscordEmbed(embed) {
+async function postDiscordEmbed(embed, opts = {}) {
 	if (!DISCORD_WEBHOOK) {
 		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
 		return;
 	}
+	const mentionEveryone = opts.mentionEveryone !== false;
 	try {
 		await fetch(DISCORD_WEBHOOK, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ content: '@everyone', embeds: [embed] }),
+			body: JSON.stringify({
+				...(mentionEveryone ? { content: '@everyone' } : {}),
+				embeds: [embed],
+			}),
 		});
 		console.log('[backup-nuc] Discord alert sent');
 	} catch (err) {
@@ -116,23 +125,27 @@ async function postDiscordEmbed(embed) {
  * @param {string} detail
  */
 async function notifyOffsiteWarning(detail) {
-	await postDiscordEmbed({
-		title: '⚠️ NUC バックアップの置き場が想定と違います',
-		description:
-			'バックアップの**取得自体は成功しています**が、控えが想定した場所に出ていません。\n' +
-			'この状態が続くと、筐体の喪失で本番データと控えを同時に失います。',
-		color: 16098851,
-		fields: [
-			{ name: 'Detail', value: `\`\`\`${detail.slice(0, 800)}\`\`\`` },
-			{
-				name: '対応',
-				value:
-					'HOST_BACKUP_DIR の指す先がマウントされているか確認 / docs/runbooks/pglite-restore-drill.md §オフサイト複製',
-			},
-		],
-		timestamp: new Date().toISOString(),
-		footer: { text: 'がんばりクエスト backup (#3970)' },
-	});
+	// 本物の失敗 alert と違い **@everyone を付けない**。off-site 異常は「今すぐ全員を叩き起こす」
+	// 事象ではなく、放置すると危ないという性質のもの。ここで @everyone を毎回付けると
+	// 通知そのものが mute され、同じ webhook を共有する失敗 alert (#4129 / #4087) まで
+	// 一緒に見られなくなる (#4159 adversarial review UX 軸)。
+	// 再送抑止 (同じ判定が続く間は送らない) は app 側が担う。
+	await postDiscordEmbed(
+		{
+			title: '⚠️ バックアップの控えが保管場所に届いていません',
+			description: detail,
+			color: 16098851,
+			fields: [
+				{
+					name: '確認すること',
+					value: '外付けディスクや NAS の電源・接続、そして保管場所に目印ファイルがあるか',
+				},
+			],
+			timestamp: new Date().toISOString(),
+			footer: { text: 'がんばりクエスト backup (#3970)' },
+		},
+		{ mentionEveryone: false },
+	);
 }
 
 /**
