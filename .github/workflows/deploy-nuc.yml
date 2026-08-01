@@ -86,7 +86,7 @@ jobs:
       # ここで書き換えない。`.env` は **secret 専用** とし、構成値とは分離する。
       - name: Generate .env from GitHub Secrets
         env:
-          # #4166: バックアップ経路の必須 env。**ここに載っていない env は deploy のたびに
+          # #4167: バックアップ経路の必須 env。**ここに載っていない env は deploy のたびに
           # .env から消える** (下の Set-Content が固定リストで全上書きするため)。
           # 2026-07-31 の実害はこれ: CRON_SECRET が配られず 18 晩バックアップが失敗し、
           # DISCORD_ALERT_WEBHOOK_URL も無いため alert 0 通で誰も気づかなかった (#4119)。
@@ -109,7 +109,7 @@ jobs:
             Write-Host "::error::See docs/decisions/0050-parent-gate-session-cookie-signature.md and infra/CLAUDE.md."
             exit 1
           }
-          # #4166: CRON_SECRET も fail-closed にする。無いと日次バックアップが毎晩失敗するが、
+          # #4167: CRON_SECRET も fail-closed にする。無いと日次バックアップが毎晩失敗するが、
           # **deploy 自体は成功して見える**ため誰も気づかない (2026-07-31 に 18 晩続いた)。
           # 「deploy は緑、バックアップだけ静かに死ぬ」を作らない。
           if (-not $env:CRON_SECRET) {

@@ -1,4 +1,4 @@
-// #4166 — NUC deploy が **本番で必要な env を配り落とさない**ことを機械で固定する。
+// #4167 — NUC deploy が **本番で必要な env を配り落とさない**ことを機械で固定する。
 //
 // ## 塞ぐ穴
 //
@@ -73,7 +73,7 @@ const BACKUP_ENV_CONTRACT = [
 	},
 ] as const;
 
-describe('#4166 NUC deploy の env 配布 closure', () => {
+describe('#4167 NUC deploy の env 配布 closure', () => {
 	const block = envGenerationBlock();
 
 	it.each(BACKUP_ENV_CONTRACT.filter((e) => e.required))(
