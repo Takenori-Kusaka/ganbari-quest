@@ -1396,7 +1396,9 @@ export const stripeWebhookEvents = pgTable(
 		processedAt: timestamp('processed_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
-		handlerResult: text('handler_result', { enum: ['success', 'error', 'skipped'] }).notNull(),
+		handlerResult: text('handler_result', {
+			enum: ['processing', 'success', 'error', 'skipped'],
+		}).notNull(),
 		errorMessage: text('error_message'),
 		retryCount: integer('retry_count').notNull().default(0),
 		tenantId: text('tenant_id'),

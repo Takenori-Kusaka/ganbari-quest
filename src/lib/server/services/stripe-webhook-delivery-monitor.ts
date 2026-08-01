@@ -300,9 +300,13 @@ export async function checkWebhookDelivery(
 				missingCount: ledgerMissing.length,
 				checked: result.checked,
 				truncated: result.truncated,
-				sampleEventId: ledgerMissing[0]?.eventId,
-				sampleEventType: ledgerMissing[0]?.eventType,
-				sampleCreatedIso: ledgerMissing[0]?.createdIso,
+				...(ledgerMissing[0]
+					? {
+							sampleEventId: ledgerMissing[0].eventId,
+							sampleEventType: ledgerMissing[0].eventType,
+							sampleCreatedIso: ledgerMissing[0].createdIso,
+						}
+					: {}),
 			},
 		});
 	}
