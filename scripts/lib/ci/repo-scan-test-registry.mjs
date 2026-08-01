@@ -121,9 +121,9 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src/routes 配下の admin 画面を走査して registry の網羅漏れを検出する (#3134 no-silent-gap)',
 	},
-	'tests/unit/infra/aws-deploy-context-closure.test.ts': {
+	'tests/unit/architecture/env-distribution-closure.test.ts': {
 		scope: 'repo',
-		note: '.github/workflows と infra/lib を読んで CDK context の配布 closure を検査する (#4174)',
+		note: 'src / scripts / infra / .github を走査し env・context の配布 closure を検査する (#4191、旧 aws-deploy-context-closure + nuc-deploy-env-closure を統合)',
 	},
 	'tests/unit/hooks/agent-lock.test.ts': {
 		scope: 'repo',

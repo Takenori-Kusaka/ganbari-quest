@@ -208,8 +208,9 @@ GitHub Secret ─→ deploy.yml の -c <contextKey>=... ─→ CDK context ─�
 `compute-stack.ts` は空値のとき `...(x ? { KEY: x } : {})` で **env ごと落とす**。したがって
 context を渡し忘れても synth も deploy も成功し、**通知だけが 0 通になる**。この穴は 2 層で塞ぐ:
 
-1. `tests/unit/infra/aws-deploy-context-closure.test.ts` — CDK が読む context key が
-   どの workflow からも渡されていなければ CI で fail（`[AD1]`）
+1. `tests/unit/architecture/env-distribution-closure.test.ts` — CDK が読む context key が
+   どの workflow からも渡されていなければ CI で fail（`[EC1]`）。同 test は NUC `.env` /
+   docker-compose / Lambda env 注入も同じ仕組みで突き合わせ、配らない key は理由付きで宣言させる（#4191）
 2. deploy.yml の post-deploy step — **deploy 済み Lambda の実 env** を読み、secret 登録済なのに
    env に無ければ hard-fail（synth の diff では渡し忘れを検出できないため）
 
