@@ -30,6 +30,7 @@
 // したがって embed に載せる field は「こちらが決めた項目だけ」に閉じ、
 // 顧客データを field 名で足さない設計 (`buildAlertEmbed` / `buildIncidentEmbed`) を併用する。
 
+import { isUuidFormat } from '$lib/server/db/dsql/pg-uuid';
 import { redactPii } from '$lib/server/stripe/pii-redaction';
 
 /** 顧客識別子を落とした跡に残すマーカー。 */
@@ -40,13 +41,19 @@ export const NOTIFY_REDACTION_MARKERS = {
 	PATH_SEGMENT: ':id',
 } as const;
 
-/** UUID v1-v8 (ハイフン区切り 8-4-4-4-12)。tenantId / childId の実体。 */
-const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+/**
+ * uuid の**候補**を拾うための粗い pattern (長さと文字種だけを見る)。
+ *
+ * uuid かどうかの判定そのものは `isUuidFormat` (`pg-uuid.ts`) に委ねる。形の定義を 2 箇所に
+ * 持つと片方だけ直って乖離するため、SSOT を跨がない (`dsql-uuid-guard-ssot-fitness.test.ts`
+ * [SSOT-1] が hand-rolled な uuid regex の複製を CI で落とす)。
+ */
+const UUID_CANDIDATE_PATTERN = /[0-9a-fA-F-]{36}/g;
 
 /**
  * URL path の可変セグメント判定。
  *
- * - UUID
+ * - UUID (判定は `isUuidFormat` に委譲)
  * - 数値のみ (childId / tenantId の legacy 数値 id、`/children/903` 等)
  * - 20 文字以上の id 風 token (cuid / nanoid / base64url)
  *
@@ -55,7 +62,7 @@ const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
  */
 function isVariablePathSegment(segment: string): boolean {
 	if (segment.length === 0) return false;
-	if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) return true;
+	if (isUuidFormat(segment)) return true;
 	if (/^\d+$/.test(segment)) return true;
 	if (segment.length >= 20 && /^[A-Za-z0-9_-]+$/.test(segment)) return true;
 	return false;
@@ -94,7 +101,9 @@ export function redactPathIds(path: string | undefined): string | undefined {
 export function redactNotificationText(text: string | undefined): string | undefined {
 	if (text === undefined || text === '') return text;
 	const withoutPii = redactPii(text);
-	const withoutIds = withoutPii.replace(UUID_PATTERN, NOTIFY_REDACTION_MARKERS.ID);
+	const withoutIds = withoutPii.replace(UUID_CANDIDATE_PATTERN, (candidate) =>
+		isUuidFormat(candidate) ? NOTIFY_REDACTION_MARKERS.ID : candidate,
+	);
 	// 文中の `/api/v1/admin/children/903` 等も落とす (path 単体 field 以外の混入経路)。
 	//
 	// **URL path に見えるものだけ**を対象にする。`attempt 2/3` や `1/2 完了` のような
