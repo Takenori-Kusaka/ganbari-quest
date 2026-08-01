@@ -860,7 +860,6 @@ async function openPortal() {
 	     特商法の表示義務に接続する導線であり、解約理由の送信を経由させない。 -->
 	{#if billingHistoryAvailable}
 		<Card variant="default" padding="lg">
-			{#snippet children()}
 			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.billingHistoryTitle}</h3>
 			<div class="grid gap-3" data-testid="billing-history-section">
 				<p class="text-sm text-[var(--color-text-muted)]">
@@ -887,7 +886,6 @@ async function openPortal() {
 					{SUBSCRIPTION_PAGE_LABELS.billingHistoryPinNote(pinConfigured)}
 				</p>
 			</div>
-			{/snippet}
 		</Card>
 	{/if}
 
