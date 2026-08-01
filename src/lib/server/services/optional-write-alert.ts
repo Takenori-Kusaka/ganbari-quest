@@ -49,7 +49,7 @@ export function createOptionalWriteFailureHandler(
 		void sendDiscordAlert({
 			level: 'error',
 			message: `[optional-write-failed] ${name} (recordActivity optional 欠落)`,
-			tenantId: ctx.tenantId,
+			// #4192: tenantId / childId は Discord に載せない (#4174 Q3)。上の logger.error が保持する。
 			errorSummary: cause,
 		}).catch((err) => {
 			// alert 自体の失敗は logger.warn に留める (recursive alert を避ける)

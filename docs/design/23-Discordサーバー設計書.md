@@ -190,7 +190,6 @@
 | `DISCORD_WEBHOOK_SUPPORT` | Secret | GitHub Settings → Secrets | サポートメール受信通知 |
 | `DISCORD_WEBHOOK_HEALTH` | Secret | GitHub Settings → Secrets | ヘルスチェック / 稼働状況（利用者向け） |
 | `DISCORD_WEBHOOK_INCIDENT` | Secret | GitHub Settings → Secrets | 障害通知（バックエンド向け。`discord-alert.ts` の宛先） |
-| `DISCORD_WEBHOOK_SIGNUP` / `_BILLING` / `_CHURN` | Secret | GitHub Settings → Secrets | 運用通知チャネル（未登録。登録すれば配布経路は通っている） |
 
 ### 4.4 Lambda 環境変数への伝搬
 
@@ -205,9 +204,6 @@ GitHub Secret ─→ deploy.yml の -c <contextKey>=... ─→ CDK context ─�
 | `FEEDBACK_DISCORD_WEBHOOK_URL` | `feedbackDiscordWebhookUrl` | `FEEDBACK_DISCORD_WEBHOOK_URL` / `DISCORD_WEBHOOK_INQUIRY` |
 | `DISCORD_WEBHOOK_SUPPORT` | `discordWebhookSupport` | (SesStack が受信通知に使用) |
 | `DISCORD_WEBHOOK_INCIDENT` | `discordWebhookIncident` | `DISCORD_WEBHOOK_INCIDENT` |
-| `DISCORD_WEBHOOK_SIGNUP` | `discordWebhookSignup` | `DISCORD_WEBHOOK_SIGNUP` |
-| `DISCORD_WEBHOOK_BILLING` | `discordWebhookBilling` | `DISCORD_WEBHOOK_BILLING` |
-| `DISCORD_WEBHOOK_CHURN` | `discordWebhookChurn` | `DISCORD_WEBHOOK_CHURN` |
 
 `compute-stack.ts` は空値のとき `...(x ? { KEY: x } : {})` で **env ごと落とす**。したがって
 context を渡し忘れても synth も deploy も成功し、**通知だけが 0 通になる**。この穴は 2 層で塞ぐ:
@@ -218,6 +214,43 @@ context を渡し忘れても synth も deploy も成功し、**通知だけが 
    env に無ければ hard-fail（synth の diff では渡し忘れを検出できないため）
 
 チャネルの用途分離（health = 利用者向け / incident = バックエンド障害）は §4.3 の表が SSOT。
+
+### 4.5 持たないチャネル（#4174 Q2 の PO 決裁）
+
+`signup` / `billing` / `churn` は **持たない**。secret を登録しないだけでなく、CDK が読む口・
+workflow が渡す口・アプリ側のチャネル定義まで持たない（「登録すれば動く」形を残さない）。
+
+| チャネル | 判断 | 代わりにどこで見るか |
+|---|---|---|
+| `signup` | 持たない。サインアップは嬉しいが見ても何もしない | `[SIGNUP] Consent recorded at signup` ログ / DB |
+| `billing` | 持たない。課金の**成功**は行動を変えない | 支払い**失敗**だけは incident 側の `stripe-payment-failed` alert に残す |
+| `churn` | 持たない。通知で見ても何もできない | `cancellation_reasons` テーブル / ops dashboard |
+
+通知は「人が行動を変えるもの」だけを送る。**通知が増えると incident が埋もれる**（ADR-0012
+anti-engagement の運用者版）。復活させる場合は決裁をやり直すこと — 配線だけ戻すと
+`tests/unit/architecture/notification-channels-not-owned.test.ts` が CI で落ちる。
+
+### 4.6 通知 payload に顧客識別子を載せない（#4174 Q3 の PO 決裁）
+
+Discord は運用者の機器ではなく外部 SaaS で、embed は**チャットログとして永続化される**。
+`#3971`（バックアップを暗号化しない）の前提は「控えは運用者自身の機器内に留まる」であり、
+その前提は通知には成り立たない。
+
+| 載せてよい | 載せない |
+|---|---|
+| 事象の種別 / 発生時刻 / 件数 / エラー種別 / 環境名 / job 名 | tenantId / childId / メールアドレス / 家族名 |
+| `requestId`（ログを引くための鍵。顧客識別子ではない） | 顧客データそのもの（活動名 / ごほうび名 等） |
+
+「どの家族か」は**認証された場所（CloudWatch Logs / DB）で `requestId` から引く**。
+
+- 実装 SSOT: `src/lib/server/notify-privacy.ts`（redaction を 1 箇所に集約）
+- 強制点: `discord-alert.ts` の送出入口（`redactAlertOptions`）と `buildIncidentEmbed`。
+  callsite ごとの注意に依存しない（alert が 1 つ増えるたびに漏れるため）
+- `AlertOptions` から `tenantId` を**型ごと撤去**してあるので、渡すとコンパイルで落ちる
+- 回帰固定: `tests/unit/services/notify-payload-privacy.test.ts`
+- **残る穴（accepted residual）**: 自由記述に日本語の氏名や活動名がそのまま混ざる場合は機械的に
+  検出できない。落とせるのは email / 電話 / カード / UUID / path 中の id など**形が決まっているもの**まで。
+  そのため embed の field は「こちらが決めた項目だけ」に閉じ、顧客データを field で足さない
 バックエンドの障害を利用者向けチャネルに混ぜると、どちらも読まれなくなる。
 
 ### 4.5 NUC ローカル環境

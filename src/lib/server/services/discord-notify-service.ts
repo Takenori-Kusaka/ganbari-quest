@@ -1,12 +1,33 @@
 // src/lib/server/services/discord-notify-service.ts
 // 運用者向け Discord Webhook 通知サービス
+//
+// ## 持っているチャネルは 2 つだけ (#4174 Q2 の PO 決裁 / #4192)
+//
+// `signup` / `billing` / `churn` は **持たないと決めた**。未実装でも「secret を登録すれば動く」
+// でもなく、**送らないことを選んだ**チャネルである。
+//
+//   通知は「人が行動を変えるもの」だけを送る。サインアップは嬉しいが何もしない。課金の成功も
+//   同じ。解約理由は `cancellation_reasons` に残るので通知で見ても何もできない。
+//   **通知が増えると incident が埋もれる** — 見ても行動しない通知は、見るべき通知の価値を下げる
+//   (ADR-0012 anti-engagement の運用者版)。
+//
+// したがって「取りこぼしている情報がある」ように見えても、チャネルを足して塞ぐのは誤り。
+// 復活させたい場合は **決裁をやり直す**こと。再配線は
+// `tests/unit/architecture/notification-channels-not-owned.test.ts` が CI で落とす。
+//
+// ## payload に顧客識別子を載せない (#4174 Q3 の PO 決裁 / #4192)
+//
+// Discord は運用者の機器ではなく外部 SaaS で、embed はチャットログとして永続化される。
+// 通知は「起きた」を伝えるのが役割で、「誰に起きた」は認証された場所 (ログ / DB) で引く。
+// 送出直前の redaction は `$lib/server/notify-privacy` に単一化してある。
 
 import { env } from '$env/dynamic/private';
 import { logger } from '$lib/server/logger';
+import { redactNotificationText, redactPathIds } from '$lib/server/notify-privacy';
 
-type DiscordChannel = 'signup' | 'billing' | 'churn' | 'inquiry' | 'incident';
+type DiscordChannel = 'inquiry' | 'incident';
 
-interface DiscordEmbed {
+export interface DiscordEmbed {
 	title: string;
 	description?: string;
 	color: number;
@@ -16,9 +37,6 @@ interface DiscordEmbed {
 }
 
 const WEBHOOK_ENV_MAP: Record<DiscordChannel, string> = {
-	signup: 'DISCORD_WEBHOOK_SIGNUP',
-	billing: 'DISCORD_WEBHOOK_BILLING',
-	churn: 'DISCORD_WEBHOOK_CHURN',
 	inquiry: 'DISCORD_WEBHOOK_INQUIRY',
 	incident: 'DISCORD_WEBHOOK_INCIDENT',
 };
@@ -81,145 +99,32 @@ export async function notifyDiscord(channel: DiscordChannel, embed: DiscordEmbed
 // 便利関数
 // ============================================================
 
-/** 新規テナント作成通知 */
-export async function notifyNewSignup(tenantId: string, email: string): Promise<void> {
-	await notifyDiscord('signup', {
-		title: '🆕 新規登録',
-		color: 0x2ecc71, // green
-		fields: [
-			{ name: 'テナントID', value: tenantId, inline: true },
-			{ name: 'メール', value: email, inline: true },
-			{ name: '登録日時', value: formatJST(new Date()), inline: true },
-		],
-	});
-}
-
-/** 課金イベント通知 */
-export async function notifyBillingEvent(
-	tenantId: string,
-	event: string,
-	details?: string,
-): Promise<void> {
-	const colors: Record<string, number> = {
-		checkout_completed: 0x3498db, // blue
-		invoice_paid: 0x2ecc71, // green
-		payment_failed: 0xe74c3c, // red
-		subscription_updated: 0xf39c12, // yellow
-		subscription_deleted: 0xe74c3c, // red
-	};
-
-	const labels: Record<string, string> = {
-		checkout_completed: '💳 課金開始',
-		invoice_paid: '✅ 支払い完了',
-		payment_failed: '❌ 支払い失敗',
-		subscription_updated: '🔄 プラン変更',
-		subscription_deleted: '🚫 サブスクリプション解約',
-	};
-
-	await notifyDiscord('billing', {
-		title: labels[event] ?? `💳 ${event}`,
-		color: colors[event] ?? 0x95a5a6,
-		fields: [
-			{ name: 'テナントID', value: tenantId, inline: true },
-			{ name: 'イベント', value: event, inline: true },
-			...(details ? [{ name: '詳細', value: details, inline: false }] : []),
-		],
-	});
-}
-
-/** 退会申請通知 */
 /**
- * 解約 (期末解約) 申請の ops 通知 (#3991)。
+ * incident embed を組み立てる (顧客識別子を落とした後の payload)。
  *
- * 旧タイトルは「退会申請」だったが、本関数を呼ぶのは `/api/v1/admin/tenant/cancel`
- * (= 解約 = 有料契約の終了、家族データは残る) であって退会 (アカウント削除) ではない。
- * 軸を取り違えると churn 分析で退会と解約が混ざるため、名称と項目名を実態に合わせる。
- *
- * @param periodEndDate 現在の請求期間の終了日 (この日まで有料機能を使える)
+ * **送出と分けてある理由**: 「顧客識別子が出力に現れない」ことを unit test で固定するため
+ * (#4192 AC4)。fetch を張らずに payload そのものを検査できる。
  */
-export async function notifyCancellation(tenantId: string, periodEndDate: string): Promise<void> {
-	await notifyDiscord('churn', {
-		title: '⚠️ 解約申請 (期末解約)',
-		color: 0xe67e22, // orange
+export function buildIncidentEmbed(
+	errorMessage: string,
+	context: { method?: string; path?: string; status?: number },
+): DiscordEmbed {
+	// #4174 Q3: error message には顧客データ (email / 内部 id) が混ざりうる。path には childId 等の
+	// 可変セグメントが載る。どちらも送出前に落とす (単一強制点は notify-privacy.ts)。
+	const description = redactNotificationText(errorMessage.slice(0, 1000));
+	const path = redactPathIds(context.path);
+	return {
+		title: '🚨 システムエラー',
+		color: 0xe74c3c, // red
+		...(description ? { description } : {}),
 		fields: [
-			{ name: 'テナントID', value: tenantId, inline: true },
-			{ name: '利用可能な最終日', value: periodEndDate, inline: true },
-		],
-	});
-}
-
-/**
- * 解約理由付き解約通知 (#1596 / ADR-0023 §3.8 / I3)
- *
- * notifyCancellation との違い: 解約フロー入口で呼ばれるため、Discord に
- * カテゴリ・自由記述・プランを含めて churn 分析の即時可視化を行う。
- */
-export async function notifyCancellationWithReason(input: {
-	tenantId: string;
-	category: string;
-	freeText: string | null;
-	plan: string | null;
-}): Promise<void> {
-	const categoryEmoji: Record<string, string> = {
-		graduation: '🎓',
-		churn: '😞',
-		pause: '⏸️',
-	};
-	const categoryLabel: Record<string, string> = {
-		graduation: '卒業（子供が自律した）',
-		churn: '離反（不満があった）',
-		pause: '中断（一時停止）',
-	};
-
-	const emoji = categoryEmoji[input.category] ?? '📝';
-	const label = categoryLabel[input.category] ?? input.category;
-	const isGraduation = input.category === 'graduation';
-
-	await notifyDiscord('churn', {
-		title: `${emoji} 解約理由 — ${label}`,
-		// 卒業はポジティブ KPI なので緑、それ以外はオレンジ
-		color: isGraduation ? 0x2ecc71 : 0xe67e22,
-		fields: [
-			{ name: 'テナントID', value: input.tenantId, inline: true },
-			{ name: 'カテゴリ', value: label, inline: true },
-			{ name: 'プラン', value: input.plan ?? '(unknown)', inline: true },
-			...(input.freeText
-				? [
-						{
-							name: '自由記述',
-							// #3211: 解約理由の自由記述も mention 構文を中和して embed に載せる
-							value: sanitizeDiscordText(input.freeText.slice(0, 1024)),
-							inline: false,
-						},
-					]
+			...(context.method ? [{ name: 'メソッド', value: context.method, inline: true }] : []),
+			...(path ? [{ name: 'パス', value: path, inline: true }] : []),
+			...(context.status
+				? [{ name: 'ステータス', value: String(context.status), inline: true }]
 				: []),
 		],
-	});
-}
-
-/** 退会キャンセル通知 */
-export async function notifyCancellationReverted(tenantId: string): Promise<void> {
-	await notifyDiscord('churn', {
-		title: '↩️ 退会キャンセル',
-		color: 0x2ecc71, // green
-		fields: [{ name: 'テナントID', value: tenantId, inline: true }],
-	});
-}
-
-/** データ削除完了通知 */
-export async function notifyDeletionComplete(
-	tenantId: string,
-	stats: { items: number; files: number },
-): Promise<void> {
-	await notifyDiscord('churn', {
-		title: '🗑️ データ削除完了',
-		color: 0x95a5a6, // gray
-		fields: [
-			{ name: 'テナントID', value: tenantId, inline: true },
-			{ name: '削除アイテム数', value: String(stats.items), inline: true },
-			{ name: '削除ファイル数', value: String(stats.files), inline: true },
-		],
-	});
+	};
 }
 
 /** システム障害通知 */
@@ -227,18 +132,7 @@ export async function notifyIncident(
 	errorMessage: string,
 	context: { method?: string; path?: string; status?: number },
 ): Promise<void> {
-	await notifyDiscord('incident', {
-		title: '🚨 システムエラー',
-		color: 0xe74c3c, // red
-		description: errorMessage.slice(0, 1000),
-		fields: [
-			...(context.method ? [{ name: 'メソッド', value: context.method, inline: true }] : []),
-			...(context.path ? [{ name: 'パス', value: context.path, inline: true }] : []),
-			...(context.status
-				? [{ name: 'ステータス', value: String(context.status), inline: true }]
-				: []),
-		],
-	});
+	await notifyDiscord('incident', buildIncidentEmbed(errorMessage, context));
 }
 
 /** お問い合わせ通知 */
@@ -276,9 +170,4 @@ export async function notifyInquiry(
 			},
 		],
 	});
-}
-
-/** Date を JST 文字列に変換 */
-function formatJST(date: Date): string {
-	return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }

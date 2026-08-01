@@ -18,7 +18,6 @@ import {
 import { getRepos } from '$lib/server/db/factory';
 import type { CancellationReasonRecord } from '$lib/server/db/interfaces/cancellation-reason-repo.interface';
 import { logger } from '$lib/server/logger';
-import { notifyCancellationWithReason } from '$lib/server/services/discord-notify-service';
 
 export interface SubmitCancellationReasonInput {
 	tenantId: string;
@@ -73,15 +72,10 @@ export async function submitCancellationReason(
 		`[CANCELLATION] Reason recorded: tenant=${input.tenantId} category=${input.category} hasFreeText=${!!record.freeText}`,
 	);
 
-	// Discord 通知（失敗しても解約フロー自体は継続）
-	notifyCancellationWithReason({
-		tenantId: input.tenantId,
-		category: input.category,
-		freeText: record.freeText,
-		plan: input.planAtCancellation ?? null,
-	}).catch((err) => {
-		logger.warn('[CANCELLATION] Discord notification failed', { error: String(err) });
-	});
+	// #4192: 解約理由の Discord 通知は**持たないと決めた** (#4174 Q2 / Q3)。理由は
+	// `cancellation_reasons` に残り ops dashboard から集計できるので、通知で見ても何もできない。
+	// 自由記述は顧客が書いた文章そのもの (Q3 の「顧客データそのもの」) で、外部 SaaS のチャットログに
+	// 永続化してよいものでもない。
 
 	return { ok: true, record };
 }

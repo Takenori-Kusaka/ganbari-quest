@@ -222,9 +222,10 @@ export class ComputeStack extends cdk.Stack {
 
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
-		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
-		const discordWebhookBilling = this.node.tryGetContext('discordWebhookBilling') ?? '';
-		const discordWebhookChurn = this.node.tryGetContext('discordWebhookChurn') ?? '';
+		// #4192 (#4174 Q2 の PO 決裁): `discordWebhookSignup` / `Billing` / `Churn` は
+		// **持たないと決めた**ので読む口ごと撤去した。「secret を登録すれば動く」形を残さない。
+		// 復活させたい場合は決裁をやり直すこと (再配線は
+		// tests/unit/architecture/notification-channels-not-owned.test.ts が CI で落とす)。
 		const discordWebhookIncident = this.node.tryGetContext('discordWebhookIncident') ?? '';
 
 		// --- staging Stripe test mode (#4104) ---
@@ -342,9 +343,6 @@ export class ComputeStack extends cdk.Stack {
 						...(feedbackDiscordWebhookUrl
 							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
 							: {}),
-						...(discordWebhookSignup ? { DISCORD_WEBHOOK_SIGNUP: discordWebhookSignup } : {}),
-						...(discordWebhookBilling ? { DISCORD_WEBHOOK_BILLING: discordWebhookBilling } : {}),
-						...(discordWebhookChurn ? { DISCORD_WEBHOOK_CHURN: discordWebhookChurn } : {}),
 						...(feedbackDiscordWebhookUrl
 							? { DISCORD_WEBHOOK_INQUIRY: feedbackDiscordWebhookUrl }
 							: {}),

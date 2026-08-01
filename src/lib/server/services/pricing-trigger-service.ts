@@ -337,7 +337,10 @@ async function sendPricingTriggerNotification(report: PricingTriggerReport): Pro
 		inline: false,
 	}));
 
-	await notifyDiscord('billing', {
+	// #4192: `billing` チャネルは持たないと決めた (#4174 Q2)。本通知は顧客ごとの課金 event ではなく
+	// **集計値に基づく価格見直しトリガー** (顧客識別子を含まない / 見たら PO が判断する) なので、
+	// 「読まれるチャネルを増やさない」(#4174 Q1) に従い運用者向けの単一チャネルに寄せる。
+	await notifyDiscord('incident', {
 		title: `📊 価格見直しトリガー検知 (${report.month})`,
 		description: [
 			`**${report.firedTriggers.length}件のトリガーが発動しました**`,

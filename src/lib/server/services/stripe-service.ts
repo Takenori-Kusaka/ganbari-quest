@@ -12,7 +12,6 @@ import { getRepos } from '$lib/server/db/factory';
 import { getDebugCancelAtPeriodEnd } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
-import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
@@ -751,7 +750,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,
 	);
 
-	notifyBillingEvent(tenantId, 'checkout_completed', `plan=${planId}`).catch(() => {});
+	// #4192: 課金**成功**の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
@@ -804,7 +803,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId} plan=${plan ?? 'unresolved'}`);
 
-	notifyBillingEvent(tenant.tenantId, 'invoice_paid', `plan=${plan ?? 'unknown'}`).catch(() => {});
+	// #4192: 支払い成功の Discord 通知は持たないと決めた (#4174 Q2)。
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -853,9 +852,14 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 	logger.warn(`[STRIPE] Payment failed: tenant=${tenant.tenantId}, grace until ${graceExpires}`);
 
-	notifyBillingEvent(tenant.tenantId, 'payment_failed', `猶予期間: ${graceExpires}`).catch(
-		() => {},
-	);
+	// #4192 / #4174 Q2:「課金の**失敗**は incident に含めるべきで、成功は通知不要」。billing チャネルは
+	// 落としたが、支払い失敗だけは運用者が行動を変える事象なので incident 側の単一チャネルに残す。
+	// **tenantId は載せない** (#4174 Q3) — どの家族かは上の logger.warn (tenant= 付き) から引く。
+	notifyStripeAlert({
+		kind: 'stripe-payment-failed',
+		message: '支払いが失敗し猶予期間に入りました (対象は CloudWatch Logs / Stripe で確認)',
+		errorSummary: 'stripe-payment-failed',
+	});
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -889,11 +893,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			`[STRIPE] Subscription updated (terminal=${subscription.status}): ` +
 				`tenant=${tenant.tenantId} — subscription 参照と plan をクリアし suspended へ収束`,
 		);
-		notifyBillingEvent(
-			tenant.tenantId,
-			'subscription_updated',
-			`status=${SUBSCRIPTION_STATUS.SUSPENDED}, plan=cleared`,
-		).catch(() => {});
+		// #4192: プラン変更の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 		return;
 	}
 
@@ -925,11 +925,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 
 	logger.info(`[STRIPE] Subscription updated: tenant=${tenant.tenantId} status=${status}`);
 
-	notifyBillingEvent(
-		tenant.tenantId,
-		'subscription_updated',
-		`status=${status}, plan=${plan ?? 'unknown'}`,
-	).catch(() => {});
+	// #4192: プラン変更の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
@@ -950,7 +946,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);
 
-	notifyBillingEvent(tenant.tenantId, 'subscription_deleted').catch(() => {});
+	// #4192: 解約 (subscription 消滅) の Discord 通知は持たないと決めた (#4174 Q2)。
 }
 
 // ============================================================
