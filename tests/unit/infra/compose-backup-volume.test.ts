@@ -121,4 +121,35 @@ describe('#3970 バックアップ保存先の差し替え可能性 (docker-comp
 		const expected = `$` + '{HOST_BACKUP_DIR:-./data/backups}';
 		expect(hostMountFor('app', '/app/backups')).toBe(expected);
 	});
+
+	// [CV5] **`BACKUP_DIR` env の指す先が mount した container path と一致している** (#4152 統合監査)
+	//
+	// CV1-CV4 は volumes 行だけを見ており、environment を一切読んでいない
+	// (`hostMountFor` / `volumeLinesOf` とも volumes ブロックしか解析しない)。
+	// しかし **実際にどこへ書くかを決めるのは `BACKUP_DIR` env** であり
+	// (app 側 = `pglite-backup-service.resolveBackupDir`、backup 側 = `backup-nuc.cjs`)、
+	// mount 先 (`/app/backups`) と食い違っていても CV1-CV4 は全件 green のままになる。
+	//
+	// 食い違ったときの実害は「バックアップは取れているのに mount 外 (container 内の
+	// 一時領域) に書かれ、container 再作成で全損する」= #3950 と同型の「取れているつもり」。
+	// #4149 (保存先の差し替え可能化) と #4144 / #4148 (BACKUP_DIR を読む側) が別 PR で
+	// 入ったため、両者の整合はどこにも固定されていなかった。
+	it('[CV5] app / backup の BACKUP_DIR env が mount した container path を指す', () => {
+		for (const service of ['app', 'backup']) {
+			// mount 側 (CV1 と同じ container path) が 1 本だけ存在すること。
+			const mounted = volumeLinesOf(service).filter((v) => v.endsWith(':/app/backups'));
+			expect(mounted, `service '${service}' の /app/backups mount`).toHaveLength(1);
+
+			// 書き込み先を決める env が、その mount 先と一致すること。
+			// 相対指定 (`./backups` 等) は cwd 依存で mount 外へ逃げうるため許容しない。
+			const backupDir = environmentLinesOf(service)
+				.map((l) => l.split('='))
+				.find(([k]) => k === 'BACKUP_DIR')?.[1];
+			expect(backupDir, `service '${service}' に BACKUP_DIR が無い`).toBeDefined();
+			expect(
+				backupDir,
+				`service '${service}' の BACKUP_DIR=${backupDir} が mount 先 /app/backups と一致しない`,
+			).toBe('/app/backups');
+		}
+	});
 });
