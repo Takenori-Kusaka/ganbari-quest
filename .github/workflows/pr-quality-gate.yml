@@ -125,6 +125,26 @@ jobs:
             // Markdown画像: ![alt](url) / HTML画像: <img ...>
             const hasImage = /!\[.*?\]\(.*?\)|<img\s/i.test(body);
 
+            // #4087: 表示条件が env に依存し、撮影に使う demo 環境では原理的に描画されない UI の宣言。
+            //   判定は scripts/check-pr-screenshot.mjs に委譲する (二重実装しない、integration lane と同パターン)。
+            //   宣言だけでは通らず、理由 (12 文字以上) + Storybook story 参照の両方を要求する。
+            const ssMod = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/check-pr-screenshot.mjs`
+            );
+            const renderImpossible = ssMod.checkRenderImpossibleDeclaration(body);
+            if (renderImpossible.ok) {
+              core.info(
+                '✅ `ss-render-impossible` 宣言 (理由 + Storybook story 参照) を検出 — SS 添付不要 (#4087)',
+              );
+              return;
+            }
+            if (renderImpossible.violation) {
+              core.setFailed(
+                `❌ [${renderImpossible.violation.id}] (${renderImpossible.violation.issue}) ${renderImpossible.violation.message}`,
+              );
+              return;
+            }
+
             if (!hasImage) {
               core.setFailed(
                 [
