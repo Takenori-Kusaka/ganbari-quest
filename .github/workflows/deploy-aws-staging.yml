@@ -97,7 +97,7 @@ jobs:
       # Step 2: Node 22
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       # Step 3: Validate required secrets (ADR-0024 — silent skip 禁止)。

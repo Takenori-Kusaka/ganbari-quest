@@ -54,7 +54,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       # 10 script を順次実行。1 つでも fail したら job fail。
       # 各 script の baseline は scripts/orphan-baselines/<name>.json で管理。

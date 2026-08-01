@@ -54,7 +54,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       # script が markdown report を stdout + GITHUB_STEP_SUMMARY へ出力する。
       # 検出 0 件でも N 件でも exit 0 (gate ではない)。
