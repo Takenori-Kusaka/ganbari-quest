@@ -79,10 +79,13 @@ test.describe('#1603 Graduation flow', () => {
 		await page.goto('/admin/subscription/cancel', { waitUntil: 'domcontentloaded' });
 		await page.getByTestId('cancellation-category-graduation').check();
 		await page.getByTestId('cancellation-submit').click();
-		await page.waitForURL(/\/admin\/billing\/cancel\/(graduation|thanks)/);
+		// #4139 で /admin/billing → /admin/subscription へ統合済 (旧 URL は 308 で転送されるが、
+		// 解約 submit は `subscription/cancel/+page.server.ts:78/92` から新 URL へ 303 する)。
+		// escape 形 (`\/admin\/billing\/`) だったため #4146 の rename sweep の grep をすり抜けていた。
+		await page.waitForURL(/\/admin\/subscription\/cancel\/(graduation|thanks)/);
 		// 卒業ページか thanks ページのどちらかに遷移すれば OK
 		// （無料プランで Stripe 連携無し時は thanks 経由する設計もあり得るが、
 		//  本実装では graduation を最優先）
-		await expect(page).toHaveURL(/\/admin\/billing\/cancel\/(graduation|thanks)/);
+		await expect(page).toHaveURL(/\/admin\/subscription\/cancel\/(graduation|thanks)/);
 	});
 });

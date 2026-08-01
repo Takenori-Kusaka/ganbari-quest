@@ -60,9 +60,20 @@ test.describe('#4139 プラン・課金統合ページ', () => {
 	test('ナビゲーションのプラン・課金導線が 1 本に集約されている', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 800 });
 		await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
-		// 旧「請求管理」ナビは撤去済み
-		await expect(page.locator('nav a[href="/admin/billing"]')).toHaveCount(0);
-		// 「プラン」ナビは維持
-		await expect(page.locator('nav a[href="/admin/subscription"]').first()).toHaveCount(1);
+
+		// desktop nav の item anchor は `{#if desktopExpandedCategory === category.id}` の
+		// dropdown 内にのみ描画される (AdminLayout.svelte:346-360)。カテゴリを開かずに
+		// `nav a[href=...]` を数えると **撤去前でも 0 件**で、旧 assertion は vacuous だった
+		// (`toHaveCount(0)` は常に成立し、`.first()).toHaveCount(1)` は locator を 1 件に
+		// 絞ってから数えるため「1 本であること」を表明できていない)。
+		// 「プラン」「請求管理」はいずれも 設定 カテゴリ配下のため、設定を開いてから数える。
+		const nav = page.locator('nav[data-tutorial="nav-desktop"]');
+		await nav.getByRole('button', { name: '設定' }).click();
+		await expect(nav.locator('a[href="/admin/subscription"]')).toBeVisible();
+
+		// 旧「請求管理」ナビは撤去済み (統合前は 設定 配下に 2 本あった)
+		await expect(nav.locator('a[href="/admin/billing"]')).toHaveCount(0);
+		// 「プラン」ナビは 1 本だけ (2 本に戻ったら fail する = 非 vacuous)
+		await expect(nav.locator('a[href="/admin/subscription"]')).toHaveCount(1);
 	});
 });
