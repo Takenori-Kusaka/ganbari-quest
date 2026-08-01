@@ -33,7 +33,7 @@ export interface OffsiteProbe {
 	expected: boolean;
 	/** バックアップ保存先の filesystem device id。取得できなければ null。 */
 	backupDeviceId: number | null;
-	/** 稼働中 DB (PGDATA) の filesystem device id。取得できなければ null。 */
+	/** 稼働中 DB のデータディレクトリの filesystem device id。取得できなければ null。 */
 	liveDataDeviceId: number | null;
 }
 
