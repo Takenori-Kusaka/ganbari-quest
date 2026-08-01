@@ -2,6 +2,8 @@
 
 > **このファイルの位置づけ**: develop → main 統合 PR を客観的第三者視点で監査する「外部品質監査チーム」のロール・責務・境界の SSOT。マネージャ orchestrator + 8 チーム + ポリシー準拠判定 agent の役割、skill 再利用マップ、QM との 2 段 gate 境界、マージ判定エビデンス基準、棄却運用 flow を定める。
 >
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）
+>
 > **関連 Issue**: EPIC #2861 ｜ A1 = #2862 ｜ **関連 ADR**: ADR-0056（QM Orchestrator role drift の構造的対処）/ ADR-0022（QM Approve 体制・admin bypass 禁止）/ ADR-0010（Pre-PMF scope）
 >
 > **上流 SSOT**: ブランチ運用・gate 二層・merge 責任分担は [branch-strategy.md](branch-strategy.md)。QM Tier1/Tier2 の 2 層構造は [qa-session.md](qa-session.md)。本ファイルはこの 2 つを継承し、develop → main レーンの監査チーム側のみを定義する。

@@ -4,7 +4,7 @@
 >
 > **PR 起票**: [Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md)（PR body 雛形 + Issue 自動穴埋め、#1863）
 >
-> **SSOT**: ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
@@ -74,13 +74,15 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 
 | 操作 | 担当 | 備考 |
 |---|---|---|
-| Issue 着手順 | - | デフォルト直列 / 軽微群は Plan agent 判断で並列可 |
+| Issue 着手順 | Dev（開発リーダー） | デフォルト直列 / 軽微群は Plan agent 判断で並列可 |
 | 全体設計・テスト設計 | Claude Code Opus | 全体俯瞰 |
 | 高難度実装 | Claude Code Opus | 新規クラス設計・デザインパターン検討 |
 | 軽微な実装・単体テスト | Sonnet / Gemini CLI | 既存コード改修・置き換え |
 | E2E / 結合テスト | Opus | ブラウザ振る舞い検証 |
 | 自己レビュー・AC 確認 | Sonnet / Gemini CLI | 別観点でのセルフレビュー |
 | CI 修正 | Opus | 複雑な依存関係 |
+
+> **backlog 上位から何を今のレーンに取り込むかは Dev が決める。** PO は backlog の順序（何が次に価値が高いか）を示すが、着手順・WIP 配分・レーン割当への個別指示は出さない。決定権の境界は [チーム憲章 §4.2](README.md#42-実装に関する決定)。
 
 #### 多観点セルフレビュー推奨フロー
 1. 主担当（Opus）が AC を満たす実装を完了

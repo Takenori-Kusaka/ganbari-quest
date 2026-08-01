@@ -2,7 +2,7 @@
 
 > **目的**: 顧客満足度・継続性・低リスクを担保した高付加価値アプリの提供責務
 >
-> **SSOT**: ADR-0004（AC 検証）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0022（QM Approve / `--admin` bypass 禁止）/ ADR-0026（force push 禁止 / Re-Review 機械チェック）
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0004（AC 検証）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0022（QM Approve / `--admin` bypass 禁止）/ ADR-0026（force push 禁止 / Re-Review 機械チェック）
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（develop 二層 + gate 二層。QM のレビュー対象・gate 範囲は §「レビュー対象レーン」参照）
 
