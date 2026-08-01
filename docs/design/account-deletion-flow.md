@@ -75,7 +75,6 @@ else                              pattern = 'member';
 | **新オーナー昇格** (テナント `ownerId` 付け替え) | — | ✔ | — | — | — |
 | 子供レコードと user の link 解除（`child.userId = null`） | — | — | — | ✔ | — |
 | 他メンバーへのメール通知（`sendMemberRemovedEmail`） | — | — | ✔ | — | — |
-| Discord 通知（`notifyDeletionComplete`） | ✔ | — | ✔ | — | — |
 
 > **重要**: パターン 3 (`deleteChildAccount`) は子供レコード自体を削除しない（活動履歴・実績は残す）。代わりに `child.userId` を `null` にしてアカウントだけ切り離す。これは「子供がスマホを返した」「再ログインのため UID を作り直したい」等のケースを想定したもの。
 
@@ -99,7 +98,6 @@ fullTenantDeletion(tenantId, ownerId)
   └─ 5. 全メンバーシップ削除 (deleteAllMemberships)
   └─ 6. 招待リンク無効化 + 物理削除 (revokeAndDeleteAllInvites)
   └─ 7. テナント削除 (deleteTenant)
-  └─ 8. notifyDeletionComplete (失敗は無視)
 ```
 
 **Pattern 2b (`deleteOwnerFullDelete` — `fullTenantDeletion` は呼ばない):**
@@ -115,7 +113,6 @@ deleteOwnerFullDelete(tenantId, ownerId)
   └─ 6. 全メンバーシップ削除 (deleteAllMemberships)
   └─ 7. Owner のみ Cognito + DB ユーザー削除（他メンバーの Cognito は削除しない）
   └─ 8. テナント削除 (deleteTenant)
-  └─ 9. notifyDeletionComplete (失敗は無視)
   └─ 10. 他メンバーへ sendMemberRemovedEmail (失敗は無視)
 ```
 

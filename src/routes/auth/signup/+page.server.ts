@@ -14,7 +14,6 @@ import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/
 import type { Identity } from '$lib/server/auth/types';
 import { logger } from '$lib/server/logger';
 import { recordConsent } from '$lib/server/services/consent-service';
-import { notifyNewSignup } from '$lib/server/services/discord-notify-service';
 import { startTrial, type TrialTier } from '$lib/server/services/trial-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -157,8 +156,7 @@ export const actions: Actions = {
 	 *   3. setIdentityCookie で identity cookie を設定
 	 *   4. authProvider.resolveContext で tenant を provisioning（初回ユーザーは新規作成）
 	 *   5. recordConsent で同意を記録（tenantId が揃ったこの時点で初めて可能）
-	 *   6. notifyNewSignup（Discord）
-	 *   7. /admin へリダイレクト
+	 *   6. /admin へリダイレクト
 	 *
 	 * 途中で失敗した場合はログを残して /auth/login?registered=true へフォールバック。
 	 * 手動ログイン後の初回リクエストで hooks.server.ts が provisionNewUser を走らせるが、
@@ -249,12 +247,9 @@ export const actions: Actions = {
 
 		const tenantId = context.tenantId;
 
-		// 新規登録通知（Discord）— fire-and-forget
-		notifyNewSignup(tenantId, email).catch((err) => {
-			logger.warn('[SIGNUP] Discord notification failed', {
-				context: { error: err instanceof Error ? err.message : String(err) },
-			});
-		});
+		// #4192: 新規登録の Discord 通知は**持たないと決めた** (#4174 Q2)。サインアップは嬉しいが
+		// 見ても何もしない通知で、増やすと incident が埋もれる。実数は GitHub / DB で足りる。
+		// 登録の事実は下の `[SIGNUP] Consent recorded at signup` ログ (tenantId 付き) が残す。
 
 		// Consent 記録（同期実行 — 失敗したら /consent 画面へ誘導）
 		const ip = getClientAddress();

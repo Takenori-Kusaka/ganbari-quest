@@ -23,7 +23,6 @@ import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { notifyCancellation } from '$lib/server/services/discord-notify-service';
 import { sendCancellationEmail } from '$lib/server/services/email-service';
 import {
 	type ScheduleCancellationResult,
@@ -88,7 +87,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 	if (ownerEmail) {
 		sendCancellationEmail(ownerEmail, periodEndDate).catch(() => {});
 	}
-	notifyCancellation(tenantId, periodEndDate).catch(() => {});
+	// #4192: 解約の Discord 通知は**持たないと決めた** (#4174 Q2)。解約理由は cancellation_reasons に
+	// 残り、通知で見ても何もできない。事実は下の logger.info (tenantId 付き) が残す。
 
 	logger.info('[tenant] 解約申請 (期末解約を予約)', {
 		context: { tenantId, periodEndAt, subscriptionId: result.state.subscriptionId },

@@ -332,9 +332,17 @@ describe('[D5] optional 失敗の隔離 + fitness#11 counter emit (#3550 ①)', 
 			expect.objectContaining({
 				level: 'error',
 				message: expect.stringContaining('challenge_progress'),
-				tenantId: TENANT,
 			}),
 		);
+
+		// #4192 (#4174 Q3): Discord は外部 SaaS なので tenantId は載せない。
+		// 「どの家族か」は直前に assert した logger.error (tenantId 付き) 側で引く。
+		const alertArg = vi.mocked(sendDiscordAlert).mock.calls[0]?.[0] as
+			| Record<string, unknown>
+			| undefined;
+		expect(alertArg).toBeDefined();
+		expect(alertArg).not.toHaveProperty('tenantId');
+		expect(JSON.stringify(alertArg)).not.toContain(TENANT);
 	});
 
 	it('optional が成功する場合は counter を emit しない (偽陽性なし)', async () => {

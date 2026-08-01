@@ -14,7 +14,6 @@ import type { Membership } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteByPrefix } from '$lib/server/storage';
-import { notifyDeletionComplete } from './discord-notify-service';
 import { sendMemberRemovedEmail } from './email-service';
 import { cancelSubscription } from './stripe-service';
 import { deleteAllChildrenData, deleteTenantScopedData } from './tenant-cleanup-service';
@@ -199,8 +198,8 @@ async function fullTenantDeletion(
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
 
-	// 7. 通知
-	notifyDeletionComplete(tenantId, { items: itemsDeleted, files: filesDeleted }).catch(() => {});
+	// #4192: 削除完了の Discord 通知は**持たないと決めた** (#4174 Q2、churn チャネル)。
+	// 削除の事実・件数は呼び出し元の `[account-deletion] ... 削除完了` ログ (tenantId + 件数付き) が残す。
 
 	return { itemsDeleted, filesDeleted };
 }
@@ -383,8 +382,8 @@ export async function deleteOwnerFullDelete(
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
 
-	// 8. Notify (Discord)
-	notifyDeletionComplete(tenantId, { items: itemsDeleted, files: filesDeleted }).catch(() => {});
+	// #4192: 削除完了の Discord 通知は**持たないと決めた** (#4174 Q2、churn チャネル)。
+	// 削除の事実・件数は呼び出し元の `[account-deletion] ... 削除完了` ログが残す。
 
 	// 9. メンバーへのメール通知（Stripe + DB 削除成功確定後に送信）
 	for (const { email, tenantName } of memberEmails) {

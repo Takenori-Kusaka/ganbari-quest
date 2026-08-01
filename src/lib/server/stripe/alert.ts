@@ -33,6 +33,11 @@ import { redactPii, redactPiiInTags } from '$lib/server/stripe/pii-redaction';
  */
 export type StripeAlertKind =
 	| 'stripe-lookup-failed'
+	// #4192 (#4174 Q2 の PO 決裁):「課金の**失敗**は incident に含めるべきで、成功は通知不要」。
+	// 旧 `billing` チャネル (signup / churn とともに撤去) が持っていた通知のうち、
+	// **人が行動を変える** 支払い失敗だけを運用者向け単一チャネルに残す。
+	// payload に tenantId は載せない (#4174 Q3) — 対象は logger / Stripe 側で引く。
+	| 'stripe-payment-failed'
 	// #4026: 契約状態を書き換える event が、tenant の**現行契約とは別の** subscription を
 	// 指していた。適用せず skip したうえで観測する (旧契約の後着 or tenant 同定ミス)。
 	| 'stripe-contract-target-mismatch'

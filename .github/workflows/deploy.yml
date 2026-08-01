@@ -342,9 +342,6 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
-            -c discordWebhookSignup=${{ secrets.DISCORD_WEBHOOK_SIGNUP }} \
-            -c discordWebhookBilling=${{ secrets.DISCORD_WEBHOOK_BILLING }} \
-            -c discordWebhookChurn=${{ secrets.DISCORD_WEBHOOK_CHURN }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -373,9 +370,6 @@ jobs:
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
-          -c discordWebhookSignup=${{ secrets.DISCORD_WEBHOOK_SIGNUP }}
-          -c discordWebhookBilling=${{ secrets.DISCORD_WEBHOOK_BILLING }}
-          -c discordWebhookChurn=${{ secrets.DISCORD_WEBHOOK_CHURN }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 

@@ -422,6 +422,9 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 				'ASSETS_BUCKET',
 				'CRON_SECRET',
 				'OPS_SECRET_KEY',
+				// #4192: signup / billing / churn は**持たないと決めた**ため本番 Lambda にも存在しない
+				// (#4174 Q2)。復活の検出は notification-channels-not-owned.test.ts が担うが、
+				// demo / staging への漏洩 gate としては列挙を残す (二重防御)。
 				'DISCORD_WEBHOOK_SIGNUP',
 				'DISCORD_WEBHOOK_BILLING',
 				'DISCORD_WEBHOOK_CHURN',

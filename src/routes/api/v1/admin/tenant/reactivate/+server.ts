@@ -19,7 +19,6 @@ import { OWNER_GATE_LABELS } from '$lib/domain/labels';
 import { ownerGateResponse } from '$lib/server/auth/owner-gate';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
-import { notifyCancellationReverted } from '$lib/server/services/discord-notify-service';
 import {
 	type ResumeSubscriptionResult,
 	resumeSubscription,
@@ -77,7 +76,8 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ error: '解約手続き中ではありません' }, { status: 409 });
 	}
 
-	notifyCancellationReverted(tenantId).catch(() => {});
+	// #4192: 解約キャンセルの Discord 通知は**持たないと決めた** (#4174 Q2)。
+	// 事実は下の logger.info (tenantId 付き) が残す。
 
 	logger.info('[tenant] 解約キャンセル (期末解約の予約を解除)', {
 		context: { tenantId, subscriptionId: result.state.subscriptionId },
