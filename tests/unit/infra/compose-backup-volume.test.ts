@@ -153,3 +153,104 @@ describe('#3970 バックアップ保存先の差し替え可能性 (docker-comp
 		}
 	});
 });
+
+// ---------------------------------------------------------------------------
+// #4207 — TZ が「設定されている」ことと「効いている」ことは別
+// ---------------------------------------------------------------------------
+//
+// 本番 NUC の日次バックアップは `0 3 * * *` (深夜 3 時のつもり) で登録されているのに、
+// 実際には **12:00 JST (= 03:00 UTC)** に走っていた。家庭向けアプリの本番 DB を
+// 利用者が起きている真昼にコピーしている状態だった。
+//
+// 原因は tzdata の欠落。`node:22-alpine` は tzdata を同梱しないため、
+// `TZ=Asia/Tokyo` を env で渡しても libc がゾーンを解決できず UTC のままになる。
+// busybox crond はその UTC で `0 3 * * *` を解釈する。
+//
+//   $ docker exec ganbari-quest-backup-1 printenv TZ   → Asia/Tokyo   (設定はされている)
+//   $ docker exec ganbari-quest-backup-1 date          → ... UTC ...  (効いていない)
+//
+// **`printenv TZ` は正しい値を返すので「確認したつもり」になれる**のがこの欠陥の質。
+// しかもバックアップ自体は成功する (ファイルは毎日でき consecutiveFailures: 0) ため、
+// health も alert も何も言わない。#3950 の「取れているつもり」と同型で、
+// 本日 4 件踏んだ「経路はあるが届かない」(#4119 / #4174 / #4189 / #4205) と同じ形。
+//
+//   [TZ1] TZ を宣言する service の Dockerfile が tzdata を install している
+//   [TZ2] cron 式のコメント / 起動ログが実挙動と一致している (「3:00 AM JST」が嘘でない)
+describe('#4207 TZ を宣言したなら、その TZ が実際に効くこと', () => {
+	/** compose の `build:` から、その service がどの Dockerfile で焼かれるかを解決する。 */
+	function dockerfileOf(service: string): string {
+		const raw = readFileSync(COMPOSE_PATH, 'utf-8');
+		const lines = raw.split('\n');
+		const serviceIdx = lines.findIndex((l) => l.trimEnd() === `  ${service}:`);
+		if (serviceIdx < 0) throw new Error(`service '${service}' が docker-compose.yml にありません`);
+
+		const nextIdx = lines.findIndex((l, i) => i > serviceIdx && /^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l));
+		const block = lines.slice(serviceIdx, nextIdx < 0 ? lines.length : nextIdx);
+
+		// `dockerfile: X` の明示があればそれ。無ければ既定の Dockerfile。
+		const explicit = block.find((l) => /^\s+dockerfile:\s*\S+/.test(l));
+		return explicit ? explicit.split(':')[1].trim() : 'Dockerfile';
+	}
+
+	/** TZ env を宣言している service を compose から列挙する (母数を literal 固定しない)。 */
+	function servicesDeclaringTz(): string[] {
+		const raw = readFileSync(COMPOSE_PATH, 'utf-8');
+		const lines = raw.split('\n');
+		return lines
+			.map((l, i) => (/^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l) ? { name: l.trim().slice(0, -1), i } : null))
+			.filter((s): s is { name: string; i: number } => s !== null)
+			.filter(({ name }) => environmentLinesOf(name).some((e) => e.startsWith('TZ=')));
+	}
+
+	const tzServices = servicesDeclaringTz();
+
+	it('[TZ0] 母数: TZ を宣言する service が 1 つ以上ある', () => {
+		// 0 件なら「全部通った」ではなく「1 つも検査していない」。
+		expect(tzServices.length).toBeGreaterThan(0);
+	});
+
+	it('[TZ1] TZ を宣言する service の Dockerfile が tzdata を install している', () => {
+		const missing: string[] = [];
+
+		for (const { name } of tzServices) {
+			const dockerfile = dockerfileOf(name);
+			const content = readFileSync(join(process.cwd(), dockerfile), 'utf-8');
+			// alpine 以外 (debian 系) は tzdata 同梱なので、alpine を使う場合だけ要求する。
+			const usesAlpine = /^FROM\s+\S*alpine/m.test(content);
+			if (!usesAlpine) continue;
+			if (!/apk\s+add[^\n]*\btzdata\b/.test(content)) {
+				missing.push(`${name} (${dockerfile})`);
+			}
+		}
+
+		expect(
+			missing,
+			`TZ を env で渡しているが tzdata が無いため TZ が解決されない service: ${missing.join(' / ')}。` +
+				'alpine は tzdata を同梱しないので `RUN apk add --no-cache tzdata` が要る。' +
+				'これが無いと printenv TZ は正しい値を返すのに date は UTC を返す (#4207)。',
+		).toEqual([]);
+	});
+
+	it('[TZ2] backup の cron 式と、コメント / 起動ログの時刻表記が一致している', () => {
+		const raw = readFileSync(COMPOSE_PATH, 'utf-8');
+
+		// crontab に登録している時刻を実体から取る。
+		const cronLine = raw.split('\n').find((l) => l.includes('crontab -'));
+		expect(cronLine, 'backup の crontab 登録行が見つからない').toBeDefined();
+		const hour = cronLine?.match(/echo\s+"(\d+)\s+(\d+)\s+\*\s+\*\s+\*/)?.[2];
+		expect(hour, `cron 式から時が読めない: ${cronLine}`).toBeDefined();
+
+		// その時刻を JST として説明している文言が、cron 式の時と一致すること。
+		// 「3:00 AM JST」と書いてあるのに `0 12 * * *` を登録している、の逆パターンも捕まえる。
+		const claims = raw.split('\n').filter((l) => /(\d+):00 AM JST|daily .*JST/.test(l));
+		expect(claims.length, 'cron の時刻を JST で説明している行が無い').toBeGreaterThan(0);
+		for (const claim of claims) {
+			const claimed = claim.match(/(\d+):00 AM JST/)?.[1];
+			if (!claimed) continue;
+			expect(
+				Number(claimed),
+				`「${claim.trim()}」が cron 式 (${hour} 時) と一致しない。文言か cron 式のどちらかが嘘になっている`,
+			).toBe(Number(hour));
+		}
+	});
+});
