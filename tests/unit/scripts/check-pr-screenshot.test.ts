@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	checkRenderImpossibleDeclaration,
 	checkScreenshotEmbedReadiness,
 	detectBeforeAfterLabels,
 	detectLocalPaths,
@@ -16,6 +17,7 @@ import {
 	hasEmbeddedScreenshotImage,
 	hasFutureTenseScreenshotMarker,
 	hasIntegrationVrEvidence,
+	hasStorybookStoryReference,
 	hasUiNotApplicableMarker,
 	isScreenshotUrl,
 	isUiPr,
@@ -468,5 +470,60 @@ describe('check-pr-screenshot lane-aware main (#2946)', () => {
 		expect(detectBeforeAfterLabels(fullBody)).toEqual({ hasBefore: true, hasAfter: true });
 		// VR evidence は feature lane では不要 (false でも feature lane は before/after で判定)
 		expect(hasIntegrationVrEvidence(fullBody)).toBe(false);
+	});
+});
+
+describe('ss-render-impossible 宣言 (#4087)', () => {
+	// 「UI は変わるが、その環境では原理的に描画できない」に対する語彙。
+	// 兄弟 gate (ss-blob-sha-uniqueness) には理由必須の宣言が 4 種あるのに本 gate だけ無く、
+	// 「UI 変更なし」と嘘を書くか label の意味を曲げるかしか道が無かった (#4084 / PO 決裁 2026-08-01)。
+	const STORY_REF = 'Storybook の Features/Admin/BackupHealthCard で 4 状態を確認できます';
+
+	it('宣言が無ければ何も起きない (既存 PR に影響しない)', () => {
+		expect(checkRenderImpossibleDeclaration('本文だけ').ok).toBe(false);
+		expect(checkRenderImpossibleDeclaration('本文だけ').violation).toBeUndefined();
+	});
+
+	it('理由 + story 参照が揃えば exempt になる', () => {
+		const body = `<!-- ss-render-impossible: DATA_SOURCE=pglite でのみ描画され demo 環境では出ない -->
+${STORY_REF}`;
+		expect(checkRenderImpossibleDeclaration(body).ok).toBe(true);
+	});
+
+	it('**理由が定型 stub なら受理しない** (理由の非強制を作らない、#3956 教訓)', () => {
+		for (const stub of ['', 'TODO', 'n/a', 'なし']) {
+			const body = `<!-- ss-render-impossible: ${stub} -->
+${STORY_REF}`;
+			const r = checkRenderImpossibleDeclaration(body);
+			expect(r.ok).toBe(false);
+			expect(r.violation?.id).toBe('ss-render-impossible-reason-missing');
+		}
+	});
+
+	it('理由が短すぎれば受理しない', () => {
+		const body = `<!-- ss-render-impossible: 撮れない -->
+${STORY_REF}`;
+		const r = checkRenderImpossibleDeclaration(body);
+		expect(r.ok).toBe(false);
+		expect(r.violation?.id).toBe('ss-render-impossible-reason-missing');
+	});
+
+	it('**story 参照が無ければ宣言だけでは通さない** — 「撮れない」は「見なくてよい」ではない', () => {
+		const body =
+			'<!-- ss-render-impossible: DATA_SOURCE=pglite でのみ描画され demo 環境では出ない -->';
+		const r = checkRenderImpossibleDeclaration(body);
+		expect(r.ok).toBe(false);
+		expect(r.violation?.id).toBe('ss-render-impossible-story-missing');
+	});
+
+	it('story 参照は *.stories.svelte のパス言及でも受理する', () => {
+		const body =
+			'<!-- ss-render-impossible: DATA_SOURCE=pglite でのみ描画され demo 環境では出ない -->\n' +
+			'src/lib/features/admin/components/BackupHealthCard.stories.svelte を追加';
+		expect(checkRenderImpossibleDeclaration(body).ok).toBe(true);
+	});
+
+	it('hasStorybookStoryReference: 無関係な本文では false', () => {
+		expect(hasStorybookStoryReference('ただの説明文です')).toBe(false);
 	});
 });

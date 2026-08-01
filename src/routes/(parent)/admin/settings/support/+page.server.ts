@@ -8,6 +8,7 @@ import {
 	evaluateBackupHealth,
 	isBackupNotificationConfigured,
 } from '$lib/domain/backup-health';
+import { getEnv } from '$lib/runtime/env';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { logger } from '$lib/server/logger';
@@ -25,7 +26,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	//
 	// NUC セルフホスト (DATA_SOURCE=pglite) のときだけ載せる。クラウド (dsql) のバックアップは
 	// AWS Backup が担っており本画面の対象外で、載せると「自分で見るべきもの」を誤らせる。
-	const backupHealth = process.env.DATA_SOURCE === 'pglite' ? await readBackupHealth() : null;
+	const backupHealth = getEnv().DATA_SOURCE === 'pglite' ? await readBackupHealth() : null;
 
 	return { accountEmail, backupHealth };
 };

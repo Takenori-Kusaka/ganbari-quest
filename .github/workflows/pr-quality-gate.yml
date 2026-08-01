@@ -36,6 +36,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/reason-declaration.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
@@ -167,6 +168,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/reason-declaration.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)

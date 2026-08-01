@@ -102,10 +102,12 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 | 個別に対応を書きたい | `<!-- ss-pair: before=<raw URL or path> after=<raw URL or path> -->` |
 | ペアが原理的に存在しない（新規画面で修正前が無い 等） | `<!-- ss-pair-none: <12 文字以上の理由> -->` |
 | **Before / After が同一なのが正しい** | `<!-- ss-identical-ok: <12 文字以上の理由> -->` |
+| **UI は変わるが、その環境では原理的に描画できない** | `<!-- ss-render-impossible: <12 文字以上の理由> -->` + **Storybook story の参照を同じ body 内に必須** |
 
 - **理由は必須**。空欄 / `TODO` / `n/a` 等の定型 stub は受理されない（理由の非強制を作らない、#3956 教訓）
 - `ss-identical-ok` は「差分が現れる条件の外で撮影したため描画が一致するのが正しい」ケース用（例: JST 00:00〜09:00 だけ日付がずれる修正を JST 日中に撮影した #4080）。**撮り直し漏れの言い訳には使わない**。宣言しても同一だったペアは出力に列挙される
 - `refactor:internal-no-doc-impact` label（視覚差分ゼロの内部 refactor 用）とは意味が違う。**顧客に見える挙動を変える PR には label を付けず、`ss-identical-ok` を使う**
+- `ss-render-impossible` は **`ss-blob-sha-uniqueness` ではなく `check-pr-screenshot.mjs`（SS embed gate / pre-ready Step 11b）** 側の宣言（#4087）。表示条件が env に依存し、撮影に使う demo 環境（`DATA_SOURCE=demo`）では出ない UI がこれに当たる。**宣言だけでは通らない — Storybook story の参照が必須**（「原理的に撮れない」は「見た目を確認しなくてよい」ではない）。実環境での確認は後続 Issue に紐付けること
 
 ## 局所テストコマンド (#2184)
 
