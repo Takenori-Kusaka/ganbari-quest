@@ -75,13 +75,20 @@ test.describe('#4156 請求履歴の到達性は契約の有無から独立し�
 
 		// 押した結果が必ず可視化されること。決済が有効な配備なら確認ダイアログ、
 		// 無効な配備なら理由の提示 (#4161 と同じ扱い)。どちらが走ったかは DOM で確定させる。
+		//
+		// click を `toPass` で包むのは hydration 待ちのため。SSR された button は
+		// `toBeVisible` / `toBeEnabled` を満たすが、client bundle の読み込みが終わるまで
+		// listener が付かず、その間の click は**エラーにならずに落ちる** (dev server で実測)。
+		// 固定 sleep を置かずに「押して結果が出るまで押し直す」= 開く操作は冪等。
 		const stripeEnabled = await panel.getAttribute('data-stripe-enabled');
-		await button.click();
-		if (stripeEnabled === 'true') {
-			await expect(page.getByTestId('portal-confirm-button')).toBeVisible();
-		} else {
-			await expect(page.getByTestId('billing-unavailable-alert')).toBeVisible();
-		}
+		const outcome =
+			stripeEnabled === 'true'
+				? page.getByTestId('portal-confirm-button')
+				: page.getByTestId('billing-unavailable-alert');
+		await expect(async () => {
+			await button.click();
+			await expect(outcome).toBeVisible({ timeout: 1_000 });
+		}).toPass({ timeout: 30_000 });
 	});
 
 	test('解約済みの告知が「記録できない」と言わない (認可の実挙動と一致、#3993)', async ({
