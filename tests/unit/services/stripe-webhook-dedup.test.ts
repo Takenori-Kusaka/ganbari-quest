@@ -69,11 +69,6 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const mockNotifyBillingEvent = vi.fn().mockResolvedValue(undefined);
-vi.mock('$lib/server/services/discord-notify-service', () => ({
-	notifyBillingEvent: (...args: unknown[]) => mockNotifyBillingEvent(...args),
-}));
-
 // ---------- Import after mocks ----------
 
 import {
@@ -172,7 +167,6 @@ beforeEach(() => {
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockFindTenantByStripeCustomerId.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
-	mockNotifyBillingEvent.mockResolvedValue(undefined);
 	mockGetStripeClient.mockReturnValue({
 		subscriptions: {
 			retrieve: vi.fn().mockResolvedValue({
@@ -233,12 +227,14 @@ describe('handleWebhookEvent — event.id dedup (#3985)', () => {
 		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(WEBHOOK_EVENTS.length);
 	});
 
-	it('welcome 通知も 1 回だけ (checkout 重複で 2 通送らない)', async () => {
+	// #4192: 旧 assertion は「welcome 通知が 1 回だけ」だった。課金成功の Discord 通知は
+	// #4174 Q2 の決裁で撤去したため、同じ dedup 性質を **残っている唯一の副作用** で観測する。
+	it('同一 checkout の重複到達で契約状態の書込が 2 回起きない', async () => {
 		const checkout = WEBHOOK_EVENTS[0].event;
 		await handleWebhookEvent(checkout as never);
 		await handleWebhookEvent(checkout as never);
 
-		expect(mockNotifyBillingEvent).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 	});
 
 	it('未購読の event 型も台帳に記録され、再到達では dispatch されない', async () => {
@@ -334,7 +330,10 @@ describe('handleWebhookEvent — 並列到達の処理権 (#4128 AC3 / AC4)', ()
 		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 	});
 
-	it('並列到達した checkout の welcome 通知も 1 回だけ', async () => {
+	// #4192: 旧 assertion は「welcome 通知が 1 回だけ」。課金成功の Discord 通知は #4174 Q2 の
+	// 決裁で撤去したため、同じ「並列到達でも副作用は 1 回」を残存する副作用で観測する。
+	// 直前の test と分けているのは、こちらが **並列** 経路 (処理権取得) を見ているため。
+	it('並列到達した checkout でも契約状態の書込は 1 回だけ', async () => {
 		const checkout = WEBHOOK_EVENTS[0].event;
 
 		await Promise.allSettled([
@@ -342,7 +341,7 @@ describe('handleWebhookEvent — 並列到達の処理権 (#4128 AC3 / AC4)', ()
 			handleWebhookEvent(checkout as never),
 		]);
 
-		expect(mockNotifyBillingEvent).toHaveBeenCalledTimes(1);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
 	});
 
 	it('処理権を取れなかった側は throw せず正常終了する (呼び出し元が 200 を返せる)', async () => {

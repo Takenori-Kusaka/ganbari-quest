@@ -51,7 +51,9 @@ describe('#3404 item3: reportPushValidationRejection (発生可視化)', () => {
 		});
 	});
 
-	it('[B2] sendDiscordAlert を level=error + path + tenantId + errorSummary で起動する', () => {
+	// #4192 (#4174 Q3): tenantId は Discord に載せない。「誰に起きたか」は [B1] で assert 済の
+	// logger.warn (tenantId 付き) 側が持つ。ここでは alert が tenantId を**渡さない**ことを固定する。
+	it('[B2] sendDiscordAlert を level=error + path + errorSummary で起動し、tenantId は渡さない', () => {
 		reportPushValidationRejection({
 			tenantId: 't-2',
 			code: 'INVALID_KEY',
@@ -64,10 +66,12 @@ describe('#3404 item3: reportPushValidationRejection (発生可視化)', () => {
 				level: 'error',
 				message: expect.stringContaining('INVALID_KEY'),
 				path: '/api/v1/notifications/subscribe',
-				tenantId: 't-2',
 				errorSummary: 'push key failed base64url format / length validation',
 			}),
 		);
+		const alertArg = alertMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+		expect(alertArg).not.toHaveProperty('tenantId');
+		expect(JSON.stringify(alertArg)).not.toContain('t-2');
 	});
 
 	it('[B3] Discord alert 自体の失敗は throw せず logger.warn に留まる', async () => {

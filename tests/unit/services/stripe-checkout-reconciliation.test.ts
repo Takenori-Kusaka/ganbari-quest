@@ -81,11 +81,6 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const mockNotifyBillingEvent = vi.fn().mockResolvedValue(undefined);
-vi.mock('$lib/server/services/discord-notify-service', () => ({
-	notifyBillingEvent: (...args: unknown[]) => mockNotifyBillingEvent(...args),
-}));
-
 // ---------- Import after mocks ----------
 
 import {
@@ -205,7 +200,6 @@ describe('reconcileCheckoutSession — tenant 突合 (AC2)', () => {
 
 		expect(result.status).toBe('tenant_mismatch');
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
-		expect(mockNotifyBillingEvent).not.toHaveBeenCalled();
 	});
 
 	it('metadata.tenantId が欠落した session も反映しない', async () => {
@@ -226,7 +220,9 @@ describe('reconcileCheckoutSession — tenant 突合 (AC2)', () => {
 // ==========================================================
 
 describe('reconcileCheckoutSession — 冪等 (AC3)', () => {
-	it('webhook が先に届いていた場合、reconcile は書き込みも通知も行わない', async () => {
+	// #4192: 旧題は「書き込みも通知も行わない」。課金成功の Discord 通知は #4174 Q2 の決裁で
+	// 撤去したため、観測点を残っている副作用 (契約状態の書込) に寄せた。
+	it('webhook が先に届いていた場合、reconcile は書き込みを行わない', async () => {
 		// webhook が先に契約を反映した状態を DB として与える
 		mockFindTenantById.mockResolvedValue(
 			makeTenant({ stripeSubscriptionId: 'sub_new', plan: 'monthly', status: 'active' }),
@@ -239,7 +235,6 @@ describe('reconcileCheckoutSession — 冪等 (AC3)', () => {
 
 		expect(result.status).toBe('already_applied');
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
-		expect(mockNotifyBillingEvent).not.toHaveBeenCalled();
 	});
 
 	it('同じ session_id で 2 回 reconcile しても副作用は 1 回だけ', async () => {
@@ -255,7 +250,6 @@ describe('reconcileCheckoutSession — 冪等 (AC3)', () => {
 
 		expect(second.status).toBe('already_applied');
 		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
-		expect(mockNotifyBillingEvent).toHaveBeenCalledTimes(1);
 	});
 
 	it('reconcile が先に反映した後に webhook が届いても状態は変わらない (相互冪等)', async () => {
