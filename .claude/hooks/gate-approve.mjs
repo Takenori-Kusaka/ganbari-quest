@@ -665,6 +665,112 @@ export function verifyEvidence(prNumber, cwd = process.cwd()) {
 	return { ok: true };
 }
 
+/**
+ * 統合 PR body の下書きを置く既定パス (#4170 AC2)。
+ *
+ * `gh pr edit --body-file` に渡す下書きをここに置いておくと、approve 直前に本 hook が
+ * 「下書きの `Closes #N` が実 PR body に着地しているか」を自動照合する。
+ *
+ * @param {number} prNumber
+ * @returns {string}
+ */
+export function draftBodyPathForPr(prNumber, cwd = process.cwd()) {
+	return resolve(cwd, 'tmp', 'pr-bodies', `${prNumber}.md`);
+}
+
+/**
+ * approve 直前の Closes 着地確認 (#4170 AC2)。
+ *
+ * ## 何を見るか
+ *
+ * `tmp/pr-bodies/<pr>.md` に下書きがある PR について、その下書きが宣言した `Closes #N` が
+ * **GitHub 上の実 PR body に着地している**かを照合する。下書きだけ編集して `gh pr edit` を
+ * 流し忘れた状態 (第19回統合監査 #4152 で実際に起き、adversarial reviewer が拾うまで
+ * 「追加した」と報告されていた) を approve の手前で落とす。
+ *
+ * ## 下書きが無い PR を block しない理由 (fail-open を選ぶ唯一の箇所であることを明示する)
+ *
+ * 下書きファイルは統合 PR 運用の産物であり、通常の feature PR には存在しない。存在しないことを
+ * block 条件にすると全 approve が止まるので、**照合できなかったことを stderr に必ず出したうえで
+ * 通す**。無言 skip にはしない (ADR-0056 の「skip したことは必ず出力する」と同じ扱い)。
+ * 一方、下書きが**ある**のに照合できない (module 読込失敗 / `gh` 失敗) は「検証不能」なので block する。
+ *
+ * @param {number[]} prNumbers
+ * @param {{ cwd?: string; fetchLiveBody?: (prNumber: number) => string }} [deps] test 用の差し替え口
+ * @returns {Promise<{ ok: true; notes: string[] } | { ok: false; reason: string }>}
+ */
+export async function verifyClosesLandedForApprove(prNumbers, deps = {}) {
+	const cwd = deps.cwd ?? process.cwd();
+	const targets = prNumbers.filter((n) => existsSync(draftBodyPathForPr(n, cwd)));
+	if (targets.length === 0) {
+		return {
+			ok: true,
+			notes: [
+				`[gate-approve] NOTE: Closes 着地確認 (#4170 AC2) は未実施 — ` +
+					`下書き ${prNumbers.map((n) => `tmp/pr-bodies/${n}.md`).join(' / ')} がありません。`,
+				`  統合 PR で \`gh pr edit --body-file\` を使う場合は下書きを同パスに置くと、approve 直前に自動照合されます。`,
+			],
+		};
+	}
+
+	/** @type {typeof import('../../scripts/check-pr-body.mjs')} */
+	let checker;
+	/** @type {(prNumber: number) => string} */
+	let fetchLiveBody;
+	try {
+		// 相対 module は必ず dynamic import (#3999 / #4075 の fail-closed 規約)。
+		checker = await import('../../scripts/check-pr-body.mjs');
+		const cp = await import('node:child_process');
+		fetchLiveBody =
+			deps.fetchLiveBody ??
+			((prNumber) =>
+				cp.execFileSync(
+					'gh',
+					['pr', 'view', String(prNumber), '--json', 'body', '--jq', '.body'],
+					{ encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] },
+				));
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		return {
+			ok: false,
+			reason:
+				`下書き (${targets.map((n) => `tmp/pr-bodies/${n}.md`).join(' / ')}) はあるが ` +
+				`Closes 着地確認 module を読み込めませんでした: ${msg}\n` +
+				`  検証できないまま approve すると、着地していない \`Closes #N\` を「追加済み」と誤認したまま merge されます (#4170)。`,
+		};
+	}
+
+	const notes = [];
+	for (const prNumber of targets) {
+		const draftPath = draftBodyPathForPr(prNumber, cwd);
+		let liveBody;
+		try {
+			liveBody = fetchLiveBody(prNumber);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return {
+				ok: false,
+				reason: `PR #${prNumber} の実 body を取得できず Closes 着地確認 (#4170 AC2) が実施できません: ${msg}`,
+			};
+		}
+		const violation = checker.checkClosesLanded(readFileSync(draftPath, 'utf8'), liveBody);
+		if (violation) {
+			return {
+				ok: false,
+				reason:
+					`PR #${prNumber} の Closes 着地確認 (#4170 AC2) fail.\n` +
+					`  ${violation.message.split('\n').join('\n  ')}\n` +
+					`  再確認: node scripts/check-pr-body.mjs --pr ${prNumber} --verify-closes-landed ${draftPath}`,
+			};
+		}
+		notes.push(
+			`[gate-approve] NOTE: PR #${prNumber} の Closes 着地確認 (#4170 AC2) PASS — ` +
+				`下書きの close 宣言は実 body に着地済み`,
+		);
+	}
+	return { ok: true, notes };
+}
+
 async function main() {
 	let payload;
 	try {
@@ -748,6 +854,15 @@ async function main() {
 	}
 	const first = failures.at(0);
 	if (first === undefined) {
+		// #4170 AC2: evidence が揃ったうえで、approve 直前に「下書きの Closes が実 body に着地したか」を見る。
+		// ここに置く理由は監査チームの要望 (「approve 手順に組み込めれば理想。忘れようがなくなる」)。
+		// required CI にはしない (本文修正のたびに最重厚レーンを回すと #4171 の CI 待ちが悪化する)。
+		const closes = await verifyClosesLandedForApprove(prNumbers);
+		if (!closes.ok) {
+			process.stderr.write(`[gate-approve] BLOCK: ${closes.reason}\n`);
+			process.exit(2);
+		}
+		for (const note of closes.notes) process.stderr.write(`${note}\n`);
 		process.exit(0);
 	}
 

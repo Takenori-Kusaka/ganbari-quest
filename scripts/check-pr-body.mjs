@@ -36,6 +36,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkIntegrationEvidenceTable } from './check-ac-verification-map.mjs';
+import { extractClosedIssues } from './integration-pr-body.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 import { classifyLane } from './pr-lane.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
@@ -376,6 +377,126 @@ export function checkEvidencePrReferences(body, prNumber) {
 			`  対応: 根拠欄の番号を ${self} に直し、\`npm run pre-ready -- --pr ${self}\` を実際に実行し直して結果を貼る。\n` +
 			`  番号を書かない形式 (\`--pr <num>\` 等のプレースホルダ) は従来どおり通ります。`,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Closes 宣言の着地確認 (#4170 AC2)
+//
+// ## 何を検査するのか
+//
+// 手元の下書き body が宣言した `Closes #N` が、**GitHub 上の実 PR body に着地しているか**を
+// 検証する。下書きだけ編集して `gh pr edit --body-file` を流し忘れた状態 (= 書いたつもり) を
+// 機械で落とす。
+//
+// ## なぜ 4 件のうちこれだけを先に入れるのか (実装の優先根拠)
+//
+// 第19回統合監査 (#4152) で統合 PR 本文と GitHub 実態のずれが merge 直前に 4 回出た。
+// うち 3 件は「書いた瞬間は正しく、後で GitHub 側の実態が動いた」= 記述が古いだけ。
+// 本件 (#1) だけは **書いた瞬間から嘘**で、ローカル下書きだけ編集して push しておらず、
+// 実 PR body には最初から存在しなかった。そして監査チームの指摘が決定的だった:
+//
+//   > `Closes` 行は auto-close の実処理に直結し、merge されると main 上の恒久記録になります
+//
+// 違いは**記述の正確さではなく副作用の有無**である。他 3 件は読み手が誤読するだけだが、
+// `Closes` の欠落は **GitHub の実処理が起きない** (閉じるべき Issue が閉じない)。逆に意図せず
+// 存在すれば、閉じてはいけない Issue が閉じる。だから AC1 / AC3 / AC4 より先にこれを入れる。
+//
+// ## 案 C (表の骨格を機械生成) に将来寄せようとする人へ
+//
+//   案 C (表の骨格を機械生成) では「なぜ未解決か / 誰の手にあるか」は生成できない。
+//   #4156 がどの mailbox にも入っていないと気づけたのは、まさにその判断列だった
+//   (監査チーム、2026-08-01)。
+//
+// 機械が生成できるのは番号・state・label まで。「機械生成に寄せれば安全」は成り立たないので、
+// 本 gate を「生成に置き換えれば不要になるもの」と読まないこと。
+//
+// ## grep では代替できない理由 (実測)
+//
+// `grep -c "Closes #4129"` は **撤回経緯の言及にもヒットする**。PR #4152 の実 body で計測すると
+// 素朴な grep は 4 件返すが、実際に auto-close される宣言は 0 件だった (`Closes #4129` は撤回済で、
+// 散文・判定表・mermaid ノードの中にしか残っていない)。したがって判定は **行頭一致 + code fence
+// 除去 + conventional-commit prefix 除外**を行う既存 SSOT (`integration-pr-body.mjs` の
+// `extractClosedIssues`) に委ね、本 file で regex を再実装しない。統合 PR 本文の集約側と本 gate の
+// 検査側で「何が closing 宣言か」の判定が常に一致する (二重実装なし)。
+// ---------------------------------------------------------------------------
+
+/**
+ * body から **実際に auto-close を発火させる** closing 宣言の Issue 番号を取り出す (#4170)。
+ *
+ * 判定は `integration-pr-body.mjs` の `extractClosedIssues` に委譲する (行頭一致 SSOT)。
+ * 同関数は PR 配列を受けて `classifyForContainedList` で back-merge / 統合 PR 自身を除外するため、
+ * ここでは head / label を持たない合成 PR を 1 件渡して body だけを走査させる。
+ *
+ * @param {string} body
+ * @returns {number[]} 昇順・重複排除した Issue 番号
+ */
+export function extractLandedClosingIssues(body) {
+	return extractClosedIssues([{ number: 0, body: typeof body === 'string' ? body : '' }]);
+}
+
+/**
+ * closing keyword を **位置を問わず**拾う素朴な抽出 (#4170)。
+ *
+ * これは判定には使わない。「grep 相当だと何を誤って拾うか」を出力に出して、
+ * 撤回済み言及を close 宣言と読み違える運用ミス自体を可視化するためだけに使う。
+ *
+ * @param {string} body
+ * @returns {number[]} 昇順・重複排除した Issue 番号
+ */
+export function extractClosingKeywordMentions(body) {
+	const src = typeof body === 'string' ? body : '';
+	const found = new Set();
+	for (const m of src.matchAll(
+		/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*[#＃](\d+)/gi,
+	)) {
+		found.add(Number(m[1]));
+	}
+	return [...found].sort((a, b) => a - b);
+}
+
+/**
+ * 下書き body の closing 宣言が GitHub 上の実 PR body に着地しているかを検証する (#4170 AC2)。
+ *
+ * 双方向で見る:
+ *   - **missing** (下書きにあり実 body に無い) = 本 Issue の事故形。`gh pr edit` 流し忘れ。
+ *     閉じるはずの Issue が閉じない
+ *   - **extra** (実 body にあり下書きに無い) = 撤回したつもりの宣言が残っている形。
+ *     閉じてはいけない Issue が閉じる。missing より静かに壊れるので同格で落とす
+ *
+ * @param {string} claimedBody 手元の下書き (`gh pr edit --body-file` に渡すつもりのファイル)
+ * @param {string} liveBody GitHub 上の実 PR body (`gh pr view --json body`)
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkClosesLanded(claimedBody, liveBody) {
+	const claimed = extractLandedClosingIssues(claimedBody);
+	const landed = extractLandedClosingIssues(liveBody);
+	const missing = claimed.filter((n) => !landed.includes(n));
+	const extra = landed.filter((n) => !claimed.includes(n));
+	if (missing.length === 0 && extra.length === 0) return null;
+
+	const lines = [
+		`下書きの closing 宣言と GitHub 上の実 PR body が一致しません (#4170 AC2)。`,
+		`  下書きの Closes: ${claimed.length === 0 ? '(なし)' : claimed.map((n) => `#${n}`).join(' / ')}`,
+		`  実 body の Closes: ${landed.length === 0 ? '(なし)' : landed.map((n) => `#${n}`).join(' / ')}`,
+	];
+	if (missing.length > 0) {
+		lines.push(
+			`  ✗ 下書きにあるが実 body に無い: ${missing.map((n) => `Closes #${n}`).join(' / ')}`,
+			`    = 下書きだけ編集して \`gh pr edit --body-file\` を流していない状態。このまま merge しても`,
+			`      GitHub の auto-close は発火せず、Issue は開いたまま残ります。`,
+		);
+	}
+	if (extra.length > 0) {
+		lines.push(
+			`  ✗ 実 body にあるが下書きに無い: ${extra.map((n) => `Closes #${n}`).join(' / ')}`,
+			`    = 撤回したつもりの宣言が実 body に残っている状態。merge すると**閉じてはいけない Issue**が`,
+			`      auto-close されます (main 上の恒久記録になり、後から静かに戻せません)。`,
+		);
+	}
+	lines.push(
+		`  対応: 下書きと実 body のどちらが正なのかを決め、\`gh pr edit <PR> --body-file <下書き>\` で揃えてから再実行する。`,
+	);
+	return { id: 'closes-not-landed', message: lines.join('\n') };
 }
 
 // ---------------------------------------------------------------------------
@@ -1485,12 +1606,13 @@ function tryParseStringArg(argv, i, aliases) {
  * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
 export function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; verifyClosesLanded: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
 		lane: null,
+		verifyClosesLanded: null,
 		noLabels: false,
 		skipMergeable: false,
 		draft: false,
@@ -1521,6 +1643,13 @@ export function parseArgs(argv) {
 		if (lane) {
 			args.lane = lane.value;
 			i = lane.nextIndex;
+			continue;
+		}
+		// #4170 AC2: 下書き body の Closes 宣言が実 PR body に着地しているかだけを検査する専用モード
+		const closesLanded = tryParseStringArg(argv, i, ['--verify-closes-landed']);
+		if (closesLanded) {
+			args.verifyClosesLanded = closesLanded.value;
+			i = closesLanded.nextIndex;
 			continue;
 		}
 		const a = argv[i];
@@ -1567,6 +1696,12 @@ Options:
                       --pr 指定時は gh の base/head/author から自動判定され本フラグは無視される
                       (gh が取得できない場合のみ逃げ道として採用される)
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
+  --verify-closes-landed <path>
+                      【専用モード】手元の下書き <path> の \`Closes #N\` が GitHub 上の実 PR body に
+                      着地しているかだけを検査する (#4170 AC2、--pr 必須)。他の検査は走らない。
+                      下書きだけ編集して \`gh pr edit --body-file\` を流し忘れた状態 (= 書いたつもり)
+                      と、撤回したはずの宣言が実 body に残っている状態の両方を落とす。
+                      required CI には載せない — approve 直前に 1 回叩く手動 gate。
   --help, -h          このヘルプを表示
 
 Detected violations:
@@ -1761,12 +1896,81 @@ export function collectViolations(body, requiredSections, template, args, notes 
 	return violations;
 }
 
+/**
+ * `--verify-closes-landed <下書きパス>` 専用モード (#4170 AC2)。
+ *
+ * 通常の body 検査 (必須セクション / 禁止語 / …) とは問いが違う (「body の中身が正しいか」ではなく
+ * 「手元の下書きが GitHub に着地しているか」) ため、`collectViolations` に混ぜず独立させる。
+ * required CI には載せない — approve 直前に 1 回だけ叩く手動 gate であり、本文修正のたびに
+ * 重量レーンを回すのは監査 run の CI 待ちを悪化させる (#4171、監査チーム判断 2026-08-01)。
+ *
+ * @param {{ pr: string | null; verifyClosesLanded: string | null }} args
+ * @param {(pr: string) => string} fetchBody 実 PR body 取得 (test で差し替え可能)
+ * @returns {number} exit code
+ */
+export function runClosesLandedMode(args, fetchBody = fetchPrBody) {
+	const draftPath = args.verifyClosesLanded ?? '';
+	if (!args.pr) {
+		console.error(
+			'[check-pr-body] ERROR: --verify-closes-landed は --pr <number> と併用してください ' +
+				'(GitHub 上の実 PR body と比較するため)。',
+		);
+		return 2;
+	}
+	if (!existsSync(draftPath)) {
+		console.error(`[check-pr-body] ERROR: 下書きファイルが存在しません: ${draftPath}`);
+		return 2;
+	}
+	const claimedBody = readFileSync(draftPath, 'utf-8');
+	/** @type {string} */
+	let liveBody;
+	try {
+		liveBody = fetchBody(args.pr);
+	} catch (e) {
+		// 取得できないまま pass 側に倒すと「検査したつもり」になる。fail-closed で中断する。
+		const msg = e instanceof Error ? e.message : String(e);
+		console.error(`[check-pr-body] ERROR: PR #${args.pr} の body を取得できませんでした: ${msg}`);
+		return 2;
+	}
+
+	const landed = extractLandedClosingIssues(liveBody);
+	const mentions = extractClosingKeywordMentions(liveBody);
+	const naiveOnly = mentions.filter((n) => !landed.includes(n));
+	console.log(
+		`[check-pr-body] closes-landed: PR #${args.pr} の実 body / 下書き ${draftPath} を比較します`,
+	);
+	// grep 相当との差分を必ず出す。撤回済み言及を close 宣言と読み違える運用ミスを可視化するため
+	// (#4170: 実測で `grep -c "Closes #4129"` は 4 件返すが実 close 宣言は 0 件だった)。
+	console.log(
+		`  実 body の close 宣言 (行頭一致 SSOT): ${landed.length === 0 ? '(なし)' : landed.map((n) => `#${n}`).join(' / ')}`,
+	);
+	console.log(
+		naiveOnly.length === 0
+			? '  grep 相当 (位置を問わない keyword 一致) との差分: なし'
+			: `  grep 相当なら誤って拾う番号: ${naiveOnly.map((n) => `#${n}`).join(' / ')} ` +
+					'(撤回経緯の言及等。auto-close は発火しないので close 宣言ではありません)',
+	);
+
+	const violation = checkClosesLanded(claimedBody, liveBody);
+	if (!violation) {
+		console.log('[check-pr-body] OK — 下書きの closing 宣言は全て GitHub 上の実 body に着地済み');
+		return 0;
+	}
+	console.log(`[check-pr-body] FAIL — 1 件の違反:\n`);
+	console.log(`✗ [${violation.id}] (#4170 AC2)`);
+	console.log(`  ${violation.message.split('\n').join('\n  ')}\n`);
+	return 1;
+}
+
 export async function main(argv = process.argv.slice(2)) {
 	const args = parseArgs(argv);
 	if (args.help) {
 		printHelp();
 		return 0;
 	}
+
+	// #4170 AC2: 下書き vs 実 body の照合は独立した問い。通常の body 検査とは別モードで走る。
+	if (args.verifyClosesLanded !== null) return runClosesLandedMode(args);
 
 	const { body, exitCode } = loadPrBody(args);
 	if (body === null) return exitCode;
