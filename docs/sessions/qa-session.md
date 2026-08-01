@@ -39,6 +39,19 @@ QM が使ってよいのは **多観点レビュー**（security / perf / test-c
 
 **重い検証を並列化しても速くならない** — `heavy` lock はマシン全体で 1 本（[agent-concurrency.md](agent-concurrency.md) §3.1）。
 
+### Draft PR を approve しない / `skipping` を pass と読まない
+
+**Draft PR では required check が `skipping` になり、GitHub はそれを required 充足として扱う。** approve しても merge できず、かつ**検査されていない状態で「緑」に見える**。
+
+- **approve の前に `isDraft=false` を確認する。** `gh pr view <N> --json isDraft`
+- **`gh pr checks` の `skipping` を pass と読まない。** 走らなかったのであって通ったのではない
+- `state:ready-to-merge` を付ける前にも同じ確認をする（label は実測を代替しない）
+
+**Why**: 同日に 2 件発生した。
+
+- `#4151` — Draft のまま approve され `state:ready-to-merge` が付いた。CI 緑・`mergeStateStatus=CLEAN`・`APPROVED` なのに Draft で merge 不能
+- 第 19 回統合 PR `#4152` — Draft のまま merge 判断に進みかけた。`site/pricing.html` を変更しているのに **`check-lp-removal-residue` と ADR-0013 LP truth gate が両方 skip**。`pages.yml` は main push の `site/**` で発火するため、**merge 直後に無検査で公開 LP へ配信される**ところだった
+
 ## レビュー対象レーン（git flow 二層、#2858）
 
 QM は PR の **base branch でレーンを判別**し、レーンごとに gate 範囲を変える。

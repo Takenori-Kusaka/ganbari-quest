@@ -258,6 +258,49 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 - **冗長テスト回避（step 4）**: develop 取込時点で feature PR が追加済みのテストと突合し、同一観点の二重追加を避ける。監査チームが足すのは「統合状態でしか検出できない CUJ 横断テスト」に限る（§3.4 二重判定回避と同型）。
 - **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DynamoDB backend で lazy migration を呼ばないため schema assert 無し）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
 
+### §3.8.1 merge 判断の 3 禁則
+
+#### 禁則 1: 時刻・環境が変わって緑になったことを、修正の証拠にしない
+
+**再実行で緑になっても、それを修正が効いた根拠にしない。** 時刻依存 / 環境依存のテストは、欠陥を残したまま条件が変われば緑になる。
+
+- **根拠にしてよいのは、失敗条件を再現した状態での緑**。TZ 依存なら `TZ=UTC` / `TZ=Asia/Tokyo` の双方をローカル実測する
+- 「re-run したら通ったので flake」で流さない。**次の同じ条件で必ず再発する**
+
+**実例**: `ops-service` の `newThisMonth` は、CI (UTC) が UTC 月末 15:00〜24:00 に走ると落ちる。UTC が翌月に入った時点で、**修正の有無にかかわらず緑になった**。
+
+#### 禁則 2: gate を修正する PR が、その gate に検査されないまま merge されない
+
+**gate を直す変更ほど、その gate 自身の検査を通す。** 直した gate が走らないまま入ると、「直したつもり」が本番まで届く。
+
+**実例**: `#4143` が「`check-lp-plan-sync` を hard-fail に戻す」を含むのに、**再武装した当の gate が統合 PR で一度も走っていなかった**（Draft ゆえ skip）。
+
+#### 禁則 3: 自分が append した修正を、独立検証なしに自分で承認しない
+
+§3.8 step 7 は「監査中の修正は release branch への append」を認めるが、**append した本人が承認者でもある構図**になる。
+
+- **append 後は必ず adversarial evidence を再生成**し、**自分の修正を明示的な疑い対象として渡す**
+- 特に「assertion を実質的に弱めていないか」「『製品は正常』判定が環境からの推論に依存していないか」を渡す
+- **approve は最後に置く**（`dismiss_stale_reviews_on_push=false` のため approve 後の append は stale approval を残す）
+
+**実例**: 第 19 回で監査が append した test 修正 4 件のうち 1 件に、**自分が別ファイルで指摘したのと同型の vacuous assertion** が入っていた（race 解決後に評価するため恒真）。adversarial が検出して是正。
+
+### §3.5.2 `Closes` 集約の限界と over-close の防止
+
+**`integration-pr-body.mjs` は PR 単位の closing keyword しか見ない。** 「同一 release 内で複数 PR が 1 Issue の AC を分担し、各 PR が partial として `no-issue-close` を宣言する」ケースを原理的に検出できない。
+
+**集約 `Closes #N` に追加する前に、Issue 本文の AC を実測する。**
+
+```bash
+gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
+```
+
+- **未チェックが残っていれば集約しない**
+- **AC に運用行為（実機確認 / 退避の記録 / Dashboard 設定確認）が含まれる Issue は集約しない。** コードの merge では充足しないため over-close になる
+- EPIC の着手順先頭にある **唯一の open tracker** を auto-close しない。追跡者が消える
+
+**実例**: `#4129` を集約に追加しようとしたが、その時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の env 確認）は運用行為だった。しかも `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡する唯一の tracker であり、auto-close すれば退避を誰も追わないまま削除が走る状態だった。
+
 ### §3.9 非 critical PR サンプリング監査（complacency 対策、#3862）
 
 `po-decision:required` label（[pr-review SKILL.md](../../.claude/skills/pr-review/SKILL.md) §Step 0 の triage）が付かない非 critical PR は、PO 決裁ブリーフを経由せず QM / 監査チームの判定のみで merge される。この経路を放置すると **PO がプロダクトの実態を知る機会を失う** + **AI レビューへの追認（automation complacency / rubber-stamping）が検知不能になる**ため、抜き取り監査を運用に組み込む。
