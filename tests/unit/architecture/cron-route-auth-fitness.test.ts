@@ -41,32 +41,80 @@ import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
 const CRON_ROUTE_DIR = 'src/routes/api/cron';
 
 interface CronRoute {
-	/** endpoint 名 (ディレクトリ名) */
+	/** endpoint 名 (CRON_ROUTE_DIR からの相対パス。入れ子なら 'a/b') */
 	name: string;
 	/** repo root からの +server.ts パス */
 	file: string;
 	/** 認可層に渡される path */
 	urlPath: string;
+	/** 原文 */
 	source: string;
+	/** コメント / 文字列リテラルを除去した実コード (呼び出し検査用) */
+	code: string;
 }
 
-function collectCronRoutes(): CronRoute[] {
-	const dir = path.resolve(process.cwd(), CRON_ROUTE_DIR);
-	if (!fs.existsSync(dir)) return [];
+/**
+ * コメント (`//` / 文末 `/* … *​/`) と文字列リテラル (' " `) を空白に潰す。
+ *
+ * これを挟まないと、**コメントに書かれた関数名が呼び出しとして誤検出される**。
+ * 実測 (#4206 の adversarial review): `src/routes/api/cron/pglite-backup/+server.ts:8` の
+ * 「認証は既存 cron 群と同じ verifyCronAuth (x-cron-secret …)」というコメントだけで
+ * [C2] が緑になり、L33 の実呼び出しを消しても検出できなかった。
+ * **guard が「唯一の防波堤」である以上、コメントで満たせる検査は防波堤ではない。**
+ *
+ * 完全な字句解析ではない (正規表現の限界) が、コメント / 文字列という
+ * 最も現実的なすり抜け経路は閉じる。
+ */
+function stripCommentsAndStrings(source: string): string {
+	return source
+		.replace(/\/\*[\s\S]*?\*\//g, ' ')
+		.replace(/\/\/[^\n]*/g, ' ')
+		.replace(/`(?:\\.|[^`\\])*`/g, ' ')
+		.replace(/'(?:\\.|[^'\\\n])*'/g, ' ')
+		.replace(/"(?:\\.|[^"\\\n])*"/g, ' ');
+}
 
-	return fs
-		.readdirSync(dir, { withFileTypes: true })
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => {
-			const file = path.join(CRON_ROUTE_DIR, entry.name, '+server.ts');
-			return {
-				name: entry.name,
-				file,
-				urlPath: `/api/cron/${entry.name}`,
-				source: fs.readFileSync(path.resolve(process.cwd(), file), 'utf-8'),
-			};
-		})
-		.filter((route) => fs.existsSync(path.resolve(process.cwd(), route.file)));
+/**
+ * `+server.ts` を**再帰的に**集める。
+ *
+ * 認可層の allowlist は `startsWith('/api/cron/')` で**任意深度**を公開するため、
+ * 深さ 1 だけを見る母数収集では「公開されるが検査されない」route が生まれる
+ * (入れ子 route / route group `(group)` / パラメータ route)。母数は公開範囲と一致させる。
+ */
+function collectCronRoutes(): CronRoute[] {
+	const root = path.resolve(process.cwd(), CRON_ROUTE_DIR);
+	if (!fs.existsSync(root)) return [];
+
+	const routes: CronRoute[] = [];
+
+	const walk = (absDir: string, relSegments: string[]): void => {
+		for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
+			const abs = path.join(absDir, entry.name);
+
+			if (entry.isDirectory()) {
+				walk(abs, [...relSegments, entry.name]);
+				continue;
+			}
+			if (entry.name !== '+server.ts') continue;
+
+			const source = fs.readFileSync(abs, 'utf-8');
+			const rel = relSegments.join('/');
+			routes.push({
+				name: rel === '' ? '(root)' : rel,
+				file: path.posix.join(CRON_ROUTE_DIR, rel, '+server.ts'),
+				// SvelteKit の route group `(name)` は URL に現れない
+				urlPath: `/api/cron${relSegments
+					.filter((s) => !s.startsWith('('))
+					.map((s) => `/${s}`)
+					.join('')}`,
+				source,
+				code: stripCommentsAndStrings(source),
+			});
+		}
+	};
+
+	walk(root, []);
+	return routes;
 }
 
 const cronRoutes = collectCronRoutes();
@@ -78,15 +126,25 @@ describe('cron route の認証は route 側が担う (#4206)', () => {
 		expect(cronRoutes.length).toBeGreaterThan(0);
 	});
 
-	describe('[C2] 全 route が verifyCronAuth を呼ぶ', () => {
+	describe('[C2] 全 route が verifyCronAuth を呼び、戻り値を捨てない', () => {
 		for (const route of cronRoutes) {
 			it(`${route.name} が verifyCronAuth を import している`, () => {
-				expect(route.source).toMatch(/import\s*\{[^}]*\bverifyCronAuth\b[^}]*\}/);
+				expect(route.code).toMatch(/import\s*\{[^}]*\bverifyCronAuth\b[^}]*\}/);
 			});
 
 			it(`${route.name} が verifyCronAuth を呼び出している`, () => {
 				// import しただけで呼んでいない = 素通し。import 検査だけでは捕まらない。
-				expect(route.source).toMatch(/\bverifyCronAuth\s*\(/);
+				// 判定は code (コメント / 文字列除去済) に対して行う。
+				expect(route.code).toMatch(/\bverifyCronAuth\s*\(/);
+			});
+
+			it(`${route.name} が verifyCronAuth の戻り値を使っている`, () => {
+				// 呼ぶだけで結果を無視する実装 (`verifyCronAuth(request);` の呼び捨て) は
+				// 認証していないのと同じ。代入 (`const e = verifyCronAuth(`) か
+				// 直接分岐 (`if (verifyCronAuth(` / `return verifyCronAuth(`) を要求する。
+				expect(route.code).toMatch(
+					/(?:=|if\s*\(|return|\?\?|&&|\|\|)\s*(?:await\s+)?verifyCronAuth\s*\(/,
+				);
 			});
 		}
 	});
