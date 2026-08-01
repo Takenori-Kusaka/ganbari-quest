@@ -67,7 +67,17 @@ const lastSuccessDisplay = $derived(
 
 		{#if health.level !== 'ok'}
 			<p class="mt-3 text-sm text-[var(--color-text-muted)]">
-				{SETTINGS_LABELS.backupActionHint}
+				<!--
+					#4162: ローテーション保留だけのときは専用文言を出す。汎用の「相談してください」
+					だけだと必要な行動が分からず「job が壊れた」と読まれてしまう。
+
+					reason を直接表示するのではなく reason に応じた固定文を選ぶ形は維持する
+					(内部 enum を家族向け UI に露出させない)。#4153 の QM 申し送りが懸念していた
+					「取得は成功しているのに critical」の混在自体が本 Issue で解消済み。
+				-->
+				{health.reason === 'rotation-blocked'
+					? SETTINGS_LABELS.backupRotationBlockedHint
+					: SETTINGS_LABELS.backupActionHint}
 			</p>
 		{/if}
 	</div>

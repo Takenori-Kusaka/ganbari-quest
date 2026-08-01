@@ -1376,7 +1376,8 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
     "hoursSinceLastSuccess": null,
     "consecutiveFailures": 18,
     "lastFailureMessage": "CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)",
-    "notificationMissing": true
+    "notificationMissing": true,
+    "rotationPendingCount": 0
   }
 }
 ```
@@ -1387,14 +1388,19 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 |---|---|
 | 付与条件 | `backup` と同じ（`DATA_SOURCE === 'pglite'` かつ状態ファイルが読めたとき）。読めなければ `backup` ごと省略する |
 | `level` | `ok` / `warn` / `critical`。UI の色分けと通知の強さを 1 箇所で決める |
-| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `rotation-blocked` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `rotationPendingCount` | ローテーション guard（#4129 AC2）が止めている世代数。0 なら止まっていない。**取得の成否とは独立した事実**（#4162） |
 | `notificationMissing` | 失敗通知の宛先（`DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_WEBHOOK_INCIDENT`）が 1 つも無い状態。**`level` と独立に立つ** — critical のときも「届かない」ことは対処が変わるため独立に伝える |
 | 判定順 | **深刻な方から**。stale（動いていない）を failure（落ちている）より先に見る。**job が起動しなかった場合、job 内から投げる push 通知は原理的に発火しない**ため、鮮度でしか捕まえられない |
 | しきい値 | `BACKUP_STALE_WARN_HOURS = 26` / `BACKUP_STALE_CRITICAL_HOURS = 50` / `BACKUP_CONSECUTIVE_FAILURE_CRITICAL = 2`。日次 03:00 実行前提で「1 回飛んだ」「2 回連続で飛んだ」に対応。1 回で critical にすると再起動のたびに狼少年になる（ADR-0012 整合） |
 
-**既知の限界（#4144 由来、未解消）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）も通常の失敗と同じ `catch` で `consecutiveFailures` を増やし、`lastSuccessAt` を更新しない。したがって **guard trip が 2 回続くと「取得は成功しているのに critical」**と判定される。`reason` を家族向け UI に出す際は、この誤解を招く表示にならないか確認すること。
+**ローテーション保留は失敗として扱わない（#4162）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）は、throw の前に「取得は成功」を状態ファイルへ確定させ、`consecutiveFailures` を積まない。止まっている事実は `rotationPendingCount` / `rotationBlockedSince` に**独立した事実として**残す。
 
-回帰は `tests/unit/domain/backup-health.test.ts`（判定）と `tests/unit/routes/health-backup-status.test.ts`（付与条件）が固定する。
+これを 1 つの状態に潰していた旧実装では、判定が `stale-critical`（= 「job が動いていない」）へ倒れ、**診断が真逆**になっていた。実際は毎晩正常に取れており、必要な行動は「古い世代を退避して手で削除する」である。判定を潰すと運用者が job の再起動へ向かい、**guard の意図（不可逆削除を止める）だけが失われる**。
+
+判定順は `rotation-blocked` を stale / 連続失敗より**後**に置く。「取れていない」方が常に重く、「取れているが片付いていない」はその次だからである。guard は自己解除しない（溢れは毎晩 1 ずつ増える）ため、この warn は放置で消える類ではなく**行動を促すもの**として扱う。
+
+回帰は `tests/unit/domain/backup-health.test.ts`（判定）/ `tests/unit/routes/health-backup-status.test.ts`（付与条件）/ `tests/unit/db/pglite-backup-3950.test.ts` `[BK12]` `[BK17]` `[BK18]`（実 status → verdict の経路と保留の解除）が固定する。
 
 #### GET /api/ready
 

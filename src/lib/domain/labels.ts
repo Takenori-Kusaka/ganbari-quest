@@ -2519,6 +2519,12 @@ export const SETTINGS_LABELS = {
 	backupNotificationMissing:
 		'失敗しても通知が届かない設定です。いま止まっても気づけません (DISCORD_ALERT_WEBHOOK_URL 未設定)。',
 	backupActionHint: 'うまくいっていないときは、下のフォームから相談してください。',
+	// #4162: ローテーション保留だけが起きている状態の案内。
+	// **「取れていない」ではなく「片付いていない」**であることが伝わる文言にする。
+	// 汎用の backupActionHint (相談してください) だけだと、必要な行動が分からないまま
+	// 「job が壊れた」と読まれ、再起動や再インストールに向かってしまう。
+	backupRotationBlockedHint:
+		'バックアップは取れていますが、古い控えが増えすぎたため、自動での削除を止めています。古い控えを別の場所へ移してから、いらないものを消してください。',
 	appInfoSectionTitle: 'ℹ️ アプリ情報',
 	appInfoTermsLink: '📄 利用規約',
 	appInfoPrivacyLink: '🔒 プライバシーポリシー',
