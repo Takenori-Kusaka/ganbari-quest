@@ -44,7 +44,9 @@ const LEDGER_WRITE_ALLOWLIST = new Set([
 	'login-bonus-service.ts', // ログインボーナス (login_bonuses UNIQUE で冪等)
 	'point-service.ts', // 初期設定付与 / 換算
 	'recommendation-service.ts', // おすすめ完遂ボーナス
-	'special-reward-service.ts', // とくべつごほうび付与 (reward 行作成と 1:1)
+	// #4172: special-reward-service.ts は ledger を書かなくなったため除外。
+	// ごほうびショップの棚に行を作ること (陳列) と通貨を発行することは別の行為であり、
+	// 棚への INSERT はポイントを発行しない (26-ゲーミフィケーション設計書 §12.2)。
 	'stamp-card-service.ts', // スタンプカード特典
 ]);
 

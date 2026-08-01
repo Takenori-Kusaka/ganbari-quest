@@ -219,7 +219,7 @@ erDiagram
 
 - **PointLedger は経済点数値（残高＝台帳総和を構成する点数）の唯一の権威（sole authority）**（Round 3 構造決定、Round 6 で無限定表現を経済点数値に限定）。ある子供が「いつ何点得た/使ったか」の正本は PointLedger エントリだけであり、残高は「全エントリ増減量の意味論的総和」という**派生量**（I-BAL、PointLedger のみから導出）。**衛星集約が持つ経済点数属性（活動記録の付与ポイント / チェックリスト達成の付与ポイント / ログインボーナスの付与ポイント / 週次評価のボーナスポイント 等）は、記録時に捕捉した非権威な表示用観測値**（streak と同格の captured observation）であって、残高計算の source ではない。権威と観測値が食い違ったら PointLedger を正とする（§5 I-LEDGER-AUTH / I-SATELLITE-RECON）。**非経済の演出値（バトル戦果値）・KPI スナップショットは本条の対象外**（台帳に入らない）。DynamoDB の残高別保持＋手動加算は削ぐ（§7 L-03）。
 - **台帳エントリの役割別分類（付与 / 裁量消費 / award 逆転 / 繰越）** — 各種別は代表例のみ示す（**種別の値集合・CHECK 制約・backend 差の確定は M3 の関心事**であり概念モデルの本質ではない）:
-  - **付与（正）**の代表例: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）はこの額に畳み込む**）/ `combo_bonus`（同日連鎖の装飾 additive）/ `weekly_bonus`（週次評価）/ `login_bonus` / `checklist` / `stamp_card` / `child_challenge` / `must_completion_bonus`（今日のおやくそく完了、独立 additive）/ `special_reward`（固定間隔特別報酬 等、§3.4）/ `cheer` など。
+  - **付与（正）**の代表例: `activity`（活動記録の基礎点。**ボーナスルール・連続ボーナス・習熟ボーナス（masteryBonus）はこの額に畳み込む**）/ `combo_bonus`（同日連鎖の装飾 additive）/ `weekly_bonus`（週次評価）/ `login_bonus` / `checklist` / `stamp_card` / `child_challenge` / `must_completion_bonus`（今日のおやくそく完了、独立 additive）/ `special_reward`（**現在は新規発行なし**。過去に発行された履歴行のみ、§3.4）/ `cheer` など。
   - **no-silent-gap の精緻化（Round 5 [must]、全称の訂正）**: 「C7 習慣装置の**各達成が悉く**PointLedger 付与になる」わけではない。**経済的付与（残高に入る点数）だけが台帳経由**であり、**バトルの戦果値のような非経済の内部値は台帳に入らない**（§3.4、実装確認: バトルは台帳へ書かない）。したがって「習慣装置由来でも、経済的付与に限り PointLedger 事象になる／非経済の内部演出値は台帳外」と分類する（悉皆の断言はしない）。
   - **裁量消費（負）**（Round 3 #3）: `reward_redemption`（ごほうび交換）/ `convert`（ポイント換金） — 子供が意図的に残高を使う。**同期整合 + I-BAL-NONNEG 適用**。
   - **award 逆転（負）**（Round 3 #3）: `cancel` / `checklist_cancel` — 記録取消の正当な補正（付与の逆符号を刻む）。**I-BAL-NONNEG を適用しない**（正当なバイパス。ただし負残高中の新規裁量消費は禁止、I-NEG-BAL）。
@@ -290,7 +290,7 @@ erDiagram
   - **概念上の目標（invariant）と現行 realization の分離（Round 3 [should]）**: 「残高十分時のみ成立＝overspend 不能」は**概念上の目標不変条件**であって、現行実装の測定事実ではない。現行 convert は残高読取→検査→追記が**非原子**（TOCTOU 窓あり）で、ごほうび交換が使う原子的消費オペレーションへ **M3 で収斂させることが必須**。M1 は目標不変条件を課し、原子化は M3 の realization に委ねる。
 - **ポイント換算方針（PointConversionPolicy）は表示/レート方針として分離**: 「点数をどの通貨・単位・レートで見せ／換金するか」の家族方針であって、換金という**消費オペレーション自体（負エントリの発生）とは別概念**。方針は換金額の算定に使われるが、残高を減らすのは換金オペレーション（上記）。
 - **チェックリストのみ family master + 配信 + 進捗の 3 層**（ADR-0055 唯一の例外）。項目別チェック結果は旧項目埋め込みを展開（§7 L-04）。**当日上書き（CHECKLIST_OVERRIDE）は子供のその日の実効チェックリストを増減する**（特定テンプレに紐づかない、子供×日の項目調整）。
-- **固定間隔特別報酬（FixedIntervalReward）は習慣化装置（C7）**（Round 3 #4）: 活動記録が一定回数（N 回）に達するたびに自動発行される**予告型マイルストーンごほうび**（子供が「あと N 回」と予測できる固定間隔で、変動比率のスロットマシン型ではない＝ADR-0012 anti-engagement 準拠）。発行結果は特別ごほうび（SpecialReward）として現れ、付与点は PointLedger へ結果整合で要請する（付与種別の代表例 `special_reward`）。既存記録フローの後追い additive で、失敗は記録を止めない。
+- **固定間隔特別報酬（FixedIntervalReward）は概念として存在しない**（#4172）: 活動記録 N 回ごとに特別ごほうび（SpecialReward）を自動発行し点を要請する習慣化装置は撤去された。**ごほうびショップの棚（SpecialReward）に行を作る主体は親のみ**であり、棚への陳列は PointLedger へ何も要請しない（26-ゲーミフィケーション設計書 §12.2）。達成の表現は点を発行しない通知（MILESTONES）が担う。
 - **チャレンジは per-child instance**（#3195 週次自動生成一本化、競争モード撤去）。きょうだい連動は表示上の束ね（§7 L-06）。
 - **スタンプカードは子供×週で 1 枚**（I-CHECK-1WK、決裁 Q-05: 季節カードは Pre-PMF scope 外として確定し本制約を採用）。押印はログイン起点で 1 日 1 押印（I-STAMP-1DAY）。
 - **バトル**は日次で敵と戦い討伐図鑑が積まれる。戦闘時ステータスは値オブジェクト（Q-06=A）。**バトルの「戦果値」（勝＝ドロップ / 負＝なぐさめ、勝敗で決まる値）は PointLedger 付与ではない**（Round 5 [must]、実装確認: バトルは台帳へ一切書かず、戦果値はバトル行内にのみ保持され残高＝台帳総和に入らない）。ポイント経済と紛れないよう概念名を「戦果値」とし、`報酬ポイント` の語を避ける。→ バトルは C7 習慣装置だが、その戦果値は**非経済の内部値**であって §3.3 の「経済的付与は PointLedger 経由」の例外（下記 §3.3 no-silent-gap 精緻化）。
@@ -366,7 +366,7 @@ erDiagram
 | **ChecklistTemplate**（家族マスタ） | Family | 項目、配信（子供への割当） | 家族が所有するマスタ。進捗（子供側）と整合単位が別（ADR-0055 唯一の family master） |
 | **グローバル参照** | — | カテゴリ、スタンプ種別、年齢基準値、課金イベント冪等観測点 | 家族に属さない共有参照。個別整合、テナント境界なし |
 
-> **Child 衛星集約**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・**週次評価（Evaluation、weekly_bonus を PointLedger へ要請）**・**固定間隔特別報酬（FixedIntervalReward、special_reward を要請、§3.4）**は、**Child を同一性参照する独立記録**で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。**これら衛星が持つ点数属性は非権威な観測値**（正本は PointLedger、I-LEDGER-AUTH / I-SATELLITE-RECON）。
+> **Child 衛星集約**: 保護者メッセージ・きょうだい応援・証書・キャラ画像/音声参照・**週次評価（Evaluation、weekly_bonus を PointLedger へ要請）**は、**Child を同一性参照する独立記録**で、GrowthJournal の atomic 境界外（結果整合・参照整合のみ）。§4.3 の I-REC を膨らませない。**これら衛星が持つ点数属性は非権威な観測値**（正本は PointLedger、I-LEDGER-AUTH / I-SATELLITE-RECON）。
 >
 > **Family 衛星集約（#4 対の注記）**: **追記専用ログ**（通知ログ・利用ログ・同意の追記履歴・トライアル履歴・解約理由）と**独立ライフサイクル資源**（通知購読 / 閲覧専用リンク / クラウドエクスポート / 卒業同意）は、**Family を同一性参照する衛星集約**に降格する。これらは Family ルートの不変条件（owner 数・契約・保護者ゲート）に同期整合を要さず、各々のライフサイクル（購読の失効・エクスポートの状態遷移・追記）を自集約で守る。**通知購読は購読元の所属（membership）を参照**（I-PUSH-ROLE の役割検証の依り所）。**同意は追記ログ（衛星）＋現在値の不変条件（Family ルート、I-CONS）** の 2 面で扱う（追記は衛星、最新値の解決は Family）。**carryover を生む retention compaction は PointLedger 集約内の操作**（Family でなく子供の台帳側）。
 

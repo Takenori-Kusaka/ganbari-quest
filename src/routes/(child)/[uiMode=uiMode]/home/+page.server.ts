@@ -47,10 +47,7 @@ import {
 	sendCheer,
 } from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
-import {
-	getSpecialRewardProgress,
-	getUnshownReward,
-} from '$lib/server/services/special-reward-service';
+import type { SpecialRewardResult } from '$lib/server/services/special-reward-service';
 import {
 	autoRedeemPreviousWeek,
 	getStampCardStatus,
@@ -100,7 +97,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
-			specialRewardProgress: null,
 			mustStatus: null,
 		};
 
@@ -128,7 +124,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			siblingRanking: null,
 			unshownCheers: [],
 			familyStreak: null,
-			specialRewardProgress: null,
 			mustStatus: null,
 		};
 	}
@@ -153,14 +148,20 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
-		specialRewardProgress,
 	] = await Promise.all([
 		// #2471: per-child API に絞り込み (旧 getActivities(tenantId) は tenant 全 child を
 		// aggregate して同名 activity が child 数分重複 render される bug の根本原因)
 		getChildActivities(child.id, tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
-		getUnshownReward(child.id, tenantId),
+		// #4172: 陳列は通貨を発行しなくなったため、overlay の `+N ポイント！` は嘘になる。
+		// AC11' 決裁「親のみ。子への演出は出さない」に従い、子側の演出は出さない。
+		// 経路 (getUnshownReward / markRewardShown) と受け手側 (latestReward を読む overlay /
+		// handleRewardClose) は残す — 演出を再開する判断が出たら、この 1 行を
+		// `getUnshownReward(child.id, tenantId)` に戻すだけで済む。
+		// 型は戻したときと同じ (SpecialRewardResult | null) に保つ。null 固定にすると受け手側が
+		// `never` に狭まり、再開時に型エラーとして掘り起こす羽目になる。
+		Promise.resolve<SpecialRewardResult | null>(null),
 		getUnshownMessage(child.id, tenantId),
 		getChecklistsForChild(child.id, todayDateJST(), tenantId),
 		getTodayMissions(child.id, tenantId),
@@ -171,7 +172,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChildChallengesWithSiblings(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
-		getSpecialRewardProgress(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -300,7 +300,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
 				}
 			: null,
-		specialRewardProgress,
 		mustStatus,
 	};
 };

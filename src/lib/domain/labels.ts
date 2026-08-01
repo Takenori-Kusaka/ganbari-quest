@@ -3758,7 +3758,6 @@ export const CHILD_HOME_LABELS = {
 	resultMissionComplete: '🎯 ミッションたっせい！',
 	resultMissionAllClear: '🎉 ぜんぶクリア！',
 	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
-	resultSpecialRewardRemaining: (n: number | string) => `🎁 あと${n}かいで とくべつごほうび！`,
 	resultCancelButton: (s: number | string) => `とりけし (${s}s)`,
 	resultConfirmButton: 'やったね！',
 	crossComboBang: '！',
@@ -8386,6 +8385,11 @@ export const STORYBOOK_LABELS = {
 		buttonLabel: 'クラウドエクスポート',
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
+	},
+	// #4172: SpecialRewardOverlay の見た目確認用。棚に並んだごほうび名 (親が登録した現実世界の報酬)。
+	specialRewardOverlay: {
+		title: 'ゲーム 30 分',
+		titleLong: 'にちようびに こうえんで あそぶ',
 	},
 	button: {
 		primary: 'プライマリ',
