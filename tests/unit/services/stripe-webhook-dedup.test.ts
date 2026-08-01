@@ -76,7 +76,10 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 
 // ---------- Import after mocks ----------
 
-import { handleWebhookEvent } from '../../../src/lib/server/services/stripe-service';
+import {
+	handleWebhookEvent,
+	WEBHOOK_CLAIM_STALE_MINUTES,
+} from '../../../src/lib/server/services/stripe-service';
 
 // ---------- Fixtures ----------
 
@@ -305,5 +308,112 @@ describe('handleWebhookEvent — event.id dedup (#3985)', () => {
 		const record = await demoWebhookEventRepo.findByEventId('evt_checkout_1');
 		expect(record?.tenantId).toBe('t-test');
 		expect(record?.errorMessage).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4128: dedup を insert-first 化する (find → handler → insert の非原子構成を塞ぐ)
+// ---------------------------------------------------------------------------
+//
+// 旧構成は `findByEventId` → handler → `insert` の 3 段で、find と insert の間に await 境界が
+// ある。同一 event.id が短時間に 2 通到達する (Stripe の再送とオリジナルの競合 / Lambda 同時起動)
+// と両方が find を通過し handler が二重実行される。しかも insert は `ON CONFLICT DO NOTHING`
+// なので**痕跡が残らない**。処理権を先に取る (insert-first) ことで DB の原子性に寄せる。
+
+describe('handleWebhookEvent — 並列到達の処理権 (#4128 AC3 / AC4)', () => {
+	it('同一 event.id が並列到達しても handler は 1 回しか走らない', async () => {
+		const event = WEBHOOK_EVENTS[3].event; // customer.subscription.updated
+
+		// await を挟まず同時に起動する = 2 つの Lambda が同じ event を掴んだ状態
+		const results = await Promise.allSettled([
+			handleWebhookEvent(event as never),
+			handleWebhookEvent(event as never),
+		]);
+
+		expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+	});
+
+	it('並列到達した checkout の welcome 通知も 1 回だけ', async () => {
+		const checkout = WEBHOOK_EVENTS[0].event;
+
+		await Promise.allSettled([
+			handleWebhookEvent(checkout as never),
+			handleWebhookEvent(checkout as never),
+		]);
+
+		expect(mockNotifyBillingEvent).toHaveBeenCalledTimes(1);
+	});
+
+	it('処理権を取れなかった側は throw せず正常終了する (呼び出し元が 200 を返せる)', async () => {
+		const event = WEBHOOK_EVENTS[4].event; // customer.subscription.deleted
+
+		const results = await Promise.allSettled([
+			handleWebhookEvent(event as never),
+			handleWebhookEvent(event as never),
+		]);
+
+		// 4xx / 5xx を返すと Stripe の retry を誘発し重複到達がさらに増える (設計書 §2)
+		expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+	});
+
+	it('handler 失敗時は処理権が解放され、台帳に未処理 row が残らない', async () => {
+		// insert-first にすると「掴んだが処理していない row」が生まれうる。それが残ると
+		// 次回到達で dedup され、event が恒久的に失われる (旧構成には無かった失敗モード)。
+		const event = WEBHOOK_EVENTS[4].event;
+		mockUpdateTenantStripe.mockRejectedValueOnce(new Error('DB 一時障害'));
+
+		await expect(handleWebhookEvent(event as never)).rejects.toThrow('DB 一時障害');
+		expect(await demoWebhookEventRepo.findByEventId(event.id)).toBeNull();
+	});
+
+	it('処理中に落ちた処理権 (Lambda crash) は一定時間後に再処理できる', async () => {
+		// 解放処理そのものが落ちた場合 (Lambda kill / DB 断) に備えた最後の逃げ道。
+		// これが無いと insert-first は「一度掴んで死んだ event を永久に捨てる」機構になる。
+		const event = WEBHOOK_EVENTS[3].event;
+		const staleIso = new Date(
+			Date.now() - (WEBHOOK_CLAIM_STALE_MINUTES + 1) * 60_000,
+		).toISOString();
+
+		await demoWebhookEventRepo.claim(
+			{
+				eventId: event.id,
+				eventType: event.type,
+				processedAt: staleIso,
+				handlerResult: 'processing',
+				errorMessage: null,
+				retryCount: 0,
+				tenantId: null,
+			},
+			staleIso,
+		);
+
+		await handleWebhookEvent(event as never);
+
+		expect(mockUpdateTenantStripe).toHaveBeenCalledTimes(1);
+		expect(await demoWebhookEventRepo.findByEventId(event.id)).toMatchObject({
+			handlerResult: 'success',
+		});
+	});
+
+	it('処理中の処理権はまだ新しいうちは奪われない (二重実行に戻さない)', async () => {
+		const event = WEBHOOK_EVENTS[3].event;
+		const freshIso = new Date().toISOString();
+
+		await demoWebhookEventRepo.claim(
+			{
+				eventId: event.id,
+				eventType: event.type,
+				processedAt: freshIso,
+				handlerResult: 'processing',
+				errorMessage: null,
+				retryCount: 0,
+				tenantId: null,
+			},
+			new Date(Date.now() - WEBHOOK_CLAIM_STALE_MINUTES * 60_000).toISOString(),
+		);
+
+		await expect(handleWebhookEvent(event as never)).resolves.toBeUndefined();
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 	});
 });
