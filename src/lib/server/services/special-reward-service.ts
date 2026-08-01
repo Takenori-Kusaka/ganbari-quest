@@ -290,5 +290,3 @@ export async function saveRewardTemplates(
  * 契約テストが「N 回記録しても棚が増えない」を組み立てるための発火条件として参照する。
  */
 export const SPECIAL_REWARD_INTERVAL = 5;
-
-
