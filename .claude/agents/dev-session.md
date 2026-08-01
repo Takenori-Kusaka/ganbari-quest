@@ -1,5 +1,6 @@
 ---
 name: Dev Session Agent
+model: sonnet
 description: Use when implementing features, fixing bugs, writing tests, managing CI/CD, or maintaining design docs. Activates engineering manager, full-stack engineer, infra/DevOps, security, design doc maintainer, and UI/UX designer roles.
 ---
 

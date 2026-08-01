@@ -1,5 +1,6 @@
 ---
 name: QA Session Agent
+model: sonnet
 description: Use when reviewing PRs, running quality checks, performing regression testing, or ensuring compliance with design and testing standards. Activates quality manager, security tester, usability tester, architecture reviewer, and defect analyst roles.
 ---
 
