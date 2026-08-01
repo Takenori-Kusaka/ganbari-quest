@@ -131,6 +131,29 @@ describe('#4192 redaction の単体挙動', () => {
 		);
 	});
 
+	// adversarial 自己レビューで実測した過剰 redaction。`attempt 2/3` の `/3` を path とみなして
+	// `2/:id` に潰していた (triage 情報の破壊)。URL path に見えるものだけを対象にする。
+	it('通常文の `/` を path とみなして潰さない', () => {
+		expect(redactNotificationText('DSQL timeout after 30000 ms (attempt 2/3)')).toBe(
+			'DSQL timeout after 30000 ms (attempt 2/3)',
+		);
+		expect(redactNotificationText('rate 1/2 完了')).toBe('rate 1/2 完了');
+		// URL path (階層あり) は従来どおり落とす
+		expect(redactNotificationText('failed at /api/v1/admin/children/903')).toContain(
+			'/api/v1/admin/children/:id',
+		);
+	});
+
+	// **意図的に受容している過剰 redaction**: 7 桁以上の連続数字は既存 `redactPii` の phone pattern に
+	// 当たり `<PHONE_REDACTED>` になる。本製品の運用値でその桁数が出るのは件数より識別子の可能性が高く、
+	// 安全側に倒す判断 (`pii-redaction.ts` の設計原則「false negative を最大 risk」と同じ)。
+	// 実運用の件数 (数件〜数万) は落ちないことを固定する。
+	it('実運用レンジの件数は落ちない / 7 桁以上は安全側に潰れる (受容する挙動)', () => {
+		expect(redactNotificationText('27 rows missing')).toBe('27 rows missing');
+		expect(redactNotificationText('rows=12345 mismatch')).toBe('rows=12345 mismatch');
+		expect(redactNotificationText('rows=1234567 mismatch')).not.toContain('1234567');
+	});
+
 	it('事象の種別・件数・環境名は落とさない (通知が意味を失わない)', () => {
 		const text = redactNotificationText(
 			'backup failed: 3 files missing on staging (job=backup-nuc)',

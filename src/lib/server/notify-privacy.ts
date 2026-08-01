@@ -95,10 +95,20 @@ export function redactNotificationText(text: string | undefined): string | undef
 	if (text === undefined || text === '') return text;
 	const withoutPii = redactPii(text);
 	const withoutIds = withoutPii.replace(UUID_PATTERN, NOTIFY_REDACTION_MARKERS.ID);
-	// 文中の `/api/v1/admin/children/903` 等も落とす (path 単体 field 以外の混入経路)
-	return withoutIds.replace(/\/[A-Za-z0-9_\-/.]+/g, (match) => {
-		if (!match.includes('/')) return match;
-		const redacted = redactPathIds(match);
-		return redacted ?? match;
+	// 文中の `/api/v1/admin/children/903` 等も落とす (path 単体 field 以外の混入経路)。
+	//
+	// **URL path に見えるものだけ**を対象にする。`attempt 2/3` や `1/2 完了` のような
+	// 通常文の分数を path とみなして `2/:id` に潰すと、triage 情報を壊す (実測で踏んだ)。
+	//   - 直前が英数字でない (= 語の途中の `/` を拾わない)
+	//   - `/` を 2 つ以上含む (= 単一の区切り記号ではなく階層を持つ)
+	return withoutIds.replace(IN_TEXT_PATH_PATTERN, (match, prefix: string, path: string) => {
+		if ((path.match(/\//g) ?? []).length < 2) return match;
+		return `${prefix}${redactPathIds(path) ?? path}`;
 	});
 }
+
+/**
+ * 文中の URL path 候補。`prefix` は直前の 1 文字 (英数字でないこと) を捕捉して戻すための group。
+ * lookbehind を使わないのは、対象 runtime (Node / workerd) 差を持ち込まないため。
+ */
+const IN_TEXT_PATH_PATTERN = /(^|[^A-Za-z0-9])(\/[A-Za-z0-9_\-/.]*)/g;

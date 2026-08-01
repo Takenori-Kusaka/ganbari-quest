@@ -241,7 +241,12 @@ Discord は運用者の機器ではなく外部 SaaS で、embed は**チャッ�
 | 事象の種別 / 発生時刻 / 件数 / エラー種別 / 環境名 / job 名 | tenantId / childId / メールアドレス / 家族名 |
 | `requestId`（ログを引くための鍵。顧客識別子ではない） | 顧客データそのもの（活動名 / ごほうび名 等） |
 
-「どの家族か」は**認証された場所（CloudWatch Logs / DB）で `requestId` から引く**。
+「どの家族か」は**認証された場所（CloudWatch Logs / DB）で引く**。引き方は 2 通り:
+
+| alert の出所 | 引く鍵 |
+|---|---|
+| HTTP リクエスト起点（`handleError` / 503 fail-closed） | alert 内の `requestId` → `logger.error` の同 requestId 行に tenantId がある |
+| 非リクエスト起点（`optional-write-failed` / `push-validation-rejected` / cron / data-integrity） | alert title の**種別名がそのまま log の検索 key**（`context.kind`）→ 発生時刻で絞ると tenantId 付きの行が出る |
 
 - 実装 SSOT: `src/lib/server/notify-privacy.ts`（redaction を 1 箇所に集約）
 - 強制点: `discord-alert.ts` の送出入口（`redactAlertOptions`）と `buildIncidentEmbed`。
