@@ -76,22 +76,20 @@ const BACKUP_ENV_CONTRACT = [
 describe('#4167 NUC deploy の env 配布 closure', () => {
 	const block = envGenerationBlock();
 
-	it.each(BACKUP_ENV_CONTRACT.filter((e) => e.required))(
-		'[ND1] 必須 env $name が deploy の .env 生成に含まれる',
-		({ name, why }) => {
-			// 「.env に書かれる」= 実際に配られる。env: への宣言だけでは届かない。
-			expect(block, `${name} が .env 生成に含まれていません — ${why}`).toContain(`${name}=`);
-		},
-	);
+	it.each(
+		BACKUP_ENV_CONTRACT.filter((e) => e.required),
+	)('[ND1] 必須 env $name が deploy の .env 生成に含まれる', ({ name, why }) => {
+		// 「.env に書かれる」= 実際に配られる。env: への宣言だけでは届かない。
+		expect(block, `${name} が .env 生成に含まれていません — ${why}`).toContain(`${name}=`);
+	});
 
-	it.each(BACKUP_ENV_CONTRACT.filter((e) => !e.required))(
-		'[ND2] 任意 env $name も配布経路を持つ (無いこと自体は許容)',
-		({ name, why }) => {
-			// 任意でも **配る手段が存在しない** のは別問題。secret 未登録で空になるのは許容するが、
-			// workflow に経路が無ければ「登録しても届かない」= 永久に 0 通になる。
-			expect(block, `${name} の配布経路が workflow にありません — ${why}`).toContain(name);
-		},
-	);
+	it.each(
+		BACKUP_ENV_CONTRACT.filter((e) => !e.required),
+	)('[ND2] 任意 env $name も配布経路を持つ (無いこと自体は許容)', ({ name, why }) => {
+		// 任意でも **配る手段が存在しない** のは別問題。secret 未登録で空になるのは許容するが、
+		// workflow に経路が無ければ「登録しても届かない」= 永久に 0 通になる。
+		expect(block, `${name} の配布経路が workflow にありません — ${why}`).toContain(name);
+	});
 
 	it('[ND3] CRON_SECRET 欠落時は deploy を止める (fail-closed)', () => {
 		// warning で流すと「deploy は緑、バックアップだけ静かに死ぬ」に戻る。
@@ -111,8 +109,12 @@ describe('#4167 NUC deploy の env 配布 closure', () => {
 		// script 側が新しい env を読み始めたのに workflow へ足し忘れる、を検出する。
 		// **script が SSOT** で、本テストはそこから要求を読む。
 		const script = readFileSync(join(ROOT, 'scripts', 'backup-nuc.cjs'), 'utf-8');
-		const referenced = new Set(
-			[...script.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)].map((m) => m[1]),
+		// 正規表現の capture group は型上 `string | undefined` になるため絞り込む
+		// (実行時は必ず存在するが、型を `as` で黙らせない)。
+		const referenced = new Set<string>(
+			[...script.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)]
+				.map((m) => m[1])
+				.filter((n): n is string => typeof n === 'string'),
 		);
 		// script が読むが deploy が配らなくてよい env (compose が直接与える / 派生値)。
 		const suppliedByCompose = new Set([
@@ -122,7 +124,7 @@ describe('#4167 NUC deploy の env 配布 closure', () => {
 			'OPS_SECRET_KEY',
 			'DISCORD_WEBHOOK_INCIDENT',
 		]);
-		const contractNames = new Set(BACKUP_ENV_CONTRACT.map((e) => e.name));
+		const contractNames = new Set<string>(BACKUP_ENV_CONTRACT.map((e) => e.name));
 
 		const unaccounted = [...referenced].filter(
 			(n) => !contractNames.has(n) && !suppliedByCompose.has(n),
