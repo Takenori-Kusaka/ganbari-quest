@@ -131,11 +131,18 @@ export function findUnclassifiedDateMembers() {
 /**
  * TZ 依存だが **他 prototype と名前を共有していて行単位では受け手を判別できない**メンバー。
  *
- * 黙って落とすと #4015 と同じ「気付かれない検出漏れ」になるため、ここに理由付きで宣言し、
- * `findUndeclaredAmbiguousMembers()` が「宣言も走査もされていないメンバー」を検出する。
- * 代わりに `DATE_LITERAL_TO_STRING` で受け手が Date と分かる形だけを拾う。
+ * この宣言は検出を **弱める** ものなので、宣言しただけで通ることがあってはならない
+ * (allowlist の reason を自由文で通していた #4127 残存 3 と同じ失敗形になる)。
+ * そのため `findAmbiguousDeclarationProblems()` が以下を機械検査し、main() で必ず実行する:
+ *
+ *   1. 理由 (`reason`) が非空であること
+ *   2. **補償検出が実在すること** — 宣言したメンバー名が `DATE_RECEIVER_AMBIGUOUS_CALL` の
+ *      source に現れていること (= 受け手が Date と分かる形は必ず拾われる)
+ *   3. 宣言されたメンバーが実際に `Date.prototype` の TZ 依存側にあること (綴り間違いで
+ *      「何も外していないのに外したつもり」になるのを防ぐ)
+ *
+ * @type {Record<string, string>}
  */
-/** @type {Record<string, string>} */
 export const AMBIGUOUS_MEMBERS = {
 	toString:
 		'Object / Number / Buffer 等の toString と同名で、行単位では受け手が Date か判別できない (randomBytes(32).toString("base64url") 等)。受け手が Date と分かる形は DATE_RECEIVER_AMBIGUOUS_CALL で拾う',
@@ -144,18 +151,53 @@ export const AMBIGUOUS_MEMBERS = {
 };
 
 /**
- * 受け手が明らかに Date である曖昧メンバー呼び出し (曖昧回避後の補償検出)。
- * `new Date(...)` リテラル、または `〜At` / `〜Date` / `〜Time` 命名の変数を受け手とする形。
+ * 受け手が Date だと判断できる曖昧メンバー呼び出し (曖昧回避の補償検出)。
+ *
+ * 次のいずれかで拾う:
+ *   - `new Date(...)` リテラルを受け手にする形
+ *   - 日時を示す命名の変数 (`〜At` / `〜Date` / `〜Time` / `〜On` / `〜Since` / `〜Until` /
+ *     `〜Expires` / `〜Timestamp`、`Iso` / `Utc` / `Jst` / `Str` / `Ms` の末尾修飾も許す)
+ *   - 引数に **日時整形オプション** (`dateStyle` / `timeStyle` / `weekday` / `year` / `month` /
+ *     `day` / `hour` / `minute`) を渡している形 — 受け手の命名に頼らず用途で判定する
+ *
+ * **限界の明示**: 命名にも整形オプションにも現れない Date 変数
+ * (`const x = new Date(); x.toLocaleString()`) は行単位では判別できない。これは受け手の型を
+ * 追わない静的検査の構造的限界であり、「取りこぼさない」とは主張しない。振る舞い側は
+ * `tests/unit/architecture/tz-invariance.test.ts` の 2 TZ 実測が担う。
  */
 export const DATE_RECEIVER_AMBIGUOUS_CALL =
-	/(?:new Date\s*\([^)]*\)|\b[A-Za-z_$][\w$]*(?:At|Date|Time)|\b(?:date|time|now|deadline)\b)\s*\.\s*(?:toString|toLocaleString)\s*\(/;
+	/(?:(?:new Date\s*\([^)]*\)|\b[A-Za-z_$][\w$]*(?:At|Date|Time|On|Since|Until|Expires|Timestamp)(?:Iso|Utc|Jst|Str|String|Ms)?|\b(?:date|time|now|deadline|timestamp)\b)\s*\.\s*(?:toString|toLocaleString)\s*\(|\.\s*toLocaleString\s*\([^)]*\b(?:dateStyle|timeStyle|weekday|year|month|day|hour|minute)\s*:)/;
 
-/** 走査も宣言もされていない TZ 依存メンバー (空なら健全) */
-export function findUndeclaredAmbiguousMembers() {
+/**
+ * `AMBIGUOUS_MEMBERS` 宣言自体の健全性検査 (空なら健全)。
+ *
+ * 「宣言を足せば検出から外せる」抜け道を作らないための自己検査。
+ * @returns {Array<{member: string, problem: string}>}
+ */
+export function findAmbiguousDeclarationProblems() {
 	const { dependent } = classifyDateMembers();
-	return dependent.filter(
-		(n) => Object.hasOwn(AMBIGUOUS_MEMBERS, n) && !AMBIGUOUS_MEMBERS[n]?.trim(),
-	);
+	/** @type {Array<{member: string, problem: string}>} */
+	const problems = [];
+	const compensationSource = DATE_RECEIVER_AMBIGUOUS_CALL.source;
+	for (const [member, reason] of Object.entries(AMBIGUOUS_MEMBERS)) {
+		if (typeof reason !== 'string' || reason.trim() === '') {
+			problems.push({ member, problem: '理由 (reason) が空です' });
+		}
+		if (!dependent.includes(member)) {
+			problems.push({
+				member,
+				problem: 'Date.prototype の TZ 依存メンバーではありません (綴り間違い / 既に SAFE 分類)',
+			});
+		}
+		if (!compensationSource.includes(member)) {
+			problems.push({
+				member,
+				problem:
+					'補償検出がありません。DATE_RECEIVER_AMBIGUOUS_CALL に本メンバー名を含めてください (宣言だけで検出を消さない)',
+			});
+		}
+	}
+	return problems;
 }
 
 /** TZ 依存メンバー呼び出しの検出正規表現 (`Date.prototype` から導出) */
@@ -570,6 +612,18 @@ function main() {
 	if (unclassified.length > 0) {
 		console.error(
 			`[check-local-tz-date-getters] ✗ Date.prototype に未分類のメンバーがあります: ${unclassified.join(', ')}`,
+		);
+		process.exit(1);
+	}
+
+	const ambiguousProblems = findAmbiguousDeclarationProblems();
+	if (ambiguousProblems.length > 0) {
+		console.error(
+			`[check-local-tz-date-getters] \u2717 AMBIGUOUS_MEMBERS \u5ba3\u8a00\u304c\u691c\u67fb\u3092\u901a\u308a\u307e\u305b\u3093\u3067\u3057\u305f (${ambiguousProblems.length} \u4ef6):`,
+		);
+		for (const p of ambiguousProblems) console.error(`  ${p.member}: ${p.problem}`);
+		console.error(
+			'\n  \u66d6\u6627\u30e1\u30f3\u30d0\u306e\u5ba3\u8a00\u306f\u691c\u51fa\u3092\u5f31\u3081\u307e\u3059\u3002\u7406\u7531 + \u88dc\u511f\u691c\u51fa (DATE_RECEIVER_AMBIGUOUS_CALL) \u306e\u4e21\u65b9\u304c\u5fc5\u8981\u3067\u3059\u3002',
 		);
 		process.exit(1);
 	}

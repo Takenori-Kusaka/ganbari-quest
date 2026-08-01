@@ -19,11 +19,14 @@ import { describe, expect, it } from 'vitest';
 import {
 	ALLOWLIST,
 	ALLOWLIST_KINDS,
+	AMBIGUOUS_MEMBERS,
 	classifyDateMembers,
 	classifyLine,
+	DATE_RECEIVER_AMBIGUOUS_CALL,
 	evaluateOccurrences,
 	findAllowlistEntry,
 	findAllowlistIntegrityProblems,
+	findAmbiguousDeclarationProblems,
 	findOccurrencesInContent,
 	findUnclassifiedDateMembers,
 	groupByFile,
@@ -118,6 +121,38 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 			for (const name of ['getUTCDate', 'setUTCDate', 'getTime', 'toISOString', 'toUTCString']) {
 				expect(safe).toContain(name);
 			}
+		});
+	});
+
+	describe('曖昧メンバー宣言の自己検査 (#4127 — 宣言だけで検出を消させない)', () => {
+		it('現在の AMBIGUOUS_MEMBERS 宣言は検査を全件通る', () => {
+			expect(findAmbiguousDeclarationProblems()).toEqual([]);
+		});
+
+		it('宣言した全メンバーに補償検出 (DATE_RECEIVER_AMBIGUOUS_CALL) が存在する', () => {
+			for (const member of Object.keys(AMBIGUOUS_MEMBERS)) {
+				expect(DATE_RECEIVER_AMBIGUOUS_CALL.source).toContain(member);
+			}
+		});
+
+		it.each([
+			// 受け手の命名で Date と分かる形 (末尾修飾込み)
+			"const s = expiresOn.toLocaleString('ja-JP');",
+			"const s = createdAtIso.toLocaleString('ja-JP');",
+			"const s = validUntil.toLocaleString('ja-JP');",
+			// 命名で分からなくても日時整形オプションで分かる形
+			"const s = x.toLocaleString('ja-JP', { dateStyle: 'short' });",
+			"const s = v.toLocaleString('ja-JP', { hour: '2-digit' });",
+		])('曖昧メンバーでも受け手が Date と分かる形は検出する: %s', (line) => {
+			expect(classifyLine(line)?.kind).toBe('implicit-locale-tz');
+		});
+
+		it.each([
+			"const p = points.toLocaleString('ja-JP');",
+			'const yen = revenue.totalRevenue.toLocaleString();',
+			"const n = count.toLocaleString('ja-JP');",
+		])('数値の桁区切りは検出しない: %s', (line) => {
+			expect(classifyLine(line)).toBeNull();
 		});
 	});
 
