@@ -184,7 +184,9 @@ describe('#4207 TZ を宣言したなら、その TZ が実際に効くこと', 
 		const serviceIdx = lines.findIndex((l) => l.trimEnd() === `  ${service}:`);
 		if (serviceIdx < 0) throw new Error(`service '${service}' が docker-compose.yml にありません`);
 
-		const nextIdx = lines.findIndex((l, i) => i > serviceIdx && /^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l));
+		const nextIdx = lines.findIndex(
+			(l, i) => i > serviceIdx && /^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l),
+		);
 		const block = lines.slice(serviceIdx, nextIdx < 0 ? lines.length : nextIdx);
 
 		// `dockerfile: X` の明示があればそれ。無ければ既定の Dockerfile。
@@ -197,7 +199,9 @@ describe('#4207 TZ を宣言したなら、その TZ が実際に効くこと', 
 		const raw = readFileSync(COMPOSE_PATH, 'utf-8');
 		const lines = raw.split('\n');
 		return lines
-			.map((l, i) => (/^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l) ? { name: l.trim().slice(0, -1), i } : null))
+			.map((l, i) =>
+				/^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l) ? { name: l.trim().slice(0, -1), i } : null,
+			)
 			.filter((s): s is { name: string; i: number } => s !== null)
 			.filter(({ name }) => environmentLinesOf(name).some((e) => e.startsWith('TZ=')));
 	}
