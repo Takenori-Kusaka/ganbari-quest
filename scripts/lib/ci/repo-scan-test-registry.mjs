@@ -85,6 +85,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の fetch 呼び出しを走査する (ratchet)',
 	},
+	'tests/unit/architecture/pr-trigger-lane-guard.test.ts': {
+		scope: 'repo',
+		note: '.github/workflows 全 file を parse して commit-less 発火 type の宣言整合を検査する (#4171)',
+	},
 	'tests/unit/architecture/page-guide-coverage.test.ts': {
 		scope: 'repo',
 		note: '#4085 実測 例3 (6240ms で timeout)。REGISTERED ガイドの anchor を src から走査する',

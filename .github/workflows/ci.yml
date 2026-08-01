@@ -20,6 +20,14 @@ on:
     # 同一 SHA を再実行しても結果が変わらず、runtime（特に e2e-test）が無駄になる。
     # Draft スキップ系 workflow (pr-ui-check / pr-ac-verification-check / lp-metrics)
     # とは役割が異なる点に注意。
+    #
+    # #4171: `edited` も同じ理由で含めない。PR 本文の編集は同一 SHA に対する再実行にしかならず、
+    # 統合 PR (develop/release → main) では 1 回 16〜20 分の重量レーンを丸ごと捨てる。
+    # 本文を入力に取る検査は軽量 gate 4 本 (pr-quality-gate / pr-merge-gate / pr-template-gate /
+    # pr-ac-verification-check、いずれも実測 10〜40 秒) が `edited` 購読で担っており、本 CI が
+    # 引き受ける必要はない。この配置は
+    # `tests/unit/architecture/pr-trigger-lane-guard.test.ts` が機械検証する
+    # (宣言 SSOT: scripts/lib/ci/pr-trigger-lane-registry.mjs)。
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
