@@ -1,8 +1,8 @@
 /**
- * tests/unit/architecture/pr-commitless-trigger-guard.test.ts (#4171)
+ * tests/unit/architecture/pr-trigger-lane-guard.test.ts (#4171)
  *
  * 「新しい commit を伴わない PR イベントで重量レーンが再実行されない」を機械で固定する
- * fitness function。宣言 SSOT は `scripts/lib/ci/pr-commitless-trigger-registry.mjs`。
+ * fitness function。宣言 SSOT は `scripts/lib/ci/pr-trigger-lane-registry.mjs`。
  *
  * ## なぜ test で、なぜ今か
  *
@@ -25,13 +25,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 
 import {
-	COMMITLESS_PR_ACTIVITY_TYPES,
+	ACTIVITY_TYPES_WITHOUT_NEW_COMMIT,
 	DEFAULT_PR_ACTIVITY_TYPES,
 	HEAVY_STEP_RUN_PATTERNS,
 	HEAVY_STEP_USES_PREFIXES,
-	PR_COMMITLESS_TRIGGER_REGISTRY,
+	PR_TRIGGER_LANE_REGISTRY,
 	REVIEW_READY_ACTIVITY_TYPE,
-} from '../../../scripts/lib/ci/pr-commitless-trigger-registry.mjs';
+} from '../../../scripts/lib/ci/pr-trigger-lane-registry.mjs';
 
 // #4085: repo 走査 test (実行時間が入力サイズに比例する)。既定 5s のままだと unit lane の
 // 並列実行の負荷で落ち、「本物の回帰か負荷か」の切り分けが毎回発生するため file 単位で明示する。
@@ -185,7 +185,7 @@ function readWorkflowFacts(file: string): WorkflowFacts {
 const ALL_FACTS = listWorkflowFiles().map(readWorkflowFacts);
 const PR_FACTS = ALL_FACTS.filter((f) => f.isPrTriggered);
 
-describe('PR commit-less trigger guard (#4171)', () => {
+describe('PR trigger lane guard (#4171)', () => {
 	it('scanner が PR 起動 workflow を実際に拾っている (走査自体の空振りを通さない)', () => {
 		expect(ALL_FACTS.length).toBeGreaterThan(10);
 		expect(PR_FACTS.length).toBeGreaterThan(5);
@@ -194,14 +194,14 @@ describe('PR commit-less trigger guard (#4171)', () => {
 	});
 
 	it('PR 起動 workflow は全数が registry に宣言されている (no-silent-gap)', () => {
-		const undeclared = PR_FACTS.filter((f) => !(f.file in PR_COMMITLESS_TRIGGER_REGISTRY)).map(
+		const undeclared = PR_FACTS.filter((f) => !(f.file in PR_TRIGGER_LANE_REGISTRY)).map(
 			(f) => f.file,
 		);
 		expect(
 			undeclared,
 			[
 				'on.pull_request(_target) を持つ workflow が registry に未宣言です。',
-				'scripts/lib/ci/pr-commitless-trigger-registry.mjs に bodyGate (true/false) と理由を足してください。',
+				'scripts/lib/ci/pr-trigger-lane-registry.mjs に bodyGate (true/false) と理由を足してください。',
 				'  bodyGate: true  = PR 本文が入力の軽量 gate (edited 購読が必須)',
 				'  bodyGate: false = commit-less な活動 type を購読しない',
 			].join('\n'),
@@ -210,7 +210,7 @@ describe('PR commit-less trigger guard (#4171)', () => {
 
 	it('registry に stale 宣言が無い (file 削除 / PR trigger 撤去に追随している)', () => {
 		const prFiles = new Set(PR_FACTS.map((f) => f.file));
-		const stale = Object.keys(PR_COMMITLESS_TRIGGER_REGISTRY).filter((f) => !prFiles.has(f));
+		const stale = Object.keys(PR_TRIGGER_LANE_REGISTRY).filter((f) => !prFiles.has(f));
 		expect(
 			stale,
 			'registry にあるが on.pull_request(_target) を持たない workflow です。エントリを削除してください。',
@@ -220,10 +220,10 @@ describe('PR commit-less trigger guard (#4171)', () => {
 	it('bodyGate:false の workflow は commit を伴わない活動 type を購読しない', () => {
 		const violations: string[] = [];
 		for (const facts of PR_FACTS) {
-			const entry = PR_COMMITLESS_TRIGGER_REGISTRY[facts.file];
+			const entry = PR_TRIGGER_LANE_REGISTRY[facts.file];
 			if (!entry || entry.bodyGate) continue;
 			const offending = facts.activityTypes.filter((t) =>
-				(COMMITLESS_PR_ACTIVITY_TYPES as readonly string[]).includes(t),
+				(ACTIVITY_TYPES_WITHOUT_NEW_COMMIT as readonly string[]).includes(t),
 			);
 			if (offending.length > 0) {
 				violations.push(`${facts.file}: types に ${offending.join(' / ')} が入っています`);
@@ -241,7 +241,7 @@ describe('PR commit-less trigger guard (#4171)', () => {
 
 	it('bodyGate:true の workflow は edited を購読している (本文検査を黙って止めない)', () => {
 		const violations: string[] = [];
-		for (const [file, entry] of Object.entries(PR_COMMITLESS_TRIGGER_REGISTRY)) {
+		for (const [file, entry] of Object.entries(PR_TRIGGER_LANE_REGISTRY)) {
 			if (!entry.bodyGate) continue;
 			const facts = PR_FACTS.find((f) => f.file === file);
 			if (!facts) continue; // stale は別 test が報告する
@@ -261,7 +261,7 @@ describe('PR commit-less trigger guard (#4171)', () => {
 
 	it('bodyGate:true の workflow は静的に軽量 (重い job に edited を足す逃げ道を塞ぐ)', () => {
 		const violations: string[] = [];
-		for (const [file, entry] of Object.entries(PR_COMMITLESS_TRIGGER_REGISTRY)) {
+		for (const [file, entry] of Object.entries(PR_TRIGGER_LANE_REGISTRY)) {
 			if (!entry.bodyGate) continue;
 			const facts = PR_FACTS.find((f) => f.file === file);
 			if (!facts) continue;

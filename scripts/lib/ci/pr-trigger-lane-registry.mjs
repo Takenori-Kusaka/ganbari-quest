@@ -1,5 +1,5 @@
 /**
- * scripts/lib/ci/pr-commitless-trigger-registry.mjs (#4171)
+ * scripts/lib/ci/pr-trigger-lane-registry.mjs (#4171)
  *
  * 「**新しい commit を伴わない PR イベント**でどの workflow が再実行されてよいか」の宣言 SSOT。
  *
@@ -31,7 +31,7 @@
  *   4. `on.pull_request` / `on.pull_request_target` を持つ workflow は全数が本 registry に
  *      現れる (no-silent-gap。新規 workflow 追加時に判断を必ず発生させる)
  *
- * 検査本体は `tests/unit/architecture/pr-commitless-trigger-guard.test.ts`。
+ * 検査本体は `tests/unit/architecture/pr-trigger-lane-guard.test.ts`。
  *
  * # `ready_for_review` を別枠にする理由
  *
@@ -50,7 +50,7 @@
  *
  * 出典: GitHub Docs "Events that trigger workflows" — pull_request activity types。
  */
-export const COMMITLESS_PR_ACTIVITY_TYPES = Object.freeze([
+export const ACTIVITY_TYPES_WITHOUT_NEW_COMMIT = Object.freeze([
 	'edited',
 	'labeled',
 	'unlabeled',
@@ -110,7 +110,7 @@ export const HEAVY_STEP_USES_PREFIXES = Object.freeze([
  *
  * @type {Record<string, { bodyGate: boolean; note: string }>}
  */
-export const PR_COMMITLESS_TRIGGER_REGISTRY = {
+export const PR_TRIGGER_LANE_REGISTRY = {
 	// --- bodyGate: true (本文が入力。edited 購読必須 + 軽量必須) ---
 	'.github/workflows/pr-quality-gate.yml': {
 		bodyGate: true,

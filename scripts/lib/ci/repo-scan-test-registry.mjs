@@ -85,7 +85,7 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の fetch 呼び出しを走査する (ratchet)',
 	},
-	'tests/unit/architecture/pr-commitless-trigger-guard.test.ts': {
+	'tests/unit/architecture/pr-trigger-lane-guard.test.ts': {
 		scope: 'repo',
 		note: '.github/workflows 全 file を parse して commit-less 発火 type の宣言整合を検査する (#4171)',
 	},

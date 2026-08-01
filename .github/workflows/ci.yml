@@ -26,8 +26,8 @@ on:
     # 本文を入力に取る検査は軽量 gate 4 本 (pr-quality-gate / pr-merge-gate / pr-template-gate /
     # pr-ac-verification-check、いずれも実測 10〜40 秒) が `edited` 購読で担っており、本 CI が
     # 引き受ける必要はない。この配置は
-    # `tests/unit/architecture/pr-commitless-trigger-guard.test.ts` が機械検証する
-    # (宣言 SSOT: scripts/lib/ci/pr-commitless-trigger-registry.mjs)。
+    # `tests/unit/architecture/pr-trigger-lane-guard.test.ts` が機械検証する
+    # (宣言 SSOT: scripts/lib/ci/pr-trigger-lane-registry.mjs)。
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 

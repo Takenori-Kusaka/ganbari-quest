@@ -152,7 +152,7 @@ AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 
 ## workflow の発火 type — commit を伴わない PR イベント（#4171）
 
-PR 本文 / label の編集は `pull_request` の `edited` を発火させるが、**同一 SHA に対する再実行**にしかならない。どの workflow がそれを購読してよいかを `scripts/lib/ci/pr-commitless-trigger-registry.mjs` で宣言し、`tests/unit/architecture/pr-commitless-trigger-guard.test.ts` が機械検証する。
+PR 本文 / label の編集は `pull_request` の `edited` を発火させるが、**同一 SHA に対する再実行**にしかならない。どの workflow がそれを購読してよいかを `scripts/lib/ci/pr-trigger-lane-registry.mjs` で宣言し、`tests/unit/architecture/pr-trigger-lane-guard.test.ts` が機械検証する。
 
 | 宣言 | 意味 | 強制内容 |
 |---|---|---|
