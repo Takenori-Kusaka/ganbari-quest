@@ -34,6 +34,19 @@ describe('resolvePreset (#1424)', () => {
 		expect(() => resolvePreset('unknown')).toThrowError(/Unknown preset/);
 	});
 
+	// #4156: Issue が特定のブレークポイントを指定したとき、近い名前付きプリセットで
+	// 代用して「指定と違う幅で撮った SS」を証跡にしないための明示指定。
+	it('<幅>x<高さ> 形式を解決できる', () => {
+		expect(resolvePreset('375x812')).toEqual({ width: 375, height: 812, deviceScaleFactor: 2 });
+		expect(resolvePreset('1440x900')).toEqual({ width: 1440, height: 900, deviceScaleFactor: 2 });
+	});
+
+	it('数値でない / 桁数が不正な指定は Error をスローする', () => {
+		expect(() => resolvePreset('375x')).toThrowError(/Unknown preset/);
+		expect(() => resolvePreset('xX375')).toThrowError(/Unknown preset/);
+		expect(() => resolvePreset('3x8')).toThrowError(/Unknown preset/);
+	});
+
 	it('PRESETS と整合している', () => {
 		for (const [name, expected] of Object.entries(PRESETS)) {
 			expect(resolvePreset(name)).toEqual(expected);
