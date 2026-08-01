@@ -86,6 +86,16 @@ jobs:
       # ここで書き換えない。`.env` は **secret 専用** とし、構成値とは分離する。
       - name: Generate .env from GitHub Secrets
         env:
+          # #4166: バックアップ経路の必須 env。**ここに載っていない env は deploy のたびに
+          # .env から消える** (下の Set-Content が固定リストで全上書きするため)。
+          # 2026-07-31 の実害はこれ: CRON_SECRET が配られず 18 晩バックアップが失敗し、
+          # DISCORD_ALERT_WEBHOOK_URL も無いため alert 0 通で誰も気づかなかった (#4119)。
+          # 手で .env に足しても次の deploy で消えるので、必ずこの経路で配る。
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # 通知先。既存の health 通知チャネルを流用する (専用 webhook を増やさない)。
+          DISCORD_ALERT_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_HEALTH }}
+          # #3970: off-site 退避先。未設定なら従来どおり ./data/backups (検査も走らない)。
+          HOST_BACKUP_DIR: ${{ secrets.HOST_BACKUP_DIR }}
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts は NODE_ENV=production で必須要求。
           # NUC も NODE_ENV=production で起動するため未注入だと /admin/* cold start で throw して 500。
           # NUC は LAN 内 + AUTH_MODE=local で PIN gate は実際には使われないが、module load 時の
@@ -99,6 +109,20 @@ jobs:
             Write-Host "::error::See docs/decisions/0050-parent-gate-session-cookie-signature.md and infra/CLAUDE.md."
             exit 1
           }
+          # #4166: CRON_SECRET も fail-closed にする。無いと日次バックアップが毎晩失敗するが、
+          # **deploy 自体は成功して見える**ため誰も気づかない (2026-07-31 に 18 晩続いた)。
+          # 「deploy は緑、バックアップだけ静かに死ぬ」を作らない。
+          if (-not $env:CRON_SECRET) {
+            Write-Host "::error::CRON_SECRET is not set in GitHub Actions Secrets."
+            Write-Host "::error::/api/cron/pglite-backup の認証に必須。無いと日次バックアップが毎晩失敗します (#4119)。"
+            Write-Host "::error::Register with: gh secret set CRON_SECRET --body <hex> --repo Takenori-Kusaka/ganbari-quest"
+            exit 1
+          }
+          # 通知先が無くても deploy は止めない (バックアップ自体は動く) が、
+          # **失敗しても誰にも届かない状態**なので警告は必ず出す (#4087 AC1 と同じ立場)。
+          if (-not $env:DISCORD_ALERT_WEBHOOK_URL) {
+            Write-Host "::warning::DISCORD_WEBHOOK_HEALTH is not set — バックアップが失敗しても通知が 0 通になります (#4119 の実害と同じ状態)。"
+          }
           # `.env` を毎回 GHA Secrets から再生成（rotate 対応・冪等）。
           # ASCII エンコーディング指定で BOM を避ける (docker compose env_file は BOM を弾く)。
           # ORIGIN: NUC LAN デプロイでは 0.0.0.0 を指定し同一ネットワーク内の全端末を許可。
@@ -110,8 +134,16 @@ jobs:
             "AI_PROVIDER=gemini",
             "ORIGIN=http://0.0.0.0:3000",
             "DATA_SOURCE=pglite",
-            "PGLITE_DATA_DIR=/app/data/pglite"
+            "PGLITE_DATA_DIR=/app/data/pglite",
+            "CRON_SECRET=$env:CRON_SECRET"
           )
+          # 任意 env は設定されているときだけ書く (空値を書くと「設定済みだが空」と区別できない)。
+          if ($env:DISCORD_ALERT_WEBHOOK_URL) {
+            $envLines += "DISCORD_ALERT_WEBHOOK_URL=$env:DISCORD_ALERT_WEBHOOK_URL"
+          }
+          if ($env:HOST_BACKUP_DIR) {
+            $envLines += "HOST_BACKUP_DIR=$env:HOST_BACKUP_DIR"
+          }
           Set-Content -Path .env -Value $envLines -Encoding ASCII
           Write-Host "Wrote .env from GitHub Secrets ($($envLines.Count) lines, secret values masked)"
 
