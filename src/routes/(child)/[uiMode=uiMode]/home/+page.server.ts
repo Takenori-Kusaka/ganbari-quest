@@ -47,7 +47,6 @@ import {
 	sendCheer,
 } from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
-import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	autoRedeemPreviousWeek,
 	getStampCardStatus,
@@ -154,7 +153,10 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getChildActivities(child.id, tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
-		getUnshownReward(child.id, tenantId),
+		// #4172: 陳列は通貨を発行しなくなったため、overlay の `+N ポイント！` は嘘になる。
+		// AC11 決裁「親のみ。子への演出は出さない」に従い、子側の演出は出さない。
+		// 経路 (getUnshownReward / markRewardShown) は残す — 演出の再開はここを戻すだけで済む。
+		Promise.resolve(null),
 		getUnshownMessage(child.id, tenantId),
 		getChecklistsForChild(child.id, todayDateJST(), tenantId),
 		getTodayMissions(child.id, tenantId),

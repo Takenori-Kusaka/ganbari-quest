@@ -7215,9 +7215,7 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- SpecialRewardOverlay ----
 	specialRewardTitle: '🎁 とくべつごほうび！',
-	// #4172: 陳列は通貨を発行しないため「+N ポイント」(獲得) ではなく必要ポイント (価格) を示す。
-	// 06-UI設計書 §4.16 の props 定義 (points = 必要ポイント数) と CHILD_SHOP_LABELS.exchangeConfirmPointsLabel に整合。
-	specialRewardPoints: (points: number) => `ひつようなポイント ${points}`,
+	specialRewardPoints: (points: number) => `+${points} ポイント！`,
 	specialRewardConfirmBtn: 'やったー！',
 
 	// ---- StampCard ----
