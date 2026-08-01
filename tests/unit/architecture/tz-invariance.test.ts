@@ -124,7 +124,13 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	process.env.TZ = originalTz;
+	// CI は TZ 未設定で走るため、`= undefined` 代入だと文字列 'undefined' が残り
+	// 同一 worker の後続 test を汚染する。未設定だった場合は delete で戻す。
+	if (originalTz === undefined) {
+		delete process.env.TZ;
+	} else {
+		process.env.TZ = originalTz;
+	}
 });
 
 // ---------- cases ----------
