@@ -108,11 +108,12 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 **振り方 (2026-08-01 初回実運用、全ロール共通)**: ① **成果物がファイルに残る仕事を振る** — teammate の報告テキストは届かないことがある (read-only の調査でも出力先ファイルを指定する) / ② **完了は lead が `git diff` で自分で確認する** (通知を待たない) / ③ **teammate の出力は実物と突き合わせる** — teammate は数値・Issue 番号を推測で埋める / ④ **空振り 2 回で引き取る**。
 
-使ってよい / いけない場面 + 振り方の SSOT → @docs/sessions/agent-teams.md
+使ってよい / いけない場面 + 振り方の SSOT → `docs/sessions/agent-teams.md`（**teammate を spawn する前に Read する**。常時ロードしない、#4210）
 
 ## Further Context
 
-- @docs/DESIGN.md（デザイン SSOT、必読）/ @docs/reference/gemini_image_generation_guide.md / @docs/design/asset-catalog.md
+- @docs/DESIGN.md（デザイン SSOT、必読）
+- 画像アセットを**作る / 追加するときだけ** Read する（常時ロードしない、#4210）: `docs/reference/gemini_image_generation_guide.md` / `docs/design/asset-catalog.md`
 - @personal/data/family.yml (サブモジュール)
 
 ## Compaction Rules

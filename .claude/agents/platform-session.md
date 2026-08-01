@@ -1,5 +1,6 @@
 ---
 name: Platform Session Agent
+model: sonnet
 description: Use when reducing developer toil — consolidating or deleting CI checks (scripts/check-*), simplifying workflows and Issue/PR templates, shrinking CLAUDE.md, improving hook failure messages, or turning "remember to do X" rules into generated defaults (skills/templates). 開発基盤の削減・統合・自動生成化が対象。Dev を顧客とし、成功指標は装置の本数ではなく Dev の手戻り（QM 差し戻し / pre-ready の落ち回数 / PR 往復）。装置を**増やす** / 個別不具合を**直す**用途では使わない。
 ---
 
