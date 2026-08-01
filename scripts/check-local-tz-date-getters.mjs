@@ -135,6 +135,7 @@ export function findUnclassifiedDateMembers() {
  * `findUndeclaredAmbiguousMembers()` が「宣言も走査もされていないメンバー」を検出する。
  * 代わりに `DATE_LITERAL_TO_STRING` で受け手が Date と分かる形だけを拾う。
  */
+/** @type {Record<string, string>} */
 export const AMBIGUOUS_MEMBERS = {
 	toString:
 		'Object / Number / Buffer 等の toString と同名で、行単位では受け手が Date か判別できない (randomBytes(32).toString("base64url") 等)。受け手が Date と分かる形は DATE_RECEIVER_AMBIGUOUS_CALL で拾う',
@@ -153,7 +154,7 @@ export const DATE_RECEIVER_AMBIGUOUS_CALL =
 export function findUndeclaredAmbiguousMembers() {
 	const { dependent } = classifyDateMembers();
 	return dependent.filter(
-		(n) => Object.hasOwn(AMBIGUOUS_MEMBERS, n) && !AMBIGUOUS_MEMBERS[n].trim(),
+		(n) => Object.hasOwn(AMBIGUOUS_MEMBERS, n) && !AMBIGUOUS_MEMBERS[n]?.trim(),
 	);
 }
 

@@ -421,7 +421,7 @@ export async function computeDetailedMonthlyReport(
 	const statuses = await repos.status.findStatuses(childId, tenantId);
 	const totalPoints = statuses.reduce((sum, s) => sum + (s.totalXp ?? 0), 0);
 	const maxLevel = statuses.reduce((max, s) => Math.max(max, s.level ?? 1), 1);
-	const streakDays = await calculateStreak(childId, formatDate(limit), tenantId);
+	const streakDays = await calculateStreak(childId, limit, tenantId);
 	const newAchievements = await countMonthAchievements(childId, startDate, endDate, tenantId);
 
 	return {

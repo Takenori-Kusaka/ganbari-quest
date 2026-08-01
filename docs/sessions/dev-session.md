@@ -136,7 +136,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 1. `git fetch origin && git pull` で最新化。worktree / clone 直後は refspec に develop 行があるか確認 + branch 作成直後は `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（stale develop 基点ズレ防止 #2975、SOP SSOT: [branch-strategy.md §3](branch-strategy.md)）
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
-4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
+4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015 / #4127) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
 
    **6 step 以外は消えていない — CI で hard-fail のまま走る (#4121)**。vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml`。判定の場所を CI に移しただけなので、**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。16 コアを 4 エージェントで共有する運用ではローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。
 

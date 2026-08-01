@@ -74,7 +74,7 @@ function barWidthPct(count: number): number {
 									] ?? step.eventName}
 								</td>
 								<td class="ops-num">
-									{step.count.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}{OPS_ANALYTICS_LABELS.activationFunnelHouseholdSuffix}
+									{step.count.toLocaleString('ja-JP')}{OPS_ANALYTICS_LABELS.activationFunnelHouseholdSuffix}
 								</td>
 								<td class="ops-num">
 									{#if step.step === 1}
