@@ -1388,7 +1388,8 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 |---|---|
 | 付与条件 | `backup` と同じ（`DATA_SOURCE === 'pglite'` かつ状態ファイルが読めたとき）。読めなければ `backup` ごと省略する |
 | `level` | `ok` / `warn` / `critical`。UI の色分けと通知の強さを 1 箇所で決める |
-| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `rotation-blocked` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `rotation-blocked` / `rotation-blocked-critical` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `rotation-blocked` の昇格 | guard は**自己解除しない**（溢れは毎晩 1 世代ずつ増える）。放置すればディスクを食い潰して取得自体が失敗するため、`BACKUP_ROTATION_BLOCKED_CRITICAL_HOURS = 168`（7 晩）で `rotation-blocked-critical` へ昇格させる。**永久 warn は「消えない warn」として無視される** |
 | `rotationPendingCount` | ローテーション guard（#4129 AC2）が止めている世代数。0 なら止まっていない。**取得の成否とは独立した事実**（#4162） |
 | `notificationMissing` | 失敗通知の宛先（`DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_WEBHOOK_INCIDENT`）が 1 つも無い状態。**`level` と独立に立つ** — critical のときも「届かない」ことは対処が変わるため独立に伝える |
 | 判定順 | **深刻な方から**。stale（動いていない）を failure（落ちている）より先に見る。**job が起動しなかった場合、job 内から投げる push 通知は原理的に発火しない**ため、鮮度でしか捕まえられない |
