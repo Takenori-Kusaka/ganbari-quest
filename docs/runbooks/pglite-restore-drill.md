@@ -246,7 +246,7 @@ echo "書斎の NAS" > /mnt/nas/ganbari-quest-backups/.ganbari-offsite
 判定は `src/lib/domain/backup-offsite.ts` (純粋関数) が持つ。
 `tests/unit/domain/backup-offsite.test.ts` が判定を、
 `tests/unit/services/pglite-backup-offsite-wiring.test.ts` が **service 層への配線**を、
-`tests/unit/infra/compose-backup-volume.test.ts` `[CV5]` が **compose の起動条件**を固定する。
+`tests/unit/infra/compose-backup-volume.test.ts` `[CV6]` が **compose の起動条件**を固定する。
 判定だけを test すると、配線を切っても CI が緑になる (ADR-0061 fitness function)。
 
 **off-site を運用しない家庭では検査しない** (`BACKUP_OFFSITE_EXPECTED` が立たない)。ローカル 1 箇所を

@@ -103,29 +103,37 @@ describe('#3970 AC2 off-site 検査の service 配線', () => {
 		expect(result.offsite).toEqual({ level: 'not-expected' });
 	});
 
-	it('[OW5] 同じ critical が続く 2 回目は通知文言を載せない (毎晩の再送を止める)', async () => {
-		// 同じ警告が毎晩届くと数日で無視され、同じ通知先を共有している本物の失敗 alert
-		// (#4129 / #4087) まで一緒に見られなくなる。
-		envMock.value = { BACKUP_OFFSITE_EXPECTED: 'true' };
-		const first = await run();
-		expect(first.offsiteMessage).not.toBeNull();
+	it(
+		'[OW5] 同じ critical が続く 2 回目は通知文言を載せない (毎晩の再送を止める)',
+		async () => {
+			// 同じ警告が毎晩届くと数日で無視され、同じ通知先を共有している本物の失敗 alert
+			// (#4129 / #4087) まで一緒に見られなくなる。
+			envMock.value = { BACKUP_OFFSITE_EXPECTED: 'true' };
+			const first = await run();
+			expect(first.offsiteMessage).not.toBeNull();
 
-		const second = await run();
-		// 判定自体は critical のまま (状態を隠さない)。載せないのは通知文言だけ。
-		expect(second.offsite).toEqual({ level: 'critical', reason: 'marker-missing' });
-		expect(second.offsiteMessage).toBeNull();
-	}, MULTI_RUN_TIMEOUT_MS);
+			const second = await run();
+			// 判定自体は critical のまま (状態を隠さない)。載せないのは通知文言だけ。
+			expect(second.offsite).toEqual({ level: 'critical', reason: 'marker-missing' });
+			expect(second.offsiteMessage).toBeNull();
+		},
+		MULTI_RUN_TIMEOUT_MS,
+	);
 
-	it('[OW6] critical → ok → critical と戻ったら再通知する', async () => {
-		envMock.value = { BACKUP_OFFSITE_EXPECTED: 'true' };
-		await run(); // critical (通知あり)
+	it(
+		'[OW6] critical → ok → critical と戻ったら再通知する',
+		async () => {
+			envMock.value = { BACKUP_OFFSITE_EXPECTED: 'true' };
+			await run(); // critical (通知あり)
 
-		await writeFile(join(backupDir, OFFSITE_MARKER_FILENAME), 'NAS 1F');
-		const recovered = await run();
-		expect(recovered.offsite).toEqual({ level: 'ok' });
+			await writeFile(join(backupDir, OFFSITE_MARKER_FILENAME), 'NAS 1F');
+			const recovered = await run();
+			expect(recovered.offsite).toEqual({ level: 'ok' });
 
-		await rm(join(backupDir, OFFSITE_MARKER_FILENAME));
-		const again = await run();
-		expect(again.offsiteMessage).not.toBeNull();
-	}, MULTI_RUN_TIMEOUT_MS);
+			await rm(join(backupDir, OFFSITE_MARKER_FILENAME));
+			const again = await run();
+			expect(again.offsiteMessage).not.toBeNull();
+		},
+		MULTI_RUN_TIMEOUT_MS,
+	);
 });
