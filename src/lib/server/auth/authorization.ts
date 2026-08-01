@@ -140,6 +140,19 @@ function isPublicRoute(path: string): boolean {
 		// #3657: LWA readiness の shallow probe。認証なしで 200 を返せる必要がある
 		path.startsWith('/api/ready') ||
 		path.startsWith('/api/stripe/webhook') ||
+		// #4206: cron dispatcher (EventBridge → Lambda → Function URL への HTTP POST) は
+		// Cognito セッションを持たないため、ここに無いと identity === null で 401 になり
+		// **route の handler に到達する前に**全滅する (本番 AWS で 1 ヶ月継続、成功率 0.8%)。
+		// /api/stripe/webhook と同じ「セッションを持たない外部呼び出し」で、認証は各 route の
+		// verifyCronAuth (CRON_SECRET / OPS_SECRET_KEY) が担う。
+		// **この行は「認証不要」ではなく「認証の担い手が route 側にある」の意**であり、
+		// 全 cron route が verifyCronAuth を呼ぶことは
+		// tests/unit/architecture/cron-route-auth-fitness.test.ts が FS 列挙で機械強制する
+		// (1 本でも呼び忘れれば無認証で外部公開になるため、その guard が唯一の防波堤)。
+		// 境界は `/api/cron/` に限定する — 素朴な startsWith('/api/cron') は
+		// `/api/cronjobs` のような別 route まで巻き込んで公開してしまう。
+		path === '/api/cron' ||
+		path.startsWith('/api/cron/') ||
 		path.startsWith('/legal') ||
 		path.startsWith('/demo') ||
 		path.startsWith('/marketplace') ||
