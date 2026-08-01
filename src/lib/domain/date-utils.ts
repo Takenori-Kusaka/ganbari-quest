@@ -90,6 +90,17 @@ export function jstDayOfWeek(date: Date = new Date()): number {
 }
 
 /**
+ * JST 基準の「時」(0-23) を返す。
+ * `date.getHours()` (ローカル TZ) の置換先 (#4127)。
+ *
+ * はやおきボーナスのような「朝 N 時までに記録したか」の判定は、プロセス TZ が UTC の
+ * Lambda 上だと 9 時間ずれ、JST 07:00 の記録には付かず JST 15:00 の記録に付いてしまう。
+ */
+export function jstHour(date: Date = new Date()): number {
+	return new Date(date.getTime() + JST_OFFSET_MS).getUTCHours();
+}
+
+/**
  * JST 基準の年 / 月 (月は 1-12) を返す。
  * `now.getFullYear()` / `now.getMonth() + 1` の置換先。
  */
