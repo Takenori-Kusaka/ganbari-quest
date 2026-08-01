@@ -1603,7 +1603,7 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; verifyClosesLanded: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
 export function parseArgs(argv) {
 	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; verifyClosesLanded: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
