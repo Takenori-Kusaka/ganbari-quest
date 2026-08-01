@@ -38,20 +38,19 @@ test.describe('#753 PlanStatusCard → /admin/subscription — free', () => {
 		await expect(freeCta).toBeVisible();
 	});
 
-	test('free プランの PlanStatusCard に「プレミアムへ」CTA がある', async ({ page }) => {
+	// #4161: 旧テストは「family CTA が 0 件なら annotation を積んで return」で、実装
+	//   (`PlanStatusCard.svelte` の `{:else if planTier === 'free'}` 分岐は free CTA のみ)
+	//   では**常に 0 件 = 毎回 return** し、タイトルが主張する内容を一度も検証していなかった。
+	//   実装の事実 (free の次の一歩は standard) を検証する形に直す。
+	test('free プランの PlanStatusCard はアップグレード CTA を 1 本だけ出す (standard への 1 歩)', async ({
+		page,
+	}) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		const familyCta = page.getByTestId('plan-status-family-cta');
-		const count = await familyCta.count();
-		if (count === 0) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'family CTA が PlanStatusCard に存在しないレイアウトのためスキップ',
-			});
-			return;
-		}
-		await expect(familyCta).toBeVisible({ timeout: 10_000 });
-		await expect(familyCta).toContainText(PLAN_TERMS.premium);
+		const freeCta = page.getByTestId('plan-status-free-cta');
+		await expect(freeCta).toBeVisible({ timeout: 10_000 });
+		// free から premium への直行 CTA は出さない (選択肢を 1 本に絞る、Hick's Law)
+		await expect(page.getByTestId('plan-status-family-cta')).toHaveCount(0);
 	});
 });
 
@@ -69,31 +68,55 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'standard');
+		// standard には上位プランへの CTA が出る (テスト名が主張していた当のもの)
+		await expect(page.getByTestId('plan-status-family-cta')).toBeVisible();
 
-		// Portal ボタンまたは plan card 全体非表示 (stripeEnabled=false) のいずれか
-		// #2330 で「決済機能は現在準備中です」placeholder が削除されたため、Portal ボタン visible OR 非表示で skip 検出
+		// #4161: 旧実装は「請求管理ボタンが見えなければ annotation を積んで return」だった。
+		//   このレーンでは契約なしが常なので**毎回 return し、何も検証していなかった**。
+		//   請求管理ボタンの有無を決めるのは契約状態なので、それを読んで対応する側だけを検証する。
+		const hasSubscription = await page
+			.getByTestId('saas-license-panel')
+			.getAttribute('data-has-subscription');
+		expect(['true', 'false']).toContain(hasSubscription);
 		const portalBtn = page.getByTestId('open-portal-button');
-		const isPortalVisible = await portalBtn
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
-
-		if (!isPortalVisible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description:
-					'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のため Portal CTA 不在',
-			});
-			return;
+		if (hasSubscription === 'true') {
+			await expect(portalBtn).toBeVisible();
+		} else {
+			// 契約なしは `{#if hasSubscription}` が false = ボタンごと非描画 (hidden ですらない)
+			await expect(portalBtn).toHaveCount(0);
 		}
 	});
 
 	// #4139: standard → premium のアップグレード CTA が「自ページへのリンク」になっていた
 	// (押しても何も起きない = 収益導線が死ぬ)。CTA が実処理を起動する操作要素であることを固定する。
-	test('standard の「プレミアムへ」CTA が自ページを指さず、押すと何かが起きる (#4139)', async ({
+	//
+	// #4161: 旧実装は「起こりうる結末」を or で並べており、どの環境でどちらの分岐が走るかを
+	//   宣言していなかった。結末を or で並べると、走らなかった側は永久に評価されない死んだ
+	//   部分式として残り、書いた本人にも「どちらが走ったか」が見えない。
+	//   分岐を決める 2 変数 (`stripeEnabled` / `hasSubscription`) を実際に読んで表明し、
+	//   その組み合わせに対応する 1 つの結末だけを検証する。
+	test('standard の「プレミアムへ」CTA が自ページを指さず、宣言した分岐の実処理を起動する (#4139 / #4161)', async ({
 		page,
 	}) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+
+		// --- どちらの分岐を検証しているかを、推測ではなく画面から読む ---
+		const panel = page.getByTestId('saas-license-panel');
+		await expect(panel).toBeVisible({ timeout: 30_000 });
+		const stripeEnabled = await panel.getAttribute('data-stripe-enabled');
+		const hasSubscription = await panel.getAttribute('data-has-subscription');
+		// 属性が消える / 値が bool 以外になったら、分岐の宣言そのものが壊れているので落とす
+		expect(['true', 'false']).toContain(stripeEnabled);
+		expect(['true', 'false']).toContain(hasSubscription);
+
+		// 本レーン (cognito-dev = AUTH_MODE=cognito + DATA_SOURCE 既定の sqlite) の前提を固定する。
+		// sqlite の auth repo は stub テナントを返し `stripeSubscriptionId` を持たない
+		// (`src/lib/server/db/sqlite/auth-repo.ts:22-32`) ため、**どの plan fixture でも契約なし**になる。
+		// = 契約ありの portal 分岐はこのレーンでは原理的に到達できない。fixture / backend が変わって
+		// ここが true になったら「検証すべき分岐が変わった」という意味で落とし、放置を防ぐ。
+		// 契約あり (portal) 分岐は component 層で決定的に検証している:
+		//   tests/unit/components/saas-license-panel-upgrade-branch.test.ts (b)
+		expect(hasSubscription).toBe('false');
 
 		const cta = page.getByTestId('plan-status-family-cta');
 		await expect(cta).toBeVisible({ timeout: 30_000 });
@@ -101,13 +124,36 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
 		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
 
-		// 押下 → 実処理が起動する。契約ありなら Stripe 請求管理ページ確認ダイアログ、
-		// 契約なし / Stripe 無効なら checkout エラー通知が出る。
-		// 旧実装は自ページに再遷移するだけで、どちらも出なかった。
+		// hydration gate: この CTA は SSR でも <button> として描画されるため、hydration 前に押すと
+		// onclick が未 attach で空振りし、「押しても何も起きない」ではなく「JS 未起動」を測ってしまう
+		// (Vite dev で実測: 初回 fail → retry で PASS)。確認ダイアログの content は Ark UI の
+		// <Portal> 配下で client mount 後にのみ DOM に現れる (閉じていても hidden で存在する) ので、
+		// その出現を hydration の gate に使う (既存 pattern: admin-challenges-delete-confirm.spec.ts)。
+		// checkout は POST を伴うため click 自体の retry はしない (session を二重に作らない)。
+		await expect(page.getByTestId('portal-confirm-button')).toHaveCount(1, { timeout: 30_000 });
+
 		await cta.click();
-		await expect(
-			page.getByTestId('portal-confirm-button').or(page.getByRole('alert').first()),
-		).toBeVisible({ timeout: 15_000 });
+
+		if (stripeEnabled === 'true') {
+			// 契約なし + 決済有効 → `startCheckout()` が checkout session を作り離脱する。
+			// **到達先まで検証する**。「/admin/subscription から離れた」だけを合格にすると、
+			// セッション失効 redirect (`/auth/login`) や認可拒否 redirect も等しく PASS してしまう。
+			// origin の完全一致で判定する (prefix 一致は `checkout.stripe.com.example` にも当たる、
+			// CodeQL js/incomplete-url-substring-sanitization)。
+			await page.waitForURL((url) => url.origin === 'https://checkout.stripe.com', {
+				timeout: 30_000,
+			});
+			expect(new URL(page.url()).origin).toBe('https://checkout.stripe.com');
+		} else {
+			// 決済未設定 (fork PR 等で STRIPE_SECRET_KEY_TEST が供給されないレーン) では、
+			// #4161 の是正どおり「理由を出して打ち切る」。PIN 付き確認ダイアログを開いて
+			// 確定させた末に失敗する dead-end (#2544 型) になっていないことも併せて固定する。
+			await expect(page.getByTestId('billing-unavailable-alert')).toBeVisible({
+				timeout: 15_000,
+			});
+			await expect(page.getByTestId('portal-confirm-button')).toBeHidden();
+			expect(new URL(page.url()).pathname).toBe('/admin/subscription');
+		}
 	});
 });
 
@@ -124,21 +170,21 @@ test.describe('#753 PlanStatusCard → /admin/subscription — family', () => {
 		await expect(card).toBeVisible({ timeout: 30_000 });
 		await expect(card).toHaveAttribute('data-plan-tier', 'family');
 
-		// Portal ボタンまたは plan card 全体非表示 (stripeEnabled=false) のいずれか
-		// #2330 で「決済機能は現在準備中です」placeholder が削除されたため、Portal ボタン visible OR 非表示で skip 検出
-		const portalBtn = page.getByTestId('open-portal-button');
-		const isPortalVisible = await portalBtn
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
+		// #4161: テスト名が主張している当のことを検証する (最上位プランなので上位への CTA は無い)。
+		//   旧実装は請求管理ボタンが見えなければ annotation を積んで return するだけで、
+		//   「CTA が表示されない」を一度も確かめていなかった。
+		await expect(page.getByTestId('plan-status-family-cta')).toHaveCount(0);
+		await expect(page.getByTestId('plan-status-free-cta')).toHaveCount(0);
 
-		if (!isPortalVisible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description:
-					'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のため Portal CTA 不在',
-			});
-			return;
+		const hasSubscription = await page
+			.getByTestId('saas-license-panel')
+			.getAttribute('data-has-subscription');
+		expect(['true', 'false']).toContain(hasSubscription);
+		const portalBtn = page.getByTestId('open-portal-button');
+		if (hasSubscription === 'true') {
+			await expect(portalBtn).toBeVisible();
+		} else {
+			await expect(portalBtn).toHaveCount(0);
 		}
 	});
 });
@@ -265,26 +311,24 @@ test.describe('#753 /admin/subscription プラン選択 UI — free', () => {
 	test('free プランで /admin/subscription にプラン選択カードが表示される', async ({ page }) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// Stripe 有効環境ではプラン選択カードが表示される。Stripe 無効では plan card 全体非表示 (#2330)
-		// プラン選択カード visible なら通常検証、無ければ Stripe 未設定環境として skip。
+		// #4161: 旧実装は「plan card が見えなければ skip 理由を積んで return」で、
+		//   決済未設定レーンでは何も検証しないまま緑になっていた。
+		//   plan card の有無を決めるのは `stripeEnabled` なので、それを読んで両側を検証する。
+		const stripeEnabled = await page
+			.getByTestId('saas-license-panel')
+			.getAttribute('data-stripe-enabled');
+		expect(['true', 'false']).toContain(stripeEnabled);
+
 		const standardPlanCard = page.getByTestId('standard-plan-card');
-		const isPlanCardVisible = await standardPlanCard
-			.waitFor({ state: 'visible', timeout: 5_000 })
-			.then(() => true)
-			.catch(() => false);
-
-		if (!isPlanCardVisible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のため skip',
-			});
-			return;
+		if (stripeEnabled === 'true') {
+			// スタンダード / ファミリーの選択カードが表示される
+			await expect(standardPlanCard).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByTestId('family-plan-card')).toBeVisible();
+		} else {
+			// 決済未設定ではプラン管理カードごと非描画 (#2330 で placeholder 削除済)
+			await expect(standardPlanCard).toHaveCount(0);
+			await expect(page.getByTestId('family-plan-card')).toHaveCount(0);
 		}
-
-		// Stripe 有効環境: スタンダード / ファミリーの選択カードが表示される
-		// (preparingText 重複 skip 機構は #2330 で placeholder 削除済のため撤去)
-		await expect(standardPlanCard).toBeVisible();
-		await expect(page.getByTestId('family-plan-card')).toBeVisible();
 
 		// #3204: 年額トグルは撤去 (#2719 年額廃止と UI 整合)。月額固定で年額ボタンは存在しない。
 		await expect(page.getByRole('button', { name: /年額/ })).toHaveCount(0);
@@ -297,25 +341,23 @@ test.describe('#753 /admin/subscription プラン選択 UI — free', () => {
 test.describe('#753 /admin/subscription プラン選択 UI — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
-	test('standard プランでは Stripe Portal ボタンが表示される（サブスク有りの場合）', async ({
-		page,
-	}) => {
+	// #4161: 請求管理ボタンの表示条件は「決済有効 かつ 契約あり」の 2 条件。
+	//   旧実装は不在なら return するだけで、条件と描画の対応を一度も確かめていなかった。
+	test('請求管理ボタンの表示が「決済有効 かつ 契約あり」と一致する', async ({ page }) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// standard はサブスクリプション有りなので Portal ボタンが出る、
-		// または Stripe 未設定環境では plan card 全体非表示 (#2330 で placeholder 削除済)
-		const portalBtn = page.getByTestId('open-portal-button');
-		const isPortalVisible = await portalBtn
-			.waitFor({ state: 'visible', timeout: 10_000 })
-			.then(() => true)
-			.catch(() => false);
+		const panel = page.getByTestId('saas-license-panel');
+		await expect(panel).toBeVisible({ timeout: 30_000 });
+		const stripeEnabled = await panel.getAttribute('data-stripe-enabled');
+		const hasSubscription = await panel.getAttribute('data-has-subscription');
+		expect(['true', 'false']).toContain(stripeEnabled);
+		expect(['true', 'false']).toContain(hasSubscription);
 
-		if (!isPortalVisible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'Stripe 未設定環境 (stripeEnabled=false) のため Portal ボタン不在',
-			});
-			return;
+		const portalBtn = page.getByTestId('open-portal-button');
+		if (stripeEnabled === 'true' && hasSubscription === 'true') {
+			await expect(portalBtn).toBeVisible({ timeout: 10_000 });
+		} else {
+			await expect(portalBtn).toHaveCount(0);
 		}
 	});
 });

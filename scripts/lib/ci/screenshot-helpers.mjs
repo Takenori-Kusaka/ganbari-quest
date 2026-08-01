@@ -826,7 +826,7 @@ export class FlowRecorder {
 	 * @param {(page: import('playwright').Page, capture: (label: string) => Promise<string>) => Promise<void>} opts.actions
 	 * @param {'mobile'|'tablet'|'desktop'} [opts.preset='desktop']
 	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState]
-	 * @returns {Promise<{ stepsDir: string; compositePath: string|null; markdownSnippet: string; stepCount: number }>}
+	 * @returns {Promise<{ stepsDir: string; compositePath: string|null; markdownSnippet: string; stepCount: number; stepPaths: string[]; domPaths: string[] }>}
 	 */
 	async record({ url, flowName, actions, preset = 'desktop', storageState }) {
 		const vp = resolvePreset(preset);
@@ -863,7 +863,7 @@ export class FlowRecorder {
 		}
 		await waitForStablePage(page, { skipNetworkIdle: true });
 
-		/** @type {Array<{ label: string; pngPath: string; stepName: string }>} */
+		/** @type {Array<{ label: string; pngPath: string; stepName: string; domPath: string|null }>} */
 		const steps = [];
 		let stepIndex = 0;
 		const maxSteps = this.#maxSteps;
@@ -903,7 +903,23 @@ export class FlowRecorder {
 				throw new Error(`ステップ ${stepIndex} の PNG が ${blankCheck.reason} です: ${pngPath}`);
 			}
 
-			steps.push({ label, pngPath, stepName });
+			// #4161: flow モードでも DOM スナップショットを併記する。
+			// SS embed gate (check-pr-screenshot.mjs 検証 3) は SS に対応する `.dom.html` を要求するが、
+			// flow モードだけ未対応で「操作を伴う UI 変更は SS を貼れない」状態だった。
+			// 単一 URL モード (ScreenshotCapture) と同じく、撮影直後の同一 page から取得する
+			// (SS と DOM が同一プロセス・同一 page である保証、#1747 AC4 / #1766)。
+			const domPath = resolveDomSnapshotPath(pngPath);
+			const domResult = await captureDomSnapshot(page, domPath);
+			if (!domResult.ok) {
+				console.warn(`[WARN] DOM スナップショットの保存に失敗しました: ${domResult.error.message}`);
+			}
+
+			steps.push({
+				label,
+				pngPath,
+				stepName,
+				domPath: domResult.ok ? domPath : null,
+			});
 			return pngPath;
 		};
 
@@ -925,7 +941,14 @@ export class FlowRecorder {
 
 		if (steps.length === 0) {
 			if (actionsError) throw actionsError;
-			return { stepsDir, compositePath: null, markdownSnippet: '', stepCount: 0 };
+			return {
+				stepsDir,
+				compositePath: null,
+				markdownSnippet: '',
+				stepCount: 0,
+				stepPaths: [],
+				domPaths: [],
+			};
 		}
 
 		const compositePath = path.join(this.#outputDir, `${flowName}-flow.webp`);
@@ -939,11 +962,18 @@ export class FlowRecorder {
 		this.#printReport(steps, compositePath);
 
 		if (actionsError) throw actionsError;
-		return { stepsDir, compositePath, markdownSnippet, stepCount: steps.length };
+		return {
+			stepsDir,
+			compositePath,
+			markdownSnippet,
+			stepCount: steps.length,
+			stepPaths: steps.map((s) => s.pngPath),
+			domPaths: steps.map((s) => s.domPath).filter((p) => p !== null),
+		};
 	}
 
 	/**
-	 * @param {Array<{ label: string; pngPath: string; stepName: string }>} steps
+	 * @param {Array<{ label: string; pngPath: string; stepName: string; domPath: string|null }>} steps
 	 * @param {string} outputPath
 	 */
 	async #compositeSteps(steps, outputPath) {
