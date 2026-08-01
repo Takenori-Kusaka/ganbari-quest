@@ -43,6 +43,40 @@ describe('authorizeCognito', () => {
 			});
 		}
 
+		// #4206: cron dispatcher (EventBridge → Lambda → Function URL への HTTP POST) は
+		// Cognito セッションを持たない。allowlist に `/api/cron` が無いと identity === null で
+		// 401 になり、**cron route の handler に到達する前に**認可層で全滅する
+		// (本番 AWS で 1 ヶ月継続、成功率 0.8%)。`/api/stripe/webhook` と同じ
+		// 「セッションを持たない外部呼び出し」であり、認証は各 route の verifyCronAuth
+		// (CRON_SECRET / OPS_SECRET_KEY) が担う。
+		//
+		// この欠陥が `AUTH_MODE=cognito` でしか出ないのは、local / anonymous provider が
+		// 全ルート無条件 allow だから (src/lib/server/auth/providers/local.ts / anonymous.ts)。
+		// NUC と demo Lambda では発現せず、本番だけが落ちていた。
+		describe('cron route (#4206)', () => {
+			// 母数は FS 列挙の fitness function 側 (cron-route-auth-fitness.test.ts) が保証する。
+			// ここは認可層の振る舞いを固定する代表 3 本。
+			const cronPaths = [
+				'/api/cron/export-build',
+				'/api/cron/retention-cleanup',
+				'/api/cron/stripe-webhook-delivery-check',
+			];
+
+			for (const path of cronPaths) {
+				it(`${path} は Cognito セッション無しでも認可層を通過する`, () => {
+					const result = authorizeCognito(path, null, null);
+					expect(result.allowed).toBe(true);
+				});
+			}
+
+			it('/api/cron 配下ではない紛らわしい path まで公開しない', () => {
+				// 素朴な `startsWith('/api/cron')` は `/api/cronjobs` のような別 route まで
+				// 巻き込んで無認証公開する。境界を `/api/cron/` (と完全一致) に限定すること。
+				const result = authorizeCognito('/api/cronjobs', null, null);
+				expect(result.allowed).toBe(false);
+			});
+		});
+
 		it('認証済みで /auth/login → role に応じてリダイレクト（owner → /admin）', () => {
 			const result = authorizeCognito(
 				'/auth/login',
