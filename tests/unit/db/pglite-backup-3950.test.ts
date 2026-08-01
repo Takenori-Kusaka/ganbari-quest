@@ -36,6 +36,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { evaluateBackupHealth } from '../../../src/lib/domain/backup-health';
 import {
 	backupFilename,
 	loadJournalEntries,
@@ -402,5 +403,85 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 			retention: 3,
 		});
 		expect(readStatus().consecutiveFailures).toBe(0);
+	}, 180_000);
+
+	// [BK12] **rotation guard (#4144) × backup health 判定層 (#4148) の合成** (#4162)
+	//
+	// 個別 PR ではどちらも正しいが、合成すると health が実態と真逆の診断を出す。
+	// guard の throw は `rename` (新世代の確定) の **後** に起きるため:
+	//   - 新世代はディスク上に確定している (guard 自身のコメントもそう明言している)
+	//   - しかし throw は try 内で起きるので catch が `consecutiveFailures++` を書き、
+	//     `lastSuccessAt` は進まない
+	//   - `evaluateBackupHealth` は `lastSuccessAt` と `consecutiveFailures` しか見ないため、
+	//     2 晩目で critical、50h で `stale-critical` (= 「job が動いていない」) と判定する
+	// 実際には毎晩正常に取れており、世代は増え続けている。**診断が真逆**で、運用者は
+	// 「退避して古い世代を手で削除する」ではなく「job を再起動する」方向へ誘導される。
+	//
+	// 既存テストはこの経路を通っていない: [BK10] は世代ファイル数しか見ず状態ファイルを読まない。
+	// `backup-health.test.ts` は手書きリテラル入力のみ、`health-backup-status.test.ts` は
+	// status を mock する。**実 status → verdict の経路をどのテストも通っていない。**
+	//
+	// 本テストは **現在の挙動を固定する characterization test** である。#4162 で是正する際は
+	// 本テストの期待値も更新が必要になる (= 修正が必ず可視化される)。
+	it('[BK12] guard 発火中は新世代が確定しているのに health が「動いていない」と診断する (#4162 現状固定)', async () => {
+		const client = await migratedClient();
+		const backupDir = tempDir('gq-bk12-');
+
+		const readStatus = () =>
+			JSON.parse(readFileSync(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8')) as {
+				lastSuccessAt: string | null;
+				consecutiveFailures: number;
+			};
+
+		// retention=7 運用で 7 世代を作る (#3950 引き下げ前と同じ形)。
+		for (let i = 0; i < 7; i++) {
+			await runPgliteBackup({
+				client,
+				backupDir,
+				migrationsDir: MIGRATIONS_DIR,
+				retention: 7,
+				now: new Date(Date.UTC(2026, 6, 10 + i, 3, 0, 0)),
+			});
+		}
+		const successAtBeforeGuard = readStatus().lastSuccessAt;
+		expect(successAtBeforeGuard).not.toBeNull();
+		const generationsBefore = sortBackupsNewestFirst(readdirSync(backupDir)).length;
+
+		// retention 引き下げ後、2 晩連続で guard が発火する。
+		// **溢れは減らない** (毎晩 1 世代増えるため) = guard は自己解除しない。
+		for (let night = 1; night <= 2; night++) {
+			await expect(
+				runPgliteBackup({
+					client,
+					backupDir,
+					migrationsDir: MIGRATIONS_DIR,
+					retention: 3,
+					now: new Date(Date.UTC(2026, 6, 17 + night, 3, 0, 0)),
+				}),
+			).rejects.toBeInstanceOf(PgliteBackupRotationGuardError);
+		}
+
+		// (1) 新世代は毎晩ディスク上に確定している (guard の約束どおり失われていない)。
+		const generationsAfter = sortBackupsNewestFirst(readdirSync(backupDir)).length;
+		expect(generationsAfter).toBe(generationsBefore + 2);
+
+		// (2) それでも状態ファイルは「2 連続失敗」としか記録せず、成功時刻は進んでいない。
+		const status = readStatus();
+		expect(status.consecutiveFailures).toBe(2);
+		expect(status.lastSuccessAt).toBe(successAtBeforeGuard);
+
+		// (3) その状態を判定層に食わせると「job が動いていない」と読める critical になる。
+		//     直近の世代が実在するにもかかわらず、である (= 本 Issue の核心)。
+		const verdict = evaluateBackupHealth(
+			{
+				lastSuccessAt: status.lastSuccessAt,
+				consecutiveFailures: status.consecutiveFailures,
+				lastFailureMessage: null,
+				notificationConfigured: true,
+			},
+			new Date(Date.UTC(2026, 6, 19, 3, 5, 0)),
+		);
+		expect(verdict.level).toBe('critical');
+		expect(verdict.reason).toBe('consecutive-failures-critical');
 	}, 180_000);
 });
