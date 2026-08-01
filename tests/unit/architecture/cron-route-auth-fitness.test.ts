@@ -29,13 +29,12 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-
-// #4085: repo 走査 test (実行時間が入力サイズに比例する)。区分は
-// scripts/lib/ci/repo-scan-test-registry.mjs が SSOT (未宣言 / timeout 欠落は CI が fail)。
-vi.setConfig({ testTimeout: 60_000 });
-
+import { describe, expect, it } from 'vitest';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
+
+// #4085: 走査 test の区分は scripts/lib/ci/repo-scan-test-registry.mjs が SSOT。
+// 本 test は再帰 walk だが対象が src/routes/api/cron 配下の単一 dir で有界なため
+// scope='bounded' (repo ツリー全走査ではないので明示 timeout は不要)。
 
 /** cron endpoint の実体ディレクトリ (母数の SSOT。literal 列挙は禁止) */
 const CRON_ROUTE_DIR = 'src/routes/api/cron';
