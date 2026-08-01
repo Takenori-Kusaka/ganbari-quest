@@ -40,7 +40,10 @@ afterEach(() => {
 describe('#4170 AC2 — approve 直前の Closes 着地確認', () => {
 	it('下書きが無い PR は block しないが、未実施であることを必ず note に出す', async () => {
 		const cwd = makeTree();
-		const result = await verifyClosesLandedForApprove([4152], { cwd, fetchLiveBody: () => LIVE_BODY });
+		const result = await verifyClosesLandedForApprove([4152], {
+			cwd,
+			fetchLiveBody: () => LIVE_BODY,
+		});
 		expect(result.ok).toBe(true);
 		// 無言 skip にしない (skip したことは必ず出力する、ADR-0056 と同じ扱い)
 		expect(result.ok && result.notes.join('\n')).toContain('未実施');
@@ -49,7 +52,10 @@ describe('#4170 AC2 — approve 直前の Closes 着地確認', () => {
 	it('下書きの close 宣言が実 body に着地していれば通す', async () => {
 		const cwd = makeTree();
 		writeFileSync(draftBodyPathForPr(4152, cwd), LIVE_BODY, 'utf8');
-		const result = await verifyClosesLandedForApprove([4152], { cwd, fetchLiveBody: () => LIVE_BODY });
+		const result = await verifyClosesLandedForApprove([4152], {
+			cwd,
+			fetchLiveBody: () => LIVE_BODY,
+		});
 		expect(result.ok).toBe(true);
 		expect(result.ok && result.notes.join('\n')).toContain('PASS');
 	});
@@ -61,7 +67,10 @@ describe('#4170 AC2 — approve 直前の Closes 着地確認', () => {
 			LIVE_BODY.replace('Closes #4130', 'Closes #4129\nCloses #4130'),
 			'utf8',
 		);
-		const result = await verifyClosesLandedForApprove([4152], { cwd, fetchLiveBody: () => LIVE_BODY });
+		const result = await verifyClosesLandedForApprove([4152], {
+			cwd,
+			fetchLiveBody: () => LIVE_BODY,
+		});
 		expect(result.ok).toBe(false);
 		expect(!result.ok && result.reason).toContain('Closes #4129');
 	});
