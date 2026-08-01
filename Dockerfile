@@ -33,6 +33,20 @@ RUN echo "Build at: ${BUILD_TIMESTAMP}" && mkdir -p data && npm run version:gene
 
 # Stage 3: Runtime (minimal image)
 FROM node:22-alpine AS runtime
+
+# #4207: alpine は tzdata を同梱しない。docker-compose.yml が `TZ=Asia/Tokyo` を渡しても
+# libc がゾーンを解決できず UTC のままになり、**busybox crond が cron 式を UTC で解釈する**。
+# 実害: 深夜 3 時のつもりで登録した日次バックアップ (`0 3 * * *`) が
+# **12:00 JST (= 03:00 UTC) に走っていた** — 家庭向けアプリの本番 DB を、利用者が
+# 起きている真昼にコピーしていた。
+#
+# `printenv TZ` は正しい値を返すため「設定を確認したつもり」になれるうえ、
+# バックアップ自体は成功する (ファイルは毎日でき consecutiveFailures: 0) ので
+# health も alert も何も言わない。目視では気づけない類の欠陥。
+# 回帰は tests/unit/infra/compose-backup-volume.test.ts [TZ1] が compose から
+# TZ 宣言 service を列挙して機械強制する。
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 # Copy built application (flat layout: index.js, handler.js, client/, server/)
