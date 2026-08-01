@@ -4,9 +4,14 @@
 // 純粋な検証・命名ロジックは $lib/server/db/pglite/backup.ts、FS と PGlite client を伴う
 // オーケストレーションは本ファイル、HTTP 面は /api/cron/pglite-backup に分ける。
 
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
+import {
+	describeOffsiteVerdict,
+	judgeOffsiteReplication,
+	type OffsiteVerdict,
+} from '$lib/domain/backup-offsite';
 import { getEnv } from '$lib/runtime/env';
 import {
 	backupFilename,
@@ -80,6 +85,41 @@ export interface RunPgliteBackupOptions {
 function resolveBackupDir(explicit?: string): string {
 	const env = getEnv();
 	return resolve(explicit ?? env.BACKUP_DIR ?? join(process.cwd(), 'data', 'backups'));
+}
+
+/**
+ * #3970 AC2 — 保存先が実際に NUC 外へ出ているかを実 FS から確認する。
+ *
+ * 判定そのものは `$lib/domain/backup-offsite.ts` (純粋関数) が持つ。ここは
+ * **事実の採取だけ**を行う。device が読めないケースは null で渡し、判定側で
+ * 「問題なし」に丸めずに unknown として扱わせる。
+ */
+async function probeOffsiteReplication(backupDir: string): Promise<OffsiteVerdict> {
+	const env = getEnv();
+	// off-site を期待しているか。
+	//
+	// `HOST_BACKUP_DIR` は **host 側の compose 変数でコンテナからは見えない** (compose が
+	// bind mount 先を決めるのに使うだけで、コンテナ内は常に BACKUP_DIR=/app/backups)。
+	// そのため compose 側で `BACKUP_OFFSITE_EXPECTED=${HOST_BACKUP_DIR:+true}` と導出して
+	// 渡す。運用者が新しく設定する項目は増えない (HOST_BACKUP_DIR を置いた時点で立つ)。
+	const expected = env.BACKUP_OFFSITE_EXPECTED === 'true';
+	if (!expected)
+		return judgeOffsiteReplication({ expected, backupDeviceId: null, liveDataDeviceId: null });
+
+	const liveDataDir = env.PGLITE_DATA_DIR ?? join(process.cwd(), 'data', 'pglite');
+	const deviceOf = async (p: string): Promise<number | null> => {
+		try {
+			return (await stat(p)).dev;
+		} catch {
+			return null;
+		}
+	};
+
+	return judgeOffsiteReplication({
+		expected,
+		backupDeviceId: await deviceOf(backupDir),
+		liveDataDeviceId: await deviceOf(liveDataDir),
+	});
 }
 
 function resolveMigrationsDir(explicit?: string): string {
@@ -198,6 +238,20 @@ export async function runPgliteBackup(
 			consecutiveFailures: 0,
 		});
 
+		// #3970 AC2: **取得の成否とは別に**、控えが実際に NUC 外へ出たかを確認する。
+		// 取得が成功していても、マウントが外れていれば控えは筐体内にしか無い
+		// (Docker が bind 先にローカルの空ディレクトリを作るため書き込みは成功する)。
+		// ここで throw しないのは、取得は本当に成功しており、失敗として扱うと
+		// 「取れている控えを無いものとして扱う」誤解を生むため。呼び出し側が alert する。
+		const offsite = await probeOffsiteReplication(backupDir);
+		const offsiteMessage = describeOffsiteVerdict(offsite);
+		if (offsiteMessage) {
+			logger.error('[pglite-backup] offsite check failed', {
+				service: 'pglite-backup',
+				context: { level: offsite.level, message: offsiteMessage },
+			});
+		}
+
 		const result: PgliteBackupResult = {
 			filename,
 			bytes: bytes.byteLength,
@@ -205,6 +259,8 @@ export async function runPgliteBackup(
 			rotated,
 			generationsKept: existing.length - rotated.length,
 			durationMs,
+			offsite,
+			offsiteMessage,
 		};
 		logger.info('[pglite-backup] completed', {
 			service: 'pglite-backup',

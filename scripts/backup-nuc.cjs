@@ -80,16 +80,68 @@ function readConsecutiveFailures() {
 }
 
 /**
+ * Discord へ embed を 1 通投げる。webhook 未設定なら no-op。
+ *
+ * 通知の失敗でバックアップ処理を落とさない (通知は副次で、取得結果の方が重い)。
+ *
+ * @param {Record<string, unknown>} embed
+ */
+async function postDiscordEmbed(embed) {
+	if (!DISCORD_WEBHOOK) {
+		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
+		return;
+	}
+	try {
+		await fetch(DISCORD_WEBHOOK, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ content: '@everyone', embeds: [embed] }),
+		});
+		console.log('[backup-nuc] Discord alert sent');
+	} catch (err) {
+		console.error(
+			'[backup-nuc] Discord alert failed (non-fatal):',
+			err instanceof Error ? err.message : String(err),
+		);
+	}
+}
+
+/**
+ * off-site 複製の異常を通知する (#3970 AC2)。
+ *
+ * **失敗 alert と分けている**のが要点。取得自体は成功しているため、`notifyFailure` と
+ * 同じ「🚨 バックアップ失敗」を出すと運用者が実在する控えを無いものとして扱う。
+ * 連続失敗カウンタにも載せない (取得は失敗していないので streak を汚さない)。
+ *
+ * @param {string} detail
+ */
+async function notifyOffsiteWarning(detail) {
+	await postDiscordEmbed({
+		title: '⚠️ NUC バックアップの置き場が想定と違います',
+		description:
+			'バックアップの**取得自体は成功しています**が、控えが想定した場所に出ていません。\n' +
+			'この状態が続くと、筐体の喪失で本番データと控えを同時に失います。',
+		color: 16098851,
+		fields: [
+			{ name: 'Detail', value: `\`\`\`${detail.slice(0, 800)}\`\`\`` },
+			{
+				name: '対応',
+				value:
+					'HOST_BACKUP_DIR の指す先がマウントされているか確認 / docs/runbooks/pglite-restore-drill.md §オフサイト複製',
+			},
+		],
+		timestamp: new Date().toISOString(),
+		footer: { text: 'がんばりクエスト backup (#3970)' },
+	});
+}
+
+/**
  * バックアップ失敗を Discord に通知する。webhook 未設定なら no-op。
  * fail が沈黙しないための最小実装 (verify-backup-restore.cjs と同じ形)。
  *
  * @param {string} detail
  */
 async function notifyFailure(detail) {
-	if (!DISCORD_WEBHOOK) {
-		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
-		return;
-	}
 	// #4129 AC4: 連続失敗回数を alert 本文に載せる。1 通ずつ見ると同じに見える alert が、
 	// 回数を持つことで「昨日から続いている」と読めるようになる。
 	const streak = readConsecutiveFailures();
@@ -115,19 +167,7 @@ ${streakNote}`
 		timestamp: new Date().toISOString(),
 		footer: { text: 'がんばりクエスト backup (#3950)' },
 	};
-	try {
-		await fetch(DISCORD_WEBHOOK, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ content: '@everyone', embeds: [embed] }),
-		});
-		console.log('[backup-nuc] Discord alert sent');
-	} catch (err) {
-		console.error(
-			'[backup-nuc] Discord alert failed (non-fatal):',
-			err instanceof Error ? err.message : String(err),
-		);
-	}
+	await postDiscordEmbed(embed);
 }
 
 /** PGlite 経路: アプリの cron エンドポイントを叩き、結果を判定する。 */
@@ -145,7 +185,7 @@ async function runPgliteBackup() {
 	if (!res.ok) {
 		throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`);
 	}
-	/** @type {{ ok?: boolean, filename?: string, bytes?: number, durationMs?: number, generationsKept?: number, verification?: unknown, error?: string }} */
+	/** @type {{ ok?: boolean, filename?: string, bytes?: number, durationMs?: number, generationsKept?: number, verification?: unknown, offsiteMessage?: string | null, error?: string }} */
 	let body;
 	try {
 		body = JSON.parse(text);
@@ -161,6 +201,16 @@ async function runPgliteBackup() {
 			`保持 ${body.generationsKept} 世代)`,
 	);
 	console.log(`[backup-nuc] verification: ${JSON.stringify(body.verification)}`);
+
+	// #3970 AC2: off-site 複製の異常は **取得成功とは別に** 通知する。
+	// throw しないのは、取得は本当に成功しているため — 失敗として扱うと運用者が
+	// 「バックアップが取れていない」と誤読し、実在する控えを無いものとして扱う。
+	// 伝えるべきは「取れたが置き場が想定と違う」。ここを console.log だけにすると
+	// #3950 と同じ「ログには出ていたが誰も見ていなかった」に戻るので alert に乗せる。
+	if (body.offsiteMessage) {
+		console.error(`[backup-nuc] ${body.offsiteMessage}`);
+		await notifyOffsiteWarning(body.offsiteMessage);
+	}
 }
 
 /** SQLite 経路: 従来どおり backup-db.cjs + verify-backup-restore.cjs を直列実行する。 */
