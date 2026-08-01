@@ -301,6 +301,20 @@ gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
 
 **実例**: `#4129` を集約に追加しようとしたが、その時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の env 確認）は運用行為だった。しかも `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡する唯一の tracker であり、auto-close すれば退避を誰も追わないまま削除が走る状態だった。
 
+#### 集約を「書いたつもり」で終わらせない — 下書きの着地確認（#4170 AC2）
+
+同じ `#4129` の一件で、監査は「`Closes #4129` を追加した」と PO に報告したが、**編集したのはローカル下書きだけで実 PR body には存在しなかった**。他のずれ（本文が古い）と違い、`Closes` の欠落は **GitHub の auto-close が発火しない**という副作用を伴い、merge されると main 上の恒久記録になる。
+
+**運用**: 統合 PR body の下書きを **`tmp/pr-bodies/<PR 番号>.md`** に置く。approve 時に `.claude/hooks/gate-approve.mjs` が下書きと実 body の close 宣言を照合し、不一致なら approve を block する（下書きが無い PR は block せず「未実施」を stderr に出す）。手で確認する場合:
+
+```bash
+node scripts/check-pr-body.mjs --pr <N> --verify-closes-landed tmp/pr-bodies/<N>.md
+```
+
+**`grep` で代替しない。** `grep -c "Closes #4129"` は撤回経緯の言及にもヒットする（PR #4152 の実 body で実測 4 件、実際の close 宣言は 0 件）。判定は行頭一致 SSOT（`integration-pr-body.mjs` の `extractClosedIssues`）に委譲されている。
+
+本 gate は **required CI にしない**（本文修正のたびに最重厚レーンを回すと CI 待ちが伸びるため）。本文の state / label 一致・件数照合（#4170 AC1 / AC3 / AC4）は本 gate の対象外で、依然として §3.8 step 7 の目視と adversarial に委ねられている。
+
 ### §3.9 非 critical PR サンプリング監査（complacency 対策、#3862）
 
 `po-decision:required` label（[pr-review SKILL.md](../../.claude/skills/pr-review/SKILL.md) §Step 0 の triage）が付かない非 critical PR は、PO 決裁ブリーフを経由せず QM / 監査チームの判定のみで merge される。この経路を放置すると **PO がプロダクトの実態を知る機会を失う** + **AI レビューへの追認（automation complacency / rubber-stamping）が検知不能になる**ため、抜き取り監査を運用に組み込む。
