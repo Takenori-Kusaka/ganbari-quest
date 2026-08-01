@@ -182,14 +182,12 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `draft-on-ci-fail.yml` | N/A（`workflow_run`: CI 完了時） | — | — | 補助 |
 | `issue-close-gate.yml` | N/A（`issues: [closed]`） | — | — | 補助 |
 | `ac-audit-monthly.yml` | N/A（schedule / dispatch） | — | — | 定期監査 |
-| `audit-run.yml` | N/A（`workflow_dispatch` のみ） | — | — | 監査（手動） |
 | `admin-bypass-evidence.yml` | N/A（schedule hourly / dispatch） | — | — | 定期監査 |
 | `cost-audit.yml` | N/A（schedule monthly / dispatch） | — | — | 定期監査 |
 | `code-quality-weekly.yml` | N/A（schedule weekly / dispatch） | — | — | 定期監査 |
 | `security-scan.yml` | N/A（schedule quarterly / dispatch） | — | — | 定期監査 |
 | `weekly-report.yml` | N/A（schedule weekly / dispatch） | — | — | 定期レポート |
 | `close-leak-report.yml` | N/A（schedule weekly / dispatch、main 反映済 open issue の close漏れ候補を job summary へ report。auto-close なし = `issues: read` のみ） | — | — | 定期レポート（#3459、検出 SSOT は `scripts/audit/close-leak-report.mjs`） |
-| `gcp-terraform.yml` | N/A（`workflow_dispatch` のみ） | — | — | infra（手動） |
 | `zenn-lint.yml` | N/A（push/PR `paths:docs/zenn/**`、lint 専用） | — | なし（docs/zenn のみ、lane 非依存） | 軽量（zenn 限定） |
 
 > **required context 数 = 10**（★ 印）。`gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945` の `required_status_checks` 配列（`ci-gate` / `screenshot-check` / `Verify AC map in PR body` / `Measure LP dimensions and lint forbidden terms` / `PR チェックリスト完了確認` / `必須セクションの存在確認` / `関連 Issue 番号の記入` / `変更タイプの選択` / `顧客価値・目的の記入` / `テスト実行結果の記入`）が真の SSOT。本表は「どの workflow がどの context を生むか」のマッピングであり、ruleset 変更時は本表も同期する（#2948 no-go: ruleset と乖離させない）。
