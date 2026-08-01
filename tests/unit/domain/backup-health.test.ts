@@ -36,6 +36,7 @@ function healthy(overrides: Partial<BackupHealthInput> = {}): BackupHealthInput 
 		lastFailureMessage: null,
 		notificationConfigured: true,
 		rotationPendingCount: 0,
+		rotationBlockedSince: null,
 		...overrides,
 	};
 }
@@ -123,6 +124,7 @@ describe('#4087 バックアップ状態の判定 (evaluateBackupHealth)', () =>
 				notificationConfigured: false,
 				// 実害時はローテーション以前に取得が 0 件だった (guard は無関係)。
 				rotationPendingCount: 0,
+				rotationBlockedSince: null,
 			},
 			NOW,
 		);
@@ -172,5 +174,38 @@ describe('#4162 ローテーション guard 発火中の診断', () => {
 		);
 		expect(v.reason).toBe('rotation-blocked');
 		expect(v.notificationMissing).toBe(true);
+	});
+
+	it('[BH17] 放置し続ければ critical へ昇格する (消えない warn を作らない)', () => {
+		// guard は自己解除しないので、誰も対処しなければ世代は毎晩増え続け、
+		// 最後はディスクを食い潰して**取得そのものが失敗する**。
+		// warn 据え置きにすると「消えない warn」として無視され、#4119 の
+		// 「18 晩誰も気づかなかった」を別の形で再現する。
+		const v = evaluateBackupHealth(
+			healthy({ rotationPendingCount: 3, rotationBlockedSince: hoursAgo(170) }),
+			NOW,
+		);
+		expect(v.level).toBe('critical');
+		expect(v.reason).toBe('rotation-blocked-critical');
+	});
+
+	it('[BH18] 昇格前は warn のまま (対処の猶予を潰さない)', () => {
+		// 取得は成功し続けているので、初日から critical にすると狼少年になる。
+		const v = evaluateBackupHealth(
+			healthy({ rotationPendingCount: 3, rotationBlockedSince: hoursAgo(24) }),
+			NOW,
+		);
+		expect(v.level).toBe('warn');
+		expect(v.reason).toBe('rotation-blocked');
+	});
+
+	it('[BH19] 開始時刻が不明なら昇格させない (時刻不明を critical に丸めない)', () => {
+		// 旧 status file には rotationBlockedSince が無い。欠損を「ずっと放置されている」と
+		// 解釈すると、移行直後に全 NUC が critical になる。
+		const v = evaluateBackupHealth(
+			healthy({ rotationPendingCount: 3, rotationBlockedSince: null }),
+			NOW,
+		);
+		expect(v.level).toBe('warn');
 	});
 });

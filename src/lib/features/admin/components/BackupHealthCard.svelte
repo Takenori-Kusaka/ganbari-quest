@@ -38,10 +38,18 @@ const lastSuccessDisplay = $derived(
 		{SETTINGS_LABELS.backupSectionTitle}
 	</h3>
 	<div data-testid="backup-health" data-level={health.level}>
+		<!--
+			#4162: 見出しを level だけで決めない。ローテーション保留は critical へ昇格しても
+			**毎晩正常に取れており、世代はむしろ増え続けている**。ここで
+			backupCriticalTitle (「バックアップが取れていません」) を出すと、
+			#4162 が直したはずの「診断が真逆」を条件付きで作り直すことになる (QM 指摘、同 class 3 回目)。
+		-->
 		{#if health.level === 'ok'}
 			<Alert variant="success" message={SETTINGS_LABELS.backupOkTitle} />
 		{:else if health.level === 'warn'}
 			<Alert variant="warning" message={SETTINGS_LABELS.backupWarnTitle} />
+		{:else if health.reason === 'rotation-blocked-critical'}
+			<Alert variant="danger" message={SETTINGS_LABELS.backupRotationBlockedCriticalTitle} />
 		{:else}
 			<Alert variant="danger" message={SETTINGS_LABELS.backupCriticalTitle} />
 		{/if}
@@ -75,9 +83,18 @@ const lastSuccessDisplay = $derived(
 					(内部 enum を家族向け UI に露出させない)。#4153 の QM 申し送りが懸念していた
 					「取得は成功しているのに critical」の混在自体が本 Issue で解消済み。
 				-->
-				{health.reason === 'rotation-blocked'
-					? SETTINGS_LABELS.backupRotationBlockedHint
-					: SETTINGS_LABELS.backupActionHint}
+				<!--
+					完全一致で 'rotation-blocked' だけを見ると、昇格後 (rotation-blocked-critical) が
+					汎用の「相談してください」に落ちる。**必要な行動は「古い控えを移して消す」**なので、
+					昇格しても行動の案内は消さない。
+				-->
+				{#if health.reason === 'rotation-blocked'}
+					{SETTINGS_LABELS.backupRotationBlockedHint}
+				{:else if health.reason === 'rotation-blocked-critical'}
+					{SETTINGS_LABELS.backupRotationBlockedCriticalHint}
+				{:else}
+					{SETTINGS_LABELS.backupActionHint}
+				{/if}
 			</p>
 		{/if}
 	</div>

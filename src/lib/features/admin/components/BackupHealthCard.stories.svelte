@@ -75,6 +75,19 @@ const WARN_ROTATION_BLOCKED: BackupHealthVerdict = {
 	notificationMissing: false,
 	rotationPendingCount: 4,
 };
+/**
+ * 7 晩放置して昇格した状態 (#4162)。**取得は成功し続けている**ので
+ * 「バックアップが取れていません」とは出さない。放置の危険だけを足す。
+ */
+const CRITICAL_ROTATION_BLOCKED: BackupHealthVerdict = {
+	level: 'critical',
+	reason: 'rotation-blocked-critical',
+	hoursSinceLastSuccess: 4,
+	consecutiveFailures: 0,
+	lastFailureMessage: null,
+	notificationMissing: false,
+	rotationPendingCount: 9,
+};
 </script>
 
 <Story name="Ok" args={{ health: OK }} />
@@ -82,6 +95,7 @@ const WARN_ROTATION_BLOCKED: BackupHealthVerdict = {
 <Story name="CriticalNeverSucceeded" args={{ health: CRITICAL_REAL_INCIDENT }} />
 <Story name="CriticalStale" args={{ health: CRITICAL_STALE }} />
 <Story name="WarnRotationBlocked" args={{ health: WARN_ROTATION_BLOCKED }} />
+<Story name="CriticalRotationBlocked" args={{ health: CRITICAL_ROTATION_BLOCKED }} />
 
 <Story name="AllStates">
 	<div class="flex flex-col gap-4">
@@ -90,5 +104,6 @@ const WARN_ROTATION_BLOCKED: BackupHealthVerdict = {
 		<BackupHealthCard health={CRITICAL_REAL_INCIDENT} />
 		<BackupHealthCard health={CRITICAL_STALE} />
 		<BackupHealthCard health={WARN_ROTATION_BLOCKED} />
+		<BackupHealthCard health={CRITICAL_ROTATION_BLOCKED} />
 	</div>
 </Story>
