@@ -66,7 +66,7 @@ PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の�
 
 **ロールを跨いだ team を組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから spawn した「QM teammate」は `ganbariquestsupport-lab` にならず、ADR-0022 の作成者 ≠ 承認者が空洞化する。ロール間の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。
 
-### 決裁前の実測義務（2026-08-01、同日 3 回の誤決裁から）
+### 決裁前の実測義務
 
 **PO は最終承認者である。PO の誤りはそのままプロダクトの誤りになる。** 下流に是正者がいない。
 
@@ -74,20 +74,109 @@ PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の�
 
 | 決裁対象 | 叩くもの |
 |---|---|
-| CI が緑か | `gh pr checks <N> --json name,state`（`skipping` を pass と読まない） |
+| CI が緑か | `gh pr checks <N>`。**`skipping` を pass と数えない**（下記 実例 1） |
 | AC が満たされているか | `gh issue view <N> --json body` で `- [ ]` の残数を数える |
 | 実装が入っているか | `gh pr diff <N>` / `git show <sha>` |
 | label が示す状態が正しいか | 上記のいずれか。**label は実測を代替しない** |
 
-**Why**: 2026-08-01 に PO が同じ形の誤決裁を 3 回した。
+**Why**: PO が同じ形の誤決裁を 1 日に 3 回した。3 件とも報告の論理は整っていた。**論理が整っていることと、事実がそうであることは別である。整った報告ほど実測を省きたくなる**ので、整っているときこそ叩く。
 
-1. `#4146` — 「CI 全緑」の報告を実測せず決裁。実際は**自己受け入れテスト 3 本が赤**で、その PR が閉じる Issue の AC は一度も機械検証されていなかった
-2. `#4129` — AC 表を読んで close 承認。実際は **AC 5 件すべて未チェック**、うち 2 件は merge では閉じない運用行為
-3. `#4152` — `Closes #4129` の追加を「論証が正確」と承認。**実物に存在せず**（ローカル下書きのみ）、かつ over-close だった
+#### 実例 1（`#4146`）— 「全緑」の**範囲**を確認せずに決裁した
 
-**3 件に共通するのは、報告の論理が整っているとそのまま採ったこと。** 論理が整っていることと、事実がそうであることは別である。**整った報告ほど実測を省きたくなる**ので、整っているときこそ叩く。
+非 pass 行は実際に 0 件で、「CI 全緑」の報告自体は正しかった。誤りは、**その緑がどこまでを覆っているかを見なかった**ことにある。
 
-### 運用行為の AC は、コードの merge では閉じない（2026-08-01）
+```
+$ gh pr checks 4146 | awk -F'\t' '{print $2}' | sort | uniq -c
+     13 skipping
+     38 pass
+
+$ gh pr checks 4146 | grep -E '^e2e' | awk -F'\t' '{print $1"\t"$2}'
+e2e-merge-reports       skipping
+e2e-demo-lambda         skipping
+e2e-matrix              skipping
+e2e-cognito-dev         skipping
+e2e-test                skipping
+```
+
+**e2e 重量レーンは develop 向け PR では走らない**（`ci.yml` の `if:` が `github.base_ref != 'develop'` を要求、[branch-strategy.md §4](branch-strategy.md)）。#4146 の base は `develop` だった。
+
+```
+$ gh pr view 4146 --json baseRefName --jq .baseRefName
+develop
+```
+
+その結果、**この PR 自身が追加・変更した e2e が 1 度も実行されないまま merge された**。
+
+```
+$ gh pr diff 4146 --name-only | grep -E 'upgrade-flow|billing-portal|billing-graduation'
+tests/e2e/billing-graduation-flow.spec.ts
+tests/e2e/billing-portal.spec.ts
+tests/e2e/upgrade-flow.spec.ts
+
+$ git show --stat --format='%ci %s' 11e7799d7
+2026-08-01 07:30:51 +0900 test: 第19回統合監査で発露した CI fail 4 件を test 側で是正 (製品コード変更なし)
+ tests/e2e/billing-graduation-flow.spec.ts |  7 ++++--
+ tests/e2e/billing-portal.spec.ts          | 19 ++++++++++----
+ tests/e2e/upgrade-flow.spec.ts            | 37 ++++++++++++++++++++++++++-----
+
+$ gh pr view 4146 --json mergedAt --jq .mergedAt
+2026-07-31T09:06:46Z
+```
+
+**赤は merge の約 22 時間後、統合 PR（base=`main`）で e2e が初めて走った時点で顕在化した。** 同じ 3 spec を release branch で是正している。
+
+**規律**: 「全緑」は**検査された範囲**とセットでしか意味を持たない。`skipping` は「走らなかった」であって「通った」ではない（`npm run pre-ready -- --help` の対応表と同じ論点）。**PR が自分で追加したテストが自分の CI で走っているか**を、`gh pr checks` の state 内訳と base branch で確認する。
+
+#### 実例 2（`#4129`）— AC 表を読んで close 承認したが、AC は 1 件も達成されていなかった
+
+```
+$ gh api --paginate repos/Takenori-Kusaka/ganbari-quest/issues/4129/timeline \
+    --jq '.[] | select(.event=="closed" or .event=="reopened") | "\(.event) \(.created_at) \(.actor.login)"'
+closed   2026-07-31T09:35:47Z Takenori-Kusaka
+reopened 2026-07-31T09:35:59Z github-actions[bot]     ← 12 秒後に gate が差し戻し
+closed   2026-08-01T02:02:42Z Takenori-Kusaka         ← 実施記録が貼られた後の正当な close
+```
+
+`issue-close-gate` が 12 秒で reopen したのは、**承認時点で AC 5 件が全て `- [ ]` だった**ため。うち 2 件は merge では閉じない運用行為である。
+
+```
+$ gh issue view 4129 --json body --jq '.body' | grep -E '^- \[.\] AC(1|3):'
+- [x] AC1: **本 release の deploy 前**に NUC の `data/backups` を外部媒体へ退避したことを記録する（この AC のみ deploy 手順として先行実施）
+- [x] AC3: NUC の `.env` に `CRON_SECRET` が配布済みであることを確認し、`.env.example` に `DATA_SOURCE` を含む必要 env を明記する
+```
+
+「退避したことを記録する」「実機の `.env` を確認する」はコードの merge では充足しない。現在この 2 件が `[x]` なのは 2 度目の close の前に実施記録が貼られたためで、**1 度目の承認時点では 5 件とも `[ ]` だった**（それを gate が 12 秒で検出した）。
+
+**規律**: AC 表を「読む」のではなく `- [ ]` の**残数を数える**。gate の reopen は形式の問題ではなく中身の未達を示す。
+
+#### 実例 3（`#4152`）— 「`Closes #4129` を追加した」という主張を、実物を見ずに承認した
+
+```
+$ gh pr view 4152 --json body --jq '.body' | grep -E '^Closes #'
+Closes #4130
+Closes #4139
+Closes #4150
+```
+
+`Closes #4129` は closing keyword の行として**存在しない**（本文中の言及は撤回の経緯説明であって closing keyword ではない）。仮に追加していれば実例 2 の運用行為 AC を auto-close する over-close だった。
+
+**規律**: closing keyword は `grep -E '^Closes #'` で**行として**確認する。本文に番号が出てくることと、closing keyword が効くことは別である。
+
+### PO 自身の決定を GitHub に残す
+
+**PO がセッション上で口頭指示した判断は、GitHub 上に存在しない限りレビュアが検証できない。** 実測義務（上記）は「PO が他者の報告を検証する」側の規律だが、その逆方向 — **PO の判断が他者から検証可能であること** — も同じ理由で必要になる。
+
+- **決定は、指示を出した時点で該当 Issue / PR にコメントとして残す**（後追いで書かない）
+- **PR body / Issue が参照する PO 判断には、必ず GitHub 上の出典 URL を付ける**。出典の無い「PO 承認済み」は主張であって根拠ではない
+- 複数 PR に跨る判断は、親 Issue のコメント 1 件を SSOT にして各 PR からその URL を指す
+
+**出典**: PO 自身の宣言 — https://github.com/Takenori-Kusaka/ganbari-quest/pull/4134#issuecomment-5136960337
+
+> PO の決定は、指示を出した時点で該当 Issue / PR にコメントとして残します。PR body が参照する PO 判断には、必ず GitHub 上の出典 URL を付けてください。出典が無い主張は、レビュアが検証できません。
+
+`#4134` では PR body の「PO 承認条件 3 件」に出典が無く、QM が検証できないと指摘して初めて `#4117` のコメントが SSOT として置かれた。
+
+### 運用行為の AC は、コードの merge では閉じない
 
 AC に「**実機で確認する**」「**外部媒体へ退避したことを記録する**」「**Dashboard の実設定を確認する**」等の**運用行為**が含まれる場合、**関連 PR が全部 merge されても充足しない**。
 
