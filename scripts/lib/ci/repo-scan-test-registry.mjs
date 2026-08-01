@@ -101,6 +101,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src / infra / .github を走査し Stripe webhook 受信口が 1 本かを検査する (#4128)',
 	},
+	'tests/unit/architecture/cron-route-auth-fitness.test.ts': {
+		scope: 'bounded',
+		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
+	},
 	'tests/unit/architecture/user-content-delivery-headers-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra + src を走査して配信ヘッダを検査する',
