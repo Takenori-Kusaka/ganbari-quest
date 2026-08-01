@@ -291,27 +291,4 @@ export async function saveRewardTemplates(
  */
 export const SPECIAL_REWARD_INTERVAL = 5;
 
-/**
- * **#4172 で機能撤去済。常に `null` を返す。**
- *
- * 旧実装は活動記録が `SPECIAL_REWARD_INTERVAL` の倍数に達するたび `${n}かいきろく達成！` を
- * `special_rewards` (= ごほうびショップの棚) へ `grantedBy: null` で INSERT し、同時に 50pt を
- * 発行していた。1 日 3 回記録する家庭なら 3 日に 1 個、1 年で 200 個以上が親の陳列物と同じ棚に積まれ、
- * 親が置いていない商品の交換申請を親が承認するか判断させられる状態になっていた。
- *
- * 撤去根拠 (26-ゲーミフィケーション設計書):
- * - §2.4 唯一の出口はごほうびショップのみ / 独立した報酬を付与しない
- * - §2.1-2 親が褒める仕組み (自動生成行は親が一度も関与しない)
- * - §13 実績システム廃止 (#1782 が `custom_achievement` を止めた同型が special-reward 側に残っていた)
- *
- * 達成の表現は `value-preview-service.ts` の MILESTONES 通知 (報酬を発行しない既存機構) が担う。
- * 本関数は production 呼出元を持たない (活動記録経路 `activity-log-service` / `activity-record-dsql`
- * からは撤去済)。`tests/unit/services/reward-shop-currency.test.ts` [RC3] が「再追加されていないこと」を
- * 固定するための surface として残置している。
- */
-export async function checkAndGrantFixedIntervalReward(
-	_childId: ChildId,
-	_tenantId: string,
-): Promise<SpecialRewardResult | null> {
-	return null;
-}
+
