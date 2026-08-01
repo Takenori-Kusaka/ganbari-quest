@@ -24,7 +24,8 @@ const { Story } = defineMeta({
   />
 </Story>
 
-<Story name="Long Title (折り返し確認)">
+<!-- 日本語の長いごほうび名で折り返しを確認する (DESIGN.md §3 日本語テキスト折り返し) -->
+<Story name="LongTitle">
   <SpecialRewardOverlay
     open={true}
     title={STORYBOOK_LABELS.specialRewardOverlay.titleLong}
@@ -33,7 +34,8 @@ const { Story } = defineMeta({
   />
 </Story>
 
-<Story name="No Icon (🎁 fallback)">
+<!-- icon 未設定時に 🎁 へ fallback することを確認する -->
+<Story name="NoIcon">
   <SpecialRewardOverlay
     open={true}
     title={STORYBOOK_LABELS.specialRewardOverlay.title}
