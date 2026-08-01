@@ -922,11 +922,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{/if}
 
 				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
-				{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
-					<p class="text-xs text-[var(--color-text-muted)]">
-						{CHILD_HOME_LABELS.resultSpecialRewardRemaining(Math.max(data.specialRewardProgress.remaining - 1, 0))}
-					</p>
-				{/if}
 
 				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
 					<!-- Cancel button with countdown -->

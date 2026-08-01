@@ -156,7 +156,6 @@ export async function recordActivityDsql(
 		xpGain,
 		// #1782: カスタム実績機能廃止 — 常に空配列
 		customUnlocked: [],
-		specialReward: optional.specialReward,
 	};
 }
 
@@ -175,7 +174,6 @@ interface OptionalPhaseResult {
 	missionComplete: RecordActivityResult['missionComplete'];
 	siblingChallenges: RecordActivityResult['siblingChallenges'];
 	focusBonus: RecordActivityResult['focusBonus'];
-	specialReward: RecordActivityResult['specialReward'];
 }
 
 /**
@@ -287,20 +285,8 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 		onFailure,
 	);
 
-	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
-	const specialRewardRaw = await runOptionalWrite(
-		'special_reward',
-		async () => {
-			const { checkAndGrantFixedIntervalReward } = await import(
-				'$lib/server/services/special-reward-service'
-			);
-			const reward = await checkAndGrantFixedIntervalReward(childId, tenantId);
-			return reward
-				? { id: reward.id, title: reward.title, points: reward.points, icon: reward.icon }
-				: null;
-		},
-		onFailure,
-	);
+	// #4172: 固定間隔自動ごほうび (棚への自動 INSERT + 50pt 発行) は撤去。sqlite 経路 (activity-log-service)
+	// と同じく optional write 1 件分が減る。達成の表現は MILESTONES 通知が担う (報酬を発行しない)。
 
 	return {
 		comboBonus:
@@ -308,6 +294,5 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 		missionComplete: missionRaw?.missionCompleted ? missionRaw : null,
 		siblingChallenges,
 		focusBonus,
-		specialReward: specialRewardRaw ?? null,
 	};
 }

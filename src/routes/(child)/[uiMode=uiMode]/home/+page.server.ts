@@ -47,10 +47,7 @@ import {
 	sendCheer,
 } from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
-import {
-	getSpecialRewardProgress,
-	getUnshownReward,
-} from '$lib/server/services/special-reward-service';
+import { getUnshownReward } from '$lib/server/services/special-reward-service';
 import {
 	autoRedeemPreviousWeek,
 	getStampCardStatus,
@@ -100,7 +97,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
-			specialRewardProgress: null,
 			mustStatus: null,
 		};
 
@@ -128,7 +124,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			siblingRanking: null,
 			unshownCheers: [],
 			familyStreak: null,
-			specialRewardProgress: null,
 			mustStatus: null,
 		};
 	}
@@ -153,7 +148,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
-		specialRewardProgress,
 	] = await Promise.all([
 		// #2471: per-child API に絞り込み (旧 getActivities(tenantId) は tenant 全 child を
 		// aggregate して同名 activity が child 数分重複 render される bug の根本原因)
@@ -171,7 +165,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChildChallengesWithSiblings(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
-		getSpecialRewardProgress(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -300,7 +293,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
 				}
 			: null,
-		specialRewardProgress,
 		mustStatus,
 	};
 };

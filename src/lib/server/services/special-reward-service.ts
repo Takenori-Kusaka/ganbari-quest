@@ -2,8 +2,7 @@ import * as v from 'valibot';
 import type { ChildId } from '$lib/domain/ids';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
-import { countActiveActivityLogs } from '$lib/server/db/activity-repo';
-import { findChildById, insertPointEntry } from '$lib/server/db/point-repo';
+import { findChildById } from '$lib/server/db/point-repo';
 import { hasPendingByReward } from '$lib/server/db/reward-redemption-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import {
@@ -18,14 +17,18 @@ import { logger } from '$lib/server/logger';
 
 // --- 定数 ---
 
-/** 固定間隔: N回の活動記録ごとに特別報酬を自動付与 */
-export const SPECIAL_REWARD_INTERVAL = 5;
-
-/** 自動付与報酬のポイント */
-const AUTO_REWARD_POINTS = 50;
-
-/** 自動付与報酬のカテゴリ（自動付与を識別するマーカー） */
-const AUTO_REWARD_CATEGORY = 'auto_milestone';
+/**
+ * #4172: 旧「固定間隔自動ごほうび」機構が棚に書き込んでいた行のカテゴリ。
+ *
+ * 活動 5 回ごとに `${n}かいきろく達成！` を `special_rewards` (= ごほうびショップの棚) へ
+ * 自動 INSERT し 50pt も発行していた機構は撤去した。ただし**既存家庭の棚には過去分が残っている**ため、
+ * 物理削除 (履歴破壊) はせず、本カテゴリを陳列対象から除外する形で棚を掃除する。
+ *
+ * 除外は `getChildSpecialRewards` の 1 箇所に集約する (repo は sqlite / dsql / demo の 3 実装が
+ * あり、そこに置くと 3 箇所へ分散するため)。export / backup は `findSpecialRewards` を直接呼ぶので
+ * 過去行を含み、履歴としての保全は維持される。
+ */
+const AUTO_MILESTONE_CATEGORY = 'auto_milestone';
 
 // --- 型定義 ---
 
@@ -40,16 +43,6 @@ export interface SpecialRewardResult {
 	grantedAt: string;
 	// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側 fallback
 	shopCategory: string | null;
-}
-
-/** 特別報酬の進捗情報（UI表示用） */
-export interface SpecialRewardProgress {
-	/** 累計活動記録数 */
-	totalRecords: number;
-	/** 次の報酬までの間隔 */
-	interval: number;
-	/** 次の報酬まであと何回 */
-	remaining: number;
 }
 
 export interface RewardTemplate {
@@ -103,8 +96,15 @@ function toRewardResult(row: {
 
 // --- ごほうび追加 (#2268: grantSpecialReward → addReward リネーム) ---
 // 旧名 `grantSpecialReward` は「P 付与」を示唆していたが、実態は special_rewards INSERT
-// (子供 shop に並べる商品の追加) + points 加算。命名訂正のため `addReward` に rename。
+// (子供 shop に並べる商品の追加)。命名訂正のため `addReward` に rename。
 // 旧名は後方互換 alias で維持（#2268 影響範囲拡散防止、別 Issue で削除予定）。
+//
+// #4172: **棚に商品を置くことと、子供にポイントを渡すことは別の行為**。
+// 本関数は長らく INSERT 直後に同額を `insertPointEntry` していたため、親が「ゲーム 30 分 = 500pt」を
+// 陳列するたび子供の残高が 500pt 増えていた (ごほうびが自分の代金を自分で払う = 「活動して貯める」経済の崩壊)。
+// #2268 は rename のみで挙動を据え置き、marketplace 取込 (`reward-set-import-service`) だけが
+// 「大量の点数を一気に与えるのは設計上望ましくない」と加算を外していた。本 Issue で 3 経路を
+// 「陳列はするが通貨は発行しない」に揃える。回帰は `tests/unit/services/reward-shop-currency.test.ts` が固定する。
 
 export async function addReward(
 	data: GrantInput,
@@ -123,17 +123,6 @@ export async function addReward(
 			icon: data.icon,
 			category: data.category,
 			shopCategory: data.shopCategory ?? null,
-		},
-		tenantId,
-	);
-
-	await insertPointEntry(
-		{
-			childId: data.childId,
-			amount: data.points,
-			type: 'special_reward',
-			description: data.title,
-			referenceId: reward.id,
 		},
 		tenantId,
 	);
@@ -239,10 +228,15 @@ export async function getChildSpecialRewards(
 	const rows = await findSpecialRewards(childId, tenantId);
 
 	let totalPoints = 0;
-	const rewards: SpecialRewardResult[] = rows.map((r) => {
-		totalPoints += r.points;
-		return toRewardResult(r);
-	});
+	const rewards: SpecialRewardResult[] = rows
+		// #4172 AC4: 旧自動生成行 (`${n}かいきろく達成！`) を棚から除外する。物理削除はしない
+		// (履歴を壊すため)。本 filter が陳列除外の単一地点で、子供ショップ / 親の管理画面 /
+		// 交換申請一覧のいずれも本関数を経由するため 3 backend 共通で同一挙動になる。
+		.filter((r) => r.category !== AUTO_MILESTONE_CATEGORY)
+		.map((r) => {
+			totalPoints += r.points;
+			return toRewardResult(r);
+		});
 
 	return { rewards, totalPoints };
 }
@@ -289,70 +283,35 @@ export async function saveRewardTemplates(
 	await setSetting(TEMPLATES_KEY, JSON.stringify(templates), tenantId);
 }
 
-// --- 固定間隔報酬（予告型） ---
+// --- 固定間隔自動ごほうび (#4172 で撤去) ---
 
 /**
- * 活動記録後に呼ばれ、累計記録数がINTERVALの倍数に到達していたら自動付与する。
- * 変動比率（スロットマシン的ランダム）ではなく、子供が「あとN回」と予測できる固定間隔。
+ * 旧「固定間隔自動ごほうび」機構の間隔 (活動 N 回ごと)。**機構は #4172 で撤去済**。
+ * 契約テストが「N 回記録しても棚が増えない」を組み立てるための発火条件として参照する。
+ */
+export const SPECIAL_REWARD_INTERVAL = 5;
+
+/**
+ * **#4172 で機能撤去済。常に `null` を返す。**
+ *
+ * 旧実装は活動記録が `SPECIAL_REWARD_INTERVAL` の倍数に達するたび `${n}かいきろく達成！` を
+ * `special_rewards` (= ごほうびショップの棚) へ `grantedBy: null` で INSERT し、同時に 50pt を
+ * 発行していた。1 日 3 回記録する家庭なら 3 日に 1 個、1 年で 200 個以上が親の陳列物と同じ棚に積まれ、
+ * 親が置いていない商品の交換申請を親が承認するか判断させられる状態になっていた。
+ *
+ * 撤去根拠 (26-ゲーミフィケーション設計書):
+ * - §2.4 唯一の出口はごほうびショップのみ / 独立した報酬を付与しない
+ * - §2.1-2 親が褒める仕組み (自動生成行は親が一度も関与しない)
+ * - §13 実績システム廃止 (#1782 が `custom_achievement` を止めた同型が special-reward 側に残っていた)
+ *
+ * 達成の表現は `value-preview-service.ts` の MILESTONES 通知 (報酬を発行しない既存機構) が担う。
+ * 本関数は production 呼出元を持たない (活動記録経路 `activity-log-service` / `activity-record-dsql`
+ * からは撤去済)。`tests/unit/services/reward-shop-currency.test.ts` [RC3] が「再追加されていないこと」を
+ * 固定するための surface として残置している。
  */
 export async function checkAndGrantFixedIntervalReward(
-	childId: ChildId,
-	tenantId: string,
+	_childId: ChildId,
+	_tenantId: string,
 ): Promise<SpecialRewardResult | null> {
-	const totalRecords = await countActiveActivityLogs(childId, tenantId);
-
-	// INTERVAL の倍数でなければ報酬なし
-	if (totalRecords === 0 || totalRecords % SPECIAL_REWARD_INTERVAL !== 0) {
-		return null;
-	}
-
-	const child = await findChildById(childId, tenantId);
-	if (!child) return null;
-
-	const title = `${totalRecords}かいきろく達成！`;
-
-	const reward = await insertSpecialReward(
-		{
-			childId,
-			grantedBy: null,
-			title,
-			description: `${totalRecords}回の活動記録達成のごほうび`,
-			points: AUTO_REWARD_POINTS,
-			icon: '🎁',
-			category: AUTO_REWARD_CATEGORY,
-		},
-		tenantId,
-	);
-
-	await insertPointEntry(
-		{
-			childId,
-			amount: AUTO_REWARD_POINTS,
-			type: 'special_reward',
-			description: title,
-			referenceId: reward.id,
-		},
-		tenantId,
-	);
-
-	return toRewardResult(reward);
-}
-
-/**
- * 子供の特別報酬進捗を取得する（UI表示用: 「あとN回でとくべつごほうび！」）
- */
-export async function getSpecialRewardProgress(
-	childId: ChildId,
-	tenantId: string,
-): Promise<SpecialRewardProgress> {
-	const totalRecords = await countActiveActivityLogs(childId, tenantId);
-	const remaining = SPECIAL_REWARD_INTERVAL - (totalRecords % SPECIAL_REWARD_INTERVAL);
-
-	return {
-		totalRecords,
-		interval: SPECIAL_REWARD_INTERVAL,
-		// ちょうど倍数の場合は remaining = INTERVAL ではなく 0 を返す
-		// ただし recordActivity → checkAndGrant の後に呼ばれるため、通常は 1-4 が返る
-		remaining: remaining === SPECIAL_REWARD_INTERVAL ? 0 : remaining,
-	};
+	return null;
 }

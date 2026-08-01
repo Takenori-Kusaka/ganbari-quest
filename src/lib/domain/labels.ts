@@ -3758,7 +3758,6 @@ export const CHILD_HOME_LABELS = {
 	resultMissionComplete: '🎯 ミッションたっせい！',
 	resultMissionAllClear: '🎉 ぜんぶクリア！',
 	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
-	resultSpecialRewardRemaining: (n: number | string) => `🎁 あと${n}かいで とくべつごほうび！`,
 	resultCancelButton: (s: number | string) => `とりけし (${s}s)`,
 	resultConfirmButton: 'やったね！',
 	crossComboBang: '！',
@@ -7216,7 +7215,9 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- SpecialRewardOverlay ----
 	specialRewardTitle: '🎁 とくべつごほうび！',
-	specialRewardPoints: (points: number) => `+${points} ポイント！`,
+	// #4172: 陳列は通貨を発行しないため「+N ポイント」(獲得) ではなく必要ポイント (価格) を示す。
+	// 06-UI設計書 §4.16 の props 定義 (points = 必要ポイント数) と CHILD_SHOP_LABELS.exchangeConfirmPointsLabel に整合。
+	specialRewardPoints: (points: number) => `ひつようなポイント ${points}`,
 	specialRewardConfirmBtn: 'やったー！',
 
 	// ---- StampCard ----

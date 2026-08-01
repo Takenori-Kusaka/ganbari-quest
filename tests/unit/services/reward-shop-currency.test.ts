@@ -21,8 +21,8 @@
 //
 // 本 file はその欠落を埋める。ADR-0061 failing-test-first: 修正前に落ちることを確認してから直す。
 
-import { asChildId } from '$lib/domain/ids';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asChildId } from '$lib/domain/ids';
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertSuccess } from '../helpers/assert-result';
 import {
@@ -118,7 +118,13 @@ describe('#4172 ショップへの陳列は通貨を発行しない', () => {
 	it('[RC2] 棚には並ぶ (陳列そのものは壊していない)', async () => {
 		assertSuccess(
 			await addReward(
-				{ childId: CHILD, grantedBy: 'parent-1', title: 'ゲーム 30 分', points: 500, category: 'other' },
+				{
+					childId: CHILD,
+					grantedBy: 'parent-1',
+					title: 'ゲーム 30 分',
+					points: 500,
+					category: 'other',
+				},
 				TENANT,
 			),
 		);
