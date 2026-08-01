@@ -47,6 +47,7 @@ import {
 	sendCheer,
 } from '$lib/server/services/sibling-cheer-service';
 import { getWeeklyRanking, isRankingEnabled } from '$lib/server/services/sibling-ranking-service';
+import type { SpecialRewardResult } from '$lib/server/services/special-reward-service';
 import {
 	autoRedeemPreviousWeek,
 	getStampCardStatus,
@@ -154,9 +155,13 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
 		// #4172: 陳列は通貨を発行しなくなったため、overlay の `+N ポイント！` は嘘になる。
-		// AC11 決裁「親のみ。子への演出は出さない」に従い、子側の演出は出さない。
-		// 経路 (getUnshownReward / markRewardShown) は残す — 演出の再開はここを戻すだけで済む。
-		Promise.resolve(null),
+		// AC11' 決裁「親のみ。子への演出は出さない」に従い、子側の演出は出さない。
+		// 経路 (getUnshownReward / markRewardShown) と受け手側 (latestReward を読む overlay /
+		// handleRewardClose) は残す — 演出を再開する判断が出たら、この 1 行を
+		// `getUnshownReward(child.id, tenantId)` に戻すだけで済む。
+		// 型は戻したときと同じ (SpecialRewardResult | null) に保つ。null 固定にすると受け手側が
+		// `never` に狭まり、再開時に型エラーとして掘り起こす羽目になる。
+		Promise.resolve<SpecialRewardResult | null>(null),
 		getUnshownMessage(child.id, tenantId),
 		getChecklistsForChild(child.id, todayDateJST(), tenantId),
 		getTodayMissions(child.id, tenantId),
