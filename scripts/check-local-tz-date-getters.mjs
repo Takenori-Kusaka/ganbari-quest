@@ -623,7 +623,7 @@ function main() {
 		);
 		for (const p of ambiguousProblems) console.error(`  ${p.member}: ${p.problem}`);
 		console.error(
-			'\n  \u66d6\u6627\u30e1\u30f3\u30d0\u306e\u5ba3\u8a00\u306f\u691c\u51fa\u3092\u5f31\u3081\u307e\u3059\u3002\u7406\u7531 + \u88dc\u511f\u691c\u51fa (DATE_RECEIVER_AMBIGUOUS_CALL) \u306e\u4e21\u65b9\u304c\u5fc5\u8981\u3067\u3059\u3002',
+			'\n  \u66d6\u6627\u30e1\u30f3\u30d0\u30fc\u306e\u5ba3\u8a00\u306f\u691c\u51fa\u3092\u5f31\u3081\u307e\u3059\u3002\u7406\u7531 + \u88dc\u511f\u691c\u51fa (DATE_RECEIVER_AMBIGUOUS_CALL) \u306e\u4e21\u65b9\u304c\u5fc5\u8981\u3067\u3059\u3002',
 		);
 		process.exit(1);
 	}
