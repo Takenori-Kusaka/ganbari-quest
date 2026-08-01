@@ -15,6 +15,10 @@
 //   S1 (滞留): Stripe の Event が `pending_webhooks > 0` のまま `STALE_MINUTES` 以上経過している。
 //      `pending_webhooks` は「まだ 2xx を返していない配信先の数」で、incident 当時これが唯一の
 //      決定的な証拠だった (`pending_webhooks=1` / `webhooks_delivered_at=null`)。
+//   S3 (台帳欠落、#4128): Stripe 側が **配信成功**として扱っている (`pending_webhooks = 0`) のに、
+//      その event が `stripe_webhook_events` に無い。「受け取って 200 を返したのに処理していない」
+//      ことの唯一の外形的証拠で、S1 が pending>0 を条件にする以上ここは原理的に見えない。
+//      受信口が 2 本あった時代の shadow mode (署名検証だけして 200) が典型例。
 //   S2 (未反映): `checkout.session.completed` が `STALE_MINUTES` 以上前に発生しているのに、
 //      その tenant に subscription が結び付いていない (= 支払いが起きたのにプランが反映されていない)。
 //      S1 が Stripe 側の事実であるのに対し、S2 は**顧客影響そのもの**を見る。
@@ -48,7 +52,8 @@
 // 検知条件そのものの変更 (false positive の再評価が必要) になるため本 PR の scope 外とし、PO 判断に
 // 委ねる。runbook 側の記述は `docs/runbooks/silent-failure-alert-response.md` §2.2 が SSOT。
 //
-// 1 回の実行で Discord に送るのは **最大 1 通**。findings は 1 通にまとめる (通知の重複を作らない)。
+// Discord には **signal ごとに最大 1 通**。件数がいくつあっても 1 通にまとめる (event 数だけ
+// 鳴らさない)。S1∧S2 (未達) と S3 (受け取って捨てた) は原因も一次対応も別物なので kind を分ける。
 //
 // 設計 SSOT: docs/design/13-AWSサーバレスアーキテクチャ設計書.md §3.3 Cron ジョブ一覧
 //            docs/runbooks/silent-failure-alert-response.md (一次対応)
@@ -105,6 +110,12 @@ export interface UnreflectedCheckoutSummary {
 	reason: 'tenant-not-found' | 'no-subscription' | 'subscription-mismatch' | 'tenant-id-missing';
 }
 
+export interface LedgerGapSummary {
+	eventId: string;
+	eventType: string;
+	createdIso: string;
+}
+
 export interface WebhookDeliveryCheckResult {
 	/** Stripe が無効な環境 (staging / NUC / local) では検査せず終了する */
 	skipped: 'stripe-disabled' | null;
@@ -114,6 +125,8 @@ export interface WebhookDeliveryCheckResult {
 	staleEvents: StaleEventSummary[];
 	/** S2: checkout 完了なのに plan が反映されていない event */
 	unreflectedCheckouts: UnreflectedCheckoutSummary[];
+	/** S3: Stripe 側は配信成功なのに台帳に記録が無い event (#4128) */
+	ledgerMissing: LedgerGapSummary[];
 	/** MAX_EVENTS_PER_RUN に達したか (取りこぼしの可能性) */
 	truncated: boolean;
 	/** Discord alert を送ったか */
@@ -193,6 +206,7 @@ export async function checkWebhookDelivery(
 		checked: 0,
 		staleEvents: [],
 		unreflectedCheckouts: [],
+		ledgerMissing: [],
 		truncated: false,
 		alerted: false,
 	};
@@ -219,6 +233,8 @@ export async function checkWebhookDelivery(
 
 	const staleEvents: StaleEventSummary[] = [];
 	const unreflectedCheckouts: UnreflectedCheckoutSummary[] = [];
+	const ledgerMissing: LedgerGapSummary[] = [];
+	const webhookEvents = getRepos().webhookEvent;
 
 	for (const event of events) {
 		if (event.pending_webhooks > 0) {
@@ -227,6 +243,18 @@ export async function checkWebhookDelivery(
 				eventType: event.type,
 				createdIso: toIso(event.created),
 				pendingWebhooks: event.pending_webhooks,
+			});
+		} else if (!(await webhookEvents.findByEventId(event.id))) {
+			// S3: Stripe は 2xx を受け取っている (= 配信成功) のに、台帳に記録が無い (#4128)。
+			// 「受け取ったのに処理していない」ことの唯一の外形的証拠で、S1 (pending>0) を
+			// 条件にする限り原理的に見えない領域を埋める。
+			//
+			// pending>0 の event を除外するのは、未到達 / handler 失敗 (500) では台帳に無いのが
+			// 正常だから (それは S1 の担当)。除外しないと再送中の event を毎時鳴らし続ける。
+			ledgerMissing.push({
+				eventId: event.id,
+				eventType: event.type,
+				createdIso: toIso(event.created),
 			});
 		}
 		if (event.type === CHECKOUT_COMPLETED) {
@@ -240,19 +268,47 @@ export async function checkWebhookDelivery(
 		checked: events.length,
 		staleEvents,
 		unreflectedCheckouts,
+		ledgerMissing,
 		truncated: events.length >= MAX_EVENTS_PER_RUN,
 	};
 
-	if (!shouldAlert(result)) {
+	const undelivered = shouldAlert(result);
+	if (!undelivered && ledgerMissing.length === 0) {
 		logger.info('[stripe-webhook-delivery-check] 未達の兆候はありません', {
 			service: 'stripe',
 			context: {
 				checked: result.checked,
 				staleCount: staleEvents.length,
 				unreflectedCount: unreflectedCheckouts.length,
+				ledgerMissingCount: ledgerMissing.length,
 			},
 		});
 		return result;
+	}
+
+	if (ledgerMissing.length > 0) {
+		// S1 (未達) と S3 (受け取って捨てた) は原因も対処も別物なので別 kind で鳴らす。
+		// ただし件数がいくつでも **signal ごとに 1 通** にまとめる (event 数だけ鳴らさない)。
+		// 通知には event id / type / 件数のみを載せる (PII は載せない、#2738 整合)。
+		await notifyStripeAlertAsync({
+			kind: 'stripe-webhook-ledger-gap',
+			message:
+				`Stripe は配信成功として扱っているのに、こちらの台帳に記録が無い event があります ` +
+				`(${ledgerMissing.length} 件)。受信口が event を捨てている可能性があります`,
+			errorSummary: 'stripe-webhook-ledger-gap',
+			tags: {
+				missingCount: ledgerMissing.length,
+				checked: result.checked,
+				truncated: result.truncated,
+				sampleEventId: ledgerMissing[0]?.eventId,
+				sampleEventType: ledgerMissing[0]?.eventType,
+				sampleCreatedIso: ledgerMissing[0]?.createdIso,
+			},
+		});
+	}
+
+	if (!undelivered) {
+		return { ...result, alerted: true };
 	}
 
 	// `stripe.events.list` は created の**降順** (新しい順) で返すため `staleEvents[0]` は最新。

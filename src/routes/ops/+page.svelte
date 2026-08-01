@@ -10,6 +10,7 @@ const activeRate = $derived((kpi.activeRate * 100).toFixed(1));
 const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
 const adminBypass = $derived(data.adminBypass);
+const planDrift = $derived(data.planDrift);
 </script>
 
 <svelte:head>
@@ -191,6 +192,70 @@ const adminBypass = $derived(data.adminBypass);
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
 			{OPS_LABELS.bypassFetchedAt(new Date(adminBypass.fetchedAt).toLocaleString('ja-JP'))} <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">{OPS_LABELS.bypassAdrLink}</a>
 		</div>
+	</Card>
+
+	<!-- plan 逆引き不能の滞留 (#4128) -->
+	<Card padding="lg">
+		<h2 class="text-base font-semibold m-0 mb-2 text-[var(--color-text-primary)]">
+			{OPS_LABELS.planDriftTitle}
+			{#if planDrift.skipped}
+				<Badge variant="neutral" size="sm">{OPS_LABELS.stripeDisabled}</Badge>
+			{:else if planDrift.error}
+				<Badge variant="neutral" size="sm">{OPS_LABELS.bypassUnavailable}</Badge>
+			{:else if planDrift.unresolved.length > 0}
+				<Badge variant="warning" size="sm">{OPS_LABELS.planDriftFound(planDrift.unresolved.length)}</Badge>
+			{:else}
+				<Badge variant="success" size="sm">{OPS_LABELS.bypassNormal}</Badge>
+			{/if}
+		</h2>
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OPS_LABELS.planDriftDesc}</p>
+		{#if planDrift.skipped}
+			<p class="text-sm text-[var(--color-text-muted)]">{OPS_LABELS.planDriftDisabled}</p>
+		{:else if planDrift.error}
+			<p class="text-sm text-[var(--color-feedback-warning-text)]" role="status">
+				{OPS_LABELS.planDriftError(planDrift.error)}
+			</p>
+		{:else if planDrift.unresolved.length === 0}
+			<p class="text-sm text-[var(--color-text-muted)]">{OPS_LABELS.planDriftHealthy(planDrift.checked)}</p>
+		{:else}
+			<table class="ops-table" data-testid="ops-plan-drift-table">
+				<thead>
+					<tr>
+						<th>{OPS_LABELS.planDriftColTenant}</th>
+						<th>{OPS_LABELS.planDriftColSubscription}</th>
+						<th>{OPS_LABELS.planDriftColStatus}</th>
+						<th>{OPS_LABELS.planDriftColPrice}</th>
+						<th>{OPS_LABELS.planDriftColCurrentPlan}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each planDrift.unresolved as row (row.subscriptionId)}
+						<tr>
+							<td>{row.tenantId ?? OPS_LABELS.planDriftUnknownTenant}</td>
+							<td>{row.subscriptionId}</td>
+							<td>
+								{row.subscriptionStatus}
+								{#if row.itemCount > 1}
+									<Badge variant="warning" size="sm">{OPS_LABELS.planDriftMultiItem(row.itemCount)}</Badge>
+								{/if}
+							</td>
+							<td>
+								{row.priceId ?? OPS_LABELS.planDriftUnknownValue}
+								{#if row.lookupKey}
+									<span class="text-[var(--color-text-muted)]"> / {row.lookupKey}</span>
+								{/if}
+							</td>
+							<td>{row.currentPlan ?? OPS_LABELS.planDriftUnknownValue}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+			{#if planDrift.truncated}
+				<p class="text-sm text-[var(--color-text-muted)] mt-2">
+					{OPS_LABELS.planDriftTruncated(planDrift.checked)}
+				</p>
+			{/if}
+		{/if}
 	</Card>
 
 	<!-- ステータス -->
