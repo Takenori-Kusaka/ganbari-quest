@@ -2,7 +2,13 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/report-service.ts
 // 月次レポート・成長分析のサービス層
 
-import { monthEndOfKey, toJSTDateString } from '$lib/domain/date-utils';
+import {
+	addDaysJST,
+	monthEndOfKey,
+	prevDateJST,
+	todayDateJST,
+	toJSTDateString,
+} from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import type { ReportDailySummary } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
@@ -87,14 +93,14 @@ async function aggregateChildDaily(
 async function calculateStreak(childId: ChildId, date: string, tenantId: string): Promise<number> {
 	const repos = getRepos();
 	let streak = 0;
-	const d = new Date(date);
+	// 日付は JST 暦日の文字列で回す (Date + ローカル setDate は runtime TZ で結果が変わる、#4127)
+	let checkDate = date;
 
 	for (let i = 0; i < 365; i++) {
-		const checkDate = formatDate(d);
 		const logs = await repos.activity.findTodayLogsWithCategory(childId, checkDate, tenantId);
 		if (logs.length === 0) break;
 		streak++;
-		d.setDate(d.getDate() - 1);
+		checkDate = prevDateJST(checkDate);
 	}
 	return streak;
 }
@@ -281,16 +287,12 @@ export async function getSimpleMonthSummary(
 
 	// 集計テーブルがなければリアルタイム計算
 	let totalActivities = 0;
-	const d = new Date(startDate);
-	const end = new Date(endDate);
-	const today = new Date();
-	const limit = end < today ? end : today;
+	const today = todayDateJST();
+	const limit = endDate < today ? endDate : today;
 
-	while (d <= limit) {
-		const dateStr = formatDate(d);
+	for (let dateStr = startDate; dateStr <= limit; dateStr = addDaysJST(dateStr, 1)) {
 		const logs = await repos.activity.findTodayLogsWithCategory(childId, dateStr, tenantId);
 		totalActivities += logs.length;
-		d.setDate(d.getDate() + 1);
 	}
 
 	const statuses = await repos.status.findStatuses(childId, tenantId);
@@ -400,13 +402,10 @@ export async function computeDetailedMonthlyReport(
 	let totalDays = 0;
 	const categoryMap: Record<string, number> = {};
 
-	const d = new Date(startDate);
-	const end = new Date(endDate);
-	const today = new Date();
-	const limit = end < today ? end : today;
+	const today = todayDateJST();
+	const limit = endDate < today ? endDate : today;
 
-	while (d <= limit) {
-		const dateStr = formatDate(d);
+	for (let dateStr = startDate; dateStr <= limit; dateStr = addDaysJST(dateStr, 1)) {
 		const logs = await repos.activity.findTodayLogsWithCategory(childId, dateStr, tenantId);
 		totalDays++;
 		if (logs.length > 0) {
@@ -417,7 +416,6 @@ export async function computeDetailedMonthlyReport(
 				categoryMap[catId] = (categoryMap[catId] ?? 0) + 1;
 			}
 		}
-		d.setDate(d.getDate() + 1);
 	}
 
 	const statuses = await repos.status.findStatuses(childId, tenantId);

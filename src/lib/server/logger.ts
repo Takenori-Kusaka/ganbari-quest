@@ -2,6 +2,7 @@
 // Structured server-side logger with file output for production
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { todayDateJST } from '$lib/domain/date-utils';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'critical';
 
@@ -48,7 +49,8 @@ function ensureLogDir() {
 }
 
 function getLogFileName(): string {
-	const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+	// ログのローテーション単位も JST の 1 日に揃える (#4127)
+	const date = todayDateJST();
 	return join(LOG_DIR, `app-${date}.log`);
 }
 

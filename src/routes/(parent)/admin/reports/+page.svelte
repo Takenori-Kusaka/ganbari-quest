@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { goto } from '$app/navigation';
+import { shiftMonthKey } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import { APP_LABELS, PAGE_TITLES, REPORTS_LABELS } from '$lib/domain/labels';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
@@ -43,11 +44,7 @@ function formatMonth(ym: string): string {
 }
 
 function navigateMonth(offset: number) {
-	const parts = data.selectedMonth.split('-').map(Number);
-	const y = parts[0] ?? 2026;
-	const m = parts[1] ?? 1;
-	const d = new Date(y, m - 1 + offset, 1);
-	const newMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+	const newMonth = shiftMonthKey(data.selectedMonth, offset);
 	goto(`?month=${newMonth}`, { replaceState: true });
 }
 

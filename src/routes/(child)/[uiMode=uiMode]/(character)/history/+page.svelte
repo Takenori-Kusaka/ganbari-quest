@@ -1,5 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
+import { jstDayOfWeek, toJSTDateString } from '$lib/domain/date-utils';
 import { asCategoryId } from '$lib/domain/ids';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
@@ -66,15 +67,16 @@ const logsByDate = $derived(() => {
 });
 
 function formatDate(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	const month = d.getMonth() + 1;
-	const day = d.getDate();
-	const weekday = t.weekdays[d.getDay()];
+	// 暦要素は文字列 / JST SSOT から取る (ローカル getter は runtime TZ 依存、#4127)
+	const [, m, dd] = dateStr.split('-').map(Number);
+	const month = m ?? 0;
+	const day = dd ?? 0;
+	const weekday = t.weekdays[jstDayOfWeek(new Date(`${dateStr}T00:00:00Z`))];
 	return `${month}${t.historyCountUnit === 'かい' ? 'がつ' : '月'}${day}${t.historyCountUnit === 'かい' ? 'にち' : '日'}（${weekday}）`;
 }
 
 function formatUnixDate(unix: number): string {
-	return formatDate(new Date(unix).toISOString().slice(0, 10));
+	return formatDate(toJSTDateString(new Date(unix)));
 }
 
 function purchaseStatusLabel(status: string): string {

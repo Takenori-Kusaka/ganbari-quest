@@ -2,6 +2,7 @@ import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/recommendation-service.ts
 // #0264 G2: おすすめ活動の選定ロジック（カテゴリ分散・難易度・日替わり）
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { getSetting } from '$lib/server/db/settings-repo';
 
 /**
@@ -38,7 +39,7 @@ export async function markFocusModeStart(childId: ChildId, tenantId: string): Pr
 	const key = `focus_mode_start_${childId}`;
 	const existing = await getSetting(key, tenantId);
 	if (!existing) {
-		const today = new Date().toISOString().split('T')[0] ?? '';
+		const today = todayDateJST();
 		await setSetting(key, today, tenantId);
 	}
 }

@@ -38,7 +38,7 @@ function barWidthPct(count: number): number {
 
 <div class="flex flex-col gap-8">
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_ANALYTICS_LABELS.fetchedAt(new Date(a.fetchedAt).toLocaleString('ja-JP'))}
+		{OPS_ANALYTICS_LABELS.fetchedAt(new Date(a.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
 	</div>
 
 	<!-- Activation Funnel (#2285 EPIC #2283: /admin/analytics 撤去で消失する機能を ops 側へ移動) -->
@@ -74,7 +74,7 @@ function barWidthPct(count: number): number {
 									] ?? step.eventName}
 								</td>
 								<td class="ops-num">
-									{step.count.toLocaleString('ja-JP')}{OPS_ANALYTICS_LABELS.activationFunnelHouseholdSuffix}
+									{step.count.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}{OPS_ANALYTICS_LABELS.activationFunnelHouseholdSuffix}
 								</td>
 								<td class="ops-num">
 									{#if step.step === 1}
@@ -315,7 +315,7 @@ function barWidthPct(count: number): number {
 					{#each a.cancellationReasons.freeTextSamples as sample (sample.id)}
 						<li class="ops-freetext-item">
 							<div class="ops-freetext-meta">
-								<span>{OPS_CANCELLATION_LABELS.freeTextDate(new Date(sample.createdAt).toLocaleDateString('ja-JP'))}</span>
+								<span>{OPS_CANCELLATION_LABELS.freeTextDate(new Date(sample.createdAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }))}</span>
 								<span>{OPS_CANCELLATION_LABELS.freeTextCategory(getCancellationCategoryLabel(sample.category as CancellationCategory))}</span>
 							</div>
 							<p class="ops-freetext-body">{sample.freeText}</p>

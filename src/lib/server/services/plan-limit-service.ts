@@ -5,7 +5,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
-import { todayDateJST } from '$lib/domain/date-utils';
+import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
@@ -221,9 +221,7 @@ export async function hasArchivedData(
 	if (logs.length > 0) return true;
 
 	// 1日前のデータも確認
-	const prevDay = new Date(cutoff);
-	prevDay.setDate(prevDay.getDate() - 1);
-	const prevStr = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, '0')}-${String(prevDay.getDate()).padStart(2, '0')}`;
+	const prevStr = prevDateJST(cutoff);
 	const oldLogs = await repos.activity.findTodayLogsWithCategory(childId, prevStr, tenantId);
 	return oldLogs.length > 0;
 }

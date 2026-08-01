@@ -24,8 +24,9 @@ interface Props {
 let { child, isSelected, href, dataTutorial, formatBalance }: Props = $props();
 
 function formatBirthday(dateStr: string): string {
-	const d = new Date(dateStr);
-	return `${d.getMonth() + 1}月${d.getDate()}日`;
+	// YYYY-MM-DD をそのまま整形する (Date 経由の暦要素導出は runtime TZ 依存、#4127)
+	const [, m, d] = dateStr.split('-').map(Number);
+	return `${m ?? 0}月${d ?? 0}日`;
 }
 </script>
 

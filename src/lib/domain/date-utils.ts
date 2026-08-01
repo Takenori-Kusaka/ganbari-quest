@@ -101,6 +101,17 @@ export function jstHour(date: Date = new Date()): number {
 }
 
 /**
+ * JST 暦日 (YYYY-MM-DD) の 00:00 に対応する **UTC の瞬間**を ISO 文字列で返す (#4127)。
+ *
+ * DB に UTC ISO で保存した timestamp を「JST の 1 日」で絞るときの境界値。
+ * `startedAt >= '2026-08-01'` のような UTC 暦日前方一致は、JST 00:00〜09:00 の利用を
+ * 前日側に落としてしまう (保護者画面の「今日の利用時間」が 0 分のままになる)。
+ */
+export function jstDayStartUtcIso(dateStr: string): string {
+	return new Date(new Date(`${dateStr}T00:00:00Z`).getTime() - JST_OFFSET_MS).toISOString();
+}
+
+/**
  * JST 基準の年 / 月 (月は 1-12) を返す。
  * `now.getFullYear()` / `now.getMonth() + 1` の置換先。
  */

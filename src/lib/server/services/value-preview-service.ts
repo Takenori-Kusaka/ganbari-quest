@@ -13,6 +13,7 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
  * - Anti-engagement (ADR-0012): 滞在時間延伸 UI ではなく、純粋に進捗の可視化
  */
 
+import { todayDateJST } from '$lib/domain/date-utils';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 
@@ -139,7 +140,7 @@ function computeStreaks(recordedDates: string[]): { current: number; longest: nu
 	const uniqueDates = Array.from(new Set(recordedDates.map(toDateOnly))).sort();
 	if (uniqueDates.length === 0) return { current: 0, longest: 0 };
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return {
 		longest: computeLongestStreak(uniqueDates),
 		current: computeCurrentStreak(uniqueDates, today),
@@ -165,7 +166,7 @@ export async function getTenantValuePreview(tenantId: string): Promise<TenantVal
 		};
 	}
 
-	const todayDate = new Date().toISOString().slice(0, 10);
+	const todayDate = todayDateJST();
 
 	const childPreviews: ChildValuePreview[] = await Promise.all(
 		children.map(async (child) => {

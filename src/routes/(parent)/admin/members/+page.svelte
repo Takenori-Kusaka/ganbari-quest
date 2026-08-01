@@ -306,7 +306,7 @@ const roleLabel = (role: string) => {
 									{roleLabel(member.role)}
 								</span>
 								<span class="text-xs text-[var(--color-text-tertiary)]">
-									{new Date(member.joinedAt).toLocaleDateString('ja-JP')}
+									{new Date(member.joinedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 								</span>
 							</div>
 						</div>
@@ -472,7 +472,7 @@ const roleLabel = (role: string) => {
 								{roleLabel(invite.role)}
 							</span>
 							<span class="ml-2 text-xs text-[var(--color-text-tertiary)]">
-								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
+								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 							</span>
 							<!-- #3555 ①: 宛先 email 束縛付き招待の宛先を表示 (タイプミスに owner が気づき
 							     取消し → 再発行できる修正導線) -->
@@ -612,7 +612,7 @@ const roleLabel = (role: string) => {
 									{/if}
 									{#if vt.expiresAt}
 										<span class="text-xs text-[var(--color-text-tertiary)]">
-											{MEMBERS_LABELS.viewerExpiresPrefix}{new Date(vt.expiresAt).toLocaleDateString('ja-JP')}
+											{MEMBERS_LABELS.viewerExpiresPrefix}{new Date(vt.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 										</span>
 									{:else}
 										<span class="text-xs text-[var(--color-text-tertiary)]">{MEMBERS_LABELS.viewerExpiresNone}</span>

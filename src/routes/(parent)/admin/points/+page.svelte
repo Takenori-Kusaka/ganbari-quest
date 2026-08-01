@@ -579,7 +579,7 @@ async function handleReceiptFile(event: Event) {
 						<div class="flex items-center justify-between py-3">
 							<div>
 								<p class="text-sm text-[var(--color-text-muted)]">
-									{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '—'}
+									{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'short', day: 'numeric' }) : '—'}
 								</p>
 							</div>
 							<p class="font-bold text-[var(--color-feedback-warning-text)]">-{fmtBal(Math.abs(entry.amount))}</p>

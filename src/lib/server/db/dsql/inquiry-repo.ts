@@ -15,13 +15,15 @@
 //     throw のまま呼び出し側契約 (service が fail(500) を返す)。
 
 import { sql } from 'drizzle-orm';
+import { todayDateJST } from '$lib/domain/date-utils';
 import type { IInquiryRepo, InquiryRecord } from '../interfaces/inquiry-repo.interface';
 import type { SqlExecutor } from './sql-executor';
 
 /** タイムスタンプベースの ID 採番 (sqlite backend と同形式、INQ-YYYYMMDD-nnnn)。 */
 async function generateInquiryId(): Promise<string> {
 	const now = new Date();
-	const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+	// 問い合わせ番号の日付は顧客に見えるため JST (#4127)
+	const dateStr = todayDateJST().replace(/-/g, '');
 	const seq = String(now.getTime() % 10000).padStart(4, '0');
 	return `INQ-${dateStr}-${seq}`;
 }

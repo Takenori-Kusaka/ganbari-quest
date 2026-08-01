@@ -25,8 +25,8 @@ export async function closeOpenSessions(childId: ChildId, endedAt: string, tenan
 	return sqliteRepo.closeOpenSessions(childId, endedAt, tenantId);
 }
 
-export async function findTodayUsageLogs(tenantId: string, datePrefix: string) {
-	return sqliteRepo.findTodayUsageLogs(tenantId, datePrefix);
+export async function findTodayUsageLogs(tenantId: string, startedAtFromIso: string) {
+	return sqliteRepo.findTodayUsageLogs(tenantId, startedAtFromIso);
 }
 
 export async function findUsageLogsByChildAndDateRange(

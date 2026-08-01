@@ -583,7 +583,7 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								<span>{log.activityIcon}</span>
 								<span class="logs-item__name">{log.activityName}</span>
 								<span class="logs-item__points">{fmtPts(log.points)}</span>
-								<span class="logs-item__date">{new Date(log.recordedAt).toLocaleDateString('ja-JP')}</span>
+								<span class="logs-item__date">{new Date(log.recordedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</span>
 							</div>
 						{/each}
 					</div>

@@ -4,6 +4,7 @@
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { todayDateJST } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 import {
 	APP_LABELS,
@@ -302,8 +303,7 @@ async function handleExport() {
 		const blob = await res.blob();
 		const disposition = res.headers.get('Content-Disposition') ?? '';
 		const filenameMatch = disposition.match(/filename="(.+)"/);
-		const filename =
-			filenameMatch?.[1] ?? `ganbari-quest-backup-${new Date().toISOString().split('T')[0]}.json`;
+		const filename = filenameMatch?.[1] ?? `ganbari-quest-backup-${todayDateJST()}.json`;
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -349,7 +349,7 @@ async function handleCloudExport() {
 		}
 		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(
 			d.pinCode,
-			new Date(d.expiresAt).toLocaleDateString('ja-JP'),
+			new Date(d.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
 		);
 		await loadCloudExports();
 	} catch {
@@ -1075,7 +1075,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 											</p>
 											<p class="text-xs text-[var(--color-text-muted)]">
 												{SETTINGS_LABELS.cloudStoredExpiry(
-													new Date(exp.expiresAt).toLocaleDateString('ja-JP'),
+													new Date(exp.expiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }),
 												)}
 												· {SETTINGS_LABELS.cloudStoredDownloads(
 													exp.downloadCount,

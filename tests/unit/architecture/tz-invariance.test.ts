@@ -71,7 +71,15 @@ vi.mock('$lib/server/db/evaluation-repo', () => ({
 	deleteRestDay: vi.fn(),
 }));
 
-import { addDaysJST, jstHour, monthKeyJST, prevDateJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import {
+	addDaysJST,
+	jstDayStartUtcIso,
+	jstHour,
+	monthKeyJST,
+	prevDateJST,
+	todayDateJST,
+	weekStartJST,
+} from '$lib/domain/date-utils';
 import { asChildId } from '$lib/domain/ids';
 import { evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
 import { incrementSubscriptionMonth } from '$lib/server/services/loyalty-service';
@@ -183,7 +191,8 @@ tzCase('bonus-hook/early-bird-hour', async () => {
 tzCase('usage-log/today-summary-date-key', async () => {
 	mockFindTodayUsageLogs.mockResolvedValue([]);
 	await getTodayUsageSummary(TENANT, [{ id: asChildId('1'), nickname: 'たろう' }]);
-	expect(mockFindTodayUsageLogs).toHaveBeenCalledWith(TENANT, TZ_PROBE_JST_DATE);
+	// 「今日」の下限は JST 00:00 に対応する UTC の瞬間 (UTC 暦日の前方一致だと 9 時間ずれる)
+	expect(mockFindTodayUsageLogs).toHaveBeenCalledWith(TENANT, jstDayStartUtcIso(TZ_PROBE_JST_DATE));
 });
 
 tzCase('usage-log/weekly-summary-buckets', async () => {

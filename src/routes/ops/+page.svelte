@@ -19,7 +19,7 @@ const adminBypass = $derived(data.adminBypass);
 
 <div class="flex flex-col gap-8">
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_LABELS.fetchedAt(new Date(kpi.fetchedAt).toLocaleString('ja-JP'))}
+		{OPS_LABELS.fetchedAt(new Date(kpi.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
 	</div>
 
 	<!-- KPI カード -->
@@ -132,7 +132,7 @@ const adminBypass = $derived(data.adminBypass);
 			</div>
 		{/if}
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
-			{OPS_LABELS.triggerEvaluatedAt(new Date(triggerReport.evaluatedAt).toLocaleString('ja-JP'), String(triggerReport.paidUserCount))}
+			{OPS_LABELS.triggerEvaluatedAt(new Date(triggerReport.evaluatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }), String(triggerReport.paidUserCount))}
 		</div>
 	</Card>
 
@@ -189,7 +189,7 @@ const adminBypass = $derived(data.adminBypass);
 			</table>
 		{/if}
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
-			{OPS_LABELS.bypassFetchedAt(new Date(adminBypass.fetchedAt).toLocaleString('ja-JP'))} <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">{OPS_LABELS.bypassAdrLink}</a>
+			{OPS_LABELS.bypassFetchedAt(new Date(adminBypass.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))} <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">{OPS_LABELS.bypassAdrLink}</a>
 		</div>
 	</Card>
 
