@@ -49,13 +49,8 @@ function volumeLinesOf(service: string): string[] {
 	return out;
 }
 
-/**
- * `docker-compose.yml` から指定サービスの environment を `KEY -> value` で返す (#4152 統合監査)。
- *
- * volumes だけを見ていると「mount はしているが、書き込み先を決める env は別の場所を指している」
- * を検出できない。CV5 のために environment ブロックも読む。
- */
-function envOf(service: string): Record<string, string> {
+/** 指定サービスの environment ブロックの各行 (`KEY=value`) を返す。 */
+function environmentLinesOf(service: string): string[] {
 	const raw = readFileSync(COMPOSE_PATH, 'utf-8');
 	const lines = raw.split('\n');
 	const serviceIdx = lines.findIndex((l) => l.trimEnd() === `  ${service}:`);
@@ -65,16 +60,13 @@ function envOf(service: string): Record<string, string> {
 	const block = lines.slice(serviceIdx, nextIdx < 0 ? lines.length : nextIdx);
 
 	const envIdx = block.findIndex((l) => l.trim() === 'environment:');
-	if (envIdx < 0) return {};
-	const out: Record<string, string> = {};
+	if (envIdx < 0) return [];
+	const out: string[] = [];
 	for (const line of block.slice(envIdx + 1)) {
 		const t = line.trim();
 		if (t.startsWith('#')) continue;
 		if (!t.startsWith('- ')) break; // environment ブロックの終わり
-		const entry = t.slice(2).trim();
-		const eq = entry.indexOf('=');
-		if (eq < 0) continue; // `- KEY` 形式 (host の値を継承) は対象外
-		out[entry.slice(0, eq)] = entry.slice(eq + 1);
+		out.push(t.slice(2).trim());
 	}
 	return out;
 }
@@ -109,6 +101,18 @@ describe('#3970 バックアップ保存先の差し替え可能性 (docker-comp
 		}
 	});
 
+	it('[CV6] off-site 検査の起動条件が app に配線されている (#3970 AC2)', () => {
+		// **この 1 行が消えると検査そのものが二度と発火しない**。しかも off-site を
+		// 設定していない家庭では元々沈黙する仕様なので、消えても誰も気づかない
+		// (#3950 と同型の「動いているように見えて無保護」)。
+		//
+		// HOST_BACKUP_DIR は host 側の compose 変数でコンテナからは見えないため、
+		// `:+` 展開で「設定されていれば true」を導出して渡す。この導出形が SSOT。
+		// 期待値は compose の変数展開構文そのもの (JS の template literal ではない)。
+		const expected = `$` + '{HOST_BACKUP_DIR:+true}';
+		expect(environmentLinesOf('app')).toContain(`BACKUP_OFFSITE_EXPECTED=${expected}`);
+	});
+
 	it('[CV3] 未設定時の既定は従来どおり ./data/backups', () => {
 		// 既存の NUC は HOST_BACKUP_DIR を持たない。既定が変わると無設定のまま
 		// 既存世代が見えなくなる (host 側のパスが変わる)。
@@ -138,7 +142,9 @@ describe('#3970 バックアップ保存先の差し替え可能性 (docker-comp
 
 			// 書き込み先を決める env が、その mount 先と一致すること。
 			// 相対指定 (`./backups` 等) は cwd 依存で mount 外へ逃げうるため許容しない。
-			const backupDir = envOf(service).BACKUP_DIR;
+			const backupDir = environmentLinesOf(service)
+				.map((l) => l.split('='))
+				.find(([k]) => k === 'BACKUP_DIR')?.[1];
 			expect(backupDir, `service '${service}' に BACKUP_DIR が無い`).toBeDefined();
 			expect(
 				backupDir,
