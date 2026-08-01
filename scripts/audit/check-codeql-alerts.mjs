@@ -79,15 +79,6 @@ export function alertKey(rule, path) {
 	return `${rule} ${path}`;
 }
 
-/** キーを人間可読に戻す
- * @param {string} key
- * @returns {{ rule: string, path: string }}
- */
-function splitKey(key) {
-	const [rule, path] = key.split(' ');
-	return { rule, path: path ?? '' };
-}
-
 /**
  * GitHub code-scanning alerts API の生レスポンスを正規化する (pure)。
  *
@@ -215,12 +206,16 @@ export function evaluateCodeqlAlerts({
 	const groups = groupAlerts(normalized);
 	const { errors: baselineErrors } = validateBaseline(baseline);
 
-	/** @type {Map<string, { count: number }>} */
+	/** @type {Map<string, { rule: string, path: string, count: number }>} */
 	const baseMap = new Map();
 	if (Array.isArray(baseline?.entries)) {
 		for (const e of baseline.entries) {
 			if (typeof e?.rule === 'string' && typeof e?.path === 'string') {
-				baseMap.set(alertKey(e.rule, e.path), { count: Number.isInteger(e.count) ? e.count : 0 });
+				baseMap.set(alertKey(e.rule, e.path), {
+					rule: e.rule,
+					path: e.path,
+					count: Number.isInteger(e.count) ? e.count : 0,
+				});
 			}
 		}
 	}
@@ -248,8 +243,7 @@ export function evaluateCodeqlAlerts({
 	const staleEntries = [];
 	for (const [key, v] of baseMap) {
 		if (!groups.has(key)) {
-			const { rule, path } = splitKey(key);
-			staleEntries.push({ rule, path, count: v.count });
+			staleEntries.push({ rule: v.rule, path: v.path, count: v.count });
 		}
 	}
 

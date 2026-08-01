@@ -115,9 +115,10 @@ describe('normalizeAlerts / groupAlerts', () => {
 	});
 
 	it('欠損フィールドは unknown に倒して落とさない', () => {
-		const [a] = normalizeAlerts([{}]);
-		expect(a.rule).toBe('unknown-rule');
-		expect(a.path).toBe('unknown-path');
+		const normalized = normalizeAlerts([{}]);
+		expect(normalized).toHaveLength(1);
+		expect(normalized[0]?.rule).toBe('unknown-rule');
+		expect(normalized[0]?.path).toBe('unknown-path');
 	});
 });
 
