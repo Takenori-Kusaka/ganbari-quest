@@ -65,12 +65,10 @@ const CRITICAL_STALE: BackupHealthVerdict = {
 <Story name="CriticalStale" args={{ health: CRITICAL_STALE }} />
 
 <Story name="AllStates">
-	{#snippet children()}
-		<div class="flex flex-col gap-4">
-			<BackupHealthCard health={OK} />
-			<BackupHealthCard health={WARN_NO_CHANNEL} />
-			<BackupHealthCard health={CRITICAL_REAL_INCIDENT} />
-			<BackupHealthCard health={CRITICAL_STALE} />
-		</div>
-	{/snippet}
+	<div class="flex flex-col gap-4">
+		<BackupHealthCard health={OK} />
+		<BackupHealthCard health={WARN_NO_CHANNEL} />
+		<BackupHealthCard health={CRITICAL_REAL_INCIDENT} />
+		<BackupHealthCard health={CRITICAL_STALE} />
+	</div>
 </Story>
