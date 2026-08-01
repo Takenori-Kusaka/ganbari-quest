@@ -1279,7 +1279,11 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 **処理する event 種別と因果関係**: 現行 SSOT は `docs/design/billing-redesign/`。entitlement は Stripe Subscription (`tenant.stripeSubscriptionId` + `tenant.status`) を正とし license key を経由しない。`docs/design/license-subscription-causality.md` は deprecated (Epic #2525 で License Key 側全廃、歴史記録)。
 
-**Idempotency**: Stripe webhook は at-least-once 配信のため、`stripe_webhook_events` テーブルで event ID ベースの重複排除を行う（§6 参照）。
+**受信口はこの 1 本のみ**: Stripe Dashboard の destination はこの URL を指す。**署名検証だけして 200 を返す route を増やしてはならない** — Stripe は 200 を受けると再送しないため、event が台帳にも残らず消える。受信口が 1 本であること・すべての受信口が `handleWebhookEvent` に dispatch することは `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が CI で固定する。
+
+**Idempotency**: Stripe webhook は at-least-once 配信のため、`stripe_webhook_events` テーブルで event ID ベースの重複排除を行う（§6 参照）。dedup は **insert-first**（先に `handler_result='processing'` の行で処理権を取り、handler 完了後に結果を確定する）。処理権を取れなかった側は handler を呼ばず 200 を返す。handler が失敗した場合は行を削除して 500 を返し、Stripe の再送に載せる（台帳は「**完了した** event」の記録である）。処理中に Lambda が落ちて `processing` が残った場合は 15 分後に次の到達が引き取る。
+
+**乖離の検知**: Stripe 側で配信成功（`pending_webhooks=0`）なのに台帳に記録が無い event は、`/api/cron/stripe-webhook-delivery-check` が Discord に通知する（kind `stripe-webhook-ledger-gap`）。「受け取って 200 を返したのに処理していない」ことの唯一の外形的証拠。
 
 ### 3.13 活動ピン留め
 

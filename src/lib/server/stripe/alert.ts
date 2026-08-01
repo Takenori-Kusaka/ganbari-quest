@@ -56,6 +56,10 @@ export type StripeAlertKind =
 	// 失敗した」側を所有し、本 kind とは発火条件が重ならない
 	// (責務分界は stripe-webhook-delivery-monitor.ts 冒頭)。
 	| 'stripe-webhook-undelivered'
+	// #4128: Stripe 側は配信成功 (pending_webhooks=0) なのに、こちらの台帳に記録が無い。
+	// 「受け取って 200 を返したのに処理していない」= silent drop の唯一の外形的証拠。
+	// pending>0 を条件にする `stripe-webhook-undelivered` では原理的に検知できない領域を持つ。
+	| 'stripe-webhook-ledger-gap'
 	// #3959: 上の未達検知そのものが失敗した (Stripe API 障害 / DB 障害 等)。検知器が動いて
 	// いない間は未達を見逃すため、検知器の停止自体を 1 つの障害として鳴らす。cron dispatcher は
 	// 非 2xx を throw せず返すため Lambda の error alarm では表面化しない (#4102 QM 指摘 M3)。

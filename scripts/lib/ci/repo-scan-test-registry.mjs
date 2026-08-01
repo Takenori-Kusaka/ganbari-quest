@@ -97,6 +97,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src/routes 配下の server route から禁止 import を走査する (#3152 / ADR-0061)',
 	},
+	'tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts': {
+		scope: 'repo',
+		note: 'src / infra / .github を走査し Stripe webhook 受信口が 1 本かを検査する (#4128)',
+	},
 	'tests/unit/architecture/user-content-delivery-headers-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra + src を走査して配信ヘッダを検査する',

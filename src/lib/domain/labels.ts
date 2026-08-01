@@ -3087,6 +3087,26 @@ export const OPS_LABELS = {
 	bypassFetchedAt: (dateStr: string) => `取得日時: ${dateStr} | 運用ルール:`,
 	bypassAdrLink: 'ADR-0044 (archive)',
 
+	// plan 逆引き不能の滞留 (#4128)
+	planDriftTitle: 'プラン判定できていない契約',
+	planDriftDesc:
+		'Stripe の Price と env / lookup_key が食い違うと、課金額と使える機能がずれたまま滞留します。',
+	planDriftHealthy: (n: number | string) => `${n} 件の契約すべてでプランを判定できています。`,
+	planDriftFound: (n: number | string) => `${n}件 要対応`,
+	planDriftDisabled: 'Stripe 連携が無効な環境のため検査していません。',
+	planDriftError: (name: string) =>
+		`Stripe への照会に失敗したため確認できませんでした（${name}）。詳細は CloudWatch ログを参照してください。`,
+	planDriftTruncated: (n: number | string) =>
+		`取得上限 ${n} 件に達しました。表示は一部の可能性があります。`,
+	planDriftColTenant: 'テナント',
+	planDriftColSubscription: 'サブスクリプション',
+	planDriftColStatus: '状態',
+	planDriftColPrice: 'Price / lookup_key',
+	planDriftColCurrentPlan: '保持中のプラン',
+	planDriftUnknownTenant: '（テナント未特定）',
+	planDriftUnknownValue: '—',
+	planDriftMultiItem: (n: number | string) => `item ${n} 件`,
+
 	// システム状態
 	systemTitle: 'システム状態',
 	stripeLabel: 'Stripe 連携:',
@@ -3333,8 +3353,8 @@ export const BILLING_LABELS = {
 // 関連 ADR:
 //   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
 //   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
-//   - ADR-0059 (Phase 7 cutover): kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) で
-//     ダウン即時動線を on/off 切替可能、本 compound は両モードで使用
+//   - kill switch (`USE_LOOKUP_KEY`) で Price 解決経路を切替可能、本 compound は両経路で使用
+//     (webhook shadow mode の kill switch は #4128 で撤去済)
 
 export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
 	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)

@@ -15,7 +15,8 @@ const mockFindTenantByStripeCustomerId = vi.fn();
 // (fixture の多くが event.id を持たない複数 event を連続投入するため)。
 // dedup の挙動 (5 handler の重複到達 = 副作用 1 回 / retryCount / 失敗時の非記録) は
 // `tests/unit/services/stripe-webhook-dedup.test.ts` が実 repo 実装で検証する。
-const mockWebhookEventInsert = vi.fn();
+const mockWebhookEventClaim = vi.fn();
+const mockWebhookEventRelease = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
@@ -26,7 +27,17 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 		webhookEvent: {
 			findByEventId: async () => null,
-			insert: (...args: unknown[]) => mockWebhookEventInsert(...args),
+			// #4128: dedup は insert-first。ここでは常に処理権を取れる状態にして
+			// handler 本体の挙動だけを見る (並列到達の検証は stripe-webhook-dedup.test.ts)。
+			claim: (...args: unknown[]) => {
+				mockWebhookEventClaim(...args);
+				return Promise.resolve(true);
+			},
+			finalize: async () => {},
+			releaseClaim: (...args: unknown[]) => {
+				mockWebhookEventRelease(...args);
+				return Promise.resolve();
+			},
 			incrementRetryCount: async () => {},
 			deleteOlderThan: async () => 0,
 		},

@@ -493,24 +493,10 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			});
 		});
 
-		it('本番 Fn に STRIPE_WEBHOOK_SHADOW_MODE=false が注入される (PR-4a 配備、PR-4b で true 切替)', () => {
-			// #2713 PR-4a: shadow mode env 配備済。本 PR-3b で CDK context 経由配布が完了。
-			// 'false' default で本番動作不変 (旧 /api/stripe/webhook 継続)。
-			const template = computeTemplate;
-
-			template.hasResourceProperties('AWS::Lambda::Function', {
-				FunctionName: 'ganbari-quest-app',
-				Environment: {
-					Variables: Match.objectLike({
-						STRIPE_WEBHOOK_SHADOW_MODE: 'false',
-					}),
-				},
-			});
-		});
-
-		it('STRIPE_WEBHOOK_SECRET_TEST は context 未注入時に env に追加されない (空文字列 omit、本番影響ゼロ)', () => {
-			// #2713 PR-4a 配備済 (config.ts getWebhookSecretForShadow() が `?? STRIPE_WEBHOOK_SECRET` fallback)。
-			// makeApp() で stripeWebhookSecretTest context 未注入のため env に omit されることを確認 (compute-stack.ts L211-213 の `... ? {...} : {}` パターン)。
+		it('本番 Fn に webhook shadow mode の env が注入されない (#4128 受信口 1 本化)', () => {
+			// #4128: shadow mode は「署名検証だけして 200 を返す」= 課金 event の silent drop 経路
+			// だったため、route ごと撤去した。env が残っていると「flag はあるのに効かない」状態に
+			// なり運用 doc と食い違うため、配線ごと落ちていることを固定する。
 			const template = computeTemplate;
 			const functions = template.findResources('AWS::Lambda::Function', {
 				Properties: { FunctionName: 'ganbari-quest-app' },
@@ -520,7 +506,10 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 				Properties: { Environment?: { Variables?: Record<string, unknown> } };
 			};
 			const envVars = prodFnDef.Properties.Environment?.Variables ?? {};
+			expect(envVars.STRIPE_WEBHOOK_SHADOW_MODE).toBeUndefined();
 			expect(envVars.STRIPE_WEBHOOK_SECRET_TEST).toBeUndefined();
+			// 対照: 同じ経路で注入される他の env は生きている (検査が空振りしていない)
+			expect(envVars.USE_LOOKUP_KEY).toBe('true');
 		});
 	});
 
