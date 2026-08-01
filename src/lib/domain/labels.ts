@@ -8388,6 +8388,11 @@ export const STORYBOOK_LABELS = {
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
 	},
+	// #4172: SpecialRewardOverlay の見た目確認用。棚に並んだごほうび名 (親が登録した現実世界の報酬)。
+	specialRewardOverlay: {
+		title: 'ゲーム 30 分',
+		titleLong: 'にちようびに こうえんで あそぶ',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',
