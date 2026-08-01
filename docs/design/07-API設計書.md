@@ -215,9 +215,9 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET  | /admin/billing/cancel | 解約理由ヒアリングフォーム表示 | owner/parent |
-| POST | /admin/billing/cancel | 解約理由送信（form action）→ Stripe Portal リダイレクト or thanks | owner/parent |
-| GET  | /admin/billing/cancel/thanks | 送信完了画面 | owner/parent |
+| GET  | /admin/subscription/cancel | 解約理由ヒアリングフォーム表示 | owner/parent |
+| POST | /admin/subscription/cancel | 解約理由送信（form action）→ Stripe Portal リダイレクト or thanks | owner/parent |
+| GET  | /admin/subscription/cancel/thanks | 送信完了画面 | owner/parent |
 
 **form action body (form-data):**
 - `category` (必須): `'graduation'` \| `'churn'` \| `'pause'`
@@ -227,7 +227,7 @@
 1. `cancellation-service.submitCancellationReason()` を呼び出して DB 永続化
 2. Discord churn channel へ `notifyCancellationWithReason()` で通知（カテゴリ + 自由記述含む）
 3. 課金プランかつ `stripeCustomerId` 存在 → Stripe Customer Portal セッションを作成して 303 リダイレクト
-4. 無料プラン or Portal 不可 → `/admin/billing/cancel/thanks` に 303 リダイレクト
+4. 無料プラン or Portal 不可 → `/admin/subscription/cancel/thanks` に 303 リダイレクト
 
 **バリデーション:**
 - `category` が 3 分類いずれでもない → 400 + `INVALID_CATEGORY`
@@ -236,14 +236,14 @@
 **`category='graduation'` 選択時の追加分岐（#1603 / ADR-0023 §5 I10）:**
 
 `submitCancellationReason()` 完了後、Stripe Portal リダイレクトの前に専用ページへ 303 redirect:
-- `redirect(303, '/admin/billing/cancel/graduation')`
+- `redirect(303, '/admin/subscription/cancel/graduation')`
 
 ### 卒業フロー（#1603 / ADR-0023 §3.8 / §5 I10）
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET  | /admin/billing/cancel/graduation | 卒業専用ページ表示 | owner/parent |
-| POST | /admin/billing/cancel/graduation | 事例公開承諾送信 → 解約完了 | owner/parent |
+| GET  | /admin/subscription/cancel/graduation | 卒業専用ページ表示 | owner/parent |
+| POST | /admin/subscription/cancel/graduation | 事例公開承諾送信 → 解約完了 | owner/parent |
 
 **load 戻り値:**
 - `totalPoints: number` — 全子供の getBalance() 合計
@@ -261,8 +261,8 @@
 
 **処理:**
 1. `graduation-service.recordGraduationConsent()` で graduation_consent テーブル / DynamoDB に保存
-2. 課金プラン（stripeCustomerId あり）→ `/admin/billing` に 303 redirect
-3. 無料プラン → `/admin/billing/cancel/thanks` に 303 redirect
+2. 課金プラン（stripeCustomerId あり）→ `/admin/subscription` に 303 redirect
+3. 無料プラン → `/admin/subscription/cancel/thanks` に 303 redirect
 
 **バリデーション:**
 - nickname が空 (consented=true 時) → 400 + `errorKey='errorNicknameRequired'`
@@ -1365,6 +1365,36 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 | 取得失敗時 | **フィールドを省略するだけで 503 にしない**。状態ファイルが読めないことは DB の生死と無関係で、ここで落とすと「状態ファイルが無いだけで liveness が赤」になり監視の意味が変わる |
 
 回帰は `tests/unit/routes/health-backup-status.test.ts`（付与条件と失敗時の省略）が固定する。
+
+**`backupHealth` フィールド（`backup` と同条件で付与、#4087）:**
+
+```json
+{
+  "backupHealth": {
+    "level": "critical",
+    "reason": "never-succeeded",
+    "hoursSinceLastSuccess": null,
+    "consecutiveFailures": 18,
+    "lastFailureMessage": "CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)",
+    "notificationMissing": true
+  }
+}
+```
+
+`backup` が生の状態値であるのに対し、本フィールドは **「いま人間が行動すべきか」の判定結果**を載せる。判定は `src/lib/domain/backup-health.ts`（純粋関数）に集約し、**push（Discord alert）と pull（本 endpoint / admin 画面）が同じ結論を見る**。
+
+| 項目 | 仕様 |
+|---|---|
+| 付与条件 | `backup` と同じ（`DATA_SOURCE === 'pglite'` かつ状態ファイルが読めたとき）。読めなければ `backup` ごと省略する |
+| `level` | `ok` / `warn` / `critical`。UI の色分けと通知の強さを 1 箇所で決める |
+| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `notificationMissing` | 失敗通知の宛先（`DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_WEBHOOK_INCIDENT`）が 1 つも無い状態。**`level` と独立に立つ** — critical のときも「届かない」ことは対処が変わるため独立に伝える |
+| 判定順 | **深刻な方から**。stale（動いていない）を failure（落ちている）より先に見る。**job が起動しなかった場合、job 内から投げる push 通知は原理的に発火しない**ため、鮮度でしか捕まえられない |
+| しきい値 | `BACKUP_STALE_WARN_HOURS = 26` / `BACKUP_STALE_CRITICAL_HOURS = 50` / `BACKUP_CONSECUTIVE_FAILURE_CRITICAL = 2`。日次 03:00 実行前提で「1 回飛んだ」「2 回連続で飛んだ」に対応。1 回で critical にすると再起動のたびに狼少年になる（ADR-0012 整合） |
+
+**既知の限界（#4144 由来、未解消）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）も通常の失敗と同じ `catch` で `consecutiveFailures` を増やし、`lastSuccessAt` を更新しない。したがって **guard trip が 2 回続くと「取得は成功しているのに critical」**と判定される。`reason` を家族向け UI に出す際は、この誤解を招く表示にならないか確認すること。
+
+回帰は `tests/unit/domain/backup-health.test.ts`（判定）と `tests/unit/routes/health-backup-status.test.ts`（付与条件）が固定する。
 
 #### GET /api/ready
 

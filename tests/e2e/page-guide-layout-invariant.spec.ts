@@ -37,9 +37,8 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/settings/data',
 	'/admin/settings/rules',
 	'/admin/settings/support',
-	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	// #3267 (EPIC #3260 C3): プラン・課金 (#4139 で /admin/billing を統合)
 	'/admin/subscription',
-	'/admin/billing',
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'/admin/members',
 	'/admin/packs',

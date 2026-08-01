@@ -8,6 +8,28 @@
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
+## セッション起動時の必須手順: mailbox cron を作る
+
+**SSOT**: [label-mailbox.md](label-mailbox.md)
+
+各ロールは別クローン・別セッションで動き、セッション間の直接通信手段は無い。オーナーの手動中継を待たずに自分の仕事を拾うため、**セッション起動直後に mailbox を polling する cron を 1 本作る**。
+
+```
+CronCreate(cron: "13 * * * *", recurring: true, prompt: <label-mailbox.md §4「Dev セッション用」テンプレート>)
+```
+
+Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの。**Issue と PR の両方**）、**`state:qm-blocked`**（QM からの差し戻し）、**自分に来た reviewer request**（`review-requested:@me`）、そして **ORPHAN**（`state:*` が 1 つも付いていない open）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
+
+- **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
+- **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
+- **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**
+- **判断を仰ぐときは必ず label を付ける。** 不可逆 4 操作（削除 = gate / guard / test の削除を含む / 本番 deploy / 課金書込 / スキーマ変更）→ **`state:needs-owner`**。それ以外の PO 判断（方針 / 優先度 / **repo 設定・ruleset** / 受容判断 / 語彙・ルールの改訂）→ **`state:needs-po`**。「4 操作に当たらないから label を付けない」で終わらせない
+- **`@mention` / Issue コメント / PR body に書いただけでは PO の受信箱に入らない**（label-mailbox.md §3.1.1）。各ロールは label を polling しており本文を読みに行かない。**書いたかどうかではなく、相手の polling クエリに出るかどうかが伝達の成否を決める**（2026-07-31: Dev の判断待ち 2 件が PO に届かず、うち 1 件は PR merge で流れた）
+- **`state:*` を外すときは必ず次の state を付ける。** どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える
+- **差し戻しに対応し終えたら `state:qm-blocked` を外して `state:dev-done` に戻す**（label-mailbox.md §3.1.1 遷移表の復路）。戻さないと QM の受信箱に現れず、**対応済みであることが誰にも伝わらない**（PR #4149 で実発生。オーナーが手で伝えるまで停止した）
+- **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込み、そうでなければ拾ったことだけ報告して主線に戻る
+- **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
+
 ## セッション設計原則
 
 ### 並行セッション前提（CRITICAL）
@@ -102,9 +124,9 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 1. `git fetch origin && git pull` で最新化。worktree / clone 直後は refspec に develop 行があるか確認 + branch 作成直後は `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（stale develop 基点ズレ防止 #2975、SOP SSOT: [branch-strategy.md §3](branch-strategy.md)）
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
-4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 14 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / check-no-plan-literals (#972) / check-license-key-leak (#2836) / generate-lp-labels --check (#1917) / Readiness gate = check-pr-body / doc-code-references (#2577) / terminology-coherence (#2555) / **SS embed gate (#2918)** / capture) を順次実行、fail で即停止 + 修正方針表示。**一覧 SSOT は `npm run pre-ready -- --help`** (#2929)。E2E / Storybook は別途
+4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
 
-   **vitest (Step 3) の判定は CI `unit-test` へ移す (#4007)**。16 コアを 4 エージェントで共有する運用では、ローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。`--skip-vitest` は「検証しない」ではなく「判定の場所を CI に移す」意味であり、pre-ready はその旨と確認先 job 名を出力する。
+   **6 step 以外は消えていない — CI で hard-fail のまま走る (#4121)**。vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml`。判定の場所を CI に移しただけなので、**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。16 コアを 4 エージェントで共有する運用ではローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。
 
    - **`unit-test` / `unit-test-merge` が skip された PR は Ready にしない（例外なし）**。`gh pr checks <num>` で `unit-test (1)` / `(2)` が **`pass`**（`skipping` ではない）ことを確認してから `gh pr ready`
    - **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `skipped` を failure として数えない設計（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）なので、job が 1 度も走らなくても green になる
@@ -316,7 +338,7 @@ node scripts/check-no-direct-env-access.mjs
 node scripts/check-new-required-env.mjs
 ```
 
-または `npm run pre-ready -- --pr <num>` で全 14 step 一括 (ADR-0030、一覧 SSOT は `--help`)。Step 9 = `check-pr-body.mjs` で gate 1+2+3 を網羅。**hotfix 緊急時こそ pre-ready を回す**。
+または `npm run pre-ready -- --pr <num>` で全 6 step 一括 (ADR-0030 / #4121、一覧 SSOT は `--help`)。Step 9 = `check-pr-body.mjs` で gate 1+2+3 を網羅。**hotfix 緊急時こそ pre-ready を回す**。
 
 ### hotfix runbook の禁忌
 

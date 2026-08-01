@@ -74,7 +74,7 @@ AdminLayout header (sticky, 全 /admin/* で表示)
 | **standard** | `planTier === 'standard' && isPremium` | `[スタンダード]` badge (紫、clickable) → `/admin/subscription` |
 | **premium** | `planTier === 'premium' && isPremium && !trial.isTrialActive` | `[プレミアム]` badge (金、clickable) → `/admin/subscription` |
 | **trial** | `planTier === 'premium' && isPremium && trial.isTrialActive` | `[プレミアム 残N日]` badge (金、clickable) → `/admin/subscription` |
-| **past_due** | `planTier !== 'free' && trial.isPastDue` (#2551 dunning 統合) | `[お支払い確認]` badge (赤、clickable) → `/admin/billing` |
+| **past_due** | `planTier !== 'free' && trial.isPastDue` (#2551 dunning 統合) | `[お支払い確認]` badge (赤、clickable) → `/admin/subscription` |
 
 注: `trial.isPastDue` 等の derived 値は Phase 7 実装時に `+layout.server.ts` で導出。本 UI 設計は表示形式のみ確定。
 
@@ -95,7 +95,7 @@ flowchart TB
     V2 -.click.-> Sub
     V3 -.click.-> Sub
     V4 -.click.-> Sub
-    V5 -.click.-> Bill[/admin/billing]
+    V5 -.click.-> Bill[/admin/subscription]
     style Layout fill:#e3f2fd
     style Sub fill:#fff3e0
     style Bill fill:#fff3e0
@@ -208,7 +208,7 @@ TrialBanner (#2571) の進捗フレーミング (「あと N 日でカスタマ�
 │ [Logo]                    [お支払い確認] [❓] [子供画面へ →]    │
 │                              ↑ clickable, 赤系               │
 └────────────────────────────────────────────────────────────┘
-  href: /admin/billing   aria-label: "お支払いに関する確認事項あり (請求情報)"
+  href: /admin/subscription   aria-label: "お支払いに関する確認事項あり (請求情報)"
 ```
 
 文言「お支払い確認」: 既存 atom 流用 (`BILLING_LABELS` 既存範囲) or 新規 1 件 `BILLING_LABELS.paymentCheckBadge`。Phase 7 実装時に確定。
@@ -391,9 +391,9 @@ PR #2606 QM Tier 2 Re-Review で「Phase 3 確定すべき UX 仕様を Phase 7 
 | 1 | past_due variant の文言「お支払い確認」(柔らかい) vs 「支払い失敗」(明示) | 暫定「お支払い確認」、PO 確認 Phase 7 | 文言は Stripe Smart Retries の実 retry 挙動 + 7 日 grace との整合性を見ながら実装段階で最終確定 (Phase 1 #2537 dunning 連動) |
 | 2 | `past_due` 状態の data 経路 | Phase 7 実装時に `+layout.server.ts` data 結線 | Phase 5 (#2530) アーキ確定後に Phase 7 で `webhook → DB → +layout.server.ts → AdminLayout` 結線パスを実装。Phase 3 では UI 表示形式のみ確定 |
 
-## `/admin/billing` 認可境界 (#2606 B-5、Adversarial security 軸)
+## `/admin/subscription` 認可境界 (#2606 B-5、Adversarial security 軸)
 
-past_due variant の遷移先 `/admin/billing` (#2551 dunning 統合) の認可境界を明示:
+past_due variant の遷移先 `/admin/subscription` (#2551 dunning 統合) の認可境界を明示:
 
 ### 認可 3 軸 (security 設計書 14 §5 整合)
 
@@ -405,11 +405,11 @@ past_due variant の遷移先 `/admin/billing` (#2551 dunning 統合) の認可�
 
 ### 子供セッション直接到達時の対応
 
-子供 (`children` group) が `/admin/billing` URL を直接入力した場合:
+子供 (`children` group) が `/admin/subscription` URL を直接入力した場合:
 
 - `hooks.server.ts` の認可 middleware で **403 Forbidden** を返す (`requireRole('parent')` 既存パターン)
 - 410 Gone は使わない (URL は存在し、認可不足が拒否理由のため 403 が正)
-- `(child)/[uiMode]/+layout.svelte` には `/admin/billing` リンクは構造的に発生しえない (AdminLayout 非依存)
+- `(child)/[uiMode]/+layout.svelte` には `/admin/subscription` リンクは構造的に発生しえない (AdminLayout 非依存)
 
 ### trial daysRemaining 第三者露出予防 (祖父母 / 客人)
 
@@ -425,7 +425,7 @@ trial 残日数 (header に「残 5 日」表示) を第三者 (祖父母 / 客�
 |---|---|---|
 | 1 | header 常時 plan 表示は **competitor が「機能ロックの可視化過剰」と評価する可能性** | LP コピー (`FREE_PLAN_TERMS.forever` 永久無料訴求) と整合、無料利用者には「アップグレード」button のみで階層差別を避ける (refs #2594 D-2) |
 | 2 | trial 残日数 header 表示は **anti-engagement (ADR-0012) と矛盾するのでは** | 「残 N 日」は事実表示で煽り文言ではない (「急いで!」「あと N 日!」型不採用)。常時可視は **anti-anxiety** (見えない trial が anxiety 源、見える trial で安心感) |
-| 3 | `/admin/billing` への header 直接動線追加は **支払い失敗 = ペナルティ感の露出過多** | past_due は常態ではない (Stripe Smart Retries grace 期間 7 日のみ)。表示文言「お支払い確認」は **柔らかい表現** で支払い失敗を明示しない (Phase 7 で PO 最終確認) |
+| 3 | `/admin/subscription` への header 直接動線追加は **支払い失敗 = ペナルティ感の露出過多** | past_due は常態ではない (Stripe Smart Retries grace 期間 7 日のみ)。表示文言「お支払い確認」は **柔らかい表現** で支払い失敗を明示しない (Phase 7 で PO 最終確認) |
 
 ## 6 観点 自己検証チェック (per-issue-execution-workflow SSOT)
 

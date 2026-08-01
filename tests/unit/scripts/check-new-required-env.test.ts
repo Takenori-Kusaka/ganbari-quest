@@ -7,7 +7,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { detectNewRequiredEnvs } from '../../../scripts/check-new-required-env.mjs';
+import {
+	detectNewRequiredEnvs,
+	detectRequirementTransitions,
+	parseNotNewlyRequiredExemptions,
+} from '../../../scripts/check-new-required-env.mjs';
 
 describe('check-new-required-env (#2337 regex 改善)', () => {
 	describe('Pattern B: throw new Error 内 env 名検出', () => {
@@ -135,6 +139,192 @@ describe('check-new-required-env (#2337 regex 改善)', () => {
 			const lines2 = ["throw new Error('STRIPE_SECRET_KEY is required');"];
 			const result2 = detectNewRequiredEnvs(lines2);
 			expect(result2.has('STRIPE_SECRET_KEY')).toBe(true);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4129 AC5 — 「既存 env の必須化」まで検出範囲を広げる
+//
+// 実害 (2026-07-31): 本番 NUC の日次バックアップが 7/30 の deploy 後、初回実行から
+// 毎晩失敗していた。原因は `CRON_SECRET` が NUC の .env に未配布だったこと。
+// #3950 でバックアップ入口が `scripts/backup-nuc.cjs` の pglite 経路へ一本化された結果、
+// 以前から存在する `CRON_SECRET` が backup コンテナの hard requirement になったが、
+// 本 gate は「**新規**追加された必須 env」しか見ていなかったため素通りした。
+// さらに `DISCORD_ALERT_WEBHOOK_URL` も未配布で失敗通知も届かず、18 日間気付かれなかった。
+//
+// 検出漏れの直接原因は 2 つ:
+//   (a) requirement guard の throw 文言が日本語 (`CRON_SECRET が未設定です`) で、
+//       英語 "is required" 前提の regex に掛からなかった
+//   (b) `if (!X) { ... process.exit(1) }` 形式の fail-fast guard を見ていなかった
+// 加えて構造的な穴として (c) optional → required への「変化」を diff から読んでいなかった。
+// ---------------------------------------------------------------------------
+
+describe('check-new-required-env (#4129 AC5 既存 env の必須化)', () => {
+	describe('Pattern B-JP: 日本語の必須文言', () => {
+		it('#3950 実物再現: throw new Error("CRON_SECRET が未設定です ...") を検出する', () => {
+			// scripts/backup-nuc.cjs L101-103 の実コード
+			const lines = [
+				'	if (!CRON_SECRET) {',
+				"		throw new Error('CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)');",
+				'	}',
+			];
+			const result = detectNewRequiredEnvs(lines);
+			expect(result.has('CRON_SECRET')).toBe(true);
+		});
+
+		it('「が必要」「は必須」「を設定してください」「が設定されていません」も検出する', () => {
+			for (const message of [
+				'DISCORD_ALERT_WEBHOOK_URL が必要です',
+				'BACKUP_TARGET_URL は必須です',
+				'NUC_ADMIN_TOKEN を設定してください',
+				'RESTORE_VERIFY_URL が設定されていません',
+			]) {
+				const envName = message.split(' ')[0] as string;
+				const result = detectNewRequiredEnvs([`throw new Error('${message}');`]);
+				expect(result.has(envName), `${envName} を検出できていない`).toBe(true);
+			}
+		});
+	});
+
+	describe('Pattern E: fail-fast guard (throw を使わない必須化)', () => {
+		it('const alias 経由の `if (!X) { ... process.exit(1) }` を検出する', () => {
+			const lines = [
+				"const BACKUP_SECRET = process.env.NUC_BACKUP_SECRET || '';",
+				'if (!BACKUP_SECRET) {',
+				"	console.error('backup secret missing');",
+				'	process.exit(1);',
+				'}',
+			];
+			const result = detectNewRequiredEnvs(lines);
+			expect(result.has('NUC_BACKUP_SECRET')).toBe(true);
+		});
+
+		it('fallback 連鎖 (`A || B`) は両方の env を必須として検出する', () => {
+			// backup-nuc.cjs L58 と同型。どちらも配布されていないと動かないため両方に証跡が要る
+			const lines = [
+				"const CRON_SECRET = process.env.CRON_SECRET || process.env.OPS_SECRET_KEY || '';",
+				'if (!CRON_SECRET) {',
+				'	process.exit(1);',
+				'}',
+			];
+			const result = detectNewRequiredEnvs(lines);
+			expect(result.has('CRON_SECRET')).toBe(true);
+			expect(result.has('OPS_SECRET_KEY')).toBe(true);
+		});
+
+		it('`if (!process.env.X)` 直参照も検出する', () => {
+			const lines = ['if (!process.env.PGLITE_BACKUP_BUCKET) {', '	process.exit(1);', '}'];
+			const result = detectNewRequiredEnvs(lines);
+			expect(result.has('PGLITE_BACKUP_BUCKET')).toBe(true);
+		});
+
+		it('env に紐づかない変数の guard は検出しない (false positive 抑止)', () => {
+			const lines = [
+				'const parsed = JSON.parse(raw);',
+				'if (!parsed) {',
+				'	process.exit(1);',
+				'}',
+			];
+			expect(detectNewRequiredEnvs(lines).size).toBe(0);
+		});
+
+		it('exit(0) で終わる guard は必須化ではない (false positive 抑止)', () => {
+			const lines = [
+				"const optionalHook = process.env.OPTIONAL_HOOK_URL || '';",
+				'if (!optionalHook) {',
+				"	console.log('hook 未設定のため通知を skip します');",
+				'	process.exit(0);',
+				'}',
+			];
+			expect(detectNewRequiredEnvs(lines).has('OPTIONAL_HOOK_URL')).toBe(false);
+		});
+	});
+
+	describe('Pattern F: optional → required の変化 (removed 行との対比)', () => {
+		it('schema の `.optional()` 剥がしを検出する', () => {
+			const result = detectRequirementTransitions({
+				addedLines: ['	CRON_SECRET: z.string(),'],
+				removedLines: ['	CRON_SECRET: z.string().optional(),'],
+			});
+			expect(result.has('CRON_SECRET')).toBe(true);
+		});
+
+		it('既定値 fallback の撤去を検出する', () => {
+			const result = detectRequirementTransitions({
+				addedLines: ['const url = process.env.DISCORD_ALERT_WEBHOOK_URL;'],
+				removedLines: ["const url = process.env.DISCORD_ALERT_WEBHOOK_URL || '';"],
+			});
+			expect(result.has('DISCORD_ALERT_WEBHOOK_URL')).toBe(true);
+		});
+
+		it('CDK silent skip (ADR-0024 ルール 1) の撤去を検出する', () => {
+			const result = detectRequirementTransitions({
+				addedLines: ['	CRON_SECRET: cronSecret,'],
+				removedLines: ['	...(cronSecret ? { CRON_SECRET: cronSecret } : {}),'],
+			});
+			expect(result.has('CRON_SECRET')).toBe(true);
+		});
+
+		it('optional のまま整形しただけの diff は検出しない (false positive 抑止)', () => {
+			const result = detectRequirementTransitions({
+				addedLines: ["const url = process.env.SOME_WEBHOOK_URL || ''; // 整形"],
+				removedLines: ["const url = process.env.SOME_WEBHOOK_URL || '';"],
+			});
+			expect(result.has('SOME_WEBHOOK_URL')).toBe(false);
+		});
+
+		it('参照ごと消えた env は検出しない (使わなくなったのだから必須化ではない)', () => {
+			const result = detectRequirementTransitions({
+				addedLines: [],
+				removedLines: ["const url = process.env.LEGACY_WEBHOOK_URL || '';"],
+			});
+			expect(result.has('LEGACY_WEBHOOK_URL')).toBe(false);
+		});
+
+		it('検出理由を env ごとに持つ (BLOCK メッセージで何を直すか分かるように)', () => {
+			const result = detectRequirementTransitions({
+				addedLines: ['	CRON_SECRET: z.string(),'],
+				removedLines: ['	CRON_SECRET: z.string().optional(),'],
+			});
+			expect(result.get('CRON_SECRET')).toMatch(/optional/i);
+		});
+	});
+
+	describe('誤検出の解除は「理由必須」の宣言でのみ行える (#3956 教訓)', () => {
+		it('実体のある理由付き宣言は解除として受理される', () => {
+			const body =
+				'<!-- env-not-newly-required: SOME_TOKEN 既に NUC / GitHub Secrets 双方へ配布済で本 PR は参照位置の移動のみ -->';
+			const map = parseNotNewlyRequiredExemptions(body);
+			expect(map.get('SOME_TOKEN')?.valid).toBe(true);
+		});
+
+		it('定型 stub の理由は受理しない', () => {
+			for (const stub of ['TODO', 'n/a', 'なし', '-']) {
+				const map = parseNotNewlyRequiredExemptions(
+					`<!-- env-not-newly-required: SOME_TOKEN ${stub} -->`,
+				);
+				expect(map.get('SOME_TOKEN')?.valid, `stub "${stub}" が受理されている`).toBe(false);
+			}
+		});
+
+		it('stub ではないが短すぎる理由も受理しない (最小長 gate)', () => {
+			// stub 一覧に載っていない語でも、実質的な説明になっていなければ受理しない。
+			// stub 一覧だけでは「急ぎ」の一言で解除できてしまい理由の非強制が復活する
+			const map = parseNotNewlyRequiredExemptions(
+				'<!-- env-not-newly-required: SOME_TOKEN 急ぎ -->',
+			);
+			expect(map.get('SOME_TOKEN')?.valid).toBe(false);
+		});
+
+		it('理由が空の宣言は受理しない', () => {
+			const map = parseNotNewlyRequiredExemptions('<!-- env-not-newly-required: SOME_TOKEN -->');
+			expect(map.get('SOME_TOKEN')?.present).toBe(true);
+			expect(map.get('SOME_TOKEN')?.valid).toBe(false);
+		});
+
+		it('宣言が無ければ解除されない', () => {
+			expect(parseNotNewlyRequiredExemptions('本文に宣言なし').size).toBe(0);
 		});
 	});
 });

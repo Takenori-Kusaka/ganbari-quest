@@ -32,6 +32,7 @@ const STATUS = {
 	lastSuccessDurationMs: 567,
 	lastFailureAt: null,
 	lastFailureMessage: null,
+	consecutiveFailures: 0,
 };
 
 /** DATA_SOURCE は module top-level で読まれるため、毎回 module registry ごと作り直す。 */
@@ -54,6 +55,39 @@ describe('#3977 /api/health の backup フィールド', () => {
 	afterEach(() => {
 		if (original === undefined) delete process.env.DATA_SOURCE;
 		else process.env.DATA_SOURCE = original;
+	});
+
+	// #4087: 生の status に加えて **判定結果** (backupHealth) も同じ条件で載る。
+	// 生値だけだと「lastSuccessAt が 3 日前」を読んだ人が毎回自分で深刻度を判断することになり、
+	// 実際 2026-07-31 は 18 日間誰もその判断をしなかった (#4119)。
+	// 判定そのものは tests/unit/domain/backup-health.test.ts が固定するので、
+	// ここが固定するのは **判定結果が endpoint まで出ている** ことだけ。
+	it('[H5] pglite では backupHealth も載る (#4087)', async () => {
+		const { status, body } = await callHealth('pglite');
+		expect(status).toBe(200);
+		expect(body.backupHealth).toMatchObject({
+			level: expect.any(String),
+			reason: expect.any(String),
+			notificationMissing: expect.any(Boolean),
+		});
+	});
+
+	it.each([
+		['dsql'],
+		['sqlite'],
+	])('[H6] %s では backupHealth を載せない (backup と同条件、公開範囲を広げない)', async (dataSource) => {
+		const { body } = await callHealth(dataSource);
+		expect(body).not.toHaveProperty('backupHealth');
+	});
+
+	it('[H7] 状態ファイルが読めなければ backupHealth も省略する (fail-open で ok を偽らない)', async () => {
+		// 「読めない = 正常に見える」は起点の事故 (18 日気づかなかった) と同型なので、
+		// 判定できないときは **判定結果を出さない**。ok を偽って返さない。
+		getPgliteBackupStatus.mockRejectedValue(new Error('ENOENT'));
+		const { status, body } = await callHealth('pglite');
+		expect(status).toBe(200);
+		expect(body).not.toHaveProperty('backup');
+		expect(body).not.toHaveProperty('backupHealth');
 	});
 
 	it('[H1] pglite では backup が載り、getPgliteBackupStatus が呼ばれる (dead export の解消)', async () => {

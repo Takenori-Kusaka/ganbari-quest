@@ -216,12 +216,12 @@ jobs:
         # 「parser バグ」と「反映漏れ」の両面を捕捉する。
         run: npm run lint:parallel
 
-      - name: LP plan sync check (advisory、#4121 warn 降格)
+      - name: LP plan sync check (#4121 hard-fail 復帰)
         # ADR-0007 §1-2 類型 2 (顧客に見える正しさ = LP にプランの嘘を書かない、ADR-0013)。
-        # 価値はあるが merge を止めるほどではないため hard-fail から warn へ降格した (#4121)。
-        # step 単位の continue-on-error で job 全体を落とさない (job を ci-gate needs から
-        # 外すと同 job の他 check まで advisory になるため、ここは step 単位で降格する)。
-        continue-on-error: true
+        # 類型 2 は「cheap なら hard-fail、重ければ warn」。本検査は静的テキスト比較で数秒なので
+        # hard-fail が正。#4121 で一度 continue-on-error に降格したが、降格すると LP と実装の
+        # プラン齟齬が緑のまま main に入り、顧客が見るページに嘘が残る。
+        # 回帰ガード: tests/unit/scripts/pre-ready-step-budget.test.ts [P6] / [P7]
         run: node scripts/check-lp-plan-sync.mjs --check
 
       - name: No plan/status literal direct write check (#972)
@@ -1139,8 +1139,9 @@ jobs:
       - name: Forbidden terms check (includes site/)
         run: node scripts/check-forbidden-terms.mjs
 
-  # ADR-0029 / #914: 新規必須 env / secret 追加チェック
-  # PR diff から `assert*Configured()` / `throw new Error('...required...')` 等を検出し、
+  # ADR-0024 ルール 5 / #914 / #4129: 必須化された env / secret の配布証跡チェック
+  # PR diff から `assert*Configured()` / 必須文言 (英語 + 日本語) / fail-fast guard、
+  # および optional → required の変化 (#4129 AC5) を検出し、
   # PR 本文に「配布済み: <ENV>」証跡が無い場合は CI を red にする。
   # Pre-PMF 1 人体制で Assertion Erosion (#911 のような assertion 追加 → 配布忘れ →
   # 連続デプロイ失敗) を機械的に止めるためのゲート。
@@ -1162,7 +1163,7 @@ jobs:
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
-      - name: Check new required env / secret distribution evidence (ADR-0029)
+      - name: Check newly required env / secret distribution evidence (ADR-0024 ルール 5)
         env:
           BASE_REF: origin/${{ github.base_ref }}
           PR_BODY: ${{ github.event.pull_request.body }}

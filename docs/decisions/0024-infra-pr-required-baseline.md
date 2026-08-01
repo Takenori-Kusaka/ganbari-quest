@@ -19,6 +19,8 @@ PR #1509（#1376 EventBridge cron）のデプロイで 4 つの根本原因が�
 
 結果: `license-expire` / `retention-cleanup` / `trial-notifications` の 3 cron が 2 日間全実行失敗。
 
+同型が 2026-07-31 に再発（#4129）。本番 NUC の日次バックアップが deploy 翌日から毎晩失敗し、発覚まで 18 日かかった。今度は `CRON_SECRET` が **新規 env ではなかった** ため配布証跡 gate に掛からなかった（#3950 でバックアップ入口が一本化され、既存 env が hard requirement 化した）。失敗通知に必要な `DISCORD_ALERT_WEBHOOK_URL` も未配布で、無音だった。→ ルール 5。
+
 ADR-0006 が「assertion を弱める変更を禁止」する一方、CDK 側で silent skip するパターン（`...(value ? { ENV: value } : {})`）が複数箇所に残っており、ADR-0006 は実質的に CDK レベルで形骸化していた。本 ADR は ADR-0006 の CDK 適用版として、インフラ PR の必須要件を 4 本のルールで定める。
 
 ## 決定（ルール 4 本）
@@ -97,10 +99,36 @@ new cw.Alarm(this, 'CronDispatcherErrorAlarm', {
 
 scheduled / cron / queue consumer 等、ユーザー操作以外で起動する Lambda 全て対象。
 
+### ルール 5: 「既存 env の必須化」も新規追加と同じ配布証跡を要求する
+
+配布証跡 gate（`scripts/check-new-required-env.mjs`）の対象は **新規追加された env に限らない**。既に存在する env が新たに hard requirement になった変更も同じ扱いとする。
+
+検出する形は 3 つ:
+
+| 形 | 例 |
+|---|---|
+| 必須文言（英語 / **日本語**） | `throw new Error('CRON_SECRET が未設定です')` |
+| fail-fast guard | `if (!X) { console.error(...); process.exit(1) }` |
+| optional → required の**変化** | `.optional()` 剥がし / 既定値 fallback 撤去 / ルール 1 の silent skip 撤去 |
+
+**検出できない範囲**（黙って守れていることにしない）:
+
+- diff 外での必須化（別 file の代替経路が消えて既存 script が唯一の入口になる等）
+- アプリ外の消費者（docker-compose / systemd unit / shell script / workflow yaml）
+- 条件付き必須（別 env の値によって必須になる）/ 動的な env 名（`process.env[name]`）
+- 配布先の実在。gate は PR 本文の証跡文字列の有無しか見ない（実在は deploy 側 validation = ルール 2 と人間レビューが担う）
+
 ## 例外手続き
 
 - 任意の env を silent skip するのは OK。ただしコメントで「optional: なくても動く」を必ず明記すること
 - ルール 3 / 4 を skip する場合は、本 ADR を supersede する新 ADR で正当性を明示すること（ADR-0006 の例外手続きと同じ運用）
+- ルール 5 の検出が誤りの場合のみ、PR 本文で **理由付き**に解除する（理由が空 / `TODO` / `n/a` 等の定型 stub は受理しない、#3956 教訓）:
+
+  ```
+  <!-- env-not-newly-required: <ENV_NAME> <12 文字以上の理由> -->
+  ```
+
+  配布済みなら解除ではなく「配布済み: `<ENV_NAME>` → 配布先」を書く
 
 ## 結果
 

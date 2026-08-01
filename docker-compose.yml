@@ -12,7 +12,16 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     volumes:
+      # 稼働中の DB (PGlite / SQLite) は **必ずローカルディスク**に置く。
+      # 埋め込み型 DB をネットワーク共有上で直接稼働させると、書き込み中の切断で
+      # DB ファイルが破損する (既知の危険パターン)。ここは差し替え可能にしない。
       - ./data:/app/data
+      # #3970: **バックアップだけ**を compose を書き換えずに差し替えられるようにする。
+      # 既定は従来どおり ./data/backups。NAS / SAMBA マウント等へ向けたい場合は .env で
+      # HOST_BACKUP_DIR=/mnt/nas/ganbari-quest-backups のように指定する。
+      # off-site 複製そのものはファイルシステム層 (運用者の責任) で行う — 詳細は
+      # docs/runbooks/pglite-restore-drill.md §オフサイト複製。
+      - ${HOST_BACKUP_DIR:-./data/backups}:/app/backups
       - ./tenants:/app/client/tenants
       - ./uploads:/app/client/uploads
       - ./generated:/app/client/generated
@@ -21,7 +30,7 @@ services:
       - DATABASE_URL=./data/ganbari-quest.db
       # #3950: PGlite バックアップはアプリプロセス内で採るため、取得先と保持世代は app 側が読む
       # (backup コンテナは /api/cron/pglite-backup を叩くだけ)。保持 3 世代 = オーナー決裁。
-      - BACKUP_DIR=./data/backups
+      - BACKUP_DIR=/app/backups
       - BACKUP_RETENTION=3
       - HOST=0.0.0.0
       - PORT=3000
@@ -62,11 +71,16 @@ services:
       timeout: 5s
       retries: 3
     volumes:
+      # DB はローカル固定 (app と同じ理由)。backup コンテナは PGlite を直接開かないが、
+      # SQLite 経路 (backup-db.cjs) は /app/data を読むため mount は必要。
       - ./data:/app/data
+      # #3970: app と同じ実体を指すこと。片方だけ差し替えると backup コンテナが
+      # 別ディレクトリを見て「取れているのに実データではない」#3950 同型になる。
+      - ${HOST_BACKUP_DIR:-./data/backups}:/app/backups
       - ./scripts:/app/scripts:ro
     environment:
       - DATABASE_URL=./data/ganbari-quest.db
-      - BACKUP_DIR=./data/backups
+      - BACKUP_DIR=/app/backups
       # #3950: 保持世代はオーナー決裁 (2026-07-26) で日次 3 世代。
       # BACKUP_RETENTION は pglite 経路ではアプリ側 (app サービス) が読むため、両方に設定する。
       - BACKUP_RETENTION=3

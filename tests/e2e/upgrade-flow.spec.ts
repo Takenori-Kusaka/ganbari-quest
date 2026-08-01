@@ -87,6 +87,64 @@ test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => 
 			return;
 		}
 	});
+
+	// #4139: standard → premium のアップグレード CTA が「自ページへのリンク」になっていた
+	// (押しても何も起きない = 収益導線が死ぬ)。CTA が実処理を起動する操作要素であることを固定する。
+	test('standard の「プレミアムへ」CTA が自ページを指さず、押すと何かが起きる (#4139)', async ({
+		page,
+	}) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+
+		const cta = page.getByTestId('plan-status-family-cta');
+		await expect(cta).toBeVisible({ timeout: 30_000 });
+		await expect(cta).toContainText(PLAN_TERMS.premium);
+		// 自己リンクでないこと (旧実装は href="/admin/subscription" の <a> だった)
+		await expect(cta).toHaveJSProperty('tagName', 'BUTTON');
+
+		// 押下 → `handlePlanUpgrade` (SaasLicensePanel.svelte:252) が契約状態で分岐する:
+		//   (a) 契約あり (hasSubscription) → `requestPortal()` → 請求管理ページ確認ダイアログ
+		//   (b) 契約なし                   → `startCheckout()` → checkout session を作り
+		//                                     `window.location.href` で checkout.stripe.com へ離脱
+		// cognito-dev の standard fixture は `stripe_subscription_id` を seed しないため (b)。
+		//
+		// **到達先を検証する**。「/admin/subscription から離れた」だけを合格にすると、
+		// セッション失効 redirect (`/auth/login`) や認可拒否 redirect も等しく PASS してしまい、
+		// 課金・認可の退行を検出できない。
+		//
+		// `role="alert"` は成功条件に入れない。checkout 失敗時も `checkoutError` →
+		// `<Alert variant="danger">` (role="alert") が出る (SaasLicensePanel.svelte:228/719) ため、
+		// alert を合格に含めると「アップグレードが常に失敗する」状態まで緑になる。
+		// alert が出た場合はその文言を添えて明示的に fail させる。
+		await cta.click();
+		const portalConfirm = page.getByTestId('portal-confirm-button');
+		await Promise.race([
+			portalConfirm.waitFor({ state: 'visible', timeout: 20_000 }),
+			page.waitForURL((url) => url.origin === 'https://checkout.stripe.com', {
+				timeout: 20_000,
+			}),
+		]).catch(() => {
+			/* どちらも起きなければ下の assert で文脈付き fail させる */
+		});
+
+		// origin の完全一致で判定する。`startsWith('https://checkout.stripe.com')` は
+		// `https://checkout.stripe.com.example/` のような別ホストにも一致してしまい
+		// (CodeQL js/incomplete-url-substring-sanitization)、到達先を検証するという
+		// 本 assert の目的を満たさない。上の waitForURL 述語と同じ origin 比較に揃える。
+		const reachedStripeCheckout = new URL(page.url()).origin === 'https://checkout.stripe.com';
+		const portalDialogOpen = await portalConfirm.isVisible().catch(() => false);
+		if (!reachedStripeCheckout && !portalDialogOpen) {
+			const alertText = await page
+				.getByRole('alert')
+				.first()
+				.textContent()
+				.catch(() => null);
+			throw new Error(
+				`CTA 押下後に Stripe Checkout への遷移も請求管理ページ確認ダイアログも起きなかった。` +
+					` url=${page.url()} / alert=${alertText?.trim() ?? 'なし'}`,
+			);
+		}
+		expect(reachedStripeCheckout || portalDialogOpen).toBe(true);
+	});
 });
 
 // ============================================================

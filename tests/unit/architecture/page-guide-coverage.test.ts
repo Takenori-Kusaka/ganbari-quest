@@ -49,9 +49,11 @@ const EXEMPT_GUIDE_PATHS: Record<string, string> = {
 	'/admin/activities/[id]/edit':
 		'活動編集フォーム (transient)。親 /admin/activities にフォールバック',
 	'/admin/certificates/[id]': '証明書詳細 (transient)。親 /admin/certificates にフォールバック',
-	'/admin/billing/cancel': '解約フロー途中 (transient)。/admin/billing にフォールバック',
-	'/admin/billing/cancel/graduation': '卒業フロー (transient)。/admin/billing にフォールバック',
-	'/admin/billing/cancel/thanks': '解約完了 (transient)。/admin/billing にフォールバック',
+	// #4139: 解約フローは /admin/billing 統合に伴い /admin/subscription 配下へ移設
+	'/admin/subscription/cancel': '解約フロー途中 (transient)。/admin/subscription にフォールバック',
+	'/admin/subscription/cancel/graduation':
+		'卒業フロー (transient)。/admin/subscription にフォールバック',
+	'/admin/subscription/cancel/thanks': '解約完了 (transient)。/admin/subscription にフォールバック',
 	// #3269 (EPIC #3260 C5): marketplace 詳細は dedicated guide（MARKETPLACE_DETAIL_GUIDE）へ昇格済。
 	//   registry に /marketplace/[type]/[itemId] が登録され、PARAMETERIZED_GUIDE_MATCHERS で
 	//   実パスから解決される（EXEMPT → REGISTERED へ移行）。
@@ -156,9 +158,9 @@ describe('#3304: resolvePageGuide の viaFallback 判定', () => {
 		expect(r?.viaFallback).toBe(true);
 	});
 
-	it('EXEMPT 遷移ルート (/admin/billing/cancel) は親 /admin/billing へ viaFallback=true', async () => {
-		const r = await resolvePageGuide('/admin/billing/cancel');
-		expect(r?.guide.pageId).toBe('admin-billing');
+	it('EXEMPT 遷移ルート (/admin/subscription/cancel) は親 /admin/subscription へ viaFallback=true', async () => {
+		const r = await resolvePageGuide('/admin/subscription/cancel');
+		expect(r?.guide.pageId).toBe('admin-subscription');
 		expect(r?.viaFallback).toBe(true);
 	});
 

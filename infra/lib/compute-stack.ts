@@ -120,6 +120,24 @@ export class ComputeStack extends cdk.Stack {
 		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
 		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
+
+		// 逆方向 (本番に test key が入る) の allowlist (#4104 PO 指摘 2026-07-31)。
+		// staging に live が入る事故は「live webhook secret を入れる」+「Stripe を live mode に切り替えて
+		// staging の endpoint を登録する」の二重の誤操作を要し、単体では副作用が起きない。
+		// これに対し **本番に test key が入る事故は単体で成立し、しかも無通知**である —
+		// 顧客の決済がすべて test mode に流れ、顧客は払ったつもりで実際には 1 円も入らない
+		// (2026-07-26 の webhook 未達と同じ「誰も気づかないまま課金が成立しない」型)。
+		// 実害が大きいのはこちらのため、prod 側も同じ allowlist 形で止める。
+		// denylist (`sk_test_` を弾く) にしないのは staging 側と同じ理由で、将来 Stripe が prefix を
+		// 増やしたときに黙って通るため。既知の live prefix 以外を落とす。
+		if (stripeSecretKey && !/^(sk|rk)_live_/.test(stripeSecretKey)) {
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] stripeSecretKey が live mode の key ではありません (#4104)。' +
+					'本番には `sk_live_` / `rk_live_` で始まる key のみ配備できます。' +
+					'test key を本番に配備すると顧客の決済が test mode に流れ、' +
+					'決済成功に見えたまま入金されない状態が無通知で成立するため synth を停止します。',
+			);
+		}
 		// #2719 (Phase 7 PR-3b prerequisite): yearly 4 種 + legacy `stripePriceMonthly` /
 		// `stripePriceYearly` は物理削除済。monthly 2 種のみ Lambda env に inject する。
 		// 過去 yearly 契約者の MRR 表示は `stripe-metrics-service.ts` の `HISTORICAL_YEARLY_AMOUNTS`
@@ -217,9 +235,42 @@ export class ComputeStack extends cdk.Stack {
 		const discordWebhookChurn = this.node.tryGetContext('discordWebhookChurn') ?? '';
 		const discordWebhookIncident = this.node.tryGetContext('discordWebhookIncident') ?? '';
 
+		// --- staging Stripe test mode (#4104) ---
+		// staging に **test mode の** Stripe 資格情報だけを配備する。test mode は本番顧客・本番決済に
+		// 一切影響しないため「外部サービス副作用ゼロ」の意図 (本番への副作用を作らない) は保たれる。
+		//
+		// live 混入の機械強制は **allowlist** で行う (denylist ではない):
+		//   - secret key は `sk_test_` / `rk_test_` 以外を synth error にする。denylist (`sk_live_` を弾く)
+		//     だと将来 Stripe が prefix を増やしたときに素通りするため、既知の test prefix 以外を落とす。
+		//   - webhook signing secret は **test / live とも `whsec_` で prefix が同一**であり、文字列からは
+		//     判別できない。ここは守れない範囲として明示する。live webhook secret 単体では本番への副作用を
+		//     起こせず (署名検証にしか使われない)、live 側の実行権限は secret key が握るため、
+		//     secret key の allowlist が実効的な防御線になる。
+		//   - price id も test / live とも `price_` で判別不能。ただし staging は `USE_LOOKUP_KEY=true` で
+		//     Stripe API の lookup_key から解決するため price env 自体を注入しない (#4104、secret 新規登録ゼロ)。
+		//     lookup_key 解決に失敗したら fallback せず落ちる = silent degradation を作らない。
+		const stagingStripeSecretKey = this.node.tryGetContext('stagingStripeSecretKey') ?? '';
+		const stagingStripeWebhookSecret = this.node.tryGetContext('stagingStripeWebhookSecret') ?? '';
+
+		if (stagingStripeSecretKey && !/^(sk|rk)_test_/.test(stagingStripeSecretKey)) {
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] stagingStripeSecretKey が test mode の key ではありません (#4104)。' +
+					'staging には `sk_test_` / `rk_test_` で始まる key のみ配備できます。' +
+					'live key の配備は本番顧客への副作用を生むため synth を停止します。',
+			);
+		}
+		if (stagingStripeWebhookSecret && !/^whsec_/.test(stagingStripeWebhookSecret)) {
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] stagingStripeWebhookSecret の形式が不正です (#4104)。' +
+					'Stripe webhook signing secret は `whsec_` で始まります' +
+					' (test / live は prefix が同一のため、live 判別は secret key 側の allowlist が担う)。',
+			);
+		}
+
 		// --- staging 用 Lambda env (#2873) ---
 		// prod との差分 (handoff spec):
-		//   - Stripe / Discord / Gemini / SES 系 env は注入しない (本番外部サービスへの副作用ゼロ)
+		//   - Discord / Gemini / SES 系 env は注入しない (本番外部サービスへの副作用ゼロ)
+		//   - Stripe は **test mode に限り** 注入する (#4104。live は上の allowlist が synth で止める)
 		//   - CRON_SECRET / OPS_SECRET_KEY 不要 (cron-dispatcher 省略)
 		//   - ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL: Function URL は synth 時未確定
 		//     (自己参照) のため placeholder。deploy-aws-staging.yml の ORIGIN resolve step が
@@ -250,6 +301,11 @@ export class ComputeStack extends cdk.Stack {
 			COGNITO_LOGOUT_URL: `${stagingOriginPlaceholder}/auth/login`,
 			CONTEXT_TOKEN_SECRET: contextTokenSecret,
 			MAINTENANCE_MODE: 'false',
+			// #4104: Stripe test mode。未注入なら isStripeEnabled()=false のまま (従来挙動)。
+			// price id は注入せず lookup_key 経路で解決する (USE_LOOKUP_KEY=true)。
+			...(stagingStripeSecretKey ? { STRIPE_SECRET_KEY: stagingStripeSecretKey } : {}),
+			...(stagingStripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stagingStripeWebhookSecret } : {}),
+			...(stagingStripeSecretKey ? { USE_LOOKUP_KEY: 'true' } : {}),
 		};
 
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---

@@ -1,4 +1,4 @@
-// /admin/billing/cancel/thanks — 解約理由送信完了後の thanks ページ (#1596)
+// /admin/subscription/cancel/thanks — 解約理由送信完了後の thanks ページ (#1596)
 
 import { CANCELLATION_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';

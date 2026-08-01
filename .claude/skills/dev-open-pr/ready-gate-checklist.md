@@ -15,7 +15,7 @@ Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate �
 | 3 | PR チェックリスト `[x]` 完了確認 | `pr-merge-gate.yml` / `check-pr-body.mjs` | yes | ADR-0030 / #1775 |
 | 4 | screenshot-check (4 スロット) | `pr-quality-gate.yml` | yes (UI 変更時) | #1740 / #1741 / #1747 |
 
-ローカル一括検証: `npm run pre-ready -- --pr <num>` (#1775 / ADR-0030 / #1920 / #2918 で SSOT 検証 step 拡張)。全 14 step、一覧 SSOT は `npm run pre-ready -- --help` (#2929)。Step 9 (`check-pr-body.mjs`) が gate 1〜3 を網羅。Step 11b (SS embed gate #2918) + Step 12 (capture、手動推奨) が gate 4 を補助。
+ローカル一括検証: `npm run pre-ready -- --pr <num>` (#1775 / ADR-0030 / #1920 / #2918 で SSOT 検証 step 拡張)。全 6 step (#4121)、一覧 SSOT は `npm run pre-ready -- --help`。Step 9 (`check-pr-body.mjs`) が gate 1〜3 を網羅。Step 11b (SS embed gate #2918) が gate 4 を担う。6 step 外の検査は CI で hard-fail のまま走るため `gh pr checks <num>` で pass を確認する。
 
 ### hotfix PR (priority:critical / hotfix label) は 4 種 pre-push check 追加必須 (#2343)
 
@@ -357,7 +357,7 @@ npm run dev:open-pr -- --issue <num> --kind default
 
 # 3. ローカル一括検証 (SKILL.md ステップ 3 + 本ファイル gate 1〜3 の機械検証)
 npm run pre-ready -- --pr <num>
-# Step 9 (check-pr-body) で gate 1+2+3 を網羅検出 / Step 11b (SS embed gate #2918) で gate 4 を前倒し検出 (全 14 step、一覧 SSOT は --help)
+# Step 9 (check-pr-body) で gate 1+2+3 を網羅検出 / Step 11b (SS embed gate #2918) で gate 4 を前倒し検出 (全 6 step、一覧 SSOT は --help)
 
 # 4. UI 変更ありなら本ファイル Section 2 で SS 撮影 (gate 4)
 

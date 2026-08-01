@@ -15,7 +15,7 @@
 // 参考: docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3 / infra/lib/env-config.ts
 
 import * as cdk from 'aws-cdk-lib';
-import { Match, Template } from 'aws-cdk-lib/assertions';
+import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AuthStack } from '../../../infra/lib/auth-stack';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
@@ -66,7 +66,7 @@ function buildProdStacks(): {
  * 意図的に cronSecret / opsSecretKey を context に渡さない —
  * #1586 guard が enableCronDispatcher 分岐内に移動したことの実証 (#2873 handoff spec)。
  */
-function buildStagingStacks(): {
+function buildStagingStacks(extraContext: Record<string, string> = {}): {
 	storage: StorageStack;
 	auth: AuthStack;
 	compute: ComputeStack;
@@ -77,6 +77,7 @@ function buildStagingStacks(): {
 			// #3438 Phase 2B: staging も prod と同型で無条件 DSQL (dual-mode 廃止)。endpoint は必須 (fail-close)。
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			...extraContext,
 		},
 	});
 	const storage = new StorageStack(app, 'TestStorageStaging', {
@@ -94,6 +95,37 @@ function buildStagingStacks(): {
 		envConfig: STAGING_ENV_CONFIG,
 	});
 	return { storage, auth, compute };
+}
+
+/**
+ * prod (envConfig 未指定 = 本番) の ComputeStack を任意 context で synth する。
+ * S-5 (#4104 逆方向 allowlist) 用。
+ */
+function buildProdCompute(extraContext: Record<string, string> = {}): ComputeStack {
+	const app = new cdk.App({
+		context: {
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/user-pool-id:region=us-east-1':
+				'us-east-1_TESTPOOL',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/client-id:region=us-east-1':
+				'test-client-id',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/domain:region=us-east-1':
+				'auth.ganbari-quest.com',
+			'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
+				'test-context-token-secret',
+			// prod stack は cron-dispatcher を持つため #1586 fail-close で必須
+			opsSecretKey: 'test-ops-secret-key',
+			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			...extraContext,
+		},
+	});
+	const storage = new StorageStack(app, 'TestStorageProdKeyGuard', { env });
+	return new ComputeStack(app, 'TestComputeProdKeyGuard', {
+		env,
+		assetsBucket: storage.assetsBucket,
+		repository: storage.repository,
+	});
 }
 
 let prodStorage: Template;
@@ -381,7 +413,7 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			});
 		});
 
-		it('外部サービス env (Stripe / Discord / Gemini / SES / cron secret) を一切注入しない (副作用ゼロ)', () => {
+		it('外部サービス env (Discord / Gemini / SES / cron secret / Stripe price) を一切注入しない (副作用ゼロ)', () => {
 			const functions = stagingCompute.findResources('AWS::Lambda::Function', {
 				Properties: { FunctionName: 'ganbari-quest-staging-app' },
 			});
@@ -391,12 +423,13 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			};
 			const envVars = fnDef.Properties.Environment?.Variables ?? {};
 
+			// #4104: Stripe は test mode 限定で注入する例外になったため本リストから外した
+			// (test mode は本番顧客・本番決済に影響しない)。context 未注入の本 fixture では
+			// 結果的に STRIPE_* が付かないことを下の「未注入なら env に付かない」test が固定する。
+			// Discord / Gemini / SES / cron secret は従来どおり一切注入しない。
 			const forbiddenEnvKeys = [
-				'STRIPE_SECRET_KEY',
-				'STRIPE_WEBHOOK_SECRET',
 				'STRIPE_PRICE_STANDARD_MONTHLY',
 				'STRIPE_PRICE_FAMILY_MONTHLY',
-				'USE_LOOKUP_KEY',
 				'STRIPE_WEBHOOK_SHADOW_MODE',
 				'STRIPE_WEBHOOK_SECRET_TEST',
 				'GEMINI_API_KEY',
@@ -447,6 +480,168 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			// buildStagingStacks() が context に cronSecret / opsSecretKey を渡していないのに
 			// beforeAll で synth が成功していること自体が実証。ここでは明示再構築で assert する。
 			expect(() => buildStagingStacks()).not.toThrow();
+		});
+	});
+
+	describe('S-4: staging Stripe test mode (#4104) — test key のみ配備 / live は synth で停止', () => {
+		/** staging Lambda の env Variables を取り出す。 */
+		function stagingEnvOf(template: Template): Record<string, unknown> {
+			const functions = template.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-staging-app' },
+			});
+			const fnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			return fnDef.Properties.Environment?.Variables ?? {};
+		}
+
+		it('test key を渡すと STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / USE_LOOKUP_KEY が注入される', () => {
+			const staging = buildStagingStacks({
+				stagingStripeSecretKey: 'sk_test_0000000000000000000000000000',
+				stagingStripeWebhookSecret: 'whsec_0000000000000000000000000000',
+			});
+			const env = stagingEnvOf(Template.fromStack(staging.compute as unknown as cdk.Stack));
+
+			expect(env.STRIPE_SECRET_KEY).toBe('sk_test_0000000000000000000000000000');
+			expect(env.STRIPE_WEBHOOK_SECRET).toBe('whsec_0000000000000000000000000000');
+			// price id は lookup_key 経路で解決するため env を増やさない (#4104、secret 新規登録ゼロ)
+			expect(env.USE_LOOKUP_KEY).toBe('true');
+			expect(env.STRIPE_PRICE_STANDARD_MONTHLY).toBeUndefined();
+			expect(env.STRIPE_PRICE_FAMILY_MONTHLY).toBeUndefined();
+		});
+
+		it('context 未注入なら STRIPE_* は env に付かない (従来どおり Stripe 無効で起動)', () => {
+			const env = stagingEnvOf(stagingCompute);
+			expect(env.STRIPE_SECRET_KEY).toBeUndefined();
+			expect(env.STRIPE_WEBHOOK_SECRET).toBeUndefined();
+			expect(env.USE_LOOKUP_KEY).toBeUndefined();
+		});
+
+		// #4104 条件 2 (PO): **実 live key は使わない**。prefix だけが本物のダミー文字列で検証する。
+		// 判定を prefix の形にのみ依存させているのはこのため (Stripe API 疎通で実在性を見る実装にすると
+		// ダミーで検証できなくなり、実証の代償が「live key を staging に配備する」= 不可逆になる)。
+		// GitHub push protection はダミーでも Stripe key の「形」を検出して push を止めるため、
+		// prefix と body を分けて組み立てる (file 上に完成形の文字列を置かない)。
+		const dummyKey = (prefix: string) => `${prefix}_${'0'.repeat(28)}`;
+
+		it.each([
+			[dummyKey('sk_live'), 'live secret key (ダミー)'],
+			[dummyKey('rk_live'), 'live restricted key (ダミー)'],
+			[dummyKey('pk_test'), 'publishable key (secret ではない)'],
+			['not-a-stripe-key', '未知の形式'],
+		])('live / 非 test prefix (%s) は synth を停止する: %s', (key) => {
+			const staging = buildStagingStacks({ stagingStripeSecretKey: key });
+			// Annotations.addError は deploy 前 (cdk synth) に error として集約され deploy に進ませない。
+			Annotations.fromStack(staging.compute as unknown as cdk.Stack).hasError(
+				'*',
+				Match.stringLikeRegexp('test mode の key ではありません'),
+			);
+		});
+
+		it('webhook secret が whsec_ 以外なら synth を停止する', () => {
+			const staging = buildStagingStacks({
+				stagingStripeSecretKey: 'sk_test_0000000000000000000000000000',
+				stagingStripeWebhookSecret: 'bogus_secret',
+			});
+			Annotations.fromStack(staging.compute as unknown as cdk.Stack).hasError(
+				'*',
+				Match.stringLikeRegexp('webhook signing secret'),
+			);
+		});
+
+		it('test key のみ (正常系) では synth error が出ない', () => {
+			const staging = buildStagingStacks({
+				stagingStripeSecretKey: 'sk_test_0000000000000000000000000000',
+				stagingStripeWebhookSecret: 'whsec_0000000000000000000000000000',
+			});
+			const errors = Annotations.fromStack(staging.compute as unknown as cdk.Stack).findError(
+				'*',
+				Match.anyValue(),
+			);
+			expect(errors).toHaveLength(0);
+		});
+
+		it('prod (envConfig 未指定) には staging Stripe context が影響しない (prod 不変)', () => {
+			// staging 用 context を渡しても prod stack の env は従来の stripeSecretKey 経路のまま。
+			const app = new cdk.App({
+				context: {
+					'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/user-pool-id:region=us-east-1':
+						'us-east-1_TESTPOOL',
+					'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/client-id:region=us-east-1':
+						'test-client-id',
+					'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/domain:region=us-east-1':
+						'auth.ganbari-quest.com',
+					'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
+						'test-context-token-secret',
+					opsSecretKey: 'test-ops-secret-key',
+					parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+					dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+					dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+					// staging 専用 context (prod では読まれない)
+					stagingStripeSecretKey: 'sk_test_0000000000000000000000000000',
+				},
+			});
+			const storage = new StorageStack(app, 'TestStorageProdInvariant', { env });
+			const compute = new ComputeStack(app, 'TestComputeProdInvariant', {
+				env,
+				assetsBucket: storage.assetsBucket,
+				repository: storage.repository,
+			});
+			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const functions = template.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-app' },
+			});
+			const fnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			const prodEnv = fnDef.Properties.Environment?.Variables ?? {};
+			// prod は stripeSecretKey context 未指定なので Stripe secret env は付かない (従来挙動)。
+			// staging 用 context (stagingStripeSecretKey) が prod 側に漏れていないことの確認。
+			expect(prodEnv.STRIPE_SECRET_KEY).toBeUndefined();
+			expect(prodEnv.STRIPE_WEBHOOK_SECRET).toBeUndefined();
+			// USE_LOOKUP_KEY は prod では従来から `useLookupKey` context 由来で入る (既定 'true'、
+			// #2716 PR-3b cutover)。staging 側の分岐とは別経路であることを固定する
+			// (staging context を渡しても prod の値は prod の既定のまま)。
+			expect(prodEnv.USE_LOOKUP_KEY).toBe('true');
+		});
+	});
+
+	describe('S-5: 逆方向 — 本番に test key が入るのを止める (#4104 PO 指摘 2026-07-31)', () => {
+		// staging に live が入る事故は二重の誤操作を要し単体では副作用が起きないのに対し、
+		// 本番に test key が入る事故は単体で成立し、しかも無通知で成立する
+		// (顧客の決済がすべて test mode に流れ、決済成功に見えたまま入金されない)。
+		// 実害が大きいのは逆方向のため、prod 側にも同じ allowlist 形の gate を置く。
+		const dummyKey = (prefix: string) => `${prefix}_${'0'.repeat(28)}`;
+
+		it.each([
+			[dummyKey('sk_test'), 'test secret key (ダミー)'],
+			[dummyKey('rk_test'), 'test restricted key (ダミー)'],
+			[dummyKey('pk_live'), 'publishable key (secret ではない)'],
+			['not-a-stripe-key', '未知の形式'],
+		])('本番に非 live prefix (%s) を渡すと synth を停止する: %s', (key) => {
+			const compute = buildProdCompute({ stripeSecretKey: key });
+			Annotations.fromStack(compute as unknown as cdk.Stack).hasError(
+				'*',
+				Match.stringLikeRegexp('live mode の key ではありません'),
+			);
+		});
+
+		it('live prefix の key は synth を通す', () => {
+			const compute = buildProdCompute({ stripeSecretKey: dummyKey('sk_live') });
+			const errors = Annotations.fromStack(compute as unknown as cdk.Stack).findError(
+				'*',
+				Match.anyValue(),
+			);
+			expect(errors).toHaveLength(0);
+		});
+
+		it('stripeSecretKey 未指定 (local synth / staging deploy) は素通しする', () => {
+			const compute = buildProdCompute();
+			const errors = Annotations.fromStack(compute as unknown as cdk.Stack).findError(
+				'*',
+				Match.anyValue(),
+			);
+			expect(errors).toHaveLength(0);
 		});
 	});
 });

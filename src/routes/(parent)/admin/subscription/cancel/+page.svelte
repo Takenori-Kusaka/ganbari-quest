@@ -191,7 +191,7 @@ const noticeText = $derived(
 						type="button"
 						variant="secondary"
 						size="md"
-						href="/admin/billing"
+						href="/admin/subscription"
 						disabled={submitting}
 					>
 						{CANCELLATION_LABELS.cancelButton}

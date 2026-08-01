@@ -346,7 +346,7 @@ export const PLAN_CHANGE_LABELS = {
 | 滞在時間を伸ばさない | ✅ banner は 1 行 + 2 CTA の静的表示。即時遷移 (modal / countdown / 連続演出なし) |
 | サプライズ濫用禁止 | ✅ archived は降格 / trial 終了時点で確定、新規発生通知なし。banner は state 駆動の静的表示 |
 | 連続演出 / 煽り禁止 | ✅ 「あと N 日!」「急いで!」「失う恐怖」型不採用。Kinde 「what happens when clicked」原則 |
-| 解約動線を隠さない | ✅ banner は archived 訴求であり解約導線とは独立。`/admin/subscription` 内に既存解約導線 (`/admin/billing/cancel`) を維持 |
+| 解約動線を隠さない | ✅ banner は archived 訴求であり解約導線とは独立。`/admin/subscription` 内に既存解約導線 (`/admin/subscription/cancel`) を維持 |
 | 「premium = 必須」階層 signal 打消 | ✅ banner 主訴求は「保護されています」、副訴求のみ「プレミアム化で復活」。「無料では使えない」型の文言を不採用 (refs #2594 D-2) |
 
 ## アクセシビリティ検証 (Phase 7 実装時)

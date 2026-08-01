@@ -451,7 +451,17 @@ function pushToScreenshotsBranch(prNum, filePaths) {
 			cwd: worktreePath,
 			stdio: 'pipe',
 		});
-		execSync('git push origin screenshots', { cwd: worktreePath, stdio: 'pipe' });
+		// #4139: `screenshots` は画像だけを持つ orphan branch (scripts/ も node_modules も無い)。
+		// `.husky/pre-push` は code branch 向けの検証 chain (check-gh-account-before-pr.mjs /
+		// check-recent-deploy-deletion.mjs / check-pr-body.mjs / biome / eslint) で、この worktree
+		// からは参照先が存在せず MODULE_NOT_FOUND で必ず落ちる = SS を push する経路が塞がる。
+		// hook が守っている対象 (コード変更の push) は実装 branch 側の push で通るため、
+		// 画像専用 branch へのこの push に限って HUSKY=0 で無効化する。
+		execSync('git push origin screenshots', {
+			cwd: worktreePath,
+			stdio: 'pipe',
+			env: { ...process.env, HUSKY: '0' },
+		});
 
 		console.log(`[screenshots] PR #${prNum} の画像を screenshots ブランチに push しました`);
 		return true;

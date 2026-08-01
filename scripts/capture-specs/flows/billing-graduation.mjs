@@ -7,7 +7,7 @@
  * 使用例:
  *   MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
  *     --flow billing-graduation \
- *     --url /admin/billing/cancel/graduation \
+ *     --url /admin/subscription/cancel/graduation \
  *     --actions scripts/capture-specs/flows/billing-graduation.mjs \
  *     --server-mode cognito \
  *     --presets desktop,mobile \
@@ -86,7 +86,7 @@ export default async (page, capture) => {
 
 	// graduation page 用: owner@example.com でログイン
 	await loginAs(page, 'owner@example.com', 'Gq!Dev#Owner2026x');
-	await page.goto(`${BASE_URL}/admin/billing/cancel/graduation`);
+	await page.goto(`${BASE_URL}/admin/subscription/cancel/graduation`);
 	await page.getByTestId('graduation-page').waitFor({ state: 'visible', timeout: 15_000 });
 	// ヘッダー + ポイントセクション
 	await capture('graduation-page-top');

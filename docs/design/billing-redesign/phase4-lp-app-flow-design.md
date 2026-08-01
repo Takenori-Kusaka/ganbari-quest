@@ -247,7 +247,7 @@ flowchart TB
     Confirm -->|チェック + 同意| Stripe[Stripe Checkout<br/>カード入力]
     Stripe -->|決済完了| Success[/admin/subscription/success<br/>processing gap polling #2572]
     Success -->|webhook 権限付与| Activated[プレミアム機能解放]
-    SubsPage -.解約検討.->BillingPage[/admin/billing/cancel<br/>解約 hearing 既存]
+    SubsPage -.解約検討.->BillingPage[/admin/subscription/cancel<br/>解約 hearing 既存]
     style LP fill:#fef3c7
     style FAQ_Pur fill:#fffbeb
     style FAQ_Can fill:#fffbeb
@@ -278,7 +278,7 @@ flowchart LR
     subgraph App[app *.svelte]
       P1[/admin/subscription<br/>プランページ CTA #2567]
       P2[/admin/subscription/confirm<br/>同意ボタン #2573]
-      P3[/admin/billing<br/>請求管理ページ]
+      P3[/admin/subscription<br/>請求管理ページ]
     end
     A1 --> L1
     A1 --> P1

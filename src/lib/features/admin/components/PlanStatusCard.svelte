@@ -21,7 +21,13 @@ interface Props {
 	retentionDays?: number | null;
 	/** #730: トライアル中は plan が standard/family に解決済みでも trial 文脈を表示する */
 	trialStatus?: TrialStatusProp | null;
-	/** #767: ワンクリックアップグレード — planId を受け取って Stripe Checkout を開始する */
+	/**
+	 * #767: ワンクリックアップグレード — planId を受け取って実際のアップグレード経路を起動する。
+	 *
+	 * #4139: **プランページ (/admin/subscription) 上で描画するときは必ず渡すこと**。
+	 * 未指定時のフォールバックはプランページ自身へのリンクであり、プランページ上では
+	 * 自己リンク (押しても何も起きない) になる。
+	 */
 	onUpgrade?: ((planId: string) => void) | null;
 	/** #767: Checkout 処理中フラグ */
 	upgradeLoading?: boolean;
@@ -144,8 +150,9 @@ const trialTierLabel = $derived(
 			{/if}
 		{:else if planTier === 'standard'}
 			<div class="plan-status__actions">
-				<a href="{basePath}/subscription" class="plan-status__cta plan-status__cta--detail">{FEATURES_LABELS.planStatusCard.planDetailLink}</a>
 				{#if onUpgrade}
+					<!-- #4139: プランページ上ではアップグレードを実行する。
+					     「プランの詳細」リンクはこのページ自身を指すため描画しない (自己リンク解消)。 -->
 					<Button
 						variant="primary"
 						size="sm"
@@ -157,7 +164,12 @@ const trialTierLabel = $derived(
 						{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.familyUpgradeBtn}
 					</Button>
 				{:else}
-					<a href="{basePath}/subscription" class="plan-status__cta plan-status__cta--family">{FEATURES_LABELS.planStatusCard.familyUpgradeBtn}</a>
+					<a href="{basePath}/subscription" class="plan-status__cta plan-status__cta--detail">{FEATURES_LABELS.planStatusCard.planDetailLink}</a>
+					<a
+						href="{basePath}/subscription"
+						class="plan-status__cta plan-status__cta--family"
+						data-testid="plan-status-family-cta"
+					>{FEATURES_LABELS.planStatusCard.familyUpgradeBtn}</a>
 				{/if}
 			</div>
 		{/if}

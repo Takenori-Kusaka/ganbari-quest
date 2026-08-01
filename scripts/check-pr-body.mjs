@@ -35,12 +35,65 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkIntegrationEvidenceTable } from './check-ac-verification-map.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+import { classifyLane } from './pr-lane.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
-const TEMPLATE_PATH = join(repoRoot, '.github', 'PULL_REQUEST_TEMPLATE.md');
+
+// ---------------------------------------------------------------------------
+// lane-aware 化 (#4130)
+//
+// #4125 が本 CLI を CI (pr-merge-gate.yml / pr-body-check) に配線した時点で、
+// lane-aware な 3 点セット (pr-ac-verification-check.yml / pr-merge-gate.yml /
+// pr-template-gate-checks.mjs) のうち **本 CLI だけが lane 非対応**のまま載った。
+// 統合 PR (release/* → main) は feature 用 template を持たないため
+// `missing-required-sections` / `ac-map-missing` が **body の内容にかかわらず必ず立ち**、
+// 「赤いが無視してよい check」が常設される状態になっていた (実測: PR #4126)。
+//
+// 対処は「統合 PR では job / 検査ごと skip」ではなく **観点の切替**にする
+// (#2942 no-go = required check の空洞化禁止 と同じ方針)。統合 PR の body も
+// 必ず検査対象に残す。
+// ---------------------------------------------------------------------------
+
+/** feature / hotfix / dependabot lane が参照する PR template (従来の唯一の参照先)。 */
+const FEATURE_TEMPLATE_PATH = join(repoRoot, '.github', 'PULL_REQUEST_TEMPLATE.md');
+/** integration lane (統合 PR) が参照する template (#2950 で確定した別系統)。 */
+const INTEGRATION_TEMPLATE_PATH = join(repoRoot, '.github', 'INTEGRATION_PR_TEMPLATE.md');
+
+/** `scripts/pr-lane.mjs` が返す lane の全集合 (typo で gate を空振りさせないための受理集合)。 */
+export const VALID_LANES = Object.freeze(['feature', 'integration', 'hotfix', 'dependabot']);
+
+/**
+ * lane に対応する PR template のパスを返す (#4130 AC1)。
+ *
+ * feature / hotfix / dependabot は従来どおり feature 用 template。
+ * lane を増やす場合はここ 1 箇所で対応付ける (呼び出し側に分岐を散らさない)。
+ *
+ * @param {string} lane
+ * @returns {string}
+ */
+export function templatePathForLane(lane) {
+	return lane === 'integration' ? INTEGRATION_TEMPLATE_PATH : FEATURE_TEMPLATE_PATH;
+}
+
+/**
+ * lane に対応する template を読み、必須セクション見出しを抽出する (#4130 AC1)。
+ *
+ * @param {string} lane
+ * @returns {{ template: string; requiredSections: string[]; path: string }}
+ * @throws {Error} template が存在しない場合 (呼び出し側が exit 2 にする)
+ */
+export function loadTemplateForLane(lane) {
+	const path = templatePathForLane(lane);
+	if (!existsSync(path)) {
+		throw new Error(`PR template が見つかりません: ${path} (lane=${lane})`);
+	}
+	const template = readFileSync(path, 'utf-8');
+	return { template, requiredSections: extractRequiredSections(template), path };
+}
 
 // ---------------------------------------------------------------------------
 // 禁止語 SSOT（Issue 本文 / AC4 dev-session.md と一致させること）
@@ -1217,6 +1270,134 @@ export function resolveDraftState(args, fetched) {
 	return { isDraft: false, source: 'unresolved' };
 }
 
+// ---------------------------------------------------------------------------
+// lane 解決 (#4130)
+// ---------------------------------------------------------------------------
+
+/**
+ * `gh pr view --json baseRefName,headRefName,author` の生 JSON から lane 判定入力を取り出す (#4130)。
+ *
+ * 取り出せない形 (パース不能 / field 欠落) は **既定 lane に潰さず `null`**。
+ * 「feature だった」と「読めなかった」を混ぜると、統合 PR を feature 判定して
+ * 本 Issue の恒常赤をそのまま再現してしまう (`extractLabelNames` と同じ方針)。
+ *
+ * lane 判定そのものは `scripts/pr-lane.mjs` の `classifyLane` (SSOT) が行い、
+ * 本関数は入力の取り出しだけを担う (判定の二重実装をしない、#4130 案 B)。
+ *
+ * @param {string} raw
+ * @returns {{ baseRef: string; headRef: string; actor: string } | null}
+ */
+export function extractLaneRefs(raw) {
+	let parsed;
+	try {
+		parsed = JSON.parse(raw.trim() || 'null');
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object') return null;
+	const baseRef = typeof parsed.baseRefName === 'string' ? parsed.baseRefName : null;
+	const headRef = typeof parsed.headRefName === 'string' ? parsed.headRefName : null;
+	// PR の lane は「このイベントを起こした人」ではなく **PR 作成者**で決める (#4133 と同じ理由)。
+	const actor = typeof parsed.author?.login === 'string' ? parsed.author.login : null;
+	if (baseRef === null || headRef === null || actor === null) return null;
+	return { baseRef, headRef, actor };
+}
+
+/**
+ * `gh pr view <num> --json baseRefName,headRefName,author` で lane を取得する (#4130)。
+ * `--jq` は使わない (#3962 の Windows cmd.exe 引用問題と同じ理由)。
+ *
+ * @param {string|number|null} prNumber
+ * @returns {'feature'|'integration'|'hotfix'|'dependabot'|null} 取得できなければ null (= 未解決)
+ */
+function fetchPrLane(prNumber) {
+	if (!prNumber) return null;
+	try {
+		const raw = execSync(`gh pr view ${prNumber} --json baseRefName,headRefName,author`, {
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 15_000,
+		});
+		const refs = extractLaneRefs(raw);
+		return refs === null ? null : classifyLane(refs);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * 検査に使う lane を確定する (#4130)。
+ *
+ * - `--pr` 指定時は **gh の実 lane を優先**する (取得できた場合 `--lane` 申告は無視)。
+ *   申告で lane を上書きできると、統合 PR を feature と偽って AC マップ検査を外す /
+ *   feature PR を integration と偽って変更タイプ検査を外す、という bypass 経路になる
+ *   (`resolveDraftState` の `--draft` と同じ方針)。
+ * - `--pr` 指定で未解決 (gh 未認証 / オフライン / 出力形式変化) は、`--lane` 明示があれば
+ *   それを逃げ道として採用し、無ければ **error** にする。
+ *   ここで既定 lane に黙って倒すと、誤った lane で「体裁は緑」の検査結果が出る。
+ *   どちらへ倒しても嘘になるため、無言では pass 側にも fail 側にも倒さない。
+ * - `--pr` なし (`--body-file` dry-run) は `--lane` 申告を採用し、無指定は `feature` (後方互換)。
+ *
+ * @param {{ pr: string | null; lane: string | null }} args
+ * @param {'feature'|'integration'|'hotfix'|'dependabot'|null} fetched `fetchPrLane()` の戻り
+ * @returns {{ lane: string; source: 'gh' | 'flag' | 'default' } | { error: string }}
+ */
+export function resolveLane(args, fetched) {
+	if (args.lane !== null && args.lane !== undefined && !VALID_LANES.includes(args.lane)) {
+		return {
+			error:
+				`--lane の値が不正です: ${JSON.stringify(args.lane)}\n` +
+				`  有効値: ${VALID_LANES.join(' / ')} (判定 SSOT: scripts/pr-lane.mjs)`,
+		};
+	}
+	if (args.pr) {
+		if (fetched !== null) return { lane: fetched, source: 'gh' };
+		// gh から取れなかったときに限り、明示 --lane を逃げ道として認める (オフライン検証用)。
+		// gh が取れているときは申告を無視するので、これは bypass 経路にならない。
+		if (args.lane) return { lane: args.lane, source: 'flag' };
+		return {
+			error:
+				`PR #${args.pr} の lane (base / head / author) を取得できませんでした ` +
+				`(gh 未認証 / オフライン / timeout など)。\n` +
+				`  lane が分からないまま検査すると、統合 PR を feature 用 template で見る (= 恒常赤、#4130) か\n` +
+				`  feature PR を統合 PR 用の観点で見る (= 検査が緩む) かのどちらかになるため中断します。\n` +
+				`  対応: gh auth status を確認して再実行するか、--lane <${VALID_LANES.join('|')}> を明示してください。`,
+		};
+	}
+	if (args.lane) return { lane: args.lane, source: 'flag' };
+	return { lane: 'feature', source: 'default' };
+}
+
+/**
+ * 「`--pr` があるなら gh を必ず引く」という **配線そのもの**を 1 箇所に固定する (#4130 QA 指摘)。
+ *
+ * `resolveLane` が「取得できた gh を優先する」と正しく書けていても、呼び出し側で
+ * `args.pr && args.lane === null ? fetch(...) : null` のように **申告があるときに fetch を省く**
+ * 配線をすると、gh を引かない → `fetched === null` → 申告採用、となって bypass 経路が生まれる
+ * (本 Issue の実装途中で実際に 1 度この形になった)。fetcher を引数で受けることで、
+ * この 1 行を unit test で pin できるようにする。
+ *
+ * @param {{ pr: string | null; lane: string | null }} args
+ * @param {(pr: string) => 'feature'|'integration'|'hotfix'|'dependabot'|null} fetchLane
+ * @returns {{ lane: string; source: 'gh' | 'flag' | 'default' } | { error: string }}
+ */
+export function resolveLaneWithFetcher(args, fetchLane) {
+	return resolveLane(args, args.pr ? fetchLane(args.pr) : null);
+}
+
+/**
+ * `resolveDraftState` 版の同型 wrapper (#4130 QA 指摘)。
+ * `--draft` 申告で Ready PR の Ready 化要件 (#3997) を外せないことは、
+ * 「`--pr` があるなら isDraft を必ず引く」配線とセットで初めて保証される。
+ *
+ * @param {{ pr: string | null; draft: boolean }} args
+ * @param {(pr: string) => boolean | null} fetchIsDraft
+ * @returns {{ isDraft: boolean; source: 'gh' | 'flag' | 'unresolved' }}
+ */
+export function resolveDraftStateWithFetcher(args, fetchIsDraft) {
+	return resolveDraftState(args, args.pr ? fetchIsDraft(args.pr) : null);
+}
+
 /** @typedef {{ id: string; issue: string; message: string }} Violation */
 
 /**
@@ -1301,14 +1482,15 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
 export function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
+		lane: null,
 		noLabels: false,
 		skipMergeable: false,
 		draft: false,
@@ -1332,6 +1514,13 @@ export function parseArgs(argv) {
 		if (labels) {
 			args.labels = labels.value;
 			i = labels.nextIndex;
+			continue;
+		}
+		// #4130: --pr 指定時は gh の実 lane が優先され、本フラグは無視される (bypass 防止)
+		const lane = tryParseStringArg(argv, i, ['--lane']);
+		if (lane) {
+			args.lane = lane.value;
+			i = lane.nextIndex;
 			continue;
 		}
 		const a = argv[i];
@@ -1374,6 +1563,9 @@ Options:
   --skip-ready-only   Ready 化要件 ${READY_ONLY_GATES.length} 件を検査しない (#4121、push レイヤ専用)
                       同 section は pr-merge-gate.yml が CI で検査するため純粋な重複。
                       skip したことは必ず標準出力に出る (無言 skip にしない)
+  --lane <lane>       検査観点の lane (${VALID_LANES.join(' | ')}、#4130)
+                      --pr 指定時は gh の base/head/author から自動判定され本フラグは無視される
+                      (gh が取得できない場合のみ逃げ道として採用される)
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
   --help, -h          このヘルプを表示
 
@@ -1388,6 +1580,14 @@ Detected violations:
   8. 変更タイプ checkbox 未選択 (\`- [x]\` 1 つ以上必須、CI gate「変更タイプの選択」と同一 SSOT、#3846)
   9. 未置換プレースホルダ (${PLACEHOLDER_PATTERNS.map((p) => p.label).join(' / ')}) が body のどこかに残存 (code fence 内も対象、#4002 / #4029)
      正当にプレースホルダ文字列を書く PR は \`<!-- placeholder-scan-skip: 理由 -->\` を body に 1 行書く (label では通らない)
+
+lane による観点の切替 (#4130):
+  統合 PR (release/* → main、lane=integration) は単一 Issue に紐づかず feature 用 template を
+  持たないため、feature 用の必須セクション / AC 検証マップ / 変更タイプを要求すると
+  **body の内容にかかわらず必ず fail** する (実測: PR #4126)。lane=integration では
+  .github/INTEGRATION_PR_TEMPLATE.md を参照し、AC 検証マップの代わりに
+  「マージ判定エビデンス表 + 残 NG 0 件」を検証する (検査を外すのではなく観点を切替える)。
+  禁止語 / mojibake / 未置換プレースホルダ / label 条件付き gate は全 lane 共通で効く。
 
 Draft PR の扱い (#3997):
   Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
@@ -1437,13 +1637,16 @@ function loadPrBody(args) {
  * @param {string} body
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
- * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
+ * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[]; lane?: string }} args
  * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-function collectViolations(body, requiredSections, template, args, notes = []) {
+export function collectViolations(body, requiredSections, template, args, notes = []) {
 	const violations = [];
 	const labels = args.labels ?? [];
+	// #4130: 統合 PR (release/* → main) は単一 Issue に紐づかないため、per-PR AC マップ /
+	// 変更タイプ checkbox を持たない別系統の body になる。観点を切替えるだけで検査は外さない。
+	const isIntegration = args.lane === 'integration';
 
 	const missing = findMissingSections(body, requiredSections);
 	if (missing.length > 0) {
@@ -1474,12 +1677,33 @@ function collectViolations(body, requiredSections, template, args, notes = []) {
 		});
 	}
 
-	const acMap = checkAcMap(body);
-	if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
+	if (isIntegration) {
+		// #4130 AC2: per-PR AC マップの代わりに「マージ判定エビデンス表 + 残 NG 0 件」を検証する。
+		// 判定は pr-ac-verification-check.yml と同一 SSOT (scripts/check-ac-verification-map.mjs) を
+		// 再利用し、本 CLI 側に同じ表検証を書かない (#4130 案 C = 別 CLI 新設 を採らない理由)。
+		const evidence = checkIntegrationEvidenceTable(body);
+		if (!evidence.ok) {
+			violations.push({
+				id: 'integration-evidence-missing',
+				issue: '#2945/#4130',
+				message: evidence.error ?? 'マージ判定エビデンス表の検証に失敗しました',
+			});
+		}
+		notes.push(
+			'[check-pr-body] NOTE: lane=integration のため AC 検証マップの代わりに ' +
+				'「マージ判定エビデンス表 + 残 NG 0 件」を検証しました (#4130 AC2)',
+			'  - 変更タイプ checkbox (#3846) は統合 PR template に当該 section が無いため検査対象外です (#4130 AC3)',
+			'  - Ready for Review / 完了チェックリストも統合 PR template に無いため、' +
+				'統合 PR の checklist は pr-merge-gate.yml (## NG 0 件 / カバレッジ宣言) が検査します',
+		);
+	} else {
+		const acMap = checkAcMap(body);
+		if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
 
-	// #4074: 根拠欄の `--pr <番号>` が自 PR を指しているか (宛先違いの証跡を通さない)
-	const evidencePrRef = checkEvidencePrReferences(body, args.pr);
-	if (evidencePrRef) violations.push({ ...evidencePrRef, issue: '#4074' });
+		// #4074: 根拠欄の `--pr <番号>` が自 PR を指しているか (宛先違いの証跡を通さない)
+		const evidencePrRef = checkEvidencePrReferences(body, args.pr);
+		if (evidencePrRef) violations.push({ ...evidencePrRef, issue: '#4074' });
+	}
 
 	const unchecked = findUncheckedReadyChecklist(body);
 	if (unchecked.length > 0) {
@@ -1525,9 +1749,13 @@ function collectViolations(body, requiredSections, template, args, notes = []) {
 	if (poDecision) violations.push({ ...poDecision, issue: '#3944/#3956/#3962' });
 
 	// #3846: 変更タイプ checkbox 未選択の shift-left 検出 (CI gate と同一 SSOT を再利用)
-	const changeType = checkChangeTypeSelection(body, template, labels);
-	if (changeType) {
-		violations.push({ ...changeType, issue: '#3835/#3837/#3844/#3846' });
+	// #4130 AC3: 統合 PR template は `## 変更タイプ` を持たないため integration lane では検査しない
+	// (統合 template を渡すと detectChangeTypeHeading が別 section を変更タイプと誤認する)。
+	if (!isIntegration) {
+		const changeType = checkChangeTypeSelection(body, template, labels);
+		if (changeType) {
+			violations.push({ ...changeType, issue: '#3835/#3837/#3844/#3846' });
+		}
 	}
 
 	return violations;
@@ -1543,12 +1771,30 @@ export async function main(argv = process.argv.slice(2)) {
 	const { body, exitCode } = loadPrBody(args);
 	if (body === null) return exitCode;
 
-	if (!existsSync(TEMPLATE_PATH)) {
-		console.error(`[check-pr-body] ERROR: PR template が見つかりません: ${TEMPLATE_PATH}`);
+	// #4130: lane を先に確定する (参照する template / 検証観点が lane で決まるため)。
+	// --pr 指定時は gh の実 lane のみ採用し、未解決は fail-closed で中断する。
+	const resolvedLane = resolveLaneWithFetcher(args, fetchPrLane);
+	if ('error' in resolvedLane) {
+		console.error(`[check-pr-body] ERROR: ${resolvedLane.error}`);
 		return 2;
 	}
-	const template = readFileSync(TEMPLATE_PATH, 'utf-8');
-	const requiredSections = extractRequiredSections(template);
+	const { lane, source: laneSource } = resolvedLane;
+	console.log(
+		`[check-pr-body] lane=${lane} (判定元: ${laneSource}、SSOT: scripts/pr-lane.mjs) — ` +
+			`参照 template: ${templatePathForLane(lane)
+				.replace(repoRoot, '')
+				.replace(/^[/\\]/, '')}`,
+	);
+
+	/** @type {{ template: string; requiredSections: string[] }} */
+	let loaded;
+	try {
+		loaded = loadTemplateForLane(lane);
+	} catch (e) {
+		console.error(`[check-pr-body] ERROR: ${e instanceof Error ? e.message : String(e)}`);
+		return 2;
+	}
+	const { template, requiredSections } = loaded;
 
 	// #2343: hotfix label 検出のためラベル取得 / #3962: 未解決は fail-closed
 	const needsFetch = args.labels === null && !args.noLabels;
@@ -1575,13 +1821,13 @@ export async function main(argv = process.argv.slice(2)) {
 		body,
 		requiredSections,
 		template,
-		{ ...args, labels },
+		{ ...args, labels, lane },
 		notes,
 	);
 	for (const line of notes) console.log(line);
 
 	// #3997: Draft PR では Ready 化要件のみ deferred。未解決 (gh 失敗) は Ready 扱いで全 enforce。
-	const draftState = resolveDraftState(args, args.pr ? fetchPrIsDraft(args.pr) : null);
+	const draftState = resolveDraftStateWithFetcher(args, fetchPrIsDraft);
 	// #4121: `--skip-ready-only` は Draft/Ready を問わず Ready 化要件を検査対象から外す
 	// (push レイヤ専用。CI は pr-merge-gate.yml が同 section を検査する)。
 	const deferReadyOnly = draftState.isDraft || args.skipReadyOnly;

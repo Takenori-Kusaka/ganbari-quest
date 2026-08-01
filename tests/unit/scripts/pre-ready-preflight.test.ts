@@ -76,11 +76,12 @@ describe('preflightWorktreeDeps (#3857 Fix C)', () => {
 		for (const s of sentinels) {
 			mkdirSync(resolve(tmp, s), { recursive: true });
 		}
-		// tsx (Step 11 依存) のみ欠落させる
-		rmSync(resolve(tmp, 'node_modules/tsx'), { recursive: true, force: true });
+		// svelte-check (Step 2 依存) のみ欠落させる
+		// (#4121 で pre-ready を 6 step に絞り、vitest / tsx / aws-cdk-lib は CI 側 job の依存になった)
+		rmSync(resolve(tmp, 'node_modules/svelte-check'), { recursive: true, force: true });
 		const { result } = callPreflight(tmp);
 		expect(result.ok).toBe(false);
-		expect(result.missing).toContain('node_modules/tsx');
+		expect(result.missing).toContain('node_modules/svelte-check');
 	});
 
 	it('.git がファイル (linked worktree の gitdir ポインタ) なら isWorktree:true', () => {

@@ -8,13 +8,15 @@
  * (`XXXY` = 語境界を持たないので XXX として検出されない / `labelish` = PLACEHOLDER 等の
  * token に見えるが該当しない語)。これらは typo ではなく検査対象そのものなので、
  * .cspell.json の辞書 (= 本物の語彙) には入れず file-scoped ignore で閉じる。
+ * (`integratoin` = `--lane` の typo を受理しないことを示す負例。綴りを直すと negative case が消える)
  */
-// cspell:ignore XXXY labelish
+// cspell:ignore XXXY labelish integratoin
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { checkIntegrationEvidenceTable } from '../../../scripts/check-ac-verification-map.mjs';
 import {
 	checkAcMap,
 	checkChangeTypeSelection,
@@ -22,10 +24,12 @@ import {
 	checkPlaceholders,
 	checkPoDecisionBrief,
 	checkSelfReviewEvidence,
+	collectViolations,
 	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
 	extractLabelNames,
+	extractLaneRefs,
 	extractPoDecisionSection,
 	extractRequiredSections,
 	FORBIDDEN_TERMS,
@@ -36,16 +40,22 @@ import {
 	hasHotfixLabel,
 	hasPoDecisionLabel,
 	LABEL_CONDITIONAL_GATES,
+	loadTemplateForLane,
 	PLACEHOLDER_PATTERNS,
 	PO_DECISION_LABEL,
 	parsePlaceholderScanSkip,
+	resolveDraftStateWithFetcher,
 	resolveLabels,
+	resolveLane,
+	resolveLaneWithFetcher,
 	scanForbiddenTerms,
 	scanPlaceholders,
 	selectSkippedLabelGates,
 	stripCodeBlocks,
 	stripMarkdownComments,
+	templatePathForLane,
 } from '../../../scripts/check-pr-body.mjs';
+import { classifyLane } from '../../../scripts/pr-lane.mjs';
 
 describe('extractRequiredSections', () => {
 	it('## 見出しを完全一致で抽出する', () => {
@@ -1130,5 +1140,207 @@ describe('未置換プレースホルダ検出 (#4002 / #4029)', () => {
 			expect(p.id).toBeTruthy();
 			expect(p.label).toBeTruthy();
 		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4130: lane-aware 化 (統合 PR で構造上必ず fail する状態の解消)
+//
+// #4125 が check-pr-body.mjs を CI に配線した際、本 CLI だけが lane 非対応
+// (TEMPLATE_PATH = feature 用固定 / checkChangeType の lane = 'feature' 固定) のまま載り、
+// 統合 PR (release/* → main) では missing-required-sections / ac-map-missing が
+// **body の内容にかかわらず必ず立つ**状態になった (実測: PR #4126)。
+//
+// lane 判定は scripts/pr-lane.mjs (SSOT) を、integration lane の観点は
+// scripts/check-ac-verification-map.mjs の checkIntegrationEvidenceTable を再利用する
+// (二重実装しない、#4130 案 B)。
+// ---------------------------------------------------------------------------
+
+describe('lane-aware 化 (#4130)', () => {
+	const INTEGRATION_BODY = readFileSync(
+		resolve(__dirname, '../../fixtures/integration-pr/integration-pr-body.md'),
+		'utf-8',
+	);
+
+	/** collectViolations の呼び出しを 1 行に畳む helper (lane ごとの template 解決込み)。 */
+	function violate(body: string, lane: string) {
+		const { template, requiredSections } = loadTemplateForLane(lane);
+		const notes: string[] = [];
+		const violations = collectViolations(
+			body,
+			requiredSections,
+			template,
+			{ pr: null, skipMergeable: true, labels: [], lane },
+			notes,
+		);
+		return { ids: violations.map((v: { id: string }) => v.id), notes };
+	}
+
+	it('[LN1] integration lane は統合 PR template を参照する (feature 用固定をやめる、AC1)', () => {
+		expect(templatePathForLane('integration')).toMatch(/INTEGRATION_PR_TEMPLATE\.md$/);
+		for (const lane of ['feature', 'hotfix', 'dependabot']) {
+			expect(templatePathForLane(lane)).toMatch(/[/\\]PULL_REQUEST_TEMPLATE\.md$/);
+		}
+	});
+
+	it('[LN2] 統合 PR body が integration lane で構造 violation ゼロになる (#4126 の恒常赤の直因、AC1/AC2)', () => {
+		const { ids } = violate(INTEGRATION_BODY, 'integration');
+		expect(ids).not.toContain('missing-required-sections');
+		expect(ids).not.toContain('ac-map-missing');
+		expect(ids).toEqual([]);
+	});
+
+	it('[LN3] 同じ body を feature lane で見ると従来どおり fail する (lane 差が原因だったことの固定)', () => {
+		const { ids } = violate(INTEGRATION_BODY, 'feature');
+		expect(ids).toContain('missing-required-sections');
+		expect(ids).toContain('ac-map-missing');
+	});
+
+	it('[LN4] integration lane はエビデンス表 section 欠落を検出する (AC マップの代替、検証量を減らさない、AC2)', () => {
+		const noTable = INTEGRATION_BODY.replace(
+			/## マージ判定エビデンス表[\s\S]*?(?=## 監査 run 結果リンク)/,
+			'',
+		);
+		const { ids } = violate(noTable, 'integration');
+		expect(ids).toContain('integration-evidence-missing');
+	});
+
+	it('[LN5] integration lane は「残 NG 0 件」明示欠落を検出する (AC2)', () => {
+		// 注意 (実測): 再利用 SSOT の NG-0 判定は `## NG 0 件 / カバレッジ宣言` という
+		// **見出し文字列自体**にもマッチする (checkIntegrationEvidenceTable の NG_ZERO_PATTERN)。
+		// そのため「本文の宣言だけを消す」入力では落ちない。本 test は本 CLI が SSOT の
+		// NG-0 判定を確かに通していることを、判定が成立し得ない入力で固定する。
+		// SSOT 側の判定強度そのものは本 PR の scope 外 (#2945 の所管)。
+		const noNgZero = INTEGRATION_BODY.replace(/残 NG 合計 0 件/g, '残 NG は監査 run 参照')
+			.replace('## NG 0 件 / カバレッジ宣言', '## NG / カバレッジ宣言')
+			.replace(/未解決 NG が \*\*0 件\*\*である/, '未解決 NG を監査 run 側で確認した');
+		const { ids } = violate(noNgZero, 'integration');
+		expect(ids).toContain('integration-evidence-missing');
+	});
+
+	it('[LN6] integration lane の判定は check-ac-verification-map.mjs と一致する (二重実装しない、AC2)', () => {
+		expect(checkIntegrationEvidenceTable(INTEGRATION_BODY).ok).toBe(true);
+		const broken = INTEGRATION_BODY.replace('| pass | 閾値内 | 0 |', '|  |  |  |');
+		expect(checkIntegrationEvidenceTable(broken).ok).toBe(false);
+		expect(violate(broken, 'integration').ids).toContain('integration-evidence-missing');
+	});
+
+	it('[LN7] integration lane は変更タイプ checkbox を要求しない (統合 template に当該 section がない、AC3)', () => {
+		const { ids, notes } = violate(INTEGRATION_BODY, 'integration');
+		expect(ids).not.toContain('change-type-unselected');
+		// 無言 skip にしない: 何を検査しなかったかを必ず出力に残す
+		expect(notes.join('\n')).toContain('変更タイプ');
+	});
+
+	it('[LN8] feature lane の既存挙動は不変 (AC5 回帰ゼロ)', () => {
+		const featureBody = [
+			'## 変更タイプ',
+			'',
+			'- [ ] feat: 新機能',
+			'- [ ] fix: バグ修正',
+			'- [ ] refactor: リファクタリング',
+			'- [ ] infra: インフラ・CI/CD',
+		].join('\n');
+		const { ids } = violate(featureBody, 'feature');
+		// feature 用 template の必須 section / AC マップ / 変更タイプ が従来どおり全て効く
+		expect(ids).toContain('missing-required-sections');
+		expect(ids).toContain('ac-map-missing');
+		expect(ids).toContain('change-type-unselected');
+	});
+
+	it('[LN9] lane は PR の base/head/author から SSOT (pr-lane.mjs) で決まる', () => {
+		const refs = extractLaneRefs(
+			'{"baseRefName":"main","headRefName":"release/2026-07-31","author":{"login":"Takenori-Kusaka"}}',
+		);
+		expect(refs).toEqual({
+			baseRef: 'main',
+			headRef: 'release/2026-07-31',
+			actor: 'Takenori-Kusaka',
+		});
+		expect(classifyLane(refs as { baseRef: string; headRef: string; actor: string })).toBe(
+			'integration',
+		);
+		expect(extractLaneRefs('not json')).toBeNull();
+		expect(extractLaneRefs('{"baseRefName":"main"}')).toBeNull();
+	});
+
+	it('[LN10] --pr 指定時は gh の実 lane が優先され --lane 申告は無視される (bypass 防止)', () => {
+		expect(resolveLane({ pr: '4126', lane: 'feature' }, 'integration')).toEqual({
+			lane: 'integration',
+			source: 'gh',
+		});
+	});
+
+	it('[LN11] --pr 指定で lane 未解決なら fail-closed (誤 lane で gate を緩めない / 空振りさせない)', () => {
+		const resolved = resolveLane({ pr: '4126', lane: null }, null);
+		expect('error' in resolved).toBe(true);
+		expect((resolved as { error: string }).error).toContain('--lane');
+	});
+
+	it('[LN12] --body-file dry-run は --lane 申告を採用し、既定は feature (後方互換)', () => {
+		expect(resolveLane({ pr: null, lane: 'integration' }, null)).toEqual({
+			lane: 'integration',
+			source: 'flag',
+		});
+		expect(resolveLane({ pr: null, lane: null }, null)).toEqual({
+			lane: 'feature',
+			source: 'default',
+		});
+	});
+
+	it('[LN14] --pr で gh が取れないときだけ --lane を逃げ道として採用する (オフライン検証)', () => {
+		expect(resolveLane({ pr: '4126', lane: 'integration' }, null)).toEqual({
+			lane: 'integration',
+			source: 'flag',
+		});
+	});
+
+	it('[LN13] 未知の lane 値は受理しない (typo で gate が空振りするのを防ぐ)', () => {
+		expect('error' in resolveLane({ pr: null, lane: 'integratoin' }, null)).toBe(true);
+	});
+
+	// --- 配線の固定 (#4130 QA 指摘) ---
+	// resolveLane / resolveDraftState 単体を正しく書いても、**呼び出し側が「申告があるときは
+	// gh を引かない」形に配線すると申告が勝ってしまう** (実装途中で実際に 1 度その形になった)。
+	// その 1 行を pin するため、fetcher を引数で受ける薄い wrapper を main と共有し、
+	// 「--pr があれば申告の有無にかかわらず fetcher を必ず呼ぶ」ことを spy で固定する。
+	// (main() 自体を execSync mock で回す案は、本 script が vitest の externalized module で
+	//  mock が適用されず実 gh を叩いてしまうため採らない)
+
+	it('[LN15] --pr + --lane でも gh fetcher は必ず呼ばれ、その結果が申告に勝つ (bypass 防止)', () => {
+		const fetcher = vi.fn(() => 'integration' as const);
+		const resolved = resolveLaneWithFetcher({ pr: '4126', lane: 'feature' }, fetcher);
+		expect(fetcher).toHaveBeenCalledWith('4126');
+		expect(resolved).toEqual({ lane: 'integration', source: 'gh' });
+	});
+
+	it('[LN16] --pr + --draft でも isDraft fetcher は必ず呼ばれ、gh=false が申告に勝つ (Ready 化要件を外させない)', () => {
+		const fetcher = vi.fn(() => false);
+		const resolved = resolveDraftStateWithFetcher({ pr: '4147', draft: true }, fetcher);
+		expect(fetcher).toHaveBeenCalledWith('4147');
+		expect(resolved).toEqual({ isDraft: false, source: 'gh' });
+	});
+
+	it('[LN17] gh が Draft と答えたときだけ deferred される / --pr なしでは fetcher を呼ばない', () => {
+		const draftFetcher = vi.fn(() => true);
+		expect(resolveDraftStateWithFetcher({ pr: '4147', draft: false }, draftFetcher)).toEqual({
+			isDraft: true,
+			source: 'gh',
+		});
+
+		// --body-file dry-run では PR が無いので gh を引かない (申告を採用する)
+		const unused = vi.fn(() => false);
+		expect(resolveDraftStateWithFetcher({ pr: null, draft: true }, unused)).toEqual({
+			isDraft: true,
+			source: 'flag',
+		});
+		expect(unused).not.toHaveBeenCalled();
+
+		const laneUnused = vi.fn(() => 'integration' as const);
+		expect(resolveLaneWithFetcher({ pr: null, lane: null }, laneUnused)).toEqual({
+			lane: 'feature',
+			source: 'default',
+		});
+		expect(laneUnused).not.toHaveBeenCalled();
 	});
 });

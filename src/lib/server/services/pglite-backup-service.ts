@@ -34,6 +34,34 @@ export interface PgliteBackupStatus {
 	lastSuccessDurationMs: number | null;
 	lastFailureAt: string | null;
 	lastFailureMessage: string | null;
+	/**
+	 * 連続失敗回数 (#4129 AC4)。成功で 0 に戻る。
+	 *
+	 * 失敗のたびに alert を 1 通投げるだけだと、**毎晩同じ alert が流れて埋もれる**。
+	 * 2026-07-31 の実害では `CRON_SECRET` 未配布で毎晩失敗していたが 18 日間誰も気づかなかった
+	 * (そのときは webhook も未配布で alert 自体が 0 通だった、#4119)。回数を持てば
+	 * 「今日も失敗した」ではなく「**N 晩続けて失敗している**」を出せる。
+	 */
+	consecutiveFailures: number;
+}
+
+/**
+ * 破壊的ローテーション (一度に複数世代を消す) を検出して止めたことを表すエラー (#4129 AC2)。
+ *
+ * 通常運用では 1 回の実行で溢れる世代は高々 1 件しかない。複数件溢れるのは
+ * **`BACKUP_RETENTION` が引き下げられた直後の初回実行**か、世代名のファイルが外から
+ * 増やされたときだけであり、いずれも「気づかないうちに手持ちが一括で消える」形になる。
+ * 削除は不可逆なので、消す前に止めて人間に退避させる (fail-closed)。
+ */
+export class PgliteBackupRotationGuardError extends Error {
+	constructor(
+		readonly wouldDelete: string[],
+		readonly retention: number,
+		message: string,
+	) {
+		super(message);
+		this.name = 'PgliteBackupRotationGuardError';
+	}
 }
 
 export interface RunPgliteBackupOptions {
@@ -73,6 +101,7 @@ async function readStatus(backupDir: string): Promise<PgliteBackupStatus> {
 		lastSuccessDurationMs: null,
 		lastFailureAt: null,
 		lastFailureMessage: null,
+		consecutiveFailures: 0,
 	};
 	try {
 		const raw = await readFile(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8');
@@ -132,6 +161,28 @@ export async function runPgliteBackup(
 		// ローテーション: 確定後にのみ削除する。
 		const existing = sortBackupsNewestFirst(await readdir(backupDir));
 		const rotated = existing.slice(retention);
+
+		// #4129 AC2: **一度に 2 世代以上消す実行は止める (fail-closed)**。
+		// 定常運用では、新しい 1 世代が入って古い 1 世代が溢れるだけなので rotated は高々 1 件。
+		// 2 件以上溢れるのは retention 引き下げ直後の初回実行 (#3950 の 7 → 3) か、世代名の
+		// ファイルが外から増えたときで、どちらも「気づかないうちに手持ちが一括で消える」形になる。
+		// 取得した新世代はここまでで確定済みなので、**バックアップは失われず削除だけが止まる**。
+		// 逃げ道 (bypass env) は用意しない — 退避してから手で古い世代を削れば、次回以降は
+		// rotated が 1 件に戻って自然に解除される。env で黙って通せる穴を作らない。
+		if (rotated.length > 1) {
+			throw new PgliteBackupRotationGuardError(
+				rotated,
+				retention,
+				`[pglite-backup] 一度に ${rotated.length} 世代を削除しようとしたため中断しました ` +
+					`(BACKUP_RETENTION=${retention})。削除は不可逆です。` +
+					`対象: ${rotated.join(', ')}。` +
+					'BACKUP_RETENTION を引き下げた直後の初回実行が原因である可能性が高いです。' +
+					'消えて困る世代を退避したうえで、古い世代を手で削除してください ' +
+					'(次回以降は溢れが 1 世代に戻り自動で解除されます)。' +
+					`なお今回取得した新しいバックアップは確定済みで失われていません。`,
+			);
+		}
+
 		for (const stale of rotated) {
 			await rm(join(backupDir, stale), { force: true });
 		}
@@ -144,6 +195,7 @@ export async function runPgliteBackup(
 			lastSuccessFilename: filename,
 			lastSuccessBytes: bytes.byteLength,
 			lastSuccessDurationMs: durationMs,
+			consecutiveFailures: 0,
 		});
 
 		const result: PgliteBackupResult = {
@@ -166,6 +218,7 @@ export async function runPgliteBackup(
 			...previous,
 			lastFailureAt: new Date().toISOString(),
 			lastFailureMessage: message,
+			consecutiveFailures: (previous.consecutiveFailures ?? 0) + 1,
 		}).catch(() => {
 			// 状態ファイルすら書けない場合でも、元の失敗を握り潰さずそのまま投げる。
 		});
