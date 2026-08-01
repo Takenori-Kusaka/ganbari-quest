@@ -64,7 +64,7 @@ const BACKUP_ENV_CONTRACT = [
 	{
 		name: 'PGLITE_DATA_DIR',
 		required: true,
-		why: '稼働中 PGDATA の場所。取得対象そのもの',
+		why: '稼働中 DB のデータディレクトリの場所。取得対象そのもの',
 	},
 	{
 		name: 'DISCORD_ALERT_WEBHOOK_URL',
