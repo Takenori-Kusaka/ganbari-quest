@@ -100,7 +100,6 @@ function formatExpiresAt(iso: string): string {
 		year: 'numeric',
 		month: 'long',
 		day: 'numeric',
-		timeZone: 'Asia/Tokyo',
 	});
 }
 
