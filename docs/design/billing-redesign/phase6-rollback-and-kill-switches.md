@@ -294,6 +294,14 @@ flowchart TD
 
 ## 5. feature flag kill switch SSOT (§5)
 
+> **現状の正解 (#4128)**: kill switch は **`USE_LOOKUP_KEY` の 1 件のみ**。
+> `STRIPE_WEBHOOK_SHADOW_MODE` は撤去した — webhook 受信口を止める switch は「課金 event を捨てる switch」でしかなく、
+> Stripe は 200 を受けると再送しないため、押した瞬間に event が台帳にも残らず消える (2026-07-26 の実障害と同 class)。
+> 以下の §5.1 の 2 行目 / §5.2 の webhook ブロック / §5.4 の 3 系統配備・§6 の切替手順のうち
+> `STRIPE_WEBHOOK_SHADOW_MODE` に関する記述は**実行しない**。webhook 障害時の一次対応は
+> `docs/operations/stripe-post-mortem-runbook.md` §3.2 (Dashboard の destination 確認 → event resend) が SSOT。
+
+
 Phase 5 子 1 + Phase 6 子 1 + 子 4 で確定した 2 feature flag を **`.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所**で統合管理する。LaunchDarkly / Unleash 等の外部 platform は本 PR §7 OSS 4 件比較で不採用と判断 (Pre-PMF Bucket A、ADR-0010 整合)。
 
 ### 5.1 2 feature flag 定義

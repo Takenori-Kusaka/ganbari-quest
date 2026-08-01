@@ -92,9 +92,7 @@ export async function checkPlanResolution(): Promise<PlanDriftReport> {
 			status: 'all',
 			limit: MAX_SUBSCRIPTIONS_PER_CHECK,
 		});
-		const subscriptions = (list.data ?? []).filter((sub) =>
-			ACTIVE_STATUSES.includes(sub.status),
-		);
+		const subscriptions = (list.data ?? []).filter((sub) => ACTIVE_STATUSES.includes(sub.status));
 
 		const unresolved: PlanUnresolvedSubscription[] = [];
 		for (const subscription of subscriptions) {

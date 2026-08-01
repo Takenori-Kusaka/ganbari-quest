@@ -60,7 +60,10 @@ interface WebhookRoute {
 }
 
 const webhookRoutes: WebhookRoute[] = serverRouteFiles
-	.map((path) => ({ path: relative(repoRoot, path).replace(/\\/g, '/'), source: readFileSync(path, 'utf-8') }))
+	.map((path) => ({
+		path: relative(repoRoot, path).replace(/\\/g, '/'),
+		source: readFileSync(path, 'utf-8'),
+	}))
 	.filter((file) => SIGNATURE_VERIFY_PATTERN.test(file.source));
 
 describe('Stripe webhook 受信口 (#4128 AC1 / AC2)', () => {
@@ -82,14 +85,23 @@ describe('Stripe webhook 受信口 (#4128 AC1 / AC2)', () => {
 	});
 
 	it('shadow mode (受信して破棄し 200 を返す分岐) が src に存在しない', { timeout: 60_000 }, () => {
-		const srcFiles = listFiles(join(repoRoot, 'src'), (p) => p.endsWith('.ts') || p.endsWith('.svelte'));
+		const srcFiles = listFiles(
+			join(repoRoot, 'src'),
+			(p) => p.endsWith('.ts') || p.endsWith('.svelte'),
+		);
 		const offenders = srcFiles
-			.filter((p) => /STRIPE_WEBHOOK_SHADOW_MODE|isWebhookShadowModeEnabled|getWebhookSecretForShadow/.test(readFileSync(p, 'utf-8')))
+			.filter((p) =>
+				/STRIPE_WEBHOOK_SHADOW_MODE|isWebhookShadowModeEnabled|getWebhookSecretForShadow/.test(
+					readFileSync(p, 'utf-8'),
+				),
+			)
 			.map((p) => relative(repoRoot, p).replace(/\\/g, '/'));
 		expect(offenders).toEqual([]);
 	});
 
-	it('shadow mode の env 配線 (infra / workflow / .env.example) が残っていない', { timeout: 60_000 }, () => {
+	it('shadow mode の env 配線 (infra / workflow / .env.example) が残っていない', {
+		timeout: 60_000,
+	}, () => {
 		// アプリ側から分岐を消しても env が配布され続けていると、「flag はあるのに効かない」状態が
 		// 運用 doc と食い違ったまま残る。配線ごと落とす。
 		const wiringFiles = [
@@ -98,7 +110,9 @@ describe('Stripe webhook 受信口 (#4128 AC1 / AC2)', () => {
 			join(repoRoot, '.env.example'),
 		];
 		const offenders = wiringFiles
-			.filter((p) => /STRIPE_WEBHOOK_SHADOW_MODE|stripeWebhookShadowMode/.test(readFileSync(p, 'utf-8')))
+			.filter((p) =>
+				/STRIPE_WEBHOOK_SHADOW_MODE|stripeWebhookShadowMode/.test(readFileSync(p, 'utf-8')),
+			)
 			.map((p) => relative(repoRoot, p).replace(/\\/g, '/'));
 		expect(offenders).toEqual([]);
 	});
