@@ -79,7 +79,7 @@
    - 発行されたキーをテナントに紐付け
    - Stripe Customer のメールアドレスへ `sendLicenseKeyEmail` で送信
    - キー発行失敗時も決済自体は成功扱い（手動補完可）
-5. Discord 通知: `notifyBillingEvent(tenantId, 'checkout_completed', 'plan=...')`
+5. Discord には通知しない（課金**成功**の通知は持たない。`23-Discordサーバー設計書.md §4.5`。事実は `[STRIPE] Checkout completed` ログが残す）
 
 ### 2.3 PremiumWelcome モーダル表示
 
@@ -124,8 +124,8 @@ PO の「解約原因が見えない」「卒業 vs 離反比率が検証され�
         │      (tenantId / category / freeText / planAtCancellation /
         │       stripeSubscriptionId / createdAt)
         │
-        ├─ Discord churn channel に notifyCancellationWithReason() 通知
-        │      (カテゴリ別絵文字 + 自由記述 1024 文字まで含む)
+        ├─ Discord には通知しない (churn チャネルは持たない、§4.5)
+        │      理由・自由記述は DB に残り ops dashboard で集計する
         │
         ▼
   分岐:
@@ -331,7 +331,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    | `canceled` / `incomplete_expired` | 終端収束（手順 2 で処理済、§10.5） |
 5. `applyTenantContractState()`（契約状態を書き換える唯一の経路、§10.5.1 P3）で `plan, status` を保存。
    **event 対象の subscription が tenant の現行契約でなければ適用しない**（#4026）
-6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_updated', 'status=..., plan=...')`
+6. Discord には通知しない（プラン変更の通知は持たない、§4.5。事実は `[STRIPE] Subscription updated` ログが残す）
 
 ### 3.4 Webhook 処理 — `customer.subscription.deleted`
 
@@ -353,7 +353,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
    `if (tenant.stripeSubscriptionId) return { error: 'ALREADY_SUBSCRIBED' }` が発火して
    **解約済みユーザーの再購読導線が塞がっていた**
 5. **重要**: テナント・子供データ・活動履歴は削除しない（解約と削除は別概念。アカウント削除は `/admin/settings` 経由 → `account-deletion-flow.md` 参照）
-6. Discord 通知: `notifyBillingEvent(tenantId, 'subscription_deleted')`
+6. Discord には通知しない（解約の通知は持たない、§4.5。事実は `[STRIPE] Subscription deleted` ログが残す）
 
 ---
 
@@ -373,7 +373,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 3. `applyTenantContractState()`（§10.5.1 P3、event 対象が現行契約のときのみ適用）で:
    - `status` = `'grace_period'`
    - `planExpiresAt` = `graceExpires`
-4. Discord 通知: `notifyBillingEvent(tenantId, 'payment_failed', '猶予期間: ...')`
+4. Discord alert `stripe-payment-failed` を送出（**支払い失敗だけは incident に残す**、`23-Discordサーバー設計書.md §4.5`）。payload に tenantId は載せないため、対象は `[STRIPE] Payment failed` ログ / Stripe 側で特定する
 
 ### 4.2 ユーザー視点の挙動
 

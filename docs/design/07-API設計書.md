@@ -225,7 +225,7 @@
 
 **処理:**
 1. `cancellation-service.submitCancellationReason()` を呼び出して DB 永続化
-2. Discord churn channel へ `notifyCancellationWithReason()` で通知（カテゴリ + 自由記述含む）
+2. Discord には通知しない（`churn` チャネルは持たない。理由は `23-Discordサーバー設計書.md §4.5`。理由・自由記述は `cancellation_reasons` に残り ops dashboard から集計する）
 3. 課金プランかつ `stripeCustomerId` 存在 → Stripe Customer Portal セッションを作成して 303 リダイレクト
 4. 無料プラン or Portal 不可 → `/admin/subscription/cancel/thanks` に 303 リダイレクト
 

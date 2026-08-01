@@ -109,6 +109,6 @@ export function redactNotificationText(text: string | undefined): string | undef
 
 /**
  * 文中の URL path 候補。`prefix` は直前の 1 文字 (英数字でないこと) を捕捉して戻すための group。
- * lookbehind を使わないのは、対象 runtime (Node / workerd) 差を持ち込まないため。
+ * lookbehind を使わないのは、実行環境ごとの対応差を持ち込まないため。
  */
 const IN_TEXT_PATH_PATTERN = /(^|[^A-Za-z0-9])(\/[A-Za-z0-9_\-/.]*)/g;
