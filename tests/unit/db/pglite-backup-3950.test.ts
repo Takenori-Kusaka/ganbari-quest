@@ -518,6 +518,7 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 				lastSuccessAt: string | null;
 				consecutiveFailures: number;
 				rotationPendingCount?: number;
+				rotationBlockedSince?: string | null;
 			};
 
 		// retention=7 運用で 7 世代を作る (#3950 引き下げ前と同じ形)。
@@ -569,6 +570,7 @@ describe('#3950 PGlite backup — 復元できることの実証', () => {
 				lastFailureMessage: null,
 				notificationConfigured: true,
 				rotationPendingCount: status.rotationPendingCount ?? 0,
+				rotationBlockedSince: null,
 			},
 			new Date(Date.UTC(2026, 6, 19, 3, 5, 0)),
 		);
