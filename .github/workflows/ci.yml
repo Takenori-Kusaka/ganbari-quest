@@ -1366,6 +1366,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # #4155: code-scanning alerts API (CodeQL new-alert 検査) の読み取りに必要。
+      security-events: read
     steps:
       - uses: actions/checkout@v7
 
@@ -1381,6 +1383,19 @@ jobs:
         with:
           name: coverage-summary
           path: coverage/
+
+      # #4155: CodeQL は main ruleset の required_status_checks 非該当 (branch-strategy.md §4)。
+      # その代わりに「統合 PR の ref (refs/pull/<N>/merge) 由来の open alert が baseline を
+      # 超えないこと」を機械条件にする。ここでは結果 JSON を出すだけ (--report-only) で、
+      # hard fail は evidence upload 後の enforcement step が行う (evidence を必ず残すため)。
+      - name: CodeQL new-alert 検査 (結果生成、#4155)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          node scripts/audit/check-codeql-alerts.mjs
+          --pr "${{ github.event.pull_request.number }}"
+          --out integration-evidence/codeql-alerts.json
+          --report-only
 
       - name: Generate integration PR evidence (audit-team.md §3.5 #3/#4)
         env:
@@ -1418,8 +1433,15 @@ jobs:
           fi
 
       - name: Upload integration PR evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: integration-pr-evidence-${{ github.run_id }}
           path: integration-evidence/
           retention-days: 30
+
+      # #4155 AC3: 新規 alert 1 件で fail する enforcement (baseline 超過 / ledger 不正 /
+      # 未スキャン・API 取得失敗 = 検査不能 も fail)。advisory と違い continue-on-error にしない。
+      # evidence upload の後段に置き、fail しても artifact は必ず残るようにする。
+      - name: CodeQL new-alert 検査 (enforcement、#4155)
+        run: node scripts/audit/check-codeql-alerts.mjs --input integration-evidence/codeql-alerts.json

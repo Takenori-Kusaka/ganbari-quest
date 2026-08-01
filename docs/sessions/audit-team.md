@@ -136,13 +136,23 @@ ADR-0056 §E が定義する「subagent ≠ QM（役割分離 SSOT）」を、�
 
 audit-manager が統合 PR の merge を判定する際に揃えるべき人間可読エビデンス。E 系 sub-issue でこの形式を自動生成するが、ここでは判定に使う仕様を定義する。
 
-**必須エビデンス（4 点 + NG 0 件条件）**:
+**必須エビデンス（4 点 + NG 0 件条件 + CodeQL new-alert 0 件条件）**:
 
 1. **新機能・修正一覧**: 統合 PR に含まれる develop 上の全変更（feature / fix）を 1 行ずつ列挙（出典 PR 番号 / 変更概要 / 対象領域）。
 2. **対応テストケース一覧**: 各変更に対応する unit / integration / E2E / Storybook テストケースを紐付け（変更 × テストの突合表）。
 3. **テスト結果表**: 上記テストの実行結果（pass / fail / skip）を最重厚レーン（[branch-strategy.md](branch-strategy.md) §4）の全 job 横断で集約。
 4. **自動テストカバレッジ**: カバレッジ値 + ratchet 閾値割れがないこと（ADR-0005 整合）。
 5. **NG 0 件エビデンス**: 8 領域 finding のうち severity 閾値以上（§3.6）の未解決 NG が **0 件**であること。残 NG があれば merge しない。
+6. **CodeQL new-alert 0 件エビデンス（#4155）**: `ref=refs/pull/<N>/merge` の open code-scanning alert が baseline（`scripts/audit/codeql-baseline.json`）を **1 件も超えない**こと。`CodeQL` check は main ruleset の required_status_checks 非該当（[branch-strategy.md](branch-strategy.md) §4「CodeQL の扱い」）だが、**その代替として本条件を NG-0 に含める**。「required でないから赤でも通す」を audit-manager が個別判断することを禁じる（外形が admin bypass と区別できないため、ADR-0022 同型）。
+
+   ```bash
+   # 機械取得（CI では ci.yml integration-evidence job が自動実行し evidence.json / job summary に載せる）
+   node scripts/audit/check-codeql-alerts.mjs --pr <N>
+   gh api "repos/Takenori-Kusaka/ganbari-quest/code-scanning/alerts?state=open&ref=refs/pull/<N>/merge"
+   ```
+
+   - 新規 alert 1 件 / baseline ledger 不正（`src/` 混入・`resolutionTrigger` 欠落）/ **未スキャン・API 取得失敗（= 検査不能）** のいずれでも fail する。「検査できなかった」を pass に倒さない
+   - baseline は「受容の記録」であって免罪符ではない。各 entry の `resolutionTrigger`（例: その file を次に触るとき）が解消条件の SSOT
 
 判定可読仕様（表イメージ）:
 
@@ -151,7 +161,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 例: 機能 A（#NNNN） | admin/activities | unit×N / e2e×M | pass | 閾値内 | 0 |
 | 例: 修正 B（#NNNN） | child-home | unit×N / e2e×M | pass | 閾値内 | 0 |
 
-- 全行が pass + 残 NG 合計 0 + カバレッジ閾値割れなし + adversarial evidence の反対理由が解消済、を満たして初めて audit-manager が merge を実行する。
+- 全行が pass + 残 NG 合計 0 + CodeQL new-alert 0 件 + カバレッジ閾値割れなし + adversarial evidence の反対理由が解消済、を満たして初めて audit-manager が merge を実行する。
 - 1 行でも fail / 残 NG > 0 の場合は merge せず、該当を §3.6 の起票/棄却 flow に送る。
 - **#3 / #4 は CI artifact `integration-pr-evidence-<run_id>` が自動生成する**（`ci.yml` `integration-evidence` job、#2874。テスト結果表 = toJSON(needs) 横断 + カバレッジ gap map + API 設計書突合）。**#1 / #2 は B-1（#2950）領域**で、artifact 内 placeholder 行を audit-manager run が記入する。
 - **finding の SARIF 2.1.0 化 + advisory 評価（#2876）**: 各領域 finding は `scripts/audit/to-sarif.mjs` で SARIF 2.1.0 document に変換され、`integration-evidence` job が「NG-0（severity 3-4 + policy_compliant=false が 0）+ カバレッジ ratchet 達成 + 全 job 緑」を **advisory（非 block）** で評価し evidence.md §5 に出す。advisory は merge を block しない（required_status_checks 未登録、continue-on-error）。**NG の最終確定は本表の audit-manager 人間判定が正本**であり、advisory は CI が機械集約できるスナップショットに限る（EPIC 設計原則 1）。

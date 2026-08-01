@@ -97,14 +97,20 @@ export function evaluateCoverageRatchet(coverageGapMap, opts = {}) {
  *
  * - ngCount === 0 (severity 3-4 + policy_compliant=false が 0) かつ
  * - coverage ratchet 割れなし (ratchetOk === true。未取得 null は「評価不能」で advisory pass を出さない)
- * - 全 job 緑 (allGreen === true)
+ * - 全 job 緑 (allGreen === true) かつ
+ * - CodeQL new-alert 0 件 (#4155。`codeqlResult` を渡した場合のみ評価。required 非該当の CodeQL に
+ *   代えて課す機械条件 = `ref=refs/pull/<N>/merge` の open alert が baseline を超えないこと)
  * を満たすと advisory pass。1 つでも欠ければ advisory fail (ただし hard fail させない = 呼び出し側 step が continue-on-error)。
+ *
+ * CodeQL の hard enforcement は `scripts/audit/check-codeql-alerts.mjs` の CLI (exit 1) が担う。
+ * 本 advisory は evidence.md §5 に判定を載せるための集約。
  *
  * @param {{
  *   sarifResults?: Array<any>,
  *   findings?: Array<any>,
  *   coverageGapMap?: any,
  *   allGreen?: boolean,
+ *   codeqlResult?: { pass?: boolean, newAlerts?: Array<any>, reasons?: string[] } | null,
  * }} input
  * @returns {{
  *   advisoryPass: boolean,
@@ -113,6 +119,8 @@ export function evaluateCoverageRatchet(coverageGapMap, opts = {}) {
  *   coverageRatchetOk: boolean | null,
  *   coverageBelowThresholdCount: number,
  *   allGreen: boolean,
+ *   codeqlPass: boolean | null,
+ *   codeqlNewAlertCount: number,
  *   reasons: string[],
  * }}
  */
@@ -121,6 +129,7 @@ export function evaluateMergeReadiness({
 	findings = [],
 	coverageGapMap = null,
 	allGreen = false,
+	codeqlResult = null,
 } = {}) {
 	// finding を優先評価 (severity + policy_compliant)、無ければ SARIF results (level)。
 	const items = (findings?.length ?? 0) > 0 ? findings : sarifResults;
@@ -133,7 +142,18 @@ export function evaluateMergeReadiness({
 	if (cov.ratchetOk === null) reasons.push('coverage 未取得 (評価不能 = advisory pass を出さない)');
 	if (allGreen !== true) reasons.push('最重厚レーン全 job が緑でない');
 
-	const advisoryPass = ng.ngCount === 0 && cov.ratchetOk === true && allGreen === true;
+	// #4155: CodeQL は required 非該当のため「PR 由来 new alert 0 件」を代替条件として集約する。
+	const codeqlPass = codeqlResult == null ? null : codeqlResult.pass === true;
+	const codeqlNewAlertCount = Array.isArray(codeqlResult?.newAlerts)
+		? codeqlResult.newAlerts.length
+		: 0;
+	if (codeqlPass === false) {
+		const detail = codeqlResult?.reasons?.length ? `: ${codeqlResult.reasons.join(' / ')}` : '';
+		reasons.push(`CodeQL new-alert 検査が未達 (#4155)${detail}`);
+	}
+
+	const advisoryPass =
+		ng.ngCount === 0 && cov.ratchetOk === true && allGreen === true && codeqlPass !== false;
 
 	return {
 		advisoryPass,
@@ -142,7 +162,11 @@ export function evaluateMergeReadiness({
 		coverageRatchetOk: cov.ratchetOk,
 		coverageBelowThresholdCount: cov.belowThresholdCount,
 		allGreen: allGreen === true,
-		reasons: advisoryPass ? ['NG 0 + coverage ratchet 達成 + 全 job 緑 (advisory pass)'] : reasons,
+		codeqlPass,
+		codeqlNewAlertCount,
+		reasons: advisoryPass
+			? ['NG 0 + coverage ratchet 達成 + 全 job 緑 + CodeQL new-alert 0 (advisory pass)']
+			: reasons,
 	};
 }
 
@@ -162,6 +186,7 @@ export function formatMergeReadinessMarkdown(result) {
 		`- NG 件数 (severity 3-4 + policy_compliant=false): ${result.ngCount}`,
 		`- coverage ratchet: ${result.coverageRatchetOk === null ? '未取得 (評価不能)' : result.coverageRatchetOk ? '閾値内' : `割れ ${result.coverageBelowThresholdCount} 件`}`,
 		`- 最重厚レーン全 job 緑: ${result.allGreen}`,
+		`- CodeQL new-alert 検査 (#4155): ${result.codeqlPass === null ? '未取得 (評価不能)' : result.codeqlPass ? '新規 0 件' : `新規 ${result.codeqlNewAlertCount} 組`}`,
 		'',
 		`> 本評価は **advisory (先行)** であり merge を block しない (required_status_checks 未登録、`,
 		`> continue-on-error)。NG の最終確定は audit-manager run が統合 PR body §3 に記入する人間判定が正本。`,

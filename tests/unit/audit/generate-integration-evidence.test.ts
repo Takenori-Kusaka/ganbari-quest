@@ -44,6 +44,32 @@ describe('buildEvidence', () => {
 		expect(markdown).toContain('| e2e-test | failure |');
 	});
 
+	it('CodeQL 検査結果 (#4155) を §5 に含め json.codeql に載せる', () => {
+		const { json, markdown } = buildEvidence({
+			...baseInput,
+			codeqlResult: {
+				pass: true,
+				ref: 'refs/pull/9999/merge',
+				observedCount: 7,
+				acceptedCount: 7,
+				newAlerts: [],
+				staleEntries: [],
+				baselineErrors: [],
+				analysisCount: 1,
+				fetchError: null,
+				reasons: [],
+			},
+		});
+		expect(json.codeql.pass).toBe(true);
+		expect(markdown).toContain('### CodeQL new-alert 検査 (#4155)');
+		expect(markdown).toContain('refs/pull/9999/merge');
+	});
+
+	it('CodeQL 検査結果が無い場合は「未取得 = 評価不能」と明示し pass 扱いにしない (#4155)', () => {
+		const { markdown } = buildEvidence(baseInput);
+		expect(markdown).toContain('未取得 (検査結果ファイルなし = 評価不能。pass 扱いにしない)');
+	});
+
 	it('fail run でも生成され、failedJobCount に集計される (全件発露の入力)', () => {
 		const { json, markdown } = buildEvidence(baseInput);
 		expect(json.failedJobCount).toBe(1);

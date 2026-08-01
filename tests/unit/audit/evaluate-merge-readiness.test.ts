@@ -83,6 +83,35 @@ describe('evaluateMergeReadiness', () => {
 		expect(r.reasons[0]).toContain('advisory pass');
 	});
 
+	it('CodeQL new-alert 検査 FAIL は advisory FAIL にする (#4155 NG-0 条件)', () => {
+		const r = evaluateMergeReadiness({
+			findings: [],
+			coverageGapMap: { total: { lines: { pct: 85 } }, zeroCoverageFiles: [] },
+			allGreen: true,
+			codeqlResult: {
+				pass: false,
+				newAlerts: [{ rule: 'js/regex-injection', path: 'src/lib/x.ts', excess: 1 }],
+				reasons: ['baseline 超過の alert 1 件'],
+			},
+		});
+		expect(r.advisoryPass).toBe(false);
+		expect(r.codeqlPass).toBe(false);
+		expect(r.codeqlNewAlertCount).toBe(1);
+		expect(r.reasons.join('\n')).toMatch(/CodeQL new-alert 検査が未達/);
+	});
+
+	it('CodeQL new-alert 0 件なら他条件充足時に advisory PASS (#4155)', () => {
+		const r = evaluateMergeReadiness({
+			findings: [],
+			coverageGapMap: { total: { lines: { pct: 85 } }, zeroCoverageFiles: [] },
+			allGreen: true,
+			codeqlResult: { pass: true, newAlerts: [], reasons: [] },
+		});
+		expect(r.advisoryPass).toBe(true);
+		expect(r.codeqlPass).toBe(true);
+		expect(formatMergeReadinessMarkdown(r)).toMatch(/CodeQL new-alert 検査 \(#4155\): 新規 0 件/);
+	});
+
 	it('NG 残存 → advisory FAIL', () => {
 		const r = evaluateMergeReadiness({
 			findings: [{ ruleId: 'sec', severity: 4, policy_compliant: false }],
