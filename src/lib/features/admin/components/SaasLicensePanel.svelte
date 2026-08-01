@@ -1034,7 +1034,7 @@ async function openPortal() {
 		font-weight: 700;
 	}
 
-	/* #4156: 契約状態の告知 (tone は contract-state-view.ts の対応表が決める) */
+	/* #4156: contract-state notice — tone is decided by the table in contract-state-view.ts */
 	.notice-warning {
 		background: var(--color-feedback-warning-bg);
 		border-color: var(--color-feedback-warning-border);
