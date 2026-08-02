@@ -15,10 +15,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
-	INVALID_CONTRACT_STATES,
-	VALID_CONTRACT_STATES,
-} from '$lib/domain/contract-state';
+import { INVALID_CONTRACT_STATES, VALID_CONTRACT_STATES } from '$lib/domain/contract-state';
 
 const MATRIX = 'docs/design/billing-redesign/contract-state-matrix.md';
 
