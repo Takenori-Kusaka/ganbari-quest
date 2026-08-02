@@ -36,11 +36,10 @@
  * (`pr-trigger-lane-guard.test.ts` の同注意書きと同じ理由)。
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-
-import * as yaml from 'yaml';
 import { describe, expect, it, vi } from 'vitest';
+import * as yaml from 'yaml';
 
 // #4085: repo 走査 test (実行時間が入力サイズに比例する)。区分は
 // scripts/lib/ci/repo-scan-test-registry.mjs が SSOT (未宣言 / timeout 欠落は CI が fail)。
@@ -48,8 +47,8 @@ vi.setConfig({ testTimeout: 60_000 });
 
 import {
 	COVERED_WORKFLOWS,
-	WORKFLOW_JUDGMENTS,
 	findJudgment,
+	WORKFLOW_JUDGMENTS,
 } from '../../../scripts/lib/ci/workflow-judgment-registry.mjs';
 
 const WORKFLOW_DIR = path.join(process.cwd(), '.github', 'workflows');
