@@ -33,8 +33,7 @@
 // C を書き換えると git 履歴と Issue を突き合わせられなくなる
 // (`docs/decisions/README.md` §renumber 規約「過去 PR / コミット本文の参照は更新しない」と同じ原則)。
 
-import { readFileSync } from 'node:fs';
-import { globSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 // repo 走査 test (#4085): 実行時間が repo の file 数に比例するため明示 timeout を置く。
