@@ -147,6 +147,47 @@ develop → main 統合 PR
 残 NG 合計 0 件。adversarial evidence の反対理由は解消済。
 `;
 
+// #4243: evidence 表の **後ろ** に別の 4 列表がある body。
+// 統合 PR template は「Accepted residual (Pre-PMF)」表を後続に持ち、その例示行が
+// プレースホルダ (`<!-- ... -->`) のため、走査がセクションで閉じていないと誤検知する。
+const INTEGRATION_EVIDENCE_WITH_TRAILING_TABLE = `
+## 概要
+develop -> main 統合 PR
+
+## マージ判定エビデンス表
+
+| 含有 PR | 対象領域 | 対応テストケース | 結果 |
+|---|---|---|---|
+| 機能 A（#3001） | admin/activities | unit×3 / e2e×1 | pass |
+
+残 NG 合計 0 件。adversarial evidence の反対理由は解消済。
+
+## Accepted residual (Pre-PMF)
+
+| finding (要約) | severity (1-2 のみ) | 受容理由 (Pre-PMF) | 関連 root class |
+|---|---|---|---|
+| <!-- 例: 命名精度 --> | <!-- 2 --> | <!-- dev-only 診断値 --> | <!-- 完全性 --> |
+`;
+
+// #4243: evidence 表が **空** なのに、後続表には埋まった 4 列行がある body。
+// 走査が閉じていないと `rows.length === 0` を後続表の行が満たしてしまい **見逃す**。
+const INTEGRATION_EVIDENCE_EMPTY_BUT_TRAILING_FILLED = `
+## 概要
+develop -> main 統合 PR
+
+## マージ判定エビデンス表
+
+（まだ埋めていない）
+
+残 NG 合計 0 件。
+
+## Accepted residual (Pre-PMF)
+
+| finding (要約) | severity (1-2 のみ) | 受容理由 (Pre-PMF) | 関連 root class |
+|---|---|---|---|
+| 命名精度 | 2 | dev-only 診断値 | 完全性 |
+`;
+
 const INTEGRATION_EVIDENCE_MISSING_SECTION = `
 ## 概要
 統合 PR だがエビデンス表 section が無い
@@ -272,6 +313,22 @@ describe('checkIntegrationEvidenceTable (integration lane、AC3)', () => {
 		const r = checkIntegrationEvidenceTable(INTEGRATION_EVIDENCE_PASS);
 		expect(r.ok).toBe(true);
 		expect(r.lane).toBe('integration');
+	});
+
+	it('#4243 後続表のプレースホルダ行を evidence の空欄と誤判定しない (false positive)', () => {
+		const r = checkIntegrationEvidenceTable(INTEGRATION_EVIDENCE_WITH_TRAILING_TABLE);
+		expect(
+			r.ok,
+			'Accepted residual 表の例示行を evidence 表の空欄として拾っています (走査がセクションで閉じていない)',
+		).toBe(true);
+	});
+
+	it('#4243 evidence 表が空なら、後続表に行があっても fail する (false negative)', () => {
+		const r = checkIntegrationEvidenceTable(INTEGRATION_EVIDENCE_EMPTY_BUT_TRAILING_FILLED);
+		expect(
+			r.ok,
+			'evidence 表が空なのに後続表の行で通過しています。main 反映前の証跡が空洞化します',
+		).toBe(false);
 	});
 
 	it('FAIL: エビデンス表 section が欠落', () => {

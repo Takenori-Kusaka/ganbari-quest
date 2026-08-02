@@ -40,15 +40,45 @@ function stripInlineCode(cell) {
 const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;
 
 /**
+ * 次の `## ` 見出し（H2）の直前までを切り出す。見出しが無ければ全体を返す。
+ *
+ * `###` 以降の下位見出しでは止めない（同一セクション内の小見出しは表の所属を変えないため）。
+ *
+ * @param {string} text 見出し行を除いたセクション以降のテキスト
+ * @returns {string} 当該セクション本体
+ */
+function sliceUntilNextH2(text) {
+	const lines = text.split('\n');
+	const end = lines.findIndex((l) => l.startsWith('## '));
+	return end === -1 ? text : lines.slice(0, end).join('\n');
+}
+
+/**
  * AC 検証マップの 4 列行を本文から抽出する（共通 util）。
  * ヘッダー行（`| AC 番号 | AC 内容 ...` 等）とセパレーター（`|---|---|`）を除外する。
+ *
+ * **走査は当該セクション内で閉じる**（次の `## ` 見出しで停止、#4243）。
+ * 本文末尾まで見ていた旧実装は、統合 PR template が「マージ判定エビデンス」の**後ろ**に
+ * 4 列の表（Accepted residual 等）を持つため、**別表の行を evidence の行として数えていた**。
+ * 壊れ方は 2 方向あった:
+ *
+ *   - false positive: 後続表のプレースホルダ行を空欄と誤判定し、evidence 表が正しくても fail
+ *     （bot 生成の統合 PR が生まれた瞬間に落ちる。#4241 で実測）
+ *   - false negative: evidence 表が**空でも**後続表の 4 列行で `rows.length === 0` を通過し、
+ *     「main 反映前に evidence を必ず埋めさせる」という gate の目的が満たされない（より危険）
  *
  * @param {string} body PR 本文
  * @param {number} fromIdx 抽出開始 index（section 見出し以降に限定する用途）
  * @returns {string[]} 4 列のデータ行（生のマークダウン行）
  */
 function extractFourColumnRows(body, fromIdx) {
-	const section = body.slice(fromIdx);
+	const rest = body.slice(fromIdx);
+	// 見出し行自身を飛ばしてから、次の `## ` 見出しまでを section 本体とする。
+	const afterHeading = rest.indexOf('\n');
+	const section =
+		afterHeading === -1
+			? rest
+			: rest.slice(0, afterHeading + 1) + sliceUntilNextH2(rest.slice(afterHeading + 1));
 	return section
 		.split('\n')
 		.filter((l) => /^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
