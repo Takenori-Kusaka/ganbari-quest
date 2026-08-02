@@ -739,7 +739,9 @@ export function fetchIssueStates(numbers) {
 				const state = String(parsed?.state ?? '').toUpperCase();
 				if (!state) break;
 				const labels = Array.isArray(parsed?.labels)
-					? parsed.labels.map((/** @type {{ name?: unknown }} */ l) => String(l?.name ?? '')).filter(Boolean)
+					? parsed.labels
+							.map((/** @type {{ name?: unknown }} */ l) => String(l?.name ?? ''))
+							.filter(Boolean)
 					: [];
 				// PR の state は OPEN / CLOSED / MERGED。MERGED は「開いていない」側に寄せる
 				live.set(n, { state: state === 'MERGED' ? 'CLOSED' : state, labels });
