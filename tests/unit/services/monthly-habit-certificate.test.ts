@@ -58,16 +58,15 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { hasCertificate, issueCertificate } from '$lib/server/db/certificate-repo';
-import { insertPointEntry } from '$lib/server/db/point-repo';
-import { sendPushNotification } from '$lib/server/services/notification-service';
-import { getMonthlyReport } from '$lib/server/services/report-service';
-
 import {
 	MONTHLY_HABIT_DAYS_THRESHOLD,
 	MONTHLY_HABIT_POINTS,
 } from '$lib/domain/constants/habit-milestones';
+import { hasCertificate, issueCertificate } from '$lib/server/db/certificate-repo';
+import { insertPointEntry } from '$lib/server/db/point-repo';
 import { issueMonthlyHabitCertificateIfEligible } from '$lib/server/services/certificate-service';
+import { sendPushNotification } from '$lib/server/services/notification-service';
+import { getMonthlyReport } from '$lib/server/services/report-service';
 
 const CHILD_ID = asChildId(1);
 const TENANT = 't-habit';
@@ -120,9 +119,7 @@ describe('#4172 月間の習慣化を褒める (記録の量ではなく日数)'
 	});
 
 	it(`[H2] 閾値は月 ${MONTHLY_HABIT_DAYS_THRESHOLD} 日 — 1 日足りなければ発行しない`, async () => {
-		vi.mocked(getMonthlyReport).mockResolvedValue(
-			monthlyReport(MONTHLY_HABIT_DAYS_THRESHOLD - 1),
-		);
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(MONTHLY_HABIT_DAYS_THRESHOLD - 1));
 
 		expect(await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT)).toBeNull();
 		expect(issueCertificate).not.toHaveBeenCalled();

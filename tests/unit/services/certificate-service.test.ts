@@ -30,7 +30,6 @@ import {
 	getCertificatesForChild,
 	issueAnnualCertificate,
 	issueCategoryMasterCertificate,
-	issueMonthlyCertificateIfEligible,
 } from '../../../src/lib/server/services/certificate-service';
 
 const TENANT = 'test-tenant';
@@ -195,62 +194,13 @@ describe('checkAndIssueLevelCertificates', () => {
 });
 
 // ============================================================
-// issueMonthlyCertificateIfEligible
+// 月間証明書 (#4172 で「活動回数 10 回以上」→「その月に記録した日数 10 日以上」へ差し替え)
+//
+// 旧 `issueMonthlyCertificateIfEligible` の test は本 file から撤去した。
+// 関数そのものが存在しないためで、assertion の弱体化ではない (ADR-0006)。
+// 新条件・冪等・通貨付与・書き込み順・通知先の契約は
+// tests/unit/services/monthly-habit-certificate.test.ts が引き継ぐ。
 // ============================================================
-
-describe('issueMonthlyCertificateIfEligible', () => {
-	it('activityCount < 10 の場合は null を返す', async () => {
-		const result = await issueMonthlyCertificateIfEligible(CHILD_ID, '2026-03', 9, 100, 5, TENANT);
-
-		expect(result).toBeNull();
-		expect(hasCertificate).not.toHaveBeenCalled();
-		expect(issueCertificate).not.toHaveBeenCalled();
-	});
-
-	it('activityCount >= 10 で証明書を発行する', async () => {
-		vi.mocked(hasCertificate).mockResolvedValue(false);
-		vi.mocked(issueCertificate).mockResolvedValue(
-			makeCert({
-				certificateType: 'monthly_2026-03',
-				metadata: JSON.stringify({
-					yearMonth: '2026-03',
-					activityCount: 15,
-					totalPoints: 200,
-					level: 8,
-					icon: '📜',
-				}),
-			}),
-		);
-
-		const result = await issueMonthlyCertificateIfEligible(CHILD_ID, '2026-03', 15, 200, 8, TENANT);
-
-		expect(result).not.toBeNull();
-		expect(result?.certificateType).toBe('monthly_2026-03');
-		expect(issueCertificate).toHaveBeenCalledWith(
-			expect.objectContaining({
-				childId: CHILD_ID,
-				certificateType: 'monthly_2026-03',
-			}),
-			TENANT,
-		);
-	});
-
-	it('既に発行済みの場合は null を返す', async () => {
-		vi.mocked(hasCertificate).mockResolvedValue(true);
-
-		const result = await issueMonthlyCertificateIfEligible(
-			CHILD_ID,
-			'2026-03',
-			20,
-			300,
-			10,
-			TENANT,
-		);
-
-		expect(result).toBeNull();
-		expect(issueCertificate).not.toHaveBeenCalled();
-	});
-});
 
 // ============================================================
 // issueCategoryMasterCertificate
