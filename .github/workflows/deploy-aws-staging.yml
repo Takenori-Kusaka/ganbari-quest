@@ -357,10 +357,16 @@ jobs:
       # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL の解決 (縮退可)。
       # Function URL は synth 時未確定 (自己参照) のため CDK は placeholder を注入している。
       # get-function-url-config で実 URL を取得し、jq read-modify-write で env を merge 更新する。
-      # health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも続行する
-      # (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断。
-      - name: Resolve ORIGIN from Function URL (best-effort)
-        continue-on-error: true
+      # #4204: **その「再判断する時点」が来た**ので `continue-on-error` を外して必須化する。
+      #
+      # 旧コメント: 「health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも
+      # 続行する (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断」
+      #
+      # Step 15 に form action の POST smoke を足した以上、**ORIGIN が解決されていないと
+      # SvelteKit の CSRF origin check で 403 になり、smoke の判定が意味を持たなくなる**。
+      # 本 step が黙って失敗したまま smoke が「403 = 認証失敗、想定内」と誤読する経路を塞ぐ
+      # (ADR-0024 ENV silent skip 禁止)。**「再判断する」と書いたまま再判断しないと、コメントが飾りになる。**
+      - name: Resolve ORIGIN from Function URL
         run: |
           FUNCTION_URL=$(aws lambda get-function-url-config \
             --function-name $LAMBDA_FUNCTION \
@@ -429,7 +435,37 @@ jobs:
             echo "::error::Smoke test failed: GET /switch returned $SWITCH (expected 200 or 302)"
             exit 1
           fi
-          echo "::notice::staging smoke test passed (/ and /switch reachable)"
+
+          # #4204: **GET だけの smoke では「フォームが 1 つも送信できない」を検出できない**。
+          #
+          # SvelteKit の名前付き form action は `?/action-name` を使うが、**Lambda Function URL は
+          # クエリ文字列のスラッシュを拒否する** (`InvalidQueryStringException`)。本番は
+          # CloudFront Function `ganbari-quest-query-slash-encode` (network-stack.ts:74-77) が
+          # `?/x` → `?%2Fx` に書き換えて回避しているが、**staging は NetworkStack を deploy しない**
+          # ため、その回避が無い。
+          #
+          # 実害は sign-up だけではない。`/auth/login` にも `/auth/signup` にも default action が無く
+          # 名前付き action しか持たないため、**staging ではログインすらできない**
+          # (= 認証後の画面に到達する手段がゼロ。#4117 の staging 実機検証が始められない)。
+          #
+          # 判定: **400 = 経路が死んでいる**。200 / 303 / 403 は許容 (認証失敗は想定内で、
+          # ここで検証したいのは「フォーム送信がアプリまで届くか」だけ)。
+          # 認証情報は送らない — 届くかどうかだけを見る。
+          FORM=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "email=smoke@example.invalid&password=smoke" \
+            "$BASE/auth/login?/login")
+          echo "POST /auth/login?/login -> $FORM"
+          if [ "$FORM" = "400" ]; then
+            echo "::error::Smoke test failed: POST /auth/login?/login returned 400 — SvelteKit の名前付き form action が Function URL に拒否されています (#4204)。staging ではログインもサインアップもできません。CloudFront の query-slash-encode 相当が要ります"
+            exit 1
+          fi
+          if [ "$FORM" != "200" ] && [ "$FORM" != "303" ] && [ "$FORM" != "403" ]; then
+            echo "::error::Smoke test failed: POST /auth/login?/login returned $FORM (expected 200 / 303 / 403)"
+            exit 1
+          fi
+
+          echo "::notice::staging smoke test passed (/ と /switch が到達、form action が 400 でない)"
 
       # Step 15.5 (#3683、DSQL lane のみ): 実 DSQL staging cluster での並行検証 test を lane 内で自動実行。
       # deploy → migrate → grant → health/smoke green の後、lane が整えた endpoint (GITHUB_ENV の
