@@ -39,7 +39,7 @@ import { LOW_RISK_THIRD_PARTY_ALLOWLIST } from '../../../scripts/check-action-sh
 const STUB_REASONS = ['todo', 'tbd', 'n/a', 'na', '-', '—', '未定', 'なし', '?', '??'];
 
 /** 理由として成立しているか。成立しない場合は理由文字列を返す。 */
-export function findReasonDefect(reason: unknown): string | null {
+function findReasonDefect(reason: unknown): string | null {
 	if (typeof reason !== 'string') return `文字列ではありません (${typeof reason})`;
 	const trimmed = reason.trim();
 	if (trimmed.length === 0) return '空です';
