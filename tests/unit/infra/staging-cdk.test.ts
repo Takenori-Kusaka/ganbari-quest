@@ -806,6 +806,23 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		expect(stagingNames.length).toBeGreaterThan(0);
 	});
 
+	// [N-1b] prod 不変の根拠を「既定値」だけに預けない (adversarial review business 軸)。
+	//
+	// prod の物理名は `resourcePrefix` の既定値が 'ganbari-quest' であることだけで守られている。
+	// **app.ts が prod 側にも resourcePrefix / geoRestrictionCountries を渡し始めた瞬間**、
+	// CloudFront Distribution / bucket / CachePolicy が一斉に Replacement になり本番が落ちる
+	// (ADR-0019)。呼び出し側が変わったことを検出する。
+	it('bin/app.ts が prod の NetworkStack に prefix / geoRestriction を渡していない', async () => {
+		const { readFileSync } = await import('node:fs');
+		const src = readFileSync('infra/bin/app.ts', 'utf8');
+		// prod の instantiate は `new NetworkStack(app, \`${appName}Network\`, {` から対応する `});` まで。
+		const start = src.indexOf('new NetworkStack(app, `${appName}Network`');
+		expect(start, 'prod NetworkStack の instantiate が見つからない').toBeGreaterThan(-1);
+		const prodBlock = src.slice(start, src.indexOf('\n\t});', start));
+		expect(prodBlock).not.toContain('resourcePrefix');
+		expect(prodBlock).not.toContain('geoRestrictionCountries');
+	});
+
 	// [N-5] 配線の no-silent-gap。CDK 側が正しくても deploy 対象に入っていなければ意味がない。
 	it('deploy-aws-staging.yml の STAGING_STACKS に NetworkStaging が含まれる', async () => {
 		const { readFileSync } = await import('node:fs');
