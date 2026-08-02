@@ -1,3 +1,7 @@
+// cspell:ignore QABC
+//   QABC = 実在の URL (web.push.apple.com/QABC) に含まれる偶然の QA 連鎖。
+//   本 file は「置換してはいけない B 分類」の実例として綴りごと引用する必要があるため、
+//   綴りを直さず file scope で ignore する (global words に足すと他 file の typo が素通りする)。
 // tests/unit/architecture/qm-role-naming-consistency.test.ts
 // #4177 AC6 — 品質管理ロールを指す `QA` の再混入を止める。
 //
