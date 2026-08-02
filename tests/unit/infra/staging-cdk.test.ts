@@ -20,6 +20,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { AuthStack } from '../../../infra/lib/auth-stack';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { STAGING_ENV_CONFIG } from '../../../infra/lib/env-config';
+import { NetworkStack } from '../../../infra/lib/network-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
 
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
@@ -646,5 +647,131 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			);
 			expect(errors).toHaveLength(0);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4204: staging CloudFront。
+//
+// staging は NetworkStack を deploy していなかったため、SvelteKit の名前付き form action
+// (`?/action`) が Lambda Function URL のクエリ文字列スラッシュ拒否に当たり、
+// **ログインもサインアップもできない**状態だった (= 認証後の画面に到達する手段がゼロ)。
+//
+// prod 側は物理名が 2 件ハードコードされており、同一アカウント・同一リージョンに staging を
+// 立てると衝突する。prefix 化で分離するが、**prod の物理名が 1 文字でも変わると
+// CloudFront distribution / bucket が作り直しになる** (ADR-0019) ため、prod 不変を test で固定する。
+// ---------------------------------------------------------------------------
+describe('#4204 staging CloudFront (NetworkStack)', () => {
+	function buildNetwork(staging: boolean): Template {
+		const app = new cdk.App({
+			context: {
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/user-pool-id:region=us-east-1':
+					'us-east-1_TESTPOOL',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/client-id:region=us-east-1':
+					'test-client-id',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/domain:region=us-east-1':
+					'auth.ganbari-quest.com',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
+					'test-context-token-secret',
+				opsSecretKey: 'test-ops-secret-key',
+				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			},
+		});
+		const envConfig = staging ? STAGING_ENV_CONFIG : undefined;
+		const storage = new StorageStack(app, 'NetTestStorage', { env, envConfig });
+		const compute = new ComputeStack(app, 'NetTestCompute', {
+			env,
+			assetsBucket: storage.assetsBucket,
+			repository: storage.repository,
+			envConfig,
+		});
+		const network = new NetworkStack(app, 'NetTestNetwork', {
+			env,
+			functionUrl: compute.functionUrl,
+			...(staging
+				? { resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix, geoRestrictionCountries: [] }
+				: {}),
+		});
+		return Template.fromStack(network);
+	}
+
+	// [N-1] prod 不変 (ADR-0019)。物理名が変わると distribution / bucket が作り直しになる。
+	it('prod の物理名と地域制限は従来どおり (prefix 化で変わらない)', () => {
+		const t = buildNetwork(false);
+		t.hasResourceProperties('AWS::CloudFront::Function', {
+			Name: 'ganbari-quest-query-slash-encode',
+		});
+		t.hasResourceProperties('AWS::S3::Bucket', {
+			BucketName: 'ganbari-quest-error-pages-000000000000',
+		});
+		t.hasResourceProperties('AWS::CloudFront::Distribution', {
+			DistributionConfig: Match.objectLike({
+				Restrictions: {
+					GeoRestriction: { RestrictionType: 'whitelist', Locations: ['JP'] },
+				},
+			}),
+		});
+	});
+
+	// [N-2] staging は prefix 分離する。同一アカウント・同一リージョンで物理名が衝突するため。
+	it('staging の物理名は prefix で分離される', () => {
+		const t = buildNetwork(true);
+		t.hasResourceProperties('AWS::CloudFront::Function', {
+			Name: 'ganbari-quest-staging-query-slash-encode',
+		});
+		t.hasResourceProperties('AWS::S3::Bucket', {
+			BucketName: 'ganbari-quest-staging-error-pages-000000000000',
+		});
+	});
+
+	// [N-3] staging は地域制限なし。post-deploy smoke を回す GitHub runner が日本国外にあり、
+	// JP allowlist を残すと 403 で smoke が回らない。
+	// 前提 = staging に本番データが入っていないこと (PO 実測 2026-08-02)。
+	// **staging に本番データを入れる運用が生まれたら JP allowlist を戻す** (PO 条件)。
+	it('staging は geoRestriction を持たない', () => {
+		const t = buildNetwork(true);
+		const dists = t.findResources('AWS::CloudFront::Distribution');
+		for (const d of Object.values(dists)) {
+			expect(
+				(d as { Properties?: { DistributionConfig?: { Restrictions?: unknown } } }).Properties
+					?.DistributionConfig?.Restrictions,
+			).toBeUndefined();
+		}
+	});
+
+	// [N-4] 本題。これが無いと staging で form action が 1 つも通らない。
+	it('staging の default behavior に query-slash-encode Function が付いている', () => {
+		const t = buildNetwork(true);
+		t.hasResourceProperties('AWS::CloudFront::Distribution', {
+			DistributionConfig: Match.objectLike({
+				DefaultCacheBehavior: Match.objectLike({
+					FunctionAssociations: Match.arrayWith([
+						Match.objectLike({ EventType: 'viewer-request' }),
+					]),
+				}),
+			}),
+		});
+	});
+
+	// [N-5] 配線の no-silent-gap。CDK 側が正しくても deploy 対象に入っていなければ意味がない。
+	it('deploy-aws-staging.yml の STAGING_STACKS に NetworkStaging が含まれる', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+		const line = yml.split(/\r?\n/).find((l) => l.trim().startsWith('STAGING_STACKS:'));
+		expect(line).toBeDefined();
+		expect(line).toContain('GanbariQuestNetworkStaging');
+	});
+
+	// [N-6] ORIGIN / smoke は CloudFront を入口にする。Function URL 直だと form action は
+	// 原理的に通らないため、入口がズレていると smoke が本物を検証しない。
+	it('smoke と ORIGIN が CloudFront を入口にしている', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+		expect(yml).toContain('DistributionDomainName');
+		expect(yml).toContain('/auth/login?/login');
+		// status code では判定しない (ログイン失敗も 400 を返すため)。
+		expect(yml).toContain('x-frame-options');
 	});
 });
