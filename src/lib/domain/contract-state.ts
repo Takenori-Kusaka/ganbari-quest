@@ -24,6 +24,8 @@
 // `UNCLASSIFIED` を返して明示する。`UNCLASSIFIED` は「不正と判っている」ではなく
 // 「**表がまだ何も言っていない**」であり、X* とは意味が違う (混ぜると是正の当て先を誤る)。
 
+import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+
 /** 正常状態 (matrix §4 の表)。 */
 export const VALID_CONTRACT_STATES = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] as const;
 
@@ -74,10 +76,10 @@ function findInvalid(shape: ContractShape): InvalidContractState | null {
 	const { status, hasPlan, hasSub, hasExp } = shape;
 
 	// X3: active に期限は無い。dunning / 解約の残骸 (matrix §5 D2)
-	if (status === 'active' && hasExp) return 'X3';
+	if (status === SUBSCRIPTION_STATUS.ACTIVE && hasExp) return 'X3';
 
 	// X4: 猶予の対象となる契約が存在しない
-	if (status === 'grace_period' && !hasSub) return 'X4';
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !hasSub) return 'X4';
 
 	// X1: 契約が無いのにプランだけ残る
 	if (!hasSub && hasPlan) return 'X1';
@@ -96,18 +98,18 @@ function findInvalid(shape: ContractShape): InvalidContractState | null {
 function findValid(shape: ContractShape): ContractState | null {
 	const { status, hasPlan, hasSub, hasExp } = shape;
 
-	if (status === 'active') {
+	if (status === SUBSCRIPTION_STATUS.ACTIVE) {
 		if (!hasPlan && !hasSub) return 'S1';
 		if (hasPlan && hasSub) return 'S2';
 		return null;
 	}
 
 	// S3 は exp (猶予終了日) を伴う。exp なしは表が定義していない
-	if (status === 'grace_period') {
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD) {
 		return hasPlan && hasSub && hasExp ? 'S3' : null;
 	}
 
-	if (status === 'suspended') {
+	if (status === SUBSCRIPTION_STATUS.SUSPENDED) {
 		// S4 の exp は「任意」
 		if (hasPlan && hasSub) return 'S4';
 		if (!hasPlan && !hasSub && !hasExp) return 'S5';
@@ -136,7 +138,7 @@ export function classifyContractState(columns: ContractStateColumns): ContractSt
 	};
 
 	// S6: 退会済み。plan / sub / exp は任意 (matrix §4.1)
-	if (shape.status === 'terminated') return 'S6';
+	if (shape.status === SUBSCRIPTION_STATUS.TERMINATED) return 'S6';
 
 	return findInvalid(shape) ?? findValid(shape) ?? UNCLASSIFIED_CONTRACT_STATE;
 }
