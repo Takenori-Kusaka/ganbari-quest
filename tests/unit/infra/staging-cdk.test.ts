@@ -732,8 +732,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 	// **staging に本番データを入れる運用が生まれたら JP allowlist を戻す** (PO 条件)。
 	it('staging は geoRestriction を持たない', () => {
 		const t = buildNetwork(true);
-		const dists = t.findResources('AWS::CloudFront::Distribution');
-		for (const d of Object.values(dists)) {
+		const distributions = t.findResources('AWS::CloudFront::Distribution');
+		for (const d of Object.values(distributions)) {
 			expect(
 				(d as { Properties?: { DistributionConfig?: { Restrictions?: unknown } } }).Properties
 					?.DistributionConfig?.Restrictions,

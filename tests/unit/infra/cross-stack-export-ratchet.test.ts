@@ -172,6 +172,12 @@ const AUTO_EXPORT_ALLOWLIST: readonly ExportEntry[] = [
 		producer: 'GanbariQuestStorageStaging',
 		descriptor: 'staging ECR AppRepo Arn → ComputeStaging が import',
 	},
+	// --- staging ComputeStack (1、#4204) — prod の main Fn FunctionUrl → Network と同型 ---
+	{
+		name: 'GanbariQuestComputeStaging:ExportsOutputFnGetAttSvelteKitFnFunctionUrlB4DF7458FunctionUrl81A12F7D',
+		producer: 'GanbariQuestComputeStaging',
+		descriptor: 'staging main Fn FunctionUrl → NetworkStaging (CloudFront origin) が import',
+	},
 ];
 
 const ALLOWLIST_NAMES: ReadonlySet<string> = new Set(AUTO_EXPORT_ALLOWLIST.map((e) => e.name));
@@ -193,6 +199,7 @@ const SYNTH_STACK_IDS = [
 	'StorageStaging',
 	'AuthStaging',
 	'ComputeStaging',
+	'NetworkStaging',
 ] as const;
 
 /**
@@ -309,11 +316,18 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 		envConfig: STAGING_ENV_CONFIG,
 	});
 	new AuthStack(app, `${APP_NAME}AuthStaging`, { env, envConfig: STAGING_ENV_CONFIG });
-	new ComputeStack(app, `${APP_NAME}ComputeStaging`, {
+	const sCompute = new ComputeStack(app, `${APP_NAME}ComputeStaging`, {
 		env,
 		assetsBucket: sStorage.assetsBucket,
 		repository: sStorage.repository,
 		envConfig: STAGING_ENV_CONFIG,
+	});
+	// #4204: staging CloudFront。Compute の functionUrl を import する (prod Network と同型)。
+	new NetworkStack(app, `${APP_NAME}NetworkStaging`, {
+		env,
+		functionUrl: sCompute.functionUrl,
+		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
+		geoRestrictionCountries: [],
 	});
 
 	// 全 stack build 完了後に Template 化 (synth は tree を lock するため順序が重要)。
@@ -368,7 +382,7 @@ describe('#3858 cross-stack 自動 export/ImportValue allowlist ratchet (ADR-006
 		).toEqual([]);
 	});
 
-	it('生成 Export と allowlist が集合として過不足なく一致する (計 13 = prod 9 + staging 4)', () => {
+	it('生成 Export と allowlist が集合として過不足なく一致する (計 14 = prod 9 + staging 5)', () => {
 		// 上記 2 assert の統合表明 (数の drift を 1 行で可視化)。実測とズレたら人手承認 (本 test 更新) を要する。
 		expect(synthResult.exports.size).toBe(AUTO_EXPORT_ALLOWLIST.length);
 		expect(new Set(synthResult.exports)).toEqual(ALLOWLIST_NAMES);

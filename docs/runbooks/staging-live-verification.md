@@ -13,6 +13,8 @@
 
 ## 1. 適用範囲
 
+**入口は CloudFront（`GanbariQuestNetworkStaging` の `DistributionDomainName`）。Function URL 直ではない。** SvelteKit の名前付き form action（`?/action`）は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `ganbari-quest-staging-query-slash-encode` を通さないとログインもサインアップもできない（#4204）。
+
 ### 本 runbook で検証する
 
 | 対象 | ローカルで実行されない理由 | staging で通る経路 |
@@ -135,7 +137,7 @@ WHERE family_id = '<検証対象の family uuid>';
 
 | 観測点 | 手順 | AC 充足と言える状態 |
 |---|---|---|
-| プラン表示 | staging の Function URL でログイン → `/admin/subscription`（parent-gate PIN を通す） | 表示プラン / 上限が §6.2 (2) で書き込んだ値と一致する |
+| プラン表示 | staging の CloudFront URL でログイン → `/admin/subscription`（parent-gate PIN を通す） | 表示プラン / 上限が §6.2 (2) で書き込んだ値と一致する |
 | 権限（entitlement） | 当該プランでのみ使える機能を 1 つ操作する | プランに応じて許可 / 拒否が切り替わる |
 | サーバ側の解決 | `aws logs tail /aws/lambda/ganbari-quest-staging-app --since 10m` | 例外・fail-closed による 5xx が出ていない |
 
@@ -166,16 +168,16 @@ staging には **test mode の Stripe 資格情報だけ**を配備する。test
 
 ### 9.2 staging webhook endpoint の登録手順（PO 作業、AC4）
 
-**staging の Function URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
+**staging の URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
 
-1. staging deploy 完了後、Function URL を取得する:
+1. staging deploy 完了後、CloudFront の URL を取得する:
 
 ```bash
-aws lambda get-function-url-config --function-name ganbari-quest-staging-app   --region us-east-1 --query FunctionUrl --output text
+aws cloudformation describe-stacks --stack-name GanbariQuestNetworkStaging   --region us-east-1   --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text
 ```
 
 2. Stripe Dashboard を **test mode** に切り替え、Developers → Webhooks → 「Add endpoint」
-3. Endpoint URL に `<FunctionUrl>api/stripe/webhook` を入力
+3. Endpoint URL に `https://<DistributionDomainName>/api/stripe/webhook` を入力
 4. 購読 event は `docs/design/billing-redesign/` の購読 event 一覧（#3990 で整合済）に合わせる
 5. 発行された signing secret を登録し、staging を再 deploy する:
 
