@@ -100,7 +100,7 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 セッション起動時 `.claude/agents/` がロール自動活性化:
 - `po-session.md` — PO（Issue 起票・優先度・事業判断、ロール定義は @docs/sessions/po-session.md）
 - `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
-- `qm-session.md` — QA（PR レビュー・品質ゲート、@docs/sessions/qm-session.md）
+- `qm-session.md` — QM（PR レビュー・品質ゲート、@docs/sessions/qm-session.md）
 
 タスク固有: `.claude/skills/` (オンデマンド発火)
 
