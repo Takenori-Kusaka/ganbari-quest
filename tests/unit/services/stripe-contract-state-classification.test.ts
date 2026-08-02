@@ -218,7 +218,14 @@ describe('#4181 AC3 webhook handler の書き込み後は正常状態に分類�
 
 		await handleWebhookEvent({
 			type: 'customer.subscription.deleted',
-			data: { object: { id: SUB, customer: 'cus_123', status: 'canceled', metadata: { tenantId: 't-test' } } },
+			data: {
+				object: {
+					id: SUB,
+					customer: 'cus_123',
+					status: 'canceled',
+					metadata: { tenantId: 't-test' },
+				},
+			},
 		} as never);
 
 		expect(mockUpdateTenantStripe, 'W5 が書き込んでいない').toHaveBeenCalled();
@@ -285,7 +292,8 @@ describe('#4181 AC4 test で覆えていない書き手を silent gap にしな�
 		{
 			id: 'W8',
 			trigger: '(欠番) 退会猶予満了バッチ',
-			reason: '書き手なし。退会の物理削除は families 行ごと消すため status を書かない (matrix §4.1)',
+			reason:
+				'書き手なし。退会の物理削除は families 行ごと消すため status を書かない (matrix §4.1)',
 		},
 		{
 			id: 'W9',
