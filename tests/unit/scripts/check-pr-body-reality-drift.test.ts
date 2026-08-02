@@ -37,7 +37,9 @@ describe('#4170 AC1 — 本文の state / label 主張を実測と突合', () =>
 		it('同一行に #N と状態語があるときだけ拾う', () => {
 			const body = [
 				'- #4129 は AC 5 件すべて `[ ]` / open 継続が正しい',
-				'- #4130 の話。別行に open と書いてあっても拾わない',
+				// 状態語を含まない行は拾わない
+				'- #4130 の対応方針を記載する',
+				// #N を含まない行は拾わない
 				'open',
 			].join('\n');
 			const claims = extractStateClaims(body);
@@ -152,5 +154,45 @@ describe('#4170 AC3 — 本文が主張する件数と表の行数の一致', ()
 			'\n',
 		);
 		expect(checkClaimedCounts(body)).toBeNull();
+	});
+});
+
+describe('#4170 AC4 — integration lane でのみ hard-fail する', () => {
+	// 「feature lane の挙動は変えない」が AC4 の明示要求。
+	// 検査を lane 非依存に置くと、feature PR の本文に書いた `#N は open` まで拾って
+	// 実測を引きに行き、**関係ない PR を落とす**。
+	it('検査は isIntegration ブロック内にだけ配線されている', async () => {
+		const { readFileSync } = await import('node:fs');
+		const src = readFileSync('scripts/check-pr-body.mjs', 'utf8');
+
+		// 関数定義そのもの (`export function checkClaimedCounts(body) {`) や helper 内の
+		// 内部呼び出しも同じ文字列を含むため、**判定は collectViolations の中だけに絞る**。
+		// 絞らないと「定義が存在する」だけで fail し、guard が意味を失う。
+		const fnStart = src.indexOf('function collectViolations(');
+		expect(fnStart, 'collectViolations が見つかりません').toBeGreaterThan(-1);
+		const fn = src.slice(fnStart);
+
+		const start = fn.indexOf('if (isIntegration) {');
+		expect(start, 'isIntegration ブロックが見つかりません').toBeGreaterThan(-1);
+		const end = fn.indexOf('\n\t} else {', start);
+		expect(end, 'isIntegration の else が見つかりません').toBeGreaterThan(start);
+		const integrationBlock = fn.slice(start, end);
+		const outside = fn.slice(0, start) + fn.slice(end);
+
+		for (const call of ['checkClaimedCounts(body)', 'extractStateClaims(body)']) {
+			expect(integrationBlock, `${call} が integration ブロックにありません`).toContain(call);
+			expect(
+				outside,
+				`${call} が integration ブロック外から呼ばれています (feature lane に波及する)`,
+			).not.toContain(call);
+		}
+	});
+
+	// 実測を引かない経路で「違反なし」を出すと、gate が走ったのか走っていないのか区別できない。
+	// #3962 で同じ形 (Windows で jq が落ち catch で握り潰し、検査が一度も走らず OK が出ていた) を踏んでいる。
+	it('--no-labels / --labels のときは skip したことを出力する', async () => {
+		const { readFileSync } = await import('node:fs');
+		const src = readFileSync('scripts/check-pr-body.mjs', 'utf8');
+		expect(src).toContain('SKIP: #4170 AC1');
 	});
 });
