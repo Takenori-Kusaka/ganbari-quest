@@ -919,6 +919,16 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			// #3960: silent fallback (`?? MONTHLY`) 廃止。未解決時は既存 plan を保持 + alert。
 			...planUpdateOrKeep(plan, tenant, 'customer.subscription.updated', subscription.id),
 			status,
+			// #4181: `active` に戻ったら猶予終了日を消す。
+			//
+			// 消さないと `status=active` + `planExpiresAt` あり = **X3 (契約が無いのに期限だけ残る)**
+			// を書く (contract-state-matrix.md §4 不正状態)。`planExpiresAt` は W3
+			// (`invoice.payment_failed`) が猶予終了日として書く列で、**猶予が明けたら意味を失う**。
+			// 残すと dunning の残骸として後続の判定に効き続ける。
+			//
+			// `grace_period` は W3 が書いた期限を保持し、`suspended` は matrix で「任意」なので触らない
+			// (`undefined` = 更新しない)。
+			...(status === SUBSCRIPTION_STATUS.ACTIVE ? { planExpiresAt: null } : {}),
 		}),
 	);
 	if (!applied) return;
