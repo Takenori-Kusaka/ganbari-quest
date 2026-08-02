@@ -835,11 +835,9 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		// 許可ドメインは **宣言**する。「使い捨てっぽい」の推測判定は穴になるため置かない。
 		// 参照 (`$STAGING_ALLOWED_EMAIL_DOMAINS`) が残っていても宣言が消えていれば
 		// 全ドメインが allowlist 外になり通知が壊れるので、**宣言側**を見る。
-		const declaration = yml
-			.split(/?
-/)
-			.find((l) => /^\s{2}STAGING_ALLOWED_EMAIL_DOMAINS:\s*\S/.test(l));
-		expect(declaration, '許可ドメインの宣言 (workflow env) が見つかりません').toBeDefined();
+		// 正規表現の m フラグで行頭を見る (env の宣言行だけに当てる)。
+		const hasDeclaration = /^ {2}STAGING_ALLOWED_EMAIL_DOMAINS: *[a-z]/m.test(yml);
+		expect(hasDeclaration, '許可ドメインの宣言 (workflow env) が見つかりません').toBe(true);
 		// 実登録者を実物から取る (synth や設定値ではなく Cognito を見る)
 		expect(yml).toContain('cognito-idp list-users');
 		// 気づける先 = incident チャネル
