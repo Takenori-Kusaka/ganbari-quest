@@ -464,6 +464,43 @@ jobs:
             exit 1
           fi
 
+      # #4189 (オーナー決裁 2026-08-03、案 B): CloudWatch アラームの宛先を Discord に寄せた。
+      # **メール subscription を張らなくなった**ため、転送 Lambda が繋がっていなければ
+      # 全 alarm が宛先ゼロに戻る (#4189 の再演)。deploy 後に**実物**を 2 点見る。
+      #
+      #   1. SNS topic に subscription が 1 件以上ある (protocol=lambda)
+      #   2. 転送 Lambda の実 env に DISCORD_WEBHOOK_INCIDENT がある
+      #
+      # 「synth では繋がっているが実環境では届かない」を検出するのが目的なので、
+      # template ではなく **deploy 済みリソース**を問い合わせる。
+      - name: Ops alarm destination verification (production, #4189)
+        run: |
+          TOPIC_ARN=$(aws sns list-topics --region "$AWS_REGION" \
+            --query "Topics[?ends_with(TopicArn, ':ganbari-quest-ops-alerts')].TopicArn | [0]" \
+            --output text)
+          if [ -z "$TOPIC_ARN" ] || [ "$TOPIC_ARN" = "None" ]; then
+            echo "::error::SNS topic 'ganbari-quest-ops-alerts' が見つかりません (#4189)"
+            exit 1
+          fi
+          SUB_COUNT=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
+            --region "$AWS_REGION" \
+            --query "length(Subscriptions[?Protocol=='lambda'])" --output text)
+          if [ "$SUB_COUNT" = "0" ] || [ -z "$SUB_COUNT" ]; then
+            echo "::error::ops-alerts topic に lambda subscription が 0 件です。CloudWatch アラームが鳴っても誰にも届きません (#4189)"
+            exit 1
+          fi
+          echo "::notice::ops-alerts topic に lambda subscription が ${SUB_COUNT} 件あります (#4189)"
+
+          FWD_KEYS=$(aws lambda get-function-configuration \
+            --function-name ganbari-quest-ops-alert-forwarder --region "$AWS_REGION" \
+            --query 'keys(Environment.Variables)' --output text | tr '\t' '\n')
+          if echo "$FWD_KEYS" | grep -qx "DISCORD_WEBHOOK_INCIDENT"; then
+            echo "::notice::転送 Lambda の実 env に DISCORD_WEBHOOK_INCIDENT があります (#4189)"
+          else
+            echo "::error::転送 Lambda に DISCORD_WEBHOOK_INCIDENT がありません。alarm は SNS までは届きますが Discord には出ません (#4189)"
+            exit 1
+          fi
+
       # ADR-0048 hotfix #6 (2026-05-16): demo Lambda は `latest` タグで CDK 管理されるため
       # CloudFormation が新しい image push を検知できない (production と同じ問題)。
       # production と同じく aws lambda update-function-code で SHA タグ image に明示更新する。

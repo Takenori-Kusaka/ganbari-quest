@@ -40,6 +40,11 @@ export interface OpsStackProps extends cdk.StackProps {
 	appLogGroup?: logs.ILogGroup;
 	opsEmail?: string;
 	discordWebhookHealth?: string;
+	/**
+	 * #4189: CloudWatch アラームの転送先 Discord webhook。
+	 * 空だと転送 Lambda が error log を残す（deploy 側の gate で空を落とす）。
+	 */
+	discordWebhookIncident?: string;
 }
 
 /**
@@ -68,9 +73,43 @@ export class OpsStack extends cdk.Stack {
 			displayName: 'がんばりクエスト 運用通知',
 		});
 
-		if (opsEmail) {
-			opsTopic.addSubscription(new subscriptions.EmailSubscription(opsEmail));
-		}
+		// #4189 (オーナー決裁 2026-08-03、案 B): 宛先は **Discord に寄せる**。メール
+		// subscription は張らない。転送は下記 OpsAlertForwarder が担い、alarm ごとに
+		// 出す / 出さないを `ops-alert-policy.ts` で判定する（既定は出さない）。
+		//
+		// `opsEmail` は DsqlStack の Budget 通知（EMAIL 固定の AWS 仕様）でまだ使うため
+		// props 自体は残すが、**本 topic には subscribe しない**。
+		void opsEmail;
+
+		const discordWebhookIncident =
+			props.discordWebhookIncident ??
+			(this.node.tryGetContext('discordWebhookIncident') as string | undefined) ??
+			'';
+
+		const opsAlertForwarderLogGroup = new logs.LogGroup(this, 'OpsAlertForwarderLogGroup', {
+			logGroupName: '/aws/lambda/ganbari-quest-ops-alert-forwarder',
+			retention: logs.RetentionDays.TWO_WEEKS,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		const opsAlertForwarder = new lambdaNode.NodejsFunction(this, 'OpsAlertForwarder', {
+			functionName: 'ganbari-quest-ops-alert-forwarder',
+			entry: path.join(__dirname, '..', 'lambda', 'ops-alert-forwarder', 'index.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_22_X,
+			architecture: lambda.Architecture.ARM_64,
+			memorySize: 128,
+			timeout: cdk.Duration.seconds(15),
+			environment: {
+				// 未設定なら Lambda 側が error log を残す (silent skip しない、ADR-0024 ルール 1)。
+				// deploy 側は `.github/workflows/deploy.yml` が空を検出して落とす。
+				...(discordWebhookIncident ? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident } : {}),
+			},
+			bundling: { minify: true, sourceMap: false },
+		});
+		opsAlertForwarder.node.addDependency(opsAlertForwarderLogGroup);
+
+		opsTopic.addSubscription(new subscriptions.LambdaSubscription(opsAlertForwarder));
 
 		const alarmAction = new cw_actions.SnsAction(opsTopic);
 

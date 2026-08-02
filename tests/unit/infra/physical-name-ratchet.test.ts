@@ -288,6 +288,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestCompute/AWS::Lambda::Function/ganbari-quest-cron-dispatcher',
 			'GanbariQuestComputeStaging/AWS::Lambda::Function/ganbari-quest-staging-app',
 			'GanbariQuestOps/AWS::Lambda::Function/ganbari-quest-health-check',
+			'GanbariQuestOps/AWS::Lambda::Function/ganbari-quest-ops-alert-forwarder',
 			'GanbariQuestSes/AWS::Lambda::Function/ganbari-quest-ses-receive',
 		],
 	),
@@ -299,6 +300,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestCompute/AWS::Logs::LogGroup//aws/lambda/ganbari-quest-cron-dispatcher',
 			'GanbariQuestComputeStaging/AWS::Logs::LogGroup//aws/lambda/ganbari-quest-staging-app',
 			'GanbariQuestOps/AWS::Logs::LogGroup//aws/lambda/ganbari-quest-health-check',
+			'GanbariQuestOps/AWS::Logs::LogGroup//aws/lambda/ganbari-quest-ops-alert-forwarder',
 		],
 	),
 	...group(
