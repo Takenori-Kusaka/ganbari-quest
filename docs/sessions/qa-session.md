@@ -31,7 +31,7 @@ QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:read
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
+QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）と **read-only の分担調査**（複数 PR の AC 突き合わせ等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
 
 **ただし approve と merge は lead 専権**（ADR-0056 §E と同型。subagent が不可逆 action を肩代わりしないのと同じ）。
 

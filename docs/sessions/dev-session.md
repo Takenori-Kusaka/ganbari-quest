@@ -34,7 +34,7 @@ Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの�
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-Dev が使ってよいのは **レーンが分かれた実装**（A 課金 / B データ / C ドメイン / D 装置）と **影響範囲調査**（`impact-analysis` の 4 layer を分担）。
+Dev が使ってよいのは **レーンが分かれた実装**（A 課金 / B データ / C ドメイン / D 装置）、**影響範囲調査**（`impact-analysis` の 4 layer を分担）、**read-only の分担調査**（受信箱 20 件超の triage 等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。
 
 **重い検証の並列化には使えない。** [agent-concurrency.md](agent-concurrency.md) §3.1 の `heavy` lock は**マシン全体で 1 本**であり、`pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test|check|e2e` は teammate を増やしても直列化する。残りの teammate は hook に exit 2 で止められて待つだけで、トークンだけ消費する。**速くなるのは読む・調べる・書く（lock 対象外）だけ。**
 
