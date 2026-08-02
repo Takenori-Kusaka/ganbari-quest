@@ -362,6 +362,7 @@ teammate は**自分のクローン内でだけ**組む。**ロールを跨い�
 | [qa-session.md](qa-session.md) | QM の作業手順（PR レビュー / 品質ゲート） |
 | [audit-team.md](audit-team.md) | 監査の役割定義（統合 gate / release cut） |
 | [platform-session.md](platform-session.md) | Platform の作業手順（装置の削減 / 統合 / 自動生成） |
+| [clone-setup.md](clone-setup.md) | **クローンの立ち上げ手順**（Node 要件 / `npm ci` 2 段 / gh アカウント / ロール別の起動プロンプトと cron 分） |
 | [label-mailbox.md](label-mailbox.md) | ロール間の受け渡し（`state:*` label） |
 | [agent-teams.md](agent-teams.md) | 1 ロール内の並列化 |
 | [agent-concurrency.md](agent-concurrency.md) | 重い検証の排他（`heavy` lock） |

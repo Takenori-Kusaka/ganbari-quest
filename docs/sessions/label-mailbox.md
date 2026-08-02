@@ -152,6 +152,7 @@ CronCreate(cron: "<ロールごとにずらした分>", recurring: true, prompt:
 | Dev | `13 * * * *` |
 | QM | `23 * * * *` |
 | PO | `37 * * * *` |
+| **Platform** | **`43 * * * *`** |
 | 監査 | `47 * * * *` |
 
 #### CronCreate の制約（必ず理解して使う）
