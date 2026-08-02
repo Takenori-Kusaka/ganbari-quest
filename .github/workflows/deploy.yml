@@ -531,20 +531,32 @@ jobs:
             --query 'FunctionUrl' --output text)
           FN_URL="${FN_URL%/}"
 
-          CRON_PROBE_BODY=$(curl -s -X POST \
-            -H "Authorization: Bearer invalid-secret-for-reachability-probe" \
-            -H "Content-Type: application/json" \
-            -d '{}' \
-            "${FN_URL}/api/cron/export-build")
-          echo "=== cron route reachability probe ==="
-          echo "$CRON_PROBE_BODY"
+          # リトライ方針: **判別できなかったときだけ**やり直す。
+          #   - `認証が必要です` (= 届いていない) は確定的な検出なので **即 fail**。
+          #     ここでリトライすると、本 gate が守ろうとしている壊れを自分で握り潰す。
+          #   - どちらの本文でもない場合のみ transient (cold start / 一時的な 5xx) とみなし再試行。
+          CRON_PROBE_BODY=""
+          for i in 1 2 3; do
+            CRON_PROBE_BODY=$(curl -s --max-time 30 -X POST \
+              -H "Authorization: Bearer invalid-secret-for-reachability-probe" \
+              -H "Content-Type: application/json" \
+              -d '{}' \
+              "${FN_URL}/api/cron/export-build" || echo "")
+            echo "=== cron route reachability probe (attempt $i) ==="
+            echo "$CRON_PROBE_BODY"
+            if echo "$CRON_PROBE_BODY" | grep -qE '認証が必要です|Unauthorized'; then
+              break
+            fi
+            echo "::notice::probe の応答を判別できませんでした。10s 後に再試行します"
+            sleep 10
+          done
 
           if echo "$CRON_PROBE_BODY" | grep -q '認証が必要です'; then
             echo "::error::cron route unreachable — hooks の認可層が 401 を返しています。isPublicRoute に /api/cron が無い状態です (#4206 の再発)。この状態では全 cron が 100% 失敗します"
             exit 1
           fi
           if ! echo "$CRON_PROBE_BODY" | grep -q 'Unauthorized'; then
-            echo "::error::cron route probe が想定外の応答を返しました。誤った secret には route 側 verifyCronAuth の Unauthorized が返るはずです (#4206)"
+            echo "::error::cron route probe が 3 回とも想定外の応答を返しました。誤った secret には route 側 verifyCronAuth の Unauthorized が返るはずです (#4206)"
             exit 1
           fi
           echo "::notice::cron dispatcher smoke test passed (env injection + route reachability)"
