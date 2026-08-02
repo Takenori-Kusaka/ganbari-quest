@@ -816,7 +816,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		const { readFileSync } = await import('node:fs');
 		const src = readFileSync('infra/bin/app.ts', 'utf8');
 		// prod の instantiate は `new NetworkStack(app, \`${appName}Network\`, {` から対応する `});` まで。
-		const start = src.indexOf('new NetworkStack(app, `${appName}Network`');
+		// 正規表現で探す (通常文字列に `${` を書くと biome noTemplateCurlyInString に当たる)。
+		const start = src.search(/new NetworkStack\(app, `\$\{appName\}Network`/);
 		expect(start, 'prod NetworkStack の instantiate が見つからない').toBeGreaterThan(-1);
 		const prodBlock = src.slice(start, src.indexOf('\n\t});', start));
 		expect(prodBlock).not.toContain('resourcePrefix');
