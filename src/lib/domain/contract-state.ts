@@ -56,25 +56,22 @@ function present(value: string | Date | null | undefined): boolean {
 	return true;
 }
 
-/**
- * 4 列を S1〜S6 / X1〜X4 / UNCLASSIFIED に分類する (matrix §4)。
- *
- * **判定順には意味がある**:
- *
- * 1. `terminated` (S6) を最初に見る — matrix §4 で plan / sub / exp が「任意」と定義されており、
- *    退会済みの印は 4 列の残骸が何であれ意味が変わらない。後ろに置くと X1 / X2 が先に食う。
- * 2. status 固有の不正 (X3 / X4) — 「その status では起こり得ない列」を先に落とす。
- * 3. status 非依存の不正 (X1 / X2) — plan と sub の対応が崩れている。
- * 4. 残りを正常状態に当てる。
- */
-export function classifyContractState(columns: ContractStateColumns): ContractStateClassification {
-	const { status } = columns;
-	const hasPlan = present(columns.plan);
-	const hasSub = present(columns.stripeSubscriptionId);
-	const hasExp = present(columns.planExpiresAt);
+/** 分類に効く形だけに落とした 4 列。 */
+interface ContractShape {
+	status: string;
+	hasPlan: boolean;
+	hasSub: boolean;
+	hasExp: boolean;
+}
 
-	// S6: 退会済み。plan / sub / exp は任意 (matrix §4.1)
-	if (status === 'terminated') return 'S6';
+/**
+ * 不正状態 (matrix §4「不正状態」) に当たるか。当たらなければ null。
+ *
+ * status 固有の不正 (X3 / X4) を先に見る。「その status では起こり得ない列」を先に落とさないと、
+ * status 非依存の X1 / X2 が先に食って診断名がずれる。
+ */
+function findInvalid(shape: ContractShape): InvalidContractState | null {
+	const { status, hasPlan, hasSub, hasExp } = shape;
 
 	// X3: active に期限は無い。dunning / 解約の残骸 (matrix §5 D2)
 	if (status === 'active' && hasExp) return 'X3';
@@ -88,15 +85,26 @@ export function classifyContractState(columns: ContractStateColumns): ContractSt
 	// X2: 課金しているのにプラン不明 → planTier が standard に丸められる
 	if (hasSub && !hasPlan) return 'X2';
 
-	// ここまでで plan と sub は「両方あり」か「両方なし」に絞られている
+	return null;
+}
+
+/**
+ * 正常状態 (matrix §4 の表) に当たるか。当たらなければ null (= 表が定義していない)。
+ *
+ * `findInvalid` を通過した時点で plan と sub は「両方あり」か「両方なし」に絞られている。
+ */
+function findValid(shape: ContractShape): ContractState | null {
+	const { status, hasPlan, hasSub, hasExp } = shape;
+
 	if (status === 'active') {
 		if (!hasPlan && !hasSub) return 'S1';
 		if (hasPlan && hasSub) return 'S2';
+		return null;
 	}
 
+	// S3 は exp (猶予終了日) を伴う。exp なしは表が定義していない
 	if (status === 'grace_period') {
-		// S3 は exp (猶予終了日) を伴う。exp なしは表が定義していない
-		if (hasPlan && hasSub && hasExp) return 'S3';
+		return hasPlan && hasSub && hasExp ? 'S3' : null;
 	}
 
 	if (status === 'suspended') {
@@ -105,8 +113,32 @@ export function classifyContractState(columns: ContractStateColumns): ContractSt
 		if (!hasPlan && !hasSub && !hasExp) return 'S5';
 	}
 
-	// 表がまだ何も言っていない組み合わせ。**丸めない** (silent gap を作らない)
-	return UNCLASSIFIED_CONTRACT_STATE;
+	return null;
+}
+
+/**
+ * 4 列を S1〜S6 / X1〜X4 / UNCLASSIFIED に分類する (matrix §4)。
+ *
+ * **判定順には意味がある**:
+ *
+ * 1. `terminated` (S6) を最初に見る — matrix §4 で plan / sub / exp が「任意」と定義されており、
+ *    退会済みの印は 4 列の残骸が何であれ意味が変わらない。後ろに置くと X1 / X2 が先に食う。
+ * 2. status 固有の不正 (X3 / X4) — 「その status では起こり得ない列」を先に落とす。
+ * 3. status 非依存の不正 (X1 / X2) — plan と sub の対応が崩れている。
+ * 4. 残りを正常状態に当てる。
+ */
+export function classifyContractState(columns: ContractStateColumns): ContractStateClassification {
+	const shape = {
+		status: columns.status,
+		hasPlan: present(columns.plan),
+		hasSub: present(columns.stripeSubscriptionId),
+		hasExp: present(columns.planExpiresAt),
+	};
+
+	// S6: 退会済み。plan / sub / exp は任意 (matrix §4.1)
+	if (shape.status === 'terminated') return 'S6';
+
+	return findInvalid(shape) ?? findValid(shape) ?? UNCLASSIFIED_CONTRACT_STATE;
 }
 
 /** 不正状態 (X*) か。`UNCLASSIFIED` は含めない (意味が違う)。 */
