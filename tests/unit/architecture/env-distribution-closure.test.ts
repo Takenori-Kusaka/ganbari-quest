@@ -404,13 +404,6 @@ const NOT_DISTRIBUTED: Array<{
 		keys: ['demoCertificateArn'],
 		why: 'default が本番 certificateArn (infra/bin/app.ts)。wildcard 証明書を共用するため未指定が正常系',
 	},
-	{
-		readers: ['cdk-context'],
-		keys: ['opsEmail'],
-		why: '未指定だと OpsStack の SNS topic に subscription が 1 件も付かず、全 CloudWatch alarm が宛先なしになる。配布すべき通知先アドレスが未決のため塞げていない',
-		followUp: '#4189',
-	},
-
 	// ---- NUC 上で動く script ----
 	{
 		readers: ['nuc-script-env'],
