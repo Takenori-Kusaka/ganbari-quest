@@ -824,6 +824,35 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		expect(prodBlock).not.toContain('geoRestrictionCountries');
 	});
 
+	// [N-7] geoRestriction を外したことの代償を、人の注意力ではなく機械で見張る (PO 決裁 2026-08-02)。
+	//
+	// staging を全世界公開にした前提は「実在のメールアドレスを登録しない」という運用ルール。
+	// **人が守るなら、守られなかったことに気づく手段がいる。**
+	it('staging に allowlist 外のメールが登録されたら気づける', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+
+		// 許可ドメインは **宣言**する。「使い捨てっぽい」の推測判定は穴になるため置かない。
+		expect(yml).toContain('STAGING_ALLOWED_EMAIL_DOMAINS');
+		// 実登録者を実物から取る (synth や設定値ではなく Cognito を見る)
+		expect(yml).toContain('cognito-idp list-users');
+		// 気づける先 = incident チャネル
+		expect(yml).toContain('DISCORD_WEBHOOK_INCIDENT');
+
+		// **deploy は止めない** (既に登録済のものは手遅れで、止めても意味がない)。
+		const guard = yml.slice(yml.indexOf('- name: Staging PII guard'));
+		expect(guard.slice(0, guard.indexOf('- name: ', 10))).toContain('continue-on-error: true');
+	});
+
+	// [N-8] 許可ドメインの二重管理を作らない。runbook にリストを複製すると必ずズレる。
+	it('runbook は allowlist を複製せず workflow を SSOT として参照する', async () => {
+		const { readFileSync } = await import('node:fs');
+		const runbook = readFileSync('docs/runbooks/staging-live-verification.md', 'utf8');
+		expect(runbook).toContain('STAGING_ALLOWED_EMAIL_DOMAINS');
+		// #4117 の担当者が最初に読む場所に警告があること
+		expect(runbook.slice(0, 1200)).toContain('実在のメールアドレスを登録しない');
+	});
+
 	// [N-5] 配線の no-silent-gap。CDK 側が正しくても deploy 対象に入っていなければ意味がない。
 	it('deploy-aws-staging.yml の STAGING_STACKS に NetworkStaging が含まれる', async () => {
 		const { readFileSync } = await import('node:fs');

@@ -3,6 +3,14 @@
 > **対象**: ローカルのどの backend でも実行されない `AUTH_MODE=cognito` + DSQL 経路（課金状態の解決 / entitlement / parent-gate / 招待・メンバー）を、AWS staging（`ganbari-quest-staging-app`）で 1 回通して観測するための手順。
 > **実行主体**: リリース発火 = GQ-Audit / 検証実行と証跡提出 = GQ-Dev / 秘匿値・権限の配置 = オーナー。
 
+## 🚨 staging は全世界公開。実在のメールアドレスを登録しない
+
+**staging の CloudFront には地域制限がない（#4204）。** post-deploy smoke を回す GitHub Actions runner が日本国外にあるため JP allowlist を外してある。したがって **Cognito に実在のメールアドレスを登録した時点で「PII を持つ全世界公開環境」が成立する。**
+
+**sign-up には使い捨てメールだけを使う。** 許可ドメインの SSOT は `.github/workflows/deploy-aws-staging.yml` の `STAGING_ALLOWED_EMAIL_DOMAINS`（本 runbook にリストを複製しない — 複製すると必ずズレる）。
+
+allowlist 外のドメインが登録されると、staging deploy の `Staging PII guard` が Discord の incident チャネルに通知する。**deploy は止まらない**（既に登録されたものは手遅れで、止めても意味がないため）。**気づけることが目的。**
+
 ## ⚠️ ステータス: 未実証（2026-07 時点）
 
 **本 runbook は通しで実行されていない。** 初回実行は Issue [#4099](https://github.com/Takenori-Kusaka/ganbari-quest/issues/4099) で行う（検証主体 = オーナー（AWS SSO 対話ログインが必須）+ GQ-Audit（staging リリース発火））。

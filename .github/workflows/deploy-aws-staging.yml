@@ -22,6 +22,10 @@ name: Deploy to AWS (Staging)
 #       (2) ComputeStack が synth 時に allowlist (`sk_test_` / `rk_test_` 以外) を addError で停止
 #     webhook signing secret は test / live とも `whsec_` で **prefix から判別できない**。ここは守れない
 #     範囲として明示する (live 側の実行権限は secret key が握るため secret key の allowlist が防御線)。
+#   - **「Discord secret を渡さない」は staging Lambda の話であって、本 workflow 自身の話ではない**
+#     (#4204)。防ぎたいのは「staging のアプリが動いた副作用が実チャネルを汚す」ことであり、
+#     **CI が人間に出す運用アラート**はそれに当たらない。post-deploy の
+#     `Staging PII guard` は Discord へ通知するが、staging Lambda の env には一切注入しない。
 #
 # 責務分界 (docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3):
 #   - 本 workflow の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
@@ -81,6 +85,16 @@ env:
   # Lambda Function URL がクエリのスラッシュを拒否するため、CloudFront Function
   # <prefix>-query-slash-encode を通さないと staging でログインすらできない。
   # 依存順に列挙する (Compute の functionUrl を Network が参照する)。
+  # #4204: staging に登録してよいメールアドレスのドメイン allowlist (**本 env が SSOT**)。
+  #
+  # staging の CloudFront は geoRestriction 無し = **全世界公開**。実在のメールアドレスを
+  # Cognito に登録した時点で「PII を持つ全世界公開環境」が成立する。運用ルール
+  # (使い捨てメールだけを使う) は人の注意力に依存するため、**守られなかったことに気づける**
+  # ようにする (PO 決裁 2026-08-02)。
+  #
+  # **「使い捨てっぽい」の推測判定はしない。** ここに書いたドメインだけを許可する。
+  # 追加したいときは本 env を編集する (docs/runbooks/staging-live-verification.md は本 env を参照する)。
+  STAGING_ALLOWED_EMAIL_DOMAINS: mailinator.com example.invalid example.com
   STAGING_STACKS: GanbariQuestStorageStaging GanbariQuestAuthStaging GanbariQuestComputeStaging GanbariQuestNetworkStaging
   # DSQL lane 判定 (DoD4 / #3685)。本番 cutover 完遂 (prod=dsql) につき、統合 PR (pull_request) では
   # **常時 dsql lane** を回して「本番構成 = staging 構成」を恒常一致させる。dispatch は手動 opt-in
@@ -498,6 +512,68 @@ jobs:
           fi
 
           echo "::notice::staging smoke test passed (/ と /switch が到達、form action がアプリまで到達 status=$FORM_STATUS)"
+
+      # #4204: staging に実在のメールアドレスが登録されていないかを見張る。
+      #
+      # staging の CloudFront は geoRestriction 無し = **全世界公開**。実在アドレスを Cognito に
+      # 登録した時点で「PII を持つ全世界公開環境」が成立する。運用ルール (使い捨てメールだけ)
+      # は人の注意力に依存するため、**守られなかったことに気づける**ようにする (PO 決裁)。
+      #
+      # **deploy は止めない。** 既に登録されているものは既に登録されているので、止めても
+      # 手遅れであり止める意味がない。**気づけること**が目的。
+      #
+      # 判定は allowlist (env STAGING_ALLOWED_EMAIL_DOMAINS) のみ。**「使い捨てっぽい」の推測は
+      # しない** — 推測判定は「知らないドメインを勝手に許す」形で必ず穴になる。
+      #
+      # 出力にメールアドレス本体を出さない (CI ログは repo 参照者が読める)。ドメインと件数だけ出す。
+      #
+      # `continue-on-error` を付けているのは **PO 決裁で advisory と決めたから**であり、
+      # ADR-0024 の「ENV silent skip 禁止」に反する省略ではない。本 step の run は全経路で
+      # exit 0 するため、これが効くのは aws CLI 自体が想定外に失敗したときだけ
+      # (その場合も warning は GitHub Actions のログに残る)。
+      - name: Staging PII guard (registered email domains)
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_INCIDENT: ${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks             --stack-name GanbariQuestAuthStaging --region $AWS_REGION             --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+          if [ -z "$POOL_ID" ] || [ "$POOL_ID" = "None" ]; then
+            echo "::warning::staging user pool を解決できませんでした (PII guard は判定できていません)"
+            exit 0
+          fi
+
+          EMAILS=$(aws cognito-idp list-users --user-pool-id "$POOL_ID" --region $AWS_REGION \
+            --query "Users[].Attributes[?Name=='email'].Value" --output text | xargs -n1 || true)
+          TOTAL=$(echo "$EMAILS" | sed '/^$/d' | wc -l)
+          echo "registered users: $TOTAL"
+
+          VIOLATIONS=""
+          for e in $EMAILS; do
+            DOMAIN="${e##*@}"
+            OK=0
+            for allowed in $STAGING_ALLOWED_EMAIL_DOMAINS; do
+              if [ "$DOMAIN" = "$allowed" ]; then OK=1; break; fi
+            done
+            if [ "$OK" -eq 0 ]; then
+              VIOLATIONS="$VIOLATIONS $DOMAIN"
+            fi
+          done
+
+          if [ -z "$VIOLATIONS" ]; then
+            echo "::notice::staging PII guard OK (allowlist 外のドメイン 0 件 / 登録 $TOTAL 件)"
+            exit 0
+          fi
+
+          UNIQ=$(echo "$VIOLATIONS" | xargs -n1 | sort -u | xargs)
+          echo "::warning::staging に allowlist 外のメールドメインが登録されています: $UNIQ (#4204)"
+
+          if [ -z "$DISCORD_WEBHOOK_INCIDENT" ]; then
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT 未設定のため通知できませんでした (warning のみ)"
+            exit 0
+          fi
+          MSG="⚠️ staging に allowlist 外のメールドメインが登録されています: ${UNIQ}\nstaging の CloudFront は全世界公開です (#4204)。実在アドレスなら削除を検討してください。\n許可ドメインの SSOT: .github/workflows/deploy-aws-staging.yml の STAGING_ALLOWED_EMAIL_DOMAINS"
+          curl -s -X POST -H "Content-Type: application/json"             -d "{\"content\": \"${MSG}\"}" "$DISCORD_WEBHOOK_INCIDENT" > /dev/null ||             echo "::warning::Discord 通知に失敗しました"
+
 
       # Step 15.5 (#3683、DSQL lane のみ): 実 DSQL staging cluster での並行検証 test を lane 内で自動実行。
       # deploy → migrate → grant → health/smoke green の後、lane が整えた endpoint (GITHUB_ENV の
