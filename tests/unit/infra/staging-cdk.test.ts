@@ -661,6 +661,34 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 // 立てると衝突する。prefix 化で分離するが、**prod の物理名が 1 文字でも変わると
 // CloudFront distribution / bucket が作り直しになる** (ADR-0019) ため、prod 不変を test で固定する。
 // ---------------------------------------------------------------------------
+/** アカウント / リージョンで一意になりうる「名前」プロパティ (#4204)。 */
+const PHYSICAL_NAME_PROPS = new Set([
+	'Name',
+	'BucketName',
+	'FunctionName',
+	'CachePolicyName',
+	'OriginRequestPolicyName',
+	'ResponseHeadersPolicyName',
+]);
+
+/** CFN template を再帰的に歩き、物理名として使われている文字列を集める (#4204)。 */
+function collectPhysicalNames(t: Template): string[] {
+	const found: string[] = [];
+	const walk = (node: unknown): void => {
+		if (Array.isArray(node)) {
+			for (const v of node) walk(v);
+			return;
+		}
+		if (!node || typeof node !== 'object') return;
+		for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+			if (typeof v === 'string' && PHYSICAL_NAME_PROPS.has(k)) found.push(v);
+			walk(v);
+		}
+	};
+	walk(t.toJSON().Resources ?? {});
+	return found;
+}
+
 describe('#4204 staging CloudFront (NetworkStack)', () => {
 	function buildNetwork(staging: boolean): Template {
 		const app = new cdk.App({
@@ -766,34 +794,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 	// 「1 件ずつ prefix を付ける」対処では次に足された名前をまた取りこぼすため、
 	// **prod と staging で同じ物理名を 1 つも共有していないこと**を集合として突き合わせる。
 	it('prod と staging の NetworkStack が物理名を 1 つも共有しない', () => {
-		const collectNames = (t: Template): string[] => {
-			const found: string[] = [];
-			const walk = (node: unknown): void => {
-				if (Array.isArray(node)) {
-					for (const v of node) walk(v);
-					return;
-				}
-				if (node && typeof node === 'object') {
-					for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
-						// アカウント / リージョンで一意になりうる「名前」プロパティだけを見る。
-						if (
-							typeof v === 'string' &&
-							/^(Name|BucketName|FunctionName|CachePolicyName|OriginRequestPolicyName|ResponseHeadersPolicyName)$/.test(
-								k,
-							)
-						) {
-							found.push(v);
-						}
-						walk(v);
-					}
-				}
-			};
-			walk(t.toJSON().Resources ?? {});
-			return found;
-		};
-
-		const prodNames = new Set(collectNames(buildNetwork(false)));
-		const stagingNames = collectNames(buildNetwork(true));
+		const prodNames = new Set(collectPhysicalNames(buildNetwork(false)));
+		const stagingNames = collectPhysicalNames(buildNetwork(true));
 		const shared = stagingNames.filter((n) => prodNames.has(n));
 		expect(
 			shared,
