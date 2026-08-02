@@ -242,7 +242,13 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 
 ### §3.8 毎回 run の標準 9 ステップ（release/* → main 統合監査サイクル、branch-strategy.md §3.1）
 
-事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを順に実行する。audit-manager が orchestrate し、deep research / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
+事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを実行する。audit-manager が orchestrate し、deep research / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
+
+> **step 番号は依存関係であって実行順ではない（#4171）。** step N は「step N-1 の**出力を必要とする**」ことだけを意味する。依存が無いものは**並列に起動してよい**。
+>
+> **特に cut（step 6）直後は、統合 PR の CI 待ちと領域監査を並列で走らせる。** 領域監査は release HEAD の **コード**を読むのであって CI の**結果**を必要としない。CI 結果が要るのは step 7 の fail triage だけ。
+>
+> 第 19 回 run の実測（#4171）: **CI 待ち 4 回 × 15〜20 分**のうち、CI 結果を見てから領域監査を始めた場面があった。**この待ちは削れる**。
 
 | step | 内容 | 主体 | 不可逆 |
 |---|---|---|---|
@@ -257,6 +263,9 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 9 | deploy 完了後、本番 **AWS 版・ローカル NUC 版の両方へ health check** | audit-manager + deploy-verify skill | — |
 
 - **全件発露原則（step 7）**: CI fail は最初の 1 件で止めず、固定時間 box 内で全 fail を発露させてから triage する（§3.6 / EPIC 失敗シナリオ⑥）。起票 Issue には真因・なぜなぜ・横展開（同種 defect の他箇所）を必須記載する（ADR-0003 Issue 品質）。
+- **adversarial evidence は「処置が全部終わってから 1 回」に寄せる（#4171）**: evidence には **TTL 30 分**があり、`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
+  - 第 19 回 run の実測: **4 世代生成したうち 1 世代は「TTL が切れたから作り直しただけ」**で、監査上の価値はゼロだった
+  - **ただし release branch に append したら必ず再生成する**（本 step の「approve 後に append したら再生成」要求は不変）。**寄せてよいのは「処置前の先取り生成」であって、append 後の再生成ではない**。省くと stale approval で未監査差分が merge される（§3.8.1 禁則 3）
 - **冗長テスト回避（step 4）**: develop 取込時点で feature PR が追加済みのテストと突合し、同一観点の二重追加を避ける。監査チームが足すのは「統合状態でしか検出できない CUJ 横断テスト」に限る（§3.4 二重判定回避と同型）。
 - **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DynamoDB backend で lazy migration を呼ばないため schema assert 無し）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
 
