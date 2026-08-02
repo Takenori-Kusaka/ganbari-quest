@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: Claude Code の Agent Teams（lead + teammate、共有タスクリスト、mailbox）を本リポジトリでどう使うかの SSOT。**使ってよい場面・使ってはいけない場面・運用規約**を定める。
 >
-> **関連**: [agent-concurrency.md](agent-concurrency.md)（heavy lock）/ [label-mailbox.md](label-mailbox.md)（ロール間の受け渡し）/ [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）/ ADR-0010（Pre-PMF）
+> **関連**: [agent-concurrency.md](agent-concurrency.md)（heavy lock）/ [label-mailbox.md](label-mailbox.md)（ロール間の受け渡し）/ [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）/ ADR-0010（Pre-PMF）
 >
 > **公式ドキュメント**: https://code.claude.com/docs/en/agent-teams（experimental。仕様は変わりうるので、判断に迷ったら原典を確認する）
 
@@ -127,7 +127,7 @@ lead が teammate に名前を付ける。**後から参照するので、spawn 
 
 **③ 既存の subagent 定義を teammate 型として再利用する**
 
-`.claude/agents/*.md`（`po-session` / `dev-session` / `qa-session` / `audit-manager`）と `pr-review-toolkit` 等の plugin agent は、そのまま teammate 型として指定できる。
+`.claude/agents/*.md`（`po-session` / `dev-session` / `qm-session` / `audit-manager`）と `pr-review-toolkit` 等の plugin agent は、そのまま teammate 型として指定できる。
 
 > **caveat**: subagent 定義の `skills` / `mcpServers` frontmatter は **teammate として動くときは適用されない**。skills / MCP は project / user 設定から読まれる。skill 前提の agent を teammate にするときは、**spawn prompt に skill 名を明記する**。
 

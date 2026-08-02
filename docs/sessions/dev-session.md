@@ -151,7 +151,7 @@ pending 付き Issue を自律開始しない。`Blocked by` に pending Issue �
 
 ## ミッション
 
-PO セッションが定めた AC を全て満たし、スクラップ&ビルドを前提としたあるべき姿に。QA セッションが一発 Approve できる品質を目指す。
+PO セッションが定めた AC を全て満たし、スクラップ&ビルドを前提としたあるべき姿に。QM セッションが一発 Approve できる品質を目指す。
 
 ## PR 作業時の手順
 
@@ -171,7 +171,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    ```bash
    node scripts/check-gh-account-before-pr.mjs  # active が Takenori-Kusaka 以外なら exit 1
    ```
-   PR 作成は **必ず Takenori-Kusaka**。`ganbariquestsupport-lab` は QA approve / merge 専用
+   PR 作成は **必ず Takenori-Kusaka**。`ganbariquestsupport-lab` は QM approve / merge 専用
 7. PR body 雛形生成 → Draft PR 作成（`--body-file` 必須 [Skill: issue-triage SSOT](../../.claude/skills/issue-triage/SKILL.md) §「`--body-file` 運用」）:
    ```bash
    # 雛形生成（[Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md), #1863）
@@ -232,7 +232,7 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 - [ ] **(c) e2e seed / test-db を変更に同期** — schema / 値域 / 陳列を変えたら `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` を追従（共有 worker DB を汚染する spec は afterEach/afterAll で seed 状態へ復元、`tests/CLAUDE.md` #2851）
 - [ ] **(d) domain validation 値域 ⊆ wire(export) schema 値域の整合確認** — 直接 SQL seed 値も含め domain 値域が export schema 上限内に収まるか（直接 SQL は validation を迂回するため out-of-domain 値が round-trip で弾かれる、#3132 教訓）
 
-> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152) / [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151) / QA 人手 gate = [qa-session.md](qa-session.md) 手順 4（#3172）/ 本 Dev 着手時チェック（#3173）。発生源（着手時）で断つのが最も安い。
+> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152) / [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151) / QA 人手 gate = [qm-session.md](qm-session.md) 手順 4（#3172）/ 本 Dev 着手時チェック（#3173）。発生源（着手時）で断つのが最も安い。
 
 ## SS 撮影ガイド (#1424 / #1741 / #1747)
 
@@ -263,7 +263,7 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 - 4 スロット必須 (#1740): 修正前×Mobile/PC + 修正後×Mobile/PC
 - URL は **GitHub 上で表示できるもの** (#1741): user-attachments / screenshots branch raw URL / `docs/screenshots/` raw URL。`tmp/...` 相対パス禁止
 
-**撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qa-checklist-ui-quality.md` 参照。要点:
+**撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qm-checklist-ui-quality.md` 参照。要点:
 - DESIGN.md §9 禁忌 6 点（hex 直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超）
 - **UI 文言に「実装変更の自己言及」を書かない**（「設定をグループ別に整理しました」等）。ユーザーには現在の使い方・状態だけ伝え、整理 / 統合 / 移行の経緯は git・docs に置く。`check-internal-terms.mjs` の self-ref-change group が string リテラル（コメント除く）を検出（#3259）
 - 5 年齢モード fontScale / タップサイズ
@@ -284,7 +284,7 @@ UI 変更（`.svelte` / `.css` / `.scss` / `site/`）を含む PR は、**SS 撮
 
 - ラベルの短縮 / 表記揺れ統一 / 文字数増減 / 改行位置変更（`<br>` / `text-wrap`）/ アイコン・絵文字・句読点の置換 / 不可視属性付与（`aria-*` / `data-*`）
 
-QA Review Agent (`qa-session.md` 手順 2) が `gh pr diff` で同種変更を検出し、PR 本文の明記と整合するか照合する。
+QM Review Agent (`qm-session.md` 手順 2) が `gh pr diff` で同種変更を検出し、PR 本文の明記と整合するか照合する。
 
 ## hotfix PR runbook（CRITICAL — #2343）
 
@@ -527,7 +527,7 @@ gh pr create --draft --base develop --title "<type>: #<num> <subject>" --body-fi
 |---|---|---|
 | [完遂原則](dev-process/completion-principles.md) | やりきり / 全 AC 完遂 / fix-forward / はりぼて禁止 / Done 基準 | Issue 着手前 / 困難遭遇時 / Done 判定時 |
 | [アンチパターン集](dev-process/anti-patterns.md) | scope 外言い訳 / 越境 / assertion 弱体化 / ラバースタンプ / CI 前 Ready / 段階リリース禁止 等 | PR 着手前 / レビュー前 / 「逃げたく」なった時 |
-| [QA fix パターン集](dev-process/qa-fix-patterns.md) | QA team が merge 前に加えた fix の頻出パターン | PR 着手前 / merge 通知受領後 |
+| [QM fix パターン集](dev-process/qm-fix-patterns.md) | QM team が merge 前に加えた fix の頻出パターン | PR 着手前 / merge 通知受領後 |
 | [並列 Agent / worktree 運用](dev-process/parallel-agent-ops.md) | 分離必須 / push verify / stacked PR 不可 / CI trigger 仕様 / 待機運用 | 並列 Agent 起動前 / push 報告受領後 / CI が動かない時 |
 | [調査規律](dev-process/research-discipline.md) | 正しい問い → 仮説中立 framing → 反証確認 | deep research / 技術調査の着手前 |
 | [機能変更時の横展開確認](dev-process/feature-change-lateral-spread.md) | 用語 grep 全件 / LP・pricing・faq 波及 / DB schema SSOT 群同期 | 機能変更 Issue 起票時 / 用語・ラベル変更時 |
@@ -547,7 +547,7 @@ Self-Review の運用 SSOT は [self-review-agent.md](../operations/self-review-
 | @.github/CLAUDE.md | Issue/PR 運用 |
 | @infra/CLAUDE.md | デプロイ・インフラ |
 | @docs/design/asset-catalog.md | 画像アセット要否 |
-| @docs/sessions/qa-checklist-ui-quality.md | UI/UX セルフレビュー 10 項目 |
+| @docs/sessions/qm-checklist-ui-quality.md | UI/UX セルフレビュー 10 項目 |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影トラブルシュート KB (SC-NNN) |
 | @docs/troubleshoot/github_actions.md | CI 失敗トラブルシュート KB (TA-NNN) |
 

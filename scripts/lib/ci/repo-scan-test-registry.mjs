@@ -57,6 +57,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/qm-role-naming-consistency.test.ts': {
+		scope: 'repo',
+		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
+	},
 	'tests/unit/architecture/action-primary-white-text-contrast.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の .svelte を走査して配色コントラスト違反を検出する',

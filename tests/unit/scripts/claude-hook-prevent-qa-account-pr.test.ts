@@ -218,7 +218,7 @@ describe('定数', () => {
  *
  * `.claude/hooks/gate-approve.mjs` と同一の失敗 class。Claude Code は exit 2 のみを block と
  * して扱うため、`ERR_MODULE_NOT_FOUND` の既定 exit 1 のままだと tool 実行が継続し、
- * **QA アカウントからの `gh pr create` が素通しする**。
+ * **QM アカウントからの `gh pr create` が素通しする**。
  *
  * 陽性対照 (is-main.mjs を置いた tree で `gh pr create` を含まないコマンドが exit 0 無出力)
  * を併置し、「常に落ちているだけ」と区別する。

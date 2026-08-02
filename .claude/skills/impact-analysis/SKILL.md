@@ -199,13 +199,13 @@ CodeQL は重く Pre-PMF オーバーキル、security review 用途で別軸。
 2. **着手前**: L1 → L2 → L3 → L4 の 4 layer を順次実行、結果を tmp/ に保存
 3. **PR body**: 上記 §22 カテゴリ checklist を PR body にコピー、各項目に確認結果記載
 4. **CI gate**: ast-grep + Knip + baseline pinning を CI に組込
-5. **review**: QA レビューで「L4 22 カテゴリの確認漏れ」を必ずチェック
+5. **review**: QM レビューで「L4 22 カテゴリの確認漏れ」を必ずチェック
 
 ## 関連 SSOT
 
 - memory: `reference_impact_analysis_methodology.md` (詳細方法論、業界事例、primary source URL)
 - ADR: ADR-0014 (OSS 先調査ルール、本 skill のツール選定根拠)
-- skill: `db-migration` (DB schema 変更時の追加 skill) / `pr-review` (QA レビュー時の本 skill 適用確認) / `regression-check` (rename 後の回帰テスト)
+- skill: `db-migration` (DB schema 変更時の追加 skill) / `pr-review` (QM レビュー時の本 skill 適用確認) / `regression-check` (rename 後の回帰テスト)
 - 関連 memory: [[plan-name-implementation-gap]] / [[deep-research-product-specific]] / [[replan-on-unforeseen-blocker]] / [[ssot-verification-before-proposal]]
 
 ## 禁忌

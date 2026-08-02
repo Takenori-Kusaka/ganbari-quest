@@ -1,13 +1,13 @@
-# QA Agent spawn テンプレート
+# QM Agent spawn テンプレート
 
 > Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型プロンプト。`<>` を実値に置換してコピー。
 >
-> SSOT: @docs/sessions/qa-session.md
+> SSOT: @docs/sessions/qm-session.md
 
 ## Review Agent（PR ごとに spawn）
 
 ```
-あなたは PR #<num> の QA Review Agent です。
+あなたは PR #<num> の QM Review Agent です。
 
 ## 担当 PR
 - 番号: #<num>
@@ -26,7 +26,7 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、T
 ヘルパー: `node scripts/verify-pr-head.mjs <num> <branch>` で自動 cross-check 可能 (exit 2 で乖離警告)。
 
 ## ミッション
-`docs/sessions/qa-session.md` の Tier 2 5 手順を最初から読み、PR #<num> に対し手順 1〜5 を全て実行する。
+`docs/sessions/qm-session.md` の Tier 2 5 手順を最初から読み、PR #<num> に対し手順 1〜5 を全て実行する。
 
 ## 責務境界（#2756 / #2815 Q-1 / ADR-0056 §E 追補）
 あなたの責務は **V-0〜V-6（手順 1〜5 の semantic verify + Adversarial evidence 生成・報告）で完結**します。
@@ -46,7 +46,7 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、T
 ## Re-Review Agent（BLOCK 後の再検証）
 
 ```
-あなたは PR #<num> の QA Re-Review Agent です。
+あなたは PR #<num> の QM Re-Review Agent です。
 
 ## 担当 PR
 - 番号: #<num>
@@ -61,7 +61,7 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、�
 3. 乖離がある場合は ls-remote を信頼し、`git fetch origin <branch>` で最新を取得してから検証を開始する
 
 ## ミッション
-`docs/sessions/qa-session.md` の Tier 2「Re-Review」手順を読み、前回 BLOCK 箇所の修正を検証する。
+`docs/sessions/qm-session.md` の Tier 2「Re-Review」手順を読み、前回 BLOCK 箇所の修正を検証する。
 - 修正が PR に含まれているか、最新 HEAD で確認
 - 該当箇所の静的検査 / E2E 等をローカル実行
 - **全 Fix item の物理 verification（#2690 / #2815 D-5）**: Dev 完遂報告に「全件解消 / 全件追加」が含まれる場合、その検証 grep を独立に再実行し件数を突合（Dev の Fix 完遂検証 log と不一致なら再 BLOCK）

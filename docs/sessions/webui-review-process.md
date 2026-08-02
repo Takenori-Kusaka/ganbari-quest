@@ -166,7 +166,7 @@ PR 作成
     │              + Layer 2 の geometry assertion を追加
     │
     └── [D] ガイドライン・チェックリストの欠落か？
-            → Yes: DESIGN.md / CX-DoR / qa-checklist-ui-quality.md / 該当 skill に観点を追補
+            → Yes: DESIGN.md / CX-DoR / qm-checklist-ui-quality.md / 該当 skill に観点を追補
                    + 次回レビューから適用
 ```
 
@@ -175,7 +175,7 @@ PR 作成
 | **A** 画面固有 | 当該 `*.svelte` / route | 画面修正のみ |
 | **B** コンポーネント設計 | `src/lib/ui/primitives/` の API / props + `app.css` 3 層トークン | primitive 修正 + Storybook story（play）追加 + 必要ならトークン更新 |
 | **C** 配置・振る舞いアルゴリズム | Ark UI `positioning` 設定 / 共通ロジック / overlay positioning | ロジック修正 + Layer 2 geometry assertion 追加 |
-| **D** ガイドライン欠落 | `docs/DESIGN.md` / `tests/CLAUDE.md` CX-DoR / `qa-checklist-ui-quality.md` / 該当 skill | 観点追補 + 本 PR or 後続 issue 起票 |
+| **D** ガイドライン欠落 | `docs/DESIGN.md` / `tests/CLAUDE.md` CX-DoR / `qm-checklist-ui-quality.md` / 該当 skill | 観点追補 + 本 PR or 後続 issue 起票 |
 
 **仕分け運用**: B / C / D に該当する問題を A で済ませることは禁止（原則 2、ADR-0003）。B / C は同 PR で還元先まで実装する（段階的リリース禁止、dev-session.md）。D の追補は本 PR で行うか、scope が大きい場合は 後続 issue を起票したうえで Done とする。
 
@@ -186,7 +186,7 @@ PR 作成
 | 役割 | 担当 | レビュー段階 |
 |---|---|---|
 | **A〜D 仕分けの実施 + 還元先実装** | Dev | UI 系 fix / design PR の作成時。仕分け結果を PR body に記載する（dev-session.md §「必ず守ること」） |
-| **仕分けの妥当性レビュー** | QM / QA | per-PR review（`qa-session.md` Tier 2 手順 1〜2）。B/C/D を A で済ませていないか、還元先実装が同 PR にあるかを判定する |
+| **仕分けの妥当性レビュー** | QM / QA | per-PR review（`qm-session.md` Tier 2 手順 1〜2）。B/C/D を A で済ませていないか、還元先実装が同 PR にあるかを判定する |
 | **CUJ 横断 UX / a11y レビュー** | 外部品質監査チーム | develop → main 統合前（`audit-team.md` §3.1「ユーザビリティ・a11y」チーム）。CUJ を仮ユーザ persona で通し、NN/G 観点 + WCAG 2.2 AA を検査する |
 
 ### 5.1 「動くが分かりにくい」UX 破綻の捕捉（cognitive-walkthrough）
@@ -210,8 +210,8 @@ PR 作成
 | ビジュアル回帰テスト | pixelmatch 3 層（ADR-0053）+ Storybook play（CX-DoR #8）= Layer 3 |
 | 機能・インタラクションテスト | Playwright E2E / Vitest（CUJ goal 完遂）= Layer 4 |
 | Atomic Design（システムを育てる） | DESIGN.md §5 primitives + §2/§4 3 層トークン + §6 用語 SSOT への還元（§4 B サイクル） |
-| デザインクリティーク（批評→根拠→提案の 3 部） | `qa-session.md` 手順 2 の「気になった点だけ具体記述」+ PR body レビュー依頼事項 |
-| SmartHR 使用性チェックリスト | `tests/CLAUDE.md` CX-DoR 条件群 + `qa-checklist-ui-quality.md`（10 項目）+ DESIGN.md §9 禁忌（既存と対応づけ、不足観点のみ追補） |
+| デザインクリティーク（批評→根拠→提案の 3 部） | `qm-session.md` 手順 2 の「気になった点だけ具体記述」+ PR body レビュー依頼事項 |
+| SmartHR 使用性チェックリスト | `tests/CLAUDE.md` CX-DoR 条件群 + `qm-checklist-ui-quality.md`（10 項目）+ DESIGN.md §9 禁忌（既存と対応づけ、不足観点のみ追補） |
 | 情報設計レビュー（Phase 1、OOUI 成果物） | 新規画面 / EPIC 級のみ適用。既存 skill で代替できない場合に Issue の設計セクションで概念モデル・ナビ整合を確認 |
 | 定期システム監査（Phase 5） | ADR 月 1 棚卸（`docs/CLAUDE.md`）+ codebase-map 4 半期 retrospective + visual regression 3 層の baseline 維持 |
 

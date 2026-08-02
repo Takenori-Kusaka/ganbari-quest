@@ -16,7 +16,7 @@
  *   - Takenori-Kusaka  → Dev (PR 作成・push)
  *   - ganbariquestsupport-lab → QA (approve・merge・PR コメントのみ)
  *
- * 誤って QA アカウントで `gh pr create` してしまう事故を防ぐため、
+ * 誤って QM アカウントで `gh pr create` してしまう事故を防ぐため、
  * AUTO_MODE / Agent / 手動運用すべてで `gh pr create` の直前に必ず実行する。
  *
  * 使用法:
@@ -262,7 +262,7 @@ function main() {
 	process.stderr.write(`[check-gh-account-before-pr] FAIL: ${verdict.reason}\n`);
 	if (verdict.isQa) {
 		process.stderr.write(
-			`  ${QA_ACCOUNT} は QA レビュー (approve / merge) 専用アカウントです。PR 作成は禁止 (ADR-0022 amendment 1, #1728)。\n`,
+			`  ${QA_ACCOUNT} は QM レビュー (approve / merge) 専用アカウントです。PR 作成は禁止 (ADR-0022 amendment 1, #1728)。\n`,
 		);
 	}
 	process.stderr.write(

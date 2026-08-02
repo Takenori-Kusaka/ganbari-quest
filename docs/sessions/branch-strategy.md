@@ -263,7 +263,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 ## §8 無停止 cutover 手順（順序厳守）
 
-進行中の Dev / QA チームを突然ブロックしないため、以下の順序を厳守する。
+進行中の Dev / QM チームを突然ブロックしないため、以下の順序を厳守する。
 
 1. **本 docs PR を merge**（ルール文書を先に確定）。— ✅ 完了（#2858）
 2. **workflow 改修 PR**: `branches: [main]` 4 本の develop 向け発火追加 + 軽量 / 重量の振り分け + main 向け PR の base/head 検査 gate 追加。集約 job 名（`ci-gate` 等 required status check の context 名）は互換維持する。— ✅ 完了（#2931、§4「実装状況」参照）
