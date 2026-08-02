@@ -680,14 +680,18 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 			},
 		});
 		const envConfig = staging ? STAGING_ENV_CONFIG : undefined;
-		const storage = new StorageStack(app, 'NetTestStorage', { env, envConfig });
-		const compute = new ComputeStack(app, 'NetTestCompute', {
+		// stack id は bin/app.ts と同じにする。CloudFront OriginAccessControl 等
+		// **CDK が construct path から自動生成する名前**があり、id を揃えないと
+		// 実際には衝突しないものを衝突として検出してしまう (逆も同様)。
+		const suffix = staging ? 'Staging' : '';
+		const storage = new StorageStack(app, `GanbariQuestStorage${suffix}`, { env, envConfig });
+		const compute = new ComputeStack(app, `GanbariQuestCompute${suffix}`, {
 			env,
 			assetsBucket: storage.assetsBucket,
 			repository: storage.repository,
 			envConfig,
 		});
-		const network = new NetworkStack(app, 'NetTestNetwork', {
+		const network = new NetworkStack(app, `GanbariQuestNetwork${suffix}`, {
 			env,
 			functionUrl: compute.functionUrl,
 			...(staging
@@ -753,6 +757,51 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 				}),
 			}),
 		});
+	});
+
+	// [N-4b] **この class の網羅 guard。**
+	//
+	// 目視で拾った物理名は 2 件だったが、実際には 4 件あった (CloudFront CachePolicy 名は
+	// アカウント全体で一意で、staging deploy が 409 AlreadyExists で ROLLBACK した)。
+	// 「1 件ずつ prefix を付ける」対処では次に足された名前をまた取りこぼすため、
+	// **prod と staging で同じ物理名を 1 つも共有していないこと**を集合として突き合わせる。
+	it('prod と staging の NetworkStack が物理名を 1 つも共有しない', () => {
+		const collectNames = (t: Template): string[] => {
+			const found: string[] = [];
+			const walk = (node: unknown): void => {
+				if (Array.isArray(node)) {
+					for (const v of node) walk(v);
+					return;
+				}
+				if (node && typeof node === 'object') {
+					for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+						// アカウント / リージョンで一意になりうる「名前」プロパティだけを見る。
+						if (
+							typeof v === 'string' &&
+							/^(Name|BucketName|FunctionName|CachePolicyName|OriginRequestPolicyName|ResponseHeadersPolicyName)$/.test(
+								k,
+							)
+						) {
+							found.push(v);
+						}
+						walk(v);
+					}
+				}
+			};
+			walk(t.toJSON().Resources ?? {});
+			return found;
+		};
+
+		const prodNames = new Set(collectNames(buildNetwork(false)));
+		const stagingNames = collectNames(buildNetwork(true));
+		const shared = stagingNames.filter((n) => prodNames.has(n));
+		expect(
+			shared,
+			`prod と同じ物理名を staging が使っている (同一アカウント・同一リージョンで衝突する): ${shared.join(', ')}`,
+		).toEqual([]);
+		// 空集合同士の比較で緑になるのを防ぐ (名前を 1 つも拾えていなければ検査が成立していない)。
+		expect(prodNames.size).toBeGreaterThan(0);
+		expect(stagingNames.length).toBeGreaterThan(0);
 	});
 
 	// [N-5] 配線の no-silent-gap。CDK 側が正しくても deploy 対象に入っていなければ意味がない。

@@ -66,6 +66,12 @@ export class NetworkStack extends cdk.Stack {
 
 		// #4204: 物理名 prefix。既定は本番値なので **prod template は byte 一致**のまま。
 		const prefix = props.resourcePrefix ?? 'ganbari-quest';
+		// CloudFront の CachePolicy 名は **アカウント全体で一意**。kebab の prefix をそのまま使えないため
+		// PascalCase に変換する (既定は 'GanbariQuest' = 現行 prod 値と一致)。
+		const namePascal = prefix
+			.split('-')
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join('');
 
 		// Parse Lambda Function URL to get the hostname
 		const fnUrlDomain = cdk.Fn.select(2, cdk.Fn.split('/', props.functionUrl.url));
@@ -189,7 +195,7 @@ function handler(event) {
 		// 静的アセット用 cache policy (365 日 immutable)。/_app/* (shield lambda) と
 		// /_app/immutable/* (S3 offload 時) で共有する。
 		const staticAssetsCachePolicy = new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
-			cachePolicyName: 'GanbariQuestStaticAssets',
+			cachePolicyName: `${namePascal}StaticAssets`,
 			defaultTtl: cdk.Duration.days(365),
 			maxTtl: cdk.Duration.days(365),
 			minTtl: cdk.Duration.days(1),
@@ -225,7 +231,7 @@ function handler(event) {
 			// network-local bucket (cross-stack cycle 回避、errorPagesBucket と同方針)。
 			// immutable 静的アセット専用。各 deploy で再 upload されるため DESTROY + autoDelete で良い。
 			const staticAssetsBucket = new s3.Bucket(this, 'StaticAssetsBucket', {
-				bucketName: `ganbari-quest-static-assets-${this.account}`,
+				bucketName: `${prefix}-static-assets-${this.account}`,
 				removalPolicy: cdk.RemovalPolicy.DESTROY,
 				autoDeleteObjects: true,
 				blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -482,7 +488,7 @@ function handler(event) {
 				this,
 				'DemoStaticAssetsCachePolicy',
 				{
-					cachePolicyName: 'GanbariQuestDemoStaticAssets',
+					cachePolicyName: `${namePascal}DemoStaticAssets`,
 					defaultTtl: cdk.Duration.days(365),
 					maxTtl: cdk.Duration.days(365),
 					minTtl: cdk.Duration.days(1),
@@ -509,7 +515,7 @@ function handler(event) {
 
 			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
 			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
-				functionName: 'ganbari-quest-demo-query-slash-encode',
+				functionName: `${prefix}-demo-query-slash-encode`,
 				code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var request = event.request;
