@@ -543,9 +543,7 @@ describe('#4191 env / context 配布の closure (経路横断)', () => {
 			'opsEmail が消えると本番 CloudWatch アラームが全系統宛先ゼロになる (#4189)',
 		).toContain('opsEmail');
 		expect(
-			NOT_DISTRIBUTED.find(
-				(e) => e.readers.includes('cdk-context') && e.keys.includes('opsEmail'),
-			),
+			NOT_DISTRIBUTED.find((e) => e.readers.includes('cdk-context') && e.keys.includes('opsEmail')),
 			'opsEmail は配布済なので免除宣言に戻してはいけない (#4189)',
 		).toBeUndefined();
 	});
