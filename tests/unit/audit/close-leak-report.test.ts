@@ -196,7 +196,7 @@ describe('buildCloseLeakReport', () => {
 });
 
 describe('parseArgs', () => {
-	it('デフォルト値 (since 90 days ago / ref origin/main / limit 500 / json false)', () => {
+	it('デフォルト値 (since 90 days ago / ref origin/develop / limit 500 / json false、#4205)', () => {
 		expect(parseArgs([])).toEqual({
 			since: DEFAULT_SINCE,
 			ref: DEFAULT_REF,
@@ -214,5 +214,43 @@ describe('parseArgs', () => {
 			limit: 100,
 			json: true,
 		});
+	});
+});
+
+describe('#4205 走査対象と report 文言の整合', () => {
+	it('DEFAULT_REF は origin/develop（develop 滞留が見えないと受信箱が実態より深く見える）', () => {
+		expect(DEFAULT_REF).toBe('origin/develop');
+	});
+
+	it('report の見出し / 表ヘッダが ref に追随する（main 固定の文言を残さない）', () => {
+		const md = buildCloseLeakReport(
+			[
+				{
+					number: 1,
+					title: 't',
+					labels: [],
+					epicLike: false,
+					commits: [{ sha: 'abcdef1234', date: '2026-08-01', subject: 's' }],
+				},
+			],
+			{ ref: 'origin/develop', since: '90 days ago', totalOpen: 1, totalCommits: 1 },
+		);
+		expect(md).toContain('`origin/develop` に反映済のコミット');
+		expect(md).toContain('| `origin/develop` 反映コミット (該当分) |');
+		expect(md).not.toContain('main 反映コミット');
+	});
+
+	it('develop 走査のときだけ「main 未反映も含む」注記を出す（誤って close させない）', () => {
+		const dev = buildCloseLeakReport([], { ref: 'origin/develop' });
+		expect(dev).toContain('main 未反映 (統合待ち) のものも含みます');
+
+		const main = buildCloseLeakReport([], { ref: 'origin/main' });
+		expect(main).not.toContain('main 未反映 (統合待ち) のものも含みます');
+	});
+
+	it('workflow が件数を取り出す「**検出: N 件**」の書式を保つ（upsert の分岐条件）', () => {
+		// close-leak-report.yml が grep -oP '\*\*検出: \K\d+' で件数を取る。
+		// 書式を変えると 0 件判定が壊れ、tracking issue が close されなくなる。
+		expect(buildCloseLeakReport([], {})).toMatch(/\*\*検出: 0 件\*\*/);
 	});
 });
