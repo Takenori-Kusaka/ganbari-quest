@@ -95,10 +95,17 @@ jobs:
     # 想定外 actor による staging stack への任意 deploy を防ぐ。
     if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)
     steps:
-      # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = develop HEAD。
+      # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = 選んだ ref。
+      #
+      # #4204: dispatch は `develop` 固定だった。**UI / CLI で branch を選んでも無視され、
+      # 常に develop の中身が deploy される**ため、branch の infra 変更を merge 前に検証できない
+      # (本 Issue の実装を dispatch したところ workflow file だけが branch から読まれ、
+      # `infra/bin/app.ts` は develop のままで「No stacks match GanbariQuestNetworkStaging」で落ちた)。
+      # GitHub は workflow file を dispatch した ref から読むため、**checkout も同じ ref に揃える**のが
+      # 一貫する。actor guard (job の if) で実行者は 2 account に限定済み。
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'develop' || github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.pull_request.head.sha }}
 
       # Step 2: Node 22
       - uses: actions/setup-node@v7
