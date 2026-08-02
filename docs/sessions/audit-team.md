@@ -20,9 +20,11 @@
 CronCreate(cron: "47 * * * *", recurring: true, prompt: <label-mailbox.md §4「監査セッション用」テンプレート>)
 ```
 
-監査が拾うのは **`state:needs-audit`**（PO が release cut を依頼した Issue / PR）、**`release/* → main` の open PR**（§3.8 の 9 ステップに入る）、**`main..develop` の commit 数**。
+監査が拾うのは **`state:needs-audit`**（**監査チームに用がある** Issue / PR。release cut 依頼だけでなく、仕様の問い合わせ / 見解確認を含む。**付与者は誰でも**、#4180）、**`release/* → main` の open PR**（§3.8 の 9 ステップに入る）、**`main..develop` の commit 数**。
 
-- **release cut の依頼は `state:needs-audit`** で受け取る（2026-07-31 追加）。当初は「PO からの明示依頼」で label 不要としていたが、**`@mention` / コメントは通知経路ではない**（label-mailbox.md §3.1.1）ため、Dev レーンで実際に起きたのと同じ取りこぼしが成立する。ただし **label は「PO が依頼した」状態を表すだけ**で、cut の実行判断と不可逆 action は引き続き audit-manager 専権（§3.3 / §3.8 step 6）。**label が付いたことを cut の自動起動として扱わない**
+- **`state:needs-audit` は cut 依頼専用ではない**（#4180 で定義を緩和）。**宛先 label は「誰に用があるか」だけを表し、用件を含意しない**（label-mailbox.md §3.1）。用件は Issue / PR の本文を読む。**cut 依頼と問い合わせを label で区別しない** — 区別のために語彙を増やさない
+- **監査から他ロールへ渡す経路**: QM に用があれば **`state:needs-qm`**、Dev に着手を渡すなら **`state:needs-dev`**（#4180 以前は監査発の横方向が空いており、`needs-po` 経由で PO がボトルネックになっていた）
+- **release cut の依頼も `state:needs-audit`** で受け取る（2026-07-31 追加）。当初は「PO からの明示依頼」で label 不要としていたが、**`@mention` / コメントは通知経路ではない**（label-mailbox.md §3.1.1）ため、Dev レーンで実際に起きたのと同じ取りこぼしが成立する。ただし **label は「PO が依頼した」状態を表すだけ**で、cut の実行判断と不可逆 action は引き続き audit-manager 専権（§3.3 / §3.8 step 6）。**label が付いたことを cut の自動起動として扱わない**
 - 統合 PR 自体は branch 名（`base:main` / `head:release/*`）で判別できるため、**対象 PR の識別に label は使わない**（label-mailbox.md §3.2）
 - 判断を仰ぐときは **`state:needs-po`**（不可逆 4 操作以外）/ **`state:needs-owner`**（4 操作）を付ける。**`state:*` を外すときは必ず次の state を付ける**
 - **`main..develop` が 50 commits を超えたら PO に release cut を提案する。** #3995 は develop が動き続けて凍結できず、4 日間実査不能のまま棄却された
