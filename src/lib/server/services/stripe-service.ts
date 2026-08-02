@@ -133,9 +133,66 @@ export type CreatePortalResult =
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'NO_STRIPE_CUSTOMER' };
 
+/**
+ * portal で顧客にやらせたいこと (#4166)。
+ *
+ * Stripe portal の**ボタン文言は変更できない** (Branding で変えられるのは色・ロゴ・事業者名のみ)。
+ * ホームに着地させると「サブスクリプションを更新」が並び、顧客はこれを
+ * 「支払い方法の更新 / 継続」と読んでプラン変更に到達しない (本番実機、#4166)。
+ * したがって**呼び出し元が意図を宣言し**、`flow_data` で目的のフローへ直行させる。
+ *
+ * `home` は汎用導線 (請求書確認 / 支払い方法変更) 用。**flow を付けるとこれらの入口が消える**。
+ */
+export type PortalFlow =
+	| { kind: 'home' }
+	| { kind: 'subscription_update' }
+	| { kind: 'subscription_cancel' };
+
+/**
+ * `flow_data` を組み立てる (#4166)。
+ *
+ * **subscription を持たないときは flow を付けない。** 付けたまま投げると Stripe が 400 を返し、
+ * 顧客は何を押しても portal に入れなくなる (導線ごと死ぬ)。home に落とすのが安全側。
+ *
+ * `after_completion` は明示する。省略時の挙動は公式ドキュメントに明記が無く、
+ * 「完了した更新の詳細を示す確認ページ」に留まると読めるため、アプリへ戻す指定を必ず置く。
+ */
+function buildPortalFlowData(
+	flow: PortalFlow,
+	subscriptionId: string | null,
+	returnUrl: string,
+): { flow_data?: Stripe.BillingPortal.SessionCreateParams.FlowData } {
+	if (flow.kind === 'home') return {};
+	if (!subscriptionId) return {};
+
+	const afterCompletion = {
+		type: 'redirect',
+		redirect: { return_url: returnUrl },
+	} as const;
+
+	if (flow.kind === 'subscription_update') {
+		return {
+			flow_data: {
+				type: 'subscription_update',
+				subscription_update: { subscription: subscriptionId },
+				after_completion: afterCompletion,
+			},
+		};
+	}
+
+	return {
+		flow_data: {
+			type: 'subscription_cancel',
+			subscription_cancel: { subscription: subscriptionId },
+			after_completion: afterCompletion,
+		},
+	};
+}
+
 export async function createPortalSession(
 	tenantId: string,
 	returnUrl: string,
+	flow: PortalFlow = { kind: 'home' },
 ): Promise<CreatePortalResult> {
 	if (!isStripeEnabled()) return { error: 'STRIPE_DISABLED' };
 
@@ -147,7 +204,9 @@ export async function createPortalSession(
 	const stripe = getStripeClient();
 	const session = await stripe.billingPortal.sessions.create({
 		customer: tenant.stripeCustomerId,
+		// 途中でやめた顧客が戻れるリンク。flow の有無に関わらず常に渡す
 		return_url: returnUrl,
+		...buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl),
 	});
 
 	return { url: session.url };

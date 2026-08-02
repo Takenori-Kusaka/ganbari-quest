@@ -118,7 +118,10 @@ describe('#4166 AC1 portal は「顧客がやりたいこと」へ直行する',
 
 		await createPortalSession('t-test', RETURN_URL, { kind: 'home' });
 
-		expect(lastArgs().flow_data, '汎用導線に flow を付けると請求書・支払い方法の入口が消える').toBeUndefined();
+		expect(
+			lastArgs().flow_data,
+			'汎用導線に flow を付けると請求書・支払い方法の入口が消える',
+		).toBeUndefined();
 	});
 
 	it('flow 未指定は home 相当（既存呼び出しの挙動を変えない）', async () => {
@@ -131,20 +134,20 @@ describe('#4166 AC1 portal は「顧客がやりたいこと」へ直行する',
 });
 
 describe('#4166 AC3 フロー完了後はアプリへ戻る', () => {
-	it.each(['subscription_update', 'subscription_cancel'] as const)(
-		'%s: after_completion で return_url へ redirect する',
-		async (kind) => {
-			mockFindTenantById.mockResolvedValue(tenant());
+	it.each([
+		'subscription_update',
+		'subscription_cancel',
+	] as const)('%s: after_completion で return_url へ redirect する', async (kind) => {
+		mockFindTenantById.mockResolvedValue(tenant());
 
-			await createPortalSession('t-test', RETURN_URL, { kind });
+		await createPortalSession('t-test', RETURN_URL, { kind });
 
-			const flow = lastArgs().flow_data as Record<string, unknown>;
-			expect(
-				flow.after_completion,
-				'省略時の挙動は公式ドキュメントに明記が無く、portal に留まる。明示指定する',
-			).toEqual({ type: 'redirect', redirect: { return_url: RETURN_URL } });
-		},
-	);
+		const flow = lastArgs().flow_data as Record<string, unknown>;
+		expect(
+			flow.after_completion,
+			'省略時の挙動は公式ドキュメントに明記が無く、portal に留まる。明示指定する',
+		).toEqual({ type: 'redirect', redirect: { return_url: RETURN_URL } });
+	});
 
 	it('途中離脱できるよう、トップレベルの return_url は常に渡す', async () => {
 		mockFindTenantById.mockResolvedValue(tenant());
@@ -158,19 +161,19 @@ describe('#4166 AC3 フロー完了後はアプリへ戻る', () => {
 describe('#4166 AC2 subscription を持たないなら home にフォールバックする', () => {
 	// flow を付けたまま subscription なしで投げると Stripe が 400 を返し、
 	// **導線ごと死ぬ**（顧客は何を押しても portal に入れない）。
-	it.each(['subscription_update', 'subscription_cancel'] as const)(
-		'%s: stripeSubscriptionId が無ければ flow を付けない',
-		async (kind) => {
-			mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+	it.each([
+		'subscription_update',
+		'subscription_cancel',
+	] as const)('%s: stripeSubscriptionId が無ければ flow を付けない', async (kind) => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
 
-			const result = await createPortalSession('t-test', RETURN_URL, { kind });
+		const result = await createPortalSession('t-test', RETURN_URL, { kind });
 
-			expect(
-				lastArgs().flow_data,
-				'subscription 無しで flow を付けると Stripe が 400 を返し導線ごと死ぬ',
-			).toBeUndefined();
-			// **落とさずに portal へは入れる**こと（fallback の意味）
-			expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
-		},
-	);
+		expect(
+			lastArgs().flow_data,
+			'subscription 無しで flow を付けると Stripe が 400 を返し導線ごと死ぬ',
+		).toBeUndefined();
+		// **落とさずに portal へは入れる**こと（fallback の意味）
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
 });

@@ -130,7 +130,10 @@ const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
 // #4156: 同じ Portal でも「プランを変えに行く」のか「領収書を見に行く」のかで、
 // 顧客が確認ダイアログで読むべき文が違う。確認フレーズ自体はサーバー契約
 // (`/api/stripe/portal` の CONFIRM_PHRASE_REQUIRED) と同値である必要があるため変えない。
-let portalIntent = $state<'plan-change' | 'billing-history'>('plan-change');
+// #4166: 'plan-upgrade' は「⭐ プレミアムへ」等の**アップグレード意図**。
+// portal の flow_data に載せて Stripe のプラン変更画面へ直行させる。
+// 'plan-change' (汎用の「プラン変更・支払い管理」) は請求書 / 支払い方法の入口も兼ねるので home のまま。
+let portalIntent = $state<'plan-change' | 'plan-upgrade' | 'billing-history'>('plan-change');
 let showPortalConfirm = $state(false);
 let portalPinValue = $state('');
 let portalConfirmPhrase = $state('');
@@ -304,7 +307,8 @@ function handlePlanUpgrade(planId: string) {
 		return;
 	}
 	if (hasSubscription) {
-		requestPlanChange();
+		// #4166: 「⭐ プレミアムへ」は portal ホームではなくプラン変更画面へ直行させる
+		requestPlanUpgrade();
 		return;
 	}
 	void startCheckout(planId);
@@ -394,6 +398,12 @@ function requestPlanChange() {
 	void requestPortal();
 }
 
+/** #4166: アップグレード CTA から Portal を開く (Stripe のプラン変更画面へ直行する) */
+function requestPlanUpgrade() {
+	portalIntent = 'plan-upgrade';
+	void requestPortal();
+}
+
 /** #4156: 請求履歴を見る目的で Portal を開く (契約操作ではない) */
 function requestBillingHistory() {
 	portalIntent = 'billing-history';
@@ -458,9 +468,11 @@ async function openPortal() {
 		const res = await fetch('/api/stripe/portal', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(
-				pinConfigured ? { pin: portalPinValue } : { confirmPhrase: portalConfirmPhrase },
-			),
+			body: JSON.stringify({
+				...(pinConfigured ? { pin: portalPinValue } : { confirmPhrase: portalConfirmPhrase }),
+				// #4166: 顧客の意図をサーバへ伝え、portal の着地を決める
+				intent: portalIntent,
+			}),
 		});
 		if (!res.ok) {
 			let message: string = SUBSCRIPTION_PAGE_LABELS.portalFetchError;
