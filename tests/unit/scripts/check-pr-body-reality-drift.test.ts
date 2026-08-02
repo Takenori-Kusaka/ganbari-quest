@@ -44,14 +44,14 @@ describe('#4170 AC1 — 本文の state / label 主張を実測と突合', () =>
 			].join('\n');
 			const claims = extractStateClaims(body);
 			expect(claims.map((c) => c.number)).toEqual([4129]);
-			expect(claims[0].claimedState).toBe('OPEN');
+			expect(claims[0]?.claimedState).toBe('OPEN');
 		});
 
 		it('同一行に #N と state: / status: label があるとき拾う', () => {
 			const body = '| #4131 | 起票済 | `state:needs-po` |';
 			const claims = extractStateClaims(body);
-			expect(claims[0].number).toBe(4131);
-			expect(claims[0].claimedLabels).toEqual(['state:needs-po']);
+			expect(claims[0]?.number).toBe(4131);
+			expect(claims[0]?.claimedLabels).toEqual(['state:needs-po']);
 		});
 
 		it('code fence 内は拾わない（例示を主張と読み違えない）', () => {
@@ -109,8 +109,8 @@ describe('#4170 AC3 — 本文が主張する件数と表の行数の一致', ()
 			].join('\n');
 			const claims = extractCountClaims(body);
 			expect(claims).toHaveLength(1);
-			expect(claims[0].claimed).toBe(3);
-			expect(claims[0].actualRows).toBe(2);
+			expect(claims[0]?.claimed).toBe(3);
+			expect(claims[0]?.actualRows).toBe(2);
 		});
 
 		it('表が続かない件数記述は拾わない（本文中の「3 件」等）', () => {
@@ -127,7 +127,7 @@ describe('#4170 AC3 — 本文が主張する件数と表の行数の一致', ()
 				'| #NNNN | `<title>` |',
 			].join('\n');
 			const claims = extractCountClaims(body);
-			expect(claims[0].actualRows, 'プレースホルダは実データではない').toBe(0);
+			expect(claims[0]?.actualRows, 'プレースホルダは実データではない').toBe(0);
 		});
 	});
 

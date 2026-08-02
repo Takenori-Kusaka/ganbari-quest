@@ -621,14 +621,22 @@ export function checkStateClaims(body, live) {
 	};
 }
 
-/** markdown 表の data 行か (区切り行を除く)。 */
+/**
+ * markdown 表の data 行か (区切り行を除く)。
+ * @param {string} line
+ * @returns {boolean}
+ */
 function isTableDataRow(line) {
 	if (!/^\s*\|/.test(line)) return false;
 	if (/^\s*\|[\s:|-]+\|?\s*$/.test(line)) return false; // 区切り行 (|---|---|)
 	return true;
 }
 
-/** template のプレースホルダ行か。実データとして数えない。 */
+/**
+ * template のプレースホルダ行か。実データとして数えない。
+ * @param {string} line
+ * @returns {boolean}
+ */
 function isPlaceholderRow(line) {
 	return /#N{2,}/.test(line) || /<[^>]+>/.test(line);
 }
@@ -731,7 +739,7 @@ export function fetchIssueStates(numbers) {
 				const state = String(parsed?.state ?? '').toUpperCase();
 				if (!state) break;
 				const labels = Array.isArray(parsed?.labels)
-					? parsed.labels.map((l) => String(l?.name ?? '')).filter(Boolean)
+					? parsed.labels.map((/** @type {{ name?: unknown }} */ l) => String(l?.name ?? '')).filter(Boolean)
 					: [];
 				// PR の state は OPEN / CLOSED / MERGED。MERGED は「開いていない」側に寄せる
 				live.set(n, { state: state === 'MERGED' ? 'CLOSED' : state, labels });
@@ -2166,7 +2174,7 @@ function loadPrBody(args) {
  * @param {string} body
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
- * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[]; lane?: string }} args
+ * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] | null; lane?: string | null; noLabels?: boolean }} args
  * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
