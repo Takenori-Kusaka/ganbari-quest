@@ -693,7 +693,8 @@ export function checkClaimedCounts(body) {
 			`本文が主張する件数と表の行数が一致しません (${bad.length} 件、#4170 AC3)。\n` +
 			bad
 				.map(
-					(c) => `  ✗ 「${c.line}」と書いていますが、直後の表の data 行は **${c.actualRows} 行**です`,
+					(c) =>
+						`  ✗ 「${c.line}」と書いていますが、直後の表の data 行は **${c.actualRows} 行**です`,
 				)
 				.join('\n') +
 			`\n  対応: 表を実態に合わせるか、件数の記述を直す。**表を書き足した後に件数を直し忘れる**のが典型です。`,
@@ -742,10 +743,6 @@ export function fetchIssueStates(numbers) {
 	}
 	return live;
 }
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // Ready for Review チェックリスト未チェック検出
