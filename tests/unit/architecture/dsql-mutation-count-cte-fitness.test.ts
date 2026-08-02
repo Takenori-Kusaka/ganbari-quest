@@ -93,3 +93,33 @@ describe('DSQL mutation 件数は DB 側 count(*) 集約に固定 (#3625 same-cl
 		).toEqual([]);
 	});
 });
+
+// #4030 A-2: 母数がサブディレクトリを取りこぼしていないこと。
+//
+// `src/lib/server/db/dsql/migration/` には実 SQL を持つ file が存在する
+// (`provision.ts` の `INSERT INTO dsql_migrations` 等)。非再帰走査だと**この層が
+// 一度も検査されない**。先例は `dsql-append-only-update-fitness.test.ts` (#3658 AC2)。
+//
+// 母数の assertion を置かないと「違反 0 件」が「守られている」なのか
+// 「そもそも見ていない」なのか区別できない (#4084 と同じ形)。
+//
+// 期待値は **実 FS から導出する** (literal 固定にすると file 追加で陳腐化する、#4030 A-1 と同じ轍)。
+describe('#4030 母数: dsql 配下をサブディレクトリまで走査している', () => {
+	it('migration/ 配下の .ts が母数にすべて入っている', () => {
+		const migrationDir = resolve(DSQL_DIR, 'migration');
+		const expected = readdirSync(migrationDir)
+			.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
+			.map((f) => resolve(migrationDir, f))
+			.sort();
+		expect(expected.length, 'migration/ に .ts が 1 つも無い (母数の前提が崩れている)').toBeGreaterThan(
+			0,
+		);
+
+		const collected = new Set(listDsqlSourceFiles());
+		const missing = expected.filter((f) => !collected.has(f));
+		expect(
+			missing,
+			'dsql/migration/ 配下が母数から漏れています。非再帰走査だとこの層が一度も検査されません (#4030 A-2)',
+		).toEqual([]);
+	});
+});
