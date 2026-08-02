@@ -535,18 +535,19 @@ describe('#4191 env / context 配布の closure (経路横断)', () => {
 			'discordWebhookIncident が消えると本番 Lambda の incident 通知が 0 通になる (#4174)',
 		).toContain('discordWebhookIncident');
 
-		// opsEmail (#4189) はまだ配れていない。**塞げていないことを追跡できている**ことを pin する
-		// (免除が理由と followUp を持たないまま放置される状態に戻さない)。
-		const opsEmail = NOT_DISTRIBUTED.find(
-			(e) => e.readers.includes('cdk-context') && e.keys.includes('opsEmail'),
-		);
+		// #4189: opsEmail は配布済になったので、免除宣言ではなく**配布経路にあること**を pin する。
+		// これが消えると OpsStack の SNS topic に subscription が 1 件も付かず、
+		// 全 CloudWatch alarm が宛先ゼロに戻る。
 		expect(
-			opsEmail,
-			'opsEmail の宣言が消えています (配れたなら宣言ごと削除してください)',
-		).toBeDefined();
-		expect(opsEmail?.followUp, 'opsEmail は未解決なので followUp Issue を持つ必要があります').toBe(
-			'#4189',
-		);
+			CHANNELS['aws-deploy-context'].keys(),
+			'opsEmail が消えると本番 CloudWatch アラームが全系統宛先ゼロになる (#4189)',
+		).toContain('opsEmail');
+		expect(
+			NOT_DISTRIBUTED.find(
+				(e) => e.readers.includes('cdk-context') && e.keys.includes('opsEmail'),
+			),
+			'opsEmail は配布済なので免除宣言に戻してはいけない (#4189)',
+		).toBeUndefined();
 	});
 });
 
@@ -635,5 +636,33 @@ describe('#4174 AWS deploy は context を渡し忘れたまま緑にならな�
 		expect(step).toContain('DISCORD_WEBHOOK_INCIDENT');
 		expect(step, '配線不良を検出しても exit しないなら gate にならない').toContain('exit 1');
 		expect(step).toContain('::error::');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4189: 「配っている」だけでは足りない — **宛先が実在すること**まで守る
+//
+// opsEmail を deploy.yml に足しても、secret が未登録なら `${{ secrets.X }}` は空文字に落ち、
+// `if (opsEmail)` を通らず subscription 0 件のまま deploy が成功する。これは #4119 (18 晩
+// バックアップ失敗で alert 0 通) と同じ「未設定なら通知しない」の形なので、
+// warn ではなく **deploy を止める** 側に倒す (ADR-0006 / ADR-0024)。
+// ---------------------------------------------------------------------------
+describe('#4189 CloudWatch アラームの宛先', () => {
+	const deployYml = readFileSync('.github/workflows/deploy.yml', 'utf8');
+
+	it('OPS_ALERT_EMAIL 未登録なら deploy を止める (必須 secret 検証に載っている)', () => {
+		const validateStep = deployYml.slice(
+			deployYml.indexOf('name: Validate required secrets'),
+			deployYml.indexOf('name: Configure AWS credentials'),
+		);
+		expect(validateStep).toContain('OPS_ALERT_EMAIL');
+		// for ループの検査対象に入っていること (env に置いただけでは検査されない)
+		expect(validateStep).toMatch(/for s in [^;]*OPS_ALERT_EMAIL/);
+	});
+
+	it('deploy 後に実 SNS topic の subscription を見る smoke がある', () => {
+		expect(deployYml).toContain('list-subscriptions-by-topic');
+		// 「1 件ある」だけで通すと PendingConfirmation (未承認 = 配信されない) を見逃す
+		expect(deployYml).toContain('PendingConfirmation');
 	});
 });
