@@ -43,7 +43,10 @@ describe('#4224 staging の DSQL lane は常時 on', () => {
 		// 「lane が on のときだけ渡す」形に戻っていないこと。
 		// 条件付きにすると ComputeStack の無条件必須と再びズレる。
 		const occurrences = yml.split('-c dsqlEndpoint=').length - 1;
-		expect(occurrences, 'cdk diff と cdk deploy の両方で dsqlEndpoint を渡す必要があります').toBeGreaterThanOrEqual(2);
+		expect(
+			occurrences,
+			'cdk diff と cdk deploy の両方で dsqlEndpoint を渡す必要があります',
+		).toBeGreaterThanOrEqual(2);
 	});
 
 	it('ComputeStack が dsqlEndpoint を無条件必須にしている (workflow 側の前提)', () => {
