@@ -353,9 +353,10 @@ describe('#4030 母数: dsql 配下をサブディレクトリまで走査して
 			.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
 			.map((f) => resolve(migrationDir, f))
 			.sort();
-		expect(expected.length, 'migration/ に .ts が 1 つも無い (母数の前提が崩れている)').toBeGreaterThan(
-			0,
-		);
+		expect(
+			expected.length,
+			'migration/ に .ts が 1 つも無い (母数の前提が崩れている)',
+		).toBeGreaterThan(0);
 
 		const collected = new Set(listDsqlSourceFiles());
 		const missing = expected.filter((f) => !collected.has(f));
