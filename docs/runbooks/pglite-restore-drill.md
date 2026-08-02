@@ -275,8 +275,8 @@ LAN 内の誰でも読める共有フォルダを退避先にしても、この�
 
 ```powershell
 # 1. NUC 側で最新世代のファイル名とサイズを確認する
-#    (HOST_BACKUP_DIR 未設定なら C:\Docker\ganbari-quest\dataackups)
-Get-ChildItem 'C:\Docker\ganbari-quest\dataackups' -Filter 'pglite-*.tgz' |
+#    (HOST_BACKUP_DIR 未設定なら C:\Docker\ganbari-quest\data\backups)
+Get-ChildItem 'C:\Docker\ganbari-quest\data\backups' -Filter 'pglite-*.tgz' |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 Name, Length
 ```
 
