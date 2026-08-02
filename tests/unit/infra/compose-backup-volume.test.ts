@@ -1,3 +1,8 @@
+// cspell:ignore tzdata libc btzdata
+//   tzdata / libc = alpine の TZ 解決に必要な実在のパッケージ名・ライブラリ名 (#4207)。
+//   btzdata = 検査用の正規表現 `\btzdata\b` を cspell が語として拾ったもの。
+//   いずれも file scope に閉じる — global 辞書に足すと repo 全体で綴り誤りが素通りする
+//   (tests/CLAUDE.md §「負例 fixture と cspell」)。
 // tests/unit/infra/compose-backup-volume.test.ts
 // #3970 (E3 / EPIC #4119) — バックアップの保存先を compose を書き換えずに差し替えられること。
 //
@@ -190,20 +195,22 @@ describe('#4207 TZ を宣言したなら、その TZ が実際に効くこと', 
 		const block = lines.slice(serviceIdx, nextIdx < 0 ? lines.length : nextIdx);
 
 		// `dockerfile: X` の明示があればそれ。無ければ既定の Dockerfile。
-		const explicit = block.find((l) => /^\s+dockerfile:\s*\S+/.test(l));
-		return explicit ? explicit.split(':')[1].trim() : 'Dockerfile';
+		const explicit = block
+			.map((l) => l.match(/^\s+dockerfile:\s*(\S+)/)?.[1])
+			.find((v): v is string => v !== undefined);
+		return explicit ?? 'Dockerfile';
 	}
 
-	/** TZ env を宣言している service を compose から列挙する (母数を literal 固定しない)。 */
+	/** TZ env を宣言している service 名を compose から列挙する (母数を literal 固定しない)。 */
 	function servicesDeclaringTz(): string[] {
 		const raw = readFileSync(COMPOSE_PATH, 'utf-8');
-		const lines = raw.split('\n');
-		return lines
-			.map((l, i) =>
-				/^ {2}[a-z][a-z0-9_-]*:\s*$/.test(l) ? { name: l.trim().slice(0, -1), i } : null,
-			)
-			.filter((s): s is { name: string; i: number } => s !== null)
-			.filter(({ name }) => environmentLinesOf(name).some((e) => e.startsWith('TZ=')));
+		const names: string[] = [];
+		for (const line of raw.split('\n')) {
+			if (!/^ {2}[a-z][a-z0-9_-]*:\s*$/.test(line)) continue;
+			const name = line.trim().slice(0, -1);
+			if (environmentLinesOf(name).some((e) => e.startsWith('TZ='))) names.push(name);
+		}
+		return names;
 	}
 
 	const tzServices = servicesDeclaringTz();
@@ -216,7 +223,7 @@ describe('#4207 TZ を宣言したなら、その TZ が実際に効くこと', 
 	it('[TZ1] TZ を宣言する service の Dockerfile が tzdata を install している', () => {
 		const missing: string[] = [];
 
-		for (const { name } of tzServices) {
+		for (const name of tzServices) {
 			const dockerfile = dockerfileOf(name);
 			const content = readFileSync(join(process.cwd(), dockerfile), 'utf-8');
 			// alpine 以外 (debian 系) は tzdata 同梱なので、alpine を使う場合だけ要求する。
