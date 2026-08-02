@@ -250,11 +250,21 @@ const HAS_FAMILY_COLUMN = /family_id/i;
  */
 const HAS_TENANT_FRAGMENT = /\$\{[^}]*tenant[^}]*\}/i;
 
-function listDsqlSourceFiles(): string[] {
-	if (!existsSync(DSQL_DIR)) return [];
-	return readdirSync(DSQL_DIR)
-		.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
-		.map((f) => resolve(DSQL_DIR, f));
+/**
+ * dsql 配下の .ts を **再帰** 収集する (#4030 A-2 / 先例 #3658 AC2)。
+ *
+ * 旧実装は `readdirSync` 非再帰で、実 SQL を持つ `migration/` 配下を
+ * **一度も検査していなかった**。母数が閉じていない guard は「違反 0 件」と
+ * 「そもそも見ていない」を区別できない。
+ */
+function listDsqlSourceFiles(dir: string = DSQL_DIR, acc: string[] = []): string[] {
+	if (!existsSync(dir)) return acc;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const full = resolve(dir, entry.name);
+		if (entry.isDirectory()) listDsqlSourceFiles(full, acc);
+		else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) acc.push(full);
+	}
+	return acc;
 }
 
 interface Violation {
