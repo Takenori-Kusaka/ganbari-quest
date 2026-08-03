@@ -553,7 +553,13 @@ describe('handleWebhookEvent', () => {
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
 		// plan キー自体が渡らない = repo 実装 (`if (data.plan !== undefined)`) で既存値保持
-		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		// #4118: 猶予終了日は同時に落とす (active + 期限残り = matrix X3)。
+		// plan を書かないことは `not.toHaveProperty` で明示し、列追加で緩まないようにする。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'active',
+			planExpiresAt: null,
+		});
+		expect(mockUpdateTenantStripe.mock.calls.at(-1)?.[1]).not.toHaveProperty('plan');
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);
