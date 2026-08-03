@@ -3033,6 +3033,22 @@ export const REPORTS_LABELS = {
 } as const;
 
 export const OPS_LABELS = {
+	// #4118 手 3: 契約状態監査 (contract-state-matrix.md §7 の 3 手目)。
+	// 手 2 (webhook 適用後の行が S1-S6 に収まる) は「これから入る変更」を止めるが、
+	// **すでに本番に存在する不正行**は検出しない。本セクションはその在庫を出す。
+	contractStateTitle: '契約状態の監査',
+	contractStateDesc:
+		'契約 4 列 (状態 / プラン / 契約 ID / 期限) の組み合わせを分類し、表に無い状態の行を出します。',
+	contractStateHealthy: (total: number) => `${total} 件すべて正常な状態です`,
+	contractStateFound: (n: number) => `要確認 ${n} 件`,
+	contractStateTruncated: (n: number) => `他 ${n} 件は表示を省略しています (集計には含みます)`,
+	contractStateColTenant: 'テナント',
+	contractStateColClassification: '分類',
+	contractStateColStatus: '状態',
+	contractStateColColumns: 'プラン / 契約 ID / 期限',
+	contractStateHas: 'あり',
+	contractStateNone: 'なし',
+
 	// ページタイトル
 	pageTitle: 'OPS - KPI サマリー',
 

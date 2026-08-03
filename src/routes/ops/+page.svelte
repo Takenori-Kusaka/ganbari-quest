@@ -11,6 +11,7 @@ const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
 const adminBypass = $derived(data.adminBypass);
 const planDrift = $derived(data.planDrift);
+const contractState = $derived(data.contractState);
 </script>
 
 <svelte:head>
@@ -192,6 +193,56 @@ const planDrift = $derived(data.planDrift);
 		<div class="text-xs text-[var(--color-text-muted)] mt-3">
 			{OPS_LABELS.bypassFetchedAt(new Date(adminBypass.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))} <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">{OPS_LABELS.bypassAdrLink}</a>
 		</div>
+	</Card>
+
+	<!-- 契約状態の監査 (#4118 手 3) -->
+	<Card padding="lg">
+		<h2 class="text-base font-semibold m-0 mb-2 text-[var(--color-text-primary)]">
+			{OPS_LABELS.contractStateTitle}
+			{#if contractState.problemRows.length > 0}
+				<Badge variant="warning" size="sm">
+					{OPS_LABELS.contractStateFound(contractState.problemRows.length + contractState.truncated)}
+				</Badge>
+			{:else}
+				<Badge variant="success" size="sm">{OPS_LABELS.bypassNormal}</Badge>
+			{/if}
+		</h2>
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OPS_LABELS.contractStateDesc}</p>
+		{#if contractState.problemRows.length === 0}
+			<p class="text-sm text-[var(--color-text-muted)]">
+				{OPS_LABELS.contractStateHealthy(contractState.total)}
+			</p>
+		{:else}
+			<table class="ops-table" data-testid="ops-contract-state-table">
+				<thead>
+					<tr>
+						<th>{OPS_LABELS.contractStateColTenant}</th>
+						<th>{OPS_LABELS.contractStateColClassification}</th>
+						<th>{OPS_LABELS.contractStateColStatus}</th>
+						<th>{OPS_LABELS.contractStateColColumns}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each contractState.problemRows as row (row.tenantId)}
+						<tr>
+							<td>{row.tenantId}</td>
+							<td>{row.classification}</td>
+							<td>{row.status}</td>
+							<td>
+								{row.hasPlan ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone} /
+								{row.hasSubscription ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone} /
+								{row.hasPlanExpiresAt ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+			{#if contractState.truncated > 0}
+				<p class="text-sm text-[var(--color-text-muted)] mt-2" role="status">
+					{OPS_LABELS.contractStateTruncated(contractState.truncated)}
+				</p>
+			{/if}
+		{/if}
 	</Card>
 
 	<!-- plan 逆引き不能の滞留 (#4128) -->
