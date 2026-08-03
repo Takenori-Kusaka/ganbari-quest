@@ -1,5 +1,6 @@
 <script lang="ts">
 import { OPS_LABELS } from '$lib/domain/labels';
+import ContractStateAuditCard from '$lib/features/admin/components/ContractStateAuditCard.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -196,54 +197,7 @@ const contractState = $derived(data.contractState);
 	</Card>
 
 	<!-- 契約状態の監査 (#4118 手 3) -->
-	<Card padding="lg">
-		<h2 class="text-base font-semibold m-0 mb-2 text-[var(--color-text-primary)]">
-			{OPS_LABELS.contractStateTitle}
-			{#if contractState.problemRows.length > 0}
-				<Badge variant="warning" size="sm">
-					{OPS_LABELS.contractStateFound(contractState.problemRows.length + contractState.truncated)}
-				</Badge>
-			{:else}
-				<Badge variant="success" size="sm">{OPS_LABELS.bypassNormal}</Badge>
-			{/if}
-		</h2>
-		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OPS_LABELS.contractStateDesc}</p>
-		{#if contractState.problemRows.length === 0}
-			<p class="text-sm text-[var(--color-text-muted)]">
-				{OPS_LABELS.contractStateHealthy(contractState.total)}
-			</p>
-		{:else}
-			<table class="ops-table" data-testid="ops-contract-state-table">
-				<thead>
-					<tr>
-						<th>{OPS_LABELS.contractStateColTenant}</th>
-						<th>{OPS_LABELS.contractStateColClassification}</th>
-						<th>{OPS_LABELS.contractStateColStatus}</th>
-						<th>{OPS_LABELS.contractStateColColumns}</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each contractState.problemRows as row (row.tenantId)}
-						<tr>
-							<td>{row.tenantId}</td>
-							<td>{row.classification}</td>
-							<td>{row.status}</td>
-							<td>
-								{row.hasPlan ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone} /
-								{row.hasSubscription ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone} /
-								{row.hasPlanExpiresAt ? OPS_LABELS.contractStateHas : OPS_LABELS.contractStateNone}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-			{#if contractState.truncated > 0}
-				<p class="text-sm text-[var(--color-text-muted)] mt-2" role="status">
-					{OPS_LABELS.contractStateTruncated(contractState.truncated)}
-				</p>
-			{/if}
-		{/if}
-	</Card>
+	<ContractStateAuditCard audit={contractState} />
 
 	<!-- plan 逆引き不能の滞留 (#4128) -->
 	<Card padding="lg">
