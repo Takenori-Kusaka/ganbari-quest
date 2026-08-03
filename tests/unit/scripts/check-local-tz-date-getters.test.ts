@@ -301,7 +301,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		const repoRoot = join(__dirname, '../../..');
 
 		/** 直下のディレクトリ名 (走査対象外の作業 dir は除く)。 */
-		function subdirs(rel: string): string[] {
+		function listSubdirectories(rel: string): string[] {
 			const IGNORED = new Set(['node_modules', '.git', '.svelte-kit', '.claude', 'coverage']);
 			return readdirSync(join(repoRoot, rel), { withFileTypes: true })
 				.filter((e) => e.isDirectory() && !e.name.startsWith('.') && !IGNORED.has(e.name))
@@ -324,7 +324,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		}
 
 		it('repo 直下の全ディレクトリが走査対象か除外宣言のどちらかに属する', () => {
-			const undeclared = subdirs('.').filter((d) => !declared(d));
+			const undeclared = listSubdirectories('.').filter((d) => !declared(d));
 			expect(
 				undeclared,
 				'guard の走査範囲にも除外宣言にも無いディレクトリがあります。' +
@@ -333,7 +333,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		});
 
 		it('部分的にしか走査していない infra/ は直下も全て宣言済', () => {
-			const undeclared = subdirs('infra')
+			const undeclared = listSubdirectories('infra')
 				.map((d) => `infra/${d}`)
 				.filter((d) => !declared(d));
 			expect(
