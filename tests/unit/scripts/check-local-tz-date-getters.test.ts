@@ -16,7 +16,11 @@
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// #4085: 走査 API を使うため静的判定が scope='repo' になる。判定を緩めず明示 timeout を置く
+// (実走査は depth 1 の readdir のみで、全 file walk はしない)。
+vi.setConfig({ testTimeout: 60_000 });
 
 import {
 	ALLOWLIST,
