@@ -74,6 +74,57 @@ const REPO_ROOT = path.resolve(__dirname, '..');
  */
 export const SEARCH_ROOTS = ['src', 'infra/lambda', 'scripts'];
 
+/**
+ * **走査しないと決めた** コード保有ディレクトリと、その理由 (#4120)。
+ *
+ * `SEARCH_ROOTS` 配下では「検出があったのに allowlist に無い file」を no-silent-gap で落とすが、
+ * **走査範囲そのものの網羅は誰も見ていなかった**。`infra/lib` に日付から schedule / 期限を
+ * 組み立てるコードが後から入っても、この guard は黙って素通りさせる。EPIC #4120 の目的は
+ * 「TZ 依存の日付導出を根絶する」ことなので、**新しいコード置き場が増えたときに気付けること**まで
+ * が guard の責務に含まれる。
+ *
+ * 除外は「今は違反が無いから」ではなく「**顧客に見える日付をここでは作らない**」を理由にする。
+ * 網羅は `tests/unit/scripts/check-local-tz-date-getters.test.ts` が実 repo と突き合わせる。
+ *
+ * @type {ReadonlyArray<{ root: string; reason: string }>}
+ */
+export const EXCLUDED_ROOTS = [
+	{
+		root: 'infra/lib',
+		reason:
+			'CDK stack 定義。deploy 時に 1 度評価されるだけで、顧客に見える日付を導出しない (実測 0 件)',
+	},
+	{
+		root: 'infra/bin',
+		reason: 'CDK app entry point。stack の組み立てのみで日付を扱わない (実測 0 件)',
+	},
+	{
+		root: 'tests',
+		reason: '意図的な時刻固定が多く、TZ 依存の検出が偽陽性になる (#4015 No-gos で除外を決定)',
+	},
+	{
+		root: 'site',
+		reason: 'LP の静的 HTML / CSS。日付を描画しない (実測 0 件)',
+	},
+	{
+		root: 'infra/gcp',
+		reason: 'Discord 連携の設定・シェル資材。走査対象拡張子の file を持たない (実測 0 件)',
+	},
+	{
+		root: 'infra/error-pages',
+		reason: 'CloudFront カスタムエラーページ (静的 HTML)。走査対象拡張子を持たない (実測 0 件)',
+	},
+	{
+		root: 'eslint-plugin-local',
+		reason: 'ESLint ルール実装。lint 時に評価されるだけで顧客に見える日付を作らない (実測 0 件)',
+	},
+	{ root: 'docs', reason: '設計文書。実行されるコードを含まない' },
+	{ root: 'actions', reason: 'GitHub Actions composite action 定義 (YAML)' },
+	{ root: 'data', reason: '静的データ資材。実行されるコードを含まない' },
+	{ root: 'drizzle', reason: 'DB migration SQL。実行されるコードを含まない' },
+	{ root: 'static', reason: '静的アセット (画像 / manifest 等)' },
+];
+
 /** 走査対象拡張子 */
 export const EXTENSIONS = ['.ts', '.svelte', '.mjs', '.js'];
 
