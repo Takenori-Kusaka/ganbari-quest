@@ -305,7 +305,7 @@ export const ALLOWLIST_KINDS = ['ssot', 'tz-proof', 'instant-offset', 'non-runti
 export const ALLOWLIST = [
 	{
 		file: 'src/lib/domain/date-utils.ts',
-		max: 20,
+		max: 5,
 		kind: 'ssot',
 		reason:
 			'JST SSOT の実装本体。UTC 算術 + toISOString で JST 暦日を組み立てる唯一の場所であり、ここが違反を持つのは定義上正しい',
@@ -336,25 +336,25 @@ export const ALLOWLIST = [
 	},
 	{
 		file: 'src/lib/features/child-home/BabyHomePage.stories.svelte',
-		max: 8,
+		max: 7,
 		kind: 'non-runtime',
 		reason: 'Storybook の fixture 生成 (「N ヶ月前生まれ」等の相対誕生日)。本番ビルドに含まれない',
 	},
 	{
 		file: 'src/lib/server/demo/demo-data.ts',
-		max: 6,
+		max: 5,
 		kind: 'non-runtime',
 		reason: 'デモ fixture の相対日付生成。顧客テナントのデータを作らない',
 	},
 	{
 		file: 'src/lib/server/demo/synthetic-staging-dataset.ts',
-		max: 2,
+		max: 1,
 		kind: 'non-runtime',
 		reason: 'staging 合成 seed の相対日付生成 (#3412)。顧客テナントのデータを作らない',
 	},
 	{
 		file: 'src/lib/server/debug-plan.ts',
-		max: 2,
+		max: 1,
 		kind: 'non-runtime',
 		reason: 'DEBUG_TRIAL の擬似終了日 (dev 専用、本番ビルド無効)',
 	},
@@ -591,11 +591,11 @@ export function groupByFile(occurrences) {
 /**
  * occurrence 群を allowlist と突き合わせ、違反 (no-silent-gap / ratchet 超過) を返す。
  * @param {Array<{file: string, line: number, snippet: string, kind: string}>} occurrences
- * @returns {Array<{kind: 'not-allowlisted'|'over-max', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>}
+ * @returns {Array<{kind: 'not-allowlisted'|'over-max'|'slack', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>}
  */
 export function evaluateOccurrences(occurrences) {
 	const byFile = groupByFile(occurrences);
-	/** @type {Array<{kind: 'not-allowlisted'|'over-max', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>} */
+	/** @type {Array<{kind: 'not-allowlisted'|'over-max'|'slack', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>} */
 	const violations = [];
 	for (const [file, list] of byFile) {
 		const entry = findAllowlistEntry(file);
@@ -616,6 +616,17 @@ export function evaluateOccurrences(occurrences) {
 				count: list.length,
 				max: entry.max,
 				samples: list.slice(0, 5),
+			});
+		} else if (list.length < entry.max) {
+			// #4120: ratchet は「減ったら下げる」まで含めて初めて締まる。
+			// max を実数より高いまま放置すると、**その差分だけ新規違反を黙って受け入れる**
+			// 予算になる (実測: date-utils.ts は max=20 / actual=5 で 15 件分の余白があった)。
+			violations.push({
+				kind: 'slack',
+				file,
+				count: list.length,
+				max: entry.max,
+				samples: [],
 			});
 		}
 	}
@@ -702,17 +713,23 @@ function main() {
 	}
 
 	console.error(
-		`[check-local-tz-date-getters] ✗ TZ 依存の日付導出を ${violations.length} file で検出しました (#4015 / #4127):\n`,
+		`[check-local-tz-date-getters] ✗ allowlist と実数が食い違う file が ${violations.length} 件あります (#4015 / #4127 / #4120):\n`,
 	);
 	for (const v of violations) {
 		const head =
 			v.kind === 'not-allowlisted'
 				? `${v.file}: ${v.count} 件 (allowlist 未登録)`
-				: `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を超過)`;
+				: v.kind === 'slack'
+					? `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を下回っています — max を ${v.count} に下げてください)`
+					: `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を超過)`;
 		console.error(`  ${head}`);
 		for (const s of v.samples) console.error(`    L${s.line} [${s.kind}]: ${s.snippet}`);
 	}
 	console.error('\n修正方針:');
+	console.error(
+		'  - [slack] 違反が減ったのに max が下がっていません。ratchet は「減ったら下げる」まで含めて初めて\n' +
+			'    締まります (差分だけ新規違反を黙って受け入れる予算になる)。ALLOWLIST の max を実数に下げてください。',
+	);
 	console.error(
 		'  - [tz-dependent-member] 実時刻から暦要素をローカル TZ で取り出しています。$lib/domain/date-utils.ts の',
 	);
