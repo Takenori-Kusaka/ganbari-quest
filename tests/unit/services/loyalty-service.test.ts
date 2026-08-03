@@ -22,6 +22,9 @@ import {
 	getSubscriptionMonths,
 	getTierStatus,
 	incrementSubscriptionMonth,
+	isSameJstMonth,
+	JST_MONTH_KEY_PREFIX,
+	toJstMonthKeyValue,
 } from '$lib/server/services/loyalty-service';
 
 const TENANT = 'test-tenant';
@@ -195,5 +198,57 @@ describe('getChurnPreventionData', () => {
 		expect(data.lostItems).toContain('月替わり限定アイテム 8個');
 		expect(data.lostItems).toContain('思い出チケット 2枚');
 		expect(data.lostItems.some((i) => i.includes('ログインボーナス'))).toBe(true);
+	});
+});
+
+// #4127 AC7 (PO 決裁 2026-08-03): 二重加算防止キーに **基準** を含める。
+//
+// `2026-08` とだけ保存されていると「JST の 8 月」なのか「UTC の 8 月 (JST では 9 月かも)」
+// なのかが保存値だけでは分からず、比較の是非を決められない。prefix を付けて基準を残す。
+describe('#4127 二重加算防止キーの基準 (JST prefix)', () => {
+	it('新しい保存値は基準 prefix を持つ', () => {
+		expect(toJstMonthKeyValue('2026-08')).toBe(`${JST_MONTH_KEY_PREFIX}2026-08`);
+	});
+
+	it('既に prefix 付きの値を二重に付けない', () => {
+		expect(toJstMonthKeyValue('jst:2026-08')).toBe('jst:2026-08');
+	});
+
+	it('prefix 付き同士は厳密一致で判定する', () => {
+		expect(isSameJstMonth('jst:2026-08', 'jst:2026-08')).toBe(true);
+		expect(isSameJstMonth('jst:2026-07', 'jst:2026-08')).toBe(false);
+	});
+
+	it('未設定は「加算済み」ではない', () => {
+		expect(isSameJstMonth(null, 'jst:2026-08')).toBe(false);
+		expect(isSameJstMonth(undefined, 'jst:2026-08')).toBe(false);
+		expect(isSameJstMonth('', 'jst:2026-08')).toBe(false);
+	});
+
+	it('旧値 (prefix 無し) が同月を指すなら skip 側に倒す — 配ったチケットは回収できない', () => {
+		expect(
+			isSameJstMonth('2026-08', 'jst:2026-08'),
+			'旧値を「別物」と見て加算すると、同じ JST 月に 2 回加算しうる (未達チケット付与は回収不能)',
+		).toBe(true);
+	});
+
+	it('旧値が別月を指すなら加算する (正当な当月加算を落とさない)', () => {
+		expect(isSameJstMonth('2026-07', 'jst:2026-08')).toBe(false);
+	});
+
+	it('incrementSubscriptionMonth は基準 prefix 付きで保存する', async () => {
+		mockGetSetting.mockResolvedValue(null);
+		mockSetSetting.mockResolvedValue(undefined);
+
+		await incrementSubscriptionMonth(TENANT);
+
+		const monthCall = mockSetSetting.mock.calls.find(
+			(c) => c[0] === 'loyalty_last_increment_month',
+		);
+		expect(monthCall, '月キーが保存されていません').toBeDefined();
+		expect(
+			String(monthCall?.[1]).startsWith(JST_MONTH_KEY_PREFIX),
+			`基準 prefix の無い値を保存しています: ${String(monthCall?.[1])}`,
+		).toBe(true);
 	});
 });
