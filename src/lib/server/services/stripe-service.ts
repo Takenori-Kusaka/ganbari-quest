@@ -794,6 +794,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 		'invoice.paid',
 		() => ({
 			status: SUBSCRIPTION_STATUS.ACTIVE,
+			// #4118: 猶予終了日を消す。支払い失敗で `grace_period` + `planExpiresAt` が書かれた
+			// テナントが支払い成功で復帰するとき、期限だけ残すと **契約は生きているのに期限がある**
+			// (contract-state-matrix X3 =「dunning の残骸」) になる。この列を読む導出値は
+			// 支払い済みの顧客に「あと N 日で使えなくなります」と表示しうる。
+			// status を戻すなら、その status が持ってはいけない列も同時に落とす。
+			planExpiresAt: null,
 			// #3960: plan 未解決時は silent fallback せず **既存 plan を保持** する
 			// (`plan: undefined` は repo 実装で「更新しない」として扱われる)。
 			...planUpdateOrKeep(plan, tenant, 'invoice.paid', subscription.id),
