@@ -46,7 +46,7 @@ Stripe 実イベントが必要な検証は staging では原理的に再現で�
 
 | 工程 | 担当 | 実行内容 | 前提 |
 |---|---|---|---|
-| リリース発火 | GQ-Audit | `deploy-aws-staging.yml` を `workflow_dispatch` + `dsqlEnabled=true` で起動 | 検証対象コミットが `develop` に入っていること（§3） |
+| リリース発火 | GQ-Audit | `deploy-aws-staging.yml` を `workflow_dispatch` で起動（backend の選択肢は無い、#4224） | 検証対象コミットが `develop` に入っていること（§3） |
 | 検証実行・証跡提出 | GQ-Dev | DSQL 対象行の書き換え → 観測 → 原状復帰 → PR body へ貼付 | AWS credential（§6 の gap 参照） |
 | 秘匿値・権限の配置 | オーナー | 検証用 Cognito アカウント / AWS 権限の可否判断 | — |
 
@@ -55,7 +55,7 @@ Stripe 実イベントが必要な検証は staging では原理的に再現で�
 `workflow_dispatch` の checkout ref は `develop` 固定（`deploy-aws-staging.yml` Step 1）。**検証したい修正が `develop` に merge されていなければ、staging には反映されない**。未 merge の修正を検証したい場合は、統合 PR（develop → main）を立てれば `pull_request` trigger 側で当該 PR HEAD が deploy される（この経路では DSQL lane が常時 ON）。
 
 ```bash
-gh workflow run deploy-aws-staging.yml -f dsqlEnabled=true
+gh workflow run deploy-aws-staging.yml
 gh run list --workflow=deploy-aws-staging.yml --limit 1
 gh run watch <run-id>
 ```

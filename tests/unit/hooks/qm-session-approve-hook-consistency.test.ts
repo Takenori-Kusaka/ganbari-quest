@@ -1,5 +1,5 @@
 /**
- * tests/unit/hooks/qa-session-approve-hook-consistency.test.ts (#4027 受け入れ条件 5)
+ * tests/unit/hooks/qm-session-approve-hook-consistency.test.ts (#4027 受け入れ条件 5)
  *
  * **2 つの hook の検出条件が相互に矛盾していないこと**を、同じ fixture 集合で機械検証する。
  *
@@ -12,7 +12,7 @@
  * **どちらの hook も自分の unit test は通る**。矛盾は QM が実際に approve しようとした瞬間まで
  * 検出されなかった (#4027 = PR #4005 で発生)。
  *
- * そこで fixture の出所を **`docs/sessions/qa-session.md` に実際に書かれている approve / merge
+ * そこで fixture の出所を **`docs/sessions/qm-session.md` に実際に書かれている approve / merge
  * コマンド** に固定し、同じ集合を両 hook に通して次を同時に assert する:
  *   1. account guard で BLOCK されない (approve が止まらない)
  *   2. gate-approve で捕捉される (evidence gate が素通しされない)
@@ -28,19 +28,19 @@ import { describe, expect, it } from 'vitest';
 import { extractPrNumber, isApproveAction } from '../../../.claude/hooks/gate-approve.mjs';
 import { containsGhPrCreate } from '../../../scripts/claude-hook-prevent-qa-account-pr.mjs';
 
-const QA_SESSION_PATH = resolve(process.cwd(), 'docs/sessions/qa-session.md');
+const QA_SESSION_PATH = resolve(process.cwd(), 'docs/sessions/qm-session.md');
 const APPROVE_SECTION_HEADING = '#### 全手順 Pass → approve & merge';
 const FIXTURE_PR_NUMBER = 4027;
 
 /**
- * qa-session.md の approve & merge セクション直下にある bash ブロックを取り出す。
+ * qm-session.md の approve & merge セクション直下にある bash ブロックを取り出す。
  */
 function readApproveCodeBlock(): string {
 	const md = readFileSync(QA_SESSION_PATH, 'utf8');
 	const headingIndex = md.indexOf(APPROVE_SECTION_HEADING);
 	if (headingIndex < 0) {
 		throw new Error(
-			`qa-session.md に "${APPROVE_SECTION_HEADING}" が見つかりません (見出しを変えたら本 test も更新すること)`,
+			`qm-session.md に "${APPROVE_SECTION_HEADING}" が見つかりません (見出しを変えたら本 test も更新すること)`,
 		);
 	}
 	const after = md.slice(headingIndex);
@@ -97,7 +97,7 @@ const statements = splitStatements(readApproveCodeBlock()).map((s) =>
 );
 const approveStatements = statements.filter(isApproveOrMergeStatement);
 
-describe('qa-session.md の approve / merge コマンドを両 hook に通す (#4027)', () => {
+describe('qm-session.md の approve / merge コマンドを両 hook に通す (#4027)', () => {
 	it('fixture 抽出が空振りしていない (doc からコマンドを取れている)', () => {
 		// 抽出が壊れて 0 件になると以降の it.each が vacuous pass になるため、件数を先に固定する。
 		expect(statements.length).toBeGreaterThanOrEqual(4);

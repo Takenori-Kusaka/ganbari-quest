@@ -17,7 +17,7 @@
 # 関連:
 #   - ADR-0026 force push 禁止 / no-verify 禁止 (本 hook bypass は実害が大きい)
 #   - ADR-0045 terms.ts SSOT 2 階層化原則
-#   - docs/sessions/qa-session.md follow-up rule (同種問題 3 件以上で構造解消)
+#   - docs/sessions/qm-session.md follow-up rule (同種問題 3 件以上で構造解消)
 #
 # Phase 2 (auto-fix mode): 本 hook では --check のみ実施し、自動 git add は行わない。
 # 自動再生成 + git add は明示的ユーザ意図不在の副作用を生むため、別 Issue で議論する。

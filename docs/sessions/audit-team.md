@@ -6,7 +6,7 @@
 >
 > **関連 Issue**: EPIC #2861 ｜ A1 = #2862 ｜ **関連 ADR**: ADR-0056（QM Orchestrator role drift の構造的対処）/ ADR-0022（QM Approve 体制・admin bypass 禁止）/ ADR-0010（Pre-PMF scope）
 >
-> **上流 SSOT**: ブランチ運用・gate 二層・merge 責任分担は [branch-strategy.md](branch-strategy.md)。QM Tier1/Tier2 の 2 層構造は [qa-session.md](qa-session.md)。本ファイルはこの 2 つを継承し、develop → main レーンの監査チーム側のみを定義する。
+> **上流 SSOT**: ブランチ運用・gate 二層・merge 責任分担は [branch-strategy.md](branch-strategy.md)。QM Tier1/Tier2 の 2 層構造は [qm-session.md](qm-session.md)。本ファイルはこの 2 つを継承し、develop → main レーンの監査チーム側のみを定義する。
 >
 > **本ファイルの守備範囲**: 役割定義 SSOT。daily cron 自動化 / NUC・AWS staging 構築 / 最重厚テスト束ね / 判定エビデンス自動生成などの**実装**は EPIC #2861 の各 sub-issue（B 系 / C 系 / D 系 / E 系）が担う。本ファイルでは「誰が・何を・どの境界で判定するか」のみを確定する。
 
@@ -56,11 +56,11 @@ main = 本番（push 即 deploy、不変条件）であるにもかかわらず�
 
 - **統合前に CUJ（Critical User Journey）を横断する第三者監査層が存在しない**: QM は feature → develop PR 単位で「その PR の機能が AC どおりか」を毎時判定するが、複数 PR が develop に積み上がった後の「統合状態で顧客体験が崩れていないか」を横断検査する役割が不在だった。個別 PR が全て緑でも、統合後に画面間の整合・CUJ 通し体験が崩れる事故は per-PR review では原理的に捕捉できない。
 - **この役割定義がないと困ること**: 監査チームが「何を判定し、何を判定しないか」が曖昧だと、(1) 毎時 QM レビューと判定が衝突して二重判定になる（EPIC 失敗シナリオ⑤）、(2) self-review が形骸化したまま統合 merge される（同①、ADR-0056 が実証した QM drift 42 回再発の延長）、(3) 検出問題を 1 件で即棄却して残りを発露させず triage 不能に陥る（同⑥）。役割・境界・エビデンス基準を SSOT として固定して初めて、これらの構造的失敗を防げる。
-- **既存の `docs/sessions/` 同型**: PO / Dev / QA のロール定義が `docs/sessions/` 配下にあるのと同じく、監査チームのロール定義もここに置く。QM の Tier1/Tier2 2 層構造（[qa-session.md](qa-session.md)）と ADR-0056 §E（subagent ≠ orchestrator の役割分離）を継承し、独自の構造を増やさない。
+- **既存の `docs/sessions/` 同型**: PO / Dev / QM のロール定義が `docs/sessions/` 配下にあるのと同じく、監査チームのロール定義もここに置く。QM の Tier1/Tier2 2 層構造（[qm-session.md](qm-session.md)）と ADR-0056 §E（subagent ≠ orchestrator の役割分離）を継承し、独自の構造を増やさない。
 
 ## §2 設計原則
 
-- **マネージャ orchestrator 専権 + subagent は evidence 生成まで（ADR-0056 §E 継承）**: 不可逆 side-effect（統合 PR の approve / merge、Issue 起票の実行）は audit-manager orchestrator が直接実行する。8 チーム・ポリシー準拠判定の各 agent は finding（structured JSON evidence）を生成・報告するまでが責務で、approve / merge / 起票 action を肩代わりしない。これは QM Orchestrator の V-7 専権（[qa-session.md](qa-session.md) §「全手順 Pass → approve & merge」）と同型。
+- **マネージャ orchestrator 専権 + subagent は evidence 生成まで（ADR-0056 §E 継承）**: 不可逆 side-effect（統合 PR の approve / merge、Issue 起票の実行）は audit-manager orchestrator が直接実行する。8 チーム・ポリシー準拠判定の各 agent は finding（structured JSON evidence）を生成・報告するまでが責務で、approve / merge / 起票 action を肩代わりしない。これは QM Orchestrator の V-7 専権（[qm-session.md](qm-session.md) §「全手順 Pass → approve & merge」）と同型。
 - **self-report 単独信頼の禁止（PO 判断 5 / ADR-0056）**: 監査チームの merge 判定は structured JSON evidence + adversarial verify を物理強制する。各 agent の「問題なし」自己申告だけでは merge しない。Echoing（arXiv:2511.09710）と Persona Drift を抑制するため、Adversarial Reviewer による反対理由生成を evidence の一部として要求する。
 - **2 段 gate の責務分離（PO 判断 6）**: QM = feature → develop（per-PR の機能正、毎時）、監査チーム = release/* → main（統合前の CUJ 横断、1 日 1 回。release ブランチ方式 = branch-strategy.md §3.1）。両者は同一 gh アカウント `ganbariquestsupport-lab` を base branch（= レビュー対象 PR の種別）で role 区別する（[branch-strategy.md](branch-strategy.md) §6 継承）。二重判定が起きないよう §3.4 の境界表で「監査チームが判定しないこと」を明示する。
 - **全件発露 → filter → 起票/棄却（PO 判断 7）**: 問題は 1 件で即棄却せず、まず全件を発露させる。その後 (1) 重複統合、(2) severity 閾値、(3) ポリシー準拠判定 filter を順に通し、残ったものを Issue 起票 + 棄却判定する。「あえてそうしている」プロダクトポリシー由来の挙動を誤起票しないことが filter の主目的。
@@ -86,13 +86,33 @@ main = 本番（push 即 deploy、不変条件）であるにもかかわらず�
 - 各 agent の evidence は audit-manager が物理 verify する。evidence 不在・schema 不充足の agent finding は採用しない（self-report 単独信頼の禁止、§2）。
 - 競合調査 finding は一次情報 URL を必須とし、URL 欠落 finding は audit-manager が自動棄却する（EPIC 失敗シナリオ⑦の幻覚 finding 防止）。
 
+### §3.1.1 差分の性質 → 起動する領域（8 領域を毎回全部は起動しない、#4210 AC2）
+
+**統合差分に存在しない領域を起動しない。** docs だけの統合に a11y / パフォーマンス / 競合調査を走らせても、読む対象が無いまま context を消費するだけで finding は出ない。トークンは有限で、枯渇すればリリース自体が止まる（#4210）。
+
+**起動判定は変更 path の集合から機械的に導く。** 「念のため全部」でも「勘で絞る」でもない。
+
+| 統合差分に含まれる path | 起動する領域 |
+|---|---|
+| `docs/**` / `*.md` のみ | プロダクト実装調査（記述と実装の乖離）+ ポリシー準拠判定 |
+| `.github/**` / `scripts/**` / `.husky/**` / `tests/unit/architecture/**` | テスト品質 + 技術調査 |
+| `src/routes/**` / `src/lib/ui/**` / `src/lib/features/**` | ユーザビリティ・a11y + パフォーマンス + プロダクト実装調査 |
+| `src/lib/server/**` / `src/lib/domain/**` | セキュリティ + プロダクト実装調査 + テスト品質 |
+| `infra/**` / `deploy*.yml` | セキュリティ + 技術調査 |
+| `package.json` / `package-lock.json` | セキュリティ（deps 供給線、§3.5.1） |
+| `site/**` | パフォーマンス（LP メトリクス）+ ユーザビリティ |
+
+**常に起動する**: 技術調査（影響範囲）/ 問題起票 / ポリシー準拠判定。**run 単位では起動しない**: 競合調査（週次。`competitive-research` skill の定義どおり統合 run の依存ではない）。
+
+**迷ったら起動する側に倒す。** 削るのは「差分がゼロの領域」だけで、「差分はあるが軽そうな領域」は削らない。**削った領域は統合 PR の判定エビデンス表に「差分なしのため未起動」と明記する**（§3.5）— 書かないと「見たが問題なし」と区別がつかず、監査の空白が silent になる。
+
 ### §3.2 既存 skill / 機構 再利用マップ（重複新設禁止）
 
 EPIC #2861「既存資産再利用マップ」を本ファイルに正本化する。新設は **competitive-research / policy-compliance / audit-manager の 3 点に限定**し、残りは既存 skill / workflow を再利用する。
 
 | チーム | 実装方針 | 再利用元（実在する SSOT を文言で参照） |
 |---|---|---|
-| audit-manager orchestrator | 新設 | qa-session.md の Tier1/Tier2 2 層構造を継承 |
+| audit-manager orchestrator | 新設 | qm-session.md の Tier1/Tier2 2 層構造を継承 |
 | 競合調査 | 新設（薄い skill、WebSearch ベース） | issue-triage skill の prior art 手順 |
 | 技術調査 | 再利用 | impact-analysis skill / regression-check skill |
 | プロダクト実装調査 | 再利用 | pr-review skill / regression-check skill |
@@ -170,7 +190,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 - **#3 / #4 は CI artifact `integration-pr-evidence-<run_id>` が自動生成する**（`ci.yml` `integration-evidence` job、#2874。テスト結果表 = toJSON(needs) 横断 + カバレッジ gap map + API 設計書突合）。**#1 / #2 は B-1（#2950）領域**で、artifact 内 placeholder 行を audit-manager run が記入する。
 - **finding の SARIF 2.1.0 化 + advisory 評価（#2876）**: 各領域 finding は `scripts/audit/to-sarif.mjs` で SARIF 2.1.0 document に変換され、`integration-evidence` job が「NG-0（severity 3-4 + policy_compliant=false が 0）+ カバレッジ ratchet 達成 + 全 job 緑」を **advisory（非 block）** で評価し evidence.md §5 に出す。advisory は merge を block しない（required_status_checks 未登録、continue-on-error）。**NG の最終確定は本表の audit-manager 人間判定が正本**であり、advisory は CI が機械集約できるスナップショットに限る（EPIC 設計原則 1）。
 - **merge commit への attestation 永続化（#2876）**: 統合 PR の merge（main push）を契機に `integration-attest.yml` が SARIF + in-toto Release predicate v0.2（`scripts/audit/generate-release-predicate.mjs`、subject = merge commit SHA / predicate = 含有 PR 一覧 + テスト結果 + NG-0 宣言）を生成し、`actions/attest` で Sigstore 署名 → GH attestations API へ永続化する。これにより `tmp/audit-evidence/` の揮発に依らず、merge 後も attestation（subject = merge commit、digest = `sha1:<merge sha>`）で audit trail（含有 PR 群 × テスト結果 × NG-0 宣言）を改ざん検知付きで遡れる。subject が git commit のため `gh attestation verify`（file / oci:// image 専用）は使えず、GH attestations API を subject digest で照会する: `gh api repos/Takenori-Kusaka/ganbari-quest/attestations/sha1:<merge sha> --jq '.attestations[].bundle.dsseEnvelope.payload' | base64 -d | jq .`。attestation 発行失敗は deploy を阻害せず（独立 job）、predicate / SARIF は artifact `integration-attestation-<run_id>` に degrade backup として残る。
-- **merge 方式（#2938 / [branch-strategy.md](branch-strategy.md) §3.1）**: 統合 PR の merge は **merge commit 必須（`gh pr merge --merge`）・squash 禁止**（根拠 SSOT = [branch-strategy.md](branch-strategy.md) §2「統合 PR の自動発行 + merge 戦略 = merge commit（#2871）」）。develop は恒久 branch のため merge 後も削除しない（[qa-session.md](qa-session.md) §レビュー対象レーン と同一規定）。
+- **merge 方式（#2938 / [branch-strategy.md](branch-strategy.md) §3.1）**: 統合 PR の merge は **merge commit 必須（`gh pr merge --merge`）・squash 禁止**（根拠 SSOT = [branch-strategy.md](branch-strategy.md) §2「統合 PR の自動発行 + merge 戦略 = merge commit（#2871）」）。develop は恒久 branch のため merge 後も削除しない（[qm-session.md](qm-session.md) §レビュー対象レーン と同一規定）。
 
 #### §3.5.1 deps 供給線の監査 scope（#3191、#3190 SIGSEGV 教訓）
 
@@ -345,7 +365,7 @@ node scripts/check-pr-body.mjs --pr <N> --verify-closes-landed tmp/pr-bodies/<N>
 | 参照先 | 役割 |
 |---|---|
 | [branch-strategy.md](branch-strategy.md) | ブランチ運用・gate 二層・merge 責任分担の上流 SSOT（§6 役割分担を継承）。全 workflow の gate × lane 帰属・required context は [branch-strategy.md §4「全 workflow の gate × lane 対応表」](branch-strategy.md) を参照（#2948、本ファイルには workflow 一覧を置かない） |
-| [qa-session.md](qa-session.md) | QM Tier1/Tier2 2 層構造（audit-manager がこれを継承） |
+| [qm-session.md](qm-session.md) | QM Tier1/Tier2 2 層構造（audit-manager がこれを継承） |
 | [../decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md](../decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md) | §E 役割分離 SSOT（不可逆 side-effect = orchestrator 専権） |
 | [../decisions/0022-admin-bypass-disable-qm-approve.md](../decisions/0022-admin-bypass-disable-qm-approve.md) | 作成者 ≠ 承認者分離・admin bypass 禁止 |
 | [../decisions/0010-pre-pmf-scope-judgment.md](../decisions/0010-pre-pmf-scope-judgment.md) | Pre-PMF scope 判断（監査体制の bucket A 整合） |

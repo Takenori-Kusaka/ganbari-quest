@@ -3,6 +3,7 @@
 // #573: 内部コード (kinder/lower/upper/teen) が UI に漏れる回帰防止
 
 import { describe, expect, it } from 'vitest';
+import { PRAISE_MILESTONE_IDS } from '../../../src/lib/domain/constants/habit-milestones';
 import {
 	AGE_TIER_LABELS,
 	AGE_TIER_SHORT_LABELS,
@@ -112,17 +113,17 @@ describe('NAV_ITEM_LABELS', () => {
 // #2169 / ADR-0015: MILESTONE_LABELS の年齢別 variant
 describe('getMilestoneLabel (#2169, ADR-0015)', () => {
 	it('preschool 向けはひらがな variant を返す', () => {
-		const r = getMilestoneLabel('records_5', { ageTier: 'preschool' });
-		expect(r.title).toBe('5 かい きろく');
-		expect(r.description).toContain('きろくが できたよ');
+		const r = getMilestoneLabel('streak_7', { ageTier: 'preschool' });
+		expect(r.title).toBe('1 しゅうかん つづいた');
+		expect(r.description).toContain('つづけて きろくできたよ');
 		// 漢字を含まない (ひらがな統一の AC3 検証)
 		expect(r.description).not.toMatch(/[一-龯]/);
 	});
 
 	it('elementary 向けは漢字 variant を返す', () => {
-		const r = getMilestoneLabel('records_5', { ageTier: 'elementary' });
-		expect(r.title).toBe('5 回 記録');
-		expect(r.description).toBe('5 回の活動を記録できました');
+		const r = getMilestoneLabel('streak_14', { ageTier: 'elementary' });
+		expect(r.title).toBe('2 週間 つづいた');
+		expect(r.description).toBe('14 日連続で記録できました');
 	});
 
 	it('junior / senior も漢字 variant を返す (elementary と同じ)', () => {
@@ -135,15 +136,8 @@ describe('getMilestoneLabel (#2169, ADR-0015)', () => {
 		expect(r.title).toBe('はじめての記録');
 	});
 
-	it('全 6 マイルストーン x 全 4 年齢で title が空でなく取得できる', () => {
-		const ids = [
-			'first_record',
-			'records_5',
-			'records_10',
-			'streak_7',
-			'streak_14',
-			'streak_30',
-		] as const;
+	it('全マイルストーン x 全 4 年齢で title が空でなく取得できる (#4268: ID 集合は SSOT 由来)', () => {
+		const ids = PRAISE_MILESTONE_IDS;
 		const ages = ['preschool', 'elementary', 'junior', 'senior'] as const;
 		for (const id of ids) {
 			for (const ageTier of ages) {

@@ -37,6 +37,10 @@ jobs:
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
             scripts/lib/ci/reason-declaration.mjs
+            # #4285 の story 実在確認 (storyFileExists) は src/ を走査する。
+            # sparse-checkout に src が無いと **実在する story を書いても必ず false** になり、
+            # ss-render-impossible 宣言が原理的に満たせなくなる (#4249 で実発生)。
+            src
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)

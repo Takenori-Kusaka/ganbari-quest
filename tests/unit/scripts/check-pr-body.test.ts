@@ -491,7 +491,7 @@ describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-te
 ## Ready for Review チェックリスト
 
 - [x] 実装完了
-- [x] QA 承認・動作確認が完了している
+- [x] QM 承認・動作確認が完了している
 - [x] pre-ready 全 step PASS
 
 ## AC 検証マップ (ADR-0004)
@@ -514,7 +514,7 @@ describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-te
 ## Ready for Review チェックリスト
 
 - [x] 実装完了
-- [ ] QA 承認・動作確認が完了している
+- [ ] QM 承認・動作確認が完了している
 `;
 		const result = findUncheckedReadyChecklist(body);
 		expect(result).toHaveLength(1);
@@ -556,7 +556,7 @@ TODO: 後日テスト追加。
 ## Ready for Review チェックリスト
 
 - [ ] 未完了
-- [ ] QA 承認・動作確認が完了している
+- [ ] QM 承認・動作確認が完了している
 
 ## AC 検証マップ (ADR-0004)
 
@@ -859,7 +859,7 @@ describe('PO 決裁ブリーフ gate の SSOT 整合 (#3962)', () => {
  * 「label が付いていない」と「label を取得できなかった」を呼び出し側が区別できなかったこと。
  * `resolveLabels()` はこの 2 状態を型で分離し、**未解決は必ず error** (fail-closed) を返す。
  */
-describe('resolveLabels — label 未解決は fail-closed (#3962 QA BLOCK 1)', () => {
+describe('resolveLabels — label 未解決は fail-closed (#3962 QM BLOCK 1)', () => {
 	const noLabelArgs = { pr: null, labels: null, noLabels: false };
 
 	it('[LB1] --pr 指定で label 取得に失敗したら error を返す (空配列に落とさない)', () => {

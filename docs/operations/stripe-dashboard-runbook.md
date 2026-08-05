@@ -224,6 +224,25 @@ gh secret list --repo Takenori-Kusaka/ganbari-quest | grep STRIPE_WEBHOOK_SECRET
 
 ---
 
+## deploy 時の必須確認: portal 直行の実機確認（#4270）
+
+アプリは「⭐ プレミアムへ」= プラン変更フロー / 解約フォーム送信後 = 解約フローへ **`flow_data` で直行**させる
+（`plan-change-flow.md` §3.2.1）。この直行は **Phase 1 ステップ 4 の Customer Portal 設定が生きていることが前提**で、
+**コードでは検証できず監視も持たない**（外部 SaaS 設定の常時監視は Pre-PMF で過剰、ADR-0010）。
+設定を変えた回・本番投入の回は、以下を必ず 1 回踏む。
+
+1. `/admin/subscription` の **アップグレード CTA**（契約中のみ表示）→ PIN / 確認フレーズ →
+   **Stripe のプラン選択画面に直接着く**（portal ホームを経由しない）
+2. 変更を完了 → **`/admin/subscription` に自動で戻る**（`after_completion=redirect`）
+3. `/admin/subscription/cancel` で解約理由を送信 → **Stripe の解約画面に直接着く**
+4. **「請求管理ページを開く」は portal ホームのまま**（請求書 / 支払い方法の入口が消えていない）
+
+いずれかで **portal ホームに着き、画面に「請求管理ページから続けてください」の通知が出た場合**は、
+flow が Stripe に拒否されて home に倒れている（#4270 のフォールバック）。Phase 1 ステップ 4 の
+**Subscription updates の Allowed products / 解約許可**を確認して直す。
+
+---
+
 ## トラブルシューティング
 
 Phase 1 立ち上げで頻出する 5 系統の問題と切り分け手順。各項目は具体的な確認コマンド / 設定値を含む。

@@ -61,17 +61,52 @@ export const MONTHLY_HABIT_POINTS = 50;
  * 別ドメインで、同じ日数に別の意味の points 表を持つ。**値が同じだから統合する、は誤り** —
  * 混ぜると片方を変えたときに他方が壊れる (PO 決裁 Q5)。
  *
- * `labels.ts` の `MilestoneId` union (`'streak_7' | 'streak_14' | 'streak_30'`) も
- * **表示層なので SSOT に含めない**。参照側として扱う。
+ * 表示層 (`labels.ts` の文言) は本 SSOT の参照側として扱う。
  */
 export const STREAK_MILESTONE_DAYS = [7, 14, 30, 60, 100] as const;
 
 /**
  * `MILESTONES` (value-preview) が通知に使うストリーク閾値。
  *
- * 表示層 (`labels.ts` の `MilestoneId` union) が 7 / 14 / 30 しか持たないため、
- * `STREAK_MILESTONE_DAYS` からその範囲だけを取る。**別のリテラルを置かない。**
+ * 子供に見せる称賛は 30 日までを扱うため、`STREAK_MILESTONE_DAYS` からその範囲だけを取る
+ * (60 / 100 日は証明書側のみ)。**別のリテラルを置かない。**
+ * ここから導かれる ID 集合が `PRAISE_MILESTONE_IDS` と一致することは
+ * `tests/unit/architecture/praise-axis-ssot.test.ts` [P3] が検査する。
  */
 export const NOTIFIED_STREAK_MILESTONE_DAYS = STREAK_MILESTONE_DAYS.filter(
 	(d) => d <= 30,
 ) as readonly number[];
+
+/**
+ * 子供に見せる称賛 (マイルストーン) の ID 集合 = **褒める軸の SSOT** (#4268)。
+ *
+ * ## 軸の契約
+ *
+ * **褒めるのは「続いた」ことだけ。「たくさん記録した」ことでは褒めない** (#4172)。
+ * したがって本配列に入れてよいのは日数ベース (`streak_*`) の軸のみで、
+ * 累計回数ベース (旧「5 回記録」「10 回記録」型) の軸は置かない。
+ *
+ * 唯一の例外が `first_record` で、これは**量ではなく「開始」を褒める**
+ * (閾値 1 = 最初の 1 件。2 件目以降を数え上げない)。
+ * 例外はこの 1 件だけであることを `PRAISE_START_MILESTONE_ID` で明示する。
+ *
+ * ## 両側適用の機械検査
+ *
+ * 褒める軸は「称賛表示側」(本配列 → `value-preview-service` の `MILESTONES` /
+ * `labels.ts` の文言) と「報酬発行側」(`certificate-service` の月間習慣化 /
+ * ストリーク証明書) の 2 系統に分かれている。片側だけ変えても壊れないため、
+ * 両側が同じ軸に従っていることを `tests/unit/architecture/praise-axis-ssot.test.ts`
+ * が fitness function として検査する。**軸を足す / 変えるときは本配列を起点にする。**
+ */
+export const PRAISE_MILESTONE_IDS = ['first_record', 'streak_7', 'streak_14', 'streak_30'] as const;
+
+export type PraiseMilestoneId = (typeof PRAISE_MILESTONE_IDS)[number];
+
+/**
+ * 「開始」を褒める唯一の非日数軸 (#4268 AC2)。
+ *
+ * `first_record` を残したのは、閾値 1 が**量の達成ではなく開始の事実**だから。
+ * #4172 が撤去したのは `totalRecords % 5` 型の累積量判定であり、初回の祝福ではない。
+ * これを外すと、子供は最初のストリーク (7 日) まで称賛が 1 つも無い状態になる。
+ */
+export const PRAISE_START_MILESTONE_ID = 'first_record' satisfies PraiseMilestoneId;

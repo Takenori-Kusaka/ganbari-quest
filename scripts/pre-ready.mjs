@@ -769,7 +769,7 @@ export function buildSteps(args, changedFiles) {
 				'    6. PR mergeable: CONFLICTING (rebase 必要)\n' +
 				'    7. hotfix label PR の ADR-0006 env 配布証跡欄欠落 (#2343)\n' +
 				'  対応:\n' +
-				'    - PR body L<N> Ready checklist を全 [x] 化 (「QA 承認・動作確認が完了している」も Dev 自身で [x])\n' +
+				'    - PR body L<N> Ready checklist を全 [x] 化 (「QM 承認・動作確認が完了している」も Dev 自身で [x])\n' +
 				'    - AC マップを 4 列形式 (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) に置換\n' +
 				'    - 禁止語は PR で完遂 or Issue 起票して PR から完全除去 (partial PR 禁止)\n' +
 				'    - 詳細は scripts/check-pr-body.mjs --help を参照。',

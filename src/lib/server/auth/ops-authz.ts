@@ -5,7 +5,7 @@
 // 将来の階層化（`ops-cs` / `ops-eng` など）に備え、名前は enum 化して 1 箇所で管理する。
 
 import { error } from '@sveltejs/kit';
-import type { Identity } from './types';
+import type { AuthContext, Identity } from './types';
 
 /**
  * 運営ダッシュボード `/ops` 全体を操作できる group 名。
@@ -31,6 +31,39 @@ export function isOpsMember(identity: Identity | null): boolean {
 	const groups = identity.groups;
 	if (!groups || groups.length === 0) return false;
 	return OPS_GROUPS.some((g) => groups.includes(g));
+}
+
+/**
+ * `/ops` に入れるか判定する単一述語 (#4266)。**ops group 所属 かつ MFA 済**を要求する。
+ *
+ * CloudFront 層の IP allowlist (2 枚目の防御) を廃止したため、主防御であるアプリ層の
+ * 強度を上げる。IP allowlist を廃止した理由:
+ *   - 対象 path に `/admin` (= 保護者 = 顧客の見守り画面) が含まれ、有効化すると全顧客が 403
+ *   - 運営者のグローバル IP が固定でなく、プロキシ経由では `event.viewer.ip` が回線 IP と一致しない
+ *
+ * 代替として MFA を要求する。運営者は TOTP を 1 度設定すれば、IP / 回線 / プロキシに縛られない。
+ * Cognito user pool は `mfa: OPTIONAL` のまま (顧客に MFA を強制しない)、ops だけをここで縛る。
+ *
+ * **判定はセッション単位**: MFA を「今の ID token が MFA を経ているか」ではなく
+ * **「このセッションが MFA を経て開始されたか」** で見る。silent refresh
+ * (`REFRESH_TOKEN_AUTH`) で再発行される ID token が `amr` を保持するかは AWS 公式
+ * ドキュメントで確定できず (2026-08-05 調査)、identity 側だけを見ると運営者が無操作で
+ * 締め出され再ログインまで戻れない。ログイン時に確定した値を署名付き context token
+ * (`context-token.ts`、既存機構) が保持し、ここで OR を取る。
+ *
+ * **fail-closed**: identity / context のどちらからも MFA を確認できない (旧トークン /
+ * claim 欠落 = `undefined`) 場合は拒否する。「不明なら通す」にすると防御が黙って消える
+ * (ADR-0024 ENV silent skip 禁止と同じ規律)。
+ */
+export function hasOpsAccess(
+	identity: Identity | null,
+	context?: Pick<AuthContext, 'mfaAuthenticated'> | null,
+): boolean {
+	if (!isOpsMember(identity)) return false;
+	// isOpsMember が true ⇒ identity は cognito
+	const tokenMfa = identity?.type === 'cognito' && identity.mfaAuthenticated === true;
+	const sessionMfa = context?.mfaAuthenticated === true;
+	return tokenMfa || sessionMfa;
 }
 
 /**

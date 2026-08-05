@@ -224,11 +224,19 @@ tzCase('loyalty/increment-month-key', async () => {
 	mockGetSetting.mockResolvedValue(null);
 	mockSetSetting.mockResolvedValue(undefined);
 	await incrementSubscriptionMonth(TENANT);
+	// #4127 AC7 (PO 決裁 2026-08-03): 保存値は **基準を含む** 形 (`jst:YYYY-MM`)。
+	// prefix 無しの `YYYY-MM` を拾う probe のままだと、prefix 化した瞬間に
+	// **1 件も拾えず 0 件 = 検査していない** 状態になる (本 test が実際にそうなった)。
+	// 「TZ が変わっても JST の月キーが書かれる」という検査意図は保ったまま、
+	// **prefix ごと期待値に含める** (基準が落ちたら落ちる形にする)。
 	const monthKeyWrites = mockSetSetting.mock.calls.filter((c) =>
-		String(c[1]).match(/^\d{4}-\d{2}$/),
+		String(c[1]).match(/^jst:\d{4}-\d{2}$/),
 	);
-	expect(monthKeyWrites.length).toBeGreaterThan(0);
-	for (const call of monthKeyWrites) expect(call[1]).toBe(TZ_PROBE_JST_MONTH);
+	expect(
+		monthKeyWrites.length,
+		'基準 prefix 付きの月キーが 1 件も書かれていません (prefix を落とすと本 probe が空振りします)',
+	).toBeGreaterThan(0);
+	for (const call of monthKeyWrites) expect(call[1]).toBe(`jst:${TZ_PROBE_JST_MONTH}`);
 });
 
 tzCase('rest-days/month-symmetry', async () => {

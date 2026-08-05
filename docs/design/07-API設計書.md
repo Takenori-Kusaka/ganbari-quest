@@ -1242,6 +1242,9 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
 - **`cancel_url`**: `${origin}/pricing`
 - **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
+- **Price の解決 (#4286)**: `planId` → Price ID は **`getPriceId()` 単一経路**で解決する。env に Price ID が無く `lookup_key` からも引けない場合は `PRICE_UNRESOLVED` を返す
+- **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
+  - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
 
 #### POST /api/stripe/portal
 
@@ -1253,6 +1256,12 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
 - **`return_url`**: `${origin}/admin/subscription`
+- **リクエストボディ `intent`（#4166 / #4270）**: `plan-change` | `plan-upgrade` | `billing-history`。
+  portal の着地を決める。**allowlist で検証**し、外れた値・未指定は安全側（`plan-change` = portal ホーム）に倒し、
+  拒否した事実だけを記録する（**顧客識別子はログに載せない**）。`plan-upgrade` のときだけ `flow_data`
+  （`subscription_update`）でプラン変更画面へ直行させる
+- **成功レスポンス**: `{ url, flowFallback }`。`flowFallback=true` は **flow を Stripe が受け付けず portal ホームで
+  作り直した**ことを表す。画面は自動遷移せず、次の操作を示す通知を出す（`plan-change-flow.md` §3.2.2）
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）

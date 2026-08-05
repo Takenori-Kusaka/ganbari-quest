@@ -1,6 +1,6 @@
 # UI/UX 品質チェックリスト
 
-> **使用タイミング**: QA Review Agent が `qa-session.md` 手順 2（SS 実視認）で参照 / Dev セッションが Ready 化前のセルフレビューで参照
+> **使用タイミング**: QM Review Agent が `qm-session.md` 手順 2（SS 実視認）で参照 / Dev セッションが Ready 化前のセルフレビューで参照
 >
 > **SSOT**: @docs/DESIGN.md §9 禁忌事項 / ADR-0012（Anti-engagement）/ ADR-0015（年齢帯 variant）
 
@@ -62,7 +62,7 @@ PR 本文「描画変化なし」「pixel-perfect 同一」を主張する場合
 - 明記なしなら BLOCK し、@docs/sessions/dev-session.md の「描画変化なし主張ルール」に従って明記を差し戻す
 - 明記済みでも 1 文字でも UI 文字列が変わるなら撮影 SS 1 枚以上の添付を必須
 
-理由: QA は実描画を視認する責務 — CI proxy 退行の防止。
+理由: QM は実描画を視認する責務 — CI proxy 退行の防止。
 
 ## 関連ドキュメント
 
