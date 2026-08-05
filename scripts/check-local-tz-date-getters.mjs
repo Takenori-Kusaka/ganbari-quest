@@ -74,6 +74,57 @@ const REPO_ROOT = path.resolve(__dirname, '..');
  */
 export const SEARCH_ROOTS = ['src', 'infra/lambda', 'scripts'];
 
+/**
+ * **走査しないと決めた** コード保有ディレクトリと、その理由 (#4120)。
+ *
+ * `SEARCH_ROOTS` 配下では「検出があったのに allowlist に無い file」を no-silent-gap で落とすが、
+ * **走査範囲そのものの網羅は誰も見ていなかった**。`infra/lib` に日付から schedule / 期限を
+ * 組み立てるコードが後から入っても、この guard は黙って素通りさせる。EPIC #4120 の目的は
+ * 「TZ 依存の日付導出を根絶する」ことなので、**新しいコード置き場が増えたときに気付けること**まで
+ * が guard の責務に含まれる。
+ *
+ * 除外は「今は違反が無いから」ではなく「**顧客に見える日付をここでは作らない**」を理由にする。
+ * 網羅は `tests/unit/scripts/check-local-tz-date-getters.test.ts` が実 repo と突き合わせる。
+ *
+ * @type {ReadonlyArray<{ root: string; reason: string }>}
+ */
+export const EXCLUDED_ROOTS = [
+	{
+		root: 'infra/lib',
+		reason:
+			'CDK stack 定義。deploy 時に 1 度評価されるだけで、顧客に見える日付を導出しない (実測 0 件)',
+	},
+	{
+		root: 'infra/bin',
+		reason: 'CDK app entry point。stack の組み立てのみで日付を扱わない (実測 0 件)',
+	},
+	{
+		root: 'tests',
+		reason: '意図的な時刻固定が多く、TZ 依存の検出が偽陽性になる (#4015 No-gos で除外を決定)',
+	},
+	{
+		root: 'site',
+		reason: 'LP の静的 HTML / CSS。日付を描画しない (実測 0 件)',
+	},
+	{
+		root: 'infra/gcp',
+		reason: 'Discord 連携の設定・シェル資材。走査対象拡張子の file を持たない (実測 0 件)',
+	},
+	{
+		root: 'infra/error-pages',
+		reason: 'CloudFront カスタムエラーページ (静的 HTML)。走査対象拡張子を持たない (実測 0 件)',
+	},
+	{
+		root: 'eslint-plugin-local',
+		reason: 'ESLint ルール実装。lint 時に評価されるだけで顧客に見える日付を作らない (実測 0 件)',
+	},
+	{ root: 'docs', reason: '設計文書。実行されるコードを含まない' },
+	{ root: 'actions', reason: 'GitHub Actions composite action 定義 (YAML)' },
+	{ root: 'data', reason: '静的データ資材。実行されるコードを含まない' },
+	{ root: 'drizzle', reason: 'DB migration SQL。実行されるコードを含まない' },
+	{ root: 'static', reason: '静的アセット (画像 / manifest 等)' },
+];
+
 /** 走査対象拡張子 */
 export const EXTENSIONS = ['.ts', '.svelte', '.mjs', '.js'];
 
@@ -254,7 +305,7 @@ export const ALLOWLIST_KINDS = ['ssot', 'tz-proof', 'instant-offset', 'non-runti
 export const ALLOWLIST = [
 	{
 		file: 'src/lib/domain/date-utils.ts',
-		max: 20,
+		max: 5,
 		kind: 'ssot',
 		reason:
 			'JST SSOT の実装本体。UTC 算術 + toISOString で JST 暦日を組み立てる唯一の場所であり、ここが違反を持つのは定義上正しい',
@@ -285,25 +336,25 @@ export const ALLOWLIST = [
 	},
 	{
 		file: 'src/lib/features/child-home/BabyHomePage.stories.svelte',
-		max: 8,
+		max: 7,
 		kind: 'non-runtime',
 		reason: 'Storybook の fixture 生成 (「N ヶ月前生まれ」等の相対誕生日)。本番ビルドに含まれない',
 	},
 	{
 		file: 'src/lib/server/demo/demo-data.ts',
-		max: 6,
+		max: 5,
 		kind: 'non-runtime',
 		reason: 'デモ fixture の相対日付生成。顧客テナントのデータを作らない',
 	},
 	{
 		file: 'src/lib/server/demo/synthetic-staging-dataset.ts',
-		max: 2,
+		max: 1,
 		kind: 'non-runtime',
 		reason: 'staging 合成 seed の相対日付生成 (#3412)。顧客テナントのデータを作らない',
 	},
 	{
 		file: 'src/lib/server/debug-plan.ts',
-		max: 2,
+		max: 1,
 		kind: 'non-runtime',
 		reason: 'DEBUG_TRIAL の擬似終了日 (dev 専用、本番ビルド無効)',
 	},
@@ -540,11 +591,11 @@ export function groupByFile(occurrences) {
 /**
  * occurrence 群を allowlist と突き合わせ、違反 (no-silent-gap / ratchet 超過) を返す。
  * @param {Array<{file: string, line: number, snippet: string, kind: string}>} occurrences
- * @returns {Array<{kind: 'not-allowlisted'|'over-max', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>}
+ * @returns {Array<{kind: 'not-allowlisted'|'over-max'|'slack', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>}
  */
 export function evaluateOccurrences(occurrences) {
 	const byFile = groupByFile(occurrences);
-	/** @type {Array<{kind: 'not-allowlisted'|'over-max', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>} */
+	/** @type {Array<{kind: 'not-allowlisted'|'over-max'|'slack', file: string, count: number, max: number, samples: Array<{file: string, line: number, snippet: string, kind: string}>}>} */
 	const violations = [];
 	for (const [file, list] of byFile) {
 		const entry = findAllowlistEntry(file);
@@ -565,6 +616,17 @@ export function evaluateOccurrences(occurrences) {
 				count: list.length,
 				max: entry.max,
 				samples: list.slice(0, 5),
+			});
+		} else if (list.length < entry.max) {
+			// #4120: ratchet は「減ったら下げる」まで含めて初めて締まる。
+			// max を実数より高いまま放置すると、**その差分だけ新規違反を黙って受け入れる**
+			// 予算になる (実測: date-utils.ts は max=20 / actual=5 で 15 件分の余白があった)。
+			violations.push({
+				kind: 'slack',
+				file,
+				count: list.length,
+				max: entry.max,
+				samples: [],
 			});
 		}
 	}
@@ -651,17 +713,23 @@ function main() {
 	}
 
 	console.error(
-		`[check-local-tz-date-getters] ✗ TZ 依存の日付導出を ${violations.length} file で検出しました (#4015 / #4127):\n`,
+		`[check-local-tz-date-getters] ✗ allowlist と実数が食い違う file が ${violations.length} 件あります (#4015 / #4127 / #4120):\n`,
 	);
 	for (const v of violations) {
 		const head =
 			v.kind === 'not-allowlisted'
 				? `${v.file}: ${v.count} 件 (allowlist 未登録)`
-				: `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を超過)`;
+				: v.kind === 'slack'
+					? `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を下回っています — max を ${v.count} に下げてください)`
+					: `${v.file}: ${v.count} 件 (allowlist 上限 ${v.max} 件を超過)`;
 		console.error(`  ${head}`);
 		for (const s of v.samples) console.error(`    L${s.line} [${s.kind}]: ${s.snippet}`);
 	}
 	console.error('\n修正方針:');
+	console.error(
+		'  - [slack] 違反が減ったのに max が下がっていません。ratchet は「減ったら下げる」まで含めて初めて\n' +
+			'    締まります (差分だけ新規違反を黙って受け入れる予算になる)。ALLOWLIST の max を実数に下げてください。',
+	);
 	console.error(
 		'  - [tz-dependent-member] 実時刻から暦要素をローカル TZ で取り出しています。$lib/domain/date-utils.ts の',
 	);

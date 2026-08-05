@@ -27,12 +27,33 @@ const DB_DIR = join(__dirname, '../../../src/lib/server/db');
 const BACKENDS = ['sqlite', 'dsql', 'demo'] as const;
 type Backend = (typeof BACKENDS)[number];
 
-/** backend dir 配下の *-repo.ts から `<basename>:<fn>` の ForRestore 関数集合を抽出する。 */
+/**
+ * backend dir 配下の *-repo.ts を **再帰的に**列挙する (#4030 A-3)。
+ *
+ * 旧実装は `readdirSync(dir)` の非再帰走査だった。`dsql/migration/` 等のサブディレクトリに
+ * `*-repo.ts` を置いた瞬間、**registry 未分類のまま緑で通る** (no-silent-gap を名乗る guard 自身が
+ * silent gap を持つ)。現時点で subdir に repo は 0 件なので取りこぼしは無いが、母数が閉じていない。
+ *
+ * 返す key は **backend dir からの相対パス (拡張子なし、区切りは `/`)**。top-level file では
+ * 従来の basename と一致するため registry の既存 key は不変。
+ */
+function listRepoFiles(dir: string, prefix = ''): string[] {
+	const out: string[] = [];
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			out.push(...listRepoFiles(join(dir, entry.name), `${prefix}${entry.name}/`));
+		} else if (entry.name.endsWith('-repo.ts')) {
+			out.push(`${prefix}${entry.name}`);
+		}
+	}
+	return out;
+}
+
+/** backend dir 配下の *-repo.ts から `<相対パス>:<fn>` の ForRestore 関数集合を抽出する。 */
 function scanRestoreFunctions(backend: Backend): Set<string> {
 	const dir = join(DB_DIR, backend);
 	const found = new Set<string>();
-	for (const file of readdirSync(dir)) {
-		if (!file.endsWith('-repo.ts')) continue;
+	for (const file of listRepoFiles(dir)) {
 		const source = readFileSync(join(dir, file), 'utf-8');
 		const basename = file.replace(/\.ts$/, '');
 		// sqlite/demo: `export async function xxxForRestore(` /
@@ -61,6 +82,19 @@ const GUARD_MARKERS: Record<Exclude<RestoreGuardImpl, 'none' | 'service-layer'>,
 };
 
 describe('#3394 restore-idempotency registry fitness (ADR-0061 same-class → guard)', () => {
+	// 母数が空だと「違反 0」ではなく「検査していない」(#4084 と同じ形)。walker が壊れて []
+	// を返したとき、no-silent-gap test は undeclared=[] / missing=全件 で落ちるが、**落ち方が
+	// 「registry の typo」に見えて原因を誤らせる**。母数を独立に固定して切り分けを速くする。
+	it('[母数] 全 backend で *-repo.ts が再帰走査で見つかっている', () => {
+		for (const backend of BACKENDS) {
+			const files = listRepoFiles(join(DB_DIR, backend));
+			expect(
+				files.length,
+				`${backend}/ の *-repo.ts が 0 件です。walker か dir 構成が壊れています`,
+			).toBeGreaterThan(0);
+		}
+	});
+
 	it('no-silent-gap: 全 backend の *ForRestore 関数が registry に分類されている (双方向一致)', () => {
 		const union = new Set<string>();
 		for (const backend of BACKENDS) {

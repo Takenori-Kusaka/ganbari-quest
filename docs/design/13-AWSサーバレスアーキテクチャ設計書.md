@@ -409,7 +409,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 - Origin Shield: 本番と同型に `/_app/*` の `demoStaticAssetOrigin` で有効 (region `us-east-1`、#3087)。default behavior origin は本番同様 shield なし
 - S3 静的アセット offload (#3087 解決策 B): 本番と同型に `/_app/immutable/*` を S3 (OAC) から配信 (`staticAssetsS3Offload=true` 時)。本番と demo は同一 Docker image (= 同一 build) の immutable アセットを配信するため `StaticAssetsBucket` を 1 つ共有し、distribution ごとに OAC を持つ
 - セキュリティヘッダ: 本番と同一 (`SECURITY_HEADERS` policy)
-- CloudFront Function: query slash encode のみ (admin IP 制限は demo に適用しない、anonymous public demo のため)
+- CloudFront Function: query slash encode のみ (本番も同一。IP allowlist は持たない、#4266)
 - geoRestriction: `JP` (本番と同一、Pre-PMF 段階)
 
 **Route 53:**
@@ -502,7 +502,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 ### 4.1 NUC self-hosted runner actor ガード (Issue #2356 / EPIC #2354)
 
-`deploy-nuc.yml` は public repo の self-hosted runner で動作するため、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で想定済みの actor に限定する** ために actor 許可リストで gate する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみであり、fork PR からの直接 push は GitHub の保護 (fork 側に upstream main への push 権限がない) により発生せず、`workflow_dispatch` も upstream リポジトリの権限がある actor からしか発火しない。したがって本 gate の目的は「fork PR 防御」ではなく、**想定外の actor (誤って付与された collaborator / 将来の admin bypass / bot 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QA merge 体制の squash merge actor) の 2 account のみ。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
+`deploy-nuc.yml` は public repo の self-hosted runner で動作するため、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で想定済みの actor に限定する** ために actor 許可リストで gate する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみであり、fork PR からの直接 push は GitHub の保護 (fork 側に upstream main への push 権限がない) により発生せず、`workflow_dispatch` も upstream リポジトリの権限がある actor からしか発火しない。したがって本 gate の目的は「fork PR 防御」ではなく、**想定外の actor (誤って付与された collaborator / 将来の admin bypass / bot 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QM merge 体制の squash merge actor) の 2 account のみ。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
 
 ### 4.2 NUC staging 環境 (Issue #2872 / EPIC #2861 D 系)
 
@@ -524,11 +524,15 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 ### 4.3 AWS staging 環境 (Issue #2873 / EPIC #2861 D 系)
 
-本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **3 stack のみ** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging`)。Network / Ses / Ops は省略し Function URL 直アクセスで検証する (CloudFront は geoRestriction JP のため本番 e2e も Function URL 直の実績パターン踏襲)。
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **4 stack** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging` / `GanbariQuestNetworkStaging`)。Ses / Ops は省略する。
+
+**Network (CloudFront) は staging にも必要**: SvelteKit の名前付き form action (`?/action`) は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `<prefix>-query-slash-encode` を通さないと届かない。`/auth/login` / `/auth/signup` はいずれも default action を持たず名前付き action しかないため、これが無いと staging では**ログインもサインアップもできない** (= 認証後の画面に到達する手段がゼロ)。staging の ORIGIN / post-deploy smoke は CloudFront を入口にする。
 
 | 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
 |---|---|---|
-| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 4 stack (`GanbariQuest{Storage,Auth,Compute,Network}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| CloudFront geoRestriction | JP allowlist | **なし** (post-deploy smoke を回す GitHub runner が日本国外にあるため)。前提 = staging に本番データを入れないこと。入れる運用が生まれたら JP allowlist を戻す |
+| CloudFront 物理名 | `ganbari-quest-query-slash-encode` / `ganbari-quest-error-pages-<account>` | `ganbari-quest-staging-` prefix (同一アカウント・同一リージョンでの衝突回避)。prod 側の名前は不変 (ADR-0019) |
 | 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
 | SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
 | ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
@@ -537,14 +541,14 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
-| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 3 stack） |
-| tag | — | `gq-env=staging`（staging 3 stack に付与） |
+| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 4 stack） |
+| tag | — | `gq-env=staging`（staging 4 stack に付与） |
 
-実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 3 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
+実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 4 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
 
 - **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
 - **ORIGIN 解決**: Function URL は synth 時未確定（自己参照）のため CDK は placeholder を注入し、workflow が `get-function-url-config` で解決して jq read-modify-write で `update-function-configuration` する（health / smoke は GET のみで ORIGIN 非依存のため縮退可）。
-- **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。dispatch の `dsqlEnabled` / `pgliteEnabled` input は develop HEAD を任意 backend で回す手動検証用に残す。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
+- **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。**AWS staging に backend の選択肢は無い** (#4224): DSQL が唯一の backend であり `ComputeStack` が `dsqlEndpoint` を無条件必須にするため、lane を off にできる入口を持たない (`workflow_dispatch` に input 無し / `DSQL_LANE` 分岐無し)。不変条件は `tests/unit/infra/staging-dsql-lane-always-on.test.ts` が守る。NUC staging の `pgliteEnabled` は同型の入口を残している。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
 - **データ戦略**: staging は本番と同型で Aurora DSQL cluster を空 provisioning（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は本番 backend (DSQL) の repository 経路を通らず staging の存在意義が消えるため不採用。本番相当データが必要になった場合は DSQL の論理エクスポート / import 経由で別 cluster に流し込む（本番 cluster へは一切 write しない）。旧 DynamoDB AWS Backup restore 経路は #3438 で DynamoDB 撤去により廃止。

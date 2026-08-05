@@ -22,7 +22,7 @@
 
 ## ミッション
 
-開発実装チーム（Dev）と品質管理チーム（QA）が**事業的に正しい行動をし続ける**ための、十分な意思入れと誰が読んでも同じ理解ができる Issue を作成する。
+開発実装チーム（Dev）と品質管理チーム（QM）が**事業的に正しい行動をし続ける**ための、十分な意思入れと誰が読んでも同じ理解ができる Issue を作成する。
 
 ## Goal 1 (Issue 起票) — PO 特有判断軸
 
@@ -64,7 +64,7 @@
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
+PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**（棚卸しは **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
 
 **ロールを跨いだ team を組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから spawn した「QM teammate」は `ganbariquestsupport-lab` にならず、ADR-0022 の作成者 ≠ 承認者が空洞化する。ロール間の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。
 
@@ -261,7 +261,7 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 |---|---|---|
 | `CLAUDE.md` 階層 | ルート / docs/ / src/routes/ / .github/ / infra/ / tests/ + 新規 src/lib/ 等 | 6+ 件 |
 | `.claude/skills/` | 全 Skills (`SKILL.md` ベース) | 13 件 (age-mode-check / brand-check / cost-review / customer-voice / db-migration / deploy-verify / dev-open-pr / flake-hunt / issue-triage / lp-review / pre-pmf-check / pr-review / regression-check) |
-| `.claude/agents/` | 全 agents (`*-session.md` SSOT) | 3 件 (po-session / dev-session / qa-session) |
+| `.claude/agents/` | 全 agents (`*-session.md` SSOT) | 3 件 (po-session / dev-session / qm-session) |
 | `.claude/settings.json` | hook / permissions / env / matcher | 1 hook (QA account PR prevent #1879) |
 | `.claudeignore` | (もしあれば) context exclude 設定 | 0-1 件 |
 | `.vscode/settings.json` | 共有設定 (#2183) | 1 件 |
@@ -309,7 +309,9 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
 ```
 
-PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、そして **ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）。**Issue と PR の両方**を見る。
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（#4180 AC11 / AC12）。**Issue と PR の両方**を見る。
+
+**`status:*` は PO 軸**（label-mailbox.md §3.2）。`status:on-hold` の付け外しは PO が行い、外してほしい申告は誰でも `state:needs-po` で渡せる。**hold が付いていないものの着手順は Dev が決めてよい**（PO の許可は要らない）。**QM に用があるときは `state:needs-qm`**（#4180。gate 方針を決める前に QM の見解を聞く等）。
 
 PO が仕事を渡すときは **`state:needs-dev`**（Dev へ着手）/ **`state:needs-audit`**（監査へ release cut 依頼）を付ける。
 

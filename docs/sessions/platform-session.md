@@ -10,6 +10,18 @@
 
 ---
 
+## 🔒 このロールは凍結中です（2026-08-05〜、オーナー決定）
+
+**[チーム憲章 §0](README.md) ルール 1**: 品質ゲート / guard / fitness / lint / テンプレート / hook を **増やさない・良くしない・減らさない**。`pre-ready` の構成も変えません。**Platform ロールは凍結解除まで装置作業を持ちません。**
+
+- **装置の Issue は起票しない**（増やす / 直す / 減らす / 統合する、すべて）。既存の `state:needs-platform` は `status:on-hold`
+- **例外は「顧客の金かデータに現に届いている装置不具合」だけ**。判定は **QM** が行う（PO 決裁は要らない）
+- **再開トリガー**: E1（#4117）が staging で checkout → webhook → plan 反映 → 実画面 を 1 周した時点
+
+**なぜ**: 直近 14 日の Issue は装置・プロセスが 56%、顧客に届く変更が 24%。`scripts/check-*` は 61 本あり、「8 本に絞る」E5 は CLOSED なのに 1 本も減っていません。**装置が顧客を止めた実例**として、本番 NUC が 3.5 時間停止しています（#4275、バックアップの沈黙を防ぐ検査が原因）。以下の手順は凍結解除後に使うものです。
+
+---
+
 ## セッション起動時の必須手順: mailbox cron を作る
 
 **SSOT**: [label-mailbox.md](label-mailbox.md)
@@ -21,6 +33,8 @@ CronCreate(cron: "43 * * * *", recurring: true, prompt: <下記テンプレー�
 ```
 
 **分は 43。** 他ロールと重ならない値にする（Dev=13 / QM=23 / PO=37 / 監査=47、[label-mailbox.md §3.4](label-mailbox.md)）。
+
+**Platform から他ロールへ渡す経路**: 装置変更の影響を QM に確認したいときは **`state:needs-qm`**（#4180）。完成して QM レビューに出すときは従来どおり **`state:dev-done`**（自分の PR を自分で approve しない、ADR-0022）。監査に用があれば **`state:needs-audit`**。
 
 ### cron プロンプト テンプレート
 
@@ -122,6 +136,8 @@ Platform は Team Topologies の platform team にあたり、**stream-aligned t
 ## Agent Teams（1 ロール内の並列化）
 
 **SSOT**: [agent-teams.md](agent-teams.md)
+
+Platform が使ってよいのは **装置の横断棚卸し**（`scripts/check-*` を分割して調べる等 = **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。
 
 teammate は **自分のクローン内でだけ**組む。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリと gh 認証で動くため、ADR-0022 の作成者 ≠ 承認者が空洞化する。
 

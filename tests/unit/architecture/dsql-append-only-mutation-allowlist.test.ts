@@ -258,11 +258,21 @@ function collectViolations(statements: SqlStatement[]): Mutation[] {
 	);
 }
 
-function listDsqlSourceFiles(): string[] {
-	if (!existsSync(DSQL_DIR)) return [];
-	return readdirSync(DSQL_DIR)
-		.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
-		.map((f) => resolve(DSQL_DIR, f));
+/**
+ * dsql 配下の .ts を **再帰** 収集する (#4030 A-2 / 先例 #3658 AC2)。
+ *
+ * 旧実装は `readdirSync` 非再帰で、実 SQL を持つ `migration/` 配下を
+ * **一度も検査していなかった**。母数が閉じていない guard は「違反 0 件」と
+ * 「そもそも見ていない」を区別できない。
+ */
+function listDsqlSourceFiles(dir: string = DSQL_DIR, acc: string[] = []): string[] {
+	if (!existsSync(dir)) return acc;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const full = resolve(dir, entry.name);
+		if (entry.isDirectory()) listDsqlSourceFiles(full, acc);
+		else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) acc.push(full);
+	}
+	return acc;
 }
 
 describe('DSQL append-only 表 mutation allowlist (§3.4 B6 3 層防御の repo/AST 層)', () => {
@@ -323,5 +333,72 @@ describe('DSQL append-only 表 mutation allowlist (§3.4 B6 3 層防御の repo/
 				.map((d) => `  ${d.file} ${d.op} [${d.table}] ${d.marker}`)
 				.join('\n')}`,
 		).toEqual([]);
+	});
+});
+
+// #4030 A-2: 母数がサブディレクトリを取りこぼしていないこと。
+//
+// `src/lib/server/db/dsql/migration/` には実 SQL を持つ file が存在する
+// (`provision.ts` の `INSERT INTO dsql_migrations` 等)。非再帰走査だと**この層が
+// 一度も検査されない**。先例は `dsql-append-only-update-fitness.test.ts` (#3658 AC2)。
+//
+// 母数の assertion を置かないと「違反 0 件」が「守られている」なのか
+// 「そもそも見ていない」なのか区別できない (#4084 と同じ形)。
+//
+// 期待値は **実 FS から導出する** (literal 固定にすると file 追加で陳腐化する、#4030 A-1 と同じ轍)。
+describe('#4030 母数: dsql 配下をサブディレクトリまで走査している', () => {
+	it('migration/ 配下の .ts が母数にすべて入っている', () => {
+		const migrationDir = resolve(DSQL_DIR, 'migration');
+		const expected = readdirSync(migrationDir)
+			.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
+			.map((f) => resolve(migrationDir, f))
+			.sort();
+		expect(
+			expected.length,
+			'migration/ に .ts が 1 つも無い (母数の前提が崩れている)',
+		).toBeGreaterThan(0);
+
+		const collected = new Set(listDsqlSourceFiles());
+		const missing = expected.filter((f) => !collected.has(f));
+		expect(
+			missing,
+			'dsql/migration/ 配下が母数から漏れています。非再帰走査だとこの層が一度も検査されません (#4030 A-2)',
+		).toEqual([]);
+	});
+});
+
+// #4030 AC5 — 除外理由が「あることになっている」だけの状態を潰す。
+//
+// 本 allowlist は `reason` を持つが、**value を読む assertion が無く空文字でも通っていた**。
+// 理由なしの除外は、次に読む人が「意図的な例外」と「消し忘れ」を区別できない。
+//
+// 判定ロジックは `exclusion-reason-nonempty.test.ts` の `findReasonDefect` と同型
+// (空 / 定型 stub / 極端な短文を弾く)。**import しないのは、test file 同士を import すると
+// describe が二重実行されるため** (データを持つ file が自分で守る、#4030 class B)。
+const REASON_STUBS = ['todo', 'tbd', 'n/a', 'na', '-', '未定', 'なし'];
+
+function reasonDefect(reason: unknown): string | null {
+	if (typeof reason !== 'string') return `文字列ではありません (${typeof reason})`;
+	const t = reason.trim();
+	if (t.length === 0) return '空です';
+	if (REASON_STUBS.includes(t.toLowerCase())) return `定型 stub です (「${t}」)`;
+	if (t.length < 8) return `短すぎます (${t.length} 字: 「${t}」)`;
+	return null;
+}
+
+describe('#4030 AC5 MUTATION_ALLOWLIST の除外理由が実質空でない', () => {
+	it('全 entry が理由を持つ', () => {
+		const entries = MUTATION_ALLOWLIST;
+		// 母数が空なら「違反 0」ではなく「検査していない」(#4084 と同じ形)
+		expect(entries.length, '母数が空です').toBeGreaterThan(0);
+
+		const defects = entries
+			.map((e) => {
+				const d = reasonDefect(e.reason);
+				return d ? `${e.file} / ${e.table}: ${d}` : null;
+			})
+			.filter((v): v is string => v !== null);
+
+		expect(defects, '除外理由が実質空です。**なぜ例外なのか**を書いてください').toEqual([]);
 	});
 });

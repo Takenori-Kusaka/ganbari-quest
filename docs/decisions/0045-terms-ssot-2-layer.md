@@ -108,7 +108,7 @@ labels.ts (compound、≈6700 行)
 ### 3.4 検出・強制
 
 - **Phase 5 F1 CI** (`scripts/check-terms-literal-leak.mjs`、#1918 で実装予定): atom 値（'スタンダードプラン' / '¥500' 等）を含む文字列リテラルが compound 外（`*.svelte` / `*.ts` 本体）に存在したら CI fail
-- **PR レビュー**: 「直書きを見たら terms.ts に atom があるか確認」を `qa-session.md` に追加
+- **PR レビュー**: 「直書きを見たら terms.ts に atom があるか確認」を `qm-session.md` に追加
 - **既存違反 baseline**: Phase 1 完了時点の 15+ 件は Phase 2 で順次撲滅、新規違反は CI で 0 件強制
 
 ## 4. 結果

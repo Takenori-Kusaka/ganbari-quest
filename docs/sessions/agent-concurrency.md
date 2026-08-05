@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: 本リポジトリを触る AI エージェントが**同一マシンで複数セッション並走**することを前提に、何が壊れるか・何を機械強制しているか・止められたとき何をするかを定める SSOT。
 >
-> **関連**: [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) §3
+> **関連**: [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) §3
 
 ## §1 前提 — セッションは 1 本ではない
 

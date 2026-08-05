@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: PO / Dev / QM / 監査の各セッションが、**人間の中継なしに「次に自分が動くもの」を GitHub から拾う**ための仕組みの SSOT。label の語彙・意味・誰が付けるか・各ロールが何を polling するか・cron の作り方を定める。
 >
-> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
+> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
 
 ---
 
@@ -34,21 +34,37 @@
 
 ## §3 仕様
 
-### §3.1 label 語彙（8 種）
+### §3.1 label 語彙（9 種 = 宛先 6 + 工程 3）
+
+label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因）。
+
+#### 宛先 label（6 ロール分。「次に誰に用があるか」だけを表す）
 
 | label | 意味 | 付ける人 | 次に動く |
 |---|---|---|---|
-| `state:needs-dev` | PO / QM が Dev に**着手を渡した** | PO / QM | **Dev** |
-| `state:dev-done` | 実装完了・CI 全緑・Ready 化済 | Dev | **QM** |
-| `state:qm-blocked` | BLOCK 3 類型に該当（顧客に実害 / 証跡の真正性 / 不可逆） | QM | **Dev** |
-| `state:ready-to-merge` | QM approve 済 | QM | **QM**（merge を実行） |
-| `state:needs-audit` | 統合監査 / release cut を監査チームに渡した | PO | **監査** |
-| `state:needs-platform` | **装置の削減 / 統合 / 自動生成**をプラットフォームに渡した（[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | PO / Dev / QM | **Platform** |
-| `state:needs-po` | **不可逆 4 操作ではない PO 判断**が要る（方針 / 優先度 / repo 設定 / 受容判断 / 語彙・ルールの改訂） | 誰でも | **PO** |
-| `state:needs-owner` | **不可逆 4 操作**（削除 / 本番 deploy / 課金書込 / スキーマ変更）を含む | 誰でも | **オーナー** |
+| `state:needs-dev` | **Dev に用がある** | 誰でも | **Dev** |
+| `state:needs-qm` | **QM に用がある**（レビュー依頼に限らない。問い合わせ / 見解確認を含む） | 誰でも | **QM** |
+| `state:needs-po` | **PO に用がある**。**PO が決めるのは 2 つだけ**（[README.md §0](README.md) ルール 4） — ①顧客に見える文言・UX・価格の方針 ②backlog の順序。**それ以外は付けない**（装置 / 実装方針 / 受容判断は Dev か QM が決める） | 誰でも | **PO** |
+| `state:needs-audit` | **監査チームに用がある**（release cut 依頼 / 仕様の問い合わせ / 見解確認） | 誰でも | **監査** |
+| `state:needs-platform` | **Platform に用がある**（装置の削減 / 統合 / 自動生成、[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | 誰でも | **Platform** |
+| `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = 削除 / 本番 deploy / 課金書込 / スキーマ変更を含む） | 誰でも | **オーナー** |
+
+> **宛先 label は用件を含意しない（#4180 で追加した原則）。** 「誰に用があるか」だけを表し、**何の用かは Issue / PR のコメントに書く**（§2 原則 2「label は状態であって指示ではない」）。
+>
+> この原則が守られていなかったために、**QM 宛が `dev-done`（実装完了・CI 全緑・Ready 化済）でしか表現できず「完成していないと送れない」**、**監査宛が「cut を渡した」に限定されて問い合わせに使えない**、という 2 つの欠落が同時に成立していた。**用件で label を分けようとすると語彙が際限なく増える** — 区別のために語彙を足さない。
+
+#### 工程 label（3 種。送り手の**状態**であり、前提条件を含意する）
+
+| label | 意味 | 付ける人 | 次に動く | `needs-qm` との違い |
+|---|---|---|---|---|
+| `state:dev-done` | 実装完了・CI 全緑・Ready 化済 | Dev / Platform | **QM** | **「レビューを開始できる」前提**を含意する |
+| `state:qm-blocked` | BLOCK 3 類型に該当（顧客に実害 / 証跡の真正性 / 不可逆） | QM | **Dev** | **判定結果**を含意する |
+| `state:ready-to-merge` | QM approve 済 | QM | **QM**（merge を実行） | **判定結果**を含意する |
+
+**`needs-qm` はこれらの前提を持たない汎用の宛先。完成していなくても送れる。**
 
 - `state:needs-po` / `state:needs-owner` は**誰が気づいても付けてよい**。Dev が実装中に気づいた場合も付ける
-- **判断を仰ぐときは必ずどちらかを付ける。** 「不可逆 4 操作に当たらないから `needs-owner` は付けない」で終わらせない — それは判断が要らないという意味ではない。**`needs-po` がその受け皿**
+- **不可逆 4 操作は必ず `needs-owner`。** それ以外で PO に上げてよいのは上記 2 種だけで、**残りは自分たちで決める**（判断を PO に押し付けない）
 
 > **§3.1 の欠落で実際に起きたこと（2026-07-31）**: Dev が「ruleset 変更」「node バージョン EBADENGINE」の 2 件を PO 判断待ちとして Issue コメント / PR body に書いたが、**不可逆 4 操作に当たらないため label を付けなかった**。PO はコメントを polling していないため、**どちらも PO の mailbox に入らなかった**。`#4144` の Q1/Q2 が PO に届いたのは、QM が「`po-decision:required` の決裁が GitHub 上に存在しない」として merge を保留したからで、通知経路が機能した結果ではない。
 
@@ -71,9 +87,14 @@
 | `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
 | `state:needs-platform` | Platform | 装置の削減 / 生成が完了し CI 全緑 | **`state:dev-done`**（QM レビューへ。**自分の PR を自分で approve しない** — ADR-0022） |
 | `state:needs-platform` | Platform | **削除**（gate / guard / test）が必要と分かった | **`state:needs-owner`**（不可逆 4 操作） |
-| `state:needs-platform` | Platform | gate を**残すか消すか**の方針判断が要る | **`state:needs-po`**（[README.md §4.5](README.md#45-装置開発基盤に関する決定)） |
+| `state:needs-platform` | — | **🔒 凍結中**（§0 ルール 1）。既存分は `status:on-hold`、新規は付けない | — |
+| **`state:needs-qm`** | **QM** | **回答をコメントに残した** | **問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`） |
+| **`state:needs-qm`** | **QM** | **レビュー依頼だと判明した**（実装が完了している） | **`state:dev-done`** に読み替える |
+| **`state:needs-qm`** | **QM** | **不可逆 4 操作が絡むと分かった** | **`state:needs-owner`** |
 
 **原則**: `state:*` は「**次に動く人**」を指す。自分が動き終わったら、その label は自分を指したままにしない。
+
+> **問い合わせは往復である。** 工程 label（`dev-done` → `qm-blocked` / `ready-to-merge`）は一方向だが、**問い合わせは答えが返らないと終わらない**。`needs-qm` の 1 本目（回答したら問い合わせ元の state に戻す）を書かないと、#4149 の「対応済みなのに誰にも伝わらない」が問い合わせ側で再発する — 送り手は「戻ってこない」だけを観測し、QM は「答えたのに」と思う。
 
 > **判断待ちが 2 件以上ある場合**: 1 件目を解決して label を移すと、**2 件目が受信箱から消える**（#4145 の QM approve コメントで報告された orphan と同 class）。**未解決の判断が残っているなら label を移さない。** 移すのは「その受信箱に残る用件がゼロになったとき」だけ。
 
@@ -86,6 +107,25 @@
 > **§2 原則 3「付けた側が意味に責任を持つ」の適用**: 自分のレーンから次のレーンへ渡すとき、**渡す側が label を付ける**。書いたかどうかではなく、**相手の polling クエリに出るかどうか**が伝達の成否を決める。
 
 ### §3.2 label で表さないもの（GitHub 標準を使う）
+
+> **先に軸の話**: 本ファイルは長らく `state:*`（次に動く人）の遷移だけを定めており、**`status:*`（着手順・凍結）を誰が持つかが未定義だった**。Dev が着手前に「`status:on-hold` を外す権限は誰にあるのか」と質問して初めて分かった欠落（#4180 追記）。
+
+#### `status:*` 軸の権限（#4180 AC10）
+
+`status:*` は **PO 軸**。チーム憲章（[README.md](README.md) §4.1）で「backlog の順序」が PO の Approver 事項であり、`status:on-hold` はその表現だから。
+
+| 操作 | 誰が |
+|---|---|
+| `status:on-hold` を**付ける / 外す** | **PO** |
+| **外してほしいと申告する** | **誰でも**（`state:needs-po` を付けて渡す） |
+| **hold が付いていないものの着手順を決める** | **Dev**（PO の許可は要らない。README.md §4.2） |
+
+**`status:on-hold` は「上位に入っていない」ことを示すだけ**であり、着手を禁じる意味ではない。
+
+> **陳腐化が実際に起きた（2026-08-01）**: `status:on-hold` の 7 件が `priority:high` 以上で、**2 件は Dev が既に draft PR を出していた**（#4156 → PR #4185 / #4127 → PR #4182）。「着手順に入っていない」label が、着手済みのものに付いたまま残っていた。§3.1.1 で塞いだ「対応済みなのに誰にも伝わらない」と同じ形。検出は §4 PO cron に入れた（AC11）。
+
+> **1 つの軸に 2 つの値は不正**（#3990 / #3898 で `priority:medium` と `priority:low` が二重付与）。`--add-label` は既存を外さないため、**軸を変えるときは `--remove-label` を伴う**。検出は §4 PO cron に入れた（AC12）。Dev 側でも `state:dev-done` と `state:needs-dev` の同時付与を 2 回起こしている（PR #4168 / #4178）。
+
 
 | 用途 | 使うもの | 理由 |
 |---|---|---|
@@ -103,7 +143,7 @@
 | ロール | 拾うもの | コマンド |
 |---|---|---|
 | **Dev** | `state:needs-dev` / `state:qm-blocked` / 自分に来た reviewer request | `gh issue list --label "state:needs-dev" --state open` / `gh pr list --label "state:qm-blocked" --state open` / `gh pr list --search "review-requested:@me is:open"` |
-| **QM** | `state:dev-done` / `state:ready-to-merge`（自分が merge） | `gh pr list --label "state:dev-done" --state open` |
+| **QM** | `state:needs-qm` / `state:dev-done` / `state:ready-to-merge`（自分が merge） | `gh issue list --label "state:needs-qm" --state open` / `gh pr list --label "state:needs-qm" --state open` / `gh pr list --label "state:dev-done" --state open` |
 | **PO** | `state:needs-po` / `state:needs-owner` | `gh issue list --label "state:needs-po" --state open` + `state:needs-owner` + PR 側も |
 | **オーナー** | `state:needs-owner` | 同上 |
 | **監査** | `state:needs-audit` / `release/* → main` の open PR | `gh issue list --label "state:needs-audit" --state open` / `gh pr list --base main --state open` |
@@ -111,7 +151,24 @@
 
 **Issue と PR の両方を見る。** `gh pr list --label` は Issue を返さず、`gh issue list --label` は PR を返さない。片方だけ叩くと取りこぼす。
 
-### §3.3.1 orphan 検出（どの mailbox にも入っていないものを見つける）
+### §3.3.1 経路マトリクス（**空欄 = 経路の欠落**）
+
+**どのロールからどのロールへ渡せるか**を全数で並べる。**空欄が残っていたら、そこは mention に退化している**（§3.1.2 = 誰の受信箱にも入らない）。語彙が足りなくなったときに一目で気づくために置く。
+
+| from ＼ to | PO | Dev | QM | 監査 | Platform | オーナー |
+|---|---|---|---|---|---|---|
+| **PO** | — | `needs-dev` | `needs-qm` | `needs-audit` | `needs-platform` | `needs-owner` |
+| **Dev** | `needs-po` | — | `needs-qm` / `dev-done` | `needs-audit` | `needs-platform` | `needs-owner` |
+| **QM** | `needs-po` | `needs-dev` / `qm-blocked` | — | `needs-audit` | `needs-platform` | `needs-owner` |
+| **監査** | `needs-po` | `needs-dev` | `needs-qm` | — | `needs-platform` | `needs-owner` |
+| **Platform** | `needs-po` | `needs-dev` | `needs-qm` / `dev-done` | `needs-audit` | — | `needs-owner` |
+| **オーナー** | `needs-po` | `needs-dev` | `needs-qm` | `needs-audit` | `needs-platform` | — |
+
+**現在、空欄はない。** #4180 以前は **QM 宛の列が丸ごと空**で、監査宛・監査発の横方向も空いていた。
+
+> **表の読み方**: セルに複数あるものは、**汎用の宛先（`needs-*`）と、前提条件を含意する工程 label（`dev-done` / `qm-blocked`）の使い分け**を示す。完成しているなら工程 label、そうでない問い合わせなら宛先 label（§3.1）。
+
+### §3.3.2 orphan 検出（どの mailbox にも入っていないものを見つける）
 
 > **orphan の定義（2026-07-31 初回運用で精緻化）**: `state:*` が 1 つも付いていない open のうち、
 > **`status:on-hold` も `epic` label も付いていないもの**。Draft PR は対象外（まだ誰にも渡していない状態）。
@@ -152,6 +209,7 @@ CronCreate(cron: "<ロールごとにずらした分>", recurring: true, prompt:
 | Dev | `13 * * * *` |
 | QM | `23 * * * *` |
 | PO | `37 * * * *` |
+| **Platform** | **`43 * * * *`** |
 | 監査 | `47 * * * *` |
 
 #### CronCreate の制約（必ず理解して使う）
@@ -199,9 +257,15 @@ gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|sele
 ```
 QM mailbox チェック。以下を実行して結果を簡潔に報告する（何も無ければ「mailbox 空」の 1 行でよい）:
 
+gh issue list --label "state:needs-qm" --state open --json number,title --jq '.[]|"QM宛 #\(.number) \(.title)"'
+gh pr list --label "state:needs-qm" --state open --json number,title --jq '.[]|"QM宛PR #\(.number) \(.title)"'
 gh pr list --label "state:dev-done" --state open --json number,title --jq '.[]|"レビュー待ち #\(.number) \(.title)"'
 gh pr list --label "state:ready-to-merge" --state open --json number,title,mergeStateStatus --jq '.[]|"MERGE可 #\(.number) [\(.mergeStateStatus)] \(.title)"'
 
+- state:needs-qm は **レビュー依頼とは限らない**（問い合わせ / 見解確認を含む）。用件は本文を読む
+- **回答したら label を問い合わせ元の state に戻す**（needs-dev / needs-po / needs-audit / needs-platform）。
+  戻さないと送り手は「返ってこない」だけを観測する（#4149 と同じ形が問い合わせ側で再発する）。
+  実装が完了しているレビュー依頼だと分かったら state:dev-done に読み替える
 - 報告は必ず「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。
   「BLOCK 3 類型に非該当」は CI 緑を含意しない
 - state:ready-to-merge でも、gh pr checks で緑を確認してから merge する。赤を跨いだ merge は
@@ -224,6 +288,19 @@ gh pr list --label "state:ready-to-merge" --state open --json number,title,merge
 gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
 gh pr list --state open --limit 50 --json number,title,labels --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
 
+# on-hold の陳腐化（着手順に入っていない扱いのまま、実は着手済 / Dev に渡っている）— #4180 AC11
+gh issue list --label "status:on-hold" --label "state:needs-dev" --state open --json number,title --jq '.[]|"STALE-HOLD #\(.number) \(.title)"'
+for n in $(gh issue list --label "status:on-hold" --state open --json number --jq '.[].number'); do
+  if [ -n "$(gh pr list --state open --search "$n in:body" --json number --jq '.[].number')" ]; then echo "STALE-HOLD(PR) #$n"; fi
+done
+
+# 1 つの軸に 2 つの値（--add-label の外し忘れ）— #4180 AC12
+gh issue list --state open --limit 100 --json number,title,labels --jq '.[]|. as $i|["priority:","state:","status:"]|map(. as $p|[$i.labels[].name]|map(select(startswith($p)))|length)|select(any(.>1))|"DUP-AXIS #\($i.number) \($i.title)"'
+gh pr list --state open --limit 50 --json number,title,labels --jq '.[]|. as $i|["priority:","state:","status:"]|map(. as $p|[$i.labels[].name]|map(select(startswith($p)))|length)|select(any(.>1))|"DUP-AXIS PR #\($i.number) \($i.title)"'
+
+- STALE-HOLD が出たら status:on-hold を外す。**hold は「上位に入っていない」ことを示すだけ**で、
+  着手済のものに付いたまま残すと §3.1.1 で塞いだ「対応済みなのに伝わらない」と同じ形になる（§3.2）
+- DUP-AXIS が出たら **--remove-label で片方を外す**。1 つの軸に 2 値だと次に見た人が優先度も宛先も読めない
 - state:needs-owner は、不可逆 4 操作（削除 / 本番 deploy / 課金書込 / スキーマ変更）のどれに
   該当するかを 1 行で示し、判断材料（実 diff / 影響範囲）を添えてオーナーに提示する
 - state:ready-to-merge は CI が実際に緑かを gh pr view で確認してから報告する。ラベルは実測を代替しない
@@ -324,11 +401,14 @@ gh issue list --state open --label "priority:critical" --json number,title --jq 
 | PO / QM → Dev に**着手を渡す**経路が無い | Dev が拾えるのは QM の差し戻しと reviewer request だけだった。PO が着手順を決めても Dev の受信箱に入らず、**5 件が滞留**したまま Dev は「対応事項なし」と報告した | `state:needs-dev` |
 | **不可逆 4 操作ではない PO 判断**を渡す経路が無い | Dev が「ruleset 変更」「node EBADENGINE」を判断待ちとして書いたが、4 操作に当たらず label を付けられなかった。**PO の mailbox に入らないまま PR が merge されて流れた** | `state:needs-po` |
 | PO → 監査に**release cut を渡す**経路が無い | 「明示依頼で足りる」としていたが、mention / コメントは通知経路ではない。Dev で起きたのと同じ取りこぼしが監査レーンでも成立する | `state:needs-audit` |
+| **QM 宛の経路が無い / 監査宛が cut 依頼に限定**（#4180、2026-08-01。2 ロールから同日に申告） | **宛先 label が用件に縛られていた**。QM 宛は工程 label `dev-done`（実装完了・CI 全緑・Ready 化済）でしか表現できず、**完成していないと送れない**。監査宛は定義が「cut を渡した」で付与者も PO 限定。結果、「実装の途中で観点を相談したい」「BLOCK 事由の意図を確認したい」が **mention に退化**した | `state:needs-qm`（+ `needs-audit` の定義を「監査チームに用がある」へ緩和） |
 
 **共通の教訓**: 語彙を増やさない原則（§2-5）は、**渡す経路が既にあるとき**にのみ有効。経路が無いまま「増やさない」を守ると、伝達が mention に退化し、mention は誰の受信箱にも入らない。
 
-## §7 現状（2026-07-31 時点）
+**4 例目（#4180）で分かった追加の教訓**: 経路が「無い」だけでなく「**用件に縛られていて使えない**」形でも同じことが起きる。**宛先 label に用件を含意させない**（§3.1）ことと、**経路マトリクスの空欄を可視化しておく**（§3.3.1）ことの 2 つで、次に足りなくなったときに気づけるようにした。
 
-- label **7 種**（`needs-dev` / `dev-done` / `qm-blocked` / `ready-to-merge` / `needs-audit` / `needs-po` / `needs-owner`）
+## §7 現状
+
+- label **9 種** = 宛先 6（`needs-dev` / `needs-qm` / `needs-po` / `needs-audit` / `needs-platform` / `needs-owner`）+ 工程 3（`dev-done` / `qm-blocked` / `ready-to-merge`）
 - PO セッションの cron は稼働中（`37 * * * *`）
 - **恒久化（GitHub workflow → Discord）は未実施。** 実際に見落としが発生してから作る

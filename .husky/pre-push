@@ -28,7 +28,7 @@
 #   - scripts/check-pr-body.mjs (#2060 / #2576 / #2586)
 #
 # # 関連
-#   - ADR-0022 amendment 1 / amendment 3 (#1879) / docs/sessions/qa-session.md
+#   - ADR-0022 amendment 1 / amendment 3 (#1879) / docs/sessions/qm-session.md
 #   - ADR-0056 §F (本 PR で新設、push 時自己検証機構 SSOT)
 #   - ADR-0030 (pre-ready CLI と本 hook の defense in depth 関係)
 #   - #2598 (本実装、QA self-implement 第 8 弾、本日 7+ 連続 BLOCK 構造的予防)

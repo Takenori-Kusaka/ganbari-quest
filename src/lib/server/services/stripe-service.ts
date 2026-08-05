@@ -18,7 +18,9 @@ import {
 	CURRENCY,
 	GRACE_PERIOD_DAYS,
 	getPlans,
+	getPriceId,
 	getWebhookSecret,
+	lookupPlanOf,
 	type PlanId,
 	planIdFromLookupKey,
 	planIdFromPriceId,
@@ -46,7 +48,8 @@ export type CreateCheckoutResult =
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'ALREADY_SUBSCRIBED' }
-	| { error: 'INVALID_PLAN' };
+	| { error: 'INVALID_PLAN' }
+	| { error: 'PRICE_UNRESOLVED' };
 
 export async function createCheckoutSession(
 	input: CreateCheckoutInput,
@@ -63,7 +66,26 @@ export async function createCheckoutSession(
 	const plan = plans[input.planId];
 	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
 	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
-	if (!plan?.priceId) return { error: 'INVALID_PLAN' };
+	const lookupPlan = plan ? lookupPlanOf(input.planId) : null;
+	if (!plan || !lookupPlan) return { error: 'INVALID_PLAN' };
+
+	// #4286: Price ID は `getPriceId()` 経由で解決する。**`plan.priceId` を直読しない。**
+	// 直読していたため `USE_LOOKUP_KEY=true` がどの経路にも効かず、price env を注入しない
+	// 配備 (staging #4104) では購入が必ず 400 で失敗していた。`getPriceId()` は
+	// flag ON なら lookup_key 解決 → 失敗時のみ env fallback (alert 付き kill switch) を行う。
+	let priceId: string;
+	try {
+		priceId = await getPriceId(lookupPlan);
+	} catch (err) {
+		// lookup_key も env も解決できない = 配備の設定不備。**別 plan の Price に倒れない**
+		// (誤課金になる)。顧客の選択が誤っているわけではないので INVALID_PLAN では返さない。
+		// alert は `getPriceId()` 内で発火済み。
+		logger.error('[STRIPE] Price ID 未解決のため checkout を中止', {
+			tenantId: input.tenantId,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return { error: 'PRICE_UNRESOLVED' };
+	}
 
 	const stripe = getStripeClient();
 
@@ -76,7 +98,7 @@ export async function createCheckoutSession(
 	const sessionParams: Stripe.Checkout.SessionCreateParams = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
-		line_items: [{ price: plan.priceId, quantity: 1 }],
+		line_items: [{ price: priceId, quantity: 1 }],
 		locale: 'ja',
 		// #2346 (景品表示法 critical fix): CHECKOUT_LABELS SSOT 経由で
 		// 「お選びのプランの機能」文言を適用。景品表示法 5 条 1 号 (優良誤認) +
@@ -133,9 +155,66 @@ export type CreatePortalResult =
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'NO_STRIPE_CUSTOMER' };
 
+/**
+ * portal で顧客にやらせたいこと (#4166)。
+ *
+ * Stripe portal の**ボタン文言は変更できない** (Branding で変えられるのは色・ロゴ・事業者名のみ)。
+ * ホームに着地させると「サブスクリプションを更新」が並び、顧客はこれを
+ * 「支払い方法の更新 / 継続」と読んでプラン変更に到達しない (本番実機、#4166)。
+ * したがって**呼び出し元が意図を宣言し**、`flow_data` で目的のフローへ直行させる。
+ *
+ * `home` は汎用導線 (請求書確認 / 支払い方法変更) 用。**flow を付けるとこれらの入口が消える**。
+ */
+export type PortalFlow =
+	| { kind: 'home' }
+	| { kind: 'subscription_update' }
+	| { kind: 'subscription_cancel' };
+
+/**
+ * `flow_data` を組み立てる (#4166)。
+ *
+ * **subscription を持たないときは flow を付けない。** 付けたまま投げると Stripe が 400 を返し、
+ * 顧客は何を押しても portal に入れなくなる (導線ごと死ぬ)。home に落とすのが安全側。
+ *
+ * `after_completion` は明示する。省略時の挙動は公式ドキュメントに明記が無く、
+ * 「完了した更新の詳細を示す確認ページ」に留まると読めるため、アプリへ戻す指定を必ず置く。
+ */
+function buildPortalFlowData(
+	flow: PortalFlow,
+	subscriptionId: string | null,
+	returnUrl: string,
+): { flow_data?: Stripe.BillingPortal.SessionCreateParams.FlowData } {
+	if (flow.kind === 'home') return {};
+	if (!subscriptionId) return {};
+
+	const afterCompletion = {
+		type: 'redirect',
+		redirect: { return_url: returnUrl },
+	} as const;
+
+	if (flow.kind === 'subscription_update') {
+		return {
+			flow_data: {
+				type: 'subscription_update',
+				subscription_update: { subscription: subscriptionId },
+				after_completion: afterCompletion,
+			},
+		};
+	}
+
+	return {
+		flow_data: {
+			type: 'subscription_cancel',
+			subscription_cancel: { subscription: subscriptionId },
+			after_completion: afterCompletion,
+		},
+	};
+}
+
 export async function createPortalSession(
 	tenantId: string,
 	returnUrl: string,
+	flow: PortalFlow = { kind: 'home' },
 ): Promise<CreatePortalResult> {
 	if (!isStripeEnabled()) return { error: 'STRIPE_DISABLED' };
 
@@ -147,7 +226,9 @@ export async function createPortalSession(
 	const stripe = getStripeClient();
 	const session = await stripe.billingPortal.sessions.create({
 		customer: tenant.stripeCustomerId,
+		// 途中でやめた顧客が戻れるリンク。flow の有無に関わらず常に渡す
 		return_url: returnUrl,
+		...buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl),
 	});
 
 	return { url: session.url };
@@ -794,6 +875,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 		'invoice.paid',
 		() => ({
 			status: SUBSCRIPTION_STATUS.ACTIVE,
+			// #4118: 猶予終了日を消す。支払い失敗で `grace_period` + `planExpiresAt` が書かれた
+			// テナントが支払い成功で復帰するとき、期限だけ残すと **契約は生きているのに期限がある**
+			// (contract-state-matrix X3 =「dunning の残骸」) になる。この列を読む導出値は
+			// 支払い済みの顧客に「あと N 日で使えなくなります」と表示しうる。
+			// status を戻すなら、その status が持ってはいけない列も同時に落とす。
+			planExpiresAt: null,
 			// #3960: plan 未解決時は silent fallback せず **既存 plan を保持** する
 			// (`plan: undefined` は repo 実装で「更新しない」として扱われる)。
 			...planUpdateOrKeep(plan, tenant, 'invoice.paid', subscription.id),
@@ -919,6 +1006,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			// #3960: silent fallback (`?? MONTHLY`) 廃止。未解決時は既存 plan を保持 + alert。
 			...planUpdateOrKeep(plan, tenant, 'customer.subscription.updated', subscription.id),
 			status,
+			...planExpiresAtPatchFor(status, tenant),
 		}),
 	);
 	if (!applied) return;
@@ -973,6 +1061,33 @@ const TERMINAL_SUBSCRIPTION_STATUSES = [
 
 function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
 	return (TERMINAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(subscription.status);
+}
+
+/**
+ * `customer.subscription.updated` (W4) が status を書き換えるとき、**その status が持つべき
+ * `plan_expires_at` を同時に決める** (#4181、`contract-state-matrix.md` §4)。
+ *
+ * status だけを書き換えると、表に無い / 不正な組み合わせが残る:
+ *
+ * - `active` に戻したのに猶予終了日が残る → **X3**「`active` に期限は無い」。
+ *   この列を読む導出値は、支払い済みの顧客に「あと N 日で使えなくなります」と表示しうる
+ * - `grace_period` に入れたのに猶予終了日が無い → **S3 は `exp` あり必須**なので表に無い組み合わせ。
+ *   Stripe は `invoice.payment_failed` (W3) と `past_due` の updated を両方送り到着順を保証しないため、
+ *   W4 が先着するとこの形になる。いつまで猶予なのかを画面にも出せず、W3 が届かなければ猶予が明けない
+ *
+ * 既に猶予終了日があるときは**触らない**。dunning 中 Stripe は retry のたび `past_due` を送るので、
+ * 毎回書き直すと猶予が延び続け、未払いのまま使い続けられる (W3 と同じ 7 日を初回だけ与える)。
+ * `suspended` の `exp` は matrix で「任意」なので `undefined` = 更新しない。
+ */
+function planExpiresAtPatchFor(
+	status: Tenant['status'],
+	tenant: Pick<Tenant, 'planExpiresAt'>,
+): { planExpiresAt?: string | null } {
+	if (status === SUBSCRIPTION_STATUS.ACTIVE) return { planExpiresAt: null };
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !tenant.planExpiresAt) {
+		return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
+	}
+	return {};
 }
 
 // ============================================================

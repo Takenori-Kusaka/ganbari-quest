@@ -140,7 +140,7 @@ export function checkBeforeAfterIdentical(capturedFiles, hasher = sha256OfFile) 
 		'  - After SS は PR HEAD (作業中ブランチ) で撮影してください',
 		'  - 変化のない箇所であれば SS 提示を取りやめ、refactor:internal-no-doc-impact label を付ける',
 		'',
-		'参考: docs/sessions/qa-session.md / scripts/check-ss-blob-sha-uniqueness.mjs (#2063 CI gate)',
+		'参考: docs/sessions/qm-session.md / scripts/check-ss-blob-sha-uniqueness.mjs (#2063 CI gate)',
 	];
 
 	return { violations, message: lines.join('\n') };

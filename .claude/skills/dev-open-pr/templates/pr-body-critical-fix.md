@@ -113,7 +113,7 @@ UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）*
 **破壊的変更**:
 - [ ] このPRに破壊的変更は**含まれない**
 
-**レビュー依頼事項・QA**:
+**レビュー依頼事項・QM**:
 <!-- 5 要件のうち特に重点確認してほしい項目 -->
 
 ## 配布済み env / secret (ADR-0006)
@@ -131,4 +131,4 @@ UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）*
 
 ## QM レビュー結果
 
-[QM 5 手順 approve body は `docs/sessions/qa-session.md` を参照](../docs/sessions/qa-session.md)
+[QM 5 手順 approve body は `docs/sessions/qm-session.md` を参照](../docs/sessions/qm-session.md)

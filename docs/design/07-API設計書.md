@@ -1242,6 +1242,9 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
 - **`cancel_url`**: `${origin}/pricing`
 - **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
+- **Price の解決 (#4286)**: `planId` → Price ID は **`getPriceId()` 単一経路**で解決する。env に Price ID が無く `lookup_key` からも引けない場合は `PRICE_UNRESOLVED` を返す
+- **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
+  - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
 
 #### POST /api/stripe/portal
 

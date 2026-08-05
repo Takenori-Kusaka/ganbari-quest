@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: Claude Code の Agent Teams（lead + teammate、共有タスクリスト、mailbox）を本リポジトリでどう使うかの SSOT。**使ってよい場面・使ってはいけない場面・運用規約**を定める。
 >
-> **関連**: [agent-concurrency.md](agent-concurrency.md)（heavy lock）/ [label-mailbox.md](label-mailbox.md)（ロール間の受け渡し）/ [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）/ ADR-0010（Pre-PMF）
+> **関連**: [agent-concurrency.md](agent-concurrency.md)（heavy lock）/ [label-mailbox.md](label-mailbox.md)（ロール間の受け渡し）/ [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）/ ADR-0010（Pre-PMF）
 >
 > **公式ドキュメント**: https://code.claude.com/docs/en/agent-teams（experimental。仕様は変わりうるので、判断に迷ったら原典を確認する）
 
@@ -73,6 +73,22 @@ heavy = pre-ready / vitest / playwright test / svelte-check / npm run test|check
 
 「テストを並列で回して速くする」は本リポジトリでは成立しない。速くなるのは **読む・調べる・書く**（lock 対象外）だけ。
 
+### §3.2.1 トークン残量が逼迫しているときは使わない（#4210 AC5）
+
+**teammate 1 人ごとに context window が独立し、トークンは線形に増える**（3 人で約 3〜4 倍、§6）。週間リミットが枯渇すると**全レーンが止まり、hotfix リリースも打てなくなる**（#4210: 残 10% / リリース 1 回で約 15% 消費）。
+
+**残量が逼迫しているときは team を組まず、lead が直列で処理する。** 判断基準:
+
+| 残量 | 方針 |
+|---|---|
+| 潤沢 | §4.1 の 4 類型どおり使う |
+| **逼迫（リリース 1 回分を割る）** | **teammate を spawn しない。** 調査は lead が直接行い、並列化より「読む範囲を絞る」で時間を作る |
+| 逼迫下でどうしても並列化したい | **1 人まで**。かつ「成果物がファイルに残る仕事」に限る（§4.3 ⑦。空振りは残量を二重に失う） |
+
+**逼迫時に最も高くつくのは空振り**である。teammate が出力を返さず lead が引き取ると、同じ仕事に 2 回払うことになる（§4.3 ⑩ の実測）。**残量が少ないほど、振る前に「これはファイルに残る仕事か」を厳しく問う。**
+
+**使い終わった teammate は停止する。** idle のまま置くと context を保持し続ける。lead が成果物を検収した時点で止める。
+
 ### §3.3 その他
 
 - **逐次依存の作業**: 前の変更に次が依存する連鎖。単一セッションが端から端まで推論する方が安く確実
@@ -83,14 +99,33 @@ heavy = pre-ready / vitest / playwright test / svelte-check / npm run test|check
 
 ## §4 使ってよい場面と運用規約
 
-### §4.1 向いている 4 類型（公式ガイダンス + 本リポジトリの実例）
+### §4.1 向いている 5 類型（公式ガイダンス + 本リポジトリの実例）
 
 | 類型 | 本リポジトリでの例 |
 |---|---|
 | **競合仮説の調査** | CI fail の真因調査。第 19 回 run で監査が 4 件の fail を単独で追ったが、**互いに反証させる**形なら anchoring を避けられた |
 | **多観点レビュー** | `ui-defect-hunt` の 8 観点、`audit-team.md` の 8 領域監査。**観点ごとに teammate を割り当てる**のが素直 |
+| **read-only の分担調査**（#4227） | **独立に判定できる対象が複数あり、各々の出力が大きいとき、対象を分割して read-only で調べさせる**。受信箱の triage / backlog の棚卸し / 複数 Issue の AC 突き合わせ はすべてこれ |
 | **独立した新規モジュール** | ファイル所有が分かれる実装。E3（`scripts/backup-*`）と E4（`src/lib/domain/`）のように領域が重ならないもの |
 | **層を跨ぐ変更** | frontend / backend / test をそれぞれ別 teammate が持つ |
+
+#### read-only の分担調査 — 使ってよい 5 条件（#4227）
+
+**2026-08-02 に PO と Dev が同日に、定義に無いまま同じ使い方をしていた**（PO = backlog 12 件の裏取り / over-open 監査 / node 版調査 / トークン削減調査、Dev = 受信箱 24 件の triage）。**定義に無いまま常用される方が危険なので類型として足す。**
+
+**「受信箱の triage」ではなく「read-only の分担調査」と一般化しているのは、同じ形に別の名前が付くと「定義に無い」が再発するため。**
+
+| # | 条件 | 根拠 |
+|---|---|---|
+| 1 | **read-only** に限る。書き込みを伴う分担は本類型の対象外 | 書き込みは §4.2 ① の worktree 分離が要る。別の類型として扱う |
+| 2 | **出力先ファイルを指定する** | §4.3 ⑦ — **報告テキストは届かないことがある** |
+| 3 | **lead が `gh` / コードで突き合わせる** | §4.3 ⑨ — **teammate は数値・Issue 番号を推測で埋める** |
+| 4 | **対象が 10 件以上、かつ 1 件あたりの出力が大きい** | §3.3「10 分で終わる作業は team にすると 12 分かかって課金は 4 倍」。**10 件でも各々 1 行で終わるなら本体で読む方が安い**。2026-08-02 に PO が grep 数回で済む調査を 3 回 subagent に振って無駄にした |
+| 5 | **週間リミットが逼迫しているときは使わない** | `/usage` で **subagent が 99% を占めていた**実測がある。**subagent は自前の system prompt を first call で cache 無しにフルロードする**（[prompt caching §Subagents and the cache](https://code.claude.com/docs/en/prompt-caching)） |
+
+**条件 5 は「効くか」ではなく「今使ってよいか」の条件。** 効く場面でも、残トークンが逼迫していれば使わない。
+
+> **`impact-analysis` への読み替えは採らない（#4227 で検討・不採用）**: 影響範囲調査は **1 つの変更の波及を追う**もので、複数対象の独立判定とは目的が違う。既存語彙に押し込むと、次に読む人が `impact-analysis` を開いて「これは違う」と気づくまで時間を使う。
 
 ### §4.2 運用規約
 
@@ -108,7 +143,7 @@ lead が teammate に名前を付ける。**後から参照するので、spawn 
 
 **③ 既存の subagent 定義を teammate 型として再利用する**
 
-`.claude/agents/*.md`（`po-session` / `dev-session` / `qa-session` / `audit-manager`）と `pr-review-toolkit` 等の plugin agent は、そのまま teammate 型として指定できる。
+`.claude/agents/*.md`（`po-session` / `dev-session` / `qm-session` / `audit-manager`）と `pr-review-toolkit` 等の plugin agent は、そのまま teammate 型として指定できる。
 
 > **caveat**: subagent 定義の `skills` / `mcpServers` frontmatter は **teammate として動くときは適用されない**。skills / MCP は project / user 設定から読まれる。skill 前提の agent を teammate にするときは、**spawn prompt に skill 名を明記する**。
 
