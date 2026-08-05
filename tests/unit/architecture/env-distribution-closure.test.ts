@@ -406,6 +406,11 @@ const NOT_DISTRIBUTED: Array<{
 	},
 	{
 		readers: ['cdk-context'],
+		keys: ['adminIpRestrictionOptOut'],
+		why: '/admin ・ /api/v1/admin ・ /ops の IP allowlist を意図的に外すときだけ人が手で渡す escape hatch (#4266)。**配ってはならない** — 配布経路に載せた時点で「宣言なしに防御層が消えない」という本 context の存在意義が消える。未指定が正常系で、未指定かつ adminAllowedIps も空なら network-stack.ts が synth を throw する',
+	},
+	{
+		readers: ['cdk-context'],
 		keys: ['opsEmail'],
 		why: '未指定だと OpsStack の SNS topic に subscription が 1 件も付かず、全 CloudWatch alarm が宛先なしになる。配布すべき通知先アドレスが未決のため塞げていない',
 		followUp: '#4189',
