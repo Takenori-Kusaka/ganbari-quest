@@ -31,6 +31,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { authorizeCognito } from '../../../src/lib/server/auth/authorization';
+import { stripCommentsAndStrings } from './helpers/strip-comments-and-strings';
 
 // #4085: 走査 test の区分は scripts/lib/ci/repo-scan-test-registry.mjs が SSOT。
 // 本 test は再帰 walk だが対象が src/routes/api/cron 配下の単一 dir で有界なため
@@ -52,26 +53,9 @@ interface CronRoute {
 	code: string;
 }
 
-/**
- * コメント (`//` / 文末 `/* … *​/`) と文字列リテラル (' " `) を空白に潰す。
- *
- * これを挟まないと、**コメントに書かれた関数名が呼び出しとして誤検出される**。
- * 実測 (#4206 の adversarial review): `src/routes/api/cron/pglite-backup/+server.ts:8` の
- * 「認証は既存 cron 群と同じ verifyCronAuth (x-cron-secret …)」というコメントだけで
- * [C2] が緑になり、L33 の実呼び出しを消しても検出できなかった。
- * **guard が「唯一の防波堤」である以上、コメントで満たせる検査は防波堤ではない。**
- *
- * 完全な字句解析ではない (正規表現の限界) が、コメント / 文字列という
- * 最も現実的なすり抜け経路は閉じる。
- */
-function stripCommentsAndStrings(source: string): string {
-	return source
-		.replace(/\/\*[\s\S]*?\*\//g, ' ')
-		.replace(/\/\/[^\n]*/g, ' ')
-		.replace(/`(?:\\.|[^`\\])*`/g, ' ')
-		.replace(/'(?:\\.|[^'\\\n])*'/g, ' ')
-		.replace(/"(?:\\.|[^"\\\n])*"/g, ' ');
-}
+// コメント / 文字列リテラルの除去は #4309 で ops 側 fitness と共有ヘルパ化した
+// (`./helpers/strip-comments-and-strings`)。**コメントで満たせる検査は防波堤ではない**という
+// [C2] の前提はそちらの doc comment が SSOT。
 
 /**
  * `+server.ts` を**再帰的に**集める。
