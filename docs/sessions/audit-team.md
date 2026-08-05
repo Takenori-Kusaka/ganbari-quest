@@ -86,6 +86,26 @@ main = 本番（push 即 deploy、不変条件）であるにもかかわらず�
 - 各 agent の evidence は audit-manager が物理 verify する。evidence 不在・schema 不充足の agent finding は採用しない（self-report 単独信頼の禁止、§2）。
 - 競合調査 finding は一次情報 URL を必須とし、URL 欠落 finding は audit-manager が自動棄却する（EPIC 失敗シナリオ⑦の幻覚 finding 防止）。
 
+### §3.1.1 差分の性質 → 起動する領域（8 領域を毎回全部は起動しない、#4210 AC2）
+
+**統合差分に存在しない領域を起動しない。** docs だけの統合に a11y / パフォーマンス / 競合調査を走らせても、読む対象が無いまま context を消費するだけで finding は出ない。トークンは有限で、枯渇すればリリース自体が止まる（#4210）。
+
+**起動判定は変更 path の集合から機械的に導く。** 「念のため全部」でも「勘で絞る」でもない。
+
+| 統合差分に含まれる path | 起動する領域 |
+|---|---|
+| `docs/**` / `*.md` のみ | プロダクト実装調査（記述と実装の乖離）+ ポリシー準拠判定 |
+| `.github/**` / `scripts/**` / `.husky/**` / `tests/unit/architecture/**` | テスト品質 + 技術調査 |
+| `src/routes/**` / `src/lib/ui/**` / `src/lib/features/**` | ユーザビリティ・a11y + パフォーマンス + プロダクト実装調査 |
+| `src/lib/server/**` / `src/lib/domain/**` | セキュリティ + プロダクト実装調査 + テスト品質 |
+| `infra/**` / `deploy*.yml` | セキュリティ + 技術調査 |
+| `package.json` / `package-lock.json` | セキュリティ（deps 供給線、§3.5.1） |
+| `site/**` | パフォーマンス（LP メトリクス）+ ユーザビリティ |
+
+**常に起動する**: 技術調査（影響範囲）/ 問題起票 / ポリシー準拠判定。**run 単位では起動しない**: 競合調査（週次。`competitive-research` skill の定義どおり統合 run の依存ではない）。
+
+**迷ったら起動する側に倒す。** 削るのは「差分がゼロの領域」だけで、「差分はあるが軽そうな領域」は削らない。**削った領域は統合 PR の判定エビデンス表に「差分なしのため未起動」と明記する**（§3.5）— 書かないと「見たが問題なし」と区別がつかず、監査の空白が silent になる。
+
 ### §3.2 既存 skill / 機構 再利用マップ（重複新設禁止）
 
 EPIC #2861「既存資産再利用マップ」を本ファイルに正本化する。新設は **competitive-research / policy-compliance / audit-manager の 3 点に限定**し、残りは既存 skill / workflow を再利用する。
