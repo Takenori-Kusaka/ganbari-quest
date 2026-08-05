@@ -8643,6 +8643,12 @@ export const STORYBOOK_LABELS = {
 		overflowExport: 'エクスポート',
 		badge: '有料限定',
 	},
+	// #4302 follow-up: SaasLicensePanel story の mock 契約者名。
+	// portal-fallback-notice (Stripe が flow を拒否したときのみ描画) は demo 環境で撮影できないため
+	// (ss-render-impossible)、story の play で見た目を固定する (#4166)。
+	saasLicensePanel: {
+		tenantName: 'たろう家',
+	},
 } as const;
 
 // ============================================================
