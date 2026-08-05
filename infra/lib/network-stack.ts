@@ -51,6 +51,11 @@ export interface NetworkStackProps extends cdk.StackProps {
 	// PO 実測 (2026-08-02): 本番 cluster 1,801,692 bytes に対し staging 1,031,956 bytes (57%)。
 	// 本番 snapshot をコピーしていれば同等以上になるため、コピーされていないと判断した。
 	// **staging に本番データを入れる運用が将来生まれた場合は JP allowlist を戻すこと** (PO 条件)。
+	//
+	// #4280: geoRestriction は **CloudFront 層の制御であり、Lambda Function URL 直叩きには効かない**
+	// (authType=NONE、CloudFront → origin の shared secret / origin 制限なし)。
+	// JP allowlist を戻しても「日本国外から到達できない」ことにはならない。詳細は本 file の
+	// CloudFront Function 定義箇所のコメント / docs/design/14-セキュリティ設計書.md §11.5。
 	geoRestrictionCountries?: string[];
 }
 
@@ -102,6 +107,17 @@ export class NetworkStack extends cdk.Stack {
 		//   - 運営者のグローバル IP は固定でなく、プロキシ経由では event.viewer.ip が回線 IP と不一致
 		// /ops の防御はアプリ層 (ops group + MFA、src/lib/server/auth/ops-authz.ts hasOpsAccess) が担う。
 		// 復活させない不変条件は tests/unit/infra/admin-no-ip-allowlist.test.ts が assert する。
+		//
+		// #4280: **CloudFront Function は viewer request にしか介在しない**。本 stack が掛ける
+		// CloudFront 層の制御 (本 Function / 下記 geoRestriction / 将来もし IP allowlist を戻す場合) は、
+		// **Lambda Function URL を直接叩く経路には一切効かない**。Function URL は
+		// compute-stack.ts で authType=NONE で公開されており、CloudFront → origin 間に
+		// 共有シークレット header の検証も origin 制限 (OAC 相当) も無いため、URL を知る者は
+		// CloudFront を迂回できる。**URL の推測困難さは防御層として数えない**
+		// (ログ / エラー画面 / 外部サービスへの登録値から漏れた時点で無効になる)。
+		// /admin・/ops を実際に守っているのはアプリ層 (Cognito 認証 + 親 PIN gate / ops group + MFA) だけである。
+		// 迂回を塞ぐ方式 (CloudFront → origin の custom header 等値検査) は #4280 で別途扱う。
+		// 防御層マトリクスの SSOT: docs/design/14-セキュリティ設計書.md §11.5。
 		const cfFunctionCode = `
 function handler(event) {
   var request = event.request;
