@@ -20,6 +20,8 @@ CronCreate(cron: "13 * * * *", recurring: true, prompt: <label-mailbox.md §4「
 
 Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの。**Issue と PR の両方**）、**`state:qm-blocked`**（QM からの差し戻し）、**自分に来た reviewer request**（`review-requested:@me`）、そして **ORPHAN**（`state:*` が 1 つも付いていない open）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
 
+**完成していなくても QM に送れる。** 実装の途中で観点を相談したい / `state:qm-blocked` の BLOCK 事由の意図を確認したい ときは **`state:needs-qm`**（#4180）。`dev-done` は「実装完了・CI 全緑・Ready 化済」を含意するので、**完成していないのに付けてはいけない**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない）。
+
 - **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
 - **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
 - **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**

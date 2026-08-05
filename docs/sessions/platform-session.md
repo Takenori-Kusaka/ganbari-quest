@@ -22,6 +22,8 @@ CronCreate(cron: "43 * * * *", recurring: true, prompt: <下記テンプレー�
 
 **分は 43。** 他ロールと重ならない値にする（Dev=13 / QM=23 / PO=37 / 監査=47、[label-mailbox.md §3.4](label-mailbox.md)）。
 
+**Platform から他ロールへ渡す経路**: 装置変更の影響を QM に確認したいときは **`state:needs-qm`**（#4180）。完成して QM レビューに出すときは従来どおり **`state:dev-done`**（自分の PR を自分で approve しない、ADR-0022）。監査に用があれば **`state:needs-audit`**。
+
 ### cron プロンプト テンプレート
 
 ```

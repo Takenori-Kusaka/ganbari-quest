@@ -309,7 +309,9 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
 ```
 
-PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、そして **ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）。**Issue と PR の両方**を見る。
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（#4180 AC11 / AC12）。**Issue と PR の両方**を見る。
+
+**`status:*` は PO 軸**（label-mailbox.md §3.2）。`status:on-hold` の付け外しは PO が行い、外してほしい申告は誰でも `state:needs-po` で渡せる。**hold が付いていないものの着手順は Dev が決めてよい**（PO の許可は要らない）。**QM に用があるときは `state:needs-qm`**（#4180。gate 方針を決める前に QM の見解を聞く等）。
 
 PO が仕事を渡すときは **`state:needs-dev`**（Dev へ着手）/ **`state:needs-audit`**（監査へ release cut 依頼）を付ける。
 

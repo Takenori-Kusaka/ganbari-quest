@@ -26,7 +26,7 @@ Dev の**外在的認知負荷**を下げる。装置を増やして人に守ら
 
 ## セッション起動時
 
-`state:needs-platform` を拾う mailbox cron を 1 本作る（分は **43**、他ロールと重ならない値）。テンプレートは [platform-session.md §mailbox cron](../../docs/sessions/platform-session.md)。実装完了・CI 全緑・Ready 化したら `state:needs-platform` を外して **`state:dev-done`** を付け QM へ渡す。
+`state:needs-platform` を拾う mailbox cron を 1 本作る（分は **43**、他ロールと重ならない値）。テンプレートは [platform-session.md §mailbox cron](../../docs/sessions/platform-session.md)。実装完了・CI 全緑・Ready 化したら `state:needs-platform` を外して **`state:dev-done`** を付け QM へ渡す。**完成前に QM へ相談したいときは `state:needs-qm`**（#4180。`dev-done` は「実装完了・CI 全緑・Ready 化済」を含意するので完成前に付けない）。
 
 ## やってはいけないこと
 
