@@ -82,7 +82,6 @@ vi.mock('$lib/server/stripe/config', () => ({
 	},
 	planIdFromLookupKey: () => null,
 	getWebhookSecret: () => 'whsec_test',
-	TRIAL_PERIOD_DAYS: 7,
 	GRACE_PERIOD_DAYS: 7,
 	CURRENCY: 'jpy',
 }));

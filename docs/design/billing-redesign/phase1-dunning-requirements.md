@@ -59,7 +59,7 @@ active ──invoice.payment_failed──► past_due (grace: 有料維持) ─�
 |---|---|---|---|
 | **支払い失敗 grace (本要件)** | `GRACE_PERIOD_DAYS` (config.ts:95) | 7日 (app ハードコード) | **2週 (Stripe Smart Retries SSOT へ移行)** |
 | 解約/退会 読み取り専用猶予 | `grace-period-service.ts` | free 0/std 7/family 30日 | 変更なし (別概念) |
-| トライアル | `TRIAL_PERIOD_DAYS` (config.ts:92) | 7日 | 変更なし |
+| トライアル | `TRIAL_TERMS.durationDays` (`src/lib/domain/terms.ts`) | 7日 | 変更なし |
 | データ保持 | ADR-0049 | free 90/std 365/family ∞ | 変更なし |
 
 ### 既存実装からの変更点

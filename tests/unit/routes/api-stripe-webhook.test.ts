@@ -36,7 +36,6 @@ vi.mock('$lib/server/stripe/config', () => ({
 		if (priceId === 'price_family_monthly_789') return 'family-monthly';
 		return null;
 	},
-	TRIAL_PERIOD_DAYS: 7,
 	GRACE_PERIOD_DAYS: 7,
 	CURRENCY: 'jpy',
 }));
