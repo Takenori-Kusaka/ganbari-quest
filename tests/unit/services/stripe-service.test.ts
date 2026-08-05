@@ -553,7 +553,13 @@ describe('handleWebhookEvent', () => {
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
 		// plan キー自体が渡らない = repo 実装 (`if (data.plan !== undefined)`) で既存値保持
-		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		// #4118: 猶予終了日は同時に落とす (active + 期限残り = matrix X3)。
+		// plan を書かないことは `not.toHaveProperty` で明示し、列追加で緩まないようにする。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'active',
+			planExpiresAt: null,
+		});
+		expect(mockUpdateTenantStripe.mock.calls.at(-1)?.[1]).not.toHaveProperty('plan');
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);
@@ -614,7 +620,16 @@ describe('handleWebhookEvent', () => {
 			},
 		} as never);
 
-		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		// 本 test の不変条件は「**plan を上書きしない**」であって「patch が status 1 列だけ」ではない。
+		// #4181 で `active` 復帰時に猶予終了日を消す列 (`planExpiresAt: null`) が増えたため、
+		// 完全一致では列追加のたびに落ちる。**意図を直接 assert する形に強める** —
+		// `plan` が patch に現れないことを明示検査する (ADR-0006: 弱体化ではなく的の明確化)。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		const updatedPatch = mockUpdateTenantStripe.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+		expect(updatedPatch, 'plan 未解決なのに plan を書いている').not.toHaveProperty('plan');
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);

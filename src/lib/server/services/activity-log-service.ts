@@ -1,3 +1,4 @@
+import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
@@ -306,6 +307,7 @@ export async function recordActivity(
 			checkAndIssueStreakCertificates,
 			checkAndIssueLevelCertificates,
 			issueCategoryMasterCertificate,
+			issueMonthlyHabitCertificateIfEligible,
 		} = await import('$lib/server/services/certificate-service');
 		// ストリーク証明書
 		if (isFirstToday && streakDays >= 7) {
@@ -318,6 +320,13 @@ export async function recordActivity(
 		// カテゴリマスター証明書（カテゴリ★5 = XPレベル5到達時）
 		if (xpGain.levelAfter >= 5 && xpGain.levelBefore < 5 && catDef) {
 			await issueCategoryMasterCertificate(childId, String(catDef.id), catDef.name, tenantId);
+		}
+
+		// #4172: 月間の習慣化 (その月に記録した日数が閾値以上) を褒める。
+		// **1 日 1 回だけ評価する** — 同日 2 回目以降は既に評価済みなので走らせない。
+		// 発行は同月の証明書行が冪等キーなので、多重に呼んでも 2 回目以降は no-op。
+		if (isFirstToday) {
+			await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
 		}
 	} catch {
 		// 証明書発行失敗は記録フローを止めない

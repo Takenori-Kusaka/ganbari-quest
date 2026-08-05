@@ -2,7 +2,7 @@
 
 <!-- SSOT 化 / ファイル移動を伴う refactor PR。並行実装解消・重複ロジック統合などが目的。 -->
 
-**対象ユーザー**: <!-- 開発者（Dev / QA） / システム全体 -->
+**対象ユーザー**: <!-- 開発者（Dev / QM） / システム全体 -->
 
 **解決する課題**: <!-- 散在実装 / 二重管理 / 修正漏れの構造的原因 -->
 
@@ -84,7 +84,7 @@ UI 描画が変わる場合: 4 スロット必須。
 - [ ] このPRに破壊的変更は**含まれない**（内部 refactor のみ）
 - [ ] 含まれる → 公開 API / 設定キー変更を以下に記載
 
-**レビュー依頼事項・QA**:
+**レビュー依頼事項・QM**:
 <!-- 移動先対応マップの完全性 / 「描画変化なし」根拠の妥当性 -->
 
 ## 配布済み env / secret (ADR-0006)
@@ -102,4 +102,4 @@ UI 描画が変わる場合: 4 スロット必須。
 
 ## QM レビュー結果
 
-[QM 5 手順 approve body は `docs/sessions/qa-session.md` を参照](../docs/sessions/qa-session.md)
+[QM 5 手順 approve body は `docs/sessions/qm-session.md` を参照](../docs/sessions/qm-session.md)

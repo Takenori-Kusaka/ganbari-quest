@@ -35,6 +35,13 @@ const LEDGER_WRITE_ALLOWLIST = new Set([
 	'activity-log-service.ts', // 記録 / キャンセル (log 行と 1:1、冪等キー = log id)
 	'activity-service.ts', // must 完遂ボーナス (日次冪等は countPointLedgerEntriesByTypeAndDate)
 	'birthday-bonus-service.ts', // 誕生日ボーナス (年次冪等 check 済)
+	// #4172 AC18: 月間の習慣化達成 (月 10 日以上の記録) に 50pt を付与する。
+	// **非原子**。冪等キーは同月の証明書レコードの存在で、書き込み順は
+	// **証明書 → ledger** (certificate-service.ts の issueMonthlyHabitCertificateIfEligible)。
+	//   証明書 INSERT 成功 → ledger 失敗 = 無償の証明書が残るだけ。証明書は通貨を持たないので実害なし
+	//   **逆順にすると「記録の無いポイント」が増え、通貨の出所が追えなくなる**
+	// この順序は入れ替えてはならない。birthday-bonus-service と同型 (新しいパターンを作らない)。
+	'certificate-service.ts',
 	'checklist-service.ts', // チェックリスト完遂ボーナス
 	'cheer-service.ts', // 応援スタンプ付与
 	'combo-service.ts', // コンボボーナス (無条件加算)

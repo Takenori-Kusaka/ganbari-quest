@@ -715,7 +715,7 @@ export function helpText() {
 		'  develop 二層で main live な feature を撤去する PR が full `--no-verify` を強いられていた',
 		'  false-positive を、account check を温存したまま解消する (gate 本来の data-loss 保護は不変)。',
 		'',
-		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) / #2877 (three-dot) / #3832 (teardown marker) for context.',
+		'See docs/sessions/qm-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) / #2877 (three-dot) / #3832 (teardown marker) for context.',
 	].join('\n');
 }
 

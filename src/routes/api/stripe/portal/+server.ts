@@ -6,7 +6,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
-import { createPortalSession } from '$lib/server/services/stripe-service';
+import { createPortalSession, type PortalFlow } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
@@ -27,6 +27,8 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const body = (await request.json().catch(() => ({}))) as {
 		pin?: string;
 		confirmPhrase?: string;
+		/** #4166: 顧客の意図。portal の着地 (flow) を決める */
+		intent?: string;
 	};
 
 	const pinConfigured = await isPinConfigured(tenantId);
@@ -58,7 +60,13 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 		}
 	}
 
-	const result = await createPortalSession(tenantId, `${url.origin}/admin/subscription`);
+	// #4166: 「⭐ プレミアムへ」だけをプラン変更フローへ直行させる。
+	// 汎用の「プラン変更・支払い管理」(plan-change) と請求履歴 (billing-history) は
+	// **home のまま**にする — flow を付けると請求書 / 支払い方法の入口が消えるため (AC5)。
+	const flow: PortalFlow =
+		body.intent === 'plan-upgrade' ? { kind: 'subscription_update' } : { kind: 'home' };
+
+	const result = await createPortalSession(tenantId, `${url.origin}/admin/subscription`, flow);
 
 	if ('error' in result) {
 		const statusMap: Record<string, number> = {

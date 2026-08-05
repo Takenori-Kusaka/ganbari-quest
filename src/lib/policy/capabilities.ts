@@ -58,7 +58,8 @@ export type DenyReason =
 	| 'plan-tier-insufficient' // プランティアが要件を満たさない
 	| 'mode-mismatch' // capability が別モード専用
 	| 'dev-only' // local-debug 専用
-	| 'ops-only'; // Cognito groups に 'ops' が必要
+	| 'ops-only' // Cognito groups に 'ops' が必要
+	| 'ops-mfa-required'; // #4266: ops は MFA 必須 (IP allowlist 廃止に伴う主防御の強化)
 
 export interface PolicyResult {
 	allowed: boolean;
@@ -132,6 +133,10 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 function requireOpsGroup(ctx: EvaluationContext): PolicyResult {
 	if (!ctx.user) return deny('unauthenticated');
 	if (!ctx.user.groups.includes('ops')) return deny('ops-only');
+	// #4266: CloudFront の admin IP allowlist を廃止したため、ops の主防御を MFA まで引き上げる。
+	// `undefined` (判定不能) も拒否 = fail-closed。route 側の実強制点は
+	// `hasOpsAccess()` (src/lib/server/auth/ops-authz.ts) で、本判定はその policy 層の写像。
+	if (ctx.user.mfaAuthenticated !== true) return deny('ops-mfa-required');
 	return ALLOW;
 }
 

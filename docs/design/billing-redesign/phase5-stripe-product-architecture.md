@@ -44,7 +44,7 @@
 1. **ダウングレード credit proration 事故** (Phase 1 plan-change FR-4 不成立) — family→standard ダウンが即時実行され、未消費期間 credit の取扱い方針が未確定 → 顧客に過大返金 or 未返金で誤認表示禁止抵触
 2. **年額廃止が中途半端** (年額 Price 物体 + env var + webhook の撤去手順が散在、Phase 7 で工数爆発)
 3. **価格改定時のリリース 2 段階化** (Dashboard 更新 + コード再 deploy が必須、SaaS 標準の lookup_key 経由なら deploy 不要)
-4. **rename + Product 再構成 + 年額削除を同 PR で混ぜる** (rollback 困難、QA レビュー impossible、impact-analysis L4 派生 artifact 撤去手順が散在)
+4. **rename + Product 再構成 + 年額削除を同 PR で混ぜる** (rollback 困難、QM レビュー impossible、impact-analysis L4 派生 artifact 撤去手順が散在)
 5. **Webhook destination の API version 不変性を見落とす** (#2683 補強): Stripe Webhook destination の `api_version` は**作成後 immutable** (Stripe 公式仕様)。SDK apiVersion bump 時に既存 destination の `api_version` は変更不可、**新規 destination を作成 → cutover → 旧 destination delete** という 5 phase migration (Phase 6 子 1 #2667 §5 整合) が必須。本制約を Phase 7 着手時に見落とすと、apiVersion bump が「SDK 1 行修正」だけで完了すると誤認し、本番 cutover 失敗
 
 ## 2. 設計原則

@@ -136,7 +136,7 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url http://localhost:5173/admin/ch
 
 ### 症状
 
-PR template の「スクリーンショット / ビジュアルデモ」要件を満たすために `/demo/admin/...` 等のデモ画面を撮影して添付したが、QA レビューで「実アプリの検証証跡として不可」と差し戻された。
+PR template の「スクリーンショット / ビジュアルデモ」要件を満たすために `/demo/admin/...` 等のデモ画面を撮影して添付したが、QM レビューで「実アプリの検証証跡として不可」と差し戻された。
 
 ### 根本原因
 
@@ -590,7 +590,7 @@ grep '保護者向けの管理画面' tmp/screenshots/pr-1766/admin-children-des
 - `scripts/lib/ci/screenshot-helpers.mjs` の `ScreenshotCapture.capture()` がデフォルトで DOM HTML を保存（opt-out フラグは `--no-dom-snapshot`）
 - `scripts/check-pr-screenshot.mjs` が UI PR で SS が添付されているのに `.dom.html` 参照が無い PR を CI で検出（#1766 / #1747 AC4）
 - `docs/sessions/dev-session.md` Screenshot Agent テンプレート §1 にデフォルト動作を明記
-- `docs/sessions/qa-session.md` 手順 2 で QM が DOM HTML を Read tool で開いて主要ラベル grep を実行するルールを追加
+- `docs/sessions/qm-session.md` 手順 2 で QM が DOM HTML を Read tool で開いて主要ラベル grep を実行するルールを追加
 - `.github/PULL_REQUEST_TEMPLATE.md` 「スクリーンショット / ビジュアルデモ」セクションで `.dom.html` 併記を必須化
 
 ---

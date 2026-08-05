@@ -3,11 +3,17 @@ import type { ChildId } from '$lib/domain/ids';
 // がんばり証明書サービス — 証明書の発行判定・一覧取得
 
 import {
+	MONTHLY_HABIT_DAYS_THRESHOLD,
+	MONTHLY_HABIT_POINTS,
+	STREAK_MILESTONE_DAYS,
+} from '$lib/domain/constants/habit-milestones';
+import {
 	findCertificateById,
 	findCertificates,
 	hasCertificate,
 	issueCertificate,
 } from '$lib/server/db/certificate-repo';
+import { insertPointEntry } from '$lib/server/db/point-repo';
 import type { Certificate } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 
@@ -35,7 +41,10 @@ export interface CertificateWithMeta extends Certificate {
 // Certificate Definitions
 // ============================================================
 
-const STREAK_MILESTONES = [7, 14, 30, 60, 100] as const;
+// #4172 AC12': streak の閾値は 3 箇所に別々のリテラルとして存在していた
+// (本 service / value-preview-service / family-streak-service)。数値だけを domain 定数に集約する。
+// points の割り当ては family 側に残す — 同じ日数でも意味が違うため (PO 決裁 Q5)。
+const STREAK_MILESTONES = STREAK_MILESTONE_DAYS;
 const LEVEL_MILESTONES = [5, 10, 20, 30, 50] as const;
 
 function getStreakDef(days: number): CertificateDefinition {
@@ -66,9 +75,10 @@ function getMonthlyDef(yearMonth: string): CertificateDefinition {
 		type: `monthly_${yearMonth}`,
 		category: 'monthly',
 		title: `${y}ねん${Number(m)}がつの がんばりしょうめいしょ`,
-		description: `${Number(m)}がつも たくさん がんばりました！`,
+		// #4172: 「たくさん」= 量を褒める文言だった。褒めるのは続いたこと。
+		description: `${Number(m)}がつは ${MONTHLY_HABIT_DAYS_THRESHOLD}にちいじょう つづきました！`,
 		icon: '📜',
-		condition: `${Number(m)}月の活動10回以上`,
+		condition: `${Number(m)}月に記録した日数が${MONTHLY_HABIT_DAYS_THRESHOLD}日以上`,
 	};
 }
 
@@ -179,23 +189,59 @@ export async function checkAndIssueLevelCertificates(
 	return issued;
 }
 
-/** 月間がんばり証明書を発行（月の活動回数10回以上） */
-// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
-export async function issueMonthlyCertificateIfEligible(
+/**
+ * 月間の習慣化を認めて証明書を発行し、成功したときだけ通貨を付与する (#4172)。
+ *
+ * ## 旧実装 (`issueMonthlyCertificateIfEligible`) から何を変えたか
+ *
+ * 旧条件は「その月の活動**回数** 10 回以上」だった。**1 日に 10 回記録しても達成する**ため、
+ * 本 Issue が撤去した `totalRecords % 5` と同じ「量 vs 習慣」の取り違えを内包していた。
+ * 呼び出し元が 0 件 (テストのみ) で顧客に届いていなかったため露見していなかっただけである。
+ * PO 決裁 (2026-08-02 Q4) により**条件を差し替える**。別 type を並置すると「月次」が
+ * 2 系統になり AC12 の重複を新たに 1 件作るため採らない。
+ *
+ * ## 判定
+ *
+ * 「その月に**記録した日数**」が {@link MONTHLY_HABIT_DAYS_THRESHOLD} 日以上。
+ * 日数は `report-service` の `daysWithActivity` を使う — 定義が
+ * 「その日に 1 件以上記録があれば 1」で本契約と一致しており、両 backend で test 済のため
+ * 新しい数え方を作らない。
+ *
+ * ## 冪等と書き込み順 (AC10 / AC18)
+ *
+ * 冪等キーは**同月の証明書レコードの存在**。`hasCertificate` → `issueCertificate` →
+ * `insertPointEntry` の順で、**厳密には原子ではない**。
+ *
+ * | 失敗 | 結果 |
+ * |---|---|
+ * | 証明書 INSERT 成功 → ledger 失敗 | 無償の証明書が残る。**証明書は通貨を持たないので実害なし** |
+ * | **逆順にした場合** | **記録の無いポイントが増える。通貨の出所が追えなくなる** |
+ *
+ * **この順序でなければならない。** repo 層の原子 primitive 化 (sqlite / dsql / demo の 3 実装)
+ * は月 1 回・50pt の付与漏れに対して過剰 (ADR-0010 / PO 決裁 Q6)。
+ *
+ * ## 通知 (AC11' / AC15)
+ *
+ * **親のみに送り、子への演出は出さない。** 子に演出を出すとその時点で子の中で完結し、
+ * 親が「1 ヶ月続いたね」と言う前にアプリが言ってしまう (§2.1-2)。
+ * 通貨は付与するので子の残高は増える — **そこで親が声をかければ噛み合う**。
+ * 経路は既存の Web Push のみ。`/api/v1/notifications/subscribe` が child role を 403 で
+ * 拒否する (#1593) ため、**親のみは経路の設計上すでに保証されている**。
+ */
+export async function issueMonthlyHabitCertificateIfEligible(
 	childId: ChildId,
 	yearMonth: string,
-	activityCount: number,
-	totalPoints: number,
-	level: number,
 	tenantId: string,
 ): Promise<Certificate | null> {
-	if (activityCount < 10) return null;
+	const { getMonthlyReport } = await import('$lib/server/services/report-service');
+	const report = await getMonthlyReport(tenantId, childId, yearMonth);
+	if (!report) return null;
+	if (report.daysWithActivity < MONTHLY_HABIT_DAYS_THRESHOLD) return null;
 
 	const def = getMonthlyDef(yearMonth);
-	const exists = await hasCertificate(childId, def.type, tenantId);
-	if (exists) return null;
+	if (await hasCertificate(childId, def.type, tenantId)) return null;
 
-	return issueCertificate(
+	const certificate = await issueCertificate(
 		{
 			childId,
 			certificateType: def.type,
@@ -203,14 +249,42 @@ export async function issueMonthlyCertificateIfEligible(
 			description: def.description,
 			metadata: JSON.stringify({
 				yearMonth,
-				activityCount,
-				totalPoints,
-				level,
+				daysWithActivity: report.daysWithActivity,
+				thresholdDays: MONTHLY_HABIT_DAYS_THRESHOLD,
+				pointsGranted: MONTHLY_HABIT_POINTS,
 				icon: def.icon,
 			}),
 		},
 		tenantId,
 	);
+
+	// 証明書行が冪等キーなので、ここに来るのは同月で初めてのときだけ。
+	await insertPointEntry(
+		{
+			childId,
+			amount: MONTHLY_HABIT_POINTS,
+			type: 'monthly_habit',
+			description: def.title,
+		},
+		tenantId,
+	);
+
+	// 通知は付帯物。失敗しても証明書と通貨は取り消さない。
+	try {
+		const { sendPushNotification } = await import('$lib/server/services/notification-service');
+		await sendPushNotification(tenantId, 'monthly_habit', def.title, def.description, {
+			childId,
+			yearMonth,
+			daysWithActivity: report.daysWithActivity,
+		});
+	} catch (e) {
+		logger.warn('[certificate] 月間習慣化の通知に失敗', {
+			service: 'certificate',
+			error: e instanceof Error ? e.message : String(e),
+		});
+	}
+
+	return certificate;
 }
 
 /** カテゴリマスター証明書を発行 */

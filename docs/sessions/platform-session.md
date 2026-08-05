@@ -22,6 +22,8 @@ CronCreate(cron: "43 * * * *", recurring: true, prompt: <下記テンプレー�
 
 **分は 43。** 他ロールと重ならない値にする（Dev=13 / QM=23 / PO=37 / 監査=47、[label-mailbox.md §3.4](label-mailbox.md)）。
 
+**Platform から他ロールへ渡す経路**: 装置変更の影響を QM に確認したいときは **`state:needs-qm`**（#4180）。完成して QM レビューに出すときは従来どおり **`state:dev-done`**（自分の PR を自分で approve しない、ADR-0022）。監査に用があれば **`state:needs-audit`**。
+
 ### cron プロンプト テンプレート
 
 ```
@@ -122,6 +124,8 @@ Platform は Team Topologies の platform team にあたり、**stream-aligned t
 ## Agent Teams（1 ロール内の並列化）
 
 **SSOT**: [agent-teams.md](agent-teams.md)
+
+Platform が使ってよいのは **装置の横断棚卸し**（`scripts/check-*` を分割して調べる等 = **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。
 
 teammate は **自分のクローン内でだけ**組む。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリと gh 認証で動くため、ADR-0022 の作成者 ≠ 承認者が空洞化する。
 

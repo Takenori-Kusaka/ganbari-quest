@@ -12,6 +12,7 @@ import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
 import type { AuthContext, AuthProvider, AuthResult, Identity, Role } from '../types';
 import { verifyDevIdentityToken } from './cognito-dev-jwt';
+import { hasMfaAmr } from './cognito-jwt';
 
 /**
  * 開発用ダミーユーザー（E2E テストでも使用）
@@ -36,6 +37,8 @@ export interface DevUser {
 	groups?: string[];
 	/** #3025: federated (Google) 相当。Cognito パスワードを持たないユーザの再現 (PIN reset 分岐検証用) */
 	federated?: boolean;
+	/** #4266: MFA 設定済。/ops は ops group + MFA を要求するため ops ユーザには必須 */
+	mfa?: boolean;
 }
 
 export const DEV_USERS: DevUser[] = [
@@ -121,6 +124,9 @@ export const DEV_USERS: DevUser[] = [
 		tenantId: 'dev-tenant-ops',
 		role: 'owner',
 		groups: ['ops'],
+		// #4266: /ops は ops group + MFA (hasOpsAccess) を要求する。
+		// 運営者は TOTP を 1 度設定すれば通るため、dev でも MFA 済として扱う。
+		mfa: true,
 	},
 ];
 
@@ -153,6 +159,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 					// #3025: 本番 CognitoAuthProvider と同じ federated / recent-auth 情報
 					isFederated: (claims.identities?.length ?? 0) > 0,
 					authTime: claims.auth_time,
+					// #4266: 本番 CognitoAuthProvider と同じ MFA 判定 (amr claim)
+					mfaAuthenticated: hasMfaAmr(claims.amr),
 				};
 			}
 		} catch (e) {
@@ -209,6 +217,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 			licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: devUser.plan,
+			// #4266: 本番 CognitoAuthProvider と同じくセッションに MFA を焼き込む
+			mfaAuthenticated: identity.mfaAuthenticated === true ? true : undefined,
 		};
 
 		const token = signContext(context);

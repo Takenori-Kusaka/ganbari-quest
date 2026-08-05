@@ -23,6 +23,9 @@ vi.mock('$lib/server/db/factory', () => ({
 const mockVerifyIdentityToken = vi.fn();
 vi.mock('$lib/server/auth/providers/cognito-jwt', () => ({
 	verifyIdentityToken: (...args: unknown[]) => mockVerifyIdentityToken(...args),
+	// #4266: MFA 判定は純関数のため mock せず実体と同じ挙動を返す
+	hasMfaAmr: (amr: readonly string[] | undefined) =>
+		Array.isArray(amr) && amr.some((m) => m.toLowerCase().includes('mfa')),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -97,6 +100,8 @@ describe('CognitoAuthProvider', () => {
 				// #3025: identities claim なし = password ユーザ (federated でない)
 				isFederated: false,
 				authTime: undefined,
+				// #4266: amr claim なし = MFA を経ていない (fail-closed で /ops に入れない)
+				mfaAuthenticated: false,
 			});
 			expect(mockVerifyIdentityToken).toHaveBeenCalledWith('valid-jwt');
 		});

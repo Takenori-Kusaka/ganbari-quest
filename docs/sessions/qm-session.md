@@ -16,11 +16,13 @@
 CronCreate(cron: "23 * * * *", recurring: true, prompt: <label-mailbox.md §4「QM セッション用」テンプレート>)
 ```
 
-QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。**外すときは必ず次の state を付ける** — どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える（2026-07-31 に `#4144` で実際に発生）。
+QM が拾うのは **`state:needs-qm`**（**QM に用がある**。レビュー依頼に限らず問い合わせ / 見解確認を含む、#4180）、**`state:dev-done`**（レビュー待ち）、**`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。**外すときは必ず次の state を付ける** — どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える（2026-07-31 に `#4144` で実際に発生）。
 
 **差し戻した PR は `state:qm-blocked` のまま Dev の受信箱に入る。** Dev が対応を終えると `state:dev-done` に戻る（label-mailbox.md §3.1.1 復路）。**この復路が定義されるまで、対応済みの差し戻しが QM に届かず停止していた**（PR #4149）。自衛として `state:qm-blocked` の PR も polling し、**自分が block した時点の HEAD から動いていれば再レビュー**する。
 
-**判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
+**`state:needs-qm` に答えたら、label を問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`、label-mailbox.md §3.1.1）。**問い合わせは往復**であり、戻さないと送り手は「返ってこない」だけを観測する（#4149 と同じ形が問い合わせ側で再発する）。実装が完了しているレビュー依頼だと分かったら `state:dev-done` に読み替える。
+
+**判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない、#4180）。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
 
 - **報告は「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。** 「BLOCK 3 類型に非該当」は CI 緑を含意しない（結論を先に置いたため PO が merge 可と誤読した実例あり、2026-07-31）
 - **`state:ready-to-merge` でも `gh pr checks` で緑を確認してから merge する。** 赤を跨いだ merge は理由が正当でも外形が admin bypass と区別できない
@@ -31,7 +33,7 @@ QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:read
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
+QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）と **read-only の分担調査**（複数 PR の AC 突き合わせ等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
 
 **ただし approve と merge は lead 専権**（ADR-0056 §E と同型。subagent が不可逆 action を肩代わりしないのと同じ）。
 
@@ -140,9 +142,9 @@ node scripts/verify-pr-head.mjs <num> <branch>   # ls-remote と gh pr view の�
 
 #### base 側ファイルも API から取得する（working tree 不使用）
 
-レビュー時の SSOT はローカル working tree ではなく API（`gh api` / `git show origin/develop:<path>`）から取得する。QA クローンの working tree は stale になりうる。上記の HEAD SHA 固定規律は PR 側 (headRefOid) の staleness 対策だが、比較対象となる base 側ファイルにも同じ規律を適用する。
+レビュー時の SSOT はローカル working tree ではなく API（`gh api` / `git show origin/develop:<path>`）から取得する。QM クローンの working tree は stale になりうる。上記の HEAD SHA 固定規律は PR 側 (headRefOid) の staleness 対策だが、比較対象となる base 側ファイルにも同じ規律を適用する。
 
-QA クローンは Dev と別クローンのため working tree が stale になりやすく、stale な base と PR を比較すると **存在しない矛盾を報告する（false positive）**、**実在する矛盾を見逃す（false negative）**の両方が起きる。false negative の場合は BLOCK すべきものを通してしまう。
+QM クローンは Dev と別クローンのため working tree が stale になりやすく、stale な base と PR を比較すると **存在しない矛盾を報告する（false positive）**、**実在する矛盾を見逃す（false negative）**の両方が起きる。false negative の場合は BLOCK すべきものを通してしまう。
 
 ```bash
 git show origin/develop:<path>              # base 側ファイルを API 相当で取得（working tree 不参照）
@@ -170,7 +172,7 @@ gh issue view <X>  # PR body の closes #X から取得
 - **DOM HTML スナップショット (`<file>.dom.html`) 併記確認** (#1747 / #1766)。SS 1 枚に対し同名 `.dom.html` リンクが PR body に存在するか / `.dom.html` を Read で開き SS の主要ラベルが grep できるか確認
 - 「描画変化なし」主張時 (#1744): `gh pr diff` で `.svelte` / `.css` / `site/**` / `labels.ts` の文字列 / アイコン / 改行位置の置換を検出。明記欠落なら BLOCK
 
-UI/UX 品質チェックは @docs/sessions/qa-checklist-ui-quality.md（10 項目）。気になった点だけ具体記述、無言 approve 不可。
+UI/UX 品質チェックは @docs/sessions/qm-checklist-ui-quality.md（10 項目）。気になった点だけ具体記述、無言 approve 不可。
 
 UI 系 fix / design PR では **A〜D 仕分けの妥当性**も判定する（[webui-review-process.md](webui-review-process.md) §4/§5）。PR body の仕分け結果を見て、B/C/D（コンポーネント設計 / 配置アルゴリズム / ガイドライン欠落）に起因する問題を A（画面固有のその場修正）で済ませていないか、還元先（primitives / トークン / geometry assertion / DESIGN.md・skill）への実装が同 PR にあるか（または 後続 issue が起票済か）を確認する。対症療法のままなら BLOCK（ADR-0003）。
 
@@ -310,7 +312,7 @@ gh auth switch --user Takenori-Kusaka
 
 PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可。`Takenori-Kusaka` で approve → `ganbariquestsupport-lab` で merge。
 
-**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qa-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
+**approve 経路（#4027）**: 上記の `gh api .../pulls/<num>/reviews -X POST` と `gh pr review <num> --approve` は等価に通る。どちらも L1 account guard の対象外（PR 作成ではない）であり、gate-approve hook（ADR-0056）の evidence 検証は両方で発火する。両 hook の判定条件が本節のコマンドと一致していることは `tests/unit/hooks/qm-session-approve-hook-consistency.test.ts` が本節の bash ブロックを fixture として機械検証する。
 
 **hotfix merge 後の back-merge（branch-strategy.md §5）**: hotfix を main に merge したら、同一 run 内で develop への back-merge PR（または fast-forward 可能なら直接 merge）を Fix Agent で実施し、main / develop の drift を残さない。back-merge 完了までを hotfix 処理の Done 条件とする。
 
@@ -362,7 +364,7 @@ force push 検出は Branch Ruleset `require_last_push_approval: true`。QM は�
 
 ## Agent spawn テンプレート
 
-Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型プロンプトは @docs/sessions/qa-agent-templates.md に集約。`<>` を実値に置換してコピー。
+Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型プロンプトは @docs/sessions/qm-agent-templates.md に集約。`<>` を実値に置換してコピー。
 
 ## QM が絶対にやってはいけないこと
 
@@ -376,7 +378,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **統合 PR (release/* → main、branch-strategy.md §3.1。develop→main 後方互換) を squash merge**（必ず merge commit。根拠 SSOT = branch-strategy.md §2 #2871）
 - **hotfix merge 後の develop back-merge を省略**（main/develop drift の温床）
 - **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。Fix Agent で base を develop へ訂正 + rebase が正 — 2026-06-11 User 指示）
-- **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
+- **`ganbariquestsupport-lab` で PR を作成**（QM レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
     - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` と **`gh api .../pulls` コレクションへの POST** を捕捉、#1879 / #4027)。判定はサブコマンドと API パスで行い、`--body` / `--body-file` / heredoc の中身と `/pulls/<n>/reviews` 等の subresource 操作は対象外（approve 経路を止めないため）
     - L2: `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`（`git push` 直前検査、#1879）
     - L3: `.github/workflows/pr-author-guard.yml` server side gate (`pull_request: opened/reopened/ready_for_review` で発火、Web UI / 別 client / API 直叩きを含む全経路を捕捉して PR を即時 close + 違反コメント投稿、#1994)
@@ -397,7 +399,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 | ドキュメント | 参照タイミング |
 |---|---|
 | @docs/DESIGN.md | 手順 2（デザインシステム準拠） |
-| @docs/sessions/qa-checklist-ui-quality.md | 手順 2（UI/UX 10 項目） |
+| @docs/sessions/qm-checklist-ui-quality.md | 手順 2（UI/UX 10 項目） |
 | @tests/CLAUDE.md | 手順 1 / 品質基準 |
 | @docs/design/parallel-implementations.md | 手順 1（並行実装同期） |
 | @src/routes/CLAUDE.md | 手順 2（UI 実装ルール） |
