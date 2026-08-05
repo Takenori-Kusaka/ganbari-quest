@@ -109,3 +109,66 @@ describe('#4266 /ops layout guard', () => {
 		});
 	});
 });
+
+// ---------- #4266 追補: silent refresh で amr が落ちても締め出さない ----------
+// Cognito の REFRESH_TOKEN_AUTH で再発行される ID token が MFA チャレンジ情報 (`amr`) を
+// 保持するかは AWS 公式ドキュメントで確定できなかった (2026-08-05 調査)。保持しない場合、
+// 運営者が何もしていないのに突然 /ops から締め出され、再ログインまで戻れない。
+//
+// したがって MFA は「今この token が MFA を経ているか」ではなく
+// **「このセッションが MFA を経て開始されたか」** で判定する。ログイン時に確定した値を
+// 署名付き context token (既存機構) に載せ、refresh では引き継ぐ。
+describe('#4266 セッション単位の MFA 判定 (silent refresh 対策)', () => {
+	/** refresh 後の identity: amr が落ちて mfaAuthenticated が undefined になった状態 */
+	const opsAfterRefresh: Identity = {
+		type: 'cognito',
+		userId: 'u-ops-1',
+		email: 'ops@example.com',
+		groups: ['ops'],
+	};
+
+	it('identity の MFA が不明でも、context が MFA 済セッションなら許可', () => {
+		expect(hasOpsAccess(opsAfterRefresh, { mfaAuthenticated: true })).toBe(true);
+	});
+
+	it('identity も context も MFA を示さなければ拒否 (fail-closed)', () => {
+		expect(hasOpsAccess(opsAfterRefresh, { mfaAuthenticated: false })).toBe(false);
+		expect(hasOpsAccess(opsAfterRefresh, undefined)).toBe(false);
+		expect(hasOpsAccess(opsAfterRefresh, {})).toBe(false);
+	});
+
+	it('context が MFA 済でも ops group でなければ拒否', () => {
+		expect(
+			hasOpsAccess(
+				{ type: 'cognito', userId: 'u-p', email: 'p@example.com', groups: [] },
+				{ mfaAuthenticated: true },
+			),
+		).toBe(false);
+	});
+
+	it('/ops layout は locals.context の MFA も見る (refresh 直後も通過する)', async () => {
+		const mod = await import('../../../src/routes/ops/+layout.server');
+		// biome-ignore lint/suspicious/noExplicitAny: SvelteKit の LayoutServerLoad 引数を最小 stub で渡す
+		const load = mod.load as any;
+		await expect(
+			load({ locals: { identity: opsAfterRefresh, context: { mfaAuthenticated: true } } }),
+		).resolves.toEqual({});
+		await expect(
+			load({ locals: { identity: opsAfterRefresh, context: { mfaAuthenticated: false } } }),
+		).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('#4266 context token が MFA 済セッションを保持する', () => {
+	it('signContext → verifyContext で mfaAuthenticated が往復する', async () => {
+		const { signContext, verifyContext } = await import('$lib/server/auth/context-token');
+		const token = signContext({ tenantId: 't-1', role: 'owner', mfaAuthenticated: true });
+		expect(verifyContext(token)?.mfaAuthenticated).toBe(true);
+	});
+
+	it('mfaAuthenticated を載せない旧トークンは undefined (= 拒否側)', async () => {
+		const { signContext, verifyContext } = await import('$lib/server/auth/context-token');
+		const token = signContext({ tenantId: 't-1', role: 'owner' });
+		expect(verifyContext(token)?.mfaAuthenticated).toBeUndefined();
+	});
+});
