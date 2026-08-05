@@ -104,7 +104,7 @@ jobs:
 
             const isQa = author === qaAccount;
             const violationLine = isQa
-              ? `\`@${author}\` は QA レビュー (approve / merge) 専用アカウントのため PR を作成できません (ADR-0022 / #1728 / #1879 / #1994)。`
+              ? `\`@${author}\` は QM レビュー (approve / merge) 専用アカウントのため PR を作成できません (ADR-0022 / #1728 / #1879 / #1994)。`
               : `\`@${author}\` は PR 作成許可リスト (${allowed.join(', ')}) に含まれていません (ADR-0022)。`;
 
             const body = [

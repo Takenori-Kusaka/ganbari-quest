@@ -75,6 +75,18 @@ vi.mock('$lib/server/stripe/config', () => ({
 		if (lookupKey === 'premium_monthly') return 'family-monthly';
 		return null;
 	},
+	// #4286: checkout は `getPriceId()` 経由で Price を解決する（`plan.priceId` 直読をやめた）。
+	// 本 file は他の関心（webhook 意味論 / session 引数）を見るため、解決自体は素通しにする。
+	// **env × flag の組合せの検証は `stripe-checkout-price-resolution.test.ts`**（config を
+	// mock せず実物で動かす。この file が config を丸ごと mock していたことが、
+	// 「flag が死んでいる」を見逃した理由そのもの）。
+	getPriceId: async (plan: string) =>
+		plan === 'premium' ? 'price_family_monthly_789' : 'price_monthly_123',
+	lookupPlanOf: (planId: string) => {
+		if (planId === 'monthly') return 'standard';
+		if (planId === 'family-monthly') return 'premium';
+		return null;
+	},
 	getWebhookSecret: () => 'whsec_test',
 	TRIAL_PERIOD_DAYS: 7,
 	GRACE_PERIOD_DAYS: 7,
@@ -553,7 +565,13 @@ describe('handleWebhookEvent', () => {
 		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
 
 		// plan キー自体が渡らない = repo 実装 (`if (data.plan !== undefined)`) で既存値保持
-		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		// #4118: 猶予終了日は同時に落とす (active + 期限残り = matrix X3)。
+		// plan を書かないことは `not.toHaveProperty` で明示し、列追加で緩まないようにする。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', {
+			status: 'active',
+			planExpiresAt: null,
+		});
+		expect(mockUpdateTenantStripe.mock.calls.at(-1)?.[1]).not.toHaveProperty('plan');
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);
@@ -614,7 +632,16 @@ describe('handleWebhookEvent', () => {
 			},
 		} as never);
 
-		expect(mockUpdateTenantStripe).toHaveBeenCalledWith('t-test', { status: 'active' });
+		// 本 test の不変条件は「**plan を上書きしない**」であって「patch が status 1 列だけ」ではない。
+		// #4181 で `active` 復帰時に猶予終了日を消す列 (`planExpiresAt: null`) が増えたため、
+		// 完全一致では列追加のたびに落ちる。**意図を直接 assert する形に強める** —
+		// `plan` が patch に現れないことを明示検査する (ADR-0006: 弱体化ではなく的の明確化)。
+		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
+			't-test',
+			expect.objectContaining({ status: 'active' }),
+		);
+		const updatedPatch = mockUpdateTenantStripe.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+		expect(updatedPatch, 'plan 未解決なのに plan を書いている').not.toHaveProperty('plan');
 		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: 'stripe-plan-unresolved' }),
 		);

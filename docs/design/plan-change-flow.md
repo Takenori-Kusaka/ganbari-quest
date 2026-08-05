@@ -9,7 +9,7 @@
 | フロー | エントリ | 経路 | 終端 |
 |--------|---------|------|------|
 | **アップグレード (新規購入)** | `/admin/license` プラン選択カード | `POST /api/stripe/checkout` → Stripe Checkout (外部) → `checkout.session.completed` Webhook | success URL = `/admin/license?session_id=...` → PremiumWelcome 表示 |
-| **アップグレード (プラン昇格)** | `/admin/license` 「プラン変更・支払い管理」 | PIN 確認 → `POST /api/stripe/portal` → Stripe Customer Portal → `customer.subscription.updated` Webhook | Portal の return URL = `/admin/license` → 新プラン反映 |
+| **アップグレード (プラン昇格)** | `/admin/subscription` プラン利用状況カードのアップグレード CTA | PIN 確認 → `POST /api/stripe/portal` → Stripe Customer Portal → `customer.subscription.updated` Webhook | Portal の return URL = `/admin/license` → 新プラン反映 |
 | **ダウングレード** | 同上（Customer Portal） | 同上 → Portal で下位プランに変更 → `customer.subscription.updated` Webhook | 同上 → 新プラン反映＋PlanStatusCard で超過リソースを警告 |
 | **月額↔年額切替** | 同上（Customer Portal） | 同上（Stripe 標準 UI） | 同上 |
 | **解約 (cancel)** | Customer Portal または `/admin/subscription` (アプリ内 API) | `cancel_at_period_end=true` を予約 → 期末に `customer.subscription.deleted` Webhook | DB: `stripe_subscription_id=NULL, plan=NULL, status=suspended`（テナントは残る、#3982）。到着順に依らない収束規則は §10.5 |
@@ -268,7 +268,7 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 
 ```
 [/admin/license]
-  └─ 「プラン変更・支払い管理」ボタン
+  └─ 「請求管理ページを開く」ボタン / アップグレード CTA
         │
         ▼
   Dialog: showPortalConfirm = true
@@ -308,6 +308,55 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 | サブスク解約（即時 or 期末） | `customer.subscription.deleted` | `stripeSubscriptionId=null, plan=null, planExpiresAt=null, status='suspended'`（終端 4 列、§10.5.1 P3） |
 | 支払い方法更新 | （Stripe 側のみ） | DB 変更なし |
 | 請求書履歴閲覧 | （Stripe 側のみ） | DB 変更なし |
+
+### 3.2.1 Portal の着地は「顧客の意図」で決める（#4166）
+
+Stripe portal の**ボタン文言は変更できない**（Branding で変えられるのは色・ロゴ・事業者名のみ）。
+portal ホームに着地させると「サブスクリプションを更新」が並び、顧客はこれを
+**「支払い方法の更新 / 継続」と読んでプラン変更に到達しない**。
+
+したがって `createPortalSession(tenantId, returnUrl, flow)` が **flow を受け取り**、
+`billingPortal.sessions.create()` の `flow_data` で目的のフローへ直行させる。
+
+| flow | 入口 | 着地 | `flow_data` |
+|---|---|---|---|
+| `subscription_update` | 「⭐ プレミアムへ」等のアップグレード CTA（`intent='plan-upgrade'`） | プラン選択画面 | `type='subscription_update'` + `subscription_update.subscription` |
+| `subscription_cancel` | 解約理由フォーム送信後（`cancel/+page.server.ts`） | 解約画面 | `type='subscription_cancel'` + `subscription_cancel.subscription` |
+| `home`（既定） | 「請求管理ページを開く」 / 請求履歴 | portal ホーム | 付けない |
+
+**`home` を残す理由**: flow を付けると**請求書閲覧・支払い方法変更の入口が消える**。
+汎用導線はホームのままにする。
+
+**完了後はアプリへ戻す**: `after_completion = { type: 'redirect', redirect: { return_url } }` を
+**明示指定**する。省略時の挙動は公式ドキュメントに明記が無く、確認ページに留まると読めるため。
+途中でやめた顧客が戻れるよう、トップレベルの `return_url` は flow の有無に関わらず常に渡す。
+
+**`stripeSubscriptionId` を持たないテナントでは flow を付けない**（`home` にフォールバック）。
+付けたまま送ると Stripe が 400 を返し、**顧客は何を押しても portal に入れなくなる**。
+
+`subscription_update_confirm`（price 選択をアプリ側に持ち確認画面だけ portal に出す）は**採らない** —
+proration / 期末切替の表示責務がアプリに移り、Stripe を課金状態の SSOT とする方針（#4096）と逆行する。
+
+### 3.2.2 flow が拒否されたら home に倒し、次の操作を示す（#4270）
+
+`flow_data` は **Stripe Dashboard の Portal 設定**（更新オプションとして表示する商品・価格 / 解約の許可）
+が生きていることを前提にする。設定がずれた瞬間に **portal に一切入れなくなる**のは、直行できないより悪い。
+外部 SaaS の設定を常時監視する機構は持たず（Pre-PMF、ADR-0010）、以下の 3 点で塞ぐ。
+
+1. **フォールバック**: `createPortalSession()` は flow 付き session の作成が失敗したら、**flow 無しで作り直す**。
+   作り直しも失敗した場合は握り潰さず throw する（portal に入れない事実を成功として返さない）
+2. **倒れたことを顧客に伝える**: 戻り値 `flowFallback: true` を呼び出し元へ返す。
+   - プラン変更（`POST /api/stripe/portal`）: 応答 `{ url, flowFallback }`。画面は自動遷移せず
+     `portal-fallback-notice` を出し、作成済み session への「請求管理ページへ進む」で進ませる（PIN 再入力なし）
+   - 解約（`cancel/+page.server.ts`）: portal へ飛ばさず `/admin/subscription?portalFallback=cancel` へ戻し、
+     同じ通知を出す。**解約理由を書き終えた直後に予期しない画面へ落とさない**
+   - 文言は `SUBSCRIPTION_PAGE_LABELS.portalFallback*`（labels SSOT）。**原因は顧客に説明しない**（ADR-0062）
+3. **`intent` の検証**: `POST /api/stripe/portal` の `intent` は allowlist
+   （`plan-change` / `plan-upgrade` / `billing-history`）で検証し、外れたら安全側（`home`）に倒して
+   拒否した事実を記録する。**ログに顧客識別子は載せない**（intent の値と拒否した事実だけ）
+
+**設定の生存確認は deploy 手順で踏む**: `docs/runbooks/stripe-dashboard-runbook.md` の
+「portal 直行の実機確認」を本番投入の必須手順とする（CI では flow の着地を検証できない、#4161）。
 
 ### 3.3 Webhook 処理 — `customer.subscription.updated`
 

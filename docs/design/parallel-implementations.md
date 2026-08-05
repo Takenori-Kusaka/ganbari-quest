@@ -593,7 +593,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 3. **e2e seed / test-db を変更に同期** — schema / 値域 / 陳列を変えたら `global-setup.ts` + `test-db.ts` を追従
 4. **domain 値域 ⊆ wire(export) schema 値域の整合確認** — 直接 SQL seed 値も schema 上限内に収める
 
-> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）+ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）/ QA 人手 gate = [qa-session.md](../sessions/qa-session.md) 手順 4（#3172）/ Dev 着手時セルフチェック = [dev-session.md](../sessions/dev-session.md) 新規実装時（#3173）。人手 gate 単独に頼らせない。
+> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）+ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）/ QA 人手 gate = [qm-session.md](../sessions/qm-session.md) 手順 4（#3172）/ Dev 着手時セルフチェック = [dev-session.md](../sessions/dev-session.md) 新規実装時（#3173）。人手 gate 単独に頼らせない。
 
 ---
 

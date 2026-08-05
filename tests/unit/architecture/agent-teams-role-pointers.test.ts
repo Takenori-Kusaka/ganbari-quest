@@ -26,7 +26,7 @@ const SSOT = 'docs/sessions/agent-teams.md';
 const ROLE_FILES = [
 	'docs/sessions/dev-session.md',
 	'docs/sessions/po-session.md',
-	'docs/sessions/qa-session.md',
+	'docs/sessions/qm-session.md',
 	'docs/sessions/platform-session.md',
 ];
 

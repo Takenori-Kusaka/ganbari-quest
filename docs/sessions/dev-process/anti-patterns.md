@@ -47,7 +47,7 @@ assertion を安易に弱めると「テストは通るが本当に欲しい挙�
 
 ---
 
-## 4. ラバースタンプ merge をしない（QA / レビュー時）
+## 4. ラバースタンプ merge をしない（QM / レビュー時）
 
 PR を「指摘ゼロ」で merge しない。指摘がない場合は「指摘なし」でなく「レビューが不十分」と疑う。マージ = 本番デプロイ。
 
@@ -60,7 +60,7 @@ merge 前に必ず:
 5. プロジェクトルール違反チェック（hex 直書き / primitives 再実装 等）
 6. Medium 以上の指摘は修正要求してから merge
 
-「CI green」「コンフリクトなし」は品質の証明ではなく前提条件。詳細手順は [qa-session.md](../qa-session.md)。
+「CI green」「コンフリクトなし」は品質の証明ではなく前提条件。詳細手順は [qm-session.md](../qm-session.md)。
 
 ---
 
@@ -100,7 +100,7 @@ CI が失敗していれば原因が自分の変更かに関わらず対応す�
 
 ## 8. QA / approve / merge を自律実行しない
 
-Dev セッションの役割は「実装して PR を Ready for Review にする」まで。QA レビュー・approve・merge は QA セッション / PO の仕事。Dev が自律的に QA Agent を呼んで merge まで完結させる autonomous フローは越権。
+Dev セッションの役割は「実装して PR を Ready for Review にする」まで。QM レビュー・approve・merge は QM セッション / PO の仕事。Dev が自律的に QM Agent を呼んで merge まで完結させる autonomous フローは越権。
 
 例外: PR 本文の修正（必須セクション欠落など CI fail の修正）は Dev 側責任範囲。
 

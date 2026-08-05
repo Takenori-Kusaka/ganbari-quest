@@ -192,6 +192,8 @@ async function handleDevLogin(
 		email: user.email,
 		groups: user.groups,
 		federated: user.federated,
+		// #4266: /ops は ops group + MFA を要求する。dev の ops ユーザは MFA 済として発行する
+		mfa: user.mfa,
 	});
 
 	cookies.set(IDENTITY_COOKIE_NAME, idToken, {

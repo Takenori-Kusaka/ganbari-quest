@@ -102,7 +102,7 @@ describe('#4180 label mailbox の経路', () => {
 	// docs 間の drift guard。SSOT を直しても各ロールが知らなければ経路は開かない。
 	it.each([
 		'docs/sessions/dev-session.md',
-		'docs/sessions/qa-session.md',
+		'docs/sessions/qm-session.md',
 		'docs/sessions/po-session.md',
 		'docs/sessions/audit-team.md',
 		'docs/sessions/platform-session.md',

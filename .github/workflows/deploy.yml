@@ -257,7 +257,6 @@ jobs:
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
-          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
@@ -330,7 +329,6 @@ jobs:
             -c staticAssetsS3Offload=true \
             -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }} \
             -c geminiApiKey=${{ secrets.GEMINI_API_KEY }} \
-            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
             -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
             -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }} \
@@ -358,7 +356,6 @@ jobs:
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
-          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
@@ -546,7 +543,57 @@ jobs:
             echo "::error::cron-dispatcher smoke test did not run in dryRun mode (#1586)"
             exit 1
           fi
-          echo "::notice::cron-dispatcher smoke test passed"
+          echo "::notice::cron-dispatcher env injection (dryRun) passed"
+
+          # --- #4206: 実 HTTP 経路が cron route まで届くかを確かめる ---
+          #
+          # 上の dryRun は HTTP POST の**手前で return する**。そのため本番の cron が
+          # 稼働開始 (2026-04) から約 4 ヶ月間 成功 0 回だった間も、この smoke は
+          # ずっと green だった (原因は isPublicRoute に /api/cron が無く、hooks の
+          # 認可層が 401 を返して route に到達していなかったこと。#4216 で修正)。
+          #
+          # そこで **わざと誤った secret** で 1 回叩き、返る 401 の本文で
+          # 「どこで落ちたか」を判別する。認証は job 実行前に落ちるので副作用はゼロ。
+          #
+          #   route 側 (verifyCronAuth) の {"error":"Unauthorized"}  → 到達している = OK
+          #   hooks 側 (hooks.server.ts) の {"error":"認証が必要です"} → 到達していない = FAIL
+          #
+          # ステータスコードはどちらも 401 なので、**本文を見ないと区別できない**。
+          FN_URL=$(aws lambda get-function-url-config \
+            --function-name "$LAMBDA_FUNCTION" \
+            --region "$AWS_REGION" \
+            --query 'FunctionUrl' --output text)
+          FN_URL="${FN_URL%/}"
+
+          # リトライ方針: **判別できなかったときだけ**やり直す。
+          #   - `認証が必要です` (= 届いていない) は確定的な検出なので **即 fail**。
+          #     ここでリトライすると、本 gate が守ろうとしている壊れを自分で握り潰す。
+          #   - どちらの本文でもない場合のみ transient (cold start / 一時的な 5xx) とみなし再試行。
+          CRON_PROBE_BODY=""
+          for i in 1 2 3; do
+            CRON_PROBE_BODY=$(curl -s --max-time 30 -X POST \
+              -H "Authorization: Bearer invalid-secret-for-reachability-probe" \
+              -H "Content-Type: application/json" \
+              -d '{}' \
+              "${FN_URL}/api/cron/export-build" || echo "")
+            echo "=== cron route reachability probe (attempt $i) ==="
+            echo "$CRON_PROBE_BODY"
+            if echo "$CRON_PROBE_BODY" | grep -qE '認証が必要です|Unauthorized'; then
+              break
+            fi
+            echo "::notice::probe の応答を判別できませんでした。10s 後に再試行します"
+            sleep 10
+          done
+
+          if echo "$CRON_PROBE_BODY" | grep -q '認証が必要です'; then
+            echo "::error::cron route unreachable — hooks の認可層が 401 を返しています。isPublicRoute に /api/cron が無い状態です (#4206 の再発)。この状態では全 cron が 100% 失敗します"
+            exit 1
+          fi
+          if ! echo "$CRON_PROBE_BODY" | grep -q 'Unauthorized'; then
+            echo "::error::cron route probe が 3 回とも想定外の応答を返しました。誤った secret には route 側 verifyCronAuth の Unauthorized が返るはずです (#4206)"
+            exit 1
+          fi
+          echo "::notice::cron dispatcher smoke test passed (env injection + route reachability)"
 
       # ADR-0048 / #2130: demo Lambda post-deploy smoke test
       # PR #2124 (week 4) merge 後 3 件の hotfix (#2127 / #2128 / #2129) が連続発生し、

@@ -152,17 +152,16 @@ export const actions = {
 			// #3210: save 失敗を握り潰して偽成功を返さない (data-loss + 偽成功の根治)。
 			// Discord は founder の実 inbox なので best-effort backup として試行しつつ、
 			// ユーザーには明示エラーを返し「届いた」と誤認させない (feedback / consult 双方)。
-			notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
-				() => {},
-			);
+			// #4197: 通知 payload に tenantId / メールアドレスを載せない (#4174 Q3 の PO 決裁)。
+			// save 失敗時もそれは同じ — ここでユーザーには明示エラーを返しており (下)、
+			// 「届いたのに誰からか分からない」状態にはならない。
+			notifyInquiry(category, body, inquiryId).catch(() => {});
 			return fail(500, {
 				feedbackError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
 			});
 		}
 
-		notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
-			() => {},
-		);
+		notifyInquiry(category, body, inquiryId).catch(() => {});
 
 		const confirmTo = replyEmail || (email !== 'local-user' ? email : '');
 		if (confirmTo && inquiryId) {

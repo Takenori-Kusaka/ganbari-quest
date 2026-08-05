@@ -9,7 +9,7 @@
  * 両者が「文字列にこの語が含まれるか」で判定していた間、以下 2 つの誤検知が起きた (#4027):
  *
  *   1. account guard が `/pulls` の部分一致で **`/pulls/<n>/reviews` への POST (= QM の approve)** まで
- *      PR 作成として BLOCK した。`docs/sessions/qa-session.md` が SSOT として掲げる approve 経路が
+ *      PR 作成として BLOCK した。`docs/sessions/qm-session.md` が SSOT として掲げる approve 経路が
  *      必ず止まる状態だった。
  *   2. gate-approve が `--body` / heredoc の**中身**に書かれた approve コマンド例に反応し、
  *      hook 自身を説明する Issue を起票する操作を approve 操作として BLOCK した。

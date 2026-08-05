@@ -22,7 +22,7 @@
 
 ## ミッション
 
-開発実装チーム（Dev）と品質管理チーム（QA）が**事業的に正しい行動をし続ける**ための、十分な意思入れと誰が読んでも同じ理解ができる Issue を作成する。
+開発実装チーム（Dev）と品質管理チーム（QM）が**事業的に正しい行動をし続ける**ための、十分な意思入れと誰が読んでも同じ理解ができる Issue を作成する。
 
 ## Goal 1 (Issue 起票) — PO 特有判断軸
 
@@ -261,7 +261,7 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 |---|---|---|
 | `CLAUDE.md` 階層 | ルート / docs/ / src/routes/ / .github/ / infra/ / tests/ + 新規 src/lib/ 等 | 6+ 件 |
 | `.claude/skills/` | 全 Skills (`SKILL.md` ベース) | 13 件 (age-mode-check / brand-check / cost-review / customer-voice / db-migration / deploy-verify / dev-open-pr / flake-hunt / issue-triage / lp-review / pre-pmf-check / pr-review / regression-check) |
-| `.claude/agents/` | 全 agents (`*-session.md` SSOT) | 3 件 (po-session / dev-session / qa-session) |
+| `.claude/agents/` | 全 agents (`*-session.md` SSOT) | 3 件 (po-session / dev-session / qm-session) |
 | `.claude/settings.json` | hook / permissions / env / matcher | 1 hook (QA account PR prevent #1879) |
 | `.claudeignore` | (もしあれば) context exclude 設定 | 0-1 件 |
 | `.vscode/settings.json` | 共有設定 (#2183) | 1 件 |

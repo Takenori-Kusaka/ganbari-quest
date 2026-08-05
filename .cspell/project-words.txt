@@ -550,3 +550,6 @@ mebibytes
 crond
 # ===== #3982 demo auth-repo の型導出コメント (TS の method shorthand はパラメータが双変) =====
 bivariant
+
+# ===== #4273 main-pr-base-guard の fail メッセージ test (bash の case 終端キーワード) =====
+esac

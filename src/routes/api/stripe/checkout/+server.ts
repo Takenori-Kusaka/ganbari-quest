@@ -61,12 +61,15 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 			TENANT_NOT_FOUND: 404,
 			ALREADY_SUBSCRIBED: 409,
 			INVALID_PLAN: 400,
+			// #4286: 配備の設定不備であって顧客の入力誤りではないので 4xx で返さない。
+			PRICE_UNRESOLVED: 503,
 		};
 		const messageMap: Record<string, string> = {
 			STRIPE_DISABLED: '決済機能は現在利用できません',
 			TENANT_NOT_FOUND: 'アカウントが見つかりません',
 			ALREADY_SUBSCRIBED: '既にサブスクリプションに加入済みです',
 			INVALID_PLAN: 'プランが正しくありません',
+			PRICE_UNRESOLVED: '決済機能は現在利用できません',
 		};
 		error(statusMap[result.error] ?? 500, messageMap[result.error] ?? 'エラーが発生しました');
 	}

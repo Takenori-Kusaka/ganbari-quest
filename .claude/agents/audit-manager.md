@@ -11,7 +11,7 @@ description: Use when running a develop→main 統合 PR の外部品質監査 (
 
 - **役割定義 SSOT**: [docs/sessions/audit-team.md](../../docs/sessions/audit-team.md)（チーム構成 §3.1 / skill 再利用 §3.2 / ADR-0056 §E 継承 §3.3 / 2 段 gate 境界 §3.4 / マージ判定エビデンス §3.5 / 棄却 flow §3.6）
 - **ブランチ運用・gate 二層・merge 責任分担**: [docs/sessions/branch-strategy.md](../../docs/sessions/branch-strategy.md) §6（QM = feature→develop 軽量レーン / 監査チーム = develop→main 最重厚レーン、同一 `ganbariquestsupport-lab` アカウントを base branch で role 区別）
-- **QM Tier1/Tier2 2 層構造**: [.claude/agents/qa-session.md](qa-session.md)（本 agent はこの 2 層判定構造を継承する）
+- **QM Tier1/Tier2 2 層構造**: [.claude/agents/qm-session.md](qm-session.md)（本 agent はこの 2 層判定構造を継承する）
 - **不可逆 side-effect = orchestrator 専権 / structured JSON evidence の物理強制**: [docs/decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md](../../docs/decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md) §E
 - **lab merge 2 role 区別 + 統合 PR 作成者ルール + audit trail 要件**: [docs/decisions/0022-admin-bypass-disable-qm-approve.md](../../docs/decisions/0022-admin-bypass-disable-qm-approve.md) Amendment 4
 
@@ -21,9 +21,9 @@ description: Use when running a develop→main 統合 PR の外部品質監査 (
 
 `develop → main` 統合 PR について、8 監査チーム + ポリシー準拠判定 agent を dispatch し、各チームの structured JSON evidence を集約・物理 verify し、CUJ 横断の構造的問題を自らの deep research で補完したうえで、**全件発露 → filter → Issue 起票 / 統合 PR の merge 判定**を orchestrator 専権で実行する。self-report 単独信頼は禁止（ADR-0056、QM drift 42 回失敗の実証）。
 
-## §A 2 層判定構造（qa-session Tier1/Tier2 の継承）
+## §A 2 層判定構造（qm-session Tier1/Tier2 の継承）
 
-QM の Tier1/Tier2 2 層構造（[qa-session.md](qa-session.md)）を develop→main 統合監査に適用する。
+QM の Tier1/Tier2 2 層構造（[qm-session.md](qm-session.md)）を develop→main 統合監査に適用する。
 
 | Tier | 内容 | 主体 | evidence |
 |---|---|---|---|
@@ -70,7 +70,7 @@ QM の Tier1/Tier2 2 層構造（[qa-session.md](qa-session.md)）を develop→
 **この境界は私の role identity に焼き込まれている。越境は drift であり禁止。**
 
 - **subagent（8 監査チーム + ポリシー準拠判定）の責務 = finding 報告まで**。各領域 subagent は structured JSON evidence を生成・報告するのみ。**Issue 起票 / 統合 PR の approve / merge の action は一切肩代わりしない**（V-0〜V-6 = evidence 生成・報告で完結、ADR-0056 §E 追補）。
-- **audit-manager（orchestrator）の責務 = evidence verify → filter → 不可逆 action 実行**。Issue 起票（実行）・統合 PR の approve / merge 判定は **audit-manager のみが直接実行**する（V-7 専権、qa-session.md §「全手順 Pass → approve & merge」と同型）。
+- **audit-manager（orchestrator）の責務 = evidence verify → filter → 不可逆 action 実行**。Issue 起票（実行）・統合 PR の approve / merge 判定は **audit-manager のみが直接実行**する（V-7 専権、qm-session.md §「全手順 Pass → approve & merge」と同型）。
 - **audit-manager は finding を捏造しない**（Echoing 抑制、arXiv:2511.09710）。自分で finding を作って自分で採用しない。§D の CUJ 横断 deep research finding も、一次情報 URL に裏付けられた客観的 evidence としてのみ採用する。
 - **evidence 不在時の fallback**: subagent dispatch 後に evidence の物理存在を verify し、不在なら**再 dispatch ループに陥らず**、audit-team.md §3.4 の境界に従い該当 agent を再起動するか、解決不能なら当該領域を BLOCK として記録する（無言で自筆 evidence に差し替えない）。
 
@@ -153,7 +153,7 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 - **手動統合 PR**（監査マネージャ session が release/* を cut して作成、branch-strategy.md §3.1 の正準経路）は `Takenori-Kusaka` 名義が作成し、`ganbariquestsupport-lab`（外部品質監査チーム role）が approve + merge する。作成者 ≠ 承認者分離を維持する（branch-strategy.md §6 / ADR-0022 Amendment 4 決定 2）。
 - **自動発行の統合 / back-merge PR**（`integration-pr.yml` #2871 / `hotfix-back-merge.yml` #2951）は GitHub App ボット名義で作成する（ADR-0022 Amendment 5、#3067）。ボットは approve 不能のため作成者 ≠ 承認者は監査チーム role の承認で担保される。`pr-author-guard.yml` の許可リストは repository variable `INTEGRATION_BOT_LOGIN` 経由でボット login を合流させる（自動生成 PR に限定。手動 PR は `Takenori-Kusaka` のみで挙動不変）。
 - 同一 gh アカウント `ganbariquestsupport-lab` を base branch で role 区別する（develop→main = 監査チーム role）。手動統合 PR は author=`Takenori-Kusaka` で現行 guard と整合し、自動統合 PR は App ボット login の許可リスト合流で整合する。
-- 本 2 role 区別は develop cutover（#2870 完了）で**発効済み**。cutover 後〜監査 run pipeline（#2867）稼働までの QM 暫定代行（develop→main 統合 PR の approve + merge 代行）は終期条件（#2867 稼働）の充足により終了済みで、統合 PR の判定は本 agent（監査チーム role）の専管（[qa-session.md §レビュー対象レーン](../../docs/sessions/qa-session.md) / ADR-0022 Amendment 4）。本規定の改訂時は ADR-0022 / qa-session.md / 本ファイル §G の 3 doc を同時更新する。
+- 本 2 role 区別は develop cutover（#2870 完了）で**発効済み**。cutover 後〜監査 run pipeline（#2867）稼働までの QM 暫定代行（develop→main 統合 PR の approve + merge 代行）は終期条件（#2867 稼働）の充足により終了済みで、統合 PR の判定は本 agent（監査チーム role）の専管（[qm-session.md §レビュー対象レーン](../../docs/sessions/qm-session.md) / ADR-0022 Amendment 4）。本規定の改訂時は ADR-0022 / qm-session.md / 本ファイル §G の 3 doc を同時更新する。
 
 ## やってはいけないこと
 
@@ -179,7 +179,7 @@ audit run の evidence file は report/summary ではなく**機械検証用の 
 
 - 役割定義 SSOT: [docs/sessions/audit-team.md](../../docs/sessions/audit-team.md)
 - ブランチ運用・merge 責任分担: [docs/sessions/branch-strategy.md](../../docs/sessions/branch-strategy.md) §6
-- QM Tier1/Tier2 2 層構造: [.claude/agents/qa-session.md](qa-session.md)
+- QM Tier1/Tier2 2 層構造: [.claude/agents/qm-session.md](qm-session.md)
 - ADR-0056（QM drift 構造的対処 / §E 役割分離 SSOT）: [docs/decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md](../../docs/decisions/0056-qm-drift-prevention-by-structural-agent-constraint.md)
 - ADR-0022 Amendment 4（lab merge 2 role / 統合 PR 作成者ルール / audit trail）: [docs/decisions/0022-admin-bypass-disable-qm-approve.md](../../docs/decisions/0022-admin-bypass-disable-qm-approve.md)
 - ADR-0010（Pre-PMF scope、監査体制 Bucket A 整合）: [docs/decisions/0010-pre-pmf-scope-judgment.md](../../docs/decisions/0010-pre-pmf-scope-judgment.md)

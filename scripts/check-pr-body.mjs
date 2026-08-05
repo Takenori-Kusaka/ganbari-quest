@@ -500,6 +500,261 @@ export function checkClosesLanded(claimedBody, liveBody) {
 }
 
 // ---------------------------------------------------------------------------
+// 本文の主張 vs GitHub 実態 (#4170 AC1 / AC3)
+//
+// ## なぜ要るのか
+//
+// 統合 PR 本文は **人が書いた時点のスナップショット**だが、参照先 (Issue の state / label /
+// 表の行数) は**独立に動く生データ**である。第19回統合監査 (#4152) では merge 直前に
+// 4 回ずれ、4 回とも adversarial reviewer が先に見つけた (目視では追いつかなかった)。
+// **執筆と merge の間に間隔がある限り構造的に再発する。**
+//
+// ## あえて narrow にしている理由
+//
+// 本文は自然文なので「本文が何を主張しているか」を完全には読み取れない。
+// **誤検出する gate は無視されるようになり、gate として死ぬ**。したがって
+// **確信が持てる形だけを拾い、拾えないものは拾わない**:
+//
+//   - state / label 主張: **同一行**に `#N` と状態語 / label が両方あるときだけ
+//   - 件数主張: 件数が**行末寄り**にあり、**直後に markdown 表が始まる**ときだけ
+//
+// 拾えない例 (意図的): 「前回 3 件だったが今回は増えた」のような相対表現 /
+// 表を伴わない件数 / 複数行にまたがる主張 / 1 行に複数の #N がある場合。
+// **これらは本 gate の射程外**であり、引き続き §3.8 step 7 の目視と adversarial に委ねる。
+
+/** 本文が主張しうる Issue / PR の状態語。表記揺れを 2 値に正規化する。 */
+const STATE_CLAIM_WORDS = Object.freeze([
+	{ re: /\bCLOSED\b|閉じ(た|られた|ている)|close\s*済/i, state: 'CLOSED' },
+	{ re: /\bOPEN\b|open\s*継続|開いたまま/i, state: 'OPEN' },
+]);
+
+/**
+ * fenced code block だけを潰す純粋関数。
+ *
+ * `integration-pr-body.mjs` の `stripCode` は inline code も潰すが、本検査は
+ * inline code で囲まれた label (`state:needs-po` 等) を読む必要があるため inline は残す。
+ * fence を残すと「例示として書いた `#N は open`」を主張と読み違える。
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripFencedBlocks(text) {
+	return String(text ?? '').replace(/```[\s\S]*?```/g, ' ');
+}
+
+/**
+ * 本文から「同一行に `#N` と状態語 / label がある」主張を抽出する純粋関数 (#4170 AC1)。
+ *
+ * @param {string} body
+ * @returns {{ number: number; line: string; claimedState: string | null; claimedLabels: string[] }[]}
+ */
+export function extractStateClaims(body) {
+	/** @type {{ number: number; line: string; claimedState: string | null; claimedLabels: string[] }[]} */
+	const claims = [];
+	for (const rawLine of stripFencedBlocks(body).split('\n')) {
+		const line = rawLine;
+		const numbers = [...line.matchAll(/#(\d{2,})/g)].map((m) => Number(m[1]));
+		if (numbers.length === 0) continue;
+
+		const claimedState = STATE_CLAIM_WORDS.find((w) => w.re.test(line))?.state ?? null;
+		const claimedLabels = [...line.matchAll(/`((?:state|status):[a-z-]+)`/g)].map((m) =>
+			String(m[1]),
+		);
+		if (claimedState === null && claimedLabels.length === 0) continue;
+
+		// 同一行に複数の #N があるとき、どれに掛かる主張かは決められない。
+		// **決められないものは主張として扱わない** (誤検出を作らない)。
+		if (numbers.length > 1) continue;
+
+		claims.push({ number: Number(numbers[0]), line: line.trim(), claimedState, claimedLabels });
+	}
+	return claims;
+}
+
+/**
+ * 抽出した主張を実測 (live) と突合する純粋関数 (#4170 AC1)。
+ *
+ * **実測が取れていない番号は violation にする** (silent pass にしない、ADR-0006)。
+ * 取得できなかった理由が「番号の書き間違い」か「API 失敗」かを機械では区別できず、
+ * 通すと gate が空洞化するため。
+ *
+ * @param {string} body
+ * @param {Map<number, { state: string; labels: string[] }>} live
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkStateClaims(body, live) {
+	/** @type {string[]} */
+	const mismatches = [];
+	for (const claim of extractStateClaims(body)) {
+		const actual = live.get(claim.number);
+		if (!actual) {
+			mismatches.push(
+				`  ✗ #${claim.number}: 本文が状態を主張しているが、**実測が取れていません**\n` +
+					`    主張: ${claim.line}\n` +
+					`    番号の書き間違い / API 失敗のどちらかです。通すと gate が空洞化するため fail にします。`,
+			);
+			continue;
+		}
+		if (claim.claimedState !== null && claim.claimedState !== actual.state) {
+			mismatches.push(
+				`  ✗ #${claim.number}: 本文は ${claim.claimedState} と書いていますが、実測は **${actual.state}** です\n` +
+					`    主張: ${claim.line}`,
+			);
+		}
+		const missingLabels = claim.claimedLabels.filter((l) => !actual.labels.includes(l));
+		if (missingLabels.length > 0) {
+			mismatches.push(
+				`  ✗ #${claim.number}: 本文が書いた label が実測にありません: ${missingLabels.join(' / ')}\n` +
+					`    実測の label: ${actual.labels.length === 0 ? '(なし)' : actual.labels.join(' / ')}\n` +
+					`    主張: ${claim.line}`,
+			);
+		}
+	}
+	if (mismatches.length === 0) return null;
+	return {
+		id: 'body-state-drift',
+		message:
+			`統合 PR 本文の主張が GitHub 実態とずれています (${mismatches.length} 件、#4170 AC1)。\n` +
+			`**本文を書いた後に実態が動いた**か、最初から誤っています。\n` +
+			`${mismatches.join('\n')}\n` +
+			`  対応: 実測に合わせて本文を更新してから再実行する (実態の側を本文に合わせない)。`,
+	};
+}
+
+/**
+ * markdown 表の data 行か (区切り行を除く)。
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isTableDataRow(line) {
+	if (!/^\s*\|/.test(line)) return false;
+	if (/^\s*\|[\s:|-]+\|?\s*$/.test(line)) return false; // 区切り行 (|---|---|)
+	return true;
+}
+
+/**
+ * template のプレースホルダ行か。実データとして数えない。
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isPlaceholderRow(line) {
+	return /#N{2,}/.test(line) || /<[^>]+>/.test(line);
+}
+
+/**
+ * 「N 件」と主張し、直後に markdown 表が続く箇所を抽出する純粋関数 (#4170 AC3)。
+ *
+ * @param {string} body
+ * @returns {{ claimed: number; actualRows: number; line: string }[]}
+ */
+export function extractCountClaims(body) {
+	const lines = stripFencedBlocks(body).split('\n');
+	/** @type {{ claimed: number; actualRows: number; line: string }[]} */
+	const claims = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = String(lines[i] ?? '');
+		// 件数は**行末寄り**にあるものだけ拾う (散文中の「3 件の指摘があった。詳細は…」を除外)
+		const m = /(\d+)\s*件\s*[)）]?\s*$/.exec(line);
+		if (!m) continue;
+
+		// 直後 (空行を挟んで 3 行以内) に表が始まるときだけ主張として扱う
+		let j = i + 1;
+		let blanks = 0;
+		while (j < lines.length && blanks < 3 && String(lines[j] ?? '').trim() === '') {
+			blanks++;
+			j++;
+		}
+		if (j >= lines.length || !isTableDataRow(String(lines[j] ?? ''))) continue;
+
+		// 表の data 行を数える (1 行目は header、区切り行とプレースホルダは除外)
+		let rows = 0;
+		let seenHeader = false;
+		for (; j < lines.length; j++) {
+			const l = String(lines[j] ?? '');
+			if (!/^\s*\|/.test(l)) break;
+			if (!isTableDataRow(l)) continue;
+			if (!seenHeader) {
+				seenHeader = true;
+				continue;
+			}
+			if (isPlaceholderRow(l)) continue;
+			rows++;
+		}
+		claims.push({ claimed: Number(m[1]), actualRows: rows, line: line.trim() });
+	}
+	return claims;
+}
+
+/**
+ * 件数主張と実際の表行数を突合する純粋関数 (#4170 AC3)。
+ *
+ * @param {string} body
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkClaimedCounts(body) {
+	const bad = extractCountClaims(body).filter((c) => c.claimed !== c.actualRows);
+	if (bad.length === 0) return null;
+	return {
+		id: 'body-count-drift',
+		message:
+			`本文が主張する件数と表の行数が一致しません (${bad.length} 件、#4170 AC3)。\n` +
+			bad
+				.map(
+					(c) =>
+						`  ✗ 「${c.line}」と書いていますが、直後の表の data 行は **${c.actualRows} 行**です`,
+				)
+				.join('\n') +
+			`\n  対応: 表を実態に合わせるか、件数の記述を直す。**表を書き足した後に件数を直し忘れる**のが典型です。`,
+	};
+}
+
+/**
+ * 本文が言及した Issue / PR 番号の state と label を実測する (#4170 AC1)。
+ *
+ * `fetchPrLabels` (#3962) と同じ理由で `--jq` を使わない: execSync は Windows で cmd.exe を
+ * 経由し、cmd.exe は単一引用符を引用符として扱わないため jq がリテラル受領して落ちる。
+ * 落ちても catch で握り潰すと **検査が一度も走らないまま「違反なし」が出る**。
+ *
+ * **取得できなかった番号は Map に入れない。** 呼び出し側 (`checkStateClaims`) が
+ * 「実測が取れていない」として violation にする (silent pass にしない、ADR-0006)。
+ *
+ * Issue と PR は番号空間が同じなので、`gh issue view` が失敗したら `gh pr view` を試す。
+ *
+ * @param {number[]} numbers
+ * @returns {Map<number, { state: string; labels: string[] }>}
+ */
+export function fetchIssueStates(numbers) {
+	/** @type {Map<number, { state: string; labels: string[] }>} */
+	const live = new Map();
+	for (const n of [...new Set(numbers)]) {
+		for (const kind of ['issue', 'pr']) {
+			try {
+				const raw = execSync(`gh ${kind} view ${n} --json state,labels`, {
+					encoding: 'utf-8',
+					stdio: ['ignore', 'pipe', 'ignore'],
+					timeout: 15_000,
+				});
+				const parsed = JSON.parse(raw);
+				const state = String(parsed?.state ?? '').toUpperCase();
+				if (!state) break;
+				const labels = Array.isArray(parsed?.labels)
+					? parsed.labels
+							.map((/** @type {{ name?: unknown }} */ l) => String(l?.name ?? ''))
+							.filter(Boolean)
+					: [];
+				// PR の state は OPEN / CLOSED / MERGED。MERGED は「開いていない」側に寄せる
+				live.set(n, { state: state === 'MERGED' ? 'CLOSED' : state, labels });
+				break;
+			} catch {
+				// issue で失敗したら pr を試す。両方失敗したら Map に入れない (= violation)
+			}
+		}
+	}
+	return live;
+}
+
+// ---------------------------------------------------------------------------
 // Ready for Review チェックリスト未チェック検出
 // ---------------------------------------------------------------------------
 
@@ -658,7 +913,7 @@ export function extractPoDecisionSection(body) {
  * `po-decision:required` label 付き PR に PO 決裁ブリーフが実体を伴って存在するかを検証する (#3962)。
  *
  * 発生経緯: PR #3944 / #3956 の 2 回連続で「label は付いているがブリーフが body にない」まま
- * Ready 化し、QA レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
+ * Ready 化し、QM レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
  * 付与に対応する body 要件が人間の記憶に依存していたため同型が再発した。ADR-0061
  * same-class-N→guard に従い、instance 修正 (その PR にブリーフを足す) ではなく機械 gate 化する。
  *
@@ -667,7 +922,7 @@ export function extractPoDecisionSection(body) {
  *   2. 見出しはあるが mermaid ブロックがない (「一枚絵で判断できる」という様式要件を満たさない)
  *   3. 見出しはあるが template の未置換プレースホルダ `___` が残っている
  *
- * 検出しないもの: ブリーフの中身の妥当性 (判断層は QA / PO レビューの担当)。
+ * 検出しないもの: ブリーフの中身の妥当性 (判断層は QM / PO レビューの担当)。
  * ここで固定するのは「label と body の対応が取れていること」だけ。
  *
  * @param {string} body
@@ -1375,6 +1630,18 @@ export const BLOCKING_GATES = [
 		why: '同上。`___` が残ったブリーフは「出したが中身が無い」= 証跡の偽装に等しい',
 	},
 	{
+		id: 'body-state-drift',
+		name: '統合 PR 本文の state / label 主張が GitHub 実態と一致',
+		issue: '#4170',
+		why: '証跡の真正性。本文が「#N は open」「`state:needs-po`」と書いていても実態が違えば、統合 PR の判断材料そのものが嘘になる。advisory に落とすと #4170 の No-gos「照合を warning に留めること」に該当し、乖離したまま CI が緑で通る',
+	},
+	{
+		id: 'body-count-drift',
+		name: '統合 PR 本文の件数主張と表の行数が一致',
+		issue: '#4170',
+		why: '同上。「起票した Issue (3 件)」と書いて表が 4 行なら、読み手は 1 件を数えないまま統合を承認する。第19回統合監査で実際に起きた 4 件のうち 2 件がこの形',
+	},
+	{
 		id: 'integration-evidence-missing',
 		name: '統合 PR のマージ判定エビデンス表',
 		issue: '#2945',
@@ -1921,7 +2188,7 @@ function loadPrBody(args) {
  * @param {string} body
  * @param {string[]} requiredSections
  * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
- * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[]; lane?: string }} args
+ * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] | null; lane?: string | null; noLabels?: boolean }} args
  * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
@@ -1973,6 +2240,32 @@ export function collectViolations(body, requiredSections, template, args, notes 
 				message: evidence.error ?? 'マージ判定エビデンス表の検証に失敗しました',
 			});
 		}
+		// #4170 AC3: 本文が主張する件数と表の行数の一致 (純粋関数、network 不要)
+		const countDrift = checkClaimedCounts(body);
+		if (countDrift) violations.push({ ...countDrift, issue: '#4170 AC3' });
+
+		// #4170 AC1: 本文の state / label 主張を GitHub 実測と突合。
+		// **integration lane のみ hard-fail** (AC4)。feature lane の挙動は変えない。
+		// `--no-labels` / `--labels` は「label を手で主張した」経路なので、実測を伴う本検査は
+		// 走らせない (手元主張と実測の混在は判定の意味を壊す)。skip したことは notes に出す。
+		const stateClaims = extractStateClaims(body);
+		if (stateClaims.length === 0) {
+			notes.push('[check-pr-body] NOTE: 本文に state / label の主張が無いため #4170 AC1 は対象外');
+		} else if (args.noLabels || args.labels !== null) {
+			notes.push(
+				`[check-pr-body] SKIP: #4170 AC1 (state / label 実測突合) — ` +
+					`--no-labels / --labels 指定時は実測を引かないため。主張 ${stateClaims.length} 件は未検証です`,
+			);
+		} else {
+			const live = fetchIssueStates(stateClaims.map((c) => c.number));
+			const stateDrift = checkStateClaims(body, live);
+			if (stateDrift) violations.push({ ...stateDrift, issue: '#4170 AC1' });
+			notes.push(
+				`[check-pr-body] NOTE: #4170 AC1 — 本文の state / label 主張 ${stateClaims.length} 件を実測と突合しました ` +
+					`(実測取得: ${live.size} 件)`,
+			);
+		}
+
 		notes.push(
 			'[check-pr-body] NOTE: lane=integration のため AC 検証マップの代わりに ' +
 				'「マージ判定エビデンス表 + 残 NG 0 件」を検証しました (#4130 AC2)',

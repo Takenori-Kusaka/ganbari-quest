@@ -25,6 +25,8 @@ export interface DevUserProfile {
 	groups?: string[];
 	/** #3025: federated (Google) 相当ユーザ。identities claim をダミー JWT に載せる */
 	federated?: boolean;
+	/** #4266: MFA 済ユーザ。本物の Cognito と同形の `amr` claim をダミー JWT に載せる */
+	mfa?: boolean;
 }
 
 /** ダミー Cognito ID Token を生成 */
@@ -38,6 +40,11 @@ export async function signDevIdentityToken(user: DevUserProfile): Promise<string
 	};
 	if (user.groups && user.groups.length > 0) {
 		payload['cognito:groups'] = user.groups;
+	}
+	if (user.mfa) {
+		// #4266: 本物の Cognito が MFA チャレンジ完了時に載せる amr と同形にする。
+		// ローカル / E2E でも本番と同じ判定経路 (hasMfaAmr) を通す (分岐を作らない)。
+		payload.amr = ['pwd', 'mfa'];
 	}
 	if (user.federated) {
 		// #3025: 本物の Cognito federation と同形の identities claim + 実認証時刻
@@ -76,6 +83,10 @@ export async function verifyDevIdentityToken(token: string): Promise<CognitoClai
 			'cognito:groups': groups,
 			identities: Array.isArray(payload.identities) ? payload.identities : undefined,
 			auth_time: typeof payload.auth_time === 'number' ? payload.auth_time : undefined,
+			// #4266: 本番 verifyIdentityToken と同じ amr 伝搬
+			amr: Array.isArray(payload.amr)
+				? payload.amr.filter((m): m is string => typeof m === 'string')
+				: undefined,
 			iss: payload.iss as string,
 			aud: payload.aud as string,
 		};

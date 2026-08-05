@@ -10,12 +10,12 @@ description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari
 **`gh pr ready <N>` 実行前に必ず以下 5 項目を完遂すること**。本日 (2026-05-29) 7 連続再発 (#2625 / #2626 / #2629 / #2630 等で Ready checklist 未チェック / AC 2 列 / forbidden-terms 混入 / rebase drift) + Persona Drift 4 連続観察 (#2613 RR #4 / #2625 / #2629 / #2630) の構造的予防策:
 
 1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — Step 9 Readiness gate (`check-pr-body.mjs`) で下記 2-4 を一括検出
-2. **PR body Ready checklist 全 `[x]` 化** — 「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
+2. **PR body Ready checklist 全 `[x]` 化** — 「QM 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
 3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 2 列簡略形式は `ac-map-incomplete` で exit 1
 4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」) — PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
 5. **rebase 完了** — base branch に rebase 済みで mergeable: CONFLICTING でないこと。**base は develop 二層で決まる** (branch-strategy.md §3/§5、#2870 cutover / #2959): feature/fix/docs PR = `git fetch origin develop && git rebase origin/develop` / hotfix (`fix/*` → main) = `git fetch origin main && git rebase origin/main`。判定 SSOT: `node scripts/lib/ci/resolve-base-branch.mjs` / 基点鮮度の機械検証: `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` (#2975)。`--force-with-lease` が stale info で reject されたら `git fetch origin <branch>:refs/remotes/origin/<branch> --force` 後に再 push (worktree / 限定 refspec 下の tracking ref は自動更新されない)。**PR open 中に base が進んだら QM BLOCK を待たず速やかに rebase + SS 再撮影** (#3009、SOP SSOT: [branch-strategy.md §3](../../../docs/sessions/branch-strategy.md))
 
-これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QA Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QA チーム時間効率 (user 明示 priority) 毀損。
+これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QM Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QM チーム時間効率 (user 明示 priority) 毀損。
 
 詳細は ADR-0056 §E (#2632) + `docs/sessions/dev-session.md` §「Ready 化前 5 項目 SSOT」を参照。
 
@@ -344,7 +344,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 ### ルール
 
 - 本セクションは **必須 11 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
-- **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QA merge gate 指摘、が 2 回連続したことによる gate 化
+- **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QM merge gate 指摘、が 2 回連続したことによる gate 化
 - `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
 - label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する
 
