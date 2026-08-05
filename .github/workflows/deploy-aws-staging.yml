@@ -133,9 +133,13 @@ jobs:
           OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
           STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
           STRIPE_WEBHOOK_SECRET_TEST: ${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
+          # #4280: front door header の共有 secret。prod と同一値を使う
+          # (PARENT_GATE_COOKIE_SECRET / OPS_SECRET_KEY と同じ共有方針)。
+          # 未登録だと同一 CDK app の synth が throw して staging deploy も止まる。
+          ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
         run: |
           missing=0
-          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY; do
+          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY ORIGIN_VERIFY_SECRET; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -215,6 +219,7 @@ jobs:
             -c stagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
@@ -226,6 +231,7 @@ jobs:
           -c stagingEnabled=true
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
 
       # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
       # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
@@ -277,6 +283,7 @@ jobs:
             -c dsqlStagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
 
       - name: Resolve DSQL staging outputs
         run: |
@@ -313,6 +320,7 @@ jobs:
             -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
             -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -334,6 +342,7 @@ jobs:
               -c stagingEnabled=true $DSQL_CTX \
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+              -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
               -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done

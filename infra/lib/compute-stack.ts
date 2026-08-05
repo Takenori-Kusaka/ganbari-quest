@@ -195,6 +195,16 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
+		// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify`)。CloudFront 側
+		// (network-stack.ts) が付与し、アプリ側 (hooks.server.ts) が /admin ・ /api/v1/admin ・
+		// /ops で一致を要求する。**同じ CDK context から両者に配るため、header と検査が食い違わない**。
+		//
+		// ここでは throw しない: 未設定時の fail-fast は `infra/bin/app.ts` の
+		// `resolveOriginVerifySecret()` が単一点で担う (どの cdk 実行も app.ts を通る)。
+		// demo Lambda (SvelteKitDemoFn) には注入しない — demo は独立 distribution 配信で
+		// /ops を持たず、/admin も公開デモデータのみ。未注入 = 検査無効 (fail-open) で従来どおり動く。
+		const originVerifySecret = this.node.tryGetContext('originVerifySecret') ?? '';
+
 		// --- DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A で無条件既定化) ---
 		// DSQL は本番の唯一の DB backend。DATA_SOURCE=dsql + DSQL_ENDPOINT + dsql:DbConnect を
 		// **無条件**で配線する。旧 `dsqlEnabled` flag と「flag なしは DATA_SOURCE=dynamodb fallback」
@@ -362,6 +372,7 @@ export class ComputeStack extends cdk.Stack {
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
 						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
@@ -387,6 +398,7 @@ export class ComputeStack extends cdk.Stack {
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
 					},
 		});
 		this.fn.node.addDependency(logGroup);

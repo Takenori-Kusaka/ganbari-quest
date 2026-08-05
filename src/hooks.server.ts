@@ -37,6 +37,10 @@ import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
+import {
+	evaluateFrontDoor,
+	ORIGIN_VERIFY_HEADER,
+} from '$lib/server/security/origin-verify';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
@@ -183,6 +187,64 @@ const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
 
 /**
+ * #4280 案 b: front door (CloudFront) 検査が secret 未設定で無効なことを、プロセスで 1 回だけ
+ * log するためのフラグ。「黙って無防備」を作らないための可視化であり、毎リクエスト出すと
+ * NUC / ローカル (CloudFront を持たない正当な配備) でログが埋まるため 1 回に絞る。
+ */
+let frontDoorDisabledLogged = false;
+
+/**
+ * #4280 案 b: front door 検査。CloudFront を経由しない `/admin` `/api/v1/admin` `/ops` への
+ * 到達 (Lambda Function URL 直叩き) を拒否する。
+ *
+ * 拒否時は **404** を返す (403 ではない)。403 は「そこに何かがある」ことを教えるが、
+ * この経路に来る呼び出しは定義上まっとうなブラウザではない (実利用者は必ず CloudFront を
+ * 通る) ため、存在自体を伏せる側に倒す。代わりに**サーバ側 log には残す** —
+ * 呼び出し元に情報を与えず、運営者は CloudWatch で即座に切り分けられる。
+ *
+ * log には path / method / 判定コードのみを載せる。secret・header 値・IP・顧客識別子は載せない。
+ *
+ * @returns 拒否する場合は Response、通す場合は null
+ */
+function checkFrontDoor(event: RequestEvent, path: string): Response | null {
+	const decision = evaluateFrontDoor(
+		path,
+		event.request.headers.get(ORIGIN_VERIFY_HEADER),
+		env.ORIGIN_VERIFY_SECRET,
+	);
+
+	if (decision === 'not-configured') {
+		if (!frontDoorDisabledLogged) {
+			frontDoorDisabledLogged = true;
+			logger.info(
+				'[front-door] ORIGIN_VERIFY_SECRET 未設定のため CloudFront 経由検査は無効です ' +
+					'(CloudFront を持たない配備 = NUC / ローカル / demo では正常。AWS 本番・staging では ' +
+					'CDK synth と deploy.yml の必須 secret 検証が未設定を止めます、#4280)',
+			);
+		}
+		return null;
+	}
+	if (decision === 'allow') return null;
+
+	logger.warn('[front-door] blocked non-CloudFront request to protected path', {
+		requestId: event.locals.requestId,
+		path,
+		context: { code: 'front_door_missing_header', method: event.request.method },
+	});
+
+	if (acceptsHtml(event.request)) {
+		return new Response(
+			renderErrorHtml(404, 'ページが見つかりません', 'お探しのページは見つかりませんでした。'),
+			{ status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+		);
+	}
+	return new Response(JSON.stringify({ error: 'Not Found' }), {
+		status: 404,
+		headers: { 'Content-Type': 'application/json' },
+	});
+}
+
+/**
  * ADR-0040 P4 (#1217): Policy Gate `can(ctx, 'write.db')` 経由で "demo 書き込み no-op"
  * を判定する参考実装。hooks main handler の cognitive complexity を上げないために、
  * 判定をここへ切り出している。true を返したら呼び側で 200 `{ ok: true, demo: true }`
@@ -290,6 +352,15 @@ export const handle: Handle = ({ event, resolve }) =>
 				},
 			);
 		}
+
+		// 0-a2) front door 検査 (#4280 案 b)
+		//
+		// CloudFront を経由しない `/admin` `/api/v1/admin` `/ops` 到達を塞ぐ。rate limiter より
+		// **前**に置く: 迂回試行で rate limit の枠を消費させない + 判定が header 比較 1 回で最も安い。
+		// `/api/stripe/webhook` `/api/cron/*` `/api/health` は保護対象外のため、Function URL 直の
+		// 既存経路 (Stripe / cron-dispatcher / LWA readiness) は従来どおり通る。
+		const frontDoorBlock = checkFrontDoor(event, path);
+		if (frontDoorBlock) return frontDoorBlock;
 
 		// 0-b) レートリミット（cognito 本番モードのみ、dev モードは除外）
 		if (
