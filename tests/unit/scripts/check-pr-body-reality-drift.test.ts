@@ -26,10 +26,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	BLOCKING_VIOLATION_IDS,
 	checkClaimedCounts,
 	checkStateClaims,
 	extractCountClaims,
 	extractStateClaims,
+	partitionBySeverity,
 } from '../../../scripts/check-pr-body.mjs';
 
 describe('#4170 AC1 — 本文の state / label 主張を実測と突合', () => {
@@ -186,6 +188,40 @@ describe('#4170 AC4 — integration lane でのみ hard-fail する', () => {
 				`${call} が integration ブロック外から呼ばれています (feature lane に波及する)`,
 			).not.toContain(call);
 		}
+	});
+
+	// 配線 (どこから呼ぶか) が正しくても、**severity 分類が advisory のままなら CI は exit 0 で通る**。
+	// 構造的配置の assert だけでは本欠陥を検出できないことが QM レビュー (#4231) で実証された。
+	// → 「blocking に入ること」そのものを assert する。
+	it('body-state-drift / body-count-drift は blocking (hard-fail) に分類される', () => {
+		for (const id of ['body-state-drift', 'body-count-drift']) {
+			expect(
+				BLOCKING_VIOLATION_IDS.has(id),
+				`${id} が BLOCKING_GATES に無い = advisory 扱いになり、乖離しても CI が緑で通る`,
+			).toBe(true);
+		}
+	});
+
+	it('partitionBySeverity が 2 件を blocking 側に入れる (exit 1 になる)', () => {
+		const violations = [
+			{ id: 'body-state-drift', message: 'x' },
+			{ id: 'body-count-drift', message: 'y' },
+		];
+		const { blocking, advisory } = partitionBySeverity(violations);
+		expect(blocking.map((v) => v.id)).toEqual(['body-state-drift', 'body-count-drift']);
+		expect(advisory, 'advisory に落ちると blocking.length === 0 で exit 0 になる').toEqual([]);
+	});
+
+	// 実際に検査が返す violation object をそのまま流し、id の綴りずれで分類が外れないことまで見る。
+	it('checkStateClaims / checkClaimedCounts が返した violation は blocking になる', () => {
+		const stateV = checkStateClaims('- #9999 は open', new Map());
+		const countV = checkClaimedCounts(
+			['### 起票 (3 件)', '', '| a | b |', '|---|---|', '| 1 | 2 |'].join('\n'),
+		);
+		expect(stateV).not.toBeNull();
+		expect(countV).not.toBeNull();
+		const { blocking } = partitionBySeverity([stateV, countV].filter((v) => v !== null));
+		expect(blocking).toHaveLength(2);
 	});
 
 	// 実測を引かない経路で「違反なし」を出すと、gate が走ったのか走っていないのか区別できない。
