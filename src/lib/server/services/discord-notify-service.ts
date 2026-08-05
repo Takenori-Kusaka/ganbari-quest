@@ -135,39 +135,70 @@ export async function notifyIncident(
 	await notifyDiscord('incident', buildIncidentEmbed(errorMessage, context));
 }
 
-/** お問い合わせ通知 */
-// biome-ignore lint/complexity/useMaxParams: 型安全のため引数を個別定義、別 Issue でオブジェクト引数化予定
-export async function notifyInquiry(
-	tenantId: string,
+const INQUIRY_CATEGORY_LABELS: Record<string, string> = {
+	feature: '機能要望',
+	bug: 'バグ報告',
+	opinion: 'ご意見',
+	consult: '相談・困りごと',
+	other: 'その他',
+};
+
+/**
+ * inquiry embed を組み立てる (顧客識別子を落とした後の payload)。
+ *
+ * **送出と分けてある理由**: buildIncidentEmbed と同じ — 「顧客識別子が出力に現れない」ことを
+ * unit test で固定するため (#4197 / #4192 AC4)。fetch を張らずに payload そのものを検査できる。
+ *
+ * ## 何を載せ、何を載せないか (#4174 Q3 の PO 決裁 / #4197)
+ *
+ * - **載せる**: 受付番号 (inquiryId)・カテゴリ・本文
+ * - **載せない**: tenantId / 送信者メールアドレス / 返信先メールアドレス
+ *
+ * 「返信先アドレスが目的そのもの」は載せてよい理由にならない。**返信する場所は Discord ではない**。
+ * 送信者 / 返信先 / テナントは受付番号を鍵に `inquiries` 表 (認証された場所) から引く。
+ *
+ * ## 本文を載せる判断 (#4197 AC3)
+ *
+ * 本文は**載せる**。載せない選択が可能なのは「運用者が本文を読める認証済画面が実在する」場合だが、
+ * 現状 `IInquiryRepo` は `generateInquiryId` / `saveInquiry` のみで**読み出し API を持たず**、
+ * `/ops` 配下にも inquiry を開く画面が無い。本文まで落とすと問い合わせ対応が止まるため、
+ * 本文は redaction を通したうえで残す。自由記述に混ざる email / UUID / path 中の id は
+ * `redactNotificationText` (単一強制点) が落とす。
+ *
+ * 順序は **redact → sanitize** で固定する。逆順だと `sanitizeDiscordText` が `foo@here.com` の
+ * `@here` に zero-width space を挿してメールアドレスの形を壊し、redaction をすり抜ける。
+ */
+export function buildInquiryEmbed(
 	category: string,
 	text: string,
-	email: string,
-	replyEmail?: string,
 	inquiryId?: string,
-): Promise<void> {
-	const categoryLabel: Record<string, string> = {
-		feature: '機能要望',
-		bug: 'バグ報告',
-		other: 'その他',
-	};
-
-	// #3388: ping の構造的無効化は notifyDiscord の allowed_mentions:{parse:[]} が担う (単一点防御)。
-	// 本文 (text、childAge を含む自由記述) は表示上のノイズ低減と二重防御で zero-width space 中和を継続する。
-	// email / replyEmail は zero-width space 中和しない: `foo@here.com` 等 mention 語を含む正当アドレスが破損し
-	// コピペ返信が壊れるため (#3211 回帰)。ping は allowed_mentions で既に無効化済で中和不要。
-	await notifyDiscord('inquiry', {
-		title: `📬 ${categoryLabel[category] ?? category}${inquiryId ? ` (${inquiryId})` : ''}`,
-		description: sanitizeDiscordText(text.slice(0, 2000)),
+): DiscordEmbed {
+	const categoryLabel = INQUIRY_CATEGORY_LABELS[category] ?? category;
+	const redacted = redactNotificationText(text.slice(0, 2000)) ?? '';
+	return {
+		title: `📬 ${categoryLabel}${inquiryId ? ` (${inquiryId})` : ''}`,
+		// #3388: ping の構造的無効化は notifyDiscord の allowed_mentions:{parse:[]} が担う (単一点防御)。
+		// ここでの中和は表示ノイズ低減の二重防御。
+		description: sanitizeDiscordText(redacted),
 		color: category === 'bug' ? 0xff4444 : 0x4a90d9,
 		fields: [
 			...(inquiryId ? [{ name: '受付番号', value: inquiryId, inline: true }] : []),
-			{ name: 'テナント', value: tenantId, inline: true },
-			{ name: '送信者', value: email, inline: true },
+			{ name: 'カテゴリ', value: categoryLabel, inline: true },
 			{
-				name: '返信先',
-				value: replyEmail || 'なし',
-				inline: true,
+				name: '送信者を見る',
+				value: inquiryId
+					? `認証された場所で引く: \`inquiries\` 表を inquiry_id=\`${inquiryId}\` で照会 (送信者 / 返信先 / テナントはそこにある)`
+					: '認証された場所で引く: `inquiries` 表を送信時刻で照会 (受付番号の採番前に失敗した通知)',
 			},
 		],
-	});
+	};
+}
+
+/** お問い合わせ通知 */
+export async function notifyInquiry(
+	category: string,
+	text: string,
+	inquiryId?: string,
+): Promise<void> {
+	await notifyDiscord('inquiry', buildInquiryEmbed(category, text, inquiryId));
 }

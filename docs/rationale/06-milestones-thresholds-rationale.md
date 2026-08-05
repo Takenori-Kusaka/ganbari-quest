@@ -90,15 +90,33 @@ Duolingo blog (公式データ)         Pokémon Unite (achievement)
 - [Achievement (UNITE) - Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Achievement_(UNITE))
 - [Pokemon Unite: All Symbols and Their Meaning - GameRant](https://gamerant.com/pokemon-unite-medals-symbols-meaning/)
 
+## 再判断: records 軸の棄却 (#4172 → #4268)
+
+本 rationale の「案 A 現状維持」結論は **records 軸 (`records_5` / `records_10`) について棄却された**。棄却の判断は
+閾値の妥当性ではなく、**褒める対象そのものの変更**による。
+
+- **判断の起点**: #4172 は「褒める対象を『記録の量』から『月間の習慣化』へ変える」と決めた。実装は #4215（量ベース自動ごほうびの撤去）と
+  #4220（月間習慣化の証明書 + 50pt）で報酬発行側に適用されたが、称賛表示側 (`MILESTONES`) が旧軸のまま残っていた（#4268）
+- **本 rationale の前提が崩れた点**: 上の妥当性評価は「records 軸を持つこと」を所与として閾値だけを比較していた。
+  #4172 は所与そのものを否定した。**5 回 / 10 回という閾値が業界 prior art と整合していても、量で褒めない方針とは両立しない**
+- **`first_record` は残す**: 閾値 1 は量の達成ではなく「開始」の事実であり、#4172 が撤去したのは `totalRecords % 5` 型の累積量判定。
+  外すと最初のストリーク (7 日) まで子供に称賛が 1 つも無くなる
+- **案 C (Duolingo 7 日特化) の再評価**: 棄却理由の 1 つだった「records_5 が無いと親の dataset 到達感が出ない」は、
+  親側の到達感を #4220 の月間習慣化証明書（その月に記録した日数 ≥ 10）が担うため成立しなくなった。
+  結果として現行構造は案 C（日数軸中心）に近い
+
+現行の軸は `src/lib/domain/constants/habit-milestones.ts` の `PRAISE_MILESTONE_IDS` が SSOT。
+
 ## 残された懸念・フォローアップ
 
-- [ ] **PMF 後の閾値再評価** — MAU が安定し dataset が貯まったら、実データ (records_X / streak_X 到達率分布) に基づき再評価。例えば `streak_30` 到達率が極端に低ければ `streak_21` 等の中間段階追加判断
+- [ ] **PMF 後の閾値再評価** — MAU が安定し dataset が貯まったら、実データ (streak_X 到達率分布) に基づき再評価。例えば `streak_30` 到達率が極端に低ければ `streak_21` 等の中間段階追加判断
 - [ ] **段階追加候補** — Duolingo の `100 日 / 365 日` 等のロングテール streak は **本機構では現時点で不要**。理由: 初月価値プレビュー (#1600) の scope は「最初の 30 日」であり、長期 streak は別機構 (称号 / バッジ #1782 廃止済) で扱う
-- [ ] **閾値変更が必要になった場合の影響範囲** — 変更時は以下も同期更新:
+- [ ] **閾値・軸の変更が必要になった場合の影響範囲** — 変更時は以下も同期更新:
+  - `src/lib/domain/constants/habit-milestones.ts` の `PRAISE_MILESTONE_IDS` / `STREAK_MILESTONE_DAYS`（起点）
   - `src/lib/server/services/value-preview-service.ts` の `MILESTONES` 定数
-  - `docs/design/26-ゲーミフィケーション設計書.md §4e.3` の表
+  - `docs/design/26-ゲーミフィケーション設計書.md §4e.3` / `docs/design/06-UI設計書.md §18.3` の表
   - `src/lib/domain/labels.ts` の `MILESTONE_LABELS`
-  - `tests/unit/server/services/value-preview-service.test.ts` (集計テスト) — 該当 test の閾値依存箇所
+  - `tests/unit/services/value-preview-service.test.ts` (集計テスト) / `tests/unit/architecture/praise-axis-ssot.test.ts` (軸の両側適用)
 - [ ] **実装側 follow-up なし** — 本 rationale は「現状値妥当」結論のため、別 Issue 起票不要 (Issue #2174 AC3)
 
 ## 関連

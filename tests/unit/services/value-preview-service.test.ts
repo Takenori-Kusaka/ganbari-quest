@@ -182,25 +182,29 @@ describe('getTenantValuePreview - マイルストーン判定', () => {
 		expect(firstRecord?.achieved).toBe(true);
 		expect(firstRecord?.achievedAt).toBe(fiveDaysAgo);
 
-		// 5 件マイルストーンは未達成
-		const r5 = child?.milestones.find((m) => m.id === 'records_5');
-		expect(r5?.achieved).toBe(false);
+		// 連続記録マイルストーンは未達成
+		const s7 = child?.milestones.find((m) => m.id === 'streak_7');
+		expect(s7?.achieved).toBe(false);
 	});
 
-	it('活動 5 件で records_5 マイルストーン達成', async () => {
+	// #4268: 旧 `records_5` / `records_10` の達成テストは、軸そのものを撤去したため
+	// 「量では褒めない」ことの回帰テストに置き換えた (assertion の弱体化ではない)。
+	it('同じ日に 10 件記録しても量ベースの称賛は 1 件も発生しない (#4268)', async () => {
 		const tenDaysAgo = addDaysJST(todayDateJST(), -10);
 		const { childId } = seed({ childCreatedAt: `${tenDaysAgo}T10:00:00.000Z` });
-		// 5 日分 × 1 活動 = 5 件
-		for (let i = 0; i < 5; i++) {
-			const date = addDaysJST(todayDateJST(), -(10 - i));
-			logActivity(childId, 1, date);
+		// 同一日に 10 件 = 「量」は十分だが「続いた」わけではない
+		const sameDay = addDaysJST(todayDateJST(), -1);
+		for (let i = 0; i < 10; i++) {
+			logActivity(childId, 1, sameDay);
 		}
 
 		const preview = await getTenantValuePreview(TENANT);
 		const child = preview.children[0];
-		expect(child?.totalActivities).toBe(5);
-		const r5 = child?.milestones.find((m) => m.id === 'records_5');
-		expect(r5?.achieved).toBe(true);
+		expect(child?.totalActivities).toBe(10);
+
+		// 達成するのは「開始」(first_record) のみ。連続日数系は 1 日しか記録していないので未達成
+		const achieved = (child?.milestones ?? []).filter((m) => m.achieved).map((m) => m.id);
+		expect(achieved).toEqual(['first_record']);
 	});
 
 	it('7 日連続記録で streak_7 マイルストーン達成（longest streak で判定）', async () => {
@@ -246,14 +250,16 @@ describe('getTenantValuePreview - カテゴリ別集計', () => {
 });
 
 describe('MILESTONES 定義', () => {
-	it('6 件のマイルストーンが定義されている', () => {
-		expect(MILESTONES).toHaveLength(6);
+	it('4 件のマイルストーンが定義されている (#4268: 量ベース 2 件を撤去)', () => {
+		expect(MILESTONES).toHaveLength(4);
 	});
 
-	it('count 系と streak 系の両方を含む', () => {
+	it('count 系は「開始」の 1 件のみで、残りは全て streak 系 (#4268)', () => {
 		const counts = MILESTONES.filter((m) => m.kind === 'count');
 		const streaks = MILESTONES.filter((m) => m.kind === 'streak');
-		expect(counts.length).toBeGreaterThan(0);
+		expect(counts).toHaveLength(1);
+		expect(counts[0]?.id).toBe('first_record');
+		expect(counts[0]?.threshold).toBe(1);
 		expect(streaks.length).toBeGreaterThan(0);
 	});
 

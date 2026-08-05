@@ -86,9 +86,11 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 // ---------- Import after mocks ----------
 
 import {
+	type ContractStateClassification,
 	type ContractStateColumns,
 	classifyContractState,
 	isInvalidContractState,
+	VALID_CONTRACT_STATES,
 } from '$lib/domain/contract-state';
 import { handleWebhookEvent } from '../../../src/lib/server/services/stripe-service';
 
@@ -142,6 +144,22 @@ function resultingColumns(before: Record<string, unknown>): ContractStateColumns
 		columns = { ...columns, ...merged };
 	}
 	return mergePatch(columns, {});
+}
+
+/**
+ * 「書いた後の行が **S1〜S6 のいずれか** である」ことを assert する (AC3)。
+ *
+ * `isInvalidContractState()` だけでは足りない。同関数は `UNCLASSIFIED`
+ * (= 表がまだ何も言っていない組み合わせ) に対して **false** を返すため、
+ * 「X* ではない」だけを見ると **表に無い状態を書いた handler が緑で通る**。
+ * 本 Issue が塞ぐのは「表に無い遷移」そのものなので、正常集合への所属を直接見る。
+ */
+function expectWritesValidState(writer: string, after: ContractStateClassification): void {
+	expect(
+		(VALID_CONTRACT_STATES as readonly string[]).includes(after),
+		`${writer} が表に無い / 不正な状態 ${after} を書いた (S1〜S6 のいずれかである必要がある)`,
+	).toBe(true);
+	expect(isInvalidContractState(after), `${writer} が不正状態 ${after} を書いた`).toBe(false);
 }
 
 beforeEach(() => {
@@ -236,6 +254,40 @@ describe('#4181 AC3 webhook handler の書き込み後は正常状態に分類�
 		).toBe(false);
 		expect(after).toBe('S5');
 	});
+	it('W2 invoice.paid: S3 (猶予) → S2 (課金中)', async () => {
+		// 支払い成功で猶予から復帰する経路。**猶予終了日を消さないと X3** になる
+		// (`active` に期限は無い、matrix §4)。顧客には「支払い済みなのに期限が迫っている」と映る。
+		const before = makeTenant({
+			status: 'grace_period',
+			planExpiresAt: '2026-09-01T00:00:00.000Z',
+		});
+		expect(classifyContractState(mergePatch(before, {})), '前提が S3 でない').toBe('S3');
+		mockFindTenantById.mockResolvedValue(before);
+		mockFindTenantByStripeCustomerId.mockResolvedValue(before);
+		mockSubscriptionsRetrieve.mockResolvedValue({
+			id: SUB,
+			customer: 'cus_123',
+			status: 'active',
+			items: { data: [{ price: { id: 'price_monthly_123' } }] },
+		});
+
+		await handleWebhookEvent({
+			type: 'invoice.paid',
+			data: {
+				object: {
+					id: 'in_paid',
+					customer: 'cus_123',
+					parent: { subscription_details: { subscription: SUB } },
+				},
+			},
+		} as never);
+
+		expect(mockUpdateTenantStripe, 'W2 が書き込んでいない').toHaveBeenCalled();
+		const after = classifyContractState(resultingColumns(before));
+		expectWritesValidState('W2', after);
+		expect(after).toBe('S2');
+	});
+
 	it('W4 customer.subscription.updated: S3 (猶予) → S2 (課金中) に復帰', async () => {
 		const before = makeTenant({
 			status: 'grace_period',
@@ -257,7 +309,59 @@ describe('#4181 AC3 webhook handler の書き込み後は正常状態に分類�
 
 		expect(mockUpdateTenantStripe, 'W4 が書き込んでいない').toHaveBeenCalled();
 		const after = classifyContractState(resultingColumns(before));
-		expect(isInvalidContractState(after), `W4 が不正状態 ${after} を書いた`).toBe(false);
+		expectWritesValidState('W4 (active 復帰)', after);
+		expect(after).toBe('S2');
+	});
+
+	it('W4 customer.subscription.updated: S2 (課金中) → S3 (past_due で猶予入り)', async () => {
+		// Stripe は `invoice.payment_failed` (W3) と `past_due` の `updated` (W4) を両方送り、
+		// **到着順を保証しない**。W4 が先着したとき猶予終了日を書かないと
+		// `grace_period` + 期限なし = **表に無い組み合わせ**になる (S3 は exp あり必須)。
+		// 顧客の画面には「いつまで猶予なのか」が出せず、W3 が届かなければ猶予が明けない。
+		const before = makeTenant();
+		expect(classifyContractState(mergePatch(before, {})), '前提が S2 でない').toBe('S2');
+		mockFindTenantById.mockResolvedValue(before);
+
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					id: SUB,
+					metadata: { tenantId: 't-test' },
+					status: 'past_due',
+					items: { data: [{ price: { id: 'price_monthly_123' } }] },
+				},
+			},
+		} as never);
+
+		expect(mockUpdateTenantStripe, 'W4 が書き込んでいない').toHaveBeenCalled();
+		const after = classifyContractState(resultingColumns(before));
+		expectWritesValidState('W4 (past_due)', after);
+		expect(after).toBe('S3');
+	});
+
+	it('W4 customer.subscription.updated: S3 の猶予終了日は past_due の再送で延長されない', async () => {
+		// dunning 中 Stripe は retry のたび `past_due` の updated を送る。毎回 now+7d を書くと
+		// **猶予が無限に伸びて未払いのまま使い続けられる**。既に期限があるなら触らない。
+		const existingExpiry = '2026-09-01T00:00:00.000Z';
+		const before = makeTenant({ status: 'grace_period', planExpiresAt: existingExpiry });
+		mockFindTenantById.mockResolvedValue(before);
+
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					id: SUB,
+					metadata: { tenantId: 't-test' },
+					status: 'past_due',
+					items: { data: [{ price: { id: 'price_monthly_123' } }] },
+				},
+			},
+		} as never);
+
+		const after = resultingColumns(before);
+		expect(after.planExpiresAt, '猶予終了日が再送で書き換わっている').toBe(existingExpiry);
+		expectWritesValidState('W4 (past_due 再送)', classifyContractState(after));
 	});
 });
 
@@ -271,13 +375,6 @@ describe('#4181 AC4 test で覆えていない書き手を silent gap にしな�
 	 * **理由付きで列挙する**。ここが空配列になったら全件覆えたということ。
 	 */
 	const UNCOVERED_WRITERS: { id: string; trigger: string; reason: string }[] = [
-		{
-			id: 'W2',
-			trigger: 'invoice.paid',
-			reason:
-				'plan 未解決時の「保持」分岐が proration fixture 前提で、本 test の最小 fixture では ' +
-				'書き込みまで到達しない。分岐網羅は stripe-service.test.ts が別途担う',
-		},
 		{
 			id: 'W6',
 			trigger: 'アプリ内解約 (tenant/cancel)',
@@ -311,7 +408,7 @@ describe('#4181 AC4 test で覆えていない書き手を silent gap にしな�
 		}
 		// 覆えたら配列から消す。**消し忘れると「覆っていないのに覆った」と誤読される**ため、
 		// 実際に駆動している W1 / W3 / W5 が混ざっていないことを固定する。
-		const covered = ['W1', 'W3', 'W4', 'W5'];
+		const covered = ['W1', 'W2', 'W3', 'W4', 'W5'];
 		for (const id of covered) {
 			expect(
 				UNCOVERED_WRITERS.map((w) => w.id),

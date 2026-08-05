@@ -20,7 +20,7 @@ import {
 	redactAlertOptions,
 } from '$lib/server/discord-alert';
 import { redactNotificationText, redactPathIds } from '$lib/server/notify-privacy';
-import { buildIncidentEmbed } from '$lib/server/services/discord-notify-service';
+import { buildIncidentEmbed, buildInquiryEmbed } from '$lib/server/services/discord-notify-service';
 
 /** 通知に出てはいけない値 (PO 決裁 Q3 の「載せない」列)。 */
 const CUSTOMER_IDENTIFIERS = {
@@ -109,6 +109,63 @@ describe('#4192 通知 payload に顧客識別子が出ない', () => {
 		expect(out).not.toContain(CUSTOMER_IDENTIFIERS.childId);
 		expect(out).not.toContain(CUSTOMER_IDENTIFIERS.tenantId);
 		expect(out).toContain('req-1');
+	});
+});
+
+describe('#4197 inquiry 通知 payload に顧客識別子が出ない', () => {
+	// #4197 AC1/AC2: tenantId / 送信者 / 返信先 は field ごと撤去し、受付番号 + カテゴリ +
+	// 「認証された画面で読む」導線だけを載せる。本文は残す (AC3、下の it で根拠を書く)。
+	it('受付番号とカテゴリは載り、tenantId / メールアドレスの field は無い', () => {
+		const embed = buildInquiryEmbed('bug', 'ログインできません', 'INQ-20260805-001');
+		const fieldNames = (embed.fields as Array<{ name: string }>).map((f) => f.name);
+
+		expect(embed.title).toContain('INQ-20260805-001');
+		expect(fieldNames).toContain('受付番号');
+		expect(fieldNames).toContain('カテゴリ');
+		// 旧 payload の 3 field は復活させない
+		expect(fieldNames).not.toContain('テナント');
+		expect(fieldNames).not.toContain('送信者');
+		expect(fieldNames).not.toContain('返信先');
+		// 受付番号を鍵に認証された場所へ誘導する (読めないまま絞らない)
+		expect(serialize(embed)).toContain('inquiries');
+	});
+
+	// AC3: 本文は載せる (運用者が本文を読める認証済画面が現状存在しないため)。
+	// ただし本文に混ざる顧客識別子は redaction を通す。
+	it('本文は残るが、本文に混ざった email / tenantId は出力に現れない', () => {
+		const embed = buildInquiryEmbed(
+			'consult',
+			`朝の準備が進みません。返信は ${CUSTOMER_IDENTIFIERS.email} まで (tenant=${CUSTOMER_IDENTIFIERS.tenantId})`,
+			'INQ-20260805-002',
+		);
+		const out = serialize(embed);
+
+		expect(out).not.toContain(CUSTOMER_IDENTIFIERS.email);
+		expect(out).not.toContain(CUSTOMER_IDENTIFIERS.tenantId);
+		// 用件そのものは読める (絞りすぎて問い合わせ対応が止まらない)
+		expect(out).toContain('朝の準備が進みません');
+	});
+
+	// #3211 / #3388 回帰: sanitize が先に走ると `foo@here.com` の `@here` に zero-width space が
+	// 入り email の形が壊れて redaction をすり抜ける。順序は redact → sanitize で固定する。
+	it('mention 語を含むメールアドレス (foo@here.com) も落ちる (redact → sanitize 順の固定)', () => {
+		const out = serialize(buildInquiryEmbed('other', '返信先は parent@here.com です', 'INQ-1'));
+
+		expect(out).not.toContain('parent@here.com');
+		expect(out).not.toContain('here.com');
+		// mention 中和自体は維持 (誤 ping させない)
+		expect(serialize(buildInquiryEmbed('other', '@everyone 見て', 'INQ-2'))).not.toMatch(
+			/@everyone/,
+		);
+	});
+
+	// 受付番号の採番前に save が落ちた経路 (support page の catch) でも識別子を載せない
+	it('受付番号が無い場合でも tenantId / email を載せない', () => {
+		const embed = buildInquiryEmbed('feature', `連絡先 ${CUSTOMER_IDENTIFIERS.email}`);
+		const out = serialize(embed);
+
+		expect(out).not.toContain(CUSTOMER_IDENTIFIERS.email);
+		expect((embed.fields as Array<{ name: string }>).map((f) => f.name)).not.toContain('受付番号');
 	});
 });
 

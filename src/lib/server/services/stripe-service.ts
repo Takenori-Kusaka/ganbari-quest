@@ -18,7 +18,9 @@ import {
 	CURRENCY,
 	GRACE_PERIOD_DAYS,
 	getPlans,
+	getPriceId,
 	getWebhookSecret,
+	lookupPlanOf,
 	type PlanId,
 	planIdFromLookupKey,
 	planIdFromPriceId,
@@ -46,7 +48,8 @@ export type CreateCheckoutResult =
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'ALREADY_SUBSCRIBED' }
-	| { error: 'INVALID_PLAN' };
+	| { error: 'INVALID_PLAN' }
+	| { error: 'PRICE_UNRESOLVED' };
 
 export async function createCheckoutSession(
 	input: CreateCheckoutInput,
@@ -63,7 +66,26 @@ export async function createCheckoutSession(
 	const plan = plans[input.planId];
 	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
 	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
-	if (!plan?.priceId) return { error: 'INVALID_PLAN' };
+	const lookupPlan = plan ? lookupPlanOf(input.planId) : null;
+	if (!plan || !lookupPlan) return { error: 'INVALID_PLAN' };
+
+	// #4286: Price ID は `getPriceId()` 経由で解決する。**`plan.priceId` を直読しない。**
+	// 直読していたため `USE_LOOKUP_KEY=true` がどの経路にも効かず、price env を注入しない
+	// 配備 (staging #4104) では購入が必ず 400 で失敗していた。`getPriceId()` は
+	// flag ON なら lookup_key 解決 → 失敗時のみ env fallback (alert 付き kill switch) を行う。
+	let priceId: string;
+	try {
+		priceId = await getPriceId(lookupPlan);
+	} catch (err) {
+		// lookup_key も env も解決できない = 配備の設定不備。**別 plan の Price に倒れない**
+		// (誤課金になる)。顧客の選択が誤っているわけではないので INVALID_PLAN では返さない。
+		// alert は `getPriceId()` 内で発火済み。
+		logger.error('[STRIPE] Price ID 未解決のため checkout を中止', {
+			tenantId: input.tenantId,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return { error: 'PRICE_UNRESOLVED' };
+	}
 
 	const stripe = getStripeClient();
 
@@ -76,7 +98,7 @@ export async function createCheckoutSession(
 	const sessionParams: Stripe.Checkout.SessionCreateParams = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
-		line_items: [{ price: plan.priceId, quantity: 1 }],
+		line_items: [{ price: priceId, quantity: 1 }],
 		locale: 'ja',
 		// #2346 (景品表示法 critical fix): CHECKOUT_LABELS SSOT 経由で
 		// 「お選びのプランの機能」文言を適用。景品表示法 5 条 1 号 (優良誤認) +
@@ -128,7 +150,17 @@ export async function createCheckoutSession(
 // ============================================================
 
 export type CreatePortalResult =
-	| { url: string }
+	| {
+			url: string;
+			/**
+			 * 要求された flow を Stripe が受け付けず、portal ホームで session を作り直したか (#4270)。
+			 *
+			 * true のとき、顧客は「プラン変更画面 / 解約画面へ直行する」と期待した操作の結果として
+			 * portal ホームに着く。**黙って落とすと、解約理由を書き終えた直後に予期しない画面へ
+			 * 落ちる**ので、呼び出し元は次の操作を示すメッセージを出す責務を負う。
+			 */
+			flowFallback?: true;
+	  }
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'NO_STRIPE_CUSTOMER' };
@@ -202,14 +234,35 @@ export async function createPortalSession(
 	if (!tenant.stripeCustomerId) return { error: 'NO_STRIPE_CUSTOMER' };
 
 	const stripe = getStripeClient();
-	const session = await stripe.billingPortal.sessions.create({
+	const baseParams: Stripe.BillingPortal.SessionCreateParams = {
 		customer: tenant.stripeCustomerId,
 		// 途中でやめた顧客が戻れるリンク。flow の有無に関わらず常に渡す
 		return_url: returnUrl,
-		...buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl),
-	});
+	};
+	const flowData = buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl);
 
-	return { url: session.url };
+	if (!flowData.flow_data) {
+		const session = await stripe.billingPortal.sessions.create(baseParams);
+		return { url: session.url };
+	}
+
+	try {
+		const session = await stripe.billingPortal.sessions.create({ ...baseParams, ...flowData });
+		return { url: session.url };
+	} catch (err) {
+		// #4270: flow は Stripe Dashboard の Portal 設定 (更新オプションとして表示する
+		// 商品・価格 / 解約の許可) が生きていることを前提にする。設定がずれた瞬間に
+		// **portal に一切入れなくなる**のは、直行できないより悪い。監視機構は持たず
+		// (外部 SaaS 設定の常時監視は Pre-PMF で過剰、ADR-0010)、ここで home に倒す。
+		// 顧客識別子は載せない (#4174 / #4197 と同基準)。
+		logger.warn(
+			`[STRIPE] portal flow (${flow.kind}) が拒否されたため home で作り直します: ${redactPii(
+				err instanceof Error ? err.message : String(err),
+			)}`,
+		);
+		const session = await stripe.billingPortal.sessions.create(baseParams);
+		return { url: session.url, flowFallback: true };
+	}
 }
 
 // ============================================================
@@ -984,16 +1037,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			// #3960: silent fallback (`?? MONTHLY`) 廃止。未解決時は既存 plan を保持 + alert。
 			...planUpdateOrKeep(plan, tenant, 'customer.subscription.updated', subscription.id),
 			status,
-			// #4181: `active` に戻ったら猶予終了日を消す。
-			//
-			// 消さないと `status=active` + `planExpiresAt` あり = **X3 (契約が無いのに期限だけ残る)**
-			// を書く (contract-state-matrix.md §4 不正状態)。`planExpiresAt` は W3
-			// (`invoice.payment_failed`) が猶予終了日として書く列で、**猶予が明けたら意味を失う**。
-			// 残すと dunning の残骸として後続の判定に効き続ける。
-			//
-			// `grace_period` は W3 が書いた期限を保持し、`suspended` は matrix で「任意」なので触らない
-			// (`undefined` = 更新しない)。
-			...(status === SUBSCRIPTION_STATUS.ACTIVE ? { planExpiresAt: null } : {}),
+			...planExpiresAtPatchFor(status, tenant),
 		}),
 	);
 	if (!applied) return;
@@ -1048,6 +1092,33 @@ const TERMINAL_SUBSCRIPTION_STATUSES = [
 
 function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
 	return (TERMINAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(subscription.status);
+}
+
+/**
+ * `customer.subscription.updated` (W4) が status を書き換えるとき、**その status が持つべき
+ * `plan_expires_at` を同時に決める** (#4181、`contract-state-matrix.md` §4)。
+ *
+ * status だけを書き換えると、表に無い / 不正な組み合わせが残る:
+ *
+ * - `active` に戻したのに猶予終了日が残る → **X3**「`active` に期限は無い」。
+ *   この列を読む導出値は、支払い済みの顧客に「あと N 日で使えなくなります」と表示しうる
+ * - `grace_period` に入れたのに猶予終了日が無い → **S3 は `exp` あり必須**なので表に無い組み合わせ。
+ *   Stripe は `invoice.payment_failed` (W3) と `past_due` の updated を両方送り到着順を保証しないため、
+ *   W4 が先着するとこの形になる。いつまで猶予なのかを画面にも出せず、W3 が届かなければ猶予が明けない
+ *
+ * 既に猶予終了日があるときは**触らない**。dunning 中 Stripe は retry のたび `past_due` を送るので、
+ * 毎回書き直すと猶予が延び続け、未払いのまま使い続けられる (W3 と同じ 7 日を初回だけ与える)。
+ * `suspended` の `exp` は matrix で「任意」なので `undefined` = 更新しない。
+ */
+function planExpiresAtPatchFor(
+	status: Tenant['status'],
+	tenant: Pick<Tenant, 'planExpiresAt'>,
+): { planExpiresAt?: string | null } {
+	if (status === SUBSCRIPTION_STATUS.ACTIVE) return { planExpiresAt: null };
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !tenant.planExpiresAt) {
+		return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
+	}
+	return {};
 }
 
 // ============================================================

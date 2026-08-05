@@ -30,6 +30,11 @@ export interface EvaluationUser {
 	role: 'owner' | 'parent' | 'child';
 	/** Cognito groups 等の外部グループ所属 (ops 認可などに利用) */
 	groups: readonly string[];
+	/**
+	 * #4266: ログイン時に MFA を経たか (Cognito ID token の `amr` claim 由来)。
+	 * `undefined` = 判定不能。ops capability は `true` 以外を拒否する (fail-closed)。
+	 */
+	mfaAuthenticated?: boolean;
 }
 
 /** プラン解決結果（ADR-0024 の resolvePlanTier / trial-service 結果の投影） */

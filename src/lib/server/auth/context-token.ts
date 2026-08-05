@@ -32,7 +32,10 @@ function getSecret(): string {
  * 焼き込むと DB 反映後も最大 24 時間 (owner の TTL) 古い値が使われ続ける。
  * 課金状態の解決 SSOT は `./tenant-entitlement.ts`（毎リクエスト DB 解決）。
  */
-export type ContextTokenClaims = Pick<AuthContext, 'tenantId' | 'role' | 'childId'>;
+export type ContextTokenClaims = Pick<
+	AuthContext,
+	'tenantId' | 'role' | 'childId' | 'mfaAuthenticated'
+>;
 
 interface ContextPayload extends ContextTokenClaims {
 	exp: number; // Unix timestamp (seconds)
@@ -49,6 +52,9 @@ export function signContext(context: ContextTokenClaims): string {
 		tenantId: context.tenantId,
 		role: context.role,
 		childId: context.childId,
+		// #4266: MFA を経てセッションを開始したか。true のときだけ載せる (旧トークンとの
+		// 互換は「載っていない = undefined = 拒否側」で成立する、fail-closed)。
+		mfaAuthenticated: context.mfaAuthenticated === true ? true : undefined,
 		iat: now,
 		exp: now + ttl,
 	};
@@ -91,6 +97,8 @@ export function verifyContext(token: string): ContextTokenClaims | null {
 			tenantId: payload.tenantId,
 			role: payload.role,
 			childId: payload.childId === undefined ? undefined : asChildId(payload.childId),
+			// #4266: 真偽が明示された true のみ採用する (欠落 / 非 boolean は undefined = 拒否側)
+			mfaAuthenticated: payload.mfaAuthenticated === true ? true : undefined,
 		};
 	} catch {
 		return null;

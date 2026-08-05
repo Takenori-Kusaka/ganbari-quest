@@ -3,6 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
+import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -2751,8 +2753,19 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// プラン管理
 	planManagementTitle: 'プラン管理',
 	planManagementUnavailable: '決済機能は現在準備中です',
-	portalButton: (loading: boolean) => (loading ? '読み込み中...' : 'プラン変更・支払い管理'),
+	// #4257 / #4166 AC5: 着地 (portal トップ = 支払い方法・請求履歴) と名前を一致させる。
+	// 「プラン変更・支払い管理」はプラン変更画面へ直行するように読めるが、実際に開くのは
+	// portal トップであり、名前と着地がずれていた。プラン変更の直行導線は
+	// PlanStatusCard のアップグレード CTA が、解約は下の解約リンクが担う (入口は増やさない)。
+	portalButton: (loading: boolean) =>
+		loading ? '読み込み中...' : `${STRIPE_PORTAL_TERMS.short}を開く`,
 	portalNote: `Stripeの${STRIPE_PORTAL_TERMS.short}でプラン変更・支払い方法の更新・解約ができます`,
+	// #4270: portal の flow が Stripe に拒否されて home に倒れたときの案内。
+	// 原因 (Dashboard 設定 / Stripe の拒否) は顧客に説明せず、次の操作だけを示す (ADR-0062)。
+	portalFallbackCancel: `${CANCEL_TERMS.canonical}のお手続きは、この画面の「${STRIPE_PORTAL_TERMS.short}を開く」から続けてください。`,
+	portalFallbackPlanChange: `${PLAN_CHANGE_TERMS.changeNoun}のお手続きは、${STRIPE_PORTAL_TERMS.short}から続けてください。`,
+	/** fallback 時に、作成済みの portal セッションへそのまま進むための導線 (PIN を再入力させない) */
+	portalFallbackContinueButton: `${STRIPE_PORTAL_TERMS.short}へ進む`,
 	portalPinNote: (usesPin: boolean) =>
 		`⚠️ プラン変更には${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
 	billingMonthly: '月額',
@@ -6308,7 +6321,7 @@ export const LP_PRICING_LABELS = {
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
+	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
 	faqAdsQ: '子供の画面に広告は出ますか？',
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
@@ -7804,7 +7817,7 @@ export const LP_FAQ_LABELS = {
 		'途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	text56: '特定商取引法に基づく表記',
 	text57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
-	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
+	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
 	text59:
 		'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	text60: 'プライバシー・データについて',
@@ -8639,13 +8652,12 @@ export const STORYBOOK_LABELS = {
 // 年齢帯 variant (ADR-0015): preschool = ひらがな / elementary 以上 = 漢字
 // 同一カード内のひらがな + 漢字混在を解消 (#2169)
 // ============================================================
-type MilestoneTextKey =
-	| 'first_record'
-	| 'records_5'
-	| 'records_10'
-	| 'streak_7'
-	| 'streak_14'
-	| 'streak_30';
+// #4268: ID 集合の SSOT は `constants/habit-milestones.ts` の `PRAISE_MILESTONE_IDS`
+// (褒める軸 = 日数ベース + 開始の 1 件)。ここで独自 union を再定義しない。
+type MilestoneTextKey = PraiseMilestoneId;
+
+/** 表示文言を持つマイルストーン ID (fitness function が判定側との一致を検査する、#4268 AC4) */
+export const MILESTONE_LABEL_IDS: readonly MilestoneTextKey[] = PRAISE_MILESTONE_IDS;
 
 type MilestoneAgeContext = 'preschool' | 'elementary' | 'junior' | 'senior';
 
@@ -8654,14 +8666,6 @@ const MILESTONE_HIRAGANA: Record<MilestoneTextKey, { title: string; description:
 	first_record: {
 		title: 'はじめての きろく',
 		description: 'さいしょの がんばりを きろくできたよ',
-	},
-	records_5: {
-		title: '5 かい きろく',
-		description: '5 かい きろくが できたよ',
-	},
-	records_10: {
-		title: '10 かい きろく',
-		description: '10 かい きろくが できたよ',
 	},
 	streak_7: {
 		title: '1 しゅうかん つづいた',
@@ -8682,14 +8686,6 @@ const MILESTONE_KANJI: Record<MilestoneTextKey, { title: string; description: st
 	first_record: {
 		title: 'はじめての記録',
 		description: '最初のがんばりを記録できました',
-	},
-	records_5: {
-		title: '5 回 記録',
-		description: '5 回の活動を記録できました',
-	},
-	records_10: {
-		title: '10 回 記録',
-		description: '10 回の活動を記録できました',
 	},
 	streak_7: {
 		title: '1 週間 つづいた',
@@ -8714,8 +8710,6 @@ export const MILESTONE_LABELS = {
 	bellAriaLabel: (count: number) => `新着のおしらせ ${count}件 を見る`,
 	/** legacy: 漢字 variant (elementary 以上の callers が直接参照する場合用、後方互換) */
 	first_record: MILESTONE_KANJI.first_record,
-	records_5: MILESTONE_KANJI.records_5,
-	records_10: MILESTONE_KANJI.records_10,
 	streak_7: MILESTONE_KANJI.streak_7,
 	streak_14: MILESTONE_KANJI.streak_14,
 	streak_30: MILESTONE_KANJI.streak_30,
@@ -9112,7 +9106,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k55: '途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	k56: '日割りでの返金は行っておりません。詳細は <a href="tokushoho.html">特定商取引法に基づく表記</a> をご確認ください。',
 	k57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
-	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
+	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からお手続きいただけます。`,
 	k59: 'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	k60: '<span class="faq-category-num">3</span>プライバシー・データについて',
 	k61: 'お子さまのデータの取り扱いと、サービス終了時の保証について。',
@@ -9507,7 +9501,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「${CANCEL_TERMS.canonical}をご検討の方」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 

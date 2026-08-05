@@ -50,9 +50,8 @@ function cleanupRateLimitMap(): void {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const context = locals.context;
+	// tenantId はレート制限キーとしてのみ使う (通知 payload には載せない、#4197)
 	const tenantId = context?.tenantId ?? 'anonymous';
-	const identity = locals.identity;
-	const email = identity?.type === 'cognito' ? identity.email : 'local-user';
 
 	// レート制限チェック（チェック前にクリーンアップ）
 	cleanupRateLimitMap();
@@ -95,11 +94,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const screenshotNote = screenshot ? '\n📎 スクリーンショット添付あり' : '';
 
+	// #4197: 通知 payload に tenantId / メールアドレスを載せない (#4174 Q3 の PO 決裁)。
+	// 「誰から」は受付番号を鍵に認証された場所 (inquiries 表 / ログ) で引く。
 	await notifyInquiry(
-		tenantId,
 		category,
 		`${categoryLabel[category] ?? category}\n\n${text}${currentUrl ? `\n\n📍 送信元: ${currentUrl}` : ''}${screenshotNote}`,
-		email,
 	);
 
 	// レート制限記録

@@ -8,11 +8,19 @@ vi.mock('$lib/server/db/settings-repo', () => ({
 	setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
+const mockLoggerWarn = vi.fn();
 vi.mock('$lib/server/logger', () => ({
-	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+	logger: {
+		info: vi.fn(),
+		warn: (...args: unknown[]) => mockLoggerWarn(...args),
+		error: vi.fn(),
+		debug: vi.fn(),
+	},
 }));
 
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import {
+	classifyMonthKeyMatch,
 	consumeMemoryTicket,
 	getChurnPreventionData,
 	getCurrentTier,
@@ -273,5 +281,75 @@ describe('#4127 二重加算防止キーの基準 (JST prefix)', () => {
 			String(monthCall?.[1]).startsWith(JST_MONTH_KEY_PREFIX),
 			`基準 prefix の無い値を保存しています: ${String(monthCall?.[1])}`,
 		).toBe(true);
+	});
+});
+
+// #4269 ②: skip したこと自体は正しくても、**なぜ skip したか**で意味が違う。
+// 曖昧判定で skip した取りこぼしは継続月数が静かに 1 少なくなるだけで画面にも通知にも出ないため、
+// ログが「回復が必要だと気づく」唯一の経路になる。
+describe('#4269 曖昧判定 skip の観測', () => {
+	it('skip の理由を分類する (exact / ambiguous-legacy / no-match)', () => {
+		// prefix 付きの厳密一致 = 設計どおりの二重加算防止 (無害)
+		expect(classifyMonthKeyMatch('jst:2026-08', 'jst:2026-08')).toBe('exact');
+		// prefix 無しの旧値が当月 / 前月リテラルと一致 = 安全側に倒した skip (取りこぼしかもしれない)
+		expect(classifyMonthKeyMatch('2026-08', 'jst:2026-08')).toBe('ambiguous-legacy');
+		expect(classifyMonthKeyMatch('2026-07', 'jst:2026-08')).toBe('ambiguous-legacy');
+		// 加算してよいケース
+		expect(classifyMonthKeyMatch('2026-06', 'jst:2026-08')).toBe('no-match');
+		expect(classifyMonthKeyMatch('jst:2026-07', 'jst:2026-08')).toBe('no-match');
+		expect(classifyMonthKeyMatch(null, 'jst:2026-08')).toBe('no-match');
+	});
+
+	it('曖昧判定で skip したら warn ログが残る (prefix 無しの旧値)', async () => {
+		// 現在の JST 月の 1 つ前を prefix 無しで保存済 = 危険ウィンドウで保存された可能性がある値
+		const legacyPrevMonth = shiftMonthKey(monthKeyJST(), -1);
+		mockGetSetting.mockImplementation(async (key: string) =>
+			key === 'loyalty_last_increment_month' ? legacyPrevMonth : null,
+		);
+		mockSetSetting.mockResolvedValue(undefined);
+
+		const result = await incrementSubscriptionMonth(TENANT);
+
+		// skip されている (加算していない)
+		expect(mockSetSetting).not.toHaveBeenCalledWith(
+			'loyalty_subscription_months',
+			expect.anything(),
+			TENANT,
+		);
+		expect(result.ticketsAwarded).toBe(0);
+
+		// なぜ skip したかがログに残る
+		const skipLogs = mockLoggerWarn.mock.calls.filter(
+			(call) =>
+				(call[1] as { context?: { kind?: string } })?.context?.kind ===
+				'loyalty-increment-skipped-ambiguous',
+		);
+		expect(skipLogs, '曖昧判定 skip が無言で行われています').toHaveLength(1);
+
+		const [, entry] = skipLogs[0] as [
+			string,
+			{ tenantId?: string; context?: { storedMonthKey?: string; currentMonthKey?: string } },
+		];
+		// 「どのテナントか」は認証された場所 (CloudWatch Logs) でだけ引ける (#4174 Q3 / #4192)
+		expect(entry.tenantId).toBe(TENANT);
+		// 切り分けに要る値: 何が保存されていて、今どの月と比較したか
+		expect(entry.context?.storedMonthKey).toBe(legacyPrevMonth);
+		expect(entry.context?.currentMonthKey).toBe(`${JST_MONTH_KEY_PREFIX}${monthKeyJST()}`);
+	});
+
+	it('prefix 付きの厳密一致 (通常の二重加算防止) では warn ログを出さない — ノイズにしない', async () => {
+		mockGetSetting.mockImplementation(async (key: string) =>
+			key === 'loyalty_last_increment_month' ? `${JST_MONTH_KEY_PREFIX}${monthKeyJST()}` : null,
+		);
+		mockSetSetting.mockResolvedValue(undefined);
+
+		await incrementSubscriptionMonth(TENANT);
+
+		const skipLogs = mockLoggerWarn.mock.calls.filter(
+			(call) =>
+				(call[1] as { context?: { kind?: string } })?.context?.kind ===
+				'loyalty-increment-skipped-ambiguous',
+		);
+		expect(skipLogs, '正常な二重加算防止まで warn していると信号が埋もれます').toHaveLength(0);
 	});
 });
