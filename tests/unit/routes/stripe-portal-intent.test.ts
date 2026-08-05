@@ -8,6 +8,10 @@
 // あわせて #4270 決裁 1 の fallback（Stripe が flow を拒否 → home で作り直し）が
 // クライアントまで伝わることを固定する。伝わらないと、顧客は「プラン変更画面に行くはずが
 // 違う画面に着いた」だけを持ち帰る。
+//
+// cspell:ignore upgradeee
+//   `plan-upgradeee` は「許容値で始まるが許容値ではない」負例。綴りを直すと
+//   prefix 一致の緩い判定 (#3956 で実害) を検出できなくなるため、この file scope で許可する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
