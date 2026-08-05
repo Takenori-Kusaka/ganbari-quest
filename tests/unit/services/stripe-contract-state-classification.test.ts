@@ -88,9 +88,9 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 import {
 	type ContractStateClassification,
 	type ContractStateColumns,
-	VALID_CONTRACT_STATES,
 	classifyContractState,
 	isInvalidContractState,
+	VALID_CONTRACT_STATES,
 } from '$lib/domain/contract-state';
 import { handleWebhookEvent } from '../../../src/lib/server/services/stripe-service';
 
