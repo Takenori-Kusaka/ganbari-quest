@@ -94,6 +94,30 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 
 詳細: [ADR-0004 §4](../docs/decisions/0004-review-and-ac-verification.md)
 
+## 運用行為の AC を持つ Issue は close 判定が別
+
+AC に「**実機で確認する**」「**外部媒体へ退避したことを記録する**」「**Dashboard の実設定を確認する**」等の**運用行為**が含まれる Issue は、**関連 PR が全部 merge されても充足しない**。
+
+| 判定 | ルール |
+|---|---|
+| 個別 close | **実施した記録が Issue に貼られていること**が条件。実装の merge ではない |
+| 統合 PR の `Closes` 集約 | **含めない。** `integration-pr-body.mjs` は AC を見ないため auto-close され、追跡者が消える |
+| `issue-close-gate` の reopen | 「AC checkbox の形式問題」と扱わない。**中身が未達である可能性を先に疑う** |
+
+集約に追加する前に実測する:
+
+```bash
+gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
+```
+
+**実例（#4129）**: close 承認時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の `CRON_SECRET` 配布確認）が運用行為だった。さらに EPIC `#4119` の着手順先頭にある**唯一の open tracker** で `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡しており、auto-close すれば退避を誰も追わないまま削除が走る状態だった。PO の close 承認 → 12 秒後に gate が reopen → 実施記録が貼られるまで 1 日以上滞留、という経緯もこれが原因（timeline の実測は [po-session.md](../docs/sessions/po-session.md) §決裁前の実測義務 実例 2）。
+
+### `Closes` 集約の構造的限界
+
+`integration-pr-body.mjs` は **PR 単位の closing keyword しか見ない**。「同一 release 内で**複数 PR が 1 Issue の AC を分担**し、各 PR が partial として `<!-- no-issue-close -->` を宣言する」ケースを**原理的に検出できない**。
+
+`#4129` が第一例（`#4142` が AC5、`#4144` が AC2/AC4 を分担）。**2 例目が出たら class-lock の対象**とし、集約側に partial 宣言の合流機能を足すか判断する。
+
 ## レビュー必須化 + QM Approve 体制（ADR-0022 / #1481）
 
 - `required_approving_review_count=1` 強制。Copilot の `COMMENTED` は APPROVED にならない
@@ -125,6 +149,19 @@ gh pr ready <PR番号>
 AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 
 セットアップ: Branch Ruleset の `required_status_checks` に 6 ジョブ追加（管理者作業。`closing keyword の記入 (feat/fix)` は #3458 で新設、required 化には ruleset 追加登録が必要）。
+
+## workflow の発火 type — commit を伴わない PR イベント（#4171）
+
+PR 本文 / label の編集は `pull_request` の `edited` を発火させるが、**同一 SHA に対する再実行**にしかならない。どの workflow がそれを購読してよいかを `scripts/lib/ci/pr-trigger-lane-registry.mjs` で宣言し、`tests/unit/architecture/pr-trigger-lane-guard.test.ts` が機械検証する。
+
+| 宣言 | 意味 | 強制内容 |
+|---|---|---|
+| `bodyGate: true` | PR 本文が入力の軽量 gate（`pr-quality-gate` / `pr-merge-gate` / `pr-template-gate` / `pr-ac-verification-check`） | `edited` 購読が**必須**（本文検査を黙って止めない）+ 重量 step を持たないこと |
+| `bodyGate: false` | それ以外（`ci.yml` / visual regression / staging deploy 等） | commit-less な活動 type（`edited` / `labeled` / …）を購読して**はならない** |
+
+- `on.pull_request(_target)` を持つ workflow は**全数が registry に現れる**（未宣言は fail。新規 workflow 追加時に判断が必ず発生する）
+- `ready_for_review` は別枠。Draft 中に job を skip する workflow の**初回発火に要る**ため購読を禁止せず、**重量 workflow が購読するなら Draft skip 条件（`pull_request.draft == false`）を持つこと**だけを要求する（#1218）
+- 実測（統合 PR #4152）: 本文編集 5 回で走ったのは軽量 gate 4 本のみ（各 10〜40 秒）。CI 本体は 0 回。CI 4 回はすべて別 SHA への push が起点だった
 
 ### type:* label 自動付与 — title 接頭辞が SSOT（#2495）
 

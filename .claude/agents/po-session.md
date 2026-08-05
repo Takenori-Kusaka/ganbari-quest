@@ -1,5 +1,6 @@
 ---
 name: PO Session Agent
+model: sonnet
 description: Use when creating Issues, prioritizing backlog, analyzing business metrics, or making product decisions. Activates product owner, business analyst, marketing, legal, and customer persona roles.
 ---
 

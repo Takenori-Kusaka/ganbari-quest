@@ -19,11 +19,17 @@
 // 将来 UTC 保存に移行する場合は recorded_at (timestamp) カラムの
 // 新設が必要（#966 コメント 案A 参照）。
 //
-// ## SSOT 宣言 — 日付を決める計算は本 module 経由で行う (#4015)
+// ## SSOT 宣言 — 日付を決める計算は本 module 経由で行う (#4015 / #4127)
 //
-// **「実時刻の瞬間 (`new Date()` / DB timestamp) から暦要素 (年 / 月 / 日 / 曜日) を
-// 取り出す」計算は、必ず本 module の関数を使う。`Date` のローカル TZ getter
-// (`getFullYear()` / `getMonth()` / `getDate()` / `getDay()`) を直接呼ばない。**
+// **「実時刻の瞬間 (`new Date()` / DB timestamp) から暦要素 (年 / 月 / 日 / 時 / 曜日) を
+// 取り出す」計算は、必ず本 module の関数を使う。**禁止されるのはローカル getter だけではない。
+// 同じ欠陥クラスに属する書き方はすべて対象:
+//
+// | 書き方 | なぜ駄目か |
+// |---|---|
+// | `d.getFullYear()` / `getMonth()` / `getDate()` / `getDay()` / `getHours()` 等 | プロセス TZ で結果が変わる |
+// | `new Date().toISOString().slice(0, 10)` / `.split('T')[0]` | TZ 不変だが **UTC の暦日**。JST 00:00〜09:00 が前日になる |
+// | `toLocaleDateString('ja-JP')` (timeZone 未指定) | SSR は Lambda (UTC) で描画されるため暦日がずれる |
 //
 // 理由: 本番 runtime は 2 種類あり、プロセス TZ が一致しない。
 //
@@ -36,8 +42,14 @@
 // これで子供ホームの週次チャレンジが毎週 9 時間まるごと消えた。#966 / ADR-0061
 // (same-class-N → guard) に基づき、本 module を単一の入口とする。
 //
-// 機械強制: `scripts/check-local-tz-date-getters.mjs` が src/ 配下のローカル TZ getter を
-// 検出し、allowlist (理由必須) 外の新規使用を CI で fail させる。
+// 機械強制 (2 層):
+//
+//   - 静的: `scripts/check-local-tz-date-getters.mjs` が src / infra/lambda / scripts を走査し、
+//     上表のクラスを検出する。検出対象は `Date.prototype` の実体から導出しているため
+//     「まだ知らない書き方」も既定で TZ 依存側に落ちる。allowlist は kind ごとに機械検査される
+//   - 振る舞い: `tests/unit/architecture/tz-invariance.test.ts` が `TZ=UTC` (Lambda) と
+//     `TZ=Asia/Tokyo` (NUC) の 2 環境で顧客に見える日付導出を評価し、JST 暦の期待値と
+//     一致することを assert する (記法に依存しない表明)
 //
 // 実装方針: JST の暦日を `toJSTDateString()` で文字列化し、それを **UTC 深夜として
 // 再解釈**してから UTC 算術 (`getUTCDate` / `setUTCDate`) で計算する。以降の計算が
@@ -87,6 +99,28 @@ export function prevDateJST(dateStr: string): string {
  */
 export function jstDayOfWeek(date: Date = new Date()): number {
 	return jstCalendarDay(date).getUTCDay();
+}
+
+/**
+ * JST 基準の「時」(0-23) を返す。
+ * `date.getHours()` (ローカル TZ) の置換先 (#4127)。
+ *
+ * はやおきボーナスのような「朝 N 時までに記録したか」の判定は、プロセス TZ が UTC の
+ * Lambda 上だと 9 時間ずれ、JST 07:00 の記録には付かず JST 15:00 の記録に付いてしまう。
+ */
+export function jstHour(date: Date = new Date()): number {
+	return new Date(date.getTime() + JST_OFFSET_MS).getUTCHours();
+}
+
+/**
+ * JST 暦日 (YYYY-MM-DD) の 00:00 に対応する **UTC の瞬間**を ISO 文字列で返す (#4127)。
+ *
+ * DB に UTC ISO で保存した timestamp を「JST の 1 日」で絞るときの境界値。
+ * `startedAt >= '2026-08-01'` のような UTC 暦日前方一致は、JST 00:00〜09:00 の利用を
+ * 前日側に落としてしまう (保護者画面の「今日の利用時間」が 0 分のままになる)。
+ */
+export function jstDayStartUtcIso(dateStr: string): string {
+	return new Date(new Date(`${dateStr}T00:00:00Z`).getTime() - JST_OFFSET_MS).toISOString();
 }
 
 /**

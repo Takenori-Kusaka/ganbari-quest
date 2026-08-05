@@ -224,7 +224,11 @@ async function handlePinComplete(details: { valueAsString: string }) {
 			pinError = Number.isNaN(unlockTime.getTime())
 				? OYAKAGI_LABELS.lockedError
 				: OYAKAGI_LABELS.gateLockedUntilNotice(
-						unlockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+						unlockTime.toLocaleTimeString('ja-JP', {
+							timeZone: 'Asia/Tokyo',
+							hour: '2-digit',
+							minute: '2-digit',
+						}),
 					);
 		} else if (body.error === 'PIN_FORMAT') {
 			pinError = OYAKAGI_LABELS.gateFormatNotice;

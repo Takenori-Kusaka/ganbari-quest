@@ -12,7 +12,6 @@ import { getRepos } from '$lib/server/db/factory';
 import { getDebugCancelAtPeriodEnd } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
-import { notifyBillingEvent } from '$lib/server/services/discord-notify-service';
 import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import {
@@ -409,6 +408,18 @@ export async function verifyWebhookSignature(
 }
 
 /**
+ * 「処理中」のまま放置された処理権を、死んだものとみなして引き取るまでの時間 (分、#4128)。
+ *
+ * insert-first にすると、処理権を取った直後に Lambda が死ぬと `'processing'` の row が残り、
+ * 以後の再送がすべて dedup されて event が恒久的に失われる。これを避けるため一定時間で
+ * 引き取り可能にする。
+ *
+ * 15 分は Lambda の最大実行時間 (15 分) と同じで、**正常に走っている処理を横から奪わない**
+ * 下限。Stripe の再送は 3 日続くため、この待ち時間で復旧機会を失うことはない。
+ */
+export const WEBHOOK_CLAIM_STALE_MINUTES = 15;
+
+/**
  * Stripe webhook の単一 dedup 点 (#3985)。
  *
  * Stripe の at-least-once delivery では **同一 `event.id` の再到達が正規動作**
@@ -419,31 +430,55 @@ export async function verifyWebhookSignature(
  * (設計 SSOT: `billing-redesign/phase5-webhook-idempotency-architecture.md` §2 / §4.1)。
  * 新しい event 型が増えても dedup の書き忘れが構造的に起きない。
  *
- * 処理順序と失敗時の保証:
+ * 処理順序と失敗時の保証 (#4128 で insert-first 化):
  *
- * 1. `findByEventId` が既存 row を返す → **handler を呼ばず** retry_count を +1 して return。
- *    呼び出し元 (`+server.ts`) は 200 を返す (4xx/5xx は Stripe の retry を誘発する、§2)。
- * 2. 未処理 → handler を実行し、**完了後に** dedup row を insert する。
- *    - handler が throw した場合は row を insert せず例外を伝播する。次回到達で再処理され、
- *      呼び出し元は 500 を返して Stripe の retry に載る (§2 が transaction で担保しようとした
- *      「row 書込み失敗 = 次回再実行」を、insert を後段に置くことで満たす)。
- *    - 設計書 §4.2 の選択肢 A (handler 失敗時も row を insert し 200 を返す) は**採らない**。
+ * 1. **先に処理権を取る** (`claim`)。取れなければ **handler を呼ばず** retry_count を +1 して
+ *    return する。呼び出し元 (`+server.ts`) は 200 を返す (4xx/5xx は Stripe の retry を誘発
+ *    する、§2)。
+ *    - 旧実装は `findByEventId` → handler → `insert` の 3 段で、find と insert の間の await
+ *      境界を同一 event.id が 2 通すり抜けると handler が二重実行された。しかも `insert` は
+ *      `ON CONFLICT DO NOTHING` なので**痕跡が残らない**。処理権の取得を 1 文に閉じ込め、
+ *      勝者を DB の原子性で決める。
+ * 2. 処理権を得た側だけが handler を実行し、完了後に `finalize` で結果を確定する。
+ *    - handler が throw した場合は `releaseClaim` で row を消してから例外を伝播する。
+ *      次回到達で再処理され、呼び出し元は 500 を返して Stripe の retry に載る。
+ *    - 設計書 §4.2 の選択肢 A (handler 失敗時も row を残し 200 を返す) は**採らない**。
  *      A は一過性の障害 (DB / Stripe API の瞬断) で event を恒久的に失う。実際 2026-07-26 の
  *      配信失敗 22 分は Stripe の再送で復旧しており、retry 経路を潰す副作用の方が大きい。
  *      結果として `stripe_webhook_events` は「**完了した** event の台帳」を意味する。
+ * 3. 解放そのものが失敗した場合 (Lambda kill / DB 断) は `'processing'` の row が残るが、
+ *    `WEBHOOK_CLAIM_STALE_MINUTES` 経過後は次の到達が引き取る。これが無いと insert-first は
+ *    「一度掴んで死んだ event を永久に捨てる」機構になってしまう。
  *
  * 単一 tenant の契約状態を書く側のガード (event 対象と現行契約の突合) は別レイヤーの防御であり、
  * 本 dedup はそれを代替しない (逆も同じ)。
  */
 export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 	const webhookEvents = getRepos().webhookEvent;
+	const claimedAt = new Date();
+	const staleClaimBefore = new Date(
+		claimedAt.getTime() - WEBHOOK_CLAIM_STALE_MINUTES * 60_000,
+	).toISOString();
 
-	const existing = await webhookEvents.findByEventId(event.id);
-	if (existing) {
+	const claimed = await webhookEvents.claim(
+		{
+			eventId: event.id,
+			eventType: event.type,
+			processedAt: claimedAt.toISOString(),
+			handlerResult: 'processing',
+			errorMessage: null,
+			retryCount: 0,
+			tenantId: resolveEventTenantId(event),
+		},
+		staleClaimBefore,
+	);
+
+	if (!claimed) {
 		await webhookEvents.incrementRetryCount(event.id);
+		const existing = await webhookEvents.findByEventId(event.id);
 		logger.info(
 			`[STRIPE] Duplicate webhook event skipped: ${event.id} type=${event.type} ` +
-				`retry=${existing.retryCount + 1} firstResult=${existing.handlerResult}`,
+				`retry=${existing?.retryCount ?? 'unknown'} firstResult=${existing?.handlerResult ?? 'unknown'}`,
 		);
 		return;
 	}
@@ -452,6 +487,17 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 	try {
 		handlerResult = await dispatchWebhookEvent(event);
 	} catch (err) {
+		// 掴んだままにすると次回到達が dedup され、Stripe の再送で復旧する経路を自分で潰す。
+		// 解放自体が失敗しても throw は握り潰さない (stale claim の引き取りが最後の逃げ道)。
+		try {
+			await webhookEvents.releaseClaim(event.id);
+		} catch (releaseErr) {
+			logger.error(
+				`[STRIPE] 処理権の解放に失敗しました (${WEBHOOK_CLAIM_STALE_MINUTES} 分後に stale claim として引き取られます): ` +
+					`${event.id} ${releaseErr instanceof Error ? releaseErr.message : String(releaseErr)}`,
+			);
+		}
+
 		// 台帳に残さず再 throw する (§4.2) 以上、失敗の観測は Stripe の再送が尽きる前に
 		// 人に届く必要がある。Stripe は 3 日で配信を諦めるため、log だけでは
 		// 「誰も気づかないまま課金 event が消える」経路が残る。
@@ -472,15 +518,7 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 		throw err;
 	}
 
-	await webhookEvents.insert({
-		eventId: event.id,
-		eventType: event.type,
-		processedAt: new Date().toISOString(),
-		handlerResult,
-		errorMessage: null,
-		retryCount: 0,
-		tenantId: resolveEventTenantId(event),
-	});
+	await webhookEvents.finalize(event.id, handlerResult, new Date().toISOString());
 }
 
 /**
@@ -712,7 +750,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 		`[STRIPE] Checkout completed: tenant=${tenantId} customer=${customerId} subscription=${subscriptionId}`,
 	);
 
-	notifyBillingEvent(tenantId, 'checkout_completed', `plan=${planId}`).catch(() => {});
+	// #4192: 課金**成功**の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
@@ -765,7 +803,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId} plan=${plan ?? 'unresolved'}`);
 
-	notifyBillingEvent(tenant.tenantId, 'invoice_paid', `plan=${plan ?? 'unknown'}`).catch(() => {});
+	// #4192: 支払い成功の Discord 通知は持たないと決めた (#4174 Q2)。
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
@@ -814,9 +852,14 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 	logger.warn(`[STRIPE] Payment failed: tenant=${tenant.tenantId}, grace until ${graceExpires}`);
 
-	notifyBillingEvent(tenant.tenantId, 'payment_failed', `猶予期間: ${graceExpires}`).catch(
-		() => {},
-	);
+	// #4192 / #4174 Q2:「課金の**失敗**は incident に含めるべきで、成功は通知不要」。billing チャネルは
+	// 落としたが、支払い失敗だけは運用者が行動を変える事象なので incident 側の単一チャネルに残す。
+	// **tenantId は載せない** (#4174 Q3) — どの家族かは上の logger.warn (tenant= 付き) から引く。
+	notifyStripeAlert({
+		kind: 'stripe-payment-failed',
+		message: '支払いが失敗し猶予期間に入りました (対象は CloudWatch Logs / Stripe で確認)',
+		errorSummary: 'stripe-payment-failed',
+	});
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
@@ -850,11 +893,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			`[STRIPE] Subscription updated (terminal=${subscription.status}): ` +
 				`tenant=${tenant.tenantId} — subscription 参照と plan をクリアし suspended へ収束`,
 		);
-		notifyBillingEvent(
-			tenant.tenantId,
-			'subscription_updated',
-			`status=${SUBSCRIPTION_STATUS.SUSPENDED}, plan=cleared`,
-		).catch(() => {});
+		// #4192: プラン変更の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 		return;
 	}
 
@@ -886,11 +925,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 
 	logger.info(`[STRIPE] Subscription updated: tenant=${tenant.tenantId} status=${status}`);
 
-	notifyBillingEvent(
-		tenant.tenantId,
-		'subscription_updated',
-		`status=${status}, plan=${plan ?? 'unknown'}`,
-	).catch(() => {});
+	// #4192: プラン変更の Discord 通知は持たないと決めた (#4174 Q2)。上の logger.info が事実を残す。
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
@@ -911,7 +946,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 
 	logger.info(`[STRIPE] Subscription deleted: tenant=${tenant.tenantId}`);
 
-	notifyBillingEvent(tenant.tenantId, 'subscription_deleted').catch(() => {});
+	// #4192: 解約 (subscription 消滅) の Discord 通知は持たないと決めた (#4174 Q2)。
 }
 
 // ============================================================
@@ -1192,6 +1227,20 @@ function resolvePlanFromSubscription(subscription: Stripe.Subscription): PlanId 
 		});
 	}
 
+	return resolvePlanFromSubscriptionItems(items);
+}
+
+/**
+ * subscription item 群から plan を解決する副作用なしの実体 (#4128)。
+ *
+ * webhook 経路 (`resolvePlanFromSubscription`) と、/ops の滞留一覧
+ * (`stripe-plan-drift-service`) が **同じ判定**を使うために切り出した。ops は読み取り
+ * 専用なので、multi-item alert のような副作用を持たない側が要る (読むだけで Discord が
+ * 鳴っては困る)。判定を 2 箇所に書くと「alert は出るが /ops には出ない」類の食い違いが生まれる。
+ */
+export function resolvePlanFromSubscriptionItems(
+	items: readonly Stripe.SubscriptionItem[],
+): PlanId | null {
 	const price = items[0]?.price;
 	if (!price) return null;
 	return planIdFromPriceId(price.id) ?? planIdFromLookupKey(price.lookup_key);

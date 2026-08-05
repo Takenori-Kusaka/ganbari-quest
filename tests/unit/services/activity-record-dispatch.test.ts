@@ -36,12 +36,10 @@ const h = vi.hoisted(() => ({ isDsql: false }));
 
 // todayDate をモックして日付を制御 (既存 activity-log-service.test.ts と同一 pattern)
 const mockToday = '2026-02-20';
-vi.mock('$lib/domain/date-utils', () => ({
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => mockToday,
-	toJSTDateString: (date: Date) => {
-		const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-		return jst.toISOString().slice(0, 10);
-	},
 }));
 
 // DB モック: SQLite リポジトリがテスト用インメモリ DB を使うようにする
@@ -334,9 +332,17 @@ describe('[D5] optional 失敗の隔離 + fitness#11 counter emit (#3550 ①)', 
 			expect.objectContaining({
 				level: 'error',
 				message: expect.stringContaining('challenge_progress'),
-				tenantId: TENANT,
 			}),
 		);
+
+		// #4192 (#4174 Q3): Discord は外部 SaaS なので tenantId は載せない。
+		// 「どの家族か」は直前に assert した logger.error (tenantId 付き) 側で引く。
+		const alertArg = vi.mocked(sendDiscordAlert).mock.calls[0]?.[0] as
+			| Record<string, unknown>
+			| undefined;
+		expect(alertArg).toBeDefined();
+		expect(alertArg).not.toHaveProperty('tenantId');
+		expect(JSON.stringify(alertArg)).not.toContain(TENANT);
 	});
 
 	it('optional が成功する場合は counter を emit しない (偽陽性なし)', async () => {

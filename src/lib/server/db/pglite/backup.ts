@@ -23,6 +23,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
+import type { OffsiteVerdict } from '$lib/domain/backup-offsite';
 
 /** バックアップファイル名の prefix。既存 SQLite backup (`ganbari-quest-*.db`) と同居しても区別できる。 */
 export const PGLITE_BACKUP_PREFIX = 'pglite-';
@@ -67,6 +68,16 @@ export interface PgliteBackupResult {
 	generationsKept: number;
 	/** 取得開始から確定までの所要時間 (ms)。RTO/RPO の実測値として記録する。 */
 	durationMs: number;
+	/**
+	 * off-site 複製が実際に NUC 外へ出ているかの判定 (#3970 AC2)。
+	 *
+	 * **取得の成否とは独立**。取得が成功していても、マウントが外れていれば控えは
+	 * 筐体内にしか無い (Docker が bind 先にローカルの空ディレクトリを作るため
+	 * 書き込みは成功する)。取得成功と off-site 成功を 1 つの真偽値に潰さない。
+	 */
+	offsite: OffsiteVerdict;
+	/** off-site 判定を運用者に伝える文言。伝えることが無ければ null。 */
+	offsiteMessage: string | null;
 }
 
 /** 検証段で落ちたことを呼び出し側が識別するためのエラー。 */

@@ -148,7 +148,7 @@ function retentionColorClass(value: number | null): string {
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_COHORT_LABELS.lastFetchedPrefix}{new Date(analysis.fetchedAt).toLocaleString('ja-JP')}
+		{OPS_COHORT_LABELS.lastFetchedPrefix}{new Date(analysis.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 	</div>
 </div>
 

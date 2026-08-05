@@ -36,10 +36,11 @@ concurrency:
   group: close-leak-report
   cancel-in-progress: false
 
-# report only — issue への書き込みは一切しない (auto-close なし、最小権限)
+# auto-close は一切しない (#3423 選択肢 B 却下)。issues: write は
+# **常設 tracking issue 1 本の upsert のためだけ**に使う (#4205)。検出対象の issue には触らない。
 permissions:
   contents: read
-  issues: read
+  issues: write
 
 jobs:
   report:
@@ -54,7 +55,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       # script が markdown report を stdout + GITHUB_STEP_SUMMARY へ出力する。
       # 検出 0 件でも N 件でも exit 0 (gate ではない)。
@@ -62,7 +63,57 @@ jobs:
       # (GitHub Actions script injection 定石、#3745。shell が $SINCE を展開するため
       #  input 値が shell 構文として解釈されない)
       - name: Detect close leaks (report only)
+        id: detect
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SINCE: ${{ inputs.since || '90 days ago' }}
-        run: node scripts/audit/close-leak-report.mjs --since "$SINCE"
+        run: |
+          node scripts/audit/close-leak-report.mjs --since "$SINCE" > report.md
+          cat report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          # 「検出: N 件」行から件数を取り出す (report 書式 SSOT は buildCloseLeakReport)
+          COUNT=$(grep -oP '\*\*検出: \K\d+' report.md | head -1)
+          echo "count=${COUNT:-0}" >> "$GITHUB_OUTPUT"
+
+      # #4205: job summary は **どのロールの polling 対象でもない** (チーム憲章 §5.1
+      # 「label のみが通知経路」)。検知は正確に動いていたのに誰にも届いていなかったため、
+      # 常設 tracking issue 1 本へ upsert し `state:needs-po` で PO の受信箱に載せる。
+      #
+      # 毎週 issue を作らず **1 本を更新し続ける** (integration-pr.yml の upsert と同型)。
+      # 検出 0 件のときは issue を作らない / 既存があれば close する (空の受信箱を汚さない)。
+      - name: Deliver to PO mailbox (tracking issue upsert)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COUNT: ${{ steps.detect.outputs.count }}
+          TITLE: 'chore(process): close漏れ候補の週次棚卸し (自動更新)'
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title --jq "[.[] | select(.title == env.TITLE)] | .[0].number // empty")
+
+          if [ "${COUNT:-0}" = "0" ]; then
+            if [ -n "$EXISTING" ]; then
+              gh issue close "$EXISTING" \
+                --comment "今週の走査では close漏れ候補が 0 件でした。次回検出時に再オープンします (#4205)。"
+              echo "0 件のため tracking issue #$EXISTING を close しました"
+            else
+              echo "0 件 / tracking issue も無し — 何もしません"
+            fi
+            exit 0
+          fi
+
+          {
+            echo "> **この issue は close-leak-report.yml が週次で自動更新します** (#4205)。"
+            echo "> 手で本文を書いても次回の run で上書きされます。棚卸しが済んだら close してください。"
+            echo ""
+            cat report.md
+          } > issue-body.md
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body-file issue-body.md --add-label "state:needs-po"
+            echo "tracking issue #$EXISTING を更新しました ($COUNT 件)"
+          else
+            gh issue create --title "$TITLE" --body-file issue-body.md \
+              --label "state:needs-po" --label "type:docs"
+            echo "tracking issue を新規作成しました ($COUNT 件)"
+          fi

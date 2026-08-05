@@ -136,6 +136,90 @@ export function detectBeforeAfterLabels(body) {
 	};
 }
 
+import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
+
+/**
+ * `ss-render-impossible` 宣言の検出 (#4087 / PO 決裁 2026-08-01)。
+ *
+ * ## なぜ必要か
+ *
+ * 兄弟 gate の `ss-blob-sha-uniqueness` には理由必須の宣言が 4 種ある (#4084) のに、
+ * **本 gate にだけ「原理的に撮れない」を表す語彙が無かった**。結果、
+ * 「UI は変わるが、その環境では原理的に描画できない」PR に対して、
+ *
+ *   - 「UI 変更なし」と書く   → **虚偽**
+ *   - internal-refactor label → **顧客に見える変更に付けない** (src/routes/CLAUDE.md #4084)
+ *
+ * のどちらかしか道が無く、**label の意味を曲げる方向に退化する**状態だった。
+ * 新機構の追加ではなく **既存 gate の語彙の欠落を埋める** 位置づけ (#4121 E5 と非干渉)。
+ *
+ * ## 実例
+ *
+ * `BackupHealthCard` は `DATA_SOURCE=pglite` かつ backup status file 存在でのみ描画され、
+ * SS 撮影に使う demo 環境 (`DATA_SOURCE=demo`) では原理的に出ない (#4087 AC2)。
+ *
+ * ## 濫用防止
+ *
+ * 宣言だけでは通さない。**Storybook story 参照を同じ body 内に必須**とする
+ * (「原理的に撮れない」は「見た目を確認しなくてよい」ではない)。理由の実体判定は
+ * `scripts/lib/ci/reason-declaration.mjs` (#4084 の 4 宣言と同一 SSOT) に委譲する。
+ *
+ * @param {string} body
+ * @returns {{ ok: boolean; violation?: { id: string; issue: string; message: string } }}
+ */
+export function checkRenderImpossibleDeclaration(body) {
+	const decl = parseReasonDeclaration(body, 'ss-render-impossible');
+	if (!decl.present) return { ok: false };
+
+	if (!decl.valid) {
+		return {
+			ok: false,
+			violation: {
+				id: 'ss-render-impossible-reason-missing',
+				issue: '#4087',
+				message:
+					'`ss-render-impossible` 宣言はありますが理由が受理できません。\n' +
+					`  ${MIN_REASON_LENGTH} 文字以上で、なぜその環境では描画できないのかを書いてください ` +
+					'(空欄 / TODO / n/a 等の定型 stub は受理しません、#3956 教訓)。',
+			},
+		};
+	}
+
+	if (!hasStorybookStoryReference(body)) {
+		return {
+			ok: false,
+			violation: {
+				id: 'ss-render-impossible-story-missing',
+				issue: '#4087',
+				message:
+					'`ss-render-impossible` 宣言には **Storybook story の参照**が必須です。\n' +
+					'  「原理的に撮れない」は「見た目を確認しなくてよい」ではありません。\n' +
+					'  PR body に story のタイトル (例: `Features/Admin/BackupHealthCard`) を書いてください。',
+			},
+		};
+	}
+
+	return { ok: true };
+}
+
+/**
+ * PR body に Storybook story への参照があるか。
+ *
+ * story タイトル (`Foo/Bar/Baz` 形式) か `*.stories.svelte` のパス言及を受理する。
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasStorybookStoryReference(body) {
+	const b = body ?? '';
+	// story ファイルへの言及、または story タイトル (Foo/Bar 形式) の言及を受理する。
+	if (b.includes('.stories.svelte')) return true;
+	return (
+		/(?:Storybook|story|ストーリー)/i.test(b) &&
+		/[A-Za-z][A-Za-z0-9]*\/[A-Za-z][A-Za-z0-9]*/.test(b)
+	);
+}
+
 /**
  * 「該当なし」明示記述の検出。refactor / docs / chore のみで UI 影響がない PR の opt-out 用。
  *
@@ -363,10 +447,16 @@ export function hasEmbeddedScreenshotImage(body) {
  * UI 変更があり exempt でない PR について、PR body に GitHub 表示可能な embed 画像が無い、
  * または未来形記述 (「後で push する」) が残っている場合に違反を返す。
  *
- * skip 条件 (CI screenshot-check と同一 SSOT):
- * - UI 関連ファイル変更なし (isUiPr=false)
+ * skip 条件:
+ * - UI 関連ファイル変更なし (isUiPr=false) … **CI screenshot-check と共有** (#4158)
+ * - ラベル refactor:internal-no-doc-impact (hasInternalRefactorLabel) … **CI と共有** (#4158)
  * - 「該当なし（refactor / docs / chore）」「UI 変更なし」明示 (hasUiNotApplicableMarker)
- * - ラベル refactor:internal-no-doc-impact (hasInternalRefactorLabel)
+ *   … **本関数だけが見る。CI screenshot-check は呼んでいない**
+ *
+ * つまり本関数は CI より**広い**。「CI と同一 SSOT」と書くと、CI で通ったものが
+ * pre-ready で落ちたときに「どちらかが壊れている」と誤読される。共有しているのは
+ * 個々の判定関数であって、この関数そのものではない。
+ * 委譲の宣言は scripts/lib/ci/workflow-judgment-registry.mjs が SSOT。
  *
  * @param {{ body: string; files: string[]; labels: string[] }} input
  * @returns {{ skipped: boolean; skipReason: string | null; violations: { id: string; issue: string; message: string }[] }}
@@ -388,6 +478,21 @@ export function checkScreenshotEmbedReadiness({ body, files, labels }) {
 		return {
 			skipped: true,
 			skipReason: `PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4)`,
+			violations,
+		};
+	}
+
+	// #4087: 「UI は変わるが、その環境では原理的に描画できない」の宣言 (理由 + story 必須)。
+	const renderImpossible = checkRenderImpossibleDeclaration(body);
+	if (renderImpossible.violation) {
+		violations.push(renderImpossible.violation);
+		return { skipped: false, skipReason: null, violations };
+	}
+	if (renderImpossible.ok) {
+		return {
+			skipped: true,
+			skipReason:
+				'`ss-render-impossible` 宣言 (理由 + Storybook story 参照あり) により exempt (#4087)',
 			violations,
 		};
 	}
@@ -557,6 +662,17 @@ function main() {
 		skipReason = '「該当なし」明示記述あり';
 	} else if (labelExempt) {
 		skipReason = `PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4)`;
+	}
+
+	// #4087: 宣言に不備があれば violation にし、成立していれば skip する。
+	if (!skipReason && isUi) {
+		const renderImpossible = checkRenderImpossibleDeclaration(PR_BODY);
+		if (renderImpossible.violation) {
+			violations.push(renderImpossible.violation);
+		} else if (renderImpossible.ok) {
+			skipReason =
+				'`ss-render-impossible` 宣言 (理由 + Storybook story 参照あり) により exempt (#4087)';
+		}
 	}
 
 	// #2946 (Phase A/A-4): lane=integration は SS 観点を切替。

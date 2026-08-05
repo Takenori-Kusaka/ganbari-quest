@@ -14,9 +14,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFindTenantById = vi.fn();
+const mockFindWebhookEventById = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
-	getRepos: () => ({ auth: { findTenantById: mockFindTenantById } }),
+	getRepos: () => ({
+		auth: { findTenantById: mockFindTenantById },
+		webhookEvent: { findByEventId: mockFindWebhookEventById },
+	}),
 }));
 
 const mockIsStripeEnabled = vi.fn();
@@ -91,6 +95,9 @@ beforeEach(() => {
 	mockIsStripeEnabled.mockReturnValue(true);
 	mockEventsList.mockResolvedValue({ data: [] });
 	mockFindTenantById.mockResolvedValue({ id: 'tenant-1', stripeSubscriptionId: 'sub_123' });
+	// 既定は「台帳に載っている」= 受信〜記録まで到達した状態 (#4128 AC6)。
+	// 台帳欠落 (S3) を検査する test だけが個別に null を返す。
+	mockFindWebhookEventById.mockResolvedValue({ eventId: 'evt_x', handlerResult: 'success' });
 });
 
 describe('#3959 [D1] 未達 (2026-07-26 と同型) を検知して通知する', () => {
@@ -280,5 +287,82 @@ describe('#3959 [D7] 通知に個人情報を載せない', () => {
 		const payload = JSON.stringify(mockNotifyStripeAlert.mock.calls[0]?.[0]);
 		expect(payload).not.toContain('secret-parent@example.com');
 		expect(payload).not.toContain('@');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4128 AC6 [D9] Stripe 側 event 数と台帳 event 数の乖離 (S3)
+// ---------------------------------------------------------------------------
+//
+// S1 ∧ S2 は「Stripe 側が未完了 (pending>0)」を前提にしているため、**200 を返して event を
+// 捨てた**ケース (shadow mode / 受信口の取り違え / dispatch 漏れ) を構造的に検知できない。
+// Stripe から見れば配信成功 (pending=0) であり、こちらの台帳にだけ何も残らない。
+//
+// 「Stripe には event があるのに台帳に無い」を独立 signal (S3) として持つことで、経路 1/2 が
+// 将来別の形で再発しても落ちたこと自体には気づける。
+
+describe('#4128 [D9] 受信〜台帳記録の到達率 (Stripe 側 event 数 vs 台帳 event 数)', () => {
+	it('Stripe が配信成功 (pending=0) なのに台帳に無い event を検知して alert する', async () => {
+		mockEventsList.mockResolvedValue({
+			data: [invoiceEvent({ id: 'evt_dropped_1', pendingWebhooks: 0, minutesAgo: 60 })],
+		});
+		mockFindWebhookEventById.mockResolvedValue(null); // 台帳に無い = 受け取って捨てた
+
+		const result = await checkWebhookDelivery(NOW);
+
+		expect(result.ledgerMissing).toEqual([
+			expect.objectContaining({ eventId: 'evt_dropped_1', eventType: 'invoice.paid' }),
+		]);
+		expect(result.alerted).toBe(true);
+		expect(mockNotifyStripeAlert.mock.calls[0]?.[0]).toMatchObject({
+			kind: 'stripe-webhook-ledger-gap',
+		});
+	});
+
+	it('台帳に載っている event は乖離として数えない (空振り検出)', async () => {
+		mockEventsList.mockResolvedValue({
+			data: [invoiceEvent({ id: 'evt_ok_1', pendingWebhooks: 0, minutesAgo: 60 })],
+		});
+
+		const result = await checkWebhookDelivery(NOW);
+
+		expect(result.ledgerMissing).toEqual([]);
+		expect(result.alerted).toBe(false);
+	});
+
+	it('Stripe 側がまだ配信できていない (pending>0) event は乖離に数えない', async () => {
+		// pending>0 は「到達していない / 500 を返した」であり S1 の担当。台帳に無いのは当然なので
+		// S3 で二重に鳴らさない (#4079 との責務分界と同じ考え方)。
+		mockEventsList.mockResolvedValue({
+			data: [invoiceEvent({ id: 'evt_pending_1', pendingWebhooks: 1, minutesAgo: 60 })],
+		});
+		mockFindWebhookEventById.mockResolvedValue(null);
+
+		const result = await checkWebhookDelivery(NOW);
+
+		expect(result.ledgerMissing).toEqual([]);
+	});
+
+	it('乖離が複数あっても通知は 1 通にまとめる', async () => {
+		mockEventsList.mockResolvedValue({
+			data: [
+				invoiceEvent({ id: 'evt_dropped_1', pendingWebhooks: 0, minutesAgo: 60 }),
+				invoiceEvent({ id: 'evt_dropped_2', pendingWebhooks: 0, minutesAgo: 90 }),
+			],
+		});
+		mockFindWebhookEventById.mockResolvedValue(null);
+
+		await checkWebhookDelivery(NOW);
+
+		expect(mockNotifyStripeAlert).toHaveBeenCalledTimes(1);
+	});
+
+	it('Stripe 無効環境では台帳照会も行わない', async () => {
+		mockIsStripeEnabled.mockReturnValue(false);
+
+		const result = await checkWebhookDelivery(NOW);
+
+		expect(result.skipped).toBe('stripe-disabled');
+		expect(mockFindWebhookEventById).not.toHaveBeenCalled();
 	});
 });

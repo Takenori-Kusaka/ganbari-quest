@@ -189,8 +189,7 @@ describe('discord-alert', () => {
 			path: '/api/v1/activities',
 			status: 500,
 			requestId: 'abc-123',
-			tenantId: 'tenant_xyz',
-			errorSummary: 'DynamoDB write failed',
+			errorSummary: 'DB write failed',
 			stackSummary: 'at recordActivity\nat POST handler',
 		});
 
@@ -201,7 +200,8 @@ describe('discord-alert', () => {
 		expect(fieldNames).toContain('Endpoint');
 		expect(fieldNames).toContain('Status');
 		expect(fieldNames).toContain('RequestId');
-		expect(fieldNames).toContain('TenantId');
+		// #4192 (#4174 Q3): TenantId field は撤去済。「誰に起きたか」は RequestId でログから引く
+		expect(fieldNames).not.toContain('TenantId');
 		expect(fieldNames).toContain('Error');
 		expect(fieldNames).toContain('Stack (先頭3行)');
 	});

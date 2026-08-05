@@ -31,7 +31,10 @@ vi.mock('$lib/server/db/factory', () => ({
 		// dedup は常に「初回到達」として素通しする。
 		webhookEvent: {
 			findByEventId: async () => null,
-			insert: async () => {},
+			// #4128: dedup は insert-first。本 spec の関心は dedup ではないため常に処理権を渡す
+			claim: async () => true,
+			finalize: async () => {},
+			releaseClaim: async () => {},
 			incrementRetryCount: async () => {},
 			deleteOlderThan: async () => 0,
 		},

@@ -90,7 +90,7 @@ const diffColorClass = $derived(
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_COSTS_LABELS.lastFetchedPrefix}{costs.fetchedAt ? new Date(costs.fetchedAt).toLocaleString('ja-JP') : '-'}
+		{OPS_COSTS_LABELS.lastFetchedPrefix}{costs.fetchedAt ? new Date(costs.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-'}
 		{OPS_COSTS_LABELS.cacheNote}
 	</div>
 </div>

@@ -14,6 +14,7 @@
 // (NOT_FOUND child → NOT_FOUND activity → ALREADY_RECORDED / DAILY_LIMIT_REACHED) は
 // 旧 activity-log-service.ts のインライン実装から変更していない。
 
+import { prevDateJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	calcMasteryBonus,
@@ -221,7 +222,5 @@ async function calculateStreak(
 
 /** Get previous date string (YYYY-MM-DD). */
 function prevDate(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() - 1);
-	return d.toISOString().slice(0, 10);
+	return prevDateJST(dateStr);
 }

@@ -2,7 +2,7 @@
 
 > **目的**: 顧客満足度・継続性・低リスクを担保した高付加価値アプリの提供責務
 >
-> **SSOT**: ADR-0004（AC 検証）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0022（QM Approve / `--admin` bypass 禁止）/ ADR-0026（force push 禁止 / Re-Review 機械チェック）
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0004（AC 検証）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0022（QM Approve / `--admin` bypass 禁止）/ ADR-0026（force push 禁止 / Re-Review 機械チェック）
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（develop 二層 + gate 二層。QM のレビュー対象・gate 範囲は §「レビュー対象レーン」参照）
 
@@ -16,16 +16,43 @@
 CronCreate(cron: "23 * * * *", recurring: true, prompt: <label-mailbox.md §4「QM セッション用」テンプレート>)
 ```
 
-QM が拾うのは **`state:dev-done`**（レビュー待ち）と **`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。**外すときは必ず次の state を付ける** — どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える（2026-07-31 に `#4144` で実際に発生）。
+QM が拾うのは **`state:needs-qm`**（**QM に用がある**。レビュー依頼に限らず問い合わせ / 見解確認を含む、#4180）、**`state:dev-done`**（レビュー待ち）、**`state:ready-to-merge`**（自分が merge を実行）。レビュー完了時は自分で label を付け替える（`state:qm-blocked` → Dev / `state:ready-to-merge` → 自分）。**古い state label を外してから付ける**（2 つ付いていると次に誰が動くか読めない）。**外すときは必ず次の state を付ける** — どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える（2026-07-31 に `#4144` で実際に発生）。
 
 **差し戻した PR は `state:qm-blocked` のまま Dev の受信箱に入る。** Dev が対応を終えると `state:dev-done` に戻る（label-mailbox.md §3.1.1 復路）。**この復路が定義されるまで、対応済みの差し戻しが QM に届かず停止していた**（PR #4149）。自衛として `state:qm-blocked` の PR も polling し、**自分が block した時点の HEAD から動いていれば再レビュー**する。
 
-**判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
+**`state:needs-qm` に答えたら、label を問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`、label-mailbox.md §3.1.1）。**問い合わせは往復**であり、戻さないと送り手は「返ってこない」だけを観測する（#4149 と同じ形が問い合わせ側で再発する）。実装が完了しているレビュー依頼だと分かったら `state:dev-done` に読み替える。
+
+**判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない、#4180）。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
 
 - **報告は「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。** 「BLOCK 3 類型に非該当」は CI 緑を含意しない（結論を先に置いたため PO が merge 可と誤読した実例あり、2026-07-31）
 - **`state:ready-to-merge` でも `gh pr checks` で緑を確認してから merge する。** 赤を跨いだ merge は理由が正当でも外形が admin bypass と区別できない
 - **approve の依頼は label でなく reviewer request**（`gh pr edit <N> --add-reviewer`）。gate 修理 PR を QM の Fix Agent が作った場合、approve は Dev（ADR-0022 作成者 ≠ 承認者、例外運用は label-mailbox.md §3.2）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
+
+### Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）と **read-only の分担調査**（複数 PR の AC 突き合わせ等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
+
+**ただし approve と merge は lead 専権**（ADR-0056 §E と同型。subagent が不可逆 action を肩代わりしないのと同じ）。
+
+**自分の Fix Agent が作った PR の approve は teammate では解けない。** teammate は lead の gh 認証で動くため、作成者 ≠ 承認者の分離が消える。gate 修理 PR の approve は引き続き Dev に reviewer request で渡す（[label-mailbox.md](label-mailbox.md) §3.2 例外運用）。
+
+**重い検証を並列化しても速くならない** — `heavy` lock はマシン全体で 1 本（[agent-concurrency.md](agent-concurrency.md) §3.1）。
+
+### Draft PR を approve しない / `skipping` を pass と読まない
+
+**Draft PR では required check が `skipping` になり、GitHub はそれを required 充足として扱う。** approve しても merge できず、かつ**検査されていない状態で「緑」に見える**。
+
+- **approve の前に `isDraft=false` を確認する。** `gh pr view <N> --json isDraft`
+- **`gh pr checks` の `skipping` を pass と読まない。** 走らなかったのであって通ったのではない
+- `state:ready-to-merge` を付ける前にも同じ確認をする（label は実測を代替しない）
+
+**Why**: 同日に 2 件発生した。
+
+- `#4151` — Draft のまま approve され `state:ready-to-merge` が付いた。CI 緑・`mergeStateStatus=CLEAN`・`APPROVED` なのに Draft で merge 不能
+- 第 19 回統合 PR `#4152` — Draft のまま merge 判断に進みかけた。`site/pricing.html` を変更しているのに **`check-lp-removal-residue` と ADR-0013 LP truth gate が両方 skip**。`pages.yml` は main push の `site/**` で発火するため、**merge 直後に無検査で公開 LP へ配信される**ところだった
 
 ## レビュー対象レーン（git flow 二層、#2858）
 

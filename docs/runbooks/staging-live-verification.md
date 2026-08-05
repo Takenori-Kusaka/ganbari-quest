@@ -3,6 +3,14 @@
 > **対象**: ローカルのどの backend でも実行されない `AUTH_MODE=cognito` + DSQL 経路（課金状態の解決 / entitlement / parent-gate / 招待・メンバー）を、AWS staging（`ganbari-quest-staging-app`）で 1 回通して観測するための手順。
 > **実行主体**: リリース発火 = GQ-Audit / 検証実行と証跡提出 = GQ-Dev / 秘匿値・権限の配置 = オーナー。
 
+## 🚨 staging は全世界公開。実在のメールアドレスを登録しない
+
+**staging の CloudFront には地域制限がない（#4204）。** post-deploy smoke を回す GitHub Actions runner が日本国外にあるため JP allowlist を外してある。したがって **Cognito に実在のメールアドレスを登録した時点で「PII を持つ全世界公開環境」が成立する。**
+
+**sign-up には使い捨てメールだけを使う。** 許可ドメインの SSOT は `.github/workflows/deploy-aws-staging.yml` の `STAGING_ALLOWED_EMAIL_DOMAINS`（本 runbook にリストを複製しない — 複製すると必ずズレる）。
+
+allowlist 外のドメインが登録されると、staging deploy の `Staging PII guard` が Discord の incident チャネルに通知する。**deploy は止まらない**（既に登録されたものは手遅れで、止めても意味がないため）。**気づけることが目的。**
+
 ## ⚠️ ステータス: 未実証（2026-07 時点）
 
 **本 runbook は通しで実行されていない。** 初回実行は Issue [#4099](https://github.com/Takenori-Kusaka/ganbari-quest/issues/4099) で行う（検証主体 = オーナー（AWS SSO 対話ログインが必須）+ GQ-Audit（staging リリース発火））。
@@ -12,6 +20,8 @@
 初回実行で手順との齟齬が出た場合は、**本 runbook を是正してから**証跡とする。是正の結果として本ステータス見出しを撤去できることが #4099 の close 判定。
 
 ## 1. 適用範囲
+
+**入口は CloudFront（`GanbariQuestNetworkStaging` の `DistributionDomainName`）。Function URL 直ではない。** SvelteKit の名前付き form action（`?/action`）は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `ganbari-quest-staging-query-slash-encode` を通さないとログインもサインアップもできない（#4204）。
 
 ### 本 runbook で検証する
 
@@ -135,7 +145,7 @@ WHERE family_id = '<検証対象の family uuid>';
 
 | 観測点 | 手順 | AC 充足と言える状態 |
 |---|---|---|
-| プラン表示 | staging の Function URL でログイン → `/admin/subscription`（parent-gate PIN を通す） | 表示プラン / 上限が §6.2 (2) で書き込んだ値と一致する |
+| プラン表示 | staging の CloudFront URL でログイン → `/admin/subscription`（parent-gate PIN を通す） | 表示プラン / 上限が §6.2 (2) で書き込んだ値と一致する |
 | 権限（entitlement） | 当該プランでのみ使える機能を 1 つ操作する | プランに応じて許可 / 拒否が切り替わる |
 | サーバ側の解決 | `aws logs tail /aws/lambda/ganbari-quest-staging-app --since 10m` | 例外・fail-closed による 5xx が出ていない |
 
@@ -166,16 +176,16 @@ staging には **test mode の Stripe 資格情報だけ**を配備する。test
 
 ### 9.2 staging webhook endpoint の登録手順（PO 作業、AC4）
 
-**staging の Function URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
+**staging の URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
 
-1. staging deploy 完了後、Function URL を取得する:
+1. staging deploy 完了後、CloudFront の URL を取得する:
 
 ```bash
-aws lambda get-function-url-config --function-name ganbari-quest-staging-app   --region us-east-1 --query FunctionUrl --output text
+aws cloudformation describe-stacks --stack-name GanbariQuestNetworkStaging   --region us-east-1   --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text
 ```
 
 2. Stripe Dashboard を **test mode** に切り替え、Developers → Webhooks → 「Add endpoint」
-3. Endpoint URL に `<FunctionUrl>api/stripe/webhook` を入力
+3. Endpoint URL に `https://<DistributionDomainName>/api/stripe/webhook` を入力
 4. 購読 event は `docs/design/billing-redesign/` の購読 event 一覧（#3990 で整合済）に合わせる
 5. 発行された signing secret を登録し、staging を再 deploy する:
 

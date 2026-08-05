@@ -371,12 +371,13 @@ describe('runPricingTriggerCheck', () => {
 
 		const report = await runPricingTriggerCheck(2026, 4);
 
-		if (report.firedTriggers.length > 0) {
-			expect(mockNotifyDiscord).toHaveBeenCalled();
-		}
+		// #4192 (#4174 Q2 の PO 決裁): 発動しても Discord には通知しない。
+		// 判断が要るときは /ops/business を見にいく (report は返り続ける)。
+		expect(report.firedTriggers.length).toBeGreaterThan(0);
+		expect(mockNotifyDiscord).not.toHaveBeenCalled();
 	});
 
-	it('トリガー未発火時は Discord 通知が呼ばれない', async () => {
+	it('トリガー未発火時も Discord 通知が呼ばれない', async () => {
 		// 正常範囲のメトリクス: 5 paid + 95 free
 		const tenants: Tenant[] = [];
 		for (let i = 0; i < 100; i++) {

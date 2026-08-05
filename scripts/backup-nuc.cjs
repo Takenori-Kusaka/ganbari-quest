@@ -80,16 +80,81 @@ function readConsecutiveFailures() {
 }
 
 /**
+ * Discord へ embed を 1 通投げる。webhook 未設定なら no-op。
+ *
+ * 通知の失敗でバックアップ処理を落とさない (通知は副次で、取得結果の方が重い)。
+ *
+ * `mentionEveryone` は既定 true (取得失敗は全員に届けたい)。off-site 異常のように
+ * 「放置すると危ないが今すぐ叩き起こす事象ではない」ものは false を渡す — 毎回 @everyone を
+ * 付けると通知自体が mute され、同じ webhook を共有する失敗 alert まで見られなくなる。
+ *
+ * @param {Record<string, unknown>} embed
+ * @param {{ mentionEveryone?: boolean }} [opts]
+ */
+async function postDiscordEmbed(embed, opts = {}) {
+	if (!DISCORD_WEBHOOK) {
+		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
+		return;
+	}
+	const mentionEveryone = opts.mentionEveryone !== false;
+	try {
+		await fetch(DISCORD_WEBHOOK, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				...(mentionEveryone ? { content: '@everyone' } : {}),
+				embeds: [embed],
+			}),
+		});
+		console.log('[backup-nuc] Discord alert sent');
+	} catch (err) {
+		console.error(
+			'[backup-nuc] Discord alert failed (non-fatal):',
+			err instanceof Error ? err.message : String(err),
+		);
+	}
+}
+
+/**
+ * off-site 複製の異常を通知する (#3970 AC2)。
+ *
+ * **失敗 alert と分けている**のが要点。取得自体は成功しているため、`notifyFailure` と
+ * 同じ「🚨 バックアップ失敗」を出すと運用者が実在する控えを無いものとして扱う。
+ * 連続失敗カウンタにも載せない (取得は失敗していないので streak を汚さない)。
+ *
+ * @param {string} detail
+ */
+async function notifyOffsiteWarning(detail) {
+	// 本物の失敗 alert と違い **@everyone を付けない**。off-site 異常は「今すぐ全員を叩き起こす」
+	// 事象ではなく、放置すると危ないという性質のもの。ここで @everyone を毎回付けると
+	// 通知そのものが mute され、同じ webhook を共有する失敗 alert (#4129 / #4087) まで
+	// 一緒に見られなくなる (#4159 adversarial review UX 軸)。
+	// 再送抑止 (同じ判定が続く間は送らない) は app 側が担う。
+	await postDiscordEmbed(
+		{
+			title: '⚠️ バックアップの控えが保管場所に届いていません',
+			description: detail,
+			color: 16098851,
+			fields: [
+				{
+					name: '確認すること',
+					value: '外付けディスクや NAS の電源・接続、そして保管場所に目印ファイルがあるか',
+				},
+			],
+			timestamp: new Date().toISOString(),
+			footer: { text: 'がんばりクエスト backup (#3970)' },
+		},
+		{ mentionEveryone: false },
+	);
+}
+
+/**
  * バックアップ失敗を Discord に通知する。webhook 未設定なら no-op。
  * fail が沈黙しないための最小実装 (verify-backup-restore.cjs と同じ形)。
  *
  * @param {string} detail
  */
 async function notifyFailure(detail) {
-	if (!DISCORD_WEBHOOK) {
-		console.error('[backup-nuc] Discord webhook 未設定のため通知を送れません');
-		return;
-	}
 	// #4129 AC4: 連続失敗回数を alert 本文に載せる。1 通ずつ見ると同じに見える alert が、
 	// 回数を持つことで「昨日から続いている」と読めるようになる。
 	const streak = readConsecutiveFailures();
@@ -115,19 +180,7 @@ ${streakNote}`
 		timestamp: new Date().toISOString(),
 		footer: { text: 'がんばりクエスト backup (#3950)' },
 	};
-	try {
-		await fetch(DISCORD_WEBHOOK, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ content: '@everyone', embeds: [embed] }),
-		});
-		console.log('[backup-nuc] Discord alert sent');
-	} catch (err) {
-		console.error(
-			'[backup-nuc] Discord alert failed (non-fatal):',
-			err instanceof Error ? err.message : String(err),
-		);
-	}
+	await postDiscordEmbed(embed);
 }
 
 /** PGlite 経路: アプリの cron エンドポイントを叩き、結果を判定する。 */
@@ -145,7 +198,7 @@ async function runPgliteBackup() {
 	if (!res.ok) {
 		throw new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`);
 	}
-	/** @type {{ ok?: boolean, filename?: string, bytes?: number, durationMs?: number, generationsKept?: number, verification?: unknown, error?: string }} */
+	/** @type {{ ok?: boolean, filename?: string, bytes?: number, durationMs?: number, generationsKept?: number, verification?: unknown, offsiteMessage?: string | null, error?: string }} */
 	let body;
 	try {
 		body = JSON.parse(text);
@@ -161,6 +214,16 @@ async function runPgliteBackup() {
 			`保持 ${body.generationsKept} 世代)`,
 	);
 	console.log(`[backup-nuc] verification: ${JSON.stringify(body.verification)}`);
+
+	// #3970 AC2: off-site 複製の異常は **取得成功とは別に** 通知する。
+	// throw しないのは、取得は本当に成功しているため — 失敗として扱うと運用者が
+	// 「バックアップが取れていない」と誤読し、実在する控えを無いものとして扱う。
+	// 伝えるべきは「取れたが置き場が想定と違う」。ここを console.log だけにすると
+	// #3950 と同じ「ログには出ていたが誰も見ていなかった」に戻るので alert に乗せる。
+	if (body.offsiteMessage) {
+		console.error(`[backup-nuc] ${body.offsiteMessage}`);
+		await notifyOffsiteWarning(body.offsiteMessage);
+	}
 }
 
 /** SQLite 経路: 従来どおり backup-db.cjs + verify-backup-restore.cjs を直列実行する。 */

@@ -9,7 +9,6 @@ import { jstYearMonth } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
-import { notifyDiscord } from './discord-notify-service';
 import { getAWSCostData, getRevenueData } from './ops-service';
 
 // ============================================================
@@ -313,42 +312,11 @@ export async function runPricingTriggerCheck(
 		paidUserCount,
 	};
 
-	// 発動トリガーがあれば Discord 通知
-	if (firedTriggers.length > 0) {
-		await sendPricingTriggerNotification(report);
-	}
-
+	// #4192 (#4174 Q2 の PO 決裁): 発動しても **Discord には通知しない**。
+	// incident は「今すぐ調べる / 直す」を意味するチャネルで、価格見直しは今すぐ何もしない。
+	// 判断が必要になったときに見にいく場所 (`/ops/business`) が既にあるので、
+	// 「通知は人が行動を変えるものだけを送る」に従い通知そのものを持たない。
 	return report;
-}
-
-// ============================================================
-// Discord Notification
-// ============================================================
-
-async function sendPricingTriggerNotification(report: PricingTriggerReport): Promise<void> {
-	const fields = report.firedTriggers.map((t) => ({
-		name: `${t.description}`,
-		value: [
-			`現在値: ${(t.value * 100).toFixed(1)}%`,
-			`閾値: ${(t.threshold * 100).toFixed(1)}%`,
-			`連続月数: ${t.consecutiveMonths}/${t.requiredMonths}ヶ月`,
-			`推奨: ${t.recommendation}`,
-		].join('\n'),
-		inline: false,
-	}));
-
-	await notifyDiscord('billing', {
-		title: `📊 価格見直しトリガー検知 (${report.month})`,
-		description: [
-			`**${report.firedTriggers.length}件のトリガーが発動しました**`,
-			`有料ユーザー数: ${report.paidUserCount}`,
-			'',
-			'詳細は /ops/business で確認してください。',
-			'※ 自動で価格変更は行いません。PO の判断を経由してください。',
-		].join('\n'),
-		color: 0xff9800, // orange/warning
-		fields,
-	});
 }
 
 /**

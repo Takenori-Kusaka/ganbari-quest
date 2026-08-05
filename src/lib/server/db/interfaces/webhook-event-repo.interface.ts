@@ -21,10 +21,24 @@ export interface WebhookEventRecord {
 	eventId: string;
 	/** event.type (`checkout.session.completed` / `invoice.paid` 等) */
 	eventType: string;
-	/** handler 実行完了時刻 (ISO 8601) */
+	/**
+	 * 処理権を取得した時刻 / handler 実行完了時刻 (ISO 8601)。
+	 *
+	 * `handlerResult === 'processing'` の間は「いつ掴んだか」を意味し、stale claim の
+	 * 判定基準になる (#4128)。完了時に完了時刻で上書きされる。
+	 */
 	processedAt: string;
-	/** handler 実行結果 — 'skipped' は未購読 event 型を意味する */
-	handlerResult: 'success' | 'error' | 'skipped';
+	/**
+	 * handler 実行結果。
+	 *
+	 * - `'processing'` — 処理権を取得したが handler 未完了 (#4128 insert-first)。
+	 *   正常系では一過性で、成功なら `'success'` / `'skipped'` に、失敗なら row ごと消える。
+	 *   Lambda が処理中に死ぬと残るため、一定時間経過後は他プロセスが奪える (stale claim)。
+	 * - `'success'` — handler が正常終了した
+	 * - `'skipped'` — 未購読の event 型だった
+	 * - `'error'` — 予約 (現行の dispatcher は失敗時に row を残さない、§4.2)
+	 */
+	handlerResult: 'processing' | 'success' | 'error' | 'skipped';
 	/** handler 例外時の error message (Stripe.Error.message 最大 500 文字 truncate、PII strip 済) */
 	errorMessage: string | null;
 	/** 同一 event.id の再到達回数 (初回 = 0、replay/resend で increment) */
@@ -50,15 +64,49 @@ export interface IWebhookEventRepo {
 	findByEventId(eventId: string): Promise<WebhookEventRecord | null>;
 
 	/**
-	 * 新規 event の処理結果を insert する。
+	 * event の**処理権**を取得する (insert-first、#4128)。
 	 *
-	 * `findByEventId` が null を返した直後に呼ぶ前提。並列同時到達時の競合は PK 制約で
-	 * 検知し、INSERT OR IGNORE / `ConditionExpression: attribute_not_exists` で
-	 * 2 度目以降を弾く (Phase 5 子 3 §13 #6、Phase 7 PR-4a 実装)。
+	 * 「find して無ければ処理する」は find と insert の間に await 境界があるため、同一
+	 * event.id の並列到達で両方が通過し handler が二重実行される (痕跡も残らない)。
+	 * 処理権の取得を **1 文の insert (競合時は条件付き update)** に閉じ込め、DB の原子性で
+	 * 勝者を 1 つに決める。
 	 *
-	 * @param record event 処理結果
+	 * 勝つ条件は 2 つだけ:
+	 *   1. row が存在しない (初回到達)
+	 *   2. 既存 row が `'processing'` のまま `staleClaimBeforeIso` より古い
+	 *      (処理中に Lambda が死んだ claim を引き取る。これが無いと insert-first は
+	 *      「一度掴んで死んだ event を永久に捨てる」機構になる)
+	 *
+	 * 完了済 row (`'success'` / `'skipped'`) は決して奪えない = 冪等性は保たれる。
+	 *
+	 * @param record `handlerResult: 'processing'` で渡す。`processedAt` は取得時刻
+	 * @param staleClaimBeforeIso この時刻より古い `'processing'` は死んだ claim とみなす
+	 * @returns このプロセスが処理権を得たら true。false なら handler を実行してはならない
 	 */
-	insert(record: WebhookEventRecord): Promise<void>;
+	claim(record: WebhookEventRecord, staleClaimBeforeIso: string): Promise<boolean>;
+
+	/**
+	 * 処理権を持つ row の最終結果を確定する (#4128)。
+	 *
+	 * @param eventId Stripe `evt_*`
+	 * @param handlerResult handler の実行結果
+	 * @param processedAtIso 完了時刻 (ISO 8601)
+	 */
+	finalize(
+		eventId: string,
+		handlerResult: 'success' | 'skipped',
+		processedAtIso: string,
+	): Promise<void>;
+
+	/**
+	 * 処理権を解放する (handler 失敗時、#4128)。
+	 *
+	 * 台帳は「**完了した** event の台帳」なので、失敗した event の row は残さない。
+	 * 残すと次回到達で dedup され、Stripe の再送で復旧する経路を自分で潰す (§4.2)。
+	 *
+	 * @param eventId Stripe `evt_*`
+	 */
+	releaseClaim(eventId: string): Promise<void>;
 
 	/**
 	 * 既存 record の retry_count を +1 する (replay / resend で同一 event.id 再到達時)。

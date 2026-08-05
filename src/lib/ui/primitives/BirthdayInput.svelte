@@ -76,7 +76,8 @@ $effect(() => {
 
 const daysInMonth = $derived.by(() => {
 	if (!yearStr || !monthStr) return 31;
-	return new Date(Number(yearStr), Number(monthStr), 0).getDate();
+	// UTC 算術で月の日数を出す (ローカルコンストラクタ + ローカル getter を避ける、#4127)
+	return new Date(Date.UTC(Number(yearStr), Number(monthStr), 0)).getUTCDate();
 });
 
 const dayOptions = $derived.by(() => {

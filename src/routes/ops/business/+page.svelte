@@ -197,7 +197,7 @@ const progressColor = $derived(
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_BUSINESS_LABELS.fetchedAt(bep.fetchedAt ? new Date(bep.fetchedAt).toLocaleString('ja-JP') : '-')}
+		{OPS_BUSINESS_LABELS.fetchedAt(bep.fetchedAt ? new Date(bep.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-')}
 	</div>
 </div>
 

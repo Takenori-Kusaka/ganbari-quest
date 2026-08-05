@@ -55,6 +55,8 @@
 | [docs/DESIGN.md](DESIGN.md) | デザインシステム SSOT (カラー 3 層トークン / primitives / 用語辞書 / 年齢帯 / z-index 階層) |
 | [docs/decisions/README.md](decisions/README.md) | ADR インベントリ + supersede 関係 (TOP 10 active + archive) |
 | [docs/design/parallel-implementations.md](design/parallel-implementations.md) | 並行実装ペア一覧 (修正前必須チェック: labels / 年齢モード / demo / ナビ / DB / チュートリアル) |
+| [docs/sessions/README.md](sessions/README.md) | チーム憲章 SSOT（ロール境界 / 決定権 DACI / コミュニケーション経路、#4175） |
+| [docs/sessions/clone-setup.md](sessions/clone-setup.md) | クローン立ち上げ手順 SSOT（Node 要件 / `npm ci` 2 段 / gh アカウント / ロール別の起動プロンプトと cron 分、#4187） |
 | [docs/sessions/po-session.md](sessions/po-session.md) | PO 補佐セッション (Issue 起票・優先度・事業判断) |
 | [docs/sessions/dev-session.md](sessions/dev-session.md) | Dev セッション (実装・CI/CD・設計書同期、overall map) |
 | [docs/sessions/dev-process/README.md](sessions/dev-process/README.md) | 開発プロセス運用知 各論 (完遂原則 / アンチパターン / QA fix / 並列 Agent / 調査規律 / 横展開、#2516) |

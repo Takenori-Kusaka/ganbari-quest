@@ -4,7 +4,7 @@
 >
 > **PR 起票**: [Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md)（PR body 雛形 + Issue 自動穴埋め、#1863）
 >
-> **SSOT**: ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
@@ -20,6 +20,8 @@ CronCreate(cron: "13 * * * *", recurring: true, prompt: <label-mailbox.md §4「
 
 Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの。**Issue と PR の両方**）、**`state:qm-blocked`**（QM からの差し戻し）、**自分に来た reviewer request**（`review-requested:@me`）、そして **ORPHAN**（`state:*` が 1 つも付いていない open）。実装完了・CI 全緑・Ready 化したら自分で `state:dev-done` を付けて QM へ渡す。**古い state label を外してから付ける。**
 
+**完成していなくても QM に送れる。** 実装の途中で観点を相談したい / `state:qm-blocked` の BLOCK 事由の意図を確認したい ときは **`state:needs-qm`**（#4180）。`dev-done` は「実装完了・CI 全緑・Ready 化済」を含意するので、**完成していないのに付けてはいけない**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない）。
+
 - **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
 - **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
 - **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**
@@ -29,6 +31,18 @@ Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの�
 - **差し戻しに対応し終えたら `state:qm-blocked` を外して `state:dev-done` に戻す**（label-mailbox.md §3.1.1 遷移表の復路）。戻さないと QM の受信箱に現れず、**対応済みであることが誰にも伝わらない**（PR #4149 で実発生。オーナーが手で伝えるまで停止した）
 - **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込み、そうでなければ拾ったことだけ報告して主線に戻る
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
+
+### Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+Dev が使ってよいのは **レーンが分かれた実装**（A 課金 / B データ / C ドメイン / D 装置）、**影響範囲調査**（`impact-analysis` の 4 layer を分担）、**read-only の分担調査**（受信箱 20 件超の triage 等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。
+
+**重い検証の並列化には使えない。** [agent-concurrency.md](agent-concurrency.md) §3.1 の `heavy` lock は**マシン全体で 1 本**であり、`pre-ready` / `vitest` / `playwright test` / `svelte-check` / `npm run test|check|e2e` は teammate を増やしても直列化する。残りの teammate は hook に exit 2 で止められて待つだけで、トークンだけ消費する。**速くなるのは読む・調べる・書く（lock 対象外）だけ。**
+
+**書き込む teammate には worktree を与える**（`.claude/worktrees/<name>/`）。分けないと silent overwrite が起きる。merge は lead が行う。
+
+**不可逆操作に触れうる teammate には plan approval を要求する**（削除 / 本番 deploy / 課金書込 / スキーマ変更）。
 
 ## セッション設計原則
 
@@ -62,13 +76,33 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 
 | 操作 | 担当 | 備考 |
 |---|---|---|
-| Issue 着手順 | - | デフォルト直列 / 軽微群は Plan agent 判断で並列可 |
+| Issue 着手順 | Dev（開発リーダー） | デフォルト直列 / 軽微群は Plan agent 判断で並列可 |
 | 全体設計・テスト設計 | Claude Code Opus | 全体俯瞰 |
 | 高難度実装 | Claude Code Opus | 新規クラス設計・デザインパターン検討 |
 | 軽微な実装・単体テスト | Sonnet / Gemini CLI | 既存コード改修・置き換え |
 | E2E / 結合テスト | Opus | ブラウザ振る舞い検証 |
 | 自己レビュー・AC 確認 | Sonnet / Gemini CLI | 別観点でのセルフレビュー |
 | CI 修正 | Opus | 複雑な依存関係 |
+
+> **backlog 上位から何を今のレーンに取り込むかは Dev が決める。** PO は backlog の順序（何が次に価値が高いか）を示すが、着手順・WIP 配分・レーン割当への個別指示は出さない。決定権の境界は [チーム憲章 §4.2](README.md#42-実装に関する決定)。
+
+#### subagent の `model:` 指定 — なぜ Opus / Sonnet なのか（#4212 AC1）
+
+`.claude/agents/*.md` の frontmatter `model:` は **agent を spawn したときのモデル**を決める。**未指定は「設定漏れ」ではなく「親セッションのモデルを継承する」という意味**である（この区別が書かれていなかったため、PO が dev-session の未指定を漏れと誤読した、#4212）。
+
+| agent | `model:` | 根拠 |
+|---|---|---|
+| `po-session` / `qa-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
+| `audit-manager` | 未指定（= Opus） | 統合 PR の approve / merge 判定と Issue 起票という**不可逆 side-effect** を専権で持つ（`docs/sessions/audit-team.md`）。判断を誤ったときの巻き戻しが高い |
+| `dev-session` | 未指定（= Opus） | 「CI / pre-hook を自己解決できる能力が Sonnet に無い」— **ただしこの結論は Sonnet 4.5 時点のもので、以後再検証していない**（下記） |
+
+**dev-session を sonnet に落としてよいかの判定基準**（#4212 AC1）:
+
+- **合格条件** = Sonnet subagent 1 本に実 Issue を 1 件通させ、**CI が落ちたところから自力で緑に戻せること**を 1 回確認する。落ちた検査の意味を読み違えず、テストの削除 / skip / assertion 弱体化（ADR-0006 違反）に逃げないことまで含めて見る
+- **不合格なら未指定（Opus）のまま据え置く**。据え置く場合も本表に「いつ・何で不合格だったか」を 1 行残す（同じ問いが再燃するため）
+- **判定できる材料が無い間は据え置きが既定**。「安いから」だけを根拠に落とさない
+
+**モデル割当は Dev の職掌**（実装レーンの資源配分、憲章 §4.2）。ただし `audit-manager` は監査の職掌のため Dev が単独で変更しない。
 
 #### 多観点セルフレビュー推奨フロー
 1. 主担当（Opus）が AC を満たす実装を完了
@@ -124,7 +158,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 1. `git fetch origin && git pull` で最新化。worktree / clone 直後は refspec に develop 行があるか確認 + branch 作成直後は `node scripts/lib/ci/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（stale develop 基点ズレ防止 #2975、SOP SSOT: [branch-strategy.md §3](branch-strategy.md)）
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
-4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
+4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015 / #4127) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
 
    **6 step 以外は消えていない — CI で hard-fail のまま走る (#4121)**。vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml`。判定の場所を CI に移しただけなので、**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。16 コアを 4 エージェントで共有する運用ではローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。
 

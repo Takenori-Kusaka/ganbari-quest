@@ -28,6 +28,13 @@ import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import {
+	CONTRACT_STATE,
+	CONTRACT_STATE_VIEW,
+	canOpenBillingHistory,
+	hasActiveContract,
+	resolveContractState,
+} from '$lib/domain/contract-state-view';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
@@ -113,9 +120,17 @@ let selectedTier = $state<'standard' | 'family'>('standard');
 // #3204: 年額は #2719 で廃止確定 (checkout が yearly を reject)。月額固定にし、年額トグル UI を撤去。
 // #3204: checkout 失敗時のエラーメッセージ (silent no-op 撲滅、Toast と併用の in-page banner)
 let checkoutError = $state<string | null>(null);
+// #4161: 決済未設定 (stripeEnabled=false) の配備でアップグレード操作を押したときの説明文。
+// `checkoutError` の Alert は `{#if stripeEnabled}` ブロック内にしか無く、決済未設定時は
+// 画面に何も出ないため、ブロック外に出す専用 state を分けている。
+let billingUnavailable = $state<string | null>(null);
 
 // #771 Portal を開く前の PIN / 確認フレーズ入力
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
+// #4156: 同じ Portal でも「プランを変えに行く」のか「領収書を見に行く」のかで、
+// 顧客が確認ダイアログで読むべき文が違う。確認フレーズ自体はサーバー契約
+// (`/api/stripe/portal` の CONFIRM_PHRASE_REQUIRED) と同値である必要があるため変えない。
+let portalIntent = $state<'plan-change' | 'billing-history'>('plan-change');
 let showPortalConfirm = $state(false);
 let portalPinValue = $state('');
 let portalConfirmPhrase = $state('');
@@ -163,7 +178,17 @@ const planLabel = (plan: string) => {
 	}
 };
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string, churned: boolean) => {
+	// #4156: `suspended` は 2 状態を兼ねる (contract-state-matrix §4)。契約が残る S4 は「停止中」、
+	// 解約が確定した S5 は「解約済み」。区別せず「停止中」と出すと、解約した顧客に
+	// 「まだ何か止まっているだけ」と読める表示を返し続けることになる。
+	if (status === SUBSCRIPTION_STATUS.SUSPENDED && churned) {
+		return {
+			text: SUBSCRIPTION_PAGE_LABELS.statusCancelled,
+			color: 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]',
+			icon: '✅',
+		};
+	}
 	switch (status) {
 		case SUBSCRIPTION_STATUS.ACTIVE:
 			return {
@@ -201,8 +226,27 @@ const statusLabel = (status: string) => {
 	}
 };
 
-const status = $derived(statusLabel(license.status));
-const hasSubscription = $derived(!!license.stripeSubscriptionId);
+// #4156: 契約状態 (contract-state-matrix §4 の S1〜S5) を 1 箇所で解決する。
+// 画面の分岐を「契約の有無」だけに畳むと、寿命の違う `stripeCustomerId` (過去の取引) を
+// 巻き添えで隠してしまう — それが本 Issue の退行 1 だった。
+const contractState = $derived(
+	resolveContractState({
+		status: license.status,
+		stripeSubscriptionId: license.stripeSubscriptionId,
+		cancelAtPeriodEnd: cancelPending,
+	}),
+);
+const contractStateNotice = $derived(
+	contractState ? CONTRACT_STATE_VIEW[contractState].statusNotice : null,
+);
+const hasSubscription = $derived(hasActiveContract(license));
+const status = $derived(statusLabel(license.status, contractState === CONTRACT_STATE.CANCELLED));
+// #4156: 請求書・領収書は **過去の取引** に紐づくため、契約 (`stripeSubscriptionId`) ではなく
+// 顧客 (`stripeCustomerId`) の有無で到達性を決める。サーバー側の `createPortalSession` も
+// 同じ軸で判定しており (`NO_STRIPE_CUSTOMER`)、UI 側だけが厳しい状態を解消する。
+// `stripeEnabled` では絞らない: customer が存在する = かつて決済が有効だった配備であり、
+// いま無効なら requestPortal() が理由を提示して打ち切る (#4161 と同じ扱い、dead-end は作らない)。
+const billingHistoryAvailable = $derived(canOpenBillingHistory(license) && !hasSubscription);
 
 async function startCheckout(planId: string) {
 	checkoutLoading = true;
@@ -248,9 +292,19 @@ async function startCheckout(planId: string) {
 //   - 契約あり   → Stripe 請求管理ページ (プラン変更)。checkout は ALREADY_SUBSCRIBED (409) で
 //                  弾かれるため、上位プランへの変更は Portal 経由が唯一の正しい経路。
 //                  PIN ゲート + 超過リソース確認も requestPortal() が担う。
+//
+// #4161: 決済が有効でない配備 (セルフホスト / STRIPE_SECRET_KEY 未設定の本番) では、
+//   どちらの経路も最後まで到達できない。プラン管理カードは `{#if stripeEnabled}` で
+//   隠れているのに PlanStatusCard の CTA と確認ダイアログはブロックの外にあるため、
+//   放置すると「PIN を入れて確定した末に失敗する」dead-end (#2544 型) が成立する。
+//   押した時点で理由を提示して打ち切る (silent no-op も作らない、#3204 整合)。
 function handlePlanUpgrade(planId: string) {
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
 	if (hasSubscription) {
-		void requestPortal();
+		requestPlanChange();
 		return;
 	}
 	void startCheckout(planId);
@@ -307,8 +361,54 @@ async function executeDowngradeArchive(selection: {
 	}
 }
 
+// #4161: 決済未設定を伝える単一箇所 (Toast + in-page banner の 2 層、ADR-0062 / #3204 整合)
+function notifyBillingUnavailable() {
+	billingUnavailable = SUBSCRIPTION_PAGE_LABELS.billingUnavailable;
+	showToast(
+		SUBSCRIPTION_PAGE_LABELS.billingUnavailableToastTitle,
+		SUBSCRIPTION_PAGE_LABELS.billingUnavailable,
+		'error',
+	);
+}
+
+// #4156: 確認ダイアログの見出し / 説明 / 実行ボタンは Portal を開く目的で切り替える。
+const portalConfirmTitle = $derived(
+	portalIntent === 'billing-history'
+		? SUBSCRIPTION_PAGE_LABELS.portalConfirmTitleBillingHistory
+		: SUBSCRIPTION_PAGE_LABELS.portalConfirmTitle,
+);
+const portalConfirmDesc = $derived(
+	portalIntent === 'billing-history'
+		? SUBSCRIPTION_PAGE_LABELS.portalConfirmDescBillingHistory
+		: SUBSCRIPTION_PAGE_LABELS.portalConfirmDesc,
+);
+const portalConfirmSubmit = $derived(
+	portalIntent === 'billing-history'
+		? SUBSCRIPTION_PAGE_LABELS.portalConfirmSubmitBillingHistory
+		: SUBSCRIPTION_PAGE_LABELS.portalConfirmSubmit,
+);
+
+/** #4156: 契約操作 (プラン変更 / 支払い方法) の目的で Portal を開く */
+function requestPlanChange() {
+	portalIntent = 'plan-change';
+	void requestPortal();
+}
+
+/** #4156: 請求履歴を見る目的で Portal を開く (契約操作ではない) */
+function requestBillingHistory() {
+	portalIntent = 'billing-history';
+	void requestPortal();
+}
+
 // #771 + #738: Portal 遷移前ダイアログ
 async function requestPortal() {
+	// #4161: 確認ダイアログは `{#if stripeEnabled}` の外にあるため、requestPortal() を
+	//   呼ぶ全経路 (PlanStatusCard CTA / 請求管理ボタン / ダウングレード選択後) で塞ぐ。
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
+	billingUnavailable = null;
 	portalPinValue = '';
 	portalConfirmPhrase = '';
 	portalError = null;
@@ -328,6 +428,13 @@ async function requestPortal() {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: PIN ゲート + Portal 遷移の集中ロジックのため
 async function openPortal() {
 	portalError = null;
+
+	// #4161: ChurnPreventionModal の「解約する」からは requestPortal() を経由せず直接呼ばれる。
+	//   決済未設定の配備で押しても Portal へは行けないため、ここでも同じ理由を返す。
+	if (!stripeEnabled) {
+		notifyBillingUnavailable();
+		return;
+	}
 
 	if (pinConfigured) {
 		if (
@@ -392,7 +499,15 @@ async function openPortal() {
 	<title>{PAGE_TITLES.license}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6" data-testid="saas-license-panel">
+<!-- #4161: アップグレード CTA の分岐を決めるのはこの 2 変数だけ (handlePlanUpgrade)。
+     受け入れテストが「いまどちらの経路を検証しているか」を実際に読んで表明できるよう、
+     DOM に出す (結末を or で並べて、どちらが走ったか誰にも見えない形を作らない)。 -->
+<div
+	class="space-y-6"
+	data-testid="saas-license-panel"
+	data-stripe-enabled={stripeEnabled ? 'true' : 'false'}
+	data-has-subscription={hasSubscription ? 'true' : 'false'}
+>
 	<!-- #3991: 解約 (期末解約) 申請中バナー + 取り消し導線。
 	     「いつまで使えるか」を親が画面で再確認できる唯一の場所であり、
 	     解約完了メールの猶予期限と同じ日付 (Stripe の請求期間終了日) を示す。 -->
@@ -455,7 +570,7 @@ async function openPortal() {
 				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
 					<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanExpiry}</span>
 					<span class="text-sm text-[var(--color-text-primary)]">
-						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP')}
+						{new Date(license.planExpiresAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 					</span>
 				</div>
 			{/if}
@@ -468,7 +583,7 @@ async function openPortal() {
 			<div class="flex items-center justify-between py-2">
 				<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanCreatedAt}</span>
 				<span class="text-sm text-[var(--color-text-primary)]">
-					{new Date(license.createdAt).toLocaleDateString('ja-JP')}
+					{new Date(license.createdAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 				</span>
 			</div>
 		</div>
@@ -488,6 +603,15 @@ async function openPortal() {
 			onUpgrade={handlePlanUpgrade}
 			upgradeLoading={checkoutLoading || portalLoading}
 		/>
+	{/if}
+
+	<!-- #4161: 決済未設定の配備でアップグレード操作を押したときの理由表示。
+	     `checkoutError` の Alert は `{#if stripeEnabled}` の内側にあり決済未設定時は描画されないため、
+	     ここ (ブロック外) に置く。確認ダイアログは開かない = dead-end を作らない。 -->
+	{#if billingUnavailable}
+		<div data-testid="billing-unavailable-alert">
+			<Alert variant="warning" message={billingUnavailable} />
+		</div>
 	{/if}
 
 	<!-- 無料トライアル -->
@@ -584,18 +708,19 @@ async function openPortal() {
 	{/if}
 
 	<!-- ステータス別メッセージ -->
-	{#if license.status === SUBSCRIPTION_STATUS.GRACE_PERIOD}
-		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
-			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">{SUBSCRIPTION_PAGE_LABELS.gracePeriodTitle}</h3>
-			<p class="text-sm text-[var(--color-feedback-warning-text)]">
-				{SUBSCRIPTION_PAGE_LABELS.gracePeriodDesc}
-			</p>
-		</section>
-	{:else if license.status === SUBSCRIPTION_STATUS.SUSPENDED}
-		<section class="bg-[var(--color-feedback-warning-bg)] rounded-xl p-4 border border-[var(--color-feedback-warning-border)]">
-			<h3 class="text-sm font-semibold text-[var(--color-feedback-warning-text)] mb-1">{SUBSCRIPTION_PAGE_LABELS.suspendedTitle}</h3>
-			<p class="text-sm text-[var(--color-feedback-warning-text)]">
-				{SUBSCRIPTION_PAGE_LABELS.suspendedDesc}
+	<!-- #4156: 文言は `contract-state-view.ts` の対応表を SSOT とする。表は認可の実挙動
+	     (`authorization.ts`) と対で test に固定されており、片方だけ変えると CI が落ちる。 -->
+	{#if contractStateNotice}
+		<section
+			class="rounded-xl p-4 border"
+			class:notice-warning={contractStateNotice.tone === 'warning'}
+			class:notice-info={contractStateNotice.tone === 'info'}
+			data-testid="contract-state-notice"
+			data-contract-state={contractState}
+		>
+			<h3 class="text-sm font-semibold mb-1">{contractStateNotice.title}</h3>
+			<p class="text-sm">
+				{contractStateNotice.desc}
 			</p>
 		</section>
 	{:else if license.status === SUBSCRIPTION_STATUS.TERMINATED}
@@ -629,7 +754,7 @@ async function openPortal() {
 					<li>{BILLING_LABELS.featureNextBilling}</li>
 				</ul>
 				<Button
-					onclick={requestPortal}
+					onclick={requestPlanChange}
 					disabled={portalLoading}
 					variant="primary"
 					size="md"
@@ -729,6 +854,41 @@ async function openPortal() {
 	</Card>
 	{/if}
 
+	<!-- 請求履歴 (#4156) — 契約が終わっても過去の取引は残る。
+	     契約中は上の「プラン管理」の Portal ボタンが請求書も含めて担うため、
+	     ここは契約が無い顧客 (解約済み) にだけ出す。出口は同時に 1 つだけ (統合 #4139 の原則を維持)。
+	     特商法の表示義務に接続する導線であり、解約理由の送信を経由させない。 -->
+	{#if billingHistoryAvailable}
+		<Card variant="default" padding="lg">
+			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.billingHistoryTitle}</h3>
+			<div class="grid gap-3" data-testid="billing-history-section">
+				<p class="text-sm text-[var(--color-text-muted)]">
+					{SUBSCRIPTION_PAGE_LABELS.billingHistoryDesc}
+				</p>
+				<ul class="portal-feature-list">
+					<li>{SUBSCRIPTION_PAGE_LABELS.billingHistoryFeatureInvoices}</li>
+					<li>{SUBSCRIPTION_PAGE_LABELS.billingHistoryFeatureReceipts}</li>
+				</ul>
+				<Button
+					onclick={requestBillingHistory}
+					disabled={portalLoading}
+					variant="secondary"
+					size="md"
+					class="w-full"
+					data-testid="open-billing-history-button"
+				>
+					{SUBSCRIPTION_PAGE_LABELS.billingHistoryButton(portalLoading)}
+				</Button>
+				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
+					{SUBSCRIPTION_PAGE_LABELS.billingHistoryNote}
+				</p>
+				<p class="text-xs text-[var(--color-feedback-warning-text)] text-center">
+					{SUBSCRIPTION_PAGE_LABELS.billingHistoryPinNote(pinConfigured)}
+				</p>
+			</div>
+		</Card>
+	{/if}
+
 	<!-- #4139: 解約導線。旧 /admin/billing の「解約手続き」リンクを統合先に移設する
 	     (プラン・課金の操作を 1 ページに集約したため、ここが唯一の解約入口)。
 	     Kinde frictionless 整合で控えめ表示 (Phase 3 #2567 §FR-5)。 -->
@@ -742,12 +902,14 @@ async function openPortal() {
 		</a>
 	</div>
 
-	<!-- #771: プラン変更 (Stripe Portal) 前の二段階確認ダイアログ -->
-	<Dialog bind:open={showPortalConfirm} title={SUBSCRIPTION_PAGE_LABELS.portalConfirmTitle}>
+	<!-- #771: プラン変更 (Stripe Portal) 前の二段階確認ダイアログ
+	     #4156: 請求履歴を見に行くときは目的が違うため、見出しと説明を差し替える
+	     (確認フレーズはサーバー契約と同値である必要があるため共通)。 -->
+	<Dialog bind:open={showPortalConfirm} title={portalConfirmTitle}>
 		{#snippet children()}
 		<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
 			<p>
-				{SUBSCRIPTION_PAGE_LABELS.portalConfirmDesc}
+				{portalConfirmDesc}
 			</p>
 			<p class="text-[var(--color-feedback-warning-text)] font-semibold">
 				{SUBSCRIPTION_PAGE_LABELS.portalConfirmWarning}{pinConfigured ? OYAKAGI_LABELS.inputLabel : SUBSCRIPTION_PAGE_LABELS.portalConfirmWarningPhrase}{SUBSCRIPTION_PAGE_LABELS.portalConfirmWarningPin}
@@ -820,7 +982,7 @@ async function openPortal() {
 				disabled={portalLoading}
 				data-testid="portal-confirm-button"
 			>
-				{portalLoading ? SUBSCRIPTION_PAGE_LABELS.portalConfirmLoading : SUBSCRIPTION_PAGE_LABELS.portalConfirmSubmit}
+				{portalLoading ? SUBSCRIPTION_PAGE_LABELS.portalConfirmLoading : portalConfirmSubmit}
 			</Button>
 		</div>
 		{/snippet}
@@ -868,6 +1030,19 @@ async function openPortal() {
 		left: 0;
 		color: var(--color-action-success);
 		font-weight: 700;
+	}
+
+	/* #4156: contract-state notice — tone is decided by the table in contract-state-view.ts */
+	.notice-warning {
+		background: var(--color-feedback-warning-bg);
+		border-color: var(--color-feedback-warning-border);
+		color: var(--color-feedback-warning-text);
+	}
+
+	.notice-info {
+		background: var(--color-feedback-info-bg);
+		border-color: var(--color-feedback-info-border);
+		color: var(--color-feedback-info-text);
 	}
 
 	/* #4139: cancellation entry point (low-emphasis) */

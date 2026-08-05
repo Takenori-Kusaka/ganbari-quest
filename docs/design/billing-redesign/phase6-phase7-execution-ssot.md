@@ -144,7 +144,16 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 | **kill switch 操作** | (a) `USE_LOOKUP_KEY` cutover 失敗時: GitHub Actions Variables に `USE_LOOKUP_KEY=false` 設定 → CDK redeploy で env var 直読経路に巻き戻し (約 30 秒で反映) (b) apiVersion ロールバック: `client.ts:8` を `'2026-05-27.dahlia'` (旧値) に戻す revert PR + Lambda 再 deploy (Webhook destination は PR-4b 未実施のため不整合発生せず) |
 | **次工程** | (a) 1-2 week staging 検証 (Sentry error rate < 0.5% / Stripe API 障害率 / lookup_key cache hit rate) (b) PR-4b (Webhook cutover) 着手判断 (c) PR-5 (旧 env var 物理削除 + 旧 Webhook destination retire) |
 
-### Step 4: Webhook shadow / cutover / retire (子 3 #2641 + Stripe 公式 5 phase 整合、推定 400 行、#2683 補強で event 一覧変更)
+### Step 4: Webhook 受信口 (子 3 #2641 + Stripe 公式 5 phase 整合、#2683 補強で event 一覧変更)
+
+> **現状の正解 (#4128)**: **受信口は `/api/stripe/webhook` の 1 本**。shadow mode / `webhook-v2` / 2 destination 並存は**採用しない**。
+> shadow mode は「署名検証だけして 200 を返す」経路で、Stripe は 200 を受けると再送しないため、
+> destination の切替順序を誤ると課金 event が台帳にも残らず消える。この失敗モードは 2026-07-26 の実障害と同 class であり、
+> 「いざという時のため」に残す価値より env 1 個の誤設定で課金を落とすリスクが上回ると判断して撤去した。
+> 以下の 4-a / 4-b / 4-c は**実行されない**。受信口が 1 本であることは
+> `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が CI で固定する。
+> dedup の現行仕様 (insert-first) は `docs/design/07-API設計書.md` §POST /api/stripe/webhook と
+> `docs/design/08-データベース設計書.md` §stripe_webhook_events が SSOT。
 
 | 項目 | 内容 |
 |---|---|
@@ -153,10 +162,10 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 | | **4-a (shadow mode)**: 新 Webhook handler (`/api/stripe/webhook-v2`) を新規 route で実装、DB write せず log のみ。`STRIPE_WEBHOOK_SHADOW_MODE=true` で 24-48h 検証 |
 | | **4-b (cutover)**: shadow mode log で 0 件 silent drop 確認後、新 handler に切替 + 旧 handler は 200 OK + log のみ (`STRIPE_WEBHOOK_SHADOW_MODE=false`)。Stripe Dashboard で新 Webhook destination を有効化 + 旧 destination は disabled |
 | | **4-c (retire)**: cutover 後 1 週間 smoke test PASS で旧 Webhook destination を delete + 旧 handler コードを削除 |
-| **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口で `webhookEventRepo.findByEventId` dedup) / [src/routes/api/stripe/webhook-v2/+server.ts](src/routes/api/stripe/webhook-v2/+server.ts) (新規 route、4-a) / `src/routes/api/stripe/webhook/+server.ts` (旧 route、4-c で削除) / `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` feature flag) / [src/lib/server/db/repos/webhook-event-repo.ts](src/lib/server/db/repos/webhook-event-repo.ts) (sqlite / dynamodb 実装、子 3 §3) / [tests/integration/stripe-webhook-dedup.test.ts](tests/integration/stripe-webhook-dedup.test.ts) (新規) / [tests/integration/stripe-webhook-credit-note.test.ts](tests/integration/stripe-webhook-credit-note.test.ts) (#2683 新規、ダウン即時の credit memo 受信検証) / [tests/integration/stripe-webhook-api-version-immutable.test.ts](tests/integration/stripe-webhook-api-version-immutable.test.ts) (#2683 新規、副次制約 4 検証) |
+| **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口の insert-first dedup) / `src/routes/api/stripe/webhook/+server.ts` (**唯一の受信口**) / `src/lib/server/db/interfaces/webhook-event-repo.interface.ts` + 各 backend 実装 (`claim` / `finalize` / `releaseClaim`) / `tests/unit/services/stripe-webhook-dedup.test.ts` / `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` (受信口 1 本の fitness function、#4128) |
 | **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で「購読 event SSOT」ブロックの 5 event 全種を受信 + DB に `handler_result='success'` 物理確認 (新規購入経路 = `checkout.session.completed` を含む) (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) #2683 副次制約 4: `webhookEndpoints.update({api_version})` が Stripe API 400 を返すことを unit test で assert (e) `npm run pre-ready -- --pr <step4-pr>` PASS |
 | **ロールバック判断基準** | (a) 4-a で silent drop > 0 件 → 旧 handler 継続、新 handler 修正 (b) 4-b でエラー率 > 1% / 顧客 inquiry > 3 件 → `STRIPE_WEBHOOK_SHADOW_MODE=true` で 4-a 状態に即時戻し + Stripe Dashboard で旧 destination 再有効化 (c) 4-c で DB inconsistency 検出 → 旧 destination un-delete (Stripe 公式 archive 解除) + コード revert |
-| **kill switch** | `STRIPE_WEBHOOK_SHADOW_MODE` env var (4-a/4-b/4-c 各段階で個別切替可) |
+| **kill switch** | 無し (#4128 で撤去)。受信口を落とす kill switch は「課金 event を捨てる switch」でしかないため持たない。障害時は Stripe Dashboard 側で destination を無効化し、再送 (3 日) で復旧させる |
 | **Stripe Dashboard 同期** | **4-a 前**: Test mode で新 Webhook destination 作成 (disabled)。**4-b**: Production mode で新 destination 有効化 + 旧 destination disabled。**4-c**: 旧 destination delete |
 | **前提 PR** | Step 1 + Step 2 + Step 3 マージ済 + Stripe Dashboard Production mode 構築完了 (PO #2627) |
 
@@ -174,18 +183,16 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 
 本ブロックは `tests/unit/docs/stripe-webhook-subscribed-events-ssot.test.ts` が実装と突合する。handler の無い event を足すと Dashboard で購読しても永久に沈黙するため、`case` 追加と同一 PR でのみ変更する。
 
-#### Step 4-a 実装完了記録 (PR #2714 / Issue #2713)
+#### Step 4-a (shadow mode) の撤回記録 (#4128)
+
+shadow mode endpoint は PR #2714 (Issue #2713) で配備されたが、**cutover (4-b) は実行されないまま #4128 で撤去した**。
 
 | 項目 | 内容 |
 |---|---|
-| **実装 PR** | [#2714 feat: #2713 Phase 7 PR-4a Webhook shadow mode endpoint 実装](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2714) |
-| **対象 Issue** | #2713 |
-| **マージ commit** | (Ready 化 + QM Approve 後追記) |
-| **配備 file** | `src/routes/api/stripe/webhook-v2/+server.ts` (新規 84 行) + `src/lib/server/stripe/config.ts` (`getWebhookSecretForShadow` / `isWebhookShadowModeEnabled` 関数 +37 行) + `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` / `STRIPE_WEBHOOK_SECRET_TEST` 配備 +26 行) |
-| **テスト追加** | `tests/unit/routes/api-stripe-webhook-v2.test.ts` (8 ケース、shadow / cutover / security 3 グループ) + `tests/unit/server/stripe/webhook-shadow-mode-config.test.ts` (env 解釈 + fallback) |
-| **本 PR scope (Step 4-a only)** | shadow phase の log only handler + signature 検証 + `STRIPE_WEBHOOK_SHADOW_MODE` kill switch 配備のみ。dedup 本格実装 (`webhookEventRepo.findByEventId`) は Step 4-b cutover (別 PR) に持ち越し (ADR-0010 Pre-PMF、scope ≤ 500 行遵守) |
-| **本番影響** | default `STRIPE_WEBHOOK_SHADOW_MODE=false` で env 配備のみ。Stripe Dashboard で新 destination を有効化しない限り event は到達せず、production 動作は不変 |
-| **次工程** | PR-4a マージ後の別 Issue で 24-48h shadow 観測 → silent drop 0 件確認 → PR-4b (cutover) 着手 |
+| **撤回理由** | shadow mode は署名検証後に log を 1 行出して 200 を返すだけの経路。Stripe は 200 を受けると再送しないため、Dashboard の destination を先に切り替えると課金 event が **台帳にも残らず消える**。2026-07-26 の実障害 (初回の有料課金が丸ごと落ち無通知) と同 class の失敗モードを、env 1 個の誤設定で踏める状態だった |
+| **撤去したもの** | `/api/stripe/webhook-v2` route / `isWebhookShadowModeEnabled` / `getWebhookSecretForShadow` / Lambda env 2 件 (`compute-stack.ts` + `deploy.yml` + `.env.example`) |
+| **代替** | 受信口は `/api/stripe/webhook` の 1 本に確定。api_version 変更が必要になった場合は、新 destination を**同一 URL** に向けて作成し旧 destination を無効化する (route を増やさない)。並行期間の重複到達は insert-first dedup が吸収する |
+| **再発防止** | `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` — 受信口の本数 / 全受信口が `handleWebhookEvent` に dispatch すること / shadow mode の残存 (src + infra + workflow + .env.example) を CI で検査する |
 
 ### Step 5: 旧 env var 削除 + 旧 4 Price archive (推定 100 行)
 

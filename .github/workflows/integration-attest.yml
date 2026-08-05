@@ -60,7 +60,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       # ----------------------------------------------------------------------
       # 1. push された commit が「統合 merge」か判定する (非統合は no-op で skip、silent fail なし)

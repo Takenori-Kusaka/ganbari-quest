@@ -2,7 +2,7 @@
 
 > **5 ロール**: PO / BA / Marketing / Legal / Persona ｜ **Goal 1**: Issue 起票 → [Skill: issue-triage](../../.claude/skills/issue-triage/SKILL.md) ｜ **Goal 2**: LP レビュー → [Skill: lp-review](../../.claude/skills/lp-review/SKILL.md) ｜ **Goal 3**: 優先度・事業判断 → 本ファイル
 > **目的**: 事業観点から Issue 作成・優先度付けを行い、事業採算性・成長性に責任を持つ
-> **SSOT**: ADR-0003（Issue 品質）/ ADR-0008（設計ポリシー）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0003（Issue 品質）/ ADR-0008（設計ポリシー）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（develop 二層 + gate 二層。develop→main 統合 PR は外部品質監査チームが 1 日 1 回運用）
 
 ## 5 ロール（PO 判断軸の SSOT）
@@ -41,6 +41,8 @@
 | **WIP 上限 4** | 同時進行は **レーンごと 1 本 × 4 レーン**まで。上限に達している間は新規着手しない（起票そのものは可だが着手順に入れない） |
 | **推測を書かない** | Issue 本文に「おそらく」「〜のはず」で書いた前提を残さない。実測していない事象は「未確認」と明示する。#4116 は推測を前提に着手した結果 **diff ゼロの虚偽完了**になった |
 
+> **装置起因の「Issue にしない」は方向で区別する。** 装置を**増やす** / 個別の不具合を**直す**は従来どおり PR コメント止まり。一方で装置を**減らす・統合する・自動生成に置き換える**、および Dev が**繰り返し同じ取りこぼしをする**（= 道が舗装されていない現象）は **Issue にしてよい**。区別の SSOT は [チーム憲章 §4.5](README.md#45-装置開発基盤に関する決定) の表。
+
 装置起因を Issue にしない理由: 装置の不具合に個別 Issue を立てると「装置を守る装置」が増え、それがまた新しい不具合の発生源になる（ADR-0061 §決定 原則 2 の適用対象限定）。装置に対する処方は **削減**であり、選択肢は「消す」か「残す 8 本に入れる」の二択で「直す」を選ばない（#4121）。
 
 ## Goal 2 (LP レビュー) — PO 統合判断
@@ -57,6 +59,132 @@
 
 - `critical`: 顧客 / 運営が明確に損害（不正検知不能 / 監査ログ欠損 / 課金ずれ / データ喪失）。**本番で動かない / 段階実装で途中までの状態も `critical` 扱い**
 - `high`: 顧客価値劣化、運用回避可能 / `medium`: 内部改善 (DX) / `low`: nice-to-have
+
+### Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**（棚卸しは **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
+
+**ロールを跨いだ team を組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから spawn した「QM teammate」は `ganbariquestsupport-lab` にならず、ADR-0022 の作成者 ≠ 承認者が空洞化する。ロール間の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。
+
+### 決裁前の実測義務
+
+**PO は最終承認者である。PO の誤りはそのままプロダクトの誤りになる。** 下流に是正者がいない。
+
+**決裁の対象が「実装が入っているか」「AC が満たされているか」「CI が緑か」である場合、報告ではなく実物を見る。** 以下のいずれかを必ず 1 回叩いてから決裁する。
+
+| 決裁対象 | 叩くもの |
+|---|---|
+| CI が緑か | `gh pr checks <N>`。**`skipping` を pass と数えない**（下記 実例 1） |
+| AC が満たされているか | `gh issue view <N> --json body` で `- [ ]` の残数を数える |
+| 実装が入っているか | `gh pr diff <N>` / `git show <sha>` |
+| label が示す状態が正しいか | 上記のいずれか。**label は実測を代替しない** |
+
+**Why**: PO が同じ形の誤決裁を 1 日に 3 回した。3 件とも報告の論理は整っていた。**論理が整っていることと、事実がそうであることは別である。整った報告ほど実測を省きたくなる**ので、整っているときこそ叩く。
+
+#### 実例 1（`#4146`）— 「全緑」の**範囲**を確認せずに決裁した
+
+非 pass 行は実際に 0 件で、「CI 全緑」の報告自体は正しかった。誤りは、**その緑がどこまでを覆っているかを見なかった**ことにある。
+
+```
+$ gh pr checks 4146 | awk -F'\t' '{print $2}' | sort | uniq -c
+     13 skipping
+     38 pass
+
+$ gh pr checks 4146 | grep -E '^e2e' | awk -F'\t' '{print $1"\t"$2}'
+e2e-merge-reports       skipping
+e2e-demo-lambda         skipping
+e2e-matrix              skipping
+e2e-cognito-dev         skipping
+e2e-test                skipping
+```
+
+**e2e 重量レーンは develop 向け PR では走らない**（`ci.yml` の `if:` が `github.base_ref != 'develop'` を要求、[branch-strategy.md §4](branch-strategy.md)）。#4146 の base は `develop` だった。
+
+```
+$ gh pr view 4146 --json baseRefName --jq .baseRefName
+develop
+```
+
+その結果、**この PR 自身が追加・変更した e2e が 1 度も実行されないまま merge された**。
+
+```
+$ gh pr diff 4146 --name-only | grep -E 'upgrade-flow|billing-portal|billing-graduation'
+tests/e2e/billing-graduation-flow.spec.ts
+tests/e2e/billing-portal.spec.ts
+tests/e2e/upgrade-flow.spec.ts
+
+$ git show --stat --format='%ci %s' 11e7799d7
+2026-08-01 07:30:51 +0900 test: 第19回統合監査で発露した CI fail 4 件を test 側で是正 (製品コード変更なし)
+ tests/e2e/billing-graduation-flow.spec.ts |  7 ++++--
+ tests/e2e/billing-portal.spec.ts          | 19 ++++++++++----
+ tests/e2e/upgrade-flow.spec.ts            | 37 ++++++++++++++++++++++++++-----
+
+$ gh pr view 4146 --json mergedAt --jq .mergedAt
+2026-07-31T09:06:46Z
+```
+
+**赤は merge の約 22 時間後、統合 PR（base=`main`）で e2e が初めて走った時点で顕在化した。** 同じ 3 spec を release branch で是正している。
+
+**規律**: 「全緑」は**検査された範囲**とセットでしか意味を持たない。`skipping` は「走らなかった」であって「通った」ではない（`npm run pre-ready -- --help` の対応表と同じ論点）。**PR が自分で追加したテストが自分の CI で走っているか**を、`gh pr checks` の state 内訳と base branch で確認する。
+
+#### 実例 2（`#4129`）— AC 表を読んで close 承認したが、AC は 1 件も達成されていなかった
+
+```
+$ gh api --paginate repos/Takenori-Kusaka/ganbari-quest/issues/4129/timeline \
+    --jq '.[] | select(.event=="closed" or .event=="reopened") | "\(.event) \(.created_at) \(.actor.login)"'
+closed   2026-07-31T09:35:47Z Takenori-Kusaka
+reopened 2026-07-31T09:35:59Z github-actions[bot]     ← 12 秒後に gate が差し戻し
+closed   2026-08-01T02:02:42Z Takenori-Kusaka         ← 実施記録が貼られた後の正当な close
+```
+
+`issue-close-gate` が 12 秒で reopen したのは、**承認時点で AC 5 件が全て `- [ ]` だった**ため。うち 2 件は merge では閉じない運用行為である。
+
+```
+$ gh issue view 4129 --json body --jq '.body' | grep -E '^- \[.\] AC(1|3):'
+- [x] AC1: **本 release の deploy 前**に NUC の `data/backups` を外部媒体へ退避したことを記録する（この AC のみ deploy 手順として先行実施）
+- [x] AC3: NUC の `.env` に `CRON_SECRET` が配布済みであることを確認し、`.env.example` に `DATA_SOURCE` を含む必要 env を明記する
+```
+
+「退避したことを記録する」「実機の `.env` を確認する」はコードの merge では充足しない。現在この 2 件が `[x]` なのは 2 度目の close の前に実施記録が貼られたためで、**1 度目の承認時点では 5 件とも `[ ]` だった**（それを gate が 12 秒で検出した）。
+
+**規律**: AC 表を「読む」のではなく `- [ ]` の**残数を数える**。gate の reopen は形式の問題ではなく中身の未達を示す。
+
+#### 実例 3（`#4152`）— 「`Closes #4129` を追加した」という主張を、実物を見ずに承認した
+
+```
+$ gh pr view 4152 --json body --jq '.body' | grep -E '^Closes #'
+Closes #4130
+Closes #4139
+Closes #4150
+```
+
+`Closes #4129` は closing keyword の行として**存在しない**（本文中の言及は撤回の経緯説明であって closing keyword ではない）。仮に追加していれば実例 2 の運用行為 AC を auto-close する over-close だった。
+
+**規律**: closing keyword は `grep -E '^Closes #'` で**行として**確認する。本文に番号が出てくることと、closing keyword が効くことは別である。
+
+### PO 自身の決定を GitHub に残す
+
+**PO がセッション上で口頭指示した判断は、GitHub 上に存在しない限りレビュアが検証できない。** 実測義務（上記）は「PO が他者の報告を検証する」側の規律だが、その逆方向 — **PO の判断が他者から検証可能であること** — も同じ理由で必要になる。
+
+- **決定は、指示を出した時点で該当 Issue / PR にコメントとして残す**（後追いで書かない）
+- **PR body / Issue が参照する PO 判断には、必ず GitHub 上の出典 URL を付ける**。出典の無い「PO 承認済み」は主張であって根拠ではない
+- 複数 PR に跨る判断は、親 Issue のコメント 1 件を SSOT にして各 PR からその URL を指す
+
+**出典**: PO 自身の宣言 — https://github.com/Takenori-Kusaka/ganbari-quest/pull/4134#issuecomment-5136960337
+
+> PO の決定は、指示を出した時点で該当 Issue / PR にコメントとして残します。PR body が参照する PO 判断には、必ず GitHub 上の出典 URL を付けてください。出典が無い主張は、レビュアが検証できません。
+
+`#4134` では PR body の「PO 承認条件 3 件」に出典が無く、QM が検証できないと指摘して初めて `#4117` のコメントが SSOT として置かれた。
+
+### 運用行為の AC は、コードの merge では閉じない
+
+AC に「**実機で確認する**」「**外部媒体へ退避したことを記録する**」「**Dashboard の実設定を確認する**」等の**運用行為**が含まれる場合、**関連 PR が全部 merge されても充足しない**。
+
+- **close の条件は「実施した記録が Issue に貼られていること」。** 実装の merge ではない
+- 統合 PR の `Closes #N` 集約に、運用行為 AC を持つ Issue を**含めない**。auto-close すると追跡者が消える
+- 実例: `#4129` は EPIC `#4119` の着手順先頭にある唯一の open tracker で、`BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡していた。auto-close すれば退避を誰も追わないまま削除が走る
 
 ### Pre-PMF バイアスチェック（ADR-0010）
 
@@ -181,7 +309,9 @@ Anthropic 公式記事推奨「モデル進化対応: 3-6 ヶ月ごとに設定�
 CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
 ```
 
-PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、そして **ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）。**Issue と PR の両方**を見る。
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断 = 方針 / 優先度 / repo 設定・ruleset / 受容判断 / 語彙・ルールの改訂）、**`state:needs-owner`**（不可逆 4 操作 = 削除 / 本番 deploy / 課金書込 / スキーマ変更）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（#4180 AC11 / AC12）。**Issue と PR の両方**を見る。
+
+**`status:*` は PO 軸**（label-mailbox.md §3.2）。`status:on-hold` の付け外しは PO が行い、外してほしい申告は誰でも `state:needs-po` で渡せる。**hold が付いていないものの着手順は Dev が決めてよい**（PO の許可は要らない）。**QM に用があるときは `state:needs-qm`**（#4180。gate 方針を決める前に QM の見解を聞く等）。
 
 PO が仕事を渡すときは **`state:needs-dev`**（Dev へ着手）/ **`state:needs-audit`**（監査へ release cut 依頼）を付ける。
 

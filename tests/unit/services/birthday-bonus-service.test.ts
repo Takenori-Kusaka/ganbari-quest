@@ -21,7 +21,9 @@ vi.mock('$lib/server/db/point-repo', () => ({
 
 // --- date-utils モック — 誕生日計算を固定日付で制御 ---
 let _mockedToday = '2026-04-01';
-vi.mock('$lib/domain/date-utils', () => ({
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => _mockedToday,
 }));
 

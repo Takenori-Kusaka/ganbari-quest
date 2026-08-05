@@ -13,6 +13,8 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
  * - Anti-engagement (ADR-0012): 滞在時間延伸 UI ではなく、純粋に進捗の可視化
  */
 
+import { NOTIFIED_STREAK_MILESTONE_DAYS } from '$lib/domain/constants/habit-milestones';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 
@@ -31,14 +33,22 @@ export interface MilestoneDefinition {
 	kind: 'count' | 'streak';
 }
 
+// #4172 AC12': streak の閾値は本 file / certificate-service / family-streak-service の
+// 3 箇所に別々のリテラルとして存在していた。**数値だけ**を domain 定数へ集約する。
+// 表示層 (`labels.ts` の MilestoneId union) は 7/14/30 しか持たないため、
+// `NOTIFIED_STREAK_MILESTONE_DAYS` (= 30 以下) を使う。ここに別のリテラルを置かない。
 export const MILESTONES: readonly MilestoneDefinition[] = [
 	{ id: 'first_record', threshold: 1, kind: 'count' },
 	{ id: 'records_5', threshold: 5, kind: 'count' },
 	{ id: 'records_10', threshold: 10, kind: 'count' },
-	{ id: 'streak_7', threshold: 7, kind: 'streak' },
-	{ id: 'streak_14', threshold: 14, kind: 'streak' },
-	{ id: 'streak_30', threshold: 30, kind: 'streak' },
-] as const;
+	...NOTIFIED_STREAK_MILESTONE_DAYS.map(
+		(days): MilestoneDefinition => ({
+			id: `streak_${days}` as MilestoneId,
+			threshold: days,
+			kind: 'streak',
+		}),
+	),
+];
 
 export interface MilestoneAchievement {
 	id: MilestoneId;
@@ -139,7 +149,7 @@ function computeStreaks(recordedDates: string[]): { current: number; longest: nu
 	const uniqueDates = Array.from(new Set(recordedDates.map(toDateOnly))).sort();
 	if (uniqueDates.length === 0) return { current: 0, longest: 0 };
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return {
 		longest: computeLongestStreak(uniqueDates),
 		current: computeCurrentStreak(uniqueDates, today),
@@ -165,7 +175,7 @@ export async function getTenantValuePreview(tenantId: string): Promise<TenantVal
 		};
 	}
 
-	const todayDate = new Date().toISOString().slice(0, 10);
+	const todayDate = todayDateJST();
 
 	const childPreviews: ChildValuePreview[] = await Promise.all(
 		children.map(async (child) => {

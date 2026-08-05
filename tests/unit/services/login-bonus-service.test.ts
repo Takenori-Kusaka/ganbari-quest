@@ -32,13 +32,10 @@ vi.mock('$lib/server/db/client', () => ({
 
 // todayDateJST をモックして日付を制御（prevDateJST は実際の計算を使う）
 let mockToday = '2026-03-10';
-vi.mock('$lib/domain/date-utils', () => ({
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => mockToday,
-	prevDateJST: (dateStr: string) => {
-		const d = new Date(`${dateStr}T00:00:00Z`);
-		d.setUTCDate(d.getUTCDate() - 1);
-		return d.toISOString().slice(0, 10);
-	},
 }));
 
 import {

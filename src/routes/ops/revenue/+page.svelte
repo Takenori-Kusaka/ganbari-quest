@@ -210,7 +210,7 @@ const chartPoints = $derived(
 	</Card>
 
 	<div class="text-xs text-[var(--color-text-muted)] text-right">
-		{OPS_REVENUE_LABELS.fetchedAt(current.fetchedAt ? new Date(current.fetchedAt).toLocaleString('ja-JP') : '-')}
+		{OPS_REVENUE_LABELS.fetchedAt(current.fetchedAt ? new Date(current.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '-')}
 		{OPS_REVENUE_LABELS.cacheNote}
 	</div>
 </div>

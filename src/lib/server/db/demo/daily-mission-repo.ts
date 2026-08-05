@@ -1,3 +1,4 @@
+import { prevDateJST } from '$lib/domain/date-utils';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 // Demo IDailyMissionRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
@@ -87,9 +88,7 @@ export async function findPreviousDayMissionIds(
 	date: string,
 	_tenantId: string,
 ): Promise<ActivityId[]> {
-	const prev = new Date(date);
-	prev.setDate(prev.getDate() - 1);
-	const prevDate = prev.toISOString().slice(0, 10);
+	const prevDate = prevDateJST(date);
 	return DEMO_DAILY_MISSIONS.filter((m) => m.childId === childId && m.missionDate === prevDate).map(
 		(m) => m.activityId,
 	);

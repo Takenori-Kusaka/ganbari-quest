@@ -164,7 +164,7 @@
         </mxCell>
         <mxCell id="s7-edge" style="strokeColor=#333;strokeWidth=2;" edge="1" source="s6" target="s7" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="s8" value="8. notifyDeletionComplete (Discord)&#xa;失敗は無視" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+        <mxCell id="s8" value="8. Discord には通知しない&#xa;(churn チャネルは持たない #4192)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
           <mxGeometry x="320" y="690" width="240" height="50" as="geometry" />
         </mxCell>
         <mxCell id="s8-edge" style="strokeColor=#333;strokeWidth=2;dashed=1;" edge="1" source="s7" target="s8" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>

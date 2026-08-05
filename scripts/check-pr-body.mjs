@@ -36,6 +36,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkIntegrationEvidenceTable } from './check-ac-verification-map.mjs';
+import { extractClosedIssues } from './integration-pr-body.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 import { classifyLane } from './pr-lane.mjs';
 import { checkChangeType } from './pr-template-gate-checks.mjs';
@@ -376,6 +377,126 @@ export function checkEvidencePrReferences(body, prNumber) {
 			`  対応: 根拠欄の番号を ${self} に直し、\`npm run pre-ready -- --pr ${self}\` を実際に実行し直して結果を貼る。\n` +
 			`  番号を書かない形式 (\`--pr <num>\` 等のプレースホルダ) は従来どおり通ります。`,
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Closes 宣言の着地確認 (#4170 AC2)
+//
+// ## 何を検査するのか
+//
+// 手元の下書き body が宣言した `Closes #N` が、**GitHub 上の実 PR body に着地しているか**を
+// 検証する。下書きだけ編集して `gh pr edit --body-file` を流し忘れた状態 (= 書いたつもり) を
+// 機械で落とす。
+//
+// ## なぜ 4 件のうちこれだけを先に入れるのか (実装の優先根拠)
+//
+// 第19回統合監査 (#4152) で統合 PR 本文と GitHub 実態のずれが merge 直前に 4 回出た。
+// うち 3 件は「書いた瞬間は正しく、後で GitHub 側の実態が動いた」= 記述が古いだけ。
+// 本件 (#1) だけは **書いた瞬間から嘘**で、ローカル下書きだけ編集して push しておらず、
+// 実 PR body には最初から存在しなかった。そして監査チームの指摘が決定的だった:
+//
+//   > `Closes` 行は auto-close の実処理に直結し、merge されると main 上の恒久記録になります
+//
+// 違いは**記述の正確さではなく副作用の有無**である。他 3 件は読み手が誤読するだけだが、
+// `Closes` の欠落は **GitHub の実処理が起きない** (閉じるべき Issue が閉じない)。逆に意図せず
+// 存在すれば、閉じてはいけない Issue が閉じる。だから AC1 / AC3 / AC4 より先にこれを入れる。
+//
+// ## 案 C (表の骨格を機械生成) に将来寄せようとする人へ
+//
+//   案 C (表の骨格を機械生成) では「なぜ未解決か / 誰の手にあるか」は生成できない。
+//   #4156 がどの mailbox にも入っていないと気づけたのは、まさにその判断列だった
+//   (監査チーム、2026-08-01)。
+//
+// 機械が生成できるのは番号・state・label まで。「機械生成に寄せれば安全」は成り立たないので、
+// 本 gate を「生成に置き換えれば不要になるもの」と読まないこと。
+//
+// ## grep では代替できない理由 (実測)
+//
+// `grep -c "Closes #4129"` は **撤回経緯の言及にもヒットする**。PR #4152 の実 body で計測すると
+// 素朴な grep は 4 件返すが、実際に auto-close される宣言は 0 件だった (`Closes #4129` は撤回済で、
+// 散文・判定表・mermaid ノードの中にしか残っていない)。したがって判定は **行頭一致 + code fence
+// 除去 + conventional-commit prefix 除外**を行う既存 SSOT (`integration-pr-body.mjs` の
+// `extractClosedIssues`) に委ね、本 file で regex を再実装しない。統合 PR 本文の集約側と本 gate の
+// 検査側で「何が closing 宣言か」の判定が常に一致する (二重実装なし)。
+// ---------------------------------------------------------------------------
+
+/**
+ * body から **実際に auto-close を発火させる** closing 宣言の Issue 番号を取り出す (#4170)。
+ *
+ * 判定は `integration-pr-body.mjs` の `extractClosedIssues` に委譲する (行頭一致 SSOT)。
+ * 同関数は PR 配列を受けて `classifyForContainedList` で back-merge / 統合 PR 自身を除外するため、
+ * ここでは head / label を持たない合成 PR を 1 件渡して body だけを走査させる。
+ *
+ * @param {string} body
+ * @returns {number[]} 昇順・重複排除した Issue 番号
+ */
+export function extractLandedClosingIssues(body) {
+	return extractClosedIssues([{ number: 0, body: typeof body === 'string' ? body : '' }]);
+}
+
+/**
+ * closing keyword を **位置を問わず**拾う素朴な抽出 (#4170)。
+ *
+ * これは判定には使わない。「grep 相当だと何を誤って拾うか」を出力に出して、
+ * 撤回済み言及を close 宣言と読み違える運用ミス自体を可視化するためだけに使う。
+ *
+ * @param {string} body
+ * @returns {number[]} 昇順・重複排除した Issue 番号
+ */
+export function extractClosingKeywordMentions(body) {
+	const src = typeof body === 'string' ? body : '';
+	const found = new Set();
+	for (const m of src.matchAll(
+		/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*[#＃](\d+)/gi,
+	)) {
+		found.add(Number(m[1]));
+	}
+	return [...found].sort((a, b) => a - b);
+}
+
+/**
+ * 下書き body の closing 宣言が GitHub 上の実 PR body に着地しているかを検証する (#4170 AC2)。
+ *
+ * 双方向で見る:
+ *   - **missing** (下書きにあり実 body に無い) = 本 Issue の事故形。`gh pr edit` 流し忘れ。
+ *     閉じるはずの Issue が閉じない
+ *   - **extra** (実 body にあり下書きに無い) = 撤回したつもりの宣言が残っている形。
+ *     閉じてはいけない Issue が閉じる。missing より静かに壊れるので同格で落とす
+ *
+ * @param {string} claimedBody 手元の下書き (`gh pr edit --body-file` に渡すつもりのファイル)
+ * @param {string} liveBody GitHub 上の実 PR body (`gh pr view --json body`)
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkClosesLanded(claimedBody, liveBody) {
+	const claimed = extractLandedClosingIssues(claimedBody);
+	const landed = extractLandedClosingIssues(liveBody);
+	const missing = claimed.filter((n) => !landed.includes(n));
+	const extra = landed.filter((n) => !claimed.includes(n));
+	if (missing.length === 0 && extra.length === 0) return null;
+
+	const lines = [
+		`下書きの closing 宣言と GitHub 上の実 PR body が一致しません (#4170 AC2)。`,
+		`  下書きの Closes: ${claimed.length === 0 ? '(なし)' : claimed.map((n) => `#${n}`).join(' / ')}`,
+		`  実 body の Closes: ${landed.length === 0 ? '(なし)' : landed.map((n) => `#${n}`).join(' / ')}`,
+	];
+	if (missing.length > 0) {
+		lines.push(
+			`  ✗ 下書きにあるが実 body に無い: ${missing.map((n) => `Closes #${n}`).join(' / ')}`,
+			`    = 下書きだけ編集して \`gh pr edit --body-file\` を流していない状態。このまま merge しても`,
+			`      GitHub の auto-close は発火せず、Issue は開いたまま残ります。`,
+		);
+	}
+	if (extra.length > 0) {
+		lines.push(
+			`  ✗ 実 body にあるが下書きに無い: ${extra.map((n) => `Closes #${n}`).join(' / ')}`,
+			`    = 撤回したつもりの宣言が実 body に残っている状態。merge すると**閉じてはいけない Issue**が`,
+			`      auto-close されます (main 上の恒久記録になり、後から静かに戻せません)。`,
+		);
+	}
+	lines.push(
+		`  対応: 下書きと実 body のどちらが正なのかを決め、\`gh pr edit <PR> --body-file <下書き>\` で揃えてから再実行する。`,
+	);
+	return { id: 'closes-not-landed', message: lines.join('\n') };
 }
 
 // ---------------------------------------------------------------------------
@@ -1179,6 +1300,140 @@ export function resolveLabels(args, fetched) {
  *
  * @type {ReadonlyArray<{ id: string; name: string; issue: string }>}
  */
+/**
+ * hard-fail する検査の一覧 (#4121 決裁 4、ADR-0007 §1-2 判断原則 v2)。
+ *
+ * ## なぜ既定を advisory 側に置くか
+ *
+ * 本 script は 26 の検査を持つが、その大半は **書式・網羅性 (類型 3)** であり、
+ * 判断原則 v2 は「warn 降格 or 撤去」と定めている。にもかかわらず全部が hard-fail だったのは、
+ * **1 本の script に 類型 1 と 類型 3 が同居し、script 単位で「pr-body は類型 1」と
+ * 扱われていた**ため (#4121 Platform 計測)。統合 PR #3995 が 60 check 中 57 SUCCESS で
+ * ありながら書式 gate 2 本により 4 日間 BLOCK された実害はこの構造から出ている。
+ *
+ * そこで **hard-fail する側を明示列挙し、列挙されていない検査は advisory** とする。
+ * 既定を advisory に倒すのは、新しい検査を足すときに **hard-fail 化を明示的な意思決定**に
+ * するため (装置の総数 ratchet と同型の力学、チーム憲章 §3.4 制約 1)。
+ *
+ * ## 各件が hard-fail である理由 (類型 1 = 証跡の真正性 / 不可逆な損失)
+ *
+ * advisory に落ちた検査は **消えていない**。違反は必ず出力され、AI レビュアと QM が読む。
+ * 出力は `formatAdvisoryReport` が安定した 1 行 (`ADVISORY-IDS ...`) を含むため、
+ * CI ログから機械的に拾える (#4121 AC7 の「warn の出口」)。
+ *
+ * ## advisory に落とした検査の多くは、別 job が単独で hard-fail を続ける
+ *
+ * 本 script は「PR body を見る検査」を 1 本に寄せ集めており、**同じ観点を専用 job も持っている**。
+ * その重複分は本 script 側を advisory にしても gate は消えない (二重 gate が 1 本になるだけ):
+ *
+ * | 本 script の id | 引き続き hard-fail する job (script) |
+ * |---|---|
+ * | `missing-required-sections` | `pr-template-gate.yml`「必須セクションの存在確認」(`checkSectionPresence`) |
+ * | `change-type-unselected` | 同「変更タイプの選択」(`checkChangeType`) |
+ * | `ac-map-missing` / `-empty` / `-incomplete` | `pr-ac-verification-check.yml`「Verify AC map in PR body」(`checkPerPrAcMap`) |
+ * | `unchecked-ready-checklist` | `pr-merge-gate.yml`「PR チェックリスト完了確認」(`checkMergeGateChecklist`) |
+ *
+ * 残り (mojibake / placeholder 各種 / forbidden-terms / hotfix env 節 / mergeable-conflicting) は
+ * 本 script が唯一の検出点なので、**真に advisory になる**。うち `mergeable-conflicting` は
+ * GitHub 本体が conflict した PR の merge を拒否するため、gate としては元々冗長だった。
+ */
+export const BLOCKING_GATES = [
+	{
+		id: 'evidence-pr-mismatch',
+		name: 'AC 根拠の PR 番号が自 PR と一致',
+		issue: '#4074',
+		why: '証跡の宛先違い。別 PR / 存在しない番号を指した根拠はその PR を検証した証拠にならない (ADR-0004 が hard-fail 維持と明記)',
+	},
+	{
+		id: 'closes-not-landed',
+		name: '下書きの close 宣言が実 body に着地済み',
+		issue: '#4170',
+		why: '不可逆。閉じてはいけない Issue が main 反映で auto-close されると、後から静かには戻せない',
+	},
+	{
+		id: 'self-review-evidence-missing',
+		name: 'Self-Review の [x] に検証コマンド証跡がある',
+		issue: '#3899',
+		why: '証跡なき PASS は false PASS と同等 (docs/operations/self-review-agent.md §2.4)。自己申告だけで [x] が立つ経路を残さない',
+	},
+	{
+		id: 'po-decision-brief-missing-section',
+		name: 'PO 決裁ブリーフ (見出し)',
+		issue: '#3962',
+		why: '不可逆な変更 (DB schema / Stripe / auth / infra) を PO 決裁を経ずに通す = 自己承認。#3944 / #3956 で 2 回連続再発し ADR-0061 same-class-N→guard で gate 化したばかり',
+	},
+	{
+		id: 'po-decision-brief-missing-diagram',
+		name: 'PO 決裁ブリーフ (mermaid)',
+		issue: '#3962',
+		why: '同上。図が無いブリーフは PO が 5 秒で判断できず、決裁が形骸化する',
+	},
+	{
+		id: 'po-decision-brief-unfilled-placeholder',
+		name: 'PO 決裁ブリーフ (未置換プレースホルダ)',
+		issue: '#3962',
+		why: '同上。`___` が残ったブリーフは「出したが中身が無い」= 証跡の偽装に等しい',
+	},
+	{
+		id: 'integration-evidence-missing',
+		name: '統合 PR のマージ判定エビデンス表',
+		issue: '#2945',
+		why: 'main 反映は不可逆。統合 gate は監査の職掌 (audit-team.md §3.5) であり、本 script の書式整理とは別系統のため現状維持',
+	},
+];
+
+/** @type {ReadonlySet<string>} */
+export const BLOCKING_VIOLATION_IDS = new Set(BLOCKING_GATES.map((g) => g.id));
+
+/**
+ * violations を hard-fail (blocking) と advisory に分ける (#4121 決裁 4)。
+ *
+ * @template {{ id: string }} T
+ * @param {T[]} violations
+ * @returns {{ blocking: T[]; advisory: T[] }}
+ */
+export function partitionBySeverity(violations) {
+	/** @type {T[]} */
+	const blocking = [];
+	/** @type {T[]} */
+	const advisory = [];
+	for (const v of violations) {
+		if (BLOCKING_VIOLATION_IDS.has(v.id)) blocking.push(v);
+		else advisory.push(v);
+	}
+	return { blocking, advisory };
+}
+
+/**
+ * advisory 違反の出力行を組み立てる (#4121 AC7「warn の出口」)。
+ *
+ * **`ADVISORY-IDS` 行を必ず 1 行で出す**。降格した検査が誰にも読まれないまま放置されるのを
+ * 防ぐには「何が何回 warn を出したか」を後から数えられる必要があるが、そのために新しい記録装置を
+ * 作るのは装置 ratchet に反する (チーム憲章 §3.4 制約 1)。既存の CI ログに安定した書式で
+ * 出しておけば、月次棚卸しで `grep ADVISORY-IDS` して数えられる。
+ *
+ * @param {{ id: string; message: string; issue?: string }[]} advisory
+ * @returns {string[]}
+ */
+export function formatAdvisoryReport(advisory) {
+	if (advisory.length === 0) return [];
+	const lines = [
+		`[check-pr-body] ADVISORY — ${advisory.length} 件 (merge は止めません。AI レビュアと QM が読む対象です、#4121)`,
+		`[check-pr-body] ADVISORY-IDS ${advisory.map((v) => v.id).join(',')}`,
+		'',
+	];
+	for (const v of advisory) {
+		lines.push(`⚠ [${v.id}] (${v.issue ?? '-'})`);
+		lines.push(`  ${v.message.split('\n').join('\n  ')}`);
+		lines.push('');
+	}
+	lines.push(
+		'  ※ advisory は「検査していない」ではなく「検出したが merge を止めない」です。',
+		'     2 run 連続で誰も対応しなかった advisory は削除候補として棚卸しに上げてください (#4121 AC7)。',
+	);
+	return lines;
+}
+
 export const READY_ONLY_GATES = [
 	{
 		id: 'unchecked-ready-checklist',
@@ -1482,15 +1737,16 @@ function tryParseStringArg(argv, i, aliases) {
 
 /**
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; verifyClosesLanded: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }}
  */
 export function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; lane: string | null; verifyClosesLanded: string | null; noLabels: boolean; skipMergeable: boolean; draft: boolean; skipReadyOnly: boolean; help: boolean }} */
 	const args = {
 		pr: null,
 		bodyFile: null,
 		labels: null,
 		lane: null,
+		verifyClosesLanded: null,
 		noLabels: false,
 		skipMergeable: false,
 		draft: false,
@@ -1521,6 +1777,13 @@ export function parseArgs(argv) {
 		if (lane) {
 			args.lane = lane.value;
 			i = lane.nextIndex;
+			continue;
+		}
+		// #4170 AC2: 下書き body の Closes 宣言が実 PR body に着地しているかだけを検査する専用モード
+		const closesLanded = tryParseStringArg(argv, i, ['--verify-closes-landed']);
+		if (closesLanded) {
+			args.verifyClosesLanded = closesLanded.value;
+			i = closesLanded.nextIndex;
 			continue;
 		}
 		const a = argv[i];
@@ -1567,6 +1830,12 @@ Options:
                       --pr 指定時は gh の base/head/author から自動判定され本フラグは無視される
                       (gh が取得できない場合のみ逃げ道として採用される)
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
+  --verify-closes-landed <path>
+                      【専用モード】手元の下書き <path> の \`Closes #N\` が GitHub 上の実 PR body に
+                      着地しているかだけを検査する (#4170 AC2、--pr 必須)。他の検査は走らない。
+                      下書きだけ編集して \`gh pr edit --body-file\` を流し忘れた状態 (= 書いたつもり)
+                      と、撤回したはずの宣言が実 body に残っている状態の両方を落とす。
+                      required CI には載せない — approve 直前に 1 回叩く手動 gate。
   --help, -h          このヘルプを表示
 
 Detected violations:
@@ -1588,6 +1857,21 @@ lane による観点の切替 (#4130):
   .github/INTEGRATION_PR_TEMPLATE.md を参照し、AC 検証マップの代わりに
   「マージ判定エビデンス表 + 残 NG 0 件」を検証する (検査を外すのではなく観点を切替える)。
   禁止語 / mojibake / 未置換プレースホルダ / label 条件付き gate は全 lane 共通で効く。
+
+blocking / advisory の切り分け (#4121 決裁 4、ADR-0007 §1-2 判断原則 v2):
+  **merge を止めるのは 類型 1 (証跡の真正性 / 不可逆な損失) の ${BLOCKING_GATES.length} 件だけ**:
+${BLOCKING_GATES.map((g) => `    - ${g.id} (${g.issue}) — ${g.why}`).join('\n')}
+
+  これ以外の検査 (書式・網羅性 = 類型 3) は **advisory**。検出して必ず出力するが exit code に
+  影響させない。「検査していない」のではなく「検出したが merge を止めない」であり、内容の妥当性は
+  AI レビュアと QM が読んで判断する。
+
+  advisory は \`ADVISORY-IDS <id,id,...>\` の 1 行を必ず出す。**2 run 連続で誰も対応しなかった
+  advisory は削除候補**として棚卸しに上げる (#4121 AC7)。記録用の新しい装置は作らない —
+  CI ログを \`grep ADVISORY-IDS\` して数える。
+
+  新しい検査を足すときの既定は advisory。hard-fail にしたいなら BLOCKING_GATES に
+  「何を守るか (類型 1 のどれか)」を書いて明示的に足す。
 
 Draft PR の扱い (#3997):
   Draft PR では Ready 化要件 ${READY_ONLY_GATES.length} 件 (${READY_ONLY_GATES.map((g) => g.id).join(' / ')})
@@ -1761,12 +2045,81 @@ export function collectViolations(body, requiredSections, template, args, notes 
 	return violations;
 }
 
+/**
+ * `--verify-closes-landed <下書きパス>` 専用モード (#4170 AC2)。
+ *
+ * 通常の body 検査 (必須セクション / 禁止語 / …) とは問いが違う (「body の中身が正しいか」ではなく
+ * 「手元の下書きが GitHub に着地しているか」) ため、`collectViolations` に混ぜず独立させる。
+ * required CI には載せない — approve 直前に 1 回だけ叩く手動 gate であり、本文修正のたびに
+ * 重量レーンを回すのは監査 run の CI 待ちを悪化させる (#4171、監査チーム判断 2026-08-01)。
+ *
+ * @param {{ pr: string | null; verifyClosesLanded: string | null }} args
+ * @param {(pr: string) => string} fetchBody 実 PR body 取得 (test で差し替え可能)
+ * @returns {number} exit code
+ */
+export function runClosesLandedMode(args, fetchBody = fetchPrBody) {
+	const draftPath = args.verifyClosesLanded ?? '';
+	if (!args.pr) {
+		console.error(
+			'[check-pr-body] ERROR: --verify-closes-landed は --pr <number> と併用してください ' +
+				'(GitHub 上の実 PR body と比較するため)。',
+		);
+		return 2;
+	}
+	if (!existsSync(draftPath)) {
+		console.error(`[check-pr-body] ERROR: 下書きファイルが存在しません: ${draftPath}`);
+		return 2;
+	}
+	const claimedBody = readFileSync(draftPath, 'utf-8');
+	/** @type {string} */
+	let liveBody;
+	try {
+		liveBody = fetchBody(args.pr);
+	} catch (e) {
+		// 取得できないまま pass 側に倒すと「検査したつもり」になる。fail-closed で中断する。
+		const msg = e instanceof Error ? e.message : String(e);
+		console.error(`[check-pr-body] ERROR: PR #${args.pr} の body を取得できませんでした: ${msg}`);
+		return 2;
+	}
+
+	const landed = extractLandedClosingIssues(liveBody);
+	const mentions = extractClosingKeywordMentions(liveBody);
+	const naiveOnly = mentions.filter((n) => !landed.includes(n));
+	console.log(
+		`[check-pr-body] closes-landed: PR #${args.pr} の実 body / 下書き ${draftPath} を比較します`,
+	);
+	// grep 相当との差分を必ず出す。撤回済み言及を close 宣言と読み違える運用ミスを可視化するため
+	// (#4170: 実測で `grep -c "Closes #4129"` は 4 件返すが実 close 宣言は 0 件だった)。
+	console.log(
+		`  実 body の close 宣言 (行頭一致 SSOT): ${landed.length === 0 ? '(なし)' : landed.map((n) => `#${n}`).join(' / ')}`,
+	);
+	console.log(
+		naiveOnly.length === 0
+			? '  grep 相当 (位置を問わない keyword 一致) との差分: なし'
+			: `  grep 相当なら誤って拾う番号: ${naiveOnly.map((n) => `#${n}`).join(' / ')} ` +
+					'(撤回経緯の言及等。auto-close は発火しないので close 宣言ではありません)',
+	);
+
+	const violation = checkClosesLanded(claimedBody, liveBody);
+	if (!violation) {
+		console.log('[check-pr-body] OK — 下書きの closing 宣言は全て GitHub 上の実 body に着地済み');
+		return 0;
+	}
+	console.log(`[check-pr-body] FAIL — 1 件の違反:\n`);
+	console.log(`✗ [${violation.id}] (#4170 AC2)`);
+	console.log(`  ${violation.message.split('\n').join('\n  ')}\n`);
+	return 1;
+}
+
 export async function main(argv = process.argv.slice(2)) {
 	const args = parseArgs(argv);
 	if (args.help) {
 		printHelp();
 		return 0;
 	}
+
+	// #4170 AC2: 下書き vs 実 body の照合は独立した問い。通常の body 検査とは別モードで走る。
+	if (args.verifyClosesLanded !== null) return runClosesLandedMode(args);
 
 	const { body, exitCode } = loadPrBody(args);
 	if (body === null) return exitCode;
@@ -1840,22 +2193,29 @@ export async function main(argv = process.argv.slice(2)) {
 		for (const line of formatDraftDeferredGates(deferred, args.pr, reason)) console.log(line);
 	}
 
-	if (violations.length === 0) {
+	// #4121 決裁 4: 類型 1 (証跡の真正性 / 不可逆) のみ merge を止める。
+	// 類型 3 (書式・網羅性) は検出して出力するが exit code に影響させない。
+	const { blocking, advisory } = partitionBySeverity(violations);
+	for (const line of formatAdvisoryReport(advisory)) console.log(line);
+
+	if (blocking.length === 0) {
 		const draftNote = draftState.isDraft
 			? ` (Draft のため Ready 化要件 ${READY_ONLY_GATES.length} 件は deferred)`
 			: args.skipReadyOnly
 				? ` (--skip-ready-only のため Ready 化要件 ${READY_ONLY_GATES.length} 件は未検査)`
 				: '';
+		const advisoryNote =
+			advisory.length > 0 ? ` (advisory ${advisory.length} 件あり — 上記 ⚠ を確認)` : '';
 		console.log(
 			skippedCount > 0
-				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote} — 違反なし`
-				: `[check-pr-body] OK${draftNote} — 違反なし`,
+				? `[check-pr-body] OK (label 条件付き gate ${skippedCount} 件は未検査)${draftNote}${advisoryNote} — blocking 違反なし`
+				: `[check-pr-body] OK${draftNote}${advisoryNote} — blocking 違反なし`,
 		);
 		return 0;
 	}
 
-	console.log(`[check-pr-body] FAIL — ${violations.length} 件の違反:\n`);
-	for (const v of violations) {
+	console.log(`[check-pr-body] FAIL — blocking ${blocking.length} 件の違反:\n`);
+	for (const v of blocking) {
 		console.log(`✗ [${v.id}] (${v.issue})`);
 		console.log(`  ${v.message.split('\n').join('\n  ')}\n`);
 	}

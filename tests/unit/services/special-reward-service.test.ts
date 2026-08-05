@@ -34,15 +34,12 @@ import {
 	requestRedemption,
 } from '../../../src/lib/server/services/reward-redemption-service';
 import {
-	checkAndGrantFixedIntervalReward,
 	deleteReward,
 	getChildSpecialRewards,
 	getRewardTemplates,
-	getSpecialRewardProgress,
 	getUnshownReward,
 	grantSpecialReward,
 	markRewardShown,
-	SPECIAL_REWARD_INTERVAL,
 	saveRewardTemplates,
 	updateReward,
 } from '../../../src/lib/server/services/special-reward-service';
@@ -111,7 +108,9 @@ describe('grantSpecialReward', () => {
 		expect(result.icon).toBe('📜');
 	});
 
-	it('ポイント台帳に special_reward エントリが追加される', async () => {
+	// #4172: 棚への陳列は通貨を発行しない。旧仕様 (INSERT と同時に同額を point_ledger へ加算) を
+	// 検証していた 2 件を、新仕様「加算されないこと」の検証へ反転する (削除ではなく反転で覆域を維持)。
+	it('ポイント台帳に special_reward エントリを追加しない (#4172)', async () => {
 		await grantSpecialReward(
 			{
 				childId: asChildId(1),
@@ -123,10 +122,7 @@ describe('grantSpecialReward', () => {
 		);
 
 		const ledger = testDb.select().from(schema.pointLedger).all();
-		expect(ledger).toHaveLength(1);
-		expect(ledger[0]?.amount).toBe(50);
-		expect(ledger[0]?.type).toBe('special_reward');
-		expect(ledger[0]?.description).toBe('テスト満点');
+		expect(ledger, 'ごほうびを棚に置いただけで通貨が発行されています').toHaveLength(0);
 	});
 
 	it('存在しない子供にはエラーを返す', async () => {
@@ -146,7 +142,7 @@ describe('grantSpecialReward', () => {
 		expect(result.target).toBe('child');
 	});
 
-	it('複数回付与できる', async () => {
+	it('複数回陳列でき、いずれも通貨を発行しない (#4172)', async () => {
 		await grantSpecialReward(
 			{ childId: asChildId(1), title: '1回目', points: 50, category: 'academic' },
 			'test-tenant',
@@ -156,11 +152,11 @@ describe('grantSpecialReward', () => {
 			'test-tenant',
 		);
 
-		const ledger = testDb.select().from(schema.pointLedger).all();
-		expect(ledger).toHaveLength(2);
+		const rewards = await getChildSpecialRewards(asChildId(1), 'test-tenant');
+		expect(rewards.rewards).toHaveLength(2);
 
-		const total = ledger.reduce((sum, e) => sum + e.amount, 0);
-		expect(total).toBe(150);
+		const ledger = testDb.select().from(schema.pointLedger).all();
+		expect(ledger, '陳列を重ねるほど残高が増えています').toHaveLength(0);
 	});
 });
 
@@ -346,155 +342,6 @@ describe('getRewardTemplates / saveRewardTemplates', () => {
 		expect(templates[0]?.title).toBe('新テンプレ1');
 	});
 });
-
-// --- Helper: seed activity logs ---
-function seedWithActivity() {
-	seedBase();
-	// Add an activity for the child to record
-	// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
-	testDb
-		.insert(schema.childActivities)
-		.values({
-			childId: 1,
-			name: 'テスト活動',
-			categoryId: 1,
-			basePoints: 10,
-			icon: '🏃',
-		})
-		.run();
-}
-
-function insertActivityLogs(count: number) {
-	for (let i = 0; i < count; i++) {
-		testDb
-			.insert(schema.activityLogs)
-			.values({
-				childId: 1,
-				activityId: 1,
-				points: 10,
-				streakDays: 1,
-				streakBonus: 0,
-				recordedDate: `2026-01-${String(i + 1).padStart(2, '0')}`,
-				recordedAt: new Date().toISOString(),
-				cancelled: 0,
-			})
-			.run();
-	}
-}
-
-describe('checkAndGrantFixedIntervalReward', () => {
-	beforeEach(() => {
-		seedWithActivity();
-	});
-
-	it('記録数がINTERVALの倍数でない場合はnullを返す', async () => {
-		insertActivityLogs(3); // 3 records, interval is 5
-
-		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-		expect(result).toBeNull();
-	});
-
-	it('記録数がINTERVALの倍数の場合に報酬を自動付与する', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL); // exactly 5 records
-
-		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-		expect(result).not.toBeNull();
-		expect(result?.title).toBe(`${SPECIAL_REWARD_INTERVAL}かいきろく達成！`);
-		expect(result?.points).toBe(50);
-		expect(result?.category).toBe('auto_milestone');
-	});
-
-	it('10回目の記録でも報酬が付与される', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL * 2); // 10 records
-
-		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-		expect(result).not.toBeNull();
-		expect(result?.title).toBe(`${SPECIAL_REWARD_INTERVAL * 2}かいきろく達成！`);
-	});
-
-	it('記録数が0の場合はnullを返す', async () => {
-		// No activity logs inserted
-		const result = await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-		expect(result).toBeNull();
-	});
-
-	it('存在しない子供にはnullを返す', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
-		// child 999 does not exist, but activity logs are for child 1
-		const result = await checkAndGrantFixedIntervalReward(asChildId(999), 'test-tenant');
-		expect(result).toBeNull();
-	});
-
-	it('付与された報酬がポイント台帳に記録される', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
-
-		await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-
-		const ledger = testDb.select().from(schema.pointLedger).all();
-		const autoRewardEntry = ledger.find((e) => e.type === 'special_reward');
-		expect(autoRewardEntry).toBeDefined();
-		expect(autoRewardEntry?.amount).toBe(50);
-	});
-
-	it('付与された報酬は未表示として検出される', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
-
-		await checkAndGrantFixedIntervalReward(asChildId(1), 'test-tenant');
-
-		const unshown = await getUnshownReward(asChildId(1), 'test-tenant');
-		expect(unshown).not.toBeNull();
-		expect(unshown?.category).toBe('auto_milestone');
-	});
-});
-
-describe('getSpecialRewardProgress', () => {
-	beforeEach(() => {
-		seedWithActivity();
-	});
-
-	it('記録なしの場合はremaining=INTERVALを返す', async () => {
-		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
-		expect(progress.totalRecords).toBe(0);
-		expect(progress.interval).toBe(SPECIAL_REWARD_INTERVAL);
-		expect(progress.remaining).toBe(0); // 0 % 5 = 0 → remaining = 0
-	});
-
-	it('1回記録後はremaining=4を返す', async () => {
-		insertActivityLogs(1);
-
-		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
-		expect(progress.totalRecords).toBe(1);
-		expect(progress.remaining).toBe(SPECIAL_REWARD_INTERVAL - 1);
-	});
-
-	it('4回記録後はremaining=1を返す', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL - 1);
-
-		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
-		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL - 1);
-		expect(progress.remaining).toBe(1);
-	});
-
-	it('INTERVALちょうどの場合はremaining=0を返す', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL);
-
-		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
-		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL);
-		expect(progress.remaining).toBe(0);
-	});
-
-	it('INTERVAL+1の場合はremaining=INTERVAL-1を返す', async () => {
-		insertActivityLogs(SPECIAL_REWARD_INTERVAL + 1);
-
-		const progress = await getSpecialRewardProgress(asChildId(1), 'test-tenant');
-		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL + 1);
-		expect(progress.remaining).toBe(SPECIAL_REWARD_INTERVAL - 1);
-	});
-});
-
-// ============================================================
-// #2832: updateReward / deleteReward (pending redemption ガード + 申請時点 snapshot)
-// ============================================================
 
 describe('#2832 deleteReward / updateReward (pending redemption ガード)', () => {
 	/** 子供 + ポイント残高 + reward を seed し、id を返す */

@@ -81,7 +81,7 @@ function closeRejectForm() {
 								</p>
 								<p class="request-date">
 									{ADMIN_REWARDS_REQUESTS_LABELS.requestedAtLabel}:
-									{new Date(req.requestedAt * 1000).toLocaleDateString('ja-JP')}
+									{new Date(req.requestedAt * 1000).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}
 								</p>
 							</div>
 							<div class="request-actions">

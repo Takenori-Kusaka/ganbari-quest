@@ -1,12 +1,13 @@
 # 沈黙する障害の alert 一次対応 runbook
 
-「エラーが飛ばないまま壊れている」種類の障害 2 件について、**何を見て何を判断するか**を定める。
+「エラーが飛ばないまま壊れている」種類の障害について、**何を見て何を判断するか**を定める。
 どちらも例外にならないため、Lambda Errors / 5xx といった既存 alarm では表面化しない。
 
 | alert | 何が起きている | 通知経路 |
 |---|---|---|
 | `ganbari-quest-auth-entitlement-db-unavailable` (CloudWatch Alarm) | 課金状態を DB から解決できず、認証済みユーザーが 503 を受けている (#3998) | SNS `ganbari-quest-ops-alerts` (既存 alarm と同一) |
 | `stripe-webhook-undelivered` (Discord alert) | Stripe webhook がアプリに届かず、支払い済みのプランが反映されていない (#3959) | Discord (`sendDiscordAlert` 経由) |
+| `stripe-webhook-ledger-gap` (Discord alert) | Stripe は配信成功として扱っているのに、その event が台帳 (`stripe_webhook_events`) に無い = **受け取って捨てている** (#4128) | Discord (`sendDiscordAlert` 経由) |
 | `stripe-webhook-monitor-failed` (Discord alert) | 上の未達検知 cron 自体が失敗しており、未達を検知できていない (#3959) | Discord (`sendDiscordAlert` 経由) |
 
 triage に必要な id (`oldestEventId` / `sampleCheckoutEventId` 等) は Discord embed の
@@ -138,6 +139,20 @@ tenant にプランが反映されていない。2026-07-26 の incident (CloudF
 
 `stripe-webhook-undelivered` は「滞留」と「顧客影響」の両方が揃ったときだけ鳴るため、
 **単独で鳴っているなら経路側を先に疑う**。
+
+#### `stripe-webhook-ledger-gap` (#4128) — 受け取って捨てている
+
+`pending_webhooks = 0` (Stripe から見て配信成功) なのに台帳に無い event を、同じ cron が独立 signal (S3) として鳴らす。
+**S1 は pending>0 を条件にするため、この状態は原理的に S1 では見えない。**
+
+| 典型的な原因 | 確認方法 |
+|---|---|
+| Stripe Dashboard の destination が受信口以外の URL を向いている | Developers > Webhooks の endpoint URL が `https://ganbari-quest.com/api/stripe/webhook` か |
+| 受信口が dispatch せず 200 を返している | `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が CI で緑か (緑なら実装側は健全) |
+| 台帳への書き込みだけが落ちている | CloudWatch で該当 event id の `[STRIPE]` log を検索し、handler が走った形跡を見る |
+
+一次対応と復旧 (event の Resend) は `docs/operations/stripe-post-mortem-runbook.md` §3.2 が SSOT。
+**台帳に無い event は dedup されない**ため、Resend すれば正規経路で処理される。
 
 #### どちらの alert も鳴らない穴 (#4108、既知)
 

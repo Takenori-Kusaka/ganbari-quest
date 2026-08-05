@@ -2505,6 +2505,34 @@ export const SETTINGS_LABELS = {
 	feedbackContactSuffix: 'でも受け付けています',
 
 	// アプリ情報
+	// #4087 (E3 / EPIC #4119): バックアップ状態を**家族 (非エンジニア) が見られる場所**に出す。
+	// 2026-07-31 の実害では、バックアップが 18 日止まっていたのに気づく手段が
+	// `curl /api/health | jq` しかなかった。ADR-0012 整合で常時表示の煽りにはせず、
+	// 設定画面内の静的表示に留める (子供画面には一切出さない)。
+	backupSectionTitle: '🗄️ バックアップの状態',
+	backupOkTitle: '正常に取れています',
+	backupWarnTitle: '確認してください',
+	backupCriticalTitle: 'バックアップが取れていません',
+	backupLastSuccessLabel: '最後に成功した日時: ',
+	backupNeverSucceeded: '一度も成功していません',
+	backupConsecutiveFailuresLabel: '連続で失敗した回数: ',
+	backupNotificationMissing:
+		'失敗しても通知が届かない設定です。いま止まっても気づけません (DISCORD_ALERT_WEBHOOK_URL 未設定)。',
+	backupActionHint: 'うまくいっていないときは、下のフォームから相談してください。',
+	// #4162: ローテーション保留だけが起きている状態の案内。
+	// **「取れていない」ではなく「片付いていない」**であることが伝わる文言にする。
+	// 汎用の backupActionHint (相談してください) だけだと、必要な行動が分からないまま
+	// 「job が壊れた」と読まれ、再起動や再インストールに向かってしまう。
+	// #4162 昇格時 (rotation-blocked-critical) の見出し。
+	// **`backupCriticalTitle`（「バックアップが取れていません」）を使ってはいけない** —
+	// この状態では毎晩正常に取れており、世代はむしろ増え続けている。断定形で「取れていない」と
+	// 出すと、#4162 が直したはずの「診断が真逆」を条件付きで作り直すことになる (同 class 3 回目)。
+	backupRotationBlockedCriticalTitle: '急いで片づけてください',
+	backupRotationBlockedHint:
+		'バックアップは取れていますが、古い控えが増えすぎたため、自動での削除を止めています。古い控えを別の場所へ移してから、いらないものを消してください。',
+	// 昇格後 (7 晩放置) の本文。取れている事実は変えずに、放置の危険だけを足す。
+	backupRotationBlockedCriticalHint:
+		'バックアップは取れていますが、古い控えが増えすぎた状態が 1 週間以上続いています。このままでは保存する場所がなくなり、いずれ本当に取れなくなります。古い控えを別の場所へ移してから、いらないものを消してください。',
 	appInfoSectionTitle: 'ℹ️ アプリ情報',
 	appInfoTermsLink: '📄 利用規約',
 	appInfoPrivacyLink: '🔒 プライバシーポリシー',
@@ -2606,6 +2634,11 @@ export const SETTINGS_NAV_LABELS = {
 // rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
 // 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
 
+// #4156: 書き込みが許可されている契約状態 (猶予 / 停止 / 解約済み) の告知に必ず添える保証文。
+// 3 つの告知が同じ事実を語るため、文言をここで 1 度だけ組み立てて共有する
+// (`SUBSCRIPTION_PAGE_LABELS.writesContinueAssurance` として export もする)。
+const WRITES_CONTINUE_ASSURANCE = `お子さまの記録はそのまま残り、${PLAN_FULL_TERMS.free}の範囲で記録・ポイント付与を続けられます。`;
+
 export const SUBSCRIPTION_PAGE_LABELS = {
 	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
 	pageTitle: 'ご家族のプラン管理',
@@ -2651,6 +2684,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	statusActive: '有効',
 	statusGracePeriod: '猶予期間',
 	statusSuspended: '停止中',
+	/** S5 契約終了 (#4156)。S6 `terminated` (退会) を表す statusTerminated とは別状態 */
+	statusCancelled: `${CANCEL_TERMS.canonical}済み`,
 	statusTerminated: '解約済み',
 
 	// 無料トライアル
@@ -2676,15 +2711,42 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	cancelPendingExpiryLabel: 'ご利用いただける最終日',
 
 	// ステータス別メッセージ
+	//
+	// #4156: 文言は認可の実挙動 (`authorization.ts`) を SSOT とする (ADR-0013)。
+	// #3993 の PO 判断により、支払い停止中も解約後も**無料プラン相当で書き込みは許可される**
+	// (上限は free tier の plan limit が担う)。したがって「記録やポイントの付与はできません」
+	// と書いてはならない。対応表と検証は `contract-state-view.ts` / 同名 test にある。
+	/** 書き込みが許可されている契約状態の告知に必ず添える保証文 */
+	writesContinueAssurance: WRITES_CONTINUE_ASSURANCE,
 	gracePeriodTitle: '⚠️ 猶予期間中',
-	gracePeriodDesc:
-		'お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎるとサービスが停止されます。',
-	suspendedTitle: '⏸️ サービス停止中',
-	suspendedDesc:
-		'ライセンスが停止されています。データは保持されていますが、新しい活動の記録やポイントの付与はできません。',
+	gracePeriodDesc: `お支払いの確認が取れていません。猶予期間内にお支払いを完了してください。期間を過ぎると有料プランの機能が止まります。${WRITES_CONTINUE_ASSURANCE}`,
+	/** S4 停止 (契約は残り復帰しうる) — 旧 suspendedTitle / suspendedDesc */
+	paymentSuspendedTitle: '⏸️ 有料プランの機能を止めています',
+	paymentSuspendedDesc: `お支払いを確認できないため、有料プランの機能を止めています。${WRITES_CONTINUE_ASSURANCE}お支払い方法を更新すると元に戻ります。`,
+	/** S5 契約終了 (解約確定) */
+	cancelledTitle: `✅ ${CANCEL_TERMS.canonical}が完了しました`,
+	cancelledDesc: `有料プランは終了しました。${WRITES_CONTINUE_ASSURANCE}`,
 	terminatedTitle: '❌ 解約済み',
 	terminatedDesc:
 		'このアカウントは解約されています。データは一定期間保持されますが、その後削除されます。',
+
+	// 請求履歴 (#4156)
+	//
+	// 契約が終わっても**過去の取引**は残る。請求書・領収書は特商法の表示義務に接続するため、
+	// 契約の有無ではなく `stripeCustomerId` の有無で到達可能にする。解約理由の送信を
+	// 経由させて領収書に辿り着かせる導線 (統合直後の唯一の退路) は取らない。
+	billingHistoryTitle: '請求履歴',
+	billingHistoryDesc: `契約は終了していますが、これまでのお支払いの記録は残っています。Stripe の${STRIPE_PORTAL_TERMS.short}でご確認いただけます。`,
+	billingHistoryFeatureInvoices: '過去の請求書・領収書の確認とダウンロード',
+	billingHistoryFeatureReceipts: 'お支払い履歴の確認',
+	billingHistoryButton: (loading: boolean) => (loading ? '読み込み中...' : '請求履歴を確認する'),
+	billingHistoryNote: `Stripe の安全な${STRIPE_PORTAL_TERMS.short}に移動します`,
+	billingHistoryPinNote: (usesPin: boolean) =>
+		`⚠️ お支払い情報を開くには${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
+	/** 請求履歴から開くときの確認ダイアログ (操作の目的がプラン変更ではないため文言を分ける) */
+	portalConfirmTitleBillingHistory: '請求履歴を開く確認',
+	portalConfirmDescBillingHistory: `Stripeの${STRIPE_PORTAL_TERMS.short}に移動します。過去の請求書・領収書をご確認いただけます。`,
+	portalConfirmSubmitBillingHistory: `${STRIPE_PORTAL_TERMS.short}へ`,
 
 	// プラン管理
 	planManagementTitle: 'プラン管理',
@@ -2698,6 +2760,11 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
+	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
+	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
+	billingUnavailable:
+		'この環境では決済機能が有効になっていないため、プランの変更手続きに進めません',
+	billingUnavailableToastTitle: 'プランの変更手続きに進めません',
 
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
@@ -3020,6 +3087,26 @@ export const OPS_LABELS = {
 	bypassFetchedAt: (dateStr: string) => `取得日時: ${dateStr} | 運用ルール:`,
 	bypassAdrLink: 'ADR-0044 (archive)',
 
+	// plan 逆引き不能の滞留 (#4128)
+	planDriftTitle: 'プラン判定できていない契約',
+	planDriftDesc:
+		'Stripe の Price と env / lookup_key が食い違うと、課金額と使える機能がずれたまま滞留します。',
+	planDriftHealthy: (n: number | string) => `${n} 件の契約すべてでプランを判定できています。`,
+	planDriftFound: (n: number | string) => `${n}件 要対応`,
+	planDriftDisabled: 'Stripe 連携が無効な環境のため検査していません。',
+	planDriftError: (name: string) =>
+		`Stripe への照会に失敗したため確認できませんでした（${name}）。詳細は CloudWatch ログを参照してください。`,
+	planDriftTruncated: (n: number | string) =>
+		`取得上限 ${n} 件に達しました。表示は一部の可能性があります。`,
+	planDriftColTenant: 'テナント',
+	planDriftColSubscription: 'サブスクリプション',
+	planDriftColStatus: '状態',
+	planDriftColPrice: 'Price / lookup_key',
+	planDriftColCurrentPlan: '保持中のプラン',
+	planDriftUnknownTenant: '（テナント未特定）',
+	planDriftUnknownValue: '—',
+	planDriftMultiItem: (n: number | string) => `item ${n} 件`,
+
 	// システム状態
 	systemTitle: 'システム状態',
 	stripeLabel: 'Stripe 連携:',
@@ -3266,8 +3353,8 @@ export const BILLING_LABELS = {
 // 関連 ADR:
 //   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
 //   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
-//   - ADR-0059 (Phase 7 cutover): kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) で
-//     ダウン即時動線を on/off 切替可能、本 compound は両モードで使用
+//   - kill switch (`USE_LOOKUP_KEY`) で Price 解決経路を切替可能、本 compound は両経路で使用
+//     (webhook shadow mode の kill switch は #4128 で撤去済)
 
 export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
 	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)
@@ -3671,7 +3758,6 @@ export const CHILD_HOME_LABELS = {
 	resultMissionComplete: '🎯 ミッションたっせい！',
 	resultMissionAllClear: '🎉 ぜんぶクリア！',
 	resultTodayCount: (n: number | string) => `きょう ${n}かいめ！`,
-	resultSpecialRewardRemaining: (n: number | string) => `🎁 あと${n}かいで とくべつごほうび！`,
 	resultCancelButton: (s: number | string) => `とりけし (${s}s)`,
 	resultConfirmButton: 'やったね！',
 	crossComboBang: '！',
@@ -8299,6 +8385,11 @@ export const STORYBOOK_LABELS = {
 		buttonLabel: 'クラウドエクスポート',
 		unlockedContent: 'この機能は利用できます',
 		sectionTitle: 'AI 提案パネル',
+	},
+	// #4172: SpecialRewardOverlay の見た目確認用。棚に並んだごほうび名 (親が登録した現実世界の報酬)。
+	specialRewardOverlay: {
+		title: 'ゲーム 30 分',
+		titleLong: 'にちようびに こうえんで あそぶ',
 	},
 	button: {
 		primary: 'プライマリ',

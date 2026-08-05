@@ -61,7 +61,7 @@
         </mxCell>
         <mxCell id="webhook-e" value="Yes" style="strokeColor=#333;strokeWidth=2;" edge="1" source="stripechoice" target="webhook" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="handler" value="handleCheckoutCompleted&#xa;1. tenantId from metadata&#xa;2. updateTenantStripe(plan, status=active,&#xa;     customerId, subscriptionId, trialUsedAt)&#xa;3. issueLicenseKey (purchase)&#xa;4. sendLicenseKeyEmail&#xa;5. notifyBillingEvent (Discord)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;align=left;" vertex="1" parent="1">
+        <mxCell id="handler" value="handleCheckoutCompleted&#xa;1. tenantId from metadata&#xa;2. updateTenantStripe(plan, status=active,&#xa;     customerId, subscriptionId, trialUsedAt)&#xa;3. issueLicenseKey (purchase)&#xa;4. sendLicenseKeyEmail&#xa;5. Discord 通知なし (#4192)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;align=left;" vertex="1" parent="1">
           <mxGeometry x="800" y="410" width="320" height="140" as="geometry" />
         </mxCell>
         <mxCell id="handler-e" style="strokeColor=#333;strokeWidth=2;" edge="1" source="webhook" target="handler" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
@@ -155,12 +155,12 @@
         </mxCell>
         <mxCell id="p2-e9b" value="解約" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-action" target="p2-wh-delete" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="p2-h-update" value="handleSubscriptionUpdated&#xa;1. tenant 特定&#xa;2. priceId → plan 解決&#xa;3. status: active/grace/suspended&#xa;4. updateTenantStripe(plan, status)&#xa;5. notifyBillingEvent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;align=left;" vertex="1" parent="1">
+        <mxCell id="p2-h-update" value="handleSubscriptionUpdated&#xa;1. tenant 特定&#xa;2. priceId → plan 解決&#xa;3. status: active/grace/suspended&#xa;4. updateTenantStripe(plan, status)&#xa;5. Discord 通知なし (#4192)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;align=left;" vertex="1" parent="1">
           <mxGeometry x="500" y="470" width="320" height="120" as="geometry" />
         </mxCell>
         <mxCell id="p2-e10a" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-wh-update" target="p2-h-update" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
 
-        <mxCell id="p2-h-delete" value="handleSubscriptionDeleted&#xa;1. tenant 特定&#xa;2. updateTenantStripe&#xa;   stripeSubscriptionId=undef&#xa;   plan=undef, status=suspended&#xa;3. notifyBillingEvent&#xa;※ テナント本体は残す" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;align=left;" vertex="1" parent="1">
+        <mxCell id="p2-h-delete" value="handleSubscriptionDeleted&#xa;1. tenant 特定&#xa;2. updateTenantStripe&#xa;   stripeSubscriptionId=undef&#xa;   plan=undef, status=suspended&#xa;3. Discord 通知なし (#4192)&#xa;※ テナント本体は残す" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#B71C1C;align=left;" vertex="1" parent="1">
           <mxGeometry x="500" y="610" width="320" height="140" as="geometry" />
         </mxCell>
         <mxCell id="p2-e10b" style="strokeColor=#333;strokeWidth=2;" edge="1" source="p2-wh-delete" target="p2-h-delete" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>

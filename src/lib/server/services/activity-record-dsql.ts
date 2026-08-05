@@ -18,6 +18,7 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn 内 await は core / optional
 // プリミティブの内部のみ)。fitness#16: DB アクセスは repo facade / dsql プリミティブ経由。
 
+import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
@@ -156,7 +157,6 @@ export async function recordActivityDsql(
 		xpGain,
 		// #1782: カスタム実績機能廃止 — 常に空配列
 		customUnlocked: [],
-		specialReward: optional.specialReward,
 	};
 }
 
@@ -175,7 +175,6 @@ interface OptionalPhaseResult {
 	missionComplete: RecordActivityResult['missionComplete'];
 	siblingChallenges: RecordActivityResult['siblingChallenges'];
 	focusBonus: RecordActivityResult['focusBonus'];
-	specialReward: RecordActivityResult['specialReward'];
 }
 
 /**
@@ -273,6 +272,7 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 				checkAndIssueStreakCertificates,
 				checkAndIssueLevelCertificates,
 				issueCategoryMasterCertificate,
+				issueMonthlyHabitCertificateIfEligible,
 			} = await import('$lib/server/services/certificate-service');
 			if (prep.isFirstToday && prep.streakDays >= 7) {
 				await checkAndIssueStreakCertificates(childId, prep.streakDays, tenantId);
@@ -283,24 +283,19 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 			if (xpGain.levelAfter >= 5 && xpGain.levelBefore < 5 && catDef) {
 				await issueCategoryMasterCertificate(childId, String(catDef.id), catDef.name, tenantId);
 			}
+
+			// #4172: 月間の習慣化 (その月に記録した日数が閾値以上) を褒める。
+			// **1 日 1 回だけ評価する** — 同日 2 回目以降は既に評価済みなので走らせない。
+			// 発行は同月の証明書行が冪等キーなので、多重に呼んでも 2 回目以降は no-op。
+			if (prep.isFirstToday) {
+				await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
+			}
 		},
 		onFailure,
 	);
 
-	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
-	const specialRewardRaw = await runOptionalWrite(
-		'special_reward',
-		async () => {
-			const { checkAndGrantFixedIntervalReward } = await import(
-				'$lib/server/services/special-reward-service'
-			);
-			const reward = await checkAndGrantFixedIntervalReward(childId, tenantId);
-			return reward
-				? { id: reward.id, title: reward.title, points: reward.points, icon: reward.icon }
-				: null;
-		},
-		onFailure,
-	);
+	// #4172: 固定間隔自動ごほうび (棚への自動 INSERT + 50pt 発行) は撤去。sqlite 経路 (activity-log-service)
+	// と同じく optional write 1 件分が減る。達成の表現は MILESTONES 通知が担う (報酬を発行しない)。
 
 	return {
 		comboBonus:
@@ -308,6 +303,5 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 		missionComplete: missionRaw?.missionCompleted ? missionRaw : null,
 		siblingChallenges,
 		focusBonus,
-		specialReward: specialRewardRaw ?? null,
 	};
 }

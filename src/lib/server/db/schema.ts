@@ -1168,6 +1168,15 @@ export const graduationConsent = sqliteTable(
 //   `handleWebhookEvent` dispatcher 入口 (L221) に統合
 // - retention cron は Phase 7 PR-5 で実装 (本 PR では schema 配備のみ)
 // - DynamoDB 側は schemaless で `storage-stack.ts:29 timeToLiveAttribute='ttl'` 既設定のため CDK 変更なし
+/**
+ * `stripe_webhook_events.handler_result` の値域 (#4128)。
+ *
+ * `'processing'` は insert-first で処理権を取得した直後の一過性の状態
+ * (interface SSOT: src/lib/server/db/interfaces/webhook-event-repo.interface.ts)。
+ * DDL 上は CHECK 制約を持たない TEXT のため、値の追加に migration は不要。
+ */
+const WEBHOOK_HANDLER_RESULTS = ['processing', 'success', 'error', 'skipped'] as const;
+
 export const stripeWebhookEvents = sqliteTable(
 	'stripe_webhook_events',
 	{
@@ -1177,8 +1186,8 @@ export const stripeWebhookEvents = sqliteTable(
 		eventType: text('event_type').notNull(),
 		// handler 実行完了時刻 (ISO 8601)、retention cutoff の基準
 		processedAt: text('processed_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		// 'success' | 'error' | 'skipped' (未購読 event 型) — Phase 7 PR-4a の dispatcher で書込み
-		handlerResult: text('handler_result', { enum: ['success', 'error', 'skipped'] }).notNull(),
+		// 'processing' (処理権取得済・handler 未完了、#4128 insert-first) | 'success' | 'error' | 'skipped'
+		handlerResult: text('handler_result', { enum: WEBHOOK_HANDLER_RESULTS }).notNull(),
 		// handler 例外時の error message (Stripe.Error.message 最大 500 文字 truncate、PII strip Phase 7 PR-4a)
 		errorMessage: text('error_message'),
 		// 同一 event.id の再到達回数 (初回 = 0、replay/resend で increment)

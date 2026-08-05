@@ -1,7 +1,7 @@
 /**
  * scripts/audit/close-leak-report.mjs (#3459 = #3423 AC4)
  *
- * close漏れ取りこぼし検知 report — 「fix は main 反映済だが issue が open のまま」を検出し
+ * close漏れ取りこぼし検知 report — 「fix は反映済だが issue が open のまま」を検出し
  * 一覧 report を出力する補助 job。**auto-close は絶対にしない**（誤爆回避、#3423 選択肢 C 却下と同根拠）。
  *
  * 背景: 0 件化キャンペーン (2026-07-11 監査セッション) で、この class の close漏れが 35+ 件
@@ -26,8 +26,11 @@
  *   node scripts/audit/close-leak-report.mjs --since "30 days ago" # 走査期間変更
  *   node scripts/audit/close-leak-report.mjs --json                # JSON 出力 (機械処理用)
  *
- * CI: .github/workflows/close-leak-report.yml (週次 cron + workflow_dispatch) が実行し
- *     GITHUB_STEP_SUMMARY へ report を書き込む。exit code は常に 0 (report only、gate ではない)。
+ * CI: .github/workflows/close-leak-report.yml (週次 cron + workflow_dispatch) が実行し、
+ *     **常設の tracking issue へ upsert** して `state:needs-po` で PO の受信箱に載せる (#4205)。
+ *     旧実装は GITHUB_STEP_SUMMARY にしか出しておらず、**検知は正確に動いていたのに誰にも届いて
+ *     いなかった** (本リポジトリのロール間伝達は label のみで、job summary は polling 対象ですら
+ *     ない — チーム憲章 §5.1)。exit code は常に 0 (report only、gate ではない)。
  */
 
 import { execFileSync } from 'node:child_process';
@@ -37,8 +40,20 @@ import { isMain as isMainModule } from '../lib/is-main.mjs';
 /** 既定の走査期間 (git approxidate)。週次 cron 運用で直近の close漏れを拾いつつ noise を抑える */
 export const DEFAULT_SINCE = '90 days ago';
 
-/** 既定の走査対象 ref (main 反映済判定の基準) */
-export const DEFAULT_REF = 'origin/main';
+/**
+ * 既定の走査対象 ref (#4205 で `origin/main` → `origin/develop` に変更)。
+ *
+ * develop 二層運用では **merge から main 統合までの間ずっと「作業済みなのに受信箱に居座る」**
+ * 状態になる。統合は週数回なので、main だけを見ていると受信箱は常に実態より深く見える
+ * (実測 #4205: 「28 件残っている」ように見えた backlog のうち **15 件が作業済み**で、
+ *  実装コミットは develop にしか無かった)。
+ *
+ * develop は main の superset として扱える — hotfix (`fix/*` → main 直行) も
+ * `hotfix-back-merge.yml` が develop へ戻すため、develop 走査で main 側も拾える。
+ * その代わり **統合前に revert される可能性がある分の false positive を受け入れる**が、
+ * 本 script は auto-close しない (#3423 選択肢 B 却下) ので実害にならない。
+ */
+export const DEFAULT_REF = 'origin/develop';
 
 /** git log の record / field separator (RS / US 制御文字、コミット本文と衝突しない) */
 const RECORD_SEP = '\u001e';
@@ -203,11 +218,18 @@ export function buildCloseLeakReport(leaks, meta = {}) {
 		'',
 		`- 走査対象: \`${ref}\` の直近コミット (since: ${since})${typeof meta.totalCommits === 'number' ? ` ${meta.totalCommits} 件` : ''}`,
 		`- open issue: ${typeof meta.totalOpen === 'number' ? `${meta.totalOpen} 件` : '(件数不明)'}`,
-		`- **検出: ${leaks.length} 件** (main 反映済コミットが issue 番号を参照しているのに open のまま)`,
+		`- **検出: ${leaks.length} 件** (\`${ref}\` に反映済のコミットが issue 番号を参照しているのに open のまま)`,
 		'',
 		'> **auto-close はしません**。本 report は人間が一覧を見て手動 close (AC gate 経由) するための',
 		'> 棚卸し材料です。EPIC / 進行中 workstream / 部分対応 PR の参照は false positive のため、',
 		'> labels 列と該当コミットを見て判断してください。',
+		...(ref.includes('develop')
+			? [
+					'>',
+					'> 走査対象が `develop` のため、**main 未反映 (統合待ち) のものも含みます** (#4205)。',
+					'> 「作業は終わっているが統合待ち」は close せず、**`state:*` label が実態と合っているか**を見てください。',
+				]
+			: []),
 		'',
 	];
 
@@ -217,7 +239,7 @@ export function buildCloseLeakReport(leaks, meta = {}) {
 		return lines.join('\n');
 	}
 
-	lines.push('| Issue | タイトル | labels | main 反映コミット (該当分) |');
+	lines.push(`| Issue | タイトル | labels | \`${ref}\` 反映コミット (該当分) |`);
 	lines.push('|---|---|---|---|');
 	for (const leak of leaks) {
 		const flag = leak.epicLike ? ' ⚠️epic/tracker' : '';

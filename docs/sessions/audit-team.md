@@ -2,6 +2,8 @@
 
 > **このファイルの位置づけ**: develop → main 統合 PR を客観的第三者視点で監査する「外部品質監査チーム」のロール・責務・境界の SSOT。マネージャ orchestrator + 8 チーム + ポリシー準拠判定 agent の役割、skill 再利用マップ、QM との 2 段 gate 境界、マージ判定エビデンス基準、棄却運用 flow を定める。
 >
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）
+>
 > **関連 Issue**: EPIC #2861 ｜ A1 = #2862 ｜ **関連 ADR**: ADR-0056（QM Orchestrator role drift の構造的対処）/ ADR-0022（QM Approve 体制・admin bypass 禁止）/ ADR-0010（Pre-PMF scope）
 >
 > **上流 SSOT**: ブランチ運用・gate 二層・merge 責任分担は [branch-strategy.md](branch-strategy.md)。QM Tier1/Tier2 の 2 層構造は [qa-session.md](qa-session.md)。本ファイルはこの 2 つを継承し、develop → main レーンの監査チーム側のみを定義する。
@@ -18,15 +20,35 @@
 CronCreate(cron: "47 * * * *", recurring: true, prompt: <label-mailbox.md §4「監査セッション用」テンプレート>)
 ```
 
-監査が拾うのは **`state:needs-audit`**（PO が release cut を依頼した Issue / PR）、**`release/* → main` の open PR**（§3.8 の 9 ステップに入る）、**`main..develop` の commit 数**。
+監査が拾うのは **`state:needs-audit`**（**監査チームに用がある** Issue / PR。release cut 依頼だけでなく、仕様の問い合わせ / 見解確認を含む。**付与者は誰でも**、#4180）、**`release/* → main` の open PR**（§3.8 の 9 ステップに入る）、**`main..develop` の commit 数**。
 
-- **release cut の依頼は `state:needs-audit`** で受け取る（2026-07-31 追加）。当初は「PO からの明示依頼」で label 不要としていたが、**`@mention` / コメントは通知経路ではない**（label-mailbox.md §3.1.1）ため、Dev レーンで実際に起きたのと同じ取りこぼしが成立する。ただし **label は「PO が依頼した」状態を表すだけ**で、cut の実行判断と不可逆 action は引き続き audit-manager 専権（§3.3 / §3.8 step 6）。**label が付いたことを cut の自動起動として扱わない**
+- **`state:needs-audit` は cut 依頼専用ではない**（#4180 で定義を緩和）。**宛先 label は「誰に用があるか」だけを表し、用件を含意しない**（label-mailbox.md §3.1）。用件は Issue / PR の本文を読む。**cut 依頼と問い合わせを label で区別しない** — 区別のために語彙を増やさない
+- **監査から他ロールへ渡す経路**: QM に用があれば **`state:needs-qm`**、Dev に着手を渡すなら **`state:needs-dev`**（#4180 以前は監査発の横方向が空いており、`needs-po` 経由で PO がボトルネックになっていた）
+- **release cut の依頼も `state:needs-audit`** で受け取る（2026-07-31 追加）。当初は「PO からの明示依頼」で label 不要としていたが、**`@mention` / コメントは通知経路ではない**（label-mailbox.md §3.1.1）ため、Dev レーンで実際に起きたのと同じ取りこぼしが成立する。ただし **label は「PO が依頼した」状態を表すだけ**で、cut の実行判断と不可逆 action は引き続き audit-manager 専権（§3.3 / §3.8 step 6）。**label が付いたことを cut の自動起動として扱わない**
 - 統合 PR 自体は branch 名（`base:main` / `head:release/*`）で判別できるため、**対象 PR の識別に label は使わない**（label-mailbox.md §3.2）
 - 判断を仰ぐときは **`state:needs-po`**（不可逆 4 操作以外）/ **`state:needs-owner`**（4 操作）を付ける。**`state:*` を外すときは必ず次の state を付ける**
 - **`main..develop` が 50 commits を超えたら PO に release cut を提案する。** #3995 は develop が動き続けて凍結できず、4 日間実査不能のまま棄却された
 - **release cut と統合 PR 発行・merge は audit-manager の不可逆 action**（§3.3）。cron は「対象があること」を知らせるだけで、cut を自動起動させない
 - **per-PR の AC は再判定しない**（QM の領域、§3.4 二重判定回避）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
+
+### §0.1 Agent Teams（1 ロール内の並列化）
+
+**SSOT**: [agent-teams.md](agent-teams.md)
+
+**監査は Agent Teams と最も相性がよい。** §3.1 の 8 チーム構成は元々「独立した観点が並列に調べ、結果を集約する」形であり、teammate への割り当てがそのまま対応する。
+
+さらに §3.6 の全件発露原則に対して、**competing hypotheses（互いの仮説を反証させる）**が効く。単一 agent の逐次調査は anchoring に弱く、最初に見つけた説明で止まる。teammate 同士が直接メッセージを送れるため、**A の仮説を B が潰す往復**が起きる。
+
+**ただし不可逆 action は audit-manager 専権のまま**（§3.3）。teammate に許すのは evidence 生成まで。以下は lead が直接実行する。
+
+- release cut / 統合 PR の発行
+- approve / merge
+- Issue 起票の実行
+
+**adversarial reviewer を teammate 型として spawn できる**（`.claude/skills/adversarial-reviewer`）。ただし subagent 定義の `skills` / `mcpServers` frontmatter は teammate では適用されないため、**spawn prompt に必要な skill 名を明記する**。
+
+**重い検証を並列化しても速くならない** — `heavy` lock はマシン全体で 1 本（[agent-concurrency.md](agent-concurrency.md) §3.1）。最重厚レーンの CI は GitHub Actions 側で走るため teammate 数と無関係。
 
 ## §1 設計背景
 
@@ -118,13 +140,23 @@ ADR-0056 §E が定義する「subagent ≠ QM（役割分離 SSOT）」を、�
 
 audit-manager が統合 PR の merge を判定する際に揃えるべき人間可読エビデンス。E 系 sub-issue でこの形式を自動生成するが、ここでは判定に使う仕様を定義する。
 
-**必須エビデンス（4 点 + NG 0 件条件）**:
+**必須エビデンス（4 点 + NG 0 件条件 + CodeQL new-alert 0 件条件）**:
 
 1. **新機能・修正一覧**: 統合 PR に含まれる develop 上の全変更（feature / fix）を 1 行ずつ列挙（出典 PR 番号 / 変更概要 / 対象領域）。
 2. **対応テストケース一覧**: 各変更に対応する unit / integration / E2E / Storybook テストケースを紐付け（変更 × テストの突合表）。
 3. **テスト結果表**: 上記テストの実行結果（pass / fail / skip）を最重厚レーン（[branch-strategy.md](branch-strategy.md) §4）の全 job 横断で集約。
 4. **自動テストカバレッジ**: カバレッジ値 + ratchet 閾値割れがないこと（ADR-0005 整合）。
 5. **NG 0 件エビデンス**: 8 領域 finding のうち severity 閾値以上（§3.6）の未解決 NG が **0 件**であること。残 NG があれば merge しない。
+6. **CodeQL new-alert 0 件エビデンス（#4155）**: `ref=refs/pull/<N>/merge` の open code-scanning alert が baseline（`scripts/audit/codeql-baseline.json`）を **1 件も超えない**こと。`CodeQL` check は main ruleset の required_status_checks 非該当（[branch-strategy.md](branch-strategy.md) §4「CodeQL の扱い」）だが、**その代替として本条件を NG-0 に含める**。「required でないから赤でも通す」を audit-manager が個別判断することを禁じる（外形が admin bypass と区別できないため、ADR-0022 同型）。
+
+   ```bash
+   # 機械取得（CI では ci.yml integration-evidence job が自動実行し evidence.json / job summary に載せる）
+   node scripts/audit/check-codeql-alerts.mjs --pr <N>
+   gh api "repos/Takenori-Kusaka/ganbari-quest/code-scanning/alerts?state=open&ref=refs/pull/<N>/merge"
+   ```
+
+   - 新規 alert 1 件 / baseline ledger 不正（`src/` 混入・`resolutionTrigger` 欠落）/ **未スキャン・API 取得失敗（= 検査不能）** のいずれでも fail する。「検査できなかった」を pass に倒さない
+   - baseline は「受容の記録」であって免罪符ではない。各 entry の `resolutionTrigger`（例: その file を次に触るとき）が解消条件の SSOT
 
 判定可読仕様（表イメージ）:
 
@@ -133,7 +165,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 例: 機能 A（#NNNN） | admin/activities | unit×N / e2e×M | pass | 閾値内 | 0 |
 | 例: 修正 B（#NNNN） | child-home | unit×N / e2e×M | pass | 閾値内 | 0 |
 
-- 全行が pass + 残 NG 合計 0 + カバレッジ閾値割れなし + adversarial evidence の反対理由が解消済、を満たして初めて audit-manager が merge を実行する。
+- 全行が pass + 残 NG 合計 0 + CodeQL new-alert 0 件 + カバレッジ閾値割れなし + adversarial evidence の反対理由が解消済、を満たして初めて audit-manager が merge を実行する。
 - 1 行でも fail / 残 NG > 0 の場合は merge せず、該当を §3.6 の起票/棄却 flow に送る。
 - **#3 / #4 は CI artifact `integration-pr-evidence-<run_id>` が自動生成する**（`ci.yml` `integration-evidence` job、#2874。テスト結果表 = toJSON(needs) 横断 + カバレッジ gap map + API 設計書突合）。**#1 / #2 は B-1（#2950）領域**で、artifact 内 placeholder 行を audit-manager run が記入する。
 - **finding の SARIF 2.1.0 化 + advisory 評価（#2876）**: 各領域 finding は `scripts/audit/to-sarif.mjs` で SARIF 2.1.0 document に変換され、`integration-evidence` job が「NG-0（severity 3-4 + policy_compliant=false が 0）+ カバレッジ ratchet 達成 + 全 job 緑」を **advisory（非 block）** で評価し evidence.md §5 に出す。advisory は merge を block しない（required_status_checks 未登録、continue-on-error）。**NG の最終確定は本表の audit-manager 人間判定が正本**であり、advisory は CI が機械集約できるスナップショットに限る（EPIC 設計原則 1）。
@@ -212,7 +244,13 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 
 ### §3.8 毎回 run の標準 9 ステップ（release/* → main 統合監査サイクル、branch-strategy.md §3.1）
 
-事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを順に実行する。audit-manager が orchestrate し、deep research / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
+事前準備ゲート（§3.7）充足後、各 run（1 日 1 回 gate）は以下 9 ステップを実行する。audit-manager が orchestrate し、deep research / テスト追加 / 起票は subagent へ dispatch、不可逆 action（PR 発行 / merge / 起票実行）は orchestrator 専権（§3.3）。
+
+> **step 番号は依存関係であって実行順ではない（#4171）。** step N は「step N-1 の**出力を必要とする**」ことだけを意味する。依存が無いものは**並列に起動してよい**。
+>
+> **特に cut（step 6）直後は、統合 PR の CI 待ちと領域監査を並列で走らせる。** 領域監査は release HEAD の **コード**を読むのであって CI の**結果**を必要としない。CI 結果が要るのは step 7 の fail triage だけ。
+>
+> 第 19 回 run の実測（#4171）: **CI 待ち 4 回 × 15〜20 分**のうち、CI 結果を見てから領域監査を始めた場面があった。**この待ちは削れる**。
 
 | step | 内容 | 主体 | 不可逆 |
 |---|---|---|---|
@@ -227,8 +265,68 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 | 9 | deploy 完了後、本番 **AWS 版・ローカル NUC 版の両方へ health check** | audit-manager + deploy-verify skill | — |
 
 - **全件発露原則（step 7）**: CI fail は最初の 1 件で止めず、固定時間 box 内で全 fail を発露させてから triage する（§3.6 / EPIC 失敗シナリオ⑥）。起票 Issue には真因・なぜなぜ・横展開（同種 defect の他箇所）を必須記載する（ADR-0003 Issue 品質）。
+- **adversarial evidence は「処置が全部終わってから 1 回」に寄せる（#4171）**: evidence には **TTL 30 分**があり、`生成 → 指摘を処置 → 本文更新 → 再生成` のループを回すと切れる。**処置を要する指摘を先に集めきってから最後に 1 回生成し、TTL 内に approve する。**
+  - 第 19 回 run の実測: **4 世代生成したうち 1 世代は「TTL が切れたから作り直しただけ」**で、監査上の価値はゼロだった
+  - **ただし release branch に append したら必ず再生成する**（本 step の「approve 後に append したら再生成」要求は不変）。**寄せてよいのは「処置前の先取り生成」であって、append 後の再生成ではない**。省くと stale approval で未監査差分が merge される（§3.8.1 禁則 3）
 - **冗長テスト回避（step 4）**: develop 取込時点で feature PR が追加済みのテストと突合し、同一観点の二重追加を避ける。監査チームが足すのは「統合状態でしか検出できない CUJ 横断テスト」に限る（§3.4 二重判定回避と同型）。
 - **健全性確認（step 9）**: AWS / NUC の health check は deploy-verify skill を再利用する。NUC 版は self-hosted runner（`local_nuc`）経由で実機起動を確認する（§3.7 #5 と対）。NUC 側 health の実体は **NUC staging の post-deploy health**（`deploy-nuc-staging.yml` の `localhost:3100/api/health` 200 + `schema.schemaValid=true` assert、#2872 AC8）、AWS 側 health の実体は **AWS staging の post-deploy health**（`deploy-aws-staging.yml` の `<StagingFunctionUrl>api/health` 200、#2873。DynamoDB backend で lazy migration を呼ばないため schema assert 無し）であり、統合 PR の 1 run で両系統を確認する。各 endpoint / schema 検証は [../../.claude/skills/deploy-verify/SKILL.md](../../.claude/skills/deploy-verify/SKILL.md) §「§3.8 step 9」が SSOT。
+
+### §3.8.1 merge 判断の 3 禁則
+
+#### 禁則 1: 時刻・環境が変わって緑になったことを、修正の証拠にしない
+
+**再実行で緑になっても、それを修正が効いた根拠にしない。** 時刻依存 / 環境依存のテストは、欠陥を残したまま条件が変われば緑になる。
+
+- **根拠にしてよいのは、失敗条件を再現した状態での緑**。TZ 依存なら `TZ=UTC` / `TZ=Asia/Tokyo` の双方をローカル実測する
+- 「re-run したら通ったので flake」で流さない。**次の同じ条件で必ず再発する**
+
+**実例**: `ops-service` の `newThisMonth` は、CI (UTC) が UTC 月末 15:00〜24:00 に走ると落ちる。UTC が翌月に入った時点で、**修正の有無にかかわらず緑になった**。
+
+#### 禁則 2: gate を修正する PR が、その gate に検査されないまま merge されない
+
+**gate を直す変更ほど、その gate 自身の検査を通す。** 直した gate が走らないまま入ると、「直したつもり」が本番まで届く。
+
+**実例**: `#4143` が「`check-lp-plan-sync` を hard-fail に戻す」を含むのに、**再武装した当の gate が統合 PR で一度も走っていなかった**（Draft ゆえ skip）。
+
+#### 禁則 3: 自分が append した修正を、独立検証なしに自分で承認しない
+
+§3.8 step 7 は「監査中の修正は release branch への append」を認めるが、**append した本人が承認者でもある構図**になる。
+
+- **append 後は必ず adversarial evidence を再生成**し、**自分の修正を明示的な疑い対象として渡す**
+- 特に「assertion を実質的に弱めていないか」「『製品は正常』判定が環境からの推論に依存していないか」を渡す
+- **approve は最後に置く**（`dismiss_stale_reviews_on_push=false` のため approve 後の append は stale approval を残す）
+
+**実例**: 第 19 回で監査が append した test 修正 4 件のうち 1 件に、**自分が別ファイルで指摘したのと同型の vacuous assertion** が入っていた（race 解決後に評価するため恒真）。adversarial が検出して是正。
+
+### §3.5.2 `Closes` 集約の限界と over-close の防止
+
+**`integration-pr-body.mjs` は PR 単位の closing keyword しか見ない。** 「同一 release 内で複数 PR が 1 Issue の AC を分担し、各 PR が partial として `no-issue-close` を宣言する」ケースを原理的に検出できない。
+
+**集約 `Closes #N` に追加する前に、Issue 本文の AC を実測する。**
+
+```bash
+gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
+```
+
+- **未チェックが残っていれば集約しない**
+- **AC に運用行為（実機確認 / 退避の記録 / Dashboard 設定確認）が含まれる Issue は集約しない。** コードの merge では充足しないため over-close になる
+- EPIC の着手順先頭にある **唯一の open tracker** を auto-close しない。追跡者が消える
+
+**実例**: `#4129` を集約に追加しようとしたが、その時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の env 確認）は運用行為だった。しかも `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡する唯一の tracker であり、auto-close すれば退避を誰も追わないまま削除が走る状態だった。
+
+#### 集約を「書いたつもり」で終わらせない — 下書きの着地確認（#4170 AC2）
+
+同じ `#4129` の一件で、監査は「`Closes #4129` を追加した」と PO に報告したが、**編集したのはローカル下書きだけで実 PR body には存在しなかった**。他のずれ（本文が古い）と違い、`Closes` の欠落は **GitHub の auto-close が発火しない**という副作用を伴い、merge されると main 上の恒久記録になる。
+
+**運用**: 統合 PR body の下書きを **`tmp/pr-bodies/<PR 番号>.md`** に置く。approve 時に `.claude/hooks/gate-approve.mjs` が下書きと実 body の close 宣言を照合し、不一致なら approve を block する（下書きが無い PR は block せず「未実施」を stderr に出す）。手で確認する場合:
+
+```bash
+node scripts/check-pr-body.mjs --pr <N> --verify-closes-landed tmp/pr-bodies/<N>.md
+```
+
+**`grep` で代替しない。** `grep -c "Closes #4129"` は撤回経緯の言及にもヒットする（PR #4152 の実 body で実測 4 件、実際の close 宣言は 0 件）。判定は行頭一致 SSOT（`integration-pr-body.mjs` の `extractClosedIssues`）に委譲されている。
+
+本 gate は **required CI にしない**（本文修正のたびに最重厚レーンを回すと CI 待ちが伸びるため）。本文の state / label 一致・件数照合（#4170 AC1 / AC3 / AC4）は本 gate の対象外で、依然として §3.8 step 7 の目視と adversarial に委ねられている。
 
 ### §3.9 非 critical PR サンプリング監査（complacency 対策、#3862）
 

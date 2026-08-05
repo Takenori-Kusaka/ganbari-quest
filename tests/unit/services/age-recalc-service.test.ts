@@ -29,7 +29,9 @@ vi.mock('$lib/server/db/factory', () => ({
 }));
 
 // date-utils モック — 今日の日付を固定
-vi.mock('$lib/domain/date-utils', () => ({
+vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
+	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
+	...(await importOriginal<typeof import('$lib/domain/date-utils')>()),
 	todayDateJST: () => '2026-04-25',
 }));
 

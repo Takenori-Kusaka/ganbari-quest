@@ -1,0 +1,46 @@
+{
+	"_comment": "#4155 CodeQL baseline ledger — tests/e2e/a11y-baseline.json と同型。CodeQL は main ruleset の required_status_checks 非該当 (branch-strategy.md §4) だが、その代わりに『統合 PR (ref=refs/pull/<N>/merge) 由来の new alert 0 件』を機械条件にする。ここに pin した (rule, path) 組の open alert は count まで受容し、count 超過 / 未登録の組は 1 件で fail する (scripts/audit/check-codeql-alerts.mjs)。baseline は『受容の記録』であって『無期限の免罪符』ではないため、全 entry に resolutionTrigger を必須とする (期限なし pin 禁止)。PO 決裁 2026-08-01: 期限は日付でなくトリガー (『その file を次に触るとき』)。",
+	"_forbiddenPathPrefixes": "src/ 配下の alert を baseline に載せることは禁止 (顧客経路の alert に『受容』の選択肢を作らない)。src/ の entry があれば ledger 検証自体が fail する。",
+	"entries": [
+		{
+			"rule": "js/regex-injection",
+			"path": "scripts/check-recent-deploy-deletion.mjs",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #43 (2026-07-17)。deploy 削除検知 gate の CI 補助 script。顧客リクエスト経路ではない。",
+			"resolutionTrigger": "scripts/check-recent-deploy-deletion.mjs を次に触るとき"
+		},
+		{
+			"rule": "js/incomplete-sanitization",
+			"path": "scripts/audit/close-leak-report.mjs",
+			"count": 1,
+			"securitySeverity": "high",
+			"note": "alert #42 (2026-07-16)。close漏れ report の CI 補助 script。顧客リクエスト経路ではない。",
+			"resolutionTrigger": "scripts/audit/close-leak-report.mjs を次に触るとき"
+		},
+		{
+			"rule": "js/bad-code-sanitization",
+			"path": "tests/unit/scripts/pre-ready-order-and-base.test.ts",
+			"count": 1,
+			"securitySeverity": "medium",
+			"note": "alert #44 (2026-07-30)。test 内の文字列組立。本番 bundle に載らない。",
+			"resolutionTrigger": "tests/unit/scripts/pre-ready-order-and-base.test.ts を次に触るとき"
+		},
+		{
+			"rule": "js/overly-large-range",
+			"path": "scripts/lib/ci/screenshot-helpers.mjs",
+			"count": 1,
+			"securitySeverity": "medium",
+			"note": "alert #41 (2026-07-16)。SS ヘルパの正規表現文字クラス。CI 補助。",
+			"resolutionTrigger": "scripts/lib/ci/screenshot-helpers.mjs を次に触るとき"
+		},
+		{
+			"rule": "actions/missing-workflow-permissions",
+			"path": ".github/workflows/ci.yml",
+			"count": 3,
+			"securitySeverity": "medium",
+			"note": "alert #6 / #7 / #8 (2026-03-27〜28)。job 単位 permissions 未指定 3 箇所。count 超過 (4 件目) は fail する。",
+			"resolutionTrigger": ".github/workflows/ci.yml の該当 job を次に触るとき"
+		}
+	]
+}

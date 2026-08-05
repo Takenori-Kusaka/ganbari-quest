@@ -6,10 +6,9 @@
 //   - **factory 注入** (fitness#8)。全操作が単文のため txn runner 不要。
 //   - **グローバル表 (tenant 非依存)**: PK = event_id (Stripe `evt_*`) 自然キー。tenant_id は
 //     nullable analytics 属性 (§P9 対象外、handler が解決できた場合のみ格納)。
-//   - **冪等性 (first-writer-wins)**: 並列同時到達の二重 insert は PK への
-//     ON CONFLICT DO NOTHING で 2 度目以降を物理拒否する (interface SSOT の
-//     「INSERT OR IGNORE / attribute_not_exists」契約、Phase 5 子 3 §13 #6)。初回の
-//     handler 結果が正であり後着は silent skip (二重課金防止)。
+//   - **冪等性 (first-writer-wins)**: 処理権の取得は `claim()` の 1 文 (INSERT ... ON CONFLICT
+//     DO UPDATE ... WHERE processing AND stale ... RETURNING) に閉じ、勝者を DB の原子性で
+//     1 つに決める (#4128)。完了済 row は奪えないため後着は silent skip (二重課金防止)。
 //   - **processedAt は verbatim 格納**: 呼び出し元 (webhook dispatcher) が確定した処理時刻を
 //     そのまま書く (::timestamptz cast)。30 日 retention は deleteOlderThan (cron) が担い、
 //     RETURNING で削除行数を数える (SqlExecutor は rowCount 非公開)。
@@ -59,17 +58,44 @@ export function createDsqlWebhookEventRepo(db: SqlExecutor): IWebhookEventRepo {
 			return row ? toEvent(row) : null;
 		},
 
-		async insert(record) {
-			// PK (event_id) への ON CONFLICT DO NOTHING で並列二重 insert を物理拒否
-			// (first-writer-wins、interface SSOT の冪等契約)。
-			await db.execute(sql`
+		async claim(record, staleClaimBeforeIso) {
+			// 処理権の取得を 1 文に閉じ込める (#4128)。競合時に DO UPDATE へ落ちるが、
+			// WHERE で「死んだ claim」に限定しているため完了済 row は決して奪われない。
+			// RETURNING の有無がそのまま勝敗になる (行が返る = このプロセスが書いた)。
+			// retry_count は SET に含めない (再到達の計数を stale 引き取りで消さない)。
+			const result = await db.execute(sql`
 				INSERT INTO stripe_webhook_events
 					(event_id, event_type, processed_at, handler_result, error_message, retry_count,
 					 tenant_id)
 				VALUES (${record.eventId}, ${record.eventType}, ${record.processedAt}::timestamptz,
 					${record.handlerResult}, ${record.errorMessage}, ${record.retryCount},
 					${record.tenantId})
-				ON CONFLICT (event_id) DO NOTHING
+				ON CONFLICT (event_id) DO UPDATE SET
+					event_type = EXCLUDED.event_type,
+					processed_at = EXCLUDED.processed_at,
+					handler_result = EXCLUDED.handler_result,
+					error_message = EXCLUDED.error_message,
+					tenant_id = EXCLUDED.tenant_id
+				WHERE stripe_webhook_events.handler_result = 'processing'
+					AND stripe_webhook_events.processed_at < ${staleClaimBeforeIso}::timestamptz
+				RETURNING 1 AS claimed
+			`);
+			return result.rows.length > 0;
+		},
+
+		async finalize(eventId, handlerResult, processedAtIso) {
+			await db.execute(sql`
+				UPDATE stripe_webhook_events
+				SET handler_result = ${handlerResult}, processed_at = ${processedAtIso}::timestamptz
+				WHERE event_id = ${eventId}
+			`);
+		},
+
+		async releaseClaim(eventId) {
+			// 完了済 row を巻き添えで消さないよう processing に限定する。
+			await db.execute(sql`
+				DELETE FROM stripe_webhook_events
+				WHERE event_id = ${eventId} AND handler_result = 'processing'
 			`);
 		},
 

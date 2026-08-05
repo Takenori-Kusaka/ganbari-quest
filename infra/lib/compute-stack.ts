@@ -145,25 +145,17 @@ export class ComputeStack extends cdk.Stack {
 		const stripePriceStandardMonthly = this.node.tryGetContext('stripePriceStandardMonthly') ?? '';
 		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
 
-		// --- Phase 7 PR-3b / PR-4a 配備済 Stripe Webhook + lookup_key 関連 env (#2721 / #2713 / #2716) ---
+		// --- lookup_key 関連 env (#2721 / #2716) ---
 		// 参照 SSOT:
-		//   - docs/decisions/0059-phase7-cutover-sequence.md
-		//   - docs/design/billing-redesign/phase6-phase7-execution-ssot.md §3 Step 3 / Step 4
 		//   - docs/design/billing-redesign/phase6-context-decisions-6.md §4 lookup_key 段階移行
 		//
-		// useLookupKey (PR-3b cutover): default 'true' で Production cutover を反映する。
+		// useLookupKey: default 'true' で Production cutover を反映する。
 		//   - lookup_key (`standard_monthly` / `premium_monthly`) 経由 Price ID 解決
 		//   - Stripe API 障害時は env var `STRIPE_PRICE_*` fallback (kill switch、isLookupKeyEnabled())
-		//   - 旧 env var 4 件は PR-5 cleanup (1 週間 smoke test 完了後) で削除
-		// stripeWebhookShadowMode (PR-4a 配備、cutover は PR-4b): default 'false'。
-		//   - PR-4a で env 配備のみ実施済 (#2714)、CDK context 配布が本 PR で完了
-		//   - PR-4b cutover 時に 'true' に切替て shadow mode 検証 (24-48h)
-		// stripeWebhookSecretTest (PR-4a 配備): Test mode webhook signing secret (#2627 §C)。
-		//   - shadow mode + cutover で `STRIPE_WEBHOOK_SHADOW_MODE=true` 時に getWebhookSecretForShadow()
-		//     経由で参照される (config.ts:120)
+		//
+		// webhook shadow mode 関連の 2 env は #4128 で撤去した。受信口を 1 本
+		// (`/api/stripe/webhook`) に確定し、「署名検証だけして 200 を返す」経路を無くしたため。
 		const useLookupKey = this.node.tryGetContext('useLookupKey') ?? 'true';
-		const stripeWebhookShadowMode = this.node.tryGetContext('stripeWebhookShadowMode') ?? 'false';
-		const stripeWebhookSecretTest = this.node.tryGetContext('stripeWebhookSecretTest') ?? '';
 
 		// --- Cron Endpoint Bearer Secret (#820 PR-D / ADR-0033) ---
 		// /api/cron/retention-cleanup の Bearer 認証に使用。
@@ -230,9 +222,10 @@ export class ComputeStack extends cdk.Stack {
 
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
-		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
-		const discordWebhookBilling = this.node.tryGetContext('discordWebhookBilling') ?? '';
-		const discordWebhookChurn = this.node.tryGetContext('discordWebhookChurn') ?? '';
+		// #4192 (#4174 Q2 の PO 決裁): `discordWebhookSignup` / `Billing` / `Churn` は
+		// **持たないと決めた**ので読む口ごと撤去した。「secret を登録すれば動く」形を残さない。
+		// 復活させたい場合は決裁をやり直すこと (再配線は
+		// tests/unit/architecture/notification-channels-not-owned.test.ts が CI で落とす)。
 		const discordWebhookIncident = this.node.tryGetContext('discordWebhookIncident') ?? '';
 
 		// --- staging Stripe test mode (#4104) ---
@@ -350,9 +343,6 @@ export class ComputeStack extends cdk.Stack {
 						...(feedbackDiscordWebhookUrl
 							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
 							: {}),
-						...(discordWebhookSignup ? { DISCORD_WEBHOOK_SIGNUP: discordWebhookSignup } : {}),
-						...(discordWebhookBilling ? { DISCORD_WEBHOOK_BILLING: discordWebhookBilling } : {}),
-						...(discordWebhookChurn ? { DISCORD_WEBHOOK_CHURN: discordWebhookChurn } : {}),
 						...(feedbackDiscordWebhookUrl
 							? { DISCORD_WEBHOOK_INQUIRY: feedbackDiscordWebhookUrl }
 							: {}),
@@ -381,16 +371,6 @@ export class ComputeStack extends cdk.Stack {
 						// Stripe API 障害時は env var fallback (config.ts isLookupKeyEnabled() / getPriceId())。
 						// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
 						USE_LOOKUP_KEY: useLookupKey,
-						// Phase 7 PR-4a 配備 (#2713): default 'false'。PR-4b cutover で 'true' 切替。
-						// shadow mode = log only handler (`/api/stripe/webhook-v2`)、本番動作不変。
-						STRIPE_WEBHOOK_SHADOW_MODE: stripeWebhookShadowMode,
-						// Phase 7 PR-4a 配備 (#2713 / #2627 §C): Test mode webhook signing secret。
-						// shadow / cutover で getWebhookSecretForShadow() (config.ts:120) 経由参照。
-						// 空文字 fallback で本番 STRIPE_WEBHOOK_SECRET に flow。Production cutover 後に
-						// 本番 secret に置換 (PR-4b マージ時、#2627 §F)。
-						...(stripeWebhookSecretTest
-							? { STRIPE_WEBHOOK_SECRET_TEST: stripeWebhookSecretTest }
-							: {}),
 						COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',

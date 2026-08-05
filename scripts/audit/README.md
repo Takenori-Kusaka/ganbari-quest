@@ -11,7 +11,7 @@
 | 段 | 主体 | 実装 |
 |---|---|---|
 | dispatch (8 領域 + ポリシー準拠判定 skill 起動) | audit-manager (Claude session) が Agent tool で skill を起動 | 人手 / LLM (CI に載せない) |
-| 機械検証可能項目 (axe / lp-metrics / check 系 / coverage) | CI | `.github/workflows/audit-run.yml` (workflow_dispatch) |
+| 機械検証可能項目 (axe / lp-metrics / check 系 / coverage) | CI | 通常 CI の既存 job (`ci.yml` の `a11y` / `lint-and-test` / `unit-test`、`lp-metrics.yml`) |
 | 全件発露 → schema verify → 重複統合 → severity filter | CI / CLI (rules-based) | `scripts/audit/run-pipeline.mjs` |
 | ポリシー準拠 filter (誤起票防止) | audit-manager が policy-compliance skill で判定 | LLM (CI に載せない、advisory) |
 | 起票 / approve / merge (不可逆 action) | audit-manager **専権** | LLM + gh (CI に載せない) |
@@ -37,8 +37,20 @@ LLM 判定 (policy filter / adversarial) を **hard gate にしない**のは EP
    - 問題起票 = `issue-triage`
 3. **各 subagent は finding を structured JSON で `tmp/audit-evidence/<team>.json` に Write**
    ([evidence schema](#evidence-schema))。
-4. **機械検証項目は CI で回す** — `.github/workflows/audit-run.yml` を `workflow_dispatch` で起動し
-   artifact を取得。
+4. **機械検証項目は通常 CI の結果を読む** — 対象 run の PR / main commit の CI から取得する。
+   専用 workflow は持たない (#4208 で `audit-run.yml` を撤去。同 workflow の 6 検査はすべて
+   通常 CI に同じものが在り、二重実行になっていた):
+
+   | 検査 | 読む先 |
+   |---|---|
+   | a11y critical CUJ (WCAG 2.2 AA) | `ci.yml` の `a11y` job |
+   | LP 寸法 / 禁止語 | `lp-metrics.yml` |
+   | check 系 (hardcoded-strings / no-plan-literals / internal-terms / forbidden-terms) | `ci.yml` の `lint-and-test` job |
+   | coverage | `ci.yml` の `unit-test` job |
+   | pipeline pure-function test | `ci.yml` の `unit-test` job (`tests/unit/audit/`) |
+
+   **`skipped` は「検査されなかった」であって「通った」ではない**ため、監査で読むときは
+   `gh pr checks <N>` / run の job 一覧で **pass (skipping でない)** を確認する。
 5. **pipeline を実行** — `scripts/audit/run-pipeline.mjs` で全 evidence を集約し `tmp/audit-run-<date>.md` を生成。
 6. **audit-manager が後段を実施** — ポリシー準拠 filter → adversarial dispatch → 起票 / merge 判定
    (不可逆 action は orchestrator 専権、[audit-manager.md §C/§F](../../.claude/agents/audit-manager.md))。
@@ -119,9 +131,13 @@ predicate を `actions/attest` で Sigstore 署名 → GH attestations API へ�
 
 ## CI 共有 fixture
 
-`scripts/audit/fixtures/sample-evidence.json` は `audit-run.yml` の `pipeline-selftest` job
-(CLI smoke) と `tests/unit/audit/evidence-schema.test.ts` の両方が参照する固定 evidence。
-schema が変わっても fixture が追従していなければ unit test 側で fail し、CI smoke の偽 PASS を防ぐ。
+`scripts/audit/fixtures/sample-evidence.json` は `tests/unit/audit/evidence-schema.test.ts` と
+`scripts/audit/run-pipeline.mjs` の CLI smoke が共有する固定 evidence。schema が変わっても
+fixture が追従していなければ unit test 側で fail し、偽 PASS を防ぐ。
+
+> #4208 で `audit-run.yml` を撤去したため、CLI smoke を回す専用 job は無い。fixture の schema
+> 追従は `ci.yml` の `unit-test` job (`tests/unit/audit/`) が担保する。手で smoke を回すときは
+> `node scripts/audit/run-pipeline.mjs --run-id smoke --evidence-dir scripts/audit/fixtures` を使う。
 
 ## 局所テスト
 
