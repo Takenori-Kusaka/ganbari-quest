@@ -678,6 +678,26 @@ jobs:
           echo "Health check failed after 5 attempts (last status: $STATUS)"
           exit 1
 
+      # #4280: front door 検査が**実際に効いているか**を deploy 後に確認する。
+      # health check (/api/health) は front door 対象外なので必ず 200 を返し、
+      # 「検査が黙って無効」を検出できない (ADR-0024 silent skip 禁止の実効化)。
+      # header を付けずに /admin を叩いて 404 が返ることが、enforcement が live な証拠になる。
+      #
+      # 検出できない残余: CloudFront 側 header が origin 側 env とずれる方向。
+      # 検証には CloudFront 経由の request が要るが、本番 CloudFront は geoRestriction JP で
+      # GitHub Actions runner (日本国外) からは 403 になるため自動化できない (PR #4312 で明示)。
+      - name: Front door enforcement check (#4280)
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config             --function-name $LAMBDA_FUNCTION             --region $AWS_REGION             --query 'FunctionUrl' --output text)
+          FUNCTION_URL="${FUNCTION_URL%/}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}/admin")
+          echo "Front door check: GET ${FUNCTION_URL}/admin (no header) -> $STATUS"
+          if [ "$STATUS" != "404" ]; then
+            echo "::error::front door 検査が効いていません (期待 404、実際 $STATUS)。ORIGIN_VERIFY_SECRET が Lambda env に届いていない可能性があります。この状態では /admin ・ /ops に Function URL 直で到達でき、CloudFront 層の制御 (geoRestriction) を迂回できます (#4280)"
+            exit 1
+          fi
+          echo "::notice::front door enforcement is live (Function URL 直の /admin は 404)"
+
       # Phase 5b: Rollback on health check failure
       - name: Rollback on failure
         if: failure() && steps.healthcheck.outcome == 'failure'
