@@ -186,7 +186,7 @@ docker compose logs -f scheduler
 | trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
 | health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。schema assert の G-MIG 主担保は NUC staging) |
 | 入口 (ORIGIN / smoke) | CloudFront | **CloudFront** (#4204)。Function URL 直では SvelteKit の名前付き form action (`?/action`) が通らずログインもサインアップもできないため |
-| `/admin` `/api/v1/admin` `/ops` | CloudFront Function の IP allowlist (`secrets.ADMIN_ALLOWED_IPS`) | **本番と同じ** (同一 secret、#4266)。geo 制限を外してある分ここが唯一のネットワーク層防御。`-c adminAllowedIps` 未指定で synth が throw する |
+| `/admin` `/api/v1/admin` `/ops` | CloudFront Function の IP allowlist (`secrets.ADMIN_ALLOWED_IPS`) | **本番と同じ** (同一 secret、#4266)。`-c adminAllowedIps` 未指定で synth が throw する。**CloudFront 経由のみに掛かる** — Function URL 直は `authType: NONE` で迂回可能 (本番も同じ、14-セキュリティ設計書 §11.5 の但し書き) |
 
 **防御層の本番 / staging 差分は [docs/design/14-セキュリティ設計書.md §11.5](../docs/design/14-セキュリティ設計書.md) が SSOT** (#4266)。staging の構成を触る前に読むこと。
 

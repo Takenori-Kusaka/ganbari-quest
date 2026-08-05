@@ -184,10 +184,12 @@ if (stagingEnabled) {
 	// geoRestriction は `[]` = 制限なし。post-deploy smoke を回す GitHub Actions runner が
 	// 日本国外にあり、JP allowlist を残すと 403 で smoke が回らないため。
 	//
-	// **admin IP allowlist は本番と同じものが掛かる** (#4266)。geo 制限を外した分、
-	// /admin ・ /api/v1/admin ・ /ops は `-c adminAllowedIps` (= secrets.ADMIN_ALLOWED_IPS)
-	// の CloudFront Function フィルタが唯一のネットワーク層防御になる。context を渡し忘れると
-	// network-stack.ts が throw して deploy が止まる (旧実装は分岐ごと黙って消えていた)。
+	// **admin IP allowlist は本番と同じものが掛かる** (#4266)。/admin ・ /api/v1/admin ・ /ops は
+	// `-c adminAllowedIps` (= secrets.ADMIN_ALLOWED_IPS) の CloudFront Function フィルタを通る。
+	// context を渡し忘れると network-stack.ts が throw して deploy が止まる
+	// (旧実装は分岐ごと黙って消えていた)。
+	// **ただし CloudFront 経由のリクエストにしか掛からない** — Function URL は authType: NONE で
+	// 公開されており直叩きで迂回できる (本番も同じ。14-セキュリティ設計書 §11.5 の但し書き)。
 	// post-deploy smoke は `/` `/switch` `/auth/login` だけを叩くため runner の IP は影響しない。
 	// **前提: staging に本番データが入っていないこと** (PO 実測 2026-08-02: 本番 cluster
 	// 1,801,692 bytes に対し staging 1,031,956 bytes = 57%。snapshot コピーなら同等以上になる)。
