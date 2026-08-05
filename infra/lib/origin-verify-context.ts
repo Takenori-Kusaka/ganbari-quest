@@ -46,7 +46,6 @@ export function resolveOriginVerifySecret(node: ContextReader): string {
 				'  1. GitHub Secret を登録する:\n' +
 				'     gh secret set ORIGIN_VERIFY_SECRET --body "$(node -e \'console.log(require("crypto").randomBytes(32).toString("hex"))\')" \\\n' +
 				'       --repo Takenori-Kusaka/ganbari-quest\n' +
-				// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax
 				`  2. cdk 実行に \`-c ${ORIGIN_VERIFY_CONTEXT_KEY}=\${{ secrets.ORIGIN_VERIFY_SECRET }}\` を渡す\n` +
 				'  3. ローカル synth / cfn-lint はダミー値でよい (scripts/check-cdk-cfn-lint.mjs 参照)',
 		);

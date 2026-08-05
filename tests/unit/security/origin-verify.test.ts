@@ -92,12 +92,14 @@ describe('#4280 front door: 対象外 = 自前の認証を持つ実経路 (壊�
 });
 
 describe('#4280 front door: prefix 境界 (緩い前方一致で巻き込まない)', () => {
-	it.each(['/administrator', '/adminx', '/opsx', '/api/v1/administrators'])(
-		'%s は保護対象ではない',
-		(path) => {
-			expect(isFrontDoorProtectedPath(path)).toBe(false);
-		},
-	);
+	it.each([
+		'/administrator',
+		'/adminx',
+		'/opsx',
+		'/api/v1/administrators',
+	])('%s は保護対象ではない', (path) => {
+		expect(isFrontDoorProtectedPath(path)).toBe(false);
+	});
 
 	it.each([...FRONT_DOOR_PROTECTED_PREFIXES])('%s 自身は保護対象', (prefix) => {
 		expect(isFrontDoorProtectedPath(prefix)).toBe(true);
@@ -108,13 +110,14 @@ describe('#4280 front door: secret 未設定時 (fail-open)', () => {
 	// CloudFront を持たない配備 (NUC セルフホスト / ローカル開発 / demo Lambda) では
 	// secret が無いのが正常。fail-closed にすると全顧客の /admin が 404 になる。
 	// AWS 側の設定漏れは CDK synth (origin-verify-context.ts) と deploy.yml が止める。
-	it.each(['/admin', '/ops', '/api/v1/admin/tenant-cleanup'])(
-		'%s は not-configured を返す (呼び出し側が 1 回だけ log して通す)',
-		(path) => {
-			expect(evaluateFrontDoor(path, null, undefined)).toBe('not-configured');
-			expect(evaluateFrontDoor(path, null, '')).toBe('not-configured');
-		},
-	);
+	it.each([
+		'/admin',
+		'/ops',
+		'/api/v1/admin/tenant-cleanup',
+	])('%s は not-configured を返す (呼び出し側が 1 回だけ log して通す)', (path) => {
+		expect(evaluateFrontDoor(path, null, undefined)).toBe('not-configured');
+		expect(evaluateFrontDoor(path, null, '')).toBe('not-configured');
+	});
 
 	it('保護対象外は secret 未設定でも allow (not-configured を返さない = 無駄な log を出さない)', () => {
 		expect(evaluateFrontDoor('/api/stripe/webhook', null, undefined)).toBe('allow');

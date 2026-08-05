@@ -37,10 +37,7 @@ import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
-import {
-	evaluateFrontDoor,
-	ORIGIN_VERIFY_HEADER,
-} from '$lib/server/security/origin-verify';
+import { evaluateFrontDoor, ORIGIN_VERIFY_HEADER } from '$lib/server/security/origin-verify';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';

@@ -76,9 +76,7 @@ function synthDistributions(): Array<{ logicalId: string; origins: OriginLike[] 
 
 function verifyHeaderCount(origins: OriginLike[]): number {
 	return origins.filter((o) =>
-		(o.OriginCustomHeaders ?? []).some(
-			(h) => h.HeaderName === HEADER && h.HeaderValue === SECRET,
-		),
+		(o.OriginCustomHeaders ?? []).some((h) => h.HeaderName === HEADER && h.HeaderValue === SECRET),
 	).length;
 }
 
@@ -96,7 +94,7 @@ describe('#4280 CloudFront が front door header を付与する', () => {
 		expect(prod).toHaveLength(1);
 		// Lambda を指す origin は 2 本 (lambdaOrigin / staticAssetOrigin)。S3 origin (error pages)
 		// は OAC で守られるため対象外。
-		expect(verifyHeaderCount(prod[0].origins)).toBe(2);
+		expect(verifyHeaderCount(prod[0]?.origins ?? [])).toBe(2);
 	});
 
 	it('header 値は secret そのもの (別値・空文字が混ざらない)', () => {
@@ -120,12 +118,9 @@ describe('#4280 CloudFront が front door header を付与する', () => {
 describe('#4280 secret 未指定の synth は止まる (silent skip 禁止、ADR-0024)', () => {
 	const reader = (value: unknown) => ({ tryGetContext: () => value });
 
-	it.each([[undefined], [''], ['   '], [null], [123]])(
-		'context が %p なら throw する',
-		(value) => {
-			expect(() => resolveOriginVerifySecret(reader(value))).toThrow(/originVerifySecret/);
-		},
-	);
+	it.each([[undefined], [''], ['   '], [null], [123]])('context が %p なら throw する', (value) => {
+		expect(() => resolveOriginVerifySecret(reader(value))).toThrow(/originVerifySecret/);
+	});
 
 	it('32 文字未満なら throw する (アプリ側 env schema の下限と揃える)', () => {
 		expect(() => resolveOriginVerifySecret(reader('short-secret'))).toThrow(/短すぎます/);
@@ -159,13 +154,13 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 	])('%s の cdk step が全て -c originVerifySecret を持つ', (relPath) => {
 		const yml = readFileSync(join(root, relPath), 'utf8');
 		// `- name:` 単位の step に切り、cdk を叩く step だけを検査する
-		const steps = yml.split(/^      - name: /m).slice(1);
+		const steps = yml.split(/^ {6}- name: /m).slice(1);
 		const cdkSteps = steps.filter((s) => s.includes('npx cdk'));
 		expect(cdkSteps.length).toBeGreaterThan(0);
 
 		const missing = cdkSteps
 			.filter((s) => !s.includes(`-c ${ORIGIN_VERIFY_CONTEXT_KEY}=`))
-			.map((s) => s.split('\n')[0].trim());
+			.map((s) => (s.split('\n')[0] ?? '').trim());
 		expect(missing).toEqual([]);
 	});
 

@@ -7,8 +7,8 @@ import { ComputeStack } from '../lib/compute-stack';
 import { DsqlStack } from '../lib/dsql-stack';
 import { STAGING_ENV_CONFIG } from '../lib/env-config';
 import { NetworkStack } from '../lib/network-stack';
-import { resolveOriginVerifySecret } from '../lib/origin-verify-context';
 import { OpsStack } from '../lib/ops-stack';
+import { resolveOriginVerifySecret } from '../lib/origin-verify-context';
 import { SesStack } from '../lib/ses-stack';
 import { StorageStack } from '../lib/storage-stack';
 
