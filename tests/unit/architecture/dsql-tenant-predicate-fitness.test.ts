@@ -250,11 +250,21 @@ const HAS_FAMILY_COLUMN = /family_id/i;
  */
 const HAS_TENANT_FRAGMENT = /\$\{[^}]*tenant[^}]*\}/i;
 
-function listDsqlSourceFiles(): string[] {
-	if (!existsSync(DSQL_DIR)) return [];
-	return readdirSync(DSQL_DIR)
-		.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
-		.map((f) => resolve(DSQL_DIR, f));
+/**
+ * dsql 配下の .ts を **再帰** 収集する (#4030 A-2 / 先例 #3658 AC2)。
+ *
+ * 旧実装は `readdirSync` 非再帰で、実 SQL を持つ `migration/` 配下を
+ * **一度も検査していなかった**。母数が閉じていない guard は「違反 0 件」と
+ * 「そもそも見ていない」を区別できない。
+ */
+function listDsqlSourceFiles(dir: string = DSQL_DIR, acc: string[] = []): string[] {
+	if (!existsSync(dir)) return acc;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const full = resolve(dir, entry.name);
+		if (entry.isDirectory()) listDsqlSourceFiles(full, acc);
+		else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) acc.push(full);
+	}
+	return acc;
 }
 
 interface Violation {
@@ -368,6 +378,37 @@ describe('DSQL tenant 述語 fitness (§3.4 / ADR-0063、RLS 非対応の代替�
 			`allowlist に対応 SQL が存在しない dead entry があります (削除するか marker を是正):\n${dead
 				.map((d) => `  ${d.file} [${d.table}] ${d.marker}`)
 				.join('\n')}`,
+		).toEqual([]);
+	});
+});
+
+// #4030 A-2: 母数がサブディレクトリを取りこぼしていないこと。
+//
+// `src/lib/server/db/dsql/migration/` には実 SQL を持つ file が存在する
+// (`provision.ts` の `INSERT INTO dsql_migrations` 等)。非再帰走査だと**この層が
+// 一度も検査されない**。先例は `dsql-append-only-update-fitness.test.ts` (#3658 AC2)。
+//
+// 母数の assertion を置かないと「違反 0 件」が「守られている」なのか
+// 「そもそも見ていない」なのか区別できない (#4084 と同じ形)。
+//
+// 期待値は **実 FS から導出する** (literal 固定にすると file 追加で陳腐化する、#4030 A-1 と同じ轍)。
+describe('#4030 母数: dsql 配下をサブディレクトリまで走査している', () => {
+	it('migration/ 配下の .ts が母数にすべて入っている', () => {
+		const migrationDir = resolve(DSQL_DIR, 'migration');
+		const expected = readdirSync(migrationDir)
+			.filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
+			.map((f) => resolve(migrationDir, f))
+			.sort();
+		expect(
+			expected.length,
+			'migration/ に .ts が 1 つも無い (母数の前提が崩れている)',
+		).toBeGreaterThan(0);
+
+		const collected = new Set(listDsqlSourceFiles());
+		const missing = expected.filter((f) => !collected.has(f));
+		expect(
+			missing,
+			'dsql/migration/ 配下が母数から漏れています。非再帰走査だとこの層が一度も検査されません (#4030 A-2)',
 		).toEqual([]);
 	});
 });
