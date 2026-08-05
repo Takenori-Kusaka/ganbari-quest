@@ -61,11 +61,37 @@ export function toJstMonthKeyValue(monthKey: string): string {
  * JST/UTC の 9 時間差では説明できないため曖昧でなく、加算してよい。
  */
 export function isSameJstMonth(stored: string | null | undefined, currentJstKey: string): boolean {
-	if (!stored) return false;
-	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) return stored === currentJstKey;
+	return classifyMonthKeyMatch(stored, currentJstKey) !== 'no-match';
+}
+
+/**
+ * `isSameJstMonth` の判定を **理由付きで**返す (#4269 ②)。
+ *
+ * skip したこと自体は正しくても、**なぜ skip したかで意味がまったく違う**:
+ *
+ *   - `exact` — prefix 付きの厳密一致。設計どおりの二重加算防止で、何も起きていない
+ *   - `ambiguous-legacy` — prefix 無しの旧値が当月 / 前月リテラルと一致したので、
+ *     **安全側に倒して skip した**。正当な加算を取りこぼしている可能性がある
+ *
+ * 後者は継続月数が静かに 1 少なく計算されるだけで画面にも通知にも出ないため、
+ * 呼び出し側でログに残す。回復可能性を根拠に skip を選んだ以上、
+ * **回復が必要だと気づく経路**が要る。
+ *
+ * 判定ロジックの SSOT は本関数 1 つ (`isSameJstMonth` は本関数の薄い wrapper)。
+ * 2 箇所に分けると片方だけ直って乖離する。
+ */
+export function classifyMonthKeyMatch(
+	stored: string | null | undefined,
+	currentJstKey: string,
+): 'no-match' | 'exact' | 'ambiguous-legacy' {
+	if (!stored) return 'no-match';
+	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) {
+		return stored === currentJstKey ? 'exact' : 'no-match';
+	}
 	// 旧値 (基準不明)。当月・前月のいずれかを指しているなら加算済みの可能性があるので skip する。
 	const currentMonthKey = currentJstKey.slice(JST_MONTH_KEY_PREFIX.length);
-	return stored === currentMonthKey || stored === shiftMonthKey(currentMonthKey, -1);
+	const ambiguous = stored === currentMonthKey || stored === shiftMonthKey(currentMonthKey, -1);
+	return ambiguous ? 'ambiguous-legacy' : 'no-match';
 }
 
 // ============================================================
@@ -231,7 +257,32 @@ export async function incrementSubscriptionMonth(tenantId: string): Promise<{
 	// prefix 無しの旧値は「基準不明」として扱う (下記 `isSameJstMonth`)。
 	const currentMonth = toJstMonthKeyValue(monthKeyJST());
 	const lastIncrement = await getSetting(KEYS.lastIncrementMonth, tenantId);
-	if (isSameJstMonth(lastIncrement, currentMonth)) {
+	const match = classifyMonthKeyMatch(lastIncrement, currentMonth);
+	if (match !== 'no-match') {
+		// #4269 ②: **なぜ skip したか**を残す。`exact` は設計どおりの二重加算防止で無害だが、
+		// `ambiguous-legacy` は「prefix 無しの旧値だったので安全側に倒して skip した」であり、
+		// 正当な加算を取りこぼしている可能性がある。取りこぼしは継続月数が静かに 1 少なくなる
+		// だけで画面にも通知にも出ないため、ログが唯一の気づく経路になる。
+		//
+		// この分岐は `loyalty_last_increment_month` を**再 write しない**ので、以後 webhook が
+		// 来ないテナントでは基準不明値が滞留し続ける。滞留の検知機構を持つかは PO 判断 (#4269 ①)。
+		//
+		// tenantId は認証された場所 (CloudWatch Logs) にだけ載せる。外部 SaaS (Discord) への
+		// 通知は行わない (#4174 Q3 / #4192 — 「どの家族か」は通知の役割ではない)。
+		if (match === 'ambiguous-legacy') {
+			logger.warn(
+				'[loyalty] 継続月数の加算を skip した (prefix 無しの旧値で基準が不明のため、安全側に倒した)',
+				{
+					tenantId,
+					service: 'loyalty',
+					context: {
+						kind: 'loyalty-increment-skipped-ambiguous',
+						storedMonthKey: lastIncrement,
+						currentMonthKey: currentMonth,
+					},
+				},
+			);
+		}
 		const months = await getSubscriptionMonths(tenantId);
 		return { newMonths: months, tierUp: false, newTier: null, ticketsAwarded: 0 };
 	}
