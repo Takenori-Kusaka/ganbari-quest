@@ -1,6 +1,6 @@
 ---
 name: Dev Open PR
-description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md + .github/PR_TEMPLATE_SECTIONS.json (#2060), and provides a 4 必須 CI gate チェックリスト for Ready 化 (AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット). Before Ready 化, verify all 13 required sections are present via check-pr-body.mjs (PR #2039 / #2043 連続再発防止). Replaces ad-hoc per-PR boilerplate re-invention.
+description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md + .github/PR_TEMPLATE_SECTIONS.json (#2060), and provides a CI gate for Ready 化. Before Ready 化, verify all 7 required sections are present via check-pr-body.mjs (PR #2039 / #2043 連続再発防止). Replaces ad-hoc per-PR boilerplate re-invention.
 ---
 
 > **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review (PO Goal 2)](../lp-review/SKILL.md) / [Issue Triage (PO Goal 1)](../issue-triage/SKILL.md)
@@ -27,7 +27,7 @@ Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行
 |---|---|---|---|
 | 1 | origin/&lt;base&gt; rebase drift verify (#2557 / base は `scripts/lib/ci/resolve-base-branch.mjs` で解決 #2959) | 全 push | `--no-verify` で skip 可だが discouraged (ADR-0026) |
 | 2 | 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾) | PR 存在時のみ | 同上 |
-| 3 | PR body 11 セクション + AC 4 列 + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
+| 3 | PR body 7 セクション + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
 | 4 | biome check (軽量 lint) | 全 push | 同上 |
 
 重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ** (push 速度保持 + Pre-PMF / ADR-0010 整合)。
@@ -318,7 +318,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 | fail パターン | 対策 (本 template 内蔵) |
 |---|---|
-| 必須セクション 11 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
+| 必須セクション 7 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
 | `refactor:internal-no-doc-impact` ラベル未付与で design-doc-check fail (#2318 / #2340) | Step 2 (ラベル判断 + 起票時付与) |
 | 新規 env / secret 配布証跡が 4 経路揃わず new-env-distribution-check fail | Step 3 (4 経路明示) |
 | `process.env.X` 直接参照で lint-and-test fail (#2342) | Step 4 (`$lib/runtime/env` 経由) |
@@ -343,7 +343,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 ### ルール
 
-- 本セクションは **必須 11 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
+- 本セクションは **必須 7 セクション（`PR_TEMPLATE_SECTIONS.json`）に含まれない条件付き append**（`--kind lp` の「LP メトリクス結果」と同じ慣行）。`check-pr-body.mjs` は追加セクションを許容する
 - **`po-decision:required` label が付いている PR では本セクションが機械必須**（#3962）。`check-pr-body.mjs` の `checkPoDecisionBrief` が、見出し欠落 / mermaid 欠落 / 未置換 `___` 残置を fail させる（`npm run pre-ready` の Readiness gate step で発火）。label 誤付与なら理由を PR body に明記のうえ label を外す。#3944 / #3956 で「label は付いているがブリーフがない」まま Ready 化 → QM merge gate 指摘、が 2 回連続したことによる gate 化
 - `po-decision:required` label が付いた PR は **PO の Yes/No 判断を得てから merge**（QM / audit-manager 単独 merge 禁止）。判断待ちで Ready 化まで進めるのは可
 - label が synchronize（push）で後から自動付与された場合も、気づいた時点でブリーフを `gh pr edit <N> --body-file` で追補する

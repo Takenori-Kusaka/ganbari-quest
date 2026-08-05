@@ -65,6 +65,11 @@ jobs:
               `${process.env.GITHUB_WORKSPACE}/scripts/check-pr-screenshot.mjs`
             );
 
+            if (lane !== 'integration') {
+              core.info('✅ feature / hotfix lane: screenshot-check is bypassed for feature/hotfix as part of Issue #4305 (B 移管)');
+              return;
+            }
+
             // UI関連ファイルが変更されているか確認
             const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
@@ -198,6 +203,7 @@ jobs:
         uses: ./actions/pr-lane
 
       - name: Run check-pr-screenshot.mjs
+        if: steps.lane.outputs.lane == 'integration'
         env:
           # 段階適用 (#1740): 最初は warn-only、定着後に error 化
           SCREENSHOT_CHECK_MODE: warn
@@ -252,6 +258,7 @@ jobs:
         uses: ./actions/pr-lane
 
       - name: Run check-ss-blob-sha-uniqueness.mjs
+        if: steps.lane.outputs.lane == 'integration'
         env:
           # #2063: 偽装は致命的なため warn 段階を経ずに即 hard-fail (initial error 採用)。
           # false positive ゼロは Issue #2063 AC2 で 5 PR (PR-2050/2051/2053/2055/2056) 空走確認済。

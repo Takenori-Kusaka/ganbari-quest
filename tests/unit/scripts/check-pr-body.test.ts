@@ -1193,7 +1193,7 @@ describe('lane-aware 化 (#4130)', () => {
 	it('[LN3] 同じ body を feature lane で見ると従来どおり fail する (lane 差が原因だったことの固定)', () => {
 		const { ids } = violate(INTEGRATION_BODY, 'feature');
 		expect(ids).toContain('missing-required-sections');
-		expect(ids).toContain('ac-map-missing');
+		expect(ids).not.toContain('ac-map-missing');
 	});
 
 	it('[LN4] integration lane はエビデンス表 section 欠落を検出する (AC マップの代替、検証量を減らさない、AC2)', () => {
@@ -1242,10 +1242,10 @@ describe('lane-aware 化 (#4130)', () => {
 			'- [ ] infra: インフラ・CI/CD',
 		].join('\n');
 		const { ids } = violate(featureBody, 'feature');
-		// feature 用 template の必須 section / AC マップ / 変更タイプ が従来どおり全て効く
+		// feature 用 template の必須 section が効くが、AC マップ / 変更タイプは除去済のため効かない
 		expect(ids).toContain('missing-required-sections');
-		expect(ids).toContain('ac-map-missing');
-		expect(ids).toContain('change-type-unselected');
+		expect(ids).not.toContain('ac-map-missing');
+		expect(ids).not.toContain('change-type-unselected');
 	});
 
 	it('[LN9] lane は PR の base/head/author から SSOT (pr-lane.mjs) で決まる', () => {

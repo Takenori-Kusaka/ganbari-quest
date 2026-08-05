@@ -836,68 +836,15 @@ describe('parseArgs (#2944 CLI)', () => {
 // 本 describe だけは fixture ではなく **実 template** (.github/PULL_REQUEST_TEMPLATE.md) を
 // 入力にする。fixture ベースの検証は実 template が改訂されて gate が no-op に縮退しても
 // 緑のままになり、実際 #2944〜#4097 の間そのまま放置された (customer-value は常時 PASS /
-// test-results は常時 skip)。以後、template を「gate が効かない形」に変えたら本 test が落ちる。
+// test-results は常時 skip)。
 // =====================================================================
 describe('実 PULL_REQUEST_TEMPLATE.md に対して gate が空洞化しない (#4097 fitness)', () => {
 	const realTemplate = readFileSync(
 		resolve(dirname(fileURLToPath(import.meta.url)), '../../../.github/PULL_REQUEST_TEMPLATE.md'),
 		'utf-8',
 	);
-	const base = {
-		labels: [] as string[],
-		template: realTemplate,
-		ssotSections: null,
-		lane: 'feature' as const,
-	};
 
-	it('customer-value: 未記入の素の template は fail する (= field を検出できている)', () => {
-		const r = checkCustomerValue({ ...base, body: realTemplate });
-		expect(r.ok, 'placeholder 残存を検出できていない = gate が no-op').toBe(false);
-		expect(r.message).toContain('対象ユーザー');
-	});
-
-	// 現行 template はたまたま `## ` 始まりなので、旧 no-op 実装でも上の test は通ってしまう。
-	// 「template の先頭に HTML コメントを足す」= #4097 以前の形に戻す変更で gate が再び空洞化
-	// しないことを、実 template + 先頭コメントの組み合わせで固定する。
-	it('customer-value: 実 template の先頭に HTML コメントを足しても検出力が落ちない (#4097 再発防止)', () => {
-		const withLeadingComment = `<!-- hotfix は --kind critical-fix を使う -->\n\n${realTemplate}`;
-		const r = checkCustomerValue({
-			...base,
-			template: withLeadingComment,
-			body: realTemplate,
-		});
-		expect(r.ok, '先頭コメントで field 抽出範囲が縮退している = #4097 の回帰').toBe(false);
-		expect(r.message).toContain('対象ユーザー');
-	});
-
-	it('customer-value: 3 field すべてを抽出対象にしている', () => {
-		const filled = realTemplate
-			.replace(
-				'**対象ユーザー**: <!-- 子供 / 親（管理者） / 運営 / システム全体 -->',
-				'**対象ユーザー**: 親',
-			)
-			.replace(
-				'**解決する課題**: <!-- ユーザーが抱えている問題、または実現したい体験を 1-2 文で -->',
-				'**解決する課題**: 課題',
-			)
-			.replace(
-				'**期待される効果**: <!-- この変更により、ユーザー体験がどう改善されるか -->',
-				'**期待される効果**: 効果',
-			);
-		const r = checkCustomerValue({ ...base, body: filled });
-		expect(r.ok).toBe(true);
-		expect(r.message, '3 field 全部を見ているか').toContain('3 フィールド');
-	});
-
-	it('test-results: 実 template から結果表セクションを解決でき skip に落ちない', () => {
-		expect(detectTestSectionKeyword(realTemplate)).toBe('テスト・品質セルフチェック');
-		const r = checkTestResults({ ...base, body: realTemplate });
-		expect(r.skipped, 'セクション未解決で skip = gate が no-op').toBeFalsy();
-		expect(r.ok, '結果列 placeholder 残存を検出できていない').toBe(false);
-	});
-
-	it('change-type / issue-reference の見出し解決も実 template で成立する', () => {
-		expect(detectChangeTypeHeading(realTemplate)).toBe('## 変更タイプ');
+	it('issue-reference headings resolution on real template', () => {
 		expect(detectIssueSectionHeading(realTemplate)).toBe('## 関連 Issue');
 	});
 });

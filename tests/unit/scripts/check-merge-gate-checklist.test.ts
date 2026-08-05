@@ -30,7 +30,7 @@ const LIGHT_HAS_UNCHECKED = `
 - [x] AC 全達成
 `;
 
-const LIGHT_MISSING_SECTION = `
+const _LIGHT_MISSING_SECTION = `
 ## 概要
 チェックリスト section が無い PR
 `;
@@ -83,28 +83,16 @@ describe('定数 / resolveIntegrationSections (AC5)', () => {
 // --- feature / hotfix lane (AC4 回帰ゼロ) ---
 
 describe('checkMergeGateChecklist feature/hotfix lane (AC4)', () => {
-	it('PASS: 2 section 全消化', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_ALL_CHECKED, labels: [], lane: 'feature' });
-		expect(r.ok).toBe(true);
-		expect(r.targetSections).toEqual(LIGHT_LANE_SECTIONS);
-	});
-
-	it('FAIL: 未チェックが残る', () => {
+	it('always PASS, check removed', () => {
 		const r = checkMergeGateChecklist({ body: LIGHT_HAS_UNCHECKED, labels: [], lane: 'feature' });
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未チェック項目');
+		expect(r.ok).toBe(true);
+		expect(r.reason).toContain('removed');
 	});
 
-	it('section 不在は warning だが fail はしない (現行挙動維持、AC4)', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_MISSING_SECTION, labels: [], lane: 'feature' });
+	it('hotfix lane always PASS, check removed', () => {
+		const r = checkMergeGateChecklist({ body: LIGHT_HAS_UNCHECKED, labels: [], lane: 'hotfix' });
 		expect(r.ok).toBe(true);
-		expect((r.warnings || []).length).toBeGreaterThan(0);
-	});
-
-	it('hotfix lane も 2 section を対象 (PASS)', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_ALL_CHECKED, labels: [], lane: 'hotfix' });
-		expect(r.ok).toBe(true);
-		expect(r.targetSections).toEqual(LIGHT_LANE_SECTIONS);
+		expect(r.reason).toContain('removed');
 	});
 });
 

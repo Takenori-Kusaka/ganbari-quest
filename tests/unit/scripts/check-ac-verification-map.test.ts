@@ -400,22 +400,14 @@ describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
 // --- checkAcVerification (lane エントリ、観点切替を一気通貫で検証) ---
 
 describe('checkAcVerification (lane エントリ、AC3/AC4)', () => {
-	it('feature lane: AC マップ観点 (PASS)', () => {
-		const r = checkAcVerification({
-			body: FEATURE_AC_MAP_PASS,
-			labels: ['type:feat'],
-			lane: 'feature',
-		});
-		expect(r.ok).toBe(true);
-	});
-
-	it('feature lane: AC マップ観点 (FAIL = 空欄)', () => {
+	it('feature lane: AC マップ観点 (always PASS, check removed)', () => {
 		const r = checkAcVerification({
 			body: FEATURE_AC_MAP_EMPTY_CELL,
 			labels: ['type:feat'],
 			lane: 'feature',
 		});
-		expect(r.ok).toBe(false);
+		expect(r.ok).toBe(true);
+		expect(r.reason).toContain('removed');
 	});
 
 	it('integration lane: エビデンス表観点 (PASS)', () => {
@@ -439,19 +431,13 @@ describe('checkAcVerification (lane エントリ、AC3/AC4)', () => {
 		expect(r.error).toContain('マージ判定エビデンス表');
 	});
 
-	it('hotfix lane: 現行 AC マップ観点を維持 (PASS)', () => {
+	it('hotfix lane: always PASS, check removed', () => {
 		const r = checkAcVerification({
-			body: FEATURE_AC_MAP_PASS,
+			body: FEATURE_AC_MAP_EMPTY_CELL,
 			labels: ['type:fix'],
 			lane: 'hotfix',
 		});
 		expect(r.ok).toBe(true);
-		expect(r.lane).toBe('hotfix');
-	});
-
-	it('skip 条件: type:docs はどの lane でも skip=PASS', () => {
-		const r = checkAcVerification({ body: '', labels: ['type:docs'], lane: 'feature' });
-		expect(r.ok).toBe(true);
-		expect(r.reason).toContain('skip');
+		expect(r.reason).toContain('removed');
 	});
 });

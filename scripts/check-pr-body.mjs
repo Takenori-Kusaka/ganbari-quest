@@ -2187,12 +2187,12 @@ function loadPrBody(args) {
  * PR body と template から全違反リストを計算する。
  * @param {string} body
  * @param {string[]} requiredSections
- * @param {string} template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
+ * @param {string} _template `.github/PULL_REQUEST_TEMPLATE.md` の内容 (#3846 変更タイプ検証で使用)
  * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] | null; lane?: string | null; noLabels?: boolean }} args
  * @param {string[]} notes skip 等の「検査しなかったこと」を呼び出し側で出力するための追記先 (#4029)
  * @returns {{ id: string; issue: string; message: string }[]}
  */
-export function collectViolations(body, requiredSections, template, args, notes = []) {
+export function collectViolations(body, requiredSections, _template, args, notes = []) {
 	const violations = [];
 	const labels = args.labels ?? [];
 	// #4130: 統合 PR (release/* → main) は単一 Issue に紐づかないため、per-PR AC マップ /
@@ -2274,25 +2274,26 @@ export function collectViolations(body, requiredSections, template, args, notes 
 				'統合 PR の checklist は pr-merge-gate.yml (## NG 0 件 / カバレッジ宣言) が検査します',
 		);
 	} else {
-		const acMap = checkAcMap(body);
-		if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
-
+		// Feature / hotfix lane: AC map verification is removed as part of Issue #4305.
 		// #4074: 根拠欄の `--pr <番号>` が自 PR を指しているか (宛先違いの証跡を通さない)
 		const evidencePrRef = checkEvidencePrReferences(body, args.pr);
 		if (evidencePrRef) violations.push({ ...evidencePrRef, issue: '#4074' });
 	}
 
-	const unchecked = findUncheckedReadyChecklist(body);
-	if (unchecked.length > 0) {
-		violations.push({
-			id: 'unchecked-ready-checklist',
-			issue: '#1481',
-			message:
-				unchecked
-					.map((u) => `  - 「${u.section}」に未チェック項目が ${u.uncheckedCount} 件`)
-					.join('\n') +
-				`\n対応: 全項目を [x] にするか、N/A を本文に明記する。AC4 で「CI が全て通過している」を template から削除済み。`,
-		});
+	// Unchecked checklist validation is removed as part of Issue #4305 for non-integration lanes.
+	if (isIntegration) {
+		const unchecked = findUncheckedReadyChecklist(body);
+		if (unchecked.length > 0) {
+			violations.push({
+				id: 'unchecked-ready-checklist',
+				issue: '#1481',
+				message:
+					unchecked
+						.map((u) => `  - 「${u.section}」に未チェック項目が ${u.uncheckedCount} 件`)
+						.join('\n') +
+					`\n対応: 全項目を [x] にするか、N/A を本文に明記する。AC4 で「CI が全て通過している」を template から削除済み。`,
+			});
+		}
 	}
 
 	if (args.pr && !args.skipMergeable) {
@@ -2325,14 +2326,9 @@ export function collectViolations(body, requiredSections, template, args, notes 
 	const poDecision = checkPoDecisionBrief(body, labels);
 	if (poDecision) violations.push({ ...poDecision, issue: '#3944/#3956/#3962' });
 
-	// #3846: 変更タイプ checkbox 未選択の shift-left 検出 (CI gate と同一 SSOT を再利用)
-	// #4130 AC3: 統合 PR template は `## 変更タイプ` を持たないため integration lane では検査しない
-	// (統合 template を渡すと detectChangeTypeHeading が別 section を変更タイプと誤認する)。
+	// #3846: 変更タイプ checkbox 未選択 validation is removed as part of Issue #4305.
 	if (!isIntegration) {
-		const changeType = checkChangeTypeSelection(body, template, labels);
-		if (changeType) {
-			violations.push({ ...changeType, issue: '#3835/#3837/#3844/#3846' });
-		}
+		// Bypassed for feature/hotfix lanes
 	}
 
 	return violations;

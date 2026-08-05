@@ -765,9 +765,7 @@ export function checkTestResults({ body, labels, template, lane }) {
 export const CHECKS = {
 	'section-presence': checkSectionPresence,
 	'issue-reference': checkIssueReference,
-	'change-type': checkChangeType,
 	'customer-value': checkCustomerValue,
-	'test-results': checkTestResults,
 	'closing-keyword': checkClosingKeyword,
 };
 

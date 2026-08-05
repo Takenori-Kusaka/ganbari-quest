@@ -290,9 +290,9 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const list = await rewardRepo.findSpecialRewards(childId, FAMILY);
 		const byTitle = Object.fromEntries(list.map((r) => [r.title, r.grantedBy]));
 		// polymorphic の両形式 + null が coerce されず verbatim で返る (監査で付与主体を追跡可能)
-		expect(byTitle['旧付与']).toBe(legacyIntGrantor);
-		expect(byTitle['新付与']).toBe(uuidGrantor);
-		expect(byTitle['付与者なし']).toBe(null);
+		expect(byTitle.旧付与).toBe(legacyIntGrantor);
+		expect(byTitle.新付与).toBe(uuidGrantor);
+		expect(byTitle.付与者なし).toBe(null);
 
 		// §P9: cross-tenant read は付与主体 (granted_by) を一切露出しない
 		expect(await rewardRepo.findSpecialRewards(childId, OTHER_FAMILY)).toEqual([]);

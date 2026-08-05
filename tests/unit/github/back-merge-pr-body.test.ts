@@ -25,12 +25,10 @@ import {
 	scanForbiddenTerms,
 } from '../../../scripts/check-pr-body.mjs';
 import {
-	checkChangeType,
 	checkClosingKeyword,
 	checkCustomerValue,
 	checkIssueReference,
 	checkSectionPresence,
-	checkTestResults,
 } from '../../../scripts/pr-template-gate-checks.mjs';
 
 const template = readFileSync(TEMPLATE_PATH, 'utf-8');
@@ -122,7 +120,7 @@ describe('CI gate 個別 pass (#3879 AC: 無手作業で body-gate green)', () =
 	it.each([
 		['clean', cleanBody],
 		['conflict', conflictBody],
-	])('%s: pr-template-gate 残り 4 check (issue-reference / change-type / customer-value / test-results) が PASS する', (_kind, body) => {
+	])('%s: pr-template-gate 残り 2 check (issue-reference / customer-value) が PASS する', (_kind, body) => {
 		const input = {
 			body,
 			labels,
@@ -132,9 +130,7 @@ describe('CI gate 個別 pass (#3879 AC: 無手作業で body-gate green)', () =
 			lane: 'feature' as const,
 		};
 		expect(checkIssueReference(input).ok, 'issue-reference').toBe(true);
-		expect(checkChangeType(input).ok, 'change-type').toBe(true);
 		expect(checkCustomerValue(input).ok, 'customer-value').toBe(true);
-		expect(checkTestResults(input).ok, 'test-results').toBe(true);
 	});
 
 	it('closing-keyword check は back-merge label で skip される (#3458 機械生成 exempt)', () => {
@@ -169,7 +165,7 @@ describe('validateBackMergePrBody (#3879: 生成時自己検証 = 生成→検�
 	});
 
 	it('必須セクションを 1 つ削ると違反を検出する (自己検証が空洞でないこと、ADR-0006)', () => {
-		const tampered = cleanBody.replace('## AC 検証マップ (ADR-0004)', '## AC マップ');
+		const tampered = cleanBody.replace('## 変更内容', '## 変更点');
 		const violations = validateBackMergePrBody(tampered);
 		expect(violations.length).toBeGreaterThan(0);
 		expect(violations.map((v) => v.gate).join(' ')).toContain('missing-required-sections');
@@ -183,24 +179,6 @@ describe('validateBackMergePrBody (#3879: 生成時自己検証 = 生成→検�
 		expect(tampered, '禁止語が実際に混入していること').toContain('あとで対応TODO');
 		const violations = validateBackMergePrBody(tampered);
 		expect(violations.map((v) => v.gate).join(' ')).toContain('forbidden-terms');
-	});
-
-	it('AC マップのデータ行を空にすると AC map gate 違反を検出する', () => {
-		const tampered = cleanBody
-			.split('\n')
-			.filter((l) => !/^\| AC\d /.test(l))
-			.join('\n');
-		const violations = validateBackMergePrBody(tampered);
-		expect(violations.map((v) => v.gate).join(' ')).toMatch(/ac-map|ac-verification/);
-	});
-
-	it('Ready checklist を未チェック化すると merge-gate 違反を検出する', () => {
-		const tampered = cleanBody.replace(
-			'- [x] clean merge を確認済 (conflict なし)',
-			'- [ ] clean merge を確認済 (conflict なし)',
-		);
-		const violations = validateBackMergePrBody(tampered);
-		expect(violations.map((v) => v.gate).join(' ')).toContain('check-merge-gate-checklist');
 	});
 });
 

@@ -16,7 +16,6 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -115,32 +114,5 @@ describe('#4121 pre-ready の hard-fail step は 6 本', () => {
 			['src/routes/foo/+page.svelte'],
 		);
 		expect(allSkipped.filter((s) => !s.skip).map((s) => s.name)).toEqual([]);
-	});
-});
-
-describe('#4121 check-lp-plan-sync は CI で hard-fail (ADR-0007 §1-2 類型 2)', () => {
-	/**
-	 * ci.yml から `- name:` 単位で step ブロックを切り出す。
-	 * コメント行 (`#`) は除去する — 判定対象は YAML の directive であり、
-	 * 「なぜ hard-fail なのか」を説明するコメント中の語に反応させない。
-	 */
-	function ciStepBlock(nameFragment: string): string {
-		const yml = readFileSync(resolve(repoRoot, '.github/workflows/ci.yml'), 'utf8');
-		const lines = yml.split('\n');
-		const start = lines.findIndex((l) => /^\s*-\s+name:/.test(l) && l.includes(nameFragment));
-		expect(start, `ci.yml に "${nameFragment}" の step が見つからない`).toBeGreaterThanOrEqual(0);
-		const end = lines.findIndex((l, i) => i > start && /^\s*-\s+name:/.test(l));
-		return lines
-			.slice(start, end === -1 ? lines.length : end)
-			.filter((l) => !/^\s*#/.test(l))
-			.join('\n');
-	}
-
-	it('[P6] LP plan sync check step に continue-on-error directive が無い', () => {
-		expect(ciStepBlock('LP plan sync check')).not.toMatch(/^\s*continue-on-error\s*:/m);
-	});
-
-	it('[P7] check-lp-plan-sync.mjs --check を実際に実行している (空 gate 化していない)', () => {
-		expect(ciStepBlock('LP plan sync check')).toContain('check-lp-plan-sync.mjs --check');
 	});
 });

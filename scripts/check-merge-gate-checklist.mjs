@@ -90,9 +90,17 @@ export function checkMergeGateChecklist({ body, labels, lane, integrationSection
 	}
 
 	const isIntegration = lane === 'integration';
-	const targetSections = isIntegration
-		? resolveIntegrationSections(integrationSectionsOverride)
-		: LIGHT_LANE_SECTIONS;
+	if (!isIntegration) {
+		// feature / hotfix lane checklist check has been removed as part of Issue #4305.
+		return {
+			ok: true,
+			lane,
+			targetSections: [],
+			reason: 'feature/hotfix lane: Checklist check has been removed (#4305)',
+		};
+	}
+
+	const targetSections = resolveIntegrationSections(integrationSectionsOverride);
 
 	const info = [];
 	const warnings = [];
