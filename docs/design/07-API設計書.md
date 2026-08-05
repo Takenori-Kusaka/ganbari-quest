@@ -1243,6 +1243,7 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`cancel_url`**: `returnPath` 指定時は `${origin}${returnPath}`、未指定時は `${origin}/pricing`
 - **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
 - **Price の解決 (#4286)**: `planId` → Price ID は **`getPriceId()`（`src/lib/server/stripe/config.ts`）単一経路**で解決する。`USE_LOOKUP_KEY=true` なら lookup_key（`standard_monthly` / `premium_monthly`）で解決し、解決に失敗したときだけ env var（`STRIPE_PRICE_STANDARD_MONTHLY` / `STRIPE_PRICE_FAMILY_MONTHLY`）へ fallback して alert を上げる。`false`（既定）なら env var 直読。**flag と env は両方効く** — flag が true でも env が設定されていれば lookup_key 失敗時の kill switch として機能し、env が無い配備でも lookup_key だけで購入が成立する。双方から解決できない場合のみ `PRICE_UNRESOLVED`
+- **`USE_LOOKUP_KEY=true` でも price env を外さない**: env は lookup_key 解決が失敗したときの kill switch であり、外すと Stripe API 障害 / Price archive の瞬間に購入が 503 になる。env を落としてよいのは lookup_key 移行 Step 4（旧 Price archive、[phase6-context-decisions-6.md §4.1](billing-redesign/phase6-context-decisions-6.md)）に到達した時点
 - **`getPlans().priceId`（env var 直読）を line_item に使わない**: 直読すると `USE_LOOKUP_KEY` がどの経路にも効かず、price env を注入しない配備で購入が必ず失敗する。`tests/unit/architecture/stripe-price-resolution-single-entrypoint.test.ts` が呼び出し構造を固定する
 - **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
   - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
