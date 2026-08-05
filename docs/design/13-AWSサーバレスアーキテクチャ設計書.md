@@ -409,7 +409,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 - Origin Shield: 本番と同型に `/_app/*` の `demoStaticAssetOrigin` で有効 (region `us-east-1`、#3087)。default behavior origin は本番同様 shield なし
 - S3 静的アセット offload (#3087 解決策 B): 本番と同型に `/_app/immutable/*` を S3 (OAC) から配信 (`staticAssetsS3Offload=true` 時)。本番と demo は同一 Docker image (= 同一 build) の immutable アセットを配信するため `StaticAssetsBucket` を 1 つ共有し、distribution ごとに OAC を持つ
 - セキュリティヘッダ: 本番と同一 (`SECURITY_HEADERS` policy)
-- CloudFront Function: query slash encode のみ (admin IP 制限は demo に適用しない、anonymous public demo のため)
+- CloudFront Function: query slash encode のみ (本番も同一。IP allowlist は持たない、#4266)
 - geoRestriction: `JP` (本番と同一、Pre-PMF 段階)
 
 **Route 53:**
