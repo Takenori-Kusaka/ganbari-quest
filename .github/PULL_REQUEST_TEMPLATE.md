@@ -97,6 +97,6 @@ UI 変更を含まない PR は「**該当なし（理由）**」と明記。dis
 
 ## QM レビュー結果
 
-<!-- QM が記入。5 手順の approve body フォーマットは docs/sessions/qa-session.md 参照 -->
+<!-- QM が記入。5 手順の approve body フォーマットは docs/sessions/qm-session.md 参照 -->
 
-[QM 5 手順 approve body は `docs/sessions/qa-session.md` を参照](../docs/sessions/qa-session.md)
+[QM 5 手順 approve body は `docs/sessions/qm-session.md` を参照](../docs/sessions/qm-session.md)

@@ -1,6 +1,6 @@
-# QA fix パターン集 — merge 前に QA team が加えた頻出 fix
+# QM fix パターン集 — merge 前に QM team が加えた頻出 fix
 
-> PR が QA team によって merge される際、merge 前に QA team が加えた fix commit の頻出パターン集。同種指摘を後続 PR で繰り返さないための事前回避チェックリスト。
+> PR が QM team によって merge される際、merge 前に QM team が加えた fix commit の頻出パターン集。同種指摘を後続 PR で繰り返さないための事前回避チェックリスト。
 
 **SSOT 位置付け**: [dev-process/README.md](README.md) の各論。関連: [../../operations/self-review-agent.md](../../operations/self-review-agent.md)（§2.2 観点 5「過去 QA 指摘事前回避」の根拠リスト）
 
@@ -8,7 +8,7 @@
 
 ## merge 通知を受けたら必ず確認する
 
-PR merge 通知を受けたら、merge commit + その直前の fix commit を確認し、QA team がどんな指摘を出したかを学習する。
+PR merge 通知を受けたら、merge commit + その直前の fix commit を確認し、QM team がどんな指摘を出したかを学習する。
 
 ```bash
 gh pr view <num> --json commits --jq '.commits[] | "\(.oid[:8]) \(.messageHeadline)"'
@@ -16,11 +16,11 @@ gh pr view <num> --json commits --jq '.commits[] | "\(.oid[:8]) \(.messageHeadli
 gh api repos/Takenori-Kusaka/ganbari-quest/commits/<sha> --jq '.commit.message'
 ```
 
-「fix: #XXXX PR #YYYY BLOCK 解消 - ...」commit を read し、次の PR / docs に学びを反映する。これを怠ると想定外の変更が混入したり、QA team に何度も同じ指摘をもらう。
+「fix: #XXXX PR #YYYY BLOCK 解消 - ...」commit を read し、次の PR / docs に学びを反映する。これを怠ると想定外の変更が混入したり、QM team に何度も同じ指摘をもらう。
 
 ---
 
-## 頻出 QA fix カテゴリ
+## 頻出 QM fix カテゴリ
 
 ### ADR / docs 系
 

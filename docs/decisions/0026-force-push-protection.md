@@ -48,14 +48,14 @@ ADR-0006 と同様、**warn ではなく hard-fail** で運用する。skip す�
 
 ### 3. **PR Re-Review 時の前回 BLOCK 検出箇所機械チェック** (AC3)
 
-QM Re-Review Agent / QA セッションは、Re-Review 時に「前回 BLOCK Issue の AC 番号 → 当該ファイル / 行 / 設定値」のマッピングを参照し、当該箇所が変更されていないかを必ず検証する。
+QM Re-Review Agent / QM セッションは、Re-Review 時に「前回 BLOCK Issue の AC 番号 → 当該ファイル / 行 / 設定値」のマッピングを参照し、当該箇所が変更されていないかを必ず検証する。
 
 - 検証は `scripts/check-lp-innerhtml-tags.mjs` (静的) + `tests/e2e/lp-innerhtml-structure.spec.ts` (E2E) の 2 段で行う
 - Agent が「前回検出箇所が修正されている」と報告した場合でも、Re-Review 担当は本 ADR で定めたチェックを必ず実行する
 
-### 4. **dev-session.md / qa-session.md への注意事項追記** (AC5)
+### 4. **dev-session.md / qm-session.md への注意事項追記** (AC5)
 
-- **致命修正後の force push 禁止** を dev-session.md / qa-session.md に明記
+- **致命修正後の force push 禁止** を dev-session.md / qm-session.md に明記
 - やむを得ず force push が必要な場合（例: 機密情報を漏らした場合）は、PO に事前通知 + ADR-0006 と同様の手続きを踏む
 - `git push --force-with-lease` を必須化し、`git push --force` の使用は禁止（git config で `push.useForceIfIncludes = true` を推奨）
 
@@ -99,7 +99,7 @@ QM Re-Review Agent / QA セッションは、Re-Review 時に「前回 BLOCK Iss
 - [x] `package.json` `lint:lp-innerhtml-tags` script + `lint:parallel` chain への組み込み
 - [x] 本 ADR の起票
 - [ ] **GitHub Branch Ruleset 設定** — PR レビュー後に GitHub Settings → Rules → Rulesets で `require_last_push_approval: true` を有効化（PO 操作）
-- [ ] **dev-session.md / qa-session.md への明記** — 別 PR で `.claude/agents/dev-session.md` / `.claude/agents/qa-session.md` を更新（本 PR の scope は scripts + ADR のみ、Agent 文書化は #1750 の Done 基準 AC5 を別 follow-up Issue ではなく本 PR 内で完了するため次節で対応する）
+- [ ] **dev-session.md / qm-session.md への明記** — 別 PR で `.claude/agents/dev-session.md` / `.claude/agents/qm-session.md` を更新（本 PR の scope は scripts + ADR のみ、Agent 文書化は #1750 の Done 基準 AC5 を別 follow-up Issue ではなく本 PR 内で完了するため次節で対応する）
 
 ## ADR-0006 との関係
 

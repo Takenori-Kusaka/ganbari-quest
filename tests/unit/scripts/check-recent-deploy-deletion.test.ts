@@ -627,7 +627,7 @@ describe('AC-4 rename detection 仕様 (integration note)', () => {
 	// 仕様 comment として残し、実 git repo での E2E は CI / 開発者 self check に委ねる。
 	//
 	// 関連 commit: 本 script の getDeletedFiles 内 `cols[0] === 'D'` filter を参照。
-	// 関連 docs: docs/sessions/qa-session.md §Step 5 / 本 PR retrospective 参照。
+	// 関連 docs: docs/sessions/qm-session.md §Step 5 / 本 PR retrospective 参照。
 	it('rename detection は git diff -M で D 行のみ収集 (仕様 comment)', () => {
 		// no-op assertion: 仕様 documentation のみ
 		expect(true).toBe(true);

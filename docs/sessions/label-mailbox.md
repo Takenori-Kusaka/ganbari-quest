@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: PO / Dev / QM / 監査の各セッションが、**人間の中継なしに「次に自分が動くもの」を GitHub から拾う**ための仕組みの SSOT。label の語彙・意味・誰が付けるか・各ロールが何を polling するか・cron の作り方を定める。
 >
-> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
+> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
 
 ---
 

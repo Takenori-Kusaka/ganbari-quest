@@ -658,7 +658,7 @@ export function extractPoDecisionSection(body) {
  * `po-decision:required` label 付き PR に PO 決裁ブリーフが実体を伴って存在するかを検証する (#3962)。
  *
  * 発生経緯: PR #3944 / #3956 の 2 回連続で「label は付いているがブリーフが body にない」まま
- * Ready 化し、QA レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
+ * Ready 化し、QM レビューで merge gate 指摘を受けた。label 付与 (labeler.yml) は自動化済みだが、
  * 付与に対応する body 要件が人間の記憶に依存していたため同型が再発した。ADR-0061
  * same-class-N→guard に従い、instance 修正 (その PR にブリーフを足す) ではなく機械 gate 化する。
  *
@@ -667,7 +667,7 @@ export function extractPoDecisionSection(body) {
  *   2. 見出しはあるが mermaid ブロックがない (「一枚絵で判断できる」という様式要件を満たさない)
  *   3. 見出しはあるが template の未置換プレースホルダ `___` が残っている
  *
- * 検出しないもの: ブリーフの中身の妥当性 (判断層は QA / PO レビューの担当)。
+ * 検出しないもの: ブリーフの中身の妥当性 (判断層は QM / PO レビューの担当)。
  * ここで固定するのは「label と body の対応が取れていること」だけ。
  *
  * @param {string} body
