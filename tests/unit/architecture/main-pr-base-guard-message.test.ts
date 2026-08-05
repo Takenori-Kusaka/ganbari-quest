@@ -51,12 +51,20 @@ describe('#4273 main-pr-base-guard は「直し方」を出す', () => {
 		);
 	});
 
-	it('retarget コマンドをそのまま出す（close + 再作成を第一手にしない）', () => {
+	it('dependabot 分岐が retarget コマンドを出す（close + 再作成を第一手にしない）', () => {
+		// **分岐の中を見る。** body 全体で `gh pr edit` を探すと、後段 (head 不一致) の
+		// メッセージに引っかかって dependabot 側が空でも通ってしまう
+		// （実際 mutation で素通りし、この assert の絞り込みで初めて red になった）。
+		const start = body.indexOf('dependabot');
+		const branch = body.slice(start, body.indexOf('esac', start));
 		expect(
-			body,
-			'`gh pr edit <N> --base develop` が出ていない = 止めるだけで直し方を書かない guard',
+			branch,
+			'dependabot 分岐に `gh pr edit <N> --base develop` が無い = 止めるだけで直し方を書かない guard',
 		).toContain('gh pr edit');
-		expect(body, 'retarget 先が develop と書かれていない').toMatch(/--base\s+develop/);
+		expect(branch, 'retarget 先が develop と書かれていない').toMatch(/--base\s+develop/);
+		expect(branch, 'close して作り直す案内が第一手のまま残っている').not.toMatch(
+			/close し、同 version/,
+		);
 	});
 
 	it('head が develop / release/* / fix/* 以外のときも retarget を案内する', () => {
