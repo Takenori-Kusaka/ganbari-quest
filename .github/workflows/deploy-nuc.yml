@@ -112,7 +112,16 @@ jobs:
         # (エラーメッセージ内の '<' と、ANSI 読みで mojibake した日本語が parse error を起こした)。
         # 切り出した script は tests/unit/scripts/nuc-generate-env.test.ts が
         # ASCII のみ / '<' 不使用 / fail-closed / 実 pwsh 実行 まで CI で検証する。
-        run: powershell -NoProfile -File scripts/nuc/generate-env.ps1
+        #
+        # `$LASTEXITCODE` の伝搬は必須。GHA の powershell shell は子プロセスの exit code を
+        # 自動判定しないため、これが無いと **secret 欠落で script が exit 1 しても step は緑**になり、
+        # fail-closed が fail-open に退化する (#4119「deploy は成功、バックアップだけ静かに死ぬ」の再演)。
+        #
+        # run ブロック内には ASCII しか書かない (日本語は runner の encoding 次第で mojibake し
+        # parse error になる = #4275 の原因 2)。説明はこの YAML コメント側に書く。
+        run: |
+          powershell -NoProfile -File scripts/nuc/generate-env.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Step 2.5 (EPIC #3620 本番 cutover / #3702): SQLite → PGlite データ移行 (非破壊 import-then-swap)。
       # deploy-nuc-staging.yml の pglite lane を本番へ移植。旧 sqlite DB は削除せず保持し、
@@ -183,20 +192,26 @@ jobs:
       # 宛先は既存の障害通知チャネル (DISCORD_WEBHOOK_INCIDENT) に相乗りする。新規機構は作らない。
       # webhook 未設定でも deploy 結果は変えない (通知の不在で deploy 判定を歪めない)。
       - name: Notify NUC deploy failure (Discord)
-        if: failure()
+        # cancelled も拾う。後続 push による cancel でもリリースは NUC に届いていない。
+        # **skip (actor guard 不一致) / runner offline は本 step 自体が動かないため拾えない** — #4279 で追う。
+        if: ${{ failure() || cancelled() }}
         env:
           DISCORD_WEBHOOK_INCIDENT: ${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
+          # `${{ }}` を PowerShell 文字列へ直接展開しない (self-hosted 本番機上での式インジェクション面を作らない)。
+          NUC_DEPLOY_SHA: ${{ github.sha }}
+          NUC_DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if (-not $env:DISCORD_WEBHOOK_INCIDENT) {
             Write-Host "::warning::DISCORD_WEBHOOK_INCIDENT is not set - this failure reaches nobody (#4275 AC5)."
             exit 0
           }
-          $runUrl = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          $text = "NUC deploy FAILED. The release did not reach the NUC (AWS may still be green). sha=${{ github.sha }} run=$runUrl"
+          $text = "NUC deploy did not succeed. The release did not reach the NUC (AWS may still be green). sha=$env:NUC_DEPLOY_SHA run=$env:NUC_DEPLOY_RUN_URL"
           $payload = @{ content = $text } | ConvertTo-Json -Compress
-          try {
-            & curl.exe -s -X POST -H "Content-Type: application/json" -d $payload $env:DISCORD_WEBHOOK_INCIDENT | Out-Null
-            Write-Host "Sent NUC deploy failure notice to Discord (incident channel)."
-          } catch {
-            Write-Host "::warning::Failed to post NUC deploy failure notice: $_"
+          # curl.exe exits 0 even on HTTP 4xx/5xx, so read the status code instead of trusting the exit code.
+          # (Invoke-WebRequest is avoided for the same NETWORK SERVICE proxy reason as the Health check step.)
+          $status = & curl.exe -s -o NUL -w "%{http_code}" -X POST -H "Content-Type: application/json" -d $payload "$env:DISCORD_WEBHOOK_INCIDENT" 2>$null
+          if ($status -match '^2\d\d$') {
+            Write-Host "Sent NUC deploy failure notice to Discord (incident channel). status=$status"
+          } else {
+            Write-Host "::warning::Discord notice was not delivered (status=$status). This failure may reach nobody."
           }

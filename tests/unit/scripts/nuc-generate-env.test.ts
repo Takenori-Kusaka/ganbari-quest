@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 
 const SCRIPT_PATH = 'scripts/nuc/generate-env.ps1';
@@ -80,6 +81,42 @@ describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 		}
 		// 「警告だけ出して続行」に退化していないこと
 		expect(script.match(/exit 1/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+	});
+
+	it('workflow の全 run ブロックが ASCII のみ（mojibake で parse error にしない）', () => {
+		// #4275 の原因 2 は「日本語が ANSI 読みで mojibake し括弧の対応が壊れた」こと。
+		// **切り出した script だけを守っても、workflow 側に日本語を書けば同じことが起きる**
+		// （本 PR で追加した通知 step も含め、この workflow の run ブロック全体を対象にする）。
+		// YAML コメント（`#` 行、step の外）は PowerShell に渡らないため対象外。
+		const doc = load(workflow) as {
+			jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+		};
+		const offending: string[] = [];
+		for (const step of doc.jobs['deploy-nuc'].steps) {
+			if (typeof step.run !== 'string') continue;
+			const nonAscii = [...step.run].filter((ch) => ch.charCodeAt(0) > 0x7f);
+			if (nonAscii.length > 0) {
+				offending.push(`${step.name ?? '(no name)'}: ${nonAscii.length} 文字`);
+			}
+		}
+		expect(offending, 'run ブロック内の非 ASCII は runner の encoding 次第で parse error になる').toEqual(
+			[],
+		);
+	});
+
+	it('env 生成 step が子プロセスの exit code を step の失敗に伝搬する', () => {
+		// script が `exit 1` しても、GHA の powershell shell は `$LASTEXITCODE` を自動判定しない。
+		// 伝搬させないと **secret 欠落で step が緑になり fail-closed が fail-open に退化する**
+		// (#4119 の「deploy は成功、バックアップだけ静かに死ぬ」の再演)。
+		const doc = load(workflow) as {
+			jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+		};
+		const step = doc.jobs['deploy-nuc'].steps.find((s) => s.name?.includes('Generate .env'));
+		expect(step?.run, 'env 生成 step が見つからない').toBeTruthy();
+		expect(
+			step?.run,
+			'$LASTEXITCODE の伝搬が無い = script が exit 1 しても step が緑になる',
+		).toMatch(/\$LASTEXITCODE\s*-ne\s*0/);
 	});
 
 	it('workflow は inline PowerShell ではなく本 script を呼ぶ', () => {
