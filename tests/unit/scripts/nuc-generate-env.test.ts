@@ -1,4 +1,5 @@
 // tests/unit/scripts/nuc-generate-env.test.ts
+// cspell:ignore LASTEXITCODE — PowerShell の自動変数名 (綴りを変えると検査対象が別物になる)
 // #4275 — NUC deploy の .env 生成を、self-hosted runner なしで検証する。
 //
 // ## なぜこのテストが要るか
