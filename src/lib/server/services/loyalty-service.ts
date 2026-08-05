@@ -1,7 +1,7 @@
 // src/lib/server/services/loyalty-service.ts
 // サブスク継続特典・ロイヤルティシステム
 
-import { monthKeyJST } from '$lib/domain/date-utils';
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 
@@ -50,12 +50,22 @@ export function toJstMonthKeyValue(monthKey: string): string {
  *
  * 「配ってしまったものは取り返せない」ため、疑わしいときは配らない。
  * prefix 付きの値だけを厳密比較の対象にすれば、この曖昧さは新規保存分から消える。
+ *
+ * 曖昧なのは **当月リテラルと前月リテラルの 2 つ**である:
+ *
+ *   - 当月一致 (`2026-08` / `jst:2026-08`) — UTC 基準でも JST 基準でも今月を指す
+ *   - 前月一致 (`2026-07` / `jst:2026-08`) — 正当な前月加算かもしれないし、
+ *     JST 月初 0:00〜09:00 (UTC ではまだ前月) の加算が前月キーで保存された行かもしれない
+ *
+ * どちらも「今月加算済み」の可能性を否定できないので skip する。前々月以前は
+ * JST/UTC の 9 時間差では説明できないため曖昧でなく、加算してよい。
  */
 export function isSameJstMonth(stored: string | null | undefined, currentJstKey: string): boolean {
 	if (!stored) return false;
 	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) return stored === currentJstKey;
-	// 旧値 (基準不明)。当月と同じ月を指しているなら加算済みの可能性があるので skip する。
-	return `${JST_MONTH_KEY_PREFIX}${stored}` === currentJstKey;
+	// 旧値 (基準不明)。当月・前月のいずれかを指しているなら加算済みの可能性があるので skip する。
+	const currentMonthKey = currentJstKey.slice(JST_MONTH_KEY_PREFIX.length);
+	return stored === currentMonthKey || stored === shiftMonthKey(currentMonthKey, -1);
 }
 
 // ============================================================
