@@ -73,6 +73,15 @@ export const scheduleRegistry: CronJob[] = [
 			'グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, grace-period-service.ts)',
 	},
 	{
+		// #2399: 猶予期間中のテナントへ「データ削除予定日」を 1 度だけ予告する。
+		// 他の日次 cron が 09:00 / 09:30 に寄っているため 10:00 にずらし、30 秒予算の食い合いを避ける。
+		name: 'deletion-warning-emails',
+		endpoint: '/api/cron/deletion-warning-emails',
+		cronExpression: '0 10 * * *', // 毎日 10:00 JST
+		utcCronExpression: 'cron(0 1 * * ? *)', // 毎日 01:00 UTC = 10:00 JST
+		description: 'アカウント削除予告メール (#2399, deletion-warning-service.ts)',
+	},
+	{
 		name: 'pmf-survey',
 		endpoint: '/api/cron/pmf-survey',
 		// 6/1 と 12/1 の 09:00 JST のみ起動する (年 2 回)。

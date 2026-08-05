@@ -74,6 +74,7 @@ vi.mock('$lib/server/logger', () => ({
 import { logger } from '$lib/server/logger';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
+	DELETION_WARNING_SENT_KEY,
 	findExpiredSoftDeletedTenants,
 	getGracePeriodDays,
 	getGracePeriodStatus,
@@ -240,6 +241,21 @@ describe('grace-period-service', () => {
 			expect(result.success).toBe(true);
 			// settings がクリアされている
 			expect(mockSetSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-1');
+		});
+
+		// #2399: クリア漏れは「2 回目の予約が予告なしで消える」silent regression になる
+		it('復元時に削除予告メールの送信済フラグもクリアする', async () => {
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 10);
+
+			settingsStore.set('soft_deleted_at', new Date().toISOString());
+			settingsStore.set('deletion_grace_plan_tier', 'family');
+			settingsStore.set('physical_deletion_date', futureDate.toISOString());
+			settingsStore.set(DELETION_WARNING_SENT_KEY, new Date().toISOString());
+
+			await restoreSoftDeletedTenant('tenant-1');
+
+			expect(settingsStore.get(DELETION_WARNING_SENT_KEY)).toBe('');
 		});
 
 		it('ソフトデリートされていない場合は失敗する', async () => {

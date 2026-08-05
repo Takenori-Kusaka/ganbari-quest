@@ -309,6 +309,7 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 		'EventBridge Rule 固定名は ops 運用コマンド (`aws events list-rules --name-prefix ganbari-quest-cron`、infra/CLAUDE.md) の識別子契約',
 		[
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-age-recalc',
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-deletion-warning-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-export-build',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-grace-period-deletion',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-lifecycle-emails',

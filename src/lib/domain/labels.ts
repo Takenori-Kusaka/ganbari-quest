@@ -782,6 +782,34 @@ export const LIFECYCLE_EMAIL_LABELS = {
 } as const;
 
 // ============================================================
+// アカウント削除予告メール（#2399）
+// ============================================================
+
+// 猶予期間中のテナントに送る「このままだとデータが消えます」の予告文言 SSOT。
+//
+// トーン方針:
+//   - Anti-engagement (ADR-0012): 「今すぐ復元!」等の煽りを置かない。事実 (予定日 / 残日数) と
+//     取れる行動 (復元 / 何もしない) だけを並べる
+//   - 子供の名前・活動内容は載せない (runbook §2 中立トーン原則)。宛先は保護者であり、
+//     削除予告に子供の記録内容を差し込むのは引き止め目的の情報利用になる
+//   - 「配信停止しても届く」ことを本文で明示する。法務通知であり購読設定の対象外であるため
+export const DELETION_WARNING_EMAIL_LABELS = {
+	subject: (daysRemaining: number) => `データ削除予定日のお知らせ（あと ${daysRemaining} 日）`,
+	heading: 'データ削除予定日のお知らせ',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro: `お申し出いただいたアカウント${CANCEL_TERMS.account}の手続きについてお知らせします。`,
+	deletionDateLine: (deletionDate: string, daysRemaining: number) =>
+		`データの削除予定日: ${deletionDate}（あと ${daysRemaining} 日）`,
+	irreversibleNote: '削除予定日を過ぎるとデータは元に戻せません。',
+	restoreNote: (adminView: string) =>
+		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	ctaLabel: 'アカウント設定を開く',
+	transactionalNote:
+		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
+} as const;
+
+// ============================================================
 // PMF 判定アンケート（#1598 / ADR-0023 §3.6 §5 I7）
 // ============================================================
 

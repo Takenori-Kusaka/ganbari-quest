@@ -1,0 +1,430 @@
+// tests/unit/services/deletion-warning-service.test.ts
+// #2399: アカウント削除予告メールの送信判定。
+//
+// 守る不変条件:
+//   [W1] free (猶予 0 日) には 1 通も送らない — 予告を送る時間が原理的に存在しない
+//   [W2] しきい値は猶予日数より必ず小さい (family=14 / standard=1)。「14 日前固定」は standard で成立しない
+//   [W3] 境界 — 15 日では送らず、14 日で 1 通。同一テナントを 15/14/13 日で回しても合計 1 通
+//   [W4] idempotency — 同日 2 回連続実行でも 1 通 (`deletion_warning_sent_at`)
+//   [W5] 復元 → 再予約で再び予告が届く (クリア漏れは「2 回目は無音」の silent regression)
+//   [W6] cron 欠測の救済 — 一度も送っていないテナントはしきい値を過ぎていても届く
+//   [W7] マーケティング配信停止 (opt-out) 済でも届く — 法務通知を年 6 回枠 / 購読解除で握り潰さない
+//
+// 背景: 猶予期間の物理削除 cron が AWS 本番の EventBridge Rule に配線された (#4119 / PR #4311) ため、
+// 予告が無いまま実データが消える経路が生きている。
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ============================================================
+// Mocks
+// ============================================================
+
+vi.mock('$lib/server/logger', () => ({
+	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), critical: vi.fn() },
+}));
+
+/** settings KV (tenantId 込みの複合キーで保持する) */
+const settingsStore = new Map<string, string>();
+
+const mockGetSetting = vi.fn(async (key: string, tenantId: string) =>
+	settingsStore.get(`${tenantId}:${key}`),
+);
+const mockSetSetting = vi.fn(async (key: string, value: string, tenantId: string) => {
+	settingsStore.set(`${tenantId}:${key}`, value);
+});
+const mockGetSettings = vi.fn(async (keys: string[], tenantId: string) => {
+	const result: Record<string, string | undefined> = {};
+	for (const key of keys) result[key] = settingsStore.get(`${tenantId}:${key}`);
+	return result;
+});
+
+const mockListAllTenants = vi.fn();
+const mockFindTenantMembers = vi.fn();
+const mockFindUserById = vi.fn();
+
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		auth: {
+			listAllTenants: mockListAllTenants,
+			findTenantMembers: mockFindTenantMembers,
+			findUserById: mockFindUserById,
+		},
+		settings: {
+			getSetting: mockGetSetting,
+			setSetting: mockSetSetting,
+			getSettings: mockGetSettings,
+		},
+	}),
+}));
+
+const mockSendWarning = vi.fn(async (_params: unknown) => true);
+vi.mock('$lib/server/services/email-service', () => ({
+	sendDeletionWarningEmail: (params: unknown) => mockSendWarning(params),
+}));
+
+// restore の副作用 (sent_at クリア) を実物で検証するため grace-period-service は mock しない。
+// purge 経路 (dynamic import) には触れないが、import 解決のため spy を置く。
+vi.mock('$lib/server/services/account-deletion-service', () => ({
+	deleteOwnerOnlyAccount: vi.fn(),
+	deleteOwnerFullDelete: vi.fn(),
+}));
+
+import {
+	DELETION_WARNING_DAYS_BEFORE,
+	DELETION_WARNING_SENT_KEY,
+	runDeletionWarningEmails,
+} from '$lib/server/services/deletion-warning-service';
+import {
+	DELETION_GRACE_PERIOD_DAYS,
+	restoreSoftDeletedTenant,
+} from '$lib/server/services/grace-period-service';
+
+// ============================================================
+// Helpers
+// ============================================================
+
+const MS_PER_DAY = 86_400_000;
+/** 2026-04-01 10:00 JST (= 01:00 UTC)。cron の起動時刻に合わせる */
+const NOW = new Date('2026-04-01T01:00:00Z');
+
+/** now から JST 暦日で `days` 日後の物理削除予定時刻 (時刻は 22:00 JST = 端数ありの現実的な値) */
+function deletionDateInDays(days: number): string {
+	return new Date(NOW.getTime() + days * MS_PER_DAY - 4 * 3_600_000).toISOString();
+}
+
+/**
+ * soft delete 済テナントを settings KV に仕込む。
+ * softDeleteTenant() が書く 3 キーと同じ形にする。
+ */
+function seedSoftDeleted(
+	tenantId: string,
+	planTier: 'free' | 'standard' | 'family',
+	daysRemaining: number,
+) {
+	settingsStore.set(`${tenantId}:soft_deleted_at`, NOW.toISOString());
+	settingsStore.set(`${tenantId}:deletion_grace_plan_tier`, planTier);
+	settingsStore.set(`${tenantId}:physical_deletion_date`, deletionDateInDays(daysRemaining));
+}
+
+function setTenants(tenantIds: string[]) {
+	mockListAllTenants.mockResolvedValue(
+		tenantIds.map((tenantId) => ({
+			tenantId,
+			name: 'テスト家族',
+			ownerId: `owner-${tenantId}`,
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		})),
+	);
+}
+
+beforeEach(() => {
+	vi.clearAllMocks();
+	// grace-period-service の getGracePeriodStatus / restoreSoftDeletedTenant は内部で
+	// new Date() を見る (注入不可) ため、system time を NOW に固定して「猶予内」を成立させる。
+	vi.useFakeTimers({ shouldAdvanceTime: true });
+	vi.setSystemTime(NOW);
+	settingsStore.clear();
+	mockSendWarning.mockResolvedValue(true);
+	mockFindTenantMembers.mockImplementation(async (tenantId: string) => [
+		{ userId: `owner-${tenantId}`, role: 'owner' },
+	]);
+	mockFindUserById.mockImplementation(async (userId: string) => ({
+		userId,
+		email: `${userId}@example.com`,
+		displayName: '保護者',
+	}));
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+});
+
+// ============================================================
+// [W1] free には送らない
+// ============================================================
+
+describe('#2399 [W1] free プラン (猶予 0 日) には予告を送らない', () => {
+	it('free のしきい値は null (送信タイミングが存在しない)', () => {
+		expect(DELETION_GRACE_PERIOD_DAYS.free).toBe(0);
+		expect(DELETION_WARNING_DAYS_BEFORE.free).toBeNull();
+	});
+
+	it('soft delete 済の free テナントがいても 1 通も送らない', async () => {
+		setTenants(['t-free']);
+		// free は即時削除なので猶予は 0。念のため残日数がある状態でも送らないことを固定する
+		seedSoftDeleted('t-free', 'free', 14);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(mockSendWarning).not.toHaveBeenCalled();
+		expect(result.sent).toBe(0);
+		expect(result.skippedNoThreshold).toBe(1);
+	});
+});
+
+// ============================================================
+// [W2] プラン別しきい値
+// ============================================================
+
+describe('#2399 [W2] プラン別しきい値', () => {
+	it('しきい値は猶予日数より必ず小さい (「14 日前」は standard では成立しない)', () => {
+		for (const [tier, graceDays] of Object.entries(DELETION_GRACE_PERIOD_DAYS)) {
+			const threshold = DELETION_WARNING_DAYS_BEFORE[tier as 'free' | 'standard' | 'family'];
+			if (graceDays === 0) {
+				expect(threshold).toBeNull();
+				continue;
+			}
+			expect(threshold).not.toBeNull();
+			expect(threshold as number).toBeGreaterThanOrEqual(1);
+			expect(threshold as number).toBeLessThan(graceDays);
+		}
+	});
+
+	it('family は残り 14 日で送る', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+		expect(mockSendWarning.mock.calls[0]?.[0]).toMatchObject({
+			email: 'owner-t-family@example.com',
+			daysRemaining: 14,
+		});
+	});
+
+	it('standard は残り 1 日で送る (14 日前は猶予 7 日に収まらない)', async () => {
+		setTenants(['t-std']);
+		seedSoftDeleted('t-std', 'standard', 1);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(mockSendWarning.mock.calls[0]?.[0]).toMatchObject({
+			email: 'owner-t-std@example.com',
+			daysRemaining: 1,
+		});
+	});
+
+	it('standard は残り 3 日ではまだ送らない (しきい値未到達)', async () => {
+		setTenants(['t-std']);
+		seedSoftDeleted('t-std', 'standard', 3);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(0);
+		expect(result.skippedNotDue).toBe(1);
+	});
+});
+
+// ============================================================
+// [W3] 境界
+// ============================================================
+
+describe('#2399 [W3] 境界 (family 15 / 14 / 13 日)', () => {
+	it('残り 15 日では送らない', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 15);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(0);
+		expect(result.skippedNotDue).toBe(1);
+	});
+
+	it('同一テナントを 15 / 14 / 13 日で日次実行しても送信は 14 日の 1 通だけ', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 15);
+		const deletionAt = settingsStore.get('t-family:physical_deletion_date') as string;
+
+		// physical_deletion_date は固定のまま「今日」を 1 日ずつ進める (実運用の日次 cron と同じ)
+		const day15 = await runDeletionWarningEmails({ now: NOW });
+		const day14 = await runDeletionWarningEmails({ now: new Date(NOW.getTime() + MS_PER_DAY) });
+		const day13 = await runDeletionWarningEmails({
+			now: new Date(NOW.getTime() + 2 * MS_PER_DAY),
+		});
+
+		expect(settingsStore.get('t-family:physical_deletion_date')).toBe(deletionAt);
+		expect(day15.sent).toBe(0);
+		expect(day14.sent).toBe(1);
+		expect(day13.sent).toBe(0);
+		expect(day13.skippedAlreadySent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+	});
+});
+
+// ============================================================
+// [W4] idempotency
+// ============================================================
+
+describe('#2399 [W4] idempotency', () => {
+	it('同じ日に 2 回連続実行しても 2 通目は送らない', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+
+		const first = await runDeletionWarningEmails({ now: NOW });
+		const second = await runDeletionWarningEmails({ now: NOW });
+
+		expect(first.sent).toBe(1);
+		expect(second.sent).toBe(0);
+		expect(second.skippedAlreadySent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeTruthy();
+	});
+
+	it('dryRun では送信も sent_at 記録もしない (次回の実送信を先食いしない)', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+
+		const dry = await runDeletionWarningEmails({ now: NOW, dryRun: true });
+		expect(dry.dryRun).toBe(true);
+		expect(dry.sent).toBe(1);
+		expect(mockSendWarning).not.toHaveBeenCalled();
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeUndefined();
+
+		const real = await runDeletionWarningEmails({ now: NOW });
+		expect(real.sent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+	});
+
+	it('送信に失敗したら sent_at を書かない (次回実行で再試行できる)', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockSendWarning.mockResolvedValueOnce(false);
+
+		const failed = await runDeletionWarningEmails({ now: NOW });
+		expect(failed.sent).toBe(0);
+		expect(failed.errors).toBe(1);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeUndefined();
+
+		const retried = await runDeletionWarningEmails({ now: NOW });
+		expect(retried.sent).toBe(1);
+	});
+});
+
+// ============================================================
+// [W5] 復元 → 再予約で再送
+// ============================================================
+
+describe('#2399 [W5] 復元後に再予約したら再び予告が届く', () => {
+	it('restoreSoftDeletedTenant が deletion_warning_sent_at をクリアする', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+
+		// 1 回目の予約: 予告が届く
+		expect((await runDeletionWarningEmails({ now: NOW })).sent).toBe(1);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeTruthy();
+
+		// 顧客が復元 (猶予内なので成功する)
+		const restored = await restoreSoftDeletedTenant('t-family');
+		expect(restored.success).toBe(true);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeFalsy();
+
+		// 2 回目の予約: 再び 14 日前になったら届く
+		seedSoftDeleted('t-family', 'family', 14);
+		const second = await runDeletionWarningEmails({ now: NOW });
+		expect(second.sent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(2);
+	});
+});
+
+// ============================================================
+// [W6] cron 欠測の救済
+// ============================================================
+
+describe('#2399 [W6] cron が 1 日飛んでも無音にしない', () => {
+	it('一度も送っていないテナントはしきい値を過ぎていても届く', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 10);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(mockSendWarning.mock.calls[0]?.[0]).toMatchObject({ daysRemaining: 10 });
+	});
+
+	it('残り 0 日以下 (削除当日 / 期限切れ) には送らない', async () => {
+		setTenants(['t-a', 't-b']);
+		seedSoftDeleted('t-a', 'family', 0);
+		seedSoftDeleted('t-b', 'family', -3);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(0);
+		expect(mockSendWarning).not.toHaveBeenCalled();
+	});
+});
+
+// ============================================================
+// [W7] opt-out / 上限に握り潰されない
+// ============================================================
+
+describe('#2399 [W7] 法務通知は購読解除で止まらない', () => {
+	it('マーケティング配信停止済のテナントにも届く', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		settingsStore.set('t-family:marketing_unsubscribed_at', NOW.toISOString());
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+	});
+
+	it('年 6 回上限カウンタ (marketing_email_count_*) を消費しない', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+
+		await runDeletionWarningEmails({ now: NOW });
+
+		const counterKeys = [...settingsStore.keys()].filter((k) =>
+			k.includes('marketing_email_count'),
+		);
+		expect(counterKeys).toEqual([]);
+	});
+});
+
+// ============================================================
+// 走査対象外 / 異常系
+// ============================================================
+
+describe('#2399 走査対象外', () => {
+	it('soft delete されていないテナントは対象にならない', async () => {
+		setTenants(['t-active']);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.scanned).toBe(1);
+		expect(result.sent).toBe(0);
+		expect(result.skippedNotSoftDeleted).toBe(1);
+	});
+
+	it('owner の email が引けないテナントは skip して他に波及させない', async () => {
+		setTenants(['t-noowner', 't-family']);
+		seedSoftDeleted('t-noowner', 'family', 14);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockImplementation(async (tenantId: string) =>
+			tenantId === 't-noowner' ? [] : [{ userId: `owner-${tenantId}`, role: 'owner' }],
+		);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.skippedNoOwner).toBe(1);
+		expect(result.sent).toBe(1);
+	});
+
+	it('時間予算を使い切ったら残件を次回に持ち越し、件数を報告する (silent 持ち越し禁止)', async () => {
+		setTenants(['t-1', 't-2', 't-3']);
+		for (const id of ['t-1', 't-2', 't-3']) seedSoftDeleted(id, 'family', 14);
+
+		const result = await runDeletionWarningEmails({
+			now: NOW,
+			budget: { exceeded: () => true, elapsedMs: () => 0 },
+		});
+
+		expect(result.sent).toBe(0);
+		expect(result.tenantsRemaining).toBe(3);
+	});
+});
