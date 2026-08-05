@@ -402,11 +402,11 @@ describe('#2399 走査対象外', () => {
 	});
 
 	it('owner の email が引けないテナントは skip して他に波及させない', async () => {
-		setTenants(['t-noowner', 't-family']);
-		seedSoftDeleted('t-noowner', 'family', 14);
+		setTenants(['t-owner-missing', 't-family']);
+		seedSoftDeleted('t-owner-missing', 'family', 14);
 		seedSoftDeleted('t-family', 'family', 14);
 		mockFindTenantMembers.mockImplementation(async (tenantId: string) =>
-			tenantId === 't-noowner' ? [] : [{ userId: `owner-${tenantId}`, role: 'owner' }],
+			tenantId === 't-owner-missing' ? [] : [{ userId: `owner-${tenantId}`, role: 'owner' }],
 		);
 
 		const result = await runDeletionWarningEmails({ now: NOW });
