@@ -92,7 +92,7 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 
 | agent | `model:` | 根拠 |
 |---|---|---|
-| `po-session` / `qa-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
+| `po-session` / `qm-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
 | `audit-manager` | 未指定（= Opus） | 統合 PR の approve / merge 判定と Issue 起票という**不可逆 side-effect** を専権で持つ（`docs/sessions/audit-team.md`）。判断を誤ったときの巻き戻しが高い |
 | `dev-session` | 未指定（= Opus） | 「CI / pre-hook を自己解決できる能力が Sonnet に無い」— **ただしこの結論は Sonnet 4.5 時点のもので、以後再検証していない**（下記） |
 

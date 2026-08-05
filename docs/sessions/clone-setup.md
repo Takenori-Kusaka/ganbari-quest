@@ -89,7 +89,7 @@ done
 |---|---|---|---|---|
 | **PO** | `ganbari-quest-po` | [po-session.md](po-session.md) | `37 * * * *` | `state:needs-po` |
 | **Dev** | `ganbari-quest-dev` | [dev-session.md](dev-session.md) | `13 * * * *` | `state:needs-dev` / `state:qm-blocked` |
-| **QM** | `ganbari-quest-qa` | [qa-session.md](qa-session.md) | `23 * * * *` | `state:dev-done` / `state:ready-to-merge` |
+| **QM** | `ganbari-quest-qa` | [qm-session.md](qm-session.md) | `23 * * * *` | `state:dev-done` / `state:ready-to-merge` |
 | **監査** | `ganbari-quest-audit` | [audit-team.md](audit-team.md) | `47 * * * *` | `state:needs-audit` |
 | **Platform** | `ganbari-quest-platform` | [platform-session.md](platform-session.md) | `43 * * * *` | `state:needs-platform` |
 
@@ -102,7 +102,7 @@ done
 | 操作 | アカウント |
 |---|---|
 | PR 作成 | **`Takenori-Kusaka`**（`check-gh-account-before-pr.mjs` が exit 1 で止める） |
-| QA approve / merge | **`ganbariquestsupport-lab`** |
+| QM approve / merge | **`ganbariquestsupport-lab`** |
 
 **作成者 ≠ 承認者**を保つため。クローンを跨いで同じアカウントで両方やらない。
 
