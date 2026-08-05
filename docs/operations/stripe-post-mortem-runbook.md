@@ -28,7 +28,8 @@ Phase 7 PR-3b cutover (`USE_LOOKUP_KEY=true` 切替) 後の障害対応 MTTR (Me
 |---|---|---|---|---|
 | `stripe-lookup-failed` | `getPriceByLookupKey()` で Stripe API 障害 / Price 未発行 | warning (fallback 成功) / error (致命) | `tags.fallbackUsed=true` で env var fallback 成功 = 継続 / `false` で停止 | `USE_LOOKUP_KEY=false` で env var 直読に戻す (Lambda env update、約 30 秒で反映) |
 | `stripe-webhook-unknown-type` | webhook handler が未知の event type を受信 | warning | 該当 event のみ skip、他 event は継続 | (なし、新 event type のため別途対応) |
-| `stripe-webhook-handler-typeerror` | webhook handler 内の typeerror (typo / data shape mismatch) | error | 該当 event 処理失敗、Stripe 側 retry 対象 | `STRIPE_WEBHOOK_SHADOW_MODE=true` で旧 handler に戻す (Lambda env update) |
+| `stripe-webhook-handler-typeerror` | webhook handler 内の typeerror (typo / data shape mismatch) | error | 該当 event 処理失敗、台帳に残さず 500 を返すため Stripe が再送する | (なし) 受信口の kill switch は持たない (#4128)。**再送で復旧する 3 日以内にコードを直す**のが唯一の対処 |
+| `stripe-webhook-ledger-gap` (#4128) | Stripe が配信成功 (`pending_webhooks=0`) として扱っているのに `stripe_webhook_events` に記録が無い | error | **受け取った event を処理していない** = 課金状態が反映されない | (なし) §3.2 参照 |
 
 ---
 
@@ -90,16 +91,26 @@ aws lambda get-function-configuration \
 
 **注意**: Lambda env update は **既存 env を全置換** する API のため、必ず既存 env を取得してから `USE_LOOKUP_KEY=false` だけ書き換えた set を投入する。間違って他 env を消すと別 incident になる。
 
-### 3.2 `STRIPE_WEBHOOK_SHADOW_MODE=true` 切替 (新 handler → 旧 handler 巻き戻し)
+### 3.2 `stripe-webhook-ledger-gap` (受信口が event を捨てている) — kill switch は無い (#4128)
+
+**この alert は「受信口が壊れている」ことを意味する。env を戻して直す種類の障害ではない。**
+webhook shadow mode の kill switch (`STRIPE_WEBHOOK_SHADOW_MODE`) は #4128 で撤去した — 受信口を止める switch は
+「課金 event を捨てる switch」でしかなく、押した瞬間に本 alert が指す状態そのものを作るため。
+
+手順:
+
+1. **Stripe Dashboard で destination の URL を確認する。** `https://ganbari-quest.com/api/stripe/webhook` 以外を向いていたら戻す
+   (受信口はこの 1 本のみ。`tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が実装側を固定している)
+2. 落ちた event を特定する。alert の `tags.sampleEventId` を起点に、CloudWatch Logs Insights で `[STRIPE]` を検索し
+   dispatch されているかを見る
+3. **Stripe Dashboard から該当 event を Resend する。** 台帳に無い = dedup されないので、再送すれば正規経路で処理される
+   (`stripe events resend <event_id>` でも可)
+4. 反映を `/ops` の「プラン判定できていない契約」と `/admin/subscription` の表示で確認する
 
 ```bash
-aws lambda update-function-configuration \
-  --function-name ganbari-quest-app \
-  --environment "Variables={STRIPE_WEBHOOK_SHADOW_MODE=true, ...既存 env...}" \
-  --region us-east-1
+# 台帳に無いことの確認 (DSQL)
+# SELECT event_id, handler_result, processed_at FROM stripe_webhook_events WHERE event_id = 'evt_...';
 ```
-
-shadow mode 切替後は新 handler は DB write せず log のみ、旧 handler が DB write 継続する (`docs/design/billing-redesign/phase6-rollback-and-kill-switches.md` §5.1 整合)。
 
 ---
 

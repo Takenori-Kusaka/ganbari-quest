@@ -3,8 +3,10 @@ name: Deploy to AWS (Staging)
 # AWS staging 3 stack (#2873 / EPIC #2861 D 系) — 本番 deploy 経路の貫通検証レーン。
 #
 # 設計の核 (prod template 不変条件 / handoff spec 厳守):
-#   - staging = GanbariQuestStorageStaging / GanbariQuestAuthStaging / GanbariQuestComputeStaging
-#     の 3 stack のみ (Network / Ses / Ops 省略、Function URL 直アクセスで検証)。
+#   - staging = Storage / Auth / Compute / Network の 4 stack (Ses / Ops は省略)。
+#     Network (CloudFront) は #4204 で追加 — SvelteKit の名前付き form action (?/action) は
+#     Lambda Function URL がクエリのスラッシュを拒否するため、CloudFront Function
+#     <prefix>-query-slash-encode を通さないと staging でログインもサインアップもできない。
 #   - 同一アカウント・同一リージョン (us-east-1) + 物理名 prefix `ganbari-quest-staging` 分離。
 #   - CDK は `-c stagingEnabled=true` の context gate でのみ staging stack を instantiate する。
 #     本番 deploy.yml の `cdk deploy --all` / `cdk diff --all` (context 無し) は挙動不変。
@@ -20,6 +22,10 @@ name: Deploy to AWS (Staging)
 #       (2) ComputeStack が synth 時に allowlist (`sk_test_` / `rk_test_` 以外) を addError で停止
 #     webhook signing secret は test / live とも `whsec_` で **prefix から判別できない**。ここは守れない
 #     範囲として明示する (live 側の実行権限は secret key が握るため secret key の allowlist が防御線)。
+#   - **「Discord secret を渡さない」は staging Lambda の話であって、本 workflow 自身の話ではない**
+#     (#4204)。防ぎたいのは「staging のアプリが動いた副作用が実チャネルを汚す」ことであり、
+#     **CI が人間に出す運用アラート**はそれに当たらない。post-deploy の
+#     `Staging PII guard` は Discord へ通知するが、staging Lambda の env には一切注入しない。
 #
 # 責務分界 (docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3):
 #   - 本 workflow の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
@@ -47,18 +53,14 @@ name: Deploy to AWS (Staging)
 on:
   pull_request:
     branches: [main]
+  # #4224: dsqlEnabled input を撤去した。**選べる値が 1 つしかない選択肢は選択肢ではない。**
+  # #3438 で DSQL が唯一の DB backend になり ComputeStack が dsqlEndpoint を無条件必須に
+  # した一方、この input の default は false のままだった。既定値のまま手動実行すると
+  # DSQL cluster を作る step が skip され、context が空のまま synth に入って**必ず落ちる**
+  # (2026-08-02 run 30733193167)。pull_request 経由なら常時 on なので通り、
+  # **手動実行だけが落ちる**ため気づけなかった。default を true にするだけでは
+  # 「false にすると必ず落ちる」不正状態が表現可能なまま残るので、入口ごと消す。
   workflow_dispatch:
-    inputs:
-      # EPIC #3424 M5 DoD4 / #3685: DSQL staging lane。true で DsqlStaging cluster deploy →
-      # schema provisioning (dsql:migrate) → staging Lambda を DATA_SOURCE=dsql で起動し、
-      # post-deploy health を DSQL backend で検証する (audit-team.md §3.7#5 の新 backend 適用)。
-      # #3685: 本番 cutover 完遂 (prod=dsql) 後、統合 PR (pull_request) でも DSQL lane を **常時**
-      # 自動実行し「本番構成 = staging 構成」を恒常一致させる (下の DSQL_LANE 参照)。dispatch の
-      # 本 input は develop HEAD を任意 backend で回す手動検証用に残す。
-      dsqlEnabled:
-        description: 'DSQL backend で staging を deploy (EPIC #3424 M5 PDCA、手動検証用)'
-        type: boolean
-        default: false
 
 permissions:
   id-token: write
@@ -75,11 +77,21 @@ env:
   APP_MAJOR_VERSION: "1"
   # staging 3 stack の明示列挙 (--all 禁止)。deploy 順は Storage → Auth → Compute 固定
   # (Auth が SSM cognito param を書き、Compute が deploy-time に解決するため順序依存)。
-  STAGING_STACKS: GanbariQuestStorageStaging GanbariQuestAuthStaging GanbariQuestComputeStaging
-  # DSQL lane 判定 (DoD4 / #3685)。本番 cutover 完遂 (prod=dsql) につき、統合 PR (pull_request) では
-  # **常時 dsql lane** を回して「本番構成 = staging 構成」を恒常一致させる。dispatch は手動 opt-in
-  # (dsqlEnabled=true) のときのみ。advisory (本 workflow は required check 未登録、infra/CLAUDE.md)。
-  DSQL_LANE: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.dsqlEnabled == true)) && 'true' || 'false' }}
+  # #4204: NetworkStaging (CloudFront) を追加。SvelteKit の名前付き form action (?/action) は
+  # Lambda Function URL がクエリのスラッシュを拒否するため、CloudFront Function
+  # <prefix>-query-slash-encode を通さないと staging でログインすらできない。
+  # 依存順に列挙する (Compute の functionUrl を Network が参照する)。
+  # #4204: staging に登録してよいメールアドレスのドメイン allowlist (**本 env が SSOT**)。
+  #
+  # staging の CloudFront は geoRestriction 無し = **全世界公開**。実在のメールアドレスを
+  # Cognito に登録した時点で「PII を持つ全世界公開環境」が成立する。運用ルール
+  # (使い捨てメールだけを使う) は人の注意力に依存するため、**守られなかったことに気づける**
+  # ようにする (PO 決裁 2026-08-02)。
+  #
+  # **「使い捨てっぽい」の推測判定はしない。** ここに書いたドメインだけを許可する。
+  # 追加したいときは本 env を編集する (docs/runbooks/staging-live-verification.md は本 env を参照する)。
+  STAGING_ALLOWED_EMAIL_DOMAINS: mailinator.com example.invalid example.com
+  STAGING_STACKS: GanbariQuestStorageStaging GanbariQuestAuthStaging GanbariQuestComputeStaging GanbariQuestNetworkStaging
 
 jobs:
   deploy-aws-staging:
@@ -89,15 +101,22 @@ jobs:
     # 想定外 actor による staging stack への任意 deploy を防ぐ。
     if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)
     steps:
-      # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = develop HEAD。
+      # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = 選んだ ref。
+      #
+      # #4204: dispatch は `develop` 固定だった。**UI / CLI で branch を選んでも無視され、
+      # 常に develop の中身が deploy される**ため、branch の infra 変更を merge 前に検証できない
+      # (本 Issue の実装を dispatch したところ workflow file だけが branch から読まれ、
+      # `infra/bin/app.ts` は develop のままで「No stacks match GanbariQuestNetworkStaging」で落ちた)。
+      # GitHub は workflow file を dispatch した ref から読むため、**checkout も同じ ref に揃える**のが
+      # 一貫する。actor guard (job の if) で実行者は 2 account に限定済み。
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'develop' || github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.pull_request.head.sha }}
 
       # Step 2: Node 22
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       # Step 3: Validate required secrets (ADR-0024 — silent skip 禁止)。
@@ -243,7 +262,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Step 10: ADR-0019 gate (staging 3 stack)
-      # Step 10.5 (EPIC #3424 M5 DoD4、DSQL lane のみ): DSQL staging cluster を deploy し、
+      # Step 10.5 (EPIC #3424 M5 DoD4): DSQL staging cluster を deploy し、
       # outputs (endpoint/ARN) を解決 → schema provisioning (dsql:migrate) を実行する。
       # DP=false (staging は捨てて作り直す前提)。cluster は scale-to-zero + 無料枠内 (¥0 圏)。
       # bin/app.ts は本番 stack 群を無条件 instantiate するため、DsqlStaging のみの deploy でも
@@ -251,8 +270,7 @@ jobs:
       # 旧 #3702 の cutover 前 DynamoDB backup rehearsal step は、cutover 完遂 + DynamoDB
       # 撤去 (#3438 Deploy-2) で対象 table が消滅し obsolete 化したため撤去 (#3921。
       # TableNotFound で lane が赤化した第17回リリース blocker の根治)。
-      - name: Deploy DSQL staging cluster (dsql lane)
-        if: env.DSQL_LANE == 'true'
+      - name: Deploy DSQL staging cluster
         working-directory: infra/
         run: |
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
@@ -260,8 +278,7 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
 
-      - name: Resolve DSQL staging outputs (dsql lane)
-        if: env.DSQL_LANE == 'true'
+      - name: Resolve DSQL staging outputs
         run: |
           ENDPOINT=$(aws cloudformation describe-stacks --stack-name GanbariQuestDsqlStaging \
             --region $AWS_REGION \
@@ -279,8 +296,7 @@ jobs:
 
       # schema provisioning (#3638 CLI)。OIDC role に dsql:DbConnectAdmin が必要 —
       # 権限不足で fail した場合はこの step のログが PDCA cycle の学びになる (silent skip しない)。
-      - name: Provision DSQL schema (dsql lane)
-        if: env.DSQL_LANE == 'true'
+      - name: Provision DSQL schema
         env:
           DSQL_ENDPOINT: ${{ env.DSQL_ENDPOINT }}
         run: npm run dsql:migrate
@@ -290,10 +306,9 @@ jobs:
         run: |
           # 統合 PR merge commit は 100KB 超になり得る (env 上限 128KB 超過対策、deploy.yml と同型)。
           COMMIT_MSG=$(git log -1 --pretty=%B | head -c 65536)
-          DSQL_CTX=""
-          if [ "$DSQL_LANE" = "true" ]; then
-            DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
-          fi
+          # #4224: DSQL は唯一の backend なので常に渡す (条件付きにすると ComputeStack の
+          # 無条件必須と再びズレる)。
+          DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
           npx cdk diff $STAGING_STACKS \
             -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
@@ -305,15 +320,14 @@ jobs:
       # Step 11: staging 3 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
       # Auth → Compute の順序は SSM param (cognito/*) の deploy-time 解決に必要なため、
       # 1 stack ずつ直列に deploy する (Auth/Compute 間に CFN 依存辺は意図的に無い)。
-      # DSQL lane では compute-stack の flag-gated 配線 (#3637) に endpoint/ARN を渡し、
+      # compute-stack の flag-gated 配線 (#3637) に endpoint/ARN を渡し、
       # staging Lambda を DATA_SOURCE=dsql で起動する。
       - name: CDK Deploy staging stacks (explicit enumeration)
         working-directory: infra/
         run: |
-          DSQL_CTX=""
-          if [ "$DSQL_LANE" = "true" ]; then
-            DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
-          fi
+          # #4224: DSQL は唯一の backend なので常に渡す (条件付きにすると ComputeStack の
+          # 無条件必須と再びズレる)。
+          DSQL_CTX="-c dsqlEnabled=true -c dsqlEndpoint=$DSQL_ENDPOINT -c dsqlClusterArn=$DSQL_CLUSTER_ARN"
           for stack in $STAGING_STACKS; do
             echo "=== cdk deploy $stack ==="
             npx cdk deploy "$stack" --require-approval never \
@@ -324,13 +338,12 @@ jobs:
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done
 
-      # Step 11.5 (#3646、DSQL lane のみ): アプリ実行 role (app_user) の provisioning。
+      # Step 11.5 (#3646): アプリ実行 role (app_user) の provisioning。
       # Lambda 実行 role は dsql:DbConnect のみ持ち (M3 §3.4 B6 最小権限)、DSQL の認可仕様では
       # DbConnect は custom database role 専用のため、CREATE ROLE + AWS IAM GRANT (Lambda role
       # ARN 紐付け) + 表 GRANT (UPDATE 除外表は SELECT/INSERT/DELETE のみ) を冪等適用する。
       # compute deploy 後 = Lambda 実行 role ARN 確定後、health check 前に置く。
-      - name: Grant DSQL app role to Lambda (dsql lane)
-        if: env.DSQL_LANE == 'true'
+      - name: Grant DSQL app role to Lambda
         run: |
           LAMBDA_ROLE_ARN=$(aws lambda get-function-configuration \
             --function-name $LAMBDA_FUNCTION \
@@ -357,16 +370,32 @@ jobs:
       # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL の解決 (縮退可)。
       # Function URL は synth 時未確定 (自己参照) のため CDK は placeholder を注入している。
       # get-function-url-config で実 URL を取得し、jq read-modify-write で env を merge 更新する。
-      # health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも続行する
-      # (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断。
-      - name: Resolve ORIGIN from Function URL (best-effort)
-        continue-on-error: true
+      # #4204: **その「再判断する時点」が来た**ので `continue-on-error` を外して必須化する。
+      #
+      # 旧コメント: 「health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも
+      # 続行する (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断」
+      #
+      # Step 15 に form action の POST smoke を足した以上、**ORIGIN が解決されていないと
+      # SvelteKit の CSRF origin check で 403 になり、smoke の判定が意味を持たなくなる**。
+      # 本 step が黙って失敗したまま smoke が「403 = 認証失敗、想定内」と誤読する経路を塞ぐ
+      # (ADR-0024 ENV silent skip 禁止)。**「再判断する」と書いたまま再判断しないと、コメントが飾りになる。**
+      - name: Resolve ORIGIN from CloudFront
         run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config \
-            --function-name $LAMBDA_FUNCTION \
+          # #4204: ORIGIN は **CloudFront の URL**。Function URL ではない。
+          # form action は CloudFront Function の query-slash-encode を通らないと届かないため、
+          # 顧客が実際に使う入口 = CloudFront に合わせる。ORIGIN が入口とズレていると
+          # SvelteKit の CSRF origin check が POST を 403 で弾く。
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name GanbariQuestNetworkStaging \
             --region $AWS_REGION \
-            --query 'FunctionUrl' --output text)
-          ORIGIN="${FUNCTION_URL%/}"
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text)
+          if [ -z "$CF_DOMAIN" ] || [ "$CF_DOMAIN" = "None" ]; then
+            echo "::error::CloudFront domain を解決できませんでした (GanbariQuestNetworkStaging の DistributionDomainName)"
+            exit 1
+          fi
+          echo "STAGING_BASE=https://$CF_DOMAIN" >> $GITHUB_ENV
+          ORIGIN="https://$CF_DOMAIN"
           echo "Resolved staging ORIGIN: $ORIGIN"
           ENV_JSON=$(aws lambda get-function-configuration \
             --function-name $LAMBDA_FUNCTION \
@@ -408,42 +437,143 @@ jobs:
           echo "::error::staging health check failed after 5 attempts (last status: $STATUS)"
           exit 1
 
-      # Step 15: Smoke test — / と /switch の到達 (200/302) を確認
-      # (deploy-nuc-staging.yml Step 7 と同判定基準)。
+      # Step 15: Smoke test — CloudFront 経由で / と /switch の到達 + form action の到達を確認。
+      #
+      # #4204 で **入口を Function URL から CloudFront に変えた**。顧客が実際に使う入口が
+      # CloudFront であり、Function URL 直では form action が原理的に通らないため。
       - name: Smoke test (staging)
         run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config \
-            --function-name $LAMBDA_FUNCTION \
-            --region $AWS_REGION \
-            --query 'FunctionUrl' --output text)
-          BASE="${FUNCTION_URL%/}"
-          ROOT=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
+          BASE="$STAGING_BASE"
+          echo "staging base: $BASE"
+
+          # CloudFront は初回 deploy 直後に伝播待ちがある。GET が通るまで待ってから本題に入る。
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            ROOT=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
+            if [ "$ROOT" = "200" ] || [ "$ROOT" = "302" ]; then break; fi
+            echo "GET / -> $ROOT (attempt $i/10, retrying in 15s)"
+            sleep 15
+          done
           echo "GET / -> $ROOT"
           if [ "$ROOT" != "200" ] && [ "$ROOT" != "302" ]; then
             echo "::error::Smoke test failed: GET / returned $ROOT (expected 200 or 302)"
             exit 1
           fi
+
           SWITCH=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/switch")
           echo "GET /switch -> $SWITCH"
           if [ "$SWITCH" != "200" ] && [ "$SWITCH" != "302" ]; then
             echo "::error::Smoke test failed: GET /switch returned $SWITCH (expected 200 or 302)"
             exit 1
           fi
-          echo "::notice::staging smoke test passed (/ and /switch reachable)"
 
-      # Step 15.5 (#3683、DSQL lane のみ): 実 DSQL staging cluster での並行検証 test を lane 内で自動実行。
+          # #4204: **GET だけの smoke では「フォームが 1 つも送信できない」を検出できない**。
+          #
+          # SvelteKit の名前付き form action は `?/action-name` を使うが、**Lambda Function URL は
+          # クエリ文字列のスラッシュを拒否する**。CloudFront Function `<prefix>-query-slash-encode`
+          # が `?/x` → `?%2Fx` に書き換えて初めてアプリまで届く。
+          #
+          # 実害は sign-up だけではない。`/auth/login` にも `/auth/signup` にも default action が無く
+          # 名前付き action しか持たないため、これが無いと **staging ではログインすらできない**
+          # (= 認証後の画面に到達する手段がゼロ。#4117 の staging 実機検証が始められない)。
+          #
+          # **status code では判定しない。** ログイン失敗は SvelteKit の `fail(400)` / `fail(401)` で
+          # 返るため (src/routes/auth/login/+page.server.ts)、400 は「経路が死んでいる」とも
+          # 「認証情報が違う」とも読めてしまい、判定が意味を持たない。
+          #
+          # 判定は **誰がその応答を作ったか**で行う: `hooks.server.ts` が全レスポンスに付ける
+          # `X-Frame-Options: DENY` があれば「アプリまで届いた」。Lambda Function URL 自身の
+          # 拒否応答にはこのヘッダが無い。
+          #
+          # Origin ヘッダを付けるのは SvelteKit の CSRF origin check を通すため。付けないと
+          # 403 で弾かれ、これも「届いたのに弾かれた」のか「届いていない」のか区別できない。
+          # 認証情報は本物を送らない — 届くかどうかだけを見る。
+          FORM_STATUS=$(curl -s -o /tmp/form-body.txt -D /tmp/form-headers.txt             -w "%{http_code}" -X POST             -H "Content-Type: application/x-www-form-urlencoded"             -H "Origin: $BASE"             --data "email=smoke@example.invalid&password=smoke"             "$BASE/auth/login?/login")
+          echo "POST /auth/login?/login -> $FORM_STATUS"
+          echo "--- response headers ---"
+          cat /tmp/form-headers.txt
+
+          if ! grep -qi '^x-frame-options:' /tmp/form-headers.txt; then
+            echo "::error::Smoke test failed: POST /auth/login?/login (status $FORM_STATUS) の応答がアプリ由来ではありません。SvelteKit の名前付き form action が Function URL に拒否されている可能性が高い (#4204)。staging ではログインもサインアップもできません"
+            exit 1
+          fi
+
+          echo "::notice::staging smoke test passed (/ と /switch が到達、form action がアプリまで到達 status=$FORM_STATUS)"
+
+      # #4204: staging に実在のメールアドレスが登録されていないかを見張る。
+      #
+      # staging の CloudFront は geoRestriction 無し = **全世界公開**。実在アドレスを Cognito に
+      # 登録した時点で「PII を持つ全世界公開環境」が成立する。運用ルール (使い捨てメールだけ)
+      # は人の注意力に依存するため、**守られなかったことに気づける**ようにする (PO 決裁)。
+      #
+      # **deploy は止めない。** 既に登録されているものは既に登録されているので、止めても
+      # 手遅れであり止める意味がない。**気づけること**が目的。
+      #
+      # 判定は allowlist (env STAGING_ALLOWED_EMAIL_DOMAINS) のみ。**「使い捨てっぽい」の推測は
+      # しない** — 推測判定は「知らないドメインを勝手に許す」形で必ず穴になる。
+      #
+      # 出力にメールアドレス本体を出さない (CI ログは repo 参照者が読める)。ドメインと件数だけ出す。
+      #
+      # `continue-on-error` を付けているのは **PO 決裁で advisory と決めたから**であり、
+      # ADR-0024 の「ENV silent skip 禁止」に反する省略ではない。本 step の run は全経路で
+      # exit 0 するため、これが効くのは aws CLI 自体が想定外に失敗したときだけ
+      # (その場合も warning は GitHub Actions のログに残る)。
+      - name: Staging PII guard (registered email domains)
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_INCIDENT: ${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
+        run: |
+          POOL_ID=$(aws cloudformation describe-stacks             --stack-name GanbariQuestAuthStaging --region $AWS_REGION             --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+          if [ -z "$POOL_ID" ] || [ "$POOL_ID" = "None" ]; then
+            echo "::warning::staging user pool を解決できませんでした (PII guard は判定できていません)"
+            exit 0
+          fi
+
+          EMAILS=$(aws cognito-idp list-users --user-pool-id "$POOL_ID" --region $AWS_REGION \
+            --query "Users[].Attributes[?Name=='email'].Value" --output text | xargs -n1 || true)
+          TOTAL=$(echo "$EMAILS" | sed '/^$/d' | wc -l)
+          echo "registered users: $TOTAL"
+
+          VIOLATIONS=""
+          for e in $EMAILS; do
+            DOMAIN="${e##*@}"
+            OK=0
+            for allowed in $STAGING_ALLOWED_EMAIL_DOMAINS; do
+              if [ "$DOMAIN" = "$allowed" ]; then OK=1; break; fi
+            done
+            if [ "$OK" -eq 0 ]; then
+              VIOLATIONS="$VIOLATIONS $DOMAIN"
+            fi
+          done
+
+          if [ -z "$VIOLATIONS" ]; then
+            echo "::notice::staging PII guard OK (allowlist 外のドメイン 0 件 / 登録 $TOTAL 件)"
+            exit 0
+          fi
+
+          UNIQ=$(echo "$VIOLATIONS" | xargs -n1 | sort -u | xargs)
+          echo "::warning::staging に allowlist 外のメールドメインが登録されています: $UNIQ (#4204)"
+
+          if [ -z "$DISCORD_WEBHOOK_INCIDENT" ]; then
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT 未設定のため通知できませんでした (warning のみ)"
+            exit 0
+          fi
+          MSG="⚠️ staging に allowlist 外のメールドメインが登録されています: ${UNIQ}\nstaging の CloudFront は全世界公開です (#4204)。実在アドレスなら削除を検討してください。\n許可ドメインの SSOT: .github/workflows/deploy-aws-staging.yml の STAGING_ALLOWED_EMAIL_DOMAINS"
+          curl -s -X POST -H "Content-Type: application/json"             -d "{\"content\": \"${MSG}\"}" "$DISCORD_WEBHOOK_INCIDENT" > /dev/null ||             echo "::warning::Discord 通知に失敗しました"
+
+
+      # Step 15.5 (#3683): 実 DSQL staging cluster での並行検証 test を自動実行。
       # deploy → migrate → grant → health/smoke green の後、lane が整えた endpoint (GITHUB_ENV の
       # DSQL_ENDPOINT) + OIDC creds (dsql:migrate と同一、DbConnectAdmin) をそのまま test に渡す。
       # 実行コマンドは test ヘッダー SSOT (tests/integration/db/dsql-staging-concurrency.test.ts 冒頭) と同一。
-      # - AC2 (graceful skip): DSQL lane 非活性 / endpoint 未解決時は step 自体を if で明示 skip
+      # - AC2 (graceful skip): endpoint 未解決時は step 自体を if で明示 skip
       #   (run UI に skipped と出る。silent fail ではない、ADR-0006)。
       # - test fail 時は step fail = lane fail (本 workflow は advisory / required 未登録のため
       #   merge は block しないが red が見える。既存 lane の advisory 位置付けは不変)。
       # - 固定 FAMILY uuid の相互破壊 flake (issue #3683 コメント 2026-07-16) は、本 workflow の
       #   concurrency group (deploy-aws-staging, cancel-in-progress) が同時 run を 1 本に制限する
       #   ことで本 test に関しては顕在化しない (afterAll が family 全行を削除し原状復帰する)。
-      - name: DSQL staging concurrency test (dsql lane, #3683)
-        if: env.DSQL_LANE == 'true' && env.DSQL_ENDPOINT != ''
+      - name: DSQL staging concurrency test (#3683)
+        if: env.DSQL_ENDPOINT != ''
         timeout-minutes: 20
         env:
           DSQL_ENDPOINT: ${{ env.DSQL_ENDPOINT }}

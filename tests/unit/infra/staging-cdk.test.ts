@@ -20,6 +20,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { AuthStack } from '../../../infra/lib/auth-stack';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { STAGING_ENV_CONFIG } from '../../../infra/lib/env-config';
+import { NetworkStack } from '../../../infra/lib/network-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
 
 const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
@@ -435,6 +436,9 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 				'GEMINI_API_KEY',
 				'CRON_SECRET',
 				'OPS_SECRET_KEY',
+				// #4192: signup / billing / churn は**持たないと決めた**ため本番 Lambda にも存在しない
+				// (#4174 Q2)。復活の検出は notification-channels-not-owned.test.ts が担うが、
+				// demo / staging への漏洩 gate としては列挙を残す (二重防御)。
 				'DISCORD_WEBHOOK_SIGNUP',
 				'DISCORD_WEBHOOK_BILLING',
 				'DISCORD_WEBHOOK_CHURN',
@@ -643,5 +647,233 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			);
 			expect(errors).toHaveLength(0);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4204: staging CloudFront。
+//
+// staging は NetworkStack を deploy していなかったため、SvelteKit の名前付き form action
+// (`?/action`) が Lambda Function URL のクエリ文字列スラッシュ拒否に当たり、
+// **ログインもサインアップもできない**状態だった (= 認証後の画面に到達する手段がゼロ)。
+//
+// prod 側は物理名が 2 件ハードコードされており、同一アカウント・同一リージョンに staging を
+// 立てると衝突する。prefix 化で分離するが、**prod の物理名が 1 文字でも変わると
+// CloudFront distribution / bucket が作り直しになる** (ADR-0019) ため、prod 不変を test で固定する。
+// ---------------------------------------------------------------------------
+/** アカウント / リージョンで一意になりうる「名前」プロパティ (#4204)。 */
+const PHYSICAL_NAME_PROPS = new Set([
+	'Name',
+	'BucketName',
+	'FunctionName',
+	'CachePolicyName',
+	'OriginRequestPolicyName',
+	'ResponseHeadersPolicyName',
+]);
+
+/** CFN template を再帰的に歩き、物理名として使われている文字列を集める (#4204)。 */
+function collectPhysicalNames(t: Template): string[] {
+	const found: string[] = [];
+	const walk = (node: unknown): void => {
+		if (Array.isArray(node)) {
+			for (const v of node) walk(v);
+			return;
+		}
+		if (!node || typeof node !== 'object') return;
+		for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+			if (typeof v === 'string' && PHYSICAL_NAME_PROPS.has(k)) found.push(v);
+			walk(v);
+		}
+	};
+	walk(t.toJSON().Resources ?? {});
+	return found;
+}
+
+describe('#4204 staging CloudFront (NetworkStack)', () => {
+	function buildNetwork(staging: boolean): Template {
+		const app = new cdk.App({
+			context: {
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/user-pool-id:region=us-east-1':
+					'us-east-1_TESTPOOL',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/client-id:region=us-east-1':
+					'test-client-id',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/cognito/domain:region=us-east-1':
+					'auth.ganbari-quest.com',
+				'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
+					'test-context-token-secret',
+				opsSecretKey: 'test-ops-secret-key',
+				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			},
+		});
+		const envConfig = staging ? STAGING_ENV_CONFIG : undefined;
+		// stack id は bin/app.ts と同じにする。CloudFront OriginAccessControl 等
+		// **CDK が construct path から自動生成する名前**があり、id を揃えないと
+		// 実際には衝突しないものを衝突として検出してしまう (逆も同様)。
+		const suffix = staging ? 'Staging' : '';
+		const storage = new StorageStack(app, `GanbariQuestStorage${suffix}`, { env, envConfig });
+		const compute = new ComputeStack(app, `GanbariQuestCompute${suffix}`, {
+			env,
+			assetsBucket: storage.assetsBucket,
+			repository: storage.repository,
+			envConfig,
+		});
+		const network = new NetworkStack(app, `GanbariQuestNetwork${suffix}`, {
+			env,
+			functionUrl: compute.functionUrl,
+			...(staging
+				? { resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix, geoRestrictionCountries: [] }
+				: {}),
+		});
+		return Template.fromStack(network);
+	}
+
+	// [N-1] prod 不変 (ADR-0019)。物理名が変わると distribution / bucket が作り直しになる。
+	it('prod の物理名と地域制限は従来どおり (prefix 化で変わらない)', () => {
+		const t = buildNetwork(false);
+		t.hasResourceProperties('AWS::CloudFront::Function', {
+			Name: 'ganbari-quest-query-slash-encode',
+		});
+		t.hasResourceProperties('AWS::S3::Bucket', {
+			BucketName: 'ganbari-quest-error-pages-000000000000',
+		});
+		t.hasResourceProperties('AWS::CloudFront::Distribution', {
+			DistributionConfig: Match.objectLike({
+				Restrictions: {
+					GeoRestriction: { RestrictionType: 'whitelist', Locations: ['JP'] },
+				},
+			}),
+		});
+	});
+
+	// [N-2] staging は prefix 分離する。同一アカウント・同一リージョンで物理名が衝突するため。
+	it('staging の物理名は prefix で分離される', () => {
+		const t = buildNetwork(true);
+		t.hasResourceProperties('AWS::CloudFront::Function', {
+			Name: 'ganbari-quest-staging-query-slash-encode',
+		});
+		t.hasResourceProperties('AWS::S3::Bucket', {
+			BucketName: 'ganbari-quest-staging-error-pages-000000000000',
+		});
+	});
+
+	// [N-3] staging は地域制限なし。post-deploy smoke を回す GitHub runner が日本国外にあり、
+	// JP allowlist を残すと 403 で smoke が回らない。
+	// 前提 = staging に本番データが入っていないこと (PO 実測 2026-08-02)。
+	// **staging に本番データを入れる運用が生まれたら JP allowlist を戻す** (PO 条件)。
+	it('staging は geoRestriction を持たない', () => {
+		const t = buildNetwork(true);
+		const distributions = t.findResources('AWS::CloudFront::Distribution');
+		for (const d of Object.values(distributions)) {
+			expect(
+				(d as { Properties?: { DistributionConfig?: { Restrictions?: unknown } } }).Properties
+					?.DistributionConfig?.Restrictions,
+			).toBeUndefined();
+		}
+	});
+
+	// [N-4] 本題。これが無いと staging で form action が 1 つも通らない。
+	it('staging の default behavior に query-slash-encode Function が付いている', () => {
+		const t = buildNetwork(true);
+		t.hasResourceProperties('AWS::CloudFront::Distribution', {
+			DistributionConfig: Match.objectLike({
+				DefaultCacheBehavior: Match.objectLike({
+					FunctionAssociations: Match.arrayWith([
+						Match.objectLike({ EventType: 'viewer-request' }),
+					]),
+				}),
+			}),
+		});
+	});
+
+	// [N-4b] **この class の網羅 guard。**
+	//
+	// 目視で拾った物理名は 2 件だったが、実際には 4 件あった (CloudFront CachePolicy 名は
+	// アカウント全体で一意で、staging deploy が 409 AlreadyExists で ROLLBACK した)。
+	// 「1 件ずつ prefix を付ける」対処では次に足された名前をまた取りこぼすため、
+	// **prod と staging で同じ物理名を 1 つも共有していないこと**を集合として突き合わせる。
+	it('prod と staging の NetworkStack が物理名を 1 つも共有しない', () => {
+		const prodNames = new Set(collectPhysicalNames(buildNetwork(false)));
+		const stagingNames = collectPhysicalNames(buildNetwork(true));
+		const shared = stagingNames.filter((n) => prodNames.has(n));
+		expect(
+			shared,
+			`prod と同じ物理名を staging が使っている (同一アカウント・同一リージョンで衝突する): ${shared.join(', ')}`,
+		).toEqual([]);
+		// 空集合同士の比較で緑になるのを防ぐ (名前を 1 つも拾えていなければ検査が成立していない)。
+		expect(prodNames.size).toBeGreaterThan(0);
+		expect(stagingNames.length).toBeGreaterThan(0);
+	});
+
+	// [N-1b] prod 不変の根拠を「既定値」だけに預けない (adversarial review business 軸)。
+	//
+	// prod の物理名は `resourcePrefix` の既定値が 'ganbari-quest' であることだけで守られている。
+	// **app.ts が prod 側にも resourcePrefix / geoRestrictionCountries を渡し始めた瞬間**、
+	// CloudFront Distribution / bucket / CachePolicy が一斉に Replacement になり本番が落ちる
+	// (ADR-0019)。呼び出し側が変わったことを検出する。
+	it('bin/app.ts が prod の NetworkStack に prefix / geoRestriction を渡していない', async () => {
+		const { readFileSync } = await import('node:fs');
+		const src = readFileSync('infra/bin/app.ts', 'utf8');
+		// prod の instantiate は `new NetworkStack(app, \`${appName}Network\`, {` から対応する `});` まで。
+		// 正規表現で探す (通常文字列に `${` を書くと biome noTemplateCurlyInString に当たる)。
+		const start = src.search(/new NetworkStack\(app, `\$\{appName\}Network`/);
+		expect(start, 'prod NetworkStack の instantiate が見つからない').toBeGreaterThan(-1);
+		const prodBlock = src.slice(start, src.indexOf('\n\t});', start));
+		expect(prodBlock).not.toContain('resourcePrefix');
+		expect(prodBlock).not.toContain('geoRestrictionCountries');
+	});
+
+	// [N-7] geoRestriction を外したことの代償を、人の注意力ではなく機械で見張る (PO 決裁 2026-08-02)。
+	//
+	// staging を全世界公開にした前提は「実在のメールアドレスを登録しない」という運用ルール。
+	// **人が守るなら、守られなかったことに気づく手段がいる。**
+	it('staging に allowlist 外のメールが登録されたら気づける', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+
+		// 許可ドメインは **宣言**する。「使い捨てっぽい」の推測判定は穴になるため置かない。
+		// 参照 (`$STAGING_ALLOWED_EMAIL_DOMAINS`) が残っていても宣言が消えていれば
+		// 全ドメインが allowlist 外になり通知が壊れるので、**宣言側**を見る。
+		// 正規表現の m フラグで行頭を見る (env の宣言行だけに当てる)。
+		const hasDeclaration = /^ {2}STAGING_ALLOWED_EMAIL_DOMAINS: *[a-z]/m.test(yml);
+		expect(hasDeclaration, '許可ドメインの宣言 (workflow env) が見つかりません').toBe(true);
+		// 実登録者を実物から取る (synth や設定値ではなく Cognito を見る)
+		expect(yml).toContain('cognito-idp list-users');
+		// 気づける先 = incident チャネル
+		expect(yml).toContain('DISCORD_WEBHOOK_INCIDENT');
+
+		// **deploy は止めない** (既に登録済のものは手遅れで、止めても意味がない)。
+		const guard = yml.slice(yml.indexOf('- name: Staging PII guard'));
+		expect(guard.slice(0, guard.indexOf('- name: ', 10))).toContain('continue-on-error: true');
+	});
+
+	// [N-8] 許可ドメインの二重管理を作らない。runbook にリストを複製すると必ずズレる。
+	it('runbook は allowlist を複製せず workflow を SSOT として参照する', async () => {
+		const { readFileSync } = await import('node:fs');
+		const runbook = readFileSync('docs/runbooks/staging-live-verification.md', 'utf8');
+		expect(runbook).toContain('STAGING_ALLOWED_EMAIL_DOMAINS');
+		// #4117 の担当者が最初に読む場所に警告があること
+		expect(runbook.slice(0, 1200)).toContain('実在のメールアドレスを登録しない');
+	});
+
+	// [N-5] 配線の no-silent-gap。CDK 側が正しくても deploy 対象に入っていなければ意味がない。
+	it('deploy-aws-staging.yml の STAGING_STACKS に NetworkStaging が含まれる', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+		const line = yml.split(/\r?\n/).find((l) => l.trim().startsWith('STAGING_STACKS:'));
+		expect(line).toBeDefined();
+		expect(line).toContain('GanbariQuestNetworkStaging');
+	});
+
+	// [N-6] ORIGIN / smoke は CloudFront を入口にする。Function URL 直だと form action は
+	// 原理的に通らないため、入口がズレていると smoke が本物を検証しない。
+	it('smoke と ORIGIN が CloudFront を入口にしている', async () => {
+		const { readFileSync } = await import('node:fs');
+		const yml = readFileSync('.github/workflows/deploy-aws-staging.yml', 'utf8');
+		expect(yml).toContain('DistributionDomainName');
+		expect(yml).toContain('/auth/login?/login');
+		// status code では判定しない (ログイン失敗も 400 を返すため)。
+		expect(yml).toContain('x-frame-options');
 	});
 });

@@ -1,6 +1,7 @@
 // src/lib/server/services/loyalty-service.ts
 // サブスク継続特典・ロイヤルティシステム
 
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 
@@ -13,6 +14,85 @@ const KEYS = {
 	memoryTickets: 'loyalty_memory_tickets',
 	lastIncrementMonth: 'loyalty_last_increment_month',
 } as const;
+
+// ============================================================
+// 二重加算防止キーの基準 (#4127 AC7、PO 決裁 2026-08-03)
+// ============================================================
+//
+// 保存値に **どの基準で出した月キーか** を含める。`2026-08` とだけ書かれていると
+// 「JST の 8 月」なのか「UTC の 8 月 (JST では 9 月かもしれない)」なのかが
+// **保存値だけでは分からず**、比較の是非を決められない。
+//
+// prefix を付ける方向にしか進まないので、時間が経つほど曖昧な値は減る。
+
+/** JST 基準の月キーであることを示す prefix。 */
+export const JST_MONTH_KEY_PREFIX = 'jst:';
+
+/** `2026-08` → `jst:2026-08`。既に prefix 付きならそのまま返す。 */
+export function toJstMonthKeyValue(monthKey: string): string {
+	return monthKey.startsWith(JST_MONTH_KEY_PREFIX)
+		? monthKey
+		: `${JST_MONTH_KEY_PREFIX}${monthKey}`;
+}
+
+/**
+ * 保存済みの値が「今の JST 月に加算済み」を意味するか。
+ *
+ * **prefix 無しの旧値 (UTC 基準の可能性がある) は厳密一致では判定できない**。
+ * 旧値は JST 月初 0:00〜09:00 に加算されていれば前月キーで保存されているため、
+ * 「リテラルが違う」= 加算する 側に倒すと **同じ JST 月に 2 回加算** されうる。
+ * 逆に「基準不明だから全部 skip」に倒すと **正当な当月加算を落とす**。
+ *
+ * ここは **skip 側に倒す**。理由は誤りの回復可能性が非対称だから:
+ *
+ *   - 取りこぼし → 継続月数が 1 少ないだけで、次月の加算で追いつく。運用者が手で直せる
+ *   - 過剰加算 → 未達のティア特典 (思い出チケット) を配ってしまい、**回収できない**
+ *
+ * 「配ってしまったものは取り返せない」ため、疑わしいときは配らない。
+ * prefix 付きの値だけを厳密比較の対象にすれば、この曖昧さは新規保存分から消える。
+ *
+ * 曖昧なのは **当月リテラルと前月リテラルの 2 つ**である:
+ *
+ *   - 当月一致 (`2026-08` / `jst:2026-08`) — UTC 基準でも JST 基準でも今月を指す
+ *   - 前月一致 (`2026-07` / `jst:2026-08`) — 正当な前月加算かもしれないし、
+ *     JST 月初 0:00〜09:00 (UTC ではまだ前月) の加算が前月キーで保存された行かもしれない
+ *
+ * どちらも「今月加算済み」の可能性を否定できないので skip する。前々月以前は
+ * JST/UTC の 9 時間差では説明できないため曖昧でなく、加算してよい。
+ */
+export function isSameJstMonth(stored: string | null | undefined, currentJstKey: string): boolean {
+	return classifyMonthKeyMatch(stored, currentJstKey) !== 'no-match';
+}
+
+/**
+ * `isSameJstMonth` の判定を **理由付きで**返す (#4269 ②)。
+ *
+ * skip したこと自体は正しくても、**なぜ skip したかで意味がまったく違う**:
+ *
+ *   - `exact` — prefix 付きの厳密一致。設計どおりの二重加算防止で、何も起きていない
+ *   - `ambiguous-legacy` — prefix 無しの旧値が当月 / 前月リテラルと一致したので、
+ *     **安全側に倒して skip した**。正当な加算を取りこぼしている可能性がある
+ *
+ * 後者は継続月数が静かに 1 少なく計算されるだけで画面にも通知にも出ないため、
+ * 呼び出し側でログに残す。回復可能性を根拠に skip を選んだ以上、
+ * **回復が必要だと気づく経路**が要る。
+ *
+ * 判定ロジックの SSOT は本関数 1 つ (`isSameJstMonth` は本関数の薄い wrapper)。
+ * 2 箇所に分けると片方だけ直って乖離する。
+ */
+export function classifyMonthKeyMatch(
+	stored: string | null | undefined,
+	currentJstKey: string,
+): 'no-match' | 'exact' | 'ambiguous-legacy' {
+	if (!stored) return 'no-match';
+	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) {
+		return stored === currentJstKey ? 'exact' : 'no-match';
+	}
+	// 旧値 (基準不明)。当月・前月のいずれかを指しているなら加算済みの可能性があるので skip する。
+	const currentMonthKey = currentJstKey.slice(JST_MONTH_KEY_PREFIX.length);
+	const ambiguous = stored === currentMonthKey || stored === shiftMonthKey(currentMonthKey, -1);
+	return ambiguous ? 'ambiguous-legacy' : 'no-match';
+}
 
 // ============================================================
 // Tier Definitions
@@ -163,9 +243,46 @@ export async function incrementSubscriptionMonth(tenantId: string): Promise<{
 	ticketsAwarded: number;
 }> {
 	// 二重インクリメント防止
-	const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+	// 二重防止キーは JST 月キー。UTC 月キーだと JST 月初 0:00-9:00 に届いた webhook の
+	// 月が前月として記録され、その月の加算がスキップされうる (常に顧客不利、#4127)。
+	//
+	// **保存値に基準を含める (#4127 AC7、PO 決裁 2026-08-03)**: 旧実装は UTC 月キーを
+	// prefix 無しで保存していた。値が `2026-08` としか書かれていないと、それが
+	// 「JST で 8 月に加算した」のか「UTC で 8 月と判定した (= JST では 9 月かもしれない)」のか
+	// **保存値だけでは区別できない**。区別できないまま比較すると、どちらに倒しても片方が誤る
+	// (再加算 = 未達チケット付与 / 一律 skip = 正当な加算の取りこぼし)。
+	//
+	// そこで新しい書き込みは基準を prefix に含める (`jst:2026-08`)。以後は
+	// **保存値を見れば基準が分かる**ので、同じ曖昧さが再発しない。
+	// prefix 無しの旧値は「基準不明」として扱う (下記 `isSameJstMonth`)。
+	const currentMonth = toJstMonthKeyValue(monthKeyJST());
 	const lastIncrement = await getSetting(KEYS.lastIncrementMonth, tenantId);
-	if (lastIncrement === currentMonth) {
+	const match = classifyMonthKeyMatch(lastIncrement, currentMonth);
+	if (match !== 'no-match') {
+		// #4269 ②: **なぜ skip したか**を残す。`exact` は設計どおりの二重加算防止で無害だが、
+		// `ambiguous-legacy` は「prefix 無しの旧値だったので安全側に倒して skip した」であり、
+		// 正当な加算を取りこぼしている可能性がある。取りこぼしは継続月数が静かに 1 少なくなる
+		// だけで画面にも通知にも出ないため、ログが唯一の気づく経路になる。
+		//
+		// この分岐は `loyalty_last_increment_month` を**再 write しない**ので、以後 webhook が
+		// 来ないテナントでは基準不明値が滞留し続ける。滞留の検知機構を持つかは PO 判断 (#4269 ①)。
+		//
+		// tenantId は認証された場所 (CloudWatch Logs) にだけ載せる。外部 SaaS (Discord) への
+		// 通知は行わない (#4174 Q3 / #4192 — 「どの家族か」は通知の役割ではない)。
+		if (match === 'ambiguous-legacy') {
+			logger.warn(
+				'[loyalty] 継続月数の加算を skip した (prefix 無しの旧値で基準が不明のため、安全側に倒した)',
+				{
+					tenantId,
+					service: 'loyalty',
+					context: {
+						kind: 'loyalty-increment-skipped-ambiguous',
+						storedMonthKey: lastIncrement,
+						currentMonthKey: currentMonth,
+					},
+				},
+			);
+		}
 		const months = await getSubscriptionMonths(tenantId);
 		return { newMonths: months, tierUp: false, newTier: null, ticketsAwarded: 0 };
 	}

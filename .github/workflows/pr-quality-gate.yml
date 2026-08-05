@@ -36,6 +36,11 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/reason-declaration.mjs
+            # #4285 の story 実在確認 (storyFileExists) は src/ を走査する。
+            # sparse-checkout に src が無いと **実在する story を書いても必ず false** になり、
+            # ss-render-impossible 宣言が原理的に満たせなくなる (#4249 で実発生)。
+            src
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)
@@ -51,6 +56,15 @@ jobs:
             const lane = process.env.PR_LANE || 'feature';
             core.info(`PR lane = ${lane} (判定 SSOT: scripts/pr-lane.mjs / actions/pr-lane、#2946)`);
 
+            // #4158: 合否判定を YAML に書かない。判定は全て scripts/check-pr-screenshot.mjs の
+            //   export に委譲する。同じ検査を 2 箇所に置くと片方だけ直したときに必ずズレ、
+            //   「CI 緑・pre-ready 赤」(または逆) が起きる (#4153 で実発生)。
+            //   委譲されていることは tests/unit/architecture/workflow-judgment-delegation-guard.test.ts
+            //   が registry と突き合わせて機械強制する。
+            const ssMod = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/check-pr-screenshot.mjs`
+            );
+
             // UI関連ファイルが変更されているか確認
             const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
@@ -59,10 +73,7 @@ jobs:
               per_page: 100,
             });
 
-            const uiFilePattern = /\.(svelte|svelte\.ts|svelte\.js|css|scss)$|^site\//;
-            const hasUiFiles = files.some(f => uiFilePattern.test(f.filename));
-
-            if (!hasUiFiles) {
+            if (!ssMod.isUiPr(files.map((f) => f.filename))) {
               core.info('✅ UI関連ファイルの変更なし — スクリーンショット不要');
               return;
             }
@@ -71,11 +82,8 @@ jobs:
             // I1 (#1985) design-doc-check と同パターン。判定基準は ADR-0003 §4.1 (4 条件).
             // skip 条件 (UI 変更なし / 内部 refactor label) は全 lane 共通で優先する。
             const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
-            const INTERNAL_REFACTOR_LABEL = 'refactor:internal-no-doc-impact';
-            const hasInternalRefactorLabel = labels.some(
-              (l) => l.trim().toLowerCase() === INTERNAL_REFACTOR_LABEL,
-            );
-            if (hasInternalRefactorLabel) {
+            const INTERNAL_REFACTOR_LABEL = ssMod.INTERNAL_REFACTOR_LABEL;
+            if (ssMod.hasInternalRefactorLabel(labels)) {
               core.info(
                 `✅ PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4) — SS 添付不要`,
               );
@@ -93,9 +101,6 @@ jobs:
             //   判定ロジックは scripts/check-pr-screenshot.mjs::hasIntegrationVrEvidence を再利用 (二重実装しない)。
             // ============================================================
             if (lane === 'integration') {
-              const ssMod = await import(
-                `${process.env.GITHUB_WORKSPACE}/scripts/check-pr-screenshot.mjs`
-              );
               if (ssMod.hasIntegrationVrEvidence(body)) {
                 core.info(
                   '✅ lane=integration — VR 3 層 (lp/child-home/app visual regression) 結果への紐づけ / 含有 PR SS 検証済の確認を検出 (before/after 4 スロットは不要、#2946 AC3)',
@@ -121,8 +126,26 @@ jobs:
             // ============================================================
             // feature / hotfix / dependabot lane: 現行 (UI 変更時 before/after 画像必須) を完全維持 (#2946 AC4)。
             // ============================================================
-            // Markdown画像: ![alt](url) / HTML画像: <img ...>
-            const hasImage = /!\[.*?\]\(.*?\)|<img\s/i.test(body);
+            // #4158: SS embed の有無も委譲する。旧 inline は `![](...)` が 1 個あれば pass だったが、
+            //   script 側は URL を抽出して **http(s) かつ screenshot / attachment URL** を要求する。
+            //   この差で `![](tmp/local.png)` だけの PR が **CI 緑・pre-ready 赤**になっていた。
+            const hasImage = ssMod.hasEmbeddedScreenshotImage(body);
+
+            // #4087: 表示条件が env に依存し、撮影に使う demo 環境では原理的に描画されない UI の宣言。
+            //   宣言だけでは通らず、理由 (12 文字以上) + Storybook story 参照の両方を要求する。
+            const renderImpossible = ssMod.checkRenderImpossibleDeclaration(body);
+            if (renderImpossible.ok) {
+              core.info(
+                '✅ `ss-render-impossible` 宣言 (理由 + Storybook story 参照) を検出 — SS 添付不要 (#4087)',
+              );
+              return;
+            }
+            if (renderImpossible.violation) {
+              core.setFailed(
+                `❌ [${renderImpossible.violation.id}] (${renderImpossible.violation.issue}) ${renderImpossible.violation.message}`,
+              );
+              return;
+            }
 
             if (!hasImage) {
               core.setFailed(
@@ -167,6 +190,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/reason-declaration.mjs
           sparse-checkout-cone-mode: false
 
       - name: Classify PR lane (A-1 SSOT)

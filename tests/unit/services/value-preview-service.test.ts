@@ -1,7 +1,15 @@
 // tests/unit/services/value-preview-service.test.ts
 // #1600 ADR-0023 I9 — 初月価値プレビューサービスのユニットテスト
+//
+// **日付は JST SSOT (`todayDateJST` / `addDaysJST`) で組み立てる** (#4015 / #4192 で是正)。
+// 旧実装は `new Date().toISOString().slice(0,10)` = **UTC** で期待値を作っていたが、
+// service 側は `todayDateJST()` で数えるため、UTC 15:00〜24:00 (= JST 00:00〜09:00) の 9 時間だけ
+// 両者が 1 日ずれて `daysSinceTenantSignup` が全て off-by-one で落ちた
+// (2026-08-02 00:0x JST の CI で実際に発生)。「1 日のうち 15 時間しか通らない test」は
+// 検証としても回帰検出としても成立しないため、被検証コードと同じ SSOT に合わせる。
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addDaysJST, todayDateJST } from '../../../src/lib/domain/date-utils';
 import * as schema from '../../../src/lib/server/db/schema';
 import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '../helpers/test-db';
 
@@ -116,8 +124,8 @@ describe('getTenantValuePreview - 子供未登録', () => {
 
 describe('getTenantValuePreview - 初月期間判定', () => {
 	it('signup 5 日後は isInFirstMonth=true / previewEligible=true', async () => {
-		const today = new Date().toISOString().slice(0, 10);
-		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const today = todayDateJST();
+		const fiveDaysAgo = addDaysJST(todayDateJST(), -5);
 		seed({ childCreatedAt: `${fiveDaysAgo}T10:00:00.000Z` });
 
 		const preview = await getTenantValuePreview(TENANT);
@@ -130,7 +138,7 @@ describe('getTenantValuePreview - 初月期間判定', () => {
 	});
 
 	it('signup 60 日後は isInFirstMonth=false / previewEligible=true', async () => {
-		const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const sixtyDaysAgo = addDaysJST(todayDateJST(), -60);
 		seed({ childCreatedAt: `${sixtyDaysAgo}T10:00:00.000Z` });
 
 		const preview = await getTenantValuePreview(TENANT);
@@ -140,7 +148,7 @@ describe('getTenantValuePreview - 初月期間判定', () => {
 	});
 
 	it('signup 当日 (0 日経過) は previewEligible=false', async () => {
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayDateJST();
 		seed({ childCreatedAt: `${today}T00:00:00.000Z` });
 
 		const preview = await getTenantValuePreview(TENANT);
@@ -152,7 +160,7 @@ describe('getTenantValuePreview - 初月期間判定', () => {
 
 describe('getTenantValuePreview - マイルストーン判定', () => {
 	it('活動記録 0 件は全マイルストーン未達成', async () => {
-		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const fiveDaysAgo = addDaysJST(todayDateJST(), -5);
 		seed({ childCreatedAt: `${fiveDaysAgo}T10:00:00.000Z` });
 
 		const preview = await getTenantValuePreview(TENANT);
@@ -163,7 +171,7 @@ describe('getTenantValuePreview - マイルストーン判定', () => {
 	});
 
 	it('活動 1 件で first_record マイルストーン達成', async () => {
-		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const fiveDaysAgo = addDaysJST(todayDateJST(), -5);
 		const { childId } = seed({ childCreatedAt: `${fiveDaysAgo}T10:00:00.000Z` });
 		logActivity(childId, 1, fiveDaysAgo);
 
@@ -174,33 +182,37 @@ describe('getTenantValuePreview - マイルストーン判定', () => {
 		expect(firstRecord?.achieved).toBe(true);
 		expect(firstRecord?.achievedAt).toBe(fiveDaysAgo);
 
-		// 5 件マイルストーンは未達成
-		const r5 = child?.milestones.find((m) => m.id === 'records_5');
-		expect(r5?.achieved).toBe(false);
+		// 連続記録マイルストーンは未達成
+		const s7 = child?.milestones.find((m) => m.id === 'streak_7');
+		expect(s7?.achieved).toBe(false);
 	});
 
-	it('活動 5 件で records_5 マイルストーン達成', async () => {
-		const tenDaysAgo = new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+	// #4268: 旧 `records_5` / `records_10` の達成テストは、軸そのものを撤去したため
+	// 「量では褒めない」ことの回帰テストに置き換えた (assertion の弱体化ではない)。
+	it('同じ日に 10 件記録しても量ベースの称賛は 1 件も発生しない (#4268)', async () => {
+		const tenDaysAgo = addDaysJST(todayDateJST(), -10);
 		const { childId } = seed({ childCreatedAt: `${tenDaysAgo}T10:00:00.000Z` });
-		// 5 日分 × 1 活動 = 5 件
-		for (let i = 0; i < 5; i++) {
-			const date = new Date(Date.now() - (10 - i) * 24 * 3600 * 1000).toISOString().slice(0, 10);
-			logActivity(childId, 1, date);
+		// 同一日に 10 件 = 「量」は十分だが「続いた」わけではない
+		const sameDay = addDaysJST(todayDateJST(), -1);
+		for (let i = 0; i < 10; i++) {
+			logActivity(childId, 1, sameDay);
 		}
 
 		const preview = await getTenantValuePreview(TENANT);
 		const child = preview.children[0];
-		expect(child?.totalActivities).toBe(5);
-		const r5 = child?.milestones.find((m) => m.id === 'records_5');
-		expect(r5?.achieved).toBe(true);
+		expect(child?.totalActivities).toBe(10);
+
+		// 達成するのは「開始」(first_record) のみ。連続日数系は 1 日しか記録していないので未達成
+		const achieved = (child?.milestones ?? []).filter((m) => m.achieved).map((m) => m.id);
+		expect(achieved).toEqual(['first_record']);
 	});
 
 	it('7 日連続記録で streak_7 マイルストーン達成（longest streak で判定）', async () => {
-		const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const fifteenDaysAgo = addDaysJST(todayDateJST(), -15);
 		const { childId } = seed({ childCreatedAt: `${fifteenDaysAgo}T10:00:00.000Z` });
 		// 7 連続日記録
 		for (let i = 0; i < 7; i++) {
-			const date = new Date(Date.now() - (15 - i) * 24 * 3600 * 1000).toISOString().slice(0, 10);
+			const date = addDaysJST(todayDateJST(), -(15 - i));
 			logActivity(childId, 1, date);
 		}
 
@@ -216,15 +228,15 @@ describe('getTenantValuePreview - マイルストーン判定', () => {
 
 describe('getTenantValuePreview - カテゴリ別集計', () => {
 	it('複数カテゴリの記録が categoryBreakdown に件数降順で並ぶ', async () => {
-		const tenDaysAgo = new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const tenDaysAgo = addDaysJST(todayDateJST(), -10);
 		const { childId } = seed({ childCreatedAt: `${tenDaysAgo}T10:00:00.000Z` });
 
 		// カテゴリ1 (activityId=1): 3 件、カテゴリ2 (activityId=2): 1 件
 		for (let i = 0; i < 3; i++) {
-			const date = new Date(Date.now() - (10 - i) * 24 * 3600 * 1000).toISOString().slice(0, 10);
+			const date = addDaysJST(todayDateJST(), -(10 - i));
 			logActivity(childId, 1, date);
 		}
-		const recentDate = new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+		const recentDate = addDaysJST(todayDateJST(), -1);
 		logActivity(childId, 2, recentDate);
 
 		const preview = await getTenantValuePreview(TENANT);
@@ -238,14 +250,16 @@ describe('getTenantValuePreview - カテゴリ別集計', () => {
 });
 
 describe('MILESTONES 定義', () => {
-	it('6 件のマイルストーンが定義されている', () => {
-		expect(MILESTONES).toHaveLength(6);
+	it('4 件のマイルストーンが定義されている (#4268: 量ベース 2 件を撤去)', () => {
+		expect(MILESTONES).toHaveLength(4);
 	});
 
-	it('count 系と streak 系の両方を含む', () => {
+	it('count 系は「開始」の 1 件のみで、残りは全て streak 系 (#4268)', () => {
 		const counts = MILESTONES.filter((m) => m.kind === 'count');
 		const streaks = MILESTONES.filter((m) => m.kind === 'streak');
-		expect(counts.length).toBeGreaterThan(0);
+		expect(counts).toHaveLength(1);
+		expect(counts[0]?.id).toBe('first_record');
+		expect(counts[0]?.threshold).toBe(1);
 		expect(streaks.length).toBeGreaterThan(0);
 	});
 

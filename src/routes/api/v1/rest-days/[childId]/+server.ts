@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { monthKeyJST } from '$lib/domain/date-utils';
 import { asChildId } from '$lib/domain/ids';
 import {
 	countRestDaysInMonth,
@@ -21,7 +22,9 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const childId = asChildId(params.childId);
 	if (!childId) throw error(400, 'Invalid childId');
 
-	const month = url.searchParams.get('month') ?? new Date().toISOString().slice(0, 7);
+	// 既定月は JST。POST 側の上限判定は JST 日付文字列由来の月なので、UTC 月キーだと
+	// JST 月初 0:00-9:00 に GET と POST で別の月を見る (#4127)。
+	const month = url.searchParams.get('month') ?? monthKeyJST();
 	const days = await findRestDays(childId, month, tenantId);
 	const count = await countRestDaysInMonth(childId, month, tenantId);
 

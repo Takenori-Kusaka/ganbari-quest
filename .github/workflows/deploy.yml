@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       - name: Determine version
@@ -257,14 +257,11 @@ jobs:
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
-          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
-          -c stripeWebhookShadowMode=${{ vars.STRIPE_WEBHOOK_SHADOW_MODE || 'false' }}
-          -c stripeWebhookSecretTest=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
@@ -272,6 +269,26 @@ jobs:
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
+
+      # #4174: incident 通知先 (DISCORD_WEBHOOK_INCIDENT) の配布可否をここで宣言する。
+      # compute-stack.ts は `-c discordWebhookIncident` を読む口を持つが、deploy.yml が
+      # 渡していなかったため env ごと Lambda から落ち、**本番の incident 通知は 0 通**だった。
+      #
+      # 欠落しても deploy は止めない (アプリ本体は動く) が、黙って進むと
+      # 「障害が起きても誰にも届かない」状態が再び不可視になるため必ず警告する
+      # (ADR-0024 ENV silent skip 禁止 / #4167 の任意 env と同じ扱い)。
+      #
+      # 判定結果は post-deploy の実 env 検証 (下記 "Incident webhook env verification") が
+      # 参照する。secret 未登録なら検証を skip、登録済みなのに Lambda env に無ければ配線不良で fail。
+      - name: Incident webhook secret presence (#4174)
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_INCIDENT }}" ]; then
+            echo "INCIDENT_WEBHOOK_CONFIGURED=false" >> $GITHUB_ENV
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT secret が空です。本番 Lambda に incident 通知先が入らず、障害が起きても通知は 0 通になります (#4174 / #4119)"
+          else
+            echo "INCIDENT_WEBHOOK_CONFIGURED=true" >> $GITHUB_ENV
+            echo "::notice::DISCORD_WEBHOOK_INCIDENT secret を検出しました。deploy 後に実 Lambda env を検証します"
+          fi
 
       - name: Resolve DSQL outputs (production)
         run: |
@@ -312,19 +329,17 @@ jobs:
             -c staticAssetsS3Offload=true \
             -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }} \
             -c geminiApiKey=${{ secrets.GEMINI_API_KEY }} \
-            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
             -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
             -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }} \
             -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }} \
             -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }} \
-            -c stripeWebhookShadowMode=${{ vars.STRIPE_WEBHOOK_SHADOW_MODE || 'false' }} \
-            -c stripeWebhookSecretTest=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
+            -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -341,19 +356,17 @@ jobs:
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
           -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
-          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
-          -c stripeWebhookShadowMode=${{ vars.STRIPE_WEBHOOK_SHADOW_MODE || 'false' }}
-          -c stripeWebhookSecretTest=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
+          -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
@@ -417,6 +430,74 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
+      # #4174: **synth の diff ではなく、deploy 済み Lambda の実 env** を読んで検証する。
+      # compute-stack.ts は空値のとき env ごと落とす (`...(x ? {KEY: x} : {})`) ため、
+      # 「context を渡し忘れた」「secret 名を間違えた」のいずれでも **deploy は成功したまま
+      # 通知だけが 0 通**になる。#4119 (NUC で 18 晩 alert 0 通) と同型の failure mode で、
+      # 実 env を見る以外に検出手段がない。
+      #
+      # 判定:
+      #   - secret 未登録 (INCIDENT_WEBHOOK_CONFIGURED=false) → skip (前段で warning 済)
+      #   - secret 登録済 かつ env に存在 → pass
+      #   - secret 登録済 なのに env に無い → **配線不良として hard-fail**
+      #
+      # 本 step の失敗は image rollback を起こさない (rollback は health check 失敗時に限定)。
+      # アプリ本体は健全なので巻き戻す理由がなく、deploy を赤くして配線不良を可視化するのが目的。
+      #
+      # `keys()` で **key 名だけ**を取り出す。webhook URL そのものはシェル変数にも載せない。
+      - name: Incident webhook env verification (production, #4174)
+        run: |
+          if [ "$INCIDENT_WEBHOOK_CONFIGURED" != "true" ]; then
+            echo "::warning::DISCORD_WEBHOOK_INCIDENT secret 未登録のため実 env 検証を skip します (#4174)"
+            exit 0
+          fi
+          KEYS=$(aws lambda get-function-configuration \
+            --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query 'keys(Environment.Variables)' --output text | tr '\t' '\n')
+          if echo "$KEYS" | grep -qx "DISCORD_WEBHOOK_INCIDENT"; then
+            echo "::notice::DISCORD_WEBHOOK_INCIDENT が本番 Lambda の実 env に存在します (#4174)"
+          else
+            echo "::error::DISCORD_WEBHOOK_INCIDENT が本番 Lambda の env にありません。secret は登録済のため CDK context の配線不良です (#4174)。障害が起きても通知は 0 通になります"
+            exit 1
+          fi
+
+      # #4189 (オーナー決裁 2026-08-03、案 B): CloudWatch アラームの宛先を Discord に寄せた。
+      # **メール subscription を張らなくなった**ため、転送 Lambda が繋がっていなければ
+      # 全 alarm が宛先ゼロに戻る (#4189 の再演)。deploy 後に**実物**を 2 点見る。
+      #
+      #   1. SNS topic に subscription が 1 件以上ある (protocol=lambda)
+      #   2. 転送 Lambda の実 env に DISCORD_WEBHOOK_INCIDENT がある
+      #
+      # 「synth では繋がっているが実環境では届かない」を検出するのが目的なので、
+      # template ではなく **deploy 済みリソース**を問い合わせる。
+      - name: Ops alarm destination verification (production, #4189)
+        run: |
+          TOPIC_ARN=$(aws sns list-topics --region "$AWS_REGION" \
+            --query "Topics[?ends_with(TopicArn, ':ganbari-quest-ops-alerts')].TopicArn | [0]" \
+            --output text)
+          if [ -z "$TOPIC_ARN" ] || [ "$TOPIC_ARN" = "None" ]; then
+            echo "::error::SNS topic 'ganbari-quest-ops-alerts' が見つかりません (#4189)"
+            exit 1
+          fi
+          SUB_COUNT=$(aws sns list-subscriptions-by-topic --topic-arn "$TOPIC_ARN" \
+            --region "$AWS_REGION" \
+            --query "length(Subscriptions[?Protocol=='lambda'])" --output text)
+          if [ "$SUB_COUNT" = "0" ] || [ -z "$SUB_COUNT" ]; then
+            echo "::error::ops-alerts topic に lambda subscription が 0 件です。CloudWatch アラームが鳴っても誰にも届きません (#4189)"
+            exit 1
+          fi
+          echo "::notice::ops-alerts topic に lambda subscription が ${SUB_COUNT} 件あります (#4189)"
+
+          FWD_KEYS=$(aws lambda get-function-configuration \
+            --function-name ganbari-quest-ops-alert-forwarder --region "$AWS_REGION" \
+            --query 'keys(Environment.Variables)' --output text | tr '\t' '\n')
+          if echo "$FWD_KEYS" | grep -qx "DISCORD_WEBHOOK_INCIDENT"; then
+            echo "::notice::転送 Lambda の実 env に DISCORD_WEBHOOK_INCIDENT があります (#4189)"
+          else
+            echo "::error::転送 Lambda に DISCORD_WEBHOOK_INCIDENT がありません。alarm は SNS までは届きますが Discord には出ません (#4189)"
+            exit 1
+          fi
+
       # ADR-0048 hotfix #6 (2026-05-16): demo Lambda は `latest` タグで CDK 管理されるため
       # CloudFormation が新しい image push を検知できない (production と同じ問題)。
       # production と同じく aws lambda update-function-code で SHA タグ image に明示更新する。
@@ -462,7 +543,57 @@ jobs:
             echo "::error::cron-dispatcher smoke test did not run in dryRun mode (#1586)"
             exit 1
           fi
-          echo "::notice::cron-dispatcher smoke test passed"
+          echo "::notice::cron-dispatcher env injection (dryRun) passed"
+
+          # --- #4206: 実 HTTP 経路が cron route まで届くかを確かめる ---
+          #
+          # 上の dryRun は HTTP POST の**手前で return する**。そのため本番の cron が
+          # 稼働開始 (2026-04) から約 4 ヶ月間 成功 0 回だった間も、この smoke は
+          # ずっと green だった (原因は isPublicRoute に /api/cron が無く、hooks の
+          # 認可層が 401 を返して route に到達していなかったこと。#4216 で修正)。
+          #
+          # そこで **わざと誤った secret** で 1 回叩き、返る 401 の本文で
+          # 「どこで落ちたか」を判別する。認証は job 実行前に落ちるので副作用はゼロ。
+          #
+          #   route 側 (verifyCronAuth) の {"error":"Unauthorized"}  → 到達している = OK
+          #   hooks 側 (hooks.server.ts) の {"error":"認証が必要です"} → 到達していない = FAIL
+          #
+          # ステータスコードはどちらも 401 なので、**本文を見ないと区別できない**。
+          FN_URL=$(aws lambda get-function-url-config \
+            --function-name "$LAMBDA_FUNCTION" \
+            --region "$AWS_REGION" \
+            --query 'FunctionUrl' --output text)
+          FN_URL="${FN_URL%/}"
+
+          # リトライ方針: **判別できなかったときだけ**やり直す。
+          #   - `認証が必要です` (= 届いていない) は確定的な検出なので **即 fail**。
+          #     ここでリトライすると、本 gate が守ろうとしている壊れを自分で握り潰す。
+          #   - どちらの本文でもない場合のみ transient (cold start / 一時的な 5xx) とみなし再試行。
+          CRON_PROBE_BODY=""
+          for i in 1 2 3; do
+            CRON_PROBE_BODY=$(curl -s --max-time 30 -X POST \
+              -H "Authorization: Bearer invalid-secret-for-reachability-probe" \
+              -H "Content-Type: application/json" \
+              -d '{}' \
+              "${FN_URL}/api/cron/export-build" || echo "")
+            echo "=== cron route reachability probe (attempt $i) ==="
+            echo "$CRON_PROBE_BODY"
+            if echo "$CRON_PROBE_BODY" | grep -qE '認証が必要です|Unauthorized'; then
+              break
+            fi
+            echo "::notice::probe の応答を判別できませんでした。10s 後に再試行します"
+            sleep 10
+          done
+
+          if echo "$CRON_PROBE_BODY" | grep -q '認証が必要です'; then
+            echo "::error::cron route unreachable — hooks の認可層が 401 を返しています。isPublicRoute に /api/cron が無い状態です (#4206 の再発)。この状態では全 cron が 100% 失敗します"
+            exit 1
+          fi
+          if ! echo "$CRON_PROBE_BODY" | grep -q 'Unauthorized'; then
+            echo "::error::cron route probe が 3 回とも想定外の応答を返しました。誤った secret には route 側 verifyCronAuth の Unauthorized が返るはずです (#4206)"
+            exit 1
+          fi
+          echo "::notice::cron dispatcher smoke test passed (env injection + route reachability)"
 
       # ADR-0048 / #2130: demo Lambda post-deploy smoke test
       # PR #2124 (week 4) merge 後 3 件の hotfix (#2127 / #2128 / #2129) が連続発生し、
@@ -728,7 +859,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       - run: npm ci

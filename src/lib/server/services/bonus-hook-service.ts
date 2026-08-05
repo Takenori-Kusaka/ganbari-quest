@@ -31,7 +31,7 @@ import { asCategoryId } from '$lib/domain/ids';
 // today categories count を使う形式とする。
 
 import { CATEGORY_CODE_TO_ID } from '$lib/domain/categories';
-import { jstDayOfWeek } from '$lib/domain/date-utils';
+import { jstDayOfWeek, jstHour } from '$lib/domain/date-utils';
 import { calcStreakBonus } from '$lib/domain/validation/activity';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 // 本 import は新 SSOT を直接参照 (旧 rule-preset-import-service の re-export 経由を撤去)。
@@ -132,7 +132,9 @@ export async function evaluateBonusHooks(
 			case 'early-bird': {
 				// 朝 8 時までに記録 (JST timezone) で +5
 				// 平日 5 日連続条件は本実装では簡略化 (consecutiveDays ベース)
-				const hour = ctx.recordedAt.getHours();
+				// 「朝 N 時までに記録したか」は JST SSOT 経由 (#4127)。ローカル getter だと
+				// Lambda (UTC) で 9 時間ずれ、JST 07:00 の記録に付かず JST 15:00 に付く。
+				const hour = jstHour(ctx.recordedAt);
 				if (ctx.isFirstToday && hour < 8) {
 					const morning = preset.rules.find((r) => r.title === 'はやおきボーナス');
 					if (morning) {

@@ -7,6 +7,13 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
+import {
+	describeOffsiteVerdict,
+	judgeOffsiteReplication,
+	OFFSITE_MARKER_FILENAME,
+	type OffsiteVerdict,
+	shouldNotifyOffsite,
+} from '$lib/domain/backup-offsite';
 import { getEnv } from '$lib/runtime/env';
 import {
 	backupFilename,
@@ -43,6 +50,23 @@ export interface PgliteBackupStatus {
 	 * 「今日も失敗した」ではなく「**N 晩続けて失敗している**」を出せる。
 	 */
 	consecutiveFailures: number;
+	/**
+	 * 前回の off-site 判定 (#3970 AC2)。同じ警告を毎晩投げないための dedup 用。
+	 *
+	 * 同じ警告が毎晩届くと数日で無視され、**同じ通知先を共有している本物の失敗 alert
+	 * まで一緒に見られなくなる**。状態が変わったときだけ通知する。
+	 */
+	lastOffsiteLevel: OffsiteVerdict['level'] | null;
+	/**
+	 * ローテーション guard (#4129 AC2) が止めている世代数 (#4162)。止まっていなければ 0。
+	 *
+	 * **取得の成否とは独立した事実**。guard 発火時は新世代の確定に成功していて
+	 * 削除だけが止まっているため、これを failure に潰すと判定が「job が動いていない」へ
+	 * 倒れて診断が真逆になる。欠損時は 0 扱い (旧 status file との後方互換)。
+	 */
+	rotationPendingCount: number;
+	/** ローテーションが止まり始めた時刻 (ISO 8601)。止まっていなければ null。 */
+	rotationBlockedSince: string | null;
 }
 
 /**
@@ -82,6 +106,39 @@ function resolveBackupDir(explicit?: string): string {
 	return resolve(explicit ?? env.BACKUP_DIR ?? join(process.cwd(), 'data', 'backups'));
 }
 
+/**
+ * #3970 AC2 — 退避先が実際に見えているかを実 FS から確認する。
+ *
+ * 判定そのものは `$lib/domain/backup-offsite.ts` (純粋関数) が持つ。ここは
+ * **事実の採取だけ**を行う。読めないケースを `'unreadable'` として渡し、判定側で
+ * 「問題なし」に丸めずに unknown として扱わせる。
+ */
+async function probeOffsiteReplication(backupDir: string): Promise<OffsiteVerdict> {
+	const env = getEnv();
+	// off-site を期待しているか。
+	//
+	// `HOST_BACKUP_DIR` は **host 側の compose 変数でコンテナからは見えない** (compose が
+	// bind mount 先を決めるのに使うだけで、コンテナ内は常に BACKUP_DIR=/app/backups)。
+	// そのため compose 側で `BACKUP_OFFSITE_EXPECTED=${HOST_BACKUP_DIR:+true}` と導出して
+	// 渡す。運用者が新しく設定する項目は増えない (HOST_BACKUP_DIR を置いた時点で立つ)。
+	//
+	// 空文字 / 未設定はいずれも「期待していない」= 検査しない。`=== 'true'` の厳密比較なので
+	// `${HOST_BACKUP_DIR:+true}` が空に展開されたケースも自動的にここへ落ちる。
+	const expected = env.BACKUP_OFFSITE_EXPECTED === 'true';
+	if (!expected) return judgeOffsiteReplication({ expected, marker: null });
+
+	// 目印が読めるか。存在しない (ENOENT) と 読めない (権限 / I/O) を区別する —
+	// 前者は「マウントされていない」、後者は「判定不能」で、運用者の取るべき行動が違う。
+	let marker: string | null | 'unreadable';
+	try {
+		marker = await readFile(join(backupDir, OFFSITE_MARKER_FILENAME), 'utf-8');
+	} catch (e) {
+		marker = (e as NodeJS.ErrnoException)?.code === 'ENOENT' ? null : 'unreadable';
+	}
+
+	return judgeOffsiteReplication({ expected, marker });
+}
+
 function resolveMigrationsDir(explicit?: string): string {
 	const env = getEnv();
 	return resolve(explicit ?? env.PGLITE_MIGRATIONS_DIR ?? join(process.cwd(), 'drizzle', 'pglite'));
@@ -102,6 +159,9 @@ async function readStatus(backupDir: string): Promise<PgliteBackupStatus> {
 		lastFailureAt: null,
 		lastFailureMessage: null,
 		consecutiveFailures: 0,
+		lastOffsiteLevel: null,
+		rotationPendingCount: 0,
+		rotationBlockedSince: null,
 	};
 	try {
 		const raw = await readFile(join(backupDir, BACKUP_STATUS_FILENAME), 'utf-8');
@@ -169,7 +229,28 @@ export async function runPgliteBackup(
 		// 取得した新世代はここまでで確定済みなので、**バックアップは失われず削除だけが止まる**。
 		// 逃げ道 (bypass env) は用意しない — 退避してから手で古い世代を削れば、次回以降は
 		// rotated が 1 件に戻って自然に解除される。env で黙って通せる穴を作らない。
+		// #4162: guard は **throw する前に「取得は成功した」を状態ファイルへ確定させる**。
+		// 新世代は上の rename で既に確定しており、コード自身がそれを知っている
+		// (guard の文言も「今回取得した新しいバックアップは確定済み」と書いている)。
+		// にもかかわらず throw だけすると catch が lastSuccessAt を進めないまま
+		// consecutiveFailures を積み、判定が stale-critical (= 「job が動いていない」) に倒れる。
+		// **実際は毎晩正常に取れており、必要な行動は「古い世代を退避して手で削除」**なので
+		// 診断が真逆になる。取得の成功とローテーションの保留を別々の事実として残す。
 		if (rotated.length > 1) {
+			const previousForGuard = await readStatus(backupDir);
+			await writeStatus(backupDir, {
+				...previousForGuard,
+				lastSuccessAt: new Date().toISOString(),
+				lastSuccessFilename: filename,
+				lastSuccessBytes: bytes.byteLength,
+				lastSuccessDurationMs: Date.now() - startedAt,
+				// 取得は成功しているので連続失敗は 0 に戻す。guard の発火は「失敗」ではない。
+				consecutiveFailures: 0,
+				rotationPendingCount: rotated.length,
+				rotationBlockedSince: previousForGuard.rotationBlockedSince ?? new Date().toISOString(),
+			}).catch(() => {
+				// 状態を書けなくても guard 自体は止める (削除を通してしまう方が重い)。
+			});
 			throw new PgliteBackupRotationGuardError(
 				rotated,
 				retention,
@@ -189,6 +270,24 @@ export async function runPgliteBackup(
 
 		const durationMs = Date.now() - startedAt;
 		const previous = await readStatus(backupDir);
+
+		// #3970 AC2: **取得の成否とは別に**、控えが実際に退避先へ届いたかを確認する。
+		// 取得が成功していても、マウントが外れていれば控えは筐体内にしか無い
+		// (Docker が bind 先にローカルの空ディレクトリを作るため書き込みは成功する)。
+		// ここで throw しないのは、取得は本当に成功しており、失敗として扱うと
+		// 「取れている控えを無いものとして扱う」誤解を生むため。呼び出し側が alert する。
+		const offsite = await probeOffsiteReplication(backupDir);
+		const offsiteMessage = describeOffsiteVerdict(offsite);
+		// 前回と同じ判定なら通知しない (毎晩同じ警告を投げて mute させない)。
+		// 判定自体は毎回行い、通知するかどうかだけを絞る。
+		const notifyOffsite = shouldNotifyOffsite(offsite, previous.lastOffsiteLevel ?? null);
+		if (offsiteMessage) {
+			logger.error('[pglite-backup] offsite check failed', {
+				service: 'pglite-backup',
+				context: { level: offsite.level, notify: notifyOffsite, message: offsiteMessage },
+			});
+		}
+
 		await writeStatus(backupDir, {
 			...previous,
 			lastSuccessAt: new Date().toISOString(),
@@ -196,6 +295,12 @@ export async function runPgliteBackup(
 			lastSuccessBytes: bytes.byteLength,
 			lastSuccessDurationMs: durationMs,
 			consecutiveFailures: 0,
+			lastOffsiteLevel: offsite.level,
+			// ここまで来た = ローテーションが通った。保留を解除する (#4162)。
+			// 解除を書き忘れると「退避して削除したのに warn が消えない」状態が残り、
+			// 表示が現実から乖離したまま固定される。
+			rotationPendingCount: 0,
+			rotationBlockedSince: null,
 		});
 
 		const result: PgliteBackupResult = {
@@ -205,6 +310,10 @@ export async function runPgliteBackup(
 			rotated,
 			generationsKept: existing.length - rotated.length,
 			durationMs,
+			offsite,
+			// 通知しない (= 前回と同じ判定) ときは message を載せない。載せると
+			// 呼び出し側が毎晩 alert してしまい dedup が効かない。
+			offsiteMessage: notifyOffsite ? offsiteMessage : null,
 		};
 		logger.info('[pglite-backup] completed', {
 			service: 'pglite-backup',
@@ -212,6 +321,18 @@ export async function runPgliteBackup(
 		});
 		return result;
 	} catch (e) {
+		// #4162: guard の発火は **失敗ではない**。取得は成功しており、削除だけを意図的に
+		// 止めた状態で、その事実は throw の直前に状態ファイルへ書いてある。ここで
+		// consecutiveFailures を積むと判定層が「落ち続けている」と読み、診断が真逆になる。
+		// 状態はもう記録済みなので、そのまま呼び出し側へ投げるだけにする。
+		if (e instanceof PgliteBackupRotationGuardError) {
+			logger.warn('[pglite-backup] rotation blocked (取得は成功)', {
+				service: 'pglite-backup',
+				context: { wouldDelete: e.wouldDelete.length, retention: e.retention },
+			});
+			throw e;
+		}
+
 		const message = e instanceof Error ? e.message : String(e);
 		const previous = await readStatus(backupDir);
 		await writeStatus(backupDir, {

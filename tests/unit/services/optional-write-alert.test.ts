@@ -52,7 +52,9 @@ describe('#3550 ① fitness#11: optional 欠落カウンタの service 層 bind'
 		});
 	});
 
-	it('[A2] sendDiscordAlert を level=error + tenantId + errorSummary で起動する', () => {
+	// #4192 (#4174 Q3): tenantId は Discord に載せない。「誰に起きたか」は [A1] で assert 済の
+	// logger.error (tenantId / childId 付き) 側が持つ。
+	it('[A2] sendDiscordAlert を level=error + errorSummary で起動し、tenantId は渡さない', () => {
 		const handler = createOptionalWriteFailureHandler({ childId: 'c-1', tenantId: 't-1' });
 		handler('mission_bonus', new Error('boom'));
 
@@ -61,10 +63,12 @@ describe('#3550 ① fitness#11: optional 欠落カウンタの service 層 bind'
 			expect.objectContaining({
 				level: 'error',
 				message: expect.stringContaining('mission_bonus'),
-				tenantId: 't-1',
 				errorSummary: 'boom',
 			}),
 		);
+		const alertArg = alertMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+		expect(alertArg).not.toHaveProperty('tenantId');
+		expect(JSON.stringify(alertArg)).not.toContain('t-1');
 	});
 
 	it('[A3] Discord alert 自体の失敗は handler から throw せず logger.warn に留まる', async () => {

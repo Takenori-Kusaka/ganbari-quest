@@ -48,7 +48,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 `npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775 / #4121)。**全 6 step** を順次実行し各 fail で即停止 + 修正方針表示。**step 一覧の SSOT は `npm run pre-ready -- --help`**:
 
-1. biome check / 2. svelte-check / 7. check-no-plan-literals (#972) / 7g. check-local-tz-date-getters (#4015, ローカル TZ 日付 getter 禁止 / JST SSOT 強制) / 9. Readiness gate = check-pr-body (PR 番号必須) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail)
+1. biome check / 2. svelte-check / 7. check-no-plan-literals (#972) / 7g. check-local-tz-date-getters (#4015 / #4127, TZ 依存の日付導出禁止 / JST SSOT 強制) / 9. Readiness gate = check-pr-body (PR 番号必須) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail)
 
 **選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**外した検査は消していない** — vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml` で hard-fail のまま走る (対応表は `--help`)。**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。
 
@@ -100,13 +100,20 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 セッション起動時 `.claude/agents/` がロール自動活性化:
 - `po-session.md` — PO（Issue 起票・優先度・事業判断、ロール定義は @docs/sessions/po-session.md）
 - `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
-- `qa-session.md` — QA（PR レビュー・品質ゲート、@docs/sessions/qa-session.md）
+- `qm-session.md` — QM（PR レビュー・品質ゲート、@docs/sessions/qm-session.md）
 
-タスク固有: `.claude/skills/` (11 Skills、オンデマンド発火)
+タスク固有: `.claude/skills/` (オンデマンド発火)
+
+**Agent Teams**: 各ロールが**自分のクローン内で**組む (PO チームの team / Dev チームの team、と別々に構築する)。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリ・gh 認証で動くため ADR-0022 の作成者 ≠ 承認者が空洞化する。**重い検証の並列化には使えない** (`heavy` lock はマシン全体で 1 本)。
+
+**振り方 (2026-08-01 初回実運用、全ロール共通)**: ① **成果物がファイルに残る仕事を振る** — teammate の報告テキストは届かないことがある (read-only の調査でも出力先ファイルを指定する) / ② **完了は lead が `git diff` で自分で確認する** (通知を待たない) / ③ **teammate の出力は実物と突き合わせる** — teammate は数値・Issue 番号を推測で埋める / ④ **空振り 2 回で引き取る**。
+
+使ってよい / いけない場面 + 振り方の SSOT → `docs/sessions/agent-teams.md`（**teammate を spawn する前に Read する**。常時ロードしない、#4210）
 
 ## Further Context
 
-- @docs/DESIGN.md（デザイン SSOT、必読）/ @docs/reference/gemini_image_generation_guide.md / @docs/design/asset-catalog.md
+- @docs/DESIGN.md（デザイン SSOT、必読）
+- 画像アセットを**作る / 追加するときだけ** Read する（常時ロードしない、#4210）: `docs/reference/gemini_image_generation_guide.md` / `docs/design/asset-catalog.md`
 - @personal/data/family.yml (サブモジュール)
 
 ## Compaction Rules

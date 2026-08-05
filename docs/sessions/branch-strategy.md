@@ -172,7 +172,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `app-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip、VR warn） | 重量 |
 | `deploy-aws-staging.yml` | integration+hotfix（`branches:[main]` PR、paths filter 撤去で常時発火） | —（required 化は段階導入、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | なし（main 向け PR で発火、actor allowlist） | 重量 |
 | `deploy-nuc-staging.yml` | integration+hotfix（`branches:[main]` PR） | — | なし（actor allowlist） | 重量 |
-| `codeql.yml` | integration+hotfix（`branches:[main]` PR）+ push[main]+schedule | — | なし（develop PR で skip、main 経路で coverage 維持、#2931） | 重量 |
+| `codeql.yml` | integration+hotfix（`branches:[main]` PR）+ push[main]+schedule | **— required 非該当（代替条件は下記「CodeQL の扱い」）** | なし（develop PR で skip、main 経路で coverage 維持、#2931） | 重量 |
 | `deploy.yml` | N/A（push[main] / tags / dispatch） | — | — | 本番 deploy |
 | `deploy-nuc.yml` | N/A（push[main] / dispatch） | — | — | 本番 deploy |
 | `pages.yml` | N/A（push[main] / dispatch、LP 配信 + SS 撮影） | — | — | 本番 deploy |
@@ -182,19 +182,33 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `draft-on-ci-fail.yml` | N/A（`workflow_run`: CI 完了時） | — | — | 補助 |
 | `issue-close-gate.yml` | N/A（`issues: [closed]`） | — | — | 補助 |
 | `ac-audit-monthly.yml` | N/A（schedule / dispatch） | — | — | 定期監査 |
-| `audit-run.yml` | N/A（`workflow_dispatch` のみ） | — | — | 監査（手動） |
 | `admin-bypass-evidence.yml` | N/A（schedule hourly / dispatch） | — | — | 定期監査 |
 | `cost-audit.yml` | N/A（schedule monthly / dispatch） | — | — | 定期監査 |
 | `code-quality-weekly.yml` | N/A（schedule weekly / dispatch） | — | — | 定期監査 |
 | `security-scan.yml` | N/A（schedule quarterly / dispatch） | — | — | 定期監査 |
 | `weekly-report.yml` | N/A（schedule weekly / dispatch） | — | — | 定期レポート |
 | `close-leak-report.yml` | N/A（schedule weekly / dispatch、main 反映済 open issue の close漏れ候補を job summary へ report。auto-close なし = `issues: read` のみ） | — | — | 定期レポート（#3459、検出 SSOT は `scripts/audit/close-leak-report.mjs`） |
-| `gcp-terraform.yml` | N/A（`workflow_dispatch` のみ） | — | — | infra（手動） |
 | `zenn-lint.yml` | N/A（push/PR `paths:docs/zenn/**`、lint 専用） | — | なし（docs/zenn のみ、lane 非依存） | 軽量（zenn 限定） |
 
 > **required context 数 = 10**（★ 印）。`gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945` の `required_status_checks` 配列（`ci-gate` / `screenshot-check` / `Verify AC map in PR body` / `Measure LP dimensions and lint forbidden terms` / `PR チェックリスト完了確認` / `必須セクションの存在確認` / `関連 Issue 番号の記入` / `変更タイプの選択` / `顧客価値・目的の記入` / `テスト実行結果の記入`）が真の SSOT。本表は「どの workflow がどの context を生むか」のマッピングであり、ruleset 変更時は本表も同期する（#2948 no-go: ruleset と乖離させない）。
 >
 > **A-2〜A-5 で lane-aware 化した required gate**: `pr-template-gate.yml`（6 job、#2944 / #3458）/ `pr-ac-verification-check.yml`（#2945）/ `pr-merge-gate.yml`（#2945）/ `pr-quality-gate.yml`（#2946）の 4 workflow（5+1+1+1 = 8 required context）が `actions/pr-lane` 経由で観点切替する。`dependabot-auto-merge.yml`（#2947）は `BOT_ACTORS` SSOT を参照（required ではないが bot lane 判定を共通化）。`ci.yml`（#2874）は inline 式で `pr-lane.mjs` rule 2 と同一判定を行い重量 job を統合 PR で保証発火する。
+
+#### CodeQL の扱い — required 非該当と、その代わりに満たすべき条件（#4155）
+
+`CodeQL` は main ruleset の `required_status_checks` に**含まれない**（上表 ★ 印なし）。ただしこれは「赤でも人の判断で通してよい」という意味では**ない**。required 非該当を維持する代わりに、以下を**機械条件**として課す。
+
+| 項目 | 内容 |
+|---|---|
+| **required 非該当の理由** | 既知 alert が解消されるまで全 PR が止まる（`src/` 外の CI 補助 script 由来のものを含む）。Pre-PMF でリリース全停止に見合わない（ADR-0010） |
+| **代わりに満たすべき条件** | 統合 PR の ref（`refs/pull/<N>/merge`）由来の open alert が **baseline を 1 件も超えない**こと |
+| **検査主体** | `scripts/audit/check-codeql-alerts.mjs`（`ci.yml` `integration-evidence` job で実行、baseline 超過 / ledger 不正 / **未スキャン・API 取得失敗（= 検査不能）** のいずれかで exit 1） |
+| **baseline ledger** | `scripts/audit/codeql-baseline.json`（`tests/e2e/a11y-baseline.json` と同型。`(rule, path)` + `count` で pin、全 entry に `resolutionTrigger` 必須 = 期限なし pin 禁止） |
+| **`src/` の禁止** | **`src/` 配下（顧客経路）の alert を baseline に載せることは禁止**。ledger 検証自体が fail する。顧客経路の alert に「受容」の選択肢を作らない（PO 決裁 2026-08-01） |
+| **解消トリガ** | 日付ではなく「**その file を次に触るとき**」。baseline の各 entry の `resolutionTrigger` が SSOT |
+| **NG-0 条件** | 本検査は [audit-team.md](audit-team.md) §3.5 の NG 0 件条件に組み込まれる（統合 PR の merge 判定材料） |
+
+**やってはいけないこと**: 「required でないから赤でも通す」を人が個別に判断すること。判断が必要になったらそれは baseline / ledger 側の更新（= 差分がレビューに残る形）で行う。
 
 ### 実装状況（§8 step 2、#2931 で実施済み / #2874 で重量レーン拡張）
 
@@ -249,7 +263,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 ## §8 無停止 cutover 手順（順序厳守）
 
-進行中の Dev / QA チームを突然ブロックしないため、以下の順序を厳守する。
+進行中の Dev / QM チームを突然ブロックしないため、以下の順序を厳守する。
 
 1. **本 docs PR を merge**（ルール文書を先に確定）。— ✅ 完了（#2858）
 2. **workflow 改修 PR**: `branches: [main]` 4 本の develop 向け発火追加 + 軽量 / 重量の振り分け + main 向け PR の base/head 検査 gate 追加。集約 job 名（`ci-gate` 等 required status check の context 名）は互換維持する。— ✅ 完了（#2931、§4「実装状況」参照）

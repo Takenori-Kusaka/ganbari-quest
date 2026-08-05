@@ -140,7 +140,7 @@ export function checkBeforeAfterIdentical(capturedFiles, hasher = sha256OfFile) 
 		'  - After SS は PR HEAD (作業中ブランチ) で撮影してください',
 		'  - 変化のない箇所であれば SS 提示を取りやめ、refactor:internal-no-doc-impact label を付ける',
 		'',
-		'参考: docs/sessions/qa-session.md / scripts/check-ss-blob-sha-uniqueness.mjs (#2063 CI gate)',
+		'参考: docs/sessions/qm-session.md / scripts/check-ss-blob-sha-uniqueness.mjs (#2063 CI gate)',
 	];
 
 	return { violations, message: lines.join('\n') };
@@ -389,15 +389,31 @@ export const PRESETS = {
 
 /**
  * プリセット名からビューポート設定を解決する。
- * @param {string} name - 'mobile' | 'tablet' | 'desktop'
+ *
+ * #4156: 名前付きプリセットに加えて `<幅>x<高さ>` 形式（例: `375x812`）を受け付ける。
+ * Issue が特定のブレークポイント（「375px / 1440px の SS を添付」等）を指定したとき、
+ * 近い名前付きプリセットで代用して「指定と違う幅で撮った SS」を証跡にしないため。
+ * deviceScaleFactor は既定 2（Retina 相当、名前付き mobile / tablet と同値）。
+ *
+ * @param {string} name - 'mobile' | 'tablet' | 'desktop' | '<width>x<height>'
  * @returns {{ width: number; height: number; deviceScaleFactor: number }}
  */
 export function resolvePreset(name) {
 	const preset = PRESETS[/** @type {keyof typeof PRESETS} */ (name)];
-	if (!preset) {
-		throw new Error(`Unknown preset: "${name}". Valid options: ${Object.keys(PRESETS).join(', ')}`);
+	if (preset) return preset;
+
+	const explicit = /^(\d{2,5})x(\d{2,5})$/.exec(name.trim());
+	if (explicit) {
+		return {
+			width: Number(explicit[1]),
+			height: Number(explicit[2]),
+			deviceScaleFactor: 2,
+		};
 	}
-	return preset;
+
+	throw new Error(
+		`Unknown preset: "${name}". Valid options: ${Object.keys(PRESETS).join(', ')}, or <width>x<height> (e.g. 375x812)`,
+	);
 }
 
 /**
@@ -826,7 +842,7 @@ export class FlowRecorder {
 	 * @param {(page: import('playwright').Page, capture: (label: string) => Promise<string>) => Promise<void>} opts.actions
 	 * @param {'mobile'|'tablet'|'desktop'} [opts.preset='desktop']
 	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState]
-	 * @returns {Promise<{ stepsDir: string; compositePath: string|null; markdownSnippet: string; stepCount: number }>}
+	 * @returns {Promise<{ stepsDir: string; compositePath: string|null; markdownSnippet: string; stepCount: number; stepPaths: string[]; domPaths: string[] }>}
 	 */
 	async record({ url, flowName, actions, preset = 'desktop', storageState }) {
 		const vp = resolvePreset(preset);
@@ -863,7 +879,7 @@ export class FlowRecorder {
 		}
 		await waitForStablePage(page, { skipNetworkIdle: true });
 
-		/** @type {Array<{ label: string; pngPath: string; stepName: string }>} */
+		/** @type {Array<{ label: string; pngPath: string; stepName: string; domPath: string|null }>} */
 		const steps = [];
 		let stepIndex = 0;
 		const maxSteps = this.#maxSteps;
@@ -903,7 +919,23 @@ export class FlowRecorder {
 				throw new Error(`ステップ ${stepIndex} の PNG が ${blankCheck.reason} です: ${pngPath}`);
 			}
 
-			steps.push({ label, pngPath, stepName });
+			// #4161: flow モードでも DOM スナップショットを併記する。
+			// SS embed gate (check-pr-screenshot.mjs 検証 3) は SS に対応する `.dom.html` を要求するが、
+			// flow モードだけ未対応で「操作を伴う UI 変更は SS を貼れない」状態だった。
+			// 単一 URL モード (ScreenshotCapture) と同じく、撮影直後の同一 page から取得する
+			// (SS と DOM が同一プロセス・同一 page である保証、#1747 AC4 / #1766)。
+			const domPath = resolveDomSnapshotPath(pngPath);
+			const domResult = await captureDomSnapshot(page, domPath);
+			if (!domResult.ok) {
+				console.warn(`[WARN] DOM スナップショットの保存に失敗しました: ${domResult.error.message}`);
+			}
+
+			steps.push({
+				label,
+				pngPath,
+				stepName,
+				domPath: domResult.ok ? domPath : null,
+			});
 			return pngPath;
 		};
 
@@ -925,7 +957,14 @@ export class FlowRecorder {
 
 		if (steps.length === 0) {
 			if (actionsError) throw actionsError;
-			return { stepsDir, compositePath: null, markdownSnippet: '', stepCount: 0 };
+			return {
+				stepsDir,
+				compositePath: null,
+				markdownSnippet: '',
+				stepCount: 0,
+				stepPaths: [],
+				domPaths: [],
+			};
 		}
 
 		const compositePath = path.join(this.#outputDir, `${flowName}-flow.webp`);
@@ -939,11 +978,18 @@ export class FlowRecorder {
 		this.#printReport(steps, compositePath);
 
 		if (actionsError) throw actionsError;
-		return { stepsDir, compositePath, markdownSnippet, stepCount: steps.length };
+		return {
+			stepsDir,
+			compositePath,
+			markdownSnippet,
+			stepCount: steps.length,
+			stepPaths: steps.map((s) => s.pngPath),
+			domPaths: steps.map((s) => s.domPath).filter((p) => p !== null),
+		};
 	}
 
 	/**
-	 * @param {Array<{ label: string; pngPath: string; stepName: string }>} steps
+	 * @param {Array<{ label: string; pngPath: string; stepName: string; domPath: string|null }>} steps
 	 * @param {string} outputPath
 	 */
 	async #compositeSteps(steps, outputPath) {

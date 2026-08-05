@@ -2,7 +2,7 @@ import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 // src/lib/server/services/daily-mission-service.ts
 // デイリーミッション — 毎日3つのミッションを自動生成し、達成でボーナス付与
 
-import { todayDateJST } from '$lib/domain/date-utils';
+import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { insertPointLedger } from '$lib/server/db/activity-repo';
 import {
@@ -284,14 +284,12 @@ function shuffle<T>(arr: T[]): T[] {
 	return a;
 }
 
+// 旧実装は「ローカル深夜パース → ローカル setDate → UTC 文字列化」の混在で、
+// TZ=Asia/Tokyo では 1 日ではなく 2 日戻っていた (#4127 残存 3)。JST SSOT に委譲する。
 function getPreviousDate(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	d.setDate(d.getDate() - 1);
-	return d.toISOString().slice(0, 10);
+	return prevDateJST(dateStr);
 }
 
 function getNDaysAgo(dateStr: string, n: number): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	d.setDate(d.getDate() - n);
-	return d.toISOString().slice(0, 10);
+	return addDaysJST(dateStr, -n);
 }

@@ -25,9 +25,12 @@ vi.mock('$lib/server/db/client', () => ({
 	},
 }));
 
-// Discord 通知は外部副作用なのでモック化
+// #4192: churn チャネルは持たないと決めた (#4174 Q2)。解約理由は Discord に送らず DB に残す。
+// module 全体を mock し、**どの送出関数も呼ばれない**ことを固定する (再配線の回帰検出)。
 vi.mock('$lib/server/services/discord-notify-service', () => ({
-	notifyCancellationWithReason: vi.fn(async () => undefined),
+	notifyDiscord: vi.fn(async () => undefined),
+	notifyIncident: vi.fn(async () => undefined),
+	notifyInquiry: vi.fn(async () => undefined),
 }));
 
 import {
@@ -150,26 +153,20 @@ describe('cancellation-service', () => {
 			}
 		});
 
-		it('Discord 通知関数が呼び出される', async () => {
-			const { notifyCancellationWithReason } = await import(
-				'$lib/server/services/discord-notify-service'
-			);
+		// #4192 (#4174 Q2/Q3): 解約理由は Discord に送らない。理由は DB に残り ops で集計できる。
+		// 自由記述は顧客が書いた文章そのもので、外部 SaaS のチャットログに置くものではない。
+		it('解約理由を Discord に送信しない (churn チャネルは持たない)', async () => {
+			const { notifyDiscord } = await import('$lib/server/services/discord-notify-service');
 
-			await submitCancellationReason({
+			const result = await submitCancellationReason({
 				tenantId: 'tenant-discord',
 				category: CANCELLATION_CATEGORY.GRADUATION,
 				freeText: 'thanks',
 				planAtCancellation: 'monthly',
 			});
 
-			expect(notifyCancellationWithReason).toHaveBeenCalledWith(
-				expect.objectContaining({
-					tenantId: 'tenant-discord',
-					category: CANCELLATION_CATEGORY.GRADUATION,
-					freeText: 'thanks',
-					plan: 'monthly',
-				}),
-			);
+			expect(result.ok).toBe(true);
+			expect(notifyDiscord).not.toHaveBeenCalled();
 		});
 	});
 

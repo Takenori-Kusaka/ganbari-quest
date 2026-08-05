@@ -1,3 +1,4 @@
+import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
@@ -35,6 +36,7 @@ import { recordActivityDsql } from '$lib/server/services/activity-record-dsql';
 import { prepareActivityRecord } from '$lib/server/services/activity-record-preparation';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
+import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 // Re-export for backward compatibility with existing callers.
@@ -96,7 +98,6 @@ export interface RecordActivityResult {
 	levelUp: LevelUpInfo | null;
 	xpGain: XpGainInfo;
 	customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[];
-	specialReward: { id: string; title: string; points: number; icon: string | null } | null;
 }
 
 // ActivityLogEntry / ActivityLogSummary types are defined in activity-log-aggregation.ts
@@ -307,6 +308,7 @@ export async function recordActivity(
 			checkAndIssueStreakCertificates,
 			checkAndIssueLevelCertificates,
 			issueCategoryMasterCertificate,
+			issueMonthlyHabitCertificateIfEligible,
 		} = await import('$lib/server/services/certificate-service');
 		// ストリーク証明書
 		if (isFirstToday && streakDays >= 7) {
@@ -320,8 +322,26 @@ export async function recordActivity(
 		if (xpGain.levelAfter >= 5 && xpGain.levelBefore < 5 && catDef) {
 			await issueCategoryMasterCertificate(childId, String(catDef.id), catDef.name, tenantId);
 		}
-	} catch {
-		// 証明書発行失敗は記録フローを止めない
+
+		// #4172: 月間の習慣化 (その月に記録した日数が閾値以上) を褒める。
+		// **1 日 1 回だけ評価する** — 同日 2 回目以降は既に評価済みなので走らせない。
+		// 発行は同月の証明書行が冪等キーなので、多重に呼んでも 2 回目以降は no-op。
+		if (isFirstToday) {
+			await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
+		}
+	} catch (err) {
+		// 証明書発行失敗は記録フローを止めない。
+		//
+		// #4261: ただし**握りつぶさない**。このブロックは月間の習慣化証明書 (#4172) の発行を
+		// 含み、その中で `insertPointEntry` が**通貨 (ポイント / 思い出チケット) を発行する**。
+		// 無ログだと「チケットがもらえていない」という問い合わせに対し、付与を試みたのか
+		// 失敗したのかを後から判別できない。
+		//
+		// DSQL 経路 (activity-record-dsql.ts) は `runOptionalWrite` + 本 handler で既に
+		// 観測できていたため、sqlite 経路も**同じ handler を通す**(観測の形を 2 つ持たない)。
+		// tenantId / childId は CloudWatch Logs 側にだけ載る (Discord payload からは
+		// handler 内で落とされる、#4174 Q3 / #4192)。
+		createOptionalWriteFailureHandler({ childId, tenantId })('certificate', err);
 	}
 
 	// #1782: カスタム実績機能廃止（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）。
@@ -331,25 +351,11 @@ export async function recordActivity(
 	// 後継機能: チャレンジ機能 (/admin/challenges) のチャレンジ達成 reward。
 	const customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
 
-	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
-	let specialReward: { id: string; title: string; points: number; icon: string | null } | null =
-		null;
-	try {
-		const { checkAndGrantFixedIntervalReward } = await import(
-			'$lib/server/services/special-reward-service'
-		);
-		const reward = await checkAndGrantFixedIntervalReward(childId, tenantId);
-		if (reward) {
-			specialReward = {
-				id: reward.id,
-				title: reward.title,
-				points: reward.points,
-				icon: reward.icon,
-			};
-		}
-	} catch {
-		// 固定間隔報酬チェック失敗は記録フローを止めない
-	}
+	// #4172: 固定間隔自動ごほうび (活動 5 回ごとに `${n}かいきろく達成！` を棚へ INSERT + 50pt 発行) は撤去。
+	// 達成の表現は `value-preview-service.ts` の MILESTONES (初回記録 + 連続日数、報酬を発行しない通知) が担う。
+	// #4268: その MILESTONES 側にも残っていた量ベース (5 回 / 10 回) の称賛は撤去済。褒める軸は日数。
+	// 撤去理由: 26-ゲーミフィケーション設計書 §2.4「唯一の出口はごほうびショップのみ」/ §2.1-2「親が褒める仕組み」
+	// (自動生成行は grantedBy=null で親が一度も関与しない) / §13 実績システム廃止 (#1782 の同型が残っていた)。
 
 	return {
 		id: log.id,
@@ -375,7 +381,6 @@ export async function recordActivity(
 		levelUp,
 		xpGain,
 		customUnlocked,
-		specialReward,
 	};
 }
 

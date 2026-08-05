@@ -110,6 +110,10 @@ new OpsStack(app, `${appName}Ops`, {
 	appLogGroup: compute.appLogGroup,
 	opsEmail,
 	discordWebhookHealth,
+	// #4189: CloudWatch アラームの転送先 (オーナー決裁 2026-08-03、案 B)。
+	// **メール subscription はもう張らない**ため、これが空だと alarm が鳴っても誰にも届かない。
+	// deploy.yml 側で空を検出して deploy を止める。
+	discordWebhookIncident: app.node.tryGetContext('discordWebhookIncident') as string | undefined,
 });
 
 // --- DSQL stack (EPIC #3424 M4-E item 12 / #3429 #3431 #3432) ---
@@ -144,8 +148,11 @@ if (dsqlStagingEnabled) {
 // 本番の `cdk deploy --all` / `cdk diff --all` (deploy.yml) は context 無しで実行されるため
 // 挙動不変 (staging との混線防止)。staging deploy は .github/workflows/deploy-aws-staging.yml が
 // 3 stack を明示列挙して行う (`--all` 不使用)。
-// Network / Ses / Ops は省略: Function URL 直アクセスで検証する (CloudFront は
-// geoRestriction JP のため本番 e2e も Function URL 直の実績パターン踏襲)。
+// Ses / Ops は省略。**Network (CloudFront) は #4204 で staging にも必要**になった:
+// SvelteKit の名前付き form action (`?/action`) は Lambda Function URL がクエリの
+// スラッシュを拒否するため 400 になり、CloudFront Function `<prefix>-query-slash-encode`
+// が `?/x` → `?%2Fx` に書き換えて初めて通る。これが無いと staging では
+// **ログインもサインアップもできない** (= 認証後の画面に到達する手段がゼロ)。
 const stagingEnabled = String(app.node.tryGetContext('stagingEnabled')) === 'true';
 if (stagingEnabled) {
 	const stagingStorage = new StorageStack(app, `${appName}StorageStaging`, {
@@ -170,7 +177,24 @@ if (stagingEnabled) {
 		envConfig: STAGING_ENV_CONFIG,
 	});
 
-	for (const stack of [stagingStorage, stagingAuth, stagingCompute]) {
+	// #4204: staging 用 CloudFront。**custom domain / ACM 証明書は不要** —
+	// `network-stack.ts` の domainNames/certificate は `props.domainName && certificate` の
+	// 条件展開で、未指定なら既定の `*.cloudfront.net` で成立する (Route53 / ACM も同じガード内)。
+	//
+	// geoRestriction は `[]` = 制限なし。post-deploy smoke を回す GitHub Actions runner が
+	// 日本国外にあり、JP allowlist を残すと 403 で smoke が回らないため。
+	// **前提: staging に本番データが入っていないこと** (PO 実測 2026-08-02: 本番 cluster
+	// 1,801,692 bytes に対し staging 1,031,956 bytes = 57%。snapshot コピーなら同等以上になる)。
+	// **staging に本番データを入れる運用が将来生まれたら JP allowlist を戻す** (PO 条件)。
+	const stagingNetwork = new NetworkStack(app, `${appName}NetworkStaging`, {
+		env,
+		description: 'CloudFront for Ganbari Quest (staging, #4204 form action の query slash encode)',
+		functionUrl: stagingCompute.functionUrl,
+		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
+		geoRestrictionCountries: [],
+	});
+
+	for (const stack of [stagingStorage, stagingAuth, stagingCompute, stagingNetwork]) {
 		cdk.Tags.of(stack).add('gq-env', 'staging');
 	}
 }

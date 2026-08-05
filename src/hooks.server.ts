@@ -145,7 +145,8 @@ function respondEntitlementUnavailable(
 		method: event.request.method,
 		status: 503,
 		requestId: event.locals.requestId,
-		tenantId: error.tenantId,
+		// #4192: tenantId は Discord に載せない (#4174 Q3)。上の logger.error が requestId と
+		// 対で残しているので、認証された場所 (CloudWatch Logs) から引く。
 		errorSummary: kind,
 	}).catch(() => {
 		// recursive alert を避けるため握り潰す (上の logger.error で観測は担保済み)
@@ -719,7 +720,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 			path,
 			status,
 			requestId,
-			tenantId,
+			// #4192: tenantId は Discord に載せない (#4174 Q3)。上の logger.error が保持する。
 			errorSummary: errorMsg,
 			stackSummary: stack?.split('\n').slice(0, 3).join('\n'),
 		}).catch(() => {});

@@ -16,7 +16,7 @@ import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
 import { resolveTenantEntitlement, TenantEntitlementUnavailableError } from '../tenant-entitlement';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
-import { verifyIdentityToken } from './cognito-jwt';
+import { hasMfaAmr, verifyIdentityToken } from './cognito-jwt';
 import { refreshCognitoIdToken } from './cognito-oauth';
 
 export class CognitoAuthProvider implements AuthProvider {
@@ -41,6 +41,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
 						authTime: claims.auth_time,
+						// #4266: /ops は ops group + MFA を要求する (hasOpsAccess)
+						mfaAuthenticated: hasMfaAmr(claims.amr),
 					};
 				}
 			} catch (e) {
@@ -66,6 +68,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
 						authTime: claims.auth_time,
+						// #4266: /ops は ops group + MFA を要求する (hasOpsAccess)
+						mfaAuthenticated: hasMfaAmr(claims.amr),
 					};
 				}
 			}
@@ -139,6 +143,9 @@ export class CognitoAuthProvider implements AuthProvider {
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
+				// #4266: ログイン時点で確定した MFA をセッションに焼き込む。以後 silent refresh で
+				// ID token の amr が落ちても、context token が生きている間は /ops に入れる。
+				mfaAuthenticated: identity.mfaAuthenticated === true ? true : undefined,
 				...(await resolveTenantEntitlement(membership.tenantId)),
 			};
 

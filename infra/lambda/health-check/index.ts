@@ -192,12 +192,26 @@ async function getLastNotifiedStatus(): Promise<NotifiedStatus | null> {
 // Weekly Stats — SSM (#1469)
 // ----------------------------------------------------------------
 
+/**
+ * Date を UTC の暦日文字列 (YYYY-MM-DD) にする。
+ *
+ * `toISOString().slice(0, 10)` を使わないのは、それが「実時刻から UTC の暦日を切り出す」
+ * 形と字面で区別できず、JST 前提の集計に紛れ込む温床になるため (#4127)。ここは週次 ops
+ * 集計の UTC アンカーであることが明示的に必要なので getUTC* から組み立てる。
+ */
+function toUtcDateString(d: Date): string {
+	const y = d.getUTCFullYear();
+	const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(d.getUTCDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
 // 日曜 00:00 UTC = 月曜 09:00 JST を週の起点とする
 function getSundayWeekStart(date: Date): string {
 	const d = new Date(date);
 	d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // getUTCDay(): 0=Sun
 	d.setUTCHours(0, 0, 0, 0);
-	return d.toISOString().slice(0, 10);
+	return toUtcDateString(d);
 }
 
 async function getWeeklyStats(): Promise<WeeklyStats | null> {
@@ -471,7 +485,7 @@ async function notifyDiscordHeartbeat(stats: WeeklyStats): Promise<void> {
 	const avgResponseMs = stats.total > 0 ? Math.round(stats.totalResponseMs / stats.total) : 0;
 	const weekEndDate = new Date(`${stats.weekStart}T00:00:00Z`);
 	weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
-	const weekRange = `${stats.weekStart} 〜 ${weekEndDate.toISOString().slice(0, 10)}`;
+	const weekRange = `${stats.weekStart} 〜 ${toUtcDateString(weekEndDate)}`;
 
 	const embed = {
 		title: '\u{1F49A} HealthCheck 週次サマリー',

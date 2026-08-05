@@ -7,7 +7,9 @@
 
 import { enhance } from '$app/forms';
 import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import BackupHealthCard from '$lib/features/admin/components/BackupHealthCard.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -28,6 +30,16 @@ let feedbackEmail = $state('');
 let feedbackInquiryId = $state('');
 let feedbackSuccessIntent = $state<FeedbackIntent>('feedback');
 let feedbackSuccessHadEmail = $state(false);
+
+// #4087: server は判定結果だけを渡すので、表示用の日時は経過時間から復元する。
+// (server 側で文字列整形すると TZ が server 依存になり、#4015 のローカル TZ 事故と同型になる)
+const lastSuccessDisplay = $derived(
+	data.backupHealth?.hoursSinceLastSuccess == null
+		? null
+		: new Date(Date.now() - data.backupHealth.hoursSinceLastSuccess * 3_600_000).toLocaleString(
+				'ja-JP',
+			),
+);
 
 const isConsult = $derived(feedbackIntent === 'consult');
 // 相談 (返信前提) で、かつアカウントメールが無いときのみ返信先を必須にする。
@@ -215,6 +227,20 @@ const successMessage = $derived(
 			{SETTINGS_LABELS.feedbackContactSuffix}
 		</p>
 	</Card>
+
+	<!-- #4087 (E3 / EPIC #4119): バックアップ状態。NUC セルフホスト時のみ表示する。
+	     2026-07-31 の実害では 18 日間バックアップが止まっていたのに、気づく手段が
+	     `curl /api/health | jq` しかなかった。家族 (非エンジニア) が見られる場所に出す。
+	     ADR-0012 整合で常時表示の煽りにはせず、設定画面内の静的表示に留める。
+
+	     #4176: ここは以前 59 行のインライン実装だった。同じ描画が component 側にもあり、
+	     **component だけを直しても実画面に届かない**状態になっていた (#4162 の
+	     rotation-blocked 文言が実際そうなった)。Storybook が描いていたのも
+	     誰も表示しない component で、SS の代替という主張が成立していなかった。
+	     描画は BackupHealthCard 1 箇所に集約する。 -->
+	{#if data.backupHealth}
+		<BackupHealthCard health={data.backupHealth} />
+	{/if}
 
 	<!-- アプリ情報・リンク -->
 	<Card padding="lg">

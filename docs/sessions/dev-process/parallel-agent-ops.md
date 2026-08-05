@@ -101,10 +101,10 @@ gh pr view <num> --json mergeable,mergeStateStatus
 
 ## 6. 長時間待機は scheduler を使う（session 放置で進捗を止めない）
 
-数十分〜数時間の待機（QA merge 完了 / CI 長時間 build / LP デプロイ）が必要な場合、自動再起動を設定する。
+数十分〜数時間の待機（QM merge 完了 / CI 長時間 build / LP デプロイ）が必要な場合、自動再起動を設定する。
 
 - 待機 60 分以下 → ScheduleWakeup で `delaySeconds` 指定
 - 待機 60 分超 / 定期 polling 必要 → `/loop <interval>`
 - session を「user 通知待ち」で放置せず、自分で再起動タイミングを設定する
 
-**QA team の merge 週期**（PO 共有）: 毎時 :07 レビュー開始 → :30 頃 merge 完了。PR Ready 化は :05 までに済ませると :07 枠に乗る。merge watcher 起動は :15 以降が効率的。
+**QM team の merge 週期**（PO 共有）: 毎時 :07 レビュー開始 → :30 頃 merge 完了。PR Ready 化は :05 までに済ませると :07 枠に乗る。merge watcher 起動は :15 以降が効率的。

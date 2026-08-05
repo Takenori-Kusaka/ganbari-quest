@@ -3,19 +3,61 @@
 // appInfo / founderInquiry は静的なため load 不要。
 
 import { fail } from '@sveltejs/kit';
+import {
+	type BackupHealthVerdict,
+	evaluateBackupHealth,
+	isBackupNotificationConfigured,
+} from '$lib/domain/backup-health';
+import { getEnv } from '$lib/runtime/env';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { logger } from '$lib/server/logger';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
+import { getPgliteBackupStatus } from '$lib/server/services/pglite-backup-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// #support-unify: 相談 intent の返信先 hint (「○○ に返信します」) でアカウントメールを提示するため、
 	// cognito 認証時のみ識別子メールを渡す (local モードは null = フォームで明示入力を促す)。
 	const accountEmail = locals.identity?.type === 'cognito' ? locals.identity.email : null;
-	return { accountEmail };
+
+	// #4087 (E3 / EPIC #4119): バックアップ状態を家族 (非エンジニア) が見られる場所に出す。
+	//
+	// NUC セルフホスト (DATA_SOURCE=pglite) のときだけ載せる。クラウド (dsql) のバックアップは
+	// AWS Backup が担っており本画面の対象外で、載せると「自分で見るべきもの」を誤らせる。
+	const backupHealth = getEnv().DATA_SOURCE === 'pglite' ? await readBackupHealth() : null;
+
+	return { accountEmail, backupHealth };
 };
+
+/**
+ * バックアップ状態を判定して返す。**画面を落とさない**ことを優先する。
+ *
+ * 状態ファイルが読めないこと自体はサポート画面の主目的 (相談フォーム) と無関係なので、
+ * ここで throw すると「バックアップ状態が読めないせいで相談できない」という逆転が起きる。
+ */
+async function readBackupHealth(): Promise<BackupHealthVerdict | null> {
+	try {
+		const status = await getPgliteBackupStatus();
+		return evaluateBackupHealth(
+			{
+				lastSuccessAt: status.lastSuccessAt,
+				consecutiveFailures: status.consecutiveFailures,
+				lastFailureMessage: status.lastFailureMessage,
+				notificationConfigured: isBackupNotificationConfigured(process.env),
+				// #4162: guard 発火中は「取得は成功 / ローテーションが保留」。
+				// 欠損時 0 扱いで旧 status file と後方互換。
+				rotationPendingCount: status.rotationPendingCount ?? 0,
+				// #4162: 放置の長さで critical へ昇格させるために渡す (guard は自己解除しない)。
+				rotationBlockedSince: status.rotationBlockedSince ?? null,
+			},
+			new Date(),
+		);
+	} catch {
+		return null;
+	}
+}
 
 // #support-unify: 1 フォーム統合の検証ロジック。intent (用件 2 軸) + 内容分類を併用する。
 //   - intent='feedback' (感想・要望、返信不要): category = feature|bug|other を併記
@@ -110,17 +152,16 @@ export const actions = {
 			// #3210: save 失敗を握り潰して偽成功を返さない (data-loss + 偽成功の根治)。
 			// Discord は founder の実 inbox なので best-effort backup として試行しつつ、
 			// ユーザーには明示エラーを返し「届いた」と誤認させない (feedback / consult 双方)。
-			notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
-				() => {},
-			);
+			// #4197: 通知 payload に tenantId / メールアドレスを載せない (#4174 Q3 の PO 決裁)。
+			// save 失敗時もそれは同じ — ここでユーザーには明示エラーを返しており (下)、
+			// 「届いたのに誰からか分からない」状態にはならない。
+			notifyInquiry(category, body, inquiryId).catch(() => {});
 			return fail(500, {
 				feedbackError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
 			});
 		}
 
-		notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
-			() => {},
-		);
+		notifyInquiry(category, body, inquiryId).catch(() => {});
 
 		const confirmTo = replyEmail || (email !== 'local-user' ? email : '');
 		if (confirmTo && inquiryId) {

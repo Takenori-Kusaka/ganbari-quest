@@ -18,6 +18,15 @@ RUN npm ci
 
 # Stage 2: Runtime（最小コピー）
 FROM node:22-alpine AS runtime
+
+# #4207: alpine は tzdata を同梱せず、`TZ=Asia/Tokyo` を渡しても解決されない。
+# 本 scheduler は node-cron に `timezone: 'Asia/Tokyo'` を明示指定しており
+# (scripts/scheduler.ts)、node-cron は Node 同梱 ICU を使うため **スケジュール自体は
+# tzdata なしでも正しい**。それでも入れるのは、`date` / ログのタイムスタンプ /
+# 将来 libc 依存の日付処理が入ったときに、3 コンテナで挙動が割れないようにするため。
+# 「この 1 つだけ例外」を残すと、次に読む人が「なぜここだけ無いのか」を毎回調べ直す。
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 # node_modules 全体をコピー（tsx + node-cron が含まれる）

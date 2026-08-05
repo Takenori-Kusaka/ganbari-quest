@@ -31,6 +31,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain as isMainModule } from '../lib/is-main.mjs';
+import { formatCodeqlMarkdown } from './check-codeql-alerts.mjs';
 import {
 	evaluateMergeReadiness,
 	formatMergeReadinessMarkdown,
@@ -66,6 +67,7 @@ export function buildJobResultTable(needs) {
  *   coverageGapMap: ReturnType<typeof buildCoverageGapMap> | null,
  *   apiCoverageMap: ReturnType<typeof matchEndpointCoverage> | null,
  *   auditFindings?: Array<any>,
+ *   codeqlResult?: any,
  *   runId?: string,
  *   prNumber?: string,
  *   generatedAt?: string,
@@ -77,6 +79,7 @@ export function buildEvidence({
 	coverageGapMap,
 	apiCoverageMap,
 	auditFindings = [],
+	codeqlResult = null,
 	runId = '',
 	prNumber = '',
 	generatedAt = new Date().toISOString(),
@@ -98,6 +101,7 @@ export function buildEvidence({
 		sarifResults,
 		coverageGapMap,
 		allGreen,
+		codeqlResult,
 	});
 
 	const json = {
@@ -120,6 +124,9 @@ export function buildEvidence({
 			errorLevelCount,
 		},
 		mergeReadinessAdvisory: mergeReadiness,
+		// #4155: CodeQL は required 非該当。代わりに「PR 由来 new alert 0 件」を機械条件として
+		// NG-0 条件 (audit-team.md §3.5) に組み込む。hard fail は check-codeql-alerts.mjs CLI が担う。
+		codeql: codeqlResult,
 	};
 
 	const md = [
@@ -165,6 +172,10 @@ export function buildEvidence({
 		'',
 		`- finding → SARIF result: ${sarifResults.length} 件 / rule: ${ruleCount} 件 / level=error: ${errorLevelCount} 件`,
 		'- 完全 SARIF document は attestation artifact (`integration-attestation-<run_id>/sarif.json`) に永続化される (in-toto Release predicate と併せ merge commit に紐付け)',
+		'',
+		codeqlResult
+			? formatCodeqlMarkdown(codeqlResult)
+			: '### CodeQL new-alert 検査 (#4155)\n\n- 判定: ❌ 未取得 (検査結果ファイルなし = 評価不能。pass 扱いにしない)',
 		'',
 		formatMergeReadinessMarkdown(mergeReadiness),
 		'',
@@ -222,11 +233,38 @@ export function runCli(argv = process.argv.slice(2)) {
 	const evidenceDir = argOf(argv, '--audit-evidence', 'tmp/audit-evidence');
 	const auditFindings = internalHelpers.readAuditFindings(evidenceDir);
 
+	// #4155: check-codeql-alerts.mjs が先行 step で書き出した判定結果を取り込む。
+	// **ファイル不在は「検査していない」であって pass ではない**ため、明示的に fail 判定を注入する。
+	const codeqlPath = argOf(argv, '--codeql', 'integration-evidence/codeql-alerts.json');
+	/** @type {any} */
+	let codeqlResult = {
+		pass: false,
+		ref: '',
+		observedCount: 0,
+		newAlerts: [],
+		acceptedCount: 0,
+		staleEntries: [],
+		baselineErrors: [],
+		analysisCount: null,
+		fetchError: null,
+		reasons: [`CodeQL 検査結果 (${codeqlPath}) が無い = 未検査。pass 扱いにしない (#4155)`],
+	};
+	if (existsSync(codeqlPath)) {
+		try {
+			codeqlResult = JSON.parse(readFileSync(codeqlPath, 'utf8'));
+		} catch (e) {
+			codeqlResult.reasons = [
+				`CodeQL 検査結果の parse 失敗: ${e instanceof Error ? e.message : e}`,
+			];
+		}
+	}
+
 	const { json, markdown } = buildEvidence({
 		needs,
 		coverageGapMap,
 		apiCoverageMap,
 		auditFindings,
+		codeqlResult,
 		runId: argOf(argv, '--run-id', process.env.GITHUB_RUN_ID || ''),
 		prNumber: argOf(argv, '--pr', ''),
 	});

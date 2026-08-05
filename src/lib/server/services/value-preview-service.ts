@@ -13,17 +13,22 @@ import type { CategoryId, ChildId } from '$lib/domain/ids';
  * - Anti-engagement (ADR-0012): 滞在時間延伸 UI ではなく、純粋に進捗の可視化
  */
 
+import {
+	NOTIFIED_STREAK_MILESTONE_DAYS,
+	PRAISE_START_MILESTONE_ID,
+	type PraiseMilestoneId,
+} from '$lib/domain/constants/habit-milestones';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 
-/** 初月マイルストーン定義 (#1600 AC マイルストーン設計) */
-export type MilestoneId =
-	| 'first_record'
-	| 'records_5'
-	| 'records_10'
-	| 'streak_7'
-	| 'streak_14'
-	| 'streak_30';
+/**
+ * 初月マイルストーン定義 (#1600 AC マイルストーン設計)。
+ *
+ * ID 集合の SSOT は `$lib/domain/constants/habit-milestones` の `PRAISE_MILESTONE_IDS`
+ * (褒める軸 = 日数ベース + 開始の 1 件、#4268)。ここで独自 union を再定義しない。
+ */
+export type MilestoneId = PraiseMilestoneId;
 
 export interface MilestoneDefinition {
 	id: MilestoneId;
@@ -31,14 +36,25 @@ export interface MilestoneDefinition {
 	kind: 'count' | 'streak';
 }
 
+// #4172 AC12': streak の閾値は本 file / certificate-service / family-streak-service の
+// 3 箇所に別々のリテラルとして存在していた。**数値だけ**を domain 定数へ集約する。
+// 表示層 (`labels.ts` の MilestoneId union) は 7/14/30 しか持たないため、
+// `NOTIFIED_STREAK_MILESTONE_DAYS` (= 30 以下) を使う。ここに別のリテラルを置かない。
+//
+// #4268: 褒める軸は日数 (`kind: 'streak'`) のみ。累計回数で褒める軸は置かない。
+// `first_record` だけが「量」ではなく「開始」を褒める明示的な例外
+// (`PRAISE_START_MILESTONE_ID`)。両側適用は
+// `tests/unit/architecture/praise-axis-ssot.test.ts` が検査する。
 export const MILESTONES: readonly MilestoneDefinition[] = [
-	{ id: 'first_record', threshold: 1, kind: 'count' },
-	{ id: 'records_5', threshold: 5, kind: 'count' },
-	{ id: 'records_10', threshold: 10, kind: 'count' },
-	{ id: 'streak_7', threshold: 7, kind: 'streak' },
-	{ id: 'streak_14', threshold: 14, kind: 'streak' },
-	{ id: 'streak_30', threshold: 30, kind: 'streak' },
-] as const;
+	{ id: PRAISE_START_MILESTONE_ID, threshold: 1, kind: 'count' },
+	...NOTIFIED_STREAK_MILESTONE_DAYS.map(
+		(days): MilestoneDefinition => ({
+			id: `streak_${days}` as MilestoneId,
+			threshold: days,
+			kind: 'streak',
+		}),
+	),
+];
 
 export interface MilestoneAchievement {
 	id: MilestoneId;
@@ -139,7 +155,7 @@ function computeStreaks(recordedDates: string[]): { current: number; longest: nu
 	const uniqueDates = Array.from(new Set(recordedDates.map(toDateOnly))).sort();
 	if (uniqueDates.length === 0) return { current: 0, longest: 0 };
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayDateJST();
 	return {
 		longest: computeLongestStreak(uniqueDates),
 		current: computeCurrentStreak(uniqueDates, today),
@@ -165,7 +181,7 @@ export async function getTenantValuePreview(tenantId: string): Promise<TenantVal
 		};
 	}
 
-	const todayDate = new Date().toISOString().slice(0, 10);
+	const todayDate = todayDateJST();
 
 	const childPreviews: ChildValuePreview[] = await Promise.all(
 		children.map(async (child) => {

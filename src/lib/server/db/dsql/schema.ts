@@ -1388,6 +1388,15 @@ export const planTiers = pgTable(
 // stripe_webhook_events — Stripe webhook 冪等 dedup (グローバル、PK = event_id、tenant_id は
 // nullable analytics 属性)。at-least-once delivery + resend の二重課金防止。30 日 retention。
 // handler_result は type-only enum (sqlite SSOT と同 shape、DDL CHECK は drizzle 仕様で非生成)。
+/**
+ * `stripe_webhook_events.handler_result` の値域 (#4128)。
+ *
+ * `'processing'` は insert-first で処理権を取得した直後の一過性の状態
+ * (interface SSOT: src/lib/server/db/interfaces/webhook-event-repo.interface.ts)。
+ * DDL 上は CHECK 制約を持たない TEXT のため、値の追加に migration は不要。
+ */
+const WEBHOOK_HANDLER_RESULTS = ['processing', 'success', 'error', 'skipped'] as const;
+
 export const stripeWebhookEvents = pgTable(
 	'stripe_webhook_events',
 	{
@@ -1396,7 +1405,7 @@ export const stripeWebhookEvents = pgTable(
 		processedAt: timestamp('processed_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
-		handlerResult: text('handler_result', { enum: ['success', 'error', 'skipped'] }).notNull(),
+		handlerResult: text('handler_result', { enum: WEBHOOK_HANDLER_RESULTS }).notNull(),
 		errorMessage: text('error_message'),
 		retryCount: integer('retry_count').notNull().default(0),
 		tenantId: text('tenant_id'),

@@ -63,12 +63,14 @@ export async function closeOpenSessions(childId: ChildId, endedAt: string, _tena
 }
 
 /** 本日の使用ログ一覧を取得（テナント全子供） */
-export async function findTodayUsageLogs(tenantId: string, datePrefix: string) {
-	// datePrefix = 'YYYY-MM-DD' でマッチする（ISO8601 prefix）
+export async function findTodayUsageLogs(tenantId: string, startedAtFromIso: string) {
+	// startedAtFromIso = 「その日の始まり」を表す UTC ISO 文字列 (#4127)。
+	// startedAt は UTC ISO で保存されるため、JST の 1 日で絞るには境界を
+	// jstDayStartUtcIso() で作った瞬間で渡す (UTC 暦日の前方一致では 9 時間ずれる)。
 	const rows = db
 		.select()
 		.from(usageLogs)
-		.where(and(eq(usageLogs.tenantId, tenantId), gte(usageLogs.startedAt, datePrefix)))
+		.where(and(eq(usageLogs.tenantId, tenantId), gte(usageLogs.startedAt, startedAtFromIso)))
 		.all();
 	return rows.map(toUsageLog);
 }

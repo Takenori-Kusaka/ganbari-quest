@@ -312,7 +312,7 @@ $effect(() => {
 							{:else if msg.body}
 								<p class="text-sm font-bold text-[var(--color-text)]">{msg.body}</p>
 							{/if}
-							<p class="text-xs text-[var(--color-text-muted)]">{new Date(msg.sentAt).toLocaleString('ja-JP')}</p>
+							<p class="text-xs text-[var(--color-text-muted)]">{new Date(msg.sentAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</p>
 						</div>
 						{#if msg.shownAt}
 							<span class="text-xs text-[var(--color-feedback-success-text)]">{CHEER_LABELS.msgRead}</span>

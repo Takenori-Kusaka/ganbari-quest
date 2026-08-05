@@ -28,8 +28,33 @@ export const demoWebhookEventRepo: IWebhookEventRepo = {
 	async findByEventId(eventId) {
 		return events.get(eventId) ?? null;
 	},
-	async insert(record) {
+	async claim(record, staleClaimBeforeIso) {
+		// SQL 実装 (dsql / sqlite) の 1 文 upsert と同じ判定を in-memory で再現する (#4128)。
+		// JS は単一スレッドで本関数内に await が無いため、この読み書きは不可分に進む
+		// (= 並列到達しても勝者は 1 つ)。
+		const existing = events.get(record.eventId);
+		if (existing) {
+			const isDeadClaim =
+				existing.handlerResult === 'processing' && existing.processedAt < staleClaimBeforeIso;
+			if (!isDeadClaim) return false;
+			// retry_count は引き継ぐ (再到達の計数を stale 引き取りで消さない)
+			events.set(record.eventId, { ...record, retryCount: existing.retryCount });
+			return true;
+		}
 		events.set(record.eventId, record);
+		return true;
+	},
+	async finalize(eventId, handlerResult, processedAtIso) {
+		const existing = events.get(eventId);
+		if (existing) {
+			events.set(eventId, { ...existing, handlerResult, processedAt: processedAtIso });
+		}
+	},
+	async releaseClaim(eventId) {
+		// 完了済 row を巻き添えで消さないよう processing に限定する。
+		if (events.get(eventId)?.handlerResult === 'processing') {
+			events.delete(eventId);
+		}
 	},
 	async incrementRetryCount(eventId) {
 		const existing = events.get(eventId);

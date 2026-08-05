@@ -225,7 +225,7 @@
 
 **処理:**
 1. `cancellation-service.submitCancellationReason()` を呼び出して DB 永続化
-2. Discord churn channel へ `notifyCancellationWithReason()` で通知（カテゴリ + 自由記述含む）
+2. Discord には通知しない（`churn` チャネルは持たない。理由は `23-Discordサーバー設計書.md §4.5`。理由・自由記述は `cancellation_reasons` に残り ops dashboard から集計する）
 3. 課金プランかつ `stripeCustomerId` 存在 → Stripe Customer Portal セッションを作成して 303 リダイレクト
 4. 無料プラン or Portal 不可 → `/admin/subscription/cancel/thanks` に 303 リダイレクト
 
@@ -1242,6 +1242,9 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
 - **`cancel_url`**: `${origin}/pricing`
 - **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
+- **Price の解決 (#4286)**: `planId` → Price ID は **`getPriceId()` 単一経路**で解決する。env に Price ID が無く `lookup_key` からも引けない場合は `PRICE_UNRESOLVED` を返す
+- **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
+  - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
 
 #### POST /api/stripe/portal
 
@@ -1253,6 +1256,12 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
 - **`return_url`**: `${origin}/admin/subscription`
+- **リクエストボディ `intent`（#4166 / #4270）**: `plan-change` | `plan-upgrade` | `billing-history`。
+  portal の着地を決める。**allowlist で検証**し、外れた値・未指定は安全側（`plan-change` = portal ホーム）に倒し、
+  拒否した事実だけを記録する（**顧客識別子はログに載せない**）。`plan-upgrade` のときだけ `flow_data`
+  （`subscription_update`）でプラン変更画面へ直行させる
+- **成功レスポンス**: `{ url, flowFallback }`。`flowFallback=true` は **flow を Stripe が受け付けず portal ホームで
+  作り直した**ことを表す。画面は自動遷移せず、次の操作を示す通知を出す（`plan-change-flow.md` §3.2.2）
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）
@@ -1279,7 +1288,11 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 **処理する event 種別と因果関係**: 現行 SSOT は `docs/design/billing-redesign/`。entitlement は Stripe Subscription (`tenant.stripeSubscriptionId` + `tenant.status`) を正とし license key を経由しない。`docs/design/license-subscription-causality.md` は deprecated (Epic #2525 で License Key 側全廃、歴史記録)。
 
-**Idempotency**: Stripe webhook は at-least-once 配信のため、`stripe_webhook_events` テーブルで event ID ベースの重複排除を行う（§6 参照）。
+**受信口はこの 1 本のみ**: Stripe Dashboard の destination はこの URL を指す。**署名検証だけして 200 を返す route を増やしてはならない** — Stripe は 200 を受けると再送しないため、event が台帳にも残らず消える。受信口が 1 本であること・すべての受信口が `handleWebhookEvent` に dispatch することは `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` が CI で固定する。
+
+**Idempotency**: Stripe webhook は at-least-once 配信のため、`stripe_webhook_events` テーブルで event ID ベースの重複排除を行う（§6 参照）。dedup は **insert-first**（先に `handler_result='processing'` の行で処理権を取り、handler 完了後に結果を確定する）。処理権を取れなかった側は handler を呼ばず 200 を返す。handler が失敗した場合は行を削除して 500 を返し、Stripe の再送に載せる（台帳は「**完了した** event」の記録である）。処理中に Lambda が落ちて `processing` が残った場合は 15 分後に次の到達が引き取る。
+
+**乖離の検知**: Stripe 側で配信成功（`pending_webhooks=0`）なのに台帳に記録が無い event は、`/api/cron/stripe-webhook-delivery-check` が Discord に通知する（kind `stripe-webhook-ledger-gap`）。「受け取って 200 を返したのに処理していない」ことの唯一の外形的証拠。
 
 ### 3.13 活動ピン留め
 
@@ -1376,7 +1389,8 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
     "hoursSinceLastSuccess": null,
     "consecutiveFailures": 18,
     "lastFailureMessage": "CRON_SECRET が未設定です (/api/cron/pglite-backup の認証に必要)",
-    "notificationMissing": true
+    "notificationMissing": true,
+    "rotationPendingCount": 0
   }
 }
 ```
@@ -1387,14 +1401,20 @@ backend が不健全 (接続不可 / schema 不在) の場合は **503** + `{"st
 |---|---|
 | 付与条件 | `backup` と同じ（`DATA_SOURCE === 'pglite'` かつ状態ファイルが読めたとき）。読めなければ `backup` ごと省略する |
 | `level` | `ok` / `warn` / `critical`。UI の色分けと通知の強さを 1 箇所で決める |
-| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `reason` | `never-succeeded` / `stale-critical` / `stale-warn` / `consecutive-failures-critical` / `last-run-failed` / `rotation-blocked` / `rotation-blocked-critical` / `no-notification-channel` / `healthy`。**level だけでは人間が行動できない**ため、根拠を持たせる |
+| `rotation-blocked` の昇格 | guard は**自己解除しない**（溢れは毎晩 1 世代ずつ増える）。放置すればディスクを食い潰して取得自体が失敗するため、`BACKUP_ROTATION_BLOCKED_CRITICAL_HOURS = 168`（7 晩）で `rotation-blocked-critical` へ昇格させる。**永久 warn は「消えない warn」として無視される** |
+| `rotationPendingCount` | ローテーション guard（#4129 AC2）が止めている世代数。0 なら止まっていない。**取得の成否とは独立した事実**（#4162） |
 | `notificationMissing` | 失敗通知の宛先（`DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_WEBHOOK_INCIDENT`）が 1 つも無い状態。**`level` と独立に立つ** — critical のときも「届かない」ことは対処が変わるため独立に伝える |
 | 判定順 | **深刻な方から**。stale（動いていない）を failure（落ちている）より先に見る。**job が起動しなかった場合、job 内から投げる push 通知は原理的に発火しない**ため、鮮度でしか捕まえられない |
 | しきい値 | `BACKUP_STALE_WARN_HOURS = 26` / `BACKUP_STALE_CRITICAL_HOURS = 50` / `BACKUP_CONSECUTIVE_FAILURE_CRITICAL = 2`。日次 03:00 実行前提で「1 回飛んだ」「2 回連続で飛んだ」に対応。1 回で critical にすると再起動のたびに狼少年になる（ADR-0012 整合） |
 
-**既知の限界（#4144 由来、未解消）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）も通常の失敗と同じ `catch` で `consecutiveFailures` を増やし、`lastSuccessAt` を更新しない。したがって **guard trip が 2 回続くと「取得は成功しているのに critical」**と判定される。`reason` を家族向け UI に出す際は、この誤解を招く表示にならないか確認すること。
+**ローテーション保留は失敗として扱わない（#4162）**: `PgliteBackupRotationGuardError`（**取得自体は成功**しローテーションだけ止めた場合）は、throw の前に「取得は成功」を状態ファイルへ確定させ、`consecutiveFailures` を積まない。止まっている事実は `rotationPendingCount` / `rotationBlockedSince` に**独立した事実として**残す。
 
-回帰は `tests/unit/domain/backup-health.test.ts`（判定）と `tests/unit/routes/health-backup-status.test.ts`（付与条件）が固定する。
+これを 1 つの状態に潰していた旧実装では、判定が `stale-critical`（= 「job が動いていない」）へ倒れ、**診断が真逆**になっていた。実際は毎晩正常に取れており、必要な行動は「古い世代を退避して手で削除する」である。判定を潰すと運用者が job の再起動へ向かい、**guard の意図（不可逆削除を止める）だけが失われる**。
+
+判定順は `rotation-blocked` を stale / 連続失敗より**後**に置く。「取れていない」方が常に重く、「取れているが片付いていない」はその次だからである。guard は自己解除しない（溢れは毎晩 1 ずつ増える）ため、この warn は放置で消える類ではなく**行動を促すもの**として扱う。
+
+回帰は `tests/unit/domain/backup-health.test.ts`（判定）/ `tests/unit/routes/health-backup-status.test.ts`（付与条件）/ `tests/unit/db/pglite-backup-3950.test.ts` `[BK12]` `[BK17]` `[BK18]`（実 status → verdict の経路と保留の解除）が固定する。
 
 #### GET /api/ready
 

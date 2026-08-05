@@ -94,4 +94,4 @@ Closes #{{ISSUE_NUMBER}}
 
 ## QM レビュー結果
 
-[QM 5 手順 approve body は `docs/sessions/qa-session.md` を参照](../docs/sessions/qa-session.md)
+[QM 5 手順 approve body は `docs/sessions/qm-session.md` を参照](../docs/sessions/qm-session.md)

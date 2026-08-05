@@ -54,7 +54,7 @@ export function reportPushValidationRejection(rejection: PushValidationRejection
 		level: 'error',
 		message: `[push-validation-rejected] ${rejection.code} (push subscribe 拒否 — ベンダー host 変更の可能性を確認)`,
 		path: '/api/v1/notifications/subscribe',
-		tenantId: rejection.tenantId,
+		// #4192: tenantId は Discord に載せない (#4174 Q3)。上の logger.warn が保持する。
 		errorSummary: rejection.reason,
 	}).catch((err) => {
 		// alert 自体の失敗は warn に留める (recursive alert を避ける)

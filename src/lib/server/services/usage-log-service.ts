@@ -6,6 +6,12 @@ import type { ChildId } from '$lib/domain/ids';
 // DATA_SOURCE が 'demo' の場合は no-op fallback で graceful degradation。
 // PMF 後の他 backend 完全実装 roadmap は docs/rationale/07-usage-log-dynamodb-deferred-rationale.md 参照。
 
+import {
+	addDaysJST,
+	jstDayStartUtcIso,
+	todayDateJST,
+	toJSTDateString,
+} from '$lib/domain/date-utils';
 import { getEnv } from '$lib/runtime/env';
 import {
 	closeOpenSessions,
@@ -119,8 +125,9 @@ export async function getTodayUsageSummary(
 		}));
 	}
 	try {
-		const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-		const logs = await findTodayUsageLogs(tenantId, today);
+		// 「今日」は JST 基準。UTC 暦日で絞ると JST 00:00〜09:00 の利用が前日集計に入り、
+		// 保護者画面の「今日の利用時間」が 9 時間ぶん 0 分のままになる (#4127)。
+		const logs = await findTodayUsageLogs(tenantId, jstDayStartUtcIso(todayDateJST()));
 
 		const summaryMap = new Map<ChildId, number>();
 		for (const log of logs) {
@@ -154,40 +161,31 @@ export async function getWeeklyUsageSummary(
 	if (isUsageLogNoopBackend()) {
 		notifyNoopOnce();
 		// 直近 7 日の空エントリを返す (call side が空配列を空 chart として描画する想定)
-		const today = new Date();
+		const today = todayDateJST();
 		const entries: { date: string; durationMin: number }[] = [];
 		for (let i = 6; i >= 0; i--) {
-			const d = new Date(today);
-			d.setDate(d.getDate() - i);
-			entries.push({ date: d.toISOString().slice(0, 10), durationMin: 0 });
+			entries.push({ date: addDaysJST(today, -i), durationMin: 0 });
 		}
 		return entries;
 	}
 	try {
-		const today = new Date();
-		const toDate = new Date(today);
-		toDate.setDate(toDate.getDate() + 1); // tomorrow
-		const fromDate = new Date(today);
-		fromDate.setDate(fromDate.getDate() - 6); // 7 days ago
+		// 範囲も日次バケットも JST 基準で揃える (書き込みは UTC ISO、読み出しは JST 暦日、#4127)
+		const today = todayDateJST();
+		const fromIso = jstDayStartUtcIso(addDaysJST(today, -6));
+		const toIso = jstDayStartUtcIso(addDaysJST(today, 1)); // 翌日 00:00 (JST) 未満
 
-		const fromStr = fromDate.toISOString().slice(0, 10);
-		const toStr = toDate.toISOString().slice(0, 10);
-
-		const logs = await findUsageLogsByChildAndDateRange(childId, tenantId, fromStr, toStr);
+		const logs = await findUsageLogsByChildAndDateRange(childId, tenantId, fromIso, toIso);
 
 		// 日付ごとに集計
 		const dailyMap = new Map<string, number>();
 
 		// 直近7日の空エントリを先に作成
 		for (let i = 6; i >= 0; i--) {
-			const d = new Date(today);
-			d.setDate(d.getDate() - i);
-			const dateStr = d.toISOString().slice(0, 10);
-			dailyMap.set(dateStr, 0);
+			dailyMap.set(addDaysJST(today, -i), 0);
 		}
 
 		for (const log of logs) {
-			const date = log.startedAt.slice(0, 10);
+			const date = toJSTDateString(new Date(log.startedAt));
 			// 直近 7 日のキーのみ集計 (範囲外日付は無視、#2391 PR-2402 flaky 修正)
 			if (!dailyMap.has(date)) continue;
 			const existing = dailyMap.get(date) ?? 0;

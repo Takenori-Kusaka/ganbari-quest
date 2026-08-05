@@ -20,6 +20,14 @@ on:
     # 同一 SHA を再実行しても結果が変わらず、runtime（特に e2e-test）が無駄になる。
     # Draft スキップ系 workflow (pr-ui-check / pr-ac-verification-check / lp-metrics)
     # とは役割が異なる点に注意。
+    #
+    # #4171: `edited` も同じ理由で含めない。PR 本文の編集は同一 SHA に対する再実行にしかならず、
+    # 統合 PR (develop/release → main) では 1 回 16〜20 分の重量レーンを丸ごと捨てる。
+    # 本文を入力に取る検査は軽量 gate 4 本 (pr-quality-gate / pr-merge-gate / pr-template-gate /
+    # pr-ac-verification-check、いずれも実測 10〜40 秒) が `edited` 購読で担っており、本 CI が
+    # 引き受ける必要はない。この配置は
+    # `tests/unit/architecture/pr-trigger-lane-guard.test.ts` が機械検証する
+    # (宣言 SSOT: scripts/lib/ci/pr-trigger-lane-registry.mjs)。
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
@@ -194,7 +202,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -399,7 +407,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Marketplace Registry integrity check (#2374 / ADR-0052)
         run: node scripts/check-marketplace-registry-integrity.mjs
@@ -417,7 +425,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # dependabot main 直行 regression guard は yaml parse のみ (#3191 AC1)
@@ -458,7 +466,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -498,7 +506,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -547,7 +555,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -595,7 +603,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -668,7 +676,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -713,7 +721,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -795,7 +803,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -848,7 +856,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -891,7 +899,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -948,7 +956,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -1062,7 +1070,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -1131,7 +1139,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Site internal links & required elements (#710)
         run: node scripts/check-site-html.mjs
@@ -1158,7 +1166,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
@@ -1187,7 +1195,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
@@ -1217,7 +1225,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
@@ -1262,7 +1270,9 @@ jobs:
           case "$PR_ACTOR" in
             dependabot\[bot\]|renovate\[bot\])
               # #3922: security 更新の main 直行を検知して fail-close (exempt 廃止)。
-              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。対処: 本 PR は merge せず close し、同 version への更新を develop 向けに反映してください (次回 grouped bump を待つ / 手動で develop 向け bump PR を作成)。緊急の security fix は develop 反映後に統合 release で main へ。背景: #3922 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
+              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。"
+              echo "::error::対処 (これ 1 つで済みます): gh pr edit ${{ github.event.pull_request.number }} --base develop"
+              echo "::error::close して bump PR を作り直す必要はありません。retarget すれば通常レーン (develop → 統合 release → main) に載り、必須 CI も再発火します。緊急の security fix も同じ経路で入れてください。背景: #3922 / #4273 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
               exit 1 ;;
           esac
           # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
@@ -1274,7 +1284,8 @@ jobs:
             echo "head=$HEAD_REF → OK（develop/release 統合 PR または hotfix）"
             exit 0
           fi
-          echo "::error::main 向け PR の head は develop / release/*（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに PR を出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          echo "::error::main 向け PR の head は develop / release/*（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          echo "::error::対処 (これ 1 つで済みます): gh pr edit ${{ github.event.pull_request.number }} --base develop"
           exit 1
 
   # Gate job: always runs and reports overall CI status.
@@ -1366,12 +1377,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # #4155: code-scanning alerts API (CodeQL new-alert 検査) の読み取りに必要。
+      security-events: read
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       # unit-test-merge job が upload した coverage summary を取得 (欠落許容 —
       # scripts 側が「未取得」を明示して warn-only で続行する)。
@@ -1381,6 +1394,19 @@ jobs:
         with:
           name: coverage-summary
           path: coverage/
+
+      # #4155: CodeQL は main ruleset の required_status_checks 非該当 (branch-strategy.md §4)。
+      # その代わりに「統合 PR の ref (refs/pull/<N>/merge) 由来の open alert が baseline を
+      # 超えないこと」を機械条件にする。ここでは結果 JSON を出すだけ (--report-only) で、
+      # hard fail は evidence upload 後の enforcement step が行う (evidence を必ず残すため)。
+      - name: CodeQL new-alert 検査 (結果生成、#4155)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          node scripts/audit/check-codeql-alerts.mjs
+          --pr "${{ github.event.pull_request.number }}"
+          --out integration-evidence/codeql-alerts.json
+          --report-only
 
       - name: Generate integration PR evidence (audit-team.md §3.5 #3/#4)
         env:
@@ -1418,8 +1444,15 @@ jobs:
           fi
 
       - name: Upload integration PR evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: integration-pr-evidence-${{ github.run_id }}
           path: integration-evidence/
           retention-days: 30
+
+      # #4155 AC3: 新規 alert 1 件で fail する enforcement (baseline 超過 / ledger 不正 /
+      # 未スキャン・API 取得失敗 = 検査不能 も fail)。advisory と違い continue-on-error にしない。
+      # evidence upload の後段に置き、fail しても artifact は必ず残るようにする。
+      - name: CodeQL new-alert 検査 (enforcement、#4155)
+        run: node scripts/audit/check-codeql-alerts.mjs --input integration-evidence/codeql-alerts.json

@@ -139,7 +139,7 @@ README.md（inventory SSOT）+ active 43 + archive 26 ほか。per-ADR の volum
 
 ### 4.7 docs/sessions/（16）— 全件 A
 
-po/dev/qa-session / audit-team / branch-strategy / webui-review-process / dev-process/* 等、全てロール定義・プロセス SSOT（被参照 1〜49）。
+po/dev/qm-session / audit-team / branch-strategy / webui-review-process / dev-process/* 等、全てロール定義・プロセス SSOT（被参照 1〜49）。
 
 ### 4.8 docs/runbooks/（12）
 

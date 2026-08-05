@@ -33,7 +33,7 @@
  *   - ADR-0022 amendment 1 / amendment 3 (#1879)
  *   - scripts/check-gh-account-before-pr.mjs (.husky/pre-push 経由で同等チェック)
  *   - .claude/settings.json (PreToolUse 設定)
- *   - docs/sessions/qa-session.md L162 周辺
+ *   - docs/sessions/qm-session.md L162 周辺
  */
 
 import { spawnSync } from 'node:child_process';
@@ -110,7 +110,7 @@ async function readStdin() {
  *   - `gh api graphql` の POST で `createPullRequest` mutation を投げる形
  *
  * PR 作成とみなさない形 (#4027 で是正):
- *   - `repos/.../pulls/<n>/reviews` (= QM の approve。`docs/sessions/qa-session.md` が SSOT として
+ *   - `repos/.../pulls/<n>/reviews` (= QM の approve。`docs/sessions/qm-session.md` が SSOT として
  *     掲げる正規経路であり、旧実装の `/pulls` 部分一致では必ず BLOCK されていた)
  *   - `repos/.../pulls/<n>/{merge,comments,files,…}` 等の subresource
  *   - `repos/.../pulls` への GET (一覧取得)

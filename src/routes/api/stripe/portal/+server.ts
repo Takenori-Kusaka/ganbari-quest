@@ -5,11 +5,39 @@
 //       PIN 未設定テナントは確認フレーズ (`プランを変更します`) でフォールバックする。
 
 import { error, json } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
-import { createPortalSession } from '$lib/server/services/stripe-service';
+import { createPortalSession, type PortalFlow } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
+
+/**
+ * 顧客の意図として受け付ける値 (#4270 決裁 3)。
+ *
+ * `intent` はブラウザから来る文字列であり、いまは flow の出し分けにしか使っていない。
+ * 無検証のまま通す形が残っていると、後で認可判定に使う変更が入ったときに同じ書き方が
+ * 踏襲される。許容値の allowlist で検証し、外れたら安全側 (home) に倒す。
+ */
+const PORTAL_INTENTS = ['plan-change', 'plan-upgrade', 'billing-history'] as const;
+type PortalIntent = (typeof PORTAL_INTENTS)[number];
+
+/**
+ * `intent` を allowlist で解決する。外れた値は既定 (`plan-change` = home) に倒し、拒否を記録する。
+ *
+ * ログには **顧客識別子を載せない** (#4174 / #4197 と同基準)。値そのものは受け取った文字列なので、
+ * ログを壊す長文 / 改行を持ち込めないよう切り詰めて記録する。
+ */
+function resolvePortalIntent(raw: unknown): PortalIntent {
+	if (typeof raw === 'string' && (PORTAL_INTENTS as readonly string[]).includes(raw)) {
+		return raw as PortalIntent;
+	}
+	if (raw !== undefined) {
+		const shown = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').slice(0, 32) : typeof raw;
+		logger.warn(`[STRIPE] portal intent を拒否しました (許容外の値のため home に倒す): "${shown}"`);
+	}
+	return 'plan-change';
+}
 
 export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const context = locals.context;
@@ -27,6 +55,8 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 	const body = (await request.json().catch(() => ({}))) as {
 		pin?: string;
 		confirmPhrase?: string;
+		/** #4166: 顧客の意図。portal の着地 (flow) を決める */
+		intent?: string;
 	};
 
 	const pinConfigured = await isPinConfigured(tenantId);
@@ -58,7 +88,14 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 		}
 	}
 
-	const result = await createPortalSession(tenantId, `${url.origin}/admin/subscription`);
+	// #4166: 「⭐ プレミアムへ」だけをプラン変更フローへ直行させる。
+	// 汎用の「請求管理ページを開く」(plan-change) と請求履歴 (billing-history) は
+	// **home のまま**にする — flow を付けると請求書 / 支払い方法の入口が消えるため (AC5)。
+	const intent = resolvePortalIntent(body.intent);
+	const flow: PortalFlow =
+		intent === 'plan-upgrade' ? { kind: 'subscription_update' } : { kind: 'home' };
+
+	const result = await createPortalSession(tenantId, `${url.origin}/admin/subscription`, flow);
 
 	if ('error' in result) {
 		const statusMap: Record<string, number> = {
@@ -74,5 +111,8 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 		error(statusMap[result.error] ?? 500, messageMap[result.error] ?? 'エラーが発生しました');
 	}
 
-	return json({ url: result.url });
+	// #4270: flow が Stripe に拒否されて home に倒れた事実をクライアントへ返す。
+	// 黙って portal ホームへ飛ばすと「プラン変更画面に行くはずが違う画面に着いた」だけが
+	// 顧客に残る。画面側が次の操作を示したうえで進ませる。
+	return json({ url: result.url, flowFallback: result.flowFallback === true });
 };

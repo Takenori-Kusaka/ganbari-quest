@@ -10,7 +10,7 @@
  *   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
  *   node scripts/capture.mjs --url /admin --storage-state storageState.json
  *
- * 使用例（QA レビュー用 — --pr で全部自動化）:
+ * 使用例（QM レビュー用 — --pr で全部自動化）:
  *   node scripts/capture.mjs --pr 123 --url /demo/admin/activities
  *   node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
  *   node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html
@@ -97,7 +97,7 @@ if (values.help || positionals.includes('--help')) {
   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
   node scripts/capture.mjs --url /admin --storage-state storageState.json
 
-QA レビュー用（--pr で全自動）:
+QM レビュー用（--pr で全自動）:
   node scripts/capture.mjs --pr 123 --url /demo/admin
   node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
   node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html
@@ -624,7 +624,13 @@ async function runFlowMode() {
 		if (result.compositePath) {
 			console.log(`合成 WebP: ${result.compositePath}`);
 			console.log(`Markdown: ${path.join(outputDir, `${values.flow}-flow.md`)}`);
-			return { screenshots: [result.compositePath], domFiles: [] };
+			// #4161: 合成シートだけでなく各ステップの PNG と DOM も push 対象にする。
+			// SS embed gate は SS に対応する `.dom.html` を要求し、Before/After 偽装 gate は
+			// ステップ単位のファイル名でペアを取るため、両方を screenshots branch に上げる。
+			return {
+				screenshots: [result.compositePath, ...result.stepPaths],
+				domFiles: result.domPaths,
+			};
 		}
 	} catch (err) {
 		console.error(`\nエラー: ${err.message}`);

@@ -87,7 +87,7 @@ jobs:
         if: steps.lp-changed.outputs.changed == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -155,7 +155,7 @@ jobs:
         if: steps.residue-changed.outputs.changed == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Run LP removal residue check
         if: steps.residue-changed.outputs.changed == 'true'
@@ -224,7 +224,7 @@ jobs:
         if: steps.lp-changed.outputs.changed == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -347,7 +347,7 @@ jobs:
         if: steps.inline-changed.outputs.changed == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Run LP inline-style check
         if: steps.inline-changed.outputs.changed == 'true'

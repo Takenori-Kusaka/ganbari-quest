@@ -45,6 +45,10 @@ export const MIN_REPO_SCAN_TIMEOUT_MS = 20_000;
  */
 export const REPO_SCAN_TEST_REGISTRY = {
 	// --- scope: repo (repo ツリーを走査。明示 timeout 必須) ---
+	'tests/unit/scripts/check-local-tz-date-getters.test.ts': {
+		scope: 'repo',
+		note: 'repo 直下 / infra 直下を depth 1 で readdir し、TZ guard の走査範囲 (SEARCH_ROOTS) と除外宣言 (EXCLUDED_ROOTS) の網羅を突き合わせる (#4120)。全 file walk はしないが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/ai-evaluation/axe-runner-inline.test.ts': {
 		scope: 'repo',
 		note: 'scripts/ai-evaluation 配下を走査して inline inject 経路の残存を検査する',
@@ -52,6 +56,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/arch/no-direct-db-access.test.ts': {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
+	},
+	'tests/unit/architecture/qm-role-naming-consistency.test.ts': {
+		scope: 'repo',
+		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
 	},
 	'tests/unit/architecture/action-primary-white-text-contrast.test.ts': {
 		scope: 'repo',
@@ -73,6 +81,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
 	},
+	'tests/unit/architecture/no-stray-control-chars.test.ts': {
+		scope: 'repo',
+		note: '#4119 docs / src / scripts / tests のテキスト資産を byte 単位で走査し C0 制御文字の紛れ込みを検出する',
+	},
 	'tests/unit/architecture/dsql-txn-work-allowlist.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の txn 内 work を走査する (ADR-0065)',
@@ -85,6 +97,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の fetch 呼び出しを走査する (ratchet)',
 	},
+	'tests/unit/architecture/pr-trigger-lane-guard.test.ts': {
+		scope: 'repo',
+		note: '.github/workflows 全 file を parse して commit-less 発火 type の宣言整合を検査する (#4171)',
+	},
 	'tests/unit/architecture/page-guide-coverage.test.ts': {
 		scope: 'repo',
 		note: '#4085 実測 例3 (6240ms で timeout)。REGISTERED ガイドの anchor を src から走査する',
@@ -92,6 +108,18 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/route-db-boundary.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下の server route から禁止 import を走査する (#3152 / ADR-0061)',
+	},
+	'tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts': {
+		scope: 'repo',
+		note: 'src / infra / .github を走査し Stripe webhook 受信口が 1 本かを検査する (#4128)',
+	},
+	'tests/unit/architecture/cron-route-auth-fitness.test.ts': {
+		scope: 'bounded',
+		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
+	},
+	'tests/unit/architecture/workflow-judgment-delegation-guard.test.ts': {
+		scope: 'repo',
+		note: '.github/workflows を走査し、合否判定が YAML でなく scripts/*.mjs に委譲されているかを検査する (#4158)',
 	},
 	'tests/unit/architecture/user-content-delivery-headers-fitness.test.ts': {
 		scope: 'repo',
@@ -112,6 +140,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/features/admin-resource-model-registry.test.ts': {
 		scope: 'repo',
 		note: 'src/routes 配下の admin 画面を走査して registry の網羅漏れを検出する (#3134 no-silent-gap)',
+	},
+	'tests/unit/architecture/env-distribution-closure.test.ts': {
+		scope: 'repo',
+		note: 'src / scripts / infra / .github を走査し env・context の配布 closure を検査する (#4191、旧 aws-deploy-context-closure + nuc-deploy-env-closure を統合)',
 	},
 	'tests/unit/hooks/agent-lock.test.ts': {
 		scope: 'repo',

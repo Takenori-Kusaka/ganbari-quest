@@ -3,9 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock $env/dynamic/private
 vi.mock('$env/dynamic/private', () => ({
 	env: {
-		DISCORD_WEBHOOK_SIGNUP: 'https://discord.com/api/webhooks/test-signup',
-		DISCORD_WEBHOOK_BILLING: 'https://discord.com/api/webhooks/test-billing',
-		DISCORD_WEBHOOK_CHURN: 'https://discord.com/api/webhooks/test-churn',
 		DISCORD_WEBHOOK_INCIDENT: 'https://discord.com/api/webhooks/test-incident',
 		DISCORD_WEBHOOK_INQUIRY: '',
 		FEEDBACK_DISCORD_WEBHOOK_URL: 'https://discord.com/api/webhooks/test-feedback',
@@ -22,14 +19,9 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import {
-	notifyBillingEvent,
-	notifyCancellation,
-	notifyCancellationReverted,
-	notifyDeletionComplete,
 	notifyDiscord,
 	notifyIncident,
 	notifyInquiry,
-	notifyNewSignup,
 	sanitizeDiscordText,
 } from '$lib/server/services/discord-notify-service';
 
@@ -54,14 +46,14 @@ describe('discord-notify-service', () => {
 
 	describe('notifyDiscord', () => {
 		it('Webhook URL が設定されている場合に fetch を呼び出す', async () => {
-			await notifyDiscord('signup', {
+			await notifyDiscord('incident', {
 				title: 'テスト',
 				color: 0x000000,
 			});
 
 			expect(fetchSpy).toHaveBeenCalledOnce();
 			expect(fetchSpy).toHaveBeenCalledWith(
-				'https://discord.com/api/webhooks/test-signup',
+				'https://discord.com/api/webhooks/test-incident',
 				expect.objectContaining({
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -70,7 +62,7 @@ describe('discord-notify-service', () => {
 		});
 
 		it('送信ペイロードに embeds を含む', async () => {
-			await notifyDiscord('billing', {
+			await notifyDiscord('incident', {
 				title: '課金テスト',
 				color: 0x3498db,
 				fields: [{ name: 'テスト', value: '値' }],
@@ -103,80 +95,9 @@ describe('discord-notify-service', () => {
 		it('fetch 失敗時にエラーを投げない', async () => {
 			fetchSpy.mockRejectedValueOnce(new Error('Network error'));
 
-			await expect(notifyDiscord('signup', { title: 'テスト', color: 0 })).resolves.toBeUndefined();
-		});
-	});
-
-	describe('notifyNewSignup', () => {
-		it('新規登録通知を送信する', async () => {
-			await notifyNewSignup('tenant-123', 'user@example.com');
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('🆕 新規登録');
-			expect(body.embeds[0].fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ name: 'テナントID', value: 'tenant-123' }),
-					expect.objectContaining({ name: 'メール', value: 'user@example.com' }),
-				]),
-			);
-		});
-	});
-
-	describe('notifyBillingEvent', () => {
-		it('課金開始通知を送信する', async () => {
-			await notifyBillingEvent('tenant-123', 'checkout_completed', 'plan=monthly');
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('💳 課金開始');
-			expect(body.embeds[0].color).toBe(0x3498db);
-		});
-
-		it('支払い失敗通知を送信する', async () => {
-			await notifyBillingEvent('tenant-123', 'payment_failed');
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('❌ 支払い失敗');
-			expect(body.embeds[0].color).toBe(0xe74c3c);
-		});
-	});
-
-	describe('notifyCancellation', () => {
-		// #3991: 呼び出し元は /api/v1/admin/tenant/cancel (= 解約) であって退会ではない。
-		// 軸を取り違えたままだと churn 分析で退会と解約が混ざるため、名称と項目名を固定する。
-		it('解約 (期末解約) 申請通知を送信する', async () => {
-			await notifyCancellation('tenant-123', '2026-04-28');
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('⚠️ 解約申請 (期末解約)');
-			expect(body.embeds[0].fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ name: '利用可能な最終日', value: '2026-04-28' }),
-				]),
-			);
-		});
-	});
-
-	describe('notifyCancellationReverted', () => {
-		it('退会キャンセル通知を送信する', async () => {
-			await notifyCancellationReverted('tenant-123');
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('↩️ 退会キャンセル');
-		});
-	});
-
-	describe('notifyDeletionComplete', () => {
-		it('データ削除完了通知を送信する', async () => {
-			await notifyDeletionComplete('tenant-123', { items: 150, files: 12 });
-
-			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('🗑️ データ削除完了');
-			expect(body.embeds[0].fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ name: '削除アイテム数', value: '150' }),
-					expect.objectContaining({ name: '削除ファイル数', value: '12' }),
-				]),
-			);
+			await expect(
+				notifyDiscord('incident', { title: 'テスト', color: 0 }),
+			).resolves.toBeUndefined();
 		});
 	});
 
@@ -196,33 +117,34 @@ describe('discord-notify-service', () => {
 	});
 
 	describe('notifyInquiry', () => {
-		it('問い合わせ通知を送信する', async () => {
-			await notifyInquiry(
-				'tenant-123',
-				'bug',
-				'ログインできません',
-				'user@test.com',
-				'reply@test.com',
-			);
+		// #4197: payload には受付番号 / カテゴリ / 本文だけを載せる (tenantId / email は載せない)。
+		// 「誰から」は受付番号を鍵に inquiries 表 (認証された場所) で引く。
+		it('受付番号とカテゴリを載せ、tenantId / メールアドレスは載せない', async () => {
+			await notifyInquiry('bug', 'ログインできません', 'INQ-20260805-001');
 
 			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('📬 バグ報告');
+			expect(body.embeds[0].title).toBe('📬 バグ報告 (INQ-20260805-001)');
 			expect(body.embeds[0].description).toBe('ログインできません');
-			expect(body.embeds[0].fields).toEqual(
+			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
+			expect(fields).toEqual(
 				expect.arrayContaining([
-					expect.objectContaining({ name: '返信先', value: 'reply@test.com' }),
+					expect.objectContaining({ name: '受付番号', value: 'INQ-20260805-001' }),
+					expect.objectContaining({ name: 'カテゴリ', value: 'バグ報告' }),
 				]),
 			);
+			// 認証された場所で引く導線が載る (受付番号が照会の鍵)
+			const lookup = fields.find((f) => f.name === '送信者を見る')?.value ?? '';
+			expect(lookup).toContain('inquiries');
+			expect(lookup).toContain('INQ-20260805-001');
+			// 撤去された field は復活していない
+			expect(fields.map((f) => f.name)).not.toContain('テナント');
+			expect(fields.map((f) => f.name)).not.toContain('送信者');
+			expect(fields.map((f) => f.name)).not.toContain('返信先');
 		});
 
-		// #3211: ユーザー自由記述の mention 構文中和 (PII 自由記述の webhook 素通り抑止 + 誤 ping 防止)
+		// #3211: ユーザー自由記述の mention 構文中和 (誤 ping 防止)
 		it('本文の @everyone / @here / role mention を中和して embed に載せる', async () => {
-			await notifyInquiry(
-				'tenant-1',
-				'other',
-				'緊急 @everyone @here <@&999> 見てください',
-				'user@test.com',
-			);
+			await notifyInquiry('other', '緊急 @everyone @here <@&999> 見てください');
 			const body = getLastBody();
 			const desc = body.embeds[0].description as string;
 			// 可視内容は保持しつつ mention 構文を壊す (素の @everyone / role mention は残らない)
@@ -231,17 +153,6 @@ describe('discord-notify-service', () => {
 			expect(desc).not.toMatch(/<@&999>/);
 			expect(desc).toContain('everyone'); // zero-width space 挿入で文字自体は保持
 			expect(desc).toContain('見てください');
-		});
-
-		it('#3388: email/返信先は zero-width space 中和せず原文のまま (foo@here.com 破損回帰の防止)', async () => {
-			await notifyInquiry('tenant-1', 'other', '本文', 'parent@here.com', 'reply@everyone.org');
-			const body = getLastBody();
-			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
-			const sender = fields.find((f) => f.name === '送信者')?.value;
-			const reply = fields.find((f) => f.name === '返信先')?.value;
-			// zero-width space が混入せず原文一致 (コピペ返信が壊れない)。ping は allowed_mentions で無効化済。
-			expect(sender).toBe('parent@here.com');
-			expect(reply).toBe('reply@everyone.org');
 		});
 	});
 

@@ -68,7 +68,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       # ----------------------------------------------------------------------
       # 1. merge された PR を解決し、back-merge 要否を判定する (純粋 SSOT 経由)

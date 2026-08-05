@@ -23,6 +23,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
+import type { OffsiteVerdict } from '$lib/domain/backup-offsite';
 
 /** バックアップファイル名の prefix。既存 SQLite backup (`ganbari-quest-*.db`) と同居しても区別できる。 */
 export const PGLITE_BACKUP_PREFIX = 'pglite-';
@@ -35,7 +36,7 @@ export const PGLITE_BACKUP_EXT = '.tgz';
  * **手動の暫定スナップショット** (実例: #3950 一次証跡の `pglite-snapshot-20260726-0738-pre-pr3947.tgz`)
  * が同居し得る。これは prefix / 拡張子とも一致するうえ、辞書順で `'s'` > 数字のため
  * `.sort().reverse()` で常に「最新世代」の位置に固定され、恒久的に 1 スロットを占有して
- * 実保持を 3 → 2 世代に減らす (QA レビュー #3956 指摘)。世代判定は本パターンの完全一致で行う。
+ * 実保持を 3 → 2 世代に減らす (QM レビュー #3956 指摘)。世代判定は本パターンの完全一致で行う。
  */
 export const PGLITE_BACKUP_FILENAME_PATTERN = /^pglite-\d{8}T\d{6}Z\.tgz$/;
 /** オーナー決裁 (2026-07-26): 日次取得・3 世代保持。 */
@@ -67,6 +68,16 @@ export interface PgliteBackupResult {
 	generationsKept: number;
 	/** 取得開始から確定までの所要時間 (ms)。RTO/RPO の実測値として記録する。 */
 	durationMs: number;
+	/**
+	 * off-site 複製が実際に NUC 外へ出ているかの判定 (#3970 AC2)。
+	 *
+	 * **取得の成否とは独立**。取得が成功していても、マウントが外れていれば控えは
+	 * 筐体内にしか無い (Docker が bind 先にローカルの空ディレクトリを作るため
+	 * 書き込みは成功する)。取得成功と off-site 成功を 1 つの真偽値に潰さない。
+	 */
+	offsite: OffsiteVerdict;
+	/** off-site 判定を運用者に伝える文言。伝えることが無ければ null。 */
+	offsiteMessage: string | null;
 }
 
 /** 検証段で落ちたことを呼び出し側が識別するためのエラー。 */

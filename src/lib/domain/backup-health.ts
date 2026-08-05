@@ -29,6 +29,8 @@ export type BackupHealthReason =
 	| 'stale-warn'
 	| 'consecutive-failures-critical'
 	| 'last-run-failed'
+	| 'rotation-blocked'
+	| 'rotation-blocked-critical'
 	| 'no-notification-channel'
 	| 'healthy';
 
@@ -47,6 +49,25 @@ export interface BackupHealthInput {
 	 * (「通知できないので黙る」を無くす、#4087 AC1)。
 	 */
 	notificationConfigured: boolean;
+	/**
+	 * ローテーション guard (#4129 AC2) が止めている世代数。止まっていなければ 0。
+	 *
+	 * **取得の成否とは独立した事実**である点が本 field の存在理由 (#4162)。guard 発火時は
+	 * 「新世代の確定は成功したが、古い世代の削除だけを意図的に止めた」状態で、
+	 * **バックアップは毎晩正常に増えている**。これを failure として 1 つの状態に潰すと、
+	 * 判定が `stale-critical` (= 「job が動いていない」) に倒れ、**診断が真逆**になる。
+	 * 実際に必要な行動は「古い世代を退避して手で削除する」であって job の再起動ではない。
+	 */
+	rotationPendingCount: number;
+	/**
+	 * ローテーションが止まり始めた時刻 (ISO 8601)。止まっていなければ null。
+	 *
+	 * **放置の長さ**を見るために持つ。guard は自己解除しないので、誰も対処しなければ
+	 * 世代は毎晩 1 つずつ増え続け、最後はディスクを食い潰して**本当に失敗する**。
+	 * warn のまま据え置くと「消えない warn」として無視され、#4119 の「18 晩誰も
+	 * 気づかなかった」と同じ結末になる。時間で必ず昇格させる。
+	 */
+	rotationBlockedSince: string | null;
 }
 
 export interface BackupHealthVerdict {
@@ -59,6 +80,8 @@ export interface BackupHealthVerdict {
 	lastFailureMessage: string | null;
 	/** 通知経路が無いこと自体の警告。level とは独立に立つ (critical でも同時に出したい)。 */
 	notificationMissing: boolean;
+	/** ローテーション guard が止めている世代数 (#4162)。0 なら止まっていない。 */
+	rotationPendingCount: number;
 }
 
 /** 「1 回飛んだ」と読める閾値 (h)。日次 03:00 + 実行時間 + 余裕。 */
@@ -67,6 +90,14 @@ export const BACKUP_STALE_WARN_HOURS = 26;
 export const BACKUP_STALE_CRITICAL_HOURS = 50;
 /** 連続失敗が偶発でないと判断する回数。1 回目は warn に留める (再起動時の 1 回で騒がない)。 */
 export const BACKUP_CONSECUTIVE_FAILURE_CRITICAL = 2;
+/**
+ * ローテーション保留を critical へ昇格させるまでの時間 (h)。7 日 = 7 晩分の溢れ。
+ *
+ * guard は**自己解除しない**。溢れは毎晩 1 世代ずつ増えるので、放置すればディスクを
+ * 食い潰し、最後は取得そのものが失敗する (稼働中 DB と同じディスクなので本体にも波及する)。
+ * 「取れているから warn」で据え置くと消えない warn として無視されるため、必ず昇格させる。
+ */
+export const BACKUP_ROTATION_BLOCKED_CRITICAL_HOURS = 168;
 
 /**
  * バックアップ状態から「いま人間が行動すべきか」を判定する。
@@ -88,6 +119,7 @@ export function evaluateBackupHealth(input: BackupHealthInput, now: Date): Backu
 		consecutiveFailures: input.consecutiveFailures,
 		lastFailureMessage: input.lastFailureMessage,
 		notificationMissing: !input.notificationConfigured,
+		rotationPendingCount: input.rotationPendingCount,
 	};
 
 	// 一度も成功していない = 「バックアップがある」と言えない状態。
@@ -110,6 +142,25 @@ export function evaluateBackupHealth(input: BackupHealthInput, now: Date): Backu
 
 	if (input.consecutiveFailures > 0) {
 		return { ...base, level: 'warn', reason: 'last-run-failed' };
+	}
+
+	// #4162: ローテーションだけが止まっている状態。**取得は成功し続けている**ので
+	// 初期は critical ではなく warn。stale / consecutive-failures より後に見るのは、
+	// 「取れていない」方が常に重いため (取れているが片付いていない、は次に重い)。
+	//
+	// ただし **放置し続ければ本当に失敗する**。guard は自己解除せず、溢れは毎晩 1 世代ずつ
+	// 増えるので、いずれディスクを食い潰して取得自体が落ちる (稼働中 DB と同じディスクなので
+	// 本体にも波及する)。warn のまま据え置くと「消えない warn」として無視され、
+	// #4119 の「18 晩誰も気づかなかった」を別の形で再現する。時間で必ず昇格させる。
+	if (input.rotationPendingCount > 0) {
+		const blockedHours =
+			input.rotationBlockedSince === null
+				? null
+				: (now.getTime() - new Date(input.rotationBlockedSince).getTime()) / 3_600_000;
+		if (blockedHours !== null && blockedHours >= BACKUP_ROTATION_BLOCKED_CRITICAL_HOURS) {
+			return { ...base, level: 'critical', reason: 'rotation-blocked-critical' };
+		}
+		return { ...base, level: 'warn', reason: 'rotation-blocked' };
 	}
 
 	// 直近は成功しているが、次に失敗したとき誰にも届かない状態。

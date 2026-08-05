@@ -235,6 +235,7 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **R13 (#3981 新規)** | **context 解決の bare `catch {}` が障害を「tenant not found」に化けさせる** | Discord alert `stripe-context-unresolved` (通知) + CloudWatch Logs Insights (`tags.reason`) + `logger.error` | CloudWatch の `reason` で Stripe 側 / DB 側を切り分け → 復旧。**再送では収束しない**ため CloudWatch → Stripe / DB 突合で手動修復 (恒久対策 #4108) | try 範囲を分割し bare `catch {}` を不能化 + 3 経路 (API throw / repo throw / tenant 不在) unit test |
 | **R14 (#3959 新規)** | **webhook が Lambda に到達せず alert が 0 件のまま課金が落ちる** | Discord alert `stripe-webhook-undelivered` (cron 毎時、S1 滞留 ∧ S2 plan 未反映) + CloudWatch Logs Insights | 配信経路 (CloudFront geo / WAF / DNS / 宛先設定) を修復 → `stripe events resend` で滞留分を再送 → プラン反映を確認 | cron を `schedule-registry.ts` に登録 + `schedule-consistency.test.ts` の drift 検出 + `stripe-webhook-delivery-monitor.test.ts` の発火 / 沈黙両側回帰。**穴**: throw しない handler 失敗 (#4108) はどちらの alert でも検知不能 |
 | **R15 (#3959 新規)** | **未達検知 cron 自体の失敗が Lambda Errors alarm に出ず、検知の不在が無通知になる** | Discord alert `stripe-webhook-monitor-failed` (cron endpoint の catch から await 送出) + 毎時の完了 log の不在 | 例外クラス名から一次切り分け (Stripe 一時障害は次回実行で自然復旧 / DSQL は dsql-alert-response.md)。復旧まで課金は §2.3 で手動確認 | endpoint catch の await 送出を `cron-stripe-webhook-delivery-check.test.ts` が回帰固定 + `notifyStripeAlertAsync` (await 可能版) を cron 経路で必須化 |
+| **R16 (#4192 新規)** | **支払い失敗が無通知になり、猶予期間が誰にも気づかれないまま満了する** | Discord alert `stripe-payment-failed` (`invoice.payment_failed` handler から発火) + `logger.warn` (`tenant=` 付き) | Stripe Dashboard / CloudWatch Logs で対象契約を特定 → dunning 状況を確認。復旧操作は顧客側の支払い手段更新 | 旧 `billing` チャネル撤去に伴う信号喪失を防ぐ差し替え。**payload に tenantId を載せない** (#4174 Q3) ため、対象特定はログ / Stripe 側で行う |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 
@@ -293,6 +294,14 @@ flowchart TD
 ```
 
 ## 5. feature flag kill switch SSOT (§5)
+
+> **現状の正解 (#4128)**: kill switch は **`USE_LOOKUP_KEY` の 1 件のみ**。
+> `STRIPE_WEBHOOK_SHADOW_MODE` は撤去した — webhook 受信口を止める switch は「課金 event を捨てる switch」でしかなく、
+> Stripe は 200 を受けると再送しないため、押した瞬間に event が台帳にも残らず消える (2026-07-26 の実障害と同 class)。
+> 以下の §5.1 の 2 行目 / §5.2 の webhook ブロック / §5.4 の 3 系統配備・§6 の切替手順のうち
+> `STRIPE_WEBHOOK_SHADOW_MODE` に関する記述は**実行しない**。webhook 障害時の一次対応は
+> `docs/operations/stripe-post-mortem-runbook.md` §3.2 (Dashboard の destination 確認 → event resend) が SSOT。
+
 
 Phase 5 子 1 + Phase 6 子 1 + 子 4 で確定した 2 feature flag を **`.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所**で統合管理する。LaunchDarkly / Unleash 等の外部 platform は本 PR §7 OSS 4 件比較で不採用と判断 (Pre-PMF Bucket A、ADR-0010 整合)。
 

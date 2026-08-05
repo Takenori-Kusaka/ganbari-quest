@@ -65,6 +65,11 @@ export const GET: RequestHandler = async () => {
 					consecutiveFailures: backup.consecutiveFailures,
 					lastFailureMessage: backup.lastFailureMessage,
 					notificationConfigured: isBackupNotificationConfigured(process.env),
+					// #4162: guard 発火中は「取得は成功 / ローテーションが保留」。
+					// 欠損時 0 扱いで旧 status file と後方互換。
+					rotationPendingCount: backup.rotationPendingCount ?? 0,
+					// #4162: 放置の長さで critical へ昇格させるために渡す (guard は自己解除しない)。
+					rotationBlockedSince: backup.rotationBlockedSince ?? null,
 				},
 				new Date(),
 			)

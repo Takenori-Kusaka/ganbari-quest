@@ -33,6 +33,11 @@ import { redactPii, redactPiiInTags } from '$lib/server/stripe/pii-redaction';
  */
 export type StripeAlertKind =
 	| 'stripe-lookup-failed'
+	// #4192 (#4174 Q2 の PO 決裁):「課金の**失敗**は incident に含めるべきで、成功は通知不要」。
+	// 旧 `billing` チャネル (signup / churn とともに撤去) が持っていた通知のうち、
+	// **人が行動を変える** 支払い失敗だけを運用者向け単一チャネルに残す。
+	// payload に tenantId は載せない (#4174 Q3) — 対象は logger / Stripe 側で引く。
+	| 'stripe-payment-failed'
 	// #4026: 契約状態を書き換える event が、tenant の**現行契約とは別の** subscription を
 	// 指していた。適用せず skip したうえで観測する (旧契約の後着 or tenant 同定ミス)。
 	| 'stripe-contract-target-mismatch'
@@ -56,6 +61,10 @@ export type StripeAlertKind =
 	// 失敗した」側を所有し、本 kind とは発火条件が重ならない
 	// (責務分界は stripe-webhook-delivery-monitor.ts 冒頭)。
 	| 'stripe-webhook-undelivered'
+	// #4128: Stripe 側は配信成功 (pending_webhooks=0) なのに、こちらの台帳に記録が無い。
+	// 「受け取って 200 を返したのに処理していない」= silent drop の唯一の外形的証拠。
+	// pending>0 を条件にする `stripe-webhook-undelivered` では原理的に検知できない領域を持つ。
+	| 'stripe-webhook-ledger-gap'
 	// #3959: 上の未達検知そのものが失敗した (Stripe API 障害 / DB 障害 等)。検知器が動いて
 	// いない間は未達を見逃すため、検知器の停止自体を 1 つの障害として鳴らす。cron dispatcher は
 	// 非 2xx を throw せず返すため Lambda の error alarm では表面化しない (#4102 QM 指摘 M3)。

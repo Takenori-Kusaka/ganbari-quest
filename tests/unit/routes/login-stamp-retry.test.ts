@@ -214,7 +214,6 @@ vi.mock('$lib/server/services/sibling-ranking-service', () => ({
 	isRankingEnabled: vi.fn().mockResolvedValue(false),
 }));
 vi.mock('$lib/server/services/special-reward-service', () => ({
-	getSpecialRewardProgress: vi.fn().mockResolvedValue(null),
 	getUnshownReward: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('$lib/server/services/stamp-card-service', () => ({

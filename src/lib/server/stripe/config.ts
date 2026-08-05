@@ -130,43 +130,6 @@ export function getWebhookSecret(): string {
 }
 
 /**
- * Webhook shadow mode 用署名シークレット (Phase 7 PR-4a / Issue #2713 / ADR-0059)
- *
- * Test mode で新規 Webhook destination (#2627) を作成した際の signing secret。
- * shadow mode (`STRIPE_WEBHOOK_SHADOW_MODE=true`) では `STRIPE_WEBHOOK_SECRET_TEST`
- * を優先し、未設定なら本番 `STRIPE_WEBHOOK_SECRET` に fallback する。
- *
- * 設計 SSOT: docs/decisions/0059-phase7-cutover-sequence.md §「結果」
- * 関連 docs: docs/design/billing-redesign/phase6-phase7-execution-ssot.md §3 Step 4-a
- */
-export function getWebhookSecretForShadow(): string {
-	const secret = process.env.STRIPE_WEBHOOK_SECRET_TEST ?? process.env.STRIPE_WEBHOOK_SECRET;
-	if (!secret) {
-		throw new Error(
-			'STRIPE_WEBHOOK_SECRET_TEST or STRIPE_WEBHOOK_SECRET must be set for shadow mode',
-		);
-	}
-	return secret;
-}
-
-/**
- * Webhook shadow mode feature flag (Phase 7 PR-4a / Issue #2713 / ADR-0059)
- *
- * `STRIPE_WEBHOOK_SHADOW_MODE=true` の場合のみ true を返す。それ以外 (未設定 /
- * `'false'` / `''` / 任意の他文字列) は false。
- *
- * Stripe 公式 5 phase migration (setup → discovery → shadow → cutover → retire)
- * の **shadow phase** (Phase 7 Step 4-a) で 24-48h log only 検証する際に
- * `true` に切替える kill switch。次の AWS Lambda invocation (約 30 秒) で反映される。
- *
- * 設計 SSOT: docs/decisions/0059-phase7-cutover-sequence.md §「結果」
- * 関連 docs: docs/design/billing-redesign/phase6-rollback-and-kill-switches.md §S6
- */
-export function isWebhookShadowModeEnabled(): boolean {
-	return process.env.STRIPE_WEBHOOK_SHADOW_MODE === 'true';
-}
-
-/**
  * lookup_key 経路 feature flag (Phase 7 PR-3a / Issue #2716 / ADR-0059)
  *
  * `USE_LOOKUP_KEY=true` の場合のみ true を返す。それ以外 (未設定 /
@@ -217,6 +180,19 @@ export function isLookupKeyEnabled(): boolean {
  *   const priceId = await getPriceId('standard');
  *   // → 'price_1Abc...' (`USE_LOOKUP_KEY=true` なら lookup_key 経由、false なら env 経由)
  */
+/**
+ * `PlanId` → `getPriceId()` が取る plan 語彙への写像 (#4286)。
+ *
+ * `PlanConfig.tier` は `'standard' | 'family'`、lookup_key 側は `standard_` / `premium_` 接頭辞で
+ * **語彙が違う**（ADR-0058 の rename 過渡期）。ここを取り違えると `family_monthly` を引いて
+ * 解決に失敗し、**standard は買えるが premium だけ買えない**形で顧客に出る。写像は 1 箇所に置く。
+ */
+export function lookupPlanOf(planId: PlanId): 'standard' | 'premium' | null {
+	if (planId === SUBSCRIPTION_PLAN.MONTHLY) return 'standard';
+	if (planId === SUBSCRIPTION_PLAN.FAMILY_MONTHLY) return 'premium';
+	return null;
+}
+
 export async function getPriceId(plan: 'standard' | 'premium'): Promise<string> {
 	// 1. 旧 env var (`STRIPE_PRICE_*_MONTHLY` 2 件) を解決 (fallback / default 経路の SSOT)
 	const envPriceId = resolveEnvPriceId(plan);

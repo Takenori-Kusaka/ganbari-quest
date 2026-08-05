@@ -2,7 +2,7 @@
 
 ## Agent 役割定義
 
-あなたは LP の **UI/UX レビューア**です。@docs/DESIGN.md §9 禁忌事項 + @docs/sessions/qa-checklist-ui-quality.md の 10 項目を起点に、`site/**` 全ページを目視で検証し、Critical / Major / Minor の優先度で 22 件以下の findings を記録する。
+あなたは LP の **UI/UX レビューア**です。@docs/DESIGN.md §9 禁忌事項 + @docs/sessions/qm-checklist-ui-quality.md の 10 項目を起点に、`site/**` 全ページを目視で検証し、Critical / Major / Minor の優先度で 22 件以下の findings を記録する。
 
 ## レビュー観点
 

@@ -7,11 +7,11 @@
 // (create-tables.ts / lazy-startup-migrations.ts / tests/e2e/global-setup.ts と並行同期済)。
 // 本 file は「表はあるが sqlite backend の repo 実装だけ無い」欠落を埋める (#3985)。
 //
-// 冪等性契約 (interface SSOT 整合): 並列同時到達の二重 insert は PK (event_id) への
-// `ON CONFLICT DO NOTHING` (drizzle `onConflictDoNothing`) で 2 度目以降を物理拒否する
-// (first-writer-wins)。dsql 実装と同一挙動。
+// 冪等性契約 (interface SSOT 整合): 処理権の取得は `claim()` の 1 文
+// (`onConflictDoUpdate` + `setWhere` で「processing かつ stale」に限定 + `returning()`) に閉じ、
+// 並列同時到達の勝者を 1 つに決める (#4128、first-writer-wins)。dsql 実装と同一挙動。
 
-import { eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../client';
 import type { WebhookEventRecord } from '../interfaces/webhook-event-repo.interface';
 import { stripeWebhookEvents } from '../schema';
@@ -37,8 +37,14 @@ export async function findByEventId(eventId: string): Promise<WebhookEventRecord
 	return rows[0] ? toRecord(rows[0]) : null;
 }
 
-export async function insert(record: WebhookEventRecord): Promise<void> {
-	await db
+export async function claim(
+	record: WebhookEventRecord,
+	staleClaimBeforeIso: string,
+): Promise<boolean> {
+	// 処理権の取得を 1 文に閉じ込める (#4128、dsql 実装と同一挙動)。
+	// 競合時は「死んだ claim (processing かつ stale)」に限って奪い、完了済 row は奪わない。
+	// returning() が行を返したかどうかがそのまま勝敗になる。
+	const rows = await db
 		.insert(stripeWebhookEvents)
 		.values({
 			eventId: record.eventId,
@@ -49,7 +55,45 @@ export async function insert(record: WebhookEventRecord): Promise<void> {
 			retryCount: record.retryCount,
 			tenantId: record.tenantId,
 		})
-		.onConflictDoNothing();
+		.onConflictDoUpdate({
+			target: stripeWebhookEvents.eventId,
+			set: {
+				eventType: record.eventType,
+				processedAt: record.processedAt,
+				handlerResult: record.handlerResult,
+				errorMessage: record.errorMessage,
+				tenantId: record.tenantId,
+			},
+			setWhere: and(
+				eq(stripeWebhookEvents.handlerResult, 'processing'),
+				lt(stripeWebhookEvents.processedAt, staleClaimBeforeIso),
+			),
+		})
+		.returning({ eventId: stripeWebhookEvents.eventId });
+	return rows.length > 0;
+}
+
+export async function finalize(
+	eventId: string,
+	handlerResult: 'success' | 'skipped',
+	processedAtIso: string,
+): Promise<void> {
+	await db
+		.update(stripeWebhookEvents)
+		.set({ handlerResult, processedAt: processedAtIso })
+		.where(eq(stripeWebhookEvents.eventId, eventId));
+}
+
+export async function releaseClaim(eventId: string): Promise<void> {
+	// 完了済 row を巻き添えで消さないよう processing に限定する。
+	await db
+		.delete(stripeWebhookEvents)
+		.where(
+			and(
+				eq(stripeWebhookEvents.eventId, eventId),
+				eq(stripeWebhookEvents.handlerResult, 'processing'),
+			),
+		);
 }
 
 export async function incrementRetryCount(eventId: string): Promise<void> {
