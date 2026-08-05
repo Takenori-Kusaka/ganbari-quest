@@ -81,8 +81,33 @@ ADR-0022 が本当に守りたいのは「**作成者 ≠ 承認者**」だけ�
 
 **本 amendment は Amendment 4-2「統合 PR は Takenori-Kusaka 名義」/ 4-3「pr-author-guard 変更不要」を supersede する**（自動生成 PR の範囲において）。merge 戦略（merge commit）・approve/merge の監査 role 専管・効力発生条件は Amendment 4 のまま不変。User 設定が要る一度きりの作業（GitHub App 作成 → install → secret/variable 登録）は `docs/sessions/branch-strategy.md §7` を SSOT とする。
 
+### Amendment 6 (#4288): QM の自己処理を許可し、作成者 ≠ 承認者を「実装方針」に限定する
+
+**オーナー決定（2026-08-05）。** 差し戻しの往復が顧客に届く変更を 1 行も生まないまま両者の時間を消費していた（実測: 直近 200 Issue で装置・プロセス 56% / 顧客に届く変更 24%、1 日の虚偽報告・認識誤り 6 回）。**QM が指摘を Dev に返さず自分で直して merge する**運用に変える。
+
+**決定**:
+
+1. **QM は Dev の PR ブランチに修正を push し、同じ PR を approve / merge してよい。** 対象は PR body の必須セクション / AC 検証マップ / 決裁ブリーフ / SS 宣言 / AC 文言の実態合わせ / 軽微な test・lint・型の不備
+2. **修正コミットは QM アカウント（`ganbariquestsupport-lab`）名義で残す。** `gh auth switch` で切り替えてから push する。**Dev アカウント名義で push しない** — 誰が書いたかが証跡から消えるのは、本 ADR が守ろうとしている「証跡の真正性」そのものを壊す
+3. **PR の作成者は Dev（`Takenori-Kusaka`）のまま。** Amendment 1 / 3 の「PR 作成は `Takenori-Kusaka` のみ」は不変
+4. **Dev に返すのは 2 つだけ** — ①実装方針の変更を伴うもの ②BLOCK 3 類型（顧客に実害 / 証跡の真正性 / 不可逆）。**方針を変える修正を QM が書いて自分で承認することは、引き続き禁止**
+
+**緩めたもの / 残したもの**:
+
+| | 従来 | 本 amendment 以降 |
+|---|---|---|
+| QM が書いた修正を QM が承認する | 禁止 | **許可**（書式・AC 文言・軽微な不備に限る） |
+| QM が実装方針を書き換えて承認する | 禁止 | **禁止**（変わらず） |
+| PR 作成者 | `Takenori-Kusaka` のみ | 変わらず |
+| 統合 PR の approve / merge | 監査 role 専管 | 変わらず |
+
+**受容するリスク**: QM の修正そのものは誰もレビューしない。**実害（QM の修正が顧客に届く欠陥を作る）が出た時点で本 amendment を見直す**。
+
+**SSOT**: チーム憲章 [docs/sessions/README.md](../sessions/README.md) §0（運用モード）。本 ADR と食い違ったら §0 が勝つ。
+
 ## 関連
 
+- #4288（Amendment 6。運用モードを顧客価値集中へ切り替える）
 - #1481（PR マージ前チェックリスト CI 強制）/ #1728 / #1809 / #1879 / #1994 / #2863 / #3067（各 amendment）
 - ADR-0004（レビュー & AC 検証品質）/ ADR-0026（force push 禁止）/ ADR-0056（structured evidence）/ ADR-0010（Pre-PMF Bucket A）
 - `docs/sessions/qm-session.md`（QM approve 手順・3 層防御運用）/ `.claude/agents/qm-session.md`（QM Approve 体制）/ `docs/sessions/branch-strategy.md §6` / `docs/sessions/audit-team.md`（2 role 運用）
