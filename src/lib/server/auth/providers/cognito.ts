@@ -16,7 +16,7 @@ import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
 import { resolveTenantEntitlement, TenantEntitlementUnavailableError } from '../tenant-entitlement';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
-import { verifyIdentityToken } from './cognito-jwt';
+import { hasMfaAmr, verifyIdentityToken } from './cognito-jwt';
 import { refreshCognitoIdToken } from './cognito-oauth';
 
 export class CognitoAuthProvider implements AuthProvider {
@@ -41,6 +41,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
 						authTime: claims.auth_time,
+						// #4266: /ops は ops group + MFA を要求する (hasOpsAccess)
+						mfaAuthenticated: hasMfaAmr(claims.amr),
 					};
 				}
 			} catch (e) {
@@ -66,6 +68,8 @@ export class CognitoAuthProvider implements AuthProvider {
 						// #3025: identities claim の有無で federated (Google 等) を判定
 						isFederated: (claims.identities?.length ?? 0) > 0,
 						authTime: claims.auth_time,
+						// #4266: /ops は ops group + MFA を要求する (hasOpsAccess)
+						mfaAuthenticated: hasMfaAmr(claims.amr),
 					};
 				}
 			}

@@ -16,11 +16,13 @@
 // OPS_SECRET_KEY env の完全除去・設計書更新は PR-D で対応（Issue #820）。
 
 import { error } from '@sveltejs/kit';
-import { isOpsMember } from '$lib/server/auth/ops-authz';
+import { hasOpsAccess } from '$lib/server/auth/ops-authz';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-	if (!isOpsMember(locals.identity)) {
+	// #4266: CloudFront の IP allowlist 廃止に伴い、主防御を ops group + MFA に強化した。
+	// MFA 情報が取れない場合も拒否する (fail-closed)。判定は hasOpsAccess に集約。
+	if (!hasOpsAccess(locals.identity)) {
 		error(403, 'Forbidden');
 	}
 	return {};

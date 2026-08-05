@@ -37,6 +37,12 @@ export type Identity =
 			isFederated?: boolean;
 			/** #3025: 実認証時刻 (epoch 秒)。requires-recent-login 判定用 (refresh では更新されない) */
 			authTime?: number;
+			/**
+			 * #4266: ログイン時に MFA チャレンジを完了したか (ID token の `amr` claim 由来)。
+			 * `undefined` = 判定不能。**未設定 / 不明はいずれも「MFA なし」として扱う**
+			 * (`hasOpsAccess()` が fail-closed で拒否する)。
+			 */
+			mfaAuthenticated?: boolean;
 	  }
 	| { type: 'anonymous'; userId: string; email: string };
 

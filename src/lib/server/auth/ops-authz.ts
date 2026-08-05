@@ -34,6 +34,26 @@ export function isOpsMember(identity: Identity | null): boolean {
 }
 
 /**
+ * `/ops` に入れるか判定する単一述語 (#4266)。**ops group 所属 かつ MFA 済**を要求する。
+ *
+ * CloudFront 層の IP allowlist (2 枚目の防御) を廃止したため、主防御であるアプリ層の
+ * 強度を上げる。IP allowlist を廃止した理由:
+ *   - 対象 path に `/admin` (= 保護者 = 顧客の見守り画面) が含まれ、有効化すると全顧客が 403
+ *   - 運営者のグローバル IP が固定でなく、プロキシ経由では `event.viewer.ip` が回線 IP と一致しない
+ *
+ * 代替として MFA を要求する。運営者は TOTP を 1 度設定すれば、IP / 回線 / プロキシに縛られない。
+ * Cognito user pool は `mfa: OPTIONAL` のまま (顧客に MFA を強制しない)、ops だけをここで縛る。
+ *
+ * **fail-closed**: MFA 情報が取れない (旧トークン / claim 欠落 = `undefined`) 場合も拒否する。
+ * 「不明なら通す」にすると防御が黙って消える (ADR-0024 ENV silent skip 禁止と同じ規律)。
+ */
+export function hasOpsAccess(identity: Identity | null): boolean {
+	if (!isOpsMember(identity)) return false;
+	// isOpsMember が true ⇒ identity は cognito
+	return identity?.type === 'cognito' && identity.mfaAuthenticated === true;
+}
+
+/**
  * グローバル master (全テナント共有の統計基準値 = `market_benchmarks` 等) への書込を
  * ops/admin 相当に限定する単一強制点 (#3824、CWE-639 隣接 / #3593 ④ の実厳格化)。
  *
