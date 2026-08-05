@@ -4,6 +4,16 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * dev server の port。既定は 5174 (CI / 単独作業ではこれを使う)。
+ *
+ * #4309: `reuseExistingServer` が有効なため、**別の worktree が 5174 を掴んでいると
+ * そちらのコードに対して test が走る**。並列 Agent 環境では「修正済みのはずが fail する」
+ * (実測: 未認証 403 を期待した spec が他 worktree の未修正 server に当たり 200 で fail) という
+ * 原因の分かりにくい偽 fail になるため、port を env で逃がせるようにする。
+ */
+const PORT = Number(process.env.E2E_COGNITO_PORT ?? 5174);
+
 export default defineConfig({
 	testDir: 'tests/e2e',
 	// #776: plan-gated-features spec も cognito-dev モードでのみ実行可能
@@ -22,8 +32,10 @@ export default defineConfig({
 	// #1535: upgrade-checkout を tests/e2e/integration/ に移動
 	// #2346 / #2347 (EPIC #2345): stripe-checkout-labels / stripe-checkout-monthly-yearly を追加
 	//   (景表法対応 + 月額/年額切替 + 年額表示強化、test.use({ storageState: 'playwright/.auth/free.json' }) 使用)
+	// #4309: ops-export-authz を追加（/ops 配下 API の認可を実 HTTP 経路で回帰検証。
+	//   未認証 / 非 ops → 403、ops → 認可通過。cognito-dev でないと ops group を再現できない）
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
+		/(cognito-auth|ops-export-authz|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
@@ -32,7 +44,7 @@ export default defineConfig({
 	reporter: [['list'], ['html', { open: 'never' }]],
 	globalSetup: './tests/e2e/global-setup.ts',
 	use: {
-		baseURL: 'http://localhost:5174',
+		baseURL: `http://localhost:${PORT}`,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,
@@ -71,12 +83,12 @@ export default defineConfig({
 	webServer: {
 		command: process.env.CI
 			? process.platform === 'win32'
-				? 'set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run preview -- --port 5174'
-				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run preview -- --port 5174'
+				? `set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run preview -- --port ${PORT}`
+				: `AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run preview -- --port ${PORT}`
 			: process.platform === 'win32'
-				? 'set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run dev -- --port 5174'
-				: 'AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run dev -- --port 5174',
-		port: 5174,
+				? `set AUTH_MODE=cognito&& set COGNITO_DEV_MODE=true&& npm run dev -- --port ${PORT}`
+				: `AUTH_MODE=cognito COGNITO_DEV_MODE=true npm run dev -- --port ${PORT}`,
+		port: PORT,
 		reuseExistingServer: !process.env.CI,
 		timeout: 60_000,
 	},
