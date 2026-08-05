@@ -1630,6 +1630,18 @@ export const BLOCKING_GATES = [
 		why: '同上。`___` が残ったブリーフは「出したが中身が無い」= 証跡の偽装に等しい',
 	},
 	{
+		id: 'body-state-drift',
+		name: '統合 PR 本文の state / label 主張が GitHub 実態と一致',
+		issue: '#4170',
+		why: '証跡の真正性。本文が「#N は open」「`state:needs-po`」と書いていても実態が違えば、統合 PR の判断材料そのものが嘘になる。advisory に落とすと #4170 の No-gos「照合を warning に留めること」に該当し、乖離したまま CI が緑で通る',
+	},
+	{
+		id: 'body-count-drift',
+		name: '統合 PR 本文の件数主張と表の行数が一致',
+		issue: '#4170',
+		why: '同上。「起票した Issue (3 件)」と書いて表が 4 行なら、読み手は 1 件を数えないまま統合を承認する。第19回統合監査で実際に起きた 4 件のうち 2 件がこの形',
+	},
+	{
 		id: 'integration-evidence-missing',
 		name: '統合 PR のマージ判定エビデンス表',
 		issue: '#2945',
