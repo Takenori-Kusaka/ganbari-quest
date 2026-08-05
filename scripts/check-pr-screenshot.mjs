@@ -266,7 +266,10 @@ function findStoryFiles(dir, acc = []) {
 }
 
 /** 「UI 影響なし」opt-out として認める記述 (行単位で判定する)。 */
-const UI_NOT_APPLICABLE_PATTERNS = [/該当なし\s*[（(](?:refactor|docs|chore)/i, /UI\s*変更\s*なし/i];
+const UI_NOT_APPLICABLE_PATTERNS = [
+	/該当なし\s*[（(](?:refactor|docs|chore)/i,
+	/UI\s*変更\s*なし/i,
+];
 
 /**
  * 同じ行に現れたら **宣言ではない** と判断する文脈 (#4255 横展開)。

@@ -132,7 +132,9 @@ describe('hasUiNotApplicableMarker', () => {
 		});
 
 		it('コードブロック / インラインコード内の言及は宣言として扱わない', () => {
-			const fenced = ['```', 'if (hasUiNotApplicableMarker(body)) // UI 変更なし', '```'].join('\n');
+			const fenced = ['```', 'if (hasUiNotApplicableMarker(body)) // UI 変更なし', '```'].join(
+				'\n',
+			);
 			expect(hasUiNotApplicableMarker(fenced)).toBe(false);
 			expect(hasUiNotApplicableMarker('判定は `UI 変更なし` の有無で行う')).toBe(false);
 		});
@@ -144,7 +146,9 @@ describe('hasUiNotApplicableMarker', () => {
 
 		it('手順書の条件節（「UI 変更なしの場合: …」）を宣言として扱わない', () => {
 			expect(
-				hasUiNotApplicableMarker('UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）**」と明記。'),
+				hasUiNotApplicableMarker(
+					'UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）**」と明記。',
+				),
 			).toBe(false);
 		});
 
