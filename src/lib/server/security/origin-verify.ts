@@ -34,6 +34,11 @@
 // したがって本検査は **deny list ではなく allow list**（保護する prefix を明示列挙）で構成する。
 // 列挙外の path は「front door 必須ではない」= 各自の認証で守る、という宣言である。
 
+// cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
+//   - `Tcfv`: staging Stripe webhook endpoint ID `we_1TcfvFBgMFbHJZ0Z5t5Tt53B` の実値の一部。
+//     実在の識別子であり、綴りを変えると実測の証跡でなくなる (tests/CLAUDE.md §負例 fixture と cspell)。
+// cspell:ignore Tcfv
+
 import { timingSafeEqual } from 'node:crypto';
 
 /**

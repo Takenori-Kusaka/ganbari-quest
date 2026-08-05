@@ -17,6 +17,13 @@
  *   - cron-dispatcher Lambda の env `FUNCTION_URL` も Function URL 直。
  */
 
+// cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
+//   - `Tcfv`: staging Stripe webhook endpoint ID の実値の一部。綴りを変えると実測の証跡でなくなる
+//   - `adminx` / `opsx`: **負例 fixture**。`/admin` `/ops` に前方一致するが保護対象であってはならない
+//     path で、「緩い前方一致で無関係な path を巻き込まない」ことを検証する実体。綴りを直すと
+//     negative case が成立しなくなる (tests/CLAUDE.md §負例 fixture と cspell)
+// cspell:ignore Tcfv adminx opsx
+
 import { describe, expect, it } from 'vitest';
 
 import {
