@@ -265,14 +265,62 @@ function findStoryFiles(dir, acc = []) {
 	return acc;
 }
 
+/** 「UI 影響なし」opt-out として認める記述 (行単位で判定する)。 */
+const UI_NOT_APPLICABLE_PATTERNS = [/該当なし\s*[（(](?:refactor|docs|chore)/i, /UI\s*変更\s*なし/i];
+
+/**
+ * 同じ行に現れたら **宣言ではない** と判断する文脈 (#4255 横展開)。
+ *
+ * 「UI 変更なし」の 6 文字は、否定・引用・手順説明の中にも普通に現れる。
+ * 出現しただけで opt-out にすると、**書いていない宣言を書いたことにされる**。
+ */
+const MARKER_DISQUALIFYING_PATTERNS = [
+	/^\s*>/, // 引用 — 他所の文言を貼っただけ
+	/^\s*[-*]\s*\[\s\]/, // 未チェック checkbox — チェックしていない = 宣言していない
+	/ではありません|ではない|ではなく|とは限らない|とは言えない/, // 否定 (#4255 と同型)
+	/嘘|虚偽/, // gate 自身の説明文の引用
+	/なしの場合|と書く/, // 手順書の条件節 / 引用符付きの言及
+];
+
 /**
  * 「該当なし」明示記述の検出。refactor / docs / chore のみで UI 影響がない PR の opt-out 用。
+ *
+ * # なぜ行単位 + 文脈除外なのか (#4255 横展開)
+ *
+ * 本 marker が成立すると `checkScreenshotEmbedReadiness` / CI screenshot-check は
+ * **SS 検証をまるごと skip** する。旧実装は body 全体への無アンカー正規表現だったため、
+ *
+ *   - 「本 PR は **UI 変更なしではありません**」  (否定)
+ *   - 「> UI 変更なしの PR は SS 不要」           (引用)
+ *   - 「`UI 変更なし` の有無で判定する」          (コード)
+ *   - 「- [ ] UI 変更なし」                       (未チェック checkbox)
+ *   - 「UI 変更なしの場合: 『該当なし』と明記」   (手順書の条件節)
+ *
+ * のいずれでも成立し、UI を変える PR が SS 証跡ゼロで緑になり得た。#4255
+ * (`hasStorybookStoryReference` が否定文に誤マッチ) の**同 class**で、しかも
+ * 効果は 1 サブ検査ではなく gate 全体の skip と大きい。
+ *
+ * 判定は「その行が宣言か」に絞る。コードフェンス / インラインコードは除外し、
+ * 上記の文脈を持つ行は marker として数えない。**判定できなければ marker なし
+ * (= skip しない) に倒す** — 「確認できなかった」を「確認した」と同じ扱いにしない (#4084)。
  *
  * @param {string} body
  * @returns {boolean}
  */
 export function hasUiNotApplicableMarker(body) {
-	return /該当なし\s*[（(](?:refactor|docs|chore)/i.test(body) || /UI\s*変更\s*なし/i.test(body);
+	let inFence = false;
+	for (const raw of (body ?? '').split(/\r?\n/)) {
+		if (/^\s*(?:```|~~~)/.test(raw)) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) continue;
+		// インラインコード (`...`) は言及であって宣言ではない
+		const line = raw.replace(/`[^`]*`/g, ' ');
+		if (MARKER_DISQUALIFYING_PATTERNS.some((p) => p.test(line))) continue;
+		if (UI_NOT_APPLICABLE_PATTERNS.some((p) => p.test(line))) return true;
+	}
+	return false;
 }
 
 /**
