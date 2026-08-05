@@ -136,6 +136,7 @@ export function detectBeforeAfterLabels(body) {
 	};
 }
 
+import { existsSync, readdirSync } from 'node:fs';
 import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 
 /**
@@ -194,7 +195,8 @@ export function checkRenderImpossibleDeclaration(body) {
 				message:
 					'`ss-render-impossible` 宣言には **Storybook story の参照**が必須です。\n' +
 					'  「原理的に撮れない」は「見た目を確認しなくてよい」ではありません。\n' +
-					'  PR body に story のタイトル (例: `Features/Admin/BackupHealthCard`) を書いてください。',
+					'  PR body に **story ファイルのパス** を書いてください (例: `src/lib/features/admin/components/BackupHealthCard.stories.svelte`)。' +
+					' タイトルだけの言及は受理しません — 実在確認ができず、それっぽい文字列で素通りするためです (#4255)。',
 			},
 		};
 	}
@@ -205,19 +207,62 @@ export function checkRenderImpossibleDeclaration(body) {
 /**
  * PR body に Storybook story への参照があるか。
  *
- * story タイトル (`Foo/Bar/Baz` 形式) か `*.stories.svelte` のパス言及を受理する。
+ * **実在する `*.stories.svelte` のパス参照だけを受理する** (#4255)。
+ *
+ * 旧実装は「`story` の語 + どこかに `word/word`」で true にしていたため、GitHub の
+ * `owner/repo` に誤マッチした。PR #4235 は body に「Storybook story は本変更に対応する
+ * ものがありません」と**書いてある**のに pass し、課金導線の UI 変更が SS 証跡ゼロで
+ * merge 手前まで進んだ。#4084 (ペア 0 件を skip で通した) と同 class の 2 回目。
+ *
+ * story タイトル (`Features/Admin/Foo`) は**受理しない**。実在確認ができず、
+ * 「それっぽい文字列を書けば通る」に戻るため。判定できないときは false に倒す。
  *
  * @param {string} body
  * @returns {boolean}
  */
 export function hasStorybookStoryReference(body) {
 	const b = body ?? '';
-	// story ファイルへの言及、または story タイトル (Foo/Bar 形式) の言及を受理する。
-	if (b.includes('.stories.svelte')) return true;
-	return (
-		/(?:Storybook|story|ストーリー)/i.test(b) &&
-		/[A-Za-z][A-Za-z0-9]*\/[A-Za-z][A-Za-z0-9]*/.test(b)
-	);
+	const referenced = [...b.matchAll(/[\w./-]*[\w-]+\.stories\.svelte/g)].map((m) => m[0]);
+	return referenced.some((ref) => storyFileExists(ref));
+}
+
+/**
+ * PR body が参照した story のパスが repo に実在するか (#4255)。
+ *
+ * 完全パスでも basename だけでも受理するが、**実在しない名前は受理しない**。
+ * 走査に失敗した場合 (checkout が無い等) は **false に倒す** —
+ * 「確認できなかった」を「確認した」と同じ扱いにしない (#4084 の教訓)。
+ *
+ * @param {string} ref
+ * @returns {boolean}
+ */
+function storyFileExists(ref) {
+	const normalized = ref.replace(/^\.\//, '').replaceAll('\\', '/');
+	if (existsSync(normalized)) return true;
+	const base = normalized.split('/').pop();
+	if (!base) return false;
+	try {
+		return findStoryFiles('src').some((p) => p.endsWith(`/${base}`) || p === base);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * `src` 配下の `*.stories.svelte` を列挙する (#4255)。
+ *
+ * @param {string} dir
+ * @param {string[]} acc
+ * @returns {string[]}
+ */
+function findStoryFiles(dir, acc = []) {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+		const path = `${dir}/${entry.name}`;
+		if (entry.isDirectory()) findStoryFiles(path, acc);
+		else if (entry.name.endsWith('.stories.svelte')) acc.push(path);
+	}
+	return acc;
 }
 
 /**

@@ -477,7 +477,11 @@ describe('ss-render-impossible 宣言 (#4087)', () => {
 	// 「UI は変わるが、その環境では原理的に描画できない」に対する語彙。
 	// 兄弟 gate (ss-blob-sha-uniqueness) には理由必須の宣言が 4 種あるのに本 gate だけ無く、
 	// 「UI 変更なし」と嘘を書くか label の意味を曲げるかしか道が無かった (#4084 / PO 決裁 2026-08-01)。
-	const STORY_REF = 'Storybook の Features/Admin/BackupHealthCard で 4 状態を確認できます';
+	// #4255: story 参照は **実在する `*.stories.svelte` のパス**で書く。
+	// タイトルだけ (`Features/Admin/BackupHealthCard`) は実在確認ができず、
+	// 「それっぽい文字列を書けば通る」に戻るため受理しない (判定の厳格化であって弱体化ではない)。
+	const STORY_REF =
+		'Storybook の src/lib/features/admin/components/BackupHealthCard.stories.svelte で 4 状態を確認できます';
 
 	it('宣言が無ければ何も起きない (既存 PR に影響しない)', () => {
 		expect(checkRenderImpossibleDeclaration('本文だけ').ok).toBe(false);
