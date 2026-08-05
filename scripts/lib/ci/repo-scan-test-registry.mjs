@@ -73,6 +73,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
 	},
+	'tests/unit/architecture/no-stray-control-chars.test.ts': {
+		scope: 'repo',
+		note: '#4119 docs / src / scripts / tests のテキスト資産を byte 単位で走査し C0 制御文字の紛れ込みを検出する',
+	},
 	'tests/unit/architecture/dsql-txn-work-allowlist.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の txn 内 work を走査する (ADR-0065)',
