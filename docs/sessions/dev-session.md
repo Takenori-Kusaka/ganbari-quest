@@ -86,6 +86,24 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 
 > **backlog 上位から何を今のレーンに取り込むかは Dev が決める。** PO は backlog の順序（何が次に価値が高いか）を示すが、着手順・WIP 配分・レーン割当への個別指示は出さない。決定権の境界は [チーム憲章 §4.2](README.md#42-実装に関する決定)。
 
+#### subagent の `model:` 指定 — なぜ Opus / Sonnet なのか（#4212 AC1）
+
+`.claude/agents/*.md` の frontmatter `model:` は **agent を spawn したときのモデル**を決める。**未指定は「設定漏れ」ではなく「親セッションのモデルを継承する」という意味**である（この区別が書かれていなかったため、PO が dev-session の未指定を漏れと誤読した、#4212）。
+
+| agent | `model:` | 根拠 |
+|---|---|---|
+| `po-session` / `qa-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
+| `audit-manager` | 未指定（= Opus） | 統合 PR の approve / merge 判定と Issue 起票という**不可逆 side-effect** を専権で持つ（`docs/sessions/audit-team.md`）。判断を誤ったときの巻き戻しが高い |
+| `dev-session` | 未指定（= Opus） | 「CI / pre-hook を自己解決できる能力が Sonnet に無い」— **ただしこの結論は Sonnet 4.5 時点のもので、以後再検証していない**（下記） |
+
+**dev-session を sonnet に落としてよいかの判定基準**（#4212 AC1）:
+
+- **合格条件** = Sonnet subagent 1 本に実 Issue を 1 件通させ、**CI が落ちたところから自力で緑に戻せること**を 1 回確認する。落ちた検査の意味を読み違えず、テストの削除 / skip / assertion 弱体化（ADR-0006 違反）に逃げないことまで含めて見る
+- **不合格なら未指定（Opus）のまま据え置く**。据え置く場合も本表に「いつ・何で不合格だったか」を 1 行残す（同じ問いが再燃するため）
+- **判定できる材料が無い間は据え置きが既定**。「安いから」だけを根拠に落とさない
+
+**モデル割当は Dev の職掌**（実装レーンの資源配分、憲章 §4.2）。ただし `audit-manager` は監査の職掌のため Dev が単独で変更しない。
+
 #### 多観点セルフレビュー推奨フロー
 1. 主担当（Opus）が AC を満たす実装を完了
 2. カテゴリに応じた Agent / Gemini CLI でレビュー（**別 Issue でなく、本 Issue の別観点**）:
