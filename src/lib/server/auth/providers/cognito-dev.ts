@@ -217,6 +217,8 @@ export class DevCognitoAuthProvider implements AuthProvider {
 			licenseStatus: devUser.licenseStatus ?? AUTH_LICENSE_STATUS.ACTIVE,
 			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
 			plan: devUser.plan,
+			// #4266: 本番 CognitoAuthProvider と同じくセッションに MFA を焼き込む
+			mfaAuthenticated: identity.mfaAuthenticated === true ? true : undefined,
 		};
 
 		const token = signContext(context);

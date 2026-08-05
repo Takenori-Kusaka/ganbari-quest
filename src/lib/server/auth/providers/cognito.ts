@@ -143,6 +143,9 @@ export class CognitoAuthProvider implements AuthProvider {
 			const context: AuthContext = {
 				tenantId: membership.tenantId,
 				role: membership.role,
+				// #4266: ログイン時点で確定した MFA をセッションに焼き込む。以後 silent refresh で
+				// ID token の amr が落ちても、context token が生きている間は /ops に入れる。
+				mfaAuthenticated: identity.mfaAuthenticated === true ? true : undefined,
 				...(await resolveTenantEntitlement(membership.tenantId)),
 			};
 

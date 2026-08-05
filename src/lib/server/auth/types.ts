@@ -60,6 +60,15 @@ export interface AuthContext {
 	licenseStatus: AuthLicenseStatus;
 	tenantStatus?: SubscriptionStatus;
 	plan?: string;
+	/**
+	 * #4266: **このセッションが MFA を経て開始されたか**。ログイン時に ID token の `amr` から
+	 * 確定し、context token (署名付き) で保持する。
+	 *
+	 * silent refresh (`REFRESH_TOKEN_AUTH`) で再発行される ID token が `amr` を保持するかは
+	 * AWS 公式ドキュメントで確定できないため、identity 側の判定だけに依存すると運営者が
+	 * 無操作で `/ops` から締め出されうる。判定は `hasOpsAccess(identity, context)` に集約。
+	 */
+	mfaAuthenticated?: boolean;
 }
 
 /** authorize() の戻り値 */

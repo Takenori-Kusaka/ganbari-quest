@@ -5,7 +5,7 @@
 // 将来の階層化（`ops-cs` / `ops-eng` など）に備え、名前は enum 化して 1 箇所で管理する。
 
 import { error } from '@sveltejs/kit';
-import type { Identity } from './types';
+import type { AuthContext, Identity } from './types';
 
 /**
  * 運営ダッシュボード `/ops` 全体を操作できる group 名。
@@ -44,13 +44,26 @@ export function isOpsMember(identity: Identity | null): boolean {
  * 代替として MFA を要求する。運営者は TOTP を 1 度設定すれば、IP / 回線 / プロキシに縛られない。
  * Cognito user pool は `mfa: OPTIONAL` のまま (顧客に MFA を強制しない)、ops だけをここで縛る。
  *
- * **fail-closed**: MFA 情報が取れない (旧トークン / claim 欠落 = `undefined`) 場合も拒否する。
- * 「不明なら通す」にすると防御が黙って消える (ADR-0024 ENV silent skip 禁止と同じ規律)。
+ * **判定はセッション単位**: MFA を「今の ID token が MFA を経ているか」ではなく
+ * **「このセッションが MFA を経て開始されたか」** で見る。silent refresh
+ * (`REFRESH_TOKEN_AUTH`) で再発行される ID token が `amr` を保持するかは AWS 公式
+ * ドキュメントで確定できず (2026-08-05 調査)、identity 側だけを見ると運営者が無操作で
+ * 締め出され再ログインまで戻れない。ログイン時に確定した値を署名付き context token
+ * (`context-token.ts`、既存機構) が保持し、ここで OR を取る。
+ *
+ * **fail-closed**: identity / context のどちらからも MFA を確認できない (旧トークン /
+ * claim 欠落 = `undefined`) 場合は拒否する。「不明なら通す」にすると防御が黙って消える
+ * (ADR-0024 ENV silent skip 禁止と同じ規律)。
  */
-export function hasOpsAccess(identity: Identity | null): boolean {
+export function hasOpsAccess(
+	identity: Identity | null,
+	context?: Pick<AuthContext, 'mfaAuthenticated'> | null,
+): boolean {
 	if (!isOpsMember(identity)) return false;
 	// isOpsMember が true ⇒ identity は cognito
-	return identity?.type === 'cognito' && identity.mfaAuthenticated === true;
+	const tokenMfa = identity?.type === 'cognito' && identity.mfaAuthenticated === true;
+	const sessionMfa = context?.mfaAuthenticated === true;
+	return tokenMfa || sessionMfa;
 }
 
 /**
