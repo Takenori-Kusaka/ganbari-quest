@@ -81,7 +81,7 @@ export async function createCheckoutSession(
 		// (誤課金になる)。顧客の選択が誤っているわけではないので INVALID_PLAN では返さない。
 		// alert は `getPriceId()` 内で発火済み。
 		logger.error('[STRIPE] Price ID 未解決のため checkout を中止', {
-			planId: input.planId,
+			tenantId: input.tenantId,
 			error: err instanceof Error ? err.message : String(err),
 		});
 		return { error: 'PRICE_UNRESOLVED' };
