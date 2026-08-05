@@ -105,6 +105,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
 	},
+	'tests/unit/architecture/workflow-judgment-delegation-guard.test.ts': {
+		scope: 'repo',
+		note: '.github/workflows を走査し、合否判定が YAML でなく scripts/*.mjs に委譲されているかを検査する (#4158)',
+	},
 	'tests/unit/architecture/user-content-delivery-headers-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra + src を走査して配信ヘッダを検査する',

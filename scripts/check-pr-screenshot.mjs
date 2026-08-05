@@ -447,10 +447,16 @@ export function hasEmbeddedScreenshotImage(body) {
  * UI 変更があり exempt でない PR について、PR body に GitHub 表示可能な embed 画像が無い、
  * または未来形記述 (「後で push する」) が残っている場合に違反を返す。
  *
- * skip 条件 (CI screenshot-check と同一 SSOT):
- * - UI 関連ファイル変更なし (isUiPr=false)
+ * skip 条件:
+ * - UI 関連ファイル変更なし (isUiPr=false) … **CI screenshot-check と共有** (#4158)
+ * - ラベル refactor:internal-no-doc-impact (hasInternalRefactorLabel) … **CI と共有** (#4158)
  * - 「該当なし（refactor / docs / chore）」「UI 変更なし」明示 (hasUiNotApplicableMarker)
- * - ラベル refactor:internal-no-doc-impact (hasInternalRefactorLabel)
+ *   … **本関数だけが見る。CI screenshot-check は呼んでいない**
+ *
+ * つまり本関数は CI より**広い**。「CI と同一 SSOT」と書くと、CI で通ったものが
+ * pre-ready で落ちたときに「どちらかが壊れている」と誤読される。共有しているのは
+ * 個々の判定関数であって、この関数そのものではない。
+ * 委譲の宣言は scripts/lib/ci/workflow-judgment-registry.mjs が SSOT。
  *
  * @param {{ body: string; files: string[]; labels: string[] }} input
  * @returns {{ skipped: boolean; skipReason: string | null; violations: { id: string; issue: string; message: string }[] }}

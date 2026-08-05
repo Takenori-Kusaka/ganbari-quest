@@ -120,7 +120,12 @@ Steps (6 本。番号は既存の識別子を維持 — 実行順は下記「実
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972)
   7g. check-local-tz-date-getters.mjs — TZ 依存の日付導出禁止 / JST SSOT 強制 (#4015 / #4127)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
-  11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918、CI screenshot-check と SSOT 共有)
+  11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918)
+       CI screenshot-check とは同じ判定関数 (isUiPr / hasInternalRefactorLabel /
+       hasEmbeddedScreenshotImage / checkRenderImpossibleDeclaration) を共有する (#4158)。
+       ただし本 step は checkScreenshotEmbedReadiness まで見るため CI より広い —
+       「未来形記述 (後で push する)」「該当なしマーカー」は本 step だけが hard-fail する。
+       委譲の宣言 SSOT: scripts/lib/ci/workflow-judgment-registry.mjs
 
 選定基準 (ADR-0007 §1-2 判断原則 v2、#4121):
   類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを
