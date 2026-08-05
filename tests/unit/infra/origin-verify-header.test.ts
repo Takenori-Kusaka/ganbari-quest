@@ -22,7 +22,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { NetworkStack } from '../../../infra/lib/network-stack';
 import {
-	ORIGIN_VERIFY_CONTEXT_KEY,
+	originVerifyContextKey,
 	resolveOriginVerifySecret,
 } from '../../../infra/lib/origin-verify-context';
 import { StorageStack } from '../../../infra/lib/storage-stack';
@@ -139,7 +139,7 @@ describe('#4280 secret 未指定の synth は止まる (silent skip 禁止、ADR
 		}
 		// 止めるだけで直し方を書かない guard にしない (#4273 と同じ規律)
 		expect(message).toContain('gh secret set ORIGIN_VERIFY_SECRET');
-		expect(message).toContain(`-c ${ORIGIN_VERIFY_CONTEXT_KEY}=`);
+		expect(message).toContain(`-c ${originVerifyContextKey}=`);
 	});
 });
 
@@ -159,7 +159,7 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 		expect(cdkSteps.length).toBeGreaterThan(0);
 
 		const missing = cdkSteps
-			.filter((s) => !s.includes(`-c ${ORIGIN_VERIFY_CONTEXT_KEY}=`))
+			.filter((s) => !s.includes(`-c ${originVerifyContextKey}=`))
 			.map((s) => (s.split('\n')[0] ?? '').trim());
 		expect(missing).toEqual([]);
 	});

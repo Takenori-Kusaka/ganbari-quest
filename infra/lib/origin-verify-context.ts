@@ -11,8 +11,16 @@
 //   - stack constructor 側で throw すると、NetworkStack を直接 synth する既存 unit test 群
 //     (11 file) が本質と無関係に壊れ、テストが「context を足すだけ」の作業に劣化する
 
-/** CDK context key。deploy workflow が `-c originVerifySecret=...` で渡す。 */
-export const ORIGIN_VERIFY_CONTEXT_KEY = 'originVerifySecret';
+/**
+ * CDK context key。deploy workflow が `-c originVerifySecret=...` で渡す。
+ *
+ * **命名が camelCase なのは意図的**: これは env 変数名ではなく CDK context の key 名であり、
+ * 値 (`'originVerifySecret'`) と表記を揃える。SCREAMING_SNAKE で書くと env 変数と誤読され、
+ * 「配布経路 4 つを用意すべき env」に見えてしまう (実際 `check-new-required-env.mjs` が
+ * env 命名と同型として誤検出した)。この定数はプロセスの環境変数として読まれることはない。
+ * 配布が要る env 変数は別物の `ORIGIN_VERIFY_SECRET` (`.env.example` / `infra/CLAUDE.md`)。
+ */
+export const originVerifyContextKey = 'originVerifySecret';
 
 /**
  * 実運用で使える最小長。`src/lib/runtime/env.ts` の `ORIGIN_VERIFY_SECRET`
@@ -32,12 +40,12 @@ export interface ContextReader {
  * @throws 未設定・空文字・32 文字未満のとき
  */
 export function resolveOriginVerifySecret(node: ContextReader): string {
-	const raw = node.tryGetContext(ORIGIN_VERIFY_CONTEXT_KEY);
+	const raw = node.tryGetContext(originVerifyContextKey);
 	const secret = typeof raw === 'string' ? raw.trim() : '';
 
 	if (!secret) {
 		throw new Error(
-			`[origin-verify] CDK context \`${ORIGIN_VERIFY_CONTEXT_KEY}\` が未設定です (#4280)。\n` +
+			`[origin-verify] CDK context \`${originVerifyContextKey}\` が未設定です (#4280)。\n` +
 				'CloudFront → origin の shared secret header がないと、Lambda Function URL 直叩きで\n' +
 				'/admin ・ /api/v1/admin ・ /ops に到達でき、CloudFront 層の制御 (geoRestriction 等) を\n' +
 				'迂回できます。空文字で素通しすると防御が黙って消えるため synth を止めます (ADR-0024)。\n' +
@@ -46,14 +54,14 @@ export function resolveOriginVerifySecret(node: ContextReader): string {
 				'  1. GitHub Secret を登録する:\n' +
 				'     gh secret set ORIGIN_VERIFY_SECRET --body "$(node -e \'console.log(require("crypto").randomBytes(32).toString("hex"))\')" \\\n' +
 				'       --repo Takenori-Kusaka/ganbari-quest\n' +
-				`  2. cdk 実行に \`-c ${ORIGIN_VERIFY_CONTEXT_KEY}=\${{ secrets.ORIGIN_VERIFY_SECRET }}\` を渡す\n` +
+				`  2. cdk 実行に \`-c ${originVerifyContextKey}=\${{ secrets.ORIGIN_VERIFY_SECRET }}\` を渡す\n` +
 				'  3. ローカル synth / cfn-lint はダミー値でよい (scripts/check-cdk-cfn-lint.mjs 参照)',
 		);
 	}
 
 	if (secret.length < ORIGIN_VERIFY_MIN_LENGTH) {
 		throw new Error(
-			`[origin-verify] CDK context \`${ORIGIN_VERIFY_CONTEXT_KEY}\` が短すぎます ` +
+			`[origin-verify] CDK context \`${originVerifyContextKey}\` が短すぎます ` +
 				`(${secret.length} 文字、最低 ${ORIGIN_VERIFY_MIN_LENGTH} 文字、#4280)。` +
 				'アプリ側 env schema (ORIGIN_VERIFY_SECRET) も同じ下限を要求するため、' +
 				'短い値を通すと Lambda が起動時に落ちます。32 byte hex (64 文字) を推奨します。',
