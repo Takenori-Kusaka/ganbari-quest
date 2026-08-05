@@ -110,6 +110,10 @@ new OpsStack(app, `${appName}Ops`, {
 	appLogGroup: compute.appLogGroup,
 	opsEmail,
 	discordWebhookHealth,
+	// #4189: CloudWatch アラームの転送先 (オーナー決裁 2026-08-03、案 B)。
+	// **メール subscription はもう張らない**ため、これが空だと alarm が鳴っても誰にも届かない。
+	// deploy.yml 側で空を検出して deploy を止める。
+	discordWebhookIncident: app.node.tryGetContext('discordWebhookIncident') as string | undefined,
 });
 
 // --- DSQL stack (EPIC #3424 M4-E item 12 / #3429 #3431 #3432) ---
