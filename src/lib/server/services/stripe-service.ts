@@ -1006,16 +1006,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 			// #3960: silent fallback (`?? MONTHLY`) 廃止。未解決時は既存 plan を保持 + alert。
 			...planUpdateOrKeep(plan, tenant, 'customer.subscription.updated', subscription.id),
 			status,
-			// #4181: `active` に戻ったら猶予終了日を消す。
-			//
-			// 消さないと `status=active` + `planExpiresAt` あり = **X3 (契約が無いのに期限だけ残る)**
-			// を書く (contract-state-matrix.md §4 不正状態)。`planExpiresAt` は W3
-			// (`invoice.payment_failed`) が猶予終了日として書く列で、**猶予が明けたら意味を失う**。
-			// 残すと dunning の残骸として後続の判定に効き続ける。
-			//
-			// `grace_period` は W3 が書いた期限を保持し、`suspended` は matrix で「任意」なので触らない
-			// (`undefined` = 更新しない)。
-			...(status === SUBSCRIPTION_STATUS.ACTIVE ? { planExpiresAt: null } : {}),
+			...planExpiresAtPatchFor(status, tenant),
 		}),
 	);
 	if (!applied) return;
@@ -1070,6 +1061,33 @@ const TERMINAL_SUBSCRIPTION_STATUSES = [
 
 function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
 	return (TERMINAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(subscription.status);
+}
+
+/**
+ * `customer.subscription.updated` (W4) が status を書き換えるとき、**その status が持つべき
+ * `plan_expires_at` を同時に決める** (#4181、`contract-state-matrix.md` §4)。
+ *
+ * status だけを書き換えると、表に無い / 不正な組み合わせが残る:
+ *
+ * - `active` に戻したのに猶予終了日が残る → **X3**「`active` に期限は無い」。
+ *   この列を読む導出値は、支払い済みの顧客に「あと N 日で使えなくなります」と表示しうる
+ * - `grace_period` に入れたのに猶予終了日が無い → **S3 は `exp` あり必須**なので表に無い組み合わせ。
+ *   Stripe は `invoice.payment_failed` (W3) と `past_due` の updated を両方送り到着順を保証しないため、
+ *   W4 が先着するとこの形になる。いつまで猶予なのかを画面にも出せず、W3 が届かなければ猶予が明けない
+ *
+ * 既に猶予終了日があるときは**触らない**。dunning 中 Stripe は retry のたび `past_due` を送るので、
+ * 毎回書き直すと猶予が延び続け、未払いのまま使い続けられる (W3 と同じ 7 日を初回だけ与える)。
+ * `suspended` の `exp` は matrix で「任意」なので `undefined` = 更新しない。
+ */
+function planExpiresAtPatchFor(
+	status: Tenant['status'],
+	tenant: Pick<Tenant, 'planExpiresAt'>,
+): { planExpiresAt?: string | null } {
+	if (status === SUBSCRIPTION_STATUS.ACTIVE) return { planExpiresAt: null };
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !tenant.planExpiresAt) {
+		return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
+	}
+	return {};
 }
 
 // ============================================================
