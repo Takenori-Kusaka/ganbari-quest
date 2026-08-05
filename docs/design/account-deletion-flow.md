@@ -150,17 +150,35 @@ POST /api/v1/admin/account/delete  (pattern=owner-only / owner-full-delete)
 
 soft delete されたテナントは以下の状態になる:
 
-- `settings` テーブルに `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` が記録される
+- `settings` テーブルに `physical_deletion_date` → `deletion_grace_plan_tier` → `soft_deleted_at` の順で記録される（**sentinel-last**）
 - Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
 - ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+
+#### 3 キーの書き込み順序と不完全メタデータの扱い
+
+`settings` の 3 キーは 1 キー 1 文の upsert で書かれ、まとめる txn は無い。よって**書き込み順序が不変条件を担保する**:
+
+| 操作 | 順序 | 途中失敗時に残る状態 |
+|---|---|---|
+| soft delete（記録） | `physical_deletion_date` → `deletion_grace_plan_tier` → **`soft_deleted_at`**（sentinel-last） | sentinel が立たない = soft-delete が始まっていない |
+| restore（クリア） | **`soft_deleted_at`** → `deletion_grace_plan_tier` → `physical_deletion_date`（sentinel-first） | sentinel が消えている = 復元済み |
+
+`soft_deleted_at` は soft-delete 状態を起動する sentinel（`getGracePeriodStatus` の早期 return と `hooks.server.ts` の読み取り専用ロック判定がこれだけを見る）。**sentinel を最後に立て、最初に降ろす**ことで、途中失敗はつねに「データを消さない側」に倒れる。
+
+**メタデータが不完全な行**（`physical_deletion_date` または `deletion_grace_plan_tier` が欠落・不正）は、`getGracePeriodStatus` が `metadataIncomplete: true` / `isExpired: false` を返す:
+
+- 「いつ消してよいか不明」を「もう消してよい」に写像しない（安全側 = データを消さない側）
+- **復元できる**（宙吊りからの脱出経路。復元 → 退会し直しで正常な状態に戻せる）
+- **物理削除の母集団に入らない**（`findExpiredSoftDeletedTenants`）
+- 発生は `logger.warn` で検出する（専用の通知機構は持たない）
 
 ### 4.4 復元フロー
 
 `POST /api/v1/admin/account/restore` (owner のみ):
 
-1. `getGracePeriodStatus` で grace 期限内であることを確認
-2. settings の 3 キー (`soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date`) を空文字でクリア
+1. `getGracePeriodStatus` で grace 期限内であることを確認（メタデータ不完全な行は期限切れ扱いにせず復元を許す、§4.3）
+2. settings の 3 キーを `soft_deleted_at` → `deletion_grace_plan_tier` → `physical_deletion_date` の順（**sentinel-first**）で空文字にクリア
 3. テナント通常状態に戻る（次の admin/+layout.server.ts load で `gracePeriodStatus.isSoftDeleted=false`）
 
 > **Stripe 再購読について**: Stripe Subscription は grace 期間中にキャンセル済みのため、復元しても自動再購読されない。ユーザは `/pricing` から再度購読する必要がある（admin 画面で誘導する）。
@@ -169,7 +187,7 @@ soft delete されたテナントは以下の状態になる:
 
 `/api/cron/grace-period-deletion` が定期実行で `purgeExpiredSoftDeletedTenants` を呼ぶ:
 
-1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出
+1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出（メタデータ不完全な行は母集団に入らない、§4.3）
 2. 各テナントの owner を特定
 3. `deleteOwnerOnlyAccount` (他メンバーなし) または `deleteOwnerFullDelete` (他メンバーあり) で物理削除
 4. Pattern 2b の場合、他メンバーへ `sendMemberRemovedEmail` 通知
