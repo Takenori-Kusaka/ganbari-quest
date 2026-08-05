@@ -75,6 +75,18 @@ vi.mock('$lib/server/stripe/config', () => ({
 		if (lookupKey === 'premium_monthly') return 'family-monthly';
 		return null;
 	},
+	// #4286: checkout は `getPriceId()` 経由で Price を解決する（`plan.priceId` 直読をやめた）。
+	// 本 file は他の関心（webhook 意味論 / session 引数）を見るため、解決自体は素通しにする。
+	// **env × flag の組合せの検証は `stripe-checkout-price-resolution.test.ts`**（config を
+	// mock せず実物で動かす。この file が config を丸ごと mock していたことが、
+	// 「flag が死んでいる」を見逃した理由そのもの）。
+	getPriceId: async (plan: string) =>
+		plan === 'premium' ? 'price_family_monthly_789' : 'price_monthly_123',
+	lookupPlanOf: (planId: string) => {
+		if (planId === 'monthly') return 'standard';
+		if (planId === 'family-monthly') return 'premium';
+		return null;
+	},
 	getWebhookSecret: () => 'whsec_test',
 	TRIAL_PERIOD_DAYS: 7,
 	GRACE_PERIOD_DAYS: 7,

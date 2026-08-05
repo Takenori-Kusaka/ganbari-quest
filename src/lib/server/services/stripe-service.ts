@@ -18,7 +18,9 @@ import {
 	CURRENCY,
 	GRACE_PERIOD_DAYS,
 	getPlans,
+	getPriceId,
 	getWebhookSecret,
+	lookupPlanOf,
 	type PlanId,
 	planIdFromLookupKey,
 	planIdFromPriceId,
@@ -46,7 +48,8 @@ export type CreateCheckoutResult =
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'ALREADY_SUBSCRIBED' }
-	| { error: 'INVALID_PLAN' };
+	| { error: 'INVALID_PLAN' }
+	| { error: 'PRICE_UNRESOLVED' };
 
 export async function createCheckoutSession(
 	input: CreateCheckoutInput,
@@ -63,7 +66,26 @@ export async function createCheckoutSession(
 	const plan = plans[input.planId];
 	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
 	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
-	if (!plan?.priceId) return { error: 'INVALID_PLAN' };
+	const lookupPlan = plan ? lookupPlanOf(input.planId) : null;
+	if (!plan || !lookupPlan) return { error: 'INVALID_PLAN' };
+
+	// #4286: Price ID は `getPriceId()` 経由で解決する。**`plan.priceId` を直読しない。**
+	// 直読していたため `USE_LOOKUP_KEY=true` がどの経路にも効かず、price env を注入しない
+	// 配備 (staging #4104) では購入が必ず 400 で失敗していた。`getPriceId()` は
+	// flag ON なら lookup_key 解決 → 失敗時のみ env fallback (alert 付き kill switch) を行う。
+	let priceId: string;
+	try {
+		priceId = await getPriceId(lookupPlan);
+	} catch (err) {
+		// lookup_key も env も解決できない = 配備の設定不備。**別 plan の Price に倒れない**
+		// (誤課金になる)。顧客の選択が誤っているわけではないので INVALID_PLAN では返さない。
+		// alert は `getPriceId()` 内で発火済み。
+		logger.error('[STRIPE] Price ID 未解決のため checkout を中止', {
+			tenantId: input.tenantId,
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return { error: 'PRICE_UNRESOLVED' };
+	}
 
 	const stripe = getStripeClient();
 
@@ -76,7 +98,7 @@ export async function createCheckoutSession(
 	const sessionParams: Stripe.Checkout.SessionCreateParams = {
 		mode: 'subscription',
 		payment_method_types: ['card'],
-		line_items: [{ price: plan.priceId, quantity: 1 }],
+		line_items: [{ price: priceId, quantity: 1 }],
 		locale: 'ja',
 		// #2346 (景品表示法 critical fix): CHECKOUT_LABELS SSOT 経由で
 		// 「お選びのプランの機能」文言を適用。景品表示法 5 条 1 号 (優良誤認) +
