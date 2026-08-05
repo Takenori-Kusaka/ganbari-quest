@@ -71,6 +71,7 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+import { logger } from '$lib/server/logger';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
 	findExpiredSoftDeletedTenants,
@@ -159,6 +160,22 @@ describe('grace-period-service', () => {
 			expect(result.gracePeriodDays).toBe(30);
 			expect(result.requiresImmediateDeletion).toBe(false);
 		});
+
+		// #4316: sentinel-last 書き込み順序
+		// 3 キーの setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
+		// upsert)。`soft_deleted_at` は soft-delete 状態を起動する sentinel なので **最後に**
+		// 書く。途中で失敗しても「soft-delete が始まっていない」状態にしかならず、
+		// 「ロックはかかるが物理削除の母集団に入らない」宙吊りが成立しない。
+		it('#4316: sentinel である soft_deleted_at を最後に書く (途中失敗で宙吊りを作らない)', async () => {
+			await softDeleteTenant('tenant-1', 'active', 'family-monthly');
+
+			const writtenKeys = mockSetSetting.mock.calls.map((call) => call[0]);
+			expect(writtenKeys).toEqual([
+				'physical_deletion_date',
+				'deletion_grace_plan_tier',
+				'soft_deleted_at',
+			]);
+		});
 	});
 
 	// ============================================================
@@ -242,6 +259,90 @@ describe('grace-period-service', () => {
 			const result = await restoreSoftDeletedTenant('tenant-1');
 
 			expect(result.success).toBe(false);
+		});
+	});
+
+	// ============================================================
+	// #4316: physical_deletion_date 欠落時の宙吊り
+	//
+	// 欠落を「期限切れ」に倒すと、復元は恒久拒否される一方 (isExpired 恒真) で
+	// 物理削除の母集団にも入らない (`&& status.physicalDeletionDate`) ため、
+	// 「復元できないが物理削除もされない」状態から抜ける経路が 1 本も無くなる。
+	// 安全側 = データを消さない側 = 復元を許す側に倒す。
+	// ============================================================
+
+	describe('#4316: physical_deletion_date 欠落 (soft_deleted_at のみ立った部分書き込み)', () => {
+		/** soft_deleted_at と plan tier だけが書かれた宙吊り行を作る */
+		function seedLimboTenant(physicalDeletionDate?: string) {
+			settingsStore.set('soft_deleted_at', new Date(Date.now() - 86400000).toISOString());
+			settingsStore.set('deletion_grace_plan_tier', 'family');
+			if (physicalDeletionDate !== undefined) {
+				settingsStore.set('physical_deletion_date', physicalDeletionDate);
+			}
+		}
+
+		it('欠落している行を期限切れ扱いにしない', async () => {
+			seedLimboTenant();
+
+			const result = await getGracePeriodStatus('tenant-limbo');
+
+			expect(result.isSoftDeleted).toBe(true);
+			expect(result.isExpired).toBe(false);
+			expect(result.metadataIncomplete).toBe(true);
+			expect(result.physicalDeletionDate).toBeNull();
+		});
+
+		it('空文字 / パース不能な値も欠落として扱う', async () => {
+			seedLimboTenant('not-a-date');
+
+			const result = await getGracePeriodStatus('tenant-limbo');
+
+			expect(result.isExpired).toBe(false);
+			expect(result.metadataIncomplete).toBe(true);
+			expect(result.physicalDeletionDate).toBeNull();
+		});
+
+		it('deletion_grace_plan_tier が欠落している場合も期限切れ扱いにしない', async () => {
+			const pastDate = new Date(Date.now() - 5 * 86400000).toISOString();
+			settingsStore.set('soft_deleted_at', new Date(Date.now() - 35 * 86400000).toISOString());
+			settingsStore.set('physical_deletion_date', pastDate);
+
+			const result = await getGracePeriodStatus('tenant-limbo');
+
+			expect(result.isExpired).toBe(false);
+			expect(result.metadataIncomplete).toBe(true);
+		});
+
+		it('欠落している行は復元できる (宙吊りからの脱出経路が存在する)', async () => {
+			seedLimboTenant();
+
+			const result = await restoreSoftDeletedTenant('tenant-limbo');
+
+			expect(result.success).toBe(true);
+			expect(mockSetSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-limbo');
+			expect(mockSetSetting).toHaveBeenCalledWith('physical_deletion_date', '', 'tenant-limbo');
+		});
+
+		it('欠落している行は物理削除の母集団に入らない (安全側を維持)', async () => {
+			seedLimboTenant();
+			mockListAllTenants.mockResolvedValue([{ tenantId: 'tenant-limbo' }]);
+
+			const result = await findExpiredSoftDeletedTenants();
+
+			expect(result).toHaveLength(0);
+		});
+
+		it('欠落を検出できるよう warn ログを出す (新規通知機構は作らない)', async () => {
+			seedLimboTenant();
+
+			await getGracePeriodStatus('tenant-limbo');
+
+			expect(logger.warn).toHaveBeenCalledWith(
+				expect.stringContaining('physical_deletion_date'),
+				expect.objectContaining({
+					context: expect.objectContaining({ tenantId: 'tenant-limbo' }),
+				}),
+			);
 		});
 	});
 
