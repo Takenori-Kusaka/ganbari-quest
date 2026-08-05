@@ -33,6 +33,11 @@
 //   [O4] allowlist 側の実装が実際に /ops を認可層で通していること (認可層との突き合わせ)。
 //        ここが fail する = 委譲の前提が崩れた。route 側 gate の意味づけを見直すこと。
 //   [O5] 境界 — `/ops` に前方一致する**別 route** (`/opsedit` 等) まで公開していないこと。
+//   [O6] form action — `+page.server.ts` の `export const actions` も layout gate の**外側**にある。
+//        SvelteKit は form action を **layout load より先に**実行するため、action を持つ page は
+//        `+server.ts` と全く同じ理由で無防備になる。`+server.ts` だけを母数にすると
+//        「穴の残り半分」が検査されないまま『guard があるから安全』という誤った安心が残る
+//        (adversarial review で指摘 → 本 test の母数に含めた)。
 //
 // no-silent-gap: 除外リストを持たない。/ops 配下の endpoint は例外なく requireOpsAccess を
 //   要求する。「この endpoint だけは別の認証」が必要になった時点で、本 test を fail させたうえで
@@ -108,6 +113,55 @@ function collectOpsEndpoints(): OpsEndpoint[] {
 
 const opsEndpoints = collectOpsEndpoints();
 
+/**
+ * `/ops` 配下で **form action を持つ** `+page.server.ts` を集める。
+ *
+ * SvelteKit は form action を `+layout.server.ts` の load より**先に**実行する。したがって
+ * action は `+server.ts` と同様に layout gate の外側にあり、`requireOpsAccess` を自分で
+ * 呼ばなければ未認証の POST がそのまま処理される。#4309 の欠陥と**同じ class** である。
+ *
+ * 現時点で該当は 0 件だが、`/ops` は運営が操作を足していく画面であり action の追加は起こりうる。
+ * 母数に含めておくことで、足した瞬間に CI が要求する。
+ */
+function collectOpsActionPages(): OpsEndpoint[] {
+	const root = path.resolve(process.cwd(), OPS_ROUTE_DIR);
+	if (!fs.existsSync(root)) return [];
+
+	const pages: OpsEndpoint[] = [];
+
+	const walk = (absDir: string, relSegments: string[]): void => {
+		for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
+			const abs = path.join(absDir, entry.name);
+
+			if (entry.isDirectory()) {
+				walk(abs, [...relSegments, entry.name]);
+				continue;
+			}
+			if (entry.name !== '+page.server.ts') continue;
+
+			const code = stripCommentsAndStrings(fs.readFileSync(abs, 'utf-8'));
+			// load だけの page は layout gate が効くので対象外。action を持つものだけを見る。
+			if (!/export\s+const\s+actions\b/.test(code)) continue;
+
+			const rel = relSegments.join('/');
+			pages.push({
+				name: rel === '' ? '(root)' : rel,
+				file: path.posix.join(OPS_ROUTE_DIR, rel, '+page.server.ts'),
+				urlPath: `/ops${relSegments
+					.filter((s) => !s.startsWith('('))
+					.map((s) => `/${s}`)
+					.join('')}`,
+				code,
+			});
+		}
+	};
+
+	walk(root, []);
+	return pages;
+}
+
+const opsActionPages = collectOpsActionPages();
+
 describe('/ops の認可は route 側が担い、適用範囲に穴が無い (#4309)', () => {
 	it('[O1] 母数: /ops 配下の +server.ts が 1 本以上検出される', () => {
 		// 0 件なら「全部通った」ではなく「1 本も検査していない」。
@@ -147,6 +201,19 @@ describe('/ops の認可は route 側が担い、適用範囲に穴が無い (#4
 				expect(authorizeCognito(endpoint.urlPath, null, null).allowed).toBe(true);
 			});
 		}
+	});
+
+	it(`[O6] form action を持つ /ops page も ${OPS_GUARD} を呼ぶ`, () => {
+		// SvelteKit は form action を layout load より先に実行するため、action は
+		// `+server.ts` と同じく layout gate の外にある。呼び忘れれば未認証 POST が通る。
+		//
+		// 該当 0 件でも本 it は必ず走る (動的 it 生成だと 0 件で「検査したふり」になる)。
+		// 違反 file 名を出すことで、足した人が何を直せばよいか即分かるようにする。
+		const violations = opsActionPages
+			.filter((page) => !new RegExp(`\\b${OPS_GUARD}\\s*\\(`).test(page.code))
+			.map((page) => page.file);
+
+		expect(violations).toEqual([]);
 	});
 
 	describe('[O5] 前方一致で別 route を巻き込まない', () => {
