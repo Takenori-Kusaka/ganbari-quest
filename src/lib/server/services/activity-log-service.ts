@@ -36,6 +36,7 @@ import { recordActivityDsql } from '$lib/server/services/activity-record-dsql';
 import { prepareActivityRecord } from '$lib/server/services/activity-record-preparation';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
+import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 // Re-export for backward compatibility with existing callers.
@@ -328,8 +329,19 @@ export async function recordActivity(
 		if (isFirstToday) {
 			await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
 		}
-	} catch {
-		// 証明書発行失敗は記録フローを止めない
+	} catch (err) {
+		// 証明書発行失敗は記録フローを止めない。
+		//
+		// #4261: ただし**握りつぶさない**。このブロックは月間の習慣化証明書 (#4172) の発行を
+		// 含み、その中で `insertPointEntry` が**通貨 (ポイント / 思い出チケット) を発行する**。
+		// 無ログだと「チケットがもらえていない」という問い合わせに対し、付与を試みたのか
+		// 失敗したのかを後から判別できない。
+		//
+		// DSQL 経路 (activity-record-dsql.ts) は `runOptionalWrite` + 本 handler で既に
+		// 観測できていたため、sqlite 経路も**同じ handler を通す**(観測の形を 2 つ持たない)。
+		// tenantId / childId は CloudWatch Logs 側にだけ載る (Discord payload からは
+		// handler 内で落とされる、#4174 Q3 / #4192)。
+		createOptionalWriteFailureHandler({ childId, tenantId })('certificate', err);
 	}
 
 	// #1782: カスタム実績機能廃止（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）。
