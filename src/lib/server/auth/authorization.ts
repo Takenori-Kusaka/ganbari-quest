@@ -1,3 +1,7 @@
+// cspell:ignore opsedit
+// ↑ #4309 のコメント内の負例。`/ops` に前方一致する**実在しない route** を例示するためのもので、
+//   綴りを直すと「素朴な startsWith が何を巻き込むか」の説明が成立しない (file scope に閉じる)。
+
 // src/lib/server/auth/authorization.ts
 // ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 

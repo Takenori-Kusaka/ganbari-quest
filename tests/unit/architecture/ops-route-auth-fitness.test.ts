@@ -1,3 +1,8 @@
+// cspell:ignore opsedit opsx
+// ↑ [O5] の負例。`/ops` に前方一致するが `/ops` ではない**実在しない route** を意図的に置く。
+//   綴りを「直す」と negative case が成立せず、過剰公開を検出できないことを検出できなくなる
+//   (tests/CLAUDE.md §「負例 fixture と cspell」)。global words には足さない (file scope に閉じる)。
+
 // tests/unit/architecture/ops-route-auth-fitness.test.ts
 // #4309: /ops の認可の担い手が route 側にあり、**その適用範囲に穴が無い**ことを機械強制する
 //        fitness function。`cron-route-auth-fitness.test.ts` (#4206) と同型の対の装置。
