@@ -99,9 +99,10 @@ describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 				offending.push(`${step.name ?? '(no name)'}: ${nonAscii.length} 文字`);
 			}
 		}
-		expect(offending, 'run ブロック内の非 ASCII は runner の encoding 次第で parse error になる').toEqual(
-			[],
-		);
+		expect(
+			offending,
+			'run ブロック内の非 ASCII は runner の encoding 次第で parse error になる',
+		).toEqual([]);
 	});
 
 	it('env 生成 step が子プロセスの exit code を step の失敗に伝搬する', () => {
