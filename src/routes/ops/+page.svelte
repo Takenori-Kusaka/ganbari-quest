@@ -1,5 +1,6 @@
 <script lang="ts">
 import { OPS_LABELS } from '$lib/domain/labels';
+import ContractStateAuditCard from '$lib/features/admin/components/ContractStateAuditCard.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
@@ -11,6 +12,7 @@ const triggerReport = $derived(data.triggerReport);
 const firedTriggers = $derived(triggerReport.firedTriggers);
 const adminBypass = $derived(data.adminBypass);
 const planDrift = $derived(data.planDrift);
+const contractState = $derived(data.contractState);
 </script>
 
 <svelte:head>
@@ -193,6 +195,9 @@ const planDrift = $derived(data.planDrift);
 			{OPS_LABELS.bypassFetchedAt(new Date(adminBypass.fetchedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))} <a href="https://github.com/Takenori-Kusaka/ganbari-quest/blob/main/docs/decisions/archive/0044-admin-bypass-evidence.md" class="underline">{OPS_LABELS.bypassAdrLink}</a>
 		</div>
 	</Card>
+
+	<!-- 契約状態の監査 (#4118 手 3) -->
+	<ContractStateAuditCard audit={contractState} />
 
 	<!-- plan 逆引き不能の滞留 (#4128) -->
 	<Card padding="lg">
