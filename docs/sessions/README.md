@@ -305,10 +305,13 @@ PO ──state:needs-dev──▶ Dev ──state:dev-done──▶ QM ──sta
                          ▲                       │
                          └──state:qm-blocked─────┘
 
-PO ──state:needs-audit──▶ 監査
+誰でも ──state:needs-qm──▶ QM        （**問い合わせ・見解確認**。完成していなくても送れる）
+誰でも ──state:needs-audit──▶ 監査    （cut 依頼 / 問い合わせ）
 誰でも ──state:needs-po──▶ PO        （不可逆 4 操作**以外**の判断）
 誰でも ──state:needs-owner──▶ オーナー （不可逆 4 操作）
 ```
+
+**宛先 label（6 ロール分）は「誰に用があるか」だけを表し、用件を含意しない。** 何の用かは Issue / PR のコメントに書く。工程 label（`dev-done` / `qm-blocked` / `ready-to-merge`）だけが前提条件（実装完了・BLOCK 判定・approve 済）を含意する（#4180、[label-mailbox.md](label-mailbox.md) §3.1）。
 
 **守るべきことは 3 つだけ。**
 
@@ -317,6 +320,8 @@ PO ──state:needs-audit──▶ 監査
 3. **受け取った側は、対応が終わったら次の state に移す**（復路。[label-mailbox.md](label-mailbox.md) §3.1.1 の遷移表）
 
 > **Platform には `state:needs-platform` で渡す。** 復路（Platform が対応を終えたら何に移すか）は [label-mailbox.md](label-mailbox.md) §3.1.1 の遷移表。
+>
+> **問い合わせは往復である。** `state:needs-qm` に答えたら**問い合わせ元の state に戻す**。戻さないと送り手は「返ってこない」だけを観測する。**どのロールからどのロールへ渡せるか**の全数は [label-mailbox.md §3.3.1 経路マトリクス](label-mailbox.md)（空欄 = 経路の欠落）。
 
 ### §5.2 判断を仰ぐとき
 
@@ -359,9 +364,10 @@ teammate は**自分のクローン内でだけ**組む。**ロールを跨い�
 |---|---|
 | [po-session.md](po-session.md) | PO の作業手順（Issue 起票 / LP レビュー / 優先度判断） |
 | [dev-session.md](dev-session.md) | Dev の作業手順（実装 / CI/CD / 設計書同期） |
-| [qa-session.md](qa-session.md) | QM の作業手順（PR レビュー / 品質ゲート） |
+| [qm-session.md](qm-session.md) | QM の作業手順（PR レビュー / 品質ゲート） |
 | [audit-team.md](audit-team.md) | 監査の役割定義（統合 gate / release cut） |
 | [platform-session.md](platform-session.md) | Platform の作業手順（装置の削減 / 統合 / 自動生成） |
+| [clone-setup.md](clone-setup.md) | **クローンの立ち上げ手順**（Node 要件 / `npm ci` 2 段 / gh アカウント / ロール別の起動プロンプトと cron 分） |
 | [label-mailbox.md](label-mailbox.md) | ロール間の受け渡し（`state:*` label） |
 | [agent-teams.md](agent-teams.md) | 1 ロール内の並列化 |
 | [agent-concurrency.md](agent-concurrency.md) | 重い検証の排他（`heavy` lock） |

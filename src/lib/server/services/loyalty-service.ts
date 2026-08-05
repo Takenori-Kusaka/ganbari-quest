@@ -1,7 +1,7 @@
 // src/lib/server/services/loyalty-service.ts
 // サブスク継続特典・ロイヤルティシステム
 
-import { monthKeyJST } from '$lib/domain/date-utils';
+import { monthKeyJST, shiftMonthKey } from '$lib/domain/date-utils';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 
@@ -14,6 +14,59 @@ const KEYS = {
 	memoryTickets: 'loyalty_memory_tickets',
 	lastIncrementMonth: 'loyalty_last_increment_month',
 } as const;
+
+// ============================================================
+// 二重加算防止キーの基準 (#4127 AC7、PO 決裁 2026-08-03)
+// ============================================================
+//
+// 保存値に **どの基準で出した月キーか** を含める。`2026-08` とだけ書かれていると
+// 「JST の 8 月」なのか「UTC の 8 月 (JST では 9 月かもしれない)」なのかが
+// **保存値だけでは分からず**、比較の是非を決められない。
+//
+// prefix を付ける方向にしか進まないので、時間が経つほど曖昧な値は減る。
+
+/** JST 基準の月キーであることを示す prefix。 */
+export const JST_MONTH_KEY_PREFIX = 'jst:';
+
+/** `2026-08` → `jst:2026-08`。既に prefix 付きならそのまま返す。 */
+export function toJstMonthKeyValue(monthKey: string): string {
+	return monthKey.startsWith(JST_MONTH_KEY_PREFIX)
+		? monthKey
+		: `${JST_MONTH_KEY_PREFIX}${monthKey}`;
+}
+
+/**
+ * 保存済みの値が「今の JST 月に加算済み」を意味するか。
+ *
+ * **prefix 無しの旧値 (UTC 基準の可能性がある) は厳密一致では判定できない**。
+ * 旧値は JST 月初 0:00〜09:00 に加算されていれば前月キーで保存されているため、
+ * 「リテラルが違う」= 加算する 側に倒すと **同じ JST 月に 2 回加算** されうる。
+ * 逆に「基準不明だから全部 skip」に倒すと **正当な当月加算を落とす**。
+ *
+ * ここは **skip 側に倒す**。理由は誤りの回復可能性が非対称だから:
+ *
+ *   - 取りこぼし → 継続月数が 1 少ないだけで、次月の加算で追いつく。運用者が手で直せる
+ *   - 過剰加算 → 未達のティア特典 (思い出チケット) を配ってしまい、**回収できない**
+ *
+ * 「配ってしまったものは取り返せない」ため、疑わしいときは配らない。
+ * prefix 付きの値だけを厳密比較の対象にすれば、この曖昧さは新規保存分から消える。
+ *
+ * 曖昧なのは **当月リテラルと前月リテラルの 2 つ**である:
+ *
+ *   - 当月一致 (`2026-08` / `jst:2026-08`) — UTC 基準でも JST 基準でも今月を指す
+ *   - 前月一致 (`2026-07` / `jst:2026-08`) — 正当な前月加算かもしれないし、
+ *     JST 月初 0:00〜09:00 (UTC ではまだ前月) の加算が前月キーで保存された行かもしれない
+ *
+ * どちらも「今月加算済み」の可能性を否定できないので skip する。前々月以前は
+ * JST/UTC の 9 時間差では説明できないため曖昧でなく、加算してよい。
+ */
+export function isSameJstMonth(stored: string | null | undefined, currentJstKey: string): boolean {
+	if (!stored) return false;
+	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) return stored === currentJstKey;
+	// 旧値 (基準不明)。当月・前月のいずれかを指しているなら加算済みの可能性があるので skip する。
+	const currentMonthKey = currentJstKey.slice(JST_MONTH_KEY_PREFIX.length);
+	return stored === currentMonthKey || stored === shiftMonthKey(currentMonthKey, -1);
+}
 
 // ============================================================
 // Tier Definitions
@@ -167,15 +220,18 @@ export async function incrementSubscriptionMonth(tenantId: string): Promise<{
 	// 二重防止キーは JST 月キー。UTC 月キーだと JST 月初 0:00-9:00 に届いた webhook の
 	// 月が前月として記録され、その月の加算がスキップされうる (常に顧客不利、#4127)。
 	//
-	// **移行時の既知の残リスク (#4127、PO 判断待ち)**: 旧実装は UTC 月キーで保存していた。
-	// deploy 直前の JST 月初 0:00-9:00 に加算したテナントは前月キーが残るため、同じ JST 月に
-	// 2 通目の invoice.paid (リトライ / 日割り / 支払い方法変更) が届くと再加算されうる。
-	// 保存値だけでは「旧実装が当月分として書いた前月キー」と「正当な前月の加算」を区別できず、
-	// どちらに倒しても片方が誤る (再加算 = 未達チケット付与 / 一律 skip = 正当な加算の取りこぼし)。
-	// 選択は既存データの棚卸しを伴う課金判断のため PO 決裁ブリーフ Q1 に上げている。
-	const currentMonth = monthKeyJST();
+	// **保存値に基準を含める (#4127 AC7、PO 決裁 2026-08-03)**: 旧実装は UTC 月キーを
+	// prefix 無しで保存していた。値が `2026-08` としか書かれていないと、それが
+	// 「JST で 8 月に加算した」のか「UTC で 8 月と判定した (= JST では 9 月かもしれない)」のか
+	// **保存値だけでは区別できない**。区別できないまま比較すると、どちらに倒しても片方が誤る
+	// (再加算 = 未達チケット付与 / 一律 skip = 正当な加算の取りこぼし)。
+	//
+	// そこで新しい書き込みは基準を prefix に含める (`jst:2026-08`)。以後は
+	// **保存値を見れば基準が分かる**ので、同じ曖昧さが再発しない。
+	// prefix 無しの旧値は「基準不明」として扱う (下記 `isSameJstMonth`)。
+	const currentMonth = toJstMonthKeyValue(monthKeyJST());
 	const lastIncrement = await getSetting(KEYS.lastIncrementMonth, tenantId);
-	if (lastIncrement === currentMonth) {
+	if (isSameJstMonth(lastIncrement, currentMonth)) {
 		const months = await getSubscriptionMonths(tenantId);
 		return { newMonths: months, tierUp: false, newTier: null, ticketsAwarded: 0 };
 	}

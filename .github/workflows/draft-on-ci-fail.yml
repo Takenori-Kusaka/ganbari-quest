@@ -2,7 +2,7 @@ name: Revert to Draft on CI Failure
 
 # #1074: CI 失敗時に Ready PR を自動で Draft に戻すガードレール。
 # Ready for Review にしたが CI が失敗した PR を検出し、自動的に Draft に戻す。
-# QA チームに「レビュー可能」と誤ったシグナルを送ることを防止する。
+# QM チームに「レビュー可能」と誤ったシグナルを送ることを防止する。
 
 on:
   workflow_run:

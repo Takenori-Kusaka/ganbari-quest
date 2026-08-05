@@ -81,7 +81,12 @@ export const actions: Actions = {
 		// 課金プランかつ Stripe Customer がある場合 → Customer Portal にリダイレクト
 		if (license?.stripeCustomerId && isStripeEnabled()) {
 			const returnUrl = new URL('/admin/subscription', url).toString();
-			const portalResult = await createPortalSession(tenantId, returnUrl);
+			// #4166 AC4: 解約理由フォームを埋めきった顧客を portal ホームに放り出さない。
+			// ホームからは自分で「サブスクリプションをキャンセル」を探すことになり、
+			// 特商法の解約導線の実効性に接続する。解約フローへ直行させる。
+			const portalResult = await createPortalSession(tenantId, returnUrl, {
+				kind: 'subscription_cancel',
+			});
 			if ('url' in portalResult) {
 				throw redirect(303, portalResult.url);
 			}

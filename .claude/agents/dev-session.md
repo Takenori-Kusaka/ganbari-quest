@@ -61,7 +61,7 @@ node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
 `gh pr ready <N>` 実行前、Dev Agent は **必ず以下 5 項目を完遂** すること。本日 (2026-05-29) #2625 / #2626 / #2629 / #2630 等で連続再発した「Step 9 skip / Ready checklist 未チェック / AC 2 列 / forbidden-terms 混入 / rebase drift」への構造的対処:
 
 1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — Step 9 Readiness gate で 2-4 を一括 verify
-2. **Ready checklist 全 `[x]` 化**「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言)
+2. **Ready checklist 全 `[x]` 化**「QM 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言)
 3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`)
 4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」)
 5. **rebase 完了** (`git fetch origin main && git rebase origin/main` で本日 deploy 全 file 取込)

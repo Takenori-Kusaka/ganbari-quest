@@ -37,6 +37,21 @@ export interface NetworkStackProps extends cdk.StackProps {
 	// 同一 build artifact = content-hash 完全一致を構造的に保証)。未配置のまま flag ON だと
 	// throw する (ADR-0006 silent skip 禁止)。
 	staticAssetsSourceDir?: string;
+	// --- #4204: staging 用 CloudFront ---
+	// 物理名 prefix。既定は 'ganbari-quest' (= PROD_ENV_CONFIG.resourcePrefix) で、
+	// **本番 template は byte 一致のまま**。staging は 'ganbari-quest-staging' を渡して
+	// 同一アカウント・同一リージョンでの物理名衝突を避ける
+	// (error pages bucket / CloudFront Function 名の 2 件がハードコードだった)。
+	resourcePrefix?: string;
+	// CloudFront の地域制限。既定 (未指定) は本番と同じ JP allowlist。
+	// **staging は `[]` を渡して制限を外す** — post-deploy smoke を回す GitHub Actions runner が
+	// 日本国外にあり、制限を残すと 403 で smoke が回らないため。
+	//
+	// ⚠️ staging を全世界公開にできる前提は「**staging に本番データが入っていない**」こと。
+	// PO 実測 (2026-08-02): 本番 cluster 1,801,692 bytes に対し staging 1,031,956 bytes (57%)。
+	// 本番 snapshot をコピーしていれば同等以上になるため、コピーされていないと判断した。
+	// **staging に本番データを入れる運用が将来生まれた場合は JP allowlist を戻すこと** (PO 条件)。
+	geoRestrictionCountries?: string[];
 }
 
 export class NetworkStack extends cdk.Stack {
@@ -48,6 +63,15 @@ export class NetworkStack extends cdk.Stack {
 
 	constructor(scope: Construct, id: string, props: NetworkStackProps) {
 		super(scope, id, props);
+
+		// #4204: 物理名 prefix。既定は本番値なので **prod template は byte 一致**のまま。
+		const prefix = props.resourcePrefix ?? 'ganbari-quest';
+		// CloudFront の CachePolicy 名は **アカウント全体で一意**。kebab の prefix をそのまま使えないため
+		// PascalCase に変換する (既定は 'GanbariQuest' = 現行 prod 値と一致)。
+		const namePascal = prefix
+			.split('-')
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join('');
 
 		// Parse Lambda Function URL to get the hostname
 		const fnUrlDomain = cdk.Fn.select(2, cdk.Fn.split('/', props.functionUrl.url));
@@ -127,14 +151,14 @@ function handler(event) {
 `;
 
 		const queryFixFn = new cloudfront.Function(this, 'QuerySlashEncodeFn', {
-			functionName: 'ganbari-quest-query-slash-encode',
+			functionName: `${prefix}-query-slash-encode`,
 			code: cloudfront.FunctionCode.fromInline(cfFunctionCode),
 			runtime: cloudfront.FunctionRuntime.JS_2_0,
 		});
 
 		// --- S3 error pages bucket (Network-local to avoid cross-stack cycle) ---
 		const errorPagesBucket = new s3.Bucket(this, 'ErrorPagesBucket', {
-			bucketName: `ganbari-quest-error-pages-${this.account}`,
+			bucketName: `${prefix}-error-pages-${this.account}`,
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 			autoDeleteObjects: true,
 			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -171,7 +195,7 @@ function handler(event) {
 		// 静的アセット用 cache policy (365 日 immutable)。/_app/* (shield lambda) と
 		// /_app/immutable/* (S3 offload 時) で共有する。
 		const staticAssetsCachePolicy = new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
-			cachePolicyName: 'GanbariQuestStaticAssets',
+			cachePolicyName: `${namePascal}StaticAssets`,
 			defaultTtl: cdk.Duration.days(365),
 			maxTtl: cdk.Duration.days(365),
 			minTtl: cdk.Duration.days(1),
@@ -207,7 +231,7 @@ function handler(event) {
 			// network-local bucket (cross-stack cycle 回避、errorPagesBucket と同方針)。
 			// immutable 静的アセット専用。各 deploy で再 upload されるため DESTROY + autoDelete で良い。
 			const staticAssetsBucket = new s3.Bucket(this, 'StaticAssetsBucket', {
-				bucketName: `ganbari-quest-static-assets-${this.account}`,
+				bucketName: `${prefix}-static-assets-${this.account}`,
 				removalPolicy: cdk.RemovalPolicy.DESTROY,
 				autoDeleteObjects: true,
 				blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -325,7 +349,15 @@ function handler(event) {
 				: {}),
 			priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
 			httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
-			geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
+			// #4204: 既定 (未指定) は本番と同じ JP allowlist。staging は `[]` で制限なし。
+			// 空配列で allowlist を作ると CDK が throw するため、指定なし扱いに分岐する。
+			...(props.geoRestrictionCountries?.length === 0
+				? {}
+				: {
+						geoRestriction: cloudfront.GeoRestriction.allowlist(
+							...(props.geoRestrictionCountries ?? ['JP']),
+						),
+					}),
 		});
 
 		// #3402-2: offload 初回有効化時、distribution が /_app/immutable/* を S3 に向ける更新と
@@ -456,7 +488,7 @@ function handler(event) {
 				this,
 				'DemoStaticAssetsCachePolicy',
 				{
-					cachePolicyName: 'GanbariQuestDemoStaticAssets',
+					cachePolicyName: `${namePascal}DemoStaticAssets`,
 					defaultTtl: cdk.Duration.days(365),
 					maxTtl: cdk.Duration.days(365),
 					minTtl: cdk.Duration.days(1),
@@ -483,7 +515,7 @@ function handler(event) {
 
 			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
 			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
-				functionName: 'ganbari-quest-demo-query-slash-encode',
+				functionName: `${prefix}-demo-query-slash-encode`,
 				code: cloudfront.FunctionCode.fromInline(`
 function handler(event) {
   var request = event.request;

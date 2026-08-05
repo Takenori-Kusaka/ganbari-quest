@@ -10,7 +10,7 @@
  *   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
  *   node scripts/capture.mjs --url /admin --storage-state storageState.json
  *
- * 使用例（QA レビュー用 — --pr で全部自動化）:
+ * 使用例（QM レビュー用 — --pr で全部自動化）:
  *   node scripts/capture.mjs --pr 123 --url /demo/admin/activities
  *   node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
  *   node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html
@@ -97,7 +97,7 @@ if (values.help || positionals.includes('--help')) {
   node scripts/capture.mjs --url /demo/admin --presets mobile,desktop
   node scripts/capture.mjs --url /admin --storage-state storageState.json
 
-QA レビュー用（--pr で全自動）:
+QM レビュー用（--pr で全自動）:
   node scripts/capture.mjs --pr 123 --url /demo/admin
   node scripts/capture.mjs --pr 123 --server-mode cognito --url /admin/children
   node scripts/capture.mjs --pr 123 --server-mode lp --url /index.html

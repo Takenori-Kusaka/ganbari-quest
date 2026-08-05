@@ -18,6 +18,7 @@
 // fitness#7: 本 module に runInTransaction callsite は無い (txn 内 await は core / optional
 // プリミティブの内部のみ)。fitness#16: DB アクセスは repo facade / dsql プリミティブ経由。
 
+import { monthKeyJST } from '$lib/domain/date-utils';
 import type { ActivityId, ChildId } from '$lib/domain/ids';
 import {
 	CANCEL_WINDOW_MS,
@@ -271,6 +272,7 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 				checkAndIssueStreakCertificates,
 				checkAndIssueLevelCertificates,
 				issueCategoryMasterCertificate,
+				issueMonthlyHabitCertificateIfEligible,
 			} = await import('$lib/server/services/certificate-service');
 			if (prep.isFirstToday && prep.streakDays >= 7) {
 				await checkAndIssueStreakCertificates(childId, prep.streakDays, tenantId);
@@ -280,6 +282,13 @@ async function runOptionalPhase(input: OptionalPhaseInput): Promise<OptionalPhas
 			}
 			if (xpGain.levelAfter >= 5 && xpGain.levelBefore < 5 && catDef) {
 				await issueCategoryMasterCertificate(childId, String(catDef.id), catDef.name, tenantId);
+			}
+
+			// #4172: 月間の習慣化 (その月に記録した日数が閾値以上) を褒める。
+			// **1 日 1 回だけ評価する** — 同日 2 回目以降は既に評価済みなので走らせない。
+			// 発行は同月の証明書行が冪等キーなので、多重に呼んでも 2 回目以降は no-op。
+			if (prep.isFirstToday) {
+				await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
 			}
 		},
 		onFailure,

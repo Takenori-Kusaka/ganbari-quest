@@ -44,7 +44,7 @@ crond (backup コンテナ, 03:00 JST)
   この形に一致しないファイルは世代に数えず、ローテーションでも削除しない
 - 実例: `pglite-snapshot-20260726-0738-pre-pr3947.tgz` (#3950 の一次証跡) は本番 `BACKUP_DIR` に現存する。
   緩い一致 (prefix + 拡張子) で数えていた実装では、辞書順で `'s'` が数字より後ろに来るため
-  **常に「最新世代」の位置に居座り、実保持が 3 → 2 世代に減る**状態だった (QA レビュー #3956 指摘)
+  **常に「最新世代」の位置に居座り、実保持が 3 → 2 世代に減る**状態だった (QM レビュー #3956 指摘)
 - **運用ルール**: 手動スナップショットは `BACKUP_DIR` 直下ではなく `data/backups/manual/` へ置き、
   ファイル名は `manual-<用途>-<日時>.tgz` とする。既に `BACKUP_DIR` 直下にあるものは同ディレクトリへ移す
   (現行実装では世代として数えられないので緊急度は低いが、証跡と世代を混ぜない)
@@ -275,8 +275,8 @@ LAN 内の誰でも読める共有フォルダを退避先にしても、この�
 
 ```powershell
 # 1. NUC 側で最新世代のファイル名とサイズを確認する
-#    (HOST_BACKUP_DIR 未設定なら C:\Docker\ganbari-quest\dataackups)
-Get-ChildItem 'C:\Docker\ganbari-quest\dataackups' -Filter 'pglite-*.tgz' |
+#    (HOST_BACKUP_DIR 未設定なら C:\Docker\ganbari-quest\data\backups)
+Get-ChildItem 'C:\Docker\ganbari-quest\data\backups' -Filter 'pglite-*.tgz' |
   Sort-Object LastWriteTime -Descending | Select-Object -First 1 Name, Length
 ```
 

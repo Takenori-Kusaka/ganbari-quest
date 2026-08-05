@@ -18,7 +18,7 @@
  * 4. (label exempt #1985 NEW) PR ラベルに `refactor:internal-no-doc-impact` 含む → skip
  * 5. それ以外 → fail
  *
- * **label exempt の悪用防止**: ラベルは PO / QA / Dev で運用合意し、Issue / PR レビューで
+ * **label exempt の悪用防止**: ラベルは PO / QM / Dev で運用合意し、Issue / PR レビューで
  * 「機能仕様変化なし」を確認した PR にのみ付与する。ADR-0003 改訂で運用基準を明文化 (Issue #1986)。
  *
  * **CLI 引数**:
@@ -74,7 +74,7 @@ const FILE_EXEMPT_MATCHERS = [
  *   - リテラル置換 / atom-compound 階層化のみ
  *   - import 追加 + literal removal の diff パターン
  *
- * 上記を満たす PR にのみ Dev / QA が合意の上で付与する。悪用防止のためレビューでの確認必須。
+ * 上記を満たす PR にのみ Dev / QM が合意の上で付与する。悪用防止のためレビューでの確認必須。
  */
 export const INTERNAL_REFACTOR_LABEL = 'refactor:internal-no-doc-impact';
 
