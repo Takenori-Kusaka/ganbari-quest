@@ -524,11 +524,15 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 ### 4.3 AWS staging 環境 (Issue #2873 / EPIC #2861 D 系)
 
-本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **3 stack のみ** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging`)。Network / Ses / Ops は省略し Function URL 直アクセスで検証する (CloudFront は geoRestriction JP のため本番 e2e も Function URL 直の実績パターン踏襲)。
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **4 stack** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging` / `GanbariQuestNetworkStaging`)。Ses / Ops は省略する。
+
+**Network (CloudFront) は staging にも必要**: SvelteKit の名前付き form action (`?/action`) は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `<prefix>-query-slash-encode` を通さないと届かない。`/auth/login` / `/auth/signup` はいずれも default action を持たず名前付き action しかないため、これが無いと staging では**ログインもサインアップもできない** (= 認証後の画面に到達する手段がゼロ)。staging の ORIGIN / post-deploy smoke は CloudFront を入口にする。
 
 | 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
 |---|---|---|
-| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 4 stack (`GanbariQuest{Storage,Auth,Compute,Network}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| CloudFront geoRestriction | JP allowlist | **なし** (post-deploy smoke を回す GitHub runner が日本国外にあるため)。前提 = staging に本番データを入れないこと。入れる運用が生まれたら JP allowlist を戻す |
+| CloudFront 物理名 | `ganbari-quest-query-slash-encode` / `ganbari-quest-error-pages-<account>` | `ganbari-quest-staging-` prefix (同一アカウント・同一リージョンでの衝突回避)。prod 側の名前は不変 (ADR-0019) |
 | 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
 | SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
 | ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
@@ -537,10 +541,10 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 | demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableLogArchiving` = false） |
 | RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
 | trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
-| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 3 stack） |
-| tag | — | `gq-env=staging`（staging 3 stack に付与） |
+| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 4 stack） |
+| tag | — | `gq-env=staging`（staging 4 stack に付与） |
 
-実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 3 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
+実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 4 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
 
 - **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
 - **ORIGIN 解決**: Function URL は synth 時未確定（自己参照）のため CDK は placeholder を注入し、workflow が `get-function-url-config` で解決して jq read-modify-write で `update-function-configuration` する（health / smoke は GET のみで ORIGIN 非依存のため縮退可）。

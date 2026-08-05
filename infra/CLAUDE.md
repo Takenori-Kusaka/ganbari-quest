@@ -178,13 +178,14 @@ docker compose logs -f scheduler
 | 項目 | 本番 AWS | AWS staging |
 |---|---|---|
 | workflow | `deploy.yml` | `deploy-aws-staging.yml` |
-| stack | 6 stack (`--all`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`、明示列挙) |
+| stack | 6 stack (`--all`) | 4 stack (`GanbariQuest{Storage,Auth,Compute,Network}Staging`、明示列挙) |
 | 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging` (Lambda `ganbari-quest-staging-app` / SSM `/ganbari-quest-staging/`) |
 | ECR repo | `ganbari-quest` (maxImageCount:10) | `ganbari-quest-staging` 専用 (maxImageCount:3、prod repo 共有不採用) |
 | 外部サービス | Stripe / Discord / Gemini / SES 注入 | 非注入 (副作用ゼロ。SES / CE の IAM grant も無し) |
 | CDK gate | context 無し (staging stack は instantiate されない) | `-c stagingEnabled=true` (`infra/bin/app.ts` context gate) |
 | trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
 | health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。schema assert の G-MIG 主担保は NUC staging) |
+| 入口 (ORIGIN / smoke) | CloudFront | **CloudFront** (#4204)。Function URL 直では SvelteKit の名前付き form action (`?/action`) が通らずログインもサインアップもできないため |
 
 - **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
 - **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。
