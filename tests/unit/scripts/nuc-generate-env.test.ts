@@ -20,8 +20,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
+import { parse as parseYaml } from 'yaml';
 
 const SCRIPT_PATH = 'scripts/nuc/generate-env.ps1';
 const WORKFLOW_PATH = '.github/workflows/deploy-nuc.yml';
@@ -45,6 +45,16 @@ function findPwsh(): string | null {
 }
 
 const pwsh = findPwsh();
+
+type WorkflowStep = { name?: string; run?: string };
+
+/** deploy-nuc.yml の deploy-nuc job の step 一覧を型付きで取り出す。 */
+function nucSteps(): WorkflowStep[] {
+	const doc = parseYaml(workflow) as { jobs?: Record<string, { steps?: WorkflowStep[] }> };
+	const steps = doc.jobs?.['deploy-nuc']?.steps;
+	if (!steps) throw new Error('deploy-nuc job の steps が読めない (workflow の構造が変わった?)');
+	return steps;
+}
 
 describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 	it('script は ASCII のみ（runner の encoding に依存させない）', () => {
@@ -88,11 +98,8 @@ describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 		// **切り出した script だけを守っても、workflow 側に日本語を書けば同じことが起きる**
 		// （本 PR で追加した通知 step も含め、この workflow の run ブロック全体を対象にする）。
 		// YAML コメント（`#` 行、step の外）は PowerShell に渡らないため対象外。
-		const doc = load(workflow) as {
-			jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
-		};
 		const offending: string[] = [];
-		for (const step of doc.jobs['deploy-nuc'].steps) {
+		for (const step of nucSteps()) {
 			if (typeof step.run !== 'string') continue;
 			const nonAscii = [...step.run].filter((ch) => ch.charCodeAt(0) > 0x7f);
 			if (nonAscii.length > 0) {
@@ -109,10 +116,7 @@ describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 		// script が `exit 1` しても、GHA の powershell shell は `$LASTEXITCODE` を自動判定しない。
 		// 伝搬させないと **secret 欠落で step が緑になり fail-closed が fail-open に退化する**
 		// (#4119 の「deploy は成功、バックアップだけ静かに死ぬ」の再演)。
-		const doc = load(workflow) as {
-			jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
-		};
-		const step = doc.jobs['deploy-nuc'].steps.find((s) => s.name?.includes('Generate .env'));
+		const step = nucSteps().find((s) => s.name?.includes('Generate .env'));
 		expect(step?.run, 'env 生成 step が見つからない').toBeTruthy();
 		expect(
 			step?.run,
@@ -160,7 +164,7 @@ describe('#4275 動作 — pwsh で実際に走らせる', () => {
 	it('必須 secret が無ければ exit 1（deploy を止める）', () => {
 		if (!pwsh) return;
 		for (const missing of ['PARENT_GATE_COOKIE_SECRET', 'CRON_SECRET']) {
-			const env = {
+			const env: Record<string, string | undefined> = {
 				...process.env,
 				PARENT_GATE_COOKIE_SECRET: 'dummy-parent-gate',
 				CRON_SECRET: 'dummy-cron',
