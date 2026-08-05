@@ -1247,6 +1247,7 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`getPlans().priceId`（env var 直読）を line_item に使わない**: 直読すると `USE_LOOKUP_KEY` がどの経路にも効かず、price env を注入しない配備で購入が必ず失敗する。`tests/unit/architecture/stripe-price-resolution-single-entrypoint.test.ts` が呼び出し構造を固定する
 - **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
   - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
+  - `STRIPE_DISABLED`（決済機能自体が無効な配備）と `PRICE_UNRESOLVED`（lookup_key / env 双方から Price ID を解決できない設定不備）は **同一 503 だが文言を分ける**（#4286）。同一文言だと顧客が原因を区別できず離脱していたため。`PRICE_UNRESOLVED` の文言は `SUBSCRIPTION_PAGE_LABELS.checkoutErrorPriceUnresolved`（`src/lib/domain/labels.ts`、DESIGN.md §6 SSOT）を参照する。エラーレスポンス body は `{ message }` のみで機械可読なエラーコードは含まないため、両エラーは HTTP ステータス単体では判別できず、文言（または呼び出し元でのログ相関）でのみ判別できる
 
 #### POST /api/stripe/portal
 
