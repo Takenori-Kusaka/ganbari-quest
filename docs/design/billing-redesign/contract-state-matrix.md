@@ -115,7 +115,7 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 | # | トリガ | 実装 | 書く内容 | 遷移 |
 |---|---|---|---|---|
 | W1 | `checkout.session.completed` | `stripe-service.ts` `handleCheckoutCompleted` | `sub` / `plan` / `status=active` / `trialUsedAt` | S1 → S2 |
-| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） | S3 → S2 / S2 → S2 |
+| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） + **`plan_expires_at=null`** | S3 → S2 / S2 → S2 |
 | W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2 → S3 |
 | W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化） / 終端: W5 と同じ 4 列 | S2 ⇄ S3 / → S4 / → S5 |
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
