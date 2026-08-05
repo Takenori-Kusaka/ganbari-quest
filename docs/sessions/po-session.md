@@ -64,7 +64,7 @@
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
+PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**（棚卸しは **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。**決裁そのものを teammate に代行させない**（§決裁前の実測義務は PO 本人の義務）。
 
 **ロールを跨いだ team を組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから spawn した「QM teammate」は `ganbariquestsupport-lab` にならず、ADR-0022 の作成者 ≠ 承認者が空洞化する。ロール間の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。
 

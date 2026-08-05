@@ -125,6 +125,8 @@ Platform は Team Topologies の platform team にあたり、**stream-aligned t
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
+Platform が使ってよいのは **装置の横断棚卸し**（`scripts/check-*` を分割して調べる等 = **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。
+
 teammate は **自分のクローン内でだけ**組む。**ロールを跨いだ team は組まない** — teammate は lead の作業ディレクトリと gh 認証で動くため、ADR-0022 の作成者 ≠ 承認者が空洞化する。
 
 **重い検証の並列化には使えない。** [agent-concurrency.md](agent-concurrency.md) の `heavy` lock は**マシン全体で 1 本**であり、`pre-ready` / `vitest` / `playwright test` / `svelte-check` は teammate を増やしても直列化する。**速くなるのは読む・調べる・書く（lock 対象外）だけ。**
