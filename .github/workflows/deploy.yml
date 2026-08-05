@@ -916,6 +916,12 @@ jobs:
         run: npx playwright test --config playwright.production.config.ts
         env:
           E2E_BASE_URL: ${{ steps.function-url.outputs.url }}
+          # #4280: 本 smoke は Function URL を直接叩く (本番 CloudFront は geoRestriction JP で
+          # runner が日本国外のため経由できない)。front door 検査が掛かる /admin へ遷移するので、
+          # CloudFront が付けるのと同じ header を smoke 自身が付ける。未注入だと login 後の
+          # /admin が 404 になり deploy のたびに偽の赤が出る。
+          # trace は secret 保持時 off (public repo の artifact に header が載るため、config 参照)。
+          ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 

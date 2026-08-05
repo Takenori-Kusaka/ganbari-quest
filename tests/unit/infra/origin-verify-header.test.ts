@@ -164,6 +164,27 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 		expect(missing).toEqual([]);
 	});
 
+	it('本番 smoke (Function URL 直) に front door header が渡る', () => {
+		// 本番 CloudFront は geoRestriction JP、GitHub Actions runner は日本国外のため、
+		// production smoke は Function URL を直接叩く。header を渡し忘れると login 後の
+		// /admin が 404 になり、deploy のたびに偽の赤が出る (#4280)。
+		const yml = readFileSync(join(root, '.github/workflows/deploy.yml'), 'utf8');
+		const smokeStep = yml
+			.split(/^ {6}- name: /m)
+			.find((s) => s.includes('playwright.production.config.ts'));
+		expect(smokeStep).toBeDefined();
+		expect(smokeStep).toContain('ORIGIN_VERIFY_SECRET');
+	});
+
+	it('secret を持つときの production smoke は trace を録らない (public repo の artifact 経由の漏洩防止)', () => {
+		// Playwright の trace は request header をそのまま記録する。本リポジトリは public で
+		// test-results/ は artifact として誰でも取得できるため、secret 保持時は trace を off にする。
+		const cfg = readFileSync(join(root, 'playwright.production.config.ts'), 'utf8');
+		expect(cfg).toMatch(/originVerifySecret\s*\?\s*'off'/);
+		// header 注入自体も残っていること (trace off だけして header を消す改変を検出する)
+		expect(cfg).toContain("'x-origin-verify': originVerifySecret");
+	});
+
 	it.each([
 		'.github/workflows/deploy.yml',
 		'.github/workflows/deploy-aws-staging.yml',
