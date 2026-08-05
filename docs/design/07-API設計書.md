@@ -1256,6 +1256,12 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
 - **`return_url`**: `${origin}/admin/subscription`
+- **リクエストボディ `intent`（#4166 / #4270）**: `plan-change` | `plan-upgrade` | `billing-history`。
+  portal の着地を決める。**allowlist で検証**し、外れた値・未指定は安全側（`plan-change` = portal ホーム）に倒し、
+  拒否した事実だけを記録する（**顧客識別子はログに載せない**）。`plan-upgrade` のときだけ `flow_data`
+  （`subscription_update`）でプラン変更画面へ直行させる
+- **成功レスポンス**: `{ url, flowFallback }`。`flowFallback=true` は **flow を Stripe が受け付けず portal ホームで
+  作り直した**ことを表す。画面は自動遷移せず、次の操作を示す通知を出す（`plan-change-flow.md` §3.2.2）
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）

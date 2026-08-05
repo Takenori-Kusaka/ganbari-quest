@@ -158,6 +158,65 @@ describe('#4166 AC3 フロー完了後はアプリへ戻る', () => {
 	});
 });
 
+describe('#4270 Stripe が flow を拒否したら home で作り直す', () => {
+	// flow は Stripe Dashboard の Portal 設定 (更新オプションの価格 / 解約の許可) が生きている
+	// ことを前提にする。設定がずれた瞬間に **portal に一切入れなくなる** のは、直行できないより悪い。
+	it.each([
+		'subscription_update',
+		'subscription_cancel',
+	] as const)('%s: 1 回目が失敗しても flow 無しで作り直して URL を返す', async (kind) => {
+		mockFindTenantById.mockResolvedValue(tenant());
+		mockPortalCreate
+			.mockRejectedValueOnce(new Error('No such price / flow not configured'))
+			.mockResolvedValueOnce({ url: 'https://billing.stripe.com/home_1' });
+
+		const result = await createPortalSession('t-test', RETURN_URL, { kind });
+
+		expect(mockPortalCreate).toHaveBeenCalledTimes(2);
+		expect(
+			lastArgs().flow_data,
+			'作り直しに flow を残すと同じ理由でまた落ち、portal に入れないままになる',
+		).toBeUndefined();
+		expect(lastArgs().return_url).toBe(RETURN_URL);
+		expect(result).toEqual({ url: 'https://billing.stripe.com/home_1', flowFallback: true });
+	});
+
+	it('倒れたことを呼び出し元に伝える (黙って portal ホームへ落とさないため)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant());
+		mockPortalCreate
+			.mockRejectedValueOnce(new Error('flow rejected'))
+			.mockResolvedValueOnce({ url: 'https://billing.stripe.com/home_2' });
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(
+			'flowFallback' in result && result.flowFallback,
+			'true でないと画面が「予期しない場所に着いた」ことに気づけず案内を出せない',
+		).toBe(true);
+	});
+
+	it('成功したときは flowFallback を立てない (通常の直行と区別する)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant());
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_update',
+		});
+
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('作り直しも失敗したら握り潰さず投げる (portal に入れない事実を成功として返さない)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant());
+		mockPortalCreate.mockRejectedValue(new Error('Stripe API down'));
+
+		await expect(
+			createPortalSession('t-test', RETURN_URL, { kind: 'subscription_update' }),
+		).rejects.toThrow('Stripe API down');
+	});
+});
+
 describe('#4166 AC2 subscription を持たないなら home にフォールバックする', () => {
 	// flow を付けたまま subscription なしで投げると Stripe が 400 を返し、
 	// **導線ごと死ぬ**（顧客は何を押しても portal に入れない）。
