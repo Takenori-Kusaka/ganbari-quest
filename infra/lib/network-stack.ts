@@ -92,51 +92,17 @@ export class NetworkStack extends cdk.Stack {
 			}
 		}
 
-		// --- Admin IP allowlist (from CDK context, comma-separated) ---
-		const adminAllowedIps =
-			(this.node.tryGetContext('adminAllowedIps') as string | undefined) ?? '';
-
-		// --- CloudFront Function: query slash encode + admin IP filter ---
-		// 1. Admin IP restriction: /admin/* and /api/v1/admin/* require allowlisted IPs
-		// 2. Query slash encode: SvelteKit form actions use ?/action-name pattern,
-		//    but Lambda Function URL rejects forward slashes in query strings.
-		const cfFunctionCode = adminAllowedIps
-			? `
-function handler(event) {
-  var request = event.request;
-  var uri = request.uri;
-
-  // Admin IP restriction
-  if (uri.startsWith('/admin') || uri.startsWith('/api/v1/admin') || uri.startsWith('/ops')) {
-    var ALLOWED_IPS = ${JSON.stringify(
-			adminAllowedIps
-				.split(',')
-				.map((ip: string) => ip.trim())
-				.filter(Boolean),
-		)};
-    var clientIp = event.viewer.ip;
-    if (ALLOWED_IPS.indexOf(clientIp) === -1) {
-      return {
-        statusCode: 403,
-        statusDescription: 'Forbidden',
-        headers: { 'content-type': { value: 'text/html; charset=utf-8' } },
-        body: '<html><body><h1>Access Restricted</h1></body></html>',
-      };
-    }
-  }
-
-  // Query string slash encode
-  var qs = request.querystring;
-  var newQs = {};
-  for (var key in qs) {
-    var encodedKey = key.replace(/\\//g, '%2F');
-    newQs[encodedKey] = qs[key];
-  }
-  request.querystring = newQs;
-  return request;
-}
-`
-			: `
+		// --- CloudFront Function: query slash encode ---
+		// SvelteKit form actions use ?/action-name pattern, but Lambda Function URL rejects
+		// forward slashes in query strings.
+		//
+		// #4266 (PO 決裁 2026-08-05): 旧 admin IP allowlist (`adminAllowedIps` context で
+		// /admin・/api/v1/admin・/ops を許可 IP 以外 403 にする分岐) を**撤去**した。
+		//   - 対象 path に `/admin` (= 保護者 = 顧客の見守り画面) が含まれ、有効化すると全顧客が 403
+		//   - 運営者のグローバル IP は固定でなく、プロキシ経由では event.viewer.ip が回線 IP と不一致
+		// /ops の防御はアプリ層 (ops group + MFA、src/lib/server/auth/ops-authz.ts hasOpsAccess) が担う。
+		// 復活させない不変条件は tests/unit/infra/admin-no-ip-allowlist.test.ts が assert する。
+		const cfFunctionCode = `
 function handler(event) {
   var request = event.request;
   var qs = request.querystring;
@@ -462,7 +428,6 @@ function handler(event) {
 		// 本番と独立した CloudFront Distribution を `demo.ganbari-quest.com` に配置する。
 		//   - Origin = demo Lambda の Function URL
 		//   - 同じ cache policy / origin request policy / security headers / CF function (query slash encode)
-		//   - admin IP 制限は demo には適用しない (anonymous public demo のため)
 		//   - geoRestriction も本番と同じ JP 限定 (Pre-PMF 段階)
 		if (props.demoFunctionUrl && props.domainName) {
 			const demoDomainName = props.demoDomainName ?? `demo.${props.domainName}`;
@@ -513,7 +478,7 @@ function handler(event) {
 				cachePolicy: demoStaticAssetsCachePolicy,
 			};
 
-			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
+			// demo 用 CloudFront Function: query slash encode のみ。
 			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
 				functionName: `${prefix}-demo-query-slash-encode`,
 				code: cloudfront.FunctionCode.fromInline(`
