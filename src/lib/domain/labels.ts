@@ -3290,7 +3290,7 @@ export const BILLING_LABELS = {
 	billingPortalDesc: `Stripe の${STRIPE_PORTAL_TERMS.short}で以下の操作ができます:`,
 	featureInvoices: '過去の請求書の確認・ダウンロード',
 	featurePaymentMethod: '支払い方法（クレジットカード）の変更',
-	featurePlanSwitch: 'スタンダード / ファミリープランの切り替え',
+	featurePlanSwitch: `${PLAN_FULL_TERMS.standard} / ${PLAN_FULL_TERMS.premium}の切り替え`,
 	featureNextBilling: '次回請求日の確認',
 	notReadyAlert: '決済機能は現在準備中です',
 	openPortalError: `${STRIPE_PORTAL_TERMS.short}を開けませんでした`,

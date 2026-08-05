@@ -309,6 +309,34 @@ DynamoDB: PK=`GRADUATION_CONSENT`, SK=`<isoTs>#<uuid>` (single global partition�
 | 支払い方法更新 | （Stripe 側のみ） | DB 変更なし |
 | 請求書履歴閲覧 | （Stripe 側のみ） | DB 変更なし |
 
+### 3.2.1 Portal の着地は「顧客の意図」で決める（#4166）
+
+Stripe portal の**ボタン文言は変更できない**（Branding で変えられるのは色・ロゴ・事業者名のみ）。
+portal ホームに着地させると「サブスクリプションを更新」が並び、顧客はこれを
+**「支払い方法の更新 / 継続」と読んでプラン変更に到達しない**。
+
+したがって `createPortalSession(tenantId, returnUrl, flow)` が **flow を受け取り**、
+`billingPortal.sessions.create()` の `flow_data` で目的のフローへ直行させる。
+
+| flow | 入口 | 着地 | `flow_data` |
+|---|---|---|---|
+| `subscription_update` | 「⭐ プレミアムへ」等のアップグレード CTA（`intent='plan-upgrade'`） | プラン選択画面 | `type='subscription_update'` + `subscription_update.subscription` |
+| `subscription_cancel` | 解約理由フォーム送信後（`cancel/+page.server.ts`） | 解約画面 | `type='subscription_cancel'` + `subscription_cancel.subscription` |
+| `home`（既定） | 「プラン変更・支払い管理」 / 請求履歴 | portal ホーム | 付けない |
+
+**`home` を残す理由**: flow を付けると**請求書閲覧・支払い方法変更の入口が消える**。
+汎用導線はホームのままにする。
+
+**完了後はアプリへ戻す**: `after_completion = { type: 'redirect', redirect: { return_url } }` を
+**明示指定**する。省略時の挙動は公式ドキュメントに明記が無く、確認ページに留まると読めるため。
+途中でやめた顧客が戻れるよう、トップレベルの `return_url` は flow の有無に関わらず常に渡す。
+
+**`stripeSubscriptionId` を持たないテナントでは flow を付けない**（`home` にフォールバック）。
+付けたまま送ると Stripe が 400 を返し、**顧客は何を押しても portal に入れなくなる**。
+
+`subscription_update_confirm`（price 選択をアプリ側に持ち確認画面だけ portal に出す）は**採らない** —
+proration / 期末切替の表示責務がアプリに移り、Stripe を課金状態の SSOT とする方針（#4096）と逆行する。
+
 ### 3.3 Webhook 処理 — `customer.subscription.updated`
 
 `stripe-service.ts:handleSubscriptionUpdated()`
