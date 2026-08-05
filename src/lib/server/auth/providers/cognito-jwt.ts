@@ -27,15 +27,18 @@ export interface CognitoClaims {
 /**
  * #4266: `amr` claim が MFA チャレンジ完了を示しているか判定する (純関数)。
  *
- * Cognito の MFA チャレンジ名は `SOFTWARE_TOKEN_MFA` / `SMS_MFA` / `EMAIL_OTP` であり、
- * ID token の `amr` にどの綴りで載るかは pool 設定・認証フローで揺れる。特定の 1 綴りに
- * 賭けると「MFA を設定したのに弾かれる」事故になるため、MFA を示す既知の綴りを
- * 大小文字無視で受理する。
+ * Cognito の MFA チャレンジ名は `SOFTWARE_TOKEN_MFA` / `SMS_MFA` であり、ID token の `amr` に
+ * どの綴りで載るかは pool 設定・認証フローで揺れる。特定の 1 綴りに賭けると「MFA を設定したのに
+ * 弾かれる」事故になるため、**MFA チャレンジを経たことが確実に言える綴りだけ**を大小文字無視で受理する。
+ *
+ * **裸の `otp` / `email_otp` は受理しない**: 本アプリは email OTP を Cognito MFA ではなく
+ * アプリ層で使う (auth-stack.ts の `mfa: OPTIONAL` 直上コメント)。`otp` 系を受理すると
+ * 「二要素を一度も経ていないセッション」が MFA 済と判定され、本 gate の前提が静かに崩れる。
  *
  * **判定できない場合は false = 拒否 (fail-closed、ADR-0024「設定が無ければ止める」)。**
  * 未設定を「たぶん大丈夫」に倒すと、防御層が黙って消える (#4276 が炙り出した失敗様式)。
  */
-const MFA_AMR_VALUES = ['mfa', 'software_token_mfa', 'sms_mfa', 'email_otp', 'otp'] as const;
+const MFA_AMR_VALUES = ['mfa', 'software_token_mfa', 'sms_mfa'] as const;
 
 export function hasMfaAmr(amr: readonly string[] | undefined): boolean {
 	if (!Array.isArray(amr)) return false;

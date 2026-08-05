@@ -267,6 +267,18 @@ describe('#4266 hasMfaAmr — amr claim から MFA 済を判定する', () => {
 		expect(hasMfaAmr(['sms_mfa'])).toBe(true);
 	});
 
+	// 本アプリの email OTP は Cognito MFA ではなくアプリ層の機構 (auth-stack.ts)。
+	// otp 系を MFA 済と誤認すると「二要素を経ていないセッション」が /ops を通る。
+	it('amr が "otp" のみは false (単要素の可能性がある綴りは受理しない)', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['otp'])).toBe(false);
+	});
+
+	it('amr が "email_otp" のみは false', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['pwd', 'email_otp'])).toBe(false);
+	});
+
 	it('大文字表記 (SOFTWARE_TOKEN_MFA) でも true', async () => {
 		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
 		expect(hasMfaAmr(['PWD', 'SOFTWARE_TOKEN_MFA'])).toBe(true);

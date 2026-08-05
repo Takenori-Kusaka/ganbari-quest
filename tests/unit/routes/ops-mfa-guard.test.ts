@@ -90,15 +90,22 @@ describe('#4266 /ops layout guard', () => {
 		await expect(loadOps(opsWithMfa)).resolves.toEqual({});
 	});
 
-	it('MFA 未経由の ops は 403', async () => {
-		await expect(loadOps(opsWithoutMfa)).rejects.toMatchObject({ status: 403 });
+	it('MFA 未経由の ops は 403 で、理由が MFA だと分かる', async () => {
+		// 真っ白な Forbidden だと「TOTP 未設定」か「group 外」かを運営者が切り分けられない
+		await expect(loadOps(opsWithoutMfa)).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Forbidden: ops access requires MFA' },
+		});
 	});
 
 	it('MFA 情報不明の ops は 403 (fail-closed)', async () => {
 		await expect(loadOps(opsMfaUnknown)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('未認証は 403', async () => {
-		await expect(loadOps(null)).rejects.toMatchObject({ status: 403 });
+	it('未認証は 403 で、MFA 理由を出さない (ops group の存在を示唆しない)', async () => {
+		await expect(loadOps(null)).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Forbidden' },
+		});
 	});
 });
