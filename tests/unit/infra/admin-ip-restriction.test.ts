@@ -163,7 +163,7 @@ function cdkSteps(ymlPath: string): { name: string; body: string }[] {
 	const yml = readFileSync(ymlPath, 'utf8');
 	const parts = yml.split(/^ {6}- name: /m).slice(1);
 	return parts
-		.map((p) => ({ name: p.split('\n')[0].trim(), body: p }))
+		.map((p) => ({ name: (p.split('\n')[0] ?? '').trim(), body: p }))
 		.filter((s) => /npx cdk (deploy|diff)/.test(s.body));
 }
 
