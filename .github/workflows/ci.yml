@@ -1270,7 +1270,9 @@ jobs:
           case "$PR_ACTOR" in
             dependabot\[bot\]|renovate\[bot\])
               # #3922: security 更新の main 直行を検知して fail-close (exempt 廃止)。
-              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。対処: 本 PR は merge せず close し、同 version への更新を develop 向けに反映してください (次回 grouped bump を待つ / 手動で develop 向け bump PR を作成)。緊急の security fix は develop 反映後に統合 release で main へ。背景: #3922 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
+              echo "::error::dependabot/renovate の main 向け PR を検知しました (security 更新は target-branch=develop を無視して main に直行する仕様)。auto-merge は本 check の fail で阻止されます。"
+              echo "::error::対処 (これ 1 つで済みます): gh pr edit ${{ github.event.pull_request.number }} --base develop"
+              echo "::error::close して bump PR を作り直す必要はありません。retarget すれば通常レーン (develop → 統合 release → main) に載り、必須 CI も再発火します。緊急の security fix も同じ経路で入れてください。背景: #3922 / #4273 / #3158→#3190 (develop 監査すり抜け → SIGSEGV) / branch-strategy.md §7。"
               exit 1 ;;
           esac
           # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
@@ -1282,7 +1284,8 @@ jobs:
             echo "head=$HEAD_REF → OK（develop/release 統合 PR または hotfix）"
             exit 0
           fi
-          echo "::error::main 向け PR の head は develop / release/*（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに PR を出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          echo "::error::main 向け PR の head は develop / release/*（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          echo "::error::対処 (これ 1 つで済みます): gh pr edit ${{ github.event.pull_request.number }} --base develop"
           exit 1
 
   # Gate job: always runs and reports overall CI status.
