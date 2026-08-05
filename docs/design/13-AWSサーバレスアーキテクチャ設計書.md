@@ -190,9 +190,9 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 |---------|-----------------|---------|:-:|:-:|----------|
 | retention-cleanup | `cron(0 16 * * ? *)` | 毎日 01:00 | ✓ | ✓ | 保存期間超過データの自動削除バッチ (#717 / #729) |
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
-| age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✗ | ✗ | 子供の年齢自動インクリメント (#1381)。**AWS EventBridge / dispatcher 未登録のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (`schedule-consistency.test.ts` で既知 drift として明示) |
+| age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。**dispatcher には登録済だが AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
@@ -204,7 +204,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **registry 外の endpoint**: `/api/cron/expire-redemptions` (#1337, 30 日以上 pending の交換申請を expired に移行) は endpoint として存在するが registry / EventBridge / dispatcher いずれにも未登録のため、自動スケジュール駆動はされない (手動 / 外部呼び出し前提)。`/api/cron/pglite-backup` (#3950) も同様に registry 外で、NUC ローカルの crond (`docker-compose.yml` backup profile) が駆動する
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
-- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。registry ⊆ CDK / CDK ⊆ registry / registry ↔ dispatcher の 3 方向に加え、`src/routes/api/cron/*/+server.ts` の実 FS 列挙を母数とした網羅、および上表 (job 行 / ✓ ✗ 列 / UTC cron 式 / 件数) と code の一致を検証する。EventBridge Rule 未作成の `age-recalc` / `grace-period-deletion` は理由と追跡 Issue (#4033) を必須とする `DOCUMENTED_EXCLUSIONS` に明示登録して除外している (上表「✗」と整合)。gap が解消した除外エントリは同テストが stale として検出する
+- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。registry ⊆ CDK / CDK ⊆ registry / registry ↔ dispatcher の 3 方向に加え、`src/routes/api/cron/*/+server.ts` の実 FS 列挙を母数とした網羅、および上表 (job 行 / ✓ ✗ 列 / UTC cron 式 / 件数) と code の一致を検証する。registry に載るがスケジュール駆動しない endpoint は理由と追跡 Issue を必須とする `DOCUMENTED_EXCLUSIONS` に明示登録して除外する。gap が解消した除外エントリは同テストが stale として検出する
 
 **Cron ジョブ実行時間予算 — 30 秒 self-limiting + 持ち越し規約 (#3695):**
 
