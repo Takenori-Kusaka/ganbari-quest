@@ -11,7 +11,14 @@ import {
 const owner: EvaluationUser = { id: 'u-owner', role: 'owner', groups: [] };
 const parent: EvaluationUser = { id: 'u-parent', role: 'parent', groups: [] };
 const child: EvaluationUser = { id: 'u-child', role: 'child', groups: [] };
-const opsOwner: EvaluationUser = { id: 'u-ops', role: 'owner', groups: ['ops'] };
+// #4266: ops capability は MFA 済であることを要求する (IP allowlist 廃止に伴う主防御の強化)
+const opsOwner: EvaluationUser = {
+	id: 'u-ops',
+	role: 'owner',
+	groups: ['ops'],
+	mfaAuthenticated: true,
+};
+const opsOwnerNoMfa: EvaluationUser = { id: 'u-ops-nomfa', role: 'owner', groups: ['ops'] };
 
 const family: EvaluationPlan = { tier: 'family', status: 'active', trialState: 'none' };
 const standard: EvaluationPlan = { tier: 'standard', status: 'active', trialState: 'none' };
@@ -184,6 +191,13 @@ describe('policy/capabilities can() — access.ops_dashboard / view.ops_license_
 	for (const cap of caps) {
 		it(`${cap}: ops group = allowed`, () => {
 			expect(can(ctx({ mode: 'aws-prod', user: opsOwner }), cap)).toEqual({ allowed: true });
+		});
+
+		it(`${cap}: ops group でも MFA 未経由は ops-mfa-required (#4266 fail-closed)`, () => {
+			expect(can(ctx({ mode: 'aws-prod', user: opsOwnerNoMfa }), cap)).toEqual({
+				allowed: false,
+				reason: 'ops-mfa-required',
+			});
 		});
 
 		it(`${cap}: non-ops user = ops-only`, () => {

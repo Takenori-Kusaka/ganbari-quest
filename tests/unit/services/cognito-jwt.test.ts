@@ -244,3 +244,84 @@ describe('verifyIdentityToken', () => {
 		expect(claims).toBeNull();
 	});
 });
+
+// ---------- #4266: MFA 判定 (amr claim) ----------
+// PO 決裁 (2026-08-05) で admin IP allowlist を廃止したため、/ops の主防御は
+// 「ops group + MFA」になった。MFA を経たかは ID token の `amr` (Authentication Methods
+// References, RFC 8176) claim で判定する。Cognito は認証で完了したチャレンジを amr に載せる。
+// 値の綴りは実装依存 (mfa / software_token_mfa / sms_mfa) のため、いずれか 1 つで真とする。
+// 判定できない (claim 欠落 / 非配列) 場合は false = 拒否 (fail-closed)。
+describe('#4266 hasMfaAmr — amr claim から MFA 済を判定する', () => {
+	it('amr に "mfa" を含めば true', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['pwd', 'mfa'])).toBe(true);
+	});
+
+	it('amr に "software_token_mfa" (TOTP) を含めば true', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['pwd', 'software_token_mfa'])).toBe(true);
+	});
+
+	it('amr に "sms_mfa" を含めば true', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['sms_mfa'])).toBe(true);
+	});
+
+	it('大文字表記 (SOFTWARE_TOKEN_MFA) でも true', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['PWD', 'SOFTWARE_TOKEN_MFA'])).toBe(true);
+	});
+
+	it('password のみは false', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(['pwd'])).toBe(false);
+	});
+
+	it('claim 欠落 (undefined) は false (fail-closed)', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr(undefined)).toBe(false);
+	});
+
+	it('空配列は false', async () => {
+		const { hasMfaAmr } = await import('$lib/server/auth/providers/cognito-jwt');
+		expect(hasMfaAmr([])).toBe(false);
+	});
+});
+
+describe('#4266 verifyIdentityToken が amr claim を伝搬する', () => {
+	it('amr を claims に載せる', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-ops',
+				email: 'ops@example.com',
+				amr: ['pwd', 'mfa'],
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+				token_use: 'id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose の戻り値型を最小 stub で満たす
+		} as any);
+		const { verifyIdentityToken } = await import('$lib/server/auth/providers/cognito-jwt');
+		const claims = await verifyIdentityToken('dummy');
+		expect(claims?.amr).toEqual(['pwd', 'mfa']);
+	});
+
+	it('amr が非配列なら undefined (fail-closed 側に倒す)', async () => {
+		mockJwtVerify.mockResolvedValue({
+			payload: {
+				sub: 'u-ops',
+				email: 'ops@example.com',
+				amr: 'mfa',
+				iss: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_TestPool',
+				aud: 'test-client-id',
+				token_use: 'id',
+			},
+			protectedHeader: { alg: 'RS256' },
+			// biome-ignore lint/suspicious/noExplicitAny: jose の戻り値型を最小 stub で満たす
+		} as any);
+		const { verifyIdentityToken } = await import('$lib/server/auth/providers/cognito-jwt');
+		const claims = await verifyIdentityToken('dummy');
+		expect(claims?.amr).toBeUndefined();
+	});
+});
