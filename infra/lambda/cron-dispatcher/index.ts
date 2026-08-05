@@ -30,6 +30,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	// Epic #2525 Phase 7 PR-L3 (#2818): license-expire は license key 全廃に伴い撤去
 	'retention-cleanup': '/api/cron/retention-cleanup',
 	'trial-notifications': '/api/cron/trial-notifications',
+	// #1381 (#4033 AC4): 子供の年齢自動インクリメント
+	'age-recalc': '/api/cron/age-recalc',
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
 	// #1648 R43: grace-period-service.ts findExpiredSoftDeletedTenants() を呼び出す物理削除バッチ
 	'grace-period-deletion': '/api/cron/grace-period-deletion',
