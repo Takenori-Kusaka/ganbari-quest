@@ -235,24 +235,39 @@ anti-engagement の運用者版）。復活させる場合は決裁をやり直�
 
 Discord は運用者の機器ではなく外部 SaaS で、embed は**チャットログとして永続化される**。
 `#3971`（バックアップを暗号化しない）の前提は「控えは運用者自身の機器内に留まる」であり、
-その前提は通知には成り立たない。
+その前提は通知には成り立たない。**incident / inquiry の両チャネルに等しく適用する**。
 
 | 載せてよい | 載せない |
 |---|---|
 | 事象の種別 / 発生時刻 / 件数 / エラー種別 / 環境名 / job 名 | tenantId / childId / メールアドレス / 家族名 |
 | `requestId`（ログを引くための鍵。顧客識別子ではない） | 顧客データそのもの（活動名 / ごほうび名 等） |
+| 受付番号 `inquiryId`（inquiry を引くための鍵。顧客識別子ではない） | 送信者 / 返信先のメールアドレス |
 
-「どの家族か」は**認証された場所（CloudWatch Logs / DB）で引く**。引き方は 2 通り:
+「どの家族か」は**認証された場所（CloudWatch Logs / DB）で引く**。引き方は 3 通り:
 
-| alert の出所 | 引く鍵 |
+| 通知の出所 | 引く鍵 |
 |---|---|
 | HTTP リクエスト起点（`handleError` / 503 fail-closed） | alert 内の `requestId` → `logger.error` の同 requestId 行に tenantId がある |
 | 非リクエスト起点（`optional-write-failed` / `push-validation-rejected` / cron / data-integrity） | alert title の**種別名がそのまま log の検索 key**（`context.kind`）→ 発生時刻で絞ると tenantId 付きの行が出る |
+| inquiry（お問い合わせ、`buildInquiryEmbed`） | embed の**受付番号** → `inquiries` 表を `inquiry_id` で照会（送信者 / 返信先 / テナントはそこにある） |
+
+#### inquiry で本文を載せる理由（#4197）
+
+**「返信先アドレスが目的そのもの」は載せてよい理由にならない — 返信する場所が Discord ではない**
+（#4174 Q3 決裁）。一方で**本文（自由記述）は載せる**。本文まで落としてよいのは「運用者が本文を
+読める認証済画面が実在する」場合に限られるが、`IInquiryRepo` は `generateInquiryId` /
+`saveInquiry` のみで**読み出し API を持たず**、`/ops` 配下にも inquiry を開く画面が無い。
+読めないまま絞ると問い合わせ対応が止まるため、本文は `redactNotificationText` を通したうえで残す。
+
+本文中の email / UUID / URL path 中の id は redaction で落ちる。順序は **redact → sanitize** で
+固定する（逆順だと `sanitizeDiscordText` が `foo@here.com` の `@here` に zero-width space を挿し、
+メールアドレスの形が壊れて redaction をすり抜ける）。
 
 - 実装 SSOT: `src/lib/server/notify-privacy.ts`（redaction を 1 箇所に集約）
-- 強制点: `discord-alert.ts` の送出入口（`redactAlertOptions`）と `buildIncidentEmbed`。
-  callsite ごとの注意に依存しない（alert が 1 つ増えるたびに漏れるため）
-- `AlertOptions` から `tenantId` を**型ごと撤去**してあるので、渡すとコンパイルで落ちる
+- 強制点: `discord-alert.ts` の送出入口（`redactAlertOptions`）と `buildIncidentEmbed` /
+  `buildInquiryEmbed`。callsite ごとの注意に依存しない（通知が 1 つ増えるたびに漏れるため）
+- `AlertOptions` から `tenantId` を、`notifyInquiry` から `tenantId` / `email` / `replyEmail` を
+  **引数ごと撤去**してあるので、渡すとコンパイルで落ちる
 - 回帰固定: `tests/unit/services/notify-payload-privacy.test.ts`
 - **残る穴（accepted residual）**: 自由記述に日本語の氏名や活動名がそのまま混ざる場合は機械的に
   検出できない。落とせるのは email / 電話 / カード / UUID / path 中の id など**形が決まっているもの**まで。
