@@ -22,12 +22,8 @@ const CRON_JOBS = [
 	// (CronRuleLicenseExpire)。期限管理は customer.subscription.deleted webhook に代替。
 	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
-	// #1381 (#4033 AC4): 子供の年齢自動インクリメント
-	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
-	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ
-	{ name: 'grace-period-deletion', utcCronExpression: 'cron(0 17 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
