@@ -14,7 +14,13 @@
  *   - UTC getter / 数値の桁区切り / timeZone 明示済の toLocale* は検出しない (誤検知しない)
  */
 
-import { describe, expect, it } from 'vitest';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+
+// #4085: 走査 API を使うため静的判定が scope='repo' になる。判定を緩めず明示 timeout を置く
+// (実走査は depth 1 の readdir のみで、全 file walk はしない)。
+vi.setConfig({ testTimeout: 60_000 });
 
 import {
 	ALLOWLIST,
@@ -23,6 +29,7 @@ import {
 	classifyDateMembers,
 	classifyLine,
 	DATE_RECEIVER_AMBIGUOUS_CALL,
+	EXCLUDED_ROOTS,
 	evaluateOccurrences,
 	findAllowlistEntry,
 	findAllowlistIntegrityProblems,
@@ -32,6 +39,7 @@ import {
 	groupByFile,
 	isCommentLine,
 	NON_RUNTIME_PATTERNS,
+	SEARCH_ROOTS,
 } from '../../../scripts/check-local-tz-date-getters.mjs';
 
 /** 違反 1 件を作るヘルパ */
@@ -277,6 +285,89 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		it('allowlist に file の重複がない (max の解釈が曖昧にならない)', () => {
 			const files = ALLOWLIST.map((e) => e.file);
 			expect(new Set(files).size).toBe(files.length);
+		});
+	});
+	// #4120: 走査範囲そのものの網羅
+	//
+	// `SEARCH_ROOTS` 配下では「検出があったのに allowlist に無い file」を落とすが、
+	// **どのディレクトリを走査するかは誰も見ていなかった**。`infra/lib` に日付から
+	// schedule / 期限を組み立てるコードが後から入っても、guard は黙って素通りさせる。
+	// EPIC #4120 の目的は根絶なので、**新しいコード置き場が増えたときに気付けること**まで
+	// を guard の責務に含める。
+	//
+	// 走査は repo root と infra/ の直下 (depth 1) のみで、全 file walk はしない
+	// (本 file 冒頭の「実 repo 全走査は unit lane では行わない」方針を維持する)。
+	describe('#4120 走査範囲の網羅 (どの dir も宣言なしに guard の外に出られない)', () => {
+		const repoRoot = join(__dirname, '../../..');
+
+		/** 直下のディレクトリ名 (走査対象外の作業 dir は除く)。 */
+		function listSubdirectories(rel: string): string[] {
+			const IGNORED = new Set(['node_modules', '.git', '.svelte-kit', '.claude', 'coverage']);
+			return readdirSync(join(repoRoot, rel), { withFileTypes: true })
+				.filter((e) => e.isDirectory() && !e.name.startsWith('.') && !IGNORED.has(e.name))
+				.map((e) => e.name);
+		}
+
+		/** その path が SEARCH_ROOTS / EXCLUDED_ROOTS のいずれかで宣言済か。 */
+		function declared(path: string): boolean {
+			return (
+				SEARCH_ROOTS.includes(path) ||
+				EXCLUDED_ROOTS.some((e) => e.root === path) ||
+				// 親が丸ごと宣言されていれば子も覆われる (例: 'src' が SEARCH_ROOTS)
+				SEARCH_ROOTS.some((r) => path.startsWith(`${r}/`)) ||
+				EXCLUDED_ROOTS.some((e) => path.startsWith(`${e.root}/`)) ||
+				// 子が宣言されている = 部分的に覆われている (例: infra/lambda だけ走査)。
+				// この場合は次の test が直下の全 dir の宣言を要求する
+				SEARCH_ROOTS.some((r) => r.startsWith(`${path}/`)) ||
+				EXCLUDED_ROOTS.some((e) => e.root.startsWith(`${path}/`))
+			);
+		}
+
+		it('repo 直下の全ディレクトリが走査対象か除外宣言のどちらかに属する', () => {
+			const undeclared = listSubdirectories('.').filter((d) => !declared(d));
+			expect(
+				undeclared,
+				'guard の走査範囲にも除外宣言にも無いディレクトリがあります。' +
+					'走査するなら SEARCH_ROOTS に、しないなら EXCLUDED_ROOTS に理由付きで足してください',
+			).toEqual([]);
+		});
+
+		it('部分的にしか走査していない infra/ は直下も全て宣言済', () => {
+			const undeclared = listSubdirectories('infra')
+				.map((d) => `infra/${d}`)
+				.filter((d) => !declared(d));
+			expect(
+				undeclared,
+				'infra/ は infra/lambda だけを走査しているため、直下の各 dir を個別に宣言する必要があります',
+			).toEqual([]);
+		});
+
+		it('除外理由が実質的である (空 / 定型 stub を許さない)', () => {
+			for (const e of EXCLUDED_ROOTS) {
+				expect(typeof e.reason, `${e.root}: reason が文字列ではありません`).toBe('string');
+				const reason = e.reason.trim();
+				expect(
+					reason.length,
+					`${e.root}: 除外理由が短すぎます (${reason.length} 字)`,
+				).toBeGreaterThanOrEqual(8);
+				expect(
+					['todo', 'tbd', 'n/a', '-', 'なし'].includes(reason.toLowerCase()),
+					`${e.root}: 除外理由が定型 stub です`,
+				).toBe(false);
+			}
+		});
+
+		it('除外宣言が stale でない (存在しない dir を除外し続けない)', () => {
+			const stale = EXCLUDED_ROOTS.filter((e) => !existsSync(join(repoRoot, e.root)));
+			expect(
+				stale.map((e) => e.root),
+				'存在しないディレクトリの除外宣言が残っています。消えた dir の除外は削除してください',
+			).toEqual([]);
+		});
+
+		it('走査対象と除外が重複しない (どちらの意図か曖昧にならない)', () => {
+			const overlap = EXCLUDED_ROOTS.filter((e) => SEARCH_ROOTS.includes(e.root));
+			expect(overlap.map((e) => e.root)).toEqual([]);
 		});
 	});
 });
