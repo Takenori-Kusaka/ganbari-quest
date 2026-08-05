@@ -111,9 +111,6 @@ export function planIdFromLookupKey(lookupKey: string | null | undefined): PlanI
 	return null;
 }
 
-/** 無料トライアル日数 */
-export const TRIAL_PERIOD_DAYS = 7;
-
 /** 支払い失敗後の猶予期間（日数） */
 export const GRACE_PERIOD_DAYS = 7;
 
