@@ -2773,6 +2773,12 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
+	// #4286: STRIPE_DISABLED (決済機能自体が無効な配備) と PRICE_UNRESOLVED (price ID 解決失敗という
+	// 別種の設定不備) が同一文言 ('決済機能は現在利用できません') だったため、顧客が「設定不備」と
+	// 「機能停止」を区別できず、再試行導線も無いまま離脱していた問題を是正。原因の内部詳細
+	// (price ID 未解決等) は出さず、次に取るべき行動だけを示す (ADR-0062、内部例外の非露出)。
+	checkoutErrorPriceUnresolved:
+		'ただいま決済の準備ができていません。時間をおいて再度お試しください',
 	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
 	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
 	billingUnavailable:
