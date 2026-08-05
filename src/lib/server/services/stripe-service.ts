@@ -128,7 +128,17 @@ export async function createCheckoutSession(
 // ============================================================
 
 export type CreatePortalResult =
-	| { url: string }
+	| {
+			url: string;
+			/**
+			 * 要求された flow を Stripe が受け付けず、portal ホームで session を作り直したか (#4270)。
+			 *
+			 * true のとき、顧客は「プラン変更画面 / 解約画面へ直行する」と期待した操作の結果として
+			 * portal ホームに着く。**黙って落とすと、解約理由を書き終えた直後に予期しない画面へ
+			 * 落ちる**ので、呼び出し元は次の操作を示すメッセージを出す責務を負う。
+			 */
+			flowFallback?: true;
+	  }
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
 	| { error: 'NO_STRIPE_CUSTOMER' };
@@ -202,14 +212,35 @@ export async function createPortalSession(
 	if (!tenant.stripeCustomerId) return { error: 'NO_STRIPE_CUSTOMER' };
 
 	const stripe = getStripeClient();
-	const session = await stripe.billingPortal.sessions.create({
+	const baseParams: Stripe.BillingPortal.SessionCreateParams = {
 		customer: tenant.stripeCustomerId,
 		// 途中でやめた顧客が戻れるリンク。flow の有無に関わらず常に渡す
 		return_url: returnUrl,
-		...buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl),
-	});
+	};
+	const flowData = buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl);
 
-	return { url: session.url };
+	if (!flowData.flow_data) {
+		const session = await stripe.billingPortal.sessions.create(baseParams);
+		return { url: session.url };
+	}
+
+	try {
+		const session = await stripe.billingPortal.sessions.create({ ...baseParams, ...flowData });
+		return { url: session.url };
+	} catch (err) {
+		// #4270: flow は Stripe Dashboard の Portal 設定 (更新オプションとして表示する
+		// 商品・価格 / 解約の許可) が生きていることを前提にする。設定がずれた瞬間に
+		// **portal に一切入れなくなる**のは、直行できないより悪い。監視機構は持たず
+		// (外部 SaaS 設定の常時監視は Pre-PMF で過剰、ADR-0010)、ここで home に倒す。
+		// 顧客識別子は載せない (#4174 / #4197 と同基準)。
+		logger.warn(
+			`[STRIPE] portal flow (${flow.kind}) が拒否されたため home で作り直します: ${redactPii(
+				err instanceof Error ? err.message : String(err),
+			)}`,
+		);
+		const session = await stripe.billingPortal.sessions.create(baseParams);
+		return { url: session.url, flowFallback: true };
+	}
 }
 
 // ============================================================
