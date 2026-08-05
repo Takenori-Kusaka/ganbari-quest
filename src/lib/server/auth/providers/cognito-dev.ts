@@ -12,6 +12,7 @@ import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
 import type { AuthContext, AuthProvider, AuthResult, Identity, Role } from '../types';
 import { verifyDevIdentityToken } from './cognito-dev-jwt';
+import { hasMfaAmr } from './cognito-jwt';
 
 /**
  * 開発用ダミーユーザー（E2E テストでも使用）
