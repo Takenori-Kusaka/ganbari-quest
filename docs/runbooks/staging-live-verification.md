@@ -23,6 +23,8 @@ allowlist 外のドメインが登録されると、staging deploy の `Staging 
 
 **入口は CloudFront（`GanbariQuestNetworkStaging` の `DistributionDomainName`）。Function URL 直ではない。** SvelteKit の名前付き form action（`?/action`）は Lambda Function URL がクエリ文字列のスラッシュを拒否するため、CloudFront Function `ganbari-quest-staging-query-slash-encode` を通さないとログインもサインアップもできない（#4204）。
 
+**`/admin` `/api/v1/admin` `/ops` は本番と同じ IP allowlist の内側にある（#4266）。** 許可されていない IP からは CloudFront が 403 を返し、アプリまで届かない（ログイン状態とは無関係）。許可 IP の SSOT は GitHub Secret `ADMIN_ALLOWED_IPS`（本番と同一。値は本 runbook に書かない）。検証端末のグローバル IP が入っていない場合は、オーナーに追加を依頼してから着手する。**403 が返ったことを「認証が壊れている」と読み違えない** — 403 の本文は `Access Restricted` の静的 HTML で、アプリ由来のレスポンスヘッダ（`X-Frame-Options` 等）を持たない。
+
 ### 本 runbook で検証する
 
 | 対象 | ローカルで実行されない理由 | staging で通る経路 |

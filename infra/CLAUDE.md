@@ -186,6 +186,9 @@ docker compose logs -f scheduler
 | trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
 | health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。schema assert の G-MIG 主担保は NUC staging) |
 | 入口 (ORIGIN / smoke) | CloudFront | **CloudFront** (#4204)。Function URL 直では SvelteKit の名前付き form action (`?/action`) が通らずログインもサインアップもできないため |
+| `/admin` `/api/v1/admin` `/ops` | CloudFront Function の IP allowlist (`secrets.ADMIN_ALLOWED_IPS`) | **本番と同じ** (同一 secret、#4266)。geo 制限を外してある分ここが唯一のネットワーク層防御。`-c adminAllowedIps` 未指定で synth が throw する |
+
+**防御層の本番 / staging 差分は [docs/design/14-セキュリティ設計書.md §11.5](../docs/design/14-セキュリティ設計書.md) が SSOT** (#4266)。staging の構成を触る前に読むこと。
 
 - **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
 - **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。
