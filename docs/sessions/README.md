@@ -22,6 +22,8 @@
 
 **凍結の例外**: 顧客の金かデータに**現に**届いている装置不具合のみ。判定は QM が行う（PO 決裁は要らない）。
 
+**ルール 2 の実行方法**: QM は `gh auth switch` で **`ganbariquestsupport-lab`** に切り替えてから Dev の PR ブランチに push し、同じアカウントで approve / merge する。**Dev アカウント名義で push しない**（誰が書いたかが証跡から消える）。PR の作成者は Dev のまま。ADR-0022 Amendment 6 で明文化済み。
+
 **再開トリガー**: **E1（#4117）が staging で checkout → webhook → plan 反映 → 実画面 を 1 周した時点。**
 
 ### なぜこうしたか（実測、2026-08-05）
