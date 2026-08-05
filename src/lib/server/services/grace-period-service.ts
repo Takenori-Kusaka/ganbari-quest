@@ -202,7 +202,8 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 		return {
 			isSoftDeleted: true,
 			softDeletedAt,
-			gracePeriodDays: storedPlanTier === null ? 0 : graceDays,
+			// tier 欠落時は planTier が 'free' にフォールバックするため graceDays は 0 になる。
+			gracePeriodDays: graceDays,
 			physicalDeletionDate: null,
 			daysRemaining: 0,
 			isExpired: false,
