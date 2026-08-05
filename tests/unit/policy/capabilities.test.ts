@@ -18,7 +18,7 @@ const opsOwner: EvaluationUser = {
 	groups: ['ops'],
 	mfaAuthenticated: true,
 };
-const opsOwnerNoMfa: EvaluationUser = { id: 'u-ops-nomfa', role: 'owner', groups: ['ops'] };
+const opsOwnerNoMfa: EvaluationUser = { id: 'u-ops-no-mfa', role: 'owner', groups: ['ops'] };
 
 const family: EvaluationPlan = { tier: 'family', status: 'active', trialState: 'none' };
 const standard: EvaluationPlan = { tier: 'standard', status: 'active', trialState: 'none' };

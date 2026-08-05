@@ -1,4 +1,5 @@
 // tests/unit/infra/admin-no-ip-allowlist.test.ts
+// cspell:ignore googlezip — PO 実測のプロキシ逆引きホスト名 (実在の文字列、綴りを変えると証跡でなくなる)
 // #4266 (PO 決裁 2026-08-05): CloudFront の admin IP allowlist を廃止したことの回帰 guard。
 //
 // 廃止理由 (実測):
