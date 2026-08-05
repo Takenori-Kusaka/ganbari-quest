@@ -177,10 +177,11 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 		};
 	}
 
+	const storedPhysicalDeletionDate = values.physical_deletion_date ?? null;
 	const storedPlanTier = parseStoredPlanTier(values.deletion_grace_plan_tier);
 	const planTier = storedPlanTier ?? 'free';
 	const graceDays = DELETION_GRACE_PERIOD_DAYS[planTier];
-	const deleteDate = parseStoredDate(values.physical_deletion_date);
+	const deleteDate = parseStoredDate(storedPhysicalDeletionDate);
 
 	// #4316: メタデータが不完全なら「期限切れ」に倒さない (安全側 = データを消さない側)。
 	// 復元は許可し、物理削除の母集団には入れない (findExpiredSoftDeletedTenants)。
@@ -193,7 +194,7 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 				context: {
 					tenantId,
 					softDeletedAt,
-					storedPhysicalDeletionDate: values.physical_deletion_date ?? null,
+					storedPhysicalDeletionDate,
 					storedPlanTier: values.deletion_grace_plan_tier ?? null,
 				},
 			},
@@ -221,7 +222,7 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 		isSoftDeleted: true,
 		softDeletedAt,
 		gracePeriodDays: graceDays,
-		physicalDeletionDate: values.physical_deletion_date,
+		physicalDeletionDate: storedPhysicalDeletionDate,
 		daysRemaining,
 		isExpired,
 		planTier,
