@@ -3,6 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// #4268: マイルストーン (褒める軸) の ID 集合は domain 定数が SSOT
+import { PRAISE_MILESTONE_IDS, type PraiseMilestoneId } from './constants/habit-milestones';
 import { jstDayOfWeek } from './date-utils';
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
@@ -8623,13 +8625,12 @@ export const STORYBOOK_LABELS = {
 // 年齢帯 variant (ADR-0015): preschool = ひらがな / elementary 以上 = 漢字
 // 同一カード内のひらがな + 漢字混在を解消 (#2169)
 // ============================================================
-type MilestoneTextKey =
-	| 'first_record'
-	| 'records_5'
-	| 'records_10'
-	| 'streak_7'
-	| 'streak_14'
-	| 'streak_30';
+// #4268: ID 集合の SSOT は `constants/habit-milestones.ts` の `PRAISE_MILESTONE_IDS`
+// (褒める軸 = 日数ベース + 開始の 1 件)。ここで独自 union を再定義しない。
+type MilestoneTextKey = PraiseMilestoneId;
+
+/** 表示文言を持つマイルストーン ID (fitness function が判定側との一致を検査する、#4268 AC4) */
+export const MILESTONE_LABEL_IDS: readonly MilestoneTextKey[] = PRAISE_MILESTONE_IDS;
 
 type MilestoneAgeContext = 'preschool' | 'elementary' | 'junior' | 'senior';
 
@@ -8638,14 +8639,6 @@ const MILESTONE_HIRAGANA: Record<MilestoneTextKey, { title: string; description:
 	first_record: {
 		title: 'はじめての きろく',
 		description: 'さいしょの がんばりを きろくできたよ',
-	},
-	records_5: {
-		title: '5 かい きろく',
-		description: '5 かい きろくが できたよ',
-	},
-	records_10: {
-		title: '10 かい きろく',
-		description: '10 かい きろくが できたよ',
 	},
 	streak_7: {
 		title: '1 しゅうかん つづいた',
@@ -8666,14 +8659,6 @@ const MILESTONE_KANJI: Record<MilestoneTextKey, { title: string; description: st
 	first_record: {
 		title: 'はじめての記録',
 		description: '最初のがんばりを記録できました',
-	},
-	records_5: {
-		title: '5 回 記録',
-		description: '5 回の活動を記録できました',
-	},
-	records_10: {
-		title: '10 回 記録',
-		description: '10 回の活動を記録できました',
 	},
 	streak_7: {
 		title: '1 週間 つづいた',
@@ -8698,8 +8683,6 @@ export const MILESTONE_LABELS = {
 	bellAriaLabel: (count: number) => `新着のおしらせ ${count}件 を見る`,
 	/** legacy: 漢字 variant (elementary 以上の callers が直接参照する場合用、後方互換) */
 	first_record: MILESTONE_KANJI.first_record,
-	records_5: MILESTONE_KANJI.records_5,
-	records_10: MILESTONE_KANJI.records_10,
 	streak_7: MILESTONE_KANJI.streak_7,
 	streak_14: MILESTONE_KANJI.streak_14,
 	streak_30: MILESTONE_KANJI.streak_30,

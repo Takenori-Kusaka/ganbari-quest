@@ -340,7 +340,8 @@ export async function recordActivity(
 	const customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
 
 	// #4172: 固定間隔自動ごほうび (活動 5 回ごとに `${n}かいきろく達成！` を棚へ INSERT + 50pt 発行) は撤去。
-	// 達成の表現は `value-preview-service.ts` の MILESTONES (records_1/5/10 等、報酬を発行しない通知) が担う。
+	// 達成の表現は `value-preview-service.ts` の MILESTONES (初回記録 + 連続日数、報酬を発行しない通知) が担う。
+	// #4268: その MILESTONES 側にも残っていた量ベース (5 回 / 10 回) の称賛は撤去済。褒める軸は日数。
 	// 撤去理由: 26-ゲーミフィケーション設計書 §2.4「唯一の出口はごほうびショップのみ」/ §2.1-2「親が褒める仕組み」
 	// (自動生成行は grantedBy=null で親が一度も関与しない) / §13 実績システム廃止 (#1782 の同型が残っていた)。
 
