@@ -3,6 +3,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
+import { SUBSCRIPTION_PAGE_LABELS } from '$lib/domain/labels';
 import { createCheckoutSession } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
@@ -69,7 +70,9 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 			TENANT_NOT_FOUND: 'アカウントが見つかりません',
 			ALREADY_SUBSCRIBED: '既にサブスクリプションに加入済みです',
 			INVALID_PLAN: 'プランが正しくありません',
-			PRICE_UNRESOLVED: '決済機能は現在利用できません',
+			// #4286: STRIPE_DISABLED と同一文言だと「設定不備」か「機能停止」かを顧客が区別できず、
+			// 再試行導線も無いまま離脱していた。原因の内部詳細は出さず次の行動だけを示す (ADR-0062)。
+			PRICE_UNRESOLVED: SUBSCRIPTION_PAGE_LABELS.checkoutErrorPriceUnresolved,
 		};
 		error(statusMap[result.error] ?? 500, messageMap[result.error] ?? 'エラーが発生しました');
 	}
