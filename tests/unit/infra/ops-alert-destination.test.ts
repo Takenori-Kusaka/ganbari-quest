@@ -45,6 +45,8 @@ function makeApp(): cdk.App {
 			'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
 				'test-context-token-secret',
 			opsSecretKey: 'test-ops-secret-key',
+			// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+			adminAllowedIps: '203.0.113.1',
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 		},
 	});

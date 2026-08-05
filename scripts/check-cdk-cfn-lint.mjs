@@ -77,6 +77,11 @@ const SYNTH_CONTEXT = {
 	dsqlEnabled: true,
 	dsqlStagingEnabled: true,
 	stagingEnabled: true,
+	// #4266: network-stack.ts は admin IP allowlist の宣言なしに synth できない。
+	// **opt-out ではなくダミー IP を渡す** — opt-out だと IP フィルタ分岐が template から
+	// 消えて、その分岐が cfn-lint の検査対象から外れてしまう。
+	// TEST-NET-3 (RFC 5737 の文書用アドレス、実在ホストに割り当てられない)。
+	adminAllowedIps: '203.0.113.1',
 	[`hosted-zone:account=${SYNTH_ACCOUNT}:domainName=ganbari-quest.com:region=us-east-1`]: {
 		Id: '/hostedzone/Z00000000000000000000',
 		Name: 'ganbari-quest.com.',

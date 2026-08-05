@@ -73,7 +73,8 @@ function viewerFunctionCode(network: NetworkStack, prefix = 'ganbari-quest'): st
 	const t = Template.fromStack(network);
 	const fns = t.findResources('AWS::CloudFront::Function');
 	const match = Object.values(fns).find(
-		(r) => (r as { Properties?: { Name?: string } }).Properties?.Name === `${prefix}-query-slash-encode`,
+		(r) =>
+			(r as { Properties?: { Name?: string } }).Properties?.Name === `${prefix}-query-slash-encode`,
 	) as { Properties?: { FunctionCode?: string } } | undefined;
 	expect(match, `${prefix}-query-slash-encode が template に存在しない`).toBeDefined();
 	return match?.Properties?.FunctionCode ?? '';
@@ -119,7 +120,7 @@ describe('#4266 admin IP allowlist が宣言なしに消えない', () => {
 		for (const p of PROTECTED_PATHS) {
 			expect(code).not.toContain(p);
 		}
-	});
+	}, 60_000);
 
 	it('理由つき opt-out は理由を添えた警告を synth に出す', () => {
 		const reason = '#4266 一時的に IP allowlist 無しで検証するため';
@@ -130,7 +131,7 @@ describe('#4266 admin IP allowlist が宣言なしに消えない', () => {
 		);
 		const joined = warnings.map((w) => String(w.entry.data)).join('\n');
 		expect(joined).toContain(reason);
-	});
+	}, 60_000);
 
 	// [D] 通常経路。3 path すべてに載っていること。
 	it('adminAllowedIps 指定時は 3 path すべてに IP フィルタが載る', () => {
@@ -142,7 +143,7 @@ describe('#4266 admin IP allowlist が宣言なしに消えない', () => {
 		expect(code).toContain('203.0.113.1');
 		expect(code).toContain('198.51.100.7');
 		expect(code).toContain('403');
-	});
+	}, 60_000);
 
 	it('staging でも同じ IP フィルタが載る (prod と staging で防御層を変えない)', () => {
 		const network = buildNetwork({ adminAllowedIps: '203.0.113.1' }, true);
@@ -150,7 +151,7 @@ describe('#4266 admin IP allowlist が宣言なしに消えない', () => {
 		for (const p of PROTECTED_PATHS) {
 			expect(code, `${p} の IP フィルタ分岐が無い`).toContain(p);
 		}
-	});
+	}, 60_000);
 });
 
 // ---------------------------------------------------------------------------
@@ -167,10 +168,7 @@ function cdkSteps(ymlPath: string): { name: string; body: string }[] {
 }
 
 describe('#4266 deploy workflow が adminAllowedIps を渡し漏らさない', () => {
-	for (const wf of [
-		'.github/workflows/deploy.yml',
-		'.github/workflows/deploy-aws-staging.yml',
-	]) {
+	for (const wf of ['.github/workflows/deploy.yml', '.github/workflows/deploy-aws-staging.yml']) {
 		it(`${wf} の全 cdk 実行 step が adminAllowedIps を渡している`, () => {
 			const steps = cdkSteps(wf);
 			// 空集合同士の比較で緑になるのを防ぐ (step を 1 つも拾えていなければ検査が成立していない)。

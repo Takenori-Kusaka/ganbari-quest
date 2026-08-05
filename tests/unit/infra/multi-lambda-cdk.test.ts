@@ -52,6 +52,8 @@ function makeApp(): cdk.App {
 			// compute-stack.ts が tryGetContext で読む context
 			awsLicenseSecret: 'test-license-secret',
 			opsSecretKey: 'test-ops-secret-key',
+			// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+			adminAllowedIps: '203.0.113.1',
 			// #2310 / #2337 / ADR-0050: parent-gate-session.ts production throw 防止
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 			// #3438 Phase 2A: DSQL は無条件 backend ゆえ endpoint / clusterArn context 必須

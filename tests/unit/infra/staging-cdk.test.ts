@@ -46,6 +46,8 @@ function buildProdStacks(): {
 			'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
 				'test-context-token-secret',
 			opsSecretKey: 'test-ops-secret-key',
+			// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+			adminAllowedIps: '203.0.113.1',
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 			// #3438 Phase 2A: DSQL 無条件 backend の fail-close 回避 (endpoint / clusterArn 必須)
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
@@ -115,6 +117,8 @@ function buildProdCompute(extraContext: Record<string, string> = {}): ComputeSta
 				'test-context-token-secret',
 			// prod stack は cron-dispatcher を持つため #1586 fail-close で必須
 			opsSecretKey: 'test-ops-secret-key',
+			// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+			adminAllowedIps: '203.0.113.1',
 			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 			dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 			dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
@@ -578,6 +582,8 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 					'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
 						'test-context-token-secret',
 					opsSecretKey: 'test-ops-secret-key',
+					// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+					adminAllowedIps: '203.0.113.1',
 					parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 					dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 					dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
@@ -702,6 +708,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 				'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
 					'test-context-token-secret',
 				opsSecretKey: 'test-ops-secret-key',
+				// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+				adminAllowedIps: '203.0.113.1',
 				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
 				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',

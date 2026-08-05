@@ -91,9 +91,12 @@ jobs:
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts が production で必須要求。
           # 未注入だと /admin/* cold start で throw して 500 連発 (PR #2325 で実害発生)。
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          # #4266: /admin ・ /api/v1/admin ・ /ops の CloudFront IP allowlist。未設定だと
+          # network-stack.ts の synth が throw する (旧実装は分岐ごと消えて無防備になっていた)。
+          ADMIN_ALLOWED_IPS: ${{ secrets.ADMIN_ALLOWED_IPS }}
         run: |
           missing=0
-          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET; do
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET ADMIN_ALLOWED_IPS; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -142,6 +145,7 @@ jobs:
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
@@ -152,6 +156,7 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR

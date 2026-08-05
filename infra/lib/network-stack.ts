@@ -93,8 +93,51 @@ export class NetworkStack extends cdk.Stack {
 		}
 
 		// --- Admin IP allowlist (from CDK context, comma-separated) ---
-		const adminAllowedIps =
-			(this.node.tryGetContext('adminAllowedIps') as string | undefined) ?? '';
+		//
+		// #4266: **空なら分岐が黙って消える**実装をやめる (ADR-0024 ENV silent skip 禁止)。
+		//
+		// 旧実装は context が空のとき `/admin` `/api/v1/admin` `/ops` の IP フィルタ分岐を
+		// 三項演算子で丸ごと落としていた。deploy-aws-staging.yml が同 context を 1 箇所も
+		// 渡していなかったため、staging はこの 3 path を geo 制限 (#4204 で撤廃) も
+		// IP allowlist も無い **0 層**で公開していた。「staging では掛けない」という判断は
+		// どこにも書かれておらず、決裁の射程外で防御層が外れていた。
+		//
+		// したがって「掛けない」は **明示的に宣言したときだけ**成立させる:
+		//   -c adminAllowedIps=<csv>                    → 従来どおり IP フィルタを載せる
+		//   -c adminIpRestrictionOptOut=<理由 12 文字以上> → 無制限を許可し、理由を synth に出す
+		//   どちらも無い                                 → throw (deploy させない)
+		//
+		// 理由文字列を必須にするのは、opt-out が「とりあえず付けるフラグ」に劣化するのを
+		// 防ぐため (理由の非強制を作らない、#3956 教訓)。
+		const adminAllowedIpList = String(this.node.tryGetContext('adminAllowedIps') ?? '')
+			.split(',')
+			.map((ip: string) => ip.trim())
+			.filter(Boolean);
+		const optOutRaw = this.node.tryGetContext('adminIpRestrictionOptOut');
+		const optOutReason = typeof optOutRaw === 'string' ? optOutRaw.trim() : '';
+		const MIN_OPT_OUT_REASON_LENGTH = 12;
+
+		if (adminAllowedIpList.length === 0) {
+			if (optOutReason.length < MIN_OPT_OUT_REASON_LENGTH) {
+				throw new Error(
+					`[network-stack] ${this.stackName}: /admin ・ /api/v1/admin ・ /ops の IP allowlist が未指定です (#4266)。` +
+						' 次のいずれかを synth / diff / deploy の全 cdk 実行に渡してください:\n' +
+						'  -c adminAllowedIps=<カンマ区切り IP>            (本番と同じ IP allowlist を掛ける)\n' +
+						`  -c adminIpRestrictionOptOut="<理由 ${MIN_OPT_OUT_REASON_LENGTH} 文字以上>"  (意図的に掛けない場合のみ)\n` +
+						' GitHub Actions では secrets.ADMIN_ALLOWED_IPS が未設定 / 空だとこのエラーになります。' +
+						(optOutRaw !== undefined && optOutReason.length < MIN_OPT_OUT_REASON_LENGTH
+							? ` adminIpRestrictionOptOut の理由が不足しています (${optOutReason.length} 文字)。`
+							: ''),
+				);
+			}
+			// 無制限であることを synth ログに残す。template 側は IP フィルタ分岐を持たないため、
+			// 「制限が無い」ことは template を読めば分かる (下の cfFunctionCode 分岐)。
+			cdk.Annotations.of(this).addWarning(
+				`[network-stack] ${this.stackName}: /admin ・ /api/v1/admin ・ /ops の IP allowlist を無効化します (#4266)。理由: ${optOutReason}`,
+			);
+		}
+
+		const adminAllowedIps = adminAllowedIpList.join(',');
 
 		// --- CloudFront Function: query slash encode + admin IP filter ---
 		// 1. Admin IP restriction: /admin/* and /api/v1/admin/* require allowlisted IPs
@@ -108,12 +151,7 @@ function handler(event) {
 
   // Admin IP restriction
   if (uri.startsWith('/admin') || uri.startsWith('/api/v1/admin') || uri.startsWith('/ops')) {
-    var ALLOWED_IPS = ${JSON.stringify(
-			adminAllowedIps
-				.split(',')
-				.map((ip: string) => ip.trim())
-				.filter(Boolean),
-		)};
+    var ALLOWED_IPS = ${JSON.stringify(adminAllowedIpList)};
     var clientIp = event.viewer.ip;
     if (ALLOWED_IPS.indexOf(clientIp) === -1) {
       return {

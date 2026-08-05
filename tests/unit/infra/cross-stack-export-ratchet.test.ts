@@ -77,6 +77,8 @@ const CTX: Record<string, unknown> = {
 	'ssm:account=000000000000:parameterName=/ganbari-quest/context-token-secret:region=us-east-1':
 		'test-context-token-secret',
 	opsSecretKey: 'test-ops-secret-key',
+	// #4266: admin IP allowlist の宣言なしに NetworkStack は synth できない (RFC 5737 TEST-NET-3)。
+	adminAllowedIps: '203.0.113.1',
 	parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 	// #3438 Phase 2A: DSQL 無条件 backend の fail-close 回避 (endpoint / clusterArn 必須)
 	dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',

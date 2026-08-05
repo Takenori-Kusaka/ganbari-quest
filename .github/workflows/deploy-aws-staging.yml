@@ -126,16 +126,21 @@ jobs:
       # - OPS_SECRET_KEY: 同一 CDK app 内で prod ComputeStack が常に instantiate され、
       #   #1586 cron-dispatcher guard が synth-time に発火するため context として必要
       #   (staging stack 自体は cron-dispatcher を持たず env にも注入されない)。
+      # - ADMIN_ALLOWED_IPS: /admin ・ /api/v1/admin ・ /ops の CloudFront IP allowlist (#4266)。
+      #   **本番と同じ secret を使う** (staging 専用 secret を作ると、片方だけ更新されて
+      #   気づかない二重管理になる)。未設定だと network-stack.ts の synth が throw するため、
+      #   ここで先に「どの secret が無いのか」を出して落とす (ADR-0024 silent skip 禁止)。
       - name: Validate required secrets
         env:
           AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
+          ADMIN_ALLOWED_IPS: ${{ secrets.ADMIN_ALLOWED_IPS }}
           STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
           STRIPE_WEBHOOK_SECRET_TEST: ${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
         run: |
           missing=0
-          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY; do
+          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY ADMIN_ALLOWED_IPS; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -215,6 +220,7 @@ jobs:
             -c stagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
@@ -226,6 +232,7 @@ jobs:
           -c stagingEnabled=true
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
 
       # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
       # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
@@ -276,7 +283,8 @@ jobs:
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
             -c dsqlStagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
-            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }}
 
       - name: Resolve DSQL staging outputs
         run: |
@@ -313,6 +321,7 @@ jobs:
             -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
             -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -334,6 +343,7 @@ jobs:
               -c stagingEnabled=true $DSQL_CTX \
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+              -c adminAllowedIps=${{ secrets.ADMIN_ALLOWED_IPS }} \
               -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done
