@@ -135,17 +135,38 @@ const AWS_WORKFLOW = '.github/workflows/deploy.yml';
 const AWS_STAGING_WORKFLOW = '.github/workflows/deploy-aws-staging.yml';
 const COMPOSE = 'docker-compose.yml';
 
-/** `.env` を生成する step の本文 (`Set-Content -Path .env` までが「実際に書かれる」範囲)。 */
-function nucDotenvBlock(): string {
+const NUC_DOTENV_SCRIPT = 'scripts/nuc/generate-env.ps1';
+
+/**
+ * `.env` を生成する本文 (`Set-Content` までが「実際に書かれる」範囲)。
+ *
+ * **抽出元は #4275 で workflow の inline `run:` から `scripts/nuc/generate-env.ps1` へ移った**
+ * (inline は self-hosted NUC runner でしか実行されず CI が一度も parse しないため、
+ * parse error でリリースが本番 NUC に届かなかった)。本 gate の抽出も同じ場所を見る。
+ *
+ * workflow が script を呼んでいることも併せて確認する。呼び出しが外れると
+ * 「script は正しいが .env は配られない」状態を **gate が緑のまま見逃す**ため。
+ */
+function nucDotenvScript(): string {
 	const workflow = read(NUC_WORKFLOW);
-	const start = workflow.indexOf('Generate .env from GitHub Secrets');
-	const end = workflow.indexOf('Set-Content -Path .env', start);
-	if (start < 0 || end < 0) {
+	if (!workflow.includes(NUC_DOTENV_SCRIPT)) {
 		throw new Error(
-			`${NUC_WORKFLOW} の .env 生成 step が見つかりません (step 名か Set-Content が変わった?)`,
+			`${NUC_WORKFLOW} が ${NUC_DOTENV_SCRIPT} を呼んでいません (呼び出しが外れると .env が配られない)`,
 		);
 	}
-	return workflow.slice(start, end);
+	return read(NUC_DOTENV_SCRIPT);
+}
+
+function nucDotenvBlock(): string {
+	const script = nucDotenvScript();
+	const start = script.indexOf('$envLines = @(');
+	const end = script.indexOf('Set-Content -Path', start);
+	if (start < 0 || end < 0) {
+		throw new Error(
+			`${NUC_DOTENV_SCRIPT} の .env 生成ブロックが見つかりません ($envLines か Set-Content が変わった?)`,
+		);
+	}
+	return script.slice(start, end);
 }
 
 /** `-c key=` / `format('-c key=` の両形式で渡している context key。 */
@@ -583,7 +604,9 @@ function workflowStep(workflow: string, needle: string): string {
 }
 
 describe('#4167 NUC deploy は「配れなかった」ことを黙って進めない', () => {
-	const block = nucDotenvBlock();
+	// fail-closed の検査は `$envLines` より前にあるため、**script 全体**を見る
+	// (#4275 で inline run から scripts/nuc/generate-env.ps1 に移動した)。
+	const block = nucDotenvScript();
 
 	it('[NR1] CRON_SECRET 欠落時は deploy を止める (fail-closed)', () => {
 		// warning で流すと「deploy は緑、バックアップだけ静かに死ぬ」に戻る。18 晩それが続いた。
