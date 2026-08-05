@@ -36,7 +36,24 @@
 
 **凍結の例外**（= 増やしてよい唯一のケース）: 顧客の金かデータに**現に**届いている装置不具合のみ。判定は QM が行う（PO 決裁は要らない）。
 
-**ルール 2 の実行方法**: QM は `gh auth switch` で **`ganbariquestsupport-lab`** に切り替えてから Dev の PR ブランチに push し、同じアカウントで approve / merge する。**Dev アカウント名義で push しない**（誰が書いたかが証跡から消える）。PR の作成者は Dev のまま。ADR-0022 Amendment 6 で明文化済み。
+### ルール 2 の実行方法 — QM は **自分のクローン内の subagent ループ**で 1 PR を閉じる
+
+**「QM が自分で直す」は、QM 本体が手作業で直すという意味ではありません。** QM は自分のクローン内で subagent を回して 1 PR を閉じ切ります。
+
+```
+① レビュー subagent      指摘を出す
+② 修正 subagent          指摘を直す（Dev に投げない）
+③ 再レビュー subagent    直ったか確認する
+④ QM 本体               CI 緑を実測して merge
+```
+
+- **①〜③ を回すのは QM 本体（lead）。** Dev の受信箱に戻さない
+- **収束条件**: 再レビューで BLOCK 3 類型が 0、かつ `gh pr checks` で非 pass 行が 0
+- **打ち切り条件**: **同じ指摘で 2 周したら、それは実装方針の問題**。ルール 6 ①として Dev に返す。3 周目を回さない
+- **subagent の報告を成果の根拠にしない。** lead が `git diff` と `gh pr checks` で実測してから merge する（[agent-teams.md](agent-teams.md) §4.3）
+- **ロールを跨いだ team は組まない。** teammate は lead の作業ディレクトリ・gh 認証で動くため、Dev クローンから QM を spawn すると分離が空洞化する
+
+**アカウント**: QM は `gh auth switch` で **`ganbariquestsupport-lab`** に切り替えてから Dev の PR ブランチに push し、同じアカウントで approve / merge する。**Dev アカウント名義で push しない**（誰が書いたかが証跡から消える）。PR の作成者は Dev のまま。ADR-0022 Amendment 6。
 
 **ルール 1 の見直しトリガー**: **E1（#4117）が staging で checkout → webhook → plan 反映 → 実画面 を 1 周した時点**（そのとき「増やさない」を続けるか再判断する。A / B の削減・移管はそれを待たずに進める）。
 
