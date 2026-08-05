@@ -180,6 +180,19 @@ export function isLookupKeyEnabled(): boolean {
  *   const priceId = await getPriceId('standard');
  *   // → 'price_1Abc...' (`USE_LOOKUP_KEY=true` なら lookup_key 経由、false なら env 経由)
  */
+/**
+ * `PlanId` → `getPriceId()` が取る plan 語彙への写像 (#4286)。
+ *
+ * `PlanConfig.tier` は `'standard' | 'family'`、lookup_key 側は `standard_` / `premium_` 接頭辞で
+ * **語彙が違う**（ADR-0058 の rename 過渡期）。ここを取り違えると `family_monthly` を引いて
+ * 解決に失敗し、**standard は買えるが premium だけ買えない**形で顧客に出る。写像は 1 箇所に置く。
+ */
+export function lookupPlanOf(planId: PlanId): 'standard' | 'premium' | null {
+	if (planId === SUBSCRIPTION_PLAN.MONTHLY) return 'standard';
+	if (planId === SUBSCRIPTION_PLAN.FAMILY_MONTHLY) return 'premium';
+	return null;
+}
+
 export async function getPriceId(plan: 'standard' | 'premium'): Promise<string> {
 	// 1. 旧 env var (`STRIPE_PRICE_*_MONTHLY` 2 件) を解決 (fallback / default 経路の SSOT)
 	const envPriceId = resolveEnvPriceId(plan);
