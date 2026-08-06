@@ -91,17 +91,16 @@ describe('PR body テンプレートは forbidden-terms gate と矛盾しない 
 });
 
 describe('Ready チェックリストに pre-ready 自己参照項目が無い (#4022 AC6/AC8/AC10/AC11)', () => {
-	it.each(READY_SECTION_TEMPLATE_FILES)(
-		'%s の Ready セクションに pre-ready 未チェック項目が 0 件',
-		(relPath) => {
-			const body = readTemplate(relPath);
-			expect(extractReadySection(body), `${relPath} に Ready セクションが無い`).not.toBe('');
-			expect(
-				findPreReadyUncheckedItems(body),
-				`${relPath}: この項目は check-pr-body → pre-ready → check-pr-body の自己参照 deadlock を作る`,
-			).toEqual([]);
-		},
-	);
+	it.each(
+		READY_SECTION_TEMPLATE_FILES,
+	)('%s の Ready セクションに pre-ready 未チェック項目が 0 件', (relPath) => {
+		const body = readTemplate(relPath);
+		expect(extractReadySection(body), `${relPath} に Ready セクションが無い`).not.toBe('');
+		expect(
+			findPreReadyUncheckedItems(body),
+			`${relPath}: この項目は check-pr-body → pre-ready → check-pr-body の自己参照 deadlock を作る`,
+		).toEqual([]);
+	});
 
 	it('`.github/PULL_REQUEST_TEMPLATE.md` は Ready セクション自体を持たない (#4305 で撤去)', () => {
 		// #4305: 「Ready for Review チェックリスト」は自己申告 checkbox のみで構成され A 削除された。
