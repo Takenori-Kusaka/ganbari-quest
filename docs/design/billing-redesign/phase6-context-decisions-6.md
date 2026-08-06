@@ -213,7 +213,7 @@ export async function getPriceByLookupKey(lookupKey: string): Promise<string> {
 USE_LOOKUP_KEY=false
 ```
 
-Phase 6 子 1 SSOT §5.3 で確定した 2 feature flag (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) の片方。
+Phase 6 子 1 SSOT §5.3 で確定した kill switch `USE_LOOKUP_KEY`。Webhook 受信口は `/api/stripe/webhook` の 1 本のみで、こちらに対応する feature flag は持たない ([phase6-phase7-execution-ssot.md §Step 4](phase6-phase7-execution-ssot.md) 「現状の正解」参照)。
 
 ### 4.4 cutover (Step 3) の検証手順
 
@@ -238,7 +238,7 @@ Phase 1 補強 2 Open question 4「active subscription 0 件」が PO 確定済 
 |---|---|---|
 | **1. Changelog breaking change 全件確認** | Stripe Changelog `'2026-04-22.dahlia'` → 新 stable バージョンの差分を精査、webhook event の field 構造変化 / API request schema 変化 / response field rename 等を全件リスト化 | リスト化結果を本 docs §5.4 に追記 (apiVersion bump PR 着手時) |
 | **2. Webhook destination 新規作成** (副次制約 4 #2683) | 副次制約 4 (Webhook destination api_version immutable、[phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) により**既存 destination の api_version 変更不可** → Stripe Dashboard #2627 領域 C (Test mode) + F (Production mode) で**新規 destination を新 api_version で作成** ([phase6-phase7-execution-ssot.md §5 Webhook 5 phase migration](phase6-phase7-execution-ssot.md) と同型) | Dashboard UI で目視 + Stripe API `webhookEndpoints.retrieve` で `api_version` field 確認 |
-| **3. SDK 1 行修正 + 5 phase shadow → cutover → retire** | `src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数を新 stable バージョンに変更、Phase 6 子 1 #2667 §5 Webhook 5 phase migration と同型で shadow mode → cutover → retire (旧 destination delete) | unit test (apiVersion bump PR で新規 client.test.ts 拡張) + Test clock E2E (Phase 6 子 2 #2662 SSOT) |
+| **3. SDK 1 行修正 + 新 destination 切替** | `src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数を新 stable バージョンに変更。新 destination は同一 URL (`/api/stripe/webhook`) に向けて作成し旧 destination を無効化する ([phase6-phase7-execution-ssot.md §Step 4](phase6-phase7-execution-ssot.md) の代替、route を増やさない)。並行期間の重複到達は insert-first dedup が吸収する | unit test (apiVersion bump PR で新規 client.test.ts 拡張) + Test clock E2E (Phase 6 子 2 #2662 SSOT) |
 | **4. 72h 監視** (Sentry / Discord alert) | Step 3 cutover 後 72h 以内に Sentry error rate / Stripe webhook handler エラー / Discord alert を監視、breaking change 漏れによる incident を検知 | Sentry dashboard / Discord channel 監視 |
 
 ### 5.2 72h rollback window 監視計画 (将来の stable apiVersion bump 時に発動)
@@ -249,7 +249,7 @@ Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) より、
 |---|---|---|
 | Sentry error rate (Stripe SDK 由来) | > 0.5% / 1 hour | Discord alert + 1 名以上の Dev エンジニアに通知 |
 | Stripe webhook handler エラー率 | > 1% / 1 hour | apiVersion 即時 rollback (Stripe Dashboard で旧 destination 再有効化 + 新 destination 即時 disabled、副次制約 4 整合) + SDK 側も旧 stable バージョン `'2026-04-22.dahlia'` に revert |
-| Stripe webhook silent drop (Phase 5 子 3 dedup table 経由検出) | > 0 件 / 24 hour | apiVersion bump とは独立だが、Phase 7 Step 4-a shadow mode (子 1 SSOT) と重ねて検証 |
+| Stripe webhook silent drop (Phase 5 子 3 dedup table 経由検出) | > 0 件 / 24 hour | apiVersion bump とは独立に、新旧 destination 並行期間中の insert-first dedup で検証 |
 | customer inquiry (Discord / メール) | > 3 件 / 24 hour | PO 判断で rollback 実施 |
 
 ### 5.3 Webhook destination の api_version immutable (#2683 副次制約 4、Step 2 詳細)

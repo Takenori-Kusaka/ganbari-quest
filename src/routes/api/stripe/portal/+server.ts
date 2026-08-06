@@ -5,6 +5,7 @@
 //       PIN 未設定テナントは確認フレーズ (`プランを変更します`) でフォールバックする。
 
 import { error, json } from '@sveltejs/kit';
+import { SUBSCRIPTION_PAGE_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 import { isPinConfigured, verifyPin } from '$lib/server/services/auth-service';
 import { createPortalSession, type PortalFlow } from '$lib/server/services/stripe-service';
@@ -102,11 +103,15 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 			STRIPE_DISABLED: 503,
 			TENANT_NOT_FOUND: 404,
 			NO_STRIPE_CUSTOMER: 400,
+			// #4329: Stripe 側の失敗であって顧客のリクエストの誤りではない。
+			PORTAL_CREATE_FAILED: 503,
 		};
 		const messageMap: Record<string, string> = {
 			STRIPE_DISABLED: '決済機能は現在利用できません',
 			TENANT_NOT_FOUND: 'アカウントが見つかりません',
 			NO_STRIPE_CUSTOMER: 'サブスクリプション情報が見つかりません',
+			// #4329: 汎用の「エラーが発生しました」に落とすと次に取れる手が伝わらない (ADR-0062)。
+			PORTAL_CREATE_FAILED: SUBSCRIPTION_PAGE_LABELS.portalErrorCreateFailed,
 		};
 		error(statusMap[result.error] ?? 500, messageMap[result.error] ?? 'エラーが発生しました');
 	}

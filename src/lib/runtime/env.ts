@@ -123,6 +123,18 @@ const envSchema = z.object({
 	// ----- Ops (ADR-0033) -----
 	CRON_SECRET: z.string().min(32).optional(),
 	OPS_SECRET_KEY: z.string().optional(),
+
+	/**
+	 * #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+	 * `'true'` / `'1'` で削除を一切実行しない。未設定 = 従来どおり有効。
+	 *
+	 * **`booleanStringSchema` を使わない**: 同 schema は `'true'|'false'` 以外を
+	 * validation error にし、`getEnv()` は module load 時に throw する
+	 * (= アプリ全体が起動しない)。本 env は**障害対応中に手で急いで設定する**もので、
+	 * `1` / `yes` 等の打ち間違いでアプリを落とすのは筋が悪い。文字列のまま受け、
+	 * 解釈と「解釈できない値だった」の警告は grace-period-service 側で行う。
+	 */
+	GRACE_PERIOD_DELETION_DISABLED: z.string().optional(),
 	OPS_DOMAIN_COST_JPY: z.coerce.number().int().default(117),
 	OPS_VIRTUAL_OFFICE_COST_JPY: z.coerce.number().int().default(0),
 
@@ -158,6 +170,19 @@ const envSchema = z.object({
 	// 本番では `https://ganbari-quest.com` を CDK context 経由で注入。
 	// 未設定時は本番 URL にフォールバック (email-service.ts と整合)。
 	APP_BASE_URL: z.string().url().optional(),
+
+	// ----- Front door (CloudFront → origin shared secret、#4280 案 b) -----
+	/**
+	 * CloudFront が origin request に付与する共有シークレット (`x-origin-verify` header)。
+	 * 一致しない `/admin` `/api/v1/admin` `/ops` への request を 404 にし、Lambda Function URL
+	 * (`authType: NONE`) 直叩きによる CloudFront 層制御の迂回を塞ぐ。
+	 *
+	 * **未設定なら検査は無効 (fail-open)**。CloudFront を持たない配備 (NUC セルフホスト /
+	 * ローカル開発 / demo Lambda) が正当に存在するため。AWS 側の設定漏れは CDK synth
+	 * (`infra/lib/origin-verify-context.ts`) と `deploy.yml` の必須 secret 検証で止める。
+	 * 判定ロジックと fail-open の根拠: `src/lib/server/security/origin-verify.ts`
+	 */
+	ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
 
 	// ----- Parent-Gate Session (#2310 / ADR-0050) -----
 	/**

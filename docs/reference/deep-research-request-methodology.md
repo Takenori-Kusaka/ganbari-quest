@@ -4,7 +4,7 @@
 >
 > **本ファイルの位置付け**: methodology reference (連番外)。個別 research の成果物 (連番 `NN-research-<topic>.md`) はこの方法論に従って書かれる。
 >
-> **関連**: `docs/sessions/po-session.md` §タスク 4 / ADR-0003 (Issue 品質) / ADR-0010 (Pre-PMF) / ADR-0014 (OSS 先調査)
+> **関連**: `.claude/skills/issue-triage/SKILL.md` 手順 C / ADR-0003 (Issue 品質) / ADR-0010 (Pre-PMF) / ADR-0014 (OSS 先調査)
 
 ---
 
@@ -227,7 +227,7 @@ weight: 大規模 (Rust RFC full + Spike escalation 経路)
 
 | ドキュメント | 用途 |
 |---|---|
-| `docs/sessions/po-session.md` §タスク 4 | 本 SSOT の運用手順 |
+| `.claude/skills/issue-triage/SKILL.md` 手順 C | 本 SSOT の運用手順 |
 | `docs/decisions/0003-issue-quality-standard.md` | Issue 品質 SSOT |
 | `docs/decisions/0010-pre-pmf-scope-judgment.md` | Pre-PMF scope 判断 (OSS 調査コスト判断) |
 | `docs/decisions/README.md` §OSS 先調査ルール | OSS 先調査ルール SSOT（旧 ADR-0014 は #2440 PR-A5 で削除） |

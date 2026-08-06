@@ -1,5 +1,10 @@
 // tests/unit/services/grace-period-service.test.ts
 // #742: グレースピリオドサービスのユニットテスト
+//
+// cspell:ignore ture
+//   #4327: kill-switch env の「解釈できない値」negative case で使う `true` の打ち間違い。
+//   綴りを直すと negative case が成立せず、「止めたつもりで止まっていない」を検出できなくなる
+//   (tests/CLAUDE.md §負例 fixture と cspell)。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,6 +47,12 @@ vi.mock('$lib/server/services/account-deletion-service', () => ({
 	deleteOwnerFullDelete: mockDeleteOwnerFullDelete,
 }));
 
+// #4327: kill-switch env を test から切り替えるための可変 stub
+const { mockEnv } = vi.hoisted(() => ({
+	mockEnv: {} as Record<string, string | undefined>,
+}));
+vi.mock('$lib/runtime/env', () => ({ env: mockEnv }));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 }));
@@ -74,6 +85,7 @@ vi.mock('$lib/server/logger', () => ({
 import { logger } from '$lib/server/logger';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
+	DELETION_WARNING_SENT_KEY,
 	findExpiredSoftDeletedTenants,
 	getGracePeriodDays,
 	getGracePeriodStatus,
@@ -86,6 +98,8 @@ describe('grace-period-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		settingsStore.clear();
+		// #4327: kill-switch env は test 間で持ち越さない (既定 = 有効)
+		for (const key of Object.keys(mockEnv)) delete mockEnv[key];
 	});
 
 	afterEach(() => {
@@ -162,10 +176,14 @@ describe('grace-period-service', () => {
 		});
 
 		// #4316: sentinel-last 書き込み順序
-		// 3 キーの setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
+		// setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
 		// upsert)。`soft_deleted_at` は soft-delete 状態を起動する sentinel なので **最後に**
 		// 書く。途中で失敗しても「soft-delete が始まっていない」状態にしかならず、
 		// 「ロックはかかるが物理削除の母集団に入らない」宙吊りが成立しない。
+		//
+		// #2399: 予告メール送信済フラグのリセットも sentinel より前に置く。ここで失敗しても
+		// sentinel が立たない = 「送信済フラグが残ったまま猶予期間に入り予告なしで消える」が
+		// 成立しない。
 		it('#4316: sentinel である soft_deleted_at を最後に書く (途中失敗で宙吊りを作らない)', async () => {
 			await softDeleteTenant('tenant-1', 'active', 'family-monthly');
 
@@ -173,8 +191,11 @@ describe('grace-period-service', () => {
 			expect(writtenKeys).toEqual([
 				'physical_deletion_date',
 				'deletion_grace_plan_tier',
+				'deletion_warning_sent_at',
 				'soft_deleted_at',
 			]);
+			// sentinel は常に最後 (キーが増えても本不変条件は保たれる)
+			expect(writtenKeys.at(-1)).toBe('soft_deleted_at');
 		});
 	});
 
@@ -240,6 +261,21 @@ describe('grace-period-service', () => {
 			expect(result.success).toBe(true);
 			// settings がクリアされている
 			expect(mockSetSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-1');
+		});
+
+		// #2399: クリア漏れは「2 回目の予約が予告なしで消える」silent regression になる
+		it('復元時に削除予告メールの送信済フラグもクリアする', async () => {
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 10);
+
+			settingsStore.set('soft_deleted_at', new Date().toISOString());
+			settingsStore.set('deletion_grace_plan_tier', 'family');
+			settingsStore.set('physical_deletion_date', futureDate.toISOString());
+			settingsStore.set(DELETION_WARNING_SENT_KEY, new Date().toISOString());
+
+			await restoreSoftDeletedTenant('tenant-1');
+
+			expect(settingsStore.get(DELETION_WARNING_SENT_KEY)).toBe('');
 		});
 
 		it('ソフトデリートされていない場合は失敗する', async () => {
@@ -473,6 +509,71 @@ describe('grace-period-service', () => {
 			expect(result.tenantsProcessed).toBe(2);
 			expect(result.tenantsDeleted).toBe(2);
 			expect(result.tenantsRemaining).toBe(0);
+		});
+
+		// #4327: kill-switch — 不可逆な削除を「止められる」ことを実挙動で固定する。
+		// 宣言 (env が読めている) ではなく **削除が呼ばれないこと** を検証する。
+		describe('#4327 kill-switch (GRACE_PERIOD_DELETION_DISABLED)', () => {
+			it("'true' なら対象の走査すらせず、1 件も削除しない", async () => {
+				seedExpiredTenants(['t1', 't2']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'true';
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(result.tenantsDeleted).toBe(0);
+				expect(result.tenantsProcessed).toBe(0);
+				// 実削除経路が 1 度も呼ばれていない
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+				expect(mockDeleteOwnerFullDelete).not.toHaveBeenCalled();
+				// 対象列挙 (listAllTenants) にも到達していない = 誤って消す経路が残っていない
+				expect(mockListAllTenants).not.toHaveBeenCalled();
+			});
+
+			// 障害対応中に手で打つ env なので表記ゆれを受ける (打ち間違いで止まらないのを避ける)
+			it.each(['1', 'yes', 'on', 'TRUE', ' true '])("'%s' でも停止する", async (value) => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+			});
+
+			it.each([
+				undefined,
+				'',
+				'false',
+				'0',
+				'off',
+			])('%s では従来どおり削除する (既定は有効)', async (value) => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(false);
+				expect(result.tenantsDeleted).toBe(1);
+			});
+
+			// #4340 follow-up: 「止めたつもりだが止まっていない」を作らない。
+			// 対象が取り消せない削除であり、止め忘れ (200 + disabled で観測できる) より
+			// 止め損ない (削除が終わるまで観測できない) の方が回復不能なので、止める側に倒す。
+			// throw しないのは据え置き (障害対応中の typo でアプリ全体を落とさない) — warn は必ず出す。
+			it('解釈できない値は「停止」として扱い、1 件も削除せず warn で観測可能にする', async () => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'ture'; // よくある打ち間違い
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(result.tenantsDeleted).toBe(0);
+				expect(logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining('GRACE_PERIOD_DELETION_DISABLED'),
+					expect.objectContaining({ context: expect.objectContaining({ value: 'ture' }) }),
+				);
+			});
 		});
 	});
 });

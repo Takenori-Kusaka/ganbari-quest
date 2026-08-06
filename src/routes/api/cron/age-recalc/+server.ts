@@ -10,9 +10,13 @@
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:
-//   200 { ok: true, scanned, skipped, updated, failures, dryRun }
+//   200 { ok: true, scanned, skipped, updated, failures, dryRun,
+//         tenantsTotal, tenantsProcessed, tenantsRemaining, budgetExceeded, sliceIndex, sliceCount }
 //   401 Unauthorized
 //   500 Internal Error
+//
+// #4337 (13-AWS設計書 §3.3): 1 回の実行は件数上限 + 20 秒予算で self-limiting する。
+// 走査しきれなかったテナントは tenantsRemaining として報告され、次回以降の実行が回収する。
 
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';

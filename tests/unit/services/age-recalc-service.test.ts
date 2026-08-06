@@ -41,6 +41,7 @@ vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
 	todayDateJST: () => '2026-04-25',
 }));
 
+import { logger } from '$lib/server/logger';
 import { recalcAllChildrenAges } from '../../../src/lib/server/services/age-recalc-service';
 
 // ============================================================
@@ -376,5 +377,128 @@ describe('recalcAllChildrenAges — uiMode 切替の告知記録 (#4313)', () =>
 		await recalcAllChildrenAges({ today: '2026-04-25' });
 
 		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+	});
+});
+
+// ============================================================
+// #4337: 30 秒 self-limiting + 持ち越し (13-AWS設計書 §3.3)
+// ============================================================
+
+describe('recalcAllChildrenAges — self-limiting / 持ち越し (#4337)', () => {
+	/** tenantLimit / 時間予算の検証用に N テナント (t01..tNN) を仕込む */
+	function seedTenants(count: number) {
+		const ids = Array.from({ length: count }, (_, i) => `t${String(i + 1).padStart(2, '0')}`);
+		mockListAllTenants.mockResolvedValue(ids.map((id) => makeTenant(id)));
+		// child は全テナント共通で「更新不要な 1 件」= 走査コストのみを表現する
+		mockFindAllChildren.mockResolvedValue([makeChild({ age: 6, birthDate: '2020-04-25' })]);
+		return ids;
+	}
+
+	/** findAllChildren に渡された tenantId 列 = 実際に走査したテナント */
+	function visitedTenants(): string[] {
+		return mockFindAllChildren.mock.calls.map((c) => c[0] as string);
+	}
+
+	it('テナント数が上限を超える場合、上限までしか処理せず残りを持ち越す', async () => {
+		seedTenants(5);
+
+		const result = await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 2 });
+
+		expect(result.tenantsProcessed).toBe(2);
+		expect(result.tenantsTotal).toBe(5);
+		expect(result.tenantsRemaining).toBe(3);
+		expect(visitedTenants()).toHaveLength(2);
+	});
+
+	it('持ち越しが発生したら log warn + レスポンスで報告する (silent 持ち越し禁止)', async () => {
+		seedTenants(5);
+
+		const result = await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 2 });
+
+		expect(result.tenantsRemaining).toBeGreaterThan(0);
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.stringContaining('carried over'),
+			expect.objectContaining({
+				context: expect.objectContaining({ remaining: 3 }),
+			}),
+		);
+	});
+
+	it('時間予算を使い切っていたら 1 テナントも処理せず全件持ち越す', async () => {
+		seedTenants(3);
+
+		const result = await recalcAllChildrenAges({
+			today: '2026-04-25',
+			budget: { exceeded: () => true, elapsedMs: () => 20_000 },
+		});
+
+		expect(result.tenantsProcessed).toBe(0);
+		expect(result.tenantsRemaining).toBe(3);
+		expect(result.budgetExceeded).toBe(true);
+		expect(mockFindAllChildren).not.toHaveBeenCalled();
+	});
+
+	it('予算超過は item (テナント) 間で判定し、着手したテナントは完走する', async () => {
+		seedTenants(3);
+		let calls = 0;
+		// 1 テナント目の処理中に予算超過に転じる → 2 テナント目以降は処理しない
+		const budget = {
+			exceeded: () => calls++ >= 1,
+			elapsedMs: () => 20_000,
+		};
+
+		const result = await recalcAllChildrenAges({ today: '2026-04-25', budget });
+
+		expect(result.tenantsProcessed).toBe(1);
+		expect(result.tenantsRemaining).toBe(2);
+		expect(visitedTenants()).toEqual(['t01']);
+		// 着手した 1 テナント目の child は最後まで走査されている
+		expect(result.scanned).toBe(1);
+	});
+
+	it('次回実行は続きから進む — 連続する実行日で同じ先頭 N 件を繰り返さない', async () => {
+		const all = seedTenants(5);
+		const seen: string[][] = [];
+
+		// 5 テナント / 上限 2 → 3 スライス。3 日連続で全件を重複なく網羅する
+		for (const today of ['2026-04-25', '2026-04-26', '2026-04-27']) {
+			vi.clearAllMocks();
+			mockUpdateChild.mockResolvedValue(undefined);
+			seedTenants(5);
+			await recalcAllChildrenAges({ today, tenantLimit: 2 });
+			seen.push(visitedTenants());
+		}
+
+		const flat = seen.flat();
+		expect(new Set(flat).size).toBe(flat.length); // 重複なし
+		expect([...new Set(flat)].sort()).toEqual([...all].sort()); // 全件網羅
+		expect(seen[0]).not.toEqual(seen[1]); // 先頭 N 件の繰り返しではない
+	});
+
+	it('同じ実行日なら同じスライスを処理する (順序は日付から決まる決定的関数)', async () => {
+		seedTenants(5);
+		await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 2 });
+		const first = visitedTenants();
+
+		vi.clearAllMocks();
+		mockUpdateChild.mockResolvedValue(undefined);
+		seedTenants(5);
+		await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 2 });
+
+		expect(visitedTenants()).toEqual(first);
+	});
+
+	it('回帰: テナント数が上限未満なら従来どおり全件処理し持ち越し 0', async () => {
+		seedTenants(3);
+
+		const result = await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 10 });
+
+		expect(result.tenantsProcessed).toBe(3);
+		expect(result.tenantsRemaining).toBe(0);
+		expect(result.scanned).toBe(3);
+		expect(logger.warn).not.toHaveBeenCalledWith(
+			expect.stringContaining('carried over'),
+			expect.anything(),
+		);
 	});
 });

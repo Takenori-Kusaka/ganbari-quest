@@ -45,6 +45,8 @@ function synthFunctionCodes(extraContext: Record<string, unknown> = {}): string[
 	const network = new NetworkStack(app, 'TestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 	});
 	const resources = Template.fromStack(network).findResources('AWS::CloudFront::Function');
 	return Object.values(resources).map((r) => String(r.Properties?.FunctionCode ?? ''));

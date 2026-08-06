@@ -33,7 +33,7 @@ QM が拾うのは **`state:needs-qm`**（**QM に用がある**。レビュー�
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）と **read-only の分担調査**（複数 PR の AC 突き合わせ等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。Tier 2 の per-PR Review Agent を teammate 化する形が素直。
+QM が使ってよいのは **多観点レビュー**（security / perf / test-coverage を teammate ごとに分ける）と **read-only の分担調査**（複数 PR の AC 突き合わせ等、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。per-PR Review Agent を teammate 化する形が素直。
 
 **ただし approve と merge は lead 専権**（ADR-0056 §E と同型。subagent が不可逆 action を肩代わりしないのと同じ）。
 
@@ -66,61 +66,70 @@ QM は PR の **base branch でレーンを判別**し、レーンごとに gate
 
 - **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=`release/*`（§3.1）または develop（後方互換）→ 統合 / base=main かつ head=`fix/*`（緊急 fix / CI 環境構築）→ hotfix。**base=main でそれ以外の head（feature 系）は起票時の base 誤設定** — 開発チームに差し戻さず QM の **Fix Agent が base を develop へ訂正 + develop へ rebase** して軽量レーンに載せる（2026-06-11 User 指示。手順は本節下部 + Step 2 コメント参照。旧「retarget 依頼で保留」は差し戻しコストが高いため廃止）。
 - **hotfix 安全側フォールバック（label 単独依存の防止、#2938 項目 3）**: base=main かつ head=`fix/*` で `priority:critical` label が無い PR は、判別から漏らさず**安全側で hotfix レーン（重量 gate）として扱った上で**、linked Issue を開いて critical 該当性を確認する。該当 → label 付与 + hotfix 続行（ADR-0002 5 要件適用）/ 非該当（CI 環境構築例外にも該当しない）→ Fix Agent が base を develop へ訂正 + rebase（上記 base 誤設定対応と同手順）。`ci.yml` の `main-pr-base-guard`（#2933）は head=`fix/*` を base 制限としては許容するため、label 有無による critical 判定は本フォールバック（QM 側）が担う。
-- **統合 PR（`release/*` → main、§3.1。develop→main は後方互換）は外部監査チーム担当**: release 統合 PR の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + V-7 Orchestrator 専権 approve 規律は同一に適用する。
-- **base 誤設定 feature の Fix Agent 対応手順**: (1) `gh pr edit <N> --base develop` (2) worktree 内で `git rebase origin/develop` → conflict 解消 → `git push --force-with-lease`（旧 main ベースの drift を解消し本来の diff に戻す） (3) base=develop の軽量レーンとして通常 Tier 2 review → develop merge。
+- **統合 PR（`release/*` → main、§3.1。develop→main は後方互換）は外部監査チーム担当**: release 統合 PR の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + lead 専権 approve の規律は同一に適用する。
+- **base 誤設定 feature の修正 subagent 対応手順**: (1) `gh pr edit <N> --base develop` (2) worktree 内で `git rebase origin/develop` → conflict 解消 → `git push --force-with-lease`（旧 main ベースの drift を解消し本来の diff に戻す） (3) base=develop の軽量レーンとして通常のレビュー → develop merge。
 - **発効条件（cutover §8 連動）**: 本レーン区分は **develop branch 作成 + workflow 改修（branch-strategy.md §8 Step 2-3）完了後に発効**する。発効前は現行どおり main 向け PR を重量 gate で 5 手順レビューする。既存 open PR は retarget しない（§8 Step 6）。
 - **軽量レーンの CI 解釈**: e2e / a11y / storybook / visual regression が**不発火・skip でも approve を保留しない**（これらは統合 PR で集約検証される設計）。逆に、軽量レーンの required（lint-and-test / unit / PR テンプレ gate）が red のまま approve することは引き続き禁止。
 
-## アーキテクチャ：2 層構造
+## アーキテクチャ：subagent ループで 1 PR を閉じ切る
+
+**QM は指摘を Dev に返さず、自分の subagent で直して merge する**（憲章 §0 ルール 2）。lead が回すのは次の 4 ステップ。
 
 ```
-Tier 1: Orchestrator（このセッション）
-  ├─ gh pr list で Ready PR 取得
-  └─ PR 1 件ごとに Review Agent を spawn
-
-  ↓                              ↑
-Tier 2: Per-PR Review Agent（独立 ctx、5 手順全実行）
-  └─ Issue 照合 → SS 視認 → SS 欠落検知 → CI 確認 → 承認/BLOCK
+① レビュー subagent    指摘を出す
+② 修正 subagent        指摘を直す（Dev の受信箱に戻さない）
+③ 再レビュー subagent  直ったか確認する
+④ lead 本体            CI 緑を実測して approve → merge
 ```
 
-**2 層化の理由**: 1 セッション複数 PR 処理は context 肥大化で手順省略・判断ブレ発生（PR 末尾で初期手順に戻れない）。各 PR 独立 Agent で新鮮 ctx 維持。
+- **①〜③ を回すのは lead**。②③ は同じ agent を使い回してよい（1 PR = 1 agent、context を持ち越せる）
+- **収束条件**: 再レビューで BLOCK 3 類型が 0、かつ `gh pr checks` の**非 pass 行が 0**
+- **打ち切り条件**: **同じ指摘で 2 周したら実装方針の問題**。ルール 6 ① として Dev に返す。**3 周目を回さない**
+- **④ は lead 専権**。approve / merge を agent に委譲しない
+
+### subagent の報告を成果の根拠にしない
+
+**必ず lead が `git diff` / `gh pr checks` / `git ls-remote` で実測してから merge する。** agent は事実を取り違える（実例: 「develop から該当 job は削除済」と報告されたが実際は逆で、**その PR が削除していた**。信じていれば全 PR が merge 不能になる ruleset 変更を PO に上げていた）。
+
+**ロールを跨いだ team は組まない**（Dev クローンから QM を spawn しない、ADR-0022）。
+
+**agent を分ける理由**: 1 セッションで複数 PR を処理すると context 肥大化で手順省略・判断ブレが起きる（PR 末尾で初期手順に戻れない）。各 PR 独立 agent で新鮮 ctx を維持する。
 
 **並行セッション前提**: QM のセッションも Dev / PO / 監査と同一マシンで並走する。手順 4 (CI 確認) の一部やローカル再現で**重い検証** (vitest / pre-ready / playwright / svelte-check) を回すときは、**heavy lock が機械的に排他**しており他セッションが実行中なら exit 2 で止まる。止められたら待たず、CI の結果を正として判定できないかを先に検討する。QM 自身の検証コマンドが並走下で出した red は、それ単独では BLOCK の根拠にならない → **[agent-concurrency.md](agent-concurrency.md)**。
 
 > **`git push` は排他されない (2026-07-30)**: branch 単位の task lock は #4076 で撤去した (#4094 は PO 判断で棄却)。残るのは heavy lock のみで、push が他セッションの作業を理由に止まることはない。
 
-## Tier 1: Orchestrator 4 ステップ
+## ① 対象を拾う（lead）
 
 ```bash
-# Step 1: 最新化（develop 発効後は develop も fetch）
 git fetch origin
-
-# Step 2: Ready PR ピックアップ + レーン判別
 gh pr list --repo Takenori-Kusaka/ganbari-quest --state open \
   --json number,title,isDraft,reviewDecision,author,headRefName,baseRefName,labels
-# 対象: isDraft: false かつ reviewDecision != APPROVED
-# baseRefName でレーン判別（§レビュー対象レーン、2026-06-11 User 指示で改訂）:
-#   develop ← feat/*    → 軽量レーン（5 手順 + 軽量 gate）★QM の通常レビュー対象
-#   main    ← develop   → release 統合 PR → 【外部監査チーム】が担当。QM 対象外（旧「暫定 QM 代行」は終了）
-#   main    ← fix/* 緊急 fix / CI 環境構築 → 例外的に QM がレビュー（重量 gate、critical は ADR-0002）
-#   main    ← その他の feature 系（head≠develop）→ 起票時の base 誤設定の可能性が高い。
-#       開発チームに差し戻さず QM の【Fix Agent】が base 訂正 + develop rebase で develop レーンに載せる:
-#         (1) gh pr edit <N> --base develop  （2) worktree 内で git rebase origin/develop → push --force-with-lease
-#         (3) 以降は develop ← feat/* と同じ軽量レーンで Tier 2 review → develop merge
-#       （根拠: base=main への正規 PR は develop 由来のみ。retarget 依頼の差し戻しより Fix Agent 対応が低コスト）
-# 0 件なら「Ready PR なし」記録して終了
-
-# Step 3: PR ごとに Review Agent spawn（複数 PR 同時 spawn 可、変更ファイル重複なき場合）
-#   agent の責務は V-0〜V-6（semantic verify + Adversarial evidence 生成・報告）まで（#2756 / #2815 Q-1）
-# Step 4: 全 Agent 完了後、QM Orchestrator 本体が V-7 approve action を直接実行:
-#   1) evidence (tmp/adversarial-evidence/<pr>.json) を物理 verify
-#   2) §「全手順 Pass → approve & merge」sequence を Orchestrator 本体が実行（agent に委譲しない）
-#   3) サマリー記録（処理 PR 一覧 / merge 済み / block 中 / 指摘概要）
-# Step 4 残置検知: 次 PR 着手前に「evidence verify 済み・approve 未実行」queue を確認し、
-#   未処理があれば先に V-7 を完遂する（Orchestrator 忘却の機械検知、#2815 Q-1 緩和条件）
 ```
 
-## Tier 2: Per-PR Review Agent（5 手順）
+対象は `isDraft: false` かつ `reviewDecision != APPROVED`。`baseRefName` でレーンを判別する（判別表は §レビュー対象レーン）。0 件なら「Ready PR なし」を記録して終了。
+
+**着手前に必ず `git merge-base origin/<base> <head>` を測る。** 空なら orphan branch で、**そのブランチが何を変更したのかを測る基準線が存在しない**。GitHub の PR 画面の file 数も `git diff <base> <head>`（two-dot）の結果も実際に着地する変更ではない。**CI が全 pass でも orphan tree を検査した結果なので根拠にならない**（実例 #4328）。この場合は base から切り直させる。
+
+**差分は three-dot（`git diff $(git merge-base ...) <head>`）で見る。** two-dot は「削除した」と「まだ取り込んでいない（behind）」を区別せず、**取り込み遅れを削除と誤読させる**（実例 #4331: two-dot では security fix 4 file が `D` に見えたが、three-dot では 1 件も触っていなかった）。
+
+## ②③ 修正・再レビュー subagent へ渡すもの
+
+- **BLOCK 3 類型に当たらない不備は、指摘ではなく修正として渡す**（PR body の必須セクション / AC 検証マップ / 決裁ブリーフ / SS 宣言 / 軽微な test・lint）
+- **agent には「push 前に自分で検証する」ことを明示する**。CI に丸投げさせない
+- **作業は `/c/tmp/` の worktree**。共有クローンで `git checkout` / `git merge` させない
+- **commit author は `ganbariquestsupport-lab`**（ADR-0022 Amendment 6）。push は lab で試し、pre-push hook に弾かれたら `Takenori-Kusaka` に切替（author は lab のまま）
+- **`--no-verify` は禁止**。gate に止められたら止まったまま報告させる
+
+## ④ 承認・merge（lead）
+
+1. evidence (`tmp/adversarial-evidence/<pr>.json`) を `node scripts/verify-adversarial-output.mjs --pr <N>` で物理 verify（**TTL 30 分**なので approve 直前に生成する）
+2. §「全手順 Pass → approve & merge」の sequence を **lead 本体が実行**する（agent に委譲しない）
+3. サマリー記録（処理 PR 一覧 / merge 済み / block 中 / 指摘概要）
+
+**残置検知**: 次 PR 着手前に「evidence verify 済み・approve 未実行」の queue を確認し、未処理があれば先に完遂する。
+
+## Per-PR Review Agent（5 手順）
 
 > 1 Agent = 1 PR 厳守。手順スキップ・順序変更禁止。
 
@@ -133,7 +142,7 @@ gh pr diff <num> --repo Takenori-Kusaka/ganbari-quest --name-only
 
 #### Authoritative HEAD 検証 (#2557)
 
-`gh pr view --json headRefOid` は GitHub API cache の eventual consistency により stale 値を返すことがあり、誤診断 (force-push 直後の「古い HEAD で再 BLOCK」事故 / 修正 commit drop 誤検知) の原因となる。Tier 2 5 手順を開始する前に **必ず** `git ls-remote origin refs/heads/<branch>` で authoritative HEAD SHA を取得し、以降の `git show <sha>:<file>` / `git diff` / `gh api ...` 全検証で stable な reference として固定する。`gh pr view` の値と乖離があれば ls-remote を信頼し `git fetch origin <branch>` 後に検証着手。詳細・helper script: `scripts/verify-pr-head.mjs` / `docs/sessions/dev-process/github-api-head-staleness.md`。
+`gh pr view --json headRefOid` は GitHub API cache の eventual consistency により stale 値を返すことがあり、誤診断 (force-push 直後の「古い HEAD で再 BLOCK」事故 / 修正 commit drop 誤検知) の原因となる。5 手順を開始する前に **必ず** `git ls-remote origin refs/heads/<branch>` で authoritative HEAD SHA を取得し、以降の `git show <sha>:<file>` / `git diff` / `gh api ...` 全検証で stable な reference として固定する。`gh pr view` の値と乖離があれば ls-remote を信頼し `git fetch origin <branch>` 後に検証着手。詳細・helper script: `scripts/verify-pr-head.mjs` / `docs/sessions/dev-process/github-api-head-staleness.md`。
 
 ```bash
 git ls-remote origin refs/heads/<branch>    # → 返値 SHA を以降の検証で固定参照
@@ -291,7 +300,7 @@ archive 移動 (ADR 1-in-1-out 等) の legitimate な delete は `--ignore-patt
 
 #### 全手順 Pass → approve & merge
 
-> **実行主体（#2756 / #2815 Q-1 / ADR-0056 §E 追補）**: 本 sequence は **QM Orchestrator 本体が直接実行**する。Tier 2 Review / Re-Review agent には委譲しない（agent は V-0〜V-6 で完結し evidence file path を報告するまでが責務）。Orchestrator 本体経路は gate-approve hook の evidence 検証が確実に発火する正規経路。account switch → approve → merge → **Takenori-Kusaka 復帰**は不可分ブロックとして連続実行し、復帰を毎回 verify する。
+> **実行主体（#2756 / #2815 Q-1 / ADR-0056 §E 追補）**: 本 sequence は **lead 本体が直接実行**する。Review / Re-Review subagent には委譲しない（subagent は検証と evidence file path の報告までが責務）。lead 本体経路は gate-approve hook の evidence 検証が確実に発火する正規経路。account switch → approve → merge → **Takenori-Kusaka 復帰**は不可分ブロックとして連続実行し、復帰を毎回 verify する。
 
 ```bash
 gh auth switch --user ganbariquestsupport-lab
@@ -364,7 +373,7 @@ force push 検出は Branch Ruleset `require_last_push_approval: true`。QM は�
 
 ## Agent spawn テンプレート
 
-Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型プロンプトは @docs/sessions/qm-agent-templates.md に集約。`<>` を実値に置換してコピー。
+lead が Review subagent / 修正 subagent を spawn する際の定型プロンプトは @docs/sessions/qm-agent-templates.md に集約。`<>` を実値に置換してコピー。
 
 ## QM が絶対にやってはいけないこと
 

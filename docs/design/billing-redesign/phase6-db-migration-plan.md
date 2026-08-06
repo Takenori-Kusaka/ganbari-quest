@@ -9,7 +9,7 @@
 | 並列対象 | 子 2 #2662 (Test clock 6 シナリオ) / 子 4 #2664 (文脈判断 6 件 + lookup_key 段階移行) |
 | 連動 (Phase 7) | Step 1 (DB migration 実行 PR、推定 200 行) |
 | ステータス | 設計確定 (本 PR で docs SSOT、コード変更は Phase 7 Step 1) |
-| 起点 | Phase 5 子 3+4 で確定した DB schema 変更 (`stripe_webhook_events` 新規 + `archived_reason` enum) を 4 backend (sqlite / dynamodb / in-memory mock / e2e fixture) で同期投入し、Phase 7 Step 2 以降の atom 統合 / lookup_key 移行 / webhook shadow-mode を「schema 配備済み」状態で着手できるようにする |
+| 起点 | Phase 5 子 3+4 で確定した DB schema 変更 (`stripe_webhook_events` 新規 + `archived_reason` enum) を 4 backend (sqlite / dynamodb / in-memory mock / e2e fixture) で同期投入し、Phase 7 Step 2 以降の atom 統合 / lookup_key 移行を「schema 配備済み」状態で着手できるようにする |
 
 > **位置づけ**: Phase 6 グループ B の DB 層 SSOT。Phase 5 子 3 (`stripe_webhook_events` 新規 table) + 子 4 (`archived_reason` enum 3 値) を **Phase 7 Step 1 (DB migration、推定 200 行) で 1 PR にまとめて投入** する際の、4 backend 整合 / migration 順序 / rollback / kill switch / e2e fixture 同期 を確定する。Phase 7 実装者は本 docs を参照するだけで「どの file をどの順序で触り、何を assert するか」が一意に決まる状態を確立する。
 
@@ -29,7 +29,6 @@ Phase 6 子 1 #2661 §3 Step 1 で確定:
 1. **drizzle schema 4 location (`schema.ts:40,70,109,430`) の `archived_reason` enum 制約追加を 1 location 漏らす** → drizzle-orm 経路の書込みで「不正 reason」を runtime 検知できず、`'dunning_canceled'` row が `archived_reason='unknown'` 等に化ける
 2. **`tests/e2e/global-setup.ts` (`ALTER TABLE ... ADD COLUMN`) と `tests/unit/helpers/test-db.ts` (CREATE TABLE) と `src/lib/server/db/create-tables.ts` (CREATE TABLE IF NOT EXISTS) の 3 fixture が DDL 差分で乖離** → 同 spec が unit test では PASS、E2E では `no such column / table` で fail する分岐 hell (#2508 / #2510 と同型の 4 dimension 同期漏れ)
 3. **既存 archived レコード (NULL) の補充 migration を Step 2 以降の atom rename PR と混ぜる** → atom rename の rollback で migration も巻き戻り、archived data が再び NULL に戻る非可逆事故
-4. **Stripe webhook shadow mode (Step 4-a) 開始時に `stripe_webhook_events` table 不在** → shadow handler が `findByEventId` で「table not found」例外 → shadow mode 検証が一切できない
 
 ### 1.2 課題: 4 backend の DB schema 差異が SSOT 化されていない
 
@@ -60,7 +59,7 @@ Phase 6 子 1 #2661 §3 Step 1 で確定:
 ### 1.4 設計がなかった場合に何が困るか (4 シナリオ)
 
 1. **Phase 7 Step 1 PR で `archived_reason` enum を `schema.ts` 1 location のみに追加 (4 location 全て揃えず)** → drizzle-orm 書込み経由は enum 検証されるが、`sqlite/child-repo.ts` の生 SQL 経由書込み (`UPDATE children SET archived_reason = ?`) は無検証で `'dunning_canceled'` row が `'foo'` に化ける
-2. **Phase 7 Step 1 PR を `archived_reason` enum + `stripe_webhook_events` table 分離 (2 PR 化)** → Step 2 (atom 統合 5 sub step) の着手中に Step 1-a (enum) のみマージされ Step 1-b (webhook table) 未マージ状態で Step 4-a (shadow mode) 開始 → table 不在で 500 エラー
+2. **Phase 7 Step 1 PR を `archived_reason` enum + `stripe_webhook_events` table 分離 (2 PR 化)** → Step 2 (atom 統合 5 sub step) の着手中に Step 1-a (enum) のみマージされ Step 1-b (webhook table) 未マージ状態のまま webhook 経路が `stripe_webhook_events` に書き込む → table 不在で 500 エラー
 3. **既存 NULL archived レコード補充 migration を `lazy-startup-migrations.ts` に追加せず `migrate-local.ts` (dev 専用) のみに実装** → 本番 NUC 起動時に補充が実行されず、`getArchivedResourceSummary` で reason 別件数集計が NULL row を含めて誤集計
 4. **e2e fixture (`tests/e2e/global-setup.ts`) に `stripe_webhook_events` CREATE TABLE を追加せず unit test fixture (`tests/unit/helpers/test-db.ts`) のみ追加** → unit test PASS、E2E で `tests/e2e/dunning-canceled-archive.spec.ts` (Phase 5 子 4 §7.3 新規) が `no such table` で fail → CI 緑だが production canary で fail (#2508 startup blocking と同型)
 
@@ -275,7 +274,7 @@ DROP TABLE IF EXISTS stripe_webhook_events;
 
 Phase 7 Step 1 自体には **kill switch なし** (DB schema は前方互換、新 column / table 追加のみで既存 read 経路に影響なし、子 1 #2661 §3 Step 1 SSOT 整合)。
 
-Step 2 以降の kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) は子 1 #2661 §5.3 + 子 4 #2664 (lookup_key 段階移行) で SSOT 化。
+Step 2 以降の kill switch (`USE_LOOKUP_KEY`) は子 1 #2661 §5.3 + 子 4 #2664 (lookup_key 段階移行) で SSOT 化。
 
 ## 7. テスト計画 (§7、Phase 7 Step 1 PR body 必須)
 
@@ -426,8 +425,8 @@ Phase 7 Step 1 PR で **§3 13 file (schema 4 location + create-tables + lazy-st
 |---|---|------|------|------|
 | 1 | **business** | 既存 NULL archived 補充の rollback 不可逆性 (§5.3) を許容するか、Step 1 マージ前に production DB snapshot 取得を必須化するか | 推奨: snapshot 取得必須化 (`infra/scripts/snapshot-db.sh` 既存 or Phase 7 で新規) を Step 1 PR Pre-Ready checklist (§7.4) に追加。data loss tolerable だが本番運用では snapshot で保険を打つ (課金別格 [[billing-critical-extra-caution]] 整合) | Phase 7 Step 1 着手時 PO 判断 |
 | 2 | **UX** | `archived_reason='dunning_canceled'` 列値の Phase 3 banner 文言出し分け (子 4 #2642 §10 #2 で「統合 = downgrade_user_selected variant 流用」推奨)。本 #2663 では schema 配備のみ、文言出し分けは Phase 7 Step 2 (atom 統合) で確定する想定 | 本 #2663 scope 外 (子 4 §10 #2 整合)。Phase 7 Step 2 で atom 統合と同時に文言出し分け判断、必要なら reason 別 sub-variant 追加 | Phase 7 Step 2 着手時 PO 判断 |
-| 3 | **security** | `error_message` 列に Stripe customer email 等の PII 流入 (子 3 §13 #3)。Phase 7 Step 4-a 実装時に 500 文字 truncate + `Stripe.Error` 型から `param` / `code` / `type` のみ抽出するヘルパで PII strip を実装する設計だが、Step 1 schema 配備時点では PII strip logic が存在しないため shadow mode 開始前に Step 4-a で必ず確認 | 推奨: Step 4-a PR Pre-Ready checklist (子 1 #2661 §10 #3) に「Test mode で `Stripe.Error.param` に email 含む event を流して `error_message` 内に email 不在を assert」を追加 | Phase 7 Step 4-a 実装時に必須 |
-| 4 | **security (adversarial)** | dispatcher 入口の並列同時到達時の PK 一意性違反 (子 3 §13 #6)。Step 1 schema 配備で `event_id PRIMARY KEY` 制約は機能するが、sqlite `INSERT OR IGNORE` + `RETURNING` の atomic check-and-insert は Step 4-a で実装。Step 1 単独では race condition 検出 test 不可 | 推奨: 本 #2663 では schema PK 制約 + dynamodb `ConditionExpression: 'attribute_not_exists(SK)'` 設計を SSOT 化、Step 4-a 実装時に必ず両 backend で実装 (子 3 §13 #6 整合) | Phase 7 Step 4-a 実装時に必須 |
+| 3 | **security** | `error_message` 列に Stripe customer email 等の PII 流入 (子 3 §13 #3)。webhook handler 実装時に 500 文字 truncate + `Stripe.Error` 型から `param` / `code` / `type` のみ抽出するヘルパで PII strip を実装する設計だが、Step 1 schema 配備時点では PII strip logic が存在しないため webhook handler 実装前に必ず確認 | 推奨: webhook handler PR Pre-Ready checklist に「Test mode で `Stripe.Error.param` に email 含む event を流して `error_message` 内に email 不在を assert」を追加 | webhook handler 実装時に必須 |
+| 4 | **security (adversarial)** | dispatcher 入口の並列同時到達時の PK 一意性違反 (子 3 §13 #6)。Step 1 schema 配備で `event_id PRIMARY KEY` 制約は機能するが、sqlite `INSERT OR IGNORE` + `RETURNING` の atomic check-and-insert は Step 4-a で実装。Step 1 単独では race condition 検出 test 不可 | 推奨: 本 #2663 では schema PK 制約 + dynamodb `ConditionExpression: 'attribute_not_exists(SK)'` 設計を SSOT 化、webhook handler 実装時に必ず両 backend で実装 (子 3 §13 #6 整合) | webhook handler 実装時に必須 |
 | 5 | **security (adversarial)** | DynamoDB TTL は **48h 以内** に自動削除 (AWS 公式: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html>)。SQLite cron は日次。30 日 retention の精度差で SQLite 側が遅れて削除 (例: 31 日目 cron 失敗 → 32 日目に削除) → DynamoDB → SQLite 移行時の data 不整合リスク | 推奨: Step 1 schema 配備時に「retention 期間の精度差は Pre-PMF Bucket B (ADR-0010) として許容、PMF 後の DB 移行時に整合性検査 cron 追加」と SSOT 確定。Phase 7 Step 1 PR では追加実装なし | Step 1 ready 化前に文書化 |
 
 ## 12. 6 観点 自己検証 (§12、[[per-issue-execution-workflow]] SSOT)

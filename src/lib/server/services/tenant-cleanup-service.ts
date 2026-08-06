@@ -93,10 +93,20 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
  * checklist templates 等）もここで削除されるため、クリア後のユーザーは
  * トライアルを再度使えないか、使えてしまうかが確定する。
  *
+ * @param opts.deferSettings
+ *   #4327: `settings` の削除だけを行わない。`settings` は soft-delete 判定材料
+ *   (`soft_deleted_at` / `physical_deletion_date`) を保持しており、これを消した後に
+ *   後続ステップが失敗すると「`families` は残るが判定材料が無い」宙吊り行ができる
+ *   (物理削除の母集団にも復元対象にも入らない)。full deletion 経路は本 flag を立て、
+ *   `families` 行を消した**後**に {@link deleteTenantSettings} を呼ぶ。
+ *
  * @returns 削除を試みた操作数（エラーを含む）
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export async function deleteTenantScopedData(tenantId: string): Promise<number> {
+export async function deleteTenantScopedData(
+	tenantId: string,
+	opts?: { deferSettings?: boolean },
+): Promise<number> {
 	let deleted = 0;
 	const r = repos();
 
@@ -195,11 +205,14 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	}
 
 	// Settings
-	try {
-		await r.settings.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] settings 削除失敗: ${String(err)}`);
+	// #4327: full deletion 経路は判定材料を最後まで残すため deferSettings=true で飛ばす。
+	if (!opts?.deferSettings) {
+		try {
+			await r.settings.deleteByTenantId(tenantId);
+			deleted++;
+		} catch (err) {
+			logger.warn(`[tenant-cleanup] settings 削除失敗: ${String(err)}`);
+		}
 	}
 
 	// Checklists（templates, items, logs, overrides）
@@ -371,4 +384,41 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	}
 
 	return deleted;
+}
+
+/**
+ * #4327: テナントの `settings` を削除する（物理削除の**最終ステップ**専用）。
+ *
+ * `settings` は soft-delete 判定材料 (`soft_deleted_at` / `physical_deletion_date`) の
+ * 置き場であり、`findExpiredSoftDeletedTenants` / `getGracePeriodStatus` はこれだけを見る。
+ * したがって `families` 行より先に消すと、途中失敗時に
+ * 「`families` / `users` / `memberships` は残るが判定材料が無い」= 再削除も復元もできない
+ * 宙吊り行ができる。`families` を消した後に本関数を呼ぶことで、その状態を構造的に作れなくする。
+ *
+ * {@link deleteTenantScopedData} 内の settings 削除 (best-effort / warn 継続) と異なり、
+ * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
+ * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
+ *
+ * ## 受容した残余リスク
+ *
+ * 本関数が失敗すると `settings` 行だけが孤児として残る。そこには `pin_hash` /
+ * `session_token` / `questionnaire_*` が含まれるため、無害ではなく**手動掃除が要る**
+ * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手順と判断根拠)。
+ *
+ * 「機微キーだけ先に消す」設計は採らなかった: settings repo は `getSettings(keys)` と
+ * `deleteByTenantId(tenantId)` しか持たず、部分削除には消すキーの列挙が要る。列挙を置くと
+ * 新しい設定キーが増えたとき黙って消し漏らす (#4327 と同型の silent gap をもう 1 つ作る)。
+ * この孤児は alarm + log で必ず観測でき手で消せるのに対し、判定材料を先に消して生まれる
+ * 宙吊り行は観測も修復もできない。**観測できて直せる残余を選んでいる**。
+ */
+export async function deleteTenantSettings(tenantId: string): Promise<number> {
+	try {
+		await repos().settings.deleteByTenantId(tenantId);
+		return 1;
+	} catch (err) {
+		logger.error('[tenant-cleanup] settings 削除失敗 (tenant 行は削除済 / 手動掃除が必要)', {
+			context: { tenantId, error: String(err) },
+		});
+		throw err;
+	}
 }

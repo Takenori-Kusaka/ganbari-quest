@@ -294,6 +294,8 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 	const network = new NetworkStack(app, `${APP_NAME}Network`, {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: DOMAIN,
 		certificateArn: CERT_ARN,
 		demoFunctionUrl: compute.demoFunctionUrl,
@@ -326,6 +328,8 @@ function synthAllStacks(): { exports: Set<string>; imports: Set<string> } {
 	new NetworkStack(app, `${APP_NAME}NetworkStaging`, {
 		env,
 		functionUrl: sCompute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
 		geoRestrictionCountries: [],
 	});
