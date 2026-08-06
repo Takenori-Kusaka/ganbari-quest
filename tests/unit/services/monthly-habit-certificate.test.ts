@@ -54,6 +54,10 @@ vi.mock('$lib/server/services/notification-service', () => ({
 	sendPushNotification: vi.fn(),
 }));
 
+vi.mock('$lib/server/services/habit-certificate-notice-service', () => ({
+	recordHabitCertificateNotice: vi.fn(),
+}));
+
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -61,10 +65,14 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	MONTHLY_HABIT_DAYS_THRESHOLD,
 	MONTHLY_HABIT_POINTS,
+	MONTHLY_HABIT_THRESHOLD_REVIEW_DEADLINE,
+	MONTHLY_HABIT_THRESHOLD_REVIEW_MIN_PAID_FAMILIES,
+	MONTHLY_HABIT_THRESHOLD_REVIEW_TRIGGER,
 } from '$lib/domain/constants/habit-milestones';
 import { hasCertificate, issueCertificate } from '$lib/server/db/certificate-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import { issueMonthlyHabitCertificateIfEligible } from '$lib/server/services/certificate-service';
+import { recordHabitCertificateNotice } from '$lib/server/services/habit-certificate-notice-service';
 import { sendPushNotification } from '$lib/server/services/notification-service';
 import { getMonthlyReport } from '$lib/server/services/report-service';
 
@@ -199,11 +207,60 @@ describe('#4172 月間の習慣化を褒める (記録の量ではなく日数)'
 		expect(insertPointEntry).toHaveBeenCalledTimes(1);
 	});
 
+	// #4261 ③: AC11' の「子への演出は出さない」は維持したまま、Push が届かない家庭でも
+	// 子が残高の増えた理由を知れるようにする (PO 決裁 2026-08-06)。
+	it('[H7] 発行時に「次回起動で 1 回だけ」の pending を残す (Push の可否に関わらず 1 件)', async () => {
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(20));
+
+		await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT);
+
+		expect(recordHabitCertificateNotice).toHaveBeenCalledTimes(1);
+		expect(recordHabitCertificateNotice).toHaveBeenCalledWith(
+			{ childId: CHILD_ID, yearMonth: MONTH, points: MONTHLY_HABIT_POINTS },
+			TENANT,
+		);
+	});
+
+	it('[H7] 発行しなかった月は pending を残さない (残高が動いていないのに告知しない)', async () => {
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(MONTHLY_HABIT_DAYS_THRESHOLD - 1));
+
+		await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT);
+
+		expect(recordHabitCertificateNotice).not.toHaveBeenCalled();
+	});
+
+	it('[H7] 告知の保存に失敗しても証明書と通貨は取り消さない (告知は付帯物)', async () => {
+		vi.mocked(getMonthlyReport).mockResolvedValue(monthlyReport(20));
+		vi.mocked(recordHabitCertificateNotice).mockRejectedValue(new Error('kv failed'));
+
+		const result = await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT);
+
+		expect(result).not.toBeNull();
+		expect(insertPointEntry).toHaveBeenCalledTimes(1);
+		// 告知が落ちても親への Push は送る (2 経路が相互に道連れにならない)
+		expect(sendPushNotification).toHaveBeenCalledTimes(1);
+	});
+
 	it('月次レポートが取れない月は何もしない', async () => {
 		vi.mocked(getMonthlyReport).mockResolvedValue(null);
 
 		expect(await issueMonthlyHabitCertificateIfEligible(CHILD_ID, MONTH, TENANT)).toBeNull();
 		expect(issueCertificate).not.toHaveBeenCalled();
 		expect(insertPointEntry).not.toHaveBeenCalled();
+	});
+});
+
+// #4261 ② — 「n=1 のまま据え置くのは構わないが、いつ見直すかが無いまま固定するのは認めない」
+// (PO 決裁 2026-08-06)。トリガーが本文から静かに消えたら赤にする。
+describe('#4261 ② 閾値 10 日の再評価トリガー', () => {
+	it('[H8] 期日と、期日より早く再評価に入る条件の両方が残っている', () => {
+		expect(MONTHLY_HABIT_THRESHOLD_REVIEW_DEADLINE).toBe('2026-11-05');
+		expect(MONTHLY_HABIT_THRESHOLD_REVIEW_MIN_PAID_FAMILIES).toBe(3);
+		expect(MONTHLY_HABIT_THRESHOLD_REVIEW_TRIGGER).toContain(
+			MONTHLY_HABIT_THRESHOLD_REVIEW_DEADLINE,
+		);
+		expect(MONTHLY_HABIT_THRESHOLD_REVIEW_TRIGGER).toContain(
+			String(MONTHLY_HABIT_THRESHOLD_REVIEW_MIN_PAID_FAMILIES),
+		);
 	});
 });

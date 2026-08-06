@@ -11,18 +11,20 @@ import {
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
-import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
+import HabitCertificateNoticeBanner from '$lib/features/child/HabitCertificateNoticeBanner.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
@@ -93,6 +95,29 @@ function dismissTutorialHint() {
 	showTutorialHint = false;
 	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
 }
+
+// #4261 ③: 習慣化告知 — Push が届かない家庭でも残高が増えた理由を 1 回だけ伝える。
+// **閉じる操作を挟まない** (ADR-0012) ため、× ではなく「表示できた」時点で既読にする。
+const showHabitCertificateNotice = $derived(
+	shouldShowHabitCertificateNotice({
+		notice: data.habitCertificateNotice ?? null,
+		birthdayPending: Boolean(data.birthdayBonus),
+		isScreenshotMode,
+	}),
+);
+let habitNoticeAcknowledged = false;
+$effect(() => {
+	if (!showHabitCertificateNotice || habitNoticeAcknowledged) return;
+	habitNoticeAcknowledged = true;
+	// `keepalive` が要る: 子供は「記録して数秒で閉じる」(ADR-0012) ため、既読化が届く前に
+	// 画面遷移・タブ終了が起きる。通常の fetch はそこで中断され、**次回また同じ告知が出る**
+	// (実機で観測済)。失敗しても画面は壊さない — 届かなければ次回に再掲する (無音よりまし)。
+	fetch('?/ackHabitCertificateNotice', {
+		method: 'POST',
+		body: new FormData(),
+		keepalive: true,
+	}).catch(() => {});
+});
 
 // Sibling cheer overlay
 let showCheerOverlay = $state(true);
@@ -641,6 +666,13 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			<Button type="submit" id="claim-bonus-btn" variant="ghost" size="sm">claim</Button>
 		</form>
 	{/if}
+
+	<!-- #4261 ③: 習慣化告知 (次回起動で 1 回だけ / 閉じる操作なし) -->
+	<HabitCertificateNoticeBanner
+		visible={showHabitCertificateNotice}
+		uiMode={data.uiMode as Exclude<UiMode, 'baby'>}
+		amount={formatPointValue(data.habitCertificateNotice?.points ?? 0, ps.mode, ps.currency, ps.rate)}
+	/>
 
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
