@@ -26,13 +26,13 @@ const CRON_JOBS = [
 	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
-	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ
-	// #4327: 唯一 disableRetry=true。理由は下の DISABLE_RETRY_REASON 参照。
-	{
-		name: 'grace-period-deletion',
-		utcCronExpression: 'cron(0 17 * * ? *)',
-		disableRetry: true,
-	},
+	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ。
+	// **第 21 回統合 (#4304) で Rule を作らない状態に戻した** (監査 revert + PO 決裁 2026-08-06)。
+	// #4327 が「予告なし・観測不能・停止不能・復旧不能」の 4 条件を検出したため。
+	// PR #4340 で 4 条件のうち 3 つ (宙吊り行 / 観測不能 / 停止不能) は解消済。復活は残る復旧不能 (#4338) と
+	// dry-run の件数を出したオーナー承認が揃ってから。
+	// (dispatcher の KNOWN_ENDPOINTS には残す — Rule が無ければ発火しないため無害で、
+	//  復活時に endpoint 側の追従漏れを起こさない)
 	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
 	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信

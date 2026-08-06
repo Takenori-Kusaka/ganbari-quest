@@ -155,10 +155,23 @@ describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => 
 		return targets ?? [];
 	}
 
-	it('[C1] grace-period-deletion は RetryPolicy MaximumRetryAttempts=0 (非冪等な削除の再走を防ぐ)', () => {
-		for (const target of cronRuleTargets('grace-period-deletion')) {
-			expect(target.RetryPolicy).toEqual({ MaximumRetryAttempts: 0 });
-		}
+	// #4304 back-merge: grace-period-deletion の EventBridge Rule は監査 revert + PO 決裁により
+	// **作られていない**。よって「retry が 0 であること」ではなく「Rule 自体が無いこと」を固定する。
+	// Rule を復活させるときは、本 test を元の
+	//   for (const target of cronRuleTargets('grace-period-deletion')) {
+	//     expect(target.RetryPolicy).toEqual({ MaximumRetryAttempts: 0 });
+	//   }
+	// に戻すこと (retryAttempts: 0 の配線は compute-stack に残してある)。
+	it('[C1] grace-period-deletion の Rule は作られていない (監査 revert + PO 決裁 2026-08-06)', () => {
+		const rules = computeTemplate.findResources('AWS::Events::Rule');
+		const hit = Object.values(rules).find(
+			(r) =>
+				(r.Properties as { Name?: string }).Name === 'ganbari-quest-cron-grace-period-deletion',
+		);
+		expect(
+			hit,
+			'grace-period-deletion の Rule が復活している (#4327 の 4 条件が未解消)',
+		).toBeUndefined();
 	});
 
 	// 一律 0 にすると「1 回の失敗で取りこぼす」方向に倒れる。とくに deletion-warning-emails は
@@ -175,7 +188,9 @@ describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => 
 		}
 	});
 
-	it('[C3] リトライを切っている cron は grace-period-deletion のみ (無自覚な横展開の検出)', () => {
+	// grace-period-deletion の Rule が無い現状では 0 本が正。Rule 復活時は
+	// `['ganbari-quest-cron-grace-period-deletion']` に戻す ([C1] と対で更新する)。
+	it('[C3] リトライを切っている cron は 0 本 (無自覚な横展開の検出)', () => {
 		const rules = computeTemplate.findResources('AWS::Events::Rule');
 		const cronRules = Object.entries(rules).filter(([, r]) =>
 			String((r.Properties as { Name?: string }).Name ?? '').includes('-cron-'),
@@ -191,7 +206,7 @@ describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => 
 			)
 			.map(([, r]) => (r.Properties as { Name?: string }).Name);
 
-		expect(disabled).toEqual(['ganbari-quest-cron-grace-period-deletion']);
+		expect(disabled).toEqual([]);
 	});
 });
 
