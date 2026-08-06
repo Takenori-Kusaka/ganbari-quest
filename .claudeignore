@@ -36,3 +36,12 @@ coverage/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Graphify knowledge graph (#4291)
+# git 追跡対象だが Claude には読ませない。upstream の警告:
+#   "every write invalidates Claude Code's prompt cache, forcing a full
+#    re-upload at cache-write rates on the next turn"
+# post-commit で毎コミット書き換わる 25.9 MiB の生成物であり、
+# 除外しないと全並走セッションの prompt cache が毎コミット飛ぶ。
+graphify-out/
+docs/graphify-out/
