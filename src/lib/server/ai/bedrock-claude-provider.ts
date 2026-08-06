@@ -13,9 +13,24 @@ import {
 	type SystemContentBlock,
 	type Tool,
 } from '@aws-sdk/client-bedrock-runtime';
+import { isProviderLatchedUnavailable, withAvailabilityTracking } from './availability';
 import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
 
-const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+/**
+ * `BEDROCK_MODEL_ID` 未配布時に呼び出しへ渡す既定モデル。
+ *
+ * **可用性判定には使わない** (#4366)。既定値があること自体は「設定が配られている」ことを意味せず、
+ * 既定値を根拠に `isAvailable()` を true にしたのが本欠陥の原因だった。
+ */
+const DEFAULT_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+
+/**
+ * 呼び出しごとに env を読む。module 読込時に固定すると、テストからも運用からも
+ * 「配られていない」状態を再現できなくなる (#4366 の検出が遅れた一因)。
+ */
+function resolveModelId(): string {
+	return process.env.BEDROCK_MODEL_ID || DEFAULT_MODEL_ID;
+}
 
 let _client: BedrockRuntimeClient | null = null;
 
@@ -74,8 +89,28 @@ function extractToolUse(
 export class BedrockClaudeProvider implements AiProvider {
 	readonly name = 'bedrock-claude';
 
+	/**
+	 * Bedrock を呼んでよいかを申告する。
+	 *
+	 * ## この戻り値が保証すること / しないこと (#4366)
+	 *
+	 * - **`false` は確定**: 「呼んでも無駄」を意味する。明示的に無効化されているか、`BEDROCK_MODEL_ID`
+	 *   が配られていないか、直前の呼び出しが権限・資格情報の欠落で落ちている。
+	 * - **`true` は「設定が揃っている」までしか保証しない**。IAM で `bedrock:InvokeModel` が
+	 *   許可されているかは **呼ぶまで確定しない**ため、ここでは判定できない。実可用性は
+	 *   ① サービス層のフォールバック (`try/catch`) と ② 可用性クラスのエラーを記録する
+	 *   `availability.ts` の latch で担保する。
+	 *
+	 * `BEDROCK_MODEL_ID` の**明示配布**を要求するのが要点。既定値を持ったまま無条件 `true` を
+	 * 返すと「AWS で Bedrock を使うと決めた」ことと「まだ何も配線していない」ことが区別できず、
+	 * AI 提案が本番で無言の不作動になる (#4366)。判定粒度は Gemini 側 (API キーの実在を見る) と揃える。
+	 */
 	isAvailable(): boolean {
 		if (process.env.BEDROCK_DISABLED === 'true') return false;
+		// env の明示配布を要求する。未配布 = この環境では Bedrock を使わないと読む。
+		if (!process.env.BEDROCK_MODEL_ID) return false;
+		// 権限・資格情報の欠落で既に落ちている provider は、以降呼びに行かない。
+		if (isProviderLatchedUnavailable(this.name)) return false;
 		return true;
 	}
 
@@ -95,20 +130,22 @@ export class BedrockClaudeProvider implements AiProvider {
 		];
 		const tools = buildTools(opts.tool);
 
-		const response = await client.send(
-			new ConverseCommand({
-				modelId: MODEL_ID,
-				system: systemContent,
-				messages,
-				toolConfig: {
-					tools,
-					toolChoice: { tool: { name: opts.tool.name } },
-				},
-				inferenceConfig: {
-					maxTokens: opts.maxTokens ?? 1024,
-					temperature: 0.3,
-				},
-			}),
+		const response = await withAvailabilityTracking(this.name, () =>
+			client.send(
+				new ConverseCommand({
+					modelId: resolveModelId(),
+					system: systemContent,
+					messages,
+					toolConfig: {
+						tools,
+						toolChoice: { tool: { name: opts.tool.name } },
+					},
+					inferenceConfig: {
+						maxTokens: opts.maxTokens ?? 1024,
+						temperature: 0.3,
+					},
+				}),
+			),
 		);
 
 		return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);
@@ -149,20 +186,22 @@ export class BedrockClaudeProvider implements AiProvider {
 		];
 		const tools = buildTools(opts.tool);
 
-		const response = await client.send(
-			new ConverseCommand({
-				modelId: MODEL_ID,
-				system: systemContent,
-				messages,
-				toolConfig: {
-					tools,
-					toolChoice: { tool: { name: opts.tool.name } },
-				},
-				inferenceConfig: {
-					maxTokens: opts.maxTokens ?? 1024,
-					temperature: 0.2,
-				},
-			}),
+		const response = await withAvailabilityTracking(this.name, () =>
+			client.send(
+				new ConverseCommand({
+					modelId: resolveModelId(),
+					system: systemContent,
+					messages,
+					toolConfig: {
+						tools,
+						toolChoice: { tool: { name: opts.tool.name } },
+					},
+					inferenceConfig: {
+						maxTokens: opts.maxTokens ?? 1024,
+						temperature: 0.2,
+					},
+				}),
+			),
 		);
 
 		return extractToolUse(response.output as ConverseOutput | undefined, opts.tool.name);

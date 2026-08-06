@@ -17,6 +17,7 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
+import { POINTS_LABELS } from '$lib/domain/labels';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 
 describe('receipt-ocr-service', () => {
@@ -26,10 +27,10 @@ describe('receipt-ocr-service', () => {
 	});
 
 	describe('AI 未利用時', () => {
-		it('AI が無効の場合 NO_API_KEY を返す', async () => {
+		it('AI が無効の場合 AI_UNAVAILABLE を返す', async () => {
 			mockIsAiAvailable.mockReturnValue(false);
 			const result = await ocrReceipt('base64data', 'image/jpeg');
-			expect(result).toEqual({ error: 'NO_API_KEY' });
+			expect(result).toEqual({ error: 'AI_UNAVAILABLE' });
 			expect(mockConverseWithImageAndTool).not.toHaveBeenCalled();
 		});
 	});
@@ -102,12 +103,12 @@ describe('receipt-ocr-service', () => {
 	});
 
 	describe('API例外', () => {
-		it('AI APIがエラーを投げた場合 OCR_FAILED を返す', async () => {
+		it('画像起因・一時的な失敗は OCR_FAILED を返し、次アクションを示す', async () => {
 			mockConverseWithImageAndTool.mockRejectedValueOnce(new Error('API rate limit exceeded'));
 			const result = await ocrReceipt('base64data', 'image/jpeg');
 			expect(result).toEqual({
 				error: 'OCR_FAILED',
-				message: '画像の読み取りに失敗しました',
+				message: POINTS_LABELS.receiptOcrFailed,
 			});
 		});
 
@@ -116,8 +117,46 @@ describe('receipt-ocr-service', () => {
 			const result = await ocrReceipt('base64data', 'image/jpeg');
 			expect(result).toEqual({
 				error: 'OCR_FAILED',
-				message: '画像の読み取りに失敗しました',
+				message: POINTS_LABELS.receiptOcrFailed,
 			});
+		});
+
+		// #4366 (b): AI 側の事情 (権限なし / キー不正) を「画像の読み取りに失敗しました」に
+		// 丸めると、顧客は自分の写真が悪いと誤解して撮り直す。原因が AI 側なら撮り直しを促さない。
+		it.each([
+			[
+				'Bedrock 権限なし',
+				Object.assign(new Error('not authorized'), { name: 'AccessDeniedException' }),
+			],
+			[
+				'資格情報なし',
+				Object.assign(new Error('Could not load credentials from any providers'), {
+					name: 'CredentialsProviderError',
+				}),
+			],
+			[
+				'モデル未存在',
+				Object.assign(new Error('model not found'), { name: 'ResourceNotFoundException' }),
+			],
+			['Gemini キー不正', new Error('[400 Bad Request] API key not valid')],
+		])('AI 不作動 (%s) は AI_UNAVAILABLE を返し、撮り直しを促さない', async (_label, err) => {
+			mockConverseWithImageAndTool.mockRejectedValueOnce(err);
+			const result = await ocrReceipt('base64data', 'image/jpeg');
+			expect(result).toEqual({ error: 'AI_UNAVAILABLE' });
+			// 「画像の読み取りに失敗」と言わないこと自体を assert する (文言の丸めを再発させない)
+			expect(JSON.stringify(result)).not.toContain('画像');
+		});
+
+		it('内部例外メッセージを顧客向け文言に載せない (ADR-0062 §2)', async () => {
+			mockConverseWithImageAndTool.mockRejectedValueOnce(
+				new Error('ValidationException: stack trace at /var/task/index.js:42'),
+			);
+			const result = await ocrReceipt('base64data', 'image/jpeg');
+			expect(result).toEqual({
+				error: 'OCR_FAILED',
+				message: POINTS_LABELS.receiptOcrFailed,
+			});
+			expect(JSON.stringify(result)).not.toContain('/var/task');
 		});
 	});
 });
