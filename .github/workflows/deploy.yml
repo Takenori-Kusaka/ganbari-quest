@@ -444,24 +444,6 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
-      # #4352: IaC の外で足された env (out-of-band drift) の検出。
-      #
-      # CloudFormation はテンプレート無変更ならリソースを触らないため、`aws lambda
-      # update-function-configuration` で手で足した env は **次の deploy でも消えない**
-      # (staging では実際に検証用の STRIPE_PRICE_* が full deploy を跨いで残り、#4286 の
-      # 修正が効いているかを staging で判定できない状態が続いた、#4117 E1)。
-      #
-      # 上の "Incident webhook env verification" が「あるべきキーがあるか」を見るのに対し、
-      # 本 step は「**あるべきでないキーが無いか**」を見る (逆方向)。値は読まずキー名だけで判定する。
-      # 欠落 (テンプレートにあるが live に無い) は warning に留め、extra のみ hard-fail する。
-      - name: Lambda env drift check (production, #4352)
-        run: |
-          node scripts/check-lambda-env-drift.mjs \
-            --function "$LAMBDA_FUNCTION" \
-            --template infra/cdk.out/GanbariQuestCompute.template.json \
-            --logical-id-prefix SvelteKitFn \
-            --region "$AWS_REGION"
-
       # #4174: **synth の diff ではなく、deploy 済み Lambda の実 env** を読んで検証する。
       # compute-stack.ts は空値のとき env ごと落とす (`...(x ? {KEY: x} : {})`) ため、
       # 「context を渡し忘れた」「secret 名を間違えた」のいずれでも **deploy は成功したまま
@@ -897,6 +879,30 @@ jobs:
             echo "::notice::recovery point OK: 最新は ${AGE_H}h 前 (< 48h)"
           fi
           echo "::notice::DSQL backup smoke test passed (#3808)"
+
+      # #4352: IaC の外で足された env (out-of-band drift) の検出。
+      #
+      # CloudFormation はテンプレート無変更ならリソースを触らないため、`aws lambda
+      # update-function-configuration` で手で足した env は **次の deploy でも消えない**
+      # (staging では実際に検証用の STRIPE_PRICE_* が full deploy を跨いで残り、#4286 の
+      # 修正が効いているかを staging で判定できない状態が続いた、#4117 E1)。
+      #
+      # 上の "Incident webhook env verification" が「あるべきキーがあるか」を見るのに対し、
+      # 本 step は「**あるべきでないキーが無いか**」を見る (逆方向)。値は読まずキー名だけで判定する。
+      # 欠落 (テンプレートにあるが live に無い) は warning に留め、extra のみ hard-fail する。
+      #
+      # **配置は deploy job の末尾** (PO 決裁 2026-08-07、#4365)。本 step が落ちる時点で
+      # アプリ本体は既に live であり、早く落としても何も守られない。一方 job の途中に置くと
+      # 後続の検証 (#4174 通知配線 / #4189 alarm 宛先 / demo Lambda image 更新 / #1586 cron smoke /
+      # #4280 front door / #3808 backup smoke) が丸ごと skip される。末尾なら deploy は同じく
+      # 赤くなり、他の検証は全て実行される。
+      - name: Lambda env drift check (production, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestCompute.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION"
 
   e2e-production:
     needs: deploy
