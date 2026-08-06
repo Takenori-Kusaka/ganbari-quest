@@ -168,7 +168,10 @@ describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => 
 			(r) =>
 				(r.Properties as { Name?: string }).Name === 'ganbari-quest-cron-grace-period-deletion',
 		);
-		expect(hit, 'grace-period-deletion の Rule が復活している (#4327 の 4 条件が未解消)').toBeUndefined();
+		expect(
+			hit,
+			'grace-period-deletion の Rule が復活している (#4327 の 4 条件が未解消)',
+		).toBeUndefined();
 	});
 
 	// 一律 0 にすると「1 回の失敗で取りこぼす」方向に倒れる。とくに deletion-warning-emails は
