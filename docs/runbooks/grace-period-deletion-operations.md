@@ -107,12 +107,24 @@ aws logs filter-log-events --region us-east-1 \
 翌日の実行で同じテナントが再び対象になり、削除が完遂する（自己回復）。
 
 例外は最終ステップ（families 行を消した**後**の settings 削除）が失敗した場合で、
-このときは `settings` 行だけが孤児として残る。個人データ本体は既に消えており、
-log に tenantId が出るので手動で掃除する:
+このときは `settings` 行だけが孤児として残る。log に tenantId が出るので手動で掃除する:
 
 ```
 [tenant-cleanup] settings 削除失敗 (tenant 行は削除済 / 手動掃除が必要)
 ```
+
+**この孤児には `pin_hash`（おやカギコードのハッシュ）/ `session_token` / `questionnaire_*`（初期アンケートの回答）が含まれる。**
+子供の記録・活動・ポイント・画像・音声といったデータ本体は既に消えているが、
+「退会したのに認証情報とアンケート回答が残っている」状態であり、**放置してよいものではない**。
+上記 log が出たら speed 優先で手動削除する（対象は `settings` テーブルの当該 `tenant_id` 行すべて）。
+
+これを避けるために「機微なキーだけ先に消す」設計は**採らなかった**。判定材料（`soft_deleted_at` /
+`physical_deletion_date` / `deletion_grace_plan_tier`）と機微キーは同じ `settings` に同居しており、
+repo が持つのは「全キー取得」ではなく `getSettings(keys)` と `deleteByTenantId(tenantId)` だけなので、
+部分削除には「消すキーを列挙する」実装が要る。列挙を置くと**新しい設定キーが増えたとき黙って消し漏らす**
+（今回と同型の silent gap をもう 1 つ作る）。一方この孤児は alarm + log で必ず観測され、手で消せる。
+**「観測できて直せる残余」を選び、「観測できず直せない宙吊り行」を消した**という trade-off である。
+repo に「指定キー以外を消す」機能を足すかは #4338 で扱う。
 
 ---
 

@@ -398,6 +398,18 @@ export async function deleteTenantScopedData(
  * {@link deleteTenantScopedData} 内の settings 削除 (best-effort / warn 継続) と異なり、
  * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
  * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
+ *
+ * ## 受容した残余リスク
+ *
+ * 本関数が失敗すると `settings` 行だけが孤児として残る。そこには `pin_hash` /
+ * `session_token` / `questionnaire_*` が含まれるため、無害ではなく**手動掃除が要る**
+ * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手順と判断根拠)。
+ *
+ * 「機微キーだけ先に消す」設計は採らなかった: settings repo は `getSettings(keys)` と
+ * `deleteByTenantId(tenantId)` しか持たず、部分削除には消すキーの列挙が要る。列挙を置くと
+ * 新しい設定キーが増えたとき黙って消し漏らす (#4327 と同型の silent gap をもう 1 つ作る)。
+ * この孤児は alarm + log で必ず観測でき手で消せるのに対し、判定材料を先に消して生まれる
+ * 宙吊り行は観測も修復もできない。**観測できて直せる残余を選んでいる**。
  */
 export async function deleteTenantSettings(tenantId: string): Promise<number> {
 	try {

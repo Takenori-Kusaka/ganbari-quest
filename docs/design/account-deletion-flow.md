@@ -207,7 +207,9 @@ soft-delete 判定の SSOT は `settings` の `soft_deleted_at` / `physical_dele
 
 step 7 より前で失敗しても判定材料が残るため、翌日の実行が同じテナントを再び対象にして完遂する（自己回復）。
 逆順にすると「`families` は残るが判定材料が無い」= 再削除も復元もできない行が生まれる。
-step 8 の失敗は例外を投げ、`errors[]` → alarm に載る（`settings` 行のみ孤児として残るため手動掃除が要る）。
+step 8 の失敗は例外を投げ、`errors[]` → alarm に載る。このとき `settings` 行のみが孤児として残り、
+そこには `pin_hash` / `session_token` / `questionnaire_*` が含まれるため**手動掃除が必要**
+（判断根拠と手順は [`grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) §3）。
 
 #### 部分失敗の扱い
 
