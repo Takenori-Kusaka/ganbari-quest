@@ -84,7 +84,7 @@ test.describe('#2399 deletion-warning-emails — dryRun POST', () => {
 			'skippedNoThreshold',
 			'skippedNotDue',
 			'skippedAlreadySent',
-			'skippedNoOwner',
+			'skippedNoRecipients',
 			'errors',
 			'tenantsRemaining',
 		]) {

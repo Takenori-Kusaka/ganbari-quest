@@ -13,6 +13,7 @@
 // 14 日前が収まらない。しきい値はプランごとに持ち、猶予日数より必ず小さいことを test で固定する。
 
 import { formatJSTDate, toJSTDateString } from '$lib/domain/date-utils';
+import type { Role } from '$lib/server/auth/types';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -29,6 +30,16 @@ import type { PlanTier } from './plan-limit-service';
 // ============================================================
 
 const MS_PER_DAY = 86_400_000;
+
+/**
+ * 予告メールの宛先とする「保護者」ロール (#4325 の follow-up、オーナー決裁 2026-08-06)。
+ *
+ * 従来は `owner` 1 名固定だったため、owner が不在 / アドレス失効の世帯では猶予期間の
+ * 目的 (気づいて復帰する機会) が単一障害点で失われ、取り消せない物理削除の期日を
+ * 誰にも気づかれず迎える経路が存在した。`child` ロールはメールアドレスを持たない設計
+ * (`src/lib/server/auth/types.ts` の `ROLES`) のため対象に含めない。
+ */
+const GUARDIAN_ROLES: readonly Role[] = ['owner', 'parent'];
 
 /**
  * プラン別の予告送信しきい値 (物理削除予定日までの残り日数、JST 暦日換算)。
@@ -78,7 +89,8 @@ export interface DeletionWarningRunResult {
 	/** しきい値未到達 / 期限切れ */
 	skippedNotDue: number;
 	skippedAlreadySent: number;
-	skippedNoOwner: number;
+	/** 保護者ロール (owner/parent) 全員にメールアドレスが引けなかったテナント数 (#4325 follow-up、旧 skippedNoOwner) */
+	skippedNoRecipients: number;
 	errors: number;
 	/** limit / 時間予算により今回処理せず次回実行へ持ち越した件数 */
 	tenantsRemaining: number;
@@ -128,7 +140,7 @@ type TenantOutcome =
 	| 'skipped-no-threshold'
 	| 'skipped-not-due'
 	| 'skipped-already-sent'
-	| 'skipped-no-owner'
+	| 'skipped-no-recipients'
 	| 'error';
 
 interface TenantInput {
@@ -136,8 +148,35 @@ interface TenantInput {
 	tenantName: string;
 }
 
+interface GuardianRecipient {
+	email: string;
+	displayName: string | null;
+}
+
 /**
- * 1 テナントを処理する。送信成功時のみ `deletion_warning_sent_at` を書く。
+ * 保護者ロール (owner/parent) の宛先を解決する。
+ *
+ * - `child` ロールはメールアドレスを持たない設計のため対象外
+ * - 同一メールアドレスが複数ロールに登録されていても 1 通にまとめる (重複送信防止)
+ */
+async function resolveGuardianRecipients(tenantId: string): Promise<GuardianRecipient[]> {
+	const repos = getRepos();
+	const members = await repos.auth.findTenantMembers(tenantId);
+	const guardians = members.filter((m) => GUARDIAN_ROLES.includes(m.role));
+
+	const seenEmails = new Set<string>();
+	const recipients: GuardianRecipient[] = [];
+	for (const guardian of guardians) {
+		const user = await repos.auth.findUserById(guardian.userId);
+		if (!user?.email || seenEmails.has(user.email)) continue;
+		seenEmails.add(user.email);
+		recipients.push({ email: user.email, displayName: user.displayName || null });
+	}
+	return recipients;
+}
+
+/**
+ * 1 テナントを処理する。1 通以上の送信に成功したときのみ `deletion_warning_sent_at` を書く。
  */
 async function processTenant(
 	tenant: TenantInput,
@@ -158,40 +197,62 @@ async function processTenant(
 	const alreadySent = await repos.settings.getSetting(DELETION_WARNING_SENT_KEY, tenant.tenantId);
 	if (alreadySent) return 'skipped-already-sent';
 
-	const members = await repos.auth.findTenantMembers(tenant.tenantId);
-	const owner = members.find((m) => m.role === 'owner');
-	const user = owner ? await repos.auth.findUserById(owner.userId) : null;
-	if (!user?.email) {
-		logger.warn('[deletion-warning] owner email not found', {
+	const recipients = await resolveGuardianRecipients(tenant.tenantId);
+	if (recipients.length === 0) {
+		// 0 件でも削除は進む (猶予期限は止めない)。ログで観測できるようにする
+		logger.warn('[deletion-warning] no guardian email found; deletion proceeds unwarned', {
 			context: { tenantId: tenant.tenantId, daysRemaining },
 		});
-		return 'skipped-no-owner';
+		return 'skipped-no-recipients';
 	}
 
 	if (dryRun) {
 		logger.info('[deletion-warning] dryRun would send', {
-			context: { tenantId: tenant.tenantId, planTier, daysRemaining },
+			context: {
+				tenantId: tenant.tenantId,
+				planTier,
+				daysRemaining,
+				recipientCount: recipients.length,
+			},
 		});
 		return 'sent';
 	}
 
-	const ok = await sendDeletionWarningEmail({
-		email: user.email,
-		ownerName: user.displayName || tenant.tenantName,
-		deletionDate: formatJSTDate(toJSTDateString(new Date(status.physicalDeletionDate))),
-		daysRemaining,
-	});
-	if (!ok) {
-		// sent_at を書かずに終える。次回実行で再試行される
-		logger.error('[deletion-warning] send failed', {
-			context: { tenantId: tenant.tenantId, daysRemaining },
+	const deletionDate = formatJSTDate(toJSTDateString(new Date(status.physicalDeletionDate)));
+	let successCount = 0;
+	for (const recipient of recipients) {
+		// 宛先ごとに本人の displayName を使う (他の保護者の名前を差し込まない)
+		const ok = await sendDeletionWarningEmail({
+			email: recipient.email,
+			ownerName: recipient.displayName || tenant.tenantName,
+			deletionDate,
+			daysRemaining,
 		});
+		if (ok) {
+			successCount++;
+		} else {
+			logger.error('[deletion-warning] send failed', {
+				context: { tenantId: tenant.tenantId, daysRemaining },
+			});
+		}
+	}
+
+	if (successCount === 0) {
+		// 全宛先で失敗。sent_at を書かずに終える。次回実行で再試行される
 		return 'error';
 	}
 
+	// 1 通でも届けば idempotency key を立てる (一部宛先が恒久的に失敗し続けて
+	// 無限リトライになるのを避ける。成功した宛先には翌日以降二重に届かない)
 	await repos.settings.setSetting(DELETION_WARNING_SENT_KEY, now.toISOString(), tenant.tenantId);
 	logger.info('[deletion-warning] sent', {
-		context: { tenantId: tenant.tenantId, planTier, daysRemaining },
+		context: {
+			tenantId: tenant.tenantId,
+			planTier,
+			daysRemaining,
+			recipientCount: recipients.length,
+			successCount,
+		},
 	});
 	return 'sent';
 }
@@ -214,8 +275,8 @@ function tally(result: DeletionWarningRunResult, outcome: TenantOutcome): void {
 		case 'skipped-already-sent':
 			result.skippedAlreadySent++;
 			break;
-		case 'skipped-no-owner':
-			result.skippedNoOwner++;
+		case 'skipped-no-recipients':
+			result.skippedNoRecipients++;
 			break;
 		default:
 			result.errors++;
@@ -228,7 +289,7 @@ function tally(result: DeletionWarningRunResult, outcome: TenantOutcome): void {
 // ============================================================
 
 /**
- * soft delete 済テナントを走査し、削除予定日が近いオーナーへ予告メールを送る。
+ * soft delete 済テナントを走査し、削除予定日が近い保護者 (owner/parent 全員) へ予告メールを送る。
  *
  * cron (deletion-warning-emails) から日次で呼ばれる。1 テナントの失敗が他に波及しないよう
  * try/catch で個別にハンドルする。
@@ -248,7 +309,7 @@ export async function runDeletionWarningEmails(
 		skippedNoThreshold: 0,
 		skippedNotDue: 0,
 		skippedAlreadySent: 0,
-		skippedNoOwner: 0,
+		skippedNoRecipients: 0,
 		errors: 0,
 		tenantsRemaining: 0,
 		dryRun,

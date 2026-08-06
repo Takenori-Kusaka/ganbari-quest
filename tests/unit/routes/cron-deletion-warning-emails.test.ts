@@ -59,7 +59,7 @@ beforeEach(() => {
 		skippedNoThreshold: 0,
 		skippedNotDue: 0,
 		skippedAlreadySent: 0,
-		skippedNoOwner: 0,
+		skippedNoRecipients: 0,
 		errors: 0,
 		tenantsRemaining: 0,
 		dryRun: false,
