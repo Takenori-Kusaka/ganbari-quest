@@ -192,7 +192,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**不可逆**のため 2 層の停止手段 (EventBridge Rule disable / `GRACE_PERIOD_DELETION_DISABLED` env) を持ち、部分失敗は HTTP 500 + 専用 alarm + Discord incident に載る (#4327)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
 | deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
@@ -217,6 +217,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
 - **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
 - **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
+- **自動リトライは無効 (#4327)**: EventBridge target は `retryAttempts: 0`。Lambda 非同期呼び出しの既定リトライ (最大 2 回) は、self-limiting で「途中まで進んで打ち切られた」job を非冪等に再走させる (grace-period-deletion なら部分削除されたテナントに purge が再走する)。1 回の取りこぼしは翌日の実行が回収し、失敗自体は `CronDispatcherErrors` alarm で観測されるため、再送より再走回避を優先する
 
 ### 3.4 OpsStack（監視・コスト防衛）
 
