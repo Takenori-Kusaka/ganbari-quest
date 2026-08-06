@@ -110,7 +110,7 @@ export async function softDeleteTenant(
 	// to avoid schema migration on DynamoDB.
 	//
 	// #4316: **sentinel-last** — 書き込み順序で「宙吊り」の成立を防ぐ。
-	// `setSetting` は 1 キー 1 文の upsert (dsql/settings-repo.ts) で、3 キーをまとめる
+	// `setSetting` は 1 キー 1 文の upsert (dsql/settings-repo.ts) で、複数キーをまとめる
 	// txn は settings repo に無い。したがって途中失敗 (Lambda timeout / DSQL OCC 40001 /
 	// 接続断) は起こりうる前提で順序を決める。
 	//
