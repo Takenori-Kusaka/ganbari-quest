@@ -3769,8 +3769,8 @@ export const UI_MODE_CHANGE_LABELS = {
 		baby: 'がめんが かわったよ',
 		preschool: 'おおきく なったね！',
 		elementary: '大きくなったね！',
-		junior: '画面が新しくなりました',
-		senior: '画面が新しくなりました',
+		junior: 'ひとつ大きくなりましたね',
+		senior: 'ひとつ大きくなりましたね',
 	} as Record<UiMode, string>,
 	body: {
 		baby: 'おたんじょうびが きたから、がめんが かわったよ。',
