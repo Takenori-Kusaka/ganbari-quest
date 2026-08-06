@@ -19,6 +19,14 @@ import { resolveFullPlanTier } from './plan-limit-service';
 // Constants
 // ============================================================
 
+/**
+ * #2399: 削除予告メールの送信済フラグ (settings KV キー)。
+ *
+ * soft delete 状態を構成する KV 群と同じライフサイクルを持つ (予約でリセット / 復元でクリア) ため、
+ * キーの定義は本 service 側に置く。判定ロジックは deletion-warning-service が持つ。
+ */
+export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
+
 /** プラン別グレースピリオド（日数）。0 = 即時物理削除 */
 export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
 	free: 0,
@@ -102,7 +110,7 @@ export async function softDeleteTenant(
 	// to avoid schema migration on DynamoDB.
 	//
 	// #4316: **sentinel-last** — 書き込み順序で「宙吊り」の成立を防ぐ。
-	// `setSetting` は 1 キー 1 文の upsert (dsql/settings-repo.ts) で、3 キーをまとめる
+	// `setSetting` は 1 キー 1 文の upsert (dsql/settings-repo.ts) で、複数キーをまとめる
 	// txn は settings repo に無い。したがって途中失敗 (Lambda timeout / DSQL OCC 40001 /
 	// 接続断) は起こりうる前提で順序を決める。
 	//
@@ -115,6 +123,12 @@ export async function softDeleteTenant(
 	const repos = getRepos();
 	await repos.settings.setSetting('physical_deletion_date', physicalDeletionDate, tenantId);
 	await repos.settings.setSetting('deletion_grace_plan_tier', planTier, tenantId);
+	// #2399: 予約は何度でもやり直せる。前回分の送信済フラグが残っていると 2 回目の予約が
+	// 「予告なしで消える」無音になるため、予約のたびに落とす (復元側でも落とすが二重で担保する)。
+	// #4316 の sentinel-last を守るため、sentinel (soft_deleted_at) より前に落とす。
+	// ここで失敗しても sentinel が立たない = soft-delete が始まらないので、
+	// 「送信済フラグが残ったまま猶予期間に入る」= 無音削除は成立しない。
+	await repos.settings.setSetting(DELETION_WARNING_SENT_KEY, '', tenantId);
 	await repos.settings.setSetting('soft_deleted_at', softDeletedAt, tenantId);
 
 	logger.info('[grace-period] Tenant soft deleted', {
@@ -268,6 +282,9 @@ export async function restoreSoftDeletedTenant(tenantId: string): Promise<Restor
 	await repos.settings.setSetting('soft_deleted_at', '', tenantId);
 	await repos.settings.setSetting('deletion_grace_plan_tier', '', tenantId);
 	await repos.settings.setSetting('physical_deletion_date', '', tenantId);
+	// #2399: 予告メールの送信済フラグも落とす。残したままだと再度削除予約したときに
+	// 「送信済」と判定され、2 回目の予約が予告なしで物理削除まで進む (無音の再発)。
+	await repos.settings.setSetting(DELETION_WARNING_SENT_KEY, '', tenantId);
 
 	logger.info('[grace-period] Tenant restored from soft delete', {
 		context: { tenantId },

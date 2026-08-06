@@ -35,6 +35,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
 	// #1648 R43: grace-period-service.ts findExpiredSoftDeletedTenants() を呼び出す物理削除バッチ
 	'grace-period-deletion': '/api/cron/grace-period-deletion',
+	// #2399: 猶予期間中のテナントへ削除予定日を予告する (物理削除の前に 1 通だけ届く)
+	'deletion-warning-emails': '/api/cron/deletion-warning-emails',
 	// #1598 (ADR-0023 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	'pmf-survey': '/api/cron/pmf-survey',
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)

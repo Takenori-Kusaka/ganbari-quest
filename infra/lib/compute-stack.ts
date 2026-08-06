@@ -28,6 +28,8 @@ const CRON_JOBS = [
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ
 	{ name: 'grace-period-deletion', utcCronExpression: 'cron(0 17 * * ? *)' },
+	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
+	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
