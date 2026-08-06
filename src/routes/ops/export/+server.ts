@@ -15,7 +15,7 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	// #4309: `+layout.server.ts` の ops gate は page にしか適用されず本 endpoint には走らない。
-	// 未認証で売上台帳 CSV が 200 で取れていたため、同じ判定 (ops group + MFA) をここで通す。
+	// 未認証で売上台帳 CSV が 200 で取れていたため、同じ判定 (ops group 所属、#4363) をここで通す。
 	// **クエリ解釈より前に置く** — 認可の前にデータ集計が走ると、403 を返しても情報は流れる。
 	requireOpsAccess(locals);
 

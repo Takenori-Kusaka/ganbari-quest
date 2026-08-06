@@ -220,6 +220,7 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
@@ -232,6 +233,7 @@ jobs:
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
       # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
@@ -282,8 +284,9 @@ jobs:
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
             -c dsqlStagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
-            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
-            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       - name: Resolve DSQL staging outputs
         run: |
@@ -321,6 +324,7 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -343,6 +347,7 @@ jobs:
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
               -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+              -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
               -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done
@@ -420,6 +425,24 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
           echo "::notice::staging ORIGIN resolved and applied: $ORIGIN"
+
+      # Step 13.5 (#4352): env drift 検査。**Step 13 の直後に置く**。
+      #
+      # Step 13 は live env を read-modify-write (`jq '. + {…}'`) するため、IaC の外で手で足された env は
+      # deploy のたびに正式な設定として **re-commit される**。CloudFormation もテンプレート無変更なら
+      # リソースを触らないので drift を戻さない。結果「IaC に無い env が恒久的に効き続ける」状態が
+      # deploy success のまま残る (#4117 E1 で実際に起きた: 検証用に注入した STRIPE_PRICE_* が
+      # full deploy を跨いで残り、staging で checkout が通るのを見て「#4286 が直った」と誤判定しうる
+      # 状態が続いた)。
+      #
+      # 本 step は cdk deploy が出力したテンプレートと live の **キー集合**を突き合わせる (値は読まない)。
+      - name: Lambda env drift check (staging, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION"
 
       # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。
       # staging table は空だが /api/health はデータ非依存 (設計 §データ戦略)。

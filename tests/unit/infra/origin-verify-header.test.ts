@@ -23,6 +23,8 @@ import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { NetworkStack } from '../../../infra/lib/network-stack';
 import {
 	originVerifyContextKey,
+	originVerifyPreviousContextKey,
+	resolveOriginVerifyPreviousSecret,
 	resolveOriginVerifySecret,
 } from '../../../infra/lib/origin-verify-context';
 import { StorageStack } from '../../../infra/lib/storage-stack';
@@ -72,6 +74,40 @@ function synthDistributions(): Array<{ logicalId: string; origins: OriginLike[] 
 		logicalId,
 		origins: (r.Properties?.DistributionConfig?.Origins ?? []) as OriginLike[],
 	}));
+}
+
+/**
+ * workflow yaml の `run: |` (literal block) 内で、前行が `\` で終わっていない `-c ...` 行を返す (#4364)。
+ *
+ * literal block では行がそのままシェルの別コマンドになるため、`\` が欠けた `-c ...` は
+ * `-c: command not found` で step を落とし、同時にその cdk 実行へ context が渡らない。
+ * `run: >-` (folded) は YAML 側が空白で連結するため `\` は不要 = 検査対象外。
+ */
+function findOrphanContextLines(yml: string, label: string): string[] {
+	const lines = yml.split('\n');
+	const orphans: string[] = [];
+	let literalIndent = -1; // literal block を開いた `run:` の indent (-1 = ブロック外)
+
+	for (const [i, line] of lines.entries()) {
+		const runScalar = /^(\s*)run:\s*(\||>-?)\s*$/.exec(line);
+		if (runScalar) {
+			literalIndent = runScalar[2] === '|' ? (runScalar[1] ?? '').length : -1;
+			continue;
+		}
+		// block は「indent が run: 以下の非空行」で終わる (YAML の block scalar 規則)
+		const trimmed = line.trim();
+		if (
+			literalIndent >= 0 &&
+			trimmed !== '' &&
+			line.length - line.trimStart().length <= literalIndent
+		) {
+			literalIndent = -1;
+		}
+		if (literalIndent < 0 || !trimmed.startsWith('-c ')) continue;
+		if (!(lines[i - 1] ?? '').trimEnd().endsWith('\\'))
+			orphans.push(`${label}:${i + 1}: ${trimmed}`);
+	}
+	return orphans;
 }
 
 function verifyHeaderCount(origins: OriginLike[]): number {
@@ -143,6 +179,82 @@ describe('#4280 secret 未指定の synth は止まる (silent skip 禁止、ADR
 	});
 });
 
+describe('#4364 Lambda env への旧 secret 注入', () => {
+	const PREVIOUS = 'origin-verify-previous-secret-for-unit-test';
+
+	/** ComputeStack を synth し、アプリ Lambda (SvelteKitFn) の Environment.Variables を返す。 */
+	function synthAppEnv(context: Record<string, unknown>): Record<string, unknown> {
+		const app = new cdk.App({
+			context: {
+				opsSecretKey: 'test-ops-secret-key',
+				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+				[originVerifyContextKey]: SECRET,
+				...context,
+			},
+		});
+		const storage = new StorageStack(app, 'EnvStorage', { env });
+		const compute = new ComputeStack(app, 'EnvCompute', {
+			env,
+			assetsBucket: storage.assetsBucket,
+			repository: storage.repository,
+		});
+		const fns = Template.fromStack(compute).findResources('AWS::Lambda::Function');
+		const appFn = Object.entries(fns).find(([logicalId]) => logicalId.startsWith('SvelteKitFn'));
+		expect(appFn).toBeDefined();
+		return (appFn?.[1]?.Properties?.Environment?.Variables ?? {}) as Record<string, unknown>;
+	}
+
+	it('context 指定時に ORIGIN_VERIFY_SECRET_PREVIOUS が載る (これが無いと旧 header を受理できない)', () => {
+		const vars = synthAppEnv({ [originVerifyPreviousContextKey]: PREVIOUS });
+		expect(vars.ORIGIN_VERIFY_SECRET_PREVIOUS).toBe(PREVIOUS);
+		// 現行値も同時に載っていること (旧値だけになると新 header が通らなくなる)
+		expect(vars.ORIGIN_VERIFY_SECRET).toBe(SECRET);
+	});
+
+	it('context 未指定なら env 自体を作らない (定常状態 = 新値のみ受理)', () => {
+		const vars = synthAppEnv({});
+		expect(vars).not.toHaveProperty('ORIGIN_VERIFY_SECRET_PREVIOUS');
+		expect(vars.ORIGIN_VERIFY_SECRET).toBe(SECRET);
+	});
+}, 180_000);
+
+describe('#4364 ローテーション中の旧 secret (previous) の解決', () => {
+	const reader = (value: unknown) => ({ tryGetContext: () => value });
+
+	it.each([
+		[undefined],
+		[''],
+		['   '],
+		[null],
+		[123],
+	])('context が %p なら undefined (定常状態 = 新値のみ受理。ここで throw してはいけない)', (value) => {
+		expect(resolveOriginVerifyPreviousSecret(reader(value))).toBeUndefined();
+	});
+
+	it('32 文字以上なら trim した値を返す', () => {
+		expect(resolveOriginVerifyPreviousSecret(reader(`  ${SECRET}  `))).toBe(SECRET);
+	});
+
+	it('指定されているのに短すぎる場合は throw する (黙って捨てるとローテーション中に 404)', () => {
+		// 旧値を渡したつもりが無視される = CloudFront がまだ旧 header を送っている間
+		// /admin ・ /api/v1/admin ・ /ops が全顧客で 404 になる。silent skip 禁止 (ADR-0024)。
+		expect(() => resolveOriginVerifyPreviousSecret(reader('short-previous'))).toThrow(/短すぎます/);
+	});
+
+	it('エラーメッセージが対処方法 (runbook / secret 名) を含む', () => {
+		let message = '';
+		try {
+			resolveOriginVerifyPreviousSecret(reader('short-previous'));
+		} catch (e) {
+			message = (e as Error).message;
+		}
+		expect(message).toContain('ORIGIN_VERIFY_SECRET_PREVIOUS');
+		expect(message).toContain('docs/runbooks/origin-verify-secret-rotation.md');
+	});
+});
+
 describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 	// infra/bin/app.ts が throw する以上、1 箇所でも欠けるとその step で deploy が止まる。
 	// 「動かしてみて気づく」ではなく PR 時点で検出する (ADR-0061 shift-left)。
@@ -162,6 +274,37 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 			.filter((s) => !s.includes(`-c ${originVerifyContextKey}=`))
 			.map((s) => (s.split('\n')[0] ?? '').trim());
 		expect(missing).toEqual([]);
+	});
+
+	it.each([
+		'.github/workflows/deploy.yml',
+		'.github/workflows/deploy-aws-staging.yml',
+	])('%s の cdk step が全て -c originVerifySecretPrevious を持つ (#4364)', (relPath) => {
+		// 1 箇所でも欠けると、その cdk 実行だけ旧値を配らない Lambda env が出来上がり、
+		// ローテーション中に「その stack 経由で更新された Lambda」だけ 404 になる。
+		const yml = readFileSync(join(root, relPath), 'utf8');
+		const steps = yml.split(/^ {6}- name: /m).slice(1);
+		const cdkSteps = steps.filter((s) => s.includes('npx cdk'));
+		expect(cdkSteps.length).toBeGreaterThan(0);
+
+		const missing = cdkSteps
+			.filter((s) => !s.includes(`-c ${originVerifyPreviousContextKey}=`))
+			.map((s) => (s.split('\n')[0] ?? '').trim());
+		expect(missing).toEqual([]);
+	});
+
+	it.each([
+		'.github/workflows/deploy.yml',
+		'.github/workflows/deploy-aws-staging.yml',
+	])('%s の `-c` 行が行継続で繋がっている (孤立した -c 行を作らない、#4364)', (relPath) => {
+		// `run: |` ブロックで前行の `\` が欠けると、その `-c ...` は**別のシェルコマンド**として
+		// 実行され `-c: command not found` で step が落ちる。同時に、その cdk 実行は当該 context を
+		// 受け取らないまま走る。実際 deploy-aws-staging.yml の DSQL staging step が
+		// `-c opsSecretKey=...` の `\` 欠落でこの状態だった (#4364 で修正)。
+		// 文字列一致の context チェックだけでは「書いてあるのに渡っていない」を見逃すため、
+		// 継続の物理的な繋がりを別に検査する。
+		const yml = readFileSync(join(root, relPath), 'utf8');
+		expect(findOrphanContextLines(yml, relPath)).toEqual([]);
 	});
 
 	it('本番 smoke (Function URL 直) に front door header が渡る', () => {

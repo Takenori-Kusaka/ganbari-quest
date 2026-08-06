@@ -13,6 +13,7 @@ import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
+import { resolveOriginVerifyPreviousSecret } from './origin-verify-context';
 
 // SSOT: src/lib/server/cron/schedule-registry.ts
 // CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
@@ -216,6 +217,15 @@ export class ComputeStack extends cdk.Stack {
 		// /ops を持たず、/admin も公開デモデータのみ。未注入 = 検査無効 (fail-open) で従来どおり動く。
 		const originVerifySecret = this.node.tryGetContext('originVerifySecret') ?? '';
 
+		// #4364: ローテーション中だけ渡す 1 世代前の値。**Lambda env にのみ**載せる
+		// (CloudFront が送るのは常に現行値 1 本なので network-stack.ts には渡さない)。
+		// `cdk deploy --all` は Compute → Network の順に走るため、単一値受理のままだと
+		// 「Lambda は新値を期待 / CloudFront はまだ旧値を送出」の窓が必ず開き、その間
+		// /admin ・ /api/v1/admin ・ /ops が全顧客で 404 になる。旧値を並行受理して窓を閉じる。
+		// 未指定 (定常状態) は正常 = undefined。指定されているのに短すぎる場合だけ throw する
+		// (黙って捨てるとローテーション中に 404 になる silent skip、ADR-0024)。
+		const originVerifyPreviousSecret = resolveOriginVerifyPreviousSecret(this.node);
+
 		// --- DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A で無条件既定化) ---
 		// DSQL は本番の唯一の DB backend。DATA_SOURCE=dsql + DSQL_ENDPOINT + dsql:DbConnect を
 		// **無条件**で配線する。旧 `dsqlEnabled` flag と「flag なしは DATA_SOURCE=dynamodb fallback」
@@ -390,6 +400,9 @@ export class ComputeStack extends cdk.Stack {
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
 						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
+						...(originVerifyPreviousSecret
+							? { ORIGIN_VERIFY_SECRET_PREVIOUS: originVerifyPreviousSecret }
+							: {}),
 						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
@@ -416,6 +429,9 @@ export class ComputeStack extends cdk.Stack {
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
 						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
+						...(originVerifyPreviousSecret
+							? { ORIGIN_VERIFY_SECRET_PREVIOUS: originVerifyPreviousSecret }
+							: {}),
 					},
 		});
 		this.fn.node.addDependency(logGroup);

@@ -1,6 +1,8 @@
-# 運営者の多要素認証（MFA）設定 — `/ops` に入れるようにする
+# 運営者の多要素認証（MFA）設定 — `/ops` に MFA を戻すときの手順
 
-`/ops`（運営ダッシュボード）は **Cognito `ops` group 所属 かつ MFA を経て開始したセッション**でのみ開ける（`docs/design/14-セキュリティ設計書.md` §5.2.9）。TOTP が未設定の運営者は 403 になり、画面には設定導線（`OpsMfaSetupNotice`）が出る。本書はその導線が指す実作業の手順。
+**現在 `/ops` は MFA を要求しない**（`ops` group 所属のみで開ける。オーナー決裁 2026-08-06、#4363）。本書は **MFA 要求を戻すとき**、または個々の運営者アカウントに TOTP を設定しておきたいときの実作業手順である。
+
+MFA 要求を戻す判断基準（再評価トリガー T1〜T4）と、外している間に何が弱いかは `docs/design/14-セキュリティ設計書.md` §5.2.9 が SSOT。**アプリ側の切り替えは `src/lib/policy/capabilities.ts` の `OPS_MFA_REQUIRED` を `true` にするだけ**で、判定機構・拒否理由・復旧導線（`OpsMfaSetupNotice`）は残してある。要求を戻すと、TOTP 未設定の運営者は 403 になり画面に設定導線が出る。
 
 **顧客には影響しない。** Cognito user pool は `mfa: OPTIONAL` のままで、MFA を要求するのはアプリ層の `/ops` だけ（`infra/lib/auth-stack.ts`）。ここで `REQUIRED` に切り替えてはならない — 全顧客に MFA を強制することになる。
 
@@ -40,7 +42,9 @@ TOTP のシークレット登録（`AssociateSoftwareToken` → `VerifySoftwareT
 
 **設定しただけでは `/ops` に入れない。** MFA の有無は ID token の `amr` claim で判定し、その値はログイン時に確定してセッション（署名付き context token）に焼き込まれる。既存セッションのままでは古い値が残るので、ログアウト → 認証アプリのコードを入れてログインし直す。
 
-## 3. 設定したのに 403 のままのとき
+## 3. MFA 要求を戻したあと、設定したのに 403 のままのとき
+
+（`OPS_MFA_REQUIRED` が `false` の間は MFA 起因の 403 は起きない。以下は要求を戻した後の切り分け）
 
 | 症状 | 見るところ |
 |---|---|
@@ -50,6 +54,9 @@ TOTP のシークレット登録（`AssociateSoftwareToken` → `VerifySoftwareT
 
 `otp` / `email_otp` は**受理しない**。本アプリではアプリ層の email OTP を指し、二要素の証拠にならないため。
 
-## 4. ローカルで導線を確認する
+## 4. ローカルで確認する
 
-`npm run dev:cognito` の `DEV_USERS`（`src/lib/server/auth/providers/cognito-dev.ts`）に、MFA 未設定の ops アカウント `ops-no-mfa@example.com` がある。これでログインして `/ops` を開くと、本番と同じ判定経路を通って設定導線に着地する。
+`npm run dev:cognito` の `DEV_USERS`（`src/lib/server/auth/providers/cognito-dev.ts`）に、MFA 済 ops（`ops@example.com`）と MFA 未設定 ops（`ops-no-mfa@example.com`）がある。
+
+- 既定（`OPS_MFA_REQUIRED = false`）: **どちらでも `/ops` に入れる**
+- `OPS_MFA_REQUIRED` を `true` にした状態: `ops-no-mfa@example.com` は 403 になり、設定導線（`OpsMfaSetupNotice`）に着地する。要求を戻す PR ではこの経路を実ブラウザで確認する

@@ -15,7 +15,7 @@
 // ## これは認証ではない
 //
 // 本検査は認証・認可を一切代替しない。保護対象 path は従来どおり Cognito セッション +
-// parent-gate PIN (`/admin`) / ops group + MFA (`/ops`) で守られる。本検査が足すのは
+// parent-gate PIN (`/admin`) / ops group 所属 (`/ops`) で守られる。本検査が足すのは
 // 「edge 層の制御を迂回できない」という 1 点だけである。
 //
 // ## なぜ「CloudFront を通らない到達を一律に拒否」しないか (重要)
@@ -37,7 +37,9 @@
 // cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
 //   - `Tcfv`: staging Stripe webhook endpoint ID `we_1TcfvFBgMFbHJZ0Z5t5Tt53B` の実値の一部。
 //     実在の識別子であり、綴りを変えると実測の証跡でなくなる (tests/CLAUDE.md §負例 fixture と cspell)。
-// cspell:ignore Tcfv
+//   - `AWSCURRENT` / `AWSPENDING`: AWS Secrets Manager の staging label 実名 (#4364 で参照する
+//     AWS 参照実装の用語)。綴りを変えると一次ソースを引けなくなる。
+// cspell:ignore Tcfv AWSCURRENT AWSPENDING
 
 import { timingSafeEqual } from 'node:crypto';
 
@@ -57,7 +59,7 @@ export const ORIGIN_VERIFY_HEADER = 'x-origin-verify';
  *   - `/admin`        保護者の見守り画面 (Cognito セッション + parent-gate PIN)
  *   - `/api/v1/admin` 上記画面が呼ぶ管理 API (同上)
  *   - `/ops`          運営専用ダッシュボード。売上 / コホート / コストが出る
- *                     (ops group + MFA、src/lib/server/auth/ops-authz.ts)
+ *                     (ops group 所属、src/lib/server/auth/ops-authz.ts)
  *
  * ここに **列挙しない path は本検査の対象外**であり、それぞれが自前の認証を持つ
  * (Stripe 署名 / CRON_SECRET / Cognito セッション / 公開情報)。冒頭コメント参照。
@@ -95,25 +97,75 @@ function secretEquals(actual: string, expected: string): boolean {
 }
 
 /**
- * front door 検査本体 (純関数・I/O なし・header 比較 1 回)。
+ * header 値に一致した secret の **個数** を返す (#4364)。
+ *
+ * ## なぜ boolean ではなく個数を返すか
+ *
+ * ローテーション中は新旧 2 値を受理する (下記 `evaluateFrontDoor`)。ここを
+ * `equals(current) || equals(previous)` と書くと **短絡評価**になり、
+ * 「新値一致 = 比較 1 回 / 旧値一致 = 比較 2 回」という応答時間差が生まれて、
+ * 外部から「今どちらの値が現役か」を区別できてしまう (secret 探索の手掛かりになる)。
+ *
+ * 「一致した個数」を返す契約にすると、実装は **必ず全候補を評価しなければならない** ため
+ * 短絡評価が構造的に書けない。この不変条件は
+ * `tests/unit/security/origin-verify.test.ts` の「先頭が一致しても後続を評価する」で固定する
+ * (同じ値を 2 つ渡して 2 が返ることを要求する = 短絡実装では通らない)。
+ *
+ * header が無い / 空文字のときだけは早期 return する (値の内容とは無関係な入力形状の判定で、
+ * secret の情報を一切含まないため timing 差は問題にならない)。
+ */
+export function countMatchingSecrets(
+	headerValue: string | null,
+	accepted: readonly string[],
+): number {
+	if (!headerValue) return 0;
+	let matches = 0;
+	for (const secret of accepted) {
+		if (secretEquals(headerValue, secret)) matches += 1;
+	}
+	return matches;
+}
+
+/**
+ * front door 検査本体 (純関数・I/O なし)。
  *
  * `hooks.server.ts` は全リクエスト経路のため、ここに DB / 外部 I/O を足してはならない。
  *
- * @param pathname     `event.url.pathname`
- * @param headerValue  `request.headers.get(ORIGIN_VERIFY_HEADER)`
+ * ## 新旧 2 値受理 (#4364、ローテーションを無停止にするための必須要件)
+ *
+ * secret は **2 つの stack に配られる**: CloudFront の origin custom header (NetworkStack) と
+ * Lambda env (ComputeStack)。`cdk deploy --all` は NetworkStack が ComputeStack の
+ * Function URL に依存するため **Compute → Network の順**で走る。したがって値を変えると
+ * 「Lambda は新値を期待しているのに CloudFront はまだ旧値を送っている」窓が必ず開き
+ * (distribution が Deployed になるまで数分)、その間 `/admin` ・ `/api/v1/admin` ・ `/ops` は
+ * 全顧客で 404 になる。
+ *
+ * そこで `previousSecret` (`ORIGIN_VERIFY_SECRET_PREVIOUS`) を**併せて受理**する。
+ * AWS の参照実装 (Security Blog の `X-Origin-Verify`) が AWSCURRENT + AWSPENDING を
+ * OR 受理して既定 1 日間隔のローテーションでも窓を作らないのと同じ形。
+ *
+ * ローテーション手順 (3 段。どの段でも窓が開かない) は
+ * `docs/runbooks/origin-verify-secret-rotation.md` が SSOT。
+ * **旧値を配らないまま `ORIGIN_VERIFY_SECRET` を変えてはならない** (それが上記の窓)。
+ *
+ * @param pathname       `event.url.pathname`
+ * @param headerValue    `request.headers.get(ORIGIN_VERIFY_HEADER)`
  * @param expectedSecret `ORIGIN_VERIFY_SECRET` (未設定なら undefined / 空文字)
+ * @param previousSecret `ORIGIN_VERIFY_SECRET_PREVIOUS` (ローテーション中のみ設定。
+ *                       未設定なら新値のみで判定する = 定常状態)
  */
 export function evaluateFrontDoor(
 	pathname: string,
 	headerValue: string | null,
 	expectedSecret: string | undefined,
+	previousSecret?: string | undefined,
 ): FrontDoorDecision {
 	if (!isFrontDoorProtectedPath(pathname)) return 'allow';
 
 	// secret 未設定 = 検査不能。**fail-open** にする (詳細は下記)。
 	//
 	// なぜ fail-open が安全か:
-	//   1. 本検査は認証ではなく「経路の限定」。無効化しても Cognito + PIN / ops group + MFA
+	//   1. 本検査は認証ではなく「経路の限定」。無効化しても Cognito + PIN / ops group 所属
 	//      という主防御は 1 枚も剥がれない。fail-closed にした場合に失われるもの (全顧客の
 	//      /admin が 404) の方が、得られるもの (経路限定) より桁違いに大きい
 	//   2. **CloudFront が存在しない配備が正当に存在する**。NUC セルフホスト (LAN 内直配信) と
@@ -126,6 +178,7 @@ export function evaluateFrontDoor(
 	//      プロセス 1 回だけ log する
 	if (!expectedSecret) return 'not-configured';
 
-	if (headerValue && secretEquals(headerValue, expectedSecret)) return 'allow';
-	return 'deny';
+	// 旧値が未設定 (定常状態) なら候補は新値のみ。ローテーション中だけ 2 候補になる。
+	const accepted = previousSecret ? [expectedSecret, previousSecret] : [expectedSecret];
+	return countMatchingSecrets(headerValue, accepted) > 0 ? 'allow' : 'deny';
 }

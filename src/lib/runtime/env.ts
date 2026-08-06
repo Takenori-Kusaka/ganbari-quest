@@ -184,6 +184,19 @@ const envSchema = z.object({
 	 */
 	ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
 
+	/**
+	 * ローテーション中だけ設定する **1 世代前** の `ORIGIN_VERIFY_SECRET` (#4364)。
+	 *
+	 * CloudFront (NetworkStack) と Lambda env (ComputeStack) は別 stack で、`cdk deploy --all`
+	 * は Compute → Network の順に走る。単一値しか受理しないと「Lambda は新値を期待、
+	 * CloudFront はまだ旧値を送出」の窓が必ず開き、その間 `/admin` が全顧客で 404 になる。
+	 * 本 env に旧値を置いている間は新旧どちらでも通るため、窓が閉じる。
+	 *
+	 * **定常状態では未設定が正**。ローテーション完了後は速やかに空にする
+	 * (手順: `docs/runbooks/origin-verify-secret-rotation.md`)。
+	 */
+	ORIGIN_VERIFY_SECRET_PREVIOUS: z.string().min(32).optional(),
+
 	// ----- Parent-Gate Session (#2310 / ADR-0050) -----
 	/**
 	 * /admin/* PIN gate の cookie 署名キー (cookie-signature HMAC-SHA256)。

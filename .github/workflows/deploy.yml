@@ -148,6 +148,7 @@ jobs:
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
@@ -160,6 +161,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR
@@ -275,6 +277,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
@@ -349,6 +352,7 @@ jobs:
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
@@ -378,6 +382,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
@@ -443,6 +448,24 @@ jobs:
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
+
+      # #4352: IaC の外で足された env (out-of-band drift) の検出。
+      #
+      # CloudFormation はテンプレート無変更ならリソースを触らないため、`aws lambda
+      # update-function-configuration` で手で足した env は **次の deploy でも消えない**
+      # (staging では実際に検証用の STRIPE_PRICE_* が full deploy を跨いで残り、#4286 の
+      # 修正が効いているかを staging で判定できない状態が続いた、#4117 E1)。
+      #
+      # 上の "Incident webhook env verification" が「あるべきキーがあるか」を見るのに対し、
+      # 本 step は「**あるべきでないキーが無いか**」を見る (逆方向)。値は読まずキー名だけで判定する。
+      # 欠落 (テンプレートにあるが live に無い) は warning に留め、extra のみ hard-fail する。
+      - name: Lambda env drift check (production, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestCompute.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION"
 
       # #4174: **synth の diff ではなく、deploy 済み Lambda の実 env** を読んで検証する。
       # compute-stack.ts は空値のとき env ごと落とす (`...(x ? {KEY: x} : {})`) ため、
