@@ -24,6 +24,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	//
 	// #4309: 判定は requireOpsAccess (単一強制点) に集約する。本 layout は **page にしか
 	// 適用されない** ため、`+server.ts` (API endpoint) は同じ関数を各自で呼ぶ必要がある。
+	// #4282 の復旧導線 (reason) も同関数が載せる (拒否の語彙を 2 箇所に持たない)。
 	requireOpsAccess(locals);
 	return {};
 };

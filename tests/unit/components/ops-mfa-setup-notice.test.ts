@@ -36,10 +36,10 @@ describe('#4282 OpsMfaSetupNotice — 締め出しではなく復旧導線', () 
 
 	it('設定後の出口 (再ログイン) を操作できる', () => {
 		render(OpsMfaSetupNotice);
-		const relogin = screen.getByRole('link', { name: OPS_MFA_SETUP_LABELS.reloginLabel });
+		const exitLink = screen.getByRole('link', { name: OPS_MFA_SETUP_LABELS.loginAgainLabel });
 		// 再ログインは Cognito の MFA チャレンジを経て amr を載せ直すための唯一の出口。
 		// ここが /ops 自身を指していると 403 ループになる。
-		expect(relogin.getAttribute('href')).toBe('/auth/login');
+		expect(exitLink.getAttribute('href')).toBe('/auth/login');
 	});
 
 	it('自力で設定できない場合の連絡先 (runbook 参照) を示す', () => {

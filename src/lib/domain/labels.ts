@@ -4325,6 +4325,29 @@ export const ERROR_PAGE_LABELS = {
 	errorIdPrefix: 'エラーID: ',
 } as const;
 
+/**
+ * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
+ *
+ * 運営者専用画面のため顧客には出ない。ここで手順まで出し切るのは、
+ * 「拒否されたが何をすれば入れるのか分からない」状態を作らないため
+ * (リンク先を読まないと復旧できない導線は導線として成立しない)。
+ */
+export const OPS_MFA_SETUP_LABELS = {
+	title: '多要素認証（MFA）の設定が必要です',
+	description:
+		'運営ダッシュボードは、ログイン時に多要素認証を通ったセッションだけが利用できます。認証アプリ（TOTP）の設定が済んでいないか、設定後にログインし直していない状態です。',
+	stepsTitle: '入れるようにする手順',
+	steps: [
+		'スマートフォンに認証アプリ（TOTP 対応のもの）を用意する',
+		'運営管理者が Cognito ユーザープールで、このアカウントの認証アプリ（TOTP）を有効にする',
+		'いったんログアウトし、認証アプリのコードを入力してログインし直す',
+	],
+	/** 再ログインは MFA チャレンジを経て `amr` を載せ直す唯一の出口。汎用 403 と同じ文言を再利用する */
+	loginAgainLabel: ERROR_PAGE_LABELS.btnLoginAgain,
+	runbookHint:
+		'手順の詳細と、自分で設定できない場合の依頼先は運用手順書 docs/runbooks/ops-mfa-setup.md にあります。',
+} as const;
+
 // ============================================================
 // 注: OPS_LICENSE_KEY_LABELS (旧 /ops/license/[key] 詳細ページ) は Epic #2525 Phase 7 PR-L4
 //     (#2836) license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除)。
