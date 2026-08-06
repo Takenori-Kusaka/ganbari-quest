@@ -27,7 +27,7 @@
 1. **GitHub が既にモデル化しているものに label を作らない** — approve の依頼は **reviewer request**（GitHub 標準）を使う。label は「状態」だけを表す
 2. **label は状態であって指示ではない** — `state:ready-to-merge` が付いていても、**CI 緑は自分で確認する**。label は実測を代替しない（PO がラベルだけ見て merge 可と判断し、QM が赤を理由に拒否した実例あり）
 3. **付けた側が意味に責任を持つ** — 自分のレーンから次のレーンへ渡すときに、渡す側が付ける
-4. **不可逆 4 操作だけはオーナーへ上げる** — 削除（gate / guard / test の削除を含む）/ 本番 deploy / 課金書込 / スキーマ変更。それ以外はセッションが自分で判断して進む
+4. **不可逆 4 操作だけはオーナーへ上げる** — **本番データ**の削除 / 本番 deploy / 課金書込 / スキーマ変更。**`gate` / `guard` / `test` の削除は 4 操作に含まない**（方針は `state:needs-po`、実行は通常の PR + QM レビュー。[README.md §4.4 / §5.2](README.md)）。それ以外はセッションが自分で判断して進む
 5. **語彙を増やさない** — 増やす前に GitHub 標準機能で表せないかを確認する。ただし**渡す経路が存在しない**なら語彙不足であり、増やすのが正しい（§6）
 
 ---
@@ -47,7 +47,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 | `state:needs-po` | **PO に用がある**。**PO が決めるのは 2 つだけ**（[README.md §0](README.md) ルール 4） — ①顧客に見える文言・UX・価格の方針 ②backlog の順序。**それ以外は付けない**（装置 / 実装方針 / 受容判断は Dev か QM が決める） | 誰でも | **PO** |
 | `state:needs-audit` | **監査チームに用がある**（release cut 依頼 / 仕様の問い合わせ / 見解確認） | 誰でも | **監査** |
 | `state:needs-platform` | **Platform に用がある**（装置の削減 / 統合 / 自動生成、[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | 誰でも | **Platform** |
-| `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = 削除 / 本番 deploy / 課金書込 / スキーマ変更を含む） | 誰でも | **オーナー** |
+| `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = **本番データ**の削除 / 本番 deploy / 課金書込 / スキーマ変更を含む。`gate` / `guard` / `test` の削除は含まない — [README.md §4.4](README.md)） | 誰でも | **オーナー** |
 
 > **宛先 label は用件を含意しない（#4180 で追加した原則）。** 「誰に用があるか」だけを表し、**何の用かは Issue / PR のコメントに書く**（§2 原則 2「label は状態であって指示ではない」）。
 >
@@ -86,7 +86,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 | `state:needs-owner` | オーナー / PO | 決裁をコメントとして残した | 同上 |
 | `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
 | `state:needs-platform` | Platform | 装置の削減 / 生成が完了し CI 全緑 | **`state:dev-done`**（QM レビューへ。**自分の PR を自分で approve しない** — ADR-0022） |
-| `state:needs-platform` | Platform | **削除**（gate / guard / test）が必要と分かった | **`state:needs-owner`**（不可逆 4 操作） |
+| `state:needs-platform` | Platform | **削除**（gate / guard / test）の**方針**判断が要る | **`state:needs-po`**（実行は通常の PR + QM レビュー。オーナー決裁ではない — [README.md §4.4 / §5.2](README.md)） |
 | `state:needs-platform` | — | **🔒 凍結中**（§0 ルール 1）。既存分は `status:on-hold`、新規は付けない | — |
 | **`state:needs-qm`** | **QM** | **回答をコメントに残した** | **問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`） |
 | **`state:needs-qm`** | **QM** | **レビュー依頼だと判明した**（実装が完了している） | **`state:dev-done`** に読み替える |
@@ -340,8 +340,9 @@ gh pr list --label "state:qm-blocked" --state open --search "author:@me" --json 
   「直す」より先に「消す」「生成する」が選べないかを検討する
 - 完了して CI が緑になったら state:needs-platform を外して **state:dev-done** に付け替える
   （自分の PR を自分で approve しない、ADR-0022。§3.1.1 復路）
-- **gate / guard / test の削除は自分で実行しない** → state:needs-owner（不可逆 4 操作）
-- gate を残すか消すかの**方針**は自分で決めない → state:needs-po（README.md §4.5）
+- gate / guard / test を**残すか消すかの方針**は自分で決めない → state:needs-po（README.md §4.5）。
+  **削除の実行はオーナー決裁ではない** — 方針が決まったら通常の PR を出し QM レビューを通す（README.md §4.4 / §5.2）
+- **本番データの削除 / 本番 deploy / 課金書込 / スキーマ変更**を含むなら → state:needs-owner（不可逆 4 操作）
 - 製品コードは実装しない（Dev の職掌）。release cut / deploy はしない（監査の職掌）
 ```
 

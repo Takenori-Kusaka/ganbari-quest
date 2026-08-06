@@ -280,7 +280,7 @@ vitest の実行結果を Ready / approve 判定の根拠にする以上、そ�
 - **`ci-gate` green を判定の根拠にしてはならない**。`ci-gate` は `result == 'failure' or 'cancelled'` のみを数え、`skipped` を数えない（`ci.yml` の `so skipped jobs (via path filter) don't block merges`、実測: #3992 の needs 25 件が `skipping` でも ci-gate は pass）。required check として登録されているのは個別 job ではなく `ci-gate` なので、`unit-test` が skip されても merge は止まらない
 - 確認方法: `gh pr checks <num>` の出力で `unit-test (1)` / `unit-test (2)`（統合 PR は `unit-test-merge` も）が **`pass`** であること。`skipping` は pass ではない
 - skip されていた場合の代替: 作者に「該当 vitest をローカルで単独実行したログを PR body に貼る」ことを求め、それを確認するまで approve しない
-- 本来 skip は起きない想定（`ci.yml` の `app` filter が `docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` まで含み、`tests/unit` + `tests/integration` の参照先閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する）。それでも skip が観測されたら filter に穴が残っている合図なので、approve せず Issue 化する
+- 本来 skip は起きない想定（`ci.yml` の `app` filter が `docs/**` / `site/**` / `.github/**` / `drizzle/**` / `actions/**` まで含み、`tests/unit` + `tests/integration` の参照先閉包を `tests/unit/architecture/ci-unit-test-path-filter-closure.test.ts` が機械検証する）。それでも skip が観測されたら filter に穴が残っている合図。**approve せず、その場で filter を直す PR を出す**（装置の Issue は起票しない — [チーム憲章 §0](README.md) ルール 7 / §4.5）
 
 ##### 重量 e2e 敏感領域の追加判定（#3172、軽量レーン緑だけで approve しない領域）
 
@@ -423,12 +423,12 @@ lead が Review subagent / 修正 subagent を spawn する際の定型プロン
 
 ## Dependabot / 品質基準
 
-- Dependabot PR は下位互換性なしも採用方針。コード修正必要なら pending + Issue 起票。overlap 警告無視可
+- Dependabot PR は下位互換性なしも採用方針。コード修正が必要なら **その場で修正 PR を出す**（Issue にしない — [チーム憲章 §0](README.md) ルール 7）。着手順を下げたいときは `status:on-hold` を付けて `state:needs-po` で渡す。overlap 警告無視可
 - ADR-0005 違反（カバレッジ閾値引下げ / バグ隠蔽ヘルパー / `waitForTimeout` 新規 / テスト内ロジック再実装）は BLOCK
 - 場当たり対応検出: CSS ハードコード / hex 直書き / `<button>` 直書き / labels ハードコード → BLOCK
 - SOLID 違反検出: `+server.ts` から ORM 直呼び（DIP 違反）/ 1 関数で全責任（SRP 違反）/ 巨大 interface 依存（ISP 違反）
 
-スコープ外発見をスルーしない（Issue 起票 or 修正）。assertion 弱体化を安易に受け入れない（ADR-0006）。
+スコープ外発見をスルーしない（**その場で直すか、PR コメントに残す**。follow-up を Issue 化しないのは §BLOCK 基準のとおり）。assertion 弱体化を安易に受け入れない（ADR-0006）。
 
 ## 参照ドキュメント
 

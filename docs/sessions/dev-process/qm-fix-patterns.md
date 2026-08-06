@@ -81,7 +81,7 @@ Dev Self-Review で「PASS」と自己宣言したが QM Re-Review で実態 FAI
 特に以下は機械検証コマンド + 結果を report に含める:
 
 - 破綻なし: `npm run pre-ready -- --pr <N>` の出力末尾 5 行
-- テスト十分性: `npx vitest run` の `Test Files X passed (X)` 行 + `git diff main --stat` の test file 件数
+- テスト十分性: `npx vitest run` の `Test Files X passed (X)` 行 + `git diff "origin/$(node scripts/lib/ci/resolve-base-branch.mjs)...HEAD" --stat` の test file 件数（base は develop、[branch-strategy.md §3](../branch-strategy.md)）
 - 過去 QA 指摘事前回避: `gh pr view <N> --json commits` で先行 PR の fix commit を grep し回避済み確認
 - 場当たり対応: `grep -rn "TODO\|FIXME" <変更 file>` 0 件 / `npx stylelint --no-fix <変更 .svelte>` PASS
 - セキュリティ: tenant 外 childId を 403 reject する unit test 名を列挙（CWE-598 関連時）
