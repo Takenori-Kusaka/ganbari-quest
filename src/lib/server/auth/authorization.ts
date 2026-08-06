@@ -1,3 +1,7 @@
+// cspell:ignore opsedit
+// ↑ #4309 のコメント内の負例。`/ops` に前方一致する**実在しない route** を例示するためのもので、
+//   綴りを直すと「素朴な startsWith が何を巻き込むか」の説明が成立しない (file scope に閉じる)。
+
 // src/lib/server/auth/authorization.ts
 // ロール × ルート 認可マトリクス (#0123: viewer廃止, device廃止)
 
@@ -156,7 +160,20 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/legal') ||
 		path.startsWith('/demo') ||
 		path.startsWith('/marketplace') ||
-		path.startsWith('/ops') ||
+		// #4309: `/api/cron/` と同じく「認証不要」ではなく **「認証の担い手が route 側にある」** の意。
+		// 本認可層は ops group / MFA を表現できない — `RouteRule.roles` が持つのは
+		// owner / parent / child の 3 値だけで、Cognito group も MFA 有無も語彙に無い。
+		// ここから外すと `/ops` は「認証済みの任意のテナントメンバーなら通る」+ ライセンス状態
+		// (期限切れ → /admin/subscription へリダイレクト) に縛られ、運営者が締め出される一方で
+		// 顧客が入れてしまう。したがって判定は route 側の `requireOpsAccess`
+		// (ops-authz.ts、ops group + MFA / fail-closed) に集約し、本行はそこへ委譲する宣言である。
+		// **page (`+layout.server.ts`) と API (`+server.ts`) の両方が呼ぶ必要がある** —
+		// layout の gate は `+server.ts` に走らず、それが #4309 の実害 (未認証で売上台帳 CSV 200)。
+		// 適用範囲は tests/unit/architecture/ops-route-auth-fitness.test.ts が FS 列挙で機械強制する。
+		// 境界は `/ops` 完全一致と `/ops/` に限定する — 素朴な startsWith('/ops') は
+		// `/opsedit` のような別 route まで巻き込んで公開してしまう (cron の #4206 と同型)。
+		path === '/ops' ||
+		path.startsWith('/ops/') ||
 		path.startsWith('/view')
 	);
 }

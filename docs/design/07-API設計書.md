@@ -1435,8 +1435,13 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
 
-> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820 / ADR-0033）。
-> 非メンバーは 403 Forbidden。実装は `src/routes/ops/+layout.server.ts` が `isOpsMember(locals.identity)` で判定する。
+> `/ops` 配下は **Cognito User Pool の `ops` group メンバー かつ MFA 済のみがアクセス可能**（#820 / #4266）。
+> 非メンバーは 403 Forbidden。判定は `src/lib/server/auth/ops-authz.ts` の `requireOpsAccess(locals)` に集約する。
+>
+> **API endpoint（`+server.ts`）は自分で `requireOpsAccess(locals)` を呼ぶこと（#4309）**。`+layout.server.ts` の gate は
+> page の load にしか適用されず `+server.ts` には走らないため、呼ばない endpoint は**認可ゼロで外部公開される**
+> （実害: `GET /ops/export?type=sales` が未認証で 200 + 売上台帳 CSV を返していた）。適用範囲は
+> `tests/unit/architecture/ops-route-auth-fitness.test.ts` が FS 列挙で機械強制する。詳細は 14-セキュリティ設計書 §5.2.9。
 >
 > 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
 > なお `/api/cron/retention-cleanup` / `/api/cron/license-expire` は EventBridge から呼ばれる別経路のため、独自の shared secret
