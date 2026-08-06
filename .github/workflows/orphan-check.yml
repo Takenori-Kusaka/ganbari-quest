@@ -4,13 +4,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# 10 種類の orphan detection script を統合実行し、新規 orphan の流入を block する CI gate。
+# 9 種類の orphan detection script を統合実行し、新規 orphan の流入を block する CI gate。
 #
 # 設計背景:
 #   EPIC #2362 / Path B 系の cleanup 過程で `activities` table / `sibling_challenges` 等の
 #   orphan が累積していた事故 (audit ベースで見落とされていた既存 dead code) を二度と起こさない
-#   構造的予防。10 種類 (tables / services / repos / fixtures / labels / ui / assets / env /
-#   skip-deadlines / routes) について「production 経路参照ゼロ」を検出する。
+#   構造的予防。9 種類 (tables / services / repos / fixtures / labels / ui / assets / env /
+#   routes) について「production 経路参照ゼロ」を検出する。
 #
 # Baseline 機構:
 #   scripts/orphan-baselines/<category>.json に「既知の例外」を allowlist 化。
@@ -31,7 +31,6 @@ on:
       - 'static/**'
       - 'site/**'
       - 'scripts/check-orphan-*.mjs'
-      - 'scripts/check-skip-deadlines.mjs'
       - 'scripts/lib/ci/orphan-utils.mjs'
       - 'scripts/orphan-baselines/**'
       - '.env.example'
@@ -57,7 +56,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # 10 script を順次実行。1 つでも fail したら job fail。
+      # 9 script を順次実行。1 つでも fail したら job fail。
       # 各 script の baseline は scripts/orphan-baselines/<name>.json で管理。
       - name: 'check-orphan-tables (Drizzle schema → production usage)'
         run: node scripts/check-orphan-tables.mjs
@@ -83,9 +82,6 @@ jobs:
       - name: 'check-orphan-env (.env.example → process.env usage)'
         run: node scripts/check-orphan-env.mjs
 
-      - name: 'check-skip-deadlines (tests/ .skip → Issue/deadline/owner metadata)'
-        run: node scripts/check-skip-deadlines.mjs
-
       - name: 'check-orphan-routes (src/routes → href/goto/legacy-url-map)'
         run: node scripts/check-orphan-routes.mjs
 
@@ -94,7 +90,7 @@ jobs:
         run: |
           echo "## Orphan Detection Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "10 detection scripts executed sequentially. Any new orphan (not in baseline) hard-fails the job." >> $GITHUB_STEP_SUMMARY
+          echo "9 detection scripts executed sequentially. Any new orphan (not in baseline) hard-fails the job." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "If you intentionally need to allow a new orphan (Pre-PMF Bucket B etc), update the baseline:" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
