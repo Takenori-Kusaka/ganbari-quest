@@ -72,7 +72,7 @@ PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判
 
 | 決裁対象 | 叩くもの |
 |---|---|
-| CI が緑か | `gh pr checks <N>`。**`skipping` を pass と数えない。** 「全緑」は**検査された範囲**とセットでしか意味を持たない |
+| CI が緑か | `gh pr view <N> --json statusCheckRollup`（context 単位に畳んで最新だけ見る、[qm-session.md](qm-session.md) §「`gh pr checks` の非 pass 行が 0 は緑の証明にならない」）。**`skipping` を pass と数えない。`gh pr checks` は走った check しか出さないので、未起動の required は行ごと消える。** 「全緑」は**検査された範囲**とセットでしか意味を持たない |
 | 実装が入っているか | `gh pr diff <N>` / `git show <sha>` |
 | closing keyword が効くか | `grep -E '^Closes #'` で**行として**確認する |
 | label が示す状態が正しいか | 上記のいずれか。**label は実測を代替しない** |

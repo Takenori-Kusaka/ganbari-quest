@@ -268,8 +268,10 @@ gh pr list --label "state:ready-to-merge" --state open --json number,title,merge
   実装が完了しているレビュー依頼だと分かったら state:dev-done に読み替える
 - 報告は必ず「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。
   「BLOCK 3 類型に非該当」は CI 緑を含意しない
-- state:ready-to-merge でも、gh pr checks で緑を確認してから merge する。赤を跨いだ merge は
-  理由が正当でも外形が admin bypass と区別できない
+- state:ready-to-merge でも、緑を確認してから merge する。赤を跨いだ merge は
+  理由が正当でも外形が admin bypass と区別できない。gh pr checks は走った check しか出さないため、
+  未起動の required を「非 pass 行 0」と読まない (qm-session.md §「gh pr checks の非 pass 行が 0 は
+  緑の証明にならない」の statusCheckRollup 畳み込みで判定する)
 - BLOCK できるのは 3 類型のみ（顧客に実害 / 証跡の真正性を弱める / 不可逆）。
   gate の削除は PO 承認事項であって BLOCK 事由にしない。懸念は approve + コメントに降格する
 - follow-up は PR コメント止まり。Issue にしない
