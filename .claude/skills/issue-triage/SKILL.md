@@ -249,7 +249,7 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 
 ## 手順 F: 補佐設計品質ガード 6（#2373 / AN-5 #2180 補強 6）
 
-> 本手順は **すべての EPIC 起票時 + 3 件目の類似 service / component 起票時** に実行する補助手順。SSOT: 本 §F + `docs/sessions/po-session.md` §「補佐設計品質ガード 6」。
+> 本手順は **すべての EPIC 起票時 + 3 件目の類似 service / component 起票時** に実行する補助手順。SSOT: 本 §F（実体は本節に集約済み）。
 
 **背景**: 補佐が 5 EPIC 連続 (#2253 / #2266 / #2294 / #2319 / #2327) でマーケプレ関連 Issue を起票した際、抽象クラス / Strategy / Factory パターンを 5 回連続で見逃した教訓を SSOT 化。補佐責務 = Issue 起票のみであり、設計品質欠陥は起票段階で防がねばならない。
 

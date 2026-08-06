@@ -123,6 +123,18 @@ const envSchema = z.object({
 	// ----- Ops (ADR-0033) -----
 	CRON_SECRET: z.string().min(32).optional(),
 	OPS_SECRET_KEY: z.string().optional(),
+
+	/**
+	 * #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+	 * `'true'` / `'1'` で削除を一切実行しない。未設定 = 従来どおり有効。
+	 *
+	 * **`booleanStringSchema` を使わない**: 同 schema は `'true'|'false'` 以外を
+	 * validation error にし、`getEnv()` は module load 時に throw する
+	 * (= アプリ全体が起動しない)。本 env は**障害対応中に手で急いで設定する**もので、
+	 * `1` / `yes` 等の打ち間違いでアプリを落とすのは筋が悪い。文字列のまま受け、
+	 * 解釈と「解釈できない値だった」の警告は grace-period-service 側で行う。
+	 */
+	GRACE_PERIOD_DELETION_DISABLED: z.string().optional(),
 	OPS_DOMAIN_COST_JPY: z.coerce.number().int().default(117),
 	OPS_VIRTUAL_OFFICE_COST_JPY: z.coerce.number().int().default(0),
 

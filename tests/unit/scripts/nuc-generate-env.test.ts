@@ -47,7 +47,7 @@ function findPwsh(): string | null {
 
 const pwsh = findPwsh();
 
-type WorkflowStep = { name?: string; run?: string };
+type WorkflowStep = { name?: string; run?: string; env?: Record<string, string> };
 
 /** deploy-nuc.yml の deploy-nuc job の step 一覧を型付きで取り出す。 */
 function nucSteps(): WorkflowStep[] {
@@ -134,6 +134,68 @@ describe('#4275 静的 — 壊れる書き方を二度と入れない', () => {
 	});
 });
 
+describe('#4330 静的 — provider を宣言したら、その鍵も同じ経路で配る', () => {
+	/**
+	 * `.env` に書く provider と、その provider が要求する API キー env の対応表。
+	 * **provider を書くならキーも配る**が守るべき不変条件。
+	 */
+	const PROVIDER_KEY_ENV: Record<string, string> = { gemini: 'GEMINI_API_KEY' };
+
+	it('script が書く AI_PROVIDER に対応する API キーも書く', () => {
+		// #4330: `AI_PROVIDER=gemini` は書くのに GEMINI_API_KEY を配っていなかったため、
+		// NUC の AI 提案は「provider は選ばれているのに鍵が無い」状態で常に無効だった。
+		// **鍵が無いことが実行時まで分からない**のが本欠陥 (#4167 / #4174 と同じクラス)。
+		const declared = [...script.matchAll(/^\s*"AI_PROVIDER=([a-z]+)"/gm)]
+			.map((m) => m[1])
+			.filter((name): name is string => name !== undefined);
+		expect(declared, 'script が AI_PROVIDER を書いていない (前提が変わった?)').not.toEqual([]);
+
+		for (const provider of declared) {
+			const keyEnv = PROVIDER_KEY_ENV[provider];
+			expect(keyEnv, `provider '${provider}' の API キー env が対応表に無い`).toBeTruthy();
+			expect(
+				script,
+				`AI_PROVIDER=${provider} を書くのに ${keyEnv} を .env へ書いていない = 鍵の無い provider を宣言している (#4330)`,
+			).toContain(`"${keyEnv}=$env:${keyEnv}"`);
+		}
+	});
+
+	it('鍵が無いときは AI_PROVIDER を消さず warning に留める（bedrock への暗黙 fallback を作らない）', () => {
+		// `AI_PROVIDER` を書かない案を採ると factory の既定 'bedrock' が選ばれる。
+		// BedrockClaudeProvider.isAvailable() は BEDROCK_DISABLED 以外では**無条件 true** を返すため、
+		// AWS 資格情報の無い NUC で「AI は使える」と名乗って呼び出し時に落ちる = 現状より悪化する。
+		// gemini + 鍵なしなら isAvailable() が false になり、キーワード提案へ正しく縮退する。
+		expect(script, 'AI_PROVIDER の無条件出力が消えている').toMatch(/^\s*"AI_PROVIDER=gemini"/m);
+		expect(script, 'GEMINI_API_KEY 未設定時の warning が無い').toMatch(/::warning::GEMINI_API_KEY/);
+		// deploy を止めない (#4275: 気づかせるために足した文言が deploy そのものを殺した)
+		expect(
+			script.match(/exit 1/g)?.length ?? 0,
+			'AI キー欠落で exit 1 を増やしていない (AI は補助機能、deploy 全体を止めない)',
+		).toBe(2);
+	});
+
+	it('workflow が渡す env の集合と、script が読む env の集合が一致する (#4330 AC4)', () => {
+		// **片方に足りない env は deploy のたびに .env から消える。**
+		// script 側にしか無い = 常に空 (これが #4330 / #4167 の欠陥そのもの)。
+		// workflow 側にしか無い = 渡しているのに捨てている (secret 設定者を誤認させる)。
+		const step = nucSteps().find((s) => s.name?.includes('Generate .env'));
+		expect(step, 'env 生成 step が見つからない').toBeTruthy();
+		const passed = new Set(Object.keys(step?.env ?? {}));
+		const read = new Set(
+			[...script.matchAll(/\$env:([A-Z][A-Z0-9_]*)/g)].map((m) => m[1] as string),
+		);
+
+		expect(
+			[...read].filter((name) => !passed.has(name)).sort(),
+			'script が読むのに workflow が渡していない env (deploy のたびに空になる)',
+		).toEqual([]);
+		expect(
+			[...passed].filter((name) => !read.has(name)).sort(),
+			'workflow が渡すのに script が .env へ書かない env (渡した気になるだけ)',
+		).toEqual([]);
+	});
+});
+
 describe('#4275 動作 — pwsh で実際に走らせる', () => {
 	/**
 	 * pwsh が無い環境では静的検査だけになる。**CI では skip を許さない**
@@ -210,5 +272,56 @@ describe('#4275 動作 — pwsh で実際に走らせる', () => {
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+
+	/** 必須 secret を埋め、GEMINI_API_KEY だけを指定値（または未設定）にした env を作る。 */
+	function envWithGeminiKey(key?: string): Record<string, string | undefined> {
+		const env: Record<string, string | undefined> = {
+			...process.env,
+			PARENT_GATE_COOKIE_SECRET: 'pg-secret-value',
+			CRON_SECRET: 'cron-secret-value',
+		};
+		// **開発機に GEMINI_API_KEY が設定されていても結果が変わらないようにする**
+		// (spread した process.env が漏れると「未設定なら warning」の検証が空振りする)
+		delete env.GEMINI_API_KEY;
+		if (key !== undefined) env.GEMINI_API_KEY = key;
+		return env;
+	}
+
+	/** script を走らせて stdout と .env の中身を返す。 */
+	function runScript(env: Record<string, string | undefined>): { stdout: string; written: string } {
+		const dir = mkdtempSync(join(tmpdir(), 'nuc-env-'));
+		const outFile = join(dir, '.env');
+		try {
+			const stdout = execFileSync(
+				pwsh as string,
+				['-NoProfile', '-File', SCRIPT_PATH, '-OutFile', outFile],
+				{ env, encoding: 'utf8' },
+			);
+			return { stdout, written: readFileSync(outFile, 'utf8') };
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+
+	it('#4330 GEMINI_API_KEY があれば AI_PROVIDER と一緒に .env へ書く', () => {
+		if (!pwsh) return;
+		const { written } = runScript(envWithGeminiKey('gemini-key-value'));
+		expect(written, 'NUC は gemini ホスト').toContain('AI_PROVIDER=gemini');
+		expect(written, 'provider は書くのに鍵を配らない = AI 提案が常に無効になる (#4330)').toContain(
+			'GEMINI_API_KEY=gemini-key-value',
+		);
+	});
+
+	it('#4330 GEMINI_API_KEY が無ければ warning を出し、deploy は続ける', () => {
+		if (!pwsh) return;
+		const { stdout, written } = runScript(envWithGeminiKey());
+		expect(stdout, '鍵の欠落が誰にも届かない = #4330 の再演').toContain(
+			'::warning::GEMINI_API_KEY',
+		);
+		// 空値を書くと「設定済みだが空」と区別できなくなる (既存の任意 env と同じ扱い)
+		expect(written).not.toContain('GEMINI_API_KEY=');
+		// AI 無効でも他の機能は動くので .env 生成自体は成功させる (#4275 の教訓)
+		expect(written).toContain('CRON_SECRET=cron-secret-value');
 	});
 });

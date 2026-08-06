@@ -327,6 +327,9 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
+			// #4327: 顧客データ物理削除の部分失敗。runbook (grace-period-deletion-operations.md §2) が
+			// この名前で参照するため固定名が要る。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-grace-period-partial-failure',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-concurrent',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-duration-p99',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-errors',

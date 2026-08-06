@@ -50,6 +50,12 @@ const mockVoiceRepo = {
 	deleteByChild: vi.fn(),
 };
 
+// #4327: 判定材料 (settings) の削除は fullTenantDeletion の**最終ステップ**に移り、
+// 失敗を握り潰さず throw するようになったため、本 test でも実体を持たせる。
+const mockSettingsRepo = {
+	deleteByTenantId: vi.fn(),
+};
+
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		auth: mockAuthRepo,
@@ -59,6 +65,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		cloudExport: mockCloudExportRepo,
 		pushSubscription: mockPushSubscriptionRepo,
 		voice: mockVoiceRepo,
+		settings: mockSettingsRepo,
 	}),
 }));
 

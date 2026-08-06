@@ -206,13 +206,21 @@ describe('#4270 Stripe が flow を拒否したら home で作り直す', () => 
 		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
 	});
 
-	it('作り直しも失敗したら握り潰さず投げる (portal に入れない事実を成功として返さない)', async () => {
+	// #4329: 「portal に入れない事実を成功として返さない」という不変条件は維持したまま、
+	// 伝え方を throw から**型付きの失敗**に変えた。throw は呼び出し元 (解約 action) で
+	// catch されず 500 エラーページになり、解約理由を書き終えた顧客に**何も伝わらない**まま
+	// 導線が切れていた。型付きの失敗なら呼び出し元は握り潰せず (union 分岐が必要)、
+	// 顧客への案内と運用側 alert を出せる。
+	it('作り直しも失敗したら成功として返さない (型付きの失敗で呼び出し元に伝える)', async () => {
 		mockFindTenantById.mockResolvedValue(tenant());
 		mockPortalCreate.mockRejectedValue(new Error('Stripe API down'));
 
-		await expect(
-			createPortalSession('t-test', RETURN_URL, { kind: 'subscription_update' }),
-		).rejects.toThrow('Stripe API down');
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_update',
+		});
+
+		expect('url' in result, 'portal に入れないのに URL を返すと導線が黙って死ぬ').toBe(false);
+		expect(result).toEqual({ error: 'PORTAL_CREATE_FAILED' });
 	});
 });
 
