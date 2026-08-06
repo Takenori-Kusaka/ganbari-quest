@@ -189,12 +189,15 @@ describe('#4364 Lambda env への旧 secret 注入', () => {
 describe('#4364 ローテーション中の旧 secret (previous) の解決', () => {
 	const reader = (value: unknown) => ({ tryGetContext: () => value });
 
-	it.each([[undefined], [''], ['   '], [null], [123]])(
-		'context が %p なら undefined (定常状態 = 新値のみ受理。ここで throw してはいけない)',
-		(value) => {
-			expect(resolveOriginVerifyPreviousSecret(reader(value))).toBeUndefined();
-		},
-	);
+	it.each([
+		[undefined],
+		[''],
+		['   '],
+		[null],
+		[123],
+	])('context が %p なら undefined (定常状態 = 新値のみ受理。ここで throw してはいけない)', (value) => {
+		expect(resolveOriginVerifyPreviousSecret(reader(value))).toBeUndefined();
+	});
 
 	it('32 文字以上なら trim した値を返す', () => {
 		expect(resolveOriginVerifyPreviousSecret(reader(`  ${SECRET}  `))).toBe(SECRET);
@@ -203,9 +206,7 @@ describe('#4364 ローテーション中の旧 secret (previous) の解決', () 
 	it('指定されているのに短すぎる場合は throw する (黙って捨てるとローテーション中に 404)', () => {
 		// 旧値を渡したつもりが無視される = CloudFront がまだ旧 header を送っている間
 		// /admin ・ /api/v1/admin ・ /ops が全顧客で 404 になる。silent skip 禁止 (ADR-0024)。
-		expect(() => resolveOriginVerifyPreviousSecret(reader('short-previous'))).toThrow(
-			/短すぎます/,
-		);
+		expect(() => resolveOriginVerifyPreviousSecret(reader('short-previous'))).toThrow(/短すぎます/);
 	});
 
 	it('エラーメッセージが対処方法 (runbook / secret 名) を含む', () => {

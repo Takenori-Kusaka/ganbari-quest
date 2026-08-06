@@ -22,7 +22,8 @@
 //   - `adminx` / `opsx`: **負例 fixture**。`/admin` `/ops` に前方一致するが保護対象であってはならない
 //     path で、「緩い前方一致で無関係な path を巻き込まない」ことを検証する実体。綴りを直すと
 //     negative case が成立しなくなる (tests/CLAUDE.md §負例 fixture と cspell)
-// cspell:ignore Tcfv adminx opsx
+//   - `AWSCURRENT` / `AWSPENDING`: AWS Secrets Manager の staging label 実名 (#4364)
+// cspell:ignore Tcfv adminx opsx AWSCURRENT AWSPENDING
 
 import { describe, expect, it } from 'vitest';
 

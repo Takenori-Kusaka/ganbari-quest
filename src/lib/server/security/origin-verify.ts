@@ -37,7 +37,9 @@
 // cspell 例外 (本 file 限定、.cspell.json への global 追加はしない):
 //   - `Tcfv`: staging Stripe webhook endpoint ID `we_1TcfvFBgMFbHJZ0Z5t5Tt53B` の実値の一部。
 //     実在の識別子であり、綴りを変えると実測の証跡でなくなる (tests/CLAUDE.md §負例 fixture と cspell)。
-// cspell:ignore Tcfv
+//   - `AWSCURRENT` / `AWSPENDING`: AWS Secrets Manager の staging label 実名 (#4364 で参照する
+//     AWS 参照実装の用語)。綴りを変えると一次ソースを引けなくなる。
+// cspell:ignore Tcfv AWSCURRENT AWSPENDING
 
 import { timingSafeEqual } from 'node:crypto';
 
