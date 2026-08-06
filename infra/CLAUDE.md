@@ -75,7 +75,7 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 |---|---|---|
 | `PARENT_GATE_COOKIE_SECRET` | /admin/* PIN gate cookie 署名 (#2310 / ADR-0050 / #2337) | Lambda + NUC 必須、同値不要 |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe 課金 | Lambda 必須 / NUC 無効 |
-| `GEMINI_API_KEY` | Gemini API | 任意 |
+| `GEMINI_API_KEY` | Gemini API | 任意。ただし **NUC は `AI_PROVIDER=gemini` 固定**のため、未設定だと AI 提案 (活動 / ごほうび / チェックリスト / 応援・レシート OCR) が全て無効になり、キーワード提案へ縮退する (#4330)。`deploy-nuc.yml` → `generate-env.ps1` が未設定時に `::warning::` を出す (deploy は続行) |
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 
