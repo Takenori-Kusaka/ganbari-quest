@@ -9,7 +9,7 @@
 //   standard: 7日間
 //   family:   30日間
 
-import { env } from '$env/dynamic/private';
+import { env } from '$lib/runtime/env';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -34,7 +34,7 @@ export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
  *
  * この語で CloudWatch Logs MetricFilter を張り、alarm 化する
  * (`infra/lib/ops-stack.ts` の `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM` と同値であることを
- * `tests/unit/infra/grace-period-partial-failure-alarm.test.ts` が drift 検証する)。
+ * `tests/unit/infra/grace-period-deletion-safety.test.ts` が drift 検証する)。
  * infra は CDK の rootDir 制約で src から import できないため、値の二重定義 + test で守る
  * (`ENTITLEMENT_FAIL_CLOSED_LOG_TERM` と同じ形)。
  */
@@ -400,12 +400,27 @@ export const DEFAULT_PURGE_LIMIT = 5;
  */
 export const GRACE_PERIOD_DELETION_DISABLED_ENV = 'GRACE_PERIOD_DELETION_DISABLED';
 
+/** 「止める」と解釈する値。障害対応中に手で打つものなので表記ゆれを許容する。 */
+const DISABLED_VALUES = new Set(['true', '1', 'yes', 'on']);
+/** 「止めない」と解釈する値 (明示的に有効化した状態)。 */
+const ENABLED_VALUES = new Set(['false', '0', 'no', 'off', '']);
+
 function isPhysicalDeletionDisabled(): boolean {
-	// env 名は直接プロパティで読む (`env[定数]` にすると env 配布 closure gate
-	// `tests/unit/architecture/env-distribution-closure.test.ts` の抽出から外れ、
-	// 「読んでいるのに配られていない」を検出できなくなるため)。
 	const raw = env.GRACE_PERIOD_DELETION_DISABLED;
-	return raw === 'true' || raw === '1';
+	if (raw === undefined) return false;
+	const normalized = raw.trim().toLowerCase();
+	if (DISABLED_VALUES.has(normalized)) return true;
+	if (ENABLED_VALUES.has(normalized)) return false;
+
+	// 打ち間違いを **silent に「有効」へ倒さない**。停止したつもりの人が
+	// 「止まっていない」ことに気付けるよう、実行のたびに warn を残す。
+	// (throw しないのは、障害対応中の typo でアプリ全体を落とさないため。
+	//  env schema 側も同じ理由で booleanStringSchema を使っていない)
+	logger.warn(
+		`[grace-period] ${GRACE_PERIOD_DELETION_DISABLED_ENV} の値を解釈できません。物理削除は「有効」として続行します`,
+		{ context: { value: raw, expected: [...DISABLED_VALUES].join(' / ') } },
+	);
+	return false;
 }
 
 export async function purgeExpiredSoftDeletedTenants(opts?: {

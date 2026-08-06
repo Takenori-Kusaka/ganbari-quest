@@ -140,7 +140,7 @@ vi.mock('$lib/server/services/trial-service', () => ({
 		source: null,
 	})),
 }));
-vi.mock('$env/dynamic/private', () => ({ env: {} }));
+vi.mock('$lib/runtime/env', () => ({ env: {} }));
 
 import { deleteOwnerOnlyAccount } from '$lib/server/services/account-deletion-service';
 import { findExpiredSoftDeletedTenants } from '$lib/server/services/grace-period-service';

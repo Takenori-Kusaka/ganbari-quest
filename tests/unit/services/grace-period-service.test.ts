@@ -1,5 +1,10 @@
 // tests/unit/services/grace-period-service.test.ts
 // #742: グレースピリオドサービスのユニットテスト
+//
+// cspell:ignore ture
+//   #4327: kill-switch env の「解釈できない値」negative case で使う `true` の打ち間違い。
+//   綴りを直すと negative case が成立せず、「止めたつもりで止まっていない」を検出できなくなる
+//   (tests/CLAUDE.md §負例 fixture と cspell)。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,7 +51,7 @@ vi.mock('$lib/server/services/account-deletion-service', () => ({
 const { mockEnv } = vi.hoisted(() => ({
 	mockEnv: {} as Record<string, string | undefined>,
 }));
-vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
+vi.mock('$lib/runtime/env', () => ({ env: mockEnv }));
 
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
@@ -525,9 +530,10 @@ describe('grace-period-service', () => {
 				expect(mockListAllTenants).not.toHaveBeenCalled();
 			});
 
-			it("'1' でも停止する", async () => {
+			// 障害対応中に手で打つ env なので表記ゆれを受ける (打ち間違いで止まらないのを避ける)
+			it.each(['1', 'yes', 'on', 'TRUE', ' true '])("'%s' でも停止する", async (value) => {
 				seedExpiredTenants(['t1']);
-				mockEnv.GRACE_PERIOD_DELETION_DISABLED = '1';
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
 
 				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
 
@@ -535,21 +541,36 @@ describe('grace-period-service', () => {
 				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
 			});
 
-			it('未設定 / 空 / その他の値では従来どおり削除する (既定は有効)', async () => {
-				for (const value of [undefined, '', 'false', 'TRUE']) {
-					vi.clearAllMocks();
-					seedExpiredTenants(['t1']);
-					if (value === undefined) {
-						mockEnv.GRACE_PERIOD_DELETION_DISABLED = undefined;
-					} else {
-						mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
-					}
+			it.each([
+				undefined,
+				'',
+				'false',
+				'0',
+				'off',
+			])('%s では従来どおり削除する (既定は有効)', async (value) => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
 
-					const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
 
-					expect(result.disabled).toBe(false);
-					expect(result.tenantsDeleted).toBe(1);
-				}
+				expect(result.disabled).toBe(false);
+				expect(result.tenantsDeleted).toBe(1);
+			});
+
+			// 「止めたつもりだが止まっていない」を silent にしない。
+			// throw しない (障害対応中の typo でアプリ全体を落とさない) 代わりに warn を必ず出す。
+			it('解釈できない値は有効のまま続行するが、warn で観測可能にする', async () => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'ture'; // よくある打ち間違い
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(false);
+				expect(result.tenantsDeleted).toBe(1);
+				expect(logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining('GRACE_PERIOD_DELETION_DISABLED'),
+					expect.objectContaining({ context: expect.objectContaining({ value: 'ture' }) }),
+				);
 			});
 		});
 	});

@@ -66,7 +66,7 @@ export const ENTITLEMENT_FAIL_CLOSED_LOG_TERM = '[auth-alert] auth-entitlement-d
  * SSOT は `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM`
  * (`src/lib/server/services/grace-period-service.ts`)。上記 entitlement 版と同じく rootDir
  * 制約で import できないため literal で持ち、
- * `tests/unit/infra/grace-period-partial-failure-alarm.test.ts` が drift を機械検証する。
+ * `tests/unit/infra/grace-period-deletion-safety.test.ts` が drift を機械検証する。
  *
  * この失敗は「途中まで消えたテナント」を意味し、放置すると顧客データが中途半端な状態で
  * 残り続ける。dispatcher の Errors metric (endpoint が 500 を返すため発火する) だけでは
