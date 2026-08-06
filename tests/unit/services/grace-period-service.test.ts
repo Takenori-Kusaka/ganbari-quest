@@ -1,5 +1,10 @@
 // tests/unit/services/grace-period-service.test.ts
 // #742: グレースピリオドサービスのユニットテスト
+//
+// cspell:ignore ture
+//   #4327: kill-switch env の「解釈できない値」negative case で使う `true` の打ち間違い。
+//   綴りを直すと negative case が成立せず、「止めたつもりで止まっていない」を検出できなくなる
+//   (tests/CLAUDE.md §負例 fixture と cspell)。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,6 +46,12 @@ vi.mock('$lib/server/services/account-deletion-service', () => ({
 	deleteOwnerOnlyAccount: mockDeleteOwnerOnlyAccount,
 	deleteOwnerFullDelete: mockDeleteOwnerFullDelete,
 }));
+
+// #4327: kill-switch env を test から切り替えるための可変 stub
+const { mockEnv } = vi.hoisted(() => ({
+	mockEnv: {} as Record<string, string | undefined>,
+}));
+vi.mock('$lib/runtime/env', () => ({ env: mockEnv }));
 
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
@@ -87,6 +98,8 @@ describe('grace-period-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		settingsStore.clear();
+		// #4327: kill-switch env は test 間で持ち越さない (既定 = 有効)
+		for (const key of Object.keys(mockEnv)) delete mockEnv[key];
 	});
 
 	afterEach(() => {
@@ -496,6 +509,69 @@ describe('grace-period-service', () => {
 			expect(result.tenantsProcessed).toBe(2);
 			expect(result.tenantsDeleted).toBe(2);
 			expect(result.tenantsRemaining).toBe(0);
+		});
+
+		// #4327: kill-switch — 不可逆な削除を「止められる」ことを実挙動で固定する。
+		// 宣言 (env が読めている) ではなく **削除が呼ばれないこと** を検証する。
+		describe('#4327 kill-switch (GRACE_PERIOD_DELETION_DISABLED)', () => {
+			it("'true' なら対象の走査すらせず、1 件も削除しない", async () => {
+				seedExpiredTenants(['t1', 't2']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'true';
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(result.tenantsDeleted).toBe(0);
+				expect(result.tenantsProcessed).toBe(0);
+				// 実削除経路が 1 度も呼ばれていない
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+				expect(mockDeleteOwnerFullDelete).not.toHaveBeenCalled();
+				// 対象列挙 (listAllTenants) にも到達していない = 誤って消す経路が残っていない
+				expect(mockListAllTenants).not.toHaveBeenCalled();
+			});
+
+			// 障害対応中に手で打つ env なので表記ゆれを受ける (打ち間違いで止まらないのを避ける)
+			it.each(['1', 'yes', 'on', 'TRUE', ' true '])("'%s' でも停止する", async (value) => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+			});
+
+			it.each([
+				undefined,
+				'',
+				'false',
+				'0',
+				'off',
+			])('%s では従来どおり削除する (既定は有効)', async (value) => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(false);
+				expect(result.tenantsDeleted).toBe(1);
+			});
+
+			// 「止めたつもりだが止まっていない」を silent にしない。
+			// throw しない (障害対応中の typo でアプリ全体を落とさない) 代わりに warn を必ず出す。
+			it('解釈できない値は有効のまま続行するが、warn で観測可能にする', async () => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'ture'; // よくある打ち間違い
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(false);
+				expect(result.tenantsDeleted).toBe(1);
+				expect(logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining('GRACE_PERIOD_DELETION_DISABLED'),
+					expect.objectContaining({ context: expect.objectContaining({ value: 'ture' }) }),
+				);
+			});
 		});
 	});
 });

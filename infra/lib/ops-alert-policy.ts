@@ -78,6 +78,11 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'log MetricFilter 由来で平常時はデータ点が無い。fail-closed の実発火を 1 度も観測していない',
 	},
+	'ganbari-quest-grace-period-partial-failure': {
+		notify: false,
+		reason:
+			'log MetricFilter 由来で平常時はデータ点が無く、cron 自体が #4327 の対応まで Rule 無効。実発火の観測がゼロのため、まず本番で 1 サイクル観測してから昇格する。なお同じ部分失敗は endpoint が Discord incident webhook (sendDiscordAlert) へ直接出すため、昇格前でも人には届く',
+	},
 	'ganbari-quest-cron-dispatcher-errors': {
 		notify: false,
 		reason: 'cron 失敗は顧客影響が出るまで時間差がある。まず失敗頻度の実績を取る',

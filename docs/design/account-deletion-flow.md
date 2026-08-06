@@ -187,12 +187,36 @@ soft delete されたテナントは以下の状態になる:
 
 `/api/cron/grace-period-deletion` が定期実行で `purgeExpiredSoftDeletedTenants` を呼ぶ:
 
+0. `GRACE_PERIOD_DELETION_DISABLED` が `true` / `1` なら**対象の走査を行わず即 return**（kill-switch）
 1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出（メタデータ不完全な行は母集団に入らない、§4.3）
 2. 各テナントの owner を特定
 3. `deleteOwnerOnlyAccount` (他メンバーなし) または `deleteOwnerFullDelete` (他メンバーあり) で物理削除
 4. Pattern 2b の場合、他メンバーへ `sendMemberRemovedEmail` 通知
 
 > Stripe キャンセルは soft delete 時に既に完了しているため、cron 経由の `cancelSubscription` 再実行は idempotent な no-op になる。
+
+#### 削除の実行順（判定材料は最後に消す）
+
+soft-delete 判定の SSOT は `settings` の `soft_deleted_at` / `physical_deletion_date` であり、
+対象列挙は `families` を歩いて 1 件ずつ `settings` を読む。したがって **`settings` は `families` 行より後に削除する**。
+
+```
+1 Stripe cancel → 2 S3 → 3 tenant-scoped データ (settings を除く) → 4 children
+→ 5 memberships / users → 6 invites → 7 families → 8 settings（判定材料）
+```
+
+step 7 より前で失敗しても判定材料が残るため、翌日の実行が同じテナントを再び対象にして完遂する（自己回復）。
+逆順にすると「`families` は残るが判定材料が無い」= 再削除も復元もできない行が生まれる。
+step 8 の失敗は例外を投げ、`errors[]` → alarm に載る。このとき `settings` 行のみが孤児として残り、
+そこには `pin_hash` / `session_token` / `questionnaire_*` が含まれるため**手動掃除が必要**
+（判断根拠と手順は [`grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) §3）。
+
+#### 部分失敗の扱い
+
+`tenantsFailed > 0` のとき endpoint は **HTTP 500** を返し、Discord incident webhook にも件数を出す
+（テナント識別子は log にのみ残す）。停止 / 観測 / 復旧の限界は
+[`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) が SSOT。
+**単一テナントだけを削除前の状態に戻す手段は存在しない。**
 
 ### 4.6 §2 マトリクスへの影響
 

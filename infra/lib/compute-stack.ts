@@ -27,7 +27,12 @@ const CRON_JOBS = [
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ
-	{ name: 'grace-period-deletion', utcCronExpression: 'cron(0 17 * * ? *)' },
+	// #4327: 唯一 disableRetry=true。理由は下の DISABLE_RETRY_REASON 参照。
+	{
+		name: 'grace-period-deletion',
+		utcCronExpression: 'cron(0 17 * * ? *)',
+		disableRetry: true,
+	},
 	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
 	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
@@ -169,6 +174,10 @@ export class ComputeStack extends cdk.Stack {
 		// 後方互換: 既存 GitHub Secret `OPS_SECRET_KEY` を cronSecret context として渡す運用が続く間は、
 		// CDK でも OPS_SECRET_KEY / CRON_SECRET の両方の env を Lambda に注入し、
 		// アプリ側 (checkAuth) がどちらでも通るようにする。
+		// #4327: 顧客データ物理削除の kill-switch。deploy 時に `-c gracePeriodDeletionDisabled=true`
+		// を渡すと物理削除を停止したまま deploy できる (既定は従来どおり有効)。
+		const gracePeriodDeletionDisabled =
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' ? 'true' : 'false';
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
@@ -356,6 +365,12 @@ export class ComputeStack extends cdk.Stack {
 						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
 						CONTEXT_TOKEN_SECRET: contextTokenSecret,
 						MAINTENANCE_MODE: 'false',
+						// #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+						// 'true' で削除を一切実行しない。既定 'false' = 従来動作。
+						// EventBridge Rule の disable (`aws events disable-rule`) が「cron を呼ばない」
+						// 防御なのに対し、本 env は「呼ばれても消さない」防御 (手動 POST も止まる)。
+						// 手順: docs/runbooks/grace-period-deletion-operations.md
+						GRACE_PERIOD_DELETION_DISABLED: gracePeriodDeletionDisabled,
 						...(feedbackDiscordWebhookUrl
 							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
 							: {}),
@@ -523,6 +538,16 @@ export class ComputeStack extends cdk.Stack {
 				rule.addTarget(
 					new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
 						event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
+						// #4327: 非冪等な job だけリトライを切る (既定は Lambda 非同期の 2 回リトライを維持)。
+						//
+						// 一律 0 にしてはならない。ほとんどの cron は冪等で、リトライは
+						// 「1 回の失敗で取りこぼす」ことへの防御として働いている:
+						//   - deletion-warning-emails … 送信済フラグ (settings) で冪等。ここで retry を
+						//     切ると 1 度の失敗で **予告のないまま削除される** (#4327 が塞ごうとしている状態そのもの)
+						//   - pmf-survey … 年 2 回起動。1 回の失敗が 6 ヶ月の欠測になる
+						// 一方 grace-period-deletion は「途中まで削除されたテナントに purge が再走する」
+						// 非冪等性を持つため、再送より再走回避を優先する。
+						...('disableRetry' in job && job.disableRetry ? { retryAttempts: 0 } : {}),
 					}),
 				);
 			}
