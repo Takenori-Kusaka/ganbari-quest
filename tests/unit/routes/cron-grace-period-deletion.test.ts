@@ -20,9 +20,10 @@ vi.mock('$lib/server/services/grace-period-service', () => ({
 	purgeExpiredSoftDeletedTenants: (...args: unknown[]) => purgeMock(...args),
 }));
 
-const sendDiscordAlertMock = vi.fn(async () => {});
+type AlertPayload = { level: string; message: string; details?: string };
+const sendDiscordAlertMock = vi.fn(async (_payload: AlertPayload) => {});
 vi.mock('$lib/server/discord-alert', () => ({
-	sendDiscordAlert: (...args: unknown[]) => sendDiscordAlertMock(...args),
+	sendDiscordAlert: (payload: AlertPayload) => sendDiscordAlertMock(payload),
 }));
 
 const ENDPOINT = 'http://localhost/api/cron/grace-period-deletion';
@@ -100,13 +101,10 @@ describe('#4327 grace-period-deletion endpoint の部分失敗の観測性', () 
 		await postEndpoint();
 
 		expect(sendDiscordAlertMock).toHaveBeenCalledTimes(1);
-		const payload = sendDiscordAlertMock.mock.calls[0][0] as {
-			level: string;
-			message: string;
-			details?: Record<string, string>;
-		};
-		expect(payload.level).toBe('critical');
-		expect(payload.details).toMatchObject({ tenantsFailed: '1' });
+		const payload = sendDiscordAlertMock.mock.calls[0]?.[0];
+		expect(payload?.level).toBe('critical');
+		// 件数は届く (triage に必要な「毎回変わる情報」)
+		expect(payload?.details).toContain('失敗 1 件');
 		// tenantId が payload に載っていないこと (discord-alert.ts の設計制約)
 		expect(JSON.stringify(payload)).not.toContain('t-fail');
 	});

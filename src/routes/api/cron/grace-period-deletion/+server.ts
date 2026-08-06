@@ -67,11 +67,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			await sendDiscordAlert({
 				level: 'critical',
 				message: '顧客データの物理削除が途中で失敗しました (grace-period-deletion)',
-				details: {
-					tenantsProcessed: String(result.tenantsProcessed),
-					tenantsDeleted: String(result.tenantsDeleted),
-					tenantsFailed: String(result.tenantsFailed),
-				},
+				details: `処理 ${result.tenantsProcessed} 件 / 削除成功 ${result.tenantsDeleted} 件 / 失敗 ${result.tenantsFailed} 件`,
 			}).catch(() => {
 				// 通知の失敗で 500 応答自体を潰さない (500 は dispatcher の Errors alarm に載る)。
 			});
