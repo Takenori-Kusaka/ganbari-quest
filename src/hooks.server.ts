@@ -208,6 +208,8 @@ function checkFrontDoor(event: RequestEvent, path: string): Response | null {
 		path,
 		event.request.headers.get(ORIGIN_VERIFY_HEADER),
 		env.ORIGIN_VERIFY_SECRET,
+		// ローテーション中の 1 世代前の値 (#4364)。定常状態では未設定 = 新値のみで判定。
+		env.ORIGIN_VERIFY_SECRET_PREVIOUS,
 	);
 
 	if (decision === 'not-configured') {

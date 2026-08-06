@@ -220,6 +220,7 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
@@ -232,6 +233,7 @@ jobs:
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
       # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
@@ -282,8 +284,9 @@ jobs:
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
             -c dsqlStagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
-            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
-            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       - name: Resolve DSQL staging outputs
         run: |
@@ -321,6 +324,7 @@ jobs:
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -343,6 +347,7 @@ jobs:
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
               -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+              -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
               -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done

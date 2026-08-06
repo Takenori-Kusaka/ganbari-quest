@@ -24,29 +24,10 @@
 //     negative case が成立しなくなる (tests/CLAUDE.md §負例 fixture と cspell)
 // cspell:ignore Tcfv adminx opsx
 
-import { describe, expect, it, vi } from 'vitest';
-
-/**
- * 実際に走った定数時間比較の回数を数えるプローブ (#4364)。
- *
- * 「新旧どちらが一致したか」をタイミング差で漏らさないためには、短絡評価をせず
- * **常に両方を比較する**必要がある。それを「実装がそう書かれているか」ではなく
- * 「実際に `timingSafeEqual` が何回呼ばれたか」で固定する。
- * 比較の中身は本物に委譲するため、他の test の判定結果は一切変わらない。
- */
-const timingProbe = vi.hoisted(() => ({ count: 0 }));
-vi.mock('node:crypto', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('node:crypto')>();
-	return {
-		...actual,
-		timingSafeEqual: (a: NodeJS.ArrayBufferView, b: NodeJS.ArrayBufferView) => {
-			timingProbe.count += 1;
-			return actual.timingSafeEqual(a, b);
-		},
-	};
-});
+import { describe, expect, it } from 'vitest';
 
 import {
+	countMatchingSecrets,
 	evaluateFrontDoor,
 	FRONT_DOOR_PROTECTED_PREFIXES,
 	isFrontDoorProtectedPath,
@@ -166,19 +147,27 @@ describe('#4364 front door: 新旧 2 値受理 (無停止ローテーション)'
 		expect(evaluateFrontDoor('/admin', PREVIOUS, NEXT, '')).toBe('deny');
 	});
 
-	it.each([
-		['新値と一致', NEXT],
-		['旧値と一致', PREVIOUS],
-		['どちらとも不一致', 'x'.repeat(64)],
-	])('%s でも比較回数は同じ (どちらが一致したかをタイミング差で漏らさない)', (_label, header) => {
-		// `current || previous` の短絡評価だと「新値一致 = 比較 1 回 / 旧値一致 = 比較 2 回」に
-		// なり、応答時間の差から「今どちらの値が現役か」を外部から区別できてしまう。
-		// 実測 timing は環境ノイズで固定できないため、**実際に走った定数時間比較の回数**を
-		// 数えて固定する (実装が短絡に戻れば回数が減って fail する)。
-		// 3 値とも同じ長さ (64) なので、長さ guard による早期 return は起きない。
-		timingProbe.count = 0;
-		evaluateFrontDoor('/admin', header, NEXT, PREVIOUS);
-		expect(timingProbe.count).toBe(2);
+	// --- 短絡評価をさせない (どちらが一致したかをタイミング差で漏らさない) ---
+	//
+	// `current || previous` と書くと「新値一致 = 比較 1 回 / 旧値一致 = 比較 2 回」になり、
+	// 応答時間の差から「今どちらの値が現役か」を外部から区別できてしまう。
+	// 実測 timing は環境ノイズで固定できないため、**「一致した個数を返す」契約**で構造的に縛る。
+	// 個数を返す以上、実装は必ず全候補を評価しなければならない (短絡評価が書けない)。
+	describe('countMatchingSecrets: 全候補を必ず評価する', () => {
+		it('先頭が一致しても後続を評価する (短絡していたら 1 になって fail する)', () => {
+			expect(countMatchingSecrets(NEXT, [NEXT, NEXT])).toBe(2);
+		});
+
+		it('新値のみ一致 / 旧値のみ一致 は 1', () => {
+			expect(countMatchingSecrets(NEXT, [NEXT, PREVIOUS])).toBe(1);
+			expect(countMatchingSecrets(PREVIOUS, [NEXT, PREVIOUS])).toBe(1);
+		});
+
+		it('どちらとも不一致 / header 無し は 0', () => {
+			expect(countMatchingSecrets('x'.repeat(64), [NEXT, PREVIOUS])).toBe(0);
+			expect(countMatchingSecrets(null, [NEXT, PREVIOUS])).toBe(0);
+			expect(countMatchingSecrets('', [NEXT, PREVIOUS])).toBe(0);
+		});
 	});
 });
 

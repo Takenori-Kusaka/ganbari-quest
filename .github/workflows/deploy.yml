@@ -148,6 +148,7 @@ jobs:
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
@@ -160,6 +161,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR
@@ -275,6 +277,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
@@ -349,6 +352,7 @@ jobs:
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
@@ -378,6 +382,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}

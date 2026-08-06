@@ -79,6 +79,7 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
 | `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
+| `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
 
@@ -86,7 +87,13 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 
 `/admin` ・ `/api/v1/admin` ・ `/ops` は「CloudFront を通ってきたこと」を `x-origin-verify` header で要求する。**NUC セルフホストは CloudFront を持たず LAN 内で直接配信する**ため、NUC の `.env` にこの secret を入れると「front door が無いのに検査が有効」になり、保護者の見守り画面が全 404 になる。未設定 = 検査無効 (fail-open) が NUC の正しい状態である。
 
-AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resolveOriginVerifySecret()` が context 未指定の synth を throw し、`deploy.yml` / `deploy-aws-staging.yml` の `Validate required secrets` が GitHub Secret 未登録の deploy を止める (ADR-0024)。仕様と rotate 手順の SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1。
+AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resolveOriginVerifySecret()` が context 未指定の synth を throw し、`deploy.yml` / `deploy-aws-staging.yml` の `Validate required secrets` が GitHub Secret 未登録の deploy を止める (ADR-0024)。仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1。
+
+#### ローテーションは 2 値受理を前提にする (#4364)
+
+`ORIGIN_VERIFY_SECRET` は **CloudFront (NetworkStack) と Lambda env (ComputeStack) の 2 stack**に配られ、`cdk deploy --all` は依存関係により **Compute → Network** の順で走る。したがって値を 1 本だけ差し替えると「Lambda は新値を期待 / CloudFront はまだ旧値を送出」の窓が必ず開き、その間 `/admin` ・ `/api/v1/admin` ・ `/ops` が全顧客で 404 になる (distribution が Deployed になるまで数分)。
+
+**`ORIGIN_VERIFY_SECRET_PREVIOUS` に旧値を置いてから新値に切り替える** (新旧 2 値を並行受理する) ことでこの窓を閉じる。3 段の手順 SSOT は [docs/runbooks/origin-verify-secret-rotation.md](../docs/runbooks/origin-verify-secret-rotation.md)。**旧値を配らないまま `ORIGIN_VERIFY_SECRET` を変えない**。
 
 ### 新規 env 追加時 PR チェックリスト
 

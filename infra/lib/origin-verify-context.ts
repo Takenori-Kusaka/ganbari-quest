@@ -23,6 +23,15 @@
 export const originVerifyContextKey = 'originVerifySecret';
 
 /**
+ * ローテーション中だけ渡す **1 世代前** の secret の CDK context key (#4364)。
+ *
+ * `originVerifyContextKey` と違い **optional**。定常状態では未指定が正しく、
+ * 未指定なら Lambda env `ORIGIN_VERIFY_SECRET_PREVIOUS` は注入されない (= 新値のみ受理)。
+ * CloudFront には渡さない (CloudFront が送るのは常に現行値 1 本だけ)。
+ */
+export const originVerifyPreviousContextKey = 'originVerifySecretPrevious';
+
+/**
  * 実運用で使える最小長。`src/lib/runtime/env.ts` の `ORIGIN_VERIFY_SECRET`
  * (`z.string().min(32)`) と同値。ここを緩めるとアプリ側 boot が落ちるだけなので揃える。
  */
@@ -65,6 +74,38 @@ export function resolveOriginVerifySecret(node: ContextReader): string {
 				`(${secret.length} 文字、最低 ${ORIGIN_VERIFY_MIN_LENGTH} 文字、#4280)。` +
 				'アプリ側 env schema (ORIGIN_VERIFY_SECRET) も同じ下限を要求するため、' +
 				'短い値を通すと Lambda が起動時に落ちます。32 byte hex (64 文字) を推奨します。',
+		);
+	}
+
+	return secret;
+}
+
+/**
+ * ローテーション中の **1 世代前** の secret を CDK context から解決する (#4364)。
+ *
+ * 未指定 / 空文字は正常 (= 定常状態、新値のみ受理) なので `undefined` を返す。
+ * **指定されているのに短すぎる場合だけ throw する**: そのまま捨てると
+ * 「旧値を渡したつもりなのに受理されず、ローテーション中に /admin が 404」という
+ * 黙った失敗になる (ADR-0024 silent skip 禁止)。
+ *
+ * @throws 指定されているが 32 文字未満のとき
+ */
+export function resolveOriginVerifyPreviousSecret(node: ContextReader): string | undefined {
+	const raw = node.tryGetContext(originVerifyPreviousContextKey);
+	const secret = typeof raw === 'string' ? raw.trim() : '';
+
+	if (!secret) return undefined;
+
+	if (secret.length < ORIGIN_VERIFY_MIN_LENGTH) {
+		throw new Error(
+			`[origin-verify] CDK context \`${originVerifyPreviousContextKey}\` が短すぎます ` +
+				`(${secret.length} 文字、最低 ${ORIGIN_VERIFY_MIN_LENGTH} 文字、#4364)。\n` +
+				'これはローテーション中に旧 header を受理するための 1 世代前の値です。黙って捨てると\n' +
+				'CloudFront がまだ旧値を送っている間 /admin ・ /api/v1/admin ・ /ops が 404 になります。\n' +
+				'\n' +
+				'対処: 旧値をそのまま渡す (加工しない)。ローテーションが完了したなら\n' +
+				`GitHub Secret \`ORIGIN_VERIFY_SECRET_PREVIOUS\` を空にして本 context を外す\n` +
+				'(手順: docs/runbooks/origin-verify-secret-rotation.md)',
 		);
 	}
 
