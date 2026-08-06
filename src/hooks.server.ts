@@ -191,6 +191,13 @@ const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
 let frontDoorDisabledLogged = false;
 
 /**
+ * #4364: 旧 secret を並行受理中 (= ローテーション途中) であることを、プロセスで 1 回だけ
+ * log するためのフラグ。旧値に TTL は無く、runbook 段 3 を忘れると漏れた旧値が無期限に
+ * 有効なままになるため、残置を CloudWatch から観測できるようにする。
+ */
+let frontDoorRotationLogged = false;
+
+/**
  * #4280 案 b: front door 検査。CloudFront を経由しない `/admin` `/api/v1/admin` `/ops` への
  * 到達 (Lambda Function URL 直叩き) を拒否する。
  *
@@ -204,10 +211,29 @@ let frontDoorDisabledLogged = false;
  * @returns 拒否する場合は Response、通す場合は null
  */
 function checkFrontDoor(event: RequestEvent, path: string): Response | null {
+	// ローテーション中 (旧値を並行受理している状態) を観測可能にする (#4364)。
+	//
+	// 旧値には TTL が無いため、runbook の段 3 (旧値を空にして deploy) を実行し忘れると
+	// **漏れた旧値が無期限に受理され続け、ローテーションの目的が黙って無効化される**。
+	// GitHub Secret の中身は CI からも本番からも検査できないので、せめて
+	// 「今この Lambda は 2 値を受理している」ことを log に 1 回残し、CloudWatch で
+	// 残置に気付けるようにする (log が出続けている = 段 3 が未実施)。
+	if (env.ORIGIN_VERIFY_SECRET_PREVIOUS && !frontDoorRotationLogged) {
+		frontDoorRotationLogged = true;
+		logger.warn(
+			'[front-door] ORIGIN_VERIFY_SECRET_PREVIOUS が設定されています = 旧 secret を並行受理中 ' +
+				'(ローテーション途中の正常状態)。伝播完了後は旧値を空にして deploy し直してください。' +
+				'放置すると漏れた旧値が無期限に有効なままになります ' +
+				'(手順: docs/runbooks/origin-verify-secret-rotation.md 段 3、#4364)',
+		);
+	}
+
 	const decision = evaluateFrontDoor(
 		path,
 		event.request.headers.get(ORIGIN_VERIFY_HEADER),
 		env.ORIGIN_VERIFY_SECRET,
+		// ローテーション中の 1 世代前の値 (#4364)。定常状態では未設定 = 新値のみで判定。
+		env.ORIGIN_VERIFY_SECRET_PREVIOUS,
 	);
 
 	if (decision === 'not-configured') {
