@@ -85,6 +85,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
 	},
+	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
+		scope: 'repo',
+		note: '#4348 scripts 配下の .mjs を走査し、PR body の見出し / 宣言を部分一致で判定する新規コードを検出する',
+	},
 	'tests/unit/architecture/no-stray-control-chars.test.ts': {
 		scope: 'repo',
 		note: '#4119 docs / src / scripts / tests のテキスト資産を byte 単位で走査し C0 制御文字の紛れ込みを検出する',

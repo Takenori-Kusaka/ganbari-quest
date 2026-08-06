@@ -139,14 +139,20 @@ gh pr ready <PR番号>
 
 | ジョブ | 検証 |
 |---|---|
-| 必須セクション存在確認 | `## ` 見出し削除なし |
+| 必須セクション存在確認 | `## ` 見出し削除なし（**行全体の完全一致**で判定。HTML コメント / code block / 本文中の言及 / 前方一致する別見出し `## X の補足` は「存在する」と数えない、#4348） |
 | 関連 Issue 番号 | `closes #` に番号、または `#\d+` 参照 |
 | 変更タイプ | `[x]` 1 つ以上 |
 | 顧客価値・目的 | プレースホルダー残存なし |
-| テスト実行結果 | `<!-- PASS / FAIL -->` 残存なし（type:docs は skip） |
+| テスト実行結果 | `<!-- PASS / FAIL -->` 残存なし（type:docs は skip）。**section が本文に無ければ skip ではなく fail**。結果列が HTML コメントだけの行は未記入として検出する。integration lane は feature 用見出しではなく `## マージ判定エビデンス表` を読む（#4348 で是正。それまで統合 PR では **一度も**この分岐に入っていなかった） |
 | closing keyword の記入 (feat/fix) | develop 向け `type:feat`/`type:fix` PR は `## 関連 Issue` に行頭 closing keyword（`Closes #N` / `Fixes #N` / `Resolves #N`、コロン形 / 全角 `＃` 許容）必須。bare `#N` / `関連: #N` のみは fail。issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip。検出規約は `integration-pr-body.mjs` `extractClosedIssues` と共有（#3458 / #3423 AC1） |
 
 AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
+
+### PR body の見出しを読む判定は共有 util を使う（#4348）
+
+PR body の構造化識別子（`## ` 見出し）を探す gate は **`scripts/lib/ci/pr-body-sections.mjs`** を import する（`hasH2Section` / `extractSection` / `extractH2Section`）。判定規約は ① HTML コメント / fenced code block を除去 ② 見出しは行全体の完全一致 ③ 見つからなければ **fail**（「検査できなかった」を pass にしない）。
+
+`body.indexOf('## X')` / `body.includes('## X')` のような部分一致を新しく書くと `tests/unit/architecture/pr-body-partial-match-guard.test.ts`（ADR-0061 same-class-N→guard）が落ちる。prose（自然文）を本文全体から探す正当な用途は、同 test の `ALLOWLIST` に**理由付きで**登録する。
 
 セットアップ: Branch Ruleset の `required_status_checks` に 6 ジョブ追加（管理者作業。`closing keyword の記入 (feat/fix)` は #3458 で新設、required 化には ruleset 追加登録が必要）。
 

@@ -367,7 +367,12 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 
 - [x] 重量レーン CI 緑
 
-### テスト実行結果
+## マージ判定エビデンス表
+
+<!-- #4348: 統合 PR の test-results 観点が読むのは統合 PR template の本 section
+     (.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json の SSOT)。旧 fixture は feature template の
+     H3「テスト実行結果」を流用しており、実 CI では **一度もこの分岐に入っていなかった**
+     (実測: merged 統合 PR 12 本すべてで skip)。fixture を実 template の形に揃える。 -->
 
 | 検証観点 | 集約結果 | エビデンス |
 |---|---|---|
@@ -448,8 +453,8 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 	});
 	it('test-results FAIL: エビデンス表 0 行は integration で fail (skip でなく fail = 空洞化なし)', () => {
 		const noTable = INTEGRATION_BODY.replace(
-			/### テスト実行結果[\s\S]*?(?=## レビュー依頼事項)/,
-			'### テスト実行結果\n\n（表なし）\n\n',
+			/## マージ判定エビデンス表[\s\S]*?(?=## レビュー依頼事項)/,
+			'## マージ判定エビデンス表\n\n（表なし）\n\n',
 		);
 		const r = checkTestResults({ ...base, body: noTable });
 		expect(r.ok).toBe(false);
@@ -899,5 +904,116 @@ describe('実 PULL_REQUEST_TEMPLATE.md に対して gate が空洞化しない (
 	it('change-type / issue-reference の見出し解決も実 template で成立する', () => {
 		expect(detectChangeTypeHeading(realTemplate)).toBe('## 変更タイプ');
 		expect(detectIssueSectionHeading(realTemplate)).toBe('## 関連 Issue');
+	});
+});
+
+// =====================================================================
+// #4348: 見出し / section の探索を「本文の部分一致」から「見出し行の完全一致」に是正
+//
+// 旧実装:
+//   - section-presence: `sections.filter((s) => !body.includes(s))`
+//   - test-results:     `body.indexOf(keyword)` / 見つからなければ **skip (= pass)**
+//
+// いずれも HTML コメント / code block / 本文中の言及 / 前方一致する別見出しを
+// 「見出しがある」と誤判定した。実 corpus で観測した壊れ方は本 describe の各 it に対応する。
+// =====================================================================
+describe('#4348: 見出し探索は行の完全一致 + 見つからなければ fail', () => {
+	const SECTIONS = ['## 顧客価値・目的', '## テスト・品質セルフチェック'];
+	const base = {
+		labels: [],
+		template: readFileSync(
+			resolve(dirname(fileURLToPath(import.meta.url)), '../../../.github/PULL_REQUEST_TEMPLATE.md'),
+			'utf8',
+		),
+		ssotSections: SECTIONS,
+		lane: 'feature' as const,
+	};
+	const REAL_BODY = ['## 顧客価値・目的', '', '本文', '', '## テスト・品質セルフチェック', ''].join(
+		'\n',
+	);
+
+	it('section-presence: HTML コメント内の見出し文字列では「存在する」と判定しない', () => {
+		const body = [
+			'## 顧客価値・目的',
+			'',
+			'<!-- 次に ## テスト・品質セルフチェック を書く -->',
+			'',
+		].join('\n');
+		const r = checkSectionPresence({ ...base, body });
+		expect(r.ok, 'コメント内の文字列で section-presence が緑になっている').toBe(false);
+		expect(r.message).toContain('## テスト・品質セルフチェック');
+	});
+
+	it('section-presence: code block 内の引用でも「存在する」と判定しない', () => {
+		const body = [
+			'## 顧客価値・目的',
+			'',
+			'```markdown',
+			'## テスト・品質セルフチェック',
+			'```',
+			'',
+		].join('\n');
+		expect(checkSectionPresence({ ...base, body }).ok).toBe(false);
+	});
+
+	it('section-presence: 前方一致する別見出し (## X の補足) では満たさない', () => {
+		const body = ['## 顧客価値・目的', '', '## テスト・品質セルフチェック の補足', ''].join('\n');
+		expect(checkSectionPresence({ ...base, body }).ok).toBe(false);
+	});
+
+	it('section-presence: 見出しが実在すれば従来どおり PASS (回帰なし)', () => {
+		expect(checkSectionPresence({ ...base, body: REAL_BODY }).ok).toBe(true);
+	});
+
+	it('test-results: section 不在は skip でなく fail (検査できなかったものを pass にしない)', () => {
+		const r = checkTestResults({ ...base, body: '## 顧客価値・目的\n\n本文だけ\n' });
+		expect(r.skipped, 'skip に倒れると gate が no-op になる').toBeFalsy();
+		expect(r.ok).toBe(false);
+	});
+
+	it('test-results: 本文中の言及が見出しより前にあっても本物の表を読む (#4325 / #4311 実例)', () => {
+		// 実 merged PR で観測: AC 表のセルに「下記「テスト・品質セルフチェック」参照」があり、
+		// 旧実装はそのセルから section を切り出して表 0 行 → skip していた。
+		const body = [
+			'## 顧客価値・目的',
+			'',
+			'| AC1 | 内容 | 手段 | 下記「テスト・品質セルフチェック」参照 |',
+			'',
+			'## テスト・品質セルフチェック',
+			'',
+			'| テスト種別 | コマンド | 結果 |',
+			'|---|---|---|',
+			'| pre-ready | `npm run pre-ready` | |',
+			'',
+		].join('\n');
+		const r = checkTestResults({ ...base, body });
+		expect(r.skipped).toBeFalsy();
+		expect(r.ok, '結果列が空の行を検出できていない').toBe(false);
+	});
+
+	it('test-results: 結果列が HTML コメントだけの行は未記入として検出する (#4278 実例)', () => {
+		const body = [
+			'## テスト・品質セルフチェック',
+			'',
+			'| テスト種別 | コマンド | 結果 |',
+			'|---|---|---|',
+			'| pre-ready | `npm run pre-ready` | <!-- 実行後に記入 --> |',
+			'',
+		].join('\n');
+		expect(checkTestResults({ ...base, body }).ok).toBe(false);
+	});
+
+	it('test-results: integration lane は統合 PR template のエビデンス表を読む (feature 見出しを探さない)', () => {
+		const body = [
+			'## マージ判定エビデンス表',
+			'',
+			'| 含有 PR | 領域 | テスト | 結果 |',
+			'|---|---|---|---|',
+			'| #1 | admin | unit×3 | pass |',
+			'',
+		].join('\n');
+		const r = checkTestResults({ ...base, lane: 'integration', body });
+		expect(r.skipped, 'feature template の見出しを探して skip していた (#4348)').toBeFalsy();
+		expect(r.ok).toBe(true);
 	});
 });
