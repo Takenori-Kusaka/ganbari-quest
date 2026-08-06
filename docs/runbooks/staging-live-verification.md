@@ -178,14 +178,20 @@ staging には **test mode の Stripe 資格情報だけ**を配備する。test
 
 **staging の URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
 
-1. staging deploy 完了後、CloudFront の URL を取得する:
+> **webhook の登録先は Lambda Function URL 直。CloudFront ではない。**
+>
+> 画面操作の入口は CloudFront（§1）だが、**Stripe webhook だけは例外**である。Stripe の送信元は米国にあり、CloudFront の地域制限（JP）を通れないため経路を CloudFront に寄せられない。`/api/stripe/webhook` は front door header（`x-origin-verify`、#4280）の**対象外**として設計されており、保護は Stripe 署名検証（`STRIPE_WEBHOOK_SECRET`）が担う。SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1 の保護対象表。
+>
+> **CloudFront の URL を登録すると課金 webhook が全滅する。** 到達しないか 403 が続き、Stripe は連続失敗した endpoint を無効化する。本番・staging とも Function URL 直で登録すること。
+
+1. staging deploy 完了後、Lambda Function URL を取得する:
 
 ```bash
-aws cloudformation describe-stacks --stack-name GanbariQuestNetworkStaging   --region us-east-1   --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text
+aws lambda get-function-url-config --function-name ganbari-quest-staging-app   --region us-east-1 --query FunctionUrl --output text
 ```
 
 2. Stripe Dashboard を **test mode** に切り替え、Developers → Webhooks → 「Add endpoint」
-3. Endpoint URL に `https://<DistributionDomainName>/api/stripe/webhook` を入力
+3. Endpoint URL に `<FunctionUrl>api/stripe/webhook` を入力（`FunctionUrl` は末尾スラッシュ付きで返る）
 4. 購読 event は `docs/design/billing-redesign/` の購読 event 一覧（#3990 で整合済）に合わせる
 5. 発行された signing secret を登録し、staging を再 deploy する:
 
