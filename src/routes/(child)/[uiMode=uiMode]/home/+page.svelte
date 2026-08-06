@@ -25,6 +25,7 @@ import OverlaysSection from '$lib/features/child-home/components/OverlaysSection
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
+import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
@@ -473,6 +474,27 @@ function handleBirthdayOpen() {
 	fsm.transition('birthday', data.birthdayBonus);
 }
 
+// #4313: 年齢帯 UI 切替の告知を閉じる。閉じた時点で server 側の pending notice を既読化し、
+// 以後どの日に再ログインしても再表示されない (ADR-0012: 1 回で終わる)。
+// × / Esc / ボタンのどれで閉じても呼ばれ得るため、既読化は 1 回だけ走らせる。
+//
+// `DialogFSM` は素の class instance で `$state` proxy が効かないため、`fsm.current` の
+// 変化は OverlaysSection まで伝播しない。「同時に 1 枚」の arbitration は FSM に任せ、
+// **描画用の開閉は本 $state が持つ** (FSM が uiModeChange を current にできたときだけ true)。
+let uiModeChangeOpen = $state(false);
+let uiModeChangeDismissed = $state(false);
+async function handleUiModeChangeClose() {
+	uiModeChangeOpen = false;
+	fsm.close();
+	if (uiModeChangeDismissed) return;
+	uiModeChangeDismissed = true;
+	try {
+		await fetch('?/dismissUiModeChangeNotice', { method: 'POST', body: new FormData() });
+	} catch {
+		// 既読化に失敗しても画面は閉じる。次回ログインで再度表示される（安全側）。
+	}
+}
+
 // #1757 (#1709-C): 「今日のおやくそく」全達成 bonus が**この load で初回付与された**ときだけ
 // toast を 1 回鳴らす。Anti-engagement (ADR-0012):
 // - granted === true の判定は server 側で point_ledger に書き込んだ瞬間のみ true。
@@ -502,12 +524,28 @@ $effect(() => {
 	const shouldShowReward = data.latestReward && !bonusClaiming;
 	const shouldShowMessage = f.showParentMessages && data.latestMessage;
 
+	// #4313: 誕生日で年齢帯 UI が切り替わったことの告知。
+	// 誕生日ボーナスが未受取の回では出さない (ADR-0012: ダイアログを 2 枚連続で見せない)。
+	// notice は既読化されず server に残るため、次回ログインで単独表示される。
+	const shouldShowUiModeChange = shouldShowUiModeChangeNotice({
+		notice: data.uiModeChangeNotice ?? null,
+		birthdayPending: Boolean(data.birthdayBonus),
+		isScreenshotMode,
+	});
+
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
+		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
+
+	// FSM が uiModeChange を current にできたときだけ描画する (他ダイアログが出る回は queue
+	// に入るだけで表示しない = 2 枚連続演出を作らない、ADR-0012)。既読化済みなら再表示しない。
+	if (!uiModeChangeDismissed) {
+		uiModeChangeOpen = fsm.current === 'uiModeChange';
+	}
 
 	// If adventure is not showing and login bonus unclaimed, trigger it
 	// Note: use shouldShowAdventure (not fsm.current) to avoid circular $effect dependency
@@ -1009,6 +1047,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	onStampPressClose={handleStampPressClose}
 	birthdayBonus={data.birthdayBonus}
 	onBirthdayClose={() => fsm.close()}
+	uiModeChangeNotice={data.uiModeChangeNotice ?? null}
+	{uiModeChangeOpen}
+	onUiModeChangeClose={handleUiModeChangeClose}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />

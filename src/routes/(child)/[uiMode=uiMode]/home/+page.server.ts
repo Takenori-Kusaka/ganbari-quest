@@ -59,6 +59,10 @@ import {
 	stampToday,
 } from '$lib/server/services/stamp-card-service';
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
+import {
+	clearUiModeChangeNotice,
+	getUiModeChangeNotice,
+} from '$lib/server/services/ui-mode-change-notice-service';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -102,6 +106,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			siblingRanking: null,
 			unshownCheers: [],
 			mustStatus: null,
+			uiModeChangeNotice: null,
 			habitCertificateNotice: null,
 		};
 
@@ -130,6 +135,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			unshownCheers: [],
 			familyStreak: null,
 			mustStatus: null,
+			// #4313: 年齢は減らないため「切替後が baby」の notice は発生しない。
+			// 3 歳の baby → preschool は切替後が preschool なので本分岐に入らない。
+			uiModeChangeNotice: null,
 			habitCertificateNotice: null,
 		};
 	}
@@ -154,6 +162,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
+		uiModeChangeNotice,
 		habitCertificateNotice,
 	] = await Promise.all([
 		// #2471: per-child API に絞り込み (旧 getActivities(tenantId) は tenant 全 child を
@@ -179,6 +188,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChildChallengesWithSiblings(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
+		// #4313: 誕生日で年齢帯 UI が切り替わったことの未読告知 (settings KV)
+		getUiModeChangeNotice(child.id, tenantId),
 		// #4261 ③: Push を許可していない家庭では、子は残高が増えた理由を知る手段が無い。
 		// 既存の Promise.all に相乗りさせる (往復を増やさない)。
 		getHabitCertificateNotice(child.id, tenantId),
@@ -311,6 +322,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				}
 			: null,
 		mustStatus,
+		uiModeChangeNotice,
 		habitCertificateNotice,
 	};
 };
@@ -575,6 +587,21 @@ export const actions: Actions = {
 			totalPoints: result.totalPoints,
 			multiplier: result.multiplier,
 		};
+	},
+
+	/**
+	 * #4313: 年齢帯 UI 切替の告知を既読にする。
+	 * ダイアログを閉じた時点で 1 回だけ呼ばれ、以後どの日に再ログインしても再表示されない。
+	 */
+	dismissUiModeChangeNotice: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.dismissUiModeChangeNotice'),
+		);
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+
+		await clearUiModeChangeNotice(childId, tenantId);
+		return { success: true, uiModeChangeNoticeDismissed: true };
 	},
 
 	// #2295 (EPIC #2294 ①): claimEventReward action 削除済 (2026-05-19)

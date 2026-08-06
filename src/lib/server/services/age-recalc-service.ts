@@ -20,6 +20,7 @@ import type { IChildRepo } from '$lib/server/db/interfaces/child-repo.interface'
 import type { Child } from '$lib/server/db/types/index';
 import { logger } from '$lib/server/logger';
 import { calculateAge } from '$lib/server/services/birthday-bonus-service';
+import { recordUiModeChangeNotice } from '$lib/server/services/ui-mode-change-notice-service';
 
 export interface AgeRecalcResult {
 	/** 走査した child 総数（birthDate がない child を含む） */
@@ -125,6 +126,18 @@ async function processChild(params: ProcessChildParams): Promise<ProcessChildRes
 
 	try {
 		await childRepo.updateChild(child.id, { age: newAge, uiMode: newUiMode }, tenantId);
+
+		// #4313: 年齢帯の境界 (3 / 6 / 13 / 16 歳) を跨いで uiMode が変わったときだけ、
+		// その子供の**次回ログイン**で告知するための pending notice を残す。
+		// 同一モード内の年齢変化 (例: 8→9 歳) では from === to になり記録されない。
+		// updateChild 成功後にのみ呼ぶ (DB 未反映で告知だけ出さない)。
+		if (child.uiMode !== newUiMode) {
+			await recordUiModeChangeNotice(
+				{ childId: child.id, from: child.uiMode as UiMode, to: newUiMode, changedOn: today },
+				tenantId,
+			);
+		}
+
 		logger.info('[age-recalc] updated child', {
 			service: 'age-recalc',
 			tenantId,

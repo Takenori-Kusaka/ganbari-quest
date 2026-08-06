@@ -28,6 +28,12 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+// #4313: uiMode 切替の告知記録サービスをモック（本 service の責務境界の外）
+const mockRecordUiModeChangeNotice = vi.fn();
+vi.mock('$lib/server/services/ui-mode-change-notice-service', () => ({
+	recordUiModeChangeNotice: (...args: unknown[]) => mockRecordUiModeChangeNotice(...args),
+}));
+
 // date-utils モック — 今日の日付を固定
 vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
 	// 部分 mock。今日だけを固定し、他の JST ヘルパは実装をそのまま使う (#4127)
@@ -297,6 +303,80 @@ describe('recalcAllChildrenAges — 複数テナント', () => {
 		expect(result.updated).toBe(1);
 		expect(mockUpdateChild).toHaveBeenCalledWith('1', { age: 6, uiMode: 'elementary' }, 't-1');
 		expect(mockUpdateChild).not.toHaveBeenCalledWith('2', expect.anything(), expect.anything());
+	});
+});
+
+// ============================================================
+// #4313: uiMode 切替の pending notice 記録
+// ============================================================
+
+describe('recalcAllChildrenAges — uiMode 切替の告知記録 (#4313)', () => {
+	const boundaries: Array<{ age: number; birthDate: string; from: string; to: string }> = [
+		{ age: 2, birthDate: '2023-04-25', from: 'baby', to: 'preschool' },
+		{ age: 5, birthDate: '2020-04-25', from: 'preschool', to: 'elementary' },
+		{ age: 12, birthDate: '2013-04-25', from: 'elementary', to: 'junior' },
+		{ age: 15, birthDate: '2010-04-25', from: 'junior', to: 'senior' },
+	];
+
+	for (const b of boundaries) {
+		it(`${b.from} → ${b.to} 境界で notice を記録する`, async () => {
+			mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
+			mockFindAllChildren.mockResolvedValue([
+				makeChild({ age: b.age, birthDate: b.birthDate, uiMode: b.from }),
+			]);
+
+			await recalcAllChildrenAges({ today: '2026-04-25' });
+
+			expect(mockRecordUiModeChangeNotice).toHaveBeenCalledWith(
+				expect.objectContaining({ from: b.from, to: b.to, changedOn: '2026-04-25' }),
+				't-1',
+			);
+		});
+	}
+
+	it('同一モード内の年齢変化 (7→8 歳) では notice を記録しない', async () => {
+		mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
+		mockFindAllChildren.mockResolvedValue([
+			makeChild({ age: 7, birthDate: '2018-04-25', uiMode: 'elementary' }),
+		]);
+
+		await recalcAllChildrenAges({ today: '2026-04-25' });
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+	});
+
+	it('uiModeManuallySet=1 なら uiMode が変わらないので notice も記録しない', async () => {
+		mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
+		mockFindAllChildren.mockResolvedValue([
+			makeChild({ age: 5, birthDate: '2020-04-25', uiMode: 'preschool', uiModeManuallySet: 1 }),
+		]);
+
+		await recalcAllChildrenAges({ today: '2026-04-25' });
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+	});
+
+	it('dryRun=true では notice を記録しない', async () => {
+		mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
+		mockFindAllChildren.mockResolvedValue([
+			makeChild({ age: 5, birthDate: '2020-04-25', uiMode: 'preschool' }),
+		]);
+
+		await recalcAllChildrenAges({ today: '2026-04-25', dryRun: true });
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+	});
+
+	it('updateChild が失敗したら notice を記録しない (DB 未反映で告知だけ出さない)', async () => {
+		mockListAllTenants.mockResolvedValue([makeTenant('t-1')]);
+		mockFindAllChildren.mockResolvedValue([
+			makeChild({ age: 5, birthDate: '2020-04-25', uiMode: 'preschool' }),
+		]);
+		mockUpdateChild.mockRejectedValueOnce(new Error('DB connection lost'));
+
+		await recalcAllChildrenAges({ today: '2026-04-25' });
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
 	});
 });
 
