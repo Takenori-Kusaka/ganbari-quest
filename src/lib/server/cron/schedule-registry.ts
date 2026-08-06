@@ -15,7 +15,9 @@
 //      ジョブは、1 回の実行で処理する量に件数上限 + 時間予算 ($lib/server/cron/time-budget.ts
 //      createTimeBudget) を設け、残りは次回実行に持ち越す。持ち越し件数は log + レスポンスで
 //      必ず報告する (silent 持ち越し禁止)。前例: cloud-export-service.drainPendingExports /
-//      grace-period-service.purgeExpiredSoftDeletedTenants。
+//      grace-period-service.purgeExpiredSoftDeletedTenants /
+//      age-recalc-service.recalcAllChildrenAges (処理済みが消えないジョブで「同じ先頭 N 件」を
+//      繰り返さないための、実行日から決まる決定的スライス周回の例)。
 //   3. 【並行登録】KNOWN_ENDPOINTS (infra/lambda/cron-dispatcher/index.ts) + CRON_JOBS
 //      (infra/lib/compute-stack.ts) にも登録し、13-AWS設計書 §3.3 の Cron ジョブ一覧表を更新
 //      (tests/unit/cron/schedule-consistency.test.ts が整合検証)。
