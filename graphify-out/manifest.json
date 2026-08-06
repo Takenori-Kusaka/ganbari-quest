@@ -1690,8 +1690,8 @@
     "semantic_hash": "4713093d1b4ec7c48b7c68c5eeeb79b6"
   },
   "src/hooks.server.ts": {
-    "mtime": 1786025066.5585098,
-    "ast_hash": "31d90c5c5e4cf65e88423817d834330d",
+    "mtime": 1786027787.4710824,
+    "ast_hash": "3d90bbfc28deb6746bba856b22646d9d",
     "semantic_hash": ""
   },
   "src/lib/data/marketplace/activity-packs/elementary-boy.json": {
@@ -9225,8 +9225,8 @@
     "semantic_hash": "73e9023e65c2f6aceb4ea8f95fa21bb2"
   },
   "tests/unit/infra/origin-verify-header.test.ts": {
-    "mtime": 1786025916.354617,
-    "ast_hash": "85a87ad5b85332f9a5761221d5543e83",
+    "mtime": 1786027921.630525,
+    "ast_hash": "35896f83f4ef90204413601ef50d70d1",
     "semantic_hash": ""
   },
   "tests/unit/infra/physical-name-ratchet.test.ts": {
@@ -11575,7 +11575,7 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-aws-staging.yml": {
-    "mtime": 1786025848.7443552,
+    "mtime": 1786028175.1298325,
     "ast_hash": "1cfef665cd7917285d1c03d74048a866",
     "semantic_hash": ""
   },
@@ -14380,8 +14380,8 @@
     "semantic_hash": ""
   },
   "docs/runbooks/origin-verify-secret-rotation.md": {
-    "mtime": 1786025517.317645,
-    "ast_hash": "a2dfd6b691b9cbb950ec8377a7a9dfc8",
+    "mtime": 1786027845.3286312,
+    "ast_hash": "ba8445cc1540701f1ffade28081f1a5f",
     "semantic_hash": ""
   }
 }
