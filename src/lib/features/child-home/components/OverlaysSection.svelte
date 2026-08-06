@@ -72,6 +72,13 @@ interface Props {
 	onBirthdayClose: () => void;
 	/** #4313: 誕生日で年齢帯 UI が切り替わったことの未読告知 (次回ログインで 1 回だけ) */
 	uiModeChangeNotice: UiModeChangeNotice | null;
+	/**
+	 * #4313: 表示状態。`DialogFSM` は素の class instance で `$state` proxy が効かず、
+	 * `fsm.current` の変化は component 境界を越えて伝播しない (実測: 本 component の
+	 * `$effect` は `current: 'idle'` のまま再実行されない)。arbitration (同時に 1 枚) は
+	 * 引き続き FSM が担い、**開閉の描画は親が持つ `$state` を prop で受ける**。
+	 */
+	uiModeChangeOpen: boolean;
 	onUiModeChangeClose: () => void;
 	nickname: string;
 	uiMode: string;
@@ -88,6 +95,7 @@ let {
 	birthdayBonus,
 	onBirthdayClose,
 	uiModeChangeNotice,
+	uiModeChangeOpen,
 	onUiModeChangeClose,
 	nickname,
 	uiMode,
@@ -100,7 +108,6 @@ let stampPressOpen = $derived(fsm.current === 'stampPress');
 let birthdayModalOpen = $derived(fsm.current === 'birthday');
 // #4313: 年齢帯 UI 切替の告知。FSM が「同時に 1 枚」を保証するため、誕生日モーダル等と
 // 重ならない (ADR-0012)。文言は切替**後**の uiMode を基準に labels.ts SSOT から解決する。
-let uiModeChangeOpen = $derived(fsm.current === 'uiModeChange');
 let uiModeChangeMsg = $derived(
 	uiModeChangeNotice ? resolveUiModeChangeMessage(uiModeChangeNotice.to) : null,
 );
@@ -149,12 +156,15 @@ let uiModeChangeMsg = $derived(
 	#4313: 年齢帯 UI 切替の告知 (誕生日で境界 3 / 6 / 13 / 16 歳を跨いだときのみ)。
 	ADR-0012: 1 回で終わる静かな告知。自動再生・連続演出はせず、閉じる導線を常に持つ
 	(closable 既定 true)。z-index は Dialog primitive の既定 layer = --z-modal トークン。
+	`contentClass="relative"`: Dialog primitive の × は `absolute top-3 right-3` だが Content 側に
+	位置指定が無く、既定のままだと full-screen positioner 基準で画面右上へ飛ぶ。card 基準に戻す。
 -->
 {#if uiModeChangeNotice && uiModeChangeMsg && uiModeChangeOpen}
 	<Dialog
 		open={uiModeChangeOpen}
 		testid="ui-mode-change-dialog"
 		ariaLabel={uiModeChangeMsg.ariaLabel}
+		contentClass="relative"
 		onOpenChange={(details) => {
 			if (!details.open) onUiModeChangeClose();
 		}}

@@ -452,8 +452,14 @@ function handleBirthdayOpen() {
 // #4313: 年齢帯 UI 切替の告知を閉じる。閉じた時点で server 側の pending notice を既読化し、
 // 以後どの日に再ログインしても再表示されない (ADR-0012: 1 回で終わる)。
 // × / Esc / ボタンのどれで閉じても呼ばれ得るため、既読化は 1 回だけ走らせる。
+//
+// `DialogFSM` は素の class instance で `$state` proxy が効かないため、`fsm.current` の
+// 変化は OverlaysSection まで伝播しない。「同時に 1 枚」の arbitration は FSM に任せ、
+// **描画用の開閉は本 $state が持つ** (FSM が uiModeChange を current にできたときだけ true)。
+let uiModeChangeOpen = $state(false);
 let uiModeChangeDismissed = $state(false);
 async function handleUiModeChangeClose() {
+	uiModeChangeOpen = false;
 	fsm.close();
 	if (uiModeChangeDismissed) return;
 	uiModeChangeDismissed = true;
@@ -509,6 +515,12 @@ $effect(() => {
 		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
+
+	// FSM が uiModeChange を current にできたときだけ描画する (他ダイアログが出る回は queue
+	// に入るだけで表示しない = 2 枚連続演出を作らない、ADR-0012)。既読化済みなら再表示しない。
+	if (!uiModeChangeDismissed) {
+		uiModeChangeOpen = fsm.current === 'uiModeChange';
+	}
 
 	// If adventure is not showing and login bonus unclaimed, trigger it
 	// Note: use shouldShowAdventure (not fsm.current) to avoid circular $effect dependency
@@ -1004,6 +1016,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	birthdayBonus={data.birthdayBonus}
 	onBirthdayClose={() => fsm.close()}
 	uiModeChangeNotice={data.uiModeChangeNotice ?? null}
+	{uiModeChangeOpen}
 	onUiModeChangeClose={handleUiModeChangeClose}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
