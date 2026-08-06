@@ -85,7 +85,7 @@ docs/tickets/
 # Temporary files
 tmp/
 .scratch/
-screenshots/
+/screenshots/
 # LP screenshots are generated at GitHub Pages deploy time (#1157)
 site/screenshots/
 # docs/screenshots/ は git 追跡しない（PR 証跡は GitHub CDN にアップロード）
