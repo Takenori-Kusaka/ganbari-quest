@@ -26,38 +26,48 @@
 // は import すると当該 test file の describe が二重実行されるため、**各 test file 内に
 // assertion を置く**（データを持つ file が自分で守る）。どこにあるかは PR body に列挙した。
 
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
 import { NON_RESOURCE_ADMIN_PAGE_ROUTES } from '$lib/features/admin/admin-resource-model-registry';
 import { LOW_RISK_THIRD_PARTY_ALLOWLIST } from '../../../scripts/check-action-sha-pin.mjs';
+import {
+	findBaselineReasonDefects,
+	findReasonDefect,
+} from '../../../scripts/lib/ci/exclusion-reason.mjs';
 
-/**
- * 「理由として通用しない」文字列。
- *
- * 空 / 空白のみ に加えて、**定型 stub** を弾く。非空チェックだけだと
- * `TODO` を書いて通す抜け道が残り、gate が形骸化する (#3956 教訓)。
- */
-const STUB_REASONS = ['todo', 'tbd', 'n/a', 'na', '-', '—', '未定', 'なし', '?', '??'];
+// #4030 AC6: 判定規則は `scripts/lib/ci/exclusion-reason.mjs` に一本化した。
+// 旧実装は本 file 内に同じ規則の copy を持っていたが、orphan baseline 側 (script) が
+// 同じ規則を使う必要が出たため SSOT を module に移した。**規則が 2 つあると、
+// 片方だけ緩めて通す抜け道になる**。
+//
+// 各 fitness test file 内 (`EXEMPT_GUIDE_PATHS` / `MUTATION_ALLOWLIST` / `PREDICATE_ALLOWLIST`)
+// にある同型判定は #4237 の意図的な分散のまま (test file 同士を import すると describe が
+// 二重実行される)。それらは判定関数を持つのではなく「データを持つ file が自分で守る」形。
 
-/** 理由として成立しているか。成立しない場合は理由文字列を返す。 */
-function findReasonDefect(reason: unknown): string | null {
-	if (typeof reason !== 'string') return `文字列ではありません (${typeof reason})`;
-	const trimmed = reason.trim();
-	if (trimmed.length === 0) return '空です';
-	if (STUB_REASONS.includes(trimmed.toLowerCase())) return `定型 stub です (「${trimmed}」)`;
-	// 「除外した」だけで何も説明していない極端な短文を弾く。
-	// 実データの最短は 20 字前後なので 8 字は十分に緩い下限。
-	if (trimmed.length < 8) return `短すぎます (${trimmed.length} 字: 「${trimmed}」)`;
-	return null;
-}
+// repo 走査 test の区分宣言 (#4085、SSOT = scripts/lib/ci/repo-scan-test-registry.mjs)。
+// 並列 worker との CPU / FS 競合で既定 5s を超えうるため明示 timeout を置く。
+vi.setConfig({ testTimeout: 60_000 });
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const BASELINE_DIR = path.join(REPO_ROOT, 'scripts', 'orphan-baselines');
 
 describe('#4030 AC5 除外理由は空でも stub でもないこと', () => {
-	it('findReasonDefect が空 / stub / 極端な短文を弾く (非トートロジー証明)', () => {
+	it('findReasonDefect が空 / stub / 極端な短文 / 機械生成を弾く (非トートロジー証明)', () => {
 		expect(findReasonDefect('')).not.toBeNull();
 		expect(findReasonDefect('   ')).not.toBeNull();
 		expect(findReasonDefect('TODO')).not.toBeNull();
 		expect(findReasonDefect('n/a')).not.toBeNull();
 		expect(findReasonDefect('未定')).not.toBeNull();
 		expect(findReasonDefect(undefined)).not.toBeNull();
+		// #4030 AC6: guard 自身が書いた文字列は「人が理由を書いた」ことにならない
+		expect(findReasonDefect('auto-added by --update-baseline')).not.toBeNull();
+		expect(
+			findReasonDefect(
+				'repo file "src/lib/server/db/dsql/foo-repo.ts" は db facade / factory / interfaces から import されていません。',
+			),
+		).not.toBeNull();
 		// 実データ相当は通る
 		expect(findReasonDefect('resource-list ではない admin page のため対象外')).toBeNull();
 	});
@@ -98,6 +108,50 @@ describe('#4030 AC5 除外理由は空でも stub でもないこと', () => {
 			defects,
 			'SHA pin の floating 許容理由が実質空です。**produce / write をしないこと**を' +
 				'説明してください。理由なしの許容は supply chain 防御の穴になります',
+		).toEqual([]);
+	});
+});
+
+// #4030 AC6 (PO 決裁 = 案 A): orphan baseline の免除理由も同じ規則で強制する。
+//
+// 旧実装の `--update-baseline` は検出理由 (機械が書いた現象の説明) / 'auto-added by --update-baseline'
+// を reasons に自動投入していた。**guard 自身の生成物で欄が埋まる**ため、
+// 「除外理由を書く」という運用が形骸化していた。
+//
+// 検査は `reportFindings` の check mode にも入っている (各 category の script が CI で実行される)
+// が、本 test は **10 category を 1 度に横断**して落とす。script が workflow から外れても
+// (= 検査が静かに消えても) ここで気づける (#4084「検査できなかったを pass にしない」)。
+describe('#4030 AC6 orphan baseline の免除理由も空 / stub / 機械生成でないこと', () => {
+	const baselineFiles = fs
+		.readdirSync(BASELINE_DIR)
+		.filter((f) => f.endsWith('.json'))
+		.sort();
+
+	it('baseline file の母数が 0 でない (検査対象が消えていない)', () => {
+		expect(
+			baselineFiles.length,
+			`${BASELINE_DIR} に baseline JSON がありません。dir 移動なら本 test の参照も直してください`,
+		).toBeGreaterThan(0);
+	});
+
+	it('全 category の全 allowed entry が理由を持つ', () => {
+		const defects: string[] = [];
+		let totalEntries = 0;
+		for (const file of baselineFiles) {
+			const parsed = JSON.parse(fs.readFileSync(path.join(BASELINE_DIR, file), 'utf8'));
+			totalEntries += (parsed.allowed ?? []).length;
+			for (const d of findBaselineReasonDefects(parsed)) {
+				defects.push(`${file} / ${d.entry}: ${d.defect}`);
+			}
+		}
+
+		// 全 category が空になったら「違反 0」ではなく「検査していない」
+		expect(totalEntries, '全 baseline の allowed が 0 件です').toBeGreaterThan(0);
+
+		expect(
+			defects,
+			'orphan baseline の免除理由が実質空です。**なぜ免除してよいか** を書いてください' +
+				'(検出理由の貼り付けではなく、免除の正当化を書く)',
 		).toEqual([]);
 	});
 });
