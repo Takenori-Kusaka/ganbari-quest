@@ -511,6 +511,65 @@ describe('grace-period-service', () => {
 			expect(result.tenantsRemaining).toBe(0);
 		});
 
+		// #4372: dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
+		// 判断材料である件数フィールドが定数であってはならない。
+		// 「削除しない」性質 (回帰) と「実数を返す」性質 (本修正) の両方をここで固定する。
+		describe('#4372 dryRun が返す件数は実行時の予測値である', () => {
+			it('limit 超過なら tenantsRemaining は持ち越し予定の実数を返す (定数 0 ではない)', async () => {
+				seedExpiredTenants(['t1', 't2', 't3']);
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: true, limit: 2 });
+
+				expect(result.dryRun).toBe(true);
+				// 実行すれば 2 件処理され 1 件が翌日へ持ち越される、と予測できなければならない
+				expect(result.tenantsProcessed).toBe(2);
+				expect(result.tenantsRemaining).toBe(1);
+				expect(result.expired).toHaveLength(3);
+			});
+
+			it('dryRun の予測値は同条件の実行モードの実測値と一致する', async () => {
+				seedExpiredTenants(['t1', 't2', 't3']);
+				const preview = await purgeExpiredSoftDeletedTenants({ dryRun: true, limit: 2 });
+
+				vi.clearAllMocks();
+				seedExpiredTenants(['t1', 't2', 't3']);
+				const real = await purgeExpiredSoftDeletedTenants({ dryRun: false, limit: 2 });
+
+				expect(preview.tenantsProcessed).toBe(real.tenantsProcessed);
+				expect(preview.tenantsRemaining).toBe(real.tenantsRemaining);
+			});
+
+			it('時間予算を使い切った状態なら 1 件も処理できないと予測する', async () => {
+				seedExpiredTenants(['t1', 't2']);
+				const budget = { exceeded: () => true, elapsedMs: () => 30_001 };
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: true, budget });
+
+				expect(result.tenantsProcessed).toBe(0);
+				expect(result.tenantsRemaining).toBe(2);
+			});
+
+			it('limit 内なら全件処理できると予測し持ち越し 0 を返す', async () => {
+				seedExpiredTenants(['t1', 't2']);
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: true });
+
+				expect(result.tenantsProcessed).toBe(2);
+				expect(result.tenantsRemaining).toBe(0);
+			});
+
+			it('回帰: 予測値を返しても実際には 1 件も削除しない', async () => {
+				seedExpiredTenants(['t1', 't2', 't3']);
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: true, limit: 2 });
+
+				expect(result.tenantsDeleted).toBe(0);
+				expect(result.tenantsFailed).toBe(0);
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+				expect(mockDeleteOwnerFullDelete).not.toHaveBeenCalled();
+			});
+		});
+
 		// #4327: kill-switch — 不可逆な削除を「止められる」ことを実挙動で固定する。
 		// 宣言 (env が読めている) ではなく **削除が呼ばれないこと** を検証する。
 		describe('#4327 kill-switch (GRACE_PERIOD_DELETION_DISABLED)', () => {
