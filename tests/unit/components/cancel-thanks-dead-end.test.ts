@@ -40,7 +40,7 @@ describe('解約手続きが残っているとき (#4329 AC1 / AC2 / AC3)', () =
 		renderPage({ portalUnavailable: true });
 
 		const banner = screen.getByTestId('cancellation-portal-unavailable');
-		expect(banner).toHaveAttribute('role', 'alert');
+		expect(banner.getAttribute('role')).toBe('alert');
 		expect(banner.textContent).toContain(CANCELLATION_LABELS.portalUnavailableHeading);
 	});
 
@@ -50,15 +50,14 @@ describe('解約手続きが残っているとき (#4329 AC1 / AC2 / AC3)', () =
 		const cta = screen.getByTestId('cancellation-proceed-stripe');
 		// 旧実装は <a href="/admin/subscription">。名乗りと遷移先が食い違っていた。
 		expect(cta.tagName).toBe('BUTTON');
-		expect(cta).not.toHaveAttribute('href');
-		expect(cta.closest('form')).toHaveAttribute('action', '?/openPortal');
+		expect(cta.getAttribute('href')).toBeNull();
+		expect(cta.closest('form')?.getAttribute('action')).toBe('?/openPortal');
 	});
 
 	it('AC3: portal に到達できない場合の代替手段 (サポート窓口) を提示する', () => {
 		renderPage({ portalUnavailable: true });
 
-		expect(screen.getByTestId('cancellation-support-link')).toHaveAttribute(
-			'href',
+		expect(screen.getByTestId('cancellation-support-link').getAttribute('href')).toBe(
 			'/admin/settings/support',
 		);
 	});
@@ -67,7 +66,7 @@ describe('解約手続きが残っているとき (#4329 AC1 / AC2 / AC3)', () =
 		renderPage({ portalUnavailable: true, form: { portalRetryFailed: true } });
 
 		const failure = screen.getByTestId('cancellation-portal-retry-failed');
-		expect(failure).toHaveAttribute('role', 'alert');
+		expect(failure.getAttribute('role')).toBe('alert');
 		expect(failure.textContent).toContain(CANCELLATION_LABELS.portalRetryFailed);
 	});
 
@@ -93,8 +92,7 @@ describe('手続きが残っていないとき (無料プラン等)', () => {
 	it('「アカウント削除はこちら」は実際にアカウント削除の場所へ行く (文言と遷移先の一致)', () => {
 		renderPage({ portalUnavailable: false });
 
-		expect(screen.getByTestId('cancellation-account-delete-link')).toHaveAttribute(
-			'href',
+		expect(screen.getByTestId('cancellation-account-delete-link').getAttribute('href')).toBe(
 			'/admin/settings/account',
 		);
 	});

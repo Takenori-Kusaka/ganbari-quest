@@ -8,6 +8,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import {
 	PORTAL_FALLBACK_CONTEXT,
 	PORTAL_FALLBACK_PARAM,
+	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
 import {
 	CANCELLATION_CATEGORIES,
@@ -15,6 +16,7 @@ import {
 	CANCELLATION_LABELS,
 } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import { submitCancellationReason } from '$lib/server/services/cancellation-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
 import { createPortalSession } from '$lib/server/services/stripe-service';
@@ -104,7 +106,14 @@ export const actions: Actions = {
 				}
 				throw redirect(303, portalResult.url);
 			}
-			// Portal 作成失敗時は success ページに留めて手動完了を促す
+			// #4329: ここは portal を **1 度も開けていない**経路。旧実装は無言で thanks へ落とし、
+			// 顧客は「ありがとうございました」だけを見て解約できたと思い込んだまま課金が続いた
+			// (特商法の解約導線の実効性)。失敗した事実を thanks ページへ伝え、代替導線を出させる。
+			// 原因の内部詳細は顧客に出さない (ADR-0062) — 観測は logger + alert 側で持つ。
+			logger.error(
+				`[STRIPE] 解約フローで portal を作成できませんでした: tenant=${tenantId} reason=${portalResult.error}`,
+			);
+			throw redirect(303, `/admin/subscription/cancel/thanks?${PORTAL_UNAVAILABLE_PARAM}=1`);
 		}
 
 		// 無料プラン or Portal 未利用時は thanks ページに遷移
