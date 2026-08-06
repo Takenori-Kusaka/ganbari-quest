@@ -194,3 +194,72 @@ describe('#4286 checkout の Price 解決', () => {
 		expect(mockGetPriceByLookupKey).not.toHaveBeenCalled();
 	});
 });
+
+// ============================================================
+// #4329 ② AC7 — 配備・設定側の異常を運用側から観測できるようにする。
+//
+// #4286 は「購入が必ず 400」という**全顧客に効く**設定不備が 10 日間気づかれなかった。
+// 顧客側の文言を汎用に倒す (原因の所在を偽らない) 以上、原因の特定は運用側の通知が担う。
+// ============================================================
+
+describe('#4329 checkout の設定不備を観測可能にする', () => {
+	it('認証済 tenant が repo に無いとき alert を上げる (顧客の状態ではなくデータ側の異常)', async () => {
+		process.env.USE_LOOKUP_KEY = 'true';
+		mockFindTenantById.mockResolvedValue(null);
+
+		const result = await checkout();
+
+		expect(result).toEqual({ error: 'TENANT_NOT_FOUND' });
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-checkout-misconfigured' }),
+		);
+	});
+
+	it('plan 設定が欠けているとき alert を上げる (顧客の選択誤りとして黙らせない)', async () => {
+		process.env.USE_LOOKUP_KEY = 'true';
+
+		const result = await createCheckoutSession({
+			tenantId: 't-1',
+			planId: 'yearly' as never,
+			successUrl: 'https://app/success',
+			cancelUrl: 'https://app/cancel',
+		});
+
+		expect(result).toEqual({ error: 'INVALID_PLAN' });
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-checkout-misconfigured' }),
+		);
+	});
+
+	it('Stripe が session URL を返さないとき alert を上げる', async () => {
+		process.env.STRIPE_PRICE_STANDARD_MONTHLY = 'price_env_std';
+		mockSessionCreate.mockResolvedValue({ url: null });
+
+		const result = await checkout();
+
+		expect(result).toEqual({ error: 'INVALID_PLAN' });
+		expect(mockNotifyStripeAlert).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: 'stripe-checkout-misconfigured' }),
+		);
+	});
+
+	it('alert payload に顧客識別子を載せない (#4174 Q3)', async () => {
+		process.env.USE_LOOKUP_KEY = 'true';
+		mockFindTenantById.mockResolvedValue(null);
+
+		await checkout();
+
+		for (const call of mockNotifyStripeAlert.mock.calls) {
+			expect(JSON.stringify(call[0])).not.toContain('t-1');
+		}
+	});
+
+	it('成功経路では alert を上げない (回帰防止)', async () => {
+		process.env.STRIPE_PRICE_STANDARD_MONTHLY = 'price_env_std';
+
+		const result = await checkout();
+
+		expect(result).toEqual({ url: 'https://checkout.stripe.com/s_1' });
+		expect(mockNotifyStripeAlert).not.toHaveBeenCalled();
+	});
+});
