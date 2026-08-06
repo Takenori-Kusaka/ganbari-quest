@@ -295,6 +295,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - カスタムエラーレスポンス: 500/502/503/504 → S3の子供向けエラーページ
 - Price Class: PriceClass_100（北米+欧州+アジア）
 - HTTP/2 + HTTP/3
+- **アクセスログ（標準ログ = S3 直配信、#4320）**: 本番 / demo / staging の全 distribution で有効。配信先は NetworkStack の `AccessLogsBucket`（物理名は CFN auto-naming、prefix `cdn/` = 本番 / `demo-cdn/` = demo）。**保管 3 日**の lifecycle expiration で自動削除し、cookie は記録しない。リアルタイムログ（Kinesis 課金）と分析基盤（Athena 等）は作らない。仕様・プライバシー上の位置づけ・盲点（Function URL 直叩きは記録されない）の SSOT は `docs/design/14-セキュリティ設計書.md` §9.4
 
 **メンテナンスモード:**
 - Lambda 環境変数 `MAINTENANCE_MODE=true` で切替
