@@ -410,16 +410,41 @@ describe('recalcAllChildrenAges — self-limiting / 持ち越し (#4337)', () =>
 		expect(visitedTenants()).toHaveLength(2);
 	});
 
-	it('持ち越しが発生したら log warn + レスポンスで報告する (silent 持ち越し禁止)', async () => {
+	it('#4345 follow-up: 予算超過による打ち切りが発生したら log warn + レスポンスで報告する (silent 持ち越し禁止)', async () => {
+		seedTenants(3);
+		let calls = 0;
+		// 1 テナント目の処理中に予算超過に転じる = 「担当スライス内での打ち切り」を再現する
+		const budget = { exceeded: () => calls++ >= 1, elapsedMs: () => 20_000 };
+
+		const result = await recalcAllChildrenAges({ today: '2026-04-25', budget });
+
+		expect(result.tenantsSkippedByBudget).toBeGreaterThan(0);
+		expect(logger.warn).toHaveBeenCalledWith(
+			expect.stringContaining('carried over'),
+			expect.objectContaining({
+				context: expect.objectContaining({ skippedByBudget: 2 }),
+			}),
+		);
+	});
+
+	it('#4345 follow-up: ローテーションによる担当外（正常）だけなら warn しない (info のみ)', async () => {
 		seedTenants(5);
 
 		const result = await recalcAllChildrenAges({ today: '2026-04-25', tenantLimit: 2 });
 
-		expect(result.tenantsRemaining).toBeGreaterThan(0);
-		expect(logger.warn).toHaveBeenCalledWith(
+		// 5 テナント / 上限 2 → sliceCount=3。今日の担当スライスは全件処理しきる
+		// (予算超過なし) ので、tenantsRemaining はローテーションによる担当外のみ。
+		expect(result.tenantsSkippedByBudget).toBe(0);
+		expect(result.tenantsSkippedByRotation).toBeGreaterThan(0);
+		expect(result.tenantsRemaining).toBe(result.tenantsSkippedByRotation);
+		expect(logger.warn).not.toHaveBeenCalledWith(
 			expect.stringContaining('carried over'),
+			expect.anything(),
+		);
+		expect(logger.info).toHaveBeenCalledWith(
+			expect.stringContaining('rotation slice skipped'),
 			expect.objectContaining({
-				context: expect.objectContaining({ remaining: 3 }),
+				context: expect.objectContaining({ skippedByRotation: result.tenantsSkippedByRotation }),
 			}),
 		);
 	});
@@ -434,6 +459,8 @@ describe('recalcAllChildrenAges — self-limiting / 持ち越し (#4337)', () =>
 
 		expect(result.tenantsProcessed).toBe(0);
 		expect(result.tenantsRemaining).toBe(3);
+		expect(result.tenantsSkippedByBudget).toBe(3);
+		expect(result.tenantsSkippedByRotation).toBe(0);
 		expect(result.budgetExceeded).toBe(true);
 		expect(mockFindAllChildren).not.toHaveBeenCalled();
 	});
@@ -451,6 +478,8 @@ describe('recalcAllChildrenAges — self-limiting / 持ち越し (#4337)', () =>
 
 		expect(result.tenantsProcessed).toBe(1);
 		expect(result.tenantsRemaining).toBe(2);
+		expect(result.tenantsSkippedByBudget).toBe(2);
+		expect(result.tenantsSkippedByRotation).toBe(0);
 		expect(visitedTenants()).toEqual(['t01']);
 		// 着手した 1 テナント目の child は最後まで走査されている
 		expect(result.scanned).toBe(1);
@@ -495,6 +524,8 @@ describe('recalcAllChildrenAges — self-limiting / 持ち越し (#4337)', () =>
 
 		expect(result.tenantsProcessed).toBe(3);
 		expect(result.tenantsRemaining).toBe(0);
+		expect(result.tenantsSkippedByRotation).toBe(0);
+		expect(result.tenantsSkippedByBudget).toBe(0);
 		expect(result.scanned).toBe(3);
 		expect(logger.warn).not.toHaveBeenCalledWith(
 			expect.stringContaining('carried over'),

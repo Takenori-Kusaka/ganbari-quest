@@ -37,8 +37,27 @@ export interface AgeRecalcResult {
 	tenantsTotal: number;
 	/** #4337: 今回の実行で実際に走査したテナント数 */
 	tenantsProcessed: number;
-	/** #4337: 件数上限 / 時間予算により今回走査せず次回以降へ持ち越したテナント数 */
+	/**
+	 * #4337: 件数上限 / 時間予算により今回走査せず次回以降へ持ち越したテナント数（総計）。
+	 * `tenantsSkippedByRotation + tenantsSkippedByBudget` と常に一致する。
+	 *
+	 * #4345 follow-up: この値は 2 つの異なる原因を合算している。「打ち切り」と
+	 * 「そもそも今日の担当外」の区別が要る場合は下記 2 フィールドを見ること。
+	 */
 	tenantsRemaining: number;
+	/**
+	 * #4345 follow-up: 決定的スライス選択（ローテーション）により、そもそも今日の
+	 * 担当スライス対象外だったテナント数。**設計どおりの正常な持ち越し**であり、
+	 * 異常の合図ではない（別の実行日に処理される）。テナント総数が `tenantLimit`
+	 * 以下（sliceCount=1）の間は常に 0。
+	 */
+	tenantsSkippedByRotation: number;
+	/**
+	 * #4345 follow-up: 今日の担当スライスの中で、件数上限 / 時間予算超過により
+	 * 走査できなかったテナント数。**打ち切り = 想定より処理が重かった合図**であり、
+	 * warn の対象はこちらのみ。
+	 */
+	tenantsSkippedByBudget: number;
 	/** #4337: 時間予算超過で打ち切ったか */
 	budgetExceeded: boolean;
 	/** #4337: 今回処理したスライス番号 (0-origin) / 全スライス数。持ち越し状況の観測用 */
@@ -231,13 +250,22 @@ export async function recalcAllChildrenAges(
 		}
 	}
 
-	const tenantsRemaining = tenants.length - tenantsProcessed;
-	if (tenantsRemaining > 0) {
-		// #4337: silent 持ち越し禁止 (ADR-0006 整合) — 持ち越し発生を必ずログに残す。
-		logger.warn('[age-recalc] carried over remaining tenants to next run', {
+	// #4345 follow-up: 「今日の担当外（ローテーション、正常）」と「担当スライス内での
+	// 打ち切り（予算超過、異常）」を分けて数える。前者は tenants.length > tenantLimit の
+	// 定常状態で毎日発生しうる設計どおりの値であり、warn の対象にしない。
+	const tenantsSkippedByRotation = tenants.length - slice.length;
+	const tenantsSkippedByBudget = slice.length - tenantsProcessed;
+	const tenantsRemaining = tenantsSkippedByRotation + tenantsSkippedByBudget;
+
+	if (tenantsSkippedByBudget > 0) {
+		// #4337: silent 持ち越し禁止 (ADR-0006 整合) — 打ち切り（想定より処理が重かった）は
+		// 必ず warn に残す。ローテーションによる担当外は異常ではないため warn しない。
+		logger.warn('[age-recalc] carried over remaining tenants to next run (budget cutoff)', {
 			service: 'age-recalc',
 			context: {
 				remaining: tenantsRemaining,
+				skippedByBudget: tenantsSkippedByBudget,
+				skippedByRotation: tenantsSkippedByRotation,
 				processed: tenantsProcessed,
 				total: tenants.length,
 				tenantLimit,
@@ -245,6 +273,19 @@ export async function recalcAllChildrenAges(
 				sliceCount,
 				budgetExceeded,
 				elapsedMs: budget.elapsedMs(),
+			},
+		});
+	} else if (tenantsSkippedByRotation > 0) {
+		// 設計どおりのローテーション。異常ではないが観測はできるようにしておく (info)。
+		logger.info('[age-recalc] rotation slice skipped tenants outside today (by design)', {
+			service: 'age-recalc',
+			context: {
+				skippedByRotation: tenantsSkippedByRotation,
+				processed: tenantsProcessed,
+				total: tenants.length,
+				tenantLimit,
+				sliceIndex,
+				sliceCount,
 			},
 		});
 	}
@@ -257,6 +298,8 @@ export async function recalcAllChildrenAges(
 		dryRun,
 		tenantsTotal: tenants.length,
 		tenantsProcessed,
+		tenantsSkippedByRotation,
+		tenantsSkippedByBudget,
 		tenantsRemaining,
 		budgetExceeded,
 		sliceIndex,
