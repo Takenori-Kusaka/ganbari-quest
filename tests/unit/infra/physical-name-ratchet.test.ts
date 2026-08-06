@@ -325,6 +325,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 		'CloudWatch Alarm 固定名は ops runbook / Discord 通知の識別子 (infra/CLAUDE.md §CloudWatch Alarm)',
 		[
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
+			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
 			// #4327: 顧客データ物理削除の部分失敗。runbook (grace-period-deletion-operations.md §2) が
