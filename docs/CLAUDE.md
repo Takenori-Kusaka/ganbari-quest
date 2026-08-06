@@ -203,3 +203,11 @@ Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.gith
 - 依存 3 分割 (`blocked_by` / `blocks` / `related`) — #1261
 - 工程 phase (P0-P7 / N/A) — 下流は上流 close まで着手しない
 - ADR-0010 Pre-PMF / ADR-0004 AC 検証 / ADR-0003 Issue 品質
+
+## graphify
+
+- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`、`graphify-out/graph.html`。
+- **Git運用ベストプラクティス**: 
+  - コミット時に自動で `graphify --update --no-viz`（インクリメンタルビルド、AST解析はトークン消費0）が走り、グラフが自動更新されます（`.husky/post-commit` 実装）。
+  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `graph.html`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます。
+- **探索クエリ**: AIセッション（Claude Code / Gemini 等）は、ドキュメントの矛盾・依存スキャンのため、自律的に `graphify query "<質問>"` を使用して探索・解説を行います。

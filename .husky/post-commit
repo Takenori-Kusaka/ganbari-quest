@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+# Auto-rebuild Graphify AST/semantic graph on commit
+# (AST is completely free; Markdown is incrementally cached - zero/minimum token cost)
+if command -v graphify >/dev/null 2>&1; then
+    echo "Updating Graphify knowledge graph..."
+    graphify update . || true
+fi

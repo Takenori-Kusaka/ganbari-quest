@@ -129,6 +129,18 @@ tmp-screenshots/
 docs/pr-assets/
 /sound/
 
+# Graphify temporary sidecars
+graphify-out/.*
+docs/graphify-out/.*
+
+# Graphify cache
+graphify-out/cache/
+docs/graphify-out/cache/
+
+# Graphify local backups
+graphify-out/20*/
+docs/graphify-out/20*/
+
 
 
 
