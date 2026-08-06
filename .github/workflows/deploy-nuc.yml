@@ -106,6 +106,13 @@ jobs:
           # NUC は LAN 内 + AUTH_MODE=local で PIN gate は実際には使われないが、module load 時の
           # getSecret() throw を避けるためダミー値ではなく実 secret を注入する (Lambda と同値必須ではない)。
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          # #4330: generate-env.ps1 は `AI_PROVIDER=gemini` を書く。その鍵をここで渡していなかった
+          # ため、NUC の AI 提案 (活動 / ごほうび / チェックリスト / 応援の提案・レシート OCR) は
+          # 「provider は選ばれているのに鍵が無い」状態で常に無効だった。#4167 (CRON_SECRET) /
+          # #4174 (discordWebhookIncident) と同じ「読む口はあるが deploy が渡していない」欠陥。
+          # 未設定なら script が ::warning:: を出して deploy は続ける (AI は補助機能であり、
+          # 「気づかせるために足した文言が deploy 自体を殺した」#4275 を繰り返さない)。
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         # #4275: step 本体は scripts/nuc/generate-env.ps1 に切り出してある。
         # inline に戻さないこと — inline は self-hosted NUC runner でしか実行されず、
         # **PR の CI で 1 度も parse されない**。2026-08-05 のリリースはそれで NUC に届かなかった
