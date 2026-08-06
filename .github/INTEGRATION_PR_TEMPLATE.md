@@ -15,8 +15,9 @@ lane-aware gate との接続 (Phase A/A-3):
   - pr-merge-gate.yml (integration lane): env MERGE_GATE_INTEGRATION_SECTIONS で指定した
     section の未チェック `- [ ]` を検証する。本 template は §5 (NG / カバレッジ宣言) を接続する。
 
-  注: gate は section 見出し文字列を本文から検索するため、この説明コメント内では
-  実際の `## ` 見出し文字列を再掲しない (誤マッチ回避)。各 section の正確な見出しは下記参照。
+  注 (#4348): gate は section 見出しを **行全体の完全一致** で判定し、HTML コメント /
+  fenced code block を判定前に除去する (scripts/lib/ci/pr-body-sections.mjs)。よって
+  「コメント内に見出し文字列を書かない」という書き手側の回避運用はもう不要。
 
 B-3 (#2871) が含有 PR 一覧 + サマリを、B-4 (#2876) がエビデンス表を自動生成・差込します。
 本 template が確定するまでは手動記入し、placeholder には「B-3/B-4 で自動生成」と注記します。

@@ -1,3 +1,8 @@
+import {
+	extractH2Section,
+	stripFencedCode,
+	stripHtmlComments,
+} from './lib/ci/pr-body-sections.mjs';
 import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
@@ -77,49 +82,13 @@ const NG_COUNT_DECLARATION = /残(?:り|る)?\s*(?:の)?[^\n|]{0,24}?NG[^\n|]{0,
 const ISSUE_REFERENCE_PATTERN = /#\d{2,}/;
 
 /**
- * HTML コメント（`<!-- ... -->`）を除去する（#4333 AC1）。
+ * section 探索 / 除去前処理は `scripts/lib/ci/pr-body-sections.mjs` が SSOT (#4348 で移設)。
  *
- * template の説明コメントは **顧客にも監査にも見えない**のに gate を緑にしていた。
- * 判定は「本文に書かれた宣言」だけを対象にする。
- *
- * @param {string} text
- * @returns {string}
+ * #4333 では本 file 内に置いていたが、同 class の緩い判定が他の gate にも残っていたため
+ * (`pr-template-gate-checks` / `check-merge-gate-checklist` 等)、判定の二重実装を作らないよう
+ * 共有 util へ移し、本 file は再 export で後方互換を保つ。
  */
-export function stripHtmlComments(text) {
-	return (text ?? '').replace(/<!--[\s\S]*?--!?>/g, '');
-}
-
-/**
- * fenced code block（``` ... ```）を除去する。
- * 本 gate や template の regex / 例文をコードブロックで引用しただけで緑にしない。
- *
- * @param {string} text
- * @returns {string}
- */
-export function stripFencedCode(text) {
-	return (text ?? '').replace(/^```[\s\S]*?^```/gm, '');
-}
-
-/**
- * `## <title>` の H2 section 本体を切り出す（**見出し行そのものは含まない**、#4333 AC2/AC3）。
- *
- * 見出しは `.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json` が宣言する構造化識別子なので
- * **行全体の完全一致**で探す（部分一致だと本文中の言及・引用・別セクションを拾う）。
- * 見つからない場合は `found: false` を返し、**呼び出し側は必ず fail に倒す**
- * （「検査できなかった」を pass にしない、#4084 と同じ思想）。
- *
- * @param {string} body
- * @param {string} title 見出し文字列（`## ` を除いた部分）
- * @returns {{ found: boolean; text: string }}
- */
-export function extractH2Section(body, title) {
-	const lines = (body ?? '').replace(/\r\n?/g, '\n').split('\n');
-	const start = lines.findIndex((l) => l.trim() === `## ${title}`);
-	if (start === -1) return { found: false, text: '' };
-	const rest = lines.slice(start + 1);
-	const end = rest.findIndex((l) => l.startsWith('## '));
-	return { found: true, text: (end === -1 ? rest : rest.slice(0, end)).join('\n') };
-}
+export { extractH2Section, stripFencedCode, stripHtmlComments };
 
 /**
  * section 本体から「残 NG N 件」の宣言を全件読み取る（#4333）。
