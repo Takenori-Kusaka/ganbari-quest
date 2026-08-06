@@ -2807,6 +2807,20 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// (price ID 未解決等) は出さず、次に取るべき行動だけを示す (ADR-0062、内部例外の非露出)。
 	checkoutErrorPriceUnresolved:
 		'ただいま決済の準備ができていません。時間をおいて再度お試しください',
+	// #4329 ②: checkout 失敗時に顧客が読む文言の SSOT (route 側の直書き禁止、DESIGN.md §6)。
+	// 分類は「顧客が次に何をできるか」で分ける。**サーバー側の異常を顧客の入力ミスとして
+	// 表示しない** — 原因の所在を偽ると、顧客は直しようのない操作を繰り返す (ADR-0062)。
+	checkoutErrorStripeDisabled: '決済機能は現在利用できません',
+	checkoutErrorAlreadySubscribed: '既にサブスクリプションに加入済みです',
+	/** 配備・設定側の異常。顧客に取れる手は「時間をおく」だけなのでそれだけを示す */
+	checkoutErrorServer: 'ただいまお申し込みを受け付けられません。時間をおいて再度お試しください',
+	/** 受け取ったリクエストが現行の申込内容と噛み合わない (古い画面のまま操作した等) */
+	checkoutErrorStaleRequest:
+		'お申し込みを開始できませんでした。ページを再読み込みしてから、もう一度お試しください',
+	/** #4329: portal session 自体を作れなかったとき。原因は出さず次の行動だけを示す (ADR-0062) */
+	portalErrorCreateFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しください`,
+	checkoutErrorUnauthenticated: '認証が必要です',
+	checkoutErrorForbidden: 'サブスクリプションの管理は保護者のみ可能です',
 	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
 	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
 	billingUnavailable:
@@ -3535,10 +3549,23 @@ export const CANCELLATION_LABELS = {
 
 	// Success
 	successHeading: 'ご回答ありがとうございました',
-	successDesc: `いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の${STRIPE_PORTAL_TERMS.short}で解約手続きを完了してください。`,
-	successProceedButton: `Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する`,
-	successProceedHint: `Stripe の${STRIPE_PORTAL_TERMS.short}で「サブスクリプションをキャンセル」を選択すると解約が完了します`,
+	// #4329: 旧 successDesc は無料プランの顧客にも「Stripe で解約手続きを完了してください」と
+	// 表示していた (無料プランに Stripe 契約は無い)。回答の受領だけを述べ、以降の手続きの
+	// 説明は「手続きが残っている場合」の枠 (portalUnavailable*) に寄せる。
+	successDesc: 'いただいたご意見は、サービス改善に活用させていただきます。',
 	successFreeProceed: 'アカウント削除はこちら',
+
+	// #4329 ①: portal を作れなかったときの回復導線。
+	// 旧実装は「Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する」と名乗るボタンが
+	// 自アプリのプラン画面へ戻すだけで、顧客は解約したつもりのまま課金が続いていた
+	// (特商法の解約導線の実効性)。失敗した事実・残っている手続き・代替手段を出す。
+	// 原因の内部詳細 (Stripe API エラー等) は顧客に出さない (ADR-0062)。
+	portalUnavailableHeading: `${CANCEL_TERMS.canonical}のお手続きが残っています`,
+	portalUnavailableDesc: `ご回答は受け付けましたが、${STRIPE_PORTAL_TERMS.canonical}を開けませんでした。${CANCEL_TERMS.canonical}はまだ完了していません。`,
+	portalRetryButton: `${STRIPE_PORTAL_TERMS.short}を開いて${CANCEL_TERMS.canonicalVerb}`,
+	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
+	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	portalSupportLink: 'サポート窓口に連絡する',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */

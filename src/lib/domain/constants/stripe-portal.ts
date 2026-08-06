@@ -25,6 +25,17 @@ export const PORTAL_FALLBACK_CONTEXT = {
 export type PortalFallbackContext =
 	(typeof PORTAL_FALLBACK_CONTEXT)[keyof typeof PORTAL_FALLBACK_CONTEXT];
 
+/**
+ * portal そのものを作れなかったことを画面へ伝える query パラメータ (#4329)。
+ *
+ * `PORTAL_FALLBACK_PARAM` (flow は拒否されたが portal には入れた) とは別事象。こちらは
+ * **Stripe に一切到達できていない**ため、顧客の解約手続きは 1 ミリも進んでいない。
+ * 黙って thanks ページへ落とすと「解約したつもりで課金され続ける」ので、受け取り側は
+ * 失敗した事実と代替手段を必ず出す (書き手: `cancel/+page.server.ts` /
+ * 読み手: `cancel/thanks/+page.server.ts`)。
+ */
+export const PORTAL_UNAVAILABLE_PARAM = 'portalUnavailable';
+
 export function isPortalFallbackContext(value: unknown): value is PortalFallbackContext {
 	return value === PORTAL_FALLBACK_CONTEXT.CANCEL || value === PORTAL_FALLBACK_CONTEXT.PLAN_CHANGE;
 }
