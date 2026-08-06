@@ -21,6 +21,7 @@ const isChild = $derived(role === 'child');
 
 /**
  * #4282: `/ops` が MFA 未設定で 403 になったときだけ、汎用の 403 ではなく設定導線を出す。
+ * #4363 で MFA 要求が off になったため現在この分岐には入らない (`OPS_MFA_REQUIRED` を戻すと復活)。
  * 判定キーは route guard が載せた reason のみ (メッセージ本文は表示しない = 内部例外の
  * 非露出、ADR-0062)。ops 以外の 403 は reason が付かないので従来表示のまま。
  */

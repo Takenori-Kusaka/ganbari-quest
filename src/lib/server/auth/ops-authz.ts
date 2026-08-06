@@ -5,7 +5,7 @@
 // 将来の階層化（`ops-cs` / `ops-eng` など）に備え、名前は enum 化して 1 箇所で管理する。
 
 import { error } from '@sveltejs/kit';
-import { OPS_MFA_REQUIRED_REASON } from '$lib/policy/capabilities';
+import { OPS_MFA_REQUIRED, OPS_MFA_REQUIRED_REASON } from '$lib/policy/capabilities';
 import type { AuthContext, Identity } from './types';
 
 /**
@@ -35,15 +35,7 @@ export function isOpsMember(identity: Identity | null): boolean {
 }
 
 /**
- * `/ops` に入れるか判定する単一述語 (#4266)。**ops group 所属 かつ MFA 済**を要求する。
- *
- * CloudFront 層の IP allowlist (2 枚目の防御) を廃止したため、主防御であるアプリ層の
- * 強度を上げる。IP allowlist を廃止した理由:
- *   - 対象 path に `/admin` (= 保護者 = 顧客の見守り画面) が含まれ、有効化すると全顧客が 403
- *   - 運営者のグローバル IP が固定でなく、プロキシ経由では `event.viewer.ip` が回線 IP と一致しない
- *
- * 代替として MFA を要求する。運営者は TOTP を 1 度設定すれば、IP / 回線 / プロキシに縛られない。
- * Cognito user pool は `mfa: OPTIONAL` のまま (顧客に MFA を強制しない)、ops だけをここで縛る。
+ * このセッションが MFA を経て開始されたか (#4266)。
  *
  * **判定はセッション単位**: MFA を「今の ID token が MFA を経ているか」ではなく
  * **「このセッションが MFA を経て開始されたか」** で見る。silent refresh
@@ -53,18 +45,50 @@ export function isOpsMember(identity: Identity | null): boolean {
  * (`context-token.ts`、既存機構) が保持し、ここで OR を取る。
  *
  * **fail-closed**: identity / context のどちらからも MFA を確認できない (旧トークン /
- * claim 欠落 = `undefined`) 場合は拒否する。「不明なら通す」にすると防御が黙って消える
+ * claim 欠落 = `undefined`) 場合は `false`。「不明なら通す」にはしない
  * (ADR-0024 ENV silent skip 禁止と同じ規律)。
+ *
+ * #4363 で `/ops` の MFA 要求自体は既定 off になったが、**本判定は残す**
+ * (`OPS_MFA_REQUIRED` を `true` に戻せばそのまま効く)。
+ */
+export function hasMfaAuthenticatedSession(
+	identity: Identity | null,
+	context?: Pick<AuthContext, 'mfaAuthenticated'> | null,
+): boolean {
+	const tokenMfa = identity?.type === 'cognito' && identity.mfaAuthenticated === true;
+	const sessionMfa = context?.mfaAuthenticated === true;
+	return tokenMfa || sessionMfa;
+}
+
+/**
+ * `/ops` に入れるか判定する単一述語。**既定では ops group 所属のみ**を要求する
+ * (#4363、オーナー決裁 2026-08-06 で MFA 要求を撤去)。
+ *
+ * 経緯: #4266 で CloudFront 層の IP allowlist (2 枚目の防御) を廃止した際、その代替として
+ * MFA を要求した。IP allowlist を廃止した理由:
+ *   - 対象 path に `/admin` (= 保護者 = 顧客の見守り画面) が含まれ、有効化すると全顧客が 403
+ *   - 運営者のグローバル IP が固定でなく、プロキシ経由では `event.viewer.ip` が回線 IP と一致しない
+ *
+ * しかし運営 1 人・ops group メンバー 0 人の段階では TOTP 登録の運用コストに見合わず、
+ * オーナーが MFA 要求の撤去を決裁した。**結果として `/ops` の防御は
+ * 「Cognito 認証 + ops group 所属」だけになり、多層防御が 1 層減っている。**
+ * 残る防御・再評価トリガー (T1〜T4) は `docs/design/14-セキュリティ設計書.md` §5.2.9 が SSOT。
+ *
+ * **fail-closed は group 側で維持**: group が確認できない (identity=null / local /
+ * groups 欠落) 場合は拒否する。緩めたのは MFA の 1 条件だけである。
+ *
+ * `requireMfa` は既定で `OPS_MFA_REQUIRED` (現在 false)。呼び出し側で上書きするのは
+ * 「フラグを戻せば #4266 当時の判定に復帰する」ことを test で機械的に固定するため
+ * (`tests/unit/routes/ops-mfa-not-required.test.ts`)。**production の呼び出しでは指定しない**。
  */
 export function hasOpsAccess(
 	identity: Identity | null,
 	context?: Pick<AuthContext, 'mfaAuthenticated'> | null,
+	requireMfa: boolean = OPS_MFA_REQUIRED,
 ): boolean {
 	if (!isOpsMember(identity)) return false;
-	// isOpsMember が true ⇒ identity は cognito
-	const tokenMfa = identity?.type === 'cognito' && identity.mfaAuthenticated === true;
-	const sessionMfa = context?.mfaAuthenticated === true;
-	return tokenMfa || sessionMfa;
+	if (!requireMfa) return true;
+	return hasMfaAuthenticatedSession(identity, context);
 }
 
 /**
@@ -95,7 +119,12 @@ export function requireOpsAccess(locals: App.Locals): void {
 	// MFA 設定導線 (`OpsMfaSetupNotice`) に切り替える — メッセージ本文の文字列一致に
 	// 表示を依存させない。値は policy 層の deny reason と同一 (`OPS_MFA_REQUIRED_REASON`)。
 	// 403 (データを一切 load しない fail-closed) は変えず、表示だけを分ける。
-	if (isOpsMember(locals.identity)) {
+	//
+	// #4363: MFA 要求が off の間、`hasOpsAccess` は ops member を必ず通すため本分岐には
+	// 到達しない (= 復旧導線は表示されない)。分岐を消さずフラグ条件を明示しているのは、
+	// `OPS_MFA_REQUIRED` を `true` に戻したときに拒否理由と復旧導線 (`OpsMfaSetupNotice`)
+	// が同時に復活するようにするため (戻すのに再実装を要さない)。
+	if (OPS_MFA_REQUIRED && isOpsMember(locals.identity)) {
 		error(403, {
 			message: 'Forbidden: ops access requires MFA',
 			reason: OPS_MFA_REQUIRED_REASON,

@@ -1435,7 +1435,7 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
 
-> `/ops` 配下は **Cognito User Pool の `ops` group メンバー かつ MFA 済のみがアクセス可能**（#820 / #4266）。
+> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820。MFA 追加要求は #4266 で導入し #4363 のオーナー決裁で撤去。判定と再評価トリガーは `docs/design/14-セキュリティ設計書.md` §5.2.9）。
 > 非メンバーは 403 Forbidden。判定は `src/lib/server/auth/ops-authz.ts` の `requireOpsAccess(locals)` に集約する。
 >
 > **API endpoint（`+server.ts`）は自分で `requireOpsAccess(locals)` を呼ぶこと（#4309）**。`+layout.server.ts` の gate は

@@ -1,6 +1,10 @@
 <script lang="ts">
 /**
- * #4282 AC5: `/ops` が MFA 未設定で拒否されたときの復旧導線 (運営者専用)。
+ * `/ops` が MFA 未設定で拒否されたときの復旧導線 (運営者専用、#4282 AC5)。
+ *
+ * **現在は表示されない**: #4363 (オーナー決裁 2026-08-06) で /ops の MFA 要求を撤去したため、
+ * 拒否理由 `ops-mfa-required` が発生しない。`capabilities.ts` の `OPS_MFA_REQUIRED` を `true` に
+ * 戻すと拒否・導線が同時に復活する (戻すのに再実装を要さないよう本 component を残している)。
  *
  * `/ops` は #4266 で「Cognito ops group + MFA 済セッション」に絞られた (CloudFront の
  * IP allowlist を廃止した代替)。ただし拒否側は共通 403 画面のままで、TOTP 未設定の

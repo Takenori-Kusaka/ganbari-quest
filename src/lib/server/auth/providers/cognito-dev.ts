@@ -37,7 +37,7 @@ export interface DevUser {
 	groups?: string[];
 	/** #3025: federated (Google) 相当。Cognito パスワードを持たないユーザの再現 (PIN reset 分岐検証用) */
 	federated?: boolean;
-	/** #4266: MFA 設定済。/ops は ops group + MFA を要求するため ops ユーザには必須 */
+	/** MFA 設定済かどうか。/ops の判定は #4363 で group のみになったが、機構検証のため残す */
 	mfa?: boolean;
 }
 
@@ -124,11 +124,13 @@ export const DEV_USERS: DevUser[] = [
 		tenantId: 'dev-tenant-ops',
 		role: 'owner',
 		groups: ['ops'],
-		// #4266: /ops は ops group + MFA (hasOpsAccess) を要求する。
-		// 運営者は TOTP を 1 度設定すれば通るため、dev でも MFA 済として扱う。
+		// #4363 で /ops は group のみで通るが、MFA 済の運営者も再現できるよう true にしておく
+		// (OPS_MFA_REQUIRED を戻したときの許可経路をローカルで歩けるようにするため)。
 		mfa: true,
 	},
-	// ---------- #4282: MFA 未設定の運営者 (拒否 → 復旧導線の検証用) ----------
+	// ---------- MFA 未設定の運営者 ----------
+	// 現在 (#4363、MFA 要求 off) は /ops に入れる。OPS_MFA_REQUIRED を true に戻すと
+	// 403 → 復旧導線 (OpsMfaSetupNotice) に着地する経路の検証に使う。
 	// ops group には居るが TOTP 未設定。/ops を開くと 403 + 設定導線 (OpsMfaSetupNotice) に
 	// 着地する。この経路を実ブラウザ / E2E で歩けないと「締め出して復旧できない」状態を
 	// 作っていないことを確認できないため、dev の SSOT にアカウントを 1 つ用意する

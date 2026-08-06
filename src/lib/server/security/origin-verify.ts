@@ -15,7 +15,7 @@
 // ## これは認証ではない
 //
 // 本検査は認証・認可を一切代替しない。保護対象 path は従来どおり Cognito セッション +
-// parent-gate PIN (`/admin`) / ops group + MFA (`/ops`) で守られる。本検査が足すのは
+// parent-gate PIN (`/admin`) / ops group 所属 (`/ops`) で守られる。本検査が足すのは
 // 「edge 層の制御を迂回できない」という 1 点だけである。
 //
 // ## なぜ「CloudFront を通らない到達を一律に拒否」しないか (重要)
@@ -57,7 +57,7 @@ export const ORIGIN_VERIFY_HEADER = 'x-origin-verify';
  *   - `/admin`        保護者の見守り画面 (Cognito セッション + parent-gate PIN)
  *   - `/api/v1/admin` 上記画面が呼ぶ管理 API (同上)
  *   - `/ops`          運営専用ダッシュボード。売上 / コホート / コストが出る
- *                     (ops group + MFA、src/lib/server/auth/ops-authz.ts)
+ *                     (ops group 所属、src/lib/server/auth/ops-authz.ts)
  *
  * ここに **列挙しない path は本検査の対象外**であり、それぞれが自前の認証を持つ
  * (Stripe 署名 / CRON_SECRET / Cognito セッション / 公開情報)。冒頭コメント参照。
@@ -113,7 +113,7 @@ export function evaluateFrontDoor(
 	// secret 未設定 = 検査不能。**fail-open** にする (詳細は下記)。
 	//
 	// なぜ fail-open が安全か:
-	//   1. 本検査は認証ではなく「経路の限定」。無効化しても Cognito + PIN / ops group + MFA
+	//   1. 本検査は認証ではなく「経路の限定」。無効化しても Cognito + PIN / ops group 所属
 	//      という主防御は 1 枚も剥がれない。fail-closed にした場合に失われるもの (全顧客の
 	//      /admin が 404) の方が、得られるもの (経路限定) より桁違いに大きい
 	//   2. **CloudFront が存在しない配備が正当に存在する**。NUC セルフホスト (LAN 内直配信) と
