@@ -83,6 +83,10 @@ export function diffEnvKeys(liveKeys, templateKeys, runtimeKeys = RUNTIME_RESOLV
 }
 
 function fetchLiveEnvKeys(functionName, region) {
+	// `keys()` を **AWS 側で**適用し、secret の平文を runner のプロセスに一切載せない。
+	// (`Environment.Variables` をそのまま取得して JS 側でキーだけ抜く実装は、
+	//  set -x / プロセスダンプ / 将来の console.log 追加のいずれでも平文が漏れる。
+	//  既存の deploy.yml "Incident webhook env verification" と同じ射影方式に揃える)
 	const out = execFileSync(
 		'aws',
 		[
@@ -93,14 +97,13 @@ function fetchLiveEnvKeys(functionName, region) {
 			'--region',
 			region,
 			'--query',
-			'Environment.Variables',
+			'keys(Environment.Variables)',
 			'--output',
-			'json',
+			'text',
 		],
 		{ encoding: 'utf8' },
 	);
-	// 値は捨てる。以後キー名しか扱わない (secret を CI ログに出さない)
-	return Object.keys(JSON.parse(out) ?? {}).sort();
+	return out.trim().split(/\s+/).filter(Boolean).sort();
 }
 
 function parseArgs(argv) {
