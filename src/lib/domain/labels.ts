@@ -9378,7 +9378,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //   - effective: 末尾の制定日 / 最終改定日
 // ============================================================
 export const LP_LEGAL_PRIVACY_LABELS = {
-	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年4月28日</p>',
+	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年8月6日</p>',
 	intro:
 		'個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。',
 	section1:
@@ -9409,7 +9409,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第12条（個人情報保護管理者）</h2><div class="contact"><p><strong>個人情報保護管理者</strong></p><p>氏名: 日下武紀</p><p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p></div>',
 	section13:
 		'<h2>第13条（お問い合わせ）</h2><p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p><div class="contact"><p>がんばりクエスト運営者 日下武紀</p><p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p></div>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月28日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年8月6日</p>',
 } as const;
 
 // ============================================================
