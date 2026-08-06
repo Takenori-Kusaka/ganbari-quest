@@ -93,7 +93,7 @@
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | GET | /api/v1/special-rewards/export | 個別バックアップ（#3079）。`?childId=<n>` の reward 全件を marketplace v2 envelope（reward-set）JSON でダウンロード（`Content-Disposition: attachment`）。復元は admin/rewards `?/restoreFile` action | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
-| POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、family 限定、#2273） | owner/parent (family) |
+| POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、premium 限定、#2273） | owner/parent (premium) |
 
 ### ごほうびショップ 交換申請（#1337）
 
@@ -785,11 +785,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/cheer/suggest
 
-子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。ファミリープラン限定（#2273）。
+子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。プレミアムプラン限定（#2273）。
 
 **リクエストボディ:**
 ```json
@@ -814,11 +814,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - 既存 LLM 連携機構 (special-rewards/suggest と同基盤) を再利用、プロンプト/出力スキーマのみ別
 - Gemini API が利用不可の場合はキーワードマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/checklists/suggest
 
-テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。ファミリープラン限定（#720, #722）。
+テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。プレミアムプラン限定（#720, #722）。
 
 **リクエストボディ:**
 ```json
@@ -844,7 +844,7 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `items[].direction`: `bring`（持参）| `return`（持帰）| `both`（往復）
 - `source`: `gemini`（AI 推定）| `fallback`（プリセット/キーワードマッチング）
 - Bedrock API が利用不可の場合は 5 種のプリセット（がっこう/たいいく/プール/えんそく/おとまり）＋キーワード分割にフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
 
@@ -895,7 +895,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 **保持期間との関係:**
 エクスポート対象は DB 上に残っている全データ（`applyRetentionFilter` によるプラン別の履歴表示フィルタは本 API には適用されない）。
-プラン別履歴保持期間（free: 90 日 / standard: 365 日 / family: 無制限）は表示フィルタのみで、物理削除は行わない（ADR-0027）。
+プラン別履歴保持期間（free: 90 日 / standard: 365 日 / premium: 無制限）は表示フィルタのみで、物理削除は行わない（ADR-0027）。
 
 **エントリポイント:**
 `/admin/settings` ページの「データエクスポート」セクションから実行可能。`compact` と `format=zip` のチェックボックスが UI に露出している。
@@ -1030,7 +1030,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 テナントのクラウドエクスポート一覧を取得する。認可: owner/parent。
 
-**プラン制限:** `PlanLimits.maxCloudExports > 0` が必須（free=0 / standard=3 / family=10）。UI 側は `/admin/settings` で free プランの場合にクラウド共有カードをアップセル表示に切り替え、paid プランでは `保管枠 {現在} / {maxCloudExports}` のスロット残量を併記する（#773）。
+**プラン制限:** `PlanLimits.maxCloudExports > 0` が必須（free=0 / standard=3 / premium=10）。UI 側は `/admin/settings` で free プランの場合にクラウド共有カードをアップセル表示に切り替え、paid プランでは `保管枠 {現在} / {maxCloudExports}` のスロット残量を併記する（#773）。
 
 **非同期 build 状態（#3504、async-backup-export.md §3.1/§3.3）:** `status` は `pending`（build 待ち）→ `building`（cron が生成中）→ `ready`（DL 可）/ `failed`（生成失敗、`failureReason` 併記）を遷移する。一覧は `expiresAt` / `downloadCount` 上限に加えて `pending`/`building`/`failed` も含めて返し、生成中の行が UI から消えないようにする。
 
@@ -1184,7 +1184,7 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 |--------|-------------------|------|
 | Free | 1 | owner のみ（招待不可） |
 | Standard | 4 | owner + 3人（核家族想定） |
-| Family | null（無制限） | 制限なし |
+| Premium | null（無制限） | 制限なし |
 
 上限超過時は `403` を返す:
 
@@ -2412,8 +2412,8 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 export interface PlanLimitError {
   code: 'PLAN_LIMIT_EXCEEDED';
   message: string;                              // 人間可読（日本語）
-  currentTier: 'free' | 'standard' | 'family';  // リクエスト時点のテナントプラン
-  requiredTier: 'standard' | 'family';          // 許可される最小プラン
+  currentTier: 'free' | 'standard' | 'premium';  // リクエスト時点のテナントプラン
+  requiredTier: 'standard' | 'premium';          // 許可される最小プラン
   upgradeUrl: '/admin/subscription';            // アップグレード導線。固定
 }
 ```
@@ -2443,7 +2443,7 @@ export interface PlanLimitError {
 
 #### トライアル中の扱い
 
-- `currentTier` にはトライアル中のティア（`standard` / `family`）が入る。
+- `currentTier` にはトライアル中のティア（`standard` / `premium`）が入る。
 - トライアル終了後にもう一度叩かれた場合は `currentTier: 'free'` で 403 が返る。
 - クライアント側でトライアル残日数を表示するには `GET /api/v1/admin/plan-status`（別）を併用する。
 
@@ -2460,7 +2460,7 @@ export interface PlanLimitError {
 
 | エンドポイント / フォームアクション | 必要プラン | 根拠 | 実装状況 |
 |----------|---------|------|---------|
-| `POST /api/v1/activities/suggest` | family | AI 活動提案 (`tier !== 'family'`) | `planLimitError()` 済 |
+| `POST /api/v1/activities/suggest` | premium | AI 活動提案 (`tier !== 'premium'`) | `planLimitError()` 済 |
 | `GET /api/v1/export` | standard | `canExport` フラグ | `planLimitError()` 済 |
 | `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` | `planLimitError()` 済 |
 | `POST /admin/children ?/addChild` | 上限付き | `free` は `maxChildren=2` まで | `createPlanLimitError()` 済 (#787) |
@@ -2471,11 +2471,11 @@ export interface PlanLimitError {
 | `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 プリセット取り込み (#728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
-| `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
-| `POST /api/v1/cheer/suggest` | family | AI 応援提案 (`tier !== 'family'`, #2273) | `apiError()` 済 |
-| `POST /api/v1/checklists/suggest` | family | AI チェックリスト提案 (`tier !== 'family'`, #720) | `apiError()` 済 |
-| `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
-| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
+| `POST /api/v1/special-rewards/suggest` | premium | AI ごほうび提案 (`tier !== 'premium'`, #719) | `apiError()` 済 |
+| `POST /api/v1/cheer/suggest` | premium | AI 応援提案 (`tier !== 'premium'`, #2273) | `apiError()` 済 |
+| `POST /api/v1/checklists/suggest` | premium | AI チェックリスト提案 (`tier !== 'premium'`, #720) | `apiError()` 済 |
+| `POST /admin/messages ?/send` (text モード) | premium | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | premium | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
 **注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
 新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
