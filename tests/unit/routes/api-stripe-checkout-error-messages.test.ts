@@ -109,9 +109,7 @@ describe('POST /api/stripe/checkout 顧客向け文言の SSOT と責任の所�
 
 		for (const code of CUSTOMER_FACING_CODES) {
 			const thrown = await catchHttpError(code);
-			expect(ssotValues, `${code} の文言が labels.ts に存在しない`).toContain(
-				thrown.body.message,
-			);
+			expect(ssotValues, `${code} の文言が labels.ts に存在しない`).toContain(thrown.body.message);
 		}
 	});
 

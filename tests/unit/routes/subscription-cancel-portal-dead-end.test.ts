@@ -117,7 +117,7 @@ describe('解約 action: portal を作れなかったとき (#4329 AC1 / AC4)', 
 		await catchThrown(() => cancelAction(buildCancelEvent()));
 
 		expect(mockLoggerError).toHaveBeenCalledTimes(1);
-		expect(String(mockLoggerError.mock.calls[0][0])).toContain('tenant-1');
+		expect(String(mockLoggerError.mock.calls.at(0)?.[0])).toContain('tenant-1');
 	});
 
 	it('成功経路は従来どおり portal URL へ 303 する（回帰防止）', async () => {

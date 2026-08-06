@@ -92,7 +92,7 @@ describe('createPortalSession: Stripe が portal を返さないとき (#4329)',
 		await createPortalSession(TENANT_ID, RETURN_URL, { kind: 'subscription_cancel' });
 
 		expect(mockNotifyStripeAlert).toHaveBeenCalledTimes(1);
-		expect(mockNotifyStripeAlert.mock.calls[0][0]).toMatchObject({
+		expect(mockNotifyStripeAlert.mock.calls.at(0)?.[0]).toMatchObject({
 			kind: 'stripe-portal-create-failed',
 		});
 	});
@@ -102,7 +102,7 @@ describe('createPortalSession: Stripe が portal を返さないとき (#4329)',
 
 		await createPortalSession(TENANT_ID, RETURN_URL, { kind: 'subscription_cancel' });
 
-		expect(JSON.stringify(mockNotifyStripeAlert.mock.calls[0][0])).not.toContain(TENANT_ID);
+		expect(JSON.stringify(mockNotifyStripeAlert.mock.calls.at(0)?.[0])).not.toContain(TENANT_ID);
 	});
 
 	it('成功経路の戻り値は従来どおり（回帰防止）', async () => {
