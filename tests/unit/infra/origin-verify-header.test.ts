@@ -76,6 +76,40 @@ function synthDistributions(): Array<{ logicalId: string; origins: OriginLike[] 
 	}));
 }
 
+/**
+ * workflow yaml の `run: |` (literal block) 内で、前行が `\` で終わっていない `-c ...` 行を返す (#4364)。
+ *
+ * literal block では行がそのままシェルの別コマンドになるため、`\` が欠けた `-c ...` は
+ * `-c: command not found` で step を落とし、同時にその cdk 実行へ context が渡らない。
+ * `run: >-` (folded) は YAML 側が空白で連結するため `\` は不要 = 検査対象外。
+ */
+function findOrphanContextLines(yml: string, label: string): string[] {
+	const lines = yml.split('\n');
+	const orphans: string[] = [];
+	let literalIndent = -1; // literal block を開いた `run:` の indent (-1 = ブロック外)
+
+	for (const [i, line] of lines.entries()) {
+		const runScalar = /^(\s*)run:\s*(\||>-?)\s*$/.exec(line);
+		if (runScalar) {
+			literalIndent = runScalar[2] === '|' ? (runScalar[1] ?? '').length : -1;
+			continue;
+		}
+		// block は「indent が run: 以下の非空行」で終わる (YAML の block scalar 規則)
+		const trimmed = line.trim();
+		if (
+			literalIndent >= 0 &&
+			trimmed !== '' &&
+			line.length - line.trimStart().length <= literalIndent
+		) {
+			literalIndent = -1;
+		}
+		if (literalIndent < 0 || !trimmed.startsWith('-c ')) continue;
+		if (!(lines[i - 1] ?? '').trimEnd().endsWith('\\'))
+			orphans.push(`${label}:${i + 1}: ${trimmed}`);
+	}
+	return orphans;
+}
+
 function verifyHeaderCount(origins: OriginLike[]): number {
 	return origins.filter((o) =>
 		(o.OriginCustomHeaders ?? []).some((h) => h.HeaderName === HEADER && h.HeaderValue === SECRET),
@@ -269,28 +303,8 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 		// `-c opsSecretKey=...` の `\` 欠落でこの状態だった (#4364 で修正)。
 		// 文字列一致の context チェックだけでは「書いてあるのに渡っていない」を見逃すため、
 		// 継続の物理的な繋がりを別に検査する。
-		// `run: >-` (folded) は YAML 側が行を空白で連結するため `\` は不要 = 検査対象外。
-		// literal block (`run: |`) だけが `\` を必要とする。
-		const lines = readFileSync(join(root, relPath), 'utf8').split('\n');
-		const orphans: string[] = [];
-		let literalIndent = -1; // literal block を開いた `run:` の indent (-1 = ブロック外)
-		for (let i = 0; i < lines.length; i += 1) {
-			const line = lines[i] ?? '';
-			const runScalar = /^(\s*)run:\s*(\||>-?)\s*$/.exec(line);
-			if (runScalar) {
-				literalIndent = runScalar[2] === '|' ? (runScalar[1] ?? '').length : -1;
-				continue;
-			}
-			// block は「indent が run: 以下の非空行」で終わる (YAML の block scalar 規則)
-			if (literalIndent >= 0 && line.trim() !== '') {
-				const indent = line.length - line.trimStart().length;
-				if (indent <= literalIndent) literalIndent = -1;
-			}
-			if (literalIndent < 0 || !line.trim().startsWith('-c ')) continue;
-			const prev = (lines[i - 1] ?? '').trimEnd();
-			if (!prev.endsWith('\\')) orphans.push(`${relPath}:${i + 1}: ${line.trim()}`);
-		}
-		expect(orphans).toEqual([]);
+		const yml = readFileSync(join(root, relPath), 'utf8');
+		expect(findOrphanContextLines(yml, relPath)).toEqual([]);
 	});
 
 	it('本番 smoke (Function URL 直) に front door header が渡る', () => {

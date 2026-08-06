@@ -48,15 +48,20 @@ gh api repos/Takenori-Kusaka/ganbari-quest/contents/src/lib/server/security/orig
 
 現行値を `ORIGIN_VERIFY_SECRET_PREVIOUS` に **コピー** する。この段では `ORIGIN_VERIFY_SECRET` を触らない。
 
-```bash
-# 現行値は GitHub Secrets からは読み出せないため、生成時に手元に控えた値、または
-# Lambda コンソールの環境変数 ORIGIN_VERIFY_SECRET から取得する
-aws lambda get-function-configuration --function-name ganbari-quest-app --region us-east-1 \
-  --query 'Environment.Variables.ORIGIN_VERIFY_SECRET' --output text
+**秘密値を端末に残さない**: `gh secret set` に `--body` を使うと値がシェル履歴・スクロールバック・画面共有に残る。`--body` を付けずに実行すると gh が非表示プロンプトで受け取る。現行値の取得も、標準出力に出さずファイル経由でつなぐ。
 
-gh secret set ORIGIN_VERIFY_SECRET_PREVIOUS --body "<いま動いている値>" \
-  --repo Takenori-Kusaka/ganbari-quest
+```bash
+# 現行値は GitHub Secrets からは読み出せない。Lambda の環境変数から取り出す。
+# 画面に出さないよう 0600 の一時ファイルに落とし、使い終わったら必ず消す。
+umask 077
+aws lambda get-function-configuration --function-name ganbari-quest-app --region us-east-1 \
+  --query 'Environment.Variables.ORIGIN_VERIFY_SECRET' --output text > /tmp/ov-current
+
+gh secret set ORIGIN_VERIFY_SECRET_PREVIOUS --repo Takenori-Kusaka/ganbari-quest < /tmp/ov-current
+shred -u /tmp/ov-current 2>/dev/null || rm -f /tmp/ov-current
 ```
+
+生成時に手元に控えた値があるなら、`gh secret set ORIGIN_VERIFY_SECRET_PREVIOUS --repo …` を `--body` 無しで実行してプロンプトに貼るだけでよい。
 
 deploy する (`deploy.yml` を main push または `gh workflow run deploy.yml`)。
 
@@ -66,8 +71,10 @@ deploy する (`deploy.yml` を main push または `gh workflow run deploy.yml`
 ### 段 2 — 新値に切り替える（2 値受理が窓を吸収する）
 
 ```bash
-NEW=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')
-gh secret set ORIGIN_VERIFY_SECRET --body "$NEW" --repo Takenori-Kusaka/ganbari-quest
+umask 077
+node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))' > /tmp/ov-new
+gh secret set ORIGIN_VERIFY_SECRET --repo Takenori-Kusaka/ganbari-quest < /tmp/ov-new
+shred -u /tmp/ov-new 2>/dev/null || rm -f /tmp/ov-new
 # ORIGIN_VERIFY_SECRET_PREVIOUS は段 1 のまま (触らない)
 ```
 
@@ -80,14 +87,24 @@ deploy する。
 **deploy 完了後、次段に進む前に伝播を確認する**:
 
 ```bash
-# CloudFront 経由で /admin が 404 でないこと (未ログインなら login への redirect が正常)
-curl -s -o /dev/null -w '%{http_code}\n' -L https://ganbari-quest.com/admin
-# Function URL 直叩きは 404 のままであること (front door が効いている証跡)
-curl -s -o /dev/null -w '%{http_code}\n' "$(aws lambda get-function-url-config \
+# (a) CloudFront 経由で /admin が front door を通ること。
+#     **-L を付けない**: redirect を追うと login ページの 200 を拾ってしまい、front door を
+#     通過していなくても成功に見える。404 でないこと (302 or 200) を直接見る。
+curl -s -o /dev/null -w 'admin=%{http_code}\n' https://ganbari-quest.com/admin
+
+# (b) Function URL 直叩きは 404 のままであること (front door が効いている証跡)
+curl -s -o /dev/null -w 'direct=%{http_code}\n' "$(aws lambda get-function-url-config \
   --function-name ganbari-quest-app --region us-east-1 --query FunctionUrl --output text)admin"
 ```
 
-前者が 404、または後者が 404 以外なら **段 3 に進まず段 2 を再 deploy する** (旧値がまだ配られている / 新値が届いていない)。
+(a) が 404、または (b) が 404 以外なら **段 3 に進まず段 2 を再 deploy する** (旧値がまだ配られている / 新値が届いていない)。
+
+**単発 curl は「自分の POP」しか見ていない**: CloudFront の設定伝播は POP 単位で進むため、実行者の 1 拠点で (a) が通っても別地域の顧客にはまだ旧値が送られていることがある。2 値受理中はどちらでも通るので実害は出ないが、**段 3 に進む判断はこの curl だけを根拠にしない**。CloudFormation で NetworkStack の update が `UPDATE_COMPLETE` になっている (= distribution が Deployed) ことを併せて確認する:
+
+```bash
+aws cloudformation describe-stacks --stack-name GanbariQuestNetwork --region us-east-1 \
+  --query 'Stacks[0].StackStatus' --output text   # UPDATE_COMPLETE を確認
+```
 
 ### 段 3 — 旧値を落とす（受理を新値 1 本に戻す）
 
@@ -101,7 +118,21 @@ deploy する。
 - **窓が開かない理由**: 送出値は新値のまま変わらず、落とすのは「もう誰も送っていない旧値」だけ
 - 空文字を渡すと Lambda env `ORIGIN_VERIFY_SECRET_PREVIOUS` 自体が作られない (CDK が条件付き注入する)
 
-段 3 まで完了して**初めてローテーションが終わる**。旧値を残したまま放置すると、漏れた旧値が無効化されない = ローテーションの目的が達成されない。
+段 3 まで完了して**初めてローテーションが終わる**。旧値には TTL も有効期限も無いため、**残したまま放置すると漏れた旧値が無期限に有効なまま** = ローテーションの目的が達成されない。
+
+**残置の検知**: 旧値が配られている間、アプリは起動後 1 回だけ以下の warn を出す。CloudWatch Logs でこれが出続けている = 段 3 が未実施である。
+
+```
+[front-door] ORIGIN_VERIFY_SECRET_PREVIOUS が設定されています = 旧 secret を並行受理中 …
+```
+
+```bash
+aws logs filter-log-events --log-group-name /aws/lambda/ganbari-quest-app --region us-east-1 \
+  --start-time $(( ($(date +%s) - 86400) * 1000 )) \
+  --filter-pattern 'ORIGIN_VERIFY_SECRET_PREVIOUS' --query 'events[].message' --output text
+```
+
+段 3 の deploy 後にこの log が出なくなることを確認して完了とする。
 
 ---
 
@@ -123,3 +154,5 @@ deploy する。
 - **Secrets Manager への移設 / 自動生成**: AWS 公式は本方式の header 値をランダム自動生成し定期ローテーションすることを推奨する。現状は人が `gh secret set` する運用
 - **自動ローテーション**: 上記 3 段を rotation Lambda で無人化する。移設だけでは無人化しない (CFN の dynamic reference は stack update 無しでは新値を取りに行かない)
 - **ローテーション頻度の決定**: AWS 参照実装の既定は 1 日。本アプリでは未決定
+- **旧値の TTL / 残置の自動失効**: `ORIGIN_VERIFY_SECRET_PREVIOUS` に期限は無く、段 3 を忘れれば無期限に有効。検知は上記の CloudWatch log 1 本のみで、**alarm も自動失効も無い**。自動ローテーション実装時に「pending は N 時間で失効」を同時に入れる
+- **front door 無効化の常時監視**: secret 誤設定で検査が fail-open に落ちても、気付けるのはプロセス 1 回の log だけ。Function URL 直叩きが 404 のままであることを継続監視する仕組みは無い (deploy 直後の smoke のみ)
