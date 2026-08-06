@@ -110,7 +110,7 @@ AC に「**実機で確認する**」「**外部媒体へ退避したことを�
 gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
 ```
 
-**実例（#4129）**: close 承認時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の `CRON_SECRET` 配布確認）が運用行為だった。さらに EPIC `#4119` の着手順先頭にある**唯一の open tracker** で `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡しており、auto-close すれば退避を誰も追わないまま削除が走る状態だった。PO の close 承認 → 12 秒後に gate が reopen → 実施記録が貼られるまで 1 日以上滞留、という経緯もこれが原因（timeline の実測は [po-session.md](../docs/sessions/po-session.md) §決裁前の実測義務 実例 2）。
+**実例（#4129）**: close 承認時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の `CRON_SECRET` 配布確認）が運用行為だった。さらに EPIC `#4119` の着手順先頭にある**唯一の open tracker** で `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡しており、auto-close すれば退避を誰も追わないまま削除が走る状態だった。PO の close 承認 → 12 秒後に gate が reopen → 実施記録が貼られるまで 1 日以上滞留、という経緯もこれが原因（timeline の実測は [po-session.md](../docs/sessions/po-session.md) §決裁前の実測義務）。
 
 ### `Closes` 集約の構造的限界
 
