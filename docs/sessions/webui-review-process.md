@@ -186,7 +186,7 @@ PR 作成
 | 役割 | 担当 | レビュー段階 |
 |---|---|---|
 | **A〜D 仕分けの実施 + 還元先実装** | Dev | UI 系 fix / design PR の作成時。仕分け結果を PR body に記載する（dev-session.md §「必ず守ること」） |
-| **仕分けの妥当性レビュー** | QM / QA | per-PR review（`qm-session.md` Tier 2 手順 1〜2）。B/C/D を A で済ませていないか、還元先実装が同 PR にあるかを判定する |
+| **仕分けの妥当性レビュー** | QM / QA | per-PR review（`qm-session.md` §「Per-PR Review Agent（5 手順）」の手順 1〜2）。B/C/D を A で済ませていないか、還元先実装が同 PR にあるかを判定する |
 | **CUJ 横断 UX / a11y レビュー** | 外部品質監査チーム | develop → main 統合前（`audit-team.md` §3.1「ユーザビリティ・a11y」チーム）。CUJ を仮ユーザ persona で通し、NN/G 観点 + WCAG 2.2 AA を検査する |
 
 ### 5.1 「動くが分かりにくい」UX 破綻の捕捉（cognitive-walkthrough）

@@ -36,6 +36,6 @@ PR ブランチの最新コミットを正確に把握するためには、`gh p
 
 ## 適用箇所
 
-- Tier 2 QM Re-Review Agent による PR HEAD 検証
-- CI Fix Agent による Push 後のコミット反映確認
+- QM 再レビュー subagent による PR HEAD 検証
+- CI Fix subagent による Push 後のコミット反映確認
 - その他、自動化スクリプト等で PR の最新コミットを厳密に照合する必要があるすべてのケース
