@@ -31,7 +31,7 @@ const opsWithMfa: Identity = {
 	mfaAuthenticated: true,
 };
 
-/** TOTP 未設定の運営者 (= 決裁後の実在アカウント kokorokagami+gqops の状態)。 */
+/** TOTP 未設定の運営者 (= 決裁時点で実在する唯一の ops アカウントの状態)。 */
 const opsWithoutMfa: Identity = {
 	type: 'cognito',
 	userId: 'u-ops-2',
