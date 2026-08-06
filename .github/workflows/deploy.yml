@@ -144,6 +144,7 @@ jobs:
           npx cdk diff GanbariQuestStorage \
             -c domainName=${{ env.DOMAIN_NAME }} \
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
+            -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
@@ -155,6 +156,7 @@ jobs:
           npx cdk deploy GanbariQuestStorage --require-approval never
           -c domainName=${{ env.DOMAIN_NAME }}
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
@@ -269,6 +271,7 @@ jobs:
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
@@ -342,6 +345,7 @@ jobs:
             -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }} \
             -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }} \
             -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
+            -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
@@ -370,6 +374,7 @@ jobs:
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}

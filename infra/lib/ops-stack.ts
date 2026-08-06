@@ -59,6 +59,21 @@ export interface OpsStackProps extends cdk.StackProps {
  */
 export const ENTITLEMENT_FAIL_CLOSED_LOG_TERM = '[auth-alert] auth-entitlement-db-unavailable';
 
+/**
+ * #4327: 顧客データの物理削除 (grace-period-deletion cron) が**部分的に失敗**したことを表す
+ * log の検索語。
+ *
+ * SSOT は `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM`
+ * (`src/lib/server/services/grace-period-service.ts`)。上記 entitlement 版と同じく rootDir
+ * 制約で import できないため literal で持ち、
+ * `tests/unit/infra/grace-period-partial-failure-alarm.test.ts` が drift を機械検証する。
+ *
+ * この失敗は「途中まで消えたテナント」を意味し、放置すると顧客データが中途半端な状態で
+ * 残り続ける。dispatcher の Errors metric (endpoint が 500 を返すため発火する) だけでは
+ * どの cron が失敗したのか分からないため、専用の metric で切り分け可能にする。
+ */
+export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
+
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
@@ -283,6 +298,54 @@ export class OpsStack extends cdk.Stack {
 			});
 			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
 			entitlementFailClosedAlarm.addOkAction(alarmAction);
+
+			// P0: 顧客データ物理削除の部分失敗 (#4327)
+			//
+			// grace-period-deletion cron は「消したら戻せない」処理を 1 日 1 回走らせる。
+			// 部分失敗 (tenantsFailed > 0) は「途中まで消えたテナント」が生まれた合図であり、
+			// 気付くのが遅れるほど回復の選択肢が減る (単一テナントの復旧手段は無い —
+			// docs/runbooks/grace-period-deletion-operations.md §復旧の限界)。
+			//
+			// endpoint が 500 を返すため dispatcher の Errors metric にも乗るが、
+			// あちらは「どれかの cron が失敗した」までしか分からない。切り分けのために
+			// log 本文を情報源とする専用 metric を持つ。
+			//
+			// 閾値: 1 件で即発火。cron は 1 日 1 回のためデータ点が密には出ず、
+			// 「複数 window で継続」を待つと丸 1 日以上気付けない。log が無い間は
+			// データ点自体が無いため treatMissingData=NOT_BREACHING。
+			const gracePeriodPartialFailure = new logs.MetricFilter(
+				this,
+				'GracePeriodPartialFailureFilter',
+				{
+					logGroup: props.appLogGroup,
+					filterPattern: logs.FilterPattern.literal(`"${GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM}"`),
+					metricNamespace: 'GanbariQuest/Deletion',
+					metricName: 'GracePeriodPartialFailure',
+					metricValue: '1',
+					defaultValue: 0,
+				},
+			);
+
+			const gracePeriodPartialFailureAlarm = new cloudwatch.Alarm(
+				this,
+				'GracePeriodPartialFailure',
+				{
+					alarmName: 'ganbari-quest-grace-period-partial-failure',
+					alarmDescription:
+						'顧客データの物理削除が途中で失敗した (途中まで消えたテナントが存在する可能性) (#4327)',
+					metric: gracePeriodPartialFailure.metric({
+						period: cdk.Duration.hours(1),
+						statistic: 'Sum',
+					}),
+					threshold: 1,
+					evaluationPeriods: 1,
+					datapointsToAlarm: 1,
+					comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+					treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+				},
+			);
+			gracePeriodPartialFailureAlarm.addAlarmAction(alarmAction);
+			gracePeriodPartialFailureAlarm.addOkAction(alarmAction);
 		}
 
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)

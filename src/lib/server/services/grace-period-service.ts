@@ -9,6 +9,7 @@
 //   standard: 7日間
 //   family:   30日間
 
+import { env } from '$env/dynamic/private';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -28,6 +29,17 @@ import { resolveFullPlanTier } from './plan-limit-service';
 export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
 
 /** プラン別グレースピリオド（日数）。0 = 即時物理削除 */
+/**
+ * #4327: 物理削除の**部分失敗**を表す log 行の検索語 (SSOT)。
+ *
+ * この語で CloudWatch Logs MetricFilter を張り、alarm 化する
+ * (`infra/lib/ops-stack.ts` の `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM` と同値であることを
+ * `tests/unit/infra/grace-period-partial-failure-alarm.test.ts` が drift 検証する)。
+ * infra は CDK の rootDir 制約で src から import できないため、値の二重定義 + test で守る
+ * (`ENTITLEMENT_FAIL_CLOSED_LOG_TERM` と同じ形)。
+ */
+export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
+
 export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
 	free: 0,
 	standard: 7,
@@ -376,6 +388,26 @@ export function getGracePeriodDays(planTier: PlanTier): number {
  */
 export const DEFAULT_PURGE_LIMIT = 5;
 
+/**
+ * #4327: 物理削除の kill-switch (env)。`'true'` / `'1'` で**削除を一切実行しない**。
+ *
+ * 不可逆な削除を止める手段が EventBridge Rule の手動 disable しかない状態を解消する。
+ * Rule 側 (`aws events disable-rule`) は「cron を呼ばない」防御、本 env は
+ * 「呼ばれても消さない」防御で、層が違う (手動実行 / 別経路からの呼び出しも止まる)。
+ *
+ * 既定 (未設定) は有効 = 従来動作。新規 required env は増やさない (opt-out 方式)。
+ * 手順は `docs/runbooks/grace-period-deletion-operations.md`。
+ */
+export const GRACE_PERIOD_DELETION_DISABLED_ENV = 'GRACE_PERIOD_DELETION_DISABLED';
+
+function isPhysicalDeletionDisabled(): boolean {
+	// env 名は直接プロパティで読む (`env[定数]` にすると env 配布 closure gate
+	// `tests/unit/architecture/env-distribution-closure.test.ts` の抽出から外れ、
+	// 「読んでいるのに配られていない」を検出できなくなるため)。
+	const raw = env.GRACE_PERIOD_DELETION_DISABLED;
+	return raw === 'true' || raw === '1';
+}
+
 export async function purgeExpiredSoftDeletedTenants(opts?: {
 	dryRun?: boolean;
 	/** #3695: 1 回の実行で物理削除を試行する最大テナント数。 */
@@ -389,12 +421,32 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 	/** #3695: limit / 時間予算により今回処理せず次回実行へ持ち越した件数。 */
 	tenantsRemaining: number;
 	dryRun: boolean;
+	/** #4327: kill-switch (env) により削除を実行しなかったことを示す。 */
+	disabled: boolean;
 	expired: Array<{ tenantId: string; planTier: PlanTier; physicalDeletionDate: string }>;
 	errors: Array<{ tenantId: string; error: string }>;
 }> {
 	const dryRun = opts?.dryRun ?? false;
 	const limit = opts?.limit ?? DEFAULT_PURGE_LIMIT;
 	const budget = opts?.budget ?? createTimeBudget();
+
+	// #4327: kill-switch — 対象の走査すら行わずに即返す (誤って消す経路を残さない)。
+	if (isPhysicalDeletionDisabled()) {
+		logger.warn('[grace-period] physical deletion is disabled by kill-switch env; skipping', {
+			context: { env: GRACE_PERIOD_DELETION_DISABLED_ENV },
+		});
+		return {
+			tenantsProcessed: 0,
+			tenantsDeleted: 0,
+			tenantsFailed: 0,
+			tenantsRemaining: 0,
+			dryRun,
+			disabled: true,
+			expired: [],
+			errors: [],
+		};
+	}
+
 	const expired = await findExpiredSoftDeletedTenants();
 
 	if (dryRun || expired.length === 0) {
@@ -407,6 +459,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 			tenantsFailed: 0,
 			tenantsRemaining: 0,
 			dryRun,
+			disabled: false,
 			expired,
 			errors: [],
 		};
@@ -472,6 +525,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 		tenantsFailed: errors.length,
 		tenantsRemaining: remaining,
 		dryRun: false,
+		disabled: false,
 		expired,
 		errors,
 	};

@@ -42,6 +42,12 @@ vi.mock('$lib/server/services/account-deletion-service', () => ({
 	deleteOwnerFullDelete: mockDeleteOwnerFullDelete,
 }));
 
+// #4327: kill-switch env を test から切り替えるための可変 stub
+const { mockEnv } = vi.hoisted(() => ({
+	mockEnv: {} as Record<string, string | undefined>,
+}));
+vi.mock('$env/dynamic/private', () => ({ env: mockEnv }));
+
 vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 }));
@@ -87,6 +93,8 @@ describe('grace-period-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		settingsStore.clear();
+		// #4327: kill-switch env は test 間で持ち越さない (既定 = 有効)
+		for (const key of Object.keys(mockEnv)) delete mockEnv[key];
 	});
 
 	afterEach(() => {
@@ -496,6 +504,53 @@ describe('grace-period-service', () => {
 			expect(result.tenantsProcessed).toBe(2);
 			expect(result.tenantsDeleted).toBe(2);
 			expect(result.tenantsRemaining).toBe(0);
+		});
+
+		// #4327: kill-switch — 不可逆な削除を「止められる」ことを実挙動で固定する。
+		// 宣言 (env が読めている) ではなく **削除が呼ばれないこと** を検証する。
+		describe('#4327 kill-switch (GRACE_PERIOD_DELETION_DISABLED)', () => {
+			it("'true' なら対象の走査すらせず、1 件も削除しない", async () => {
+				seedExpiredTenants(['t1', 't2']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'true';
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(result.tenantsDeleted).toBe(0);
+				expect(result.tenantsProcessed).toBe(0);
+				// 実削除経路が 1 度も呼ばれていない
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+				expect(mockDeleteOwnerFullDelete).not.toHaveBeenCalled();
+				// 対象列挙 (listAllTenants) にも到達していない = 誤って消す経路が残っていない
+				expect(mockListAllTenants).not.toHaveBeenCalled();
+			});
+
+			it("'1' でも停止する", async () => {
+				seedExpiredTenants(['t1']);
+				mockEnv.GRACE_PERIOD_DELETION_DISABLED = '1';
+
+				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+				expect(result.disabled).toBe(true);
+				expect(mockDeleteOwnerOnlyAccount).not.toHaveBeenCalled();
+			});
+
+			it('未設定 / 空 / その他の値では従来どおり削除する (既定は有効)', async () => {
+				for (const value of [undefined, '', 'false', 'TRUE']) {
+					vi.clearAllMocks();
+					seedExpiredTenants(['t1']);
+					if (value === undefined) {
+						mockEnv.GRACE_PERIOD_DELETION_DISABLED = undefined;
+					} else {
+						mockEnv.GRACE_PERIOD_DELETION_DISABLED = value;
+					}
+
+					const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+					expect(result.disabled).toBe(false);
+					expect(result.tenantsDeleted).toBe(1);
+				}
+			});
 		});
 	});
 });

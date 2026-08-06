@@ -23,8 +23,12 @@
 
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
+import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
-import { purgeExpiredSoftDeletedTenants } from '$lib/server/services/grace-period-service';
+import {
+	GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM,
+	purgeExpiredSoftDeletedTenants,
+} from '$lib/server/services/grace-period-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -41,6 +45,39 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const result = await purgeExpiredSoftDeletedTenants({ dryRun });
+
+		// #4327: 部分失敗 (tenantsFailed > 0) を 200 に埋めない。
+		// dispatcher は 2xx を成功として扱うため、200 で返すとどの alarm にも乗らず
+		// 「途中まで消えたテナント」が誰にも観測されないまま残る。500 で返して
+		// dispatcher Lambda の Errors metric (既存 alarm) に載せる。
+		// 本文は同じ shape のまま返し、どのテナントが失敗したかを errors[] で残す。
+		if (result.tenantsFailed > 0) {
+			logger.error(GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM, {
+				service: 'grace-period-deletion',
+				context: {
+					tenantsProcessed: result.tenantsProcessed,
+					tenantsDeleted: result.tenantsDeleted,
+					tenantsFailed: result.tenantsFailed,
+					failedTenantIds: result.errors.map((e) => e.tenantId),
+				},
+			});
+			// 既存の incident 経路に載せる (新規通知機構は作らない)。
+			// payload に tenantId 等の顧客識別子は載せない (discord-alert.ts の設計制約)。
+			// 調査は CloudWatch Logs の同 log 行 (failedTenantIds 付き) から行う。
+			await sendDiscordAlert({
+				level: 'critical',
+				message: '顧客データの物理削除が途中で失敗しました (grace-period-deletion)',
+				details: {
+					tenantsProcessed: String(result.tenantsProcessed),
+					tenantsDeleted: String(result.tenantsDeleted),
+					tenantsFailed: String(result.tenantsFailed),
+				},
+			}).catch(() => {
+				// 通知の失敗で 500 応答自体を潰さない (500 は dispatcher の Errors alarm に載る)。
+			});
+			return json({ ok: false, ...result }, { status: 500 });
+		}
+
 		return json({
 			ok: true,
 			...result,

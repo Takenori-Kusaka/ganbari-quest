@@ -169,6 +169,10 @@ export class ComputeStack extends cdk.Stack {
 		// 後方互換: 既存 GitHub Secret `OPS_SECRET_KEY` を cronSecret context として渡す運用が続く間は、
 		// CDK でも OPS_SECRET_KEY / CRON_SECRET の両方の env を Lambda に注入し、
 		// アプリ側 (checkAuth) がどちらでも通るようにする。
+		// #4327: 顧客データ物理削除の kill-switch。deploy 時に `-c gracePeriodDeletionDisabled=true`
+		// を渡すと物理削除を停止したまま deploy できる (既定は従来どおり有効)。
+		const gracePeriodDeletionDisabled =
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' ? 'true' : 'false';
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
@@ -356,6 +360,12 @@ export class ComputeStack extends cdk.Stack {
 						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
 						CONTEXT_TOKEN_SECRET: contextTokenSecret,
 						MAINTENANCE_MODE: 'false',
+						// #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+						// 'true' で削除を一切実行しない。既定 'false' = 従来動作。
+						// EventBridge Rule の disable (`aws events disable-rule`) が「cron を呼ばない」
+						// 防御なのに対し、本 env は「呼ばれても消さない」防御 (手動 POST も止まる)。
+						// 手順: docs/runbooks/grace-period-deletion-operations.md
+						GRACE_PERIOD_DELETION_DISABLED: gracePeriodDeletionDisabled,
 						...(feedbackDiscordWebhookUrl
 							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
 							: {}),
@@ -523,6 +533,13 @@ export class ComputeStack extends cdk.Stack {
 				rule.addTarget(
 					new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
 						event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
+						// #4327: 非同期呼び出しの既定リトライ (最大 2 回) を切る。
+						// cron job は 30 秒 self-limiting + 翌日持ち越し前提で設計されており
+						// (grace-period-deletion の tenantsRemaining 等)、途中まで進んだ job の
+						// 自動再送は「部分削除されたテナントに対して purge が再走する」非冪等な
+						// 危険を生む。1 回の取りこぼしは翌日の実行が回収し、失敗自体は
+						// dispatcher Errors alarm + grace-period 失敗 alarm で観測される。
+						retryAttempts: 0,
 					}),
 				);
 			}

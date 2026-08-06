@@ -16,7 +16,11 @@ import { logger } from '$lib/server/logger';
 import { deleteByPrefix } from '$lib/server/storage';
 import { sendMemberRemovedEmail } from './email-service';
 import { cancelSubscription } from './stripe-service';
-import { deleteAllChildrenData, deleteTenantScopedData } from './tenant-cleanup-service';
+import {
+	deleteAllChildrenData,
+	deleteTenantScopedData,
+	deleteTenantSettings,
+} from './tenant-cleanup-service';
 
 // ============================================================
 // Types
@@ -170,7 +174,12 @@ async function fullTenantDeletion(
 	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
 
 	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
-	itemsDeleted += await deleteTenantScopedData(tenantId);
+	// #4327: `settings` だけは消さない (deferSettings)。`settings` は soft-delete 判定材料
+	// (`soft_deleted_at` / `physical_deletion_date`) の置き場であり、ここで消すと後続ステップの
+	// 途中失敗が「families / users / memberships は残るが判定材料は無い」宙吊り行を作る
+	// (findExpiredSoftDeletedTenants の母集団から外れて二度と消せず、soft_deleted_at も無いので
+	// 復元もできない)。判定材料は families 行を消した後に落とす (末尾)。
+	itemsDeleted += await deleteTenantScopedData(tenantId, { deferSettings: true });
 
 	// 3. 子供データ削除
 	itemsDeleted += await deleteAllChildrenData(tenantId);
@@ -197,6 +206,12 @@ async function fullTenantDeletion(
 	// 6. テナント削除
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
+
+	// 7. 判定材料 (settings) の削除 — #4327: 必ず families 行の削除より後に置く。
+	// ここまで来ていれば「families が残ったまま判定材料だけ消えた」状態は成立しない。
+	// 本 step が失敗した場合は settings 行だけが孤児として残るが、例外は握り潰さず
+	// 呼び出し元 (purge) の errors[] → alarm に載せる。
+	itemsDeleted += await deleteTenantSettings(tenantId);
 
 	// #4192: 削除完了の Discord 通知は**持たないと決めた** (#4174 Q2、churn チャネル)。
 	// 削除の事実・件数は呼び出し元の `[account-deletion] ... 削除完了` ログ (tenantId + 件数付き) が残す。
@@ -362,7 +377,8 @@ export async function deleteOwnerFullDelete(
 	const filesDeleted = await deleteByPrefix(`tenants/${tenantId}/`);
 
 	// 2. テナントスコープのデータ削除（activities, viewerTokens, cloudExports, pushSubscriptions, voice 等）
-	itemsDeleted += await deleteTenantScopedData(tenantId);
+	// #4327: `settings` (soft-delete 判定材料) は step 8 まで残す。理由は fullTenantDeletion 参照。
+	itemsDeleted += await deleteTenantScopedData(tenantId, { deferSettings: true });
 
 	// 3. Children data
 	itemsDeleted += await deleteAllChildrenData(tenantId);
@@ -381,6 +397,9 @@ export async function deleteOwnerFullDelete(
 	// 7. Delete tenant
 	await repos().auth.deleteTenant(tenantId);
 	itemsDeleted++;
+
+	// 8. 判定材料 (settings) の削除 — #4327: 必ず families 行の削除より後。
+	itemsDeleted += await deleteTenantSettings(tenantId);
 
 	// #4192: 削除完了の Discord 通知は**持たないと決めた** (#4174 Q2、churn チャネル)。
 	// 削除の事実・件数は呼び出し元の `[account-deletion] ... 削除完了` ログが残す。
