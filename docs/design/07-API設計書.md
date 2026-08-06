@@ -895,7 +895,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 **保持期間との関係:**
 エクスポート対象は DB 上に残っている全データ（`applyRetentionFilter` によるプラン別の履歴表示フィルタは本 API には適用されない）。
-プラン別履歴保持期間（free: 90 日 / standard: 365 日 / premium: 無制限）は表示フィルタのみで、物理削除は行わない（ADR-0027）。
+プラン別履歴保持期間（free: 90 日 / standard: 365 日 / family: 無制限）は表示フィルタのみで、物理削除は行わない（ADR-0027）。
 
 **エントリポイント:**
 `/admin/settings` ページの「データエクスポート」セクションから実行可能。`compact` と `format=zip` のチェックボックスが UI に露出している。
@@ -1030,7 +1030,7 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 テナントのクラウドエクスポート一覧を取得する。認可: owner/parent。
 
-**プラン制限:** `PlanLimits.maxCloudExports > 0` が必須（free=0 / standard=3 / premium=10）。UI 側は `/admin/settings` で free プランの場合にクラウド共有カードをアップセル表示に切り替え、paid プランでは `保管枠 {現在} / {maxCloudExports}` のスロット残量を併記する（#773）。
+**プラン制限:** `PlanLimits.maxCloudExports > 0` が必須（free=0 / standard=3 / family=10）。UI 側は `/admin/settings` で free プランの場合にクラウド共有カードをアップセル表示に切り替え、paid プランでは `保管枠 {現在} / {maxCloudExports}` のスロット残量を併記する（#773）。
 
 **非同期 build 状態（#3504、async-backup-export.md §3.1/§3.3）:** `status` は `pending`（build 待ち）→ `building`（cron が生成中）→ `ready`（DL 可）/ `failed`（生成失敗、`failureReason` 併記）を遷移する。一覧は `expiresAt` / `downloadCount` 上限に加えて `pending`/`building`/`failed` も含めて返し、生成中の行が UI から消えないようにする。
 
