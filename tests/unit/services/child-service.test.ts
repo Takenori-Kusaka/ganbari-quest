@@ -14,6 +14,12 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	deleteChild: vi.fn(),
 }));
 
+// #4313: 保護者の手動変更では告知しないことを固定するためのスパイ
+const mockRecordUiModeChangeNotice = vi.fn();
+vi.mock('$lib/server/services/ui-mode-change-notice-service', () => ({
+	recordUiModeChangeNotice: (...args: unknown[]) => mockRecordUiModeChangeNotice(...args),
+}));
+
 vi.mock('$lib/server/logger', () => ({
 	logger: {
 		info: vi.fn(),
@@ -271,6 +277,31 @@ describe('child-service', () => {
 			expect(deleteFile).not.toHaveBeenCalled();
 			// logger.info は totalDeleted=0 なので呼ばれない
 			expect(logger.info).not.toHaveBeenCalled();
+		});
+	});
+
+	// --- #4313: 保護者の手動変更は告知しない ---
+
+	describe('editChild — uiMode 変更の告知 (#4313)', () => {
+		it('保護者が uiMode を明示指定した場合は notice を記録しない (自分の操作なので告知不要)', async () => {
+			vi.mocked(updateChild).mockResolvedValue(undefined as never);
+
+			await editChild(asChildId(1), { uiMode: 'junior' }, TENANT);
+
+			expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+		});
+
+		it('保護者が age を変更して uiMode が再計算された場合も notice を記録しない', async () => {
+			vi.mocked(findChildById).mockResolvedValue({
+				id: asChildId(1),
+				uiMode: 'preschool',
+				uiModeManuallySet: 0,
+			} as never);
+			vi.mocked(updateChild).mockResolvedValue(undefined as never);
+
+			await editChild(asChildId(1), { age: 6 }, TENANT);
+
+			expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
 		});
 	});
 });

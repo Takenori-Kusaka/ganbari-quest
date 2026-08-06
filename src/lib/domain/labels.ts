@@ -3750,6 +3750,51 @@ export const OPS_BUSINESS_LABELS = {
 	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
 } as const;
 
+/**
+ * #4313: 年齢帯 UI が誕生日で切り替わったことを次回ログインで伝えるダイアログの文言。
+ *
+ * key は **切替後 (to)** の uiMode。文面は「成長した」枠組みで書き、機能が減ったと
+ * 読ませない (Issue #4313 §感情演出 / ADR-0012 — 静かに 1 回だけ)。
+ * 年齢別の語彙整合 (DESIGN.md §6): preschool はひらがなのみ、elementary は漢字最小限、
+ * junior / senior は漢字を含む。
+ *
+ * `parentNote` / `settings*` は全モード共通で保護者宛て (敬体)。3 歳の baby → preschool は
+ * 切替前の画面が親向け準備モード (ADR-0011) であり、読み手が保護者であるため、この
+ * 保護者向け節が主たる説明になる。
+ */
+export const UI_MODE_CHANGE_LABELS = {
+	dialogAriaLabel: '年齢区分の変更のお知らせ',
+	emoji: '🎈',
+	heading: {
+		baby: 'がめんが かわったよ',
+		preschool: 'おおきく なったね！',
+		elementary: '大きくなったね！',
+		junior: '画面が新しくなりました',
+		senior: '画面が新しくなりました',
+	} as Record<UiMode, string>,
+	body: {
+		baby: 'おたんじょうびが きたから、がめんが かわったよ。',
+		preschool:
+			'おたんじょうびが きたから、がめんが すこし かわったよ。ボタンや もじの おおきさが かわって いるよ。',
+		elementary:
+			'おたんじょう日がきたので、画面が小学生むけにかわりました。ボタンや文字の大きさがかわっています。',
+		junior:
+			'誕生日を迎えたので、画面が中学生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+		senior:
+			'誕生日を迎えたので、画面が高校生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+	} as Record<UiMode, string>,
+	closeLabel: {
+		baby: 'わかった',
+		preschool: 'わかった！',
+		elementary: 'わかった！',
+		junior: 'OK',
+		senior: 'OK',
+	} as Record<UiMode, string>,
+	parentNote:
+		'保護者の方へ: お子さまの年齢区分が変わったため、画面が自動で切り替わりました。生年月日の確認・修正はお子さま管理から行えます。',
+	settingsLabel: 'お子さま管理をひらく',
+} as const;
+
 export const CHILD_HOME_LABELS = {
 	// Baby mode: completed card aria-label
 	completedAriaLabel: (name: string) => `${name}（きろくずみ）`,

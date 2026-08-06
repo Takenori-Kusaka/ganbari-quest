@@ -23,6 +23,7 @@ import OverlaysSection from '$lib/features/child-home/components/OverlaysSection
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
@@ -448,6 +449,21 @@ function handleBirthdayOpen() {
 	fsm.transition('birthday', data.birthdayBonus);
 }
 
+// #4313: 年齢帯 UI 切替の告知を閉じる。閉じた時点で server 側の pending notice を既読化し、
+// 以後どの日に再ログインしても再表示されない (ADR-0012: 1 回で終わる)。
+// × / Esc / ボタンのどれで閉じても呼ばれ得るため、既読化は 1 回だけ走らせる。
+let uiModeChangeDismissed = $state(false);
+async function handleUiModeChangeClose() {
+	fsm.close();
+	if (uiModeChangeDismissed) return;
+	uiModeChangeDismissed = true;
+	try {
+		await fetch('?/dismissUiModeChangeNotice', { method: 'POST', body: new FormData() });
+	} catch {
+		// 既読化に失敗しても画面は閉じる。次回ログインで再度表示される（安全側）。
+	}
+}
+
 // #1757 (#1709-C): 「今日のおやくそく」全達成 bonus が**この load で初回付与された**ときだけ
 // toast を 1 回鳴らす。Anti-engagement (ADR-0012):
 // - granted === true の判定は server 側で point_ledger に書き込んだ瞬間のみ true。
@@ -477,10 +493,20 @@ $effect(() => {
 	const shouldShowReward = data.latestReward && !bonusClaiming;
 	const shouldShowMessage = f.showParentMessages && data.latestMessage;
 
+	// #4313: 誕生日で年齢帯 UI が切り替わったことの告知。
+	// 誕生日ボーナスが未受取の回では出さない (ADR-0012: ダイアログを 2 枚連続で見せない)。
+	// notice は既読化されず server に残るため、次回ログインで単独表示される。
+	const shouldShowUiModeChange = shouldShowUiModeChangeNotice({
+		notice: data.uiModeChangeNotice ?? null,
+		birthdayPending: Boolean(data.birthdayBonus),
+		isScreenshotMode,
+	});
+
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
+		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
 
@@ -977,6 +1003,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	onStampPressClose={handleStampPressClose}
 	birthdayBonus={data.birthdayBonus}
 	onBirthdayClose={() => fsm.close()}
+	uiModeChangeNotice={data.uiModeChangeNotice ?? null}
+	onUiModeChangeClose={handleUiModeChangeClose}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />

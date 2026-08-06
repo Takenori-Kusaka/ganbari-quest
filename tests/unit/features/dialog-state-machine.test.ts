@@ -438,4 +438,32 @@ describe('DialogFSM', () => {
 			expect(fsm.getData('specialReward')).toEqual({ id: '2' });
 		});
 	});
+
+	// #4313: 年齢帯 UI 切替の告知
+	describe('uiModeChange dialog (#4313)', () => {
+		it('誕生日モーダル表示中は uiModeChange が同時に表示されない (ADR-0012)', () => {
+			fsm.transition('birthday', { newAge: 6 });
+			fsm.transition('uiModeChange', { from: 'preschool', to: 'elementary' });
+
+			// 同時に開くのは常に 1 枚
+			expect(fsm.current).toBe('birthday');
+			expect(fsm.queue).toEqual(['uiModeChange']);
+		});
+
+		it('単独トリガーなら即座に表示される', () => {
+			fsm.onDataLoad({ uiModeChange: { from: 'junior', to: 'senior' } });
+
+			expect(fsm.current).toBe('uiModeChange');
+		});
+
+		it('同一ページロード内で 2 回目のトリガーは再表示されない (processed)', () => {
+			const payload = { from: 'junior', to: 'senior' };
+			fsm.onDataLoad({ uiModeChange: payload });
+			fsm.close();
+
+			fsm.onDataLoad({ uiModeChange: payload });
+
+			expect(fsm.current).toBe('idle');
+		});
+	});
 });
