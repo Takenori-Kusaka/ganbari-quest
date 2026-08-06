@@ -93,7 +93,7 @@
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | GET | /api/v1/special-rewards/export | 個別バックアップ（#3079）。`?childId=<n>` の reward 全件を marketplace v2 envelope（reward-set）JSON でダウンロード（`Content-Disposition: attachment`）。復元は admin/rewards `?/restoreFile` action | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
-| POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、premium 限定、#2273） | owner/parent (premium) |
+| POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、family 限定、#2273） | owner/parent (family) |
 
 ### ごほうびショップ 交換申請（#1337）
 
@@ -2412,8 +2412,8 @@ EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起�
 export interface PlanLimitError {
   code: 'PLAN_LIMIT_EXCEEDED';
   message: string;                              // 人間可読（日本語）
-  currentTier: 'free' | 'standard' | 'premium';  // リクエスト時点のテナントプラン
-  requiredTier: 'standard' | 'premium';          // 許可される最小プラン
+  currentTier: 'free' | 'standard' | 'family';  // リクエスト時点のテナントプラン
+  requiredTier: 'standard' | 'family';          // 許可される最小プラン
   upgradeUrl: '/admin/subscription';            // アップグレード導線。固定
 }
 ```
@@ -2443,7 +2443,7 @@ export interface PlanLimitError {
 
 #### トライアル中の扱い
 
-- `currentTier` にはトライアル中のティア（`standard` / `premium`）が入る。
+- `currentTier` にはトライアル中のティア（`standard` / `family`）が入る。
 - トライアル終了後にもう一度叩かれた場合は `currentTier: 'free'` で 403 が返る。
 - クライアント側でトライアル残日数を表示するには `GET /api/v1/admin/plan-status`（別）を併用する。
 
@@ -2460,7 +2460,7 @@ export interface PlanLimitError {
 
 | エンドポイント / フォームアクション | 必要プラン | 根拠 | 実装状況 |
 |----------|---------|------|---------|
-| `POST /api/v1/activities/suggest` | premium | AI 活動提案 (`tier !== 'premium'`) | `planLimitError()` 済 |
+| `POST /api/v1/activities/suggest` | family | AI 活動提案 (`tier !== 'family'`) | `planLimitError()` 済 |
 | `GET /api/v1/export` | standard | `canExport` フラグ | `planLimitError()` 済 |
 | `POST /api/v1/export/cloud` | standard | `canExport` + `maxCloudExports` | `planLimitError()` 済 |
 | `POST /admin/children ?/addChild` | 上限付き | `free` は `maxChildren=2` まで | `createPlanLimitError()` 済 (#787) |
@@ -2471,11 +2471,11 @@ export interface PlanLimitError {
 | `POST /admin/rewards ?/addPreset` | standard | ごほうび管理 プリセット取り込み (#728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards/requests ?/approveRedemption` | — | 申請承認 (#2269 で /admin/rewards から分離) | — |
 | `POST /admin/rewards/requests ?/rejectRedemption` | — | 申請却下 (#2269 で /admin/rewards から分離) | — |
-| `POST /api/v1/special-rewards/suggest` | premium | AI ごほうび提案 (`tier !== 'premium'`, #719) | `apiError()` 済 |
-| `POST /api/v1/cheer/suggest` | premium | AI 応援提案 (`tier !== 'premium'`, #2273) | `apiError()` 済 |
-| `POST /api/v1/checklists/suggest` | premium | AI チェックリスト提案 (`tier !== 'premium'`, #720) | `apiError()` 済 |
-| `POST /admin/messages ?/send` (text モード) | premium | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
-| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | premium | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
+| `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
+| `POST /api/v1/cheer/suggest` | family | AI 応援提案 (`tier !== 'family'`, #2273) | `apiError()` 済 |
+| `POST /api/v1/checklists/suggest` | family | AI チェックリスト提案 (`tier !== 'family'`, #720) | `apiError()` 済 |
+| `POST /admin/messages ?/send` (text モード) | family | 自由テキストメッセージ (`canFreeTextMessage`, #772) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/settings ?/updateSiblingSettings` (ranking ON) | family | きょうだいランキング (`canSiblingRanking`, #782) | `createPlanLimitError()` 済 (#787) |
 
 **注意**: 上記以外のエンドポイント（GET 系・基本的な CRUD 等）は**全プラン利用可**。
 新規にプラン制限を追加する際は、本表へ追記し `PlanLimitError` 形式で 403 を返すこと。
