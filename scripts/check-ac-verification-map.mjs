@@ -1,7 +1,25 @@
+import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /** 統合 PR の検証で要求する section 見出し（暫定。統合 PR template 確定は Phase B #2871）。 */
 export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
+
+/**
+ * 残 NG 件数の宣言を読む section 見出し（#4333 AC2）。
+ * SSOT: `.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json` の `## NG 0 件 / カバレッジ宣言`。
+ * 同期は `tests/unit/scripts/check-ac-verification-map.test.ts` の生成側 assert が固定する。
+ */
+export const NG_DECLARATION_SECTION = 'NG 0 件 / カバレッジ宣言';
+
+/**
+ * 残 NG > 0 のまま merge することを明示的に受容する宣言 key（#4333）。
+ *
+ * gate を hard-fail のみにすると「正直に 残 NG 1 件 と書くと merge できない」ため、
+ * **嘘の 0 件宣言に倒すインセンティブ**が生まれる（#4304 は正直に書いたのに gate が緑だった
+ * のが問題であって、正直さを罰するのが目的ではない）。よって逃げ道は塞がず、
+ * **理由 + 追跡 Issue を伴う明示宣言でのみ通す**（#4084 の 4 宣言と同じ思想・同じ SSOT）。
+ */
+export const NG_NONZERO_ACCEPTED_KEY = 'ng-nonzero-accepted';
 
 /**
  * #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。
@@ -36,8 +54,93 @@ function stripInlineCode(cell) {
 	return cell.replace(/`[^`]*`/g, '');
 }
 
-/** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
-const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;
+/**
+ * 残 NG **件数** の宣言を読み取るパターン（#4333）。件数を capture group 1 で取り出す。
+ *
+ * 旧実装は `/残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/` を **本文全体**に `test()` するだけで、
+ * 「0 という文字が本文のどこかにあるか」しか見ていなかった。実測された素通り経路:
+ *
+ *   - `## NG 0 件 / カバレッジ宣言`（**見出しそのもの**。template を貼れば必ず存在する）
+ *   - `<!-- 残 NG 0 件 明示を検証する -->`（template の HTML コメント。誰にも見えない）
+ *   - `**「残 NG 0」を偽って宣言しない。**`（**否定文**。文意と逆に判定される）
+ *   - `残 NG は 10 件`（`[^\n|]*` が「は 1」を食い、続く `0\b` に一致して **10 件が 0 件扱い**）
+ *
+ * つまり NG-0 gate は全統合 PR で常に緑だった（#4304 で severity 4 の残 NG を正直に宣言した
+ * PR がそのまま緑になったことで発覚）。存在検査をやめ、**宣言された件数を読んで 0 か判定する**。
+ *
+ * `[^\n|]` で行と table cell を跨がせないのは、宣言は prose であって表のセル結合ではないため。
+ * 数値は最短一致側から拾うので `残 NG は 10 件` は 10 と読む（0 を拾わない）。
+ */
+const NG_COUNT_DECLARATION = /残(?:り|る)?\s*(?:の)?[^\n|]{0,24}?NG[^\n|]{0,24}?(\d+)\s*件/g;
+
+/** 受容宣言の理由に要求する追跡 Issue 参照（「どこで追うのか」を書かせる）。 */
+const ISSUE_REFERENCE_PATTERN = /#\d{2,}/;
+
+/**
+ * HTML コメント（`<!-- ... -->`）を除去する（#4333 AC1）。
+ *
+ * template の説明コメントは **顧客にも監査にも見えない**のに gate を緑にしていた。
+ * 判定は「本文に書かれた宣言」だけを対象にする。
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripHtmlComments(text) {
+	return (text ?? '').replace(/<!--[\s\S]*?--!?>/g, '');
+}
+
+/**
+ * fenced code block（``` ... ```）を除去する。
+ * 本 gate や template の regex / 例文をコードブロックで引用しただけで緑にしない。
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripFencedCode(text) {
+	return (text ?? '').replace(/^```[\s\S]*?^```/gm, '');
+}
+
+/**
+ * `## <title>` の H2 section 本体を切り出す（**見出し行そのものは含まない**、#4333 AC2/AC3）。
+ *
+ * 見出しは `.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json` が宣言する構造化識別子なので
+ * **行全体の完全一致**で探す（部分一致だと本文中の言及・引用・別セクションを拾う）。
+ * 見つからない場合は `found: false` を返し、**呼び出し側は必ず fail に倒す**
+ * （「検査できなかった」を pass にしない、#4084 と同じ思想）。
+ *
+ * @param {string} body
+ * @param {string} title 見出し文字列（`## ` を除いた部分）
+ * @returns {{ found: boolean; text: string }}
+ */
+export function extractH2Section(body, title) {
+	const lines = (body ?? '').replace(/\r\n?/g, '\n').split('\n');
+	const start = lines.findIndex((l) => l.trim() === `## ${title}`);
+	if (start === -1) return { found: false, text: '' };
+	const rest = lines.slice(start + 1);
+	const end = rest.findIndex((l) => l.startsWith('## '));
+	return { found: true, text: (end === -1 ? rest : rest.slice(0, end)).join('\n') };
+}
+
+/**
+ * section 本体から「残 NG N 件」の宣言を全件読み取る（#4333）。
+ *
+ * 1 件でも 0 以外があれば残 NG は 0 ではない、と扱う（本文が「0 件」と「1 件」を
+ * 同時に主張している状態を pass にしない）。
+ *
+ * @param {string} sectionText 見出し行を含まない section 本体
+ * @returns {{ count: number; line: string }[]}
+ */
+export function parseNgCountDeclarations(sectionText) {
+	const scrubbed = stripFencedCode(stripHtmlComments(sectionText));
+	/** @type {{ count: number; line: string }[]} */
+	const found = [];
+	for (const line of scrubbed.split('\n')) {
+		for (const m of line.matchAll(NG_COUNT_DECLARATION)) {
+			found.push({ count: Number(m[1]), line: line.trim() });
+		}
+	}
+	return found;
+}
 
 /**
  * 次の `## ` 見出し（H2）の直前までを切り出す。見出しが無ければ全体を返す。
@@ -79,6 +182,16 @@ function extractFourColumnRows(body, fromIdx) {
 		afterHeading === -1
 			? rest
 			: rest.slice(0, afterHeading + 1) + sliceUntilNextH2(rest.slice(afterHeading + 1));
+	return pickFourColumnRows(section);
+}
+
+/**
+ * section 本体から 4 列のデータ行を拾う（header / separator を除く）。
+ *
+ * @param {string} section
+ * @returns {string[]}
+ */
+function pickFourColumnRows(section) {
 	return section
 		.split('\n')
 		.filter((l) => /^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
@@ -238,8 +351,8 @@ export function checkPerPrAcMap(body, lane) {
  * @returns {AcCheckResult}
  */
 export function checkIntegrationEvidenceTable(body) {
-	const sectionIdx = body.indexOf(INTEGRATION_EVIDENCE_SECTION);
-	if (sectionIdx === -1) {
+	const evidence = extractH2Section(body, INTEGRATION_EVIDENCE_SECTION);
+	if (!evidence.found) {
 		return {
 			ok: false,
 			lane: 'integration',
@@ -251,7 +364,7 @@ export function checkIntegrationEvidenceTable(body) {
 		};
 	}
 
-	const rows = extractFourColumnRows(body, sectionIdx);
+	const rows = pickFourColumnRows(evidence.text);
 	const emptyRows = findEmptyRows(rows);
 	const info = [
 		`integration evidence rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`,
@@ -282,23 +395,105 @@ export function checkIntegrationEvidenceTable(body) {
 		};
 	}
 
-	if (!NG_ZERO_PATTERN.test(body)) {
-		return {
-			ok: false,
-			lane: 'integration',
-			info,
-			error:
-				'❌ 統合 PR の本文に「残 NG 0 件」の明示がありません (#2945 AC3 / audit-team.md §3.5 #5)\n\n' +
-				'8 領域 finding のうち severity 閾値以上の未解決 NG が 0 件であることを明記してください。\n' +
-				'（例:「残 NG 合計 0 件」をエビデンス表 / 本文に記載）',
-		};
+	const ng = checkNgZeroDeclaration(body);
+	info.push(...(ng.info ?? []));
+	if (!ng.ok) {
+		return { ok: false, lane: 'integration', info, error: ng.error };
 	}
 
 	return {
 		ok: true,
 		lane: 'integration',
 		info,
-		reason: 'マージ判定エビデンス表: 4 列全行 + 残 NG 0 件 明示 ✓',
+		reason: `マージ判定エビデンス表: 4 列全行 ✓ / ${ng.reason}`,
+	};
+}
+
+/**
+ * 「残 NG 0 件」宣言の検証（#4333、audit-team.md §3.5 #5）。
+ *
+ * **存在検査ではなく件数検査**である。`## NG 0 件 / カバレッジ宣言` section 内から
+ * HTML コメント / code block を除いたうえで「残 NG N 件」を全件読み、
+ *
+ *   - section が無い / 宣言が 1 件も無い → **fail**（検査できないものを pass にしない）
+ *   - 1 件でも N > 0 → **fail**（ただし明示的な受容宣言があれば pass、下記）
+ *
+ * 受容宣言 `<!-- ng-nonzero-accepted: <理由 + 追跡 Issue> -->` は、
+ * 残 NG があることを認めたうえで merge する場合の唯一の経路。理由の実体判定は
+ * `scripts/lib/ci/reason-declaration.mjs`（#4084 の 4 宣言と同一 SSOT）に委譲し、
+ * さらに追跡 Issue 参照（`#NNNN`）を要求する。**宣言は本文に残るので後から grep できる** —
+ * 「見出しがあるだけで緑」だった旧実装との決定的な違いはここにある。
+ *
+ * @param {string} body PR 本文
+ * @returns {{ ok: boolean; reason?: string; error?: string; info?: string[] }}
+ */
+export function checkNgZeroDeclaration(body) {
+	const section = extractH2Section(body, NG_DECLARATION_SECTION);
+	if (!section.found) {
+		return {
+			ok: false,
+			error:
+				`❌ 統合 PR の本文に「## ${NG_DECLARATION_SECTION}」section がありません (#4333 / audit-team.md §3.5 #5)\n\n` +
+				'残 NG 件数の宣言はこの section 内でのみ読み取ります（本文の他の場所・HTML コメント・見出しは対象外）。\n' +
+				'.github/INTEGRATION_PR_TEMPLATE.md の該当 section を復元してください。',
+		};
+	}
+
+	const declarations = parseNgCountDeclarations(section.text);
+	const info = [
+		`NG declarations found: ${declarations.length} (${declarations.map((d) => d.count).join(',') || 'none'})`,
+	];
+
+	if (declarations.length === 0) {
+		return {
+			ok: false,
+			info,
+			error:
+				`❌ 「## ${NG_DECLARATION_SECTION}」section に残 NG 件数の宣言がありません (#4333)\n\n` +
+				'見出しがあるだけでは通しません（旧実装は見出しの文字列だけで緑になっていました）。\n' +
+				'section 本体に件数を明記してください。例:「残 NG 合計 0 件 (severity 3-4 の未解決 finding なし)」\n' +
+				'HTML コメント内 / code block 内の記述は判定対象外です。',
+		};
+	}
+
+	const nonZero = declarations.filter((d) => d.count !== 0);
+	if (nonZero.length === 0) {
+		return { ok: true, info, reason: '残 NG 0 件 宣言 ✓' };
+	}
+
+	const accepted = parseReasonDeclaration(body, NG_NONZERO_ACCEPTED_KEY);
+	const details = nonZero
+		.map((d) => `  残 NG ${d.count} 件: 「${d.line.slice(0, 100)}」`)
+		.join('\n');
+
+	if (!accepted.present) {
+		return {
+			ok: false,
+			info,
+			error:
+				`❌ 残 NG が 0 件ではありません (#4333 / audit-team.md §3.5 #5)\n\n${details}\n\n` +
+				'残 NG > 0 のまま merge するなら、本文に受容宣言を明記してください（嘘の 0 件宣言に倒さないための経路です）:\n' +
+				`  <!-- ${NG_NONZERO_ACCEPTED_KEY}: <なぜ本 release で塞がないのか> (#追跡Issue番号) -->\n` +
+				'宣言しない場合は §3.6 起票/棄却 flow に送り、残 NG を 0 にしてから merge してください。',
+		};
+	}
+
+	if (!accepted.valid || !ISSUE_REFERENCE_PATTERN.test(accepted.reason)) {
+		return {
+			ok: false,
+			info,
+			error:
+				`❌ \`${NG_NONZERO_ACCEPTED_KEY}\` 宣言の理由が受理できません (#4333)\n\n${details}\n\n` +
+				`  ${MIN_REASON_LENGTH} 文字以上で「なぜ本 release で塞がないのか」を書き、追跡 Issue 番号 (#NNNN) を含めてください\n` +
+				'  (空欄 / TODO / n/a 等の定型 stub は受理しません、#3956 教訓)。\n' +
+				`  現在の理由: 「${accepted.reason.slice(0, 100)}」`,
+		};
+	}
+
+	return {
+		ok: true,
+		info,
+		reason: `残 NG ${nonZero.map((d) => d.count).join('/')} 件（受容宣言あり: ${accepted.reason.slice(0, 60)}）`,
 	};
 }
 
