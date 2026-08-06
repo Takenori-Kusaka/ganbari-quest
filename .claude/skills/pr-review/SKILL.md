@@ -114,4 +114,4 @@ A〜I で NG が出ても、**自動的に Request Changes にはしない**。B
 
 - **gate の削除・warn 降格は BLOCK 事由にしない**。gate を減らす PR は **PO 承認があるかだけ**を確認し、承認があれば内容の是非で BLOCK しない（gate の増減は PO 承認事項であり QA の判断領域ではない）
 - **記録の不整合（body の書式 / チェックボックス / 表の体裁）は BLOCK しない**。降格の条件は **「独立に実 diff を確認し、実害がないと確認できた場合のみ」** — 確認せずに降格しない
-- follow-up は **PR コメント止まり**。Issue 化は「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ（装置起因は Issue にしない、`docs/sessions/po-session.md` §Issue 起票基準）
+- follow-up は **PR コメント止まり**。Issue 化は「E1〜E5 のいずれかに属し、かつ顧客の金・データ・法務に接続する」場合のみ（装置起因は Issue にしない、`docs/sessions/po-session.md` §「Issue を起票する基準」）
