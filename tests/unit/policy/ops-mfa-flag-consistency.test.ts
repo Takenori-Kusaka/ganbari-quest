@@ -22,7 +22,12 @@ const opsCaps: Capability[] = ['access.ops_dashboard', 'view.ops_license_dashboa
 function ctxFor(user: { id: string; groups: string[]; mfaAuthenticated?: boolean }) {
 	return buildEvaluationContext({
 		mode: 'aws-prod',
-		user: { id: user.id, role: 'owner', groups: user.groups, mfaAuthenticated: user.mfaAuthenticated },
+		user: {
+			id: user.id,
+			role: 'owner',
+			groups: user.groups,
+			mfaAuthenticated: user.mfaAuthenticated,
+		},
 		plan: null,
 	});
 }
@@ -57,7 +62,9 @@ describe('#4363 フラグの単一 SSOT (実強制点 / policy 層が同じ定�
 
 	it('ops-authz.ts は自前の真偽値を持たず、capabilities.ts の定数を import する', () => {
 		const src = readFileSync(join(REPO_ROOT, 'src/lib/server/auth/ops-authz.ts'), 'utf8');
-		expect(src).toMatch(/import\s*\{[^}]*OPS_MFA_REQUIRED[^}]*\}\s*from\s*'\$lib\/policy\/capabilities'/s);
+		expect(src).toMatch(
+			/import\s*\{[^}]*OPS_MFA_REQUIRED[^}]*\}\s*from\s*'\$lib\/policy\/capabilities'/s,
+		);
 		// 別の名前で二重定義していないこと (`const requireMfa = false` のような握り潰し)
 		expect(src).not.toMatch(/const\s+OPS_MFA_REQUIRED\s*=/);
 	});

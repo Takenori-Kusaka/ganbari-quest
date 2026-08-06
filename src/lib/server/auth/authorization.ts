@@ -161,12 +161,12 @@ function isPublicRoute(path: string): boolean {
 		path.startsWith('/demo') ||
 		path.startsWith('/marketplace') ||
 		// #4309: `/api/cron/` と同じく「認証不要」ではなく **「認証の担い手が route 側にある」** の意。
-		// 本認可層は ops group / MFA を表現できない — `RouteRule.roles` が持つのは
-		// owner / parent / child の 3 値だけで、Cognito group も MFA 有無も語彙に無い。
+		// 本認可層は ops group を表現できない — `RouteRule.roles` が持つのは
+		// owner / parent / child の 3 値だけで、Cognito group は語彙に無い。
 		// ここから外すと `/ops` は「認証済みの任意のテナントメンバーなら通る」+ ライセンス状態
 		// (期限切れ → /admin/subscription へリダイレクト) に縛られ、運営者が締め出される一方で
 		// 顧客が入れてしまう。したがって判定は route 側の `requireOpsAccess`
-		// (ops-authz.ts、ops group + MFA / fail-closed) に集約し、本行はそこへ委譲する宣言である。
+		// (ops-authz.ts、ops group 所属 / fail-closed) に集約し、本行はそこへ委譲する宣言である。
 		// **page (`+layout.server.ts`) と API (`+server.ts`) の両方が呼ぶ必要がある** —
 		// layout の gate は `+server.ts` に走らず、それが #4309 の実害 (未認証で売上台帳 CSV 200)。
 		// 適用範囲は tests/unit/architecture/ops-route-auth-fitness.test.ts が FS 列挙で機械強制する。

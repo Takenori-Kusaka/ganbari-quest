@@ -125,11 +125,16 @@ describe('/ops/export の認可 (#4309)', () => {
 		}
 	});
 
-	describe('ops group だが MFA 未済は 403 (#4266 fail-closed を API にも適用)', () => {
+	// #4363 (オーナー決裁 2026-08-06): /ops の MFA 要求を撤去したため、MFA 未済の ops も
+	// API に到達する。**弱めた条件は MFA の 1 つだけ**で、上の「未認証」「非 ops」の 403 は不変。
+	// MFA を要求する側の挙動 (フラグを戻した場合) は
+	// tests/unit/routes/ops-mfa-not-required.test.ts が predicate 層で保持している。
+	describe('#4363 ops group なら MFA 未済でも取得できる (決裁で MFA 要求を撤去)', () => {
 		for (const type of EXPORT_TYPES) {
-			it(`type=${type} は 403 を返す`, async () => {
-				expect(await statusOf(makeEvent(type, OPS_WITHOUT_MFA))).toBe(403);
-				expect(mockGetRevenueData).not.toHaveBeenCalled();
+			it(`type=${type} は 200 を返す`, async () => {
+				const res = await GET(makeEvent(type, OPS_WITHOUT_MFA));
+				expect(res.status).toBe(200);
+				expect(await res.text()).not.toBe('');
 			});
 		}
 	});

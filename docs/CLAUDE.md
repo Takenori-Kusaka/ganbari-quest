@@ -132,7 +132,7 @@ npm run dev:cognito         # AUTH_MODE=cognito + COGNITO_DEV_MODE=true、port 5
 npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必要
 ```
 
-`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops / ops-no-mfa（MFA 未設定の運営者 = `/ops` 拒否 → 設定導線の検証用、#4282）の 9 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
+`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops / ops-no-mfa（MFA 未設定の運営者。現在は `/ops` に入れる = #4363 で MFA 要求を撤去。`OPS_MFA_REQUIRED` を戻したときの拒否 → 設定導線の検証用）の 9 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
 
 使用必須: 認証画面変更 PR の Ready 前 / SS 撮影 / login / signup / ops group / プラン別 UI / 管理画面の変更時。
 

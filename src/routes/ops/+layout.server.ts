@@ -19,8 +19,8 @@ import { requireOpsAccess } from '$lib/server/auth/ops-authz';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-	// #4266: CloudFront の IP allowlist 廃止に伴い、主防御を ops group + MFA に強化した。
-	// MFA 情報が取れない場合も拒否する (fail-closed)。
+	// 主防御は ops group 所属 (#4363 でオーナー決裁により MFA 要求を撤去)。
+	// group が確認できない場合は拒否する (fail-closed)。
 	//
 	// #4309: 判定は requireOpsAccess (単一強制点) に集約する。本 layout は **page にしか
 	// 適用されない** ため、`+server.ts` (API endpoint) は同じ関数を各自で呼ぶ必要がある。

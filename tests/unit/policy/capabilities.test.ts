@@ -193,10 +193,13 @@ describe('policy/capabilities can() — access.ops_dashboard / view.ops_license_
 			expect(can(ctx({ mode: 'aws-prod', user: opsOwner }), cap)).toEqual({ allowed: true });
 		});
 
-		it(`${cap}: ops group でも MFA 未経由は ops-mfa-required (#4266 fail-closed)`, () => {
+		// #4363 (オーナー決裁 2026-08-06): /ops の MFA 要求を撤去。policy 層も実強制点
+		// (ops-authz.ts) と同じ `OPS_MFA_REQUIRED` を読むため、MFA 未経由でも allowed になる。
+		// フラグを戻したときの deny 挙動と 2 層の一致は
+		// tests/unit/policy/ops-mfa-flag-consistency.test.ts が固定する。
+		it(`${cap}: ops group なら MFA 未経由でも allowed (#4363)`, () => {
 			expect(can(ctx({ mode: 'aws-prod', user: opsOwnerNoMfa }), cap)).toEqual({
-				allowed: false,
-				reason: 'ops-mfa-required',
+				allowed: true,
 			});
 		});
 
