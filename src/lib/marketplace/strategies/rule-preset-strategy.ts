@@ -52,8 +52,8 @@ import type {
 import { logger } from '$lib/server/logger';
 import { applyBonus, previewBonus } from './rule-preset/bonus.js';
 import { applyExchange, previewExchange } from './rule-preset/exchange.js';
-import { applyPenalty } from './rule-preset/penalty.js';
-import { applySpecial } from './rule-preset/special.js';
+import { applyPenalty, PENALTY_REASON } from './rule-preset/penalty.js';
+import { applySpecial, SPECIAL_REASON } from './rule-preset/special.js';
 
 /**
  * rule-preset の preset identity (preview / apply 拡張 method の追加引数 SSOT)。
@@ -137,9 +137,8 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 	 * ctx.presetId が無い場合は `errors` で fail-fast (rule-preset は identity 必須)。
 	 */
 	async apply(payload: RulePresetPayload, ctx: ImportContext): Promise<ImportResult> {
-		if (ctx.dryRun === true) {
-			return { imported: 0, skipped: 0, errors: [], failed: 0 };
-		}
+		// #4373: dryRun でも定数を返さず applyRulePreset に委譲する (同 method が
+		// write せずに予測値を返す)。ここで定数を返すと generic 経路だけが嘘をつく。
 		if (!ctx.presetId) {
 			return {
 				imported: 0,
@@ -207,9 +206,30 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 		const ruleType = payload.ruleType;
 		const tenantId = ctx.tenantId;
 
-		// dryRun: DB write 禁止、preview と等価な空結果
+		// dryRun: DB write 禁止。ただし件数は定数ではなく preview の実測から出す (#4373)。
+		// dryRun は「取り込んでよいか」を書き込まずに確かめるモードなので、判断材料である
+		// imported / skipped を定数にすると「取込済でも skipped=0」= 何度取り込んでも新規に
+		// 見える嘘になる。他 4 strategy (activity-pack / reward-set / checklist /
+		// challenge-set) は既に dryRun で preview の duplicates を返しており、本 strategy
+		// だけが逸脱していた。予測値は各 sub-module の preview (apply と重複判定を共有) から取る。
 		if (ctx.dryRun === true) {
-			return { imported: 0, skipped: 0, warnings: [], errors: [] };
+			if (ruleType === 'exchange') {
+				const r = await previewExchange(identity.presetId, payload, tenantId, ctx.childId);
+				return { imported: r.wouldImport, skipped: r.wouldSkip, warnings: [], errors: [] };
+			}
+			if (ruleType === 'bonus') {
+				const r = await previewBonus(identity.presetId, payload, tenantId);
+				return { imported: r.wouldImport, skipped: r.wouldSkip, warnings: [], errors: [] };
+			}
+			// penalty / special は意図的 no-op (ADR-0012 §6 / 将来枠)。
+			// 「取り込んでも 0 件で warning が出る」ことが判断材料なので warning も予測に含める
+			// (audit log の書き込みは apply 側の副作用なので dryRun では起こさない)。
+			return {
+				imported: 0,
+				skipped: 0,
+				warnings: [ruleType === 'penalty' ? PENALTY_REASON : SPECIAL_REASON],
+				errors: [],
+			};
 		}
 
 		// sub-dispatcher: ruleType 別の処理を内部で完結させる

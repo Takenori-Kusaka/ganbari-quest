@@ -511,10 +511,10 @@ describe('grace-period-service', () => {
 			expect(result.tenantsRemaining).toBe(0);
 		});
 
-		// #4372: dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
+		// #4373: dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
 		// 判断材料である件数フィールドが定数であってはならない。
 		// 「削除しない」性質 (回帰) と「実数を返す」性質 (本修正) の両方をここで固定する。
-		describe('#4372 dryRun が返す件数は実行時の予測値である', () => {
+		describe('#4373 dryRun が返す件数は実行時の予測値である', () => {
 			it('limit 超過なら tenantsRemaining は持ち越し予定の実数を返す (定数 0 ではない)', async () => {
 				seedExpiredTenants(['t1', 't2', 't3']);
 

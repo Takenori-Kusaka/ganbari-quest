@@ -315,6 +315,27 @@ export async function reclaimStaleBuildingExports(
  * 二重 build せず skip する (contended としてログ可視化)。従来の `updateStatus('building')` は
  * claim が兼ねるため撤去した (二重 write 回避 + building 遷移の単一化)。
  */
+/**
+ * #4373: dryRun (`POST /api/cron/export-build {"dryRun":true}` / `GET`) 用の**予測**。
+ *
+ * dryRun は「有効化してよいか / 今どれだけ滞留しているか」を build せずに確かめるモードなので、
+ * 件数は定数ではなく実測から出す。定数を返すと pending が何件あっても同じ数字が返り、
+ * 判断材料として嘘をつく (grace-period の `tenantsRemaining` と同 class)。
+ *
+ * write は一切行わない: stale reclaim (`reclaimStaleBuildingExports`) は status を書き換えるため
+ * dryRun では呼ばない。`findPendingBuilds` は limit で頭打ちするので、返す値は
+ * 「この 1 回の実行で build に着手する件数」であり滞留総数ではない。
+ */
+export async function previewPendingExports(
+	limit = 5,
+): Promise<{ processed: number; ready: number; failed: number }> {
+	const repos = getRepos();
+	const pending = await repos.cloudExport.findPendingBuilds(limit);
+	// ready / failed は「build した結果」なので dryRun では 0 が事実
+	// (予測値である processed とは意味が違う)。
+	return { processed: pending.length, ready: 0, failed: 0 };
+}
+
 export async function drainPendingExports(
 	limit = 5,
 	budget: TimeBudget = createTimeBudget(),

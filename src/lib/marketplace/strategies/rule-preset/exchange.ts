@@ -22,6 +22,23 @@ export interface ExchangePreviewResult {
 	alreadyImported: boolean;
 	/** payload 内の rule 総数 */
 	ruleCount: number;
+	/** #4373: 取込を実行した場合に挿入される件数 (dryRun の判断材料)。 */
+	wouldImport: number;
+	/** #4373: 取込を実行した場合に重複で skip される件数 (dryRun の判断材料)。 */
+	wouldSkip: number;
+}
+
+/**
+ * #4373: 「同 sourcePresetId + 同 title は skip」という重複判定を preview と apply で共有する。
+ *
+ * dryRun の予測を apply とは別ロジックで書くと、両者が静かにズレて
+ * 「予測は 0 件、実行すると 3 件」という嘘が再生産される。判定は 1 箇所に置く。
+ */
+function collectSameSourceTitles(
+	presetId: string,
+	existing: Array<{ sourcePresetId?: string | null; title: string }>,
+): Set<string> {
+	return new Set(existing.filter((r) => r.sourcePresetId === presetId).map((r) => r.title));
 }
 
 export interface ExchangeApplyResult {
@@ -41,11 +58,22 @@ export async function previewExchange(
 ): Promise<ExchangePreviewResult> {
 	const ruleCount = payload.rules.length;
 	if (childId === undefined) {
-		return { alreadyImported: false, ruleCount };
+		// childId 無しでは apply が errors で fail するため、取込は 0 件と予測する
+		return { alreadyImported: false, ruleCount, wouldImport: 0, wouldSkip: 0 };
 	}
 	const existing = await findSpecialRewards(childId, tenantId);
 	const alreadyImported = existing.some((r) => r.sourcePresetId === presetId);
-	return { alreadyImported, ruleCount };
+	// apply と同じ走査 (挿入済 title を都度 Set に足す) で payload 内の重複も同じ数に揃える
+	const seen = collectSameSourceTitles(presetId, existing);
+	let wouldSkip = 0;
+	for (const rule of payload.rules) {
+		if (seen.has(rule.title)) {
+			wouldSkip++;
+			continue;
+		}
+		seen.add(rule.title);
+	}
+	return { alreadyImported, ruleCount, wouldImport: ruleCount - wouldSkip, wouldSkip };
 }
 
 /**
@@ -69,9 +97,7 @@ export async function applyExchange(
 	}
 
 	const existing = await findSpecialRewards(childId, tenantId);
-	const sameSourceTitles = new Set(
-		existing.filter((r) => r.sourcePresetId === presetId).map((r) => r.title),
-	);
+	const sameSourceTitles = collectSameSourceTitles(presetId, existing);
 
 	for (const rule of payload.rules) {
 		if (sameSourceTitles.has(rule.title)) {

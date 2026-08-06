@@ -474,14 +474,20 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 	const expired = await findExpiredSoftDeletedTenants();
 
 	if (dryRun || expired.length === 0) {
+		// #4373: dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
+		// 件数は実行時と同じ打ち切り条件 (limit / 時間予算) から**予測値**を出す。
+		// 定数を返すと、対象が何件あっても同じ数字が返り判断材料として嘘をつく。
+		// 予測ロジックは下の実行ループの break 条件 (`attempted >= limit || budget.exceeded()`)
+		// と同値である必要がある。
+		const wouldProcess = budget.exceeded() ? 0 : Math.min(expired.length, limit);
 		logger.info('[grace-period] purge dry-run or no expired tenants', {
-			context: { dryRun, count: expired.length },
+			context: { dryRun, count: expired.length, wouldProcess, limit },
 		});
 		return {
-			tenantsProcessed: expired.length,
+			tenantsProcessed: wouldProcess,
 			tenantsDeleted: 0,
 			tenantsFailed: 0,
-			tenantsRemaining: 0,
+			tenantsRemaining: expired.length - wouldProcess,
 			dryRun,
 			disabled: false,
 			expired,
