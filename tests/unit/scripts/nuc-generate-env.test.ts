@@ -145,7 +145,9 @@ describe('#4330 静的 — provider を宣言したら、その鍵も同じ経�
 		// #4330: `AI_PROVIDER=gemini` は書くのに GEMINI_API_KEY を配っていなかったため、
 		// NUC の AI 提案は「provider は選ばれているのに鍵が無い」状態で常に無効だった。
 		// **鍵が無いことが実行時まで分からない**のが本欠陥 (#4167 / #4174 と同じクラス)。
-		const declared = [...script.matchAll(/^\s*"AI_PROVIDER=([a-z]+)"/gm)].map((m) => m[1]);
+		const declared = [...script.matchAll(/^\s*"AI_PROVIDER=([a-z]+)"/gm)]
+			.map((m) => m[1])
+			.filter((name): name is string => name !== undefined);
 		expect(declared, 'script が AI_PROVIDER を書いていない (前提が変わった?)').not.toEqual([]);
 
 		for (const provider of declared) {
