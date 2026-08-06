@@ -74,6 +74,7 @@ vi.mock('$lib/server/logger', () => ({
 import { logger } from '$lib/server/logger';
 import {
 	DELETION_GRACE_PERIOD_DAYS,
+	DELETION_WARNING_SENT_KEY,
 	findExpiredSoftDeletedTenants,
 	getGracePeriodDays,
 	getGracePeriodStatus,
@@ -162,10 +163,14 @@ describe('grace-period-service', () => {
 		});
 
 		// #4316: sentinel-last 書き込み順序
-		// 3 キーの setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
+		// setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
 		// upsert)。`soft_deleted_at` は soft-delete 状態を起動する sentinel なので **最後に**
 		// 書く。途中で失敗しても「soft-delete が始まっていない」状態にしかならず、
 		// 「ロックはかかるが物理削除の母集団に入らない」宙吊りが成立しない。
+		//
+		// #2399: 予告メール送信済フラグのリセットも sentinel より前に置く。ここで失敗しても
+		// sentinel が立たない = 「送信済フラグが残ったまま猶予期間に入り予告なしで消える」が
+		// 成立しない。
 		it('#4316: sentinel である soft_deleted_at を最後に書く (途中失敗で宙吊りを作らない)', async () => {
 			await softDeleteTenant('tenant-1', 'active', 'family-monthly');
 
@@ -173,8 +178,11 @@ describe('grace-period-service', () => {
 			expect(writtenKeys).toEqual([
 				'physical_deletion_date',
 				'deletion_grace_plan_tier',
+				'deletion_warning_sent_at',
 				'soft_deleted_at',
 			]);
+			// sentinel は常に最後 (キーが増えても本不変条件は保たれる)
+			expect(writtenKeys.at(-1)).toBe('soft_deleted_at');
 		});
 	});
 
@@ -240,6 +248,21 @@ describe('grace-period-service', () => {
 			expect(result.success).toBe(true);
 			// settings がクリアされている
 			expect(mockSetSetting).toHaveBeenCalledWith('soft_deleted_at', '', 'tenant-1');
+		});
+
+		// #2399: クリア漏れは「2 回目の予約が予告なしで消える」silent regression になる
+		it('復元時に削除予告メールの送信済フラグもクリアする', async () => {
+			const futureDate = new Date();
+			futureDate.setDate(futureDate.getDate() + 10);
+
+			settingsStore.set('soft_deleted_at', new Date().toISOString());
+			settingsStore.set('deletion_grace_plan_tier', 'family');
+			settingsStore.set('physical_deletion_date', futureDate.toISOString());
+			settingsStore.set(DELETION_WARNING_SENT_KEY, new Date().toISOString());
+
+			await restoreSoftDeletedTenant('tenant-1');
+
+			expect(settingsStore.get(DELETION_WARNING_SENT_KEY)).toBe('');
 		});
 
 		it('ソフトデリートされていない場合は失敗する', async () => {

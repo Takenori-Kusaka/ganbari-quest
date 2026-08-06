@@ -198,14 +198,17 @@ soft delete されたテナントは以下の状態になる:
 
 soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（チェックなし）。grace 期限切れで cron が物理削除を実行したタイミングで §2 の Pattern 1 / 2b と同じ範囲が削除される。
 
-### 4.7 削除予告メール自動化（#2399、Phase 1 計画中）
+### 4.7 削除予告メール自動化（#2399）
 
-soft delete 状態のテナントに対し、物理削除実行の **14 日前 (family プラン) / 1 日前 (standard プラン)** に所有者へ予告メールを送信する cron 機構の計画策定済。実装は別 PR (sub-Issue) で行う。
+soft delete 状態のテナントに対し、物理削除の **残り 14 日 (family) / 1 日 (standard)** で所有者へ予告メールを 1 通送る。**free は猶予 0 日 (即時物理削除) のため送信しない** — 予告を送る時間が原理的に存在せず、削除確認は §5.1 の入力確認 UX が担う。
 
-- **計画 / 設計 SSOT**: [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md) (#2399 本 Issue で策定)
-- **使用基盤**: 既存 EventBridge + cron-dispatcher Lambda + SES Configuration Set (新規 Lambda function 追加なし)
-- **idempotency**: `settings.deletion_warning_sent_at` で 1 テナント 1 送信を保証
-- **法務通知扱い**: `marketing-email-counter` (年 6 回上限、ADR-0023 §5 I11) には乗せない
+- **設計 SSOT**: [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md)
+- **実体**: `/api/cron/deletion-warning-emails` (毎日 10:00 JST) → `deletion-warning-service.ts` → `email-service.sendDeletionWarningEmail`
+- **使用基盤**: 既存 EventBridge + cron-dispatcher Lambda + SES (新規 Lambda function / Stack なし)
+- **しきい値の判定**: 残日数は JST 暦日差で数え、`しきい値以下 かつ 1 日以上 かつ 未送信` で送る。cron が 1 日欠測しても予告なしで削除される事態を避けるための「以下」判定であり、二重送信は下記 idempotency が防ぐ
+- **idempotency**: `settings.deletion_warning_sent_at` で 1 予約 1 送信。**予約時 (`softDeleteTenant`) と復元時 (`restoreSoftDeletedTenant`) にクリア**され、復元後に再度予約すれば再び予告が届く
+- **法務通知扱い**: `marketing-email-counter` (年 6 回上限、ADR-0023 §5 I11) に乗せず、List-Unsubscribe も付けない。配信停止済のテナントにも届く
+- **本文**: 物理削除予定日 + 残日数 + 復元導線 (`/admin/settings/account`) を含み、子供の名前・活動内容は含めない (ADR-0012 中立トーン)
 
 ---
 

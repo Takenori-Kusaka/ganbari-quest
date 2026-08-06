@@ -8,6 +8,7 @@ import { DsqlStack } from '../lib/dsql-stack';
 import { STAGING_ENV_CONFIG } from '../lib/env-config';
 import { NetworkStack } from '../lib/network-stack';
 import { OpsStack } from '../lib/ops-stack';
+import { resolveOriginVerifySecret } from '../lib/origin-verify-context';
 import { SesStack } from '../lib/ses-stack';
 import { StorageStack } from '../lib/storage-stack';
 
@@ -41,6 +42,12 @@ const staticAssetsSourceDir = staticAssetsS3Offload
 	? path.join(__dirname, '..', 'static-assets')
 	: undefined;
 
+// #4280 案 b: CloudFront → origin の shared secret。**未設定なら synth をここで止める**
+// (空文字で素通しすると header 無しの distribution + 無効なアプリ側検査 = 黙って無防備になる)。
+// prod / staging は同一 AWS アカウント内の同居構成で、PARENT_GATE_COOKIE_SECRET /
+// OPS_SECRET_KEY と同じく 1 本の secret を共有する。
+const originVerifySecret = resolveOriginVerifySecret(app.node);
+
 const storage = new StorageStack(app, `${appName}Storage`, {
 	env,
 	description: 'S3 + ECR for Ganbari Quest (DB backend は DsqlStack、#3438)',
@@ -71,6 +78,7 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	env,
 	description: 'CloudFront + Route53 + ACM for Ganbari Quest',
 	functionUrl: compute.functionUrl,
+	originVerifySecret,
 	domainName,
 	certificateArn,
 	// ADR-0048 Multi-Lambda Demo (#2097 week 4)
@@ -190,6 +198,7 @@ if (stagingEnabled) {
 		env,
 		description: 'CloudFront for Ganbari Quest (staging, #4204 form action の query slash encode)',
 		functionUrl: stagingCompute.functionUrl,
+		originVerifySecret,
 		resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix,
 		geoRestrictionCountries: [],
 	});

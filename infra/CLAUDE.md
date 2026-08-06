@@ -78,8 +78,15 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 | `GEMINI_API_KEY` | Gemini API | 任意。ただし **NUC は `AI_PROVIDER=gemini` 固定**のため、未設定だと AI 提案 (活動 / ごほうび / チェックリスト / 応援・レシート OCR) が全て無効になり、キーワード提案へ縮退する (#4330)。`deploy-nuc.yml` → `generate-env.ps1` が未設定時に `::warning::` を出す (deploy は続行) |
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
+| `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
+
+#### `ORIGIN_VERIFY_SECRET` を NUC に配布しない理由 (#4280)
+
+`/admin` ・ `/api/v1/admin` ・ `/ops` は「CloudFront を通ってきたこと」を `x-origin-verify` header で要求する。**NUC セルフホストは CloudFront を持たず LAN 内で直接配信する**ため、NUC の `.env` にこの secret を入れると「front door が無いのに検査が有効」になり、保護者の見守り画面が全 404 になる。未設定 = 検査無効 (fail-open) が NUC の正しい状態である。
+
+AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resolveOriginVerifySecret()` が context 未指定の synth を throw し、`deploy.yml` / `deploy-aws-staging.yml` の `Validate required secrets` が GitHub Secret 未登録の deploy を止める (ADR-0024)。仕様と rotate 手順の SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1。
 
 ### 新規 env 追加時 PR チェックリスト
 

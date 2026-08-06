@@ -180,10 +180,10 @@
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 8 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 9 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 8 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
@@ -193,6 +193,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
 | grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する |
+| deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
