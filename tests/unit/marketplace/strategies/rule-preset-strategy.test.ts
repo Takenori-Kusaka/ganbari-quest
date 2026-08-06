@@ -357,7 +357,9 @@ describe('rulePresetStrategy.applyRulePreset — dryRun', () => {
 			vi.clearAllMocks();
 			mockGetSetting.mockResolvedValue(
 				JSON.stringify({
-					presets: [{ presetId: PRESET_ID, presetName: '連続ボーナス', presetIcon: '🔥', rules: [] }],
+					presets: [
+						{ presetId: PRESET_ID, presetName: '連続ボーナス', presetIcon: '🔥', rules: [] },
+					],
 				}),
 			);
 
@@ -436,7 +438,9 @@ describe('rulePresetStrategy.applyRulePreset — dryRun', () => {
 
 		it('exchange: 取込済 preset なら skipped=1 と予測する', async () => {
 			vi.clearAllMocks();
-			mockFindSpecialRewards.mockResolvedValue([{ sourcePresetId: PRESET_ID, title: 'アイス交換' }]);
+			mockFindSpecialRewards.mockResolvedValue([
+				{ sourcePresetId: PRESET_ID, title: 'アイス交換' },
+			]);
 
 			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, makeExchangePayload(), {
 				tenantId: TENANT,

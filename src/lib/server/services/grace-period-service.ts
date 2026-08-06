@@ -432,6 +432,27 @@ function isPhysicalDeletionDisabled(): boolean {
 	return true;
 }
 
+/**
+ * #4373: dryRun が返す件数の**予測**。
+ *
+ * dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
+ * 件数は定数ではなく実行時と同じ打ち切り条件 (limit / 時間予算) から出す。
+ * 定数を返すと対象が何件あっても同じ数字が返り、判断材料として嘘をつく
+ * (2026-08-06 に「tenantsRemaining: 0 なので有効化して安全」と報告された実害)。
+ *
+ * ここの条件は実行ループの break 条件 (`attempted >= limit || budget.exceeded()`) と
+ * 同値でなければならない。同値性は「予測値 == 実行モードの実測値」を assert する
+ * unit test が固定する。
+ */
+function predictPurgeCounts(
+	expiredCount: number,
+	limit: number,
+	budget: TimeBudget,
+): { wouldProcess: number; wouldRemain: number } {
+	const wouldProcess = budget.exceeded() ? 0 : Math.min(expiredCount, limit);
+	return { wouldProcess, wouldRemain: expiredCount - wouldProcess };
+}
+
 export async function purgeExpiredSoftDeletedTenants(opts?: {
 	dryRun?: boolean;
 	/** #3695: 1 回の実行で物理削除を試行する最大テナント数。 */
@@ -474,12 +495,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 	const expired = await findExpiredSoftDeletedTenants();
 
 	if (dryRun || expired.length === 0) {
-		// #4373: dryRun は「有効化してよいか / 何件消えるか」を消さずに確かめるモードなので、
-		// 件数は実行時と同じ打ち切り条件 (limit / 時間予算) から**予測値**を出す。
-		// 定数を返すと、対象が何件あっても同じ数字が返り判断材料として嘘をつく。
-		// 予測ロジックは下の実行ループの break 条件 (`attempted >= limit || budget.exceeded()`)
-		// と同値である必要がある。
-		const wouldProcess = budget.exceeded() ? 0 : Math.min(expired.length, limit);
+		const { wouldProcess, wouldRemain } = predictPurgeCounts(expired.length, limit, budget);
 		logger.info('[grace-period] purge dry-run or no expired tenants', {
 			context: { dryRun, count: expired.length, wouldProcess, limit },
 		});
@@ -487,7 +503,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 			tenantsProcessed: wouldProcess,
 			tenantsDeleted: 0,
 			tenantsFailed: 0,
-			tenantsRemaining: expired.length - wouldProcess,
+			tenantsRemaining: wouldRemain,
 			dryRun,
 			disabled: false,
 			expired,
