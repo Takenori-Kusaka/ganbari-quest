@@ -3805,6 +3805,35 @@ export const OPS_BUSINESS_LABELS = {
 	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
 } as const;
 
+/**
+ * #4261 ③: 月間の習慣化証明書で増えた残高の理由を、子に**次回起動で 1 回だけ**伝える文言。
+ *
+ * ADR-0012 との両立条件 (PO 決裁 2026-08-06) を文言側でも守る:
+ * **煽らない / 次を促さない / 演出語を足さない。** 起きた事実だけを静かに置く。
+ * baby は親向けの準備モードで子供向けホームを持たない (ADR-0011) ため対象外。
+ */
+export const HABIT_CERTIFICATE_NOTICE_LABELS: Record<
+	Exclude<UiMode, 'baby'>,
+	{ title: string; body: (amount: string) => string }
+> = {
+	preschool: {
+		title: 'こんげつ よく つづいたね',
+		body: (amount) => `${amount} を うけとったよ`,
+	},
+	elementary: {
+		title: '今月は しゅうかんに できたね',
+		body: (amount) => `つづけられたので ${amount} をうけとりました`,
+	},
+	junior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+	senior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+};
+
 export const CHILD_HOME_LABELS = {
 	// Baby mode: completed card aria-label
 	completedAriaLabel: (name: string) => `${name}（きろくずみ）`,
