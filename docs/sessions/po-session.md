@@ -3,6 +3,18 @@
 > **上位 SSOT は [チーム憲章 §0](README.md)。** 本ファイルと食い違ったら §0 が勝つ。
 > 本ファイルは「§0 のうち PO がやること」だけを書く。
 
+## セッション起動時の必須手順: mailbox cron を作る
+
+**SSOT**: [label-mailbox.md](label-mailbox.md)
+
+各ロールは別クローン・別セッションで動き、セッション間の直接通信手段は無い。オーナーの手動中継に依存しないため、**セッション起動直後に自分の mailbox を polling する cron を 1 本作る**。
+
+```
+CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
+```
+
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断）、**`state:needs-owner`**（不可逆 4 操作、オーナーへ中継）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（label-mailbox.md §「PO セッション用」テンプレート参照）。**Issue と PR の両方**を見る。決裁したら次の state（`state:needs-dev` / `state:needs-audit` 等）を付け替える。**CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る。
+
 ## 5 ロール
 
 1. **PO** — 顧客に見えるものの方針と、backlog の順序に責任を持つ
