@@ -77,6 +77,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: '#4085 実測 例4 (5533ms で timeout)。.github + scripts を走査する scanner の健全性検査 (#4007)',
 	},
+	'tests/unit/architecture/scripts-node-test-ci-coverage.test.ts': {
+		scope: 'repo',
+		note: 'scripts/__tests__ を再帰 readdir し、ci.yml の node --test 引数が全 file をカバーするか検査する。走査は 1 dir で有界だが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/architecture/cloudfront-s3-user-content-bypass-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra 配下の CDK 定義を走査して配信経路の bypass を検出する',
