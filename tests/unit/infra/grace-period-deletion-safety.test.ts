@@ -4,7 +4,7 @@
 // 守る不変条件:
 //   [A] 部分失敗が CloudWatch の専用 metric / alarm に乗る (観測)
 //   [B] CDK の literal 検索語がアプリ側の SSOT と一致する (drift)
-//   [C] cron の EventBridge target が自動リトライしない (非冪等な再走の防止)
+//   [C] 非冪等な cron だけ自動リトライを切る (再走の防止と、取りこぼしの防止の両立)
 //   [D] kill-switch env がアプリ Lambda に配られている (呼ばれても消さない防御)
 //
 // [C] / [D] は「宣言したつもりで配線が無い」を防ぐため synth 済み template を見る。
@@ -140,8 +140,40 @@ describe('#4327 [B] 検索語 SSOT の drift', () => {
 	});
 });
 
-describe('#4327 [C] cron target は自動リトライしない', () => {
-	it('[C1] 全 EventBridge Rule の Lambda target が RetryPolicy MaximumRetryAttempts=0 を持つ', () => {
+describe('#4327 [C] 非冪等な cron だけ自動リトライを切る', () => {
+	/** cron Rule を物理名 (`...-cron-<job>`) で引く。 */
+	function cronRuleTargets(jobName: string): Array<Record<string, unknown>> {
+		const rules = computeTemplate.findResources('AWS::Events::Rule');
+		const hit = Object.values(rules).find(
+			(r) => (r.Properties as { Name?: string }).Name === `ganbari-quest-cron-${jobName}`,
+		);
+		expect(hit, `cron rule ${jobName} が見つからない`).toBeDefined();
+		const targets = (hit?.Properties as { Targets?: Array<Record<string, unknown>> }).Targets;
+		expect(targets, `${jobName} に target が無い`).toBeDefined();
+		return targets ?? [];
+	}
+
+	it('[C1] grace-period-deletion は RetryPolicy MaximumRetryAttempts=0 (非冪等な削除の再走を防ぐ)', () => {
+		for (const target of cronRuleTargets('grace-period-deletion')) {
+			expect(target.RetryPolicy).toEqual({ MaximumRetryAttempts: 0 });
+		}
+	});
+
+	// 一律 0 にすると「1 回の失敗で取りこぼす」方向に倒れる。とくに deletion-warning-emails は
+	// 送信済フラグで冪等であり、retry を切ると 1 度の失敗で **予告のないまま削除される**
+	// (#4327 が塞ごうとしている状態そのもの)。pmf-survey は年 2 回起動で 1 失敗 = 6 ヶ月欠測。
+	it.each([
+		'deletion-warning-emails',
+		'pmf-survey',
+		'export-build',
+		'retention-cleanup',
+	])('[C2] 冪等な cron (%s) は既定のリトライを維持する', (jobName) => {
+		for (const target of cronRuleTargets(jobName)) {
+			expect(target.RetryPolicy).toBeUndefined();
+		}
+	});
+
+	it('[C3] リトライを切っている cron は grace-period-deletion のみ (無自覚な横展開の検出)', () => {
 		const rules = computeTemplate.findResources('AWS::Events::Rule');
 		const cronRules = Object.entries(rules).filter(([, r]) =>
 			String((r.Properties as { Name?: string }).Name ?? '').includes('-cron-'),
@@ -149,15 +181,15 @@ describe('#4327 [C] cron target は自動リトライしない', () => {
 		// gate 自身の故障検出 (抽出が壊れて 0 件になると全部素通りする)
 		expect(cronRules.length).toBeGreaterThanOrEqual(5);
 
-		for (const [id, rule] of cronRules) {
-			const targets = (rule.Properties as { Targets?: Array<Record<string, unknown>> }).Targets;
-			expect(targets, `${id} に target が無い`).toBeDefined();
-			for (const target of targets ?? []) {
-				expect(target.RetryPolicy, `${id} の target に RetryPolicy が無い`).toEqual({
-					MaximumRetryAttempts: 0,
-				});
-			}
-		}
+		const disabled = cronRules
+			.filter(([, r]) =>
+				((r.Properties as { Targets?: Array<Record<string, unknown>> }).Targets ?? []).some(
+					(t) => t.RetryPolicy !== undefined,
+				),
+			)
+			.map(([, r]) => (r.Properties as { Name?: string }).Name);
+
+		expect(disabled).toEqual(['ganbari-quest-cron-grace-period-deletion']);
 	});
 });
 

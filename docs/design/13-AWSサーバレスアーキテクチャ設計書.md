@@ -217,7 +217,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
 - **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
 - **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
-- **自動リトライは無効 (#4327)**: EventBridge target は `retryAttempts: 0`。Lambda 非同期呼び出しの既定リトライ (最大 2 回) は、self-limiting で「途中まで進んで打ち切られた」job を非冪等に再走させる (grace-period-deletion なら部分削除されたテナントに purge が再走する)。1 回の取りこぼしは翌日の実行が回収し、失敗自体は `CronDispatcherErrors` alarm で観測されるため、再送より再走回避を優先する
+- **自動リトライは「非冪等な job だけ」切る (#4327)**: 既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `grace-period-deletion` のみ (`compute-stack.ts` の `CRON_JOBS` に `disableRetry: true`)。理由は「途中まで削除されたテナントに purge が再走する」非冪等性で、そこだけ再送より再走回避が勝つ。**一律 0 にしてはならない** — 冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御として働いており、とくに `deletion-warning-emails` は送信済フラグで冪等かつ 1 度の失敗が「予告のないまま削除される」に直結し、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月の欠測になる。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する (切っている job が grace-period-deletion 1 本だけであることまで assert)
 
 ### 3.4 OpsStack（監視・コスト防衛）
 

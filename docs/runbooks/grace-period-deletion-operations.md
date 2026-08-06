@@ -83,6 +83,8 @@ aws logs filter-log-events --region us-east-1 \
   --start-time $(( ($(date +%s) - 86400) * 1000 ))
 ```
 
+⚠ **調査には期限がある。** Discord alert と alarm は「起きた」ことしか伝えず、**どのテナントかは log にしかない**（`discord-alert.ts` の設計制約で payload に顧客識別子を載せられないため）。`AppLogGroup` の retention は **30 日**なので、それを過ぎると孤児行の tenantId を引く手段が無くなる。**alert を見たら 30 日以内に上記コマンドで tenantId を控える**こと。後回しにすると §3 の孤児掃除ができなくなる。
+
 ---
 
 ## 3. 復旧の限界（できないことを明記する）

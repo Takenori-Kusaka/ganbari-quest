@@ -27,7 +27,12 @@ const CRON_JOBS = [
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ
-	{ name: 'grace-period-deletion', utcCronExpression: 'cron(0 17 * * ? *)' },
+	// #4327: 唯一 disableRetry=true。理由は下の DISABLE_RETRY_REASON 参照。
+	{
+		name: 'grace-period-deletion',
+		utcCronExpression: 'cron(0 17 * * ? *)',
+		disableRetry: true,
+	},
 	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
 	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
@@ -533,13 +538,16 @@ export class ComputeStack extends cdk.Stack {
 				rule.addTarget(
 					new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
 						event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
-						// #4327: 非同期呼び出しの既定リトライ (最大 2 回) を切る。
-						// cron job は 30 秒 self-limiting + 翌日持ち越し前提で設計されており
-						// (grace-period-deletion の tenantsRemaining 等)、途中まで進んだ job の
-						// 自動再送は「部分削除されたテナントに対して purge が再走する」非冪等な
-						// 危険を生む。1 回の取りこぼしは翌日の実行が回収し、失敗自体は
-						// dispatcher Errors alarm + grace-period 失敗 alarm で観測される。
-						retryAttempts: 0,
+						// #4327: 非冪等な job だけリトライを切る (既定は Lambda 非同期の 2 回リトライを維持)。
+						//
+						// 一律 0 にしてはならない。ほとんどの cron は冪等で、リトライは
+						// 「1 回の失敗で取りこぼす」ことへの防御として働いている:
+						//   - deletion-warning-emails … 送信済フラグ (settings) で冪等。ここで retry を
+						//     切ると 1 度の失敗で **予告のないまま削除される** (#4327 が塞ごうとしている状態そのもの)
+						//   - pmf-survey … 年 2 回起動。1 回の失敗が 6 ヶ月の欠測になる
+						// 一方 grace-period-deletion は「途中まで削除されたテナントに purge が再走する」
+						// 非冪等性を持つため、再送より再走回避を優先する。
+						...('disableRetry' in job && job.disableRetry ? { retryAttempts: 0 } : {}),
 					}),
 				);
 			}

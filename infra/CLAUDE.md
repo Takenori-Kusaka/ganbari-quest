@@ -228,9 +228,11 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 
 `ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts` L237-249) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
 
-### 自動リトライは全 cron で無効 (#4327)
+### 自動リトライを切るのは非冪等な cron だけ (#4327)
 
-EventBridge target は `retryAttempts: 0`。cron は 30 秒 self-limiting + 翌日持ち越し前提で設計されているため、途中まで進んだ job の自動再送は非冪等な再走 (部分削除されたテナントに purge が再走する等) を生む。取りこぼしは翌日の実行が回収し、失敗は上記 alarm で観測される。**新規 job を足すときも target に retry を復活させない**。
+既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `CRON_JOBS` に `disableRetry: true` を持つ job のみで、現状 `grace-period-deletion` 1 本だけ (途中まで削除されたテナントに purge が再走するため)。
+
+**一律 0 にしない**。冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御であり、`deletion-warning-emails` は 1 失敗が「予告のないまま削除される」に、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月欠測になる。新規 job に `disableRetry` を付けるのは**再実行が壊す状態を持つ場合だけ**。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する。
 
 ### 顧客データ物理削除 (grace-period-deletion) の緊急停止 (#4327)
 
