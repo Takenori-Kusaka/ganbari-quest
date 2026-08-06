@@ -61,6 +61,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
 	},
+	'tests/unit/architecture/exclusion-reason-nonempty.test.ts': {
+		scope: 'repo',
+		note: 'scripts/orphan-baselines/*.json を走査して免除理由の非空 / 非 stub を検査する (#4030 AC5 / AC6)。走査自体は 1 dir で有界だが、判定は保守的に repo 扱いとし明示 timeout を置く',
+	},
 	'tests/unit/architecture/action-primary-white-text-contrast.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の .svelte を走査して配色コントラスト違反を検出する',
