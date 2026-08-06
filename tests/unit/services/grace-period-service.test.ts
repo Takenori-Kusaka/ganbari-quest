@@ -163,10 +163,14 @@ describe('grace-period-service', () => {
 		});
 
 		// #4316: sentinel-last 書き込み順序
-		// 3 キーの setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
+		// setSetting は非原子 (settings repo に txn は無く、setSetting は 1 キー 1 文の
 		// upsert)。`soft_deleted_at` は soft-delete 状態を起動する sentinel なので **最後に**
 		// 書く。途中で失敗しても「soft-delete が始まっていない」状態にしかならず、
 		// 「ロックはかかるが物理削除の母集団に入らない」宙吊りが成立しない。
+		//
+		// #2399: 予告メール送信済フラグのリセットも sentinel より前に置く。ここで失敗しても
+		// sentinel が立たない = 「送信済フラグが残ったまま猶予期間に入り予告なしで消える」が
+		// 成立しない。
 		it('#4316: sentinel である soft_deleted_at を最後に書く (途中失敗で宙吊りを作らない)', async () => {
 			await softDeleteTenant('tenant-1', 'active', 'family-monthly');
 
@@ -174,8 +178,11 @@ describe('grace-period-service', () => {
 			expect(writtenKeys).toEqual([
 				'physical_deletion_date',
 				'deletion_grace_plan_tier',
+				'deletion_warning_sent_at',
 				'soft_deleted_at',
 			]);
+			// sentinel は常に最後 (キーが増えても本不変条件は保たれる)
+			expect(writtenKeys.at(-1)).toBe('soft_deleted_at');
 		});
 	});
 
