@@ -13,7 +13,7 @@
 | 状態 | 実装 | docs SSOT |
 |------|------|----------|
 | アカウント削除予約 (`softDeleteTenant`) | 実装済 (`src/lib/server/services/grace-period-service.ts`) | `account-deletion-flow.md §4` |
-| グレースピリオド物理削除 cron (`grace-period-deletion`) | 実装済 (#1648, registry `cron(0 17 * * ? *)` 02:00 JST 毎日)。AWS は EventBridge Rule + cron-dispatcher、NUC は scheduler が駆動する (`13-AWSサーバレスアーキテクチャ設計書.md` cron 表参照) | 同上 / `schedule-registry.ts` |
+| グレースピリオド物理削除 cron (`grace-period-deletion`) | 実装済 (#1648, registry `cron(0 17 * * ? *)` 02:00 JST 毎日)。**AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (dispatcher `KNOWN_ENDPOINTS` には登録済、`13-AWSサーバレスアーキテクチャ設計書.md` cron 表参照) | 同上 / `schedule-registry.ts` |
 | 削除完了メール (`sendDeletionCompleteEmail`) | 実装済 (`email-service.ts` L323) | 同上 |
 | グレース開始通知 (`sendCancellationEmail`) | 実装済 (`email-service.ts` L304) | 同上 |
 | **削除予告メール** | 実装済 (`/api/cron/deletion-warning-emails` → `deletion-warning-service.ts` → `email-service.sendDeletionWarningEmail`) | 本 runbook + `account-deletion-flow.md` §4.7 |
