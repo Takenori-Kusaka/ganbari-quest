@@ -58,7 +58,13 @@ export async function createCheckoutSession(
 
 	const repos = getRepos();
 	const tenant = await repos.auth.findTenantById(input.tenantId);
-	if (!tenant) return { error: 'TENANT_NOT_FOUND' };
+	// #4329: 認証を通った context の tenant が repo に無い = データ側の異常であって、
+	// 顧客のアカウント操作の結果ではない。顧客に「アカウントが見つかりません」と見せて
+	// 放置すると誰も気づかないため、運用側に上げる (#4286 は 10 日間気づかれなかった)。
+	if (!tenant) {
+		reportCheckoutMisconfigured(input.tenantId, 'tenant_not_found');
+		return { error: 'TENANT_NOT_FOUND' };
+	}
 
 	if (tenant.stripeSubscriptionId) return { error: 'ALREADY_SUBSCRIBED' };
 
@@ -67,7 +73,13 @@ export async function createCheckoutSession(
 	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
 	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
 	const lookupPlan = plan ? lookupPlanOf(input.planId) : null;
-	if (!plan || !lookupPlan) return { error: 'INVALID_PLAN' };
+	// #4329: ここに来る planId は route 側の許可リストを既に通っている。したがって未解決 =
+	// **配備の plan 設定が欠けている**であって顧客の選択誤りではない。顧客の入力ミスとして
+	// 見せない (ADR-0062) ためにも、運用側に上げて設定を直せる状態にする。
+	if (!plan || !lookupPlan) {
+		reportCheckoutMisconfigured(input.tenantId, 'plan_config_missing');
+		return { error: 'INVALID_PLAN' };
+	}
 
 	// #4286: Price ID は `getPriceId()` 経由で解決する。**`plan.priceId` を直読しない。**
 	// 直読していたため `USE_LOOKUP_KEY=true` がどの経路にも効かず、price env を注入しない
@@ -137,12 +149,37 @@ export async function createCheckoutSession(
 	}
 
 	const session = await stripe.checkout.sessions.create(sessionParams);
-	if (!session.url) return { error: 'INVALID_PLAN' };
+	// #4329: session は作れたのに URL が無い = Stripe 側の異常。顧客の入力とは無関係。
+	if (!session.url) {
+		reportCheckoutMisconfigured(input.tenantId, 'session_url_missing');
+		return { error: 'INVALID_PLAN' };
+	}
 
 	logger.info(
 		`[STRIPE] Checkout session created for tenant=${input.tenantId} plan=${input.planId}`,
 	);
 	return { url: session.url };
+}
+
+/**
+ * checkout が配備・設定側の異常で失敗したことを運用側から観測できるようにする (#4329)。
+ *
+ * 顧客側の文言は route が汎用文言に倒す (原因の所在を偽らない、ADR-0062)。原因の特定は
+ * ここで残す logger (tenantId 付き) と alert が担う。alert payload に顧客識別子は載せない
+ * (#4174 Q3)。throttle key は reason 単位 (設定不備は全顧客に一斉に効くため件数ぶん飛ばさない)。
+ */
+function reportCheckoutMisconfigured(
+	tenantId: string,
+	reason: 'tenant_not_found' | 'plan_config_missing' | 'session_url_missing',
+): void {
+	logger.error(`[STRIPE] checkout を開始できませんでした: tenant=${tenantId} reason=${reason}`);
+	notifyStripeAlert({
+		kind: 'stripe-checkout-misconfigured',
+		message:
+			'checkout を開始できませんでした (顧客には汎用文言を返しています。設定を直さない限り購入は成立しません)',
+		errorSummary: `checkout_misconfigured:${reason}`,
+		tags: { reason },
+	});
 }
 
 // ============================================================
@@ -163,7 +200,15 @@ export type CreatePortalResult =
 	  }
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
-	| { error: 'NO_STRIPE_CUSTOMER' };
+	| { error: 'NO_STRIPE_CUSTOMER' }
+	/**
+	 * Stripe が portal session を返さなかった (#4329)。
+	 *
+	 * 旧実装は `sessions.create` の throw をそのまま呼び出し元へ投げていた。解約フローでは
+	 * それが catch されずに fallthrough し、**顧客は「ありがとうございました」だけを見て
+	 * 解約できたと思い込む**経路になっていた。呼び出し元が「失敗した」と分かる値で返す。
+	 */
+	| { error: 'PORTAL_CREATE_FAILED' };
 
 /**
  * portal で顧客にやらせたいこと (#4166)。
@@ -242,8 +287,12 @@ export async function createPortalSession(
 	const flowData = buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl);
 
 	if (!flowData.flow_data) {
-		const session = await stripe.billingPortal.sessions.create(baseParams);
-		return { url: session.url };
+		try {
+			const session = await stripe.billingPortal.sessions.create(baseParams);
+			return { url: session.url };
+		} catch (err) {
+			return reportPortalCreateFailure(tenantId, flow.kind, err);
+		}
 	}
 
 	try {
@@ -260,9 +309,40 @@ export async function createPortalSession(
 				err instanceof Error ? err.message : String(err),
 			)}`,
 		);
-		const session = await stripe.billingPortal.sessions.create(baseParams);
-		return { url: session.url, flowFallback: true };
+		try {
+			const session = await stripe.billingPortal.sessions.create(baseParams);
+			return { url: session.url, flowFallback: true };
+		} catch (fallbackErr) {
+			return reportPortalCreateFailure(tenantId, flow.kind, fallbackErr);
+		}
 	}
+}
+
+/**
+ * portal session を作れなかったことを**運用側から観測できる形**にして型付きの失敗を返す (#4329)。
+ *
+ * 顧客側には呼び出し元が代替導線を出す。ここは「顧客も運営も気づけない」を断つ側の責務で、
+ * logger (tenantId 付き = CloudWatch から特定できる) と Discord alert (顧客識別子を載せない、
+ * #4174 Q3) の 2 系統に落とす。alert の throttle key は flow 単位に集約する
+ * (Stripe 広域障害で家族数ぶん飛ばして alert fatigue にしない、`stripe-context-unresolved` と同基準)。
+ */
+function reportPortalCreateFailure(
+	tenantId: string,
+	flowKind: PortalFlow['kind'],
+	err: unknown,
+): { error: 'PORTAL_CREATE_FAILED' } {
+	const detail = redactPii(err instanceof Error ? err.message : String(err));
+	logger.error(
+		`[STRIPE] portal session を作成できませんでした: tenant=${tenantId} flow=${flowKind} error=${detail}`,
+	);
+	notifyStripeAlert({
+		kind: 'stripe-portal-create-failed',
+		message:
+			'Customer Portal session を作成できませんでした (顧客は解約 / プラン変更の導線で止まっています)',
+		errorSummary: `portal_create_failed:${flowKind}`,
+		tags: { flow: flowKind },
+	});
+	return { error: 'PORTAL_CREATE_FAILED' };
 }
 
 // ============================================================

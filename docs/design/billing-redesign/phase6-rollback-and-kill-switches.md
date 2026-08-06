@@ -216,6 +216,24 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **ロールバック手順** | (1) alert には例外クラス名のみを載せている (接続情報を Discord に出さないため) → 詳細は CW log 本文 + stack で確認 (2) Stripe の一時障害 / rate limit なら次の実行 (1 時間後) で自然復旧するか見る (3) DSQL 側なら [dsql-alert-response.md](../../runbooks/dsql-alert-response.md) (4) **復旧まで未達検知は動いていない**ため、その間の課金は §2.3 の手順で手動確認する。詳細は [silent-failure-alert-response.md §2.5](../../runbooks/silent-failure-alert-response.md) |
 | **再発防止** | (a) cron endpoint の catch で alert を await 送出することを `tests/unit/routes/cron-stripe-webhook-delivery-check.test.ts` が回帰固定 (b) `notifyStripeAlertAsync` (await 可能版) を `alert.ts` に用意し、cron 経路では fire-and-forget を使わない (c) dispatcher の非 2xx → throw 化は他 cron に波及するため別途 (現状は本 alert が代替) |
 
+### 3.10-g R17 (#4329 新規): 解約 / プラン変更の portal を作れず、顧客が導線の途中で止まる
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | `billingPortal.sessions.create` が失敗する (Stripe 障害 / Portal 設定不備 / customer 不整合)。旧実装は解約 action でこれを無言で握り、顧客を thanks ページ (「ご回答ありがとうございました」) に落としていた。**顧客は解約したつもりで課金され続け、運営も気づけない**。特商法の解約導線の実効性に接続する |
+| **検知 method** | (a) Discord alert `stripe-portal-create-failed` (`createPortalSession` の catch から発火、throttle key は flow 単位) (b) CloudWatch Logs Insights `filter @message like "portal session を作成できませんでした"` (`tenant=` 付き) |
+| **ロールバック手順** | (1) alert の `flow` で解約 / プラン変更どちらの導線が死んでいるかを確定 (2) Stripe Dashboard の Portal 設定 (解約の許可 / 更新対象の商品・価格) と Stripe status を確認 (3) 復旧後、顧客側は thanks ページの再試行 CTA から続行できる。到達できない顧客はサポート窓口経由で解約を代行する |
+| **再発防止** | `createPortalSession` が throw を型付きの `PORTAL_CREATE_FAILED` に変換し、呼び出し元が失敗を握り潰せないようにする + `stripe-portal-create-failure.test.ts` / `subscription-cancel-portal-dead-end.test.ts` が「無言で thanks へ落とさない」を回帰固定 |
+
+### 3.10-h R18 (#4329 新規): checkout の設定不備が顧客の入力誤りに見え、誰も直しに行かない
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | plan 設定の欠落 / tenant 不整合 / session URL 不在で checkout が作れないとき、顧客には 400「プランが正しくありません」= **顧客の選択が悪い**と読める文言が出ていた。顧客は直しようのない操作を繰り返し、運営には信号が上がらない。#4286 (lookup_key dead wiring) は同型で 10 日間気づかれなかった |
+| **検知 method** | (a) Discord alert `stripe-checkout-misconfigured` (throttle key は `reason` 単位 = `tenant_not_found` / `plan_config_missing` / `session_url_missing`) (b) CloudWatch Logs Insights `filter @message like "checkout を開始できませんでした"` (`tenant=` / `reason=` 付き) |
+| **ロールバック手順** | (1) alert の `reason` で切り分け (2) `plan_config_missing` は price / lookup_key の env を Stripe 現行 Price に同期して再 deploy (R4 / R10 と同じ操作) (3) `tenant_not_found` は該当 tenant のデータを DB で確認 (4) `session_url_missing` は Stripe status を確認 |
+| **再発防止** | 顧客向け文言を `labels.ts` SSOT に集約し、配備側の異常は 5xx + 汎用文言に固定 (`api-stripe-checkout-error-messages.test.ts` が「顧客の入力ミスとして表示しない」を回帰固定) + `stripe-checkout-price-resolution.test.ts` が alert 発火を固定 |
+
 ### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10、#3985 で +R11、#3980 / #3981 で +R12 / +R13、#3959 で +R14 / +R15)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
@@ -236,6 +254,8 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **R14 (#3959 新規)** | **webhook が Lambda に到達せず alert が 0 件のまま課金が落ちる** | Discord alert `stripe-webhook-undelivered` (cron 毎時、S1 滞留 ∧ S2 plan 未反映) + CloudWatch Logs Insights | 配信経路 (CloudFront geo / WAF / DNS / 宛先設定) を修復 → `stripe events resend` で滞留分を再送 → プラン反映を確認 | cron を `schedule-registry.ts` に登録 + `schedule-consistency.test.ts` の drift 検出 + `stripe-webhook-delivery-monitor.test.ts` の発火 / 沈黙両側回帰。**穴**: throw しない handler 失敗 (#4108) はどちらの alert でも検知不能 |
 | **R15 (#3959 新規)** | **未達検知 cron 自体の失敗が Lambda Errors alarm に出ず、検知の不在が無通知になる** | Discord alert `stripe-webhook-monitor-failed` (cron endpoint の catch から await 送出) + 毎時の完了 log の不在 | 例外クラス名から一次切り分け (Stripe 一時障害は次回実行で自然復旧 / DSQL は dsql-alert-response.md)。復旧まで課金は §2.3 で手動確認 | endpoint catch の await 送出を `cron-stripe-webhook-delivery-check.test.ts` が回帰固定 + `notifyStripeAlertAsync` (await 可能版) を cron 経路で必須化 |
 | **R16 (#4192 新規)** | **支払い失敗が無通知になり、猶予期間が誰にも気づかれないまま満了する** | Discord alert `stripe-payment-failed` (`invoice.payment_failed` handler から発火) + `logger.warn` (`tenant=` 付き) | Stripe Dashboard / CloudWatch Logs で対象契約を特定 → dunning 状況を確認。復旧操作は顧客側の支払い手段更新 | 旧 `billing` チャネル撤去に伴う信号喪失を防ぐ差し替え。**payload に tenantId を載せない** (#4174 Q3) ため、対象特定はログ / Stripe 側で行う |
+| **R17 (#4329 新規)** | **portal を作れず顧客が解約導線の途中で止まる (無言で thanks に落ちて課金が続く)** | Discord alert `stripe-portal-create-failed` (flow 単位 throttle) + CloudWatch Logs (`tenant=` / `flow=`) | alert の `flow` で死んだ導線を確定 → Stripe Portal 設定 / status を確認 → 復旧後は thanks の再試行 CTA で続行、到達不能な顧客はサポート窓口で代行 | throw を型付き `PORTAL_CREATE_FAILED` に変換して握り潰し不能化 + 「無言で thanks へ落とさない」を unit で回帰固定 |
+| **R18 (#4329 新規)** | **checkout の設定不備が顧客の入力誤りとして表示され、誰も直しに行かない** | Discord alert `stripe-checkout-misconfigured` (`reason` 単位 throttle) + CloudWatch Logs (`tenant=` / `reason=`) | `reason` で切り分け → price env / lookup_key の同期 (R4 / R10 と同操作) or tenant データ確認 or Stripe status 確認 | 顧客向け文言を labels.ts SSOT に集約し配備側異常を 5xx + 汎用文言に固定 + alert 発火を unit で回帰固定 |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 
