@@ -9,7 +9,6 @@ import {
 	PORTAL_FALLBACK_PARAM,
 	PORTAL_UNAVAILABLE_PARAM,
 } from '$lib/domain/constants/stripe-portal';
-import { CANCELLATION_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getLicenseInfo } from '$lib/server/services/license-service';
@@ -35,7 +34,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		portalUnavailable:
 			url.searchParams.get(PORTAL_UNAVAILABLE_PARAM) === '1' ||
 			(isPaidPlan && hasStripeCustomer && stripeEnabled),
-		labels: CANCELLATION_LABELS,
+		// #4329: `labels: CANCELLATION_LABELS` を返していたが、この定数は関数 (`freeTextHint`) を
+		// 含むため **load の戻り値がシリアライズできず、この画面は常に 500 になっていた**
+		// (解約導線の最後で顧客がエラーページに落ちる)。画面側は labels を直接 import しており
+		// この受け渡しは元々使われていない。
 	};
 };
 

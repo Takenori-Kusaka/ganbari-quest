@@ -161,6 +161,15 @@ describe('thanks load: 手続きが残っていることを画面に伝える (#
 		expect(data.portalUnavailable).toBe(true);
 	});
 
+	it('load の戻り値がシリアライズ可能である（関数を返すと画面ごと 500 になる）', async () => {
+		// #4329: 旧実装は `labels: CANCELLATION_LABELS` を返しており、この定数が持つ関数
+		// (`freeTextHint`) が SvelteKit のシリアライズを落として **この画面は常に 500** だった。
+		// 解約導線の最後で顧客がエラーページに落ちる = 何も伝わらない。
+		const data = await thanksLoad(buildLoadEvent(''));
+
+		expect(() => structuredClone(data)).not.toThrow();
+	});
+
 	it('無料プラン（Stripe 契約なし）では出さない', async () => {
 		mockGetLicenseInfo.mockResolvedValue({ plan: 'free' });
 
