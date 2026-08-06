@@ -19,12 +19,12 @@ import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import HabitCertificateNoticeBanner from '$lib/features/child/HabitCertificateNoticeBanner.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
-import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
@@ -109,8 +109,14 @@ let habitNoticeAcked = false;
 $effect(() => {
 	if (!showHabitCertificateNotice || habitNoticeAcked) return;
 	habitNoticeAcked = true;
-	// 失敗しても画面は壊さない。既読化できなければ次回起動でもう一度出る (無音より再掲)。
-	fetch('?/ackHabitCertificateNotice', { method: 'POST', body: new FormData() }).catch(() => {});
+	// `keepalive` が要る: 子供は「記録して数秒で閉じる」(ADR-0012) ため、既読化が届く前に
+	// 画面遷移・タブ終了が起きる。通常の fetch はそこで中断され、**次回また同じ告知が出る**
+	// (実機で観測済)。失敗しても画面は壊さない — 届かなければ次回に再掲する (無音よりまし)。
+	fetch('?/ackHabitCertificateNotice', {
+		method: 'POST',
+		body: new FormData(),
+		keepalive: true,
+	}).catch(() => {});
 });
 
 // Sibling cheer overlay
