@@ -91,6 +91,15 @@ severity 3-4 + policy_compliant=false の未解決 finding が 0 件 +
 カバレッジ ratchet 閾値割れなしの宣言 (audit-team.md §3.5 #4/#5)。
 pr-merge-gate.yml (integration lane) が下記 `- [ ]` の全消化を機械検証する
 (env MERGE_GATE_INTEGRATION_SECTIONS が本 section を指す)。
+
+残 NG の件数は pr-ac-verification-check.yml (integration lane) が **本 section 内から
+「残 NG N 件」を読み取って N=0 を検証する** (#4333)。以下に注意:
+  - 判定は本 section の**本文のみ**。見出し行 / HTML コメント / code block は対象外
+    (旧実装は本文全体の正規表現 1 本で、この説明コメントや見出しだけで緑になっていた)
+  - 件数を書き換えれば gate に反映される。「残 NG 1 件」と書けば **red になる**
+  - 残 NG > 0 のまま merge する判断をした場合は、**嘘の 0 件宣言に倒さず**、
+    理由 + 追跡 Issue 番号を伴う受容宣言を本文に置くこと:
+      <!-- ng-nonzero-accepted: <なぜ本 release で塞がないのか> (#追跡Issue番号) -->
 -->
 
 - 残 NG 合計 0 件 (severity 3-4 + policy_compliant=false の未解決 finding なし)

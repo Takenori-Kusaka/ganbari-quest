@@ -1206,15 +1206,18 @@ describe('lane-aware 化 (#4130)', () => {
 	});
 
 	it('[LN5] integration lane は「残 NG 0 件」明示欠落を検出する (AC2)', () => {
-		// 注意 (実測): 再利用 SSOT の NG-0 判定は `## NG 0 件 / カバレッジ宣言` という
-		// **見出し文字列自体**にもマッチする (checkIntegrationEvidenceTable の NG_ZERO_PATTERN)。
-		// そのため「本文の宣言だけを消す」入力では落ちない。本 test は本 CLI が SSOT の
-		// NG-0 判定を確かに通していることを、判定が成立し得ない入力で固定する。
-		// SSOT 側の判定強度そのものは本 PR の scope 外 (#2945 の所管)。
-		const noNgZero = INTEGRATION_BODY.replace(/残 NG 合計 0 件/g, '残 NG は監査 run 参照')
-			.replace('## NG 0 件 / カバレッジ宣言', '## NG / カバレッジ宣言')
-			.replace(/未解決 NG が \*\*0 件\*\*である/, '未解決 NG を監査 run 側で確認した');
+		// #4333 以前は、SSOT の NG-0 判定が `## NG 0 件 / カバレッジ宣言` という **見出し文字列
+		// 自体**にマッチしたため「本文の宣言だけを消す」入力では落ちず、本 test は見出しごと
+		// 壊した入力でしか固定できなかった (旧コメントは「判定強度は scope 外」と明記していた)。
+		// 判定が section 本文の件数読み取りになった今は、**宣言行を消すだけで落ちる**。
+		const noNgZero = INTEGRATION_BODY.replace(/残 NG 合計 0 件/g, '残 NG は監査 run 参照');
 		const { ids } = violate(noNgZero, 'integration');
+		expect(ids).toContain('integration-evidence-missing');
+	});
+
+	it('[LN5b] integration lane は「残 NG 1 件」と正直に書いた本文を検出する (#4333)', () => {
+		const nonZero = INTEGRATION_BODY.replace(/残 NG 合計 0 件/g, '残 NG 合計 1 件');
+		const { ids } = violate(nonZero, 'integration');
 		expect(ids).toContain('integration-evidence-missing');
 	});
 
