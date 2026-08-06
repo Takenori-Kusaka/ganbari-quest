@@ -112,9 +112,9 @@ describe('#4320 CloudFront アクセスログ', () => {
 		['prod', false],
 		['staging', true],
 	])('%s の全 distribution が標準ログを S3 に配信する', (_name, staging) => {
-		const dists = distributions(buildNetwork(staging as boolean));
-		expect(dists.length).toBeGreaterThan(0);
-		for (const [id, config] of dists) {
+		const found = distributions(buildNetwork(staging as boolean));
+		expect(found.length).toBeGreaterThan(0);
+		for (const [id, config] of found) {
 			const logging = config.Logging as { Bucket?: unknown; Prefix?: string } | undefined;
 			expect(logging, `${id} に Logging がない (アクセスログ無効)`).toBeDefined();
 			expect(logging?.Bucket, `${id} の Logging.Bucket が空`).toBeDefined();
