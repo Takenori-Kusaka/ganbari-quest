@@ -4400,8 +4400,13 @@ export const OPS_MFA_SETUP_LABELS = {
 	],
 	/** 再ログインは MFA チャレンジを経て `amr` を載せ直す唯一の出口。汎用 403 と同じ文言を再利用する */
 	loginAgainLabel: ERROR_PAGE_LABELS.btnLoginAgain,
-	runbookHint:
-		'手順の詳細と、自分で設定できない場合の依頼先は運用手順書 docs/runbooks/ops-mfa-setup.md にあります。',
+	/**
+	 * #4335 follow-up: 旧文言はリポジトリ内ファイルパス（`docs/runbooks/ops-mfa-setup.md`）を
+	 * そのまま出しており、403 画面を見ている運営者がその場で開けなかった（クローンを持たない
+	 * 環境 / スマートフォンからの閲覧では特に）。依頼先を画面内で完結させる（runbook の詳細手順
+	 * は変えず、画面には「自分でできない場合に誰に頼むか」だけを直接書く）。
+	 */
+	runbookHint: '自分で設定できない場合は、AWS アカウントのオーナーに設定を依頼してください。',
 } as const;
 
 // ============================================================
