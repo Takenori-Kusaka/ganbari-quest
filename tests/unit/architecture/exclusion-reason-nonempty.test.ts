@@ -36,6 +36,7 @@ import {
 	findBaselineReasonDefects,
 	findReasonDefect,
 } from '../../../scripts/lib/ci/exclusion-reason.mjs';
+import { reportFindings } from '../../../scripts/lib/ci/orphan-utils.mjs';
 
 // #4030 AC6: 判定規則は `scripts/lib/ci/exclusion-reason.mjs` に一本化した。
 // 旧実装は本 file 内に同じ規則の copy を持っていたが、orphan baseline 側 (script) が
@@ -153,5 +154,43 @@ describe('#4030 AC6 orphan baseline の免除理由も空 / stub / 機械生成�
 			'orphan baseline の免除理由が実質空です。**なぜ免除してよいか** を書いてください' +
 				'(検出理由の貼り付けではなく、免除の正当化を書く)',
 		).toEqual([]);
+	});
+
+	// 生成側にも同じ assert を置く: 検査だけ直して生成側が stub を書き続けると、
+	// 「新規追加した瞬間に落ちる」状態が延々と量産される。
+	it('--update-baseline は検出理由を免除理由に流用せず、未記入のまま exit 1 を返す', () => {
+		const category = 'tmp-ac6-generation-assert';
+		const baselinePath = path.join(BASELINE_DIR, `${category}.json`);
+		const silence = { write: () => true };
+		const writeOut = process.stdout.write.bind(process.stdout);
+		const writeErr = process.stderr.write.bind(process.stderr);
+		process.stdout.write = silence.write as typeof process.stdout.write;
+		process.stderr.write = silence.write as typeof process.stderr.write;
+		try {
+			const code = reportFindings(
+				category,
+				[
+					{
+						name: 'src/lib/server/db/dsql/example-repo.ts',
+						// script が組み立てる「検出理由」= 機械が書いた現象の説明
+						reason:
+							'repo file "example-repo.ts" は db facade / factory から import されていません。',
+						allowlisted: false,
+					},
+				],
+				{ mode: 'update-baseline', baseline: { allowed: [], reasons: {}, version: '1.0.0' } },
+			);
+			expect(code, '理由未記入のまま baseline を更新したのに 0 を返しています').toBe(1);
+
+			const saved = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+			expect(saved.allowed).toEqual(['src/lib/server/db/dsql/example-repo.ts']);
+			expect(saved.reasons, '検出理由 / auto-added 文字列を免除理由の欄に書き込んでいます').toEqual(
+				{},
+			);
+		} finally {
+			process.stdout.write = writeOut;
+			process.stderr.write = writeErr;
+			if (fs.existsSync(baselinePath)) fs.unlinkSync(baselinePath);
+		}
 	});
 });
