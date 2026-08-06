@@ -412,15 +412,24 @@ function isPhysicalDeletionDisabled(): boolean {
 	if (DISABLED_VALUES.has(normalized)) return true;
 	if (ENABLED_VALUES.has(normalized)) return false;
 
-	// 打ち間違いを **silent に「有効」へ倒さない**。停止したつもりの人が
-	// 「止まっていない」ことに気付けるよう、実行のたびに warn を残す。
-	// (throw しないのは、障害対応中の typo でアプリ全体を落とさないため。
-	//  env schema 側も同じ理由で booleanStringSchema を使っていない)
+	// #4340 follow-up: 解釈できない値は **「止める」側に倒す**。
+	//
+	// 対象が取り消せない顧客データの物理削除であり、この env は障害対応中に手で打つ。
+	// `=tru` のような打ち間違いを「有効」に倒すと、止めたつもりの運用者が
+	// 「止まっていない」ことに気付けないまま削除が走る (気付く手段が warn ログしかない)。
+	// 同じ #4327 の対処が `metadataIncomplete` で「判定材料の欠落は安全側に倒す」を
+	// 採っているのと同じ向きに揃える。
+	//
+	// throw しないのは変えていない (障害対応中の typo でアプリ全体を落とさないため)。
+	// 「throw しない」ことと「有効に倒す」ことは別で、止める側に倒しても throw は要らない。
+	//
+	// 止まったことは 200 + `disabled: true` で観測できる。逆に「止めたつもりで止まらない」は
+	// 削除が完了するまで観測できない — 非対称なので観測できる側に倒す。
 	logger.warn(
-		`[grace-period] ${GRACE_PERIOD_DELETION_DISABLED_ENV} の値を解釈できません。物理削除は「有効」として続行します`,
+		`[grace-period] ${GRACE_PERIOD_DELETION_DISABLED_ENV} の値を解釈できません。物理削除は「停止」として扱います`,
 		{ context: { value: raw, expected: [...DISABLED_VALUES].join(' / ') } },
 	);
-	return false;
+	return true;
 }
 
 export async function purgeExpiredSoftDeletedTenants(opts?: {
