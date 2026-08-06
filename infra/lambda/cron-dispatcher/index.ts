@@ -30,16 +30,13 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	// Epic #2525 Phase 7 PR-L3 (#2818): license-expire は license key 全廃に伴い撤去
 	'retention-cleanup': '/api/cron/retention-cleanup',
 	'trial-notifications': '/api/cron/trial-notifications',
+	// #1381 (#4033 AC4): 子供の年齢自動インクリメント
+	'age-recalc': '/api/cron/age-recalc',
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
 	// #1648 R43: grace-period-service.ts findExpiredSoftDeletedTenants() を呼び出す物理削除バッチ
 	'grace-period-deletion': '/api/cron/grace-period-deletion',
 	// #2399: 猶予期間中のテナントへ削除予定日を予告する (物理削除の前に 1 通だけ届く)
 	'deletion-warning-emails': '/api/cron/deletion-warning-emails',
-	// #4119 / #4311: 子供の年齢再計算。第 21 回統合 (#4304) の #4311 revert で巻き添えになったのを
-	// 戻したもの (PO 決裁 2026-08-06)。Rule 側は compute-stack.ts CRON_JOBS を参照。
-	// **grace-period-deletion (不可逆) は Rule を戻していない** — 復活は #4327 の 4 条件 + #4340 merge
-	// + dry-run 件数のオーナー承認が揃ってから。
-	'age-recalc': '/api/cron/age-recalc',
 	// #1598 (ADR-0023 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	'pmf-survey': '/api/cron/pmf-survey',
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)

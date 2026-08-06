@@ -237,10 +237,14 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-cron-dispatcher',
 			});
-			// CRON_JOBS 6 本 (compute-stack.ts CRON_JOBS SSOT。#3805 で analytics-aggregator-daily /
+			// CRON_JOBS 9 本 (compute-stack.ts CRON_JOBS SSOT。#3805 で analytics-aggregator-daily /
 			// challenge-aggregator-daily の DynamoDB 事前集計 cron 2 本を撤去し 7→5 本、
-			// #3959 で stripe-webhook-delivery-check を追加し 5→6 本)
-			prodCompute.resourceCountIs('AWS::Events::Rule', 6);
+			// #3959 で stripe-webhook-delivery-check を追加し 5→6 本、#4033 AC3-AC5 で
+			// registry にありながら Rule が無かった age-recalc / grace-period-deletion を追加し 6→8 本、
+			// #2399 で deletion-warning-emails を追加し 8→9 本、
+			// **第 21 回統合 (#4304) で grace-period-deletion を revert し 9→8 本**
+			// — 復活条件は compute-stack.ts CRON_JOBS のコメント参照 (#4327))
+			prodCompute.resourceCountIs('AWS::Events::Rule', 8);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
 			// #3939: L2 化で物理名は固定しない (CFN 自動命名)。固定名に戻すと旧→新置換が
 			// 同名衝突で CFN fail する class が再発するため absent を固定する。
@@ -722,6 +726,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		const network = new NetworkStack(app, `GanbariQuestNetwork${suffix}`, {
 			env,
 			functionUrl: compute.functionUrl,
+			// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+			originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 			...(staging
 				? { resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix, geoRestrictionCountries: [] }
 				: {}),

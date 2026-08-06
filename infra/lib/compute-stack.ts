@@ -22,25 +22,25 @@ const CRON_JOBS = [
 	// (CronRuleLicenseExpire)。期限管理は customer.subscription.deleted webhook に代替。
 	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
+	// #1381 (#4033 AC4): 子供の年齢自動インクリメント
+	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
+	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ。
+	// **第 21 回統合 (#4304) で Rule を作らない状態に戻した** (監査 revert + PO 決裁 2026-08-06)。
+	// #4327 が「予告なし・観測不能・停止不能・復旧不能」の 4 条件を検出したため。
+	// 復活は 3 条件が揃ってから: PR #4340 の merge / #4327 の 4 条件解消 /
+	// dry-run の件数を出してオーナーが再有効化を承認。
+	// (dispatcher の KNOWN_ENDPOINTS には残す — Rule が無ければ発火しないため無害で、
+	//  復活時に endpoint 側の追従漏れを起こさない)
+	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
+	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
-	// #4119 / #4311: 子供の年齢再計算 (毎日 15:00 UTC = 00:00 JST)。
-	// **第 21 回統合 (#4304) で #4311 を revert した際の巻き添えを戻したもの** (PO 決裁 2026-08-06)。
-	// #4311 は grace-period-deletion (不可逆・顧客データの物理削除) と age-recalc (可逆) の
-	// 2 本を作る PR で、revert は両方を消した。監査が止めたかったのは前者だけである。
-	// age-recalc が止まると誕生日を迎えた子供の年齢帯 UI が実年齢に追従せず、5 モードの切替が
-	// 発火しない (顧客に見える劣化)。NUC は scheduler.ts が registry 全件を走査するため発火して
-	// おり、AWS だけが非対称だった。
-	// **grace-period-deletion はここに戻さない。** 復活は 3 条件が揃ってから (PO 決裁):
-	//   (1) PR #4340 の merge / (2) #4327 の 4 条件 (予告・観測・停止・復旧) の解消 /
-	//   (3) dry-run の件数を出してオーナーが再有効化を承認
-	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
@@ -201,6 +201,16 @@ export class ComputeStack extends cdk.Stack {
 					'See docs/decisions/0050-parent-gate-session-cookie-signature.md and infra/CLAUDE.md.',
 			);
 		}
+
+		// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify`)。CloudFront 側
+		// (network-stack.ts) が付与し、アプリ側 (hooks.server.ts) が /admin ・ /api/v1/admin ・
+		// /ops で一致を要求する。**同じ CDK context から両者に配るため、header と検査が食い違わない**。
+		//
+		// ここでは throw しない: 未設定時の fail-fast は `infra/bin/app.ts` の
+		// `resolveOriginVerifySecret()` が単一点で担う (どの cdk 実行も app.ts を通る)。
+		// demo Lambda (SvelteKitDemoFn) には注入しない — demo は独立 distribution 配信で
+		// /ops を持たず、/admin も公開デモデータのみ。未注入 = 検査無効 (fail-open) で従来どおり動く。
+		const originVerifySecret = this.node.tryGetContext('originVerifySecret') ?? '';
 
 		// --- DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A で無条件既定化) ---
 		// DSQL は本番の唯一の DB backend。DATA_SOURCE=dsql + DSQL_ENDPOINT + dsql:DbConnect を
@@ -369,6 +379,7 @@ export class ComputeStack extends cdk.Stack {
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
 						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
@@ -394,6 +405,7 @@ export class ComputeStack extends cdk.Stack {
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
 					},
 		});
 		this.fn.node.addDependency(logGroup);
