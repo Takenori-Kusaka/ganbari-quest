@@ -3,6 +3,7 @@ import { onDestroy, onMount } from 'svelte';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { APP_LABELS, ERROR_PAGE_LABELS } from '$lib/domain/labels';
+import OpsMfaSetupNotice from '$lib/features/ops/OpsMfaSetupNotice.svelte';
 
 /**
  * #577: ロール別の自動復帰 + エラー種別ごとの導線
@@ -17,6 +18,13 @@ const requestId = $derived((page.data as { requestId?: string | null })?.request
 const role = $derived((page.data as { role?: string | null })?.role ?? null);
 // "child" ロールは子供画面。それ以外（owner/editor/viewer/null）は親扱い
 const isChild = $derived(role === 'child');
+
+/**
+ * #4282: `/ops` が MFA 未設定で 403 になったときだけ、汎用の 403 ではなく設定導線を出す。
+ * 判定キーは route guard が載せた reason のみ (メッセージ本文は表示しない = 内部例外の
+ * 非露出、ADR-0062)。ops 以外の 403 は reason が付かないので従来表示のまま。
+ */
+const isOpsMfaRequired = $derived(status === 403 && page.error?.reason === 'ops-mfa-required');
 
 const AUTO_REDIRECT_SECONDS = 3;
 let countdown = $state(AUTO_REDIRECT_SECONDS);
@@ -57,6 +65,9 @@ function handleRetry() {
 	<title>{status}{APP_LABELS.errorPageTitlePart}</title>
 </svelte:head>
 
+{#if isOpsMfaRequired}
+	<OpsMfaSetupNotice />
+{:else}
 <div class="error-page" data-role={isChild ? 'child' : 'parent'}>
 	<div class="error-container">
 		<p class="error-status">{status}</p>
@@ -131,6 +142,7 @@ function handleRetry() {
 		{/if}
 	</div>
 </div>
+{/if}
 
 <style>
 	.error-page {

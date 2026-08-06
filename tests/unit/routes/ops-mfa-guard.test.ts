@@ -172,3 +172,63 @@ describe('#4266 context token が MFA 済セッションを保持する', () => 
 		expect(verifyContext(token)?.mfaAuthenticated).toBeUndefined();
 	});
 });
+
+// ---------- #4282 AC5: MFA 未設定の運営者に「拒否」ではなく復旧導線を出す ----------
+// #4266 で MFA 必須化までは入ったが、拒否された運営者が実際に見るのは共通の 403 画面
+// (「アクセスが きょか されていません」+「ログインし直す」) だけだった。TOTP が未設定の
+// まま「ログインし直す」を押しても同じ 403 に戻るため、画面からは復旧手段が分からない
+// (= 締め出して復旧できない状態)。
+//
+// 403 (= データを一切 load しない fail-closed) は維持したまま、**MFA が理由の 403 のときだけ**
+// 復旧導線を描けるように、エラー本文へ機械可読な reason を載せる。値は policy 層
+// (`capabilities.ts` の `deny('ops-mfa-required')`) と同一文字列にし、2 つ目の語彙を作らない。
+describe('#4282 MFA 拒否の理由を機械可読に伝える (復旧導線の分岐キー)', () => {
+	async function loadOpsRaw(identity: Identity | null): Promise<unknown> {
+		const mod = await import('../../../src/routes/ops/+layout.server');
+		// biome-ignore lint/suspicious/noExplicitAny: SvelteKit の LayoutServerLoad 引数を最小 stub で渡す
+		return (mod.load as any)({ locals: { identity } });
+	}
+
+	async function rejectionOf(identity: Identity | null): Promise<{ body: { reason?: string } }> {
+		return (await loadOpsRaw(identity).then(
+			() => {
+				throw new Error('expected 403 but load resolved');
+			},
+			(e: unknown) => e,
+		)) as { body: { reason?: string } };
+	}
+
+	it('MFA 未経由の ops は body.reason=ops-mfa-required を伴う 403 になる', async () => {
+		await expect(loadOpsRaw(opsWithoutMfa)).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Forbidden: ops access requires MFA', reason: 'ops-mfa-required' },
+		});
+	});
+
+	it('MFA 情報不明 (claim 欠落) も同じ reason を伴う (復旧導線に着地させる)', async () => {
+		await expect(loadOpsRaw(opsMfaUnknown)).rejects.toMatchObject({
+			status: 403,
+			body: { reason: 'ops-mfa-required' },
+		});
+	});
+
+	it('非 ops / 未認証には reason を載せない (ops group の存在を示唆しない)', async () => {
+		const rejected = await rejectionOf(null);
+		expect(rejected.body.reason).toBeUndefined();
+	});
+
+	it('reason 文字列は policy 層の deny reason と同一 (語彙を二重に持たない)', async () => {
+		const { can } = await import('$lib/policy/capabilities');
+		const { buildEvaluationContext } = await import('$lib/runtime/evaluation-context');
+		const policyReason = can(
+			buildEvaluationContext({
+				mode: 'aws-prod',
+				user: { id: 'u-ops-2', role: 'owner', groups: ['ops'] },
+				plan: null,
+			}),
+			'access.ops_dashboard',
+		).reason;
+		const rejected = await rejectionOf(opsWithoutMfa);
+		expect(rejected.body.reason).toBe(policyReason);
+	});
+});

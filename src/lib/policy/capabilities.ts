@@ -61,6 +61,13 @@ export type DenyReason =
 	| 'ops-only' // Cognito groups に 'ops' が必要
 	| 'ops-mfa-required'; // #4266: ops は MFA 必須 (IP allowlist 廃止に伴う主防御の強化)
 
+/**
+ * #4282: `/ops` の単一強制点 `requireOpsAccess()` (`src/lib/server/auth/ops-authz.ts`) が
+ * `error(403, { reason })` に載せる値。エラー画面はこの値でだけ MFA 設定導線に切り替えるため、
+ * policy 層の deny reason と同一の文字列を 1 箇所から参照する (拒否の語彙を 2 箇所に持たない)。
+ */
+export const OPS_MFA_REQUIRED_REASON: DenyReason = 'ops-mfa-required';
+
 export interface PolicyResult {
 	allowed: boolean;
 	reason?: DenyReason;
