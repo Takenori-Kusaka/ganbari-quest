@@ -20,10 +20,13 @@
 // **値は一切読まない / 出力しない** (secret を CI ログに出さないため、キー名だけで判定する)。
 //
 // 使用:
-//   node scripts/check-lambda-env-drift.mjs --function <name> --template <cfn-template.json> [--region us-east-1] [--strict]
-//     --template : cdk deploy が出力した `infra/cdk.out/<Stack>.template.json`
-//     --strict   : テンプレートにあるのに live に無いキー (欠落) も fail にする (既定は warning)
-//   CI: deploy-aws-staging.yml の ORIGIN 解決 step の直後。
+//   node scripts/check-lambda-env-drift.mjs --function <name> --template <cfn-template.json> \
+//     [--logical-id-prefix SvelteKitFn] [--region us-east-1] [--strict]
+//     --template           : cdk deploy が出力した `infra/cdk.out/<Stack>.template.json`
+//     --logical-id-prefix  : 対象 Lambda の論理 ID 前方一致。**指定推奨** (1 stack に app / cron-dispatcher /
+//                            demo の複数 Lambda があり、省略すると和集合になって検査が緩む)
+//     --strict             : テンプレートにあるのに live に無いキー (欠落) も fail にする (既定は warning)
+//   CI: deploy-aws-staging.yml / deploy.yml の env 解決 step の直後。
 //
 // ADR-0024 (ENV silent skip 禁止) の env 版。deploy が success を返しながら実態が IaC と乖離する経路を塞ぐ。
 
@@ -48,12 +51,16 @@ export const RUNTIME_RESOLVED_KEYS = [
 
 /**
  * CFN テンプレート (JSON) から Lambda 関数の env キー集合を抽出する。
- * 複数の Lambda がある場合は全関数の和集合を返す (同一 stack 内の関数はどれも IaC 由来のため)。
+ *
+ * @param logicalIdPrefix 論理 ID の前方一致で対象関数を絞る (例 'SvelteKitFn')。
+ *   **指定を推奨**。1 stack に複数の Lambda (app / cron-dispatcher / demo) がある場合、
+ *   省略すると和集合になり「別関数にしか無いキー」を許容してしまう (検査が緩む)。
  */
-export function extractTemplateEnvKeys(template) {
+export function extractTemplateEnvKeys(template, logicalIdPrefix = '') {
 	const keys = new Set();
-	for (const res of Object.values(template?.Resources ?? {})) {
+	for (const [logicalId, res] of Object.entries(template?.Resources ?? {})) {
 		if (res?.Type !== 'AWS::Lambda::Function') continue;
+		if (logicalIdPrefix && !logicalId.startsWith(logicalIdPrefix)) continue;
 		for (const k of Object.keys(res?.Properties?.Environment?.Variables ?? {})) keys.add(k);
 	}
 	return [...keys].sort();
@@ -104,13 +111,14 @@ function parseArgs(argv) {
 	return {
 		functionName: get('--function'),
 		templatePath: get('--template'),
+		logicalIdPrefix: get('--logical-id-prefix') ?? '',
 		region: get('--region') ?? process.env.AWS_REGION ?? 'us-east-1',
 		strict: argv.includes('--strict'),
 	};
 }
 
 export function main(argv = process.argv.slice(2)) {
-	const { functionName, templatePath, region, strict } = parseArgs(argv);
+	const { functionName, templatePath, logicalIdPrefix, region, strict } = parseArgs(argv);
 	if (!functionName || !templatePath) {
 		console.error(
 			'[check-lambda-env-drift] 使用: --function <name> --template <cfn-template.json> [--region <r>] [--strict]',
@@ -122,11 +130,16 @@ export function main(argv = process.argv.slice(2)) {
 		return 2;
 	}
 
-	const templateKeys = extractTemplateEnvKeys(JSON.parse(fs.readFileSync(templatePath, 'utf8')));
+	const templateKeys = extractTemplateEnvKeys(
+		JSON.parse(fs.readFileSync(templatePath, 'utf8')),
+		logicalIdPrefix,
+	);
 	if (templateKeys.length === 0) {
-		// テンプレートに Lambda env が 1 つも無い = 参照先を間違えている。素通しさせない。
+		// テンプレートに Lambda env が 1 つも無い = 参照先 (または --logical-id-prefix) を間違えている。
+		// 「対象 0 件だから PASS」は検査していないのと同じなので素通しさせない。
 		console.error(
-			`[check-lambda-env-drift] ✗ テンプレートに Lambda の環境変数が 1 件もありません: ${templatePath}`,
+			`[check-lambda-env-drift] ✗ テンプレートに Lambda の環境変数が 1 件もありません: ${templatePath}` +
+				(logicalIdPrefix ? ` (--logical-id-prefix ${logicalIdPrefix})` : ''),
 		);
 		return 2;
 	}

@@ -436,6 +436,7 @@ jobs:
           node scripts/check-lambda-env-drift.mjs \
             --function "$LAMBDA_FUNCTION" \
             --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --logical-id-prefix SvelteKitFn \
             --region "$AWS_REGION"
 
       # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。

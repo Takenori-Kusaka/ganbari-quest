@@ -38,6 +38,29 @@ describe('#4352 extractTemplateEnvKeys', () => {
 	it('Lambda が無いテンプレートは空配列 (呼び出し側が参照先誤りとして扱う)', () => {
 		expect(extractTemplateEnvKeys({ Resources: { R: { Type: 'AWS::S3::Bucket' } } })).toEqual([]);
 	});
+
+	it('--logical-id-prefix で対象 Lambda を絞る (別関数のキーを許容しない)', () => {
+		// 1 stack に app / cron-dispatcher / demo が同居する実構成を模す
+		const multi = {
+			Resources: {
+				SvelteKitFn878D7344: {
+					Type: 'AWS::Lambda::Function',
+					Properties: { Environment: { Variables: { AUTH_MODE: 'cognito' } } },
+				},
+				CronDispatcherFn48591636: {
+					Type: 'AWS::Lambda::Function',
+					Properties: { Environment: { Variables: { FUNCTION_URL: 'https://…' } } },
+				},
+				SvelteKitDemoFn03A257DF: {
+					Type: 'AWS::Lambda::Function',
+					Properties: { Environment: { Variables: { DATA_SOURCE: 'demo' } } },
+				},
+			},
+		};
+		expect(extractTemplateEnvKeys(multi, 'SvelteKitFn')).toEqual(['AUTH_MODE']);
+		// prefix 省略時は和集合 = 検査が緩む。既定値の挙動を固定して意図しない緩和を検出する
+		expect(extractTemplateEnvKeys(multi)).toEqual(['AUTH_MODE', 'DATA_SOURCE', 'FUNCTION_URL']);
+	});
 });
 
 describe('#4352 diffEnvKeys', () => {
