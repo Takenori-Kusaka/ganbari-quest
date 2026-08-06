@@ -122,7 +122,7 @@ gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
 
 - `required_approving_review_count=1` 強制。Copilot の `COMMENTED` は APPROVED にならない
 - admin bypass 完全禁止（`bypass_actors: []`）。`ganbariquestsupport-lab`（QM 専用）が approve → squash merge
-- approve body は `docs/sessions/qm-session.md` Tier 2 手順 5 の 5 手順（Issue 照合 / SS 実視認 / SS 欠落検知 / CI 確認 / 承認判断）必須
+- approve body は `docs/sessions/qm-session.md` §「Per-PR Review Agent（5 手順）」の 5 手順（Issue 照合 / SS 実視認 / SS 欠落検知 / CI 確認 / 承認判断）必須
 - 500 行超 PR は `pr-info.yml` が自動警告コメント
 
 ### コマンド例
