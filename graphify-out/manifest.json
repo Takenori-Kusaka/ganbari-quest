@@ -290,7 +290,7 @@
     "semantic_hash": "5a9475506401150a834f1b809bbfe41c"
   },
   "infra/lib/compute-stack.ts": {
-    "mtime": 1786025189.3345315,
+    "mtime": 1786026981.565756,
     "ast_hash": "1189a87aa5942ed182a7ac1e26551034",
     "semantic_hash": ""
   },
@@ -320,7 +320,7 @@
     "semantic_hash": ""
   },
   "infra/lib/origin-verify-context.ts": {
-    "mtime": 1786025092.2415292,
+    "mtime": 1786025767.838024,
     "ast_hash": "0a7c801668941e66e9c2b9755fd617f0",
     "semantic_hash": ""
   },
@@ -4130,8 +4130,8 @@
     "semantic_hash": "6c9fd133a625dc6e12815febb3606d9e"
   },
   "src/lib/server/security/origin-verify.ts": {
-    "mtime": 1786025047.6770453,
-    "ast_hash": "723211f8be7a6ef01a04d1b0674ee4c9",
+    "mtime": 1786026190.4378502,
+    "ast_hash": "2ae84c58b8cecb8e101ebb03552b38ca",
     "semantic_hash": ""
   },
   "src/lib/server/security/rate-limiter.ts": {
@@ -9225,8 +9225,8 @@
     "semantic_hash": "73e9023e65c2f6aceb4ea8f95fa21bb2"
   },
   "tests/unit/infra/origin-verify-header.test.ts": {
-    "mtime": 1786025381.6343617,
-    "ast_hash": "93c2fb0ed4083b7276c3143bdcba1d97",
+    "mtime": 1786025916.354617,
+    "ast_hash": "85a87ad5b85332f9a5761221d5543e83",
     "semantic_hash": ""
   },
   "tests/unit/infra/physical-name-ratchet.test.ts": {
@@ -10065,8 +10065,8 @@
     "semantic_hash": "9a10ef4e09d19a955ddd9a6ddcf8fff8"
   },
   "tests/unit/security/origin-verify.test.ts": {
-    "mtime": 1786025015.6949341,
-    "ast_hash": "04ef4a45ed06109b886e4362bf57f168",
+    "mtime": 1786026190.4388478,
+    "ast_hash": "cdc2e84ca0e70f5787bd167cdcc1714a",
     "semantic_hash": ""
   },
   "tests/unit/server/audit-actor.test.ts": {
@@ -11575,7 +11575,7 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-aws-staging.yml": {
-    "mtime": 1786025258.2722957,
+    "mtime": 1786025848.7443552,
     "ast_hash": "1cfef665cd7917285d1c03d74048a866",
     "semantic_hash": ""
   },
@@ -11590,7 +11590,7 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy.yml": {
-    "mtime": 1786025218.6309953,
+    "mtime": 1786025882.0083122,
     "ast_hash": "638d622bf30d51f93c63c2fcd5a5e5d3",
     "semantic_hash": ""
   },
