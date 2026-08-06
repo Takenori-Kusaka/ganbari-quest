@@ -30,6 +30,17 @@ const CRON_JOBS = [
 	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
+	// #4119 / #4311: 子供の年齢再計算 (毎日 15:00 UTC = 00:00 JST)。
+	// **第 21 回統合 (#4304) で #4311 を revert した際の巻き添えを戻したもの** (PO 決裁 2026-08-06)。
+	// #4311 は grace-period-deletion (不可逆・顧客データの物理削除) と age-recalc (可逆) の
+	// 2 本を作る PR で、revert は両方を消した。監査が止めたかったのは前者だけである。
+	// age-recalc が止まると誕生日を迎えた子供の年齢帯 UI が実年齢に追従せず、5 モードの切替が
+	// 発火しない (顧客に見える劣化)。NUC は scheduler.ts が registry 全件を走査するため発火して
+	// おり、AWS だけが非対称だった。
+	// **grace-period-deletion はここに戻さない。** 復活は 3 条件が揃ってから (PO 決裁):
+	//   (1) PR #4340 の merge / (2) #4327 の 4 条件 (予告・観測・停止・復旧) の解消 /
+	//   (3) dry-run の件数を出してオーナーが再有効化を承認
+	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
