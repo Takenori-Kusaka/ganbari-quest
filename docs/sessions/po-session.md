@@ -13,7 +13,7 @@
 CronCreate(cron: "37 * * * *", recurring: true, prompt: <label-mailbox.md §4「PO セッション用」テンプレート>)
 ```
 
-PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断）、**`state:needs-owner`**（不可逆 4 操作、オーナーへ中継）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（label-mailbox.md §「PO セッション用」テンプレート参照）。**Issue と PR の両方**を見る。決裁したら次の state（`state:needs-dev` / `state:needs-audit` 等）を付け替える。**CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る。
+PO が拾うのは **`state:needs-po`**（不可逆 4 操作**以外**の PO 判断）、**`state:needs-owner`**（不可逆 4 操作、オーナーへ中継）、`state:ready-to-merge` の CI 実測確認、**ORPHAN**（`state:*` が 1 つも付いていない open Issue / PR）、そして **STALE-HOLD / DUP-AXIS**（label-mailbox.md §「PO セッション用」テンプレート参照）。**Issue と PR の両方**を見る。**QM に用があるときは `state:needs-qm`**（gate 方針を決める前に QM の見解を聞く等）。決裁したら次の state（`state:needs-dev` / `state:needs-audit` 等）を付け替える。**CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る。
 
 ## 5 ロール
 
@@ -102,7 +102,7 @@ AC に「実機で確認する」「外部媒体へ退避したことを記録�
 
 **SSOT**: [agent-teams.md](agent-teams.md)
 
-PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**。**決裁そのものを teammate に代行させない**（実測義務は PO 本人の義務）。**ロールを跨いだ team は組まない。**
+PO が使ってよいのは **LP レビュー / 競合調査 / 大量 Issue の棚卸し**（棚卸しは **read-only の分担調査**、#4227。**使ってよい 5 条件は [agent-teams.md](agent-teams.md) §4.1 が SSOT**）。**決裁そのものを teammate に代行させない**（実測義務は PO 本人の義務）。**ロールを跨いだ team は組まない。**
 
 ---
 
