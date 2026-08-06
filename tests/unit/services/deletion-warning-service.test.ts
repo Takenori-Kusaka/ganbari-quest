@@ -461,7 +461,7 @@ describe('#2399 [W8] 宛先は保護者 (owner/parent) 全員', () => {
 		expect(mockSendWarning).toHaveBeenCalledTimes(1);
 	});
 
-	it('owner が失敗し parent が成功したら sent 扱いになり sent_at を書く (次回リトライしない)', async () => {
+	it('owner が失敗し parent が成功したら sent 扱いになり sent_at を書く (次回リトライしない)。失敗件数は観測可能 (#4359 follow-up)', async () => {
 		setTenants(['t-family']);
 		seedSoftDeleted('t-family', 'family', 14);
 		mockFindTenantMembers.mockResolvedValue([
@@ -482,6 +482,30 @@ describe('#2399 [W8] 宛先は保護者 (owner/parent) 全員', () => {
 		expect(result.sent).toBe(1);
 		expect(result.errors).toBe(0);
 		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeTruthy();
+		// 片方 (owner) には二度と届かないことが、成功扱いの中に埋もれず件数として残る
+		expect(result.failedRecipients).toBe(1);
+		expect(result.tenantsWithPartialFailure).toBe(1);
+	});
+
+	it('両方成功したら partial failure は 0 のまま (#4359 follow-up)', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-parent', role: 'parent' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			email: `${userId}@example.com`,
+			displayName: '名前',
+		}));
+		mockSendWarning.mockResolvedValue(true);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(result.failedRecipients).toBe(0);
+		expect(result.tenantsWithPartialFailure).toBe(0);
 	});
 
 	it('保護者が全員失敗したら error 扱いで sent_at を書かず、次回全員へ再試行できる', async () => {
@@ -503,6 +527,10 @@ describe('#2399 [W8] 宛先は保護者 (owner/parent) 全員', () => {
 		expect(result.sent).toBe(0);
 		expect(result.errors).toBe(1);
 		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeUndefined();
+		// 全滅は次回再試行される (idempotency key 未設定) が、失敗件数自体は今回分も観測できる
+		expect(result.failedRecipients).toBe(2);
+		// 'sent' ではなく 'error' 扱いのため partial failure カウンタは増やさない (次回全員へ再試行対象)
+		expect(result.tenantsWithPartialFailure).toBe(0);
 	});
 });
 

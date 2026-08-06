@@ -91,6 +91,14 @@ export interface DeletionWarningRunResult {
 	skippedAlreadySent: number;
 	/** 保護者ロール (owner/parent) 全員にメールアドレスが引けなかったテナント数 (#4325 follow-up、旧 skippedNoOwner) */
 	skippedNoRecipients: number;
+	/**
+	 * 送信自体は 'sent' 扱い (1 通以上成功) だが、一部の保護者への送信が失敗したテナント数 (#4359 follow-up)。
+	 * 例: 共同運用世帯で片方のアドレスが恒久的に無効な場合、届いた側がいるため 'sent' にはなるが
+	 * 届かなかった側は次回以降も再試行されない (idempotency key が立つため)。この場合を観測可能にする。
+	 */
+	tenantsWithPartialFailure: number;
+	/** 個別の宛先送信失敗の総数 (テナント横断の合計。メールアドレス自体は記録しない) (#4359 follow-up) */
+	failedRecipients: number;
 	errors: number;
 	/** limit / 時間予算により今回処理せず次回実行へ持ち越した件数 */
 	tenantsRemaining: number;
@@ -175,6 +183,15 @@ async function resolveGuardianRecipients(tenantId: string): Promise<GuardianReci
 	return recipients;
 }
 
+/** {@link processTenant} の戻り値。集計 (tally) は outcome に加え宛先単位の成否件数も反映する。 */
+interface TenantProcessResult {
+	outcome: TenantOutcome;
+	/** 送信対象だった宛先数 (outcome === 'sent' | 'error' のときのみ意味を持つ) */
+	recipientCount?: number;
+	/** 送信に失敗した宛先数 (メールアドレス自体は含まない、件数のみ) */
+	failedRecipientCount?: number;
+}
+
 /**
  * 1 テナントを処理する。1 通以上の送信に成功したときのみ `deletion_warning_sent_at` を書く。
  */
@@ -182,20 +199,21 @@ async function processTenant(
 	tenant: TenantInput,
 	now: Date,
 	dryRun: boolean,
-): Promise<TenantOutcome> {
+): Promise<TenantProcessResult> {
 	const repos = getRepos();
 
 	const status = await getGracePeriodStatus(tenant.tenantId);
-	if (!status.isSoftDeleted || !status.physicalDeletionDate) return 'skipped-not-soft-deleted';
+	if (!status.isSoftDeleted || !status.physicalDeletionDate)
+		return { outcome: 'skipped-not-soft-deleted' };
 
 	const planTier = status.planTier ?? 'free';
-	if (DELETION_WARNING_DAYS_BEFORE[planTier] === null) return 'skipped-no-threshold';
+	if (DELETION_WARNING_DAYS_BEFORE[planTier] === null) return { outcome: 'skipped-no-threshold' };
 
 	const daysRemaining = daysUntilJST(status.physicalDeletionDate, now);
-	if (!shouldWarn(planTier, daysRemaining)) return 'skipped-not-due';
+	if (!shouldWarn(planTier, daysRemaining)) return { outcome: 'skipped-not-due' };
 
 	const alreadySent = await repos.settings.getSetting(DELETION_WARNING_SENT_KEY, tenant.tenantId);
-	if (alreadySent) return 'skipped-already-sent';
+	if (alreadySent) return { outcome: 'skipped-already-sent' };
 
 	const recipients = await resolveGuardianRecipients(tenant.tenantId);
 	if (recipients.length === 0) {
@@ -203,7 +221,7 @@ async function processTenant(
 		logger.warn('[deletion-warning] no guardian email found; deletion proceeds unwarned', {
 			context: { tenantId: tenant.tenantId, daysRemaining },
 		});
-		return 'skipped-no-recipients';
+		return { outcome: 'skipped-no-recipients' };
 	}
 
 	if (dryRun) {
@@ -215,7 +233,7 @@ async function processTenant(
 				recipientCount: recipients.length,
 			},
 		});
-		return 'sent';
+		return { outcome: 'sent', recipientCount: recipients.length, failedRecipientCount: 0 };
 	}
 
 	const deletionDate = formatJSTDate(toJSTDateString(new Date(status.physicalDeletionDate)));
@@ -237,9 +255,11 @@ async function processTenant(
 		}
 	}
 
+	const failedRecipientCount = recipients.length - successCount;
+
 	if (successCount === 0) {
 		// 全宛先で失敗。sent_at を書かずに終える。次回実行で再試行される
-		return 'error';
+		return { outcome: 'error', recipientCount: recipients.length, failedRecipientCount };
 	}
 
 	// 1 通でも届けば idempotency key を立てる (一部宛先が恒久的に失敗し続けて
@@ -254,14 +274,30 @@ async function processTenant(
 			successCount,
 		},
 	});
-	return 'sent';
+
+	if (failedRecipientCount > 0) {
+		// 一部の宛先にだけ届かなかった場合 (共同運用世帯で片方のアドレスが恒久的に無効等)。
+		// idempotency key が立つため次回以降も再試行されない。メールアドレスは記録せず件数のみ残す
+		logger.warn('[deletion-warning] partial send failure; some recipients never warned', {
+			context: {
+				tenantId: tenant.tenantId,
+				recipientCount: recipients.length,
+				failedRecipientCount,
+			},
+		});
+	}
+
+	return { outcome: 'sent', recipientCount: recipients.length, failedRecipientCount };
 }
 
-/** outcome を集計へ反映する。 */
-function tally(result: DeletionWarningRunResult, outcome: TenantOutcome): void {
-	switch (outcome) {
+/** 処理結果 (outcome + 宛先単位の成否件数) を集計へ反映する。 */
+function tally(result: DeletionWarningRunResult, processed: TenantProcessResult): void {
+	switch (processed.outcome) {
 		case 'sent':
 			result.sent++;
+			if ((processed.failedRecipientCount ?? 0) > 0) {
+				result.tenantsWithPartialFailure++;
+			}
 			break;
 		case 'skipped-not-soft-deleted':
 			result.skippedNotSoftDeleted++;
@@ -282,6 +318,7 @@ function tally(result: DeletionWarningRunResult, outcome: TenantOutcome): void {
 			result.errors++;
 			break;
 	}
+	result.failedRecipients += processed.failedRecipientCount ?? 0;
 }
 
 // ============================================================
@@ -310,6 +347,8 @@ export async function runDeletionWarningEmails(
 		skippedNotDue: 0,
 		skippedAlreadySent: 0,
 		skippedNoRecipients: 0,
+		tenantsWithPartialFailure: 0,
+		failedRecipients: 0,
 		errors: 0,
 		tenantsRemaining: 0,
 		dryRun,
