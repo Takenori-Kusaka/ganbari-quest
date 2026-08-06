@@ -33,6 +33,11 @@ aws events describe-rule --name ganbari-quest-cron-grace-period-deletion --regio
 `GRACE_PERIOD_DELETION_DISABLED=true` で、**対象の走査すら行わずに即 return** する
 （`purgeExpiredSoftDeletedTenants`）。手動 POST も止まる。
 
+停止と解釈する値は `true` / `1` / `yes` / `on`、有効と解釈する値は `false` / `0` / `no` / `off` / 空文字。
+**どちらにも当てはまらない値（`tru` のような打ち間違い）は「停止」として扱う**（#4340 follow-up）。
+止め忘れは `200` + `disabled: true` で観測できるが、止め損ないは削除が終わるまで観測できないため、
+観測できる側に倒してある。いずれの場合も warn ログに実際の値が残る。
+
 即時に効かせる（次の Lambda 起動から反映。**次回 deploy で CDK 値に戻る**）:
 
 ```bash

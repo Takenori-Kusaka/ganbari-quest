@@ -557,16 +557,18 @@ describe('grace-period-service', () => {
 				expect(result.tenantsDeleted).toBe(1);
 			});
 
-			// 「止めたつもりだが止まっていない」を silent にしない。
-			// throw しない (障害対応中の typo でアプリ全体を落とさない) 代わりに warn を必ず出す。
-			it('解釈できない値は有効のまま続行するが、warn で観測可能にする', async () => {
+			// #4340 follow-up: 「止めたつもりだが止まっていない」を作らない。
+			// 対象が取り消せない削除であり、止め忘れ (200 + disabled で観測できる) より
+			// 止め損ない (削除が終わるまで観測できない) の方が回復不能なので、止める側に倒す。
+			// throw しないのは据え置き (障害対応中の typo でアプリ全体を落とさない) — warn は必ず出す。
+			it('解釈できない値は「停止」として扱い、1 件も削除せず warn で観測可能にする', async () => {
 				seedExpiredTenants(['t1']);
 				mockEnv.GRACE_PERIOD_DELETION_DISABLED = 'ture'; // よくある打ち間違い
 
 				const result = await purgeExpiredSoftDeletedTenants({ dryRun: false });
 
-				expect(result.disabled).toBe(false);
-				expect(result.tenantsDeleted).toBe(1);
+				expect(result.disabled).toBe(true);
+				expect(result.tenantsDeleted).toBe(0);
 				expect(logger.warn).toHaveBeenCalledWith(
 					expect.stringContaining('GRACE_PERIOD_DELETION_DISABLED'),
 					expect.objectContaining({ context: expect.objectContaining({ value: 'ture' }) }),
