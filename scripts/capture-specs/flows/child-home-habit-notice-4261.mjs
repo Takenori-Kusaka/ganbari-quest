@@ -38,6 +38,12 @@ const CHILDREN = [
 
 const NOTICE = '[data-testid="habit-certificate-notice"]';
 
+/**
+ * 同じ flow を preset 違いで 2 回流すと step 名が衝突し、後の run が前の run の SS を
+ * 上書きする (screenshots branch は file 名で同定する)。`CAPTURE_LABEL_SUFFIX` で分ける。
+ */
+const SUFFIX = process.env.CAPTURE_LABEL_SUFFIX ? `-${process.env.CAPTURE_LABEL_SUFFIX}` : '';
+
 /** @param {import('playwright').Page} page */
 async function selectChild(page, childId, uiMode) {
 	// FlowRecorder の context は baseURL を持たないため絶対 URL で遷移する
@@ -68,7 +74,7 @@ export default async (page, capture) => {
 		const acked = page.waitForResponse((r) => r.url().includes('ackHabitCertificateNotice'));
 		await selectChild(page, childId, uiMode);
 		await page.locator(NOTICE).waitFor({ state: 'visible' });
-		await capture(`after-${uiMode}`);
+		await capture(`after-${uiMode}${SUFFIX}`);
 		// 既読化が着地するまで待つ (着地前に離脱すると 2 周目にまた出る)
 		await acked;
 	}
@@ -77,6 +83,6 @@ export default async (page, capture) => {
 	for (const { childId, uiMode } of CHILDREN) {
 		await selectChild(page, childId, uiMode);
 		await page.locator(NOTICE).waitFor({ state: 'detached' });
-		await capture(`before-${uiMode}`);
+		await capture(`before-${uiMode}${SUFFIX}`);
 	}
 };
