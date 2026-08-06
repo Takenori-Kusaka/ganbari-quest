@@ -201,6 +201,13 @@ describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
 // HTML コメントに同じ文字列があると **そこから切り出して**しまい、checkbox の集計範囲が
 // 本来の section とずれた。以下 3 例はいずれも旧実装では誤判定する入力
 // (mutation 実測: countUnchecked を indexOf 版に戻すと 1 例目と 3 例目が red になる)。
+//
+// #4305 で feature/hotfix lane の `## Ready for Review チェックリスト` 参照・enforcement は
+// 撤去されたため (checkMergeGateChecklist は非 integration lane で早期 ok:true を返す)、
+// 本 regression guard は撤去されていない integration lane (`## 統合 PR チェックリスト`) を
+// 対象に据え直す。section 探索の仕組み (extractH2Section 経由の H2 完全一致 / HTML コメント
+// 除外 / code block 除外) 自体は integration lane でも同一コードパスを通るため、
+// H2 誤判定の regression guard としての効力は変わらない。
 // ---------------------------------------------------------------------------
 
 describe('#4348: section 探索は H2 見出し行の完全一致', () => {
@@ -209,39 +216,40 @@ describe('#4348: section 探索は H2 見出し行の完全一致', () => {
 		const body = [
 			'## AC 検証マップ (ADR-0004)',
 			'',
-			'| AC1 | 内容 | 手段 | 下記「## Ready for Review チェックリスト」参照 |',
+			'| AC1 | 内容 | 手段 | 下記「## 統合 PR チェックリスト」参照 |',
 			'',
-			'## Ready for Review チェックリスト',
-			'- [x] CI 全緑',
-			'- [ ] pre-ready PASS',
+			'## 統合 PR チェックリスト',
+			'- [x] 最重厚レーン全 job 緑',
+			'- [ ] エビデンス表完備',
 			'',
 		].join('\n');
-		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
 		expect(r.ok).toBe(false);
-		expect(r.error ?? '').toContain('Ready for Review チェックリスト');
+		expect(r.error ?? '').toContain('統合 PR チェックリスト');
 	});
 
 	it('HTML コメント内の見出し文字列だけでは section が存在するとみなさない', () => {
-		const body = ['## 概要', '', '<!-- ## Ready for Review チェックリスト を書く -->', ''].join(
-			'\n',
-		);
-		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
-		// feature lane は section 不在を warning にする (現行仕様)。found=false が warning に出ること。
-		expect((r.warnings ?? []).join('\n')).toContain('Ready for Review チェックリスト');
+		const body = ['## 概要', '', '<!-- ## 統合 PR チェックリスト を書く -->', ''].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
+		// integration lane は section 不在を fail にする (#2945 no-go、warning で素通りさせない)。
+		// found=false が missingRequired (error) に出ること。
+		expect(r.ok).toBe(false);
+		expect(r.error ?? '').toContain('統合 PR チェックリスト');
 	});
 
 	it('code block 内の未チェック checkbox は集計しない (template の例示で fail させない)', () => {
 		const body = [
-			'## Ready for Review チェックリスト',
-			'- [x] CI 全緑',
-			'- [x] pre-ready PASS',
+			'## 統合 PR チェックリスト',
+			'- [x] 最重厚レーン全 job 緑',
+			'- [x] エビデンス表完備',
+			'- [x] adversarial evidence 解消',
 			'',
 			'```markdown',
 			'- [ ] これは書き方の例',
 			'```',
 			'',
 		].join('\n');
-		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
 		expect(r.ok).toBe(true);
 	});
 });
