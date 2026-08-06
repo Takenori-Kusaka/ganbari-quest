@@ -61,6 +61,24 @@ async function openChildHome(page: import('@playwright/test').Page): Promise<voi
 	await page.locator('[data-testid="elementary-home-page"]').waitFor({ state: 'visible' });
 }
 
+/** 既読 = 空文字 upsert (settings repo に削除 API が無いため、#4261 ③) */
+async function isRead(workerDbPath: string, childId: number): Promise<boolean> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath, { readonly: true });
+	try {
+		const row = db
+			.prepare('SELECT value FROM settings WHERE key = ?')
+			.get(`${NOTICE_KEY_PREFIX}${childId}`) as { value: string } | undefined;
+		return row?.value === '';
+	} finally {
+		db.close();
+	}
+}
+
+// /switch → home を 2 往復するため既定 30s では足りない (実測 ~35s、初回 compile 込み)。
+// 同 worker DB の settings 行を共有するため serial (並行だと後続の cleanup が先行 test を壊す)。
+test.describe.configure({ mode: 'serial', timeout: 120_000 });
+
 test.describe('#4261 ③ 習慣化告知は 1 回だけ', () => {
 	test('表示 → 再訪で出ない (既読化が画面遷移で失われない)', async ({ page, workerDbPath }) => {
 		const childId = await childIdOf(workerDbPath);
@@ -68,13 +86,11 @@ test.describe('#4261 ③ 習慣化告知は 1 回だけ', () => {
 
 		try {
 			// 1 回目: 出る
-			const acknowledged = page.waitForResponse((r) =>
-				r.url().includes('ackHabitCertificateNotice'),
-			);
 			await openChildHome(page);
 			await expect(page.locator(NOTICE)).toBeVisible();
-			// 閉じる操作をしていないのに既読になる (× を押させない、ADR-0012)
-			await acknowledged;
+			// 閉じる操作をしていないのに既読になる (× を押させない、ADR-0012)。
+			// network event ではなく **server 側の状態**を見る (既読化の結果そのもの)。
+			await expect.poll(() => isRead(workerDbPath, childId), { timeout: 30_000 }).toBe(true);
 
 			// 2 回目: 出ない
 			await openChildHome(page);
