@@ -68,11 +68,13 @@ test.describe('#4261 ③ 習慣化告知は 1 回だけ', () => {
 
 		try {
 			// 1 回目: 出る
-			const acked = page.waitForResponse((r) => r.url().includes('ackHabitCertificateNotice'));
+			const acknowledged = page.waitForResponse((r) =>
+				r.url().includes('ackHabitCertificateNotice'),
+			);
 			await openChildHome(page);
 			await expect(page.locator(NOTICE)).toBeVisible();
 			// 閉じる操作をしていないのに既読になる (× を押させない、ADR-0012)
-			await acked;
+			await acknowledged;
 
 			// 2 回目: 出ない
 			await openChildHome(page);

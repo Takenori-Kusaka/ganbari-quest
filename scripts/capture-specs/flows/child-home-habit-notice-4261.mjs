@@ -71,12 +71,12 @@ export default async (page, capture) => {
 
 	// 1 周目: pending あり → バナーが出る
 	for (const { childId, uiMode } of CHILDREN) {
-		const acked = page.waitForResponse((r) => r.url().includes('ackHabitCertificateNotice'));
+		const acknowledged = page.waitForResponse((r) => r.url().includes('ackHabitCertificateNotice'));
 		await selectChild(page, childId, uiMode);
 		await page.locator(NOTICE).waitFor({ state: 'visible' });
 		await capture(`after-${uiMode}${SUFFIX}`);
 		// 既読化が着地するまで待つ (着地前に離脱すると 2 周目にまた出る)
-		await acked;
+		await acknowledged;
 	}
 
 	// 2 周目: 既読化済 → 出ない (= 修正前と同じ描画 / 「1 回だけ」の実機証跡)

@@ -105,10 +105,10 @@ const showHabitCertificateNotice = $derived(
 		isScreenshotMode,
 	}),
 );
-let habitNoticeAcked = false;
+let habitNoticeAcknowledged = false;
 $effect(() => {
-	if (!showHabitCertificateNotice || habitNoticeAcked) return;
-	habitNoticeAcked = true;
+	if (!showHabitCertificateNotice || habitNoticeAcknowledged) return;
+	habitNoticeAcknowledged = true;
 	// `keepalive` が要る: 子供は「記録して数秒で閉じる」(ADR-0012) ため、既読化が届く前に
 	// 画面遷移・タブ終了が起きる。通常の fetch はそこで中断され、**次回また同じ告知が出る**
 	// (実機で観測済)。失敗しても画面は壊さない — 届かなければ次回に再掲する (無音よりまし)。
