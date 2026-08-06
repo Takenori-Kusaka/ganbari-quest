@@ -44,7 +44,7 @@ Stripe 公式 Test clocks API advanced usage より:
 
 ### 1.3 課題: ロールバック確認 (Phase 6 子 5 #2665 連動) を各シナリオに組み込まないと cutover 安全性が担保されない
 
-Phase 6 子 5 (#2665、本 PR scope 外) で確定する kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) は、**Test clock E2E で「失敗 → ロールバック → 成功」の dry-run を 1 度実演しない限り、本番 cutover 時 (Phase 6 子 1 #2667 §3 Step 4-b) に kill switch が機能するか担保不能**。
+Phase 6 子 5 (#2665、本 PR scope 外) で確定する kill switch (`USE_LOOKUP_KEY`) は、**Test clock E2E で「失敗 → ロールバック → 成功」の dry-run を 1 度実演しない限り、本番 cutover 時に kill switch が機能するか担保不能**。
 
 Phase 6 子 1 #2667 §10 Open question 3 で確定済:
 
@@ -193,7 +193,7 @@ sequenceDiagram
 | **advance 計画** | **1 回 advance** (`now+31d`、period_end の 1 日後)。1 interval (1 ヶ月) 直前、2 interval 制約抵触なし。advance 直後に schedule 第 2 phase 自動開始 |
 | **想定 webhook 受信** | (a) `subscriptionSchedules.create` 直後: `subscription_schedule.created` (b) advance 後: `subscription_schedule.completed` + `customer.subscription.updated` (price.id = standard_monthly_id) + `invoice.paid` (¥500 = standard 月額) |
 | **AC** | (a) `subscriptionSchedules.create` 直後に DB `tenants.pendingScheduleId` が set (b) UI で「○月○日に standard に切替予約中」banner 表示 (c) advance 後に DB `tenants.stripePriceId` が standard 切替、`pendingScheduleId` clear (d) 超過リソース (Phase 2 ジャーニー B step 2 で archived) が read-only 表示 (e) 次回課金 ¥500 |
-| **ロールバック確認** | 本シナリオでは kill switch 実演なし。subscription_schedule API 経路は lookup_key / shadow mode 経路と独立 |
+| **ロールバック確認** | 本シナリオでは kill switch 実演なし。subscription_schedule API 経路は lookup_key 経路と独立 |
 
 #### mermaid sequence (シナリオ 3)
 
@@ -533,10 +533,6 @@ Phase 6 子 1 #2667 §10 Open question 3「Step 4 cutover 失敗時のロール�
 | 3. 復帰 | `USE_LOOKUP_KEY=true` に戻して別 customer で再度確認 | `USE_LOOKUP_KEY=true` | 元の lookup_key 経路で成功 (復帰確認) |
 
 両方が動くことで Phase 6 子 1 #2667 §3 Step 3 で確定した「`USE_LOOKUP_KEY` kill switch」が機能することを担保。シナリオ 2 spec は **3 phase serial execution** で配置する (`test.describe.configure({ mode: 'serial' })`、`trial-flow.spec.ts` 同型)。
-
-### 6.2 同様の kill switch を持つシナリオ (Phase 6 子 5 #2665 担当の他 issue)
-
-`STRIPE_WEBHOOK_SHADOW_MODE` kill switch (Phase 6 子 1 #2667 §3 Step 4 shadow→cutover) の dry-run は **本 PR scope 外** (Phase 6 子 5 #2665 で別 spec として設計)。本 docs ではシナリオ 1-6 の範囲のみ確定。
 
 ## 7. 影響範囲事後検証 (4 layer impact-analysis + 21 カテゴリ)
 

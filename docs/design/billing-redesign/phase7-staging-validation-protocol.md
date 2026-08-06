@@ -62,7 +62,7 @@ PR-3b Ready 化 → staging 検証完了 → Production cutover の 3 段階 AC�
 
 | AC | 検証項目 | 検証手段 |
 |---|---|---|
-| 2.1 | staging 環境 Lambda env に `USE_LOOKUP_KEY=true` + `STRIPE_WEBHOOK_SHADOW_MODE=false` + `STRIPE_WEBHOOK_SECRET_TEST` 配備確認 | aws lambda get-function-configuration |
+| 2.1 | staging 環境 Lambda env に `USE_LOOKUP_KEY=true` + `STRIPE_WEBHOOK_SECRET_TEST` 配備確認 | aws lambda get-function-configuration |
 | 2.2 | staging cold start `getPlanConfigs()` で lookup_key 解決成功 (CloudWatch log 確認) | CloudWatch Logs Insights |
 | 2.3 | staging で `prices.list({ lookup_keys })` Stripe API 呼出成功 (status 200) | CloudWatch Metrics |
 | 2.4 | Sentry / Discord alert 経路設定確認 (#2720 で配備した alert ハンドラが staging で動作) | Sentry Project 設定確認 |
