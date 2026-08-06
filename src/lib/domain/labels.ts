@@ -2817,6 +2817,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	/** 受け取ったリクエストが現行の申込内容と噛み合わない (古い画面のまま操作した等) */
 	checkoutErrorStaleRequest:
 		'お申し込みを開始できませんでした。ページを再読み込みしてから、もう一度お試しください',
+	/** #4329: portal session 自体を作れなかったとき。原因は出さず次の行動だけを示す (ADR-0062) */
+	portalErrorCreateFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しください`,
 	checkoutErrorUnauthenticated: '認証が必要です',
 	checkoutErrorForbidden: 'サブスクリプションの管理は保護者のみ可能です',
 	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
