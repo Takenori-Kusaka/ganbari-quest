@@ -9,12 +9,15 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ERROR_PAGE_LABELS, OPS_MFA_SETUP_LABELS } from '../../../src/lib/domain/labels';
 
-const pageState: { status: number; error: { message: string; reason?: string } | null; data: unknown } =
-	{
-		status: 403,
-		error: null,
-		data: {},
-	};
+const pageState: {
+	status: number;
+	error: { message: string; reason?: string } | null;
+	data: unknown;
+} = {
+	status: 403,
+	error: null,
+	data: {},
+};
 
 vi.mock('$app/state', () => ({
 	get page() {
