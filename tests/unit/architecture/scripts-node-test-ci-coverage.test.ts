@@ -68,7 +68,7 @@ function extractNodeTestPatterns(workflowSrc: string): string[] {
 	// `(.+)$` が丸ごと不成立になり「引数 0 件」= 検査が黙って消える。改行を先に正規化する。
 	for (const line of workflowSrc.replace(/\r\n?/g, '\n').split('\n')) {
 		const m = line.match(/node\s+--test\s+(.+)$/);
-		if (!m) continue;
+		if (!m?.[1]) continue;
 		const args = m[1].trim();
 		for (const raw of args.split(/\s+/)) {
 			const arg = raw.replace(/^["']|["']$/g, '');
