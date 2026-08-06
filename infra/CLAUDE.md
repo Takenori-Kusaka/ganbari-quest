@@ -228,6 +228,23 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 
 `ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts` L237-249) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
 
+### 自動リトライは全 cron で無効 (#4327)
+
+EventBridge target は `retryAttempts: 0`。cron は 30 秒 self-limiting + 翌日持ち越し前提で設計されているため、途中まで進んだ job の自動再送は非冪等な再走 (部分削除されたテナントに purge が再走する等) を生む。取りこぼしは翌日の実行が回収し、失敗は上記 alarm で観測される。**新規 job を足すときも target に retry を復活させない**。
+
+### 顧客データ物理削除 (grace-period-deletion) の緊急停止 (#4327)
+
+**不可逆な処理**であり、止める手段を 2 層持つ。手順・観測・復旧の限界の SSOT は
+[docs/runbooks/grace-period-deletion-operations.md](../docs/runbooks/grace-period-deletion-operations.md)。
+
+```bash
+# 層 1: cron を呼ばせない (即時。ただし次回 deploy で ENABLED に戻る)
+aws events disable-rule --name ganbari-quest-cron-grace-period-deletion --region us-east-1
+
+# 層 2: 呼ばれても消させない (手動 POST も止まる。deploy でも戻らない)
+gh variable set GRACE_PERIOD_DELETION_DISABLED --body true --repo Takenori-Kusaka/ganbari-quest
+```
+
 **注意**: `cdk deploy` は PO が実行する（GHA `deploy.yml` または手動 `cdk deploy --all`）。
 
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
