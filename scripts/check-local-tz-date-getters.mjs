@@ -123,6 +123,12 @@ export const EXCLUDED_ROOTS = [
 	{ root: 'data', reason: '静的データ資材。実行されるコードを含まない' },
 	{ root: 'drizzle', reason: 'DB migration SQL。実行されるコードを含まない' },
 	{ root: 'static', reason: '静的アセット (画像 / manifest 等)' },
+	{
+		root: 'graphify-out',
+		reason:
+			'Graphify が生成するナレッジグラフ成果物 (graph.json / graph.html / manifest.json)。' +
+			'AST 解析結果のデータであり、実行されるコードを含まない (#4291)',
+	},
 ];
 
 /** 走査対象拡張子 */
