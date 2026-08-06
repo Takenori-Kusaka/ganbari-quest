@@ -10,6 +10,10 @@ import { fail } from '@sveltejs/kit';
 // (旧実装は 'parent' を数えており、producer/quota と三重乖離して常に 0 表示だった)
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import {
+	isPortalFallbackContext,
+	PORTAL_FALLBACK_PARAM,
+} from '$lib/domain/constants/stripe-portal';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { TRIAL_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -103,6 +107,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		pinConfigured,
 		// #3958: null = success_url 経由ではない通常表示。値があるときだけ画面に結果を出す。
 		checkoutReconciliation,
+		// #4270: portal の flow が Stripe に拒否されて home に倒れたときだけ値が入る。
+		// 画面は「次にどこで手続きを続けるか」を出す (原因は説明しない、ADR-0062)。
+		portalFallback: (() => {
+			const raw = url.searchParams.get(PORTAL_FALLBACK_PARAM);
+			return isPortalFallbackContext(raw) ? raw : null;
+		})(),
 		trialStatus: {
 			isTrialActive: trialStatus.isTrialActive,
 			trialUsed: trialStatus.trialUsed,

@@ -9,7 +9,7 @@
  *
  * 本テストは以下を検証する:
  *   - extractActiveAccount: gh auth status の典型出力で active アカウントを正しく抽出
- *   - evaluateActiveAccount: 許可 / 不許可 / null / QA アカウント の 4 象限を網羅
+ *   - evaluateActiveAccount: 許可 / 不許可 / null / QM アカウント の 4 象限を網羅
  *
  * 関連:
  *   - Issue #1994 (本テスト導入 Issue)
@@ -78,7 +78,7 @@ describe('extractViewerLoginFromGraphql (#3806 — REST /user 503 耐性)', () =
 		expect(extractViewerLoginFromGraphql(json)).toBe('Takenori-Kusaka');
 	});
 
-	it('QA アカウントの viewer.login も抽出できる', () => {
+	it('QM アカウントの viewer.login も抽出できる', () => {
 		const json = '{"data":{"viewer":{"login":"ganbariquestsupport-lab"}}}';
 		expect(extractViewerLoginFromGraphql(json)).toBe('ganbariquestsupport-lab');
 	});

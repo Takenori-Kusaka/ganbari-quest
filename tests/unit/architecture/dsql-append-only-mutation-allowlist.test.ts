@@ -366,3 +366,39 @@ describe('#4030 母数: dsql 配下をサブディレクトリまで走査して
 		).toEqual([]);
 	});
 });
+
+// #4030 AC5 — 除外理由が「あることになっている」だけの状態を潰す。
+//
+// 本 allowlist は `reason` を持つが、**value を読む assertion が無く空文字でも通っていた**。
+// 理由なしの除外は、次に読む人が「意図的な例外」と「消し忘れ」を区別できない。
+//
+// 判定ロジックは `exclusion-reason-nonempty.test.ts` の `findReasonDefect` と同型
+// (空 / 定型 stub / 極端な短文を弾く)。**import しないのは、test file 同士を import すると
+// describe が二重実行されるため** (データを持つ file が自分で守る、#4030 class B)。
+const REASON_STUBS = ['todo', 'tbd', 'n/a', 'na', '-', '未定', 'なし'];
+
+function reasonDefect(reason: unknown): string | null {
+	if (typeof reason !== 'string') return `文字列ではありません (${typeof reason})`;
+	const t = reason.trim();
+	if (t.length === 0) return '空です';
+	if (REASON_STUBS.includes(t.toLowerCase())) return `定型 stub です (「${t}」)`;
+	if (t.length < 8) return `短すぎます (${t.length} 字: 「${t}」)`;
+	return null;
+}
+
+describe('#4030 AC5 MUTATION_ALLOWLIST の除外理由が実質空でない', () => {
+	it('全 entry が理由を持つ', () => {
+		const entries = MUTATION_ALLOWLIST;
+		// 母数が空なら「違反 0」ではなく「検査していない」(#4084 と同じ形)
+		expect(entries.length, '母数が空です').toBeGreaterThan(0);
+
+		const defects = entries
+			.map((e) => {
+				const d = reasonDefect(e.reason);
+				return d ? `${e.file} / ${e.table}: ${d}` : null;
+			})
+			.filter((v): v is string => v !== null);
+
+		expect(defects, '除外理由が実質空です。**なぜ例外なのか**を書いてください').toEqual([]);
+	});
+});

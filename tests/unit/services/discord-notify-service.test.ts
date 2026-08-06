@@ -117,33 +117,34 @@ describe('discord-notify-service', () => {
 	});
 
 	describe('notifyInquiry', () => {
-		it('問い合わせ通知を送信する', async () => {
-			await notifyInquiry(
-				'tenant-123',
-				'bug',
-				'ログインできません',
-				'user@test.com',
-				'reply@test.com',
-			);
+		// #4197: payload には受付番号 / カテゴリ / 本文だけを載せる (tenantId / email は載せない)。
+		// 「誰から」は受付番号を鍵に inquiries 表 (認証された場所) で引く。
+		it('受付番号とカテゴリを載せ、tenantId / メールアドレスは載せない', async () => {
+			await notifyInquiry('bug', 'ログインできません', 'INQ-20260805-001');
 
 			const body = getLastBody();
-			expect(body.embeds[0].title).toBe('📬 バグ報告');
+			expect(body.embeds[0].title).toBe('📬 バグ報告 (INQ-20260805-001)');
 			expect(body.embeds[0].description).toBe('ログインできません');
-			expect(body.embeds[0].fields).toEqual(
+			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
+			expect(fields).toEqual(
 				expect.arrayContaining([
-					expect.objectContaining({ name: '返信先', value: 'reply@test.com' }),
+					expect.objectContaining({ name: '受付番号', value: 'INQ-20260805-001' }),
+					expect.objectContaining({ name: 'カテゴリ', value: 'バグ報告' }),
 				]),
 			);
+			// 認証された場所で引く導線が載る (受付番号が照会の鍵)
+			const lookup = fields.find((f) => f.name === '送信者を見る')?.value ?? '';
+			expect(lookup).toContain('inquiries');
+			expect(lookup).toContain('INQ-20260805-001');
+			// 撤去された field は復活していない
+			expect(fields.map((f) => f.name)).not.toContain('テナント');
+			expect(fields.map((f) => f.name)).not.toContain('送信者');
+			expect(fields.map((f) => f.name)).not.toContain('返信先');
 		});
 
-		// #3211: ユーザー自由記述の mention 構文中和 (PII 自由記述の webhook 素通り抑止 + 誤 ping 防止)
+		// #3211: ユーザー自由記述の mention 構文中和 (誤 ping 防止)
 		it('本文の @everyone / @here / role mention を中和して embed に載せる', async () => {
-			await notifyInquiry(
-				'tenant-1',
-				'other',
-				'緊急 @everyone @here <@&999> 見てください',
-				'user@test.com',
-			);
+			await notifyInquiry('other', '緊急 @everyone @here <@&999> 見てください');
 			const body = getLastBody();
 			const desc = body.embeds[0].description as string;
 			// 可視内容は保持しつつ mention 構文を壊す (素の @everyone / role mention は残らない)
@@ -152,17 +153,6 @@ describe('discord-notify-service', () => {
 			expect(desc).not.toMatch(/<@&999>/);
 			expect(desc).toContain('everyone'); // zero-width space 挿入で文字自体は保持
 			expect(desc).toContain('見てください');
-		});
-
-		it('#3388: email/返信先は zero-width space 中和せず原文のまま (foo@here.com 破損回帰の防止)', async () => {
-			await notifyInquiry('tenant-1', 'other', '本文', 'parent@here.com', 'reply@everyone.org');
-			const body = getLastBody();
-			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
-			const sender = fields.find((f) => f.name === '送信者')?.value;
-			const reply = fields.find((f) => f.name === '返信先')?.value;
-			// zero-width space が混入せず原文一致 (コピペ返信が壊れない)。ping は allowed_mentions で無効化済。
-			expect(sender).toBe('parent@here.com');
-			expect(reply).toBe('reply@everyone.org');
 		});
 	});
 

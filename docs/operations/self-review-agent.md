@@ -2,10 +2,10 @@
 
 | 項目 | 内容 |
 |---|---|
-| 目的 | PR Ready 化前の Dev 側 self-review。QA team 5 手順を先取り自己実行し、同種指摘を未然に検知 |
+| 目的 | PR Ready 化前の Dev 側 self-review。QM team 5 手順を先取り自己実行し、同種指摘を未然に検知 |
 | 位置付け | Dev session の 1 step (Ready 化前必須 step、条件付き) |
 | 権限 | merge / approve なし。Dev 内部判定で BLOCK 一覧 / OK 評価 |
-| 参照 | `docs/sessions/qa-session.md` 5 手順 / `docs/sessions/qa-checklist-ui-quality.md` 10 項目 |
+| 参照 | `docs/sessions/qm-session.md` 5 手順 / `docs/sessions/qm-checklist-ui-quality.md` 10 項目 |
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## §2 レビュー観点
 
-### §2.1 qa-session.md 5 手順
+### §2.1 qm-session.md 5 手順
 
 | 手順 | 内容 | 実施方法 |
 |---|---|---|
@@ -38,7 +38,7 @@
 | 2 | **テスト十分性** | 新規 service / component に対応 test、E2E 動線 cover、skip count 増加 0 | `tests/` grep + skip count diff |
 | 3 | **UI SS 期待 UX** | SS で期待動線が実現 | screenshots branch + Storybook |
 | 4 | **Storybook 適合** | 新 primitive の `*.stories.svelte` 存在、autodocs、test:storybook PASS | `npm run test:storybook` |
-| 5 | **過去 QA 指摘事前回避 (7 件)** | ADR 番号衝突 / ADR deprecation chain / copilot-instructions 同期 / todo trap / label / SS / discriminated union | 各観点の検証は `docs/sessions/qa-session.md` Tier 2 手順 5 と `docs/decisions/README.md` (ADR インベントリ + supersede 関係) を参照 |
+| 5 | **過去 QA 指摘事前回避 (7 件)** | ADR 番号衝突 / ADR deprecation chain / copilot-instructions 同期 / todo trap / label / SS / discriminated union | 各観点の検証は `docs/sessions/qm-session.md` Tier 2 手順 5 と `docs/decisions/README.md` (ADR インベントリ + supersede 関係) を参照 |
 | 6 | **docs SSOT 原則 (#2440)** | docs 本体に変更履歴 / supersede / 経緯メタ 0 件 | `grep -rE "supersede\|以前は\|⚠ .*覆\|変更履歴" docs/<新ファイル>` |
 | 7 | **SOLID 違反** | DIP (ORM 直呼び) / SRP (1 関数全責) / ISP (巨大 interface) | コードレビュー (Read tool) |
 | 8 | **場当たり対応** | hex 直書き / `<button>` 直書き / labels ハードコード | `stylelint` / `check-no-plan-literals.mjs` / `check-hardcoded-strings.mjs` |
@@ -54,7 +54,7 @@
 
 ### §2.3 UI/UX 品質 10 項目
 
-UI 変更 PR では必ず実行。詳細は `docs/sessions/qa-checklist-ui-quality.md` 参照。
+UI 変更 PR では必ず実行。詳細は `docs/sessions/qm-checklist-ui-quality.md` 参照。
 
 ### §2.4 Self-Review HONESTY（false PASS 主張の禁止、Issue #2475）
 
@@ -72,7 +72,7 @@ Dev Self-Review で「PASS」と自己宣言したが QM Re-Review で実態 FAI
 
 **test count の自己宣言が stale にならないよう注意**: facade / strategy rewrite 後に「X PASS / Y FAIL」と書く時は、rewrite 後の実 capture コマンド（`npx vitest run > tmp/vitest-full-output.txt 2>&1`）で取り直す。pre-rewrite の数字をそのまま流用しない（#2475 7 件目再発の原因）。
 
-verdict table には「false PASS 主張ゼロを目視確認済」を明記する。QA team が merge 前に加えた fix の頻出パターンは [../sessions/dev-process/qa-fix-patterns.md](../sessions/dev-process/qa-fix-patterns.md) を参照し、事前回避する。
+verdict table には「false PASS 主張ゼロを目視確認済」を明記する。QM team が merge 前に加えた fix の頻出パターンは [../sessions/dev-process/qm-fix-patterns.md](../sessions/dev-process/qm-fix-patterns.md) を参照し、事前回避する。
 
 ### §2.4-2 機械 gate 対応表 + 観点一括 CLI 不採用判断（#2815 D-2）
 
@@ -103,19 +103,19 @@ verdict table には「false PASS 主張ゼロを目視確認済」を明記す�
 ```
 ## Task: Self-Review of PR #<PR> (Dev Inner Critic)
 
-QA team review 前段階として、`docs/operations/self-review-agent.md` §2 観点 (qa-session.md 5 手順 + 自由追加 17 項目) を **自己批判的に** 自己実行する。BLOCK 一覧 / OK 評価を内部判定で出力 (merge / approve コマンドは実行しない)。
+QM team review 前段階として、`docs/operations/self-review-agent.md` §2 観点 (qm-session.md 5 手順 + 自由追加 17 項目) を **自己批判的に** 自己実行する。BLOCK 一覧 / OK 評価を内部判定で出力 (merge / approve コマンドは実行しない)。
 
 ### 必読 input docs
 
 1. `docs/operations/self-review-agent.md` (本運用 SSOT)
-2. `docs/sessions/qa-session.md` (QA team 5 手順)
-3. `docs/sessions/qa-checklist-ui-quality.md` (UI/UX 10 項目)
+2. `docs/sessions/qm-session.md` (QM team 5 手順)
+3. `docs/sessions/qm-checklist-ui-quality.md` (UI/UX 10 項目)
 4. `<scope-docs>` (PR 設計憲法 = Dev policy synthesis)
 5. `docs/decisions/README.md` (ADR インベントリ + supersede 関係 — 過去 QA 指摘 7 件の構造的背景)
 
 ### 手順
 
-§2.1 qa-session.md 5 手順 + §2.2 Self-Review 固有 17 項目 を順次実施。各項目の PASS / FAIL を判定し、FAIL 時は具体的修正方針を BLOCK 一覧に記録。
+§2.1 qm-session.md 5 手順 + §2.2 Self-Review 固有 17 項目 を順次実施。各項目の PASS / FAIL を判定し、FAIL 時は具体的修正方針を BLOCK 一覧に記録。
 
 ### 報告フォーマット
 
@@ -170,7 +170,7 @@ QA team review 前段階として、`docs/operations/self-review-agent.md` §2 �
 
 - merge / approve コマンドは実行しない (権限なし)
 - BLOCK 発見時は Dev 側で fix → 再 spawn (反復可)
-- Self-Review approve = QA team へ渡す準備完了の判定
+- Self-Review approve = QM team へ渡す準備完了の判定
 - 1 Agent = 1 PR
 - 700 行以内で報告
 ```
@@ -182,13 +182,13 @@ QA team review 前段階として、`docs/operations/self-review-agent.md` §2 �
 | BLOCK 件数 | 対応 |
 |---|---|
 | 1-3 件 | Dev session 主体が直接 fix → 再 spawn |
-| 4+ 件 | Fix Agent spawn → 再 spawn (Fix Agent prompt は `docs/sessions/qa-session.md` 参照) |
+| 4+ 件 | Fix Agent spawn → 再 spawn (Fix Agent prompt は `docs/sessions/qm-session.md` 参照) |
 
 ---
 
 ## §5 失敗からの学習
 
-Self-Review が approve したが QA team が BLOCK した場合:
+Self-Review が approve したが QM team が BLOCK した場合:
 - 該当 BLOCK 種類を本 docs §2.2 観点表に追加 (PR で本ファイルを更新)
 - 横断ポリシー化が必要な場合は ADR 起票 (`docs/decisions/README.md` 10 枠 + 1-in-1-out ルール参照)
 - 次回以降の Self-Review で同種検知
@@ -197,7 +197,7 @@ Self-Review が approve したが QA team が BLOCK した場合:
 
 ## §6 観点根拠 evidence base
 
-本 SSOT §2.2 17 観点 / §1 必須化条件 / §4 BLOCK 対応の設計根拠となる、Dev / QA 同種指摘の連続再発事例:
+本 SSOT §2.2 17 観点 / §1 必須化条件 / §4 BLOCK 対応の設計根拠となる、Dev / QM 同種指摘の連続再発事例:
 
 | Issue / PR | 再発カテゴリ | §2.2 該当観点 |
 |---|---|---|

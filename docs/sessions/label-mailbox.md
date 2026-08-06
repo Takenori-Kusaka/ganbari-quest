@@ -2,7 +2,7 @@
 
 > **このファイルの位置づけ**: PO / Dev / QM / 監査の各セッションが、**人間の中継なしに「次に自分が動くもの」を GitHub から拾う**ための仕組みの SSOT。label の語彙・意味・誰が付けるか・各ロールが何を polling するか・cron の作り方を定める。
 >
-> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qa-session.md](qa-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
+> **関連**: [po-session.md](po-session.md) / [dev-session.md](dev-session.md) / [qm-session.md](qm-session.md) / [audit-team.md](audit-team.md) / [branch-strategy.md](branch-strategy.md) ｜ **関連 ADR**: ADR-0022（作成者 ≠ 承認者）/ ADR-0056（役割分離）
 
 ---
 
@@ -44,7 +44,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 |---|---|---|---|
 | `state:needs-dev` | **Dev に用がある** | 誰でも | **Dev** |
 | `state:needs-qm` | **QM に用がある**（レビュー依頼に限らない。問い合わせ / 見解確認を含む） | 誰でも | **QM** |
-| `state:needs-po` | **PO に用がある**（不可逆 4 操作ではない判断 — 方針 / 優先度 / repo 設定 / 受容判断 / 語彙・ルールの改訂） | 誰でも | **PO** |
+| `state:needs-po` | **PO に用がある**。**PO が決めるのは 2 つだけ**（[README.md §0](README.md) ルール 4） — ①顧客に見える文言・UX・価格の方針 ②backlog の順序。**それ以外は付けない**（装置 / 実装方針 / 受容判断は Dev か QM が決める） | 誰でも | **PO** |
 | `state:needs-audit` | **監査チームに用がある**（release cut 依頼 / 仕様の問い合わせ / 見解確認） | 誰でも | **監査** |
 | `state:needs-platform` | **Platform に用がある**（装置の削減 / 統合 / 自動生成、[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | 誰でも | **Platform** |
 | `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = 削除 / 本番 deploy / 課金書込 / スキーマ変更を含む） | 誰でも | **オーナー** |
@@ -64,7 +64,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 **`needs-qm` はこれらの前提を持たない汎用の宛先。完成していなくても送れる。**
 
 - `state:needs-po` / `state:needs-owner` は**誰が気づいても付けてよい**。Dev が実装中に気づいた場合も付ける
-- **判断を仰ぐときは必ずどちらかを付ける。** 「不可逆 4 操作に当たらないから `needs-owner` は付けない」で終わらせない — それは判断が要らないという意味ではない。**`needs-po` がその受け皿**
+- **不可逆 4 操作は必ず `needs-owner`。** それ以外で PO に上げてよいのは上記 2 種だけで、**残りは自分たちで決める**（判断を PO に押し付けない）
 
 > **§3.1 の欠落で実際に起きたこと（2026-07-31）**: Dev が「ruleset 変更」「node バージョン EBADENGINE」の 2 件を PO 判断待ちとして Issue コメント / PR body に書いたが、**不可逆 4 操作に当たらないため label を付けなかった**。PO はコメントを polling していないため、**どちらも PO の mailbox に入らなかった**。`#4144` の Q1/Q2 が PO に届いたのは、QM が「`po-decision:required` の決裁が GitHub 上に存在しない」として merge を保留したからで、通知経路が機能した結果ではない。
 
@@ -87,7 +87,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 | `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
 | `state:needs-platform` | Platform | 装置の削減 / 生成が完了し CI 全緑 | **`state:dev-done`**（QM レビューへ。**自分の PR を自分で approve しない** — ADR-0022） |
 | `state:needs-platform` | Platform | **削除**（gate / guard / test）が必要と分かった | **`state:needs-owner`**（不可逆 4 操作） |
-| `state:needs-platform` | Platform | gate を**残すか消すか**の方針判断が要る | **`state:needs-po`**（[README.md §4.5](README.md#45-装置開発基盤に関する決定)） |
+| `state:needs-platform` | — | **🔒 凍結中**（§0 ルール 1）。既存分は `status:on-hold`、新規は付けない | — |
 | **`state:needs-qm`** | **QM** | **回答をコメントに残した** | **問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`） |
 | **`state:needs-qm`** | **QM** | **レビュー依頼だと判明した**（実装が完了している） | **`state:dev-done`** に読み替える |
 | **`state:needs-qm`** | **QM** | **不可逆 4 操作が絡むと分かった** | **`state:needs-owner`** |

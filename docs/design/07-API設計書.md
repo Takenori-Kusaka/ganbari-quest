@@ -1237,11 +1237,16 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 Stripe Checkout セッションを作成し、リダイレクト URL を返す。
 
 - **認可**: `requireRole(locals, ['owner', 'parent'])`（child → 403）
-- **リクエスト**: FormData `planId: 'monthly' | 'yearly' | 'family-monthly' | 'family-yearly'`
-- **成功レスポンス**: Stripe Checkout URL へリダイレクト
-- **`success_url`**: `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
-- **`cancel_url`**: `${origin}/pricing`
+- **リクエスト**: JSON `{ planId: 'monthly' | 'family-monthly', returnPath?: string }`（月額 2 種のみ。年額は新規購入の対象外。`returnPath` は相対パス（`/` 始まり）のみ許可し、それ以外は `/admin` に丸める）
+- **成功レスポンス**: `{ url }`（Stripe Checkout URL。呼び出し側が遷移する）
+- **`success_url`**: `returnPath` 指定時は `${origin}${returnPath}` + `session_id={CHECKOUT_SESSION_ID}`、未指定時は `${origin}/admin/subscription?session_id={CHECKOUT_SESSION_ID}`
+- **`cancel_url`**: `returnPath` 指定時は `${origin}${returnPath}`、未指定時は `${origin}/pricing`
 - **完了時の処理**: webhook `checkout.session.completed` → `handleCheckoutCompleted` でテナント plan を更新する
+- **Price の解決 (#4286)**: `planId` → Price ID は **`getPriceId()`（`src/lib/server/stripe/config.ts`）単一経路**で解決する。`USE_LOOKUP_KEY=true` なら lookup_key（`standard_monthly` / `premium_monthly`）で解決し、解決に失敗したときだけ env var（`STRIPE_PRICE_STANDARD_MONTHLY` / `STRIPE_PRICE_FAMILY_MONTHLY`）へ fallback して alert を上げる。`false`（既定）なら env var 直読。**flag と env は両方効く** — flag が true でも env が設定されていれば lookup_key 失敗時の kill switch として機能し、env が無い配備でも lookup_key だけで購入が成立する。双方から解決できない場合のみ `PRICE_UNRESOLVED`
+- **`USE_LOOKUP_KEY=true` でも price env を外さない**: env は lookup_key 解決が失敗したときの kill switch であり、外すと Stripe API 障害 / Price archive の瞬間に購入が 503 になる。env を落としてよいのは lookup_key 移行 Step 4（旧 Price archive、[phase6-context-decisions-6.md §4.1](billing-redesign/phase6-context-decisions-6.md)）に到達した時点
+- **`getPlans().priceId`（env var 直読）を line_item に使わない**: 直読すると `USE_LOOKUP_KEY` がどの経路にも効かず、price env を注入しない配備で購入が必ず失敗する。`tests/unit/architecture/stripe-price-resolution-single-entrypoint.test.ts` が呼び出し構造を固定する
+- **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
+  - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
 
 #### POST /api/stripe/portal
 
@@ -1253,6 +1258,12 @@ Stripe カスタマーポータルの URL を作成し、ユーザーをリダ�
   - `pinConfigured = false` のテナント: 確認フレーズ「`プランを変更します`」入力
   - 失敗時のエラーコード: `PIN_REQUIRED` (401) / `INVALID_PIN` (401) / `LOCKED_OUT` (423) / `CONFIRM_PHRASE_REQUIRED` (401)
 - **`return_url`**: `${origin}/admin/subscription`
+- **リクエストボディ `intent`（#4166 / #4270）**: `plan-change` | `plan-upgrade` | `billing-history`。
+  portal の着地を決める。**allowlist で検証**し、外れた値・未指定は安全側（`plan-change` = portal ホーム）に倒し、
+  拒否した事実だけを記録する（**顧客識別子はログに載せない**）。`plan-upgrade` のときだけ `flow_data`
+  （`subscription_update`）でプラン変更画面へ直行させる
+- **成功レスポンス**: `{ url, flowFallback }`。`flowFallback=true` は **flow を Stripe が受け付けず portal ホームで
+  作り直した**ことを表す。画面は自動遷移せず、次の操作を示す通知を出す（`plan-change-flow.md` §3.2.2）
 - **Customer Portal で実行可能な操作（Stripe ダッシュボード設定で有効化済）**:
   - プラン変更（standard ↔ family、月額 ↔ 年額）
   - 解約（次回更新日まで利用可能）

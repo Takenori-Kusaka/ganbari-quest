@@ -178,7 +178,7 @@ Phase 5 子 1 §3.4 で確定した lookup_key 経由参照を、Stripe 公式 [
 |---|---|---|---|
 | **1. caching layer 設計** | `stripeCache.getPriceByLookupKey(key)` 関数を新設、Stripe API 呼び出し結果を in-memory cache (TTL: 5 min) | — | 1 PR (~1 day、Phase 7 Step 3 内部) |
 | **2. 並行運用** (旧 env var + 新 lookup_key 両解決) | `USE_LOOKUP_KEY=false` で env var fallback、`true` で lookup_key 優先解決 (失敗時 env var fallback) | `USE_LOOKUP_KEY=false` (デフォルト) | 1-2 weeks |
-| **3. cutover** (新 lookup_key 直読) | `USE_LOOKUP_KEY=true` に切替、env var fallback は kill switch として残存 | `USE_LOOKUP_KEY=true` | cutover 1 日 + 1 週間 smoke test |
+| **3. cutover** (新 lookup_key 直読) | `USE_LOOKUP_KEY=true` に切替、env var fallback は kill switch として残存。**Price ID を必要とする経路 (checkout の line_item) は必ず `getPriceId()` を通す** — flag を立てても経路が `getPlans().priceId` (env var 直読) のままでは flag がどこにも効かず、price env を持たない配備で購入が失敗する (#4286) | `USE_LOOKUP_KEY=true` | cutover 1 日 + 1 週間 smoke test |
 | **4. 旧 Price archive** (active=false) | Stripe Dashboard #2627 領域 G で旧 4 Price archive、env var (`STRIPE_PRICE_*` 4 件) を CDK / Lambda env / GitHub Secrets から削除 | — | Phase 7 統合 PR Step 5 (子 1 SSOT) |
 
 ### 4.2 caching layer 設計 (Step 1)

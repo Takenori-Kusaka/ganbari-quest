@@ -370,4 +370,38 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 			expect(overlap.map((e) => e.root)).toEqual([]);
 		});
 	});
+	// #4120: ratchet は「減ったら下げる」まで含めて初めて締まる。
+	// max を実数より高いまま放置すると、その差分だけ新規違反を黙って受け入れる予算になる
+	// (実測: date-utils.ts は max=20 / actual=5 で 15 件分の余白があった)。
+	describe('#4120 ratchet の余白 (slack) を検出する', () => {
+		it('max が実数を上回っていたら slack として報告する', () => {
+			const occurrences = [
+				{
+					file: 'src/lib/domain/date-utils.ts',
+					line: 1,
+					snippet: 'x',
+					kind: 'tz-dependent-member',
+				},
+			];
+			const violations = evaluateOccurrences(occurrences);
+			const slack = violations.find((v) => v.kind === 'slack');
+			expect(
+				slack,
+				'allowlist の max を実数が下回っているのに slack として報告されていません',
+			).toBeDefined();
+			expect(slack?.file).toBe('src/lib/domain/date-utils.ts');
+		});
+
+		it('max と実数が一致していれば違反にしない', () => {
+			const entry = ALLOWLIST.find((e) => e.file === 'src/lib/server/debug-plan.ts');
+			expect(entry, 'fixture 対象の allowlist entry が見つかりません').toBeDefined();
+			const occurrences = Array.from({ length: entry?.max ?? 0 }, (_, i) => ({
+				file: 'src/lib/server/debug-plan.ts',
+				line: i + 1,
+				snippet: 'x',
+				kind: 'tz-dependent-member',
+			}));
+			expect(evaluateOccurrences(occurrences)).toEqual([]);
+		});
+	});
 });

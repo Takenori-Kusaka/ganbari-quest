@@ -36,6 +36,7 @@ import { recordActivityDsql } from '$lib/server/services/activity-record-dsql';
 import { prepareActivityRecord } from '$lib/server/services/activity-record-preparation';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
+import { createOptionalWriteFailureHandler } from '$lib/server/services/optional-write-alert';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
 
 // Re-export for backward compatibility with existing callers.
@@ -328,8 +329,19 @@ export async function recordActivity(
 		if (isFirstToday) {
 			await issueMonthlyHabitCertificateIfEligible(childId, monthKeyJST(), tenantId);
 		}
-	} catch {
-		// 証明書発行失敗は記録フローを止めない
+	} catch (err) {
+		// 証明書発行失敗は記録フローを止めない。
+		//
+		// #4261: ただし**握りつぶさない**。このブロックは月間の習慣化証明書 (#4172) の発行を
+		// 含み、その中で `insertPointEntry` が**通貨 (ポイント / 思い出チケット) を発行する**。
+		// 無ログだと「チケットがもらえていない」という問い合わせに対し、付与を試みたのか
+		// 失敗したのかを後から判別できない。
+		//
+		// DSQL 経路 (activity-record-dsql.ts) は `runOptionalWrite` + 本 handler で既に
+		// 観測できていたため、sqlite 経路も**同じ handler を通す**(観測の形を 2 つ持たない)。
+		// tenantId / childId は CloudWatch Logs 側にだけ載る (Discord payload からは
+		// handler 内で落とされる、#4174 Q3 / #4192)。
+		createOptionalWriteFailureHandler({ childId, tenantId })('certificate', err);
 	}
 
 	// #1782: カスタム実績機能廃止（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）。
@@ -340,7 +352,8 @@ export async function recordActivity(
 	const customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
 
 	// #4172: 固定間隔自動ごほうび (活動 5 回ごとに `${n}かいきろく達成！` を棚へ INSERT + 50pt 発行) は撤去。
-	// 達成の表現は `value-preview-service.ts` の MILESTONES (records_1/5/10 等、報酬を発行しない通知) が担う。
+	// 達成の表現は `value-preview-service.ts` の MILESTONES (初回記録 + 連続日数、報酬を発行しない通知) が担う。
+	// #4268: その MILESTONES 側にも残っていた量ベース (5 回 / 10 回) の称賛は撤去済。褒める軸は日数。
 	// 撤去理由: 26-ゲーミフィケーション設計書 §2.4「唯一の出口はごほうびショップのみ」/ §2.1-2「親が褒める仕組み」
 	// (自動生成行は grantedBy=null で親が一度も関与しない) / §13 実績システム廃止 (#1782 の同型が残っていた)。
 

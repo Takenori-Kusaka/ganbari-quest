@@ -115,9 +115,9 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 | # | トリガ | 実装 | 書く内容 | 遷移 |
 |---|---|---|---|---|
 | W1 | `checkout.session.completed` | `stripe-service.ts` `handleCheckoutCompleted` | `sub` / `plan` / `status=active` / `trialUsedAt` | S1 → S2 |
-| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） | S3 → S2 / S2 → S2 |
+| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） + **`plan_expires_at=null`** | S3 → S2 / S2 → S2 |
 | W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2 → S3 |
-| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化） / 終端: W5 と同じ 4 列 | S2 ⇄ S3 / → S4 / → S5 |
+| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化）+ **`plan_expires_at`**（`active` 復帰 → `null` / `grace_period` 入りで未設定なら `now+7d` / それ以外は無変更。`planExpiresAtPatchFor()`） / 終端: W5 と同じ 4 列 | S2 ⇄ S3 / → S4 / → S5 |
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
 | W6 | アプリ内解約 | `tenant/cancel/+server.ts` | **書かない**（Stripe に `cancel_at_period_end=true` を予約するのみ、#3991） | S2 → S2（期末に W5 で S5 へ） |
 | W7 | 解約取り消し | `tenant/reactivate/+server.ts` | **書かない**（Stripe の `cancel_at_period_end=false`、#3991） | S2 → S2 |
@@ -161,7 +161,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 
 ---
 
-## 7. 表に無い状態を検出する手段（AC3 の決定）
+## 7. 表に無い状態を検出する手段（#3988 AC3 の決定）
 
 ### 決定: **ドメイン層の判定関数 + 定期監査**を採る。CHECK 制約は採らない
 
@@ -171,16 +171,15 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 | gate スクリプト | **不採用（単独では）** | 静的解析で「どの組み合わせが書かれるか」を導出するのは、`updateTenantStripe` の部分更新セマンティクス（`undefined` = 保持）があるため不可能に近い（「静的に読むと正しく見えるが効果が違う」形になる）。ただし「書き込み経路が単一関数を通ること」自体は静的に強制できる（`stripe-contract-write-single-enforcement.test.ts`、#4026） |
 | **判定関数 + 定期監査** | **採用** | 許容集合をドメイン層の SSOT にし、(a) 書き手の unit test が「書いた結果が許容集合に入る」ことを assert できる、(b) 運用側が本番行を突合できる、の両方に使える |
 
-### 実装方針（本 Issue のスコープ外、follow-up）
+### 実装（3 段のうち ①② が稼働、③ は未実装）
 
-本 Issue の AC3 は「**手段を決める**」であり実装は含まない。決定に基づく実装は以下の順で行う。
+| # | 手段 | 実体 |
+|---|---|---|
+| ① | 許容集合（S1-S6）と分類関数 | `src/lib/domain/contract-state.ts` の `classifyContractState()`（#4181）。表と実装の対応は `tests/unit/architecture/contract-state-matrix-ssot.test.ts` が機械照合する |
+| ② | webhook handler の書き込み後状態を分類して assert | `tests/unit/services/stripe-contract-state-classification.test.ts`（#4181）。X1-X4 に分類されたら fail する。**「意図と効果の乖離」はここで落ちる** |
+| ③ | 定期監査（`/ops` or cron）で本番行を分類し X1-X4 を報告 | **未実装（#4252）。** ①② は「これから書く行」しか見ないため、**既に不正な既存行は検出されない** |
 
-<!-- doc-code-refs: ignore-line -->
-1. ドメイン層（`src/lib/domain/` 配下、新規ファイル）に許容集合（S1-S6）と分類関数 `classifyContractState()` を置く
-2. 各 webhook handler の unit test で「handler 適用後の行が S1-S6 のいずれかに分類される」ことを assert する。**「意図と効果の乖離」はこの assert で落ちる**（#3982 / #4026 の契約テストが先例）
-3. 定期監査（`/ops` or cron）で本番行を分類し、X1-X4 に該当する行を報告する
-
-**先に #3991 / #3993 を入れる。** X1 を作る書き手は #3982 / #4026 で塞いだが、X3 を作る書き手が現役なので、判定関数を先に入れると本番で恒常的に不正を報告し続ける（狼少年になる）。
+**③ は #3993 の後に入れる。** X3 を作る書き手が現役のうちに監査を回すと、本番で恒常的に不正を報告し続ける（狼少年になる）。
 
 ---
 
@@ -192,6 +191,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 
 ## 8. 関連
 
+- #4181（§7 ①② の実装）/ #4252（§7 ③ 定期監査、未実装）
 - #3982 / #4026（W5 の終端 4 列 + 単一強制点）/ #3982（D4）/ #3986 → #3991（D2）/ #3987（D3）/ **#3993 critical（D5）**
 - `phase1-cancellation-requirements.md` FR-1 / NFR-2（期末解約）
 - `phase1-dunning-requirements.md` FR-1 / NFR-3 / US-1 / US-4（支払い失敗で子供の体験を止めない）

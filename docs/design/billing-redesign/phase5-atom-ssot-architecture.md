@@ -30,7 +30,7 @@ Phase 3+4 docs (#2567 / #2571 / #2572 / #2573 / #2574 / #2575 / #2621 / #2623 / 
 
 - **atom 1 行修正で 95 件伝播の原則 (Phase 1 補強 2 NFR-1 + ADR-0045 §3.3) が崩壊**: 配置確定なしのまま Phase 7 実装に入ると、Phase 7 PR で「atom を terms.ts のどこに置くか」議論が発生し、各 PR が独自に判断 → SSOT 1 段集約が壊れる
 - **`PLAN_CHANGE_TERMS` 衝突未解消で Phase 7 実装 PR が hard conflict**: #2574 と #2575 が別々の PR で `PLAN_CHANGE_TERMS` を terms.ts に追加すると、片方マージ → もう片方 conflict 連鎖
-- **Phase 7 一括 rename PR (`LICENSE_PAGE_LABELS` → `SUBSCRIPTION_PAGE_LABELS`、95 件) が atom 追加 PR と衝突**: 追加 PR と rename PR が並列 → 同一 namespace で hard conflict、QA 工数浪費
+- **Phase 7 一括 rename PR (`LICENSE_PAGE_LABELS` → `SUBSCRIPTION_PAGE_LABELS`、95 件) が atom 追加 PR と衝突**: 追加 PR と rename PR が並列 → 同一 namespace で hard conflict、QM 工数浪費
 
 ### 1.2 PO 期待 (Phase 1 補強 2 NFR-1 + ADR-0045 整合)
 

@@ -6,6 +6,10 @@
 
 import { fail, redirect } from '@sveltejs/kit';
 import {
+	PORTAL_FALLBACK_CONTEXT,
+	PORTAL_FALLBACK_PARAM,
+} from '$lib/domain/constants/stripe-portal';
+import {
 	CANCELLATION_CATEGORIES,
 	CANCELLATION_CATEGORY,
 	CANCELLATION_LABELS,
@@ -81,8 +85,23 @@ export const actions: Actions = {
 		// 課金プランかつ Stripe Customer がある場合 → Customer Portal にリダイレクト
 		if (license?.stripeCustomerId && isStripeEnabled()) {
 			const returnUrl = new URL('/admin/subscription', url).toString();
-			const portalResult = await createPortalSession(tenantId, returnUrl);
+			// #4166 AC4: 解約理由フォームを埋めきった顧客を portal ホームに放り出さない。
+			// ホームからは自分で「サブスクリプションをキャンセル」を探すことになり、
+			// 特商法の解約導線の実効性に接続する。解約フローへ直行させる。
+			const portalResult = await createPortalSession(tenantId, returnUrl, {
+				kind: 'subscription_cancel',
+			});
 			if ('url' in portalResult) {
+				// #4270: 解約フローが Stripe に拒否されて portal ホームに倒れた場合、そのまま
+				// 飛ばすと「解約理由を書き終えた直後に予期しない画面へ落ちる」体験になる
+				// (直行を期待させた分だけ落差が大きい)。原因は顧客に説明せず (ADR-0062)、
+				// 解約手続きを続ける場所を示せる自画面へ戻す。
+				if (portalResult.flowFallback) {
+					throw redirect(
+						303,
+						`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`,
+					);
+				}
 				throw redirect(303, portalResult.url);
 			}
 			// Portal 作成失敗時は success ページに留めて手動完了を促す

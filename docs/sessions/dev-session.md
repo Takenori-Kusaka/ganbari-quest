@@ -4,7 +4,9 @@
 >
 > **PR 起票**: [Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md)（PR body 雛形 + Issue 自動穴埋め、#1863）
 >
-> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
+> **最初に読む**: [チーム憲章 §0 現在の運用モード](README.md)。**§0 は他のすべてに優先します**（装置は凍結 / QM は自分で直して merge する / AC は目安）。
+>
+> **SSOT**: [チーム憲章](README.md)（ロール境界・決定権）/ ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0030（pre-ready CLI）
 >
 > **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
@@ -22,15 +24,20 @@ Dev が拾うのは **`state:needs-dev`**（PO / QM が着手を渡したもの�
 
 **完成していなくても QM に送れる。** 実装の途中で観点を相談したい / `state:qm-blocked` の BLOCK 事由の意図を確認したい ときは **`state:needs-qm`**（#4180）。`dev-done` は「実装完了・CI 全緑・Ready 化済」を含意するので、**完成していないのに付けてはいけない**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない）。
 
-- **BLOCK 事由は 3 類型のいずれか**（顧客に実害 / 証跡の真正性を弱める / 不可逆）。**症状ではなく事由に対処する** — 「テストが落ちている」は症状であって事由ではない（`#4134` は「commit の主張が HEAD に存在しない」= 証跡の真正性が事由で、落ちた 4 テストはその症状だった）
-- **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えてくれている場合、テストを消すと次は誰も気づけない
-- **reviewer request は QM の Fix Agent が作った gate 修理 PR の可能性が高い**（gate 欠陥で Dev が PR を出せない場合の例外運用）。作成者 ≠ 承認者の分離を保つため Dev が approve する。**実 diff を読んでから approve する**
-- **判断を仰ぐときは必ず label を付ける。** 不可逆 4 操作（削除 = gate / guard / test の削除を含む / 本番 deploy / 課金書込 / スキーマ変更）→ **`state:needs-owner`**。それ以外の PO 判断（方針 / 優先度 / **repo 設定・ruleset** / 受容判断 / 語彙・ルールの改訂）→ **`state:needs-po`**。「4 操作に当たらないから label を付けない」で終わらせない
-- **`@mention` / Issue コメント / PR body に書いただけでは PO の受信箱に入らない**（label-mailbox.md §3.1.1）。各ロールは label を polling しており本文を読みに行かない。**書いたかどうかではなく、相手の polling クエリに出るかどうかが伝達の成否を決める**（2026-07-31: Dev の判断待ち 2 件が PO に届かず、うち 1 件は PR merge で流れた）
-- **`state:*` を外すときは必ず次の state を付ける。** どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える
-- **差し戻しに対応し終えたら `state:qm-blocked` を外して `state:dev-done` に戻す**（label-mailbox.md §3.1.1 遷移表の復路）。戻さないと QM の受信箱に現れず、**対応済みであることが誰にも伝わらない**（PR #4149 で実発生。オーナーが手で伝えるまで停止した）
-- **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込み、そうでなければ拾ったことだけ報告して主線に戻る
-- **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効 / REPL idle 時のみ発火）。次のセッションでもう一度作る
+**QM から返ってくるのは 2 つだけです**（§0 ルール 6）。**PR body の不備・AC の書き方・軽微な test / lint は QM が自分で埋めて merge します。差し戻しを待たないでください。**
+
+| 返ってくるもの | 対処 |
+|---|---|
+| **実装方針の変更を伴うもの** | 方針を直す。書き方の直しではない |
+| **BLOCK 3 類型**（顧客に実害 / 証跡の真正性 / 不可逆） | **症状ではなく事由に対処する**。「テストが落ちている」は症状（#4134 の事由は「commit の主張が HEAD に存在しない」= 証跡の真正性で、落ちた 4 テストはその症状だった） |
+
+- **テストの削除 / skip / assertion 弱体化で赤を消さない**（ADR-0006）。落ちたテストが実装不在を教えている場合、消すと次は誰も気づけない
+- **判断を仰ぐときは必ず label を付ける。** 不可逆 4 操作（本番データ削除 / 本番 deploy / 課金書込 / スキーマ変更）→ **`state:needs-owner`**。顧客に見える文言・UX・価格の方針 / backlog 順序 → **`state:needs-po`**（それ以外を PO に上げない、§0 ルール 4）。**装置の Issue は起票しない**（§0 ルール 1）
+- **`@mention` / コメント / PR body に書いただけでは相手の受信箱に入らない。** 各ロールは label を polling する。**書いたかどうかではなく、相手のクエリに出るかどうかが伝達の成否を決める**
+- **`state:*` を外すときは必ず次の state を付ける。** どれも付かないと全受信箱から消え、「mailbox 空」と滞留が報告上まったく同じに見える
+- **差し戻し対応が終わったら `state:qm-blocked` → `state:dev-done` に戻す**（復路。戻さないと QM の受信箱に現れない）
+- **cron の結果で主線を中断しない。** 数分で終わるものだけ差し込む
+- **CronCreate はセッション内メモリのみ**（終了で消滅 / 7 日で失効）。次のセッションで作り直す
 
 ### Agent Teams（1 ロール内の並列化）
 
@@ -92,7 +99,7 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 
 | agent | `model:` | 根拠 |
 |---|---|---|
-| `po-session` / `qa-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
+| `po-session` / `qm-session` / `platform-session` | `sonnet` | 出力の主体が文章（Issue / レビュー所見 / 手順書）で、失敗しても PR が落ちるだけ。**やり直しが安い** |
 | `audit-manager` | 未指定（= Opus） | 統合 PR の approve / merge 判定と Issue 起票という**不可逆 side-effect** を専権で持つ（`docs/sessions/audit-team.md`）。判断を誤ったときの巻き戻しが高い |
 | `dev-session` | 未指定（= Opus） | 「CI / pre-hook を自己解決できる能力が Sonnet に無い」— **ただしこの結論は Sonnet 4.5 時点のもので、以後再検証していない**（下記） |
 
@@ -151,7 +158,7 @@ pending 付き Issue を自律開始しない。`Blocked by` に pending Issue �
 
 ## ミッション
 
-PO セッションが定めた AC を全て満たし、スクラップ&ビルドを前提としたあるべき姿に。QA セッションが一発 Approve できる品質を目指す。
+PO セッションが定めた AC を全て満たし、スクラップ&ビルドを前提としたあるべき姿に。QM セッションが一発 Approve できる品質を目指す。
 
 ## PR 作業時の手順
 
@@ -171,7 +178,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    ```bash
    node scripts/check-gh-account-before-pr.mjs  # active が Takenori-Kusaka 以外なら exit 1
    ```
-   PR 作成は **必ず Takenori-Kusaka**。`ganbariquestsupport-lab` は QA approve / merge 専用
+   PR 作成は **必ず Takenori-Kusaka**。`ganbariquestsupport-lab` は QM approve / merge 専用
 7. PR body 雛形生成 → Draft PR 作成（`--body-file` 必須 [Skill: issue-triage SSOT](../../.claude/skills/issue-triage/SKILL.md) §「`--body-file` 運用」）:
    ```bash
    # 雛形生成（[Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md), #1863）
@@ -195,21 +202,13 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 4. 同じブランチから `gh pr create --draft ...` で再起票（既存 commit 履歴は再利用、新ブランチ不要）
 5. 旧 PR (closed) は 違反コメント保全のため reopen / 削除しない (ADR-0022 監査証跡)
 
-### QA 指摘の再発防止台帳（CRITICAL — #3962、PO 指示 2026-07-26）
+### 過去に 2 度以上受けた指摘（着手時に読む）
 
-**同じ class の QA 指摘を 2 度受けたら、その時点で instance 修正ではなく機械 gate 化する。** 記憶と注意力に依存した再発防止は必ず破れる（ADR-0061 same-class-N→guard）。
+**装置は凍結中なので、新しい gate は作りません**（§0 ルール 1）。以下は既存の防御と、自分で気をつける観点です。
 
-以下は実際に 2 回以上受けた指摘。**1 は `npm run pre-ready` で機械検出されるため暗記不要。2〜3 は着手時に読む**。
-
-| # | 指摘 class | 発生 PR | 現在の防御 |
-|---|-----------|---------|-----------|
-| 1 | `po-decision:required` label 付きなのに PO 決裁ブリーフが PR body にない | #3944 / #3956 | **機械 gate**: `scripts/check-pr-body.mjs` の `checkPoDecisionBrief`（pre-ready Readiness gate step に内蔵）。見出し欠落 / mermaid 欠落 / 未置換 `___` を fail させる |
-| 2 | 構造化識別子を `startsWith` / `endsWith` の緩い一致で判定した | #3956 / #3978 | **機械 gate**: `scripts/check-readdir-rotation-guard.mjs`（pre-ready Step 7e + CI `lint-and-test`）。`readdir` の緩い一致 × 近接する破壊的操作を検出。別 class なら `rotation-gate-ok: <理由>` で明示的に opt-out する + レビュー観点（下記） |
-| 3 | guard の fixture が「規則に従うデータ」だけで、規則から外れた実在物を含まない | #3956 | レビュー観点（下記） |
-
-**2 の観点 — 命名規則のあるファイル名・ID・key を判定するときは、prefix/suffix 一致ではなく正規表現の完全一致で書く。** 生成側にも同じパターンの assert を置き、命名変更時に silent に壊れないようにする。#3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた。
-
-**3 の観点 — guard を書いたら「その guard を外すと fail するか」を実行して証跡に貼る。** fixture には*規則に従わないが実在するもの*（手動退避ファイル、サブディレクトリ、旧命名の残骸）を実名で混ぜる。規則に従うデータだけを並べた fixture は、規則違反を検出できないことを検出できない。
+- **構造化識別子は prefix / suffix 一致ではなく正規表現の完全一致で判定する。** #3956 では `pglite-` prefix + `.tgz` suffix 一致にしたため、同居する手動スナップショット `pglite-snapshot-*.tgz` が「世代」として数えられ、実保持が 3 → 2 世代に減っていた（機械検出: `check-readdir-rotation-guard.mjs`）
+- **guard の fixture に「規則から外れた実在物」を混ぜる。** 手動退避ファイル / サブディレクトリ / 旧命名の残骸を実名で入れる。規則に従うデータだけの fixture は、**規則違反を検出できないことを検出できない**
+- **guard を書いたら「外すと fail するか」を実行して証跡に貼る**
 
 ## 新規実装時
 
@@ -232,7 +231,7 @@ server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即�
 - [ ] **(c) e2e seed / test-db を変更に同期** — schema / 値域 / 陳列を変えたら `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` を追従（共有 worker DB を汚染する spec は afterEach/afterAll で seed 状態へ復元、`tests/CLAUDE.md` #2851）
 - [ ] **(d) domain validation 値域 ⊆ wire(export) schema 値域の整合確認** — 直接 SQL seed 値も含め domain 値域が export schema 上限内に収まるか（直接 SQL は validation を迂回するため out-of-domain 値が round-trip で弾かれる、#3132 教訓）
 
-> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152) / [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151) / QA 人手 gate = [qa-session.md](qa-session.md) 手順 4（#3172）/ 本 Dev 着手時チェック（#3173）。発生源（着手時）で断つのが最も安い。
+> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152) / [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151) / QA 人手 gate = [qm-session.md](qm-session.md) 手順 4（#3172）/ 本 Dev 着手時チェック（#3173）。発生源（着手時）で断つのが最も安い。
 
 ## SS 撮影ガイド (#1424 / #1741 / #1747)
 
@@ -263,7 +262,7 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 - 4 スロット必須 (#1740): 修正前×Mobile/PC + 修正後×Mobile/PC
 - URL は **GitHub 上で表示できるもの** (#1741): user-attachments / screenshots branch raw URL / `docs/screenshots/` raw URL。`tmp/...` 相対パス禁止
 
-**撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qa-checklist-ui-quality.md` 参照。要点:
+**撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qm-checklist-ui-quality.md` 参照。要点:
 - DESIGN.md §9 禁忌 6 点（hex 直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超）
 - **UI 文言に「実装変更の自己言及」を書かない**（「設定をグループ別に整理しました」等）。ユーザーには現在の使い方・状態だけ伝え、整理 / 統合 / 移行の経緯は git・docs に置く。`check-internal-terms.mjs` の self-ref-change group が string リテラル（コメント除く）を検出（#3259）
 - 5 年齢モード fontScale / タップサイズ
@@ -284,7 +283,7 @@ UI 変更（`.svelte` / `.css` / `.scss` / `site/`）を含む PR は、**SS 撮
 
 - ラベルの短縮 / 表記揺れ統一 / 文字数増減 / 改行位置変更（`<br>` / `text-wrap`）/ アイコン・絵文字・句読点の置換 / 不可視属性付与（`aria-*` / `data-*`）
 
-QA Review Agent (`qa-session.md` 手順 2) が `gh pr diff` で同種変更を検出し、PR 本文の明記と整合するか照合する。
+QM Review Agent (`qm-session.md` 手順 2) が `gh pr diff` で同種変更を検出し、PR 本文の明記と整合するか照合する。
 
 ## hotfix PR runbook（CRITICAL — #2343）
 
@@ -433,41 +432,17 @@ UI/UX 指摘（PR レビュー / CI fail / PO 実機 / 外部品質監査）を�
 - 適用ツール方針: VRT = pixelmatch（ADR-0053）/ 配置エンジン = Ark UI 内蔵 Floating UI で充足（単体導入しない）/ a11y = `@axe-core/playwright`。情報設計レビュー（OOUI 成果物）は新規画面・EPIC 級のみ適用
 - **プロセス SSOT**: 4 層自動化モデル（axe / geometry / pixelmatch+Storybook / E2E）・課題一般化フロー・既存資産対応表は [webui-review-process.md](webui-review-process.md) を参照
 
-### 実装モダン性の継続検証原則（#3609、2026-07-08 PO 指示）
+### 実装モダン性の継続検証（#3609）
 
-「機能が動いている」ことと「実装が洗練されている」ことは別物。あらゆる実装作業・レビュー・棚卸しで、触れたコードとその周辺実装に対し**「これは古い / 不適切 / 非推奨な実装ではないか」を常時疑い**、以下の観点で検証し続ける（Why: magic number 散在等の設計負債は機能テスト緑のまま拡張時 silent 不具合になる。実例: カテゴリ picklist 数値直書き #3607）:
+「機能が動いている」ことと「実装が洗練されている」ことは別物。触れたコードとその周辺に対し、**古い / 非推奨な実装ではないかを常時疑う**（magic number 散在等の設計負債は機能テスト緑のまま、拡張時に silent 不具合になる。実例: #3607）。
 
-- **モダンか**: 言語・フレームワークの現行推奨イディオムか（例: TS `enum` → `as const satisfies` + 派生 union、Svelte 4 構文 → Runes）
-- **オブジェクト指向 / SOLID か**: 単一責任・依存性逆転・Strategy/Factory/Registry 等の確立パターン適用漏れがないか
-- **公式ベストプラクティスか**: 採用ライブラリの公式ドキュメントが推奨する使い方に沿っているか
+- **モダンか**（TS `enum` → `as const satisfies` + 派生 union、Svelte 4 構文 → Runes 等）/ **SOLID か** / **公式ドキュメントの推奨に沿うか**
+- 気になったら **一次ソース 2 件以上で裏取り**してから直す。**同 class の残存を grep で全件調べる**（1 箇所だけ直して同型を放置しない）
+- **装置・プロセスの Issue は起票しない**（§0 ルール 1）。顧客に届く実装の Issue は起票してよい
 
-**気になった実装を見つけたときのセット運用（3 点で 1 セット、どれか単独では不完全）**:
+### 3 つ目の類似 service / component を作る前に
 
-1. **deep research で妥当性検証** — 一次ソース（公式 docs / OSS 実装 2 件以上、ADR-0014）で「本当にそれが問題か / 対策は妥当か」を裏取りする
-2. **follow-up Issue 起票** — Dev が自由に起票してよい（下記「Issue 起票権限」参照）。issue-triage skill の 7 ステップ + root class 特定（ADR-0061）を適用する
-3. **横展開** — 同 class の残存を grep / Glob で全件調査し、Issue の散在実測表に列挙する（1 箇所だけ直して同型を放置しない）
-
-**Issue 起票権限（2026-07-08 PO 指示、旧「Issue 起票 = PO 専権」を緩和)**: 十分に深く検討・deep research され、対策の妥当性が検証済みで、モダンかつ SOLID 原則に基づき将来性・拡張性がありソフトウェアデザインアーキテクチャに沿った Issue であれば、Dev が PO 確認なしに起票してよい（Why: 過去の PO 専権化は「research 不足のはりぼて Issue 増殖」への対策であり、原因は権限でなく品質）。
-
-**PO 判断としてエスカレーションするケース（以下のみ事前確認必須）**:
-
-1. プロダクトとして機能要件が満たせなくなる
-2. ユーザに影響がある
-3. 他社との差別化ポイントに関わる
-4. モダンな実装と乖離するがどうしても回避できない技術制約がある
-
-### 3 つ目の類似 service / component 実装時の Strategy/Factory 適用判断（#2373 / AN-5 #2180 補強 6）
-
-PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」MUST-DO 2) と対をなす Dev セッション側ガード。**3 つ目の類似 service / component を実装する前**、Strategy / Factory / Registry パターンの適用判断を行う:
-
-| 既存実装件数 | 実装時の判断 |
-|---|---|
-| 1 件目 | 通常実装 OK（独自設計許容） |
-| 2 件目 | 1 件目との重複構造を PR description に明記 |
-| **3 件目以降** | **Strategy / Factory / Registry 適用判断を PR 着手前に PO に必須確認**。PR 本文「OSS / 確立パターン調査結果」または「設計ポリシー確認」セクションに合意根拠を記載 |
-
-実装着手前に PO 合意根拠が無い場合、ADR-0008（設計ポリシー先行確認）違反となる。判定保留時は Issue にコメントで PO 確認を待ってから着手する。
-
+1 件目は通常実装、2 件目は重複構造を PR に明記、**3 件目で Strategy / Factory / Registry の適用を判断する**。判断は Dev が行う（PO 決裁事項ではない、§0 ルール 4）。適用しないなら PR に理由を 1 行書く。
 
 ### 役割境界（#1022）
 
@@ -527,7 +502,7 @@ gh pr create --draft --base develop --title "<type>: #<num> <subject>" --body-fi
 |---|---|---|
 | [完遂原則](dev-process/completion-principles.md) | やりきり / 全 AC 完遂 / fix-forward / はりぼて禁止 / Done 基準 | Issue 着手前 / 困難遭遇時 / Done 判定時 |
 | [アンチパターン集](dev-process/anti-patterns.md) | scope 外言い訳 / 越境 / assertion 弱体化 / ラバースタンプ / CI 前 Ready / 段階リリース禁止 等 | PR 着手前 / レビュー前 / 「逃げたく」なった時 |
-| [QA fix パターン集](dev-process/qa-fix-patterns.md) | QA team が merge 前に加えた fix の頻出パターン | PR 着手前 / merge 通知受領後 |
+| [QM fix パターン集](dev-process/qm-fix-patterns.md) | QM team が merge 前に加えた fix の頻出パターン | PR 着手前 / merge 通知受領後 |
 | [並列 Agent / worktree 運用](dev-process/parallel-agent-ops.md) | 分離必須 / push verify / stacked PR 不可 / CI trigger 仕様 / 待機運用 | 並列 Agent 起動前 / push 報告受領後 / CI が動かない時 |
 | [調査規律](dev-process/research-discipline.md) | 正しい問い → 仮説中立 framing → 反証確認 | deep research / 技術調査の着手前 |
 | [機能変更時の横展開確認](dev-process/feature-change-lateral-spread.md) | 用語 grep 全件 / LP・pricing・faq 波及 / DB schema SSOT 群同期 | 機能変更 Issue 起票時 / 用語・ラベル変更時 |
@@ -547,7 +522,7 @@ Self-Review の運用 SSOT は [self-review-agent.md](../operations/self-review-
 | @.github/CLAUDE.md | Issue/PR 運用 |
 | @infra/CLAUDE.md | デプロイ・インフラ |
 | @docs/design/asset-catalog.md | 画像アセット要否 |
-| @docs/sessions/qa-checklist-ui-quality.md | UI/UX セルフレビュー 10 項目 |
+| @docs/sessions/qm-checklist-ui-quality.md | UI/UX セルフレビュー 10 項目 |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影トラブルシュート KB (SC-NNN) |
 | @docs/troubleshoot/github_actions.md | CI 失敗トラブルシュート KB (TA-NNN) |
 
