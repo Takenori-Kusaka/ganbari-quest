@@ -87,7 +87,7 @@
 
    - 全テナントを走査し `getGracePeriodStatus()` で soft delete 状態 / プラン / 物理削除予定日を取得
    - `shouldWarn(planTier, daysRemaining)` で送信判定 (§3.2)
-   - owner の email 宛に `sendDeletionWarningEmail` を呼び、成功時に `deletion_warning_sent_at` を書く (idempotency)
+   - **保護者ロール (owner/parent) 全員**の email 宛に `sendDeletionWarningEmail` を個別に呼ぶ (#4325 follow-up、オーナー決裁 2026-08-06)。owner 1 名固定だと owner 不在 / アドレス失効で予告が単一障害点になるため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる。1 通以上の送信に成功したときのみ `deletion_warning_sent_at` を書く (idempotency)。対象保護者が 1 件も見つからない場合は `skippedNoRecipients` として集計し、削除自体は止めない
    - 件数上限 (`DEFAULT_DELETION_WARNING_LIMIT`) + `createTimeBudget` で 30 秒制約に収め、残件を `tenantsRemaining` で報告する (silent 持ち越し禁止、#3695)
 
 5. **SES** (既存、設定変更なし):
@@ -116,7 +116,7 @@
 
 - 送信済フラグ: `settings.deletion_warning_sent_at` (ISO 8601 string)。定義は `grace-period-service.ts` の `DELETION_WARNING_SENT_KEY` (soft delete 状態の KV 群と同じライフサイクルのため)
 - **予約時 (`softDeleteTenant`) と復元時 (`restoreSoftDeletedTenant`) にクリアする**。クリアを落とすと、復元して再度削除予約した顧客に対し「2 回目は予告なしで消える」silent regression になる (回帰 test: 同 test file [W5])
-- 送信失敗時はフラグを書かない (次回実行で再試行される)
+- 送信失敗時はフラグを書かない (次回実行で再試行される)。宛先が複数いる場合は **1 通でも成功すればフラグを書く** (一部の保護者アドレスが恒久的に失敗し続けても無限リトライにしない。成功した宛先には翌日以降二重に届かない)。全宛先が失敗したときのみ再試行対象になる
 - スキーマ migration 不要 (KV テーブルへの新規 key 追加のみ)
 
 ---
@@ -129,7 +129,7 @@
 
 ```ts
 logger.info('[deletion-warning] sent', { tenantId, planTier, daysRemaining });
-logger.warn('[deletion-warning] owner email not found', { tenantId, daysRemaining });
+logger.warn('[deletion-warning] no guardian email found; deletion proceeds unwarned', { tenantId, daysRemaining });
 logger.error('[deletion-warning] send failed', { tenantId, daysRemaining });
 logger.warn('[deletion-warning] carried over remaining tenants to next run', { remaining });
 ```

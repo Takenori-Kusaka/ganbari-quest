@@ -9,6 +9,8 @@
 //   [W5] 復元 → 再予約で再び予告が届く (クリア漏れは「2 回目は無音」の silent regression)
 //   [W6] cron 欠測の救済 — 一度も送っていないテナントはしきい値を過ぎていても届く
 //   [W7] マーケティング配信停止 (opt-out) 済でも届く — 法務通知を年 6 回枠 / 購読解除で握り潰さない
+//   [W8] 宛先は owner 単独固定ではなく保護者 (owner/parent) 全員 — owner 不在 / アドレス失効の
+//        単一障害点を解消する (#4325 follow-up、オーナー決裁 2026-08-06)
 //
 // 背景: 猶予期間の物理削除 cron が AWS 本番の EventBridge Rule に配線された (#4119 / PR #4311) ため、
 // 予告が無いまま実データが消える経路が生きている。
@@ -387,6 +389,124 @@ describe('#2399 [W7] 法務通知は購読解除で止まらない', () => {
 });
 
 // ============================================================
+// [W8] 宛先: owner 単独固定ではなく保護者全員
+// ============================================================
+
+describe('#2399 [W8] 宛先は保護者 (owner/parent) 全員', () => {
+	it('owner + parent の 2 名がいれば両方に届く', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-parent', role: 'parent' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			email: `${userId}@example.com`,
+			displayName: userId === 'u-owner' ? 'オーナー' : '配偶者',
+		}));
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(mockSendWarning).toHaveBeenCalledTimes(2);
+		const sentEmails = mockSendWarning.mock.calls.map((c) => (c[0] as { email: string }).email);
+		expect(sentEmails.sort()).toEqual(['u-owner@example.com', 'u-parent@example.com']);
+		// 宛先ごとに本人の displayName を使う (他の保護者の名前を差し込まない)
+		const byEmail = Object.fromEntries(
+			mockSendWarning.mock.calls.map((c) => {
+				const p = c[0] as { email: string; ownerName: string };
+				return [p.email, p.ownerName];
+			}),
+		);
+		expect(byEmail['u-owner@example.com']).toBe('オーナー');
+		expect(byEmail['u-parent@example.com']).toBe('配偶者');
+	});
+
+	it('child ロールには送らない', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-child', role: 'child' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			email: `${userId}@example.com`,
+			displayName: '名前',
+		}));
+
+		await runDeletionWarningEmails({ now: NOW });
+
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+		expect(mockSendWarning.mock.calls[0]?.[0]).toMatchObject({ email: 'u-owner@example.com' });
+	});
+
+	it('同一メールアドレスが複数ロールに登録されていても 1 通にまとめる', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-parent-same', role: 'parent' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			// 同一世帯で owner と parent が同じアドレスを共有しているケース
+			email: 'shared@example.com',
+			displayName: userId === 'u-owner' ? 'オーナー' : '配偶者',
+		}));
+
+		await runDeletionWarningEmails({ now: NOW });
+
+		expect(mockSendWarning).toHaveBeenCalledTimes(1);
+	});
+
+	it('owner が失敗し parent が成功したら sent 扱いになり sent_at を書く (次回リトライしない)', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-parent', role: 'parent' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			email: `${userId}@example.com`,
+			displayName: '名前',
+		}));
+		mockSendWarning.mockImplementation(
+			async (params: unknown) => (params as { email: string }).email !== 'u-owner@example.com',
+		);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(1);
+		expect(result.errors).toBe(0);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeTruthy();
+	});
+
+	it('保護者が全員失敗したら error 扱いで sent_at を書かず、次回全員へ再試行できる', async () => {
+		setTenants(['t-family']);
+		seedSoftDeleted('t-family', 'family', 14);
+		mockFindTenantMembers.mockResolvedValue([
+			{ userId: 'u-owner', role: 'owner' },
+			{ userId: 'u-parent', role: 'parent' },
+		]);
+		mockFindUserById.mockImplementation(async (userId: string) => ({
+			userId,
+			email: `${userId}@example.com`,
+			displayName: '名前',
+		}));
+		mockSendWarning.mockResolvedValue(false);
+
+		const result = await runDeletionWarningEmails({ now: NOW });
+
+		expect(result.sent).toBe(0);
+		expect(result.errors).toBe(1);
+		expect(settingsStore.get(`t-family:${DELETION_WARNING_SENT_KEY}`)).toBeUndefined();
+	});
+});
+
+// ============================================================
 // 走査対象外 / 異常系
 // ============================================================
 
@@ -401,7 +521,7 @@ describe('#2399 走査対象外', () => {
 		expect(result.skippedNotSoftDeleted).toBe(1);
 	});
 
-	it('owner の email が引けないテナントは skip して他に波及させない', async () => {
+	it('保護者ロール全員の email が引けないテナントは skip して他に波及させない', async () => {
 		setTenants(['t-owner-missing', 't-family']);
 		seedSoftDeleted('t-owner-missing', 'family', 14);
 		seedSoftDeleted('t-family', 'family', 14);
@@ -411,7 +531,7 @@ describe('#2399 走査対象外', () => {
 
 		const result = await runDeletionWarningEmails({ now: NOW });
 
-		expect(result.skippedNoOwner).toBe(1);
+		expect(result.skippedNoRecipients).toBe(1);
 		expect(result.sent).toBe(1);
 	});
 
