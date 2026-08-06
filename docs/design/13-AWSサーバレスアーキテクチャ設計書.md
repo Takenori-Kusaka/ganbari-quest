@@ -192,7 +192,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 が「観測不能 (部分失敗が HTTP 200 に埋もれ alarm に乗らない) / 停止不能 (kill-switch も手順も無い) / 復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ)」の 3 条件を検出したため revert した。復活は 3 条件が揃ってから: PR #4340 の merge / #4327 の 4 条件解消 / dry-run の件数を出してオーナーが再有効化を承認。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ) |
 | deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
