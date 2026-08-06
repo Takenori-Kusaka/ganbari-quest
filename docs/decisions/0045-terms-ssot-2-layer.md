@@ -121,15 +121,16 @@ labels.ts (compound、≈6700 行)
 
 ## 補遺: DESIGN.md は全 export をミラーしない（2026-06-03）
 
-`docs/DESIGN.md` §6 は AI エージェントが最初に読むデザイン SSOT だが、当初は `scripts/generate-design-md-sections.mjs` が `labels.ts` の全 export 名（190+）と `terms.ts` の全 atom 値を AUTOGEN ブロックとして列挙していた。これが DESIGN.md を 44k 文字まで肥大させ、Claude Code の「Large file がパフォーマンスに影響」警告（40k 超）を恒常的に発生させていた。
+`docs/DESIGN.md` は AI エージェントが最初に読むデザイン SSOT で、かつ全セッションに常時ロードされる。当初はここに `labels.ts` の全 export 名（190+）/ `terms.ts` の全 atom 値 / `app.css` のカラートークン / primitives 一覧を生成 script でミラーしていた。これが DESIGN.md を肥大させ、Claude Code の「Large file がパフォーマンスに影響」警告（40k 超）を恒常的に発生させ、常時ロード層のコンテキストを直接圧迫していた。
 
-**決定**: DESIGN.md §6 は「ルール + SSOT 参照 + 主要例」のみを保持し、**全 export のミラーは持たない**。
+**決定**: DESIGN.md は「ルール + SSOT 参照 + 確認手順」のみを保持し、**SSOT の中身をミラーしない**。
 
-- **labels 列挙（AUTOGEN:labels）は廃止**。理由: (1) 値を持たない export 名の羅列で参照価値が低い、(2) 再生成のたびに肥大、(3) **SSOT 整合性は本 ADR §3.4 の CI（`check-no-plan-literals` / `check-hardcoded-strings`）が担保しており、DESIGN.md の列挙は load-bearing ではない**。発見性は `grep -n "_LABELS" src/lib/domain/labels.ts` / IDE 補完で代替する。
-- **terms 値（AUTOGEN:terms）は保持**。理由: atom の正規文字列（`'¥500'` / `'7日間'` 等）そのものが §1.2 の「直書きしてはならない対象」を可視化し、本 ADR の再発防止意図と直結するため。ただし書式は 1 namespace = 1 行にコンパクト化する。
-- **colors / primitives は保持**（コンパクト書式）。app.css / primitives ディレクトリの即時参照として有用。
+- 対象は **labels 列挙 / terms atom 値 / colors トークン / primitives 一覧 の 4 つすべて**（labels のみ 2026-06-03 に廃止、残る 3 つは #4374 で廃止し AUTOGEN 機構ごと撤去した）。
+- 理由: (1) 値や名前の羅列は SSOT を読めば足り参照価値が低い、(2) 実体が増えるたび DESIGN.md が肥大する（常時ロードされるため全セッションのコンテキストを直接圧迫する）、(3) **SSOT 整合性は本 ADR §3.4 の CI（`check-no-plan-literals` / `check-hardcoded-strings`）と `stylelint color-no-hex` / `base-token-routes-ratchet` が担保しており、DESIGN.md の列挙は load-bearing ではない**。
+- 発見性は `grep`（`_LABELS` / `_TERMS = ` / `--color-`）と `ls src/lib/ui/primitives/*.svelte`、IDE 補完で代替する。DESIGN.md 側には各節にこの確認手順を明記する。
+- atom 値そのものを可視化する目的（§1.2 の「直書きしてはならない対象」の提示）は、DESIGN.md §6 §「禁忌（terms.ts atom 関連）」の表と `check-no-plan-literals` が引き継ぐ。
 
-この方針は ADR-0009 / 本 ADR の「SSOT はコード（terms.ts / labels.ts）」という原則と矛盾しない。DESIGN.md はルールの SSOT であり、インベントリの SSOT ではない。
+この方針は本 ADR の「SSOT はコード（terms.ts / labels.ts）」という原則と矛盾しない。DESIGN.md はルールの SSOT であり、インベントリの SSOT ではない。
 
 ## 関連
 

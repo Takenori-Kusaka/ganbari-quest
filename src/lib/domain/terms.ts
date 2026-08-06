@@ -229,8 +229,7 @@ export const LP_FAQ_TERMS = {
 	linkLabel: 'よくあるご質問',
 	faqHtmlTitle: 'よくあるご質問',
 	// 値は `${LP_FAQ_TERMS.inlineCtaSentence}` で labels.ts compound から参照。
-	// HTML 属性に " を含むため JS 側は ' で囲む。Biome formatter による自動折り返しは
-	// generate-design-md-sections.mjs の multi-line aware parser が対応 (#1896)。
+	// HTML 属性に " を含むため JS 側は ' で囲む。
 	inlineCtaSentence:
 		'他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。',
 } as const;

@@ -256,7 +256,7 @@ Phase 7 (#2531) 実装時に **以下の 5 PR を順序通り** に作成 + マ�
 | 追加対象 | `PLAN_CHANGE_TERMS` (§3.1) / `TOKUSHOHO_TERMS` (§3.2) / `CHECKOUT_SUCCESS_TERMS` (§3.3) |
 | 配置位置 | `terms.ts` L34 (UPGRADE_TERMS) 直後 (PLAN_CHANGE) + L43 (CHECKOUT_TERMS) 直後 (TOKUSHOHO + CHECKOUT_SUCCESS) |
 | 影響範囲 | terms.ts のみ +約 80 行 (compound 側は本 PR で参照しない、import error 起こさない) |
-| AC | `npx svelte-check` PASS + `npx vitest run src/lib/domain/` PASS + DESIGN.md §6 atom 一覧 自動再生成 (`scripts/generate-design-md-sections.mjs`) |
+| AC | `npx svelte-check` PASS + `npx vitest run src/lib/domain/` PASS（DESIGN.md §6 は atom をミラーしないため更新不要、ADR-0045 §補遺 / #4374） |
 | Pre-merge | 本 PR 単体でマージ可、Step 2 を blocker としない (atom は使われなくても存在可) |
 
 ### Step 2: labels.ts に 5 compound 追加 (1 PR、推定 200 行)
