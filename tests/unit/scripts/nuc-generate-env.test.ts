@@ -164,9 +164,7 @@ describe('#4330 静的 — provider を宣言したら、その鍵も同じ経�
 		// AWS 資格情報の無い NUC で「AI は使える」と名乗って呼び出し時に落ちる = 現状より悪化する。
 		// gemini + 鍵なしなら isAvailable() が false になり、キーワード提案へ正しく縮退する。
 		expect(script, 'AI_PROVIDER の無条件出力が消えている').toMatch(/^\s*"AI_PROVIDER=gemini"/m);
-		expect(script, 'GEMINI_API_KEY 未設定時の warning が無い').toMatch(
-			/::warning::GEMINI_API_KEY/,
-		);
+		expect(script, 'GEMINI_API_KEY 未設定時の warning が無い').toMatch(/::warning::GEMINI_API_KEY/);
 		// deploy を止めない (#4275: 気づかせるために足した文言が deploy そのものを殺した)
 		expect(
 			script.match(/exit 1/g)?.length ?? 0,
@@ -308,10 +306,9 @@ describe('#4275 動作 — pwsh で実際に走らせる', () => {
 		if (!pwsh) return;
 		const { written } = runScript(envWithGeminiKey('gemini-key-value'));
 		expect(written, 'NUC は gemini ホスト').toContain('AI_PROVIDER=gemini');
-		expect(
-			written,
-			'provider は書くのに鍵を配らない = AI 提案が常に無効になる (#4330)',
-		).toContain('GEMINI_API_KEY=gemini-key-value');
+		expect(written, 'provider は書くのに鍵を配らない = AI 提案が常に無効になる (#4330)').toContain(
+			'GEMINI_API_KEY=gemini-key-value',
+		);
 	});
 
 	it('#4330 GEMINI_API_KEY が無ければ warning を出し、deploy は続ける', () => {
