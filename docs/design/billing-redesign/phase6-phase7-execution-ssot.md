@@ -234,16 +234,14 @@ gantt
     Step 1 DB migration          :s1, 2026-06-01, 3d
     Step 2 atom 統合 5 step       :s2, after s1, 5d
     Step 3 lookup_key 移行       :s3, after s2, 5d
-    Step 4-a shadow mode         :s4a, after s3, 2d
-    Step 4-a 検証 (24-48h)        :crit, s4a-verify, after s4a, 2d
-    Step 4-b cutover             :crit, s4b, after s4a-verify, 1d
-    Step 4-b 検証 (1週間 smoke)   :s4b-verify, after s4b, 7d
+    Step 4 Webhook cutover       :crit, s4b, after s3, 1d
+    Step 4 検証 (1週間 smoke)     :s4b-verify, after s4b, 7d
     Step 4-c retire              :s4c, after s4b-verify, 1d
     Step 5 旧 env var 削除        :s5, after s4c, 2d
 
     section Stripe Dashboard #2627 (PO 手動)
     A+B Test mode Product/Price/Portal     :crit, ab, 2026-06-04, 1d
-    C Test mode Webhook (disabled)          :crit, c, before s4a, 1d
+    C Test mode Webhook (disabled)          :crit, c, before s4b, 1d
     D Test mode Test clock customer         :d, 2026-06-09, 1d
     E Production Product/Price/Portal      :crit, e, before s4b, 1d
     F Production Webhook enable (cutover)   :crit, f, during s4b, 1d
@@ -327,17 +325,15 @@ flowchart TD
     S2c --> S2d[Step 2-4: PLAN_TERMS.family → .premium atom rename]
     S2d --> S2e[Step 2-5: generate-lp-labels.mjs 再生成 LP 反映]
     S2e --> S3[Step 3: lookup_key 移行<br/>+ apiVersion bump]
-    S3 --> S4[Step 4: Webhook shadow/cutover/retire]
-    S4 --> S4a[Step 4-a: shadow mode SHADOW_MODE=true]
-    S4a --> S4b[Step 4-b: cutover SHADOW_MODE=false]
-    S4b --> S4c[Step 4-c: retire 旧 destination delete]
+    S3 --> S4[Step 4: Webhook cutover<br/>SHADOW_MODE=false]
+    S4 --> S4c[Step 4-c: retire 旧 destination delete]
     S4c --> S5[Step 5: 旧 env var 削除 + 旧 4 Price archive]
 
     S2a -.->|並列マージ可| S2b
     S2b -.->|並列マージ可| S2c
 
     classDef critical fill:#f9f,stroke:#333,stroke-width:2px
-    class S0c,S0f,S1,S3,S4b,S5 critical
+    class S0c,S0f,S1,S3,S4,S5 critical
 ```
 
 ### 6.2 atom 統合 5 step との競合回避
