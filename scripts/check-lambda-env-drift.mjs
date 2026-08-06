@@ -25,10 +25,15 @@
 //     --template           : cdk deploy が出力した `infra/cdk.out/<Stack>.template.json`
 //     --logical-id-prefix  : 対象 Lambda の論理 ID 前方一致。**指定推奨** (1 stack に app / cron-dispatcher /
 //                            demo の複数 Lambda があり、省略すると和集合になって検査が緩む)
-//     --strict             : テンプレートにあるのに live に無いキー (欠落) も fail にする (既定は warning)
+//     --strict             : テンプレートにあるのに live に無いキー (欠落) を **全て** fail にする
+//                            (既定は REQUIRED_ALWAYS_PRESENT_KEYS 以外の欠落は warning に留める)
 //   CI: deploy-aws-staging.yml / deploy.yml の env 解決 step の直後。
 //
 // ADR-0024 (ENV silent skip 禁止) の env 版。deploy が success を返しながら実態が IaC と乖離する経路を塞ぐ。
+//
+// #4365 follow-up: 「テンプレートにあるのに live に無い (missing)」は既定 warning のため、
+// deploy 成功後に認証 / 課金の env が live から欠落しても CI は緑のまま気付けなかった。
+// REQUIRED_ALWAYS_PRESENT_KEYS に列挙したキーは `--strict` の有無に関わらず missing で hard-fail する。
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -47,6 +52,53 @@ export const RUNTIME_RESOLVED_KEYS = [
 	'ORIGIN',
 	'COGNITO_CALLBACK_URL',
 	'COGNITO_LOGOUT_URL',
+];
+
+// ---------------------------------------------------------------------------
+// 常時必須キー SSOT (#4365 follow-up)
+//
+// `infra/lib/compute-stack.ts` の prod / staging 両 environment ブロックで、
+// secret 有無の条件付き spread (`...(x ? {…} : {})`) を経由せず**無条件に**
+// object property として直接代入されているキーのみを対象にする
+// (条件付きキーは「未設定な環境ではテンプレートにも現れない」ため、そもそも
+// 常時必須の性質を持たない。仮に REQUIRED に加えても diffEnvKeys の
+// `missing` はテンプレートに存在するキーしか対象にしないため誤検知はしないが、
+// 「常時必須」という名前の意味を保つため無条件キーのみに限定する)。
+//
+// 選定 (認証 / 課金コアで、欠落すると顧客影響が即時発生するもの):
+//   - AUTH_MODE / COGNITO_USER_POOL_ID / COGNITO_CLIENT_ID / COGNITO_DOMAIN /
+//     COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL: Cognito 認証の根幹。欠落すると
+//     ログイン不能 (cold start 500 または誤 redirect)。SSM StringParameter から
+//     無条件取得 (compute-stack.ts L109-127) で、prod / staging 双方の
+//     environment object に直接代入されている。
+//   - CONTEXT_TOKEN_SECRET: parent-gate / context token 検証の根幹。SSM から
+//     無条件取得、prod / staging 双方に直接代入。欠落は認可検証の恒久停止。
+//
+// 選定から除外したもの (条件付き spread のため。理由: 環境によって未設定が
+// 正当なケースがあり "常時" の前提を満たさない。既存の missing warning
+// (または `--strict`) で従来通りカバーされる):
+//   - STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / USE_LOOKUP_KEY: Stripe test/live
+//     鍵が未登録の staging 初期構築時は意図的に無効 (#4104 isStripeEnabled()=false)
+//   - CRON_SECRET / OPS_SECRET_KEY: cron-dispatcher 側は `CRON_SECRET ?? OPS_SECRET_KEY`
+//     の fallback 関係で「どちらか 1 本」が要件 (#1586)。片方だけの欠落を
+//     hard-fail にすると正常構成を誤検知する
+//   - PARENT_GATE_COOKIE_SECRET / ORIGIN_VERIFY_SECRET / ORIGIN_VERIFY_SECRET_PREVIOUS:
+//     条件付き spread。GitHub Secret 未登録の初期 staging 構築時は意図的に
+//     未注入のまま deploy される運用がありうる
+//   - GRACE_PERIOD_DELETION_DISABLED / SES_SENDER_EMAIL / SES_CONFIG_SET_NAME:
+//     prod 専用 (staging environment に無い) で「常時必須」の対象外
+//
+// 新たに無条件 env を追加した場合、認証 / 課金コアであれば本リストへの
+// 追記を検討すること (追記しなくても deploy は落ちない = 従来通り warning)。
+// ---------------------------------------------------------------------------
+export const REQUIRED_ALWAYS_PRESENT_KEYS = [
+	'AUTH_MODE',
+	'COGNITO_USER_POOL_ID',
+	'COGNITO_CLIENT_ID',
+	'COGNITO_DOMAIN',
+	'COGNITO_CALLBACK_URL',
+	'COGNITO_LOGOUT_URL',
+	'CONTEXT_TOKEN_SECRET',
 ];
 
 /**
@@ -79,6 +131,19 @@ export function diffEnvKeys(liveKeys, templateKeys, runtimeKeys = RUNTIME_RESOLV
 	return {
 		extra: [...live].filter((k) => !allowed.has(k)).sort(),
 		missing: [...templateKeys].filter((k) => !live.has(k)).sort(),
+	};
+}
+
+/**
+ * missing キー集合を「常時必須 (REQUIRED_ALWAYS_PRESENT_KEYS)」と「それ以外」に分類する。
+ * 常時必須は `--strict` の有無に関わらず hard-fail 対象、それ以外は従来通り `--strict` 時のみ fail。
+ *
+ * @returns {{ requiredMissing: string[], optionalMissing: string[] }}
+ */
+export function classifyMissingKeys(missing, requiredKeys = REQUIRED_ALWAYS_PRESENT_KEYS) {
+	return {
+		requiredMissing: missing.filter((k) => requiredKeys.includes(k)),
+		optionalMissing: missing.filter((k) => !requiredKeys.includes(k)),
 	};
 }
 
@@ -150,15 +215,31 @@ export function main(argv = process.argv.slice(2)) {
 	const liveKeys = fetchLiveEnvKeys(functionName, region);
 	const { extra, missing } = diffEnvKeys(liveKeys, templateKeys);
 
+	let missingIsFatal = false;
 	if (missing.length > 0) {
-		const msg = `IaC にあるのに配備されていない env: ${missing.join(', ')}`;
-		if (strict) {
-			console.error(`[check-lambda-env-drift] ✗ FAIL — ${msg}`);
-		} else {
-			console.warn(`[check-lambda-env-drift] ⚠ WARN — ${msg}`);
+		// #4365 follow-up: REQUIRED_ALWAYS_PRESENT_KEYS の欠落は `--strict` の有無に関わらず
+		// hard-fail する (認証 / 課金コアが live から落ちても deploy が成功してしまう事故を防ぐ)。
+		// それ以外の missing は従来通り --strict 時のみ fail。
+		const { requiredMissing, optionalMissing } = classifyMissingKeys(missing);
+
+		if (requiredMissing.length > 0) {
+			console.error(
+				`[check-lambda-env-drift] ✗ FAIL — 認証/課金コアの必須 env が live から欠落しています: ${requiredMissing.join(', ')}\n` +
+					'  (REQUIRED_ALWAYS_PRESENT_KEYS 対象。--strict の指定に関わらず常に hard-fail します)',
+			);
+			missingIsFatal = true;
 		}
-		if (strict) return 1;
+		if (optionalMissing.length > 0) {
+			const msg = `IaC にあるのに配備されていない env: ${optionalMissing.join(', ')}`;
+			if (strict) {
+				console.error(`[check-lambda-env-drift] ✗ FAIL — ${msg}`);
+				missingIsFatal = true;
+			} else {
+				console.warn(`[check-lambda-env-drift] ⚠ WARN — ${msg}`);
+			}
+		}
 	}
+	if (missingIsFatal && extra.length === 0) return 1;
 
 	if (extra.length > 0) {
 		console.error(
