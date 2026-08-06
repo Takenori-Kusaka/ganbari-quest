@@ -16,8 +16,15 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const { parseArgs, loadBaseline, saveBaseline, walkDir, escapeRegex, collectReferences } =
-	await import('../lib/ci/orphan-utils.mjs');
+const {
+	parseArgs,
+	loadBaseline,
+	saveBaseline,
+	walkDir,
+	escapeRegex,
+	collectReferences,
+	reportFindings,
+} = await import('../lib/ci/orphan-utils.mjs');
 
 describe('parseArgs', () => {
 	it('--report → report=true', () => {
@@ -74,6 +81,50 @@ describe('loadBaseline / saveBaseline', () => {
 			// クリーンアップ — Windows 対応で fileURLToPath 経由
 			const p = path.join(path.dirname(__dirname), 'orphan-baselines', `${cat}.json`);
 			if (fs.existsSync(p)) fs.unlinkSync(p);
+		}
+	});
+});
+
+describe('#4030 AC6 --update-baseline は免除理由を自動投入しない', () => {
+	// 生成側にも検査側と同じ規律を置く。検査 (check mode) だけ直して生成側が
+	// 検出理由 / 'auto-added by --update-baseline' を書き込み続けると、
+	// **「追加した瞬間に落ちる entry」を量産する**だけで運用が改善しない。
+	it('検出理由を reasons に流用せず、未記入のまま exit 1 を返す', () => {
+		const cat = `__test_ac6_${process.pid}_${Date.now()}`;
+		const baselinePath = path.join(path.dirname(__dirname), 'orphan-baselines', `${cat}.json`);
+		const writeOut = process.stdout.write.bind(process.stdout);
+		const writeErr = process.stderr.write.bind(process.stderr);
+		process.stdout.write = () => true;
+		process.stderr.write = () => true;
+		try {
+			const code = reportFindings(
+				cat,
+				[
+					{
+						name: 'src/lib/server/db/dsql/example-repo.ts',
+						// script が組み立てる「検出理由」= 機械が書いた現象の説明
+						reason:
+							'repo file "example-repo.ts" は db facade / factory から import されていません。',
+						allowlisted: false,
+					},
+				],
+				{ mode: 'update-baseline', baseline: { allowed: [], reasons: {}, version: '1.0.0' } },
+			);
+			process.stdout.write = writeOut;
+			process.stderr.write = writeErr;
+
+			assert.equal(code, 1, '理由未記入のまま baseline を更新したのに 0 を返している');
+			const saved = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+			assert.deepEqual(saved.allowed, ['src/lib/server/db/dsql/example-repo.ts']);
+			assert.deepEqual(
+				saved.reasons,
+				{},
+				'検出理由 / auto-added 文字列を免除理由の欄に書き込んでいる',
+			);
+		} finally {
+			process.stdout.write = writeOut;
+			process.stderr.write = writeErr;
+			if (fs.existsSync(baselinePath)) fs.unlinkSync(baselinePath);
 		}
 	});
 });

@@ -325,6 +325,17 @@ jobs:
         # sandbox 隔離 / Deprecated marker / fenced code 除外 / inline/bare 区別) を検証する。
         run: node --test scripts/__tests__/check-doc-code-references.test.mjs
 
+      - name: Scripts unit tests (node:test for orphan-utils.mjs) (#4030 AC6)
+        # orphan baseline の免除理由 gate の **生成側** (`--update-baseline` が検出理由を
+        # 免除理由の欄に流用しないこと) を検証する。vitest から import すると checkJs が
+        # orphan-utils.mjs の pre-existing 型エラーを拾うため node:test 側に置いている。
+        #
+        # NOTE: 本 step も上と同じく file 名の literal 指定である。scripts/__tests__/ には
+        # 現在 13 file あり、CI から実行されているのは本 step を入れて 3 file だけ。
+        # glob 化 (`node --test scripts/__tests__/*.test.mjs`) は残り 3 test の drift 修正が
+        # 要るため別 PR に分ける (Issue #4030 のコメントに実測値付きで記録)。
+        run: node --test scripts/__tests__/check-orphan-utils.test.mjs
+
       - name: LP SSOT HTML baseline check (#1465 Phase A)
         run: node scripts/check-lp-ssot.mjs
 
