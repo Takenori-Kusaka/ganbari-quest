@@ -107,6 +107,27 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | `/privacy` | **法務 + 安心訴求**: 「広告なし・家族限定・データ主権」 | LP [08] 安心訴求からリンク |
 | `/terms` `/tokushoho` `/sla` | **純法務**: 契約根拠 | footer のみ |
 
+### 3.2.1 法務文書に書く粒度 — 事業者名まで、マネージドサービス名は書かない (#4370)
+
+`privacy.html` / `terms.html` / `sla.html` / `tokushoho.html` と、LP 上の同種記述で開示するのは
+**「お預かりしたデータがどこへ出るか」**であって、その内側の実装ではない。
+
+| 書く | 書かない |
+|---|---|
+| 事業者名（Amazon Web Services, Inc. / Google LLC / Stripe, Inc. / Discord Inc.） | 個別のマネージドサービス名（DynamoDB / Aurora DSQL / Lambda / Cognito / CloudFront / CloudWatch / S3 / SES / Bedrock / Gemini 等） |
+| **運営者が管理する環境の内か外か**（「運営者が管理する AWS 環境内で処理」/「外部事業者へ送信」） | 内部の構成（どのデータストア・どの実行基盤か） |
+| 移転先国・リージョン（米国 / us-east-1）、法的根拠（DPA / SCC）、用途 | 「AI に送っている」事実を伏せること（**用途と送信先の性質は必ず書く**） |
+
+**理由**: サービス名は実装を差し替えるたびに法務文書を嘘にする（実際、`DynamoDB` は #3438 の
+DSQL 移管後も privacy.html に残り、事実と乖離した状態で公開されていた）。一方、個人情報保護法
+§27 / §28 と電気通信事業法 §27-12 が要求するのは提供先の**第三者の名称**・移転先国・用途であり、
+マネージドサービス名の粒度は要求されていない。事業者名と「環境の内か外か」を残せば開示水準は
+下がらず、実装変更に対して不変な文面になる。
+
+**機械検査**: `scripts/measure-lp-dimensions.mjs` の `MANAGED_SERVICE_FORBIDDEN_TERMS`
+（`lp-metrics.yml` で hard-fail）。走査対象は計測対象 6 ページに加え、`terms.html` / `sla.html` /
+`tokushoho.html` / `selfhost.html` と LP 文言 SSOT の生成物 `shared-labels.js`。
+
 ### 3.3 LP 本体に載せない判断
 
 - **セルフホスト/OSS 訴求**: 技術者向けの差別化であり、P1-P5 の CVR には寄与しない。footer リンクに留める
