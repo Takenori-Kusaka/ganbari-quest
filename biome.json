@@ -151,7 +151,8 @@
 			"!tests/fixtures/restore-real-scale-backup.json",
 			"!tests/fixtures/crlf",
 			"!**/.dependency-cruiser-known-violations.json",
-			"!**/eslint-suppressions.json"
+			"!**/eslint-suppressions.json",
+			"!**/graphify-out"
 		]
 	}
 }
