@@ -5,6 +5,7 @@
 // 将来の階層化（`ops-cs` / `ops-eng` など）に備え、名前は enum 化して 1 箇所で管理する。
 
 import { error } from '@sveltejs/kit';
+import { OPS_MFA_REQUIRED_REASON } from '$lib/policy/capabilities';
 import type { AuthContext, Identity } from './types';
 
 /**
@@ -64,6 +65,43 @@ export function hasOpsAccess(
 	const tokenMfa = identity?.type === 'cognito' && identity.mfaAuthenticated === true;
 	const sessionMfa = context?.mfaAuthenticated === true;
 	return tokenMfa || sessionMfa;
+}
+
+/**
+ * `/ops` 配下に入れなければ 403 で止める、**`/ops` 認可の単一強制点** (#4309)。
+ *
+ * `/ops` はグローバル認可層 (`authorizeCognito` → `isPublicRoute`) を意図的に通過させ、
+ * 認可の担い手を route 側に置いている。理由は認可層が ops group / MFA を表現できないため
+ * (`ROUTE_RULES.roles` は owner / parent / child の 3 値しか持たない)。詳細は
+ * `authorization.ts` の `isPublicRoute` にある `/ops` の注釈。
+ *
+ * したがって `/ops` の防御は本関数**だけ**であり、`+layout.server.ts` (page) と
+ * 各 `+server.ts` (API endpoint) の**両方**がこれを呼ぶ必要がある。
+ * SvelteKit の `+layout.server.ts` は page の load にしか適用されず `+server.ts` には
+ * 走らないため、layout に置いた gate は API を 1 mm も守らない (#4309 の実害:
+ * `/ops/export?type=sales` が未認証で 200 + 実顧客の売上台帳 CSV を返していた)。
+ *
+ * 判定を 2 つに分けないため、layout / endpoint は本関数を共有する。適用範囲は
+ * `tests/unit/architecture/ops-route-auth-fitness.test.ts` が FS 列挙で機械強制する
+ * (新しく `/ops` 配下に API を足した人が黙って穴を開けられないようにする)。
+ */
+export function requireOpsAccess(locals: App.Locals): void {
+	if (hasOpsAccess(locals.identity, locals.context)) return;
+	// ops group には居るが MFA 判定で落ちた場合だけ理由を返す。運営者が「なぜ入れないか」を
+	// 画面から自力で判断できないと、TOTP 設定漏れ / トークン更新での claim 落ちを
+	// コードを読むまで切り分けられない。非 ops には理由を出さない (存在の示唆を避ける)。
+	//
+	// #4282: 併せて機械可読な `reason` を載せる。`+error.svelte` はこの値のときだけ
+	// MFA 設定導線 (`OpsMfaSetupNotice`) に切り替える — メッセージ本文の文字列一致に
+	// 表示を依存させない。値は policy 層の deny reason と同一 (`OPS_MFA_REQUIRED_REASON`)。
+	// 403 (データを一切 load しない fail-closed) は変えず、表示だけを分ける。
+	if (isOpsMember(locals.identity)) {
+		error(403, {
+			message: 'Forbidden: ops access requires MFA',
+			reason: OPS_MFA_REQUIRED_REASON,
+		});
+	}
+	error(403, 'Forbidden');
 }
 
 /**

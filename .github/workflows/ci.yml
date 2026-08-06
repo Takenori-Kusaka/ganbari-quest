@@ -311,12 +311,24 @@ jobs:
         # 二重防御: tests/unit/scripts/check-guide-copy.test.ts も baseline 0 を vitest で検証。
         run: npx tsx scripts/check-guide-copy.ts --fail-on-violation
 
-      - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
-        # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
-        # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。
-        # 本 step は scripts/check-doc-code-references.mjs の CLI 動作 (path-set diff /
-        # sandbox 隔離 / Deprecated marker / fenced code 除外 / inline/bare 区別) を検証する。
-        run: node --test scripts/__tests__/check-doc-code-references.test.mjs
+      - name: Scripts unit tests (node:test, scripts/__tests__/ 全件)
+        # vitest config は tests/unit/** / tests/integration/** のみを見るため
+        # scripts/__tests__/*.test.mjs は vitest の対象外 (#2259 C3)。node --test を CI gate に
+        # 組み込む。
+        #
+        # **glob で渡す (file 名の literal 列挙をしない)**。旧実装は literal path を 2〜3 行
+        # 書いていただけで、13 file 中 10 file がどこからも実行されず、そのうち 3 file は
+        # 実行されないまま drift して壊れていた (#4084 で意図的に変えた skip→fail に test が
+        # 追随していない 等)。「テストがある」と「検査されている」が一致しない状態を作らない。
+        #
+        # glob は quote する — shell ではなく node 側に展開させることで、実行対象が
+        # runner の shell 挙動に依存しなくなる。
+        # 対応関係 (= 全 file が本 step でカバーされること) は
+        # tests/unit/architecture/scripts-node-test-ci-coverage.test.ts が機械検証する。
+        #
+        # NOTE: check-cdk-cfn-lint.test.mjs は cfn-lint (Python) 不在時に自ら skip するため、
+        # 本 job (cfn-lint 未 install) では skip、cdk-cfn-lint job では実検証される。
+        run: node --test "scripts/__tests__/**/*.test.mjs"
 
       - name: LP SSOT HTML baseline check (#1465 Phase A)
         run: node scripts/check-lp-ssot.mjs

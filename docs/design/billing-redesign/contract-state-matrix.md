@@ -177,9 +177,11 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 |---|---|---|
 | ① | 許容集合（S1-S6）と分類関数 | `src/lib/domain/contract-state.ts` の `classifyContractState()`（#4181）。表と実装の対応は `tests/unit/architecture/contract-state-matrix-ssot.test.ts` が機械照合する |
 | ② | webhook handler の書き込み後状態を分類して assert | `tests/unit/services/stripe-contract-state-classification.test.ts`（#4181）。X1-X4 に分類されたら fail する。**「意図と効果の乖離」はここで落ちる** |
-| ③ | 定期監査（`/ops` or cron）で本番行を分類し X1-X4 を報告 | **未実装（#4252）。** ①② は「これから書く行」しか見ないため、**既に不正な既存行は検出されない** |
+| ③ | 定期監査（`/ops` or cron）で本番行を分類し X1-X4 を報告 | `contract-state-audit-service.ts` の `auditContractStates()`（`/ops` アクセス毎の on-demand 分類、#4249）。①② は「これから書く行」しか見ないため、既に不正な既存行はこの手だけが検出する |
 
 **③ は #3993 の後に入れる。** X3 を作る書き手が現役のうちに監査を回すと、本番で恒常的に不正を報告し続ける（狼少年になる）。
+
+検出した行への一次対応（確認手順・是正手順・決裁）は [`contract-state-audit-remediation.md`](../../runbooks/contract-state-audit-remediation.md) が SSOT。
 
 ---
 
@@ -191,7 +193,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 
 ## 8. 関連
 
-- #4181（§7 ①② の実装）/ #4252（§7 ③ 定期監査、未実装）
+- #4181（§7 ①② の実装）/ #4249（§7 ③ 定期監査の実装）
 - #3982 / #4026（W5 の終端 4 列 + 単一強制点）/ #3982（D4）/ #3986 → #3991（D2）/ #3987（D3）/ **#3993 critical（D5）**
 - `phase1-cancellation-requirements.md` FR-1 / NFR-2（期末解約）
 - `phase1-dunning-requirements.md` FR-1 / NFR-3 / US-1 / US-4（支払い失敗で子供の体験を止めない）

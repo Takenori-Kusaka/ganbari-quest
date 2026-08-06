@@ -1,3 +1,4 @@
+import { extractH2Section } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /** feature / hotfix lane の対象 section（現行 2 section、AC5 で不変）。 */
@@ -61,11 +62,14 @@ export function shouldSkip({ labels, lane }) {
  * @returns {{ found: boolean; unchecked: number }}
  */
 function countUnchecked(body, section) {
-	const idx = body.indexOf(section);
-	if (idx === -1) return { found: false, unchecked: 0 };
-	const nextSection = body.indexOf('\n## ', idx + 1);
-	const sectionBody = nextSection === -1 ? body.slice(idx) : body.slice(idx, nextSection);
-	const unchecked = (sectionBody.match(/^\s*- \[ \]/gm) || []).length;
+	// #4348: 旧実装は `body.indexOf(section)` の部分一致で section 開始位置を決めていた。
+	// 説明文 / HTML コメント内に同じ文字列があると **そこから切り出してしまい**、
+	// checkbox の集計範囲が本来の section とずれる (別 section の `- [ ]` を数える /
+	// 本来の未チェックを数えない)。見出し行の完全一致に統一し、判定前に
+	// HTML コメント / code block を除去する (template の例示 checkbox を数えない)。
+	const { found, text } = extractH2Section(body, section);
+	if (!found) return { found: false, unchecked: 0 };
+	const unchecked = (text.match(/^\s*- \[ \]/gm) || []).length;
 	return { found: true, unchecked };
 }
 

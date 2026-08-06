@@ -180,10 +180,10 @@
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 8 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 9 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 8 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
@@ -192,7 +192,8 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
 | age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✓ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
+| deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
@@ -212,10 +213,11 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 - **規約**: 処理量がデータ量 (テナント数 / pending 件数等) に比例する cron ジョブは、**1 回の実行で 30 秒予算内に処理できる分だけ処理し、残りは次回実行に持ち越す** (self-limiting)。実装は `src/lib/server/cron/time-budget.ts` の `createTimeBudget` (既定 20 秒 = 30 秒 − 認証・前処理・in-flight 完走・レスポンス直列化のヘッドルーム 10 秒) と件数上限の併用。予算超過チェックは item 間で行い、着手した item は完走させる (中断は stale 'building' 等の中途状態を量産するため)
 - **観測性**: 持ち越し発生時は件数 (`remaining` / `skipped`) を log warn + レスポンスに必ず含める (silent 持ち越し禁止、ADR-0006 整合)
-- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲)
+- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲) / `age-recalc` (`recalcAllChildrenAges`: テナント上限 200 + 時間予算。持ち越しても「同じ先頭 N 件」を繰り返さないよう、tenantId 昇順の固定スライスを実行日 (JST 暦日) の剰余で 1 つ選び `ceil(total / limit)` 日で重複なく周回する — 横断カーソルを置ける kv が無く、テナント毎カーソルは N+1 読み取りを生むため (ADR-0065)。持ち越し時は誕生日による UI モード切替が最大 1 周回分遅れるが、age は birthDate からの冪等な導出でありデータは壊れない。持ち越し件数は「ローテーションで今日の担当外」（`tenantsSkippedByRotation`、設計どおりの正常値）と「担当スライス内での予算超過による打ち切り」（`tenantsSkippedByBudget`、異常の合図）を分けて報告し、warn ログは後者のみで発火する）
 - **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
 - **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
 - **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
+- **自動リトライは「非冪等な job だけ」切る (#4327)**: 既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `grace-period-deletion` のみ (`compute-stack.ts` の `CRON_JOBS` に `disableRetry: true`)。理由は「途中まで削除されたテナントに purge が再走する」非冪等性で、そこだけ再送より再走回避が勝つ。**一律 0 にしてはならない** — 冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御として働いており、とくに `deletion-warning-emails` は送信済フラグで冪等かつ 1 度の失敗が「予告のないまま削除される」に直結し、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月の欠測になる。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する (切っている job が grace-period-deletion 1 本だけであることまで assert)
 
 ### 3.4 OpsStack（監視・コスト防衛）
 
@@ -293,6 +295,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - カスタムエラーレスポンス: 500/502/503/504 → S3の子供向けエラーページ
 - Price Class: PriceClass_100（北米+欧州+アジア）
 - HTTP/2 + HTTP/3
+- **アクセスログ（標準ログ = S3 直配信、#4320）**: 本番 / demo / staging の全 distribution で有効。配信先は NetworkStack の `AccessLogsBucket`（物理名は CFN auto-naming、prefix `cdn/` = 本番 / `demo-cdn/` = demo）。**保管 3 日**の lifecycle expiration で自動削除し、cookie は記録しない。リアルタイムログ（Kinesis 課金）と分析基盤（Athena 等）は作らない。仕様・プライバシー上の位置づけ・盲点（Function URL 直叩きは記録されない）の SSOT は `docs/design/14-セキュリティ設計書.md` §9.4
 
 **メンテナンスモード:**
 - Lambda 環境変数 `MAINTENANCE_MODE=true` で切替

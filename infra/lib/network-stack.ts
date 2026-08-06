@@ -13,6 +13,11 @@ import type { Construct } from 'constructs';
 
 export interface NetworkStackProps extends cdk.StackProps {
 	functionUrl: lambda.FunctionUrl;
+	// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify` header)。
+	// **必須**。optional にすると「header を付け忘れた distribution」を型で表現できてしまい、
+	// その配備は CloudFront 層の制御を Function URL 直叩きで迂回可能なまま黙って動く。
+	// 値の解決と未設定時の fail-fast は `infra/lib/origin-verify-context.ts` が単一点で担う。
+	originVerifySecret: string;
 	domainName?: string;
 	certificateArn?: string;
 	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
@@ -65,6 +70,9 @@ export class NetworkStack extends cdk.Stack {
 	// #3402-1: staticAssetsS3Offload=true 時のみ生成される immutable アセット bucket。OpsStack が
 	// S3 origin 専用 4xx/5xx alarm を張るため公開する (offload OFF 時は undefined = alarm も作らない)。
 	public readonly staticAssetsBucket?: s3.Bucket;
+	// #4320: CloudFront 標準アクセスログの配信先 bucket (保管 3 日)。漏洩調査時に
+	// `aws s3 ls`/`cp` で取り出す先が分かるよう公開する。
+	public readonly accessLogsBucket: s3.Bucket;
 
 	constructor(scope: Construct, id: string, props: NetworkStackProps) {
 		super(scope, id, props);
@@ -147,12 +155,70 @@ function handler(event) {
 			encryption: s3.BucketEncryption.S3_MANAGED,
 		});
 
+		// --- #4320: CloudFront アクセスログ (標準ログ = S3 直配信) ---
+		// なぜ必要か: #4309 (`/ops/export` が未認証で売上台帳 CSV を返していた) の調査で、
+		// 「実際に誰かが取得したか」を事後確認する手段が無いことが実害として顕在化した。
+		// アクセスログが無い限り、次に同種の露出が起きても被害範囲を確定できない
+		// (= 漏れていないことを説明できない)。
+		//
+		// 方式の選択 (オーナー決裁 2026-08-06: 保管 3 日 / 月 20 円以内が条件):
+		//   - **標準ログ (S3 直配信) を使う** — CloudFront 側の課金なし。S3 の保管 + PUT のみ
+		//   - **リアルタイムログは使わない** — Kinesis Data Streams 課金が乗り条件 2 を満たさない
+		//   - **Athena / 分析基盤は作らない** — 必要になったら S3 のログを直接 grep する
+		//     (ADR-0010 §3 が名指しする「監査ログ基盤の新設」に踏み込まない)
+		//
+		// 保管 3 日: lifecycle expiration で構造的にコスト上限を作る。ログ自体が個人情報
+		// (client IP / URI + query string / User-Agent) を含むため、保持期間を最小化することが
+		// プライバシー面でも正しい (docs/design/14-セキュリティ設計書.md §9.4)。
+		//
+		// **cookie は記録しない** (logIncludesCookies 未指定 = false)。cookie には認証 session /
+		// parent-gate session が載るため、記録すると「ログの漏洩 = session の漏洩」になる。
+		const accessLogsBucket = new s3.Bucket(this, 'AccessLogsBucket', {
+			// 物理名は明示しない (CFN auto-naming = rollback-orphan の `already exists` 回避、#3881)。
+			// prod / staging が同一アカウントに同居しても名前衝突しない。
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+			autoDeleteObjects: true,
+			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+			// 標準ログ (legacy) は SSE-S3 のみ対応。SSE-KMS にすると配信が失敗する。
+			encryption: s3.BucketEncryption.S3_MANAGED,
+			// CloudFront 標準ログは ACL でログ配信先に権限を付与するため ACL を有効にする必要がある
+			// (CDK が logBucket 省略時に自動生成する bucket と同じ設定)。BLOCK_ALL は *public* ACL を
+			// 塞ぐだけで、CloudFront の log delivery grantee への付与は妨げない。
+			objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+			lifecycleRules: [
+				{
+					id: 'expire-access-logs',
+					enabled: true,
+					// オーナー決裁の条件 1 (保管 3 日)。S3 の expiration は日次バッチのため
+					// 削除は 3 日経過後の最初の実行時 (即時ではない)。
+					expiration: cdk.Duration.days(3),
+					abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
+				},
+			],
+		});
+		this.accessLogsBucket = accessLogsBucket;
+
 		// --- S3 Origin for error pages (served from S3 even when Lambda is down) ---
 		const s3ErrorOrigin = origins.S3BucketOrigin.withOriginAccessControl(errorPagesBucket);
+
+		// --- front door 証明 header (#4280 案 b) ---
+		// Lambda Function URL は authType: NONE で公開されており、URL を知っていれば
+		// CloudFront を経由せず直接到達できる。CloudFront 層に置いた制御 (geoRestriction JP 等)
+		// は**その経路には効かない**。origin custom header で「CloudFront を通った」ことを
+		// 証明し、origin (hooks.server.ts) が /admin ・ /api/v1/admin ・ /ops で一致を要求する。
+		//
+		// CloudFront は viewer が同名 header を送ってきても**設定値で上書き**するため、
+		// 外部から偽装して通ることはできない。origin への転送は HTTPS_ONLY。
+		//
+		// 対象は Lambda を指す 2 origin (default 動作の lambdaOrigin と /_app/* の
+		// staticAssetOrigin)。同一 Lambda なので両方に同じ header を付ける。S3 origin
+		// (error pages / immutable assets) は OAC で守られており本 header の対象外。
+		const originVerifyHeaders = { 'x-origin-verify': props.originVerifySecret };
 
 		// --- CloudFront Distribution ---
 		const lambdaOrigin = new origins.HttpOrigin(fnUrlDomain, {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+			customHeaders: originVerifyHeaders,
 		});
 
 		// --- Origin Shield origin for /_app/* static assets (#3087) ---
@@ -172,6 +238,7 @@ function handler(event) {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
 			originShieldEnabled: true,
 			originShieldRegion: 'us-east-1',
+			customHeaders: originVerifyHeaders,
 		});
 
 		// 静的アセット用 cache policy (365 日 immutable)。/_app/* (shield lambda) と
@@ -280,6 +347,11 @@ function handler(event) {
 
 		this.distribution = new cloudfront.Distribution(this, 'CDN', {
 			comment: 'Ganbari Quest',
+			// #4320: 標準ログを S3 に配信する。prefix で demo distribution と同一 bucket を分ける。
+			// logIncludesCookies は指定しない (= false)。cookie に session が載るため記録しない。
+			enableLogging: true,
+			logBucket: accessLogsBucket,
+			logFilePrefix: 'cdn/',
 			defaultBehavior: {
 				origin: lambdaOrigin,
 				viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -515,6 +587,12 @@ function handler(event) {
 
 			this.demoDistribution = new cloudfront.Distribution(this, 'DemoCDN', {
 				comment: 'Ganbari Quest Demo (ADR-0048)',
+				// #4320: 本番と同じ bucket に prefix 違いで配信する。demo Lambda は本番と同一の
+				// アプリコードを別データ (DATA_SOURCE=demo) で動かすため、demo に対する探索も
+				// 本番の露出調査と同じ価値を持つ (片方だけ記録しない)。
+				enableLogging: true,
+				logBucket: accessLogsBucket,
+				logFilePrefix: 'demo-cdn/',
 				defaultBehavior: {
 					origin: demoLambdaOrigin,
 					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,

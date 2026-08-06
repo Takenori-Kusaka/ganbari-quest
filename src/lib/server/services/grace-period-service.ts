@@ -9,6 +9,7 @@
 //   standard: 7日間
 //   family:   30日間
 
+import { env } from '$lib/runtime/env';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -19,7 +20,26 @@ import { resolveFullPlanTier } from './plan-limit-service';
 // Constants
 // ============================================================
 
+/**
+ * #2399: 削除予告メールの送信済フラグ (settings KV キー)。
+ *
+ * soft delete 状態を構成する KV 群と同じライフサイクルを持つ (予約でリセット / 復元でクリア) ため、
+ * キーの定義は本 service 側に置く。判定ロジックは deletion-warning-service が持つ。
+ */
+export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
+
 /** プラン別グレースピリオド（日数）。0 = 即時物理削除 */
+/**
+ * #4327: 物理削除の**部分失敗**を表す log 行の検索語 (SSOT)。
+ *
+ * この語で CloudWatch Logs MetricFilter を張り、alarm 化する
+ * (`infra/lib/ops-stack.ts` の `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM` と同値であることを
+ * `tests/unit/infra/grace-period-deletion-safety.test.ts` が drift 検証する)。
+ * infra は CDK の rootDir 制約で src から import できないため、値の二重定義 + test で守る
+ * (`ENTITLEMENT_FAIL_CLOSED_LOG_TERM` と同じ形)。
+ */
+export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
+
 export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
 	free: 0,
 	standard: 7,
@@ -46,6 +66,14 @@ export interface GracePeriodStatus {
 	daysRemaining: number;
 	isExpired: boolean;
 	planTier: PlanTier | null;
+	/**
+	 * #4316: soft-delete メタデータが不完全 (`physical_deletion_date` /
+	 * `deletion_grace_plan_tier` が欠落・不正) であることを示す。
+	 *
+	 * true のとき `isExpired` は必ず false になり (= 復元できる)、物理削除の母集団にも
+	 * 入らない。「いつ消してよいか不明」を「もう消してよい」に写像しないための旗。
+	 */
+	metadataIncomplete: boolean;
 }
 
 export interface RestoreResult {
@@ -92,10 +120,28 @@ export async function softDeleteTenant(
 
 	// Soft delete state is stored in settings table (not Tenant entity)
 	// to avoid schema migration on DynamoDB.
+	//
+	// #4316: **sentinel-last** — 書き込み順序で「宙吊り」の成立を防ぐ。
+	// `setSetting` は 1 キー 1 文の upsert (dsql/settings-repo.ts) で、複数キーをまとめる
+	// txn は settings repo に無い。したがって途中失敗 (Lambda timeout / DSQL OCC 40001 /
+	// 接続断) は起こりうる前提で順序を決める。
+	//
+	// `soft_deleted_at` は soft-delete 状態を起動する sentinel である
+	// (getGracePeriodStatus の早期 return と hooks.server.ts の読み取り専用ロック判定が
+	// これだけを見る)。これを **最後に** 書けば、途中で失敗しても残るのは
+	// 「sentinel が立っていない = soft-delete が始まっていない」状態だけになり、
+	// 「ロックはかかるが物理削除の母集団に入らない」宙吊りが成立しない。
+	// 逆に先に書くと (旧実装)、1 本目成功 + 3 本目失敗がそのまま宙吊りになる。
 	const repos = getRepos();
-	await repos.settings.setSetting('soft_deleted_at', softDeletedAt, tenantId);
-	await repos.settings.setSetting('deletion_grace_plan_tier', planTier, tenantId);
 	await repos.settings.setSetting('physical_deletion_date', physicalDeletionDate, tenantId);
+	await repos.settings.setSetting('deletion_grace_plan_tier', planTier, tenantId);
+	// #2399: 予約は何度でもやり直せる。前回分の送信済フラグが残っていると 2 回目の予約が
+	// 「予告なしで消える」無音になるため、予約のたびに落とす (復元側でも落とすが二重で担保する)。
+	// #4316 の sentinel-last を守るため、sentinel (soft_deleted_at) より前に落とす。
+	// ここで失敗しても sentinel が立たない = soft-delete が始まらないので、
+	// 「送信済フラグが残ったまま猶予期間に入る」= 無音削除は成立しない。
+	await repos.settings.setSetting(DELETION_WARNING_SENT_KEY, '', tenantId);
+	await repos.settings.setSetting('soft_deleted_at', softDeletedAt, tenantId);
 
 	logger.info('[grace-period] Tenant soft deleted', {
 		context: { tenantId, planTier, graceDays, physicalDeletionDate },
@@ -114,8 +160,27 @@ export async function softDeleteTenant(
 // Grace period status
 // ============================================================
 
+/** 保存済み ISO 文字列を Date にする。未設定 / 空文字 / パース不能は null。 */
+function parseStoredDate(value: string | undefined | null): Date | null {
+	if (!value) return null;
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** 保存済みプランティアを検証する。未設定 / 未知の値は null。 */
+function parseStoredPlanTier(value: string | undefined | null): PlanTier | null {
+	if (!value) return null;
+	return value in DELETION_GRACE_PERIOD_DAYS ? (value as PlanTier) : null;
+}
+
 /**
  * テナントのグレースピリオド状態を取得する。
+ *
+ * #4316: `physical_deletion_date` / `deletion_grace_plan_tier` が欠落している行
+ * (softDeleteTenant の部分書き込みで成立しうる) は「期限切れ」ではなく
+ * 「メタデータ不完全」として扱い、復元を許す。旧実装は欠落時に `deleteDate = now`
+ * へフォールバックしていたため `now >= now` が恒真となり、復元が恒久拒否される一方で
+ * 物理削除の母集団にも入らない「宙吊り」を作っていた。
  */
 export async function getGracePeriodStatus(tenantId: string): Promise<GracePeriodStatus> {
 	const repos = getRepos();
@@ -134,15 +199,46 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 			daysRemaining: 0,
 			isExpired: false,
 			planTier: null,
+			metadataIncomplete: false,
 		};
 	}
 
-	const planTier = (values.deletion_grace_plan_tier as PlanTier) ?? 'free';
+	const storedPhysicalDeletionDate = values.physical_deletion_date ?? null;
+	const storedPlanTier = parseStoredPlanTier(values.deletion_grace_plan_tier);
+	const planTier = storedPlanTier ?? 'free';
 	const graceDays = DELETION_GRACE_PERIOD_DAYS[planTier];
-	const physicalDeletionDate = values.physical_deletion_date ?? null;
+	const deleteDate = parseStoredDate(storedPhysicalDeletionDate);
+
+	// #4316: メタデータが不完全なら「期限切れ」に倒さない (安全側 = データを消さない側)。
+	// 復元は許可し、物理削除の母集団には入れない (findExpiredSoftDeletedTenants)。
+	// 顧客は復元 → 退会し直しで正常な状態に復帰でき、宙吊りから抜けられる。
+	if (deleteDate === null || storedPlanTier === null) {
+		// 既存のログ経路に載せて検出可能にする (新規の通知機構は作らない)。
+		logger.warn(
+			'[grace-period] soft-delete metadata incomplete (physical_deletion_date / deletion_grace_plan_tier); treating as NOT expired',
+			{
+				context: {
+					tenantId,
+					softDeletedAt,
+					storedPhysicalDeletionDate,
+					storedPlanTier: values.deletion_grace_plan_tier ?? null,
+				},
+			},
+		);
+		return {
+			isSoftDeleted: true,
+			softDeletedAt,
+			// tier 欠落時は planTier が 'free' にフォールバックするため graceDays は 0 になる。
+			gracePeriodDays: graceDays,
+			physicalDeletionDate: null,
+			daysRemaining: 0,
+			isExpired: false,
+			planTier: storedPlanTier,
+			metadataIncomplete: true,
+		};
+	}
 
 	const now = new Date();
-	const deleteDate = physicalDeletionDate ? new Date(physicalDeletionDate) : now;
 	const daysRemaining = Math.max(
 		0,
 		Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
@@ -153,10 +249,11 @@ export async function getGracePeriodStatus(tenantId: string): Promise<GracePerio
 		isSoftDeleted: true,
 		softDeletedAt,
 		gracePeriodDays: graceDays,
-		physicalDeletionDate,
+		physicalDeletionDate: storedPhysicalDeletionDate,
 		daysRemaining,
 		isExpired,
 		planTier,
+		metadataIncomplete: false,
 	};
 }
 
@@ -189,10 +286,17 @@ export async function restoreSoftDeletedTenant(tenantId: string): Promise<Restor
 
 	// ソフトデリート情報をクリア
 	// Empty string = unset (deleteSetting が存在しないため)
+	//
+	// #4316: **sentinel-first** — クリアは sentinel (`soft_deleted_at`) から消す。
+	// 途中で失敗しても残るのは「sentinel が消えている = 復元済み」状態であり、
+	// 安全側 (データを消さない側) に倒れる。set 側の sentinel-last と対になる。
 	const repos = getRepos();
 	await repos.settings.setSetting('soft_deleted_at', '', tenantId);
 	await repos.settings.setSetting('deletion_grace_plan_tier', '', tenantId);
 	await repos.settings.setSetting('physical_deletion_date', '', tenantId);
+	// #2399: 予告メールの送信済フラグも落とす。残したままだと再度削除予約したときに
+	// 「送信済」と判定され、2 回目の予約が予告なしで物理削除まで進む (無音の再発)。
+	await repos.settings.setSetting(DELETION_WARNING_SENT_KEY, '', tenantId);
 
 	logger.info('[grace-period] Tenant restored from soft delete', {
 		context: { tenantId },
@@ -225,7 +329,15 @@ export async function findExpiredSoftDeletedTenants(): Promise<
 
 	for (const tenant of allTenants) {
 		const status = await getGracePeriodStatus(tenant.tenantId);
-		if (status.isSoftDeleted && status.isExpired && status.physicalDeletionDate) {
+		// #4316: `metadataIncomplete` を明示的に除外する。`isExpired === false` /
+		// `physicalDeletionDate === null` でも既に除外されるが、「いつ消してよいか不明な行は
+		// 物理削除しない」という意図をこの条件で読めるようにしておく (多重防御)。
+		if (
+			status.isSoftDeleted &&
+			status.isExpired &&
+			status.physicalDeletionDate &&
+			!status.metadataIncomplete
+		) {
 			expired.push({
 				tenantId: tenant.tenantId,
 				planTier: status.planTier ?? 'free',
@@ -276,6 +388,50 @@ export function getGracePeriodDays(planTier: PlanTier): number {
  */
 export const DEFAULT_PURGE_LIMIT = 5;
 
+/**
+ * #4327: 物理削除の kill-switch (env)。`'true'` / `'1'` で**削除を一切実行しない**。
+ *
+ * 不可逆な削除を止める手段が EventBridge Rule の手動 disable しかない状態を解消する。
+ * Rule 側 (`aws events disable-rule`) は「cron を呼ばない」防御、本 env は
+ * 「呼ばれても消さない」防御で、層が違う (手動実行 / 別経路からの呼び出しも止まる)。
+ *
+ * 既定 (未設定) は有効 = 従来動作。新規 required env は増やさない (opt-out 方式)。
+ * 手順は `docs/runbooks/grace-period-deletion-operations.md`。
+ */
+export const GRACE_PERIOD_DELETION_DISABLED_ENV = 'GRACE_PERIOD_DELETION_DISABLED';
+
+/** 「止める」と解釈する値。障害対応中に手で打つものなので表記ゆれを許容する。 */
+const DISABLED_VALUES = new Set(['true', '1', 'yes', 'on']);
+/** 「止めない」と解釈する値 (明示的に有効化した状態)。 */
+const ENABLED_VALUES = new Set(['false', '0', 'no', 'off', '']);
+
+function isPhysicalDeletionDisabled(): boolean {
+	const raw = env.GRACE_PERIOD_DELETION_DISABLED;
+	if (raw === undefined) return false;
+	const normalized = raw.trim().toLowerCase();
+	if (DISABLED_VALUES.has(normalized)) return true;
+	if (ENABLED_VALUES.has(normalized)) return false;
+
+	// #4340 follow-up: 解釈できない値は **「止める」側に倒す**。
+	//
+	// 対象が取り消せない顧客データの物理削除であり、この env は障害対応中に手で打つ。
+	// `=tru` のような打ち間違いを「有効」に倒すと、止めたつもりの運用者が
+	// 「止まっていない」ことに気付けないまま削除が走る (気付く手段が warn ログしかない)。
+	// 同じ #4327 の対処が `metadataIncomplete` で「判定材料の欠落は安全側に倒す」を
+	// 採っているのと同じ向きに揃える。
+	//
+	// throw しないのは変えていない (障害対応中の typo でアプリ全体を落とさないため)。
+	// 「throw しない」ことと「有効に倒す」ことは別で、止める側に倒しても throw は要らない。
+	//
+	// 止まったことは 200 + `disabled: true` で観測できる。逆に「止めたつもりで止まらない」は
+	// 削除が完了するまで観測できない — 非対称なので観測できる側に倒す。
+	logger.warn(
+		`[grace-period] ${GRACE_PERIOD_DELETION_DISABLED_ENV} の値を解釈できません。物理削除は「停止」として扱います`,
+		{ context: { value: raw, expected: [...DISABLED_VALUES].join(' / ') } },
+	);
+	return true;
+}
+
 export async function purgeExpiredSoftDeletedTenants(opts?: {
 	dryRun?: boolean;
 	/** #3695: 1 回の実行で物理削除を試行する最大テナント数。 */
@@ -289,12 +445,32 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 	/** #3695: limit / 時間予算により今回処理せず次回実行へ持ち越した件数。 */
 	tenantsRemaining: number;
 	dryRun: boolean;
+	/** #4327: kill-switch (env) により削除を実行しなかったことを示す。 */
+	disabled: boolean;
 	expired: Array<{ tenantId: string; planTier: PlanTier; physicalDeletionDate: string }>;
 	errors: Array<{ tenantId: string; error: string }>;
 }> {
 	const dryRun = opts?.dryRun ?? false;
 	const limit = opts?.limit ?? DEFAULT_PURGE_LIMIT;
 	const budget = opts?.budget ?? createTimeBudget();
+
+	// #4327: kill-switch — 対象の走査すら行わずに即返す (誤って消す経路を残さない)。
+	if (isPhysicalDeletionDisabled()) {
+		logger.warn('[grace-period] physical deletion is disabled by kill-switch env; skipping', {
+			context: { env: GRACE_PERIOD_DELETION_DISABLED_ENV },
+		});
+		return {
+			tenantsProcessed: 0,
+			tenantsDeleted: 0,
+			tenantsFailed: 0,
+			tenantsRemaining: 0,
+			dryRun,
+			disabled: true,
+			expired: [],
+			errors: [],
+		};
+	}
+
 	const expired = await findExpiredSoftDeletedTenants();
 
 	if (dryRun || expired.length === 0) {
@@ -307,6 +483,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 			tenantsFailed: 0,
 			tenantsRemaining: 0,
 			dryRun,
+			disabled: false,
 			expired,
 			errors: [],
 		};
@@ -372,6 +549,7 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 		tenantsFailed: errors.length,
 		tenantsRemaining: remaining,
 		dryRun: false,
+		disabled: false,
 		expired,
 		errors,
 	};

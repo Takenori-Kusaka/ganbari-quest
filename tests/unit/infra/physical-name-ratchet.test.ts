@@ -98,6 +98,8 @@ function buildAllTemplates(): Array<[string, Template]> {
 	const network = new NetworkStack(app, 'GanbariQuestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: 'ganbari-quest.com',
 		certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/test',
 		demoFunctionUrl: compute.demoFunctionUrl,
@@ -307,8 +309,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 		'EventBridge Rule 固定名は ops 運用コマンド (`aws events list-rules --name-prefix ganbari-quest-cron`、infra/CLAUDE.md) の識別子契約',
 		[
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-age-recalc',
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-deletion-warning-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-export-build',
-			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-grace-period-deletion',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-lifecycle-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-pmf-survey',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-retention-cleanup',
@@ -325,6 +327,9 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
+			// #4327: 顧客データ物理削除の部分失敗。runbook (grace-period-deletion-operations.md §2) が
+			// この名前で参照するため固定名が要る。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-grace-period-partial-failure',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-concurrent',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-duration-p99',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-errors',

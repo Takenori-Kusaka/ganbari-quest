@@ -38,6 +38,10 @@ import {
 } from '$lib/server/services/child-challenge-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
+import {
+	clearHabitCertificateNotice,
+	getHabitCertificateNotice,
+} from '$lib/server/services/habit-certificate-notice-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
@@ -55,6 +59,10 @@ import {
 	stampToday,
 } from '$lib/server/services/stamp-card-service';
 import { getCategoryXpSummary } from '$lib/server/services/status-service';
+import {
+	clearUiModeChangeNotice,
+	getUiModeChangeNotice,
+} from '$lib/server/services/ui-mode-change-notice-service';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -98,6 +106,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			siblingRanking: null,
 			unshownCheers: [],
 			mustStatus: null,
+			uiModeChangeNotice: null,
+			habitCertificateNotice: null,
 		};
 
 	// baby モードは親向け準備ツール — ゲーミフィケーション DB 呼び出しをスキップ (#1300)
@@ -125,6 +135,10 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			unshownCheers: [],
 			familyStreak: null,
 			mustStatus: null,
+			// #4313: 年齢は減らないため「切替後が baby」の notice は発生しない。
+			// 3 歳の baby → preschool は切替後が preschool なので本分岐に入らない。
+			uiModeChangeNotice: null,
+			habitCertificateNotice: null,
 		};
 	}
 
@@ -148,6 +162,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
+		uiModeChangeNotice,
+		habitCertificateNotice,
 	] = await Promise.all([
 		// #2471: per-child API に絞り込み (旧 getActivities(tenantId) は tenant 全 child を
 		// aggregate して同名 activity が child 数分重複 render される bug の根本原因)
@@ -172,6 +188,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getActiveChildChallengesWithSiblings(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
+		// #4313: 誕生日で年齢帯 UI が切り替わったことの未読告知 (settings KV)
+		getUiModeChangeNotice(child.id, tenantId),
+		// #4261 ③: Push を許可していない家庭では、子は残高が増えた理由を知る手段が無い。
+		// 既存の Promise.all に相乗りさせる (往復を増やさない)。
+		getHabitCertificateNotice(child.id, tenantId),
 	]);
 
 	const sortedActivities = await sortActivitiesWithPreferences(rawActivities, child.id, tenantId);
@@ -301,6 +322,8 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 				}
 			: null,
 		mustStatus,
+		uiModeChangeNotice,
+		habitCertificateNotice,
 	};
 };
 
@@ -566,6 +589,21 @@ export const actions: Actions = {
 		};
 	},
 
+	/**
+	 * #4313: 年齢帯 UI 切替の告知を既読にする。
+	 * ダイアログを閉じた時点で 1 回だけ呼ばれ、以後どの日に再ログインしても再表示されない。
+	 */
+	dismissUiModeChangeNotice: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.dismissUiModeChangeNotice'),
+		);
+		if (!childId) return fail(400, { error: 'パラメータが不正です' });
+
+		await clearUiModeChangeNotice(childId, tenantId);
+		return { success: true, uiModeChangeNoticeDismissed: true };
+	},
+
 	// #2295 (EPIC #2294 ①): claimEventReward action 削除済 (2026-05-19)
 
 	claimChallengeReward: async ({ request, cookies, locals }) => {
@@ -651,6 +689,27 @@ export const actions: Actions = {
 		}
 
 		await markCheersShown(cheerIds, tenantId);
+		return { success: true };
+	},
+
+	/**
+	 * #4261 ③: 習慣化告知を既読にする。
+	 *
+	 * **子に閉じる操作をさせない** (ADR-0012「記録する → 数秒で閉じる」を伸ばさない) ため、
+	 * × ボタンではなく**表示できた時点**で client が自動で 1 回だけ叩く。
+	 * 失敗しても画面は壊さず、次回起動でもう一度出す (安全側 = 無音より再掲)。
+	 */
+	ackHabitCertificateNotice: async ({ cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.ackHabitCertificateNotice'),
+		);
+		if (!childId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		await clearHabitCertificateNotice(childId, tenantId);
 		return { success: true };
 	},
 

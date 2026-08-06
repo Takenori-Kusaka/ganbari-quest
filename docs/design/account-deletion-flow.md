@@ -150,17 +150,35 @@ POST /api/v1/admin/account/delete  (pattern=owner-only / owner-full-delete)
 
 soft delete されたテナントは以下の状態になる:
 
-- `settings` テーブルに `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` が記録される
+- `settings` テーブルに `physical_deletion_date` → `deletion_grace_plan_tier` → `soft_deleted_at` の順で記録される（**sentinel-last**）
 - Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
 - ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+
+#### 3 キーの書き込み順序と不完全メタデータの扱い
+
+`settings` の 3 キーは 1 キー 1 文の upsert で書かれ、まとめる txn は無い。よって**書き込み順序が不変条件を担保する**:
+
+| 操作 | 順序 | 途中失敗時に残る状態 |
+|---|---|---|
+| soft delete（記録） | `physical_deletion_date` → `deletion_grace_plan_tier` → **`soft_deleted_at`**（sentinel-last） | sentinel が立たない = soft-delete が始まっていない |
+| restore（クリア） | **`soft_deleted_at`** → `deletion_grace_plan_tier` → `physical_deletion_date`（sentinel-first） | sentinel が消えている = 復元済み |
+
+`soft_deleted_at` は soft-delete 状態を起動する sentinel（`getGracePeriodStatus` の早期 return と `hooks.server.ts` の読み取り専用ロック判定がこれだけを見る）。**sentinel を最後に立て、最初に降ろす**ことで、途中失敗はつねに「データを消さない側」に倒れる。
+
+**メタデータが不完全な行**（`physical_deletion_date` または `deletion_grace_plan_tier` が欠落・不正）は、`getGracePeriodStatus` が `metadataIncomplete: true` / `isExpired: false` を返す:
+
+- 「いつ消してよいか不明」を「もう消してよい」に写像しない（安全側 = データを消さない側）
+- **復元できる**（宙吊りからの脱出経路。復元 → 退会し直しで正常な状態に戻せる）
+- **物理削除の母集団に入らない**（`findExpiredSoftDeletedTenants`）
+- 発生は `logger.warn` で検出する（専用の通知機構は持たない）
 
 ### 4.4 復元フロー
 
 `POST /api/v1/admin/account/restore` (owner のみ):
 
-1. `getGracePeriodStatus` で grace 期限内であることを確認
-2. settings の 3 キー (`soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date`) を空文字でクリア
+1. `getGracePeriodStatus` で grace 期限内であることを確認（メタデータ不完全な行は期限切れ扱いにせず復元を許す、§4.3）
+2. settings の 3 キーを `soft_deleted_at` → `deletion_grace_plan_tier` → `physical_deletion_date` の順（**sentinel-first**）で空文字にクリア
 3. テナント通常状態に戻る（次の admin/+layout.server.ts load で `gracePeriodStatus.isSoftDeleted=false`）
 
 > **Stripe 再購読について**: Stripe Subscription は grace 期間中にキャンセル済みのため、復元しても自動再購読されない。ユーザは `/pricing` から再度購読する必要がある（admin 画面で誘導する）。
@@ -169,25 +187,52 @@ soft delete されたテナントは以下の状態になる:
 
 `/api/cron/grace-period-deletion` が定期実行で `purgeExpiredSoftDeletedTenants` を呼ぶ:
 
-1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出
+0. `GRACE_PERIOD_DELETION_DISABLED` が `true` / `1` なら**対象の走査を行わず即 return**（kill-switch）
+1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出（メタデータ不完全な行は母集団に入らない、§4.3）
 2. 各テナントの owner を特定
 3. `deleteOwnerOnlyAccount` (他メンバーなし) または `deleteOwnerFullDelete` (他メンバーあり) で物理削除
 4. Pattern 2b の場合、他メンバーへ `sendMemberRemovedEmail` 通知
 
 > Stripe キャンセルは soft delete 時に既に完了しているため、cron 経由の `cancelSubscription` 再実行は idempotent な no-op になる。
 
+#### 削除の実行順（判定材料は最後に消す）
+
+soft-delete 判定の SSOT は `settings` の `soft_deleted_at` / `physical_deletion_date` であり、
+対象列挙は `families` を歩いて 1 件ずつ `settings` を読む。したがって **`settings` は `families` 行より後に削除する**。
+
+```
+1 Stripe cancel → 2 S3 → 3 tenant-scoped データ (settings を除く) → 4 children
+→ 5 memberships / users → 6 invites → 7 families → 8 settings（判定材料）
+```
+
+step 7 より前で失敗しても判定材料が残るため、翌日の実行が同じテナントを再び対象にして完遂する（自己回復）。
+逆順にすると「`families` は残るが判定材料が無い」= 再削除も復元もできない行が生まれる。
+step 8 の失敗は例外を投げ、`errors[]` → alarm に載る。このとき `settings` 行のみが孤児として残り、
+そこには `pin_hash` / `session_token` / `questionnaire_*` が含まれるため**手動掃除が必要**
+（判断根拠と手順は [`grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) §3）。
+
+#### 部分失敗の扱い
+
+`tenantsFailed > 0` のとき endpoint は **HTTP 500** を返し、Discord incident webhook にも件数を出す
+（テナント識別子は log にのみ残す）。停止 / 観測 / 復旧の限界は
+[`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) が SSOT。
+**単一テナントだけを削除前の状態に戻す手段は存在しない。**
+
 ### 4.6 §2 マトリクスへの影響
 
 soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（チェックなし）。grace 期限切れで cron が物理削除を実行したタイミングで §2 の Pattern 1 / 2b と同じ範囲が削除される。
 
-### 4.7 削除予告メール自動化（#2399、Phase 1 計画中）
+### 4.7 削除予告メール自動化（#2399）
 
-soft delete 状態のテナントに対し、物理削除実行の **14 日前 (family プラン) / 1 日前 (standard プラン)** に所有者へ予告メールを送信する cron 機構の計画策定済。実装は別 PR (sub-Issue) で行う。
+soft delete 状態のテナントに対し、物理削除の **残り 14 日 (family) / 1 日 (standard)** で所有者へ予告メールを 1 通送る。**free は猶予 0 日 (即時物理削除) のため送信しない** — 予告を送る時間が原理的に存在せず、削除確認は §5.1 の入力確認 UX が担う。
 
-- **計画 / 設計 SSOT**: [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md) (#2399 本 Issue で策定)
-- **使用基盤**: 既存 EventBridge + cron-dispatcher Lambda + SES Configuration Set (新規 Lambda function 追加なし)
-- **idempotency**: `settings.deletion_warning_sent_at` で 1 テナント 1 送信を保証
-- **法務通知扱い**: `marketing-email-counter` (年 6 回上限、ADR-0023 §5 I11) には乗せない
+- **設計 SSOT**: [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md)
+- **実体**: `/api/cron/deletion-warning-emails` (毎日 10:00 JST) → `deletion-warning-service.ts` → `email-service.sendDeletionWarningEmail`
+- **使用基盤**: 既存 EventBridge + cron-dispatcher Lambda + SES (新規 Lambda function / Stack なし)
+- **しきい値の判定**: 残日数は JST 暦日差で数え、`しきい値以下 かつ 1 日以上 かつ 未送信` で送る。cron が 1 日欠測しても予告なしで削除される事態を避けるための「以下」判定であり、二重送信は下記 idempotency が防ぐ
+- **idempotency**: `settings.deletion_warning_sent_at` で 1 予約 1 送信。**予約時 (`softDeleteTenant`) と復元時 (`restoreSoftDeletedTenant`) にクリア**され、復元後に再度予約すれば再び予告が届く
+- **法務通知扱い**: `marketing-email-counter` (年 6 回上限、ADR-0023 §5 I11) に乗せず、List-Unsubscribe も付けない。配信停止済のテナントにも届く
+- **本文**: 物理削除予定日 + 残日数 + 復元導線 (`/admin/settings/account`) を含み、子供の名前・活動内容は含めない (ADR-0012 中立トーン)
 
 ---
 

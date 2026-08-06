@@ -19,6 +19,12 @@ vi.mock('$lib/server/db/point-repo', () => ({
 	insertPointEntry: (...args: unknown[]) => mockInsertPointEntry(...args),
 }));
 
+// --- #4313: uiMode 切替の告知記録サービスをモック ---
+const mockRecordUiModeChangeNotice = vi.fn();
+vi.mock('$lib/server/services/ui-mode-change-notice-service', () => ({
+	recordUiModeChangeNotice: (...args: unknown[]) => mockRecordUiModeChangeNotice(...args),
+}));
+
 // --- date-utils モック — 誕生日計算を固定日付で制御 ---
 let _mockedToday = '2026-04-01';
 vi.mock('$lib/domain/date-utils', async (importOriginal) => ({
@@ -221,6 +227,7 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		mockFindChildById.mockReset();
 		mockUpdateChild.mockReset();
 		mockInsertPointEntry.mockReset();
+		mockRecordUiModeChangeNotice.mockReset();
 		mockInsertPointEntry.mockResolvedValue(undefined);
 		mockUpdateChild.mockResolvedValue(undefined);
 		_mockedToday = '2026-04-01';
@@ -354,5 +361,72 @@ describe('claimBirthdayBonus — uiMode 自動再計算（#580）', () => {
 		expect('error' in result).toBe(true);
 		if ('error' in result) expect(result.error).toBe('NOT_ELIGIBLE');
 		expect(mockUpdateChild).not.toHaveBeenCalled();
+	});
+
+	// ============================================================
+	// #4313: uiMode 切替の pending notice 記録
+	//
+	// claimBirthdayBonus は uiModeManuallySet を無視して常に上書きする (#580 の意図的決定)
+	// ため、age-recalc cron 側だけを塞ぐと穴が残る。両方の書き手で記録されることを固定する。
+	// ============================================================
+
+	const boundaries: Array<{ age: number; birthDate: string; from: string; to: string }> = [
+		{ age: 2, birthDate: '2023-04-01', from: 'baby', to: 'preschool' },
+		{ age: 5, birthDate: '2020-04-01', from: 'preschool', to: 'elementary' },
+		{ age: 12, birthDate: '2013-04-01', from: 'elementary', to: 'junior' },
+		{ age: 15, birthDate: '2010-04-01', from: 'junior', to: 'senior' },
+	];
+
+	for (const b of boundaries) {
+		it(`#4313: ${b.from} → ${b.to} 境界で notice を記録する`, async () => {
+			mockFindChildById.mockResolvedValue(
+				makeChildForClaim({ age: b.age, uiMode: b.from, birthDate: b.birthDate }),
+			);
+
+			await claimBirthdayBonus(asChildId(1), 'tenant-1');
+
+			expect(mockRecordUiModeChangeNotice).toHaveBeenCalledWith(
+				expect.objectContaining({ from: b.from, to: b.to }),
+				'tenant-1',
+			);
+		});
+	}
+
+	it('#4313: 同一モード内 (7→8 歳) では notice を記録しない', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 7, uiMode: 'elementary', birthDate: '2018-04-01' }),
+		);
+
+		await claimBirthdayBonus(asChildId(1), 'tenant-1');
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
+	});
+
+	it('#4313: 手動設定 (uiModeManuallySet=1) でも上書きが起きるので notice を記録する', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({
+				age: 5,
+				uiMode: 'preschool',
+				uiModeManuallySet: 1,
+				birthDate: '2020-04-01',
+			}),
+		);
+
+		await claimBirthdayBonus(asChildId(1), 'tenant-1');
+
+		expect(mockRecordUiModeChangeNotice).toHaveBeenCalledWith(
+			expect.objectContaining({ from: 'preschool', to: 'elementary' }),
+			'tenant-1',
+		);
+	});
+
+	it('#4313: NOT_ELIGIBLE なら notice を記録しない', async () => {
+		mockFindChildById.mockResolvedValue(
+			makeChildForClaim({ age: 5, uiMode: 'preschool', birthDate: '2020-08-15' }),
+		);
+
+		await claimBirthdayBonus(asChildId(1), 'tenant-1');
+
+		expect(mockRecordUiModeChangeNotice).not.toHaveBeenCalled();
 	});
 });

@@ -193,3 +193,55 @@ describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
 		expect(r.ok).toBe(false);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// #4348: section 探索を「本文の部分一致」から「H2 見出し行の完全一致」に是正した回帰。
+//
+// 旧実装は `body.indexOf(section)` で section 開始位置を決めていたため、説明文 / AC 表 /
+// HTML コメントに同じ文字列があると **そこから切り出して**しまい、checkbox の集計範囲が
+// 本来の section とずれた。以下 3 例はいずれも旧実装では誤判定する入力
+// (mutation 実測: countUnchecked を indexOf 版に戻すと 1 例目と 3 例目が red になる)。
+// ---------------------------------------------------------------------------
+
+describe('#4348: section 探索は H2 見出し行の完全一致', () => {
+	it('本文中の言及が見出しより前にあっても、集計は本物の section を数える', () => {
+		// 旧実装: AC 表のセルから切り出し → 直後の `\n## ` までに `- [ ]` が無く「全消化」と誤判定。
+		const body = [
+			'## AC 検証マップ (ADR-0004)',
+			'',
+			'| AC1 | 内容 | 手段 | 下記「## Ready for Review チェックリスト」参照 |',
+			'',
+			'## Ready for Review チェックリスト',
+			'- [x] CI 全緑',
+			'- [ ] pre-ready PASS',
+			'',
+		].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
+		expect(r.ok).toBe(false);
+		expect(r.error ?? '').toContain('Ready for Review チェックリスト');
+	});
+
+	it('HTML コメント内の見出し文字列だけでは section が存在するとみなさない', () => {
+		const body = ['## 概要', '', '<!-- ## Ready for Review チェックリスト を書く -->', ''].join(
+			'\n',
+		);
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
+		// feature lane は section 不在を warning にする (現行仕様)。found=false が warning に出ること。
+		expect((r.warnings ?? []).join('\n')).toContain('Ready for Review チェックリスト');
+	});
+
+	it('code block 内の未チェック checkbox は集計しない (template の例示で fail させない)', () => {
+		const body = [
+			'## Ready for Review チェックリスト',
+			'- [x] CI 全緑',
+			'- [x] pre-ready PASS',
+			'',
+			'```markdown',
+			'- [ ] これは書き方の例',
+			'```',
+			'',
+		].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'feature' });
+		expect(r.ok).toBe(true);
+	});
+});

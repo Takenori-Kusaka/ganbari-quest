@@ -21,3 +21,10 @@
 # 決定的に検証するため、上の `* text=auto eol=lf` を本 1 行で上書きする。
 # 検証: tests/unit/scripts/crlf-shebang-import.test.ts / 対処: vite.config.ts stripShebangPlugin
 tests/fixtures/crlf/*.mjs text eol=crlf
+
+# Graphify knowledge graph (#4291)
+# `graphify hook install` が仕込む union merge driver 相当。25.9 MiB の graph.json が
+# 毎コミット書き換わるため、driver が無いと並行 PR のほぼ全てで conflict する。
+# union は「両方の行を残す」= 再生成すれば正になる生成物向けの解決。
+graphify-out/graph.json merge=union
+graphify-out/manifest.json merge=union

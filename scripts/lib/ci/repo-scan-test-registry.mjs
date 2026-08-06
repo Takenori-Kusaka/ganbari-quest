@@ -61,6 +61,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
 	},
+	'tests/unit/architecture/exclusion-reason-nonempty.test.ts': {
+		scope: 'repo',
+		note: 'scripts/orphan-baselines/*.json を走査して免除理由の非空 / 非 stub を検査する (#4030 AC5 / AC6)。走査自体は 1 dir で有界だが、判定は保守的に repo 扱いとし明示 timeout を置く',
+	},
 	'tests/unit/architecture/action-primary-white-text-contrast.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の .svelte を走査して配色コントラスト違反を検出する',
@@ -73,6 +77,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: '#4085 実測 例4 (5533ms で timeout)。.github + scripts を走査する scanner の健全性検査 (#4007)',
 	},
+	'tests/unit/architecture/scripts-node-test-ci-coverage.test.ts': {
+		scope: 'repo',
+		note: 'scripts/__tests__ を再帰 readdir し、ci.yml の node --test 引数が全 file をカバーするか検査する。走査は 1 dir で有界だが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/architecture/cloudfront-s3-user-content-bypass-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra 配下の CDK 定義を走査して配信経路の bypass を検出する',
@@ -80,6 +88,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/db-access-boundary.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
+	},
+	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
+		scope: 'repo',
+		note: '#4348 scripts 配下の .mjs を走査し、PR body の見出し / 宣言を部分一致で判定する新規コードを検出する',
 	},
 	'tests/unit/architecture/no-stray-control-chars.test.ts': {
 		scope: 'repo',
@@ -116,6 +128,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/cron-route-auth-fitness.test.ts': {
 		scope: 'bounded',
 		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
+	},
+	'tests/unit/architecture/ops-route-auth-fitness.test.ts': {
+		scope: 'repo',
+		note: '実走査は src/routes/ops 配下のみだが、静的判定が repo と見なすため宣言を合わせ明示 timeout を置く。全 ops endpoint が requireOpsAccess を呼ぶことを検査する (#4309)',
 	},
 	'tests/unit/architecture/workflow-judgment-delegation-guard.test.ts': {
 		scope: 'repo',

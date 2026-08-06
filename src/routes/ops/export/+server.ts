@@ -3,6 +3,7 @@
 
 import { error } from '@sveltejs/kit';
 import { jstYearMonth } from '$lib/domain/date-utils';
+import { requireOpsAccess } from '$lib/server/auth/ops-authz';
 import {
 	generateExpenseLedgerCsv,
 	generatePLSummary,
@@ -12,7 +13,12 @@ import {
 } from '$lib/server/services/ops-service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
+	// #4309: `+layout.server.ts` の ops gate は page にしか適用されず本 endpoint には走らない。
+	// 未認証で売上台帳 CSV が 200 で取れていたため、同じ判定 (ops group + MFA) をここで通す。
+	// **クエリ解釈より前に置く** — 認可の前にデータ集計が走ると、403 を返しても情報は流れる。
+	requireOpsAccess(locals);
+
 	const type = url.searchParams.get('type');
 	// 既定の対象年は JST SSOT 経由 (#4015)
 	const year = Number.parseInt(url.searchParams.get('year') ?? String(jstYearMonth().year), 10);

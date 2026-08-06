@@ -75,11 +75,18 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 |---|---|---|
 | `PARENT_GATE_COOKIE_SECRET` | /admin/* PIN gate cookie 署名 (#2310 / ADR-0050 / #2337) | Lambda + NUC 必須、同値不要 |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe 課金 | Lambda 必須 / NUC 無効 |
-| `GEMINI_API_KEY` | Gemini API | 任意 |
+| `GEMINI_API_KEY` | Gemini API | 任意。ただし **NUC は `AI_PROVIDER=gemini` 固定**のため、未設定だと AI 提案 (活動 / ごほうび / チェックリスト / 応援・レシート OCR) が全て無効になり、キーワード提案へ縮退する (#4330)。`deploy-nuc.yml` → `generate-env.ps1` が未設定時に `::warning::` を出す (deploy は続行) |
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
+| `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
+
+#### `ORIGIN_VERIFY_SECRET` を NUC に配布しない理由 (#4280)
+
+`/admin` ・ `/api/v1/admin` ・ `/ops` は「CloudFront を通ってきたこと」を `x-origin-verify` header で要求する。**NUC セルフホストは CloudFront を持たず LAN 内で直接配信する**ため、NUC の `.env` にこの secret を入れると「front door が無いのに検査が有効」になり、保護者の見守り画面が全 404 になる。未設定 = 検査無効 (fail-open) が NUC の正しい状態である。
+
+AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resolveOriginVerifySecret()` が context 未指定の synth を throw し、`deploy.yml` / `deploy-aws-staging.yml` の `Validate required secrets` が GitHub Secret 未登録の deploy を止める (ADR-0024)。仕様と rotate 手順の SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1。
 
 ### 新規 env 追加時 PR チェックリスト
 
@@ -220,6 +227,25 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ### CloudWatch Alarm
 
 `ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts` L237-249) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
+
+### 自動リトライを切るのは非冪等な cron だけ (#4327)
+
+既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `CRON_JOBS` に `disableRetry: true` を持つ job のみで、現状 `grace-period-deletion` 1 本だけ (途中まで削除されたテナントに purge が再走するため)。
+
+**一律 0 にしない**。冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御であり、`deletion-warning-emails` は 1 失敗が「予告のないまま削除される」に、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月欠測になる。新規 job に `disableRetry` を付けるのは**再実行が壊す状態を持つ場合だけ**。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する。
+
+### 顧客データ物理削除 (grace-period-deletion) の緊急停止 (#4327)
+
+**不可逆な処理**であり、止める手段を 2 層持つ。手順・観測・復旧の限界の SSOT は
+[docs/runbooks/grace-period-deletion-operations.md](../docs/runbooks/grace-period-deletion-operations.md)。
+
+```bash
+# 層 1: cron を呼ばせない (即時。ただし次回 deploy で ENABLED に戻る)
+aws events disable-rule --name ganbari-quest-cron-grace-period-deletion --region us-east-1
+
+# 層 2: 呼ばれても消させない (手動 POST も止まる。deploy でも戻らない)
+gh variable set GRACE_PERIOD_DELETION_DISABLED --body true --repo Takenori-Kusaka/ganbari-quest
+```
 
 **注意**: `cdk deploy` は PO が実行する（GHA `deploy.yml` または手動 `cdk deploy --all`）。
 

@@ -3,10 +3,12 @@ import type { ChildId } from '$lib/domain/ids';
 // 誕生日ボーナスポイントの判定・付与サービス
 
 import { addDaysJST, todayDateJST } from '$lib/domain/date-utils';
+import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { findChildById, updateChild } from '$lib/server/db/child-repo';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import type { Child } from '$lib/server/db/types';
+import { recordUiModeChangeNotice } from '$lib/server/services/ui-mode-change-notice-service';
 
 // ============================================================
 // Constants
@@ -167,6 +169,21 @@ export async function claimBirthdayBonus(
 		},
 		tenantId,
 	);
+
+	// #4313: uiMode が実際に変わったときだけ、次回ログイン告知用の pending notice を残す。
+	// 本経路は uiModeManuallySet を無視して常に上書きする (#580 の意図的決定) ため、
+	// age-recalc cron 側だけを塞ぐと穴が残る。
+	if (child.uiMode !== newUiMode) {
+		await recordUiModeChangeNotice(
+			{
+				childId,
+				from: child.uiMode as UiMode,
+				to: newUiMode,
+				changedOn: today,
+			},
+			tenantId,
+		);
+	}
 
 	// ポイント台帳に記録
 	await insertPointEntry(

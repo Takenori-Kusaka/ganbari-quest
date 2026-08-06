@@ -48,6 +48,15 @@ CI ログでも同 warning が出るため、PR の CI fail 調査時にまず�
 判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
 `tests/e2e/integration/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
 
+### `scripts/__tests__/` の node:test（vitest 管轄外）
+
+`scripts/*.mjs` の CLI 動作テストは `scripts/__tests__/*.test.mjs` に置き、**node:test で書く**（vitest の include は `tests/unit/**` / `tests/integration/**` のみで、ここは対象外）。
+
+- **CI では `ci.yml` の `Scripts unit tests (node:test, scripts/__tests__/ 全件)` step が glob で全件走らせる。** file を足せば自動で対象に入るので **ci.yml を触る必要はない**
+- **実行対象を literal path の列挙に戻さない。** 旧実装は literal を 2〜3 行書いていただけで、13 file 中 10 file が未実行、うち 3 file は実行されないまま drift して壊れていた
+- 対応関係は `tests/unit/architecture/scripts-node-test-ci-coverage.test.ts` が機械検証する（未カバー file / literal 列挙への退行で fail）
+- ローカル実行: `node --test "scripts/__tests__/**/*.test.mjs"`（glob は quote する — shell ではなく node 側に展開させる）
+
 ## repo 走査 test (実行コストが入力サイズに比例する test) — #4085
 
 ### 定義

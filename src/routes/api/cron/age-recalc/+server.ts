@@ -10,9 +10,19 @@
 //   Body (任意): { "dryRun": true }
 //
 // レスポンス:
-//   200 { ok: true, scanned, skipped, updated, failures, dryRun }
+//   200 { ok: true, scanned, skipped, updated, failures, dryRun,
+//         tenantsTotal, tenantsProcessed, tenantsRemaining,
+//         tenantsSkippedByRotation, tenantsSkippedByBudget,
+//         budgetExceeded, sliceIndex, sliceCount }
 //   401 Unauthorized
 //   500 Internal Error
+//
+// #4337 (13-AWS設計書 §3.3): 1 回の実行は件数上限 + 20 秒予算で self-limiting する。
+// 走査しきれなかったテナントは tenantsRemaining として報告され、次回以降の実行が回収する。
+// #4345 follow-up: tenantsRemaining は「今日の担当外（ローテーション、正常）」
+// (tenantsSkippedByRotation) と「担当スライス内での打ち切り（予算超過、異常）」
+// (tenantsSkippedByBudget) の合算。前者はテナント数が tenantLimit を超える定常状態で
+// 毎日発生しうる設計どおりの値、後者だけが warn の対象（実装は age-recalc-service.ts 参照）。
 
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';

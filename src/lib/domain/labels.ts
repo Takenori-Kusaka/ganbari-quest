@@ -782,6 +782,34 @@ export const LIFECYCLE_EMAIL_LABELS = {
 } as const;
 
 // ============================================================
+// アカウント削除予告メール（#2399）
+// ============================================================
+
+// 猶予期間中のテナントに送る「このままだとデータが消えます」の予告文言 SSOT。
+//
+// トーン方針:
+//   - Anti-engagement (ADR-0012): 「今すぐ復元!」等の煽りを置かない。事実 (予定日 / 残日数) と
+//     取れる行動 (復元 / 何もしない) だけを並べる
+//   - 子供の名前・活動内容は載せない (runbook §2 中立トーン原則)。宛先は保護者であり、
+//     削除予告に子供の記録内容を差し込むのは引き止め目的の情報利用になる
+//   - 「配信停止しても届く」ことを本文で明示する。法務通知であり購読設定の対象外であるため
+export const DELETION_WARNING_EMAIL_LABELS = {
+	subject: (daysRemaining: number) => `データ削除予定日のお知らせ（あと ${daysRemaining} 日）`,
+	heading: 'データ削除予定日のお知らせ',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro: `お申し出いただいたアカウント${CANCEL_TERMS.account}の手続きについてお知らせします。`,
+	deletionDateLine: (deletionDate: string, daysRemaining: number) =>
+		`データの削除予定日: ${deletionDate}（あと ${daysRemaining} 日）`,
+	irreversibleNote: '削除予定日を過ぎるとデータは元に戻せません。',
+	restoreNote: (adminView: string) =>
+		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	ctaLabel: 'アカウント設定を開く',
+	transactionalNote:
+		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
+} as const;
+
+// ============================================================
 // PMF 判定アンケート（#1598 / ADR-0023 §3.6 §5 I7）
 // ============================================================
 
@@ -2773,6 +2801,26 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
+	// #4286: STRIPE_DISABLED (決済機能自体が無効な配備) と PRICE_UNRESOLVED (price ID 解決失敗という
+	// 別種の設定不備) が同一文言 ('決済機能は現在利用できません') だったため、顧客が「設定不備」と
+	// 「機能停止」を区別できず、再試行導線も無いまま離脱していた問題を是正。原因の内部詳細
+	// (price ID 未解決等) は出さず、次に取るべき行動だけを示す (ADR-0062、内部例外の非露出)。
+	checkoutErrorPriceUnresolved:
+		'ただいま決済の準備ができていません。時間をおいて再度お試しください',
+	// #4329 ②: checkout 失敗時に顧客が読む文言の SSOT (route 側の直書き禁止、DESIGN.md §6)。
+	// 分類は「顧客が次に何をできるか」で分ける。**サーバー側の異常を顧客の入力ミスとして
+	// 表示しない** — 原因の所在を偽ると、顧客は直しようのない操作を繰り返す (ADR-0062)。
+	checkoutErrorStripeDisabled: '決済機能は現在利用できません',
+	checkoutErrorAlreadySubscribed: '既にサブスクリプションに加入済みです',
+	/** 配備・設定側の異常。顧客に取れる手は「時間をおく」だけなのでそれだけを示す */
+	checkoutErrorServer: 'ただいまお申し込みを受け付けられません。時間をおいて再度お試しください',
+	/** 受け取ったリクエストが現行の申込内容と噛み合わない (古い画面のまま操作した等) */
+	checkoutErrorStaleRequest:
+		'お申し込みを開始できませんでした。ページを再読み込みしてから、もう一度お試しください',
+	/** #4329: portal session 自体を作れなかったとき。原因は出さず次の行動だけを示す (ADR-0062) */
+	portalErrorCreateFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しください`,
+	checkoutErrorUnauthenticated: '認証が必要です',
+	checkoutErrorForbidden: 'サブスクリプションの管理は保護者のみ可能です',
 	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
 	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
 	billingUnavailable:
@@ -3501,10 +3549,23 @@ export const CANCELLATION_LABELS = {
 
 	// Success
 	successHeading: 'ご回答ありがとうございました',
-	successDesc: `いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の${STRIPE_PORTAL_TERMS.short}で解約手続きを完了してください。`,
-	successProceedButton: `Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する`,
-	successProceedHint: `Stripe の${STRIPE_PORTAL_TERMS.short}で「サブスクリプションをキャンセル」を選択すると解約が完了します`,
+	// #4329: 旧 successDesc は無料プランの顧客にも「Stripe で解約手続きを完了してください」と
+	// 表示していた (無料プランに Stripe 契約は無い)。回答の受領だけを述べ、以降の手続きの
+	// 説明は「手続きが残っている場合」の枠 (portalUnavailable*) に寄せる。
+	successDesc: 'いただいたご意見は、サービス改善に活用させていただきます。',
 	successFreeProceed: 'アカウント削除はこちら',
+
+	// #4329 ①: portal を作れなかったときの回復導線。
+	// 旧実装は「Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する」と名乗るボタンが
+	// 自アプリのプラン画面へ戻すだけで、顧客は解約したつもりのまま課金が続いていた
+	// (特商法の解約導線の実効性)。失敗した事実・残っている手続き・代替手段を出す。
+	// 原因の内部詳細 (Stripe API エラー等) は顧客に出さない (ADR-0062)。
+	portalUnavailableHeading: `${CANCEL_TERMS.canonical}のお手続きが残っています`,
+	portalUnavailableDesc: `ご回答は受け付けましたが、${STRIPE_PORTAL_TERMS.canonical}を開けませんでした。${CANCEL_TERMS.canonical}はまだ完了していません。`,
+	portalRetryButton: `${STRIPE_PORTAL_TERMS.short}を開いて${CANCEL_TERMS.canonicalVerb}`,
+	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
+	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	portalSupportLink: 'サポート窓口に連絡する',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
@@ -3743,6 +3804,80 @@ export const OPS_BUSINESS_LABELS = {
 	// Footer
 	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
 } as const;
+
+/**
+ * #4313: 年齢帯 UI が誕生日で切り替わったことを次回ログインで伝えるダイアログの文言。
+ *
+ * key は **切替後 (to)** の uiMode。文面は「成長した」枠組みで書き、機能が減ったと
+ * 読ませない (Issue #4313 §感情演出 / ADR-0012 — 静かに 1 回だけ)。
+ * 年齢別の語彙整合 (DESIGN.md §6): preschool はひらがなのみ、elementary は漢字最小限、
+ * junior / senior は漢字を含む。
+ *
+ * `parentNote` / `settings*` は全モード共通で保護者宛て (敬体)。3 歳の baby → preschool は
+ * 切替前の画面が親向け準備モード (ADR-0011) であり、読み手が保護者であるため、この
+ * 保護者向け節が主たる説明になる。
+ */
+export const UI_MODE_CHANGE_LABELS = {
+	dialogAriaLabel: '年齢区分の変更のお知らせ',
+	emoji: '🎈',
+	heading: {
+		baby: 'がめんが かわったよ',
+		preschool: 'おおきく なったね！',
+		elementary: '大きくなったね！',
+		junior: 'ひとつ大きくなりましたね',
+		senior: 'ひとつ大きくなりましたね',
+	} as Record<UiMode, string>,
+	body: {
+		baby: 'おたんじょうびが きたから、がめんが かわったよ。',
+		preschool:
+			'おたんじょうびが きたから、がめんが すこし かわったよ。ボタンや もじの おおきさが かわって いるよ。',
+		elementary:
+			'おたんじょう日がきたので、画面が小学生むけにかわりました。ボタンや文字の大きさがかわっています。',
+		junior:
+			'誕生日を迎えたので、画面が中学生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+		senior:
+			'誕生日を迎えたので、画面が高校生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+	} as Record<UiMode, string>,
+	closeLabel: {
+		baby: 'わかった',
+		preschool: 'わかった！',
+		elementary: 'わかった！',
+		junior: 'OK',
+		senior: 'OK',
+	} as Record<UiMode, string>,
+	parentNote:
+		'保護者の方へ: お子さまの年齢区分が変わったため、画面が自動で切り替わりました。生年月日の確認・修正はお子さま管理から行えます。',
+	settingsLabel: 'お子さま管理をひらく',
+} as const;
+
+/**
+ * #4261 ③: 月間の習慣化証明書で増えた残高の理由を、子に**次回起動で 1 回だけ**伝える文言。
+ *
+ * ADR-0012 との両立条件 (PO 決裁 2026-08-06) を文言側でも守る:
+ * **煽らない / 次を促さない / 演出語を足さない。** 起きた事実だけを静かに置く。
+ * baby は親向けの準備モードで子供向けホームを持たない (ADR-0011) ため対象外。
+ */
+export const HABIT_CERTIFICATE_NOTICE_LABELS: Record<
+	Exclude<UiMode, 'baby'>,
+	{ title: string; body: (amount: string) => string }
+> = {
+	preschool: {
+		title: 'こんげつ よく つづいたね',
+		body: (amount) => `${amount} を うけとったよ`,
+	},
+	elementary: {
+		title: '今月は しゅうかんに できたね',
+		body: (amount) => `つづけられたので ${amount} をうけとりました`,
+	},
+	junior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+	senior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+};
 
 export const CHILD_HOME_LABELS = {
 	// Baby mode: completed card aria-label
@@ -4289,6 +4424,34 @@ export const ERROR_PAGE_LABELS = {
 
 	// Error ID
 	errorIdPrefix: 'エラーID: ',
+} as const;
+
+/**
+ * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
+ *
+ * 運営者専用画面のため顧客には出ない。ここで手順まで出し切るのは、
+ * 「拒否されたが何をすれば入れるのか分からない」状態を作らないため
+ * (リンク先を読まないと復旧できない導線は導線として成立しない)。
+ */
+export const OPS_MFA_SETUP_LABELS = {
+	title: '多要素認証（MFA）の設定が必要です',
+	description:
+		'運営ダッシュボードは、ログイン時に多要素認証を通ったセッションだけが利用できます。認証アプリ（TOTP）の設定が済んでいないか、設定後にログインし直していない状態です。',
+	stepsTitle: '入れるようにする手順',
+	steps: [
+		'スマートフォンに認証アプリ（TOTP 対応のもの）を用意する',
+		'運営管理者が Cognito ユーザープールで、このアカウントの認証アプリ（TOTP）を有効にする',
+		'いったんログアウトし、認証アプリのコードを入力してログインし直す',
+	],
+	/** 再ログインは MFA チャレンジを経て `amr` を載せ直す唯一の出口。汎用 403 と同じ文言を再利用する */
+	loginAgainLabel: ERROR_PAGE_LABELS.btnLoginAgain,
+	/**
+	 * #4335 follow-up: 旧文言はリポジトリ内ファイルパス（`docs/runbooks/ops-mfa-setup.md`）を
+	 * そのまま出しており、403 画面を見ている運営者がその場で開けなかった（クローンを持たない
+	 * 環境 / スマートフォンからの閲覧では特に）。依頼先を画面内で完結させる（runbook の詳細手順
+	 * は変えず、画面には「自分でできない場合に誰に頼むか」だけを直接書く）。
+	 */
+	runbookHint: '自分で設定できない場合は、AWS アカウントのオーナーに設定を依頼してください。',
 } as const;
 
 // ============================================================
@@ -8643,6 +8806,12 @@ export const STORYBOOK_LABELS = {
 		overflowExport: 'エクスポート',
 		badge: '有料限定',
 	},
+	// #4302 follow-up: SaasLicensePanel story の mock 契約者名。
+	// portal-fallback-notice (Stripe が flow を拒否したときのみ描画) は demo 環境で撮影できないため
+	// (ss-render-impossible)、story の play で見た目を固定する (#4166)。
+	saasLicensePanel: {
+		tenantName: 'たろう家',
+	},
 } as const;
 
 // ============================================================
@@ -9311,11 +9480,11 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //   - effective: 末尾の制定日 / 最終改定日
 // ============================================================
 export const LP_LEGAL_PRIVACY_LABELS = {
-	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年4月28日</p>',
+	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年8月6日</p>',
 	intro:
 		'個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。',
 	section1:
-		'<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。アクセスログはCloudWatch Logsに3日間保存した後、S3にアーカイブして長期保存します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>',
+		'<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、アクセス先のURL、デバイス情報（ブラウザ種別等）を収集します。アクセスログはCloudWatch Logsに3日間保存した後、S3にアーカイブして長期保存します。配信基盤（CDN）のアクセスログはS3に3日間のみ保存し、自動削除します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>',
 	section2:
 		'<h2>第2条（情報の利用目的）</h2><p>運営者は、収集した情報を以下の目的で利用します。</p><ol><li>本サービスの提供・運営・維持</li><li>利用者の認証・本人確認</li><li>サービスの改善・新機能の開発</li><li>利用状況の分析・統計処理（個人を特定しない形式）</li><li>重要なお知らせ・サービス変更の通知</li><li>不正利用の防止・セキュリティの確保</li><li>利用者からの問い合わせへの対応</li></ol>',
 	section3:
@@ -9342,7 +9511,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第12条（個人情報保護管理者）</h2><div class="contact"><p><strong>個人情報保護管理者</strong></p><p>氏名: 日下武紀</p><p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p></div>',
 	section13:
 		'<h2>第13条（お問い合わせ）</h2><p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p><div class="contact"><p>がんばりクエスト運営者 日下武紀</p><p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p></div>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月28日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年8月6日</p>',
 } as const;
 
 // ============================================================

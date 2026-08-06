@@ -128,6 +128,20 @@ export const DEV_USERS: DevUser[] = [
 		// 運営者は TOTP を 1 度設定すれば通るため、dev でも MFA 済として扱う。
 		mfa: true,
 	},
+	// ---------- #4282: MFA 未設定の運営者 (拒否 → 復旧導線の検証用) ----------
+	// ops group には居るが TOTP 未設定。/ops を開くと 403 + 設定導線 (OpsMfaSetupNotice) に
+	// 着地する。この経路を実ブラウザ / E2E で歩けないと「締め出して復旧できない」状態を
+	// 作っていないことを確認できないため、dev の SSOT にアカウントを 1 つ用意する
+	// (DevCognitoAuthProvider は COGNITO_DEV_MODE=true でのみ使われ、本番には存在しない)。
+	{
+		userId: 'dev-ops-no-mfa-001',
+		email: 'ops-no-mfa@example.com',
+		password: 'Gq!Dev#OpsNoMfa26',
+		tenantId: 'dev-tenant-ops',
+		role: 'owner',
+		groups: ['ops'],
+		mfa: false,
+	},
 ];
 
 /** Email でダミーユーザーを検索 */

@@ -785,11 +785,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/cheer/suggest
 
-子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。ファミリープラン限定（#2273）。
+子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。プレミアムプラン限定（#2273）。
 
 **リクエストボディ:**
 ```json
@@ -814,11 +814,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - 既存 LLM 連携機構 (special-rewards/suggest と同基盤) を再利用、プロンプト/出力スキーマのみ別
 - Gemini API が利用不可の場合はキーワードマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/checklists/suggest
 
-テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。ファミリープラン限定（#720, #722）。
+テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。プレミアムプラン限定（#720, #722）。
 
 **リクエストボディ:**
 ```json
@@ -844,7 +844,7 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `items[].direction`: `bring`（持参）| `return`（持帰）| `both`（往復）
 - `source`: `gemini`（AI 推定）| `fallback`（プリセット/キーワードマッチング）
 - Bedrock API が利用不可の場合は 5 種のプリセット（がっこう/たいいく/プール/えんそく/おとまり）＋キーワード分割にフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
 
@@ -1184,7 +1184,7 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 |--------|-------------------|------|
 | Free | 1 | owner のみ（招待不可） |
 | Standard | 4 | owner + 3人（核家族想定） |
-| Family | null（無制限） | 制限なし |
+| Premium | null（無制限） | 制限なし |
 
 上限超過時は `403` を返す:
 
@@ -1247,6 +1247,7 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`getPlans().priceId`（env var 直読）を line_item に使わない**: 直読すると `USE_LOOKUP_KEY` がどの経路にも効かず、price env を注入しない配備で購入が必ず失敗する。`tests/unit/architecture/stripe-price-resolution-single-entrypoint.test.ts` が呼び出し構造を固定する
 - **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
   - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
+  - `STRIPE_DISABLED`（決済機能自体が無効な配備）と `PRICE_UNRESOLVED`（lookup_key / env 双方から Price ID を解決できない設定不備）は **同一 503 だが文言を分ける**（#4286）。同一文言だと顧客が原因を区別できず離脱していたため。`PRICE_UNRESOLVED` の文言は `SUBSCRIPTION_PAGE_LABELS.checkoutErrorPriceUnresolved`（`src/lib/domain/labels.ts`、DESIGN.md §6 SSOT）を参照する。エラーレスポンス body は `{ message }` のみで機械可読なエラーコードは含まないため、両エラーは HTTP ステータス単体では判別できず、文言（または呼び出し元でのログ相関）でのみ判別できる
 
 #### POST /api/stripe/portal
 
@@ -1434,8 +1435,13 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
 
-> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820 / ADR-0033）。
-> 非メンバーは 403 Forbidden。実装は `src/routes/ops/+layout.server.ts` が `isOpsMember(locals.identity)` で判定する。
+> `/ops` 配下は **Cognito User Pool の `ops` group メンバー かつ MFA 済のみがアクセス可能**（#820 / #4266）。
+> 非メンバーは 403 Forbidden。判定は `src/lib/server/auth/ops-authz.ts` の `requireOpsAccess(locals)` に集約する。
+>
+> **API endpoint（`+server.ts`）は自分で `requireOpsAccess(locals)` を呼ぶこと（#4309）**。`+layout.server.ts` の gate は
+> page の load にしか適用されず `+server.ts` には走らないため、呼ばない endpoint は**認可ゼロで外部公開される**
+> （実害: `GET /ops/export?type=sales` が未認証で 200 + 売上台帳 CSV を返していた）。適用範囲は
+> `tests/unit/architecture/ops-route-auth-fitness.test.ts` が FS 列挙で機械強制する。詳細は 14-セキュリティ設計書 §5.2.9。
 >
 > 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
 > なお `/api/cron/retention-cleanup` / `/api/cron/license-expire` は EventBridge から呼ばれる別経路のため、独自の shared secret
@@ -2602,6 +2608,7 @@ if (authError) return authError;
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
 | `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` の 02:00 JST 定義に従い、AWS は EventBridge Rule `ganbari-quest-cron-grace-period-deletion`、NUC は scheduler が駆動する |
+| `/api/cron/deletion-warning-emails` | POST / GET | アカウント削除予告メールの日次バッチ（#2399, `deletion-warning-service.ts`）。EventBridge cron `cron(0 1 * * ? *)` (UTC) = 毎日 10:00 JST 実行。soft-delete 済テナントを走査し、物理削除予定日までの残日数（JST 暦日）がしきい値以下になった**保護者ロール (owner/parent) 全員**へ、削除予定日と復元導線を含むメールをそれぞれ送る（#4325 follow-up、オーナー決裁 2026-08-06。owner 1 名固定だと owner 不在 / アドレス失効時に予告が単一障害点で届かないため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる）。しきい値は family = 14 日 / standard = 1 日 / **free = 送信なし（猶予 0 日 = 即時物理削除のため予告する時間が存在しない）**。重複送信は `deletion_warning_sent_at` settings KV で防止し（1 通以上の送信成功でセット、復元 / 再予約時にクリア）、対象保護者が 1 件も見つからない場合は `skippedNoRecipients++`（削除自体は止めずログで観測可能にする）。全宛先で送信に失敗した場合のみ再試行対象（`errors++`、sent_at 未設定）。法務通知扱いのため `marketing-email-counter`（年 6 回上限）を経由せず List-Unsubscribe も付けない（購読解除で止まらない）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告 |
 | `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
 | `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる |
 | `/api/cron/pglite-backup` | POST | **NUC 専用** PGlite 本番データの日次バックアップ（#3950）。NUC ローカルの crond（`docker-compose.yml` backup profile、03:00 JST）が `scripts/backup-nuc.cjs` 経由で起動する。`runPgliteBackup()` が PGlite 公式 `dumpDataDir()` でダウンタイム 0 の整合スナップショットを取得し、**取得物を別インスタンスへ実際に復元して検証**（V1 全テーブル `count(*)` / V2 `__drizzle_migrations` 非空 / V3 journal ↔ 適用実績の突合）した上で確定、3 世代へローテーションする。`DATA_SOURCE != pglite` では 409 を返す（AWS は DSQL のため対象外）。EventBridge / `scheduleRegistry` には登録しない（NUC 専用のため）。運用手順は `docs/runbooks/pglite-restore-drill.md` |

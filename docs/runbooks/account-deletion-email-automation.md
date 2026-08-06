@@ -1,8 +1,8 @@
-# アカウント削除予告メール自動化 (EventBridge + Lambda + SES) — Plan & Design (#2399)
+# アカウント削除予告メール自動化 (EventBridge + cron-dispatcher + SES) — 設計 SSOT (#2399)
 
-> **目的**: `docs/design/account-deletion-flow.md` で schema 設計済の「アカウント削除 14 日前通知」を、既存 cron 基盤 (EventBridge schedule + cron-dispatcher Lambda + SES Configuration Set) に乗せて自動化する。
+> **目的**: 猶予期間中のテナントに「このまま何もしなければデータが消える」ことと復元導線を 1 通だけ届ける。既存 cron 基盤 (EventBridge schedule + cron-dispatcher Lambda + SES) に endpoint 1 本を足して実現する。
 >
-> **本 PR の scope**: 計画 + 設計 docs + sub-Issue 起票のみ。Lambda code / SES template / EventBridge schedule rule の実装は別 PR (sub-Issue Phase 1 / Phase 2)。
+> **本 runbook がしきい値 / idempotency / 送信経路の設計 SSOT**。
 
 ---
 
@@ -13,12 +13,12 @@
 | 状態 | 実装 | docs SSOT |
 |------|------|----------|
 | アカウント削除予約 (`softDeleteTenant`) | 実装済 (`src/lib/server/services/grace-period-service.ts`) | `account-deletion-flow.md §4` |
-| グレースピリオド物理削除 cron (`grace-period-deletion`) | 実装済 (#1648, registry `cron(0 17 * * ? *)` 02:00 JST 毎日)。AWS は EventBridge Rule + cron-dispatcher、NUC は scheduler が駆動する (`13-AWSサーバレスアーキテクチャ設計書.md` cron 表参照) | 同上 / `schedule-registry.ts` |
+| グレースピリオド物理削除 cron (`grace-period-deletion`) | 実装済 (#1648, registry `cron(0 17 * * ? *)` 02:00 JST 毎日)。**AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (dispatcher `KNOWN_ENDPOINTS` には登録済、`13-AWSサーバレスアーキテクチャ設計書.md` cron 表参照) | 同上 / `schedule-registry.ts` |
 | 削除完了メール (`sendDeletionCompleteEmail`) | 実装済 (`email-service.ts` L323) | 同上 |
 | グレース開始通知 (`sendCancellationEmail`) | 実装済 (`email-service.ts` L304) | 同上 |
-| **14 日前予告メール** | **未実装** ← 本 Issue でカバー | (本 runbook で SSOT 化) |
+| **削除予告メール** | 実装済 (`/api/cron/deletion-warning-emails` → `deletion-warning-service.ts` → `email-service.sendDeletionWarningEmail`) | 本 runbook + `account-deletion-flow.md` §4.7 |
 
-ユーザーが standard プラン (7 日) / family プラン (30 日) のグレースピリオド中に居る間、自動で「あと N 日で削除されます」というリマインダーを送る機構が無いため、復元 UI を見ずに沈黙で削除されるリスクがある。
+猶予期間中 (standard 7 日 / family 30 日) に顧客へ届くイベントは、予約直後 (`sendCancellationEmail`) と削除完了後 (`sendDeletionCompleteEmail`) の両端しかない。その間「復元できる」ことを思い出す契機が無いと、復元 UI を見ないまま沈黙で削除される。
 
 ### 1.2 なぜ自動化が必要か
 
@@ -50,7 +50,8 @@
 | **silent fail 検出** | CloudWatch Alarm `CronDispatcherErrors` (既存) で自動検知 + post-deploy smoke test (deploy.yml で実行済) で env 注入確認 |
 | **DLQ 不要** (Pre-PMF Bucket A 過剰防衛回避、ADR-0010) | dispatcher Lambda は既に retry 内蔵。失敗時は CloudWatch Logs + Alarm 通知で十分。SQS DLQ は ARR ≥ ¥100万/月 で再評価 |
 | **メール文言は子供を出さない** | 「保護者アカウントの削除予約について」の中立トーン。Anti-engagement (ADR-0012) + Marketing Policy (ADR-0031) 整合 |
-| **List-Unsubscribe ヘッダ必須** | RFC 8058 準拠 + Gmail / Yahoo の 2024 要件 (lifecycle-emails と同設定を流用) |
+| **List-Unsubscribe ヘッダを付けない** | 購読解除リンクは marketing 配信 (lifecycle-emails) を止めるものであり、お手続きの連絡に添えると「解除すれば止まる」と誤解させる。本メールは配信設定にかかわらず届く必要があるため、marketing 経路 (`wrapLifecycleTemplate` + List-Unsubscribe) ではなく汎用トランザクション template で送る。RFC 8058 / Gmail の bulk sender 要件は bulk・promotional mail が対象であり本通知は該当しない |
+| **年 6 回上限を消費しない** | `marketing-email-counter` に乗せると、上限に達した年にデータ消失の予告が握り潰される |
 
 ---
 
@@ -60,8 +61,8 @@
 
 主要コンポーネント:
 
-1. **EventBridge Rule** (新規追加): `ganbari-quest-cron-deletion-warning-emails`
-   - cron 式: `cron(0 0 * * ? *)` (UTC) = JST 毎日 09:00
+1. **EventBridge Rule**: `ganbari-quest-cron-deletion-warning-emails`
+   - cron 式: `cron(0 1 * * ? *)` (UTC) = JST 毎日 10:00 (他の日次 cron が 09:00 / 09:30 に寄るため 30 秒予算の食い合いを避けてずらす)
    - target: `ganbari-quest-cron-dispatcher` Lambda (既存)
    - payload: `{ cronJob: "deletion-warning-emails" }`
 
@@ -69,50 +70,54 @@
    - payload を `Authorization: Bearer <CRON_SECRET>` 付きで `https://<function-url>/api/cron/deletion-warning-emails` に HTTP POST 変換
    - timeout 5min / memory 128MB / ARM64
 
-3. **SvelteKit cron endpoint** (Phase 1 で新規作成予定):
+3. **SvelteKit cron endpoint**:
 
    ```text
    src/routes/api/cron/deletion-warning-emails/+server.ts
    ```
 
-   - `verifyCronAuth` で 401 ガード (既存パターン)
-   - `findTenantsForDeletionWarning` を呼んで対象テナント抽出
-   - 各 owner に対し `sendDeletionWarningEmail` を呼び出す
-   - 結果を JSON で返却 (送信成功数 / 失敗数 / skipped 数)
+   - `verifyCronAuth` で認証 (POST = 実行 / GET = dryRun ヘルスチェック)
+   - `runDeletionWarningEmails({ dryRun })` を呼び、集計を JSON で返す
 
-4. **新規 service** (Phase 1 で新規作成予定):
+4. **service**:
 
    ```text
    src/lib/server/services/deletion-warning-service.ts
    ```
 
-   - `findTenantsForDeletionWarning(now)`: settings KV から `physical_deletion_date` が `now + 1 day .. now + 1 day + 24h` のテナントを抽出
-   - `sendDeletionWarningEmail` を email-service.ts に追加
-   - 送信成功時に `deletion_warning_sent_at` を settings に書く (idempotency)
+   - 全テナントを走査し `getGracePeriodStatus()` で soft delete 状態 / プラン / 物理削除予定日を取得
+   - `shouldWarn(planTier, daysRemaining)` で送信判定 (§3.2)
+   - **保護者ロール (owner/parent) 全員**の email 宛に `sendDeletionWarningEmail` を個別に呼ぶ (#4325 follow-up、オーナー決裁 2026-08-06)。owner 1 名固定だと owner 不在 / アドレス失効で予告が単一障害点になるため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる。1 通以上の送信に成功したときのみ `deletion_warning_sent_at` を書く (idempotency)。対象保護者が 1 件も見つからない場合は `skippedNoRecipients` として集計し、削除自体は止めない
+   - 件数上限 (`DEFAULT_DELETION_WARNING_LIMIT`) + `createTimeBudget` で 30 秒制約に収め、残件を `tenantsRemaining` で報告する (silent 持ち越し禁止、#3695)
 
 5. **SES** (既存、設定変更なし):
    - 送信元: `noreply@ganbari-quest.com`
    - Configuration Set: `ganbari-quest-config` (bounce / complaint 監視済)
    - template: HTML + text 2-variant 直書き (lifecycle-emails と同パターン、別 SES template リソース不要)
 
-### 3.2 トリガータイミングの計算
+### 3.2 送信しきい値 (`DELETION_WARNING_DAYS_BEFORE`)
 
-グレース期間によって「削除 14 日前」の意味が異なる:
+猶予日数 (`DELETION_GRACE_PERIOD_DAYS`) がプランごとに異なるため、「削除 14 日前」は全プランでは成立しない。
 
-| プラン | グレース期間 | 通知タイミング | 計算式 |
-|--------|-------------|---------------|--------|
-| free | 0 日 | (送信なし) | 即時削除のため対象外 |
-| standard | 7 日 | 削除 1 日前 (グレース 6 日目) | `physical_deletion_date - now == 1 day` |
-| family | 30 日 | 削除 14 日前 (グレース 16 日目) | `physical_deletion_date - now == 14 days` |
+| プラン | 猶予 | しきい値 | 根拠 |
+|--------|------|---------|------|
+| free | 0 日 | **なし (送信しない)** | 即時物理削除のため予告を送る時間が存在しない。削除確認は `account-deletion-flow.md` §5.1 の入力確認 UX が担う |
+| standard | 7 日 | 残り 1 日 | 猶予 7 日に 14 日前は収まらない |
+| family | 30 日 | 残り 14 日 | `docs/operations/sla.md` §2 設計原則 (7) の「重要な変更は 14 日前に事前通知」と同じ原則 |
 
-> **判定**: Issue 本文の「14 日前固定」は family プラン基準。standard はグレース 7 日しかないため「14 日前」は到達不能 → 「削除 1 日前」に縮退する。
->
-> **仕様確定タイミング (#2429 QM Re-Review で明示)**: 上記の standard プラン「削除 1 日前」縮退は **本 PR (#2429) で SSOT 確定**とする。Phase 1 sub-Issue (#2426) は本 runbook §3.2 の表をそのまま実装する責務を持ち、仕様再議論は行わない（再議論が必要な場合は本 runbook を別 PR で更新してから Phase 1 着手）。
+判定は `shouldWarn(planTier, daysRemaining)`:
 
-### 3.3 DB 影響
+- `daysRemaining` は **JST 暦日差**で数える (時刻差ではなく暦日差にすることで、予約した時刻によって「あと N 日」の表示と判定がズレない)
+- `daysRemaining >= 1 かつ daysRemaining <= しきい値 かつ 未送信` で送る
+- **「一致」ではなく「以下」で判定する**: cron が 1 日欠測しただけで予告なしに削除される (= 本機構が塞ごうとしている無音の失敗そのもの) のを避けるため。二重送信は §3.3 の idempotency が防ぐ
+- しきい値が猶予日数より小さいことは `tests/unit/services/deletion-warning-service.test.ts` [W2] が機械強制する (猶予日数を変えたときに到達不能なしきい値が silent に残らない)
 
-- 既存 `settings` テーブルに 1 キー追加: `deletion_warning_sent_at` (ISO 8601 string)
-- スキーマ migration 不要 (KV テーブルへの新規 key 追加のみ、ADR-0031 互換)
+### 3.3 idempotency と再送
+
+- 送信済フラグ: `settings.deletion_warning_sent_at` (ISO 8601 string)。定義は `grace-period-service.ts` の `DELETION_WARNING_SENT_KEY` (soft delete 状態の KV 群と同じライフサイクルのため)
+- **予約時 (`softDeleteTenant`) と復元時 (`restoreSoftDeletedTenant`) にクリアする**。クリアを落とすと、復元して再度削除予約した顧客に対し「2 回目は予告なしで消える」silent regression になる (回帰 test: 同 test file [W5])
+- 送信失敗時はフラグを書かない (次回実行で再試行される)。宛先が複数いる場合は **1 通でも成功すればフラグを書く** (一部の保護者アドレスが恒久的に失敗し続けても無限リトライにしない。成功した宛先には翌日以降二重に届かない)。全宛先が失敗したときのみ再試行対象になる
+- スキーマ migration 不要 (KV テーブルへの新規 key 追加のみ)
 
 ---
 
@@ -120,12 +125,13 @@
 
 ### 4.1 Logger
 
-Phase 1 で新規追加する deletion-warning-service.ts (Phase 1 #2426) で以下を出力:
+`deletion-warning-service.ts` が以下を出力する:
 
 ```ts
-logger.info('[deletion-warning] sent', { tenantId, daysRemaining, emailHash });
-logger.warn('[deletion-warning] skipped (already sent)', { tenantId });
-logger.error('[deletion-warning] send failed', { tenantId, error });
+logger.info('[deletion-warning] sent', { tenantId, planTier, daysRemaining });
+logger.warn('[deletion-warning] no guardian email found; deletion proceeds unwarned', { tenantId, daysRemaining });
+logger.error('[deletion-warning] send failed', { tenantId, daysRemaining });
+logger.warn('[deletion-warning] carried over remaining tenants to next run', { remaining });
 ```
 
 ### 4.2 CloudWatch Alarm
@@ -133,35 +139,28 @@ logger.error('[deletion-warning] send failed', { tenantId, error });
 | Alarm 名 | メトリクス | 閾値 | 既存 / 新規 |
 |---------|----------|------|-----------|
 | `CronDispatcherErrors` (既存) | `cron-dispatcher` Lambda Errors | ≥ 1回/5分 | 既存 (#1376 で導入済) |
-| `DeletionWarningEmailFailures` (Phase 2 で検討) | CloudWatch metric filter on `[deletion-warning] send failed` log | ≥ 3回/24h | **新規追加は Phase 2 で判断**。Pre-PMF ARR < ¥100万/月では既存 Alarm で十分の可能性 |
+| `DeletionWarningEmailFailures` | CloudWatch metric filter on `[deletion-warning] send failed` log | ≥ 3回/24h | **設けない**。送信失敗はフラグを書かないため翌日の実行で自動再試行され、恒常的な失敗は `CronDispatcherErrors` と SES bounce 監視で表面化する。ARR ≥ ¥100万/月 到達時に再評価する |
 
 ### 4.3 DLQ 方針
 
-- **Phase 1 (#2399 child): DLQ なし**。dispatcher Lambda 内 retry + CloudWatch Alarm で代替 (ADR-0010 Pre-PMF 過剰防衛回避)
-- **Phase 2 (#2399 child): DLQ 検討対象**。ARR ≥ ¥100万/月 or 送信失敗 30 日連続発生時に SQS DLQ 追加を再評価
+- **DLQ は設けない**。dispatcher Lambda 内 retry + 翌日実行での自動再試行 + CloudWatch Alarm で代替する (ADR-0010 Pre-PMF 過剰防衛回避)
+- 再評価トリガ: ARR ≥ ¥100万/月 到達、または送信失敗が 30 日連続で発生した場合に SQS DLQ 追加を評価する
 
 ---
 
 ## §5. デプロイ手順
 
-Phase 1 (sub-Issue) PR がマージされたとき:
+登録先 3 点 (`tests/unit/cron/schedule-consistency.test.ts` が整合を CI 検証する):
 
-1. `schedule-registry.ts` への `deletion-warning-emails` 追加
-2. `infra/lib/compute-stack.ts` CRON_JOBS 配列への追加 (EventBridge rule 自動生成)
-3. Phase 1 で新規追加する path:
+1. `src/lib/server/cron/schedule-registry.ts` の `deletion-warning-emails`
+2. `infra/lib/compute-stack.ts` の `CRON_JOBS` (EventBridge Rule 自動生成)
+3. `infra/lambda/cron-dispatcher/index.ts` の `KNOWN_ENDPOINTS`
 
-   ```text
-   src/routes/api/cron/deletion-warning-emails/+server.ts
-   src/lib/server/services/deletion-warning-service.ts
-   ```
+deploy は GitHub Actions `deploy.yml` (CDK deploy → post-deploy smoke test で env 注入確認)。
 
-   加えて `email-service.ts` に新 function を追加 (Phase 1)
-4. CDK deploy (GitHub Actions deploy.yml で自動)
-5. post-deploy smoke test (deploy.yml の dryRun invoke で env 注入確認)
+### 5.1 オーナー責務 (AWS CLI 検証 / 実受信確認)
 
-### 5.1 PO 責務 (AWS CLI 検証)
-
-Dev session に AWS CLI 権限がないため、以下は PR comment に PO が貼付:
+Dev session に AWS CLI 権限が無いため、以下はオーナーが実行して PR comment に貼付する。**SES の実送信は実資格情報を要するため、自動 test は mock 送信までで固定されている**。実際にメールが届くかの確認は本手順が唯一の担保である:
 
 ```bash
 # 1. EventBridge rule 登録確認
@@ -186,35 +185,24 @@ aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 \
 
 ## §6. テスト戦略
 
-### 6.1 unit (Phase 1)
+### 6.1 unit
 
-Phase 1 で新規作成する unit test:
+| test | 検証内容 |
+|------|---------|
+| `tests/unit/services/deletion-warning-service.test.ts` | free 無送信 / プラン別しきい値 / 境界 (15・14・13 日) / idempotency / 復元→再予約で再送 / cron 欠測の救済 / opt-out でも届く / 時間予算の持ち越し報告 |
+| `tests/unit/services/deletion-warning-email.test.ts` | 本文に復元 URL + 削除予定日 + 残日数がある / 子供の情報を含まない / List-Unsubscribe を付けない (SendRawEmailCommand を使わない) / 煽り表現なし |
+| `tests/unit/routes/cron-deletion-warning-emails.test.ts` | `CRON_SECRET` 設定あり (Bearer / x-cron-secret) / 未設定 × `AUTH_MODE` の 3 パターン / 例外時に内部情報を出さない |
+| `tests/unit/services/grace-period-service.test.ts` | 復元時に `deletion_warning_sent_at` をクリアする |
+| `tests/unit/cron/schedule-consistency.test.ts` (既存) | registry / CDK / dispatcher / 設計書 cron 表の整合 |
 
-```text
-tests/unit/services/deletion-warning-service.test.ts
-```
-
-検証内容:
-
-- `findTenantsForDeletionWarning` の境界条件 (14 日前ピッタリ / 13 日前 / 15 日前)
-- idempotency: `deletion_warning_sent_at` 既存のテナントを skip
-- family / standard プランの giorni 計算分岐
-
-加えて既存 `tests/unit/cron/schedule-consistency.test.ts` で registry / CDK / dispatcher の三者整合性を自動 assert。
-
-### 6.2 E2E (Phase 2)
-
-Phase 2 で新規作成する E2E test:
+### 6.2 E2E
 
 ```text
-tests/e2e/account-deletion-warning-email.spec.ts
+tests/e2e/cron-deletion-warning-emails.spec.ts
 ```
 
-検証内容:
-
-- mock SES で送信メール内容を assert
-- 削除予約 → cron 起動 → メール送信 → restore で sent 状態リセット
-- List-Unsubscribe ヘッダ存在検証 (RFC 8058)
+- 認証ガード 3 パターン (`tests/CLAUDE.md` §cron E2E テスト整合)
+- dryRun POST / GET ヘルスチェックで全集計 (`tenantsRemaining` 含む) が返る
 
 ### 6.3 idempotency 検証 (deploy 後手動)
 
@@ -231,10 +219,11 @@ aws lambda invoke --function-name ganbari-quest-cron-dispatcher \
 
 | リスク | 対応 |
 |--------|------|
-| standard プラン (7 日グレース) で「14 日前」が論理的に存在しない | Phase 1 sub-Issue で仕様確定。「削除 1 日前」に縮退する案を有力に推奨 |
-| family プランで `physical_deletion_date - 14 days` が時刻ズレ (TZ / UTC vs JST) | utils関数 `daysUntil` (lifecycle-email-service.ts と同型) を流用し、JST 基準で計算 |
+| standard プラン (7 日グレース) で「14 日前」が論理的に存在しない | §3.2 の通りプラン別しきい値 (standard = 残り 1 日) とし、しきい値 < 猶予日数 を test で機械強制する |
+| free プランには予告が一切届かない | 猶予 0 日 = 即時物理削除のため原理的に送れない。削除予約時の入力確認 UX (`account-deletion-flow.md` §5.1) が唯一の確認機会である |
+| 残日数の時刻ズレ (TZ / UTC vs JST) | `daysUntilJST` が JST 暦日を UTC 深夜として解釈し UTC 算術で引く (プロセス TZ 非依存、#4015 / #4127 JST SSOT 整合) |
 | SES bounce 急増 (削除予約ユーザーがメール無効化済の場合) | 既存 SES Configuration Set のバウンス監視で吸収 (`ses-bounce-notifications` SNS) |
-| ユーザーが「14 日前メール」を spam 報告 | List-Unsubscribe 即時反映 + 年 6 回上限カウンタ (`marketing-email-counter.ts`) **には乗せない** (これは法務通知扱い、ADR-0023 §5 I11 整合) |
+| ユーザーが予告メールを spam 報告 | 年 1 予約あたり 1 通のみ。年 6 回上限カウンタ (`marketing-email-counter.ts`) には乗せず、購読解除でも止めない (法務通知扱い、§2) |
 
 ---
 
@@ -251,8 +240,7 @@ aws lambda invoke --function-name ganbari-quest-cron-dispatcher \
 ### 8.2 関連 Issue / ADR
 
 - #2399 (本 Issue): EventBridge + Lambda + SES 自動化 (本 runbook)
-- #2426 (Phase 1): Lambda code + SES template 実装
-- #2427 (Phase 2): E2E + 観測性 (Alarm / DLQ 判断)
+- #4119 / #4311: `grace-period-deletion` の EventBridge Rule 配線 (物理削除が本番で駆動する前提)
 - #1376 (closed): AWS EventBridge cron 基盤導入
 - #1601 (closed): lifecycle-emails (本 Issue と同型実装、参考)
 - #1648 (closed): grace-period-deletion cron (#742 復元期限切れ物理削除)
