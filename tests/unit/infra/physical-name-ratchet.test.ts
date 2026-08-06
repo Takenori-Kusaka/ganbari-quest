@@ -98,6 +98,8 @@ function buildAllTemplates(): Array<[string, Template]> {
 	const network = new NetworkStack(app, 'GanbariQuestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: 'ganbari-quest.com',
 		certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/test',
 		demoFunctionUrl: compute.demoFunctionUrl,

@@ -723,6 +723,8 @@ describe('#4204 staging CloudFront (NetworkStack)', () => {
 		const network = new NetworkStack(app, `GanbariQuestNetwork${suffix}`, {
 			env,
 			functionUrl: compute.functionUrl,
+			// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+			originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 			...(staging
 				? { resourcePrefix: STAGING_ENV_CONFIG.resourcePrefix, geoRestrictionCountries: [] }
 				: {}),

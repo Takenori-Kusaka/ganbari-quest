@@ -159,6 +159,19 @@ const envSchema = z.object({
 	// 未設定時は本番 URL にフォールバック (email-service.ts と整合)。
 	APP_BASE_URL: z.string().url().optional(),
 
+	// ----- Front door (CloudFront → origin shared secret、#4280 案 b) -----
+	/**
+	 * CloudFront が origin request に付与する共有シークレット (`x-origin-verify` header)。
+	 * 一致しない `/admin` `/api/v1/admin` `/ops` への request を 404 にし、Lambda Function URL
+	 * (`authType: NONE`) 直叩きによる CloudFront 層制御の迂回を塞ぐ。
+	 *
+	 * **未設定なら検査は無効 (fail-open)**。CloudFront を持たない配備 (NUC セルフホスト /
+	 * ローカル開発 / demo Lambda) が正当に存在するため。AWS 側の設定漏れは CDK synth
+	 * (`infra/lib/origin-verify-context.ts`) と `deploy.yml` の必須 secret 検証で止める。
+	 * 判定ロジックと fail-open の根拠: `src/lib/server/security/origin-verify.ts`
+	 */
+	ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
+
 	// ----- Parent-Gate Session (#2310 / ADR-0050) -----
 	/**
 	 * /admin/* PIN gate の cookie 署名キー (cookie-signature HMAC-SHA256)。

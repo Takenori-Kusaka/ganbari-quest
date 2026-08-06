@@ -13,6 +13,11 @@ import type { Construct } from 'constructs';
 
 export interface NetworkStackProps extends cdk.StackProps {
 	functionUrl: lambda.FunctionUrl;
+	// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify` header)。
+	// **必須**。optional にすると「header を付け忘れた distribution」を型で表現できてしまい、
+	// その配備は CloudFront 層の制御を Function URL 直叩きで迂回可能なまま黙って動く。
+	// 値の解決と未設定時の fail-fast は `infra/lib/origin-verify-context.ts` が単一点で担う。
+	originVerifySecret: string;
 	domainName?: string;
 	certificateArn?: string;
 	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
@@ -150,9 +155,24 @@ function handler(event) {
 		// --- S3 Origin for error pages (served from S3 even when Lambda is down) ---
 		const s3ErrorOrigin = origins.S3BucketOrigin.withOriginAccessControl(errorPagesBucket);
 
+		// --- front door 証明 header (#4280 案 b) ---
+		// Lambda Function URL は authType: NONE で公開されており、URL を知っていれば
+		// CloudFront を経由せず直接到達できる。CloudFront 層に置いた制御 (geoRestriction JP 等)
+		// は**その経路には効かない**。origin custom header で「CloudFront を通った」ことを
+		// 証明し、origin (hooks.server.ts) が /admin ・ /api/v1/admin ・ /ops で一致を要求する。
+		//
+		// CloudFront は viewer が同名 header を送ってきても**設定値で上書き**するため、
+		// 外部から偽装して通ることはできない。origin への転送は HTTPS_ONLY。
+		//
+		// 対象は Lambda を指す 2 origin (default 動作の lambdaOrigin と /_app/* の
+		// staticAssetOrigin)。同一 Lambda なので両方に同じ header を付ける。S3 origin
+		// (error pages / immutable assets) は OAC で守られており本 header の対象外。
+		const originVerifyHeaders = { 'x-origin-verify': props.originVerifySecret };
+
 		// --- CloudFront Distribution ---
 		const lambdaOrigin = new origins.HttpOrigin(fnUrlDomain, {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+			customHeaders: originVerifyHeaders,
 		});
 
 		// --- Origin Shield origin for /_app/* static assets (#3087) ---
@@ -172,6 +192,7 @@ function handler(event) {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
 			originShieldEnabled: true,
 			originShieldRegion: 'us-east-1',
+			customHeaders: originVerifyHeaders,
 		});
 
 		// 静的アセット用 cache policy (365 日 immutable)。/_app/* (shield lambda) と
