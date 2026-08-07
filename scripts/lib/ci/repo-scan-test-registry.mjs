@@ -195,6 +195,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'bounded',
 		note: 'src/lib/server/services のサブツリーのみを走査して churn 判定の直接比較を検出する (#3987)',
 	},
+	'tests/unit/architecture/svelte-lint-glob-covers-rune-modules.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の *.svelte.ts (数件) のみを glob で解決し、eslint の ignore / 適用ルールを問い合わせる',
+	},
 	'tests/unit/architecture/dsql-append-only-mutation-allowlist.test.ts': {
 		scope: 'bounded',
 		note: 'DSQL repo の単一 dir のみを走査する',
