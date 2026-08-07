@@ -576,6 +576,15 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			return out;
 		}
 
+		/** bedrock statement をちょうど 1 本取り出す (0 本 / 2 本以上はここで落とす)。 */
+		function theBedrockStatement(): Record<string, unknown> {
+			const stmts = bedrockStatements();
+			expect(stmts.length, 'bedrock statement はちょうど 1 本であること').toBe(1);
+			const stmt = stmts[0];
+			if (stmt === undefined) throw new Error('bedrock statement が見つかりません');
+			return stmt;
+		}
+
 		function bedrockStatements(): Array<Record<string, unknown>> {
 			return allStatements().filter((stmt) => {
 				const a = stmt.Action;
@@ -586,9 +595,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 
 		// AC2: Lambda 実行ロールに bedrock:InvokeModel を最小権限で付与する。
 		it('AC2: 本番 Lambda role に bedrock:InvokeModel が付き、Resource は base model ARN 1 個 (`*` にしない)', () => {
-			const stmts = bedrockStatements();
-			expect(stmts.length).toBe(1);
-			const stmt = stmts[0];
+			const stmt = theBedrockStatement();
 
 			const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
 			expect(actions).toEqual(['bedrock:InvokeModel']);
@@ -615,7 +622,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			const modelId = envOf('ganbari-quest-app').BEDROCK_MODEL_ID as string;
 			expect(modelId).not.toMatch(/^(us|eu|apac|global)\./);
 			// IAM Resource の ARN と env の model ID が一致する (片方だけ変えると権限が外れる)
-			const stmt = bedrockStatements()[0];
+			const stmt = theBedrockStatement();
 			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
 			expect(String(resources[0])).toContain(`/${modelId}`);
 		});
