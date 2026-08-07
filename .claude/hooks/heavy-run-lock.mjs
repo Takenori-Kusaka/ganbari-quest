@@ -42,8 +42,18 @@ async function readStdin() {
 	return Buffer.concat(chunks).toString('utf8');
 }
 
-function blockWithHolder(holder, describeHolder) {
+/** 判定に反応した語をそのまま見せる。長いセグメントは頭だけで足りる。 */
+function describeTrigger(match) {
+	const segment = String(match.segment ?? '');
+	const shown = segment.length > 120 ? `${segment.slice(0, 120)}…` : segment;
+	return `「${match.trigger}」(判定対象: ${shown})`;
+}
+
+function blockWithHolder(holder, describeHolder, match) {
 	process.stderr.write('[heavy-run-lock] BLOCK: 重い検証が既に別セッションで実行中です。\n');
+	// #4401: 何に反応したかを出す。出さないと、重い検証を起動していない Dev が
+	// 「自分は回していないのに何故?」で止まる (実際に起きた)。
+	process.stderr.write(`  重い検証と判定した語: ${describeTrigger(match)}\n`);
 	process.stderr.write(`  保持者: ${describeHolder(holder)}\n`);
 	process.stderr.write('  対処 (待たない):\n');
 	process.stderr.write('    1. チャンネルに「他セッションが重い検証中のため見送った」と報告する\n');
@@ -59,7 +69,7 @@ async function main() {
 	// 動的 import。解決に失敗しても catch して exit 2 に倒すため static import にしない (#3999)。
 	const [
 		{ acquire, describeHolder },
-		{ isHeavyCommand, extractTarget },
+		{ matchHeavyCommand, extractTarget },
 		{ resolveSessionOwner },
 	] = await Promise.all([
 		import('../../scripts/lib/agent-lock.mjs'),
@@ -91,7 +101,13 @@ async function main() {
 	// (refspec 解析 / `git -C` 追跡) は refspec の無い bare `git push` を解決できず穴が残るため、
 	// PO 判断 (2026-07-30) で精緻化ではなく撤去を選ぶ。二重作業の検知は GitHub 側 (同一 branch
 	// への push 競合 / PR の重複) に委ねる。heavy lock (重い検証のマシン全体排他) は維持する。
-	if (!isHeavyCommand(command)) process.exit(0);
+	//
+	// #4401: 判定対象は「実行される部分」だけ。heredoc 本文 / `--body` / `-m` の中身は
+	// シェルがコマンドとして解釈しないので `matchHeavyCommand` が事前に落とす。
+	// PR 本文に検証コマンドを書くだけで block されると、`PULL_REQUEST_TEMPLATE.md` が
+	// 要求する「コマンドと結果」を書けなくなる (規約を守るほど詰まる)。
+	const heavy = matchHeavyCommand(command);
+	if (!heavy.matched) process.exit(0);
 
 	// `process.ppid` は hook 呼び出しごとに変わる短命プロセスなので持ち主にできない (#4013)。
 	// 祖先を辿ってセッションプロセスを取り、解決できなければ PID なし (TTL のみ) で記録する。
@@ -110,7 +126,7 @@ async function main() {
 
 	const result = acquire(HEAVY_KEY, { ...common, target: extractTarget(command) });
 	if (result.ok) process.exit(0);
-	blockWithHolder(result.holder, describeHolder);
+	blockWithHolder(result.holder, describeHolder, heavy);
 }
 
 main().catch((err) => {
