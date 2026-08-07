@@ -2,6 +2,11 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
+import { formatRewardWithQuantity } from '$lib/domain/labels';
+import {
+	isValidRedemptionQuantity,
+	REDEMPTION_QUANTITY_MIN,
+} from '$lib/domain/validation/special-reward';
 import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
@@ -35,6 +40,8 @@ export interface RedemptionRequestResult {
 	id: string;
 	childId: ChildId;
 	rewardId: string;
+	/** #4407: 1 申請が表す個数 (単位量のごほうび。控除は 単価 × 個数)。 */
+	quantity: number;
 	status: RedemptionStatus;
 	requestedAt: number;
 	parentNote: string | null;
@@ -54,7 +61,12 @@ export interface RedemptionRequestWithDetails {
 	rewardId: string;
 	rewardTitle: string;
 	rewardIcon: string | null;
+	/** ごほうび 1 個あたりの単価 (申請時点 snapshot)。 */
 	rewardPoints: number;
+	/** #4407: 申請個数。承認画面は「ゲーム時間 +30分 × 4」を 1 件として表示する。 */
+	quantity: number;
+	/** #4407: 実際に控除される合計 = rewardPoints × quantity。 */
+	totalPoints: number;
 	status: RedemptionStatus;
 	requestedAt: number;
 	parentNote: string | null;
@@ -78,13 +90,30 @@ export interface UnshownRedemptionResult {
 export type RequestRedemptionError =
 	| { error: 'INSUFFICIENT_POINTS' }
 	| { error: 'ALREADY_PENDING' }
+	// #4407 AC10: 即時交換 (auto-approve) 直後の dedup 窓に当たったケース。承認待ちは存在しないため
+	// 「既に申請中です」は事実と違う。子供に「すこし待てば押せる」と伝えるために別コードで返す。
+	| { error: 'RECENTLY_EXCHANGED' }
+	| { error: 'INVALID_QUANTITY' }
 	| { error: 'REWARD_NOT_FOUND' };
 
+/**
+ * ごほうび交換を申請する。
+ *
+ * #4407: `quantity` で「1 申請 = N 個」を表す。単位量のごほうび (「ゲーム時間 +30分」) を
+ * 現実の消費 (2 時間 = 4 個) に対応させるための表現で、申請行を N 件に増やさない
+ * (親の承認操作も 1 件のまま)。ポイント控除は `単価 × 個数` で行う (finalizeApproval)。
+ * #3356 の dedup 契約 (同一 (child, reward) の pending 1 件 + 直近 approved 10 秒窓) は不変。
+ */
 export async function requestRedemption(
 	childId: ChildId,
 	rewardId: string,
 	tenantId: string,
+	quantity: number = REDEMPTION_QUANTITY_MIN,
 ): Promise<RedemptionRequestResult | RequestRedemptionError> {
+	// #4407: 値域外 (0 / 負 / 小数 / 上限超過 / NaN) は減算前に弾く。値域 SSOT は domain 層
+	// (REDEMPTION_QUANTITY_MIN/MAX)。0 個で amount=0 の台帳行を作らないための一次防御でもある。
+	if (!isValidRedemptionQuantity(quantity)) return { error: 'INVALID_QUANTITY' };
+
 	// 報酬の存在確認（子供に紐付くか）
 	const rewards = await findSpecialRewards(childId, tenantId);
 	const reward = rewards.find((r) => r.id === rewardId);
@@ -94,16 +123,22 @@ export async function requestRedemption(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'REWARD_NOT_FOUND' };
 
+	// #4407: 合計 = 単価 × 個数。実際の控除は spendPointsAtomic が原子的に再確認する (#3347) が、
+	// 明らかに足りない申請をここで弾いて pending 行を作らない。
+	const totalPoints = reward.points * quantity;
 	const balance = await getBalance(childId, tenantId);
-	if (balance < reward.points) return { error: 'INSUFFICIENT_POINTS' };
+	if (balance < totalPoints) return { error: 'INSUFFICIENT_POINTS' };
 
 	// 申請作成 (#3356 (1): 重複判定は repo の原子境界に内蔵。旧 findPendingByChildAndReward の
 	// check-then-act は並行 submit で両者が「pending 無し」を読み二重申請 → 即時交換モードで
 	// 二重減算を招く TOCTOU だった。repo は (a) pending 既存 (b) 直近 approved 窓 (連打/再送/多タブ)
 	// のいずれかで DUPLICATE_REQUEST を返す)
 	const now = Math.floor(Date.now() / 1000);
-	const row = await insertRedemptionRequest({ childId, rewardId, requestedAt: now }, tenantId);
-	if ('error' in row) return { error: 'ALREADY_PENDING' };
+	const row = await insertRedemptionRequest(
+		{ childId, rewardId, requestedAt: now, quantity },
+		tenantId,
+	);
+	if ('error' in row) return await classifyDuplicate(childId, rewardId, tenantId);
 
 	// #3339: 家庭設定で即時交換が有効なら、その場で承認確定（減算 + approved）し親承認をスキップする。
 	// 既存の親承認と同一の finalizeApproval を共有するため減算・監査・status 更新の挙動は一致する
@@ -113,6 +148,7 @@ export async function requestRedemption(
 			childId,
 			requestId: row.id,
 			rewardPoints: reward.points,
+			quantity: row.quantity,
 			rewardTitle: reward.title,
 			parentUserId: null,
 			tenantId,
@@ -141,6 +177,7 @@ export async function requestRedemption(
 		id: row.id,
 		childId: row.childId,
 		rewardId: row.rewardId,
+		quantity: row.quantity,
 		status: row.status as RedemptionStatus,
 		requestedAt: row.requestedAt,
 		parentNote: row.parentNote,
@@ -148,6 +185,28 @@ export async function requestRedemption(
 		shownToChildAt: row.shownToChildAt,
 		instant: false,
 	};
+}
+
+/**
+ * #4407 AC10: repo の `DUPLICATE_REQUEST` を、子供に見せる文言が正しくなるよう 2 つに分ける。
+ *
+ * repo の dedup 契約は (a) 同一 (child, reward) の pending 既存 / (b) 直近 approved 10 秒窓 の
+ * 2 経路を同一エラーに畳んでいる。旧実装はこれを一律「既に申請中です」と表示していたため、
+ * 即時交換 ON の家庭 (pending が存在しない) で **事実と違う文言**が出ていた (#4407 追加報告)。
+ *
+ * 本判定は「弾かれた後」に走る読み取りのみで、dedup の原子境界には一切関与しない
+ * (二重課金防止を弱めない)。pending が実在すれば ALREADY_PENDING、無ければ dedup 窓由来と判断する。
+ */
+async function classifyDuplicate(
+	childId: ChildId,
+	rewardId: string,
+	tenantId: string,
+): Promise<{ error: 'ALREADY_PENDING' } | { error: 'RECENTLY_EXCHANGED' }> {
+	const requests = await findRedemptionRequestsByChild(childId, tenantId);
+	const hasPending = requests.some(
+		(r) => r.rewardId === rewardId && r.status === 'pending_parent_approval',
+	);
+	return hasPending ? { error: 'ALREADY_PENDING' } : { error: 'RECENTLY_EXCHANGED' };
 }
 
 // ============================================================
@@ -175,6 +234,9 @@ export async function getRedemptionRequestsForParent(
 		rewardTitle: r.rewardTitle,
 		rewardIcon: r.rewardIcon,
 		rewardPoints: r.rewardPoints,
+		// #4407 AC4: 「ゲーム時間 +30分 × 4」を 1 件として承認できるよう個数と合計を渡す。
+		quantity: r.quantity,
+		totalPoints: r.rewardPoints * r.quantity,
 		status: r.status as RedemptionStatus,
 		requestedAt: r.requestedAt,
 		parentNote: r.parentNote,
@@ -219,18 +281,31 @@ export type ApproveError =
 async function finalizeApproval(args: {
 	childId: ChildId;
 	requestId: string;
+	/** ごほうび 1 個あたりの単価。 */
 	rewardPoints: number;
+	/** #4407: 申請個数。実際の控除額は rewardPoints × quantity。 */
+	quantity: number;
 	rewardTitle: string;
 	parentUserId: string | null;
 	tenantId: string;
 }): Promise<RedemptionRequestResult | { error: 'INSUFFICIENT_POINTS' | 'REQUEST_NOT_FOUND' }> {
-	const { childId, requestId, rewardPoints, rewardTitle, parentUserId, tenantId } = args;
+	const { childId, requestId, rewardPoints, quantity, rewardTitle, parentUserId, tenantId } = args;
+
+	// #4407 AC3: 承認時の残高再確認も「単価 × 個数」で行う。1 個分しか引かない / N 倍に引きすぎる の
+	// どちらも顧客の信頼を直接壊すため、控除額の算出はこの 1 箇所に閉じる。
+	const totalPoints = rewardPoints * quantity;
 
 	// #3347: 残高再読込 → 非負確認 → 減算を原子境界で実行（TOCTOU 二重減算・残高マイナス防止）。
 	const spend = await spendPointsAtomic(
 		childId,
-		rewardPoints,
-		{ type: 'reward_redemption', description: rewardTitle, referenceId: requestId },
+		totalPoints,
+		{
+			type: 'reward_redemption',
+			// #4407: 個数が残るようにする (履歴を見た親が「残高が理由なく動いた」と読めないように)。
+			// 個数 1 なら従来どおりごほうび名のみ。
+			description: formatRewardWithQuantity(rewardTitle, quantity),
+			referenceId: requestId,
+		},
 		tenantId,
 	);
 	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
@@ -254,6 +329,7 @@ async function finalizeApproval(args: {
 		id: updated.id,
 		childId: updated.childId,
 		rewardId: updated.rewardId,
+		quantity: updated.quantity,
 		status: updated.status as RedemptionStatus,
 		requestedAt: updated.requestedAt,
 		parentNote: updated.parentNote,
@@ -281,6 +357,8 @@ export async function approveRedemption(
 		childId: req.childId,
 		requestId,
 		rewardPoints: req.rewardPoints,
+		// #4407: 申請行が持つ個数で控除する (承認画面の表示値ではなく DB の値を権威にする)。
+		quantity: req.quantity,
 		rewardTitle: req.rewardTitle,
 		parentUserId,
 		tenantId,
@@ -326,6 +404,7 @@ export async function rejectRedemption(
 		id: updated.id,
 		childId: updated.childId,
 		rewardId: updated.rewardId,
+		quantity: updated.quantity,
 		status: updated.status as RedemptionStatus,
 		requestedAt: updated.requestedAt,
 		parentNote: updated.parentNote,

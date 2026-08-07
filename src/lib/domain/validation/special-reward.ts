@@ -41,6 +41,40 @@ export const REWARD_DESCRIPTION_MAX = 500;
 export const REWARD_ICON_MIN_GRAPHEMES = 1;
 export const REWARD_ICON_MAX_GRAPHEMES = 2;
 
+// ------------------------------------------------------------
+// 交換個数 (#4407) 値域 SSOT
+// ------------------------------------------------------------
+// 単位量のごほうび (「ゲーム時間 +30分」等) は「単位 × 個数」で消費されるため、1 回の交換申請が
+// N 個を表せる。本定数は **1 申請で表せる個数の入力値域**であって、在庫・購入上限ではない
+// (実効的な購入可能量は残高が決める。上限概念を足すと設定・リセット時刻・表示が要る = Pre-PMF 過剰、
+// ADR-0010 / Issue #4407 の PO 判断)。
+// domain (requestRedemption / UI stepper) と wire (backup export/import の ExportRewardRedemption)
+// の双方が本定数を参照する (値域 literal の二重定義禁止、ADR-0066)。
+export const REDEMPTION_QUANTITY_MIN = 1;
+/**
+ * 1 申請で指定できる個数の上限。30 分単位の商品なら 99 個 = 49.5 時間で、現実の 1 日の消費を
+ * 大きく超える一方、桁違いの誤入力 (1000 個) は弾く。2 桁に収めることで幼児向け stepper の
+ * 表示幅も破綻しない。
+ */
+export const REDEMPTION_QUANTITY_MAX = 99;
+
+/**
+ * 交換個数として妥当か (整数 / 値域内)。UI・service・restore が共有する述語 (ADR-0066 原則 2)。
+ * NaN / 小数 / 範囲外は false。
+ */
+export function isValidRedemptionQuantity(val: number): boolean {
+	return Number.isInteger(val) && val >= REDEMPTION_QUANTITY_MIN && val <= REDEMPTION_QUANTITY_MAX;
+}
+
+/**
+ * 任意入力 (旧 backup の欠落 / null / 不正値) を安全な個数へ収束させる。
+ * 旧 backup (v1.8.0 以前) には quantity が無いため 1 個として復元する。
+ */
+export function normalizeRedemptionQuantity(raw: unknown): number {
+	const num = typeof raw === 'number' ? raw : Number(raw);
+	return isValidRedemptionQuantity(num) ? num : REDEMPTION_QUANTITY_MIN;
+}
+
 /**
  * ごほうび icon 値域 (1〜2 grapheme) 判定。domain / wire schema の共有 oracle (#3151)。
  * 旧 domain 側 `max(10)` (UTF-16 units 基準) は ZWJ 連結絵文字 1 個 (👨‍👩‍👧‍👦 = 11 units) を弾き、

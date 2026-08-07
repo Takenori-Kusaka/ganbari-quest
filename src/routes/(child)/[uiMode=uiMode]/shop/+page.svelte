@@ -323,6 +323,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	rewardTitle={selectedRewardTitle}
 	rewardPoints={selectedRewardPoints}
 	rewardIcon={selectedRewardIcon}
+	balance={data.balance}
 	onClose={closeConfirmDialog}
 />
 

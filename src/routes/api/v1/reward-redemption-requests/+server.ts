@@ -5,6 +5,7 @@
 
 import { json } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
+import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	getRedemptionRequestsForParent,
@@ -43,24 +44,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const rewardId = String(rawRewardId);
 	const childId = asChildId(rawChildId);
+	// #4407: 個数。未指定は 1 個 (旧クライアント互換)。値域検証は service (domain 値域 SSOT) が行う。
+	const rawQuantity = (body as Record<string, unknown>).quantity;
+	const quantity = rawQuantity === undefined ? 1 : Number(rawQuantity);
 
-	const result = await requestRedemption(childId, rewardId, tenantId);
+	const result = await requestRedemption(childId, rewardId, tenantId, quantity);
 
 	if ('error' in result) {
-		switch (result.error) {
-			case 'INSUFFICIENT_POINTS':
-				return json(
-					{ error: 'INSUFFICIENT_POINTS', message: 'ポイントが足りません' },
-					{ status: 400 },
-				);
-			case 'ALREADY_PENDING':
-				return json({ error: 'ALREADY_PENDING', message: '既に申請中です' }, { status: 409 });
-			case 'REWARD_NOT_FOUND':
-				return json(
-					{ error: 'REWARD_NOT_FOUND', message: 'ごほうびが見つかりません' },
-					{ status: 404 },
-				);
-		}
+		// #4407: 新エラー種別を足しても「エラーを 201 で返す」抜けが起きないよう、
+		// switch ではなく明示 map + 既定 400 で網羅する。
+		const map: Record<string, { status: number; message: string }> = {
+			INSUFFICIENT_POINTS: { status: 400, message: CHILD_SHOP_LABELS.errorInsufficientPoints },
+			ALREADY_PENDING: { status: 409, message: CHILD_SHOP_LABELS.errorAlreadyPending },
+			RECENTLY_EXCHANGED: { status: 409, message: CHILD_SHOP_LABELS.errorRecentlyExchanged },
+			INVALID_QUANTITY: { status: 400, message: CHILD_SHOP_LABELS.errorInvalidQuantity },
+			REWARD_NOT_FOUND: { status: 404, message: CHILD_SHOP_LABELS.errorRewardNotFound },
+		};
+		const mapped = map[result.error] ?? { status: 400, message: CHILD_SHOP_LABELS.errorGeneric };
+		return json({ error: result.error, message: mapped.message }, { status: mapped.status });
 	}
 
 	return json(result, { status: 201 });

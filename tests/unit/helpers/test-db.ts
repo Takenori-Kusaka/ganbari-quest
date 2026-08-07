@@ -328,6 +328,8 @@ export const SQL_TABLES = `
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
 		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
 		requested_at INTEGER NOT NULL,
+		-- #4407: 1 申請 = N 個
+		quantity INTEGER NOT NULL DEFAULT 1,
 		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
 		parent_note TEXT,
 		resolved_at INTEGER,

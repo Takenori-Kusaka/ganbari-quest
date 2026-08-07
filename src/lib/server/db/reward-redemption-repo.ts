@@ -4,7 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { getRepos } from './factory';
 
 export async function insertRedemptionRequest(
-	input: { childId: ChildId; rewardId: string; requestedAt: number },
+	input: { childId: ChildId; rewardId: string; requestedAt: number; quantity: number },
 	tenantId: string,
 ) {
 	return getRepos().rewardRedemption.insertRedemptionRequest(input, tenantId);
@@ -20,6 +20,7 @@ export async function insertRedemptionForRestore(
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
+		quantity: number;
 		status: string;
 		parentNote: string | null;
 		resolvedAt: number | null;
