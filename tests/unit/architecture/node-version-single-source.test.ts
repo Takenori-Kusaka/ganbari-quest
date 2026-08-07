@@ -68,9 +68,8 @@ async function collect(patterns: string[], re: RegExp): Promise<Hit[]> {
 	for (const file of files.sort()) {
 		const content = await readFile(join(REPO_ROOT, file), 'utf8');
 		for (const [i, line] of content.split(/\r?\n/).entries()) {
-			const m = re.exec(line);
-			// biome-ignore lint/style/noNonNullAssertion: 正規表現が match した時点で group 1 は存在する
-			if (m) hits.push({ file, line: i + 1, text: line.trim(), major: m[1]! });
+			const major = re.exec(line)?.[1];
+			if (major) hits.push({ file, line: i + 1, text: line.trim(), major });
 			re.lastIndex = 0;
 		}
 	}
