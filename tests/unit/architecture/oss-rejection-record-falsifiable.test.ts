@@ -79,8 +79,9 @@ function parseTable(section: string, lineOffset = 0): TableRow[] {
 		if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;
 		rowsRaw.push({ cells, line: lineOffset + i + 1 });
 	}
-	if (rowsRaw.length === 0) return [];
-	const header = rowsRaw[0].cells;
+	const first = rowsRaw[0];
+	if (!first) return [];
+	const header = first.cells;
 	return rowsRaw.slice(1).map((r) => ({ cells: r.cells, header, line: r.line }));
 }
 
@@ -90,7 +91,9 @@ function probePathsOf(row: TableRow): string[] {
 	if (idx === -1) return [];
 	const cell = row.cells[idx] ?? '';
 	// バッククォートで囲んだものだけをパスとして解釈する (説明文を誤ってパス扱いしない)。
-	return [...cell.matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((p) => p.length > 0);
+	return [...cell.matchAll(/`([^`]+)`/g)]
+		.map((m) => m[1])
+		.filter((p): p is string => p !== undefined && p.length > 0);
 }
 
 async function readRejectionRows(): Promise<TableRow[]> {
@@ -138,7 +141,9 @@ describe('#4395 OSS 不採用記録は「不採用が今も成立する」こと
 		const rejection = sectionOf(md, REJECTION_HEADING);
 		const adoption = sectionOf(md, ADOPTION_HEADING);
 		// 表記ゆれを避けるため、リンクラベル (`[Name](url)` の Name) で突き合わせる。
-		const names = [...rejection.matchAll(/\[([^\]]+)\]\(https?:[^)]+\)/g)].map((m) => m[1]);
+		const names = [...rejection.matchAll(/\[([^\]]+)\]\(https?:[^)]+\)/g)]
+			.map((m) => m[1])
+			.filter((n): n is string => n !== undefined);
 		const both = names.filter((n) => adoption.includes(n));
 
 		expect(both, `同じ OSS が採用記録と不採用記録の両方にあります: ${both.join(', ')}`).toEqual([]);
@@ -154,7 +159,9 @@ describe('#4395 OSS 不採用記録は「不採用が今も成立する」こと
 		const rows = parseTable(fixture);
 
 		expect(rows).toHaveLength(1);
-		const probes = probePathsOf(rows[0]);
+		const row = rows[0];
+		if (!row) throw new Error('fixture の行が取れていません');
+		const probes = probePathsOf(row);
 		expect(probes).toEqual(['package.json']);
 		// package.json は必ず存在する → [OR2] の検出ロジックが真に働くことの証明。
 		expect(probes.some((p) => existsSync(join(REPO_ROOT, p)))).toBe(true);
