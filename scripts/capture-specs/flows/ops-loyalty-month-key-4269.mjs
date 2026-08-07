@@ -20,6 +20,9 @@
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 const PHASE = process.env.SS_PHASE === 'before' ? 'before' : 'after';
+// flow モードは presets の先頭 1 つしか使わないため、viewport ごとに 1 回ずつ実行する。
+// 出力名が衝突して上書きされないよう、label に viewport 名を含める。
+const VIEW = process.env.SS_VIEW === 'mobile' ? 'mobile' : 'desktop';
 
 /** cognito-dev のログインフォームを通す (ops-mfa-not-required-4363.mjs と同型) */
 async function login(page, email, password) {
@@ -60,13 +63,11 @@ export default async (page, capture) => {
 
 	if (PHASE === 'before') {
 		// 実装を外した状態: 継続月キーの行は存在しない
-		await capture('before-ops-loyalty-month-key');
+		await capture(`before-ops-loyalty-month-key-${VIEW}`);
 		return;
 	}
 
 	// 本 PR: 0 件でも行が出る (滞留 0 と「見ていない」を区別できるようにする)
-	await page
-		.getByTestId('ops-loyalty-month-key')
-		.waitFor({ state: 'visible', timeout: 15_000 });
-	await capture('after-ops-loyalty-month-key');
+	await page.getByTestId('ops-loyalty-month-key').waitFor({ state: 'visible', timeout: 15_000 });
+	await capture(`after-ops-loyalty-month-key-${VIEW}`);
 };
