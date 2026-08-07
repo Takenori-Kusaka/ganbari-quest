@@ -225,6 +225,19 @@ gh secret set STRIPE_WEBHOOK_SECRET_TEST --body "whsec_xxxxxxxx" --repo Takenori
 
 **S-0 が通って初めて #4104 を close する。** S-4（救済経路）が通ることは S-0（本線）が通ることの代わりにならない。救済経路は本線が落ちたときのためのものであり、2026-07-26 に落ちたのは本線（webhook 到達）である。
 
+## 9.5 staging Lambda の env を手で足さない（#4352）
+
+検証のために `aws lambda update-function-configuration` で env を足すことは**しない**。足したものは deploy が success を返しても消えず（CloudFormation は out-of-band drift を戻さない）、**IaC に無い設定が効いたまま検証を通してしまう**。実際 #4286（price env が無い配備で購入が必ず 400）の検証中に手で入れた `STRIPE_PRICE_*_MONTHLY` が残存し、checkout が通っても「lookup_key 経路が直った」証拠にならない状態が続いた。
+
+現在の staging deploy は:
+
+- env を **CDK synth 出力から組み立てた完全な集合で全上書き**する（IaC に無いキーは書き戻されず消える。除去したキー名は run の warning に出る）
+- deploy 末尾に **env キー差分検査**があり、synth 出力と live のキー集合が食い違えば **fail** する（キー名のみ出力、値は出さない）
+
+検証に env が要るなら **`infra/lib/compute-stack.ts` に足して deploy する**。仕様 SSOT は [13-AWSサーバレスアーキテクチャ設計書 §4.3](../design/13-AWSサーバレスアーキテクチャ設計書.md)。
+
+**「次の deploy で消えるから残してよい」は残置の根拠にしない。** 消えるまでの間は効き続け、その間の検証結果が信用できなくなる（#4117 の 2026-08-05 残置決裁はこの前提に立っており、無効）。
+
 ## 10. 関連
 
 - [docs/runbooks/staging-gate-required-checks.md](staging-gate-required-checks.md) — staging deploy gate の required 化手順
