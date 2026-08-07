@@ -14,13 +14,13 @@
 
 `docs/design/billing-redesign/` には契約に関する設計文書が 47 本あり、**機能軸では網羅されている**（解約 / dunning / プラン変更 / 復帰 / 冪等性）。不足しているのは **1 枚の状態遷移表** — `families` の 4 列の**組み合わせとして許される状態の一覧**である。
 
-機能軸で分かれていると、**軸をまたぐ矛盾が設計レビューで検出できない**。列の組み合わせを並べた瞬間に見えるが、1 つの機能を見ている限り気づけない類の欠陥が実際に複数発生した（§5）。
+機能軸で分かれていると、**軸をまたぐ矛盾が設計レビューで検出できない**。「誰が」「どの列に」「何を書くか」を 1 枚に並べた瞬間に見えるが、1 つの機能を見ている限り気づけない類の欠陥が実際に複数発生した（`grace_period` の二重定義 / チャーンを書き手のいない状態で数える、など）。
 
 ### この設計書がないと何が困るか
 
 - 新しい webhook handler を足すとき、「書いてよい組み合わせ」の一覧が無いため、**既存の不正状態を再生産する**
 - `licenseStatus` / `planTier` は 4 列からの**導出値**であり、元の組み合わせが不正だと導出結果も無意味になる。しかし導出側だけ見ても元の不正には辿り着けない
-- KPI（チャーン / 課金ユーザー数）は `status` 単独で数えている。書き手が存在しない状態を数えていても誰も気づかない（§5 D3）
+- KPI（チャーン / 課金ユーザー数）を `status` 単独で数えると、書き手が存在しない状態を数えていても誰も気づかない（§4.2）
 
 ---
 
@@ -66,8 +66,8 @@
 |---|---|---|---|
 | **X1** | `sub` なし + `plan` あり | 契約が無いのにプランだけ残る。`licenseStatus=none` なのに `plan` を表示する経路が生まれる | 起きない（W5 が 4 列を網羅的にクリアし、後着 event は単一強制点の突合で弾かれる。#3982 / #4026） |
 | **X2** | `sub` あり + `plan` なし | 課金しているのにプラン不明。`planTier` が `standard` に丸められ、premium 契約者が standard 扱いになる | 起きうる（checkout の `metadata.planId` が未知のとき。alert は出る） |
-| **X3** | `status=active` + `exp` あり | `active` に期限は無い。dunning / 解約の残骸 | **起きる**（§5 D2） |
-| **X4** | `status=grace_period` + `sub` なし | 猶予の対象となる契約が存在しない | 起きうる |
+| **X3** | `status=active` + `exp` あり | `active` に期限は無い。dunning / 解約の残骸 | 現在の書き手からは起きない（W2 / W4 は `active` を書くとき `exp=null` を同時に書く）。過去に作られた行は §7 ③ の監査で検出する |
+| **X4** | `status=grace_period` + `sub` なし | 猶予の対象となる契約が存在しない | 現在の書き手からは起きない（W3 / W4 は現行契約と突合してから書くため `sub` が必ずある。#4026） |
 
 ### 4.1 S6 (`terminated`) は通常運用では観測されない
 
@@ -114,15 +114,45 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 
 | # | トリガ | 実装 | 書く内容 | 遷移 |
 |---|---|---|---|---|
-| W1 | `checkout.session.completed` | `stripe-service.ts` `handleCheckoutCompleted` | `sub` / `plan` / `status=active` / `trialUsedAt` | S1 → S2 |
-| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） + **`plan_expires_at=null`** | S3 → S2 / S2 → S2 |
-| W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2 → S3 |
-| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化）+ **`plan_expires_at`**（`active` 復帰 → `null` / `grace_period` 入りで未設定なら `now+7d` / それ以外は無変更。`planExpiresAtPatchFor()`） / 終端: W5 と同じ 4 列 | S2 ⇄ S3 / → S4 / → S5 |
+| W1 | `checkout.session.completed` | `stripe-service.ts` `handleCheckoutCompleted` | `sub` / `plan` / `status=active` / `trialUsedAt` | S1 → S2 / S5 → S2 |
+| W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） + **`plan_expires_at=null`** | S2/S3/S4 → S2 |
+| W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2/S3/S4 → S3 |
+| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化）+ **`plan_expires_at`**（`active` 復帰 → `null` / `grace_period` 入りで未設定なら `now+7d` / それ以外は無変更。`planExpiresAtPatchFor()`） / 終端: W5 と同じ 4 列 | S2/S3/S4 → S2（`active` / `trialing`）/ S2/S3/S4 → S3（`past_due`）/ S2/S3/S4 → S4（`unpaid` / `paused` / `incomplete`）/ S2/S3/S4 → S5（終端） |
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
-| W6 | アプリ内解約 | `tenant/cancel/+server.ts` | **書かない**（Stripe に `cancel_at_period_end=true` を予約するのみ、#3991） | S2 → S2（期末に W5 で S5 へ） |
-| W7 | 解約取り消し | `tenant/reactivate/+server.ts` | **書かない**（Stripe の `cancel_at_period_end=false`、#3991） | S2 → S2 |
-| W8 | （欠番）退会猶予満了バッチ | — | **書き手なし**。退会の物理削除は `families` 行ごと削除するため status を書かない（§4.1） | — |
-| W9 | （テナント作成） | `createTenant` | `status=active` のみ | → S1 |
+| W6 | アプリ内解約 | `tenant/cancel/+server.ts` | **書かない**（Stripe に `cancel_at_period_end=true` を予約するのみ、#3991） | なし（期末に W5 が S5 へ移す） |
+| W7 | 解約取り消し | `tenant/reactivate/+server.ts` | **書かない**（Stripe の `cancel_at_period_end=false`、#3991） | なし |
+| W8 | （欠番）退会猶予満了バッチ | — | **書き手なし**。退会の物理削除は `families` 行ごと削除するため status を書かない（§4.1） | なし |
+| W9 | （テナント作成） | `createTenant` | `status=active` のみ | なし（行の新規作成。S1 を作る） |
+
+### 5.1 `遷移` 列の読み方と機械検証
+
+`遷移` 列は **`families` の 4 列が実際に書き換わる組み合わせ**を列挙する。書式は 2 つだけ:
+
+- `S2 → S3`（左辺は `S2/S3/S4 → S5` のように `/` で複数可）
+- `S2 ⇄ S3`（両向き）
+
+**契約状態を書かない書き手は「なし」**と書く。Stripe 側だけが変わる操作（W6 / W7）に遷移を書くと、
+表を読んだ人が「DB が動く」と誤解する。W9 は行の新規作成で開始状態が存在しないため遷移ではない。
+
+本列は `tests/unit/architecture/contract-transition-matrix-ssot.test.ts` が機械照合する。
+handler を実際に呼び、**開始状態 S1〜S5 × Stripe subscription status 8 種**を総当たりして
+書き込み前後を `classifyContractState()` で分類し、観測集合と本列を**双方向**で突き合わせる
+（表にあって実装に無い / 実装にあって表に無い、の両方で fail する）。
+
+検証が届かない範囲は同 test の `UNDRIVEN_WRITERS` に理由付きで列挙する。加えて、
+**状態クラスが同じで列の値だけが違う書き込み**（例: `grace_period` のまま猶予終了日を書き換える）は
+遷移としては同一に見えるため本列の対象外で、`tests/unit/services/stripe-contract-state-classification.test.ts`
+が列の値まで見る。
+
+読み取り上の注意:
+
+- **W2 / W3 / W4 の左辺に S4 が入るのは、event の到着順が保証されないため。** Stripe が
+  `unpaid` / `paused` を経た契約に後続の invoice event を送ることがあり、実装は現行 subscription を
+  SSOT として書き戻す（S4 → S2 は支払い成功による復帰であり、顧客の有料機能が戻る正しい遷移）
+- **W1 の左辺が S1 と S5 だけなのは、`createCheckoutSession()` が `sub` を持つテナントの
+  checkout を `ALREADY_SUBSCRIBED` で拒む**ため。S5（解約済）からの再購読はこの経路で S2 に戻る
+- S6（退会済）を開始状態とする遷移は本表に無い。§4.1 のとおり legacy 行としてしか存在せず、
+  `hooks.server.ts` が当該テナントを完全ブロックする
 
 ### 書き手を増やさない起動点: checkout reconciliation（#3958）
 
@@ -134,16 +164,19 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 反映前に「session の subscription == `tenants.stripe_subscription_id`」を突合し、一致していれば
 書き込みも通知も行わない。webhook 先着・URL 再訪・リロードはいずれもこの突合で吸収される。
 
-### 表と実装のズレ（実読で確認、いずれも別 Issue で対処中）
+### `grace_period` は支払い失敗の dunning だけを意味する
 
-| ID | ズレ | 実装の事実 | Issue |
-|---|---|---|---|
-| **D2** | W6 と W3 が同じ `grace_period` に書く | **解消済**。W6 / W7 は DB の契約状態を書かなくなり、`grace_period` の書き手は W3 / W4 (`past_due`) = **支払い失敗の dunning のみ**に一意化された。「解約申請中か」の SSOT は Stripe の `cancel_at_period_end` | #3986 → #3991（解消済） |
-| **D3** | S6 (`terminated`) に書き手がいない | 退会の物理削除は行ごと消すため status を残せない（§4.1）。`terminated` だけを見ていた KPI 3 本は恒常 0 を返していた。**解約は S5 で数える**ように是正済（`isChurnedContract`、§4.2） | #3987（解消済） |
-| **D4** | S4 に実効果が無い | `authorization.ts:171-173` は `suspended` でも `allowed: true` を返す。「読み取り専用」というコメントと実装が不一致 | #3982 / #3993 |
-| **D5** | W3 が退会向け機構を誤発火させる | `grace_period` は `hooks.server.ts:430` の**読み取り専用ロック**と `tenant-cleanup` の**物理削除対象**のトリガでもある。支払い失敗しただけで子どもが記録できなくなる | **#3993（critical）** |
+`grace_period` を書くのは **W3 と W4 の `past_due` 分岐だけ**である（#3986 → #3991）。解約申請の
+猶予は Stripe の `cancel_at_period_end` が持ち、DB の契約状態には現れない。
 
-**これらは、機能軸の文書を個別に読んでいる限り見えない。** 本表のように「誰が」「どの列に」「何を書くか」を 1 枚に並べた時点で、W3 と W6 が同じセルに書いていること（D2）、S6 に書き手がいないこと（D3）が同時に見える。
+この status に退会（アカウント削除）向けの機構を接続してはならない。読み取り専用ロック
+（`hooks.server.ts`）と物理削除バッチ（`tenant-cleanup` → `purgeExpiredSoftDeletedTenants`）は
+どちらも settings の `soft_deleted_at` を条件とする（§6）。支払い失敗は子供の利用体験を止めない
+（`phase1-dunning-requirements.md` NFR-3 / US-4）。
+
+**S4（`suspended`）は読み取り専用ではない。** `authorization.ts` は `suspended` でも
+`allowed: true` を返す — 解約完了 = 無料プラン相当という扱いであり（#3993 PO 判断）、
+書き込みを止める分岐は存在しない。
 
 ---
 
@@ -157,7 +190,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 | 書き手 | W1〜W9 | `softDeleteTenant()`（`grace-period-service.ts:67-110`） |
 | 猶予日数 | dunning 7 日（`config.ts`） | プラン別 free 0 / standard 7 / premium 30（`DELETION_GRACE_PERIOD_DAYS`） |
 
-**`softDeleteTenant()` は `families` を一切触らない。** したがって「退会申請済み」は本表のどの行にも現れない。読み取り専用ロックと物理削除がこちらではなく契約軸に繋がっているのが D5（#3993）である。
+**`softDeleteTenant()` は `families` を一切触らない。** したがって「退会申請済み」は本表のどの行にも現れない。読み取り専用ロックと物理削除は契約軸ではなくこちらを条件とする（#3993）。
 
 ---
 
@@ -171,7 +204,7 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 | gate スクリプト | **不採用（単独では）** | 静的解析で「どの組み合わせが書かれるか」を導出するのは、`updateTenantStripe` の部分更新セマンティクス（`undefined` = 保持）があるため不可能に近い（「静的に読むと正しく見えるが効果が違う」形になる）。ただし「書き込み経路が単一関数を通ること」自体は静的に強制できる（`stripe-contract-write-single-enforcement.test.ts`、#4026） |
 | **判定関数 + 定期監査** | **採用** | 許容集合をドメイン層の SSOT にし、(a) 書き手の unit test が「書いた結果が許容集合に入る」ことを assert できる、(b) 運用側が本番行を突合できる、の両方に使える |
 
-### 実装（3 段のうち ①② が稼働、③ は未実装）
+### 実装（3 段とも稼働）
 
 | # | 手段 | 実体 |
 |---|---|---|
@@ -179,7 +212,8 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 | ② | webhook handler の書き込み後状態を分類して assert | `tests/unit/services/stripe-contract-state-classification.test.ts`（#4181）。X1-X4 に分類されたら fail する。**「意図と効果の乖離」はここで落ちる** |
 | ③ | 定期監査（`/ops` or cron）で本番行を分類し X1-X4 を報告 | `contract-state-audit-service.ts` の `auditContractStates()`（`/ops` アクセス毎の on-demand 分類、#4249）。①② は「これから書く行」しか見ないため、既に不正な既存行はこの手だけが検出する |
 
-**③ は #3993 の後に入れる。** X3 を作る書き手が現役のうちに監査を回すと、本番で恒常的に不正を報告し続ける（狼少年になる）。
+①② に加えて、**書き手どうしの遷移**（どの状態からどの状態へ動くか）は
+`tests/unit/architecture/contract-transition-matrix-ssot.test.ts` が §5 の `遷移` 列と双方向照合する（§5.1）。
 
 検出した行への一次対応（確認手順・是正手順・決裁）は [`contract-state-audit-remediation.md`](../../runbooks/contract-state-audit-remediation.md) が SSOT。
 
@@ -193,8 +227,8 @@ W1 と一致するため、片方だけ直る不整合が生まれない）。
 
 ## 8. 関連
 
-- #4181（§7 ①② の実装）/ #4249（§7 ③ 定期監査の実装）
-- #3982 / #4026（W5 の終端 4 列 + 単一強制点）/ #3982（D4）/ #3986 → #3991（D2）/ #3987（D3）/ **#3993 critical（D5）**
+- #4181（§7 ①② の実装）/ #4249（§7 ③ 定期監査の実装）/ #4118（§5.1 遷移の機械照合）
+- #3982 / #4026（W5 の終端 4 列 + 単一強制点）/ #3986 → #3991（`grace_period` の一意化）/ #3987（チャーン判定）/ #3993（退会機構の付け替え）
 - `phase1-cancellation-requirements.md` FR-1 / NFR-2（期末解約）
 - `phase1-dunning-requirements.md` FR-1 / NFR-3 / US-1 / US-4（支払い失敗で子供の体験を止めない）
 - `docs/design/08-データベース設計書.md`（`families` 列定義）
