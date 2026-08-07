@@ -31,6 +31,12 @@ import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit
 import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
+import {
+	animateBalanceChange,
+	captureFlightOrigin,
+} from '$lib/features/point-flight/point-flight.svelte';
+// #4448: 獲得ぶんを結果ダイアログの数字からヘッダー残高へ飛ばし、残高をカウントアップする
+import type { FlightRect } from '$lib/features/point-flight/point-flight-plan';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
 import { setDashboardService } from '$lib/services/context';
 import { createProductionDashboardService } from '$lib/services/production/DashboardService';
@@ -191,6 +197,24 @@ let selectedActivity = $state<{
 
 // Baby mode: pending activity for inline form
 let pendingActivityId = $state<ActivityId | null>(null);
+
+// #4448: 結果ダイアログのポイント数字 (出発点) と、レベルアップを挟んだときの持ち越し
+let resultPointEl = $state<HTMLElement | null>(null);
+let pendingFlightOrigin: FlightRect | null = null;
+
+/**
+ * #4448: 残高を取り込みつつ、変化ぶんを `+N` / `-N` としてヘッダー残高へ飛ばす。
+ * 演出できない状況 (baby / ?screenshot / reduced-motion) では invalidateAll() だけが走る。
+ */
+async function syncBalanceWithFlight(originRect: FlightRect | null) {
+	await animateBalanceChange({
+		balanceBefore: data.balance,
+		originRect,
+		settings: ps,
+		commit: () => invalidateAll(),
+		readBalance: () => data.balance,
+	});
+}
 
 // Record result overlay
 let resultOpen = $state(false);
@@ -415,6 +439,9 @@ function startCancelCountdown(until: string) {
 }
 
 function handleResultClose() {
+	// #4448: 閉じる前に、結果ダイアログのポイント数字の座標を掴む (閉じたら要素は消える)
+	const originRect = captureFlightOrigin(resultPointEl);
+
 	if (cancelTimerId) clearInterval(cancelTimerId);
 	cancelTimerId = null;
 	resultOpen = false;
@@ -430,22 +457,27 @@ function handleResultClose() {
 
 	// レベルアップがあれば FSM 経由で表示
 	if (levelUpData) {
+		// レベルアップ表示中は残高を更新しない (ダイアログの表示データが入れ替わるため)。
+		// 出発点だけ持ち越し、レベルアップを閉じたときにまとめて反映する。
+		pendingFlightOrigin = originRect;
 		openDialog('levelUp', levelUpData);
 	} else {
 		isFirstRecord = false;
 		resultData = null;
 		xpGainData = null;
-		invalidateAll();
+		void syncBalanceWithFlight(originRect);
 	}
 }
 
 function handleLevelUpClose() {
+	const originRect = pendingFlightOrigin;
+	pendingFlightOrigin = null;
 	closeDialog();
 	levelUpData = null;
 	isFirstRecord = false;
 	resultData = null;
 	xpGainData = null;
-	invalidateAll();
+	void syncBalanceWithFlight(originRect);
 }
 
 function handleStampPressClose() {
@@ -976,7 +1008,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						cancelledMessage = false;
 						resultOpen = false;
 						resultData = null;
-						invalidateAll();
+						// #4448: 取り消しで戻ったぶんも `-N` として残高につなぐ (出発点は残高の少し下)
+						void syncBalanceWithFlight(null);
 					}}
 				>
 					{CHILD_HOME_LABELS.resultCancelledClose}
@@ -991,7 +1024,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{:else}
 					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
-				<div class="animate-point-pop">
+				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
+				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}

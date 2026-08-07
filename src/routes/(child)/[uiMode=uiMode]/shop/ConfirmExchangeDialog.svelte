@@ -13,10 +13,16 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import type { PointSettings } from '$lib/domain/point-display';
 import {
 	REDEMPTION_QUANTITY_MAX,
 	REDEMPTION_QUANTITY_MIN,
 } from '$lib/domain/validation/special-reward';
+// #4448: 消費ぶんを `-N` (赤) としてヘッダー残高へ飛ばす
+import {
+	animateBalanceChange,
+	captureFlightOrigin,
+} from '$lib/features/point-flight/point-flight.svelte';
 import { playRewardCelebration } from '$lib/features/reward-celebration';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
@@ -31,6 +37,8 @@ interface Props {
 	rewardIcon: string | null;
 	/** 現在のポイント残高。買える上限個数と「交換後の残り」の算出に使う (#4407)。 */
 	balance: number;
+	/** 表示単位設定。消費ぶんの `-N` 表示に使う (#4448、pt / 円換算いずれも正しく出す)。 */
+	pointSettings: PointSettings;
 	onClose: () => void;
 }
 
@@ -41,10 +49,13 @@ let {
 	rewardPoints,
 	rewardIcon,
 	balance,
+	pointSettings,
 	onClose,
 }: Props = $props();
 
 let isSubmitting = $state(false);
+// #4448: 合計消費ポイントの数字が出発点になる
+let totalPointsEl = $state<HTMLElement | null>(null);
 let quantity = $state(REDEMPTION_QUANTITY_MIN);
 
 // 残高で買える上限。単価 0 の異常データでも 1 以上・上限以下に収める。
@@ -89,7 +100,7 @@ $effect(() => {
 					: CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}
 			</span>
 			<p class="confirm-points-value">
-				<span class="confirm-points-num" data-testid="confirm-total-points">{totalPoints}</span>
+				<span class="confirm-points-num" data-testid="confirm-total-points" bind:this={totalPointsEl}>{totalPoints}</span>
 				<span class="confirm-points-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
 			</p>
 			<span class="confirm-points-label" data-testid="confirm-remaining-after">
@@ -105,6 +116,9 @@ $effect(() => {
 				use:enhance={() => {
 					isSubmitting = true;
 					const submitted = quantity;
+					// #4448: ダイアログが閉じる前に出発点 (合計消費ポイントの数字) を掴む
+					const flightOrigin = captureFlightOrigin(totalPointsEl);
+					const balanceBefore = balance;
 					return async ({ result, update }) => {
 						isSubmitting = false;
 						if (result.type === 'success') {
@@ -132,7 +146,15 @@ $effect(() => {
 							await update();
 							onClose();
 							void playRewardCelebration();
-							await invalidateAll();
+							// #4448: 減った分を `-N` (赤) でヘッダー残高へ飛ばし、減算後の値まで数える。
+							// 親承認待ち (instant=false) は残高が動かないため、演出は自動的に出ない。
+							await animateBalanceChange({
+								balanceBefore,
+								originRect: flightOrigin,
+								settings: pointSettings,
+								commit: () => invalidateAll(),
+								readBalance: () => balance,
+							});
 						} else {
 							// 失敗も同じ場所に出す (画面最上部の Alert はスクロール位置によっては見えない)。
 							const message =

@@ -13,6 +13,9 @@ import {
 import { CHILD_SHOP_LABELS, PIN_GATE_ONBOARDING_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
+// #4448: 動いたポイントをヘッダー残高までつなぐ演出。ghost layer は child 配下で 1 つだけ置く。
+import PointFlightGhost from '$lib/features/point-flight/PointFlightGhost.svelte';
 // #2168: 旧 MilestoneBanner 横長 alert は撤去。Header の bell slot に MilestoneBellButton を注入する。
 import MilestoneBellButton from '$lib/features/value-preview/MilestoneBellButton.svelte';
 // Issue #2069 POC: ProductionDashboardService を Context に配備する。
@@ -48,6 +51,13 @@ setDashboardService(
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'preschool');
 const isBaby = $derived(uiMode === 'baby');
+// #4448: ポイント増減演出の唯一の gate。
+// - baby は親向け準備モードでゲーミフィケーション非適用 (ADR-0011)
+// - `?screenshot=*` は演出を止めて最終値を即出す (visual regression baseline を揺らさない)
+// ここで false になると Header が残高 anchor を登録しないため、呼び出し側は演出の有無を
+// 知らないまま animateBalanceChange() を呼べる (データ更新だけが走る)。
+const isScreenshotMode = getScreenshotMode();
+const pointFlightEnabled = $derived(!isBaby && !isScreenshotMode);
 // #0289: モード別ラベルを一元定数から取得
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
@@ -194,6 +204,7 @@ function handleStartChildTutorial() {
 			}}
 			onHelpClick={handleStartChildTutorial}
 			isPremium={data.isPremium}
+			animateBalance={pointFlightEnabled}
 		>
 			{#snippet notificationSlot()}
 				<!-- #2168: MilestoneBanner 横長 alert を撤去し、Header に bell + dot badge を統合。
@@ -226,6 +237,11 @@ function handleStartChildTutorial() {
 		<TutorialOverlay />
 	{/if}
 </div>
+
+<!-- #4448: 動いたポイントがヘッダー残高へ飛ぶ ghost (pointer-events:none、演出中も操作できる) -->
+{#if pointFlightEnabled}
+	<PointFlightGhost />
+{/if}
 
 <!-- Stamp card dialog (opened from header) -->
 {#if data.stampCard}
