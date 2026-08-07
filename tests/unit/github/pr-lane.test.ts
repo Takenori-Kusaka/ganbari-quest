@@ -290,7 +290,16 @@ describe('parseArgs (#2943 AC5 CLI)', () => {
 
 	it('--commit-authors はカンマ区切りで配列にパースされる (#4445)', () => {
 		expect(
-			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'dependabot[bot]', '--commit-authors', 'dependabot[bot],Takenori-Kusaka']),
+			parseArgs([
+				'--base',
+				'develop',
+				'--head',
+				'x',
+				'--actor',
+				'dependabot[bot]',
+				'--commit-authors',
+				'dependabot[bot],Takenori-Kusaka',
+			]),
 		).toEqual({
 			baseRef: 'develop',
 			headRef: 'x',
@@ -300,12 +309,15 @@ describe('parseArgs (#2943 AC5 CLI)', () => {
 	});
 
 	it('--commit-authors 未指定時は commitAuthors が undefined のまま (後方互換)', () => {
-		expect(parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y']).commitAuthors).toBeUndefined();
+		expect(
+			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y']).commitAuthors,
+		).toBeUndefined();
 	});
 
 	it('--commit-authors="" (空文字) は commitAuthors が undefined 扱い (fetch 失敗等の fail-open 経路)', () => {
 		expect(
-			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y', '--commit-authors', '']).commitAuthors,
+			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y', '--commit-authors', ''])
+				.commitAuthors,
 		).toBeUndefined();
 	});
 

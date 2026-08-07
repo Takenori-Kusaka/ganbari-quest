@@ -109,7 +109,8 @@ export function parseArgs(argv) {
 		baseRef: out.base ?? '',
 		headRef: out.head ?? '',
 		actor: out.actor ?? '',
-		commitAuthors: rawCommitAuthors === '' ? undefined : rawCommitAuthors.split(',').map((s) => s.trim()),
+		commitAuthors:
+			rawCommitAuthors === '' ? undefined : rawCommitAuthors.split(',').map((s) => s.trim()),
 	};
 }
 
