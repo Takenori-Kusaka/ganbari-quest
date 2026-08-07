@@ -10,6 +10,12 @@ export interface RedemptionRequestRow {
 	 * #4407: 1 申請が表す個数 (単位量のごほうび = 「ゲーム時間 +30分」等の N 個買い)。
 	 * 値域は `REDEMPTION_QUANTITY_MIN/MAX` (domain 層 SSOT)。DB 既定 1、旧行も backfill 済のため
 	 * 常に 1 以上。ポイント控除は `rewardPoints × quantity` で行う (service 層 finalizeApproval)。
+	 *
+	 * **書込境界の不変条件**: 全 backend の insert 実装は `normalizeRedemptionQuantity` を通して
+	 * 永続化する。service 層の validator を通らない経路 (restore / 将来の別 backend) が 0 / 負値を
+	 * 書けると、承認時の `rewardPoints × quantity` が 0 や負になり「減算のつもりが付与」になるため、
+	 * repo 入口でも値域へ収束させる (DSQL は `ALTER TABLE ADD CONSTRAINT` 非対応で後付け CHECK を
+	 * 置けないため、防壁を application 側の単一 helper に寄せる)。
 	 */
 	quantity: number;
 	status: string;

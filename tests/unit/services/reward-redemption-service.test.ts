@@ -1,5 +1,6 @@
 import { asChildId } from '$lib/domain/ids';
 import { REDEMPTION_QUANTITY_MAX } from '$lib/domain/validation/special-reward';
+import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-repo';
 // tests/unit/services/reward-redemption-service.test.ts
 // ごほうびショップ交換申請サービスのユニットテスト (#1335)
 
@@ -713,6 +714,32 @@ describe('requestRedemption — 個数指定 (#4407)', () => {
 		setAutoApprove('true');
 		await requestRedemption(childId, rewardId, TENANT_ID, 2);
 		expect(ledgerRows(childId)[0]?.description).toContain('2');
+	});
+
+	// #4407: service validator を通らない restore 経路の最終防壁 (sqlite backend 側)。
+	// DSQL は ALTER TABLE ADD CONSTRAINT 非対応で後付け CHECK を置けないため、
+	// 値域収束は repo 入口の normalizeRedemptionQuantity が担う (dsql 側は [RR1c] で表明)。
+	it('restore 経路の値域外 quantity は repo 入口で 1 に収束する', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		const now = Math.floor(Date.now() / 1000);
+		const restored = await insertRedemptionForRestore(
+			{
+				childId,
+				rewardId,
+				requestedAt: now,
+				quantity: 0,
+				status: 'approved',
+				parentNote: null,
+				resolvedAt: now,
+				resolvedByParentId: null,
+				shownToChildAt: null,
+				rewardTitle: 'ゲーム時間30分',
+				rewardPoints: 80,
+				rewardIcon: null,
+			},
+			TENANT_ID,
+		);
+		expect(restored?.quantity).toBe(1);
 	});
 
 	it('quantity 未指定で作られた行 (DEFAULT 経路) は 1 個として読める', async () => {

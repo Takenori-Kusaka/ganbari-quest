@@ -364,6 +364,51 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(all.find((r) => r.status === 'approved')?.quantity).toBe(1);
 	});
 
+	// #4407: repo 入口の値域収束 (service validator を通らない経路の最終防壁)。
+	// DSQL は ALTER TABLE ADD CONSTRAINT 非対応で後付け CHECK を置けないため、application 側の
+	// normalizeRedemptionQuantity を全 backend の insert が通ることを behavior で表明する。
+	// 0 / 負値が永続化されると承認時の 単価 × 個数 が 0 / 負 = 「減算のつもりが付与」になる。
+	it('[RR1c] #4407 値域外 quantity は repo 入口で 1 に収束する (0 / 負 / 上限超過 / 小数)', async () => {
+		const childId = await newChild('値域一郎');
+		const reward = await seedReward(childId, '値域報酬', 30);
+		const at = Math.floor(Date.now() / 1000);
+		for (const [i, bad] of [0, -3, 1000, 2.5].entries()) {
+			const req = mustRow(
+				await redemptionRepo.insertRedemptionRequest(
+					{ childId, rewardId: reward.id, requestedAt: at + i * 100, quantity: bad },
+					FAMILY,
+				),
+			);
+			expect(req.quantity, `quantity=${bad} は 1 に収束する`).toBe(1);
+			// dedup 窓を跨ぐため申請ごとに解決済みへ倒す
+			await redemptionRepo.updateRedemptionRequestStatus(
+				childId,
+				req.id,
+				{ status: 'rejected', resolvedAt: at - 3600 },
+				FAMILY,
+			);
+		}
+		// restore 経路も同じ防壁を通る
+		const restored = await redemptionRepo.insertRedemptionForRestore(
+			{
+				childId,
+				rewardId: reward.id,
+				requestedAt: at,
+				quantity: -1,
+				status: 'approved',
+				parentNote: null,
+				resolvedAt: at,
+				resolvedByParentId: null,
+				shownToChildAt: null,
+				rewardTitle: '値域報酬',
+				rewardPoints: 30,
+				rewardIcon: null,
+			},
+			FAMILY,
+		);
+		expect(restored?.quantity).toBe(1);
+	});
+
 	it('[RR2] epoch↔timestamptz round-trip: requestedAt を秒精度で保全', async () => {
 		const childId = await newChild('時刻二郎');
 		const reward = await seedReward(childId, '時刻報酬', 10);

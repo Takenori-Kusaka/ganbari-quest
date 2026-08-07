@@ -3,6 +3,7 @@
 
 import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import { db } from '../client';
 import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
@@ -114,7 +115,7 @@ export async function insertRedemptionRequest(
 					childId: Number(input.childId),
 					rewardId: Number(input.rewardId),
 					requestedAt: input.requestedAt,
-					quantity: input.quantity,
+					quantity: normalizeRedemptionQuantity(input.quantity),
 					status: 'pending_parent_approval',
 					rewardTitle: reward?.title ?? null,
 					rewardPoints: reward?.points ?? null,
@@ -155,7 +156,7 @@ export async function insertRedemptionForRestore(
 				childId: Number(input.childId),
 				rewardId: Number(input.rewardId),
 				requestedAt: input.requestedAt,
-				quantity: input.quantity,
+				quantity: normalizeRedemptionQuantity(input.quantity),
 				status: input.status,
 				parentNote: input.parentNote,
 				resolvedAt: input.resolvedAt,

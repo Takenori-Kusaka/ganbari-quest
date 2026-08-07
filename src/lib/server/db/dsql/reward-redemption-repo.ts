@@ -19,6 +19,7 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import {
 	type IRewardRedemptionRepo,
 	REDEMPTION_DEDUP_WINDOW_SEC,
@@ -143,7 +144,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 						(family_id, child_id, reward_id, requested_at, quantity, status,
 						 reward_title, reward_points, reward_icon)
 					VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-						${input.quantity}, 'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
+						${normalizeRedemptionQuantity(input.quantity)}, 'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
 						${reward?.icon ?? null})
 					RETURNING ${REQUEST_COLUMNS}
 				`);
@@ -159,7 +160,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					 resolved_at, resolved_by_parent_id, shown_to_child_at,
 					 reward_title, reward_points, reward_icon)
 				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-					${input.quantity}, ${input.status}, ${input.parentNote},
+					${normalizeRedemptionQuantity(input.quantity)}, ${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
 					${normalizeResolvedByParentId(input.resolvedByParentId)},
 					${input.shownToChildAt === null ? null : epochToIso(input.shownToChildAt)},
