@@ -420,7 +420,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | `--z-banner` | `30` | banner | FAB / inline banner（情報通知レベル、Modal 配下に隠れる）。`MilestoneBanner` は flow なので原則 z-index 不要だが、絶対配置にする派生では `--z-banner` を使う |
 | `--z-overlay` | `40` | overlay | Dialog Backdrop（Ark UI primitive） |
 | `--z-modal` | `50` | modal | Dialog Content（Ark UI primitive）／`AdminLayout` sidebar |
-| `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ） |
+| `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ）／`PointFlightGhost`（#4448、`pointer-events: none` で操作を奪わない。Dialog が閉じたあとに飛ぶため modal と重ならない） |
 | `--z-tutorial` | `100` | tutorial | `TutorialOverlay` / `PageGuideOverlay` / `SiblingCheerOverlay` 等の操作ガイド系 |
 | `--z-celebration` | `200` | celebration | `SiblingCelebration` 等の最上位演出 |
 | `--z-debug` | `9999` | debug | `DebugPlanIndicator` / `NavigationProgress`（dev / 内部用、本番ビルドでは表示されない） |

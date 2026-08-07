@@ -13,8 +13,13 @@
 // ADR-0012 整合: 音 / confetti を足さない。合計 660ms。ghost は pointer-events:none で
 // 操作をブロックしない (演出中に画面を離れられる)。
 
+// カウントアップは `svelte/motion` の `Tween` ではなく rAF 直書きにしている。
+// `svelte/motion` の index は module 評価時に `new MediaQuery('(prefers-reduced-motion: reduce)')`
+// を作るため、`window.matchMedia` を持たない jsdom で **import しただけで落ちる**
+// (bundler は `/*@__PURE__*/` で落とせるが vitest の SSR transform は評価する)。
+// この module を import する将来の test すべてに matchMedia polyfill を強いるより、
+// 補間 10 行を持つ方が安い。easing だけ `svelte/easing` から借りる。
 import { cubicOut } from 'svelte/easing';
-import { Tween } from 'svelte/motion';
 import { browser } from '$app/environment';
 import type { PointSettings } from '$lib/domain/point-display';
 import type { BalanceChangePlan, FlightPoint, FlightRect } from './point-flight-plan';
@@ -45,13 +50,13 @@ class PointFlightController {
 	ghost = $state<PointFlightGhost | null>(null);
 	/** hold 中はヘッダーがこの値を表示する。null なら実データをそのまま表示 */
 	#holding = $state(false);
-	#tween: Tween<number> | null = null;
+	#displayed = $state(0);
+	#raf: number | null = null;
 	#ghostSettled: (() => void) | null = null;
 
 	/** ヘッダーが表示すべき残高。hold していなければ null */
 	get displayBalance(): number | null {
-		if (!this.#holding || !this.#tween) return null;
-		return Math.round(this.#tween.current);
+		return this.#holding ? this.#displayed : null;
 	}
 
 	/** Header から呼ぶ。戻り値は解除関数 ($effect の cleanup にそのまま返せる) */
@@ -70,20 +75,44 @@ class PointFlightController {
 		return toRect(this.#anchor);
 	}
 
-	#ensureTween(value: number): Tween<number> {
-		if (!this.#tween) {
-			this.#tween = new Tween(value, { duration: POINT_FLIGHT_COUNT_MS, easing: cubicOut });
+	#cancelRaf(): void {
+		if (this.#raf !== null && typeof cancelAnimationFrame === 'function') {
+			cancelAnimationFrame(this.#raf);
 		}
-		return this.#tween;
+		this.#raf = null;
 	}
 
 	/** 残高表示を指定値で止める (invalidateAll での無言の書き換えを防ぐ) */
 	hold(value: number): void {
-		this.#ensureTween(value).set(value, { duration: 0 });
+		this.#cancelRaf();
+		this.#displayed = value;
 		this.#holding = true;
 	}
 
+	/** from → to を POINT_FLIGHT_COUNT_MS かけて数える */
+	#countUp(from: number, to: number): Promise<void> {
+		if (typeof requestAnimationFrame !== 'function') {
+			this.#displayed = to;
+			return Promise.resolve();
+		}
+		return new Promise((resolve) => {
+			const started = performance.now();
+			const step = (now: number) => {
+				const t = Math.min(1, (now - started) / POINT_FLIGHT_COUNT_MS);
+				this.#displayed = Math.round(from + (to - from) * cubicOut(t));
+				if (t < 1) {
+					this.#raf = requestAnimationFrame(step);
+				} else {
+					this.#raf = null;
+					resolve();
+				}
+			};
+			this.#raf = requestAnimationFrame(step);
+		});
+	}
+
 	release(): void {
+		this.#cancelRaf();
 		this.#holding = false;
 		this.ghost = null;
 		this.#ghostSettled?.();
@@ -117,7 +146,7 @@ class PointFlightController {
 	async run(plan: Extract<BalanceChangePlan, { animate: true }>): Promise<void> {
 		await this.#flyGhost({ label: plan.label, tone: plan.tone, from: plan.from, to: plan.to });
 		this.hold(plan.countFrom);
-		await this.#ensureTween(plan.countFrom).set(plan.countTo);
+		await this.#countUp(plan.countFrom, plan.countTo);
 	}
 }
 
