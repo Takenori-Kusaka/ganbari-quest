@@ -41,13 +41,20 @@ beforeEach(() => {
 });
 
 describe('#1601 marketing-email-counter — getCurrentYearKey', () => {
-	it('UTC 4 桁の年を返す', () => {
+	it('JST 4 桁の年を返す', () => {
 		const fixedDate = new Date('2026-04-27T12:00:00Z');
 		expect(getCurrentYearKey(fixedDate)).toBe('2026');
 	});
 
-	it('年跨ぎ (12/31 23:59 UTC → 1/1 00:00 UTC) で年が切り替わる', () => {
-		expect(getCurrentYearKey(new Date('2026-12-31T23:59:59Z'))).toBe('2026');
+	// #4120: 年間送信上限は日本の顧客に対する約束なので年境界も JST。
+	// 旧実装は UTC 年だったため、元日 00:00〜09:00 JST の 9 時間だけ前年の枠を消費していた。
+	it('年跨ぎは JST 基準で切り替わる (UTC 年ではない)', () => {
+		// JST 2026-12-31 23:59 (= UTC 14:59) はまだ 2026
+		expect(getCurrentYearKey(new Date('2026-12-31T14:59:59Z'))).toBe('2026');
+		// JST 2027-01-01 00:00 (= UTC 2026-12-31 15:00) から 2027
+		expect(getCurrentYearKey(new Date('2026-12-31T15:00:00Z'))).toBe('2027');
+		// UTC 年が変わるより 9 時間早い = UTC 基準実装なら必ず落ちる
+		expect(getCurrentYearKey(new Date('2026-12-31T23:59:59Z'))).toBe('2027');
 		expect(getCurrentYearKey(new Date('2027-01-01T00:00:00Z'))).toBe('2027');
 	});
 });
