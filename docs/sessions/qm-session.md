@@ -100,19 +100,7 @@ QM は PR の **base branch でレーンを判別**し、レーンごとに gate
 
 ## アーキテクチャ：subagent ループで 1 PR を閉じ切る
 
-**QM は指摘を Dev に返さず、自分の subagent で直して merge する**（憲章 §0 ルール 2）。lead が回すのは次の 4 ステップ。
-
-```
-① レビュー subagent    指摘を出す
-② 修正 subagent        指摘を直す（Dev の受信箱に戻さない）
-③ 再レビュー subagent  直ったか確認する
-④ lead 本体            CI 緑を実測して approve → merge
-```
-
-- **①〜③ を回すのは lead**。②③ は同じ agent を使い回してよい（1 PR = 1 agent、context を持ち越せる）
-- **収束条件**: 再レビューで BLOCK 3 類型が 0、かつ `gh pr checks` の**非 pass 行が 0**
-- **打ち切り条件**: **同じ指摘で 2 周したら実装方針の問題**。ルール 6 ① として Dev に返す。**3 周目を回さない**
-- **④ は lead 専権**。approve / merge を agent に委譲しない
+**4 ステップの subagent ループ本体（① レビュー→② 修正→③ 再レビュー→④ lead 承認）・収束条件・打ち切り条件は [チーム憲章 §0 ルール 2](README.md#ルール-2-の実行方法--qm-は-自分のクローン内の-subagent-ループで-1-pr-を閉じる) が SSOT。** ②③ は同じ agent を使い回してよい（1 PR = 1 agent、context を持ち越せる）。
 
 ### subagent の報告を成果の根拠にしない
 
