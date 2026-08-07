@@ -21,6 +21,7 @@ import { playRewardCelebration } from '$lib/features/reward-celebration';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
+import QuantityStepper from './QuantityStepper.svelte';
 
 interface Props {
 	open: boolean;
@@ -60,13 +61,6 @@ const remainingAfter = $derived(balance - totalPoints);
 $effect(() => {
 	if (rewardId !== null) quantity = REDEMPTION_QUANTITY_MIN;
 });
-
-function decrease() {
-	if (quantity > REDEMPTION_QUANTITY_MIN) quantity -= 1;
-}
-function increase() {
-	if (quantity < maxAffordable) quantity += 1;
-}
 </script>
 
 <Dialog
@@ -85,43 +79,8 @@ function increase() {
 			{rewardTitle}
 		</p>
 
-		<!-- #4407 AC1: 個数指定。幼児 (preschool, tapSize 80px) でもキーボード無しで操作できる
-		     stepper とし、残高で買える上限を超える個数は選べない -->
-		<div class="confirm-quantity" data-testid="confirm-quantity-block">
-			<span class="confirm-quantity-label" id="confirm-quantity-label">
-				{CHILD_SHOP_LABELS.quantityLabel}
-			</span>
-			<div class="confirm-quantity-row">
-				<Button
-					variant="outline"
-					size="lg"
-					disabled={quantity <= REDEMPTION_QUANTITY_MIN}
-					onclick={decrease}
-					aria-label={CHILD_SHOP_LABELS.quantityDecreaseAriaLabel}
-					data-testid="confirm-quantity-decrease"
-				>
-					−
-				</Button>
-				<output
-					class="confirm-quantity-value"
-					aria-live="polite"
-					aria-label={CHILD_SHOP_LABELS.quantityValueAriaLabel(quantity)}
-					data-testid="confirm-quantity-value"
-				>
-					{quantity}<span class="confirm-quantity-unit">{CHILD_SHOP_LABELS.quantityUnit}</span>
-				</output>
-				<Button
-					variant="outline"
-					size="lg"
-					disabled={quantity >= maxAffordable}
-					onclick={increase}
-					aria-label={CHILD_SHOP_LABELS.quantityIncreaseAriaLabel}
-					data-testid="confirm-quantity-increase"
-				>
-					＋
-				</Button>
-			</div>
-		</div>
+		<!-- #4407 AC1: 個数指定。残高で買える上限を超える個数は選べない -->
+		<QuantityStepper bind:quantity max={maxAffordable} />
 
 		<div class="confirm-points-block" data-testid="confirm-reward-points">
 			<span class="confirm-points-label">
@@ -231,17 +190,6 @@ function increase() {
 	.confirm-icon { font-size: 4rem; line-height: 1; }
 	.confirm-heading { font-size: 1.1rem; font-weight: bold; margin: 0; color: var(--color-text); }
 	.confirm-reward-title { font-size: 1.25rem; font-weight: bold; margin: 0; color: var(--color-text); }
-	.confirm-quantity {
-		display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs);
-		margin-top: var(--sp-xs);
-	}
-	.confirm-quantity-label { font-size: 0.85rem; color: var(--color-text-secondary); }
-	.confirm-quantity-row { display: flex; align-items: center; gap: var(--sp-md); }
-	.confirm-quantity-value {
-		font-size: 2rem; font-weight: bold; color: var(--color-text);
-		min-width: 3.5rem;
-	}
-	.confirm-quantity-unit { font-size: 0.9rem; font-weight: normal; margin-left: 2px; }
 	.confirm-points-block {
 		display: flex; flex-direction: column; align-items: center; gap: 2px;
 		background-color: var(--color-surface-warm);

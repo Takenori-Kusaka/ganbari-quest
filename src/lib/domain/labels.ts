@@ -7008,6 +7008,9 @@ export const CHILD_SHOP_LABELS = {
 	quantityLabel: 'いくつ こうかんする？',
 	quantityDecreaseAriaLabel: 'こすうを へらす',
 	quantityIncreaseAriaLabel: 'こすうを ふやす',
+	// stepper ボタンの表示グリフ (全角記号。数字と並べたときに幅が揃う)
+	quantityDecreaseGlyph: '−',
+	quantityIncreaseGlyph: '＋',
 	quantityUnit: 'こ',
 	quantityValueAriaLabel: (quantity: number) => `こすう ${quantity}こ`,
 	quantityMaxHint: 'もっているポイントで こうかんできる さいだいの こすうだよ',
