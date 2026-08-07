@@ -126,17 +126,19 @@ Plan agent が「重大」と判断した場合・判断に迷う場合は **直
 - 難易度ミスマッチ（軽微修正に Opus / 複雑設計を Gemini に丸投げ）
 - 各モデル指摘を精査せず鵜呑み（PO ルールと矛盾する「ベストプラクティス」を盲信する Agent あり）
 
-### pending ラベル（PO 指示 2026-04-21）
+### `status:on-hold` の意味 — 着手禁止ではない
 
-`pending` ラベルは **着手禁止**を意味（PO 判断待ち / 上流依存待ち / 情報収集待ち）。
+**SSOT**: [label-mailbox.md §3.2](label-mailbox.md)
+
+`status:on-hold` は **「backlog の上位に入っていない」ことを示すだけで、着手を禁じる意味ではない**。付ける / 外すのは PO（`status:*` は PO 軸）だが、**hold が付いていないものの着手順は Dev が決める**（[チーム憲章 §4.2](README.md#42-実装に関する決定)）。
 
 ```bash
-# pending を除く優先度 high の open Issue
+# on-hold を除く優先度 high の open Issue
 gh issue list --state open --label "priority:high" --json number,title,labels \
-  --jq '.[] | select(.labels | map(.name) | contains(["pending"]) | not) | "\(.number) \(.title)"'
+  --jq '.[] | select(.labels | map(.name) | contains(["status:on-hold"]) | not) | "\(.number) \(.title)"'
 ```
 
-pending 付き Issue を自律開始しない。`Blocked by` に pending Issue が載っている下流も保留。
+上位に入れてほしい / hold を外してほしいときは `state:needs-po` を付けて渡す（自分で外さない）。
 
 ## 使い方
 

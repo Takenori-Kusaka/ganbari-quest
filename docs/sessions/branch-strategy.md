@@ -56,7 +56,7 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 
 ### §3.2 develop 二層での Issue close 運用（develop merge 非連動 / 統合 PR で集約 auto-close、#2938 項目 4 / #3423）
 
-develop 二層では feature/fix/docs PR の base が `develop`（非 default branch）であり、かつ本リポジトリの commit 規約が conventional-commit prefix（`fix: #N` / `feat: #N` / `docs: #N`）であるため、**個別 PR の develop merge では Issue は auto-close しない**。GitHub の closing-keyword 連動は (1) `Closes #N` / `Fixes #N` のような closing keyword（keyword の直後に `#番号`）が、(2) default branch（= `main`）に到達した時にのみ発火する。`fix: #N` 等のコロンを挟む形は Issue **参照**であって closing keyword ではない。close は **個別 PR では発火させず、統合 PR の `Closes #N` 集約で main 反映時に一括 auto-close する**（#3423）。運用を以下に統一する。
+develop 二層では feature/fix/docs PR の base が `develop`（非 default branch）であり、かつ本リポジトリの commit 規約が conventional-commit prefix（`fix: #N` / `feat: #N` / `docs: #N`）であるため、**個別 PR の develop merge では Issue は auto-close しない**。GitHub の closing-keyword 連動は (1) `Closes #N` / `Fixes #N` のような closing keyword（keyword の直後に `#番号`）が、(2) default branch（= `main`）に到達した時にのみ発火する。`fix: #N` 等のコロンを挟む形は Issue **参照**であって closing keyword ではない。**発火しないのは auto-close であって close そのものではない** — **close は merge 実施者が develop merge 時点で明示的に行い**、統合 PR の `Closes #N` 集約（#3423）は main 反映時に取りこぼしを拾う保険として働く。運用を以下に統一する。
 
 - **develop merge 時点で Issue を close し、`status:awaiting-release` label を付与する（2026-07-30 改訂）**。main 到達時にラベルを外す。GitHub の auto-close は default branch 到達時にしか発火しないため、この close は **統合 PR 側の `Closes #N` 集約とは独立に、merge 実施者が明示的に行う**。
   - **根拠**: 旧運用（develop merge 後も OPEN のまま保持し「未対応と誤認しない」と注意喚起する）は、統制を**人間の注意力**に依存していた。実際に誤認が起き、open 126 件のうち **53 件が develop 解決済み**であるにもかかわらず未対応として危機報告され、**4 日間の滞留**を生んだ。統制を注意力から**数字の正しさ**へ移す。
