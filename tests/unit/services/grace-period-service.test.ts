@@ -483,8 +483,15 @@ describe('grace-period-service', () => {
 			expect(result.tenantsDeleted).toBe(2);
 			expect(result.tenantsRemaining).toBe(1);
 			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledTimes(2);
-			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1');
-			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t2', 'owner-1');
+			// #4338: 削除記録ログの文脈 (経路 + プラン) を渡していること
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1', {
+				route: 'grace-expiry',
+				planTier: 'family',
+			});
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t2', 'owner-1', {
+				route: 'grace-expiry',
+				planTier: 'family',
+			});
 		});
 
 		it('#3695: 時間予算超過なら以降のテナントを削除せず持ち越す', async () => {
