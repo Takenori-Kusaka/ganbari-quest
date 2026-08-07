@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { POINTS_LABELS } from '$lib/domain/labels';
+import { resolveAiUnavailableMessage } from '$lib/server/ai/unavailable-message';
 import { validationError } from '$lib/server/errors';
 import { validateBase64ImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { resolveMaxBase64DecodedBytes } from '$lib/server/services/function-url-limit';
@@ -45,12 +46,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if ('error' in result) {
 		// AI 側の事情 (未設定 / 権限なし / キー不正) は 503 + 手入力導線。画像起因の失敗 (422) と
 		// 混ぜると顧客が撮り直しを繰り返す (#4366)。
+		// 文言は配備で変わる — セルフホスト家庭に「運営が検知済み」は嘘になるため
+		// (`$lib/server/ai/unavailable-message` が実行モードから選ぶ)。
 		if (result.error === 'AI_UNAVAILABLE') {
 			return json(
 				{
 					error: {
 						code: 'AI_UNAVAILABLE',
-						message: POINTS_LABELS.receiptAiUnavailable,
+						message: resolveAiUnavailableMessage(),
 					},
 				},
 				{ status: 503 },

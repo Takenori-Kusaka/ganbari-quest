@@ -3265,8 +3265,19 @@ export const POINTS_LABELS = {
 	//
 	// 復旧を待たせる一文は置かない。手入力で今すぐ進めるので、待機を要求する理由がない。
 	// 文言と通知方針の整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が固定する。
-	receiptAiUnavailable:
+	//
+	// **配備で 2 本に分ける。** (2) が成り立つのは運営が運用しているクラウド配備だけで、
+	// alarm は AWS の `OpsStack` にしか無い。自宅 NUC のセルフホスト家庭に「運営が検知済み」と
+	// 出すのは事実として嘘であり、しかも本当に直せるのは目の前の親自身なのに「誰かが対応中」と
+	// 告げて設定を直す動機を奪う。`not-configured` (env が配られていない) は、まさにその家庭が
+	// 最も踏みやすい経路。選択は `src/lib/server/ai/unavailable-message.ts` が実行モードから行う。
+	receiptAiUnavailableManaged:
 		'写真ではなくシステム側の不具合で、運営が検知済みです。金額を手入力してください。',
+	// セルフホスト (NUC / ローカル) 版。実体は設定・資格情報の欠落なので「システム障害」とは
+	// 書かない (過剰な障害宣言は親の不安と問い合わせを不必要に増やす)。直せる場所
+	// (サーバーの AI 設定) を示しつつ、いま手入力で完了できることを併記する。
+	receiptAiUnavailableSelfHosted:
+		'写真ではなくサーバーのAI設定が原因です。設定を直すか金額を手入力してください。',
 	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
 	receiptAmountNotFound: '金額を読み取れませんでした',
 

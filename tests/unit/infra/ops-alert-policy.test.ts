@@ -144,7 +144,7 @@ describe('#4189 CloudWatch アラームの通知方針', () => {
 		//
 		// - ai-provider-unavailable: オーナー決裁 2026-08-07「AI 不達のアラートは Discord の
 		//   障害通知へ webhook で飛ばすべき」。AI 不達 = 有料機能が事実上死んでいる状態で、
-		//   顧客向け文言 (`POINTS_LABELS.receiptAiUnavailable`) が「運営が検知済み」と伝えている
+		//   顧客向け文言 (`POINTS_LABELS.receiptAiUnavailableManaged`) が「運営が検知済み」と伝えている
 		//   ため、届かなければその一文が嘘になる。発生源の log は latch により理由ごとに
 		//   プロセス内 1 回しか出ず、構造的に鳴りっぱなしにならない。
 		//   文言との整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が両方向で縛る。
