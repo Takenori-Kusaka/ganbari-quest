@@ -236,6 +236,13 @@ gh secret set STRIPE_WEBHOOK_SECRET_TEST --body "whsec_xxxxxxxx" --repo Takenori
 
 検証に env が要るなら **`infra/lib/compute-stack.ts` に足して deploy する**。仕様 SSOT は [13-AWSサーバレスアーキテクチャ設計書 §4.3](../design/13-AWSサーバレスアーキテクチャ設計書.md)。
 
+この検査が**見ていない**もの:
+
+- **既知キーの値の drift**。検査対象はキー集合のみ。値まで見ないため、`USE_LOOKUP_KEY` を手で `false` に倒した等は検出しない（次の deploy の全上書きで IaC 値には戻る）
+- **CFN intrinsic 由来キーの値**（`ASSETS_BUCKET` / `COGNITO_*` / `CONTEXT_TOKEN_SECRET` など）。これらはローカルで解決できないため live の値をそのまま引き継ぐ
+
+**staging で env を倒す kill switch 運用は取れない**（`USE_LOOKUP_KEY` / `MAINTENANCE_MODE` を手で倒しても次の deploy で戻り、それまでの間は差分検査も通る）。staging で挙動を切り替えたいときは `compute-stack.ts` を変えて deploy する。本番 Lambda は本 workflow の対象外なので、本番の env kill switch は従来どおり使える。
+
 **「次の deploy で消えるから残してよい」は残置の根拠にしない。** 消えるまでの間は効き続け、その間の検証結果が信用できなくなる（#4117 の 2026-08-05 残置決裁はこの前提に立っており、無効）。
 
 ## 10. 関連

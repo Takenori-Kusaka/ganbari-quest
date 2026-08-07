@@ -445,6 +445,11 @@ jobs:
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
+          # 秘密 (STRIPE_SECRET_KEY / PARENT_GATE_COOKIE_SECRET 等) を含む一時 file を残さない。
+          # 後続 step に artifact upload や失敗時ダンプが足されたときの露出面を作らない。
+          rm -f "$RUNNER_TEMP/staging-live-env-before.json" \
+                "$RUNNER_TEMP/staging-desired-env.json" \
+                "$RUNNER_TEMP/staging-update-env.json"
           echo "::notice::staging ORIGIN resolved and applied: $ORIGIN"
 
       # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。
@@ -562,6 +567,7 @@ jobs:
           node scripts/lambda-env-ssot.mjs verify \
             --expected "$RUNNER_TEMP/staging-expected-env-keys.json" \
             --live "$RUNNER_TEMP/staging-live-env.json"
+          rm -f "$RUNNER_TEMP/staging-live-env.json"
 
       # #4204: staging に実在のメールアドレスが登録されていないかを見張る。
       #
