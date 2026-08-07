@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, notInArray } from 'drizzle-orm';
 import { db } from '../client';
 import { settings } from '../schema';
 
@@ -53,4 +53,25 @@ export async function countValuesByPrefix(
 /** テナントの全設定を削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(settings).run();
+}
+
+/**
+ * #4338: `keepKeys` に挙げたキー**以外**を削除する（SQLite: シングルテナントのため
+ * 対象は全行。`deleteByTenantId` と同じく tenantId は使わない）。
+ *
+ * 「消すキーを列挙する」のではなく「残すキーを列挙して他を全部消す」向きにすることで、
+ * 新しい設定キーが増えても削除対象から漏れない（詳細は interface の docstring）。
+ * NUC (SQLite / PGlite) と cloud (DSQL) で振る舞いが割れないよう、両 backend に実装する。
+ */
+export async function deleteByTenantIdExcept(
+	_tenantId: string,
+	keepKeys: readonly string[],
+): Promise<void> {
+	if (keepKeys.length === 0) {
+		db.delete(settings).run();
+		return;
+	}
+	db.delete(settings)
+		.where(notInArray(settings.key, [...keepKeys]))
+		.run();
 }

@@ -40,6 +40,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
 import { deleteChildFiles } from './child-service';
+import { GRACE_PERIOD_JUDGMENT_KEYS } from './soft-delete-keys';
 
 const repos = () => getRepos();
 
@@ -94,7 +95,9 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
  * トライアルを再度使えないか、使えてしまうかが確定する。
  *
  * @param opts.deferSettings
- *   #4327: `settings` の削除だけを行わない。`settings` は soft-delete 判定材料
+ *   #4327 / #4338: `settings` のうち **soft-delete 判定材料 3 キーだけ**を消さずに残す
+ *   (それ以外のキーはここで消す。{@link deleteTenantSettingsExceptJudgmentKeys})。
+ *   `settings` は soft-delete 判定材料
  *   (`soft_deleted_at` / `physical_deletion_date`) を保持しており、これを消した後に
  *   後続ステップが失敗すると「`families` は残るが判定材料が無い」宙吊り行ができる
  *   (物理削除の母集団にも復元対象にも入らない)。full deletion 経路は本 flag を立て、
@@ -205,8 +208,16 @@ export async function deleteTenantScopedData(
 	}
 
 	// Settings
-	// #4327: full deletion 経路は判定材料を最後まで残すため deferSettings=true で飛ばす。
-	if (!opts?.deferSettings) {
+	// #4327: full deletion 経路は判定材料を最後まで残すため全削除しない。
+	// #4338: ただし**判定材料以外は今ここで消す**。全部残すと、最終ステップ失敗時の孤児に
+	// `pin_hash` / `session_token` / `questionnaire_*` が含まれてしまう。
+	if (opts?.deferSettings) {
+		try {
+			deleted += await deleteTenantSettingsExceptJudgmentKeys(tenantId);
+		} catch (err) {
+			logger.warn(`[tenant-cleanup] settings 部分削除失敗: ${String(err)}`);
+		}
+	} else {
 		try {
 			await r.settings.deleteByTenantId(tenantId);
 			deleted++;
@@ -399,18 +410,45 @@ export async function deleteTenantScopedData(
  * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
  * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
  *
- * ## 受容した残余リスク
+ * ## 本関数が失敗したとき残るもの (#4338)
  *
- * 本関数が失敗すると `settings` 行だけが孤児として残る。そこには `pin_hash` /
- * `session_token` / `questionnaire_*` が含まれるため、無害ではなく**手動掃除が要る**
- * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手順と判断根拠)。
- *
- * 「機微キーだけ先に消す」設計は採らなかった: settings repo は `getSettings(keys)` と
- * `deleteByTenantId(tenantId)` しか持たず、部分削除には消すキーの列挙が要る。列挙を置くと
- * 新しい設定キーが増えたとき黙って消し漏らす (#4327 と同型の silent gap をもう 1 つ作る)。
- * この孤児は alarm + log で必ず観測でき手で消せるのに対し、判定材料を先に消して生まれる
- * 宙吊り行は観測も修復もできない。**観測できて直せる残余を選んでいる**。
+ * 残るのは**判定 3 キー ({@link GRACE_PERIOD_JUDGMENT_KEYS}) だけ**の孤児行である。
+ * `pin_hash` / `session_token` / `questionnaire_*` は既に
+ * {@link deleteTenantSettingsExceptJudgmentKeys} が消しているため含まれない
+ * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手動掃除の手順)。
  */
+/**
+ * #4338: 物理削除の途中で、**soft-delete の判定材料以外の `settings` を全部消す**。
+ *
+ * ## なぜ「消すキーの列挙」ではないのか
+ *
+ * 消す側を列挙すると、新しい設定キーが増えたときに列挙へ足し忘れて黙って残る
+ * (#4327 と同型の silent gap をもう 1 つ作る)。**残すキーを列挙して他を全部消す**なら、
+ * 新しいキーは何もしなくても削除対象に入る。列挙の向きが逆であることが本質で、
+ * 「気を付けて足す」を要求しない形になっている。
+ *
+ * ## なぜ判定材料だけ残すのか
+ *
+ * `families` 行より先に判定材料を消すと、途中失敗が「families は残るが判定材料が無い」
+ * = 再削除も復元もできない宙吊り行を作る (#4327)。判定材料は {@link deleteTenantSettings}
+ * が `families` 削除の**後**に落とす。本関数はその手前で、判定に要らないものだけを先に消す。
+ *
+ * ## 副作用として消えるもの
+ *
+ * `deletion_warning_sent_at` (削除予告メールの送信済フラグ) も消える。これによる
+ * 「予告メールの再送」は起こらない — 送信判定 (`shouldWarn`) が残り 1 日未満を除外しており、
+ * 本関数が動く時点 (物理削除の実行中) は残り 0 日以下だからである。
+ *
+ * 失敗しても throw しない (呼び出し元の best-effort ループに合わせる)。この時点では
+ * `families` 行が残っているため、翌日の cron が同じテナントを再び拾って完遂できる。
+ *
+ * @returns 削除操作数 (1)
+ */
+export async function deleteTenantSettingsExceptJudgmentKeys(tenantId: string): Promise<number> {
+	await repos().settings.deleteByTenantIdExcept(tenantId, GRACE_PERIOD_JUDGMENT_KEYS);
+	return 1;
+}
+
 export async function deleteTenantSettings(tenantId: string): Promise<number> {
 	try {
 		await repos().settings.deleteByTenantId(tenantId);

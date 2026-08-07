@@ -15,6 +15,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import type { PlanTier } from './plan-limit-service';
 import { resolveFullPlanTier } from './plan-limit-service';
+import { GRACE_PERIOD_JUDGMENT_KEYS } from './soft-delete-keys';
 
 // ============================================================
 // Constants
@@ -39,6 +40,12 @@ export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
  * (`ENTITLEMENT_FAIL_CLOSED_LOG_TERM` と同じ形)。
  */
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
+
+/**
+ * #4338: soft-delete 判定キーの SSOT。実体は leaf module (`soft-delete-keys.ts`) に置き、
+ * ここから re-export する (削除側 tenant-cleanup-service との import cycle を避けるため)。
+ */
+export { GRACE_PERIOD_JUDGMENT_KEYS };
 
 export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
 	free: 0,
@@ -184,10 +191,8 @@ function parseStoredPlanTier(value: string | undefined | null): PlanTier | null 
  */
 export async function getGracePeriodStatus(tenantId: string): Promise<GracePeriodStatus> {
 	const repos = getRepos();
-	const values = await repos.settings.getSettings(
-		['soft_deleted_at', 'deletion_grace_plan_tier', 'physical_deletion_date'],
-		tenantId,
-	);
+	// #4338: 読むキーの列挙は GRACE_PERIOD_JUDGMENT_KEYS が SSOT (物理削除の「残すキー」と同一)。
+	const values = await repos.settings.getSettings([...GRACE_PERIOD_JUDGMENT_KEYS], tenantId);
 
 	const softDeletedAt = values.soft_deleted_at ?? null;
 	if (!softDeletedAt) {
@@ -536,9 +541,16 @@ export async function purgeExpiredSoftDeletedTenants(opts?: {
 			}
 			const otherMembers = members.filter((m) => m.userId !== owner.userId);
 			if (otherMembers.length === 0) {
-				await deleteOwnerOnlyAccount(item.tenantId, owner.userId);
+				// #4338: 削除記録の経路。cron / 手動 POST いずれも「猶予満了」経路で同じ。
+				await deleteOwnerOnlyAccount(item.tenantId, owner.userId, {
+					route: 'grace-expiry',
+					planTier: item.planTier,
+				});
 			} else {
-				await deleteOwnerFullDelete(item.tenantId, owner.userId);
+				await deleteOwnerFullDelete(item.tenantId, owner.userId, {
+					route: 'grace-expiry',
+					planTier: item.planTier,
+				});
 			}
 			deleted++;
 			logger.info('[grace-period] tenant physically deleted', {

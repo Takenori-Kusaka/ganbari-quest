@@ -61,6 +61,13 @@ const settingsRepo = {
 		opLog.push('settings.deleteByTenantId');
 		settingsStore.delete(tenantId);
 	},
+	// #4338: 判定 3 キー以外を先に消す (機微キーを孤児に残さない)
+	deleteByTenantIdExcept: async (tenantId: string, keepKeys: readonly string[]) => {
+		opLog.push('settings.deleteByTenantIdExcept');
+		const keep = new Set(keepKeys);
+		const m = settingsOf(tenantId);
+		for (const key of [...m.keys()]) if (!keep.has(key)) m.delete(key);
+	},
 };
 
 const authRepo = {
@@ -173,7 +180,9 @@ describe('#4327 物理削除の実行順 — 判定材料は families 行より�
 	it('途中 (families 行の削除) で失敗しても、判定材料が残り次回実行で再び対象になる', async () => {
 		deleteTenantFails = true;
 
-		await expect(deleteOwnerOnlyAccount(TENANT, 'owner-1')).rejects.toThrow(/40001/);
+		await expect(
+			deleteOwnerOnlyAccount(TENANT, 'owner-1', { route: 'grace-expiry', planTier: 'standard' }),
+		).rejects.toThrow(/40001/);
 
 		// families 行は残っている (削除に失敗したのだから当然)
 		expect(tenants.map((t) => t.tenantId)).toEqual([TENANT]);
@@ -193,7 +202,10 @@ describe('#4327 物理削除の実行順 — 判定材料は families 行より�
 	});
 
 	it('正常系: 物理削除は従来どおり完遂し、settings も最終的に消える (回帰)', async () => {
-		const result = await deleteOwnerOnlyAccount(TENANT, 'owner-1');
+		const result = await deleteOwnerOnlyAccount(TENANT, 'owner-1', {
+			route: 'grace-expiry',
+			planTier: 'standard',
+		});
 
 		expect(result.success).toBe(true);
 		// families 行が消えている
@@ -205,7 +217,10 @@ describe('#4327 物理削除の実行順 — 判定材料は families 行より�
 	});
 
 	it('正常系: settings の削除は families 行の削除より後に実行される (順序そのものを固定)', async () => {
-		await deleteOwnerOnlyAccount(TENANT, 'owner-1');
+		await deleteOwnerOnlyAccount(TENANT, 'owner-1', {
+			route: 'grace-expiry',
+			planTier: 'standard',
+		});
 
 		const tenantIdx = opLog.indexOf('auth.deleteTenant');
 		const settingsIdx = opLog.indexOf('settings.deleteByTenantId');
