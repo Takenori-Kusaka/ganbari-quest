@@ -123,9 +123,17 @@ export function safeContentDisposition(contentType: string): 'inline' | 'attachm
 /**
  * 固定名キー (内容が差し替わっても URL が変わらない) の max-age。
  *
+ * **300 に計測上の根拠はなく、以下の定性判断で置いた値である**:
  * ここを 0 (= 毎回 origin に問い合わせ) にすると、子供一覧を開くたびに人数分の Lambda 呼び出しが
  * 増える。逆に長くすると更新が見えない。仮アバターが変わるのは保護者がニックネーム / テーマを
  * 変えた直後だけなので、その 1 回だけ最大 5 分古く見えるコストを取る。
+ *
+ * **再取得は 304 ではなく全量転送になる**: 本経路は `ETag` / `Last-Modified` を返しておらず、
+ * `readFile()` もバイト列だけを返し metadata を持たないため、条件付き再検証を実装しても
+ * Lambda 起動 + storage 読み取りは同じだけ発生し、節約できるのは body の転送量だけである。
+ * 仮アバター SVG は実測 480 bytes (`buildPlaceholderAvatarSvg`、256x256 の頭文字 1 文字) なので、
+ * ETag 導入で節約できるのは 1 回あたり 0.5KB 程度にとどまる。複雑さに見合わないため導入しない。
+ * 写真アバター (数百 KB) は uuid キー = `immutable` で再検証自体が起きないため影響を受けない。
  */
 const MUTABLE_ASSET_MAX_AGE_SECONDS = 300;
 
