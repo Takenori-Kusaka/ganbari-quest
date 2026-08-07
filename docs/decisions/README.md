@@ -76,6 +76,7 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 | **ページガイド positioning (collision-aware + spotlight)** | **driver.js (MIT)** | **#2926 (EPIC #2925 Sub-1)** | **side/align 宣言 + viewport 自動調整 + scroll-into-view + backdrop cutout (spotlight) を標準装備。手動 positioning (PageGuideOverlay 独自の targetRect 計測 / 固定クランプ / 自前 SVG spotlight) を撤去し本来機能に委譲。intro.js / shepherd.js は AGPL or 商用で商用 SaaS 不適、floating-ui は positioning のみ (spotlight + scroll は別実装) のため driver.js を採用 (research SSOT: `tmp/research-page-guide-redesign-2026-06-05.md` §3)。PR #2387 で callsite 0 を理由に一旦撤去 → #2930 で PageGuideOverlay の手動 positioning を実委譲し再採用 (Issue #2406 の「Driver.js 不使用」前提を supersede)** |
 | **DSQL pg integration test 基盤 (fitness#8 部分コミット再現)** | **@electric-sql/pglite (Apache-2.0)** | **#3531 (#N1-1、EPIC #3424)** | **WASM Postgres で Docker 不要 (Windows dev + CI 直動)、drizzle 公式 driver あり。dev dependency のみ (本番 bundle 0、ADR-0010)。testcontainers (実 pg) と比較: Docker 常設要 + DSQL 固有 OCC 40001 は実 pg でも再現不能で優位性薄。単一接続制約 (tx 内 await deadlock) は test 側 fire→settle パターンで回避 (issue #3531 記録)** |
 | **CW Logs → S3 log archiving (IaC)** | **aws-cdk-lib GA L2 `aws-kinesisfirehose` (DeliveryStream) + `aws-logs-destinations` (FirehoseDestination)** | **#3939 (#3909 調査 (a))** | **追加依存ゼロ (aws-cdk-lib 同梱)。L1 CfnDeliveryStream + 手動 IAM role 2 本 + CfnSubscriptionFilter (~60 行) → L2 ~20 行、delivery/subscription role は L2 が最小権限で自動生成。community construct は該当なし (#3909 AC2 評価)** |
+| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | #4343 (#4291) | ローカル AST 解析のみで増分更新でき LLM トークンを消費しない。`graphify-out/` を git 追跡することで、新しい clone / セッションがチェックアウト直後から構造を引ける (コールドスタート解消)。**制約**: `.svelte` は symbol 抽出が浅く、250 file が 492 node (2.0 node/file) — `.ts` の 6.6 node/file に対し粗い。UI 層の探索は `docs/codebase-map.md` + grep を主経路のままとする |
 
 各採用 OSS の詳細根拠は対応する ADR / 設計書 (`docs/design/*-architecture.md`) を参照。本表は採用済み OSS の「インデックス」として機能し、新規実装者が `npm install` 前にまず参照する SSOT。
 
@@ -83,11 +84,13 @@ ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF �
 
 調査したが採用しなかった OSS の**薄いインデックス**。同じ候補の再調査ループを断つことが目的。再評価トリガを満たした場合のみ再検討する。
 
-| 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 詳細 |
-|------|---------|-------|------------|------------|------|
-| コードベース探索性 (knowledge graph 化) | [Graphify](https://github.com/Graphify-Labs/graphify) (Apache-2.0) | 2026-07-29 | `tree-sitter-svelte` 非対応で UI 層がグラフ上の空白、増分機能は既存資産と重複 | `tree-sitter-svelte` 対応が入る / v1.0.0 の Svelte・SvelteKit 対応状況 | [rationale](../rationale/16-graphify-evaluation-rationale.md) |
+| 領域 | 調査 OSS | 調査日 | 結論 (1 行) | 再評価トリガ | 不在の証明 | 詳細 |
+|------|---------|-------|------------|------------|-----------|------|
+| (現在 0 件) | | | | | | |
 
 **記録する基準**: 10 行超の独自実装 / 既存機構の置換候補として**実測評価した**もののみ。カタログを見て軽く外したものは記録しない (記録の価値 = 再調査コストの回避であり、再調査が安いものは対象外)。
+
+**「不在の証明」列 (#4395)**: 「これがリポジトリに存在したら不採用は嘘」と言えるパスを、バッククォートで囲んで書く (`graphify-out/` / `node_modules/<pkg>` 等)。`tests/unit/architecture/oss-rejection-record-falsifiable.test.ts` が全行のパスを検査し、**存在したら fail** する。不採用のまま採用された場合に表が「未採用」と誤答し続けるのを防ぐための、削除トリガ (a) の機械化である。**不在を機械で言えない候補は本表に載せない** — 採用の有無を後から判定できず、記録が腐っても誰も気づけないため。
 
 **書き方**: 本表は 1 行 = 1 候補のインデックスに保つ。実測値・棄却理由・確度 (実測か推測か) は `docs/rationale/` 側に置く (`docs/CLAUDE.md` §docs SSOT 原則「棄却案比較 → `docs/rationale/`」整合)。
 
