@@ -1,4 +1,7 @@
 <script lang="ts">
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';

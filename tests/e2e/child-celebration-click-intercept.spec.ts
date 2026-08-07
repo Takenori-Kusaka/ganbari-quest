@@ -1,3 +1,6 @@
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 // tests/e2e/child-celebration-click-intercept.spec.ts
 //
 // #4433: ログインボーナス overlay が祝福ダイアログの click を intercept する回帰テスト。

@@ -1,3 +1,6 @@
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 import { asActivityId } from '$lib/domain/ids';
 // tests/unit/features/dialog-state-machine.test.ts
 // Dialog State Machine unit tests — #671 combo bonus infinite loop fix
