@@ -113,8 +113,11 @@ describe('#4442 Graphify 成果物が JSON として読めること', () => {
 		if (declared.length === 0) return;
 
 		const prepare = readFileSync(join(REPO_ROOT, 'scripts/prepare.mjs'), 'utf8');
+		// **実際の起動引数**を見る。`'hook install'` を含むか、では説明コメントや warning 文言に
+		// 同じ語が残っているだけで通ってしまう (本 test を mutation 検証したときに実際にすり抜けた)。
+		const invokesHookInstall = /'graphify',\s*\[\s*'hook',\s*'install',?\s*\]/.test(prepare);
 		expect(
-			prepare.includes('hook install'),
+			invokesHookInstall,
 			`.gitattributes が ${declared.join(' / ')} に merge=graphify を宣言していますが、\n` +
 				'scripts/prepare.mjs に driver 登録 (`graphify hook install`) がありません。\n' +
 				'driver 未登録の clone では **git が黙って既定 merge にフォールバック**し、\n' +
