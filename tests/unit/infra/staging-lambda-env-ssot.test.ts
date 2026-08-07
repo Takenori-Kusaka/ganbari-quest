@@ -13,7 +13,12 @@
 //
 // 期待キーは **synth 出力から導出する** (workflow に手で列挙しない — 列挙は必ず腐る、PO 決裁)。
 
+import * as cdk from 'aws-cdk-lib';
+import { Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
+import { ComputeStack } from '../../../infra/lib/compute-stack';
+import { STAGING_ENV_CONFIG } from '../../../infra/lib/env-config';
+import { StorageStack } from '../../../infra/lib/storage-stack';
 import {
 	deriveDesiredEnv,
 	readLambdaEnvFromTemplate,
@@ -185,6 +190,74 @@ describe('#4352 (a) 望ましい env は live を読まずに組み立て、未�
 				overrides: { ...overrides, MAINTENANCE_MODE: 'true' },
 			}),
 		).toThrow(/MAINTENANCE_MODE/);
+	});
+});
+
+// CDK synth は初回 construct tree 構築で 5s 既定 timeout を超える (実測 ~19s) ため明示指定する。
+describe('#4352 実 synth 出力に対して動く (fixture だけで緑にしない)', { timeout: 60_000 }, () => {
+	// fixture が本物の template 形状とズレていたら、workflow では動かないのに test だけ緑になる。
+	// 実 staging ComputeStack を synth して、script が実物を読めることを固定する。
+	function synthStagingComputeTemplate(): unknown {
+		const env: cdk.Environment = { account: '000000000000', region: 'us-east-1' };
+		const app = new cdk.App({
+			context: {
+				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+			},
+		});
+		const storage = new StorageStack(app, 'TestStorageStaging', {
+			env,
+			envConfig: STAGING_ENV_CONFIG,
+		});
+		const compute = new ComputeStack(app, 'TestComputeStaging', {
+			env,
+			assetsBucket: storage.assetsBucket,
+			repository: storage.repository,
+			envConfig: STAGING_ENV_CONFIG,
+		});
+		return Template.fromStack(compute).toJSON();
+	}
+
+	it('実 template から staging Lambda の env を読め、override 3 本が存在する', () => {
+		const templateEnv = readLambdaEnvFromTemplate(
+			synthStagingComputeTemplate(),
+			'ganbari-quest-staging-app',
+		);
+		// workflow が --set する 3 本が SSOT 側に無いと derive は throw する (override guard)。
+		expect(Object.keys(templateEnv)).toEqual(
+			expect.arrayContaining(['ORIGIN', 'COGNITO_CALLBACK_URL', 'COGNITO_LOGOUT_URL']),
+		);
+		expect(templateEnv.DATA_SOURCE).toBe('dsql');
+	});
+
+	it('実 template + live env から desired env を組み立てられ、SSOT 外キーが落ちる', () => {
+		const templateEnv = readLambdaEnvFromTemplate(
+			synthStagingComputeTemplate(),
+			'ganbari-quest-staging-app',
+		);
+		// intrinsic キーは live から引き継ぐ想定なので、live に全キーの値を用意する。
+		const liveEnv: Record<string, string> = {};
+		for (const key of Object.keys(templateEnv)) liveEnv[key] = 'live-value';
+		liveEnv.STRIPE_PRICE_STANDARD_MONTHLY = 'price_manual';
+
+		const origin = 'https://d123.cloudfront.net';
+		const { desired, droppedKeys } = deriveDesiredEnv({
+			templateEnv,
+			liveEnv,
+			overrides: {
+				ORIGIN: origin,
+				COGNITO_CALLBACK_URL: `${origin}/auth/callback`,
+				COGNITO_LOGOUT_URL: `${origin}/auth/login`,
+			},
+		});
+		expect(droppedKeys).toContain('STRIPE_PRICE_STANDARD_MONTHLY');
+		expect(desired.STRIPE_PRICE_STANDARD_MONTHLY).toBeUndefined();
+		expect(desired.ORIGIN).toBe(origin);
+		// placeholder が実 URL に置き換わっていること (置換漏れは CSRF 403 として顧客影響になる)
+		expect(JSON.stringify(desired)).not.toContain('staging-origin-placeholder.invalid');
+		// 値が全て string であること (aws CLI は string 以外を受け付けない)
+		for (const value of Object.values(desired)) expect(typeof value).toBe('string');
 	});
 });
 

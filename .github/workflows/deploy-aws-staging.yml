@@ -381,18 +381,28 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
-      # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL の解決 (縮退可)。
-      # Function URL は synth 時未確定 (自己参照) のため CDK は placeholder を注入している。
-      # get-function-url-config で実 URL を取得し、jq read-modify-write で env を merge 更新する。
-      # #4204: **その「再判断する時点」が来た**ので `continue-on-error` を外して必須化する。
+      # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL を解決し、
+      #          Lambda env を **CDK synth 出力から組み立てた完全な集合で全上書き**する (#4352 (a))。
       #
-      # 旧コメント: 「health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも
-      # 続行する (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断」
+      # ORIGIN は synth 時未確定 (CloudFront / Function URL は自己参照) のため CDK は placeholder を
+      # 注入しており、deploy 後に実 URL で置き換える必要がある。
       #
-      # Step 15 に form action の POST smoke を足した以上、**ORIGIN が解決されていないと
-      # SvelteKit の CSRF origin check で 403 になり、smoke の判定が意味を持たなくなる**。
-      # 本 step が黙って失敗したまま smoke が「403 = 認証失敗、想定内」と誤読する経路を塞ぐ
-      # (ADR-0024 ENV silent skip 禁止)。**「再判断する」と書いたまま再判断しないと、コメントが飾りになる。**
+      # **旧実装は live env を読んで merge (read-modify-write) していた。** そのため
+      # `aws lambda update-function-configuration` で手で足した env が、deploy のたびに
+      # 「正式な設定」として書き直され、CDK が env の SSOT ではなくなっていた (#4352)。
+      # CloudFormation は out-of-band drift を戻さない (テンプレートが同一ならリソースを触らない)
+      # ため、**deploy が success を返しても手で足した env は消えない**。実際 #4286 の検証用に
+      # 注入した `STRIPE_PRICE_*_MONTHLY` が staging に恒久残存した。
+      #
+      # 「Function URL / CloudFront が synth 時未確定」は全上書きを妨げない。**この job は同一 run 内で
+      # 既に synth 済み**なので、望ましい env = synth 出力の `Environment.Variables` + 実 URL 3 本 で
+      # 決まる。live env は CFN intrinsic (Ref / ImportValue) の値を引き継ぐためだけに読み、
+      # **キー集合には一切影響させない** → SSOT 外のキーは書き戻されず消える。
+      # 期待 env を workflow に手で列挙する形は採らない (列挙は必ず腐る、PO 決裁 2026-08-07)。
+      #
+      # #4204: `continue-on-error` は付けない。ORIGIN が解決されていないと SvelteKit の CSRF
+      # origin check で POST が 403 になり、Step 15 の form action smoke が
+      # 「403 = 認証失敗、想定内」と誤読する (ADR-0024 ENV silent skip 禁止)。
       - name: Resolve ORIGIN from CloudFront
         run: |
           # #4204: ORIGIN は **CloudFront の URL**。Function URL ではない。
@@ -411,16 +421,27 @@ jobs:
           echo "STAGING_BASE=https://$CF_DOMAIN" >> $GITHUB_ENV
           ORIGIN="https://$CF_DOMAIN"
           echo "Resolved staging ORIGIN: $ORIGIN"
-          ENV_JSON=$(aws lambda get-function-configuration \
+          # live env は intrinsic 値の引き継ぎにのみ使う (キー集合には影響しない)。
+          aws lambda get-function-configuration \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION \
-            --query 'Environment.Variables' --output json)
-          NEW_ENV=$(echo "$ENV_JSON" | jq --arg origin "$ORIGIN" \
-            '. + {ORIGIN: $origin, COGNITO_CALLBACK_URL: ($origin + "/auth/callback"), COGNITO_LOGOUT_URL: ($origin + "/auth/login")}')
+            --query 'Environment.Variables' --output json > "$RUNNER_TEMP/staging-live-env-before.json"
+
+          node scripts/lambda-env-ssot.mjs derive \
+            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --function-name "$LAMBDA_FUNCTION" \
+            --live-env "$RUNNER_TEMP/staging-live-env-before.json" \
+            --set ORIGIN="$ORIGIN" \
+            --set COGNITO_CALLBACK_URL="$ORIGIN/auth/callback" \
+            --set COGNITO_LOGOUT_URL="$ORIGIN/auth/login" \
+            --out "$RUNNER_TEMP/staging-desired-env.json"
+
+          # 値を argv に載せない (プロセス一覧・エラー時のコマンドエコーに secret が出る経路を作らない)。
+          jq -n --arg fn "$LAMBDA_FUNCTION" --slurpfile v "$RUNNER_TEMP/staging-desired-env.json" \
+            '{FunctionName: $fn, Environment: {Variables: $v[0]}}' > "$RUNNER_TEMP/staging-update-env.json"
           aws lambda update-function-configuration \
-            --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION \
-            --environment "{\"Variables\": $NEW_ENV}"
+            --cli-input-json "file://$RUNNER_TEMP/staging-update-env.json"
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
