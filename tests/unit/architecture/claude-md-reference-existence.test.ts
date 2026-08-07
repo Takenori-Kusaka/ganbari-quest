@@ -55,7 +55,7 @@ const BARE_SCRIPT_RE =
 /**
  * dir を伴わない bare な workflow 名 (`lp-fallback-check.yml` の形)。
  * 直前が `/` のものは path 形式側で解決されるので除外される
- * (`docs/zenn/prh.yml` / `@personal/data/family.yml` を bare 扱いしないため)。
+ * (dir 付きで書かれた yml や submodule 配下の yml を bare 扱いしないため)。
  */
 const BARE_YML_RE = /(?<![\w.*/-])([a-z0-9][a-z0-9-]*\.ya?ml)(?![\w])/g;
 
@@ -104,14 +104,14 @@ const trackedFiles = (): string[] =>
  * - `script` / `workflow`: dir が書かれていないので tracked file の basename と突き合わせる
  */
 function resolveMissing(refs: Ref[], tracked: string[]): Ref[] {
-	const scriptBasenames = new Set(
+	const scriptBaseNames = new Set(
 		tracked.filter((p) => p.startsWith('scripts/')).map((p) => p.split('/').pop()),
 	);
-	const allBasenames = new Set(tracked.map((p) => p.split('/').pop()));
+	const allBaseNames = new Set(tracked.map((p) => p.split('/').pop()));
 	return refs.filter((r) => {
 		if (r.kind === 'path') return !existsSync(resolve(REPO_ROOT, r.ref));
-		if (r.kind === 'script') return !scriptBasenames.has(r.ref);
-		return !allBasenames.has(r.ref);
+		if (r.kind === 'script') return !scriptBaseNames.has(r.ref);
+		return !allBaseNames.has(r.ref);
 	});
 }
 
