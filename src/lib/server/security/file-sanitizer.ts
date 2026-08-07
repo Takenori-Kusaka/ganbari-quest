@@ -2,6 +2,7 @@
 // Polyglot攻撃、EXIFインジェクション、ID3タグインジェクションへの防御
 
 import { logger } from '$lib/server/logger';
+import { PLACEHOLDER_AVATAR_BASENAME } from '$lib/server/storage-keys';
 
 /**
  * 画像を re-encode してメタデータ・埋め込みペイロードを完全に除去する
@@ -117,4 +118,41 @@ const INLINE_SAFE_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/web
  */
 export function safeContentDisposition(contentType: string): 'inline' | 'attachment' {
 	return INLINE_SAFE_CONTENT_TYPES.has(contentType) ? 'inline' : 'attachment';
+}
+
+/**
+ * 固定名キー (内容が差し替わっても URL が変わらない) の max-age。
+ *
+ * ここを 0 (= 毎回 origin に問い合わせ) にすると、子供一覧を開くたびに人数分の Lambda 呼び出しが
+ * 増える。逆に長くすると更新が見えない。仮アバターが変わるのは保護者がニックネーム / テーマを
+ * 変えた直後だけなので、その 1 回だけ最大 5 分古く見えるコストを取る。
+ */
+const MUTABLE_ASSET_MAX_AGE_SECONDS = 300;
+
+/** 内容が差し替わっても URL が変わらない (= immutable ではない) キーのファイル名 (拡張子なし)。 */
+const MUTABLE_FIXED_NAME_STEMS = new Set<string>([PLACEHOLDER_AVATAR_BASENAME]);
+
+/**
+ * user 由来データの静的配信時に使う Cache-Control を返す。
+ *
+ * **`public` を付けない**: これらの経路は認証 + tenant 一致を通してから配信する
+ * (`/tenants/[...path]` の #3133 IDOR ガード / `/uploads/avatars` の所有権 anchor)。`public` は
+ * CloudFront・中間 proxy などの**共有**キャッシュに「誰にでも配ってよい」と伝えるディレクティブで、
+ * 子供の顔写真という最も配ってはいけないものに付けてはならない。`private` ならブラウザの
+ * private cache は従来どおり効くため、顧客体感の速度は落ちない。
+ *
+ * **`immutable` はキーが実際に immutable なときだけ**: `avatarKey` / `voiceKey` (uuid) と
+ * `generatedImageKey` (prompt hash) は内容が変われば URL も変わるので 1 年 immutable が正しい。
+ * 一方 `placeholderAvatarKey` は childId ごとの固定名で、ニックネームやテーマを変えると
+ * **同じ URL の中身が差し替わる**。ここに 1 年 immutable を付けると、再生成しても
+ * ブラウザが古い画像を出し続ける (再検証しないのが immutable の意味) ため、短命 max-age にする。
+ *
+ * user データを静的配信する全経路は本関数を経由すること (安全配信ユーティリティへの集約、#3105 同様)。
+ */
+export function safeCacheControl(storagePath: string): string {
+	const basename = storagePath.split('/').pop() ?? '';
+	const stem = basename.replace(/\.[^.]*$/, '');
+	return MUTABLE_FIXED_NAME_STEMS.has(stem)
+		? `private, max-age=${MUTABLE_ASSET_MAX_AGE_SECONDS}`
+		: 'private, max-age=31536000, immutable';
 }
