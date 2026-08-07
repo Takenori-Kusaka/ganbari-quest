@@ -13,7 +13,15 @@ import { POINTS_LABELS } from '../../../src/lib/domain/labels';
 /** AI 不達を運営に届ける alarm。文言が「通知済み」と言えるかはこの alarm の通知方針で決まる。 */
 const AI_ALARM_NAME = 'ganbari-quest-ai-provider-unavailable';
 
-const MESSAGE = 'システム側の問題でAI読み取りを利用できません。復旧までは金額を手入力してください。';
+/** 通知方針を引く。表から消えていたら (= 判断の根拠自体が消えたら) その場で落とす。 */
+function aiAlarmPolicy() {
+	const policy = ALARM_NOTIFY_POLICY[AI_ALARM_NAME];
+	if (!policy) throw new Error(`${AI_ALARM_NAME} が ALARM_NOTIFY_POLICY から消えています`);
+	return policy;
+}
+
+const MESSAGE =
+	'システム側の問題でAI読み取りを利用できません。復旧までは金額を手入力してください。';
 
 describe('[1] 顧客向け文言 (POINTS_LABELS.receiptAiUnavailable)', () => {
 	it('[1-1] PO 決裁 2026-08-07 で採用された文言と完全一致する', () => {
@@ -49,13 +57,13 @@ describe('[2] 文言と通知方針の整合 (PO 決裁 Q1 = No / Q2 = Yes)', ()
 
 	// Q2 = Yes: #4189 の既定 (実発火を 1 サイクル観測してから昇格) をこの 1 件のために曲げない。
 	it('[2-2] 現時点では Discord へ通知しない (notify: false)', () => {
-		expect(ALARM_NOTIFY_POLICY[AI_ALARM_NAME].notify).toBe(false);
+		expect(aiAlarmPolicy().notify).toBe(false);
 	});
 
 	// Q1 = No の本体。notify: false = 人には届かないので、顧客に「通知済み」と読める約束を
 	// してはならない。昇格 (notify: true) したときに初めてこの一文を戻す判断ができる。
 	it('[2-3] 人に届かない間は「運営に通知した」と読める約束をしない', () => {
-		if (ALARM_NOTIFY_POLICY[AI_ALARM_NAME].notify) return; // 昇格後は文言を戻してよい
+		if (aiAlarmPolicy().notify) return; // 昇格後は文言を戻してよい
 
 		for (const promise of ['通知', '連絡', '把握']) {
 			expect(
@@ -67,6 +75,6 @@ describe('[2] 文言と通知方針の整合 (PO 決裁 Q1 = No / Q2 = Yes)', ()
 
 	// 通知方針の reason 自体も顧客文言を根拠にしてはならない (Q1 で外した以上、循環した嘘になる)。
 	it('[2-4] 通知方針の理由が「顧客に通知済みと表示している」を根拠にしていない', () => {
-		expect(ALARM_NOTIFY_POLICY[AI_ALARM_NAME].reason).not.toContain('通知済み');
+		expect(aiAlarmPolicy().reason).not.toContain('通知済み');
 	});
 });
