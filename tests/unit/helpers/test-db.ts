@@ -590,6 +590,8 @@ export const SQL_TABLES = `
 		completed_at TEXT,
 		reward_claimed INTEGER NOT NULL DEFAULT 0,
 		reward_claimed_at TEXT,
+		-- #4410: 達成祝福を見せた記録 (NULL = 未表示)
+		celebration_shown_at TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

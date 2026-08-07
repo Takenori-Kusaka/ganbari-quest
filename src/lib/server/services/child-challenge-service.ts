@@ -729,6 +729,48 @@ export async function getActiveChildChallengesWithSiblings(
 }
 
 /**
+ * #4410: 「達成祝福 (SiblingCelebration) を出すべき instance」を 1 件解決する (無ければ null)。
+ *
+ * **表示可否の根拠は `celebrationShownAt IS NULL` のみ**であり、クライアントの `$state` は
+ * 根拠にしない (AC2)。閉じた事実はサーバに永続化されるので、ページ遷移・リロード・
+ * `invalidateAll()`・別端末のいずれでも 2 回目以降は null になる。
+ *
+ * `rewardClaimed` は条件に含めない (AC3) — ごほうびを受け取ったかどうかは祝福の停止条件では
+ * なく、受取導線は `challenge-reward-claim-card` 単一経路のまま (#3333) 独立して機能する。
+ *
+ * ADR-0012 (anti-engagement): 同時に出すのは常に 1 件のみ (docs/DESIGN.md §10 重畳ルール)。
+ */
+export function resolveCelebrationChallenge(
+	challenges: readonly ChildChallengeWithSiblings[],
+	childId: ChildId,
+): ChildChallengeWithSiblings | null {
+	return (
+		challenges.find(
+			(c) => c.childId === childId && c.allCompleted && c.celebrationShownAt === null,
+		) ?? null
+	);
+}
+
+/**
+ * #4410: 達成祝福を「見せた」ことを記録する (`markCheersShown` と同型)。
+ *
+ * @returns 記録できた (または既に記録済) なら true。他 child / 存在しない instance なら false
+ *          (IDOR 防止: tenant 内の別 child の行を閉じられないようにする)。
+ */
+export async function markChallengeCelebrationShown(
+	challengeId: string,
+	childId: ChildId,
+	tenantId: string,
+): Promise<boolean> {
+	const repos = getRepos();
+	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
+	if (!challenge || challenge.childId !== childId) return false;
+	// repo 側が `celebration_shown_at IS NULL` 条件付き UPDATE で冪等 (最初の時刻を保つ)。
+	await repos.childChallenge.markCelebrationShown(challengeId, tenantId);
+	return true;
+}
+
+/**
  * 活動記録時の進捗更新フック。child の活動 1 件記録時に呼び出される。
  * 旧 sibling-challenge-service.checkChallengeProgress の per-child 後継。
  */

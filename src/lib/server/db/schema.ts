@@ -810,6 +810,10 @@ export const childChallenges = sqliteTable(
 		completedAt: text('completed_at'),
 		rewardClaimed: integer('reward_claimed').notNull().default(0),
 		rewardClaimedAt: text('reward_claimed_at'),
+		// #4410: 達成祝福 (SiblingCelebration) を「見せた」記録。NULL = 未表示。
+		// 表示条件の停止条件はこの列**のみ**が持つ (受取 rewardClaimed とは独立、AC3)。
+		// sibling_cheers.shown_at / parent_messages.shown_at と同型の「一度だけ見せる」機構。
+		celebrationShownAt: text('celebration_shown_at'),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},

@@ -693,6 +693,10 @@ async function importChildChallengesData(
 					completedAt: c.completedAt,
 					rewardClaimed: c.rewardClaimed,
 					rewardClaimedAt: c.rewardClaimedAt,
+					// #4410: 祝福の「見せた」記録は端末横断の一時 UI 状態であり backup wire schema
+					// (ADR-0066 値域 SSOT) には載せない。復元直後は未表示として扱い、達成済で未受取
+					// なら祝福を 1 回だけ出す (以降は celebration_shown_at が停止条件になる)。
+					celebrationShownAt: null,
 					createdAt: c.createdAt,
 					updatedAt: c.updatedAt,
 				},
