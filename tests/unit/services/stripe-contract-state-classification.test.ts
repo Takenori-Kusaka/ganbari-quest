@@ -445,7 +445,7 @@ describe('#4416 猶予終了日は「最初の支払い失敗から 7 日」で�
 		// 「初回は与える / 再送では延ばさない」を 2 経路とも満たすことを、同じ入力で突き合わせる。
 		vi.setSystemTime(Date.parse('2026-08-01T00:00:00.000Z'));
 
-		const results: Record<string, (string | null)[]> = { W3: [], W4: [] };
+		const results: Record<string, ContractStateColumns['planExpiresAt'][]> = { W3: [], W4: [] };
 		for (const [writer, fire] of [
 			['W3', firePaymentFailed],
 			['W4', fireSubscriptionPastDue],
