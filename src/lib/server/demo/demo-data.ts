@@ -29,6 +29,7 @@
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODE_TO_ID, toLegacyCategoryId } from '$lib/domain/categories';
+import { addDaysJST } from '$lib/domain/date-utils';
 import {
 	type ActivityId,
 	asActivityId,
@@ -78,15 +79,11 @@ const NOW = '2026-03-27T09:00:00.000Z';
 const TODAY = '2026-03-27';
 
 function daysAgo(n: number): string {
-	const d = new Date('2026-03-27');
-	d.setDate(d.getDate() - n);
-	return d.toISOString().slice(0, 10);
+	return addDaysJST(TODAY, -n);
 }
 
 function daysAgoISO(n: number): string {
-	const d = new Date('2026-03-27T09:00:00.000Z');
-	d.setDate(d.getDate() - n);
-	return d.toISOString();
+	return new Date(Date.parse(NOW) - n * 86_400_000).toISOString();
 }
 
 // ============================================================
@@ -3585,14 +3582,10 @@ export const DEMO_STAMP_CARDS: StampCard[] = [
 // loginDate は当週: weekStart 起点 (Mon=2026-03-23) で slot-1 日後
 //                  前週: weekStart 起点 (Mon=2026-03-16) で slot-1 日後
 function currentWeekDate(slot: number): string {
-	const d = new Date(`${CURRENT_WEEK_START}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() + (slot - 1));
-	return d.toISOString().slice(0, 10);
+	return addDaysJST(CURRENT_WEEK_START, slot - 1);
 }
 function prevWeekDate(slot: number): string {
-	const d = new Date(`${PREV_WEEK_START}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() + (slot - 1));
-	return d.toISOString().slice(0, 10);
+	return addDaysJST(PREV_WEEK_START, slot - 1);
 }
 
 export const DEMO_STAMP_ENTRIES: StampEntry[] = [

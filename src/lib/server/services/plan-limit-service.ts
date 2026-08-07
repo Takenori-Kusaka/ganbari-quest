@@ -5,7 +5,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
-import { prevDateJST, todayDateJST } from '$lib/domain/date-utils';
+import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getDebugPlanTier } from '$lib/server/debug-plan';
@@ -169,24 +169,16 @@ export function getPlanLimits(tier: PlanTier): PlanLimits {
 /**
  * 保持期間カットオフ日 (YYYY-MM-DD、JST 基準) を取得。null = 制限なし。
  *
- * #3593 ②: JST 深夜境界の TZ 整合。旧実装は `new Date()` + local getter (`getFullYear` 等) で
- * 日付を導出していたため、Lambda (UTC) 実行時は JST とずれ、0:00〜9:00 JST に記録された明細が
- * 保持期間判定で 1 日早く削除/残置される (retention 監査契約 #729 違反)。date-utils の
- * 「サービス層は UTC 混在禁止・todayDateJST 起点」方針に従い、JST 当日を基点に UTC ベースの
- * 日付演算 (setUTCDate) で days を減算する (runner の local TZ に依存しない)。
+ * #3593 ②: JST 深夜境界の TZ 整合。ローカル getter で日付を導出すると Lambda (UTC) 実行時に
+ * JST とずれ、0:00〜9:00 JST に記録された明細が保持期間判定で 1 日早く削除/残置される
+ * (retention 監査契約 #729 違反)。JST 当日を基点に `addDaysJST()` で days を減算する。
  * 返す cutoff は「JST 当日境界の date」であり、下流 (deletePointLedgerBeforeDate) は
  * これを JST 深夜 0:00 の instant として TZ-qualified に解釈する。
  */
 export function getHistoryCutoffDate(tier: PlanTier): string | null {
 	const limits = PLAN_LIMITS[tier];
 	if (limits.historyRetentionDays === null) return null;
-	// JST 当日 0:00 を UTC 上の date 演算基点に固定し、local TZ getter を使わない。
-	const d = new Date(`${todayDateJST()}T00:00:00Z`);
-	d.setUTCDate(d.getUTCDate() - limits.historyRetentionDays);
-	const y = d.getUTCFullYear();
-	const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-	const day = String(d.getUTCDate()).padStart(2, '0');
-	return `${y}-${m}-${day}`;
+	return addDaysJST(todayDateJST(), -limits.historyRetentionDays);
 }
 
 /**

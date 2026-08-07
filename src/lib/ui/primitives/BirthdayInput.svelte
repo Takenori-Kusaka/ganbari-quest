@@ -1,6 +1,6 @@
 <script lang="ts">
 import { untrack } from 'svelte';
-import { jstYearMonth } from '$lib/domain/date-utils';
+import { daysInMonthOfKey, jstYearMonth } from '$lib/domain/date-utils';
 import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 import FormField from './FormField.svelte';
 import NativeSelect from './NativeSelect.svelte';
@@ -76,8 +76,8 @@ $effect(() => {
 
 const daysInMonth = $derived.by(() => {
 	if (!yearStr || !monthStr) return 31;
-	// UTC 算術で月の日数を出す (ローカルコンストラクタ + ローカル getter を避ける、#4127)
-	return new Date(Date.UTC(Number(yearStr), Number(monthStr), 0)).getUTCDate();
+	// 月の日数は暦 SSOT に委譲する (#4120)
+	return daysInMonthOfKey(`${yearStr}-${monthStr.padStart(2, '0')}`);
 });
 
 const dayOptions = $derived.by(() => {

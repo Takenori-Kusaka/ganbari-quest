@@ -1,5 +1,3 @@
-import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
-import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/child-challenge-service.ts
 // per-child チャレンジ サービス層 (#2362 PR-7、ADR-0055、User §6)
 //
@@ -18,7 +16,9 @@ import {
 	CATEGORY_CODES,
 	CATEGORY_NUMERIC_IDS,
 } from '$lib/domain/categories';
-import { addDaysJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import { addDaysJST, jstDateToInstant, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -122,20 +122,12 @@ export function getWeekStart(date: Date = new Date()): string {
 
 /** weekStart (YYYY-MM-DD, Monday) の 1 週間前の Monday を返す。 */
 export function getLastWeekStart(weekStart: string): string {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
-	dt.setUTCDate(dt.getUTCDate() - 7);
-	const yyyy = dt.getUTCFullYear();
-	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-	const dd = String(dt.getUTCDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	return addDaysJST(weekStart, -7);
 }
 
 /** weekStart を epoch からの週インデックスに変換する (得意週の周期判定用、決定的)。 */
 function weekIndexOf(weekStart: string): number {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const ms = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+	return Math.floor(jstDateToInstant(weekStart).getTime() / (7 * 24 * 60 * 60 * 1000));
 }
 
 /** 2 つの weekStart (Monday) 間の週数。連続週なら 1、1 週 skip なら 2 (#3203 item1)。 */
@@ -488,13 +480,7 @@ const AUTO_WEEKLY_REWARD_POINTS = 30;
 
 /** weekStart (Monday, YYYY-MM-DD) の週末 (Sunday) を返す。 */
 function weekEndOf(weekStart: string): string {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
-	dt.setUTCDate(dt.getUTCDate() + 6);
-	const yyyy = dt.getUTCFullYear();
-	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-	const dd = String(dt.getUTCDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	return addDaysJST(weekStart, 6);
 }
 
 /** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev 形) に写像する。 */

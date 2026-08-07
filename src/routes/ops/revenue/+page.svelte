@@ -1,4 +1,5 @@
 <script lang="ts">
+import { jstDateOfIso } from '$lib/domain/date-utils';
 import { OPS_REVENUE_LABELS } from '$lib/domain/labels';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -196,7 +197,7 @@ const chartPoints = $derived(
 					<tbody>
 						{#each rev.invoices as inv}
 							<tr>
-								<td>{inv.paidAt ? inv.paidAt.slice(0, 10) : '-'}</td>
+								<td>{inv.paidAt ? jstDateOfIso(inv.paidAt) : '-'}</td>
 								<td class="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">{inv.customerEmail || inv.customerId.slice(0, 12)}</td>
 								<td>{inv.planDescription || '-'}</td>
 								<td class="ops-num">&yen;{inv.amount.toLocaleString()}</td>
