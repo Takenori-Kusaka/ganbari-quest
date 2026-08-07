@@ -42,6 +42,18 @@ runStep(
 
 runStep('husky failed — CI / Lambda build 環境では正常 (husky 未インストール)', 'npx', ['husky']);
 
+// #4442: `.gitattributes` の `graphify-out/graph.json merge=graphify` を実際に効かせる。
+// driver 本体の登録先は **local git config** で commit できないため、clone ごとにここで登録する。
+// 未登録のまま attribute だけあると git は黙って既定 merge にフォールバックし、
+// 「設定されているように見えて効かない」状態になる (= #4442 の壊れ方が再発する)。
+// hook install は冪等 (既存行を重複させない) で、graphify 未導入の環境では warning のみ。
+runStep(
+	'graphify hook install failed — graphify 未導入なら正常。導入済みなら graph.json の merge driver が' +
+		'未登録のままなので、並行 PR の merge で graph.json が壊れます (手動実行: graphify hook install)',
+	'graphify',
+	['hook', 'install'],
+);
+
 runStep(
 	'cd infra && npm ci FAILED — infra/marketplace 系テストが Cannot find module で fail します。手動実行: cd infra && npm ci',
 	'npm',
