@@ -51,17 +51,14 @@ export default async (page, capture) => {
 	await page.waitForLoadState('networkidle');
 
 	// 追加フォームは折りたたみ。「追加する」トグルを押して開く。
+	// Svelte 5 の hydration 前に押すと無反応なので、hydration を待ってから retry する。
+	await page.waitForTimeout(2_000);
 	const toggle = page.getByRole('button', { name: '追加する' }).first();
 	await toggle.waitFor({ state: 'visible', timeout: 30_000 });
-	for (let attempt = 0; attempt < 5; attempt++) {
-		await toggle.click();
-		const opened = await page
-			.locator('input[name="nickname"]')
-			.first()
-			.waitFor({ state: 'visible', timeout: 3_000 })
-			.then(() => true)
-			.catch(() => false);
-		if (opened) break;
+	for (let attempt = 0; attempt < 6; attempt++) {
+		await toggle.click({ timeout: 5_000 }).catch(() => {});
+		if (await page.locator('input[name="nickname"]').first().isVisible()) break;
+		await page.waitForTimeout(1_000);
 	}
 
 	// 登録フォーム: ニックネーム + 年齢 15 (誕生日は未入力 = 顧客が最短で登録する経路)
@@ -77,5 +74,6 @@ export default async (page, capture) => {
 	await page.getByText(NICKNAME, { exact: false }).first().waitFor({ timeout: 30_000 });
 	await settle(page);
 
-	await capture('issue-4419-admin-children-age15-registered');
+	// Before / After を同じ flow で撮り分ける (SS_LABEL=before-... / after-...)。
+	await capture(process.env.SS_LABEL || 'issue-4419-admin-children-age15-registered');
 };
