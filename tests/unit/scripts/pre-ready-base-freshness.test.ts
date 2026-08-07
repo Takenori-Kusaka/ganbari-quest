@@ -15,11 +15,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-	PRE_READY_GATE_SSOT_PREFIXES,
 	buildBaseDriftBlockMessage,
 	buildBaseDriftNote,
 	classifyBaseDrift,
 	isGateSsotPath,
+	PRE_READY_GATE_SSOT_PREFIXES,
 } from '../../../scripts/pre-ready.mjs';
 
 describe('classifyBaseDrift — base 鮮度の 3 分類 (#4390)', () => {

@@ -274,7 +274,8 @@ export function resolveBaseBranchAuto(opts = {}) {
 export function measureBaseDrift(base, opts = {}) {
 	const cwd = opts.cwd ?? process.cwd();
 	const doFetch = opts.fetch !== false;
-	if (!isAllowedBaseBranch(base)) return { available: false, behind: 0, files: [], fetchFailed: false };
+	if (!isAllowedBaseBranch(base))
+		return { available: false, behind: 0, files: [], fetchFailed: false };
 	/** @param {string} cmd 固定コマンド + validate 済 base 名のみ @param {number} [timeout] ms */
 	const run = (cmd, timeout) =>
 		execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
