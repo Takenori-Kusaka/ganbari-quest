@@ -79,15 +79,18 @@ function extractReferences(file: string, body: string): Ref[] {
 		.split('\n')
 		.forEach((line, idx) => {
 			const at = idx + 1;
-			for (const m of line.matchAll(PATH_RE)) {
-				if (!hasPlaceholderSegment(m[1])) refs.push({ file, line: at, ref: m[1], kind: 'path' });
-			}
-			for (const m of line.matchAll(BARE_SCRIPT_RE)) {
-				refs.push({ file, line: at, ref: m[1], kind: 'script' });
-			}
-			for (const m of line.matchAll(BARE_YML_RE)) {
-				refs.push({ file, line: at, ref: m[1], kind: 'workflow' });
-			}
+			const collect = (re: RegExp, kind: Ref['kind']) => {
+				for (const m of line.matchAll(re)) {
+					const ref = m[1];
+					// capture group 1 は全 pattern で必ず存在するが、strict TS 上は string | undefined。
+					if (!ref) continue;
+					if (kind === 'path' && hasPlaceholderSegment(ref)) continue;
+					refs.push({ file, line: at, ref, kind });
+				}
+			};
+			collect(PATH_RE, 'path');
+			collect(BARE_SCRIPT_RE, 'script');
+			collect(BARE_YML_RE, 'workflow');
 		});
 	return refs;
 }
