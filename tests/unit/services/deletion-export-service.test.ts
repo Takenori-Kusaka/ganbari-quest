@@ -166,6 +166,42 @@ describe('deletion-export-service', () => {
 			expect(result.activitySummary[0]?.categories[1]?.name).toBe('べんきょう');
 		});
 
+		// #4120: 退会時に顧客へ手渡す日付は JST 暦日。createdAt (ISO UTC) を素朴に
+		// slice(0, 10) すると JST 00:00〜09:00 に作られた子供が前日として書き出され、
+		// 削除受領証 / retention 監査との突き合わせで 1 日食い違う (ADR-0049 / GDPR 第 15 条)。
+		it('firstRecordDate は JST 暦日で書き出される (UTC 暦日と割れる 9 時間の窓)', async () => {
+			mockFindAllChildren.mockResolvedValue([
+				{
+					id: '1',
+					nickname: 'たろう',
+					age: 6,
+					uiMode: 'elementary',
+					// UTC 2026-07-31 15:10 = JST 2026-08-01 00:10
+					createdAt: '2026-07-31T15:10:00.000Z',
+				},
+			]);
+			mockFindStatuses.mockResolvedValue([]);
+			mockFindActivityLogs.mockResolvedValue([]);
+
+			const result = await generateMinimalExport('tenant-1');
+
+			expect(result.activitySummary[0]?.firstRecordDate).toBe('2026-08-01');
+			// UTC 暦日 (素朴な slice) なら前日になる = 本 assert は UTC 実装で必ず落ちる
+			expect(result.activitySummary[0]?.firstRecordDate).not.toBe('2026-07-31');
+		});
+
+		it('createdAt が無い子供の firstRecordDate は null', async () => {
+			mockFindAllChildren.mockResolvedValue([
+				{ id: '1', nickname: 'たろう', age: 6, uiMode: 'elementary', createdAt: null },
+			]);
+			mockFindStatuses.mockResolvedValue([]);
+			mockFindActivityLogs.mockResolvedValue([]);
+
+			const result = await generateMinimalExport('tenant-1');
+
+			expect(result.activitySummary[0]?.firstRecordDate).toBeNull();
+		});
+
 		it('子供がいない場合も空の結果を返す', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
 
