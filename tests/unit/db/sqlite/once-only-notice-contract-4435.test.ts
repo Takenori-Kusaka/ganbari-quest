@@ -169,15 +169,23 @@ describe('#4435 媒体 A の冪等性 / 所有権 (SQLite 挙動 SSOT)', () => {
 	it('[R2] 既読済みの再送は行を返し、別の子からの mark は undefined のまま', async () => {
 		const reward = seedReward(childB);
 		await markRewardShown(asChildId(childB), String(reward.id), TENANT);
+		db()
+			.update(specialRewards)
+			.set({ shownAt: FIRST_SHOWN_AT })
+			.where(eq(specialRewards.id, reward.id))
+			.run();
 
-		expect(await markRewardShown(asChildId(childB), String(reward.id), TENANT)).toBeTruthy();
+		// 再送 (postShown の retry) は成功扱い = 行が返り、初回時刻を保ったまま返す
+		const resent = await markRewardShown(asChildId(childB), String(reward.id), TENANT);
+		expect(resent?.shownAt).toBe(FIRST_SHOWN_AT);
+		// 他人の子として送れば既読済みでも undefined (= endpoint 404、所有権シグナルが生きている)
 		expect(await markRewardShown(asChildId(childA), String(reward.id), TENANT)).toBeUndefined();
-		// 他の子の mark で shownAt が動いていないことも直接確認する
-		const rows = db()
+		// 他の子の mark で shownAt が動いていないことを DB 側でも確認する
+		const row = db()
 			.select()
 			.from(specialRewards)
-			.where(and(eq(specialRewards.childId, childB)))
-			.all();
-		expect(rows).toHaveLength(1);
+			.where(and(eq(specialRewards.id, reward.id), eq(specialRewards.childId, childB)))
+			.get();
+		expect(row?.shownAt).toBe(FIRST_SHOWN_AT);
 	});
 });
