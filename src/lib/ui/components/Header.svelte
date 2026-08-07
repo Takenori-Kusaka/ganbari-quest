@@ -3,6 +3,7 @@ import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS, formatPointValue } from '$lib/domain/point-display';
+import { pointFlight } from '$lib/features/point-flight/point-flight.svelte';
 import AvatarDisplay from '$lib/ui/components/AvatarDisplay.svelte';
 
 interface Props {
@@ -16,6 +17,12 @@ interface Props {
 	isPremium?: boolean;
 	/** #2168: 通知 bell (MilestoneBellButton 等) を help button 前に挿入する slot */
 	notificationSlot?: Snippet;
+	/**
+	 * #4448: 残高の増減演出 (`+10P` が残高へ飛び込みカウントアップする) を有効にするか。
+	 * true のときだけ残高要素を演出の到着点として登録する。
+	 * baby モード (ADR-0011) と `?screenshot=all` (visual regression baseline) では false を渡す。
+	 */
+	animateBalance?: boolean;
 }
 
 let {
@@ -28,12 +35,26 @@ let {
 	onHelpClick,
 	isPremium = false,
 	notificationSlot,
+	animateBalance = false,
 }: Props = $props();
 
 const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
-const balanceDisplay = $derived(
-	formatPointValue(totalPoints, settings.mode, settings.currency, settings.rate),
+// #4448: 演出中は「変化前 → 変化後」を数えている途中の値を表示する。
+// 演出していないときは常に実データ (totalPoints) をそのまま出す。
+const shownPoints = $derived(
+	animateBalance ? (pointFlight.displayBalance ?? totalPoints) : totalPoints,
 );
+const balanceDisplay = $derived(
+	formatPointValue(shownPoints, settings.mode, settings.currency, settings.rate),
+);
+
+// #4448: 残高要素を演出の到着点として登録する。固定座標ではなく実 DOM の座標を使うため、
+// 表示位置が変わっても (通知 bell / スタンプの有無で横位置が動く) 追従する。
+let balanceEl = $state<HTMLElement | null>(null);
+$effect(() => {
+	if (!animateBalance || !balanceEl) return;
+	return pointFlight.registerAnchor(balanceEl);
+});
 </script>
 
 <header
@@ -83,7 +104,7 @@ const balanceDisplay = $derived(
 		{/if}
 		<div class="flex items-center gap-1 font-bold">
 			<span class="text-xl" aria-hidden="true">⭐</span>
-			<span class="text-lg">{balanceDisplay}</span>
+			<span class="text-lg" bind:this={balanceEl} data-testid="header-balance">{balanceDisplay}</span>
 		</div>
 	</div>
 </header>
