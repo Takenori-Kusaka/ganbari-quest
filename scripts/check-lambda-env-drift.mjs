@@ -247,9 +247,14 @@ export function main(argv = process.argv.slice(2)) {
 				`  (関数: ${functionName} / テンプレート: ${templatePath})\n` +
 				'  CloudFormation はテンプレート無変更ならリソースを触らず、deploy の ORIGIN 解決 step は\n' +
 				'  live env を read-modify-write するため、**この env は次の deploy でも消えません**。\n' +
-				'  対処: (a) 正式な設定なら CDK (infra/lib/*-stack.ts) に足す / (b) 検証用なら手で除去する:\n' +
-				`    aws lambda get-function-configuration --function-name ${functionName} --region ${region} --query 'Environment.Variables'\n` +
-				'    → 該当キーを除いた JSON で aws lambda update-function-configuration --environment file://…',
+				'\n' +
+				'  対処 (既定は (a)。まず「この env は今 live で何かを支えていないか」を確かめる):\n' +
+				'   (a) その設定を残すなら CDK に足す — infra/lib/compute-stack.ts の environment に追加し\n' +
+				'       deploy workflow の `-c` で値を渡す (infra/CLAUDE.md §新規 env 追加時 PR チェックリスト)。\n' +
+				'       **インシデント中に手で足した env はこちら**。消すと本番が壊れる。\n' +
+				'   (b) 検証用に一時注入したもので、消しても壊れないと確認できた場合のみ手で除去する:\n' +
+				`       aws lambda get-function-configuration --function-name ${functionName} --region ${region} --query 'Environment.Variables'\n` +
+				'       → 該当キーを除いた JSON で aws lambda update-function-configuration --environment file://…',
 		);
 		return 1;
 	}

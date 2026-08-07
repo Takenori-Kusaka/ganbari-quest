@@ -426,24 +426,6 @@ jobs:
             --region $AWS_REGION
           echo "::notice::staging ORIGIN resolved and applied: $ORIGIN"
 
-      # Step 13.5 (#4352): env drift 検査。**Step 13 の直後に置く**。
-      #
-      # Step 13 は live env を read-modify-write (`jq '. + {…}'`) するため、IaC の外で手で足された env は
-      # deploy のたびに正式な設定として **re-commit される**。CloudFormation もテンプレート無変更なら
-      # リソースを触らないので drift を戻さない。結果「IaC に無い env が恒久的に効き続ける」状態が
-      # deploy success のまま残る (#4117 E1 で実際に起きた: 検証用に注入した STRIPE_PRICE_* が
-      # full deploy を跨いで残り、staging で checkout が通るのを見て「#4286 が直った」と誤判定しうる
-      # 状態が続いた)。
-      #
-      # 本 step は cdk deploy が出力したテンプレートと live の **キー集合**を突き合わせる (値は読まない)。
-      - name: Lambda env drift check (staging, #4352)
-        run: |
-          node scripts/check-lambda-env-drift.mjs \
-            --function "$LAMBDA_FUNCTION" \
-            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
-            --logical-id-prefix SvelteKitFn \
-            --region "$AWS_REGION"
-
       # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。
       # staging table は空だが /api/health はデータ非依存 (設計 §データ戦略)。
       - name: Health check (staging)
@@ -636,6 +618,28 @@ jobs:
             exit "$STATUS"
           fi
           echo "::notice::DSQL staging 並行検証 test passed (${DURATION}s、#3683)"
+
+      # Step 15.9 (#4352): env drift 検査。**deploy job の末尾に置く** (PO 決裁 2026-08-07、#4365)。
+      #
+      # Step 13 (Resolve ORIGIN) は live env を read-modify-write (`jq '. + {…}'`) するため、IaC の外で
+      # 手で足された env は deploy のたびに正式な設定として **re-commit される**。CloudFormation も
+      # テンプレート無変更ならリソースを触らないので drift を戻さない。結果「IaC に無い env が恒久的に
+      # 効き続ける」状態が deploy success のまま残る (#4117 E1 で実際に起きた: 検証用に注入した
+      # STRIPE_PRICE_* が full deploy を跨いで残り、staging で checkout が通るのを見て「#4286 が直った」
+      # と誤判定しうる状態が続いた)。
+      #
+      # 本 step が落ちる時点でアプリ本体は既に live であり、早く落としても何も守られない。一方 job の
+      # 途中に置くと後続の検証 (health / smoke / PII guard / DSQL 並行検証) が丸ごと skip される。
+      # 末尾なら deploy は同じく赤くなり、他の検証は全て実行される。
+      #
+      # 突き合わせるのは cdk deploy が出力したテンプレートと live の **キー集合**のみ (値は読まない)。
+      - name: Lambda env drift check (staging, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION"
 
       # Step 16: Rollback on failure — staging ECR の previous digest に戻す
       # (deploy.yml Phase 5b 同型。staging repo は maxImageCount:3 のため直近 2 世代まで戻せる)。
