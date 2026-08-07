@@ -38,7 +38,7 @@
 
 **同期メカニズム**:
 - **現状（半自動）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から `site/shared-labels.js` を生成。`--check` モード (CI) で diff があれば fail
-- **CI 検出層 (#1739 R25)**: `scripts/check-ssot-parallel-impl.mjs` が **key-set 比較**で silent drift を検出。生成器 (`generate-lp-labels.mjs`) の parser が未対応な新規 `LP_*_LABELS` namespace を labels.ts に追加した瞬間に CI red になる。両者を CI に並べることで「parser バグ」と「反映漏れ」の両面を捕捉
+- **key-set 比較による silent drift 検出は無い (#4420)**: `scripts/check-ssot-parallel-impl.mjs`（#1739 R25 で導入、生成器の parser が未対応な新規 `LP_*_LABELS` namespace を検出）は #4322 で削除済み。`generate-lp-labels.mjs --check` の full text 比較は残るが、parser が新規 namespace 自体を認識しない場合の検出は機械強制が無い（レビューで担保する）
 - **Tier 3（#566 で予定）**: LP ビルド時の Svelte から静的 HTML 生成（SSG 統合）
 
 **修正時チェック**:
@@ -48,15 +48,14 @@ grep -rn "変更前の用語" site/ src/lib/domain/labels.ts
 
 # labels.ts に新規 LP_*_LABELS を追加した場合、shared-labels.js への反映を確認
 node scripts/generate-lp-labels.mjs        # shared-labels.js 再生成
-node scripts/check-ssot-parallel-impl.mjs  # 集合比較で整合検証
+node scripts/generate-lp-labels.mjs --check  # CI と同じ full text 比較
 ```
 
 **新規 LP_\*_LABELS namespace 追加時の手順**:
 1. `src/lib/domain/labels.ts` に `export const LP_FOO_LABELS = { ... }` を追加
 2. `scripts/generate-lp-labels.mjs` の `parseLabelsTs()` で `parseBlock(src, 'LP_FOO_LABELS')` を追加し、`lpLabels` ネストに組み込む
 3. `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
-4. `node scripts/check-ssot-parallel-impl.mjs` で整合確認 (CI が同じ検証を実行)
-5. shared-labels.js に注入しない方針 (例: hero band は Svelte 化待ち) なら `check-ssot-parallel-impl.mjs` の `LABELS_TS_EXCLUDED_NAMESPACES` に追加
+4. `node scripts/generate-lp-labels.mjs --check` で整合確認 (CI が同じ検証を実行)。parser が新規 namespace を認識していない場合はここで diff が出ない（機械強制が無い箇所、目視で確認する）
 
 ---
 
@@ -483,10 +482,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 **同期メカニズム**:
 - アプリ側 TS/Svelte コンポーネントは `plan-features.ts` を必ず import
 - プラン機能追加時は `plan-limit-service.ts` の `PLAN_LIMITS` ブール値フラグと連動
-- LP 側は `scripts/check-lp-plan-sync.mjs` で drift を自動検知（#764, `npm run lint:parallel` 経由）
-  - `site/pricing.html`: 全 feature 完全一致（strict）
-  - `site/index.html`, `site/pamphlet.html`: 少なくとも 1 feature 一致（loose, LP トップとパンフ簡略版のため）
-  - 価格（`price` の数値部）は全ファイルでチェック（年額 `yearlyPrice` は #2719 / FR-2 で廃止済 = 月額のみ）
+- **LP 側の drift 自動検知は無い (#4420)**: `scripts/check-lp-plan-sync.mjs`（#764、`npm run lint:parallel` 経由）は #4322 で削除済み。旧仕様は `site/pricing.html` 全 feature 完全一致（strict）/ `site/index.html`, `site/pamphlet.html` 少なくとも 1 feature 一致（loose）/ 価格数値部の全ファイル一致だったが、現状は機械強制が無い（レビューで担保する）
 
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
@@ -525,17 +521,17 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |------|------|
 | `site/privacy.html` | プライバシーポリシー（外部送信規律 / 未成年者取扱い / 域外移転等を含む） |
 | `site/terms.html` | 利用規約（卒業概念 / 未成年者の利用等を含む） |
-| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（`scripts/check-lp-ssot.mjs` で privacy / terms との一致を CI 検証） |
+| `src/lib/domain/labels.ts` `LEGAL_LABELS` | 法律用語のキー語彙（旧 `scripts/check-lp-ssot.mjs` が privacy / terms との一致を CI 検証していたが #4322 で削除済み。CI 検証は無い、レビューで担保する、#4420） |
 | `src/lib/server/services/consent-service.ts` `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` | 規約改訂日。本ファイルで上書きすると次回ログイン時に再同意フローへ自動誘導 |
 | `src/routes/auth/signup/+page.svelte` | 同意チェックボックス（agreedTerms / agreedPrivacy / agreedCrossBorder の 3 つすべて必須） |
 | `src/routes/legal/privacy/+page.server.ts` | 既存の `301` redirect 維持（LP-truth ADR-0013 整合 — アプリ側プラポリは LP の真実を SSOT として参照する） |
 | `docs/design/14-セキュリティ設計書.md §8.5 / §8.6 / §8.7` | 設計書側の根拠 |
 
-**例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。`scripts/check-lp-ssot.mjs` の `EXCLUDED_LEGAL_FILES` で日本語ハードコード違反検出から除外している。代わりに `LEGAL_LABELS` のキー用語が両文書に出現することで文言ドリフトを CI 検出する。
+**例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。旧 `scripts/check-lp-ssot.mjs` は `EXCLUDED_LEGAL_FILES` で日本語ハードコード違反検出から除外しつつ `LEGAL_LABELS` のキー用語の両文書出現を CI 検証していたが、script ごと #4322 で削除済み。文言ドリフトの検出は無い（レビューで担保する、#4420）。
 
 **修正時チェック**:
 - [ ] privacy.html / terms.html を変更 → `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新（同意済みユーザーへの再同意フロー誘導）
-- [ ] 法律用語を新規追加 → `LEGAL_LABELS` に追加し、`scripts/check-lp-ssot.mjs` の coverage 検証を通すこと
+- [ ] 法律用語を新規追加 → `LEGAL_LABELS` に追加し、両文書 (`site/privacy.html` / `site/terms.html`) にも出現することを目視確認すること（coverage 検証の機械強制は無い）
 - [ ] 同意チェックボックス追加 → `signup/+page.svelte` の `canSubmit` / `submitBlockReason` に反映 + E2E テスト追加
 - [ ] 設計書 14 の §8.5 / §8.6 / §8.7 と整合維持（電気通信事業法 §27の12 / 個情法 §28 / 未成年者取扱い）
 
@@ -610,7 +606,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
-- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを `node scripts/check-lp-ssot.mjs` で確認
+- [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを目視確認（旧 `check-lp-ssot.mjs` は #4322 で削除済み、機械強制は無い）
 - [ ] **認証が絡む画面** (#1026) → `npm run dev:cognito` で **自分の目で** ログイン/サインアップ/ops 経路を通り、`docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / プリミティブ再実装) に違反がないか確認。`npm run dev` の自動認証モードだけで済ませない (ログインフォームが描画されないため UI 検証が抜ける)
 - [ ] **年齢帯 variant ラベル** (ADR-0015) → `labels.ts` の tier-aware key（例: `encourage.complete`）を更新した場合、`child-home/variants/index.ts` + `tutorial-chapters.ts` + tips / dialog コンポーネント側の独自分岐が残っていないか grep。`if (uiMode === 'baby')` 散在（A1 アンチパターン）を検出したら `getLabel(key, ctx)` 経由に寄せる
 - [ ] **日本語折り返し** (DESIGN.md §3) → 見出し / Dialog タイトル / チュートリアルステップ追加時は、`app.css` の `text-wrap: balance; word-break: auto-phrase;` が効くセレクタ配下か確認。長文段落 / 古いブラウザ対応が必要な箇所は `use:budoux` action を個別適用。LP 側 (`site/*.html`) は `<budoux-ja>` CDN Web Component で wrap

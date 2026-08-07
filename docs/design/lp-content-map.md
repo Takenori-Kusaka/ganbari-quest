@@ -851,41 +851,17 @@ LP の数値訴求（300+ → 400+ 等）を上げたい場合:
 
 LP の **要素削除 / 圧縮** は「追加」より検出されにくく、過去に IA 破綻 / scrshot 漏れ / レイアウトずれの残骸（orphan reference）を発生させた（PO-A-5 / M-MAJ-6）。本節は構造的再発防止の SSOT。
 
+**機械検出は無い (#4420)**: 本節が前提としていた `scripts/check-lp-removal-residue.mjs`（orphan `data-lp-key` / broken image ref 検出、`npm run check:lp-residue` 経由）と `.github/workflows/lp-metrics.yml` の `removal-residue` ジョブは #4322 で削除済み。`scripts/lp-removal-residue-baseline.json` は読み手を失ったまま残置されている。以下は現状レビューで担保する:
+
 ### 8.7.1 削除/圧縮 PR で必ず通過する 5 項目
 
 | # | チェック項目 | 検証手段 |
 |---|------------|---------|
-| 1 | LP HTML から削除した要素の SSOT 参照削除 | `npm run check:lp-residue` (orphan `data-lp-key` 検出) |
-| 2 | 画像ファイル参照の物理存在確認 | 同上 (broken image ref 検出) |
+| 1 | LP HTML から削除した要素の SSOT 参照削除 | 目視（orphan `data-lp-key` 検出の機械強制は無い） |
+| 2 | 画像ファイル参照の物理存在確認 | 目視 |
 | 3 | レイアウトずれの fullpage scrshot 検証 | `npm run screenshots:lp:compare` (Before/After 差分) |
 | 4 | IA 構造（lp-content-map）の同期更新 | 本ドキュメント §4 / §10 変更履歴を本 PR で更新 |
-| 5 | CI `LP Metrics / Check LP removal residue` pass | `.github/workflows/lp-metrics.yml` の `removal-residue` ジョブ |
-
-### 8.7.2 検出スクリプト `scripts/check-lp-removal-residue.mjs`
-
-#### 検出対象
-
-1. **orphan `data-lp-key`** — `site/*.html` / `site/help/*.html` の `data-lp-key="namespace.key"` 参照のうち、`site/shared-labels.js` の `LP_LABELS` に定義が存在しないもの
-2. **broken image ref** — `<img src>` / `<source srcset>` / `<meta property="og:image">` / `<link rel="icon">` の相対パス画像が `site/` に物理存在しないもの（例外: `site/screenshots/*.webp` は CI 生成のため warn 扱い）
-
-#### baseline ratchet
-
-- 既存 violation は `scripts/lp-removal-residue-baseline.json` に保存
-- 新規 1 件でも追加されれば CI を fail させる（bypass フラグなし）
-- baseline を意図的に増やす変更は ADR で議論したうえで `npm run check:lp-residue:update-baseline` を実行
-
-#### 使い方
-
-```bash
-# 検査 (CI 等価)
-npm run check:lp-residue
-
-# JSON 出力 (artefact 用)
-node scripts/check-lp-removal-residue.mjs --json
-
-# baseline 更新 (orphan を意図的に解消した後)
-npm run check:lp-residue:update-baseline
-```
+| 5 | ~~CI `LP Metrics / Check LP removal residue` pass~~ | 削除済み（上記参照） |
 
 ### 8.7.3 PR template との連携
 

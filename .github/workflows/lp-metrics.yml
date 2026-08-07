@@ -1,4 +1,4 @@
-name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
+name: LP Metrics (dimensions / forbidden terms / CTA variants)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -8,25 +8,17 @@ concurrency:
 # 閾値違反 / 禁止用語出現 / CTA バリエーション過多 を FAIL にする
 # ratchet ルール: 閾値は下げることのみ許可、上げるには ADR が必要
 #
-# #1790: LP 削除/圧縮 PR の残骸 (orphan reference) 検出 gate (check-lp-removal-residue.mjs)
-# #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り gate (measure-lp-dimensions.mjs 内に統合)
 # #1840: PR ごとの累積 desktopHeight 監視機構 (cumulative-lp-metrics ジョブ)
 #   個別 PR の lp-metrics PASS でも、複数 PR 連続 merge で main 累積 fail を予防する。
 #   PR HEAD に origin/main を merge した状態で measure-lp-dimensions.mjs を走らせ、
 #   累積後の desktopHeight が 8000 を超えていれば fail (warn-only 段階運用、AC2 段階適用)。
 #
-# #1851 Phase 2: LP CSS Spacing/Layout 直書き padding/margin の baseline pin gate
-#   (inline-style-check ジョブ)
-#   `--lp-*` Semantic トークン経由で参照されるべき構造的 spacing が直書きに戻るのを防ぐ。
-#   既存ローカル装飾値 (gap / 微小余白) は scripts/lp-inline-style-baseline.json に pin。
-#   新規 1 件で fail。意図的増加時のみ --update-baseline で更新。
-#
-# #1919 Phase 5 F2: LP fallback テキスト整合 CI (lp-fallback-check ジョブ)
-#   別 workflow `.github/workflows/lp-fallback-check.yml` に切り出し済 (PR #2073)。
-#   旧実装は本 workflow 内に統合され、`github-script` で `pulls.listFiles({per_page: 100})`
-#   による changed-file 判定をしていたが、101+ ファイルの rename PR で fallback 関連が
-#   2 ページ目に入ると silent skip する致命的抜け穴があったため、`on: pull_request: paths:`
-#   GitHub Actions native filter で trigger 自体を絞る方式に再構成した。
+# 削除済み (#4322、#4420 で判明): 以下は本 workflow を呼ぶ側/呼ばれる側だったが script /
+# workflow ごと削除されており、現状は走っていない (機械強制は無い。レビューで担保する)。
+# - #1790: LP 削除/圧縮 PR の残骸検出 (check-lp-removal-residue.mjs)
+# - #1851 Phase 2: LP CSS Spacing/Layout 直書き padding/margin の baseline pin
+#   (check-lp-inline-style.mjs、旧 inline-style-check ジョブ)
+# - #1919 Phase 5 F2: LP fallback テキスト整合 CI (`.github/workflows/lp-fallback-check.yml`)
 
 on:
   # base を絞らない。`measure` job の context 名
@@ -44,8 +36,9 @@ on:
       - "site/**"
       - "scripts/measure-lp-dimensions.mjs"
       - "src/lib/data/marketplace/activity-packs/**"
-      # NOTE: scripts/sync-lp-fallback.mjs / labels.ts / terms.ts は
-      # lp-fallback-check.yml の paths filter 側で trigger される (PR #2073)。
+      # NOTE (#4420): lp-fallback-check.yml は #4322 で削除済み。scripts/sync-lp-fallback.mjs /
+      # labels.ts / terms.ts の LP fallback 整合を検証する CI は現状無い (機械強制は無い。
+      # レビューで担保する)。
 
 permissions:
   contents: read
@@ -245,5 +238,5 @@ jobs:
                 : '')
               .write();
 
-  # lp-fallback-check ジョブは別 workflow に切り出し済 (PR #2073)。
-  # → .github/workflows/lp-fallback-check.yml を参照
+  # 旧 lp-fallback-check ジョブは別 workflow (`.github/workflows/lp-fallback-check.yml`、
+  # PR #2073 で切り出し) に切り出されていたが、その workflow ごと #4322 で削除済み (#4420)。

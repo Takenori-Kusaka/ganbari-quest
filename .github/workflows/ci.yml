@@ -161,9 +161,13 @@ jobs:
               - 'tsconfig.json'
               - 'Dockerfile*'
               - '.dockerignore'
-            # #2259 C4 fix: docs / scripts 変更でも lint-and-test (check-doc-code-references)
-            # と scripts/ node:test を走らせる。本機構は「docs 内パス参照の実在性」を検証する
-            # ため、docs-only PR でも CI gate に通す必要がある。
+            # #2259 C4 fix: 元は docs / scripts 変更で lint-and-test (check-doc-code-references)
+            # と scripts/ node:test を走らせるための filter だった。check-doc-code-references.mjs
+            # は #4322 で削除済み（#4420 で判明）。`docs/**` / `CLAUDE.md` 単体変更では
+            # lint-and-test 内に実行される検査は無くなったが、`scripts/__tests__/**` は
+            # 「Scripts unit tests (node:test)」step が読むため filter 自体は維持する
+            # (docs-only PR の CI 実行を止めたい場合は scripts/__tests__/** を別 output に
+            # 分離すること — 本 union のままでは docs-only PR でも lint-and-test 全体が走る)。
             docs:
               - 'docs/**'
               - 'CLAUDE.md'
@@ -183,7 +187,9 @@ jobs:
     needs: changes
     # #923 Phase 1 Copilot指摘: .storybook/** だけ変更された PR でも
     # lint-and-test 内の Storybook build check を走らせるため stories を含める
-    # #2259 C4 fix: docs-only PR でも check-doc-code-references を走らせるため docs を含める
+    # #2259 C4 fix: 元は docs-only PR でも check-doc-code-references を走らせるためだった
+    # (script は #4322 で削除済み)。`docs` output は `scripts/__tests__/**` の node:test
+    # step 実行にまだ使われているため、trigger 条件からは外さない (#4420)。
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -210,11 +216,13 @@ jobs:
       - name: Biome lint (#1432 — warning=error)
         run: npx biome check --error-on-warnings .
 
-      - name: Parallel implementation sync check (#565 / #1739 SSOT key-set diff)
-        # #1739: scripts/check-ssot-parallel-impl.mjs が labels.ts ⇄ shared-labels.js の
-        # key-set 比較で silent drift (parser 未対応 namespace) を検出する。
-        # generate-lp-labels.mjs --check は full text 比較のため、両者を並べて
-        # 「parser バグ」と「反映漏れ」の両面を捕捉する。
+      - name: Parallel implementation sync check (#565)
+        # #1739 で導入した scripts/check-ssot-parallel-impl.mjs (labels.ts ⇄ shared-labels.js
+        # の key-set 比較による silent drift 検出) は #4322 で削除済み (#4420 で判明)。
+        # 現状 `npm run lint:parallel` が実行するのは generate-lp-labels.mjs --check
+        # (full text 比較) + check-lp-innerhtml-tags.mjs + check-no-at-html.mjs のみ。
+        # parser 未対応の新規 namespace 追加による silent drift の検出は無い
+        # (機械強制は無い。レビューで担保する)。
         run: npm run lint:parallel
 
 

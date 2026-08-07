@@ -113,7 +113,7 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 
 - 定義: `site/shared.css` の `:root` ブロック (`--space-*` Base + `--lp-*` Semantic)
 - 参照: `site/index.html` `<style>` ブロック (Component セレクタ)
-- 適用範囲: index / pricing / pamphlet / faq / selfhost / graduation 等 LP 全 HTML に波及済 (Phase 1〜3、#1839 / #1851 / #2395)。content 共通 spacing は `--lp-content-*` に集約。残ローカル装飾値は `scripts/lp-inline-style-baseline.json` で pin し、新規 violation 1 件で CI fail (`lp-metrics.yml` `inline-style-check`)。詳細経緯は [ADR-0042](decisions/0042-lp-spacing-layout-tokens.md)
+- 適用範囲: index / pricing / pamphlet / faq / selfhost / graduation 等 LP 全 HTML に波及済 (Phase 1〜3、#1839 / #1851 / #2395)。content 共通 spacing は `--lp-content-*` に集約。**残ローカル装飾値を pin していた `check-lp-inline-style.mjs` は #4322 で削除済み — `scripts/lp-inline-style-baseline.json` は読み手を失って残置されており、新規 violation の CI 検出は無い（機械強制は無い。レビューで担保する）。** 詳細経緯は [ADR-0042](decisions/0042-lp-spacing-layout-tokens.md)
 
 ---
 
