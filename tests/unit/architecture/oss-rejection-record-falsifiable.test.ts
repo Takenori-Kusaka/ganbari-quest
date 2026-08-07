@@ -42,11 +42,23 @@ interface TableRow {
 	line: number;
 }
 
-/** `## `/`### ` 見出しで区切られた節の本文を取り出す。 */
+/**
+ * `## `/`### ` 見出しで区切られた節の本文を取り出す。
+ *
+ * 見出しは `### OSS 採用記録 (本リポジトリ採用済み、#1350 整合)` のように補足が付くため
+ * **前方一致**で探す。完全一致にすると節が見つからず、表 0 行として全 assert が空振りする
+ * (実際に mutation 検証でこの状態を踏んだ)。見つからない場合は空文字ではなく throw する
+ * — 「節が無い」と「節が空」を同一視すると、見出しの改名で guard が黙って消えるため。
+ */
 function sectionOf(markdown: string, heading: string): string {
 	const lines = markdown.split(/\r?\n/);
-	const start = lines.findIndex((l) => l.trim() === heading);
-	if (start === -1) return '';
+	const start = lines.findIndex((l) => l.trim().startsWith(heading));
+	if (start === -1) {
+		throw new Error(
+			`docs/decisions/README.md に見出し "${heading}" が見つかりません。` +
+				'改名した場合は本テストの定数も同時に更新してください (guard が空振りするため)。',
+		);
+	}
 	const rest = lines.slice(start + 1);
 	const end = rest.findIndex((l) => /^#{2,3} /.test(l));
 	return (end === -1 ? rest : rest.slice(0, end)).join('\n');
