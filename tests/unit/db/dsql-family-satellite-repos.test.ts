@@ -46,6 +46,7 @@
 //   [IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9
 //   [IM2] updateChildAvatarUrl (tenant no-op) + findChildForImage (§P9)
 //   [IM3] deleteByTenantId は §P9 tenant 限定
+//   [IM5] #4466 updateChildAvatarUrlIfMatches (compare-and-set: null 一致 / 不一致は 0 行 / §P9)
 //   [IM4] #3566 ③ (§9.4): file_path が tenant プレフィックス外 / cross-tenant / traversal なら insert 拒否 (孤児バイト防止)
 
 import { sql } from 'drizzle-orm';
@@ -645,6 +646,41 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
 		// §P9
 		expect(await imageRepo.findChildForImage(childId, OTHER_FAMILY)).toBe(undefined);
+	});
+
+	// #4466: 仮アバターの作り直しは「いま仮アバターのままか」を読んでから書くまでに await が
+	// 挟まる。無条件 UPDATE だと、その窓で完了した写真アップロードの URL を踏み潰す (lost update)。
+	// 期待値を WHERE に載せ、負けた側が 0 行更新になることを実 Postgres (PGlite) で固定する。
+	it('[IM5] #4466 updateChildAvatarUrlIfMatches は期待値一致時のみ書く (lost update 防止)', async () => {
+		const childId = await newChild('画像三郎');
+		const placeholder = '/tenants/x/avatars/placeholder.svg?v=1';
+		const photo = '/tenants/x/avatars/9f1c2d3e.webp';
+
+		// avatar_url 未設定 (null) を期待 → 書ける。`= NULL` は常に UNKNOWN なので
+		// null 一致が効かないと未設定の子供が永久に更新できなくなる。
+		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, null, placeholder, FAMILY)).toBe(
+			true,
+		);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(placeholder);
+
+		// 割り込み: 保護者が写真をアップロードした (無条件 UPDATE 経路)
+		await imageRepo.updateChildAvatarUrl(childId, photo, FAMILY);
+
+		// 読んだ時点の値 (placeholder) を期待した書き込みは負ける = 写真が残る
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(childId, placeholder, '/new.svg', FAMILY),
+		).toBe(false);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
+
+		// §P9: 他 tenant を名乗った条件付き更新も no-op (false)
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, '/evil.png', OTHER_FAMILY),
+		).toBe(false);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
+
+		// null 戻しも条件付きで可能
+		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, null, FAMILY)).toBe(true);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
 	});
 
 	it('[IM4] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert 拒否 (孤児バイト防止)', async () => {

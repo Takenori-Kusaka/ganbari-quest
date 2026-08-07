@@ -139,6 +139,21 @@ describe('demo/image-repo', () => {
 		const child = await imageRepo.findChildForImage(asChildId(902), 'demo');
 		expect(child?.id).toBe('902');
 	});
+	// #4466: 条件付き更新 (compare-and-set) も no-op。demo は書き込みを永続しないので
+	// 踏み潰される写真自体が存在せず、条件検査は空回りになる。呼び出し元が false を
+	// 「レースで負けた」と誤読して毎回 warn を出さないよう、無条件版と揃えて成功扱い。
+	it('updateChildAvatarUrl / updateChildAvatarUrlIfMatches は no-op (後者は成功扱い)', async () => {
+		await expect(
+			imageRepo.updateChildAvatarUrl(asChildId(902), '/a.png', 'demo'),
+		).resolves.toBeUndefined();
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(asChildId(902), null, '/a.png', 'demo'),
+		).toBe(true);
+		// 期待値が実データと合わない場合でも stub は分岐しない (永続しないので判定材料が無い)
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(asChildId(902), '/other.png', '/a.png', 'demo'),
+		).toBe(true);
+	});
 });
 
 describe('demo/inquiry-repo', () => {

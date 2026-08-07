@@ -22,6 +22,23 @@ export async function updateChildAvatarUrl(
 ) {
 	return getRepos().image.updateChildAvatarUrl(childId, avatarUrl, tenantId);
 }
+/**
+ * #4466: `avatar_url` を期待した値のままのときだけ更新する (compare-and-set)。
+ * 書けたら true、レースに負けて 0 行更新なら false。契約は `IImageRepo` を参照。
+ */
+export async function updateChildAvatarUrlIfMatches(
+	childId: ChildId,
+	expectedAvatarUrl: string | null,
+	avatarUrl: string | null,
+	tenantId: string,
+) {
+	return getRepos().image.updateChildAvatarUrlIfMatches(
+		childId,
+		expectedAvatarUrl,
+		avatarUrl,
+		tenantId,
+	);
+}
 export async function findChildForImage(childId: ChildId, tenantId: string) {
 	return getRepos().image.findChildForImage(childId, tenantId);
 }

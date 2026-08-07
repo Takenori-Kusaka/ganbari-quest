@@ -12,7 +12,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { placeholderAvatarVersion } from '$lib/domain/placeholder-avatar';
 
 const mockInsertChild = vi.fn();
-const mockUpdateChildAvatarUrl = vi.fn();
+// #4466: 仮アバターの書き込みは条件付き (compare-and-set)。登録直後は avatar_url が無いので
+// 期待値は null になる。
+const mockUpdateChildAvatarUrlIfMatches = vi.fn();
 const mockSaveFile = vi.fn();
 
 vi.mock('$lib/server/db/child-repo', () => ({
@@ -29,7 +31,8 @@ vi.mock('$lib/server/db/image-repo', () => ({
 	findCachedImage: vi.fn(),
 	findChildForImage: vi.fn(),
 	insertCharacterImage: vi.fn(),
-	updateChildAvatarUrl: (...args: unknown[]) => mockUpdateChildAvatarUrl(...args),
+	updateChildAvatarUrl: vi.fn(),
+	updateChildAvatarUrlIfMatches: (...args: unknown[]) => mockUpdateChildAvatarUrlIfMatches(...args),
 }));
 
 vi.mock('$lib/server/storage', () => ({
@@ -97,6 +100,8 @@ function createEvent(formValues: Record<string, string>) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	// 既定は「競合なし = 書けた」(clearAllMocks で実装ごと消えるのでここで戻す)
+	mockUpdateChildAvatarUrlIfMatches.mockResolvedValue(true);
 	mockInsertChild.mockResolvedValue({
 		id: 'c-1',
 		nickname: 'まさと',
@@ -121,8 +126,12 @@ function expectPlaceholderAvatarAttached() {
 	expect(svg, 'ニックネームの頭文字が入っていない').toContain('>ま<');
 
 	// #4453: 保存先は固定名なので、中身の版 (`?v=`) を URL に付けて作り直しを即反映させる
-	expect(mockUpdateChildAvatarUrl, 'children.avatar_url が更新されていない').toHaveBeenCalledWith(
+	expect(
+		mockUpdateChildAvatarUrlIfMatches,
+		'children.avatar_url が更新されていない',
+	).toHaveBeenCalledWith(
 		'c-1',
+		null,
 		`/${key}?v=${placeholderAvatarVersion('まさと', 'blue')}`,
 		't-test',
 	);
@@ -160,6 +169,6 @@ describe('子供の登録で仮アバターが自動で付く (#4413)', () => {
 
 		expect(result).toEqual({ success: true });
 		expect(mockInsertChild).toHaveBeenCalledTimes(1);
-		expect(mockUpdateChildAvatarUrl).not.toHaveBeenCalled();
+		expect(mockUpdateChildAvatarUrlIfMatches).not.toHaveBeenCalled();
 	});
 });
