@@ -152,8 +152,10 @@ const MUTABLE_FIXED_NAME_STEMS = new Set<string>([PLACEHOLDER_AVATAR_BASENAME]);
  * **`immutable` はキーが実際に immutable なときだけ**: `avatarKey` / `voiceKey` (uuid) と
  * `generatedImageKey` (prompt hash) は内容が変われば URL も変わるので 1 年 immutable が正しい。
  * 一方 `placeholderAvatarKey` は childId ごとの固定名で、ニックネームやテーマを変えると
- * **同じ URL の中身が差し替わる**。ここに 1 年 immutable を付けると、再生成しても
- * ブラウザが古い画像を出し続ける (再検証しないのが immutable の意味) ため、短命 max-age にする。
+ * **同じパスの中身が差し替わる** (#4453 で editChild が実際に差し替える)。`avatar_url` には
+ * `?v=<中身の版>` が付くため通常の表示経路は即座に切り替わるが、**パス自体は依然 mutable**
+ * (版を持たない旧データ / パス直アクセス) なので、ここに 1 年 immutable は付けられない
+ * (再検証しないのが immutable の意味)。よって短命 max-age にする。
  *
  * user データを静的配信する全経路は本関数を経由すること (安全配信ユーティリティへの集約、#3105 同様)。
  */

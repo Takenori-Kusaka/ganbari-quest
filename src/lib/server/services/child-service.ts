@@ -3,6 +3,7 @@ import {
 	buildPlaceholderAvatarSvg,
 	PLACEHOLDER_AVATAR_CONTENT_TYPE,
 	PLACEHOLDER_AVATAR_EXTENSION,
+	placeholderAvatarVersion,
 } from '$lib/domain/placeholder-avatar';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getDefaultUiMode, recalcUiMode } from '$lib/domain/validation/age-tier';
@@ -91,7 +92,10 @@ async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string
 		const svg = buildPlaceholderAvatarSvg(child.nickname, child.theme);
 		await saveFile(key, Buffer.from(svg, 'utf-8'), PLACEHOLDER_AVATAR_CONTENT_TYPE);
 
-		const publicUrl = storageKeyToPublicUrl(key);
+		// #4453: 保存先は固定名なので、中身から導いた版を URL に付けて「作り直したのに
+		// ブラウザが古い画像を出し続ける」(max-age=300) を防ぐ。配信側は path でルーティング
+		// するため query は無視される。
+		const publicUrl = `${storageKeyToPublicUrl(key)}?v=${placeholderAvatarVersion(child.nickname, child.theme)}`;
 		await updateChildAvatarUrl(child.id, publicUrl, tenantId);
 
 		return { ...child, avatarUrl: publicUrl };
@@ -181,7 +185,8 @@ function shouldRegeneratePlaceholderAvatar(
 	const placeholderUrl = storageKeyToPublicUrl(
 		placeholderAvatarKey(tenantId, id, PLACEHOLDER_AVATAR_EXTENSION),
 	);
-	return existing.avatarUrl === placeholderUrl;
+	// `?v=<版>` が付いている (#4453) ので path 部分で比べる。
+	return existing.avatarUrl.split('?')[0] === placeholderUrl;
 }
 
 export async function removeChild(id: ChildId, tenantId: string) {

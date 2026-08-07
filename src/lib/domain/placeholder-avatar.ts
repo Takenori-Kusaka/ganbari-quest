@@ -74,6 +74,31 @@ function firstGrapheme(nickname: string): string {
 }
 
 /**
+ * #4453: 仮アバターの中身を表す短い版 (version) 文字列。
+ *
+ * 仮アバターの保存先は childId ごとの**固定名**なので、作り直しても URL が変わらず、
+ * ブラウザは自分のキャッシュ (`private, max-age=300`) を出し続ける。つまり保護者が
+ * ニックネームを直しても最大 5 分は古い頭文字が表示されてしまう。`avatar_url` に
+ * `?v=<この値>` を付けて**中身が変われば URL も変わる**ようにし、その場で切り替わるようにする。
+ *
+ * 内容から導出する (時刻ではない) ので、同じニックネーム / テーマなら常に同じ値になり、
+ * 意味のない URL 変更でキャッシュを捨てさせることがない。
+ *
+ * ハッシュは FNV-1a (32bit)。衝突しても起きるのは「見た目が変わったのに URL が同じ」= 元の
+ * 挙動に戻るだけで、壊れ方が増えない。暗号用途ではないので強度は要らない
+ * (この module は import を 1 本も持たない制約があり、外部ハッシュを使えない)。
+ */
+export function placeholderAvatarVersion(nickname: string, theme: string): string {
+	const source = `${nickname}|${theme}`;
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < source.length; i++) {
+		hash ^= source.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193) >>> 0;
+	}
+	return hash.toString(36);
+}
+
+/**
  * 子供のニックネームとテーマから、頭文字入りの円形アバター SVG を組み立てる。
  *
  * 純粋関数 — 外部通信も I/O も行わない。
