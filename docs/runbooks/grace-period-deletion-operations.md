@@ -73,11 +73,10 @@ aws lambda update-function-configuration --function-name ganbari-quest-app --reg
 | 削除メタデータの欠落 | log `[grace-period] soft-delete metadata incomplete`（#4321。該当テナントは削除対象から外れ復元可能） |
 | 持ち越し発生 | log `[grace-period] purge carried over remaining tenants to next run` |
 
-**alarm の Discord 通知は既定 off**（#4189 のオーナー決裁で通知は opt-in）。
-`ganbari-quest-grace-period-partial-failure` も現時点で `notify: false` のため、
-**CloudWatch 上には出るが alarm 自体は Discord に出ない**。ただし同じ部分失敗は
-上表の `sendDiscordAlert` 経路で人に届く。alarm 側の昇格手順は
-[ops-alert-notification.md](ops-alert-notification.md) §3。
+`ganbari-quest-grace-period-partial-failure` は **Discord incident webhook に出る**
+（`notify: true`）。同じ部分失敗は上表の `sendDiscordAlert` 経路でも届くが、cron 自体が
+起動しなかった場合はそちらが出ないため両方を残している。通知方針の SSOT は
+[ops-alert-notification.md](ops-alert-notification.md)。
 
 失敗したテナントの特定（識別子は log にのみ残す）:
 

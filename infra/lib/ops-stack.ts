@@ -116,9 +116,9 @@ export class OpsStack extends cdk.Stack {
 			displayName: 'がんばりクエスト 運用通知',
 		});
 
-		// #4189 (オーナー決裁 2026-08-03、案 B): 宛先は **Discord に寄せる**。メール
-		// subscription は張らない。転送は下記 OpsAlertForwarder が担い、alarm ごとに
-		// 出す / 出さないを `ops-alert-policy.ts` で判定する（既定は出さない）。
+		// #4189: 宛先は **Discord に寄せる**。メール subscription は張らない。転送は下記
+		// OpsAlertForwarder が担い、alarm ごとに出す / 出さないを `ops-alert-policy.ts` で
+		// 判定する（**既定は出す**。抑止は恒常発火の是正が進行中の alarm に限った例外）。
 		//
 		// `opsEmail` は DsqlStack の Budget 通知（EMAIL 固定の AWS 仕様）でまだ使うため
 		// props 自体は残すが、**本 topic には subscribe しない**。
@@ -188,13 +188,16 @@ export class OpsStack extends cdk.Stack {
 		// P1: Lambda Duration (P99 > 10s)
 		const lambdaDuration = new cloudwatch.Alarm(this, 'LambdaDuration', {
 			alarmName: 'ganbari-quest-lambda-duration-p99',
-			alarmDescription: 'Lambda レイテンシ P99 > 10秒',
+			alarmDescription: 'Lambda レイテンシ P99 > 10秒 (10分連続)',
 			metric: props.lambdaFn.metricDuration({
 				period: cdk.Duration.minutes(5),
 				statistic: 'p99',
 			}),
 			threshold: 10_000,
-			evaluationPeriods: 1,
+			// cold start の単発スパイクで鳴らないよう 2 期間連続を要求する。
+			// 通知を止めるのではなく「何を異常と呼ぶか」を直す (ops-alert-policy.ts §既定は届ける)。
+			evaluationPeriods: 2,
+			datapointsToAlarm: 2,
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		});
 		lambdaDuration.addAlarmAction(alarmAction);
@@ -238,7 +241,7 @@ export class OpsStack extends cdk.Stack {
 		// P1: Lambda Function URL 4xx spike
 		const lambdaUrl4xx = new cloudwatch.Alarm(this, 'LambdaUrl4xx', {
 			alarmName: 'ganbari-quest-lambda-url-4xx-spike',
-			alarmDescription: 'Lambda Function URL 4xx スパイク: 5分間に50回以上',
+			alarmDescription: 'Lambda Function URL 4xx スパイク: 5分間に50回以上が10分連続',
 			metric: new cloudwatch.Metric({
 				namespace: 'AWS/Lambda',
 				metricName: 'Url4xxCount',
@@ -247,7 +250,9 @@ export class OpsStack extends cdk.Stack {
 				statistic: 'Sum',
 			}),
 			threshold: 50,
-			evaluationPeriods: 1,
+			// bot / 未認証アクセス由来の単発スパイクで鳴らないよう 2 期間連続を要求する。
+			evaluationPeriods: 2,
+			datapointsToAlarm: 2,
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		});
 		lambdaUrl4xx.addAlarmAction(alarmAction);

@@ -1,11 +1,13 @@
 // tests/unit/infra/ops-alert-policy.test.ts
 // #4189 — CloudWatch アラームの通知方針が「宣言漏れなく」「理由付きで」保たれることを固定する。
 //
-// ## 何を守るか（オーナー決裁 2026-08-03、案 B）
+// ## 何を守るか（オーナー決裁 2026-08-07 で 2026-08-03 の解釈を是正）
 //
-// 1. **既定で鳴らさない** — 有効性が確認できた alarm だけ Discord に出す（常態化して見飛ばされるのを防ぐ）
-// 2. **宣言漏れを作らない** — OpsStack が作る alarm は全件が方針表に載っている
-// 3. **理由が実質空でない** — 「なぜ今は鳴らさないのか / なぜ鳴らすのか」が書かれている（#4237 と同型）
+// 1. **既定は「届ける」** — alarm を足したら Discord に出るのが既定。全件が無音の状態を作らない
+// 2. **抑止は是正作業中の例外だけ** — `notify: false` は「いま恒常発火していて、その原因を直す作業が
+//    進行中」の場合に限る。reason に **是正 Issue の参照 (`#NNNN`) を必須**にする
+// 3. **宣言漏れを作らない** — OpsStack が作る alarm は全件が方針表に載っている
+// 4. **理由が実質空でない** — 「何がどれくらい鳴っているか / どこで直しているか」が書かれている（#4237 と同型）
 //
 // alarm 名は CDK synth した**実テンプレート**から取る（source の grep ではなく実際に作られるもの）。
 // stack 構築の context stub は `ops-static-assets-alarm.test.ts` を踏襲する。
@@ -114,6 +116,9 @@ function synthAlarmNames(): string[] {
 		.sort();
 }
 
+/** 是正 Issue の参照 (`#NNNN`)。抑止を「作業中の例外」に縛るための必須項目。 */
+const ISSUE_REF = /#\d{3,}/;
+
 describe('#4189 CloudWatch アラームの通知方針', () => {
 	it('[母数] 方針表が空でない', () => {
 		expect(Object.keys(ALARM_NOTIFY_POLICY).length, '方針表が空です').toBeGreaterThan(0);
@@ -133,30 +138,43 @@ describe('#4189 CloudWatch アラームの通知方針', () => {
 		).toEqual([]);
 	});
 
-	it('鳴らす alarm は明示 allow-list と完全一致する (無宣言の昇格・降格を作らない)', () => {
+	it('全 alarm が無音の状態を作らない (既定は「届ける」)', () => {
 		const notifying = Object.entries(ALARM_NOTIFY_POLICY)
 			.filter(([, p]) => p.notify)
 			.map(([n]) => n)
 			.sort();
 
-		// 既定は「鳴らさない」。昇格させるときは reason に根拠を書いたうえで本 allow-list に足す
-		// （増やすこと自体は正しい進行だが、**無宣言で増える / 消える**ことは許さない）。
-		//
-		// - ai-provider-unavailable: オーナー決裁 2026-08-07「AI 不達のアラートは Discord の
-		//   障害通知へ webhook で飛ばすべき」。AI 不達 = 有料機能が事実上死んでいる状態で、
-		//   顧客向け文言 (`POINTS_LABELS.receiptAiUnavailableManaged`) が「運営が検知済み」と伝えている
-		//   ため、届かなければその一文が嘘になる。発生源の log は latch により理由ごとに
-		//   プロセス内 1 回しか出ず、構造的に鳴りっぱなしにならない。
-		//   文言との整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が両方向で縛る。
+		// 抑止を「既定」にすると、全件が notify: false のまま誰にも届かない状態が
+		// 誰の目にも留まらずに成立する（実際に成立した）。既定が「届ける」である以上、
+		// 通知される alarm が 1 件も無い状態は方針の誤用として弾く。
 		expect(
-			notifying,
-			'Discord に出す alarm の集合が変わりました。docs/runbooks/ops-alert-notification.md の' +
-				'昇格 / 降格手順に従い、reason に根拠を書いたうえで本 allow-list を更新してください',
-		).toEqual(['ganbari-quest-ai-provider-unavailable']);
+			notifying.length,
+			'notify: true の alarm が 0 件です。既定は「届ける」であり、全 alarm を無音にすることは' +
+				'方針表の用途ではありません（抑止は恒常発火の是正作業中に限った例外です）',
+		).toBeGreaterThan(0);
 	});
 
-	it('未宣言の alarm 名は「鳴らさない」に倒れる (fail-safe)', () => {
-		expect(shouldNotifyToDiscord('ganbari-quest-undeclared-alarm')).toBe(false);
+	it('notify: false は是正 Issue (#NNNN) の参照が必須 (抑止を作業中の例外に縛る)', () => {
+		const defects = Object.entries(ALARM_NOTIFY_POLICY)
+			.filter(([, p]) => !p.notify)
+			.filter(([, p]) => !ISSUE_REF.test(p.reason))
+			.map(([n]) => n)
+			.sort();
+
+		expect(
+			defects,
+			'notify: false なのに是正 Issue の参照 (#NNNN) が reason にありません。抑止してよいのは' +
+				'「いま恒常発火していて、その原因を直す作業が進行中」の場合だけです。' +
+				'(a) 何がどれくらいの頻度で鳴っているか (b) どの Issue で直しているか を reason に書いてください。' +
+				'書けないなら notify: true にします',
+		).toEqual([]);
+	});
+
+	it('未宣言の alarm 名は「届ける」に倒れる (握り潰さない)', () => {
+		// 宣言漏れは no-silent-gap test が CI で止める。runtime まで漏れた場合に
+		// 黙って捨てると #4119 / #4174 の「経路はあるのに 0 通」を再演するため、
+		// 判断できないものは転送する（転送 Lambda の parse 失敗時の扱いと同じ向き）。
+		expect(shouldNotifyToDiscord('ganbari-quest-undeclared-alarm')).toBe(true);
 	});
 
 	it('no-silent-gap: OpsStack が作る alarm が全件 方針表に載っている', () => {
