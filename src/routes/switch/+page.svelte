@@ -80,6 +80,11 @@ const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
 
+// 画像取得に失敗した子供の id (#4429、`AvatarDisplay.svelte` と同じ理由)。
+// 本画面は {#each} で複数の子供を並べるため、1 枚の失敗が他の子供のアバターを消さないよう
+// 子供ごとに記録する。
+let avatarFailedIds = $state<Record<string, true>>({});
+
 // Issue #2353 Fix 1 (Phase A): pinRequired query 再到達時 modal 自動 open 保証
 // 子供画面から戻って `/switch?pinRequired=1` 再アクセス時、banner だけ残って modal が出ない bug の構造的修正。
 // $state は初期化のみで data.pinRequired の変化に追従しないため、$effect で同期する。
@@ -298,12 +303,15 @@ async function handlePinComplete(details: { valueAsString: string }) {
 							data-testid="child-select-{child.id}"
 							data-theme={themeName}
 						>
-							{#if child.avatarUrl}
+							{#if child.avatarUrl && !avatarFailedIds[String(child.id)]}
 								<img
 									src={child.avatarUrl}
 									alt={child.nickname}
 									class="w-12 h-12 rounded-full object-cover border-2 border-[var(--theme-primary)] shrink-0"
 									loading="lazy"
+									onerror={() => {
+										avatarFailedIds = { ...avatarFailedIds, [String(child.id)]: true };
+									}}
 								/>
 							{:else}
 								<span class="text-[2.5rem] shrink-0">👤</span>

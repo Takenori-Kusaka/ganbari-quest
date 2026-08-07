@@ -23,6 +23,13 @@ interface Props {
 
 let { child, isSelected, href, dataTutorial, formatBalance }: Props = $props();
 
+// 画像取得に失敗したら 👤 に落とす (#4429、`AvatarDisplay.svelte` と同じ理由)。
+let imgFailed = $state(false);
+$effect(() => {
+	void child.avatarUrl;
+	imgFailed = false;
+});
+
 function formatBirthday(dateStr: string): string {
 	// YYYY-MM-DD をそのまま整形する (Date 経由の暦要素導出は runtime TZ 依存、#4127)
 	const [, m, d] = dateStr.split('-').map(Number);
@@ -34,8 +41,16 @@ function formatBirthday(dateStr: string): string {
 	<Card class="child-list-card {isSelected ? 'child-list-card--selected' : ''}">
 		<div class="child-list-card__content">
 			<div class="child-list-card__avatar">
-				{#if child.avatarUrl}
-					<img src={child.avatarUrl} alt={child.nickname} class="child-list-card__avatar-img" loading="lazy" />
+				{#if child.avatarUrl && !imgFailed}
+					<img
+						src={child.avatarUrl}
+						alt={child.nickname}
+						class="child-list-card__avatar-img"
+						loading="lazy"
+						onerror={() => {
+							imgFailed = true;
+						}}
+					/>
 				{:else}
 					<span class="child-list-card__avatar-placeholder">👤</span>
 				{/if}

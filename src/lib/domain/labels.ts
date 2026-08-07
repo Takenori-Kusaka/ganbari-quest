@@ -8606,6 +8606,10 @@ export const STORYBOOK_LABELS = {
 		title: 'ゲーム 30 分',
 		titleLong: 'にちようびに こうえんで あそぶ',
 	},
+	// #4429: AvatarDisplay の見た目確認用。取得失敗時に 👤 へ落ちることを目視できるようにする。
+	avatarDisplay: {
+		nickname: 'たろう',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',

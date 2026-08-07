@@ -24,6 +24,13 @@ export function avatarKey(tenantId: string, childId: ChildId, ext: string): stri
 }
 
 /**
+ * 仮アバターのファイル名 (拡張子を除く)。**内容が差し替わっても URL が変わらない固定名**である
+ * ことが配信側の Cache-Control 判断 (`safeCacheControl`) の入力になるため、キー生成と同じ SSOT を
+ * 共有する (ここを変えれば配信側の判断も自動で追随する)。
+ */
+export const PLACEHOLDER_AVATAR_BASENAME = 'placeholder';
+
+/**
  * 仮アバター用キー (#4413)。
  *
  * 登録時に自動生成する頭文字アバター。**アップロード写真と同じ `avatars/` prefix 配下**に置く:
@@ -33,7 +40,7 @@ export function avatarKey(tenantId: string, childId: ChildId, ext: string): stri
  * ファイル名は childId ごとに固定 (uuid を振らない)。再生成すれば上書きされ、孤児が増えない。
  */
 export function placeholderAvatarKey(tenantId: string, childId: ChildId, ext: string): string {
-	return `tenants/${tenantId}/avatars/${childId}/placeholder.${ext}`;
+	return `tenants/${tenantId}/avatars/${childId}/${PLACEHOLDER_AVATAR_BASENAME}.${ext}`;
 }
 
 /** AI生成画像用キー */

@@ -205,6 +205,13 @@ function clearRecording() {
 }
 
 const avatarSrc = $derived(uploadResult?.avatarUrl ?? child.avatarUrl);
+
+// 画像取得に失敗したら 👤 に落とす (#4429、`AvatarDisplay.svelte` と同じ理由)。
+let imgFailed = $state(false);
+$effect(() => {
+	void avatarSrc;
+	imgFailed = false;
+});
 </script>
 
 <Card padding="none" class="profile-card">
@@ -220,8 +227,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? child.avatarUrl);
 				<h4 class="profile-edit__section-title">{CHILD_PROFILE_CARD_LABELS.avatarSectionTitle}</h4>
 				<div class="profile-edit__avatar-row">
 					<div class="profile-edit__avatar">
-						{#if avatarSrc}
-							<img src={avatarSrc} alt={child.nickname} class="profile-edit__avatar-img" />
+						{#if avatarSrc && !imgFailed}
+							<img
+								src={avatarSrc}
+								alt={child.nickname}
+								class="profile-edit__avatar-img"
+								onerror={() => {
+									imgFailed = true;
+								}}
+							/>
 						{:else}
 							<span class="profile-edit__avatar-placeholder">👤</span>
 						{/if}
@@ -404,8 +418,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? child.avatarUrl);
 		<!-- Profile header -->
 		<div class="profile-header">
 			<div class="profile-header__avatar">
-				{#if avatarSrc}
-					<img src={avatarSrc} alt={child.nickname} class="profile-header__avatar-img" />
+				{#if avatarSrc && !imgFailed}
+					<img
+						src={avatarSrc}
+						alt={child.nickname}
+						class="profile-header__avatar-img"
+						onerror={() => {
+							imgFailed = true;
+						}}
+					/>
 				{:else}
 					<span class="profile-header__avatar-placeholder">👤</span>
 				{/if}
