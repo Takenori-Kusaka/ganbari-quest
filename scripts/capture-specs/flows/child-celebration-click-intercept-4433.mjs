@@ -104,7 +104,13 @@ export default async (page, capture) => {
 		await page
 			.locator(AUTO_OVERLAYS.map((o) => o.overlay).join(', '))
 			.first()
-			.waitFor({ state: 'visible', timeout: 20_000 });
+			.waitFor({ state: 'visible', timeout: 20_000 })
+			.catch(async () => {
+				await capture(`${PREFIX}-${uiMode}-NO-OVERLAY-debug${SUFFIX}`);
+				throw new Error(
+					`${uiMode}: 自動演出が 1 つも出ませんでした (seed 条件を満たしていない可能性)`,
+				);
+			});
 		await capture(`${PREFIX}-${uiMode}-landing${SUFFIX}`);
 
 		// ② 祝福が操作可能な状態になるまで、先に出ている演出を閉じていく
@@ -118,7 +124,7 @@ export default async (page, capture) => {
 				celebrationCaptured = true;
 			}
 			await page.locator(current.close).click();
-			await page.locator(current.overlay).waitFor({ state: 'detached', timeout: 15_000 });
+			await page.locator(current.overlay).waitFor({ state: 'hidden', timeout: 15_000 });
 		}
 
 		// ③ 閉じ切ったホーム — 子供が活動の記録に進める状態
