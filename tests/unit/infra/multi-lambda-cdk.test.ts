@@ -518,6 +518,37 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 	});
 
+	describe('#4397 Gemini 注入撤去', () => {
+		it('geminiApiKey context を渡しても本番 Fn の env に GEMINI_API_KEY が付かない', () => {
+			// #4397: アバターの AI 生成 (子供のニックネーム / 年齢を Google へ送る配線) を廃止した。
+			// repo secret GEMINI_API_KEY は release notes 生成のため残るので、deploy workflow から
+			// context として渡ってきても Lambda env に落ちないことを synth-time に固定する
+			// (「context を渡していないから付かない」だけでは配線の撤去を検証できない)。
+			const app = makeApp();
+			app.node.setContext('geminiApiKey', 'test-gemini-key-should-not-be-wired');
+			const storage = new StorageStack(app, 'GeminiStorage', { env });
+			const compute = new ComputeStack(app, 'GeminiCompute', {
+				env,
+				assetsBucket: storage.assetsBucket,
+				repository: storage.repository,
+			});
+			const template = Template.fromStack(compute as unknown as cdk.Stack);
+
+			const functions = template.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-app' },
+			});
+			expect(Object.keys(functions).length).toBe(1);
+			const prodFnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			const envVars = prodFnDef.Properties.Environment?.Variables ?? {};
+
+			expect(envVars.GEMINI_API_KEY).toBeUndefined();
+			// 対照: 同じ context 経路で注入される env は生きている (検査が空振りしていない)
+			expect(envVars.OPS_SECRET_KEY).toBe('test-ops-secret-key');
+		}, 60_000);
+	});
+
 	describe('production Lambda preservation (zero regression on prod Fn)', () => {
 		it('production Fn は DATA_SOURCE=dsql + AUTH_MODE=cognito を維持する (#3438 Phase 2A)', () => {
 			const template = computeTemplate;
