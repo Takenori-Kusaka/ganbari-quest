@@ -51,7 +51,10 @@ export default async (page, capture) => {
 
 	// 送信 → 一覧に登録した子供が現れるまで待つ (use:enhance で partial update)。
 	await page.getByRole('button', { name: '追加する' }).click();
-	await page.getByText(NICKNAME, { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
+	await page
+		.getByText(NICKNAME, { exact: false })
+		.first()
+		.waitFor({ state: 'visible', timeout: 20_000 });
 
 	// アバター画像 / 👤 プレースホルダの描画完了を待ってから撮る。
 	await page
