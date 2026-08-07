@@ -19,6 +19,8 @@
  *     --presets desktop --pr 4419
  */
 
+import { waitForStablePage } from '../../lib/ci/screenshot-helpers.mjs';
+
 const DEV_OWNER = { email: 'owner@example.com', password: 'Gq!Dev#Owner2026x' };
 const NICKNAME = 'ちゅうがく3ねん';
 
@@ -54,14 +56,20 @@ export default async (page, capture) => {
 	await page.waitForLoadState('networkidle');
 
 	// 追加フォームは折りたたみ。「追加する」トグルを押して開く。
-	// Svelte 5 の hydration 前に押すと無反応なので、hydration を待ってから retry する。
-	await page.waitForTimeout(2_000);
+	// Svelte 5 の hydration 前に押すと無反応なので、描画安定を待ってから retry する
+	// (固定 sleep は使わない — #1208 / waitForStablePage が SSOT)。
+	await waitForStablePage(page);
 	const toggle = page.getByRole('button', { name: '追加する' }).first();
 	await toggle.waitFor({ state: 'visible', timeout: 30_000 });
+	const nicknameInput = page.locator('input[name="nickname"]').first();
 	for (let attempt = 0; attempt < 6; attempt++) {
 		await toggle.click({ timeout: 5_000 }).catch(() => {});
-		if (await page.locator('input[name="nickname"]').first().isVisible()) break;
-		await page.waitForTimeout(1_000);
+		// 開けば即 break。開かなければ待機を兼ねて次の attempt へ (hydration 待ち)。
+		const opened = await nicknameInput
+			.waitFor({ state: 'visible', timeout: 3_000 })
+			.then(() => true)
+			.catch(() => false);
+		if (opened) break;
 	}
 
 	// 登録フォーム: ニックネーム + 年齢 15 (誕生日は未入力 = 顧客が最短で登録する経路)
