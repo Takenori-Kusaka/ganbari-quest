@@ -67,14 +67,6 @@ export const WORKFLOW_JUDGMENTS = [
 	},
 	{
 		workflow: 'pr-quality-gate.yml',
-		job: 'design-doc-check',
-		delegation: 'script',
-		module: 'scripts/check-design-doc-sync.mjs',
-		functions: ['checkDesignDocSync'],
-		reason: 'ADR-0001 設計書同期。既に委譲済 (本 registry は現状の固定)',
-	},
-	{
-		workflow: 'pr-quality-gate.yml',
 		job: 'screenshot-quality-check',
 		delegation: 'script',
 		module: 'scripts/check-pr-screenshot.mjs',

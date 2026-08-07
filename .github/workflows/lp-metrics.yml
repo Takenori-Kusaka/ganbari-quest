@@ -29,6 +29,12 @@ concurrency:
 #   GitHub Actions native filter で trigger 自体を絞る方式に再構成した。
 
 on:
+  # base を絞らない。`measure` job の context 名
+  # `Measure LP dimensions and lint forbidden terms` は develop-light-lane ruleset の
+  # required に登録されており、**workflow が trigger されないと context 自体が生成されず
+  # required が永久に未達**になる (base=develop の全 PR が merge 不能になる)。
+  # LP 非関連 PR では job 内で skip され SKIPPED を報告する。GitHub は SKIPPED を
+  # required 充足として扱うため、trigger は絞らず job 内で skip させるのが正しい形。
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
@@ -37,10 +43,6 @@ on:
     paths:
       - "site/**"
       - "scripts/measure-lp-dimensions.mjs"
-      - "scripts/check-lp-removal-residue.mjs"
-      - "scripts/lp-removal-residue-baseline.json"
-      - "scripts/check-lp-inline-style.mjs"
-      - "scripts/lp-inline-style-baseline.json"
       - "src/lib/data/marketplace/activity-packs/**"
       # NOTE: scripts/sync-lp-fallback.mjs / labels.ts / terms.ts は
       # lp-fallback-check.yml の paths filter 側で trigger される (PR #2073)。
@@ -113,64 +115,6 @@ jobs:
         with:
           name: lp-metrics
           path: lp-metrics.json
-          retention-days: 30
-
-  removal-residue:
-    name: Check LP removal residue (orphan refs)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
-    timeout-minutes: 5
-    # #1790: 削除/圧縮 PR が残した orphan reference (data-lp-key / 画像参照) を検出。
-    # baseline 設計: 既存 violation は scripts/lp-removal-residue-baseline.json に保存し、
-    # 新規 1 件でも追加されれば fail させる。bypass フラグなし。
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Check if residue-relevant files changed
-        id: residue-changed
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            if (context.eventName !== 'pull_request') {
-              core.setOutput('changed', 'true');
-              return;
-            }
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const residuePattern = /^site\/|^scripts\/check-lp-removal-residue\.mjs$|^scripts\/lp-removal-residue-baseline\.json$|^\.github\/workflows\/lp-metrics\.yml$|^src\/lib\/domain\/labels\.ts$/;
-            const changed = files.some(f => residuePattern.test(f.filename));
-            if (!changed) {
-              core.info('✅ LP residue 関連ファイルの変更なし — スキップ');
-            }
-            core.setOutput('changed', changed ? 'true' : 'false');
-
-      - name: Setup Node.js
-        if: steps.residue-changed.outputs.changed == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-
-      - name: Run LP removal residue check
-        if: steps.residue-changed.outputs.changed == 'true'
-        run: node scripts/check-lp-removal-residue.mjs
-
-      - name: Run LP removal residue check (json artifact)
-        if: always() && steps.residue-changed.outputs.changed == 'true'
-        run: node scripts/check-lp-removal-residue.mjs --json > lp-removal-residue.json || true
-
-      - name: Upload residue artifact
-        if: always() && steps.residue-changed.outputs.changed == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: lp-removal-residue
-          path: lp-removal-residue.json
           retention-days: 30
 
   cumulative-lp-metrics:
@@ -300,70 +244,6 @@ jobs:
                 ? `\n**warnings:**\n${warnings.map(w => `- ${w}`).join('\n')}\n`
                 : '')
               .write();
-
-  inline-style-check:
-    # #1851 Phase 2: site/*.html <style> ブロック内の直書き padding/margin baseline pin
-    #
-    # 目的:
-    #   #1839 / PR #1850 (Phase 1) で `--lp-*` Semantic トークンを整備した。
-    #   本ジョブは「次回 LP 改修で新たに直書き padding/margin を増やすこと」を検出する。
-    #   構造的 spacing は Semantic 経由で参照されるべき (ADR-0042)。
-    #
-    # 設計:
-    #   既存ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) は
-    #   scripts/lp-inline-style-baseline.json に pin。
-    #   新規 violation 1 件で fail。意図的増加時のみ --update-baseline で更新。
-    name: Check LP inline style (--lp-* trespass detection)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Check if inline-style-relevant files changed
-        id: inline-changed
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            if (context.eventName !== 'pull_request') {
-              core.setOutput('changed', 'true');
-              return;
-            }
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const inlinePattern = /^site\/.+\.html$|^site\/shared\.css$|^scripts\/check-lp-inline-style\.mjs$|^scripts\/lp-inline-style-baseline\.json$|^\.github\/workflows\/lp-metrics\.yml$/;
-            const changed = files.some(f => inlinePattern.test(f.filename));
-            if (!changed) {
-              core.info('LP inline-style 関連ファイルの変更なし — スキップ');
-            }
-            core.setOutput('changed', changed ? 'true' : 'false');
-
-      - name: Setup Node.js
-        if: steps.inline-changed.outputs.changed == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-
-      - name: Run LP inline-style check
-        if: steps.inline-changed.outputs.changed == 'true'
-        run: node scripts/check-lp-inline-style.mjs
-
-      - name: Run LP inline-style check (json artifact)
-        if: always() && steps.inline-changed.outputs.changed == 'true'
-        run: node scripts/check-lp-inline-style.mjs --json > lp-inline-style.json || true
-
-      - name: Upload inline-style artifact
-        if: always() && steps.inline-changed.outputs.changed == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: lp-inline-style
-          path: lp-inline-style.json
-          retention-days: 30
 
   # lp-fallback-check ジョブは別 workflow に切り出し済 (PR #2073)。
   # → .github/workflows/lp-fallback-check.yml を参照

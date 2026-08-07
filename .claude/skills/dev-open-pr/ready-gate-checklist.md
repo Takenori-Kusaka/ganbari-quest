@@ -22,7 +22,7 @@ Wave 1 (#1969 / #1970 等) で 4 Agent 連続して同じ 4 種類の CI gate �
 `priority:critical` / `hotfix` label PR は urgency 文脈で 4 PR 連続 fail (#2318 / #2340 / #2341 / #2342) した教訓に基づき、Ready 化前に以下 4 種を**順次**実行:
 
 ```bash
-# 1. PR body 全体 (必須セクション 11 件 / AC マップ / 禁止語 / hotfix 配布証跡欄強化チェック)
+# 1. PR body 全体 (必須セクション 7 件 / 禁止語 / hotfix 配布証跡欄強化チェック)
 #    Ready 化前 = PR は既に存在するので --pr を渡し、label は PR の実値を使う (#3983)。
 #    --labels は「手で主張した label」なので、間違っていても検出できない。
 #    実 label に po-decision:required が付いていれば PO 決裁ブリーフ gate もここで発火する。
@@ -86,19 +86,15 @@ gh pr checks <num> --watch
 
 **必須セクション (削除禁止、`## QM レビュー結果` も SSOT 内)**:
 
-SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 11 件 (#4097 で 13 → 11、template 更新時は `scripts/check-pr-template-sections-sync.mjs --fix` で再生成):
+SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 7 件 (template 更新時は `scripts/check-pr-template-sections-sync.mjs --fix` で再生成):
 
-1. `## 顧客価値・目的` (3 field すべて記入。プレースホルダー残置は CI hard-fail)
+1. `## 顧客価値・目的` (プレースホルダー残置は CI hard-fail)
 2. `## 関連 Issue`
-3. `## AC 検証マップ (ADR-0004)`
-4. `## 変更タイプ` (1 つ以上 `[x]`)
-5. `## 影響範囲・横展開チェック`
-6. `## テスト・品質セルフチェック` (結果表の「結果」列を全行記入。placeholder 残置は CI hard-fail)
-7. `## スクリーンショット / ビジュアルデモ`
-8. `## レビュー依頼事項・破壊的変更`
-9. `## 配布済み env / secret (ADR-0006)`
-10. `## Ready for Review チェックリスト`
-11. `## QM レビュー結果` (QM 記入欄、Dev は雛形のまま残す)
+3. `## 変更内容`
+4. `## 検証`
+5. `## 影響範囲`
+6. `## 配布済み env / secret (ADR-0006)`
+7. `## QM レビュー結果` (QM 記入欄、Dev は雛形のまま残す)
 
 **確認方法**:
 ```bash

@@ -477,17 +477,19 @@ export function checkNgZeroDeclaration(body) {
  * @returns {AcCheckResult}
  */
 export function checkAcVerification({ body, labels, lane }) {
-	const skip = shouldSkip({ body, labels, lane });
-	if (skip.skip) {
-		return { ok: true, lane, reason: `skip: ${skip.reason}` };
-	}
-
 	if (lane === 'integration') {
+		const skip = shouldSkip({ body, labels, lane });
+		if (skip.skip) {
+			return { ok: true, lane, reason: `skip: ${skip.reason}` };
+		}
 		return checkIntegrationEvidenceTable(body);
 	}
-	// feature / hotfix / dependabot（dependabot は job-level if で skip されるため通常到達しないが、
-	// 到達した場合も per-PR AC マップ観点で評価する。観点切替は integration のみ）。
-	return checkPerPrAcMap(body, lane === 'hotfix' ? 'hotfix' : 'feature');
+	// feature / hotfix / dependabot: AC map verification is removed as part of Issue #4305.
+	return {
+		ok: true,
+		lane,
+		reason: 'feature/hotfix lane: AC verification map check has been removed (#4305)',
+	};
 }
 
 // --- CLI（ローカル検証用。PR_BODY / PR_LABELS / PR_LANE を env or argv で受ける）---
