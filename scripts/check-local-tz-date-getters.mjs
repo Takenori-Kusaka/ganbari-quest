@@ -129,6 +129,14 @@ export const EXCLUDED_ROOTS = [
 			'Graphify が生成するナレッジグラフ成果物 (graph.json / graph.html / manifest.json)。' +
 			'AST 解析結果のデータであり、実行されるコードを含まない (#4291)',
 	},
+	{
+		root: 'tmp',
+		reason: 'ローカル作業用の一時ディレクトリ。実行されるコードを含まない',
+	},
+	{
+		root: 'infra/cdk.out',
+		reason: 'CDKビルド・デプロイ用の一時出力ディレクトリ。実行されるコードを含まない',
+	},
 ];
 
 /** 走査対象拡張子 */

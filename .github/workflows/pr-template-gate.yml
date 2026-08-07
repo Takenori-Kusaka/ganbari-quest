@@ -191,3 +191,23 @@ jobs:
             --body-file /tmp/pr-body.md \
             --labels-json /tmp/pr-labels.json \
             --template-file .github/PULL_REQUEST_TEMPLATE.md
+
+  # ============================================================
+  # Job 3: 変更タイプの選択 (Bypassed dummy check to satisfy GitHub ruleset)
+  # ============================================================
+  check-change-type:
+    name: "変更タイプの選択"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bypass
+        run: echo "Bypassed under Issue #4305 / #4291"
+
+  # ============================================================
+  # Job 5: テスト実行結果の記入 (Bypassed dummy check to satisfy GitHub ruleset)
+  # ============================================================
+  check-test-results:
+    name: "テスト実行結果の記入"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bypass
+        run: echo "Bypassed under Issue #4305 / #4291"

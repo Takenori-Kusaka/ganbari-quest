@@ -36,6 +36,7 @@ on:
   # LP 非関連 PR では job 内で skip され SKIPPED を報告する。GitHub は SKIPPED を
   # required 充足として扱うため、trigger は絞らず job 内で skip させるのが正しい形。
   pull_request:
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
@@ -244,6 +245,3 @@ jobs:
                 ? `\n**warnings:**\n${warnings.map(w => `- ${w}`).join('\n')}\n`
                 : '')
               .write();
-
-  # lp-fallback-check ジョブは別 workflow に切り出し済 (PR #2073)。
-  # → .github/workflows/lp-fallback-check.yml を参照
