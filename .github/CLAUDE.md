@@ -35,7 +35,7 @@ AI エージェントも 4 フィールド全て埋める。`Blocked by` 未解�
 
 - **base branch は develop 二層**（`docs/sessions/branch-strategy.md` §3/§5、#2870 cutover / #2959）: feature/fix/docs PR = `--base develop` 必須 / hotfix（`fix/*` from main）のみ `--base main`。**統合 PR は `release/*`（develop の凍結コミットから cut）→ main**（release ブランチ方式、branch-strategy.md §3.1 / #3063。動く標的問題の構造的解消）。`--base` 省略は default branch（main）向けになり `main-pr-base-guard` で fail する。`main-pr-base-guard` は head=`develop` / `release/*` / `fix/*` のみ許可。base 判定 SSOT: `node scripts/lib/ci/resolve-base-branch.mjs`
 - `gh pr create --draft --base develop` で作成 → CI 全通過後 `gh pr ready <num>` で Ready 化（#1074）
-- CI 失敗で Ready にすると `draft-on-ci-fail.yml` が自動 Draft 戻し
+- **CI 失敗時に自動で Draft へ戻す workflow は無い**。CI が赤いまま Ready にしないのは出す側の責任（`npm run pre-ready -- --pr <num>` と `gh pr checks <num>` で確認してから Ready 化する）
 - Dependabot PR は non-draft 自動作成、auto-merge 運用
 
 ### Dependabot CI exempt（#1808）
@@ -72,25 +72,15 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 
 免除: Dependabot / docs-only 同士
 
-## issue-close-gate auto-reopen の挙動（ADR-0004 §4 / #2351）
+## Issue close 時の AC 検証（ADR-0004 §4 / #2351）
 
-`.github/workflows/issue-close-gate.yml` は **手動 close** のみを AC 検証対象とし、**PR/Commit 経由 auto-close は skip** する (2026-05-21 改修):
+**close 経路を判定して auto-reopen する workflow は現在存在しない。** 手動 close (`gh issue close` / GitHub UI) に CI gate は掛からないので、**AC 未達のまま close できてしまう**。AC 検証は PR 側 (`pr-ac-verification-check.yml`) と close する人のレビューで担保する。
 
-| close 経路 | gate 挙動 |
-|---|---|
-| PR の `Closes #N` keyword（default branch=main 向け PR、例 hotfix）で auto-close | **skip** (PR Ready チェックリストで検証済み) |
-| squash merge commit message の `Closes #N` keyword が main に到達して auto-close | **skip** (PR 経由と同等) |
-| `gh issue close` / GitHub UI ボタンで手動 close | **AC 検証 gate を通す** (`- [ ]` 残存で reopen) |
-| `wontfix` / `duplicate` ラベル付き close | **skip** (従来通り) |
+close 経路の判定純粋関数 `scripts/issue-close-gate-skip-judge.mjs` は残っているが、これを実行する workflow は無い（`integration-pr.yml` / `integration-pr-body.mjs` はコメントで挙動を参照するのみ）。
 
-> **develop 二層での実態（#3119 / #3123 / #3423）**: 上 2 行の auto-close 経路は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**個別 PR の develop merge では auto-close 経路はほぼ発火せず、個別 close はほぼ全て下段の手動 close 経路（AC gate を通る）になる**。一方 **develop→main 統合 PR（release/* → main）の merge commit には #3423 で含有 PR の `Closes #N` が集約される**ため、上 2 行（PR/commit keyword auto-close → gate skip）が発火し、含有 issue が一括 auto-close される（AC gate reopen は起きない）。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。`Closes #N` を明示した main 向け hotfix PR / commit も上 2 行に該当する。
+> **develop 二層での Issue close の実態（#3119 / #3123 / #3423）**: GitHub の auto-close は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**個別 PR の develop merge では auto-close はほぼ発火せず、個別 close はほぼ全て手動 close になる**。一方 **develop→main 統合 PR（release/* → main）の merge commit には #3423 で含有 PR の `Closes #N` が集約される**ため、含有 issue が一括 auto-close される。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。
 
-判定純粋関数: `scripts/issue-close-gate-skip-judge.mjs` (unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`)。
-
-### 運用への影響
-
-- **PR merge 後の Issue auto-close**: 旧挙動では generic Done check (`- [ ]` 5 行) が残ったまま reopen ループしていたが、改修後は AC gate を素通り → reopen 発生せず
-- **手動 close (`gh issue close <N>`)**: 引き続き AC 検証 gate を通す。意図的な残存は `wontfix` / `duplicate` ラベルで bypass
+判定純粋関数の unit test: `tests/unit/github/issue-close-gate-skip-judge.test.ts`。
 
 詳細: [ADR-0004 §4](../docs/decisions/0004-review-and-ac-verification.md)
 
