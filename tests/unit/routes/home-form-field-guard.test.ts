@@ -32,7 +32,7 @@ vi.mock('$lib/server/services/activity-pin-service', () => ({
 }));
 
 const mockClaimChildChallengeReward = vi.fn();
-const mockMarkChallengeCelebrationShown = vi.fn(async () => true);
+const mockMarkChallengeCelebrationShown = vi.fn(async (..._args: unknown[]) => true);
 vi.mock('$lib/server/services/child-challenge-service', () => ({
 	claimChildChallengeReward: (...args: unknown[]) => mockClaimChildChallengeReward(...args),
 	getActiveChildChallengesWithSiblings: vi.fn(),
