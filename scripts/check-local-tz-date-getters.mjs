@@ -309,7 +309,7 @@ export const UTC_CALENDAR_SLICE =
  *   - `` `${year}-${String(month).padStart(2, '0')}` `` のように **数値の年 / 月から**キーを組む形。
  *     実時刻からの導出ではない (入力が既に暦要素) ため本クラスに属さない
  */
-export const CALENDAR_REIMPL =
+export const CALENDAR_OUTSIDE_SSOT =
 	/\.(get|set)UTC(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)\s*\(|\bDate\s*\.\s*UTC\s*\(/;
 
 /**
@@ -317,7 +317,7 @@ export const CALENDAR_REIMPL =
  * `new Date(now.getTime() + 9 * 60 * 60 * 1000)` は `toJSTDateString()` の手動再実装であり、
  * JST の定義が `date-utils.ts` の 1 箇所に無い状態を作る。
  */
-export const JST_OFFSET_REIMPL =
+export const JST_OFFSET_REDEFINED =
 	/\b9\s*\*\s*60\s*\*\s*60\s*\*\s*1000\b|\b9\s*\*\s*3600\s*\*\s*1000\b|\b540\s*\*\s*60\s*\*\s*1000\b|\b32400000\b/;
 
 /**
@@ -581,7 +581,7 @@ export function findAllowlistIntegrityProblems(occurrencesByFile = new Map()) {
 			// 「UTC を意図的に選んでいる」以上、プロセス TZ 依存が混じっていてはならない。
 			// 自由文の宣言ではなく occurrence の kind で構造的に検査する。
 			const tzDependent = (occurrencesByFile.get(e.file) ?? []).filter(
-				(o) => o.kind !== 'calendar-reimpl',
+				(o) => o.kind !== 'calendar-outside-ssot',
 			);
 			for (const o of tzDependent) {
 				problems.push({
@@ -627,14 +627,14 @@ export function isCommentLine(line) {
  *
  * @param {string} line
  * @param {string} [lookahead] 続く数行を連結したもの (option object の続き)
- * @returns {{kind: 'tz-dependent-member'|'utc-calendar-slice'|'implicit-locale-tz'|'calendar-reimpl'|'jst-offset-reimpl'} | null}
+ * @returns {{kind: 'tz-dependent-member'|'utc-calendar-slice'|'implicit-locale-tz'|'calendar-outside-ssot'|'jst-offset-redefined'} | null}
  */
 export function classifyLine(line, lookahead = '') {
 	if (isCommentLine(line)) return null;
-	if (JST_OFFSET_REIMPL.test(line)) return { kind: 'jst-offset-reimpl' };
+	if (JST_OFFSET_REDEFINED.test(line)) return { kind: 'jst-offset-redefined' };
 	if (UTC_CALENDAR_SLICE.test(line)) return { kind: 'utc-calendar-slice' };
 	if (ISO_STRING_CALENDAR_SLICE.test(line)) return { kind: 'utc-calendar-slice' };
-	if (CALENDAR_REIMPL.test(line)) return { kind: 'calendar-reimpl' };
+	if (CALENDAR_OUTSIDE_SSOT.test(line)) return { kind: 'calendar-outside-ssot' };
 	const hasTimeZone = HAS_EXPLICIT_TIME_ZONE.test(line) || HAS_EXPLICIT_TIME_ZONE.test(lookahead);
 	if (INTL_DATE_TIME_FORMAT.test(line) && !hasTimeZone) return { kind: 'implicit-locale-tz' };
 	if (DATE_RECEIVER_AMBIGUOUS_CALL.test(line) && !hasTimeZone)

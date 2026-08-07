@@ -311,19 +311,19 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 	describe('#4120 SSOT 逸脱の検出 (TZ 不変でも date-utils の外なら落ちる)', () => {
 		it.each([
 			// 週頭の再実装 (stamp-card-service.getWeekRange の実物)
-			['const day = d.getUTCDay();', 'calendar-reimpl'],
-			['monday.setUTCDate(d.getUTCDate() + diffToMonday);', 'calendar-reimpl'],
+			['const day = d.getUTCDay();', 'calendar-outside-ssot'],
+			['monday.setUTCDate(d.getUTCDate() + diffToMonday);', 'calendar-outside-ssot'],
 			// 暦日文字列の自前組み立て (child-challenge / plan-limit の実物)
 			[
 				`return \`\${dt.getUTCFullYear()}-\${String(dt.getUTCMonth() + 1).padStart(2, '0')}\`;`,
-				'calendar-reimpl',
+				'calendar-outside-ssot',
 			],
-			['const dt = new Date(Date.UTC(y, m - 1, d));', 'calendar-reimpl'],
+			['const dt = new Date(Date.UTC(y, m - 1, d));', 'calendar-outside-ssot'],
 			// jstHour の再実装 (checklist-service / notification-service の実物)
-			['const jstHour = (now.getUTCHours() + 9) % 24;', 'calendar-reimpl'],
+			['const jstHour = (now.getUTCHours() + 9) % 24;', 'calendar-outside-ssot'],
 			// JST オフセットの再定義 (scripts/generate-version.ts の実物)
-			['const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);', 'jst-offset-reimpl'],
-			['const t = new Date(Date.now() + 32400000);', 'jst-offset-reimpl'],
+			['const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);', 'jst-offset-redefined'],
+			['const t = new Date(Date.now() + 32400000);', 'jst-offset-redefined'],
 			// ISO timestamp を切って暦日にする形 (export-service / 履歴ページの実物)
 			["recordedDate: log.recordedAt.split('T')[0],", 'utc-calendar-slice'],
 			['const date = log.recordedAt.slice(0, 10);', 'utc-calendar-slice'],
@@ -361,7 +361,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 				'}',
 			].join('\n');
 			const found = findOccurrencesInContent('src/lib/server/services/rogue-service.ts', content);
-			expect(found.map((f) => f.kind)).toEqual(['jst-offset-reimpl', 'calendar-reimpl']);
+			expect(found.map((f) => f.kind)).toEqual(['jst-offset-redefined', 'calendar-outside-ssot']);
 			expect(evaluateOccurrences(found)[0]?.kind).toBe('not-allowlisted');
 		});
 	});
