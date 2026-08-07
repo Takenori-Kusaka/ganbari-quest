@@ -43,12 +43,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const result = await ocrReceipt(image, mimeType);
 
 	if ('error' in result) {
-		if (result.error === 'NO_API_KEY') {
+		// AI 側の事情 (未設定 / 権限なし / キー不正) は 503 + 手入力導線。画像起因の失敗 (422) と
+		// 混ぜると顧客が撮り直しを繰り返す (#4366)。
+		if (result.error === 'AI_UNAVAILABLE') {
 			return json(
 				{
 					error: {
 						code: 'AI_UNAVAILABLE',
-						message: 'AI読み取り機能は現在利用できません。金額を手入力してください。',
+						message: POINTS_LABELS.receiptAiUnavailable,
 					},
 				},
 				{ status: 503 },

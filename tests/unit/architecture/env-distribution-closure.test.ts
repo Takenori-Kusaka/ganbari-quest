@@ -381,7 +381,6 @@ const NOT_DISTRIBUTED: Array<{
 			'SCHEMA_VALIDATION_MODE',
 			'LOG_LEVEL',
 			'GEMINI_MODEL',
-			'BEDROCK_MODEL_ID',
 			'BEDROCK_REGION',
 			'BEDROCK_DISABLED',
 			'VAPID_SUBJECT',
@@ -397,6 +396,12 @@ const NOT_DISTRIBUTED: Array<{
 		readers: ['app-dynamic-env'],
 		keys: ['PRICING_TRIGGER_MIN_PAID_USERS', 'SKIP_LOCAL_EMAIL_PREVIEW'],
 		why: '既定値のまま動く上書き用の env。未設定が正常系で、開発時にだけ設定する',
+	},
+	{
+		readers: ['app-env-schema'],
+		keys: ['BEDROCK_MODEL_ID'],
+		why: '配ることが「この環境で Bedrock を使う」の意思表示 (#4366)。未配布は異常ではなく "AI 提案を持たない環境" で、BedrockClaudeProvider.isAvailable() が false を返し全 service がキーワード提案に縮退する。既定値で暗黙に有効化すると、未配線と設定済みが区別できず AI が無言で不作動になる (#4366 の欠陥そのもの)。AWS で Bedrock を有効化するか Gemini に寄せるかはオーナー判断',
+		followUp: '#4367',
 	},
 	{
 		readers: ['app-env-schema'],

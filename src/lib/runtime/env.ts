@@ -152,10 +152,14 @@ const envSchema = z.object({
 	VAPID_SUBJECT: z.string().default('mailto:noreply@ganbari-quest.com'),
 
 	// ----- AI Provider -----
-	AI_PROVIDER: z.enum(['gemini', 'bedrock', 'mock']).optional(),
+	// #4366 AC3: schema が通す値と factory が処理する値を一致させる。'mock' provider は実装が
+	// 存在せず、指定しても factory が bedrock にフォールバックしていた (受理したのに効かない)。
+	AI_PROVIDER: z.enum(['gemini', 'bedrock']).optional(),
 	GEMINI_API_KEY: z.string().optional(),
 	GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
-	BEDROCK_MODEL_ID: z.string().default('us.anthropic.claude-haiku-4-5-20251001-v1:0'),
+	// #4366 AC1: 既定値を持たせない。**配られていること自体が「この環境で Bedrock を使う」の
+	// 意思表示**であり、既定値があると未配線と設定済みが区別できない (isAvailable() が嘘をつく)。
+	BEDROCK_MODEL_ID: z.string().optional(),
 	BEDROCK_REGION: z.string().optional(),
 	BEDROCK_DISABLED: booleanStringSchema,
 

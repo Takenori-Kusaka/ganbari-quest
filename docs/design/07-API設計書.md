@@ -1020,7 +1020,17 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 レシート画像を OCR で読み取り、金額を抽出する。
 
-**AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。Bedrock 未利用時は `NO_API_KEY` エラーを返す。
+**AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。provider は `AI_PROVIDER` で切替（`bedrock` 既定 / `gemini`）。
+
+**失敗理由の区別（#4366）:** 顧客に伝える内容が変わるため、AI 側の事情と画像側の事情を混ぜない。
+
+| 状況 | HTTP | `error.code` | 顧客向けの意味 |
+|---|---|---|---|
+| AI が設定されていない（`BEDROCK_MODEL_ID` / `GEMINI_API_KEY` 未配布、`BEDROCK_DISABLED=true`） | 503 | `AI_UNAVAILABLE` | 撮り直しを促さず手入力へ誘導する |
+| AI 呼び出しが権限・資格情報・モデル未存在で失敗（`AccessDeniedException` 等） | 503 | `AI_UNAVAILABLE` | 同上（顧客の画像は無関係） |
+| 画像から金額を読み取れなかった / 一時的失敗 | 422 | `OCR_FAILED` | 撮り直すか手入力する |
+
+内部例外メッセージはレスポンスに載せない（ADR-0062 §2）。可用性の判定契約は `AiProvider.isAvailable()`（`src/lib/server/ai/provider.ts`）を参照。`false` は「呼んでも無駄」の確定、`true` は「設定が配られている」までの保証で、権限の有無は呼ぶまで確定しない。
 
 **画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。受理上限の元定数は `RECEIPT_MAX_IMAGE_BYTES`（`src/lib/server/services/receipt-ocr-service.ts`、5MB）を SSOT とし、route の reject 判定と撮影ボタン note の表示値を同一値から導出する。
 

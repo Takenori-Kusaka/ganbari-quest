@@ -3244,6 +3244,11 @@ export const POINTS_LABELS = {
 	receiptConfirmButton: 'この金額で変換する',
 	receiptConfirmedLabel: '金額確定済み',
 	receiptRetakeOtherButton: '別の領収書を撮影する',
+	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
+	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
+	receiptAiUnavailable: 'AI読み取り機能は現在利用できません。金額を手入力してください。',
+	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
+	receiptAmountNotFound: '金額を読み取れませんでした',
 
 	// 変換プレビュー
 	convertPreviewBalance: (current: string, after: string) => `残高: ${current} → ${after}`,
