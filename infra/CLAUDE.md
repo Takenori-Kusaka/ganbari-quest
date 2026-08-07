@@ -108,7 +108,7 @@ AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resol
 
 実害 (#4117 E1): 検証のため手で注入した `STRIPE_PRICE_*_MONTHLY` が full staging deploy (success) を跨いで残り、「staging で checkout が通る」ことが `#4286` の修正の証拠にならない状態が続いた。
 
-**機械強制**: `scripts/check-lambda-env-drift.mjs` が deploy の最後に `live の env キー ⊆ (CDK テンプレートのキー ∪ 実行時解決キー)` を assert する (`deploy-aws-staging.yml` Step 13.5)。値は読まずキー名だけで判定する。
+**機械強制**: `scripts/check-lambda-env-drift.mjs` が deploy job の **末尾** (PII guard / DSQL 並行検証より後) で `live の env キー ⊆ (CDK テンプレートのキー ∪ 実行時解決キー)` を assert する (`deploy-aws-staging.yml` / `deploy.yml`)。値は読まずキー名だけで判定する。staging は env を synth 出力のキー集合で全上書きするため `--strict` (欠落も fail) を付ける。**この判定を行う step は 1 本だけにする** — 2 本置くと基準が食い違ったときに一方 pass・一方 fail となり、どちらが正か決められない。
 
 - 正式な設定なら **CDK (`infra/lib/compute-stack.ts`) に足す**。上記「新規 env 追加時 PR チェックリスト」に従う
 - deploy 後に解決して足す env を新設する場合は、`check-lambda-env-drift.mjs` の `RUNTIME_RESOLVED_KEYS` に追記する (追記しないと deploy が落ちる)
