@@ -7550,6 +7550,10 @@ export const FEATURES_LABELS = {
 		celebrationTitle: 'みんなクリア！',
 		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
 		celebrationCloseBtn: 'とじる',
+		// #4410 AC4: 閉じたあとどこで受け取るのかをダイアログ内で示す。claim ボタン自体は
+		// 戻さない (#3333 の二重導線排除を壊さない) — 場所の案内だけを置く。
+		celebrationClaimHint:
+			'ごほうびは とじたあと したの「🎁 ほうしゅうをうけとる！」ボタンから うけとれるよ',
 		// #3361 (ux-4): claim 失敗時の可視フィードバック (dead-end 回避、NN/G #1)
 		claimErrorTitle: 'うけとれなかったよ',
 		claimErrorFallback: 'もういちど ためしてね',

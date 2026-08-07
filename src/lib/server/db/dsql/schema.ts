@@ -898,6 +898,9 @@ export const childChallenges = pgTable(
 		completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
 		rewardClaimed: boolean('reward_claimed').notNull().default(false),
 		rewardClaimedAt: timestamp('reward_claimed_at', { mode: 'string', withTimezone: true }),
+		// #4410: 達成祝福 (SiblingCelebration) を「見せた」記録。NULL = 未表示。
+		// 祝福表示の停止条件はこの列のみが持つ (reward_claimed とは独立、AC3)。SQLite SSOT と parity。
+		celebrationShownAt: timestamp('celebration_shown_at', { mode: 'string', withTimezone: true }),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),

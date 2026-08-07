@@ -124,14 +124,13 @@ $effect(() => {
 let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
-// #2458-B: per-child instance に flip。自身の instance の rewardClaimed と group 全完了で判定。
-const celebrationChallenge = $derived(
-	data.activeChallenges?.find(
-		(c: { allCompleted: boolean; rewardClaimed: number; childId: ChildId }) =>
-			c.allCompleted && c.childId === (data.child?.id ?? '') && c.rewardClaimed === 0,
-	) ?? null,
-);
-let showCelebration = $state(true);
+// #2458-B: per-child instance に flip。
+// #4410: 表示可否の根拠は **load 側** (`resolveCelebrationChallenge`、celebration_shown_at IS NULL)
+// に移した。旧実装は `showCelebration = $state(true)` がマウントのたび true に戻るため、ホームに
+// 入るたび全画面モーダルが割り込んでいた (ADR-0012 anti-engagement 違反)。local state は「閉じた
+// 直後に即座に消す」ためだけの一時 flag で、次の load では data 側が null を返して出なくなる。
+const celebrationChallenge = $derived(data.celebrationChallenge ?? null);
+let celebrationDismissed = $state(false);
 
 // #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
 // per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
@@ -427,13 +426,29 @@ function handleStampPressClose() {
 	invalidateAll();
 }
 
+/**
+ * #4410 AC6 (同 class 横展開): 「見せた」記録の POST を握り潰さない。
+ *
+ * 旧実装は `catch {}` で network 失敗も HTTP エラーも黙って捨てていたため、失敗すると
+ * #4410 と同じ「毎回出る」症状になり、しかも原因が観測できなかった。ここでは
+ *   (a) HTTP ステータスも失敗として扱い、(b) 1 回だけ再送し、(c) それでも駄目なら warn を残す。
+ * 最終的に失敗しても画面は壊さず次回もう一度出す (安全側 = 無音の消失より再掲、#4261 と同方針)。
+ */
+async function postShown(url: string): Promise<void> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			const res = await fetch(url, { method: 'POST' });
+			if (res.ok) return;
+		} catch {
+			// 次の attempt で再送する
+		}
+	}
+	console.warn(`[child-home] 表示済みの記録に失敗しました (次回もう一度表示されます): ${url}`);
+}
+
 async function handleMessageClose() {
 	if (data.latestMessage) {
-		try {
-			await fetch(`/api/v1/messages/${data.latestMessage.id}/shown`, { method: 'POST' });
-		} catch {
-			// ignore
-		}
+		await postShown(`/api/v1/messages/${data.latestMessage.id}/shown`);
 	}
 	fsm.close();
 	invalidateAll();
@@ -441,11 +456,7 @@ async function handleMessageClose() {
 
 async function handleRewardClose() {
 	if (data.latestReward) {
-		try {
-			await fetch(`/api/v1/special-rewards/${data.latestReward.id}/shown`, { method: 'POST' });
-		} catch {
-			// ignore
-		}
+		await postShown(`/api/v1/special-rewards/${data.latestReward.id}/shown`);
 	}
 	fsm.close();
 }
@@ -1077,14 +1088,16 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {/if}
 
 <!-- Sibling celebration (all siblings complete, non-baby) -->
-{#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
+{#if f.showSiblingFeatures && !celebrationDismissed && celebrationChallenge}
 	<SiblingCelebration
+		challengeId={celebrationChallenge.id}
 		challengeTitle={celebrationChallenge.title}
+		showClaimHint={celebrationChallenge.rewardClaimed === 0}
 		siblings={celebrationChallenge.siblings.map((s: { childId: ChildId; completed: number }) => ({
 			name: data.allChildren?.find((c: { id: ChildId }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,
 		}))}
-		onDismiss={() => { showCelebration = false; }}
+		onDismiss={() => { celebrationDismissed = true; }}
 	/>
 {/if}
 

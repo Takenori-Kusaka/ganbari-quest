@@ -35,6 +35,8 @@ import {
 	claimChildChallengeReward,
 	getActiveChildChallengesWithSiblings,
 	getOrCreateWeeklyChildChallenge,
+	markChallengeCelebrationShown,
+	resolveCelebrationChallenge,
 } from '$lib/server/services/child-challenge-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
@@ -102,6 +104,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			recommendedActivityIds: [],
 			birthdayBonus: null,
 			activeChallenges: [],
+			celebrationChallenge: null,
 			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
@@ -130,6 +133,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			recommendedActivityIds: [],
 			birthdayBonus: null,
 			activeChallenges: [],
+			celebrationChallenge: null,
 			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
@@ -312,6 +316,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
 		activeChallenges,
+		// #4410: 祝福ダイアログを出すべき instance は **load 側で** `celebrationShownAt IS NULL`
+		// を含めて解決する (getUnshownCheers / getUnshownMessage と同型)。client の $state を
+		// 表示可否の唯一の根拠にしないことで、ページ遷移・リロード・invalidateAll のたびに
+		// 再表示される問題 (ADR-0012 違反) を構造的に断つ。
+		celebrationChallenge: resolveCelebrationChallenge(activeChallenges, child.id),
 		challengeTargets,
 		siblingRanking,
 		unshownCheers,
@@ -641,6 +650,39 @@ export const actions: Actions = {
 			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
 			return fail(400, { error: message });
 		}
+	},
+
+	/**
+	 * #4410: 達成祝福 (SiblingCelebration) を「見せた」ことを記録する。
+	 *
+	 * `markCheersShown` と同型 (form action + use:enhance)。旧実装は「閉じる」が client の
+	 * `$state` を false にするだけで、ホームに入るたび全画面モーダルが再表示されていた
+	 * (ADR-0012 anti-engagement 違反 / docs/DESIGN.md §10 連続演出禁止)。
+	 */
+	markChallengeCelebrationShown: async ({ request, cookies, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = asChildId(
+			requireValidChildCookieFormat(cookies, 'route.home.markChallengeCelebrationShown'),
+		);
+		const challengeId = formIdString(formData.get('challengeId'));
+
+		if (!childId || !challengeId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		// #3799 と同型: form-field 由来 id が dsql uuid 列へ直達して 22P02 になる CWE-20 を断つ。
+		if (
+			!isValidUuidFormField(challengeId, 'route.home.markChallengeCelebrationShown.challengeId')
+		) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+
+		// 他 child の instance / 存在しない id は false (IDOR 防止)。
+		const marked = await markChallengeCelebrationShown(challengeId, childId, tenantId);
+		if (!marked) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
+		return { success: true, challengeCelebrationShown: true };
 	},
 
 	sendCheer: async ({ request, cookies, locals }) => {

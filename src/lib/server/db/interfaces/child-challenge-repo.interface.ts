@@ -85,6 +85,15 @@ export interface IChildChallengeRepo {
 	markCompleted(id: string, tenantId: string): Promise<void>;
 
 	/**
+	 * #4410: 達成祝福 (SiblingCelebration) を「見せた」ことを記録する。
+	 *
+	 * `sibling_cheers.markShown` / `parent_messages` の `shownAt` と同型の「一度だけ見せる」機構。
+	 * 祝福の停止条件はこの列のみが持ち、`rewardClaimed` (ごほうび受取) とは独立させる (#4410 AC3)。
+	 * 既に記録済の行は上書きしない (冪等 — 最初に見せた時刻を保つ)。
+	 */
+	markCelebrationShown(id: string, tenantId: string): Promise<void>;
+
+	/**
 	 * ごほうび受取マーク + ポイント付与の**単一原子プリミティブ** (#3284 / #3342、#3333 の後継)。
 	 *
 	 * `rewardClaimed=0 AND completed=1` の行のみを flip し、flip できた場合に限り同一
