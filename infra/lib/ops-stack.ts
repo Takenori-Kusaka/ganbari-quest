@@ -406,7 +406,16 @@ export class OpsStack extends cdk.Stack {
 				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
 			});
 			aiProviderUnavailableAlarm.addAlarmAction(alarmAction);
-			aiProviderUnavailableAlarm.addOkAction(alarmAction);
+			// **OK action は付けない。** この信号からは復旧を推定できないため。
+			// log は latch により理由ごとにプロセス内 1 回しか出ない疎な系列で、AI が終日
+			// 死んだままでも 2 window 目以降はデータ点が無い。treatMissingData=NOT_BREACHING と
+			// 合わさると alarm は自動的に OK へ戻るので、OK action を付ければ「復旧しました」に
+			// 等しい通知が Discord に飛ぶ。運営は直ったと誤認して手を止め、顧客は使えないまま
+			// 放置される (沈黙より悪い)。しかも顧客には「運営が検知済み」と表示しているため、
+			// その約束を自ら裏切ることになる。
+			// 復旧を鳴らしたいなら、OK 遷移を流用せず **復旧を表す信号** (例: AI 呼び出しの
+			// 成功 metric) を作って別 alarm にすること。
+			// 固定: tests/unit/infra/ai-provider-unavailable-alarm.test.ts [A2b]
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//

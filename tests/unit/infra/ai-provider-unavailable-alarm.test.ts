@@ -118,8 +118,32 @@ describe('[A] AI 不達の MetricFilter / Alarm が CDK に定義されている
 			AlarmActions: Match.arrayWith([
 				Match.objectLike({ Ref: Match.stringLikeRegexp('OpsAlerts') }),
 			]),
-			OKActions: Match.arrayWith([Match.objectLike({ Ref: Match.stringLikeRegexp('OpsAlerts') })]),
 		});
+	});
+
+	// この alarm は **復旧を推定できない信号**である。発生源の log は latch により理由ごとに
+	// プロセス内 1 回しか出ないため、AI が終日死んだままでも 2 window 目以降はデータ点が無く、
+	// treatMissingData=NOT_BREACHING により alarm は OK へ戻る。ここに OK action を付けると
+	// 「復旧しました」に等しい通知が Discord に飛び、運営は直ったと誤認して手を止める一方、
+	// 顧客は使えないまま放置される (沈黙より悪い)。しかも顧客には「運営が検知済み」と
+	// 表示しているため、その約束を自ら裏切ることになる。
+	//
+	// 復旧を鳴らしたくなったら、OK action を戻すのではなく **復旧を表す信号そのもの**
+	// (例: AI 呼び出しの成功 metric) を作ってから別 alarm にする。
+	it('[A2b] OK action を持たない (データ点が無いことは復旧を意味しないため)', () => {
+		const alarms = withLogGroupTemplate.findResources('AWS::CloudWatch::Alarm', {
+			Properties: { AlarmName: ALARM_NAME },
+		});
+		const entries = Object.values(alarms);
+		expect(entries, `${ALARM_NAME} が synth されていません`).toHaveLength(1);
+
+		const properties = entries[0]?.Properties as { OKActions?: unknown[] } | undefined;
+		const okActions = properties?.OKActions;
+		expect(
+			okActions ?? [],
+			'この alarm の OK 遷移は「復旧」ではなく「log が途切れただけ」です。' +
+				'OK action を付けると偽の復旧通知になります',
+		).toEqual([]);
 	});
 
 	it('[A3] appLogGroup 未指定なら Alarm を作らない (監視 cost ゼロ)', () => {
