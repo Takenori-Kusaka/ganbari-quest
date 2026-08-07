@@ -23,7 +23,11 @@ concurrency:
 
 on:
   pull_request:
-    branches: [main]
+    # develop 二層 (#2858) 後、feature PR の base は develop である。`[main]` だけだと
+    # **base=develop の PR では 1 度も走らず**、orphan は統合 PR の最終段で初めて出る。
+    # #4408 の 2 件はまさにその形で溜まった (移管後 10 本が無検査で merge された)。
+    # 掃除だけして検出穴を残すと同じ事故を再生産するため、develop も対象にする (QM #4414 指摘)。
+    branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'src/**'

@@ -116,12 +116,6 @@
 /* #1910 AC2 (UIUX-A-2): mobile (max-width:640px) でも hero-price-band の padding を 10px 14px → 8px 14px に圧縮し、
    PC 側 .hero-price-band の padding (8px 14px) と縦軸整合 */
 @media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:8px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
-/* #1626 R22: CTA 直下の不安解消 3 バッジ */
-/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、line-height 内に収めるよう vertical-align:middle) */
-/* #1910 AC3 (UIUX-A-3): SVG を 16→18px に拡大。docs/design/asset-catalog.md「width/height:18px」既定値整合 */
-.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:0 auto 14px;max-width:560px;font-size:.82rem;color:var(--gray-700)}
-.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
-.cta-trust-badges li img{width:18px;height:18px;flex-shrink:0;vertical-align:middle}
 /* #1628 R24: 仕様起点の数字バッジ */
 /* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
    横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
