@@ -29,8 +29,13 @@ concurrency:
 #   GitHub Actions native filter で trigger 自体を絞る方式に再構成した。
 
 on:
+  # base を絞らない。`measure` job の context 名
+  # `Measure LP dimensions and lint forbidden terms` は develop-light-lane ruleset の
+  # required に登録されており、**workflow が trigger されないと context 自体が生成されず
+  # required が永久に未達**になる (base=develop の全 PR が merge 不能になる)。
+  # LP 非関連 PR では job 内で skip され SKIPPED を報告する。GitHub は SKIPPED を
+  # required 充足として扱うため、trigger は絞らず job 内で skip させるのが正しい形。
   pull_request:
-    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
