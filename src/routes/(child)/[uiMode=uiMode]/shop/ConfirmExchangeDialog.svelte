@@ -93,7 +93,7 @@ function increase() {
 			</span>
 			<div class="confirm-quantity-row">
 				<Button
-					variant="ghost"
+					variant="outline"
 					size="lg"
 					disabled={quantity <= REDEMPTION_QUANTITY_MIN}
 					onclick={decrease}
@@ -111,7 +111,7 @@ function increase() {
 					{quantity}<span class="confirm-quantity-unit">{CHILD_SHOP_LABELS.quantityUnit}</span>
 				</output>
 				<Button
-					variant="ghost"
+					variant="outline"
 					size="lg"
 					disabled={quantity >= maxAffordable}
 					onclick={increase}
