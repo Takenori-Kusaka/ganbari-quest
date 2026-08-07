@@ -41,7 +41,9 @@ const currentStep = $derived(steps[currentStepIndex] ?? steps[0]);
 		<!-- Step indicator (#4417)
 		     step 名を全 step 分並べると nowrap のラベルが必ず画面幅を超えるため、
 		     並べるのは丸だけにして「現在どの step か」は下の 1 行に集約する。
-		     丸は縮み可 / 線は伸縮させるので、step が増減しても横幅は器に収まる。 -->
+		     CSS 側は丸を `flex: 0 1 32px; min-width: 20px` (32px を上限に縮む)、線を
+		     `flex: 1 1 4px; max-width: 24px` (余りを分け合う) にしてあるので、
+		     step が増減しても横幅は器に収まる。 -->
 		<div class="steps">
 			{#each steps as step, i (step.path)}
 				<div
@@ -90,7 +92,6 @@ const currentStep = $derived(steps[currentStepIndex] ?? steps[0]);
 		margin-bottom: 8px;
 	}
 
-	/* 丸は 32px を上限に縮み、線は余りを分け合う。step 数が増えても器の幅に収まる。 */
 	.step {
 		flex: 0 1 32px;
 		min-width: 20px;
