@@ -3,15 +3,11 @@
  *
  * #4189 — SNS topic `ganbari-quest-ops-alerts` に届いた CloudWatch アラームを Discord へ転送する。
  *
- * ## なぜ Lambda を挟むのか（オーナー決裁 2026-08-03、案 B）
+ * ## なぜ Lambda を挟むのか
  *
- * メール subscription をやめ Discord に寄せる。ただし
- *
- * > 本番のアラートが常態化していると見逃しかねないので、通知予測として十分効果的で
- * > あることが認められてから届くように
- *
- * という制約があるため、**alarm 単位で「出す / 出さない」を判定する層**が要る。
- * SNS の subscription filter でも近いことはできるが、判定根拠（なぜ鳴らさないのか）を
+ * メール subscription をやめ Discord に寄せる。**既定は届ける**が、恒常発火の是正が進行中の
+ * alarm だけは暫定的に抑止したい（通知の総量が捌ける状態を保つため）。SNS の subscription
+ * filter でも近いことはできるが、判定根拠（何がどれくらい鳴っていて、どの Issue で直しているか）を
  * コードに残せないため、方針表 (`ops-alert-policy.ts`) を読む Lambda を挟む。
  *
  * ## 落とした通知は「消える」のではなく log に残る
@@ -90,7 +86,7 @@ export async function handler(event: SnsEvent): Promise<void> {
 			// **抑止したことを log に残す** — 「通知が来ない」と「抑止した」を区別できるようにする。
 			console.log(
 				`[ops-alert] suppressed alarm=${alarmName} state=${message.NewStateValue ?? '?'} ` +
-					'(ops-alert-policy.ts で notify: false。実績が付いたら昇格させる)',
+					'(ops-alert-policy.ts で notify: false。恒常発火の是正が進行中の暫定抑止)',
 			);
 			continue;
 		}
