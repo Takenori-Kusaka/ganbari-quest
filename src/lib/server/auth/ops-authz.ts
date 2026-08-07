@@ -6,6 +6,7 @@
 
 import { error } from '@sveltejs/kit';
 import { OPS_MFA_REQUIRED, OPS_MFA_REQUIRED_REASON } from '$lib/policy/capabilities';
+import { logger } from '$lib/server/logger';
 import type { AuthContext, Identity } from './types';
 
 /**
@@ -111,6 +112,20 @@ export function hasOpsAccess(
  */
 export function requireOpsAccess(locals: App.Locals): void {
 	if (hasOpsAccess(locals.identity, locals.context)) return;
+
+	// #4363 T4: 拒否を 1 件でも観測できるようにする。
+	//
+	// 設計書 §5.2.9 の再評価トリガー T4 は「ops アカウントの認証失敗・不審ログインを
+	// 1 件でも観測したら MFA 要求を戻す」だが、#4368 で MFA を外した時点では
+	// **その観測経路が無く、トリガーは発火しようが無かった**。ここが `/ops` 認可の
+	// 単一強制点なので、拒否の観測もここに置く (判定と観測を 2 箇所に分けない)。
+	//
+	// **識別子を一切載せない**: 誰が / どの group か / IP は出さず「拒否が起きた」
+	// ことだけを数える。`/ops` は全顧客の売上・PL を持つ画面であり、その拒否 log に
+	// identity を残すと log 自体が探索対象になる (`alert.ts` の既存規約と同じ)。
+	// metric 化と alarm は infra/lib/ops-stack.ts の `OPS_ACCESS_DENIED_LOG_TERM`。
+	logger.warn('[auth-alert] ops-access-denied');
+
 	// ops group には居るが MFA 判定で落ちた場合だけ理由を返す。運営者が「なぜ入れないか」を
 	// 画面から自力で判断できないと、TOTP 設定漏れ / トークン更新での claim 落ちを
 	// コードを読むまで切り分けられない。非 ops には理由を出さない (存在の示唆を避ける)。

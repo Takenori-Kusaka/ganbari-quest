@@ -60,6 +60,21 @@ export interface OpsStackProps extends cdk.StackProps {
 export const ENTITLEMENT_FAIL_CLOSED_LOG_TERM = '[auth-alert] auth-entitlement-db-unavailable';
 
 /**
+ * #4363 T4: `/ops` へのアクセス拒否を数えるための log 用語 (SSOT)。
+ *
+ * `docs/design/14-セキュリティ設計書.md` §5.2.9 の再評価トリガー T4 は
+ * 「ops アカウントの認証失敗・不審ログインを 1 件でも観測したら MFA を戻す」だが、
+ * **その観測をする経路が無かった** (#4368 merge 時点)。MFA 要求を外した現在、
+ * `/ops` の防御は Cognito 認証 + ops group 所属の 2 つだけであり、
+ * 対象は全顧客の売上・コホート・コスト・PL である。
+ *
+ * `requireOpsAccess()` が拒否したときにこの用語を含む log を 1 行出し、
+ * ここで metric 化する。**値は載せない** — 誰が / どの identity かは
+ * 一切含めず「拒否が起きた」ことだけを数える (`alert.ts` の既存規約と同じ)。
+ */
+export const OPS_ACCESS_DENIED_LOG_TERM = '[auth-alert] ops-access-denied';
+
+/**
  * #4327: 顧客データの物理削除 (grace-period-deletion cron) が**部分的に失敗**したことを表す
  * log の検索語。
  *
@@ -298,6 +313,45 @@ export class OpsStack extends cdk.Stack {
 			});
 			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
 			entitlementFailClosedAlarm.addOkAction(alarmAction);
+
+			// #4363 T4: `/ops` アクセス拒否の観測。
+			//
+			// 設計書 §5.2.9 の T4 は「認証失敗・不審ログインを 1 件でも観測したら MFA を戻す」
+			// だが、#4368 で MFA 要求を外した時点では **観測経路そのものが無かった**。
+			// トリガーは発火しようが無く、記載だけが残る状態だった。
+			//
+			// 閾値の根拠:
+			//   `/ops` は運営者しか触らない画面で、正常運用では拒否は起きない。
+			//   1 件でも「入れない誰か」が居ることは、パスワード試行か group 設定の
+			//   取り違えのどちらかを意味する。どちらも T4 が想定する「実害の兆候」である。
+			//   そこで entitlement fail-closed と同じ形 (5 分 window / 1 件閾値) を使うが、
+			//   **datapointsToAlarm は 1** にする — あちらは「継続したら障害」だが、
+			//   こちらは単発でも見に行く価値がある (誤検知しても運営者 1 人が確認するだけ)。
+			const opsAccessDenied = new logs.MetricFilter(this, 'OpsAccessDeniedFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${OPS_ACCESS_DENIED_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Auth',
+				metricName: 'OpsAccessDenied',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const opsAccessDeniedAlarm = new cloudwatch.Alarm(this, 'OpsAccessDenied', {
+				alarmName: 'ganbari-quest-ops-access-denied',
+				alarmDescription:
+					'/ops へのアクセスが拒否された: 5分内に1件以上 (#4363 T4 再評価トリガーの観測経路)',
+				metric: opsAccessDenied.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			opsAccessDeniedAlarm.addAlarmAction(alarmAction);
+			opsAccessDeniedAlarm.addOkAction(alarmAction);
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//
