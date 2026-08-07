@@ -64,15 +64,22 @@ QM が使ってよいのは **多観点レビュー**（security / perf / test-c
 gh pr view <N> --json statusCheckRollup --jq '
   [.statusCheckRollup[] | {n:(.name//.context), c:(.conclusion//""), s:(.status//""), t:(.completedAt//.startedAt//"")}]
   | group_by(.n) | map(sort_by(.t) | last)
-  | map(select(.c!="SUCCESS" and .c!="SKIPPED" and .c!="NEUTRAL"))
-  | if length==0 then "ALL GREEN" else .[] | "\(.n): \(if .c=="" then .s else .c end)" end'
+  | if length == 0 then "NOT RUN: context 0 件 — 起動していない。緑ではない"
+    else . as $all
+      | [$all[] | select(.c != "SUCCESS" and .c != "SKIPPED" and .c != "NEUTRAL")]
+      | if length == 0 then "ALL GREEN (\($all | length) context)"
+        else .[] | "\(.n): \(if .c == "" then .s else .c end)" end
+    end'
 ```
 
-- **件数そのものを見る。** context 総数が普段の PR より極端に少ない PR は、緑なのではなく**大半が起動していない**
+- **空集合を緑と読まない。** 「非 pass が 0 件」は context が 1 つも無いときにも真になる。上の jq は 0 件を `NOT RUN` として区別し、緑のときは **context 総数を併記**する
+- **その総数を、同じ base の直近 merge 済み PR と比べる。** 極端に少なければ緑なのではなく**大半が起動していない**
 - **最終的な可否は `mergeStateStatus` に従う。** `BLOCKED` のまま緑に見えるときは、こちらの読み方が間違っている
 - **再トリガは close/reopen が確実**。ただし進行中の run を concurrency が cancel するため、**cancel された run が出し直されるまで判定しない**
 
 **Why**: `#4383` で `gh pr checks` は 14 行すべて pass / skipping を返したが、実際には required の `lint-and-test` / `unit-test (1)(2)` を含む **60 context のうち 4 本が一度も起動していなかった**（Actions incident の残り）。approve は通り、merge を止めたのは branch protection だけだった。同じ PR を再トリガした後は、決着済みの古い FAILURE が rollup に残り続け、最新世代が SUCCESS でも赤に見えた。
+
+**空集合の扱いを後から足した理由**: 本節の初版（#4387）は「件数そのものを見る」と散文で書いただけで、jq 自体は `length==0` を `ALL GREEN` と出していた。**手順書が自分の警告に違反している**状態で、同日 `#4372` / `#4381` / `#4377`（いずれも context 0 件）を緑と誤判定した。散文の注意書きは、同じ場所にあるコマンドの出力には勝てない。
 
 ## レビュー対象レーン（git flow 二層、#2858）
 
