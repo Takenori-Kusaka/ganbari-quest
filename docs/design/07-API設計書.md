@@ -2087,16 +2087,20 @@ Push 通知の購読解除。
 ```json
 {
   "rewardId": 42,
-  "childId": 7
+  "childId": 7,
+  "quantity": 4
 }
 ```
 
+`quantity` は 1 申請が表す個数（#4407、省略時 1）。単位量のごほうび（「ゲーム時間 +30分」等）を「単価 × 個数」で消費するための値で、値域は domain 層 SSOT `REDEMPTION_QUANTITY_MIN`(1) / `REDEMPTION_QUANTITY_MAX`(99)（ADR-0066）。在庫・購入上限ではない（実効的な購入可能量は残高が決める）。
+
 **処理:**
 1. `reward_id` の `special_rewards` が `child_id` に紐付くか検証
-2. `child.points >= special_rewards.requiredPoints` を確認（不足時は `400 INSUFFICIENT_POINTS`）
-3. 同一 `(child_id, reward_id)` で `status = 'pending_parent_approval'` が存在しないか確認（重複時は `409 ALREADY_PENDING`）
-4. `reward_redemption_requests` レコードを作成（repo は常に `status: 'pending_parent_approval'`, `requested_at: now()` で作成）
-5. **即時交換分岐（#3339）**: 家庭設定 settings KVS `reward_auto_approve === 'true'` のとき（後述）、その場で承認確定（`approved` + ポイント減算）まで進め `instant: true` を返す。OFF（既定）なら申請は pending のまま据え置き、ポイントは減算しない
+2. `quantity` が値域内の整数か検証（範囲外 / 小数 / NaN は `400 INVALID_QUANTITY`）
+3. 残高 >= `単価 × 個数` を確認（不足時は `400 INSUFFICIENT_POINTS`）
+4. 同一 `(child_id, reward_id)` の pending 既存 / 直近 approved 窓に当たらないか確認（当たれば pending 実在時 `409 ALREADY_PENDING` / 直近 approved 由来なら `409 RECENTLY_EXCHANGED`。#4407: 即時交換 ON の家庭では pending が存在しないため「既に申請中」は事実と異なる）
+5. `reward_redemption_requests` レコードを作成（repo は常に `status: 'pending_parent_approval'`, `requested_at: now()` で作成）
+6. **即時交換分岐（#3339）**: 家庭設定 settings KVS `reward_auto_approve === 'true'` のとき（後述）、その場で承認確定（`approved` + ポイント減算）まで進め `instant: true` を返す。OFF（既定）なら申請は pending のまま据え置き、ポイントは減算しない
 
 **レスポンス (201):**
 ```json
@@ -2104,6 +2108,7 @@ Push 通知の購読解除。
   "id": 101,
   "rewardId": 42,
   "childId": 7,
+  "quantity": 4,
   "status": "pending_parent_approval",
   "requestedAt": 1714000000
 }
@@ -2112,8 +2117,10 @@ Push 通知の購読解除。
 **エラー:**
 | コード | HTTP | 説明 |
 |--------|------|------|
-| `INSUFFICIENT_POINTS` | 400 | ポイント不足 |
+| `INSUFFICIENT_POINTS` | 400 | ポイント不足（判定は `単価 × 個数`） |
 | `ALREADY_PENDING` | 409 | 同一報酬の申請が既に pending |
+| `RECENTLY_EXCHANGED` | 409 | 直近 10 秒以内に同一報酬を交換済（連打 / 再送 dedup 窓、#3356 / #4407） |
+| `INVALID_QUANTITY` | 400 | 個数が値域外（0 / 負 / 小数 / 上限超過、#4407） |
 | `REWARD_NOT_FOUND` | 404 | 報酬が存在しない / 子供に属さない |
 
 #### 即時交換モード（settings KVS `reward_auto_approve`、#3339 / #3347）

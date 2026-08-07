@@ -17,6 +17,7 @@ import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
 import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import {
 	findActivities,
 	findActivityLogs,
@@ -596,6 +597,8 @@ async function importRewardRedemptionsData(
 					childId,
 					rewardId,
 					requestedAt: r.requestedAt,
+					// #4407: 旧 backup (v1.8.0 以前) には quantity が無いため 1 個として復元する。
+					quantity: normalizeRedemptionQuantity(r.quantity),
 					status: r.status,
 					parentNote: r.parentNote,
 					resolvedAt: r.resolvedAt,

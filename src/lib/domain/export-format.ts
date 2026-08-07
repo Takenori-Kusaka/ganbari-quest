@@ -22,7 +22,9 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 //   初の breaking transform: 旧 backup の loginBonuses[] は export-migrations の 1.7.0→1.8.0 step が
 //   childRef ごとに fold (deriveStreakCounter) して loginStreaks[] へ変換する (旧 backup 読込可)。
 //   退役キー `loginBonuses` / `consecutiveDays` は RESERVED_EXPORT_KEYS に登録。
-export const EXPORT_VERSION = '1.8.0' as const;
+// #4407: 1.9.0 で rewardRedemption の `quantity` を追加。1 申請 = N 個 (単位量のごほうびを
+//   「単価 × 個数」で消費する) を復元後も保つ。optional で後方互換 (旧 backup は 1 個に縮退)。
+export const EXPORT_VERSION = '1.9.0' as const;
 
 // ============================================================
 // 退役キー名の予約 (Protobuf `reserved` / Avro alias の安価な代替)。
@@ -401,6 +403,13 @@ export interface ExportRewardRedemption {
 	// reward 改名後 / 同名 reward 複数時の silent skip / collapse を根治する。
 	rewardExportId?: string | null;
 	requestedAt: number;
+	/**
+	 * #4407: 1 申請が表す個数 (v1.9.0+)。単位量のごほうび (「ゲーム時間 +30分」) を N 個ぶん
+	 * 交換した履歴を保つ。旧 backup (v1.8.0 以前) には無いため optional で、import 側は
+	 * `normalizeRedemptionQuantity` が 1 個に縮退させる。値域 SSOT は
+	 * `$lib/domain/validation/special-reward` の `REDEMPTION_QUANTITY_MIN/MAX` (ADR-0066)。
+	 */
+	quantity?: number;
 	status: string;
 	parentNote: string | null;
 	resolvedAt: number | null;

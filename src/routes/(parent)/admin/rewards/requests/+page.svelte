@@ -10,6 +10,7 @@ import {
 	ADMIN_REWARDS_REQUESTS_LABELS,
 	ADMIN_SHOP_REQUEST_LABELS,
 	APP_LABELS,
+	formatRewardWithQuantity,
 } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -74,10 +75,14 @@ function closeRejectForm() {
 						<div class="request-card">
 							<span class="request-icon" aria-hidden="true">{req.rewardIcon ?? '🎁'}</span>
 							<div class="request-info">
-								<p class="request-title">{req.rewardTitle}</p>
+								<!-- #4407 AC4: 「ゲーム時間 +30分 × 4」を 1 件として表示する (4 件に分解しない)。
+								     控除されるのは合計ポイントなので、単価ではなく合計を出す。 -->
+								<p class="request-title" data-testid="request-title-{req.id}">
+									{formatRewardWithQuantity(req.rewardTitle, req.quantity)}
+								</p>
 								<p class="request-meta">
 									{req.childName} ·
-									{req.rewardPoints}{ADMIN_REWARDS_REQUESTS_LABELS.rewardPointsUnit}
+									{req.totalPoints}{ADMIN_REWARDS_REQUESTS_LABELS.rewardPointsUnit}
 								</p>
 								<p class="request-date">
 									{ADMIN_REWARDS_REQUESTS_LABELS.requestedAtLabel}:
@@ -159,8 +164,8 @@ function closeRejectForm() {
 					<div class="history-item">
 						<span class="history-icon" aria-hidden="true">{req.rewardIcon ?? '🎁'}</span>
 						<div class="history-info">
-							<p class="history-title">{req.rewardTitle}</p>
-							<p class="history-meta">{req.childName} · {req.rewardPoints}{ADMIN_SHOP_REQUEST_LABELS.rewardPointsUnit}</p>
+							<p class="history-title">{formatRewardWithQuantity(req.rewardTitle, req.quantity)}</p>
+							<p class="history-meta">{req.childName} · {req.totalPoints}{ADMIN_SHOP_REQUEST_LABELS.rewardPointsUnit}</p>
 						</div>
 						<span class="history-status {req.status === 'approved' ? 'history-status--approved' : 'history-status--rejected'}">
 							{req.status === 'approved' ? ADMIN_REWARDS_REQUESTS_LABELS.statusApproved : ADMIN_REWARDS_REQUESTS_LABELS.statusRejected}

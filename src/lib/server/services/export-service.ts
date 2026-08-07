@@ -487,6 +487,8 @@ async function collectForChild(
 		rewardRef: r.rewardTitle,
 		rewardExportId: `reward-${childRef}-${r.rewardId}`,
 		requestedAt: r.requestedAt,
+		// #4407: 1 申請 = N 個。個数を落とすと復元後に控除実績と履歴が食い違う。
+		quantity: r.quantity,
 		status: r.status,
 		parentNote: r.parentNote,
 		resolvedAt: r.resolvedAt,

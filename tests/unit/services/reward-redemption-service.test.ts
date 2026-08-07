@@ -1,4 +1,5 @@
 import { asChildId } from '$lib/domain/ids';
+import { REDEMPTION_QUANTITY_MAX } from '$lib/domain/validation/special-reward';
 // tests/unit/services/reward-redemption-service.test.ts
 // ごほうびショップ交換申請サービスのユニットテスト (#1335)
 
@@ -506,5 +507,225 @@ describe('expireOldRedemptions', () => {
 			.prepare('SELECT status FROM reward_redemption_requests WHERE id = ?')
 			.get(reqResult.id) as { status: string };
 		expect(row.status).toBe('expired');
+	});
+});
+
+// ============================================================
+// #4407: 個数指定つき交換 (単位量の特権ごほうび = ゲーム時間 +30分 × N)
+// ============================================================
+//
+// root class: カタログ (preset-rewards.ts) は「30 分」を単位に切った商品を並べているのに、
+// 交換機構が 1 申請 = 1 個固定で、現実の消費 (2 時間 = 4 個) を子供が精算できなかった。
+// 1 申請 = N 個 (quantity 列) として表現し、減算は「単価 × 個数」で行う。
+describe('requestRedemption — 個数指定 (#4407)', () => {
+	/** settings KVS に reward_auto_approve を設定する。 */
+	function setAutoApprove(value: 'true' | 'false') {
+		sqlite
+			.prepare(
+				`INSERT INTO settings (key, value, updated_at) VALUES ('reward_auto_approve', ?, CURRENT_TIMESTAMP)
+				 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			)
+			.run(value);
+	}
+
+	/** 残高 balance / 単価 unitPoints の子供 + ごほうびを作る。 */
+	function seedWithBalance(balance: number, unitPoints: number) {
+		resetDb();
+		sqlite
+			.prepare(`INSERT INTO children (nickname, age, theme, ui_mode) VALUES (?, ?, ?, ?)`)
+			.run('かずりょうちゃん', 8, 'blue', 'elementary');
+		const childRow = sqlite.prepare('SELECT id FROM children LIMIT 1').get() as { id: number };
+		if (balance > 0) {
+			sqlite
+				.prepare(
+					`INSERT INTO point_ledger (child_id, amount, type, description, created_at)
+					 VALUES (?, ?, 'activity', 'テスト付与', CURRENT_TIMESTAMP)`,
+				)
+				.run(childRow.id, balance);
+		}
+		sqlite
+			.prepare(
+				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+				 VALUES (?, 'ゲーム時間30分', ?, '🎮', 'とくべつ', CURRENT_TIMESTAMP)`,
+			)
+			.run(childRow.id, unitPoints);
+		const rewardRow = sqlite.prepare('SELECT id FROM special_rewards LIMIT 1').get() as {
+			id: number;
+		};
+		return { childId: asChildId(childRow.id), rewardId: String(rewardRow.id) };
+	}
+
+	function ledgerRows(childId: number | string) {
+		return sqlite
+			.prepare(
+				"SELECT amount, description FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.all(Number(childId)) as { amount: number; description: string }[];
+	}
+
+	it('個数を省略すると 1 個として扱う (既存挙動の互換)', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.quantity).toBe(1);
+	});
+
+	it('親承認フローで個数 4 の申請が 1 件として作られ、承認で 単価 × 4 が減算される', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		setAutoApprove('false');
+
+		const req = await requestRedemption(childId, rewardId, TENANT_ID, 4);
+		expect('error' in req).toBe(false);
+		if ('error' in req) return;
+		expect(req.quantity).toBe(4);
+		// AC4: 申請は N 行に増やさず 1 件
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
+		// 申請時点では減算しない
+		expect(ledgerRows(childId)).toHaveLength(0);
+
+		const approved = await approveRedemption(req.id, 'parent-sub-1', TENANT_ID);
+		expect('error' in approved).toBe(false);
+		if ('error' in approved) return;
+		expect(approved.quantity).toBe(4);
+
+		// AC3: 減算は 単価 × 個数。1 個分しか引かれない / 引かれすぎる の両方向を固定する
+		const rows = ledgerRows(childId);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.amount).toBe(-320);
+	});
+
+	it('即時交換 ON でも 単価 × 個数 が 1 回だけ減算される', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID, 3);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.status).toBe('approved');
+		expect(result.quantity).toBe(3);
+
+		const rows = ledgerRows(childId);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.amount).toBe(-240);
+	});
+
+	it('残高ちょうどの個数は成功し、残高が 0 になる', async () => {
+		const { childId, rewardId } = seedWithBalance(240, 80);
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID, 3);
+		expect('error' in result).toBe(false);
+		const rows = ledgerRows(childId);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]?.amount).toBe(-240);
+	});
+
+	it('合計が残高を 1 ポイント超える個数は INSUFFICIENT_POINTS で弾き、減算しない', async () => {
+		const { childId, rewardId } = seedWithBalance(239, 80);
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID, 3);
+		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
+		// 残高は動かない (負残高を作らない)
+		expect(ledgerRows(childId)).toHaveLength(0);
+		// 幻の承認待ちを残さない
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+	});
+
+	it('親承認フローでも承認時に 単価 × 個数 を再確認し、残高不足なら承認を弾く', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		setAutoApprove('false');
+		const req = await requestRedemption(childId, rewardId, TENANT_ID, 5);
+		if ('error' in req) throw new Error('setup failed');
+
+		// 申請後にポイントを使い切る (承認時の残高再確認を効かせる)
+		sqlite
+			.prepare(
+				`INSERT INTO point_ledger (child_id, amount, type, description, created_at)
+				 VALUES (?, -200, 'other', 'テスト消費', CURRENT_TIMESTAMP)`,
+			)
+			.run(Number(childId));
+
+		const approved = await approveRedemption(req.id, 'parent-sub-1', TENANT_ID);
+		expect(approved).toEqual({ error: 'INSUFFICIENT_POINTS' });
+		expect(ledgerRows(childId)).toHaveLength(0);
+	});
+
+	it('0 個 / 負数 / 小数 / 上限超過 / NaN は INVALID_QUANTITY で弾く', async () => {
+		const { childId, rewardId } = seedWithBalance(100000, 1);
+		for (const q of [0, -1, 1.5, REDEMPTION_QUANTITY_MAX + 1, Number.NaN]) {
+			const result = await requestRedemption(childId, rewardId, TENANT_ID, q);
+			expect(result).toEqual({ error: 'INVALID_QUANTITY' });
+		}
+		expect(ledgerRows(childId)).toHaveLength(0);
+	});
+
+	it('上限ちょうどの個数は受理する (値域境界)', async () => {
+		const { childId, rewardId } = seedWithBalance(100000, 1);
+		setAutoApprove('true');
+		const result = await requestRedemption(childId, rewardId, TENANT_ID, REDEMPTION_QUANTITY_MAX);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.quantity).toBe(REDEMPTION_QUANTITY_MAX);
+	});
+
+	it('AC3 回帰: pending 中の同一ごほうび再申請は引き続き弾く (#3356 の二重課金防止を弱めない)', async () => {
+		const { childId, rewardId } = seedWithBalance(1000, 80);
+		setAutoApprove('false');
+		await requestRedemption(childId, rewardId, TENANT_ID, 2);
+		const second = await requestRedemption(childId, rewardId, TENANT_ID, 2);
+		expect(second).toEqual({ error: 'ALREADY_PENDING' });
+	});
+
+	it('AC10: 即時交換 ON の直後再申請は ALREADY_PENDING ではなく RECENTLY_EXCHANGED を返す', async () => {
+		const { childId, rewardId } = seedWithBalance(1000, 80);
+		setAutoApprove('true');
+		await requestRedemption(childId, rewardId, TENANT_ID, 1);
+		const second = await requestRedemption(childId, rewardId, TENANT_ID, 1);
+		// 承認待ちは存在しない (即時 approved) ため「既に申請中です」は事実と違う
+		expect(second).toEqual({ error: 'RECENTLY_EXCHANGED' });
+	});
+
+	it('AC4: 親の承認一覧が個数と合計ポイントを持つ (N 件に分解しない)', async () => {
+		const { childId, rewardId } = seedWithBalance(1000, 80);
+		setAutoApprove('false');
+		await requestRedemption(childId, rewardId, TENANT_ID, 4);
+
+		const list = await getRedemptionRequestsForParent(TENANT_ID, {
+			status: 'pending_parent_approval',
+		});
+		expect(list).toHaveLength(1);
+		expect(list[0]?.quantity).toBe(4);
+		expect(list[0]?.rewardPoints).toBe(80); // 単価
+		expect(list[0]?.totalPoints).toBe(320); // 単価 × 個数
+	});
+
+	it('個数 1 の台帳 description は従来どおりごほうび名のみ', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		setAutoApprove('true');
+		await requestRedemption(childId, rewardId, TENANT_ID, 1);
+		expect(ledgerRows(childId)[0]?.description).toBe('ゲーム時間30分');
+	});
+
+	it('個数 2 以上の台帳 description に個数が残る (残高が理由なく動いたように見えない)', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		setAutoApprove('true');
+		await requestRedemption(childId, rewardId, TENANT_ID, 2);
+		expect(ledgerRows(childId)[0]?.description).toContain('2');
+	});
+
+	it('quantity 未指定で作られた行 (DEFAULT 経路) は 1 個として読める', async () => {
+		const { childId, rewardId } = seedWithBalance(500, 80);
+		const now = Math.floor(Date.now() / 1000);
+		sqlite
+			.prepare(
+				`INSERT INTO reward_redemption_requests (child_id, reward_id, requested_at, status, reward_title, reward_points)
+				 VALUES (?, ?, ?, 'pending_parent_approval', 'ゲーム時間30分', 80)`,
+			)
+			.run(Number(childId), Number(rewardId), now);
+		const list = await getRedemptionRequestsForChild(childId, TENANT_ID);
+		expect(list).toHaveLength(1);
+		expect(list[0]?.quantity).toBe(1);
 	});
 });

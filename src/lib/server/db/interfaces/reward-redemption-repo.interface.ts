@@ -6,6 +6,12 @@ export interface RedemptionRequestRow {
 	childId: ChildId;
 	rewardId: string;
 	requestedAt: number;
+	/**
+	 * #4407: 1 申請が表す個数 (単位量のごほうび = 「ゲーム時間 +30分」等の N 個買い)。
+	 * 値域は `REDEMPTION_QUANTITY_MIN/MAX` (domain 層 SSOT)。DB 既定 1、旧行も backfill 済のため
+	 * 常に 1 以上。ポイント控除は `rewardPoints × quantity` で行う (service 層 finalizeApproval)。
+	 */
+	quantity: number;
 	status: string;
 	parentNote: string | null;
 	resolvedAt: number | null;
@@ -48,7 +54,7 @@ export interface IRewardRedemptionRepo {
 	 * 申請 Put と同一 TransactWriteItems 化 ((b) は pre-read best-effort)。
 	 */
 	insertRedemptionRequest(
-		input: { childId: ChildId; rewardId: string; requestedAt: number },
+		input: { childId: ChildId; rewardId: string; requestedAt: number; quantity: number },
 		tenantId: string,
 	): Promise<RedemptionRequestRow | { error: 'DUPLICATE_REQUEST' }>;
 
@@ -66,6 +72,8 @@ export interface IRewardRedemptionRepo {
 			childId: ChildId;
 			rewardId: string;
 			requestedAt: number;
+			/** #4407: 旧 backup (v1.8.0 以前) には無いため、呼び出し側が 1 に正規化して渡す。 */
+			quantity: number;
 			status: string;
 			parentNote: string | null;
 			resolvedAt: number | null;

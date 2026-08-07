@@ -434,6 +434,10 @@ export const rewardRedemptionRequests = sqliteTable(
 			.notNull()
 			.references(() => specialRewards.id),
 		requestedAt: integer('requested_at').notNull(),
+		// #4407: 1 申請 = N 個。単位量のごほうび (ゲーム時間 +30分 等) を現実の消費 (2 時間 = 4 個)
+		// に対応させる。申請を N 行に増やさず 1 行で表す (承認操作も 1 件のまま)。
+		// NOT NULL DEFAULT 1 で既存行は 1 個として backfill される (NULL を業務的意味で使わない)。
+		quantity: integer('quantity').notNull().default(1),
 		status: text('status').notNull().default('pending_parent_approval'),
 		parentNote: text('parent_note'),
 		resolvedAt: integer('resolved_at'),

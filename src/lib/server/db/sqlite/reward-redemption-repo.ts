@@ -20,6 +20,9 @@ const toRequestRow = (r: RequestRow): RedemptionRequestRow => ({
 	childId: asChildId(r.childId),
 	rewardId: String(r.rewardId),
 	requestedAt: r.requestedAt,
+	// #4407: DB 既定 1 + 既存行 backfill 済のため通常 null にならないが、
+	// 未 migrate DB を読んだ場合の安全側として 1 に倒す (1 個扱い = 旧仕様)。
+	quantity: r.quantity ?? 1,
 	status: r.status,
 	parentNote: r.parentNote,
 	resolvedAt: r.resolvedAt,
@@ -56,6 +59,7 @@ export async function insertRedemptionRequest(
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
+		quantity: number;
 	},
 	_tenantId: string,
 ): Promise<RedemptionRequestRow | { error: 'DUPLICATE_REQUEST' }> {
@@ -110,6 +114,7 @@ export async function insertRedemptionRequest(
 					childId: Number(input.childId),
 					rewardId: Number(input.rewardId),
 					requestedAt: input.requestedAt,
+					quantity: input.quantity,
 					status: 'pending_parent_approval',
 					rewardTitle: reward?.title ?? null,
 					rewardPoints: reward?.points ?? null,
@@ -131,6 +136,7 @@ export async function insertRedemptionForRestore(
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
+		quantity: number;
 		status: string;
 		parentNote: string | null;
 		resolvedAt: number | null;
@@ -149,6 +155,7 @@ export async function insertRedemptionForRestore(
 				childId: Number(input.childId),
 				rewardId: Number(input.rewardId),
 				requestedAt: input.requestedAt,
+				quantity: input.quantity,
 				status: input.status,
 				parentNote: input.parentNote,
 				resolvedAt: input.resolvedAt,
@@ -198,6 +205,7 @@ export async function findRedemptionRequestsByTenant(
 			childId: rewardRedemptionRequests.childId,
 			rewardId: rewardRedemptionRequests.rewardId,
 			requestedAt: rewardRedemptionRequests.requestedAt,
+			quantity: rewardRedemptionRequests.quantity,
 			status: rewardRedemptionRequests.status,
 			parentNote: rewardRedemptionRequests.parentNote,
 			resolvedAt: rewardRedemptionRequests.resolvedAt,
@@ -297,6 +305,7 @@ export async function findUnshownResultByChild(
 			childId: rewardRedemptionRequests.childId,
 			rewardId: rewardRedemptionRequests.rewardId,
 			requestedAt: rewardRedemptionRequests.requestedAt,
+			quantity: rewardRedemptionRequests.quantity,
 			status: rewardRedemptionRequests.status,
 			parentNote: rewardRedemptionRequests.parentNote,
 			resolvedAt: rewardRedemptionRequests.resolvedAt,

@@ -7004,7 +7004,37 @@ export const CHILD_SHOP_LABELS = {
 	filterReset: 'リセット',
 	filterBadge: (total: number, filtered: number) => `${total}件中 ${filtered}件`,
 	filterEmptyMessage: 'じょうけんに あうごほうびが ありません',
+	// #4407 個数指定 (単位量のごほうび = 「ゲーム時間 +30分」を 2 時間ぶん = 4 個 交換する)
+	quantityLabel: 'いくつ こうかんする？',
+	quantityDecreaseAriaLabel: 'こすうを へらす',
+	quantityIncreaseAriaLabel: 'こすうを ふやす',
+	quantityUnit: 'こ',
+	quantityValueAriaLabel: (quantity: number) => `こすう ${quantity}こ`,
+	quantityMaxHint: 'もっているポイントで こうかんできる さいだいの こすうだよ',
+	totalPointsLabel: 'ぜんぶで',
+	remainingAfterLabel: 'こうかんしたあとの ポイント',
+	// #4407 AC9/AC12: 交換の結果を「見ている場所」に文字で出す (演出は加飾であって通知ではない)
+	exchangeSuccessToastTitle: 'こうかんできたよ！',
+	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ のこり ${balance} ポイント`,
+	exchangeRequestedToastTitle: 'おうちのひとに おねがいしたよ',
+	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ へんじを まってね`,
+	// #4407 AC10: 交換申請が通らなかったときの文言 (状態に合わせて分ける)
+	errorInsufficientPoints: 'ポイントが たりないよ',
+	errorAlreadyPending: 'いま おうちのひとの へんじを まっているよ',
+	errorRecentlyExchanged: 'さっき こうかんしたよ。すこし まってから もういちど おしてね',
+	errorRewardNotFound: 'この ごほうびが みつからないよ',
+	errorInvalidQuantity: 'こすうを もういちど えらんでね',
+	errorChildNotSelected: 'こどもが えらばれていないよ',
+	errorGeneric: 'うまく いかなかったよ。もういちど ためしてね',
 } as const;
+
+// #4407: 交換の「× 個数」表記 SSOT。個数 1 のときは付けない (従来表示を変えない)。
+// ポイント台帳の description / 親の承認一覧の両方が本 helper を使う。
+export function formatRewardWithQuantity(rewardTitle: string, quantity: number): string {
+	return quantity > 1 ? `${rewardTitle} × ${quantity}` : rewardTitle;
+}
 
 // ============================================================
 // ごほうびショップ 保護者の見守り画面 申請タブ (#1337 / #2057)

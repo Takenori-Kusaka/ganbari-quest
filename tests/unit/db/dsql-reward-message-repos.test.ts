@@ -229,7 +229,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// 解決済 (approved) の申請履歴を作る
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -309,7 +309,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const at = Math.floor(Date.now() / 1000);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -335,13 +335,42 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(await redemptionRepo.findRedemptionRequestsByChild(childId, OTHER_FAMILY)).toEqual([]);
 	});
 
+	// #4407: 個数 (quantity) の backend 並行実装整合 (sqlite ⇄ dsql/PGlite)。
+	// tests/CLAUDE.md §スキーマ変更 PR — 新カラムの既定値 / 明示値ハンドリングを両実装で一致させる。
+	it('[RR1b] #4407 quantity: 明示 N が保全され、未指定行 (DEFAULT) は 1 として読める', async () => {
+		const childId = await newChild('個数一郎');
+		const reward = await seedReward(childId, '個数報酬', 30);
+		const at = Math.floor(Date.now() / 1000);
+		const req = mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 4 },
+				FAMILY,
+			),
+		);
+		expect(req.quantity).toBe(4);
+		const byChild = await redemptionRepo.findRedemptionRequestsByChild(childId, FAMILY);
+		expect(byChild[0]?.quantity).toBe(4);
+		const details = await redemptionRepo.findRedemptionRequestsByTenant(FAMILY, { childId });
+		expect(details[0]?.quantity).toBe(4);
+
+		// quantity 列を指定せず直 INSERT した行 (= 列追加前からある既存行と同じ形) は DEFAULT 1
+		await t.db.execute(sql`
+			INSERT INTO reward_redemption_requests (family_id, child_id, reward_id, requested_at, status)
+			VALUES (${FAMILY}::uuid, ${childId}::uuid, ${reward.id}::uuid, to_timestamp(${at + 1}), 'approved')
+		`);
+		const all = await redemptionRepo.findRedemptionRequestsByChild(childId, FAMILY);
+		expect(all).toHaveLength(2);
+		expect(all.every((r) => r.quantity >= 1)).toBe(true);
+		expect(all.find((r) => r.status === 'approved')?.quantity).toBe(1);
+	});
+
 	it('[RR2] epoch↔timestamptz round-trip: requestedAt を秒精度で保全', async () => {
 		const childId = await newChild('時刻二郎');
 		const reward = await seedReward(childId, '時刻報酬', 10);
 		const at = 1_781_000_000; // 固定 epoch 秒
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -359,7 +388,12 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			const reward = await seedReward(childId, `件数報酬${i}`, 10, family);
 			mustRow(
 				await redemptionRepo.insertRedemptionRequest(
-					{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) + i },
+					{
+						childId,
+						rewardId: reward.id,
+						requestedAt: Math.floor(Date.now() / 1000) + i,
+						quantity: 1,
+					},
 					family,
 				),
 			);
@@ -396,7 +430,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				family,
 			),
 		);
@@ -433,7 +467,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const reward = await seedReward(childId, '遷移報酬', 10);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -477,14 +511,14 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const at = Math.floor(Date.now() / 1000);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
 		// #3356 (1): pending 既存中の再申請は repo 原子境界で DUPLICATE_REQUEST
 		// (旧 findPendingByChildAndReward の check-then-act を repo に内蔵)
 		const dup = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: at + 1 },
+			{ childId, rewardId: reward.id, requestedAt: at + 1, quantity: 1 },
 			FAMILY,
 		);
 		expect(dup).toEqual({ error: 'DUPLICATE_REQUEST' });
@@ -523,7 +557,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// 1 回目 → 即時 approved (即時交換の流れを再現)
 		const first = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: now },
+				{ childId, rewardId: reward.id, requestedAt: now, quantity: 1 },
 				family,
 			),
 		);
@@ -536,14 +570,19 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 		// 窓内 (resolvedAt から REDEMPTION_DEDUP_WINDOW_SEC 以内) の再申請 = 連打/再送 → DUPLICATE
 		const withinWindow = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: now + 2 },
+			{ childId, rewardId: reward.id, requestedAt: now + 2, quantity: 1 },
 			family,
 		);
 		expect(withinWindow).toEqual({ error: 'DUPLICATE_REQUEST' });
 
 		// 窓外 (意図的な連続購入) は許可
 		const afterWindow = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: now + REDEMPTION_DEDUP_WINDOW_SEC + 5 },
+			{
+				childId,
+				rewardId: reward.id,
+				requestedAt: now + REDEMPTION_DEDUP_WINDOW_SEC + 5,
+				quantity: 1,
+			},
 			family,
 		);
 		expect('error' in afterWindow).toBe(false);
@@ -558,11 +597,11 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// fire→settle 並行申請 (#3531 パターン): 同時 2 発は一方のみ成立
 		const reward2 = await seedReward(childId, '並行報酬', 10, family);
 		const fireA = redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward2.id, requestedAt: now + 100 },
+			{ childId, rewardId: reward2.id, requestedAt: now + 100, quantity: 1 },
 			family,
 		);
 		const fireB = redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward2.id, requestedAt: now + 100 },
+			{ childId, rewardId: reward2.id, requestedAt: now + 100, quantity: 1 },
 			family,
 		);
 		const settled = await Promise.all([fireA, fireB]);
@@ -580,7 +619,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const old = Math.floor(Date.now() / 1000) - 40 * 24 * 60 * 60; // 40 日前
 		mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: old },
+				{ childId, rewardId: reward.id, requestedAt: old, quantity: 1 },
 				family,
 			),
 		);
@@ -604,6 +643,8 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 				childId,
 				rewardId: reward.id,
 				requestedAt,
+				// #4407: 個数も verbatim 保全する (backup round-trip で 1 個に潰れない)
+				quantity: 3,
 				status: 'rejected',
 				parentNote: '却下理由',
 				resolvedAt,
@@ -618,6 +659,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
 		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.status).toBe('rejected'); // pending 固定でなく verbatim
+		expect(restored.quantity).toBe(3); // #4407: 個数 verbatim
 		expect(restored.requestedAt).toBe(requestedAt);
 		expect(restored.resolvedAt).toBe(resolvedAt);
 		expect(restored.shownToChildAt).toBe(shownToChildAt);

@@ -2,13 +2,25 @@
 // #2155: ごほうび交換確認 Dialog 内部レイアウト
 // アイコン拡大 + 階層化表示 + 「はい」ボタン強調 + #2158 感情演出 trigger を含む。
 // Style block 50 行制約を満たすため shop/+page.svelte から分離。
+//
+// #4407: 個数指定 (単位量のごほうび = 「ゲーム時間 +30分」を 2 時間ぶん = 4 個 交換する) と、
+// 交換結果の文字フィードバックを追加。
+//   - 個数は残高で買える上限を超えて選べない (+ が disabled になる)
+//   - 合計消費ポイント / 交換後の残高を確定前に見せる
+//   - 成功・失敗の結果は Toast で出す。画面最上部の Alert だけに頼ると、ごほうびカードまで
+//     スクロールしてから押した子供には見えない (#4407 追加報告「押しても反応がない」の実体)
 
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import {
+	REDEMPTION_QUANTITY_MAX,
+	REDEMPTION_QUANTITY_MIN,
+} from '$lib/domain/validation/special-reward';
 import { playRewardCelebration } from '$lib/features/reward-celebration';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 interface Props {
 	open: boolean;
@@ -16,6 +28,8 @@ interface Props {
 	rewardTitle: string;
 	rewardPoints: number;
 	rewardIcon: string | null;
+	/** 現在のポイント残高。買える上限個数と「交換後の残り」の算出に使う (#4407)。 */
+	balance: number;
 	onClose: () => void;
 }
 
@@ -25,10 +39,34 @@ let {
 	rewardTitle,
 	rewardPoints,
 	rewardIcon,
+	balance,
 	onClose,
 }: Props = $props();
 
 let isSubmitting = $state(false);
+let quantity = $state(REDEMPTION_QUANTITY_MIN);
+
+// 残高で買える上限。単価 0 の異常データでも 1 以上・上限以下に収める。
+const maxAffordable = $derived(
+	Math.min(
+		REDEMPTION_QUANTITY_MAX,
+		Math.max(REDEMPTION_QUANTITY_MIN, rewardPoints > 0 ? Math.floor(balance / rewardPoints) : 1),
+	),
+);
+const totalPoints = $derived(rewardPoints * quantity);
+const remainingAfter = $derived(balance - totalPoints);
+
+// ごほうびを選び直したら個数を 1 に戻す (前の選択が持ち越されて意図しない個数で確定するのを防ぐ)。
+$effect(() => {
+	if (rewardId !== null) quantity = REDEMPTION_QUANTITY_MIN;
+});
+
+function decrease() {
+	if (quantity > REDEMPTION_QUANTITY_MIN) quantity -= 1;
+}
+function increase() {
+	if (quantity < maxAffordable) quantity += 1;
+}
 </script>
 
 <Dialog
@@ -46,12 +84,58 @@ let isSubmitting = $state(false);
 		<p class="confirm-reward-title" data-testid="confirm-reward-title">
 			{rewardTitle}
 		</p>
+
+		<!-- #4407 AC1: 個数指定。幼児 (preschool, tapSize 80px) でもキーボード無しで操作できる
+		     stepper とし、残高で買える上限を超える個数は選べない -->
+		<div class="confirm-quantity" data-testid="confirm-quantity-block">
+			<span class="confirm-quantity-label" id="confirm-quantity-label">
+				{CHILD_SHOP_LABELS.quantityLabel}
+			</span>
+			<div class="confirm-quantity-row">
+				<Button
+					variant="ghost"
+					size="lg"
+					disabled={quantity <= REDEMPTION_QUANTITY_MIN}
+					onclick={decrease}
+					aria-label={CHILD_SHOP_LABELS.quantityDecreaseAriaLabel}
+					data-testid="confirm-quantity-decrease"
+				>
+					−
+				</Button>
+				<output
+					class="confirm-quantity-value"
+					aria-live="polite"
+					aria-label={CHILD_SHOP_LABELS.quantityValueAriaLabel(quantity)}
+					data-testid="confirm-quantity-value"
+				>
+					{quantity}<span class="confirm-quantity-unit">{CHILD_SHOP_LABELS.quantityUnit}</span>
+				</output>
+				<Button
+					variant="ghost"
+					size="lg"
+					disabled={quantity >= maxAffordable}
+					onclick={increase}
+					aria-label={CHILD_SHOP_LABELS.quantityIncreaseAriaLabel}
+					data-testid="confirm-quantity-increase"
+				>
+					＋
+				</Button>
+			</div>
+		</div>
+
 		<div class="confirm-points-block" data-testid="confirm-reward-points">
-			<span class="confirm-points-label">{CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}</span>
+			<span class="confirm-points-label">
+				{quantity > 1
+					? CHILD_SHOP_LABELS.totalPointsLabel
+					: CHILD_SHOP_LABELS.exchangeConfirmPointsLabel}
+			</span>
 			<p class="confirm-points-value">
-				<span class="confirm-points-num">{rewardPoints}</span>
+				<span class="confirm-points-num" data-testid="confirm-total-points">{totalPoints}</span>
 				<span class="confirm-points-unit">{CHILD_SHOP_LABELS.pointUnit}</span>
 			</p>
+			<span class="confirm-points-label" data-testid="confirm-remaining-after">
+				{CHILD_SHOP_LABELS.remainingAfterLabel}: {remainingAfter}{CHILD_SHOP_LABELS.pointUnit}
+			</span>
 		</div>
 		<p class="confirm-description">{CHILD_SHOP_LABELS.exchangeConfirmDescription}</p>
 
@@ -61,13 +145,42 @@ let isSubmitting = $state(false);
 				action="?/requestExchange"
 				use:enhance={() => {
 					isSubmitting = true;
+					const submitted = quantity;
 					return async ({ result, update }) => {
 						isSubmitting = false;
-						if (result.type === 'success' || result.type === 'redirect') {
+						if (result.type === 'success') {
+							// #4407 AC11: 成功時も form を更新し、前回のエラー表示を残さない。
+							// #4407 AC9/AC12: 「何を何個 交換できたか」「残りポイント」を文字で出す。
+							// prefers-reduced-motion で紙吹雪が無効化されても結果は必ず伝わる。
+							const data = result.data as
+								| { instant?: boolean; quantity?: number; balance?: number }
+								| undefined;
+							const qty = data?.quantity ?? submitted;
+							const instant = data?.instant ?? false;
+							showToast(
+								instant
+									? CHILD_SHOP_LABELS.exchangeSuccessToastTitle
+									: CHILD_SHOP_LABELS.exchangeRequestedToastTitle,
+								instant
+									? CHILD_SHOP_LABELS.exchangeSuccessToastBody(
+											rewardTitle,
+											qty,
+											data?.balance ?? remainingAfter,
+										)
+									: CHILD_SHOP_LABELS.exchangeRequestedToastBody(rewardTitle, qty),
+								'success',
+							);
+							await update();
 							onClose();
 							void playRewardCelebration();
 							await invalidateAll();
 						} else {
+							// 失敗も同じ場所に出す (画面最上部の Alert はスクロール位置によっては見えない)。
+							const message =
+								(result.type === 'failure'
+									? (result.data as { error?: string } | undefined)?.error
+									: undefined) ?? CHILD_SHOP_LABELS.errorGeneric;
+							showToast(message, undefined, 'error');
 							await update();
 							onClose();
 						}
@@ -76,6 +189,7 @@ let isSubmitting = $state(false);
 				class="confirm-yes-form"
 			>
 				<input type="hidden" name="rewardId" value={rewardId} />
+				<input type="hidden" name="quantity" value={quantity} />
 				<div class="confirm-yes-pulse">
 					<Button
 						type="submit"
@@ -117,6 +231,17 @@ let isSubmitting = $state(false);
 	.confirm-icon { font-size: 4rem; line-height: 1; }
 	.confirm-heading { font-size: 1.1rem; font-weight: bold; margin: 0; color: var(--color-text); }
 	.confirm-reward-title { font-size: 1.25rem; font-weight: bold; margin: 0; color: var(--color-text); }
+	.confirm-quantity {
+		display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs);
+		margin-top: var(--sp-xs);
+	}
+	.confirm-quantity-label { font-size: 0.85rem; color: var(--color-text-secondary); }
+	.confirm-quantity-row { display: flex; align-items: center; gap: var(--sp-md); }
+	.confirm-quantity-value {
+		font-size: 2rem; font-weight: bold; color: var(--color-text);
+		min-width: 3.5rem;
+	}
+	.confirm-quantity-unit { font-size: 0.9rem; font-weight: normal; margin-left: 2px; }
 	.confirm-points-block {
 		display: flex; flex-direction: column; align-items: center; gap: 2px;
 		background-color: var(--color-surface-warm);
