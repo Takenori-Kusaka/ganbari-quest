@@ -40,13 +40,14 @@
 前提として、**team はロールごとに独立して構築する**。
 
 ```
-ganbari-quest-po     → PO の team    （lead = PO セッション）
-ganbari-quest-dev    → Dev の team   （lead = Dev セッション）
-ganbari-quest-qa     → QM の team    （lead = QM セッション）
-ganbari-quest-audit  → 監査の team   （lead = audit-manager）
+ganbari-quest-po        → PO の team        （lead = PO セッション）
+ganbari-quest-dev       → Dev の team       （lead = Dev セッション）
+ganbari-quest-qa        → QM の team        （lead = QM セッション。clone dir 名は歴史的経緯で `-qa`、role 名は QM が SSOT）
+ganbari-quest-audit     → 監査の team       （lead = audit-manager）
+ganbari-quest-platform  → Platform の team  （lead = Platform セッション）
 ```
 
-**4 つの team は互いを知らない。** 相互の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。Agent Teams はロール間通信の代替ではなく、**1 ロール内の並列化手段**である。
+**5 つの team は互いを知らない。** 相互の受け渡しは引き続き [label-mailbox.md](label-mailbox.md) の `state:*` label で行う。Agent Teams はロール間通信の代替ではなく、**1 ロール内の並列化手段**である。
 
 ### §3.1 ロールを跨ぐ team は組まない（最重要）
 
@@ -206,6 +207,7 @@ teammate の permission 要求は lead に上がる。**teammate は他の teamm
 | **Dev** | レーンが分かれた実装（A/B/C/D）/ 影響範囲調査（`impact-analysis` の 4 layer を分担） | 重い検証の並列化（§3.2）/ 逐次依存のある実装 |
 | **QM** | 多観点レビュー（security / perf / test-coverage）。**ただし approve と merge は lead 専権**（ADR-0056 §E と同型） | 自分の Fix Agent が作った PR の approve。作成者 ≠ 承認者は teammate では解けない |
 | **監査** | 8 領域監査の並列化 / **競合仮説の相互反証**（§4.1）。`audit-team.md` §3.1 の 8 チームは元々この形 | 不可逆 action（cut / merge / 起票の実行）。**audit-manager 専権**（§3.3） |
+| **Platform** | 装置の実測調査（`scripts/check-*` / workflow 一覧の棚卸し）を分担 | gate / guard / test の削除実行（`state:needs-owner` で渡す）。装置を守る装置を作る判断 |
 
 ---
 
