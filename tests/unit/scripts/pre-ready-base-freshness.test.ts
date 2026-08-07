@@ -50,10 +50,16 @@ process.stdout.write(JSON.stringify(m[${JSON.stringify(name)}]));`;
 	return JSON.parse(out) as T;
 }
 
-type Drift = { level: 'fresh' | 'behind-only' | 'gate-ssot-moved'; gateFiles: string[] };
+type Drift = {
+	level: 'fresh' | 'unverified' | 'behind-only' | 'gate-ssot-moved';
+	gateFiles: string[];
+};
 
-const classifyBaseDrift = (arg: { behind: number; baseChangedFiles: string[] }) =>
-	callExport<Drift>('classifyBaseDrift', arg);
+const classifyBaseDrift = (arg: {
+	behind: number;
+	baseChangedFiles: string[];
+	fetchFailed?: boolean;
+}) => callExport<Drift>('classifyBaseDrift', arg);
 const isGateSsotPath = (file: string) => callExport<boolean>('isGateSsotPath', file);
 
 describe('#4390 classifyBaseDrift — base 鮮度の 3 分類', () => {
@@ -61,6 +67,39 @@ describe('#4390 classifyBaseDrift — base 鮮度の 3 分類', () => {
 		const r = classifyBaseDrift({ behind: 0, baseChangedFiles: [] });
 		expect(r.level).toBe('fresh');
 		expect(r.gateFiles).toEqual([]);
+	});
+
+	it('[B14] git fetch に失敗していたら fresh を名乗らない (未検証を検証済みと書かない)', () => {
+		// fetch できていないときの behind=0 は「手元 ref との差が 0」でしかなく、
+		// base を取り込み済である証明にならない。ここで fresh を返すと pre-ready が
+		// 「base 鮮度: OK (取り込み済)」と出力し、**検証していない事実を検証済みとして残す**。
+		const r = classifyBaseDrift({ behind: 0, baseChangedFiles: [], fetchFailed: true });
+		expect(r.level).toBe('unverified');
+		expect(r.gateFiles).toEqual([]);
+	});
+
+	it('[B15] fetch 成功時は従来どおり fresh (fetchFailed の既定は false)', () => {
+		expect(classifyBaseDrift({ behind: 0, baseChangedFiles: [], fetchFailed: false }).level).toBe(
+			'fresh',
+		);
+		expect(classifyBaseDrift({ behind: 0, baseChangedFiles: [] }).level).toBe('fresh');
+	});
+
+	it('[B16] fetch 失敗でも検査基準が動いていれば BLOCK を維持する (安全側を弱めない)', () => {
+		const r = classifyBaseDrift({
+			behind: 3,
+			baseChangedFiles: ['.github/PULL_REQUEST_TEMPLATE.md'],
+			fetchFailed: true,
+		});
+		expect(r.level).toBe('gate-ssot-moved');
+	});
+
+	it('[B17] unverified の注記は「取り込み済」と書かない', () => {
+		const note = callExport<string>('buildBaseUnverifiedNote', 'develop');
+		expect(note).toContain('未検証');
+		expect(note).toContain('git fetch origin develop');
+		expect(note).not.toContain('取り込み済み');
+		expect(note).not.toContain('OK');
 	});
 
 	it('[B2] base が動いても検査基準を含まなければ behind-only (警告のみ)', () => {

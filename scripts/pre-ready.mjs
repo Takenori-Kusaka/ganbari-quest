@@ -313,6 +313,7 @@ export function isGateSsotPath(file) {
  * | level | 意味 | pre-ready の挙動 |
  * |---|---|---|
  * | `fresh` | base の commit を取り込み済み | 何も出さない |
+ * | `unverified` | `git fetch` に失敗し、取り込み済かを判定できていない | 警告 + summary 注記 (**止めない**) |
  * | `behind-only` | base は進んだが検査基準は動いていない | 警告 + summary 注記 (**止めない**) |
  * | `gate-ssot-moved` | base が進み、検査基準まで動いた | **BLOCK** (判定が無効なので測り直す) |
  *
@@ -324,11 +325,14 @@ export function isGateSsotPath(file) {
  * `behind > 0` でも file 一覧が空 (差分取得失敗) なら `behind-only` に倒す。
  * 「測れなかった」を BLOCK にすると offline というだけで止まるため。
  *
- * @param {{ behind: number; baseChangedFiles: string[] }} input
- * @returns {{ level: 'fresh' | 'behind-only' | 'gate-ssot-moved'; gateFiles: string[] }}
+ * @param {{ behind: number; baseChangedFiles: string[]; fetchFailed?: boolean }} input
+ * @returns {{ level: 'fresh' | 'unverified' | 'behind-only' | 'gate-ssot-moved'; gateFiles: string[] }}
  */
-export function classifyBaseDrift({ behind, baseChangedFiles }) {
-	if (!(behind > 0)) return { level: 'fresh', gateFiles: [] };
+export function classifyBaseDrift({ behind, baseChangedFiles, fetchFailed = false }) {
+	// fetch できていないときの behind は「手元 ref との差」でしかない。0 だからといって
+	// base を取り込み済とは言えないので、`fresh` (= 取り込み済と断言する level) にしない。
+	// 断言してしまうと「検証していないことを検証済みとして出力に残す」ことになる (#4390 QM 指摘)。
+	if (!(behind > 0)) return { level: fetchFailed ? 'unverified' : 'fresh', gateFiles: [] };
 	const gateFiles = (baseChangedFiles ?? []).filter(isGateSsotPath);
 	if (gateFiles.length === 0) return { level: 'behind-only', gateFiles: [] };
 	return { level: 'gate-ssot-moved', gateFiles };
@@ -368,6 +372,23 @@ export function buildBaseDriftNote(base, behind) {
 	return (
 		`base 鮮度: origin/${base} が ${behind} commits 先に進んでいます (検査基準は不変のため止めません、#4390)。` +
 		` CI は rebase 後の内容で走るため、Ready 化の直前に \`git rebase origin/${base}\` して再測することを推奨します。`
+	);
+}
+
+/**
+ * `unverified` (git fetch 失敗) で表示する注記 (#4390、unit test 対象)。
+ *
+ * **「取り込み済」と書かない**のが本文言の要件。fetch できていない以上 `behind` は手元 ref
+ * との差でしかなく、実際には base が進んで検査基準が動いていても 0 と出る。ここで OK と
+ * 書くと、検証していない事実を検証済みとして summary に残すことになる (#4390 QM 指摘)。
+ *
+ * @param {string} base
+ * @returns {string}
+ */
+export function buildBaseUnverifiedNote(base) {
+	return (
+		`base 鮮度: 未検証 — \`git fetch origin ${base}\` に失敗したため手元の ref で測っています (#4390)。` +
+		` 取り込み済かどうかは判定できていません。オンラインで \`git fetch origin ${base}\` してから再実行してください。`
 	);
 }
 
@@ -1029,18 +1050,25 @@ async function main() {
 			`[pre-ready] base 鮮度: 測定不能 (origin/${baseBranch} 未取得 / lane 外 base) — 判定をスキップします (#4390)`,
 		);
 	} else {
-		if (drift.fetchFailed) {
-			console.warn(
-				`[pre-ready] WARN: git fetch origin ${baseBranch} 失敗 (offline?) — 手元 ref で鮮度を判定します (#4390)`,
-			);
-		}
-		const verdict = classifyBaseDrift({ behind: drift.behind, baseChangedFiles: drift.files });
+		const verdict = classifyBaseDrift({
+			behind: drift.behind,
+			baseChangedFiles: drift.files,
+			fetchFailed: drift.fetchFailed,
+		});
 		if (verdict.level === 'gate-ssot-moved') {
 			console.error(`\n${buildBaseDriftBlockMessage(baseBranch, drift.behind, verdict.gateFiles)}`);
 			return 1;
 		}
-		if (verdict.level === 'behind-only') {
+		if (verdict.level === 'unverified') {
+			// fetch 失敗。**OK と書かない** — summary にも注記として残し、
+			// 「測れなかった」ことが後から読む人 (QM) に見えるようにする (#4390)。
+			baseDriftNote = buildBaseUnverifiedNote(baseBranch);
+			console.warn(`[pre-ready] ⚠ ${baseDriftNote}`);
+		} else if (verdict.level === 'behind-only') {
 			baseDriftNote = buildBaseDriftNote(baseBranch, drift.behind);
+			if (drift.fetchFailed) {
+				baseDriftNote = `${baseDriftNote} (なお \`git fetch\` に失敗しているため、この commits 数は手元 ref 基準です)`;
+			}
 			console.warn(`[pre-ready] ⚠ ${baseDriftNote}`);
 		} else {
 			console.log(`[pre-ready] base 鮮度: OK (origin/${baseBranch} を取り込み済、#4390)`);
