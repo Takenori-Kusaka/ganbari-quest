@@ -27,6 +27,8 @@ const currentStepIndex = $derived(
 		0,
 	),
 );
+// steps は空にならないが、index アクセスの型を確定させるため fallback を明示する
+const currentStep = $derived(steps[currentStepIndex] ?? steps[0]);
 </script>
 
 <div class="setup-page">
@@ -62,7 +64,7 @@ const currentStepIndex = $derived(
 		</div>
 		<p class="step-caption mb-6">
 			<span class="step-caption__count">{currentStepIndex + 1} / {steps.length}</span>
-			<span class="step-caption__label">{steps[currentStepIndex].label}</span>
+			<span class="step-caption__label">{currentStep?.label}</span>
 		</p>
 
 		<Card padding="lg">
