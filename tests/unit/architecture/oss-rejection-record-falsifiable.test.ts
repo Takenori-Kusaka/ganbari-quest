@@ -141,10 +141,7 @@ describe('#4395 OSS 不採用記録は「不採用が今も成立する」こと
 		const names = [...rejection.matchAll(/\[([^\]]+)\]\(https?:[^)]+\)/g)].map((m) => m[1]);
 		const both = names.filter((n) => adoption.includes(n));
 
-		expect(
-			both,
-			`同じ OSS が採用記録と不採用記録の両方にあります: ${both.join(', ')}`,
-		).toEqual([]);
+		expect(both, `同じ OSS が採用記録と不採用記録の両方にあります: ${both.join(', ')}`).toEqual([]);
 	});
 
 	it('[OR4] 痕跡ありの行を fail させられる (guard 自体の生存確認)', () => {
