@@ -165,10 +165,19 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			const res = await runAction(
 				'markCheersShown',
 				{ cheerIds: `${VALID_FORM_UUID},${NON_UUID}` },
-				undefined,
+				VALID_COOKIE_UUID,
 			);
 			expect(res.status).toBe(400);
 			expect(mockMarkCheersShown).not.toHaveBeenCalled();
+		});
+
+		it('markCheersShown: child cookie が無ければ既読化に到達しない (#4435 所有権の入口)', async () => {
+			// #4435: 既読化は「受け取る子」を cookie から解決する。cookie 不在で通ると
+			// 所有権述語に渡す childId が無くなり、逸脱 1 (他人宛おうえんの既読化) が復活する。
+			const res = await runAction('markCheersShown', { cheerIds: VALID_FORM_UUID }, undefined);
+			expect(mockMarkCheersShown).not.toHaveBeenCalled();
+			// cookie 不在は fail(400) か /switch redirect のいずれか (cookie guard の正規化に従う)
+			expect(res.status === 400 || typeof res.redirect === 'string').toBe(true);
 		});
 	});
 
@@ -204,9 +213,15 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 
 		it('markCheersShown: 全件 uuid なら markCheersShown に渡す', async () => {
 			mockMarkCheersShown.mockResolvedValue(undefined);
-			const res = await runAction('markCheersShown', { cheerIds: VALID_FORM_UUID }, undefined);
+			const res = await runAction(
+				'markCheersShown',
+				{ cheerIds: VALID_FORM_UUID },
+				VALID_COOKIE_UUID,
+			);
 			expect(mockMarkCheersShown).toHaveBeenCalledTimes(1);
-			expect(mockMarkCheersShown.mock.calls[0]?.[0]).toEqual([VALID_FORM_UUID]);
+			// #4435: 第 1 引数 = 受け取る子 (cookie 由来)、第 2 引数 = cheerIds
+			expect(mockMarkCheersShown.mock.calls[0]?.[0]).toBe(VALID_COOKIE_UUID);
+			expect(mockMarkCheersShown.mock.calls[0]?.[1]).toEqual([VALID_FORM_UUID]);
 			expect((res.data as { success?: boolean }).success).toBe(true);
 		});
 	});

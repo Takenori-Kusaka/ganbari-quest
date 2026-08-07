@@ -25,7 +25,6 @@ import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
-	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
@@ -244,41 +243,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
 		// insertRedemptionRequest の dedup txn に内蔵済 (check-then-act TOCTOU 根治)。
 
-		async findUnshownResultByChild(childId, tenantId) {
-			const result = await db.execute(sql`
-				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
-					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon
-				FROM reward_redemption_requests rr
-				LEFT JOIN special_rewards sr
-					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
-				WHERE rr.family_id = ${tenantId} AND rr.child_id = ${childId}
-					AND rr.status IN ('approved', 'rejected') AND rr.shown_to_child_at IS NULL
-				ORDER BY rr.resolved_at DESC, rr.redemption_id DESC
-				LIMIT 1
-			`);
-			const row = result.rows[0] as unknown as
-				| (RequestRow & { reward_title: string; reward_icon: string | null })
-				| undefined;
-			if (!row) return undefined;
-			const base = toRequestRow(row);
-			return {
-				...base,
-				rewardTitle: row.reward_title,
-				rewardIcon: row.reward_icon,
-			} satisfies RedemptionRequestWithReward;
-		},
-
-		async markRedemptionResultShown(childId, id, tenantId) {
-			// #2845 課題①: (childId, redemptionId) 複合キー。不一致なら undefined。
-			const result = await db.execute(sql`
-				UPDATE reward_redemption_requests SET shown_to_child_at = now()
-				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}
-				RETURNING ${REQUEST_COLUMNS}
-			`);
-			const row = result.rows[0] as unknown as RequestRow | undefined;
-			return row ? toRequestRow(row) : undefined;
-		},
+		// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去 (到達不能経路)。
+		// 交換申請の承認・却下は子供のごほうびショップのバッジと履歴画面が常時表示しており、
+		// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
+		// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
 		async expireOldRedemptions(tenantId) {
 			// 30 日超 pending → expired。timestamptz 比較で now() - interval を使う (§11.3)。

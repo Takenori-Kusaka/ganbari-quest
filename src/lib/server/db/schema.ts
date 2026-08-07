@@ -442,6 +442,13 @@ export const rewardRedemptionRequests = sqliteTable(
 		parentNote: text('parent_note'),
 		resolvedAt: integer('resolved_at'),
 		resolvedByParentId: text('resolved_by_parent_id'),
+		// #4435: 読み書きする production 経路は撤去済 (子への通知はごほうびショップのバッジと
+		// 履歴画面が担う)。列を残すのはバックアップ往復 (export/import) で既存 backup の値を
+		// 忠実に戻すため。
+		// **撤去の終了条件**: 既存 backup が本列を含まなくなる (= wire schema から外して
+		// 後方互換を切る) 決定が下った時点で、列 / 3 backend の schema / create-tables /
+		// export-format / import-service / e2e・unit の DDL を同一 PR で一括撤去する。
+		// それまでの部分削除は行わない。
 		shownToChildAt: integer('shown_to_child_at'),
 		// #2832: 申請時点 snapshot (reward 編集後も申請時の内容で表示・控除する仕様、
 		// DynamoDB 実装の非正規化 item と等価)。旧行は NULL → 読み出し側で live JOIN 値に fallback

@@ -87,7 +87,10 @@ export interface IChildChallengeRepo {
 	/**
 	 * #4410: 達成祝福 (SiblingCelebration) を「見せた」ことを記録する。
 	 *
-	 * `sibling_cheers.markShown` / `parent_messages` の `shownAt` と同型の「一度だけ見せる」機構。
+	 * 「一度見せたら次から出さない」媒体 A (行に timestamp 列)。満たすべき条件は
+	 * `docs/design/parallel-implementations.md` §13 が SSOT で、`sibling_cheers.markShown` /
+	 * `parent_messages.markMessageShown` も同じ条件を満たす (#4435 で揃えた。それ以前は
+	 * 「同型」と書かれていながら冪等性も所有権の掛け方も食い違っていた)。
 	 * 祝福の停止条件はこの列のみが持ち、`rewardClaimed` (ごほうび受取) とは独立させる (#4410 AC3)。
 	 * 既に記録済の行は上書きしない (冪等 — 最初に見せた時刻を保つ)。
 	 */

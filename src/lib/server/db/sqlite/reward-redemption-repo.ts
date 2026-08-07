@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import { db } from '../client';
@@ -9,7 +9,6 @@ import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
-	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
@@ -295,73 +294,10 @@ export async function updateRedemptionRequestStatus(
 // findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
 // insertRedemptionRequest の同期 txn 内 dedup に内蔵済 (check-then-act TOCTOU 根治)。
 
-/** 子供の未表示の承認/却下通知を取得 */
-export async function findUnshownResultByChild(
-	childId: ChildId,
-	_tenantId: string,
-): Promise<RedemptionRequestWithReward | undefined> {
-	const row = db
-		.select({
-			id: rewardRedemptionRequests.id,
-			childId: rewardRedemptionRequests.childId,
-			rewardId: rewardRedemptionRequests.rewardId,
-			requestedAt: rewardRedemptionRequests.requestedAt,
-			quantity: rewardRedemptionRequests.quantity,
-			status: rewardRedemptionRequests.status,
-			parentNote: rewardRedemptionRequests.parentNote,
-			resolvedAt: rewardRedemptionRequests.resolvedAt,
-			resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
-			shownToChildAt: rewardRedemptionRequests.shownToChildAt,
-			// #2832: 申請時点 snapshot 優先 (旧行は live JOIN 値に fallback)
-			rewardTitle: snapshotTitle,
-			rewardIcon: snapshotIcon,
-		})
-		.from(rewardRedemptionRequests)
-		// #3566 ①: leftJoin で snapshot 権威化 (reward 削除後も未表示通知が snapshot 値で残る)。
-		.leftJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
-		.where(
-			and(
-				eq(rewardRedemptionRequests.childId, Number(childId)),
-				inArray(rewardRedemptionRequests.status, ['approved', 'rejected']),
-				isNull(rewardRedemptionRequests.shownToChildAt),
-			),
-		)
-		.orderBy(desc(rewardRedemptionRequests.resolvedAt))
-		.limit(1)
-		.get();
-	return row
-		? {
-				...row,
-				id: String(row.id),
-				childId: asChildId(row.childId),
-				rewardId: String(row.rewardId),
-			}
-		: undefined;
-}
-
-/**
- * 未表示通知を表示済みにする。
- * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
- */
-export async function markRedemptionResultShown(
-	childId: ChildId,
-	id: string,
-	_tenantId: string,
-): Promise<RedemptionRequestRow | undefined> {
-	const now = Math.floor(Date.now() / 1000);
-	const row = db
-		.update(rewardRedemptionRequests)
-		.set({ shownToChildAt: now })
-		.where(
-			and(
-				eq(rewardRedemptionRequests.id, Number(id)),
-				eq(rewardRedemptionRequests.childId, Number(childId)),
-			),
-		)
-		.returning()
-		.get();
-	return row ? toRequestRow(row) : undefined;
-}
+// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去 (到達不能経路)。
+// 交換申請の承認・却下は子供のごほうびショップのバッジと履歴画面が常時表示しており、
+// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
+// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
 /** 30日以上 pending の申請を expired に移行 */
 export async function expireOldRedemptions(_tenantId: string) {

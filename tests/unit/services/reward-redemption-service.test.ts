@@ -33,8 +33,6 @@ import {
 	expireOldRedemptions,
 	getRedemptionRequestsForChild,
 	getRedemptionRequestsForParent,
-	getUnshownRedemptionResult,
-	markRedemptionShown,
 	rejectRedemption,
 	requestRedemption,
 } from '../../../src/lib/server/services/reward-redemption-service';
@@ -463,30 +461,9 @@ describe('countPendingRedemptionsForParent (#3144)', () => {
 	});
 });
 
-describe('getUnshownRedemptionResult / markRedemptionShown', () => {
-	it('承認結果が未表示として取得でき、表示済みにすると取得できなくなる', async () => {
-		const { childId, rewardId } = seedBaseData();
-		const reqResult = await requestRedemption(asChildId(childId), String(rewardId), TENANT_ID);
-		if ('error' in reqResult) return;
-
-		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
-
-		const unshown = await getUnshownRedemptionResult(asChildId(childId), TENANT_ID);
-		expect(unshown).toBeTruthy();
-		expect(unshown?.status).toBe('approved');
-
-		// #2845 課題①: 他の childId では表示済みにできない (所有権検証、SQLite backend)
-		const wrongChild = await markRedemptionShown(asChildId(childId + 999), reqResult.id, TENANT_ID);
-		expect(wrongChild).toBeUndefined();
-		expect(await getUnshownRedemptionResult(asChildId(childId), TENANT_ID)).toBeTruthy();
-
-		// 表示済みにする
-		await markRedemptionShown(asChildId(childId), reqResult.id, TENANT_ID);
-
-		const afterMark = await getUnshownRedemptionResult(asChildId(childId), TENANT_ID);
-		expect(afterMark).toBeNull();
-	});
-});
+// #4435: getUnshownRedemptionResult / markRedemptionShown の describe は撤去した。
+// 両 API は production 呼び出し元ゼロの到達不能経路で、この test だけが唯一の参照だった
+// (テストが生存を偽装していた)。承認・却下の子への伝達はごほうびショップのバッジと履歴が担う。
 
 describe('expireOldRedemptions', () => {
 	it('古い pending 申請が expired になる', async () => {

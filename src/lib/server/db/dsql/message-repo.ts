@@ -127,13 +127,24 @@ export function createDsqlMessageRepo(db: SqlExecutor): IMessageRepo {
 				return undefined;
 			}
 			// #2845 課題①: (childId, msgId) 複合キー。不一致なら undefined。
+			// #4435 (逸脱 2、条件 SSOT: parallel-implementations.md §13 条件 1): `shown_at IS NULL`
+			// guard で冪等にし、再送で初回表示時刻を上書きしない。guard で 0 行になった場合は
+			// 所有権を満たす行を読み直して返す (「既に既読」と「他人の子の行」を endpoint の 404
+			// 判定が区別できるようにするため)。
 			const result = await db.execute(sql`
 				UPDATE parent_messages SET shown_at = now()
 				WHERE family_id = ${tenantId} AND child_id = ${childId} AND msg_id = ${messageId}
+					AND shown_at IS NULL
 				RETURNING ${MESSAGE_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as MessageRow | undefined;
-			return row ? toMessage(row) : undefined;
+			if (row) return toMessage(row);
+			const already = await db.execute(sql`
+				SELECT ${MESSAGE_COLUMNS} FROM parent_messages
+				WHERE family_id = ${tenantId} AND child_id = ${childId} AND msg_id = ${messageId}
+			`);
+			const alreadyRow = already.rows[0] as unknown as MessageRow | undefined;
+			return alreadyRow ? toMessage(alreadyRow) : undefined;
 		},
 
 		async deleteByTenantId(tenantId) {

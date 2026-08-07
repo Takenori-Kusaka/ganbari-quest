@@ -13,9 +13,7 @@ import {
 	expireOldRedemptions as expireOldRedemptionsRepo,
 	findRedemptionRequestsByChild,
 	findRedemptionRequestsByTenant,
-	findUnshownResultByChild,
 	insertRedemptionRequest,
-	markRedemptionResultShown,
 	updateRedemptionRequestStatus,
 } from '$lib/server/db/reward-redemption-repo';
 import { getSetting } from '$lib/server/db/settings-repo';
@@ -71,16 +69,6 @@ export interface RedemptionRequestWithDetails {
 	requestedAt: number;
 	parentNote: string | null;
 	resolvedAt: number | null;
-}
-
-export interface UnshownRedemptionResult {
-	id: string;
-	childId: ChildId;
-	rewardId: string;
-	rewardTitle: string;
-	rewardIcon: string | null;
-	status: 'approved' | 'rejected';
-	parentNote: string | null;
 }
 
 // ============================================================
@@ -421,33 +409,8 @@ export async function expireOldRedemptions(tenantId: string): Promise<number> {
 	return expireOldRedemptionsRepo(tenantId);
 }
 
-// ============================================================
-// 未表示通知取得（子供ホーム画面用）
-// ============================================================
-
-export async function getUnshownRedemptionResult(
-	childId: ChildId,
-	tenantId: string,
-): Promise<UnshownRedemptionResult | null> {
-	const row = await findUnshownResultByChild(childId, tenantId);
-	if (!row) return null;
-	if (row.status !== 'approved' && row.status !== 'rejected') return null;
-
-	return {
-		id: row.id,
-		childId: row.childId,
-		rewardId: row.rewardId,
-		rewardTitle: row.rewardTitle,
-		rewardIcon: row.rewardIcon,
-		status: row.status,
-		parentNote: row.parentNote,
-	};
-}
-
-/**
- * 未表示通知を表示済みにする。
- * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。
- */
-export async function markRedemptionShown(childId: ChildId, id: string, tenantId: string) {
-	return markRedemptionResultShown(childId, id, tenantId);
-}
+// #4435: getUnshownRedemptionResult / markRedemptionShown は撤去した。
+// 交換申請の承認・却下は子供のごほうびショップ (`latestRequestStatus` バッジ) と履歴画面が
+// 常時表示しており、`shown_to_child_at` を使う「一度だけ出す」全画面通知は production から
+// 呼ばれない到達不能経路のまま残っていた (#4432 実測)。子供ホームのオーバーレイを増やすのは
+// ADR-0012 (anti-engagement) にも反するため、繋がずに撤去した。

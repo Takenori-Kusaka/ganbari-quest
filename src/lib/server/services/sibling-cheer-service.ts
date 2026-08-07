@@ -78,9 +78,18 @@ export async function getUnshownCheers(
 	});
 }
 
-/** おうえんを既読にする */
-export async function markCheersShown(cheerIds: string[], tenantId: string): Promise<void> {
-	await markShown(cheerIds, tenantId);
+/**
+ * おうえんを既読にする。
+ *
+ * #4435: 受け取る子 (`childId`) を必ず渡す。id 配列だけを素通しすると、同じ家族の
+ * きょうだいが別の子宛のおうえんを既読にでき、受け取る側が一度も見られない。
+ */
+export async function markCheersShown(
+	childId: ChildId,
+	cheerIds: string[],
+	tenantId: string,
+): Promise<void> {
+	await markShown(childId, cheerIds, tenantId);
 }
 
 /** きょうだい一覧（自分以外）を取得 — スタンプ送信先選択用 */

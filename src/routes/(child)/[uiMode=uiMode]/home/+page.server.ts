@@ -712,8 +712,19 @@ export const actions: Actions = {
 		return { success: true, cheerSent: true };
 	},
 
-	markCheersShown: async ({ request, locals }) => {
+	/**
+	 * #4435 (逸脱 1): 受け取る子 (cookie の selectedChildId) を必ず解決して渡す。
+	 * 旧実装は cheer id 配列だけを service へ素通ししており、id は本 route の load が
+	 * 返す値なので、同じ家族のきょうだいが**別の子宛のおうえん**を既読にできた
+	 * (既読になると次から出ないため、受け取る側は一度も見られない)。
+	 * `markChallengeCelebrationShown` と同型に child cookie を trust 境界とする。
+	 */
+	markCheersShown: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
+		const childId = asChildId(requireValidChildCookieFormat(cookies, 'route.home.markCheersShown'));
+		if (!childId) {
+			return fail(400, { error: 'パラメータが不正です' });
+		}
 		const formData = await request.formData();
 		const cheerIdsStr = formData.get('cheerIds')?.toString() ?? '';
 		const cheerIds = cheerIdsStr
@@ -730,7 +741,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'パラメータが不正です' });
 		}
 
-		await markCheersShown(cheerIds, tenantId);
+		await markCheersShown(childId, cheerIds, tenantId);
 		return { success: true };
 	},
 
