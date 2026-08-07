@@ -160,6 +160,8 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		await settingsRepo.setSetting('session_token', 'session-dummy', FAMILY);
 		await settingsRepo.setSetting('questionnaire_challenges', 'つづかない', FAMILY);
 		await settingsRepo.setSetting('some_future_key_2099', 'x', FAMILY);
+		// prefix 付き動的キー (habit-certificate-notice-service が child ごとに作る形)
+		await settingsRepo.setSetting('child:903:habit_certificate_notice', '2026-08-01', FAMILY);
 		await settingsRepo.setSetting('pin_hash', '$2b$10$other', OTHER_FAMILY);
 
 		await settingsRepo.deleteByTenantIdExcept(FAMILY, [

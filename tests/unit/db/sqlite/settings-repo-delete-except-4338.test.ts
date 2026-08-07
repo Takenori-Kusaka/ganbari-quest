@@ -57,6 +57,8 @@ describe('#4338 sqlite settings-repo: 指定キー以外を全部消す', () => 
 		await setSetting('questionnaire_activity_level', 'high', TENANT);
 		await setSetting('deletion_warning_sent_at', '2026-08-07T00:00:00.000Z', TENANT);
 		await setSetting('some_future_key_2099', 'x', TENANT);
+		// prefix 付き動的キー (habit-certificate-notice-service が child ごとに作る形)
+		await setSetting('child:903:habit_certificate_notice', '2026-08-01', TENANT);
 	});
 
 	afterEach(() => {

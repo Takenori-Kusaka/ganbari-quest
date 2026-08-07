@@ -45,6 +45,16 @@ import { GRACE_PERIOD_JUDGMENT_KEYS } from './soft-delete-keys';
 const repos = () => getRepos();
 
 /**
+ * #4338: 機微 settings (判定 3 キー以外) の削除に失敗したことを表す log 行の検索語。
+ *
+ * この失敗は「退会処理中なのに `pin_hash` / `session_token` が残っている」状態を意味するため、
+ * 他の best-effort 削除 (warn) と区別して error で出す。処理自体は止めない — `families` 行が
+ * 残るので翌日の cron が同じテナントを拾って再試行し、自己回復するため。
+ */
+export const SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM =
+	'[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存 / 翌日の再実行で回復)';
+
+/**
  * テナント内の全子供データとファイルを削除する。
  *
  * 子供テーブルの cascade delete により、子供に紐づく activity_logs / point_ledger /
@@ -215,7 +225,12 @@ export async function deleteTenantScopedData(
 		try {
 			deleted += await deleteTenantSettingsExceptJudgmentKeys(tenantId);
 		} catch (err) {
-			logger.warn(`[tenant-cleanup] settings 部分削除失敗: ${String(err)}`);
+			// 本ブロックの失敗は「認証情報が残る」を意味するので、他の best-effort 削除と同じ
+			// warn には落とさない。処理は止めない (families 行が残るので翌日の cron が再試行して
+			// 自己回復する) が、error で必ず観測できるようにする (ADR-0006 / #4338)。
+			logger.error(SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM, {
+				context: { tenantId, error: String(err) },
+			});
 		}
 	} else {
 		try {
