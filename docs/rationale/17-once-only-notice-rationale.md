@@ -107,8 +107,8 @@ A の read/write メソッドは `src/lib/server/db/` 配下 25 file に 67 箇�
 本調査で見つかった A の規約逸脱。**本 Issue では実装しない**（#4432 は判断が成果物）。下 3 件は **#4435** に切り出した。
 
 - [ ] **A3 `sibling_cheers.markShown` に所有権検証が無い** — `?/markCheersShown` は cheer id の配列を受け、repo の WHERE は `family_id` + `cheer_id IN (...)` のみ。service も素通し。同一家族内の別の子の未読おうえんを既読化できる（IDOR、影響は「きょうだいの演出が出なくなる」で限定的だが、A1 / A2 / A5 が `#2845 課題①` で潰した穴が A3 だけ残っている）
-- [ ] **A1 / A2 / A3 / A5 の mark が非冪等** — WHERE に `IS NULL` が無く、再送・二重送信で初回表示時刻が上書きされる。A4 のみ対処済み。上記「条件 1」への横展開
-- [ ] **A5 が死んでいる** — `getUnshownRedemptionResult` / `markRedemptionShown` に production 呼び出し元が無く、参照は unit test のみ。子は交換申請の承認/却下を知る導線を持っていない可能性がある（意図的な撤去の残置か、配線漏れかの確認が要る）。列・repo・service・test が生きたまま残っているため、grep では「動いている機構」に見える
+- [ ] **A1 / A2 / A3 / A5 の mark が非冪等** — WHERE に `IS NULL` が無く、再送・二重送信で初回表示時刻が上書きされる。A4 のみ対処済み。上記「条件 1」への横展開。**なお guard を足すだけでは足りない mark がある**: 行を返す A1 / A2 は 0 行が「既に既読」と「他人の子の行」の両方を意味してしまい、`/shown` endpoint の 404 が担っていた所有権シグナル（#2845）が壊れる。guard + 0 行時に所有権を満たす行を読み直すところまでが是正の単位（#4440 で採用された形）
+- [ ] **A5 が死んでいる** — `getUnshownRedemptionResult` / `markRedemptionShown` に production 呼び出し元が無く、参照は unit test のみ。列・repo・service・test が生きたまま残っているため、grep では「動いている機構」に見える。**#4435 / PR #4440 の判断は「繋がずに撤去」**: 子への承認 / 却下の伝達はごほうびショップのカードのバッジ（`latestRequestStatus`）と履歴画面が既に担っており、ホームに一度きりの全画面 overlay を足すのは ADR-0012 に反するため。列だけは backup 往復の忠実性のため残置し、撤去の終了条件を `schema.ts` の列コメントに置く（#3442 と同じ書き方）
 - [ ] **C の `gq:milestone-seen:*` が 2 コンポーネントに複製されている** — `MilestoneBanner.svelte` と `MilestoneBellButton.svelte` が同じキー prefix の read/write を各自持つ。A の話とは別クラスターだが、同じ「一度だけ見せる」の重複として記録しておく
 
 ## 関連

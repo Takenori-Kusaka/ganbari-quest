@@ -572,13 +572,15 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 | 何を記録するか | 媒体 | 実体 | 例 |
 |---|---|---|---|
-| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` / `reward_redemption_requests.shown_to_child_at` |
+| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` |
 | 子 / テナントに 1 本の一時的な未読告知 | **B: settings KV**（列追加は不可逆なので避ける） | `settings` テーブル + `export-format.ts` の分類 3 配列 | `habit_certificate_notice:<childId>` / `ui_mode_change_notice:<childId>` / `premium_welcome_shown` ほか |
 | 端末ローカルで十分な UI ガイド（機種変で再表示されてよい） | C: localStorage | 各コンポーネント / store | `ganbari-page-guide-completed` / `gq:milestone-seen:*` |
 
+**列だけが残っているものを「前例」として真似しない**: `reward_redemption_requests.shown_to_child_at` は A の 5 例目だったが、read / write とも production 呼び出し元ゼロの到達不能経路だった。経路の撤去は #4435 / PR #4440 で行い、**列はバックアップ往復（export/import）の忠実性のためだけに残す**（撤去の終了条件は `schema.ts` の当該列コメント）。子への承認 / 却下の伝達は、ごほうびショップのカードのバッジ（`latestRequestStatus`）と履歴画面が担う。
+
 **A（行に timestamp）を選んだ場合に必ず満たす 3 条件**:
 
-1. **冪等にする** — `UPDATE ... WHERE ... AND <col> IS NULL`。再送で「最初に見せた時刻」を上書きしない
+1. **冪等にする** — `UPDATE ... WHERE ... AND <col> IS NULL`。再送で「最初に見せた時刻」を上書きしない。**行を返す mark は、guard で 0 行になったときに所有権を満たす行を読み直すところまでが条件**（`markRewardShown` / `markMessageShown`）。読み直さないと「既に既読」と「他人の子の行」がどちらも 0 行になり、呼び出し側の 404 が所有権シグナルとして機能しなくなる（#2845）。void を返す mark（`markCelebrationShown` / `markShown`）は単文で足りる
 2. **所有権を検証する** — WHERE に `(child_id, <id>)` の複合キーを含めるか、service 層で `findById` → `childId` 一致を確認する。`family_id` だけでは同一家族内の別の子の行を閉じられる
 3. **表示可否の根拠を client の `$state` に置かない** — load 側で `IS NULL` を解決する（#4410 で確立）。`$state` はマウントのたび初期値へ戻るため、根拠にすると毎回再表示される（ADR-0012 違反）
 
@@ -592,7 +594,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] 媒体を上表から選んだか（「既存が A だから A」で決めない。子に 1 本の一時告知なら B）
 - [ ] A なら 3 条件を満たしたか。sqlite / dsql / demo の 3 repo + interface を同期したか
 - [ ] B なら `export-format.ts` の分類に追加したか
-- [ ] 既存実装のコメントが「〜と同型」と書いていても**信じない** — 冪等性と所有権は実際に 5 例で食い違っている（#4432 実測）
+- [ ] 既存実装のコメントが「〜と同型」と書いていても**信じない** — 冪等性と所有権は実際に 5 例で食い違っていた（#4432 実測 / 是正は #4435）
 
 ---
 
