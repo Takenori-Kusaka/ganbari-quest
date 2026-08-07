@@ -367,7 +367,9 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	.reward-list {
 		list-style: none; padding: 0; margin: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(var(--reward-grid-min, 280px), 1fr));
+		/* #4417: 年齢別の最小カラム幅 (#2156、baby / preschool = 320px) が viewport 幅を
+		   上回る端末ではトラックが必ずあふれるため、min() で「器の幅」を上限にする。 */
+		grid-template-columns: repeat(auto-fill, minmax(min(var(--reward-grid-min, 280px), 100%), 1fr));
 		gap: var(--sp-md);
 	}
 	.reward-card { display: flex; align-items: center; gap: var(--sp-sm); }

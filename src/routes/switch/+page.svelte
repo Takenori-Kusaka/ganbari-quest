@@ -77,6 +77,16 @@ function retryAdminNavigation() {
 // (MilestoneBanner の bypassSeenCheck と同型の既存パターン、src/routes/CLAUDE.md §?screenshot)。
 // 本番ユーザは screenshot mode に入らないため通常表示には影響しない。
 const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
+// #4417 AC5: overlay 表示中は背後のページをスクロールさせない。
+// この overlay はアプリ内で唯一 primitive を使わない全画面 modal のため、Ark UI Dialog が
+// 内包するスクロールロックが抜けており、「読み込み中です」と出しながら背後が動いていた
+// (`body.overflow = visible` / overlay 越しに scrollY=266 まで動くことを実測、#4417)。
+const overlayVisible = $derived(navigatingToAdmin || navigatingError || isScreenshotAll);
+$effect(() => {
+	if (!overlayVisible) return;
+	document.body.classList.add('parent-gate-scroll-lock');
+	return () => document.body.classList.remove('parent-gate-scroll-lock');
+});
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
 
@@ -408,9 +418,18 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	.portal-page {
 		background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-50) 50%, var(--color-gold-100) 100%);
 	}
+	/* #4417 AC3': 下端は inset で決めない。iOS はソフトウェアキーボード表示中に layout viewport を
+	   縮めるため、PIN 入力直後に表示されるこの overlay は `inset: 0` だと「viewport − キーボード」
+	   の高さ (実測 495 / 792 CSS px) で確定し、キーボードが閉じても再レイアウトされない。
+	   lvh (large viewport height) はキーボード / 動的 UI で縮まない基準なので下端まで覆える。 */
 	.login-overlay {
 		position: fixed;
-		inset: 0;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 100vh; /* lvh 非対応ブラウザ向け fallback */
+		height: 100lvh;
+		overscroll-behavior: contain;
 		z-index: var(--z-modal);
 		display: flex;
 		flex-direction: column;
@@ -419,6 +438,10 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		gap: 1rem;
 		background: var(--color-surface-overlay);
 		backdrop-filter: blur(2px);
+	}
+	/* overlay 表示中の背後スクロール抑止 (#4417 AC5)。class の付け外しは上記 $effect が担う。 */
+	:global(body.parent-gate-scroll-lock) {
+		overflow: hidden;
 	}
 	.login-overlay__spinner {
 		width: 2.5rem;

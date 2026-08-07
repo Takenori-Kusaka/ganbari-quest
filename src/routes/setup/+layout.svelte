@@ -36,24 +36,34 @@ const currentStepIndex = $derived(
 			<p class="text-sm text-[var(--color-text-muted)] mt-1">{SETUP_LABELS.layoutTitle}</p>
 		</div>
 
-		<!-- Step indicator -->
-		<div class="flex items-center justify-center mb-6">
+		<!-- Step indicator (#4417)
+		     step 名を全 step 分並べると nowrap のラベルが必ず画面幅を超えるため、
+		     並べるのは丸だけにして「現在どの step か」は下の 1 行に集約する。
+		     丸は縮み可 / 線は伸縮させるので、step が増減しても横幅は器に収まる。 -->
+		<div class="steps">
 			{#each steps as step, i (step.path)}
-				<div class="step" class:step--active={i === currentStepIndex} class:step--done={i < currentStepIndex}>
-					<div class="step-circle">
-						{#if i < currentStepIndex}
-							<span>&#10003;</span>
-						{:else}
-							{i + 1}
-						{/if}
-					</div>
-					<span class="step-label">{step.label}</span>
+				<div
+					class="step"
+					class:step--active={i === currentStepIndex}
+					class:step--done={i < currentStepIndex}
+					aria-label={step.label}
+					aria-current={i === currentStepIndex ? 'step' : undefined}
+				>
+					{#if i < currentStepIndex}
+						<span aria-hidden="true">&#10003;</span>
+					{:else}
+						{i + 1}
+					{/if}
 				</div>
 				{#if i < steps.length - 1}
 					<div class="step-line" class:step-line--done={i < currentStepIndex}></div>
 				{/if}
 			{/each}
 		</div>
+		<p class="step-caption mb-6">
+			<span class="step-caption__count">{currentStepIndex + 1} / {steps.length}</span>
+			<span class="step-caption__label">{steps[currentStepIndex].label}</span>
+		</p>
 
 		<Card padding="lg">
 			{@render children()}
@@ -71,34 +81,41 @@ const currentStepIndex = $derived(
 		padding: 16px;
 	}
 
-	.step {
+	.steps {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		gap: 4px;
+		justify-content: center;
+		margin-bottom: 8px;
 	}
 
-	.step-circle {
-		width: 32px;
-		height: 32px;
+	/* 丸は 32px を上限に縮み、線は余りを分け合う。step 数が増えても器の幅に収まる。 */
+	.step {
+		flex: 0 1 32px;
+		min-width: 20px;
+		aspect-ratio: 1;
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		font-weight: 700;
 		background: var(--color-neutral-200);
 		color: var(--color-neutral-400);
-		transition: all 0.2s;
+		transition: background-color 0.2s, color 0.2s;
 	}
 
-	.step--active .step-circle { background: var(--color-brand-600); color: white; }
-	.step--done .step-circle { background: var(--color-success); color: white; }
+	.step--active { background: var(--color-brand-600); color: var(--color-text-inverse); }
+	.step--done { background: var(--color-success); color: var(--color-text-inverse); }
 
-	.step-label { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
-	.step--active .step-label { color: var(--color-brand-600); font-weight: 600; }
-	.step--done .step-label { color: var(--color-success); }
-
-	.step-line { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
+	.step-line { flex: 1 1 4px; min-width: 4px; max-width: 24px; height: 2px; background: var(--color-neutral-200); }
 	.step-line--done { background: var(--color-success); }
+
+	.step-caption {
+		display: flex;
+		justify-content: center;
+		gap: 6px;
+		font-size: 0.75rem;
+	}
+	.step-caption__count { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+	.step-caption__label { color: var(--color-brand-600); font-weight: 600; }
 </style>
