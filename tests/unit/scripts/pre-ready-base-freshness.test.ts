@@ -163,7 +163,9 @@ describe('#4390 検査基準 list は spawn する script の import 閉包を�
 	/** pre-ready.mjs の source から、子プロセスで起動する script path を拾う。 */
 	function readEntryScripts(): string[] {
 		const src = readFileSync(resolve(repoRoot, 'scripts/pre-ready.mjs'), 'utf8');
-		const found = [...src.matchAll(/['"`](scripts\/[A-Za-z0-9_./-]+\.mjs)['"`]/g)].map((m) => m[1]);
+		const found = [...src.matchAll(/['"`](scripts\/[A-Za-z0-9_./-]+\.mjs)['"`]/g)].flatMap((m) =>
+			m[1] ? [m[1]] : [],
+		);
 		return [...new Set(found)];
 	}
 
@@ -181,7 +183,9 @@ describe('#4390 検査基準 list は spawn する script の import 閉包を�
 			// `from './x.mjs'` / `import('./x.mjs')` の相対 specifier のみ辿る
 			// (bare specifier = node_modules / 標準モジュールは対象外)
 			for (const m of src.matchAll(/(?:from|import)\s*\(?\s*['"](\.[^'"]+)['"]/g)) {
-				const target = relative(repoRoot, resolve(dirname(abs), m[1])).replace(/\\/g, '/');
+				const specifier = m[1];
+				if (!specifier) continue;
+				const target = relative(repoRoot, resolve(dirname(abs), specifier)).replace(/\\/g, '/');
 				if (!seen.has(target)) queue.push(target);
 			}
 		}
