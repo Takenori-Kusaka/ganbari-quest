@@ -32,11 +32,6 @@ export interface RedemptionRequestWithDetails extends RedemptionRequestRow {
 	rewardPoints: number;
 }
 
-export interface RedemptionRequestWithReward extends RedemptionRequestRow {
-	rewardTitle: string;
-	rewardIcon: string | null;
-}
-
 /**
  * #3356 (1): 直近 approved 交換の重複排除窓 (秒)。同一 (child, reward) の approved 申請が
  * resolvedAt からこの窓内に存在する場合、新規申請を DUPLICATE_REQUEST で弾く。
