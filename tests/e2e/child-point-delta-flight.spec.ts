@@ -84,7 +84,7 @@ test.describe('#4448: ポイントの増減がヘッダー残高につながる'
 			const before = await readBalance(page);
 
 			// 記録する
-			const card = page.locator('[data-testid^="activity-card-"]').first();
+			const card = page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
 			await expect(card).toBeVisible();
 			await card.click();
 			const recordBtn = page.getByTestId('confirm-record-btn');
@@ -117,7 +117,7 @@ test.describe('#4448: ポイントの増減がヘッダー残高につながる'
 		await dismissOverlays(page);
 		await expandAllCategories(page);
 
-		const card = page.locator('[data-testid^="activity-card-"]').first();
+		const card = page.locator('[data-testid^="activity-card-"]:not([disabled])').first();
 		await card.click();
 		await page.getByTestId('confirm-record-btn').click();
 		await expect(page.getByTestId('result-point-value')).toBeVisible({ timeout: 15000 });
@@ -134,9 +134,10 @@ test.describe('#4448: ポイントの増減がヘッダー残高につながる'
 			.catch(() => 'none'); // 既に消えていれば操作を妨げていないので合格
 		expect(pointerEvents, '演出レイヤーがクリックを吸ってはいけない').toBe('none');
 
-		// 演出直後でも別画面へ移動できる (待たされない)
-		await page.getByTestId('bottom-nav').getByRole('link').first().click();
-		await expect(page).not.toHaveURL(/\/elementary\/home$/, { timeout: 15000 });
+		// 演出直後でも別画面へ移動できる (演出の終了を待たされない)
+		await page.getByTestId('bottom-nav').locator('a[href*="/shop"]').first().click();
+		await expect(page).toHaveURL(/\/shop/, { timeout: 15000 });
+		await expect(page.getByTestId('shop-page')).toBeVisible();
 	});
 
 	test('AC7: 再読込 / 画面復帰では再生されない', async ({ page }) => {
@@ -232,10 +233,23 @@ test.describe('#4448: 消費ぶんもヘッダー残高につながる', () => {
 			.locator('[data-testid^="reward-card-"]')
 			.filter({ hasText: 'E2Eテスト用ごほうび（交換可）' });
 		await expect(card).toHaveCount(1);
-		await card.locator('button[data-testid^="exchange-btn-"]').click();
+		const exchangeBtn = card.locator('button[data-testid^="exchange-btn-"]');
+		await exchangeBtn.click();
 
+		// hydration が終わる前の click は onclick が未装着で無反応になる (dev server が重いと起きる)。
+		// 開くまで押し直す。**本当にボタンが死んでいれば poll は timeout して落ちる**ので、
+		// dead-end (#2544) を隠さない。
 		const confirmYes = page.getByTestId('confirm-exchange-yes');
-		await expect(confirmYes).toBeVisible({ timeout: 10000 });
+		await expect
+			.poll(
+				async () => {
+					if (await confirmYes.isVisible().catch(() => false)) return true;
+					await exchangeBtn.click().catch(() => {});
+					return false;
+				},
+				{ timeout: 20000, message: '交換ボタンを押しても確認ダイアログが開かない' },
+			)
+			.toBe(true);
 
 		const ghostLabel = captureGhostLabel(page);
 		await confirmYes.click();

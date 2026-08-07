@@ -59,7 +59,7 @@ $effect(() => {
 		position: fixed;
 		inset: 0;
 		pointer-events: none;
-		/* Dialog (--z-modal) は閉じたあとに飛ぶ。tutorial / celebration より下に置く */
+		/* below tutorial / celebration; the dialog is already closed when the ghost flies */
 		z-index: var(--z-reward);
 	}
 	.pf-fly {
@@ -77,7 +77,7 @@ $effect(() => {
 		border-radius: var(--radius-full);
 		background-color: var(--color-surface-card);
 		box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
-		/* 色だけに意味を載せない — 文字列側に + / - の符号が必ず入っている */
+		/* meaning never rides on color alone: the label always carries a + / - sign */
 		color: var(--color-action-success);
 		border: 2px solid var(--color-border-success-strong);
 	}
