@@ -54,6 +54,8 @@ const mockVoiceRepo = {
 // 失敗を握り潰さず throw するようになったため、本 test でも実体を持たせる。
 const mockSettingsRepo = {
 	deleteByTenantId: vi.fn(),
+	// #4338: 判定 3 キー以外の先行削除 (deferSettings 経路)
+	deleteByTenantIdExcept: vi.fn(),
 };
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -135,6 +137,8 @@ import {
 	transferOwnershipAndLeave,
 } from '$lib/server/services/account-deletion-service';
 
+/** #4338: 削除記録ログの文脈 (経路 + プラン)。本 test の関心外なので固定値。 */
+const AUDIT = { route: 'grace-expiry', planTier: 'standard' } as const;
 const TENANT_ID = 't-test-123';
 const OWNER_ID = 'u-owner-123';
 const PARENT_ID = 'u-parent-456';
@@ -194,7 +198,7 @@ describe('account-deletion-service', () => {
 				email: 'owner@example.com',
 			});
 
-			const result = await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID);
+			const result = await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT);
 
 			expect(result.success).toBe(true);
 			expect(result.pattern).toBe('owner-only');
@@ -215,7 +219,7 @@ describe('account-deletion-service', () => {
 				{ userId: PARENT_ID, tenantId: TENANT_ID, role: 'parent' },
 			]);
 
-			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID)).rejects.toThrow(
+			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT)).rejects.toThrow(
 				'他のメンバーが存在します',
 			);
 		});
@@ -236,7 +240,7 @@ describe('account-deletion-service', () => {
 				subscriptionId: 'sub_test_123',
 			});
 
-			await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID);
+			await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT);
 
 			expect(mockCancelSubscription).toHaveBeenCalledWith(TENANT_ID);
 			// Cancel must have been called before deleteTenant
@@ -257,7 +261,9 @@ describe('account-deletion-service', () => {
 			});
 			mockCancelSubscription.mockRejectedValue(new Error('Stripe API down'));
 
-			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID)).rejects.toThrow('Stripe API down');
+			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT)).rejects.toThrow(
+				'Stripe API down',
+			);
 
 			// DB は触られていない
 			expect(mockAuthRepo.deleteTenant).not.toHaveBeenCalled();
@@ -347,7 +353,7 @@ describe('account-deletion-service', () => {
 				return undefined;
 			});
 
-			const result = await deleteOwnerFullDelete(TENANT_ID, OWNER_ID);
+			const result = await deleteOwnerFullDelete(TENANT_ID, OWNER_ID, AUDIT);
 
 			expect(result.success).toBe(true);
 			expect(result.pattern).toBe('owner-full-delete');
@@ -375,7 +381,9 @@ describe('account-deletion-service', () => {
 			});
 			mockCancelSubscription.mockRejectedValue(new Error('Stripe timeout'));
 
-			await expect(deleteOwnerFullDelete(TENANT_ID, OWNER_ID)).rejects.toThrow('Stripe timeout');
+			await expect(deleteOwnerFullDelete(TENANT_ID, OWNER_ID, AUDIT)).rejects.toThrow(
+				'Stripe timeout',
+			);
 
 			// DB は触られていない
 			expect(mockAuthRepo.deleteTenant).not.toHaveBeenCalled();

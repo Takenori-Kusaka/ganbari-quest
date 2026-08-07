@@ -20,6 +20,7 @@
 //   [ST1] set/get round-trip + upsert 上書き + getSettings 一括 (空 keys = {}) + §P9 family 独立
 //   [ST2] deleteByTenantId は §P9 tenant 限定
 //   [ST3] countValuesByPrefix (cross-tenant ops 集計、#4269 ①) が loyalty-service の JS 判定と一致
+//   [ST4] #4338 deleteByTenantIdExcept は「残すキー以外を全削除」+ §P9 tenant 限定 (keepKeys 空 = 全削除)
 // ── ITrialHistoryRepo ──
 //   [TH1] insert (defaults) + findLatestByTenant (created_at 降順の最新) + §P9
 //   [TH2] findActiveTrials (end_date >= 今日、cross-tenant) + updateConversion (tenant scope no-op)
@@ -150,7 +151,47 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect(await settingsRepo.getSettings([], FAMILY)).toEqual({});
 	});
 
+	it('[ST4] #4338 deleteByTenantIdExcept: 残すキー以外を全削除 + §P9 tenant 限定', async () => {
+		// 判定 3 キー + 機微キー + 「実装が知らない新しいキー」を混ぜて置く
+		await settingsRepo.setSetting('soft_deleted_at', '2026-08-01T00:00:00.000Z', FAMILY);
+		await settingsRepo.setSetting('deletion_grace_plan_tier', 'standard', FAMILY);
+		await settingsRepo.setSetting('physical_deletion_date', '2026-08-08T00:00:00.000Z', FAMILY);
+		await settingsRepo.setSetting('pin_hash', '$2b$10$dummy', FAMILY);
+		await settingsRepo.setSetting('session_token', 'session-dummy', FAMILY);
+		await settingsRepo.setSetting('questionnaire_challenges', 'つづかない', FAMILY);
+		await settingsRepo.setSetting('some_future_key_2099', 'x', FAMILY);
+		// prefix 付き動的キー (habit-certificate-notice-service が child ごとに作る形)
+		await settingsRepo.setSetting('child:903:habit_certificate_notice', '2026-08-01', FAMILY);
+		await settingsRepo.setSetting('pin_hash', '$2b$10$other', OTHER_FAMILY);
+
+		await settingsRepo.deleteByTenantIdExcept(FAMILY, [
+			'soft_deleted_at',
+			'deletion_grace_plan_tier',
+			'physical_deletion_date',
+		]);
+
+		// 残すと指定した 3 キーだけが残る (theme / sound / 機微キー / 未知キーは消える)
+		const rows = await t.db.execute(
+			sql`SELECT key FROM settings WHERE family_id = ${FAMILY} ORDER BY key`,
+		);
+		expect((rows.rows as unknown as Array<{ key: string }>).map((r) => r.key)).toEqual([
+			'deletion_grace_plan_tier',
+			'physical_deletion_date',
+			'soft_deleted_at',
+		]);
+
+		// §P9: 他 family は無傷
+		expect(await settingsRepo.getSetting('pin_hash', OTHER_FAMILY)).toBe('$2b$10$other');
+		expect(await settingsRepo.getSetting('theme', OTHER_FAMILY)).toBe('green');
+
+		// keepKeys 空は全削除 (NOT IN () の構文エラーに落ちない)
+		await settingsRepo.deleteByTenantIdExcept(FAMILY, []);
+		expect(await settingsRepo.getSetting('soft_deleted_at', FAMILY)).toBe(undefined);
+		expect(await settingsRepo.getSetting('pin_hash', OTHER_FAMILY)).toBe('$2b$10$other');
+	});
+
 	it('[ST2] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {
+		await settingsRepo.setSetting('theme', 'blue', FAMILY);
 		await settingsRepo.deleteByTenantId(FAMILY);
 		expect(await settingsRepo.getSetting('theme', FAMILY)).toBe(undefined);
 		expect(await settingsRepo.getSetting('theme', OTHER_FAMILY)).toBe('green');

@@ -75,5 +75,21 @@ export function createDsqlSettingsRepo(db: SqlExecutor): ISettingsRepo {
 			const row = result.rows[0] as { total: number; with_prefix: number } | undefined;
 			return { total: Number(row?.total ?? 0), withPrefix: Number(row?.with_prefix ?? 0) };
 		},
+
+		// #4338: keepKeys 以外を全削除。keepKeys 空は NOT IN () が構文エラーになるため
+		// 全削除にフォールバックする (getSettings の空 keys 分岐と同じ扱い)。
+		async deleteByTenantIdExcept(tenantId, keepKeys) {
+			if (keepKeys.length === 0) {
+				await db.execute(sql`DELETE FROM settings WHERE family_id = ${tenantId}`);
+				return;
+			}
+			await db.execute(sql`
+				DELETE FROM settings
+				WHERE family_id = ${tenantId} AND key NOT IN (${sql.join(
+					keepKeys.map((k) => sql`${k}`),
+					sql`, `,
+				)})
+			`);
+		},
 	};
 }

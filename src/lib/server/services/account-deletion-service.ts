@@ -15,6 +15,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { deleteByPrefix } from '$lib/server/storage';
 import { sendMemberRemovedEmail } from './email-service';
+import type { PlanTier } from './plan-limit-service';
 import { cancelSubscription } from './stripe-service';
 import {
 	deleteAllChildrenData,
@@ -42,6 +43,88 @@ export interface DeletionResult {
 	filesDeleted: number;
 	/** Members who became unaffiliated */
 	unaffiliatedMembers: string[];
+}
+
+/**
+ * #4338: 物理削除に至った**経路**。削除記録ログの検索軸になる。
+ *
+ * - `grace-expiry`: 猶予期間が切れて**定時実行の cron** (`grace-period-deletion`) が消した。
+ * - `manual`: 同じ cron endpoint を**人が手で叩いて**消した (期限を待たずに消した / 障害対応の再実行)。
+ * - `immediate`: 無料プランの退会で猶予なく即時削除した (`/api/v1/admin/account/delete`)。
+ *
+ * `grace-expiry` と `manual` は同じ処理を通るが、**記録としては区別する**。
+ * 「いつ・どの経路で消えたか」を後から答えるのが記録の目的であり、機械が期限どおり消したのか
+ * 人が判断して消したのかは、その問いに対して最も答える価値が高い違いだからである。
+ * 判定方法と「marker が無ければ manual」とする理由は `src/lib/server/cron/cron-trigger.ts`。
+ *
+ * これ以外の削除入口は存在しない。増やすときは列挙も足す (省略可能にしない — 省略できる形に
+ * すると新しい入口が黙って記録なしで消せてしまう)。
+ */
+export type DeletionRoute = 'grace-expiry' | 'manual' | 'immediate';
+
+/**
+ * #4338: 削除記録ログに載せる文脈。**PII は含めない** (#4174 Q3 / #4192)。
+ */
+export interface DeletionAudit {
+	route: DeletionRoute;
+	/** 削除時点のプラン。解決できない場合のみ null。 */
+	planTier: PlanTier | null;
+}
+
+/**
+ * #4338: 削除記録ログの検索語 (SSOT)。運用 runbook から grep するときの鍵。
+ */
+export const TENANT_DELETION_RECORD_LOG_TERM = '[account-deletion] tenant deletion record';
+
+/**
+ * #4338: 削除の**直前**に「何を・いつ・どの経路で消したか」を 1 行だけ残す。
+ *
+ * ## 何のためか
+ *
+ * 復旧のためではない (データ本体は戻らない)。**説明責任のため**である。
+ * 従来は失敗時の warn しか出ておらず、「消えたんですが」と言われたときに
+ * いつ・どの経路で消えたのかを答える手段が無かった。
+ *
+ * ## 何を載せないか
+ *
+ * 名前 / メールアドレス / 活動内容 / 画像・音声への参照は載せない。載せるほど
+ * 「削除した」と言えなくなる。`tenantId` は**サーバーログには載せる** — 認証された場所
+ * (CloudWatch Logs) でしか読めず、これが無いと問い合わせと記録を突き合わせられない。
+ * 外部 SaaS (Discord) 側では逆に落とす、という線引きは `notify-privacy.ts` が SSOT。
+ *
+ * 退避先 (S3 / テーブル) は新設しない。サーバーログのみ (#4338 オーナー決裁)。
+ */
+function logTenantDeletionRecord(
+	tenantId: string,
+	audit: DeletionAudit,
+	childCount: number | null,
+): void {
+	logger.info(TENANT_DELETION_RECORD_LOG_TERM, {
+		context: {
+			tenantId,
+			route: audit.route,
+			planTier: audit.planTier,
+			childCount,
+			deletedAt: new Date().toISOString(),
+		},
+	});
+}
+
+/**
+ * 削除記録に載せる子供の人数 (在籍 + アーカイブ)。
+ * 集計に失敗しても削除は止めず、`null` (= 不明) として記録する (0 と区別する)。
+ */
+async function countChildrenForRecord(tenantId: string): Promise<number | null> {
+	try {
+		const [active, archived] = await Promise.all([
+			repos().child.findAllChildren(tenantId),
+			repos().child.findArchivedChildren(tenantId),
+		]);
+		return active.length + archived.length;
+	} catch (err) {
+		logger.warn(`[account-deletion] 子供人数の集計失敗 (削除は継続): ${String(err)}`);
+		return null;
+	}
 }
 
 export interface OwnerDeletionInfo {
@@ -161,12 +244,17 @@ async function revokeAndDeleteAllInvites(tenantId: string): Promise<number> {
 async function fullTenantDeletion(
 	tenantId: string,
 	_ownerId: string,
+	audit: DeletionAudit,
 ): Promise<{ itemsDeleted: number; filesDeleted: number }> {
 	// 0. Stripe Subscription キャンセル (#741)
 	// DB 削除の前に Stripe 側をキャンセルする。
 	// Stripe 呼び出しが失敗したら例外が投げられ、DB 削除は実行されない
 	// (ユーザーの課金継続クレームを防ぐため、整合性を優先する)。
 	await cancelSubscription(tenantId);
+
+	// #4338: 削除記録は「消す直前」に 1 行。Stripe キャンセルが失敗した場合は何も消えないので、
+	// その後に置く (消していないのに記録だけ残る、を作らない)。
+	logTenantDeletionRecord(tenantId, audit, await countChildrenForRecord(tenantId));
 
 	let itemsDeleted = 0;
 
@@ -257,6 +345,7 @@ export async function getOwnerDeletionInfo(
 export async function deleteOwnerOnlyAccount(
 	tenantId: string,
 	ownerId: string,
+	audit: DeletionAudit,
 ): Promise<DeletionResult> {
 	logger.info('[account-deletion] Pattern 1: Owner のみ削除開始', {
 		context: { tenantId, ownerId },
@@ -268,7 +357,7 @@ export async function deleteOwnerOnlyAccount(
 		throw new Error('他のメンバーが存在します。先に移譲するか全削除を選択してください。');
 	}
 
-	const { itemsDeleted, filesDeleted } = await fullTenantDeletion(tenantId, ownerId);
+	const { itemsDeleted, filesDeleted } = await fullTenantDeletion(tenantId, ownerId, audit);
 
 	logger.info('[account-deletion] Pattern 1: 削除完了', {
 		context: { tenantId, itemsDeleted, filesDeleted },
@@ -344,6 +433,7 @@ export async function transferOwnershipAndLeave(
 export async function deleteOwnerFullDelete(
 	tenantId: string,
 	ownerId: string,
+	audit: DeletionAudit,
 ): Promise<DeletionResult> {
 	logger.info('[account-deletion] Pattern 2b: Owner 全削除（メンバー所属解除）', {
 		context: { tenantId, ownerId },
@@ -369,6 +459,9 @@ export async function deleteOwnerFullDelete(
 	// DB 削除の前に Stripe 側をキャンセルする。失敗したら例外が投げられ
 	// DB 削除は実行されない (課金継続クレーム防止)。
 	await cancelSubscription(tenantId);
+
+	// #4338: 削除記録は「消す直前」に 1 行 (fullTenantDeletion と同じ位置づけ)。
+	logTenantDeletionRecord(tenantId, audit, await countChildrenForRecord(tenantId));
 
 	// Full deletion of tenant data, but only delete owner's Cognito account
 	let itemsDeleted = 0;

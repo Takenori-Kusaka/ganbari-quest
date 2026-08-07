@@ -22,6 +22,7 @@
 
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { marketingEmailCountKey } from './marketing-suppression-keys';
 
 // ============================================================
 // Constants
@@ -33,8 +34,6 @@ import { logger } from '$lib/server/logger';
  */
 export const MARKETING_EMAIL_YEARLY_LIMIT = 6;
 
-const SETTINGS_KEY_PREFIX = 'marketing_email_count_';
-
 // ============================================================
 // Public API
 // ============================================================
@@ -44,10 +43,9 @@ export function getCurrentYearKey(now: Date = new Date()): string {
 	return String(now.getUTCFullYear());
 }
 
-/** 当年のキー名 (settings KV のキー)。 */
-function settingKey(year: string): string {
-	return `${SETTINGS_KEY_PREFIX}${year}`;
-}
+// #4338: キー名の組み立ては marketing-suppression-keys.ts が SSOT。退会処理が
+// 「消してはならない抑止記録」として同じキーを参照するため、接頭辞をここで複製しない。
+const settingKey = marketingEmailCountKey;
 
 /**
  * テナントの当年送信回数を取得する。未送信なら 0。

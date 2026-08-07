@@ -55,3 +55,10 @@ export async function countValuesByPrefix(
 	if (value === undefined) return { total: 0, withPrefix: 0 };
 	return { total: 1, withPrefix: value.startsWith(valuePrefix) ? 1 : 0 };
 }
+
+export async function deleteByTenantIdExcept(
+	_tenantId: string,
+	_keepKeys: readonly string[],
+): Promise<void> {
+	// Stub: no-op (demo Lambda は stateless。書き込み系は全て no-op、ADR-0048 §決定 §2)
+}

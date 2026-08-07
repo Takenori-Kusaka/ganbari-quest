@@ -474,17 +474,66 @@ describe('grace-period-service', () => {
 			mockDeleteOwnerFullDelete.mockResolvedValue(undefined);
 		}
 
+		// #4338: 経路は呼び出し側 (endpoint) が決め、service はそれをそのまま記録へ渡す。
+		it('#4338: 呼び出し側が渡した経路 (manual) をそのまま削除記録へ渡す', async () => {
+			seedExpiredTenants(['t1']);
+
+			await purgeExpiredSoftDeletedTenants({ dryRun: false, route: 'manual' });
+
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1', {
+				route: 'manual',
+				planTier: 'family',
+			});
+		});
+
+		it('#4338: 経路の指定が無ければ manual (安全側 — 送り忘れを定時実行と誤記録しない)', async () => {
+			seedExpiredTenants(['t1']);
+
+			await purgeExpiredSoftDeletedTenants({ dryRun: false });
+
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1', {
+				route: 'manual',
+				planTier: 'family',
+			});
+		});
+
+		it('#4338: 複数メンバーのテナント (full delete 経路) でも経路を渡す', async () => {
+			seedExpiredTenants(['t1']);
+			mockFindTenantMembers.mockResolvedValue([
+				{ userId: 'owner-1', role: 'owner' },
+				{ userId: 'member-1', role: 'parent' },
+			]);
+
+			await purgeExpiredSoftDeletedTenants({ dryRun: false, route: 'grace-expiry' });
+
+			expect(mockDeleteOwnerFullDelete).toHaveBeenCalledWith('t1', 'owner-1', {
+				route: 'grace-expiry',
+				planTier: 'family',
+			});
+		});
+
 		it('#3695: limit 超過分は削除せず tenantsRemaining として翌日実行へ持ち越す', async () => {
 			seedExpiredTenants(['t1', 't2', 't3']);
 
-			const result = await purgeExpiredSoftDeletedTenants({ dryRun: false, limit: 2 });
+			const result = await purgeExpiredSoftDeletedTenants({
+				dryRun: false,
+				limit: 2,
+				route: 'grace-expiry',
+			});
 
 			expect(result.tenantsProcessed).toBe(2);
 			expect(result.tenantsDeleted).toBe(2);
 			expect(result.tenantsRemaining).toBe(1);
 			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledTimes(2);
-			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1');
-			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t2', 'owner-1');
+			// #4338: 削除記録ログの文脈 (経路 + プラン) を渡していること
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t1', 'owner-1', {
+				route: 'grace-expiry',
+				planTier: 'family',
+			});
+			expect(mockDeleteOwnerOnlyAccount).toHaveBeenCalledWith('t2', 'owner-1', {
+				route: 'grace-expiry',
+				planTier: 'family',
+			});
 		});
 
 		it('#3695: 時間予算超過なら以降のテナントを削除せず持ち越す', async () => {
