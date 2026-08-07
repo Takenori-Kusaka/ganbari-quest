@@ -5,7 +5,6 @@ import type { ChildId } from '$lib/domain/ids';
 import type {
 	RedemptionRequestRow,
 	RedemptionRequestWithDetails,
-	RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 
 export async function insertRedemptionRequest(

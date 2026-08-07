@@ -25,7 +25,6 @@ import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
-	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';

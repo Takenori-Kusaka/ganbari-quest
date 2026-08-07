@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import { db } from '../client';
@@ -9,7 +9,6 @@ import {
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
-	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
