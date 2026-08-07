@@ -51,6 +51,8 @@ const THEME_COLORS: Record<string, AvatarColors> = {
 	purple: { bg: '#f3e5f5', fg: '#7b1fa2' },
 };
 
+// cspell:ignore apos — XML の定義済み実体参照 `&apos;`。綴りは XML 仕様が決めており変更できない
+
 /** SVG (XML) のテキストノードに埋めても壊れない形にする */
 function escapeXmlText(value: string): string {
 	return value
