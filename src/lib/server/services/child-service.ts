@@ -5,7 +5,7 @@ import {
 	PLACEHOLDER_AVATAR_EXTENSION,
 } from '$lib/domain/placeholder-avatar';
 import type { UiMode } from '$lib/domain/validation/age-tier';
-import { recalcUiMode } from '$lib/domain/validation/age-tier';
+import { getDefaultUiMode, recalcUiMode } from '$lib/domain/validation/age-tier';
 import {
 	deleteChild,
 	findAllChildren,
@@ -51,7 +51,13 @@ export async function addChild(
 	},
 	tenantId: string,
 ) {
-	const child = await insertChild(input, tenantId);
+	// #4419: UI モードは年齢から自動判定する (getDefaultUiMode が SSOT)。
+	// route 側で判定すると片方だけ通らない (実際 `/admin/children` が uiMode を渡しておらず、
+	// 本番 backend で年齢に関わらず幼児 UI になっていた) ため、両登録経路が通る本関数に
+	// 1 箇所だけ置く — #4413 の仮アバターを addChild に置いたのと同じ理由。
+	// 保護者が明示指定した uiMode は尊重する (手動フラグは editChild 側の責務)。
+	const resolved = { ...input, uiMode: input.uiMode ?? getDefaultUiMode(input.age) };
+	const child = await insertChild(resolved, tenantId);
 	return await attachPlaceholderAvatar(child, tenantId);
 }
 

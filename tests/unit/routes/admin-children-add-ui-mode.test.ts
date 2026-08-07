@@ -110,14 +110,21 @@ describe('#4419 /admin/children 登録時の uiMode (本番 backend = dsql/PGlit
 		await t.close();
 	});
 
-	it('[A] 15 歳を登録すると senior になる (issue 完了条件)', async () => {
-		const { returned, reloaded } = await addViaAdminRoute({
-			nickname: 'こうこうせい',
-			age: '15',
-			theme: 'blue',
-		});
-		expect(returned.uiMode).toBe('senior');
-		expect(reloaded?.uiMode).toBe('senior');
+	// #4419 完了条件「15 歳を登録すると senior」は年齢帯の境界が 1 段ずれている。
+	// SSOT (docs/DESIGN.md §8 / getDefaultUiMode) では 13〜15 歳 = junior、16〜18 歳 = senior。
+	// 完了条件の意図 (中高生に幼児 UI を出さない) を、正しい境界で 2 件に分けて表明する。
+	it('[A] 中学生 (15 歳) は junior、高校生 (16 歳) は senior で登録される', async () => {
+		const jr = await addViaAdminRoute({ nickname: 'ちゅう3', age: '15', theme: 'blue' });
+		expect(jr.returned.uiMode).toBe('junior');
+		expect(jr.reloaded?.uiMode).toBe('junior');
+
+		const sr = await addViaAdminRoute({ nickname: 'こう1', age: '16', theme: 'blue' });
+		expect(sr.returned.uiMode).toBe('senior');
+		expect(sr.reloaded?.uiMode).toBe('senior');
+
+		// いずれも「幼児 UI が出る」= 本 defect の症状ではないこと
+		expect(jr.reloaded?.uiMode).not.toBe('preschool');
+		expect(sr.reloaded?.uiMode).not.toBe('preschool');
 	});
 
 	// 5 年齢帯すべての境界 — docs/DESIGN.md §8 / getDefaultUiMode の SSOT に一致させる。
