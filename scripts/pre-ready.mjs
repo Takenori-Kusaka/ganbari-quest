@@ -275,6 +275,15 @@ export const PRE_READY_GATE_SSOT_PATHS = /** @type {const} */ ([
 	'scripts/check-no-plan-literals.mjs',
 	'scripts/check-local-tz-date-getters.mjs',
 	'scripts/pre-ready.mjs',
+	// 上記 script が import する sibling module (判定ロジック本体はこちら側にある)。
+	// `scripts/` 全体を prefix にすると無関係な script の変更まで BLOCK するため個別列挙し、
+	// 列挙漏れは tests/unit/scripts/pre-ready-base-freshness.test.ts [B13] が
+	// 実際の import 閉包と突き合わせて機械検出する (#4390)。
+	'scripts/check-ac-verification-map.mjs',
+	'scripts/integration-pr-body.mjs',
+	'scripts/pr-lane.mjs',
+	'scripts/pr-template-gate-checks.mjs',
+	'scripts/lib/is-main.mjs',
 	// Step 1 / 2 の設定
 	'biome.json',
 	'tsconfig.json',

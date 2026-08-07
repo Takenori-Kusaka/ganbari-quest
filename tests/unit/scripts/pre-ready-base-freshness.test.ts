@@ -21,7 +21,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -143,5 +144,72 @@ describe('#4390 BLOCK / 警告の文言', () => {
 		expect(note).toContain('12');
 		expect(note).toContain('develop');
 		expect(note).toContain('止めません');
+	});
+});
+
+/**
+ * #4390 fitness function — 検査基準 list の網羅性
+ *
+ * 実測 (QM lead): `PRE_READY_GATE_SSOT_PATHS` は spawn する entry script だけを列挙しており、
+ * その script が import する sibling module (`pr-template-gate-checks.mjs` 等) を取りこぼしていた。
+ * CI の判定ロジック本体が develop 側で動いても `fresh` / `behind-only` を返して素通しするため、
+ * #4322 と同一クラスの障害が別 file 経由でそのまま再現する。
+ *
+ * list を手で足すだけでは同じ穴が再び開くので、**実際に import を辿って閉包を計算し**、
+ * 全 file が検査基準に被覆されていることを機械で固定する (ADR-0061 同 class N→guard)。
+ * 期待 list を test 側に手書きすると二重管理になるため、entry も閉包も source から導出する。
+ */
+describe('#4390 検査基準 list は spawn する script の import 閉包を被覆する', () => {
+	/** pre-ready.mjs の source から、子プロセスで起動する script path を拾う。 */
+	function readEntryScripts(): string[] {
+		const src = readFileSync(resolve(repoRoot, 'scripts/pre-ready.mjs'), 'utf8');
+		const found = [...src.matchAll(/['"`](scripts\/[A-Za-z0-9_./-]+\.mjs)['"`]/g)].map((m) => m[1]);
+		return [...new Set(found)];
+	}
+
+	/** repo-relative な .mjs から相対 import を辿り、到達する全 file (entry 含む) を返す。 */
+	function collectImportClosure(entries: string[]): string[] {
+		const seen = new Set<string>();
+		const queue = [...entries];
+		while (queue.length > 0) {
+			const current = queue.shift();
+			if (!current || seen.has(current)) continue;
+			seen.add(current);
+			const abs = resolve(repoRoot, current);
+			if (!existsSync(abs)) continue;
+			const src = readFileSync(abs, 'utf8');
+			// `from './x.mjs'` / `import('./x.mjs')` の相対 specifier のみ辿る
+			// (bare specifier = node_modules / 標準モジュールは対象外)
+			for (const m of src.matchAll(/(?:from|import)\s*\(?\s*['"](\.[^'"]+)['"]/g)) {
+				const target = relative(repoRoot, resolve(dirname(abs), m[1])).replace(/\\/g, '/');
+				if (!seen.has(target)) queue.push(target);
+			}
+		}
+		return [...seen].sort();
+	}
+
+	/** isGateSsotPath を 1 回の子プロセスで一括評価する (path ごとに spawn しない)。 */
+	function isGateSsotPathAll(files: string[]): boolean[] {
+		const code = `const m = await import(${JSON.stringify(preReadyUrl)});
+process.stdout.write(JSON.stringify(${JSON.stringify(files)}.map((f) => m.isGateSsotPath(f))));`;
+		const out = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+			encoding: 'utf8',
+		});
+		return JSON.parse(out) as boolean[];
+	}
+
+	it('[B12] spawn する entry script 自体が検査基準に含まれる', () => {
+		const entries = readEntryScripts();
+		expect(entries.length).toBeGreaterThan(0);
+		const covered = isGateSsotPathAll(entries);
+		expect(entries.filter((_, i) => !covered[i])).toEqual([]);
+	});
+
+	it('[B13] entry script が import する module も全て検査基準に含まれる (取りこぼし 0)', () => {
+		const closure = collectImportClosure(readEntryScripts());
+		// 閉包が entry だけに縮退していたら walker が壊れている (test 自体の空振り防止)
+		expect(closure.length).toBeGreaterThan(readEntryScripts().length);
+		const covered = isGateSsotPathAll(closure);
+		expect(closure.filter((_, i) => !covered[i])).toEqual([]);
 	});
 });
