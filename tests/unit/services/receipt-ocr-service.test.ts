@@ -9,6 +9,7 @@ const mockIsAiAvailable = vi.fn();
 vi.mock('$lib/server/ai/factory', () => ({
 	isAiAvailable: () => mockIsAiAvailable(),
 	getAiProvider: () => ({
+		name: 'bedrock-claude',
 		converseWithImageAndTool: (...args: unknown[]) => mockConverseWithImageAndTool(...args),
 	}),
 }));
@@ -18,11 +19,17 @@ vi.mock('$lib/server/logger', () => ({
 }));
 
 import { POINTS_LABELS } from '$lib/domain/labels';
+import {
+	AI_PROVIDER_UNAVAILABLE_LOG_TERM,
+	resetAiAvailabilityLatch,
+} from '$lib/server/ai/availability';
+import { logger } from '$lib/server/logger';
 import { ocrReceipt } from '$lib/server/services/receipt-ocr-service';
 
 describe('receipt-ocr-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetAiAvailabilityLatch();
 		mockIsAiAvailable.mockReturnValue(true);
 	});
 
@@ -32,6 +39,23 @@ describe('receipt-ocr-service', () => {
 			const result = await ocrReceipt('base64data', 'image/jpeg');
 			expect(result).toEqual({ error: 'AI_UNAVAILABLE' });
 			expect(mockConverseWithImageAndTool).not.toHaveBeenCalled();
+		});
+
+		// この分岐は顧客を手入力に落とすので、silent のままだと運営が気付けない
+		// (#4366 merge 時点は log が 1 行も出ていなかった)。
+		// 同時に、毎リクエスト出して本物の異常を埋もれさせない (#4366 害 c) ことも固定する。
+		it('AI が無効なことを運営に届ける log を、複数回呼んでも 1 行だけ出す', async () => {
+			mockIsAiAvailable.mockReturnValue(false);
+
+			await ocrReceipt('base64data', 'image/jpeg');
+			await ocrReceipt('base64data', 'image/jpeg');
+			await ocrReceipt('base64data', 'image/jpeg');
+
+			const alerts = vi
+				.mocked(logger.warn)
+				.mock.calls.map((call) => String(call[0]))
+				.filter((line) => line.includes(AI_PROVIDER_UNAVAILABLE_LOG_TERM));
+			expect(alerts).toEqual([`${AI_PROVIDER_UNAVAILABLE_LOG_TERM} reason=not-configured`]);
 		});
 	});
 

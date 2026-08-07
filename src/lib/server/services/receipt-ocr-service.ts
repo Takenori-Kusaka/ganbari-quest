@@ -2,7 +2,7 @@
 // 領収書画像から Bedrock Claude Haiku で金額を読み取るサービス (#721)
 
 import { POINTS_LABELS } from '$lib/domain/labels';
-import { isAiUnavailableError } from '$lib/server/ai/availability';
+import { isAiUnavailableError, reportAiUnavailableAtGuard } from '$lib/server/ai/availability';
 import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
@@ -58,6 +58,9 @@ export async function ocrReceipt(
 	mimeType: string,
 ): Promise<ReceiptOcrResult | ReceiptOcrError> {
 	if (!isAiAvailable()) {
+		// この分岐は顧客を手入力に落とすが、以前は log を 1 行も出さず運営が気付けなかった。
+		// ここで観測可能にする (プロセス内で理由ごとに 1 回だけ。per-request では出さない)。
+		reportAiUnavailableAtGuard(getAiProvider().name);
 		return { error: 'AI_UNAVAILABLE' };
 	}
 

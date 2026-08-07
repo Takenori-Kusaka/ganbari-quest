@@ -3254,7 +3254,30 @@ export const POINTS_LABELS = {
 	receiptRetakeOtherButton: '別の領収書を撮影する',
 	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
-	receiptAiUnavailable: 'AI読み取り機能は現在利用できません。金額を手入力してください。',
+	//
+	// オーナー決裁 2026-08-07 (PO 提示の文言は「例示」であり、そのまま採用しない): 出すのは
+	// (1) 顧客のせいではないこと (2) 運営が把握していること (3) いま何ができるか の 3 点。
+	// (1) を先頭に置くのは、#4366 の実害が「自分の写真が悪い」と誤解して撮り直すことだから。
+	//
+	// (2) は事実として書ける — 観測経路 (`[ai-alert] ai-provider-unavailable` log → alarm
+	// `ganbari-quest-ai-provider-unavailable`) が `ALARM_NOTIFY_POLICY` で `notify: true` =
+	// Discord の障害通知に届く (同決裁「アラートは Discord の障害通知へ webhook で飛ばす」)。
+	//
+	// 復旧を待たせる一文は置かない。手入力で今すぐ進めるので、待機を要求する理由がない。
+	// 文言と通知方針の整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が固定する。
+	//
+	// **配備で 2 本に分ける。** (2) が成り立つのは運営が運用しているクラウド配備だけで、
+	// alarm は AWS の `OpsStack` にしか無い。自宅 NUC のセルフホスト家庭に「運営が検知済み」と
+	// 出すのは事実として嘘であり、しかも本当に直せるのは目の前の親自身なのに「誰かが対応中」と
+	// 告げて設定を直す動機を奪う。`not-configured` (env が配られていない) は、まさにその家庭が
+	// 最も踏みやすい経路。選択は `src/lib/server/ai/unavailable-message.ts` が実行モードから行う。
+	receiptAiUnavailableManaged:
+		'写真ではなくシステム側の不具合で、運営が検知済みです。金額を手入力してください。',
+	// セルフホスト (NUC / ローカル) 版。実体は設定・資格情報の欠落なので「システム障害」とは
+	// 書かない (過剰な障害宣言は親の不安と問い合わせを不必要に増やす)。直せる場所
+	// (サーバーの AI 設定) を示しつつ、いま手入力で完了できることを併記する。
+	receiptAiUnavailableSelfHosted:
+		'写真ではなくサーバーのAI設定が原因です。設定を直すか金額を手入力してください。',
 	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
 	receiptAmountNotFound: '金額を読み取れませんでした',
 

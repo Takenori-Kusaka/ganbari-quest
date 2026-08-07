@@ -56,9 +56,9 @@
    ```
    **`reason` に「いつ・何を検知したか」を書く。** 空 / 定型 stub / 極端な短文は CI が弾く。
 
-3. **`tests/unit/infra/ops-alert-policy.test.ts` の「既定は鳴らさない」assertion を更新する**
+3. **`tests/unit/infra/ops-alert-policy.test.ts` の allow-list assertion を更新する**
 
-   現在は `notify: true` が 0 件であることを固定している。昇格したら期待値に alarm 名を足す。**assertion を消さない**（消すと次の昇格が無検証で通る）。
+   `notify: true` の alarm 名の集合を完全一致で固定している。昇格したら期待値に alarm 名を足す。**assertion を消さない / 部分一致に緩めない**（どちらも次の昇格・降格が無検証で通る）。
 
 4. **PR を出して deploy する。** 転送 Lambda に方針表が bundle されるため、**deploy しないと反映されない**。
 

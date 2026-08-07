@@ -89,6 +89,19 @@ export const OPS_ACCESS_DENIED_LOG_TERM = '[auth-alert] ops-access-denied';
  */
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
 
+/**
+ * #4375 follow-up (オーナー決裁 2026-08-07): AI provider が使えない状態にあることを表す log の検索語。
+ *
+ * SSOT は `AI_PROVIDER_UNAVAILABLE_LOG_TERM` (`src/lib/server/ai/availability.ts`)。
+ * 上記 2 件と同じく rootDir 制約で import できないため literal で持ち、
+ * `tests/unit/infra/ai-provider-unavailable-alarm.test.ts` が drift を機械検証する。
+ *
+ * AI が使えない間、顧客は領収書の手入力に落ちる (有料機能が事実上死んでいる)。この経路が
+ * 無いと運営はそれに気付けない — #4366 merge 時点は log を 1 行も出さない完全な silent だった。
+ * log には理由の分類 (`not-configured` / `latched`) しか載せない — 識別子や例外本文は載せない。
+ */
+export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
+
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
@@ -352,6 +365,57 @@ export class OpsStack extends cdk.Stack {
 			});
 			opsAccessDeniedAlarm.addAlarmAction(alarmAction);
 			opsAccessDeniedAlarm.addOkAction(alarmAction);
+
+			// #4375 follow-up: AI provider が使えない状態の観測。
+			//
+			// 顧客には「写真ではなくシステム側の不具合で、運営が検知済み」と出す。その「検知済み」を
+			// 事実にするのがこの経路で、Discord の障害通知まで届く (オーナー決裁 2026-08-07)。
+			//
+			// 閾値の根拠:
+			//   この log は **プロセス内で理由ごとに 1 回**しか出ない (per-request で出すと
+			//   本物の異常が埋もれるため、#4366 害 c)。つまり「障害が続くほど件数が増える」
+			//   metric ではなく、Lambda コンテナが新しく立つたびに 1 件出るだけの疎な系列になる。
+			//   そのため entitlement fail-closed 側の「15 分のうち 2 window で継続」型は使えない
+			//   (低トラフィック時は 2 window 埋まらず、終日 AI が死んでいても鳴らない)。
+			//   ops-access-denied と同じ **1 件 / 1 window で即発火** (datapointsToAlarm: 1) にする。
+			//   1 件 = 少なくとも 1 世帯が「AI 読み取りが使えない」画面を見た状態であり、
+			//   単発でも見に行く価値がある。
+			//   誤検知しても運営者 1 人が CloudWatch を確認するだけで済む。
+			//   log が無い間はデータ点自体が無いため treatMissingData=NOT_BREACHING。
+			const aiProviderUnavailable = new logs.MetricFilter(this, 'AiProviderUnavailableFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${AI_PROVIDER_UNAVAILABLE_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Ai',
+				metricName: 'AiProviderUnavailable',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const aiProviderUnavailableAlarm = new cloudwatch.Alarm(this, 'AiProviderUnavailable', {
+				alarmName: 'ganbari-quest-ai-provider-unavailable',
+				alarmDescription:
+					'AI provider が使えない状態 (未設定 / 権限なし / キー不正): 5分内に1件以上。顧客は領収書の手入力に落ちている',
+				metric: aiProviderUnavailable.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			aiProviderUnavailableAlarm.addAlarmAction(alarmAction);
+			// **OK action は付けない。** この信号からは復旧を推定できないため。
+			// log は latch により理由ごとにプロセス内 1 回しか出ない疎な系列で、AI が終日
+			// 死んだままでも 2 window 目以降はデータ点が無い。treatMissingData=NOT_BREACHING と
+			// 合わさると alarm は自動的に OK へ戻るので、OK action を付ければ「復旧しました」に
+			// 等しい通知が Discord に飛ぶ。運営は直ったと誤認して手を止め、顧客は使えないまま
+			// 放置される (沈黙より悪い)。しかも顧客には「運営が検知済み」と表示しているため、
+			// その約束を自ら裏切ることになる。
+			// 復旧を鳴らしたいなら、OK 遷移を流用せず **復旧を表す信号** (例: AI 呼び出しの
+			// 成功 metric) を作って別 alarm にすること。
+			// 固定: tests/unit/infra/ai-provider-unavailable-alarm.test.ts [A2b]
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//

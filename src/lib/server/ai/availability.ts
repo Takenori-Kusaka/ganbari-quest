@@ -22,6 +22,27 @@
 //
 // **一時的なエラー (throttling / timeout / 5xx / ネットワーク断) は latch しない。**
 // 一過性の失敗で AI 機能を恒久停止させないため、分類は可用性クラスに限定する。
+//
+// ## なぜ「運営に届く」必要があるか (#4375 follow-up、オーナー決裁 2026-08-07)
+//
+// AI が使えない間、顧客は領収書の手入力に落ちる (有料機能が事実上死んでいる)。にもかかわらず
+// #4366 merge 時点は `!isAiAvailable()` 分岐が log を 1 行も出さない完全な silent で、運営は
+// それに気付けなかった。そこで「AI が使えない状態にある」ことを 1 行だけ log に出し、
+// `infra/lib/ops-stack.ts` の MetricFilter + Alarm で観測可能にする。
+//
+// **顧客向け文言「運営が検知済み」の裏付けがこの経路**。alarm は `ALARM_NOTIFY_POLICY` で
+// `notify: true` = Discord の障害通知に届く (オーナー決裁 2026-08-07)。ここを止めると
+// 文言が嘘になるため、通知方針を降格するときは文言も同時に見直す。
+//
+// ただしこの alarm は AWS の `OpsStack` にしか無く、**自宅 NUC のセルフホスト家庭には
+// 「運営」が居ない**。そのため顧客向け文言は配備で 2 本に分ける
+// (`src/lib/server/ai/unavailable-message.ts` が実行モードから選ぶ)。
+//
+// **per-request では出さない。** 毎リクエスト logger を叩くと本物の異常が埋もれる
+// (#4366 害 c) ため、理由ごとにプロセス内で 1 回だけに絞る。設定・権限を直す操作は
+// deploy / 再起動を伴うので、プロセス生存中 1 回で運営の判断材料としては足りる。
+
+import { logger } from '$lib/server/logger';
 
 /**
  * 可用性クラスとみなす例外名。
@@ -87,13 +108,56 @@ export function isAiUnavailableError(err: unknown): boolean {
 const latched = new Set<string>();
 
 /**
+ * AI が使えない状態を運営に届けるための log 用語 (SSOT)。
+ *
+ * metric 化と alarm は `infra/lib/ops-stack.ts` の `AI_PROVIDER_UNAVAILABLE_LOG_TERM`
+ * (CDK の tsconfig rootDir 制約で src を import できないため literal で持ち、
+ * `tests/unit/infra/ai-provider-unavailable-alarm.test.ts` が drift を機械検証する)。
+ */
+export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
+
+/**
+ * AI が使えない理由。**分類までが載せてよい上限**で、識別子・顧客情報・例外メッセージ本文は
+ * 載せない (`src/lib/server/stripe/alert.ts` / `[auth-alert]` 系の既存規約と同じ)。
+ *
+ * - `not-configured`: env が配られていない (`isAvailable()` が呼ぶ前に false)
+ * - `latched`: 呼んでみて権限・資格情報の欠落で落ち、以降呼ばない状態に倒れた
+ */
+export type AiUnavailableReason = 'not-configured' | 'latched';
+
+/** 既に log を出した理由。プロセス内で理由ごとに 1 回だけ出すための重複抑止。 */
+const reportedReasons = new Set<AiUnavailableReason>();
+
+/** 理由ごとにプロセス内 1 回だけ log を出す。2 回目以降は何もしない。 */
+function reportAiUnavailable(reason: AiUnavailableReason): void {
+	if (reportedReasons.has(reason)) return;
+	reportedReasons.add(reason);
+	logger.warn(`${AI_PROVIDER_UNAVAILABLE_LOG_TERM} reason=${reason}`);
+}
+
+/**
+ * 「呼ぶ前の可用性 guard で使えないと分かった」ことを報告する。
+ *
+ * 理由は latch 済みかどうかから導出する — サービス層は latch の有無を知らないので、
+ * ここで解決しないと ops log に誤った理由が載る。
+ */
+export function reportAiUnavailableAtGuard(providerName: string): void {
+	reportAiUnavailable(isProviderLatchedUnavailable(providerName) ? 'latched' : 'not-configured');
+}
+
+/**
  * provider を「使えない」と記録する。以降 `isProviderLatchedUnavailable()` が true を返す。
  *
  * 呼び出し側 (各 provider の converse 系) は、例外を握り潰さず **rethrow したうえで** 記録する。
  * サービス層のフォールバック経路は従来どおり動く。
+ *
+ * log は **latch へ遷移した最初の 1 回だけ**出す。ここは latch 遷移の単一点なので、
+ * 「既に latch 済み = 既に報告済み」で早期 return すれば per-request の log 連発は原理的に起きない。
  */
 export function markProviderUnavailable(providerName: string): void {
+	if (latched.has(providerName)) return;
 	latched.add(providerName);
+	reportAiUnavailable('latched');
 }
 
 /** provider が可用性クラスのエラーで latch されているか。 */
@@ -101,9 +165,10 @@ export function isProviderLatchedUnavailable(providerName: string): boolean {
 	return latched.has(providerName);
 }
 
-/** テスト用。プロセス内 latch を全解除する (本番コードから呼ばない)。 */
+/** テスト用。プロセス内 latch と報告済みフラグを全解除する (本番コードから呼ばない)。 */
 export function resetAiAvailabilityLatch(): void {
 	latched.clear();
+	reportedReasons.clear();
 }
 
 /**
