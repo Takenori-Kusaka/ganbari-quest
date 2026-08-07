@@ -136,8 +136,21 @@ aws logs filter-log-events --region us-east-1 \
 [account-deletion] tenant deletion record
 ```
 
-載せるもの: `tenantId` / `route`（`grace-expiry` = 猶予満了 / `immediate` = 無料プランの即時削除）/
-`planTier` / `childCount` / `deletedAt`。
+載せるもの: `tenantId` / `route` / `planTier` / `childCount` / `deletedAt`。
+
+`route` は 3 値で、**定時実行と人の手を区別する**:
+
+| 値 | 意味 |
+|---|---|
+| `grace-expiry` | 猶予満了で**定時実行の cron** が消した（EventBridge dispatcher / NUC scheduler） |
+| `manual` | 同じ endpoint を**人が手で叩いて**消した（期限を待たずに消した / 障害対応の再実行） |
+| `immediate` | 無料プランの退会で猶予なく即時削除した（`/api/v1/admin/account/delete`） |
+
+区別は、自動呼び出し側が `x-cron-trigger: scheduled` を送ることで付く（SSOT:
+`src/lib/server/cron/cron-trigger.ts`）。**運用者が手で叩くときにこのヘッダを付けてはならない** —
+付けると人の判断による削除が定時実行として記録され、この区別が意味を失う。認証ヘッダの種類
+（`x-cron-secret` / `Authorization: Bearer`）はどちらも人・機械の両方が使うため、判定材料にならない。
+
 **載せないもの: 名前・メールアドレス・活動内容・画像や音声への参照（PII は 1 つも含めない）。**
 `tenantId` を載せるのは、サーバーログが認証された場所（CloudWatch Logs）でしか読めず、
 これが無いと問い合わせと記録を突き合わせられないため（外部 SaaS に出す通知側では逆に落とす。

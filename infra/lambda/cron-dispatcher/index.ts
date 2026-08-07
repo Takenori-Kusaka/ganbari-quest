@@ -136,6 +136,11 @@ function httpPost(url: string, cronSecret: string): Promise<{ statusCode: number
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${cronSecret}`,
+				// #4338: 「この呼び出しは定時実行である」と名乗る marker。
+				// endpoint 側はこれの有無だけで削除記録の経路 (grace-expiry / manual) を決める。
+				// SSOT: src/lib/server/cron/cron-trigger.ts (CDK の rootDir 制約で import できないため
+				// 値を inline。drift は tests/unit/cron/cron-trigger-marker.test.ts が検出する)。
+				'x-cron-trigger': 'scheduled',
 				'Content-Type': 'application/json',
 				'Content-Length': Buffer.byteLength(body),
 			},

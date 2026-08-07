@@ -15,6 +15,10 @@
 //   x-cron-secret: <CRON_SECRET>
 //   Body (任意): { "dryRun": true }
 //
+// #4338: スケジューラからの自動実行は `x-cron-trigger: scheduled` を付ける (cron-trigger.ts)。
+// 付いていない呼び出しは「人が手で叩いた」として削除記録に `manual` で残る。運用者が手動で
+// 叩くときにこのヘッダを真似て付けてはならない (記録が定時実行と区別できなくなる)。
+//
 // レスポンス:
 //   200 { tenantsProcessed, tenantsDeleted, tenantsFailed, expired, errors }
 //   401 Unauthorized
@@ -23,6 +27,7 @@
 
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
+import { isScheduledCronTrigger } from '$lib/server/cron/cron-trigger';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 import {
@@ -43,8 +48,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		// ボディなしでも可
 	}
 
+	// #4338: 削除記録に残す経路。スケジューラ (EventBridge dispatcher / NUC scheduler) は
+	// 自分が自動であることを marker ヘッダで名乗る。marker が無い呼び出しは人が手で叩いたもの
+	// として `manual` で記録する (判定と「既定を manual にする理由」は cron-trigger.ts)。
+	const route = isScheduledCronTrigger(request) ? 'grace-expiry' : 'manual';
+
 	try {
-		const result = await purgeExpiredSoftDeletedTenants({ dryRun });
+		const result = await purgeExpiredSoftDeletedTenants({ dryRun, route });
 
 		// #4327: 部分失敗 (tenantsFailed > 0) を 200 に埋めない。
 		// dispatcher は 2xx を成功として扱うため、200 で返すとどの alarm にも乗らず

@@ -9,6 +9,10 @@
 // という既存経路に載る。あわせて Discord の incident webhook にも直接出す。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	CRON_TRIGGER_HEADER,
+	CRON_TRIGGER_SCHEDULED,
+} from '../../../src/lib/server/cron/cron-trigger';
 
 vi.mock('$lib/server/logger', () => ({
 	logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), critical: vi.fn() },
@@ -30,17 +34,17 @@ const ENDPOINT = 'http://localhost/api/cron/grace-period-deletion';
 const SECRET = 'test-cron-secret-4327';
 const originalEnv = { ...process.env };
 
-function authedRequest(): Request {
+function authedRequest(extraHeaders: Record<string, string> = {}): Request {
 	return new Request(ENDPOINT, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', 'x-cron-secret': SECRET },
+		headers: { 'Content-Type': 'application/json', 'x-cron-secret': SECRET, ...extraHeaders },
 		body: JSON.stringify({}),
 	});
 }
 
-async function postEndpoint() {
+async function postEndpoint(extraHeaders: Record<string, string> = {}) {
 	const { POST } = await import('../../../src/routes/api/cron/grace-period-deletion/+server');
-	return POST({ request: authedRequest() } as unknown as Parameters<typeof POST>[0]);
+	return POST({ request: authedRequest(extraHeaders) } as unknown as Parameters<typeof POST>[0]);
 }
 
 function purgeResult(over: Partial<Record<string, unknown>> = {}) {
@@ -129,5 +133,43 @@ describe('#4327 grace-period-deletion endpoint の部分失敗の観測性', () 
 		expect(res.status).toBe(200);
 		await expect(res.json()).resolves.toMatchObject({ ok: true, disabled: true });
 		expect(sendDiscordAlertMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('#4338 削除経路の判定 (定時実行 / 人の手)', () => {
+	beforeEach(() => {
+		purgeMock.mockResolvedValue(purgeResult());
+	});
+
+	it('スケジューラの marker がある呼び出しは grace-expiry として記録する', async () => {
+		await postEndpoint({ [CRON_TRIGGER_HEADER]: CRON_TRIGGER_SCHEDULED });
+
+		expect(purgeMock).toHaveBeenCalledWith(expect.objectContaining({ route: 'grace-expiry' }));
+	});
+
+	it('marker が無い呼び出し (運用者が手で叩いた) は manual として記録する', async () => {
+		await postEndpoint();
+
+		expect(purgeMock).toHaveBeenCalledWith(expect.objectContaining({ route: 'manual' }));
+	});
+
+	it('marker の値が違えば manual (既定は手動側 — 送り忘れを定時実行と誤記録しない)', async () => {
+		await postEndpoint({ [CRON_TRIGGER_HEADER]: 'something-else' });
+
+		expect(purgeMock).toHaveBeenCalledWith(expect.objectContaining({ route: 'manual' }));
+	});
+
+	it('認証ヘッダの種類では判定しない (Bearer でも marker が無ければ manual)', async () => {
+		// verifyCronAuth は x-cron-secret / Authorization: Bearer を同等に受理するため、
+		// 認証ヘッダから人と機械を区別することはできない。
+		const { POST } = await import('../../../src/routes/api/cron/grace-period-deletion/+server');
+		const request = new Request(ENDPOINT, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SECRET}` },
+			body: JSON.stringify({}),
+		});
+		await POST({ request } as unknown as Parameters<typeof POST>[0]);
+
+		expect(purgeMock).toHaveBeenCalledWith(expect.objectContaining({ route: 'manual' }));
 	});
 });

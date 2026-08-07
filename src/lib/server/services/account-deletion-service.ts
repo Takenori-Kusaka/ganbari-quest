@@ -48,14 +48,19 @@ export interface DeletionResult {
 /**
  * #4338: 物理削除に至った**経路**。削除記録ログの検索軸になる。
  *
- * - `grace-expiry`: 猶予期間が切れて cron (`grace-period-deletion`) が消した。
- *   運用者が手で cron endpoint を叩いた場合もここに含まれる (経路としては同じ)。
+ * - `grace-expiry`: 猶予期間が切れて**定時実行の cron** (`grace-period-deletion`) が消した。
+ * - `manual`: 同じ cron endpoint を**人が手で叩いて**消した (期限を待たずに消した / 障害対応の再実行)。
  * - `immediate`: 無料プランの退会で猶予なく即時削除した (`/api/v1/admin/account/delete`)。
+ *
+ * `grace-expiry` と `manual` は同じ処理を通るが、**記録としては区別する**。
+ * 「いつ・どの経路で消えたか」を後から答えるのが記録の目的であり、機械が期限どおり消したのか
+ * 人が判断して消したのかは、その問いに対して最も答える価値が高い違いだからである。
+ * 判定方法と「marker が無ければ manual」とする理由は `src/lib/server/cron/cron-trigger.ts`。
  *
  * これ以外の削除入口は存在しない。増やすときは列挙も足す (省略可能にしない — 省略できる形に
  * すると新しい入口が黙って記録なしで消せてしまう)。
  */
-export type DeletionRoute = 'grace-expiry' | 'immediate';
+export type DeletionRoute = 'grace-expiry' | 'manual' | 'immediate';
 
 /**
  * #4338: 削除記録ログに載せる文脈。**PII は含めない** (#4174 Q3 / #4192)。
