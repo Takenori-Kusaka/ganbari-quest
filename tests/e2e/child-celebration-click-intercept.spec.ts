@@ -48,6 +48,18 @@ async function seedBothPending(workerDbPath: string): Promise<{ challengeId: num
 			child.id,
 		);
 
+		// 未表示の「兄弟の応援」も 1 件積む。**祝福より先に出る演出を必ず 1 つ作る**ことで、
+		// 「祝福が queue で待っている間は描画しない」ところまで検証範囲に入れる
+		// (これが無いと祝福が常に先頭になり、描画 gate を外しても overlap が起きず素通りする)。
+		const sender = db.prepare('SELECT id FROM children WHERE id != ? LIMIT 1').get(child.id) as
+			| { id: number }
+			| undefined;
+		if (!sender) throw new Error('応援の送り主にする別の子供が worker DB に居ません');
+		db.prepare(
+			`INSERT INTO sibling_cheers (from_child_id, to_child_id, stamp_code, tenant_id, sent_at, shown_at)
+			 VALUES (?, ?, 'sugoi', 'e2e-4433', CURRENT_TIMESTAMP, NULL)`,
+		).run(sender.id, child.id);
+
 		const info = db
 			.prepare(
 				`INSERT INTO child_challenges (
@@ -81,6 +93,9 @@ async function cleanupSeededChallenges(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(workerDbPath);
 	try {
+		// worker DB は spec 間で共有されるため、seed した応援も必ず除去する
+		// (tests/CLAUDE.md「共有 worker DB を汚染しない」)。
+		db.prepare("DELETE FROM sibling_cheers WHERE tenant_id = 'e2e-4433'").run();
 		const rows = db
 			.prepare('SELECT id FROM child_challenges WHERE source_template_id = ?')
 			.all(SEED_SOURCE) as Array<{ id: number }>;
