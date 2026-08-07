@@ -40,7 +40,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
 import { deleteChildFiles } from './child-service';
-import { GRACE_PERIOD_JUDGMENT_KEYS } from './soft-delete-keys';
+import { getSettingsKeysToKeepDuringDeletion } from './soft-delete-keys';
 
 const repos = () => getRepos();
 
@@ -105,13 +105,15 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
  * トライアルを再度使えないか、使えてしまうかが確定する。
  *
  * @param opts.deferSettings
- *   #4327 / #4338: `settings` のうち **soft-delete 判定材料 3 キーだけ**を消さずに残す
- *   (それ以外のキーはここで消す。{@link deleteTenantSettingsExceptJudgmentKeys})。
- *   `settings` は soft-delete 判定材料
- *   (`soft_deleted_at` / `physical_deletion_date`) を保持しており、これを消した後に
- *   後続ステップが失敗すると「`families` は残るが判定材料が無い」宙吊り行ができる
- *   (物理削除の母集団にも復元対象にも入らない)。full deletion 経路は本 flag を立て、
- *   `families` 行を消した**後**に {@link deleteTenantSettings} を呼ぶ。
+ *   #4327 / #4338: `settings` のうち **{@link getSettingsKeysToKeepDuringDeletion} の
+ *   キーだけ**を消さずに残す (それ以外はここで消す。
+ *   {@link deleteTenantSettingsExceptJudgmentKeys})。`settings` は soft-delete 判定材料
+ *   (`soft_deleted_at` / `physical_deletion_date`) と配信抑止記録
+ *   (`marketing_unsubscribed_at` 等) を保持しており、これを消した後に後続ステップが
+ *   失敗すると「`families` は残るが判定材料が無い」宙吊り行 (#4327) や
+ *   「配信停止したまま退会中の家族に販促メールが再開する」窓 (#4338) ができる。
+ *   full deletion 経路は本 flag を立て、`families` 行を消した**後**に
+ *   {@link deleteTenantSettings} を呼ぶ。
  *
  * @returns 削除を試みた操作数（エラーを含む）
  */
@@ -226,8 +228,17 @@ export async function deleteTenantScopedData(
 			deleted += await deleteTenantSettingsExceptJudgmentKeys(tenantId);
 		} catch (err) {
 			// 本ブロックの失敗は「認証情報が残る」を意味するので、他の best-effort 削除と同じ
-			// warn には落とさない。処理は止めない (families 行が残るので翌日の cron が再試行して
-			// 自己回復する) が、error で必ず観測できるようにする (ADR-0006 / #4338)。
+			// warn には落とさない。処理は止めないが、error で必ず観測できるようにする
+			// (ADR-0006 / #4338)。
+			//
+			// 自己回復するかは経路による。**両方に当てはまるとは書けない**:
+			//   - grace-expiry 経路 (softDeleteTenant 済み): `soft_deleted_at` が残っている限り
+			//     `findExpiredSoftDeletedTenants` の母集団に入り続けるので、翌日の cron が同じ
+			//     テナントを再び拾って完遂できる (自己回復する)。
+			//   - 即時削除経路 (free プランの graceDays === 0): `softDeleteTenant` を一度も通らず
+			//     sentinel が無いため、cron の母集団に**永久に入らない = 自己回復しない**。
+			//     この error ログが唯一の観測点であり、手動掃除が必要になる
+			//     (`docs/runbooks/grace-period-deletion-operations.md` §3)。
 			logger.error(SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM, {
 				context: { tenantId, error: String(err) },
 			});
@@ -413,7 +424,7 @@ export async function deleteTenantScopedData(
 }
 
 /**
- * #4338: 物理削除の途中で、**soft-delete の判定材料以外の `settings` を全部消す**。
+ * #4338: 物理削除の途中で、**最後まで残すべきキー以外の `settings` を全部消す**。
  *
  * ## なぜ「消すキーの列挙」ではないのか
  *
@@ -422,11 +433,13 @@ export async function deleteTenantScopedData(
  * 新しいキーは何もしなくても削除対象に入る。列挙の向きが逆であることが本質で、
  * 「気を付けて足す」を要求しない形になっている。
  *
- * ## なぜ判定材料だけ残すのか
+ * ## 何を残すのか
  *
- * `families` 行より先に判定材料を消すと、途中失敗が「families は残るが判定材料が無い」
- * = 再削除も復元もできない宙吊り行を作る (#4327)。判定材料は {@link deleteTenantSettings}
- * が `families` 削除の**後**に落とす。本関数はその手前で、判定に要らないものだけを先に消す。
+ * {@link getSettingsKeysToKeepDuringDeletion} が SSOT。判定材料 (消すと再削除も復元も
+ * できない宙吊り行になる、#4327) と、マーケティングメールの配信抑止記録 (消すと、退会を
+ * 申し出て配信停止までしていた家族が翌日の lifecycle-emails cron に拾われて販促メールの
+ * 対象に戻る、#4338) の 2 種類である。どちらも `families` 削除の**後**に
+ * {@link deleteTenantSettings} が落とす。本関数はその手前で、それ以外を先に消す。
  *
  * ## 副作用として消えるもの
  *
@@ -438,14 +451,14 @@ export async function deleteTenantScopedData(
  *
  * 本関数は投げる。呼び出し元 ({@link deleteTenantScopedData}) が受けて
  * {@link SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM} を **error で** 出し、削除処理自体は続行する。
- * この時点では `families` 行が残っているため、翌日の cron が同じテナントを再び拾って完遂できる
- * (自己回復)。他の best-effort 削除と同じ warn に落とさないのは、この失敗が
- * 「認証情報が残っている」を意味するためである。
+ * 他の best-effort 削除と同じ warn に落とさないのは、この失敗が
+ * 「認証情報が残っている」を意味するためである。自動リトライが効くかどうかは経路による
+ * ({@link deleteTenantScopedData} の該当 catch 参照)。
  *
  * @returns 削除操作数 (1)
  */
 export async function deleteTenantSettingsExceptJudgmentKeys(tenantId: string): Promise<number> {
-	await repos().settings.deleteByTenantIdExcept(tenantId, GRACE_PERIOD_JUDGMENT_KEYS);
+	await repos().settings.deleteByTenantIdExcept(tenantId, getSettingsKeysToKeepDuringDeletion());
 	return 1;
 }
 
@@ -464,7 +477,8 @@ export async function deleteTenantSettingsExceptJudgmentKeys(tenantId: string): 
  *
  * ## 本関数が失敗したとき残るもの (#4338)
  *
- * 残るのは**判定 3 キー ({@link GRACE_PERIOD_JUDGMENT_KEYS}) だけ**の孤児行である。
+ * 残るのは**{@link getSettingsKeysToKeepDuringDeletion} のキーだけ**の孤児行である
+ * (判定 3 キー + 配信抑止記録 = 日時 / プラン名 / 送信回数のみ)。
  * `pin_hash` / `session_token` / `questionnaire_*` は既に
  * {@link deleteTenantSettingsExceptJudgmentKeys} が消しているため含まれない
  * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手動掃除の手順)。

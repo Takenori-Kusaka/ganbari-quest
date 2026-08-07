@@ -14,7 +14,9 @@
 //   [O2] **本 test が知らない未知キー**も残らない (列挙方式との差。新キー追加で落ちない形)
 //   [O3] 判定 3 キーは最終ステップ直前まで残る (#4321 sentinel-last / 自己回復の前提を壊さない)
 //   [O4] 正常系では settings が 1 行も残らない (回帰)
-//   [O5] 残すキーの SSOT が grace-period-service の判定キーと同一 (drift 不能)
+//   [O5] 判定キーが 1 つ残らず「残すキー」に含まれる (drift 不能)。keep-list 全体は
+//        判定材料 + 配信抑止記録の合成であり、判定キーとの一致では**ない** (#4338。
+//        実害側は tenant-deletion-marketing-suppression-4338.test.ts が固定)
 //   [R1] 削除記録ログが「消す直前」に 1 行出る (経路 / プラン / 子供人数 / 日時)
 //   [R2] 削除記録ログに PII を載せない (名前 / メール / 活動内容が context に出ない)
 //   [R3] Stripe キャンセルが失敗して何も消えないときは削除記録を出さない
@@ -113,6 +115,7 @@ import {
 	GRACE_PERIOD_JUDGMENT_KEYS,
 	getGracePeriodStatus,
 } from '$lib/server/services/grace-period-service';
+import { getSettingsKeysToKeepDuringDeletion } from '$lib/server/services/soft-delete-keys';
 import { cancelSubscription } from '$lib/server/services/stripe-service';
 import { deleteTenantScopedData } from '$lib/server/services/tenant-cleanup-service';
 
@@ -176,6 +179,7 @@ describe('#4338 settings 孤児: 判定 3 キー以外を全部消す', () => {
 			deleteOwnerOnlyAccount(TENANT, 'u-owner', { route: 'grace-expiry', planTier: 'standard' }),
 		).rejects.toThrow();
 
+		// 本 fixture は配信抑止記録 (#4338) を持たないため、残るのは判定 3 キーだけになる。
 		const remaining = [...settingsStore.keys()].sort();
 		expect(remaining).toEqual([...GRACE_PERIOD_JUDGMENT_KEYS].sort());
 	});
@@ -221,10 +225,18 @@ describe('#4338 settings 孤児: 判定 3 キー以外を全部消す', () => {
 		await getGracePeriodStatus(TENANT);
 		const readKeys = fakeSettingsRepo.getSettings.mock.calls[0]?.[0];
 
-		// 「残すキー」と「判定に使うキー」が同じ集合であること。
-		// 片方だけ増える (= 判定キーを足したのに削除で消してしまう) 状態を作れない。
-		expect([...(keepArg ?? [])].sort()).toEqual([...(readKeys ?? [])].sort());
-		expect([...(keepArg ?? [])].sort()).toEqual([...GRACE_PERIOD_JUDGMENT_KEYS].sort());
+		// 判定に使うキーは 1 つ残らず「残すキー」に含まれること。
+		// 判定キーを足したのに削除側で消してしまう状態を作れない。
+		const kept = new Set(keepArg ?? []);
+		for (const key of readKeys ?? []) {
+			expect(kept.has(key), `判定キー "${key}" が keep-list に無い`).toBe(true);
+		}
+		expect([...(readKeys ?? [])].sort()).toEqual([...GRACE_PERIOD_JUDGMENT_KEYS].sort());
+
+		// keep-list の全体は「判定材料 + 配信抑止記録」の合成 (#4338)。判定キーと一致では**ない**
+		// — 配信抑止記録まで消すと、退会中の家族に販促メールが再開する
+		// (tenant-deletion-marketing-suppression-4338.test.ts が実害側を固定している)。
+		expect([...(keepArg ?? [])].sort()).toEqual([...getSettingsKeysToKeepDuringDeletion()].sort());
 	});
 });
 
