@@ -41,7 +41,7 @@ describe('receipt-ocr-service', () => {
 			expect(mockConverseWithImageAndTool).not.toHaveBeenCalled();
 		});
 
-		// 顧客には「運営に通知済み」と出す。この分岐が silent のままだと嘘になる
+		// この分岐は顧客を手入力に落とすので、silent のままだと運営が気付けない
 		// (#4366 merge 時点は log が 1 行も出ていなかった)。
 		// 同時に、毎リクエスト出して本物の異常を埋もれさせない (#4366 害 c) ことも固定する。
 		it('AI が無効なことを運営に届ける log を、複数回呼んでも 1 行だけ出す', async () => {

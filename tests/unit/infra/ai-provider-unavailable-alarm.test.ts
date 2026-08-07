@@ -1,8 +1,8 @@
 // tests/unit/infra/ai-provider-unavailable-alarm.test.ts
 // #4375 follow-up (PO 決裁 2026-08-07): AI 不達を運営に届ける MetricFilter + Alarm の構造検証。
 //
-// 顧客には「システム側の問題で、運営に通知済み」と出す。**その約束の実装**が本経路であり、
-// 経路が黙って壊れると顧客に嘘をつき続けることになる。そこで entitlement fail-closed
+// AI が使えない間、顧客は領収書の手入力に落ちる (有料機能が事実上死んでいる)。本経路が
+// 黙って壊れると運営はそれに気付けないままになる。そこで entitlement fail-closed
 // (#3998) と同じ 3 層で固定する:
 //
 //   [A] CDK 構造 …… MetricFilter / Alarm が期待の namespace / 閾値 / 通知先で存在する

@@ -3256,11 +3256,15 @@ export const POINTS_LABELS = {
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
 	//
 	// PO 決裁 2026-08-07: 「利用できません」だけだと顧客は「自分が何かしないといけないのか」と
-	// 受け取る。原因がシステム側にあること / 運営が把握していて待てば直ること / いま何ができるか
-	// の 3 点を出す。「運営に通知済み」は `[ai-alert] ai-provider-unavailable` log →
-	// CloudWatch alarm (`ganbari-quest-ai-provider-unavailable`) の経路が実在することを根拠に書く。
+	// 受け取るため、原因がシステム側にあること / いま何ができるか を出す。
+	//
+	// 「運営に通知済み」は**書かない** (同決裁 Q1 = No)。観測経路
+	// (`[ai-alert] ai-provider-unavailable` log → alarm `ganbari-quest-ai-provider-unavailable`)
+	// は存在するが `ALARM_NOTIFY_POLICY` で `notify: false` = 人には届かないため、顧客が読む
+	// 意味 (運営は知っていて動いている) と実装の事実がズレる。alarm を昇格したら戻すか再判断する。
+	// 文言と通知方針の整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が固定する。
 	receiptAiUnavailable:
-		'システム側の問題でAI読み取りを利用できません。運営に通知済みですので、復旧までは金額を手入力してください。',
+		'システム側の問題でAI読み取りを利用できません。復旧までは金額を手入力してください。',
 	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
 	receiptAmountNotFound: '金額を読み取れませんでした',
 

@@ -95,7 +95,7 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 	'ganbari-quest-ai-provider-unavailable': {
 		notify: false,
 		reason:
-			'log MetricFilter 由来で平常時はデータ点が無く、観測経路を本 PR で新設したばかりで実発火の実績がゼロ。まず本番で 1 サイクル観測してから昇格判断する。なお顧客側には「システム側の問題で運営に通知済み」と表示するため、昇格前でも CloudWatch console でこの alarm を確認すれば AI 不達に気付ける状態は成立している',
+			'log MetricFilter 由来で平常時はデータ点が無く、観測経路を新設したばかりで実発火の実績がゼロ。まず本番で 1 サイクル観測してから昇格判断する (PO 決裁 2026-08-07 Q2: この 1 件のために #4189 の既定を曲げない)。人に届かない状態を前提に、顧客向け文言からは運営へ届いたと読める一文を落としてある',
 	},
 	'ganbari-quest-static-assets-s3-4xx': {
 		notify: false,
