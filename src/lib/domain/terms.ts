@@ -120,9 +120,11 @@ export const TRIAL_TERMS = {
 	// #1904 (PERS-CRT-5): 動詞ベースの詳細訴求 atom。「いつ入力するか」を明示することで
 	// 田中ゆかり P1 の「後で登録しろって言われるんでしょ?」サブスク被害連想を断つ。
 	// 短縮形 (noCreditCard) / 体言止め (noCreditCardMid) と意味文脈が異なるため独立 atom。
-	// #4408: 唯一の参照元だった LP_CTA_TRUST_BADGES_LABELS (CTA 直下 3 バッジ) 撤去に伴い
-	// 現在の参照は 0。トライアル通知メール (T-0) の詳細文言用として atom は維持する
+	// #4408: 唯一の参照元だった LP CTA 直下 3 バッジの labels 撤去に伴い現在の参照は 0。
+	// トライアル通知メール (T-0) の詳細文言用として atom は維持する
 	// (docs/design/billing-redesign/phase4-trial-paywall-flow-design.md)。
+	// 注: ここに撤去済 export の識別子を literal で書くと check-orphan-labels が
+	// それを「参照 1 件」と数え、復活させても検出できなくなる (#4408 mutation 検証で実証)。
 	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
 } as const;
 
