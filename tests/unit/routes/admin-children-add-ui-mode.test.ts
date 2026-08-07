@@ -12,7 +12,7 @@
 //       compute-on-read の再導出が効かず stored 値がそのまま出るため、ここが実害の本体
 //   [C] birthDate あり の登録でも正しい (stored 値自体が正しいこと)
 
-import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { getDefaultUiMode } from '../../../src/lib/domain/validation/age-tier';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
@@ -39,8 +39,7 @@ vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (tenantId: string) => repo.findAllChildren(tenantId),
 	findChildById: (id: never, tenantId: string) => repo.findChildById(id, tenantId),
 	findChildByUserId: (userId: string, tenantId: string) => repo.findChildByUserId(userId, tenantId),
-	updateChild: (id: never, input: never, tenantId: string) =>
-		repo.updateChild(id, input, tenantId),
+	updateChild: (id: never, input: never, tenantId: string) => repo.updateChild(id, input, tenantId),
 	deleteChild: (id: never, tenantId: string) => repo.deleteChild(id, tenantId),
 	resetChildProgressData: vi.fn(),
 	findArchivedChildren: vi.fn().mockResolvedValue([]),
@@ -104,7 +103,10 @@ describe('#4419 /admin/children 登録時の uiMode (本番 backend = dsql/PGlit
 
 	beforeAll(async () => {
 		t = await createDsqlTestDb();
-		repo = createDsqlChildRepo(t.db, createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 }));
+		repo = createDsqlChildRepo(
+			t.db,
+			createDsqlTransactionRunner(t.db, { maxAttempts: 3, baseDelayMs: 1 }),
+		);
 	}, 60_000);
 	afterAll(async () => {
 		await t.close();

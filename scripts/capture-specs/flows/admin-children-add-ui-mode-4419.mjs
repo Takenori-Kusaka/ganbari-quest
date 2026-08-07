@@ -35,7 +35,10 @@ async function loginIfNeeded(page) {
 	if (!page.url().includes('/auth/login')) return;
 	await page.fill('input[type="email"], input[name="email"]', DEV_OWNER.email);
 	await page.fill('input[type="password"], input[name="password"]', DEV_OWNER.password);
-	await page.getByRole('button', { name: /ログイン|サインイン/ }).first().click();
+	await page
+		.getByRole('button', { name: /ログイン|サインイン/ })
+		.first()
+		.click();
 	await page.waitForURL((url) => !url.pathname.includes('/auth/login'), { timeout: 30_000 });
 	if (!page.url().includes('/admin/children')) {
 		await page.goto(new URL('/admin/children', page.url()).toString());

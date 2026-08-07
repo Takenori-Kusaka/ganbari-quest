@@ -84,11 +84,7 @@ describe('#4419 child insertChild の uiMode 既定値は 3 backend で一致す
 		const dsql = await dsqlRepo.insertChild(input, FAMILY);
 		const sq = await sqliteRepo.insertChild(input, FAMILY);
 		const demo = await demoRepo.insertChild(input, FAMILY);
-		expect([dsql.uiMode, sq.uiMode, demo.uiMode]).toEqual([
-			'preschool',
-			'preschool',
-			'preschool',
-		]);
+		expect([dsql.uiMode, sq.uiMode, demo.uiMode]).toEqual(['preschool', 'preschool', 'preschool']);
 	});
 
 	// ---- [F2] 由来 (SSOT 経由であること) ----
