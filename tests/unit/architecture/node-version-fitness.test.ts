@@ -115,12 +115,17 @@ describe('Node の major 宣言は .nvmrc を SSOT とする (#4199)', () => {
 
 		// `>=22.22.2 <23` の下限を取る。`toContain(major)` だと patch 側の数字にも当たるため、
 		// **下限版の major を取り出して厳密比較**する。
-		const lower = /(\d+)\.\d+\.\d+/.exec(range ?? '');
-		expect(lower, `engines.node から下限版を読み取れません: ${range}`).not.toBeNull();
+		//
+		// **最初の 1 件だけを見ない** (QM #4400 レビュー指摘): `^22.22.2 || ^24.15.0` のような
+		// OR range だと先頭の 22 を拾って合格し、24 系を許してしまう。range 内に現れる
+		// **全ての major を集めて全件一致**を要求する (SSOT が 1 つである以上、複数 major を
+		// 許す range 自体が SSOT 違反)。
+		const majors = [...(range ?? '').matchAll(/(\d+)\.\d+\.\d+/g)].map((m) => m[1]);
+		expect(majors.length, `engines.node から下限版を読み取れません: ${range}`).toBeGreaterThan(0);
 		expect(
-			lower?.[1],
-			`engines.node (${range}) の下限 major が .nvmrc (${NVMRC_MAJOR}) と違います`,
-		).toBe(NVMRC_MAJOR);
+			[...new Set(majors)],
+			`engines.node (${range}) が .nvmrc (${NVMRC_MAJOR}) 以外の major を許しています`,
+		).toEqual([NVMRC_MAJOR]);
 
 		expect(pkg.packageManager, 'package.json に packageManager がありません').toBeDefined();
 	});
@@ -171,7 +176,20 @@ describe('Node の major 宣言は .nvmrc を SSOT とする (#4199)', () => {
 		async () => {
 			// #4199 AC4 で `node-version: 22` 52 箇所を `node-version-file: .nvmrc` に置換した。
 			// 直書きが 1 箇所でも戻ると版が混在するので、戻りを検出する。
-			const hits = await collect(['.github/workflows/*.yml'], /^\s*node-version:\s*['"]?(\d+)/);
+			//
+			// **走査対象を先に数える** (QM #4400 レビュー指摘): 本 assert は「直書きが 0 件」を
+			// 見るため、glob が 1 file も match しなくても緑になる (空振りと合格が区別できない)。
+			// NV3 / NV4 が `toBeGreaterThan(0)` で空振りを弾いているのと同じ anchor をここにも置く。
+			// `.yaml` も拾う — 拡張子違いで走査から外れると、そこだけ直書きが復活しても気付けない。
+			const WORKFLOW_GLOB = ['.github/workflows/*.yml', '.github/workflows/*.yaml'];
+			const scanned = await glob(WORKFLOW_GLOB, { cwd: REPO_ROOT, dot: false });
+			expect(
+				scanned.length,
+				`workflow が 1 file も見つかりません (glob 空振り: ${WORKFLOW_GLOB.join(' / ')})。` +
+					'走査 0 件のまま「直書き 0 件」で緑になる状態を防ぐための anchor です',
+			).toBeGreaterThan(0);
+
+			const hits = await collect(WORKFLOW_GLOB, /^\s*node-version:\s*['"]?(\d+)/);
 			const literal = hits.map((h) => `${h.file}:${h.line} : ${h.text}`);
 
 			expect(
