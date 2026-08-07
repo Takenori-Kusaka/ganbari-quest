@@ -97,15 +97,23 @@ function handleDialogChange(details: { open: boolean }) {
 		{/if}
 
 		<!-- #4410: 閉じる = 「見せた」の永続化。markCheersShown と同型の form action。
-		     update() 完了 (= サーバ記録済) を待ってから閉じるため、閉じたのに残る状態を作らない。 -->
+		     閉じる操作は **サーバ応答を待たずに即座に閉じる**: ここは子供画面であり、祝福を閉じるのに
+		     ネットワーク往復ぶん待たせるのは滞在時間を伸ばす方向 (ADR-0012)。記録はそのまま裏で走る。
+		     記録に失敗した場合は次回もう一度出る (安全側 = 無音で消えるより再掲)。無音にはせず warn を残す。 -->
 		<form
 			method="POST"
 			action="?/markChallengeCelebrationShown"
 			use:enhance={() => {
-				return async ({ update }) => {
-					await update();
-					dialogOpen = false;
-					onDismiss();
+				dialogOpen = false;
+				onDismiss();
+				return async ({ result }) => {
+					if (result.type !== 'success') {
+						console.warn(
+							'[child-home] 祝福の表示済み記録に失敗しました (次回もう一度表示されます)',
+							result,
+						);
+					}
+					// update() は呼ばない: 既に閉じており、この画面に必要な再 load が無いため。
 				};
 			}}
 		>

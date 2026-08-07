@@ -137,8 +137,11 @@ async function hydratedNavigation(
 	page: import('@playwright/test').Page,
 	navigate: () => Promise<unknown>,
 ): Promise<void> {
+	// dev server は初回到達 route を on-demand compile するため遷移自体が数秒かかる。
+	// 待ち time は伸ばすが「必ず来ること」は緩めない (来なければ fail)。
 	const usagePost = page.waitForResponse(
 		(res) => res.url().includes('/api/v1/usage') && res.request().method() === 'POST',
+		{ timeout: 45_000 },
 	);
 	await navigate();
 	await usagePost;
