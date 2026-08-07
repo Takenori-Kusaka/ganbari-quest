@@ -73,7 +73,11 @@ export function readLambdaEnvFromTemplate(template, functionName) {
 			`[lambda-env-ssot] FunctionName=${functionName} の Lambda が ${matches.length} 個あります (どれが SSOT か決まらない)`,
 		);
 	}
-	const vars = matches[0][1].Properties?.Environment?.Variables;
+	const matched = matches[0];
+	if (!matched) {
+		throw new Error(`[lambda-env-ssot] FunctionName=${functionName} の解決に失敗しました`);
+	}
+	const vars = matched[1].Properties?.Environment?.Variables;
 	if (!vars || typeof vars !== 'object') {
 		throw new Error(
 			`[lambda-env-ssot] FunctionName=${functionName} に Environment.Variables がありません`,
@@ -107,8 +111,9 @@ export function deriveDesiredEnv({ templateEnv, liveEnv = {}, overrides = {} }) 
 	}
 
 	for (const [key, value] of Object.entries(templateEnv)) {
-		if (Object.hasOwn(overrides, key)) {
-			desired[key] = overrides[key];
+		const override = overrides[key];
+		if (override !== undefined) {
+			desired[key] = override;
 			continue;
 		}
 		if (typeof value === 'string') {
@@ -118,13 +123,14 @@ export function deriveDesiredEnv({ templateEnv, liveEnv = {}, overrides = {} }) 
 		// CFN intrinsic は deploy 時に CFN が解決する。クライアント側では解けないため、
 		// CFN が既に書いた live の値を引き継ぐ。live にも無ければ **空文字で埋めずに落とす**
 		// (env 欠落の Lambda を上げると cold start で全リクエストが壊れる、ADR-0006)。
-		if (!Object.hasOwn(liveEnv, key)) {
+		const carried = liveEnv[key];
+		if (carried === undefined) {
 			throw new Error(
 				`[lambda-env-ssot] ${key} は CFN intrinsic のためローカルで解決できず、` +
 					'live env にも存在しないため値を決められません (空で上書きせず停止します)',
 			);
 		}
-		desired[key] = liveEnv[key];
+		desired[key] = carried;
 		unresolvedKeys.push(key);
 	}
 
@@ -160,7 +166,7 @@ function parseArgs(argv) {
 	const sets = {};
 	let keysOnly = false;
 	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i];
+		const arg = argv[i] ?? '';
 		if (arg === '--keys-only') {
 			keysOnly = true;
 			continue;
