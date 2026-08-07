@@ -549,6 +549,96 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		}, 60_000);
 	});
 
+	describe('#4367 Bedrock 有効化 (最小権限 + in-Region)', () => {
+		/** 指定 FunctionName の Lambda env Variables を取り出す。 */
+		function envOf(fnName: string): Record<string, unknown> {
+			const functions = computeTemplate.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: fnName },
+			});
+			expect(Object.keys(functions).length).toBe(1);
+			const fnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			return fnDef.Properties.Environment?.Variables ?? {};
+		}
+
+		/** IAM Policy の Statement を平坦化する (Action / Resource をそのまま持つ)。 */
+		function allStatements(): Array<Record<string, unknown>> {
+			const policies = computeTemplate.findResources('AWS::IAM::Policy');
+			const out: Array<Record<string, unknown>> = [];
+			for (const policyDef of Object.values(policies)) {
+				const props = (policyDef as { Properties?: Record<string, unknown> }).Properties ?? {};
+				const doc = props.PolicyDocument as
+					| { Statement?: Array<Record<string, unknown>> }
+					| undefined;
+				for (const stmt of doc?.Statement ?? []) out.push(stmt);
+			}
+			return out;
+		}
+
+		function bedrockStatements(): Array<Record<string, unknown>> {
+			return allStatements().filter((stmt) => {
+				const a = stmt.Action;
+				const actions = Array.isArray(a) ? a : typeof a === 'string' ? [a] : [];
+				return actions.some((v) => typeof v === 'string' && v.startsWith('bedrock:'));
+			});
+		}
+
+		// AC2: Lambda 実行ロールに bedrock:InvokeModel を最小権限で付与する。
+		it('AC2: 本番 Lambda role に bedrock:InvokeModel が付き、Resource は base model ARN 1 個 (`*` にしない)', () => {
+			const stmts = bedrockStatements();
+			expect(stmts.length).toBe(1);
+			const stmt = stmts[0];
+
+			const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+			expect(actions).toEqual(['bedrock:InvokeModel']);
+
+			// Resource は wildcard 禁止 (ses / ce の `*` grant と違い、Bedrock は対象モデルを特定できる)
+			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+			expect(resources.length).toBe(1);
+			expect(resources[0]).toBe(
+				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+			);
+			expect(JSON.stringify(resources)).not.toContain('*');
+		});
+
+		// AC4: #4366 で isAvailable() が env の明示配布を要求するため、配らない限り AI は無効のまま。
+		it('AC4: 本番 Fn の env に BEDROCK_MODEL_ID / BEDROCK_REGION が配られる', () => {
+			const envVars = envOf('ganbari-quest-app');
+			expect(envVars.BEDROCK_MODEL_ID).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+			expect(envVars.BEDROCK_REGION).toBe('us-east-1');
+			// 対照: 同じ env block の既存値が生きている (検査が空振りしていない)
+			expect(envVars.DATA_SOURCE).toBe('dsql');
+		});
+
+		it('AC3+AC4: 配る model ID は cross-region inference profile ではない (in-Region 固定)', () => {
+			const modelId = envOf('ganbari-quest-app').BEDROCK_MODEL_ID as string;
+			expect(modelId).not.toMatch(/^(us|eu|apac|global)\./);
+			// IAM Resource の ARN と env の model ID が一致する (片方だけ変えると権限が外れる)
+			const stmt = bedrockStatements()[0];
+			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+			expect(String(resources[0])).toContain(`/${modelId}`);
+		});
+
+		it('demo Lambda は Bedrock を持たない (env / IAM とも、ADR-0048 role 分離)', () => {
+			const demoEnv = envOf('ganbari-quest-app-demo');
+			expect(demoEnv.BEDROCK_MODEL_ID).toBeUndefined();
+			expect(demoEnv.BEDROCK_REGION).toBeUndefined();
+
+			const policies = computeTemplate.findResources('AWS::IAM::Policy');
+			for (const [policyLogicalId, policyDef] of Object.entries(policies)) {
+				const props = (policyDef as { Properties?: Record<string, unknown> }).Properties ?? {};
+				if (!isPolicyAttachedToDemoRole(props)) continue;
+				for (const action of extractActions(props)) {
+					expect(
+						action.startsWith('bedrock:'),
+						`demo IAM role (policy ${policyLogicalId}) MUST NOT grant ${action}`,
+					).toBe(false);
+				}
+			}
+		});
+	});
+
 	describe('production Lambda preservation (zero regression on prod Fn)', () => {
 		it('production Fn は DATA_SOURCE=dsql + AUTH_MODE=cognito を維持する (#3438 Phase 2A)', () => {
 			const template = computeTemplate;

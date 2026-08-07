@@ -484,6 +484,28 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			});
 		});
 
+		it('Bedrock は staging にも配る (env + 最小権限 IAM、#4367 AC5 の実機確認先)', () => {
+			// AC5 は「staging で AI 提案が実際に動くことを実機確認する」。staging Lambda に env と
+			// 権限が無ければ isAvailable() === false (#4366) のままで、確認自体が成立しない。
+			// SES / Cost Explorer と違い Bedrock は本番外部サービスへの副作用を持たない (推論のみ、
+			// 保存なし) ため、blast radius 最小化の例外にはならない。
+			const functions = stagingCompute.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-staging-app' },
+			});
+			const fnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			const envVars = fnDef.Properties.Environment?.Variables ?? {};
+			expect(envVars.BEDROCK_MODEL_ID).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+			expect(envVars.BEDROCK_REGION).toBe('us-east-1');
+
+			const serialized = JSON.stringify(stagingCompute.findResources('AWS::IAM::Policy'));
+			expect(serialized).toContain('bedrock:InvokeModel');
+			expect(serialized).toContain(
+				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+			);
+		});
+
 		it('staging synth は cronSecret / opsSecretKey 無しで throw しない (#1586 guard の分岐内移動)', () => {
 			// buildStagingStacks() が context に cronSecret / opsSecretKey を渡していないのに
 			// beforeAll で synth が成功していること自体が実証。ここでは明示再構築で assert する。

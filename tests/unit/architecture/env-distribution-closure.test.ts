@@ -381,7 +381,10 @@ const NOT_DISTRIBUTED: Array<{
 			'SCHEMA_VALIDATION_MODE',
 			'LOG_LEVEL',
 			'GEMINI_MODEL',
-			'BEDROCK_REGION',
+			// #4367 AC4: BEDROCK_REGION / BEDROCK_MODEL_ID は「既定値のまま動く上書き用」から
+			// **配る側** に移った (infra/lib/compute-stack.ts)。既定値に委ねると in-Region 固定
+			// (privacy.html 第 10 条の us-east-1) が実行環境の AWS_REGION 次第でずれるため、
+			// リージョンを配布側で明示する。免除宣言はここから外す。
 			'BEDROCK_DISABLED',
 			'VAPID_SUBJECT',
 			'OPS_DOMAIN_COST_JPY',
@@ -397,12 +400,11 @@ const NOT_DISTRIBUTED: Array<{
 		keys: ['PRICING_TRIGGER_MIN_PAID_USERS', 'SKIP_LOCAL_EMAIL_PREVIEW'],
 		why: '既定値のまま動く上書き用の env。未設定が正常系で、開発時にだけ設定する',
 	},
-	{
-		readers: ['app-env-schema'],
-		keys: ['BEDROCK_MODEL_ID'],
-		why: '配ることが「この環境で Bedrock を使う」の意思表示 (#4366)。未配布は異常ではなく "AI 提案を持たない環境" で、BedrockClaudeProvider.isAvailable() が false を返し全 service がキーワード提案に縮退する。既定値で暗黙に有効化すると、未配線と設定済みが区別できず AI が無言で不作動になる (#4366 の欠陥そのもの)。AWS で Bedrock を有効化するか Gemini に寄せるかはオーナー判断',
-		followUp: '#4367',
-	},
+	// #4367: BEDROCK_MODEL_ID の「配らない」宣言はここにあったが、AWS 本番 / staging で
+	// 配ることを決めた (compute-stack.ts) ため削除した。配ることが「この環境で Bedrock を使う」
+	// の意思表示である (#4366) 構造は変わらず、NUC 側は AI_PROVIDER=gemini なので配らない
+	// (reader は channel 集合の OR 判定なので、AWS で配っていれば closure は満たす — 本 file 冒頭
+	// §既知の残課題)。
 	{
 		readers: ['app-env-schema'],
 		keys: ['GITHUB_TOKEN', 'GH_TOKEN'],
