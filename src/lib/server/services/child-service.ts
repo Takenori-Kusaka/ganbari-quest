@@ -23,6 +23,7 @@ import {
 	assertTenantScopedStorageKey,
 	childPrefix,
 	placeholderAvatarKey,
+	publicUrlToStorageKey,
 	storageKeyToPublicUrl,
 } from '$lib/server/storage-keys';
 
@@ -205,11 +206,11 @@ function shouldRegeneratePlaceholderAvatar(
 	if (!nicknameChanged && !themeChanged) return false;
 
 	if (!existing.avatarUrl) return true;
-	const placeholderUrl = storageKeyToPublicUrl(
-		placeholderAvatarKey(tenantId, id, PLACEHOLDER_AVATAR_EXTENSION),
+	// `?v=<版>` が付いている (#4453) ので、key に戻して (query を落として) 比べる。
+	return (
+		publicUrlToStorageKey(existing.avatarUrl) ===
+		placeholderAvatarKey(tenantId, id, PLACEHOLDER_AVATAR_EXTENSION)
 	);
-	// `?v=<版>` が付いている (#4453) ので path 部分で比べる。
-	return existing.avatarUrl.split('?')[0] === placeholderUrl;
 }
 
 export async function removeChild(id: ChildId, tenantId: string) {

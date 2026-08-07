@@ -6,7 +6,12 @@ import { logger } from '$lib/server/logger';
 import { sanitizeImage } from '$lib/server/security/file-sanitizer';
 import { validateImageMagicBytes } from '$lib/server/security/magic-bytes';
 import { deleteFile, saveFile } from '$lib/server/storage';
-import { avatarKey, storageKeyToPublicUrl } from '$lib/server/storage-keys';
+import {
+	assertTenantScopedStorageKey,
+	avatarKey,
+	publicUrlToStorageKey,
+	storageKeyToPublicUrl,
+} from '$lib/server/storage-keys';
 import type { RequestHandler } from './$types';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -61,11 +66,18 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const { buffer } = await sanitizeImage(rawBuffer, file.type);
 		await saveFile(storageKey, buffer, file.type);
 
-		// 旧アバターファイルを削除（パスがあり、新パスと異なる場合）
-		if (child.avatarUrl && child.avatarUrl !== publicUrl) {
-			const oldKey = child.avatarUrl.startsWith('/') ? child.avatarUrl.slice(1) : child.avatarUrl;
+		// 旧アバターファイルを削除（実 key が取れ、今保存した新 key と異なる場合）
+		if (child.avatarUrl) {
+			// 仮アバターの URL には `?v=<版>` が付く (#4461)。落とさないと実 key と一致せず
+			// 削除が空振りし placeholder.svg が孤児として残る (#4468)。
+			const oldKey = publicUrlToStorageKey(child.avatarUrl);
 			try {
-				await deleteFile(oldKey);
+				// 削除対象が本当にこの tenant のものかを確認してから消す
+				// (cross-tenant / traversal を指す avatar_url で他人のファイルを消さない)
+				assertTenantScopedStorageKey(oldKey, tenantId);
+				if (oldKey !== storageKey) {
+					await deleteFile(oldKey);
+				}
 			} catch {
 				// 旧ファイル削除失敗は無視（孤立ファイルは定期クリーンアップで対応）
 			}
