@@ -33,6 +33,23 @@ export async function getSettings(
 	return map;
 }
 
+/**
+ * key 一致行を「value が valuePrefix で始まる / 始まらない」で数える（#4269 ①）。
+ *
+ * SQLite backend は key 単独 PK のグローバル KVS（単一家族 NUC）なので該当は最大 1 行。
+ * DSQL backend と同じ「前方一致」判定で数え、`/ops` の在庫表示を同一契約に保つ。
+ */
+export async function countValuesByPrefix(
+	key: string,
+	valuePrefix: string,
+): Promise<{ total: number; withPrefix: number }> {
+	const rows = db.select().from(settings).where(eq(settings.key, key)).all();
+	return {
+		total: rows.length,
+		withPrefix: rows.filter((row) => row.value.startsWith(valuePrefix)).length,
+	};
+}
+
 /** テナントの全設定を削除（SQLite: シングルテナントのため全行削除） */
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	db.delete(settings).run();

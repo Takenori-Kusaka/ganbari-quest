@@ -42,3 +42,16 @@ export async function getSettings(
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	// Stub: no-op
 }
+
+/**
+ * key 一致行の前方一致集計 (#4269 ①)。demo は固定 fixture のみを持つ stateless Fake なので、
+ * DEMO_SETTINGS に無い key は「保存 0 件」として 0 / 0 を返す (在庫監査の行は 0 件として出る)。
+ */
+export async function countValuesByPrefix(
+	key: string,
+	valuePrefix: string,
+): Promise<{ total: number; withPrefix: number }> {
+	const value = DEMO_SETTINGS[key];
+	if (value === undefined) return { total: 0, withPrefix: 0 };
+	return { total: 1, withPrefix: value.startsWith(valuePrefix) ? 1 : 0 };
+}

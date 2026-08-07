@@ -3110,6 +3110,14 @@ export const OPS_LABELS = {
 	contractStateHas: 'あり',
 	contractStateNone: 'なし',
 
+	// #4269 ①: 継続月キーの滞留在庫。prefix 無しの旧値が残っていると継続月数の加算が
+	// 「基準不明」として skip され続けるため、その件数を同じ在庫に 1 行出す。
+	// **0 件でも出す** (行が消えると「見ていない」と区別がつかない)。
+	loyaltyMonthKeyLabel: '基準不明の継続月キー',
+	loyaltyMonthKeyCount: (legacy: number, total: number) => `${legacy} 件 / 保存済み ${total} 件`,
+	loyaltyMonthKeyDesc:
+		'値の基準が判別できない古い保存値です。残っている間、その家族の継続月数の加算は安全側に見送られます。',
+
 	// ページタイトル
 	pageTitle: 'OPS - KPI サマリー',
 

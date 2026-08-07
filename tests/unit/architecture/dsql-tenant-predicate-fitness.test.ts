@@ -128,6 +128,13 @@ const PREDICATE_ALLOWLIST: AllowlistEntry[] = [
 		reason: 'cross-tenant PO KPI 集計 (aggregateRecent / searchFreeText、sqlite backend と同契約)',
 	},
 	{
+		file: 'settings-repo.ts',
+		table: 'settings',
+		marker: /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+starts_with\(value/i,
+		reason:
+			'cross-tenant ops 監査集計: 継続月キーの prefix 無し在庫を数える (#4269 ①)。ops 認可下・COUNT 2 スカラーのみ返却で個票非露出 (§11.2 明示例外、cancellation-reason-repo.aggregateRecent と同クラス)',
+	},
+	{
 		file: 'graduation-consent-repo.ts',
 		table: 'graduation_consent',
 		marker: /consented_at\s*>=|consented\s*=\s*true/,
