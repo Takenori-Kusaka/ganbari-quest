@@ -16,7 +16,7 @@ $effect(() => {
 	const dx = g.to.x - g.from.x;
 	const dy = g.to.y - g.from.y;
 
-	// WAAPI で 1 回だけ飛ばす。element.animate が無い環境 (jsdom 等) では即完了扱い。
+	// Web Animations API で 1 回だけ飛ばす。element.animate が無い環境 (jsdom 等) では即完了扱い。
 	if (typeof node.animate !== 'function') {
 		pointFlight.finishGhost();
 		return;

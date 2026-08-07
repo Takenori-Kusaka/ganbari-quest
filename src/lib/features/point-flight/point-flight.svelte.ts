@@ -137,7 +137,7 @@ class PointFlightController {
 				resolve();
 			};
 			// ghost 側の animation 完了、または保険のタイムアウトのどちらか早い方で先へ進む
-			// (タブ非アクティブ等で WAAPI の finished が来ない場合に hold が残らないようにする)
+			// (タブ非アクティブ等で Web Animations API の finished が来ない場合に hold が残らないようにする)
 			const timer = setTimeout(done, POINT_FLIGHT_FLY_MS + 400);
 			this.#ghostSettled = done;
 		});
