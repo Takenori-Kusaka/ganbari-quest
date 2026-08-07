@@ -99,7 +99,7 @@ describe('#4419 child insertChild の uiMode 既定値は 3 backend で一致す
 	function extractDefaultExpr(source: string): string[] {
 		const matches = [...source.matchAll(/input\.uiMode\s*\?\?\s*([^,;\n}]+)/g)];
 		return matches.map((m) => {
-			let expr = m[1].replace(/\s+/g, '');
+			let expr = (m[1] ?? '').replace(/\s+/g, '');
 			// 式の外側 (テンプレートリテラルや呼び出しの閉じ) の ')' を取り除く
 			while (
 				expr.endsWith(')') &&

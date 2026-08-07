@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 
-const insertChildSpy = vi.fn(async (input: Record<string, unknown>) => ({
+const insertChildSpy = vi.fn(async (input: Record<string, unknown>, _tenantId: string) => ({
 	id: 1,
 	...input,
 	uiModeManuallySet: 0,
