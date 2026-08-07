@@ -53,8 +53,7 @@ function isBotOnlyCommits(commitAuthors) {
  *   baseRef: string;   // PR の base branch 名 (例: 'main' / 'develop')。GitHub Actions では `github.base_ref`
  *   headRef: string;   // PR の head branch 名 (例: 'develop' / 'feat/123-x' / 'fix/999')。`github.head_ref`
  *   actor: string;     // PR を作成した actor (例: 'Takenori-Kusaka' / 'dependabot[bot]')。`github.actor`
- *   commitAuthors?: readonly string[]; // PR 上の非マージ commit の author login 一覧 (#4445、任意)。
- *     未指定なら actor のみで判定 (後方互換)。マージ commit (branch 同期等) は呼び出し側で除外して渡すこと。
+ *   commitAuthors?: readonly string[]; // PR 上の非マージ commit の author login 一覧 (#4445、任意)。未指定なら actor のみで判定 (後方互換)。マージ commit (branch 同期等) は呼び出し側で除外して渡すこと。
  * }} input
  * @returns {'feature' | 'integration' | 'hotfix' | 'dependabot'}
  */
