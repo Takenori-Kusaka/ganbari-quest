@@ -32,10 +32,14 @@ vi.mock('$lib/server/services/activity-pin-service', () => ({
 }));
 
 const mockClaimChildChallengeReward = vi.fn();
+const mockMarkChallengeCelebrationShown = vi.fn(async () => true);
 vi.mock('$lib/server/services/child-challenge-service', () => ({
 	claimChildChallengeReward: (...args: unknown[]) => mockClaimChildChallengeReward(...args),
 	getActiveChildChallengesWithSiblings: vi.fn(),
 	getOrCreateWeeklyChildChallenge: vi.fn(),
+	// #4410: load が祝福対象の解決に使う
+	resolveCelebrationChallenge: vi.fn(() => null),
+	markChallengeCelebrationShown: (...args: unknown[]) => mockMarkChallengeCelebrationShown(...args),
 }));
 
 const mockSendCheer = vi.fn();
@@ -135,6 +139,16 @@ describe('child home POST action の form-field id trust 境界 guard (#3799)', 
 			);
 			expect(res.status).toBe(400);
 			expect(mockClaimChildChallengeReward).not.toHaveBeenCalled();
+		});
+
+		it('markChallengeCelebrationShown: 非 uuid challengeId は fail(400) し記録を呼ばない (#4410、uncaught 22P02→500 回避)', async () => {
+			const res = await runAction(
+				'markChallengeCelebrationShown',
+				{ challengeId: NON_UUID },
+				VALID_COOKIE_UUID,
+			);
+			expect(res.status).toBe(400);
+			expect(mockMarkChallengeCelebrationShown).not.toHaveBeenCalled();
 		});
 
 		it('sendCheer: 非 uuid toChildId は fail(400) し sendCheer を呼ばない (uncaught 22P02→500 回避)', async () => {

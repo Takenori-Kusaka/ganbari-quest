@@ -167,6 +167,9 @@ vi.mock('$lib/server/services/child-challenge-service', () => ({
 	getOrCreateWeeklyChildChallenge: vi.fn(async () => undefined),
 	getActiveChildChallengesWithSiblings: vi.fn(async () => []),
 	claimChildChallengeReward: vi.fn(),
+	// #4410: load が祝福対象の解決に使う。実物と同じ「該当なしなら null」を返す
+	resolveCelebrationChallenge: vi.fn(() => null),
+	markChallengeCelebrationShown: vi.fn(async () => true),
 }));
 vi.mock('$lib/server/services/daily-mission-service', () => ({
 	getTodayMissions: vi.fn(async () => null),
