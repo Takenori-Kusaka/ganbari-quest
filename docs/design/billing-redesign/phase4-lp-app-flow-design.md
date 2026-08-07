@@ -448,7 +448,7 @@ Phase 3 #2567 で「standard に『お勧め』バッジ付与」確定 (本格�
   - 「登録」→ `SIGNUP_TERMS.canonical` (`'お申し込み'`) for サブスク開設 ✅
   - 「ログイン」→ `LOGIN_TERMS.canonical` (`'ログイン'`) ✅
 - ✅ **check-no-plan-literals.mjs** (#972 / #1918 Phase 5 F1): プラン名直書き検出は本書 §6.1 で `${PLAN_FULL_TERMS.family}` 経由参照を確定し、Phase 7 で違反ゼロ
-- ✅ **check-hardcoded-strings.mjs** (#1452): 本書は docs のため対象外。Phase 7 LP HTML 実装時に `data-lp-key` 経由参照で違反増加なし
+- **check-hardcoded-strings.mjs は #4322 で削除済み (#4426)**: 本書執筆当時 (#1452) は ratchet gate だったが、現状は機械強制が無い。Phase 7 LP HTML 実装時も `data-lp-key` 経由参照 (SSOT) を維持し、レビューで担保する
 
 ### 観点 5: 影響範囲事後検証 (skill `impact-analysis` 4 layer + 21 カテゴリ)
 
