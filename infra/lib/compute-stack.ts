@@ -44,6 +44,21 @@ const CRON_JOBS = [
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
 
+// --- Bedrock (#4367) ---
+// SSOT は src/lib/server/ai/bedrock-claude-provider.ts の DEFAULT_MODEL_ID。CDK tsconfig の
+// rootDir は infra/ 固定で src/ を import できないため、CRON_JOBS と同じくインライン定義する。
+//
+// **base model ID を使い、`us.` 等の geo inference profile は使わない**。profile は
+// us-east-1 に投げても us-east-2 / us-west-2 で推論されうる = 子供の活動テキストが
+// 開示リージョン (privacy.html 第 10 条: us-east-1) の外に出る。Pre-PMF で throughput
+// 冗長性は不要なので in-Region に固定する。
+const BEDROCK_REGION = 'us-east-1';
+const BEDROCK_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+// foundation-model ARN は account 部が空 (AWS 管理リソース)。
+// profile を使う場合は profile ARN + 対象 3 リージョンの FM ARN を並べる必要があるが、
+// base model 固定なのでこの 1 本だけで足りる。
+const BEDROCK_MODEL_ARN = `arn:aws:bedrock:${BEDROCK_REGION}::foundation-model/${BEDROCK_MODEL_ID}`;
+
 export interface ComputeStackProps extends cdk.StackProps {
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
@@ -362,6 +377,10 @@ export class ComputeStack extends cdk.Stack {
 			...(stagingStripeSecretKey ? { STRIPE_SECRET_KEY: stagingStripeSecretKey } : {}),
 			...(stagingStripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stagingStripeWebhookSecret } : {}),
 			...(stagingStripeSecretKey ? { USE_LOOKUP_KEY: 'true' } : {}),
+			// #4367 AC4 / AC5: staging は AI 提案の実機確認先。env が無いと isAvailable() が
+			// false のまま (#4366) で確認自体が成立しないため、本番と同じ値を配る。
+			BEDROCK_MODEL_ID: BEDROCK_MODEL_ID,
+			BEDROCK_REGION: BEDROCK_REGION,
 		};
 
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
@@ -444,6 +463,13 @@ export class ComputeStack extends cdk.Stack {
 						// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
 						USE_LOOKUP_KEY: useLookupKey,
 						COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
+						// #4367 AC4: BedrockClaudeProvider.isAvailable() は BEDROCK_MODEL_ID の
+						// **明示配布**を可用性条件にする (#4366)。既定値を持っていても配らない限り
+						// AI 提案 / レシート OCR は無効のままなので、ここで配ることが「AWS で
+						// Bedrock を使うと決めた」の唯一の表明になる。IAM (下の bedrock:InvokeModel)
+						// と対で初めて動く。
+						BEDROCK_MODEL_ID: BEDROCK_MODEL_ID,
+						BEDROCK_REGION: BEDROCK_REGION,
 						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
 						// #3438 Phase 2A: DATA_SOURCE=dsql は base env に無条件で含む (旧 dsqlEnabled 上書き撤去)。
@@ -478,6 +504,20 @@ export class ComputeStack extends cdk.Stack {
 				}),
 			);
 		}
+
+		// #4367 AC2: Bedrock 推論権限。prod / staging 共通で付与する (staging は AC5 の実機確認先で、
+		// SES / Cost Explorer と違い外部サービスへの副作用を持たない = 推論のみで保存なし)。
+		//
+		// `bedrock:Converse` という IAM アクションは存在しない — Converse API は
+		// `bedrock:InvokeModel` で認可される (AWS 公式)。Resource は使う 1 モデルの ARN に絞り、
+		// `*` にしない (`*` だと将来 model を増やしたとき権限だけ先に広がり、何が呼べるかが
+		// コードから読めなくなる)。geo inference profile を使わないので ARN は 1 本で足りる。
+		this.fn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['bedrock:InvokeModel'],
+				resources: [BEDROCK_MODEL_ARN],
+			}),
+		);
 
 		// staging (#2873): SES / Cost Explorer grant は付与しない (本番外部サービスへの
 		// 副作用ゼロ + blast radius 最小化。SES env も非注入のためアプリは送信経路を持たない)。

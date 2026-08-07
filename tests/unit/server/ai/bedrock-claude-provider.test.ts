@@ -130,6 +130,26 @@ describe('BedrockClaudeProvider.converseWithTool()', () => {
 		expect(command.input.modelId).toBe('custom.model-id');
 	});
 
+	it('既定モデルは in-Region の base model ID (cross-region inference profile を既定にしない、#4367 AC3)', async () => {
+		// #4367 AC3: 旧既定 `us.anthropic.claude-haiku-4-5-20251001-v1:0` は cross-region inference
+		// profile で、us-east-1 に投げても us-east-2 / us-west-2 で推論されうる。子供の活動テキストを
+		// 「運営者が管理する AWS 環境」に留める開示 (site/privacy.html 第 3 条 / 第 10 条) の趣旨に
+		// 照らし、既定は 1 リージョンに閉じる base model ID にする。Pre-PMF で throughput 冗長性は不要。
+		//
+		// env 未配布時は isAvailable() === false (#4366) だが、converseWithTool は可用性判定と
+		// 独立に既定値を使うため、ここで既定値そのものを固定できる。
+		delete process.env.BEDROCK_MODEL_ID;
+		const { provider } = await load();
+		mockSend.mockResolvedValueOnce(toolUseResponse({ ok: true }));
+
+		await provider.converseWithTool({ system: 's', userMessage: 'u', tool: TOOL });
+
+		const command = mockSend.mock.calls[0]?.[0] as { input: { modelId: string } };
+		expect(command.input.modelId).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+		// geo prefix (us. / eu. / apac. / global.) が付いた瞬間に落ちる
+		expect(command.input.modelId).not.toMatch(/^(us|eu|apac|global)\./);
+	});
+
 	it('tool_use ブロックが無い応答は例外にする (握り潰さない)', async () => {
 		const { provider } = await load();
 		mockSend.mockResolvedValueOnce({ output: { message: { content: [{ text: 'hello' }] } } });
