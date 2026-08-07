@@ -131,8 +131,8 @@ Steps (6 本。番号は既存の識別子を維持 — 実行順は下記「実
 step の前に走る preflight:
   依存 preflight (#3857)  隔離 worktree の node_modules 欠落を fail-fast
   base 鮮度 (#4390)       origin/<base> がどれだけ進んだかと、進んだ分に **pre-ready の検査基準**
-                          (PULL_REQUEST_TEMPLATE.md / PR_TEMPLATE_SECTIONS.json / 検査 script /
-                           scripts/lib/ci/**) が含まれるかを見る。
+                          (PULL_REQUEST_TEMPLATE.md / PR_TEMPLATE_SECTIONS.json / 検査 script と
+                           その import 閉包) が含まれるかを見る。
                             - 含まれる  → BLOCK。手元は旧基準、CI は新基準で判定するため測り直しが要る
                             - 含まれない → 警告 + summary 注記のみ (base は日に何度も進むので止めない)
 
@@ -276,21 +276,27 @@ export const PRE_READY_GATE_SSOT_PATHS = /** @type {const} */ ([
 	'scripts/check-local-tz-date-getters.mjs',
 	'scripts/pre-ready.mjs',
 	// 上記 script が import する sibling module (判定ロジック本体はこちら側にある)。
-	// `scripts/` 全体を prefix にすると無関係な script の変更まで BLOCK するため個別列挙し、
-	// 列挙漏れは tests/unit/scripts/pre-ready-base-freshness.test.ts [B13] が
-	// 実際の import 閉包と突き合わせて機械検出する (#4390)。
+	// ディレクトリ prefix (`scripts/` / `scripts/lib/ci/`) で一括指定すると、pre-ready が
+	// 一度も読まない script の変更まで BLOCK する。実際 `scripts/lib/ci/` 13 file のうち
+	// pre-ready の import 閉包に入るのは 4 file だけで、残り 9 file (ページガイド撮影ヘルパ等) を
+	// 直しただけで全 PR の pre-ready が止まっていた。**手元と CI で読む SSOT が食い違う**という
+	// 止める根拠が成立しない file で止めるのは「理由の分からない BLOCK」であり、
+	// gate への信頼を削って迂回行動を誘発する。よって閉包に実在する file だけを個別列挙する。
+	// 列挙漏れ / 余分な列挙は tests/unit/scripts/pre-ready-base-freshness.test.ts [B13] が
+	// 実際の import 閉包と両方向で突き合わせて機械検出する (#4390)。
 	'scripts/check-ac-verification-map.mjs',
 	'scripts/integration-pr-body.mjs',
 	'scripts/pr-lane.mjs',
 	'scripts/pr-template-gate-checks.mjs',
 	'scripts/lib/is-main.mjs',
+	'scripts/lib/ci/pr-body-sections.mjs',
+	'scripts/lib/ci/reason-declaration.mjs',
+	'scripts/lib/ci/resolve-base-branch.mjs',
+	'scripts/lib/ci/tz-invariance-cases.mjs',
 	// Step 1 / 2 の設定
 	'biome.json',
 	'tsconfig.json',
 ]);
-
-/** 配下すべてを検査基準とみなす prefix (個別列挙すると追加のたびに漏れる)。 */
-export const PRE_READY_GATE_SSOT_PREFIXES = /** @type {const} */ (['scripts/lib/ci/']);
 
 /**
  * path が pre-ready の検査基準かを判定する (#4390、unit test 対象)。
@@ -301,10 +307,7 @@ export const PRE_READY_GATE_SSOT_PREFIXES = /** @type {const} */ (['scripts/lib/
  */
 export function isGateSsotPath(file) {
 	const p = String(file).replace(/\\/g, '/');
-	return (
-		PRE_READY_GATE_SSOT_PATHS.includes(/** @type {never} */ (p)) ||
-		PRE_READY_GATE_SSOT_PREFIXES.some((prefix) => p.startsWith(prefix))
-	);
+	return PRE_READY_GATE_SSOT_PATHS.includes(/** @type {never} */ (p));
 }
 
 /**

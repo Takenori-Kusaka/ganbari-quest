@@ -54,7 +54,7 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 **Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 7 / 7g) → 型検査 (2) → SS 系 (11b) の順。
 
-**pre-ready の PASS は「CI 緑」ではない (#4390)**。6 step は worktree HEAD だけを入力にするため、負荷 / タイミング依存の失敗・CI 側 job・**Draft 中しか走らない検査** (`pr-template-gate` は `draft == false` で初めて走る) は原理的に見ていない。加えて step の前に **base 鮮度 preflight** が走り、base が進み、かつ進んだ差分に **pre-ready の検査基準** (`PULL_REQUEST_TEMPLATE.md` / `PR_TEMPLATE_SECTIONS.json` / 検査 script / `scripts/lib/ci/**`) が含まれる場合は **BLOCK する** (手元は旧基準・CI は新基準で判定するため、その PASS は成立しない)。検査基準が動いていなければ注記のみで止めない。
+**pre-ready の PASS は「CI 緑」ではない (#4390)**。6 step は worktree HEAD だけを入力にするため、負荷 / タイミング依存の失敗・CI 側 job・**Draft 中しか走らない検査** (`pr-template-gate` は `draft == false` で初めて走る) は原理的に見ていない。加えて step の前に **base 鮮度 preflight** が走り、base が進み、かつ進んだ差分に **pre-ready の検査基準** (`PULL_REQUEST_TEMPLATE.md` / `PR_TEMPLATE_SECTIONS.json` / 検査 script と**その import 閉包**) が含まれる場合は **BLOCK する** (手元は旧基準・CI は新基準で判定するため、その PASS は成立しない)。検査基準が動いていなければ注記のみで止めない。
 
 E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 

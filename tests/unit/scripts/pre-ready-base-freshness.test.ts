@@ -149,9 +149,9 @@ describe('#4390 classifyBaseDrift — base 鮮度の 3 分類', () => {
 });
 
 describe('#4390 isGateSsotPath — 検査基準の判定', () => {
-	it('[B7] scripts/lib/ci/ 配下は prefix で一括して検査基準扱い', () => {
-		expect(readExport<string[]>('PRE_READY_GATE_SSOT_PREFIXES')).toContain('scripts/lib/ci/');
+	it('[B7] pre-ready が読む scripts/lib/ci/ の module は検査基準', () => {
 		expect(isGateSsotPath('scripts/lib/ci/pr-body-sections.mjs')).toBe(true);
+		expect(isGateSsotPath('scripts/lib/ci/resolve-base-branch.mjs')).toBe(true);
 	});
 
 	it('[B8] 検査基準でない path は false (over-block しない)', () => {
@@ -159,6 +159,15 @@ describe('#4390 isGateSsotPath — 検査基準の判定', () => {
 		expect(isGateSsotPath('docs/decisions/README.md')).toBe(false);
 		// 名前が似ているだけの path を拾わない
 		expect(isGateSsotPath('tests/unit/scripts/check-pr-body.test.ts')).toBe(false);
+	});
+
+	it('[B18] pre-ready が読まない scripts/lib/ci/ の module は検査基準ではない', () => {
+		// ディレクトリ prefix で一括指定していた頃は、ページガイド撮影ヘルパを直しただけで
+		// 全 PR の pre-ready が止まっていた。止める根拠 (手元と CI で読む SSOT が食い違う) が
+		// 成立しない file を BLOCK しない (#4390)。
+		expect(isGateSsotPath('scripts/lib/ci/page-guide-capture.mjs')).toBe(false);
+		expect(isGateSsotPath('scripts/lib/ci/brand-style-guide.js')).toBe(false);
+		expect(isGateSsotPath('scripts/lib/ci/workflow-judgment-registry.mjs')).toBe(false);
 	});
 
 	it('[B9] Windows の \\ 区切りでも同じ判定になる', () => {
@@ -197,15 +206,29 @@ describe('#4390 BLOCK / 警告の文言', () => {
  * list を手で足すだけでは同じ穴が再び開くので、**実際に import を辿って閉包を計算し**、
  * 全 file が検査基準に被覆されていることを機械で固定する (ADR-0061 同 class N→guard)。
  * 期待 list を test 側に手書きすると二重管理になるため、entry も閉包も source から導出する。
+ *
+ * 被覆は **両方向**で見る。片方向 (漏れのみ) だと、逆方向の穴 = pre-ready が一度も読まない
+ * file を検査基準に混ぜる over-block が素通りする (実際 `scripts/lib/ci/` の prefix 指定で
+ * 13 file 中 9 file が無関係に BLOCK 対象になっていた)。[B13] が漏れ、[B19] が余分を見る。
  */
-describe('#4390 検査基準 list は spawn する script の import 閉包を被覆する', () => {
-	/** pre-ready.mjs の source から、子プロセスで起動する script path を拾う。 */
+describe('#4390 検査基準 list は spawn する script の import 閉包と一致する', () => {
+	/**
+	 * pre-ready.mjs の source から、子プロセスで起動する script path を拾う。
+	 *
+	 * 単に `'scripts/....mjs'` という文字列リテラルを拾うと **`PRE_READY_GATE_SSOT_PATHS` の
+	 * 配列リテラル自身**を entry として読んでしまい、[B12] が「list に載っているものが list に
+	 * 載っている」を assert する tautology になる。実際に spawn するのは `run(...)` に渡す
+	 * `['node', 'scripts/xxx.mjs', …]` の argv だけなので、その形だけを拾う。
+	 *
+	 * pre-ready.mjs 自身は spawn 対象ではないが、6 step のオーケストレータであり
+	 * 判定順・合否条件そのものを持つため entry (= 閉包の起点) に含める。
+	 */
 	function readEntryScripts(): string[] {
 		const src = readFileSync(resolve(repoRoot, 'scripts/pre-ready.mjs'), 'utf8');
-		const found = [...src.matchAll(/['"`](scripts\/[A-Za-z0-9_./-]+\.mjs)['"`]/g)].flatMap((m) =>
-			m[1] ? [m[1]] : [],
-		);
-		return [...new Set(found)];
+		const spawned = [
+			...src.matchAll(/['"]node['"]\s*,\s*['"](scripts\/[A-Za-z0-9_./-]+\.mjs)['"]/g),
+		].flatMap((m) => (m[1] ? [m[1]] : []));
+		return [...new Set(['scripts/pre-ready.mjs', ...spawned])];
 	}
 
 	/** repo-relative な .mjs から相対 import を辿り、到達する全 file (entry 含む) を返す。 */
@@ -243,7 +266,9 @@ process.stdout.write(JSON.stringify(${JSON.stringify(files)}.map((f) => m.isGate
 
 	it('[B12] spawn する entry script 自体が検査基準に含まれる', () => {
 		const entries = readEntryScripts();
-		expect(entries.length).toBeGreaterThan(0);
+		// spawn 経路を絞ったので、entry が 0 本 / pre-ready.mjs 単体に縮退していたら
+		// 正規表現が argv の形と食い違っている (test 自体の空振り防止)
+		expect(entries.length).toBeGreaterThan(1);
 		const covered = isGateSsotPathAll(entries);
 		expect(entries.filter((_, i) => !covered[i])).toEqual([]);
 	});
@@ -254,5 +279,18 @@ process.stdout.write(JSON.stringify(${JSON.stringify(files)}.map((f) => m.isGate
 		expect(closure.length).toBeGreaterThan(readEntryScripts().length);
 		const covered = isGateSsotPathAll(closure);
 		expect(closure.filter((_, i) => !covered[i])).toEqual([]);
+	});
+
+	it('[B19] scripts/ 配下の検査基準に、閉包に無い file を余分に列挙していない (over-block 防止)', () => {
+		// [B13] は「列挙漏れ」だけを見る。片方向だと、prefix 指定や手書き追加で
+		// **pre-ready が一度も読まない file** が検査基準に紛れ込み、無関係な変更で
+		// 全 PR を止める over-block が再発する (#4390 の実害形)。
+		// `.github/*` や biome.json / tsconfig.json は import 閉包に現れない検査基準なので、
+		// 両方向 assert の対象は `scripts/` 配下に限る。
+		const closure = new Set(collectImportClosure(readEntryScripts()));
+		const listed = readExport<string[]>('PRE_READY_GATE_SSOT_PATHS').filter((p) =>
+			p.startsWith('scripts/'),
+		);
+		expect(listed.filter((p) => !closure.has(p))).toEqual([]);
 	});
 });
