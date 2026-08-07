@@ -116,8 +116,8 @@ KPI service（`cohort-analysis` / `ops-analytics` / `pricing-trigger` / `stripe-
 |---|---|---|---|---|
 | W1 | `checkout.session.completed` | `stripe-service.ts` `handleCheckoutCompleted` | `sub` / `plan` / `status=active` / `trialUsedAt` | S1 → S2 / S5 → S2 |
 | W2 | `invoice.paid` | `stripe-service.ts` `handleInvoicePaid` | `status=active` + `plan`（未解決なら**保持**） + **`plan_expires_at=null`** | S2/S3/S4 → S2 |
-| W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` / `exp = now + 7d` | S2/S3/S4 → S3 |
-| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化）+ **`plan_expires_at`**（`active` 復帰 → `null` / `grace_period` 入りで未設定なら `now+7d` / それ以外は無変更。`planExpiresAtPatchFor()`） / 終端: W5 と同じ 4 列 | S2/S3/S4 → S2（`active` / `trialing`）/ S2/S3/S4 → S3（`past_due`）/ S2/S3/S4 → S4（`unpaid` / `paused` / `incomplete`）/ S2/S3/S4 → S5（終端） |
+| W3 | `invoice.payment_failed` | `stripe-service.ts` `handlePaymentFailed` | `status=grace_period` + **`plan_expires_at`**（未設定なら `now+7d` / 既にあれば無変更。W4 と共通の `graceExpiresAtPatch()`、§5.2） | S2/S3/S4 → S3 |
+| W4 | `customer.subscription.updated` | `stripe-service.ts` `handleSubscriptionUpdated` | 非終端: `plan`（未解決なら保持）+ `status`（Stripe status を正規化）+ **`plan_expires_at`**（`active` 復帰 → `null` / `grace_period` は `graceExpiresAtPatch()`（§5.2）/ それ以外は無変更。`planExpiresAtPatchFor()`） / 終端: W5 と同じ 4 列 | S2/S3/S4 → S2（`active` / `trialing`）/ S2/S3/S4 → S3（`past_due`）/ S2/S3/S4 → S4（`unpaid` / `paused` / `incomplete`）/ S2/S3/S4 → S5（終端） |
 | W5 | `customer.subscription.deleted` | `stripe-service.ts` `handleSubscriptionDeleted` | `sub=NULL` / `plan=NULL` / `exp=NULL` / `status=suspended`（`TERMINAL_CONTRACT_STATE` の 4 列を網羅、#4026） | S2/S3/S4 → S5 |
 | W6 | アプリ内解約 | `tenant/cancel/+server.ts` | **書かない**（Stripe に `cancel_at_period_end=true` を予約するのみ、#3991） | なし（期末に W5 が S5 へ移す） |
 | W7 | 解約取り消し | `tenant/reactivate/+server.ts` | **書かない**（Stripe の `cancel_at_period_end=false`、#3991） | なし |
@@ -153,6 +153,24 @@ handler を実際に呼び、**開始状態 S1〜S5 × Stripe subscription statu
   checkout を `ALREADY_SUBSCRIBED` で拒む**ため。S5（解約済）からの再購読はこの経路で S2 に戻る
 - S6（退会済）を開始状態とする遷移は本表に無い。§4.1 のとおり legacy 行としてしか存在せず、
   `hooks.server.ts` が当該テナントを完全ブロックする
+
+### 5.2 dunning 猶予の終了日は「最初の支払い失敗から 7 日」
+
+`grace_period` の `plan_expires_at` を決める規則は **1 つだけ**であり、W3 / W4 の両方が
+`stripe-service.ts` の `graceExpiresAtPatch()` を通す。
+
+- 猶予終了日が**未設定なら** `now + 7d` を立てる（S3 は `exp` あり必須）
+- 猶予終了日が**既にあるなら触らない**
+
+Stripe の dunning は同じ invoice を複数回 retry し、そのたび W3（`invoice.payment_failed`）と
+W4（`past_due` の updated）を送る。retry ごとに `now + 7d` を書き直すと猶予の終わりが先送りされ、
+**支払い失敗が続く間は猶予が一度も明けない**。`plan_expires_at` を読む唯一の顧客向け処理である
+期限前リマインドメール（`lifecycle-email-service`、残り 30/7/1 日）も、残り日数が 7 に張り付いて
+最終通知が届かなくなる。
+
+到達可否（entitlement）は `status` で判定され本列を読まないため、本規則は機能の可否を変えない。
+規則の固定は `tests/unit/services/stripe-contract-state-classification.test.ts`（#4416、W3 / W4 を
+同じ入力で駆動して突き合わせる）と `tests/unit/services/lifecycle-email-service.test.ts`（残り日数）。
 
 ### 書き手を増やさない起動点: checkout reconciliation（#3958）
 

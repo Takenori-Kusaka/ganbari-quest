@@ -1035,7 +1035,11 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	// 解約経路は DB status を一切書かなくなった。以後この状態を書いてよいのは本 handler と、
 	// 同じ dunning を表す `handleSubscriptionUpdated` の `past_due` 分岐だけである
 	// (いずれも #4077 の単一強制点 `applyTenantContractState` を経由する)。
-	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString();
+	// #4416: 猶予終了日は **W4 と同じ規則** (`graceExpiresAtPatch`) で決める。
+	// 旧実装は無条件に `now + 7d` を書き直していたため、dunning retry のたびに猶予が
+	// 先送りされ、支払い失敗が続く間は 7 日の猶予が実質切れなかった。
+	const gracePatch = graceExpiresAtPatch(tenant);
+	const graceExpires = gracePatch.planExpiresAt ?? tenant.planExpiresAt;
 	const applied = await applyTenantContractState(
 		tenant,
 		// 同上: 終端は上で早期 return 済
@@ -1043,7 +1047,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 		'invoice.payment_failed',
 		() => ({
 			status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
-			planExpiresAt: graceExpires,
+			...gracePatch,
 		}),
 	);
 	if (!applied) return;
@@ -1186,8 +1190,7 @@ function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
  *   Stripe は `invoice.payment_failed` (W3) と `past_due` の updated を両方送り到着順を保証しないため、
  *   W4 が先着するとこの形になる。いつまで猶予なのかを画面にも出せず、W3 が届かなければ猶予が明けない
  *
- * 既に猶予終了日があるときは**触らない**。dunning 中 Stripe は retry のたび `past_due` を送るので、
- * 毎回書き直すと猶予が延び続け、未払いのまま使い続けられる (W3 と同じ 7 日を初回だけ与える)。
+ * 猶予終了日そのものの決め方は {@link graceExpiresAtPatch} が持つ (W3 と共通の 1 規則)。
  * `suspended` の `exp` は matrix で「任意」なので `undefined` = 更新しない。
  */
 function planExpiresAtPatchFor(
@@ -1195,10 +1198,36 @@ function planExpiresAtPatchFor(
 	tenant: Pick<Tenant, 'planExpiresAt'>,
 ): { planExpiresAt?: string | null } {
 	if (status === SUBSCRIPTION_STATUS.ACTIVE) return { planExpiresAt: null };
-	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !tenant.planExpiresAt) {
-		return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
-	}
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD) return graceExpiresAtPatch(tenant);
 	return {};
+}
+
+/**
+ * dunning 猶予 (`grace_period`) の終了日を決める**唯一の規則** (#4416)。
+ *
+ * **猶予は「最初の支払い失敗から 7 日」**であり、支払い失敗が繰り返されても延びない。
+ * 既に猶予終了日があるなら `{}` (= 更新しない) を返す。
+ *
+ * ## なぜ「毎回与え直す」ではなくこちらを採ったか
+ *
+ * Stripe の dunning は 1 回の失敗で終わらず、**同じ invoice を複数回 retry してそのたび
+ * `invoice.payment_failed` (W3) と `past_due` の `customer.subscription.updated` (W4) を送る**。
+ * retry のたびに `now + 7d` を書き直すと猶予の終わりが先送りされ続け、**支払い失敗が
+ * 続いている間は猶予が一度も明けない** (retry 間隔が 7 日を超えない限り無期限に使える)。
+ * それは「7 日の猶予」という仕様の意味を失わせるので採らない。
+ *
+ * 併せて、猶予終了日を読む唯一の顧客向け処理である期限前リマインドメール
+ * (`lifecycle-email-service`、残り 30/7/1 日で送信) が、据え置きなら 7 → 1 と数え下がるのに対し、
+ * 与え直しでは残り日数が 7 のまま張り付き **「残り 1 日」の最終通知が永久に届かない**。
+ *
+ * 本規則は W3 (`handlePaymentFailed`) と W4 (`planExpiresAtPatchFor` の `grace_period` 分岐) の
+ * **両方から呼ばれる**。両者は同じ dunning 状態を書くので、規則が分かれていると
+ * `plan_expires_at` を読む処理を足したときに、どちらが先に届いたかで結果が変わる
+ * (`contract-state-matrix.md` §5 W3 / W4)。
+ */
+function graceExpiresAtPatch(tenant: Pick<Tenant, 'planExpiresAt'>): { planExpiresAt?: string } {
+	if (tenant.planExpiresAt) return {};
+	return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
 }
 
 // ============================================================
