@@ -25,7 +25,7 @@ QM が拾うのは **`state:needs-qm`**（**QM に用がある**。レビュー�
 **判断を仰ぐときも label を付ける。** 不可逆 4 操作 → `state:needs-owner` / それ以外の PO 判断（方針・優先度・repo 設定・受容判断）→ **`state:needs-po`**。QM が Dev に着手を渡すときは **`state:needs-dev`**。監査に用があるときは **`state:needs-audit`**（cut 依頼に限らない、#4180）。`@mention` や PR コメントは通知経路ではない（label-mailbox.md §3.1.1）。
 
 - **報告は「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。** 「BLOCK 3 類型に非該当」は CI 緑を含意しない（結論を先に置いたため PO が merge 可と誤読した実例あり、2026-07-31）
-- **`state:ready-to-merge` でも `gh pr checks` で緑を確認してから merge する。** 赤を跨いだ merge は理由が正当でも外形が admin bypass と区別できない
+- **`state:ready-to-merge` でも緑を確認してから merge する。** 赤を跨いだ merge は理由が正当でも外形が admin bypass と区別できない。**確認は `gh pr checks` の行数え**ではなく §「`gh pr checks` の非 pass 行が 0 は緑の証明にならない」の畳み込みで行う
 - **approve の依頼は label でなく reviewer request**（`gh pr edit <N> --add-reviewer`）。gate 修理 PR を QM の Fix Agent が作った場合、approve は Dev（ADR-0022 作成者 ≠ 承認者、例外運用は label-mailbox.md §3.2）
 - **CronCreate はセッション内メモリのみ**（Claude 終了で消滅 / 7 日で失効）。次のセッションでもう一度作る
 
@@ -53,6 +53,26 @@ QM が使ってよいのは **多観点レビュー**（security / perf / test-c
 
 - `#4151` — Draft のまま approve され `state:ready-to-merge` が付いた。CI 緑・`mergeStateStatus=CLEAN`・`APPROVED` なのに Draft で merge 不能
 - 第 19 回統合 PR `#4152` — Draft のまま merge 判断に進みかけた。`site/pricing.html` を変更しているのに **`check-lp-removal-residue` と ADR-0013 LP truth gate が両方 skip**。`pages.yml` は main push の `site/**` で発火するため、**merge 直後に無検査で公開 LP へ配信される**ところだった
+
+### 「`gh pr checks` の非 pass 行が 0」は緑の証明にならない
+
+`gh pr checks` は **走った check しか出さない**。required なのに一度も起動しなかった context は行そのものが出ないため、**未起動 = 非 pass 行 0 = 緑** と読めてしまう。逆に、PR を再トリガした後は同じ context が**複数世代ぶん残る**ため、決着済みの古い FAILURE を今の赤と読み違える。
+
+**緑の判定は `statusCheckRollup` を context 単位に畳んでから行う**（最新 1 件だけを見る）:
+
+```bash
+gh pr view <N> --json statusCheckRollup --jq '
+  [.statusCheckRollup[] | {n:(.name//.context), c:(.conclusion//""), s:(.status//""), t:(.completedAt//.startedAt//"")}]
+  | group_by(.n) | map(sort_by(.t) | last)
+  | map(select(.c!="SUCCESS" and .c!="SKIPPED" and .c!="NEUTRAL"))
+  | if length==0 then "ALL GREEN" else .[] | "\(.n): \(if .c=="" then .s else .c end)" end'
+```
+
+- **件数そのものを見る。** context 総数が普段の PR より極端に少ない PR は、緑なのではなく**大半が起動していない**
+- **最終的な可否は `mergeStateStatus` に従う。** `BLOCKED` のまま緑に見えるときは、こちらの読み方が間違っている
+- **再トリガは close/reopen が確実**。ただし進行中の run を concurrency が cancel するため、**cancel された run が出し直されるまで判定しない**
+
+**Why**: `#4383` で `gh pr checks` は 14 行すべて pass / skipping を返したが、実際には required の `lint-and-test` / `unit-test (1)(2)` を含む **60 context のうち 4 本が一度も起動していなかった**（Actions incident の残り）。approve は通り、merge を止めたのは branch protection だけだった。同じ PR を再トリガした後は、決着済みの古い FAILURE が rollup に残り続け、最新世代が SUCCESS でも赤に見えた。
 
 ## レビュー対象レーン（git flow 二層、#2858）
 
