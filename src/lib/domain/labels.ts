@@ -6206,19 +6206,6 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 	itemCancel: CANCEL_TERMS.anytime,
 } as const;
 
-// LP CTA 直下の不安解消 3 バッジ (#1626 R22)
-// site/index.html / pricing.html / faq.html の CTA 直下に配置
-// #1953 (Phase 3 D8): noCreditCard を TRIAL_TERMS、cancelAnytime を CANCEL_TERMS から参照。
-//                     noAds は terms.ts atom 該当なしで据置き。char-by-char 一致を維持。
-// #1904 (PERS-CRT-5): noCreditCard を TRIAL_TERMS.noCreditCardDetailed (動詞ベース + 切替時説明)
-//                     に切替。hero 領域で「クレジットカード登録不要」関連表記を本 badge 1 箇所のみに
-//                     絞り、サブスク被害連想 (田中ゆかり P1) を断つ。
-export const LP_CTA_TRUST_BADGES_LABELS = {
-	noCreditCard: `${TRIAL_TERMS.noCreditCardDetailed}`,
-	noAds: '広告なし',
-	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
-} as const;
-
 // LP Hero 仕様起点の数字バッジ (#1628 R24 / #1788 honest 刷新)
 // PMF 後送り testimonial の代替として仕様値を訴求
 // #1788 (P-MAJ-3): presetSuffix を honest 表現「プリセット活動の候補」に刷新
@@ -8197,8 +8184,8 @@ export const LP_SELFHOST_LABELS = {
 //                     - bottomText / ariaLabelHero の「7 日間無料」も同様
 //                     文字列差分ゼロ維持を優先しリテラル維持。
 // #1904 (PERS-CRT-5): heroText / bottomText から「クレジットカード不要」削除。
-//                     LP 全体で「クレジットカード登録不要」関連表記を hero cta-trust-badges 1 箇所のみに
-//                     絞り、3 連発による不信感増幅 (田中ゆかり P1 サブスク被害連想) を解消。
+//                     3 連発による不信感増幅 (田中ゆかり P1 サブスク被害連想) を解消するため、
+//                     hero 領域に「クレジットカード登録不要」関連表記を置かない。
 export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
 	heroText: '全機能を家族で試せる<small>7 日間無料</small>',
@@ -8245,8 +8232,8 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k7: `${FREE_TERMS.tryFree}`,
 	k8: 'デモを見る',
 	// #1904 (PERS-CRT-5): hero L483 hero-note の「クレジットカード登録不要」削除。
-	//                     hero 領域では cta-trust-badges (LP_CTA_TRUST_BADGES_LABELS.noCreditCard)
-	//                     の 1 箇所のみで訴求し、3 連発による不信感増幅を解消。
+	//                     3 連発による不信感増幅を解消するため hero 領域では訴求しない
+	//                     (カード要否の説明は FAQ 側 indexB.k72 に集約)。
 	k9: '家族何人でも無料ではじめられます',
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',

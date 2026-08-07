@@ -576,7 +576,7 @@ LP `site/index.html` の装飾アイコン（絵文字）は **15 件以下** �
 | 判定 | 用例 | 残してよいか |
 |------|------|-------------|
 | **(i) 機能アイコン** | hamburger `☰` / lightbox close `✕` | 機能の代替テキストが無く UI 必須なら **保持** |
-| **(ii) ステータス装飾** | hero trust badges (旧 `💳` クレカ不要 / `🚫` 広告なし / `🔄` いつでも解約) | **SVG 化済 (#1824)**: OS 依存解消のため `cta-trust-credit-card.svg` / `cta-trust-ad-free.svg` / `cta-trust-cancel-anytime.svg` に置換。`#trust` セクション 4 個も SVG 化済 (#1796、`docs/design/asset-catalog.md` §「trust-* SVG 一覧」) |
+| **(ii) ステータス装飾** | `#trust` セクション 4 badges | **SVG 化済 (#1796)**: OS 依存 (iOS Safari / Android Chrome で見た目が異なる) を解消するため `trust-*.svg` に置換 (`docs/design/asset-catalog.md` §「trust-* SVG 一覧」)。絵文字のまま残さない |
 | **(iii) 役割識別** | core-loop `🧑‍💻` 親の視点 / `🧒` 子供の視点 | **保持**: 短時間で役割を識別する目的に限る（数を増やさない） |
 | **(iv) 装飾過多** | machine-tour 各カード `🏆` `🎒` `⚔️` / soft-features `📊` `💤` `⚙️` / core-loop STEP `📝` `📊` `🎴` `📇` `💰` `🎁` / versus row `📊` `🌱` `🎓` `📍` | **削除**: 直下に scrshot がある / 機能を語れる / 装飾枠の絵文字は scrshot とコピーの集中を阻害する |
 
@@ -588,13 +588,11 @@ LP `site/index.html` の装飾アイコン（絵文字）は **15 件以下** �
 - core-loop `cls-icon` 6 件（site/index.html）
 - 関連 CSS（`.vc-icon` / `.tour-emoji` / `.soft-icon` / `.cls-icon`）も削除
 
-#### 保持されたもの（5 件、#1796 で trust 4 badges、#1824 で hero trust badges 3 件を SVG 化したため 12 → 8 → 5 に）
+#### 保持されたもの（5 件、#1796 で trust 4 badges を SVG 化したため 12 → 8 → 5 に）
 
 hamburger `☰` (1) + 準備モード注釈 `👶` (1) + 親子視点 `🧑‍💻` `🧒` (2) + lightbox close `✕` (1) = 計 5 件
 
 `#trust` 4 badges (`🚫` `👪` `🔑` `🔍`) は OS 依存 (iOS Safari と Android Chrome で見た目が大きく異なる) を解消するため SVG (`site/assets/ui/trust-*.svg`) に置換済（#1796 R-MAJ-6、`docs/DESIGN.md` §7「OS/ブラウザ間で見た目が変わると困る要素」整合）
-
-hero CTA 直下の `cta-trust-badges` 3 件 (旧 `💳` `🚫` `🔄`) も同方針で `site/assets/ui/cta-trust-{credit-card,ad-free,cancel-anytime}.svg` に置換済（#1824、site/index.html / faq.html / pricing.html の 3 ファイル同期）
 
 #### 新規セクション追加時のセルフチェック
 

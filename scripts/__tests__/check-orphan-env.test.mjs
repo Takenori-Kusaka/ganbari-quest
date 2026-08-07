@@ -44,9 +44,11 @@ after(() => {
 
 describe('check-orphan-env: 走査母数', () => {
 	it('shell script からしか参照されない env を orphan と誤判定しない', () => {
+		// 実 script は `${NAME:?...}` 形式だが、検出は word boundary の substring 一致なので
+		// `$NAME` 形式で等価。JS 側に `${` literal を書かないための形 (biome noTemplateCurlyInString)。
 		writeFixture(
 			'scripts/deploy.sh',
-			['#!/usr/bin/env bash', 'REMOTE_HOST="${FIXTURE_SSH_HOST:?required}"', ''].join('\n'),
+			['#!/usr/bin/env bash', 'REMOTE_HOST="$FIXTURE_SSH_HOST"', ''].join('\n'),
 		);
 		// .ts 側からは一切参照しない (shell 単独参照の再現)
 		writeFixture('src/unrelated.ts', 'export const x = 1;\n');
