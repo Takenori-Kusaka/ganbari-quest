@@ -451,6 +451,25 @@ describe('#4118 完了の定義 — 表に書かれた遷移だけが実装で�
 		}
 	});
 
+	it('駆動する書き手の下限が固定されている (未駆動側へ逃がして緑にできない)', () => {
+		// QM #4409 レビュー指摘。`UNCOVERED_WRITERS` は「駆動しない」を人が宣言する枠で、
+		// guard は理由の長さと DRIVEN との重複しか見ていない。下限が無いと、将来 W5
+		// (customer.subscription.deleted) が壊れて赤くなったとき、**DRIVEN から W5 を外し・
+		// 21 文字の理由を書き・表の W5 行を空にする 2 箇所の編集だけで緑に戻せる**。
+		//
+		// W5 は sub / plan / exp をクリアする唯一の書き手であり、黙って未検証になると
+		// 「解約したのに課金中プランが出続ける」が検出されなくなる。ここで下限を固定する。
+		const MUST_BE_DRIVEN = ['W1', 'W2', 'W3', 'W4', 'W5'] as const;
+		const drivenIds = DRIVEN.map((d) => d.writer);
+		for (const id of MUST_BE_DRIVEN) {
+			expect(
+				drivenIds,
+				`${id} は必ず実駆動で検証する。未駆動側 (UNCOVERED_WRITERS) へ移して緑にしてはならない。\n` +
+					'  実装が壊れて赤くなったなら実装を直す。表や列挙を弱めて通さない (ADR-0006)。',
+			).toContain(id);
+		}
+	});
+
 	it('駆動できない書き手が理由付きで列挙されている', () => {
 		for (const w of UNCOVERED_WRITERS) {
 			expect(w.reason.length, `${w.id} の理由が短すぎる (実質空の宣言を許さない)`).toBeGreaterThan(
