@@ -40,10 +40,12 @@ concurrency:
   cancel-in-progress: false
 
 # actions/attest の必須権限 (id-token: Sigstore OIDC / attestations: GH attestations API write)。
+# pull-requests: read は actions/pr-lane が commit author 精査 (#4445) に使う `pulls/{n}/commits` 取得用。
 permissions:
   contents: read
   id-token: write
   attestations: write
+  pull-requests: read
 
 jobs:
   attest:
