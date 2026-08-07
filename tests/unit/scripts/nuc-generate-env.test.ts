@@ -196,6 +196,20 @@ describe('#4330 静的 — provider を宣言したら、その鍵も同じ経�
 	});
 });
 
+/**
+ * pwsh を起動する test の per-test timeout。
+ *
+ * 本 describe の各 test は **pwsh プロセスを 1〜2 回 spawn する**。pwsh の起動と
+ * `System.Management.Automation` のアセンブリ読み込みは runner の負荷で大きくぶれ、
+ * 既定 testTimeout (5s、vite.config.ts) を素通りする保証がない
+ * (実測: 同一コードで develop の CI が 1.86s、PR #4376 の CI が 6.40s = 3.4 倍のぶれ。
+ * 後者は **docs 1 file しか変えていない PR** を落としており、diff と無関係に赤が出る)。
+ *
+ * assertion は一切弱めず、spawn する test の性質に見合う時間だけを与える
+ * (`check-readdir-rotation-guard.test.ts` / `cli-entry-guard.test.ts` の spawn 系と同じ扱い)。
+ */
+const PWSH_TIMEOUT_MS = 60_000;
+
 describe('#4275 動作 — pwsh で実際に走らせる', () => {
 	/**
 	 * pwsh が無い環境では静的検査だけになる。**CI では skip を許さない**
@@ -210,69 +224,81 @@ describe('#4275 動作 — pwsh で実際に走らせる', () => {
 		expect(pwsh ?? 'skipped-locally').toBeTruthy();
 	});
 
-	it('parse できる（#4275 で落ちた箇所）', () => {
-		if (!pwsh) return;
-		const out = execFileSync(
-			pwsh,
-			[
-				'-NoProfile',
-				'-Command',
-				`$e=$null; $null=[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '${SCRIPT_PATH}').Path,[ref]$null,[ref]$e); if($e.Count -gt 0){ $e | ForEach-Object { $_.Message }; exit 1 } else { 'PARSE_OK' }`,
-			],
-			{ encoding: 'utf8' },
-		);
-		expect(out).toContain('PARSE_OK');
-	});
+	it(
+		'parse できる（#4275 で落ちた箇所）',
+		() => {
+			if (!pwsh) return;
+			const out = execFileSync(
+				pwsh,
+				[
+					'-NoProfile',
+					'-Command',
+					`$e=$null; $null=[System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '${SCRIPT_PATH}').Path,[ref]$null,[ref]$e); if($e.Count -gt 0){ $e | ForEach-Object { $_.Message }; exit 1 } else { 'PARSE_OK' }`,
+				],
+				{ encoding: 'utf8' },
+			);
+			expect(out).toContain('PARSE_OK');
+		},
+		PWSH_TIMEOUT_MS,
+	);
 
-	it('必須 secret が無ければ exit 1（deploy を止める）', () => {
-		if (!pwsh) return;
-		for (const missing of ['PARENT_GATE_COOKIE_SECRET', 'CRON_SECRET']) {
-			const env: Record<string, string | undefined> = {
-				...process.env,
-				PARENT_GATE_COOKIE_SECRET: 'dummy-parent-gate',
-				CRON_SECRET: 'dummy-cron',
-			};
-			delete env[missing];
-			let exitCode = 0;
-			try {
-				execFileSync(pwsh, ['-NoProfile', '-File', SCRIPT_PATH], { env, stdio: 'pipe' });
-			} catch (e) {
-				exitCode = (e as { status?: number }).status ?? -1;
-			}
-			expect(exitCode, `${missing} 未設定なのに deploy が続行した`).toBe(1);
-		}
-	});
-
-	it('必須 secret が揃えば .env を書く（任意 env は設定時のみ）', () => {
-		if (!pwsh) return;
-		const dir = mkdtempSync(join(tmpdir(), 'nuc-env-'));
-		const outFile = join(dir, '.env');
-		try {
-			execFileSync(pwsh, ['-NoProfile', '-File', SCRIPT_PATH, '-OutFile', outFile], {
-				env: {
+	it(
+		'必須 secret が無ければ exit 1（deploy を止める）',
+		() => {
+			if (!pwsh) return;
+			for (const missing of ['PARENT_GATE_COOKIE_SECRET', 'CRON_SECRET']) {
+				const env: Record<string, string | undefined> = {
 					...process.env,
-					PARENT_GATE_COOKIE_SECRET: 'pg-secret-value',
-					CRON_SECRET: 'cron-secret-value',
-					HOST_BACKUP_DIR: 'D:/backups',
-					DISCORD_ALERT_WEBHOOK_URL: '',
-				},
-				stdio: 'pipe',
-			});
-			expect(existsSync(outFile)).toBe(true);
-			const written = readFileSync(outFile, 'utf8');
+					PARENT_GATE_COOKIE_SECRET: 'dummy-parent-gate',
+					CRON_SECRET: 'dummy-cron',
+				};
+				delete env[missing];
+				let exitCode = 0;
+				try {
+					execFileSync(pwsh, ['-NoProfile', '-File', SCRIPT_PATH], { env, stdio: 'pipe' });
+				} catch (e) {
+					exitCode = (e as { status?: number }).status ?? -1;
+				}
+				expect(exitCode, `${missing} 未設定なのに deploy が続行した`).toBe(1);
+			}
+		},
+		PWSH_TIMEOUT_MS,
+	);
 
-			expect(written).toContain('PARENT_GATE_COOKIE_SECRET=pg-secret-value');
-			expect(written).toContain('CRON_SECRET=cron-secret-value');
-			expect(written).toContain('DATA_SOURCE=pglite');
-			expect(written).toContain('HOST_BACKUP_DIR=D:/backups');
-			// 空の任意 env は書かない（「設定済みだが空」と区別できなくなる）
-			expect(written).not.toContain('DISCORD_ALERT_WEBHOOK_URL=');
-			// BOM を持たない（docker compose env_file が弾く）
-			expect(written.charCodeAt(0)).not.toBe(0xfeff);
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
-	});
+	it(
+		'必須 secret が揃えば .env を書く（任意 env は設定時のみ）',
+		() => {
+			if (!pwsh) return;
+			const dir = mkdtempSync(join(tmpdir(), 'nuc-env-'));
+			const outFile = join(dir, '.env');
+			try {
+				execFileSync(pwsh, ['-NoProfile', '-File', SCRIPT_PATH, '-OutFile', outFile], {
+					env: {
+						...process.env,
+						PARENT_GATE_COOKIE_SECRET: 'pg-secret-value',
+						CRON_SECRET: 'cron-secret-value',
+						HOST_BACKUP_DIR: 'D:/backups',
+						DISCORD_ALERT_WEBHOOK_URL: '',
+					},
+					stdio: 'pipe',
+				});
+				expect(existsSync(outFile)).toBe(true);
+				const written = readFileSync(outFile, 'utf8');
+
+				expect(written).toContain('PARENT_GATE_COOKIE_SECRET=pg-secret-value');
+				expect(written).toContain('CRON_SECRET=cron-secret-value');
+				expect(written).toContain('DATA_SOURCE=pglite');
+				expect(written).toContain('HOST_BACKUP_DIR=D:/backups');
+				// 空の任意 env は書かない（「設定済みだが空」と区別できなくなる）
+				expect(written).not.toContain('DISCORD_ALERT_WEBHOOK_URL=');
+				// BOM を持たない（docker compose env_file が弾く）
+				expect(written.charCodeAt(0)).not.toBe(0xfeff);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		},
+		PWSH_TIMEOUT_MS,
+	);
 
 	/** 必須 secret を埋め、GEMINI_API_KEY だけを指定値（または未設定）にした env を作る。 */
 	function envWithGeminiKey(key?: string): Record<string, string | undefined> {
@@ -304,24 +330,33 @@ describe('#4275 動作 — pwsh で実際に走らせる', () => {
 		}
 	}
 
-	it('#4330 GEMINI_API_KEY があれば AI_PROVIDER と一緒に .env へ書く', () => {
-		if (!pwsh) return;
-		const { written } = runScript(envWithGeminiKey('gemini-key-value'));
-		expect(written, 'NUC は gemini ホスト').toContain('AI_PROVIDER=gemini');
-		expect(written, 'provider は書くのに鍵を配らない = AI 提案が常に無効になる (#4330)').toContain(
-			'GEMINI_API_KEY=gemini-key-value',
-		);
-	});
+	it(
+		'#4330 GEMINI_API_KEY があれば AI_PROVIDER と一緒に .env へ書く',
+		() => {
+			if (!pwsh) return;
+			const { written } = runScript(envWithGeminiKey('gemini-key-value'));
+			expect(written, 'NUC は gemini ホスト').toContain('AI_PROVIDER=gemini');
+			expect(
+				written,
+				'provider は書くのに鍵を配らない = AI 提案が常に無効になる (#4330)',
+			).toContain('GEMINI_API_KEY=gemini-key-value');
+		},
+		PWSH_TIMEOUT_MS,
+	);
 
-	it('#4330 GEMINI_API_KEY が無ければ warning を出し、deploy は続ける', () => {
-		if (!pwsh) return;
-		const { stdout, written } = runScript(envWithGeminiKey());
-		expect(stdout, '鍵の欠落が誰にも届かない = #4330 の再演').toContain(
-			'::warning::GEMINI_API_KEY',
-		);
-		// 空値を書くと「設定済みだが空」と区別できなくなる (既存の任意 env と同じ扱い)
-		expect(written).not.toContain('GEMINI_API_KEY=');
-		// AI 無効でも他の機能は動くので .env 生成自体は成功させる (#4275 の教訓)
-		expect(written).toContain('CRON_SECRET=cron-secret-value');
-	});
+	it(
+		'#4330 GEMINI_API_KEY が無ければ warning を出し、deploy は続ける',
+		() => {
+			if (!pwsh) return;
+			const { stdout, written } = runScript(envWithGeminiKey());
+			expect(stdout, '鍵の欠落が誰にも届かない = #4330 の再演').toContain(
+				'::warning::GEMINI_API_KEY',
+			);
+			// 空値を書くと「設定済みだが空」と区別できなくなる (既存の任意 env と同じ扱い)
+			expect(written).not.toContain('GEMINI_API_KEY=');
+			// AI 無効でも他の機能は動くので .env 生成自体は成功させる (#4275 の教訓)
+			expect(written).toContain('CRON_SECRET=cron-secret-value');
+		},
+		PWSH_TIMEOUT_MS,
+	);
 });
