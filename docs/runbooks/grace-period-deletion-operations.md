@@ -177,6 +177,10 @@ aws logs filter-log-events --region us-east-1 \
 順序になっており、**families 行の削除より前で失敗した場合は判定材料が残る** →
 翌日の実行で同じテナントが再び対象になり、削除が完遂する（自己回復）。
 
+ただしこれは **soft-delete sentinel（`soft_deleted_at`）を持つ経路（`grace-expiry` / `manual`）
+に限る**。free プランの即時削除（`immediate`、猶予 0 日）は `softDeleteTenant` を通らず sentinel が
+無いため、途中失敗しても cron の母集団に入らず**自己回復しない**（error ログが唯一の観測点）。
+
 例外は最終ステップ（families 行を消した**後**の settings 削除）が失敗した場合で、
 このときは `settings` 行だけが孤児として残る。log に tenantId が出るので手動で掃除する:
 
@@ -185,7 +189,11 @@ aws logs filter-log-events --region us-east-1 \
 ```
 
 **この孤児に残るのは判定 3 キー（`soft_deleted_at` / `deletion_grace_plan_tier` /
-`physical_deletion_date`）だけである（#4338）。** `pin_hash`（おやカギコードのハッシュ）/
+`physical_deletion_date`）と、マーケティングメールの配信抑止記録
+（`marketing_unsubscribed_at` / `dormant_reactivation_sent` / `marketing_email_count_<年>`）
+だけである（#4338）。** 抑止記録を残すのは、削除の途中で消すと「配信停止した家族が
+退会処理中に販促メールの対象に戻る」ためで、中身は日時と送信回数だけなので機微情報ではない。
+`pin_hash`（おやカギコードのハッシュ）/
 `session_token` / `questionnaire_*`（初期アンケートの回答）は、**families 行を消すより前**の段階で
 既に削除されている（「判定 3 キー以外を全部消す」= `deleteByTenantIdExcept`）。
 それでも行は残るので、上記 log が出たら該当 `tenant_id` の `settings` 行を手動で消す。
@@ -196,18 +204,23 @@ aws logs filter-log-events --region us-east-1 \
 error ログで観測できるようにしてある:
 
 ```
-[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存 / 翌日の再実行で回復)
+[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存)
 ```
 
-この時点では `families` 行がまだ残っているため、**翌日の cron が同じテナントを拾って再試行し
-自己回復する**（判定材料が残っているので母集団から外れない）。連日同じ `tenantId` で出続ける場合だけ
-手を入れる（DB 側の恒常的な失敗を疑う）。
+**自己回復するかは削除経路による。**
+
+- `grace-expiry` / `manual`（soft-delete sentinel あり）: `families` 行と判定材料が残っているため
+  母集団から外れず、**翌日の cron が同じテナントを拾って再試行し自己回復する**。連日同じ
+  `tenantId` で出続ける場合だけ手を入れる（DB 側の恒常的な失敗を疑う）
+- `immediate`（free プランの即時削除、猶予 0 日）: `softDeleteTenant` を通らず `soft_deleted_at`
+  が無いため、**cron の母集団に永久に入らない = 自己回復しない**。この error ログが唯一の観測点で、
+  該当 `tenant_id` の `settings` 行を手動で消す必要がある（1 回でも出たら対応する）
 
 ### 削除の途中でその家族がどう見えるか
 
 families 行より前で失敗した窓では、テナントがまだ生きている一方で `pin_hash` は消えている。
 おやカギコードの入力画面は「初回作成」分岐に落ちる。これは**意図した動作**であり
-（認証情報を早く消すことが本設計の目的）、翌日の再実行で削除が完遂する。
+（認証情報を早く消すことが本設計の目的）、sentinel を持つ経路なら翌日の再実行で削除が完遂する。
 猶予期限を過ぎてからの物理削除なので、この窓から復元される経路は無い
 （`restoreSoftDeletedTenant` は期限切れを拒否する）。
 

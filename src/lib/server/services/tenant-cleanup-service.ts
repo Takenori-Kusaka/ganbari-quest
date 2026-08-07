@@ -48,11 +48,15 @@ const repos = () => getRepos();
  * #4338: 機微 settings (判定 3 キー以外) の削除に失敗したことを表す log 行の検索語。
  *
  * この失敗は「退会処理中なのに `pin_hash` / `session_token` が残っている」状態を意味するため、
- * 他の best-effort 削除 (warn) と区別して error で出す。処理自体は止めない — `families` 行が
- * 残るので翌日の cron が同じテナントを拾って再試行し、自己回復するため。
+ * 他の best-effort 削除 (warn) と区別して error で出す。処理自体は止めない。
+ *
+ * **翌日の再実行で回復するとは限らない**。soft-delete sentinel を持つ経路
+ * (`grace-expiry` / `manual`) は `families` 行と判定材料が残るので cron が再び拾って完遂するが、
+ * free プランの即時削除 (`immediate`) は sentinel を持たず母集団に入らないため自己回復しない。
+ * 経路の区別と対処は `docs/runbooks/grace-period-deletion-operations.md` §3。
  */
 export const SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM =
-	'[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存 / 翌日の再実行で回復)';
+	'[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存)';
 
 /**
  * テナント内の全子供データとファイルを削除する。
@@ -231,12 +235,12 @@ export async function deleteTenantScopedData(
 			// warn には落とさない。処理は止めないが、error で必ず観測できるようにする
 			// (ADR-0006 / #4338)。
 			//
-			// 自己回復するかは経路による。**両方に当てはまるとは書けない**:
-			//   - grace-expiry 経路 (softDeleteTenant 済み): `soft_deleted_at` が残っている限り
-			//     `findExpiredSoftDeletedTenants` の母集団に入り続けるので、翌日の cron が同じ
-			//     テナントを再び拾って完遂できる (自己回復する)。
-			//   - 即時削除経路 (free プランの graceDays === 0): `softDeleteTenant` を一度も通らず
-			//     sentinel が無いため、cron の母集団に**永久に入らない = 自己回復しない**。
+			// 自己回復するかは経路による。**全経路に当てはまるとは書けない**:
+			//   - soft-delete sentinel を持つ経路 (`grace-expiry` / `manual`): `soft_deleted_at`
+			//     が残っている限り `findExpiredSoftDeletedTenants` の母集団に入り続けるので、
+			//     翌日の cron が同じテナントを再び拾って完遂できる (自己回復する)。
+			//   - 即時削除経路 (`immediate` = free プランの graceDays === 0): `softDeleteTenant` を
+			//     一度も通らず sentinel が無いため、cron の母集団に**永久に入らない = 自己回復しない**。
 			//     この error ログが唯一の観測点であり、手動掃除が必要になる
 			//     (`docs/runbooks/grace-period-deletion-operations.md` §3)。
 			logger.error(SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM, {
