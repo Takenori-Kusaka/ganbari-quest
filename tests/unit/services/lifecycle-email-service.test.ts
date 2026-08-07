@@ -426,3 +426,57 @@ describe('#1601 lifecycle-email-service — dryRun', () => {
 		expect(settingsStore.get('t-1:marketing_email_count_2026')).toBeUndefined();
 	});
 });
+
+// ============================================================
+// #4416 dunning 猶予の残り日数リマインド
+// ============================================================
+
+describe('#4416 dunning 猶予の「残り N 日」は猶予終了日の据え置きに依存する', () => {
+	// 猶予終了日 (`plan_expires_at`) を読む唯一の顧客向け処理が本リマインド。
+	// stripe-service の W3 / W4 が retry のたびに `now + 7d` を書き直すと、
+	// 残り日数が 7 に張り付いて最終通知 (残り 1 日) が永久に届かない。
+	// 「据え置きなら数え下がる / 与え直しなら張り付く」を実サービスで固定する。
+	// W3 / W4 が実際に据え置くことは
+	// `stripe-contract-state-classification.test.ts` (#4416) が handler を駆動して固定する。
+	const FIRST_FAILURE = new Date('2026-04-27T01:00:00Z');
+	const GRACE_DAYS = 7;
+	const plusDays = (base: Date, days: number) =>
+		new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+
+	/** 猶予 6 日目 (残り 1 日)。 */
+	const SIXTH_DAY = plusDays(FIRST_FAILURE, 6);
+
+	it('据え置きなら猶予 6 日目に「残り 1 日」の最終リマインドが届く', async () => {
+		const fixedExpiry = plusDays(FIRST_FAILURE, GRACE_DAYS).toISOString();
+		setupSingleTenantWithOwner(
+			makeTenant({ plan: 'standard_monthly', planExpiresAt: fixedExpiry }),
+		);
+
+		const result = await runLifecycleEmails({ now: SIXTH_DAY });
+
+		expect(result.renewalSent, '最終リマインドが送られていない').toBe(1);
+		expect(mockSendRenewal).toHaveBeenCalledWith(expect.objectContaining({ daysRemaining: 1 }));
+	});
+
+	it('retry ごとに猶予終了日を与え直すと「残り 1 日」に到達しない', async () => {
+		// 旧 W3 の挙動 (無条件 `now + 7d`) を入力として再現する。6 日目に retry が来て
+		// 猶予終了日が「6 日目 + 7 日」に書き換わっている状態。
+		setupSingleTenantWithOwner(
+			makeTenant({
+				plan: 'standard_monthly',
+				planExpiresAt: plusDays(SIXTH_DAY, GRACE_DAYS).toISOString(),
+			}),
+		);
+
+		const result = await runLifecycleEmails({ now: SIXTH_DAY });
+
+		expect(result.renewalSent, '残り 7 日として再送されている').toBe(1);
+		expect(mockSendRenewal).toHaveBeenCalledWith(
+			expect.objectContaining({ daysRemaining: GRACE_DAYS }),
+		);
+		expect(
+			mockSendRenewal,
+			'与え直しでも残り 1 日が届くなら本 test は意味を失っている',
+		).not.toHaveBeenCalledWith(expect.objectContaining({ daysRemaining: 1 }));
+	});
+});

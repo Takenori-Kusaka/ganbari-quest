@@ -1,3 +1,6 @@
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 import { asActivityId } from '$lib/domain/ids';
 // tests/unit/features/dialog-state-machine.test.ts
 // Dialog State Machine unit tests — #671 combo bonus infinite loop fix
@@ -464,6 +467,43 @@ describe('DialogFSM', () => {
 			fsm.onDataLoad({ uiModeChange: payload });
 
 			expect(fsm.current).toBe('idle');
+		});
+	});
+
+	// #4433: 達成祝福 / 兄弟の応援を FSM の arbitration に載せる。
+	// Ark UI (zag-js) の dismissable-layer は「最後に開いた layer」以外を pointer-events: none に
+	// するため、同時に 2 枚開くと先に開いた側の click が吸われる (z-index では解決しない)。
+	describe('celebration / siblingCheer arbitration (#4433)', () => {
+		it('祝福表示中にログインボーナスが来ても同時には開かず queue に積まれる', () => {
+			fsm.onDataLoad({ celebration: { id: 'c1' } });
+			expect(fsm.current).toBe('celebration');
+
+			// ログインボーナスは load 後の非同期 claim 完了で transition される
+			fsm.transition('stampPress', { stampRarity: 'N' });
+
+			expect(fsm.current).toBe('celebration');
+			expect(fsm.queue).toEqual(['stampPress']);
+		});
+
+		it('祝福を閉じると queue のログインボーナスが次に出る (どちらも閉じられる)', () => {
+			fsm.onDataLoad({ celebration: { id: 'c1' } });
+			fsm.transition('stampPress', { stampRarity: 'N' });
+
+			fsm.close();
+
+			expect(fsm.current).toBe('stampPress');
+			expect(fsm.queue).toEqual([]);
+		});
+
+		it('兄弟の応援と祝福が同時に pending でも開くのは 1 枚だけ', () => {
+			fsm.onDataLoad({ siblingCheer: [{ id: 1 }], celebration: { id: 'c1' } });
+
+			// PRIORITY_ORDER 上 siblingCheer が先。祝福は queue で待つ
+			expect(fsm.current).toBe('siblingCheer');
+			expect(fsm.queue).toEqual(['celebration']);
+
+			fsm.close();
+			expect(fsm.current).toBe('celebration');
 		});
 	});
 });

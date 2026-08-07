@@ -19,6 +19,7 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import {
 	type IRewardRedemptionRepo,
 	REDEMPTION_DEDUP_WINDOW_SEC,
@@ -35,6 +36,7 @@ interface RequestRow {
 	child_id: string;
 	reward_id: string;
 	requested_at: string;
+	quantity: number;
 	status: string;
 	parent_note: string | null;
 	resolved_at: string | null;
@@ -43,7 +45,7 @@ interface RequestRow {
 }
 
 const REQUEST_COLUMNS = sql.raw(
-	`redemption_id, child_id, reward_id, requested_at, status, parent_note,
+	`redemption_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 	 resolved_at, resolved_by_parent_id, shown_to_child_at`,
 );
 
@@ -65,6 +67,9 @@ function toRequestRow(row: RequestRow): RedemptionRequestRow {
 		rewardId: String(row.reward_id),
 		// requested_at は NOT NULL のため isoToEpoch は non-null (契約上 number)。
 		requestedAt: isoToEpoch(row.requested_at) as number,
+		// #4407: NOT NULL DEFAULT 1 + 既存行 backfill 済のため通常 null にならない。
+		// 未 migrate cluster を読んだ場合の安全側として 1 (旧仕様 = 1 個) に倒す。
+		quantity: Number(row.quantity ?? 1),
 		status: row.status,
 		parentNote: row.parent_note,
 		resolvedAt: isoToEpoch(row.resolved_at),
@@ -136,10 +141,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					| undefined;
 				const result = await tx.execute(sql`
 					INSERT INTO reward_redemption_requests
-						(family_id, child_id, reward_id, requested_at, status,
+						(family_id, child_id, reward_id, requested_at, quantity, status,
 						 reward_title, reward_points, reward_icon)
 					VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-						'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
+						${normalizeRedemptionQuantity(input.quantity)}, 'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
 						${reward?.icon ?? null})
 					RETURNING ${REQUEST_COLUMNS}
 				`);
@@ -151,11 +156,11 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			// #3329: status / 解決情報 / snapshot を verbatim 書き戻す (live reward 参照しない)。
 			const result = await db.execute(sql`
 				INSERT INTO reward_redemption_requests
-					(family_id, child_id, reward_id, requested_at, status, parent_note,
+					(family_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 					 resolved_at, resolved_by_parent_id, shown_to_child_at,
 					 reward_title, reward_points, reward_icon)
 				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-					${input.status}, ${input.parentNote},
+					${normalizeRedemptionQuantity(input.quantity)}, ${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
 					${normalizeResolvedByParentId(input.resolvedByParentId)},
 					${input.shownToChildAt === null ? null : epochToIso(input.shownToChildAt)},
@@ -177,7 +182,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		async findRedemptionRequestsByTenant(tenantId, opts) {
 			const result = await db.execute(sql`
 				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+					rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
 					c.nickname AS child_name,
 					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon,
 					${SNAPSHOT_POINTS} AS reward_points
@@ -242,7 +247,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		async findUnshownResultByChild(childId, tenantId) {
 			const result = await db.execute(sql`
 				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+					rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
 					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon
 				FROM reward_redemption_requests rr
 				LEFT JOIN special_rewards sr

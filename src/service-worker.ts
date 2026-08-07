@@ -6,6 +6,11 @@
 import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
+
+// `renotify` は Notification API の正式オプションだが TS の DOM lib 型 (`NotificationOptions`) には
+// 無く、webworker lib のみが持つ。本 file を test から import すると DOM lib 側の型で検査されるため、
+// SW 実行時に有効なオプションを型で明示する。
+type PushNotificationOptions = NotificationOptions & { renotify?: boolean };
 const CACHE_NAME = `ganbari-quest-${version}`;
 
 // ビルド生成物 + 静的ファイル（大きなファイルは除外）
@@ -65,10 +70,33 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
+	// 認証済みアセット (子供の顔写真 / 仮アバター / 音声): キャッシュしない
+	//
+	// Cache Storage は `Cache-Control` を**一切解釈しない**。ここに入れてしまうと origin が付けた
+	// `private, max-age=…` が無効化され、下の Network-first 分岐が `cached ?? fetched` で
+	// 端末に残ったバイトを無期限に返し続ける (= ログアウトしても、別の保護者が同じ端末で
+	// ログインしても、前の家庭の子供の顔写真が表示され得る)。`private` は準拠した共有キャッシュに
+	// しか効かず、device-local な Cache Storage には無力なため、経路ごと除外するしかない。
+	//
+	// これらは `/tenants/[...path]` / `/uploads/avatars/[filename]` が認証 + tenant 一致 (#3133) を
+	// 通してから配信する user-content であり、`/api/` や `/admin` と同じ「キャッシュ対象外」に属する。
+	// ブラウザの HTTP cache (Cache-Control 準拠) は従来どおり効くので、再表示は速いまま。
+	if (url.pathname.startsWith('/tenants/') || url.pathname.startsWith('/uploads/')) return;
+
 	// ページナビゲーション: Network-first + オフラインフォールバック
 	if (request.mode === 'navigate') {
 		event.respondWith(
-			fetch(request).catch(() => caches.match(request).then((r) => r ?? caches.match('/'))),
+			fetch(request).catch(
+				async () =>
+					(await caches.match(request)) ??
+					(await caches.match('/')) ??
+					// cache も空 (= 初回訪問がオフライン) の場合。`undefined` を respondWith すると
+					// TypeError で握り潰されブラウザ既定のエラー画面になるため、明示的に応答を返す。
+					new Response('オフラインのため表示できません', {
+						status: 503,
+						headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+					}),
+			),
 		);
 		return;
 	}
@@ -105,16 +133,15 @@ sw.addEventListener('push', (event) => {
 			body?: string;
 			data?: Record<string, unknown>;
 		};
-		event.waitUntil(
-			sw.registration.showNotification(payload.title ?? 'がんばりクエスト', {
-				body: payload.body ?? '',
-				icon: '/icons/icon-192.png',
-				badge: '/icons/icon-192.png',
-				data: payload.data ?? {},
-				tag: String((payload.data as Record<string, unknown>)?.type ?? 'default'),
-				renotify: true,
-			}),
-		);
+		const options: PushNotificationOptions = {
+			body: payload.body ?? '',
+			icon: '/icons/icon-192.png',
+			badge: '/icons/icon-192.png',
+			data: payload.data ?? {},
+			tag: String((payload.data as Record<string, unknown>)?.type ?? 'default'),
+			renotify: true,
+		};
+		event.waitUntil(sw.registration.showNotification(payload.title ?? 'がんばりクエスト', options));
 	} catch {
 		event.waitUntil(
 			sw.registration.showNotification('がんばりクエスト', {

@@ -27,11 +27,24 @@
 #
 # resolve-base-branch.mjs (#2959、クライアント tooling 用) との責務分担は
 # scripts/pr-lane.mjs の冒頭コメントを参照 (CI gate 用 vs local tooling 用で別 SSOT)。
+#
+# 【bot 判定の commit 精査 (#4445)】
+#   旧実装は actor (PR 作成者) だけを見ていたため、dependabot PR に人が commit を積んでも
+#   `dependabot` lane のままになり PR テンプレート系 gate が丸ごと skip されていた (実測 PR #4422)。
+#   actor が bot のときだけ `pulls/{n}/commits` を 1 回 fetch し、**非マージ commit** (parents=1)
+#   の author login を `scripts/pr-lane.mjs --commit-authors` に渡して「全 commit が bot か」を
+#   追加検証する。マージ commit (branch 同期、`git merge origin/develop` 等) は対象から除外する —
+#   実測で複数の bot-only PR に `git config` 由来の human email を持つ「中身が空の branch 同期
+#   マージ commit」が混在しており (#4272 / #4271 / #4251)、これを人間 commit として数えると
+#   実際にはコードを書いていない bot-only PR まで gate 対象になってしまうため。
+#   commit 取得に失敗した場合 (権限不足 / API error) は `--commit-authors` を渡さず、
+#   scripts/pr-lane.mjs 側の fail-open (actor のみ判定) にフォールバックする。
 
 name: 'PR Lane Classifier'
 description: >-
   Classify a pull request into one of 4 lanes (feature / integration / hotfix / dependabot)
-  from base/head/actor using scripts/pr-lane.mjs (SSOT). Lightweight wiring only — no logic.
+  from base/head/actor (+ non-merge commit authors for bot exemption, #4445) using
+  scripts/pr-lane.mjs (SSOT). Lightweight wiring only — no logic.
 
 inputs:
   base-ref:
@@ -46,6 +59,12 @@ inputs:
     description: 'PR author login (default: github.actor). bot 判定に使用。'
     required: false
     default: ${{ github.actor }}
+  pr-number:
+    description: >-
+      PR number (default: github.event.pull_request.number)。actor が bot のときのみ、
+      非マージ commit の author 一覧を取得するために使用 (#4445)。空なら commit 精査を skip する。
+    required: false
+    default: ${{ github.event.pull_request.number }}
 
 outputs:
   lane:
@@ -55,6 +74,31 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Resolve non-merge commit authors for bot exemption check (#4445)
+      id: commits
+      if: inputs.actor == 'dependabot[bot]' || inputs.actor == 'renovate[bot]'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+      run: |
+        set -uo pipefail
+        if [ -z "${PR_NUMBER}" ]; then
+          echo "authors=" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+        # 非マージ commit (parents=1) のみ対象。login 未解決 (bot 判定に使えない) は空文字として残し
+        # scripts/pr-lane.mjs 側で「人間扱い (fail-closed)」させる。
+        authors="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+          --jq '[.[] | select((.parents | length) == 1) | (.author.login // "")] | join(",")' 2>/dev/null)"
+        if [ $? -ne 0 ]; then
+          echo "::warning::[actions/pr-lane] commit author 取得に失敗しました。actor のみで判定します (fail-open)。"
+          echo "authors=" >> "${GITHUB_OUTPUT}"
+        else
+          echo "authors=${authors}" >> "${GITHUB_OUTPUT}"
+        fi
+
     - name: Classify PR lane (scripts/pr-lane.mjs SSOT)
       id: classify
       shell: bash
@@ -63,9 +107,13 @@ runs:
         PR_LANE_BASE: ${{ inputs.base-ref }}
         PR_LANE_HEAD: ${{ inputs.head-ref }}
         PR_LANE_ACTOR: ${{ inputs.actor }}
+        PR_LANE_COMMIT_AUTHORS: ${{ steps.commits.outputs.authors }}
       run: |
         set -euo pipefail
-        lane="$(node "${GITHUB_ACTION_PATH}/../../scripts/pr-lane.mjs" \
-          --base "${PR_LANE_BASE}" --head "${PR_LANE_HEAD}" --actor "${PR_LANE_ACTOR}")"
-        echo "Classified lane: ${lane} (base=${PR_LANE_BASE} head=${PR_LANE_HEAD} actor=${PR_LANE_ACTOR})"
+        args=(--base "${PR_LANE_BASE}" --head "${PR_LANE_HEAD}" --actor "${PR_LANE_ACTOR}")
+        if [ -n "${PR_LANE_COMMIT_AUTHORS}" ]; then
+          args+=(--commit-authors "${PR_LANE_COMMIT_AUTHORS}")
+        fi
+        lane="$(node "${GITHUB_ACTION_PATH}/../../scripts/pr-lane.mjs" "${args[@]}")"
+        echo "Classified lane: ${lane} (base=${PR_LANE_BASE} head=${PR_LANE_HEAD} actor=${PR_LANE_ACTOR} commit-authors=${PR_LANE_COMMIT_AUTHORS})"
         echo "lane=${lane}" >> "${GITHUB_OUTPUT}"

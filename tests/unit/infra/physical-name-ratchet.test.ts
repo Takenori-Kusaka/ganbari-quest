@@ -341,6 +341,10 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-throttles',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-url-4xx-spike',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-url-5xx',
+			// #4399 follow-up: 通知そのものが届かなかったことの観測 alarm。
+			// runbook (ops-alert-notification.md §6) と通知方針表 (ops-alert-policy.ts) が
+			// この名前で参照するため固定名が要る。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-alert-forward-failed',
 		],
 	),
 	...group('SNS Topic 固定名は ops / SES notification 設定の識別子', [

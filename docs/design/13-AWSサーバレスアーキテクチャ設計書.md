@@ -318,7 +318,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 ##### cache TTL の content-type 残存リスク評価（AC1）
 
 - **現行 behavior 実態**: user-content 経路（`/tenants/*` / `/uploads/*`）は専用 behavior を持たず **default behavior に fall-through** する。default behavior の cache policy は **`CACHING_DISABLED`**（min/max/default TTL = 0）であり、**CloudFront エッジは user-content レスポンスを一切 cache しない**。従って「ヘッダ適用前の旧レスポンスが CDN で TTL 期間中 stale な content-type / `Content-Disposition` を保持し、他ユーザーへ配信される」共有 cache poisoning は**構造的に発生しない**。`X-Content-Type-Options: nosniff` は default behavior の `ResponseHeadersPolicy.SECURITY_HEADERS`（CloudFront マネージド）で常に付与され、`Content-Disposition` は Lambda origin（`safeContentDisposition()`）が付与する。
-- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: public, max-age=31536000, immutable` を付与するため **browser 側は 1 年 cache** する。ただし (a) storage key は content-suffix / tenant path 込みで実質 immutable（同一 URL で content-type が変わる再 upload は起きない）、(b) browser が cache するレスポンス自体が既に `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。よって browser cache 由来の残存は per-user かつ防御ヘッダ付きで、リスクは低い（immutable 指定は配信性能のための意図的設計）。
+- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: private, …`（`safeCacheControl()`）を付与する。**`public` は付けない** — user-content は認証 + tenant 一致（§5.2.1）を通してから返す子供の顔写真であり、`public` は CloudFront・中間 proxy などの共有キャッシュに「誰にでも配ってよい」と伝えるディレクティブだからである（現行 behavior が `CACHING_DISABLED` で実害が出ていないことは、`public` を付けてよい根拠にはならない。behavior 追加 1 回で成立する）。`private` でも browser の private cache は効くため配信性能は落ちない。`immutable`（1 年）を付けるのは **URL が内容と 1:1 のキーだけ**: `avatarKey` / `voiceKey`（uuid）と `generatedImageKey`（prompt hash）は該当するが、`placeholderAvatarKey`（childId ごとの固定名 `placeholder.svg`、#4413）は**同じ URL の中身が差し替わる**ため短命 `max-age` にする（1 年 immutable だと仮アバターを再生成しても browser が古い画像を出し続ける）。browser が cache するレスポンス自体が `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。
 - **結論（現状は変更不要 / 将来の必須要件）**: 現構成（user-content = `CACHING_DISABLED` の default behavior）は cache TTL 残存リスクを構造的に回避済のため、**cache invalidation / Vary 戦略 / cache TTL の見直しは現時点で不要**。将来 user-content を cache する behavior（短 TTL でも）へ移す場合は、**必ず (i) `Content-Type` / `Content-Disposition` を cache key に含める（Vary 相当）、(ii) 十分短い TTL、(iii) content 変更時の invalidation 経路**を同時に設計すること（これらを欠くと content-type 残存 = stored-XSS 再解釈のリスクが復活する）。**実 CDK（cache policy / behavior）変更は staging smoke test を要するため本 slice では行わず、上記を将来要件として明文化するに留める**（現状は防御が成立しているため実変更不要）。
 
 ##### S3 直配信 behavior の bypass 防御（AC3）
@@ -672,10 +672,10 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 項目 | 内容 |
 |------|------|
 | サービス | Amazon Bedrock (Converse API) |
-| モデル | Claude Haiku 4.5 (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) |
-| 推論方式 | Cross-region inference profile |
+| モデル | Claude Haiku 4.5 (`anthropic.claude-haiku-4-5-20251001-v1:0`) |
+| 推論方式 | in-Region on-demand（base model ID）。cross-region inference profile (`us.` 接頭辞) は使わない — us-east-2 / us-west-2 でも推論されうるため、子供の活動テキストの所在を `site/privacy.html` 第 10 条の開示（us-east-1）と一致させる |
 | 構造化出力 | tool_use (function calling) でJSONスキーマ準拠の出力を保証 |
-| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可 |
+| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は当該 base model の ARN 1 本 (`arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`) に絞り `*` にしない。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
 
 ### モデル選定理由
 
@@ -696,8 +696,8 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 | 変数 | デフォルト | 説明 |
 |------|----------|------|
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデルID |
-| `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
+| `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン。AWS 本番 / staging へは `us-east-1` を明示配布する (既定値に委ねると実行環境の `AWS_REGION` 次第でずれる) |
 | `BEDROCK_DISABLED` | (未設定) | `true` でBedrock無効化（フォールバック使用） |
 
 ---

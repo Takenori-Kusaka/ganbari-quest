@@ -22,9 +22,19 @@
 # 検証: tests/unit/scripts/crlf-shebang-import.test.ts / 対処: vite.config.ts stripShebangPlugin
 tests/fixtures/crlf/*.mjs text eol=crlf
 
-# Graphify knowledge graph (#4291)
-# `graphify hook install` が仕込む union merge driver 相当。25.9 MiB の graph.json が
-# 毎コミット書き換わるため、driver が無いと並行 PR のほぼ全てで conflict する。
-# union は「両方の行を残す」= 再生成すれば正になる生成物向けの解決。
-graphify-out/graph.json merge=union
-graphify-out/manifest.json merge=union
+# Graphify knowledge graph (#4291 → #4442 で driver 是正)
+#
+# graph.json は Graphify 同梱の **semantic merge driver** に渡す。git 組込みの `union` は
+# 行単位で両側の行を残すだけで JSON の構造を理解しないため、両ブランチが同じ領域を書き換えると
+# 1 つのオブジェクト内に `id` / `community` が 2 回並ぶ壊れた JSON を無言で commit させる
+# (#4442 の実害: develop の graph.json が JSON.parse 不能のまま追跡されていた)。
+#
+# driver 本体の登録は local git config なので commit できない。`scripts/prepare.mjs` が
+# `graphify hook install` を実行して clone ごとに登録する (未登録だと git は黙って既定 merge に
+# フォールバックし、設定されているように見えて効かない)。
+graphify-out/graph.json merge=graphify
+#
+# manifest.json は graphify の driver の対象外 (driver は graph.json 専用)。行単位 merge は
+# 同じ壊れ方をするので **textual merge させない**。conflict にして `graphify update .` の
+# 再生成で解決する (生成物なので手で merge する意味が無い)。
+graphify-out/manifest.json -merge

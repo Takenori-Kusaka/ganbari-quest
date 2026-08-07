@@ -770,6 +770,8 @@ export const rewardRedemptionRequests = pgTable(
 		childId: uuid('child_id').notNull(),
 		rewardId: uuid('reward_id').notNull(),
 		requestedAt: timestamp('requested_at', { mode: 'string', withTimezone: true }).notNull(),
+		// #4407: 1 申請 = N 個 (sqlite schema.ts と parity)。単位量のごほうびを「単価 × 個数」で消費する。
+		quantity: integer('quantity').notNull().default(1),
 		status: text('status').notNull().default('pending_parent_approval'),
 		parentNote: text('parent_note'),
 		resolvedAt: timestamp('resolved_at', { mode: 'string', withTimezone: true }),

@@ -143,6 +143,102 @@ describe('classifyLane (#2943 AC1/AC2)', () => {
 	});
 });
 
+describe('commitAuthors — 全 commit が bot かどうかで dependabot exempt を判定 (#4445)', () => {
+	it('actor が bot で commitAuthors 未指定 (旧呼び出し) は従来どおり dependabot (後方互換)', () => {
+		expect(classifyLane({ baseRef: 'develop', headRef: 'fix/x', actor: 'dependabot[bot]' })).toBe(
+			'dependabot',
+		);
+	});
+
+	it('actor が bot で commitAuthors が全て bot なら dependabot lane を維持する (bot のみ PR の緩和は不変)', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'dependabot/npm_and_yarn/x',
+				actor: 'dependabot[bot]',
+				commitAuthors: ['dependabot[bot]'],
+			}),
+		).toBe('dependabot');
+	});
+
+	it('actor が bot でも commitAuthors に人間が 1 件でも混ざれば dependabot lane から外れる (#4445 実測 PR #4422 相当)', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'dependabot/npm_and_yarn/infra/x',
+				actor: 'dependabot[bot]',
+				commitAuthors: ['dependabot[bot]', 'Takenori-Kusaka', 'ganbariquestsupport-lab'],
+			}),
+		).not.toBe('dependabot');
+	});
+
+	it('人間混入時は通常の base/head 判定にフォールスルーする (base develop → feature)', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'dependabot/npm_and_yarn/infra/x',
+				actor: 'dependabot[bot]',
+				commitAuthors: ['dependabot[bot]', 'Takenori-Kusaka'],
+			}),
+		).toBe('feature');
+	});
+
+	it('人間混入時は base main / head fix/* なら hotfix にフォールスルーする', () => {
+		expect(
+			classifyLane({
+				baseRef: 'main',
+				headRef: 'fix/dependabot-manual-follow-up',
+				actor: 'dependabot[bot]',
+				commitAuthors: ['dependabot[bot]', 'Takenori-Kusaka'],
+			}),
+		).toBe('hotfix');
+	});
+
+	it('commitAuthors が空配列 (fetch 失敗等で不明) の場合は fail-open で従来どおり dependabot を維持する', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'fix/x',
+				actor: 'dependabot[bot]',
+				commitAuthors: [],
+			}),
+		).toBe('dependabot');
+	});
+
+	it('renovate[bot] actor でも同様に commitAuthors 混入で dependabot lane から外れる', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'renovate/x',
+				actor: 'renovate[bot]',
+				commitAuthors: ['renovate[bot]', 'someone'],
+			}),
+		).not.toBe('dependabot');
+	});
+
+	it('login 未解決 (null → 空文字) の commit author は人間扱いとして扱う (fail-closed、bot 誤認防止)', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'dependabot/npm_and_yarn/x',
+				actor: 'dependabot[bot]',
+				commitAuthors: ['dependabot[bot]', ''],
+			}),
+		).not.toBe('dependabot');
+	});
+
+	it('actor が human の PR は commitAuthors の影響を受けない (bot 判定の対象外)', () => {
+		expect(
+			classifyLane({
+				baseRef: 'develop',
+				headRef: 'feat/x',
+				actor: 'Takenori-Kusaka',
+				commitAuthors: ['dependabot[bot]'],
+			}),
+		).toBe('feature');
+	});
+});
+
 describe('BOT_ACTORS SSOT (#2947 AC1)', () => {
 	it('bot lane の actor 集合を named export する (dependabot[bot] / renovate[bot])', () => {
 		expect(BOT_ACTORS).toEqual(['dependabot[bot]', 'renovate[bot]']);
@@ -190,5 +286,52 @@ describe('parseArgs (#2943 AC5 CLI)', () => {
 			'x',
 		]);
 		expect(classifyLane({ baseRef, headRef, actor })).toBe('integration');
+	});
+
+	it('--commit-authors はカンマ区切りで配列にパースされる (#4445)', () => {
+		expect(
+			parseArgs([
+				'--base',
+				'develop',
+				'--head',
+				'x',
+				'--actor',
+				'dependabot[bot]',
+				'--commit-authors',
+				'dependabot[bot],Takenori-Kusaka',
+			]),
+		).toEqual({
+			baseRef: 'develop',
+			headRef: 'x',
+			actor: 'dependabot[bot]',
+			commitAuthors: ['dependabot[bot]', 'Takenori-Kusaka'],
+		});
+	});
+
+	it('--commit-authors 未指定時は commitAuthors が undefined のまま (後方互換)', () => {
+		expect(
+			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y']).commitAuthors,
+		).toBeUndefined();
+	});
+
+	it('--commit-authors="" (空文字) は commitAuthors が undefined 扱い (fetch 失敗等の fail-open 経路)', () => {
+		expect(
+			parseArgs(['--base', 'develop', '--head', 'x', '--actor', 'y', '--commit-authors', ''])
+				.commitAuthors,
+		).toBeUndefined();
+	});
+
+	it('parseArgs + classifyLane の結合: commit-authors 混入で dependabot lane から外れる (AC5 経路 #4445)', () => {
+		const { baseRef, headRef, actor, commitAuthors } = parseArgs([
+			'--base',
+			'develop',
+			'--head',
+			'dependabot/x',
+			'--actor',
+			'dependabot[bot]',
+			'--commit-authors',
+			'dependabot[bot],Takenori-Kusaka',
+		]);
+		expect(classifyLane({ baseRef, headRef, actor, commitAuthors })).toBe('feature');
 	});
 });

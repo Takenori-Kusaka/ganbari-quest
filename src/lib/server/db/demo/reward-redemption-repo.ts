@@ -9,7 +9,7 @@ import type {
 } from '../interfaces/reward-redemption-repo.interface';
 
 export async function insertRedemptionRequest(
-	input: { childId: ChildId; rewardId: string; requestedAt: number },
+	input: { childId: ChildId; rewardId: string; requestedAt: number; quantity: number },
 	_tenantId: string,
 ): Promise<RedemptionRequestRow> {
 	return {
@@ -17,6 +17,8 @@ export async function insertRedemptionRequest(
 		childId: input.childId,
 		rewardId: input.rewardId,
 		requestedAt: input.requestedAt,
+		// #4407: 個数は入力をそのまま反映する (Fake read が「1 個に潰れた」ように見えないように)
+		quantity: input.quantity,
 		status: 'pending',
 		parentNote: null,
 		resolvedAt: null,
@@ -30,6 +32,7 @@ export async function insertRedemptionForRestore(
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
+		quantity: number;
 		status: string;
 		parentNote: string | null;
 		resolvedAt: number | null;

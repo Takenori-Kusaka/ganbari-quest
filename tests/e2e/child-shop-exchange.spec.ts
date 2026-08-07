@@ -281,6 +281,78 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	});
 
 	// ============================================================
+	// #4407: 個数指定 — 単位量のごほうびを 2 個ぶん 1 回で交換する
+	// ============================================================
+	// 顧客症状「子供が 2 時間ゲームをしたので二回押そうとしたが押せなかった」の回帰。
+	// 残高 100pt / 単価 50pt なので上限は 2 個。goal 完遂 (申請 1 件 + 台帳 -100pt) まで検証する。
+	test('#4407: 個数 2 を選んで 1 回で交換でき、単価 × 2 が減算される', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		const affordableCard = page.locator('[data-testid^="reward-card-"]').filter({
+			hasText: 'E2Eテスト用ごほうび（交換可）',
+		});
+		await expect(affordableCard).toHaveCount(1);
+		await affordableCard.locator('button[data-testid^="exchange-btn-"]').click();
+
+		const dialog = page.getByTestId('exchange-confirm-dialog');
+		await expect(dialog).toBeVisible({ timeout: 10000 });
+
+		// 既定は 1 個 / 合計 = 単価
+		await expect(page.getByTestId('confirm-quantity-value')).toContainText('1');
+		await expect(page.getByTestId('confirm-total-points')).toHaveText('50');
+
+		// ＋ で 2 個にすると合計が 2 倍になる (押した結果が確定前に見える)
+		await page.getByTestId('confirm-quantity-increase').click();
+		await expect(page.getByTestId('confirm-quantity-value')).toContainText('2');
+		await expect(page.getByTestId('confirm-total-points')).toHaveText('100');
+
+		// 残高 100pt では 3 個は買えないので ＋ が disabled になる (買えない個数を選ばせない)
+		await expect(page.getByTestId('confirm-quantity-increase')).toBeDisabled();
+
+		await page.getByTestId('confirm-exchange-yes').click();
+		await expect(dialog).not.toBeVisible();
+
+		// goal 完遂: 申請が 1 件だけ (2 件に分解されない) + 個数 2 で記録される
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const child = db
+				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+				.get('たろうくん') as { id: number };
+			const reward = db
+				.prepare('SELECT id, points FROM special_rewards WHERE child_id = ? AND title = ? LIMIT 1')
+				.get(child.id, 'E2Eテスト用ごほうび（交換可）') as { id: number; points: number };
+			const rows = db
+				.prepare(
+					'SELECT id, quantity, status FROM reward_redemption_requests WHERE child_id = ? AND reward_id = ? ORDER BY id DESC',
+				)
+				.all(child.id, reward.id) as { id: number; quantity: number; status: string }[];
+			expect(rows.length).toBe(1);
+			expect(rows[0]?.quantity).toBe(2);
+
+			// 承認済 (即時交換 ON) なら台帳が 単価 × 2、pending なら未減算のまま
+			const ledger = db
+				.prepare(
+					"SELECT amount FROM point_ledger WHERE reference_id = ? AND type = 'reward_redemption'",
+				)
+				.all(rows[0]?.id) as { amount: number }[];
+			if (rows[0]?.status === 'approved') {
+				expect(ledger.map((l) => l.amount)).toEqual([-(reward.points * 2)]);
+			} else {
+				expect(ledger).toHaveLength(0);
+			}
+		} finally {
+			db.close();
+		}
+	});
+
+	// ============================================================
 	// #2156 Grid + レスポンシブ: reward-list の display: grid 化
 	// ============================================================
 	test('#2156: reward-list が CSS Grid で描画される', async ({ page }) => {

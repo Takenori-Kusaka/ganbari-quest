@@ -173,3 +173,90 @@ test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)'
 		expect(failed).toEqual([]);
 	});
 });
+
+// #4417: モバイル幅 (320px) で横スクロールが発生しないこと。
+//
+// セットアップウィザードの step インジケータは step が 3 → 8 と増える過程 (#2140 → #2298 → #2322)
+// でモバイル幅が再検証されず、320px で 114px / 390px で 79px はみ出していた (全 10 ページ)。
+// ごほうびショップも年齢別カラム下限 (#2156、baby / preschool = 320px) が viewport 幅を
+// 上回るため 320px で 16px はみ出していた。
+//
+// いずれも「はみ出し量が減った」ではなく「0 である」ことを assert する。判定は
+// `documentElement.scrollWidth - clientWidth === 0` (横スクロール bar が出る条件そのもの)。
+//
+// 本 spec (demo Lambda config) に足す理由: /setup 配下は AUTH_MODE=local の E2E では
+// seed 済 tenant が setup 完了状態のため hooks.server.ts に redirect され描画できない。
+// AUTH_MODE=anonymous + DATA_SOURCE=demo では全 10 ページが 200 で描画されるため、
+// 既存の demo Lambda spec に判定を足す形にする (新しい CI 装置は増やさない、#4417 AC4)。
+test.describe('#4417: 320px 幅で横スクロールが発生しない', () => {
+	test.use({ viewport: { width: 320, height: 720 } });
+
+	const SETUP_PATHS = [
+		'/setup',
+		'/setup/children',
+		'/setup/questionnaire',
+		'/setup/packs',
+		'/setup/activities-defaults',
+		'/setup/rewards',
+		'/setup/rules',
+		'/setup/challenges',
+		'/setup/first-adventure',
+		'/setup/complete',
+	] as const;
+
+	/**
+	 * 横方向のはみ出し量 (px) が 0 になるまで待って assert する。
+	 *
+	 * hydration の途中では Svelte が一時的にノードを付け替えるため、その瞬間だけ数十 px の
+	 * はみ出しが観測される (実測: hydration 完了後は 0)。定常状態を見たいので `expect.poll` で
+	 * auto-retry する (`networkidle` は Playwright / 本 repo で禁止のため使わない)。
+	 */
+	async function expectNoHorizontalOverflow(
+		page: import('@playwright/test').Page,
+		label: string,
+	): Promise<void> {
+		await expect
+			.poll(
+				() =>
+					page.evaluate(
+						() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+					),
+				{ message: `${label}: 320px でのはみ出し量は 0px であること` },
+			)
+			.toBe(0);
+	}
+
+	test('セットアップウィザード 10 ページすべてで横スクロールが発生しない (AC1)', async ({
+		page,
+	}) => {
+		for (const path of SETUP_PATHS) {
+			const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
+			expect(res?.status() ?? 0, `${path} が描画できること`).toBeLessThan(400);
+			// step インジケータは全ページ共通の器。描画を待ってから測る
+			await expect(page.locator('.steps')).toBeVisible();
+			await expectNoHorizontalOverflow(page, path);
+		}
+	});
+
+	// baby / preschool は #2156 で reward card の最小幅を 320px に広げている (低年齢ほど大きく)。
+	// 320px 画面では左右 padding を引いた実効幅がそれを下回るため、min() で頭打ちにする必要がある。
+	for (const { childId, uiMode } of [
+		{ childId: '901', uiMode: 'baby' },
+		{ childId: '902', uiMode: 'preschool' },
+	] as const) {
+		test(`${uiMode}/shop で横スクロールが発生しない (AC2)`, async ({ context, page }) => {
+			await context.clearCookies();
+			await context.addCookies([
+				{ name: 'selectedChildId', value: childId, domain: 'localhost', path: '/' },
+			]);
+			const res = await page.goto(`/${uiMode}/shop`, { waitUntil: 'domcontentloaded' });
+			expect(res?.status() ?? 0).toBeLessThan(400);
+			await expect(page).toHaveURL(new RegExp(`/${uiMode}/shop`));
+			// demo fixture では baby (901) の ごほうびが 0 件のため、カード有無で待ち方を分ける。
+			// grid track のはみ出しはカードが 1 枚以上ある時だけ現れるので、preschool 側が本命の回帰検証。
+			const cards = page.locator('.reward-list > *');
+			if ((await cards.count()) > 0) await expect(cards.first()).toBeVisible();
+			await expectNoHorizontalOverflow(page, `/${uiMode}/shop`);
+		});
+	}
+});

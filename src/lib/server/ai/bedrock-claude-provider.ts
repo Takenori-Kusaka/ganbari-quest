@@ -21,8 +21,18 @@ import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
  *
  * **可用性判定には使わない** (#4366)。既定値があること自体は「設定が配られている」ことを意味せず、
  * 既定値を根拠に `isAvailable()` を true にしたのが本欠陥の原因だった。
+ *
+ * **geo inference profile (`us.` 接頭辞) を既定にしない** (#4367 AC3)。`us.` は cross-region
+ * inference profile で、us-east-1 に投げても us-east-2 / us-west-2 で推論されうる。子供の活動
+ * テキストを「運営者が管理する AWS 環境」で処理すると開示している以上 (site/privacy.html 第 3 条 /
+ * 第 10 条、移転先は us-east-1 と明記)、既定は 1 リージョンに閉じる base model ID にする。
+ * Pre-PMF で throughput 冗長性 (profile の利点) は要らない。
+ *
+ * モデル選定 (Haiku 系 latest = 最安最適) は変えない。変えたのは profile → base model の形式のみ。
+ * IAM 側の Resource ARN (`infra/lib/compute-stack.ts` の `BEDROCK_MODEL_ARN`) と対で動くため、
+ * 片方だけ変えると権限が外れて `AccessDeniedException` になる。
  */
-const DEFAULT_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+const DEFAULT_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
 
 /**
  * 呼び出しごとに env を読む。module 読込時に固定すると、テストからも運用からも

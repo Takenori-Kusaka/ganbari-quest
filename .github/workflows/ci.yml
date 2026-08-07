@@ -84,6 +84,8 @@ jobs:
               - '.github/**'
               - 'drizzle/**'
               - 'actions/**'
+              #   graphify-out/** graphify-artifacts-parseable (#4442、生成 JSON の破損検出)
+              - 'graphify-out/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'
