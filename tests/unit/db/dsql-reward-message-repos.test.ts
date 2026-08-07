@@ -871,24 +871,24 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 	it('[SC2b] #4435 markShown は to_child_id 所有権 + shown_at IS NULL 冪等', async () => {
 		const family = '00000000-0000-4000-8000-0000000000e1';
-		const ani = await newChild('あに', family);
-		const otouto = await newChild('おとうと', family);
+		const sender = await newChild('あに', family);
+		const receiver = await newChild('おとうと', family);
 		const cheer = await cheerRepo.insertCheer(
-			{ fromChildId: ani, toChildId: otouto, stampCode: 'ganbare' },
+			{ fromChildId: sender, toChildId: receiver, stampCode: 'ganbare' },
 			family,
 		);
 
 		// 兄が弟宛のおうえん id を送っても既読にならない (弟は必ず見られる)
-		await cheerRepo.markShown(ani, [cheer.id], family);
-		expect((await cheerRepo.findUnshownCheers(otouto, family)).length).toBe(1);
+		await cheerRepo.markShown(sender, [cheer.id], family);
+		expect((await cheerRepo.findUnshownCheers(receiver, family)).length).toBe(1);
 
 		// 受け取る子が既読にする → 初回時刻を過去へ固定 → 再送しても上書きされない
-		await cheerRepo.markShown(otouto, [cheer.id], family);
+		await cheerRepo.markShown(receiver, [cheer.id], family);
 		await t.db.execute(sql`
 			UPDATE sibling_cheers SET shown_at = '2025-01-02T03:04:05Z'::timestamptz
 			WHERE family_id = ${family} AND cheer_id = ${cheer.id}
 		`);
-		await cheerRepo.markShown(otouto, [cheer.id], family);
+		await cheerRepo.markShown(receiver, [cheer.id], family);
 		const rows = await cheerRepo.findAllByTenant(family);
 		expect(Date.parse(rows[0]?.shownAt ?? '')).toBe(Date.parse('2025-01-02T03:04:05Z'));
 	});
