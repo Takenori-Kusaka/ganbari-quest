@@ -91,9 +91,9 @@ function createEvent(formValues: Record<string, string>) {
 
 /** /admin/children の addChild action を実行して、保存された子供を DB から読み直す。 */
 async function addViaAdminRoute(form: Record<string, string>) {
-	// biome-ignore lint/suspicious/noExplicitAny: action の戻り値 union を絞らない
 	const addChildAction = actions.addChild;
 	if (!addChildAction) throw new Error('addChild action が存在しない');
+	// biome-ignore lint/suspicious/noExplicitAny: action の戻り値 union を絞らない
 	const result: any = await addChildAction(createEvent(form));
 	expect(result?.success, `addChild が失敗した: ${JSON.stringify(result)}`).toBe(true);
 	const reloaded = await repo.findChildById(result.addedChild.id, FAMILY);
