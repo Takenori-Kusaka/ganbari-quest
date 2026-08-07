@@ -597,8 +597,11 @@ $effect(() => {
 
 	// FSM が uiModeChange を current にできたときだけ描画する (他ダイアログが出る回は queue
 	// に入るだけで表示しない = 2 枚連続演出を作らない、ADR-0012)。既読化済みなら再表示しない。
+	// `currentDialog` ではなく `fsm.current` を読む: 本 $effect は `syncDialog()` で
+	// `currentDialog` を **書く** ため、ここで読むと自己依存になって再実行が連鎖しうる。
+	// FSM 側は非リアクティブなので読んでも依存に入らない。
 	if (!uiModeChangeDismissed) {
-		uiModeChangeOpen = currentDialog === 'uiModeChange';
+		uiModeChangeOpen = fsm.current === 'uiModeChange';
 	}
 
 	// If adventure is not showing and login bonus unclaimed, trigger it

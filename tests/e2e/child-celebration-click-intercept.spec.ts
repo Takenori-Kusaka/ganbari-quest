@@ -136,41 +136,49 @@ test.describe('#4433 祝福とログインボーナスが重なっても子供�
 		await selectElementaryChild(page);
 
 		const celebration = page.getByTestId('sibling-celebration');
-		// 祝福は seed (celebration_shown_at IS NULL) で必ず pending。出るまで待つ
-		// (他の演出が先に出る実装なら、下の loop でそれを閉じた後に出る)。
+		const loginBonus = page.getByTestId('stamp-press-overlay');
+
+		// ① 何かが出るまで待つ (どれが先に出るかは実装の判断に委ねる)
 		await expect
 			.poll(async () => (await visibleAutoOverlays(page)).length, { timeout: 30_000 })
 			.toBeGreaterThan(0);
 
-		// 見えている overlay を上から閉じていく。**見えているなら押せる**ことが本 spec の核心で、
-		// 現行実装は祝福が見えたまま click を intercept されるためここで落ちる (#4433 の defect)。
-		for (let i = 0; i < AUTO_OVERLAYS.length + 1; i++) {
-			if (await celebration.isHidden().catch(() => true)) {
-				// まだ祝福が出ていない (queue 待ち) 場合、他の overlay を閉じて次を出させる
-				const pending = AUTO_OVERLAYS.filter((o) => o.overlay !== 'sibling-celebration');
-				let closedAny = false;
-				for (const o of pending) {
-					if (
-						await page
-							.getByTestId(o.overlay)
-							.isVisible()
-							.catch(() => false)
-					) {
-						await page.getByTestId(o.close).click({ timeout: 5_000 });
-						await expect(page.getByTestId(o.overlay)).toBeHidden();
-						closedAny = true;
-						break;
-					}
+		// ② 祝福が出るまで、先に出ている演出を閉じて queue を進める
+		for (let i = 0; i < AUTO_OVERLAYS.length; i++) {
+			if (await celebration.isVisible().catch(() => false)) break;
+			const other = AUTO_OVERLAYS.filter((o) => o.overlay !== 'sibling-celebration');
+			let closedAny = false;
+			for (const o of other) {
+				if (
+					await page
+						.getByTestId(o.overlay)
+						.isVisible()
+						.catch(() => false)
+				) {
+					await page.getByTestId(o.close).click({ timeout: 5_000 });
+					await expect(page.getByTestId(o.overlay)).toBeHidden();
+					closedAny = true;
+					break;
 				}
-				if (!closedAny) break;
-				continue;
 			}
-			// 祝福が見えている → 押せなければならない
-			await page.getByTestId('sibling-celebration-close').click({ timeout: 5_000 });
-			break;
+			if (!closedAny) break;
 		}
 
+		// ③ 祝福は seed (celebration_shown_at IS NULL) で必ず pending なので、**必ず出る**。
+		//    ここを hard assertion にしておかないと「祝福が一度も出ない」実装でも素通りする。
+		await expect(celebration).toBeVisible();
+
+		// ④ 見えているなら押せる。現行実装は祝福が見えたまま click を intercept されて落ちる
+		//    (= #4433 の defect。z-index ではなく zag-js の layer 順で pointer-events を失う)。
+		await page.getByTestId('sibling-celebration-close').click({ timeout: 5_000 });
 		await expect(celebration).toBeHidden();
+
+		// ⑤ 祝福の裏で待たされていたログインボーナスが、閉じたあとに出て来て**閉じられる**。
+		//    seed で未受領を保証しているので必ず pending。ここが出なければ
+		//    「queue に積んだきり次を出さない」= 子供がボーナスを受け取れない別 dead-end になる。
+		await expect(loginBonus).toBeVisible();
+		await page.getByTestId('login-bonus-confirm').click({ timeout: 5_000 });
+		await expect(loginBonus).toBeHidden();
 	});
 
 	test('DESIGN.md §10: 侵襲的演出を 2 枚同時に開かない', async ({ page, workerDbPath }) => {
@@ -190,9 +198,15 @@ test.describe('#4433 祝福とログインボーナスが重なっても子供�
 			if (!current) break;
 			await page.getByTestId(current.close).click({ timeout: 5_000 });
 			await expect(page.getByTestId(current.overlay)).toBeHidden();
-			// 次の 1 枚が出るのを待つ (無ければ 0 枚で終わる)
-			await page.waitForTimeout(500);
-			if ((await visibleAutoOverlays(page)).length === 0) break;
+
+			// 次の 1 枚が出るのを待つ。出なければ (= queue が空) そこで終わり。
+			// 固定待ちは使わない (tests/CLAUDE.md: waitForTimeout 禁止)。
+			const hasNext = await expect
+				.poll(async () => (await visibleAutoOverlays(page)).length, { timeout: 5_000 })
+				.toBeGreaterThan(0)
+				.then(() => true)
+				.catch(() => false);
+			if (!hasNext) break;
 		}
 	});
 });
