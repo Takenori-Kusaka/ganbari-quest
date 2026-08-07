@@ -65,6 +65,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
 	},
+	'tests/unit/architecture/external-ai-client-boundary.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を走査し、運営者の環境の外にある生成 AI SDK (@google/generative-ai) を import する file が allowlist と一致するか / アバター生成 prompt が残っていないかを検査する (#4397)',
+	},
 	'tests/unit/architecture/exclusion-reason-nonempty.test.ts': {
 		scope: 'repo',
 		note: 'scripts/orphan-baselines/*.json を走査して免除理由の非空 / 非 stub を検査する (#4030 AC5 / AC6)。走査自体は 1 dir で有界だが、判定は保守的に repo 扱いとし明示 timeout を置く',
