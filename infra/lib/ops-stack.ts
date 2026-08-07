@@ -15,6 +15,18 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
+import {
+	OPS_ALERT_FORWARD_FAILED_LOG_TERM,
+	OPS_ALERT_FORWARD_SUCCEEDED_LOG_TERM,
+} from './ops-alert-log-terms';
+
+/**
+ * 転送そのものの観測 metric の namespace (#4399 follow-up)。
+ *
+ * アプリ由来の `GanbariQuest/Auth` などとは層が違う (通知経路の健全性であって、
+ * アプリの挙動ではない) ため分ける。
+ */
+const OPS_ALERT_FORWARD_METRIC_NAMESPACE = 'GanbariQuest/Ops';
 
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
@@ -155,6 +167,63 @@ export class OpsStack extends cdk.Stack {
 		opsTopic.addSubscription(new subscriptions.LambdaSubscription(opsAlertForwarder));
 
 		const alarmAction = new cw_actions.SnsAction(opsTopic);
+
+		// ================================================================
+		// 1.1 転送そのものの観測 (#4399 follow-up)
+		// ================================================================
+		//
+		// #4399 で全 alarm の既定が「届ける」になったが、通知は SNS → 転送 Lambda → Discord
+		// webhook の一本道を通り、**その末端が失敗しても誰にも分からない**状態が残っていた:
+		//
+		//   - 転送 Lambda は失敗を例外にしない (上記 index.ts の判断) ため Errors metric に乗らない
+		//   - 転送 Lambda 自身を監視する alarm も無かった
+		//   - Discord webhook は channel 単位の rate limit を持つため、**16 alarm が同時に鳴る
+		//     「最も通知が必要な瞬間」に 429 が返り、その通知だけが黙って捨てられる**
+		//
+		// = #4119 / #4174 の「経路はあるのに 0 通」と同じ欠陥。log 本文を唯一の情報源として
+		// metric 化する (entitlement fail-closed #3998 / ops-access-denied #4363 と同じ手口)。
+		const forwardSucceeded = new logs.MetricFilter(this, 'OpsAlertForwardSucceededFilter', {
+			logGroup: opsAlertForwarderLogGroup,
+			filterPattern: logs.FilterPattern.literal(`"${OPS_ALERT_FORWARD_SUCCEEDED_LOG_TERM}"`),
+			metricNamespace: OPS_ALERT_FORWARD_METRIC_NAMESPACE,
+			metricName: 'AlertForwardSucceeded',
+			metricValue: '1',
+			defaultValue: 0,
+		});
+		// 成功側に alarm は付けない。これは**流入量の実測**のための metric で、
+		// オーナー決裁 2026-08-07 が一斉 ON の条件にした「初回 deploy 後 1 週間の流入量」は
+		// この metric の Sum (1 週間) で読める。dashboard も集計 script も作らない。
+		void forwardSucceeded;
+
+		const forwardFailed = new logs.MetricFilter(this, 'OpsAlertForwardFailedFilter', {
+			logGroup: opsAlertForwarderLogGroup,
+			filterPattern: logs.FilterPattern.literal(`"${OPS_ALERT_FORWARD_FAILED_LOG_TERM}"`),
+			metricNamespace: OPS_ALERT_FORWARD_METRIC_NAMESPACE,
+			metricName: 'AlertForwardFailed',
+			metricValue: '1',
+			defaultValue: 0,
+		});
+
+		// 閾値: 1 件で即発火。**1 件 = 1 通の通知が人に届かなかった**という単位であり、
+		// 「継続したら鳴らす」形にすると、単発で消えた 1 通 (それが本番障害の第一報でありうる)
+		// が観測されないまま終わる。平常時は log 自体が出ないためデータ点が無く
+		// (NOT_BREACHING)、鳴りっぱなしにはならない。
+		const forwardFailedAlarm = new cloudwatch.Alarm(this, 'OpsAlertForwardFailed', {
+			alarmName: 'ganbari-quest-ops-alert-forward-failed',
+			alarmDescription:
+				'CloudWatch アラームの Discord 転送に失敗した (通知が人に届いていない): 5分内に1件以上 (#4399 follow-up)',
+			metric: forwardFailed.metric({
+				period: cdk.Duration.minutes(5),
+				statistic: 'Sum',
+			}),
+			threshold: 1,
+			evaluationPeriods: 1,
+			datapointsToAlarm: 1,
+			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+		});
+		forwardFailedAlarm.addAlarmAction(alarmAction);
+		forwardFailedAlarm.addOkAction(alarmAction);
 
 		// ================================================================
 		// 2. CloudWatch Alarms (9 of 10 free-tier basic alarms)
