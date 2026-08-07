@@ -56,7 +56,10 @@ vi.mock('$lib/server/storage-keys', () => ({
 // --- Imports (after mocks) ---
 
 import { asChildId } from '$lib/domain/ids';
-import { placeholderAvatarVersion } from '$lib/domain/placeholder-avatar';
+import {
+	buildPlaceholderAvatarSvg,
+	placeholderAvatarVersion,
+} from '$lib/domain/placeholder-avatar';
 import {
 	deleteChild,
 	findAllChildren,
@@ -279,9 +282,11 @@ describe('child-service', () => {
 			await editChild(asChildId(10), { theme: 'pink' }, TENANT);
 
 			expect(saveFile).toHaveBeenCalledTimes(1);
-			const [, blueless] = vi.mocked(saveFile).mock.calls[0] as [string, Buffer, string];
-			// 変更後のテーマで組み立てられている (頭文字は据え置き)
-			expect(blueless.toString('utf-8')).toContain('>た<');
+			const [, savedSvg] = vi.mocked(saveFile).mock.calls[0] as [string, Buffer, string];
+			// 変更後のテーマ (pink) で組み立て直されている = 色が追随する。
+			// 期待値は実物の builder から作るので、配色を test に写し取らない。
+			expect(savedSvg.toString('utf-8')).toBe(buildPlaceholderAvatarSvg('たろう', 'pink'));
+			expect(savedSvg.toString('utf-8')).not.toBe(buildPlaceholderAvatarSvg('たろう', 'blue'));
 			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', url('たろう', 'pink'), TENANT);
 		});
 
