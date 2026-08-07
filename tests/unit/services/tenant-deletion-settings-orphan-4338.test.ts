@@ -15,6 +15,9 @@
 //   [O3] 判定 3 キーは最終ステップ直前まで残る (#4321 sentinel-last / 自己回復の前提を壊さない)
 //   [O4] 正常系では settings が 1 行も残らない (回帰)
 //   [O5] 残すキーの SSOT が grace-period-service の判定キーと同一 (drift 不能)
+//   [R1] 削除記録ログが「消す直前」に 1 行出る (経路 / プラン / 子供人数 / 日時)
+//   [R2] 削除記録ログに PII を載せない (名前 / メール / 活動内容が context に出ない)
+//   [R3] Stripe キャンセルが失敗して何も消えないときは削除記録を出さない
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,6 +79,7 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
+// vi.mock factory は hoist されるため、factory 内で宣言して後から import する
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
@@ -89,7 +93,7 @@ vi.mock('$lib/server/services/child-service', () => ({
 }));
 
 vi.mock('$lib/server/services/stripe-service', () => ({
-	cancelSubscription: vi.fn().mockResolvedValue(undefined),
+	cancelSubscription: vi.fn().mockResolvedValue({ status: 'not_subscribed' }),
 }));
 
 vi.mock('$lib/server/services/email-service', () => ({
@@ -100,12 +104,20 @@ vi.mock('$lib/server/request-context', () => ({
 	invalidateRequestCaches: vi.fn(),
 }));
 
-import { deleteOwnerOnlyAccount } from '$lib/server/services/account-deletion-service';
+import { logger } from '$lib/server/logger';
+import {
+	deleteOwnerOnlyAccount,
+	TENANT_DELETION_RECORD_LOG_TERM,
+} from '$lib/server/services/account-deletion-service';
 import {
 	GRACE_PERIOD_JUDGMENT_KEYS,
 	getGracePeriodStatus,
 } from '$lib/server/services/grace-period-service';
+import { cancelSubscription } from '$lib/server/services/stripe-service';
 import { deleteTenantScopedData } from '$lib/server/services/tenant-cleanup-service';
+
+const mockLogger = vi.mocked(logger);
+const mockCancelSubscription = vi.mocked(cancelSubscription);
 
 const TENANT = 't-4338';
 
@@ -127,6 +139,7 @@ function seedSettings(extra: Record<string, string> = {}): void {
 describe('#4338 settings 孤児: 判定 3 キー以外を全部消す', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockCancelSubscription.mockResolvedValue({ status: 'not_subscribed' });
 		failFinalSettingsDelete = false;
 		mockAuthRepo.findTenantMembers.mockResolvedValue([{ userId: 'u-owner', role: 'owner' }]);
 		mockChildRepo.findAllChildren.mockResolvedValue([]);
@@ -212,5 +225,78 @@ describe('#4338 settings 孤児: 判定 3 キー以外を全部消す', () => {
 		// 片方だけ増える (= 判定キーを足したのに削除で消してしまう) 状態を作れない。
 		expect([...(keepArg ?? [])].sort()).toEqual([...(readKeys ?? [])].sort());
 		expect([...(keepArg ?? [])].sort()).toEqual([...GRACE_PERIOD_JUDGMENT_KEYS].sort());
+	});
+});
+
+/** 削除記録ログ (info) の context を 1 件だけ取り出す。 */
+function findDeletionRecordCalls(): Array<Record<string, unknown>> {
+	return mockLogger.info.mock.calls
+		.filter(([message]) => message === TENANT_DELETION_RECORD_LOG_TERM)
+		.map(([, meta]) => (meta as { context: Record<string, unknown> }).context);
+}
+
+describe('#4338 削除記録: 消えたことを後から説明できるようにする', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockCancelSubscription.mockResolvedValue({ status: 'not_subscribed' });
+		failFinalSettingsDelete = false;
+		mockAuthRepo.findTenantMembers.mockResolvedValue([{ userId: 'u-owner', role: 'owner' }]);
+		mockChildRepo.findAllChildren.mockResolvedValue([
+			{ id: 901, nickname: 'たろう' },
+			{ id: 902, nickname: 'はなこ' },
+		]);
+		mockChildRepo.findArchivedChildren.mockResolvedValue([{ id: 903, nickname: 'じろう' }]);
+		seedSettings();
+	});
+
+	it('[R1] 削除記録が 1 行だけ出る (経路 / プラン / 子供人数 / 日時)', async () => {
+		await deleteOwnerOnlyAccount(TENANT, 'u-owner', {
+			route: 'grace-expiry',
+			planTier: 'standard',
+		});
+
+		const records = findDeletionRecordCalls();
+		expect(records).toHaveLength(1);
+		const record = records[0];
+		expect(record).toMatchObject({
+			tenantId: TENANT,
+			route: 'grace-expiry',
+			planTier: 'standard',
+			// 在籍 2 + アーカイブ 1
+			childCount: 3,
+		});
+		expect(typeof record?.deletedAt).toBe('string');
+		expect(Number.isNaN(Date.parse(String(record?.deletedAt)))).toBe(false);
+	});
+
+	it('[R2] 削除記録に PII を載せない (名前 / メール / 活動内容)', async () => {
+		await deleteOwnerOnlyAccount(TENANT, 'u-owner', { route: 'immediate', planTier: 'free' });
+
+		const serialized = JSON.stringify(findDeletionRecordCalls());
+		// 子供の名前・家族名・メールアドレスのいずれも含まれない
+		expect(serialized).not.toContain('たろう');
+		expect(serialized).not.toContain('じろう');
+		expect(serialized).not.toContain('テスト家族');
+		expect(serialized).not.toMatch(/@/);
+		// 載せてよい項目だけで構成されている (未知の field が増えたら落ちる)
+		expect(Object.keys(findDeletionRecordCalls()[0] ?? {}).sort()).toEqual([
+			'childCount',
+			'deletedAt',
+			'planTier',
+			'route',
+			'tenantId',
+		]);
+	});
+
+	it('[R3] Stripe キャンセル失敗で何も消えないときは記録を出さない', async () => {
+		mockCancelSubscription.mockRejectedValue(new Error('Stripe API down'));
+
+		await expect(
+			deleteOwnerOnlyAccount(TENANT, 'u-owner', { route: 'immediate', planTier: 'free' }),
+		).rejects.toThrow('Stripe API down');
+
+		// 「消していないのに記録だけ残る」を作らない
+		expect(findDeletionRecordCalls()).toHaveLength(0);
+		expect(settingsStore.has('pin_hash')).toBe(true);
 	});
 });
