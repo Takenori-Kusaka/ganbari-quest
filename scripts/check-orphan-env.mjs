@@ -31,9 +31,76 @@ import { isMain as isMainModule } from './lib/is-main.mjs';
 
 const ENV_EXAMPLE = path.join(REPO_ROOT, '.env.example');
 const SEARCH_DIRS = ['src', 'scripts', 'infra', 'tests'];
-const SEARCH_EXTENSIONS = ['.ts', '.svelte', '.mjs', '.js', '.cjs', '.json', '.yml', '.yaml'];
+export const SEARCH_EXTENSIONS = [
+	'.ts',
+	'.svelte',
+	'.mjs',
+	'.js',
+	'.cjs',
+	'.json',
+	'.yml',
+	'.yaml',
+	// #4408: shell script からしか参照されない env (scripts/deploy.sh 等の
+	// `${NAME:?...}`) を dead 判定しないため。baseline 登録での回避は
+	// 「shell 単独参照の env が全部 baseline 行き」になり本物の dead env と
+	// 区別できなくなるため不可。
+	'.sh',
+];
 
-function extractEnvVars(text) {
+// orphan-baselines / orphan-audit ドキュメントは self-reference 除外
+const EXCLUDE_PATTERNS = [
+	/scripts[\\/]orphan-baselines[\\/]/,
+	/docs[\\/]operations[\\/]orphan-audit-/,
+];
+
+/**
+ * env 参照を探す対象ファイルを列挙する。
+ * SEARCH_DIRS (src / scripts / infra / tests) + .github/workflows。
+ */
+export function collectSearchFiles(rootDir = REPO_ROOT) {
+	const searchFiles = [];
+	for (const d of SEARCH_DIRS) {
+		const full = path.join(rootDir, d);
+		if (fs.existsSync(full)) {
+			searchFiles.push(
+				...walkDir(full, { extensions: SEARCH_EXTENSIONS, excludePatterns: EXCLUDE_PATTERNS }),
+			);
+		}
+	}
+	// .github/workflows も対象 (GitHub Actions が env を渡すパスがある)
+	const wfDir = path.join(rootDir, '.github', 'workflows');
+	if (fs.existsSync(wfDir)) {
+		searchFiles.push(...walkDir(wfDir, { extensions: ['.yml', '.yaml'] }));
+	}
+	return searchFiles;
+}
+
+/**
+ * 各 env var の参照ファイル数を数える。
+ * Returns: Map<name, count>
+ */
+export function countEnvReferences(envVars, files) {
+	const refCount = new Map();
+	for (const v of envVars) refCount.set(v, 0);
+
+	for (const file of files) {
+		let text;
+		try {
+			text = fs.readFileSync(file, 'utf8');
+		} catch {
+			continue;
+		}
+		for (const v of envVars) {
+			if (!text.includes(v)) continue;
+			// boundary check: 前後が word 文字ではない
+			const re = new RegExp(`\\b${v}\\b`);
+			if (re.test(text)) refCount.set(v, (refCount.get(v) || 0) + 1);
+		}
+	}
+	return refCount;
+}
+
+export function extractEnvVars(text) {
 	// `<NAME>=...` (行頭 + コメント prefix `#` 付きも含む)
 	const re = /^(?:#\s*)?([A-Z][A-Z0-9_]+)\s*=/gm;
 	const out = new Set();
@@ -60,44 +127,9 @@ function main() {
 		process.exit(0);
 	}
 
-	// search 対象 (orphan-baselines / orphan-audit ドキュメントは self-reference 除外)
-	const EXCLUDE_PATTERNS = [
-		/scripts[\\/]orphan-baselines[\\/]/,
-		/docs[\\/]operations[\\/]orphan-audit-/,
-	];
-	const searchFiles = [];
-	for (const d of SEARCH_DIRS) {
-		const full = path.join(REPO_ROOT, d);
-		if (fs.existsSync(full)) {
-			searchFiles.push(
-				...walkDir(full, { extensions: SEARCH_EXTENSIONS, excludePatterns: EXCLUDE_PATTERNS }),
-			);
-		}
-	}
-	// .github/workflows も対象 (GitHub Actions が env を渡すパスがある)
-	const wfDir = path.join(REPO_ROOT, '.github', 'workflows');
-	if (fs.existsSync(wfDir)) {
-		searchFiles.push(...walkDir(wfDir, { extensions: ['.yml', '.yaml'] }));
-	}
-
+	const searchFiles = collectSearchFiles();
 	// 各 env var について `process.env.<NAME>` / `env.<NAME>` / `$env/static/<NAME>` / `${<NAME>}` 参照を集計
-	const refCount = new Map();
-	for (const v of envVars) refCount.set(v, 0);
-
-	for (const file of searchFiles) {
-		let text;
-		try {
-			text = fs.readFileSync(file, 'utf8');
-		} catch {
-			continue;
-		}
-		for (const v of envVars) {
-			if (!text.includes(v)) continue;
-			// boundary check: 前後が word 文字ではない
-			const re = new RegExp(`\\b${v}\\b`);
-			if (re.test(text)) refCount.set(v, (refCount.get(v) || 0) + 1);
-		}
-	}
+	const refCount = countEnvReferences(envVars, searchFiles);
 
 	const findings = envVars
 		.map((v) => {
