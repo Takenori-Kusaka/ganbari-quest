@@ -125,6 +125,8 @@ import {
 	markTenantUnsubscribed,
 	runLifecycleEmails,
 } from '$lib/server/services/lifecycle-email-service';
+import { getCurrentYearKey } from '$lib/server/services/marketing-email-counter';
+import { marketingEmailCountKey } from '$lib/server/services/marketing-suppression-keys';
 import { getSettingsKeysToKeepDuringDeletion } from '$lib/server/services/soft-delete-keys';
 
 const mockSendDormant = vi.mocked(sendDormantReactivationEmail);
@@ -220,6 +222,20 @@ describe('#4338 退会途中の孤児: 配信抑止記録を消さない', () =>
 				`抑止機構が書く "${key}" が削除の keep-list に無い (退会中に販促メールが再開する)`,
 			).toBe(true);
 		}
+	});
+
+	// #4120: 残すキーの「年」は書き手 (getCurrentYearKey) と同じ JST でなければならない。
+	// UTC 年で組むと、元日 00:00〜09:00 JST に退会した家族の当年カウンタが「前年キー」扱いになり、
+	// 残すべき当年キーを 1 つ取り逃がす (= 年 6 回の枠がリセットされる)。
+	it('[M5] 残すキーの年は JST 基準 (元日 9 時間の窓で書き手とずれない)', () => {
+		// UTC 2026-12-31 15:00 = JST 2027-01-01 00:00
+		const jstNewYear = new Date('2026-12-31T15:00:00.000Z');
+		expect(getCurrentYearKey(jstNewYear)).toBe('2027');
+
+		const kept = new Set(getSettingsKeysToKeepDuringDeletion(jstNewYear));
+		// 書き手が使う当年キーが keep-list に含まれる (UTC 年実装なら 2026 になり落ちる)
+		expect(kept.has(marketingEmailCountKey('2027'))).toBe(true);
+		expect(kept.has(marketingEmailCountKey('2026'))).toBe(true);
 	});
 
 	it('[M4] 正常系では抑止記録も最終的に消える (孤児を作らない回帰)', async () => {
