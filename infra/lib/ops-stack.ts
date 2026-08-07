@@ -90,7 +90,7 @@ export const OPS_ACCESS_DENIED_LOG_TERM = '[auth-alert] ops-access-denied';
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
 
 /**
- * #4375 follow-up (PO 決裁 2026-08-07): AI provider が使えない状態にあることを表す log の検索語。
+ * #4375 follow-up (オーナー決裁 2026-08-07): AI provider が使えない状態にあることを表す log の検索語。
  *
  * SSOT は `AI_PROVIDER_UNAVAILABLE_LOG_TERM` (`src/lib/server/ai/availability.ts`)。
  * 上記 2 件と同じく rootDir 制約で import できないため literal で持ち、
@@ -368,8 +368,8 @@ export class OpsStack extends cdk.Stack {
 
 			// #4375 follow-up: AI provider が使えない状態の観測。
 			//
-			// 顧客には「システム側の問題」とだけ出す (PO 決裁 2026-08-07 Q1: `notify: false` の
-			// 間は「運営に通知済み」と約束しない)。運営が気付くための経路がここ。
+			// 顧客には「写真ではなくシステム側の不具合で、運営が検知済み」と出す。その「検知済み」を
+			// 事実にするのがこの経路で、Discord の障害通知まで届く (オーナー決裁 2026-08-07)。
 			//
 			// 閾値の根拠:
 			//   この log は **プロセス内で理由ごとに 1 回**しか出ない (per-request で出すと

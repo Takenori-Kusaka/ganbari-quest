@@ -3255,16 +3255,18 @@ export const POINTS_LABELS = {
 	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
 	//
-	// PO 決裁 2026-08-07: 「利用できません」だけだと顧客は「自分が何かしないといけないのか」と
-	// 受け取るため、原因がシステム側にあること / いま何ができるか を出す。
+	// オーナー決裁 2026-08-07 (PO 提示の文言は「例示」であり、そのまま採用しない): 出すのは
+	// (1) 顧客のせいではないこと (2) 運営が把握していること (3) いま何ができるか の 3 点。
+	// (1) を先頭に置くのは、#4366 の実害が「自分の写真が悪い」と誤解して撮り直すことだから。
 	//
-	// 「運営に通知済み」は**書かない** (同決裁 Q1 = No)。観測経路
-	// (`[ai-alert] ai-provider-unavailable` log → alarm `ganbari-quest-ai-provider-unavailable`)
-	// は存在するが `ALARM_NOTIFY_POLICY` で `notify: false` = 人には届かないため、顧客が読む
-	// 意味 (運営は知っていて動いている) と実装の事実がズレる。alarm を昇格したら戻すか再判断する。
+	// (2) は事実として書ける — 観測経路 (`[ai-alert] ai-provider-unavailable` log → alarm
+	// `ganbari-quest-ai-provider-unavailable`) が `ALARM_NOTIFY_POLICY` で `notify: true` =
+	// Discord の障害通知に届く (同決裁「アラートは Discord の障害通知へ webhook で飛ばす」)。
+	//
+	// 復旧を待たせる一文は置かない。手入力で今すぐ進めるので、待機を要求する理由がない。
 	// 文言と通知方針の整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が固定する。
 	receiptAiUnavailable:
-		'システム側の問題でAI読み取りを利用できません。復旧までは金額を手入力してください。',
+		'写真ではなくシステム側の不具合で、運営が検知済みです。金額を手入力してください。',
 	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
 	receiptAmountNotFound: '金額を読み取れませんでした',
 

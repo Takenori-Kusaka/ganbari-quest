@@ -133,19 +133,26 @@ describe('#4189 CloudWatch アラームの通知方針', () => {
 		).toEqual([]);
 	});
 
-	it('既定は「鳴らさない」— notify: true は実績の根拠が要る (常態化防止)', () => {
+	it('鳴らす alarm は明示 allow-list と完全一致する (無宣言の昇格・降格を作らない)', () => {
 		const notifying = Object.entries(ALARM_NOTIFY_POLICY)
 			.filter(([, p]) => p.notify)
-			.map(([n]) => n);
+			.map(([n]) => n)
+			.sort();
 
-		// 本番稼働の観測実績がまだ無いため現時点は 0 件が正。
-		// 実績が付いて昇格させるときは reason に「いつ・何を検知して有効だったか」を書き、
-		// 本 assertion を更新する（増やすこと自体は正しい進行）。
+		// 既定は「鳴らさない」。昇格させるときは reason に根拠を書いたうえで本 allow-list に足す
+		// （増やすこと自体は正しい進行だが、**無宣言で増える / 消える**ことは許さない）。
+		//
+		// - ai-provider-unavailable: オーナー決裁 2026-08-07「AI 不達のアラートは Discord の
+		//   障害通知へ webhook で飛ばすべき」。AI 不達 = 有料機能が事実上死んでいる状態で、
+		//   顧客向け文言 (`POINTS_LABELS.receiptAiUnavailable`) が「運営が検知済み」と伝えている
+		//   ため、届かなければその一文が嘘になる。発生源の log は latch により理由ごとに
+		//   プロセス内 1 回しか出ず、構造的に鳴りっぱなしにならない。
+		//   文言との整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が両方向で縛る。
 		expect(
 			notifying,
-			'notify: true にした alarm があります。docs/runbooks/ops-alert-notification.md の昇格手順に従い、' +
-				'reason に実績を書いたうえで本 assertion を更新してください',
-		).toEqual([]);
+			'Discord に出す alarm の集合が変わりました。docs/runbooks/ops-alert-notification.md の' +
+				'昇格 / 降格手順に従い、reason に根拠を書いたうえで本 allow-list を更新してください',
+		).toEqual(['ganbari-quest-ai-provider-unavailable']);
 	});
 
 	it('未宣言の alarm 名は「鳴らさない」に倒れる (fail-safe)', () => {

@@ -1,16 +1,20 @@
 // tests/unit/domain/receipt-ai-unavailable-message.test.ts
-// 領収書 AI 読み取りが使えないときの顧客向け文言と、運営への通知方針の整合 (PO 決裁 2026-08-07)。
+// 領収書 AI 読み取りが使えないときの顧客向け文言と、運営への通知方針の整合 (オーナー決裁 2026-08-07)。
 //
 // この文言は「顧客が何をすればよいか」だけでなく「**運営に何が起きているか**」も語る。
 // 後者は実装の事実を超えて書くと顧客に嘘をつくことになるため、文言と通知方針を 1 本の
 // test で縛る (ADR-0013 の「実装していないことを実装しているように書かない」を
-// 顧客向けエラー文言にも適用する、PO 決裁 Q1)。
+// 顧客向けエラー文言にも適用する)。
+//
+// オーナー決裁 2026-08-07: アラートは Discord の障害通知へ webhook で飛ばす (`notify: true`)。
+// したがって「運営が検知済み」は事実として書ける。整合は片側ではなく **両方向** で縛る
+// (届くのに黙る / 届かないのに約束する のどちらも fail させる)。
 
 import { describe, expect, it } from 'vitest';
 import { ALARM_NOTIFY_POLICY } from '../../../infra/lib/ops-alert-policy';
 import { POINTS_LABELS } from '../../../src/lib/domain/labels';
 
-/** AI 不達を運営に届ける alarm。文言が「通知済み」と言えるかはこの alarm の通知方針で決まる。 */
+/** AI 不達を運営に届ける alarm。文言が「検知済み」と言えるかはこの alarm の通知方針で決まる。 */
 const AI_ALARM_NAME = 'ganbari-quest-ai-provider-unavailable';
 
 /** 通知方針を引く。表から消えていたら (= 判断の根拠自体が消えたら) その場で落とす。 */
@@ -20,61 +24,83 @@ function aiAlarmPolicy() {
 	return policy;
 }
 
-const MESSAGE =
-	'システム側の問題でAI読み取りを利用できません。復旧までは金額を手入力してください。';
+/** 「運営が知っている」と顧客に読ませる語。文言と通知方針の整合判定に使う。 */
+const AWARENESS_WORDS = ['検知', '通知', '連絡', '把握'];
+
+const MESSAGE = '写真ではなくシステム側の不具合で、運営が検知済みです。金額を手入力してください。';
 
 describe('[1] 顧客向け文言 (POINTS_LABELS.receiptAiUnavailable)', () => {
-	it('[1-1] PO 決裁 2026-08-07 で採用された文言と完全一致する', () => {
+	it('[1-1] オーナー決裁 2026-08-07 で採用された文言と完全一致する', () => {
 		expect(POINTS_LABELS.receiptAiUnavailable).toBe(MESSAGE);
 	});
 
-	// PO 決裁の主眼は長さではなく「検証できない 1 点を落とす」こと。ただし O2 (長すぎて
-	// 読み飛ばされる) の再燃を防ぐため、実測長を上限として固定する。
-	// 実測 42 字 (`[...MESSAGE].length`)。PR 本文 / PO コメントの「44 字 → 38 字」は
-	// 変更前 54 字を 44 字と数え違えたところから派生した概算値で、実測とは一致しない。
-	it('[1-2] 42 字以内に収まる (変更前の 54 字から短縮されている)', () => {
-		expect([...POINTS_LABELS.receiptAiUnavailable].length).toBeLessThanOrEqual(42);
+	// O2 (長すぎて読み飛ばされる) の再燃を防ぐため、実測長を上限として固定する。
+	// 実測 40 字 (`[...MESSAGE].length`)。PO 例示の写しは 42 字だった。
+	it('[1-2] 40 字以内に収まる (PO 例示の写し 42 字から短縮されている)', () => {
+		expect([...POINTS_LABELS.receiptAiUnavailable].length).toBeLessThanOrEqual(40);
 	});
 
-	// 落としてよいのは「検証できない 1 点」だけ。顧客の行動に効く 2 点は残す。
+	// #4366 の実害は「自分の写真が悪い」と誤解して撮り直すことだった。原因が顧客側に無いことを
+	// 先に言い、そのうえで今できること (手入力) を示す。
 	it('[1-3] 顧客のせいではないこと / いま何ができるかを両方伝える', () => {
-		expect(POINTS_LABELS.receiptAiUnavailable).toContain('システム側の問題');
+		expect(POINTS_LABELS.receiptAiUnavailable).toContain('写真ではなく');
+		expect(POINTS_LABELS.receiptAiUnavailable).toContain('システム側');
 		expect(POINTS_LABELS.receiptAiUnavailable).toContain('手入力');
 	});
 
 	// 画像が読めなかったとき (`receiptOcrFailed` = 撮り直しを促す) と混ぜると、顧客は
-	// 自分の写真が悪いと誤解して撮り直しを繰り返す (#4366)。
+	// 自分の写真が悪いと誤解して撮り直しを繰り返す (#4366 害 b)。
 	it('[1-4] 撮り直しを促さない (画像起因の失敗と言い分ける)', () => {
 		expect(POINTS_LABELS.receiptAiUnavailable).not.toContain('撮り直');
 		expect(POINTS_LABELS.receiptOcrFailed).toContain('撮り直');
 	});
+
+	// 手入力で今すぐ進めるのだから、待たせる理由がない (オーナー決裁 2026-08-07)。
+	it('[1-5] 復旧を待つよう要求しない', () => {
+		for (const wait of ['お待ち', '復旧まで', 'しばらく']) {
+			expect(POINTS_LABELS.receiptAiUnavailable).not.toContain(wait);
+		}
+	});
 });
 
-describe('[2] 文言と通知方針の整合 (PO 決裁 Q1 = No / Q2 = Yes)', () => {
+describe('[2] 文言と通知方針の整合 (両方向)', () => {
 	it('[2-1] AI 不達 alarm が通知方針表に宣言されている', () => {
 		expect(ALARM_NOTIFY_POLICY[AI_ALARM_NAME]).toBeDefined();
 	});
 
-	// Q2 = Yes: #4189 の既定 (実発火を 1 サイクル観測してから昇格) をこの 1 件のために曲げない。
-	it('[2-2] 現時点では Discord へ通知しない (notify: false)', () => {
-		expect(aiAlarmPolicy().notify).toBe(false);
+	// オーナー決裁 2026-08-07:「アラートは Discord の障害通知へ webhook で飛ばすべき」。
+	// 降格するなら文言側の「検知済み」も同時に落とす必要があり、[2-3] がそれを強制する。
+	it('[2-2] Discord へ通知する (notify: true)', () => {
+		expect(aiAlarmPolicy().notify).toBe(true);
 	});
 
-	// Q1 = No の本体。notify: false = 人には届かないので、顧客に「通知済み」と読める約束を
-	// してはならない。昇格 (notify: true) したときに初めてこの一文を戻す判断ができる。
-	it('[2-3] 人に届かない間は「運営に通知した」と読める約束をしない', () => {
-		if (aiAlarmPolicy().notify) return; // 昇格後は文言を戻してよい
+	// 両方向で縛る:
+	//   notify: true  なのに文言が黙っている → 顧客は「放置されている」と誤解する
+	//   notify: false なのに文言が約束する   → 実装の事実 (記録は残るが人には届かない) とズレる
+	it('[2-3] 通知方針と「運営が知っている」の言明が一致する', () => {
+		const message = POINTS_LABELS.receiptAiUnavailable;
+		const claimsAwareness = AWARENESS_WORDS.some((w) => message.includes(w));
 
-		for (const promise of ['通知', '連絡', '把握']) {
+		if (aiAlarmPolicy().notify) {
 			expect(
-				POINTS_LABELS.receiptAiUnavailable,
-				`notify: false のあいだ「${promise}」を顧客に約束すると、実装の事実 (CloudWatch に記録が残るだけで人には届かない) とズレます`,
-			).not.toContain(promise);
+				claimsAwareness,
+				`notify: true (Discord に届く) なら、顧客にも運営が知っていることを伝える。${AWARENESS_WORDS.join(' / ')} のいずれかを含めてください`,
+			).toBe(true);
+		} else {
+			expect(
+				claimsAwareness,
+				`notify: false のあいだ「${AWARENESS_WORDS.join(' / ')}」を顧客に約束すると、実装の事実 (CloudWatch に記録が残るだけで人には届かない) とズレます`,
+			).toBe(false);
 		}
 	});
 
-	// 通知方針の reason 自体も顧客文言を根拠にしてはならない (Q1 で外した以上、循環した嘘になる)。
-	it('[2-4] 通知方針の理由が「顧客に通知済みと表示している」を根拠にしていない', () => {
-		expect(aiAlarmPolicy().reason).not.toContain('通知済み');
+	// 降格したときに「顧客にはそう表示しているから console で足りる」という循環根拠が
+	// 復活しないよう、notify: false の側でだけ縛りを残す。
+	it('[2-4] 鳴らさないときの理由が「顧客にそう表示しているから」を根拠にしない', () => {
+		if (aiAlarmPolicy().notify) return; // 昇格中は該当する失敗モードが存在しない
+
+		for (const circular of ['通知済み', '検知済み']) {
+			expect(aiAlarmPolicy().reason).not.toContain(circular);
+		}
 	});
 });
