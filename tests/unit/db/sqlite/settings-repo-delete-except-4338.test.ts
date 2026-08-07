@@ -53,7 +53,7 @@ describe('#4338 sqlite settings-repo: 指定キー以外を全部消す', () => 
 		await setSetting('deletion_grace_plan_tier', 'standard', TENANT);
 		await setSetting('physical_deletion_date', '2026-08-08T00:00:00.000Z', TENANT);
 		await setSetting('pin_hash', '$2b$10$dummy', TENANT);
-		await setSetting('session_token', 'sess-dummy', TENANT);
+		await setSetting('session_token', 'session-dummy', TENANT);
 		await setSetting('questionnaire_activity_level', 'high', TENANT);
 		await setSetting('deletion_warning_sent_at', '2026-08-07T00:00:00.000Z', TENANT);
 		await setSetting('some_future_key_2099', 'x', TENANT);

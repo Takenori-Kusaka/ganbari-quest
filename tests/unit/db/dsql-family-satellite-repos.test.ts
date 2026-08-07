@@ -157,7 +157,7 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		await settingsRepo.setSetting('deletion_grace_plan_tier', 'standard', FAMILY);
 		await settingsRepo.setSetting('physical_deletion_date', '2026-08-08T00:00:00.000Z', FAMILY);
 		await settingsRepo.setSetting('pin_hash', '$2b$10$dummy', FAMILY);
-		await settingsRepo.setSetting('session_token', 'sess-dummy', FAMILY);
+		await settingsRepo.setSetting('session_token', 'session-dummy', FAMILY);
 		await settingsRepo.setSetting('questionnaire_challenges', 'つづかない', FAMILY);
 		await settingsRepo.setSetting('some_future_key_2099', 'x', FAMILY);
 		await settingsRepo.setSetting('pin_hash', '$2b$10$other', OTHER_FAMILY);

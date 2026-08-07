@@ -116,8 +116,8 @@ function seedSettings(extra: Record<string, string> = {}): void {
 	settingsStore.set('deletion_grace_plan_tier', 'standard');
 	settingsStore.set('physical_deletion_date', '2026-08-08T00:00:00.000Z');
 	// 孤児に残ると困るもの (#4338 の顧客影響そのもの)
-	settingsStore.set('pin_hash', '$2b$10$dummyhash');
-	settingsStore.set('session_token', 'sess-dummy-token');
+	settingsStore.set('pin_hash', '$2b$10$dummy-hash-value');
+	settingsStore.set('session_token', 'session-dummy-token');
 	settingsStore.set('questionnaire_activity_level', 'high');
 	settingsStore.set('questionnaire_challenges', 'なかなか続かない');
 	settingsStore.set('deletion_warning_sent_at', '2026-08-07T00:00:00.000Z');
