@@ -18,8 +18,12 @@ export async function findUnshownCheers(
 	return getRepos().siblingCheer.findUnshownCheers(toChildId, tenantId);
 }
 
-export async function markShown(cheerIds: string[], tenantId: string): Promise<void> {
-	return getRepos().siblingCheer.markShown(cheerIds, tenantId);
+export async function markShown(
+	toChildId: ChildId,
+	cheerIds: string[],
+	tenantId: string,
+): Promise<void> {
+	return getRepos().siblingCheer.markShown(toChildId, cheerIds, tenantId);
 }
 
 export async function countTodayCheersFrom(

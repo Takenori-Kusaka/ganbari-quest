@@ -56,8 +56,12 @@ export async function findCheersByChild(
 	return DEMO_SIBLING_CHEERS.filter((c) => c.toChildId === childId);
 }
 
-export async function markShown(_cheerIds: string[], _tenantId: string): Promise<void> {
-	// Stub: no-op
+export async function markShown(
+	_toChildId: ChildId,
+	_cheerIds: string[],
+	_tenantId: string,
+): Promise<void> {
+	// Stub: no-op (#4435 で toChildId 所有権を受ける signature に統一。demo は書き込み no-op)
 }
 
 export async function countTodayCheersFrom(

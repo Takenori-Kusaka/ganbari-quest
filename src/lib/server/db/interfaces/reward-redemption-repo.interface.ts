@@ -131,17 +131,12 @@ export interface IRewardRedemptionRepo {
 	// findPendingByChildAndReward は #3356 (1) で撤去 (check-then-act TOCTOU の温床)。
 	// pending 重複判定は insertRedemptionRequest の dedup 契約 (repo 原子境界) に内蔵済。
 
-	findUnshownResultByChild(
-		childId: ChildId,
-		tenantId: string,
-	): Promise<RedemptionRequestWithReward | undefined>;
-
-	/** #2845 課題①: childId 所有権検証付き (composite key 直接特定)。不一致なら undefined。 */
-	markRedemptionResultShown(
-		childId: ChildId,
-		id: string,
-		tenantId: string,
-	): Promise<RedemptionRequestRow | undefined>;
+	// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去。
+	// 交換申請の承認・却下は子供のごほうびショップのバッジ (`latestRequestStatus`) と
+	// 履歴画面が常時表示しており、`shown_to_child_at` を使う一度きりの全画面通知は
+	// production から呼ばれない到達不能経路のまま残っていた (#4432 実測)。
+	// 列自体はバックアップ往復 (export/import) の忠実性のため保持する — 撤去の終了条件は
+	// src/lib/server/db/schema.ts の shownToChildAt 定義コメントを参照。
 
 	expireOldRedemptions(tenantId: string): Promise<number>;
 

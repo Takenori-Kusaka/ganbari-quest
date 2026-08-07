@@ -87,20 +87,10 @@ export async function updateRedemptionRequestStatus(
 // findPendingByChildAndReward は #3356 (1) で撤去 (dedup は insertRedemptionRequest に内蔵。
 // demo は stateless stub のため dedup せず常に stub row を返す = 従来挙動不変)。
 
-export async function findUnshownResultByChild(
-	_childId: ChildId,
-	_tenantId: string,
-): Promise<RedemptionRequestWithReward | undefined> {
-	return undefined;
-}
-
-export async function markRedemptionResultShown(
-	_childId: ChildId,
-	_id: string,
-	_tenantId: string,
-): Promise<RedemptionRequestRow | undefined> {
-	return undefined;
-}
+// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去 (到達不能経路)。
+// 交換申請の承認・却下は子供のごほうびショップのバッジと履歴画面が常時表示しており、
+// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
+// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
 export async function expireOldRedemptions(_tenantId: string): Promise<number> {
 	return 0;

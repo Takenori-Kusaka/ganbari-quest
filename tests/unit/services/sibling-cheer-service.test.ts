@@ -135,9 +135,11 @@ describe('getUnshownCheers', () => {
 });
 
 describe('markCheersShown', () => {
-	it('markShown を委譲', async () => {
+	it('受け取る子の id を repo まで引き回す (#4435 所有権)', async () => {
 		mockMarkShown.mockResolvedValue(undefined);
-		await markCheersShown(['1', '2'], TENANT);
-		expect(mockMarkShown).toHaveBeenCalledWith(['1', '2'], TENANT);
+		await markCheersShown(asChildId(2), ['1', '2'], TENANT);
+		// childId を落とすと repo 側で to_child_id 述語が効かず、きょうだいが
+		// 別の子宛のおうえんを既読にできてしまう
+		expect(mockMarkShown).toHaveBeenCalledWith(asChildId(2), ['1', '2'], TENANT);
 	});
 });
