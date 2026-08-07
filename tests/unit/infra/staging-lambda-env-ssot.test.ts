@@ -19,11 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { STAGING_ENV_CONFIG } from '../../../infra/lib/env-config';
 import { StorageStack } from '../../../infra/lib/storage-stack';
-import {
-	deriveDesiredEnv,
-	readLambdaEnvFromTemplate,
-	verifyEnvKeys,
-} from '../../../scripts/lambda-env-ssot.mjs';
+import { deriveDesiredEnv, readLambdaEnvFromTemplate } from '../../../scripts/lambda-env-ssot.mjs';
 
 const FUNCTION_NAME = 'ganbari-quest-staging-app';
 
@@ -60,44 +56,9 @@ function fixtureTemplate(): unknown {
 	};
 }
 
-describe('#4352 (b) env キー差分検査 — 想定外キーがあれば fail し、キー名だけを出す', () => {
-	it('live に CDK SSOT 外のキーがあれば ok=false + そのキー名を返す', () => {
-		const result = verifyEnvKeys({
-			expectedKeys: ['DATA_SOURCE', 'ORIGIN'],
-			actualKeys: ['DATA_SOURCE', 'ORIGIN', 'STRIPE_PRICE_STANDARD_MONTHLY'],
-		});
-		expect(result.ok).toBe(false);
-		expect(result.unexpected).toEqual(['STRIPE_PRICE_STANDARD_MONTHLY']);
-		expect(result.missing).toEqual([]);
-	});
-
-	it('CDK SSOT にあるキーが live から欠けていても fail する (片側検査にしない)', () => {
-		const result = verifyEnvKeys({
-			expectedKeys: ['DATA_SOURCE', 'STRIPE_SECRET_KEY'],
-			actualKeys: ['DATA_SOURCE'],
-		});
-		expect(result.ok).toBe(false);
-		expect(result.missing).toEqual(['STRIPE_SECRET_KEY']);
-	});
-
-	it('一致していれば ok=true', () => {
-		const result = verifyEnvKeys({
-			expectedKeys: ['B', 'A'],
-			actualKeys: ['A', 'B'],
-		});
-		expect(result.ok).toBe(true);
-	});
-
-	it('formatVerifyReport 相当の出力に値が混ざらない (キー名だけ) — 秘密を CI ログに出さない', () => {
-		const result = verifyEnvKeys({
-			expectedKeys: ['STRIPE_SECRET_KEY'],
-			actualKeys: ['STRIPE_SECRET_KEY', 'INJECTED'],
-		});
-		// 返すのはキー名の配列だけ。値を受け取る口自体を持たない (受け取れれば必ずいつか出る)。
-		expect(JSON.stringify(result)).not.toContain('sk_test');
-		expect(Object.keys(result).sort()).toEqual(['missing', 'ok', 'unexpected']);
-	});
-});
+// (b) の判定ロジック自体 (extra / missing / --strict / 必須キー) の unit は
+// tests/unit/scripts/check-lambda-env-drift.test.ts が持つ。判定 script が 1 本になったので、
+// 本 file は (a) 全上書きの導出と、workflow への配線だけを固定する。
 
 describe('#4352 期待キーは synth 出力から導出する (手で列挙しない)', () => {
 	it('FunctionName 一致の Lambda の Environment.Variables を取り出す', () => {
@@ -283,22 +244,84 @@ describe('#4352 deploy-aws-staging.yml の配線 (no-silent-gap)', () => {
 
 	it('(b) deploy 後に env キー差分検査があり、advisory に逃がしていない', async () => {
 		const yml = await readWorkflow();
-		expect(yml).toContain('scripts/lambda-env-ssot.mjs verify');
-		const idx = yml.indexOf('- name: Verify staging Lambda env keys');
+		expect(yml).toContain('scripts/check-lambda-env-drift.mjs');
+		const idx = yml.indexOf('- name: Lambda env drift check (staging');
 		expect(idx, 'env キー差分検査 step が見つからない').toBeGreaterThan(-1);
 		// step の終端 = 次の step の宣言、または次の step のコメントブロック (空行 + コメント) の手前。
 		// コメントブロックまで含めると、隣の step が持つ `continue-on-error` の説明文を誤って拾う。
 		const ends = [yml.indexOf('\n      - name: ', idx + 10), yml.indexOf('\n\n      #', idx + 10)]
 			.filter((n) => n > -1)
 			.sort((a, b) => a - b);
-		const step = yml.slice(idx, ends[0]);
+		const step = yml.slice(idx, ends[0] ?? yml.length);
 		expect(step).not.toContain('continue-on-error');
+		// staging は Step 13 が synth 出力のキー集合で全上書きするため、live は template と
+		// 完全一致が唯一の正解。missing を warning に逃がさない (--strict)。
+		expect(step).toContain('--strict');
 	});
 
 	it('(b) の許可リストは (a) と同じ出どころ (別ファイルに手で並べない)', async () => {
 		const yml = await readWorkflow();
-		// verify は derive が書いた成果物を読む。workflow 内に env キーの列挙が現れないこと。
-		expect(yml).toContain('--expected');
+		// 検査は cdk deploy が出力した同じ template を読む。workflow 内に env キーの列挙が現れないこと。
+		expect(yml).toContain('--template infra/cdk.out/GanbariQuestComputeStaging.template.json');
 		expect(yml).not.toMatch(/STAGING_ALLOWED_ENV_KEYS/);
+	});
+
+	it('(b) hard-fail する env 検査は 1 本だけ、かつ後続の検証より後ろにある (#4365 / #4389 の再退行防止)', async () => {
+		const yml = await readWorkflow();
+		// deploy job の途中で hard-fail させると、後続の検証 (PII guard / DSQL 並行検証 / rollback 判定)
+		// が丸ごと skip される。#4389 が末尾へ移したばかりの配置を、2 本目の判定を中盤に足す形で
+		// 巻き戻さないことを機械で固定する。
+		const steps = [...yml.matchAll(/^ {6}- name: (.+)$/gm)].map((m) => ({
+			name: (m[1] ?? '').trim(),
+			index: m.index ?? 0,
+		}));
+		// コメント行は落とす。「なぜ 1 本に統合したか」を説明する散文が step の実行内容として
+		// 数えられると、説明を書くほど検査が誤検知する。
+		const bodyOf = (i: number) =>
+			yml
+				.slice(steps[i]?.index ?? 0, steps[i + 1]?.index ?? yml.length)
+				.split('\n')
+				.filter((line) => !line.trim().startsWith('#'))
+				.join('\n');
+
+		const envCheckSteps = steps
+			.map((s, i) => ({ ...s, body: bodyOf(i) }))
+			.filter(
+				(s) =>
+					s.body.includes('check-lambda-env-drift.mjs') ||
+					s.body.includes('lambda-env-ssot.mjs verify'),
+			);
+		expect(
+			envCheckSteps.map((s) => s.name),
+			'env キー集合の判定は 1 本に統合する (2 本あると基準が食い違ったとき、どちらが正か決められない)',
+		).toHaveLength(1);
+
+		const envCheckAt = envCheckSteps[0]?.index ?? -1;
+		for (const laterName of ['Staging PII guard', 'DSQL staging concurrency test']) {
+			const other = steps.find((s) => s.name.startsWith(laterName));
+			expect(other, `${laterName} step が見つからない`).toBeDefined();
+			expect(
+				envCheckAt,
+				`env 検査が「${laterName}」より前にあると、env が 1 本ずれただけでこの検証が skip される`,
+			).toBeGreaterThan(other?.index ?? Number.POSITIVE_INFINITY);
+		}
+	});
+
+	it('(a) 秘密を含む一時 file の削除が失敗経路も覆う (trap EXIT)', async () => {
+		const yml = await readWorkflow();
+		const idx = yml.indexOf('- name: Resolve ORIGIN from CloudFront');
+		expect(idx, 'ORIGIN 解決 step が見つからない').toBeGreaterThan(-1);
+		const step = yml.slice(idx, yml.indexOf('\n      # Step 14', idx));
+		// GitHub の既定 shell は `bash -e`。後始末を成功パスの末尾に置くと、途中で落ちたときだけ
+		// 秘密入り JSON が job 末尾まで runner に残る。
+		expect(step).toMatch(/trap '[^']*rm -f[^']*' EXIT/s);
+		for (const tmp of [
+			'staging-live-env-before.json',
+			'staging-desired-env.json',
+			'staging-update-env.json',
+		]) {
+			const trapBlock = step.slice(step.indexOf('trap '), step.indexOf("' EXIT"));
+			expect(trapBlock, `${tmp} が trap の削除対象に含まれていない`).toContain(tmp);
+		}
 	});
 });

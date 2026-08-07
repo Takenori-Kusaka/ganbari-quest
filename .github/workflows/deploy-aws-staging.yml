@@ -421,6 +421,16 @@ jobs:
           echo "STAGING_BASE=https://$CF_DOMAIN" >> $GITHUB_ENV
           ORIGIN="https://$CF_DOMAIN"
           echo "Resolved staging ORIGIN: $ORIGIN"
+
+          # 秘密 (STRIPE_SECRET_KEY / PARENT_GATE_COOKIE_SECRET 等) を含む一時 file を残さない。
+          # **trap で全経路を覆う。** GitHub の既定 shell は `bash -e` のため、以降の aws / node / jq が
+          # 1 つでも失敗すると step はその場で中断する。後始末を成功パスの末尾に置くと、
+          # **失敗したときだけ秘密入り JSON が job の最後まで runner に残る** (後続 step に artifact
+          # upload や失敗時ダンプが足された瞬間に露出面になる)。
+          trap 'rm -f "$RUNNER_TEMP/staging-live-env-before.json" \
+                      "$RUNNER_TEMP/staging-desired-env.json" \
+                      "$RUNNER_TEMP/staging-update-env.json"' EXIT
+
           # live env は intrinsic 値の引き継ぎにのみ使う (キー集合には影響しない)。
           aws lambda get-function-configuration \
             --function-name $LAMBDA_FUNCTION \
@@ -445,11 +455,6 @@ jobs:
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
-          # 秘密 (STRIPE_SECRET_KEY / PARENT_GATE_COOKIE_SECRET 等) を含む一時 file を残さない。
-          # 後続 step に artifact upload や失敗時ダンプが足されたときの露出面を作らない。
-          rm -f "$RUNNER_TEMP/staging-live-env-before.json" \
-                "$RUNNER_TEMP/staging-desired-env.json" \
-                "$RUNNER_TEMP/staging-update-env.json"
           echo "::notice::staging ORIGIN resolved and applied: $ORIGIN"
 
       # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。
@@ -538,36 +543,6 @@ jobs:
           fi
 
           echo "::notice::staging smoke test passed (/ と /switch が到達、form action がアプリまで到達 status=$FORM_STATUS)"
-
-      # Step 15.4 (#4352 (b)): live Lambda env のキー集合が CDK の SSOT と一致するかを検査する。
-      #
-      # CloudFormation は out-of-band drift を戻さない。テンプレートのプロパティが前回と同一なら
-      # CFN はそのリソースを一切触らないため、`aws lambda update-function-configuration` で手で
-      # 足した env は **deploy が success を返しても消えない**。実際 #4352 では、検証用に注入した
-      # `STRIPE_PRICE_*_MONTHLY` が full staging deploy を跨いで残存し、誰も気づけなかった。
-      #
-      # **期待キーは synth 出力から導出する。** workflow に手で並べると、CDK 側に env を足した瞬間に
-      # 2 本目の SSOT がズレて誤検知するか、逆に緩んで検知しなくなる (PO 決裁 2026-08-07)。
-      #
-      # **出すのはキー名だけ。** 値は出力しない (CI ログは repo 参照者が読める。`STRIPE_SECRET_KEY`
-      # 等が載る事故を作らない)。
-      #
-      # **advisory にしない** (`continue-on-error` を付けない)。warn は通り抜け、通り抜けたものは
-      # 誰も直さない。ADR-0024「ENV silent skip 禁止」の env 集合版。
-      - name: Verify staging Lambda env keys against CDK SSOT (#4352)
-        run: |
-          node scripts/lambda-env-ssot.mjs derive \
-            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
-            --function-name "$LAMBDA_FUNCTION" \
-            --keys-only --keys-out "$RUNNER_TEMP/staging-expected-env-keys.json"
-          aws lambda get-function-configuration \
-            --function-name $LAMBDA_FUNCTION \
-            --region $AWS_REGION \
-            --query 'Environment.Variables' --output json > "$RUNNER_TEMP/staging-live-env.json"
-          node scripts/lambda-env-ssot.mjs verify \
-            --expected "$RUNNER_TEMP/staging-expected-env-keys.json" \
-            --live "$RUNNER_TEMP/staging-live-env.json"
-          rm -f "$RUNNER_TEMP/staging-live-env.json"
 
       # #4204: staging に実在のメールアドレスが登録されていないかを見張る。
       #
@@ -689,13 +664,35 @@ jobs:
       # 末尾なら deploy は同じく赤くなり、他の検証は全て実行される。
       #
       # 突き合わせるのは cdk deploy が出力したテンプレートと live の **キー集合**のみ (値は読まない)。
+      #
+      # #4352: 「live のキー集合が synth 出力と一致するか」を判定する step は **本 step 1 本だけ**にする。
+      # 同一 deploy に判定を 2 本置くと、基準が食い違った瞬間に一方 pass・一方 fail が起きて、
+      # どちらが正なのかを誰も決められなくなる。本 PR で一度 `lambda-env-ssot.mjs verify` を
+      # 使う 2 本目の step (Step 15.4) を smoke の直後に足したが、以下の理由で本 step に統合した:
+      #   - 判定内容が同じ。Step 13 が **synth 出力のキー集合そのもの**で env を全上書きするように
+      #     なったため、以後 live のキー集合は template と一致するのが唯一の正解であり、
+      #     `--strict` を付けた本 step (extra = fail / missing = 全て fail) と完全一致の判定になる。
+      #   - 本 step の方が秘密を runner に載せない。`--query 'keys(Environment.Variables)'` を
+      #     **AWS 側で**適用してキー名だけを受け取るのに対し、2 本目は値ごと一時 file に落としていた。
+      #   - prod (deploy.yml) が同じ script を使う。staging だけ別実装にすると、判定を直したときに
+      #     もう一方が置き去りになる。
+      #
+      # `--strict` は staging だけに付ける。staging は Step 13 が全上書きするのでキー集合が決定論的
+      # (missing = 上書きが最後まで適用されていない = 異常) だが、prod 側の env 解決はまだ
+      # read-modify-write のままで、条件付き env の欠落が正常なケースがあるため (既定の warning 継続)。
+      #
+      # `RUNTIME_RESOLVED_KEYS` (ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL) の許容は
+      # staging では現状 no-op (3 本とも compute-stack の environment に placeholder として存在し、
+      # template 側のキー集合に含まれる)。それでも消さない — 「deploy 後に足す env」を将来増やしたときの
+      # 受け皿であり、prod 側でも同じ script が使う SSOT だから。
       - name: Lambda env drift check (staging, #4352)
         run: |
           node scripts/check-lambda-env-drift.mjs \
             --function "$LAMBDA_FUNCTION" \
             --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
             --logical-id-prefix SvelteKitFn \
-            --region "$AWS_REGION"
+            --region "$AWS_REGION" \
+            --strict
 
       # Step 16: Rollback on failure — staging ECR の previous digest に戻す
       # (deploy.yml Phase 5b 同型。staging repo は maxImageCount:3 のため直近 2 世代まで戻せる)。

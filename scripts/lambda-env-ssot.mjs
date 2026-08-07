@@ -17,11 +17,18 @@
  *   集合の定義**として読み、deploy 時にしか決まらない値 (ORIGIN 等) を `--set` で上書きした
  *   完全な集合を出力する。**live env は値の引き継ぎにしか使わず、キー集合には influence させない**
  *   ため、SSOT 外のキーは出力に現れない (= 全上書きすれば消える)。
- * - `verify`: live env のキー集合が derive の出力と一致するかを検査する。差があれば exit 1。
- *   **出すのはキー名だけ**で、値は一切出力しない (CI ログは repo 参照者が読める)。
  *
- * 期待キーを手で列挙する実装は採らない (列挙は必ず腐る、PO 決裁 2026-08-07)。verify の許可リストは
- * derive の出力そのものであり、2 本目の SSOT を作らない。
+ * 期待キーを手で列挙する実装は採らない (列挙は必ず腐る、PO 決裁 2026-08-07)。望ましい集合は
+ * synth 出力そのものであり、2 本目の SSOT を作らない。
+ *
+ * ## 何をしないのか
+ *
+ * **deploy 後の「live のキー集合が SSOT と一致するか」の検査は本 script の担当ではない。**
+ * `scripts/check-lambda-env-drift.mjs` (deploy job の末尾、staging は `--strict`) が 1 本だけ担う。
+ * 判定を 2 本置くと基準が食い違った瞬間にどちらが正か決められなくなるうえ、あちらは
+ * `--query 'keys(Environment.Variables)'` を **AWS 側で**適用して秘密を runner に載せずに済ませる
+ * (本 script の verify は値ごと一時 file に落とす必要があった)。加えて prod (deploy.yml) も
+ * あちらを使うため、判定を直したときに片方が置き去りになる経路も作らない (#4352)。
  *
  * ## 使い方
  *
@@ -33,9 +40,6 @@
  *   --live-env /tmp/live-env.json \
  *   --set ORIGIN=https://example.cloudfront.net \
  *   --out /tmp/desired-env.json --keys-out /tmp/desired-keys.json
- *
- * # live env のキー集合が SSOT と一致するかを検査する (差があれば exit 1)
- * node scripts/lambda-env-ssot.mjs verify --expected /tmp/desired-keys.json --live /tmp/live-env.json
  * ```
  */
 
@@ -142,21 +146,6 @@ export function deriveDesiredEnv({ templateEnv, liveEnv = {}, overrides = {} }) 
 	return { desired, unresolvedKeys: unresolvedKeys.sort(), droppedKeys };
 }
 
-/**
- * live env のキー集合が SSOT と一致するかを検査する。**キー名しか扱わない**
- * (値を受け取る口を持たせると、いつか必ず秘密がログに出る)。
- *
- * @param {{ expectedKeys: string[], actualKeys: string[] }} args
- * @returns {{ ok: boolean, unexpected: string[], missing: string[] }}
- */
-export function verifyEnvKeys({ expectedKeys, actualKeys }) {
-	const expected = new Set(expectedKeys);
-	const actual = new Set(actualKeys);
-	const unexpected = [...actual].filter((k) => !expected.has(k)).sort();
-	const missing = [...expected].filter((k) => !actual.has(k)).sort();
-	return { ok: unexpected.length === 0 && missing.length === 0, unexpected, missing };
-}
-
 // --- CLI ---------------------------------------------------------------
 
 /** @param {string[]} argv */
@@ -165,13 +154,8 @@ function parseArgs(argv) {
 	const flags = {};
 	/** @type {Record<string, string>} */
 	const sets = {};
-	let keysOnly = false;
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i] ?? '';
-		if (arg === '--keys-only') {
-			keysOnly = true;
-			continue;
-		}
 		if (!arg.startsWith('--')) continue;
 		const name = arg.slice(2);
 		const value = argv[++i];
@@ -184,7 +168,7 @@ function parseArgs(argv) {
 			flags[name] = value;
 		}
 	}
-	return { flags, sets, keysOnly };
+	return { flags, sets };
 }
 
 /** @param {string} p */
@@ -192,30 +176,13 @@ function readJson(p) {
 	return JSON.parse(readFileSync(p, 'utf8'));
 }
 
-/** @param {unknown} parsed */
-function toKeys(parsed) {
-	if (Array.isArray(parsed)) return parsed.map(String);
-	if (parsed && typeof parsed === 'object') return Object.keys(parsed);
-	throw new Error(
-		'[lambda-env-ssot] キー集合として読めない JSON です (object か array を渡してください)',
-	);
-}
-
-function runDerive(/** @type {ReturnType<typeof parseArgs>} */ { flags, sets, keysOnly }) {
+function runDerive(/** @type {ReturnType<typeof parseArgs>} */ { flags, sets }) {
 	const templatePath = flags.template;
 	const functionName = flags['function-name'];
 	if (!templatePath || !functionName) {
 		throw new Error('[lambda-env-ssot] derive には --template と --function-name が必要です');
 	}
 	const templateEnv = readLambdaEnvFromTemplate(readJson(templatePath), functionName);
-
-	if (keysOnly) {
-		// (b) 単独運用: 値を一切扱わずキー集合だけを出す (intrinsic の解決も不要)。
-		const keys = Object.keys(templateEnv).sort();
-		if (flags['keys-out']) writeFileSync(flags['keys-out'], `${JSON.stringify(keys, null, 2)}\n`);
-		console.log(`[lambda-env-ssot] CDK SSOT のキー (${keys.length}): ${keys.join(' ')}`);
-		return;
-	}
 
 	const liveEnv = flags['live-env'] ? readJson(flags['live-env']) : {};
 	const { desired, unresolvedKeys, droppedKeys } = deriveDesiredEnv({
@@ -226,7 +193,6 @@ function runDerive(/** @type {ReturnType<typeof parseArgs>} */ { flags, sets, ke
 	const keys = Object.keys(desired).sort();
 
 	if (flags.out) writeFileSync(flags.out, `${JSON.stringify(desired, null, 2)}\n`);
-	if (flags['keys-out']) writeFileSync(flags['keys-out'], `${JSON.stringify(keys, null, 2)}\n`);
 
 	// **キー名だけを出す。** 値は出さない。
 	console.log(`[lambda-env-ssot] desired env keys (${keys.length}): ${keys.join(' ')}`);
@@ -243,41 +209,12 @@ function runDerive(/** @type {ReturnType<typeof parseArgs>} */ { flags, sets, ke
 	}
 }
 
-function runVerify(/** @type {ReturnType<typeof parseArgs>} */ { flags }) {
-	const expectedPath = flags.expected;
-	const livePath = flags.live;
-	if (!expectedPath || !livePath) {
-		throw new Error('[lambda-env-ssot] verify には --expected と --live が必要です');
-	}
-	const result = verifyEnvKeys({
-		expectedKeys: toKeys(readJson(expectedPath)),
-		actualKeys: toKeys(readJson(livePath)),
-	});
-	if (result.ok) {
-		console.log('[lambda-env-ssot] env キー集合は CDK SSOT と一致しています');
-		return;
-	}
-	if (result.unexpected.length > 0) {
-		console.error(
-			`::error::[lambda-env-ssot] IaC に無い env が Lambda に設定されています (${result.unexpected.length} 件): ${result.unexpected.join(' ')} (#4352。値は出力しません)`,
-		);
-	}
-	if (result.missing.length > 0) {
-		console.error(
-			`::error::[lambda-env-ssot] IaC にあるはずの env が Lambda にありません (${result.missing.length} 件): ${result.missing.join(' ')}`,
-		);
-	}
-	process.exitCode = 1;
-}
-
 function main() {
 	const [command, ...rest] = process.argv.slice(2);
 	const parsed = parseArgs(rest);
 	if (command === 'derive') return runDerive(parsed);
-	if (command === 'verify') return runVerify(parsed);
-	console.error(
-		'usage: lambda-env-ssot.mjs <derive|verify> [options]  (--help はソース冒頭を参照)',
-	);
+	// deploy 後の検査は scripts/check-lambda-env-drift.mjs が 1 本で担う (冒頭 §何をしないのか)。
+	console.error('usage: lambda-env-ssot.mjs derive [options]  (--help はソース冒頭を参照)');
 	process.exitCode = 2;
 }
 
