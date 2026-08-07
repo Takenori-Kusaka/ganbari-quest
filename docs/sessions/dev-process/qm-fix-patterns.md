@@ -27,7 +27,7 @@ gh api repos/Takenori-Kusaka/ganbari-quest/commits/<sha> --jq '.commit.message'
 | カテゴリ | 内容 |
 |---|---|
 | ADR 番号衝突 | 既存 ADR + burn 済番号（revert cycle）を含む全件確認。起票前に `docs/decisions/README.md` の active + archive 全件照合 |
-| ADR deprecation chain | ADR-0023→0031 / ADR-0009→0045 等、参照前に status 確認 |
+| ADR deprecation chain | 削除済 ADR 番号は再利用しない（例: 旧 ADR-0009 は ADR-0045 が内容を継承後に削除済）。参照前に `docs/decisions/README.md` で active / archive / 削除済を確認 |
 | `.github/copilot-instructions.md` 同期 | ADR 追加 / 変更時は同期必須 |
 | docs SSOT 原則違反 | docs 本体に変更履歴 / supersede / 経緯メタを混入させない（#2440） |
 | PR body 必須セクション欠落 | `.github/PR_TEMPLATE_SECTIONS.json` SSOT の全セクション（13 件）を `check-pr-body.mjs` 準拠で配置 |

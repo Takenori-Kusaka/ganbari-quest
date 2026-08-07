@@ -304,9 +304,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 
 #### 禁則 2: gate を修正する PR が、その gate に検査されないまま merge されない
 
-**gate を直す変更ほど、その gate 自身の検査を通す。** 直した gate が走らないまま入ると、「直したつもり」が本番まで届く。
-
-**実例**: `#4143` が「`check-lp-plan-sync` を hard-fail に戻す」を含むのに、**再武装した当の gate が統合 PR で一度も走っていなかった**（Draft ゆえ skip）。
+**gate を直す変更ほど、その gate 自身の検査を通す。** 直した gate が走らないまま入ると、「直したつもり」が本番まで届く。**Draft の間は required check が `skipping` になる**ため、gate を再武装する PR ほどこの形に落ちやすい。
 
 #### 禁則 3: 自分が append した修正を、独立検証なしに自分で承認しない
 

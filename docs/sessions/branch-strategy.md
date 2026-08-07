@@ -64,10 +64,10 @@ develop 二層では feature/fix/docs PR の base が `develop`（非 default br
   - `epic` label 付き tracking issue は従来どおり除外する（AC 未検証 force-close 防止）。
 - **個別 feature/fix PR の commit prefix では auto-close しない**。本リポジトリの commit 規約は conventional-commit prefix（`fix: #N` / `feat: #N` / `docs: #N`）で、コロンを挟む形は Issue **参照**であって closing keyword ではないため、develop merge / 個別 PR では auto-close は発火しない。
 - **統合 PR は含有 PR の close 宣言を集約し、main 反映で一括 auto-close する（#3423）**。`integration-pr-body.mjs`（pure function SSOT）が各含有 PR の `## 関連 Issue` section に書かれた `closes/fixes/resolves #N` を収集し、統合 PR（`release/* → main`）本文に `Closes #N` を集約する。merge commit が main に到達すると GitHub が該当 issue を auto-close し、close漏れ（fix は main 反映済だが issue が OPEN のまま）を構造的に防ぐ。集約は **`## 関連 Issue` section 内の行頭 closing keyword のみ**を対象とし、code fence / inline code / 否定文中の引用・本文中の参照（`#3133 (#3131 監査検出)` 等）は除外する（over-close 防止、#3444）。GitHub 許容形のコロン `Closes: #N` / 全角 `＃` も拾う。closing keyword の無い部分対応 PR（`関連: #N`）は閉じない（partial を尊重）。集約が空振りしないよう、develop 向け `type:feat` / `type:fix` PR には `pr-template-gate.yml` job 6（`closing keyword の記入 (feat/fix)`、#3458）が `## 関連 Issue` への closing keyword 記入を必須化する（issue を閉じない PR は `<!-- no-issue-close: 理由 -->` 宣言で skip。検出規約は同じ `extractClosedIssues` を共有し二重実装しない）。residual edge 3 件は #3462 で封鎖: conventional-commit prefix 行（`fix: #N subject…`、issue 番号後に subject テキストを伴うコロン形）は集約しない / `## 関連 Issue` 見出しは軽微な揺れ（前後空白・`##`〜`####` レベル差・「関連Issue」空白有無・末尾コロン）を正規化検出する（under-close 防止）/ **`epic` label 付き tracking issue は集約 `Closes` から除外**し統合 PR 本文に「(tracking, close 対象外)」と注記する（AC 未検証 force-close 防止。tracking issue の close は AC 検証のうえ手動で行う。除外一覧は `integration-pr.yml` が `gh issue list --label epic` で取得し `--tracking-issues` で script へ渡す）。
-- **統合 PR の一括 auto-close は issue-close-gate を素通りする**。`issue-close-gate.yml` は PR/commit keyword 経由の auto-close を skip するため（[.github/CLAUDE.md](../../.github/CLAUDE.md) §「issue-close-gate auto-reopen の挙動」）、統合 PR merge による一括 close で AC gate の reopen storm は起きない。
-- **close は例外パスでも行う**: wontfix / duplicate / PO 保留など意図的 close、および含有 PR が closing keyword を付け忘れた Issue の close は、Issue body の `- [x]` 化（証跡コメント付き）または `wontfix` / `duplicate` label で `issue-close-gate.yml` の AC 検証 gate を通す（ADR-0038 / [.github/CLAUDE.md](../../.github/CLAUDE.md) §「issue-close-gate auto-reopen の挙動」）。Issue body の `- [ ]` 残存で gate が reopen ループを起こすため、`- [x]` 化を先に済ませること。
+- **`issue-close-gate.yml`（手動 close 時の AC 検証 gate）は #4322 で削除済み**。以前は close 経路（auto-close / 手動 close）で挙動が分かれたが、現在は機械 gate が存在しないため経路によらず close 後の reopen は発生しない。
+- **close は例外パスでも行う**: wontfix / duplicate / PO 保留など意図的 close、および含有 PR が closing keyword を付け忘れた Issue の close は、Issue body の `- [x]` 化（証跡コメント付き）または `wontfix` / `duplicate` label を付けて手動で close する（機械 gate なし、目視で AC 未達がないか確認すること。ADR-0004 §4）。
 
-> 機械層の補足: `issue-close-gate.yml` が扱うのは「手動 close 時の AC 検証」であり、本節は「個別 PR の develop merge では auto-close が張られず、統合 PR の `Closes #N` 集約で main 反映時に一括 close する」という GitHub 仕様起因の運用方針を SSOT 化したもの（両者は別レイヤー）。
+> 補足: 本節は「個別 PR の develop merge では auto-close が張られず、統合 PR の `Closes #N` 集約で main 反映時に一括 close する」という GitHub 仕様起因の運用方針を SSOT 化したもの。手動 close 時の AC 検証機械 gate（旧 `issue-close-gate.yml`）は #4322 で削除されたため、現在は両者とも機械 gate なしで運用する。
 
 ### branch 作成・push 運用 SOP（refspec self-heal + 基点鮮度 + rebase、#2975 / #3009）
 
@@ -130,7 +130,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 ### 全 workflow の gate × lane 対応表（SSOT、#2948 / EPIC #2861 AC6）
 
-全 `.github/workflows/*.yml`（37 本）の lane 帰属・required 化・lane 分岐の網羅表。新規 workflow を追加する人はこの表に必ず 1 行追加する（差分検出 gate `scripts/check-internal-terms.mjs` の workflow-coverage group が「`.github/workflows/*.yml` 一覧 ⊆ 本表記載一覧」を機械検証し、未記載は CI fail、#2948 AC4）。
+全 `.github/workflows/*.yml`（32 本）の lane 帰属・required 化・lane 分岐の網羅表。新規 workflow を追加する人はこの表に必ず 1 行追加する。**旧 `scripts/check-internal-terms.mjs`（workflow-coverage group で本表との網羅一致を機械検証していた）は #4322 で削除済み**。現在この一致は機械強制されていないため、workflow 追加 / 削除時は本表を手動同期すること。
 
 > **2 つの不変原則（外部 research の結論を運用 SSOT 化、#2948 AC3）**:
 > 1. **required は trigger filter で skip 不可（permanent pending）** — required status check に登録した context は、`branches:` / `paths:` filter で workflow ごと skip すると GitHub 側で「報告されない = pending」のまま merge がブロックされる。required context を生む job は filter で消さず、**job 内で全 lane 実行 → 観点だけ切替** する（[GitHub Docs: Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)）。
@@ -153,13 +153,11 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | workflow | lane 帰属 | required context（★） | lane 分岐（A-1 SSOT 経由） | 重量/軽量 |
 |---|---|---|---|---|
 | `ci.yml` | feature+integration（`branches:[main,develop]`） | ★`ci-gate` | あり（inline `base_ref=='main' && (head_ref=='develop' \|\| startsWith(head_ref,'release/'))` = `pr-lane.mjs` rule 2 SSOT。重量 job を統合 PR で保証発火、develop PR で skip） | 軽量 job=軽量 / 重量 job=重量 |
-| `pr-template-gate.yml` | 全 PR lane（`branches` 無指定） | ★`必須セクションの存在確認` / ★`関連 Issue 番号の記入` / ★`変更タイプの選択` / ★`顧客価値・目的の記入` / ★`テスト実行結果の記入` / `closing keyword の記入 (feat/fix)`（6 job。closing keyword job は #3458 新設、required 化は ruleset 追加登録待ち） | あり（`uses: ./actions/pr-lane` → 各 job が `--lane`。feature/hotfix vs integration vs dependabot=skip 相当、#2944。closing keyword は feature×feat/fix のみ検証、integration=#3423 集約側 / hotfix=main 直接 auto-close で skip、#3458） | 軽量 |
+| `pr-template-gate.yml` | 全 PR lane（`branches` 無指定） | ★`必須セクションの存在確認` / ★`関連 Issue 番号の記入` / ★`顧客価値・目的の記入` / `変更タイプの選択` / `テスト実行結果の記入` / `closing keyword の記入 (feat/fix)`（6 job。`変更タイプの選択` / `テスト実行結果の記入` は ruleset 実測で required 対象から外れている。closing keyword job は #3458 新設、required 化は ruleset 追加登録待ち） | あり（`uses: ./actions/pr-lane` → 各 job が `--lane`。feature/hotfix vs integration vs dependabot=skip 相当、#2944。closing keyword は feature×feat/fix のみ検証、integration=#3423 集約側 / hotfix=main 直接 auto-close で skip、#3458） | 軽量 |
 | `pr-ac-verification-check.yml` | 全 PR lane | ★`Verify AC map in PR body` | あり（`uses: ./actions/pr-lane`。feature/hotfix=AC マップ 4 列 / integration=マージ判定エビデンス表、#2945） | 軽量 |
 | `pr-merge-gate.yml` | 全 PR lane | ★`PR チェックリスト完了確認` | あり（`uses: ./actions/pr-lane`。feature/hotfix=2 section / integration=統合用 section、#2945） | 軽量 |
 | `pr-quality-gate.yml` | 全 PR lane | ★`screenshot-check` | あり（`uses: ./actions/pr-lane`。feature/hotfix=before/after 4 スロット / integration=VR 3 層委譲、#2946） | 軽量 |
 | `lp-metrics.yml` | 全 PR lane（`paths:site/**`） | ★`Measure LP dimensions and lint forbidden terms`（`measure` job） | なし（lane 非依存。`paths` scope のみ。`cumulative-lp-metrics` は main merge 擬似累積） | 軽量 |
-| `lp-fallback-check.yml` | 全 PR lane（`paths` scope） | — | なし | 軽量 |
-| `check-pr-template-sections-sync.yml` | 全 PR lane（`paths` scope） | — | なし | 軽量 |
 | `orphan-check.yml` | 全 PR lane（`paths` scope）+ push[main] | — | なし | 軽量 |
 | `dependency-review.yml` | feature+integration（`branches:[main,develop]`、`paths` scope） | — | なし（develop/main 双方発火、軽量） | 軽量 |
 | `pr-info.yml` | feature+integration（`branches:[main,develop]`） | — | なし（`type-label` job は dependabot exempt） | 軽量 |
@@ -170,7 +168,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `lp-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip＝重量レーン、VR hard-fail） | 重量 |
 | `child-home-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip、VR warn） | 重量 |
 | `app-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip、VR warn） | 重量 |
-| `deploy-aws-staging.yml` | integration+hotfix（`branches:[main]` PR、paths filter 撤去で常時発火） | —（required 化は段階導入、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | なし（main 向け PR で発火、actor allowlist） | 重量 |
+| `deploy-aws-staging.yml` | integration+hotfix（`branches:[main]` PR、paths filter 撤去で常時発火） | ★`deploy-aws-staging`（ruleset 実測で required 化済み、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | なし（main 向け PR で発火、actor allowlist） | 重量 |
 | `deploy-nuc-staging.yml` | integration+hotfix（`branches:[main]` PR） | — | なし（actor allowlist） | 重量 |
 | `codeql.yml` | integration+hotfix（`branches:[main]` PR）+ push[main]+schedule | **— required 非該当（代替条件は下記「CodeQL の扱い」）** | なし（develop PR で skip、main 経路で coverage 維持、#2931） | 重量 |
 | `deploy.yml` | N/A（push[main] / tags / dispatch） | — | — | 本番 deploy |
@@ -179,8 +177,6 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `hotfix-back-merge.yml` | N/A（push[main] / dispatch、hotfix merge 契機の back-merge PR 自動発行） | — | なし（判定は `scripts/hotfix-back-merge.mjs` SSOT。発行する back-merge PR 自体は base=develop で軽量レーン = `pr-lane.mjs` rule 4） | 補助（§5 back-merge 機械強制、#2951） |
 | `integration-pr.yml` | N/A（schedule 週 2 回 / dispatch、develop→main 統合 PR を release PR パターンで自動発行・常時更新） | — | なし（本文生成は `scripts/integration-pr-body.mjs` SSOT。発行する統合 PR 自体は base=main + head=develop で integration レーン = `pr-lane.mjs` rule 2、上記 ci.yml 等の lane 分岐が観点切替する） | 補助（§2 統合 PR 自動発行、#2871） |
 | `integration-attest.yml` | N/A（push[main] / dispatch、統合 merge を契機に SARIF + in-toto Release predicate を Sigstore 署名し GH attestations API へ永続化） | — | なし（生成は `scripts/audit/to-sarif.mjs` / `scripts/audit/generate-release-predicate.mjs` SSOT。統合 merge でない push は no-op skip。deploy 系と needs 関係なし = 独立 job、attestation 失敗は deploy を阻害しない） | 補助（§3.5 マージ判定エビデンス永続化、#2876） |
-| `draft-on-ci-fail.yml` | N/A（`workflow_run`: CI 完了時） | — | — | 補助 |
-| `issue-close-gate.yml` | N/A（`issues: [closed]`） | — | — | 補助 |
 | `ac-audit-monthly.yml` | N/A（schedule / dispatch） | — | — | 定期監査 |
 | `admin-bypass-evidence.yml` | N/A（schedule hourly / dispatch） | — | — | 定期監査 |
 | `cost-audit.yml` | N/A（schedule monthly / dispatch） | — | — | 定期監査 |
@@ -188,9 +184,8 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `security-scan.yml` | N/A（schedule quarterly / dispatch） | — | — | 定期監査 |
 | `weekly-report.yml` | N/A（schedule weekly / dispatch） | — | — | 定期レポート |
 | `close-leak-report.yml` | N/A（schedule weekly / dispatch、main 反映済 open issue の close漏れ候補を job summary へ report。auto-close なし = `issues: read` のみ） | — | — | 定期レポート（#3459、検出 SSOT は `scripts/audit/close-leak-report.mjs`） |
-| `zenn-lint.yml` | N/A（push/PR `paths:docs/zenn/**`、lint 専用） | — | なし（docs/zenn のみ、lane 非依存） | 軽量（zenn 限定） |
 
-> **required context 数 = 10**（★ 印）。`gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945` の `required_status_checks` 配列（`ci-gate` / `screenshot-check` / `Verify AC map in PR body` / `Measure LP dimensions and lint forbidden terms` / `PR チェックリスト完了確認` / `必須セクションの存在確認` / `関連 Issue 番号の記入` / `変更タイプの選択` / `顧客価値・目的の記入` / `テスト実行結果の記入`）が真の SSOT。本表は「どの workflow がどの context を生むか」のマッピングであり、ruleset 変更時は本表も同期する（#2948 no-go: ruleset と乖離させない）。
+> **required context 数 = 9**（★ 印、2026-08-07 実測）。`gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945` の `required_status_checks` 配列（`ci-gate` / `screenshot-check` / `Verify AC map in PR body` / `Measure LP dimensions and lint forbidden terms` / `PR チェックリスト完了確認` / `必須セクションの存在確認` / `関連 Issue 番号の記入` / `顧客価値・目的の記入` / `deploy-aws-staging`）が真の SSOT。本表は「どの workflow がどの context を生むか」のマッピングであり、ruleset 変更時は本表も同期する（#2948 no-go: ruleset と乖離させない）。
 >
 > **A-2〜A-5 で lane-aware 化した required gate**: `pr-template-gate.yml`（6 job、#2944 / #3458）/ `pr-ac-verification-check.yml`（#2945）/ `pr-merge-gate.yml`（#2945）/ `pr-quality-gate.yml`（#2946）の 4 workflow（5+1+1+1 = 8 required context）が `actions/pr-lane` 経由で観点切替する。`dependabot-auto-merge.yml`（#2947）は `BOT_ACTORS` SSOT を参照（required ではないが bot lane 判定を共通化）。`ci.yml`（#2874）は inline 式で `pr-lane.mjs` rule 2 と同一判定を行い重量 job を統合 PR で保証発火する。
 
