@@ -32,6 +32,7 @@ import {
 	SUBSCRIPTION_STATUS,
 	type SubscriptionStatus,
 } from '$lib/domain/constants/subscription-status';
+import { addDaysJST } from '$lib/domain/date-utils';
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
@@ -86,9 +87,7 @@ export function daysBetween(a: string, b: string): number {
 
 function shiftDateOnly(date: string, offsetDays: number): string {
 	if (offsetDays === 0) return date;
-	const d = new Date(`${date}T00:00:00.000Z`);
-	d.setUTCDate(d.getUTCDate() + offsetDays);
-	return d.toISOString().slice(0, 10);
+	return addDaysJST(date, offsetDays);
 }
 
 function shiftIso(iso: string, offsetDays: number): string {

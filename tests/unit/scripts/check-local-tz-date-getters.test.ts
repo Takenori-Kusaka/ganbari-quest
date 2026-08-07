@@ -40,6 +40,7 @@ import {
 	isCommentLine,
 	NON_RUNTIME_PATTERNS,
 	SEARCH_ROOTS,
+	UTC_ANCHOR_PATTERNS,
 } from '../../../scripts/check-local-tz-date-getters.mjs';
 
 /** 違反 1 件を作るヘルパ */
@@ -75,10 +76,8 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		});
 
 		it.each([
-			// UTC getter は TZ 非依存
-			'const y = now.getUTCFullYear();',
-			'const d = now.getUTCDate();',
-			'd.setUTCDate(d.getUTCDate() + 7);',
+			// 瞬間そのものを扱う API (UTC getter は TZ 非依存だが #4120 で SSOT 逸脱として別途落ちる。
+			// 本 describe の対象は「TZ 依存か」の判定なので、下の #4120 describe 側で検査する)
 			'const t = now.getTime();',
 			'const iso = now.toISOString();',
 			// 数値 / Buffer の同名メソッド (曖昧メンバーの誤検知)
@@ -183,7 +182,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 		it('コード行のみを行番号 + kind 付きで返す', () => {
 			const content = [
 				'// getFullYear() の説明コメント',
-				'const a = now.getUTCFullYear();',
+				'const a = now.getTime();',
 				'const b = now.getFullYear();',
 			].join('\n');
 			const found = findOccurrencesInContent('src/x.ts', content);
@@ -286,6 +285,85 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 			const files = ALLOWLIST.map((e) => e.file);
 			expect(new Set(files).size).toBe(files.length);
 		});
+
+		it('kind=utc-anchor は宣言 path のみ (UTC を意図的に選べる場所を限定する)', () => {
+			for (const e of ALLOWLIST.filter((x) => x.kind === 'utc-anchor')) {
+				expect(UTC_ANCHOR_PATTERNS.some((p) => p.test(e.file))).toBe(true);
+			}
+		});
+
+		it('kind=utc-anchor は UTC 由来でない occurrence を許さない (宣言だけで TZ 依存を通さない)', () => {
+			const file = 'infra/lambda/health-check/index.ts';
+			expect(findAllowlistEntry(file)?.kind).toBe('utc-anchor');
+			const problems = findAllowlistIntegrityProblems(
+				groupByFile([occ(file, 9, 'const y = d.getFullYear();', 'tz-dependent-member')]),
+			).filter((p) => p.file === file);
+			expect(problems.map((p) => p.problem).join('\n')).toMatch(/utc-anchor/);
+		});
+	});
+
+	// ------------------------------------------------------------------
+	// #4120: 「暦を返す関数は 1 本だけ」— TZ 不変でも SSOT の外なら落とす
+	//
+	// #4015 / #4127 の検出は「プロセス TZ で結果が変わるか」だけを見ていたため、UTC 算術で
+	// 書けば第 2 実装をいくらでも作れた。以下は本 PR 以前に **実際に緑を通っていた** 書き方。
+	// ------------------------------------------------------------------
+	describe('#4120 SSOT 逸脱の検出 (TZ 不変でも date-utils の外なら落ちる)', () => {
+		it.each([
+			// 週頭の再実装 (stamp-card-service.getWeekRange の実物)
+			['const day = d.getUTCDay();', 'calendar-outside-ssot'],
+			['monday.setUTCDate(d.getUTCDate() + diffToMonday);', 'calendar-outside-ssot'],
+			// 暦日文字列の自前組み立て (child-challenge / plan-limit の実物)
+			[
+				`return \`\${dt.getUTCFullYear()}-\${String(dt.getUTCMonth() + 1).padStart(2, '0')}\`;`,
+				'calendar-outside-ssot',
+			],
+			['const dt = new Date(Date.UTC(y, m - 1, d));', 'calendar-outside-ssot'],
+			// jstHour の再実装 (checklist-service / notification-service の実物)
+			['const jstHour = (now.getUTCHours() + 9) % 24;', 'calendar-outside-ssot'],
+			// JST オフセットの再定義 (scripts/generate-version.ts の実物)
+			['const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);', 'jst-offset-redefined'],
+			['const t = new Date(Date.now() + 32400000);', 'jst-offset-redefined'],
+			// ISO timestamp を切って暦日にする形 (export-service / 履歴ページの実物)
+			["recordedDate: log.recordedAt.split('T')[0],", 'utc-calendar-slice'],
+			['const date = log.recordedAt.slice(0, 10);', 'utc-calendar-slice'],
+			['const month = row.paidAt.slice(0, 7);', 'utc-calendar-slice'],
+			['return iso.slice(0, 7);', 'utc-calendar-slice'],
+			['const d = child.createdAt.substring(0, 10);', 'utc-calendar-slice'],
+		])('検出する: %s', (line, kind) => {
+			expect(classifyLine(line)?.kind).toBe(kind);
+		});
+
+		it.each([
+			// 瞬間そのものを扱う API は暦要素を導出しない = 呼び出し側で自由に使える
+			'const t = now.getTime();',
+			'const iso = now.toISOString();',
+			'const ms = Date.parse(NOW) - n * 86_400_000;',
+			'const offset = d.getTimezoneOffset();',
+			// 受け手が既に暦日 (YYYY-MM-DD) なら UTC/JST の別が無い
+			'const yearMonth = date.slice(0, 7);',
+			'const y = todayDateJST().slice(0, 4);',
+			// JST SSOT 経由
+			'return addDaysJST(weekStart, -7);',
+			'const hour = jstHour();',
+			'const key = utcMonthKey(new Date(row.paidAt));',
+		])('検出しない: %s', (line) => {
+			expect(classifyLine(line)).toBeNull();
+		});
+
+		it('SSOT 逸脱を書いた file は allowlist に無ければ落ちる (no-silent-gap)', () => {
+			const content = [
+				'const JST_OFFSET = 9 * 60 * 60 * 1000;',
+				'export function myWeekStart(dateStr: string): string {',
+				`\tconst d = new Date(\`\${dateStr}T00:00:00Z\`);`,
+				'\tconst dow = d.getUTCDay();',
+				'\treturn dow === 0 ? dateStr : dateStr;',
+				'}',
+			].join('\n');
+			const found = findOccurrencesInContent('src/lib/server/services/rogue-service.ts', content);
+			expect(found.map((f) => f.kind)).toEqual(['jst-offset-redefined', 'calendar-outside-ssot']);
+			expect(evaluateOccurrences(found)[0]?.kind).toBe('not-allowlisted');
+		});
 	});
 	// #4120: 走査範囲そのものの網羅
 	//
@@ -302,7 +380,22 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 
 		/** 直下のディレクトリ名 (走査対象外の作業 dir は除く)。 */
 		function listSubdirectories(rel: string): string[] {
-			const IGNORED = new Set(['node_modules', '.git', '.svelte-kit', '.claude', 'coverage']);
+			// git 追跡外の作業 dir は「コード置き場」ではないため対象外。ローカルにだけ存在する
+			// dir (tmp/pr-bodies 等、Dev 手順で必ず作られる) で落ちると、CI では通るのに手元だけ
+			// 落ちる = 検査の意味が消える誤検知になる (#4120 で 2 度発生)。
+			const IGNORED = new Set([
+				'node_modules',
+				'.git',
+				'.svelte-kit',
+				'.claude',
+				'coverage',
+				'tmp',
+				'build',
+				'dist',
+				'test-results',
+				'playwright-report',
+				'graphify-out',
+			]);
 			return readdirSync(join(repoRoot, rel), { withFileTypes: true })
 				.filter((e) => e.isDirectory() && !e.name.startsWith('.') && !IGNORED.has(e.name))
 				.map((e) => e.name);

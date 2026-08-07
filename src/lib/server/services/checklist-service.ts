@@ -1,3 +1,4 @@
+import { jstDateToInstant, jstDayOfWeek, jstHour } from '$lib/domain/date-utils';
 import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/checklist-service.ts
 // チェックリスト サービス層
@@ -52,10 +53,9 @@ export const TIME_SLOT_ICONS: Record<TimeSlot, string> = {
  * あさ: 5:00-11:59, ひる: 12:00-16:59, よる: 17:00-4:59
  */
 export function getCurrentTimeSlot(): TimeSlot {
-	const now = new Date();
-	const jstHour = (now.getUTCHours() + 9) % 24;
-	if (jstHour >= 5 && jstHour < 12) return 'morning';
-	if (jstHour >= 12 && jstHour < 17) return 'afternoon';
+	const hour = jstHour();
+	if (hour >= 5 && hour < 12) return 'morning';
+	if (hour >= 12 && hour < 17) return 'afternoon';
 	return 'evening';
 }
 
@@ -90,8 +90,7 @@ export interface TodayChecklist {
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'] as const;
 
 function getDayOfWeek(dateStr: string): string {
-	const d = new Date(`${dateStr}T00:00:00Z`);
-	return DAY_NAMES[d.getUTCDay()] as string;
+	return DAY_NAMES[jstDayOfWeek(jstDateToInstant(dateStr))] as string;
 }
 
 // ============================================================

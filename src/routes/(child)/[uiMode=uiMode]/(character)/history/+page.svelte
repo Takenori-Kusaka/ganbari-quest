@@ -1,6 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
-import { jstDayOfWeek, toJSTDateString } from '$lib/domain/date-utils';
+import { jstDateOfIso, jstDayOfWeek, toJSTDateString } from '$lib/domain/date-utils';
 import { asCategoryId } from '$lib/domain/ids';
 import { APP_LABELS, getMilestoneLabel, UI_LABELS } from '$lib/domain/labels';
 import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
@@ -59,7 +59,7 @@ function handlePeriodChange(details: { value: string }) {
 const logsByDate = $derived(() => {
 	const groups: Record<string, typeof data.logs> = {};
 	for (const log of data.logs) {
-		const date = log.recordedAt.slice(0, 10);
+		const date = jstDateOfIso(log.recordedAt);
 		if (!groups[date]) groups[date] = [];
 		groups[date]?.push(log);
 	}

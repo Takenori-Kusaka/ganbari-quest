@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import {
 	addDaysJST,
+	jstDateOfIso,
 	monthEndJST,
 	monthStartJST,
 	weekEndJST,
@@ -133,7 +134,7 @@ export async function getRankingTrend(tenantId: string, numWeeks = 4): Promise<R
 	const weeks: WeeklyTrendEntry[] = weekBoundaries.map((wb) => {
 		const childCounts = allChildLogs.map(({ child, logs }) => {
 			const count = logs.filter((log) => {
-				const d = typeof log.recordedAt === 'string' ? log.recordedAt.slice(0, 10) : '';
+				const d = typeof log.recordedAt === 'string' ? jstDateOfIso(log.recordedAt) : '';
 				return d >= wb.weekStart && d <= wb.weekEnd;
 			}).length;
 			return { childId: child.id, childName: child.nickname, count };

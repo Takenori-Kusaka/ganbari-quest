@@ -1,3 +1,4 @@
+import { jstDateOfIso } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
 
@@ -408,7 +409,7 @@ async function collectForChild(
 		points: log.points,
 		streakDays: log.streakDays,
 		streakBonus: log.streakBonus,
-		recordedDate: log.recordedAt.split('T')[0] ?? log.recordedAt,
+		recordedDate: log.recordedAt ? jstDateOfIso(log.recordedAt) : log.recordedAt,
 		recordedAt: log.recordedAt,
 		cancelled: false,
 	}));

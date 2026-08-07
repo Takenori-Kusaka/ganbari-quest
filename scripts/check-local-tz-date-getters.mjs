@@ -279,15 +279,78 @@ export const TZ_DEPENDENT_MEMBER_CALL = buildTzDependentMemberRegex();
 export const UTC_CALENDAR_SLICE =
 	/\.(toISOString|toJSON)\s*\(\s*\)\s*\.\s*(slice|substring|substr|split)\s*\(/;
 
+/**
+ * **暦の再実装** — `date-utils.ts` の外で暦要素を取り出す / 組み立てる形 (#4120)。
+ *
+ * ## なぜ TZ 依存でないものまで落とすのか
+ *
+ * EPIC #4120 の完了の定義は「**暦日・週頭・月境界を返す関数が 1 本だけ存在**し、それ以外の
+ * 経路が fitness function で検出される」。#4015 / #4127 の検出は「プロセス TZ で結果が変わるか」
+ * だけを見ていたため、**UTC 算術で書けば何本でも第 2 実装を作れた**。実測 (#4120):
+ *
+ *   - `stamp-card-service.getWeekRange()` — `weekStartJST` と同一ロジック (`-6` / `1-dow` 分岐まで一致)
+ *   - `child-challenge-service.getLastWeekStart()` / `weekEndOf()` — `addDaysJST` の再実装
+ *   - `checklist-service` / `notification-service` — `(getUTCHours() + 9) % 24` = `jstHour` の再実装
+ *   - `cohort-analysis` / `ops-analytics` — 同一の月キー実装が 2 本 (どちらも「月境界 SSOT」を自称)
+ *
+ * いずれも値は正しい。正しいまま **SSOT が複数ある**ことが欠陥であり、次に暦の規則を変える人が
+ * 全部を直せない。そこで「`Date` から暦要素 (年 / 月 / 日 / 曜日 / 時) を取り出す・組み立てる計算は
+ * `date-utils.ts` の中だけ」を不変条件とし、外に出た時点で落とす。
+ *
+ * 瞬間そのものを扱う API (`getTime` / `setTime` / `toISOString` / `valueOf` / `toJSON` /
+ * `getTimezoneOffset`) は暦要素を導出しないため対象外 = 呼び出し側で自由に使える。
+ *
+ * ## 意図的に検出しないもの (no-silent-gap)
+ *
+ *   - `` `${dateStr}T00:00:00+09:00` `` 等の **JST 境界 instant の文字列組み立て**、および SQL 側の
+ *     `AT TIME ZONE 'Asia/Tokyo'`。これらは暦要素の導出ではなく「JST 境界を SQL / Date に渡す」形で、
+ *     置換先 (`jstDayStartUtcIso`) はあるが SQL 層には適用できない。検出対象に含めると
+ *     「SQL だから」という自由文の除外を量産することになるため、本 gate の対象外と明示する
+ *   - `` `${year}-${String(month).padStart(2, '0')}` `` のように **数値の年 / 月から**キーを組む形。
+ *     実時刻からの導出ではない (入力が既に暦要素) ため本クラスに属さない
+ */
+export const CALENDAR_OUTSIDE_SSOT =
+	/\.(get|set)UTC(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)\s*\(|\bDate\s*\.\s*UTC\s*\(/;
+
+/**
+ * JST オフセットの再定義 (#4120)。
+ * `new Date(now.getTime() + 9 * 60 * 60 * 1000)` は `toJSTDateString()` の手動再実装であり、
+ * JST の定義が `date-utils.ts` の 1 箇所に無い状態を作る。
+ */
+export const JST_OFFSET_REDEFINED =
+	/\b9\s*\*\s*60\s*\*\s*60\s*\*\s*1000\b|\b9\s*\*\s*3600\s*\*\s*1000\b|\b540\s*\*\s*60\s*\*\s*1000\b|\b32400000\b/;
+
+/**
+ * **ISO timestamp を切って暦日にする形** (#4120)。
+ *
+ * `UTC_CALENDAR_SLICE` は `.toISOString().slice(0, 10)` の **直結**しか見ないため、
+ * 一度変数に入った ISO 文字列 (DB の `createdAt` / `recordedAt` / `paidAt` 等) を切る形は
+ * 素通りしていた。値は `.toISOString().slice()` と同じ **UTC の暦日**で、JST 00:00〜09:00 に
+ * 記録された行を前日に落とす。実測 (#4120) で顧客に見える経路に残っていた:
+ *
+ *   - `export-service` — バックアップに書き出す `recordedDate` が UTC 暦日
+ *   - `sibling-ranking-service` — 週バケット判定が UTC 暦日で、JST 週境界と 9 時間ずれる
+ *   - 子供の履歴ページ — 日付見出しのグルーピング鍵が UTC 暦日
+ *
+ * 受け手は **ISO timestamp を示す命名** (`〜At` / `〜Iso` / `〜Timestamp` / `iso`) に限定する。
+ * `dateStr.slice(0, 7)` のように受け手が既に暦日 (YYYY-MM-DD) の場合は UTC/JST の別が無く
+ * 欠陥ではないため対象にしない (置換先として `monthKeyOfDate()` はあるが強制はしない)。
+ */
+export const ISO_STRING_CALENDAR_SLICE =
+	/\b(?:[A-Za-z_$][\w$]*\.)*(?:[A-Za-z_$][\w$]*(?:At|Iso|Timestamp)|iso)\s*\.\s*(?:(?:slice|substring)\s*\(\s*0\s*,\s*(?:10|7)\s*\)|split\s*\(\s*['"]T['"]\s*\))/;
+
 /** `Intl.DateTimeFormat` の生成 (timeZone 指定が無ければプロセス TZ 依存) */
 export const INTL_DATE_TIME_FORMAT = /\bIntl\s*\.\s*DateTimeFormat\s*\(/;
 
 /** 同一行に `timeZone` オプションがあるか (構造判定による免除) */
 export const HAS_EXPLICIT_TIME_ZONE = /\btimeZone\s*:/;
 
-/** 「N 日後の絶対時刻」生成 (`d.setDate(d.getDate() + 7)` 形) — kind: instant-offset の機械検査に使う */
+/**
+ * 「N 日後の絶対時刻」生成 (`d.setDate(d.getDate() + 7)` / `d.setUTCDate(d.getUTCDate() + 7)` 形)
+ * — kind: instant-offset の機械検査に使う。
+ */
 export const INSTANT_OFFSET_PATTERN =
-	/\.set(FullYear|Month|Date|Hours|Minutes|Seconds|Milliseconds)\s*\(\s*[\w.[\]]+\.get\1\s*\(\s*\)\s*[+-]/;
+	/\.set(UTC)?(FullYear|Month|Date|Hours|Minutes|Seconds|Milliseconds)\s*\(\s*[\w.[\]]+\.get\1\2\s*\(\s*\)\s*[+-]/;
 
 /** `kind: 'non-runtime'` を名乗れる path (顧客に見える値を作らない場所) */
 export const NON_RUNTIME_PATTERNS = [
@@ -297,8 +360,17 @@ export const NON_RUNTIME_PATTERNS = [
 	/^src\/lib\/server\/debug-plan\.ts$/,
 ];
 
+/**
+ * `kind: 'utc-anchor'` を名乗れる path (#4120)。
+ *
+ * 「顧客の暦 (JST) ではなく **UTC の暦を意図的にアンカーにしている**」場所。現状は ops の
+ * 週次ヘルスチェック集計のみ (`$lib` を import できない Lambda 単体 bundle であり、SSOT に
+ * 寄せられない)。顧客に見える日付をここで作らないことが前提。
+ */
+export const UTC_ANCHOR_PATTERNS = [/^infra\/lambda\//];
+
 /** allowlist entry が取りうる kind */
-export const ALLOWLIST_KINDS = ['ssot', 'tz-proof', 'instant-offset', 'non-runtime'];
+export const ALLOWLIST_KINDS = ['ssot', 'tz-proof', 'instant-offset', 'non-runtime', 'utc-anchor'];
 
 /**
  * allowlist。
@@ -311,10 +383,10 @@ export const ALLOWLIST_KINDS = ['ssot', 'tz-proof', 'instant-offset', 'non-runti
 export const ALLOWLIST = [
 	{
 		file: 'src/lib/domain/date-utils.ts',
-		max: 5,
+		max: 16,
 		kind: 'ssot',
 		reason:
-			'JST SSOT の実装本体。UTC 算術 + toISOString で JST 暦日を組み立てる唯一の場所であり、ここが違反を持つのは定義上正しい',
+			'JST SSOT の実装本体。JST オフセット定義 + UTC 算術 + toISOString で暦日を組み立てる唯一の場所であり、ここが違反を持つのは定義上正しい',
 	},
 	{
 		file: 'src/lib/server/services/grace-period-service.ts',
@@ -347,10 +419,11 @@ export const ALLOWLIST = [
 		reason: 'Storybook の fixture 生成 (「N ヶ月前生まれ」等の相対誕生日)。本番ビルドに含まれない',
 	},
 	{
-		file: 'src/lib/server/demo/demo-data.ts',
-		max: 5,
-		kind: 'non-runtime',
-		reason: 'デモ fixture の相対日付生成。顧客テナントのデータを作らない',
+		file: 'infra/lambda/health-check/index.ts',
+		max: 6,
+		kind: 'utc-anchor',
+		reason:
+			'ops 週次ヘルスチェック集計。週の起点を **UTC 日曜 00:00** (= JST 月曜 09:00) と定義し、SSM に UTC 暦日で記録する。顧客に見える日付を作らず、$lib を import できない Lambda 単体 bundle のため SSOT に寄せられない',
 	},
 	{
 		file: 'src/lib/server/demo/synthetic-staging-dataset.ts',
@@ -390,6 +463,12 @@ export const ALLOWLIST = [
 		reason: 'SS 撮影用の相対日付 fixture (撮影道具)',
 	},
 	{
+		file: 'scripts/collect-integration-prs.mjs',
+		max: 2,
+		kind: 'non-runtime',
+		reason: '統合 PR 収集の git log 検索範囲 (CI 道具)',
+	},
+	{
 		file: 'scripts/capture.mjs',
 		max: 1,
 		kind: 'non-runtime',
@@ -400,12 +479,6 @@ export const ALLOWLIST = [
 		max: 1,
 		kind: 'non-runtime',
 		reason: 'sitemap の lastmod (W3C 日付、UTC で妥当)',
-	},
-	{
-		file: 'scripts/generate-version.ts',
-		max: 1,
-		kind: 'non-runtime',
-		reason: 'ビルド版数の日付部 (JST 補正済の Date を文字列化している)',
 	},
 	{
 		file: 'scripts/security-findings-to-issues.mjs',
@@ -443,7 +516,7 @@ export function findAllowlistEntry(relPath) {
  * 「理由が書いてあるだけ」で通る除外を作らないための中核。`occurrencesByFile` を渡すと
  * `instant-offset` の構造検査 (全違反行が `setX(getX() ± n)` か) まで行う。
  *
- * @param {Map<string, Array<{file: string, line: number, snippet: string}>>} [occurrencesByFile]
+ * @param {Map<string, Array<{file: string, line: number, snippet: string, kind?: string}>>} [occurrencesByFile]
  * @returns {Array<{file: string, problem: string}>} 問題のある entry (空なら健全)
  */
 export function findAllowlistIntegrityProblems(occurrencesByFile = new Map()) {
@@ -498,6 +571,25 @@ export function findAllowlistIntegrityProblems(occurrencesByFile = new Map()) {
 					'違反が 0 件になっています。修正済なら本 entry を削除してください (stale allowlist)',
 			});
 		}
+		if (e.kind === 'utc-anchor') {
+			if (!UTC_ANCHOR_PATTERNS.some((p) => p.test(e.file))) {
+				problems.push({
+					file: e.file,
+					problem: "kind='utc-anchor' を名乗れる path ではありません (UTC_ANCHOR_PATTERNS 参照)",
+				});
+			}
+			// 「UTC を意図的に選んでいる」以上、プロセス TZ 依存が混じっていてはならない。
+			// 自由文の宣言ではなく occurrence の kind で構造的に検査する。
+			const tzDependent = (occurrencesByFile.get(e.file) ?? []).filter(
+				(o) => o.kind !== 'calendar-outside-ssot',
+			);
+			for (const o of tzDependent) {
+				problems.push({
+					file: e.file,
+					problem: `kind='utc-anchor' だが L${o.line} が UTC 由来ではありません [${o.kind}]: ${o.snippet}`,
+				});
+			}
+		}
 		if (e.kind === 'instant-offset') {
 			const occurrences = occurrencesByFile.get(e.file) ?? [];
 			const offenders = occurrences.filter((o) => !INSTANT_OFFSET_PATTERN.test(o.snippet));
@@ -535,11 +627,14 @@ export function isCommentLine(line) {
  *
  * @param {string} line
  * @param {string} [lookahead] 続く数行を連結したもの (option object の続き)
- * @returns {{kind: 'tz-dependent-member'|'utc-calendar-slice'|'implicit-locale-tz'} | null}
+ * @returns {{kind: 'tz-dependent-member'|'utc-calendar-slice'|'implicit-locale-tz'|'calendar-outside-ssot'|'jst-offset-redefined'} | null}
  */
 export function classifyLine(line, lookahead = '') {
 	if (isCommentLine(line)) return null;
+	if (JST_OFFSET_REDEFINED.test(line)) return { kind: 'jst-offset-redefined' };
 	if (UTC_CALENDAR_SLICE.test(line)) return { kind: 'utc-calendar-slice' };
+	if (ISO_STRING_CALENDAR_SLICE.test(line)) return { kind: 'utc-calendar-slice' };
+	if (CALENDAR_OUTSIDE_SSOT.test(line)) return { kind: 'calendar-outside-ssot' };
 	const hasTimeZone = HAS_EXPLICIT_TIME_ZONE.test(line) || HAS_EXPLICIT_TIME_ZONE.test(lookahead);
 	if (INTL_DATE_TIME_FORMAT.test(line) && !hasTimeZone) return { kind: 'implicit-locale-tz' };
 	if (DATE_RECEIVER_AMBIGUOUS_CALL.test(line) && !hasTimeZone)

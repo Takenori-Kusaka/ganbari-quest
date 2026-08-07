@@ -166,6 +166,48 @@ describe('deletion-export-service', () => {
 			expect(result.activitySummary[0]?.categories[1]?.name).toBe('べんきょう');
 		});
 
+		// #4120: 退会時に顧客へ手渡す日付は JST 暦日。createdAt (ISO UTC) を素朴に
+		// slice(0, 10) すると JST 00:00〜09:00 に作られた子供が前日として書き出され、
+		// 削除受領証 / retention 監査との突き合わせで 1 日食い違う (ADR-0049 / GDPR 第 15 条)。
+		// **注意 (QM #4412 レビュー)**: `firstRecordDate` に入るのは `child.createdAt`
+		// (子供の登録日) であって「最初の記録日」ではない。`lastRecordDate` は常に null
+		// (`deletion-export-service.ts:137-138`)。本 test が固定するのは **暦日の timezone だけ**で、
+		// フィールドの意味が正しいことは固定していない。test 名で意味まで保証したことにすると、
+		// 顧客へ手渡す成果物 (ADR-0049 / GDPR 第 15 条) の誤った意味を回帰テストで追認してしまう。
+		// フィールド名と中身の不一致は本 PR の scope 外 — 別途是正が要る。
+		it('firstRecordDate (実体は登録日) が JST 暦日で書き出される (UTC 暦日と割れる 9 時間の窓)', async () => {
+			mockFindAllChildren.mockResolvedValue([
+				{
+					id: '1',
+					nickname: 'たろう',
+					age: 6,
+					uiMode: 'elementary',
+					// UTC 2026-07-31 15:10 = JST 2026-08-01 00:10
+					createdAt: '2026-07-31T15:10:00.000Z',
+				},
+			]);
+			mockFindStatuses.mockResolvedValue([]);
+			mockFindActivityLogs.mockResolvedValue([]);
+
+			const result = await generateMinimalExport('tenant-1');
+
+			expect(result.activitySummary[0]?.firstRecordDate).toBe('2026-08-01');
+			// UTC 暦日 (素朴な slice) なら前日になる = 本 assert は UTC 実装で必ず落ちる
+			expect(result.activitySummary[0]?.firstRecordDate).not.toBe('2026-07-31');
+		});
+
+		it('createdAt が無い子供の firstRecordDate は null', async () => {
+			mockFindAllChildren.mockResolvedValue([
+				{ id: '1', nickname: 'たろう', age: 6, uiMode: 'elementary', createdAt: null },
+			]);
+			mockFindStatuses.mockResolvedValue([]);
+			mockFindActivityLogs.mockResolvedValue([]);
+
+			const result = await generateMinimalExport('tenant-1');
+
+			expect(result.activitySummary[0]?.firstRecordDate).toBeNull();
+		});
+
 		it('子供がいない場合も空の結果を返す', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
 

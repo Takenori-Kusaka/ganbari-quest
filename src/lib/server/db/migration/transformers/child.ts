@@ -5,6 +5,7 @@
 // V2: displayConfig, birthdayBonusMultiplier, lastBirthdayBonusYear のデフォルト保証
 // V3: UiMode コード名変更 + 年齢ベース再割り当て (#537)
 
+import { calculateAgeFromBirthDate, jstDateToInstant } from '$lib/domain/date-utils';
 import { SCHEMA_VERSION_FIELD, type SchemaTransformer } from '../types';
 
 /**
@@ -35,15 +36,10 @@ export const childV1toV2: SchemaTransformer = {
  */
 function calculateAge(birthDate: string | null | undefined): number | null {
 	if (!birthDate || typeof birthDate !== 'string') return null;
-	const birth = new Date(`${birthDate}T00:00:00Z`);
-	if (Number.isNaN(birth.getTime())) return null;
-	const now = new Date();
-	let age = now.getUTCFullYear() - birth.getUTCFullYear();
-	const monthDiff = now.getUTCMonth() - birth.getUTCMonth();
-	if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < birth.getUTCDate())) {
-		age--;
-	}
-	return age;
+	if (Number.isNaN(jstDateToInstant(birthDate).getTime())) return null;
+	// #4120: 年齢の暦計算は JST SSOT に委譲する (旧実装は UTC 暦で、誕生日当日の
+	// JST 00:00〜09:00 に 1 歳低く出ていた)。
+	return calculateAgeFromBirthDate(birthDate);
 }
 
 /**

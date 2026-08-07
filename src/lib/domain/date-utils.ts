@@ -70,6 +70,17 @@ export function todayDateJST(): string {
 	return toJSTDateString(new Date());
 }
 
+/**
+ * JST 暦日 (YYYY-MM-DD) を「その日を指す瞬間」として Date に戻す (#4120)。
+ *
+ * 暦日文字列を起点に暦計算したい呼び出し側が、各所で
+ * ``new Date(`${dateStr}T00:00:00Z`)`` と書いて自前の暦算術を始めるのを止めるための入口。
+ * 返す瞬間は JST 09:00 (= UTC 00:00) なので `toJSTDateString()` に通すと元の暦日に戻る。
+ */
+export function jstDateToInstant(dateStr: string): Date {
+	return new Date(`${dateStr}T00:00:00Z`);
+}
+
 /** 任意のDateをJSTのYYYY-MM-DD形式に変換 */
 export function toJSTDateString(date: Date): string {
 	const jst = new Date(date.getTime() + JST_OFFSET_MS);
@@ -110,6 +121,25 @@ export function jstDayOfWeek(date: Date = new Date()): number {
  */
 export function jstHour(date: Date = new Date()): number {
 	return new Date(date.getTime() + JST_OFFSET_MS).getUTCHours();
+}
+
+/**
+ * JST 基準の「その日の 0:00 からの経過分」(0-1439) を返す (#4120)。
+ * `(date.getUTCHours() + 9) % 24 * 60 + date.getUTCMinutes()` を手書きする経路の置換先。
+ */
+export function jstMinuteOfDay(date: Date = new Date()): number {
+	const jst = new Date(date.getTime() + JST_OFFSET_MS);
+	return jst.getUTCHours() * 60 + jst.getUTCMinutes();
+}
+
+/**
+ * ISO timestamp 文字列 (DB の createdAt / recordedAt 等、UTC) の **JST 暦日**を返す (#4120)。
+ *
+ * `log.recordedAt.slice(0, 10)` / `.split('T')[0]` は **UTC の暦日**であり、
+ * JST 00:00〜09:00 に記録された行を前日に落とす。文字列を切るのではなく本関数を通す。
+ */
+export function jstDateOfIso(isoTimestamp: string): string {
+	return toJSTDateString(new Date(isoTimestamp));
 }
 
 /**
@@ -161,6 +191,30 @@ export function isInJstMonth(isoTimestamp: string | null | undefined, monthKey: 
 	const d = new Date(isoTimestamp);
 	if (Number.isNaN(d.getTime())) return false;
 	return monthKeyJST(d) === monthKey;
+}
+
+/**
+ * 暦日 (YYYY-MM-DD) の月キー (YYYY-MM) を返す (#4120)。
+ * `date.slice(0, 7)` を各所で書く経路の置換先 (入力が既に JST 暦日なので基準は JST)。
+ */
+export function monthKeyOfDate(dateStr: string): string {
+	return dateStr.slice(0, 7);
+}
+
+/** 月キー (YYYY-MM) の日数を返す (28-31)。うるう年も UTC 算術で正しく扱う。 */
+export function daysInMonthOfKey(monthKey: string): number {
+	return Number(monthEndOfKey(monthKey).slice(8));
+}
+
+/**
+ * **UTC 基準**の月キー (YYYY-MM) を返す (#4120)。
+ *
+ * 顧客に見える暦は JST (`monthKeyJST`) が既定。本関数は **鍵が ISO UTC 文字列そのもの**である
+ * ops 集計 (cohort / acquisition) が、鍵と月バケットの基準を一致させるために使う (#3449)。
+ * どちらの基準を採るかを呼び出し側の手書き実装で分岐させず、SSOT 内の明示 API として持つ。
+ */
+export function utcMonthKey(date: Date): string {
+	return date.toISOString().slice(0, 7);
 }
 
 /** JST 基準で「その月の 1 日」を YYYY-MM-DD で返す */
@@ -223,6 +277,25 @@ export function weekStartJST(date: Date = new Date()): string {
  */
 export function weekEndJST(date: Date = new Date()): string {
 	return addDaysJST(weekStartJST(date), 6);
+}
+
+/**
+ * 暦日 (YYYY-MM-DD) が属する週の月曜を YYYY-MM-DD で返す (#4120)。
+ * 暦日文字列を起点に週頭を出す経路 (スタンプカード等) の置換先。
+ */
+export function weekStartOfDateJST(dateStr: string): string {
+	return weekStartJST(jstDateToInstant(dateStr));
+}
+
+/** 暦日 (YYYY-MM-DD) が属する週の日曜を YYYY-MM-DD で返す (`weekStartOfDateJST` と対)。 */
+export function weekEndOfDateJST(dateStr: string): string {
+	return addDaysJST(weekStartOfDateJST(dateStr), 6);
+}
+
+/** 暦日 (YYYY-MM-DD) 2 点間の日数差 (`to` - `from`)。暦日基準なので TZ に依存しない。 */
+export function daysBetweenJST(from: string, to: string): number {
+	const ms = jstDateToInstant(to).getTime() - jstDateToInstant(from).getTime();
+	return Math.round(ms / 86_400_000);
 }
 
 /**

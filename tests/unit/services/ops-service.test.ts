@@ -253,23 +253,28 @@ describe('generateSalesLedgerCsv', () => {
 		expect(dataLine).toContain('123456789012...');
 	});
 
-	it('paidAt から日付部分(YYYY-MM-DD)を抽出する', () => {
-		const invoices: InvoiceRow[] = [
-			{
-				id: 'inv_d',
-				customerId: 'cus_test',
-				customerEmail: '',
-				amount: 200,
-				stripeFee: 0,
-				paidAt: '2026-12-25T23:59:59Z',
-				planDescription: 'plan',
-			},
-		];
+	// #4120: 売上台帳は日本の事業の帳簿なので計上日は JST 暦日。
+	// 旧実装は paidAt.slice(0, 10) = UTC 暦日で、JST 00:00〜09:00 に決済された分が
+	// 前日 (年末なら前年) に計上されていた。
+	it('paidAt から日付部分(YYYY-MM-DD)を JST 暦日で抽出する', () => {
+		const row = (id: string, paidAt: string): InvoiceRow => ({
+			id,
+			customerId: 'cus_test',
+			customerEmail: '',
+			amount: 200,
+			stripeFee: 0,
+			paidAt,
+			planDescription: 'plan',
+		});
 
-		const csv = generateSalesLedgerCsv(invoices);
-		const lines = csv.split('\n');
-
-		expect(lines[1] ?? '').toMatch(/^2026-12-25,/);
+		// UTC 2026-12-25 23:59 = JST 2026-12-26 08:59 → JST 暦日は 12-26
+		expect(
+			generateSalesLedgerCsv([row('inv_d', '2026-12-25T23:59:59Z')]).split('\n')[1] ?? '',
+		).toMatch(/^2026-12-26,/);
+		// UTC 2026-12-25 12:00 = JST 21:00 → 同日
+		expect(
+			generateSalesLedgerCsv([row('inv_e', '2026-12-25T12:00:00Z')]).split('\n')[1] ?? '',
+		).toMatch(/^2026-12-25,/);
 	});
 
 	it('paidAt が空の場合、日付欄は空文字になる', () => {

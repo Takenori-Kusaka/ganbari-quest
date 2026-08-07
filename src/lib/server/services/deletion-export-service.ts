@@ -6,6 +6,7 @@
 // - standard: フルエクスポート（活動ログ全件、スタンプカード、特別報酬、メッセージ）
 // - family:   上記 + きょうだい比較データ
 
+import { jstDateOfIso } from '$lib/domain/date-utils';
 import type { ExportData } from '$lib/domain/export-format';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import { getRepos } from '$lib/server/db/factory';
@@ -133,7 +134,7 @@ export async function generateMinimalExport(tenantId: string): Promise<MinimalEx
 			totalActivities: childLogs.length,
 			totalPoints,
 			categories,
-			firstRecordDate: child.createdAt.split('T')[0] ?? null,
+			firstRecordDate: child.createdAt ? jstDateOfIso(child.createdAt) : null,
 			lastRecordDate: null, // サマリレベルでは最終記録日は省略
 		});
 	}
