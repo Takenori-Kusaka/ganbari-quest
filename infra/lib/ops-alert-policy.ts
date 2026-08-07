@@ -92,6 +92,11 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'log MetricFilter 由来で平常時はデータ点が無く、#4363 で観測経路自体を新設したばかりで実発火の実績がゼロ。まず本番で 1 サイクル観測してから昇格判断する。§5.2.9 T4 (認証失敗・不審ログインの観測) は「戻す判断」自体が人手の再評価であり、鳴った時点で運営者が CloudWatch console から状況を確認したうえで OPS_MFA_REQUIRED を戻すか判断する運用を先に確立する',
 	},
+	'ganbari-quest-ai-provider-unavailable': {
+		notify: false,
+		reason:
+			'log MetricFilter 由来で平常時はデータ点が無く、観測経路を本 PR で新設したばかりで実発火の実績がゼロ。まず本番で 1 サイクル観測してから昇格判断する。なお顧客側には「システム側の問題で運営に通知済み」と表示するため、昇格前でも CloudWatch console でこの alarm を確認すれば AI 不達に気付ける状態は成立している',
+	},
 	'ganbari-quest-static-assets-s3-4xx': {
 		notify: false,
 		reason: 'S3 origin offload 有効時のみ生成される。offload 自体が本番未適用で実績ゼロ',

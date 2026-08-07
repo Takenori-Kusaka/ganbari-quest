@@ -89,6 +89,19 @@ export const OPS_ACCESS_DENIED_LOG_TERM = '[auth-alert] ops-access-denied';
  */
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
 
+/**
+ * #4375 follow-up (PO 決裁 2026-08-07): AI provider が使えない状態にあることを表す log の検索語。
+ *
+ * SSOT は `AI_PROVIDER_UNAVAILABLE_LOG_TERM` (`src/lib/server/ai/availability.ts`)。
+ * 上記 2 件と同じく rootDir 制約で import できないため literal で持ち、
+ * `tests/unit/infra/ai-provider-unavailable-alarm.test.ts` が drift を機械検証する。
+ *
+ * AI が使えないとき顧客に出す文言は「システム側の問題で、運営に通知済み」である。
+ * その「通知済み」を事実にするのがこの経路で、**顧客に出した約束の実装**にあたる。
+ * log には理由の分類 (`not-configured` / `latched`) しか載せない — 識別子や例外本文は載せない。
+ */
+export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
+
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
@@ -352,6 +365,47 @@ export class OpsStack extends cdk.Stack {
 			});
 			opsAccessDeniedAlarm.addAlarmAction(alarmAction);
 			opsAccessDeniedAlarm.addOkAction(alarmAction);
+
+			// #4375 follow-up: AI provider が使えない状態の観測。
+			//
+			// 顧客には「システム側の問題で、運営に通知済み」と出す。その通知先がここ。
+			//
+			// 閾値の根拠:
+			//   この log は **プロセス内で理由ごとに 1 回**しか出ない (per-request で出すと
+			//   本物の異常が埋もれるため、#4366 害 c)。つまり「障害が続くほど件数が増える」
+			//   metric ではなく、Lambda コンテナが新しく立つたびに 1 件出るだけの疎な系列になる。
+			//   そのため entitlement fail-closed 側の「15 分のうち 2 window で継続」型は使えない
+			//   (低トラフィック時は 2 window 埋まらず、終日 AI が死んでいても鳴らない)。
+			//   ops-access-denied と同じ **1 件 / 1 window で即発火** (datapointsToAlarm: 1) にする。
+			//   1 件 = 少なくとも 1 世帯が「AI 読み取りが使えない」画面を見て、こちらは
+			//   「運営に通知済み」と約束した状態であり、単発でも見に行く価値がある。
+			//   誤検知しても運営者 1 人が CloudWatch を確認するだけで済む。
+			//   log が無い間はデータ点自体が無いため treatMissingData=NOT_BREACHING。
+			const aiProviderUnavailable = new logs.MetricFilter(this, 'AiProviderUnavailableFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${AI_PROVIDER_UNAVAILABLE_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Ai',
+				metricName: 'AiProviderUnavailable',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const aiProviderUnavailableAlarm = new cloudwatch.Alarm(this, 'AiProviderUnavailable', {
+				alarmName: 'ganbari-quest-ai-provider-unavailable',
+				alarmDescription:
+					'AI provider が使えない状態 (未設定 / 権限なし / キー不正): 5分内に1件以上。顧客には「運営に通知済み」と表示している',
+				metric: aiProviderUnavailable.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			aiProviderUnavailableAlarm.addAlarmAction(alarmAction);
+			aiProviderUnavailableAlarm.addOkAction(alarmAction);
 
 			// P0: 顧客データ物理削除の部分失敗 (#4327)
 			//

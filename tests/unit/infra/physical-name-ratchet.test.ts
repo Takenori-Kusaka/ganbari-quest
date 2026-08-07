@@ -324,6 +324,9 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 	...group(
 		'CloudWatch Alarm 固定名は ops runbook / Discord 通知の識別子 (infra/CLAUDE.md §CloudWatch Alarm)',
 		[
+			// #4375 follow-up: AI provider が使えない状態の観測 alarm。顧客に出した
+			// 「運営に通知済み」の通知先であり、runbook / policy 表がこの名前で参照する。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ai-provider-unavailable',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
 			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',

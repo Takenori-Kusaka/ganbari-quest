@@ -3254,7 +3254,13 @@ export const POINTS_LABELS = {
 	receiptRetakeOtherButton: '別の領収書を撮影する',
 	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
 	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
-	receiptAiUnavailable: 'AI読み取り機能は現在利用できません。金額を手入力してください。',
+	//
+	// PO 決裁 2026-08-07: 「利用できません」だけだと顧客は「自分が何かしないといけないのか」と
+	// 受け取る。原因がシステム側にあること / 運営が把握していて待てば直ること / いま何ができるか
+	// の 3 点を出す。「運営に通知済み」は `[ai-alert] ai-provider-unavailable` log →
+	// CloudWatch alarm (`ganbari-quest-ai-provider-unavailable`) の経路が実在することを根拠に書く。
+	receiptAiUnavailable:
+		'システム側の問題でAI読み取りを利用できません。運営に通知済みですので、復旧までは金額を手入力してください。',
 	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
 	receiptAmountNotFound: '金額を読み取れませんでした',
 
