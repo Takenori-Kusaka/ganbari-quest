@@ -57,6 +57,10 @@ vi.mock('$lib/server/storage-keys', () => ({
 
 import { asChildId } from '$lib/domain/ids';
 import {
+	buildPlaceholderAvatarSvg,
+	placeholderAvatarVersion,
+} from '$lib/domain/placeholder-avatar';
+import {
 	deleteChild,
 	findAllChildren,
 	findChildById,
@@ -144,6 +148,8 @@ describe('child-service', () => {
 			const result = await addChild(input, TENANT);
 
 			const expectedKey = `tenants/${TENANT}/avatars/10/placeholder.svg`;
+			// #4453: 保存先は固定名なので、URL には中身の版が付く (キャッシュ切替のため)
+			const expectedUrl = `/${expectedKey}?v=${placeholderAvatarVersion(input.nickname, input.theme)}`;
 			expect(saveFile).toHaveBeenCalledTimes(1);
 			const [key, data, contentType] = vi.mocked(saveFile).mock.calls[0] as [
 				string,
@@ -154,8 +160,8 @@ describe('child-service', () => {
 			expect(contentType).toBe('image/svg+xml');
 			expect(data.toString('utf-8')).toContain('>ま<');
 
-			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', `/${expectedKey}`, TENANT);
-			expect(result).toEqual({ ...inserted, avatarUrl: `/${expectedKey}` });
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', expectedUrl, TENANT);
+			expect(result).toEqual({ ...inserted, avatarUrl: expectedUrl });
 		});
 
 		// #4413 AC5: アバターは付加価値。storage が不調でも子供の登録は成功させる。
@@ -214,12 +220,130 @@ describe('child-service', () => {
 		});
 
 		it('#580: age 未指定時は uiMode を付与しない', async () => {
+			// #4453: nickname 変更は仮アバターの再生成判定に変更前の値を要するため
+			// findChildById を引く。ここで固定するのは「uiMode を勝手に足さない」こと。
+			vi.mocked(findChildById).mockResolvedValue({
+				id: '10',
+				nickname: 'まさと',
+				theme: 'blue',
+				avatarUrl: null,
+			} as never);
 			vi.mocked(updateChild).mockResolvedValue({ id: '10' } as never);
 
 			await editChild(asChildId(10), { nickname: 'まさと改' }, TENANT);
 
-			expect(findChildById).not.toHaveBeenCalled();
 			expect(updateChild).toHaveBeenCalledWith('10', { nickname: 'まさと改' }, TENANT);
+		});
+	});
+
+	// --- #4453: ニックネーム / テーマを変えたら仮アバターも作り直す ---
+	//
+	// 仮アバターは nickname + theme から導出される永続アセットなので、導出元が変わったら
+	// 追随しないと「名前を直したのにアイコンが古い頭文字のまま」になる。
+	// 一方で **保護者がアップロードした写真を上書きしてはならない** ので、再生成するのは
+	// avatar_url が仮アバター自身 (固定名キー) を指しているか未設定のときだけ。
+	describe('editChild — 仮アバターの再生成 (#4453)', () => {
+		const PLACEHOLDER_PATH = `/tenants/${TENANT}/avatars/10/placeholder.svg`;
+		const url = (nickname: string, theme: string) =>
+			`${PLACEHOLDER_PATH}?v=${placeholderAvatarVersion(nickname, theme)}`;
+		const PLACEHOLDER_URL = url('たろう', 'blue');
+		const UPLOADED_PHOTO_URL = `/tenants/${TENANT}/avatars/10/9f1c2d3e-4b5a.webp`;
+
+		function seedExisting(overrides: Record<string, unknown> = {}) {
+			vi.mocked(findChildById).mockResolvedValue({
+				id: '10',
+				nickname: 'たろう',
+				theme: 'blue',
+				avatarUrl: PLACEHOLDER_URL,
+				uiMode: 'elementary',
+				uiModeManuallySet: 0,
+				...overrides,
+			} as never);
+			vi.mocked(updateChild).mockResolvedValue({ id: '10' } as never);
+		}
+
+		it('AC1: ニックネームを変えると新しい頭文字で仮アバターを作り直し avatar_url を更新する', async () => {
+			seedExisting();
+
+			await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
+
+			expect(saveFile).toHaveBeenCalledTimes(1);
+			const [key, data] = vi.mocked(saveFile).mock.calls[0] as [string, Buffer, string];
+			expect(key).toBe(`tenants/${TENANT}/avatars/10/placeholder.svg`);
+			expect(data.toString('utf-8')).toContain('>は<');
+			// 保存先は固定名なので、URL の版が変わらないとブラウザが古い画像を出し続ける
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', url('はなこ', 'blue'), TENANT);
+			expect(url('はなこ', 'blue')).not.toBe(PLACEHOLDER_URL);
+		});
+
+		it('AC2: テーマを変えると仮アバターを作り直す (色が追随する)', async () => {
+			seedExisting();
+
+			await editChild(asChildId(10), { theme: 'pink' }, TENANT);
+
+			expect(saveFile).toHaveBeenCalledTimes(1);
+			const [, savedSvg] = vi.mocked(saveFile).mock.calls[0] as [string, Buffer, string];
+			// 変更後のテーマ (pink) で組み立て直されている = 色が追随する。
+			// 期待値は実物の builder から作るので、配色を test に写し取らない。
+			expect(savedSvg.toString('utf-8')).toBe(buildPlaceholderAvatarSvg('たろう', 'pink'));
+			expect(savedSvg.toString('utf-8')).not.toBe(buildPlaceholderAvatarSvg('たろう', 'blue'));
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', url('たろう', 'pink'), TENANT);
+		});
+
+		it('AC3: 保護者がアップロードした写真は上書きしない (ニックネームを変えても再生成しない)', async () => {
+			seedExisting({ avatarUrl: UPLOADED_PHOTO_URL });
+
+			await editChild(asChildId(10), { nickname: 'はなこ', theme: 'pink' }, TENANT);
+
+			expect(saveFile).not.toHaveBeenCalled();
+			expect(updateChildAvatarUrl).not.toHaveBeenCalled();
+		});
+
+		it('AC3 系: avatar_url 未設定なら (消せる写真が無いので) 仮アバターを作る', async () => {
+			seedExisting({ avatarUrl: null });
+
+			await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
+
+			expect(saveFile).toHaveBeenCalledTimes(1);
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', url('はなこ', 'blue'), TENANT);
+		});
+
+		it('AC3 系: 版付き URL でない旧データ (?v= 無し) も仮アバターとして扱い作り直す', async () => {
+			seedExisting({ avatarUrl: PLACEHOLDER_PATH });
+
+			await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
+
+			expect(saveFile).toHaveBeenCalledTimes(1);
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', url('はなこ', 'blue'), TENANT);
+		});
+
+		it('AC4: 同じ値で送り直しただけなら再生成しない (無駄な書き込みをしない)', async () => {
+			seedExisting();
+
+			await editChild(asChildId(10), { nickname: 'たろう', theme: 'blue', age: 9 }, TENANT);
+
+			expect(saveFile).not.toHaveBeenCalled();
+			expect(updateChildAvatarUrl).not.toHaveBeenCalled();
+		});
+
+		it('AC4 系: 年齢だけの変更では再生成しない', async () => {
+			seedExisting();
+
+			await editChild(asChildId(10), { age: 9 }, TENANT);
+
+			expect(saveFile).not.toHaveBeenCalled();
+		});
+
+		it('AC5: 仮アバターの保存に失敗しても編集自体は成功する', async () => {
+			seedExisting();
+			vi.mocked(saveFile).mockRejectedValueOnce(new Error('storage down'));
+
+			const result = await editChild(asChildId(10), { nickname: 'はなこ' }, TENANT);
+
+			expect(result).toEqual({ id: '10' });
+			expect(updateChild).toHaveBeenCalled();
+			expect(updateChildAvatarUrl).not.toHaveBeenCalled();
+			expect(logger.warn).toHaveBeenCalled();
 		});
 	});
 

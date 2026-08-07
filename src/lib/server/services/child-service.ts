@@ -3,6 +3,7 @@ import {
 	buildPlaceholderAvatarSvg,
 	PLACEHOLDER_AVATAR_CONTENT_TYPE,
 	PLACEHOLDER_AVATAR_EXTENSION,
+	placeholderAvatarVersion,
 } from '$lib/domain/placeholder-avatar';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { getDefaultUiMode, recalcUiMode } from '$lib/domain/validation/age-tier';
@@ -71,8 +72,14 @@ export async function addChild(
  * 生成は外部通信ゼロ (`buildPlaceholderAvatarSvg` は import を持たない純粋関数)。
  * 保護者が写真をアップロードすれば `avatar_url` が上書きされ、仮アバターは差し替えられる。
  *
- * アバターは付加価値であって登録の前提条件ではないので、**失敗しても登録は成功させる**
- * (storage 不調で子供を登録できない方が顧客にとって悪い)。その場合は一覧で 👤 のままになる。
+ * アバターは付加価値であって登録・編集の前提条件ではないので、**失敗しても呼び出し元の操作は
+ * 成功させる** (storage 不調で子供を登録・編集できない方が顧客にとって悪い)。その場合は
+ * 一覧で 👤 or 古い仮アバターのままになる。
+ *
+ * #4453: `editChild` からも呼ぶ。仮アバターは nickname + theme から導出されるので、
+ * 導出元が変わったら追随させないと「名前を直したのに古い頭文字のまま」になる。
+ * ただし**保護者がアップロードした写真は上書きしない** — 呼ぶ前に
+ * `shouldRegeneratePlaceholderAvatar` で `avatar_url` が仮アバター自身か未設定かを確認すること。
  */
 async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string; theme: string }>(
 	child: T,
@@ -85,12 +92,15 @@ async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string
 		const svg = buildPlaceholderAvatarSvg(child.nickname, child.theme);
 		await saveFile(key, Buffer.from(svg, 'utf-8'), PLACEHOLDER_AVATAR_CONTENT_TYPE);
 
-		const publicUrl = storageKeyToPublicUrl(key);
+		// #4453: 保存先は固定名なので、中身から導いた版を URL に付けて「作り直したのに
+		// ブラウザが古い画像を出し続ける」(max-age=300) を防ぐ。配信側は path でルーティング
+		// するため query は無視される。
+		const publicUrl = `${storageKeyToPublicUrl(key)}?v=${placeholderAvatarVersion(child.nickname, child.theme)}`;
 		await updateChildAvatarUrl(child.id, publicUrl, tenantId);
 
 		return { ...child, avatarUrl: publicUrl };
 	} catch (err) {
-		logger.warn('[child-service] 仮アバターの生成に失敗しました（登録は継続します）', {
+		logger.warn('[child-service] 仮アバターの生成に失敗しました（登録・編集は継続します）', {
 			context: { childId: child.id, tenantId },
 			error: err instanceof Error ? err.message : String(err),
 		});
@@ -115,21 +125,68 @@ export async function editChild(
 ) {
 	const patched: typeof input = { ...input };
 
+	// #4453: 仮アバターは nickname + theme から導出されるので、どちらかが変わったら作り直す。
+	// 判定には「変更前の値」が要る。uiMode 再計算 (#580/#1382) も同じ既存行を見るため、
+	// ここで 1 回だけ引いて両方で使う (同じ行を 2 回引かない)。
+	const needsExisting =
+		input.nickname !== undefined ||
+		input.theme !== undefined ||
+		(patched.uiMode === undefined && patched.age !== undefined);
+	const existing = needsExisting ? await findChildById(id, tenantId) : null;
+
 	if (patched.uiMode !== undefined) {
 		// #1382: 保護者が明示的に UIMode を指定 → 手動フラグを立てる
 		patched.uiModeManuallySet = 1;
-	} else if (patched.age !== undefined) {
+	} else if (patched.age !== undefined && existing) {
 		// #580/#1382: age 変更時は既存フラグを参照して自動再計算するか判断する
-		const existing = await findChildById(id, tenantId);
-		if (existing) {
-			patched.uiMode = recalcUiMode(
-				{ uiMode: existing.uiMode as UiMode, uiModeManuallySet: existing.uiModeManuallySet ?? 0 },
-				patched.age,
-			);
-		}
+		patched.uiMode = recalcUiMode(
+			{ uiMode: existing.uiMode as UiMode, uiModeManuallySet: existing.uiModeManuallySet ?? 0 },
+			patched.age,
+		);
 	}
 
-	return await updateChild(id, patched, tenantId);
+	const updated = await updateChild(id, patched, tenantId);
+
+	if (existing && shouldRegeneratePlaceholderAvatar(existing, input, id, tenantId)) {
+		// 失敗しても編集は成功させる (attachPlaceholderAvatar が内部で握って warn する)。
+		await attachPlaceholderAvatar(
+			{
+				id,
+				nickname: input.nickname ?? existing.nickname,
+				theme: input.theme ?? existing.theme,
+			},
+			tenantId,
+		);
+	}
+
+	return updated;
+}
+
+/**
+ * #4453: 編集後に仮アバターを作り直すべきか。
+ *
+ * **保護者がアップロードした写真を消さないことが本判定の主目的**。仮アバターは childId ごとの
+ * 固定名キー (`placeholderAvatarKey`) なので、`avatar_url` がそのキーを指していれば「まだ仮アバター
+ * のまま」= 上書きしてよい。写真をアップロードすると `avatar_url` は uuid キー (別 URL) に変わるため、
+ * その子は対象外になる。`avatar_url` が未設定なら消せる写真自体が無いので生成してよい
+ * (#4413 以前に登録された子供 / 仮アバター生成に失敗した子供がここに該当する)。
+ */
+function shouldRegeneratePlaceholderAvatar(
+	existing: { nickname: string; theme: string; avatarUrl?: string | null },
+	input: { nickname?: string; theme?: string },
+	id: ChildId,
+	tenantId: string,
+): boolean {
+	const nicknameChanged = input.nickname !== undefined && input.nickname !== existing.nickname;
+	const themeChanged = input.theme !== undefined && input.theme !== existing.theme;
+	if (!nicknameChanged && !themeChanged) return false;
+
+	if (!existing.avatarUrl) return true;
+	const placeholderUrl = storageKeyToPublicUrl(
+		placeholderAvatarKey(tenantId, id, PLACEHOLDER_AVATAR_EXTENSION),
+	);
+	// `?v=<版>` が付いている (#4453) ので path 部分で比べる。
+	return existing.avatarUrl.split('?')[0] === placeholderUrl;
 }
 
 export async function removeChild(id: ChildId, tenantId: string) {

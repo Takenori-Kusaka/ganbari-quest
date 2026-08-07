@@ -9,6 +9,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { placeholderAvatarVersion } from '$lib/domain/placeholder-avatar';
+
 const mockInsertChild = vi.fn();
 const mockUpdateChildAvatarUrl = vi.fn();
 const mockSaveFile = vi.fn();
@@ -118,9 +120,10 @@ function expectPlaceholderAvatarAttached() {
 	expect(svg).toContain('<svg');
 	expect(svg, 'ニックネームの頭文字が入っていない').toContain('>ま<');
 
+	// #4453: 保存先は固定名なので、中身の版 (`?v=`) を URL に付けて作り直しを即反映させる
 	expect(mockUpdateChildAvatarUrl, 'children.avatar_url が更新されていない').toHaveBeenCalledWith(
 		'c-1',
-		`/${key}`,
+		`/${key}?v=${placeholderAvatarVersion('まさと', 'blue')}`,
 		't-test',
 	);
 }
@@ -145,7 +148,7 @@ describe('子供の登録で仮アバターが自動で付く (#4413)', () => {
 
 		// 追加直後に一覧へ返す child にも avatarUrl が載っている
 		// (載っていないと画面上は 👤 のままで、再読込するまで反映されない)
-		expect(result.addedChild.avatarUrl).toMatch(/^\/tenants\/t-test\/.*\.svg$/);
+		expect(result.addedChild.avatarUrl).toMatch(/^\/tenants\/t-test\/.*\.svg\?v=[0-9a-z]+$/);
 	});
 
 	it('AC5: 仮アバターの保存に失敗しても子供の登録自体は成功する', async () => {
