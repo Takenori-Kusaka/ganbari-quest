@@ -23,9 +23,14 @@
 // 「鳴らさない理由」ではなく、次の 2 点である。
 //
 //   (a) 何がどれくらいの頻度で鳴っているか（実測）
-//   (b) 早期回復 / 例外処理の是正をどの Issue で進めているか（**`#NNNN` 必須**）
+//   (b) 早期回復 / 例外処理の是正をどこで進めているか（**`#NNNN` 必須**）
 //
-// **是正 Issue を参照しない `notify: false` は CI が弾く**（`tests/unit/infra/ops-alert-policy.test.ts`）。
+// **`#NNNN` は Issue でも PR でも構わない。** GitHub の番号空間は Issue と PR で共通で、直している
+// 作業を辿れれば目的を満たす。「Issue 必須」にすると、この gate を通すためだけの起票が起きる
+// （チーム憲章 §0 ルール 7: 装置の改善は Issue にしない）。閾値調整のようにその場の PR で
+// 直しきるなら、その PR 番号を書けばよい。
+//
+// **是正作業を参照しない `notify: false` は CI が弾く**（`tests/unit/infra/ops-alert-policy.test.ts`）。
 // 抑止に必ず出口を持たせ、「暫定」が恒久化するのを防ぐ。
 //
 // ## no-silent-gap
@@ -46,7 +51,7 @@ export interface AlarmNotifyPolicy {
 	 * - `notify: true`  … その alarm が鳴いたとき**人が何を知ることになるか**（顧客影響 / 対処の要否）。
 	 *   ノイズ懸念に閾値・評価期間で対処した場合はその内容も書く
 	 * - `notify: false` … **(a) 何がどれくらいの頻度で鳴っているか** と
-	 *   **(b) 是正をどの Issue で進めているか（`#NNNN` 必須）**
+	 *   **(b) 是正をどこで進めているか（`#NNNN` 必須。Issue / PR いずれでも可）**
 	 *
 	 * 空 / 定型 stub / 極端な短文は CI で弾く（#4237 と同型）。
 	 */
@@ -56,7 +61,7 @@ export interface AlarmNotifyPolicy {
 /**
  * alarm 名 → 通知方針。**alarm を追加したらここにも 1 行足す**（忘れると CI が落ちる）。
  *
- * 新規 alarm は `notify: true` で足す。恒常発火が実測され、その是正 Issue を立てたときだけ
+ * 新規 alarm は `notify: true` で足す。恒常発火が実測され、その是正作業が進行中のときだけ
  * 一時的に `false` へ落とす。
  */
 export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {

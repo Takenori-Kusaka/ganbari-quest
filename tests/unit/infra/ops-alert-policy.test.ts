@@ -5,7 +5,8 @@
 //
 // 1. **既定は「届ける」** — alarm を足したら Discord に出るのが既定。全件が無音の状態を作らない
 // 2. **抑止は是正作業中の例外だけ** — `notify: false` は「いま恒常発火していて、その原因を直す作業が
-//    進行中」の場合に限る。reason に **是正 Issue の参照 (`#NNNN`) を必須**にする
+//    進行中」の場合に限る。reason に **是正作業の参照 (`#NNNN`) を必須**にする
+//    （Issue に限らない。番号空間は PR と共通で、gate を通すためだけの起票を招かないようにする）
 // 3. **宣言漏れを作らない** — OpsStack が作る alarm は全件が方針表に載っている
 // 4. **理由が実質空でない** — 「何がどれくらい鳴っているか / どこで直しているか」が書かれている（#4237 と同型）
 //
@@ -116,8 +117,14 @@ function synthAlarmNames(): string[] {
 		.sort();
 }
 
-/** 是正 Issue の参照 (`#NNNN`)。抑止を「作業中の例外」に縛るための必須項目。 */
-const ISSUE_REF = /#\d{3,}/;
+/**
+ * 是正作業の参照 (`#NNNN`)。抑止を「作業中の例外」に縛るための必須項目。
+ *
+ * **Issue 番号に限らない** — GitHub の番号空間は Issue と PR で共通で、直している作業を
+ * 辿れれば目的を満たす。ここで「Issue 必須」と書くと、この gate を通すためだけの起票が
+ * 起きる（チーム憲章 §0 ルール 7: 装置の改善は Issue にしない）ため、PR 番号でも満たせる。
+ */
+const WORK_REF = /#\d{3,}/;
 
 describe('#4189 CloudWatch アラームの通知方針', () => {
 	it('[母数] 方針表が空でない', () => {
@@ -154,18 +161,19 @@ describe('#4189 CloudWatch アラームの通知方針', () => {
 		).toBeGreaterThan(0);
 	});
 
-	it('notify: false は是正 Issue (#NNNN) の参照が必須 (抑止を作業中の例外に縛る)', () => {
+	it('notify: false は是正作業の参照 (#NNNN) が必須 (抑止を作業中の例外に縛る)', () => {
 		const defects = Object.entries(ALARM_NOTIFY_POLICY)
 			.filter(([, p]) => !p.notify)
-			.filter(([, p]) => !ISSUE_REF.test(p.reason))
+			.filter(([, p]) => !WORK_REF.test(p.reason))
 			.map(([n]) => n)
 			.sort();
 
 		expect(
 			defects,
-			'notify: false なのに是正 Issue の参照 (#NNNN) が reason にありません。抑止してよいのは' +
+			'notify: false なのに是正作業の参照 (#NNNN) が reason にありません。抑止してよいのは' +
 				'「いま恒常発火していて、その原因を直す作業が進行中」の場合だけです。' +
-				'(a) 何がどれくらいの頻度で鳴っているか (b) どの Issue で直しているか を reason に書いてください。' +
+				'(a) 何がどれくらいの頻度で鳴っているか (b) どこで直しているか を reason に書いてください。' +
+				'#NNNN は Issue でも PR でも構いません（GitHub の番号空間は共通で、直す作業を追えれば足ります）。' +
 				'書けないなら notify: true にします',
 		).toEqual([]);
 	});
