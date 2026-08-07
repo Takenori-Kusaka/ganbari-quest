@@ -105,6 +105,25 @@ async function cleanupSeededChallenges(workerDbPath: string): Promise<void> {
 	}
 }
 
+/**
+ * ログインボーナス (おみくじ) overlay を閉じる。
+ *
+ * 本 overlay は Ark UI の nested dialog で positioner が `fixed inset-0` のため、開いている間は
+ * 祝福ダイアログのボタンへの click を intercept する (DESIGN.md §10「reward と tutorial を同時
+ * 表示しない」の実装上の帰結)。実ユーザーも「やったね！」を押してから祝福を閉じるので、
+ * 同じ順序で操作する。
+ */
+async function dismissLoginBonusOverlay(page: import('@playwright/test').Page): Promise<void> {
+	// 本 overlay はログイン直後に非同期で自動 claim → 表示されるため、出現を待ってから閉じる
+	// (既に受領済みの日は出ないので、待ちは bounded にして未出現を許容する)。
+	const confirm = page.getByTestId('login-bonus-confirm');
+	await confirm.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+	if (await confirm.isVisible().catch(() => false)) {
+		await confirm.click();
+	}
+	await expect(page.getByTestId('stamp-press-overlay')).toBeHidden();
+}
+
 test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)', () => {
 	// dev server の on-demand compile で初回遷移が長引くため (claim-flow spec と同方針)。
 	test.slow();
@@ -120,7 +139,8 @@ test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)',
 		const { challengeId } = await seedCelebrationChallenge(workerDbPath);
 
 		// --- ① 未表示なら出る (出なくなりすぎる方向の回帰ガード) ---
-		// dismissOverlays は開いている dialog を無差別に閉じてしまうため、本 spec では使わない。
+		// helpers の dismissOverlays は開いている dialog を無差別に閉じてしまい祝福まで消すため、
+		// 本 spec では使わず、ログインボーナス (おみくじ) だけを実ユーザーと同じ手順で閉じる。
 		await selectElementaryChild(page);
 
 		const celebration = page.getByTestId('sibling-celebration');
@@ -129,14 +149,18 @@ test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)',
 		await expect(page.getByTestId('sibling-celebration-claim-hint')).toBeVisible();
 		expect(await readCelebrationShownAt(workerDbPath, challengeId)).toBeNull();
 
+		// 祝福の上に重なるログインボーナス overlay を先に閉じる (実ユーザーと同じ順序)
+		await dismissLoginBonusOverlay(page);
+		await expect(celebration).toBeVisible();
+
 		// --- ② 閉じる = サーバに「見せた」を永続化する ---
-		await Promise.all([
-			page.waitForResponse(
-				(res) =>
-					res.url().includes('markChallengeCelebrationShown') && res.request().method() === 'POST',
-			),
-			page.getByTestId('sibling-celebration-close').click(),
-		]);
+		const shownPost = page.waitForResponse(
+			(res) =>
+				res.url().includes('markChallengeCelebrationShown') && res.request().method() === 'POST',
+		);
+		await page.getByTestId('sibling-celebration-close').click();
+		const res = await shownPost;
+		expect(res.ok()).toBe(true);
 		await expect(celebration).toBeHidden();
 
 		// DB に記録されている (localStorage ではなくサーバ = 端末を変えても再発しない)
@@ -149,9 +173,9 @@ test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)',
 		await expect(page.getByTestId('bottom-nav')).toBeVisible();
 		await expect(celebration).toHaveCount(0);
 
-		// --- ④ 別ページに行って戻っても出ない (再マウント経路) ---
-		await page.getByTestId('bottom-nav').getByRole('link').first().click();
-		await page.goBack();
+		// --- ④ 別ページに行って戻っても出ない (component 再マウント経路) ---
+		await page.goto('/elementary/status');
+		await page.goto('/elementary/home');
 		await expect(page.getByTestId('bottom-nav')).toBeVisible();
 		await expect(celebration).toHaveCount(0);
 
