@@ -11,8 +11,9 @@
  * #4121 (E5 Wave 2): step が 20 本まで増えて 1 PR が 1 日で回らなくなったため、
  * **hard-fail は 6 本**に絞った。選定は ADR-0007 §1-2「判断原則 v2」に従い、
  * 類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを残す。
- * **外した検査は消していない** — CI (ci.yml lint-and-test / unit-test、lp-metrics.yml、
- * lp-fallback-check.yml) で hard-fail のまま走る。対応表は `--help` を参照。
+ * **pre-ready から外しても CI で hard-fail し続ける検査**は ci.yml lint-and-test / unit-test、
+ * lp-metrics.yml のみ（#4322 で doc-code-references / hardcoded-strings / terminology-coherence /
+ * lp-fallback-check.yml 等 20 件は script/workflow ごと削除済み、#4420）。対応表は `--help` を参照。
  *
  * 6 step を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
  * 各 Step は既存の `scripts/*.mjs` / `npm run *` を子プロセスで呼ぶラッパー（独自実装は最小化）。
@@ -142,15 +143,18 @@ step の前に走る preflight:
     - 類型 1: Step 9 (Ready checklist / AC 証跡 / 禁止語) / Step 11b (SS 証跡)
     - 類型 2: Step 1 / 2 / 7 / 7g
 
-pre-ready から外した検査の行き先 (**検査を消したわけではない** — CI で hard-fail のまま走る、#4121):
-  cspell / hardcoded-strings / license-key-leak / cli-entry-guard /
+pre-ready から外した検査の行き先 (#4121。**現存するものは CI で hard-fail のまま走る**):
+  cspell / license-key-leak / cli-entry-guard /
   sparse-checkout-closure / readdir-rotation-guard / repo-scan-test-declaration /
-  doc-code-references / terminology-coherence / generate-lp-labels --check
-                                  → .github/workflows/ci.yml (lint-and-test)
+  generate-lp-labels --check     → .github/workflows/ci.yml (lint-and-test)
   vitest                          → .github/workflows/ci.yml (unit-test、2 shard)
   measure-lp-dimensions           → .github/workflows/lp-metrics.yml
-  sync-lp-fallback --check        → .github/workflows/lp-fallback-check.yml
   capture (撮影ガイダンス表示のみで検査ではなかった) → 撤去。SS 未 embed は Step 11b が検出する
+
+  以下は #4322 で script/workflow ごと削除済み (#4420 で判明。「外したが CI で走り続ける」
+  対象からは外れる — 検査自体が無い。機械強制は無く、レビューで担保する):
+    hardcoded-strings / doc-code-references / terminology-coherence / sync-lp-fallback --check
+    (旧行き先: ci.yml lint-and-test / .github/workflows/lp-fallback-check.yml)
   ローカルで個別に回したいときは npm run cspell / npx vitest run 等を直接叩く。
 
 実行順 (cheap-fail-first、#4048):
@@ -756,9 +760,10 @@ export function buildSummary({
 		`  pre-ready が保証するのは上の 6 step だけです。以下は保証しません:\n` +
 		`    - 負荷 / タイミング依存の失敗   空いた local では再現しない (実測 #4385: 同一 test が 1,860→6,398ms)\n` +
 		`    - vitest / e2e / Storybook / visual regression   CI (unit-test 2 shard / 重量レーン) で走る\n` +
-		`    - lint-and-test 系   cspell / hardcoded-strings / doc-code-references / terminology-coherence /\n` +
-		`                         license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
-		`    - LP 系   lp-metrics (寸法・禁止語) / lp-fallback-check (fallback 同期)\n` +
+		`    - lint-and-test 系   cspell / license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
+		`      (hardcoded-strings / doc-code-references / terminology-coherence / lp-fallback-check は #4322 で\n` +
+		`       script/workflow ごと削除済み — CI にも無い。機械強制は無い、#4420)\n` +
+		`    - LP 系   lp-metrics (寸法・禁止語)\n` +
 		`    - Draft 中しか見ていない検査   pr-template-gate は draft==false で初めて走る (#4390)\n` +
 		`    - base が動いた後の再測   base の検査基準が動くと同じ body でも CI は赤になる (#4322 で 6 PR 実測)\n` +
 		`    → \`gh pr checks ${pr ?? '<num>'}\` で上記が **pass (skipped でない)** ことを確認してから Ready 化する。\n` +

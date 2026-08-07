@@ -60,11 +60,11 @@
 | `forbiddenTerms` | 0 | 開発者語彙 / 射幸性語彙の追加禁止 |
 | `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
 | `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
-| `lp-removal-residue` (#1790) | 新規違反 0 | baseline 10 件、新規 1 件で fail |
-| `lp-inline-style` (#1851) | baseline 超過 0 | `--lp-*` Semantic トークン未経由の padding/margin 直書き、新規 1 件で fail (ADR-0042 Phase 2) |
 | `lp-visual-regression` (#2401) | per-image diff ≤ 10% | `scripts/lp-screenshot-baseline/*.webp` (git tracked) と CI 撮影 `site/screenshots/*.webp` を pixelmatch 比較。diff > 10% で fail。意図的変更時は `node scripts/check-lp-visual-regression.mjs --update-baseline` で更新 (PR #1893 Phase 2)。更新 flow / triage 手順は [runbooks/lp-visual-regression-baseline.md](runbooks/lp-visual-regression-baseline.md) (#2452) |
 
-閾値緩和は ADR 合意後に `THRESHOLDS` / `lp-removal-residue-baseline.json` / `lp-inline-style-baseline.json` 更新。
+閾値緩和は ADR 合意後に `THRESHOLDS` を更新。
+
+**`lp-removal-residue` (#1790) / `lp-inline-style` (#1851) は #4322 でそれぞれの検査 script ごと削除済み — CI では走っていない。** 対応する baseline JSON (`scripts/lp-removal-residue-baseline.json` / `scripts/lp-inline-style-baseline.json`) は読み手を失ったまま残置されている（機械強制は無い。LP 削除/圧縮 PR の残骸検出と `--lp-*` 未経由の padding/margin 直書き検出は、いまはレビューで担保する）。
 
 ### LP 累積 desktopHeight gate (#1840)
 

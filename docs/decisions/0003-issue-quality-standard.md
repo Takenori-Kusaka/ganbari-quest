@@ -53,9 +53,11 @@ ADR-0001（設計書 SSOT）は維持しつつ、**「機能仕様変化なし�
 
 #### 4.2 exempt ラベルと workflow exempt
 
+> **workflow による機械強制は無い（#4420）**: `design-doc-check` job と `scripts/check-design-doc-sync.mjs` は #4322 で削除済み。以下は削除前の設計（ラベルの意味・判定優先順位）を記録するもので、現状はレビューで担保する（§4.3「Reviewer の確認責任」が唯一の強制点）。
+
 - **ラベル**: `refactor:internal-no-doc-impact`（色 #BFD4F2、#1985 で作成済）
-- **workflow**: `.github/workflows/pr-quality-gate.yml` の `design-doc-check` job が PR labels を取得し、`scripts/check-design-doc-sync.mjs` の `checkDesignDocSync({ files, labels })` 純粋関数で判定
-- **判定優先順位** (workflow 内、上から評価):
+- **旧 workflow**: `.github/workflows/pr-quality-gate.yml` の `design-doc-check` job が PR labels を取得し、`scripts/check-design-doc-sync.mjs` の `checkDesignDocSync({ files, labels })` 純粋関数で判定していた
+- **判定優先順位** (旧 workflow 内、上から評価):
   1. `src/routes/` 変更なし → skip
   2. `docs/design/` 同期あり → pass
   3. 全ファイルが既存 file-pattern exempt (CLAUDE.md / scripts/ / docs/ / infra/ / .github/ / site/) → skip
@@ -65,7 +67,7 @@ ADR-0001（設計書 SSOT）は維持しつつ、**「機能仕様変化なし�
 #### 4.3 ラベル付与・確認の責任
 
 - **PR 作成者の申告責任**: §4.1 の 4 条件すべて満たすことを自己確認のうえラベル付与。AC 検証マップ (ADR-0004) に「§4.1 4 条件充足の根拠」を 1 行記載
-- **Reviewer の確認責任**: PR diff を実際に開き「import 追加 + literal removal のみ」「機能仕様変化なし」を目視確認。逸脱を検出したらラベル除去を要請（design-doc-check が再走して fail → 設計書同期を要求）
+- **Reviewer の確認責任**: PR diff を実際に開き「import 追加 + literal removal のみ」「機能仕様変化なし」を目視確認。逸脱を検出したらラベル除去 + 設計書同期をレビューで要求する（machine gate は無い）
 - **悪用防止**: 機能変更を含む PR にラベル付与した場合、ADR-0006 (Safety Assertion Erosion Ban) §2 「assertion 弱体化」と同等の重大違反として扱う（PR 作成者・reviewer 双方に責任）
 
 #### 4.4 既存 ADR との関係性
