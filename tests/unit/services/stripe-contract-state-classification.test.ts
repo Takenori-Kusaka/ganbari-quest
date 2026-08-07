@@ -18,7 +18,7 @@
 // patch 単体を分類すると、更新しなかった列を「なし」と誤読して**実在しない不正状態**を作る。
 // 実際の行は「更新前の行 + patch」なので、そのとおり merge してから分類する。
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------- Mocks (stripe-service.test.ts と同型) ----------
 
@@ -361,6 +361,132 @@ describe('#4181 AC3 webhook handler の書き込み後は正常状態に分類�
 		const after = resultingColumns(before);
 		expect(after.planExpiresAt, '猶予終了日が再送で書き換わっている').toBe(existingExpiry);
 		expectWritesValidState('W4 (past_due 再送)', classifyContractState(after));
+	});
+});
+
+// ---------- #4416: 猶予終了日を書く 2 経路 (W3 / W4) が同じ規則に従う ----------
+
+describe('#4416 猶予終了日は「最初の支払い失敗から 7 日」で固定される', () => {
+	/** dunning 中の tenant (既に猶予終了日が立っている)。 */
+	const EXISTING_EXPIRY = '2026-09-01T00:00:00.000Z';
+
+	// `Date` だけを固定する。`setTimeout` まで止めると handler 内の await が進まなくなる。
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	/** W3 (`invoice.payment_failed`) を 1 回起こす。 */
+	async function firePaymentFailed(): Promise<void> {
+		await handleWebhookEvent({
+			type: 'invoice.payment_failed',
+			data: {
+				object: {
+					id: 'in_test',
+					customer: 'cus_123',
+					parent: { subscription_details: { subscription: SUB } },
+				},
+			},
+		} as never);
+	}
+
+	/** W4 (`customer.subscription.updated` status=past_due) を 1 回起こす。 */
+	async function fireSubscriptionPastDue(): Promise<void> {
+		await handleWebhookEvent({
+			type: 'customer.subscription.updated',
+			data: {
+				object: {
+					id: SUB,
+					metadata: { tenantId: 't-test' },
+					status: 'past_due',
+					items: { data: [{ price: { id: 'price_monthly_123' } }] },
+				},
+			},
+		} as never);
+	}
+
+	it('W3 の再送 (dunning retry) は猶予終了日を延長しない', async () => {
+		// Stripe の dunning は 1 回の失敗で終わらず、**同じ invoice を複数回 retry して
+		// そのたび `invoice.payment_failed` を送る**。毎回 now+7d を書き直すと猶予が先送りされ続け、
+		// **支払い失敗が続いている間は 7 日の猶予が実質切れない**。
+		const before = makeTenant({ status: 'grace_period', planExpiresAt: EXISTING_EXPIRY });
+		mockFindTenantById.mockResolvedValue(before);
+		mockFindTenantByStripeCustomerId.mockResolvedValue(before);
+
+		await firePaymentFailed();
+
+		const after = resultingColumns(before);
+		expect(after.planExpiresAt, 'W3 の再送で猶予終了日が延びている').toBe(EXISTING_EXPIRY);
+		expectWritesValidState('W3 (payment_failed 再送)', classifyContractState(after));
+	});
+
+	it('W3 の初回 (猶予終了日なし) は now+7d を与える', async () => {
+		// 「延長しない」は「与えない」ではない。S3 は `exp` あり必須なので、
+		// 期限が無い状態から猶予に入るときは必ず立てる。
+		const before = makeTenant();
+		mockFindTenantById.mockResolvedValue(before);
+		mockFindTenantByStripeCustomerId.mockResolvedValue(before);
+		const nowMs = Date.parse('2026-08-01T00:00:00.000Z');
+		vi.setSystemTime(nowMs);
+
+		await firePaymentFailed();
+
+		const after = resultingColumns(before);
+		expect(after.planExpiresAt, 'W3 の初回で猶予終了日が立っていない').toBe(
+			new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString(),
+		);
+		expect(classifyContractState(after)).toBe('S3');
+	});
+
+	it('W3 と W4 は同じ規則に従う (同じ入力に同じ猶予終了日を書く)', async () => {
+		// 本 Issue の本体。**同じ概念を書く 2 箇所が逆方針**だと、片方だけを読む処理を足したときに壊れる。
+		// 「初回は与える / 再送では延ばさない」を 2 経路とも満たすことを、同じ入力で突き合わせる。
+		vi.setSystemTime(Date.parse('2026-08-01T00:00:00.000Z'));
+
+		const results: Record<string, (string | null)[]> = { W3: [], W4: [] };
+		for (const [writer, fire] of [
+			['W3', firePaymentFailed],
+			['W4', fireSubscriptionPastDue],
+		] as const) {
+			for (const before of [makeTenant(), makeTenant({ planExpiresAt: EXISTING_EXPIRY })]) {
+				mockUpdateTenantStripe.mockClear();
+				mockFindTenantById.mockResolvedValue(before);
+				mockFindTenantByStripeCustomerId.mockResolvedValue(before);
+				await fire();
+				results[writer]?.push(resultingColumns(before).planExpiresAt);
+			}
+		}
+
+		expect(results.W3, 'W3 と W4 の猶予終了日の決め方が食い違っている').toEqual(results.W4);
+		// 規則そのものも固定する (両方とも「延ばし続ける」で一致しても駄目)。
+		expect(results.W3?.[1], '既存の猶予終了日が書き換わっている').toBe(EXISTING_EXPIRY);
+	});
+
+	it('W3 → W4 → W3 と混在して届いても猶予終了日は初回のまま', async () => {
+		// Stripe は W3 と W4 を両方送り到着順を保証しない。どの順で何回来ても猶予は延びない。
+		vi.setSystemTime(Date.parse('2026-08-01T00:00:00.000Z'));
+		const before = makeTenant();
+		mockFindTenantById.mockResolvedValue(before);
+		mockFindTenantByStripeCustomerId.mockResolvedValue(before);
+
+		await firePaymentFailed();
+		const firstExpiry = resultingColumns(before).planExpiresAt;
+		expect(firstExpiry, '初回で猶予終了日が立っていない').not.toBeNull();
+
+		// 3 日後に retry が 2 回届く。
+		vi.setSystemTime(Date.parse('2026-08-04T00:00:00.000Z'));
+		const afterFirst = { ...before, status: 'grace_period', planExpiresAt: firstExpiry };
+		mockUpdateTenantStripe.mockClear();
+		mockFindTenantById.mockResolvedValue(afterFirst);
+		mockFindTenantByStripeCustomerId.mockResolvedValue(afterFirst);
+		await fireSubscriptionPastDue();
+		await firePaymentFailed();
+
+		expect(resultingColumns(afterFirst).planExpiresAt, '再送で猶予終了日が延びている').toBe(
+			firstExpiry,
+		);
 	});
 });
 
