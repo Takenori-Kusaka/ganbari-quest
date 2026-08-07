@@ -169,7 +169,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 3. レビュー指摘を全件修正（部分対応禁止）
 4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #4121)。**全 6 step** (biome / svelte-check / check-no-plan-literals (#972) / check-local-tz-date-getters (#4015 / #4127) / Readiness gate = check-pr-body / **SS embed gate (#2918)**) を順次実行、fail で即停止 + 修正方針表示。**一覧・「外した検査の行き先」対応表の SSOT は `npm run pre-ready -- --help`**。E2E / Storybook は別途
 
-   **6 step 以外は消えていない — CI で hard-fail のまま走る (#4121)**。vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml`。判定の場所を CI に移しただけなので、**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。16 コアを 4 エージェントで共有する運用ではローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。
+   **6 step 以外の一部は CI で hard-fail のまま走る (#4121)**。vitest は CI `unit-test`、cspell / license-key-leak / CLI guard 系 / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`。**hardcoded-strings / doc-code-references / terminology-coherence / LP fallback（`lp-fallback-check.yml`）は #4322 でゲート自体が削除済み**（移管ではなく撤去）。判定の場所を CI に移しただけの残りについては、**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。16 コアを 4 エージェントで共有する運用ではローカルのフルスイートは並走で必ず重なり、その red は PR の欠陥ではなく実行環境の産物になる（同一 HEAD 対照実測: ローカル 1753s / 2 件 timeout ↔ 同 SHA の CI run は 2 shard とも pass）。
 
    - **`unit-test` / `unit-test-merge` が skip された PR は Ready にしない（例外なし）**。`gh pr checks <num>` で `unit-test (1)` / `(2)` が **`pass`**（`skipping` ではない）ことを確認してから `gh pr ready`
    - **`ci-gate` green を Ready の根拠にしない**。`ci-gate` は `skipped` を failure として数えない設計（`ci.yml`: `so skipped jobs (via path filter) don't block merges`）なので、job が 1 度も走らなくても green になる
@@ -266,7 +266,7 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 
 **撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qm-checklist-ui-quality.md` 参照。要点:
 - DESIGN.md §9 禁忌 6 点（hex 直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超）
-- **UI 文言に「実装変更の自己言及」を書かない**（「設定をグループ別に整理しました」等）。ユーザーには現在の使い方・状態だけ伝え、整理 / 統合 / 移行の経緯は git・docs に置く。`check-internal-terms.mjs` の self-ref-change group が string リテラル（コメント除く）を検出（#3259）
+- **UI 文言に「実装変更の自己言及」を書かない**（「設定をグループ別に整理しました」等）。ユーザーには現在の使い方・状態だけ伝え、整理 / 統合 / 移行の経緯は git・docs に置く（旧 `check-internal-terms.mjs` の self-ref-change group による機械検出は #4322 で削除済み。レビューで目視確認、#3259）
 - 5 年齢モード fontScale / タップサイズ
 - mobile 390px / desktop 1280px の両ビューポート
 - 色 / 形 / 用語 / 間隔 / 状態 / アクセシビリティ / 読解容易性
@@ -353,23 +353,18 @@ const source = getEnv().DATA_SOURCE;
 
 ローカル検出: `node scripts/check-no-direct-env-access.mjs` を pre-push で必ず実行 (本 Step 5 の pre-push 4 種統合に含まれる)。
 
-### Step 5: pre-push 4 種統合 (Ready 化前必須)
+### Step 5: pre-push 3 種統合 (Ready 化前必須)
 
-`gh pr ready <num>` の直前に以下 4 種を順次実行し全 PASS を確認:
+`gh pr ready <num>` の直前に以下 3 種を順次実行し全 PASS を確認（旧 `check-design-doc-sync.mjs` による設計書同期の機械検証は #4322 で削除済み。ADR-0001 の設計書同期は自己申告のみで、docs/design/ 更新漏れがないかを目視で確認すること）:
 
 ```bash
 # 1. PR body 全体検証 (必須セクション 13 件 / AC マップ 4 列 / 禁止語 / Ready チェックリスト)
 node scripts/check-pr-body.mjs --pr <num> --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
 
-# 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or label exempt 確認)
-PR_FILES="$(gh pr diff <num> --name-only)" \
-PR_LABELS="$(gh pr view <num> --json labels --jq '[.labels[].name] | join(",")')" \
-node scripts/check-design-doc-sync.mjs
-
-# 3. env 直接参照禁止 (ADR-0040 P1)
+# 2. env 直接参照禁止 (ADR-0040 P1)
 node scripts/check-no-direct-env-access.mjs
 
-# 4. 新規 env 配布証跡 (ADR-0006)
+# 3. 新規 env 配布証跡 (ADR-0006)
 node scripts/check-new-required-env.mjs
 ```
 
@@ -409,7 +404,7 @@ follow-up に逃がせるのは「本番に存在しなくても顧客に気付�
 
 - hex 直書き禁止 → `var(--color-*)` Semantic トークン
 - ボタンは `Button.svelte`、`<button class="...">` 禁止
-- 用語は `$lib/domain/labels.ts` 経由（ADR-0045 が ADR-0009 を supersede。atom は `$lib/domain/terms.ts`、compound は labels.ts の 2 階層 SSOT）
+- 用語は `$lib/domain/labels.ts` 経由（ADR-0045。atom は `$lib/domain/terms.ts`、compound は labels.ts の 2 階層 SSOT）
   - **labels.ts 内部でも確立用語ハードコード禁止**（#1166 / #1174）。`ACTION_LABELS.upgrade` / `PLAN_LABELS.standard` 等を template literal で参照
   - 新規 label: `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
 - インラインスタイルは動的値のみ / `<style>` 50 行超禁止

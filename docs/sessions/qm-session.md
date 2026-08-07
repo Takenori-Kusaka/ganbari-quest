@@ -52,7 +52,7 @@ QM が使ってよいのは **多観点レビュー**（security / perf / test-c
 **Why**: 同日に 2 件発生した。
 
 - `#4151` — Draft のまま approve され `state:ready-to-merge` が付いた。CI 緑・`mergeStateStatus=CLEAN`・`APPROVED` なのに Draft で merge 不能
-- 第 19 回統合 PR `#4152` — Draft のまま merge 判断に進みかけた。`site/pricing.html` を変更しているのに **`check-lp-removal-residue` と ADR-0013 LP truth gate が両方 skip**。`pages.yml` は main push の `site/**` で発火するため、**merge 直後に無検査で公開 LP へ配信される**ところだった
+- 第 19 回統合 PR `#4152` — Draft のまま merge 判断に進みかけた。`site/pricing.html` を変更しているのに LP 系検査が **両方 skip**。`pages.yml` は main push の `site/**` で発火するため、**merge 直後に無検査で公開 LP へ配信される**ところだった
 
 ### 「`gh pr checks` の非 pass 行が 0」は緑の証明にならない
 

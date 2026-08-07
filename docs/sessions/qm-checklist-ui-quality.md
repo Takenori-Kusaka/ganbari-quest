@@ -2,7 +2,7 @@
 
 > **使用タイミング**: QM Review Agent が `qm-session.md` 手順 2（SS 実視認）で参照 / Dev セッションが Ready 化前のセルフレビューで参照
 >
-> **SSOT**: @docs/DESIGN.md §9 禁忌事項 / ADR-0012（Anti-engagement）/ ADR-0015（年齢帯 variant）
+> **SSOT**: @docs/DESIGN.md §9 禁忌事項 / ADR-0012（Anti-engagement）/ `src/routes/CLAUDE.md` §年齢帯 variant（旧 ADR-0015 は #2898 で削除、git 履歴参照）
 
 ## 10 項目チェック（1 画像ごとに確認）
 
@@ -28,7 +28,7 @@
   - `mobile SS: テキスト折り返し自然、overflow なし、CTA 視認可`
   - `mobile SS: ナビゲーション下部との重なりなし`
   - `marketplace-mobile-dialog.png: bottom sheet 高さ 60% で親指操作圏 (#1171 AC3) 満たす / elementary tapSize=56px 相当`
-  - `free-plan-status.png: プラン表記「フリープラン」が labels.ts 定数経由（ADR-0009）/ 内部コード `free_trial` の露出無し`
+  - `free-plan-status.png: プラン表記「フリープラン」が labels.ts 定数経由（ADR-0045）/ 内部コード `free_trial` の露出無し`
 
 ## 5 年齢モード差異確認（該当画面のみ）
 
@@ -71,5 +71,5 @@ PR 本文「描画変化なし」「pixel-perfect 同一」を主張する場合
 | @docs/DESIGN.md | デザインシステム SSOT（§2 セマンティックトークン / §5 プリミティブ / §9 禁忌） |
 | ADR-0011 | 年齢モード定義（コアターゲット 3-18 歳、baby は親の準備モード） |
 | ADR-0012 | Anti-engagement 原則（滞在時間 = 価値毀損） |
-| ADR-0015 | 年齢帯 variant 管理アーキテクチャ |
+| `src/routes/CLAUDE.md` §年齢帯 variant | 年齢帯 variant 管理アーキテクチャ（旧 ADR-0015 は #2898 で削除） |
 | DESIGN.md §3（旧 ADR-0016） | 日本語テキスト折り返し方針 |
