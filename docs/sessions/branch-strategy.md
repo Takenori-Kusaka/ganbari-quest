@@ -48,8 +48,8 @@ main = 即本番 deploy の不変条件下で「開発速度」と「品質」�
 | 3. 監査・merge | frozen な release HEAD に対し 8 領域監査 + adversarial evidence（ADR-0056）→ lab approve（author≠approver, ADR-0022）→ **merge commit（`gh pr merge --merge`、squash 禁止。根拠 SSOT = §2 #2871）**。HEAD が動かないため監査が無効化されない |
 | 4. back-merge | merge 後、`main → develop` の back-merge sync PR で main の merge commit を develop へ取り込む（hotfix back-merge と同じ §5 経路 / #2951・#3061 自動化）|
 
-- release branch は **`non_fast_forward` の ruleset（`release-lane-freeze`、target=`refs/heads/release/*`、id 17725378）で保護**し、force-push（history 書換）で標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
-- **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: `PR_Mearge`（id 14673945）は `dismiss_stale_reviews_on_push=false` のため、approve 後に release branch へ append しても stale approval が残り未監査差分が merge され得る。**adversarial evidence 取得・lab approve の後に release へ commit を積んだ場合は、adversarial evidence を再生成（TTL 30 分）し再 approve する**こと。approve した HEAD = merge する HEAD を必ず一致させる。
+- release branch は **force-push（history 書換）を禁止する ruleset（`release-lane-freeze`）で保護**し、標的が動くのを機械的に防ぐ。監査中に見つかった修正は release branch への通常 commit（append、fast-forward）で対応する。deletion guard は付けない（merge 後の release branch auto-delete を妨げないため。develop の deletion 保護 #2989 とは異なり release は ephemeral）。
+- **append 後は再監査必須（approve HEAD と merge HEAD の乖離防止）**: push による approval の自動 dismiss に依存しない。approve 後に release branch へ append すると stale approval が残り未監査差分が merge され得るため、**adversarial evidence 取得・lab approve の後に release へ commit を積んだ場合は、adversarial evidence を再生成（TTL 30 分）し再 approve する**こと。approve した HEAD = merge する HEAD を必ず一致させる。
 - 命名は `release/<YYYY-MM-DD>` を基本とし、同日複数回は `-2` 等の suffix を付ける。
 - machine 層: `pr-lane.mjs`（lane 判定）/ `resolve-base-branch.mjs`（release/* → main 基点解決）/ `ci.yml`（base-guard + 重量発火）が release/* を統合レーンとして扱う。
 - **`integration-pr.yml`（develop → main 自動発行、#2871）との関係**: `develop → main` も rule 2 で integration レーンに残す（後方互換）。audit-manager が形式 audit で main へ反映する際は **release/* を cut して frozen 標的で監査・merge する**のを正準とする。`integration-pr.yml` の自動発行を release/* cut 方式へ移行するかは別 Issue（#3063 派生）で判断する。
@@ -130,7 +130,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 ### 全 workflow の gate × lane 対応表（SSOT、#2948 / EPIC #2861 AC6）
 
-全 `.github/workflows/*.yml`（32 本）の lane 帰属・required 化・lane 分岐の網羅表。新規 workflow を追加する人はこの表に必ず 1 行追加する。**旧 `scripts/check-internal-terms.mjs`（workflow-coverage group で本表との網羅一致を機械検証していた）は #4322 で削除済み**。現在この一致は機械強制されていないため、workflow 追加 / 削除時は本表を手動同期すること。
+全 `.github/workflows/*.yml`（32 本）の lane 帰属・生成 context・lane 分岐の網羅表。新規 workflow を追加する人はこの表に必ず 1 行追加する。**旧 `scripts/check-internal-terms.mjs`（workflow-coverage group で本表との網羅一致を機械検証していた）は #4322 で削除済み**。現在この一致は機械強制されていないため、workflow 追加 / 削除時は本表を手動同期すること。
 
 > **2 つの不変原則（外部 research の結論を運用 SSOT 化、#2948 AC3）**:
 > 1. **required は trigger filter で skip 不可（permanent pending）** — required status check に登録した context は、`branches:` / `paths:` filter で workflow ごと skip すると GitHub 側で「報告されない = pending」のまま merge がブロックされる。required context を生む job は filter で消さず、**job 内で全 lane 実行 → 観点だけ切替** する（[GitHub Docs: Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)）。
@@ -148,29 +148,31 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `dependabot` | bot PR。`pr-lane.mjs` の `BOT_ACTORS` SSOT で exempt 判定（rule 1） |
 | `N/A（非 PR）` | PR event を持たない（schedule / push / workflow_run / issues / workflow_dispatch のみ）。lane 概念の対象外 |
 
-#### 対応表（required context は ★ 印 + context 名、`gh api .../rulesets/14673945` の配列と一致＝#2948 AC2）
+#### 対応表（各 workflow が生成する check context）
 
-| workflow | lane 帰属 | required context（★） | lane 分岐（A-1 SSOT 経由） | 重量/軽量 |
+> **どの context を required にしているかは本表に転記しない**。required 指定の実体は GitHub の branch ruleset 設定（Settings → Rules → Rulesets）にあり、docs 側の写しは必ず腐る（#4403）。required かを知りたいときは GitHub 側を見る。本表が担うのは「どの workflow がどの context を生むか」のマッピングのみ。
+
+| workflow | lane 帰属 | 生成する check context | lane 分岐（A-1 SSOT 経由） | 重量/軽量 |
 |---|---|---|---|---|
-| `ci.yml` | feature+integration（`branches:[main,develop]`） | ★`ci-gate` | あり（inline `base_ref=='main' && (head_ref=='develop' \|\| startsWith(head_ref,'release/'))` = `pr-lane.mjs` rule 2 SSOT。重量 job を統合 PR で保証発火、develop PR で skip） | 軽量 job=軽量 / 重量 job=重量 |
-| `pr-template-gate.yml` | 全 PR lane（`branches` 無指定） | ★`必須セクションの存在確認` / ★`関連 Issue 番号の記入` / ★`顧客価値・目的の記入` / `変更タイプの選択` / `テスト実行結果の記入` / `closing keyword の記入 (feat/fix)`（6 job。`変更タイプの選択` / `テスト実行結果の記入` は ruleset 実測で required 対象から外れている。closing keyword job は #3458 新設、required 化は ruleset 追加登録待ち） | あり（`uses: ./actions/pr-lane` → 各 job が `--lane`。feature/hotfix vs integration vs dependabot=skip 相当、#2944。closing keyword は feature×feat/fix のみ検証、integration=#3423 集約側 / hotfix=main 直接 auto-close で skip、#3458） | 軽量 |
-| `pr-ac-verification-check.yml` | 全 PR lane | ★`Verify AC map in PR body` | あり（`uses: ./actions/pr-lane`。feature/hotfix=AC マップ 4 列 / integration=マージ判定エビデンス表、#2945） | 軽量 |
-| `pr-merge-gate.yml` | 全 PR lane | ★`PR チェックリスト完了確認` | あり（`uses: ./actions/pr-lane`。feature/hotfix=2 section / integration=統合用 section、#2945） | 軽量 |
-| `pr-quality-gate.yml` | 全 PR lane | ★`screenshot-check` | あり（`uses: ./actions/pr-lane`。feature/hotfix=before/after 4 スロット / integration=VR 3 層委譲、#2946） | 軽量 |
-| `lp-metrics.yml` | 全 PR lane（`paths:site/**`） | ★`Measure LP dimensions and lint forbidden terms`（`measure` job） | なし（lane 非依存。`paths` scope のみ。`cumulative-lp-metrics` は main merge 擬似累積） | 軽量 |
+| `ci.yml` | feature+integration（`branches:[main,develop]`） | `ci-gate` | あり（inline `base_ref=='main' && (head_ref=='develop' \|\| startsWith(head_ref,'release/'))` = `pr-lane.mjs` rule 2 SSOT。重量 job を統合 PR で保証発火、develop PR で skip） | 軽量 job=軽量 / 重量 job=重量 |
+| `pr-template-gate.yml` | 全 PR lane（`branches` 無指定） | `必須セクションの存在確認` / `関連 Issue 番号の記入` / `顧客価値・目的の記入` / `変更タイプの選択` / `テスト実行結果の記入` / `closing keyword の記入 (feat/fix)`（6 job。closing keyword job は #3458 新設） | あり（`uses: ./actions/pr-lane` → 各 job が `--lane`。feature/hotfix vs integration vs dependabot=skip 相当、#2944。closing keyword は feature×feat/fix のみ検証、integration=#3423 集約側 / hotfix=main 直接 auto-close で skip、#3458） | 軽量 |
+| `pr-ac-verification-check.yml` | 全 PR lane | `Verify AC map in PR body` | あり（`uses: ./actions/pr-lane`。feature/hotfix=AC マップ 4 列 / integration=マージ判定エビデンス表、#2945） | 軽量 |
+| `pr-merge-gate.yml` | 全 PR lane | `PR チェックリスト完了確認` | あり（`uses: ./actions/pr-lane`。feature/hotfix=2 section / integration=統合用 section、#2945） | 軽量 |
+| `pr-quality-gate.yml` | 全 PR lane | `screenshot-check` | あり（`uses: ./actions/pr-lane`。feature/hotfix=before/after 4 スロット / integration=VR 3 層委譲、#2946） | 軽量 |
+| `lp-metrics.yml` | 全 PR lane（`paths:site/**`） | `Measure LP dimensions and lint forbidden terms`（`measure` job） | なし（lane 非依存。`paths` scope のみ。`cumulative-lp-metrics` は main merge 擬似累積） | 軽量 |
 | `orphan-check.yml` | 全 PR lane（`paths` scope）+ push[main] | — | なし | 軽量 |
 | `dependency-review.yml` | feature+integration（`branches:[main,develop]`、`paths` scope） | — | なし（develop/main 双方発火、軽量） | 軽量 |
 | `pr-info.yml` | feature+integration（`branches:[main,develop]`） | — | なし（`type-label` job は dependabot exempt） | 軽量 |
-| `pr-author-guard.yml` | 全 PR lane（`pull_request_target`） | —（`enforce-pr-author` job、ruleset 未登録） | なし（dependabot/renovate exempt） | 軽量 |
+| `pr-author-guard.yml` | 全 PR lane（`pull_request_target`） | `enforce-pr-author` | なし（dependabot/renovate exempt） | 軽量 |
 | `labeler.yml` | 全 PR lane（`pull_request_target`） | — | なし | 軽量 |
 | `pr-lane-smoke.yml` | feature+integration（`branches:[main,develop]`）+ dispatch | —（comment-only、block しない） | あり（`uses: ./actions/pr-lane` の動作実証専用、#2943 AC4） | 軽量 |
 | `dependabot-auto-merge.yml` | dependabot（`pull_request`、actor=`dependabot[bot]`） | — | なし（`BOT_ACTORS` SSOT を参照し inline 判定。composite action は overhead 回避で不採用、#2947） | 軽量 |
 | `lp-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip＝重量レーン、VR hard-fail） | 重量 |
 | `child-home-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip、VR warn） | 重量 |
 | `app-visual-regression.yml` | integration+hotfix（`branches:[main]`）+ push[main] | — | なし（develop PR で skip、VR warn） | 重量 |
-| `deploy-aws-staging.yml` | integration+hotfix（`branches:[main]` PR、paths filter 撤去で常時発火） | ★`deploy-aws-staging`（ruleset 実測で required 化済み、[runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | なし（main 向け PR で発火、actor allowlist） | 重量 |
+| `deploy-aws-staging.yml` | integration+hotfix（`branches:[main]` PR、paths filter 撤去で常時発火） | `deploy-aws-staging`（required 化の手順は [runbooks/staging-gate-required-checks.md](../runbooks/staging-gate-required-checks.md)） | なし（main 向け PR で発火、actor allowlist） | 重量 |
 | `deploy-nuc-staging.yml` | integration+hotfix（`branches:[main]` PR） | — | なし（actor allowlist） | 重量 |
-| `codeql.yml` | integration+hotfix（`branches:[main]` PR）+ push[main]+schedule | **— required 非該当（代替条件は下記「CodeQL の扱い」）** | なし（develop PR で skip、main 経路で coverage 維持、#2931） | 重量 |
+| `codeql.yml` | integration+hotfix（`branches:[main]` PR）+ push[main]+schedule | `CodeQL`（required にはしない方針。代替条件は下記「CodeQL の扱い」） | なし（develop PR で skip、main 経路で coverage 維持、#2931） | 重量 |
 | `deploy.yml` | N/A（push[main] / tags / dispatch） | — | — | 本番 deploy |
 | `deploy-nuc.yml` | N/A（push[main] / dispatch） | — | — | 本番 deploy |
 | `pages.yml` | N/A（push[main] / dispatch、LP 配信 + SS 撮影） | — | — | 本番 deploy |
@@ -185,17 +187,17 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 | `weekly-report.yml` | N/A（schedule weekly / dispatch） | — | — | 定期レポート |
 | `close-leak-report.yml` | N/A（schedule weekly / dispatch、main 反映済 open issue の close漏れ候補を job summary へ report。auto-close なし = `issues: read` のみ） | — | — | 定期レポート（#3459、検出 SSOT は `scripts/audit/close-leak-report.mjs`） |
 
-> **required context 数 = 9**（★ 印、2026-08-07 実測）。`gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945` の `required_status_checks` 配列（`ci-gate` / `screenshot-check` / `Verify AC map in PR body` / `Measure LP dimensions and lint forbidden terms` / `PR チェックリスト完了確認` / `必須セクションの存在確認` / `関連 Issue 番号の記入` / `顧客価値・目的の記入` / `deploy-aws-staging`）が真の SSOT。本表は「どの workflow がどの context を生むか」のマッピングであり、ruleset 変更時は本表も同期する（#2948 no-go: ruleset と乖離させない）。
+> **required 指定の SSOT は GitHub の branch ruleset 設定**（Settings → Rules → Rulesets）。件数・context 名の一覧を本表や本節に写さない。本表は「どの workflow がどの context を生むか」のマッピングであり、workflow 追加 / 削除時に同期する対象は本表と workflow file の関係だけである。
 >
-> **A-2〜A-5 で lane-aware 化した required gate**: `pr-template-gate.yml`（6 job、#2944 / #3458）/ `pr-ac-verification-check.yml`（#2945）/ `pr-merge-gate.yml`（#2945）/ `pr-quality-gate.yml`（#2946）の 4 workflow（5+1+1+1 = 8 required context）が `actions/pr-lane` 経由で観点切替する。`dependabot-auto-merge.yml`（#2947）は `BOT_ACTORS` SSOT を参照（required ではないが bot lane 判定を共通化）。`ci.yml`（#2874）は inline 式で `pr-lane.mjs` rule 2 と同一判定を行い重量 job を統合 PR で保証発火する。
+> **A-2〜A-5 で lane-aware 化した gate**: `pr-template-gate.yml`（6 job、#2944 / #3458）/ `pr-ac-verification-check.yml`（#2945）/ `pr-merge-gate.yml`（#2945）/ `pr-quality-gate.yml`（#2946）の 4 workflow が `actions/pr-lane` 経由で観点切替する。`dependabot-auto-merge.yml`（#2947）は `BOT_ACTORS` SSOT を参照（bot lane 判定を共通化）。`ci.yml`（#2874）は inline 式で `pr-lane.mjs` rule 2 と同一判定を行い重量 job を統合 PR で保証発火する。
 
-#### CodeQL の扱い — required 非該当と、その代わりに満たすべき条件（#4155）
+#### CodeQL の扱い — required にしない方針と、その代わりに満たすべき条件（#4155）
 
-`CodeQL` は main ruleset の `required_status_checks` に**含まれない**（上表 ★ 印なし）。ただしこれは「赤でも人の判断で通してよい」という意味では**ない**。required 非該当を維持する代わりに、以下を**機械条件**として課す。
+`CodeQL` は main の branch ruleset で required に**しない**方針を採る。ただしこれは「赤でも人の判断で通してよい」という意味では**ない**。required にしない代わりに、以下を**機械条件**として課す。
 
 | 項目 | 内容 |
 |---|---|
-| **required 非該当の理由** | 既知 alert が解消されるまで全 PR が止まる（`src/` 外の CI 補助 script 由来のものを含む）。Pre-PMF でリリース全停止に見合わない（ADR-0010） |
+| **required にしない理由** | 既知 alert が解消されるまで全 PR が止まる（`src/` 外の CI 補助 script 由来のものを含む）。Pre-PMF でリリース全停止に見合わない（ADR-0010） |
 | **代わりに満たすべき条件** | 統合 PR の ref（`refs/pull/<N>/merge`）由来の open alert が **baseline を 1 件も超えない**こと |
 | **検査主体** | `scripts/audit/check-codeql-alerts.mjs`（`ci.yml` `integration-evidence` job で実行、baseline 超過 / ledger 不正 / **未スキャン・API 取得失敗（= 検査不能）** のいずれかで exit 1） |
 | **baseline ledger** | `scripts/audit/codeql-baseline.json`（`tests/e2e/a11y-baseline.json` と同型。`(rule, path)` + `count` で pin、全 entry に `resolutionTrigger` 必須 = 期限なし pin 禁止） |
@@ -233,19 +235,15 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 
 ## §7 Branch Ruleset 変更（ユーザー手動）
 
-現行 Ruleset の確認・変更はユーザー手動作業。本 SSOT merge 後に実施する（§8）。
+Ruleset の確認・変更はユーザー手動作業。本 SSOT merge 後に実施する（§8）。
 
-- **現状確認コマンド**:
+**設定の実体は GitHub 側にあり、その内容を本ファイルに転記しない**（required checks・承認数・保護対象などの写しは必ず腐る、#4403）。現状を知る必要があるときは実体を見る。
 
-  ```bash
-  gh api repos/Takenori-Kusaka/ganbari-quest/rulesets/14673945
-  ```
-
-  現行 ruleset（id=14673945、name `PR_Mearge`、target=branch、condition=`~DEFAULT_BRANCH`=main）は `pull_request`（required_approving_review_count=1）+ `required_status_checks`（ci-gate / screenshot-check / Verify AC map / Measure LP dimensions / PR チェックリスト 等）+ `non_fast_forward` を強制している。
+- **実体の在り処**: GitHub → リポジトリ Settings → Rules → Rulesets（main を対象とする `PR_Mearge`、release branch を対象とする `release-lane-freeze`）。CLI で見るなら `gh api repos/Takenori-Kusaka/ganbari-quest/rulesets`。
 - **必要な変更（2 点）**:
   1. **main 向け PR の base 制限**: 「main へ PR を出せるのは develop と hotfix branch のみ」を Ruleset 単体で表現するのは困難（Branch Ruleset は head branch の base 制限を直接持たない）。**補完案**として、`main` 向け PR の base / head を workflow gate で検査し、`develop` / `fix/*` 以外を head とする main 向け PR を fail させる方式を採る — **#2931 で `ci.yml` の `main-pr-base-guard` job として実装済み**。有効化は repository variable **`BRANCH_STRATEGY_CUTOVER_AT`**（ISO 8601 UTC 日時、ユーザー手動設定）。未設定なら gate inactive、設定後は設定日時より後に作成された main 向け PR のみ enforce（既存 open PR は grandfather 免除 = §8 step 6）。bot（dependabot / renovate）は exempt（`dependabot.yml` の `target-branch: develop` 切替は #3072 で実施済 — 依存更新 PR は develop 軽量レーン経由、main へは統合 PR の重量レーン + 監査で反映）。
-  2. **develop 用 ruleset の整理**: 2026-06-04 時点で既存 ruleset `PR_Mearge` (id=14673945) の include に `refs/heads/develop` が追加済みだが、これは main と同一の required checks（重量含む）を develop に課す形であり §4 の軽量レーン設計と相違する。#2931 の workflow 改修により `ci-gate` は develop 向け PR でも報告される（重量 job は skip 扱いで gate を block しない）ため、当面は同居でも詰まらない。ただし設計どおり **`develop` を target とする軽量 ruleset を分離新設**（lint-and-test / unit-test / PR テンプレ gate 等のみ required、e2e / a11y / docker は含めない）し、`PR_Mearge` の include から develop を外すことを推奨。
-  3. **release/* freeze 保護 ruleset（§3.1、#3063）**: `release-lane-freeze`（id 17725378、target=`refs/heads/release/*`、`non_fast_forward` のみ）を新設済み。cut した release branch の force-push（history 書換）で audit 標的が動くのを機械的に防ぐ。deletion guard は付けない（merge 後 auto-delete を妨げないため）。release/* → main の PR 承認・required checks は既存 `PR_Mearge`（target=main）が担うため、本 ruleset に required_status_checks / pull_request は付けない。
+  2. **develop 用 ruleset の分離**: `develop` を main と同じ ruleset に同居させると、main 向けの重量 gate が develop にも課され §4 の軽量レーン設計と相違する。#2931 の workflow 改修により `ci-gate` は develop 向け PR でも報告される（重量 job は skip 扱いで gate を block しない）ため同居でも詰まりはしないが、設計どおり **`develop` を target とする軽量 ruleset を分離新設**（lint-and-test / unit-test / PR テンプレ gate 等のみ required、e2e / a11y / docker は含めない）し、main 側 ruleset の対象から develop を外すことを推奨。
+  3. **release/* freeze 保護 ruleset（§3.1、#3063）**: `release-lane-freeze`（target=`refs/heads/release/*`）で force-push を禁止し、cut した release branch の history 書換で audit 標的が動くのを機械的に防ぐ。deletion guard は付けない（merge 後 auto-delete を妨げないため）。release/* → main の PR 承認・required checks は main 側 ruleset が担うため、本 ruleset には付けない。
 
 - **GitHub App 認証の設定（ユーザー手動、#3067 / ADR-0022 Amendment 5）**: `hotfix-back-merge.yml`（§5 back-merge 機械強制）と B-3 統合 PR 自動発行（#2871）は、`secrets.GITHUB_TOKEN` で PR を作ると author が `github-actions[bot]` になり `pr-author-guard.yml` に auto-close され、かつ下流 CI を発火させない。これを回避するためプロジェクト専用の **GitHub App** を作成し、その install トークン（`actions/create-github-app-token` が実行毎に短命発行・自動失効）で PR を発行する。長命個人 PAT（旧 `BACK_MERGE_PAT`）は撤廃済み（GitHub 非推奨の常駐 credential を排除）。一度きりの設定手順:
   1. **GitHub App 作成**: Organization / 個人 Settings → Developer settings → GitHub Apps → New。Repository permissions に `Contents: Read & write` + `Pull requests: Read & write` を付与（Issues は label 付与のため `Read & write`）。Webhook は不要（off）。
@@ -264,7 +262,7 @@ stale develop 基点ズレ（single-branch refspec で `origin/develop` が更�
 2. **workflow 改修 PR**: `branches: [main]` 4 本の develop 向け発火追加 + 軽量 / 重量の振り分け + main 向け PR の base/head 検査 gate 追加。集約 job 名（`ci-gate` 等 required status check の context 名）は互換維持する。— ✅ 完了（#2931、§4「実装状況」参照）
 3. **develop branch 作成**: `main` から分岐して `develop` を作る。
 4. **数 PR で実測確認**: develop 向け軽量レーン PR を数本流し、軽量 / 重量の振り分けが期待どおりかを実測する。
-5. **Ruleset 変更（ユーザー手動）**: §7 の develop 用 ruleset 整理 + repository variable `BRANCH_STRATEGY_CUTOVER_AT` の設定（main 向け base 制限の有効化）。
+5. **Ruleset 変更（ユーザー手動）**: §7 の develop 用 ruleset 分離 + repository variable `BRANCH_STRATEGY_CUTOVER_AT` の設定（main 向け base 制限の有効化）。
 6. **既存 open PR は retarget しない**: merge 済みになるまで現行ルール（main 向け）のまま扱い、新規 PR から develop 向けに切り替える。強制 rebase / retarget はしない。
 7. **周知**: dev / po / qa session 各 doc に本 SSOT への参照を 1 行追加（本 PR で実施済み）。
 8. **ロールバック**: develop を廃止する場合は **develop branch 削除 + workflow revert のみ**で戻せる。deploy 経路（main push）は一切変えないため、ロールバックも無停止。

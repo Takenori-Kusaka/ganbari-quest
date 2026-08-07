@@ -144,7 +144,7 @@ PR body の構造化識別子（`## ` 見出し）を探す gate は **`scripts/
 
 `body.indexOf('## X')` / `body.includes('## X')` のような部分一致を新しく書くと `tests/unit/architecture/pr-body-partial-match-guard.test.ts`（ADR-0061 same-class-N→guard）が落ちる。prose（自然文）を本文全体から探す正当な用途は、同 test の `ALLOWLIST` に**理由付きで**登録する。
 
-セットアップ: Branch Ruleset の `required_status_checks` に 6 ジョブ追加（管理者作業。`closing keyword の記入 (feat/fix)` は #3458 で新設、required 化には ruleset 追加登録が必要）。
+セットアップ: 各 job を required にするかは GitHub の branch ruleset 設定で行う（管理者作業。現在の required 指定は GitHub 側が実体であり、ここには転記しない）。
 
 ## workflow の発火 type — commit を伴わない PR イベント（#4171）
 

@@ -167,7 +167,7 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 3. **テスト結果表**: 上記テストの実行結果（pass / fail / skip）を最重厚レーン（[branch-strategy.md](branch-strategy.md) §4）の全 job 横断で集約。
 4. **自動テストカバレッジ**: カバレッジ値 + ratchet 閾値割れがないこと（ADR-0005 整合）。
 5. **NG 0 件エビデンス**: 8 領域 finding のうち severity 閾値以上（§3.6）の未解決 NG が **0 件**であること。残 NG があれば merge しない。
-6. **CodeQL new-alert 0 件エビデンス（#4155）**: `ref=refs/pull/<N>/merge` の open code-scanning alert が baseline（`scripts/audit/codeql-baseline.json`）を **1 件も超えない**こと。`CodeQL` check は main ruleset の required_status_checks 非該当（[branch-strategy.md](branch-strategy.md) §4「CodeQL の扱い」）だが、**その代替として本条件を NG-0 に含める**。「required でないから赤でも通す」を audit-manager が個別判断することを禁じる（外形が admin bypass と区別できないため、ADR-0022 同型）。
+6. **CodeQL new-alert 0 件エビデンス（#4155）**: `ref=refs/pull/<N>/merge` の open code-scanning alert が baseline（`scripts/audit/codeql-baseline.json`）を **1 件も超えない**こと。`CodeQL` check は main の branch ruleset で required にしない方針（[branch-strategy.md](branch-strategy.md) §4「CodeQL の扱い」）であり、**その代替として本条件を NG-0 に含める**。「required でないから赤でも通す」を audit-manager が個別判断することを禁じる（外形が admin bypass と区別できないため、ADR-0022 同型）。
 
    ```bash
    # 機械取得（CI では ci.yml integration-evidence job が自動実行し evidence.json / job summary に載せる）
