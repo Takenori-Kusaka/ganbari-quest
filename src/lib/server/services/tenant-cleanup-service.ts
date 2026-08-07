@@ -413,26 +413,6 @@ export async function deleteTenantScopedData(
 }
 
 /**
- * #4327: テナントの `settings` を削除する（物理削除の**最終ステップ**専用）。
- *
- * `settings` は soft-delete 判定材料 (`soft_deleted_at` / `physical_deletion_date`) の
- * 置き場であり、`findExpiredSoftDeletedTenants` / `getGracePeriodStatus` はこれだけを見る。
- * したがって `families` 行より先に消すと、途中失敗時に
- * 「`families` / `users` / `memberships` は残るが判定材料が無い」= 再削除も復元もできない
- * 宙吊り行ができる。`families` を消した後に本関数を呼ぶことで、その状態を構造的に作れなくする。
- *
- * {@link deleteTenantScopedData} 内の settings 削除 (best-effort / warn 継続) と異なり、
- * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
- * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
- *
- * ## 本関数が失敗したとき残るもの (#4338)
- *
- * 残るのは**判定 3 キー ({@link GRACE_PERIOD_JUDGMENT_KEYS}) だけ**の孤児行である。
- * `pin_hash` / `session_token` / `questionnaire_*` は既に
- * {@link deleteTenantSettingsExceptJudgmentKeys} が消しているため含まれない
- * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手動掃除の手順)。
- */
-/**
  * #4338: 物理削除の途中で、**soft-delete の判定材料以外の `settings` を全部消す**。
  *
  * ## なぜ「消すキーの列挙」ではないのか
@@ -454,8 +434,13 @@ export async function deleteTenantScopedData(
  * 「予告メールの再送」は起こらない — 送信判定 (`shouldWarn`) が残り 1 日未満を除外しており、
  * 本関数が動く時点 (物理削除の実行中) は残り 0 日以下だからである。
  *
- * 失敗しても throw しない (呼び出し元の best-effort ループに合わせる)。この時点では
- * `families` 行が残っているため、翌日の cron が同じテナントを再び拾って完遂できる。
+ * ## 失敗したとき
+ *
+ * 本関数は投げる。呼び出し元 ({@link deleteTenantScopedData}) が受けて
+ * {@link SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM} を **error で** 出し、削除処理自体は続行する。
+ * この時点では `families` 行が残っているため、翌日の cron が同じテナントを再び拾って完遂できる
+ * (自己回復)。他の best-effort 削除と同じ warn に落とさないのは、この失敗が
+ * 「認証情報が残っている」を意味するためである。
  *
  * @returns 削除操作数 (1)
  */
@@ -464,6 +449,26 @@ export async function deleteTenantSettingsExceptJudgmentKeys(tenantId: string): 
 	return 1;
 }
 
+/**
+ * #4327: テナントの `settings` を削除する（物理削除の**最終ステップ**専用）。
+ *
+ * `settings` は soft-delete 判定材料 (`soft_deleted_at` / `physical_deletion_date`) の
+ * 置き場であり、`findExpiredSoftDeletedTenants` / `getGracePeriodStatus` はこれだけを見る。
+ * したがって `families` 行より先に消すと、途中失敗時に
+ * 「`families` / `users` / `memberships` は残るが判定材料が無い」= 再削除も復元もできない
+ * 宙吊り行ができる。`families` を消した後に本関数を呼ぶことで、その状態を構造的に作れなくする。
+ *
+ * {@link deleteTenantScopedData} 内の settings 削除 (best-effort / warn 継続) と異なり、
+ * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
+ * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
+ *
+ * ## 本関数が失敗したとき残るもの (#4338)
+ *
+ * 残るのは**判定 3 キー ({@link GRACE_PERIOD_JUDGMENT_KEYS}) だけ**の孤児行である。
+ * `pin_hash` / `session_token` / `questionnaire_*` は既に
+ * {@link deleteTenantSettingsExceptJudgmentKeys} が消しているため含まれない
+ * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手動掃除の手順)。
+ */
 export async function deleteTenantSettings(tenantId: string): Promise<number> {
 	try {
 		await repos().settings.deleteByTenantId(tenantId);
