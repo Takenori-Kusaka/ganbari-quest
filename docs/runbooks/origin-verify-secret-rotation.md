@@ -120,7 +120,15 @@ deploy する。
 
 段 3 まで完了して**初めてローテーションが終わる**。旧値には TTL も有効期限も無いため、**残したまま放置すると漏れた旧値が無期限に有効なまま** = ローテーションの目的が達成されない。
 
-**残置の検知**: 旧値が配られている間、アプリは起動後 1 回だけ以下の warn を出す。CloudWatch Logs でこれが出続けている = 段 3 が未実施である。
+**残置の検知 (2 経路、#4369 follow-up)**:
+
+1. **deploy 時点 (CDK synth warning)**: `originVerifySecretPrevious` context が空でないまま synth すると、`ComputeStack` が `cdk.Annotations.of(this).addWarning(...)` で以下の warning を出す。deploy を止めはしない (ローテーション中の段 1〜2 はこの状態が正常なため hard-fail にはしていない) が、`cdk diff` / deploy workflow のログに毎回出るため、段 3 を忘れたまま次の (無関係な) deploy を回したときに気付ける。
+
+   ```
+   [ComputeStack] ORIGIN_VERIFY_SECRET_PREVIOUS (originVerifySecretPrevious context) が設定されたままです。ローテーションが完了しているなら空にしてください …
+   ```
+
+2. **runtime (CloudWatch Logs)**: 旧値が配られている間、アプリは起動後 1 回だけ以下の warn を出す。CloudWatch Logs でこれが出続けている = 段 3 が未実施である。
 
 ```
 [front-door] ORIGIN_VERIFY_SECRET_PREVIOUS が設定されています = 旧 secret を並行受理中 …

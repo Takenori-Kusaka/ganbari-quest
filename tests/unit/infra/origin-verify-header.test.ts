@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Annotations, Match, Template } from 'aws-cdk-lib/assertions';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { NetworkStack } from '../../../infra/lib/network-stack';
@@ -336,5 +336,68 @@ describe('#4280 deploy workflow の全 cdk 実行が context を渡す', () => {
 		expect(yml).toContain('ORIGIN_VERIFY_SECRET');
 		// `for s in ... ORIGIN_VERIFY_SECRET ...` の必須ループに載っていること
 		expect(yml).toMatch(/for s in [^\n]*ORIGIN_VERIFY_SECRET/);
+	});
+});
+
+describe('#4369 follow-up: ORIGIN_VERIFY_SECRET_PREVIOUS 残置の CDK synth warning', () => {
+	/** ComputeStack を synth する。前提 context (dsql / parentGateCookieSecret 等) は他 describe と揃える。 */
+	function buildCompute(extraContext: Record<string, unknown> = {}): cdk.Stack {
+		const app = new cdk.App({
+			context: {
+				opsSecretKey: 'test-ops-secret-key',
+				parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
+				dsqlEndpoint: 'testcluster1234.dsql.us-east-1.on.aws',
+				dsqlClusterArn: 'arn:aws:dsql:us-east-1:000000000000:cluster/testcluster1234',
+				[originVerifyContextKey]: SECRET,
+				...extraContext,
+			},
+		});
+		const storage = new StorageStack(app, 'WarnStorage', { env });
+		return new ComputeStack(app, 'WarnCompute', {
+			env,
+			assetsBucket: storage.assetsBucket,
+			repository: storage.repository,
+		}) as unknown as cdk.Stack;
+	}
+
+	// #4369 follow-up: CDK は cross-stack reference の feature-flag 案内など、本 PR と無関係な
+	// warning を常に 1 件以上出す (`crossStackReferencesDefaultStrong` 等)。`findWarning('*', anyValue())`
+	// で 0 件を assert すると無関係な CDK 標準 warning に誤爆するため、**本 PR が出す warning のパターンだけ**
+	// を matcher に絞る (anyValue ではなく stringLikeRegexp)。
+	const OUR_WARNING_PATTERN = Match.stringLikeRegexp('ORIGIN_VERIFY_SECRET_PREVIOUS');
+
+	it('originVerifySecretPrevious が設定されていると synth warning が出る (段 3 未実施の可視化)', () => {
+		const compute = buildCompute({
+			[originVerifyPreviousContextKey]: 'origin-verify-previous-secret-for-unit-test',
+		});
+		Annotations.fromStack(compute).hasWarning('*', OUR_WARNING_PATTERN);
+	});
+
+	it('未指定 (定常状態) なら本 warning は出ない (CDK 標準 warning は対象外)', () => {
+		const compute = buildCompute();
+		const warnings = Annotations.fromStack(compute).findWarning('*', OUR_WARNING_PATTERN);
+		expect(warnings).toHaveLength(0);
+	});
+
+	it('warning が出ても synth は止まらない (addError にはしていない、ローテーション中は正常な状態のため)', () => {
+		// buildCompute が例外を投げずに完了すること自体が実証 (addWarning は Annotations に積むだけで
+		// deploy を止めない。addError であればここで throw する)。
+		const compute = buildCompute({
+			[originVerifyPreviousContextKey]: 'origin-verify-previous-secret-for-unit-test',
+		});
+		const errors = Annotations.fromStack(compute).findError('*', Match.anyValue());
+		expect(errors).toHaveLength(0);
+	}, 30_000);
+
+	it('warning メッセージが対処方法 (runbook 段 3) を含む', () => {
+		const compute = buildCompute({
+			[originVerifyPreviousContextKey]: 'origin-verify-previous-secret-for-unit-test',
+		});
+		const warnings = Annotations.fromStack(compute).findWarning('*', OUR_WARNING_PATTERN);
+		expect(warnings.length).toBeGreaterThan(0);
+		const messages = warnings.map((w) => (w as { entry?: { data?: string } }).entry?.data ?? '');
+		expect(messages.some((m) => m.includes('docs/runbooks/origin-verify-secret-rotation.md'))).toBe(
+			true,
+		);
 	});
 });

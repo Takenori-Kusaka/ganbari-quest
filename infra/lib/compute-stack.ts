@@ -226,6 +226,33 @@ export class ComputeStack extends cdk.Stack {
 		// (黙って捨てるとローテーション中に 404 になる silent skip、ADR-0024)。
 		const originVerifyPreviousSecret = resolveOriginVerifyPreviousSecret(this.node);
 
+		// #4369 follow-up: `ORIGIN_VERIFY_SECRET_PREVIOUS` はローテーション手順の 3 段中間
+		// (docs/runbooks/origin-verify-secret-rotation.md 段 1〜2) でのみ設定されるべき値で、
+		// 段 3 (旧値を空にする) を忘れて deploy し続けても synth は成功し警告も出なかった。
+		// 失効させたはずの旧 secret が front door を無期限に通り続ける = ローテーションの
+		// 目的が達成されないまま気付けない状態が放置される。
+		//
+		// hard-fail (addError) にはしない: ローテーション中 (段 1〜2) はこの状態が**正常**であり、
+		// 途中で deploy を止めると窓が開く側の事故になる (runbook §1 参照)。warning に留め、
+		// 「設定されたままであること」自体を synth 時点で可視化するだけに留める。
+		// runtime 側の 1 回だけの warn ログ (`ORIGIN_VERIFY_SECRET_PREVIOUS が設定されています`、
+		// src/lib/server/security/origin-verify.ts) と二重の検知経路になる (CloudWatch Logs は
+		// deploy 後に見に行く必要があるが、synth warning は `cdk diff` / deploy workflow の出力に
+		// 都度出るため気付く機会が増える)。
+		//
+		// 設定日を持たせる (新規 env を追加する) かは検討したが見送った: 既存の CloudWatch Logs
+		// 検知 (runbook §残置の検知) で「出続けている = 未完了」は既に分かっており、開始日時を
+		// 別途配布する新 env を増やすコストに見合わない。必要になれば
+		// `ORIGIN_VERIFY_SECRET_PREVIOUS_SET_AT` 等を追加ローテーションで検討する。
+		if (originVerifyPreviousSecret) {
+			cdk.Annotations.of(this).addWarning(
+				'[ComputeStack] ORIGIN_VERIFY_SECRET_PREVIOUS (originVerifySecretPrevious context) が' +
+					'設定されたままです。ローテーションが完了しているなら空にしてください' +
+					' (docs/runbooks/origin-verify-secret-rotation.md 段 3)。' +
+					'旧 secret を無期限に受理し続けると、漏れた旧値がいつまでも front door を通ります。',
+			);
+		}
+
 		// --- DSQL backend 配線 (EPIC #3424 / #3438 Phase 2A で無条件既定化) ---
 		// DSQL は本番の唯一の DB backend。DATA_SOURCE=dsql + DSQL_ENDPOINT + dsql:DbConnect を
 		// **無条件**で配線する。旧 `dsqlEnabled` flag と「flag なしは DATA_SOURCE=dynamodb fallback」
