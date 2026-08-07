@@ -75,6 +75,21 @@ export function createDsqlImageRepo(db: SqlExecutor): IImageRepo {
 			`);
 		},
 
+		async updateChildAvatarUrlIfMatches(childId, expectedAvatarUrl, avatarUrl, tenantId) {
+			// #4466: 期待値を WHERE に載せ、一致しなければ 0 行更新で負ける (lost update 防止)。
+			// SqlExecutor は rowCount を公開しないため RETURNING の行数で判定する
+			// (cloud-export-repo の updateStatus / daily-mission-complete と同 convention)。
+			// NULL 同士も「一致」と見なす必要があるので `IS NOT DISTINCT FROM` を使う
+			// (`= NULL` は常に UNKNOWN で、avatar_url 未設定の子供が永久に更新できなくなる)。
+			const result = await db.execute(sql`
+				UPDATE children SET avatar_url = ${avatarUrl}, updated_at = now()
+				WHERE family_id = ${tenantId} AND child_id = ${childId}
+					AND avatar_url IS NOT DISTINCT FROM ${expectedAvatarUrl}::text
+				RETURNING child_id
+			`);
+			return result.rows.length > 0;
+		},
+
 		async findChildForImage(childId, tenantId) {
 			const result = await db.execute(sql`
 				SELECT ${CHILD_COLUMNS} FROM children

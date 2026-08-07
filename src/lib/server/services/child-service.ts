@@ -16,7 +16,7 @@ import {
 	insertChild,
 	updateChild,
 } from '$lib/server/db/child-repo';
-import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
+import { updateChildAvatarUrlIfMatches } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
 import { deleteByPrefix, deleteFile, listFiles, saveFile } from '$lib/server/storage';
 import {
@@ -80,11 +80,16 @@ export async function addChild(
  * 導出元が変わったら追随させないと「名前を直したのに古い頭文字のまま」になる。
  * ただし**保護者がアップロードした写真は上書きしない** — 呼ぶ前に
  * `shouldRegeneratePlaceholderAvatar` で `avatar_url` が仮アバター自身か未設定かを確認すること。
+ *
+ * #4466: その事前確認は「読んだ時点」の判断でしかない。ここに来るまでに DB write + SVG 生成 +
+ * storage write の await が挟まるので、その窓で保護者の写真アップロードが完了しうる。
+ * **書き込みは `child.avatarUrl` (読んだ時点の値) を期待値にした条件付き更新**で行い、
+ * レースに負けたら 0 行更新で写真を残す (`updateChildAvatarUrlIfMatches`)。
+ * 呼び出し元は `child.avatarUrl` に**判定に使った値そのもの**を渡すこと。
  */
-async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string; theme: string }>(
-	child: T,
-	tenantId: string,
-): Promise<T> {
+async function attachPlaceholderAvatar<
+	T extends { id: ChildId; nickname: string; theme: string; avatarUrl?: string | null },
+>(child: T, tenantId: string): Promise<T> {
 	try {
 		const key = placeholderAvatarKey(tenantId, child.id, PLACEHOLDER_AVATAR_EXTENSION);
 		assertTenantScopedStorageKey(key, tenantId);
@@ -96,7 +101,22 @@ async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string
 		// ブラウザが古い画像を出し続ける」(max-age=300) を防ぐ。配信側は path でルーティング
 		// するため query は無視される。
 		const publicUrl = `${storageKeyToPublicUrl(key)}?v=${placeholderAvatarVersion(child.nickname, child.theme)}`;
-		await updateChildAvatarUrl(child.id, publicUrl, tenantId);
+		const written = await updateChildAvatarUrlIfMatches(
+			child.id,
+			child.avatarUrl ?? null,
+			publicUrl,
+			tenantId,
+		);
+		if (!written) {
+			// レースで負けた = この間に avatar_url が別の値になった (写真アップロードが典型)。
+			// 仮アバターは付加価値なので操作自体は成功させるが、黙って諦めると運営が気づけない。
+			// 書いた SVG (固定名キー) は誰からも参照されないだけで、写真の実体には触れていない。
+			logger.warn(
+				'[child-service] 仮アバターの反映を見送りました（この間に avatar_url が変わったため。写真は保持されます）',
+				{ context: { childId: child.id, tenantId } },
+			);
+			return child;
+		}
 
 		return { ...child, avatarUrl: publicUrl };
 	} catch (err) {
@@ -154,6 +174,9 @@ export async function editChild(
 				id,
 				nickname: input.nickname ?? existing.nickname,
 				theme: input.theme ?? existing.theme,
+				// #4466: 判定に使った値をそのまま期待値として渡す。書き込みまでの間に
+				// 写真がアップロードされていたら 0 行更新になり、写真を踏み潰さない。
+				avatarUrl: existing.avatarUrl ?? null,
 			},
 			tenantId,
 		);
