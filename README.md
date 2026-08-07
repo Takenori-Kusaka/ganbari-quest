@@ -104,7 +104,7 @@ npm run dev
 
 | 変数 | 説明 |
 |------|------|
-| `AI_PROVIDER` | AI プロバイダー: `gemini` or `bedrock`（アバター画像のAI生成用） |
+| `AI_PROVIDER` | AI プロバイダー: `gemini`（NUC）or `bedrock`（AWS）。活動・ごほうび等のテキスト補助に使う |
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) API キー（`AI_PROVIDER=gemini` 時） |
 | `GDRIVE_CLIENT_ID` | Google Drive バックアップ -- OAuth クライアントID |
 | `GDRIVE_CLIENT_SECRET` | Google Drive バックアップ -- OAuth クライアントシークレット |

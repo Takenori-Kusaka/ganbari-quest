@@ -126,8 +126,9 @@ export class ComputeStack extends cdk.Stack {
 			`${cfg.ssmPrefix}/context-token-secret`,
 		);
 
-		// --- Gemini API Key（SSM から取得、未設定時はフォールバック動作） ---
-		const geminiApiKey = this.node.tryGetContext('geminiApiKey') ?? '';
+		// #4397: GEMINI_API_KEY の注入は撤去した。SaaS (AWS) 側から Google の生成 AI を
+		// 呼ぶ経路は、アバターの AI 生成 (子供のニックネーム / 年齢を送る配線) の廃止により
+		// 存在しない。NUC 側のテキスト補助は deploy-nuc.yml が別途鍵を配る。
 
 		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
@@ -430,7 +431,6 @@ export class ComputeStack extends cdk.Stack {
 						...(originVerifyPreviousSecret
 							? { ORIGIN_VERIFY_SECRET_PREVIOUS: originVerifyPreviousSecret }
 							: {}),
-						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
 						...(stripePriceStandardMonthly
@@ -693,7 +693,6 @@ export class ComputeStack extends cdk.Stack {
 				//   - ASSETS_BUCKET (S3) / DSQL_ENDPOINT (DSQL backend)
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
 				//   - STRIPE_* (Stripe)
-				//   - GEMINI_API_KEY (Gemini)
 				//   - CRON_SECRET / OPS_SECRET_KEY (cron / ops)
 				//   - DISCORD_WEBHOOK_* (Discord)
 				//   - SES_SENDER_EMAIL / SES_CONFIG_SET_NAME (SES)

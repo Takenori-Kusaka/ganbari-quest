@@ -686,7 +686,7 @@ Dockerfile.lambda        # Lambda Web Adapter用
 |---------|------|------------|
 | `activity-suggest-service.ts` | 活動名→カテゴリ・アイコン推定 | テキスト + tool_use |
 | `receipt-ocr-service.ts` | レシート画像→金額抽出 | 画像入力 + tool_use |
-| `image-service.ts` | 画像生成 | **Gemini 維持**（Bedrock に画像生成なし） |
+| `image-service.ts` | アバター / favicon の参照 | **AI 生成は #4397 で撤去**（Gemini 呼び出しなし。SaaS 側に Google の生成 AI を呼ぶ経路は残らない） |
 
 ### 環境変数
 

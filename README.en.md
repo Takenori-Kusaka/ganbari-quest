@@ -95,7 +95,7 @@ Copy `.env.example` to `.env` and configure as needed. All variables have sensib
 
 | Variable | Description |
 |----------|-------------|
-| `AI_PROVIDER` | AI provider: `gemini` or `bedrock` (for AI-generated avatar images) |
+| `AI_PROVIDER` | AI provider: `gemini` (NUC) or `bedrock` (AWS). Used for text assistance |
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/) API key (when `AI_PROVIDER=gemini`) |
 | `GDRIVE_CLIENT_ID` | Google Drive backup -- OAuth client ID |
 | `GDRIVE_CLIENT_SECRET` | Google Drive backup -- OAuth client secret |

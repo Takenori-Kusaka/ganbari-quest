@@ -144,8 +144,7 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/v1/images | 画像取得（S3 プロキシ） | 全ロール |
-| POST | /api/v1/images | 画像アップロード | owner/parent |
+| GET | /api/v1/images | favicon の現在パス取得（`?type=favicon`） | owner/parent |
 | GET | /api/v1/export | データエクスポート（JSON / ZIP）。ZIP は `data.json` + 静的ファイル（avatars/voices/generated）+ `manifest.json` を同梱。#3375: `manifest.json` に全エントリの SHA-256 + バイト数を記録し、画像含む同梱バイナリの**偶発的破損**を import 前に照合可能にする（既存 `data.json` checksum は論理内容のみを保護）。`itemCounts`（主要エンティティ件数）も記録し **#3386 で import 側が data.json 実件数と照合**（部分欠損検出）。`dataVersion` は将来用メタデータ（復元 migration dispatch 未実装）。`manifest` は未署名のため意図的改竄の防止は対象外（将来スコープ）。圧縮は per-entry 制御（既圧縮画像=store / 構造化=deflate） | owner/parent |
 | POST | /api/v1/import | データインポート（JSON / ZIP、静的ファイル復元）。#3375: ZIP に `manifest.json` があれば SHA-256 / サイズ / 存在を復元前に照合し、**偶発的破損（SHA-256/バイト数/存在の不一致）と manifest 記載ファイルの欠落、manifest 記載外ファイルの混入（注入）、#3386: itemCounts と data.json 実件数の不一致（部分欠損）を明示エラー化**（記載外ファイル・件数不一致は fail-closed で復元拒否）。#3386 / ADR-0062: エラー文言は内部 reason コード / 生パスを露出せず `labels.ts` 汎用文言を返す（内部詳細は logger のみ）。#3382: 設定値は allowlist キーでも import 時に値域/型/enum/制御文字を検証し不正値は skip。`manifest` は未署名のため**意図的改竄の防止は対象外**（manifest 再計算 / manifest 削除での downgrade が可能、将来スコープ）。`manifest.json` 無しの旧 ZIP / 旧 JSON は検証スキップで後方互換 | owner/parent |
 | GET | /api/v1/export/cloud | クラウドエクスポート一覧取得 | owner/parent |
@@ -850,11 +849,14 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 
 #### GET /api/v1/images
 
-S3 からの画像取得プロキシ。`key` クエリパラメータで対象を指定。
+favicon の現在パスを返す（`?type=favicon`）。生成済み favicon があればそのパス、無ければ静的アイコン
+`/icon-character.png`、いずれも無ければ `null`。`type` が `favicon` 以外なら 400。
 
-#### POST /api/v1/images
+アバター画像のアップロードは `POST /api/v1/children/[id]/avatar` が担う。
 
-画像をアップロードする（S3 へ保存）。
+**アバター / favicon の AI 生成（旧 `POST /api/v1/images`）は #4397 で廃止した。** 子供のニックネームと
+年齢を運営者の環境の外にある生成 AI（Gemini）へ送る配線であり、プライバシーポリシー第 3 条 / 第 10 条の
+開示と食い違っていたため、機能ごと撤去している。アバターの設定手段は写真アップロードのみ。
 
 #### GET /api/v1/export
 

@@ -1,15 +1,13 @@
-// POST /api/v1/images - Generate avatar or favicon
 // GET /api/v1/images?type=favicon - Get favicon path
+//
+// #4397: 画像生成 (POST {type:'avatar'|'favicon'}) は撤去した。子供のニックネームと年齢を
+// 運営者の環境の外にある生成 AI (Gemini) へ送る配線であり、privacy.html 第 3 条 / 第 10 条の
+// 開示と食い違っていたため機能ごと廃止した。アバターの設定は
+// POST /api/v1/children/[id]/avatar (写真アップロード) が担う。
 
 import { json } from '@sveltejs/kit';
-import { asChildId } from '$lib/domain/ids';
-import { notFound, validationError } from '$lib/server/errors';
-import {
-	generateAvatar,
-	generateFavicon,
-	getFaviconPath,
-} from '$lib/server/services/image-service';
-import { getChildStatus } from '$lib/server/services/status-service';
+import { validationError } from '$lib/server/errors';
+import { getFaviconPath } from '$lib/server/services/image-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -26,64 +24,4 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	}
 
 	return validationError('type パラメータを指定してください（favicon）');
-};
-
-export const POST: RequestHandler = async ({ request, locals }) => {
-	const context = locals.context;
-	if (!context) {
-		return json({ error: '認証が必要です' }, { status: 401 });
-	}
-	const tenantId = context.tenantId;
-	const body = await request.json().catch(() => null);
-	if (!body || typeof body !== 'object') {
-		return validationError('リクエストボディが不正です');
-	}
-
-	const { type } = body as { type?: string };
-
-	if (type === 'avatar') {
-		const rawChildId = (body as { childId?: unknown }).childId;
-		// #3575: id は opaque string。旧クライアントの number も境界で受けて as* 変換する
-		if (
-			rawChildId == null ||
-			!(typeof rawChildId === 'string' || typeof rawChildId === 'number') ||
-			rawChildId === ''
-		) {
-			return validationError('childId を指定してください');
-		}
-		const childId = asChildId(rawChildId);
-
-		const status = await getChildStatus(childId, tenantId);
-		if ('error' in status) {
-			return notFound('子供が見つかりません');
-		}
-
-		const result = await generateAvatar(
-			childId,
-			{
-				characterType: status.characterType,
-				level: status.level,
-			},
-			tenantId,
-		);
-
-		if ('error' in result) {
-			return notFound(result.error);
-		}
-
-		return json({
-			filePath: result.filePath,
-			isGenerated: result.isGenerated,
-		});
-	}
-
-	if (type === 'favicon') {
-		const result = await generateFavicon(tenantId);
-		return json({
-			filePath: result.filePath,
-			isGenerated: result.isGenerated,
-		});
-	}
-
-	return validationError('type は avatar または favicon を指定してください');
 };

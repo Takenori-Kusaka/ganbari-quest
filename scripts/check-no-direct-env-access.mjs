@@ -65,7 +65,6 @@ const GRANDFATHER = new Set(
 		'src/lib/server/services/account-deletion-service.ts',
 		'src/lib/server/services/breakeven-service.ts',
 		'src/lib/server/services/email-service.ts',
-		'src/lib/server/services/image-service.ts',
 		'src/lib/server/services/license-key-service.ts',
 		'src/lib/server/services/notification-service.ts',
 		'src/lib/server/services/stripe-metrics-service.ts',

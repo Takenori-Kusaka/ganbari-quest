@@ -266,7 +266,6 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
-          -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
@@ -341,7 +340,6 @@ jobs:
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
             -c staticAssetsS3Offload=true \
             -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }} \
-            -c geminiApiKey=${{ secrets.GEMINI_API_KEY }} \
             -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
             -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }} \
@@ -371,7 +369,6 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
-          -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
