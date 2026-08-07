@@ -19,6 +19,7 @@
 // ── ISettingsRepo ──
 //   [ST1] set/get round-trip + upsert 上書き + getSettings 一括 (空 keys = {}) + §P9 family 独立
 //   [ST2] deleteByTenantId は §P9 tenant 限定
+//   [ST3] countValuesByPrefix (cross-tenant ops 集計、#4269 ①) が loyalty-service の JS 判定と一致
 // ── ITrialHistoryRepo ──
 //   [TH1] insert (defaults) + findLatestByTenant (created_at 降順の最新) + §P9
 //   [TH2] findActiveTrials (end_date >= 今日、cross-tenant) + updateConversion (tenant scope no-op)
@@ -67,6 +68,11 @@ import type { ISettingsRepo } from '../../../src/lib/server/db/interfaces/settin
 import type { ITrialHistoryRepo } from '../../../src/lib/server/db/interfaces/trial-history-repo.interface';
 import type { IViewerTokenRepo } from '../../../src/lib/server/db/interfaces/viewer-token-repo.interface';
 import type { InsertCloudExportInput } from '../../../src/lib/server/db/types';
+import {
+	isLegacyMonthKeyValue,
+	JST_MONTH_KEY_PREFIX,
+	LOYALTY_LAST_INCREMENT_MONTH_KEY,
+} from '../../../src/lib/server/services/loyalty-service';
 import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000e1';
@@ -148,6 +154,34 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		await settingsRepo.deleteByTenantId(FAMILY);
 		expect(await settingsRepo.getSetting('theme', FAMILY)).toBe(undefined);
 		expect(await settingsRepo.getSetting('theme', OTHER_FAMILY)).toBe('green');
+	});
+
+	// [ST3] #4269 ①: /ops 在庫監査の cross-tenant 集計。SQL の前方一致判定が
+	// loyalty-service の JS 判定 (isLegacyMonthKeyValue) と **同じ答えを出す**ことを実 DB で固定する。
+	// ここが食い違うと「skip されているのに在庫に出ない」滞留を作る。
+	it('[ST3] countValuesByPrefix: cross-tenant 前方一致集計が JS 判定と一致する', async () => {
+		const key = LOYALTY_LAST_INCREMENT_MONTH_KEY;
+		const values: Record<string, string> = {
+			[FAMILY]: '2026-07', // prefix 無し = 基準不明 (滞留)
+			[OTHER_FAMILY]: `${JST_MONTH_KEY_PREFIX}2026-08`, // prefix 付き = 基準明示
+		};
+		for (const [family, value] of Object.entries(values)) {
+			await settingsRepo.setSetting(key, value, family);
+		}
+
+		const counts = await settingsRepo.countValuesByPrefix(key, JST_MONTH_KEY_PREFIX);
+		const expectedLegacy = Object.values(values).filter(isLegacyMonthKeyValue).length;
+
+		expect(counts.total, '同 key の全 family 行を数えていません').toBe(2);
+		expect(
+			counts.total - counts.withPrefix,
+			'SQL の前方一致判定が loyalty-service の JS 判定と食い違っています',
+		).toBe(expectedLegacy);
+		expect(expectedLegacy).toBe(1);
+
+		// 他 key を巻き込まない (key 述語が効いている)
+		await settingsRepo.setSetting('theme', '2026-07', FAMILY);
+		expect((await settingsRepo.countValuesByPrefix(key, JST_MONTH_KEY_PREFIX)).total).toBe(2);
 	});
 
 	// ─────────────────── ITrialHistoryRepo ───────────────────

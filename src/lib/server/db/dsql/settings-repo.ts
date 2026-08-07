@@ -59,5 +59,21 @@ export function createDsqlSettingsRepo(db: SqlExecutor): ISettingsRepo {
 		async deleteByTenantId(tenantId) {
 			await db.execute(sql`DELETE FROM settings WHERE family_id = ${tenantId}`);
 		},
+
+		// #4269 ①: /ops 在庫監査の cross-tenant 集計。§11.2 明示例外と同クラス
+		// (ops 認可下・COUNT のみ・個票非露出) のため family_id 述語を持たない。
+		// 判定は `starts_with(value, prefix)` の 1 箇所だけで、prefix は呼び出し側
+		// (loyalty-service の `JST_MONTH_KEY_PREFIX`) から渡す。
+		// 走査は key 一致行のみ・返却は 2 スカラーで、行を持ち出さない (ADR-0065 原則 1/2)。
+		async countValuesByPrefix(key, valuePrefix) {
+			const result = await db.execute(sql`
+				SELECT
+					COUNT(*)::int AS total,
+					COUNT(*) FILTER (WHERE starts_with(value, ${valuePrefix}))::int AS with_prefix
+				FROM settings WHERE key = ${key}
+			`);
+			const row = result.rows[0] as { total: number; with_prefix: number } | undefined;
+			return { total: Number(row?.total ?? 0), withPrefix: Number(row?.with_prefix ?? 0) };
+		},
 	};
 }
