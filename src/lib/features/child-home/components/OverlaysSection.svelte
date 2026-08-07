@@ -3,7 +3,7 @@ import { resolve } from '$app/paths';
 import type { CategoryId } from '$lib/domain/ids';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier-types';
 import BirthdayModal from '$lib/features/birthday/BirthdayModal.svelte';
-import type { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import type { DialogType } from '$lib/features/child-home/dialog-state-machine';
 import {
 	resolveUiModeChangeMessage,
 	type UiModeChangeNotice,
@@ -61,7 +61,13 @@ interface LevelUpData {
 }
 
 interface Props {
-	fsm: DialogFSM;
+	/**
+	 * #4433: 「いま開いてよい 1 枚」。`DialogFSM` は素の class instance で `$state` proxy が
+	 * 効かず、`fsm.current` の変化は component 境界を越えて伝播しない (#4313 で実測)。
+	 * FSM instance を渡して各所で `fsm.current` を読むのをやめ、**親が持つ `$state` の
+	 * mirror を prop で受ける**。arbitration (同時に 1 枚) は引き続き FSM が担う。
+	 */
+	current: DialogType;
 	levelUpData: LevelUpData | null;
 	onLevelUpClose: () => void;
 	latestReward: LatestReward | null;
@@ -72,12 +78,7 @@ interface Props {
 	onBirthdayClose: () => void;
 	/** #4313: 誕生日で年齢帯 UI が切り替わったことの未読告知 (次回ログインで 1 回だけ) */
 	uiModeChangeNotice: UiModeChangeNotice | null;
-	/**
-	 * #4313: 表示状態。`DialogFSM` は素の class instance で `$state` proxy が効かず、
-	 * `fsm.current` の変化は component 境界を越えて伝播しない (実測: 本 component の
-	 * `$effect` は `current: 'idle'` のまま再実行されない)。arbitration (同時に 1 枚) は
-	 * 引き続き FSM が担い、**開閉の描画は親が持つ `$state` を prop で受ける**。
-	 */
+	/** #4313: 既読化済みなら再表示しない (`current` が uiModeChange でも出さない)。 */
 	uiModeChangeOpen: boolean;
 	onUiModeChangeClose: () => void;
 	nickname: string;
@@ -85,7 +86,7 @@ interface Props {
 }
 
 let {
-	fsm,
+	current,
 	levelUpData,
 	onLevelUpClose,
 	latestReward,
@@ -101,11 +102,11 @@ let {
 	uiMode,
 }: Props = $props();
 
-// Derive open states from FSM current dialog
-let levelUpOpen = $derived(fsm.current === 'levelUp');
-let rewardOpen = $derived(fsm.current === 'specialReward');
-let stampPressOpen = $derived(fsm.current === 'stampPress');
-let birthdayModalOpen = $derived(fsm.current === 'birthday');
+// Derive open states from the FSM's current dialog (mirrored into `current` by the parent)
+let levelUpOpen = $derived(current === 'levelUp');
+let rewardOpen = $derived(current === 'specialReward');
+let stampPressOpen = $derived(current === 'stampPress');
+let birthdayModalOpen = $derived(current === 'birthday');
 // #4313: 年齢帯 UI 切替の告知。FSM が「同時に 1 枚」を保証するため、誕生日モーダル等と
 // 重ならない (ADR-0012)。文言は切替**後**の uiMode を基準に labels.ts SSOT から解決する。
 let uiModeChangeMsg = $derived(

@@ -106,22 +106,19 @@ async function cleanupSeededChallenges(workerDbPath: string): Promise<void> {
 }
 
 /**
- * ログインボーナス (おみくじ) overlay を閉じる。
+ * ログインボーナス (おみくじ) overlay が開いていれば閉じる。
  *
- * 本 overlay は Ark UI の nested dialog で positioner が `fixed inset-0` のため、開いている間は
- * 祝福ダイアログのボタンへの click を intercept する (DESIGN.md §10「reward と tutorial を同時
- * 表示しない」の実装上の帰結)。実ユーザーも「やったね！」を押してから祝福を閉じるので、
- * 同じ順序で操作する。
+ * #4433 以降、子供ホームの自動演出は `DialogFSM` が「同時に 1 枚」に調停するため、
+ * 祝福が出ている回のログインボーナスは queue で待つ (= ここでは開いていない)。
+ * 一方、祝福より先にログインボーナスが出る回もありうるので、開いていれば閉じる形にしておく。
+ * 本 spec の関心は「祝福が 1 回だけか」であり、どちらが先かではない。
  */
 async function dismissLoginBonusOverlay(page: import('@playwright/test').Page): Promise<void> {
-	// 本 overlay はログイン直後に非同期で自動 claim → 表示されるため、出現を待ってから閉じる
-	// (既に受領済みの日は出ないので、待ちは bounded にして未出現を許容する)。
 	const confirm = page.getByTestId('login-bonus-confirm');
-	await confirm.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
 	if (await confirm.isVisible().catch(() => false)) {
 		await confirm.click();
+		await expect(page.getByTestId('stamp-press-overlay')).toBeHidden();
 	}
-	await expect(page.getByTestId('stamp-press-overlay')).toBeHidden();
 }
 
 /**

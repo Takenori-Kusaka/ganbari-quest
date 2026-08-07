@@ -1,4 +1,7 @@
 <script lang="ts">
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
@@ -23,7 +26,7 @@ import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
-import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { DialogFSM, type DialogType } from '$lib/features/child-home/dialog-state-machine';
 import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
 import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
@@ -70,7 +73,31 @@ const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode))
 const f = $derived(variant.features);
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
-let fsm = $state(new DialogFSM());
+const fsm = new DialogFSM();
+
+/**
+ * #4433: FSM の `current` を描画用に mirror した `$state`。
+ *
+ * `DialogFSM` は素の class instance なので Svelte 5 の `$state` proxy が掛からず、
+ * `fsm.current` への代入は再描画を起こさない。従来は「他の `$state` が偶然更新される
+ * ついでに `{#if fsm.current === ...}` が再評価される」ことに依存しており、
+ * FSM を閉じただけのときは次の 1 枚が出なかった (#4313 は個別 flag で回避していた)。
+ *
+ * FSM を触ったら必ず `syncDialog()` を通し、**描画は本 `$state` だけを見る**。
+ */
+let currentDialog = $state<DialogType>('idle');
+function syncDialog() {
+	currentDialog = fsm.current;
+}
+/** FSM を進める操作は必ずこの 2 つを経由する (`fsm` を直接触ると描画が同期しない)。 */
+function openDialog(type: DialogType, payload?: unknown) {
+	fsm.transition(type, payload);
+	syncDialog();
+}
+function closeDialog() {
+	fsm.close();
+	syncDialog();
+}
 
 // First record special celebration (must be before celebEffect)
 let isFirstRecord = $state(false);
@@ -403,7 +430,7 @@ function handleResultClose() {
 
 	// レベルアップがあれば FSM 経由で表示
 	if (levelUpData) {
-		fsm.transition('levelUp', levelUpData);
+		openDialog('levelUp', levelUpData);
 	} else {
 		isFirstRecord = false;
 		resultData = null;
@@ -413,7 +440,7 @@ function handleResultClose() {
 }
 
 function handleLevelUpClose() {
-	fsm.close();
+	closeDialog();
 	levelUpData = null;
 	isFirstRecord = false;
 	resultData = null;
@@ -422,7 +449,7 @@ function handleLevelUpClose() {
 }
 
 function handleStampPressClose() {
-	fsm.close();
+	closeDialog();
 	invalidateAll();
 }
 
@@ -450,7 +477,7 @@ async function handleMessageClose() {
 	if (data.latestMessage) {
 		await postShown(`/api/v1/messages/${data.latestMessage.id}/shown`);
 	}
-	fsm.close();
+	closeDialog();
 	invalidateAll();
 }
 
@@ -458,11 +485,11 @@ async function handleRewardClose() {
 	if (data.latestReward) {
 		await postShown(`/api/v1/special-rewards/${data.latestReward.id}/shown`);
 	}
-	fsm.close();
+	closeDialog();
 }
 
 function handleAdventureClose() {
-	fsm.close();
+	closeDialog();
 	triggerLoginBonus();
 }
 
@@ -482,7 +509,7 @@ function triggerLoginBonus() {
 }
 
 function handleBirthdayOpen() {
-	fsm.transition('birthday', data.birthdayBonus);
+	openDialog('birthday', data.birthdayBonus);
 }
 
 // #4313: 年齢帯 UI 切替の告知を閉じる。閉じた時点で server 側の pending notice を既読化し、
@@ -496,7 +523,7 @@ let uiModeChangeOpen = $state(false);
 let uiModeChangeDismissed = $state(false);
 async function handleUiModeChangeClose() {
 	uiModeChangeOpen = false;
-	fsm.close();
+	closeDialog();
 	if (uiModeChangeDismissed) return;
 	uiModeChangeDismissed = true;
 	try {
@@ -544,22 +571,44 @@ $effect(() => {
 		isScreenshotMode,
 	});
 
+	// #4433: 達成祝福も FSM の arbitration に載せる。従来は FSM の外で
+	// `{#if celebrationChallenge}` だけを見て描画していたため、ログインボーナス
+	// (`stampPress`) と**同時に開く**ことがあった。Ark UI (zag-js) の dismissable-layer は
+	// 「最後に開いた layer」以外を `pointer-events: none` にするので、後から開いた
+	// ログインボーナスに祝福の click が吸われ、子供が祝福を閉じられなくなっていた
+	// (z-index では解決しない。docs/DESIGN.md §10「侵襲的演出を重ねない」)。
+	const shouldShowCelebration = f.showSiblingFeatures && celebrationChallenge;
+	// 兄弟の応援 overlay も同じ class の defect (FSM 外で開くため祝福と重なりうる) なので
+	// 同時に arbitration へ載せる (ADR-0061: 同 class は 1 件目で guard 化する)。
+	const shouldShowCheer =
+		!isScreenshotMode &&
+		f.showSiblingFeatures &&
+		showCheerOverlay &&
+		data.unshownCheers &&
+		data.unshownCheers.length > 0;
+
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
 		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
+		siblingCheer: shouldShowCheer ? data.unshownCheers : undefined,
+		celebration: shouldShowCelebration ? celebrationChallenge : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
+	syncDialog();
 
 	// FSM が uiModeChange を current にできたときだけ描画する (他ダイアログが出る回は queue
 	// に入るだけで表示しない = 2 枚連続演出を作らない、ADR-0012)。既読化済みなら再表示しない。
+	// `currentDialog` ではなく `fsm.current` を読む: 本 $effect は `syncDialog()` で
+	// `currentDialog` を **書く** ため、ここで読むと自己依存になって再実行が連鎖しうる。
+	// FSM 側は非リアクティブなので読んでも依存に入らない。
 	if (!uiModeChangeDismissed) {
 		uiModeChangeOpen = fsm.current === 'uiModeChange';
 	}
 
 	// If adventure is not showing and login bonus unclaimed, trigger it
-	// Note: use shouldShowAdventure (not fsm.current) to avoid circular $effect dependency
+	// Note: use shouldShowAdventure (not currentDialog) to avoid circular $effect dependency
 	if (
 		!shouldShowAdventure &&
 		data.loginBonusStatus &&
@@ -681,7 +730,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{/if}
 
 	<!-- Login stamp auto-claim form (hidden) — unified bonus + stamp -->
-	{#if bonusClaiming && fsm.current !== 'stampPress'}
+	{#if bonusClaiming && currentDialog !== 'stampPress'}
 		<form
 			method="POST"
 			action="?/loginStamp"
@@ -705,7 +754,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardEntries: cardData?.entries ?? [],
 							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
 						};
-						fsm.transition('stampPress', stampPressData);
+						openDialog('stampPress', stampPressData);
 					}
 					bonusClaiming = false;
 				};
@@ -1049,7 +1098,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 </Dialog>
 
 <OverlaysSection
-	{fsm}
+	current={currentDialog}
 	{levelUpData}
 	onLevelUpClose={handleLevelUpClose}
 	latestReward={data.latestReward}
@@ -1057,7 +1106,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{stampPressData}
 	onStampPressClose={handleStampPressClose}
 	birthdayBonus={data.birthdayBonus}
-	onBirthdayClose={() => fsm.close()}
+	onBirthdayClose={() => closeDialog()}
 	uiModeChangeNotice={data.uiModeChangeNotice ?? null}
 	{uiModeChangeOpen}
 	onUiModeChangeClose={handleUiModeChangeClose}
@@ -1066,7 +1115,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 />
 
 <!-- Adventure start overlay (first-time users, non-baby) -->
-{#if f.showAdventureStart && data.isFirstTime && fsm.current === 'adventure'}
+{#if f.showAdventureStart && data.isFirstTime && currentDialog === 'adventure'}
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
@@ -1076,7 +1125,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 
 <!-- Parent message overlay (non-baby) -->
 <!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (FSM-gated だが安全側で抑止) -->
-{#if !isScreenshotMode && f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
+{#if !isScreenshotMode && f.showParentMessages && data.latestMessage && currentDialog === 'parentMessage'}
 	<ParentMessageOverlay
 		open={true}
 		messageType={data.latestMessage.messageType}
@@ -1087,8 +1136,13 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 {/if}
 
-<!-- Sibling celebration (all siblings complete, non-baby) -->
-{#if f.showSiblingFeatures && !celebrationDismissed && celebrationChallenge}
+<!--
+	Sibling celebration (all siblings complete, non-baby)
+	#4433: FSM が current にした回だけ描画する。ログインボーナス等と同時に開くと、
+	後から開いた側に click を吸われて子供が祝福を閉じられなくなる (DESIGN.md §10)。
+	他の演出が出ている回は queue に入り、それを閉じた時点で本祝福が出る。
+-->
+{#if f.showSiblingFeatures && !celebrationDismissed && celebrationChallenge && currentDialog === 'celebration'}
 	<SiblingCelebration
 		challengeId={celebrationChallenge.id}
 		challengeTitle={celebrationChallenge.title}
@@ -1097,16 +1151,16 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			name: data.allChildren?.find((c: { id: ChildId }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,
 		}))}
-		onDismiss={() => { celebrationDismissed = true; }}
+		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}
 	/>
 {/if}
 
 <!-- Sibling cheer overlay (non-baby) -->
 <!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
-{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
+{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0 && currentDialog === 'siblingCheer'}
 	<SiblingCheerOverlay
 		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; }}
+		onDismiss={() => { showCheerOverlay = false; closeDialog(); }}
 	/>
 {/if}
 
