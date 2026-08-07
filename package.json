@@ -136,7 +136,6 @@
 		"eslint-plugin-storybook": "^10.5.6",
 		"eslint-plugin-svelte": "^3.22.0",
 		"fast-check": "^4.9.0",
-		"googleapis": "^174.0.0",
 		"husky": "^9.1.7",
 		"jscpd": "^5.0.14",
 		"jsdom": "^30.0.1",
