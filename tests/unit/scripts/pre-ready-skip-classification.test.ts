@@ -135,7 +135,11 @@ describe('#4018 buildSummary — ALL PASS 到達可能性', () => {
 			pr: '3996',
 		});
 		expect(summary.status).toBe('ALL_PASS');
-		expect(summary.text).toContain('ALL PASS');
+		// #4390: 見出し文言は「ALL PASS」から「PASS — pre-ready 6 step の範囲でのみ緑」に変更した
+		// (「ALL PASS」が CI 緑の予測と読まれ、6 PR が ALL PASS のまま CI red になった実測)。
+		// 判定 (status) は不変なので、AC1「適用対象外だけなら到達できる」の検証強度は変わらない。
+		expect(summary.text).toContain('pre-ready 6 step の範囲でのみ緑');
+		expect(summary.text).toContain('CI 緑の予測ではありません');
 		// 「--skip 指定」という誤った説明を出さないこと (本 Issue の表面症状)
 		expect(summary.text).not.toContain('--skip 指定');
 	});
