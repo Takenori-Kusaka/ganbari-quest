@@ -88,7 +88,8 @@ export default async (page, capture) => {
 	// 本 PR の対象ではない使い方ガイドのバナーを画面から外す (localStorage 由来)
 	await page.addInitScript(() => {
 		try {
-			for (const id of [1, 2, 3, 4, 5]) localStorage.setItem(`child_tutorial_hint_shown_${id}`, '1');
+			for (const id of [1, 2, 3, 4, 5])
+				localStorage.setItem(`child_tutorial_hint_shown_${id}`, '1');
 		} catch {
 			/* localStorage 不可の環境では何もしない */
 		}
