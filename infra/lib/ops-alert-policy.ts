@@ -124,6 +124,11 @@ export const ALARM_NOTIFY_POLICY: Record<string, AlarmNotifyPolicy> = {
 		reason:
 			'オーナー決裁 2026-08-07「AI 不達のアラートは Discord の障害通知へ webhook で飛ばすべき」。(a) AI 不達は有料機能が事実上死んでいる状態で、顧客向け文言が「運営が検知済み」と伝えている以上、人に届かなければその一文が嘘になる。(b) 発生源の log は latch により理由ごとにプロセス内 1 回しか出ないため、構造的に鳴りっぱなしにならない。(c) 万一恒常発火したら通知を止めるのではなく、早期回復 / 例外処理の是正で応じる (同決裁: 恒常的に発生する障害は早期回復対象であって、通知を握りつぶしてよいという意味ではない)',
 	},
+	'ganbari-quest-ops-alert-forward-failed': {
+		notify: true,
+		reason:
+			'転送そのものが失敗した = 鳴った alarm が人に届いていない状態で、#4399 で既定を「届ける」に戻した意味が末端で失われている。Discord は channel 単位の rate limit を持つため、多数の alarm が同時に鳴る「最も通知が必要な瞬間」ほど 429 で消える。**自己参照の限界**: この alarm 自身も同じ転送経路を通るため、Discord が完全に不達な間はこの通知も届かない — その場合に残るのは CloudWatch console の ALARM 状態と GanbariQuest/Ops の AlertForwardFailed / AlertForwardSucceeded の Sum である。届くのは「一部だけ落ちた」場合 (429 のバースト・単発 timeout・webhook 失効) で、実際に起きるのは主にこちら。届かない場合の検知を通知に足すこと (外形監視) は Pre-PMF では過剰と判断し、metric を残すところまでとする',
+	},
 	'ganbari-quest-static-assets-s3-4xx': {
 		notify: true,
 		reason:
