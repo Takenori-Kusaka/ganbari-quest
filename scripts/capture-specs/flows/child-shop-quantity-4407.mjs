@@ -73,10 +73,19 @@ export default async (page, capture) => {
 	// 交換可能 (enabled) な交換ボタンを 1 つ選んで確認ダイアログを開く
 	const enabledBtn = page.locator('button[data-testid^="exchange-btn-"]:not([disabled])').first();
 	await enabledBtn.waitFor({ state: 'visible', timeout: 15_000 });
-	await enabledBtn.click();
 
+	// hydration が完了する前の click は握られないため、dialog が開くまで再試行する
 	const dialog = page.getByTestId('exchange-confirm-dialog');
-	await dialog.waitFor({ state: 'visible', timeout: 15_000 });
+	for (let i = 0; i < 6; i++) {
+		await enabledBtn.click().catch(() => {});
+		try {
+			await dialog.waitFor({ state: 'visible', timeout: 4_000 });
+			break;
+		} catch {
+			await dismissOverlays(page);
+		}
+	}
+	await dialog.waitFor({ state: 'visible', timeout: 10_000 });
 	await capture('交換確認ダイアログ 既定 (個数 1)');
 
 	// 個数 stepper がある版 (#4407 適用後) でのみ個数を増やす。
