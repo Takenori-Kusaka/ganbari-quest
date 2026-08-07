@@ -1,4 +1,9 @@
 import type { ChildId } from '$lib/domain/ids';
+import {
+	buildPlaceholderAvatarSvg,
+	PLACEHOLDER_AVATAR_CONTENT_TYPE,
+	PLACEHOLDER_AVATAR_EXTENSION,
+} from '$lib/domain/placeholder-avatar';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { recalcUiMode } from '$lib/domain/validation/age-tier';
 import {
@@ -10,9 +15,15 @@ import {
 	insertChild,
 	updateChild,
 } from '$lib/server/db/child-repo';
+import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
-import { deleteByPrefix, deleteFile, listFiles } from '$lib/server/storage';
-import { childPrefix } from '$lib/server/storage-keys';
+import { deleteByPrefix, deleteFile, listFiles, saveFile } from '$lib/server/storage';
+import {
+	assertTenantScopedStorageKey,
+	childPrefix,
+	placeholderAvatarKey,
+	storageKeyToPublicUrl,
+} from '$lib/server/storage-keys';
 
 export async function getAllChildren(tenantId: string) {
 	return await findAllChildren(tenantId);
@@ -40,7 +51,45 @@ export async function addChild(
 	},
 	tenantId: string,
 ) {
-	return await insertChild(input, tenantId);
+	const child = await insertChild(input, tenantId);
+	return await attachPlaceholderAvatar(child, tenantId);
+}
+
+/**
+ * #4413: 登録した子供に仮アバター (ニックネームの頭文字 + テーマ色) を付ける。
+ *
+ * **子供の登録経路は `/setup/children` と `/admin/children` の 2 つある**。両方が `addChild` を
+ * 通るため、ここに 1 箇所だけ置くことで「片方だけ付く」が構造的に起きない
+ * (route 側に置くと 2 箇所の実装が食い違いうる)。
+ *
+ * 生成は外部通信ゼロ (`buildPlaceholderAvatarSvg` は import を持たない純粋関数)。
+ * 保護者が写真をアップロードすれば `avatar_url` が上書きされ、仮アバターは差し替えられる。
+ *
+ * アバターは付加価値であって登録の前提条件ではないので、**失敗しても登録は成功させる**
+ * (storage 不調で子供を登録できない方が顧客にとって悪い)。その場合は一覧で 👤 のままになる。
+ */
+async function attachPlaceholderAvatar<T extends { id: ChildId; nickname: string; theme: string }>(
+	child: T,
+	tenantId: string,
+): Promise<T> {
+	try {
+		const key = placeholderAvatarKey(tenantId, child.id, PLACEHOLDER_AVATAR_EXTENSION);
+		assertTenantScopedStorageKey(key, tenantId);
+
+		const svg = buildPlaceholderAvatarSvg(child.nickname, child.theme);
+		await saveFile(key, Buffer.from(svg, 'utf-8'), PLACEHOLDER_AVATAR_CONTENT_TYPE);
+
+		const publicUrl = storageKeyToPublicUrl(key);
+		await updateChildAvatarUrl(child.id, publicUrl, tenantId);
+
+		return { ...child, avatarUrl: publicUrl };
+	} catch (err) {
+		logger.warn('[child-service] 仮アバターの生成に失敗しました（登録は継続します）', {
+			context: { childId: child.id, tenantId },
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return child;
+	}
 }
 
 export async function editChild(

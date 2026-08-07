@@ -33,12 +33,24 @@ vi.mock('$lib/server/storage', () => ({
 	deleteByPrefix: vi.fn(),
 	deleteFile: vi.fn(),
 	listFiles: vi.fn(),
+	saveFile: vi.fn(),
+}));
+
+// #4413: 仮アバターの avatar_url 反映先
+vi.mock('$lib/server/db/image-repo', () => ({
+	updateChildAvatarUrl: vi.fn(),
 }));
 
 vi.mock('$lib/server/storage-keys', () => ({
 	childPrefix: vi.fn(
 		(tenantId: string, childId: number, type: string) => `tenants/${tenantId}/${type}/${childId}/`,
 	),
+	placeholderAvatarKey: vi.fn(
+		(tenantId: string, childId: string, ext: string) =>
+			`tenants/${tenantId}/avatars/${childId}/placeholder.${ext}`,
+	),
+	storageKeyToPublicUrl: vi.fn((key: string) => `/${key}`),
+	assertTenantScopedStorageKey: vi.fn(),
 }));
 
 // --- Imports (after mocks) ---
@@ -52,6 +64,7 @@ import {
 	insertChild,
 	updateChild,
 } from '$lib/server/db/child-repo';
+import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { logger } from '$lib/server/logger';
 import {
 	addChild,
@@ -62,7 +75,7 @@ import {
 	getChildByUserId,
 	removeChild,
 } from '$lib/server/services/child-service';
-import { deleteByPrefix, deleteFile, listFiles } from '$lib/server/storage';
+import { deleteByPrefix, deleteFile, listFiles, saveFile } from '$lib/server/storage';
 
 const TENANT = 'tenant-abc';
 
@@ -110,15 +123,48 @@ describe('child-service', () => {
 	});
 
 	describe('addChild', () => {
+		const input = { nickname: 'まさと', age: 7, theme: 'blue' };
+		const inserted = { id: '10', ...input };
+
 		it('insertChild に input と tenantId を渡す', async () => {
-			const input = { nickname: 'まさと', age: 7, theme: 'blue' };
-			const mockResult = { id: '10', ...input };
-			vi.mocked(insertChild).mockResolvedValue(mockResult as never);
+			vi.mocked(insertChild).mockResolvedValue(inserted as never);
+
+			await addChild(input, TENANT);
+
+			expect(insertChild).toHaveBeenCalledWith(input, TENANT);
+		});
+
+		// #4413: 登録した子供には仮アバター (頭文字 + テーマ色) が自動で付く。
+		it('仮アバターの SVG を storage に保存し avatar_url に反映する', async () => {
+			vi.mocked(insertChild).mockResolvedValue(inserted as never);
 
 			const result = await addChild(input, TENANT);
 
-			expect(insertChild).toHaveBeenCalledWith(input, TENANT);
-			expect(result).toEqual(mockResult);
+			const expectedKey = `tenants/${TENANT}/avatars/10/placeholder.svg`;
+			expect(saveFile).toHaveBeenCalledTimes(1);
+			const [key, data, contentType] = vi.mocked(saveFile).mock.calls[0] as [
+				string,
+				Buffer,
+				string,
+			];
+			expect(key).toBe(expectedKey);
+			expect(contentType).toBe('image/svg+xml');
+			expect(data.toString('utf-8')).toContain('>ま<');
+
+			expect(updateChildAvatarUrl).toHaveBeenCalledWith('10', `/${expectedKey}`, TENANT);
+			expect(result).toEqual({ ...inserted, avatarUrl: `/${expectedKey}` });
+		});
+
+		// #4413 AC5: アバターは付加価値。storage が不調でも子供の登録は成功させる。
+		it('仮アバターの保存に失敗しても登録は成功し、avatar_url は更新しない', async () => {
+			vi.mocked(insertChild).mockResolvedValue(inserted as never);
+			vi.mocked(saveFile).mockRejectedValueOnce(new Error('storage down'));
+
+			const result = await addChild(input, TENANT);
+
+			expect(result).toEqual(inserted);
+			expect(updateChildAvatarUrl).not.toHaveBeenCalled();
+			expect(logger.warn).toHaveBeenCalled();
 		});
 	});
 
