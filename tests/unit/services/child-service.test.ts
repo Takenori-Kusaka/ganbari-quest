@@ -126,12 +126,15 @@ describe('child-service', () => {
 		const input = { nickname: 'まさと', age: 7, theme: 'blue' };
 		const inserted = { id: '10', ...input };
 
-		it('insertChild に input と tenantId を渡す', async () => {
+		// #4419: addChild は uiMode を年齢から解決してから repo に渡す (登録経路 2 本の
+		// 二重実装を作らないため service 層が単一の解決点)。境界の網羅は
+		// tests/unit/services/child-service-default-ui-mode.test.ts が持つ。
+		it('insertChild に input + 年齢から解決した uiMode と tenantId を渡す', async () => {
 			vi.mocked(insertChild).mockResolvedValue(inserted as never);
 
 			await addChild(input, TENANT);
 
-			expect(insertChild).toHaveBeenCalledWith(input, TENANT);
+			expect(insertChild).toHaveBeenCalledWith({ ...input, uiMode: 'elementary' }, TENANT);
 		});
 
 		// #4413: 登録した子供には仮アバター (頭文字 + テーマ色) が自動で付く。

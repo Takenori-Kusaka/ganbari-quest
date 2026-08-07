@@ -333,7 +333,9 @@ CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.
 
 ### backend 並行実装の整合性
 
-`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dsql/*.ts` (cloud、NUC は PGlite が dsql repo を verbatim 再利用) のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる (#3438 で DynamoDB backend は撤去済)。
+`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dsql/*.ts` (cloud、NUC は PGlite が dsql repo を verbatim 再利用) のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる (#3438 で DynamoDB backend は撤去済)。demo backend (`db/demo/*.ts`) も同じ既定値を返す。
+
+**既定値の一致は「書く」だけでなく機械検証する**。本節の規定はあったが検証がなく、`insertChild` の `uiMode` 既定値が 3 backend で 3 通りに割れ、**顧客が使う dsql が最も壊れている**状態が残った (#4419: 年齢に関わらず幼児 UI)。同種の既定値には fitness function を置く — 実装例は `tests/unit/architecture/child-ui-mode-default-parity.test.ts` (3 backend に実際に insert して既定値の一致 + SSOT 由来を assert)。
 
 ## E2E 固有
 
