@@ -23,6 +23,19 @@ export function avatarKey(tenantId: string, childId: ChildId, ext: string): stri
 	return `tenants/${tenantId}/avatars/${childId}/${randomUUID()}.${ext}`;
 }
 
+/**
+ * 仮アバター用キー (#4413)。
+ *
+ * 登録時に自動生成する頭文字アバター。**アップロード写真と同じ `avatars/` prefix 配下**に置く:
+ * - 子供削除時の `deleteByPrefix(childPrefix(tenantId, childId, 'avatars'))` が漏れなく回収する
+ * - AI 生成画像 (`generated/`) ではなくローカル生成なので、意味の上でも `avatars/` が正しい
+ *
+ * ファイル名は childId ごとに固定 (uuid を振らない)。再生成すれば上書きされ、孤児が増えない。
+ */
+export function placeholderAvatarKey(tenantId: string, childId: ChildId, ext: string): string {
+	return `tenants/${tenantId}/avatars/${childId}/placeholder.${ext}`;
+}
+
 /** AI生成画像用キー */
 export function generatedImageKey(
 	tenantId: string,
