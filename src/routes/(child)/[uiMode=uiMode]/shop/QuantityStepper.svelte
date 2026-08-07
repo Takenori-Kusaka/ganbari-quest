@@ -2,7 +2,7 @@
 // #4407: ごほうび交換の個数 stepper。
 // 単位量のごほうび (「ゲーム時間 +30分」等) を N 個ぶん 1 回で交換するための入力。
 // キーボード入力を要求しないため preschool (tapSize 80px / ひらがな) でも操作できる。
-// ConfirmExchangeDialog の <style> を 50 行以内に保つため分離 (docs/DESIGN.md §9)。
+// ConfirmExchangeDialog の style ブロックを 50 行以内に保つため分離 (docs/DESIGN.md §9)。
 
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { REDEMPTION_QUANTITY_MIN } from '$lib/domain/validation/special-reward';
