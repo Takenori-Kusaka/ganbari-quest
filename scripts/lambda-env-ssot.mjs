@@ -40,6 +40,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { isMain } from './lib/is-main.mjs';
 
 /**
  * synth 出力から対象 Lambda の Environment.Variables を取り出す。
@@ -281,7 +282,7 @@ function main() {
 }
 
 // direct 実行時のみ CLI を動かす (test からは pure function を import する)
-if (process.argv[1]?.replace(/\\/g, '/').endsWith('scripts/lambda-env-ssot.mjs')) {
+if (isMain(import.meta.url)) {
 	try {
 		main();
 	} catch (err) {
