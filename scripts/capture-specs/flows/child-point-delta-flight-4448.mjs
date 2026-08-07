@@ -135,7 +135,12 @@ export default async (page, capture) => {
 
 		await page.locator('[data-testid^="activity-card-"]:not([disabled])').first().click();
 		await page.locator('[data-testid="confirm-record-btn"]').click();
-		await page.locator('[data-testid="result-point-value"]').waitFor({ state: 'visible' });
+		// 修正前 (base) には testid が無いため、両方に存在する class でも待てるようにする
+		// (`CAPTURE_LABEL_PREFIX=before` で同じ flow を base HEAD に対して流せる)
+		await page
+			.locator('[data-testid="result-point-value"], .animate-point-pop')
+			.first()
+			.waitFor({ state: 'visible' });
 		await capture(`${PREFIX}-${uiMode}-gain-result`);
 
 		// 修正後は ghost が出る。修正前 (develop) は出ないので待たずに撮る
@@ -179,9 +184,9 @@ export default async (page, capture) => {
 	await exchangeBtn.waitFor({ state: 'visible' });
 	const confirmYes = page.locator('[data-testid="confirm-exchange-yes"]');
 	// hydration 前の click は onclick が付いておらず無反応になるため、開くまで押し直す
-	for (let attempt = 0; attempt < 5; attempt++) {
+	for (let attempt = 0; attempt < 10; attempt++) {
 		await exchangeBtn.click();
-		if (await confirmYes.isVisible({ timeout: 3000 }).catch(() => false)) break;
+		if (await confirmYes.isVisible({ timeout: 6000 }).catch(() => false)) break;
 	}
 	await confirmYes.waitFor({ state: 'visible' });
 	await capture(`${PREFIX}-spend-confirm`);
