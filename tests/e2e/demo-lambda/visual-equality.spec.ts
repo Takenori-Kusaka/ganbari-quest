@@ -260,3 +260,67 @@ test.describe('#4417: 320px 幅で横スクロールが発生しない', () => {
 		});
 	}
 });
+
+// #4417 AC3 の後追い回帰: /switch の全画面 overlay (`.login-overlay`) 表示中は背面をスクロールさせない。
+//
+// 実装は body に `parent-gate-scroll-lock` を付け、`:global(body.parent-gate-scroll-lock){overflow:hidden}`
+// で止める。class の付け外し (閉じたとき / component 破棄時) は component 層
+// (tests/unit/routes/switch-parent-gate-scroll-lock.test.ts) が担うが、**scoped style が実際に効いて
+// スクロールが止まるか**は jsdom では評価できないため、実ブラウザ側で assert する。
+//
+// 本 spec (demo Lambda config) に足す理由: overlay の本来の発火点は PIN 認証成功 → /admin ハードナビで、
+// これを回せる tests/e2e/parent-gate.spec.ts は PARENT_GATE_FORCE_ACTIVE=true でしか spec を登録せず
+// CI では 1 件も走らない。`?screenshot=all` は認証なしで overlay を決定的に描画できる既存経路 (#3089)
+// なので、#4417 の 320px 判定と同じ器に相乗りさせる (新しい CI 装置は増やさない)。
+test.describe('#4417 AC3: /switch の overlay 表示中は背面がスクロールしない', () => {
+	// 背面にスクロール可能な高さを作るため、意図的に低い viewport を使う
+	test.use({ viewport: { width: 320, height: 400 } });
+
+	/**
+	 * ユーザー操作 (ホイール) でスクロールを試し、実際に動いた量 (px) を返す。
+	 *
+	 * `window.scrollTo()` は使わない。`overflow: hidden` はユーザー操作によるスクロールだけを止め、
+	 * プログラムからの scroll は通す仕様のため、`scrollTo` では常に動いてしまい判定にならない
+	 * (実測: lock 中でも scrollY=400 になる)。顧客が体験するのはホイール / タッチ操作なのでそちらを使う。
+	 */
+	async function tryScroll(page: import('@playwright/test').Page): Promise<number> {
+		await page.mouse.move(160, 200);
+		await page.mouse.wheel(0, 400);
+		// スクロールは非同期に反映されるため 2 frame 待ってから読む (固定時間 sleep は使わない)
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))),
+				),
+		);
+		return page.evaluate(() => window.scrollY);
+	}
+
+	test('overlay 非表示時は背面がスクロールできる (対照条件 = 判定が空振りでないことの担保)', async ({
+		page,
+	}) => {
+		const res = await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+		expect(res?.status() ?? 0).toBeLessThan(400);
+		await expect(page.getByTestId('parent-gate-navigating')).toHaveCount(0);
+		await expect(page.locator('body')).not.toHaveClass(/parent-gate-scroll-lock/);
+		// ここが 0 だと下の本命 assert が「そもそも動かない画面」で緑になる (空振り) ため先に潰す
+		expect(
+			await tryScroll(page),
+			'対照条件: overlay が無ければ背面はスクロールできる',
+		).toBeGreaterThan(0);
+	});
+
+	test('overlay 表示中は body が overflow:hidden になり背面が動かない', async ({ page }) => {
+		const res = await page.goto('/switch?screenshot=all', { waitUntil: 'domcontentloaded' });
+		expect(res?.status() ?? 0).toBeLessThan(400);
+		await expect(page.getByTestId('parent-gate-navigating')).toBeVisible();
+
+		await expect(page.locator('body')).toHaveClass(/parent-gate-scroll-lock/);
+		await expect
+			.poll(() => page.evaluate(() => getComputedStyle(document.body).overflowY), {
+				message: 'overlay 表示中は body が overflow:hidden であること',
+			})
+			.toBe('hidden');
+		expect(await tryScroll(page), 'overlay 表示中は背面が動かない').toBe(0);
+	});
+});
