@@ -315,7 +315,7 @@ describe('check-local-tz-date-getters (#4015 / #4127)', () => {
 			['monday.setUTCDate(d.getUTCDate() + diffToMonday);', 'calendar-reimpl'],
 			// 暦日文字列の自前組み立て (child-challenge / plan-limit の実物)
 			[
-				"return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;",
+				`return \`\${dt.getUTCFullYear()}-\${String(dt.getUTCMonth() + 1).padStart(2, '0')}\`;`,
 				'calendar-reimpl',
 			],
 			['const dt = new Date(Date.UTC(y, m - 1, d));', 'calendar-reimpl'],
