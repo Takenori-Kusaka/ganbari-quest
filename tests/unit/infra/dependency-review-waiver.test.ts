@@ -20,6 +20,26 @@
  * 2. `infra/package-lock.json` の bundled brace-expansion が **5.0.8 未満である**こと (`[W5]`)。
  *    patched 版が入った瞬間に fail し、waiver 撤去を機械が要求する (ADR-0061 fitness function)。
  *
+ * ## `[W5]` が赤くなったときに「waiver 撤去」で正しいのは 5.0.9 以上のときだけ
+ *
+ * 本 test を書いた時点では「5.0.8 = GHSA-mh99-v99m-4gvg の patched 版 = 安全」という前提だったが、
+ * **その前提はもう成立しない**。2026-07-30 に GHSA-rgw5-rvv9-x895 (high、CVE-2026-14257 の緩和を
+ * bypass する DoS) が公開され、その affected range は **`>= 4.0.0, < 5.0.9`**、つまり 5.0.8 も
+ * **5.0.7 も**該当する (firstPatchedVersion = 5.0.9)。したがって `[W5]` が赤くなったら、
+ * **到達した version を見て行動を分岐する**:
+ *
+ * - **5.0.9 以上が来た**: 両 advisory とも patched。waiver (`allow-ghsas`) と根拠コメント、
+ *   および本 test file を削除する (= 下の fail message の指示どおり)。
+ * - **5.0.8 が来た**: GHSA-rgw5-rvv9-x895 が未解決なので **waiver を撤去してはいけない**。
+ *   `[W5]` の bound を緩めるのも不可 (ADR-0006)。aws-cdk-lib 側が 5.0.9 を bundle するのを待ち、
+ *   それまで bundled 5.0.7 の版に留める。
+ *
+ * 実例 (PR #4422): aws-cdk-lib 2.263.0 が bundled brace-expansion を 5.0.7 → 5.0.8 に上げ、
+ * `dependency-review` と `[W5]` が同時に赤くなった。brace-expansion は bundled dependency
+ * (aws-cdk-lib が同梱する minimatch の依存) で **npm `overrides` では差し替えられない**ため
+ * (overrides を書いても lock の `inBundle: true` entry は 5.0.8 のまま = 実測確認済)、
+ * bundled 5.0.7 の最新である aws-cdk-lib 2.262.2 に留める形で解消した。
+ *
  * ## なぜ「dev のままなら安全」ではないのか (根拠の訂正、PO 決裁 条件 2)
  *
  * 本リポジトリの `Dockerfile` は runtime stage に `COPY --from=build /app/node_modules ./node_modules`
@@ -160,9 +180,12 @@ describe('#4017 dependency-review waiver の適用範囲を狭める', () => {
 		expect(
 			isBelow(version, PATCHED_BRACE_EXPANSION),
 			[
-				`bundled brace-expansion が ${version} になりました (patched = ${PATCHED_BRACE_EXPANSION.join('.')} 以上)。`,
-				`次の行動: .github/workflows/dependency-review.yml の waiver (allow-ghsas: ${WAIVED_GHSA}) と、`,
-				'その根拠コメント、および本 [W5] テストを削除してください。撤去条件を満たしたので waiver は不要です。',
+				`bundled brace-expansion が ${version} になりました (${WAIVED_GHSA} の patched = ${PATCHED_BRACE_EXPANSION.join('.')} 以上)。`,
+				'次の行動は到達した version で分岐します (file 冒頭の §「[W5] が赤くなったとき」を読んでください):',
+				`- 5.0.9 以上なら: .github/workflows/dependency-review.yml の waiver (allow-ghsas: ${WAIVED_GHSA}) と`,
+				'  その根拠コメント、および本 test file を削除してください。撤去条件を満たしたので waiver は不要です。',
+				'- 5.0.8 なら: GHSA-rgw5-rvv9-x895 (affected >= 4.0.0 < 5.0.9) が未解決です。waiver を撤去せず、',
+				'  bound も緩めず (ADR-0006)、bundled 5.0.7 の aws-cdk-lib に留めて 5.0.9 の bundle を待ってください。',
 			].join('\n'),
 		).toBe(true);
 	});
