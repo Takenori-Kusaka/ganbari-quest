@@ -104,13 +104,11 @@ test.describe('#4448: ポイントの増減がヘッダー残高につながる'
 			expect(label, '獲得ぶんが `+N` として出ること (色だけに頼らない)').not.toBeNull();
 			expect(label?.startsWith('+'), `獲得は + 符号 (実際: "${label}")`).toBe(true);
 
-			// 残高が加算後の値になり、その変化量が ghost の表示と一致する
-			await expect.poll(() => readBalance(page), { timeout: 15000 }).toBeGreaterThan(before);
-			const after = await readBalance(page);
-			expect(
-				after - before,
-				`ghost の増減量と実際の残高変化が一致すること (ghost="${label}", ${before} → ${after})`,
-			).toBe(parseGhostAmount(label ?? ''));
+			// 残高は「変化前 + ghost に出した増減量」ちょうどに着地する
+			// (カウントアップ途中の値を掴まないよう poll で着地を待つ)
+			const expected = before + parseGhostAmount(label ?? '');
+			expect(expected, '獲得なので残高は増える').toBeGreaterThan(before);
+			await expect.poll(() => readBalance(page), { timeout: 15000 }).toBe(expected);
 		});
 	}
 
@@ -246,11 +244,8 @@ test.describe('#4448: 消費ぶんもヘッダー残高につながる', () => {
 		expect(label, '消費ぶんが `-N` として出ること').not.toBeNull();
 		expect(label?.startsWith('-'), `消費は - 符号 (実際: "${label}")`).toBe(true);
 
-		await expect.poll(() => readBalance(page), { timeout: 15000 }).toBeLessThan(before);
-		const after = await readBalance(page);
-		expect(
-			after - before,
-			`ghost の増減量と実際の残高変化が一致すること (ghost="${label}", ${before} → ${after})`,
-		).toBe(parseGhostAmount(label ?? ''));
+		const expected = before + parseGhostAmount(label ?? '');
+		expect(expected, '消費なので残高は減る').toBeLessThan(before);
+		await expect.poll(() => readBalance(page), { timeout: 15000 }).toBe(expected);
 	});
 });

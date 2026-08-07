@@ -65,6 +65,41 @@ async function dismissLoginBonus(page) {
 	}
 }
 
+/**
+ * レベルアップが挟まると、残高の取り込みはレベルアップを閉じるまで待たされる (仕様)。
+ * 実ユーザーと同じ順序で閉じてから先へ進む。
+ */
+async function closeLevelUpIfShown(page) {
+	const btn = page.locator('.levelup-btn');
+	if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+		await btn.click();
+	}
+}
+
+/**
+ * 残高のカウントアップが終わる (表示が動かなくなる) まで待つ。
+ * 固定待ちを使わずに「最終値の SS」を決定的に撮るため。
+ */
+async function waitBalanceSettled(page) {
+	await page
+		.waitForFunction(
+			() => {
+				const el = document.querySelector('[data-testid="header-balance"]');
+				if (!el) return false;
+				const now = el.textContent;
+				const prev = window.__pfLastBalance;
+				window.__pfLastBalance = now;
+				return prev !== undefined && prev === now;
+			},
+			null,
+			{ polling: 150, timeout: 8000 },
+		)
+		.catch(() => {});
+	await page.evaluate(() => {
+		window.__pfLastBalance = undefined;
+	});
+}
+
 /** 折りたたまれたカテゴリを開いて activity-card を表に出す */
 async function expandCategories(page) {
 	const toggles = page.locator('[data-testid^="category-toggle-"]');
@@ -98,7 +133,7 @@ export default async (page, capture) => {
 		await dismissLoginBonus(page);
 		await expandCategories(page);
 
-		await page.locator('[data-testid^="activity-card-"]').first().click();
+		await page.locator('[data-testid^="activity-card-"]:not([disabled])').first().click();
 		await page.locator('[data-testid="confirm-record-btn"]').click();
 		await page.locator('[data-testid="result-point-value"]').waitFor({ state: 'visible' });
 		await capture(`${PREFIX}-${uiMode}-gain-result`);
@@ -109,11 +144,28 @@ export default async (page, capture) => {
 				? page.locator(GHOST).waitFor({ state: 'visible', timeout: 10_000 })
 				: Promise.resolve();
 		await page.locator('[data-testid="activity-confirm-btn"]').click();
+		// レベルアップが挟まる回は、閉じるまで残高の取り込みが始まらない (仕様)。
+		// 「レベルアップが出る」「ghost が出る」のどちらか早い方まで待ってから閉じ判定する。
+		await Promise.race([
+			page
+				.locator('.levelup-btn')
+				.waitFor({ state: 'visible', timeout: 6000 })
+				.catch(() => {}),
+			page
+				.locator(GHOST)
+				.waitFor({ state: 'visible', timeout: 6000 })
+				.catch(() => {}),
+		]);
+		await closeLevelUpIfShown(page);
 		await ghostVisible.catch(() => {});
 		await capture(`${PREFIX}-${uiMode}-gain-flight`);
 
 		// 演出が終わるまで待ってから最終状態を撮る
-		await page.locator(GHOST).waitFor({ state: 'detached', timeout: 10_000 }).catch(() => {});
+		await page
+			.locator(GHOST)
+			.waitFor({ state: 'detached', timeout: 10_000 })
+			.catch(() => {});
+		await waitBalanceSettled(page);
 		await capture(`${PREFIX}-${uiMode}-gain-settled`);
 	}
 
@@ -125,18 +177,27 @@ export default async (page, capture) => {
 
 	const exchangeBtn = page.locator('button[data-testid^="exchange-btn-"]:not([disabled])').first();
 	await exchangeBtn.waitFor({ state: 'visible' });
-	await exchangeBtn.click();
-	await page.locator('[data-testid="confirm-exchange-yes"]').waitFor({ state: 'visible' });
+	const confirmYes = page.locator('[data-testid="confirm-exchange-yes"]');
+	// hydration 前の click は onclick が付いておらず無反応になるため、開くまで押し直す
+	for (let attempt = 0; attempt < 5; attempt++) {
+		await exchangeBtn.click();
+		if (await confirmYes.isVisible({ timeout: 3000 }).catch(() => false)) break;
+	}
+	await confirmYes.waitFor({ state: 'visible' });
 	await capture(`${PREFIX}-spend-confirm`);
 
 	const spendGhost =
 		PREFIX === 'after'
 			? page.locator(GHOST).waitFor({ state: 'visible', timeout: 10_000 })
 			: Promise.resolve();
-	await page.locator('[data-testid="confirm-exchange-yes"]').click();
+	await confirmYes.click();
 	await spendGhost.catch(() => {});
 	await capture(`${PREFIX}-spend-flight`);
 
-	await page.locator(GHOST).waitFor({ state: 'detached', timeout: 10_000 }).catch(() => {});
+	await page
+		.locator(GHOST)
+		.waitFor({ state: 'detached', timeout: 10_000 })
+		.catch(() => {});
+	await waitBalanceSettled(page);
 	await capture(`${PREFIX}-spend-settled`);
 };
