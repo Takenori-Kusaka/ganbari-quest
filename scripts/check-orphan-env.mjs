@@ -78,6 +78,14 @@ export function collectSearchFiles(rootDir = REPO_ROOT) {
 /**
  * 各 env var の参照ファイル数を数える。
  * Returns: Map<name, count>
+ *
+ * 精度の性質 (#4408): 判定は word boundary の substring 一致であり、**コメント行や
+ * 文字列リテラル (shell の echo 案内文、TS のコメント等) も 1 参照として数える**。
+ * つまり「実行時に読まれていないが名前だけ書かれている env」は dead と報告されない。
+ * これは .sh に限らず全拡張子に元からある性質で、shell parse / AST 解析を持ち込むより
+ * 誤検出ゼロ側に倒す方が Pre-PMF では妥当という判断 (ADR-0010)。
+ * 裏返しの罠として、**撤去済みの識別子をコメントに literal で書くと guard が自分で
+ * 自分を無効化する** (同種の実例: src/lib/domain/terms.ts の注記)。
  */
 export function countEnvReferences(envVars, files) {
 	const refCount = new Map();
