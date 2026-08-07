@@ -46,7 +46,11 @@ import {
 	release,
 	sameOwner,
 } from '../../../scripts/lib/agent-lock.mjs';
-import { extractTarget, isHeavyCommand } from '../../../scripts/lib/agent-lock-policy.mjs';
+import {
+	extractTarget,
+	isHeavyCommand,
+	matchHeavyCommand,
+} from '../../../scripts/lib/agent-lock-policy.mjs';
 import { resolveSessionOwner } from '../../../scripts/lib/session-owner.mjs';
 
 /** 生存していないことが確実な PID。Windows / POSIX とも未使用値を使う。 */
@@ -87,6 +91,61 @@ describe('isHeavyCommand', () => {
 		expect(isHeavyCommand('echo start && npx vitest run')).toBe(true);
 		expect(isHeavyCommand('cd tests ; npm run pre-ready')).toBe(true);
 		expect(isHeavyCommand('git status | grep foo')).toBe(false);
+	});
+});
+
+// ---------- #4401: 「実行する」と「言及する」を区別する ----------
+
+describe('#4401 実行されないテキストは判定対象から外す', () => {
+	/**
+	 * 実際に BLOCK された形 (#4401)。PR 本文を 1 ファイル書くだけの heredoc。
+	 *
+	 * markdown の表があるため `|` でセグメントに割れ、本文中の行が
+	 * 「`cat` で始まらないセグメント」になって重い検証として判定されていた。
+	 * `.github/PULL_REQUEST_TEMPLATE.md` は「コマンドと結果」を書くことを要求しているので、
+	 * **規約を守るほど BLOCK される**構造だった。
+	 */
+	const PR_BODY_HEREDOC = [
+		"cat > tmp/pr-bodies/4199.md <<'EOF'",
+		'## 検証',
+		'',
+		'| 検証 | 結果 |',
+		'|---|---|',
+		'| `npx vitest run tests/unit/foo.test.ts` | 5 passed |',
+		'| `npm run pre-ready -- --pr 4199` | 全 step PASS |',
+		'EOF',
+	].join('\n');
+
+	it.each([
+		['heredoc の PR 本文', PR_BODY_HEREDOC],
+		['引用符なし heredoc', 'cat > a.md <<EOF\nnpm run pre-ready を見送った\nEOF'],
+		['gh の --body', 'gh pr comment 4401 --body "npx vitest run が緑でした | 全 12 件"'],
+		['gh の --body (=区切り)', "gh issue create --body='npm run pre-ready を実行する'"],
+		['commit message', 'git commit -m "test: npx vitest run で回帰を固定する"'],
+		['commit message (--message)', 'git commit --message "npm run check を通した"'],
+	])('ファイルや本文に書くだけなら block しない: %s', (_label, command) => {
+		expect(isHeavyCommand(command)).toBe(false);
+	});
+
+	it.each([
+		// 過検知を消すために検出力を落としていないこと。
+		['シェル経由の実行', 'sh -c "npx vitest run"'],
+		['heredoc の後ろで実行', "cat > a.md <<'EOF'\nnote\nEOF\nnpx vitest run"],
+		['本文を書いた後に実行', 'git commit -m "npm run check" && npm run pre-ready'],
+		['引数に本文らしき文字列', 'npx vitest run --reporter=verbose "tests/unit/a.test.ts"'],
+	])('実際に起動するコマンドは従来どおり block する: %s', (_label, command) => {
+		expect(isHeavyCommand(command)).toBe(true);
+	});
+
+	it('block 時に「どの語に反応したか」を返す', () => {
+		// 理由が出ないと、初見の Dev は「自分は重い検証を回していないのに何故?」で止まる (#4401)。
+		const match = matchHeavyCommand('echo start && npx vitest run tests/unit/a.test.ts');
+		expect(match.matched).toBe(true);
+		expect(match.trigger, '反応した語が空').toBe('npx vitest');
+		expect(match.segment).toContain('npx vitest run');
+
+		expect(matchHeavyCommand('git status').matched).toBe(false);
+		expect(matchHeavyCommand(PR_BODY_HEREDOC).matched).toBe(false);
 	});
 });
 
@@ -696,5 +755,66 @@ describe('heavy-run-lock hook: worktree からの push (#4076)', () => {
 		);
 		expect(runHook('npx vitest run tests/unit/foo.test.ts', worktree)).toBe(2);
 		rmSync(join(lockDir, 'heavy.lock'));
+	});
+}, 120_000);
+
+describe('heavy-run-lock hook: 実行されないテキスト (#4401)', () => {
+	const HOOK = join(process.cwd(), '.claude', 'hooks', 'heavy-run-lock.mjs');
+
+	let root: string;
+	let lockDir: string;
+
+	function runHook(command: string): { status: number; stderr: string } {
+		const r = spawnSync(process.execPath, [HOOK], {
+			input: JSON.stringify({
+				session_id: 'sess-4401',
+				tool_name: 'Bash',
+				tool_input: { command },
+				cwd: root,
+			}),
+			encoding: 'utf8',
+			env: { ...process.env, AGENT_LOCK_DIR: lockDir },
+		});
+		return { status: r.status ?? -1, stderr: r.stderr ?? '' };
+	}
+
+	beforeAll(() => {
+		root = mkdtempSync(join(tmpdir(), 'heavy4401-'));
+		lockDir = join(root, 'locks');
+		mkdirSync(lockDir, { recursive: true });
+	});
+
+	afterAll(() => {
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	beforeEach(() => {
+		// 他セッションが重い検証を実行中の状態を作る。この状態でも「書くだけ」は通す。
+		writeFileSync(
+			join(lockDir, 'heavy.lock'),
+			JSON.stringify({ key: 'heavy', ownerPid: process.pid, startedAt: Date.now() }),
+		);
+	});
+
+	afterEach(() => {
+		rmSync(join(lockDir, 'heavy.lock'), { force: true });
+	});
+
+	it('PR 本文を書く heredoc は lock 保持中でも通る', () => {
+		const command = [
+			"cat > tmp/pr-bodies/4401.md <<'EOF'",
+			'## 検証',
+			'| `npx vitest run tests/unit/a.test.ts` | 5 passed |',
+			'| `npm run pre-ready -- --pr 4401` | 全 step PASS |',
+			'EOF',
+		].join('\n');
+		expect(runHook(command).status, 'ファイルを 1 つ書くだけで BLOCK されている').toBe(0);
+	});
+
+	it('block 時の stderr が「どの語に反応したか」を示す', () => {
+		const { status, stderr } = runHook('npx vitest run tests/unit/a.test.ts');
+		expect(status).toBe(2);
+		expect(stderr, '反応した語が出ていない').toContain('npx vitest');
+		expect(stderr).toContain('重い検証と判定した語');
 	});
 }, 120_000);
