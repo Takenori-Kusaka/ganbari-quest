@@ -4214,7 +4214,640 @@ h1, h2, h3, h4 {
 		padding: 0.125rem 0.375rem;
 		border-radius: 4px;
 	}
- .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/birthday/BirthdayBanner.svelte?svelte&amp;type=style&amp;lang.css">
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/point-flight/PointFlightGhost.svelte?svelte&amp;type=style&amp;lang.css">
+	.pf-layer.svelte-xahj9k {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		/* Dialog (--z-modal) は閉じたあとに飛ぶ。tutorial / celebration より下に置く */
+		z-index: var(--z-reward);
+	}
+	.pf-fly.svelte-xahj9k {
+		position: absolute;
+		will-change: transform, opacity;
+	}
+	.pf-label.svelte-xahj9k {
+		display: inline-block;
+		transform: translate(-50%, -50%);
+		white-space: nowrap;
+		font-weight: bold;
+		font-size: 1.5rem;
+		line-height: 1;
+		padding: 4px 10px;
+		border-radius: var(--radius-full);
+		background-color: var(--color-surface-card);
+		box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+		/* 色だけに意味を載せない — 文字列側に + / - の符号が必ず入っている */
+		color: var(--color-action-success);
+		border: 2px solid var(--color-border-success-strong);
+	}
+	.pf-label.pf-spend.svelte-xahj9k {
+		color: var(--color-action-danger);
+		border-color: var(--color-border-danger);
+	}
+ .svelte-xahj9k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/value-preview/MilestoneBellButton.svelte?svelte&amp;type=style&amp;lang.css">
+	.milestone-bell.svelte-1h1heob {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.25);
+		border: none;
+		border-radius: 50%;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+
+	.milestone-bell.svelte-1h1heob:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+
+	.milestone-bell__icon.svelte-1h1heob {
+		font-size: 0.95rem;
+		line-height: 1;
+	}
+
+	.milestone-bell__badge.svelte-1h1heob {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 3px;
+		background: var(--color-feedback-error-text, #dc2626);
+		color: white;
+		font-size: 0.65rem;
+		font-weight: 700;
+		line-height: 16px;
+		border-radius: 8px;
+		border: 1.5px solid var(--theme-primary, #5ba3e6);
+		text-align: center;
+		box-sizing: border-box;
+	}
+ .svelte-1h1heob{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/BottomNav.svelte?svelte&amp;type=style&amp;lang.css">
+	.safe-area-bottom.svelte-1sje7wr {
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
+ .svelte-1sje7wr{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/AvatarDisplay.svelte?svelte&amp;type=style&amp;lang.css">
+	.avatar-wrap.svelte-1uv6grs {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		flex-shrink: 0;
+	}
+
+	.avatar-ring.svelte-1uv6grs {
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	.avatar-img.svelte-1uv6grs {
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.avatar-fallback.svelte-1uv6grs {
+		line-height: 1;
+	}
+
+	/* --- Effects --- */
+	.avatar-effect-sparkle {
+		animation: avatar-sparkle 2s ease-in-out infinite;
+	}
+	.avatar-effect-pulse {
+		animation: avatar-pulse 1.5s ease-in-out infinite;
+	}
+	.avatar-effect-glow {
+		filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
+		animation: avatar-glow 2s ease-in-out infinite;
+	}
+	.avatar-effect-rainbow {
+		animation: avatar-rainbow 3s linear infinite;
+	}
+
+	@keyframes avatar-sparkle {
+		0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
+		50% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
+	}
+	@keyframes avatar-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(1.06); }
+	}
+	@keyframes avatar-glow {
+		0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
+		50% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); }
+	}
+	@keyframes avatar-rainbow {
+		0% { filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
+		33% { filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(0,255,0,0.4)); }
+		66% { filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(0,0,255,0.4)); }
+		100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
+	}
+ .svelte-1uv6grs{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/Header.svelte?svelte&amp;type=style&amp;lang.css">
+	.stamp-mini.svelte-1i1e82e {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		background: rgba(255, 255, 255, 0.2);
+		border: none;
+		border-radius: var(--radius-sm, 6px);
+		padding: 2px 6px;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.stamp-mini.svelte-1i1e82e:hover {
+		background: rgba(255, 255, 255, 0.3);
+	}
+	.help-btn.svelte-1i1e82e {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background: rgba(255, 255, 255, 0.25);
+		border: none;
+		border-radius: 50%;
+		color: white;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	.help-btn.svelte-1i1e82e:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+	.premium-star.svelte-1i1e82e {
+		font-size: 0.6em;
+		margin-left: 2px;
+		vertical-align: super;
+		opacity: 0.8;
+	}
+ .svelte-1i1e82e{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/StampCard.svelte?svelte&amp;type=style&amp;lang.css">
+	.stamp-card.svelte-1h04p5k {
+		background: linear-gradient(135deg, var(--color-surface-card, #fffbeb) 0%, var(--color-surface-card, #fef3c7) 100%);
+		border: 2px solid var(--theme-accent, #f59e0b);
+		border-radius: 16px;
+		padding: 12px;
+		position: relative;
+		overflow: hidden;
+	}
+
+	/* Decorative corner dots */
+	.stamp-card.svelte-1h04p5k::before,
+	.stamp-card.svelte-1h04p5k::after {
+		content: '';
+		position: absolute;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--theme-accent, #f59e0b);
+		opacity: 0.3;
+	}
+
+	.stamp-card.svelte-1h04p5k::before {
+		top: 6px;
+		left: 6px;
+	}
+
+	.stamp-card.svelte-1h04p5k::after {
+		top: 6px;
+		right: 6px;
+	}
+
+	/* Header */
+	.stamp-card__header.svelte-1h04p5k {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 10px;
+		padding-bottom: 6px;
+		border-bottom: 1px dashed var(--theme-accent, #f59e0b);
+	}
+
+	.stamp-card__title.svelte-1h04p5k {
+		font-size: 0.75rem;
+		font-weight: 800;
+		color: var(--color-text, #92400e);
+	}
+
+	.stamp-card__period.svelte-1h04p5k {
+		font-size: 0.625rem;
+		color: var(--color-text-muted, #9ca3af);
+	}
+
+	/* Stamp body */
+	.stamp-card__body.svelte-1h04p5k {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+
+	.stamp-card__row.svelte-1h04p5k {
+		display: flex;
+		gap: 12px;
+		justify-content: center;
+	}
+
+	/* Stamp slot */
+	.stamp-slot.svelte-1h04p5k {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
+		animation: svelte-1h04p5k-pulse-today 1.2s ease-in-out infinite;
+		border-color: var(--theme-accent, #f59e0b);
+		box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+	}
+
+	.stamp-slot__circle.svelte-1h04p5k {
+		width: 52px;
+		height: 52px;
+		border-radius: 50%;
+		border: 2px dashed var(--color-text-muted, #d1d5db);
+		background: rgba(255, 255, 255, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.3s ease;
+	}
+
+	.stamp-slot__circle--filled.svelte-1h04p5k {
+		border-style: solid;
+		border-color: transparent;
+		background: transparent;
+	}
+
+	.stamp-slot__img.svelte-1h04p5k {
+		width: 48px;
+		height: 48px;
+		object-fit: contain;
+		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+	}
+
+	.stamp-slot__number.svelte-1h04p5k {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #d1d5db);
+	}
+
+	/* Progress bar */
+	.stamp-card__progress.svelte-1h04p5k {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 6px;
+	}
+
+	.stamp-card__progress-bar.svelte-1h04p5k {
+		flex: 1;
+		height: 6px;
+		background: rgba(0, 0, 0, 0.06);
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.stamp-card__progress-fill.svelte-1h04p5k {
+		height: 100%;
+		background: linear-gradient(90deg, var(--theme-accent, #f59e0b), var(--theme-sub, #fbbf24));
+		border-radius: 3px;
+		transition: width 0.5s ease;
+	}
+
+	.stamp-card__progress-text.svelte-1h04p5k {
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: var(--color-text-muted, #9ca3af);
+		white-space: nowrap;
+	}
+
+	/* Status messages */
+	.stamp-card__hint.svelte-1h04p5k {
+		text-align: center;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-text-muted, #9ca3af);
+		margin: 0;
+	}
+
+	.stamp-card__done.svelte-1h04p5k {
+		text-align: center;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--theme-accent, #f59e0b);
+		margin: 0;
+	}
+
+	.stamp-card__complete.svelte-1h04p5k {
+		text-align: center;
+		padding: 4px 0;
+	}
+
+	.stamp-card__complete-text.svelte-1h04p5k {
+		font-size: 1rem;
+		font-weight: 900;
+		color: var(--theme-accent, #f59e0b);
+		margin: 0;
+	}
+
+	.stamp-card__complete-sub.svelte-1h04p5k {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--color-text-muted, #92400e);
+		margin: 2px 0 0;
+	}
+
+	/* Animations */
+	@keyframes svelte-1h04p5k-pulse-today {
+		0%, 100% { transform: scale(1); opacity: 1; }
+		50% { transform: scale(1.1); opacity: 0.7; }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
+			animation: none;
+		}
+	}
+ .svelte-1h04p5k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialBubble.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-bubble.svelte-9wfq4r {
+		position: fixed;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
+		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
+		z-index: calc(var(--z-tutorial) + 10);
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		padding: 0;
+		overflow: hidden;
+		pointer-events: auto;
+	}
+
+	@keyframes svelte-9wfq4r-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.tutorial-chapter-header.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		padding: 8px 12px;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: white;
+		font-size: 0.8rem;
+		font-weight: 600;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px 4px;
+		border-radius: 4px;
+		width: 100%;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.tutorial-chapter-arrow.svelte-9wfq4r {
+		margin-left: auto;
+		font-size: 0.65rem;
+	}
+
+	.tutorial-chapter-menu.svelte-9wfq4r {
+		background: #f8fafc;
+		border-bottom: 1px solid #e2e8f0;
+		padding: 4px;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 8px 12px;
+		font-size: 0.8rem;
+		border: none;
+		background: none;
+		border-radius: 8px;
+		cursor: pointer;
+		color: #475569;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
+		background: #dbeafe;
+		color: #1d4ed8;
+		font-weight: 600;
+	}
+
+	.tutorial-content.svelte-9wfq4r {
+		padding: 16px 16px 8px;
+	}
+
+	.tutorial-title.svelte-9wfq4r {
+		font-size: 1rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0 0 6px;
+	}
+
+	.tutorial-description.svelte-9wfq4r {
+		font-size: 0.85rem;
+		color: #475569;
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.tutorial-progress.svelte-9wfq4r {
+		padding: 8px 16px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.tutorial-progress-text.svelte-9wfq4r {
+		font-size: 0.7rem;
+		color: #94a3b8;
+		white-space: nowrap;
+		min-width: 36px;
+	}
+
+	.tutorial-progress-bar.svelte-9wfq4r {
+		flex: 1;
+		height: 4px;
+		background: #e2e8f0;
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.tutorial-progress-fill.svelte-9wfq4r {
+		height: 100%;
+		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.tutorial-nav.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 12px 12px;
+		gap: 8px;
+	}
+
+	.tutorial-nav-right.svelte-9wfq4r {
+		display: flex;
+		gap: 6px;
+	}
+
+	.tutorial-nav-btn.svelte-9wfq4r {
+		padding: 6px 14px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #64748b;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #475569;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:hover {
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:active {
+		transform: scale(0.97);
+	}
+
+	/* Age-tier font size adjustments (G3) */
+	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.25rem;
+	}
+
+	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
+		font-size: 1.05rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.125rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
+		font-size: 0.95rem;
+	}
+ .svelte-9wfq4r{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialQuickCompleteDialog.svelte?svelte&amp;type=style&amp;lang.css">
+	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
+		margin: 0;
+		color: var(--color-text-primary);
+		line-height: 1.5;
+	}
+
+	.dialog-hint.svelte-1hkj8k9 {
+		margin-top: var(--sp-sm) !important;
+		font-size: 0.875rem;
+		color: var(--color-text-secondary) !important;
+	}
+
+	.dialog-actions.svelte-1hkj8k9 {
+		display: flex;
+		gap: var(--sp-sm);
+		justify-content: flex-end;
+		margin-top: var(--sp-md);
+		flex-wrap: wrap;
+	}
+ .svelte-1hkj8k9{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialOverlay.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-overlay.svelte-c315ht {
+		position: fixed;
+		inset: 0;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
+	}
+
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/birthday/BirthdayBanner.svelte?svelte&amp;type=style&amp;lang.css">
 	.birthday-banner.svelte-1be9bda {
 		display: flex;
 		align-items: center;
@@ -5773,642 +6406,9 @@ h1, h2, h3, h4 {
 	@keyframes svelte-d6ydfk-spin {
 		to { transform: rotate(360deg); }
 	}
- .svelte-d6ydfk{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/point-flight/PointFlightGhost.svelte?svelte&amp;type=style&amp;lang.css">
-	.pf-layer.svelte-xahj9k {
-		position: fixed;
-		inset: 0;
-		pointer-events: none;
-		/* Dialog (--z-modal) は閉じたあとに飛ぶ。tutorial / celebration より下に置く */
-		z-index: var(--z-reward);
-	}
-	.pf-fly.svelte-xahj9k {
-		position: absolute;
-		will-change: transform, opacity;
-	}
-	.pf-label.svelte-xahj9k {
-		display: inline-block;
-		transform: translate(-50%, -50%);
-		white-space: nowrap;
-		font-weight: bold;
-		font-size: 1.5rem;
-		line-height: 1;
-		padding: 4px 10px;
-		border-radius: var(--radius-full);
-		background-color: var(--color-surface-card);
-		box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
-		/* 色だけに意味を載せない — 文字列側に + / - の符号が必ず入っている */
-		color: var(--color-action-success);
-		border: 2px solid var(--color-border-success-strong);
-	}
-	.pf-label.pf-spend.svelte-xahj9k {
-		color: var(--color-action-danger);
-		border-color: var(--color-border-danger);
-	}
- .svelte-xahj9k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/features/value-preview/MilestoneBellButton.svelte?svelte&amp;type=style&amp;lang.css">
-	.milestone-bell.svelte-1h1heob {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.25);
-		border: none;
-		border-radius: 50%;
-		color: white;
-		cursor: pointer;
-		transition: background 0.2s;
-	}
-
-	.milestone-bell.svelte-1h1heob:hover {
-		background: rgba(255, 255, 255, 0.4);
-	}
-
-	.milestone-bell__icon.svelte-1h1heob {
-		font-size: 0.95rem;
-		line-height: 1;
-	}
-
-	.milestone-bell__badge.svelte-1h1heob {
-		position: absolute;
-		top: -2px;
-		right: -2px;
-		min-width: 16px;
-		height: 16px;
-		padding: 0 3px;
-		background: var(--color-feedback-error-text, #dc2626);
-		color: white;
-		font-size: 0.65rem;
-		font-weight: 700;
-		line-height: 16px;
-		border-radius: 8px;
-		border: 1.5px solid var(--theme-primary, #5ba3e6);
-		text-align: center;
-		box-sizing: border-box;
-	}
- .svelte-1h1heob{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/BottomNav.svelte?svelte&amp;type=style&amp;lang.css">
-	.safe-area-bottom.svelte-1sje7wr {
-		padding-bottom: env(safe-area-inset-bottom, 0px);
-	}
- .svelte-1sje7wr{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/AvatarDisplay.svelte?svelte&amp;type=style&amp;lang.css">
-	.avatar-wrap.svelte-1uv6grs {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		position: relative;
-		flex-shrink: 0;
-	}
-
-	.avatar-ring.svelte-1uv6grs {
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
-	}
-
-	.avatar-img.svelte-1uv6grs {
-		border-radius: 50%;
-		object-fit: cover;
-	}
-
-	.avatar-fallback.svelte-1uv6grs {
-		line-height: 1;
-	}
-
-	/* --- Effects --- */
-	.avatar-effect-sparkle {
-		animation: avatar-sparkle 2s ease-in-out infinite;
-	}
-	.avatar-effect-pulse {
-		animation: avatar-pulse 1.5s ease-in-out infinite;
-	}
-	.avatar-effect-glow {
-		filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
-		animation: avatar-glow 2s ease-in-out infinite;
-	}
-	.avatar-effect-rainbow {
-		animation: avatar-rainbow 3s linear infinite;
-	}
-
-	@keyframes avatar-sparkle {
-		0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
-		50% { filter: drop-shadow(0 0 8px rgba(255,215,0,0.7)); }
-	}
-	@keyframes avatar-pulse {
-		0%, 100% { transform: scale(1); }
-		50% { transform: scale(1.06); }
-	}
-	@keyframes avatar-glow {
-		0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.4)); }
-		50% { filter: drop-shadow(0 0 10px rgba(255,215,0,0.8)); }
-	}
-	@keyframes avatar-rainbow {
-		0% { filter: hue-rotate(0deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
-		33% { filter: hue-rotate(120deg) drop-shadow(0 0 4px rgba(0,255,0,0.4)); }
-		66% { filter: hue-rotate(240deg) drop-shadow(0 0 4px rgba(0,0,255,0.4)); }
-		100% { filter: hue-rotate(360deg) drop-shadow(0 0 4px rgba(255,0,0,0.4)); }
-	}
- .svelte-1uv6grs{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/Header.svelte?svelte&amp;type=style&amp;lang.css">
-	.stamp-mini.svelte-1i1e82e {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		background: rgba(255, 255, 255, 0.2);
-		border: none;
-		border-radius: var(--radius-sm, 6px);
-		padding: 2px 6px;
-		color: white;
-		cursor: pointer;
-		transition: background 0.2s;
-	}
-	.stamp-mini.svelte-1i1e82e:hover {
-		background: rgba(255, 255, 255, 0.3);
-	}
-	.help-btn.svelte-1i1e82e {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		background: rgba(255, 255, 255, 0.25);
-		border: none;
-		border-radius: 50%;
-		color: white;
-		cursor: pointer;
-		transition: background 0.2s;
-	}
-	.help-btn.svelte-1i1e82e:hover {
-		background: rgba(255, 255, 255, 0.4);
-	}
-	.premium-star.svelte-1i1e82e {
-		font-size: 0.6em;
-		margin-left: 2px;
-		vertical-align: super;
-		opacity: 0.8;
-	}
- .svelte-1i1e82e{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/StampCard.svelte?svelte&amp;type=style&amp;lang.css">
-	.stamp-card.svelte-1h04p5k {
-		background: linear-gradient(135deg, var(--color-surface-card, #fffbeb) 0%, var(--color-surface-card, #fef3c7) 100%);
-		border: 2px solid var(--theme-accent, #f59e0b);
-		border-radius: 16px;
-		padding: 12px;
-		position: relative;
-		overflow: hidden;
-	}
-
-	/* Decorative corner dots */
-	.stamp-card.svelte-1h04p5k::before,
-	.stamp-card.svelte-1h04p5k::after {
-		content: '';
-		position: absolute;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--theme-accent, #f59e0b);
-		opacity: 0.3;
-	}
-
-	.stamp-card.svelte-1h04p5k::before {
-		top: 6px;
-		left: 6px;
-	}
-
-	.stamp-card.svelte-1h04p5k::after {
-		top: 6px;
-		right: 6px;
-	}
-
-	/* Header */
-	.stamp-card__header.svelte-1h04p5k {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 10px;
-		padding-bottom: 6px;
-		border-bottom: 1px dashed var(--theme-accent, #f59e0b);
-	}
-
-	.stamp-card__title.svelte-1h04p5k {
-		font-size: 0.75rem;
-		font-weight: 800;
-		color: var(--color-text, #92400e);
-	}
-
-	.stamp-card__period.svelte-1h04p5k {
-		font-size: 0.625rem;
-		color: var(--color-text-muted, #9ca3af);
-	}
-
-	/* Stamp body */
-	.stamp-card__body.svelte-1h04p5k {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 10px;
-	}
-
-	.stamp-card__row.svelte-1h04p5k {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-	}
-
-	/* Stamp slot */
-	.stamp-slot.svelte-1h04p5k {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
-		animation: svelte-1h04p5k-pulse-today 1.2s ease-in-out infinite;
-		border-color: var(--theme-accent, #f59e0b);
-		box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
-	}
-
-	.stamp-slot__circle.svelte-1h04p5k {
-		width: 52px;
-		height: 52px;
-		border-radius: 50%;
-		border: 2px dashed var(--color-text-muted, #d1d5db);
-		background: rgba(255, 255, 255, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: all 0.3s ease;
-	}
-
-	.stamp-slot__circle--filled.svelte-1h04p5k {
-		border-style: solid;
-		border-color: transparent;
-		background: transparent;
-	}
-
-	.stamp-slot__img.svelte-1h04p5k {
-		width: 48px;
-		height: 48px;
-		object-fit: contain;
-		filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-	}
-
-	.stamp-slot__number.svelte-1h04p5k {
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-text-muted, #d1d5db);
-	}
-
-	/* Progress bar */
-	.stamp-card__progress.svelte-1h04p5k {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		margin-bottom: 6px;
-	}
-
-	.stamp-card__progress-bar.svelte-1h04p5k {
-		flex: 1;
-		height: 6px;
-		background: rgba(0, 0, 0, 0.06);
-		border-radius: 3px;
-		overflow: hidden;
-	}
-
-	.stamp-card__progress-fill.svelte-1h04p5k {
-		height: 100%;
-		background: linear-gradient(90deg, var(--theme-accent, #f59e0b), var(--theme-sub, #fbbf24));
-		border-radius: 3px;
-		transition: width 0.5s ease;
-	}
-
-	.stamp-card__progress-text.svelte-1h04p5k {
-		font-size: 0.625rem;
-		font-weight: 700;
-		color: var(--color-text-muted, #9ca3af);
-		white-space: nowrap;
-	}
-
-	/* Status messages */
-	.stamp-card__hint.svelte-1h04p5k {
-		text-align: center;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-text-muted, #9ca3af);
-		margin: 0;
-	}
-
-	.stamp-card__done.svelte-1h04p5k {
-		text-align: center;
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--theme-accent, #f59e0b);
-		margin: 0;
-	}
-
-	.stamp-card__complete.svelte-1h04p5k {
-		text-align: center;
-		padding: 4px 0;
-	}
-
-	.stamp-card__complete-text.svelte-1h04p5k {
-		font-size: 1rem;
-		font-weight: 900;
-		color: var(--theme-accent, #f59e0b);
-		margin: 0;
-	}
-
-	.stamp-card__complete-sub.svelte-1h04p5k {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		color: var(--color-text-muted, #92400e);
-		margin: 2px 0 0;
-	}
-
-	/* Animations */
-	@keyframes svelte-1h04p5k-pulse-today {
-		0%, 100% { transform: scale(1); opacity: 1; }
-		50% { transform: scale(1.1); opacity: 0.7; }
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.stamp-slot--today.svelte-1h04p5k .stamp-slot__circle:where(.svelte-1h04p5k) {
-			animation: none;
-		}
-	}
- .svelte-1h04p5k{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialBubble.svelte?svelte&amp;type=style&amp;lang.css">
-	.tutorial-bubble.svelte-9wfq4r {
-		position: fixed;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
-		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
-		z-index: calc(var(--z-tutorial) + 10);
-		background: white;
-		border-radius: 16px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
-		padding: 0;
-		overflow: hidden;
-		pointer-events: auto;
-	}
-
-	@keyframes svelte-9wfq4r-bubble-appear {
-		from {
-			opacity: 0;
-			transform: translateY(8px) scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-	}
-
-	.tutorial-chapter-header.svelte-9wfq4r {
-		background: linear-gradient(135deg, #3b82f6, #2563eb);
-		padding: 8px 12px;
-	}
-
-	.tutorial-chapter-btn.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		color: white;
-		font-size: 0.8rem;
-		font-weight: 600;
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 2px 4px;
-		border-radius: 4px;
-		width: 100%;
-	}
-
-	.tutorial-chapter-btn.svelte-9wfq4r:hover {
-		background: rgba(255, 255, 255, 0.15);
-	}
-
-	.tutorial-chapter-arrow.svelte-9wfq4r {
-		margin-left: auto;
-		font-size: 0.65rem;
-	}
-
-	.tutorial-chapter-menu.svelte-9wfq4r {
-		background: #f8fafc;
-		border-bottom: 1px solid #e2e8f0;
-		padding: 4px;
-	}
-
-	.tutorial-chapter-menu-item.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		width: 100%;
-		padding: 8px 12px;
-		font-size: 0.8rem;
-		border: none;
-		background: none;
-		border-radius: 8px;
-		cursor: pointer;
-		color: #475569;
-	}
-
-	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
-		background: #dbeafe;
-		color: #1d4ed8;
-		font-weight: 600;
-	}
-
-	.tutorial-content.svelte-9wfq4r {
-		padding: 16px 16px 8px;
-	}
-
-	.tutorial-title.svelte-9wfq4r {
-		font-size: 1rem;
-		font-weight: 700;
-		color: #1e293b;
-		margin: 0 0 6px;
-	}
-
-	.tutorial-description.svelte-9wfq4r {
-		font-size: 0.85rem;
-		color: #475569;
-		line-height: 1.5;
-		margin: 0;
-	}
-
-	.tutorial-progress.svelte-9wfq4r {
-		padding: 8px 16px;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.tutorial-progress-text.svelte-9wfq4r {
-		font-size: 0.7rem;
-		color: #94a3b8;
-		white-space: nowrap;
-		min-width: 36px;
-	}
-
-	.tutorial-progress-bar.svelte-9wfq4r {
-		flex: 1;
-		height: 4px;
-		background: #e2e8f0;
-		border-radius: 2px;
-		overflow: hidden;
-	}
-
-	.tutorial-progress-fill.svelte-9wfq4r {
-		height: 100%;
-		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-		border-radius: 2px;
-		transition: width 0.3s ease;
-	}
-
-	.tutorial-nav.svelte-9wfq4r {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 8px 12px 12px;
-		gap: 8px;
-	}
-
-	.tutorial-nav-right.svelte-9wfq4r {
-		display: flex;
-		gap: 6px;
-	}
-
-	.tutorial-nav-btn.svelte-9wfq4r {
-		padding: 6px 14px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.tutorial-nav-end.svelte-9wfq4r {
-		background: #f1f5f9;
-		color: #64748b;
-	}
-
-	.tutorial-nav-end.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-nav-prev.svelte-9wfq4r {
-		background: #f1f5f9;
-		color: #475569;
-	}
-
-	.tutorial-nav-prev.svelte-9wfq4r:hover {
-		background: #e2e8f0;
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r {
-		background: linear-gradient(135deg, #3b82f6, #2563eb);
-		color: white;
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r:hover {
-		background: linear-gradient(135deg, #2563eb, #1d4ed8);
-	}
-
-	.tutorial-nav-next.svelte-9wfq4r:active {
-		transform: scale(0.97);
-	}
-
-	/* Age-tier font size adjustments (G3) */
-	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
-	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
-		font-size: 1.25rem;
-	}
-
-	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
-	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
-		font-size: 1.05rem;
-	}
-
-	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
-		font-size: 1.125rem;
-	}
-
-	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
-		font-size: 0.95rem;
-	}
- .svelte-9wfq4r{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialQuickCompleteDialog.svelte?svelte&amp;type=style&amp;lang.css">
-	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
-		margin: 0;
-		color: var(--color-text-primary);
-		line-height: 1.5;
-	}
-
-	.dialog-hint.svelte-1hkj8k9 {
-		margin-top: var(--sp-sm) !important;
-		font-size: 0.875rem;
-		color: var(--color-text-secondary) !important;
-	}
-
-	.dialog-actions.svelte-1hkj8k9 {
-		display: flex;
-		gap: var(--sp-sm);
-		justify-content: flex-end;
-		margin-top: var(--sp-md);
-		flex-wrap: wrap;
-	}
- .svelte-1hkj8k9{}</style><style type="text/css" data-vite-dev-id="E:/Github/ganbari-quest-dev/.claude/worktrees/agent-a298f3b6aa8922b5e/src/lib/ui/components/TutorialOverlay.svelte?svelte&amp;type=style&amp;lang.css">
-	.tutorial-overlay.svelte-c315ht {
-		position: fixed;
-		inset: 0;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
-		z-index: var(--z-tutorial);
-	}
-
-	.tutorial-overlay-svg.svelte-c315ht {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.tutorial-overlay-bg.svelte-c315ht {
-		pointer-events: auto;
-		cursor: default;
-	}
-
-	.tutorial-spotlight-ring.svelte-c315ht {
-		position: absolute;
-		border: 2px solid rgba(59, 130, 246, 0.6);
-		border-radius: 12px;
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-		pointer-events: none;
-		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes svelte-c315ht-ring-pulse {
-		0%, 100% {
-			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-		}
-		50% {
-			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
-		}
-	}
-
-	/* A. During tutorial, suppress nav/header z-index below the overlay */
-	[data-tutorial-active] .z-30 {
-		z-index: 10 !important;
-	}
-	[data-tutorial-active] .desktop-dropdown {
-		z-index: 10 !important;
-	}
- .svelte-c315ht{}</style></head>
+ .svelte-d6ydfk{}</style></head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="blue" data-age-tier="elementary" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[-1--><span class="avatar-fallback svelte-1uv6grs" style="font-size: 1rem;">👤</span><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">けんたくん<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[0--><button type="button" class="milestone-bell svelte-1h1heob" data-testid="milestone-bell" data-pending-count="2" aria-label="新着のおしらせ 2件 を見る"><span class="milestone-bell__icon svelte-1h1heob" aria-hidden="true">🔔</span> <span class="milestone-bell__badge svelte-1h1heob" aria-hidden="true">2</span></button><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカードを見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">1/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e" data-testid="header-balance">55P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[-1--><!--[--><!--[-1--><div class="px-[var(--sp-sm)] py-1 svelte-d6ydfk" data-testid="elementary-home-page"><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[--><section class="mb-[var(--sp-sm)] svelte-qd0v5u"><!--[-1--><div class="flex items-center gap-1 mb-1 px-1 w-full text-left svelte-qd0v5u" data-testid="category-header-1"><!--[-1--><!--]--> <h2 class="flex items-center gap-1 svelte-qd0v5u"><span class="w-1 h-4 rounded-[var(--radius-full)] svelte-qd0v5u" aria-hidden="true" style="background-color: #D32F2F;"></span> <span class="text-xs font-bold text-[var(--color-text-muted)] svelte-qd0v5u">うんどう</span></h2> <!--[-1--><!--]--> <!--[-1--><!--]--><!----> <!--[0--><span class="text-[10px] font-bold svelte-qd0v5u" style="color: #D32F2F;">Lv.6</span> <div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1 svelte-qd0v5u" data-testid="xp-bar-1" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"><div class="h-full rounded-full xp-bar__fill svelte-qd0v5u" style="width: 40%; background-color: rgb(211, 47, 47);"></div></div> <span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right svelte-qd0v5u">40%</span><!--]--></div><!--]--> <!--[0--><div class="grid gap-1 px-1 svelte-qd0v5u" style="grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));"><!--[--><!--[-1--><!--]--> <!--[0--><!--[0--><div data-tutorial="activity-card"><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="blue" data-age-tier="elementary" class="min-h-dvh bg-[var(--theme-bg)]"><!--[0--><header class="sticky top-0 z-30 flex items-center justify-between px-[var(--sp-md)] py-[var(--sp-sm)] bg-[var(--theme-primary)] text-white shadow-md svelte-1i1e82e"><div class="flex items-center gap-[var(--sp-sm)] svelte-1i1e82e"><div class="avatar-wrap  svelte-1uv6grs" style="width: 36px; height: 36px;"><div class="avatar-ring svelte-1uv6grs" style="background: #ffffff; border: 2px solid rgba(255,255,255,0.5); width: 36px; height: 36px;"><!--[-1--><span class="avatar-fallback svelte-1uv6grs" style="font-size: 1rem;">👤</span><!--]--></div></div><!----> <div class="flex flex-col svelte-1i1e82e"><span class="font-bold text-lg leading-tight svelte-1i1e82e">けんたくん<!--[0--><span class="premium-star svelte-1i1e82e" title="スタンダード以上">⭐</span><!--]--></span></div></div> <div class="flex items-center gap-2 svelte-1i1e82e"><!--[0--><!--[0--><!--[0--><button type="button" class="milestone-bell svelte-1h1heob" data-testid="milestone-bell" data-pending-count="2" aria-label="新着のおしらせ 2件 を見る"><span class="milestone-bell__icon svelte-1h1heob" aria-hidden="true">🔔</span> <span class="milestone-bell__badge svelte-1h1heob" aria-hidden="true">2</span></button><!--]--><!----><!--]--><!----><!--]--> <!--[0--><button type="button" class="help-btn svelte-1i1e82e" data-testid="header-help-btn" data-tutorial="tutorial-restart" aria-label="つかいかたガイド"><span class="text-sm font-bold svelte-1i1e82e">❓</span></button><!--]--> <!--[0--><button type="button" class="stamp-mini svelte-1i1e82e" data-testid="header-stamp-btn" data-tutorial="stamp-progress" aria-label="スタンプカードを見る"><span class="text-sm svelte-1i1e82e" aria-hidden="true">💮</span> <span class="text-xs font-bold svelte-1i1e82e">1/5</span></button><!--]--> <div class="flex items-center gap-1 font-bold svelte-1i1e82e"><span class="text-xl svelte-1i1e82e" aria-hidden="true">⭐</span> <span class="text-lg svelte-1i1e82e" data-testid="header-balance">60P</span></div></div></header><!----><!--]--> <main class="relative z-0 pb-20 pt-[var(--sp-sm)]"><!--[-1--><!--[-1--><!--[--><!--[-1--><div class="px-[var(--sp-sm)] py-1 svelte-d6ydfk" data-testid="elementary-home-page"><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[--><section class="mb-[var(--sp-sm)] svelte-qd0v5u"><!--[-1--><div class="flex items-center gap-1 mb-1 px-1 w-full text-left svelte-qd0v5u" data-testid="category-header-1"><!--[-1--><!--]--> <h2 class="flex items-center gap-1 svelte-qd0v5u"><span class="w-1 h-4 rounded-[var(--radius-full)] svelte-qd0v5u" aria-hidden="true" style="background-color: #D32F2F;"></span> <span class="text-xs font-bold text-[var(--color-text-muted)] svelte-qd0v5u">うんどう</span></h2> <!--[-1--><!--]--> <!--[-1--><!--]--><!----> <!--[0--><span class="text-[10px] font-bold svelte-qd0v5u" style="color: #D32F2F;">Lv.6</span> <div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1 svelte-qd0v5u" data-testid="xp-bar-1" role="progressbar" aria-valuenow="47" aria-valuemin="0" aria-valuemax="100"><div class="h-full rounded-full xp-bar__fill svelte-qd0v5u" style="width: 46.7%; background-color: rgb(211, 47, 47);"></div></div> <span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right svelte-qd0v5u">47%</span><!--]--></div><!--]--> <!--[0--><div class="grid gap-1 px-1 svelte-qd0v5u" style="grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));"><!--[--><!--[-1--><!--]--> <!--[0--><!--[0--><div data-tutorial="activity-card"><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
 		w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] shadow-sm
 		border-2 transition-all
 		bg-amber-50 border-amber-400 ring-2 ring-amber-300/50
@@ -6424,11 +6424,11 @@ h1, h2, h3, h4 {
 		w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] shadow-sm
 		border-2 transition-all
 		bg-amber-50 border-amber-400 ring-2 ring-amber-300/50
-		 svelte-lso7dw" data-testid="activity-card-49" aria-label="ボールゲーム（きろくずみ）" style="" disabled=""><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><div class="absolute inset-0 flex items-center justify-center z-10 svelte-lso7dw" aria-hidden="true"><span class="text-3xl opacity-80 animate-bounce-in svelte-lso7dw">💮</span></div><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <span class="relative inline-flex items-center justify-center opacity-40" aria-hidden="true"><span class="text-xl">⚽</span> <!--[-1--><!--]--></span><!----> <span class="font-bold leading-tight text-center line-clamp-2 opacity-40 svelte-lso7dw" style="font-size: 10px;">ボールゲーム</span> <!--[0--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--></button><!----><!--]--><!--]--><!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
+		 svelte-lso7dw" disabled="" data-testid="activity-card-49" aria-label="ボールゲーム（きろくずみ）"><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><div class="absolute inset-0 flex items-center justify-center z-10 svelte-lso7dw" aria-hidden="true"><span class="text-3xl opacity-80 animate-bounce-in svelte-lso7dw">💮</span></div><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <span class="relative inline-flex items-center justify-center opacity-40" aria-hidden="true"><span class="text-xl">⚽</span> <!--[-1--><!--]--></span><!----> <span class="font-bold leading-tight text-center line-clamp-2 opacity-40 svelte-lso7dw" style="font-size: 10px;">ボールゲーム</span> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--></button><!----><!--]--><!--]--><!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
 		w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] shadow-sm
 		border-2 transition-all
-		bg-white hover:shadow-md
-		 svelte-lso7dw" data-testid="activity-card-44" aria-label="たいそう・ストレッチ" style="border-color: #FF6B6B;"><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <span class="relative inline-flex items-center justify-center " aria-hidden="true"><span class="text-xl">🤸</span> <!--[-1--><!--]--></span><!----> <span class="font-bold leading-tight text-center line-clamp-2  svelte-lso7dw" style="font-size: 10px;">たいそう・ストレッチ</span> <!--[0--><span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5 svelte-lso7dw">あさ おきたら ストレッチ しよう！</span><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--></button><!----><!--]--><!--]--><!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
+		bg-amber-50 border-amber-400 ring-2 ring-amber-300/50
+		 svelte-lso7dw" data-testid="activity-card-44" aria-label="たいそう・ストレッチ（きろくずみ）" style="" disabled=""><!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><div class="absolute inset-0 flex items-center justify-center z-10 svelte-lso7dw" aria-hidden="true"><span class="text-3xl opacity-80 animate-bounce-in svelte-lso7dw">💮</span></div><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <span class="relative inline-flex items-center justify-center opacity-40" aria-hidden="true"><span class="text-xl">🤸</span> <!--[-1--><!--]--></span><!----> <span class="font-bold leading-tight text-center line-clamp-2 opacity-40 svelte-lso7dw" style="font-size: 10px;">たいそう・ストレッチ</span> <!--[0--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--></button><!----><!--]--><!--]--><!--[-1--><!--]--> <!--[0--><!--[-1--><button class="tap-target relative flex flex-col items-center justify-center gap-0.5
 		w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] shadow-sm
 		border-2 transition-all
 		bg-white hover:shadow-md
@@ -6603,7 +6603,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 2, 15],
-							data: [{type:"data",data:{role:"owner",requestId:"f62b6165-4430-43b8-af23-0567df050e49",isDemo:false},uses:{}},{type:"data",data:{child:{id:"3",nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},balance:45,level:6,levelTitle:"すごうでアドベンチャー",allChildren:[{id:"1",nickname:"たろうくん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07 21:14:26",_sv:3,isArchived:0,archivedReason:null},{id:"2",nickname:"はなこちゃん",age:1,birthDate:null,theme:"pink",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07 21:14:26",_sv:3,isArchived:0,archivedReason:null},{id:"3",nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},{id:"4",nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},{id:"5",nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null}],uiMode:"elementary",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:1,total:5},stampCard:{id:"1",childId:"3",weekStart:"2026-08-03",weekEnd:"2026-08-09",status:"collecting",entries:[{slot:1,stampMasterId:"9",omikujiRank:"shokichi",name:"にじ",emoji:"🌈",rarity:"R",loginDate:"2026-08-08"}],canStampToday:false,totalSlots:5,filledSlots:1,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:true,achievedAt:"2026-08-02"},{id:"streak_7",threshold:7,achieved:true,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:true},uses:{url:1}},{type:"data",data:{activities:[{id:"48",childId:"3",name:"みずあそび・プール",categoryId:"1",icon:"🏊",basePoints:10,isVisible:1,dailyLimit:null,sortOrder:37,source:"seed",nameKana:null,nameKanji:null,triggerHint:"プールで たくさん およごう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:3,displayName:"みずあそび・プール",isMission:false},{id:"46",childId:"3",name:"なわとび",categoryId:"1",icon:"🪢",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:35,source:"seed",nameKana:null,nameKanji:null,triggerHint:"なわとび れんぞく なんかい いけるかな？",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"なわとび",isMission:false},{id:"47",childId:"3",name:"マットうんどう",categoryId:"1",icon:"🤾",basePoints:10,isVisible:1,dailyLimit:null,sortOrder:36,source:"seed",nameKana:null,nameKanji:null,triggerHint:"マットの うえで まえまわり しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"マットうんどう",isMission:false},{id:"52",childId:"3",name:"どくしょ（20ぷん）",categoryId:"2",icon:"📖",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:41,source:"seed",nameKana:null,nameKanji:null,triggerHint:"すきな ほんを 20ぷん よもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"どくしょ（20ぷん）",isMission:true},{id:"56",childId:"3",name:"はみがき・せいけつ",categoryId:"3",icon:"🪥",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:45,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんの あと はみがき しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"must",isPinned:false,usageCount:2,displayName:"はみがき・せいけつ",isMission:false},{id:"49",childId:"3",name:"ボールゲーム",categoryId:"1",icon:"⚽",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:38,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ボールを つかって あそぼう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"ボールゲーム",isMission:false},{id:"50",childId:"3",name:"こくごドリル",categoryId:"2",icon:"✏️",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:39,source:"seed",nameKana:null,nameKanji:null,triggerHint:"こくごの ドリルを 1ページ やろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"こくごドリル",isMission:false},{id:"51",childId:"3",name:"さんすうドリル",categoryId:"2",icon:"🔢",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:40,source:"seed",nameKana:null,nameKanji:null,triggerHint:"さんすうの ドリルを 1ページ やろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"さんすうドリル",isMission:false},{id:"53",childId:"3",name:"しぜんかんさつ",categoryId:"2",icon:"🔍",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:42,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おそとの いきものを かんさつ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"しぜんかんさつ",isMission:false},{id:"54",childId:"3",name:"どうぶつ・しょくぶつのせわ",categoryId:"2",icon:"🌱",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:43,source:"seed",nameKana:null,nameKanji:null,triggerHint:"いきものの おせわを しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"どうぶつ・しょくぶつのせわ",isMission:false},{id:"55",childId:"3",name:"にっきをかいた",categoryId:"2",icon:"📝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:44,source:"seed",nameKana:null,nameKanji:null,triggerHint:"きょうの できごとを にっきに かこう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"にっきをかいた",isMission:false},{id:"57",childId:"3",name:"はやねはやおき",categoryId:"3",icon:"⏰",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:46,source:"seed",nameKana:null,nameKanji:null,triggerHint:"はやく ねて あした げんきに なろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"must",isPinned:false,usageCount:1,displayName:"はやねはやおき",isMission:false},{id:"222",childId:"3",name:"はみがきした",categoryId:"3",icon:"🪥",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんのあと はみがきしよう！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"はみがきした",isMission:false},{id:"223",childId:"3",name:"おきがえした",categoryId:"3",icon:"👕",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じぶんで おきがえ してみよう！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"おきがえした",isMission:false},{id:"224",childId:"3",name:"おかたづけした",categoryId:"3",icon:"🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あそんだあと おかたづけ！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"おかたづけした",isMission:false},{id:"44",childId:"3",name:"たいそう・ストレッチ",categoryId:"1",icon:"🤸",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:33,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あさ おきたら ストレッチ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"たいそう・ストレッチ",isMission:false},{id:"45",childId:"3",name:"かけっこ・おにごっこ",categoryId:"1",icon:"🏃",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:34,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おそとで おもいきり はしろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"かけっこ・おにごっこ",isMission:false},{id:"59",childId:"3",name:"じぶんのもちものをせいり",categoryId:"3",icon:"🎒",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:48,source:"seed",nameKana:null,nameKanji:null,triggerHint:"つくえの うえを きれいに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"じぶんのもちものをせいり",isMission:false},{id:"60",childId:"3",name:"あしたのじゅんびした",categoryId:"3",icon:"🎒📝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:49,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あしたの じゅんびを すませよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"あしたのじゅんびした",isMission:false},{id:"61",childId:"3",name:"あいさつ・へんじ",categoryId:"4",icon:"👋",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:50,source:"seed",nameKana:null,nameKanji:null,triggerHint:"げんきに あいさつ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"あいさつ・へんじ",isMission:false},{id:"62",childId:"3",name:"ともだちとなかよくした",categoryId:"4",icon:"🤝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:51,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ともだちに やさしく しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"ともだちとなかよくした",isMission:false},{id:"63",childId:"3",name:"じぶんのかんがえをはなした",categoryId:"4",icon:"💬",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:52,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おもったことを じぶんの ことばで！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"じぶんのかんがえをはなした",isMission:false},{id:"64",childId:"3",name:"リズムあそび・ダンス",categoryId:"5",icon:"💃",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:53,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おんがくに あわせて からだを うごかそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"リズムあそび・ダンス",isMission:false},{id:"65",childId:"3",name:"おえかき・ずがこうさく",categoryId:"5",icon:"🎨",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:54,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じゆうに えを かいてみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おえかき・ずがこうさく",isMission:false},{id:"66",childId:"3",name:"こうさく",categoryId:"5",icon:"✂️",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:55,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ざいりょうを つかって つくってみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"こうさく",isMission:true},{id:"67",childId:"3",name:"うた・がっき",categoryId:"5",icon:"🎵",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:56,source:"seed",nameKana:null,nameKanji:null,triggerHint:"うたったり がっきを ひいたりしよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"うた・がっき",isMission:false},{id:"68",childId:"3",name:"おんがくをきいた",categoryId:"5",icon:"🎧",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:57,source:"seed",nameKana:null,nameKanji:null,triggerHint:"すきな おんがくを きいてみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おんがくをきいた",isMission:false},{id:"69",childId:"3",name:"皿洗い",categoryId:"3",icon:"🍽️",basePoints:5,isVisible:1,dailyLimit:3,sortOrder:142,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんの あと おさら あらおう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"皿洗い",isMission:false},{id:"70",childId:"3",name:"料理する",categoryId:"3",icon:"🍳",basePoints:8,isVisible:1,dailyLimit:null,sortOrder:143,source:"seed",nameKana:null,nameKanji:null,triggerHint:"かんたんな りょうりに ちょうせん！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"料理する",isMission:false},{id:"71",childId:"3",name:"洗濯物をたたむ",categoryId:"3",icon:"👕",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:148,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんたくもの きれいに たたもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗濯物をたたむ",isMission:false},{id:"72",childId:"3",name:"洗濯物を干す",categoryId:"3",icon:"🧺",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:149,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんたくもの じょうずに ほそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗濯物を干す",isMission:false},{id:"73",childId:"3",name:"くつを洗う",categoryId:"3",icon:"👟💧",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:151,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じぶんの くつを あらってみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"くつを洗う",isMission:false},{id:"74",childId:"3",name:"部屋を掃除する",categoryId:"3",icon:"🧹🏠",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:154,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おへやを そうじ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"部屋を掃除する",isMission:false},{id:"75",childId:"3",name:"お風呂を掃除する",categoryId:"3",icon:"🛁🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:155,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おふろを ピカピカに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"お風呂を掃除する",isMission:false},{id:"76",childId:"3",name:"トイレを掃除する",categoryId:"3",icon:"🚽🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:156,source:"seed",nameKana:null,nameKanji:null,triggerHint:"トイレを きれいに そうじ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"トイレを掃除する",isMission:false},{id:"77",childId:"3",name:"洗面台を掃除する",categoryId:"3",icon:"🪥🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:157,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんめんだいを ふいて きれいに！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗面台を掃除する",isMission:false},{id:"78",childId:"3",name:"玄関を掃除する",categoryId:"3",icon:"🚪🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:158,source:"seed",nameKana:null,nameKanji:null,triggerHint:"げんかんを はいて きれいに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"玄関を掃除する",isMission:true},{id:"79",childId:"3",name:"ゴミを出す",categoryId:"3",icon:"🗑️",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:159,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ゴミぶくろを ゴミばこに もっていこう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"ゴミを出す",isMission:false},{id:"80",childId:"3",name:"おふとんをたたむ",categoryId:"3",icon:"🛏️",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:160,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おきたら おふとん たたもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おふとんをたたむ",isMission:false},{id:"81",childId:"3",name:"買い物をする",categoryId:"3",icon:"🛒",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:162,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おつかいに ちょうせん してみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"買い物をする",isMission:false},{id:"82",childId:"3",name:"水やりをする",categoryId:"3",icon:"🌱💧",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:163,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おはなに おみず あげよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"水やりをする",isMission:false},{id:"83",childId:"3",name:"おたよりをわたす",categoryId:"3",icon:"📨",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:164,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんせいからの おたより わたそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おたよりをわたす",isMission:false}],todayRecorded:[{activityId:"46",count:1},{activityId:"47",count:1},{activityId:"48",count:1}],loginBonusStatus:{childId:"3",claimedToday:true,consecutiveLoginDays:1,lastClaimedAt:"2026-08-07 21:17:22"},latestReward:null,latestMessage:null,hasChecklists:true,checklistProgress:{checkedCount:0,totalCount:23,allDone:false},dailyMissions:{missions:[{id:"1",activityId:"52",activityName:"どくしょ（20ぷん）",activityIcon:"📖",categoryId:"2",completed:false},{id:"2",activityId:"78",activityName:"玄関を掃除する",activityIcon:"🚪🧹",categoryId:"3",completed:false},{id:"3",activityId:"66",activityName:"こうさく",activityIcon:"✂️",categoryId:"5",completed:false}],completedCount:0,allComplete:false,bonusAwarded:0},stampCard:{id:"1",childId:"3",weekStart:"2026-08-03",weekEnd:"2026-08-09",status:"collecting",entries:[{slot:1,stampMasterId:"9",omikujiRank:"shokichi",name:"にじ",emoji:"🌈",rarity:"R",loginDate:"2026-08-08"}],canStampToday:false,totalSlots:5,filledSlots:1,redeemedPoints:null},categoryXp:{"1":{value:225,level:6,levelTitle:"すごうでアドベンチャー",expToNextLevel:50,maxValue:100000,progressPct:33.3},"2":{value:168,level:5,levelTitle:"きらきらヒーロー",expToNextLevel:32,maxValue:100000,progressPct:46.7},"3":{value:96,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:44,maxValue:100000,progressPct:26.7},"4":{value:100,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:40,maxValue:100000,progressPct:33.3},"5":{value:90,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:50,maxValue:100000,progressPct:16.7}},gameLoopHints:null,isFirstTime:false,focusMode:true,recommendedActivityIds:["67","49","54"],birthdayBonus:null,activeChallenges:[{id:"1",childId:"3",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:08.943Z",updatedAt:"2026-08-07T21:15:08.943Z",siblings:[{id:"1",childId:"3",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:08.943Z",updatedAt:"2026-08-07T21:15:08.943Z"},{id:"2",childId:"4",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:13.437Z",updatedAt:"2026-08-07T21:15:13.437Z"},{id:"3",childId:"1",title:"今週は「せいかつ」を5回",description:"得意な「せいかつ」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"3\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「せいかつ」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:17:27.685Z",updatedAt:"2026-08-07T21:17:27.685Z"},{id:"4",childId:"5",title:"今週は「うんどう」を3回",description:"得意な「うんどう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"1\",\"baseTarget\":3,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「うんどう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:2,targetValue:3,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:17:57.117Z",updatedAt:"2026-08-07T21:41:05.373Z"}],allCompleted:false}],celebrationChallenge:null,challengeTargets:[{categoryId:"2",currentValue:0,targetValue:5,completed:false,title:"今週は「べんきょう」を5回"}],siblingRanking:null,unshownCheers:[],familyStreak:{currentStreak:1,hasRecordedToday:true,todayRecorders:["1","3","4","5"],lastRecordedDate:"2026-08-08",nextMilestone:{days:7,points:50,remaining:6}},mustStatus:{logged:0,total:2,allComplete:false,granted:false,points:0,activities:[{id:"56",name:"はみがき・せいけつ",icon:"🪥",loggedToday:0},{id:"57",name:"はやねはやおき",icon:"⏰",loggedToday:0}]},uiModeChangeNotice:null,habitCertificateNotice:null},uses:{parent:1}}],
+							data: [{type:"data",data:{role:"owner",requestId:"74d95b2f-cdf2-440e-b31c-39497cbee94f",isDemo:false},uses:{}},{type:"data",data:{child:{id:"3",nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},balance:55,level:6,levelTitle:"すごうでアドベンチャー",allChildren:[{id:"1",nickname:"たろうくん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07 21:14:26",_sv:3,isArchived:0,archivedReason:null},{id:"2",nickname:"はなこちゃん",age:1,birthDate:null,theme:"pink",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07 21:14:26",_sv:3,isArchived:0,archivedReason:null},{id:"3",nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},{id:"4",nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null},{id:"5",nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-08-07 21:14:26",updatedAt:"2026-08-07T21:23:23.682Z",_sv:3,isArchived:0,archivedReason:null}],uiMode:"elementary",pointSettings:{mode:"point",currency:"JPY",rate:1},stampProgress:{filled:1,total:5},stampCard:{id:"1",childId:"3",weekStart:"2026-08-03",weekEnd:"2026-08-09",status:"collecting",entries:[{slot:1,stampMasterId:"9",omikujiRank:"shokichi",name:"にじ",emoji:"🌈",rarity:"R",loginDate:"2026-08-08"}],canStampToday:false,totalSlots:5,filledSlots:1,redeemedPoints:null},isPremium:true,planTier:"family",planLimits:{maxChildren:null,maxActivities:null,maxChecklistTemplates:null,maxFamilyMembers:null,historyRetentionDays:null,canExport:true,canFreeTextMessage:true,canCustomReward:true,canSiblingRanking:true,maxCloudExports:10},milestones:[{id:"first_record",threshold:1,achieved:true,achievedAt:"2026-08-02"},{id:"streak_7",threshold:7,achieved:true,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}],pinGateOnboardingSeen:true},uses:{url:1}},{type:"data",data:{activities:[{id:"48",childId:"3",name:"みずあそび・プール",categoryId:"1",icon:"🏊",basePoints:10,isVisible:1,dailyLimit:null,sortOrder:37,source:"seed",nameKana:null,nameKanji:null,triggerHint:"プールで たくさん およごう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:3,displayName:"みずあそび・プール",isMission:false},{id:"46",childId:"3",name:"なわとび",categoryId:"1",icon:"🪢",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:35,source:"seed",nameKana:null,nameKanji:null,triggerHint:"なわとび れんぞく なんかい いけるかな？",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"なわとび",isMission:false},{id:"47",childId:"3",name:"マットうんどう",categoryId:"1",icon:"🤾",basePoints:10,isVisible:1,dailyLimit:null,sortOrder:36,source:"seed",nameKana:null,nameKanji:null,triggerHint:"マットの うえで まえまわり しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"マットうんどう",isMission:false},{id:"49",childId:"3",name:"ボールゲーム",categoryId:"1",icon:"⚽",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:38,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ボールを つかって あそぼう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"ボールゲーム",isMission:false},{id:"52",childId:"3",name:"どくしょ（20ぷん）",categoryId:"2",icon:"📖",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:41,source:"seed",nameKana:null,nameKanji:null,triggerHint:"すきな ほんを 20ぷん よもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:2,displayName:"どくしょ（20ぷん）",isMission:true},{id:"56",childId:"3",name:"はみがき・せいけつ",categoryId:"3",icon:"🪥",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:45,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんの あと はみがき しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"must",isPinned:false,usageCount:2,displayName:"はみがき・せいけつ",isMission:false},{id:"50",childId:"3",name:"こくごドリル",categoryId:"2",icon:"✏️",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:39,source:"seed",nameKana:null,nameKanji:null,triggerHint:"こくごの ドリルを 1ページ やろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"こくごドリル",isMission:false},{id:"51",childId:"3",name:"さんすうドリル",categoryId:"2",icon:"🔢",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:40,source:"seed",nameKana:null,nameKanji:null,triggerHint:"さんすうの ドリルを 1ページ やろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"さんすうドリル",isMission:false},{id:"53",childId:"3",name:"しぜんかんさつ",categoryId:"2",icon:"🔍",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:42,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おそとの いきものを かんさつ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"しぜんかんさつ",isMission:false},{id:"54",childId:"3",name:"どうぶつ・しょくぶつのせわ",categoryId:"2",icon:"🌱",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:43,source:"seed",nameKana:null,nameKanji:null,triggerHint:"いきものの おせわを しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"どうぶつ・しょくぶつのせわ",isMission:false},{id:"55",childId:"3",name:"にっきをかいた",categoryId:"2",icon:"📝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:44,source:"seed",nameKana:null,nameKanji:null,triggerHint:"きょうの できごとを にっきに かこう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:1,displayName:"にっきをかいた",isMission:false},{id:"57",childId:"3",name:"はやねはやおき",categoryId:"3",icon:"⏰",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:46,source:"seed",nameKana:null,nameKanji:null,triggerHint:"はやく ねて あした げんきに なろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"must",isPinned:false,usageCount:1,displayName:"はやねはやおき",isMission:false},{id:"222",childId:"3",name:"はみがきした",categoryId:"3",icon:"🪥",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんのあと はみがきしよう！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"はみがきした",isMission:false},{id:"223",childId:"3",name:"おきがえした",categoryId:"3",icon:"👕",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じぶんで おきがえ してみよう！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"おきがえした",isMission:false},{id:"224",childId:"3",name:"おかたづけした",categoryId:"3",icon:"🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:0,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あそんだあと おかたづけ！",isMainQuest:0,createdAt:"2026-08-07 21:15:28",isArchived:0,archivedReason:null,sourcePresetId:"kinder-starter",priority:"optional",isPinned:false,usageCount:0,displayName:"おかたづけした",isMission:false},{id:"44",childId:"3",name:"たいそう・ストレッチ",categoryId:"1",icon:"🤸",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:33,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あさ おきたら ストレッチ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"たいそう・ストレッチ",isMission:false},{id:"45",childId:"3",name:"かけっこ・おにごっこ",categoryId:"1",icon:"🏃",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:34,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おそとで おもいきり はしろう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"かけっこ・おにごっこ",isMission:false},{id:"59",childId:"3",name:"じぶんのもちものをせいり",categoryId:"3",icon:"🎒",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:48,source:"seed",nameKana:null,nameKanji:null,triggerHint:"つくえの うえを きれいに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"じぶんのもちものをせいり",isMission:false},{id:"60",childId:"3",name:"あしたのじゅんびした",categoryId:"3",icon:"🎒📝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:49,source:"seed",nameKana:null,nameKanji:null,triggerHint:"あしたの じゅんびを すませよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"あしたのじゅんびした",isMission:false},{id:"61",childId:"3",name:"あいさつ・へんじ",categoryId:"4",icon:"👋",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:50,source:"seed",nameKana:null,nameKanji:null,triggerHint:"げんきに あいさつ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"あいさつ・へんじ",isMission:false},{id:"62",childId:"3",name:"ともだちとなかよくした",categoryId:"4",icon:"🤝",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:51,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ともだちに やさしく しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"ともだちとなかよくした",isMission:false},{id:"63",childId:"3",name:"じぶんのかんがえをはなした",categoryId:"4",icon:"💬",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:52,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おもったことを じぶんの ことばで！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"じぶんのかんがえをはなした",isMission:false},{id:"64",childId:"3",name:"リズムあそび・ダンス",categoryId:"5",icon:"💃",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:53,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おんがくに あわせて からだを うごかそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"リズムあそび・ダンス",isMission:false},{id:"65",childId:"3",name:"おえかき・ずがこうさく",categoryId:"5",icon:"🎨",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:54,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じゆうに えを かいてみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おえかき・ずがこうさく",isMission:false},{id:"66",childId:"3",name:"こうさく",categoryId:"5",icon:"✂️",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:55,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ざいりょうを つかって つくってみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"こうさく",isMission:true},{id:"67",childId:"3",name:"うた・がっき",categoryId:"5",icon:"🎵",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:56,source:"seed",nameKana:null,nameKanji:null,triggerHint:"うたったり がっきを ひいたりしよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"うた・がっき",isMission:false},{id:"68",childId:"3",name:"おんがくをきいた",categoryId:"5",icon:"🎧",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:57,source:"seed",nameKana:null,nameKanji:null,triggerHint:"すきな おんがくを きいてみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おんがくをきいた",isMission:false},{id:"69",childId:"3",name:"皿洗い",categoryId:"3",icon:"🍽️",basePoints:5,isVisible:1,dailyLimit:3,sortOrder:142,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ごはんの あと おさら あらおう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"皿洗い",isMission:false},{id:"70",childId:"3",name:"料理する",categoryId:"3",icon:"🍳",basePoints:8,isVisible:1,dailyLimit:null,sortOrder:143,source:"seed",nameKana:null,nameKanji:null,triggerHint:"かんたんな りょうりに ちょうせん！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"料理する",isMission:false},{id:"71",childId:"3",name:"洗濯物をたたむ",categoryId:"3",icon:"👕",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:148,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんたくもの きれいに たたもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗濯物をたたむ",isMission:false},{id:"72",childId:"3",name:"洗濯物を干す",categoryId:"3",icon:"🧺",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:149,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんたくもの じょうずに ほそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗濯物を干す",isMission:false},{id:"73",childId:"3",name:"くつを洗う",categoryId:"3",icon:"👟💧",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:151,source:"seed",nameKana:null,nameKanji:null,triggerHint:"じぶんの くつを あらってみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"くつを洗う",isMission:false},{id:"74",childId:"3",name:"部屋を掃除する",categoryId:"3",icon:"🧹🏠",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:154,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おへやを そうじ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"部屋を掃除する",isMission:false},{id:"75",childId:"3",name:"お風呂を掃除する",categoryId:"3",icon:"🛁🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:155,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おふろを ピカピカに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"お風呂を掃除する",isMission:false},{id:"76",childId:"3",name:"トイレを掃除する",categoryId:"3",icon:"🚽🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:156,source:"seed",nameKana:null,nameKanji:null,triggerHint:"トイレを きれいに そうじ しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"トイレを掃除する",isMission:false},{id:"77",childId:"3",name:"洗面台を掃除する",categoryId:"3",icon:"🪥🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:157,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんめんだいを ふいて きれいに！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"洗面台を掃除する",isMission:false},{id:"78",childId:"3",name:"玄関を掃除する",categoryId:"3",icon:"🚪🧹",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:158,source:"seed",nameKana:null,nameKanji:null,triggerHint:"げんかんを はいて きれいに しよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"玄関を掃除する",isMission:true},{id:"79",childId:"3",name:"ゴミを出す",categoryId:"3",icon:"🗑️",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:159,source:"seed",nameKana:null,nameKanji:null,triggerHint:"ゴミぶくろを ゴミばこに もっていこう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"ゴミを出す",isMission:false},{id:"80",childId:"3",name:"おふとんをたたむ",categoryId:"3",icon:"🛏️",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:160,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おきたら おふとん たたもう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おふとんをたたむ",isMission:false},{id:"81",childId:"3",name:"買い物をする",categoryId:"3",icon:"🛒",basePoints:5,isVisible:1,dailyLimit:null,sortOrder:162,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おつかいに ちょうせん してみよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"買い物をする",isMission:false},{id:"82",childId:"3",name:"水やりをする",categoryId:"3",icon:"🌱💧",basePoints:3,isVisible:1,dailyLimit:2,sortOrder:163,source:"seed",nameKana:null,nameKanji:null,triggerHint:"おはなに おみず あげよう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"水やりをする",isMission:false},{id:"83",childId:"3",name:"おたよりをわたす",categoryId:"3",icon:"📨",basePoints:3,isVisible:1,dailyLimit:null,sortOrder:164,source:"seed",nameKana:null,nameKanji:null,triggerHint:"せんせいからの おたより わたそう！",isMainQuest:0,createdAt:"2026-08-07 21:14:26",isArchived:0,archivedReason:null,sourcePresetId:null,priority:"optional",isPinned:false,usageCount:0,displayName:"おたよりをわたす",isMission:false}],todayRecorded:[{activityId:"46",count:1},{activityId:"47",count:1},{activityId:"48",count:1},{activityId:"49",count:1}],loginBonusStatus:{childId:"3",claimedToday:true,consecutiveLoginDays:1,lastClaimedAt:"2026-08-07 21:17:22"},latestReward:null,latestMessage:null,hasChecklists:true,checklistProgress:{checkedCount:0,totalCount:23,allDone:false},dailyMissions:{missions:[{id:"1",activityId:"52",activityName:"どくしょ（20ぷん）",activityIcon:"📖",categoryId:"2",completed:false},{id:"2",activityId:"78",activityName:"玄関を掃除する",activityIcon:"🚪🧹",categoryId:"3",completed:false},{id:"3",activityId:"66",activityName:"こうさく",activityIcon:"✂️",categoryId:"5",completed:false}],completedCount:0,allComplete:false,bonusAwarded:0},stampCard:{id:"1",childId:"3",weekStart:"2026-08-03",weekEnd:"2026-08-09",status:"collecting",entries:[{slot:1,stampMasterId:"9",omikujiRank:"shokichi",name:"にじ",emoji:"🌈",rarity:"R",loginDate:"2026-08-08"}],canStampToday:false,totalSlots:5,filledSlots:1,redeemedPoints:null},categoryXp:{"1":{value:230,level:6,levelTitle:"すごうでアドベンチャー",expToNextLevel:45,maxValue:100000,progressPct:40},"2":{value:168,level:5,levelTitle:"きらきらヒーロー",expToNextLevel:32,maxValue:100000,progressPct:46.7},"3":{value:96,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:44,maxValue:100000,progressPct:26.7},"4":{value:100,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:40,maxValue:100000,progressPct:33.3},"5":{value:90,level:4,levelTitle:"つよつよチャレンジャー",expToNextLevel:50,maxValue:100000,progressPct:16.7}},gameLoopHints:null,isFirstTime:false,focusMode:true,recommendedActivityIds:["67","49","54"],birthdayBonus:null,activeChallenges:[{id:"1",childId:"3",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:08.943Z",updatedAt:"2026-08-07T21:15:08.943Z",siblings:[{id:"1",childId:"3",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:08.943Z",updatedAt:"2026-08-07T21:15:08.943Z"},{id:"2",childId:"4",title:"今週は「べんきょう」を5回",description:"得意な「べんきょう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"2\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「べんきょう」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:15:13.437Z",updatedAt:"2026-08-07T21:15:13.437Z"},{id:"3",childId:"1",title:"今週は「せいかつ」を5回",description:"得意な「せいかつ」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"3\",\"baseTarget\":5,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「せいかつ」をもっと伸ばしてみよう！\"}",status:"active",isActive:1,sourceTemplateId:"auto:weekly",currentValue:0,targetValue:5,completed:0,completedAt:null,rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:17:27.685Z",updatedAt:"2026-08-07T21:17:27.685Z"},{id:"4",childId:"5",title:"今週は「うんどう」を3回",description:"得意な「うんどう」をもっと伸ばしてみよう！",challengeType:"cooperative",periodType:"weekly",startDate:"2026-08-03",endDate:"2026-08-09",targetConfig:"{\"metric\":\"count\",\"categoryId\":\"1\",\"baseTarget\":3,\"genMode\":\"strength\",\"genMissStreak\":0}",rewardConfig:"{\"points\":30,\"message\":\"得意な「うんどう」をもっと伸ばしてみよう！\"}",status:"completed",isActive:1,sourceTemplateId:"auto:weekly",currentValue:3,targetValue:3,completed:1,completedAt:"2026-08-07T21:46:32.244Z",rewardClaimed:0,rewardClaimedAt:null,celebrationShownAt:null,createdAt:"2026-08-07T21:17:57.117Z",updatedAt:"2026-08-07T21:46:32.244Z"}],allCompleted:false}],celebrationChallenge:null,challengeTargets:[{categoryId:"2",currentValue:0,targetValue:5,completed:false,title:"今週は「べんきょう」を5回"}],siblingRanking:null,unshownCheers:[],familyStreak:{currentStreak:1,hasRecordedToday:true,todayRecorders:["1","3","4","5"],lastRecordedDate:"2026-08-08",nextMilestone:{days:7,points:50,remaining:6}},mustStatus:{logged:0,total:2,allComplete:false,granted:false,points:0,activities:[{id:"56",name:"はみがき・せいけつ",icon:"🪥",loggedToday:0},{id:"57",name:"はやねはやおき",icon:"⏰",loggedToday:0}]},uiModeChangeNotice:null,habitCertificateNotice:null},uses:{parent:1}}],
 							form: null,
 							error: null
 						});
