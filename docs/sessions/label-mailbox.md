@@ -364,53 +364,9 @@ gh pr list --label "state:qm-blocked" --state open --search "author:@me" --json 
 
 ### §5.1 「mailbox 空」が 3 回連続したときの生存確認（PO の義務）
 
-受信箱が空であることは、**仕事が無いこと**ではなく**渡す経路が壊れていること**の兆候である方が多い。PO は「空」が **3 回連続**したら、次を実行して**誰かが実際に動いているか**を確認する。
+受信箱が空であることは、**仕事が無いこと**ではなく**渡す経路が壊れていること**の兆候である方が多い。PO は「空」が **3 回連続**したら、orphan（§3.3.1）・各ロール受信箱の件数・直近 merged・EPIC 着手状況を確認し、**誰かが実際に動いているか**を判定する。orphan が 1 件でもあれば経路が壊れている。全受信箱 0 かつ merged も止まっていればセッション / cron 停止を疑う。
 
-```bash
-# 1. orphan — どの受信箱にも入っていない open
-gh issue list --state open --limit 100 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
-gh pr list --state open --limit 50 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
-
-# 2. 各ロールの受信箱に何件あるか（0 が並ぶこと自体が異常信号）
-for l in needs-dev dev-done qm-blocked ready-to-merge needs-audit needs-po needs-owner; do
-  printf "%s: " "$l"
-  echo "issue=$(gh issue list --label "state:$l" --state open --json number --jq 'length') pr=$(gh pr list --label "state:$l" --state open --json number --jq 'length')"
-done
-
-# 3. 直近の活動（人が動いているか）
-gh pr list --state merged --limit 5 --json number,mergedAt,title --jq '.[]|"\(.mergedAt[0:16]) #\(.number) \(.title[0:50])"'
-git fetch origin -q && git rev-list --count origin/main..origin/develop
-
-# 4. EPIC の着手状況（open な EPIC に対して in-flight が 0 でないか）
-gh issue list --state open --label "priority:critical" --json number,title --jq '.[]|"#\(.number) \(.title[0:60])"'
-```
-
-**判定**:
-
-- orphan が 1 件でもある → **渡す経路が壊れている。** 該当する `state:*` を付けて配る
-- 全受信箱 0 かつ merged が数時間停止 → **セッションが落ちているか cron が消えている。** 各ロールに起動確認を求める
-- 全受信箱 0 かつ merged は進んでいる → 正常。ただし **`main..develop` が育っていないか**を併せて見る
-
-> **2026-07-31 の実例**: PO が「mailbox 空」を 4 回連続で報告したあと、Dev / QM 双方が「対応事項なし」と報告した。実際には着手すべき Issue が 5 件滞留し、Dev の判断待ち 2 件が PO に届いていなかった。**全員の受信箱が同時に空になったのは、経路が壊れていたから**である。
-
-## §6 改訂履歴に代えて — 語彙が足りなかった実例
-
-語彙を増やさない原則（§2-5）は維持するが、**渡す経路が存在しない状態は「語彙が足りている」ではない**。以下は 2026-07-31 の実運用 1 日で露見した 2 つの欠落。同種の欠落を疑うときの判断材料として残す。
-
-| 欠落 | 何が起きたか | 追加した語彙 |
-|---|---|---|
-| PO / QM → Dev に**着手を渡す**経路が無い | Dev が拾えるのは QM の差し戻しと reviewer request だけだった。PO が着手順を決めても Dev の受信箱に入らず、**5 件が滞留**したまま Dev は「対応事項なし」と報告した | `state:needs-dev` |
-| **不可逆 4 操作ではない PO 判断**を渡す経路が無い | Dev が「ruleset 変更」「node EBADENGINE」を判断待ちとして書いたが、4 操作に当たらず label を付けられなかった。**PO の mailbox に入らないまま PR が merge されて流れた** | `state:needs-po` |
-| PO → 監査に**release cut を渡す**経路が無い | 「明示依頼で足りる」としていたが、mention / コメントは通知経路ではない。Dev で起きたのと同じ取りこぼしが監査レーンでも成立する | `state:needs-audit` |
-| **QM 宛の経路が無い / 監査宛が cut 依頼に限定**（#4180、2026-08-01。2 ロールから同日に申告） | **宛先 label が用件に縛られていた**。QM 宛は工程 label `dev-done`（実装完了・CI 全緑・Ready 化済）でしか表現できず、**完成していないと送れない**。監査宛は定義が「cut を渡した」で付与者も PO 限定。結果、「実装の途中で観点を相談したい」「BLOCK 事由の意図を確認したい」が **mention に退化**した | `state:needs-qm`（+ `needs-audit` の定義を「監査チームに用がある」へ緩和） |
-
-**共通の教訓**: 語彙を増やさない原則（§2-5）は、**渡す経路が既にあるとき**にのみ有効。経路が無いまま「増やさない」を守ると、伝達が mention に退化し、mention は誰の受信箱にも入らない。
-
-**4 例目（#4180）で分かった追加の教訓**: 経路が「無い」だけでなく「**用件に縛られていて使えない**」形でも同じことが起きる。**宛先 label に用件を含意させない**（§3.1）ことと、**経路マトリクスの空欄を可視化しておく**（§3.3.1）ことの 2 つで、次に足りなくなったときに気づけるようにした。
-
-## §7 現状
+## §6 現状
 
 - label **9 種** = 宛先 6（`needs-dev` / `needs-qm` / `needs-po` / `needs-audit` / `needs-platform` / `needs-owner`）+ 工程 3（`dev-done` / `qm-blocked` / `ready-to-merge`）
 - PO セッションの cron は稼働中（`37 * * * *`）

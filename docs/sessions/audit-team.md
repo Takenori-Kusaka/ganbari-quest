@@ -300,8 +300,6 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 - **根拠にしてよいのは、失敗条件を再現した状態での緑**。TZ 依存なら `TZ=UTC` / `TZ=Asia/Tokyo` の双方をローカル実測する
 - 「re-run したら通ったので flake」で流さない。**次の同じ条件で必ず再発する**
 
-**実例**: `ops-service` の `newThisMonth` は、CI (UTC) が UTC 月末 15:00〜24:00 に走ると落ちる。UTC が翌月に入った時点で、**修正の有無にかかわらず緑になった**。
-
 #### 禁則 2: gate を修正する PR が、その gate に検査されないまま merge されない
 
 **gate を直す変更ほど、その gate 自身の検査を通す。** 直した gate が走らないまま入ると、「直したつもり」が本番まで届く。**Draft の間は required check が `skipping` になる**ため、gate を再武装する PR ほどこの形に落ちやすい。
@@ -313,8 +311,6 @@ audit-manager が統合 PR の merge を判定する際に揃えるべき人間�
 - **append 後は必ず adversarial evidence を再生成**し、**自分の修正を明示的な疑い対象として渡す**
 - 特に「assertion を実質的に弱めていないか」「『製品は正常』判定が環境からの推論に依存していないか」を渡す
 - **approve は最後に置く**（`dismiss_stale_reviews_on_push=false` のため approve 後の append は stale approval を残す）
-
-**実例**: 第 19 回で監査が append した test 修正 4 件のうち 1 件に、**自分が別ファイルで指摘したのと同型の vacuous assertion** が入っていた（race 解決後に評価するため恒真）。adversarial が検出して是正。
 
 ### §3.5.2 `Closes` 集約の限界と over-close の防止
 
@@ -329,8 +325,6 @@ gh issue view <N> --json body --jq '.body' | grep -c '^- \[ \]'
 - **未チェックが残っていれば集約しない**
 - **AC に運用行為（実機確認 / 退避の記録 / Dashboard 設定確認）が含まれる Issue は集約しない。** コードの merge では充足しないため over-close になる
 - EPIC の着手順先頭にある **唯一の open tracker** を auto-close しない。追跡者が消える
-
-**実例**: `#4129` を集約に追加しようとしたが、その時点で AC 5 件すべて未チェックで、うち 2 件（`data/backups` の退避記録 / NUC 実機の env 確認）は運用行為だった。しかも `BACKUP_RETENTION` 7→3 の**不可逆削除**を追跡する唯一の tracker であり、auto-close すれば退避を誰も追わないまま削除が走る状態だった。
 
 #### 集約を「書いたつもり」で終わらせない — 下書きの着地確認（#4170 AC2）
 
