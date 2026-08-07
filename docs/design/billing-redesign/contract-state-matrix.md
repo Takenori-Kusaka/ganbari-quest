@@ -139,7 +139,7 @@ handler を実際に呼び、**開始状態 S1〜S5 × Stripe subscription statu
 書き込み前後を `classifyContractState()` で分類し、観測集合と本列を**双方向**で突き合わせる
 （表にあって実装に無い / 実装にあって表に無い、の両方で fail する）。
 
-検証が届かない範囲は同 test の `UNDRIVEN_WRITERS` に理由付きで列挙する。加えて、
+検証が届かない範囲は同 test の `UNCOVERED_WRITERS` に理由付きで列挙する。加えて、
 **状態クラスが同じで列の値だけが違う書き込み**（例: `grace_period` のまま猶予終了日を書き換える）は
 遷移としては同一に見えるため本列の対象外で、`tests/unit/services/stripe-contract-state-classification.test.ts`
 が列の値まで見る。

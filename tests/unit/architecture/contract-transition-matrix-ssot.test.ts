@@ -31,7 +31,7 @@
 // **この方式で検出できないこと** (silent に落とさないため明記する):
 //   - 状態クラスが同じで**列の値だけが違う**書き込み (例: 猶予終了日を延長するか据え置くか)。
 //     S3 → S3 としか見えない。列の値は `stripe-contract-state-classification.test.ts` 側の責務
-//   - 本 file が駆動しない書き手 (下の `UNDRIVEN_WRITERS`) と、開始状態 S6 (§4.1 legacy 行)
+//   - 本 file が駆動しない書き手 (下の `UNCOVERED_WRITERS`) と、開始状態 S6 (§4.1 legacy 行)
 //   - `metadata.planId` が未知の checkout (matrix §4 X2「起きうる」)。plan 解決の失敗であって
 //     状態遷移ではないため、駆動する入力領域から外す (X2 は alert で観測する)
 //
@@ -329,7 +329,7 @@ const DRIVEN: { writer: string; startStates: string[]; stripeStatuses: readonly 
  *
  * ここに挙がっている限り「実装にあって表に無い遷移」は検出されない。
  */
-const UNDRIVEN_WRITERS: { id: string; reason: string }[] = [
+const UNCOVERED_WRITERS: { id: string; reason: string }[] = [
 	{
 		id: 'W6',
 		reason:
@@ -426,7 +426,7 @@ describe('#4118 完了の定義 — 表に書かれた遷移だけが実装で�
 
 	it('駆動しない書き手には遷移が宣言されていない', () => {
 		// 書き込まない書き手に遷移を書くと、表を読んだ人が「DB が動く」と誤解する。
-		for (const { id } of UNDRIVEN_WRITERS) {
+		for (const { id } of UNCOVERED_WRITERS) {
 			expect(
 				[...(declared.get(id) ?? [])],
 				`${id} は契約状態を書かないのに ${MATRIX} §5 が遷移を宣言しています`,
@@ -452,13 +452,13 @@ describe('#4118 完了の定義 — 表に書かれた遷移だけが実装で�
 	});
 
 	it('駆動できない書き手が理由付きで列挙されている', () => {
-		for (const w of UNDRIVEN_WRITERS) {
+		for (const w of UNCOVERED_WRITERS) {
 			expect(w.reason.length, `${w.id} の理由が短すぎる (実質空の宣言を許さない)`).toBeGreaterThan(
 				20,
 			);
 		}
 		const drivenIds = DRIVEN.map((d) => d.writer);
-		for (const w of UNDRIVEN_WRITERS) {
+		for (const w of UNCOVERED_WRITERS) {
 			expect(drivenIds, `${w.id} は駆動しているのに未駆動扱いになっています`).not.toContain(w.id);
 		}
 	});
