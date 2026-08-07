@@ -124,6 +124,26 @@ async function dismissLoginBonusOverlay(page: import('@playwright/test').Page): 
 	await expect(page.getByTestId('stamp-press-overlay')).toBeHidden();
 }
 
+/**
+ * 遷移し、**client hydration が完了するまで待つ**。
+ *
+ * 祝福ダイアログは Ark UI の Portal 経由で client でのみ mount されるため、
+ * hydration 前に `toHaveCount(0)` を評価すると「まだ mount していないだけ」で無条件に通り、
+ * 再表示バグを検出できない (本 spec 作成時に mutation で実証: 表示される状態でも通った)。
+ * `(child)/+layout.svelte` が mount 時に fire する `POST /api/v1/usage` の応答を待つことで、
+ * client 側の初期化が走り終えた後にだけ「出ない」を判定する。
+ */
+async function hydratedNavigation(
+	page: import('@playwright/test').Page,
+	navigate: () => Promise<unknown>,
+): Promise<void> {
+	const usagePost = page.waitForResponse(
+		(res) => res.url().includes('/api/v1/usage') && res.request().method() === 'POST',
+	);
+	await navigate();
+	await usagePost;
+}
+
 test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)', () => {
 	// dev server の on-demand compile で初回遷移が長引くため (claim-flow spec と同方針)。
 	test.slow();
@@ -169,14 +189,12 @@ test.describe('#4410 達成祝福は 1 回だけ (閉じた事実の永続化)',
 			.not.toBeNull();
 
 		// --- ③ リロードしても出ない (旧実装はここで再表示されていた) ---
-		await page.reload();
-		await expect(page.getByTestId('bottom-nav')).toBeVisible();
+		await hydratedNavigation(page, () => page.reload());
 		await expect(celebration).toHaveCount(0);
 
 		// --- ④ 別ページに行って戻っても出ない (component 再マウント経路) ---
-		await page.goto('/elementary/status');
-		await page.goto('/elementary/home');
-		await expect(page.getByTestId('bottom-nav')).toBeVisible();
+		await hydratedNavigation(page, () => page.goto('/elementary/status'));
+		await hydratedNavigation(page, () => page.goto('/elementary/home'));
 		await expect(celebration).toHaveCount(0);
 
 		// --- ⑤ AC3 / #3333: 祝福を閉じてもごほうび受取カードは残る (dead-end にしない) ---
