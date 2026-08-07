@@ -564,6 +564,38 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 13. 「一度見せたら次から出さない」機構 (#4432)
+
+同じ目的の実装が **4 媒体・約 20 例**に散っている。**共通化しない判断を #4432 で確定済み**（5 例が同型でなく、抽象化しても列 / repo / テストが減らず、所有権と冪等性がコールサイトから読めなくなるため）。揃えるのは実装ではなく**選択基準と満たすべき条件**。判断根拠は [`docs/rationale/17-once-only-notice-rationale.md`](../rationale/17-once-only-notice-rationale.md)。
+
+**新規実装時はまず媒体を選ぶ**:
+
+| 何を記録するか | 媒体 | 実体 | 例 |
+|---|---|---|---|
+| 特定の 1 行を見せたか | A: その行に timestamp 列 | `src/lib/server/db/schema.ts` + sqlite / dsql / demo の 3 repo | `parent_messages.shown_at` / `sibling_cheers.shown_at` / `child_challenges.celebration_shown_at` / `special_rewards.shown_at` / `reward_redemption_requests.shown_to_child_at` |
+| 子 / テナントに 1 本の一時的な未読告知 | **B: settings KV**（列追加は不可逆なので避ける） | `settings` テーブル + `export-format.ts` の分類 3 配列 | `habit_certificate_notice:<childId>` / `ui_mode_change_notice:<childId>` / `premium_welcome_shown` ほか |
+| 端末ローカルで十分な UI ガイド（機種変で再表示されてよい） | C: localStorage | 各コンポーネント / store | `ganbari-page-guide-completed` / `gq:milestone-seen:*` |
+
+**A（行に timestamp）を選んだ場合に必ず満たす 3 条件**:
+
+1. **冪等にする** — `UPDATE ... WHERE ... AND <col> IS NULL`。再送で「最初に見せた時刻」を上書きしない
+2. **所有権を検証する** — WHERE に `(child_id, <id>)` の複合キーを含めるか、service 層で `findById` → `childId` 一致を確認する。`family_id` だけでは同一家族内の別の子の行を閉じられる
+3. **表示可否の根拠を client の `$state` に置かない** — load 側で `IS NULL` を解決する（#4410 で確立）。`$state` はマウントのたび初期値へ戻るため、根拠にすると毎回再表示される（ADR-0012 違反）
+
+**B（settings KV）を選んだ場合**:
+
+- 既読は**空文字 upsert**で表す（settings repo に削除 API が無いため。`ui-mode-change-notice-service.ts` / `habit-certificate-notice-service.ts` の前例）
+- 新規キーは `export-format.ts` の `EXPORTABLE_SETTING_KEYS` / `SECRET_SETTING_KEYS` / `NON_EXPORTABLE_SETTING_KEYS` のいずれかに**必ず分類**する（未分類は `settings-backup-classification.test.ts` が CI で fail）
+
+**修正時チェック**:
+
+- [ ] 媒体を上表から選んだか（「既存が A だから A」で決めない。子に 1 本の一時告知なら B）
+- [ ] A なら 3 条件を満たしたか。sqlite / dsql / demo の 3 repo + interface を同期したか
+- [ ] B なら `export-format.ts` の分類に追加したか
+- [ ] 既存実装のコメントが「〜と同型」と書いていても**信じない** — 冪等性と所有権は実際に 5 例で食い違っている（#4432 実測）
+
+---
+
 ## 🔥 重量 e2e 敏感領域 SSOT（軽量レーンをすり抜ける不変条件、#3172 / #3173）
 
 > **このリストは「軽量レーン緑 = 安全」と誤認してはいけない領域の SSOT**。
