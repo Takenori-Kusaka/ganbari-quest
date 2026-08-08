@@ -6,9 +6,11 @@
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import AccountDeletionExportPanel from '$lib/features/admin/components/AccountDeletionExportPanel.svelte';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -187,6 +189,9 @@ async function handleFullDelete() {
 	}
 }
 
+// #4472: 退会前エクスポートのスコープ表示に使う (未解決時は最小スコープ扱い)
+const exportPlanTier = $derived(($page.data.planTier as PlanTier | null) ?? 'free');
+
 const canConfirmDelete = $derived(
 	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
 );
@@ -362,6 +367,11 @@ const canConfirmDelete = $derived(
 							{SETTINGS_LABELS.accountDeleteMemberWarning}
 						</p>
 					</div>
+				{/if}
+
+				{#if $page.data.userRole === 'owner'}
+					<!-- #4472: 退会を実行する前にデータを持ち出せるようにする (無料プランを含む全プラン) -->
+					<AccountDeletionExportPanel planTier={exportPlanTier} />
 				{/if}
 
 				{#if deleteError}
