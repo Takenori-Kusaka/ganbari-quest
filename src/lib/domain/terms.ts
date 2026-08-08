@@ -44,7 +44,11 @@
 //   TOKUSHOHO_TERMS  — 特商法第12条の6 6 項目見出し + 短い名詞 atom（Phase 3 #2573 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 6 見出し + cancelButtonLabel に絞込、法令文 compound は labels.ts 側へ移動）
 //   CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom（Phase 3 #2572 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 5 variant 見出し + ボタンラベルに絞込、本文 compound は labels.ts 側へ移動）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a)
+//   PLAN_RETENTION_TERMS — プラン別 履歴保持期間 atom（値は constants/plan-retention.ts が SSOT、#4477）
+//
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
+
+import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -1140,4 +1144,29 @@ export const VISIBILITY_CHIP_TERMS = {
 	allOnLabel: '全員 ON',
 	allOffLabel: '全員 OFF',
 	groupAriaLabel: '配信お子さま選択',
+} as const;
+
+// ============================================================
+// PLAN_RETENTION_TERMS — プラン別 履歴保持期間の atom (#4477)
+// ============================================================
+//
+// 値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS
+// (plan-limit-service.ts の PLAN_LIMITS[tier].historyRetentionDays も同じ定数から引く)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+// labels.ts / plan-features.ts は必ず本 atom を template literal 参照し、
+// 「90日」「1年」などの数値入り文字列を直書きしないこと (ADR-0013 / ADR-0045)。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てて template literal を解決する。両者が一致することは
+// tests/unit/domain/plan-retention-ssot.test.ts が機械検証する。
+
+export const PLAN_RETENTION_TERMS = {
+	/** 無料プランの保持期間 (例: 「90日」) */
+	free: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.free),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「90 日」) */
+	freeSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.free, { spaced: true }),
+	/** スタンダードプランの保持期間 (例: 「1年」) */
+	standard: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「1 年」) */
+	standardSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
 } as const;

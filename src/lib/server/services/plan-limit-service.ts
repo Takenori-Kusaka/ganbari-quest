@@ -4,6 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 
 import { countsTowardActivityQuota } from '$lib/domain/activity-source';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { PLAN_HISTORY_RETENTION_DAYS } from '$lib/domain/constants/plan-retention';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { addDaysJST, prevDateJST, todayDateJST } from '$lib/domain/date-utils';
 import { getAuthMode } from '$lib/server/auth/factory';
@@ -40,7 +41,8 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: 3,
 		// #1111: フリープランは招待不可（owner のみ）
 		maxFamilyMembers: 1,
-		historyRetentionDays: 90,
+		// 値の SSOT は domain/constants/plan-retention.ts (LP / 機能リストの表示も同じ定数から引く、#4477)
+		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.free,
 		canExport: false,
 		canFreeTextMessage: false,
 		canCustomReward: false,
@@ -53,7 +55,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: null,
 		// #1111: スタンダードは owner + 3人 = 計4人まで（核家族想定）
 		maxFamilyMembers: 4,
-		historyRetentionDays: 365,
+		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.standard,
 		canExport: true,
 		canFreeTextMessage: false,
 		canCustomReward: true,
@@ -66,7 +68,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChecklistTemplates: null,
 		// #1111: PLAN_LABELS.family は無制限
 		maxFamilyMembers: null,
-		historyRetentionDays: null,
+		historyRetentionDays: PLAN_HISTORY_RETENTION_DAYS.family,
 		canExport: true,
 		canFreeTextMessage: true,
 		canCustomReward: true,
