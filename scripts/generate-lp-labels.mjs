@@ -326,7 +326,7 @@ function parseTermsTs() {
  *   整形結果が TS 側 `PLAN_RETENTION_TERMS` と一致することは
  *   tests/unit/domain/plan-retention-ssot.test.ts が機械検証する (drift 不可)。
  *
- * @returns {Record<string, string>} `{ free, freeSpaced, standard }`
+ * @returns {Record<string, string>} `{ free, freeSpaced, standard, standardSpaced }`
  */
 function buildPlanRetentionTerms() {
 	const src = fs.readFileSync(PLAN_RETENTION_TS, 'utf-8');
@@ -359,6 +359,7 @@ function buildPlanRetentionTerms() {
 		free: format(free),
 		freeSpaced: format(free, true),
 		standard: format(standard),
+		standardSpaced: format(standard, true),
 	};
 }
 

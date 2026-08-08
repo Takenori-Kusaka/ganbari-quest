@@ -6510,8 +6510,7 @@ export const LP_PRICING_LABELS = {
 	// #1912 (F-6): 「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・毎日のごほうび履歴',
 	trialDataReassureLine2Suffix: `は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
-	trialDataReassureLine3:
-		'有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。',
+	trialDataReassureLine3: `有料プランにアップグレードすれば、より長期間（スタンダード: ${PLAN_RETENTION_TERMS.standardSpaced} / ファミリー: 無制限）の履歴をご利用いただけます。`,
 
 	// Family pattern section
 	familyPatternsTitle: '家族での使い方',

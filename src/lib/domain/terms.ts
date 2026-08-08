@@ -1167,4 +1167,6 @@ export const PLAN_RETENTION_TERMS = {
 	freeSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.free, { spaced: true }),
 	/** スタンダードプランの保持期間 (例: 「1年」) */
 	standard: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「1 年」) */
+	standardSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
 } as const;

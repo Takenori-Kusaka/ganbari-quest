@@ -60,6 +60,9 @@ describe('plan retention days SSOT (#4477)', () => {
 			expect(PLAN_RETENTION_TERMS.standard).toBe(
 				formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
 			);
+			expect(PLAN_RETENTION_TERMS.standardSpaced).toBe(
+				formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
+			);
 		});
 	});
 
@@ -87,6 +90,9 @@ describe('plan retention days SSOT (#4477)', () => {
 
 		it('pricing ページの体験終了後 / 解約 FAQ', () => {
 			const spaced = PLAN_RETENTION_TERMS.freeSpaced;
+			expect(LP_PRICING_LABELS.trialDataReassureLine3).toContain(
+				`スタンダード: ${PLAN_RETENTION_TERMS.standardSpaced}`,
+			);
 			expect(LP_PRICING_LABELS.trialDataReassureLine2Suffix).toContain(`保持期間（${spaced}）`);
 			expect(LP_PRICING_LABELS.faqAfterTrialA).toContain(`保持期間（${spaced}）`);
 			expect(LP_PRICING_LABELS.faqCancelVsDeleteA).toContain(`保持期間（${spaced}）`);
@@ -127,6 +133,7 @@ describe('plan retention days SSOT (#4477)', () => {
 				free: PLAN_RETENTION_TERMS.free,
 				freeSpaced: PLAN_RETENTION_TERMS.freeSpaced,
 				standard: PLAN_RETENTION_TERMS.standard,
+				standardSpaced: PLAN_RETENTION_TERMS.standardSpaced,
 			});
 		});
 	});
