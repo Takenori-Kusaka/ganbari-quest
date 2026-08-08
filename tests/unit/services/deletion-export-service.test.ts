@@ -277,6 +277,9 @@ describe('deletion-export-service', () => {
 			expect(joined).toContain('null');
 			expect(joined).toContain('保存期間');
 			expect(joined).toContain('children[].createdAt');
+			// createdAt は JST 暦日ではなく ISO UTC 日時。形式を併記しないと上の JST 暦日と混同され、
+			// JST 00:00〜09:00 に登録した子供の登録日が前日に見える (#4120 と同型の誤読)
+			expect(joined).toContain('UTC');
 		});
 
 		it('notes を足しても既存フィールドの構造・意味は変わらない', async () => {

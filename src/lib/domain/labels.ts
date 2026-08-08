@@ -825,8 +825,12 @@ export const DELETION_EXPORT_NOTE_LABELS = {
 	jstCalendarDate: 'firstRecordDate / lastRecordDate は日本標準時（JST）の暦日です（YYYY-MM-DD）。',
 	/** null の意味 (記録 0 件のみ) */
 	nullMeansNoRecord: '記録が 1 件もない場合、firstRecordDate / lastRecordDate は null になります。',
-	/** retention 削除済みデータは開示対象外であること + 登録日の在り処 */
-	retentionExcluded: `保存期間の上限を過ぎた古い記録は削除済みのため、この期間には含まれません。${CHILD_TERMS.honorific}の登録日は children[].createdAt をご覧ください。`,
+	/**
+	 * retention 削除済みデータは開示対象外であること + 登録日の在り処。
+	 * `children[].createdAt` は JST 暦日ではなく ISO 8601 の UTC 日時をそのまま出しているため、
+	 * 形式を併記する (併記しないと上の JST 暦日と混同され、JST 00:00〜09:00 登録が前日に見える)。
+	 */
+	retentionExcluded: `保存期間の上限を過ぎた古い記録は削除済みのため、この期間には含まれません。${CHILD_TERMS.honorific}の登録日は children[].createdAt（協定世界時 UTC の日時）をご覧ください。`,
 } as const;
 
 // ============================================================
