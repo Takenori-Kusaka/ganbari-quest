@@ -244,7 +244,24 @@ soft delete 状態のテナントに対し、物理削除の **残り 14 日 (fa
 - 入力値が一致しない限り削除実行ボタンは disabled
 - 実装: `src/routes/(parent)/admin/settings/+page.svelte` の `deleteConfirmText !== 'アカウントを削除します'` ガード
 
-### 5.2 パターンごとの追加 UX
+### 5.2 退会前のデータ持ち出し（プラン非依存）
+
+削除実行の手順より**前**に、owner はデータをファイルとして持ち出せる。
+
+- **導線**: `/admin/settings/account` の Danger Zone 内、削除の 3 手順の上に配置（`AccountDeletionExportPanel`）。owner のみ表示（API が owner 限定のため）
+- **プランで出し分けない**: 通常のエクスポート（`/api/v1/export`）は `canExport: false` の無料プランでは使えないため、本導線が無料プランにとって唯一のデータ持ち出し手段になる
+- **API**: `GET /api/v1/admin/account/export` → `generateDeletionExportForTenant`。`Content-Disposition: attachment` で JSON ファイルとして保存させる
+- **入る範囲はプランで変わる**（`resolveExportScope`、SSOT: `src/lib/domain/deletion-export-scope.ts`）。何が入るかは押す前に 1 行で表示する
+
+| プラン | scope | 内容 |
+|---|---|---|
+| free | `minimal` | 子供の名前 + 記録の件数・期間のまとめ |
+| standard | `full` | フルエクスポート |
+| family | `family` | フル + きょうだい比較 |
+
+- **失敗時**: エラー文言を画面に出す（ADR-0062。無言で失敗させない）。処理中は `Button` の `loading` で可視化する
+
+### 5.3 パターンごとの追加 UX
 
 | パターン | 追加表示 | 注記 |
 |---------|---------|------|
@@ -255,7 +272,7 @@ soft delete 状態のテナントに対し、物理削除の **残り 14 日 (fa
 | 3. child | 子供レコードは残る旨を明示 | parent からの操作ではなく **child 本人セッション** から実行 |
 | 4. member | 「テナントは残ります」「自分のログイン情報のみ削除」 | parent ロールのみ |
 
-### 5.3 削除完了後
+### 5.4 削除完了後
 
 - 全パターンで `window.location.href = '/auth/signout'` → サインアウト経由で `/` に戻す
 - セッションが切れているため admin 画面の再読込は不要

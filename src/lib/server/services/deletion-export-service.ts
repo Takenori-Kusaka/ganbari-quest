@@ -7,6 +7,8 @@
 // - family:   上記 + きょうだい比較データ
 
 import { jstDateOfIso } from '$lib/domain/date-utils';
+import type { ExportScope } from '$lib/domain/deletion-export-scope';
+import { resolveExportScope } from '$lib/domain/deletion-export-scope';
 import type { ExportData } from '$lib/domain/export-format';
 import { DELETION_EXPORT_NOTE_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
@@ -19,7 +21,10 @@ import { resolveFullPlanTier } from './plan-limit-service';
 // Types
 // ============================================================
 
-export type ExportScope = 'minimal' | 'full' | 'family';
+// スコープ判定の SSOT は domain leaf (退会画面が押す前の説明に使うため client からも import する)。
+// 既存 import 元を壊さないためここから再 export する。
+export type { ExportScope };
+export { resolveExportScope };
 
 export interface DeletionExportOptions {
 	tenantId: string;
@@ -83,24 +88,6 @@ export interface SiblingComparisonExport {
 /** family プラン向けエクスポート（フルエクスポート + きょうだい比較） */
 export interface FamilyExportData extends ExportData {
 	siblingComparison: SiblingComparisonExport;
-}
-
-// ============================================================
-// Scope resolution
-// ============================================================
-
-/**
- * プランティアからエクスポートスコープを判定する。
- */
-export function resolveExportScope(planTier: PlanTier): ExportScope {
-	switch (planTier) {
-		case 'family':
-			return 'family';
-		case 'standard':
-			return 'full';
-		default:
-			return 'minimal';
-	}
 }
 
 // ============================================================

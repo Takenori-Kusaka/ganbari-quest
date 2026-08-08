@@ -242,6 +242,36 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）free'
 		// free プランでもアカウント削除は利用可能
 		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 	});
+
+	// #4472: 無料プランは通常のエクスポート (canExport=false) を使えないため、
+	// 退会画面のこの導線が唯一のデータ持ち出し手段になる。退会を実行する前に押せること。
+	test('free プランでも退会前のデータ持ち出しボタンが押せて、エクスポート API に到達する', async ({
+		page,
+	}) => {
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
+
+		const exportButton = page.getByTestId('account-deletion-export-button');
+		if ((await exportButton.count()) === 0) {
+			test.info().annotations.push({
+				type: 'env-skip',
+				description: 'Danger Zone は cognito モードでのみ表示（ローカルモードでは非表示）',
+			});
+			return;
+		}
+
+		await expect(exportButton).toBeVisible({ timeout: 15_000 });
+		await expect(exportButton).toBeEnabled();
+
+		const [response] = await Promise.all([
+			page.waitForResponse((res) => res.url().includes('/api/v1/admin/account/export'), {
+				timeout: 30_000,
+			}),
+			exportButton.click(),
+		]);
+
+		expect(response.status()).toBe(200);
+		expect(response.headers()['content-disposition']).toContain('attachment');
+	});
 });
 
 // ============================================================

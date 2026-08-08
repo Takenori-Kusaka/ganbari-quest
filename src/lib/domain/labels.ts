@@ -2655,6 +2655,16 @@ export const SETTINGS_LABELS = {
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
 	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
+	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
+	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
+	accountDeleteExportAction: 'データをダウンロード',
+	accountDeleteExportSubmitting: '準備しています…',
+	accountDeleteExportScopeMinimal:
+		'お子さまの名前と、記録した件数・期間のまとめを JSON ファイルで保存します。',
+	accountDeleteExportScopeFull:
+		'活動記録・スタンプ・ごほうびを含む全データを JSON ファイルで保存します。',
+	accountDeleteExportScopeFamily: '全データときょうだいの比較データを JSON ファイルで保存します。',
+	accountDeleteExportSuccess: (filename: string) => `${filename} を保存しました。`,
 } as const;
 
 /**
