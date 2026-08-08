@@ -29,6 +29,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 
 const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
+const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
@@ -314,6 +315,54 @@ function parseTermsTs() {
 }
 
 /**
+ * 履歴保持日数の値 SSOT (`src/lib/domain/constants/plan-retention.ts`) を読み、
+ * terms.ts の `PLAN_RETENTION_TERMS` と同じ内容の namespace を組み立てる (#4477)。
+ *
+ * なぜ必要か:
+ *   本 script は TS を実行せず text parse するため、`formatRetentionPeriod(...)` で
+ *   計算された `PLAN_RETENTION_TERMS` を terms.ts から読み取れない (値が literal でない)。
+ *   一方、値の SSOT (`PLAN_HISTORY_RETENTION_DAYS`) は数値 literal なので読める。
+ *   そこで「数値は SSOT から読み、整形だけをここで再現する」形にする。
+ *   整形結果が TS 側 `PLAN_RETENTION_TERMS` と一致することは
+ *   tests/unit/domain/plan-retention-ssot.test.ts が機械検証する (drift 不可)。
+ *
+ * @returns {Record<string, string>} `{ free, freeSpaced, standard }`
+ */
+function buildPlanRetentionTerms() {
+	const src = fs.readFileSync(PLAN_RETENTION_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const PLAN_HISTORY_RETENTION_DAYS'));
+	if (block === null) {
+		throw new Error('PLAN_HISTORY_RETENTION_DAYS not found in plan-retention.ts');
+	}
+	/** @param {string} tier */
+	const readDays = (tier) => {
+		const m = block.match(new RegExp(`${tier}:\\s*(\\d+|null)`));
+		if (!m || m[1] === undefined) {
+			throw new Error(`PLAN_HISTORY_RETENTION_DAYS.${tier} not parseable in plan-retention.ts`);
+		}
+		return m[1] === 'null' ? null : Number(m[1]);
+	};
+	// formatRetentionPeriod (plan-retention.ts) と同じ整形規則。差異は上記 test が検出する。
+	/**
+	 * @param {number | null} days
+	 * @param {boolean} [spaced]
+	 */
+	const format = (days, spaced = false) => {
+		if (days === null) return '無期限';
+		const sep = spaced ? ' ' : '';
+		if (days % 365 === 0) return `${days / 365}${sep}年`;
+		return `${days}${sep}日`;
+	};
+	const free = readDays('free');
+	const standard = readDays('standard');
+	return {
+		free: format(free),
+		freeSpaced: format(free, true),
+		standard: format(standard),
+	};
+}
+
+/**
  * LP 用 namespace 名 ↔ 戻り値 key の対応表。
  *
  * #1917 のリファクタで parseLabelsTs() の cognitive complexity を 27 → 安全圏に下げるため、
@@ -394,6 +443,9 @@ function parseAllNamespacesResolved() {
 	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
 	const allNamespaces = {
 		...termsNamespaces,
+		// #4477: 値 SSOT (plan-retention.ts) 由来。terms.ts 側は関数呼び出しで組み立てるため
+		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
+		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
 		AGE_TIER_LABELS: ageTierLabels,
 		AGE_TIER_SHORT_LABELS: ageTierShort,
 		PLAN_LABELS: planLabels,
@@ -818,6 +870,7 @@ if (invokedAsCli) {
 // parseAllNamespacesResolved も公開する。個々の parser だけを検査すると「実データでは解決できない」
 // 状態を通してしまう。
 export {
+	buildPlanRetentionTerms,
 	isTemplateLiteral,
 	parseAllNamespacesResolved,
 	parseBlock,

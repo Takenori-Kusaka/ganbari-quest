@@ -58,6 +58,7 @@ import {
 	PIN_DEFAULT_TERMS,
 	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
+	PLAN_RETENTION_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
@@ -2878,7 +2879,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	standardPlanName: `${PLAN_TERMS.standard}`,
-	standardPlanDesc: '子供無制限・活動無制限・1年保持',
+	standardPlanDesc: `子供無制限・活動無制限・${PLAN_RETENTION_TERMS.standard}保持`,
 	standardPriceMonthly: `${PRICE_TERMS.standard}`,
 	standardPerMonth: '/月',
 	// #3208: standardPriceYearly / standardPerYear / standardYearlyMonthlyEquiv は
@@ -6508,7 +6509,7 @@ export const LP_PRICING_LABELS = {
 	trialDataReassureLine1Suffix: 'は、無料プランに移行した後もそのまま保持されます。',
 	// #1912 (F-6): 「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	trialDataReassureLine2Strong: '活動履歴・ポイント獲得履歴・毎日のごほうび履歴',
-	trialDataReassureLine2Suffix: 'は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
+	trialDataReassureLine2Suffix: `は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
 	trialDataReassureLine3:
 		'有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。',
 
@@ -6537,7 +6538,7 @@ export const LP_PRICING_LABELS = {
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
 	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
-	faqAfterTrialA: `7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、${ADMIN_VIEW_TERMS.canonical}からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。`,
+	faqAfterTrialA: `7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、${ADMIN_VIEW_TERMS.canonical}からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。`,
 	// #1643 R38 + #1647 R42: プラン別猶予期間（実装 grace-period-service.ts 準拠）
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
 	// #1912 (F-9): 「読み取り専用猶予期間」を顧客語彙化（SaaS 業界用語のため）。
@@ -6584,7 +6585,7 @@ export const LP_PRICING_LABELS = {
 	// CTA-bottom 直下に既存有料ユーザー向け small リンクで /admin/billing へ誘導。
 	faqCancelPathNote: `解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (${STRIPE_PORTAL_TERMS.canonical}) でいつでもお手続きいただけます。`,
 	faqCancelVsDeleteQ: `${CANCEL_TERMS.canonical}とアカウント${CANCEL_TERMS.account}は何が違いますか？`,
-	faqCancelVsDeleteA: `${CANCEL_TERMS.canonical}は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（90 日）を超えたものから順次削除されます。アカウント${CANCEL_TERMS.account}は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。`,
+	faqCancelVsDeleteA: `${CANCEL_TERMS.canonical}は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（${PLAN_RETENTION_TERMS.freeSpaced}）を超えたものから順次削除されます。アカウント${CANCEL_TERMS.account}は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。`,
 	existingCustomerCancelLinkPrefix: 'すでに有料プランをご利用中の方の',
 	existingCustomerCancelLinkLabel: `${CANCEL_TERMS.canonical}はこちら`,
 	existingCustomerCancelLinkSuffix: `（${ADMIN_VIEW_TERMS.canonical}に移動します）`,
@@ -8059,7 +8060,7 @@ export const LP_FAQ_LABELS = {
 	text32: `${PLAN_FULL_TERMS.free}でもすべてご利用いただけます`,
 	text33: '有料プランで解放される主な機能:',
 	text34: 'お子さま・活動の人数制限解除（無料: お子さま 2 人 / 活動 3 個まで）',
-	text35: '長期の履歴保持（無料: 過去 90 日まで → 有料: 無期限）',
+	text35: `長期の履歴保持（無料: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで → 有料: 無期限）`,
 	text36: 'AI 自動提案（活動案・ごほうび案）',
 	text37: 'きょうだいランキング・家族メンバー招待',
 	text38: 'データのバックアップ',
@@ -8505,7 +8506,7 @@ export const LP_PAMPHLET_LABELS = {
 	k37: '毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化（責務分離: 持ち物 = event-* / 毎日 must = 活動 priority 属性）
 	k38: '持ち物チェックリスト 3個/子まで',
-	k39: '90日間の履歴保持',
+	k39: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k40: '&#x2B50; おすすめ',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、
 	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun
@@ -8517,7 +8518,7 @@ export const LP_PAMPHLET_LABELS = {
 	k46: '家族メンバー招待：4人まで',
 	k47: '特別なごほうび設定',
 	k48: 'データのダウンロード',
-	k49: '1年間の履歴保持',
+	k49: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k50: 'メールサポート',
 	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.premium、
 	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun、
@@ -8583,7 +8584,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k6: '毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
 	k7: '持ち物チェックリスト 3個/子まで',
-	k8: '90日間の履歴保持',
+	k8: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k9: 'メールサポート（標準）',
 	k10: 'お子さまの登録人数：無制限',
 	k11: 'オリジナル活動の作成：無制限',
@@ -8592,7 +8593,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k14: '特別なごほうび設定（即時付与）',
 	k15: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k16: 'データのダウンロード',
-	k17: '1年間の履歴保持',
+	k17: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k18: 'メールサポート',
 	// #1947: k19 「スタンダードの全機能」のプラン名 atom を terms.ts 参照化
 	k19: `${PLAN_TERMS.standard}の全機能`,
@@ -8622,8 +8623,8 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k39: '無制限',
 	k40: '無制限',
 	k41: '活動履歴の保持',
-	k42: '90日',
-	k43: '1年',
+	k42: `${PLAN_RETENTION_TERMS.free}`,
+	k43: `${PLAN_RETENTION_TERMS.standard}`,
 	k44: '無制限',
 	k45: 'カスタマイズ',
 	// #1708 R3-A / #1710 R3-C: k47 (旧 朝夜習慣リスト / 旧ルーチン-CL) は廃止語彙、k48 を「持ち物チェックリスト自由作成」に純化
@@ -9265,7 +9266,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k5: '毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
 	k6: '持ち物チェックリスト 3個/子まで',
-	k7: '90日間の履歴保持',
+	k7: `${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k8: 'メールサポート（標準）',
 	k9: 'お子さまの登録人数：無制限',
 	k10: 'オリジナル活動の作成：無制限',
@@ -9274,7 +9275,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k13: '特別なごほうび設定（即時付与）',
 	k14: '家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 	k15: 'データのダウンロード',
-	k16: '1年間の履歴保持',
+	k16: `${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k17: 'メールサポート',
 	// #1947: k18 「スタンダードの全機能」のプラン名 atom (スタンダード) を terms.ts 参照化
 	k18: `${PLAN_TERMS.standard}の全機能`,
@@ -9297,7 +9298,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k31: '<td>お子さまの登録人数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td>',
 	k32: '<td>プリセット活動の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
 	k33: '<td>オリジナル活動の作成</td><td>3個まで</td><td class="check">無制限</td><td class="check">無制限</td>',
-	k34: '<td>活動履歴の保持</td><td>90日</td><td>1年</td><td class="check">無制限</td>',
+	k34: `<td>活動履歴の保持</td><td>${PLAN_RETENTION_TERMS.free}</td><td>${PLAN_RETENTION_TERMS.standard}</td><td class="check">無制限</td>`,
 	k35: '<td colspan="4">カスタマイズ</td>',
 	// #1708 R3-A: k37 (朝夜の習慣リスト / 旧ルーチン-CL) は削除（kind=routine 廃止に伴い）
 	// #1710 R3-C: k38 を「持ち物チェックリスト自由作成」に純化（持ち物 = event-* プリセット 3 件 / 毎日 must = 活動マスタ priority 属性 への責務分離）
@@ -9360,7 +9361,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k32: `お子さまの冒険体験（活動記録・ポイント・レベル・スタンプ・チャレンジ・続けるごほうび）は、<strong>${PLAN_FULL_TERMS.free}でもすべてご利用いただけます</strong>。`,
 	k33: '有料プランで解放される主な機能:',
 	k34: `お子さま・活動の人数制限解除（${PLAN_TERMS.free}: お子さま 2 人 / 活動 3 個まで）`,
-	k35: `長期の履歴保持（${PLAN_TERMS.free}: 過去 90 日まで → 有料: 無期限）`,
+	k35: `長期の履歴保持（${PLAN_TERMS.free}: 過去 ${PLAN_RETENTION_TERMS.freeSpaced}まで → 有料: 無期限）`,
 	k36: 'AI 自動提案（活動案・ごほうび案）',
 	k37: 'きょうだいランキング・家族メンバー招待',
 	k38: 'データのバックアップ',
@@ -9507,7 +9508,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k33: '<span class="check">&#x2713;</span>毎日のごほうび・続けるごほうび',
 	// #1710 R3-C: 旧「持ち物／毎日習慣」統合表現を「持ち物チェックリスト」に純化
 	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで',
-	k35: '<span class="check">&#x2713;</span>90日間の履歴保持',
+	k35: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 	k36: '&#x2B50; おすすめ',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard 参照化。
 	// #1913 (UIUX-E-5): k38 を「&#xA5;500」HTML エンティティから「¥500」(PRICE_TERMS.standard) に統一。
@@ -9521,7 +9522,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k42: '<span class="check">&#x2713;</span>家族メンバー招待：4人まで',
 	k43: '<span class="check">&#x2713;</span>特別なごほうび設定',
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
-	k45: '<span class="check">&#x2713;</span>1年間の履歴保持',
+	k45: `<span class="check">&#x2713;</span>${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 	k46: '<span class="check">&#x2713;</span>メールサポート',
 	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.premium、
 	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能' 部分参照化。
