@@ -116,8 +116,38 @@ const IT_JARGON_FORBIDDEN_TERMS = [
 	'自前運用',
 ];
 
+// 法務文書 / LP に「個別のマネージドサービス名」を書かないための禁止語 (#4370)。
+//
+// 開示すべきは「データがどこへ出るか」= 事業者名 (Amazon Web Services, Inc. / Google LLC /
+// Stripe, Inc.) と、運営者が管理する環境内か外部事業者かの区別であって、その内側でどの
+// マネージドサービスを使っているかではない。個別サービス名を書くと実装を差し替えるたびに
+// 法務文書が事実と乖離する (実例: DynamoDB は #3438 で撤去済なのに privacy.html に残存)。
+//
+// 事業者名 (AWS / Google LLC / Stripe) とリージョン (us-east-1) は個人情報保護法 §27 / §28 /
+// 電気通信事業法 §27-12 の開示に必要なため禁止しない。
+const MANAGED_SERVICE_FORBIDDEN_TERMS = [
+	'DynamoDB',
+	'Aurora',
+	'DSQL',
+	'Lambda',
+	'CloudFront',
+	'Cognito',
+	'CloudWatch',
+	'Bedrock',
+	'Gemini',
+	'Firehose',
+	'PGlite',
+	'SQLite',
+	'Amazon S3',
+	'Amazon SES',
+];
+
 // 後方互換: 既存テストや CI 参照用に統合配列も export 等価で残す
-const FORBIDDEN_TERMS = [...IT_JARGON_FORBIDDEN_TERMS, ...STRICT_FORBIDDEN_TERMS];
+const FORBIDDEN_TERMS = [
+	...IT_JARGON_FORBIDDEN_TERMS,
+	...STRICT_FORBIDDEN_TERMS,
+	...MANAGED_SERVICE_FORBIDDEN_TERMS,
+];
 
 // index.html のみ IT_JARGON も検証する。selfhost.html / privacy.html / faq.html / pamphlet.html /
 // pricing.html では STRICT のみ検証。
@@ -125,7 +155,37 @@ function getForbiddenTermsForTarget(target) {
 	if (target === 'index.html') {
 		return FORBIDDEN_TERMS;
 	}
-	return STRICT_FORBIDDEN_TERMS;
+	// #4370: マネージドサービス名は全ページ共通で禁止 (法務文書 privacy.html を含む)
+	return [...STRICT_FORBIDDEN_TERMS, ...MANAGED_SERVICE_FORBIDDEN_TERMS];
+}
+
+// #4370: TARGET_HTML_LIST に含まれない site/ 配下の HTML (terms / sla / tokushoho / selfhost)
+// と、LP 文言 SSOT の生成物 (shared-labels.js) も マネージドサービス名だけは走査する。
+// 高さ計測 (browser) を伴わない静的テキスト検査なので全ファイルに掛けても安価。
+const MANAGED_SERVICE_SCAN_EXTRA_FILES = [
+	'terms.html',
+	'sla.html',
+	'tokushoho.html',
+	'selfhost.html',
+	'shared-labels.js',
+];
+
+function collectManagedServiceNameViolations() {
+	const out = [];
+	for (const file of MANAGED_SERVICE_SCAN_EXTRA_FILES) {
+		const path = join(SITE_DIR, file);
+		if (!existsSync(path)) continue;
+		const content = readFileSync(path, 'utf8');
+		const hits = Object.entries(
+			countForbiddenTerms(content, MANAGED_SERVICE_FORBIDDEN_TERMS),
+		).filter(([, n]) => n > 0);
+		if (hits.length === 0) continue;
+		out.push(
+			`[site/${file}] managedServiceNames: ${hits.map(([t, n]) => `${t}=${n}`).join(', ')} ` +
+				`(法務文書 / LP には事業者名と「運営者の環境内か外部か」を書き、個別サービス名は書かない — #4370)`,
+		);
+	}
+	return out;
 }
 
 const THRESHOLDS = {
@@ -488,6 +548,7 @@ function collectViolations(allResults, presetCheck) {
 		if (!r.enforceThresholds) continue;
 		violations.push(...collectThresholdViolations(r));
 	}
+	violations.push(...collectManagedServiceNameViolations());
 	if (presetCheck) {
 		violations.push(...collectPresetViolations(presetCheck));
 	}

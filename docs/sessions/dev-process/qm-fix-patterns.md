@@ -27,7 +27,7 @@ gh api repos/Takenori-Kusaka/ganbari-quest/commits/<sha> --jq '.commit.message'
 | カテゴリ | 内容 |
 |---|---|
 | ADR 番号衝突 | 既存 ADR + burn 済番号（revert cycle）を含む全件確認。起票前に `docs/decisions/README.md` の active + archive 全件照合 |
-| ADR deprecation chain | ADR-0023→0031 / ADR-0009→0045 等、参照前に status 確認 |
+| ADR deprecation chain | 削除済 ADR 番号は再利用しない（例: 旧 ADR-0009 は ADR-0045 が内容を継承後に削除済）。参照前に `docs/decisions/README.md` で active / archive / 削除済を確認 |
 | `.github/copilot-instructions.md` 同期 | ADR 追加 / 変更時は同期必須 |
 | docs SSOT 原則違反 | docs 本体に変更履歴 / supersede / 経緯メタを混入させない（#2440） |
 | PR body 必須セクション欠落 | `.github/PR_TEMPLATE_SECTIONS.json` SSOT の全セクション（13 件）を `check-pr-body.mjs` 準拠で配置 |
@@ -81,7 +81,7 @@ Dev Self-Review で「PASS」と自己宣言したが QM Re-Review で実態 FAI
 特に以下は機械検証コマンド + 結果を report に含める:
 
 - 破綻なし: `npm run pre-ready -- --pr <N>` の出力末尾 5 行
-- テスト十分性: `npx vitest run` の `Test Files X passed (X)` 行 + `git diff main --stat` の test file 件数
+- テスト十分性: `npx vitest run` の `Test Files X passed (X)` 行 + `git diff "origin/$(node scripts/lib/ci/resolve-base-branch.mjs)...HEAD" --stat` の test file 件数（base は develop、[branch-strategy.md §3](../branch-strategy.md)）
 - 過去 QA 指摘事前回避: `gh pr view <N> --json commits` で先行 PR の fix commit を grep し回避済み確認
 - 場当たり対応: `grep -rn "TODO\|FIXME" <変更 file>` 0 件 / `npx stylelint --no-fix <変更 .svelte>` PASS
 - セキュリティ: tenant 外 childId を 403 reject する unit test 名を列挙（CWE-598 関連時）

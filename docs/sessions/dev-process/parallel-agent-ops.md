@@ -66,13 +66,15 @@ gh api repos/Takenori-Kusaka/ganbari-quest/git/refs/heads/<branch> --jq '.object
 
 ---
 
-## 4. stacked PR は採用しない（CI が起動しない）
+## 4. stacked PR は採用しない（base は develop 1 つに固定する）
 
-`.github/workflows/ci.yml` 等は `on: pull_request: branches: [main]` のため、base が `main` でない PR（stacked PR）では CI / lp-metrics / quality-gate が起動しない（Labeler のみ動く）。
+**ブランチ規則の SSOT**: [branch-strategy.md §3](../branch-strategy.md) — feature は `develop` から切り `develop` 向けに PR を出す。`main` へ PR を出せるのは `release/*`（統合）と hotfix branch の 2 系統だけ。
 
-- **stacked PR 戦略は採用しない**。前提 PR は main 起点で 1 PR ずつ Ready → CI 全緑 → main merge の直列で進める
-- 後続 Issue が直前 PR 機能に依存していても、main merge を待ってから新 PR を切る
-- 並列が必要な Issue 群は、依存しない範囲を選んで main 起点で並列 PR を切る（修正ファイル非重複が条件）
+`.github/workflows/ci.yml` は `pull_request: branches: [main, develop]` で発火するため、**base が `develop` / `main` のいずれでもない PR（= 別の feature branch に積む stacked PR）では CI / lp-metrics / quality-gate が起動しない**（Labeler のみ動く）。
+
+- **stacked PR 戦略は採用しない**。前提 PR は develop 起点で 1 PR ずつ Ready → CI 全緑 → develop merge の直列で進める
+- 後続 Issue が直前 PR 機能に依存していても、develop merge を待ってから新 PR を切る
+- 並列が必要な Issue 群は、依存しない範囲を選んで develop 起点で並列 PR を切る（修正ファイル非重複が条件）
 
 ---
 
@@ -84,7 +86,8 @@ gh api repos/Takenori-Kusaka/ganbari-quest/git/refs/heads/<branch> --jq '.object
 
 ```bash
 gh pr view <num> --json mergeable,mergeStateStatus
-# CONFLICTING / DIRTY なら conflict 解消（origin/main merge or rebase + force-with-lease）→ 即座に workflow chain 再開
+# CONFLICTING / DIRTY なら conflict 解消（base へ rebase + force-with-lease。base は
+# `node scripts/lib/ci/resolve-base-branch.mjs` で解決 = 通常 develop）→ 即座に workflow chain 再開
 ```
 
 ### (b) GitHub Actions 表示同期バグ（上位 job アイコン stuck）

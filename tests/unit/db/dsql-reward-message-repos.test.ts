@@ -17,6 +17,7 @@
 //   [SR2] findUnshownReward (shown_at NULL の最新) / markRewardShown (composite key、他 child no-op)
 //   [SR2b] #3581 ②: markRewardShown は非 uuid child id で throw せず undefined (/shown +server の 22P02 fail-safe)
 //   [SR2c] #3799: markRewardShown は非 uuid rewardId (URL param) でも throw せず undefined
+//   [SR2d] #4435: markRewardShown は冪等 (再送で初回時刻を保つ) / 既読済み再送も行を返す
 //   [SR3] updateSpecialReward (composite key、部分更新 / 空更新 = 現状返却 / 他 child no-op)
 //   [SR4] deleteSpecialReward (解決済 redemption も同 txn cascade、他 child no-op) + hasPending は残す
 //   [SR5] deleteByTenantId は §P9 tenant 限定 (他 tenant 無傷)
@@ -28,7 +29,8 @@
 //   [RR3b] #3566 ①: LEFT JOIN で snapshot 権威化 — live reward 削除後も申請が snapshot 値で残る
 //   [RR4] updateRedemptionRequestStatus 遷移 (composite key、resolvedAt epoch 保全、他 child no-op)
 //   [RR5] status CHECK 実効 (不正 status 直 INSERT 拒否)
-//   [RR6] pending dedup (#3356 (1)) / findUnshownResultByChild / markRedemptionResultShown
+//   [RR6] pending dedup (#3356 (1)) / approved 遷移後に pending が残らない
+//         (#4435: findUnshownResultByChild / markRedemptionResultShown は到達不能経路として撤去)
 //   [RR7] expireOldRedemptions (30 日超 pending → expired) / hasPendingByReward
 //   [RR8] insertRedemptionForRestore (status/解決情報/snapshot verbatim)
 // ── IMessageRepo ──
@@ -36,10 +38,12 @@
 //   [MSG2] findUnshownMessage / countUnshownMessages / markMessageShown (composite、他 child no-op)
 //   [MSG2b] #3581 ②: markMessageShown は非 uuid child id で throw せず undefined (/shown +server の 22P02 fail-safe)
 //   [MSG2c] #3799: markMessageShown は非 uuid messageId (URL param) でも throw せず undefined
+//   [MSG2d] #4435: markMessageShown は冪等 (再送で初回時刻を保つ) / 既読済み再送も行を返す
 //   [MSG3] insertForRestore (sentAt/shownAt verbatim) + message_type CHECK 実効
 // ── ISiblingCheerRepo ──
 //   [SC1] insertCheer (from/to 2 参照、tenantId=family マップ) + findUnshownCheers + §P9
 //   [SC2] markShown (複数 id 一括、空は no-op) / countTodayCheersFrom (JST 当日境界)
+//   [SC2b] #4435: markShown は to_child_id 所有権 (別の子は既読にできない) + `shown_at IS NULL` 冪等
 //   [SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)
 //   [SC4] #3566 ②: from/to child ∈ family を INSERT ... SELECT JOIN children で構造強制
 //         (cross-family child は 0 行 → throw、行は書かれない)
@@ -229,7 +233,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// 解決済 (approved) の申請履歴を作る
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -290,9 +294,9 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const list = await rewardRepo.findSpecialRewards(childId, FAMILY);
 		const byTitle = Object.fromEntries(list.map((r) => [r.title, r.grantedBy]));
 		// polymorphic の両形式 + null が coerce されず verbatim で返る (監査で付与主体を追跡可能)
-		expect(byTitle['旧付与']).toBe(legacyIntGrantor);
-		expect(byTitle['新付与']).toBe(uuidGrantor);
-		expect(byTitle['付与者なし']).toBe(null);
+		expect(byTitle.旧付与).toBe(legacyIntGrantor);
+		expect(byTitle.新付与).toBe(uuidGrantor);
+		expect(byTitle.付与者なし).toBe(null);
 
 		// §P9: cross-tenant read は付与主体 (granted_by) を一切露出しない
 		expect(await rewardRepo.findSpecialRewards(childId, OTHER_FAMILY)).toEqual([]);
@@ -309,7 +313,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const at = Math.floor(Date.now() / 1000);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -335,13 +339,87 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(await redemptionRepo.findRedemptionRequestsByChild(childId, OTHER_FAMILY)).toEqual([]);
 	});
 
+	// #4407: 個数 (quantity) の backend 並行実装整合 (sqlite ⇄ dsql/PGlite)。
+	// tests/CLAUDE.md §スキーマ変更 PR — 新カラムの既定値 / 明示値ハンドリングを両実装で一致させる。
+	it('[RR1b] #4407 quantity: 明示 N が保全され、未指定行 (DEFAULT) は 1 として読める', async () => {
+		const childId = await newChild('個数一郎');
+		const reward = await seedReward(childId, '個数報酬', 30);
+		const at = Math.floor(Date.now() / 1000);
+		const req = mustRow(
+			await redemptionRepo.insertRedemptionRequest(
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 4 },
+				FAMILY,
+			),
+		);
+		expect(req.quantity).toBe(4);
+		const byChild = await redemptionRepo.findRedemptionRequestsByChild(childId, FAMILY);
+		expect(byChild[0]?.quantity).toBe(4);
+		const details = await redemptionRepo.findRedemptionRequestsByTenant(FAMILY, { childId });
+		expect(details[0]?.quantity).toBe(4);
+
+		// quantity 列を指定せず直 INSERT した行 (= 列追加前からある既存行と同じ形) は DEFAULT 1
+		await t.db.execute(sql`
+			INSERT INTO reward_redemption_requests (family_id, child_id, reward_id, requested_at, status)
+			VALUES (${FAMILY}::uuid, ${childId}::uuid, ${reward.id}::uuid, to_timestamp(${at + 1}), 'approved')
+		`);
+		const all = await redemptionRepo.findRedemptionRequestsByChild(childId, FAMILY);
+		expect(all).toHaveLength(2);
+		expect(all.every((r) => r.quantity >= 1)).toBe(true);
+		expect(all.find((r) => r.status === 'approved')?.quantity).toBe(1);
+	});
+
+	// #4407: repo 入口の値域収束 (service validator を通らない経路の最終防壁)。
+	// DSQL は ALTER TABLE ADD CONSTRAINT 非対応で後付け CHECK を置けないため、application 側の
+	// normalizeRedemptionQuantity を全 backend の insert が通ることを behavior で表明する。
+	// 0 / 負値が永続化されると承認時の 単価 × 個数 が 0 / 負 = 「減算のつもりが付与」になる。
+	it('[RR1c] #4407 値域外 quantity は repo 入口で 1 に収束する (0 / 負 / 上限超過 / 小数)', async () => {
+		const childId = await newChild('値域一郎');
+		const reward = await seedReward(childId, '値域報酬', 30);
+		const at = Math.floor(Date.now() / 1000);
+		for (const [i, bad] of [0, -3, 1000, 2.5].entries()) {
+			const req = mustRow(
+				await redemptionRepo.insertRedemptionRequest(
+					{ childId, rewardId: reward.id, requestedAt: at + i * 100, quantity: bad },
+					FAMILY,
+				),
+			);
+			expect(req.quantity, `quantity=${bad} は 1 に収束する`).toBe(1);
+			// dedup 窓を跨ぐため申請ごとに解決済みへ倒す
+			await redemptionRepo.updateRedemptionRequestStatus(
+				childId,
+				req.id,
+				{ status: 'rejected', resolvedAt: at - 3600 },
+				FAMILY,
+			);
+		}
+		// restore 経路も同じ防壁を通る
+		const restored = await redemptionRepo.insertRedemptionForRestore(
+			{
+				childId,
+				rewardId: reward.id,
+				requestedAt: at,
+				quantity: -1,
+				status: 'approved',
+				parentNote: null,
+				resolvedAt: at,
+				resolvedByParentId: null,
+				shownToChildAt: null,
+				rewardTitle: '値域報酬',
+				rewardPoints: 30,
+				rewardIcon: null,
+			},
+			FAMILY,
+		);
+		expect(restored?.quantity).toBe(1);
+	});
+
 	it('[RR2] epoch↔timestamptz round-trip: requestedAt を秒精度で保全', async () => {
 		const childId = await newChild('時刻二郎');
 		const reward = await seedReward(childId, '時刻報酬', 10);
 		const at = 1_781_000_000; // 固定 epoch 秒
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -359,7 +437,12 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			const reward = await seedReward(childId, `件数報酬${i}`, 10, family);
 			mustRow(
 				await redemptionRepo.insertRedemptionRequest(
-					{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) + i },
+					{
+						childId,
+						rewardId: reward.id,
+						requestedAt: Math.floor(Date.now() / 1000) + i,
+						quantity: 1,
+					},
 					family,
 				),
 			);
@@ -396,11 +479,11 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				family,
 			),
 		);
-		// 承認 + unshown のまま (child 側 findUnshownResultByChild が拾える状態にする)
+		// 承認済みにする (子供のショップ / 履歴が結果を読む状態にする)
 		await redemptionRepo.updateRedemptionRequestStatus(
 			childId,
 			req.id,
@@ -421,10 +504,12 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		expect(details[0]?.rewardPoints).toBe(500);
 		expect(details[0]?.rewardIcon).toBe('🎮');
 
-		// child 側の未表示通知 (承認結果) も snapshot 権威で残る。
-		const unshown = await redemptionRepo.findUnshownResultByChild(childId, family);
-		expect(unshown?.rewardTitle).toBe('ゲーム機');
-		expect(unshown?.rewardIcon).toBe('🎮');
+		// child 側 (ショップのバッジ / 履歴が読む経路) からも申請が消えない。
+		// #4435: 旧 findUnshownResultByChild は到達不能経路として撤去したため、実際に
+		// 子供画面が使う findRedemptionRequestsByChild で同じ不変条件を固定する。
+		const forChild = await redemptionRepo.findRedemptionRequestsByChild(childId, family);
+		expect(forChild).toHaveLength(1);
+		expect(forChild[0]?.status).toBe('approved');
 	});
 
 	it('[RR4] updateRedemptionRequestStatus: 遷移 + resolvedAt epoch 保全 + composite no-op', async () => {
@@ -433,7 +518,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const reward = await seedReward(childId, '遷移報酬', 10);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000) },
+				{ childId, rewardId: reward.id, requestedAt: Math.floor(Date.now() / 1000), quantity: 1 },
 				FAMILY,
 			),
 		);
@@ -471,26 +556,23 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		).rejects.toThrow(); // reward_redemption_requests_status_ck
 	});
 
-	it('[RR6] pending dedup / findUnshownResult / markRedemptionResultShown', async () => {
+	it('[RR6] pending dedup / approved 遷移で pending が残らない', async () => {
 		const childId = await newChild('通知六郎');
 		const reward = await seedReward(childId, '通知報酬', 10);
 		const at = Math.floor(Date.now() / 1000);
 		const req = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: at },
+				{ childId, rewardId: reward.id, requestedAt: at, quantity: 1 },
 				FAMILY,
 			),
 		);
 		// #3356 (1): pending 既存中の再申請は repo 原子境界で DUPLICATE_REQUEST
 		// (旧 findPendingByChildAndReward の check-then-act を repo に内蔵)
 		const dup = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: at + 1 },
+			{ childId, rewardId: reward.id, requestedAt: at + 1, quantity: 1 },
 			FAMILY,
 		);
 		expect(dup).toEqual({ error: 'DUPLICATE_REQUEST' });
-
-		// pending 中は未表示結果なし
-		expect(await redemptionRepo.findUnshownResultByChild(childId, FAMILY)).toBe(undefined);
 
 		await redemptionRepo.updateRedemptionRequestStatus(
 			childId,
@@ -505,13 +587,9 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 				childId,
 			}),
 		).toBe(0);
-		const result = await redemptionRepo.findUnshownResultByChild(childId, FAMILY);
-		expect(result?.id).toBe(req.id);
-		expect(result?.rewardTitle).toBe('通知報酬'); // snapshot
-
-		const marked = await redemptionRepo.markRedemptionResultShown(childId, req.id, FAMILY);
-		expect(marked?.shownToChildAt).not.toBe(null);
-		expect(await redemptionRepo.findUnshownResultByChild(childId, FAMILY)).toBe(undefined);
+		// 申請時点 snapshot は解決後も残る (#2832 / #3566 ①)
+		const all = await redemptionRepo.findRedemptionRequestsByTenant(FAMILY, { childId });
+		expect(all.find((r) => r.id === req.id)?.rewardTitle).toBe('通知報酬');
 	});
 
 	it('[RR9] #3356 (1) dedup: 直近 approved 窓内の再申請は DUPLICATE / 窓外は許可 / fire→settle 並行申請は 1 件のみ成立', async () => {
@@ -523,7 +601,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// 1 回目 → 即時 approved (即時交換の流れを再現)
 		const first = mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: now },
+				{ childId, rewardId: reward.id, requestedAt: now, quantity: 1 },
 				family,
 			),
 		);
@@ -536,14 +614,19 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 
 		// 窓内 (resolvedAt から REDEMPTION_DEDUP_WINDOW_SEC 以内) の再申請 = 連打/再送 → DUPLICATE
 		const withinWindow = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: now + 2 },
+			{ childId, rewardId: reward.id, requestedAt: now + 2, quantity: 1 },
 			family,
 		);
 		expect(withinWindow).toEqual({ error: 'DUPLICATE_REQUEST' });
 
 		// 窓外 (意図的な連続購入) は許可
 		const afterWindow = await redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward.id, requestedAt: now + REDEMPTION_DEDUP_WINDOW_SEC + 5 },
+			{
+				childId,
+				rewardId: reward.id,
+				requestedAt: now + REDEMPTION_DEDUP_WINDOW_SEC + 5,
+				quantity: 1,
+			},
 			family,
 		);
 		expect('error' in afterWindow).toBe(false);
@@ -558,11 +641,11 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// fire→settle 並行申請 (#3531 パターン): 同時 2 発は一方のみ成立
 		const reward2 = await seedReward(childId, '並行報酬', 10, family);
 		const fireA = redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward2.id, requestedAt: now + 100 },
+			{ childId, rewardId: reward2.id, requestedAt: now + 100, quantity: 1 },
 			family,
 		);
 		const fireB = redemptionRepo.insertRedemptionRequest(
-			{ childId, rewardId: reward2.id, requestedAt: now + 100 },
+			{ childId, rewardId: reward2.id, requestedAt: now + 100, quantity: 1 },
 			family,
 		);
 		const settled = await Promise.all([fireA, fireB]);
@@ -580,7 +663,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		const old = Math.floor(Date.now() / 1000) - 40 * 24 * 60 * 60; // 40 日前
 		mustRow(
 			await redemptionRepo.insertRedemptionRequest(
-				{ childId, rewardId: reward.id, requestedAt: old },
+				{ childId, rewardId: reward.id, requestedAt: old, quantity: 1 },
 				family,
 			),
 		);
@@ -604,6 +687,8 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 				childId,
 				rewardId: reward.id,
 				requestedAt,
+				// #4407: 個数も verbatim 保全する (backup round-trip で 1 個に潰れない)
+				quantity: 3,
 				status: 'rejected',
 				parentNote: '却下理由',
 				resolvedAt,
@@ -618,6 +703,7 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		// #3394 統一冪等契約: fresh 行の restore は必ず non-null (null = 重複 skip)
 		if (!restored) throw new Error('insertForRestore returned null for fresh row');
 		expect(restored.status).toBe('rejected'); // pending 固定でなく verbatim
+		expect(restored.quantity).toBe(3); // #4407: 個数 verbatim
 		expect(restored.requestedAt).toBe(requestedAt);
 		expect(restored.resolvedAt).toBe(resolvedAt);
 		expect(restored.shownToChildAt).toBe(shownToChildAt);
@@ -761,9 +847,9 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 			{ fromChildId: from, toChildId: to, stampCode: 's2' },
 			FAMILY,
 		);
-		await cheerRepo.markShown([], FAMILY); // no-op
+		await cheerRepo.markShown(to, [], FAMILY); // no-op
 		expect((await cheerRepo.findUnshownCheers(to, FAMILY)).length).toBe(2);
-		await cheerRepo.markShown([c1.id, c2.id], FAMILY);
+		await cheerRepo.markShown(to, [c1.id, c2.id], FAMILY);
 		expect(await cheerRepo.findUnshownCheers(to, FAMILY)).toEqual([]);
 
 		// 当日送信 2 件 = カウント 2 (今 insert したものは JST 当日)
@@ -781,6 +867,62 @@ describe('DSQL reward / message repos (PR-R8、実 schema PGlite)', () => {
 		);
 		expect(await cheerRepo.countTodayCheersFrom(from, FAMILY)).toBe(2); // 過去分は含まない
 		expect(await cheerRepo.countTodayCheersFrom(from, OTHER_FAMILY)).toBe(0);
+	});
+
+	it('[SC2b] #4435 markShown は to_child_id 所有権 + shown_at IS NULL 冪等', async () => {
+		const family = '00000000-0000-4000-8000-0000000000e1';
+		const sender = await newChild('あに', family);
+		const receiver = await newChild('おとうと', family);
+		const cheer = await cheerRepo.insertCheer(
+			{ fromChildId: sender, toChildId: receiver, stampCode: 'ganbare' },
+			family,
+		);
+
+		// 兄が弟宛のおうえん id を送っても既読にならない (弟は必ず見られる)
+		await cheerRepo.markShown(sender, [cheer.id], family);
+		expect((await cheerRepo.findUnshownCheers(receiver, family)).length).toBe(1);
+
+		// 受け取る子が既読にする → 初回時刻を過去へ固定 → 再送しても上書きされない
+		await cheerRepo.markShown(receiver, [cheer.id], family);
+		await t.db.execute(sql`
+			UPDATE sibling_cheers SET shown_at = '2025-01-02T03:04:05Z'::timestamptz
+			WHERE family_id = ${family} AND cheer_id = ${cheer.id}
+		`);
+		await cheerRepo.markShown(receiver, [cheer.id], family);
+		const rows = await cheerRepo.findAllByTenant(family);
+		expect(Date.parse(rows[0]?.shownAt ?? '')).toBe(Date.parse('2025-01-02T03:04:05Z'));
+	});
+
+	it('[SR2d][MSG2d] #4435 markRewardShown / markMessageShown は冪等 (初回時刻を保つ)', async () => {
+		const family = '00000000-0000-4000-8000-0000000000e2';
+		const childId = await newChild('冪等子', family);
+		const other = await newChild('別の子', family);
+		const reward = await seedReward(childId, '冪等報酬', 5, family);
+		const msg = await messageRepo.insertMessage(
+			{ childId, body: 'おつかれさま', messageType: 'text' },
+			family,
+		);
+
+		await rewardRepo.markRewardShown(childId, reward.id, family);
+		await messageRepo.markMessageShown(childId, msg.id, family);
+		await t.db.execute(sql`
+			UPDATE special_rewards SET shown_at = '2025-01-02T03:04:05Z'::timestamptz
+			WHERE family_id = ${family} AND reward_id = ${reward.id}
+		`);
+		await t.db.execute(sql`
+			UPDATE parent_messages SET shown_at = '2025-01-02T03:04:05Z'::timestamptz
+			WHERE family_id = ${family} AND msg_id = ${msg.id}
+		`);
+
+		// 再送しても初回時刻は動かず、かつ「見つからない」ではなく行が返る (endpoint の 404 と区別)
+		const reRew = await rewardRepo.markRewardShown(childId, reward.id, family);
+		const reMsg = await messageRepo.markMessageShown(childId, msg.id, family);
+		expect(Date.parse(reRew?.shownAt ?? '')).toBe(Date.parse('2025-01-02T03:04:05Z'));
+		expect(Date.parse(reMsg?.shownAt ?? '')).toBe(Date.parse('2025-01-02T03:04:05Z'));
+
+		// 別の子からの mark は既読済みでも undefined のまま (所有権)
+		expect(await rewardRepo.markRewardShown(other, reward.id, family)).toBe(undefined);
+		expect(await messageRepo.markMessageShown(other, msg.id, family)).toBe(undefined);
 	});
 
 	it('[SC3] findAllByTenant + insertForRestore (sentAt/shownAt verbatim)', async () => {

@@ -19,6 +19,8 @@
 // ── ISettingsRepo ──
 //   [ST1] set/get round-trip + upsert 上書き + getSettings 一括 (空 keys = {}) + §P9 family 独立
 //   [ST2] deleteByTenantId は §P9 tenant 限定
+//   [ST3] countValuesByPrefix (cross-tenant ops 集計、#4269 ①) が loyalty-service の JS 判定と一致
+//   [ST4] #4338 deleteByTenantIdExcept は「残すキー以外を全削除」+ §P9 tenant 限定 (keepKeys 空 = 全削除)
 // ── ITrialHistoryRepo ──
 //   [TH1] insert (defaults) + findLatestByTenant (created_at 降順の最新) + §P9
 //   [TH2] findActiveTrials (end_date >= 今日、cross-tenant) + updateConversion (tenant scope no-op)
@@ -44,6 +46,7 @@
 //   [IM1] insertCharacterImage + findCachedImage (type+hash 一致のみ) + §P9
 //   [IM2] updateChildAvatarUrl (tenant no-op) + findChildForImage (§P9)
 //   [IM3] deleteByTenantId は §P9 tenant 限定
+//   [IM5] #4466 updateChildAvatarUrlIfMatches (compare-and-set: null 一致 / 不一致は 0 行 / §P9)
 //   [IM4] #3566 ③ (§9.4): file_path が tenant プレフィックス外 / cross-tenant / traversal なら insert 拒否 (孤児バイト防止)
 
 import { sql } from 'drizzle-orm';
@@ -67,6 +70,11 @@ import type { ISettingsRepo } from '../../../src/lib/server/db/interfaces/settin
 import type { ITrialHistoryRepo } from '../../../src/lib/server/db/interfaces/trial-history-repo.interface';
 import type { IViewerTokenRepo } from '../../../src/lib/server/db/interfaces/viewer-token-repo.interface';
 import type { InsertCloudExportInput } from '../../../src/lib/server/db/types';
+import {
+	isLegacyMonthKeyValue,
+	JST_MONTH_KEY_PREFIX,
+	LOYALTY_LAST_INCREMENT_MONTH_KEY,
+} from '../../../src/lib/server/services/loyalty-service';
 import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000e1';
@@ -144,10 +152,78 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect(await settingsRepo.getSettings([], FAMILY)).toEqual({});
 	});
 
+	it('[ST4] #4338 deleteByTenantIdExcept: 残すキー以外を全削除 + §P9 tenant 限定', async () => {
+		// 判定 3 キー + 機微キー + 「実装が知らない新しいキー」を混ぜて置く
+		await settingsRepo.setSetting('soft_deleted_at', '2026-08-01T00:00:00.000Z', FAMILY);
+		await settingsRepo.setSetting('deletion_grace_plan_tier', 'standard', FAMILY);
+		await settingsRepo.setSetting('physical_deletion_date', '2026-08-08T00:00:00.000Z', FAMILY);
+		await settingsRepo.setSetting('pin_hash', '$2b$10$dummy', FAMILY);
+		await settingsRepo.setSetting('session_token', 'session-dummy', FAMILY);
+		await settingsRepo.setSetting('questionnaire_challenges', 'つづかない', FAMILY);
+		await settingsRepo.setSetting('some_future_key_2099', 'x', FAMILY);
+		// prefix 付き動的キー (habit-certificate-notice-service が child ごとに作る形)
+		await settingsRepo.setSetting('child:903:habit_certificate_notice', '2026-08-01', FAMILY);
+		await settingsRepo.setSetting('pin_hash', '$2b$10$other', OTHER_FAMILY);
+
+		await settingsRepo.deleteByTenantIdExcept(FAMILY, [
+			'soft_deleted_at',
+			'deletion_grace_plan_tier',
+			'physical_deletion_date',
+		]);
+
+		// 残すと指定した 3 キーだけが残る (theme / sound / 機微キー / 未知キーは消える)
+		const rows = await t.db.execute(
+			sql`SELECT key FROM settings WHERE family_id = ${FAMILY} ORDER BY key`,
+		);
+		expect((rows.rows as unknown as Array<{ key: string }>).map((r) => r.key)).toEqual([
+			'deletion_grace_plan_tier',
+			'physical_deletion_date',
+			'soft_deleted_at',
+		]);
+
+		// §P9: 他 family は無傷
+		expect(await settingsRepo.getSetting('pin_hash', OTHER_FAMILY)).toBe('$2b$10$other');
+		expect(await settingsRepo.getSetting('theme', OTHER_FAMILY)).toBe('green');
+
+		// keepKeys 空は全削除 (NOT IN () の構文エラーに落ちない)
+		await settingsRepo.deleteByTenantIdExcept(FAMILY, []);
+		expect(await settingsRepo.getSetting('soft_deleted_at', FAMILY)).toBe(undefined);
+		expect(await settingsRepo.getSetting('pin_hash', OTHER_FAMILY)).toBe('$2b$10$other');
+	});
+
 	it('[ST2] deleteByTenantId: §P9 tenant 限定 (他 tenant 無傷)', async () => {
+		await settingsRepo.setSetting('theme', 'blue', FAMILY);
 		await settingsRepo.deleteByTenantId(FAMILY);
 		expect(await settingsRepo.getSetting('theme', FAMILY)).toBe(undefined);
 		expect(await settingsRepo.getSetting('theme', OTHER_FAMILY)).toBe('green');
+	});
+
+	// [ST3] #4269 ①: /ops 在庫監査の cross-tenant 集計。SQL の前方一致判定が
+	// loyalty-service の JS 判定 (isLegacyMonthKeyValue) と **同じ答えを出す**ことを実 DB で固定する。
+	// ここが食い違うと「skip されているのに在庫に出ない」滞留を作る。
+	it('[ST3] countValuesByPrefix: cross-tenant 前方一致集計が JS 判定と一致する', async () => {
+		const key = LOYALTY_LAST_INCREMENT_MONTH_KEY;
+		const values: Record<string, string> = {
+			[FAMILY]: '2026-07', // prefix 無し = 基準不明 (滞留)
+			[OTHER_FAMILY]: `${JST_MONTH_KEY_PREFIX}2026-08`, // prefix 付き = 基準明示
+		};
+		for (const [family, value] of Object.entries(values)) {
+			await settingsRepo.setSetting(key, value, family);
+		}
+
+		const counts = await settingsRepo.countValuesByPrefix(key, JST_MONTH_KEY_PREFIX);
+		const expectedLegacy = Object.values(values).filter(isLegacyMonthKeyValue).length;
+
+		expect(counts.total, '同 key の全 family 行を数えていません').toBe(2);
+		expect(
+			counts.total - counts.withPrefix,
+			'SQL の前方一致判定が loyalty-service の JS 判定と食い違っています',
+		).toBe(expectedLegacy);
+		expect(expectedLegacy).toBe(1);
+
+		// 他 key を巻き込まない (key 述語が効いている)
+		await settingsRepo.setSetting('theme', '2026-07', FAMILY);
+		expect((await settingsRepo.countValuesByPrefix(key, JST_MONTH_KEY_PREFIX)).total).toBe(2);
 	});
 
 	// ─────────────────── ITrialHistoryRepo ───────────────────
@@ -570,6 +646,41 @@ describe('DSQL 衛星系 family repos (M4-E PR8c、実 schema PGlite)', () => {
 		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
 		// §P9
 		expect(await imageRepo.findChildForImage(childId, OTHER_FAMILY)).toBe(undefined);
+	});
+
+	// #4466: 仮アバターの作り直しは「いま仮アバターのままか」を読んでから書くまでに await が
+	// 挟まる。無条件 UPDATE だと、その窓で完了した写真アップロードの URL を踏み潰す (lost update)。
+	// 期待値を WHERE に載せ、負けた側が 0 行更新になることを実 Postgres (PGlite) で固定する。
+	it('[IM5] #4466 updateChildAvatarUrlIfMatches は期待値一致時のみ書く (lost update 防止)', async () => {
+		const childId = await newChild('画像三郎');
+		const placeholder = '/tenants/x/avatars/placeholder.svg?v=1';
+		const photo = '/tenants/x/avatars/9f1c2d3e.webp';
+
+		// avatar_url 未設定 (null) を期待 → 書ける。`= NULL` は常に UNKNOWN なので
+		// null 一致が効かないと未設定の子供が永久に更新できなくなる。
+		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, null, placeholder, FAMILY)).toBe(
+			true,
+		);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(placeholder);
+
+		// 割り込み: 保護者が写真をアップロードした (無条件 UPDATE 経路)
+		await imageRepo.updateChildAvatarUrl(childId, photo, FAMILY);
+
+		// 読んだ時点の値 (placeholder) を期待した書き込みは負ける = 写真が残る
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(childId, placeholder, '/new.svg', FAMILY),
+		).toBe(false);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
+
+		// §P9: 他 tenant を名乗った条件付き更新も no-op (false)
+		expect(
+			await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, '/evil.png', OTHER_FAMILY),
+		).toBe(false);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(photo);
+
+		// null 戻しも条件付きで可能
+		expect(await imageRepo.updateChildAvatarUrlIfMatches(childId, photo, null, FAMILY)).toBe(true);
+		expect((await imageRepo.findChildForImage(childId, FAMILY))?.avatarUrl).toBe(null);
 	});
 
 	it('[IM4] #3566 ③ (§9.4): filePath が tenant プレフィックス配下でなければ insert 拒否 (孤児バイト防止)', async () => {

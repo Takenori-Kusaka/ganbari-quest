@@ -814,8 +814,12 @@ if (invokedAsCli) {
 
 // #1772: 単体テスト用に parseBlock / parseSimpleBlock をエクスポート
 // #1917: template literal 解決ロジックも追加 (parseBlockLine / resolveTemplateLiteralValue / resolveAllTemplates / isTemplateLiteral)
+// 実 labels.ts + terms.ts を通した解決結果 (= 生成パイプラインそのもの) を test から検査するため
+// parseAllNamespacesResolved も公開する。個々の parser だけを検査すると「実データでは解決できない」
+// 状態を通してしまう。
 export {
 	isTemplateLiteral,
+	parseAllNamespacesResolved,
 	parseBlock,
 	parseBlockLine,
 	parseSimpleBlock,

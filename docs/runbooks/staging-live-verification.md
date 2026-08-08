@@ -178,14 +178,20 @@ staging には **test mode の Stripe 資格情報だけ**を配備する。test
 
 **staging の URL は初回 deploy まで確定しない**ため、本手順は staging deploy 後に実施する。
 
-1. staging deploy 完了後、CloudFront の URL を取得する:
+> **webhook の登録先は Lambda Function URL 直。CloudFront ではない。**
+>
+> 画面操作の入口は CloudFront（§1）だが、**Stripe webhook だけは例外**である。Stripe の送信元は米国にあり、CloudFront の地域制限（JP）を通れないため経路を CloudFront に寄せられない。`/api/stripe/webhook` は front door header（`x-origin-verify`、#4280）の**対象外**として設計されており、保護は Stripe 署名検証（`STRIPE_WEBHOOK_SECRET`）が担う。SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1 の保護対象表。
+>
+> **CloudFront の URL を登録すると課金 webhook が全滅する。** 到達しないか 403 が続き、Stripe は連続失敗した endpoint を無効化する。本番・staging とも Function URL 直で登録すること。
+
+1. staging deploy 完了後、Lambda Function URL を取得する:
 
 ```bash
-aws cloudformation describe-stacks --stack-name GanbariQuestNetworkStaging   --region us-east-1   --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text
+aws lambda get-function-url-config --function-name ganbari-quest-staging-app   --region us-east-1 --query FunctionUrl --output text
 ```
 
 2. Stripe Dashboard を **test mode** に切り替え、Developers → Webhooks → 「Add endpoint」
-3. Endpoint URL に `https://<DistributionDomainName>/api/stripe/webhook` を入力
+3. Endpoint URL に `<FunctionUrl>api/stripe/webhook` を入力（`FunctionUrl` は末尾スラッシュ付きで返る）
 4. 購読 event は `docs/design/billing-redesign/` の購読 event 一覧（#3990 で整合済）に合わせる
 5. 発行された signing secret を登録し、staging を再 deploy する:
 
@@ -218,6 +224,26 @@ gh secret set STRIPE_WEBHOOK_SECRET_TEST --body "whsec_xxxxxxxx" --repo Takenori
 | S-5 | #4096 Q2（解約 → 期末まで利用可 → 取り消し） | 各段で契約状態が期待どおり |
 
 **S-0 が通って初めて #4104 を close する。** S-4（救済経路）が通ることは S-0（本線）が通ることの代わりにならない。救済経路は本線が落ちたときのためのものであり、2026-07-26 に落ちたのは本線（webhook 到達）である。
+
+## 9.5 staging Lambda の env を手で足さない（#4352）
+
+検証のために `aws lambda update-function-configuration` で env を足すことは**しない**。足したものは deploy が success を返しても消えず（CloudFormation は out-of-band drift を戻さない）、**IaC に無い設定が効いたまま検証を通してしまう**。実際 #4286（price env が無い配備で購入が必ず 400）の検証中に手で入れた `STRIPE_PRICE_*_MONTHLY` が残存し、checkout が通っても「lookup_key 経路が直った」証拠にならない状態が続いた。
+
+現在の staging deploy は:
+
+- env を **CDK synth 出力から組み立てた完全な集合で全上書き**する（IaC に無いキーは書き戻されず消える。除去したキー名は run の warning に出る）
+- deploy 末尾に **env キー差分検査**があり、synth 出力と live のキー集合が食い違えば **fail** する（キー名のみ出力、値は出さない）
+
+検証に env が要るなら **`infra/lib/compute-stack.ts` に足して deploy する**。仕様 SSOT は [13-AWSサーバレスアーキテクチャ設計書 §4.3](../design/13-AWSサーバレスアーキテクチャ設計書.md)。
+
+この検査が**見ていない**もの:
+
+- **既知キーの値の drift**。検査対象はキー集合のみ。値まで見ないため、`USE_LOOKUP_KEY` を手で `false` に倒した等は検出しない（次の deploy の全上書きで IaC 値には戻る）
+- **CFN intrinsic 由来キーの値**（`ASSETS_BUCKET` / `COGNITO_*` / `CONTEXT_TOKEN_SECRET` など）。これらはローカルで解決できないため live の値をそのまま引き継ぐ
+
+**staging で env を倒す kill switch 運用は取れない**（`USE_LOOKUP_KEY` / `MAINTENANCE_MODE` を手で倒しても次の deploy で戻り、それまでの間は差分検査も通る）。staging で挙動を切り替えたいときは `compute-stack.ts` を変えて deploy する。本番 Lambda は本 workflow の対象外なので、本番の env kill switch は従来どおり使える。
+
+**「次の deploy で消えるから残してよい」は残置の根拠にしない。** 消えるまでの間は効き続け、その間の検証結果が信用できなくなる（#4117 の 2026-08-05 残置決裁はこの前提に立っており、無効）。
 
 ## 10. 関連
 

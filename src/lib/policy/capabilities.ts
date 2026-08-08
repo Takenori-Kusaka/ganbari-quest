@@ -61,6 +61,36 @@ export type DenyReason =
 	| 'ops-only' // Cognito groups に 'ops' が必要
 	| 'ops-mfa-required'; // #4266: ops は MFA 必須 (IP allowlist 廃止に伴う主防御の強化)
 
+/**
+ * #4282: `/ops` の単一強制点 `requireOpsAccess()` (`src/lib/server/auth/ops-authz.ts`) が
+ * `error(403, { reason })` に載せる値。エラー画面はこの値でだけ MFA 設定導線に切り替えるため、
+ * policy 層の deny reason と同一の文字列を 1 箇所から参照する (拒否の語彙を 2 箇所に持たない)。
+ */
+export const OPS_MFA_REQUIRED_REASON: DenyReason = 'ops-mfa-required';
+
+/**
+ * `/ops` が MFA を要求するか (#4363、オーナー決裁 2026-08-06)。**現在は `false`**。
+ *
+ * MFA 要求は #4266 で CloudFront の IP allowlist を恒久廃止した際の代替として入ったが、
+ * 運営が 1 人・ops group メンバー 0 人の段階では TOTP 登録 (4 手順) の運用コストに見合わず、
+ * オーナーが「MFA 要求を外す」を選択した (「TOTP の対応は不要とします」)。
+ *
+ * **これで弱くなること**: `/ops` (売上・コホート・コスト・PL) の防御は
+ * 「Cognito 認証 + `ops` group 所属」だけになり、多層防御が 1 層減る
+ * (ops のパスワード 1 つが漏れた時点で入られる)。残る防御と再評価トリガーは
+ * `docs/design/14-セキュリティ設計書.md` §5.2.9 が SSOT。
+ *
+ * **戻し方**: 本定数を `true` にするだけでよい。判定機構
+ * (`amr` claim 読み取り / context token の `mfaAuthenticated` / 下記 `requireOpsGroup` /
+ * `hasOpsAccess` / 復旧導線 `OpsMfaSetupNotice`) は**すべて残してある**。
+ * 再評価トリガー (T1: 有料 10 世帯超 / T2: ops 2 人目 / T3: `/ops` に書込・個票が入る /
+ * T4: 不審ログイン観測) のいずれかを満たしたら戻す。
+ *
+ * 真偽値をここ 1 箇所に置き、実強制点 (`ops-authz.ts`) も本定数を import する
+ * (policy 層と実強制点で判断が食い違わない、`tests/unit/policy/ops-mfa-flag-consistency.test.ts`)。
+ */
+export const OPS_MFA_REQUIRED: boolean = false;
+
 export interface PolicyResult {
 	allowed: boolean;
 	reason?: DenyReason;
@@ -133,10 +163,11 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 function requireOpsGroup(ctx: EvaluationContext): PolicyResult {
 	if (!ctx.user) return deny('unauthenticated');
 	if (!ctx.user.groups.includes('ops')) return deny('ops-only');
-	// #4266: CloudFront の admin IP allowlist を廃止したため、ops の主防御を MFA まで引き上げる。
-	// `undefined` (判定不能) も拒否 = fail-closed。route 側の実強制点は
-	// `hasOpsAccess()` (src/lib/server/auth/ops-authz.ts) で、本判定はその policy 層の写像。
-	if (ctx.user.mfaAuthenticated !== true) return deny('ops-mfa-required');
+	// MFA 追加要求はフラグ 1 箇所で切り替える (#4363、既定 false = 要求しない)。
+	// `true` に戻すと `undefined` (判定不能) も拒否 = fail-closed に復帰する。
+	// route 側の実強制点は `hasOpsAccess()` (src/lib/server/auth/ops-authz.ts) で、
+	// 本判定はその policy 層の写像 (同じ定数を読む)。
+	if (OPS_MFA_REQUIRED && ctx.user.mfaAuthenticated !== true) return deny('ops-mfa-required');
 	return ALLOW;
 }
 

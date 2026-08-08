@@ -2,7 +2,12 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/stamp-card-service.ts
 // スタンプカードサービス層 — ビジネスロジックのみ。DB操作はリポジトリfacade経由
 
-import { todayDateJST } from '$lib/domain/date-utils';
+import {
+	addDaysJST,
+	todayDateJST,
+	weekEndOfDateJST,
+	weekStartOfDateJST,
+} from '$lib/domain/date-utils';
 import { pickOmikujiRank } from '$lib/domain/stamp-image';
 import { insertPointEntry } from '$lib/server/db/point-repo';
 import {
@@ -70,18 +75,9 @@ export interface StampCardData {
 	redeemedPoints: number | null;
 }
 
-/** 今週の月曜日と日曜日を取得 */
+/** 今週の月曜日と日曜日を取得 (JST 基準、`$lib/domain/date-utils` の週 SSOT 経由) */
 function getWeekRange(dateStr: string): { weekStart: string; weekEnd: string } {
-	const d = new Date(`${dateStr}T00:00:00Z`);
-	const day = d.getUTCDay();
-	const diffToMonday = day === 0 ? -6 : 1 - day;
-	const monday = new Date(d);
-	monday.setUTCDate(d.getUTCDate() + diffToMonday);
-	const sunday = new Date(monday);
-	sunday.setUTCDate(monday.getUTCDate() + 6);
-	const fmt = (dt: Date) =>
-		`${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
-	return { weekStart: fmt(monday), weekEnd: fmt(sunday) };
+	return { weekStart: weekStartOfDateJST(dateStr), weekEnd: weekEndOfDateJST(dateStr) };
 }
 
 /** レア度に応じたランダムスタンプ選出 */
@@ -347,10 +343,8 @@ export async function autoRedeemPreviousWeek(
 	const today = todayDateJST();
 	const { weekStart } = getWeekRange(today);
 
-	// 前週の月曜日を算出（UTC固定で計算し、Lambda環境のTZ影響を避ける）
-	const prevMonday = new Date(`${weekStart}T00:00:00Z`);
-	prevMonday.setUTCDate(prevMonday.getUTCDate() - 7);
-	const prevWeekStart = `${prevMonday.getUTCFullYear()}-${String(prevMonday.getUTCMonth() + 1).padStart(2, '0')}-${String(prevMonday.getUTCDate()).padStart(2, '0')}`;
+	// 前週の月曜日 (暦日の加減算は date-utils の SSOT に委譲する)
+	const prevWeekStart = addDaysJST(weekStart, -7);
 
 	const prevCard = await findCardByChildAndWeek(childId, prevWeekStart, tenantId);
 	if (!prevCard || prevCard.status === 'redeemed') {

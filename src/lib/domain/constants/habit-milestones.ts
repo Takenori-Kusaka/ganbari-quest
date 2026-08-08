@@ -30,15 +30,29 @@
 export const MONTHLY_HABIT_DAYS_THRESHOLD = 10;
 
 /**
- * 閾値の再評価トリガー (AC17)。
+ * 閾値を再評価する期日 (#4261 ② PO 決裁 2026-08-06)。
+ *
+ * **n=1 のまま据え置くのは構わないが、「いつ見直すか」が無いまま固定するのは認めない**
+ * (#4256 と同じ形 — 気づく仕組みが無い状態が既定になり、そのまま恒久化する)。
+ */
+export const MONTHLY_HABIT_THRESHOLD_REVIEW_DEADLINE = '2026-11-05';
+
+/** 期日より早く再評価に入る条件: 有料家庭がこの世帯数に達し 1 ヶ月分のデータが揃った時点。 */
+export const MONTHLY_HABIT_THRESHOLD_REVIEW_MIN_PAID_FAMILIES = 3;
+
+/**
+ * 閾値の再評価トリガー (AC17 / #4261 ②)。
  *
  * **n=1 で決めた値なので、動かす条件を先に決めておく。**
  * これが無いと「動かさない理由」を毎回考え直すことになる。
  *
+ * 見るのは `daysWithActivity` の分布 (達成率と、達成しなかった家庭の日数)。
  * 到達しない家庭が続くのは「その家庭ががんばっていない」ではなく
  * **閾値が実態に合っていない**可能性が高い、という前提で下げる方向に倒す。
  */
 export const MONTHLY_HABIT_THRESHOLD_REVIEW_TRIGGER =
+	`有料家庭が ${MONTHLY_HABIT_THRESHOLD_REVIEW_MIN_PAID_FAMILIES} 世帯以上で 1 ヶ月分のデータが揃った時点、` +
+	`または ${MONTHLY_HABIT_THRESHOLD_REVIEW_DEADLINE} のいずれか早い方で再評価する。` +
 	'3 ヶ月連続で誰も達成しなかったら 10 → 8 に下げる (n=1 で決めた値のため、下げる方向に倒す)';
 
 /**

@@ -12,6 +12,10 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendDormantReactivationEmail, sendLicenseRenewalReminderEmail } from './email-service';
 import { canSendMarketingEmail, incrementMarketingEmailCount } from './marketing-email-counter';
+import {
+	DORMANT_REACTIVATION_SENT_KEY,
+	MARKETING_UNSUBSCRIBED_KEY,
+} from './marketing-suppression-keys';
 
 // ============================================================
 // 定数
@@ -29,11 +33,11 @@ export type RenewalReminderDay = (typeof RENEWAL_REMINDER_DAYS)[number];
 /** 休眠とみなす最終ログイン経過日数 (ADR-0023 §5 I11)。 */
 export const DORMANT_THRESHOLD_DAYS = 90;
 
-/** 休眠復帰メール送信済みフラグの settings KV キー (1 ユーザーにつき 1 回限り)。 */
-const DORMANT_SENT_KEY = 'dormant_reactivation_sent';
-
-/** マーケティング配信を opt-out したテナントの settings KV キー。 */
-const UNSUBSCRIBED_KEY = 'marketing_unsubscribed_at';
+// #4338: 配信抑止キーの定義は marketing-suppression-keys.ts が SSOT。
+// 退会処理 (tenant-cleanup-service) が「消してはならないキー」として同じ 1 本を見るため、
+// ここで文字列を持たない (キー名を変えたときに削除側だけ古いままになる経路を作らない)。
+const DORMANT_SENT_KEY = DORMANT_REACTIVATION_SENT_KEY;
+const UNSUBSCRIBED_KEY = MARKETING_UNSUBSCRIBED_KEY;
 
 // ============================================================
 // 型

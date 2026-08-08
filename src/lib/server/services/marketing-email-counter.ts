@@ -20,8 +20,10 @@
 //     cron は 1 日 1 回で同テナントへの重複呼び出しが起きにくく、
 //     また誤差が ±1 件発生しても上限超過には繋がらない (上限は次回送信判定で再評価)。
 
+import { toJSTDateString } from '$lib/domain/date-utils';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
+import { marketingEmailCountKey } from './marketing-suppression-keys';
 
 // ============================================================
 // Constants
@@ -33,21 +35,24 @@ import { logger } from '$lib/server/logger';
  */
 export const MARKETING_EMAIL_YEARLY_LIMIT = 6;
 
-const SETTINGS_KEY_PREFIX = 'marketing_email_count_';
-
 // ============================================================
 // Public API
 // ============================================================
 
-/** YYYY (UTC 4 桁) を返す。年跨ぎ判定の SSOT。 */
+/**
+ * YYYY (JST 4 桁) を返す。年跨ぎ判定の SSOT。
+ *
+ * #4120: 旧実装は `now.getUTCFullYear()` で **UTC の年**を返していた。年間送信上限は日本の
+ * 顧客に対する約束なので、元日 00:00〜09:00 JST の 9 時間だけ前年扱いになるのは誤り。
+ * 暦は `$lib/domain/date-utils` の JST SSOT を通す。
+ */
 export function getCurrentYearKey(now: Date = new Date()): string {
-	return String(now.getUTCFullYear());
+	return toJSTDateString(now).slice(0, 4);
 }
 
-/** 当年のキー名 (settings KV のキー)。 */
-function settingKey(year: string): string {
-	return `${SETTINGS_KEY_PREFIX}${year}`;
-}
+// #4338: キー名の組み立ては marketing-suppression-keys.ts が SSOT。退会処理が
+// 「消してはならない抑止記録」として同じキーを参照するため、接頭辞をここで複製しない。
+const settingKey = marketingEmailCountKey;
 
 /**
  * テナントの当年送信回数を取得する。未送信なら 0。

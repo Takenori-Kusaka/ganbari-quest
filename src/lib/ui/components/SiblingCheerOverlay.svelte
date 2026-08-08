@@ -71,7 +71,7 @@ function handleDialogChange(details: { open: boolean }) {
 			}}
 		>
 			<input type="hidden" name="cheerIds" value={cheerIds} />
-			<button type="submit" class="cheer-overlay__btn">{UI_COMPONENTS_LABELS.siblingCheerConfirmBtn}</button>
+			<button type="submit" class="cheer-overlay__btn" data-testid="cheer-overlay-close">{UI_COMPONENTS_LABELS.siblingCheerConfirmBtn}</button>
 		</form>
 	</Dialog>
 {/if}

@@ -149,7 +149,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: ごほうび交換履歴を 1 件 seed し、承認済 (approved) まで進める。
 		// round-trip 後に status=approved と snapshot がそのまま復元されることを検証する。
 		const redemption = await insertRedemptionRequest(
-			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000, quantity: 3 },
 			T,
 		);
 		if ('error' in redemption) throw new Error('seed: unexpected DUPLICATE_REQUEST');
@@ -293,6 +293,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.specialRewards.length, 'export:ごほうび').toBe(1);
 		expect(data.data.rewardRedemptions.length, 'export:交換履歴').toBe(1);
 		expect(data.data.rewardRedemptions[0]?.status, 'export:交換履歴 status').toBe('approved');
+		// #4407: 個数が export に載る (1 個に潰れない)
+		expect(data.data.rewardRedemptions[0]?.quantity, 'export:交換履歴 個数').toBe(3);
 		// #3329: 設定 export — allowlist キーは含み、秘匿キーは構造的に除外 (CWE-522/916)。
 		const settingKeys = data.data.settings.map((s) => s.key);
 		expect(settingKeys, 'export:設定 allowlist 含む').toContain('point_unit_mode');
@@ -358,6 +360,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredRedemptions.length, '交換履歴').toBe(1);
 		expect(restoredRedemptions[0]?.status, '交換履歴 status 保全').toBe('approved');
 		expect(restoredRedemptions[0]?.rewardTitle, '交換履歴 snapshot 保全').toBe('ごほうびX');
+		// #4407 AC2/AC8: 個数が往復で保たれる (復元後に 1 個へ潰れると控除実績と履歴が食い違う)
+		expect(restoredRedemptions[0]?.quantity, '交換履歴 個数 保全').toBe(3);
 
 		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
 		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('currency');
@@ -1081,7 +1085,7 @@ describe('#3464 resolvedByParentId restore 時の物理 null 正規化', () => {
 			T,
 		);
 		const red = await insertRedemptionRequest(
-			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000, quantity: 3 },
 			T,
 		);
 		if ('error' in red) throw new Error('seed: unexpected DUPLICATE_REQUEST');
@@ -1126,7 +1130,7 @@ describe('#3381 交換履歴の reward 再結合を安定識別子 (exportId) �
 			T,
 		);
 		const red = await insertRedemptionRequest(
-			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000, quantity: 3 },
 			T,
 		);
 		if ('error' in red) throw new Error('seed: unexpected DUPLICATE_REQUEST');
@@ -1158,5 +1162,43 @@ describe('#3381 交換履歴の reward 再結合を安定識別子 (exportId) �
 		});
 		expect(restored.length, '交換履歴が exportId 再結合で復元 (改名でも skip しない)').toBe(1);
 		expect(restored[0]?.status, 'status 保全').toBe('approved');
+	});
+
+	// #4407: quantity 導入前 (v1.8.0 以前) の backup には quantity が無い。
+	// 欠落 / 不正値を 1 個へ縮退させ、復元が落ちないことを固定する (ADR-0066 値域 SSOT 経由)。
+	it('#4407 旧 backup (quantity 欠落) は 1 個として復元される', async () => {
+		testDb.insert(schema.children).values({ nickname: 'きゅう', age: 8, theme: 'blue' }).run();
+		const reward = await insertSpecialReward(
+			{
+				childId: asChildId(1),
+				title: 'きゅうごほうび',
+				description: undefined,
+				points: 30,
+				icon: undefined,
+				category: 'money',
+				sourcePresetId: null,
+			},
+			T,
+		);
+		const red = await insertRedemptionRequest(
+			{ childId: asChildId(1), rewardId: reward.id, requestedAt: 1_700_000_000_000, quantity: 5 },
+			T,
+		);
+		if ('error' in red) throw new Error('seed: unexpected DUPLICATE_REQUEST');
+
+		const data = await exportFamilyData({ tenantId: T });
+		// 旧 backup を再現: quantity キーごと落とす
+		const rec = data.data.rewardRedemptions[0] as unknown as Record<string, unknown>;
+		delete rec.quantity;
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		const restored = await findRedemptionRequestsByTenant(T, {
+			childId: asChildId(cid),
+			limit: 999,
+		});
+		expect(restored.length, '旧 backup でも交換履歴は復元される').toBe(1);
+		expect(restored[0]?.quantity, 'quantity 欠落は 1 個に縮退').toBe(1);
 	});
 });

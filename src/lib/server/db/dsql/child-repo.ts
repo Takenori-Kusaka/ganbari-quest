@@ -20,7 +20,12 @@
 import { sql } from 'drizzle-orm';
 import { calculateAgeFromBirthDate } from '$lib/domain/date-utils';
 import { asChildId } from '$lib/domain/ids';
-import { isValidUiMode, recalcUiMode, type UiMode } from '$lib/domain/validation/age-tier';
+import {
+	getDefaultUiMode,
+	isValidUiMode,
+	recalcUiMode,
+	type UiMode,
+} from '$lib/domain/validation/age-tier';
 import type { ChildProgressResetCounts, IChildRepo } from '../interfaces/child-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
@@ -158,7 +163,7 @@ export function createDsqlChildRepo<TTx extends SqlExecutor>(
 			const result = await db.execute(sql`
 				INSERT INTO children (family_id, nickname, birth_date, theme, ui_mode)
 				VALUES (${tenantId}, ${input.nickname}, ${input.birthDate ?? null},
-					${input.theme ?? 'pink'}, ${input.uiMode ?? 'preschool'})
+					${input.theme ?? 'pink'}, ${input.uiMode ?? getDefaultUiMode(input.age)})
 				RETURNING ${CHILD_COLUMNS}
 			`);
 			return toChild(result.rows[0] as unknown as ChildRow);

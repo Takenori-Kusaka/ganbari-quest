@@ -4,6 +4,7 @@
 import { fail } from '@sveltejs/kit';
 import { formIdString } from '$lib/domain/form-value';
 import { asChildId } from '$lib/domain/ids';
+import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { deriveShopCategory } from '$lib/domain/shop-category';
 import { requireValidChildCookieFormat } from '$lib/server/auth/child-cookie-guard';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -70,28 +71,42 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		// #3581 ②: dsql backend の stale/非 uuid cookie を cookie clear + /switch redirect に正規化。
 		const childIdStr = requireValidChildCookieFormat(cookies, 'route.shop.requestExchange');
-		if (!childIdStr) return fail(400, { error: 'こどもが選択されていません' });
+		if (!childIdStr) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
 		const child = await getChildById(asChildId(childIdStr), tenantId);
-		if (!child) return fail(400, { error: 'こどもが選択されていません' });
+		if (!child) return fail(400, { error: CHILD_SHOP_LABELS.errorChildNotSelected });
 
 		const formData = await request.formData();
 		const rewardId = formIdString(formData.get('rewardId'));
-		if (!rewardId) return fail(400, { error: '報酬IDが不正です' });
+		if (!rewardId) return fail(400, { error: CHILD_SHOP_LABELS.errorRewardNotFound });
 
-		const result = await requestRedemption(child.id, rewardId, tenantId);
+		// #4407: 個数。未指定 (旧 client / JS 無効) は 1 個として扱い、値域外は service が弾く。
+		const rawQuantity = formData.get('quantity');
+		const quantity = rawQuantity === null ? 1 : Number(rawQuantity);
+
+		const result = await requestRedemption(child.id, rewardId, tenantId, quantity);
 
 		if ('error' in result) {
+			// #4407 AC10: 状態に合わせた文言を返す。即時交換 ON の直後再申請 (RECENTLY_EXCHANGED) に
+			// 「既に申請中です」と出すと事実と違ううえ、子供が次に何をすればよいか分からない。
 			const msgs: Record<string, string> = {
-				INSUFFICIENT_POINTS: 'ポイントが足りません',
-				ALREADY_PENDING: '既に申請中です',
-				REWARD_NOT_FOUND: 'ごほうびが見つかりません',
+				INSUFFICIENT_POINTS: CHILD_SHOP_LABELS.errorInsufficientPoints,
+				ALREADY_PENDING: CHILD_SHOP_LABELS.errorAlreadyPending,
+				RECENTLY_EXCHANGED: CHILD_SHOP_LABELS.errorRecentlyExchanged,
+				INVALID_QUANTITY: CHILD_SHOP_LABELS.errorInvalidQuantity,
+				REWARD_NOT_FOUND: CHILD_SHOP_LABELS.errorRewardNotFound,
 			};
-			return fail(400, { error: msgs[result.error] ?? 'エラーが発生しました' });
+			return fail(400, { error: msgs[result.error] ?? CHILD_SHOP_LABELS.errorGeneric });
 		}
 
 		// #3339: 即時交換（家庭設定 reward_auto_approve ON）なら requestRedemption が approved 確定済。
-		// 子供側 UI は invalidateAll 後の latestRequestStatus（approved=「こうかん済み」/
-		// pending=「うけとりまち」）でフィードバックが切り替わるため、ここでは success のみ返す。
-		return { success: true };
+		// #4407 AC9: 「押した結果」を子供が見ている場所に文字で出せるよう、何を何個 交換できたか /
+		// 交換後の残高を action の戻り値として返す (演出 = 紙吹雪 / 音 は加飾であって通知ではない)。
+		const balance = await getBalance(child.id, tenantId);
+		return {
+			success: true as const,
+			instant: result.status === 'approved',
+			quantity: result.quantity,
+			balance,
+		};
 	},
 };

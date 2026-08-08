@@ -1,6 +1,8 @@
 // src/lib/server/services/receipt-ocr-service.ts
 // 領収書画像から Bedrock Claude Haiku で金額を読み取るサービス (#721)
 
+import { POINTS_LABELS } from '$lib/domain/labels';
+import { isAiUnavailableError, reportAiUnavailableAtGuard } from '$lib/server/ai/availability';
 import { getAiProvider, isAiAvailable } from '$lib/server/ai/factory';
 import { logger } from '$lib/server/logger';
 
@@ -39,13 +41,27 @@ const RECEIPT_TOOL = {
 	},
 };
 
+/**
+ * OCR の失敗理由。**顧客に伝える内容が変わるので、丸めてはいけない** (#4366)。
+ *
+ * - `AI_UNAVAILABLE`: AI 側の事情 (未設定 / 権限なし / キー不正)。顧客の画像は無関係なので
+ *   撮り直しを促さず、手入力へ誘導する。
+ * - `OCR_FAILED`: 画像から金額が読めなかった。撮り直しか手入力を促す。
+ */
+export type ReceiptOcrError =
+	| { error: 'AI_UNAVAILABLE' }
+	| { error: 'OCR_FAILED'; message: string };
+
 /** 領収書画像から金額をOCRで読み取る */
 export async function ocrReceipt(
 	imageBase64: string,
 	mimeType: string,
-): Promise<ReceiptOcrResult | { error: 'NO_API_KEY' } | { error: 'OCR_FAILED'; message: string }> {
+): Promise<ReceiptOcrResult | ReceiptOcrError> {
 	if (!isAiAvailable()) {
-		return { error: 'NO_API_KEY' };
+		// この分岐は顧客を手入力に落とすが、以前は log を 1 行も出さず運営が気付けなかった。
+		// ここで観測可能にする (プロセス内で理由ごとに 1 回だけ。per-request では出さない)。
+		reportAiUnavailableAtGuard(getAiProvider().name);
+		return { error: 'AI_UNAVAILABLE' };
 	}
 
 	try {
@@ -64,7 +80,7 @@ export async function ocrReceipt(
 		logger.info('[receipt-ocr] AI response', { context: { amount, rawText } });
 
 		if (amount <= 0) {
-			return { error: 'OCR_FAILED', message: rawText || '金額を読み取れませんでした' };
+			return { error: 'OCR_FAILED', message: rawText || POINTS_LABELS.receiptAmountNotFound };
 		}
 
 		return { amount, rawText };
@@ -73,6 +89,12 @@ export async function ocrReceipt(
 			error: err instanceof Error ? err.message : String(err),
 			stack: err instanceof Error ? err.stack : undefined,
 		});
-		return { error: 'OCR_FAILED', message: '画像の読み取りに失敗しました' };
+		// AI が使えないことに起因する失敗を「画像の読み取りに失敗」と言うと、顧客は自分の写真が
+		// 悪いと誤解して撮り直す (#4366 害 b)。原因が AI 側なら撮り直しを促さない。
+		// 例外メッセージ自体は顧客に露出させない (ADR-0062 §2)。
+		if (isAiUnavailableError(err)) {
+			return { error: 'AI_UNAVAILABLE' };
+		}
+		return { error: 'OCR_FAILED', message: POINTS_LABELS.receiptOcrFailed };
 	}
 }

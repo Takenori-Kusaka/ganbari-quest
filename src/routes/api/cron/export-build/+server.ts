@@ -16,7 +16,10 @@
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
-import { drainPendingExports } from '$lib/server/services/cloud-export-service';
+import {
+	drainPendingExports,
+	previewPendingExports,
+} from '$lib/server/services/cloud-export-service';
 import type { RequestHandler } from './$types';
 
 const DEFAULT_LIMIT = 5;
@@ -36,8 +39,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	if (dryRun) {
-		// env 検証のみ (build しない)。deploy 後 smoke test 用。
-		return json({ ok: true, dryRun: true, processed: 0, ready: 0, failed: 0 });
+		// #4373: build はしないが、件数は定数ではなく実測 (pending 件数) を返す。
+		// 定数を返すと「dryRun で 0 件だったので有効化して安全」という誤った判断を招く。
+		return json({ ok: true, dryRun: true, ...(await previewPendingExports(limit)) });
 	}
 
 	logger.info('[export-build] endpoint started', {
@@ -64,8 +68,9 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 // GET はヘルスチェック的用途 (dry-run。build せず 200 を返す)。
+// #4373: POST の dryRun と同じく件数は実測を返す (定数を返すと滞留を 0 件と誤報する)。
 export const GET: RequestHandler = async ({ request }) => {
 	const authError = verifyCronAuth(request);
 	if (authError) return authError;
-	return json({ ok: true, dryRun: true, processed: 0, ready: 0, failed: 0 });
+	return json({ ok: true, dryRun: true, ...(await previewPendingExports(DEFAULT_LIMIT)) });
 };

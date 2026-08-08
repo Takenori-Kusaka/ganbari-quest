@@ -820,6 +820,14 @@ export interface ChildChallenge {
 	completedAt: string | null;
 	rewardClaimed: number;
 	rewardClaimedAt: string | null;
+	/**
+	 * #4410: 達成祝福 (SiblingCelebration) を「見せた」時刻。NULL = 未表示。
+	 *
+	 * 祝福を **1 回だけ**見せるための停止条件 SSOT。クライアントの `$state` ではなく本列が
+	 * 表示可否の根拠であり、端末を跨いでも (親のスマホ↔子のタブレット) 再表示されない。
+	 * `rewardClaimed` (ごほうび受取) とは独立 — 未受取でも祝福は 1 回で終わる。
+	 */
+	celebrationShownAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }

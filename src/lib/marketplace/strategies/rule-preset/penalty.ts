@@ -25,7 +25,7 @@ export interface PenaltyApplyResult {
 	errors: string[];
 }
 
-const PENALTY_REASON =
+export const PENALTY_REASON =
 	'penalty ruleType は ADR-0012 §6 細則で慎重審査中 (Octalysis Drive 8 black hat 該当)。実装インフラは保持、preset 投入は別 Issue で個別合意の上で行う';
 
 /**

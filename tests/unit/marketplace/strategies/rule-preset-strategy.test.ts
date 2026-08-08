@@ -321,20 +321,135 @@ describe('rulePresetStrategy.applyRulePreset — special (将来枠 no-op)', () 
 // =====================================================
 
 describe('rulePresetStrategy.applyRulePreset — dryRun', () => {
-	it('dryRun=true なら DB write せず空結果を返す (4 ruleType 全て)', async () => {
+	// #4373: 「DB write しない」は不変。件数は定数 0 ではなく実行時の予測値を返す
+	// (旧 assertion は imported/skipped が常に 0 = 欠陥そのものを固定していた)。
+	it('dryRun=true なら DB write しない (4 ruleType 全て)', async () => {
 		for (const ruleType of ['bonus', 'exchange', 'penalty', 'special'] as const) {
 			vi.clearAllMocks();
 			mockGetSetting.mockResolvedValue(null);
+			mockFindSpecialRewards.mockResolvedValue([]);
 			const payload = { ruleType, rules: [{ title: 't', description: 'd', icon: 'i' }] };
 			const result = await rulePresetStrategy.applyRulePreset(IDENTITY, payload, {
 				tenantId: TENANT,
 				childId: asChildId(42),
 				dryRun: true,
 			});
-			expect(result.imported).toBe(0);
+			// 未取込 state なので「重複 skip は 0 件」と予測されるのが正しい
 			expect(result.skipped).toBe(0);
+			// penalty / special は意図的 no-op なので取込 0 件 + warning が予測に出る
+			if (ruleType === 'penalty' || ruleType === 'special') {
+				expect(result.imported).toBe(0);
+				expect(result.warnings).toHaveLength(1);
+			} else {
+				// exchange / bonus は「実行すれば 1 件入る」と予測する (定数 0 ではない)
+				expect(result.imported).toBe(1);
+			}
 			expect(mockInsertSpecialReward).not.toHaveBeenCalled();
 			expect(mockSetSetting).not.toHaveBeenCalled();
 		}
+	});
+
+	// #4373: dryRun は「取り込んでよいか」を書き込まずに確かめるモードなので、
+	// 判断材料である skipped が定数であってはならない
+	// (他 4 strategy は dryRun でも preview の duplicates を返している)。
+	describe('#4373 dryRun の skipped は実行時の予測値である', () => {
+		it('bonus: 取込済 preset なら skipped=1 と予測する (定数 0 ではない)', async () => {
+			vi.clearAllMocks();
+			mockGetSetting.mockResolvedValue(
+				JSON.stringify({
+					presets: [
+						{ presetId: PRESET_ID, presetName: '連続ボーナス', presetIcon: '🔥', rules: [] },
+					],
+				}),
+			);
+
+			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, makeBonusPayload(), {
+				tenantId: TENANT,
+				dryRun: true,
+			});
+
+			expect(preview.imported).toBe(0);
+			expect(preview.skipped).toBe(1);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+		});
+
+		it('bonus: 未取込なら skipped=0 と予測する', async () => {
+			vi.clearAllMocks();
+			mockGetSetting.mockResolvedValue(null);
+
+			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, makeBonusPayload(), {
+				tenantId: TENANT,
+				dryRun: true,
+			});
+
+			expect(preview.skipped).toBe(0);
+			expect(mockSetSetting).not.toHaveBeenCalled();
+		});
+
+		it('dryRun の予測値は同条件の実行モードの実測値と一致する (bonus 未取込)', async () => {
+			vi.clearAllMocks();
+			mockGetSetting.mockResolvedValue(null);
+			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, makeBonusPayload(), {
+				tenantId: TENANT,
+				dryRun: true,
+			});
+
+			vi.clearAllMocks();
+			mockGetSetting.mockResolvedValue(null);
+			const real = await rulePresetStrategy.applyRulePreset(IDENTITY, makeBonusPayload(), {
+				tenantId: TENANT,
+			});
+
+			expect(preview.imported).toBe(real.imported);
+			expect(preview.skipped).toBe(real.skipped);
+		});
+
+		it('dryRun の予測値は同条件の実行モードの実測値と一致する (exchange 一部重複)', async () => {
+			const payload = {
+				ruleType: 'exchange' as const,
+				rules: [
+					{ title: 'アイス交換', description: 'd', icon: '🍦', pointCost: 50 },
+					{ title: 'ゲーム時間', description: 'd', icon: '🎮', pointCost: 80 },
+				],
+			};
+			const existing = [{ sourcePresetId: PRESET_ID, title: 'アイス交換' }];
+
+			vi.clearAllMocks();
+			mockFindSpecialRewards.mockResolvedValue(existing);
+			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, payload, {
+				tenantId: TENANT,
+				childId: asChildId(42),
+				dryRun: true,
+			});
+
+			vi.clearAllMocks();
+			mockFindSpecialRewards.mockResolvedValue(existing);
+			const real = await rulePresetStrategy.applyRulePreset(IDENTITY, payload, {
+				tenantId: TENANT,
+				childId: asChildId(42),
+			});
+
+			expect(preview.imported).toBe(real.imported);
+			expect(preview.skipped).toBe(real.skipped);
+			// 予測が「1 件入り 1 件 skip」であることまで固定する (両方 0 で一致は無意味)
+			expect(real.imported).toBe(1);
+			expect(real.skipped).toBe(1);
+		});
+
+		it('exchange: 取込済 preset なら skipped=1 と予測する', async () => {
+			vi.clearAllMocks();
+			mockFindSpecialRewards.mockResolvedValue([
+				{ sourcePresetId: PRESET_ID, title: 'アイス交換' },
+			]);
+
+			const preview = await rulePresetStrategy.applyRulePreset(IDENTITY, makeExchangePayload(), {
+				tenantId: TENANT,
+				childId: asChildId(42),
+				dryRun: true,
+			});
+
+			expect(preview.skipped).toBe(1);
+			expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+		});
 	});
 });

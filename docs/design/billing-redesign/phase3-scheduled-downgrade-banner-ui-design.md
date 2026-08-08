@@ -141,7 +141,7 @@ export const SCHEDULED_DOWNGRADE_BANNER_LABELS = {
 
 ### 禁止語彙 (Phase 2 #2549 §「禁止語彙」継承)
 
-`失う` / `消える` / `使えなくなる` / `ロックされる` / `削除` (本 UI 文言・実装 a11y label・E2E spec 名含む全箇所で 0 件)。`check-no-plan-literals.mjs` / `check-hardcoded-strings.mjs` の禁止語リストに **Phase 7 実装時に追加**する。
+`失う` / `消える` / `使えなくなる` / `ロックされる` / `削除` (本 UI 文言・実装 a11y label・E2E spec 名含む全箇所で 0 件)。`check-no-plan-literals.mjs` の禁止語リストに **Phase 7 実装時に追加**する（旧 `check-hardcoded-strings.mjs` は #4322 で削除済み、#4426）。
 
 ## 5. データソース (どこから値を取るか)
 
@@ -217,7 +217,7 @@ stateDiagram-v2
 | **構文** | `Alert.svelte` 既存 import、新規 `ScheduledDowngradeBanner.svelte` 追加のみ | 既存 component への破壊的変更なし |
 | **意味** | `userRole` 判定 (既存 `data.userRole` SSOT)、`subscription_schedule` 既存 webhook handler 拡張 | Phase 5 (アーキ) で webhook 拡張要 |
 | **構造** | `AdminLayout.svelte` に slot 追加 (header 直下) | Phase 7 (実装) で配置決定、他 admin 画面は意識不要 |
-| **派生 artifact (21 カテゴリ)** | (a) labels.ts compound 追加 / (b) terms.ts atom 追加 / (c) E2E spec 新規 (`tests/e2e/scheduled-downgrade-banner.spec.ts`) / (d) Storybook stories (`ScheduledDowngradeBanner.stories.svelte`) / (e) 5 年齢モード matrix は **影響なし** (親 admin 限定で年齢モードと直交) / (f) demo Lambda は `getDowngradePreview` の demo fixture で再現可 (Phase 7 確認) / (g) check-hardcoded-strings.mjs / check-no-plan-literals.mjs の禁止語追加 | Phase 7 で全 7 件実装 |
+| **派生 artifact (21 カテゴリ)** | (a) labels.ts compound 追加 / (b) terms.ts atom 追加 / (c) E2E spec 新規 (`tests/e2e/scheduled-downgrade-banner.spec.ts`) / (d) Storybook stories (`ScheduledDowngradeBanner.stories.svelte`) / (e) 5 年齢モード matrix は **影響なし** (親 admin 限定で年齢モードと直交) / (f) demo Lambda は `getDowngradePreview` の demo fixture で再現可 (Phase 7 確認) / (g) check-no-plan-literals.mjs の禁止語追加（旧 check-hardcoded-strings.mjs は #4322 で削除済み、#4426） | Phase 7 で全 7 件実装 |
 
 ## 10. 大方針整合チェック
 

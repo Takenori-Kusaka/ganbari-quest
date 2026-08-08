@@ -5,6 +5,8 @@
  * メイン処理 (main) は env 経由で動作するため、export された関数を直接呼んで検証する。
  */
 
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -103,6 +105,82 @@ describe('hasUiNotApplicableMarker', () => {
 
 	it('UI 変更がある PR は false', () => {
 		expect(hasUiNotApplicableMarker('![ss](url)')).toBe(false);
+	});
+
+	// ---- #4255 横展開: 宣言の誤マッチで SS gate 全体が skip される ----
+	//
+	// 本 marker は成立すると `checkScreenshotEmbedReadiness` / CI screenshot-check の
+	// **gate 全体を skip** させる。#4255 で直した `hasStorybookStoryReference` は
+	// 「story 参照ありか」という 1 サブ検査の誤マッチだったのに対し、こちらは
+	// **PR body のどこかに「UI 変更なし」の 6 文字が現れれば SS 検証がまるごと消える**。
+	// 否定文・引用・コードブロック・未チェック checkbox のいずれで現れても成立していた。
+	//
+	// 「宣言していないのに宣言したことにされる」= 検査できていないのに pass。
+	// #4084（ペア 0 件を skip）/ #4255（否定文に誤マッチ）と同 class の 3 回目。
+	describe('#4255 横展開: 宣言でない出現を marker にしない', () => {
+		it('否定文を宣言として扱わない（#4255 と同じ「〜ではありません」型）', () => {
+			expect(
+				hasUiNotApplicableMarker('本 PR は UI 変更なしではありません。文言を変更しています。'),
+				'「UI 変更なしではない」と書いた PR の SS 検証が skip される',
+			).toBe(false);
+		});
+
+		it('引用（blockquote）は宣言として扱わない', () => {
+			expect(hasUiNotApplicableMarker('> UI 変更なしの PR は SS 不要\n\n本 PR は文言を変更')).toBe(
+				false,
+			);
+		});
+
+		it('コードブロック / インラインコード内の言及は宣言として扱わない', () => {
+			const fenced = ['```', 'if (hasUiNotApplicableMarker(body)) // UI 変更なし', '```'].join(
+				'\n',
+			);
+			expect(hasUiNotApplicableMarker(fenced)).toBe(false);
+			expect(hasUiNotApplicableMarker('判定は `UI 変更なし` の有無で行う')).toBe(false);
+		});
+
+		it('**未チェックの checkbox は宣言として扱わない**（チェックしていない = 宣言していない）', () => {
+			expect(hasUiNotApplicableMarker('- [ ] UI 変更なし')).toBe(false);
+			expect(hasUiNotApplicableMarker('- [x] UI 変更なし')).toBe(true);
+		});
+
+		it('手順書の条件節（「UI 変更なしの場合: …」）を宣言として扱わない', () => {
+			expect(
+				hasUiNotApplicableMarker(
+					'UI 変更なしの場合: 「**該当なし（バックエンド修正のみ）**」と明記。',
+				),
+			).toBe(false);
+		});
+
+		it('gate としても skip しない — UI 変更 PR が否定文で SS 検証を飛ばせない', () => {
+			const result = checkScreenshotEmbedReadiness({
+				body: '## スクリーンショット\n\n本 PR は UI 変更なしではありません。',
+				files: ['src/routes/(parent)/admin/+page.svelte'],
+				labels: [],
+			});
+			expect(result.skipped, 'SS gate が丸ごと skip されている').toBe(false);
+			expect(result.violations.map((v) => v.id)).toContain('screenshot-embed-missing');
+		});
+
+		// 生成側 assert (#4255 / dev-session.md 指摘 class 2)。
+		// テンプレートから生成しただけの PR body が marker を成立させると、
+		// 「何も書いていない PR」が SS gate を素通りする。命名や文面を変えたときに
+		// silent に壊れないよう、実テンプレートを読んで検証する。
+		it('PR テンプレートを素で生成した body は marker を成立させない', () => {
+			const templates = [
+				'.github/PULL_REQUEST_TEMPLATE.md',
+				'.claude/skills/dev-open-pr/templates/pr-body-default.md',
+				'.claude/skills/dev-open-pr/templates/pr-body-critical-fix.md',
+				'.claude/skills/dev-open-pr/templates/pr-body-lp.md',
+				'.claude/skills/dev-open-pr/templates/pr-body-refactor-ssot.md',
+			];
+			for (const path of templates) {
+				expect(
+					hasUiNotApplicableMarker(readFileSync(path, 'utf8')),
+					`${path} をそのまま出すだけで SS gate が skip される`,
+				).toBe(false);
+			}
+		});
 	});
 });
 

@@ -44,7 +44,6 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       deps: ${{ steps.filter.outputs.deps }}
       dependabot: ${{ steps.filter.outputs.dependabot }}
-      site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
       cognito: ${{ steps.filter.outputs.cognito }}
       docker: ${{ steps.filter.outputs.docker }}
@@ -85,6 +84,8 @@ jobs:
               - '.github/**'
               - 'drizzle/**'
               - 'actions/**'
+              #   graphify-out/** graphify-artifacts-parseable (#4442、生成 JSON の破損検出)
+              - 'graphify-out/**'
               - 'svelte.config.js'
               - 'vite.config.ts'
               - 'tsconfig.json'
@@ -109,10 +110,6 @@ jobs:
             dependabot:
               - '.github/dependabot.yml'
               - 'scripts/check-dependabot-target-branch.mjs'
-            site:
-              - 'site/**'
-              - 'scripts/check-site-html.mjs'
-              - 'scripts/check-forbidden-terms.mjs'
             stories:
               - 'src/**/*.stories.*'
               - '.storybook/**'
@@ -166,16 +163,18 @@ jobs:
               - 'tsconfig.json'
               - 'Dockerfile*'
               - '.dockerignore'
-            # #2259 C4 fix: docs / scripts 変更でも lint-and-test (check-doc-code-references)
-            # と scripts/ node:test を走らせる。本機構は「docs 内パス参照の実在性」を検証する
-            # ため、docs-only PR でも CI gate に通す必要がある。
+            # #2259 C4 fix: 元は docs / scripts 変更で lint-and-test (check-doc-code-references)
+            # と scripts/ node:test を走らせるための filter だった。check-doc-code-references.mjs
+            # は #4322 で削除済み（#4420 で判明）。`docs/**` / `CLAUDE.md` 単体変更では
+            # lint-and-test 内に実行される検査は無くなったが、`scripts/__tests__/**` は
+            # 「Scripts unit tests (node:test)」step が読むため filter 自体は維持する
+            # (docs-only PR の CI 実行を止めたい場合は scripts/__tests__/** を別 output に
+            # 分離すること — 本 union のままでは docs-only PR でも lint-and-test 全体が走る)。
             docs:
               - 'docs/**'
               - 'CLAUDE.md'
               - 'DESIGN.md'
               - '**/CLAUDE.md'
-              - 'scripts/check-doc-code-references.mjs'
-              - 'scripts/doc-code-references-baseline.json'
               - 'scripts/__tests__/**'
               - '.github/workflows/ci.yml'
             # #3874 Layer 1: CDK synth 静的 lint (cfn-lint) gate の起動条件。
@@ -190,7 +189,9 @@ jobs:
     needs: changes
     # #923 Phase 1 Copilot指摘: .storybook/** だけ変更された PR でも
     # lint-and-test 内の Storybook build check を走らせるため stories を含める
-    # #2259 C4 fix: docs-only PR でも check-doc-code-references を走らせるため docs を含める
+    # #2259 C4 fix: 元は docs-only PR でも check-doc-code-references を走らせるためだった
+    # (script は #4322 で削除済み)。`docs` output は `scripts/__tests__/**` の node:test
+    # step 実行にまだ使われているため、trigger 条件からは外さない (#4420)。
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -217,20 +218,15 @@ jobs:
       - name: Biome lint (#1432 — warning=error)
         run: npx biome check --error-on-warnings .
 
-      - name: Parallel implementation sync check (#565 / #1739 SSOT key-set diff)
-        # #1739: scripts/check-ssot-parallel-impl.mjs が labels.ts ⇄ shared-labels.js の
-        # key-set 比較で silent drift (parser 未対応 namespace) を検出する。
-        # generate-lp-labels.mjs --check は full text 比較のため、両者を並べて
-        # 「parser バグ」と「反映漏れ」の両面を捕捉する。
+      - name: Parallel implementation sync check (#565)
+        # #1739 で導入した scripts/check-ssot-parallel-impl.mjs (labels.ts ⇄ shared-labels.js
+        # の key-set 比較による silent drift 検出) は #4322 で削除済み (#4420 で判明)。
+        # 現状 `npm run lint:parallel` が実行するのは generate-lp-labels.mjs --check
+        # (full text 比較) + check-lp-innerhtml-tags.mjs + check-no-at-html.mjs のみ。
+        # parser 未対応の新規 namespace 追加による silent drift の検出は無い
+        # (機械強制は無い。レビューで担保する)。
         run: npm run lint:parallel
 
-      - name: LP plan sync check (#4121 hard-fail 復帰)
-        # ADR-0007 §1-2 類型 2 (顧客に見える正しさ = LP にプランの嘘を書かない、ADR-0013)。
-        # 類型 2 は「cheap なら hard-fail、重ければ warn」。本検査は静的テキスト比較で数秒なので
-        # hard-fail が正。#4121 で一度 continue-on-error に降格したが、降格すると LP と実装の
-        # プラン齟齬が緑のまま main に入り、顧客が見るページに嘘が残る。
-        # 回帰ガード: tests/unit/scripts/pre-ready-step-budget.test.ts [P6] / [P7]
-        run: node scripts/check-lp-plan-sync.mjs --check
 
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
@@ -283,50 +279,30 @@ jobs:
         # (SEARCH_ROOTS / EXTENSIONS の誤拡張等) だけを機械検知する。
         run: node scripts/check-license-key-leak.mjs --budget-ms 120000
 
-      - name: Internal terms UI exposure check (#2288 AN-5 #2180 補強)
-        # 親 UI (admin / 親管理画面) で内部用語 (DynamoDB / Pre-PMF Bucket A /
-        # アクティベーションファネル / リテンションコホート / テナント等) の UI 露出を検知。
-        # baseline pin 機構で新規違反 1 件で fail。
-        # AN-5 (#2180) 観察「内部用語 UI 露出 = 3 EPIC 連続発見」の構造的解消 (EPIC #2283 ⑤)。
-        run: node scripts/check-internal-terms.mjs
-
       - name: No direct process.env access check (#1202 / ADR-0040 P1)
         run: node scripts/check-no-direct-env-access.mjs
 
       - name: No waitForTimeout in scripts/ check (#1208)
         run: node scripts/check-no-waitfortimeout.mjs
 
-      - name: Hardcoded JP text baseline check (#1452 Phase A / #1465 Phase A)
-        run: node scripts/check-hardcoded-strings.mjs
-
-      - name: Document code references check (#2215 / #2240 Split A)
-        # ドキュメント内に書かれた実装コードパス参照が実在するかを baseline モデルで検証。
-        # 新規違反 1 件で fail。意図的増減時のみ `--update-baseline` 実行。
-        # 既存 72 件 (40 ファイル) は scripts/doc-code-references-baseline.json で pin (#2240 Split C skip 判定 / #2259 C1 で path 配列化)。
-        run: node scripts/check-doc-code-references.mjs
-
-      - name: Terminology coherence check (#2555 / #2815 D-3 C+)
-        # pre-ready Step 11 と同一検査の CI 化 (#2815 D-3 敵対的レビュー所見:
-        # pre-ready 12 step 中、本 step だけ CI のどの workflow にも非搭載で
-        # 「ローカル self-report と CI の乖離を CI green が吸収する」前提が破れていた)。
-        # 用語不統一・add 経路重複 (Hick's Law ≤4) を warning 0 で gate (CX-DoR 条件 3/4)。
-        run: npx tsx scripts/check-terminology-coherence.ts
-
-      - name: Guide copy rules check (#3261 / EPIC #3260 F0)
-        # ページガイド (_guide.ts) 文言が guide-copy-rules.md に準拠するかを機械検証。
-        # 謎用語 / 内部事情露出 / 文字数上限 / step 数 ≤5 を hard-fail (現行 baseline=0)。
-        # 二重防御: tests/unit/scripts/check-guide-copy.test.ts も baseline 0 を vitest で検証。
-        run: npx tsx scripts/check-guide-copy.ts --fail-on-violation
-
-      - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
-        # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
-        # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。
-        # 本 step は scripts/check-doc-code-references.mjs の CLI 動作 (path-set diff /
-        # sandbox 隔離 / Deprecated marker / fenced code 除外 / inline/bare 区別) を検証する。
-        run: node --test scripts/__tests__/check-doc-code-references.test.mjs
-
-      - name: LP SSOT HTML baseline check (#1465 Phase A)
-        run: node scripts/check-lp-ssot.mjs
+      - name: Scripts unit tests (node:test, scripts/__tests__/ 全件)
+        # vitest config は tests/unit/** / tests/integration/** のみを見るため
+        # scripts/__tests__/*.test.mjs は vitest の対象外 (#2259 C3)。node --test を CI gate に
+        # 組み込む。
+        #
+        # **glob で渡す (file 名の literal 列挙をしない)**。旧実装は literal path を 2〜3 行
+        # 書いていただけで、13 file 中 10 file がどこからも実行されず、そのうち 3 file は
+        # 実行されないまま drift して壊れていた (#4084 で意図的に変えた skip→fail に test が
+        # 追随していない 等)。「テストがある」と「検査されている」が一致しない状態を作らない。
+        #
+        # glob は quote する — shell ではなく node 側に展開させることで、実行対象が
+        # runner の shell 挙動に依存しなくなる。
+        # 対応関係 (= 全 file が本 step でカバーされること) は
+        # tests/unit/architecture/scripts-node-test-ci-coverage.test.ts が機械検証する。
+        #
+        # NOTE: check-cdk-cfn-lint.test.mjs は cfn-lint (Python) 不在時に自ら skip するため、
+        # 本 job (cfn-lint 未 install) では skip、cdk-cfn-lint job では実検証される。
+        run: node --test "scripts/__tests__/**/*.test.mjs"
 
       - name: No demo route duplication check (ADR-0039 / #1180)
         run: npm run check:no-demo-route-dup
@@ -1120,33 +1096,6 @@ jobs:
             test-results/
           retention-days: 7
 
-  # #1545-C3 調査結果: app トリガーは除去不可
-  # check-forbidden-terms.mjs の SEARCH_ROOTS に 'src' が含まれるため、
-  # src/ 変更時にも禁止語（旧プラン名・旧年齢用語等）の混入を検知する必要がある。
-  # check-site-html.mjs は site/ のみを検証するが、
-  # check-forbidden-terms.mjs が src/ 全体をスキャン対象とするため
-  # `app == 'true'` トリガーを維持する。
-  # 将来最適化案: check-forbidden-terms.mjs の SEARCH_ROOTS から 'src' を除外し
-  # src の禁止語チェックを biome/ESLint に移管すれば site-only トリガーに絞れる。
-  site-check:
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.site == 'true' || needs.changes.outputs.app == 'true'
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-
-      - name: Site internal links & required elements (#710)
-        run: node scripts/check-site-html.mjs
-
-      - name: Forbidden terms check (includes site/)
-        run: node scripts/check-forbidden-terms.mjs
-
   # ADR-0024 ルール 5 / #914 / #4129: 必須化された env / secret の配布証跡チェック
   # PR diff から `assert*Configured()` / 必須文言 (英語 + 日本語) / fail-fast guard、
   # および optional → required の変化 (#4129 AC5) を検出し、
@@ -1313,7 +1262,6 @@ jobs:
         e2e-cognito-dev,
         e2e-demo-lambda,
         docker-build,
-        site-check,
         new-env-distribution-check,
         schema-change-tests-check,
         schema-migration-completeness-check,
@@ -1363,7 +1311,6 @@ jobs:
         e2e-cognito-dev,
         e2e-demo-lambda,
         docker-build,
-        site-check,
         new-env-distribution-check,
         schema-change-tests-check,
         schema-migration-completeness-check,

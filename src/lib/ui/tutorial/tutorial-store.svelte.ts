@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { TUTORIAL_CHAPTERS } from './tutorial-chapters';
 import type { TutorialChapter, TutorialStep } from './tutorial-types';
 
@@ -153,7 +154,7 @@ async function activateChapter(chapterId: number, quickMode: boolean) {
 
 	const step = getCurrentStep();
 	if (step?.page) {
-		await goto(step.page);
+		await goto(resolve(step.page));
 	}
 }
 
@@ -198,7 +199,7 @@ export async function continueFullTutorial() {
 		saveProgress(nextChapter.id, 0);
 		const step = getCurrentStep();
 		if (step?.page) {
-			await goto(step.page);
+			await goto(resolve(step.page));
 		}
 	} else {
 		await completeTutorial();
@@ -221,7 +222,7 @@ export async function resumeTutorial() {
 
 	const step = getCurrentStep();
 	if (step?.page) {
-		await goto(step.page);
+		await goto(resolve(step.page));
 	}
 }
 
@@ -303,7 +304,7 @@ export async function nextStep() {
 	if (step?.page && typeof window !== 'undefined') {
 		const currentPath = window.location.pathname;
 		if (currentPath !== step.page) {
-			await goto(step.page);
+			await goto(resolve(step.page));
 		}
 	}
 }
@@ -326,7 +327,7 @@ export async function prevStep() {
 	if (step?.page && typeof window !== 'undefined') {
 		const currentPath = window.location.pathname;
 		if (currentPath !== step.page) {
-			await goto(step.page);
+			await goto(resolve(step.page));
 		}
 	}
 }
@@ -341,7 +342,7 @@ export async function skipToChapter(chapterId: number) {
 
 	const step = getCurrentStep();
 	if (step?.page) {
-		await goto(step.page);
+		await goto(resolve(step.page));
 	}
 }
 

@@ -1,5 +1,7 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { expect, within } from 'storybook/test';
+import { OPS_LABELS } from '$lib/domain/labels';
 import ContractStateAuditCard from './ContractStateAuditCard.svelte';
 
 // EPIC #4118 手 3。不正な契約状態 (X1-X4) は demo fixture では作れず実画面 SS が撮れないため、
@@ -28,6 +30,9 @@ const HEALTHY = {
 	total: 44,
 	problemRows: [],
 	truncated: 0,
+	// #4269 ①: 滞留 0 件。**行が消えないこと**を play で固定する
+	// (消えると「調べて 0 件」と「見ていない」が区別できない)。
+	loyaltyMonthKeys: { total: 44, legacy: 0 },
 };
 
 const WITH_PROBLEMS = {
@@ -60,6 +65,7 @@ const WITH_PROBLEMS = {
 		},
 	],
 	truncated: 0,
+	loyaltyMonthKeys: { total: 41, legacy: 3 },
 };
 
 const TRUNCATED = {
@@ -67,6 +73,7 @@ const TRUNCATED = {
 	total: 305,
 	problemRows: WITH_PROBLEMS.problemRows,
 	truncated: 202,
+	loyaltyMonthKeys: { total: 305, legacy: 12 },
 };
 
 const { Story } = defineMeta({
@@ -77,8 +84,22 @@ const { Story } = defineMeta({
 });
 </script>
 
-<!-- 全件正常。母数を出して「監査が動いていない」と読み違えられないようにする -->
-<Story name="Healthy" args={{ audit: HEALTHY }} />
+<!--
+	全件正常。母数を出して「監査が動いていない」と読み違えられないようにする。
+	#4269 ①: 継続月キーの滞留が **0 件のときも行が出る**ことをここで固定する
+	(0 件で消える実装だと「調べて 0 件」と「見ていない」が区別できない)。
+-->
+<Story
+	name="Healthy"
+	args={{ audit: HEALTHY }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvas.getByTestId('ops-loyalty-month-key');
+		await expect(row).toBeVisible();
+		await expect(row).toHaveTextContent(OPS_LABELS.loyaltyMonthKeyLabel);
+		await expect(row).toHaveTextContent(OPS_LABELS.loyaltyMonthKeyCount(0, 44));
+	}}
+/>
 
 <!-- 不正状態あり。#4118 手 2 で直した invoice.paid の X3 が在庫として残っている想定 -->
 <Story name="With problems" args={{ audit: WITH_PROBLEMS }} />

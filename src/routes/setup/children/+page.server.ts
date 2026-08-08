@@ -1,5 +1,4 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { addChild, getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
@@ -32,11 +31,14 @@ export const actions: Actions = {
 			return fail(400, { error: '年齢は0〜18で入力してください' });
 		}
 
-		// #0262: UIモードは年齢から自動判定
-		const uiMode = getDefaultUiMode(age);
-
-		await addChild({ nickname, age, theme, uiMode }, tenantId);
-		trackSetupFunnel('setup_child_registered', tenantId, { nickname, age, uiMode });
+		// #0262 / #4419: UI モードは年齢から自動判定する。判定は addChild (service 層) の
+		// 責務に統一したので、ここでは渡さず結果を受け取る (route ごとの二重実装を作らない)。
+		const child = await addChild({ nickname, age, theme }, tenantId);
+		trackSetupFunnel('setup_child_registered', tenantId, {
+			nickname,
+			age,
+			uiMode: child.uiMode,
+		});
 		return { success: true };
 	},
 

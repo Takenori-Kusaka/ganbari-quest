@@ -1,3 +1,4 @@
+import { jstDateOfIso } from '$lib/domain/date-utils';
 import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import { asCategoryId } from '$lib/domain/ids';
 
@@ -408,7 +409,7 @@ async function collectForChild(
 		points: log.points,
 		streakDays: log.streakDays,
 		streakBonus: log.streakBonus,
-		recordedDate: log.recordedAt.split('T')[0] ?? log.recordedAt,
+		recordedDate: log.recordedAt ? jstDateOfIso(log.recordedAt) : log.recordedAt,
 		recordedAt: log.recordedAt,
 		cancelled: false,
 	}));
@@ -486,6 +487,8 @@ async function collectForChild(
 		rewardRef: r.rewardTitle,
 		rewardExportId: `reward-${childRef}-${r.rewardId}`,
 		requestedAt: r.requestedAt,
+		// #4407: 1 申請 = N 個。個数を落とすと復元後に控除実績と履歴が食い違う。
+		quantity: r.quantity,
 		status: r.status,
 		parentNote: r.parentNote,
 		resolvedAt: r.resolvedAt,

@@ -180,7 +180,7 @@ flowchart LR
   href: /admin/subscription   aria-label: `${PLAN_FULL_TERMS.premium}管理`  # atom 経由 (ADR-0045 / B-4)
 ```
 
-> **ADR-0045 atom 経由 (#2606 B-4 解消)**: 上記 `aria-label` は実装時に template literal `` `${PLAN_FULL_TERMS.premium}管理` `` で生成する。Phase 7 で `PLAN_FULL_TERMS.premium` atom (現行値 = 「プレミアム」+「プラン」連結文字列 = 業界 SaaS Plus 慣行) を 1 行修正することで全 95+ 件に自動伝播 (atom 1 行修正原則)。文字列リテラル直書きは禁止 (`check-no-plan-literals.mjs` / `check-forbidden-terms.mjs` 整合)。
+> **ADR-0045 atom 経由 (#2606 B-4 解消)**: 上記 `aria-label` は実装時に template literal `` `${PLAN_FULL_TERMS.premium}管理` `` で生成する。Phase 7 で `PLAN_FULL_TERMS.premium` atom (現行値 = 「プレミアム」+「プラン」連結文字列 = 業界 SaaS Plus 慣行) を 1 行修正することで全 95+ 件に自動伝播 (atom 1 行修正原則)。文字列リテラル直書きは禁止 (`check-no-plan-literals.mjs` が CI hard-fail で検出。旧 `check-forbidden-terms.mjs` は #4322 で削除済み、#4426)。
 
 ### D. trial variant (planTier === 'premium' && isTrialActive)
 

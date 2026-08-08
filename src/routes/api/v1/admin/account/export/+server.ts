@@ -7,6 +7,7 @@
 //   family:   フル + きょうだい比較
 
 import { json } from '@sveltejs/kit';
+import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { requireRole } from '$lib/server/auth/guards';
 import { generateDeletionExportForTenant } from '$lib/server/services/deletion-export-service';
@@ -20,5 +21,12 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	const result = await generateDeletionExportForTenant(tenantId, licenseStatus, planId);
 
-	return json(result);
+	// ブラウザに JSON を表示させず、ファイルとして保存させる (#4472)。
+	// 応答は子供の氏名を含む PII なので、戻る操作 / 中間キャッシュに残さない。
+	return json(result, {
+		headers: {
+			'Content-Disposition': `attachment; filename="ganbari-quest-deletion-export-${todayDateJST()}.json"`,
+			'Cache-Control': 'no-store',
+		},
+	});
 };

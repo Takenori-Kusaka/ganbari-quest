@@ -115,6 +115,38 @@ function expectDeliveredWithDisposition(res: Response, expected: 'inline' | 'att
 	).not.toBeNull();
 }
 
+/**
+ * 認証済 user-content 配信の Cache-Control 不変条件 (#4415 follow-up)。
+ *
+ * `public` は共有キャッシュ (CloudFront / 企業 proxy 等) に「誰にでも配ってよい」と伝える
+ * ディレクティブであり、認証・tenant 一致を通してから返す子供の顔写真に付けてはならない。
+ * ブラウザ private cache は `private` でも効くため体感速度は落ちない。
+ */
+function expectPrivateCacheControl(res: Response, opts: { immutable: boolean }) {
+	const cacheControl = res.headers.get('Cache-Control');
+	expect(cacheControl, 'user-content 配信レスポンスは Cache-Control 必須').not.toBeNull();
+	// failing-test-first の核: `public` に戻すと必ず red。
+	expect(
+		cacheControl,
+		'認証済 user-content (子供の顔写真等) を共有キャッシュに配らせない (public 禁止、#4415 follow-up)',
+	).not.toMatch(/\bpublic\b/);
+	expect(cacheControl).toMatch(/\bprivate\b/);
+	if (opts.immutable) {
+		// uuid / content-hash 入りキー = URL と内容が 1:1。長期 immutable が正しい。
+		expect(cacheControl).toMatch(/\bimmutable\b/);
+	} else {
+		// 固定名キー (placeholder.svg) は同じ URL の中身が差し替わる。1 年 immutable だと
+		// ニックネーム / テーマ変更後も古い画像が出続けるため長期 immutable を付けない。
+		expect(
+			cacheControl,
+			'固定名キーに immutable を付けない (更新が cache に殺される、#4415 follow-up)',
+		).not.toMatch(/\bimmutable\b/);
+		const maxAge = Number(/max-age=(\d+)/.exec(cacheControl ?? '')?.[1] ?? '-1');
+		expect(maxAge).toBeGreaterThanOrEqual(0);
+		expect(maxAge, '固定名キーの max-age は短命 (1 時間以下)').toBeLessThanOrEqual(3600);
+	}
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	// 既定は raster 画像 (png) を配信する正常 Child (avatarUrl が要求 filename を指す)。
@@ -203,6 +235,47 @@ describe('#3827 user-content 配信不変条件 fitness (EPIC #3408 slice A / AD
 				headers: { 'Content-Type': 'image/png' },
 			});
 			expect(() => expectDeliveredWithDisposition(noDisposition, 'inline')).toThrow();
+		});
+	});
+
+	// ── (A2) 認証済 user-content の Cache-Control (#4415 follow-up) ──────────
+	describe('(A2) user-content 配信レスポンスは共有キャッシュに配らせない (private)', () => {
+		it('/tenants/[...path]: uuid 入りアバターキーは private + immutable', async () => {
+			const event = createMockEvent({
+				url: '/tenants/t-self/avatars/1/3f2b0c8e-0000-4000-8000-000000000000.png',
+				params: { path: 't-self/avatars/1/3f2b0c8e-0000-4000-8000-000000000000.png' },
+				context: { tenantId: 't-self', role: 'child' },
+			});
+			expectPrivateCacheControl((await tenantsGET(event)) as Response, { immutable: true });
+		});
+
+		it('/tenants/[...path]: 固定名の仮アバター (placeholder.svg) は private + 短命 (immutable なし)', async () => {
+			readFileMock.mockResolvedValue({
+				data: Buffer.from('<svg/>'),
+				contentType: 'image/svg+xml',
+			});
+			const event = createMockEvent({
+				url: '/tenants/t-self/avatars/1/placeholder.svg',
+				params: { path: 't-self/avatars/1/placeholder.svg' },
+				context: { tenantId: 't-self', role: 'child' },
+			});
+			expectPrivateCacheControl((await tenantsGET(event)) as Response, { immutable: false });
+		});
+
+		it('/uploads/avatars/[filename]: legacy flat アバターも private + immutable', async () => {
+			const event = createMockEvent({
+				url: '/uploads/avatars/avatar-1-abc.png',
+				params: { filename: 'avatar-1-abc.png' },
+				context: { tenantId: 't-self', role: 'parent' },
+			});
+			expectPrivateCacheControl((await avatarsGET(event)) as Response, { immutable: true });
+		});
+
+		it('guard 非トートロジー証明: public な Cache-Control は本検証で必ず fail する', () => {
+			const publicCached = new Response(new Uint8Array([1]), {
+				headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+			});
+			expect(() => expectPrivateCacheControl(publicCached, { immutable: true })).toThrow();
 		});
 	});
 

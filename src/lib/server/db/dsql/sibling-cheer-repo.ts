@@ -119,14 +119,21 @@ export function createDsqlSiblingCheerRepo(db: SqlExecutor): ISiblingCheerRepo {
 			return (result.rows as unknown as CheerRow[]).map(toCheer);
 		},
 
-		async markShown(cheerIds, tenantId) {
+		async markShown(toChildId, cheerIds, tenantId) {
 			if (cheerIds.length === 0) return;
+			// #4435 (逸脱 1 / 2、条件 SSOT: parallel-implementations.md §13):
+			//   - **所有権**: `to_child_id` を述語に足す。family_id (§P9 tenant 述語) だけでは
+			//     同一家族のきょうだいが別の子宛のおうえんを既読にでき、受け取る側が一度も見られない。
+			//     他 3 例と同じ複合キー方式 (child_id + 対象 id) に揃える (#2845 課題①の漏れ)。
+			//   - **冪等**: `shown_at IS NULL` を足し、再送で初回表示時刻を上書きしない。
 			await db.execute(sql`
 				UPDATE sibling_cheers SET shown_at = now()
-				WHERE family_id = ${tenantId} AND cheer_id IN (${sql.join(
-					cheerIds.map((id) => sql`${id}`),
-					sql`, `,
-				)})
+				WHERE family_id = ${tenantId} AND to_child_id = ${toChildId}
+					AND shown_at IS NULL
+					AND cheer_id IN (${sql.join(
+						cheerIds.map((id) => sql`${id}`),
+						sql`, `,
+					)})
 			`);
 		},
 

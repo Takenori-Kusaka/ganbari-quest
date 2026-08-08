@@ -67,8 +67,29 @@ jobs:
           #   input / config-file いずれにも該当キー無し)。したがって将来 brace-expansion が
           #   **ランタイム依存**として入っても同 advisory なら本 gate は黙る。この穴は
           #   `tests/unit/infra/dependency-review-waiver.test.ts` が塞ぐ (`[W1]` root lock で非 dev 化
-          #   したら fail = 入口を狭める / `[W5]` bundled が 5.0.8 以上になったら fail = 撤去を強制)。
+          #   したら fail = 入口を狭める / `[W5]` bundled が 5.0.9 以上になったら「waiver を消せ」に
+          #   変わる = 撤去を強制)。
           #
-          # 撤去条件: aws-cdk-lib が brace-expansion 5.0.8 以上を同梱したら lock を上げて
-          #   本 waiver と上記 test の `[W5]` を削除する。到達検知は `[W5]` が機械的に行う。
+          # 撤去条件: aws-cdk-lib が brace-expansion **5.0.9** 以上を同梱したら lock を上げて
+          #   本 waiver・下記の受容記録・`.github/dependabot.yml` の aws-cdk-lib pin・上記 test file を
+          #   同じ PR で削除する。到達検知は `[W5]` が機械的に行う。
+          #   (5.0.8 は本 advisory の patched だが、下記 GHSA-rgw5-rvv9-x895 の affected なので撤去点にしない)
+          #
+          # --- 受容記録 (waive しない): GHSA-rgw5-rvv9-x895 -----------------------------
+          # brace-expansion / high / CVE-2026-14257 の緩和を bypass する DoS。
+          # 実測 (2026-08-07 GitHub Security Advisory API):
+          #   vulnerableVersionRange = ">= 4.0.0, < 5.0.9" / firstPatchedVersion = "5.0.9"
+          # つまり infra lock に留めている **bundled 5.0.7 も本 advisory の affected** であり、
+          # 5.0.7 への据え置きは「新たに 5.0.8 を持ち込まない」だけで脆弱性は解消していない。
+          #
+          # 受容してよい理由: waiver 対象と同じ経路 (`infra/node_modules` = CDK synth 専用) にしか
+          #   存在せず、本番イメージに一度も install されない。攻撃者が到達する入力経路が無い
+          #   (glob の入力はリポジトリ内の記述のみ)。
+          # 解消条件: aws-cdk-lib が brace-expansion 5.0.9 以上を同梱した版を出したら lock を上げる。
+          #   `.github/dependabot.yml` の aws-cdk-lib pin を外すと Dependabot が自動で提案してくる。
+          #
+          # **`allow-ghsas` には足さない**: 足すと本 advisory はどの経路で入っても gate が黙る。
+          #   現に aws-cdk-lib 2.263.0 (bundled 5.0.8) は本 gate が赤で止めた = 検知は今も効いている。
+          #   実エクスポージャが無いことは「赤を無視してよい」理由にはなるが「赤を出なくしてよい」
+          #   理由にはならないため、受容は本コメントと test (`[W6]`) に記録するに留める。
           allow-ghsas: GHSA-mh99-v99m-4gvg

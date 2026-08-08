@@ -91,9 +91,13 @@ jobs:
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts が production で必須要求。
           # 未注入だと /admin/* cold start で throw して 500 連発 (PR #2325 で実害発生)。
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          # #4280: CloudFront -> origin の front door header。未登録だと CDK synth が throw して
+          # deploy が止まる (header 無しの distribution = Function URL 直叩きで /admin ・ /ops に
+          # 到達可能なまま黙って動く、を作らせない)。ここで先に落として原因を明示する。
+          ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
         run: |
           missing=0
-          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET; do
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET ORIGIN_VERIFY_SECRET; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -140,8 +144,11 @@ jobs:
           npx cdk diff GanbariQuestStorage \
             -c domainName=${{ env.DOMAIN_NAME }} \
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
+            -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       - name: CDK Deploy Storage
@@ -150,8 +157,11 @@ jobs:
           npx cdk deploy GanbariQuestStorage --require-approval never
           -c domainName=${{ env.DOMAIN_NAME }}
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Phase 2: Build and push Docker image to ECR (ARM64 native on Graviton runner)
       - name: Login to Amazon ECR
@@ -256,15 +266,17 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
-          -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
@@ -328,15 +340,17 @@ jobs:
             -c certificateArn=${{ env.CERTIFICATE_ARN }} \
             -c staticAssetsS3Offload=true \
             -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }} \
-            -c geminiApiKey=${{ secrets.GEMINI_API_KEY }} \
             -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
             -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
             -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }} \
             -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }} \
             -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }} \
             -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
+            -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }} \
@@ -355,15 +369,17 @@ jobs:
           -c certificateArn=${{ env.CERTIFICATE_ARN }}
           -c staticAssetsS3Offload=true
           -c feedbackDiscordWebhookUrl=${{ secrets.FEEDBACK_DISCORD_WEBHOOK_URL }}
-          -c geminiApiKey=${{ secrets.GEMINI_API_KEY }}
           -c stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
           -c stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           -c stripePriceStandardMonthly=${{ vars.STRIPE_PRICE_STANDARD_MONTHLY }}
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
+          -c gracePeriodDeletionDisabled=${{ vars.GRACE_PERIOD_DELETION_DISABLED || 'false' }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           -c discordWebhookIncident=${{ secrets.DISCORD_WEBHOOK_INCIDENT }}
@@ -669,6 +685,26 @@ jobs:
           echo "Health check failed after 5 attempts (last status: $STATUS)"
           exit 1
 
+      # #4280: front door 検査が**実際に効いているか**を deploy 後に確認する。
+      # health check (/api/health) は front door 対象外なので必ず 200 を返し、
+      # 「検査が黙って無効」を検出できない (ADR-0024 silent skip 禁止の実効化)。
+      # header を付けずに /admin を叩いて 404 が返ることが、enforcement が live な証拠になる。
+      #
+      # 検出できない残余: CloudFront 側 header が origin 側 env とずれる方向。
+      # 検証には CloudFront 経由の request が要るが、本番 CloudFront は geoRestriction JP で
+      # GitHub Actions runner (日本国外) からは 403 になるため自動化できない (PR #4312 で明示)。
+      - name: Front door enforcement check (#4280)
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config             --function-name $LAMBDA_FUNCTION             --region $AWS_REGION             --query 'FunctionUrl' --output text)
+          FUNCTION_URL="${FUNCTION_URL%/}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}/admin")
+          echo "Front door check: GET ${FUNCTION_URL}/admin (no header) -> $STATUS"
+          if [ "$STATUS" != "404" ]; then
+            echo "::error::front door 検査が効いていません (期待 404、実際 $STATUS)。ORIGIN_VERIFY_SECRET が Lambda env に届いていない可能性があります。この状態では /admin ・ /ops に Function URL 直で到達でき、CloudFront 層の制御 (geoRestriction) を迂回できます (#4280)"
+            exit 1
+          fi
+          echo "::notice::front door enforcement is live (Function URL 直の /admin は 404)"
+
       # Phase 5b: Rollback on health check failure
       - name: Rollback on failure
         if: failure() && steps.healthcheck.outcome == 'failure'
@@ -846,6 +882,30 @@ jobs:
           fi
           echo "::notice::DSQL backup smoke test passed (#3808)"
 
+      # #4352: IaC の外で足された env (out-of-band drift) の検出。
+      #
+      # CloudFormation はテンプレート無変更ならリソースを触らないため、`aws lambda
+      # update-function-configuration` で手で足した env は **次の deploy でも消えない**
+      # (staging では実際に検証用の STRIPE_PRICE_* が full deploy を跨いで残り、#4286 の
+      # 修正が効いているかを staging で判定できない状態が続いた、#4117 E1)。
+      #
+      # 上の "Incident webhook env verification" が「あるべきキーがあるか」を見るのに対し、
+      # 本 step は「**あるべきでないキーが無いか**」を見る (逆方向)。値は読まずキー名だけで判定する。
+      # 欠落 (テンプレートにあるが live に無い) は warning に留め、extra のみ hard-fail する。
+      #
+      # **配置は deploy job の末尾** (PO 決裁 2026-08-07、#4365)。本 step が落ちる時点で
+      # アプリ本体は既に live であり、早く落としても何も守られない。一方 job の途中に置くと
+      # 後続の検証 (#4174 通知配線 / #4189 alarm 宛先 / demo Lambda image 更新 / #1586 cron smoke /
+      # #4280 front door / #3808 backup smoke) が丸ごと skip される。末尾なら deploy は同じく
+      # 赤くなり、他の検証は全て実行される。
+      - name: Lambda env drift check (production, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestCompute.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION"
+
   e2e-production:
     needs: deploy
     runs-on: ubuntu-latest
@@ -907,6 +967,12 @@ jobs:
         run: npx playwright test --config playwright.production.config.ts
         env:
           E2E_BASE_URL: ${{ steps.function-url.outputs.url }}
+          # #4280: 本 smoke は Function URL を直接叩く (本番 CloudFront は geoRestriction JP で
+          # runner が日本国外のため経由できない)。front door 検査が掛かる /admin へ遷移するので、
+          # CloudFront が付けるのと同じ header を smoke 自身が付ける。未注入だと login 後の
+          # /admin が 404 になり deploy のたびに偽の赤が出る。
+          # trace は secret 保持時 off (public repo の artifact に header が載るため、config 参照)。
+          ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 

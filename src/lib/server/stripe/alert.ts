@@ -65,6 +65,13 @@ export type StripeAlertKind =
 	// 「受け取って 200 を返したのに処理していない」= silent drop の唯一の外形的証拠。
 	// pending>0 を条件にする `stripe-webhook-undelivered` では原理的に検知できない領域を持つ。
 	| 'stripe-webhook-ledger-gap'
+	// #4329: Customer Portal session を作れなかった。顧客は解約導線の途中で止まっており、
+	// 画面には代替手段を出すが、**設定・障害の是正は運用側にしかできない**。
+	// 顧客も運営も気づけない状態 (旧実装は無言で thanks へ落としていた) を断つ。
+	| 'stripe-portal-create-failed'
+	// #4329: checkout が配備・設定側の異常で失敗した (plan config 欠落 / session URL 不在 /
+	// 認証済 tenant の不在)。#4286 は同種の設定不備が 10 日間気づかれなかった。
+	| 'stripe-checkout-misconfigured'
 	// #3959: 上の未達検知そのものが失敗した (Stripe API 障害 / DB 障害 等)。検知器が動いて
 	// いない間は未達を見逃すため、検知器の停止自体を 1 つの障害として鳴らす。cron dispatcher は
 	// 非 2xx を throw せず返すため Lambda の error alarm では表面化しない (#4102 QM 指摘 M3)。

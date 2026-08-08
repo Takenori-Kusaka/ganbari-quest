@@ -20,6 +20,17 @@ let {
 const sizeMap = { sm: 36, md: 64, lg: 96 };
 const fontSize = { sm: '1rem', md: '1.75rem', lg: '2.5rem' };
 const px = $derived(sizeMap[size]);
+
+// 画像の取得に失敗したら 👤 に落とす (#4429)。
+// `{#if avatarUrl}` だけだと「URL はあるが取得できない」状態 (オフライン / 実体欠落 / 権限失効) で
+// ブラウザ既定の壊れ画像アイコンが出る。文字の読めない年齢帯 (baby / preschool) には
+// 壊れ画像より 👤 の方が意味が伝わるため、明示的にフォールバックする。
+let imgFailed = $state(false);
+// avatarUrl が差し替わったら再挑戦する (別の子供の表示 / アップロード直後)。
+$effect(() => {
+	void avatarUrl;
+	imgFailed = false;
+});
 </script>
 
 <div
@@ -34,13 +45,16 @@ const px = $derived(sizeMap[size]);
 		style:width="{px}px"
 		style:height="{px}px"
 	>
-		{#if avatarUrl}
+		{#if avatarUrl && !imgFailed}
 			<img
 				src={avatarUrl}
 				alt={nickname}
 				class="avatar-img"
 				style:width="{px - 6}px"
 				style:height="{px - 6}px"
+				onerror={() => {
+					imgFailed = true;
+				}}
 			/>
 		{:else}
 			<span class="avatar-fallback" style:font-size={fontSize[size]}>👤</span>

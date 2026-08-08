@@ -13,6 +13,7 @@ import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
+import { resolveOriginVerifyPreviousSecret } from './origin-verify-context';
 
 // SSOT: src/lib/server/cron/schedule-registry.ts
 // CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
@@ -22,8 +23,19 @@ const CRON_JOBS = [
 	// (CronRuleLicenseExpire)。期限管理は customer.subscription.deleted webhook に代替。
 	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
+	// #1381 (#4033 AC4): 子供の年齢自動インクリメント
+	{ name: 'age-recalc', utcCronExpression: 'cron(0 15 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
+	// #1648 R43 (#4033 AC3): グレースピリオド期限切れテナントの物理削除バッチ。
+	// **第 21 回統合 (#4304) で Rule を作らない状態に戻した** (監査 revert + PO 決裁 2026-08-06)。
+	// #4327 が「予告なし・観測不能・停止不能・復旧不能」の 4 条件を検出したため。
+	// PR #4340 で 4 条件のうち 3 つ (宙吊り行 / 観測不能 / 停止不能) は解消済。復活は残る復旧不能 (#4338) と
+	// dry-run の件数を出したオーナー承認が揃ってから。
+	// (dispatcher の KNOWN_ENDPOINTS には残す — Rule が無ければ発火しないため無害で、
+	//  復活時に endpoint 側の追従漏れを起こさない)
+	// #2399: 猶予期間中のテナントへ削除予定日を予告する (grace-period-deletion の前段通知)
+	{ name: 'deletion-warning-emails', utcCronExpression: 'cron(0 1 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
@@ -31,6 +43,21 @@ const CRON_JOBS = [
 	// #3959: Stripe webhook 未達 (沈黙) の検知バッチ (毎時)
 	{ name: 'stripe-webhook-delivery-check', utcCronExpression: 'cron(5 * * * ? *)' },
 ] as const;
+
+// --- Bedrock (#4367) ---
+// SSOT は src/lib/server/ai/bedrock-claude-provider.ts の DEFAULT_MODEL_ID。CDK tsconfig の
+// rootDir は infra/ 固定で src/ を import できないため、CRON_JOBS と同じくインライン定義する。
+//
+// **base model ID を使い、`us.` 等の geo inference profile は使わない**。profile は
+// us-east-1 に投げても us-east-2 / us-west-2 で推論されうる = 子供の活動テキストが
+// 開示リージョン (privacy.html 第 10 条: us-east-1) の外に出る。Pre-PMF で throughput
+// 冗長性は不要なので in-Region に固定する。
+const BEDROCK_REGION = 'us-east-1';
+const BEDROCK_MODEL_ID = 'anthropic.claude-haiku-4-5-20251001-v1:0';
+// foundation-model ARN は account 部が空 (AWS 管理リソース)。
+// profile を使う場合は profile ARN + 対象 3 リージョンの FM ARN を並べる必要があるが、
+// base model 固定なのでこの 1 本だけで足りる。
+const BEDROCK_MODEL_ARN = `arn:aws:bedrock:${BEDROCK_REGION}::foundation-model/${BEDROCK_MODEL_ID}`;
 
 export interface ComputeStackProps extends cdk.StackProps {
 	assetsBucket: s3.Bucket;
@@ -114,8 +141,9 @@ export class ComputeStack extends cdk.Stack {
 			`${cfg.ssmPrefix}/context-token-secret`,
 		);
 
-		// --- Gemini API Key（SSM から取得、未設定時はフォールバック動作） ---
-		const geminiApiKey = this.node.tryGetContext('geminiApiKey') ?? '';
+		// #4397: GEMINI_API_KEY の注入は撤去した。SaaS (AWS) 側から Google の生成 AI を
+		// 呼ぶ経路は、アバターの AI 生成 (子供のニックネーム / 年齢を送る配線) の廃止により
+		// 存在しない。NUC 側のテキスト補助は deploy-nuc.yml が別途鍵を配る。
 
 		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
@@ -163,6 +191,10 @@ export class ComputeStack extends cdk.Stack {
 		// 後方互換: 既存 GitHub Secret `OPS_SECRET_KEY` を cronSecret context として渡す運用が続く間は、
 		// CDK でも OPS_SECRET_KEY / CRON_SECRET の両方の env を Lambda に注入し、
 		// アプリ側 (checkAuth) がどちらでも通るようにする。
+		// #4327: 顧客データ物理削除の kill-switch。deploy 時に `-c gracePeriodDeletionDisabled=true`
+		// を渡すと物理削除を停止したまま deploy できる (既定は従来どおり有効)。
+		const gracePeriodDeletionDisabled =
+			this.node.tryGetContext('gracePeriodDeletionDisabled') === 'true' ? 'true' : 'false';
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
@@ -188,6 +220,52 @@ export class ComputeStack extends cdk.Stack {
 					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
 					'Pass -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} in the deploy workflow. ' +
 					'See docs/decisions/0050-parent-gate-session-cookie-signature.md and infra/CLAUDE.md.',
+			);
+		}
+
+		// #4280 案 b: CloudFront → origin の shared secret (`x-origin-verify`)。CloudFront 側
+		// (network-stack.ts) が付与し、アプリ側 (hooks.server.ts) が /admin ・ /api/v1/admin ・
+		// /ops で一致を要求する。**同じ CDK context から両者に配るため、header と検査が食い違わない**。
+		//
+		// ここでは throw しない: 未設定時の fail-fast は `infra/bin/app.ts` の
+		// `resolveOriginVerifySecret()` が単一点で担う (どの cdk 実行も app.ts を通る)。
+		// demo Lambda (SvelteKitDemoFn) には注入しない — demo は独立 distribution 配信で
+		// /ops を持たず、/admin も公開デモデータのみ。未注入 = 検査無効 (fail-open) で従来どおり動く。
+		const originVerifySecret = this.node.tryGetContext('originVerifySecret') ?? '';
+
+		// #4364: ローテーション中だけ渡す 1 世代前の値。**Lambda env にのみ**載せる
+		// (CloudFront が送るのは常に現行値 1 本なので network-stack.ts には渡さない)。
+		// `cdk deploy --all` は Compute → Network の順に走るため、単一値受理のままだと
+		// 「Lambda は新値を期待 / CloudFront はまだ旧値を送出」の窓が必ず開き、その間
+		// /admin ・ /api/v1/admin ・ /ops が全顧客で 404 になる。旧値を並行受理して窓を閉じる。
+		// 未指定 (定常状態) は正常 = undefined。指定されているのに短すぎる場合だけ throw する
+		// (黙って捨てるとローテーション中に 404 になる silent skip、ADR-0024)。
+		const originVerifyPreviousSecret = resolveOriginVerifyPreviousSecret(this.node);
+
+		// #4369 follow-up: `ORIGIN_VERIFY_SECRET_PREVIOUS` はローテーション手順の 3 段中間
+		// (docs/runbooks/origin-verify-secret-rotation.md 段 1〜2) でのみ設定されるべき値で、
+		// 段 3 (旧値を空にする) を忘れて deploy し続けても synth は成功し警告も出なかった。
+		// 失効させたはずの旧 secret が front door を無期限に通り続ける = ローテーションの
+		// 目的が達成されないまま気付けない状態が放置される。
+		//
+		// hard-fail (addError) にはしない: ローテーション中 (段 1〜2) はこの状態が**正常**であり、
+		// 途中で deploy を止めると窓が開く側の事故になる (runbook §1 参照)。warning に留め、
+		// 「設定されたままであること」自体を synth 時点で可視化するだけに留める。
+		// runtime 側の 1 回だけの warn ログ (`ORIGIN_VERIFY_SECRET_PREVIOUS が設定されています`、
+		// src/lib/server/security/origin-verify.ts) と二重の検知経路になる (CloudWatch Logs は
+		// deploy 後に見に行く必要があるが、synth warning は `cdk diff` / deploy workflow の出力に
+		// 都度出るため気付く機会が増える)。
+		//
+		// 設定日を持たせる (新規 env を追加する) かは検討したが見送った: 既存の CloudWatch Logs
+		// 検知 (runbook §残置の検知) で「出続けている = 未完了」は既に分かっており、開始日時を
+		// 別途配布する新 env を増やすコストに見合わない。必要になれば
+		// `ORIGIN_VERIFY_SECRET_PREVIOUS_SET_AT` 等を追加ローテーションで検討する。
+		if (originVerifyPreviousSecret) {
+			cdk.Annotations.of(this).addWarning(
+				'[ComputeStack] ORIGIN_VERIFY_SECRET_PREVIOUS (originVerifySecretPrevious context) が' +
+					'設定されたままです。ローテーションが完了しているなら空にしてください' +
+					' (docs/runbooks/origin-verify-secret-rotation.md 段 3)。' +
+					'旧 secret を無期限に受理し続けると、漏れた旧値がいつまでも front door を通ります。',
 			);
 		}
 
@@ -299,6 +377,10 @@ export class ComputeStack extends cdk.Stack {
 			...(stagingStripeSecretKey ? { STRIPE_SECRET_KEY: stagingStripeSecretKey } : {}),
 			...(stagingStripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stagingStripeWebhookSecret } : {}),
 			...(stagingStripeSecretKey ? { USE_LOOKUP_KEY: 'true' } : {}),
+			// #4367 AC4 / AC5: staging は AI 提案の実機確認先。env が無いと isAvailable() が
+			// false のまま (#4366) で確認自体が成立しないため、本番と同じ値を配る。
+			BEDROCK_MODEL_ID: BEDROCK_MODEL_ID,
+			BEDROCK_REGION: BEDROCK_REGION,
 		};
 
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
@@ -340,6 +422,12 @@ export class ComputeStack extends cdk.Stack {
 						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
 						CONTEXT_TOKEN_SECRET: contextTokenSecret,
 						MAINTENANCE_MODE: 'false',
+						// #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+						// 'true' で削除を一切実行しない。既定 'false' = 従来動作。
+						// EventBridge Rule の disable (`aws events disable-rule`) が「cron を呼ばない」
+						// 防御なのに対し、本 env は「呼ばれても消さない」防御 (手動 POST も止まる)。
+						// 手順: docs/runbooks/grace-period-deletion-operations.md
+						GRACE_PERIOD_DELETION_DISABLED: gracePeriodDeletionDisabled,
 						...(feedbackDiscordWebhookUrl
 							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
 							: {}),
@@ -358,7 +446,10 @@ export class ComputeStack extends cdk.Stack {
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
 							: {}),
-						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
+						...(originVerifyPreviousSecret
+							? { ORIGIN_VERIFY_SECRET_PREVIOUS: originVerifyPreviousSecret }
+							: {}),
 						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
 						...(stripePriceStandardMonthly
@@ -372,6 +463,13 @@ export class ComputeStack extends cdk.Stack {
 						// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
 						USE_LOOKUP_KEY: useLookupKey,
 						COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
+						// #4367 AC4: BedrockClaudeProvider.isAvailable() は BEDROCK_MODEL_ID の
+						// **明示配布**を可用性条件にする (#4366)。既定値を持っていても配らない限り
+						// AI 提案 / レシート OCR は無効のままなので、ここで配ることが「AWS で
+						// Bedrock を使うと決めた」の唯一の表明になる。IAM (下の bedrock:InvokeModel)
+						// と対で初めて動く。
+						BEDROCK_MODEL_ID: BEDROCK_MODEL_ID,
+						BEDROCK_REGION: BEDROCK_REGION,
 						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
 						// #3438 Phase 2A: DATA_SOURCE=dsql は base env に無条件で含む (旧 dsqlEnabled 上書き撤去)。
@@ -382,6 +480,10 @@ export class ComputeStack extends cdk.Stack {
 						...stagingEnvironment,
 						...(parentGateCookieSecret
 							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
+							: {}),
+						...(originVerifySecret ? { ORIGIN_VERIFY_SECRET: originVerifySecret } : {}),
+						...(originVerifyPreviousSecret
+							? { ORIGIN_VERIFY_SECRET_PREVIOUS: originVerifyPreviousSecret }
 							: {}),
 					},
 		});
@@ -402,6 +504,20 @@ export class ComputeStack extends cdk.Stack {
 				}),
 			);
 		}
+
+		// #4367 AC2: Bedrock 推論権限。prod / staging 共通で付与する (staging は AC5 の実機確認先で、
+		// SES / Cost Explorer と違い外部サービスへの副作用を持たない = 推論のみで保存なし)。
+		//
+		// `bedrock:Converse` という IAM アクションは存在しない — Converse API は
+		// `bedrock:InvokeModel` で認可される (AWS 公式)。Resource は使う 1 モデルの ARN に絞り、
+		// `*` にしない (`*` だと将来 model を増やしたとき権限だけ先に広がり、何が呼べるかが
+		// コードから読めなくなる)。geo inference profile を使わないので ARN は 1 本で足りる。
+		this.fn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ['bedrock:InvokeModel'],
+				resources: [BEDROCK_MODEL_ARN],
+			}),
+		);
 
 		// staging (#2873): SES / Cost Explorer grant は付与しない (本番外部サービスへの
 		// 副作用ゼロ + blast radius 最小化。SES env も非注入のためアプリは送信経路を持たない)。
@@ -505,6 +621,16 @@ export class ComputeStack extends cdk.Stack {
 				rule.addTarget(
 					new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
 						event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
+						// #4327: 非冪等な job だけリトライを切る (既定は Lambda 非同期の 2 回リトライを維持)。
+						//
+						// 一律 0 にしてはならない。ほとんどの cron は冪等で、リトライは
+						// 「1 回の失敗で取りこぼす」ことへの防御として働いている:
+						//   - deletion-warning-emails … 送信済フラグ (settings) で冪等。ここで retry を
+						//     切ると 1 度の失敗で **予告のないまま削除される** (#4327 が塞ごうとしている状態そのもの)
+						//   - pmf-survey … 年 2 回起動。1 回の失敗が 6 ヶ月の欠測になる
+						// 一方 grace-period-deletion は「途中まで削除されたテナントに purge が再走する」
+						// 非冪等性を持つため、再送より再走回避を優先する。
+						...('disableRetry' in job && job.disableRetry ? { retryAttempts: 0 } : {}),
 					}),
 				);
 			}
@@ -607,7 +733,6 @@ export class ComputeStack extends cdk.Stack {
 				//   - ASSETS_BUCKET (S3) / DSQL_ENDPOINT (DSQL backend)
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
 				//   - STRIPE_* (Stripe)
-				//   - GEMINI_API_KEY (Gemini)
 				//   - CRON_SECRET / OPS_SECRET_KEY (cron / ops)
 				//   - DISCORD_WEBHOOK_* (Discord)
 				//   - SES_SENDER_EMAIL / SES_CONFIG_SET_NAME (SES)

@@ -203,6 +203,9 @@ vi.mock('$lib/server/services/recommendation-service', () => ({
 vi.mock('$lib/server/services/child-challenge-service', () => ({
 	claimChildChallengeReward: vi.fn(),
 	getActiveChildChallengesWithSiblings: vi.fn().mockResolvedValue([]),
+	// #4410: load が祝福対象の解決に使う
+	resolveCelebrationChallenge: vi.fn(() => null),
+	markChallengeCelebrationShown: vi.fn().mockResolvedValue(true),
 }));
 vi.mock('$lib/server/services/sibling-cheer-service', () => ({
 	getUnshownCheers: vi.fn().mockResolvedValue([]),

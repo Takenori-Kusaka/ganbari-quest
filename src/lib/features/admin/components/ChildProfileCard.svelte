@@ -87,8 +87,6 @@ $effect(() => {
 });
 
 // Avatar
-let generating = $state(false);
-let generateResult = $state<{ filePath?: string; error?: string } | null>(null);
 let uploading = $state(false);
 let uploadResult = $state<{ avatarUrl?: string; error?: string } | null>(null);
 
@@ -117,30 +115,6 @@ const detailTabs = [
 ] as const;
 
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
-
-async function generateAvatar() {
-	generating = true;
-	generateResult = null;
-	try {
-		const res = await fetch('/api/v1/images', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ type: 'avatar', childId: child.id }),
-		});
-		const json = await res.json();
-		if (res.ok) {
-			generateResult = { filePath: json.filePath };
-		} else {
-			generateResult = {
-				error: json.error?.message ?? CHILD_PROFILE_CARD_LABELS.avatarGenerateFailed,
-			};
-		}
-	} catch {
-		generateResult = { error: CHILD_PROFILE_CARD_LABELS.avatarNetworkError };
-	} finally {
-		generating = false;
-	}
-}
 
 async function uploadAvatar(file: File) {
 	uploading = true;
@@ -230,7 +204,14 @@ function clearRecording() {
 	recordDuration = 0;
 }
 
-const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?? child.avatarUrl);
+const avatarSrc = $derived(uploadResult?.avatarUrl ?? child.avatarUrl);
+
+// 画像取得に失敗したら 👤 に落とす (#4429、`AvatarDisplay.svelte` と同じ理由)。
+let imgFailed = $state(false);
+$effect(() => {
+	void avatarSrc;
+	imgFailed = false;
+});
 </script>
 
 <Card padding="none" class="profile-card">
@@ -246,8 +227,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 				<h4 class="profile-edit__section-title">{CHILD_PROFILE_CARD_LABELS.avatarSectionTitle}</h4>
 				<div class="profile-edit__avatar-row">
 					<div class="profile-edit__avatar">
-						{#if avatarSrc}
-							<img src={avatarSrc} alt={child.nickname} class="profile-edit__avatar-img" />
+						{#if avatarSrc && !imgFailed}
+							<img
+								src={avatarSrc}
+								alt={child.nickname}
+								class="profile-edit__avatar-img"
+								onerror={() => {
+									imgFailed = true;
+								}}
+							/>
 						{:else}
 							<span class="profile-edit__avatar-placeholder">👤</span>
 						{/if}
@@ -263,25 +251,13 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 								disabled={uploading}
 							/>
 						</label>
-						<Button
-							variant="ghost"
-							size="sm"
-							class="bg-[var(--color-premium-bg)] text-[var(--color-premium)] hover:opacity-80"
-							disabled={generating}
-							onclick={generateAvatar}
-						>
-							{generating ? CHILD_PROFILE_CARD_LABELS.avatarGenerating : CHILD_PROFILE_CARD_LABELS.avatarGenerateButton}
-						</Button>
 					</div>
 				</div>
-				{#if uploadResult?.error || generateResult?.error}
-					<p class="profile-edit__error">{uploadResult?.error ?? generateResult?.error}</p>
+				{#if uploadResult?.error}
+					<p class="profile-edit__error">{uploadResult.error}</p>
 				{/if}
 				{#if uploadResult?.avatarUrl}
 					<p class="profile-edit__success">{CHILD_PROFILE_CARD_LABELS.avatarUploadSuccess}</p>
-				{/if}
-				{#if generateResult?.filePath}
-					<p class="profile-edit__success">{CHILD_PROFILE_CARD_LABELS.avatarGenerateSuccess}</p>
 				{/if}
 			</div>
 
@@ -442,8 +418,15 @@ const avatarSrc = $derived(uploadResult?.avatarUrl ?? generateResult?.filePath ?
 		<!-- Profile header -->
 		<div class="profile-header">
 			<div class="profile-header__avatar">
-				{#if avatarSrc}
-					<img src={avatarSrc} alt={child.nickname} class="profile-header__avatar-img" />
+				{#if avatarSrc && !imgFailed}
+					<img
+						src={avatarSrc}
+						alt={child.nickname}
+						class="profile-header__avatar-img"
+						onerror={() => {
+							imgFailed = true;
+						}}
+					/>
 				{:else}
 					<span class="profile-header__avatar-placeholder">👤</span>
 				{/if}

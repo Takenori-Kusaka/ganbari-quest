@@ -116,12 +116,6 @@
 /* #1910 AC2 (UIUX-A-2): mobile (max-width:640px) でも hero-price-band の padding を 10px 14px → 8px 14px に圧縮し、
    PC 側 .hero-price-band の padding (8px 14px) と縦軸整合 */
 @media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:8px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
-/* #1626 R22: CTA 直下の不安解消 3 バッジ */
-/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、line-height 内に収めるよう vertical-align:middle) */
-/* #1910 AC3 (UIUX-A-3): SVG を 16→18px に拡大。docs/design/asset-catalog.md「width/height:18px」既定値整合 */
-.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:0 auto 14px;max-width:560px;font-size:.82rem;color:var(--gray-700)}
-.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
-.cta-trust-badges li img{width:18px;height:18px;flex-shrink:0;vertical-align:middle}
 /* #1628 R24: 仕様起点の数字バッジ */
 /* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
    横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
@@ -177,7 +171,7 @@
 /* #1839: --lp-section-padding-y / -x を共有 (28px / 16px) */
 #core-loop{padding:var(--lp-section-padding-y) var(--lp-section-padding-x)}
 #core-loop .section-desc{margin-bottom:var(--space-5)}
-/* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
+/* 1-shot summary 画像 (生成画像、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
 /* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
 /* #1889: background:#fff を撤去 — SVG/PNG が透過化されたため LP section 背景に自然に溶け込む */
@@ -679,7 +673,7 @@
     <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
     <p class="section-desc" data-lp-key="coreloop.sectionDesc">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。</p>
 
-    <!-- 1-shot summary 画像（Gemini 生成、活動 → 習慣 → ごほうびの循環図） -->
+    <!-- 1-shot summary 画像（生成画像、活動 → 習慣 → ごほうびの循環図） -->
     <figure class="core-loop-summary">
       <img src="assets/lp/core-loop-summary.webp" alt="活動 → 習慣 → ごほうび の循環図 — D3 勇者キャラクターを中心に 3 要素が円環で結ばれる" data-lp-key="coreloop.summaryImageAlt" data-lp-attr="alt" width="640" height="320" loading="lazy" data-lightbox>
       <figcaption data-lp-key="coreloop.summaryCaption">活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。</figcaption>

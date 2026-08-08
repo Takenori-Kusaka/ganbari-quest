@@ -23,7 +23,7 @@ export interface SpecialApplyResult {
 	errors: string[];
 }
 
-const SPECIAL_REASON = 'special ruleType は将来枠、仕様未確定のため本取込は no-op';
+export const SPECIAL_REASON = 'special ruleType は将来枠、仕様未確定のため本取込は no-op';
 
 /**
  * special apply: 意図的 no-op。warning を返却し audit log に記録する。

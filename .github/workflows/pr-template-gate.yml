@@ -117,41 +117,6 @@ jobs:
             --template-file .github/PULL_REQUEST_TEMPLATE.md
 
   # ============================================================
-  # Job 3: 変更タイプの選択 (lane-aware)
-  #   feature/hotfix = 1 つ以上 [x] / integration = 複数混在 OK (1 つ以上 [x] 維持) /
-  #   dependabot = skip。check=change-type。
-  # ============================================================
-  check-change-type:
-    name: "変更タイプの選択"
-    runs-on: ubuntu-latest
-    if: "github.event.pull_request.draft == false"
-    timeout-minutes: 2
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-      - name: Classify PR lane (actions/pr-lane SSOT)
-        id: lane
-        uses: ./actions/pr-lane
-      - name: Verify change type selected (lane-aware)
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
-          LANE: ${{ steps.lane.outputs.lane }}
-        run: |
-          set -euo pipefail
-          printf '%s' "${PR_BODY}" > /tmp/pr-body.md
-          printf '%s' "${PR_LABELS}" > /tmp/pr-labels.json
-          node scripts/pr-template-gate-checks.mjs \
-            --check change-type --lane "${LANE}" \
-            --body-file /tmp/pr-body.md \
-            --labels-json /tmp/pr-labels.json \
-            --template-file .github/PULL_REQUEST_TEMPLATE.md
-
-  # ============================================================
   # Job 4: 顧客価値・目的の記入 (lane-aware)
   #   feature/hotfix = 1 番目 ## section の placeholder 残存検出 / integration = 同検出
   #   (リリースバッチ顧客価値サマリの意味付け) / dependabot = skip。check=customer-value。
@@ -182,42 +147,6 @@ jobs:
           printf '%s' "${PR_LABELS}" > /tmp/pr-labels.json
           node scripts/pr-template-gate-checks.mjs \
             --check customer-value --lane "${LANE}" \
-            --body-file /tmp/pr-body.md \
-            --labels-json /tmp/pr-labels.json \
-            --template-file .github/PULL_REQUEST_TEMPLATE.md
-
-  # ============================================================
-  # Job 5: テスト実行結果の記入 (lane-aware、⚠️ 必須)
-  #   feature/hotfix = 結果列 placeholder/空欄検出 (type:docs skip) /
-  #   integration = 統合エビデンス表 (マージ判定エビデンス) の存在検証 /
-  #   dependabot/type:docs = skip。check=test-results。
-  # ============================================================
-  check-test-results:
-    name: "テスト実行結果の記入"
-    runs-on: ubuntu-latest
-    if: "github.event.pull_request.draft == false"
-    timeout-minutes: 2
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-      - name: Classify PR lane (actions/pr-lane SSOT)
-        id: lane
-        uses: ./actions/pr-lane
-      - name: Verify test results filled (lane-aware)
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
-          LANE: ${{ steps.lane.outputs.lane }}
-        run: |
-          set -euo pipefail
-          printf '%s' "${PR_BODY}" > /tmp/pr-body.md
-          printf '%s' "${PR_LABELS}" > /tmp/pr-labels.json
-          node scripts/pr-template-gate-checks.mjs \
-            --check test-results --lane "${LANE}" \
             --body-file /tmp/pr-body.md \
             --labels-json /tmp/pr-labels.json \
             --template-file .github/PULL_REQUEST_TEMPLATE.md

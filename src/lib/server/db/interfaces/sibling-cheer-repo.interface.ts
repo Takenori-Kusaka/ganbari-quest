@@ -24,7 +24,14 @@ export interface ISiblingCheerRepo {
 	): Promise<SiblingCheer | null>;
 
 	findUnshownCheers(toChildId: ChildId, tenantId: string): Promise<SiblingCheer[]>;
-	markShown(cheerIds: string[], tenantId: string): Promise<void>;
+	/**
+	 * おうえんを既読にする (媒体 A の 3 条件、docs/design/parallel-implementations.md §13)。
+	 *
+	 * #4435: `toChildId` を必ず述語に含める (受け取る子の所有権)。family/tenant 述語だけでは
+	 * 同一家族のきょうだいが別の子宛のおうえんを既読にでき、受け取る側が一度も見られない。
+	 * あわせて `shown_at IS NULL` guard で冪等にし、再送で初回表示時刻を上書きしない。
+	 */
+	markShown(toChildId: ChildId, cheerIds: string[], tenantId: string): Promise<void>;
 	countTodayCheersFrom(fromChildId: ChildId, tenantId: string): Promise<number>;
 	deleteByTenantId(tenantId: string, childIds?: readonly ChildId[]): Promise<void>;
 }

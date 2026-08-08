@@ -782,6 +782,72 @@ export const LIFECYCLE_EMAIL_LABELS = {
 } as const;
 
 // ============================================================
+// アカウント削除予告メール（#2399）
+// ============================================================
+
+// 猶予期間中のテナントに送る「このままだとデータが消えます」の予告文言 SSOT。
+//
+// トーン方針:
+//   - Anti-engagement (ADR-0012): 「今すぐ復元!」等の煽りを置かない。事実 (予定日 / 残日数) と
+//     取れる行動 (復元 / 何もしない) だけを並べる
+//   - 子供の名前・活動内容は載せない (runbook §2 中立トーン原則)。宛先は保護者であり、
+//     削除予告に子供の記録内容を差し込むのは引き止め目的の情報利用になる
+//   - 「配信停止しても届く」ことを本文で明示する。法務通知であり購読設定の対象外であるため
+export const DELETION_WARNING_EMAIL_LABELS = {
+	subject: (daysRemaining: number) => `データ削除予定日のお知らせ（あと ${daysRemaining} 日）`,
+	heading: 'データ削除予定日のお知らせ',
+	greeting: (ownerName: string) => `${ownerName} 様`,
+	intro: `お申し出いただいたアカウント${CANCEL_TERMS.account}の手続きについてお知らせします。`,
+	deletionDateLine: (deletionDate: string, daysRemaining: number) =>
+		`データの削除予定日: ${deletionDate}（あと ${daysRemaining} 日）`,
+	irreversibleNote: '削除予定日を過ぎるとデータは元に戻せません。',
+	restoreNote: (adminView: string) =>
+		`削除予定日までは、${adminView}の「アカウント」から取り消し（復元）ができます。`,
+	noActionNote: 'このまま削除をご希望の場合、お手続きは不要です。',
+	ctaLabel: 'アカウント設定を開く',
+	transactionalNote:
+		'このお知らせはお手続きに関する大切なご連絡のため、メール配信設定にかかわらずお送りしています。',
+} as const;
+
+// ============================================================
+// 削除前エクスポート JSON の但し書き（#4470 / #4450 follow-up）
+// ============================================================
+
+/**
+ * 退会時に顧客へ手渡す JSON (`generateMinimalExport`) の `notes` 文言 SSOT。
+ *
+ * トーン方針:
+ *   - 事実のみを書く。法務的主張 (「○○ 法に準拠しています」等) や弁明は書かない
+ *   - 読み手は開発者ではない保護者。フィールド名は識別のため原文のまま出す
+ */
+export const DELETION_EXPORT_NOTE_LABELS = {
+	/** 日付が JST 暦日であること (ISO の UTC 表記と 9 時間ずれるため明記する) */
+	jstCalendarDate: 'firstRecordDate / lastRecordDate は日本標準時（JST）の暦日です（YYYY-MM-DD）。',
+	/** null の意味 (記録 0 件のみ) */
+	nullMeansNoRecord: '記録が 1 件もない場合、firstRecordDate / lastRecordDate は null になります。',
+	/**
+	 * retention 削除済みデータは開示対象外であること + 保存期間の実日数 (#4473)。
+	 *
+	 * 「上限を過ぎた記録は含まれない」だけでは、読み手は「いつまで遡って含まれているか」を
+	 * 確定できない。日数は `PlanLimits.historyRetentionDays` が SSOT のため、
+	 * ここでは **値を持たず引数で受ける** (labels 側に 90 / 365 を複製しない)。
+	 */
+	retentionLimited: (days: number) =>
+		`記録の保存期間は${days}日間です。それより古い記録は削除済みのため、この期間には含まれません。`,
+	/**
+	 * `historyRetentionDays: null` (保存期間の上限なし) のプラン向け。
+	 * 「null日間」のような値の穴埋めにせず、上限がないという事実を別文で述べる。
+	 */
+	retentionUnlimited: '記録の保存期間に上限はないため、期間の上限による削除は行っていません。',
+	/**
+	 * 登録日の在り処。
+	 * `children[].createdAt` は JST 暦日ではなく ISO 8601 の UTC 日時をそのまま出しているため、
+	 * 形式を併記する (併記しないと上の JST 暦日と混同され、JST 00:00〜09:00 登録が前日に見える)。
+	 */
+	createdAtPointer: `${CHILD_TERMS.honorific}の登録日は children[].createdAt（協定世界時 UTC の日時）をご覧ください。`,
+} as const;
+
+// ============================================================
 // PMF 判定アンケート（#1598 / ADR-0023 §3.6 §5 I7）
 // ============================================================
 
@@ -2603,6 +2669,16 @@ export const SETTINGS_LABELS = {
 	dangerStep3Label: '手順 3: 実行ボタン',
 	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
 	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
+	// 削除前のデータ持ち出し (#740 API / #4472 導線)。プランに関係なく提供する
+	accountDeleteExportTitle: `${CANCEL_TERMS.account}する前にデータを持ち出す`,
+	accountDeleteExportAction: 'データをダウンロード',
+	accountDeleteExportSubmitting: '準備しています…',
+	accountDeleteExportScopeMinimal:
+		'お子さまの名前と、記録した件数・期間のまとめを JSON ファイルで保存します。',
+	accountDeleteExportScopeFull:
+		'活動記録・スタンプ・ごほうびを含む全データを JSON ファイルで保存します。',
+	accountDeleteExportScopeFamily: '全データときょうだいの比較データを JSON ファイルで保存します。',
+	accountDeleteExportSuccess: (filename: string) => `${filename} を保存しました。`,
 } as const;
 
 /**
@@ -2773,6 +2849,26 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
+	// #4286: STRIPE_DISABLED (決済機能自体が無効な配備) と PRICE_UNRESOLVED (price ID 解決失敗という
+	// 別種の設定不備) が同一文言 ('決済機能は現在利用できません') だったため、顧客が「設定不備」と
+	// 「機能停止」を区別できず、再試行導線も無いまま離脱していた問題を是正。原因の内部詳細
+	// (price ID 未解決等) は出さず、次に取るべき行動だけを示す (ADR-0062、内部例外の非露出)。
+	checkoutErrorPriceUnresolved:
+		'ただいま決済の準備ができていません。時間をおいて再度お試しください',
+	// #4329 ②: checkout 失敗時に顧客が読む文言の SSOT (route 側の直書き禁止、DESIGN.md §6)。
+	// 分類は「顧客が次に何をできるか」で分ける。**サーバー側の異常を顧客の入力ミスとして
+	// 表示しない** — 原因の所在を偽ると、顧客は直しようのない操作を繰り返す (ADR-0062)。
+	checkoutErrorStripeDisabled: '決済機能は現在利用できません',
+	checkoutErrorAlreadySubscribed: '既にサブスクリプションに加入済みです',
+	/** 配備・設定側の異常。顧客に取れる手は「時間をおく」だけなのでそれだけを示す */
+	checkoutErrorServer: 'ただいまお申し込みを受け付けられません。時間をおいて再度お試しください',
+	/** 受け取ったリクエストが現行の申込内容と噛み合わない (古い画面のまま操作した等) */
+	checkoutErrorStaleRequest:
+		'お申し込みを開始できませんでした。ページを再読み込みしてから、もう一度お試しください',
+	/** #4329: portal session 自体を作れなかったとき。原因は出さず次の行動だけを示す (ADR-0062) */
+	portalErrorCreateFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しください`,
+	checkoutErrorUnauthenticated: '認証が必要です',
+	checkoutErrorForbidden: 'サブスクリプションの管理は保護者のみ可能です',
 	// #4161: 決済が未設定の配備 (セルフホスト / 設定不備) でアップグレード操作を押したときの説明。
 	// 確認ダイアログを開いてから失敗させる dead-end を作らず、押した時点で理由を提示する。
 	billingUnavailable:
@@ -3062,6 +3158,14 @@ export const OPS_LABELS = {
 	contractStateHas: 'あり',
 	contractStateNone: 'なし',
 
+	// #4269 ①: 継続月キーの滞留在庫。prefix 無しの旧値が残っていると継続月数の加算が
+	// 「基準不明」として skip され続けるため、その件数を同じ在庫に 1 行出す。
+	// **0 件でも出す** (行が消えると「見ていない」と区別がつかない)。
+	loyaltyMonthKeyLabel: '基準不明の継続月キー',
+	loyaltyMonthKeyCount: (legacy: number, total: number) => `${legacy} 件 / 保存済み ${total} 件`,
+	loyaltyMonthKeyDesc:
+		'値の基準が判別できない古い保存値です。残っている間、その家族の継続月数の加算は安全側に見送られます。',
+
 	// ページタイトル
 	pageTitle: 'OPS - KPI サマリー',
 
@@ -3196,6 +3300,34 @@ export const POINTS_LABELS = {
 	receiptConfirmButton: 'この金額で変換する',
 	receiptConfirmedLabel: '金額確定済み',
 	receiptRetakeOtherButton: '別の領収書を撮影する',
+	// #4366: AI 側の事情 (未設定 / 権限なし) と画像が読めなかったことを言い分ける。前者で撮り直しを
+	// 促すと顧客は自分の写真が悪いと誤解する。どちらも次アクション (手入力) を必ず示す (ADR-0062)。
+	//
+	// オーナー決裁 2026-08-07 (PO 提示の文言は「例示」であり、そのまま採用しない): 出すのは
+	// (1) 顧客のせいではないこと (2) 運営が把握していること (3) いま何ができるか の 3 点。
+	// (1) を先頭に置くのは、#4366 の実害が「自分の写真が悪い」と誤解して撮り直すことだから。
+	//
+	// (2) は事実として書ける — 観測経路 (`[ai-alert] ai-provider-unavailable` log → alarm
+	// `ganbari-quest-ai-provider-unavailable`) が `ALARM_NOTIFY_POLICY` で `notify: true` =
+	// Discord の障害通知に届く (同決裁「アラートは Discord の障害通知へ webhook で飛ばす」)。
+	//
+	// 復旧を待たせる一文は置かない。手入力で今すぐ進めるので、待機を要求する理由がない。
+	// 文言と通知方針の整合は `tests/unit/domain/receipt-ai-unavailable-message.test.ts` が固定する。
+	//
+	// **配備で 2 本に分ける。** (2) が成り立つのは運営が運用しているクラウド配備だけで、
+	// alarm は AWS の `OpsStack` にしか無い。自宅 NUC のセルフホスト家庭に「運営が検知済み」と
+	// 出すのは事実として嘘であり、しかも本当に直せるのは目の前の親自身なのに「誰かが対応中」と
+	// 告げて設定を直す動機を奪う。`not-configured` (env が配られていない) は、まさにその家庭が
+	// 最も踏みやすい経路。選択は `src/lib/server/ai/unavailable-message.ts` が実行モードから行う。
+	receiptAiUnavailableManaged:
+		'写真ではなくシステム側の不具合で、運営が検知済みです。金額を手入力してください。',
+	// セルフホスト (NUC / ローカル) 版。実体は設定・資格情報の欠落なので「システム障害」とは
+	// 書かない (過剰な障害宣言は親の不安と問い合わせを不必要に増やす)。直せる場所
+	// (サーバーの AI 設定) を示しつつ、いま手入力で完了できることを併記する。
+	receiptAiUnavailableSelfHosted:
+		'写真ではなくサーバーのAI設定が原因です。設定を直すか金額を手入力してください。',
+	receiptOcrFailed: '画像から金額を読み取れませんでした。撮り直すか、金額を手入力してください。',
+	receiptAmountNotFound: '金額を読み取れませんでした',
 
 	// 変換プレビュー
 	convertPreviewBalance: (current: string, after: string) => `残高: ${current} → ${after}`,
@@ -3501,10 +3633,23 @@ export const CANCELLATION_LABELS = {
 
 	// Success
 	successHeading: 'ご回答ありがとうございました',
-	successDesc: `いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の${STRIPE_PORTAL_TERMS.short}で解約手続きを完了してください。`,
-	successProceedButton: `Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する`,
-	successProceedHint: `Stripe の${STRIPE_PORTAL_TERMS.short}で「サブスクリプションをキャンセル」を選択すると解約が完了します`,
+	// #4329: 旧 successDesc は無料プランの顧客にも「Stripe で解約手続きを完了してください」と
+	// 表示していた (無料プランに Stripe 契約は無い)。回答の受領だけを述べ、以降の手続きの
+	// 説明は「手続きが残っている場合」の枠 (portalUnavailable*) に寄せる。
+	successDesc: 'いただいたご意見は、サービス改善に活用させていただきます。',
 	successFreeProceed: 'アカウント削除はこちら',
+
+	// #4329 ①: portal を作れなかったときの回復導線。
+	// 旧実装は「Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する」と名乗るボタンが
+	// 自アプリのプラン画面へ戻すだけで、顧客は解約したつもりのまま課金が続いていた
+	// (特商法の解約導線の実効性)。失敗した事実・残っている手続き・代替手段を出す。
+	// 原因の内部詳細 (Stripe API エラー等) は顧客に出さない (ADR-0062)。
+	portalUnavailableHeading: `${CANCEL_TERMS.canonical}のお手続きが残っています`,
+	portalUnavailableDesc: `ご回答は受け付けましたが、${STRIPE_PORTAL_TERMS.canonical}を開けませんでした。${CANCEL_TERMS.canonical}はまだ完了していません。`,
+	portalRetryButton: `${STRIPE_PORTAL_TERMS.short}を開いて${CANCEL_TERMS.canonicalVerb}`,
+	portalRetryFailed: `${STRIPE_PORTAL_TERMS.short}を開けませんでした。時間をおいて再度お試しいただくか、下記のサポート窓口までご連絡ください`,
+	portalSupportHint: `うまくいかない場合は、サポート窓口からご連絡ください。こちらで${CANCEL_TERMS.canonical}のお手続きを承ります。`,
+	portalSupportLink: 'サポート窓口に連絡する',
 } as const satisfies Record<string, unknown>;
 
 /** 表示用ラベル取得 */
@@ -3743,6 +3888,80 @@ export const OPS_BUSINESS_LABELS = {
 	// Footer
 	fetchedAt: (dateStr: string) => `最終取得: ${dateStr}`,
 } as const;
+
+/**
+ * #4313: 年齢帯 UI が誕生日で切り替わったことを次回ログインで伝えるダイアログの文言。
+ *
+ * key は **切替後 (to)** の uiMode。文面は「成長した」枠組みで書き、機能が減ったと
+ * 読ませない (Issue #4313 §感情演出 / ADR-0012 — 静かに 1 回だけ)。
+ * 年齢別の語彙整合 (DESIGN.md §6): preschool はひらがなのみ、elementary は漢字最小限、
+ * junior / senior は漢字を含む。
+ *
+ * `parentNote` / `settings*` は全モード共通で保護者宛て (敬体)。3 歳の baby → preschool は
+ * 切替前の画面が親向け準備モード (ADR-0011) であり、読み手が保護者であるため、この
+ * 保護者向け節が主たる説明になる。
+ */
+export const UI_MODE_CHANGE_LABELS = {
+	dialogAriaLabel: '年齢区分の変更のお知らせ',
+	emoji: '🎈',
+	heading: {
+		baby: 'がめんが かわったよ',
+		preschool: 'おおきく なったね！',
+		elementary: '大きくなったね！',
+		junior: 'ひとつ大きくなりましたね',
+		senior: 'ひとつ大きくなりましたね',
+	} as Record<UiMode, string>,
+	body: {
+		baby: 'おたんじょうびが きたから、がめんが かわったよ。',
+		preschool:
+			'おたんじょうびが きたから、がめんが すこし かわったよ。ボタンや もじの おおきさが かわって いるよ。',
+		elementary:
+			'おたんじょう日がきたので、画面が小学生むけにかわりました。ボタンや文字の大きさがかわっています。',
+		junior:
+			'誕生日を迎えたので、画面が中学生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+		senior:
+			'誕生日を迎えたので、画面が高校生向けに切り替わりました。ボタンや文字の大きさが変わっています。',
+	} as Record<UiMode, string>,
+	closeLabel: {
+		baby: 'わかった',
+		preschool: 'わかった！',
+		elementary: 'わかった！',
+		junior: 'OK',
+		senior: 'OK',
+	} as Record<UiMode, string>,
+	parentNote:
+		'保護者の方へ: お子さまの年齢区分が変わったため、画面が自動で切り替わりました。生年月日の確認・修正はお子さま管理から行えます。',
+	settingsLabel: 'お子さま管理をひらく',
+} as const;
+
+/**
+ * #4261 ③: 月間の習慣化証明書で増えた残高の理由を、子に**次回起動で 1 回だけ**伝える文言。
+ *
+ * ADR-0012 との両立条件 (PO 決裁 2026-08-06) を文言側でも守る:
+ * **煽らない / 次を促さない / 演出語を足さない。** 起きた事実だけを静かに置く。
+ * baby は親向けの準備モードで子供向けホームを持たない (ADR-0011) ため対象外。
+ */
+export const HABIT_CERTIFICATE_NOTICE_LABELS: Record<
+	Exclude<UiMode, 'baby'>,
+	{ title: string; body: (amount: string) => string }
+> = {
+	preschool: {
+		title: 'こんげつ よく つづいたね',
+		body: (amount) => `${amount} を うけとったよ`,
+	},
+	elementary: {
+		title: '今月は しゅうかんに できたね',
+		body: (amount) => `つづけられたので ${amount} をうけとりました`,
+	},
+	junior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+	senior: {
+		title: '今月は習慣にできました',
+		body: (amount) => `継続の記録として ${amount} を受け取りました`,
+	},
+};
 
 export const CHILD_HOME_LABELS = {
 	// Baby mode: completed card aria-label
@@ -4289,6 +4508,34 @@ export const ERROR_PAGE_LABELS = {
 
 	// Error ID
 	errorIdPrefix: 'エラーID: ',
+} as const;
+
+/**
+ * #4282 AC5: `/ops` が MFA 未設定で拒否されたときに出す復旧導線の文言。
+ *
+ * 運営者専用画面のため顧客には出ない。ここで手順まで出し切るのは、
+ * 「拒否されたが何をすれば入れるのか分からない」状態を作らないため
+ * (リンク先を読まないと復旧できない導線は導線として成立しない)。
+ */
+export const OPS_MFA_SETUP_LABELS = {
+	title: '多要素認証（MFA）の設定が必要です',
+	description:
+		'運営ダッシュボードは、ログイン時に多要素認証を通ったセッションだけが利用できます。認証アプリ（TOTP）の設定が済んでいないか、設定後にログインし直していない状態です。',
+	stepsTitle: '入れるようにする手順',
+	steps: [
+		'スマートフォンに認証アプリ（TOTP 対応のもの）を用意する',
+		'運営管理者が Cognito ユーザープールで、このアカウントの認証アプリ（TOTP）を有効にする',
+		'いったんログアウトし、認証アプリのコードを入力してログインし直す',
+	],
+	/** 再ログインは MFA チャレンジを経て `amr` を載せ直す唯一の出口。汎用 403 と同じ文言を再利用する */
+	loginAgainLabel: ERROR_PAGE_LABELS.btnLoginAgain,
+	/**
+	 * #4335 follow-up: 旧文言はリポジトリ内ファイルパス（`docs/runbooks/ops-mfa-setup.md`）を
+	 * そのまま出しており、403 画面を見ている運営者がその場で開けなかった（クローンを持たない
+	 * 環境 / スマートフォンからの閲覧では特に）。依頼先を画面内で完結させる（runbook の詳細手順
+	 * は変えず、画面には「自分でできない場合に誰に頼むか」だけを直接書く）。
+	 */
+	runbookHint: '自分で設定できない場合は、AWS アカウントのオーナーに設定を依頼してください。',
 } as const;
 
 // ============================================================
@@ -5278,16 +5525,12 @@ export const CHILD_PROFILE_CARD_LABELS = {
 	editingBadge: '編集中',
 	avatarSectionTitle: 'プロフィール写真',
 	avatarUploadButton: '📷 写真を変更',
-	avatarGenerating: '生成中...',
-	avatarGenerateButton: '✨ AI生成',
-	avatarGenerateFailed: '生成に失敗しました',
 	avatarNetworkError: 'ネットワークエラーが発生しました',
 	avatarFileSizeError: (sizeMB: string) =>
 		`ファイルサイズが大きすぎます（${sizeMB}MB）。5MB以下の画像を選択してください`,
 	avatarServerError: 'サーバーエラーが発生しました。5MB以下のJPEG/PNG/WebPを選択してください',
 	avatarUploadFailed: 'アップロードに失敗しました',
 	avatarUploadSuccess: '写真をアップロードしました',
-	avatarGenerateSuccess: 'アバターを生成しました',
 	basicInfoTitle: '基本情報',
 	nicknameLabel: 'ニックネーム',
 	ageLabel: '年齢',
@@ -6009,19 +6252,6 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 	itemPriceValue: `${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}`,
 	itemTrial: '有料は 7 日間無料',
 	itemCancel: CANCEL_TERMS.anytime,
-} as const;
-
-// LP CTA 直下の不安解消 3 バッジ (#1626 R22)
-// site/index.html / pricing.html / faq.html の CTA 直下に配置
-// #1953 (Phase 3 D8): noCreditCard を TRIAL_TERMS、cancelAnytime を CANCEL_TERMS から参照。
-//                     noAds は terms.ts atom 該当なしで据置き。char-by-char 一致を維持。
-// #1904 (PERS-CRT-5): noCreditCard を TRIAL_TERMS.noCreditCardDetailed (動詞ベース + 切替時説明)
-//                     に切替。hero 領域で「クレジットカード登録不要」関連表記を本 badge 1 箇所のみに
-//                     絞り、サブスク被害連想 (田中ゆかり P1) を断つ。
-export const LP_CTA_TRUST_BADGES_LABELS = {
-	noCreditCard: `${TRIAL_TERMS.noCreditCardDetailed}`,
-	noAds: '広告なし',
-	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
 } as const;
 
 // LP Hero 仕様起点の数字バッジ (#1628 R24 / #1788 honest 刷新)
@@ -6822,7 +7052,40 @@ export const CHILD_SHOP_LABELS = {
 	filterReset: 'リセット',
 	filterBadge: (total: number, filtered: number) => `${total}件中 ${filtered}件`,
 	filterEmptyMessage: 'じょうけんに あうごほうびが ありません',
+	// #4407 個数指定 (単位量のごほうび = 「ゲーム時間 +30分」を 2 時間ぶん = 4 個 交換する)
+	quantityLabel: 'いくつ こうかんする？',
+	quantityDecreaseAriaLabel: 'こすうを へらす',
+	quantityIncreaseAriaLabel: 'こすうを ふやす',
+	// stepper ボタンの表示グリフ (全角記号。数字と並べたときに幅が揃う)
+	quantityDecreaseGlyph: '−',
+	quantityIncreaseGlyph: '＋',
+	quantityUnit: 'こ',
+	quantityValueAriaLabel: (quantity: number) => `こすう ${quantity}こ`,
+	quantityMaxHint: 'もっているポイントで こうかんできる さいだいの こすうだよ',
+	totalPointsLabel: 'ぜんぶで',
+	remainingAfterLabel: 'こうかんしたあとの ポイント',
+	// #4407 AC9/AC12: 交換の結果を「見ている場所」に文字で出す (演出は加飾であって通知ではない)
+	exchangeSuccessToastTitle: 'こうかんできたよ！',
+	exchangeSuccessToastBody: (rewardTitle: string, quantity: number, balance: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ のこり ${balance} ポイント`,
+	exchangeRequestedToastTitle: 'おうちのひとに おねがいしたよ',
+	exchangeRequestedToastBody: (rewardTitle: string, quantity: number) =>
+		`${rewardTitle}${quantity > 1 ? ` ${quantity}こ` : ''} ／ へんじを まってね`,
+	// #4407 AC10: 交換申請が通らなかったときの文言 (状態に合わせて分ける)
+	errorInsufficientPoints: 'ポイントが たりないよ',
+	errorAlreadyPending: 'いま おうちのひとの へんじを まっているよ',
+	errorRecentlyExchanged: 'さっき こうかんしたよ。すこし まってから もういちど おしてね',
+	errorRewardNotFound: 'この ごほうびが みつからないよ',
+	errorInvalidQuantity: 'こすうを もういちど えらんでね',
+	errorChildNotSelected: 'こどもが えらばれていないよ',
+	errorGeneric: 'うまく いかなかったよ。もういちど ためしてね',
 } as const;
+
+// #4407: 交換の「× 個数」表記 SSOT。個数 1 のときは付けない (従来表示を変えない)。
+// ポイント台帳の description / 親の承認一覧の両方が本 helper を使う。
+export function formatRewardWithQuantity(rewardTitle: string, quantity: number): string {
+	return quantity > 1 ? `${rewardTitle} × ${quantity}` : rewardTitle;
+}
 
 // ============================================================
 // ごほうびショップ 保護者の見守り画面 申請タブ (#1337 / #2057)
@@ -7368,6 +7631,10 @@ export const FEATURES_LABELS = {
 		celebrationTitle: 'みんなクリア！',
 		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
 		celebrationCloseBtn: 'とじる',
+		// #4410 AC4: 閉じたあとどこで受け取るのかをダイアログ内で示す。claim ボタン自体は
+		// 戻さない (#3333 の二重導線排除を壊さない) — 場所の案内だけを置く。
+		celebrationClaimHint:
+			'ごほうびは とじたあと したの「🎁 ほうしゅうをうけとる！」ボタンから うけとれるよ',
 		// #3361 (ux-4): claim 失敗時の可視フィードバック (dead-end 回避、NN/G #1)
 		claimErrorTitle: 'うけとれなかったよ',
 		claimErrorFallback: 'もういちど ためしてね',
@@ -8002,8 +8269,8 @@ export const LP_SELFHOST_LABELS = {
 //                     - bottomText / ariaLabelHero の「7 日間無料」も同様
 //                     文字列差分ゼロ維持を優先しリテラル維持。
 // #1904 (PERS-CRT-5): heroText / bottomText から「クレジットカード不要」削除。
-//                     LP 全体で「クレジットカード登録不要」関連表記を hero cta-trust-badges 1 箇所のみに
-//                     絞り、3 連発による不信感増幅 (田中ゆかり P1 サブスク被害連想) を解消。
+//                     3 連発による不信感増幅 (田中ゆかり P1 サブスク被害連想) を解消するため、
+//                     hero 領域に「クレジットカード登録不要」関連表記を置かない。
 export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
 	heroText: '全機能を家族で試せる<small>7 日間無料</small>',
@@ -8050,8 +8317,8 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k7: `${FREE_TERMS.tryFree}`,
 	k8: 'デモを見る',
 	// #1904 (PERS-CRT-5): hero L483 hero-note の「クレジットカード登録不要」削除。
-	//                     hero 領域では cta-trust-badges (LP_CTA_TRUST_BADGES_LABELS.noCreditCard)
-	//                     の 1 箇所のみで訴求し、3 連発による不信感増幅を解消。
+	//                     3 連発による不信感増幅を解消するため hero 領域では訴求しない
+	//                     (カード要否の説明は FAQ 側 indexB.k72 に集約)。
 	k9: '家族何人でも無料ではじめられます',
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',
@@ -8420,6 +8687,10 @@ export const STORYBOOK_LABELS = {
 		title: 'ゲーム 30 分',
 		titleLong: 'にちようびに こうえんで あそぶ',
 	},
+	// #4429: AvatarDisplay の見た目確認用。取得失敗時に 👤 へ落ちることを目視できるようにする。
+	avatarDisplay: {
+		nickname: 'たろう',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',
@@ -8642,6 +8913,12 @@ export const STORYBOOK_LABELS = {
 		overflowRestore: 'バックアップから復元',
 		overflowExport: 'エクスポート',
 		badge: '有料限定',
+	},
+	// #4302 follow-up: SaasLicensePanel story の mock 契約者名。
+	// portal-fallback-notice (Stripe が flow を拒否したときのみ描画) は demo 環境で撮影できないため
+	// (ss-render-impossible)、story の play で見た目を固定する (#4166)。
+	saasLicensePanel: {
+		tenantName: 'たろう家',
 	},
 } as const;
 
@@ -9311,15 +9588,15 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //   - effective: 末尾の制定日 / 最終改定日
 // ============================================================
 export const LP_LEGAL_PRIVACY_LABELS = {
-	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年4月28日</p>',
+	articleHeader: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年8月7日</p>',
 	intro:
 		'個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。',
 	section1:
-		'<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。アクセスログはCloudWatch Logsに3日間保存した後、S3にアーカイブして長期保存します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>',
+		'<h2>第1条（収集する情報）</h2><p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p><h3>1. アカウント情報</h3><p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p><h3>2. お子さまの情報</h3><p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p><div class="highlight"><strong>お子さまの個人情報保護について</strong><ul><li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li><li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li><li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li></ul></div><h3>3. 活動データ</h3><p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p><h3>4. 利用ログ</h3><p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、アクセス先のURL、デバイス情報（ブラウザ種別等）を収集します。アクセスログは3日間保存した後、運営者が管理するAWS環境内のストレージへアーカイブして長期保存します。配信基盤（CDN）のアクセスログは同じ環境内に3日間のみ保存し、自動削除します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p><h3>5. 決済情報</h3><p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>',
 	section2:
 		'<h2>第2条（情報の利用目的）</h2><p>運営者は、収集した情報を以下の目的で利用します。</p><ol><li>本サービスの提供・運営・維持</li><li>利用者の認証・本人確認</li><li>サービスの改善・新機能の開発</li><li>利用状況の分析・統計処理（個人を特定しない形式）</li><li>重要なお知らせ・サービス変更の通知</li><li>不正利用の防止・セキュリティの確保</li><li>利用者からの問い合わせへの対応</li></ol>',
 	section3:
-		'<h2>第3条（情報の第三者提供）</h2><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS Bedrock)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC (Gemini API)</strong> — 生成 AI（画像生成）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li></ul></li></ol>',
+		'<h2>第3条（情報の第三者提供）</h2><ol><li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。<ul><li>利用者の同意がある場合</li><li>法令に基づく場合</li><li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li></ul></li><li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。<ul><li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（アプリケーションの実行・データの保存）、認証基盤、メール送信。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li><li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li><li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li><li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li><li><strong>Amazon Web Services (AWS)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。運営者が管理する AWS 環境内で処理され、AWS 以外の第三者には送信されません。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li></ul></li></ol>',
 	section4:
 		'<h2>第4条（データの安全管理）</h2><p>運営者は、個人情報への不正アクセス、紛失、破壊、改ざん、漏洩の防止のため、以下の安全管理措置を講じています。</p><ul><li>通信は全て TLS 1.2 以上で暗号化されます。</li><li>保存データは AES-256 で暗号化されます。</li><li>パスワードは不可逆のハッシュ化処理を施して保存されます。</li><li>データベースは定期的に自動バックアップされます。</li></ul>',
 	section5:
@@ -9332,17 +9609,17 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 	section7:
 		'<h2>第7条（Cookieの使用）</h2><p>本サービスは、認証状態の維持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p><ul><li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li><li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li><li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）<ul><li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li><li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li></ul></li><li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li></ul><p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>',
 	section8:
-		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（自社アカウント内 DynamoDB / Lambda / Cognito）</li><li>Stripe, Inc.（課金処理）</li><li>Amazon Web Services (AWS Bedrock)（生成 AI）</li><li>Google LLC (Gemini API)（生成 AI）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
+		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（運営者が管理する AWS 環境。アプリケーションの実行・データの保存・認証・生成 AI）</li><li>Stripe, Inc.（課金処理）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
 	section9:
-		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する自社 AWS アカウント内 DynamoDB のみで処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li><li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
-	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li><li>${CHILD_TERMS.neutral}の識別情報（ニックネーム等）は <strong>Google Gemini API には送信しません</strong>（マスク済み）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証および Gemini API（生成 AI）。</li></ul></li></ol>`,
+		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する AWS 環境内でのみ処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li><li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
+	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li><li>${CHILD_TERMS.neutral}の識別情報（ニックネーム等）は <strong>運営者の環境の外にある生成 AI サービスには送信しません</strong>（送信する機能自体がありません）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証。</li></ul></li></ol>`,
 	section11:
 		'<h2>第11条（本ポリシーの変更）</h2><ol><li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li><li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li><li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li></ol>',
 	section12:
 		'<h2>第12条（個人情報保護管理者）</h2><div class="contact"><p><strong>個人情報保護管理者</strong></p><p>氏名: 日下武紀</p><p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p></div>',
 	section13:
 		'<h2>第13条（お問い合わせ）</h2><p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p><div class="contact"><p>がんばりクエスト運営者 日下武紀</p><p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p></div>',
-	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月28日</p>',
+	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年8月7日</p>',
 } as const;
 
 // ============================================================

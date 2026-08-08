@@ -77,8 +77,29 @@ function retryAdminNavigation() {
 // (MilestoneBanner の bypassSeenCheck と同型の既存パターン、src/routes/CLAUDE.md §?screenshot)。
 // 本番ユーザは screenshot mode に入らないため通常表示には影響しない。
 const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
+// #4417 AC5: overlay 表示中は背後のページをスクロールさせない。
+// この overlay はアプリ内で唯一 primitive を使わない全画面 modal のため、Ark UI Dialog が
+// 内包するスクロールロックが抜けており、「読み込み中です」と出しながら背後が動いていた
+// (`body.overflow = visible` / overlay 越しに scrollY=266 まで動くことを実測、#4417)。
+// #4417 AC3' (CSS 側の意図。lint がスタイルブロック内の日本語コメントを許さないためここに置く):
+// `.login-overlay` の下端は `inset: 0` で決めず `height: 100lvh` (`100vh` は fallback) で決める。
+// iOS はソフトウェアキーボード表示中に layout viewport を縮めるため、PIN 入力直後に出るこの
+// overlay は `inset: 0` だと「viewport − キーボード」の高さ (実測 495 / 792 CSS px) で確定し、
+// キーボードが閉じても再レイアウトされない。lvh はキーボード / 動的 UI で縮まない基準。
+// スクロールロックは :global(body.parent-gate-scroll-lock) の overflow:hidden で行う。
+const overlayVisible = $derived(navigatingToAdmin || navigatingError || isScreenshotAll);
+$effect(() => {
+	if (!overlayVisible) return;
+	document.body.classList.add('parent-gate-scroll-lock');
+	return () => document.body.classList.remove('parent-gate-scroll-lock');
+});
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
+
+// 画像取得に失敗した子供の id (#4429、`AvatarDisplay.svelte` と同じ理由)。
+// 本画面は {#each} で複数の子供を並べるため、1 枚の失敗が他の子供のアバターを消さないよう
+// 子供ごとに記録する。
+let avatarFailedIds = $state<Record<string, true>>({});
 
 // Issue #2353 Fix 1 (Phase A): pinRequired query 再到達時 modal 自動 open 保証
 // 子供画面から戻って `/switch?pinRequired=1` 再アクセス時、banner だけ残って modal が出ない bug の構造的修正。
@@ -298,12 +319,15 @@ async function handlePinComplete(details: { valueAsString: string }) {
 							data-testid="child-select-{child.id}"
 							data-theme={themeName}
 						>
-							{#if child.avatarUrl}
+							{#if child.avatarUrl && !avatarFailedIds[String(child.id)]}
 								<img
 									src={child.avatarUrl}
 									alt={child.nickname}
 									class="w-12 h-12 rounded-full object-cover border-2 border-[var(--theme-primary)] shrink-0"
 									loading="lazy"
+									onerror={() => {
+										avatarFailedIds = { ...avatarFailedIds, [String(child.id)]: true };
+									}}
 								/>
 							{:else}
 								<span class="text-[2.5rem] shrink-0">👤</span>
@@ -410,7 +434,12 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	}
 	.login-overlay {
 		position: fixed;
-		inset: 0;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 100vh;
+		height: 100lvh;
+		overscroll-behavior: contain;
 		z-index: var(--z-modal);
 		display: flex;
 		flex-direction: column;
@@ -419,6 +448,9 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		gap: 1rem;
 		background: var(--color-surface-overlay);
 		backdrop-filter: blur(2px);
+	}
+	:global(body.parent-gate-scroll-lock) {
+		overflow: hidden;
 	}
 	.login-overlay__spinner {
 		width: 2.5rem;

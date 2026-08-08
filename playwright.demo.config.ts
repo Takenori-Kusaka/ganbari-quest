@@ -17,7 +17,12 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
-const DEMO_BASE_URL = process.env.DEMO_BASE_URL ?? 'http://localhost:5180';
+// #4417: 並行 worktree agent が同 port (5180) で preview server を起動していると
+// `reuseExistingServer: !CI` が他 worktree の stale server を再利用してしまう。
+// playwright.config.ts の E2E_BASE_PORT (#2832) と同じ理由で port をずらせるようにする
+// (default 5180 は CI / 単独ローカルで従来通り)。
+const DEMO_PORT = Number(process.env.DEMO_PORT ?? 5180);
+const DEMO_BASE_URL = process.env.DEMO_BASE_URL ?? `http://localhost:${DEMO_PORT}`;
 const useDeployedTarget = DEMO_BASE_URL.startsWith('https://');
 
 export default defineConfig({
@@ -63,9 +68,9 @@ export default defineConfig({
 				// licenseStatus=ACTIVE スタブのため署名検証が走らない、src/hooks.server.ts §806 参照)。
 				command:
 					process.platform === 'win32'
-						? 'set AUTH_MODE=anonymous&& set DATA_SOURCE=demo&& set AWS_LICENSE_SECRET=e2e-test-secret-do-not-use-in-production&& npm run preview -- --port 5180'
-						: 'AUTH_MODE=anonymous DATA_SOURCE=demo AWS_LICENSE_SECRET=e2e-test-secret-do-not-use-in-production npm run preview -- --port 5180',
-				port: 5180,
+						? `set AUTH_MODE=anonymous&& set DATA_SOURCE=demo&& set AWS_LICENSE_SECRET=e2e-test-secret-do-not-use-in-production&& npm run preview -- --port ${DEMO_PORT}`
+						: `AUTH_MODE=anonymous DATA_SOURCE=demo AWS_LICENSE_SECRET=e2e-test-secret-do-not-use-in-production npm run preview -- --port ${DEMO_PORT}`,
+				port: DEMO_PORT,
 				reuseExistingServer: !process.env.CI,
 				timeout: 60_000,
 			},

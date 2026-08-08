@@ -123,6 +123,18 @@ const envSchema = z.object({
 	// ----- Ops (ADR-0033) -----
 	CRON_SECRET: z.string().min(32).optional(),
 	OPS_SECRET_KEY: z.string().optional(),
+
+	/**
+	 * #4327: 顧客データ物理削除 (grace-period-deletion cron) の kill-switch。
+	 * `'true'` / `'1'` で削除を一切実行しない。未設定 = 従来どおり有効。
+	 *
+	 * **`booleanStringSchema` を使わない**: 同 schema は `'true'|'false'` 以外を
+	 * validation error にし、`getEnv()` は module load 時に throw する
+	 * (= アプリ全体が起動しない)。本 env は**障害対応中に手で急いで設定する**もので、
+	 * `1` / `yes` 等の打ち間違いでアプリを落とすのは筋が悪い。文字列のまま受け、
+	 * 解釈と「解釈できない値だった」の警告は grace-period-service 側で行う。
+	 */
+	GRACE_PERIOD_DELETION_DISABLED: z.string().optional(),
 	OPS_DOMAIN_COST_JPY: z.coerce.number().int().default(117),
 	OPS_VIRTUAL_OFFICE_COST_JPY: z.coerce.number().int().default(0),
 
@@ -140,10 +152,14 @@ const envSchema = z.object({
 	VAPID_SUBJECT: z.string().default('mailto:noreply@ganbari-quest.com'),
 
 	// ----- AI Provider -----
-	AI_PROVIDER: z.enum(['gemini', 'bedrock', 'mock']).optional(),
+	// #4366 AC3: schema が通す値と factory が処理する値を一致させる。'mock' provider は実装が
+	// 存在せず、指定しても factory が bedrock にフォールバックしていた (受理したのに効かない)。
+	AI_PROVIDER: z.enum(['gemini', 'bedrock']).optional(),
 	GEMINI_API_KEY: z.string().optional(),
 	GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
-	BEDROCK_MODEL_ID: z.string().default('us.anthropic.claude-haiku-4-5-20251001-v1:0'),
+	// #4366 AC1: 既定値を持たせない。**配られていること自体が「この環境で Bedrock を使う」の
+	// 意思表示**であり、既定値があると未配線と設定済みが区別できない (isAvailable() が嘘をつく)。
+	BEDROCK_MODEL_ID: z.string().optional(),
 	BEDROCK_REGION: z.string().optional(),
 	BEDROCK_DISABLED: booleanStringSchema,
 
@@ -158,6 +174,32 @@ const envSchema = z.object({
 	// 本番では `https://ganbari-quest.com` を CDK context 経由で注入。
 	// 未設定時は本番 URL にフォールバック (email-service.ts と整合)。
 	APP_BASE_URL: z.string().url().optional(),
+
+	// ----- Front door (CloudFront → origin shared secret、#4280 案 b) -----
+	/**
+	 * CloudFront が origin request に付与する共有シークレット (`x-origin-verify` header)。
+	 * 一致しない `/admin` `/api/v1/admin` `/ops` への request を 404 にし、Lambda Function URL
+	 * (`authType: NONE`) 直叩きによる CloudFront 層制御の迂回を塞ぐ。
+	 *
+	 * **未設定なら検査は無効 (fail-open)**。CloudFront を持たない配備 (NUC セルフホスト /
+	 * ローカル開発 / demo Lambda) が正当に存在するため。AWS 側の設定漏れは CDK synth
+	 * (`infra/lib/origin-verify-context.ts`) と `deploy.yml` の必須 secret 検証で止める。
+	 * 判定ロジックと fail-open の根拠: `src/lib/server/security/origin-verify.ts`
+	 */
+	ORIGIN_VERIFY_SECRET: z.string().min(32).optional(),
+
+	/**
+	 * ローテーション中だけ設定する **1 世代前** の `ORIGIN_VERIFY_SECRET` (#4364)。
+	 *
+	 * CloudFront (NetworkStack) と Lambda env (ComputeStack) は別 stack で、`cdk deploy --all`
+	 * は Compute → Network の順に走る。単一値しか受理しないと「Lambda は新値を期待、
+	 * CloudFront はまだ旧値を送出」の窓が必ず開き、その間 `/admin` が全顧客で 404 になる。
+	 * 本 env に旧値を置いている間は新旧どちらでも通るため、窓が閉じる。
+	 *
+	 * **定常状態では未設定が正**。ローテーション完了後は速やかに空にする
+	 * (手順: `docs/runbooks/origin-verify-secret-rotation.md`)。
+	 */
+	ORIGIN_VERIFY_SECRET_PREVIOUS: z.string().min(32).optional(),
 
 	// ----- Parent-Gate Session (#2310 / ADR-0050) -----
 	/**

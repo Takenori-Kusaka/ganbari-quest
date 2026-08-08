@@ -24,6 +24,24 @@ export function meetsRequiredTier(planTier: PlanTier, requiredTier?: PlanTier): 
 	return TIER_ORDER[planTier] >= TIER_ORDER[requiredTier];
 }
 
+/**
+ * チュートリアルが遷移しうるページ。
+ *
+ * `string` のままだと `goto(step.page)` に SvelteKit の `resolve()` を通せず
+ * (`resolve` は route id / pathname リテラルを要求する)、
+ * `svelte/no-navigation-without-resolve` を満たせない。実在ルートの union に絞ることで
+ * 遷移先の typo をコンパイル時に落としつつ `resolve()` 経由の遷移に統一する。
+ */
+export type TutorialPage =
+	| '/admin'
+	| '/admin/activities'
+	| '/admin/cheer'
+	| '/admin/children'
+	| '/admin/points'
+	| '/admin/reports'
+	| '/admin/rewards'
+	| '/admin/settings';
+
 export interface TutorialStep {
 	id: string;
 	chapterId: number;
@@ -31,7 +49,7 @@ export interface TutorialStep {
 	title: string;
 	description: string;
 	position: 'top' | 'bottom' | 'left' | 'right' | 'auto';
-	page?: string;
+	page?: TutorialPage;
 	/** この手順を表示する最低プランティア（省略時は全プラン表示） */
 	requiredTier?: PlanTier;
 }

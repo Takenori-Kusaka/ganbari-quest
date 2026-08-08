@@ -24,7 +24,7 @@ Epic #2525 Phase 7 で「license key atom 5 step 完了」と報告した直後�
 - デメリット: 自己申告に依存すると形骸化する (本件はまさにこれ。「完了」と言いつつ未検証)。
 
 ### 選択肢 B: CI gate のみ (機械検証、`check-license-key-leak.mjs` 等)
-- 概要: leak gate / grep gate を CI hard-fail に組み込み、残存を機械的に拒否する。本リポジトリは `check-no-plan-literals.mjs` / `check-hardcoded-strings.mjs` 等で多数採用済。
+- 概要: leak gate / grep gate を CI hard-fail に組み込み、残存を機械的に拒否する。本リポジトリは `check-no-plan-literals.mjs` / `check-license-key-leak.mjs` 等で多数採用済（起票時点で例示していた `check-hardcoded-strings.mjs` は #4322 で削除済み、#4426）。
 - メリット: 自己申告を排除し client-independent。再混入も恒久ブロック。
 - デメリット: 機械検証できる項目 (grep / build) に限られる。「設計書の意味整合」「代替手段が顧客体験として成立するか」は CI で表現できない。
 

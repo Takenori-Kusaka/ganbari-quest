@@ -107,6 +107,27 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | `/privacy` | **法務 + 安心訴求**: 「広告なし・家族限定・データ主権」 | LP [08] 安心訴求からリンク |
 | `/terms` `/tokushoho` `/sla` | **純法務**: 契約根拠 | footer のみ |
 
+### 3.2.1 法務文書に書く粒度 — 事業者名まで、マネージドサービス名は書かない (#4370)
+
+`privacy.html` / `terms.html` / `sla.html` / `tokushoho.html` と、LP 上の同種記述で開示するのは
+**「お預かりしたデータがどこへ出るか」**であって、その内側の実装ではない。
+
+| 書く | 書かない |
+|---|---|
+| 事業者名（Amazon Web Services, Inc. / Google LLC / Stripe, Inc. / Discord Inc.） | 個別のマネージドサービス名（DynamoDB / Aurora DSQL / Lambda / Cognito / CloudFront / CloudWatch / S3 / SES / Bedrock / Gemini 等） |
+| **運営者が管理する環境の内か外か**（「運営者が管理する AWS 環境内で処理」/「外部事業者へ送信」） | 内部の構成（どのデータストア・どの実行基盤か） |
+| 移転先国・リージョン（米国 / us-east-1）、法的根拠（DPA / SCC）、用途 | 「AI に送っている」事実を伏せること（**用途と送信先の性質は必ず書く**） |
+
+**理由**: サービス名は実装を差し替えるたびに法務文書を嘘にする（実際、`DynamoDB` は #3438 の
+DSQL 移管後も privacy.html に残り、事実と乖離した状態で公開されていた）。一方、個人情報保護法
+§27 / §28 と電気通信事業法 §27-12 が要求するのは提供先の**第三者の名称**・移転先国・用途であり、
+マネージドサービス名の粒度は要求されていない。事業者名と「環境の内か外か」を残せば開示水準は
+下がらず、実装変更に対して不変な文面になる。
+
+**機械検査**: `scripts/measure-lp-dimensions.mjs` の `MANAGED_SERVICE_FORBIDDEN_TERMS`
+（`lp-metrics.yml` で hard-fail）。走査対象は計測対象 6 ページに加え、`terms.html` / `sla.html` /
+`tokushoho.html` / `selfhost.html` と LP 文言 SSOT の生成物 `shared-labels.js`。
+
 ### 3.3 LP 本体に載せない判断
 
 - **セルフホスト/OSS 訴求**: 技術者向けの差別化であり、P1-P5 の CVR には寄与しない。footer リンクに留める
@@ -555,7 +576,7 @@ LP `site/index.html` の装飾アイコン（絵文字）は **15 件以下** �
 | 判定 | 用例 | 残してよいか |
 |------|------|-------------|
 | **(i) 機能アイコン** | hamburger `☰` / lightbox close `✕` | 機能の代替テキストが無く UI 必須なら **保持** |
-| **(ii) ステータス装飾** | hero trust badges (旧 `💳` クレカ不要 / `🚫` 広告なし / `🔄` いつでも解約) | **SVG 化済 (#1824)**: OS 依存解消のため `cta-trust-credit-card.svg` / `cta-trust-ad-free.svg` / `cta-trust-cancel-anytime.svg` に置換。`#trust` セクション 4 個も SVG 化済 (#1796、`docs/design/asset-catalog.md` §「trust-* SVG 一覧」) |
+| **(ii) ステータス装飾** | `#trust` セクション 4 badges | **SVG 化済 (#1796)**: OS 依存 (iOS Safari / Android Chrome で見た目が異なる) を解消するため `trust-*.svg` に置換 (`docs/design/asset-catalog.md` §「trust-* SVG 一覧」)。絵文字のまま残さない |
 | **(iii) 役割識別** | core-loop `🧑‍💻` 親の視点 / `🧒` 子供の視点 | **保持**: 短時間で役割を識別する目的に限る（数を増やさない） |
 | **(iv) 装飾過多** | machine-tour 各カード `🏆` `🎒` `⚔️` / soft-features `📊` `💤` `⚙️` / core-loop STEP `📝` `📊` `🎴` `📇` `💰` `🎁` / versus row `📊` `🌱` `🎓` `📍` | **削除**: 直下に scrshot がある / 機能を語れる / 装飾枠の絵文字は scrshot とコピーの集中を阻害する |
 
@@ -567,13 +588,11 @@ LP `site/index.html` の装飾アイコン（絵文字）は **15 件以下** �
 - core-loop `cls-icon` 6 件（site/index.html）
 - 関連 CSS（`.vc-icon` / `.tour-emoji` / `.soft-icon` / `.cls-icon`）も削除
 
-#### 保持されたもの（5 件、#1796 で trust 4 badges、#1824 で hero trust badges 3 件を SVG 化したため 12 → 8 → 5 に）
+#### 保持されたもの（5 件、#1796 で trust 4 badges を SVG 化したため 12 → 8 → 5 に）
 
 hamburger `☰` (1) + 準備モード注釈 `👶` (1) + 親子視点 `🧑‍💻` `🧒` (2) + lightbox close `✕` (1) = 計 5 件
 
 `#trust` 4 badges (`🚫` `👪` `🔑` `🔍`) は OS 依存 (iOS Safari と Android Chrome で見た目が大きく異なる) を解消するため SVG (`site/assets/ui/trust-*.svg`) に置換済（#1796 R-MAJ-6、`docs/DESIGN.md` §7「OS/ブラウザ間で見た目が変わると困る要素」整合）
-
-hero CTA 直下の `cta-trust-badges` 3 件 (旧 `💳` `🚫` `🔄`) も同方針で `site/assets/ui/cta-trust-{credit-card,ad-free,cancel-anytime}.svg` に置換済（#1824、site/index.html / faq.html / pricing.html の 3 ファイル同期）
 
 #### 新規セクション追加時のセルフチェック
 
@@ -832,41 +851,17 @@ LP の数値訴求（300+ → 400+ 等）を上げたい場合:
 
 LP の **要素削除 / 圧縮** は「追加」より検出されにくく、過去に IA 破綻 / scrshot 漏れ / レイアウトずれの残骸（orphan reference）を発生させた（PO-A-5 / M-MAJ-6）。本節は構造的再発防止の SSOT。
 
+**機械検出は無い (#4420)**: 本節が前提としていた `scripts/check-lp-removal-residue.mjs`（orphan `data-lp-key` / broken image ref 検出、`npm run check:lp-residue` 経由）と `.github/workflows/lp-metrics.yml` の `removal-residue` ジョブは #4322 で削除済み。`scripts/lp-removal-residue-baseline.json` は読み手を失ったまま残置されている。以下は現状レビューで担保する:
+
 ### 8.7.1 削除/圧縮 PR で必ず通過する 5 項目
 
 | # | チェック項目 | 検証手段 |
 |---|------------|---------|
-| 1 | LP HTML から削除した要素の SSOT 参照削除 | `npm run check:lp-residue` (orphan `data-lp-key` 検出) |
-| 2 | 画像ファイル参照の物理存在確認 | 同上 (broken image ref 検出) |
+| 1 | LP HTML から削除した要素の SSOT 参照削除 | 目視（orphan `data-lp-key` 検出の機械強制は無い） |
+| 2 | 画像ファイル参照の物理存在確認 | 目視 |
 | 3 | レイアウトずれの fullpage scrshot 検証 | `npm run screenshots:lp:compare` (Before/After 差分) |
 | 4 | IA 構造（lp-content-map）の同期更新 | 本ドキュメント §4 / §10 変更履歴を本 PR で更新 |
-| 5 | CI `LP Metrics / Check LP removal residue` pass | `.github/workflows/lp-metrics.yml` の `removal-residue` ジョブ |
-
-### 8.7.2 検出スクリプト `scripts/check-lp-removal-residue.mjs`
-
-#### 検出対象
-
-1. **orphan `data-lp-key`** — `site/*.html` / `site/help/*.html` の `data-lp-key="namespace.key"` 参照のうち、`site/shared-labels.js` の `LP_LABELS` に定義が存在しないもの
-2. **broken image ref** — `<img src>` / `<source srcset>` / `<meta property="og:image">` / `<link rel="icon">` の相対パス画像が `site/` に物理存在しないもの（例外: `site/screenshots/*.webp` は CI 生成のため warn 扱い）
-
-#### baseline ratchet
-
-- 既存 violation は `scripts/lp-removal-residue-baseline.json` に保存
-- 新規 1 件でも追加されれば CI を fail させる（bypass フラグなし）
-- baseline を意図的に増やす変更は ADR で議論したうえで `npm run check:lp-residue:update-baseline` を実行
-
-#### 使い方
-
-```bash
-# 検査 (CI 等価)
-npm run check:lp-residue
-
-# JSON 出力 (artefact 用)
-node scripts/check-lp-removal-residue.mjs --json
-
-# baseline 更新 (orphan を意図的に解消した後)
-npm run check:lp-residue:update-baseline
-```
+| 5 | ~~CI `LP Metrics / Check LP removal residue` pass~~ | 削除済み（上記参照） |
 
 ### 8.7.3 PR template との連携
 

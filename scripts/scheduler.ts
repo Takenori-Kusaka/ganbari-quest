@@ -12,6 +12,10 @@
 // 注意: DB への直接アクセス禁止。HTTP POST 経由のみ。
 
 import cron from 'node-cron';
+import {
+	CRON_TRIGGER_HEADER,
+	CRON_TRIGGER_SCHEDULED,
+} from '../src/lib/server/cron/cron-trigger.js';
 import { scheduleRegistry } from '../src/lib/server/cron/schedule-registry.js';
 
 const APP_URL = process.env.APP_URL ?? 'http://app:3000';
@@ -35,6 +39,9 @@ async function callEndpoint(job: { name: string; endpoint: string }): Promise<vo
 				// 既存 endpoint の auth パターン差異を吸収する。
 				Authorization: `Bearer ${CRON_SECRET}`,
 				'x-cron-secret': CRON_SECRET,
+				// #4338: 「この呼び出しは定時実行である」と名乗る marker。
+				// endpoint 側はこれの有無だけで削除記録の経路 (grace-expiry / manual) を決める。
+				[CRON_TRIGGER_HEADER]: CRON_TRIGGER_SCHEDULED,
 			},
 		});
 		if (res.ok) {

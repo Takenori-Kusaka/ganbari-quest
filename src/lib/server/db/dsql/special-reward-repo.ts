@@ -133,13 +133,23 @@ export function createDsqlSpecialRewardRepo<TTx extends SqlExecutor>(
 				return undefined;
 			}
 			// #2845 課題①: (childId, rewardId) 複合キー。不一致なら 0 行 = undefined。
+			// #4435 (逸脱 2、条件 SSOT: parallel-implementations.md §13 条件 1): `shown_at IS NULL`
+			// guard で冪等にし、再送で初回表示時刻を上書きしない。0 行のときは所有権を満たす行を
+			// 読み直して返す (「既に既読」と「他人の子の行」を endpoint の 404 判定が区別できるように)。
 			const result = await db.execute(sql`
 				UPDATE special_rewards SET shown_at = now()
 				WHERE family_id = ${tenantId} AND child_id = ${childId} AND reward_id = ${rewardId}
+					AND shown_at IS NULL
 				RETURNING ${REWARD_COLUMNS}
 			`);
 			const row = result.rows[0] as unknown as RewardRow | undefined;
-			return row ? toReward(row) : undefined;
+			if (row) return toReward(row);
+			const already = await db.execute(sql`
+				SELECT ${REWARD_COLUMNS} FROM special_rewards
+				WHERE family_id = ${tenantId} AND child_id = ${childId} AND reward_id = ${rewardId}
+			`);
+			const alreadyRow = already.rows[0] as unknown as RewardRow | undefined;
+			return alreadyRow ? toReward(alreadyRow) : undefined;
 		},
 
 		async updateSpecialReward(childId, rewardId, updates: UpdateSpecialRewardInput, tenantId) {

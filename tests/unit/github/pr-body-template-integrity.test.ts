@@ -34,6 +34,18 @@ const TEMPLATE_FILES = [
 	'.claude/skills/dev-open-pr/templates/pr-body-refactor-ssot.md',
 ] as const;
 
+/**
+ * #4305 で `.github/PULL_REQUEST_TEMPLATE.md` は 102 行 → 30 行以下に削減され、
+ * `## Ready for Review チェックリスト` セクション自体が撤去された (A 削除)。
+ * 撤去済みテンプレートには自己参照 deadlock の入力（未チェック checkbox）が存在し得ないため、
+ * 「Ready セクションが無いテンプレート」を deadlock 検査の対象から分離する。
+ * `.claude/skills/dev-open-pr/templates/*.md` は #4305 の直接対象外で現行の Ready セクションを
+ * 維持しているため、従来どおり deadlock 検査を続ける。
+ */
+const READY_SECTION_TEMPLATE_FILES = TEMPLATE_FILES.filter(
+	(f) => f !== '.github/PULL_REQUEST_TEMPLATE.md',
+);
+
 const READY_SECTION_HEADING = '## Ready for Review チェックリスト';
 
 function readTemplate(relPath: string): string {
@@ -79,13 +91,22 @@ describe('PR body テンプレートは forbidden-terms gate と矛盾しない 
 });
 
 describe('Ready チェックリストに pre-ready 自己参照項目が無い (#4022 AC6/AC8/AC10/AC11)', () => {
-	it.each(TEMPLATE_FILES)('%s の Ready セクションに pre-ready 未チェック項目が 0 件', (relPath) => {
+	it.each(
+		READY_SECTION_TEMPLATE_FILES,
+	)('%s の Ready セクションに pre-ready 未チェック項目が 0 件', (relPath) => {
 		const body = readTemplate(relPath);
 		expect(extractReadySection(body), `${relPath} に Ready セクションが無い`).not.toBe('');
 		expect(
 			findPreReadyUncheckedItems(body),
 			`${relPath}: この項目は check-pr-body → pre-ready → check-pr-body の自己参照 deadlock を作る`,
 		).toEqual([]);
+	});
+
+	it('`.github/PULL_REQUEST_TEMPLATE.md` は Ready セクション自体を持たない (#4305 で撤去)', () => {
+		// #4305: 「Ready for Review チェックリスト」は自己申告 checkbox のみで構成され A 削除された。
+		// セクションが存在しない = 自己参照 deadlock の入力が構造的に発生し得ないことを固定する。
+		const body = readTemplate('.github/PULL_REQUEST_TEMPLATE.md');
+		expect(extractReadySection(body)).toBe('');
 	});
 
 	it.each([
@@ -111,15 +132,5 @@ describe('Ready チェックリストに pre-ready 自己参照項目が無い (
 			'## 次のセクション',
 		].join('\n');
 		expect(findPreReadyUncheckedItems(mutated)).toHaveLength(1);
-	});
-
-	it('`## テスト・品質セルフチェック` 側の集約申告は残す (AC7 境界、#4097 で section 統合)', () => {
-		// 当該セクションは findUncheckedReadyChecklist の対象外なので deadlock 経路に無い。
-		const template = readTemplate('.github/PULL_REQUEST_TEMPLATE.md');
-		expect(template).toContain('## テスト・品質セルフチェック');
-		const selfCheckIdx = template.indexOf('## テスト・品質セルフチェック');
-		const readyIdx = template.indexOf(READY_SECTION_HEADING);
-		const selfCheckSection = template.slice(selfCheckIdx, readyIdx);
-		expect(selfCheckSection).toContain('pre-ready');
 	});
 });

@@ -46,7 +46,7 @@
 - **one-off の結論は設計書 / ADR に内包し、詳細は git 履歴に委ねる**。deep-research / 調査の出力を毎回 `docs/research/YYYY-MM-DD-*.md` としてコミットしない。設計書 / ADR から継続参照される根拠 SSOT になるものだけを research に残す
 - **research ファイルは役目を終えたら削除する（削除主義）**。参照元の ADR / 設計書 / script が消えた・結論が内包済になった dated one-off は削除し、履歴は git で追跡する（ADR の削除主義 `docs/decisions/README.md` §ボリューム上限ルールと同一原則）
 
-既存混入の整形は #2440 確定計画（粒度 = 同質性 × diff 行数 × 機械検証の 3 条件、`docs/research/2026-06-04-docs-inventory-audit.md` が基準書）で段階消化。one-off 量産・誤配置・死蔵の棚卸分類は `docs/research/2026-07-12-docs-inventory-audit.md`（#3516 AC1、続編）が基準書。再混入防止 gate は `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils へ相乗り（専用 script は新設しない）。
+既存混入の整形は #2440 確定計画（粒度 = 同質性 × diff 行数 × 機械検証の 3 条件、`docs/research/2026-06-04-docs-inventory-audit.md` が基準書）で段階消化。one-off 量産・誤配置・死蔵の棚卸分類は `docs/research/2026-07-12-docs-inventory-audit.md`（#3516 AC1、続編）が基準書。**本節の再混入を検出する CI gate は無い（レビューで担保する）。**
 
 ## LP メトリクス ratchet (#1163)
 
@@ -60,11 +60,11 @@
 | `forbiddenTerms` | 0 | 開発者語彙 / 射幸性語彙の追加禁止 |
 | `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
 | `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
-| `lp-removal-residue` (#1790) | 新規違反 0 | baseline 19 件、新規 1 件で fail |
-| `lp-inline-style` (#1851) | baseline 超過 0 | `--lp-*` Semantic トークン未経由の padding/margin 直書き、新規 1 件で fail (ADR-0042 Phase 2) |
 | `lp-visual-regression` (#2401) | per-image diff ≤ 10% | `scripts/lp-screenshot-baseline/*.webp` (git tracked) と CI 撮影 `site/screenshots/*.webp` を pixelmatch 比較。diff > 10% で fail。意図的変更時は `node scripts/check-lp-visual-regression.mjs --update-baseline` で更新 (PR #1893 Phase 2)。更新 flow / triage 手順は [runbooks/lp-visual-regression-baseline.md](runbooks/lp-visual-regression-baseline.md) (#2452) |
 
-閾値緩和は ADR 合意後に `THRESHOLDS` / `lp-removal-residue-baseline.json` / `lp-inline-style-baseline.json` 更新。
+閾値緩和は ADR 合意後に `THRESHOLDS` を更新。
+
+**`lp-removal-residue` (#1790) / `lp-inline-style` (#1851) は #4322 でそれぞれの検査 script ごと削除済み — CI では走っていない。** 対応する baseline JSON (`scripts/lp-removal-residue-baseline.json` / `scripts/lp-inline-style-baseline.json`) は読み手を失ったまま残置されている（機械強制は無い。LP 削除/圧縮 PR の残骸検出と `--lp-*` 未経由の padding/margin 直書き検出は、いまはレビューで担保する）。
 
 ### LP 累積 desktopHeight gate (#1840)
 
@@ -132,7 +132,7 @@ npm run dev:cognito         # AUTH_MODE=cognito + COGNITO_DEV_MODE=true、port 5
 npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必要
 ```
 
-`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops の 8 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
+`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops / ops-no-mfa（MFA 未設定の運営者。現在は `/ops` に入れる = #4363 で MFA 要求を撤去。`OPS_MFA_REQUIRED` を戻したときの拒否 → 設定導線の検証用）の 9 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
 
 使用必須: 認証画面変更 PR の Ready 前 / SS 撮影 / login / signup / ops group / プラン別 UI / 管理画面の変更時。
 
@@ -203,3 +203,11 @@ Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.gith
 - 依存 3 分割 (`blocked_by` / `blocks` / `related`) — #1261
 - 工程 phase (P0-P7 / N/A) — 下流は上流 close まで着手しない
 - ADR-0010 Pre-PMF / ADR-0004 AC 検証 / ADR-0003 Issue 品質
+
+## graphify
+
+- **ナレッジグラフのSSOT**: `graphify-out/graph.json`、`graphify-out/GRAPH_REPORT.md`、`graphify-out/graph.html`。
+- **Git運用ベストプラクティス**: 
+  - コミット時に自動で `graphify --update --no-viz`（インクリメンタルビルド、AST解析はトークン消費0）が走り、グラフが自動更新されます（`.husky/post-commit` 実装）。
+  - `graphify-out/.*`（一時中間キャッシュファイル）は Git から除外されていますが、ナレッジグラフ成果物（`graph.json`, `GRAPH_REPORT.md`, `graph.html`）は Git 追跡され、チーム全体で常に最新の仕様が共有されます。
+- **探索クエリ**: AIセッション（Claude Code / Gemini 等）は、ドキュメントの矛盾・依存スキャンのため、自律的に `graphify query "<質問>"` を使用して探索・解説を行います。

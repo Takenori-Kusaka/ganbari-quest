@@ -4,7 +4,7 @@ import type { ChildId } from '$lib/domain/ids';
 import { getRepos } from './factory';
 
 export async function insertRedemptionRequest(
-	input: { childId: ChildId; rewardId: string; requestedAt: number },
+	input: { childId: ChildId; rewardId: string; requestedAt: number; quantity: number },
 	tenantId: string,
 ) {
 	return getRepos().rewardRedemption.insertRedemptionRequest(input, tenantId);
@@ -20,6 +20,7 @@ export async function insertRedemptionForRestore(
 		childId: ChildId;
 		rewardId: string;
 		requestedAt: number;
+		quantity: number;
 		status: string;
 		parentNote: string | null;
 		resolvedAt: number | null;
@@ -66,15 +67,6 @@ export async function updateRedemptionRequestStatus(
 
 // findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
 // insertRedemptionRequest の repo 原子境界 dedup に内蔵済 (TOCTOU 根治)。
-
-export async function findUnshownResultByChild(childId: ChildId, tenantId: string) {
-	return getRepos().rewardRedemption.findUnshownResultByChild(childId, tenantId);
-}
-
-/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
-export async function markRedemptionResultShown(childId: ChildId, id: string, tenantId: string) {
-	return getRepos().rewardRedemption.markRedemptionResultShown(childId, id, tenantId);
-}
 
 export async function expireOldRedemptions(tenantId: string) {
 	return getRepos().rewardRedemption.expireOldRedemptions(tenantId);

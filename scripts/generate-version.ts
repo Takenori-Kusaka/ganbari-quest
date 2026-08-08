@@ -1,15 +1,14 @@
 // scripts/generate-version.ts
 // 日付ベースバージョンを自動生成して src/lib/version.ts に書き出す
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { todayDateJST } from '../src/lib/domain/date-utils';
 
 const VERSION_FILE = 'src/lib/version.ts';
 const MAJOR = process.env.APP_MAJOR_VERSION || '1';
 
 function generateVersion(): string {
-	const now = new Date();
-	// JST (UTC+9)
-	const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-	const dateStr = jstDate.toISOString().slice(0, 10).replace(/-/g, '');
+	// 版数の日付部は JST 暦日 (暦 SSOT 経由、#4120)
+	const dateStr = todayDateJST().replace(/-/g, '');
 
 	let patch = 0;
 

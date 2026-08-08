@@ -255,6 +255,56 @@ export function resolveBaseBranchAuto(opts = {}) {
 	});
 }
 
+/**
+ * base branch がどれだけ先に進んでいるか (`behind`) と、進んだ分で何が変わったかを測る (#4390)。
+ *
+ * `--verify-base` が `behind` だけを見て exit code を返していたのに対し、本関数は
+ * **base 側で変わった file 一覧**も返す。pre-ready は「base が動いた」ではなく
+ * 「base が動き、かつ**自分の検査基準**が動いた」かで判定を変えるため、件数だけでは足りない。
+ *
+ * - `HEAD...origin/<base>` (3 点) = merge-base から base 先端までの差分 = **base 側だけの変更**。
+ *   2 点 (`..`) にすると自 branch の変更が逆向きに混ざるため使わない。
+ * - offline / ref 不在は「測れなかった」を返す (`available: false`)。呼び出し側が
+ *   これを stale 扱いに倒すと、offline というだけで全員が止まるため。
+ *
+ * @param {string} base `isAllowedBaseBranch` を通過済みの branch 名 (shell 展開するため)
+ * @param {{ cwd?: string; fetch?: boolean }} [opts]
+ * @returns {{ available: boolean; behind: number; files: string[]; fetchFailed: boolean }}
+ */
+export function measureBaseDrift(base, opts = {}) {
+	const cwd = opts.cwd ?? process.cwd();
+	const doFetch = opts.fetch !== false;
+	if (!isAllowedBaseBranch(base))
+		return { available: false, behind: 0, files: [], fetchFailed: false };
+	/** @param {string} cmd 固定コマンド + validate 済 base 名のみ @param {number} [timeout] ms */
+	const run = (cmd, timeout) =>
+		execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
+
+	let fetchFailed = false;
+	if (doFetch) {
+		try {
+			run(`git fetch origin ${base}`, 30_000);
+		} catch {
+			fetchFailed = true; // offline 等。手元の ref で測る
+		}
+	}
+	try {
+		const behind = Number.parseInt(run(`git rev-list --count HEAD..origin/${base}`), 10);
+		if (!Number.isFinite(behind)) return { available: false, behind: 0, files: [], fetchFailed };
+		const files =
+			behind > 0
+				? run(`git diff --name-only HEAD...origin/${base}`)
+						.split('\n')
+						.map((s) => s.trim())
+						.filter(Boolean)
+				: [];
+		return { available: true, behind, files, fetchFailed };
+	} catch {
+		// origin/<base> 不在 (cutover 前 repo / clone 直後) 等 — 測れなかったとして返す
+		return { available: false, behind: 0, files: [], fetchFailed };
+	}
+}
+
 const isMain = isMainModule(import.meta.url);
 
 if (isMain) {

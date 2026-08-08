@@ -98,7 +98,11 @@ describe('POST /api/v1/admin/account/delete (#1781 プラン別グレースピ�
 			const body = await res.json();
 			expect(body.softDeleted).toBe(false);
 			expect(mockResolveFullPlanTier).toHaveBeenCalledWith('tenant-1781', 'none', undefined);
-			expect(mockDeleteOwnerOnly).toHaveBeenCalledWith('tenant-1781', 'user-1');
+			// #4338: 削除記録ログの文脈 (経路 = 即時削除 / プラン) を渡していること
+			expect(mockDeleteOwnerOnly).toHaveBeenCalledWith('tenant-1781', 'user-1', {
+				route: 'immediate',
+				planTier: 'free',
+			});
 			// free 経路では soft-delete 記録 / 直接 Stripe キャンセルは呼ばない
 			// (Stripe キャンセルは deleteOwnerOnlyAccount 内部で行われる)
 			expect(mockSoftDelete).not.toHaveBeenCalled();
@@ -199,7 +203,11 @@ describe('POST /api/v1/admin/account/delete (#1781 プラン別グレースピ�
 			expect(res.status).toBe(200);
 			const body = await res.json();
 			expect(body.softDeleted).toBe(false);
-			expect(mockDeleteOwnerFull).toHaveBeenCalledWith('tenant-1781', 'user-1');
+			// #4338: 削除記録ログの文脈 (経路 = 即時削除 / プラン) を渡していること
+			expect(mockDeleteOwnerFull).toHaveBeenCalledWith('tenant-1781', 'user-1', {
+				route: 'immediate',
+				planTier: 'free',
+			});
 			expect(mockSoftDelete).not.toHaveBeenCalled();
 			expect(mockCancelSubscription).not.toHaveBeenCalled();
 		});

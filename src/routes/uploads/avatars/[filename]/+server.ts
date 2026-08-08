@@ -4,7 +4,11 @@
 import { error } from '@sveltejs/kit';
 import { asChildId } from '$lib/domain/ids';
 import { logger } from '$lib/server/logger';
-import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
+import {
+	safeCacheControl,
+	safeContentDisposition,
+	safeContentType,
+} from '$lib/server/security/file-sanitizer';
 import { getChildById } from '$lib/server/services/child-service';
 import { readFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl } from '$lib/server/storage-keys';
@@ -96,7 +100,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		headers: {
 			'Content-Type': ct,
 			'Content-Disposition': safeContentDisposition(ct),
-			'Cache-Control': 'public, max-age=31536000, immutable',
+			// #4415 follow-up: 子供の顔写真を共有キャッシュに配らせない (private)。legacy flat キーは
+			// アップロードごとに suffix が変わる = URL が内容と 1:1 なので immutable は維持される。
+			'Cache-Control': safeCacheControl(filename),
 		},
 	});
 };

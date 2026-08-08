@@ -5,6 +5,7 @@ import {
 	avatarKey,
 	childPrefix,
 	generatedImageKey,
+	publicUrlToStorageKey,
 	storageKeyToPublicUrl,
 	tenantPrefix,
 	voiceKey,
@@ -80,6 +81,31 @@ describe('storage-keys', () => {
 		it('キーの先頭にスラッシュを付与する', () => {
 			expect(storageKeyToPublicUrl('tenants/t1/avatars/1/abc.png')).toBe(
 				'/tenants/t1/avatars/1/abc.png',
+			);
+		});
+	});
+
+	describe('publicUrlToStorageKey (#4468)', () => {
+		it('先頭スラッシュを落として key に戻す (storageKeyToPublicUrl の逆変換)', () => {
+			const key = 'tenants/t1/avatars/1/abc.png';
+			expect(publicUrlToStorageKey(storageKeyToPublicUrl(key))).toBe(key);
+		});
+
+		it('仮アバターの `?v=<版>` (#4461) を落とす — 付いたままだと削除が空振りする', () => {
+			expect(publicUrlToStorageKey('/tenants/t1/avatars/1/placeholder.svg?v=163ry6f')).toBe(
+				'tenants/t1/avatars/1/placeholder.svg',
+			);
+		});
+
+		it('fragment も落とす', () => {
+			expect(publicUrlToStorageKey('/tenants/t1/avatars/1/abc.png#frag')).toBe(
+				'tenants/t1/avatars/1/abc.png',
+			);
+		});
+
+		it('スラッシュ無し (既に key 形) はそのまま返す', () => {
+			expect(publicUrlToStorageKey('tenants/t1/avatars/1/abc.png')).toBe(
+				'tenants/t1/avatars/1/abc.png',
 			);
 		});
 	});

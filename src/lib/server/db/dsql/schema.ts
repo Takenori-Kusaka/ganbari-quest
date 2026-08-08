@@ -770,6 +770,8 @@ export const rewardRedemptionRequests = pgTable(
 		childId: uuid('child_id').notNull(),
 		rewardId: uuid('reward_id').notNull(),
 		requestedAt: timestamp('requested_at', { mode: 'string', withTimezone: true }).notNull(),
+		// #4407: 1 申請 = N 個 (sqlite schema.ts と parity)。単位量のごほうびを「単価 × 個数」で消費する。
+		quantity: integer('quantity').notNull().default(1),
 		status: text('status').notNull().default('pending_parent_approval'),
 		parentNote: text('parent_note'),
 		resolvedAt: timestamp('resolved_at', { mode: 'string', withTimezone: true }),
@@ -898,6 +900,9 @@ export const childChallenges = pgTable(
 		completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
 		rewardClaimed: boolean('reward_claimed').notNull().default(false),
 		rewardClaimedAt: timestamp('reward_claimed_at', { mode: 'string', withTimezone: true }),
+		// #4410: 達成祝福 (SiblingCelebration) を「見せた」記録。NULL = 未表示。
+		// 祝福表示の停止条件はこの列のみが持つ (reward_claimed とは独立、AC3)。SQLite SSOT と parity。
+		celebrationShownAt: timestamp('celebration_shown_at', { mode: 'string', withTimezone: true }),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),

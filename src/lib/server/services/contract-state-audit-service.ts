@@ -12,6 +12,12 @@
 // 修正前に dunning から復帰したテナントの行に残っている可能性がある。
 // 手 3 はその「**在庫**」を見えるようにする。
 //
+// ## 相乗り: 継続月キーの滞留在庫 (#4269 ①)
+//
+// 「本番行を数えて /ops に出す、0 件でも 0 件と出す」という枠が本 file にあるので、
+// **prefix 無しの `loyalty_last_increment_month` が残るテナント数**も同じ枠で数える。
+// 専用の service / 画面 / cron は作らない (PO 決裁 2026-08-06)。
+//
 // ## PII を持ち出さない
 //
 // 出力は tenantId と 4 列の分類結果だけに絞る。名前 / メール / Stripe customer は含めない
@@ -26,6 +32,10 @@ import {
 	VALID_CONTRACT_STATES,
 } from '$lib/domain/contract-state';
 import { getRepos } from '$lib/server/db/factory';
+import {
+	JST_MONTH_KEY_PREFIX,
+	LOYALTY_LAST_INCREMENT_MONTH_KEY,
+} from '$lib/server/services/loyalty-service';
 
 /** 分類できなかった / 不正だった 1 行。復旧に要る最小限だけ持つ。 */
 export interface ContractStateAuditRow {
@@ -37,6 +47,22 @@ export interface ContractStateAuditRow {
 	hasPlanExpiresAt: boolean;
 }
 
+/**
+ * 継続月キー (`loyalty_last_increment_month`) の在庫 (#4269 ①)。**件数だけ**を持つ。
+ *
+ * prefix 無しの旧値が残っているテナントでは、継続月数の加算が「基準不明」として
+ * 安全側に skip され続ける (loyalty-service `classifyMonthKeyMatch`)。skip 分岐は値を
+ * 再 write しないため、以後 webhook が来ないテナントでは滞留したままになる。
+ * skip の妥当性は「取りこぼしは回復できる」ことに依存しており、**回復が要ると気づく経路**が
+ * これ。専用の機構を作らず本監査に相乗りさせる。
+ */
+export interface LoyaltyMonthKeyAudit {
+	/** 保存済みの母数 (prefix 有無を問わない)。 */
+	total: number;
+	/** prefix 無し = 基準不明で滞留している件数。 */
+	legacy: number;
+}
+
 export interface ContractStateAuditResult {
 	/** 分類ごとの件数 (S1-S6 / X1-X4 / UNCLASSIFIED を必ず全 key 持つ)。 */
 	counts: Record<ContractStateClassification, number>;
@@ -46,6 +72,8 @@ export interface ContractStateAuditResult {
 	problemRows: ContractStateAuditRow[];
 	/** `problemRows` が上限で切られた場合の残件数 (0 なら全件掲載)。 */
 	truncated: number;
+	/** 継続月キーの在庫 (#4269 ①)。**0 件でも必ず返す** (行が消えると「見ていない」と区別がつかない)。 */
+	loyaltyMonthKeys: LoyaltyMonthKeyAudit;
 }
 
 /** 一覧に載せる最大件数。超過分は件数だけ返す (画面が壊れないように)。 */
@@ -72,7 +100,14 @@ export function isProblemClassification(c: ContractStateClassification): boolean
  * 区別できず、壊れた監査を緑と読み違える。
  */
 export async function auditContractStates(): Promise<ContractStateAuditResult> {
-	const tenants = await getRepos().auth.listAllTenants();
+	const repos = getRepos();
+	// #4269 ①: 継続月キーの滞留も同じ在庫で数える (専用の機構は作らない)。
+	// テナントごとに引くと N+1 になるため repo 層の 1 クエリに畳む (ADR-0065 原則 2)。
+	// prefix は loyalty-service の SSOT をそのまま渡す (判定を 2 つに分けない)。
+	const [tenants, monthKeyCounts] = await Promise.all([
+		repos.auth.listAllTenants(),
+		repos.settings.countValuesByPrefix(LOYALTY_LAST_INCREMENT_MONTH_KEY, JST_MONTH_KEY_PREFIX),
+	]);
 	const counts = emptyCounts();
 	const problemRows: ContractStateAuditRow[] = [];
 	let truncated = 0;
@@ -101,5 +136,14 @@ export async function auditContractStates(): Promise<ContractStateAuditResult> {
 		});
 	}
 
-	return { counts, total: tenants.length, problemRows, truncated };
+	return {
+		counts,
+		total: tenants.length,
+		problemRows,
+		truncated,
+		loyaltyMonthKeys: {
+			total: monthKeyCounts.total,
+			legacy: monthKeyCounts.total - monthKeyCounts.withPrefix,
+		},
+	};
 }

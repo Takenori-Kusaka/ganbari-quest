@@ -75,7 +75,7 @@
 | H20 | home | findMustActivitiesWithToday（2 クエリ） | child_activities, activity_logs | read×2 |
 | H21 | home | countPointLedgerEntriesByTypeAndDate | point_ledger | aggregate COUNT |
 
-その他 home load で発行（クラスタ外）: child-challenge（findActiveOrUnclaimed + 冪等生成）、special_rewards（findUnshownReward）、parent_messages（findUnshownMessage）、sibling_cheers（findUnshownCheers）、reward_redemption（findUnshownResultByChild）、checklist（findTemplatesByChild + items + overrides + todayLog）。
+その他 home load で発行（クラスタ外）: child-challenge（findActiveOrUnclaimed + 冪等生成）、special_rewards（findUnshownReward）、parent_messages（findUnshownMessage）、sibling_cheers（findUnshownCheers）、checklist（findTemplatesByChild + items + overrides + todayLog）。
 
 **recordActivity の write 群（現状 tx 境界無し・逐次 await・例外握り潰し）**: ① activity_logs INSERT ② activity_mastery UPSERT ③ point_ledger INSERT ④ statuses UPSERT ⑤ status_history INSERT ＋ 条件付き（combo/mission の point_ledger 追加・daily_missions UPDATE・challenge 進捗）。読みも多数（findChild, findActivityByIdForChild, countTodayActiveRecords, findStreakLogs[全件], findMastery, getTodayActivityCountsByChild）。→ **§8 単一 txn 化の最重要根拠**。
 

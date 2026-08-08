@@ -1,5 +1,3 @@
-import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
-import { asCategoryId } from '$lib/domain/ids';
 // src/lib/server/services/child-challenge-service.ts
 // per-child チャレンジ サービス層 (#2362 PR-7、ADR-0055、User §6)
 //
@@ -18,7 +16,9 @@ import {
 	CATEGORY_CODES,
 	CATEGORY_NUMERIC_IDS,
 } from '$lib/domain/categories';
-import { addDaysJST, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import { addDaysJST, jstDateToInstant, todayDateJST, weekStartJST } from '$lib/domain/date-utils';
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
+import { asCategoryId } from '$lib/domain/ids';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
@@ -122,20 +122,12 @@ export function getWeekStart(date: Date = new Date()): string {
 
 /** weekStart (YYYY-MM-DD, Monday) の 1 週間前の Monday を返す。 */
 export function getLastWeekStart(weekStart: string): string {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
-	dt.setUTCDate(dt.getUTCDate() - 7);
-	const yyyy = dt.getUTCFullYear();
-	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-	const dd = String(dt.getUTCDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	return addDaysJST(weekStart, -7);
 }
 
 /** weekStart を epoch からの週インデックスに変換する (得意週の周期判定用、決定的)。 */
 function weekIndexOf(weekStart: string): number {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const ms = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+	return Math.floor(jstDateToInstant(weekStart).getTime() / (7 * 24 * 60 * 60 * 1000));
 }
 
 /** 2 つの weekStart (Monday) 間の週数。連続週なら 1、1 週 skip なら 2 (#3203 item1)。 */
@@ -488,13 +480,7 @@ const AUTO_WEEKLY_REWARD_POINTS = 30;
 
 /** weekStart (Monday, YYYY-MM-DD) の週末 (Sunday) を返す。 */
 function weekEndOf(weekStart: string): string {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
-	dt.setUTCDate(dt.getUTCDate() + 6);
-	const yyyy = dt.getUTCFullYear();
-	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-	const dd = String(dt.getUTCDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
+	return addDaysJST(weekStart, 6);
 }
 
 /** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev 形) に写像する。 */
@@ -740,6 +726,48 @@ export async function getActiveChildChallengesWithSiblings(
 		const allCompleted = finalSiblings.length > 0 && finalSiblings.every((s) => s.completed === 1);
 		return { ...mine, siblings: finalSiblings, allCompleted };
 	});
+}
+
+/**
+ * #4410: 「達成祝福 (SiblingCelebration) を出すべき instance」を 1 件解決する (無ければ null)。
+ *
+ * **表示可否の根拠は `celebrationShownAt IS NULL` のみ**であり、クライアントの `$state` は
+ * 根拠にしない (AC2)。閉じた事実はサーバに永続化されるので、ページ遷移・リロード・
+ * `invalidateAll()`・別端末のいずれでも 2 回目以降は null になる。
+ *
+ * `rewardClaimed` は条件に含めない (AC3) — ごほうびを受け取ったかどうかは祝福の停止条件では
+ * なく、受取導線は `challenge-reward-claim-card` 単一経路のまま (#3333) 独立して機能する。
+ *
+ * ADR-0012 (anti-engagement): 同時に出すのは常に 1 件のみ (docs/DESIGN.md §10 重畳ルール)。
+ */
+export function resolveCelebrationChallenge(
+	challenges: readonly ChildChallengeWithSiblings[],
+	childId: ChildId,
+): ChildChallengeWithSiblings | null {
+	return (
+		challenges.find(
+			(c) => c.childId === childId && c.allCompleted && c.celebrationShownAt === null,
+		) ?? null
+	);
+}
+
+/**
+ * #4410: 達成祝福を「見せた」ことを記録する (`markCheersShown` と同型)。
+ *
+ * @returns 記録できた (または既に記録済) なら true。他 child / 存在しない instance なら false
+ *          (IDOR 防止: tenant 内の別 child の行を閉じられないようにする)。
+ */
+export async function markChallengeCelebrationShown(
+	challengeId: string,
+	childId: ChildId,
+	tenantId: string,
+): Promise<boolean> {
+	const repos = getRepos();
+	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
+	if (!challenge || challenge.childId !== childId) return false;
+	// repo 側が `celebration_shown_at IS NULL` 条件付き UPDATE で冪等 (最初の時刻を保つ)。
+	await repos.childChallenge.markCelebrationShown(challengeId, tenantId);
+	return true;
 }
 
 /**

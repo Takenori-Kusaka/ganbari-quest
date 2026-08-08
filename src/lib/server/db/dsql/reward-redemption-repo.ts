@@ -19,12 +19,12 @@
 
 import { sql } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import {
 	type IRewardRedemptionRepo,
 	REDEMPTION_DEDUP_WINDOW_SEC,
 	type RedemptionRequestRow,
 	type RedemptionRequestWithDetails,
-	type RedemptionRequestWithReward,
 } from '../interfaces/reward-redemption-repo.interface';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
 import { normalizeResolvedByParentId } from '../reward-redemption-normalize';
@@ -35,6 +35,7 @@ interface RequestRow {
 	child_id: string;
 	reward_id: string;
 	requested_at: string;
+	quantity: number;
 	status: string;
 	parent_note: string | null;
 	resolved_at: string | null;
@@ -43,7 +44,7 @@ interface RequestRow {
 }
 
 const REQUEST_COLUMNS = sql.raw(
-	`redemption_id, child_id, reward_id, requested_at, status, parent_note,
+	`redemption_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 	 resolved_at, resolved_by_parent_id, shown_to_child_at`,
 );
 
@@ -65,6 +66,9 @@ function toRequestRow(row: RequestRow): RedemptionRequestRow {
 		rewardId: String(row.reward_id),
 		// requested_at は NOT NULL のため isoToEpoch は non-null (契約上 number)。
 		requestedAt: isoToEpoch(row.requested_at) as number,
+		// #4407: NOT NULL DEFAULT 1 + 既存行 backfill 済のため通常 null にならない。
+		// 未 migrate cluster を読んだ場合の安全側として 1 (旧仕様 = 1 個) に倒す。
+		quantity: Number(row.quantity ?? 1),
 		status: row.status,
 		parentNote: row.parent_note,
 		resolvedAt: isoToEpoch(row.resolved_at),
@@ -136,10 +140,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 					| undefined;
 				const result = await tx.execute(sql`
 					INSERT INTO reward_redemption_requests
-						(family_id, child_id, reward_id, requested_at, status,
+						(family_id, child_id, reward_id, requested_at, quantity, status,
 						 reward_title, reward_points, reward_icon)
 					VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-						'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
+						${normalizeRedemptionQuantity(input.quantity)}, 'pending_parent_approval', ${reward?.title ?? null}, ${reward?.points ?? null},
 						${reward?.icon ?? null})
 					RETURNING ${REQUEST_COLUMNS}
 				`);
@@ -151,11 +155,11 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 			// #3329: status / 解決情報 / snapshot を verbatim 書き戻す (live reward 参照しない)。
 			const result = await db.execute(sql`
 				INSERT INTO reward_redemption_requests
-					(family_id, child_id, reward_id, requested_at, status, parent_note,
+					(family_id, child_id, reward_id, requested_at, quantity, status, parent_note,
 					 resolved_at, resolved_by_parent_id, shown_to_child_at,
 					 reward_title, reward_points, reward_icon)
 				VALUES (${tenantId}, ${input.childId}, ${input.rewardId}, ${epochToIso(input.requestedAt)},
-					${input.status}, ${input.parentNote},
+					${normalizeRedemptionQuantity(input.quantity)}, ${input.status}, ${input.parentNote},
 					${input.resolvedAt === null ? null : epochToIso(input.resolvedAt)},
 					${normalizeResolvedByParentId(input.resolvedByParentId)},
 					${input.shownToChildAt === null ? null : epochToIso(input.shownToChildAt)},
@@ -177,7 +181,7 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		async findRedemptionRequestsByTenant(tenantId, opts) {
 			const result = await db.execute(sql`
 				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
+					rr.quantity, rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
 					c.nickname AS child_name,
 					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon,
 					${SNAPSHOT_POINTS} AS reward_points
@@ -239,41 +243,10 @@ export function createDsqlRewardRedemptionRepo<TTx extends SqlExecutor>(
 		// findPendingByChildAndReward は #3356 (1) で撤去。pending 重複判定は
 		// insertRedemptionRequest の dedup txn に内蔵済 (check-then-act TOCTOU 根治)。
 
-		async findUnshownResultByChild(childId, tenantId) {
-			const result = await db.execute(sql`
-				SELECT rr.redemption_id, rr.child_id, rr.reward_id, rr.requested_at, rr.status,
-					rr.parent_note, rr.resolved_at, rr.resolved_by_parent_id, rr.shown_to_child_at,
-					${SNAPSHOT_TITLE} AS reward_title, ${SNAPSHOT_ICON} AS reward_icon
-				FROM reward_redemption_requests rr
-				LEFT JOIN special_rewards sr
-					ON sr.family_id = rr.family_id AND sr.child_id = rr.child_id AND sr.reward_id = rr.reward_id
-				WHERE rr.family_id = ${tenantId} AND rr.child_id = ${childId}
-					AND rr.status IN ('approved', 'rejected') AND rr.shown_to_child_at IS NULL
-				ORDER BY rr.resolved_at DESC, rr.redemption_id DESC
-				LIMIT 1
-			`);
-			const row = result.rows[0] as unknown as
-				| (RequestRow & { reward_title: string; reward_icon: string | null })
-				| undefined;
-			if (!row) return undefined;
-			const base = toRequestRow(row);
-			return {
-				...base,
-				rewardTitle: row.reward_title,
-				rewardIcon: row.reward_icon,
-			} satisfies RedemptionRequestWithReward;
-		},
-
-		async markRedemptionResultShown(childId, id, tenantId) {
-			// #2845 課題①: (childId, redemptionId) 複合キー。不一致なら undefined。
-			const result = await db.execute(sql`
-				UPDATE reward_redemption_requests SET shown_to_child_at = now()
-				WHERE family_id = ${tenantId} AND redemption_id = ${id} AND child_id = ${childId}
-				RETURNING ${REQUEST_COLUMNS}
-			`);
-			const row = result.rows[0] as unknown as RequestRow | undefined;
-			return row ? toRequestRow(row) : undefined;
-		},
+		// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去 (到達不能経路)。
+		// 交換申請の承認・却下は子供のごほうびショップのバッジと履歴画面が常時表示しており、
+		// `shown_to_child_at` を使う一度きりの通知は production から呼ばれていなかった (#4432 実測)。
+		// 列はバックアップ往復のため保持する (終了条件は schema.ts の定義コメント)。
 
 		async expireOldRedemptions(tenantId) {
 			// 30 日超 pending → expired。timestamptz 比較で now() - interval を使う (§11.3)。

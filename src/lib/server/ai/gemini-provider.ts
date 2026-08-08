@@ -5,6 +5,7 @@
 // `GEMINI_API_KEY` 環境変数が設定されている場合に利用可能。
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { isProviderLatchedUnavailable, withAvailabilityTracking } from './availability';
 import type { AiProvider, ToolDefinition, ToolUseResult } from './provider';
 
 const MODEL_ID = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
@@ -69,8 +70,22 @@ function buildJsonInstruction(tool: ToolDefinition): string {
 export class GeminiProvider implements AiProvider {
 	readonly name = 'gemini';
 
+	/**
+	 * Gemini を呼んでよいかを申告する。
+	 *
+	 * ## この戻り値が保証すること / しないこと (#4366)
+	 *
+	 * - **`false` は確定**: API キーが配られていない (またはプレースホルダのまま) か、直前の
+	 *   呼び出しがキー不正・権限拒否で落ちている。
+	 * - **`true` は「キーが配られている」までしか保証しない**。そのキーが有効か・課金が有効かは
+	 *   呼ぶまで確定しないため、ここでは判定できない。
+	 *
+	 * キーの実在を見る判定 (#987 以来の挙動) はそのまま維持し、latch 参照だけを足している。
+	 */
 	isAvailable(): boolean {
-		return getClient() !== null;
+		if (getClient() === null) return false;
+		if (isProviderLatchedUnavailable(this.name)) return false;
+		return true;
 	}
 
 	async converseWithTool(opts: {
@@ -88,7 +103,7 @@ export class GeminiProvider implements AiProvider {
 		const jsonInstruction = buildJsonInstruction(opts.tool);
 		const prompt = `${opts.system}\n\n${jsonInstruction}\n\n${opts.userMessage}`;
 
-		const result = await model.generateContent(prompt);
+		const result = await withAvailabilityTracking(this.name, () => model.generateContent(prompt));
 		const responseText = result.response.text();
 		const parsed = extractJson(responseText);
 
@@ -119,15 +134,17 @@ export class GeminiProvider implements AiProvider {
 		const jsonInstruction = buildJsonInstruction(opts.tool);
 		const prompt = `${opts.system}\n\n${jsonInstruction}\n\n${opts.userText}`;
 
-		const result = await model.generateContent([
-			prompt,
-			{
-				inlineData: {
-					mimeType: opts.imageMimeType,
-					data: opts.imageBase64,
+		const result = await withAvailabilityTracking(this.name, () =>
+			model.generateContent([
+				prompt,
+				{
+					inlineData: {
+						mimeType: opts.imageMimeType,
+						data: opts.imageBase64,
+					},
 				},
-			},
-		]);
+			]),
+		);
 		const responseText = result.response.text();
 		const parsed = extractJson(responseText);
 

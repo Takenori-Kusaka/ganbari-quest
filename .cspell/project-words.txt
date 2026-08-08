@@ -553,3 +553,11 @@ bivariant
 
 # ===== #4273 main-pr-base-guard の fail メッセージ test (bash の case 終端キーワード) =====
 esac
+
+# ===== #4199 Node.js バージョン一元化 fitness function (Dockerfile 複数形) =====
+Dockerfiles
+dockerfiles
+
+# ===== #4395 Graphify (OSS 調査記録の対象。tests/unit/architecture/oss-rejection-record-falsifiable.test.ts) =====
+Graphify
+graphify

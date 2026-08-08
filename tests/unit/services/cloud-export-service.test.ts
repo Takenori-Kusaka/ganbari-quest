@@ -132,6 +132,7 @@ import {
 	drainPendingExports,
 	fetchCloudExportByPin,
 	listCloudExports,
+	previewPendingExports,
 } from '$lib/server/services/cloud-export-service';
 
 describe('cloud-export-service', () => {
@@ -272,6 +273,40 @@ describe('cloud-export-service', () => {
 				...overrides,
 			};
 		}
+
+		// #4373: dryRun は「今どれだけ滞留しているか」を build せずに確かめるモードなので、
+		// 件数フィールドが定数であってはならない (grace-period の tenantsRemaining と同 class)。
+		describe('#4373 previewPendingExports (dryRun の件数は実測値)', () => {
+			it('pending 件数を実測して返す (定数 0 ではない)', async () => {
+				mockCloudExportRepo.findPendingBuilds.mockResolvedValue([
+					pendingRecord({ id: '1' }),
+					pendingRecord({ id: '2' }),
+				]);
+
+				const result = await previewPendingExports(5);
+
+				expect(result.processed).toBe(2);
+				expect(mockCloudExportRepo.findPendingBuilds).toHaveBeenCalledWith(5);
+			});
+
+			it('pending が無ければ 0 を返す', async () => {
+				mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
+
+				expect((await previewPendingExports(5)).processed).toBe(0);
+			});
+
+			it('回帰: 1 件も build せず status も書き換えない', async () => {
+				mockCloudExportRepo.findPendingBuilds.mockResolvedValue([pendingRecord()]);
+
+				await previewPendingExports(5);
+
+				expect(mockCloudExportRepo.claimForBuild).not.toHaveBeenCalled();
+				expect(mockCloudExportRepo.updateStatus).not.toHaveBeenCalled();
+				expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
+				// stale reclaim は write を伴うため dryRun では走らせない
+				expect(mockCloudExportRepo.findStaleBuildingExports).not.toHaveBeenCalled();
+			});
+		});
 
 		it('pending を build して building→ready に遷移し saveFile する', async () => {
 			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([pendingRecord()]);

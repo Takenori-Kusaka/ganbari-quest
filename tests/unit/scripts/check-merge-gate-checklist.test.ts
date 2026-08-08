@@ -30,7 +30,7 @@ const LIGHT_HAS_UNCHECKED = `
 - [x] AC 全達成
 `;
 
-const LIGHT_MISSING_SECTION = `
+const _LIGHT_MISSING_SECTION = `
 ## 概要
 チェックリスト section が無い PR
 `;
@@ -83,28 +83,16 @@ describe('定数 / resolveIntegrationSections (AC5)', () => {
 // --- feature / hotfix lane (AC4 回帰ゼロ) ---
 
 describe('checkMergeGateChecklist feature/hotfix lane (AC4)', () => {
-	it('PASS: 2 section 全消化', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_ALL_CHECKED, labels: [], lane: 'feature' });
-		expect(r.ok).toBe(true);
-		expect(r.targetSections).toEqual(LIGHT_LANE_SECTIONS);
-	});
-
-	it('FAIL: 未チェックが残る', () => {
+	it('always PASS, check removed', () => {
 		const r = checkMergeGateChecklist({ body: LIGHT_HAS_UNCHECKED, labels: [], lane: 'feature' });
-		expect(r.ok).toBe(false);
-		expect(r.error).toContain('未チェック項目');
+		expect(r.ok).toBe(true);
+		expect(r.reason).toContain('removed');
 	});
 
-	it('section 不在は warning だが fail はしない (現行挙動維持、AC4)', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_MISSING_SECTION, labels: [], lane: 'feature' });
+	it('hotfix lane always PASS, check removed', () => {
+		const r = checkMergeGateChecklist({ body: LIGHT_HAS_UNCHECKED, labels: [], lane: 'hotfix' });
 		expect(r.ok).toBe(true);
-		expect((r.warnings || []).length).toBeGreaterThan(0);
-	});
-
-	it('hotfix lane も 2 section を対象 (PASS)', () => {
-		const r = checkMergeGateChecklist({ body: LIGHT_ALL_CHECKED, labels: [], lane: 'hotfix' });
-		expect(r.ok).toBe(true);
-		expect(r.targetSections).toEqual(LIGHT_LANE_SECTIONS);
+		expect(r.reason).toContain('removed');
 	});
 });
 
@@ -203,5 +191,65 @@ describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
 		});
 		expect(r.reason ?? '').not.toContain('skip');
 		expect(r.ok).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #4348: section 探索を「本文の部分一致」から「H2 見出し行の完全一致」に是正した回帰。
+//
+// 旧実装は `body.indexOf(section)` で section 開始位置を決めていたため、説明文 / AC 表 /
+// HTML コメントに同じ文字列があると **そこから切り出して**しまい、checkbox の集計範囲が
+// 本来の section とずれた。以下 3 例はいずれも旧実装では誤判定する入力
+// (mutation 実測: countUnchecked を indexOf 版に戻すと 1 例目と 3 例目が red になる)。
+//
+// #4305 で feature/hotfix lane の `## Ready for Review チェックリスト` 参照・enforcement は
+// 撤去されたため (checkMergeGateChecklist は非 integration lane で早期 ok:true を返す)、
+// 本 regression guard は撤去されていない integration lane (`## 統合 PR チェックリスト`) を
+// 対象に据え直す。section 探索の仕組み (extractH2Section 経由の H2 完全一致 / HTML コメント
+// 除外 / code block 除外) 自体は integration lane でも同一コードパスを通るため、
+// H2 誤判定の regression guard としての効力は変わらない。
+// ---------------------------------------------------------------------------
+
+describe('#4348: section 探索は H2 見出し行の完全一致', () => {
+	it('本文中の言及が見出しより前にあっても、集計は本物の section を数える', () => {
+		// 旧実装: AC 表のセルから切り出し → 直後の `\n## ` までに `- [ ]` が無く「全消化」と誤判定。
+		const body = [
+			'## AC 検証マップ (ADR-0004)',
+			'',
+			'| AC1 | 内容 | 手段 | 下記「## 統合 PR チェックリスト」参照 |',
+			'',
+			'## 統合 PR チェックリスト',
+			'- [x] 最重厚レーン全 job 緑',
+			'- [ ] エビデンス表完備',
+			'',
+		].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
+		expect(r.ok).toBe(false);
+		expect(r.error ?? '').toContain('統合 PR チェックリスト');
+	});
+
+	it('HTML コメント内の見出し文字列だけでは section が存在するとみなさない', () => {
+		const body = ['## 概要', '', '<!-- ## 統合 PR チェックリスト を書く -->', ''].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
+		// integration lane は section 不在を fail にする (#2945 no-go、warning で素通りさせない)。
+		// found=false が missingRequired (error) に出ること。
+		expect(r.ok).toBe(false);
+		expect(r.error ?? '').toContain('統合 PR チェックリスト');
+	});
+
+	it('code block 内の未チェック checkbox は集計しない (template の例示で fail させない)', () => {
+		const body = [
+			'## 統合 PR チェックリスト',
+			'- [x] 最重厚レーン全 job 緑',
+			'- [x] エビデンス表完備',
+			'- [x] adversarial evidence 解消',
+			'',
+			'```markdown',
+			'- [ ] これは書き方の例',
+			'```',
+			'',
+		].join('\n');
+		const r = checkMergeGateChecklist({ body, labels: [], lane: 'integration' });
+		expect(r.ok).toBe(true);
 	});
 });

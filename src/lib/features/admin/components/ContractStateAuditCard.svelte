@@ -70,6 +70,23 @@ function columnsSummary(row: ContractStateAuditResult['problemRows'][number]): s
 			</p>
 		{/if}
 	{/if}
+
+	<!--
+		#4269 ①: 継続月キーの滞留在庫。**0 件でも必ず出す** — 行が消えると
+		「調べて 0 件だった」のか「そもそも見ていない」のかが区別できなくなる。
+	-->
+	<div class="month-key-row" data-testid="ops-loyalty-month-key">
+		<div class="month-key-head">
+			<span>{OPS_LABELS.loyaltyMonthKeyLabel}</span>
+			<Badge variant={audit.loyaltyMonthKeys.legacy > 0 ? 'warning' : 'success'} size="sm">
+				{OPS_LABELS.loyaltyMonthKeyCount(
+					audit.loyaltyMonthKeys.legacy,
+					audit.loyaltyMonthKeys.total,
+				)}
+			</Badge>
+		</div>
+		<p class="month-key-desc">{OPS_LABELS.loyaltyMonthKeyDesc}</p>
+	</div>
 </Card>
 
 <style>
@@ -87,5 +104,24 @@ function columnsSummary(row: ContractStateAuditResult['problemRows'][number]): s
 .ops-table th {
 	color: var(--color-text-muted);
 	font-weight: 600;
+}
+.month-key-row {
+	margin-top: 1rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--color-border-light);
+}
+.month-key-head {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--color-text-primary);
+}
+.month-key-desc {
+	margin-top: 0.25rem;
+	font-size: 0.8125rem;
+	color: var(--color-text-muted);
 }
 </style>

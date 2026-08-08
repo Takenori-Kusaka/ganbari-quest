@@ -1,7 +1,7 @@
 import { eq, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import { asChildId, type ChildId } from '$lib/domain/ids';
-import { normalizeUiMode } from '$lib/domain/validation/age-tier';
+import { getDefaultUiMode, normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
 import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate } from '../migration';
@@ -119,7 +119,7 @@ export async function insertChild(
 			nickname: input.nickname,
 			age: input.age,
 			theme: input.theme ?? 'pink',
-			uiMode: input.uiMode ?? (input.age <= 2 ? 'baby' : 'preschool'),
+			uiMode: input.uiMode ?? getDefaultUiMode(input.age),
 			birthDate: input.birthDate ?? null,
 			[SCHEMA_VERSION_FIELD]: ENTITY_VERSIONS.child.latest,
 		})

@@ -40,7 +40,7 @@ LP (`site/**`) / `plan-features.ts` の文言を変更する PR は、PR 本文�
 
 ### 5. CI での構造的担保
 
-`scripts/check-lp-plan-sync.mjs` は現状 LP ↔ `plan-features.ts` の文字列同期を検証する。将来 (別 Issue #1313 B9-CI-VOCABULARY 以降) で以下に拡張したい:
+`scripts/check-lp-plan-sync.mjs` は LP ↔ `plan-features.ts` の文字列同期を検証していたが、**#4322 で削除済み（#4420 で判明）— 現状 CI 検証は無く、レビューで担保する**。将来 (別 Issue #1313 B9-CI-VOCABULARY 以降) で以下に拡張したい:
 
 - `plan-features.ts` の各エントリが、実装コードの該当コードパスに到達できるかを確認
 - LP に登場する mechanic 語彙 (ガチャ / デイリー / ボーナス 等) の白リスト化
@@ -49,7 +49,7 @@ LP (`site/**`) / `plan-features.ts` の文言を変更する PR は、PR 本文�
 
 - **pricing-strategy.md 等の販促文書は Committed / Aspirational セクション分離が必須**（既存文書は #1312 B9-DOCS で対応）
 - 新 LP 文言追加時は先に実装 contract を確認するフローが定着
-- LP ドリフトの検出が PR 単位で可能になる (`scripts/check-lp-plan-sync.mjs` + PR 本文コードパス明示)
+- LP ドリフトの検出が PR 単位で可能になる (PR 本文コードパス明示。自動検証していた `check-lp-plan-sync.mjs` は #4322 で削除済み)
 - Anti-engagement 原則 (ADR-0012) の LP 文言射程 (`forbiddenTerms` 拡張) は本 ADR と連動し構造担保される
 
 ### トレードオフ

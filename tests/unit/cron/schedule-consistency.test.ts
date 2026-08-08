@@ -73,25 +73,11 @@ interface DocumentedExclusion {
 
 const DOCUMENTED_EXCLUSIONS: DocumentedExclusion[] = [
 	{
-		name: 'age-recalc',
-		scope: 'cdk-cron-jobs',
-		reason:
-			'EventBridge Rule 未作成のため AWS 本番では未駆動 (NUC scheduler のみ起動)。有効化可否は #4033 AC4 で判断する',
-		issue: '#4033',
-	},
-	{
-		name: 'age-recalc',
-		scope: 'dispatcher-known-endpoints',
-		reason:
-			'cron-dispatcher KNOWN_ENDPOINTS 未登録。EventBridge Rule 追加と同時に登録する (#4033 AC4)',
-		issue: '#4033',
-	},
-	{
 		name: 'grace-period-deletion',
 		scope: 'cdk-cron-jobs',
 		reason:
-			'dispatcher には登録済だが EventBridge Rule 未作成。有効化すると猶予期間経過済テナントが初回実行で一斉に物理削除されるため、対象件数確認と判断を要する (#4033 AC3)',
-		issue: '#4033',
+			'第 21 回統合 (#4304) で EventBridge Rule を作らない状態に戻した (監査 revert + PO 決裁 2026-08-06)。#4327 が「予告なし・観測不能・停止不能・復旧不能」の 4 条件を検出したため。復活は 3 条件が揃ってから: PR #4340 の merge / #4327 の 4 条件解消 / dry-run の件数を出してオーナーが再有効化を承認。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)',
+		issue: '#4327',
 	},
 	{
 		name: 'expire-redemptions',
