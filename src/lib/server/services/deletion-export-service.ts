@@ -13,7 +13,7 @@ import { getCategoryById } from '$lib/domain/validation/activity';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import type { PlanTier } from './plan-limit-service';
-import { resolveFullPlanTier } from './plan-limit-service';
+import { getPlanLimits, resolveFullPlanTier } from './plan-limit-service';
 
 // ============================================================
 // Types
@@ -108,12 +108,41 @@ export function resolveExportScope(planTier: PlanTier): ExportScope {
 // ============================================================
 
 /**
+ * エクスポート JSON に載せる但し書きを組み立てる (#4470 / #4473)。
+ *
+ * 保存期間の日数は `PlanLimits.historyRetentionDays` が唯一の SSOT。
+ * ここで 90 / 365 を書くと保存期間ポリシー変更時に JSON だけ古い日数を語る二重管理になるため、
+ * 値は必ず `getPlanLimits(planTier)` から引く (labels 側も値を持たず引数で受ける)。
+ *
+ * `historyRetentionDays: null` = 保存期間の上限なし。「null日間」の穴埋めにせず別文を出す。
+ */
+export function buildDeletionExportNotes(planTier: PlanTier): string[] {
+	const retentionDays = getPlanLimits(planTier).historyRetentionDays;
+
+	return [
+		DELETION_EXPORT_NOTE_LABELS.jstCalendarDate,
+		DELETION_EXPORT_NOTE_LABELS.nullMeansNoRecord,
+		retentionDays === null
+			? DELETION_EXPORT_NOTE_LABELS.retentionUnlimited
+			: DELETION_EXPORT_NOTE_LABELS.retentionLimited(retentionDays),
+		DELETION_EXPORT_NOTE_LABELS.createdAtPointer,
+	];
+}
+
+/**
  * free プラン向けの最小限エクスポートを生成する。
  *
  * 子供名と活動サマリのみ含む。法的要件（個人情報保護法のデータポータビリティ権）に
  * 最低限対応するためのもの。
+ *
+ * `planTier` は但し書きの保存期間日数を決めるために受け取る (#4473)。
+ * 呼び出し側が握っているプランをそのまま渡すこと (ここで free 固定にすると、
+ * 将来 minimal scope の対象プランが増えたときに嘘の日数を配ることになる)。
  */
-export async function generateMinimalExport(tenantId: string): Promise<MinimalExportData> {
+export async function generateMinimalExport(
+	tenantId: string,
+	planTier: PlanTier,
+): Promise<MinimalExportData> {
 	const repos = getRepos();
 	const allChildren = await repos.child.findAllChildren(tenantId);
 
@@ -166,11 +195,7 @@ export async function generateMinimalExport(tenantId: string): Promise<MinimalEx
 		version: '1.0.0',
 		exportedAt: new Date().toISOString(),
 		scope: 'minimal',
-		notes: [
-			DELETION_EXPORT_NOTE_LABELS.jstCalendarDate,
-			DELETION_EXPORT_NOTE_LABELS.nullMeansNoRecord,
-			DELETION_EXPORT_NOTE_LABELS.retentionExcluded,
-		],
+		notes: buildDeletionExportNotes(planTier),
 		children,
 		activitySummary,
 	};
@@ -255,7 +280,7 @@ export async function generateDeletionExport(
 
 	switch (scope) {
 		case 'minimal': {
-			const data = await generateMinimalExport(tenantId);
+			const data = await generateMinimalExport(tenantId, planTier);
 			return { scope, data, generatedAt };
 		}
 		case 'full': {

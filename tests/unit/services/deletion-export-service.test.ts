@@ -23,6 +23,25 @@ vi.mock('$lib/server/auth/factory', () => ({
 	getAuthMode: () => 'cognito',
 }));
 
+/**
+ * #4473: 保存期間の日数が `PlanLimits.historyRetentionDays` 由来であることを試験するための override。
+ * `undefined` の間は実 SSOT をそのまま使う (既定の挙動を変えない)。
+ */
+const retentionDaysOverride: { value: number | null | undefined } = { value: undefined };
+
+vi.mock('$lib/server/services/plan-limit-service', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/server/services/plan-limit-service')>();
+	return {
+		...actual,
+		getPlanLimits: (tier: Parameters<typeof actual.getPlanLimits>[0]) => {
+			const limits = actual.getPlanLimits(tier);
+			return retentionDaysOverride.value === undefined
+				? limits
+				: { ...limits, historyRetentionDays: retentionDaysOverride.value };
+		},
+	};
+});
+
 vi.mock('$lib/server/services/trial-service', () => ({
 	getTrialStatus: vi.fn().mockResolvedValue({
 		isTrialActive: false,
@@ -81,11 +100,13 @@ vi.mock('$lib/server/services/export-service', () => ({
 
 import { DELETION_EXPORT_NOTE_LABELS } from '$lib/domain/labels';
 import {
+	buildDeletionExportNotes,
 	generateDeletionExport,
 	generateMinimalExport,
 	generateSiblingComparison,
 	resolveExportScope,
 } from '$lib/server/services/deletion-export-service';
+import { getPlanLimits } from '$lib/server/services/plan-limit-service';
 
 describe('deletion-export-service', () => {
 	beforeEach(() => {
@@ -151,7 +172,7 @@ describe('deletion-export-service', () => {
 				.mockResolvedValueOnce([{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }])
 				.mockResolvedValueOnce([{ id: '6' }, { id: '7' }, { id: '8' }]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
 			expect(result.format).toBe('ganbari-quest-deletion-export');
 			expect(result.scope).toBe('minimal');
@@ -191,7 +212,7 @@ describe('deletion-export-service', () => {
 				{ id: '1', recordedAt: '2026-07-31T15:10:00.000Z' }, // JST 2026-08-01 00:10
 			]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
 			expect(result.activitySummary[0]?.firstRecordDate).toBe('2026-08-01');
 			expect(result.activitySummary[0]?.lastRecordDate).toBe('2026-08-05');
@@ -220,7 +241,7 @@ describe('deletion-export-service', () => {
 				{ id: '2', recordedAt: '2026-08-05T13:00:00.000Z' },
 			]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
 			expect(result.activitySummary[0]?.firstRecordDate).toBe('2026-08-01');
 			expect(result.activitySummary[0]?.lastRecordDate).toBe('2026-08-05');
@@ -239,7 +260,7 @@ describe('deletion-export-service', () => {
 			mockFindStatuses.mockResolvedValue([]);
 			mockFindActivityLogs.mockResolvedValue([]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
 			expect(result.activitySummary[0]?.firstRecordDate).toBeNull();
 			expect(result.activitySummary[0]?.lastRecordDate).toBeNull();
@@ -248,7 +269,7 @@ describe('deletion-export-service', () => {
 		it('子供がいない場合も空の結果を返す', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
 			expect(result.children).toHaveLength(0);
 			expect(result.activitySummary).toHaveLength(0);
@@ -258,17 +279,13 @@ describe('deletion-export-service', () => {
 		// 読み手が誤解する (JST か UTC か / null の意味 / retention 削除済みデータが期間に
 		// 含まれないこと)。但し書きは top-level `notes` に置き、文言は labels.ts SSOT
 		// (DELETION_EXPORT_NOTE_LABELS) から取る。
-		it('notes に日付の但し書き 3 件が SSOT の文言で入る', async () => {
+		it('notes に日付の但し書きが SSOT の文言で入る', async () => {
 			mockFindAllChildren.mockResolvedValue([]);
 
-			const result = await generateMinimalExport('tenant-1');
+			const result = await generateMinimalExport('tenant-1', 'free');
 
-			expect(result.notes).toEqual([
-				DELETION_EXPORT_NOTE_LABELS.jstCalendarDate,
-				DELETION_EXPORT_NOTE_LABELS.nullMeansNoRecord,
-				DELETION_EXPORT_NOTE_LABELS.retentionExcluded,
-			]);
-			// 但し書きは「日付の timezone」「null の意味」「保存期間外の記録」の 3 点を必ず触れる
+			expect(result.notes).toEqual(buildDeletionExportNotes('free'));
+			// 但し書きは「日付の timezone」「null の意味」「保存期間」の 3 点を必ず触れる
 			// (どれか 1 つでも消えたら顧客が値を誤読しうるため、文言 refactor 時の網を残す)
 			const joined = result.notes.join('\n');
 			expect(joined).toContain('firstRecordDate');
@@ -296,7 +313,7 @@ describe('deletion-export-service', () => {
 			mockFindActivityLogs.mockResolvedValue([]);
 
 			// 顧客が受け取るのは JSON 化された値。notes は文字列配列として往復できる必要がある
-			const result = JSON.parse(JSON.stringify(await generateMinimalExport('tenant-1')));
+			const result = JSON.parse(JSON.stringify(await generateMinimalExport('tenant-1', 'free')));
 
 			expect(result.format).toBe('ganbari-quest-deletion-export');
 			expect(result.version).toBe('1.0.0');
@@ -305,9 +322,91 @@ describe('deletion-export-service', () => {
 			expect(result.children[0]?.createdAt).toBe('2026-07-31T15:10:00.000Z');
 			expect(result.activitySummary).toHaveLength(1);
 			expect(result.activitySummary[0]?.childNickname).toBe('たろう');
-			expect(result.notes).toHaveLength(3);
+			expect(result.notes).toEqual(buildDeletionExportNotes('free'));
 			// 但し書きは top-level にだけ置く (子供の人数だけ重複させない)
 			expect(result.activitySummary[0]).not.toHaveProperty('notes');
+		});
+	});
+
+	// ============================================================
+	// buildDeletionExportNotes — 保存期間の日数 (#4473)
+	// ============================================================
+
+	// PO 決裁「日数の二重管理は論外。SSOT の原則を守って対応せよ」。
+	// 保存期間の実値 SSOT は PlanLimits.historyRetentionDays であり、
+	// 但し書きに 90 / 365 を直書きしたら本 describe が落ちる形にしてある。
+	describe('buildDeletionExportNotes (#4473)', () => {
+		it('保存期間の文言に getPlanLimits の日数がそのまま入る (free / standard)', () => {
+			for (const tier of ['free', 'standard'] as const) {
+				const days = getPlanLimits(tier).historyRetentionDays;
+				// 前提: 有限プランは日数を持つ (null なら本 case の検証対象外)
+				expect(days).not.toBeNull();
+
+				const joined = buildDeletionExportNotes(tier).join('\n');
+
+				// 文言は labels.ts SSOT の関数に日数を渡した結果と完全一致する
+				expect(joined).toContain(
+					DELETION_EXPORT_NOTE_LABELS.retentionLimited(days as unknown as number),
+				);
+				expect(joined).toContain(String(days));
+				// 無期限プラン向けの別文が紛れ込まない
+				expect(joined).not.toContain(DELETION_EXPORT_NOTE_LABELS.retentionUnlimited);
+			}
+		});
+
+		it('free と standard で文面が変わる (単一の日数を直書きしていたら落ちる)', () => {
+			const freeNote = buildDeletionExportNotes('free').join('\n');
+			const standardNote = buildDeletionExportNotes('standard').join('\n');
+
+			expect(freeNote).not.toBe(standardNote);
+			expect(freeNote).toContain(String(getPlanLimits('free').historyRetentionDays));
+			expect(standardNote).toContain(String(getPlanLimits('standard').historyRetentionDays));
+		});
+
+		it('historyRetentionDays が null のプランは日数ではなく「上限なし」の別文を出す', () => {
+			// family は保存期間の上限を持たない (= null)
+			expect(getPlanLimits('family').historyRetentionDays).toBeNull();
+
+			const joined = buildDeletionExportNotes('family').join('\n');
+
+			expect(joined).toContain(DELETION_EXPORT_NOTE_LABELS.retentionUnlimited);
+			// 「null日間」「undefined日間」のような値の穴埋めをしていない
+			expect(joined).not.toContain('null日間');
+			expect(joined).not.toContain('undefined日間');
+			// 有限プラン向けの日数入り文型も出さない
+			expect(joined).not.toContain('保存期間は');
+		});
+
+		it('日数は SSOT (getPlanLimits) 由来で、値を差し替えると文面も変わる', () => {
+			// 値を直書きしていたら override しても文面が変わらず落ちる。
+			// 実際の保存期間ポリシー変更 (90 → 別値) と同じ経路を試験する。
+			retentionDaysOverride.value = 7;
+			try {
+				expect(buildDeletionExportNotes('free').join('\n')).toContain(
+					DELETION_EXPORT_NOTE_LABELS.retentionLimited(7),
+				);
+			} finally {
+				retentionDaysOverride.value = undefined;
+			}
+		});
+
+		it('無期限は override でも別文に切り替わる (null 判定が日数側に漏れない)', () => {
+			retentionDaysOverride.value = null;
+			try {
+				const joined = buildDeletionExportNotes('free').join('\n');
+				expect(joined).toContain(DELETION_EXPORT_NOTE_LABELS.retentionUnlimited);
+			} finally {
+				retentionDaysOverride.value = undefined;
+			}
+		});
+
+		it('法的主張ではなく事実だけを述べる', () => {
+			for (const tier of ['free', 'standard', 'family'] as const) {
+				const joined = buildDeletionExportNotes(tier).join('\n');
+				for (const claim of ['GDPR', '準拠', '法令', '個人情報保護法']) {
+					expect(joined).not.toContain(claim);
+				}
+			}
 		});
 	});
 
