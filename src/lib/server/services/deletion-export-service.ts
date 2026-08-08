@@ -53,7 +53,12 @@ export interface ActivitySummaryExport {
 	totalActivities: number;
 	totalPoints: number;
 	categories: { name: string; count: number }[];
+	/**
+	 * 活動ログの **最初の記録日** (JST 暦日 `YYYY-MM-DD`)。記録が 1 件も無ければ null (#4450)。
+	 * 子供の登録日ではない (登録日は `MinimalChildExport.createdAt`)。
+	 */
 	firstRecordDate: string | null;
+	/** 活動ログの **最後の記録日** (JST 暦日 `YYYY-MM-DD`)。記録が 1 件も無ければ null (#4450)。 */
 	lastRecordDate: string | null;
 }
 
@@ -129,13 +134,23 @@ export async function generateMinimalExport(tenantId: string): Promise<MinimalEx
 
 		const totalPoints = statuses.reduce((sum, s) => sum + s.totalXp, 0);
 
+		// 記録期間は活動ログの実データから出す (#4450)。repo の返却順に依存しないよう
+		// min/max を取る (sqlite / dsql は recordedAt DESC、demo repo は無順序)。
+		// 暦日は JST 固定 — ISO 文字列の slice は UTC 暦日になり JST 00:00〜09:00 の記録が
+		// 前日へ落ちる (#4120 / ADR-0049 retention 監査との突き合わせが 1 日ずれる)。
+		const recordedDates = childLogs
+			.map((log) => log.recordedAt)
+			.filter((recordedAt): recordedAt is string => typeof recordedAt === 'string' && !!recordedAt)
+			.map(jstDateOfIso)
+			.sort();
+
 		activitySummary.push({
 			childNickname: child.nickname,
 			totalActivities: childLogs.length,
 			totalPoints,
 			categories,
-			firstRecordDate: child.createdAt ? jstDateOfIso(child.createdAt) : null,
-			lastRecordDate: null, // サマリレベルでは最終記録日は省略
+			firstRecordDate: recordedDates[0] ?? null,
+			lastRecordDate: recordedDates[recordedDates.length - 1] ?? null,
 		});
 	}
 
