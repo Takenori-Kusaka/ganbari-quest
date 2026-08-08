@@ -71,7 +71,7 @@ export function storageKeyToPublicUrl(key: string): string {
  * 実ファイルと一致せず、削除・存在判定が黙って空振りする (#4468)。
  */
 export function publicUrlToStorageKey(publicUrl: string): string {
-	const path = publicUrl.split('?')[0].split('#')[0];
+	const path = publicUrl.replace(/[?#].*$/s, '');
 	return path.startsWith('/') ? path.slice(1) : path;
 }
 

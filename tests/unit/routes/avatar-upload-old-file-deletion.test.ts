@@ -98,7 +98,8 @@ describe('POST /api/v1/children/[id]/avatar — 旧アバターファイルの�
 		const res = await postAvatar(
 			`/tenants/${TENANT_ID}/avatars/${CHILD_ID}/placeholder.svg?v=163ry6f`,
 		);
-		const newKey = mockUpdateChildAvatarUrl.mock.calls[0][1] as string;
+		expect(mockUpdateChildAvatarUrl).toHaveBeenCalledTimes(1);
+		const newKey = String(mockUpdateChildAvatarUrl.mock.calls[0]?.[1]);
 
 		expect(res.status).toBe(200);
 		expect(mockSaveFile).toHaveBeenCalledWith(
