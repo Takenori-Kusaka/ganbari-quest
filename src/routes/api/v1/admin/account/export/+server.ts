@@ -22,9 +22,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const result = await generateDeletionExportForTenant(tenantId, licenseStatus, planId);
 
 	// ブラウザに JSON を表示させず、ファイルとして保存させる (#4472)。
+	// 応答は子供の氏名を含む PII なので、戻る操作 / 中間キャッシュに残さない。
 	return json(result, {
 		headers: {
 			'Content-Disposition': `attachment; filename="ganbari-quest-deletion-export-${todayDateJST()}.json"`,
+			'Cache-Control': 'no-store',
 		},
 	});
 };
