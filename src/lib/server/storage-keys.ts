@@ -64,6 +64,18 @@ export function storageKeyToPublicUrl(key: string): string {
 }
 
 /**
+ * 公開URL から storage key を復元（`storageKeyToPublicUrl` の逆変換）。
+ *
+ * 仮アバターの公開URL には中身の版を表す `?v=<版>` が付く (#4461)。query / fragment は
+ * 配信経路のキャッシュ制御であって key の一部ではないので落とす。付いたまま key として扱うと
+ * 実ファイルと一致せず、削除・存在判定が黙って空振りする (#4468)。
+ */
+export function publicUrlToStorageKey(publicUrl: string): string {
+	const path = publicUrl.replace(/[?#].*$/s, '');
+	return path.startsWith('/') ? path.slice(1) : path;
+}
+
+/**
  * #3566 ③ (§9.4): DB に永続化する storage key が tenant プレフィックス配下であることを保証する。
  *
  * `character_images.file_path` / `child_custom_voices.file_path` など、要保護メディア (子供の顔写真 /

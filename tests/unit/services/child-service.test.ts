@@ -43,7 +43,10 @@ vi.mock('$lib/server/db/image-repo', () => ({
 	updateChildAvatarUrlIfMatches: vi.fn(),
 }));
 
-vi.mock('$lib/server/storage-keys', () => ({
+// 純粋関数なので実装を土台にし、必要な分だけ上書きする
+// (個別列挙だと export 追加のたびに undefined になり、実装ではなく mock が落ちる)
+vi.mock('$lib/server/storage-keys', async (importOriginal) => ({
+	...((await importOriginal()) as Record<string, unknown>),
 	childPrefix: vi.fn(
 		(tenantId: string, childId: number, type: string) => `tenants/${tenantId}/${type}/${childId}/`,
 	),
