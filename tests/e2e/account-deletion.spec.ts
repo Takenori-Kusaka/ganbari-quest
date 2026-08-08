@@ -262,6 +262,18 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）free'
 		await expect(exportButton).toBeVisible({ timeout: 15_000 });
 		await expect(exportButton).toBeEnabled();
 
+		// hydration 待ち: SSR 直後の DOM は click しても handler が無く無反応になる。
+		// 3-step ガード (確認テキスト + 同意 checkbox → 実行ボタン enabled) は client state
+		// なので、これが成立することを hydration の probe に使う (削除は実行しない)。
+		await page.fill('#deleteConfirm', 'アカウントを削除します');
+		await page.getByTestId('account-danger-agree-checkbox').check();
+		await expect(page.getByTestId('account-danger-execute-button')).toBeEnabled({
+			timeout: 30_000,
+		});
+		await page.getByTestId('account-danger-agree-checkbox').uncheck();
+		await page.fill('#deleteConfirm', '');
+		await expect(page.getByTestId('account-danger-execute-button')).toBeDisabled();
+
 		const [response] = await Promise.all([
 			page.waitForResponse((res) => res.url().includes('/api/v1/admin/account/export'), {
 				timeout: 30_000,
