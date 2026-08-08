@@ -79,6 +79,7 @@ vi.mock('$lib/server/services/export-service', () => ({
 	exportFamilyData: (...args: unknown[]) => mockExportFamilyData(...args),
 }));
 
+import { DELETION_EXPORT_NOTE_LABELS } from '$lib/domain/labels';
 import {
 	generateDeletionExport,
 	generateMinimalExport,
@@ -251,6 +252,59 @@ describe('deletion-export-service', () => {
 
 			expect(result.children).toHaveLength(0);
 			expect(result.activitySummary).toHaveLength(0);
+		});
+
+		// #4470 (#4450 follow-up、PO 決裁 Q2=Yes): 顧客へ手渡す JSON の日付は裸の値だと
+		// 読み手が誤解する (JST か UTC か / null の意味 / retention 削除済みデータが期間に
+		// 含まれないこと)。但し書きは top-level `notes` に置き、文言は labels.ts SSOT
+		// (DELETION_EXPORT_NOTE_LABELS) から取る。
+		it('notes に日付の但し書き 3 件が SSOT の文言で入る', async () => {
+			mockFindAllChildren.mockResolvedValue([]);
+
+			const result = await generateMinimalExport('tenant-1');
+
+			expect(result.notes).toEqual([
+				DELETION_EXPORT_NOTE_LABELS.jstCalendarDate,
+				DELETION_EXPORT_NOTE_LABELS.nullMeansNoRecord,
+				DELETION_EXPORT_NOTE_LABELS.retentionExcluded,
+			]);
+			// 但し書きは「日付の timezone」「null の意味」「保存期間外の記録」の 3 点を必ず触れる
+			// (どれか 1 つでも消えたら顧客が値を誤読しうるため、文言 refactor 時の網を残す)
+			const joined = result.notes.join('\n');
+			expect(joined).toContain('firstRecordDate');
+			expect(joined).toContain('lastRecordDate');
+			expect(joined).toContain('日本標準時');
+			expect(joined).toContain('null');
+			expect(joined).toContain('保存期間');
+			expect(joined).toContain('children[].createdAt');
+		});
+
+		it('notes を足しても既存フィールドの構造・意味は変わらない', async () => {
+			mockFindAllChildren.mockResolvedValue([
+				{
+					id: '1',
+					nickname: 'たろう',
+					age: 6,
+					uiMode: 'elementary',
+					createdAt: '2026-07-31T15:10:00.000Z',
+				},
+			]);
+			mockFindStatuses.mockResolvedValue([]);
+			mockFindActivityLogs.mockResolvedValue([]);
+
+			// 顧客が受け取るのは JSON 化された値。notes は文字列配列として往復できる必要がある
+			const result = JSON.parse(JSON.stringify(await generateMinimalExport('tenant-1')));
+
+			expect(result.format).toBe('ganbari-quest-deletion-export');
+			expect(result.version).toBe('1.0.0');
+			expect(result.scope).toBe('minimal');
+			expect(result.children).toHaveLength(1);
+			expect(result.children[0]?.createdAt).toBe('2026-07-31T15:10:00.000Z');
+			expect(result.activitySummary).toHaveLength(1);
+			expect(result.activitySummary[0]?.childNickname).toBe('たろう');
+			expect(result.notes).toHaveLength(3);
+			// 但し書きは top-level にだけ置く (子供の人数だけ重複させない)
+			expect(result.activitySummary[0]).not.toHaveProperty('notes');
 		});
 	});
 

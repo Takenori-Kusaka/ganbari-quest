@@ -810,6 +810,26 @@ export const DELETION_WARNING_EMAIL_LABELS = {
 } as const;
 
 // ============================================================
+// 削除前エクスポート JSON の但し書き（#4470 / #4450 follow-up）
+// ============================================================
+
+/**
+ * 退会時に顧客へ手渡す JSON (`generateMinimalExport`) の `notes` 文言 SSOT。
+ *
+ * トーン方針:
+ *   - 事実のみを書く。法務的主張 (「○○ 法に準拠しています」等) や弁明は書かない
+ *   - 読み手は開発者ではない保護者。フィールド名は識別のため原文のまま出す
+ */
+export const DELETION_EXPORT_NOTE_LABELS = {
+	/** 日付が JST 暦日であること (ISO の UTC 表記と 9 時間ずれるため明記する) */
+	jstCalendarDate: 'firstRecordDate / lastRecordDate は日本標準時（JST）の暦日です（YYYY-MM-DD）。',
+	/** null の意味 (記録 0 件のみ) */
+	nullMeansNoRecord: '記録が 1 件もない場合、firstRecordDate / lastRecordDate は null になります。',
+	/** retention 削除済みデータは開示対象外であること + 登録日の在り処 */
+	retentionExcluded: `保存期間の上限を過ぎた古い記録は削除済みのため、この期間には含まれません。${CHILD_TERMS.honorific}の登録日は children[].createdAt をご覧ください。`,
+} as const;
+
+// ============================================================
 // PMF 判定アンケート（#1598 / ADR-0023 §3.6 §5 I7）
 // ============================================================
 

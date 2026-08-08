@@ -8,6 +8,7 @@
 
 import { jstDateOfIso } from '$lib/domain/date-utils';
 import type { ExportData } from '$lib/domain/export-format';
+import { DELETION_EXPORT_NOTE_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -37,6 +38,12 @@ export interface MinimalExportData {
 	version: '1.0.0';
 	exportedAt: string;
 	scope: 'minimal';
+	/**
+	 * 顧客が JSON 単体を読んだときに値を誤解しないための但し書き (#4470)。
+	 * 日付の timezone / null の意味 / 保存期間外データの扱いを事実だけ記す。
+	 * `activitySummary` の各要素ではなく top-level に置く (子供の人数だけ重複させない)。
+	 */
+	notes: string[];
 	children: MinimalChildExport[];
 	activitySummary: ActivitySummaryExport[];
 }
@@ -159,6 +166,11 @@ export async function generateMinimalExport(tenantId: string): Promise<MinimalEx
 		version: '1.0.0',
 		exportedAt: new Date().toISOString(),
 		scope: 'minimal',
+		notes: [
+			DELETION_EXPORT_NOTE_LABELS.jstCalendarDate,
+			DELETION_EXPORT_NOTE_LABELS.nullMeansNoRecord,
+			DELETION_EXPORT_NOTE_LABELS.retentionExcluded,
+		],
 		children,
 		activitySummary,
 	};
