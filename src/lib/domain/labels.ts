@@ -826,11 +826,25 @@ export const DELETION_EXPORT_NOTE_LABELS = {
 	/** null の意味 (記録 0 件のみ) */
 	nullMeansNoRecord: '記録が 1 件もない場合、firstRecordDate / lastRecordDate は null になります。',
 	/**
-	 * retention 削除済みデータは開示対象外であること + 登録日の在り処。
+	 * retention 削除済みデータは開示対象外であること + 保存期間の実日数 (#4473)。
+	 *
+	 * 「上限を過ぎた記録は含まれない」だけでは、読み手は「いつまで遡って含まれているか」を
+	 * 確定できない。日数は `PlanLimits.historyRetentionDays` が SSOT のため、
+	 * ここでは **値を持たず引数で受ける** (labels 側に 90 / 365 を複製しない)。
+	 */
+	retentionLimited: (days: number) =>
+		`記録の保存期間は${days}日間です。それより古い記録は削除済みのため、この期間には含まれません。`,
+	/**
+	 * `historyRetentionDays: null` (保存期間の上限なし) のプラン向け。
+	 * 「null日間」のような値の穴埋めにせず、上限がないという事実を別文で述べる。
+	 */
+	retentionUnlimited: '記録の保存期間に上限はないため、期間の上限による削除は行っていません。',
+	/**
+	 * 登録日の在り処。
 	 * `children[].createdAt` は JST 暦日ではなく ISO 8601 の UTC 日時をそのまま出しているため、
 	 * 形式を併記する (併記しないと上の JST 暦日と混同され、JST 00:00〜09:00 登録が前日に見える)。
 	 */
-	retentionExcluded: `保存期間の上限を過ぎた古い記録は削除済みのため、この期間には含まれません。${CHILD_TERMS.honorific}の登録日は children[].createdAt（協定世界時 UTC の日時）をご覧ください。`,
+	createdAtPointer: `${CHILD_TERMS.honorific}の登録日は children[].createdAt（協定世界時 UTC の日時）をご覧ください。`,
 } as const;
 
 // ============================================================
