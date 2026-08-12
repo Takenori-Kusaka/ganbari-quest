@@ -229,6 +229,35 @@ describe('check-new-required-env (#4129 AC5 既存 env の必須化)', () => {
 			expect(detectNewRequiredEnvs(lines).size).toBe(0);
 		});
 
+		// #4497: `if (!CONSENT_TYPES.includes(type)) throw ...` が env 必須化と誤検出された。
+		// ALL_CAPS の**ドメイン定数**に対するメソッド呼び出しであって env 参照ではない。
+		// bare な `!NAME` (env alias 直参照) だけを guard と見なす。
+		it('ALL_CAPS 定数へのメソッド呼び出し guard は env ではない (false positive 抑止)', () => {
+			const lines = [
+				'for (const type of types) {',
+				'	if (!CONSENT_TYPES.includes(type)) {',
+				'		throw new Error(`Unknown consent type: ${String(type)}`);',
+				'	}',
+				'}',
+			];
+			expect(detectNewRequiredEnvs(lines).size).toBe(0);
+		});
+
+		it('ALL_CAPS 定数のプロパティ参照 guard も env ではない (false positive 抑止)', () => {
+			const lines = [
+				'if (!PLAN_LIMITS.standard) {',
+				'	throw new Error("plan limits missing");',
+				'}',
+			];
+			expect(detectNewRequiredEnvs(lines).size).toBe(0);
+		});
+
+		// 上の抑止を入れても、本来の検出 (bare な env alias / process.env 直参照) は生きていること
+		it('bare な ALL_CAPS env 名の guard は引き続き検出する (抑止の掘りすぎ防止)', () => {
+			const lines = ['if (!STRIPE_WEBHOOK_SECRET) {', '	throw new Error("missing");', '}'];
+			expect(detectNewRequiredEnvs(lines).has('STRIPE_WEBHOOK_SECRET')).toBe(true);
+		});
+
 		it('exit(0) で終わる guard は必須化ではない (false positive 抑止)', () => {
 			const lines = [
 				"const optionalHook = process.env.OPTIONAL_HOOK_URL || '';",
