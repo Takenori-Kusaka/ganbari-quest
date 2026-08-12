@@ -294,6 +294,7 @@ export const PRE_READY_GATE_SSOT_PATHS = /** @type {const} */ ([
 	'scripts/pr-template-gate-checks.mjs',
 	'scripts/lib/is-main.mjs',
 	'scripts/lib/ci/pr-body-sections.mjs',
+	'scripts/lib/ci/pr-input.mjs',
 	'scripts/lib/ci/reason-declaration.mjs',
 	'scripts/lib/ci/resolve-base-branch.mjs',
 	'scripts/lib/ci/tz-invariance-cases.mjs',
