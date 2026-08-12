@@ -9,6 +9,7 @@
 //   standard: 7日間
 //   family:   30日間
 
+import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
 import { formatJSTDate, toJSTDateString } from '$lib/domain/date-utils';
 import { env } from '$lib/runtime/env';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
@@ -39,7 +40,6 @@ type PurgeRoute = Extract<DeletionRoute, 'grace-expiry' | 'manual'>;
  */
 export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
 
-/** プラン別グレースピリオド（日数）。0 = 即時物理削除 */
 /**
  * #4327: 物理削除の**部分失敗**を表す log 行の検索語 (SSOT)。
  *
@@ -52,16 +52,16 @@ export const DELETION_WARNING_SENT_KEY = 'deletion_warning_sent_at';
 export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
 
 /**
- * #4338: soft-delete 判定キーの SSOT。実体は leaf module (`soft-delete-keys.ts`) に置き、
- * ここから re-export する (削除側 tenant-cleanup-service との import cycle を避けるため)。
+ * 実体を leaf module に置き、ここから re-export するもの (本 module の public API は不変)。
+ *
+ * - `GRACE_PERIOD_JUDGMENT_KEYS` (#4338): soft-delete 判定キーの SSOT。実体は
+ *   `soft-delete-keys.ts` (削除側 tenant-cleanup-service との import cycle を避けるため)。
+ * - `DELETION_GRACE_PERIOD_DAYS` (#4496): 猶予日数の値 SSOT。実体は domain leaf
+ *   `$lib/domain/constants/deletion-grace`。顧客に見える文言側 (terms.ts → labels.ts → LP) は
+ *   server module を import できないため、値を domain に置かないと数値が複製される
+ *   (複製された「7 日 / 30 日」が**解約**の説明に転用されたのが #4496 の根本原因)。
  */
-export { GRACE_PERIOD_JUDGMENT_KEYS };
-
-export const DELETION_GRACE_PERIOD_DAYS: Record<PlanTier, number> = {
-	free: 0,
-	standard: 7,
-	family: 30,
-} as const;
+export { DELETION_GRACE_PERIOD_DAYS, GRACE_PERIOD_JUDGMENT_KEYS };
 
 // ============================================================
 // Types

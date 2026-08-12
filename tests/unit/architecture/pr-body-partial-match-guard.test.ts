@@ -121,6 +121,97 @@ function collectOccurrences(): Occurrence[] {
 	return out;
 }
 
+// ---------------------------------------------------------------------------
+// #4348 対象 #7: 「入力ゼロのまま skip / pass に倒れる」形を止める guard
+//
+// 判定ロジック (上の guard) を厳しくしても、**入力が届いていない**まま実行されれば
+// gate は何も検査せず成功終了する。実測 (2026-08-12): SS 系 3 本が argv を読まず、
+// `--pr <N>` を付けた誤用が空入力の検査になって exit 0 していた (#4513 の 404 SS を見逃した)。
+// 入力解決は scripts/lib/ci/pr-input.mjs (SSOT) に集約し、env 直読みを増やさせない。
+// ---------------------------------------------------------------------------
+
+/** PR 入力を env から直読みしている形 (コメント行は除外して検出する)。 */
+const ENV_INPUT_RE = /process\.env\.(?:PR_BODY|PR_NUMBER)\b/;
+
+/** 入力解決 SSOT の import (これがあれば env 直読みでも解決経路を通っている)。 */
+const PR_INPUT_IMPORT_RE = /from\s+'\.(?:\/lib)?\/(?:lib\/)?ci\/pr-input\.mjs'/;
+
+/**
+ * env 直読みのまま残す script。値は **なぜ本 PR で是正しないか**。
+ *
+ * #4348 の「やらないこと」に従い、箇所ごとに実測してから移行する。本 PR の scope は
+ * SS 系 gate 3 本 (check-ss-blob-sha-uniqueness / check-pr-screenshot / check-ss-render-health)。
+ */
+const ENV_INPUT_ALLOWLIST: Record<string, string> = {
+	'scripts/check-ac-verification-map.mjs':
+		'#4348 scope 外: 本 PR は SS 系 gate 3 本の入力層のみ是正した。全 feature PR に波及するため箇所ごとに corpus 実測してから pr-input.mjs へ移行する',
+	'scripts/check-cdk-replacement.mjs':
+		'#4348 scope 外: deploy 経路の gate で PR body は補助入力。移行時に deploy lane の実測が要るため別 PR で扱う',
+	'scripts/check-merge-gate-checklist.mjs':
+		'#4348 scope 外: 統合 lane の gate。#4357 で判定側を是正済のため入力層は別 PR で続けて移行する',
+	'scripts/check-new-required-env.mjs':
+		'#4348 scope 外: env 配布証跡 gate。本 PR の SS 系 3 本と実行経路が異なるため別 PR で移行する',
+	'scripts/check-pr-file-overlap.mjs':
+		'#4348 scope 外: PR_NUMBER を使う並行 PR 検査。CI 専用経路で手元実行の誤用報告が無いため別 PR で移行する',
+	'scripts/check-schema-change-tests.mjs':
+		'#4348 scope 外: schema 変更 lane の gate。別 PR で移行する',
+	'scripts/check-schema-migration-completeness.mjs':
+		'#4348 scope 外: schema 変更 lane の gate。同上',
+};
+
+describe('#4348 fitness: PR 入力を env から直読みする gate を増やさない', () => {
+	const offenders = walkMjs(SCAN_DIR, [])
+		.map((file) => ({ file, rel: relative(REPO_ROOT, file).replace(/\\/g, '/') }))
+		.filter(({ file }) => {
+			const src = readFileSync(file, 'utf8');
+			const hit = src.split('\n').some((line) => !isCommentLine(line) && ENV_INPUT_RE.test(line));
+			return hit && !PR_INPUT_IMPORT_RE.test(src);
+		})
+		.map(({ rel }) => rel);
+
+	it('検出器が機能している (0 件なら regex が壊れている)', () => {
+		expect(offenders.length).toBeGreaterThan(0);
+	});
+
+	it('ALLOWLIST 外の env 直読みが存在しない', () => {
+		const unknown = offenders.filter((f) => !(f in ENV_INPUT_ALLOWLIST));
+		expect(
+			unknown,
+			[
+				'PR 入力を env から直読みする gate を検出しました (#4348 対象 #7)。',
+				'',
+				'argv を読まない gate は `--pr <N>` を黙殺し、空入力を検査して成功終了します。',
+				'scripts/lib/ci/pr-input.mjs の resolvePrInput() を使ってください',
+				'(入力ゼロ / 取得失敗は PrInputError で非 0 終了し、skip / pass に倒れません)。',
+				'',
+				...unknown,
+			].join('\n'),
+		).toEqual([]);
+	});
+
+	it('ALLOWLIST に stale なエントリがない', () => {
+		const stale = Object.keys(ENV_INPUT_ALLOWLIST).filter((f) => !offenders.includes(f));
+		expect(
+			stale,
+			`是正済みなのに許可が残っています。該当行を削除してください:\n${stale.join('\n')}`,
+		).toEqual([]);
+	});
+
+	it('SS 系 gate 3 本は入力解決 SSOT を経由している', () => {
+		for (const rel of [
+			'scripts/check-ss-blob-sha-uniqueness.mjs',
+			'scripts/check-pr-screenshot.mjs',
+			'scripts/check-ss-render-health.mjs',
+		]) {
+			const src = readFileSync(resolve(REPO_ROOT, rel), 'utf8');
+			expect(PR_INPUT_IMPORT_RE.test(src), `${rel} が pr-input.mjs を import していません`).toBe(
+				true,
+			);
+			expect(ENV_INPUT_RE.test(src), `${rel} に env 直読みが残っています`).toBe(false);
+		}
+	});
+});
+
 describe('#4348 fitness: PR body を部分一致で判定する新規コードを増やさない', () => {
 	const occurrences = collectOccurrences();
 

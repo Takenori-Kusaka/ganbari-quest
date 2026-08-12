@@ -34,8 +34,17 @@ const errorMessage = $derived(
 				: null,
 );
 
+// #4498: 課金プランの送信先は Stripe の解約フロー。「卒業を完了する」と名乗ると、
+// 顧客はここで解約が終わったと誤認する (実際は Stripe 側の確認が残っている)。
+// 遷移先を名乗る CTA に切り替える (解約理由フォーム側の submitButton と同型)。
+const goesToPortal = $derived(data.hasStripeCustomer && data.stripeEnabled);
+
 const submitButtonLabel = $derived(
-	consented ? GRADUATION_LABELS.submitConsentButton : GRADUATION_LABELS.skipButton,
+	goesToPortal
+		? GRADUATION_LABELS.successProceedButton
+		: consented
+			? GRADUATION_LABELS.submitConsentButton
+			: GRADUATION_LABELS.skipButton,
 );
 </script>
 

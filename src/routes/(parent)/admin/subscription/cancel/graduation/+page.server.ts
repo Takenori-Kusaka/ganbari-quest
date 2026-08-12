@@ -8,9 +8,15 @@
 // Anti-engagement (ADR-0012): 引き止め CTA 出さない。煽らない。「もう一度」は出さない。
 
 import { fail, redirect } from '@sveltejs/kit';
+import {
+	PORTAL_FALLBACK_CONTEXT,
+	PORTAL_FALLBACK_PARAM,
+	PORTAL_UNAVAILABLE_PARAM,
+} from '$lib/domain/constants/stripe-portal';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import { getBalance } from '$lib/server/db/point-repo';
+import { logger } from '$lib/server/logger';
 import {
 	calculateUsagePeriodDays,
 	GRADUATION_MESSAGE_MAX_LENGTH,
@@ -18,6 +24,8 @@ import {
 	recordGraduationConsent,
 } from '$lib/server/services/graduation-service';
 import { getLicenseInfo } from '$lib/server/services/license-service';
+import { createPortalSession } from '$lib/server/services/stripe-service';
+import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 const POINTS_TO_YEN_RATE = 1; // 100 pt = 100 円換算 (1 pt = 1 円)
@@ -51,13 +59,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 		usagePeriodDays,
 		isPaidPlan,
 		hasStripeCustomer,
+		// #4498: 送信ボタンの名乗りを実際の遷移先に合わせるために画面へ渡す。
+		// action の分岐条件 (`stripeCustomerId && isStripeEnabled()`) と同じ材料で判定する。
+		stripeEnabled: isStripeEnabled(),
 		nicknameMaxLength: GRADUATION_NICKNAME_MAX_LENGTH,
 		messageMaxLength: GRADUATION_MESSAGE_MAX_LENGTH,
 	};
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	default: async ({ request, locals, url }) => {
 		const tenantId = requireTenantId(locals);
 		const license = await getLicenseInfo(tenantId);
 
@@ -94,12 +105,38 @@ export const actions: Actions = {
 		}
 
 		// 卒業セッション記録完了 → 解約完了処理
-		// 課金プランかつ Stripe Customer がある場合 → Customer Portal にリダイレクト
-		if (license?.stripeCustomerId) {
-			throw redirect(303, '/admin/subscription');
+		// #4498: 課金プランかつ Stripe Customer がある場合は Customer Portal の**解約フロー**へ直行する。
+		// 旧実装はここで `/admin/subscription` へ戻すだけで `createPortalSession` を呼んでおらず、
+		// 「卒業を完了する」を押した顧客は手続き完了と誤認したまま**課金が継続していた**
+		// (遷移先は通常の有効プラン表示で、解約予定バナーも出ない)。
+		// 離反/中断経路 (`cancel/+page.server.ts`、#4166 / #4270 / #4329) と同型に揃える。
+		if (license?.stripeCustomerId && isStripeEnabled()) {
+			const returnUrl = new URL('/admin/subscription', url).toString();
+			const portalResult = await createPortalSession(tenantId, returnUrl, {
+				kind: 'subscription_cancel',
+			});
+			if ('url' in portalResult) {
+				// #4270: 解約フローが Stripe に拒否されて portal ホームに倒れた場合、そのまま飛ばすと
+				// 卒業を見届けた直後に予期しない画面へ落ちる。原因は顧客に説明せず (ADR-0062)、
+				// 解約手続きを続ける場所を示せる自画面へ戻す。
+				if (portalResult.flowFallback) {
+					throw redirect(
+						303,
+						`/admin/subscription?${PORTAL_FALLBACK_PARAM}=${PORTAL_FALLBACK_CONTEXT.CANCEL}`,
+					);
+				}
+				throw redirect(303, portalResult.url);
+			}
+			// #4329 と同型: portal を **1 度も開けていない**経路。無言で thanks へ落とすと顧客は
+			// 解約できたと思い込んだまま課金が続く。失敗した事実を thanks ページへ伝え、
+			// 「解約はまだ完了していません」+ 代替導線を出させる (内部詳細は出さない、ADR-0062)。
+			logger.error(
+				`[STRIPE] 卒業フローで portal を作成できませんでした: tenant=${tenantId} reason=${portalResult.error}`,
+			);
+			throw redirect(303, `/admin/subscription/cancel/thanks?${PORTAL_UNAVAILABLE_PARAM}=1`);
 		}
 
-		// 無料プランは thanks ページへ
+		// 無料プラン or Stripe 未有効時は thanks ページへ
 		throw redirect(303, '/admin/subscription/cancel/thanks');
 	},
 };

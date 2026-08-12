@@ -30,6 +30,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
 const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const PLAN_RETENTION_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/plan-retention.ts');
+const DELETION_GRACE_TS = path.join(REPO_ROOT, 'src/lib/domain/constants/deletion-grace.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
@@ -364,6 +365,52 @@ function buildPlanRetentionTerms() {
 }
 
 /**
+ * 退会猶予日数の値 SSOT (`src/lib/domain/constants/deletion-grace.ts`) を読み、
+ * terms.ts の `DELETION_GRACE_TERMS` と同じ内容の namespace を組み立てる (#4496)。
+ *
+ * buildPlanRetentionTerms と同じ理由 (本 script は TS を実行せず text parse するため、
+ * 関数で計算された atom を terms.ts から読めない) で、数値だけを SSOT から読み、
+ * 整形をここで再現する。整形結果が TS 側と一致することは
+ * tests/unit/domain/cancel-vs-deletion-terminology.test.ts が機械検証する。
+ *
+ * @returns {Record<string, string>} `{ free, standard, standardSpaced, premium, premiumSpaced }`
+ */
+function buildDeletionGraceTerms() {
+	const src = fs.readFileSync(DELETION_GRACE_TS, 'utf-8');
+	const block = extractBraceBlock(src, src.indexOf('export const DELETION_GRACE_PERIOD_DAYS'));
+	if (block === null) {
+		throw new Error('DELETION_GRACE_PERIOD_DAYS not found in deletion-grace.ts');
+	}
+	/** @param {string} tier */
+	const readDays = (tier) => {
+		const m = block.match(new RegExp(`${tier}:\\s*(\\d+)`));
+		if (!m || m[1] === undefined) {
+			throw new Error(`DELETION_GRACE_PERIOD_DAYS.${tier} not parseable in deletion-grace.ts`);
+		}
+		return Number(m[1]);
+	};
+	// formatDeletionGracePeriod (deletion-grace.ts) と同じ整形規則。差異は上記 test が検出する。
+	/**
+	 * @param {number} days
+	 * @param {boolean} [spaced]
+	 */
+	const format = (days, spaced = false) => {
+		if (days === 0) return '即時';
+		return `${days}${spaced ? ' ' : ''}日`;
+	};
+	const free = readDays('free');
+	const standard = readDays('standard');
+	const family = readDays('family');
+	return {
+		free: format(free),
+		standard: format(standard),
+		standardSpaced: format(standard, true),
+		premium: format(family),
+		premiumSpaced: format(family, true),
+	};
+}
+
+/**
  * LP 用 namespace 名 ↔ 戻り値 key の対応表。
  *
  * #1917 のリファクタで parseLabelsTs() の cognitive complexity を 27 → 安全圏に下げるため、
@@ -447,6 +494,7 @@ function parseAllNamespacesResolved() {
 		// #4477: 値 SSOT (plan-retention.ts) 由来。terms.ts 側は関数呼び出しで組み立てるため
 		// text parse では読めない → ここで同じ値から組み立て直して上書きする。
 		PLAN_RETENTION_TERMS: buildPlanRetentionTerms(),
+		DELETION_GRACE_TERMS: buildDeletionGraceTerms(),
 		AGE_TIER_LABELS: ageTierLabels,
 		AGE_TIER_SHORT_LABELS: ageTierShort,
 		PLAN_LABELS: planLabels,
@@ -871,6 +919,7 @@ if (invokedAsCli) {
 // parseAllNamespacesResolved も公開する。個々の parser だけを検査すると「実データでは解決できない」
 // 状態を通してしまう。
 export {
+	buildDeletionGraceTerms,
 	buildPlanRetentionTerms,
 	isTemplateLiteral,
 	parseAllNamespacesResolved,

@@ -1,14 +1,28 @@
 #!/usr/bin/env node
+/**
+ * scripts/check-ss-render-health.mjs
+ *
+ * screenshots branch の `.dom.html` を text scan して error ページ混入を検出する gate (#3012)。
+ *
+ * 入力:
+ *   node scripts/check-ss-render-health.mjs --pr <N>                       # gh で PR を引く
+ *   PR_NUMBER=<N> GITHUB_REPOSITORY=<owner>/<repo> node scripts/...        # CI (workflow) 経路
+ *
+ * #4348 (対象 #7 の兄弟): 本 script も argv を読まず、`--pr <N>` で呼ぶと PR_NUMBER 未設定 →
+ * 「PR コンテキスト外」SKIP = exit 0 になっていた。入力解決は
+ * `scripts/lib/ci/pr-input.mjs` (SSOT) に委譲する。
+ */
+import {
+	formatPrInputUsage,
+	isHelpRequested,
+	PrInputError,
+	resolvePrInput,
+} from './lib/ci/pr-input.mjs';
 import { detectErrorMarkersInHtml } from './lib/ci/screenshot-helpers.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
+const SCRIPT_NAME = 'scripts/check-ss-render-health.mjs';
 const MODE = (process.env.CHECK_MODE || 'error').toLowerCase();
-const PR_NUMBER = process.env.PR_NUMBER || '';
-const REPO = process.env.GITHUB_REPOSITORY || '';
-const PR_LABELS = (process.env.PR_LABELS || '')
-	.split(',')
-	.map((s) => s.trim())
-	.filter(Boolean);
 
 // ---------------------------------------------------------------------------
 // Pure functions (named exports for vitest)
@@ -187,10 +201,46 @@ export async function checkSsRenderHealth({ repo, prNumber, labels, fetcher = fe
 async function main() {
 	const isError = MODE === 'error';
 	const prefix = '[ss-render-health]';
+	const argv = process.argv.slice(2);
+
+	if (isHelpRequested(argv)) {
+		console.log(
+			[
+				`${SCRIPT_NAME} — SS に error ページが混入していないかを検証します (#3012)。`,
+				'',
+				'入力 (いずれか。無指定は失敗します — #4348):',
+				formatPrInputUsage(SCRIPT_NAME, 'prNumber'),
+				'',
+				'(help を表示しただけで、検査は実行していません)',
+			].join('\n'),
+		);
+		return 0;
+	}
+
+	// #4348: 入力ゼロ (`--pr` 黙殺 / PR_NUMBER 未設定) を「PR コンテキスト外」SKIP で成功終了させない。
+	let input;
+	try {
+		input = resolvePrInput({ argv, env: process.env, need: 'prNumber', scriptName: SCRIPT_NAME });
+	} catch (err) {
+		if (err instanceof PrInputError) {
+			console.error(`${prefix} INPUT ERROR — ${err.message}`);
+			return 2;
+		}
+		throw err;
+	}
+	const PR_NUMBER = input.prNumber ?? '';
+	const repo = input.repo || process.env.GITHUB_REPOSITORY || '';
+	if (!repo) {
+		console.error(
+			`${prefix} INPUT ERROR — repository が解決できません (GITHUB_REPOSITORY 未設定)。` +
+				' 対象なしとして成功終了させません (#4348)。',
+		);
+		return 2;
+	}
 
 	let result;
 	try {
-		result = await checkSsRenderHealth({ repo: REPO, prNumber: PR_NUMBER, labels: PR_LABELS });
+		result = await checkSsRenderHealth({ repo, prNumber: PR_NUMBER, labels: input.labels });
 	} catch (err) {
 		console.error(`${prefix} internal error:`, err instanceof Error ? err.message : String(err));
 		return 2;

@@ -28,6 +28,20 @@ export interface TenantStats {
 		lifetime: number;
 		noPlan: number;
 	};
+	/**
+	 * プラン別 MRR（月次換算、円）と合計 (#4505)。
+	 *
+	 * `planBreakdown` の集計と同じテナント集合から算出する唯一の SSOT。
+	 * 呼出側 (`+page.svelte` / `getRevenueData`) はここを描画するだけで、
+	 * 独自の再計算式を持たない（集計と描画の二重実装の再発防止）。
+	 */
+	mrrBreakdown: {
+		monthly: number;
+		yearly: number;
+		familyMonthly: number;
+		familyYearly: number;
+		total: number;
+	};
 	newThisMonth: number;
 }
 
@@ -68,13 +82,16 @@ async function getTenantStats(): Promise<TenantStats> {
 	// 環境ごとに「今月の新規テナント数」が変わっていた。
 	const monthStart = new Date(`${monthStartJST()}T00:00:00+09:00`);
 
+	const planBreakdown = countPlans(tenants);
+
 	return {
 		total: tenants.length,
 		active: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE).length,
 		gracePeriod: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD).length,
 		suspended: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.SUSPENDED).length,
 		terminated: tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.TERMINATED).length,
-		planBreakdown: countPlans(tenants),
+		planBreakdown,
+		mrrBreakdown: computeMrrBreakdown(planBreakdown),
 		newThisMonth: tenants.filter((t) => new Date(t.createdAt) >= monthStart).length,
 	};
 }
@@ -88,6 +105,38 @@ function countPlans(tenants: Tenant[]) {
 		familyYearly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.FAMILY_YEARLY).length,
 		lifetime: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.LIFETIME).length,
 		noPlan: activeTenants.filter((t) => !t.plan).length,
+	};
+}
+
+/**
+ * プラン単価 (月次換算、円) — /ops MRR 表示の唯一の SSOT (#4505)。
+ *
+ * `src/lib/server/stripe/config.ts` の `getPlans()` は Stripe checkout で新規購入可能な
+ * monthly 2 種のみを扱う (#2719 yearly 廃止後)。ここは historical record を含む
+ * 5 プラン全種の MRR 単価が必要なため、`ops-analytics-service.ts` / `cohort-analysis-service.ts`
+ * と同型の単価表を本サービス内に保持する (円建て、Stripe 実額と同一)。
+ */
+const PLAN_MRR_UNIT_YEN = {
+	monthly: 500,
+	yearly: Math.round(5000 / 12),
+	familyMonthly: 780,
+	familyYearly: Math.round(7800 / 12),
+} as const;
+
+function computeMrrBreakdown(
+	planBreakdown: TenantStats['planBreakdown'],
+): TenantStats['mrrBreakdown'] {
+	const monthly = planBreakdown.monthly * PLAN_MRR_UNIT_YEN.monthly;
+	const yearly = planBreakdown.yearly * PLAN_MRR_UNIT_YEN.yearly;
+	const familyMonthly = planBreakdown.familyMonthly * PLAN_MRR_UNIT_YEN.familyMonthly;
+	const familyYearly = planBreakdown.familyYearly * PLAN_MRR_UNIT_YEN.familyYearly;
+
+	return {
+		monthly,
+		yearly,
+		familyMonthly,
+		familyYearly,
+		total: monthly + yearly + familyMonthly + familyYearly,
 	};
 }
 
@@ -173,13 +222,11 @@ export async function getRevenueData(from: Date, to: Date): Promise<RevenueData>
 		}
 		const monthlyBreakdown = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month));
 
-		// MRR/ARR: KPI のプラン内訳ベース（Stripe請求ベースでなく、DB のテナント情報から算出）
+		// MRR/ARR: KPI のプラン内訳ベース（Stripe請求ベースでなく、DB のテナント情報から算出）。
+		// 算出は `getTenantStats()` の `mrrBreakdown.total` (単一 SSOT) を使う。ここで再計算式を
+		// 持つと `/ops` の合計 MRR と乖離しうる (#4505 の再発防止)。
 		const tenantStats = await getTenantStats();
-		const mrr =
-			tenantStats.planBreakdown.monthly * 500 +
-			Math.round((tenantStats.planBreakdown.yearly * 5000) / 12) +
-			tenantStats.planBreakdown.familyMonthly * 780 +
-			Math.round((tenantStats.planBreakdown.familyYearly * 7800) / 12);
+		const mrr = tenantStats.mrrBreakdown.total;
 		const arr = mrr * 12;
 
 		return { invoices: rows, totalRevenue, totalStripeFees, monthlyBreakdown, mrr, arr };

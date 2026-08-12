@@ -217,6 +217,7 @@ PO の「『卒業』をプロダクト哲学（ADR-0023 §3.8）として実装
   - ニックネーム（公開時実名禁止、最大 30 文字、承諾時のみ必須）
   - 卒業メッセージ（公開可、最大 500 文字、任意）
 - 承諾済 / 未承諾どちらでも recordGraduationConsent() で記録
+- 記録後の遷移は離反 / 中断経路と同型: Stripe Customer あり & Stripe 有効 → Customer Portal の解約フロー（失敗時は `thanks?portalUnavailable=1`）、無料プラン / Stripe 未有効 → `thanks`
 
 ##### graduation-service
 
