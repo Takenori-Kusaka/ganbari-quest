@@ -60,10 +60,13 @@ schema を変更する PR は複数の SSOT file を同期する。未同期だ�
 検証コマンド:
 
 ```bash
+# base は develop（[branch-strategy.md §3](../branch-strategy.md)。hotfix のみ main）
+BASE="origin/$(node scripts/lib/ci/resolve-base-branch.mjs)"
+
 # semantic flip を含む schema 変更 PR では以下が全件 hit 必須
-git diff main --name-only | grep -E '(schema|create-tables|lazy-startup-migrations)\.ts'
+git diff "$BASE...HEAD" --name-only | grep -E '(schema|create-tables|lazy-startup-migrations)\.ts'
 # かつ data copy block を含むこと
-git diff main -- src/lib/server/db/migration/lazy-startup-migrations.ts | grep -E '(INSERT INTO|UPDATE.*SET.*activity_id|UPDATE.*SET.*child_id)'
+git diff "$BASE...HEAD" -- src/lib/server/db/migration/lazy-startup-migrations.ts | grep -E '(INSERT INTO|UPDATE.*SET.*activity_id|UPDATE.*SET.*child_id)'
 ```
 
 横展開すべき SSOT 群（DB スキーマペア）:

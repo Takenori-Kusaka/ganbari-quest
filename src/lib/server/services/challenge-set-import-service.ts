@@ -20,7 +20,7 @@ import type { ChildId } from '$lib/domain/ids';
 //   - EPIC #2294 案 B-γ (日本ローカライズ wedge): 日本年間行事パック配信経路
 
 import { toCategoryCode } from '$lib/domain/categories';
-import { toJSTDateString } from '$lib/domain/date-utils';
+import { addDaysJST, toJSTDateString } from '$lib/domain/date-utils';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
@@ -68,16 +68,12 @@ export function expandChallengeSetDates(
 	const isPast = mm < todayMonth || (mm === todayMonth && dd < todayDay);
 	const targetYear = isPast ? todayYear + 1 : todayYear;
 
-	// endDate / startDate は UTC で計算 (年月日のみの算術なので tz の影響を受けない) して
-	// toJSTDateString() で JST 文字列化する。Date.UTC(targetYear, mm-1, dd) は
-	// UTC の 00:00:00 を意味し、JST だと同日の 09:00:00 になるため日付ロールバック懸念なし。
-	const endDateObj = new Date(Date.UTC(targetYear, mm - 1, dd));
-	const startDateObj = new Date(endDateObj.getTime());
-	startDateObj.setUTCDate(startDateObj.getUTCDate() - durationDays + 1);
+	// 暦日の組み立て / 加減算は date-utils の SSOT に委譲する (#4120)。
+	const endDate = `${targetYear}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
 
 	return {
-		startDate: toJSTDateString(startDateObj),
-		endDate: toJSTDateString(endDateObj),
+		startDate: addDaysJST(endDate, -durationDays + 1),
+		endDate,
 	};
 }
 

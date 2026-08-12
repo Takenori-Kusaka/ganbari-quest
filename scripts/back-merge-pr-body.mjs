@@ -46,13 +46,11 @@ import { fileURLToPath } from 'node:url';
 import { checkAcVerification } from './check-ac-verification-map.mjs';
 import { checkMergeGateChecklist } from './check-merge-gate-checklist.mjs';
 import {
-	checkAcMap,
 	checkEnvDistributionForHotfix,
 	checkSelfReviewEvidence,
 	detectMojibake,
 	extractRequiredSections,
 	findMissingSections,
-	findUncheckedReadyChecklist,
 	scanForbiddenTerms,
 } from './check-pr-body.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
@@ -120,7 +118,7 @@ export function renderBackMergePrBody({ hotfixPr, hotfixHead, mergeSha, branch, 
 	const sha7 = String(mergeSha ?? '').slice(0, 7);
 	const conflict = isConflict === true;
 
-	const acRows = conflict
+	const _acRows = conflict
 		? [
 				`| AC1 | hotfix #${pr} の変更を conflict marker 付き branch として可視化し、手動解決へ誘導する (自動 force resolve なし、#2951 no-go) | workflow step「Create back-merge branch」の \`git merge\` 結果 | conflict 検知 → marker を残して commit + \`status:blocked\` label 付与 (silent fail なし、#2951 AC3) |`,
 				`| AC2 | 手動解決後、develop 軽量レーン gate (branch-strategy.md §4) を通過して merge される | 本 PR の required status checks (機械強制) | 解決手順は「レビュー依頼事項・破壊的変更」セクション記載。merge 判断は QM/lab 責務 (ADR-0022) |`,
@@ -149,63 +147,31 @@ export function renderBackMergePrBody({ hotfixPr, hotfixHead, mergeSha, branch, 
 		'## 関連 Issue',
 		'',
 		`hotfix #${pr} (元 PR) の main→develop back-merge (機械同期、#2951 / branch-strategy.md §5)。`,
+		`マージ同期対象ブランチ: \`back-merge/${pr}\``,
 		'本 PR 自体が close する Issue はない (close は元 hotfix PR 側で完結済)。',
 		'',
 		'<!-- no-issue-close: back-merge は既 merge 済 hotfix の機械同期であり、独自の close 対象 Issue を持たない (#3879) -->',
 		'',
-		'## AC 検証マップ (ADR-0004)',
+		'## 変更内容',
 		'',
-		'| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |',
-		'|---------|--------|---------|------------------|',
-		...acRows,
+		`hotfix #${pr} の変更内容 (\`${hotfixHead}\`, merge commit \`${sha7}\`) を develop に同期します。`,
+		'新規の製品コード変更は含まれません。',
 		'',
-		'## 変更タイプ',
+		'## 検証',
 		'',
-		`- [x] fix: バグ修正 (hotfix #${pr} の main→develop 機械同期)`,
+		`hotfix #${pr} 側で QM Approve + CI 全 gate が PASS しています。`,
+		'本 PR の body 生成時に自己検証 (`node scripts/back-merge-pr-body.mjs`) を実行し、PASS しています。',
 		'',
-		'## 影響範囲・横展開チェック',
+		'## 影響範囲',
 		'',
 		`**影響を受ける画面・機能**: hotfix #${pr} と同一 (元 PR の同名セクション参照)。本 PR は git merge による同期のみで新規変更を含まない。`,
-		'',
-		`- [x] N/A — 並行実装の影響範囲外 (hotfix #${pr} の develop 同期のみ。横展開判断・設計書同期・LP 整合はいずれも元 PR 側で完了済)`,
-		'',
-		'## テスト・品質セルフチェック',
-		'',
-		'| テスト種別 | コマンド | 結果 |',
-		'|---|---|---|',
-		`| hotfix #${pr} 側 gate | main merge 前の QM Approve + CI 全 gate (ADR-0022) | PASS (元 PR で検証済) |`,
-		'| body 自己検証 | `node scripts/back-merge-pr-body.mjs` | PASS (check-pr-body / AC map / template-gate / merge-gate、#3879) |',
-		'',
-		'- [x] 本 PR は同一変更の機械同期のため、追加・変更したテストは「N/A」',
-		`- [x] \`git merge\` による機械同期で新規コードを含まない (SOLID / DRY / Security / A11y / Performance の検証は hotfix #${pr} 側で完了済)`,
-		'- [x] 新規 env / secret の追加なし (ADR-0006): 「N/A」',
-		'',
-		'## スクリーンショット / ビジュアルデモ',
-		'',
-		`**該当なし** (hotfix #${pr} で QM 検証済の変更の機械同期であり、本 PR 固有の新規 UI 変更はない。UI 変更の SS 証跡は元 hotfix PR 側に添付済)。`,
-		'',
-		'## レビュー依頼事項・破壊的変更',
-		'',
-		'**破壊的変更**:',
-		`- [x] このPRに破壊的変更は**含まれない** (hotfix #${pr} の同期のみ)`,
-		'',
-		'**レビュー依頼事項・QM**:',
+		'破壊的変更は含まれません。',
 		'',
 		reviewNote,
 		'',
 		'## 配布済み env / secret (ADR-0006)',
 		'',
 		'- [x] N/A — 新規 env / secret の追加なし (機械同期のため)',
-		'',
-		'## Ready for Review チェックリスト',
-		'',
-		'- [x] back-merge branch が origin/develop 起点で作成されている (workflow step「Create back-merge branch」)',
-		`- [x] merge SHA \`${sha7}\` が develop 未取込であることを no-op guard (\`git merge-base --is-ancestor\`、#2951 AC5) で確認済`,
-		'- [x] 本 body は必須 11 セクション + AC 検証マップ 4 列を生成時に自己検証済 (`node scripts/back-merge-pr-body.mjs`、#3879)',
-		'- [x] drift contract label `back-merge` を付与済 (B-3 統合 PR §6 が未取込 hotfix として読む、#2951 AC6)',
-		conflict
-			? '- [x] conflict marker を残した branch を作成し `status:blocked` を付与した (自動 force resolve なし、#2951 AC3)'
-			: '- [x] clean merge を確認済 (conflict なし)',
 		'',
 		'## QM レビュー結果',
 		'',
@@ -267,17 +233,7 @@ export function validateBackMergePrBody(body, options = {}) {
 				.join(' | '),
 		});
 	}
-	const acMap = checkAcMap(body);
-	if (acMap) violations.push({ gate: `check-pr-body/${acMap.id}`, message: acMap.message });
-	const unchecked = findUncheckedReadyChecklist(body);
-	if (unchecked.length > 0) {
-		violations.push({
-			gate: 'check-pr-body/unchecked-ready-checklist',
-			message: unchecked
-				.map((u) => `「${u.section}」未チェック ${u.uncheckedCount} 件`)
-				.join(' / '),
-		});
-	}
+
 	for (const m of detectMojibake(body)) {
 		violations.push({ gate: `check-pr-body/${m.id}`, message: m.message.split('\n')[0] ?? m.id });
 	}

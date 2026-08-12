@@ -206,7 +206,7 @@ UI_COMPONENTS_LABELS = {
 | `UI_COMPONENTS_LABELS.featureGatePlanLink` | overlay link | `'プランを見る'` |
 | `UI_COMPONENTS_LABELS.featureGateUpgrade` | PremiumBadge label | `'アップグレード'` (維持) |
 
-> NOTE: `family` atom key を維持する理由は `docs/design/21` §4 「プレミアム」禁止語規約と #2588 新規範 (補強 2) の SSOT 衝突が未解消のため。衝突解消 follow-up Issue **#2609** にて確定後、Phase 7 実装 PR で atom rename を同期実施する。本 docs 内で旧禁止表記 (= `docs/design/21` §4 で禁止される `プレミアム` + `プラン` 結合表記) を含めないことで `scripts/check-forbidden-terms.mjs` (`docs/design/21` 由来) を PASS させつつ、`#2588` 新規範への移行余地を確保する。
+> NOTE (執筆時点の経緯・#2609 は既に解消済): `family` atom key を維持していた理由は、当時 `docs/design/21` §4 「プレミアム」禁止語規約と #2588 新規範 (補強 2) の SSOT 衝突が未解消だったため。衝突は follow-up Issue **#2609** で解消済み (`docs/design/21` §4 は「プレミアムプラン」をプラン名として使用可能に改訂済み)。本 docs 執筆時に PASS 対象としていた `scripts/check-forbidden-terms.mjs` は #4322 で削除済み (#4426)、現状は `check-no-plan-literals.mjs` と `docs/design/21` §4 のレビューで担保する。
 
 ## ADR-0012 整合性チェック
 

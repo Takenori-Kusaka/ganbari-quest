@@ -30,18 +30,45 @@ jobs:
     # PR 作成者で判定する (actor だと人間が触れた瞬間に判定が反転するため、#4133)。
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
+      # #4422: 人が dependabot branch を rebase / 追記すると dependabot の commit signature が
+      # 失われ (rewrite すると committer が人間になり verification.reason=unsigned になる)、
+      # fetch-metadata が「Dependabot's commit signature is not verified」で **job を fail** させる。
+      # この拒否自体は正しい (署名を検証できない metadata で auto-merge してはならない) が、
+      # 「人が手を入れた PR を auto-merge しない」は本 workflow の意図そのものなので、
+      # fail ではなく **auto-merge 対象外 (skip)** として表現する。
+      #
+      # ここでの判定は「auto-merge の適用対象か」だけで、真正性の検証ではない (検証は引き続き
+      # fetch-metadata が担う)。author 名を偽装した commit を積んでも本 step を素通りするだけで、
+      # その先の fetch-metadata が従来どおり拒否するため、検査は緩んでいない。
+      - name: Detect human commits on the dependabot branch
+        id: authorship
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          human=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+            --jq '[.[] | select(.commit.author.name != "dependabot[bot]" or .commit.committer.name != "dependabot[bot]")] | length')
+          echo "human-commits=${human}" >> "$GITHUB_OUTPUT"
+          if [ "${human}" -gt 0 ]; then
+            echo "::notice::人の commit が ${human} 件含まれるため auto-merge の対象外。通常の QM レビューで merge 判断する。"
+          fi
+
       - name: Dependabot metadata
         id: metadata
         # SHA pin 必須 (#3489): pull-requests/contents write + auto-merge 起動 context のため、
         # tag 再付け替え時の出力偽造 (update-type 偽装 → 悪性 bump 自動 merge) を防ぐ。
+        if: steps.authorship.outputs.human-commits == '0'
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Enable auto-merge for minor and patch updates
         if: >-
-          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+          steps.authorship.outputs.human-commits == '0' &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch')
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

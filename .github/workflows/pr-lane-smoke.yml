@@ -37,6 +37,8 @@ on:
 
 permissions:
   contents: read
+  # actions/pr-lane が commit author 精査 (#4445) に使う `pulls/{n}/commits` 取得用
+  pull-requests: read
 
 jobs:
   lane-smoke:

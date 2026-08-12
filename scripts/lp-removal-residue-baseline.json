@@ -4,21 +4,6 @@
 	"violations": [
 		{
 			"kind": "orphan-lp-key",
-			"file": "site/faq.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/faq.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/faq.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
 			"file": "site/index.html",
 			"detail": "data-lp-key=\"heroPriceBand.container\" が shared-labels.js (LP_LABELS) に存在しません"
 		},
@@ -45,21 +30,6 @@
 		{
 			"kind": "orphan-lp-key",
 			"file": "site/index.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/index.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/index.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/index.html",
 			"detail": "data-lp-key=\"hero.noteSignup\" が shared-labels.js (LP_LABELS) に存在しません"
 		},
 		{
@@ -81,21 +51,6 @@
 			"kind": "orphan-lp-key",
 			"file": "site/pricing.html",
 			"detail": "data-lp-key=\"pricing.heroCancelDisclaimer\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/pricing.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/pricing.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
-		},
-		{
-			"kind": "orphan-lp-key",
-			"file": "site/pricing.html",
-			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
 		}
 	]
 }

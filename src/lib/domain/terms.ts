@@ -44,7 +44,11 @@
 //   TOKUSHOHO_TERMS  — 特商法第12条の6 6 項目見出し + 短い名詞 atom（Phase 3 #2573 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 6 見出し + cancelButtonLabel に絞込、法令文 compound は labels.ts 側へ移動）
 //   CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom（Phase 3 #2572 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 5 variant 見出し + ボタンラベルに絞込、本文 compound は labels.ts 側へ移動）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a)
+//   PLAN_RETENTION_TERMS — プラン別 履歴保持期間 atom（値は constants/plan-retention.ts が SSOT、#4477）
+//
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
+
+import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -117,11 +121,14 @@ export const TRIAL_TERMS = {
 	// 既存の noCreditCard (12 文字) / noCreditCardShort (8 文字) と異なる中間長 (7 文字) であり、
 	// 文字列差分ゼロ維持のため新 atom として独立させる。
 	noCreditCardMid: 'カード登録不要',
-	// #1904 (PERS-CRT-5): hero cta-trust-badges 用の動詞ベース詳細訴求 atom。
-	// 「クレジットカード登録不要」を 6 箇所連発から hero 1 箇所のみに絞り、その 1 箇所では
-	// 「いつ入力するか」を明示することで田中ゆかり P1 の「後で登録しろって言われるんでしょ?」
-	// サブスク被害連想を断つ。短縮形 (noCreditCard) / 体言止め (noCreditCardMid) と意味文脈が
-	// 異なるため独立 atom として保持し、cta-trust-badges 1 箇所限定で使用する。
+	// #1904 (PERS-CRT-5): 動詞ベースの詳細訴求 atom。「いつ入力するか」を明示することで
+	// 田中ゆかり P1 の「後で登録しろって言われるんでしょ?」サブスク被害連想を断つ。
+	// 短縮形 (noCreditCard) / 体言止め (noCreditCardMid) と意味文脈が異なるため独立 atom。
+	// #4408: 唯一の参照元だった LP CTA 直下 3 バッジの labels 撤去に伴い現在の参照は 0。
+	// トライアル通知メール (T-0) の詳細文言用として atom は維持する
+	// (docs/design/billing-redesign/phase4-trial-paywall-flow-design.md)。
+	// 注: ここに撤去済 export の識別子を literal で書くと check-orphan-labels が
+	// それを「参照 1 件」と数え、復活させても検出できなくなる (#4408 mutation 検証で実証)。
 	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
 } as const;
 
@@ -229,8 +236,7 @@ export const LP_FAQ_TERMS = {
 	linkLabel: 'よくあるご質問',
 	faqHtmlTitle: 'よくあるご質問',
 	// 値は `${LP_FAQ_TERMS.inlineCtaSentence}` で labels.ts compound から参照。
-	// HTML 属性に " を含むため JS 側は ' で囲む。Biome formatter による自動折り返しは
-	// generate-design-md-sections.mjs の multi-line aware parser が対応 (#1896)。
+	// HTML 属性に " を含むため JS 側は ' で囲む。
 	inlineCtaSentence:
 		'他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。',
 } as const;
@@ -1138,4 +1144,29 @@ export const VISIBILITY_CHIP_TERMS = {
 	allOnLabel: '全員 ON',
 	allOffLabel: '全員 OFF',
 	groupAriaLabel: '配信お子さま選択',
+} as const;
+
+// ============================================================
+// PLAN_RETENTION_TERMS — プラン別 履歴保持期間の atom (#4477)
+// ============================================================
+//
+// 値の SSOT は `constants/plan-retention.ts` の PLAN_HISTORY_RETENTION_DAYS
+// (plan-limit-service.ts の PLAN_LIMITS[tier].historyRetentionDays も同じ定数から引く)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+// labels.ts / plan-features.ts は必ず本 atom を template literal 参照し、
+// 「90日」「1年」などの数値入り文字列を直書きしないこと (ADR-0013 / ADR-0045)。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てて template literal を解決する。両者が一致することは
+// tests/unit/domain/plan-retention-ssot.test.ts が機械検証する。
+
+export const PLAN_RETENTION_TERMS = {
+	/** 無料プランの保持期間 (例: 「90日」) */
+	free: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.free),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「90 日」) */
+	freeSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.free, { spaced: true }),
+	/** スタンダードプランの保持期間 (例: 「1年」) */
+	standard: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「1 年」) */
+	standardSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
 } as const;

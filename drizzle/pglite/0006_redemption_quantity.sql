@@ -1,0 +1,32 @@
+-- #4407: ごほうび交換申請に個数 (quantity) を持たせる。
+-- 単位量のごほうび (「ゲーム時間 +30分」等) は「単位 × 個数」で消費されるため 1 申請 = N 個で表す
+-- (申請を N 行に増やさない = 親の承認操作も 1 件のまま)。既存行は 1 個として backfill する。
+--
+-- #4488: DSQL 互換のため 3 手順に分解する (旧 1 行版
+--        `ADD COLUMN "quantity" integer DEFAULT 1 NOT NULL` は Aurora DSQL が拒否した:
+--        0A000 `ALTER TABLE ADD COLUMN with constraint not supported`)。
+--        DSQL の ADD COLUMN 文法は `ADD [COLUMN] [IF NOT EXISTS] column_name data_type [STORAGE …]`
+--        だけで、列制約 (DEFAULT / NOT NULL / CHECK) を一切取れない。
+--        同期フルスキャンを伴う DDL 形を外し、分解版 (SET DEFAULT はメタデータのみ /
+--        CHECK は NOT VALID + ASYNC VALIDATE / index は ASYNC) に寄せる設計であり、
+--        PostgreSQL 自身の NOT VALID + VALIDATE CONSTRAINT と同じ expand-contract の系譜。
+--        PG11+ は定数 DEFAULT 付き ADD COLUMN が即時化されているため素の PG では安く通り、
+--        PGlite (NUC) では緑になる。cross-backend 非等価は DSQL 側でしか出ない。
+--        https://docs.aws.amazon.com/aurora-dsql/latest/userguide/alter-table-syntax-support.html
+--
+--        NOT NULL は DSQL では表現しない (`ALTER COLUMN … SET NOT NULL` は DSQL の
+--        サポート action 一覧に無い)。非 NULL は Drizzle schema の
+--        `integer('quantity').notNull().default(1)` と app 層で担保する
+--        —— FK を剥がして app 層 relations() + fitness で担保する既存方針 (transform.ts 責務 1) と同型。
+--
+-- IF NOT EXISTS ガード: 0003/0004/0005 と同様、再適用され得る環境 (fresh provision 済み staging 等) で冪等にする。
+ALTER TABLE "reward_redemption_requests" ADD COLUMN IF NOT EXISTS "quantity" integer;
+--> statement-breakpoint
+-- 既定値はメタデータのみの変更で、既存行は書き換えない (だから次の backfill が要る)。
+ALTER TABLE "reward_redemption_requests" ALTER COLUMN "quantity" SET DEFAULT 1;
+--> statement-breakpoint
+-- 既存行の backfill。冪等 (WHERE quantity IS NULL) なので再適用しても二重加算しない。
+-- ⚠️ DSQL は 1 トランザクションで 3,000 行までしか変更できない。本テーブルは交換申請の
+--    履歴であり、保持期間ポリシー (ADR-0049) で刈られるため現行規模では 1 文で収まるが、
+--    3,000 行を超える規模の backfill をこの形で書いてはならない (バッチ分割が要る)。
+UPDATE "reward_redemption_requests" SET "quantity" = 1 WHERE "quantity" IS NULL;

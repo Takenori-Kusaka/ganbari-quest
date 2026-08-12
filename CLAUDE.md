@@ -50,9 +50,11 @@ Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS �
 
 1. biome check / 2. svelte-check / 7. check-no-plan-literals (#972) / 7g. check-local-tz-date-getters (#4015 / #4127, TZ 依存の日付導出禁止 / JST SSOT 強制) / 9. Readiness gate = check-pr-body (PR 番号必須) / 11b. SS embed gate (#2918, UI 変更 PR の SS 未 embed hard-fail)
 
-**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**外した検査は消していない** — vitest は CI `unit-test`、cspell / hardcoded-strings / license-key-leak / CLI guard 系 / doc-code-references / terminology-coherence / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml`、LP fallback は `lp-fallback-check.yml` で hard-fail のまま走る (対応表は `--help`)。**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。
+**選定基準は ADR-0007 §1-2 判断原則 v2** (#4121): 類型 1 (証跡の真正性 = Step 9 / 11b) と 類型 2 (顧客に見える正しさ = Step 1 / 2 / 7 / 7g) のうち安価なものだけを残す。**pre-ready から外しても CI で hard-fail し続ける検査**は以下がその全部である — vitest は CI `unit-test`、cspell / license-key-leak / CLI entry guard (`check-cli-entry-guard.mjs`) / generate-lp-labels --check は CI `lint-and-test`、LP 寸法は `lp-metrics.yml` (対応表は `--help`)。**`gh pr checks <num>` でこれらが pass (skipped でない) ことを確認してから Ready 化する**。**ここに挙がっていない検査は CI にも無い** — 「pre-ready に無い検査は CI が拾ってくれる」と一般化しないこと。
 
 **Step 番号は表示上の識別子であり実行順ではない (#4048)**。実行は cheap-fail-first — PR body だけを見る検査 (Step 9) → 静的テキスト検査 (1 / 7 / 7g) → 型検査 (2) → SS 系 (11b) の順。
+
+**pre-ready の PASS は「CI 緑」ではない (#4390)**。6 step は worktree HEAD だけを入力にするため、負荷 / タイミング依存の失敗・CI 側 job・**Draft 中しか走らない検査** (`pr-template-gate` は `draft == false` で初めて走る) は原理的に見ていない。加えて step の前に **base 鮮度 preflight** が走り、base が進み、かつ進んだ差分に **pre-ready の検査基準** (`PULL_REQUEST_TEMPLATE.md` / `PR_TEMPLATE_SECTIONS.json` / 検査 script と**その import 閉包**) が含まれる場合は **BLOCK する** (手元は旧基準・CI は新基準で判定するため、その PASS は成立しない)。検査基準が動いていなければ注記のみで止めない。
 
 E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 
@@ -69,7 +71,9 @@ E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。�
 
 ## Things Not To Do
 
-CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313) / hardcoded JP text 増加 (`check-hardcoded-strings.mjs` #1452)
+CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313)
+
+**機械強制が無くレビューで担保するもの**: UI 文言の SSOT 逸脱 (`terms.ts` / `labels.ts` を経由しない日本語直書き、@docs/DESIGN.md §6 / ADR-0045)。プラン文字列だけは `check-no-plan-literals.mjs` が拾うが、それ以外の日本語直書きを検出する CI は無い。**ルールは生きているので、CI が緑でもレビューで見る。**
 
 その他禁忌:
 - `src/routes` ページにビジネスロジック直書き / DB 直接アクセス（必ず `$lib/server/db` 経由）
@@ -86,14 +90,6 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 ## Critical バグ修正（ADR-0002）
 
 `priority:critical` は ADR-0002 の 5 要件全て充足必須（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更チェック）。
-
-## 補佐設計品質ガード 6（#2373 / AN-5 #2180 補強 6）
-
-補佐 (Claude / AI Agent) が Issue 起票時に守る 2 つの MUST-DO。詳細 SSOT → `docs/sessions/po-session.md` §「補佐設計品質ガード 6」+ `.claude/skills/issue-triage/SKILL.md` §「手順 F」:
-
-1. **同領域 EPIC 既起票確認**: 新規 EPIC 起票前に `gh issue list --search "<keyword>" --state all` で過去 6 ヶ月の同領域 Issue を確認、「関連 Issue」セクションに列挙
-2. **抽象パターン MUST-DO**: 3 つ目の類似 service / component を起票する前、Strategy / Factory / Registry 適用判断を PO に必須確認
-
 
 ## Session Agents & Skills
 

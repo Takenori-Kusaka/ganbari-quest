@@ -80,6 +80,8 @@ function buildStacks(): {
 	const network = new NetworkStack(app, 'TestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: 'ganbari-quest.com',
 		certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/test',
 		demoFunctionUrl: compute.demoFunctionUrl,
@@ -513,6 +515,134 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			expect(envVars.STRIPE_WEBHOOK_SECRET_TEST).toBeUndefined();
 			// 対照: 同じ経路で注入される他の env は生きている (検査が空振りしていない)
 			expect(envVars.USE_LOOKUP_KEY).toBe('true');
+		});
+	});
+
+	describe('#4397 Gemini 注入撤去', () => {
+		it('geminiApiKey context を渡しても本番 Fn の env に GEMINI_API_KEY が付かない', () => {
+			// #4397: アバターの AI 生成 (子供のニックネーム / 年齢を Google へ送る配線) を廃止した。
+			// repo secret GEMINI_API_KEY は release notes 生成のため残るので、deploy workflow から
+			// context として渡ってきても Lambda env に落ちないことを synth-time に固定する
+			// (「context を渡していないから付かない」だけでは配線の撤去を検証できない)。
+			const app = makeApp();
+			app.node.setContext('geminiApiKey', 'test-gemini-key-should-not-be-wired');
+			const storage = new StorageStack(app, 'GeminiStorage', { env });
+			const compute = new ComputeStack(app, 'GeminiCompute', {
+				env,
+				assetsBucket: storage.assetsBucket,
+				repository: storage.repository,
+			});
+			const template = Template.fromStack(compute as unknown as cdk.Stack);
+
+			const functions = template.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-app' },
+			});
+			expect(Object.keys(functions).length).toBe(1);
+			const prodFnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			const envVars = prodFnDef.Properties.Environment?.Variables ?? {};
+
+			expect(envVars.GEMINI_API_KEY).toBeUndefined();
+			// 対照: 同じ context 経路で注入される env は生きている (検査が空振りしていない)
+			expect(envVars.OPS_SECRET_KEY).toBe('test-ops-secret-key');
+		}, 60_000);
+	});
+
+	describe('#4367 Bedrock 有効化 (最小権限 + in-Region)', () => {
+		/** 指定 FunctionName の Lambda env Variables を取り出す。 */
+		function envOf(fnName: string): Record<string, unknown> {
+			const functions = computeTemplate.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: fnName },
+			});
+			expect(Object.keys(functions).length).toBe(1);
+			const fnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			return fnDef.Properties.Environment?.Variables ?? {};
+		}
+
+		/** IAM Policy の Statement を平坦化する (Action / Resource をそのまま持つ)。 */
+		function allStatements(): Array<Record<string, unknown>> {
+			const policies = computeTemplate.findResources('AWS::IAM::Policy');
+			const out: Array<Record<string, unknown>> = [];
+			for (const policyDef of Object.values(policies)) {
+				const props = (policyDef as { Properties?: Record<string, unknown> }).Properties ?? {};
+				const doc = props.PolicyDocument as
+					| { Statement?: Array<Record<string, unknown>> }
+					| undefined;
+				for (const stmt of doc?.Statement ?? []) out.push(stmt);
+			}
+			return out;
+		}
+
+		/** bedrock statement をちょうど 1 本取り出す (0 本 / 2 本以上はここで落とす)。 */
+		function theBedrockStatement(): Record<string, unknown> {
+			const stmts = bedrockStatements();
+			expect(stmts.length, 'bedrock statement はちょうど 1 本であること').toBe(1);
+			const stmt = stmts[0];
+			if (stmt === undefined) throw new Error('bedrock statement が見つかりません');
+			return stmt;
+		}
+
+		function bedrockStatements(): Array<Record<string, unknown>> {
+			return allStatements().filter((stmt) => {
+				const a = stmt.Action;
+				const actions = Array.isArray(a) ? a : typeof a === 'string' ? [a] : [];
+				return actions.some((v) => typeof v === 'string' && v.startsWith('bedrock:'));
+			});
+		}
+
+		// AC2: Lambda 実行ロールに bedrock:InvokeModel を最小権限で付与する。
+		it('AC2: 本番 Lambda role に bedrock:InvokeModel が付き、Resource は base model ARN 1 個 (`*` にしない)', () => {
+			const stmt = theBedrockStatement();
+
+			const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+			expect(actions).toEqual(['bedrock:InvokeModel']);
+
+			// Resource は wildcard 禁止 (ses / ce の `*` grant と違い、Bedrock は対象モデルを特定できる)
+			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+			expect(resources.length).toBe(1);
+			expect(resources[0]).toBe(
+				'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0',
+			);
+			expect(JSON.stringify(resources)).not.toContain('*');
+		});
+
+		// AC4: #4366 で isAvailable() が env の明示配布を要求するため、配らない限り AI は無効のまま。
+		it('AC4: 本番 Fn の env に BEDROCK_MODEL_ID / BEDROCK_REGION が配られる', () => {
+			const envVars = envOf('ganbari-quest-app');
+			expect(envVars.BEDROCK_MODEL_ID).toBe('anthropic.claude-haiku-4-5-20251001-v1:0');
+			expect(envVars.BEDROCK_REGION).toBe('us-east-1');
+			// 対照: 同じ env block の既存値が生きている (検査が空振りしていない)
+			expect(envVars.DATA_SOURCE).toBe('dsql');
+		});
+
+		it('AC3+AC4: 配る model ID は cross-region inference profile ではない (in-Region 固定)', () => {
+			const modelId = envOf('ganbari-quest-app').BEDROCK_MODEL_ID as string;
+			expect(modelId).not.toMatch(/^(us|eu|apac|global)\./);
+			// IAM Resource の ARN と env の model ID が一致する (片方だけ変えると権限が外れる)
+			const stmt = theBedrockStatement();
+			const resources = Array.isArray(stmt.Resource) ? stmt.Resource : [stmt.Resource];
+			expect(String(resources[0])).toContain(`/${modelId}`);
+		});
+
+		it('demo Lambda は Bedrock を持たない (env / IAM とも、ADR-0048 role 分離)', () => {
+			const demoEnv = envOf('ganbari-quest-app-demo');
+			expect(demoEnv.BEDROCK_MODEL_ID).toBeUndefined();
+			expect(demoEnv.BEDROCK_REGION).toBeUndefined();
+
+			const policies = computeTemplate.findResources('AWS::IAM::Policy');
+			for (const [policyLogicalId, policyDef] of Object.entries(policies)) {
+				const props = (policyDef as { Properties?: Record<string, unknown> }).Properties ?? {};
+				if (!isPolicyAttachedToDemoRole(props)) continue;
+				for (const action of extractActions(props)) {
+					expect(
+						action.startsWith('bedrock:'),
+						`demo IAM role (policy ${policyLogicalId}) MUST NOT grant ${action}`,
+					).toBe(false);
+				}
+			}
 		});
 	});
 

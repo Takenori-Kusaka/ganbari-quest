@@ -75,15 +75,44 @@ cfn-lint は Python dev tool（`pip install "cfn-lint==1.53.0"`）。本番 bund
 |---|---|---|
 | `PARENT_GATE_COOKIE_SECRET` | /admin/* PIN gate cookie 署名 (#2310 / ADR-0050 / #2337) | Lambda + NUC 必須、同値不要 |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe 課金 | Lambda 必須 / NUC 無効 |
-| `GEMINI_API_KEY` | Gemini API | 任意 |
+| `GEMINI_API_KEY` | Gemini API | 任意。ただし **NUC は `AI_PROVIDER=gemini` 固定**のため、未設定だと AI 提案 (活動 / ごほうび / チェックリスト / 応援・レシート OCR) が全て無効になり、キーワード提案へ縮退する (#4330)。`deploy-nuc.yml` → `generate-env.ps1` が未設定時に `::warning::` を出す (deploy は続行) |
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
 | `OPS_SECRET_KEY` | CRON_SECRET 後方互換 (#1586) | 同上 |
+| `ORIGIN_VERIFY_SECRET` | CloudFront → origin の front door header (`x-origin-verify`、#4280) | **Lambda 必須 / NUC には配布しない** |
+| `ORIGIN_VERIFY_SECRET_PREVIOUS` | 上記の **1 世代前**の値。ローテーション中だけ設定し、新旧 2 値を並行受理して無停止で切り替える (#4364) | **ローテーション中のみ Lambda / 定常状態は未設定が正 / NUC には配布しない** |
 
 生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` / Stripe Dashboard / aistudio.google.com
+
+#### `ORIGIN_VERIFY_SECRET` を NUC に配布しない理由 (#4280)
+
+`/admin` ・ `/api/v1/admin` ・ `/ops` は「CloudFront を通ってきたこと」を `x-origin-verify` header で要求する。**NUC セルフホストは CloudFront を持たず LAN 内で直接配信する**ため、NUC の `.env` にこの secret を入れると「front door が無いのに検査が有効」になり、保護者の見守り画面が全 404 になる。未設定 = 検査無効 (fail-open) が NUC の正しい状態である。
+
+AWS 側の設定漏れは別レイヤで止める: `infra/bin/app.ts` の `resolveOriginVerifySecret()` が context 未指定の synth を throw し、`deploy.yml` / `deploy-aws-staging.yml` の `Validate required secrets` が GitHub Secret 未登録の deploy を止める (ADR-0024)。仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §11.5.1。
+
+#### ローテーションは 2 値受理を前提にする (#4364)
+
+`ORIGIN_VERIFY_SECRET` は **CloudFront (NetworkStack) と Lambda env (ComputeStack) の 2 stack**に配られ、`cdk deploy --all` は依存関係により **Compute → Network** の順で走る。したがって値を 1 本だけ差し替えると「Lambda は新値を期待 / CloudFront はまだ旧値を送出」の窓が必ず開き、その間 `/admin` ・ `/api/v1/admin` ・ `/ops` が全顧客で 404 になる (distribution が Deployed になるまで数分)。
+
+**`ORIGIN_VERIFY_SECRET_PREVIOUS` に旧値を置いてから新値に切り替える** (新旧 2 値を並行受理する) ことでこの窓を閉じる。3 段の手順 SSOT は [docs/runbooks/origin-verify-secret-rotation.md](../docs/runbooks/origin-verify-secret-rotation.md)。**旧値を配らないまま `ORIGIN_VERIFY_SECRET` を変えない**。
 
 ### 新規 env 追加時 PR チェックリスト
 
 `.env.example` 追加 / `ci.yml` env 追加 / `deploy.yml` test job env 追加 / `deploy.yml` deploy job `-c` 追加 / `compute-stack.ts` `tryGetContext` + `environment` 追加 / `deploy-nuc.yml` env 追加 / 本ファイル env 表追記 / PR 本文の "PO action required" に `gh secret set XXX --body <value> --repo Takenori-Kusaka/ganbari-quest` 明記。
+
+## Lambda env の SSOT は CDK — 手で足した env は deploy で消えない (#4352)
+
+**`aws lambda update-function-configuration` で env を直接足してはいけない。** 足したものは次の deploy でも消えない:
+
+1. **CloudFormation は out-of-band drift を戻さない。** テンプレートのプロパティが前回と同一なら CFN はそのリソースを触らない。`cdk deploy` が走っても env は CDK 定義に戻らない
+2. **deploy が drift を re-commit する。** `deploy-aws-staging.yml` の「Resolve ORIGIN from CloudFront」step は Function URL / CloudFront が synth 時未確定なため live env を read-modify-write する。手で足した env は deploy のたびに正式な設定として書き直される
+
+実害 (#4117 E1): 検証のため手で注入した `STRIPE_PRICE_*_MONTHLY` が full staging deploy (success) を跨いで残り、「staging で checkout が通る」ことが `#4286` の修正の証拠にならない状態が続いた。
+
+**機械強制**: `scripts/check-lambda-env-drift.mjs` が deploy job の **末尾** (PII guard / DSQL 並行検証より後) で `live の env キー ⊆ (CDK テンプレートのキー ∪ 実行時解決キー)` を assert する (`deploy-aws-staging.yml` / `deploy.yml`)。値は読まずキー名だけで判定する。staging は env を synth 出力のキー集合で全上書きするため `--strict` (欠落も fail) を付ける。**この判定を行う step は 1 本だけにする** — 2 本置くと基準が食い違ったときに一方 pass・一方 fail となり、どちらが正か決められない。
+
+- 正式な設定なら **CDK (`infra/lib/compute-stack.ts`) に足す**。上記「新規 env 追加時 PR チェックリスト」に従う
+- deploy 後に解決して足す env を新設する場合は、`check-lambda-env-drift.mjs` の `RUNTIME_RESOLVED_KEYS` に追記する (追記しないと deploy が落ちる)
+- 検証のため一時的に注入した場合は、**検証が終わったら手で除去する**。「次の deploy で消える」は成り立たない
 
 ## AWS Cost Explorer API 使用制限
 
@@ -220,6 +249,25 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 ### CloudWatch Alarm
 
 `ganbari-quest-cron-dispatcher-errors` (`ops-stack.ts` L237-249) が dispatcher Lambda Errors metric 監視。5 分内 1 回以上で SNS topic `ganbari-quest-ops-alerts` 通知。
+
+### 自動リトライを切るのは非冪等な cron だけ (#4327)
+
+既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `CRON_JOBS` に `disableRetry: true` を持つ job のみで、現状 `grace-period-deletion` 1 本だけ (途中まで削除されたテナントに purge が再走するため)。
+
+**一律 0 にしない**。冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御であり、`deletion-warning-emails` は 1 失敗が「予告のないまま削除される」に、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月欠測になる。新規 job に `disableRetry` を付けるのは**再実行が壊す状態を持つ場合だけ**。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する。
+
+### 顧客データ物理削除 (grace-period-deletion) の緊急停止 (#4327)
+
+**不可逆な処理**であり、止める手段を 2 層持つ。手順・観測・復旧の限界の SSOT は
+[docs/runbooks/grace-period-deletion-operations.md](../docs/runbooks/grace-period-deletion-operations.md)。
+
+```bash
+# 層 1: cron を呼ばせない (即時。ただし次回 deploy で ENABLED に戻る)
+aws events disable-rule --name ganbari-quest-cron-grace-period-deletion --region us-east-1
+
+# 層 2: 呼ばれても消させない (手動 POST も止まる。deploy でも戻らない)
+gh variable set GRACE_PERIOD_DELETION_DISABLED --body true --repo Takenori-Kusaka/ganbari-quest
+```
 
 **注意**: `cdk deploy` は PO が実行する（GHA `deploy.yml` または手動 `cdk deploy --all`）。
 

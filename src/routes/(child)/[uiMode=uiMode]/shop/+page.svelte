@@ -37,6 +37,10 @@ const tabItems = [
 	{ value: 'privilege', label: CHILD_SHOP_LABELS.tabPrivilege },
 ] satisfies Array<{ value: TabValue; label: string }>;
 
+// #4417 (CSS 側の意図。lint がスタイルブロック内の日本語コメントを許さないためここに置く):
+// `.reward-list` の grid track 下限は `minmax(min(var(--reward-grid-min), 100%), 1fr)` で指定する。
+// 年齢別の最小カラム幅 (下記 gridMin、baby / preschool = 320px) が viewport 幅を上回る端末では
+// トラックが必ずあふれるため、min() で「器の幅」を上限にして頭打ちにする。
 // #2156: 年齢別 Grid カラム数 (uiMode に基づき min カラム幅を切替)
 const uiMode = $derived((page.params.uiMode ?? 'elementary') as UiMode);
 const gridMin = $derived.by(() => {
@@ -323,6 +327,8 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	rewardTitle={selectedRewardTitle}
 	rewardPoints={selectedRewardPoints}
 	rewardIcon={selectedRewardIcon}
+	balance={data.balance}
+	pointSettings={data.pointSettings}
 	onClose={closeConfirmDialog}
 />
 
@@ -367,7 +373,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	.reward-list {
 		list-style: none; padding: 0; margin: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(var(--reward-grid-min, 280px), 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(var(--reward-grid-min, 280px), 100%), 1fr));
 		gap: var(--sp-md);
 	}
 	.reward-card { display: flex; align-items: center; gap: var(--sp-sm); }

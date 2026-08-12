@@ -37,17 +37,15 @@
 
 ### Semantic Tokens（優先使用）
 
-<!-- AUTOGEN:colors -->
-- **Action（操作）**: `--color-action-primary`=`var(--theme-primary)` / `--color-action-primary-hover`=`var(--color-brand-700)` / `--color-action-primary-strong`=`var(--color-brand-700)` / `--color-action-secondary`=`var(--theme-secondary)` / `--color-action-accent`=`var(--theme-accent)` / `--color-action-danger`=`var(--color-danger)` / `--color-action-success`=`var(--color-success)` / `--color-action-ghost`=`transparent` / `--color-action-trial`=`var(--color-premium-light)` / `--color-action-trial-hover`=`var(--color-premium)` / `--color-action-trial-upgrade`=`var(--color-warning)` / `--color-action-trial-upgrade-hover`=`var(--color-warning-hover)`
-- **Surface（背景）**: `--color-surface`=`white` / `--color-surface-base`=`var(--color-bg)` / `--color-surface-card`=`white` / `--color-surface-overlay`=`rgba(0, 0, 0, 0.5)` / `--color-surface-elevated`=`white` / `--color-surface-muted`=`var(--color-neutral-50)` / `--color-surface-secondary`=`var(--color-neutral-100)` / `--color-surface-accent`=`var(--color-feedback-info-bg)` / `--color-surface-info`=`var(--color-feedback-info-bg)` / `--color-surface-success`=`var(--color-feedback-success-bg)` / `--color-surface-warning`=`var(--color-feedback-warning-bg)` / `--color-surface-warm`=`#fef3c7` / `--color-surface-themed`=`var(--theme-bg)` / `--color-surface-nav`=`var(--theme-nav)` / `--color-surface-trial`=`var(--color-premium-50)` / `--color-surface-trial-urgent`=`var(--color-feedback-warning-bg)` / `--color-surface-trial-expired`=`var(--color-neutral-50)` / `--color-surface-muted-strong`=`var(--color-neutral-100)` / `--color-surface-tertiary`=`var(--color-neutral-200)` / `--color-surface-error`=`var(--color-feedback-error-bg)` / `--color-surface-error-strong`=`var(--color-feedback-error-bg-strong)`
-- **Border（枠線）**: `--color-border`=`var(--color-neutral-200)` / `--color-border-default`=`var(--color-neutral-200)` / `--color-border-light`=`var(--color-neutral-100)` / `--color-border-strong`=`var(--color-neutral-300)` / `--color-border-focus`=`var(--theme-primary)` / `--color-border-accent`=`var(--theme-accent)` / `--color-border-warm`=`rgba(251, 191, 36, 0.3)` / `--color-border-warning`=`var(--color-feedback-warning-border)` / `--color-border-premium`=`color-mix(in srgb, var(--color-premium) 20%, transparent)` / `--color-border-danger`=`color-mix(in srgb, var(--color-danger) 20%, transparent)` / `--color-border-success`=`color-mix(in srgb, var(--color-success) 20%, transparent)` / `--color-border-success-strong`=`color-mix(in srgb, var(--color-success) 40%, transparent)` / `--color-border-trial`=`var(--color-premium-200)` / `--color-border-trial-urgent`=`var(--color-feedback-warning-border)` / `--color-border-trial-expired`=`var(--color-neutral-200)`
-- **Text（文字）**: `--color-text`=`#2d2d2d` / `--color-text-muted`=`#6b6b6b` / `--color-text-inverse`=`white` / `--color-text-accent`=`var(--theme-accent)` / `--color-text-link`=`var(--color-brand-700)` / `--color-text-primary`=`var(--color-neutral-700)` / `--color-text-secondary`=`var(--color-neutral-600)` / `--color-text-tertiary`=`var(--color-neutral-400)` / `--color-text-disabled`=`#9ca3af` / `--color-text-warm`=`#92400e` / `--color-text-warm-muted`=`#a16207`
-- **Feedback（フィードバック）**: `--color-feedback-success-bg`=`#f0fdf4` / `--color-feedback-success-bg-strong`=`#dcfce7` / `--color-feedback-success-text`=`#15803d` / `--color-feedback-success-border`=`#bbf7d0` / `--color-feedback-error-bg`=`#fef2f2` / `--color-feedback-error-bg-strong`=`#fee2e2` / `--color-feedback-error-text`=`#dc2626` / `--color-feedback-error-border`=`#fecaca` / `--color-feedback-warning-bg`=`#fffbeb` / `--color-feedback-warning-bg-strong`=`#fef3c7` / `--color-feedback-warning-text`=`#b45309` / `--color-feedback-warning-border`=`#fde68a` / `--color-feedback-info-bg`=`#eff6ff` / `--color-feedback-info-bg-strong`=`#dbeafe` / `--color-feedback-info-text`=`#1d4ed8` / `--color-feedback-info-border`=`#bfdbfe`
-<!-- /AUTOGEN:colors -->
+> **トークン名と値の一覧はこのファイルに掲載しない**（`src/lib/ui/styles/app.css` の `@theme` ブロックが SSOT）。DESIGN.md は 3 層の使い分けルールと禁忌だけを定義し、発見性は `grep` / IDE 補完、SSOT 整合性は CI（`stylelint color-no-hex` / `tests/unit/architecture/base-token-routes-ratchet.test.ts`）が担保する。掲載をミラーしない方針は [ADR-0045](decisions/0045-terms-ssot-2-layer.md) §「補遺」と同じ判断（#4374）。
 
-### 実体
+**確認手順**: 色を使う前に `grep -n -- "--color-" src/lib/ui/styles/app.css` で既存トークンを確認する。routes / features から参照してよいのは Semantic の 5 系統:
 
-- `src/lib/ui/styles/app.css` — `@theme` ブロックに全トークン定義
+- `--color-action-*`（操作: primary / secondary / accent / danger / success / ghost / trial 系）
+- `--color-surface-*`（背景: card / overlay / elevated / muted / info / success / warning / error 系）
+- `--color-border-*`（枠線: default / light / strong / focus / accent / warning / danger / success 系）
+- `--color-text-*`（文字: muted / inverse / accent / link / primary / secondary / tertiary / disabled 系）
+- `--color-feedback-*`（フィードバック: success / error / warning / info × bg / text / border）
 
 ---
 
@@ -99,44 +97,11 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 | **Semantic** | `site/shared.css` の `:root` 定義のみ | `--lp-section-padding-y: var(--space-7);` |
 | **Base** | 同上 | `--space-7: 28px;` |
 
-#### Base Spacing トークン (4px グリッド)
+#### トークン一覧
 
-| トークン | 値 |
-|---------|----|
-| `--space-0` | `0` |
-| `--space-1` | `4px` |
-| `--space-2` | `8px` |
-| `--space-3` | `12px` |
-| `--space-4` | `16px` |
-| `--space-5` | `20px` |
-| `--space-6` | `24px` |
-| `--space-7` | `28px` |
-| `--space-8` | `32px` |
-| `--space-9` | `36px` |
-| `--space-10` | `40px` |
-| `--space-12` | `48px` |
-| `--space-14` | `56px` |
-| `--space-16` | `64px` |
+> **トークン名と値の一覧はこのファイルに掲載しない**（`site/shared.css` の `:root` ブロックが SSOT）。§2 カラートークンと同じ扱い。
 
-#### Semantic LP Spacing トークン
-
-| トークン | 値 | 用途 |
-|---------|----|------|
-| `--lp-section-padding-y` | `var(--space-7)` | `.section` 縦 padding (28px、#1836 で圧縮済み) |
-| `--lp-section-padding-x` | `var(--space-4)` | `.section` 横 padding (16px) |
-| `--lp-section-title-mb` | `var(--space-1)` | `.section-title` 下マージン (4px、#1831 で圧縮済み) |
-| `--lp-section-desc-mb-default` | `14px` | `.section-desc` 下マージン (#1836 で 14px、4px グリッド外のため直値) |
-| `--lp-faq-item-padding-y` | `14px` | `.faq-item` 上下 padding (#1831、4px グリッド外のため直値) |
-| `--lp-hero-padding-top` | `var(--space-12)` | `.hero` 上 padding (48px) |
-| `--lp-hero-padding-bottom` | `var(--space-9)` | `.hero` 下 padding (36px) |
-| `--lp-card-padding-y` (#1911 B-1) | `var(--space-4)` | card 系統合 (`.tour-card` / `.soft-card` / `.core-loop-card`) 縦 padding 既定 (16px) |
-| `--lp-card-padding-x` (#1911 B-1) | `14px` | card 系統合 横 padding 既定 (4px グリッド外、直値) |
-| `--lp-card-padding-y-md` / `-x-md` (#1911 B-1) | `var(--space-6)` / `22px` | card 系統合 @≥1024px (24px / 22px) |
-| `--lp-card-padding-y-lg` / `-x-lg` (#1911 B-1) | `var(--space-7)` / `var(--space-6)` | card 系統合 @≥1440px (28px / 24px) |
-| `--lp-card-shot-aspect-ratio` (#1911 B-3) | `390/844` | card 系 scrshot 枠 (`.tour-shot` / `.soft-shot` / `.age-panel-shot`) aspect-ratio 統一値 |
-| `--lp-card-gap` | `var(--space-5)` | `.machine-tour` / `.soft-grid` のグリッド間隔 (20px) |
-| `--lp-container-max` | `1080px` | section-inner / header-inner / footer-inner の最大幅 |
-| `--lp-container-max-wide` | `1280px` | hero / machine-tour / guide 用ワイド版 |
+**確認手順**: LP の spacing を触る前に `grep -nE -- "--space-|--lp-" site/shared.css` で Base (`--space-*`、4px グリッド) と Semantic (`--lp-*`) を確認する。
 
 #### 禁忌
 
@@ -148,37 +113,17 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 
 - 定義: `site/shared.css` の `:root` ブロック (`--space-*` Base + `--lp-*` Semantic)
 - 参照: `site/index.html` `<style>` ブロック (Component セレクタ)
-- 適用範囲: index / pricing / pamphlet / faq / selfhost / graduation 等 LP 全 HTML に波及済 (Phase 1〜3、#1839 / #1851 / #2395)。content 共通 spacing は `--lp-content-*` に集約。残ローカル装飾値は `scripts/lp-inline-style-baseline.json` で pin し、新規 violation 1 件で CI fail (`lp-metrics.yml` `inline-style-check`)。詳細経緯は [ADR-0042](decisions/0042-lp-spacing-layout-tokens.md)
+- 適用範囲: index / pricing / pamphlet / faq / selfhost / graduation 等 LP 全 HTML に波及済 (Phase 1〜3、#1839 / #1851 / #2395)。content 共通 spacing は `--lp-content-*` に集約。**残ローカル装飾値を pin していた `check-lp-inline-style.mjs` は #4322 で削除済み — `scripts/lp-inline-style-baseline.json` は読み手を失って残置されており、新規 violation の CI 検出は無い（機械強制は無い。レビューで担保する）。** 詳細経緯は [ADR-0042](decisions/0042-lp-spacing-layout-tokens.md)
 
 ---
 
 ## 5. コンポーネントプリミティブ（再実装禁止）
 
-以下のコンポーネントは `$lib/ui/primitives/` に定義済み。routes で再実装禁止。
+`$lib/ui/primitives/` に定義済みのコンポーネントを routes で再実装することを禁止する。
 
-<!-- AUTOGEN:primitives -->
-| コンポーネント | インポートパス |
-|--------------|---------------|
-| Alert | `$lib/ui/primitives/Alert.svelte` |
-| Badge | `$lib/ui/primitives/Badge.svelte` |
-| BirthdayInput | `$lib/ui/primitives/BirthdayInput.svelte` |
-| Button | `$lib/ui/primitives/Button.svelte` |
-| Card | `$lib/ui/primitives/Card.svelte` |
-| ChildSelectionDialog | `$lib/ui/primitives/ChildSelectionDialog.svelte` |
-| Dialog | `$lib/ui/primitives/Dialog.svelte` |
-| Divider | `$lib/ui/primitives/Divider.svelte` |
-| FormField | `$lib/ui/primitives/FormField.svelte` |
-| IconButton | `$lib/ui/primitives/IconButton.svelte` |
-| Menu | `$lib/ui/primitives/Menu.svelte` |
-| NativeSelect | `$lib/ui/primitives/NativeSelect.svelte` |
-| OverflowMenu | `$lib/ui/primitives/OverflowMenu.svelte` |
-| PinInput | `$lib/ui/primitives/PinInput.svelte` |
-| Progress | `$lib/ui/primitives/Progress.svelte` |
-| Select | `$lib/ui/primitives/Select.svelte` |
-| Tabs | `$lib/ui/primitives/Tabs.svelte` |
-| Toast | `$lib/ui/primitives/Toast.svelte` |
-| VisibilityChipGroup | `$lib/ui/primitives/VisibilityChipGroup.svelte` |
-<!-- /AUTOGEN:primitives -->
+> **primitive の一覧はこのファイルに掲載しない**（`src/lib/ui/primitives/` の実ディレクトリが SSOT）。
+
+**確認手順**: UI 要素を作る前に `ls src/lib/ui/primitives/*.svelte` で既存 primitive を確認する。無ければ primitives に追加してから routes で使う（下記ルール）。個別 primitive の使い分けは本 §5 の後続サブセクション（Button の `loading` / Dialog の `closable` / FormField の `type` 一覧 / Toast・PinInput の使用パターン / UnifiedEmptyState）を参照。
 
 ### ルール
 
@@ -279,34 +224,6 @@ message を直書きしない (NN/G #4 consistency / `tests/CLAUDE.md` 条件 11
 
 UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels.ts` (compound)** の 2 階層 SSOT で管理する (#1916 / [ADR-0045](decisions/0045-terms-ssot-2-layer.md))。
 
-### 階層図
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│ src/lib/domain/terms.ts          (atom — 用語集)               │
-│   PLAN_TERMS       — プラン名（短縮）                          │
-│   PLAN_FULL_TERMS  — プラン名（フル「〜プラン」付き）          │
-│   PRICE_TERMS      — 価格 (¥500 / ¥780 / ¥0 / 月 / 〜 / 税込) │
-│   TRIAL_TERMS      — トライアル (7日間 / カード登録不要)       │
-│   CANCEL_TERMS     — 解約 (いつでも解約)                       │
-│   FREE_TERMS       — 無料訴求 (基本無料 / まずは無料)          │
-│   CTA_TERMS        — CTA 動詞句 (無料体験 / 無料で試す)        │
-│   例: PLAN_TERMS.standard = 'スタンダード'                     │
-└──────────────────────────┬─────────────────────────────────────┘
-                           │ import + ${...} template literal 参照
-                           ▼
-┌────────────────────────────────────────────────────────────────┐
-│ src/lib/domain/labels.ts         (compound — 表示文字列)       │
-│   PLAN_LABELS / TRIAL_LABELS / LP_*_LABELS / 等               │
-│   例: PLAN_LABELS.standard = `${PLAN_FULL_TERMS.standard}`     │
-│       TRIAL_LABELS.upgradeGuard =                              │
-│         `${PLAN_FULL_TERMS.standard}以上で…`                   │
-└──────────────────────────┬─────────────────────────────────────┘
-                           │
-                           ▼
-       *.svelte / *.html / shared-labels.js (LP) / 法務文書
-```
-
 **設計原則** (ADR-0045 §3.3):
 
 - **atom (terms.ts)**: 単一の用語。1 行修正で全 LP・アプリ本体・法務文書に伝播。新規 atom は **必ず `terms.ts` に追加**
@@ -318,47 +235,9 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 
 `src/lib/domain/terms.ts` の atom 定数。値の変更は本ファイル 1 行修正で全コンテンツに伝播する (ADR-0045)。
 
-<!-- AUTOGEN:terms -->
-- **PLAN_TERMS**: `free`=`'無料'` / `standard`=`'スタンダード'` / `premium`=`'プレミアム'` / `family`=`'プレミアム'`
-- **PLAN_FULL_TERMS**: `free`=`'無料プラン'` / `standard`=`'スタンダードプラン'` / `premium`=`'プレミアムプラン'` / `family`=`'プレミアムプラン'`
-- **PRICE_TERMS**: `standard`=`'¥500'` / `family`=`'¥780'` / `free`=`'¥0'` / `taxNote`=`'（税込）'` / `monthlyPrefix`=`'月 '` / `fromSuffix`=`'〜'`
-- **TRIAL_TERMS**: `duration`=`'7日間'` / `durationSpaced`=`'7 日間'` / `durationDays`=`7` / `noCreditCard`=`'クレジットカード登録不要'` / `noCreditCardShort`=`'クレカ登録不要'` / `noCreditCardMid`=`'カード登録不要'` / `noCreditCardDetailed`=`'無料体験中もカード情報は不要。有料プラン切替時に初めて入力します'`
-- **CANCEL_TERMS**: `canonical`=`'解約'` / `canonicalVerb`=`'解約する'` / `anytime`=`'いつでも解約'` / `anytimeOk`=`'いつでも解約できます（契約期間の縛りなし）'` / `account`=`'退会'`
-- **FREE_TERMS**: `base`=`'基本無料'` / `start`=`'まずは無料'` / `tryFree`=`'無料で始める'` / `suffix`=`'無料'` / `priceGate`=`'必要なら'`
-- **CTA_TERMS**: `freeTrialNoun`=`'無料体験'` / `freeTrialVerb`=`'無料で試す'` / `freeTrialDesc`=`'無料で試せます'`
-- **LP_FAQ_TERMS**: `canonicalLong`=`'よくあるご質問'` / `canonicalShort`=`'FAQ'` / `linkLabel`=`'よくあるご質問'` / `faqHtmlTitle`=`'よくあるご質問'` / `inlineCtaSentence`=`'他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。'`
-- **AGE_RANGE_TERMS**: `short`=`'3〜18 歳'` / `long`=`'3 歳から 18 歳まで'` / `numericShort`=`'3〜18'` / `juniorShort`=`'13〜18 歳'` / `juniorNumericShort`=`'13〜18'`
-- **POINT_TERMS**: `unit`=`'pt'` / `unitFull`=`'ポイント'` / `unitSymbol`=`'P'`
-- **CURRENCY_TERMS**: `yen`=`'¥'` / `yenFull`=`'円'`
-- **FREE_PLAN_TERMS**: `forever`=`'永久無料'` / `foreverDot`=`'永久無料 ・ '` / `planSelfNoun`=`'フリー'`
-- **AUTONOMY_TERMS**: `selfMotivated`=`'自分から動きだす'` / `selfMotivatedPast`=`'自分から動きだした'` / `selfPlanning`=`'自分で計画する'` / `selfPlanningAble`=`'自分で計画できる'`
-- **ADMIN_VIEW_TERMS**: `canonical`=`'ご家族の見守り画面'` / `short`=`'見守り画面'` / `parent`=`'保護者の見守り画面'`
-- **STRIPE_PORTAL_TERMS**: `canonical`=`'Stripe の請求管理ページ'` / `short`=`'請求管理ページ'` / `billingPortal`=`'請求管理ページ'`
-- **CHILD_TERMS**: `honorific`=`'お子さま'` / `neutral`=`'子供'` / `hiragana`=`'こども'`
-- **PARENT_TERMS**: `honorific`=`'保護者'` / `neutral`=`'親'`
-- **SIGNUP_TERMS**: `canonical`=`'お申し込み'` / `canonicalVerb`=`'お申し込みする'` / `signup`=`'サインアップ'`
-- **LOGIN_TERMS**: `canonical`=`'ログイン'` / `signin`=`'サインイン'`
-- **TRIAL_PERIOD_TERMS**: `full`=`'7 日間無料トライアル'` / `shortNoSpace`=`'7日間無料トライアル'`
-- **UPGRADE_TERMS**: `canonical`=`'プラン変更'` / `actionVerb`=`'アップグレード'` / `higherPlan`=`'上位プラン'`
-- **PLAN_CHANGE_TERMS**: `changeVerb`=`'プランを変更'` / `changeNoun`=`'プラン変更'` / `scheduledChange`=`'切り替わります'` / `archive`=`'アーカイブ'` / `archiveVerb`=`'アーカイブされます'` / `restore`=`'復活'`
-- **GRADUATION_TERMS**: `canonical`=`'卒業'` / `finalGoal`=`'最終ゴール'`
-- **ADVENTURE_TERMS**: `canonical`=`'冒険'` / `mainQuest`=`'メインクエスト'`
-- **MECHANISM_TERMS**: `canonical`=`'仕組み'` / `device`=`'工夫'` / `blueprint`=`'設計'`
-- **LIFESTAGE_TERMS**: `canonical`=`'年齢'` / `tier`=`'年齢区分'` / `schoolGrade`=`'学年'`
-- **CHEER_TERMS**: `canonical`=`'応援'` / `action`=`'応援する'` / `reasonField`=`'できごと'`
-- **REWARD_TERMS**: `menu`=`'ごほうび管理'` / `shop`=`'ごほうびショップ'` / `preset`=`'プリセット'` / `canonical`=`'ごほうび'`
-- **BACKUP_TERMS**: `canonical`=`'バックアップデータ'` / `file`=`'バックアップファイル'` / `exportNoun`=`'バックアップ'` / `exportVerb`=`'バックアップする'` / `restoreVerb`=`'復元'` / `csvFile`=`'CSV ファイル'`
-- **TEMPLATE_TERMS**: `userFacing`=`'みんなのテンプレート'` / `short`=`'テンプレート'` / `browse`=`'みんなのテンプレートを見る'`
-- **CHECKOUT_TERMS**: `chosenPlanFeature`=`'お選びのプランの機能'`
-- **TOKUSHOHO_TERMS**: `heading1Quantity`=`'分量'` / `heading2Price`=`'販売価格'` / `heading3Payment`=`'支払時期・方法'` / `heading4Delivery`=`'引渡時期・自動更新'` / `heading5Cancel`=`'申込撤回・解約方法'` / `heading6Important`=`'重要事項'` / `cancelButtonLabel`=`'やめる'`
-- **CHECKOUT_SUCCESS_TERMS**: `successHeading`=`'ご利用ありがとうございます'` / `goHomeButton`=`'ホームへ移動'` / `preparingHeading`=`'準備中'` / `processingHeading`=`'お支払いの確認をしています'` / `goHomeBackButton`=`'ホームへ戻る'` / `failedHeading`=`'お支払いが完了していません'` / `backToPlanButton`=`'プランページに戻る'` / `timeoutHeading`=`'処理に時間がかかっています'` / `reloadButton`=`'再読込'`
-- **NUC_EDITION_TERMS**: `selfHosted`=`'セルフホスト版'` / `fullAccess`=`'全機能利用可能'` / `unlimited`=`'無制限'` / `editionEmoji`=`'🏠'`
-- **OYAKAGI_TERMS**: `name`=`'おやカギコード'` / `shortName`=`'おやカギ'`
-- **PIN_DEFAULT_TERMS**: `hintFull`=`'初期値は 5086（がんばり）です'` / `hintCompact`=`'初期 5086（がんばり）'`
-- **OVERFLOW_MENU_TERMS**: `openLabel`=`'メニューを開く'` / `itemMarketplace`=`'みんなのテンプレから取込'` / `itemAiSuggest`=`'AI で提案してもらう'` / `itemRestore`=`'バックアップから復元'` / `itemRestoreIcon`=`'⬇'` / `itemExport`=`'エクスポート'` / `itemExportIcon`=`'⬆'` / `itemHelp`=`'このページのヘルプ'`
-- **CHILD_SELECTION_TERMS**: `dialogTitleSuffix`=`'に追加?'` / `dialogTitleQuestion`=`'どの'` / `allOptionLabel`=`'全員に追加'` / `confirmLabel`=`'追加'` / `confirmLoadingLabel`=`'追加しています…'` / `cancelLabel`=`'キャンセル'` / `listAriaLabel`=`'お子さま一覧'` / `ageUnitSuffix`=`'歳'`
-- **VISIBILITY_CHIP_TERMS**: `sectionTitle`=`'配信するお子さま'` / `toggleOn`=`'表示'` / `toggleOff`=`'非表示'` / `allOnLabel`=`'全員 ON'` / `allOffLabel`=`'全員 OFF'` / `groupAriaLabel`=`'配信お子さま選択'`
-<!-- /AUTOGEN:terms -->
+> **atom の一覧と値はこのファイルに掲載しない**（`src/lib/domain/terms.ts` が SSOT）。DESIGN.md は atom / compound の責務分離ルールと禁忌だけを定義し、SSOT 整合性は CI（`check-no-plan-literals` / `check-hardcoded-strings` / `generate-lp-labels --check`）が担保する。下の §labels.ts エクスポート一覧 と同じ扱い（ADR-0045 §「補遺」/ #4374）。
+
+**確認手順**: 新規 atom を追加する前に `grep -n "_TERMS = " src/lib/domain/terms.ts` で既存 atom namespace を確認し、値の直書き複製を作らない。
 
 ### labels.ts エクスポート一覧（compound）
 
@@ -541,7 +420,7 @@ UI に表示されるラベル・用語は **`src/lib/domain/terms.ts` (atom) �
 | `--z-banner` | `30` | banner | FAB / inline banner（情報通知レベル、Modal 配下に隠れる）。`MilestoneBanner` は flow なので原則 z-index 不要だが、絶対配置にする派生では `--z-banner` を使う |
 | `--z-overlay` | `40` | overlay | Dialog Backdrop（Ark UI primitive） |
 | `--z-modal` | `50` | modal | Dialog Content（Ark UI primitive）／`AdminLayout` sidebar |
-| `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ） |
+| `--z-reward` | `90` | reward | 誕生日ボーナス等の祝福 modal（旧 `MonthlyRewardDialog` は #2295 で撤去済、現状は誕生日演出のみ）／`PointFlightGhost`（#4448、`pointer-events: none` で操作を奪わない。Dialog が閉じたあとに飛ぶため modal と重ならない） |
 | `--z-tutorial` | `100` | tutorial | `TutorialOverlay` / `PageGuideOverlay` / `SiblingCheerOverlay` 等の操作ガイド系 |
 | `--z-celebration` | `200` | celebration | `SiblingCelebration` 等の最上位演出 |
 | `--z-debug` | `9999` | debug | `DebugPlanIndicator` / `NavigationProgress`（dev / 内部用、本番ビルドでは表示されない） |
@@ -678,21 +557,17 @@ bulk import / 一括取込機能がある場合、以下の両方を提供する
 
 ## 12. 更新ルール
 
+**原則**: DESIGN.md は**ルールと禁忌だけを持ち、SSOT の中身をミラーしない**（ADR-0045 §「補遺」/ #4374）。実体を足しても DESIGN.md は更新しない。ルール自体が変わったときだけ手で直す。
+
 | 変更 | 更新すべきセクション | 方法 |
 |------|-------------------|------|
-| `app.css` の `@theme` に CSS 変数追加 | §2 カラートークン | `node scripts/generate-design-md-sections.mjs` |
-| `primitives/` にコンポーネント追加 | §5 プリミティブ | 同上 |
-| `terms.ts` に atom 定数追加 (#1923 / ADR-0045) | §6 用語辞書（terms.ts エクスポート一覧） | 同上 |
-| `labels.ts` に export 追加 | （DESIGN.md 更新不要） | `labels.ts` 自体が SSOT。DESIGN.md は全列挙をミラーしない（ADR-0045 補遺） |
+| `app.css` の `@theme` に CSS 変数追加 | （DESIGN.md 更新不要） | `app.css` 自体が SSOT。3 層の使い分けルールを変える場合のみ §2 を手動更新 |
+| `primitives/` にコンポーネント追加 | （DESIGN.md 更新不要） | `src/lib/ui/primitives/` 自体が SSOT。使い分けルールが要る primitive のみ §5 にサブセクションを手動追加 |
+| `terms.ts` に atom 定数追加 (#1923 / ADR-0045) | （DESIGN.md 更新不要） | `terms.ts` 自体が SSOT。atom / compound の責務分離ルールを変える場合のみ §6 を手動更新 |
+| `labels.ts` に export 追加 | （DESIGN.md 更新不要） | `labels.ts` 自体が SSOT（ADR-0045 補遺） |
 | z-index トークン追加・新オーバーレイ階層追加 | §10 z-index 階層 | 手動（ADR で階層変更を議論したうえで） |
 | ブランド方針変更 | §1 | 手動 |
 | 禁忌事項追加 | §9 | 手動 |
-
-### 自動更新コマンド
-
-```bash
-node scripts/generate-design-md-sections.mjs
-```
 
 ---
 

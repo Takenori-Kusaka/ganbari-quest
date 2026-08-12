@@ -27,7 +27,7 @@
 1. **GitHub が既にモデル化しているものに label を作らない** — approve の依頼は **reviewer request**（GitHub 標準）を使う。label は「状態」だけを表す
 2. **label は状態であって指示ではない** — `state:ready-to-merge` が付いていても、**CI 緑は自分で確認する**。label は実測を代替しない（PO がラベルだけ見て merge 可と判断し、QM が赤を理由に拒否した実例あり）
 3. **付けた側が意味に責任を持つ** — 自分のレーンから次のレーンへ渡すときに、渡す側が付ける
-4. **不可逆 4 操作だけはオーナーへ上げる** — 削除（gate / guard / test の削除を含む）/ 本番 deploy / 課金書込 / スキーマ変更。それ以外はセッションが自分で判断して進む
+4. **不可逆 4 操作だけはオーナーへ上げる** — **本番データ**の削除 / 本番 deploy / 課金書込 / スキーマ変更。**`gate` / `guard` / `test` の削除は 4 操作に含まない**（方針は `state:needs-po`、実行は通常の PR + QM レビュー。[README.md §4.4 / §5.2](README.md)）。それ以外はセッションが自分で判断して進む
 5. **語彙を増やさない** — 増やす前に GitHub 標準機能で表せないかを確認する。ただし**渡す経路が存在しない**なら語彙不足であり、増やすのが正しい（§6）
 
 ---
@@ -47,7 +47,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 | `state:needs-po` | **PO に用がある**。**PO が決めるのは 2 つだけ**（[README.md §0](README.md) ルール 4） — ①顧客に見える文言・UX・価格の方針 ②backlog の順序。**それ以外は付けない**（装置 / 実装方針 / 受容判断は Dev か QM が決める） | 誰でも | **PO** |
 | `state:needs-audit` | **監査チームに用がある**（release cut 依頼 / 仕様の問い合わせ / 見解確認） | 誰でも | **監査** |
 | `state:needs-platform` | **Platform に用がある**（装置の削減 / 統合 / 自動生成、[README.md §3.4](README.md#34-プラットフォーム開発基盤--新設ロール)） | 誰でも | **Platform** |
-| `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = 削除 / 本番 deploy / 課金書込 / スキーマ変更を含む） | 誰でも | **オーナー** |
+| `state:needs-owner` | **オーナーに用がある**（**不可逆 4 操作** = **本番データ**の削除 / 本番 deploy / 課金書込 / スキーマ変更を含む。`gate` / `guard` / `test` の削除は含まない — [README.md §4.4](README.md)） | 誰でも | **オーナー** |
 
 > **宛先 label は用件を含意しない（#4180 で追加した原則）。** 「誰に用があるか」だけを表し、**何の用かは Issue / PR のコメントに書く**（§2 原則 2「label は状態であって指示ではない」）。
 >
@@ -86,7 +86,7 @@ label は 2 種類ある。**混ぜると経路が塞がる**（#4180 の原因�
 | `state:needs-owner` | オーナー / PO | 決裁をコメントとして残した | 同上 |
 | `state:needs-audit` | 監査 | release cut 実施 or 見送り判断 | **`state:needs-po`**（見送りなら理由を添えて PO へ戻す） |
 | `state:needs-platform` | Platform | 装置の削減 / 生成が完了し CI 全緑 | **`state:dev-done`**（QM レビューへ。**自分の PR を自分で approve しない** — ADR-0022） |
-| `state:needs-platform` | Platform | **削除**（gate / guard / test）が必要と分かった | **`state:needs-owner`**（不可逆 4 操作） |
+| `state:needs-platform` | Platform | **削除**（gate / guard / test）の**方針**判断が要る | **`state:needs-po`**（実行は通常の PR + QM レビュー。オーナー決裁ではない — [README.md §4.4 / §5.2](README.md)） |
 | `state:needs-platform` | — | **🔒 凍結中**（§0 ルール 1）。既存分は `status:on-hold`、新規は付けない | — |
 | **`state:needs-qm`** | **QM** | **回答をコメントに残した** | **問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`） |
 | **`state:needs-qm`** | **QM** | **レビュー依頼だと判明した**（実装が完了している） | **`state:dev-done`** に読み替える |
@@ -268,8 +268,10 @@ gh pr list --label "state:ready-to-merge" --state open --json number,title,merge
   実装が完了しているレビュー依頼だと分かったら state:dev-done に読み替える
 - 報告は必ず「CI 個別行の実測（非 pass 行の有無）」を先に書き、結論はその後に置く。
   「BLOCK 3 類型に非該当」は CI 緑を含意しない
-- state:ready-to-merge でも、gh pr checks で緑を確認してから merge する。赤を跨いだ merge は
-  理由が正当でも外形が admin bypass と区別できない
+- state:ready-to-merge でも、緑を確認してから merge する。赤を跨いだ merge は
+  理由が正当でも外形が admin bypass と区別できない。gh pr checks は走った check しか出さないため、
+  未起動の required を「非 pass 行 0」と読まない (qm-session.md §「gh pr checks の非 pass 行が 0 は
+  緑の証明にならない」の statusCheckRollup 畳み込みで判定する)
 - BLOCK できるのは 3 類型のみ（顧客に実害 / 証跡の真正性を弱める / 不可逆）。
   gate の削除は PO 承認事項であって BLOCK 事由にしない。懸念は approve + コメントに降格する
 - follow-up は PR コメント止まり。Issue にしない
@@ -338,8 +340,9 @@ gh pr list --label "state:qm-blocked" --state open --search "author:@me" --json 
   「直す」より先に「消す」「生成する」が選べないかを検討する
 - 完了して CI が緑になったら state:needs-platform を外して **state:dev-done** に付け替える
   （自分の PR を自分で approve しない、ADR-0022。§3.1.1 復路）
-- **gate / guard / test の削除は自分で実行しない** → state:needs-owner（不可逆 4 操作）
-- gate を残すか消すかの**方針**は自分で決めない → state:needs-po（README.md §4.5）
+- gate / guard / test を**残すか消すかの方針**は自分で決めない → state:needs-po（README.md §4.5）。
+  **削除の実行はオーナー決裁ではない** — 方針が決まったら通常の PR を出し QM レビューを通す（README.md §4.4 / §5.2）
+- **本番データの削除 / 本番 deploy / 課金書込 / スキーマ変更**を含むなら → state:needs-owner（不可逆 4 操作）
 - 製品コードは実装しない（Dev の職掌）。release cut / deploy はしない（監査の職掌）
 ```
 
@@ -361,53 +364,9 @@ gh pr list --label "state:qm-blocked" --state open --search "author:@me" --json 
 
 ### §5.1 「mailbox 空」が 3 回連続したときの生存確認（PO の義務）
 
-受信箱が空であることは、**仕事が無いこと**ではなく**渡す経路が壊れていること**の兆候である方が多い。PO は「空」が **3 回連続**したら、次を実行して**誰かが実際に動いているか**を確認する。
+受信箱が空であることは、**仕事が無いこと**ではなく**渡す経路が壊れていること**の兆候である方が多い。PO は「空」が **3 回連続**したら、orphan（§3.3.1）・各ロール受信箱の件数・直近 merged・EPIC 着手状況を確認し、**誰かが実際に動いているか**を判定する。orphan が 1 件でもあれば経路が壊れている。全受信箱 0 かつ merged も止まっていればセッション / cron 停止を疑う。
 
-```bash
-# 1. orphan — どの受信箱にも入っていない open
-gh issue list --state open --limit 100 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN #\(.number) \(.title)"'
-gh pr list --state open --limit 50 --json number,title,labels \
-  --jq '.[]|select([.labels[].name]|map(select(startswith("state:") or .=="status:on-hold" or .=="epic"))|length==0)|"ORPHAN PR #\(.number) \(.title)"'
-
-# 2. 各ロールの受信箱に何件あるか（0 が並ぶこと自体が異常信号）
-for l in needs-dev dev-done qm-blocked ready-to-merge needs-audit needs-po needs-owner; do
-  printf "%s: " "$l"
-  echo "issue=$(gh issue list --label "state:$l" --state open --json number --jq 'length') pr=$(gh pr list --label "state:$l" --state open --json number --jq 'length')"
-done
-
-# 3. 直近の活動（人が動いているか）
-gh pr list --state merged --limit 5 --json number,mergedAt,title --jq '.[]|"\(.mergedAt[0:16]) #\(.number) \(.title[0:50])"'
-git fetch origin -q && git rev-list --count origin/main..origin/develop
-
-# 4. EPIC の着手状況（open な EPIC に対して in-flight が 0 でないか）
-gh issue list --state open --label "priority:critical" --json number,title --jq '.[]|"#\(.number) \(.title[0:60])"'
-```
-
-**判定**:
-
-- orphan が 1 件でもある → **渡す経路が壊れている。** 該当する `state:*` を付けて配る
-- 全受信箱 0 かつ merged が数時間停止 → **セッションが落ちているか cron が消えている。** 各ロールに起動確認を求める
-- 全受信箱 0 かつ merged は進んでいる → 正常。ただし **`main..develop` が育っていないか**を併せて見る
-
-> **2026-07-31 の実例**: PO が「mailbox 空」を 4 回連続で報告したあと、Dev / QM 双方が「対応事項なし」と報告した。実際には着手すべき Issue が 5 件滞留し、Dev の判断待ち 2 件が PO に届いていなかった。**全員の受信箱が同時に空になったのは、経路が壊れていたから**である。
-
-## §6 改訂履歴に代えて — 語彙が足りなかった実例
-
-語彙を増やさない原則（§2-5）は維持するが、**渡す経路が存在しない状態は「語彙が足りている」ではない**。以下は 2026-07-31 の実運用 1 日で露見した 2 つの欠落。同種の欠落を疑うときの判断材料として残す。
-
-| 欠落 | 何が起きたか | 追加した語彙 |
-|---|---|---|
-| PO / QM → Dev に**着手を渡す**経路が無い | Dev が拾えるのは QM の差し戻しと reviewer request だけだった。PO が着手順を決めても Dev の受信箱に入らず、**5 件が滞留**したまま Dev は「対応事項なし」と報告した | `state:needs-dev` |
-| **不可逆 4 操作ではない PO 判断**を渡す経路が無い | Dev が「ruleset 変更」「node EBADENGINE」を判断待ちとして書いたが、4 操作に当たらず label を付けられなかった。**PO の mailbox に入らないまま PR が merge されて流れた** | `state:needs-po` |
-| PO → 監査に**release cut を渡す**経路が無い | 「明示依頼で足りる」としていたが、mention / コメントは通知経路ではない。Dev で起きたのと同じ取りこぼしが監査レーンでも成立する | `state:needs-audit` |
-| **QM 宛の経路が無い / 監査宛が cut 依頼に限定**（#4180、2026-08-01。2 ロールから同日に申告） | **宛先 label が用件に縛られていた**。QM 宛は工程 label `dev-done`（実装完了・CI 全緑・Ready 化済）でしか表現できず、**完成していないと送れない**。監査宛は定義が「cut を渡した」で付与者も PO 限定。結果、「実装の途中で観点を相談したい」「BLOCK 事由の意図を確認したい」が **mention に退化**した | `state:needs-qm`（+ `needs-audit` の定義を「監査チームに用がある」へ緩和） |
-
-**共通の教訓**: 語彙を増やさない原則（§2-5）は、**渡す経路が既にあるとき**にのみ有効。経路が無いまま「増やさない」を守ると、伝達が mention に退化し、mention は誰の受信箱にも入らない。
-
-**4 例目（#4180）で分かった追加の教訓**: 経路が「無い」だけでなく「**用件に縛られていて使えない**」形でも同じことが起きる。**宛先 label に用件を含意させない**（§3.1）ことと、**経路マトリクスの空欄を可視化しておく**（§3.3.1）ことの 2 つで、次に足りなくなったときに気づけるようにした。
-
-## §7 現状
+## §6 現状
 
 - label **9 種** = 宛先 6（`needs-dev` / `needs-qm` / `needs-po` / `needs-audit` / `needs-platform` / `needs-owner`）+ 工程 3（`dev-done` / `qm-blocked` / `ready-to-merge`）
 - PO セッションの cron は稼働中（`37 * * * *`）

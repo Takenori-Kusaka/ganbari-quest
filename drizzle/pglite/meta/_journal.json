@@ -36,6 +36,20 @@
       "when": 1784500000002,
       "tag": "0004_drop_login_bonuses",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786107265685,
+      "tag": "0005_challenge_celebration_shown",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786125014215,
+      "tag": "0006_redemption_quantity",
+      "breakpoints": true
     }
   ]
 }

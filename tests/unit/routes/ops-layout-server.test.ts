@@ -4,8 +4,10 @@
 // 旧実装（OPS_SECRET_KEY Bearer）では Bearer token が一致すれば通過していた。
 // 新実装では locals.identity に ops group 所属の Cognito identity が居ることを要求する。
 //
-// #4266: CloudFront の IP allowlist 廃止に伴い条件を **ops group + MFA** に強化した
-// （弱めていない）。MFA を経ていない ops identity は 403 になる。fail-closed の網羅は
+// #4266 → #4363: 一度 **ops group + MFA** に強化したが、オーナー決裁 (2026-08-06) により
+// MFA 要求を撤去し、現在の条件は **ops group 所属のみ**。group 側の fail-closed
+// (非所属 / local / null は 403) は不変。現行条件の網羅は
+// tests/unit/routes/ops-mfa-not-required.test.ts、MFA 機構 (フラグを戻した場合) の網羅は
 // tests/unit/routes/ops-mfa-guard.test.ts。
 
 import { describe, expect, it } from 'vitest';
@@ -81,21 +83,19 @@ describe('#820 /ops/+layout.server.ts', () => {
 		}
 	});
 
-	it('cognito identity で groups=["ops"] でも MFA 未経由は 403 (#4266)', async () => {
-		try {
-			await load(
+	it('cognito identity で groups=["ops"] なら MFA 未経由でも通過する (#4363)', async () => {
+		// #4363 (オーナー決裁 2026-08-06) で /ops の MFA 要求を撤去した。緩めたのは MFA の
+		// 1 条件だけで、上の「group 非所属 / local / null は 403」は不変 (この file の他 it)。
+		await expect(
+			load(
 				makeEvent({
 					type: 'cognito',
 					userId: 'u-ops',
 					email: 'ops@example.com',
 					groups: ['ops'],
 				}),
-			);
-			expect.fail('403 がスローされるはず');
-		} catch (e) {
-			if (!isHttpError(e)) throw e;
-			expect(e.status).toBe(403);
-		}
+			),
+		).resolves.toEqual({});
 	});
 
 	it('cognito identity で groups=["ops"] かつ MFA 済は通過', async () => {

@@ -7,6 +7,7 @@
 
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { shiftMonthKey, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -161,8 +162,7 @@ const PLAN_MRR_UNIT: Record<string, number> = {
  * /ops 上で retention / acquisition が不整合になる)。
  */
 export function getMonthKey(date: Date | string): string {
-	const d = typeof date === 'string' ? new Date(date) : date;
-	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+	return utcMonthKey(typeof date === 'string' ? new Date(date) : date);
 }
 
 export function monthDiff(from: string, to: string): number {
@@ -201,8 +201,7 @@ export function computeAnalytics(
 	// ── 1. Monthly Acquisitions (過去 12 ヶ月) ──
 	const acquisitionMap = new Map<string, MonthlyAcquisition>();
 	for (let i = 11; i >= 0; i--) {
-		const d = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - i, 1));
-		const key = getMonthKey(d);
+		const key = shiftMonthKey(currentMonth, -i);
 		acquisitionMap.set(key, { month: key, organic: 0, total: 0 });
 	}
 	for (const t of tenants) {

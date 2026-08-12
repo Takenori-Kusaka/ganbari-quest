@@ -60,7 +60,7 @@ LP (`site/index.html` ほか) の section padding / margin / heading 余白 / fa
 
 - **Base / Semantic トークンの一覧・値・用途**、設計原則表、禁忌、適用範囲、実体（定義 / 参照ファイル）は [`docs/DESIGN.md` §4](../DESIGN.md) が SSOT。全 `--lp-*` Semantic トークンの網羅列挙は実装の事実である `site/shared.css` の `:root` ブロックを正とする（DESIGN.md §4 §実体）。
 - 命名規約は「`--lp-<部位>-<軸 or 用途>`」に固定し、variant 爆発を防ぐ。
-- baseline pin 機構: `scripts/check-lp-inline-style.mjs` + `scripts/lp-inline-style-baseline.json` で残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) を pin し、新規違反 1 件で CI fail (`lp-metrics.yml` `inline-style-check` ジョブ、#1851)。意図的増減時のみ `--update-baseline` で更新する。
+- **baseline pin 機構は現在機械強制されていない (#4420)**: `scripts/check-lp-inline-style.mjs`（`scripts/lp-inline-style-baseline.json` で残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) を pin し新規違反 1 件で CI fail、旧 `lp-metrics.yml` `inline-style-check` ジョブ、#1851）は #4322 で削除済み。baseline JSON は読み手を失ったまま残置されており、新規直書きの検出はレビューで担保する。
 
 段階適用は Phase 1 (PR #1850、`:root` トークン整備 + 主要 6 セレクタ置換) → Phase 2 (#1851、残構造的 padding/margin の Semantic 化 + `pricing.html` 波及 + baseline pin 機構導入) → Phase 3 (#2395、`pamphlet.html` / `faq.html` / `selfhost.html` / `graduation.html` へ波及、4 HTML baseline 72 → 0) の順で完遂済み。各 Phase で追加された Semantic トークン群と baseline 数値は DESIGN.md §4 §実体および `site/shared.css` を参照。
 

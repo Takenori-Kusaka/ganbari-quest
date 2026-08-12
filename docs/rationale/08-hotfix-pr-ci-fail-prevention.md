@@ -54,6 +54,7 @@
 
 ## 残された懸念・フォローアップ
 
+- [ ] **stale 化した機構名 (#4426)**: 上記「検討した代替案」「採用案とその理由」で言及した `check-design-doc-sync.mjs` は #4322 で削除済み。本セクションは意思決定当時の narrative（なぜ 4 種 check を Skill に統合したか）として git 履歴的に保全するが、現状の pre-push 実行対象は Skill 側 (`.claude/skills/dev-open-pr/`) の実体が SSOT であり、本ドキュメントを都度追随させない
 - [ ] **hotfix label の標準化**: GitHub label `hotfix` を `.github/labeler.yml` 経由で自動付与する仕組みは未整備。現状は `priority:critical` ラベルで代用判定。標準化は別 Issue で扱う
 - [ ] **CDK Lambda env 配布の自動化**: PR #2341 のような env 配布証跡 4 経路完備を CDK SSOT に統合する自動化は別 Issue (`#2337` 関連) で扱う
 - [ ] **CI gate 自動 exempt 判断**: `refactor:internal-no-doc-impact` label 付与判断を AI で自動推論する機構は将来検討事項 (Pre-PMF Bucket C、現時点は Dev 手動判断)

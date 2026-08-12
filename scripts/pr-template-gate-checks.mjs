@@ -40,7 +40,9 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
+import { INTEGRATION_EVIDENCE_SECTION } from './check-ac-verification-map.mjs';
 import { extractClosedIssues } from './integration-pr-body.mjs';
+import { extractSection, hasH2Section } from './lib/ci/pr-body-sections.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
 
 /**
@@ -156,7 +158,13 @@ export function checkSectionPresence({
 		sourceLabel = 'PULL_REQUEST_TEMPLATE.md (fallback)';
 	}
 
-	const missing = sections.filter((s) => !body.includes(s));
+	// #4348: 旧実装は `body.includes(s)` の部分一致だった。HTML コメント内の説明文
+	// (`<!-- ## X を削除しない -->`) / code block の引用 / 本文中の言及 / 前方一致する別見出し
+	// (`## X の補足`) でも「見出しがある」と判定され、template を貼っただけで緑になりうる。
+	// 実際 `.github/INTEGRATION_PR_TEMPLATE.md` は「コメント内に見出しを再掲しない」という
+	// **書き手側の回避運用**でこの誤マッチを避けていた (#4348 で撤去)。
+	// 判定を H2 見出し行の完全一致 + コメント / code block 除去に統一する。
+	const missing = sections.filter((s) => !hasH2Section(body, s));
 	if (missing.length > 0) {
 		return {
 			ok: false,
@@ -166,6 +174,8 @@ export function checkSectionPresence({
 				`lane: ${lane} / 参照 SSOT: ${sourceLabel}\n\n` +
 				`削除されたセクション:\n${missing.map((s) => `  • ${s}`).join('\n')}\n\n` +
 				'PR テンプレートのセクション見出し (## ...) を削除しないでください。\n' +
+				'見出しは **行全体の完全一致** で判定します。HTML コメント / code block の中や\n' +
+				'本文中の言及は見出しとして数えません (#4348)。\n' +
 				'内容が該当しない場合は「N/A」または「該当なし」と記載してください。',
 		};
 	}
@@ -645,19 +655,32 @@ export function checkCustomerValue({ body, labels, template, lane }) {
  * @returns {string}
  */
 export function detectTestSectionKeyword(template) {
+	return detectTestSectionHeading(template).replace(/^#{1,6}\s+/, '');
+}
+
+/**
+ * template からテスト結果テーブルを含むセクションの **見出し行**（`## X` / `### X`）を取得する。
+ *
+ * #4348: section の切り出しを見出し行の完全一致で行うため、見出しの**レベルまで**必要になった
+ * （`detectTestSectionKeyword` は見出し文字列だけを返すため、H2 / H3 の区別が失われる）。
+ *
+ * @param {string} template
+ * @returns {string} 見出し行（例: `## テスト・品質セルフチェック`）
+ */
+export function detectTestSectionHeading(template) {
 	const lines = template.split('\n');
-	let keyword = 'テスト実行結果';
+	let heading = '## テスト実行結果';
 	const tableHeaderIdx = lines.findIndex((l) => /テスト種別.*コマンド.*結果/.test(l));
 	if (tableHeaderIdx !== -1) {
 		for (let i = tableHeaderIdx; i >= 0; i -= 1) {
 			const line = lines[i] ?? '';
 			if (/^###?\s/.test(line)) {
-				keyword = line.replace(/^###?\s+/, '').trim();
+				heading = line.trim();
 				break;
 			}
 		}
 	}
-	return keyword;
+	return heading;
 }
 
 /**
@@ -684,24 +707,34 @@ export function checkTestResults({ body, labels, template, lane }) {
 		return { ok: true, skipped: true, message: 'type:docs PR のためスキップ', lane };
 	}
 
-	const keyword = detectTestSectionKeyword(template);
-	const sectionIdx = body.indexOf(keyword);
-	if (sectionIdx === -1) {
+	// #4348: section の探索を「本文の部分一致 + 見つからなければ skip」から
+	// 「H2 見出し行の完全一致 + 見つからなければ fail」に変える。旧実装の壊れ方は 2 つあった:
+	//
+	//   (a) skip に倒れる: keyword が本文になければ pass 扱い。section-presence への「委譲」を
+	//       名目にしていたが、その section-presence 自身も部分一致だったため
+	//       「コメント内の文字列で section-presence が緑 + 本体不在で本 check が skip」の
+	//       二重空振りが成立していた (#4348 表 #5)。
+	//   (b) integration lane で常に skip: keyword は feature template から導出されるため
+	//       (`テスト・品質セルフチェック`)、その見出しを持たない統合 PR template では必ず
+	//       `indexOf === -1` になり、統合エビデンス表の検証分岐が **一度も実行されていなかった**
+	//       (実測: merged 統合 PR 12 本すべてで skip)。lane ごとに見る section を解決する。
+	const heading =
+		lane === 'integration'
+			? `## ${INTEGRATION_EVIDENCE_SECTION}`
+			: detectTestSectionHeading(template);
+	const keyword = heading.replace(/^#{1,6}\s+/, '');
+	const { found, text: section } = extractSection(body, heading);
+	if (!found) {
 		return {
-			ok: true,
-			skipped: true,
+			ok: false,
 			lane,
-			message: `「${keyword}」セクションが見つかりません (section-presence チェックに委譲)`,
+			message:
+				`❌ 「${heading}」セクションが PR 本文にありません。\n\n` +
+				`見出しは **行全体の完全一致** (\`${heading}\`) で判定します。\n` +
+				'HTML コメント / code block の中や本文中の言及は見出しとして数えません (#4348)。\n' +
+				'PR テンプレートのセクション見出しを削除せず、表に結果を記入してください。',
 		};
 	}
-
-	const afterSection = body.slice(sectionIdx + keyword.length + 1);
-	const nextSectionMatch = afterSection.search(/\n##\s/);
-	const sectionEnd =
-		nextSectionMatch !== -1
-			? sectionIdx + keyword.length + 1 + nextSectionMatch
-			: sectionIdx + 2000;
-	const section = body.slice(sectionIdx, sectionEnd);
 
 	const tableRows = section
 		.split('\n')
@@ -765,9 +798,7 @@ export function checkTestResults({ body, labels, template, lane }) {
 export const CHECKS = {
 	'section-presence': checkSectionPresence,
 	'issue-reference': checkIssueReference,
-	'change-type': checkChangeType,
 	'customer-value': checkCustomerValue,
-	'test-results': checkTestResults,
 	'closing-keyword': checkClosingKeyword,
 };
 

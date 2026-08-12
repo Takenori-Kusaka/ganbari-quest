@@ -70,8 +70,25 @@ updates:
       - "dependencies"
       - "npm"
       - "infra"
+    ignore:
+      # #4017 / PR #4422: aws-cdk-lib 2.263.0 以降は bundled brace-expansion を 5.0.8 に上げる。
+      # 5.0.8 は GHSA-rgw5-rvv9-x895 (affected ">= 4.0.0, < 5.0.9" / patched 5.0.9) の affected で、
+      # bundled dependency (inBundle: true) のため npm overrides では差し替えられない (実測確認済)。
+      # 留めないと dependency-review が毎回赤になり、そのたびに同じ調査と手動 pin を繰り返す。
+      # 【解除条件】aws-cdk-lib が brace-expansion 5.0.9 以上を同梱した版を出したら、本 ignore と
+      #   下の exclude-patterns、.github/workflows/dependency-review.yml の waiver / 受容記録、
+      #   tests/unit/infra/dependency-review-waiver.test.ts を同じ PR で削除する。
+      #   到達検知は同 test の [W5] が機械的に行う (bundled が 5.0.9 以上になったら撤去を要求する)。
+      # 【コスト】2.263.0 の cloudformation-validate 更新 (aws/aws-cdk#38444) 等、この間の
+      #   aws-cdk-lib 改善は取り込めない。CDK CLI (aws-cdk) / constructs の更新は止めていない。
+      - dependency-name: "aws-cdk-lib"
+        versions: [">= 2.263.0"]
     groups:
       infra-npm-minor-patch:
+        # #3311 と同じ理由: grouped update は per-dependency ignore をすり抜けて再取込する。
+        # 上の ignore を実効化するため group からも除外する (解除時は ignore と同時に消す)。
+        exclude-patterns:
+          - "aws-cdk-lib"
         update-types:
           - "minor"
           - "patch"

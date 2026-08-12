@@ -48,6 +48,15 @@ CI ログでも同 warning が出るため、PR の CI fail 調査時にまず�
 判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
 `tests/e2e/integration/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
 
+### `scripts/__tests__/` の node:test（vitest 管轄外）
+
+`scripts/*.mjs` の CLI 動作テストは `scripts/__tests__/*.test.mjs` に置き、**node:test で書く**（vitest の include は `tests/unit/**` / `tests/integration/**` のみで、ここは対象外）。
+
+- **CI では `ci.yml` の `Scripts unit tests (node:test, scripts/__tests__/ 全件)` step が glob で全件走らせる。** file を足せば自動で対象に入るので **ci.yml を触る必要はない**
+- **実行対象を literal path の列挙に戻さない。** 旧実装は literal を 2〜3 行書いていただけで、13 file 中 10 file が未実行、うち 3 file は実行されないまま drift して壊れていた
+- 対応関係は `tests/unit/architecture/scripts-node-test-ci-coverage.test.ts` が機械検証する（未カバー file / literal 列挙への退行で fail）
+- ローカル実行: `node --test "scripts/__tests__/**/*.test.mjs"`（glob は quote する — shell ではなく node 側に展開させる）
+
 ## repo 走査 test (実行コストが入力サイズに比例する test) — #4085
 
 ### 定義
@@ -161,7 +170,7 @@ await expectDialogCancellable(page, { /* cancel → dialog 閉じる assert */ }
 
 | 層 | いつ | 何を (機械・高速 / 半自動・人間判断) |
 |---|---|---|
-| **per-PR (軽量)** | 全 PR / push | 変更領域の targeted E2E (該当 spec のみ、`npx playwright test tests/e2e/<spec>`) + 型 (svelte-check) + Storybook 目視 / play (`npm run test:storybook`) + 用語 coherence lint (`check-internal-terms` / `check-add-path-coherence`) + add-path check。機械・高速。 |
+| **per-PR (軽量)** | 全 PR / push | 変更領域の targeted E2E (該当 spec のみ、`npx playwright test tests/e2e/<spec>`) + 型 (svelte-check) + Storybook 目視 / play (`npm run test:storybook`) + プラン文字列直書き lint (`check-no-plan-literals.mjs`)。機械・高速。用語 coherence / add 経路の統一性は機械強制が無く、レビューで担保する。 |
 | **EPIC-merge / 顧客レビュー gate (この規模だけ)** | EPIC 完了時 / 顧客レビュー前 | 全 critical user journey の goal 完遂貫通 E2E + Cognitive Walkthrough 4 質問 (#2459 C-2) + a11y (addon-a11y) + visual (pixelmatch) + 実機 1 クリック貫通。per-PR では重すぎるものをここに集約。 |
 
 per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ 全網羅貫通や Cognitive Walkthrough は EPIC-merge gate に置く。「rendering + 型 + targeted で per-PR は十分、ただし interactive flow には outcome 必須」が原則 (#2459 やらないこと #3 の precise 化と整合)。
@@ -233,8 +242,8 @@ interactive primitive の play 関数 coverage:
 |---|---|---|---|---|
 | 1 | critical user journey が機能的に goal 完遂する (dead-end ゼロ) | 機能 | 上記「act → outcome assert」E2E (helper `goal-flows.ts`) + Storybook play | **#2544 (実装済 基盤)** |
 | 2 | 同一 CUJ を **Cognitive Walkthrough 4 質問**で 1 周し全 Yes | UX (体験) | PO or AI が初見 persona × 4 質問 (Q1 正しい結果を得ようとするか / Q2 正しい操作が利用可能と気づくか / Q3 操作 ↔ 結果結びつけ / Q4 進捗 visible)。AI は H2 / H4 / H8 担当、**H3 / H6 / H9 は人間が必ず検証** (AI 弱点、Baymard false-positive 80% 抑制、research §3-1) | **`.claude/skills/cognitive-walkthrough/SKILL.md` (#2554、本 skill SSOT)** |
-| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | 情報統一性 | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) 警告 0 + [`check-hardcoded-strings.mjs`](../scripts/check-hardcoded-strings.mjs) / [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) を `pre-ready` Step 4 で自動実行 | **PR #2587 (#2555) で `terms.ts` 直接 import 拡充済** |
-| 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | 導線 + 統一性 | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) (旧 `check-add-path-coherence.mjs` from PR #2587 rename) warning 0 | **#2544 で最小導入 → PR #2587 で拡充済 (DESIGN.md §10 構造ルール整合)** |
+| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | 情報統一性 | プラン文字列のみ [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) が `pre-ready` Step 7 で自動実行。**それ以外の用語 SSOT 逸脱を検出する lint は無く、レビューで担保する** | **用語 SSOT は `terms.ts` (atom) / `labels.ts` (compound)、ADR-0045** |
+| 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | 導線 + 統一性 | [`tests/e2e/admin-add-path-isomorphism.spec.ts`](e2e/admin-add-path-isomorphism.spec.ts) が 3 画面の add dropdown 同型性を assert。**用語重複そのものを検出する lint は無く、レビューで担保する** | **DESIGN.md §10 構造ルール (add 経路 ≤ 4 / dropdown 集約)** |
 | 5 | critical flow の screenshot を vision LLM に task-grounded prompt で review → 人間 filter 済 | 見た目 | §3 flow (research §3-3 prompt)、capture.mjs 連番 → vision LLM → PO filter | **C-5 別 Issue (POC 中、opt-in)** |
 | 6 | charter ベース exploratory 1 セッション (add/cancel 連打・空送信) で dead-end ゼロ | 体験 + dead-end | AI exploratory agent or 人間 45 分 session | **C-6 別 Issue (POC 中、opt-in)** |
 | 7 | 実機 1 クリック貫通 (人間 or AI が実ブラウザで critical flow を 1 回貫通) | 機能+CX | Playwright trace/video 証跡 + 実機操作 (NUC or `AUTH_MODE=anonymous DATA_SOURCE=demo` preview) | **#2544 AC6 と合流 (実装済)** |
@@ -242,11 +251,11 @@ interactive primitive の play 関数 coverage:
 | **9 (新規 2026-05-30)** | **Heuristic Evaluation 10 原則 × critical flow matrix で severity 3-4 違反ゼロ** | 体験 + 見た目 + 導線 | NN/G 10 原則 ([How to Conduct Heuristic Evaluation](https://www.nngroup.com/articles/how-to-conduct-a-heuristic-evaluation/)) を AI 1 次 + User 2 次 review で 2 evaluator 扱い (業界基準 3-5 で 60-80% 検出、Pre-PMF AI + 人間で部分実施)。各違反に severity 0-4 付け、3-4 ゼロを Ready 化条件。AI は NN/G #1/#2/#4/#7/#8/#10 担当、**#3 (User control) / #5 (Error prevention) / #6 (Recognition) / #9 (Error help) は人間検証必須** (主観・mental model 判断、Baymard 95% vs GPT-4 20% 精度差) | **Round 1 deep research `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3.3 (本 Round 1 起源 SSOT)、別 Issue #XXX で実装手順書化検討** |
 | **10 (新規 2026-05-30)** | **Accessibility audit (WCAG 2.2 AA、axe-core) で critical / serious violation ゼロ** | accessibility | [WCAG 2.2 AA](https://www.w3.org/TR/WCAG22/) ([WebAIM checklist](https://webaim.org/standards/wcag/checklist)) + Material 3 default。AI 80% 主分担 (`@axe-core/playwright` 等で機械化)、User 20% は子供 ターゲット読字発達整合判断 (font size / contrast / tapSize per age) | **実装済 (PR-A11Y-2)**: `tests/e2e/helpers/a11y.ts` (`expectNoA11yViolations`、`@axe-core/playwright` AxeBuilder + WCAG 2.2 AA tag) + `tests/e2e/a11y-critical-cuj.spec.ts` (critical CUJ 7 page) + CI `a11y` job (`.github/workflows/ci.yml`、`app` 変更時 hard-fail)。既知違反は `tests/e2e/a11y-baseline.json` に rule id 単位で pin (silent cap 禁止)。`age-tier.ts` tapSize SSOT + DESIGN.md §8 既存 |
 | **11 (新規 2026-05-30)** | **3 状態 (Empty / Error / Loading) inventory + audit で「default error」「blank empty」「無限 loading」ゼロ** | 体験統一性 | critical flow 各 state を grep + 目視で inventory ([Raw Studio: hidden UX moments](https://raw.studio/blog/empty-states-error-states-onboarding-the-hidden-ux-moments-users-notice/))、AI 70% 主分担 + User 30% filter。Empty state は既存 `UnifiedEmptyState.svelte` (#2362) を SSOT として活用 | **`UnifiedEmptyState.svelte` / `UnifiedImportHub.svelte` 既存。Empty state SSOT は全 5 admin page (activities = `ActivityEmptyState` wrapper / rewards / checklists / challenges / settings/rules) で活用済 (Round 18 / 2026-06-03)。Error / 操作結果 state の feedback は `Toast` primitive 2 層防御 (`showToast` + `role="status"` banner) を admin/activities / rewards / checklists の取込・copy・配信で統一 (Round 18 CX-DoR #9 NN/G #4、DESIGN.md §5)。inventory script 別 Issue #XXX で検討** |
-| **12 (新規 2026-05-30)** | **Mental model / glossary audit (`check-internal-terms` lint + atom 用語 SSOT 整合)** | 情報統一性 | atom 用語 SSOT (`terms.ts`、ADR-0045) を起点に critical flow UI 文言を audit ([Terminology spine](https://www.1stopasia.com/blog/terminology-drift-enterprise-software-localization/) drift 防止)。AI 80% 主分担 (lint 既存)、User 20% は親の自然言語 vs 内部用語の mental model 適合判断 | **`check-internal-terms.mjs` 既存 (DoR #3 と連携)、Mental model audit 別 Issue #XXX で検討** |
+| **12 (新規 2026-05-30)** | **Mental model / glossary audit (atom 用語 SSOT 整合)** | 情報統一性 | atom 用語 SSOT (`terms.ts`、ADR-0045) を起点に critical flow UI 文言を audit ([Terminology spine](https://www.1stopasia.com/blog/terminology-drift-enterprise-software-localization/) drift 防止)。**機械 lint は無いため全量が人手 audit** — 親の自然言語 vs 内部用語の mental model 適合判断を含む | **条件 3 と同じくレビュー担保。Mental model audit の手順書化は未着手** |
 
 ### 適用タイミング (2 層 cadence 整合)
 
-- **per-PR (軽量)**: 条件 3 / 4 / 12 = 自動 lint 必須 (`pre-ready` で実行)。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)。条件 10 (Accessibility axe-core) = CI `a11y` job が `app` 変更時に自動実行 (PR-A11Y-2 で導入済、`tests/e2e/a11y-critical-cuj.spec.ts`)
+- **per-PR (軽量)**: 条件 3 = プラン文字列部分のみ `pre-ready` Step 7 で自動実行、残りと条件 4 / 12 は**レビュー担保 (自動 lint 無し)**。条件 4 の add dropdown 同型性のみ E2E (`admin-add-path-isomorphism.spec.ts`) が CI で見る。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)。条件 10 (Accessibility axe-core) = CI `a11y` job が `app` 変更時に自動実行 (PR-A11Y-2 で導入済、`tests/e2e/a11y-critical-cuj.spec.ts`)
 - **EPIC-merge / 顧客レビュー gate (重量)**: 全 12 条件を満たした証跡 (条件 2 = walkthrough session sheet 添付 / 条件 7 = 実機貫通 trace / 条件 9 = Heuristic Evaluation 違反 matrix / 条件 10 = axe-core report / 条件 11 = 3 状態 inventory) を PR body or EPIC umbrella に集約。条件 5 / 6 は opt-in (C-5/C-6 POC 採用後に必須化判定)
 
 #### M5 — NN/G #1 (visibility) / #6 (recognition) の人間検証強制 (#2901 AC3)
@@ -324,7 +333,9 @@ CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.
 
 ### backend 並行実装の整合性
 
-`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dsql/*.ts` (cloud、NUC は PGlite が dsql repo を verbatim 再利用) のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる (#3438 で DynamoDB backend は撤去済)。
+`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dsql/*.ts` (cloud、NUC は PGlite が dsql repo を verbatim 再利用) のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる (#3438 で DynamoDB backend は撤去済)。demo backend (`db/demo/*.ts`) も同じ既定値を返す。
+
+**既定値の一致は「書く」だけでなく機械検証する**。本節の規定はあったが検証がなく、`insertChild` の `uiMode` 既定値が 3 backend で 3 通りに割れ、**顧客が使う dsql が最も壊れている**状態が残った (#4419: 年齢に関わらず幼児 UI)。同種の既定値には fitness function を置く — 実装例は `tests/unit/architecture/child-ui-mode-default-parity.test.ts` (3 backend に実際に insert して既定値の一致 + SSOT 由来を assert)。
 
 ## E2E 固有
 

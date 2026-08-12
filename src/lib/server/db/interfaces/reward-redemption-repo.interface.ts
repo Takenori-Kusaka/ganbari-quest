@@ -6,6 +6,18 @@ export interface RedemptionRequestRow {
 	childId: ChildId;
 	rewardId: string;
 	requestedAt: number;
+	/**
+	 * #4407: 1 申請が表す個数 (単位量のごほうび = 「ゲーム時間 +30分」等の N 個買い)。
+	 * 値域は `REDEMPTION_QUANTITY_MIN/MAX` (domain 層 SSOT)。DB 既定 1、旧行も backfill 済のため
+	 * 常に 1 以上。ポイント控除は `rewardPoints × quantity` で行う (service 層 finalizeApproval)。
+	 *
+	 * **書込境界の不変条件**: 全 backend の insert 実装は `normalizeRedemptionQuantity` を通して
+	 * 永続化する。service 層の validator を通らない経路 (restore / 将来の別 backend) が 0 / 負値を
+	 * 書けると、承認時の `rewardPoints × quantity` が 0 や負になり「減算のつもりが付与」になるため、
+	 * repo 入口でも値域へ収束させる (DSQL は `ALTER TABLE ADD CONSTRAINT` 非対応で後付け CHECK を
+	 * 置けないため、防壁を application 側の単一 helper に寄せる)。
+	 */
+	quantity: number;
 	status: string;
 	parentNote: string | null;
 	resolvedAt: number | null;
@@ -18,11 +30,6 @@ export interface RedemptionRequestWithDetails extends RedemptionRequestRow {
 	rewardTitle: string;
 	rewardIcon: string | null;
 	rewardPoints: number;
-}
-
-export interface RedemptionRequestWithReward extends RedemptionRequestRow {
-	rewardTitle: string;
-	rewardIcon: string | null;
 }
 
 /**
@@ -48,7 +55,7 @@ export interface IRewardRedemptionRepo {
 	 * 申請 Put と同一 TransactWriteItems 化 ((b) は pre-read best-effort)。
 	 */
 	insertRedemptionRequest(
-		input: { childId: ChildId; rewardId: string; requestedAt: number },
+		input: { childId: ChildId; rewardId: string; requestedAt: number; quantity: number },
 		tenantId: string,
 	): Promise<RedemptionRequestRow | { error: 'DUPLICATE_REQUEST' }>;
 
@@ -66,6 +73,8 @@ export interface IRewardRedemptionRepo {
 			childId: ChildId;
 			rewardId: string;
 			requestedAt: number;
+			/** #4407: 旧 backup (v1.8.0 以前) には無いため、呼び出し側が 1 に正規化して渡す。 */
+			quantity: number;
 			status: string;
 			parentNote: string | null;
 			resolvedAt: number | null;
@@ -117,17 +126,12 @@ export interface IRewardRedemptionRepo {
 	// findPendingByChildAndReward は #3356 (1) で撤去 (check-then-act TOCTOU の温床)。
 	// pending 重複判定は insertRedemptionRequest の dedup 契約 (repo 原子境界) に内蔵済。
 
-	findUnshownResultByChild(
-		childId: ChildId,
-		tenantId: string,
-	): Promise<RedemptionRequestWithReward | undefined>;
-
-	/** #2845 課題①: childId 所有権検証付き (composite key 直接特定)。不一致なら undefined。 */
-	markRedemptionResultShown(
-		childId: ChildId,
-		id: string,
-		tenantId: string,
-	): Promise<RedemptionRequestRow | undefined>;
+	// #4435: findUnshownResultByChild / markRedemptionResultShown は撤去。
+	// 交換申請の承認・却下は子供のごほうびショップのバッジ (`latestRequestStatus`) と
+	// 履歴画面が常時表示しており、`shown_to_child_at` を使う一度きりの全画面通知は
+	// production から呼ばれない到達不能経路のまま残っていた (#4432 実測)。
+	// 列自体はバックアップ往復 (export/import) の忠実性のため保持する — 撤去の終了条件は
+	// src/lib/server/db/schema.ts の shownToChildAt 定義コメントを参照。
 
 	expireOldRedemptions(tenantId: string): Promise<number>;
 

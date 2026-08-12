@@ -135,7 +135,10 @@ function handleConfirm() {
 				<Alert variant="warning">
 					{#snippet children()}
 					<p>
-						{L.retentionWarningPrefix}{preview.retentionChange.currentDays === null ? L.retentionUnlimited : `${preview.retentionChange.currentDays}${L.retentionDaysSuffix}`}{L.retentionFromTo}{preview.retentionChange.targetDays}{L.retentionTargetSuffix}{preview.retentionChange.targetDays}{L.retentionDataLossSuffix}
+						{L.retentionWarning(
+							preview.retentionChange.currentDays,
+							preview.retentionChange.targetDays,
+						)}
 					</p>
 					{/snippet}
 				</Alert>
@@ -283,7 +286,10 @@ function handleConfirm() {
 					<Alert variant="warning">
 						{#snippet children()}
 						<p>
-							{L.retentionWarningPrefix}{preview.retentionChange.currentDays === null ? L.retentionUnlimited : `${preview.retentionChange.currentDays}${L.retentionDaysSuffix}`}{L.retentionFromTo}{preview.retentionChange.targetDays}{L.retentionTargetSuffix}{preview.retentionChange.targetDays}{L.retentionDataLossSuffix}
+							{L.retentionWarning(
+							preview.retentionChange.currentDays,
+							preview.retentionChange.targetDays,
+						)}
 						</p>
 						{/snippet}
 					</Alert>

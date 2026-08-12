@@ -154,10 +154,6 @@ export const PR_TRIGGER_LANE_REGISTRY = {
 		bodyGate: false,
 		note: 'LP 実寸計測 (ブラウザ実測)。ready_for_review は Draft skip の初回発火に要る',
 	},
-	'.github/workflows/lp-fallback-check.yml': {
-		bodyGate: false,
-		note: 'labels.ts ↔ site fallback 照合。ready_for_review は Draft skip の初回発火に要る',
-	},
 	'.github/workflows/dependency-review.yml': {
 		bodyGate: false,
 		note: '依存差分の脆弱性 review。差分が入力なので commit 単位で足りる',
@@ -170,17 +166,9 @@ export const PR_TRIGGER_LANE_REGISTRY = {
 		bodyGate: false,
 		note: '統合 PR の NUC staging 実デプロイ (重量)。本文編集で再デプロイしてはならない',
 	},
-	'.github/workflows/zenn-lint.yml': {
-		bodyGate: false,
-		note: 'docs/zenn/** の lint。paths filter 付きで差分が入力',
-	},
 	'.github/workflows/orphan-check.yml': {
 		bodyGate: false,
 		note: 'src 差分から orphan resource を検出する。差分が入力',
-	},
-	'.github/workflows/check-pr-template-sections-sync.yml': {
-		bodyGate: false,
-		note: 'テンプレート file 同士の同期検査。PR 本文ではなく repo の file が入力',
 	},
 	'.github/workflows/pr-info.yml': {
 		bodyGate: false,

@@ -18,7 +18,7 @@ import {
 	PRAISE_START_MILESTONE_ID,
 	type PraiseMilestoneId,
 } from '$lib/domain/constants/habit-milestones';
-import { todayDateJST } from '$lib/domain/date-utils';
+import { daysBetweenJST, jstDateOfIso, todayDateJST } from '$lib/domain/date-utils';
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 
@@ -97,14 +97,12 @@ export interface TenantValuePreview {
 
 /** YYYY-MM-DD 形式の日付差分（日数） */
 function daysBetween(fromDate: string, toDate: string): number {
-	const from = new Date(`${fromDate.slice(0, 10)}T00:00:00Z`).getTime();
-	const to = new Date(`${toDate.slice(0, 10)}T00:00:00Z`).getTime();
-	return Math.floor((to - from) / (1000 * 60 * 60 * 24));
+	return daysBetweenJST(toDateOnly(fromDate), toDateOnly(toDate));
 }
 
-/** ISO 日付（または ISO datetime）から YYYY-MM-DD を取り出す */
+/** ISO 日付（または ISO datetime）から JST の YYYY-MM-DD を取り出す (#4120) */
 function toDateOnly(iso: string): string {
-	return iso.slice(0, 10);
+	return iso.length <= 10 ? iso : jstDateOfIso(iso);
 }
 
 /** ソート済み一意日付列から最長連続日数を計算する */

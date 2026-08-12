@@ -5,6 +5,7 @@
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
 import {
+	DELETION_WARNING_EMAIL_LABELS,
 	LIFECYCLE_EMAIL_LABELS,
 	PIN_RESET_EMAIL_LABELS,
 	PMF_SURVEY_LABELS,
@@ -328,6 +329,68 @@ export async function sendCancellationEmail(
       </p>
     `),
 		textBody: `解約手続きを受け付けました\n\n${untilPhrase}、現在の有料プランをそのままご利用いただけます。\nその後は${PLAN_FULL_TERMS.free}に切り替わります（お子さまの記録は残ります）。\n\nそれまでの間は、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から${CANCEL_TERMS.anytime}のお手続きを取り消して継続できます。`,
+	});
+}
+
+export interface DeletionWarningParams {
+	email: string;
+	/** 宛名 (オーナーの表示名。未設定時は呼び出し側がテナント名にフォールバックする) */
+	ownerName: string;
+	/** 表示用の物理削除予定日 (JST 暦日、例: 2026年4月15日) */
+	deletionDate: string;
+	/** 削除予定日までの残り日数 (JST 暦日換算、1 以上) */
+	daysRemaining: number;
+}
+
+/**
+ * データ削除予定日の予告メール (#2399)。
+ *
+ * 猶予期間中に「このまま何もしなければ消える」ことと復元導線を 1 度だけ伝える。
+ *
+ * 送信経路の設計 (AC / runbook §2 整合):
+ *   - `listUnsubscribeUrl` を **付けない**。購読解除リンクは marketing 配信を止めるものであり、
+ *     お手続きに関する連絡に添えると「解除すれば止まる」と誤解させる。本メールは配信設定に
+ *     かかわらず届く必要があるため、marketing 系 (`wrapLifecycleTemplate` + List-Unsubscribe) では
+ *     なく汎用トランザクション template を使う
+ *   - `marketing-email-counter` (年 6 回上限) を経由しない。上限に達した月にデータ消失予告が
+ *     握り潰される事態を構造的に作らない
+ *   - 子供の名前・活動内容は差し込まない (引き止め目的の情報利用を避ける、ADR-0012)
+ */
+export async function sendDeletionWarningEmail(params: DeletionWarningParams): Promise<boolean> {
+	const labels = DELETION_WARNING_EMAIL_LABELS;
+	const { email, ownerName, deletionDate, daysRemaining } = params;
+	const ctaUrl = `${getAppBaseUrl()}/admin/settings/account`;
+
+	return sendEmail({
+		to: email,
+		subject: `【がんばりクエスト】${labels.subject(daysRemaining)}`,
+		htmlBody: wrapTemplate(`
+      <h2>${labels.heading}</h2>
+      <p>${labels.greeting(ownerName)}</p>
+      <p>${labels.intro}</p>
+      <p><strong>${labels.deletionDateLine(deletionDate, daysRemaining)}</strong></p>
+      <p>${labels.irreversibleNote}</p>
+      <p>${labels.restoreNote(ADMIN_VIEW_TERMS.canonical)}</p>
+      <p>${labels.noActionNote}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${ctaUrl}" class="button">${labels.ctaLabel}</a>
+      </p>
+      <p>${labels.transactionalNote}</p>
+    `),
+		textBody: [
+			labels.greeting(ownerName),
+			'',
+			labels.intro,
+			labels.deletionDateLine(deletionDate, daysRemaining),
+			labels.irreversibleNote,
+			'',
+			labels.restoreNote(ADMIN_VIEW_TERMS.canonical),
+			labels.noActionNote,
+			'',
+			`${labels.ctaLabel}: ${ctaUrl}`,
+			'',
+			labels.transactionalNote,
+		].join('\n'),
 	});
 }
 

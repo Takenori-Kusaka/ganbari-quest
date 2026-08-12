@@ -57,9 +57,29 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: 'src 配下を走査して直接 DB アクセスを検出する',
 	},
+	'tests/unit/architecture/node-version-fitness.test.ts': {
+		scope: 'bounded',
+		note: 'Dockerfile* / infra/lib/**/*.ts / .github/workflows/*.yml の 3 系統に限定して Node major 宣言を突き合わせる (#4199 AC5)。glob は限定的だが `**/Dockerfile*` がツリーを歩くため、判定が bounded でも明示 timeout を置いている',
+	},
+	'tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts': {
+		scope: 'repo',
+		note: 'tests/e2e 配下の spec を走査し、worker 分離 fixture (./fixtures) を経由しない spec 数を ratchet する (#4489)',
+	},
+	'tests/unit/architecture/playwright-auth-fixture-spec-exclusion.test.ts': {
+		scope: 'repo',
+		note: 'tests/e2e 配下の spec を走査し、playwright/.auth/*.json を参照する spec が playwright.config.ts の BASE_TEST_IGNORE に載っているかを検査する (#4485)',
+	},
 	'tests/unit/architecture/qm-role-naming-consistency.test.ts': {
 		scope: 'repo',
 		note: 'docs / .claude / scripts / tests / src を走査し、ロールを指す QA 表記の再混入を検出する (#4177)',
+	},
+	'tests/unit/architecture/external-ai-client-boundary.test.ts': {
+		scope: 'repo',
+		note: 'src 配下を走査し、運営者の環境の外にある生成 AI SDK (@google/generative-ai) を import する file が allowlist と一致するか / アバター生成 prompt が残っていないかを検査する (#4397)',
+	},
+	'tests/unit/architecture/exclusion-reason-nonempty.test.ts': {
+		scope: 'repo',
+		note: 'scripts/orphan-baselines/*.json を走査して免除理由の非空 / 非 stub を検査する (#4030 AC5 / AC6)。走査自体は 1 dir で有界だが、判定は保守的に repo 扱いとし明示 timeout を置く',
 	},
 	'tests/unit/architecture/action-primary-white-text-contrast.test.ts': {
 		scope: 'repo',
@@ -73,6 +93,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 		scope: 'repo',
 		note: '#4085 実測 例4 (5533ms で timeout)。.github + scripts を走査する scanner の健全性検査 (#4007)',
 	},
+	'tests/unit/architecture/scripts-node-test-ci-coverage.test.ts': {
+		scope: 'repo',
+		note: 'scripts/__tests__ を再帰 readdir し、ci.yml の node --test 引数が全 file をカバーするか検査する。走査は 1 dir で有界だが静的判定は保守的に repo と見なすため、判定に合わせて明示 timeout を置く',
+	},
 	'tests/unit/architecture/cloudfront-s3-user-content-bypass-fitness.test.ts': {
 		scope: 'repo',
 		note: 'infra 配下の CDK 定義を走査して配信経路の bypass を検出する',
@@ -80,6 +104,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/db-access-boundary.test.ts': {
 		scope: 'repo',
 		note: 'src 配下の import 境界を走査する',
+	},
+	'tests/unit/architecture/pr-body-partial-match-guard.test.ts': {
+		scope: 'repo',
+		note: '#4348 scripts 配下の .mjs を走査し、PR body の見出し / 宣言を部分一致で判定する新規コードを検出する',
 	},
 	'tests/unit/architecture/no-stray-control-chars.test.ts': {
 		scope: 'repo',
@@ -116,6 +144,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/cron-route-auth-fitness.test.ts': {
 		scope: 'bounded',
 		note: '走査は src/routes/api/cron 配下のみ (再帰だが単一 dir で有界)。全 cron route が verifyCronAuth を呼ぶことを検査する (#4206)',
+	},
+	'tests/unit/architecture/ops-route-auth-fitness.test.ts': {
+		scope: 'repo',
+		note: '実走査は src/routes/ops 配下のみだが、静的判定が repo と見なすため宣言を合わせ明示 timeout を置く。全 ops endpoint が requireOpsAccess を呼ぶことを検査する (#4309)',
 	},
 	'tests/unit/architecture/workflow-judgment-delegation-guard.test.ts': {
 		scope: 'repo',
@@ -170,6 +202,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	'tests/unit/architecture/churn-status-predicate-ssot.test.ts': {
 		scope: 'bounded',
 		note: 'src/lib/server/services のサブツリーのみを走査して churn 判定の直接比較を検出する (#3987)',
+	},
+	'tests/unit/architecture/svelte-lint-glob-covers-rune-modules.test.ts': {
+		scope: 'bounded',
+		note: 'src 配下の *.svelte.ts (数件) のみを glob で解決し、eslint の ignore / 適用ルールを問い合わせる',
 	},
 	'tests/unit/architecture/dsql-append-only-mutation-allowlist.test.ts': {
 		scope: 'bounded',

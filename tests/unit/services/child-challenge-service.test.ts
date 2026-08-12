@@ -21,6 +21,7 @@ const mockUpdateProgress = vi.fn();
 const mockMarkCompleted = vi.fn();
 const mockFindById = vi.fn();
 const mockClaimRewardAndGrantPoints = vi.fn();
+const mockMarkCelebrationShown = vi.fn();
 const mockFindAllChildren = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -37,6 +38,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			markCompleted: (...a: unknown[]) => mockMarkCompleted(...a),
 			findById: (...a: unknown[]) => mockFindById(...a),
 			claimRewardAndGrantPoints: (...a: unknown[]) => mockClaimRewardAndGrantPoints(...a),
+			markCelebrationShown: (...a: unknown[]) => mockMarkCelebrationShown(...a),
 		},
 	}),
 }));
@@ -89,6 +91,8 @@ import {
 	getLastWeekStart,
 	getOrCreateWeeklyChildChallenge,
 	getWeekStart,
+	markChallengeCelebrationShown,
+	resolveCelebrationChallenge,
 	updateChildChallengeProgress,
 } from '../../../src/lib/server/services/child-challenge-service';
 
@@ -1013,6 +1017,7 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 			completedAt: null,
 			rewardClaimed: 0,
 			rewardClaimedAt: null,
+			celebrationShownAt: null,
 			createdAt: '',
 			updatedAt: '',
 			...overrides,
@@ -1238,5 +1243,113 @@ describe('claimChildChallengeReward — 単一原子 primitive + fail-closed gat
 
 		// primitive 自体は両 submit で呼ばれる (原子化判定 + 付与は repo txn に委譲)
 		expect(mockClaimRewardAndGrantPoints).toHaveBeenCalledTimes(2);
+	});
+});
+
+// ============================================================
+// #4410: 達成祝福を「1 回だけ」見せる (閉じた事実の永続化)
+//
+// 症状: `showCelebration = $state(true)` がマウントのたびに true に戻り、ホームに入るたび
+//       全画面モーダルが割り込んでいた (ADR-0012 anti-engagement 違反)。
+// 不変条件: 「一度閉じたら次に入っても出ない」/「閉じていなければ出る」の両方を固定する
+//           (出なくなりすぎる方向の回帰も同時に防ぐ)。
+// ============================================================
+describe('#4410 達成祝福の「見せた」記録', () => {
+	function celebrationRow(overrides: Record<string, unknown> = {}) {
+		return {
+			id: '500',
+			childId: asChildId(902),
+			title: 'みんなクリア！',
+			description: null,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: '2026-05-25',
+			endDate: '2026-06-01',
+			targetConfig: '{}',
+			rewardConfig: '{}',
+			status: 'completed',
+			isActive: 1,
+			sourceTemplateId: 'tmpl-1',
+			currentValue: 5,
+			targetValue: 5,
+			completed: 1,
+			completedAt: '2026-05-27T00:00:00Z',
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			celebrationShownAt: null,
+			createdAt: '',
+			updatedAt: '',
+			siblings: [],
+			allCompleted: true,
+			...overrides,
+		};
+	}
+
+	describe('resolveCelebrationChallenge (表示可否の根拠 = celebrationShownAt)', () => {
+		it('未表示 (celebrationShownAt=null) の達成は祝福対象として返る', () => {
+			const rows = [celebrationRow()];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))?.id).toBe('500');
+		});
+
+		it('表示済 (celebrationShownAt が入っている) は 2 回目以降 null になる = 毎回出ない', () => {
+			const rows = [celebrationRow({ celebrationShownAt: '2026-05-27T10:00:00Z' })];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))).toBeNull();
+		});
+
+		it('AC3: ごほうび未受取でも表示済なら出ない (受取は祝福の停止条件ではない)', () => {
+			const rows = [
+				celebrationRow({ rewardClaimed: 0, celebrationShownAt: '2026-05-27T10:00:00Z' }),
+			];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))).toBeNull();
+		});
+
+		it('AC3: ごほうび受取済でも未表示なら出る (受取で祝福を潰さない)', () => {
+			const rows = [
+				celebrationRow({
+					rewardClaimed: 1,
+					rewardClaimedAt: '2026-05-27T09:00:00Z',
+					celebrationShownAt: null,
+				}),
+			];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))?.id).toBe('500');
+		});
+
+		it('全員完了していない (allCompleted=false) instance は祝福対象にならない', () => {
+			const rows = [celebrationRow({ allCompleted: false })];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))).toBeNull();
+		});
+
+		it('他の子の instance は自分の祝福対象にならない', () => {
+			const rows = [celebrationRow({ childId: asChildId(903) })];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))).toBeNull();
+		});
+
+		it('ADR-0012 / DESIGN §10: 複数該当しても返るのは常に 1 件 (連続演出しない)', () => {
+			const rows = [celebrationRow({ id: '500' }), celebrationRow({ id: '501' })];
+			expect(resolveCelebrationChallenge(rows, asChildId(902))?.id).toBe('500');
+		});
+	});
+
+	describe('markChallengeCelebrationShown (閉じた事実の永続化)', () => {
+		it('自分の instance なら repo に記録し true を返す', async () => {
+			mockFindById.mockResolvedValueOnce(celebrationRow());
+			const ok = await markChallengeCelebrationShown('500', asChildId(902), TENANT);
+			expect(ok).toBe(true);
+			expect(mockMarkCelebrationShown).toHaveBeenCalledWith('500', TENANT);
+		});
+
+		it('IDOR: 他の子の instance は記録せず false を返す', async () => {
+			mockFindById.mockResolvedValueOnce(celebrationRow({ childId: asChildId(903) }));
+			const ok = await markChallengeCelebrationShown('500', asChildId(902), TENANT);
+			expect(ok).toBe(false);
+			expect(mockMarkCelebrationShown).not.toHaveBeenCalled();
+		});
+
+		it('存在しない instance は記録せず false を返す', async () => {
+			mockFindById.mockResolvedValueOnce(undefined);
+			const ok = await markChallengeCelebrationShown('999', asChildId(902), TENANT);
+			expect(ok).toBe(false);
+			expect(mockMarkCelebrationShown).not.toHaveBeenCalled();
+		});
 	});
 });

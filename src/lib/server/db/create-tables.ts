@@ -274,6 +274,8 @@ export const SQL_CREATE_TABLES = `
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
 		reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
 		requested_at INTEGER NOT NULL,
+		-- #4407: 1 申請 = N 個 (単位量のごほうびを「単価 × 個数」で消費する)
+		quantity INTEGER NOT NULL DEFAULT 1,
 		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
 		parent_note TEXT,
 		resolved_at INTEGER,
@@ -556,6 +558,8 @@ export const SQL_CREATE_TABLES = `
 		completed_at TEXT,
 		reward_claimed INTEGER NOT NULL DEFAULT 0,
 		reward_claimed_at TEXT,
+		-- #4410: 達成祝福を「見せた」記録 (NULL = 未表示)。祝福表示の停止条件 SSOT。
+		celebration_shown_at TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { escapeRegExp } from './escape-regexp.mjs';
+import { findBaselineReasonDefects } from './exclusion-reason.mjs';
 
 // REPO_ROOT 解決 — scripts/lib/ci/ から 3 階層上
 const __filename = fileURLToPath(import.meta.url);
@@ -162,15 +163,17 @@ export function reportFindings(category, findings, options) {
 	const newOrphans = findings.filter((f) => !f.allowlisted);
 
 	if (mode === 'update-baseline') {
+		// #4030 AC6 (PO 決裁 = 案 A): **検出理由を免除理由の欄にコピーしない**。
+		//
+		// 旧実装は `f.reason` (= 「どこからも import されていません」等、機械が書いた現象の説明)
+		// あるいは 'auto-added by --update-baseline' を reasons に自動投入していた。
+		// **「なぜ免除してよいか」を誰も書いていないのに欄が埋まる**ため、reason 機構が形骸化する。
+		// 新規 entry は reason を空のまま追加し、人が書くまで check mode が落ちる。
 		const newAllowed = newOrphans.map((f) => f.name);
 		const allAllowed = [...baseline.allowed, ...newAllowed];
-		const newReasons = { ...baseline.reasons };
-		for (const f of newOrphans) {
-			newReasons[f.name] = f.reason || 'auto-added by --update-baseline';
-		}
 		const savedPath = saveBaseline(category, {
 			allowed: allAllowed,
-			reasons: newReasons,
+			reasons: { ...baseline.reasons },
 			version: baseline.version,
 		});
 		process.stdout.write(
@@ -178,7 +181,17 @@ export function reportFindings(category, findings, options) {
 		);
 		process.stdout.write(`  added ${newOrphans.length} new entries\n`);
 		for (const f of newOrphans) {
-			process.stdout.write(`    - ${f.name}: ${f.reason || '(no reason)'}\n`);
+			process.stdout.write(`    - ${f.name}\n`);
+			process.stdout.write(`      検出理由 (機械): ${f.reason || '(none)'}\n`);
+		}
+		if (newOrphans.length > 0) {
+			process.stderr.write(
+				`\n[check-orphan-${category}] 未完了 — ${newOrphans.length} 件の "reasons" が空のままです。\n` +
+					`  ${path.relative(REPO_ROOT, savedPath)} の "reasons" に **なぜ免除してよいか** を書いてください。\n` +
+					'  上記の「検出理由」は機械が書いた現象の説明であり、免除の正当化ではありません。\n' +
+					'  書くまで check mode (CI) は落ちます。\n',
+			);
+			return 1;
 		}
 		return 0;
 	}
@@ -224,6 +237,22 @@ export function reportFindings(category, findings, options) {
 		process.stderr.write(
 			`\n対応: scripts/orphan-baselines/${category}.json の "allowed" / "reasons" から該当 entry を削除する\n` +
 				'  (対象が消えている以上、その entry は何も免除していない)。\n',
+		);
+		return 1;
+	}
+
+	// #4030 AC6: baseline の免除は **理由が書かれていて初めて免除**。
+	// 空 / 定型 stub / 機械生成文字列 は「理由なし」として弾く (判定 SSOT = exclusion-reason.mjs)。
+	// 理由の無い免除は、次に読む人が「意図的な例外」と「消し忘れ」を区別できない。
+	const reasonDefects = findBaselineReasonDefects(baseline);
+	if (reasonDefects.length > 0) {
+		process.stderr.write(
+			`[check-orphan-${category}] NG — baseline の免除理由が ${reasonDefects.length} 件、理由として成立していません:\n`,
+		);
+		for (const d of reasonDefects) process.stderr.write(`  - ${d.entry}: ${d.defect}\n`);
+		process.stderr.write(
+			`\n対応: scripts/orphan-baselines/${category}.json の "reasons" に **なぜ免除してよいか** を書く\n` +
+				'  (検出理由の貼り付けではなく、免除の正当化を書く。理由の無い免除は消し忘れと区別できない)。\n',
 		);
 		return 1;
 	}

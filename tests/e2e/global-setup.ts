@@ -248,6 +248,7 @@ export default async function globalSetup() {
 					child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
 					reward_id INTEGER NOT NULL REFERENCES special_rewards(id),
 					requested_at INTEGER NOT NULL,
+					quantity INTEGER NOT NULL DEFAULT 1,
 					status TEXT NOT NULL DEFAULT 'pending_parent_approval',
 					parent_note TEXT,
 					resolved_at INTEGER,
@@ -268,8 +269,13 @@ export default async function globalSetup() {
 				// テーブルが既に存在する場合は無視
 			}
 
-			// #2832: 申請時点 snapshot 列追加マイグレーション (既存 E2E DB 向け)
-			for (const col of ['reward_title TEXT', 'reward_points INTEGER', 'reward_icon TEXT']) {
+			// #2832 / #4407: 申請時点 snapshot 列 + 個数列の追加マイグレーション (既存 E2E DB 向け)
+			for (const col of [
+				'reward_title TEXT',
+				'reward_points INTEGER',
+				'reward_icon TEXT',
+				'quantity INTEGER NOT NULL DEFAULT 1',
+			]) {
 				try {
 					db.exec(`ALTER TABLE reward_redemption_requests ADD COLUMN ${col}`);
 				} catch {
@@ -717,6 +723,8 @@ export default async function globalSetup() {
 				completed_at TEXT,
 				reward_claimed INTEGER NOT NULL DEFAULT 0,
 				reward_claimed_at TEXT,
+				-- #4410: 達成祝福を見せた記録 (NULL = 未表示)
+				celebration_shown_at TEXT,
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 			);

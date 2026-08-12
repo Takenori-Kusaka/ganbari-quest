@@ -3,7 +3,7 @@
 // - 終了3日前 / 1日前 / 当日のメール通知
 // - トライアル終了後の初回ログイン時モーダルフラグ管理
 
-import { getPlanLabel } from '$lib/domain/labels';
+import { getPlanLabel, TRIAL_EMAIL_LABELS } from '$lib/domain/labels';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
@@ -108,7 +108,7 @@ export async function sendTrialEnding3DaysEmail(
       <ul>
         <li>登録できる子供の数: ${freeLimits.maxChildren}人まで</li>
         <li>カスタム活動数: ${freeLimits.maxActivities}個まで</li>
-        <li>データ保持期間: ${freeLimits.historyRetentionDays}日</li>
+        <li>${TRIAL_EMAIL_LABELS.freeRetentionLine(freeLimits.historyRetentionDays)}</li>
       </ul>
       <p>引き続きすべての機能をご利用いただくには、本契約へのお申し込みをお願いいたします。</p>
       <p style="text-align: center; margin: 24px 0;">

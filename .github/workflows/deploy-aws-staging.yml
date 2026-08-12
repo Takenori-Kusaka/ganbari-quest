@@ -133,9 +133,13 @@ jobs:
           OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
           STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
           STRIPE_WEBHOOK_SECRET_TEST: ${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
+          # #4280: front door header の共有 secret。prod と同一値を使う
+          # (PARENT_GATE_COOKIE_SECRET / OPS_SECRET_KEY と同じ共有方針)。
+          # 未登録だと同一 CDK app の synth が throw して staging deploy も止まる。
+          ORIGIN_VERIFY_SECRET: ${{ secrets.ORIGIN_VERIFY_SECRET }}
         run: |
           missing=0
-          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY; do
+          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY ORIGIN_VERIFY_SECRET; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -215,6 +219,8 @@ jobs:
             -c stagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
 
       # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
@@ -226,6 +232,8 @@ jobs:
           -c stagingEnabled=true
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }}
+          -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
       # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
@@ -276,7 +284,9 @@ jobs:
           npx cdk deploy GanbariQuestDsqlStaging --require-approval never \
             -c dsqlStagingEnabled=true \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
-            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }}
 
       - name: Resolve DSQL staging outputs
         run: |
@@ -313,6 +323,8 @@ jobs:
             -c stagingEnabled=true $DSQL_CTX \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+            -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
             -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
             -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
@@ -334,6 +346,8 @@ jobs:
               -c stagingEnabled=true $DSQL_CTX \
               -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
               -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+              -c originVerifySecret=${{ secrets.ORIGIN_VERIFY_SECRET }} \
+              -c originVerifySecretPrevious=${{ secrets.ORIGIN_VERIFY_SECRET_PREVIOUS }} \
               -c stagingStripeSecretKey=${{ secrets.STRIPE_SECRET_KEY_TEST }} \
               -c stagingStripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           done
@@ -367,18 +381,28 @@ jobs:
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
 
-      # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL の解決 (縮退可)。
-      # Function URL は synth 時未確定 (自己参照) のため CDK は placeholder を注入している。
-      # get-function-url-config で実 URL を取得し、jq read-modify-write で env を merge 更新する。
-      # #4204: **その「再判断する時点」が来た**ので `continue-on-error` を外して必須化する。
+      # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL を解決し、
+      #          Lambda env を **CDK synth 出力から組み立てた完全な集合で全上書き**する (#4352 (a))。
       #
-      # 旧コメント: 「health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも
-      # 続行する (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断」
+      # ORIGIN は synth 時未確定 (CloudFront / Function URL は自己参照) のため CDK は placeholder を
+      # 注入しており、deploy 後に実 URL で置き換える必要がある。
       #
-      # Step 15 に form action の POST smoke を足した以上、**ORIGIN が解決されていないと
-      # SvelteKit の CSRF origin check で 403 になり、smoke の判定が意味を持たなくなる**。
-      # 本 step が黙って失敗したまま smoke が「403 = 認証失敗、想定内」と誤読する経路を塞ぐ
-      # (ADR-0024 ENV silent skip 禁止)。**「再判断する」と書いたまま再判断しないと、コメントが飾りになる。**
+      # **旧実装は live env を読んで merge (read-modify-write) していた。** そのため
+      # `aws lambda update-function-configuration` で手で足した env が、deploy のたびに
+      # 「正式な設定」として書き直され、CDK が env の SSOT ではなくなっていた (#4352)。
+      # CloudFormation は out-of-band drift を戻さない (テンプレートが同一ならリソースを触らない)
+      # ため、**deploy が success を返しても手で足した env は消えない**。実際 #4286 の検証用に
+      # 注入した `STRIPE_PRICE_*_MONTHLY` が staging に恒久残存した。
+      #
+      # 「Function URL / CloudFront が synth 時未確定」は全上書きを妨げない。**この job は同一 run 内で
+      # 既に synth 済み**なので、望ましい env = synth 出力の `Environment.Variables` + 実 URL 3 本 で
+      # 決まる。live env は CFN intrinsic (Ref / ImportValue) の値を引き継ぐためだけに読み、
+      # **キー集合には一切影響させない** → SSOT 外のキーは書き戻されず消える。
+      # 期待 env を workflow に手で列挙する形は採らない (列挙は必ず腐る、PO 決裁 2026-08-07)。
+      #
+      # #4204: `continue-on-error` は付けない。ORIGIN が解決されていないと SvelteKit の CSRF
+      # origin check で POST が 403 になり、Step 15 の form action smoke が
+      # 「403 = 認証失敗、想定内」と誤読する (ADR-0024 ENV silent skip 禁止)。
       - name: Resolve ORIGIN from CloudFront
         run: |
           # #4204: ORIGIN は **CloudFront の URL**。Function URL ではない。
@@ -397,16 +421,37 @@ jobs:
           echo "STAGING_BASE=https://$CF_DOMAIN" >> $GITHUB_ENV
           ORIGIN="https://$CF_DOMAIN"
           echo "Resolved staging ORIGIN: $ORIGIN"
-          ENV_JSON=$(aws lambda get-function-configuration \
+
+          # 秘密 (STRIPE_SECRET_KEY / PARENT_GATE_COOKIE_SECRET 等) を含む一時 file を残さない。
+          # **trap で全経路を覆う。** GitHub の既定 shell は `bash -e` のため、以降の aws / node / jq が
+          # 1 つでも失敗すると step はその場で中断する。後始末を成功パスの末尾に置くと、
+          # **失敗したときだけ秘密入り JSON が job の最後まで runner に残る** (後続 step に artifact
+          # upload や失敗時ダンプが足された瞬間に露出面になる)。
+          trap 'rm -f "$RUNNER_TEMP/staging-live-env-before.json" \
+                      "$RUNNER_TEMP/staging-desired-env.json" \
+                      "$RUNNER_TEMP/staging-update-env.json"' EXIT
+
+          # live env は intrinsic 値の引き継ぎにのみ使う (キー集合には影響しない)。
+          aws lambda get-function-configuration \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION \
-            --query 'Environment.Variables' --output json)
-          NEW_ENV=$(echo "$ENV_JSON" | jq --arg origin "$ORIGIN" \
-            '. + {ORIGIN: $origin, COGNITO_CALLBACK_URL: ($origin + "/auth/callback"), COGNITO_LOGOUT_URL: ($origin + "/auth/login")}')
+            --query 'Environment.Variables' --output json > "$RUNNER_TEMP/staging-live-env-before.json"
+
+          node scripts/lambda-env-ssot.mjs derive \
+            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --function-name "$LAMBDA_FUNCTION" \
+            --live-env "$RUNNER_TEMP/staging-live-env-before.json" \
+            --set ORIGIN="$ORIGIN" \
+            --set COGNITO_CALLBACK_URL="$ORIGIN/auth/callback" \
+            --set COGNITO_LOGOUT_URL="$ORIGIN/auth/login" \
+            --out "$RUNNER_TEMP/staging-desired-env.json"
+
+          # 値を argv に載せない (プロセス一覧・エラー時のコマンドエコーに secret が出る経路を作らない)。
+          jq -n --arg fn "$LAMBDA_FUNCTION" --slurpfile v "$RUNNER_TEMP/staging-desired-env.json" \
+            '{FunctionName: $fn, Environment: {Variables: $v[0]}}' > "$RUNNER_TEMP/staging-update-env.json"
           aws lambda update-function-configuration \
-            --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION \
-            --environment "{\"Variables\": $NEW_ENV}"
+            --cli-input-json "file://$RUNNER_TEMP/staging-update-env.json"
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
@@ -604,6 +649,50 @@ jobs:
             exit "$STATUS"
           fi
           echo "::notice::DSQL staging 並行検証 test passed (${DURATION}s、#3683)"
+
+      # Step 15.9 (#4352): env drift 検査。**deploy job の末尾に置く** (PO 決裁 2026-08-07、#4365)。
+      #
+      # Step 13 (Resolve ORIGIN) は live env を read-modify-write (`jq '. + {…}'`) するため、IaC の外で
+      # 手で足された env は deploy のたびに正式な設定として **re-commit される**。CloudFormation も
+      # テンプレート無変更ならリソースを触らないので drift を戻さない。結果「IaC に無い env が恒久的に
+      # 効き続ける」状態が deploy success のまま残る (#4117 E1 で実際に起きた: 検証用に注入した
+      # STRIPE_PRICE_* が full deploy を跨いで残り、staging で checkout が通るのを見て「#4286 が直った」
+      # と誤判定しうる状態が続いた)。
+      #
+      # 本 step が落ちる時点でアプリ本体は既に live であり、早く落としても何も守られない。一方 job の
+      # 途中に置くと後続の検証 (health / smoke / PII guard / DSQL 並行検証) が丸ごと skip される。
+      # 末尾なら deploy は同じく赤くなり、他の検証は全て実行される。
+      #
+      # 突き合わせるのは cdk deploy が出力したテンプレートと live の **キー集合**のみ (値は読まない)。
+      #
+      # #4352: 「live のキー集合が synth 出力と一致するか」を判定する step は **本 step 1 本だけ**にする。
+      # 同一 deploy に判定を 2 本置くと、基準が食い違った瞬間に一方 pass・一方 fail が起きて、
+      # どちらが正なのかを誰も決められなくなる。本 PR で一度 `lambda-env-ssot.mjs verify` を
+      # 使う 2 本目の step (Step 15.4) を smoke の直後に足したが、以下の理由で本 step に統合した:
+      #   - 判定内容が同じ。Step 13 が **synth 出力のキー集合そのもの**で env を全上書きするように
+      #     なったため、以後 live のキー集合は template と一致するのが唯一の正解であり、
+      #     `--strict` を付けた本 step (extra = fail / missing = 全て fail) と完全一致の判定になる。
+      #   - 本 step の方が秘密を runner に載せない。`--query 'keys(Environment.Variables)'` を
+      #     **AWS 側で**適用してキー名だけを受け取るのに対し、2 本目は値ごと一時 file に落としていた。
+      #   - prod (deploy.yml) が同じ script を使う。staging だけ別実装にすると、判定を直したときに
+      #     もう一方が置き去りになる。
+      #
+      # `--strict` は staging だけに付ける。staging は Step 13 が全上書きするのでキー集合が決定論的
+      # (missing = 上書きが最後まで適用されていない = 異常) だが、prod 側の env 解決はまだ
+      # read-modify-write のままで、条件付き env の欠落が正常なケースがあるため (既定の warning 継続)。
+      #
+      # `RUNTIME_RESOLVED_KEYS` (ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL) の許容は
+      # staging では現状 no-op (3 本とも compute-stack の environment に placeholder として存在し、
+      # template 側のキー集合に含まれる)。それでも消さない — 「deploy 後に足す env」を将来増やしたときの
+      # 受け皿であり、prod 側でも同じ script が使う SSOT だから。
+      - name: Lambda env drift check (staging, #4352)
+        run: |
+          node scripts/check-lambda-env-drift.mjs \
+            --function "$LAMBDA_FUNCTION" \
+            --template infra/cdk.out/GanbariQuestComputeStaging.template.json \
+            --logical-id-prefix SvelteKitFn \
+            --region "$AWS_REGION" \
+            --strict
 
       # Step 16: Rollback on failure — staging ECR の previous digest に戻す
       # (deploy.yml Phase 5b 同型。staging repo は maxImageCount:3 のため直近 2 世代まで戻せる)。

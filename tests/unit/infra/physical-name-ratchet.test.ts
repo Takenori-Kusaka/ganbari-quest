@@ -98,6 +98,8 @@ function buildAllTemplates(): Array<[string, Template]> {
 	const network = new NetworkStack(app, 'GanbariQuestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: 'ganbari-quest.com',
 		certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/test',
 		demoFunctionUrl: compute.demoFunctionUrl,
@@ -306,6 +308,8 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 	...group(
 		'EventBridge Rule 固定名は ops 運用コマンド (`aws events list-rules --name-prefix ganbari-quest-cron`、infra/CLAUDE.md) の識別子契約',
 		[
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-age-recalc',
+			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-deletion-warning-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-export-build',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-lifecycle-emails',
 			'GanbariQuestCompute/AWS::Events::Rule/ganbari-quest-cron-pmf-survey',
@@ -320,15 +324,27 @@ const NAMED_RESOURCE_ALLOWLIST: readonly NamedResourceEntry[] = [
 	...group(
 		'CloudWatch Alarm 固定名は ops runbook / Discord 通知の識別子 (infra/CLAUDE.md §CloudWatch Alarm)',
 		[
+			// #4375 follow-up: AI provider が使えない状態の観測 alarm。
+			// runbook / 通知方針表がこの名前で参照する。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ai-provider-unavailable',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-auth-entitlement-db-unavailable',
+			// #4363 T4: /ops アクセス拒否の観測 alarm (再評価トリガーの発火経路)
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-access-denied',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cloudfront-5xx',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-cron-dispatcher-errors',
+			// #4327: 顧客データ物理削除の部分失敗。runbook (grace-period-deletion-operations.md §2) が
+			// この名前で参照するため固定名が要る。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-grace-period-partial-failure',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-concurrent',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-duration-p99',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-errors',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-throttles',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-url-4xx-spike',
 			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-lambda-url-5xx',
+			// #4399 follow-up: 通知そのものが届かなかったことの観測 alarm。
+			// runbook (ops-alert-notification.md §6) と通知方針表 (ops-alert-policy.ts) が
+			// この名前で参照するため固定名が要る。
+			'GanbariQuestOps/AWS::CloudWatch::Alarm/ganbari-quest-ops-alert-forward-failed',
 		],
 	),
 	...group('SNS Topic 固定名は ops / SES notification 設定の識別子', [

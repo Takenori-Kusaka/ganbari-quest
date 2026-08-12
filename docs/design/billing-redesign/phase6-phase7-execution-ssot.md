@@ -37,14 +37,14 @@ Phase 7 統合 PR は Stripe Dashboard 側の 7 領域 (Product / Price / Webhoo
 
 ### 1.3 課題: cutover 失敗時の kill switch が未設計
 
-Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events) は **5 phase migration** (setup → shadow → cutover → retire) を推奨し、各 phase で feature flag による即時ロールバックを要求する。本プロダクトの Phase 7 で同等の kill switch (`STRIPE_WEBHOOK_SHADOW_MODE` / `USE_LOOKUP_KEY`) を設計しないと、cutover 失敗時に 72 時間 rollback window を活用できず、本番 incident 長期化リスクを抱える。
+Stripe API バージョン更新時、Stripe 公式は既存 Webhook destination の api_version が immutable なため新規 destination 作成が必須と定める。kill switch (`USE_LOOKUP_KEY`) を設計しないと、cutover 失敗時に 72 時間 rollback window を活用できず、本番 incident 長期化リスクを抱える。
 
 ### 1.4 設計がなかった場合に何が困るか
 
 1. **Phase 7 PR の並列衝突**: atom 追加 PR と rename PR が同時 push → hard conflict、QM 工数浪費
 2. **Stripe Dashboard 反映漏れ**: Webhook 購読 event 5 → 8 種拡張 (Phase 5 子 1) が Dashboard 側で未反映のまま PR マージ → 新規 3 event (`subscription_schedule.aborted` / `_canceled` / `_completed`) が silent drop
 3. **cutover 失敗時の長期 incident**: feature flag なし → 旧コード revert PR が必要 → 72 時間 rollback window を逃す → Stripe API version bump の rollback (`72h window`) も同時に巻き戻し不能
-4. **DB migration 順序事故**: `stripe_webhook_events` table が Phase 7 step 4 (Webhook shadow) より前に必要だが、step 1 (DB migration) で先行配備されていないと shadow mode が動かない
+4. **DB migration 順序事故**: `stripe_webhook_events` table が Phase 7 step 4 (Webhook dedup) より前に必要だが、step 1 (DB migration) で先行配備されていないと dedup が機能しない
 
 ## 2. 設計原則 (§2)
 
@@ -52,8 +52,8 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 |------|------|------|
 | **5 step 順序確定** | Phase 7 統合 PR は 5 step に分割し、各 step 完了で次 step 着手可能 (各 step 独立マージ可、step 間で rebase drift 回避) | Stripe webhook migration 5 phase / ADR-0020 (PR size ≤ 500 行) / [[per-issue-execution-workflow]] |
 | **Stripe Dashboard 同期 = step 1 (Test mode) + step 4 (Production cutover) の 2 回** | コード PR とは独立タスクで PO 手動操作 (#2627)、コード PR マージ前に Test mode で全 Webhook + Price 構築完了を確認 | Phase 5 子 1 §5 実装手順 8 step / Stripe 公式 build-subscriptions |
-| **feature flag による kill switch** | `STRIPE_WEBHOOK_SHADOW_MODE` (webhook 二重送信 → log 検証) + `USE_LOOKUP_KEY` (lookup_key 解決失敗時に env var fallback) | Stripe `migrate-snapshot-to-thin-events` / LaunchDarkly / Unleash 業界標準 |
-| **DB migration 先行** | `stripe_webhook_events` (子 3) + `archived_reason` enum (子 4) は step 1 で同時投入 (shadow mode 開始前に schema 配備済み状態を担保) | ADR-0031 (DB migration 互換) / 子 3 §4.1 dispatcher 入口 dedup |
+| **feature flag による kill switch** | `USE_LOOKUP_KEY` (lookup_key 解決失敗時に env var fallback) | LaunchDarkly / Unleash 業界標準 |
+| **DB migration 先行** | `stripe_webhook_events` (子 3) + `archived_reason` enum (子 4) は step 1 で同時投入 (dedup 機構の schema 配備済み状態を担保) | ADR-0031 (DB migration 互換) / 子 3 §4.1 dispatcher 入口 dedup |
 | **atom 統合 5 step は Phase 5 子 5 SSOT を参照** | 本 docs は順序の全体図のみ示し、各 step の詳細は子 5 #2643 §6 を参照 (DRY、SSOT 1 段集約) | ADR-0045 (atom / compound) / Phase 5 子 5 §6 |
 | **72 時間 rollback window 活用** | apiVersion bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) は Stripe 公式 72h rollback window を利用、cutover 失敗時に Dashboard で旧 apiVersion に巻き戻し | Stripe `api/versioning` 72h policy / 子 1 §3.4 |
 
@@ -157,19 +157,15 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 
 | 項目 | 内容 |
 |---|---|
-| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 種維持 (下記「購読 event SSOT」ブロックと同一集合。旧計画の `subscription_schedule.*` 3 種 / `credit_note.created` は handler が無いため購読しない) + shadow mode → cutover → retire の 3 sub step。**Phase 5 子 1 #2644 §4.4 副次制約 4 (Webhook destination api_version immutable)** が本 step の 5 phase migration 設計根拠 (#2683 で明文化、Step 4-a で新 destination 作成 → Step 4-b cutover → Step 4-c retire の手順は Stripe API 仕様により**強制必須**) |
-| **詳細順序** | 本 step を以下 3 sub step に分割 (Stripe webhook migration 5 phase 整合): |
-| | **4-a (shadow mode)**: 新 Webhook handler (`/api/stripe/webhook-v2`) を新規 route で実装、DB write せず log のみ。`STRIPE_WEBHOOK_SHADOW_MODE=true` で 24-48h 検証 |
-| | **4-b (cutover)**: shadow mode log で 0 件 silent drop 確認後、新 handler に切替 + 旧 handler は 200 OK + log のみ (`STRIPE_WEBHOOK_SHADOW_MODE=false`)。Stripe Dashboard で新 Webhook destination を有効化 + 旧 destination は disabled |
-| | **4-c (retire)**: cutover 後 1 週間 smoke test PASS で旧 Webhook destination を delete + 旧 handler コードを削除 |
+| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 種維持 (下記「購読 event SSOT」ブロックと同一集合。旧計画の `subscription_schedule.*` 3 種 / `credit_note.created` は handler が無いため購読しない) |
 | **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口の insert-first dedup) / `src/routes/api/stripe/webhook/+server.ts` (**唯一の受信口**) / `src/lib/server/db/interfaces/webhook-event-repo.interface.ts` + 各 backend 実装 (`claim` / `finalize` / `releaseClaim`) / `tests/unit/services/stripe-webhook-dedup.test.ts` / `tests/unit/architecture/stripe-webhook-single-entrypoint.test.ts` (受信口 1 本の fitness function、#4128) |
-| **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で「購読 event SSOT」ブロックの 5 event 全種を受信 + DB に `handler_result='success'` 物理確認 (新規購入経路 = `checkout.session.completed` を含む) (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) #2683 副次制約 4: `webhookEndpoints.update({api_version})` が Stripe API 400 を返すことを unit test で assert (e) `npm run pre-ready -- --pr <step4-pr>` PASS |
-| **ロールバック判断基準** | (a) 4-a で silent drop > 0 件 → 旧 handler 継続、新 handler 修正 (b) 4-b でエラー率 > 1% / 顧客 inquiry > 3 件 → `STRIPE_WEBHOOK_SHADOW_MODE=true` で 4-a 状態に即時戻し + Stripe Dashboard で旧 destination 再有効化 (c) 4-c で DB inconsistency 検出 → 旧 destination un-delete (Stripe 公式 archive 解除) + コード revert |
+| **AC** | (a) 同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 「購読 event SSOT」ブロックの 5 event 全種を受信 + DB に `handler_result='success'` 物理確認 (新規購入経路 = `checkout.session.completed` を含む) (c) `npm run pre-ready -- --pr <step4-pr>` PASS |
 | **kill switch** | 無し (#4128 で撤去)。受信口を落とす kill switch は「課金 event を捨てる switch」でしかないため持たない。障害時は Stripe Dashboard 側で destination を無効化し、再送 (3 日) で復旧させる |
-| **Stripe Dashboard 同期** | **4-a 前**: Test mode で新 Webhook destination 作成 (disabled)。**4-b**: Production mode で新 destination 有効化 + 旧 destination disabled。**4-c**: 旧 destination delete |
+| **Stripe Dashboard 同期** | Production mode で Webhook destination 作成 (PO #2627 領域 F) |
+| **将来の apiVersion bump 時** | **Phase 5 子 1 #2644 §4.4 副次制約 4 (Webhook destination api_version immutable)** により、既存 destination の api_version は変更不可。新 destination を**同一 URL** (`/api/stripe/webhook`) に向けて新 api_version で作成し、旧 destination を無効化する (route を増やさない)。並行到達期間の重複は insert-first dedup が吸収する |
 | **前提 PR** | Step 1 + Step 2 + Step 3 マージ済 + Stripe Dashboard Production mode 構築完了 (PO #2627) |
 
-#### 購読 event SSOT (Step 4-b Dashboard 設定 / AC (b) の対象集合)
+#### 購読 event SSOT (Step 4 Dashboard 設定 / AC (b) の対象集合)
 
 実装の `dispatchWebhookEvent` の `case` と同一集合。Phase 5 子 1 §4.3 のブロックと一致する:
 
@@ -234,16 +230,14 @@ gantt
     Step 1 DB migration          :s1, 2026-06-01, 3d
     Step 2 atom 統合 5 step       :s2, after s1, 5d
     Step 3 lookup_key 移行       :s3, after s2, 5d
-    Step 4-a shadow mode         :s4a, after s3, 2d
-    Step 4-a 検証 (24-48h)        :crit, s4a-verify, after s4a, 2d
-    Step 4-b cutover             :crit, s4b, after s4a-verify, 1d
-    Step 4-b 検証 (1週間 smoke)   :s4b-verify, after s4b, 7d
+    Step 4 Webhook cutover       :crit, s4b, after s3, 1d
+    Step 4 検証 (1週間 smoke)     :s4b-verify, after s4b, 7d
     Step 4-c retire              :s4c, after s4b-verify, 1d
     Step 5 旧 env var 削除        :s5, after s4c, 2d
 
     section Stripe Dashboard #2627 (PO 手動)
     A+B Test mode Product/Price/Portal     :crit, ab, 2026-06-04, 1d
-    C Test mode Webhook (disabled)          :crit, c, before s4a, 1d
+    C Test mode Webhook (disabled)          :crit, c, before s4b, 1d
     D Test mode Test clock customer         :d, 2026-06-09, 1d
     E Production Product/Price/Portal      :crit, e, before s4b, 1d
     F Production Webhook enable (cutover)   :crit, f, during s4b, 1d
@@ -255,55 +249,39 @@ gantt
 | 失敗パターン | 検出 | 対処 |
 |---|---|---|
 | A+B 未完で Step 3 マージ | Step 3 PR の Pre-Ready で `prices.list({ lookup_keys })` mock 解決成功するが、本番 staging 起動で `INVALID_LOOKUP_KEY` | Step 3 を revert、PO #2627 で A+B 完遂後再 push |
-| C 未完で Step 4-a マージ | shadow mode で event 受信 0 件、log に新 destination 反映なし | Step 4-a を `STRIPE_WEBHOOK_SHADOW_MODE=false` に切替、PO #2627 で C 完遂後 shadow mode 再有効化 |
+| C 未完で Step 4 マージ | 新 destination で event 受信 0 件 | PO #2627 で C 完遂後、新 destination を有効化 |
 | E 未完で Step 4-b マージ | Production cutover で新 lookup_key 解決失敗 (Production mode Price 不在) | Step 4-b 即時 revert (kill switch `USE_LOOKUP_KEY=false` 有効化)、PO #2627 で E 完遂後再 push |
 | F 同期遅延 (Step 4-b マージ後 Dashboard 未有効化) | 「購読 event SSOT」ブロックの 5 event が silent drop (新規購入 `checkout.session.completed` を含むため課金反映が止まる) | PO に Discord alert 通知、Dashboard で F 即時有効化 (5 分以内対応) |
 | G 早期実行 (Step 5 マージ前に旧 4 Price archive) | active subscription 顧客の請求継続失敗 (Phase 1 補強 2 Open question 4 が崩れた場合) | Stripe API で旧 4 Price un-archive (Stripe 公式 archive 解除)、Step 5 マージまで再 archive 保留 |
 
-## 5. Stripe Webhook migration 5 phase 自プロダクト転用 (§5、#2683 補強で副次制約 4 を根拠化)
+## 5. 将来の Stripe apiVersion bump 時の webhook destination 切替 (§5、#2683 補強で副次制約 4 を根拠化)
 
-Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events) の 5 phase migration パターンを本プロダクトの Phase 7 Step 4 に転用する。
+**受信口は `/api/stripe/webhook` の 1 本のみ**で、2 destination を並存させる shadow mode 方式は採用しない (#4128、§Step 4 「現状の正解」参照)。将来 SDK apiVersion を bump する際 (本 Phase 7 では現状 `'2026-04-22.dahlia'` 維持のため発動しない) の手順を本 §5 で SSOT 化する。
 
-> **#2683 補強 (2026-05-30)**: 本 5 phase migration が**強制必須**となる根拠は、Phase 5 子 1 #2644 #2683 補強で SSOT 化された**副次制約 4: Webhook destination api_version immutable** ([phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md))。Stripe API は既存 destination の api_version 変更を `400 Bad Request` で拒否するため、SDK apiVersion 変更時 (本 Phase 7 では現状 `'2026-04-22.dahlia'` 維持のため bump なし、将来の stable リリース採用時に発動) は新 destination 作成 → cutover → 旧 delete の 5 phase 必須。本 §5 は将来の apiVersion bump 時の SSOT としても機能する。
+> **#2683 補強 (2026-05-30)**: 新 destination 作成が**強制必須**となる根拠は、Phase 5 子 1 #2644 #2683 補強で SSOT 化された**副次制約 4: Webhook destination api_version immutable** ([phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md))。Stripe API は既存 destination の api_version 変更を `400 Bad Request` で拒否するため、SDK apiVersion 変更時は新 destination 作成が必須。
 
-### 5.1 5 phase の対応関係
+### 5.1 手順
 
-| Stripe 公式 phase | 本プロダクト Phase 7 step | feature flag | 期間 (目安) |
-|---|---|---|---|
-| **1. Setup** (新 endpoint route 追加) | Step 4-a の `/api/stripe/webhook-v2/+server.ts` 新規作成 | — | 1 PR (~1 day) |
-| **2. Discovery** (Stripe Dashboard で新 destination 作成) | PO #2627 領域 C (Test mode) + E (Production mode) | — | PO 手動 (~0.5 day) |
-| **3. Shadow mode** (DB write せず log のみ、24-48h 検証) | Step 4-a の `STRIPE_WEBHOOK_SHADOW_MODE=true` (log のみ + 旧 handler 継続) | `STRIPE_WEBHOOK_SHADOW_MODE=true` | 24-48h |
-| **4. Cutover** (Dual destination + idempotency cutover) | Step 4-b の `STRIPE_WEBHOOK_SHADOW_MODE=false` + Dashboard で F 有効化 | `STRIPE_WEBHOOK_SHADOW_MODE=false` | 1 PR + Dashboard 同期 (~1 day) |
-| **5. Retire** (旧 destination disable → 1 週間後 delete) | Step 4-c で旧 handler 削除 + Dashboard で旧 destination delete | — | 1 PR + Dashboard 同期 (~1 day) |
+| 手順 | 内容 |
+|---|---|
+| **1. 新 destination 作成** | Stripe Dashboard で新 destination を **同一 URL** (`/api/stripe/webhook`) に向けて新 api_version で作成 (Test mode → Production mode の順) |
+| **2. 切替** | 新 destination を有効化 + 旧 destination を無効化。並行到達期間の重複は insert-first dedup (`stripe_webhook_events`) が吸収する |
+| **3. 監視** | エラー率 / 顧客 inquiry / DB inconsistency を監視 (§8 R4 参照) |
+| **4. Retire** | 1 週間 smoke test PASS で旧 destination を delete |
 
-### 5.2 各 phase の AC + ロールバックポイント
+### 5.2 kill switch SSOT
 
-| Phase | AC | ロールバック判断基準 | kill switch 操作 |
-|---|---|---|---|
-| **1. Setup** | 新 route `/api/stripe/webhook-v2/+server.ts` が `204 No Content` を返す (handler は no-op) | route 404 / 5xx 検出 → PR revert | — |
-| **2. Discovery** | Stripe Dashboard で新 destination が `disabled` 状態で作成済 | PO 操作ミスで destination が有効化された → Dashboard で即時 disabled | — |
-| **3. Shadow mode** | 24-48h log で silent drop = 0 件確認、新 8 event 全種が log に出現 | silent drop > 0 件 → `STRIPE_WEBHOOK_SHADOW_MODE=false` で 4-a 中止 + 新 handler 修正 | `STRIPE_WEBHOOK_SHADOW_MODE=false` (4-a 中止) |
-| **4. Cutover** | エラー率 < 0.5% / 顧客 inquiry = 0 件 / DB に新 8 event 全種で `handler_result='success'` 物理確認 | エラー率 > 1% / 顧客 inquiry > 3 件 / DB inconsistency → `STRIPE_WEBHOOK_SHADOW_MODE=true` で 3 状態戻し + Dashboard で旧 destination 再有効化 | `STRIPE_WEBHOOK_SHADOW_MODE=true` (3 状態戻し) |
-| **5. Retire** | 旧 handler コード削除 + Dashboard で旧 destination delete + 1 週間 smoke test PASS | DB inconsistency 検出 (例: 古い event が retry で旧 destination に到達できなくなる) → Dashboard で旧 destination un-delete (Stripe 公式 archive 解除) + コード revert | — |
-
-### 5.3 各 phase の kill switch SSOT
-
-`.env.example` に以下 2 feature flag を SSOT として配備 (Phase 5 子 1 + 子 3 整合):
+`.env.example` に以下 feature flag を SSOT として配備 (Phase 5 子 1 整合):
 
 ```bash
-# .env.example (Phase 7 Step 3 + Step 4 で追加)
+# .env.example (Phase 7 Step 3 で追加)
 # Stripe lookup_key 解決の段階移行 (Phase 7 Step 3 / Phase 5 子 1 §3.4)
 # true (default): prices.list({ lookup_keys }) で解決
 # false (fallback): env var STRIPE_PRICE_* で直読 (kill switch)
 USE_LOOKUP_KEY=true
-
-# Stripe Webhook shadow mode (Phase 7 Step 4-a / Phase 5 子 3 §4)
-# true (Step 4-a): 新 handler は log のみ + DB write せず、旧 handler が DB write 継続
-# false (Step 4-b cutover): 新 handler が DB write、旧 handler は 200 OK + log のみ
-STRIPE_WEBHOOK_SHADOW_MODE=false
 ```
 
-`src/lib/server/stripe/config.ts` で `process.env.USE_LOOKUP_KEY` / `process.env.STRIPE_WEBHOOK_SHADOW_MODE` を読み取り、各 step で `boolean` 解釈 (`'true'` のみ true、それ以外 false)。LaunchDarkly / Unleash 等の外部 feature flag platform は **Pre-PMF 段階で導入しない** (ADR-0010 過剰防衛回避)、env var で 2 flag のみ管理する最小構成。
+`src/lib/server/stripe/config.ts` で `process.env.USE_LOOKUP_KEY` を読み取り、`boolean` 解釈 (`'true'` のみ true、それ以外 false)。LaunchDarkly / Unleash 等の外部 feature flag platform は **Pre-PMF 段階で導入しない** (ADR-0010 過剰防衛回避)、env var 1 件で最小構成。webhook 受信口自体には kill switch を持たない (§Step 4 「kill switch」参照)。
 
 ## 6. atom 統合 5 step (子 5 #2643 §6) との全体 sequence (§6)
 
@@ -327,17 +305,15 @@ flowchart TD
     S2c --> S2d[Step 2-4: PLAN_TERMS.family → .premium atom rename]
     S2d --> S2e[Step 2-5: generate-lp-labels.mjs 再生成 LP 反映]
     S2e --> S3[Step 3: lookup_key 移行<br/>+ apiVersion bump]
-    S3 --> S4[Step 4: Webhook shadow/cutover/retire]
-    S4 --> S4a[Step 4-a: shadow mode SHADOW_MODE=true]
-    S4a --> S4b[Step 4-b: cutover SHADOW_MODE=false]
-    S4b --> S4c[Step 4-c: retire 旧 destination delete]
+    S3 --> S4[Step 4: Webhook 受信口<br/>単一 destination]
+    S4 --> S4c[Step 4-c: retire 旧 destination delete]
     S4c --> S5[Step 5: 旧 env var 削除 + 旧 4 Price archive]
 
     S2a -.->|並列マージ可| S2b
     S2b -.->|並列マージ可| S2c
 
     classDef critical fill:#f9f,stroke:#333,stroke-width:2px
-    class S0c,S0f,S1,S3,S4b,S5 critical
+    class S0c,S0f,S1,S3,S4,S5 critical
 ```
 
 ### 6.2 atom 統合 5 step との競合回避
@@ -384,7 +360,7 @@ Step 2 (atom 統合 5 step、子 5 §6)
   ↓ (新 atom + 新 routes)
 Step 3 (lookup_key 移行 + apiVersion bump)
   ↓ (Stripe API SDK 経路新化)
-Step 4-a (shadow mode) → Step 4-b (cutover) → Step 4-c (retire)
+Step 4: Webhook 受信口 (単一 destination、dedup で冪等性担保)
   ↓ (Webhook handler 切替完了)
 Step 5 (旧 env var 削除 + 旧 4 Price archive)
 ```
@@ -416,7 +392,7 @@ Step 5 (旧 env var 削除 + 旧 4 Price archive)
 | R1 | Step 1 DB migration で 4 backend 同期漏れ (e2e fixture 未更新) | e2e spec で `archived_reason` NOT NULL 制約違反 | Step 1 revert (drizzle migration rollback)、子 4 §3.4 e2e fixture 同期手順を再実行 |
 | R2 | Step 2-3 rename で `LEGACY_URL_MAP` 永久リダイレクト未投入 | `tests/e2e/legacy-url-redirect.spec.ts` FAIL | Step 2-3 revert、`src/lib/server/routing/legacy-url-map.ts` entry 追加後再 push |
 | R3 | Step 3 lookup_key 解決 Stripe API 障害連発 (5xx > 10% / 1 hour) | Sentry alert / Lambda CloudWatch alarm | `USE_LOOKUP_KEY=false` で env var fallback (kill switch、Lambda env 即時切替) |
-| R4 | Step 4-b cutover でエラー率 > 1% / 顧客 inquiry > 3 件 / DB inconsistency | DataDog dashboard / 顧客 inquiry log | `STRIPE_WEBHOOK_SHADOW_MODE=true` で 3 状態戻し + Stripe Dashboard で旧 destination 再有効化 (5 phase migration §5.2 整合) |
+| R4 | 将来の apiVersion bump 時、新 destination 切替でエラー率 > 1% / 顧客 inquiry > 3 件 / DB inconsistency | DataDog dashboard / 顧客 inquiry log | Stripe Dashboard で旧 destination を再有効化 + 新 destination を無効化 (§5 手順整合) |
 | R5 | Step 5 旧 4 Price archive 後に active subscription 検出 | Stripe Dashboard subscriptions list / billing 失敗 inquiry | Stripe API で旧 4 Price un-archive (Stripe 公式 archive 解除)、Step 5 PR revert |
 
 詳細は子 5 #2656 (Phase 6 子 5) を参照 (本 docs では順序の全体図のみ)。
@@ -428,7 +404,7 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 計画書 v2 §�
 - **ADR 候補名**: 「Phase 7 統合 PR cutover シーケンスと kill switch 戦略」
 - **context**:
   - Stripe webhook migration 5 phase (setup → shadow → cutover → retire) を自プロダクトに転用
-  - feature flag (`STRIPE_WEBHOOK_SHADOW_MODE` / `USE_LOOKUP_KEY`) で kill switch 実装
+  - feature flag (`USE_LOOKUP_KEY`) で kill switch 実装
   - 72h rollback window 活用 (apiVersion bump)
 - **選択肢比較** (OSS 先調査ルール ADR-0014 整合):
   - **A. Stripe 公式 5 phase + 自前 env var kill switch** (本 PR 採用)
@@ -443,10 +419,8 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 計画書 v2 §�
 
 | # | 軸 | 論点 | 推奨案 | 状態 |
 |---|---|------|------|------|
-| 1 | **business** | Step 4-a shadow mode 検証期間は 24h or 48h?顧客 inquiry リスク vs 検証品質のトレードオフ | 48h 推奨 (Pre-PMF 課金別格 [[billing-critical-extra-caution]] 整合、検証品質優先)。weekend を挟むなら 72h | Phase 7 Step 4-a 着手時 PO 判断 |
 | 2 | **UX** | Step 5 で `USE_LOOKUP_KEY` feature flag 自体も削除?env var fallback 経路を恒久残存? | 削除推奨 (kill switch の長期残存は dead code 化、PMF 後にも必要なら別 PR で再設計)。Step 5 マージで `USE_LOOKUP_KEY` env var + fallback コード両方削除 | Phase 7 Step 5 着手時 PO 判断 |
 | 3 | **security** | Step 4 cutover 失敗時のロールバック手順を本番想定で 1 度実演 (Test mode で)?Pre-Ready 必須化? | 実演必須化推奨 (本番 cutover の dry-run、子 5 #2656 §「kill switch 実演」で SSOT 化、本 PR scope 外)。Pre-Ready チェックリストに「Test mode で kill switch 実演 PASS」を追加 | Phase 7 Step 4-a Pre-Ready 設計時に確定 |
-| 4 | **security (adversarial)** | Step 4-a shadow mode で新 handler が DB write しない設計だが、`stripe_webhook_events` dedup table への書込みは shadow mode でも実施する?しない場合、cutover 後の重複検出が機能しないリスク | shadow mode でも `stripe_webhook_events` 書込み実施推奨 (旧 handler の処理を妨げない設計、子 3 §4.1 dispatcher 入口 dedup と独立して新 handler 内で書込み)。cutover 時に dedup table の連続性を担保 | Phase 7 Step 4-a 実装時に確定 |
 | 5 | **security (adversarial)** | Step 5 で旧 env var 削除する際、CDK rollback (`cdk deploy --rollback`) でロールバック可能にするため env var 削除 PR と CDK deploy を separate するべき?同時 PR で deploy も含めるべき? | separate 推奨 (rollback 余地確保)。Step 5 を 2 PR に分割: (5-a) コード変更 + env var fallback 削除、(5-b) CDK / GitHub Secrets 撤去。5-a 完了後 1 週間 smoke test PASS で 5-b 着手 | Phase 7 Step 5 着手時 PO 判断 |
 
 ## 11. テスト計画 (§11、Phase 7 一括実行)
@@ -542,7 +516,7 @@ Phase 6 完了時に **1 件の新 ADR 起票推奨** (Phase 6 計画書 v2 §�
 
 - IEEE 1016-2009 SDD 12 viewpoints / Sommerville Software Engineering Ch.6 (HLD = Phase 5 vs LLD = Phase 6 三段階)
 - LaunchDarkly / Unleash (feature flag kill switch、本 PR では Pre-PMF 過剰防衛として不採用)
-- Vercel Rolling Releases (gradual rollout、Step 4 shadow mode → cutover に類似)
+- Vercel Rolling Releases (gradual rollout に類似)
 - Atlassian spec-first / SAFe Spike / Thoughtbot Design Spike
 
 ### 自プロダクト関連

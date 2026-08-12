@@ -173,3 +173,154 @@ test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)'
 		expect(failed).toEqual([]);
 	});
 });
+
+// #4417: モバイル幅 (320px) で横スクロールが発生しないこと。
+//
+// セットアップウィザードの step インジケータは step が 3 → 8 と増える過程 (#2140 → #2298 → #2322)
+// でモバイル幅が再検証されず、320px で 114px / 390px で 79px はみ出していた (全 10 ページ)。
+// ごほうびショップも年齢別カラム下限 (#2156、baby / preschool = 320px) が viewport 幅を
+// 上回るため 320px で 16px はみ出していた。
+//
+// いずれも「はみ出し量が減った」ではなく「0 である」ことを assert する。判定は
+// `documentElement.scrollWidth - clientWidth === 0` (横スクロール bar が出る条件そのもの)。
+//
+// 本 spec (demo Lambda config) に足す理由: /setup 配下は AUTH_MODE=local の E2E では
+// seed 済 tenant が setup 完了状態のため hooks.server.ts に redirect され描画できない。
+// AUTH_MODE=anonymous + DATA_SOURCE=demo では全 10 ページが 200 で描画されるため、
+// 既存の demo Lambda spec に判定を足す形にする (新しい CI 装置は増やさない、#4417 AC4)。
+test.describe('#4417: 320px 幅で横スクロールが発生しない', () => {
+	test.use({ viewport: { width: 320, height: 720 } });
+
+	const SETUP_PATHS = [
+		'/setup',
+		'/setup/children',
+		'/setup/questionnaire',
+		'/setup/packs',
+		'/setup/activities-defaults',
+		'/setup/rewards',
+		'/setup/rules',
+		'/setup/challenges',
+		'/setup/first-adventure',
+		'/setup/complete',
+	] as const;
+
+	/**
+	 * 横方向のはみ出し量 (px) が 0 になるまで待って assert する。
+	 *
+	 * hydration の途中では Svelte が一時的にノードを付け替えるため、その瞬間だけ数十 px の
+	 * はみ出しが観測される (実測: hydration 完了後は 0)。定常状態を見たいので `expect.poll` で
+	 * auto-retry する (`networkidle` は Playwright / 本 repo で禁止のため使わない)。
+	 */
+	async function expectNoHorizontalOverflow(
+		page: import('@playwright/test').Page,
+		label: string,
+	): Promise<void> {
+		await expect
+			.poll(
+				() =>
+					page.evaluate(
+						() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+					),
+				{ message: `${label}: 320px でのはみ出し量は 0px であること` },
+			)
+			.toBe(0);
+	}
+
+	test('セットアップウィザード 10 ページすべてで横スクロールが発生しない (AC1)', async ({
+		page,
+	}) => {
+		for (const path of SETUP_PATHS) {
+			const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
+			expect(res?.status() ?? 0, `${path} が描画できること`).toBeLessThan(400);
+			// step インジケータは全ページ共通の器。描画を待ってから測る
+			await expect(page.locator('.steps')).toBeVisible();
+			await expectNoHorizontalOverflow(page, path);
+		}
+	});
+
+	// baby / preschool は #2156 で reward card の最小幅を 320px に広げている (低年齢ほど大きく)。
+	// 320px 画面では左右 padding を引いた実効幅がそれを下回るため、min() で頭打ちにする必要がある。
+	for (const { childId, uiMode } of [
+		{ childId: '901', uiMode: 'baby' },
+		{ childId: '902', uiMode: 'preschool' },
+	] as const) {
+		test(`${uiMode}/shop で横スクロールが発生しない (AC2)`, async ({ context, page }) => {
+			await context.clearCookies();
+			await context.addCookies([
+				{ name: 'selectedChildId', value: childId, domain: 'localhost', path: '/' },
+			]);
+			const res = await page.goto(`/${uiMode}/shop`, { waitUntil: 'domcontentloaded' });
+			expect(res?.status() ?? 0).toBeLessThan(400);
+			await expect(page).toHaveURL(new RegExp(`/${uiMode}/shop`));
+			// demo fixture では baby (901) の ごほうびが 0 件のため、カード有無で待ち方を分ける。
+			// grid track のはみ出しはカードが 1 枚以上ある時だけ現れるので、preschool 側が本命の回帰検証。
+			const cards = page.locator('.reward-list > *');
+			if ((await cards.count()) > 0) await expect(cards.first()).toBeVisible();
+			await expectNoHorizontalOverflow(page, `/${uiMode}/shop`);
+		});
+	}
+});
+
+// #4417 AC3 の後追い回帰: /switch の全画面 overlay (`.login-overlay`) 表示中は背面をスクロールさせない。
+//
+// 実装は body に `parent-gate-scroll-lock` を付け、`:global(body.parent-gate-scroll-lock){overflow:hidden}`
+// で止める。class の付け外し (閉じたとき / component 破棄時) は component 層
+// (tests/unit/routes/switch-parent-gate-scroll-lock.test.ts) が担うが、**scoped style が実際に効いて
+// スクロールが止まるか**は jsdom では評価できないため、実ブラウザ側で assert する。
+//
+// 本 spec (demo Lambda config) に足す理由: overlay の本来の発火点は PIN 認証成功 → /admin ハードナビで、
+// これを回せる tests/e2e/parent-gate.spec.ts は PARENT_GATE_FORCE_ACTIVE=true でしか spec を登録せず
+// CI では 1 件も走らない。`?screenshot=all` は認証なしで overlay を決定的に描画できる既存経路 (#3089)
+// なので、#4417 の 320px 判定と同じ器に相乗りさせる (新しい CI 装置は増やさない)。
+test.describe('#4417 AC3: /switch の overlay 表示中は背面がスクロールしない', () => {
+	// 背面にスクロール可能な高さを作るため、意図的に低い viewport を使う
+	test.use({ viewport: { width: 320, height: 400 } });
+
+	/**
+	 * ユーザー操作 (ホイール) でスクロールを試し、実際に動いた量 (px) を返す。
+	 *
+	 * `window.scrollTo()` は使わない。`overflow: hidden` はユーザー操作によるスクロールだけを止め、
+	 * プログラムからの scroll は通す仕様のため、`scrollTo` では常に動いてしまい判定にならない
+	 * (実測: lock 中でも scrollY=400 になる)。顧客が体験するのはホイール / タッチ操作なのでそちらを使う。
+	 */
+	async function tryScroll(page: import('@playwright/test').Page): Promise<number> {
+		await page.mouse.move(160, 200);
+		await page.mouse.wheel(0, 400);
+		// スクロールは非同期に反映されるため 2 frame 待ってから読む (固定時間 sleep は使わない)
+		await page.evaluate(
+			() =>
+				new Promise((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))),
+				),
+		);
+		return page.evaluate(() => window.scrollY);
+	}
+
+	test('overlay 非表示時は背面がスクロールできる (対照条件 = 判定が空振りでないことの担保)', async ({
+		page,
+	}) => {
+		const res = await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+		expect(res?.status() ?? 0).toBeLessThan(400);
+		await expect(page.getByTestId('parent-gate-navigating')).toHaveCount(0);
+		await expect(page.locator('body')).not.toHaveClass(/parent-gate-scroll-lock/);
+		// ここが 0 だと下の本命 assert が「そもそも動かない画面」で緑になる (空振り) ため先に潰す
+		expect(
+			await tryScroll(page),
+			'対照条件: overlay が無ければ背面はスクロールできる',
+		).toBeGreaterThan(0);
+	});
+
+	test('overlay 表示中は body が overflow:hidden になり背面が動かない', async ({ page }) => {
+		const res = await page.goto('/switch?screenshot=all', { waitUntil: 'domcontentloaded' });
+		expect(res?.status() ?? 0).toBeLessThan(400);
+		await expect(page.getByTestId('parent-gate-navigating')).toBeVisible();
+
+		await expect(page.locator('body')).toHaveClass(/parent-gate-scroll-lock/);
+		await expect
+			.poll(() => page.evaluate(() => getComputedStyle(document.body).overflowY), {
+				message: 'overlay 表示中は body が overflow:hidden であること',
+			})
+			.toBe('hidden');
+		expect(await tryScroll(page), 'overlay 表示中は背面が動かない').toBe(0);
+	});
+});

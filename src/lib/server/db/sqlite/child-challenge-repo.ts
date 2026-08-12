@@ -13,7 +13,7 @@
 // DB 内 autoincrement unique のため cross-tenant exploit は構造的に不能 (= 防御価値ゼロ)。よって列追加は
 // ADR-0010 Pre-PMF 過剰防衛として採らず、本コメントで非対称の根拠を明示する (#3203 QM follow-up 裁定)。
 
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import { db } from '../client';
 import { childChallenges, pointLedger } from '../schema';
@@ -278,6 +278,20 @@ export async function markCompleted(id: string, _tenantId: string): Promise<void
 	db.update(childChallenges)
 		.set({ completed: 1, completedAt: now, status: 'completed', updatedAt: now })
 		.where(eq(childChallenges.id, Number(id)))
+		.run();
+}
+
+/**
+ * #4410: 達成祝福を「見せた」ことを記録する (NULL → 現在時刻)。
+ *
+ * `celebrationShownAt IS NULL` を WHERE に含めることで**最初に見せた時刻を上書きしない**
+ * (冪等)。`updatedAt` も同条件下でのみ触るため、二重送信で行が無駄に更新されない。
+ */
+export async function markCelebrationShown(id: string, _tenantId: string): Promise<void> {
+	const now = new Date().toISOString();
+	db.update(childChallenges)
+		.set({ celebrationShownAt: now, updatedAt: now })
+		.where(and(eq(childChallenges.id, Number(id)), isNull(childChallenges.celebrationShownAt)))
 		.run();
 }
 

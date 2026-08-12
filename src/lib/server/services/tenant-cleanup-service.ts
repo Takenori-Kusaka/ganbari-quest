@@ -40,8 +40,23 @@ import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { invalidateRequestCaches } from '$lib/server/request-context';
 import { deleteChildFiles } from './child-service';
+import { getSettingsKeysToKeepDuringDeletion } from './soft-delete-keys';
 
 const repos = () => getRepos();
+
+/**
+ * #4338: 機微 settings (判定 3 キー以外) の削除に失敗したことを表す log 行の検索語。
+ *
+ * この失敗は「退会処理中なのに `pin_hash` / `session_token` が残っている」状態を意味するため、
+ * 他の best-effort 削除 (warn) と区別して error で出す。処理自体は止めない。
+ *
+ * **翌日の再実行で回復するとは限らない**。soft-delete sentinel を持つ経路
+ * (`grace-expiry` / `manual`) は `families` 行と判定材料が残るので cron が再び拾って完遂するが、
+ * free プランの即時削除 (`immediate`) は sentinel を持たず母集団に入らないため自己回復しない。
+ * 経路の区別と対処は `docs/runbooks/grace-period-deletion-operations.md` §3。
+ */
+export const SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM =
+	'[tenant-cleanup] 機微 settings の削除失敗 (認証情報が残存)';
 
 /**
  * テナント内の全子供データとファイルを削除する。
@@ -93,10 +108,24 @@ export async function deleteAllChildrenData(tenantId: string): Promise<number> {
  * checklist templates 等）もここで削除されるため、クリア後のユーザーは
  * トライアルを再度使えないか、使えてしまうかが確定する。
  *
+ * @param opts.deferSettings
+ *   #4327 / #4338: `settings` のうち **{@link getSettingsKeysToKeepDuringDeletion} の
+ *   キーだけ**を消さずに残す (それ以外はここで消す。
+ *   {@link deleteTenantSettingsExceptJudgmentKeys})。`settings` は soft-delete 判定材料
+ *   (`soft_deleted_at` / `physical_deletion_date`) と配信抑止記録
+ *   (`marketing_unsubscribed_at` 等) を保持しており、これを消した後に後続ステップが
+ *   失敗すると「`families` は残るが判定材料が無い」宙吊り行 (#4327) や
+ *   「配信停止したまま退会中の家族に販促メールが再開する」窓 (#4338) ができる。
+ *   full deletion 経路は本 flag を立て、`families` 行を消した**後**に
+ *   {@link deleteTenantSettings} を呼ぶ。
+ *
  * @returns 削除を試みた操作数（エラーを含む）
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export async function deleteTenantScopedData(tenantId: string): Promise<number> {
+export async function deleteTenantScopedData(
+	tenantId: string,
+	opts?: { deferSettings?: boolean },
+): Promise<number> {
 	let deleted = 0;
 	const r = repos();
 
@@ -195,11 +224,36 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	}
 
 	// Settings
-	try {
-		await r.settings.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] settings 削除失敗: ${String(err)}`);
+	// #4327: full deletion 経路は判定材料を最後まで残すため全削除しない。
+	// #4338: ただし**判定材料以外は今ここで消す**。全部残すと、最終ステップ失敗時の孤児に
+	// `pin_hash` / `session_token` / `questionnaire_*` が含まれてしまう。
+	if (opts?.deferSettings) {
+		try {
+			deleted += await deleteTenantSettingsExceptJudgmentKeys(tenantId);
+		} catch (err) {
+			// 本ブロックの失敗は「認証情報が残る」を意味するので、他の best-effort 削除と同じ
+			// warn には落とさない。処理は止めないが、error で必ず観測できるようにする
+			// (ADR-0006 / #4338)。
+			//
+			// 自己回復するかは経路による。**全経路に当てはまるとは書けない**:
+			//   - soft-delete sentinel を持つ経路 (`grace-expiry` / `manual`): `soft_deleted_at`
+			//     が残っている限り `findExpiredSoftDeletedTenants` の母集団に入り続けるので、
+			//     翌日の cron が同じテナントを再び拾って完遂できる (自己回復する)。
+			//   - 即時削除経路 (`immediate` = free プランの graceDays === 0): `softDeleteTenant` を
+			//     一度も通らず sentinel が無いため、cron の母集団に**永久に入らない = 自己回復しない**。
+			//     この error ログが唯一の観測点であり、手動掃除が必要になる
+			//     (`docs/runbooks/grace-period-deletion-operations.md` §3)。
+			logger.error(SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM, {
+				context: { tenantId, error: String(err) },
+			});
+		}
+	} else {
+		try {
+			await r.settings.deleteByTenantId(tenantId);
+			deleted++;
+		} catch (err) {
+			logger.warn(`[tenant-cleanup] settings 削除失敗: ${String(err)}`);
+		}
 	}
 
 	// Checklists（templates, items, logs, overrides）
@@ -371,4 +425,76 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	}
 
 	return deleted;
+}
+
+/**
+ * #4338: 物理削除の途中で、**最後まで残すべきキー以外の `settings` を全部消す**。
+ *
+ * ## なぜ「消すキーの列挙」ではないのか
+ *
+ * 消す側を列挙すると、新しい設定キーが増えたときに列挙へ足し忘れて黙って残る
+ * (#4327 と同型の silent gap をもう 1 つ作る)。**残すキーを列挙して他を全部消す**なら、
+ * 新しいキーは何もしなくても削除対象に入る。列挙の向きが逆であることが本質で、
+ * 「気を付けて足す」を要求しない形になっている。
+ *
+ * ## 何を残すのか
+ *
+ * {@link getSettingsKeysToKeepDuringDeletion} が SSOT。判定材料 (消すと再削除も復元も
+ * できない宙吊り行になる、#4327) と、マーケティングメールの配信抑止記録 (消すと、退会を
+ * 申し出て配信停止までしていた家族が翌日の lifecycle-emails cron に拾われて販促メールの
+ * 対象に戻る、#4338) の 2 種類である。どちらも `families` 削除の**後**に
+ * {@link deleteTenantSettings} が落とす。本関数はその手前で、それ以外を先に消す。
+ *
+ * ## 副作用として消えるもの
+ *
+ * `deletion_warning_sent_at` (削除予告メールの送信済フラグ) も消える。これによる
+ * 「予告メールの再送」は起こらない — 送信判定 (`shouldWarn`) が残り 1 日未満を除外しており、
+ * 本関数が動く時点 (物理削除の実行中) は残り 0 日以下だからである。
+ *
+ * ## 失敗したとき
+ *
+ * 本関数は投げる。呼び出し元 ({@link deleteTenantScopedData}) が受けて
+ * {@link SENSITIVE_SETTINGS_DELETE_FAILURE_LOG_TERM} を **error で** 出し、削除処理自体は続行する。
+ * 他の best-effort 削除と同じ warn に落とさないのは、この失敗が
+ * 「認証情報が残っている」を意味するためである。自動リトライが効くかどうかは経路による
+ * ({@link deleteTenantScopedData} の該当 catch 参照)。
+ *
+ * @returns 削除操作数 (1)
+ */
+export async function deleteTenantSettingsExceptJudgmentKeys(tenantId: string): Promise<number> {
+	await repos().settings.deleteByTenantIdExcept(tenantId, getSettingsKeysToKeepDuringDeletion());
+	return 1;
+}
+
+/**
+ * #4327: テナントの `settings` を削除する（物理削除の**最終ステップ**専用）。
+ *
+ * `settings` は soft-delete 判定材料 (`soft_deleted_at` / `physical_deletion_date`) の
+ * 置き場であり、`findExpiredSoftDeletedTenants` / `getGracePeriodStatus` はこれだけを見る。
+ * したがって `families` 行より先に消すと、途中失敗時に
+ * 「`families` / `users` / `memberships` は残るが判定材料が無い」= 再削除も復元もできない
+ * 宙吊り行ができる。`families` を消した後に本関数を呼ぶことで、その状態を構造的に作れなくする。
+ *
+ * {@link deleteTenantScopedData} 内の settings 削除 (best-effort / warn 継続) と異なり、
+ * 本関数は**失敗を投げる**。この時点で `families` は既に無く自動リトライの母集団に戻せないため、
+ * silent に握り潰さず呼び出し元の errors[] → alarm に載せて人が気付けるようにする (ADR-0006)。
+ *
+ * ## 本関数が失敗したとき残るもの (#4338)
+ *
+ * 残るのは**{@link getSettingsKeysToKeepDuringDeletion} のキーだけ**の孤児行である
+ * (判定 3 キー + 配信抑止記録 = 日時 / プラン名 / 送信回数のみ)。
+ * `pin_hash` / `session_token` / `questionnaire_*` は既に
+ * {@link deleteTenantSettingsExceptJudgmentKeys} が消しているため含まれない
+ * (`docs/runbooks/grace-period-deletion-operations.md` §3 に手動掃除の手順)。
+ */
+export async function deleteTenantSettings(tenantId: string): Promise<number> {
+	try {
+		await repos().settings.deleteByTenantId(tenantId);
+		return 1;
+	} catch (err) {
+		logger.error('[tenant-cleanup] settings 削除失敗 (tenant 行は削除済 / 手動掃除が必要)', {
+			context: { tenantId, error: String(err) },
+		});
+		throw err;
+	}
 }

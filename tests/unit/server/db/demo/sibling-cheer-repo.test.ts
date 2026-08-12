@@ -54,7 +54,9 @@ describe('demo/sibling-cheer-repo (Phase B-5b)', () => {
 	});
 
 	it('markShown / deleteByTenantId は no-op で例外を投げない', async () => {
-		await expect(siblingCheerRepo.markShown(['1', '2'], 'demo')).resolves.toBeUndefined();
+		await expect(
+			siblingCheerRepo.markShown(asChildId(902), ['1', '2'], 'demo'),
+		).resolves.toBeUndefined();
 		await expect(siblingCheerRepo.deleteByTenantId('demo')).resolves.toBeUndefined();
 	});
 });

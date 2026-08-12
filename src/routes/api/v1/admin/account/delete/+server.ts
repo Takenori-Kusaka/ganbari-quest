@@ -130,7 +130,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 
 				// free プラン: 即時物理削除（deleteOwnerOnlyAccount 内で cancelSubscription を呼ぶ）
-				const result = await deleteOwnerOnlyAccount(tenantId, identity.userId);
+				// #4338: 猶予なしの即時削除。削除記録に経路とプランを残す。
+				const result = await deleteOwnerOnlyAccount(tenantId, identity.userId, {
+					route: 'immediate',
+					planTier,
+				});
 				logger.info('[account-delete] Pattern 1 完了 (immediate deletion / free)', {
 					context: { tenantId },
 				});
@@ -189,7 +193,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 
 				// free プラン: 即時物理削除（deleteOwnerFullDelete 内で cancelSubscription を呼ぶ）
-				const result = await deleteOwnerFullDelete(tenantId, identity.userId);
+				// #4338: 猶予なしの即時削除。削除記録に経路とプランを残す。
+				const result = await deleteOwnerFullDelete(tenantId, identity.userId, {
+					route: 'immediate',
+					planTier,
+				});
 				logger.info('[account-delete] Pattern 2b 完了 (immediate deletion / free)', {
 					context: { tenantId },
 				});

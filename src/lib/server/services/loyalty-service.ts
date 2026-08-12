@@ -15,6 +15,14 @@ const KEYS = {
 	lastIncrementMonth: 'loyalty_last_increment_month',
 } as const;
 
+/**
+ * 二重加算防止キーの settings key。
+ *
+ * `/ops` の在庫監査 (#4269 ①) が「prefix 無しの旧値が残っているテナント数」を数えるために
+ * 参照する。key 文字列を監査側に書き写すと片方だけ直って数え漏らすため、ここを SSOT にする。
+ */
+export const LOYALTY_LAST_INCREMENT_MONTH_KEY = KEYS.lastIncrementMonth;
+
 // ============================================================
 // 二重加算防止キーの基準 (#4127 AC7、PO 決裁 2026-08-03)
 // ============================================================
@@ -27,6 +35,18 @@ const KEYS = {
 
 /** JST 基準の月キーであることを示す prefix。 */
 export const JST_MONTH_KEY_PREFIX = 'jst:';
+
+/**
+ * 保存値が **基準不明の旧値** (prefix 無し) か。
+ *
+ * この 1 行が「基準不明とは何か」の SSOT。加算判定 (`classifyMonthKeyMatch`) と
+ * `/ops` の滞留在庫 (#4269 ①、settings repo の `countValuesByPrefix` に
+ * `JST_MONTH_KEY_PREFIX` を渡す) が **同じ prefix** を見る。判定を 2 つに分けると、
+ * 片方だけ直って「skip されているのに在庫に出ない」状態を作る。
+ */
+export function isLegacyMonthKeyValue(stored: string): boolean {
+	return !stored.startsWith(JST_MONTH_KEY_PREFIX);
+}
 
 /** `2026-08` → `jst:2026-08`。既に prefix 付きならそのまま返す。 */
 export function toJstMonthKeyValue(monthKey: string): string {
@@ -85,7 +105,7 @@ export function classifyMonthKeyMatch(
 	currentJstKey: string,
 ): 'no-match' | 'exact' | 'ambiguous-legacy' {
 	if (!stored) return 'no-match';
-	if (stored.startsWith(JST_MONTH_KEY_PREFIX)) {
+	if (!isLegacyMonthKeyValue(stored)) {
 		return stored === currentJstKey ? 'exact' : 'no-match';
 	}
 	// 旧値 (基準不明)。当月・前月のいずれかを指しているなら加算済みの可能性があるので skip する。

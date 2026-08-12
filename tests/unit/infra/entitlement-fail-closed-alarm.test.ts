@@ -62,6 +62,8 @@ function buildOpsTemplate(opts: { withAppLogGroup: boolean }): Template {
 	const network = new NetworkStack(app, 'TestNetwork', {
 		env,
 		functionUrl: compute.functionUrl,
+		// #4280: front door shared secret (NetworkStackProps 必須)。テスト用ダミー値。
+		originVerifySecret: 'test-origin-verify-secret-0000000000000000',
 		domainName: 'ganbari-quest.com',
 		certificateArn: 'arn:aws:acm:us-east-1:000000000000:certificate/test',
 		demoFunctionUrl: compute.demoFunctionUrl,
@@ -133,10 +135,26 @@ describe('#3998 [A] entitlement fail-closed の MetricFilter / Alarm が CDK に
 		});
 	});
 
-	it('[A3] appLogGroup 未指定なら MetricFilter も Alarm も作らない (監視 cost ゼロ)', () => {
+	it('[A3] appLogGroup 未指定なら アプリ log 由来の MetricFilter も Alarm も作らない (監視 cost ゼロ)', () => {
 		const template = withoutLogGroupTemplate;
 
-		template.resourceCountIs('AWS::Logs::MetricFilter', 0);
+		// #4399 follow-up で、**転送 Lambda 自身の LogGroup** に付く MetricFilter
+		// (GanbariQuest/Ops の AlertForwardSucceeded / AlertForwardFailed) が増えた。
+		// これは appLogGroup の有無と無関係に常に存在する (転送 Lambda は必ず作られる) ため、
+		// 「MetricFilter の総数 0」では本 test の意図 (= **アプリ log 由来**の監視を作らない) を
+		// 表せなくなった。総数で緩めるのではなく、**namespace で対象を特定して 0 を主張する**
+		// (ADR-0006: assertion を弱めない — 検査対象を正確にする)。
+		const appLogDerived = Object.values(template.findResources('AWS::Logs::MetricFilter')).filter(
+			(r) =>
+				(
+					(r.Properties as { MetricTransformations?: Array<{ MetricNamespace?: string }> })
+						.MetricTransformations ?? []
+				).some((t) => t.MetricNamespace !== 'GanbariQuest/Ops'),
+		);
+		expect(
+			appLogDerived,
+			'appLogGroup 未指定なのにアプリ log 由来の MetricFilter が作られています',
+		).toHaveLength(0);
 		const alarms = template.findResources('AWS::CloudWatch::Alarm');
 		const names = Object.values(alarms).map(
 			(r) => (r.Properties as { AlarmName: string }).AlarmName,

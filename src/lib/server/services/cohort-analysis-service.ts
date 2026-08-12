@@ -4,6 +4,7 @@
 
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { shiftMonthKey, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -57,12 +58,11 @@ const MIN_FREE_COHORT_SIZE = 30;
 // ============================================================
 
 /**
- * #3449: 月境界 SSOT。Date を **UTC 月** `YYYY-MM` に変換する。cohort 鍵・月列挙・churn 判定が
- * 全て本 helper (UTC 基準) を通ることで、UTC↔ローカル混在による月境界テナント取りこぼしを防ぐ。
+ * #3449: cohort 鍵・月列挙・churn 判定は全て **UTC 月**で揃える (鍵が `createdAt` = ISO UTC のため)。
+ * 実装は暦 SSOT (`$lib/domain/date-utils`) の `utcMonthKey` 1 本。本 module では re-export のみ行い、
+ * 同じ月キー計算を持たない (#4120)。
  */
-export function utcMonthKey(d: Date): string {
-	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
+export { utcMonthKey };
 
 /**
  * テナントのサインアップ月を YYYY-MM (UTC) で返す。
@@ -178,10 +178,10 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 	// `$lib/domain/date-utils.ts` 冒頭の「SSOT 宣言」を参照 (#4015)。本 module が JST ではなく
 	// UTC を月境界に選ぶのは、鍵が createdAt (ISO UTC) 由来だからで、ops-analytics-service の
 	// getMonthKey() もこの決定に揃えている。
+	const currentMonthKey = utcMonthKey(now);
 	const targetMonths: string[] = [];
 	for (let i = monthsBack - 1; i >= 0; i--) {
-		const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-		targetMonths.push(utcMonthKey(d));
+		targetMonths.push(shiftMonthKey(currentMonthKey, -i));
 	}
 
 	// 全体メトリクス計算
@@ -192,7 +192,7 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 	const arpu = paidTenants.length > 0 ? calculateArpu(paidTenants) : 0;
 
 	// 月次解約率。#3449: 「今月」境界も UTC 基準に統一 (cohort 鍵 = UTC 月と整合)。
-	const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+	const monthStart = new Date(`${currentMonthKey}-01T00:00:00Z`);
 	// #3987: 解約は `terminated` ではなく「契約終了 (S5)」で判定する。terminated は退会済みを
 	// 意味し物理削除で families 行ごと消えるため、旧判定は恒常的に 0 を返していた。
 	const churnedThisMonth = tenants.filter((t) => {

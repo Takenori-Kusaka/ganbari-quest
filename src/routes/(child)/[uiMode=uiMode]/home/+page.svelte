@@ -1,4 +1,7 @@
 <script lang="ts">
+// cspell:ignore dismissable
+// ↑ `@zag-js/dismissable` は実在の package 名。英語としては dismissible が正しいが、
+//   参照している実装の名前なので綴りは変えない (global words には足さない = file scope)。
 import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
@@ -11,20 +14,29 @@ import {
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
-import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { formatPointValue, formatPointValueWithSign } from '$lib/domain/point-display';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
+import HabitCertificateNoticeBanner from '$lib/features/child/HabitCertificateNoticeBanner.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
 // Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
-import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { DialogFSM, type DialogType } from '$lib/features/child-home/dialog-state-machine';
+import { shouldShowHabitCertificateNotice } from '$lib/features/child-home/habit-certificate-notice';
+import { shouldShowUiModeChangeNotice } from '$lib/features/child-home/ui-mode-change-notice';
 import { getModeVariant } from '$lib/features/child-home/variants';
 import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
+import {
+	animateBalanceChange,
+	captureFlightOrigin,
+} from '$lib/features/point-flight/point-flight.svelte';
+// #4448: 獲得ぶんを結果ダイアログの数字からヘッダー残高へ飛ばし、残高をカウントアップする
+import type { FlightRect } from '$lib/features/point-flight/point-flight-plan';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
 import { setDashboardService } from '$lib/services/context';
 import { createProductionDashboardService } from '$lib/services/production/DashboardService';
@@ -67,7 +79,31 @@ const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode))
 const f = $derived(variant.features);
 
 // --- Dialog FSM: single source of truth for overlay state (#671) ---
-let fsm = $state(new DialogFSM());
+const fsm = new DialogFSM();
+
+/**
+ * #4433: FSM の `current` を描画用に mirror した `$state`。
+ *
+ * `DialogFSM` は素の class instance なので Svelte 5 の `$state` proxy が掛からず、
+ * `fsm.current` への代入は再描画を起こさない。従来は「他の `$state` が偶然更新される
+ * ついでに `{#if fsm.current === ...}` が再評価される」ことに依存しており、
+ * FSM を閉じただけのときは次の 1 枚が出なかった (#4313 は個別 flag で回避していた)。
+ *
+ * FSM を触ったら必ず `syncDialog()` を通し、**描画は本 `$state` だけを見る**。
+ */
+let currentDialog = $state<DialogType>('idle');
+function syncDialog() {
+	currentDialog = fsm.current;
+}
+/** FSM を進める操作は必ずこの 2 つを経由する (`fsm` を直接触ると描画が同期しない)。 */
+function openDialog(type: DialogType, payload?: unknown) {
+	fsm.transition(type, payload);
+	syncDialog();
+}
+function closeDialog() {
+	fsm.close();
+	syncDialog();
+}
 
 // First record special celebration (must be before celebEffect)
 let isFirstRecord = $state(false);
@@ -94,18 +130,40 @@ function dismissTutorialHint() {
 	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
 }
 
+// #4261 ③: 習慣化告知 — Push が届かない家庭でも残高が増えた理由を 1 回だけ伝える。
+// **閉じる操作を挟まない** (ADR-0012) ため、× ではなく「表示できた」時点で既読にする。
+const showHabitCertificateNotice = $derived(
+	shouldShowHabitCertificateNotice({
+		notice: data.habitCertificateNotice ?? null,
+		birthdayPending: Boolean(data.birthdayBonus),
+		isScreenshotMode,
+	}),
+);
+let habitNoticeAcknowledged = false;
+$effect(() => {
+	if (!showHabitCertificateNotice || habitNoticeAcknowledged) return;
+	habitNoticeAcknowledged = true;
+	// `keepalive` が要る: 子供は「記録して数秒で閉じる」(ADR-0012) ため、既読化が届く前に
+	// 画面遷移・タブ終了が起きる。通常の fetch はそこで中断され、**次回また同じ告知が出る**
+	// (実機で観測済)。失敗しても画面は壊さない — 届かなければ次回に再掲する (無音よりまし)。
+	fetch('?/ackHabitCertificateNotice', {
+		method: 'POST',
+		body: new FormData(),
+		keepalive: true,
+	}).catch(() => {});
+});
+
 // Sibling cheer overlay
 let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
-// #2458-B: per-child instance に flip。自身の instance の rewardClaimed と group 全完了で判定。
-const celebrationChallenge = $derived(
-	data.activeChallenges?.find(
-		(c: { allCompleted: boolean; rewardClaimed: number; childId: ChildId }) =>
-			c.allCompleted && c.childId === (data.child?.id ?? '') && c.rewardClaimed === 0,
-	) ?? null,
-);
-let showCelebration = $state(true);
+// #2458-B: per-child instance に flip。
+// #4410: 表示可否の根拠は **load 側** (`resolveCelebrationChallenge`、celebration_shown_at IS NULL)
+// に移した。旧実装は `showCelebration = $state(true)` がマウントのたび true に戻るため、ホームに
+// 入るたび全画面モーダルが割り込んでいた (ADR-0012 anti-engagement 違反)。local state は「閉じた
+// 直後に即座に消す」ためだけの一時 flag で、次の load では data 側が null を返して出なくなる。
+const celebrationChallenge = $derived(data.celebrationChallenge ?? null);
+let celebrationDismissed = $state(false);
 
 // #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
 // per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
@@ -139,6 +197,24 @@ let selectedActivity = $state<{
 
 // Baby mode: pending activity for inline form
 let pendingActivityId = $state<ActivityId | null>(null);
+
+// #4448: 結果ダイアログのポイント数字 (出発点) と、レベルアップを挟んだときの持ち越し
+let resultPointEl = $state<HTMLElement | null>(null);
+let pendingFlightOrigin: FlightRect | null = null;
+
+/**
+ * #4448: 残高を取り込みつつ、変化ぶんを `+N` / `-N` としてヘッダー残高へ飛ばす。
+ * 演出できない状況 (baby / ?screenshot / reduced-motion) では invalidateAll() だけが走る。
+ */
+async function syncBalanceWithFlight(originRect: FlightRect | null) {
+	await animateBalanceChange({
+		balanceBefore: data.balance,
+		originRect,
+		settings: ps,
+		commit: () => invalidateAll(),
+		readBalance: () => data.balance,
+	});
+}
 
 // Record result overlay
 let resultOpen = $state(false);
@@ -363,6 +439,9 @@ function startCancelCountdown(until: string) {
 }
 
 function handleResultClose() {
+	// #4448: 閉じる前に、結果ダイアログのポイント数字の座標を掴む (閉じたら要素は消える)
+	const originRect = captureFlightOrigin(resultPointEl);
+
 	if (cancelTimerId) clearInterval(cancelTimerId);
 	cancelTimerId = null;
 	resultOpen = false;
@@ -378,54 +457,71 @@ function handleResultClose() {
 
 	// レベルアップがあれば FSM 経由で表示
 	if (levelUpData) {
-		fsm.transition('levelUp', levelUpData);
+		// レベルアップ表示中は残高を更新しない (ダイアログの表示データが入れ替わるため)。
+		// 出発点だけ持ち越し、レベルアップを閉じたときにまとめて反映する。
+		pendingFlightOrigin = originRect;
+		openDialog('levelUp', levelUpData);
 	} else {
 		isFirstRecord = false;
 		resultData = null;
 		xpGainData = null;
-		invalidateAll();
+		void syncBalanceWithFlight(originRect);
 	}
 }
 
 function handleLevelUpClose() {
-	fsm.close();
+	const originRect = pendingFlightOrigin;
+	pendingFlightOrigin = null;
+	closeDialog();
 	levelUpData = null;
 	isFirstRecord = false;
 	resultData = null;
 	xpGainData = null;
-	invalidateAll();
+	void syncBalanceWithFlight(originRect);
 }
 
 function handleStampPressClose() {
-	fsm.close();
+	closeDialog();
 	invalidateAll();
+}
+
+/**
+ * #4410 AC6 (同 class 横展開): 「見せた」記録の POST を握り潰さない。
+ *
+ * 旧実装は `catch {}` で network 失敗も HTTP エラーも黙って捨てていたため、失敗すると
+ * #4410 と同じ「毎回出る」症状になり、しかも原因が観測できなかった。ここでは
+ *   (a) HTTP ステータスも失敗として扱い、(b) 1 回だけ再送し、(c) それでも駄目なら warn を残す。
+ * 最終的に失敗しても画面は壊さず次回もう一度出す (安全側 = 無音の消失より再掲、#4261 と同方針)。
+ */
+async function postShown(url: string): Promise<void> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			const res = await fetch(url, { method: 'POST' });
+			if (res.ok) return;
+		} catch {
+			// 次の attempt で再送する
+		}
+	}
+	console.warn(`[child-home] 表示済みの記録に失敗しました (次回もう一度表示されます): ${url}`);
 }
 
 async function handleMessageClose() {
 	if (data.latestMessage) {
-		try {
-			await fetch(`/api/v1/messages/${data.latestMessage.id}/shown`, { method: 'POST' });
-		} catch {
-			// ignore
-		}
+		await postShown(`/api/v1/messages/${data.latestMessage.id}/shown`);
 	}
-	fsm.close();
+	closeDialog();
 	invalidateAll();
 }
 
 async function handleRewardClose() {
 	if (data.latestReward) {
-		try {
-			await fetch(`/api/v1/special-rewards/${data.latestReward.id}/shown`, { method: 'POST' });
-		} catch {
-			// ignore
-		}
+		await postShown(`/api/v1/special-rewards/${data.latestReward.id}/shown`);
 	}
-	fsm.close();
+	closeDialog();
 }
 
 function handleAdventureClose() {
-	fsm.close();
+	closeDialog();
 	triggerLoginBonus();
 }
 
@@ -445,7 +541,28 @@ function triggerLoginBonus() {
 }
 
 function handleBirthdayOpen() {
-	fsm.transition('birthday', data.birthdayBonus);
+	openDialog('birthday', data.birthdayBonus);
+}
+
+// #4313: 年齢帯 UI 切替の告知を閉じる。閉じた時点で server 側の pending notice を既読化し、
+// 以後どの日に再ログインしても再表示されない (ADR-0012: 1 回で終わる)。
+// × / Esc / ボタンのどれで閉じても呼ばれ得るため、既読化は 1 回だけ走らせる。
+//
+// `DialogFSM` は素の class instance で `$state` proxy が効かないため、`fsm.current` の
+// 変化は OverlaysSection まで伝播しない。「同時に 1 枚」の arbitration は FSM に任せ、
+// **描画用の開閉は本 $state が持つ** (FSM が uiModeChange を current にできたときだけ true)。
+let uiModeChangeOpen = $state(false);
+let uiModeChangeDismissed = $state(false);
+async function handleUiModeChangeClose() {
+	uiModeChangeOpen = false;
+	closeDialog();
+	if (uiModeChangeDismissed) return;
+	uiModeChangeDismissed = true;
+	try {
+		await fetch('?/dismissUiModeChangeNotice', { method: 'POST', body: new FormData() });
+	} catch {
+		// 既読化に失敗しても画面は閉じる。次回ログインで再度表示される（安全側）。
+	}
 }
 
 // #1757 (#1709-C): 「今日のおやくそく」全達成 bonus が**この load で初回付与された**ときだけ
@@ -477,15 +594,53 @@ $effect(() => {
 	const shouldShowReward = data.latestReward && !bonusClaiming;
 	const shouldShowMessage = f.showParentMessages && data.latestMessage;
 
+	// #4313: 誕生日で年齢帯 UI が切り替わったことの告知。
+	// 誕生日ボーナスが未受取の回では出さない (ADR-0012: ダイアログを 2 枚連続で見せない)。
+	// notice は既読化されず server に残るため、次回ログインで単独表示される。
+	const shouldShowUiModeChange = shouldShowUiModeChangeNotice({
+		notice: data.uiModeChangeNotice ?? null,
+		birthdayPending: Boolean(data.birthdayBonus),
+		isScreenshotMode,
+	});
+
+	// #4433: 達成祝福も FSM の arbitration に載せる。従来は FSM の外で
+	// `{#if celebrationChallenge}` だけを見て描画していたため、ログインボーナス
+	// (`stampPress`) と**同時に開く**ことがあった。Ark UI (zag-js) の dismissable-layer は
+	// 「最後に開いた layer」以外を `pointer-events: none` にするので、後から開いた
+	// ログインボーナスに祝福の click が吸われ、子供が祝福を閉じられなくなっていた
+	// (z-index では解決しない。docs/DESIGN.md §10「侵襲的演出を重ねない」)。
+	const shouldShowCelebration = f.showSiblingFeatures && celebrationChallenge;
+	// 兄弟の応援 overlay も同じ class の defect (FSM 外で開くため祝福と重なりうる) なので
+	// 同時に arbitration へ載せる (ADR-0061: 同 class は 1 件目で guard 化する)。
+	const shouldShowCheer =
+		!isScreenshotMode &&
+		f.showSiblingFeatures &&
+		showCheerOverlay &&
+		data.unshownCheers &&
+		data.unshownCheers.length > 0;
+
 	fsm.onDataLoad({
 		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
 		specialReward: shouldShowReward ? data.latestReward : undefined,
 		parentMessage: shouldShowMessage ? data.latestMessage : undefined,
+		uiModeChange: shouldShowUiModeChange ? data.uiModeChangeNotice : undefined,
+		siblingCheer: shouldShowCheer ? data.unshownCheers : undefined,
+		celebration: shouldShowCelebration ? celebrationChallenge : undefined,
 		// birthday は自動トリガーから除外 — バナークリック(handleBirthdayOpen)でのみ開く
 	});
+	syncDialog();
+
+	// FSM が uiModeChange を current にできたときだけ描画する (他ダイアログが出る回は queue
+	// に入るだけで表示しない = 2 枚連続演出を作らない、ADR-0012)。既読化済みなら再表示しない。
+	// `currentDialog` ではなく `fsm.current` を読む: 本 $effect は `syncDialog()` で
+	// `currentDialog` を **書く** ため、ここで読むと自己依存になって再実行が連鎖しうる。
+	// FSM 側は非リアクティブなので読んでも依存に入らない。
+	if (!uiModeChangeDismissed) {
+		uiModeChangeOpen = fsm.current === 'uiModeChange';
+	}
 
 	// If adventure is not showing and login bonus unclaimed, trigger it
-	// Note: use shouldShowAdventure (not fsm.current) to avoid circular $effect dependency
+	// Note: use shouldShowAdventure (not currentDialog) to avoid circular $effect dependency
 	if (
 		!shouldShowAdventure &&
 		data.loginBonusStatus &&
@@ -607,7 +762,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{/if}
 
 	<!-- Login stamp auto-claim form (hidden) — unified bonus + stamp -->
-	{#if bonusClaiming && fsm.current !== 'stampPress'}
+	{#if bonusClaiming && currentDialog !== 'stampPress'}
 		<form
 			method="POST"
 			action="?/loginStamp"
@@ -631,7 +786,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 							cardEntries: cardData?.entries ?? [],
 							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
 						};
-						fsm.transition('stampPress', stampPressData);
+						openDialog('stampPress', stampPressData);
 					}
 					bonusClaiming = false;
 				};
@@ -641,6 +796,13 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			<Button type="submit" id="claim-bonus-btn" variant="ghost" size="sm">claim</Button>
 		</form>
 	{/if}
+
+	<!-- #4261 ③: 習慣化告知 (次回起動で 1 回だけ / 閉じる操作なし) -->
+	<HabitCertificateNoticeBanner
+		visible={showHabitCertificateNotice}
+		uiMode={data.uiMode as Exclude<UiMode, 'baby'>}
+		amount={formatPointValue(data.habitCertificateNotice?.points ?? 0, ps.mode, ps.currency, ps.rate)}
+	/>
 
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
@@ -846,7 +1008,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 						cancelledMessage = false;
 						resultOpen = false;
 						resultData = null;
-						invalidateAll();
+						// #4448: 取り消しで戻ったぶんも `-N` として残高につなぐ (出発点は残高の少し下)
+						void syncBalanceWithFlight(null);
 					}}
 				>
 					{CHILD_HOME_LABELS.resultCancelledClose}
@@ -861,7 +1024,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				{:else}
 					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
 				{/if}
-				<div class="animate-point-pop">
+				<!-- #4448: この数字がヘッダー残高へ飛ぶ (出発点) -->
+				<div class="animate-point-pop" bind:this={resultPointEl} data-testid="result-point-value">
 					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
 				</div>
 				{#if resultData.streakDays >= 2}
@@ -968,7 +1132,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 </Dialog>
 
 <OverlaysSection
-	{fsm}
+	current={currentDialog}
 	{levelUpData}
 	onLevelUpClose={handleLevelUpClose}
 	latestReward={data.latestReward}
@@ -976,13 +1140,16 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	{stampPressData}
 	onStampPressClose={handleStampPressClose}
 	birthdayBonus={data.birthdayBonus}
-	onBirthdayClose={() => fsm.close()}
+	onBirthdayClose={() => closeDialog()}
+	uiModeChangeNotice={data.uiModeChangeNotice ?? null}
+	{uiModeChangeOpen}
+	onUiModeChangeClose={handleUiModeChangeClose}
 	nickname={data.child?.nickname ?? ''}
 	uiMode={data.uiMode}
 />
 
 <!-- Adventure start overlay (first-time users, non-baby) -->
-{#if f.showAdventureStart && data.isFirstTime && fsm.current === 'adventure'}
+{#if f.showAdventureStart && data.isFirstTime && currentDialog === 'adventure'}
 	<AdventureStartOverlay
 		open={true}
 		childName={data.child?.nickname ?? ''}
@@ -992,7 +1159,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 
 <!-- Parent message overlay (non-baby) -->
 <!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (FSM-gated だが安全側で抑止) -->
-{#if !isScreenshotMode && f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
+{#if !isScreenshotMode && f.showParentMessages && data.latestMessage && currentDialog === 'parentMessage'}
 	<ParentMessageOverlay
 		open={true}
 		messageType={data.latestMessage.messageType}
@@ -1003,24 +1170,31 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 {/if}
 
-<!-- Sibling celebration (all siblings complete, non-baby) -->
-{#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
+<!--
+	Sibling celebration (all siblings complete, non-baby)
+	#4433: FSM が current にした回だけ描画する。ログインボーナス等と同時に開くと、
+	後から開いた側に click を吸われて子供が祝福を閉じられなくなる (DESIGN.md §10)。
+	他の演出が出ている回は queue に入り、それを閉じた時点で本祝福が出る。
+-->
+{#if f.showSiblingFeatures && !celebrationDismissed && celebrationChallenge && currentDialog === 'celebration'}
 	<SiblingCelebration
+		challengeId={celebrationChallenge.id}
 		challengeTitle={celebrationChallenge.title}
+		showClaimHint={celebrationChallenge.rewardClaimed === 0}
 		siblings={celebrationChallenge.siblings.map((s: { childId: ChildId; completed: number }) => ({
 			name: data.allChildren?.find((c: { id: ChildId }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,
 		}))}
-		onDismiss={() => { showCelebration = false; }}
+		onDismiss={() => { celebrationDismissed = true; closeDialog(); }}
 	/>
 {/if}
 
 <!-- Sibling cheer overlay (non-baby) -->
 <!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
-{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
+{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0 && currentDialog === 'siblingCheer'}
 	<SiblingCheerOverlay
 		cheers={data.unshownCheers}
-		onDismiss={() => { showCheerOverlay = false; }}
+		onDismiss={() => { showCheerOverlay = false; closeDialog(); }}
 	/>
 {/if}
 

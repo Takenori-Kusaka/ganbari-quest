@@ -180,19 +180,20 @@
 
 **Cron ジョブ一覧 (#1376):**
 
-スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 8 ジョブと 1:1 で対応する。
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 9 ジョブと 1:1 で対応する。
 「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
 「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
-NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 8 ジョブを node-cron で直接駆動するため、
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 9 ジョブを node-cron で直接駆動するため、
 EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 | ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
 |---------|-----------------|---------|:-:|:-:|----------|
 | retention-cleanup | `cron(0 16 * * ? *)` | 毎日 01:00 | ✓ | ✓ | 保存期間超過データの自動削除バッチ (#717 / #729) |
 | trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
-| age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✗ | ✗ | 子供の年齢自動インクリメント (#1381)。**AWS EventBridge / dispatcher 未登録のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (`schedule-consistency.test.ts` で既知 drift として明示) |
+| age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✓ | ✓ | 子供の年齢自動インクリメント (#1381) |
 | lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
-| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。**dispatcher には登録済だが AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。解約後の猶予期間 (プラン別保持期間) を過ぎたソフト削除済テナントを物理削除する。**EventBridge Rule は現在作成していない** — 第 21 回統合 (#4304) で #4327 の 4 条件 (予告なし / 観測不能 / 停止不能 / 復旧不能) を検出したため revert した。うち 3 条件は PR #4340 で解消済 (削除順序の是正で宙吊り行を封じ、部分失敗を HTTP 500 + 専用 alarm + Discord incident に載せ、EventBridge Rule disable と `GRACE_PERIOD_DELETION_DISABLED` env の 2 層の停止手段を持たせた)。残るのは復旧不能 (S3 versioning 無し・DSQL は cluster 単位 7 日のみ、#4338 で判断)。復活は dry-run の件数を出してオーナーが再有効化を承認してから。dispatcher の KNOWN_ENDPOINTS には残す (Rule が無ければ発火しないため無害で、復活時の追従漏れを防ぐ)。運用 SSOT: [`docs/runbooks/grace-period-deletion-operations.md`](../runbooks/grace-period-deletion-operations.md) |
+| deletion-warning-emails | `cron(0 1 * * ? *)` | 毎日 10:00 | ✓ | ✓ | アカウント削除予告メール (#2399, `deletion-warning-service.ts`)。猶予期間中のテナントの所有者へ、物理削除予定日と復元導線を 1 通だけ送る。しきい値は family = 残り 14 日 / standard = 残り 1 日 / free = 送信なし (猶予 0 日) |
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 | stripe-webhook-delivery-check | `cron(5 * * * ? *)` | 毎時 5 分 | ✓ | ✓ | Stripe webhook 未達 (沈黙) の検知バッチ (#3959, `stripe-webhook-delivery-monitor.ts`)。Stripe Events API の `pending_webhooks` 滞留と、checkout 完了に対する plan 反映有無を突き合わせ、両方成立時のみ Discord alert `stripe-webhook-undelivered` を 1 通送る。検査自体が失敗した場合は `stripe-webhook-monitor-failed` を送る (cron-dispatcher は非 2xx を throw しないため Lambda error alarm では表面化しない) |
@@ -204,7 +205,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - **registry 外の endpoint**: `/api/cron/expire-redemptions` (#1337, 30 日以上 pending の交換申請を expired に移行) は endpoint として存在するが registry / EventBridge / dispatcher いずれにも未登録のため、自動スケジュール駆動はされない (手動 / 外部呼び出し前提)。`/api/cron/pglite-backup` (#3950) も同様に registry 外で、NUC ローカルの crond (`docker-compose.yml` backup profile) が駆動する
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
-- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。registry ⊆ CDK / CDK ⊆ registry / registry ↔ dispatcher の 3 方向に加え、`src/routes/api/cron/*/+server.ts` の実 FS 列挙を母数とした網羅、および上表 (job 行 / ✓ ✗ 列 / UTC cron 式 / 件数) と code の一致を検証する。EventBridge Rule 未作成の `age-recalc` / `grace-period-deletion` は理由と追跡 Issue (#4033) を必須とする `DOCUMENTED_EXCLUSIONS` に明示登録して除外している (上表「✗」と整合)。gap が解消した除外エントリは同テストが stale として検出する
+- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。registry ⊆ CDK / CDK ⊆ registry / registry ↔ dispatcher の 3 方向に加え、`src/routes/api/cron/*/+server.ts` の実 FS 列挙を母数とした網羅、および上表 (job 行 / ✓ ✗ 列 / UTC cron 式 / 件数) と code の一致を検証する。registry に載るがスケジュール駆動しない endpoint は理由と追跡 Issue を必須とする `DOCUMENTED_EXCLUSIONS` に明示登録して除外する。gap が解消した除外エントリは同テストが stale として検出する
 
 **Cron ジョブ実行時間予算 — 30 秒 self-limiting + 持ち越し規約 (#3695):**
 
@@ -212,10 +213,11 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
 - **規約**: 処理量がデータ量 (テナント数 / pending 件数等) に比例する cron ジョブは、**1 回の実行で 30 秒予算内に処理できる分だけ処理し、残りは次回実行に持ち越す** (self-limiting)。実装は `src/lib/server/cron/time-budget.ts` の `createTimeBudget` (既定 20 秒 = 30 秒 − 認証・前処理・in-flight 完走・レスポンス直列化のヘッドルーム 10 秒) と件数上限の併用。予算超過チェックは item 間で行い、着手した item は完走させる (中断は stale 'building' 等の中途状態を量産するため)
 - **観測性**: 持ち越し発生時は件数 (`remaining` / `skipped`) を log warn + レスポンスに必ず含める (silent 持ち越し禁止、ADR-0006 整合)
-- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲)
+- **適用済**: `export-build` (`drainPendingExports`: limit 5 + stale reclaim + 時間予算。5 分毎 cron が持ち越し分を自然回収) / `grace-period-deletion` (`purgeExpiredSoftDeletedTenants`: limit 5 + 時間予算。残件は翌日実行に持ち越し — 個人情報保護法 22 条は努力義務であり 1-2 日の持ち越しは許容範囲) / `age-recalc` (`recalcAllChildrenAges`: テナント上限 200 + 時間予算。持ち越しても「同じ先頭 N 件」を繰り返さないよう、tenantId 昇順の固定スライスを実行日 (JST 暦日) の剰余で 1 つ選び `ceil(total / limit)` 日で重複なく周回する — 横断カーソルを置ける kv が無く、テナント毎カーソルは N+1 読み取りを生むため (ADR-0065)。持ち越し時は誕生日による UI モード切替が最大 1 周回分遅れるが、age は birthDate からの冪等な導出でありデータは壊れない。持ち越し件数は「ローテーションで今日の担当外」（`tenantsSkippedByRotation`、設計どおりの正常値）と「担当スライス内での予算超過による打ち切り」（`tenantsSkippedByBudget`、異常の合図）を分けて報告し、warn ログは後者のみで発火する）
 - **他ジョブ**: retention-cleanup / analytics・challenge aggregate 系もテナント数比例だが、現規模 (Pre-PMF、~100 tenants) では 30 秒内に収まる。顕在化 (CronDispatcherErrors alarm での 504 / timeout 検出) 時に本規約を同パターンで適用する
 - **代替案と発動条件**: dispatcher からの専用長時間 Lambda 直接 invoke (案 B) は関数分離 + コード配布 2 系統の運用負荷、Step Functions (案 C) は Pre-PMF 過剰 (ADR-0010) のため不採用。**self-limiting でも 1 スケジュールスパン内に消化しきれないバックログが定常化した時点** (例: export-build の pending 滞留が 1 時間超 / grace-period の持ち越しが 3 日連続) **で案 B を再検討**する
 - **新規ジョブ追加時**: `schedule-registry.ts` 冒頭の checklist に従う (本規約 + KNOWN_ENDPOINTS / CRON_JOBS 並行登録)
+- **自動リトライは「非冪等な job だけ」切る (#4327)**: 既定は Lambda 非同期呼び出しのリトライ (最大 2 回) を**維持**する。切るのは `grace-period-deletion` のみ (`compute-stack.ts` の `CRON_JOBS` に `disableRetry: true`)。理由は「途中まで削除されたテナントに purge が再走する」非冪等性で、そこだけ再送より再走回避が勝つ。**一律 0 にしてはならない** — 冪等な job ではリトライが「1 回の失敗で取りこぼす」ことへの防御として働いており、とくに `deletion-warning-emails` は送信済フラグで冪等かつ 1 度の失敗が「予告のないまま削除される」に直結し、`pmf-survey` は年 2 回起動のため 1 失敗が 6 ヶ月の欠測になる。不変条件は `tests/unit/infra/grace-period-deletion-safety.test.ts` [C1]-[C3] が固定する (切っている job が grace-period-deletion 1 本だけであることまで assert)
 
 ### 3.4 OpsStack（監視・コスト防衛）
 
@@ -293,6 +295,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - カスタムエラーレスポンス: 500/502/503/504 → S3の子供向けエラーページ
 - Price Class: PriceClass_100（北米+欧州+アジア）
 - HTTP/2 + HTTP/3
+- **アクセスログ（標準ログ = S3 直配信、#4320）**: 本番 / demo / staging の全 distribution で有効。配信先は NetworkStack の `AccessLogsBucket`（物理名は CFN auto-naming、prefix `cdn/` = 本番 / `demo-cdn/` = demo）。**保管 3 日**の lifecycle expiration で自動削除し、cookie は記録しない。リアルタイムログ（Kinesis 課金）と分析基盤（Athena 等）は作らない。仕様・プライバシー上の位置づけ・盲点（Function URL 直叩きは記録されない）の SSOT は `docs/design/14-セキュリティ設計書.md` §9.4
 
 **メンテナンスモード:**
 - Lambda 環境変数 `MAINTENANCE_MODE=true` で切替
@@ -315,7 +318,7 @@ user-content（avatar / ZIP import 由来ファイル等、attacker が content-
 ##### cache TTL の content-type 残存リスク評価（AC1）
 
 - **現行 behavior 実態**: user-content 経路（`/tenants/*` / `/uploads/*`）は専用 behavior を持たず **default behavior に fall-through** する。default behavior の cache policy は **`CACHING_DISABLED`**（min/max/default TTL = 0）であり、**CloudFront エッジは user-content レスポンスを一切 cache しない**。従って「ヘッダ適用前の旧レスポンスが CDN で TTL 期間中 stale な content-type / `Content-Disposition` を保持し、他ユーザーへ配信される」共有 cache poisoning は**構造的に発生しない**。`X-Content-Type-Options: nosniff` は default behavior の `ResponseHeadersPolicy.SECURITY_HEADERS`（CloudFront マネージド）で常に付与され、`Content-Disposition` は Lambda origin（`safeContentDisposition()`）が付与する。
-- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: public, max-age=31536000, immutable` を付与するため **browser 側は 1 年 cache** する。ただし (a) storage key は content-suffix / tenant path 込みで実質 immutable（同一 URL で content-type が変わる再 upload は起きない）、(b) browser が cache するレスポンス自体が既に `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。よって browser cache 由来の残存は per-user かつ防御ヘッダ付きで、リスクは低い（immutable 指定は配信性能のための意図的設計）。
+- **browser cache の扱い**: origin（Lambda）は user-content に `Cache-Control: private, …`（`safeCacheControl()`）を付与する。**`public` は付けない** — user-content は認証 + tenant 一致（§5.2.1）を通してから返す子供の顔写真であり、`public` は CloudFront・中間 proxy などの共有キャッシュに「誰にでも配ってよい」と伝えるディレクティブだからである（現行 behavior が `CACHING_DISABLED` で実害が出ていないことは、`public` を付けてよい根拠にはならない。behavior 追加 1 回で成立する）。`private` でも browser の private cache は効くため配信性能は落ちない。`immutable`（1 年）を付けるのは **URL が内容と 1:1 のキーだけ**: `avatarKey` / `voiceKey`（uuid）と `generatedImageKey`（prompt hash）は該当するが、`placeholderAvatarKey`（childId ごとの固定名 `placeholder.svg`、#4413）は**同じ URL の中身が差し替わる**ため短命 `max-age` にする（1 年 immutable だと仮アバターを再生成しても browser が古い画像を出し続ける）。browser が cache するレスポンス自体が `nosniff` + `Content-Disposition` を持つため、cache されても防御ヘッダごと保持される。
 - **結論（現状は変更不要 / 将来の必須要件）**: 現構成（user-content = `CACHING_DISABLED` の default behavior）は cache TTL 残存リスクを構造的に回避済のため、**cache invalidation / Vary 戦略 / cache TTL の見直しは現時点で不要**。将来 user-content を cache する behavior（短 TTL でも）へ移す場合は、**必ず (i) `Content-Type` / `Content-Disposition` を cache key に含める（Vary 相当）、(ii) 十分短い TTL、(iii) content 変更時の invalidation 経路**を同時に設計すること（これらを欠くと content-type 残存 = stored-XSS 再解釈のリスクが復活する）。**実 CDK（cache policy / behavior）変更は staging smoke test を要するため本 slice では行わず、上記を将来要件として明文化するに留める**（現状は防御が成立しているため実変更不要）。
 
 ##### S3 直配信 behavior の bypass 防御（AC3）
@@ -547,7 +550,11 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 4 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
 
 - **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
-- **ORIGIN 解決**: Function URL は synth 時未確定（自己参照）のため CDK は placeholder を注入し、workflow が `get-function-url-config` で解決して jq read-modify-write で `update-function-configuration` する（health / smoke は GET のみで ORIGIN 非依存のため縮退可）。
+- **Lambda env の SSOT は CDK synth 出力 (#4352)**: staging Lambda の環境変数は、**synth 出力（`infra/cdk.out/GanbariQuestComputeStaging.template.json`）の Lambda `Environment.Variables` が唯一の SSOT**。deploy はこの集合に ORIGIN 系 3 本（`ORIGIN` / `COGNITO_CALLBACK_URL` / `COGNITO_LOGOUT_URL`、CloudFront ドメインが synth 時未確定のため deploy 後に解決）を上書きした**完全な集合で全上書き**する（`scripts/lambda-env-ssot.mjs derive` → `update-function-configuration`）。
+  - **live env を読んで merge しない**。read-modify-write すると、手で足した env が deploy のたびに正式な設定として書き直され、CDK が SSOT でなくなる。live env を読むのは CFN intrinsic（`Ref` / `Fn::ImportValue`）の値を引き継ぐためだけで、**キー集合には影響させない**。
+  - **期待 env を workflow に手で列挙しない**（列挙は必ず腐る）。同じ理由で、`--set` できるのは synth 出力に既に存在するキーのみ（それ以外は script が停止する）。
+  - **CloudFormation は out-of-band drift を戻さない**（テンプレートのプロパティが前回と同一ならリソースを触らない）。したがって「deploy が success を返した」は「env が CDK 定義に戻った」を意味しない。deploy **末尾**（PII guard / DSQL 並行検証より後）の `Lambda env drift check (staging, #4352)` step が、live env のキー集合を同じ synth 出力と突き合わせて差があれば **fail** する（出力はキー名のみ、値は出さない）。staging は上記の全上書きでキー集合が決定論的になるため `--strict`（欠落も fail）を付ける。判定 step は **1 本だけ**置く（2 本置くと基準が食い違ったときにどちらが正か決められない）。
+  - **手で `update-function-configuration` した設定を残さない**。IaC に無い env は次の deploy で除去されるが、除去されるまでの間は効き続け、staging での検証結果（例: 課金の合否判定）を誤らせる。「次の deploy で消えるから残してよい」を残置の根拠にしない。
 - **統合 PR の staging 既定 backend = 本番 backend (#3685、cutover 完遂後の恒常一致)**: 本番 cutover 完遂 (AWS=dsql / NUC=pglite) 後、統合 PR (pull_request) では **DSQL lane / PGlite lane を常時自動実行**する (`DSQL_LANE` / `PGLITE_LANE` を pull_request で 'true')。旧「pull_request では常に現行 dynamodb/sqlite lane」= 本番と staging の backend 乖離を解消し「本番構成 = staging 構成」を恒常一致させる。**AWS staging に backend の選択肢は無い** (#4224): DSQL が唯一の backend であり `ComputeStack` が `dsqlEndpoint` を無条件必須にするため、lane を off にできる入口を持たない (`workflow_dispatch` に input 無し / `DSQL_LANE` 分岐無し)。不変条件は `tests/unit/infra/staging-dsql-lane-always-on.test.ts` が守る。NUC staging の `pgliteEnabled` は同型の入口を残している。**advisory** (本 workflow 群は required check 未登録) で開始し、緑実証後に required 化を audit-manager が判断。cutover PR で「staging 既定を新 backend へ切替える」規約は本項が SSOT。
 - **責務分界 (G-PD / G-MIG)**: DSQL lane では staging Lambda が `DATA_SOURCE=dsql` で `applyLazyStartupMigrations` を通り migration 込み起動 (G-MIG) を検証する。NUC staging (§4.2 / #2872) も PGlite lane で migration 込み起動を主担保する。#2873 の中核責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
 - **コスト影響 (#3685 AC4)**: 統合 PR 毎の DSQL lane は既存 `GanbariQuestDsqlStaging` cluster (scale-to-zero) を再利用し新規作成しない。DSQL は idle 課金なし + 無料枠 10 万 DPU/月に対し検証 1 run ≈ TotalDPU 数百 (#3425 実測 233/検証日) で余裕。PGlite lane は NUC self-hosted runner 上で固定費ゼロ。統合 PR は低頻度 (release 単位) ゆえ従量も月数円未満。
@@ -665,10 +672,10 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 項目 | 内容 |
 |------|------|
 | サービス | Amazon Bedrock (Converse API) |
-| モデル | Claude Haiku 4.5 (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) |
-| 推論方式 | Cross-region inference profile |
+| モデル | Claude Haiku 4.5 (`anthropic.claude-haiku-4-5-20251001-v1:0`) |
+| 推論方式 | in-Region on-demand（base model ID）。cross-region inference profile (`us.` 接頭辞) は使わない — us-east-2 / us-west-2 でも推論されうるため、子供の活動テキストの所在を `site/privacy.html` 第 10 条の開示（us-east-1）と一致させる |
 | 構造化出力 | tool_use (function calling) でJSONスキーマ準拠の出力を保証 |
-| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可 |
+| 認証 | Lambda 実行ロールの IAM ポリシーで `bedrock:InvokeModel` を許可。Resource は当該 base model の ARN 1 本 (`arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0`) に絞り `*` にしない。`bedrock:Converse` という IAM アクションは存在せず、Converse API は `bedrock:InvokeModel` で認可される |
 
 ### モデル選定理由
 
@@ -683,14 +690,14 @@ Dockerfile.lambda        # Lambda Web Adapter用
 |---------|------|------------|
 | `activity-suggest-service.ts` | 活動名→カテゴリ・アイコン推定 | テキスト + tool_use |
 | `receipt-ocr-service.ts` | レシート画像→金額抽出 | 画像入力 + tool_use |
-| `image-service.ts` | 画像生成 | **Gemini 維持**（Bedrock に画像生成なし） |
+| `image-service.ts` | アバター / favicon の参照 | **AI 生成は #4397 で撤去**（Gemini 呼び出しなし。SaaS 側に Google の生成 AI を呼ぶ経路は残らない） |
 
 ### 環境変数
 
 | 変数 | デフォルト | 説明 |
 |------|----------|------|
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデルID |
-| `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-haiku-4-5-20251001-v1:0` | 使用モデル ID。**配布が可用性条件** — 未配布だと `isAvailable()` が false を返し AI はキーワード提案に縮退する (#4366)。AWS 本番 / staging へは `infra/lib/compute-stack.ts` が配る |
+| `BEDROCK_REGION` | `AWS_REGION` or `us-east-1` | Bedrock リージョン。AWS 本番 / staging へは `us-east-1` を明示配布する (既定値に委ねると実行環境の `AWS_REGION` 次第でずれる) |
 | `BEDROCK_DISABLED` | (未設定) | `true` でBedrock無効化（フォールバック使用） |
 
 ---

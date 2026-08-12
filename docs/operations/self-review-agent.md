@@ -41,7 +41,7 @@
 | 5 | **過去 QA 指摘事前回避 (7 件)** | ADR 番号衝突 / ADR deprecation chain / copilot-instructions 同期 / todo trap / label / SS / discriminated union | 各観点の検証は `docs/sessions/qm-session.md` Tier 2 手順 5 と `docs/decisions/README.md` (ADR インベントリ + supersede 関係) を参照 |
 | 6 | **docs SSOT 原則 (#2440)** | docs 本体に変更履歴 / supersede / 経緯メタ 0 件 | `grep -rE "supersede\|以前は\|⚠ .*覆\|変更履歴" docs/<新ファイル>` |
 | 7 | **SOLID 違反** | DIP (ORM 直呼び) / SRP (1 関数全責) / ISP (巨大 interface) | コードレビュー (Read tool) |
-| 8 | **場当たり対応** | hex 直書き / `<button>` 直書き / labels ハードコード | `stylelint` / `check-no-plan-literals.mjs` / `check-hardcoded-strings.mjs` |
+| 8 | **場当たり対応** | hex 直書き / `<button>` 直書き / labels ハードコード | `stylelint` / `check-no-plan-literals.mjs`（`check-hardcoded-strings.mjs` は #4322 で削除済み。機械強制は無い、レビューで担保する、#4420） |
 | 9 | **AC 検証マップ完備 (ADR-0004)** | PR body の AC 表 全行埋まる + Issue AC と一致 | `check-pr-body.mjs` |
 | 10 | **PR body 必須セクション** | 顧客価値・目的 / AC / やらないこと / 横展開 / レビュー依頼 / 破壊的変更 / 配布済み env / Ready チェックリスト / QM 結果 | `check-pr-body.mjs` |
 | 11 | **禁止語回避** | follow-up / 予定 / TODO / 別途 / autodocs (todo trap) | `check-pr-body.mjs` |
@@ -80,7 +80,8 @@ verdict table には「false PASS 主張ゼロを目視確認済」を明記す�
 
 | 観点群 | 機械化 | 担う既存 gate |
 |---|---|---|
-| #1 破綻なし / #4 Storybook / #8 場当たり禁止 / #9 AC マップ / #10 必須セクション / #11 禁止語 | 完全機械化（充足済み） | pre-ready Step1-3 + CI lint-and-test / `test:storybook` CI / stylelint + `check-no-plan-literals.mjs` + `check-hardcoded-strings.mjs` / `check-pr-body.mjs`（pre-ready Step9・pre-push・CI gate の 3 層） |
+| #1 破綻なし / #4 Storybook / #9 AC マップ / #10 必須セクション / #11 禁止語 | 完全機械化（充足済み） | pre-ready Step1-3 + CI lint-and-test / `test:storybook` CI / `check-pr-body.mjs`（pre-ready Step9・pre-push・CI gate の 3 層） |
+| #8 場当たり禁止 | 部分機械化（`check-hardcoded-strings.mjs` は #4322 で削除済み、#4420） | stylelint + `check-no-plan-literals.mjs`（labels ハードコードの検出は無く、レビューで担保する） |
 | #6 docs SSOT（履歴メタ 0 件） | 機械化可・未 gate | grep 手動（gate 化は #2440 棚卸 Phase 4 で ratchet 化判断） |
 | #2 テスト十分性 / #5 過去指摘 / #12 label / #13 並行実装 / #15 セキュリティ / #16 リーク / #17 性能 | 半機械（候補抽出のみ機械） | `check-test-antipatterns` + coverage ratchet / `lint:parallel` / pr-info type-label 等 — **要否・妥当性の最終判断は人/LLM**（§2.4 の証跡必須が適用される） |
 | #3 SS 期待 UX / #7 SOLID / #14 Research 適合 | 機械化不可 | 人/LLM 判断必須（証跡コマンド添付は §2.4 で強制） |

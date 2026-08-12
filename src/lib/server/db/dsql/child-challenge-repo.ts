@@ -58,6 +58,7 @@ interface ChallengeRow {
 	completed_at: string | null;
 	reward_claimed: boolean;
 	reward_claimed_at: string | null;
+	celebration_shown_at: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -66,7 +67,7 @@ const CHALLENGE_COLUMNS = sql.raw(
 	`challenge_id, child_id, title, description, challenge_type, period_type,
 	 start_date, end_date, target_config, reward_config, status, is_active,
 	 source_template_id, current_value, target_value, completed, completed_at,
-	 reward_claimed, reward_claimed_at, created_at, updated_at`,
+	 reward_claimed, reward_claimed_at, celebration_shown_at, created_at, updated_at`,
 );
 
 /** row → ChildChallenge entity (boolean→0/1、sqlite backend と同 shape)。 */
@@ -91,6 +92,7 @@ function toChallenge(row: ChallengeRow): ChildChallenge {
 		completedAt: row.completed_at,
 		rewardClaimed: row.reward_claimed ? 1 : 0,
 		rewardClaimedAt: row.reward_claimed_at,
+		celebrationShownAt: row.celebration_shown_at,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -253,6 +255,19 @@ export function createDsqlChildChallengeRepo<TTx extends SqlExecutor>(
 				UPDATE child_challenges
 				SET completed = true, status = 'completed', completed_at = now(), updated_at = now()
 				WHERE family_id = ${tenantId} AND challenge_id = ${id}
+			`);
+		},
+
+		/**
+		 * #4410: 達成祝福を「見せた」ことを記録する。
+		 * `celebration_shown_at IS NULL` 条件付き UPDATE で最初に見せた時刻を上書きしない (冪等)。
+		 */
+		async markCelebrationShown(id, tenantId) {
+			await db.execute(sql`
+				UPDATE child_challenges
+				SET celebration_shown_at = now(), updated_at = now()
+				WHERE family_id = ${tenantId} AND challenge_id = ${id}
+					AND celebration_shown_at IS NULL
 			`);
 		},
 

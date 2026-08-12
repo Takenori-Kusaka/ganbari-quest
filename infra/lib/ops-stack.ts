@@ -15,6 +15,18 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
+import {
+	OPS_ALERT_FORWARD_FAILED_LOG_TERM,
+	OPS_ALERT_FORWARD_SUCCEEDED_LOG_TERM,
+} from './ops-alert-log-terms';
+
+/**
+ * 転送そのものの観測 metric の namespace (#4399 follow-up)。
+ *
+ * アプリ由来の `GanbariQuest/Auth` などとは層が違う (通知経路の健全性であって、
+ * アプリの挙動ではない) ため分ける。
+ */
+const OPS_ALERT_FORWARD_METRIC_NAMESPACE = 'GanbariQuest/Ops';
 
 export interface OpsStackProps extends cdk.StackProps {
 	lambdaFn: lambda.Function;
@@ -59,6 +71,49 @@ export interface OpsStackProps extends cdk.StackProps {
  */
 export const ENTITLEMENT_FAIL_CLOSED_LOG_TERM = '[auth-alert] auth-entitlement-db-unavailable';
 
+/**
+ * #4363 T4: `/ops` へのアクセス拒否を数えるための log 用語 (SSOT)。
+ *
+ * `docs/design/14-セキュリティ設計書.md` §5.2.9 の再評価トリガー T4 は
+ * 「ops アカウントの認証失敗・不審ログインを 1 件でも観測したら MFA を戻す」だが、
+ * **その観測をする経路が無かった** (#4368 merge 時点)。MFA 要求を外した現在、
+ * `/ops` の防御は Cognito 認証 + ops group 所属の 2 つだけであり、
+ * 対象は全顧客の売上・コホート・コスト・PL である。
+ *
+ * `requireOpsAccess()` が拒否したときにこの用語を含む log を 1 行出し、
+ * ここで metric 化する。**値は載せない** — 誰が / どの identity かは
+ * 一切含めず「拒否が起きた」ことだけを数える (`alert.ts` の既存規約と同じ)。
+ */
+export const OPS_ACCESS_DENIED_LOG_TERM = '[auth-alert] ops-access-denied';
+
+/**
+ * #4327: 顧客データの物理削除 (grace-period-deletion cron) が**部分的に失敗**したことを表す
+ * log の検索語。
+ *
+ * SSOT は `GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM`
+ * (`src/lib/server/services/grace-period-service.ts`)。上記 entitlement 版と同じく rootDir
+ * 制約で import できないため literal で持ち、
+ * `tests/unit/infra/grace-period-deletion-safety.test.ts` が drift を機械検証する。
+ *
+ * この失敗は「途中まで消えたテナント」を意味し、放置すると顧客データが中途半端な状態で
+ * 残り続ける。dispatcher の Errors metric (endpoint が 500 を返すため発火する) だけでは
+ * どの cron が失敗したのか分からないため、専用の metric で切り分け可能にする。
+ */
+export const GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM = '[grace-period-deletion] partial failure';
+
+/**
+ * #4375 follow-up (オーナー決裁 2026-08-07): AI provider が使えない状態にあることを表す log の検索語。
+ *
+ * SSOT は `AI_PROVIDER_UNAVAILABLE_LOG_TERM` (`src/lib/server/ai/availability.ts`)。
+ * 上記 2 件と同じく rootDir 制約で import できないため literal で持ち、
+ * `tests/unit/infra/ai-provider-unavailable-alarm.test.ts` が drift を機械検証する。
+ *
+ * AI が使えない間、顧客は領収書の手入力に落ちる (有料機能が事実上死んでいる)。この経路が
+ * 無いと運営はそれに気付けない — #4366 merge 時点は log を 1 行も出さない完全な silent だった。
+ * log には理由の分類 (`not-configured` / `latched`) しか載せない — 識別子や例外本文は載せない。
+ */
+export const AI_PROVIDER_UNAVAILABLE_LOG_TERM = '[ai-alert] ai-provider-unavailable';
+
 export class OpsStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: OpsStackProps) {
 		super(scope, id, props);
@@ -73,9 +128,9 @@ export class OpsStack extends cdk.Stack {
 			displayName: 'がんばりクエスト 運用通知',
 		});
 
-		// #4189 (オーナー決裁 2026-08-03、案 B): 宛先は **Discord に寄せる**。メール
-		// subscription は張らない。転送は下記 OpsAlertForwarder が担い、alarm ごとに
-		// 出す / 出さないを `ops-alert-policy.ts` で判定する（既定は出さない）。
+		// #4189: 宛先は **Discord に寄せる**。メール subscription は張らない。転送は下記
+		// OpsAlertForwarder が担い、alarm ごとに出す / 出さないを `ops-alert-policy.ts` で
+		// 判定する（**既定は出す**。抑止は恒常発火の是正が進行中の alarm に限った例外）。
 		//
 		// `opsEmail` は DsqlStack の Budget 通知（EMAIL 固定の AWS 仕様）でまだ使うため
 		// props 自体は残すが、**本 topic には subscribe しない**。
@@ -114,6 +169,63 @@ export class OpsStack extends cdk.Stack {
 		const alarmAction = new cw_actions.SnsAction(opsTopic);
 
 		// ================================================================
+		// 1.1 転送そのものの観測 (#4399 follow-up)
+		// ================================================================
+		//
+		// #4399 で全 alarm の既定が「届ける」になったが、通知は SNS → 転送 Lambda → Discord
+		// webhook の一本道を通り、**その末端が失敗しても誰にも分からない**状態が残っていた:
+		//
+		//   - 転送 Lambda は失敗を例外にしない (上記 index.ts の判断) ため Errors metric に乗らない
+		//   - 転送 Lambda 自身を監視する alarm も無かった
+		//   - Discord webhook は channel 単位の rate limit を持つため、**16 alarm が同時に鳴る
+		//     「最も通知が必要な瞬間」に 429 が返り、その通知だけが黙って捨てられる**
+		//
+		// = #4119 / #4174 の「経路はあるのに 0 通」と同じ欠陥。log 本文を唯一の情報源として
+		// metric 化する (entitlement fail-closed #3998 / ops-access-denied #4363 と同じ手口)。
+		const forwardSucceeded = new logs.MetricFilter(this, 'OpsAlertForwardSucceededFilter', {
+			logGroup: opsAlertForwarderLogGroup,
+			filterPattern: logs.FilterPattern.literal(`"${OPS_ALERT_FORWARD_SUCCEEDED_LOG_TERM}"`),
+			metricNamespace: OPS_ALERT_FORWARD_METRIC_NAMESPACE,
+			metricName: 'AlertForwardSucceeded',
+			metricValue: '1',
+			defaultValue: 0,
+		});
+		// 成功側に alarm は付けない。これは**流入量の実測**のための metric で、
+		// オーナー決裁 2026-08-07 が一斉 ON の条件にした「初回 deploy 後 1 週間の流入量」は
+		// この metric の Sum (1 週間) で読める。dashboard も集計 script も作らない。
+		void forwardSucceeded;
+
+		const forwardFailed = new logs.MetricFilter(this, 'OpsAlertForwardFailedFilter', {
+			logGroup: opsAlertForwarderLogGroup,
+			filterPattern: logs.FilterPattern.literal(`"${OPS_ALERT_FORWARD_FAILED_LOG_TERM}"`),
+			metricNamespace: OPS_ALERT_FORWARD_METRIC_NAMESPACE,
+			metricName: 'AlertForwardFailed',
+			metricValue: '1',
+			defaultValue: 0,
+		});
+
+		// 閾値: 1 件で即発火。**1 件 = 1 通の通知が人に届かなかった**という単位であり、
+		// 「継続したら鳴らす」形にすると、単発で消えた 1 通 (それが本番障害の第一報でありうる)
+		// が観測されないまま終わる。平常時は log 自体が出ないためデータ点が無く
+		// (NOT_BREACHING)、鳴りっぱなしにはならない。
+		const forwardFailedAlarm = new cloudwatch.Alarm(this, 'OpsAlertForwardFailed', {
+			alarmName: 'ganbari-quest-ops-alert-forward-failed',
+			alarmDescription:
+				'CloudWatch アラームの Discord 転送に失敗した (通知が人に届いていない): 5分内に1件以上 (#4399 follow-up)',
+			metric: forwardFailed.metric({
+				period: cdk.Duration.minutes(5),
+				statistic: 'Sum',
+			}),
+			threshold: 1,
+			evaluationPeriods: 1,
+			datapointsToAlarm: 1,
+			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+			treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+		});
+		forwardFailedAlarm.addAlarmAction(alarmAction);
+		forwardFailedAlarm.addOkAction(alarmAction);
+
+		// ================================================================
 		// 2. CloudWatch Alarms (9 of 10 free-tier basic alarms)
 		// ================================================================
 
@@ -145,13 +257,16 @@ export class OpsStack extends cdk.Stack {
 		// P1: Lambda Duration (P99 > 10s)
 		const lambdaDuration = new cloudwatch.Alarm(this, 'LambdaDuration', {
 			alarmName: 'ganbari-quest-lambda-duration-p99',
-			alarmDescription: 'Lambda レイテンシ P99 > 10秒',
+			alarmDescription: 'Lambda レイテンシ P99 > 10秒 (10分連続)',
 			metric: props.lambdaFn.metricDuration({
 				period: cdk.Duration.minutes(5),
 				statistic: 'p99',
 			}),
 			threshold: 10_000,
-			evaluationPeriods: 1,
+			// cold start の単発スパイクで鳴らないよう 2 期間連続を要求する。
+			// 通知を止めるのではなく「何を異常と呼ぶか」を直す (ops-alert-policy.ts §既定は届ける)。
+			evaluationPeriods: 2,
+			datapointsToAlarm: 2,
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		});
 		lambdaDuration.addAlarmAction(alarmAction);
@@ -195,7 +310,7 @@ export class OpsStack extends cdk.Stack {
 		// P1: Lambda Function URL 4xx spike
 		const lambdaUrl4xx = new cloudwatch.Alarm(this, 'LambdaUrl4xx', {
 			alarmName: 'ganbari-quest-lambda-url-4xx-spike',
-			alarmDescription: 'Lambda Function URL 4xx スパイク: 5分間に50回以上',
+			alarmDescription: 'Lambda Function URL 4xx スパイク: 5分間に50回以上が10分連続',
 			metric: new cloudwatch.Metric({
 				namespace: 'AWS/Lambda',
 				metricName: 'Url4xxCount',
@@ -204,7 +319,9 @@ export class OpsStack extends cdk.Stack {
 				statistic: 'Sum',
 			}),
 			threshold: 50,
-			evaluationPeriods: 1,
+			// bot / 未認証アクセス由来の単発スパイクで鳴らないよう 2 期間連続を要求する。
+			evaluationPeriods: 2,
+			datapointsToAlarm: 2,
 			comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
 		});
 		lambdaUrl4xx.addAlarmAction(alarmAction);
@@ -283,6 +400,144 @@ export class OpsStack extends cdk.Stack {
 			});
 			entitlementFailClosedAlarm.addAlarmAction(alarmAction);
 			entitlementFailClosedAlarm.addOkAction(alarmAction);
+
+			// #4363 T4: `/ops` アクセス拒否の観測。
+			//
+			// 設計書 §5.2.9 の T4 は「認証失敗・不審ログインを 1 件でも観測したら MFA を戻す」
+			// だが、#4368 で MFA 要求を外した時点では **観測経路そのものが無かった**。
+			// トリガーは発火しようが無く、記載だけが残る状態だった。
+			//
+			// 閾値の根拠:
+			//   `/ops` は運営者しか触らない画面で、正常運用では拒否は起きない。
+			//   1 件でも「入れない誰か」が居ることは、パスワード試行か group 設定の
+			//   取り違えのどちらかを意味する。どちらも T4 が想定する「実害の兆候」である。
+			//   そこで entitlement fail-closed と同じ形 (5 分 window / 1 件閾値) を使うが、
+			//   **datapointsToAlarm は 1** にする — あちらは「継続したら障害」だが、
+			//   こちらは単発でも見に行く価値がある (誤検知しても運営者 1 人が確認するだけ)。
+			const opsAccessDenied = new logs.MetricFilter(this, 'OpsAccessDeniedFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${OPS_ACCESS_DENIED_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Auth',
+				metricName: 'OpsAccessDenied',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const opsAccessDeniedAlarm = new cloudwatch.Alarm(this, 'OpsAccessDenied', {
+				alarmName: 'ganbari-quest-ops-access-denied',
+				alarmDescription:
+					'/ops へのアクセスが拒否された: 5分内に1件以上 (#4363 T4 再評価トリガーの観測経路)',
+				metric: opsAccessDenied.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			opsAccessDeniedAlarm.addAlarmAction(alarmAction);
+			opsAccessDeniedAlarm.addOkAction(alarmAction);
+
+			// #4375 follow-up: AI provider が使えない状態の観測。
+			//
+			// 顧客には「写真ではなくシステム側の不具合で、運営が検知済み」と出す。その「検知済み」を
+			// 事実にするのがこの経路で、Discord の障害通知まで届く (オーナー決裁 2026-08-07)。
+			//
+			// 閾値の根拠:
+			//   この log は **プロセス内で理由ごとに 1 回**しか出ない (per-request で出すと
+			//   本物の異常が埋もれるため、#4366 害 c)。つまり「障害が続くほど件数が増える」
+			//   metric ではなく、Lambda コンテナが新しく立つたびに 1 件出るだけの疎な系列になる。
+			//   そのため entitlement fail-closed 側の「15 分のうち 2 window で継続」型は使えない
+			//   (低トラフィック時は 2 window 埋まらず、終日 AI が死んでいても鳴らない)。
+			//   ops-access-denied と同じ **1 件 / 1 window で即発火** (datapointsToAlarm: 1) にする。
+			//   1 件 = 少なくとも 1 世帯が「AI 読み取りが使えない」画面を見た状態であり、
+			//   単発でも見に行く価値がある。
+			//   誤検知しても運営者 1 人が CloudWatch を確認するだけで済む。
+			//   log が無い間はデータ点自体が無いため treatMissingData=NOT_BREACHING。
+			const aiProviderUnavailable = new logs.MetricFilter(this, 'AiProviderUnavailableFilter', {
+				logGroup: props.appLogGroup,
+				filterPattern: logs.FilterPattern.literal(`"${AI_PROVIDER_UNAVAILABLE_LOG_TERM}"`),
+				metricNamespace: 'GanbariQuest/Ai',
+				metricName: 'AiProviderUnavailable',
+				metricValue: '1',
+				defaultValue: 0,
+			});
+
+			const aiProviderUnavailableAlarm = new cloudwatch.Alarm(this, 'AiProviderUnavailable', {
+				alarmName: 'ganbari-quest-ai-provider-unavailable',
+				alarmDescription:
+					'AI provider が使えない状態 (未設定 / 権限なし / キー不正): 5分内に1件以上。顧客は領収書の手入力に落ちている',
+				metric: aiProviderUnavailable.metric({
+					period: cdk.Duration.minutes(5),
+					statistic: 'Sum',
+				}),
+				threshold: 1,
+				evaluationPeriods: 1,
+				datapointsToAlarm: 1,
+				comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+				treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+			});
+			aiProviderUnavailableAlarm.addAlarmAction(alarmAction);
+			// **OK action は付けない。** この信号からは復旧を推定できないため。
+			// log は latch により理由ごとにプロセス内 1 回しか出ない疎な系列で、AI が終日
+			// 死んだままでも 2 window 目以降はデータ点が無い。treatMissingData=NOT_BREACHING と
+			// 合わさると alarm は自動的に OK へ戻るので、OK action を付ければ「復旧しました」に
+			// 等しい通知が Discord に飛ぶ。運営は直ったと誤認して手を止め、顧客は使えないまま
+			// 放置される (沈黙より悪い)。しかも顧客には「運営が検知済み」と表示しているため、
+			// その約束を自ら裏切ることになる。
+			// 復旧を鳴らしたいなら、OK 遷移を流用せず **復旧を表す信号** (例: AI 呼び出しの
+			// 成功 metric) を作って別 alarm にすること。
+			// 固定: tests/unit/infra/ai-provider-unavailable-alarm.test.ts [A2b]
+
+			// P0: 顧客データ物理削除の部分失敗 (#4327)
+			//
+			// grace-period-deletion cron は「消したら戻せない」処理を 1 日 1 回走らせる。
+			// 部分失敗 (tenantsFailed > 0) は「途中まで消えたテナント」が生まれた合図であり、
+			// 気付くのが遅れるほど回復の選択肢が減る (単一テナントの復旧手段は無い —
+			// docs/runbooks/grace-period-deletion-operations.md §復旧の限界)。
+			//
+			// endpoint が 500 を返すため dispatcher の Errors metric にも乗るが、
+			// あちらは「どれかの cron が失敗した」までしか分からない。切り分けのために
+			// log 本文を情報源とする専用 metric を持つ。
+			//
+			// 閾値: 1 件で即発火。cron は 1 日 1 回のためデータ点が密には出ず、
+			// 「複数 window で継続」を待つと丸 1 日以上気付けない。log が無い間は
+			// データ点自体が無いため treatMissingData=NOT_BREACHING。
+			const gracePeriodPartialFailure = new logs.MetricFilter(
+				this,
+				'GracePeriodPartialFailureFilter',
+				{
+					logGroup: props.appLogGroup,
+					filterPattern: logs.FilterPattern.literal(`"${GRACE_PERIOD_PARTIAL_FAILURE_LOG_TERM}"`),
+					metricNamespace: 'GanbariQuest/Deletion',
+					metricName: 'GracePeriodPartialFailure',
+					metricValue: '1',
+					defaultValue: 0,
+				},
+			);
+
+			const gracePeriodPartialFailureAlarm = new cloudwatch.Alarm(
+				this,
+				'GracePeriodPartialFailure',
+				{
+					alarmName: 'ganbari-quest-grace-period-partial-failure',
+					alarmDescription:
+						'顧客データの物理削除が途中で失敗した (途中まで消えたテナントが存在する可能性) (#4327)',
+					metric: gracePeriodPartialFailure.metric({
+						period: cdk.Duration.hours(1),
+						statistic: 'Sum',
+					}),
+					threshold: 1,
+					evaluationPeriods: 1,
+					datapointsToAlarm: 1,
+					comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+					treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+				},
+			);
+			gracePeriodPartialFailureAlarm.addAlarmAction(alarmAction);
+			gracePeriodPartialFailureAlarm.addOkAction(alarmAction);
 		}
 
 		// P0: Cron Dispatcher Lambda Errors (#1376 AC6)

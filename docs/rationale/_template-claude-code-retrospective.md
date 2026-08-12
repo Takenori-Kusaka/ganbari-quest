@@ -2,13 +2,13 @@
 
 <!-- 命名規則: NN-claude-code-retrospective-YYYY-MM.md (NN は 2 桁連番、YYYY-MM は実施月) -->
 <!-- このテンプレートをコピーして使用してください。すべての "##" セクションは必須です -->
-<!-- 詳細プロセス: docs/sessions/po-session.md §「タスク 5: Claude Code 設定 6 ヶ月 retrospective プロセス (#2186)」-->
+<!-- プロセスの経緯: Issue #2186。手順は本テンプレート自身が SSOT -->
 
 ## 1. 実施情報
 
 - **実施日**: YYYY-MM-DD
 - **前回 retrospective**: NN-claude-code-retrospective-YYYY-MM.md (なければ「初回」と記載、関連 Issue #2186 と明記)
-- **次回 target date**: YYYY-MM-DD (本回 + 6 ヶ月、`docs/sessions/po-session.md` も同値で更新する)
+- **次回 target date**: YYYY-MM-DD (本回 + 6 ヶ月。本ファイルを写した retrospective 本体に記録する)
 - **実施者 / セッション**: PO + 補佐 (Claude モデル名 + version を記録: 例 Opus 4.7)
 - **きっかけ**: 定期 / インシデント起因 / モデル更新起因 のいずれか
 
@@ -114,7 +114,6 @@ ADR-0010 §7 機能完成度 checklist + 過去 Phase 累積失敗 (Push-3 #2117
   - [ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md) (Pre-PMF、§7 機能完成度 checklist)
   - `docs/decisions/README.md` (ADR 棚卸ルール、本 retrospective と同タイミング実施)
 - **影響を受ける設計書 / SSOT**:
-  - `docs/sessions/po-session.md` (target date 更新)
   - `docs/rationale/01-README.md` (rationale 一覧テーブル更新)
   - `CLAUDE.md` (ルート / 階層、観点 1-2 改訂時)
   - `.claude/skills/` / `.claude/agents/` / `.claude/settings.json` (観点 1-3 改訂時)

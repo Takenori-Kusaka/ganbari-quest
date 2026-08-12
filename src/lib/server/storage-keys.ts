@@ -23,6 +23,26 @@ export function avatarKey(tenantId: string, childId: ChildId, ext: string): stri
 	return `tenants/${tenantId}/avatars/${childId}/${randomUUID()}.${ext}`;
 }
 
+/**
+ * 仮アバターのファイル名 (拡張子を除く)。**内容が差し替わっても URL が変わらない固定名**である
+ * ことが配信側の Cache-Control 判断 (`safeCacheControl`) の入力になるため、キー生成と同じ SSOT を
+ * 共有する (ここを変えれば配信側の判断も自動で追随する)。
+ */
+export const PLACEHOLDER_AVATAR_BASENAME = 'placeholder';
+
+/**
+ * 仮アバター用キー (#4413)。
+ *
+ * 登録時に自動生成する頭文字アバター。**アップロード写真と同じ `avatars/` prefix 配下**に置く:
+ * - 子供削除時の `deleteByPrefix(childPrefix(tenantId, childId, 'avatars'))` が漏れなく回収する
+ * - AI 生成画像 (`generated/`) ではなくローカル生成なので、意味の上でも `avatars/` が正しい
+ *
+ * ファイル名は childId ごとに固定 (uuid を振らない)。再生成すれば上書きされ、孤児が増えない。
+ */
+export function placeholderAvatarKey(tenantId: string, childId: ChildId, ext: string): string {
+	return `tenants/${tenantId}/avatars/${childId}/${PLACEHOLDER_AVATAR_BASENAME}.${ext}`;
+}
+
 /** AI生成画像用キー */
 export function generatedImageKey(
 	tenantId: string,
@@ -41,6 +61,18 @@ export function voiceKey(tenantId: string, childId: ChildId, ext: string): strin
 /** ストレージキーから公開URL を生成（先頭にスラッシュ付与） */
 export function storageKeyToPublicUrl(key: string): string {
 	return `/${key}`;
+}
+
+/**
+ * 公開URL から storage key を復元（`storageKeyToPublicUrl` の逆変換）。
+ *
+ * 仮アバターの公開URL には中身の版を表す `?v=<版>` が付く (#4461)。query / fragment は
+ * 配信経路のキャッシュ制御であって key の一部ではないので落とす。付いたまま key として扱うと
+ * 実ファイルと一致せず、削除・存在判定が黙って空振りする (#4468)。
+ */
+export function publicUrlToStorageKey(publicUrl: string): string {
+	const path = publicUrl.replace(/[?#].*$/s, '');
+	return path.startsWith('/') ? path.slice(1) : path;
 }
 
 /**

@@ -89,13 +89,34 @@ export async function findUnshownCheers(
 		.map(toCheer);
 }
 
-export async function markShown(cheerIds: string[], _tenantId: string): Promise<void> {
+/**
+ * おうえんを既読にする。
+ *
+ * #4435 (逸脱 1 / 2、条件 SSOT: parallel-implementations.md §13):
+ *   - **所有権**: `to_child_id` を WHERE に含める。family_id (SQLite は単一テナント DB) だけでは
+ *     同一家族のきょうだいが「別の子宛のおうえん」を既読にでき、受け取る側が一度も見られない。
+ *     他 3 例 (`special_rewards` / `parent_messages` / `reward_redemption_requests`) と同じ
+ *     複合キー方式に揃える (#2845 課題① で sibling_cheers だけ漏れていた)。
+ *   - **冪等**: `shown_at IS NULL` を WHERE に含め、再送で「最初に見せた時刻」を上書きしない
+ *     (`postShown` / form 再送で 2 回叩かれうる)。
+ */
+export async function markShown(
+	toChildId: ChildId,
+	cheerIds: string[],
+	_tenantId: string,
+): Promise<void> {
 	if (cheerIds.length === 0) return;
 	const now = new Date().toISOString();
 	for (const id of cheerIds) {
 		db.update(siblingCheers)
 			.set({ shownAt: now })
-			.where(eq(siblingCheers.id, Number(id)))
+			.where(
+				and(
+					eq(siblingCheers.id, Number(id)),
+					eq(siblingCheers.toChildId, Number(toChildId)),
+					isNull(siblingCheers.shownAt),
+				),
+			)
 			.run();
 	}
 }

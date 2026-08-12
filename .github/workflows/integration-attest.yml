@@ -40,10 +40,12 @@ concurrency:
   cancel-in-progress: false
 
 # actions/attest の必須権限 (id-token: Sigstore OIDC / attestations: GH attestations API write)。
+# pull-requests: read は actions/pr-lane が commit author 精査 (#4445) に使う `pulls/{n}/commits` 取得用。
 permissions:
   contents: read
   id-token: write
   attestations: write
+  pull-requests: read
 
 jobs:
   attest:
@@ -247,7 +249,7 @@ jobs:
         id: attest
         if: steps.classify.outputs.is_integration == 'true'
         continue-on-error: true
-        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ github.repository }}@${{ steps.classify.outputs.merge_sha }}
           subject-digest: sha1:${{ steps.classify.outputs.merge_sha }}

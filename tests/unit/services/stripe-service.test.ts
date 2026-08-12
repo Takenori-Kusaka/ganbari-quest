@@ -897,6 +897,51 @@ describe('handleWebhookEvent', () => {
 		expect(mockUpdateTenantStripe.mock.calls[0]?.[1]).toEqual(TERMINAL_STATE);
 	});
 
+	// #4118: 上の 2 件は tenant 側の割り当てが **既にクリア済み** (deleted 適用後) の後着を見ている。
+	// その形では終端判定を外しても #4026 の突合 (現行契約と event 対象の一致) が代わりに弾くため、
+	// **終端判定そのものが効いているかは検証されていなかった** (mutation で実測)。
+	//
+	// 検証すべきは `deleted` が**まだ届いていない**間に、Stripe 上では既に canceled になった
+	// subscription の invoice event が届く形。tenant はまだ sub を持つので突合は通り、
+	// 終端判定だけが「解約済み契約を課金中/猶予中として書き戻す」のを止めている。
+	// これを落とすと、顧客の画面は課金中のまま Stripe には契約が無い状態になる。
+
+	it('#3982 — deleted 未着でも、現行 subscription が canceled なら invoice.paid は書き込まない', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
+			},
+		});
+		// tenant は sub_123 を保持したまま (deleted がまだ適用されていない)
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+
+		await handleWebhookEvent(makeProrationInvoicePaidEvent() as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
+	it('#3982 — deleted 未着でも、現行 subscription が canceled なら invoice.payment_failed は書き込まない', async () => {
+		mockGetStripeClient.mockReturnValue({
+			subscriptions: {
+				retrieve: vi
+					.fn()
+					.mockResolvedValue(makeSubscription('price_monthly_123', { status: 'canceled' })),
+			},
+		});
+		mockFindTenantById.mockResolvedValue(makeSubscribedTenant());
+		mockFindTenantByStripeCustomerId.mockResolvedValue(makeSubscribedTenant());
+
+		await handleWebhookEvent({
+			type: 'invoice.payment_failed',
+			data: { object: { parent: { subscription_details: { subscription: 'sub_123' } } } },
+		} as never);
+
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+	});
+
 	it('#3982 — 終端でない subscription (past_due) の invoice.payment_failed は従来どおり grace_period にする', async () => {
 		// 終端判定が「解約以外まで巻き込んで無効化」していないことの対照 (guard の空振り検出)
 		mockGetStripeClient.mockReturnValue({

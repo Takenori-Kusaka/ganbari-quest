@@ -443,7 +443,6 @@ describe.skipIf(!SYMLINK_OK)(
 			'check-cdk-replacement.mjs',
 			'check-gh-account-before-pr.mjs',
 			'check-cli-entry-guard.mjs',
-			'check-design-doc-sync.mjs',
 			'check-new-required-env.mjs',
 			'check-pr-screenshot.mjs',
 			'check-ac-verification-map.mjs',

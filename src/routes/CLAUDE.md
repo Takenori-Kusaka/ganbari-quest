@@ -107,7 +107,17 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 - **理由は必須**。空欄 / `TODO` / `n/a` 等の定型 stub は受理されない（理由の非強制を作らない、#3956 教訓）
 - `ss-identical-ok` は「差分が現れる条件の外で撮影したため描画が一致するのが正しい」ケース用（例: JST 00:00〜09:00 だけ日付がずれる修正を JST 日中に撮影した #4080）。**撮り直し漏れの言い訳には使わない**。宣言しても同一だったペアは出力に列挙される
 - `refactor:internal-no-doc-impact` label（視覚差分ゼロの内部 refactor 用）とは意味が違う。**顧客に見える挙動を変える PR には label を付けず、`ss-identical-ok` を使う**
-- `ss-render-impossible` は **`ss-blob-sha-uniqueness` ではなく `check-pr-screenshot.mjs`（SS embed gate / pre-ready Step 11b）** 側の宣言（#4087）。表示条件が env に依存し、撮影に使う demo 環境（`DATA_SOURCE=demo`）では出ない UI がこれに当たる。**宣言だけでは通らない — Storybook story の参照が必須**（「原理的に撮れない」は「見た目を確認しなくてよい」ではない）。実環境での確認は後続 Issue に紐付けること
+- `ss-render-impossible` は **`ss-blob-sha-uniqueness` ではなく `check-pr-screenshot.mjs`（SS embed gate / pre-ready Step 11b）** 側の宣言（#4087）。表示条件が env に依存し、撮影に使う demo 環境（`DATA_SOURCE=demo`）では出ない UI がこれに当たる。**宣言だけでは通らない — Storybook story の参照が必須**（「原理的に撮れない」は「見た目を確認しなくてよい」ではない）。story は **実在する `*.stories.svelte` のパス**で書く。タイトルだけの言及（`Features/Admin/Foo`）は実在確認ができないため受理されない（#4255）。実環境での確認は後続 Issue に紐付けること
+
+###### 「UI 変更なし」「該当なし（refactor / docs / chore）」は *宣言* として書く（#4255）
+
+この 2 つは書くと **SS 検証がまるごと skip される** opt-out。判定は **行単位**で、その行が宣言かどうかを見る。以下は宣言と見なされない（gate は skip せず SS を要求する）:
+
+- 否定文（「UI 変更なし**ではありません**」）/ 引用行（`> …`）/ コードブロック・インラインコード内
+- **未チェックの checkbox**（`- [ ] UI 変更なし`）— チェックしていない = 宣言していない
+- 手順・条件節（「UI 変更なし**の場合**: …」）
+
+**テンプレートや案内文に opt-out 宣言そのものを書かない。** テンプレートを消さずに出しただけで gate が skip されるため、案内は「何を書くか」の説明にとどめる（`tests/unit/scripts/check-pr-screenshot.test.ts` が実テンプレートを読んで検証している）。
 
 ## 局所テストコマンド (#2184)
 

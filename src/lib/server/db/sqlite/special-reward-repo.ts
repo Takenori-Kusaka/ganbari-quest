@@ -64,21 +64,29 @@ export async function findUnshownReward(
 /**
  * 特別報酬を表示済みにする。
  * #2845 課題① / B1: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ *
+ * #4435 (逸脱 2、条件 SSOT: parallel-implementations.md §13 条件 1): `shown_at IS NULL` guard で
+ * 冪等にし、再送で初回表示時刻を上書きしない。0 行になった場合は所有権を満たす行を読み直して
+ * 返す (「既に既読」と「他人の子の行」を呼び出し側の 404 判定が区別できるようにするため)。
  */
 export async function markRewardShown(
 	childId: ChildId,
 	rewardId: string,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
+	const owned = and(
+		eq(specialRewards.id, Number(rewardId)),
+		eq(specialRewards.childId, Number(childId)),
+	);
 	const row = db
 		.update(specialRewards)
 		.set({ shownAt: new Date().toISOString() })
-		.where(
-			and(eq(specialRewards.id, Number(rewardId)), eq(specialRewards.childId, Number(childId))),
-		)
+		.where(and(owned, isNull(specialRewards.shownAt)))
 		.returning()
 		.get();
-	return row ? toReward(row) : undefined;
+	if (row) return toReward(row);
+	const already = db.select().from(specialRewards).where(owned).get();
+	return already ? toReward(already) : undefined;
 }
 
 /**

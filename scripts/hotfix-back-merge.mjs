@@ -25,6 +25,14 @@ export function classifyMergedPr({ headRef, baseRef, labels = [] }) {
 	// 統合 PR (develop → main): develop は既に同期済のため back-merge 不要 (AC2 無限ループ防止)。
 	if (head === 'develop') return 'integration';
 
+	// 統合 PR (release/* → main): **develop と同期済とは限らない**。
+	// release cut 運用では cut 後に release branch 上だけで commit を積むことがあり
+	// (第 21 回統合 #4304 で監査が #4311 を revert した例)、その差分は develop に無い。
+	// head==='develop' と同じ 'integration' に落とすと back-merge が発行されず、
+	// **release でしか消していない変更が develop に残り、次の cut で復活する**。
+	// したがって back-merge 対象として扱う (#4304 adversarial obj-2)。
+	if (head.startsWith('release/')) return 'hotfix';
+
 	// hotfix: fix/* branch、または hotfix / priority:critical label 付き。
 	const hasHotfixLabel = [...labelSet].some((l) => HOTFIX_LABELS.has(l));
 	if (head.startsWith('fix/') || hasHotfixLabel) return 'hotfix';

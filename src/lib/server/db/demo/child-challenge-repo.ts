@@ -94,6 +94,7 @@ export async function insert(
 		completedAt: null,
 		rewardClaimed: 0,
 		rewardClaimedAt: null,
+		celebrationShownAt: null,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -137,6 +138,16 @@ export async function updateProgress(
 }
 
 export async function markCompleted(_id: string, _tenantId: string): Promise<void> {
+	// Stub: no-op
+}
+
+/**
+ * #4410: 達成祝福「見せた」記録。demo は write=stub (ADR-0048 stateless、fixture 非 mutate) のため
+ * 永続化しない。demo fixture の challenge は全て `completed=0` (child-home visual-regression の
+ * baseline を壊さない意図的設計、child-challenge-card-badge.spec.ts 参照) で祝福自体が発火しない
+ * ため、no-op でも demo 画面で「毎回出る」症状は発生しない。
+ */
+export async function markCelebrationShown(_id: string, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 

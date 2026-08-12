@@ -219,9 +219,9 @@ gh issue list --search "<keyword>" --state all   # 既知でないか
 | ② 顧客に見える欠陥 | 起票基準に照らす（下記） |
 | ③ 仕様の確認が要るもの | **選択肢を添えて PO / オーナー判断を仰ぐ**。勝手に②にしない |
 
-**起票基準**（`docs/sessions/po-session.md`）:
+**起票基準**（`docs/sessions/po-session.md` §「Issue を起票する基準」）:
 
-- **起票する**: 顧客の金・データ・法務に接続し、EPIC のいずれかに属する
+- **起票する**: 顧客価値の作業単位（EPIC と傘下の実装単位）、またはオーナーの手番が要るもの（不可逆 4 操作）
 - **起票しない（accepted-residual として記録）**: severity 1-2 の marginal。**Issue 化せず記録に残す**
 - **class-lock**: 同じ root class が 2 件目なら instance を N 件起票せず、**class 全体を 1 件の機械 guard で lock**（ADR-0061 原則 2）
 

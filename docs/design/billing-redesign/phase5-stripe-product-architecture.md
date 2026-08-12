@@ -120,7 +120,7 @@
 
 - Phase 7 では SDK apiVersion は `'2026-04-22.dahlia'` (現行) のまま継続。bump しない
 - Stripe 公式の次回 stable 月次リリース (例: `'2026-06-XX.dahlia'`) が出次第、別 PR で bump 判断 (72 時間 rollback window 活用 + 副次制約 4 = Webhook destination immutable の 5 phase migration 整合、Phase 6 子 1 #2667 §5 整合)
-- 月次 bump を skip しても累積 breaking change の risk は Stripe `subscription_schedule.aborted` 等の新 event 購読時のみ顕在化、Phase 7 Step 4-a shadow mode で検出可能
+- 月次 bump を skip しても累積 breaking change の risk は Stripe `subscription_schedule.aborted` 等の新 event 購読時のみ顕在化、新 destination 切替前の Test mode 手動確認で検出可能
 
 > **#2683 訂正前後の差分**: 旧 docs (PR #2644 マージ済) は `'2026-05-27.dahlia'` を Phase 5 子 1 §3.4 で確定したが、Stripe 公式 API versioning の preview / stable 区別を見落としていた。**preview は production 採用非推奨** であり、Phase 7 Step 3 で本誤りに気付き次第 rollback → 現行 stable 維持が必要だった。本 PR (#2683) で事前に訂正し、Phase 7 着手時の re-work を回避。
 
@@ -178,7 +178,7 @@ webhook 購読 event リスト (Phase 7 Dashboard 設定) — **実装の `dispa
 | 項目 | 内容 |
 |---|---|
 | **誤った想定** (本 PR 補強前) | 「SDK apiVersion bump = `client.ts` 1 行修正 + Stripe Dashboard 既存 destination の api_version を Dashboard UI で更新」(1 ステップ作業として誤認) |
-| **正しい手順** (#2683 補強で SSOT 化) | (1) Stripe Dashboard で新規 destination 作成 (新 api_version 指定) → (2) Phase 7 Step 4-a で新 endpoint route `/api/stripe/webhook-v2` を shadow mode で実装 (24-48h 検証) → (3) Step 4-b cutover (新 destination 有効化 + 旧 destination disabled) → (4) Step 4-c retire (cutover 後 1 週間 smoke test PASS で旧 destination delete) |
+| **正しい手順** (#2683 補強で SSOT 化) | (1) Stripe Dashboard で新規 destination を**同一 URL** (`/api/stripe/webhook`) に向けて新 api_version で作成 → (2) 新 destination を有効化 + 旧 destination を disabled → (3) 並行到達期間の重複は insert-first dedup が吸収 → (4) 1 週間 smoke test PASS で旧 destination を delete (受信口を増やさない、[phase6-phase7-execution-ssot.md §Step 4](phase6-phase7-execution-ssot.md) 整合) |
 | **#2683 で API version は維持判断** | 本 PR §3.4 で apiVersion = `'2026-04-22.dahlia'` 継続のため、Phase 7 では本副次制約は **次回 stable リリース (例: `'2026-06-XX.dahlia'`) 採用時の手順 SSOT** として機能 (次回 bump 時に 5 phase migration 必須) |
 | **本副次制約を見落とした場合のリスク** | apiVersion bump 時に新 destination 作成 skip → 既存 destination の api_version 旧版のまま → 新 event の field 構造変化を旧 SDK 期待値で解釈 → handler TypeError → 5 phase migration window (Phase 6 子 1 #2667 §5 整合) 喪失 |
 
@@ -188,7 +188,7 @@ webhook 購読 event リスト (Phase 7 Dashboard 設定) — **実装の `dispa
 2. Stripe API `webhookEndpoints.retrieve(endpointId)` で `api_version` field 確認 (immutable assert)
 3. 旧 destination の api_version 変更を試行 → Stripe API が `400 Bad Request` を返すことを Pre-Ready unit test で確認 (本副次制約の immutable assertion)
 
-**Phase 6 子 1 #2667 §5 Webhook 5 phase migration との整合**: 本副次制約 4 は Phase 6 子 1 で確定済の 5 phase migration (Stripe 公式 `migrate-snapshot-to-thin-events` 整合) の**直接の根拠** となる。「なぜ shadow mode → cutover → retire の 5 phase が必要か」の答えは「Webhook destination api_version が immutable だから新 destination 作成必須」である。本 PR 補強で SSOT 化することで Phase 7 実装者の誤認回避。
+**Webhook destination api_version immutable との整合**: 本副次制約 4 は「なぜ apiVersion bump 時に新 destination 作成が必須か」の直接の根拠となる。Webhook destination の api_version は immutable なため、既存 destination の更新はできず新規作成が必須である。本 PR 補強で SSOT 化することで Phase 7 実装者の誤認回避。
 
 > **#2683 補強の整合**: 本副次制約 4 は本 PR (#2683) で **新規 確定**。Phase 6 子 1 #2667 §5 Webhook 5 phase migration の実装根拠を補強する意味合いを持ち、Phase 6 子 1 SSOT との二重管理ではなく **「なぜ 5 phase migration が必須か = Stripe API 仕様」の根拠** を本 docs §4.4 で明文化する。Phase 7 Step 4 着手時に本 §4.4 を参照することで「destination 作成 skip」誤認を防ぐ。
 
@@ -278,7 +278,7 @@ webhook 購読 event リスト (Phase 7 Dashboard 設定) — **実装の `dispa
 | R6 | 旧 4 Price archive 後に active subscription が残存 → 請求継続失敗 | Phase 1 補強 2 Open question 4 で「active subscription 0 件」を PO 確定済。Phase 7 step 7 直前に再確認手順を追加 | 旧 Price un-archive (Stripe API で再有効化) |
 | ~~R7~~ (#2683 で historical 化) | ~~apiVersion bump で Stripe Webhook event の field 構造変化~~ | **API version 現行維持のため bump なし、本リスク Phase 7 では発生しない**。次回 stable リリース採用時に再評価 | n/a |
 | **R8 (新規 #2683)** | **ダウン即時 + Stripe proration credit でユーザーに過大返金または credit 残高蓄積 (Stripe `proration_behavior='always_invoice'` の標準動作だが、顧客が credit 残高を把握できない場合の信頼毀損)** | **Phase 3 hybrid confirm UI で「ダウン時の credit memo 発行額 + 次回 invoice 控除見込み額」を必ず表示 (Phase 5 子 2 #2640 §6 Preview API パターン整合)。`/admin/subscription` の請求履歴セクションで credit memo の発行・消化を顧客に可視化** | Stripe Dashboard で credit memo 手動 void (Pre-PMF active subscription 0 件のため実害なし) |
-| **R9 (新規 #2683)** | **Webhook destination api_version immutable を Phase 7 着手時に見落とす → 次回 apiVersion bump 時に既存 destination の api_version を Dashboard UI で更新試行 → Stripe API 400 → cutover blocker** | **本 PR §4.4 副次制約 4 で SSOT 化 + Phase 6 子 1 #2667 §5 Webhook 5 phase migration 整合 + Pre-Ready unit test で immutable assert (Stripe API mock で `webhookEndpoints.update({api_version})` が 400 を返すことを確認)** | 新 destination 作成 + shadow mode (Phase 6 子 1 #2667 §3 Step 4-a) で復旧 |
+| **R9 (新規 #2683)** | **Webhook destination api_version immutable を Phase 7 着手時に見落とす → 次回 apiVersion bump 時に既存 destination の api_version を Dashboard UI で更新試行 → Stripe API 400 → cutover blocker** | **本 PR §4.4 副次制約 4 で SSOT 化 + Pre-Ready unit test で immutable assert (Stripe API mock で `webhookEndpoints.update({api_version})` が 400 を返すことを確認)** | 同一 URL に向けた新 destination 作成で復旧 |
 
 ## 9. ADR 起票推奨
 

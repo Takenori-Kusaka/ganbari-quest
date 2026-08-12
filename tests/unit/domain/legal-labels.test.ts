@@ -1,8 +1,8 @@
 // tests/unit/domain/legal-labels.test.ts
 // #1638 #1590: 法的文書 SSOT 用 LEGAL_LABELS / SIGNUP_LABELS 拡張の存在検証
 //
-// scripts/check-lp-ssot.mjs で site/privacy.html / site/terms.html との
-// 文言整合は CI 検証されるが、本ユニットテストでは
+// site/privacy.html / site/terms.html との文言整合を検証する CI は無い
+// （専用 lint は #4322 で撤去済、機械強制は無い、#4482）。本ユニットテストでは
 //   - LEGAL_LABELS の必須 key が export されていること
 //   - SIGNUP_LABELS に追加した cross-border 同意関連 key が存在すること
 //   - consent-service のバージョン定数が更新されていること

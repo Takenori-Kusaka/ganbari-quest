@@ -295,14 +295,48 @@ describe('checkSsBlobShaUniqueness (E2E)', () => {
 		assert.equal(result.status, 'skip');
 	});
 
-	it('before-only (single side) → skip (AC4: ペアなし)', async () => {
+	// #4084 AC1 で挙動を変えた: SS が embed されているのにペアが 0 件 = 偽装検知を 1 度も
+	// 実行できていない状態であり、それを skip (= pass 扱い) で通すと gate が黙って無効化される
+	// (実測: PR #4080 は SS 20 枚 embed 済で 1 ペアも検査されないまま通っていた)。
+	// 旧 test はこの変更前の `skip` 期待のまま CI 未実行下で drift していた。
+	it('before-only (single side) → fail (#4084 AC1: ペア 0 件は検査未実行なので通さない)', async () => {
 		const body = '![before](https://raw.githubusercontent.com/o/r/screenshots/pr-1/before-x.png)';
 		const result = await checkSsBlobShaUniqueness({
 			body,
 			labels: [],
 			fetcher: makeMockFetcher({ 'pr-1/before-x.png': 'sha1' }),
 		});
-		assert.equal(result.status, 'skip');
+		assert.equal(result.status, 'fail');
+		assert.match(result.reason, /ペアが 0 件/);
+		assert.equal(result.pairingHelp, true);
+	});
+
+	it('ペア 0 件 + 理由付き ss-pair-none 宣言 → pass (#4084 AC1 の明示経路)', async () => {
+		const body = [
+			'![before](https://raw.githubusercontent.com/o/r/screenshots/pr-1/before-x.png)',
+			'<!-- ss-pair-none: 新規画面のため修正前の画面が存在しない -->',
+		].join('\n');
+		const result = await checkSsBlobShaUniqueness({
+			body,
+			labels: [],
+			fetcher: makeMockFetcher({ 'pr-1/before-x.png': 'sha1' }),
+		});
+		assert.equal(result.status, 'pass');
+		assert.match(result.reason, /ss-pair-none/);
+	});
+
+	it('ペア 0 件 + 定型 stub の ss-pair-none → fail (理由の非強制を作らない、#3956)', async () => {
+		const body = [
+			'![before](https://raw.githubusercontent.com/o/r/screenshots/pr-1/before-x.png)',
+			'<!-- ss-pair-none: TODO -->',
+		].join('\n');
+		const result = await checkSsBlobShaUniqueness({
+			body,
+			labels: [],
+			fetcher: makeMockFetcher({ 'pr-1/before-x.png': 'sha1' }),
+		});
+		assert.equal(result.status, 'fail');
+		assert.match(result.reason, /理由が空 \/ 定型 stub/);
 	});
 
 	it('複数ペアで一部のみ偽装 → fail (該当ペアのみ violation)', async () => {

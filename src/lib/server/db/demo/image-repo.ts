@@ -29,6 +29,25 @@ export async function updateChildAvatarUrl(
 	// Stub: no-op
 }
 
+/**
+ * #4466: 条件付き更新 (compare-and-set) の demo Stub。
+ *
+ * demo backend は書き込みを一切永続しない (`updateChildAvatarUrl` も no-op)。**永続しない以上、
+ * 踏み潰される写真も存在しない**ので、ここでの条件検査は空回りになる。呼び出し元 (`child-service`)
+ * が false を「レースで負けた」と解釈して毎回 warn を出すのは誤報になるため、無条件版の no-op が
+ * 成功扱いなのと揃えて true を返す。**demo では TOCTOU 防御は検証できない** (実効するのは
+ * sqlite / dsql=PGlite の 2 backend)。
+ */
+export async function updateChildAvatarUrlIfMatches(
+	_childId: ChildId,
+	_expectedAvatarUrl: string | null,
+	_avatarUrl: string | null,
+	_tenantId: string,
+): Promise<boolean> {
+	// Stub: no-op
+	return true;
+}
+
 export async function findChildForImage(
 	childId: ChildId,
 	_tenantId: string,

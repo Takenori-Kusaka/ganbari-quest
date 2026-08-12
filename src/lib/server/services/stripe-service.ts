@@ -58,7 +58,13 @@ export async function createCheckoutSession(
 
 	const repos = getRepos();
 	const tenant = await repos.auth.findTenantById(input.tenantId);
-	if (!tenant) return { error: 'TENANT_NOT_FOUND' };
+	// #4329: 認証を通った context の tenant が repo に無い = データ側の異常であって、
+	// 顧客のアカウント操作の結果ではない。顧客に「アカウントが見つかりません」と見せて
+	// 放置すると誰も気づかないため、運用側に上げる (#4286 は 10 日間気づかれなかった)。
+	if (!tenant) {
+		reportCheckoutMisconfigured(input.tenantId, 'tenant_not_found');
+		return { error: 'TENANT_NOT_FOUND' };
+	}
 
 	if (tenant.stripeSubscriptionId) return { error: 'ALREADY_SUBSCRIBED' };
 
@@ -67,7 +73,13 @@ export async function createCheckoutSession(
 	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
 	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
 	const lookupPlan = plan ? lookupPlanOf(input.planId) : null;
-	if (!plan || !lookupPlan) return { error: 'INVALID_PLAN' };
+	// #4329: ここに来る planId は route 側の許可リストを既に通っている。したがって未解決 =
+	// **配備の plan 設定が欠けている**であって顧客の選択誤りではない。顧客の入力ミスとして
+	// 見せない (ADR-0062) ためにも、運用側に上げて設定を直せる状態にする。
+	if (!plan || !lookupPlan) {
+		reportCheckoutMisconfigured(input.tenantId, 'plan_config_missing');
+		return { error: 'INVALID_PLAN' };
+	}
 
 	// #4286: Price ID は `getPriceId()` 経由で解決する。**`plan.priceId` を直読しない。**
 	// 直読していたため `USE_LOOKUP_KEY=true` がどの経路にも効かず、price env を注入しない
@@ -137,12 +149,37 @@ export async function createCheckoutSession(
 	}
 
 	const session = await stripe.checkout.sessions.create(sessionParams);
-	if (!session.url) return { error: 'INVALID_PLAN' };
+	// #4329: session は作れたのに URL が無い = Stripe 側の異常。顧客の入力とは無関係。
+	if (!session.url) {
+		reportCheckoutMisconfigured(input.tenantId, 'session_url_missing');
+		return { error: 'INVALID_PLAN' };
+	}
 
 	logger.info(
 		`[STRIPE] Checkout session created for tenant=${input.tenantId} plan=${input.planId}`,
 	);
 	return { url: session.url };
+}
+
+/**
+ * checkout が配備・設定側の異常で失敗したことを運用側から観測できるようにする (#4329)。
+ *
+ * 顧客側の文言は route が汎用文言に倒す (原因の所在を偽らない、ADR-0062)。原因の特定は
+ * ここで残す logger (tenantId 付き) と alert が担う。alert payload に顧客識別子は載せない
+ * (#4174 Q3)。throttle key は reason 単位 (設定不備は全顧客に一斉に効くため件数ぶん飛ばさない)。
+ */
+function reportCheckoutMisconfigured(
+	tenantId: string,
+	reason: 'tenant_not_found' | 'plan_config_missing' | 'session_url_missing',
+): void {
+	logger.error(`[STRIPE] checkout を開始できませんでした: tenant=${tenantId} reason=${reason}`);
+	notifyStripeAlert({
+		kind: 'stripe-checkout-misconfigured',
+		message:
+			'checkout を開始できませんでした (顧客には汎用文言を返しています。設定を直さない限り購入は成立しません)',
+		errorSummary: `checkout_misconfigured:${reason}`,
+		tags: { reason },
+	});
 }
 
 // ============================================================
@@ -163,7 +200,15 @@ export type CreatePortalResult =
 	  }
 	| { error: 'STRIPE_DISABLED' }
 	| { error: 'TENANT_NOT_FOUND' }
-	| { error: 'NO_STRIPE_CUSTOMER' };
+	| { error: 'NO_STRIPE_CUSTOMER' }
+	/**
+	 * Stripe が portal session を返さなかった (#4329)。
+	 *
+	 * 旧実装は `sessions.create` の throw をそのまま呼び出し元へ投げていた。解約フローでは
+	 * それが catch されずに fallthrough し、**顧客は「ありがとうございました」だけを見て
+	 * 解約できたと思い込む**経路になっていた。呼び出し元が「失敗した」と分かる値で返す。
+	 */
+	| { error: 'PORTAL_CREATE_FAILED' };
 
 /**
  * portal で顧客にやらせたいこと (#4166)。
@@ -242,8 +287,12 @@ export async function createPortalSession(
 	const flowData = buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl);
 
 	if (!flowData.flow_data) {
-		const session = await stripe.billingPortal.sessions.create(baseParams);
-		return { url: session.url };
+		try {
+			const session = await stripe.billingPortal.sessions.create(baseParams);
+			return { url: session.url };
+		} catch (err) {
+			return reportPortalCreateFailure(tenantId, flow.kind, err);
+		}
 	}
 
 	try {
@@ -260,9 +309,40 @@ export async function createPortalSession(
 				err instanceof Error ? err.message : String(err),
 			)}`,
 		);
-		const session = await stripe.billingPortal.sessions.create(baseParams);
-		return { url: session.url, flowFallback: true };
+		try {
+			const session = await stripe.billingPortal.sessions.create(baseParams);
+			return { url: session.url, flowFallback: true };
+		} catch (fallbackErr) {
+			return reportPortalCreateFailure(tenantId, flow.kind, fallbackErr);
+		}
 	}
+}
+
+/**
+ * portal session を作れなかったことを**運用側から観測できる形**にして型付きの失敗を返す (#4329)。
+ *
+ * 顧客側には呼び出し元が代替導線を出す。ここは「顧客も運営も気づけない」を断つ側の責務で、
+ * logger (tenantId 付き = CloudWatch から特定できる) と Discord alert (顧客識別子を載せない、
+ * #4174 Q3) の 2 系統に落とす。alert の throttle key は flow 単位に集約する
+ * (Stripe 広域障害で家族数ぶん飛ばして alert fatigue にしない、`stripe-context-unresolved` と同基準)。
+ */
+function reportPortalCreateFailure(
+	tenantId: string,
+	flowKind: PortalFlow['kind'],
+	err: unknown,
+): { error: 'PORTAL_CREATE_FAILED' } {
+	const detail = redactPii(err instanceof Error ? err.message : String(err));
+	logger.error(
+		`[STRIPE] portal session を作成できませんでした: tenant=${tenantId} flow=${flowKind} error=${detail}`,
+	);
+	notifyStripeAlert({
+		kind: 'stripe-portal-create-failed',
+		message:
+			'Customer Portal session を作成できませんでした (顧客は解約 / プラン変更の導線で止まっています)',
+		errorSummary: `portal_create_failed:${flowKind}`,
+		tags: { flow: flowKind },
+	});
+	return { error: 'PORTAL_CREATE_FAILED' };
 }
 
 // ============================================================
@@ -955,7 +1035,11 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 	// 解約経路は DB status を一切書かなくなった。以後この状態を書いてよいのは本 handler と、
 	// 同じ dunning を表す `handleSubscriptionUpdated` の `past_due` 分岐だけである
 	// (いずれも #4077 の単一強制点 `applyTenantContractState` を経由する)。
-	const graceExpires = new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString();
+	// #4416: 猶予終了日は **W4 と同じ規則** (`graceExpiresAtPatch`) で決める。
+	// 旧実装は無条件に `now + 7d` を書き直していたため、dunning retry のたびに猶予が
+	// 先送りされ、支払い失敗が続く間は 7 日の猶予が実質切れなかった。
+	const gracePatch = graceExpiresAtPatch(tenant);
+	const graceExpires = gracePatch.planExpiresAt ?? tenant.planExpiresAt;
 	const applied = await applyTenantContractState(
 		tenant,
 		// 同上: 終端は上で早期 return 済
@@ -963,7 +1047,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 		'invoice.payment_failed',
 		() => ({
 			status: SUBSCRIPTION_STATUS.GRACE_PERIOD,
-			planExpiresAt: graceExpires,
+			...gracePatch,
 		}),
 	);
 	if (!applied) return;
@@ -1106,8 +1190,7 @@ function isSubscriptionTerminal(subscription: Stripe.Subscription): boolean {
  *   Stripe は `invoice.payment_failed` (W3) と `past_due` の updated を両方送り到着順を保証しないため、
  *   W4 が先着するとこの形になる。いつまで猶予なのかを画面にも出せず、W3 が届かなければ猶予が明けない
  *
- * 既に猶予終了日があるときは**触らない**。dunning 中 Stripe は retry のたび `past_due` を送るので、
- * 毎回書き直すと猶予が延び続け、未払いのまま使い続けられる (W3 と同じ 7 日を初回だけ与える)。
+ * 猶予終了日そのものの決め方は {@link graceExpiresAtPatch} が持つ (W3 と共通の 1 規則)。
  * `suspended` の `exp` は matrix で「任意」なので `undefined` = 更新しない。
  */
 function planExpiresAtPatchFor(
@@ -1115,10 +1198,36 @@ function planExpiresAtPatchFor(
 	tenant: Pick<Tenant, 'planExpiresAt'>,
 ): { planExpiresAt?: string | null } {
 	if (status === SUBSCRIPTION_STATUS.ACTIVE) return { planExpiresAt: null };
-	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD && !tenant.planExpiresAt) {
-		return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
-	}
+	if (status === SUBSCRIPTION_STATUS.GRACE_PERIOD) return graceExpiresAtPatch(tenant);
 	return {};
+}
+
+/**
+ * dunning 猶予 (`grace_period`) の終了日を決める**唯一の規則** (#4416)。
+ *
+ * **猶予は「最初の支払い失敗から 7 日」**であり、支払い失敗が繰り返されても延びない。
+ * 既に猶予終了日があるなら `{}` (= 更新しない) を返す。
+ *
+ * ## なぜ「毎回与え直す」ではなくこちらを採ったか
+ *
+ * Stripe の dunning は 1 回の失敗で終わらず、**同じ invoice を複数回 retry してそのたび
+ * `invoice.payment_failed` (W3) と `past_due` の `customer.subscription.updated` (W4) を送る**。
+ * retry のたびに `now + 7d` を書き直すと猶予の終わりが先送りされ続け、**支払い失敗が
+ * 続いている間は猶予が一度も明けない** (retry 間隔が 7 日を超えない限り無期限に使える)。
+ * それは「7 日の猶予」という仕様の意味を失わせるので採らない。
+ *
+ * 併せて、猶予終了日を読む唯一の顧客向け処理である期限前リマインドメール
+ * (`lifecycle-email-service`、残り 30/7/1 日で送信) が、据え置きなら 7 → 1 と数え下がるのに対し、
+ * 与え直しでは残り日数が 7 のまま張り付き **「残り 1 日」の最終通知が永久に届かない**。
+ *
+ * 本規則は W3 (`handlePaymentFailed`) と W4 (`planExpiresAtPatchFor` の `grace_period` 分岐) の
+ * **両方から呼ばれる**。両者は同じ dunning 状態を書くので、規則が分かれていると
+ * `plan_expires_at` を読む処理を足したときに、どちらが先に届いたかで結果が変わる
+ * (`contract-state-matrix.md` §5 W3 / W4)。
+ */
+function graceExpiresAtPatch(tenant: Pick<Tenant, 'planExpiresAt'>): { planExpiresAt?: string } {
+	if (tenant.planExpiresAt) return {};
+	return { planExpiresAt: new Date(Date.now() + GRACE_PERIOD_DAYS * MS_PER_DAY).toISOString() };
 }
 
 // ============================================================

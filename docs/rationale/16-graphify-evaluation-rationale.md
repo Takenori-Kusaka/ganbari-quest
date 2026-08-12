@@ -1,5 +1,7 @@
 # Graphify (コードベース knowledge graph 化) 評価 設計経緯
 
+> **現状: 採用済み。** 本ファイルが記す 2026-07-29 の「不採用」結論は #4343 (#4291) で覆り、Graphify は導入されている (`graphify-out/` を git 追跡 / `.husky/post-commit` で増分再生成 / `docs/CLAUDE.md` §graphify が AI セッションに `graphify query` を指示)。**現状の正解は [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 と `docs/CLAUDE.md` §graphify** を見ること。以下は不採用と判断した当時の評価であり、再評価時に「何を測って何を理由に落としたか」を引き継ぐために残す。
+
 ## 議論の発端
 
 - **日時**: 2026-07-29
@@ -39,6 +41,7 @@
 ### 案 A 棄却理由（フル導入 + hook）
 
 - **UI 層がグラフ上の空白になる**: `tree-sitter-svelte` 非対応のため `.svelte` 237〜238 files が全て `L1` ファイルレベル node（479 nodes）にとどまる。SvelteKit + Svelte 5 が主戦場の本リポジトリで、探索の主経路を「UI 層が空白なグラフ」に切り替えるのは劣化になる。**これが不採用の決定要因**
+  - **採用後の再実測 (#4395)**: 現行 `graphify-out/graph.json` では `.svelte` 250 file が 492 node で、うち 242 が symbol レベル (`L1` 以外) だった。「全て `L1`」は現行版では成り立たない。ただし粒度は `.ts` の 6.6 node/file に対し 2.0 node/file で依然として粗く、**UI 層の探索を graph に寄せない**という運用判断は維持する
 - **ルート層が識別不能**: SvelteKit の `+page.server.ts` / `+server.ts` 同名衝突で `explain` / `path` がルートを区別できない
 - **`query` が既存 Grep 以下**: BFS 434 nodes → 42 件 truncate でハブノイズ（`logger` / `labels.ts` / `ChildId`）が優位を占め、狙った grep より当たらない
 - **hook による SSOT ナビの置換が侵襲的（推測、未実測）**: 上記「未実測」節のとおり、`Bash|Grep` / `Read|Glob` matcher の PreToolUse hook が CLAUDE.md 階層 + `docs/codebase-map.md` の探索導線を BFS に誘導すると読める。実測した `query` 品質を踏まえるとこの置換は避けたい
@@ -67,5 +70,5 @@
 
 - **議論源**: PO 依頼（2026-07-29）/ PR #4092
 - **参照する既存ルール**: #1350（OSS 先調査ルール）/ [ADR-0007 §7](../decisions/0007-static-analysis-tier-policy.md)（dependency-cruiser required 昇格、#3895）/ [ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md)（Pre-PMF スコープ判断）
-- **記録先**: [docs/decisions/README.md](../decisions/README.md) §OSS 調査済み・不採用記録
+- **記録先**: [docs/decisions/README.md](../decisions/README.md) §OSS 採用記録 (#4343 で採用に転じたため、旧「§OSS 調査済み・不採用記録」から移動 — #4395)
 - **重複判定した既存資産**: `.claude/skills/impact-analysis/SKILL.md` / [docs/codebase-map.md](../codebase-map.md)

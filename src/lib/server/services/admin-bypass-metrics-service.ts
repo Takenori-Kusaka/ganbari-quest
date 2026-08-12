@@ -6,6 +6,7 @@
 // 空データを返す（dashboard 側で "データ取得できず" と表示する前提）。
 
 import { MS_PER_DAY } from '$lib/domain/constants/time';
+import { utcMonthKey } from '$lib/domain/date-utils';
 import { env } from '$lib/runtime/env';
 import { logger } from '$lib/server/logger';
 
@@ -50,8 +51,11 @@ interface GitHubPrDetail extends GitHubPr {
 	review_decision?: string | null; // GraphQL only, not REST
 }
 
+/** ops 集計の月キー。鍵が ISO UTC 文字列そのものなので基準は UTC (#3449 / #4120)。 */
 function monthKey(iso: string): string {
-	return iso.slice(0, 7); // YYYY-MM
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '';
+	return utcMonthKey(d);
 }
 
 function hasEvidence(body: string | null): boolean {

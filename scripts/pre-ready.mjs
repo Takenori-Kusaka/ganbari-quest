@@ -11,8 +11,9 @@
  * #4121 (E5 Wave 2): step が 20 本まで増えて 1 PR が 1 日で回らなくなったため、
  * **hard-fail は 6 本**に絞った。選定は ADR-0007 §1-2「判断原則 v2」に従い、
  * 類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを残す。
- * **外した検査は消していない** — CI (ci.yml lint-and-test / unit-test、lp-metrics.yml、
- * lp-fallback-check.yml) で hard-fail のまま走る。対応表は `--help` を参照。
+ * **pre-ready から外しても CI で hard-fail し続ける検査**は ci.yml lint-and-test / unit-test、
+ * lp-metrics.yml のみ（#4322 で doc-code-references / hardcoded-strings / terminology-coherence /
+ * lp-fallback-check.yml 等 20 件は script/workflow ごと削除済み、#4420）。対応表は `--help` を参照。
  *
  * 6 step を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
  * 各 Step は既存の `scripts/*.mjs` / `npm run *` を子プロセスで呼ぶラッパー（独自実装は最小化）。
@@ -44,6 +45,7 @@ import { fileURLToPath } from 'node:url';
 import {
 	isAllowedBaseBranch,
 	isSafeGitRefName,
+	measureBaseDrift,
 	resolveBaseBranchAuto,
 } from './lib/ci/resolve-base-branch.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
@@ -127,21 +129,32 @@ Steps (6 本。番号は既存の識別子を維持 — 実行順は下記「実
        「未来形記述 (後で push する)」「該当なしマーカー」は本 step だけが hard-fail する。
        委譲の宣言 SSOT: scripts/lib/ci/workflow-judgment-registry.mjs
 
+step の前に走る preflight:
+  依存 preflight (#3857)  隔離 worktree の node_modules 欠落を fail-fast
+  base 鮮度 (#4390)       origin/<base> がどれだけ進んだかと、進んだ分に **pre-ready の検査基準**
+                          (PULL_REQUEST_TEMPLATE.md / PR_TEMPLATE_SECTIONS.json / 検査 script と
+                           その import 閉包) が含まれるかを見る。
+                            - 含まれる  → BLOCK。手元は旧基準、CI は新基準で判定するため測り直しが要る
+                            - 含まれない → 警告 + summary 注記のみ (base は日に何度も進むので止めない)
+
 選定基準 (ADR-0007 §1-2 判断原則 v2、#4121):
   類型 1 (証跡の真正性 / 不可逆な損失) と 類型 2 (顧客に見える正しさ) のうち安価なものだけを
   pre-ready に残す。残りは CI 側で hard-fail のまま走る。
     - 類型 1: Step 9 (Ready checklist / AC 証跡 / 禁止語) / Step 11b (SS 証跡)
     - 類型 2: Step 1 / 2 / 7 / 7g
 
-pre-ready から外した検査の行き先 (**検査を消したわけではない** — CI で hard-fail のまま走る、#4121):
-  cspell / hardcoded-strings / license-key-leak / cli-entry-guard /
+pre-ready から外した検査の行き先 (#4121。**現存するものは CI で hard-fail のまま走る**):
+  cspell / license-key-leak / cli-entry-guard /
   sparse-checkout-closure / readdir-rotation-guard / repo-scan-test-declaration /
-  doc-code-references / terminology-coherence / generate-lp-labels --check
-                                  → .github/workflows/ci.yml (lint-and-test)
+  generate-lp-labels --check     → .github/workflows/ci.yml (lint-and-test)
   vitest                          → .github/workflows/ci.yml (unit-test、2 shard)
   measure-lp-dimensions           → .github/workflows/lp-metrics.yml
-  sync-lp-fallback --check        → .github/workflows/lp-fallback-check.yml
   capture (撮影ガイダンス表示のみで検査ではなかった) → 撤去。SS 未 embed は Step 11b が検出する
+
+  以下は #4322 で script/workflow ごと削除済み (#4420 で判明。「外したが CI で走り続ける」
+  対象からは外れる — 検査自体が無い。機械強制は無く、レビューで担保する):
+    hardcoded-strings / doc-code-references / terminology-coherence / sync-lp-fallback --check
+    (旧行き先: ci.yml lint-and-test / .github/workflows/lp-fallback-check.yml)
   ローカルで個別に回したいときは npm run cspell / npx vitest run 等を直接叩く。
 
 実行順 (cheap-fail-first、#4048):
@@ -232,6 +245,157 @@ export function buildBaseClampNote(original, reason) {
 		'変更集合が PR の実差分と一致していません。条件付き step ' +
 		'(lp-dimensions / lp-fallback / lp-labels / ss-embed-gate / capture) の判定は ' +
 		'PR の実差分ではなく clamp 後の差分に基づきます (#4046)'
+	);
+}
+
+// ---------------------------------------------------------------------------
+// base 鮮度 (#4390)
+// ---------------------------------------------------------------------------
+
+/**
+ * pre-ready の 6 step が「判定の基準」として読むファイル (#4390)。
+ *
+ * pre-ready は branch を単体で見る。base が動いてもこの一覧が動いていなければ、
+ * 手元で出した判定は rebase 後もそのまま成立する。逆に**この一覧が base 側で動くと、
+ * 同じ branch・同じ PR body のまま手元 PASS / CI FAIL に化ける**。
+ *
+ * 実測 (#4322): develop 側で `PULL_REQUEST_TEMPLATE.md` と `PR_TEMPLATE_SECTIONS.json` が
+ * 11 → 7 セクションに作り替えられ、セクション名も入れ替わった。旧構成のまま残っていた 6 PR は
+ * branch tip では「旧 SSOT と旧 body」が整合するため pre-ready が通り、rebase した瞬間に
+ * `必須セクションの存在確認` が全滅した。
+ *
+ * 一覧は **pre-ready が実際に読む / spawn するもの**だけに絞る。「base が動いたら常に止める」は
+ * base が日に何度も動く以上 pre-ready を使い物にしなくするので採らない (#4390 決定)。
+ */
+export const PRE_READY_GATE_SSOT_PATHS = /** @type {const} */ ([
+	// Step 9 (check-pr-body) が読む必須セクション SSOT — #4322 で実際に動いた 2 本
+	'.github/PULL_REQUEST_TEMPLATE.md',
+	'.github/PR_TEMPLATE_SECTIONS.json',
+	'.github/INTEGRATION_PR_TEMPLATE.md',
+	'.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json',
+	// pre-ready が spawn する検査 script 本体
+	'scripts/check-pr-body.mjs',
+	'scripts/check-pr-screenshot.mjs',
+	'scripts/check-no-plan-literals.mjs',
+	'scripts/check-local-tz-date-getters.mjs',
+	'scripts/pre-ready.mjs',
+	// 上記 script が import する sibling module (判定ロジック本体はこちら側にある)。
+	// ディレクトリ prefix (`scripts/` / `scripts/lib/ci/`) で一括指定すると、pre-ready が
+	// 一度も読まない script の変更まで BLOCK する。実際 `scripts/lib/ci/` 13 file のうち
+	// pre-ready の import 閉包に入るのは 4 file だけで、残り 9 file (ページガイド撮影ヘルパ等) を
+	// 直しただけで全 PR の pre-ready が止まっていた。**手元と CI で読む SSOT が食い違う**という
+	// 止める根拠が成立しない file で止めるのは「理由の分からない BLOCK」であり、
+	// gate への信頼を削って迂回行動を誘発する。よって閉包に実在する file だけを個別列挙する。
+	// 列挙漏れ / 余分な列挙は tests/unit/scripts/pre-ready-base-freshness.test.ts [B13] が
+	// 実際の import 閉包と両方向で突き合わせて機械検出する (#4390)。
+	'scripts/check-ac-verification-map.mjs',
+	'scripts/integration-pr-body.mjs',
+	'scripts/pr-lane.mjs',
+	'scripts/pr-template-gate-checks.mjs',
+	'scripts/lib/is-main.mjs',
+	'scripts/lib/ci/pr-body-sections.mjs',
+	'scripts/lib/ci/reason-declaration.mjs',
+	'scripts/lib/ci/resolve-base-branch.mjs',
+	'scripts/lib/ci/tz-invariance-cases.mjs',
+	// Step 1 / 2 の設定
+	'biome.json',
+	'tsconfig.json',
+]);
+
+/**
+ * path が pre-ready の検査基準かを判定する (#4390、unit test 対象)。
+ * git の出力は `/` 区切りだが、呼び出し側が Windows 由来の `\` を渡しても同じ判定にする。
+ *
+ * @param {string} file
+ * @returns {boolean}
+ */
+export function isGateSsotPath(file) {
+	const p = String(file).replace(/\\/g, '/');
+	return PRE_READY_GATE_SSOT_PATHS.includes(/** @type {never} */ (p));
+}
+
+/**
+ * base 鮮度を 3 分類する (#4390、unit test 対象)。
+ *
+ * | level | 意味 | pre-ready の挙動 |
+ * |---|---|---|
+ * | `fresh` | base の commit を取り込み済み | 何も出さない |
+ * | `unverified` | `git fetch` に失敗し、取り込み済かを判定できていない | 警告 + summary 注記 (**止めない**) |
+ * | `behind-only` | base は進んだが検査基準は動いていない | 警告 + summary 注記 (**止めない**) |
+ * | `gate-ssot-moved` | base が進み、検査基準まで動いた | **BLOCK** (判定が無効なので測り直す) |
+ *
+ * hard-fail を `gate-ssot-moved` だけに絞る根拠 (#4390): base (develop) は日に何度も動くため
+ * 「behind > 0 で常に止める」は pre-ready の実行回数ぶんだけ rebase を強制し、CI 待ちを増やす。
+ * 一方 #4322 の実害 (6 PR × 1 サイクル) は **検査基準が動いた時にだけ**発生した。
+ * 止める条件を実害の形に一致させ、それ以外は注記で済ませる。
+ *
+ * `behind > 0` でも file 一覧が空 (差分取得失敗) なら `behind-only` に倒す。
+ * 「測れなかった」を BLOCK にすると offline というだけで止まるため。
+ *
+ * @param {{ behind: number; baseChangedFiles: string[]; fetchFailed?: boolean }} input
+ * @returns {{ level: 'fresh' | 'unverified' | 'behind-only' | 'gate-ssot-moved'; gateFiles: string[] }}
+ */
+export function classifyBaseDrift({ behind, baseChangedFiles, fetchFailed = false }) {
+	// fetch できていないときの behind は「手元 ref との差」でしかない。0 だからといって
+	// base を取り込み済とは言えないので、`fresh` (= 取り込み済と断言する level) にしない。
+	// 断言してしまうと「検証していないことを検証済みとして出力に残す」ことになる (#4390 QM 指摘)。
+	if (!(behind > 0)) return { level: fetchFailed ? 'unverified' : 'fresh', gateFiles: [] };
+	const gateFiles = (baseChangedFiles ?? []).filter(isGateSsotPath);
+	if (gateFiles.length === 0) return { level: 'behind-only', gateFiles: [] };
+	return { level: 'gate-ssot-moved', gateFiles };
+}
+
+/**
+ * `gate-ssot-moved` で表示する BLOCK 文言 (#4390、unit test 対象)。
+ * 「何が動いたか」と「どうすれば直るか」を必ず両方書く。
+ *
+ * @param {string} base
+ * @param {number} behind
+ * @param {string[]} gateFiles
+ * @returns {string}
+ */
+export function buildBaseDriftBlockMessage(base, behind, gateFiles) {
+	return (
+		`[pre-ready] ✗ base 鮮度 FAIL — origin/${base} が ${behind} commits 先に進み、\n` +
+		`  pre-ready の検査基準そのものが動いています (#4390):\n` +
+		gateFiles.map((f) => `    - ${f}`).join('\n') +
+		'\n' +
+		'  この状態で出した PASS は rebase 後も成立するとは限りません。手元は旧基準で判定し、\n' +
+		'  CI は rebase 後の新基準で判定するためです (実測 #4322: 6 PR が同じ body のまま一斉に赤)。\n' +
+		'  対応:\n' +
+		`    git fetch origin ${base} && git rebase origin/${base}\n` +
+		'    # rebase 後、PR body を新しい必須セクション構成に合わせてから pre-ready を再実行する'
+	);
+}
+
+/**
+ * `behind-only` で表示する注記 (#4390、unit test 対象)。**止めない**ことを明示する。
+ *
+ * @param {string} base
+ * @param {number} behind
+ * @returns {string}
+ */
+export function buildBaseDriftNote(base, behind) {
+	return (
+		`base 鮮度: origin/${base} が ${behind} commits 先に進んでいます (検査基準は不変のため止めません、#4390)。` +
+		` CI は rebase 後の内容で走るため、Ready 化の直前に \`git rebase origin/${base}\` して再測することを推奨します。`
+	);
+}
+
+/**
+ * `unverified` (git fetch 失敗) で表示する注記 (#4390、unit test 対象)。
+ *
+ * **「取り込み済」と書かない**のが本文言の要件。fetch できていない以上 `behind` は手元 ref
+ * との差でしかなく、実際には base が進んで検査基準が動いていても 0 と出る。ここで OK と
+ * 書くと、検証していない事実を検証済みとして summary に残すことになる (#4390 QM 指摘)。
+ *
+ * @param {string} base
+ * @returns {string}
+ */
+export function buildBaseUnverifiedNote(base) {
+	return (
+		`base 鮮度: 未検証 — \`git fetch origin ${base}\` に失敗したため手元の ref で測っています (#4390)。` +
+		` 取り込み済かどうかは判定できていません。オンラインで \`git fetch origin ${base}\` してから再実行してください。`
 	);
 }
 
@@ -576,7 +740,7 @@ export function skipStateOf({
  *
  * @param {{ totalSteps: number; skippedByFlag: string[]; skippedScriptMissing: string[];
  *           skippedPrMissing?: string[]; skippedNotApplicable: string[];
- *           failOpenCount?: number; pr?: string | null }} input
+ *           failOpenCount?: number; pr?: string | null; baseDriftNote?: string | null }} input
  * @returns {{ status: 'ALL_PASS' | 'PARTIAL_PASS'; text: string }}
  */
 export function buildSummary({
@@ -587,18 +751,24 @@ export function buildSummary({
 	skippedNotApplicable,
 	failOpenCount = 0,
 	pr = null,
+	baseDriftNote = null,
 }) {
-	// #4121: pre-ready 外 (CI 側 hard-fail) で走る検査の確認手順。step から外したことと
-	// 検査を消したことは別なので、外した先を必ず名指しする。
+	// #4121 / #4390: pre-ready が **何を保証しないか** を出す。step から外したことと検査を消したことは
+	// 別なので外した先を名指しし、あわせて「ローカルでは原理的に測れないもの」も並べる。
+	// 「ALL PASS」を CI 緑の予測と読まれるのが実害の起点だったため、保証範囲を毎回同じ位置に置く。
 	const ciSideBlock =
-		`  pre-ready 外の検査 (CI で hard-fail、#4121):\n` +
-		`    - unit-test        vitest (2 shard)\n` +
-		`    - lint-and-test    cspell / hardcoded-strings / doc-code-references / terminology-coherence /\n` +
-		`                       license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
-		`    - lp-metrics       LP 寸法・禁止語 (LP 変更時)\n` +
-		`    - lp-fallback-check LP fallback 同期 (LP / labels.ts 変更時)\n` +
-		`    Ready 化前に \`gh pr checks ${pr ?? '<num>'}\` でこれらが **pass (skipped でない)** ことを確認する。\n` +
-		`    \`ci-gate\` は skipped を failure として数えないため、ci-gate green を根拠にしない。\n`;
+		`  pre-ready が保証するのは上の 6 step だけです。以下は保証しません:\n` +
+		`    - 負荷 / タイミング依存の失敗   空いた local では再現しない (実測 #4385: 同一 test が 1,860→6,398ms)\n` +
+		`    - vitest / e2e / Storybook / visual regression   CI (unit-test 2 shard / 重量レーン) で走る\n` +
+		`    - lint-and-test 系   cspell / license-key-leak / CLI entry guard 系 / generate-lp-labels --check ほか\n` +
+		`      (hardcoded-strings / doc-code-references / terminology-coherence / lp-fallback-check は #4322 で\n` +
+		`       script/workflow ごと削除済み — CI にも無い。機械強制は無い、#4420)\n` +
+		`    - LP 系   lp-metrics (寸法・禁止語)\n` +
+		`    - Draft 中しか見ていない検査   pr-template-gate は draft==false で初めて走る (#4390)\n` +
+		`    - base が動いた後の再測   base の検査基準が動くと同じ body でも CI は赤になる (#4322 で 6 PR 実測)\n` +
+		`    → \`gh pr checks ${pr ?? '<num>'}\` で上記が **pass (skipped でない)** ことを確認してから Ready 化する。\n` +
+		`      \`ci-gate\` は skipped を failure に数えないため、ci-gate green を根拠にしない。\n`;
+	const baseDriftLine = baseDriftNote ? `  ⚠ ${baseDriftNote}\n` : '';
 	// 適用対象外 (n/a) は「実行しなくてよいので実行していない」であり ALL PASS を妨げない。
 	const notApplicableLine =
 		skippedNotApplicable.length > 0
@@ -630,6 +800,7 @@ export function buildSummary({
 				`\n[pre-ready] PARTIAL PASS — 実行した ${ran} step は PASS しましたが、` +
 				`${detail} が未実行です。\n` +
 				notApplicableLine +
+				baseDriftLine +
 				`  これは開発中の部分確認結果であり、Ready 化 (gh pr ready) 判定には\n` +
 				`  skip なしの \`npm run pre-ready -- --pr ${pr ?? '<num>'}\` 全 step PASS が必要です。\n` +
 				ciSideBlock,
@@ -639,8 +810,12 @@ export function buildSummary({
 	return {
 		status: 'ALL_PASS',
 		text:
-			`\n[pre-ready] ALL PASS (pre-ready 6 step)${failOpenCount > 0 ? ` (fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
+			// #4390: 「ALL PASS」単独だと「CI 緑の予測」と読まれる (本日 6 PR が ALL PASS のまま CI red)。
+			// 保証の範囲を見出し行に書き切る。
+			`\n[pre-ready] PASS — pre-ready 6 step の範囲でのみ緑です (CI 緑の予測ではありません、#4390)` +
+			`${failOpenCount > 0 ? ` / fail-open ${failOpenCount} 件あり — 上記 ⚠ を確認` : ''}\n` +
 			notApplicableLine +
+			baseDriftLine +
 			ciSideBlock +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +
@@ -874,6 +1049,40 @@ async function main() {
 	}
 	console.log(`[pre-ready] base branch: origin/${baseBranch} (#2959 SSOT 解決)`);
 
+	// #4390: base 鮮度。pre-ready は branch を単体で見るため、base が動くと判定が黙って無効になる。
+	// 検査基準 (PR テンプレート SSOT / 検査 script) まで動いていたら BLOCK、それ以外は注記のみ。
+	let baseDriftNote = null;
+	const drift = measureBaseDrift(baseBranch, { cwd: repoRoot });
+	if (!drift.available) {
+		console.log(
+			`[pre-ready] base 鮮度: 測定不能 (origin/${baseBranch} 未取得 / lane 外 base) — 判定をスキップします (#4390)`,
+		);
+	} else {
+		const verdict = classifyBaseDrift({
+			behind: drift.behind,
+			baseChangedFiles: drift.files,
+			fetchFailed: drift.fetchFailed,
+		});
+		if (verdict.level === 'gate-ssot-moved') {
+			console.error(`\n${buildBaseDriftBlockMessage(baseBranch, drift.behind, verdict.gateFiles)}`);
+			return 1;
+		}
+		if (verdict.level === 'unverified') {
+			// fetch 失敗。**OK と書かない** — summary にも注記として残し、
+			// 「測れなかった」ことが後から読む人 (QM) に見えるようにする (#4390)。
+			baseDriftNote = buildBaseUnverifiedNote(baseBranch);
+			console.warn(`[pre-ready] ⚠ ${baseDriftNote}`);
+		} else if (verdict.level === 'behind-only') {
+			baseDriftNote = buildBaseDriftNote(baseBranch, drift.behind);
+			if (drift.fetchFailed) {
+				baseDriftNote = `${baseDriftNote} (なお \`git fetch\` に失敗しているため、この commits 数は手元 ref 基準です)`;
+			}
+			console.warn(`[pre-ready] ⚠ ${baseDriftNote}`);
+		} else {
+			console.log(`[pre-ready] base 鮮度: OK (origin/${baseBranch} を取り込み済、#4390)`);
+		}
+	}
+
 	// 変更ファイル取得 (LP / UI 変更検知用)
 	const changedFiles = await getChangedFiles(baseBranch);
 	if (changedFiles.length === 0) {
@@ -936,6 +1145,7 @@ async function main() {
 		skippedNotApplicable,
 		failOpenCount: failOpenNotes.length,
 		pr: args.pr,
+		baseDriftNote,
 	});
 	console.log(summary.text);
 	return 0;

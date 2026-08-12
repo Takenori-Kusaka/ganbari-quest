@@ -224,4 +224,4 @@ press-release.md（2026-04-11）/ product-hunt.md（2026-04-21）、被参照 0�
 | **PR-4** | 監査 one-off 死蔵 4（design/accessibility-audit-2026-03 + security/security-code-review-2026-03 + runbooks/cognito-pool-migration + operations/orphan-audit-2026-05-26）の純削除 | 4 削除 | 純削除 |
 | **PR-5 以降（PO 判断後）** | E 90 file の消化: (a) billing-redesign 46（監査証跡価値の判断）、(b) dsql review ledger 13（EPIC #3424 完了時に一括削除）、(c) design 調査系 14（research 移動 or 削除 or 残置の個別判断）、(d) guides 8 / marketing 2 / operations 3 / runbooks 1 / reference 3 | 最大 90 | PO 判断後に種別ごと分割 |
 
-再混入防止 gate は #2440 確定方針どおり `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils 相乗りで扱い、専用 script は新設しない。
+再混入防止 gate は #2440 確定方針どおり `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils 相乗りで扱う想定だったが、**`check-internal-terms.mjs` は #4322 で削除済み（#4426）**。専用 script を新設しない方針自体は維持し、gate 再設計は #2668 着手時に判断する。

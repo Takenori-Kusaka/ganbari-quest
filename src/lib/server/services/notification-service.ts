@@ -4,7 +4,7 @@
 
 import webpush from 'web-push';
 import { formatChildName } from '$lib/domain/child-display';
-import { todayDateJST } from '$lib/domain/date-utils';
+import { jstMinuteOfDay, todayDateJST } from '$lib/domain/date-utils';
 import {
 	countTodayLogs,
 	deleteByEndpoint,
@@ -120,10 +120,7 @@ export async function getNotificationSettings(tenantId: string): Promise<Notific
 /** 現在がサイレント時間帯かチェック (JST基準、ラップアラウンド対応) */
 export function isQuietHours(now?: Date, quietStart = '21:00', quietEnd = '07:00'): boolean {
 	const date = now ?? new Date();
-	// JST = UTC+9
-	const jstHour = (date.getUTCHours() + 9) % 24;
-	const jstMinute = date.getUTCMinutes();
-	const currentMinutes = jstHour * 60 + jstMinute;
+	const currentMinutes = jstMinuteOfDay(date);
 
 	const startParts = quietStart.split(':').map(Number);
 	const endParts = quietEnd.split(':').map(Number);

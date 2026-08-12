@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
 	isTemplateLiteral,
+	parseAllNamespacesResolved,
 	parseBlock,
 	parseBlockLine,
 	resolveAllTemplates,
@@ -227,12 +228,12 @@ describe('parseBlock — template literal 統合 (#1917 AC6)', () => {
 		const fixture = `
 export const PLAN_TERMS = {
 	standard: 'スタンダード',
-	family: 'ファミリー',
+	premium: 'プレミアム',
 };
 
 export const LP_PLAN_LABELS = {
 	standardLabel: \`\${PLAN_TERMS.standard}プラン\`,
-	familyLabel: \`\${PLAN_TERMS.premium}プラン\`,
+	premiumLabel: \`\${PLAN_TERMS.premium}プラン\`,
 	mixedNote: 'これは静的テキスト',
 };
 `;
@@ -246,7 +247,7 @@ export const LP_PLAN_LABELS = {
 
 		assert.equal(resolved.PLAN_TERMS.standard, 'スタンダード');
 		assert.equal(resolved.LP_PLAN_LABELS.standardLabel, 'スタンダードプラン');
-		assert.equal(resolved.LP_PLAN_LABELS.familyLabel, 'ファミリープラン');
+		assert.equal(resolved.LP_PLAN_LABELS.premiumLabel, 'プレミアムプラン');
 		assert.equal(resolved.LP_PLAN_LABELS.mixedNote, 'これは静的テキスト');
 	});
 
@@ -297,12 +298,22 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 });
 
 // ---------------------------------------------------------------------------
-// AC5: shared-labels.js 出力差分ゼロ（本 PR 単独では terms.ts 未導入のため、
-//      既存 labels.ts に template literal が混入していないことを確認）
+// 実 labels.ts / terms.ts を通した解決 (旧 #1917 AC5 の再照準)
+//
+// 旧 test は「labels.ts に template literal が混入していないこと」を assert していた。これは
+// terms.ts 導入前 (#1916 の前) の過渡状態を固定したもので、#1916 / ADR-0045 で labels.ts が
+// terms.ts atom を interpolation 参照する compound になった時点で意味が反転している
+// (今は template literal があるのが正しい)。本 file は CI で実行されていなかったため
+// 反転に気づけないまま残っていた。
+//
+// 実装を古い仕様に戻すのではなく、今守るべき不変条件に照準し直す:
+//   1. 実 labels.ts の LP namespace に template literal が現に存在する (ADR-0045 の atom 参照が
+//      効いている = 「全部 plain string に戻した」退行を検出する)
+//   2. 実 labels.ts + terms.ts を通したとき、全 namespace の全 value が解決済みの string になる
+//      (未解決の interpolation が LP へ配信されない)
 // ---------------------------------------------------------------------------
-describe('既存 labels.ts は template literal を含まない (#1917 AC5)', () => {
-	it('parseBlock の戻り値は string のみ (TemplateLiteralValue 不在)', async () => {
-		// 実 labels.ts を読み込んで全 namespace を検査
+describe('実 labels.ts / terms.ts は template literal を含み、かつ全て解決できる (ADR-0045)', () => {
+	it('LP namespace に template literal が現に存在する (atom 参照が生きている)', async () => {
 		const fs = await import('node:fs');
 		const path = await import('node:path');
 		const url = await import('node:url');
@@ -310,7 +321,6 @@ describe('既存 labels.ts は template literal を含まない (#1917 AC5)', ()
 		const labelsTs = path.resolve(__dirname, '../../src/lib/domain/labels.ts');
 		const src = fs.readFileSync(labelsTs, 'utf-8');
 
-		// ランダム抽出: 主要 LP namespace を 5 件チェック
 		const samples = [
 			'LP_RETENTION_LABELS',
 			'LP_CORELOOP_LABELS',
@@ -318,13 +328,30 @@ describe('既存 labels.ts は template literal を含まない (#1917 AC5)', ()
 			'LP_PRICING_LABELS',
 			'LP_FAQ_LABELS',
 		];
+		let templateCount = 0;
 		for (const name of samples) {
 			const block = parseBlock(src, name);
+			assert.ok(Object.keys(block).length > 0, `${name} が parseBlock で読めていない`);
+			for (const value of Object.values(block)) {
+				if (isTemplateLiteral(value)) templateCount += 1;
+			}
+		}
+		assert.ok(
+			templateCount > 0,
+			'LP namespace に template literal が 1 件も無い。terms.ts atom 参照 (ADR-0045) が文字列直書きへ退行した可能性がある',
+		);
+	});
+
+	it('parseAllNamespacesResolved の結果は全て解決済み string (未解決の interpolation が残らない)', () => {
+		const resolved = parseAllNamespacesResolved();
+		assert.ok(Object.keys(resolved).length > 0, 'namespace が 1 件も解決されていない');
+		const unresolvedPattern = /\$\{/;
+		for (const [ns, block] of Object.entries(resolved)) {
 			for (const [key, value] of Object.entries(block)) {
-				assert.equal(
-					typeof value,
-					'string',
-					`labels.ts ${name}.${key} should be plain string (not template literal yet — #1916 で導入予定)`,
+				assert.equal(typeof value, 'string', `${ns}.${key} が解決後も string になっていない`);
+				assert.ok(
+					!unresolvedPattern.test(String(value)),
+					`${ns}.${key} に未解決の interpolation が残っている: ${value}`,
 				);
 			}
 		}

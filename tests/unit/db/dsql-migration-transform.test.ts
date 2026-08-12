@@ -283,3 +283,63 @@ describe('transformDrizzleSqlToDsql — source 順 statements (#3928)', () => {
 		expect(plan.dml).toHaveLength(1);
 	});
 });
+
+describe('transformDrizzleSqlToDsql — 責務 7: ADD COLUMN の列制約は fail-close (#4488)', () => {
+	// 背景: 0006_redemption_quantity.sql の
+	//   ALTER TABLE … ADD COLUMN "quantity" integer DEFAULT 1 NOT NULL
+	// を DSQL が 0A000 `ALTER TABLE ADD COLUMN with constraint not supported` で拒否し、
+	// 統合 PR #4484 の deploy-aws-staging が落ちた。PGlite (NUC) は同じ SQL を受けるため
+	// deploy-nuc-staging は緑のままで、cross-backend 非等価が DSQL 側でだけ露出する。
+	//
+	// DSQL の ADD COLUMN 文法は `column_name data_type [STORAGE …]` のみ (列制約を取れない)。
+	// 自動分割はしない — 正しい分解に含まれる backfill は行数依存で 3,000 行/txn 上限を
+	// 超えるとバッチ化が要り、純変換層が安全に生成できないため (書き手へ投げ返す)。
+
+	it.each([
+		['DEFAULT + NOT NULL', 'ADD COLUMN IF NOT EXISTS "quantity" integer DEFAULT 1 NOT NULL'],
+		['NOT NULL のみ', 'ADD COLUMN "c" integer NOT NULL'],
+		['DEFAULT のみ', 'ADD COLUMN "c" integer DEFAULT 1'],
+		['CHECK', 'ADD COLUMN "c" integer CHECK ("c" > 0)'],
+		['UNIQUE', 'ADD COLUMN "c" text UNIQUE'],
+		['REFERENCES', 'ADD COLUMN "c" uuid REFERENCES "other" ("id")'],
+	])('%s を含む ADD COLUMN は throw する', (_label, action) => {
+		expect(() => transformDrizzleSqlToDsql(`ALTER TABLE "t" ${action}`)).toThrow(
+			/unsupported column constraint on ADD COLUMN/,
+		);
+	});
+
+	it('素の ADD COLUMN (IF NOT EXISTS + 複数語の型) はそのまま通す', () => {
+		const plan = transformDrizzleSqlToDsql(
+			'ALTER TABLE "child_challenges" ADD COLUMN IF NOT EXISTS "celebration_shown_at" timestamp with time zone',
+		);
+
+		expect(plan.statements).toHaveLength(1);
+		expect(plan.statements[0]?.kind).toBe('ddl');
+		expect(plan.statements[0]?.sql).toContain('ADD COLUMN IF NOT EXISTS');
+		// `IF NOT EXISTS` の NOT を NULL 制約と誤検出していないこと。
+		expect(plan.statements[0]?.sql).toContain('timestamp with time zone');
+	});
+
+	it('列名が予約語 ("default") でも誤検出しない (識別子は構造検査から除外される)', () => {
+		expect(() =>
+			transformDrizzleSqlToDsql('ALTER TABLE "t" ADD COLUMN IF NOT EXISTS "default" text'),
+		).not.toThrow();
+	});
+
+	it('DSQL 互換に分解した 0006 は ddl 2 文 + backfill dml 1 文になる', () => {
+		const plan = transformDrizzleSqlToDsql(
+			[
+				'ALTER TABLE "reward_redemption_requests" ADD COLUMN IF NOT EXISTS "quantity" integer;',
+				'--> statement-breakpoint',
+				'ALTER TABLE "reward_redemption_requests" ALTER COLUMN "quantity" SET DEFAULT 1;',
+				'--> statement-breakpoint',
+				'UPDATE "reward_redemption_requests" SET "quantity" = 1 WHERE "quantity" IS NULL;',
+			].join('\n'),
+		);
+
+		// runner は statements を source 順に **1 文 = 1 autocommit txn** で適用する。
+		// DSQL は「DDL と DML を同一 txn に混ぜられない」ため、この分類が保たれることが要件。
+		expect(plan.statements.map((s) => s.kind)).toEqual(['ddl', 'ddl', 'dml']);
+		expect(plan.statements[2]?.sql).toMatch(/WHERE "quantity" IS NULL$/);
+	});
+});

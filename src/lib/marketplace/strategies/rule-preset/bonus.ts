@@ -26,6 +26,14 @@ export interface BonusPreviewResult {
 	alreadyImported: boolean;
 	/** payload 内の rule 総数 */
 	ruleCount: number;
+	/**
+	 * #4373: 取込を実行した場合に取り込まれる preset 数 (0 or 1、dryRun の判断材料)。
+	 * bonus は preset 単位の all-or-nothing なので rule 数ではなく preset 数を数える
+	 * (`applyBonus` の戻り値 `imported: 1` と同じ単位)。
+	 */
+	wouldImport: number;
+	/** #4373: 取込を実行した場合に既存重複で skip される preset 数 (0 or 1)。 */
+	wouldSkip: number;
 }
 
 export interface BonusApplyResult {
@@ -42,7 +50,13 @@ export async function previewBonus(
 ): Promise<BonusPreviewResult> {
 	const state = await loadBonusOverrides(tenantId);
 	const alreadyImported = state.presets.some((p) => p.presetId === presetId);
-	return { alreadyImported, ruleCount: payload.rules.length };
+	return {
+		alreadyImported,
+		ruleCount: payload.rules.length,
+		// applyBonus と同値: 既存なら no-op (skipped=1)、無ければ preset 1 件を取り込む
+		wouldImport: alreadyImported ? 0 : 1,
+		wouldSkip: alreadyImported ? 1 : 0,
+	};
 }
 
 /**

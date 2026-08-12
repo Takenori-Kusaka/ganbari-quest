@@ -12,7 +12,7 @@
 | 連動 (Phase 7) | #2531 (実装 PR 群) — Phase 7 Step 1-5 全 step で本 docs §3 リスク 8 件 (#2683 補強) + §4 #2627 timeline + §5 kill switch を参照 |
 | Phase 1 連動 | #2537 dunning FR-3 (handleSubscriptionDeleted archive 未呼出、本 docs §6.1) / 副次制約 1 tax_behavior (§6.2) / **副次制約 2 Portal ロック banner (#2683 で historical 化、§6.3)** / 副次制約 4 Webhook immutable (#2683 で新規追加、§6.4 連動) |
 | ステータス | 設計確定 (本 PR で docs SSOT、コード変更は Phase 7 各 Step / ADR 起票は本 PR で同時実施) / **2026-05-30 補強 #2683: 代替案 D 採用に伴う scope 変更を反映** |
-| 作業姿勢 (#2525 critical) | 課金は別格 ([[billing-critical-extra-caution]])。ロールバック手順は「実際に Test mode で 1 度実演」できる粒度まで具体化。Pre-PMF Bucket A (ADR-0010) 整合、kill switch は LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を不採用、env var 2 件 (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) で最小構成 |
+| 作業姿勢 (#2525 critical) | 課金は別格 ([[billing-critical-extra-caution]])。ロールバック手順は「実際に Test mode で 1 度実演」できる粒度まで具体化。Pre-PMF Bucket A (ADR-0010) 整合、kill switch は LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を不採用、env var 1 件 (`USE_LOOKUP_KEY`) で最小構成 |
 
 > **位置づけ**: Phase 6 グループ C 最後の子 (グループ A=#2667 / グループ B=#2674-#2675 / #2673 完了後)。Phase 5 子 1 §「想定リスク 7 件」を **検知 → ロールバック → 再発防止** の 3 観点で実装手順化し、#2627 Stripe Dashboard ロールバックを **3 期間 (Phase 7 マージ前 / マージ後 24h / マージ後 1 週間)** で詳細化、feature flag kill switch を `.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所で統合管理する。さらに Phase 1 で確定済の構造的欠落 3 件 (handleSubscriptionDeleted archive 未呼出 / tax_behavior 一致 / Portal ロック誘導文言) の Phase 7 反映方針を確定。最後に ADR-0014 整合の OSS 4 件比較で本 PR と同時に新規 ADR を起票する。
 
@@ -39,14 +39,14 @@ Phase 7 実装者が本 docs を参照しない場合、各リスクごとに **
 Phase 6 子 1 #2667 §4 で「7 領域 (A-G) 同期 timeline」を確定したが、**「Phase 7 マージ後どの時点までなら revert 可能か」が明示されていない**。Stripe 公式 [migrate-subscriptions toolkit](https://docs.stripe.com/billing/subscriptions/import-subscriptions-toolkit) は **10 時間 rollback window** を採用、Stripe API versioning は **72h rollback window** を採用する。本プロダクトの Phase 7 cutover も以下 3 期間で rollback 可否が異なる:
 
 - **Phase 7 マージ前**: コード PR を revert すれば全戻し可 (旧 4 Price archive 前、`STRIPE_PRICE_*` env var が `prices.list({ lookup_keys })` で resolve 失敗時の fallback で動作)
-- **Phase 7 マージ後 24h 以内**: feature flag (`SHADOW_MODE` / `USE_LOOKUP_KEY`) を `false` 側に revert で復旧可 (旧 Webhook destination が Stripe Dashboard で disabled 状態のまま残存、即 enabled に戻せる)
+- **Phase 7 マージ後 24h 以内**: feature flag `USE_LOOKUP_KEY` を `false` 側に revert で復旧可
 - **Phase 7 マージ後 1 週間 (= retire step 完了後)**: 旧 env var / 旧 Webhook destination 削除済 → revert 不可、forward-fix のみ
 
 各期間の rollback 操作手順が docs 化されないと、cutover 直後 30 分のインシデント検知時に「いつまで rollback 可能か」を判断できず、PO 判断滞留で MTTR 悪化。
 
 ### 1.3 課題: feature flag kill switch SSOT が散在している
 
-Phase 5 子 1 + Phase 6 子 1 + 子 4 で **`USE_LOOKUP_KEY` (Step 3)** + **`STRIPE_WEBHOOK_SHADOW_MODE` (Step 4)** の 2 feature flag を確定したが、**「どの env file に書き、どの config module から読み、デフォルト値は何か、CDK Lambda env / GitHub Actions Variables / `.env.example` の 3 系統で同期するか」が docs 化されていない**。
+Phase 5 子 1 + Phase 6 子 1 + 子 4 で **`USE_LOOKUP_KEY` (Step 3)** の feature flag を確定したが、**「どの env file に書き、どの config module から読み、デフォルト値は何か、CDK Lambda env / GitHub Actions Variables / `.env.example` の 3 系統で同期するか」が docs 化されていない**。
 
 LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を検討する余地もあるが、**Pre-PMF Bucket A (ADR-0010) として「kill switch 2 件のために feature flag platform 導入は過剰防衛」**と判断する必要があり、その判断根拠 + OSS 比較を ADR-0014 整合で残す必要がある。
 
@@ -64,7 +64,7 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 
 1. **想定リスク 7 件の MTTR 悪化**: 本番 cutover 失敗時、各リスクの検知 method / rollback 手順を判断するために PO+Dev で 30 分以上の議論 → MTTR 1 時間超過 → 顧客 inquiry 蓄積
 2. **#2627 Dashboard rollback 期限判断滞留**: cutover 後 6 時間時点で「まだ revert 可能か」判断できず、forward-fix vs rollback の選択で滞留 → 顧客被害拡大
-3. **kill switch env var 配備漏れ**: `USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE` を `.env.example` には記載したが CDK Lambda env / GitHub Actions Variables に配備漏れ → 本番 Lambda で env 不在で `undefined` 解釈 → kill switch 機能不全
+3. **kill switch env var 配備漏れ**: `USE_LOOKUP_KEY` を `.env.example` には記載したが CDK Lambda env / GitHub Actions Variables に配備漏れ → 本番 Lambda で env 不在で `undefined` 解釈 → kill switch 機能不全
 4. **Phase 1 構造的欠落 #1 (FR-3 archive) 漏れ**: Phase 7 Step 4-b cutover 後、初回 dunning cycle 完走時に `handleSubscriptionDeleted` が archive 未呼出 → 課金停止顧客のリソースが active 表示のまま → 後続課金 cycle で再度誤課金 attempt → 二重課金 incident
 5. **kill switch dry-run 不実施で本番初実演**: Phase 6 子 1 #2667 §10 OQ-3 で「kill switch dry-run を Test mode で実演必須化」と確定したが、Phase 7 で実演しなかった → 本番 cutover 失敗時に「初めて本番で kill switch を試す」状態 → flag 反映遅延 (Lambda env override に再 deploy 必要) で 30 分以上 MTTR
 
@@ -159,7 +159,7 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 |---|---|
 | **シナリオ** | 将来の stable apiVersion bump 時 (Phase 7 では `'2026-04-22.dahlia'` 維持判断のため発動しないが、将来発動)、Dev エンジニアが Stripe Dashboard で既存 destination の api_version を Dashboard UI で更新試行 → Stripe API が `400 Bad Request` を返す (副次制約 4 [phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) → cutover blocker、再度 5 phase migration ([phase6-phase7-execution-ssot.md §5](phase6-phase7-execution-ssot.md)) を最初からやり直し |
 | **検知 method** | (a) Dashboard UI で「api_version cannot be modified」エラー表示 (b) `webhookEndpoints.update({api_version})` API 呼出が Stripe SDK で `StripeInvalidRequestError` を throw (c) Phase 6 子 1 #2667 §5 Webhook 5 phase migration の手順を skip した PR が本副次制約に抵触 |
-| **ロールバック手順** | (1) Dashboard で **新 destination を新 api_version で新規作成** (副次制約 4 整合) (2) Phase 6 子 1 #2667 §3 Step 4-a (shadow mode) → §3 Step 4-b (cutover) → §3 Step 4-c (retire) の 5 phase migration を改めて実施 (3) 旧 destination は cutover 完了まで disabled で残置 |
+| **ロールバック手順** | (1) Dashboard で **新 destination を新 api_version・同一 URL で新規作成** (副次制約 4 整合、[phase6-phase7-execution-ssot.md §Step 4](phase6-phase7-execution-ssot.md) 整合) (2) 新 destination を有効化 + 旧 destination を無効化 (3) 並行到達期間の重複は insert-first dedup が吸収 (4) 1 週間 smoke test PASS で旧 destination を delete |
 | **再発防止** | (a) [phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md) #2683 副次制約 4 を SSOT として参照必須化 (b) Phase 7 Step 4 (および将来の apiVersion bump PR) の Pre-Ready unit test で **`webhookEndpoints.update({api_version})` が 400 を返すことを assert** (c) Phase 6 子 1 #2667 §5 Webhook 5 phase migration を Pre-Ready 必須化 |
 
 ### 3.10-a R10 (#3960 新規): webhook payload から plan を確定できない → silent fallback で誤 plan 書込み
@@ -216,6 +216,24 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **ロールバック手順** | (1) alert には例外クラス名のみを載せている (接続情報を Discord に出さないため) → 詳細は CW log 本文 + stack で確認 (2) Stripe の一時障害 / rate limit なら次の実行 (1 時間後) で自然復旧するか見る (3) DSQL 側なら [dsql-alert-response.md](../../runbooks/dsql-alert-response.md) (4) **復旧まで未達検知は動いていない**ため、その間の課金は §2.3 の手順で手動確認する。詳細は [silent-failure-alert-response.md §2.5](../../runbooks/silent-failure-alert-response.md) |
 | **再発防止** | (a) cron endpoint の catch で alert を await 送出することを `tests/unit/routes/cron-stripe-webhook-delivery-check.test.ts` が回帰固定 (b) `notifyStripeAlertAsync` (await 可能版) を `alert.ts` に用意し、cron 経路では fire-and-forget を使わない (c) dispatcher の非 2xx → throw 化は他 cron に波及するため別途 (現状は本 alert が代替) |
 
+### 3.10-g R17 (#4329 新規): 解約 / プラン変更の portal を作れず、顧客が導線の途中で止まる
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | `billingPortal.sessions.create` が失敗する (Stripe 障害 / Portal 設定不備 / customer 不整合)。旧実装は解約 action でこれを無言で握り、顧客を thanks ページ (「ご回答ありがとうございました」) に落としていた。**顧客は解約したつもりで課金され続け、運営も気づけない**。特商法の解約導線の実効性に接続する |
+| **検知 method** | (a) Discord alert `stripe-portal-create-failed` (`createPortalSession` の catch から発火、throttle key は flow 単位) (b) CloudWatch Logs Insights `filter @message like "portal session を作成できませんでした"` (`tenant=` 付き) |
+| **ロールバック手順** | (1) alert の `flow` で解約 / プラン変更どちらの導線が死んでいるかを確定 (2) Stripe Dashboard の Portal 設定 (解約の許可 / 更新対象の商品・価格) と Stripe status を確認 (3) 復旧後、顧客側は thanks ページの再試行 CTA から続行できる。到達できない顧客はサポート窓口経由で解約を代行する |
+| **再発防止** | `createPortalSession` が throw を型付きの `PORTAL_CREATE_FAILED` に変換し、呼び出し元が失敗を握り潰せないようにする + `stripe-portal-create-failure.test.ts` / `subscription-cancel-portal-dead-end.test.ts` が「無言で thanks へ落とさない」を回帰固定 |
+
+### 3.10-h R18 (#4329 新規): checkout の設定不備が顧客の入力誤りに見え、誰も直しに行かない
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | plan 設定の欠落 / tenant 不整合 / session URL 不在で checkout が作れないとき、顧客には 400「プランが正しくありません」= **顧客の選択が悪い**と読める文言が出ていた。顧客は直しようのない操作を繰り返し、運営には信号が上がらない。#4286 (lookup_key dead wiring) は同型で 10 日間気づかれなかった |
+| **検知 method** | (a) Discord alert `stripe-checkout-misconfigured` (throttle key は `reason` 単位 = `tenant_not_found` / `plan_config_missing` / `session_url_missing`) (b) CloudWatch Logs Insights `filter @message like "checkout を開始できませんでした"` (`tenant=` / `reason=` 付き) |
+| **ロールバック手順** | (1) alert の `reason` で切り分け (2) `plan_config_missing` は price / lookup_key の env を Stripe 現行 Price に同期して再 deploy (R4 / R10 と同じ操作) (3) `tenant_not_found` は該当 tenant のデータを DB で確認 (4) `session_url_missing` は Stripe status を確認 |
+| **再発防止** | 顧客向け文言を `labels.ts` SSOT に集約し、配備側の異常は 5xx + 汎用文言に固定 (`api-stripe-checkout-error-messages.test.ts` が「顧客の入力ミスとして表示しない」を回帰固定) + `stripe-checkout-price-resolution.test.ts` が alert 発火を固定 |
+
 ### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化、#3960 で +R10、#3985 で +R11、#3980 / #3981 で +R12 / +R13、#3959 で +R14 / +R15)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
@@ -236,6 +254,8 @@ historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpo
 | **R14 (#3959 新規)** | **webhook が Lambda に到達せず alert が 0 件のまま課金が落ちる** | Discord alert `stripe-webhook-undelivered` (cron 毎時、S1 滞留 ∧ S2 plan 未反映) + CloudWatch Logs Insights | 配信経路 (CloudFront geo / WAF / DNS / 宛先設定) を修復 → `stripe events resend` で滞留分を再送 → プラン反映を確認 | cron を `schedule-registry.ts` に登録 + `schedule-consistency.test.ts` の drift 検出 + `stripe-webhook-delivery-monitor.test.ts` の発火 / 沈黙両側回帰。**穴**: throw しない handler 失敗 (#4108) はどちらの alert でも検知不能 |
 | **R15 (#3959 新規)** | **未達検知 cron 自体の失敗が Lambda Errors alarm に出ず、検知の不在が無通知になる** | Discord alert `stripe-webhook-monitor-failed` (cron endpoint の catch から await 送出) + 毎時の完了 log の不在 | 例外クラス名から一次切り分け (Stripe 一時障害は次回実行で自然復旧 / DSQL は dsql-alert-response.md)。復旧まで課金は §2.3 で手動確認 | endpoint catch の await 送出を `cron-stripe-webhook-delivery-check.test.ts` が回帰固定 + `notifyStripeAlertAsync` (await 可能版) を cron 経路で必須化 |
 | **R16 (#4192 新規)** | **支払い失敗が無通知になり、猶予期間が誰にも気づかれないまま満了する** | Discord alert `stripe-payment-failed` (`invoice.payment_failed` handler から発火) + `logger.warn` (`tenant=` 付き) | Stripe Dashboard / CloudWatch Logs で対象契約を特定 → dunning 状況を確認。復旧操作は顧客側の支払い手段更新 | 旧 `billing` チャネル撤去に伴う信号喪失を防ぐ差し替え。**payload に tenantId を載せない** (#4174 Q3) ため、対象特定はログ / Stripe 側で行う |
+| **R17 (#4329 新規)** | **portal を作れず顧客が解約導線の途中で止まる (無言で thanks に落ちて課金が続く)** | Discord alert `stripe-portal-create-failed` (flow 単位 throttle) + CloudWatch Logs (`tenant=` / `flow=`) | alert の `flow` で死んだ導線を確定 → Stripe Portal 設定 / status を確認 → 復旧後は thanks の再試行 CTA で続行、到達不能な顧客はサポート窓口で代行 | throw を型付き `PORTAL_CREATE_FAILED` に変換して握り潰し不能化 + 「無言で thanks へ落とさない」を unit で回帰固定 |
+| **R18 (#4329 新規)** | **checkout の設定不備が顧客の入力誤りとして表示され、誰も直しに行かない** | Discord alert `stripe-checkout-misconfigured` (`reason` 単位 throttle) + CloudWatch Logs (`tenant=` / `reason=`) | `reason` で切り分け → price env / lookup_key の同期 (R4 / R10 と同操作) or tenant データ確認 or Stripe status 確認 | 顧客向け文言を labels.ts SSOT に集約し配備側異常を 5xx + 汎用文言に固定 + alert 発火を unit で回帰固定 |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 
@@ -246,7 +266,7 @@ Phase 6 子 1 #2667 §4 timeline を補完し、**「いつまでなら rollback
 | 期間 | 開始 | 終了 | rollback 可否 | 主な手段 |
 |---|---|---|---|---|
 | **A. Phase 7 マージ前** | Phase 7 統合 PR Step 5 着手前 | Step 5 の旧 4 Price archive 実行直前 | **revert 可** (全戻し) | コード PR revert + Stripe Dashboard 操作なし |
-| **B. Phase 7 マージ後 24h 以内** | Step 5 旧 4 Price archive 直後 | cutover 24 時間後 | **kill switch revert 可** (部分戻し) | env var (`SHADOW_MODE` / `USE_LOOKUP_KEY`) 切替 + Stripe Dashboard で旧 destination 再有効化 |
+| **B. Phase 7 マージ後 24h 以内** | Step 5 旧 4 Price archive 直後 | cutover 24 時間後 | **kill switch revert 可** (部分戻し) | env var `USE_LOOKUP_KEY` 切替 |
 | **C. Phase 7 マージ後 1 週間** | cutover 24 時間以降 | Phase 6 子 1 #2667 §3 Step 4-c retire 完了直後 | **revert 不可、forward-fix のみ** | コード修正 PR 即時 merge + 必要なら Stripe API で旧 destination un-delete (Stripe 公式 archive 解除) |
 
 ### 4.2 期間 A (Phase 7 マージ前) rollback 手順
@@ -254,15 +274,12 @@ Phase 6 子 1 #2667 §4 timeline を補完し、**「いつまでなら rollback
 | 失敗パターン | rollback 手順 | 想定時間 |
 |---|---|---|
 | Step 3 lookup_key 解決失敗 (R4) | (1) Step 3 PR を `gh pr close` + `git revert` 即時 merge (2) 旧 env var (`STRIPE_PRICE_*` 4 件) は CDK / GitHub Variables にまだ残存 → Lambda 再 deploy で旧経路復活 | 30 分 |
-| Step 4-a shadow mode で silent drop > 0 件 (R1) | (1) Step 4-a PR を revert (2) PO #2627 領域 C (Test mode Webhook) を `disabled` のまま継続 (3) 旧 handler `/api/stripe/webhook` で本番継続 | 15 分 |
-| Step 4-b cutover でエラー率 > 1% (R5) | (1) `STRIPE_WEBHOOK_SHADOW_MODE=true` を Lambda env 即時切替 (2) PO #2627 領域 F で新 Webhook destination 即時 `disabled` + 旧 destination 再 `enabled` (3) Step 4-b PR revert | 15 分 |
 
 ### 4.3 期間 B (Phase 7 マージ後 24h 以内) rollback 手順
 
 | 失敗パターン | rollback 手順 | 想定時間 |
 |---|---|---|
 | Step 3 lookup_key 障害 (R4) | (1) `USE_LOOKUP_KEY=false` を Lambda env 即時切替 (2) CDK / GitHub Variables の旧 env var は Step 5 で削除済の場合、AWS Console で旧 env var 即時再投入 (3) Lambda 再 invoke で env var fallback 動作 | 10 分 |
-| Step 4-b cutover (R1/R5) | (1) `STRIPE_WEBHOOK_SHADOW_MODE=true` を Lambda env 即時切替 (2) PO #2627 領域 F で旧 destination 再 `enabled` (Stripe Dashboard で disabled 状態のまま残存中なので即操作可) + 新 destination `disabled` | 10 分 |
 | Step 5 旧 4 Price archive 後 active subscription 検出 (Phase 1 補強 2 OQ-4 が崩れた場合) | (1) Stripe API `prices.update(id, {active: true})` で 4 Price 即時 un-archive (2) Step 5 PR revert + CDK 旧 env var 再投入 | 15 分 |
 
 ### 4.4 期間 C (Phase 7 マージ後 1 週間 = retire 完了後) forward-fix 手順
@@ -295,55 +312,41 @@ flowchart TD
 
 ## 5. feature flag kill switch SSOT (§5)
 
-> **現状の正解 (#4128)**: kill switch は **`USE_LOOKUP_KEY` の 1 件のみ**。
-> `STRIPE_WEBHOOK_SHADOW_MODE` は撤去した — webhook 受信口を止める switch は「課金 event を捨てる switch」でしかなく、
-> Stripe は 200 を受けると再送しないため、押した瞬間に event が台帳にも残らず消える (2026-07-26 の実障害と同 class)。
-> 以下の §5.1 の 2 行目 / §5.2 の webhook ブロック / §5.4 の 3 系統配備・§6 の切替手順のうち
-> `STRIPE_WEBHOOK_SHADOW_MODE` に関する記述は**実行しない**。webhook 障害時の一次対応は
-> `docs/operations/stripe-post-mortem-runbook.md` §3.2 (Dashboard の destination 確認 → event resend) が SSOT。
+kill switch は **`USE_LOOKUP_KEY` の 1 件のみ**。webhook 受信口 (`/api/stripe/webhook`) を止める kill switch は持たない
+([phase6-phase7-execution-ssot.md §Step 4](phase6-phase7-execution-ssot.md) 整合) — 受信口を止める switch は
+「課金 event を捨てる switch」でしかなく、Stripe は 200 を受けると再送しないため、押した瞬間に event が台帳にも残らず消える。
+webhook 障害時の一次対応は `docs/operations/stripe-post-mortem-runbook.md` §3.2 (Dashboard の destination 確認 → event resend) が SSOT。
 
+Phase 5 子 1 + Phase 6 子 1 + 子 4 で確定した feature flag を **`.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所**で統合管理する。LaunchDarkly / Unleash 等の外部 platform は本 PR §7 OSS 4 件比較で不採用と判断 (Pre-PMF Bucket A、ADR-0010 整合)。
 
-Phase 5 子 1 + Phase 6 子 1 + 子 4 で確定した 2 feature flag を **`.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所**で統合管理する。LaunchDarkly / Unleash 等の外部 platform は本 PR §7 OSS 4 件比較で不採用と判断 (Pre-PMF Bucket A、ADR-0010 整合)。
-
-### 5.1 2 feature flag 定義
+### 5.1 feature flag 定義
 
 | flag | デフォルト | Phase 7 step | kill switch 目的 | 切替 = 何が起きるか |
 |---|---|---|---|---|
 | `USE_LOOKUP_KEY` | `true` | Step 3 (lookup_key 移行) | Stripe API lookup_key 解決失敗時の env var fallback | `false` で `STRIPE_PRICE_*` 4 env var 直読の旧経路 |
-| `STRIPE_WEBHOOK_SHADOW_MODE` | `false` | Step 4-a (shadow) → Step 4-b (cutover) | webhook 二重 destination 期間の log 検証 + cutover 失敗時の 3 状態戻し | `true` で新 handler が DB write せず log のみ、旧 handler が DB write 継続 |
 
 ### 5.2 `.env.example` 配備 (SSOT 1 箇所)
 
-Phase 7 Step 3 + Step 4-a の各 PR で `.env.example` に以下を追加。`scripts/check-new-required-env.mjs` (#2218 整合) で配布証跡を担保。
+Phase 7 Step 3 の PR で `.env.example` に以下を追加。`scripts/check-new-required-env.mjs` (#2218 整合) で配布証跡を担保。
 
 ```bash
-# .env.example (Phase 7 Step 3 / Step 4-a で順次追加)
+# .env.example (Phase 7 Step 3 で追加)
 
 # Stripe lookup_key 解決の段階移行 (Phase 7 Step 3 / Phase 5 子 1 §3.4 / 本 docs §5)
 # true (default): prices.list({ lookup_keys }) で解決
 # false (kill switch): STRIPE_PRICE_{STANDARD,PREMIUM}_MONTHLY env var 直読 fallback
 # 切替: AWS Console / CDK env override / GitHub Actions Variables の 3 系統同期
 USE_LOOKUP_KEY=true
-
-# Stripe Webhook shadow mode (Phase 7 Step 4-a / Phase 5 子 3 §4 / 本 docs §5)
-# false (default、Step 4-b cutover 後): 新 handler /api/stripe/webhook-v2 が DB write
-# true (Step 4-a shadow): 新 handler は log のみ、旧 /api/stripe/webhook が DB write 継続
-# 切替: cutover 失敗時の 3 状態戻し (Step 4-b → Step 4-a 巻き戻し) で使用
-STRIPE_WEBHOOK_SHADOW_MODE=false
 ```
 
 ### 5.3 `src/lib/server/stripe/config.ts` 経由参照 (SSOT 解釈ロジック)
 
-Phase 7 Step 3 で `getPlans()` 関数内、Step 4-a で `handleWebhookEvent()` 関数冒頭で以下を参照。boolean 解釈は **`'true'` 文字列のみ true、それ以外 (undefined / `'1'` / `'TRUE'` 等) は false** で統一 (env 解釈の罠回避)。
+Phase 7 Step 3 で `getPlans()` 関数内で以下を参照。boolean 解釈は **`'true'` 文字列のみ true、それ以外 (undefined / `'1'` / `'TRUE'` 等) は false** で統一 (env 解釈の罠回避)。
 
 ```typescript
-// src/lib/server/stripe/config.ts (Phase 7 Step 3 + Step 4-a で実装、本 docs §5 SSOT)
+// src/lib/server/stripe/config.ts (Phase 7 Step 3 で実装、本 docs §5 SSOT)
 export function isLookupKeyEnabled(): boolean {
   return process.env.USE_LOOKUP_KEY === 'true';
-}
-
-export function isWebhookShadowMode(): boolean {
-  return process.env.STRIPE_WEBHOOK_SHADOW_MODE === 'true';
 }
 ```
 
@@ -351,9 +354,9 @@ export function isWebhookShadowMode(): boolean {
 
 | 系統 | 配備手順 | Phase 7 step |
 |---|---|---|
-| `.env.example` | Step 3 + Step 4-a 各 PR で追加 (本 docs §5.2 を参照) | Step 3 / Step 4-a |
-| CDK Lambda env (`infra/lib/compute-stack.ts`) | Step 3 で `USE_LOOKUP_KEY` 追加、Step 4-a で `STRIPE_WEBHOOK_SHADOW_MODE` 追加。CDK diff で env 件数増加確認 | Step 3 / Step 4-a |
-| GitHub Actions Variables (`gh variable set`) | Step 3 + Step 4-a の各 deploy 前に PO が `gh variable set USE_LOOKUP_KEY --body=true` 実行。Phase 7 Step 5 でも `gh variable` には残存 (kill switch として残存判断は OQ-2 で確定) | Step 3 / Step 4-a |
+| `.env.example` | Step 3 PR で追加 (本 docs §5.2 を参照) | Step 3 |
+| CDK Lambda env (`infra/lib/compute-stack.ts`) | Step 3 で `USE_LOOKUP_KEY` 追加。CDK diff で env 件数増加確認 | Step 3 |
+| GitHub Actions Variables (`gh variable set`) | Step 3 の deploy 前に PO が `gh variable set USE_LOOKUP_KEY --body=true` 実行。Phase 7 Step 5 でも `gh variable` には残存 (kill switch として残存判断は OQ-2 で確定) | Step 3 |
 
 ### 5.5 切替実演手順 (Phase 6 子 1 #2667 §10 OQ-3 整合、Test mode で 1 度実演)
 
@@ -370,7 +373,7 @@ Phase 6 子 2 #2674 §6 シナリオ 2 (アップ即時 + kill switch dry-run) �
 
 Phase 7 Step 3 + Step 4-a の各 PR Pre-Ready checklist に以下 1 行追加:
 
-- [ ] Test mode で kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) 切替 dry-run を 1 回実演し、両方の経路で動作確認済 (Phase 6 子 2 #2674 §6 シナリオ 2 整合、本 docs §5.5)
+- [ ] Test mode で kill switch `USE_LOOKUP_KEY` 切替 dry-run を 1 回実演し動作確認済 (Phase 6 子 2 #2674 §6 シナリオ 2 整合、本 docs §5.5)
 
 ### 5.7-a CloudWatch Logs retention 30 日 SSOT (#2735、QA Adversarial security 軸 推奨)
 
@@ -452,7 +455,7 @@ Phase 5 子 1 §「想定リスク 7 件」+ Phase 6 子 1 #2667 §10 OQ-3 で�
 
 | OSS / 採用案 | 概要 | メリット | デメリット | Pre-PMF コスト | 採用判断 |
 |---|---|---|---|---|---|
-| **A. Stripe 公式 `migrate-snapshot-to-thin-events` 5 phase + 自前 env var 2 件** | Stripe 公式推奨 5 phase (setup → discovery → shadow → cutover → retire)、kill switch は `.env.example` の `USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE` 2 件のみ | (1) Stripe 公式パターン、業界標準 (2) 追加 OSS dependency なし (3) Lambda env update API で 30 秒以内反映 (4) bundle size 増加ゼロ | (1) env var 増加で `.env.example` 配備手順を 3 系統 (CDK / Actions Variables / .env.example) で同期する手間 (2) feature flag UI なし (Lambda Console / CDK で操作) | 1 day (Phase 7 Step 3 + Step 4-a 各 PR の `.env.example` + config.ts に各 1 行追加) | **✅ 採用** (本 docs §5 SSOT) |
+| **A. 自前 env var (kill switch 1 件)** | kill switch は `.env.example` の `USE_LOOKUP_KEY` 1 件のみ | (1) 追加 OSS dependency なし (2) Lambda env update API で 30 秒以内反映 (3) bundle size 増加ゼロ | (1) feature flag UI なし (Lambda Console / CDK で操作) | 半日 (Phase 7 Step 3 PR の `.env.example` + config.ts に 1 行追加) | **✅ 採用** (本 docs §5 SSOT) |
 | B. Stripe `migrate-subscriptions toolkit` (10h rollback window) | Stripe 公式 batch migration toolkit、10h 以内の rollback を Stripe SDK 経由で提供 | (1) Stripe 公式、subscription migration に特化 (2) 10h rollback window 自動管理 | (1) Webhook migration には特化していない (subscription record migration が主) (2) 本プロダクトは webhook migration が主 scope、用途乖離 | 2 day (toolkit 学習コスト + 統合) | **部分採用** (rollback window 概念のみ §4 で利用、toolkit 自体は不採用) |
 | C. LaunchDarkly (SaaS feature flag platform) | flagsmith.com 競合、SaaS 提供の feature flag platform、Web UI + SDK 統合 | (1) Web UI で flag 切替 (Lambda env update API 不要) (2) %ロールアウト機能 (3) A/B test 統合 | (1) 月額 $0-$0.05/MAU (Pre-PMF で月 $0、PMF 後増加) (2) SDK bundle size 60+ KB (3) **Pre-PMF Bucket A 過剰防衛** (ADR-0010、kill switch 2 件のためだけに導入コスト過剰) (4) 障害時の SaaS dependency | 5 day (SDK 統合 + LaunchDarkly account setup + Web UI 学習) | **❌ 不採用** (Pre-PMF 過剰防衛、ADR-0010 整合) |
 | D. Unleash (OSS feature flag self-hosted) | github.com/Unleash/unleash、Apache-2.0、自前 host OSS、Web UI + SDK | (1) self-hosted で SaaS dependency なし (2) OSS で無料 (3) SDK 統合パターン業界標準 | (1) self-host コスト (CDK Lambda / RDS 追加) (2) SDK bundle size 50+ KB (3) **Pre-PMF Bucket A 過剰防衛** (4) admin Web UI 1 つ追加 → 認可 / 監視 / 障害対応増加 | 7 day (self-host setup + SDK 統合 + 認可設計) | **❌ 不採用** (Pre-PMF 過剰防衛、ADR-0010 整合) |
@@ -519,7 +522,6 @@ flowchart TD
 | 検出パターン | 件数 (Phase 7 実測予測) | 担当 step |
 |---|---|---|
 | `USE_LOOKUP_KEY` env grep | 0 件 → Phase 7 Step 3 で `.env.example` + `infra/lib/compute-stack.ts` + GitHub Actions Variables + `src/lib/server/stripe/config.ts` の 4 location 配備 | Step 3 |
-| `STRIPE_WEBHOOK_SHADOW_MODE` env grep | 0 件 → Phase 7 Step 4-a で同 4 location 配備 | Step 4-a |
 | `handleSubscriptionDeleted` 関数 | 1 件 (`src/lib/server/services/stripe-service.ts`:394) → Phase 7 PR-X で `resourceArchiveService.archiveForDowngrade` 呼出追加 (本 docs §6.1) | PR-X (Step 4-b 内部) |
 | `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` 参照 | 0 件 → Phase 7 Step 2-2 で `labels.ts` に atom 追加 + Phase 3 #2573 banner UI で参照 (本 docs §6.3) | Step 2-2 + Phase 3 #2573 |
 | `tax_behavior` 一致確認手順 | `docs/guides/stripe-setup-guide.md` に 1 行追加 (本 docs §6.2) | Step 3 docs 同梱 |
@@ -528,7 +530,7 @@ flowchart TD
 ### 9.2 L2 意味 (型 / 同名異義)
 
 - **`'dunning_canceled'` (archived_reason enum 値)**: Phase 5 子 4 #2642 で確定済、本 docs §3.7 R7 + §6.1 で参照
-- **`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE` env var の 3 系統 (CDK Lambda env / GitHub Actions Variables / `.env.example`)**: 本 docs §5.4 で 3 系統同期手順を SSOT 化
+- **`USE_LOOKUP_KEY` env var の 3 系統 (CDK Lambda env / GitHub Actions Variables / `.env.example`)**: 本 docs §5.4 で 3 系統同期手順を SSOT 化
 - **`STRIPE_PORTAL_TERMS.canonical` atom** (`'Stripe の請求管理ページ'`): 既存 atom (terms.ts)、本 docs §6.3 で `cancelPendingRedirect` から template literal 参照
 - **`handleSubscriptionDeleted` (現状 status のみ vs FR-3 archive 追加後)**: 関数 signature 同一だが内部処理拡張、Phase 7 PR-X で `archived_reason='dunning_canceled'` 書込み追加
 
@@ -551,7 +553,7 @@ Lambda env update / Dashboard destination 切替 / PR revert 操作
 
 本 docs §5 kill switch SSOT
   ↓ 参照される
-Phase 7 Step 3 (USE_LOOKUP_KEY) + Step 4-a (STRIPE_WEBHOOK_SHADOW_MODE)
+Phase 7 Step 3 (USE_LOOKUP_KEY)
   ↓ 参照される
 src/lib/server/stripe/config.ts (isLookupKeyEnabled / isWebhookShadowMode)
   ↓ 参照される
@@ -574,7 +576,7 @@ Phase 7 PR-X (#1) + Step 3 docs (#2) + Step 2-2 atom (#3)
 | 12 | dashboard / alert | Discord alert 3 種 (`stripe-webhook-unknown-type` / `stripe-lookup-failed` / `stripe-webhook-handler-typeerror`) を Phase 7 Step 4-a で配備 (本 docs §3.1 / §3.4 / §3.5) |
 | 13 | Help Center / FAQ | `docs/guides/stripe-setup-guide.md` に tax_behavior 一致確認 1 行追加 (本 docs §6.2) |
 | 16 | GitHub Actions / pipeline | Step 3 + Step 4-a で `gh variable set` 2 件追加 (本 docs §5.4)、`scripts/check-new-required-env.mjs` で配布証跡担保 |
-| 17 | **deployment env / secrets** | `USE_LOOKUP_KEY` + `STRIPE_WEBHOOK_SHADOW_MODE` を 3 系統 (CDK / GitHub Variables / `.env.example`) で配備 (本 docs §5.4) |
+| 17 | **deployment env / secrets** | `USE_LOOKUP_KEY` を 3 系統 (CDK / GitHub Variables / `.env.example`) で配備 (本 docs §5.4) |
 | 18 | i18n platform | `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 追加 → Phase 7 Step 2-2 で `scripts/generate-lp-labels.mjs` 再生成 (本 docs §6.3、Phase 5 子 5 #2643 §6 整合) |
 | 19 | fixture / seed / golden | 影響なし (本 PR は docs のみ、Phase 7 Step 1 で fixture 同期 = 子 3 #2675 §3.8) |
 | 21 | audit log | `stripe_webhook_events` table の `handler_result='error'` 行が cutover 失敗時の audit として機能 (本 docs §8.1 指標 3 + 子 3 #2641 §3.1 SSOT) |
@@ -624,8 +626,8 @@ QM BLOCK 予防 4 項目 (memory `feedback_pr_review_recurring_blocks`) で「Op
 |---|---|------|------|------|
 | 1 | **business** | 本 docs §3.7 想定リスク 7 件サマリ表で R7 (`handleSubscriptionDeleted` archive 未呼出) を「forward-fix 必須」と分類したが、Phase 7 マージ前 (期間 A) で PR-X を Step 4-b 前に独立 merge する判断は適切か? Step 4-b 内部に統合する方が cutover atomicity が高いという代替案あり | 推奨: 独立 PR-X として Step 4-b 前に merge (cutover atomicity vs PR レビュー粒度のトレードオフで、ADR-0020 PR size ≤ 500 行整合 + Phase 6 子 2 #2674 シナリオ 5 で archive 動作を E2E 担保のため独立 PR が適切)。代替案 (Step 4-b 内部統合) は PR size 超過リスク | Phase 7 PR-X 着手時 PO 判断 |
 | 2 | **UX** | 本 docs §6.3 `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 文言「プラン変更予約中は ${STRIPE_PORTAL_TERMS.canonical} ではなく…」は、Portal 名を直接呼ぶことで顧客が「Portal が壊れている」と誤解しないか? 代替文言: 「予約中は ${ADMIN_VIEW_TERMS.canonical} (この画面) から操作してください」(Portal 言及を avoid) | 推奨: Portal 言及維持 (`STRIPE_PORTAL_TERMS.canonical`)。理由: 顧客が Portal を直接開いて反応なしで混乱した状況での誘導文言、Portal 言及がないと「何の代わりにこの画面?」が伝わらない。Phase 3 #2573 banner デザインで「Portal は schedule 中ロックされる仕様、当画面が正規」を明示 | Phase 7 Step 2-2 atom 統合時 PO 判断 |
-| 3 | **security** | 本 docs §5 kill switch env var 2 件 (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) を AWS Console (Lambda env update) で操作可能にする設計だが、AWS Console 操作権限を持つ全 IAM user が kill switch を操作可能になるか? 操作 audit log 取得は CloudTrail 経由で可能だが、kill switch 操作専用の IAM policy 分離を検討すべきか | 推奨: Pre-PMF Bucket B (ADR-0010) で「個人開発段階で IAM policy 分離は過剰防衛」と判断、CloudTrail 経由の事後監査で十分。PMF 後にチーム拡大時に再設計 | Phase 7 Step 3 / Step 4-a deploy 時 PO 判断 |
-| 4 | **security (adversarial)** | Phase 7 PR-X で `handleSubscriptionDeleted` に `archived_reason='dunning_canceled'` 書込み追加する際、複数 webhook delivery (Stripe 公式 [at-least-once delivery](https://docs.stripe.com/webhooks#at-least-once-delivery)) で同一 `customer.subscription.deleted` event が 2 回到達すると `archived_reason` が 2 回書込まれる。冪等性は Phase 5 子 3 #2641 `stripe_webhook_events` dedup table で担保されるが、Phase 7 Step 4-a (shadow mode) 期間中は dedup table 配備済だが書込みが log のみのため、PR-X 実装時に dedup 機能していない期間が発生しないか? | 推奨: PR-X は Step 4-a (shadow mode) 完了後 + Step 4-b (cutover) 直前に merge することで、dedup table が cutover 後に active 化されるタイミングと整合させる。本 docs §6.1 担当 step を「Step 4-b 直前」と確定 (Step 4-a 中の merge ではない) | Phase 7 PR-X merge タイミング判断時 確認 |
+| 3 | **security** | 本 docs §5 kill switch env var (`USE_LOOKUP_KEY`) を AWS Console (Lambda env update) で操作可能にする設計だが、AWS Console 操作権限を持つ全 IAM user が kill switch を操作可能になるか? 操作 audit log 取得は CloudTrail 経由で可能だが、kill switch 操作専用の IAM policy 分離を検討すべきか | 推奨: Pre-PMF Bucket B (ADR-0010) で「個人開発段階で IAM policy 分離は過剰防衛」と判断、CloudTrail 経由の事後監査で十分。PMF 後にチーム拡大時に再設計 | Phase 7 Step 3 deploy 時 PO 判断 |
+| 4 | **security (adversarial)** | Phase 7 PR-X で `handleSubscriptionDeleted` に `archived_reason='dunning_canceled'` 書込み追加する際、複数 webhook delivery (Stripe 公式 [at-least-once delivery](https://docs.stripe.com/webhooks#at-least-once-delivery)) で同一 `customer.subscription.deleted` event が 2 回到達すると `archived_reason` が 2 回書込まれる。冪等性は Phase 5 子 3 #2641 `stripe_webhook_events` dedup table (insert-first) で担保される | 推奨: PR-X は dedup table が active 化されている前提で実装する (受信口は `/api/stripe/webhook` の 1 本のみで、log-only 期間は存在しない) | Phase 7 PR-X merge タイミング判断時 確認 |
 | 5 | **security (adversarial)** | 本 docs §5.5 kill switch dry-run を Test mode で実演する設計だが、Production mode で本物の `USE_LOOKUP_KEY=false` 切替を実演する機会がない (Test mode と Production mode で Stripe API key 系統が異なる)。Production cutover 失敗時に Production 環境の kill switch が機能するかは「初実演」になるリスクは? | 推奨: Phase 7 Step 4-b cutover 直後の 5 分間に Production で `USE_LOOKUP_KEY=true → false → true` を 1 度実演する手順を Step 4-b Pre-Ready checklist に追加 (本番影響なし、両経路で動作確認のみ)。本 docs §5.5 に Production dry-run 手順を追補する follow-up Issue 起票 | Phase 7 Step 4-b 着手時 PO 判断 |
 
 ## 13. 6 観点 workflow 自己検証 (§13、[[per-issue-execution-workflow]] SSOT)

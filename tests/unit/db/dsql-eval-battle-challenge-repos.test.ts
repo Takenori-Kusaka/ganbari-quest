@@ -456,6 +456,8 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 				completedAt: '2026-06-07T10:00:00.000Z',
 				rewardClaimed: 1,
 				rewardClaimedAt: '2026-06-07T11:00:00.000Z',
+				// #4410: 祝福「見せた」記録は backup wire に載せないため復元時は常に未表示
+				celebrationShownAt: null,
 				createdAt: '2026-06-01T00:00:00.000Z',
 				updatedAt: '2026-06-07T11:00:00.000Z',
 			},
@@ -470,6 +472,8 @@ describe('DSQL child-challenge-repo (M4-E PR8b、実 schema PGlite)', () => {
 		expect(restored.rewardClaimed).toBe(1);
 		expect(restored.completedAt).not.toBeNull();
 		expect(restored.rewardClaimedAt).not.toBeNull();
+		// #4410: 復元直後は未表示 = 達成済で未受取なら祝福が 1 回だけ出る
+		expect(restored.celebrationShownAt).toBeNull();
 	});
 
 	it('[C9b] insertForRestore (#3387/#3394): auto:weekly の (child, startDate) 重複は null skip (weekly_auto_guard)', async () => {

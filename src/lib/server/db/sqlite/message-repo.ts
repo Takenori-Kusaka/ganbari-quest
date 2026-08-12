@@ -84,21 +84,30 @@ export async function countUnshownMessages(childId: ChildId, _tenantId: string) 
 /**
  * メッセージを表示済みにする。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ *
+ * #4435 (逸脱 2、条件 SSOT: parallel-implementations.md §13 条件 1): `shown_at IS NULL` guard で
+ * 冪等にし、再送 (`postShown` は失敗時 1 回再送する) で「最初に見せた時刻」を上書きしない。
+ * guard で 0 行になった場合は所有権を満たす行を読み直して返す —「既に既読」と「他人の子の行」を
+ * 呼び出し側 (`/shown` endpoint の 404) が区別できなくなるのを防ぐため。
  */
 export async function markMessageShown(
 	childId: ChildId,
 	messageId: string,
 	_tenantId: string,
 ): Promise<ParentMessage | undefined> {
+	const owned = and(
+		eq(parentMessages.id, Number(messageId)),
+		eq(parentMessages.childId, Number(childId)),
+	);
 	const row = db
 		.update(parentMessages)
 		.set({ shownAt: new Date().toISOString() })
-		.where(
-			and(eq(parentMessages.id, Number(messageId)), eq(parentMessages.childId, Number(childId))),
-		)
+		.where(and(owned, isNull(parentMessages.shownAt)))
 		.returning()
 		.get();
-	return row ? toMessage(row) : undefined;
+	if (row) return toMessage(row);
+	const already = db.select().from(parentMessages).where(owned).get();
+	return already ? toMessage(already) : undefined;
 }
 
 /** テナントの全メッセージを削除（SQLite: シングルテナントのため全行削除） */

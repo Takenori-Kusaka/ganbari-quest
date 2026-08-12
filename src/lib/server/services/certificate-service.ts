@@ -269,6 +269,26 @@ export async function issueMonthlyHabitCertificateIfEligible(
 		tenantId,
 	);
 
+	// #4261 ③: **Push が届かない家庭でも子が残高の増えた理由を知れるようにする。**
+	// AC11' の「子への演出は出さない」は維持したまま、次回起動時に静かに 1 回だけ伝える
+	// pending を残す (PO 決裁 2026-08-06)。Push の可否に関わらず 1 件だけ書くため、
+	// 届いた家庭で二重に演出されることはない。
+	// 通知と同じく付帯物 — 失敗しても証明書と通貨は取り消さない。
+	try {
+		const { recordHabitCertificateNotice } = await import(
+			'$lib/server/services/habit-certificate-notice-service'
+		);
+		await recordHabitCertificateNotice(
+			{ childId, yearMonth, points: MONTHLY_HABIT_POINTS },
+			tenantId,
+		);
+	} catch (e) {
+		logger.warn('[certificate] 月間習慣化の子向け告知の保存に失敗', {
+			service: 'certificate',
+			error: e instanceof Error ? e.message : String(e),
+		});
+	}
+
 	// 通知は付帯物。失敗しても証明書と通貨は取り消さない。
 	try {
 		const { sendPushNotification } = await import('$lib/server/services/notification-service');

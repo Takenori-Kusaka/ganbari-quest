@@ -2,7 +2,11 @@
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
 import { error } from '@sveltejs/kit';
-import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
+import {
+	safeCacheControl,
+	safeContentDisposition,
+	safeContentType,
+} from '$lib/server/security/file-sanitizer';
 import { readFile } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
@@ -38,7 +42,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		headers: {
 			'Content-Type': ct,
 			'Content-Disposition': safeContentDisposition(ct),
-			'Cache-Control': 'public, max-age=31536000, immutable',
+			// #4415 follow-up: 認証 + tenant 一致を通してから返す user-content。共有キャッシュに
+			// 配らせない (private) + キーが実際に immutable なときだけ長期 immutable (safeCacheControl)。
+			'Cache-Control': safeCacheControl(storageKey),
 		},
 	});
 };

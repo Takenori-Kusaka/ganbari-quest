@@ -42,9 +42,9 @@
 
 **適用実績 (#4121 Wave 2)**:
 
-- `check-lp-plan-sync` を advisory (`continue-on-error`) から **hard-fail に復帰**。類型 2 かつ静的テキスト比較で cheap のため。回帰ガード: `tests/unit/scripts/pre-ready-step-budget.test.ts` [P6] / [P7]
+- `check-lp-plan-sync` を advisory (`continue-on-error`) から **hard-fail に復帰**（本 script は後日 #4322 で削除済み、#4420）。回帰ガード: `tests/unit/scripts/pre-ready-step-budget.test.ts` [P6] / [P7]
 - **`check-pr-body.mjs` の 26 検査を id 単位で blocking / advisory に分離** (#4121 決裁 4、2026-08-02)。1 本の script に 類型 1 と 類型 3 が同居していたため **script 単位で「pr-body は類型 1」と扱われ、書式検査 19 本が類型 1 の看板で hard-fail に残っていた**（統合 PR #3995 が 60 check 中 57 SUCCESS でありながら書式 gate 2 本で 4 日間 BLOCK された実害の構造）。**hard-fail するのは `BLOCKING_GATES` に明示列挙した 7 件のみ**（証跡の宛先 / close 宣言の着地 / 証跡なき自己申告 / PO 決裁ブリーフ 3 件 / 統合 PR エビデンス表）で、**列挙されていない検査は advisory が既定**。新しい検査を足すときに hard-fail 化を明示的な意思決定にするための向き付け（憲章 §3.4 制約 1 と同型）。advisory は `ADVISORY-IDS <ids>` の 1 行を必ず出し、**2 run 連続で無反応なら削除候補**として棚卸しに上げる（記録用の新装置は作らず CI ログを grep する）。回帰ガード: `tests/unit/scripts/check-pr-body-severity.test.ts`（id タイプミスで gate が無言 advisory 化するのを機械検出）
-- `npm run pre-ready` を **20 step → 6 step** に縮小 (類型 1: pr-body / ss-embed-gate、類型 2 cheap: biome / svelte-check / plan-literals / local-tz-getters)。**外した 14 検査は消していない** — vitest は CI `unit-test`、残りは CI `lint-and-test` / `lp-metrics.yml` / `lp-fallback-check.yml` で hard-fail のまま走る (対応表 SSOT: `npm run pre-ready -- --help`)。`capture` step のみ、検査せずガイダンスを表示するだけ (類型 4 = 参照ゼロ相当) のため撤去
+- `npm run pre-ready` を **20 step → 6 step** に縮小 (類型 1: pr-body / ss-embed-gate、類型 2 cheap: biome / svelte-check / plan-literals / local-tz-getters)。当時「外した 14 検査は消していない」としていたが、うち大半は **#4322 (#4291 品質ゲート 80 点主義削減) で script / workflow ごと削除済み**。現存し CI で hard-fail し続けているものの最新対応表は `npm run pre-ready -- --help` を参照（`capture` step のみ、検査せずガイダンスを表示するだけ (類型 4 = 参照ゼロ相当) のため撤去）
 
 ### 2. 新ツール導入時の判断フロー
 

@@ -17,6 +17,7 @@ import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { sanitizeActivityNameField, sanitizeDailyLimit } from '$lib/domain/validation/activity';
 import { isLegacyCompatibleDateTime } from '$lib/domain/validation/datetime';
 import { MESSAGE_TEXT_MAX_LENGTH, MESSAGE_TYPES } from '$lib/domain/validation/message';
+import { normalizeRedemptionQuantity } from '$lib/domain/validation/special-reward';
 import {
 	findActivities,
 	findActivityLogs,
@@ -596,6 +597,8 @@ async function importRewardRedemptionsData(
 					childId,
 					rewardId,
 					requestedAt: r.requestedAt,
+					// #4407: 旧 backup (v1.8.0 以前) には quantity が無いため 1 個として復元する。
+					quantity: normalizeRedemptionQuantity(r.quantity),
 					status: r.status,
 					parentNote: r.parentNote,
 					resolvedAt: r.resolvedAt,
@@ -693,6 +696,10 @@ async function importChildChallengesData(
 					completedAt: c.completedAt,
 					rewardClaimed: c.rewardClaimed,
 					rewardClaimedAt: c.rewardClaimedAt,
+					// #4410: 祝福の「見せた」記録は端末横断の一時 UI 状態であり backup wire schema
+					// (ADR-0066 値域 SSOT) には載せない。復元直後は未表示として扱い、達成済で未受取
+					// なら祝福を 1 回だけ出す (以降は celebration_shown_at が停止条件になる)。
+					celebrationShownAt: null,
 					createdAt: c.createdAt,
 					updatedAt: c.updatedAt,
 				},

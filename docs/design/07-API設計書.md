@@ -144,8 +144,7 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| GET | /api/v1/images | 画像取得（S3 プロキシ） | 全ロール |
-| POST | /api/v1/images | 画像アップロード | owner/parent |
+| GET | /api/v1/images | favicon の現在パス取得（`?type=favicon`） | owner/parent |
 | GET | /api/v1/export | データエクスポート（JSON / ZIP）。ZIP は `data.json` + 静的ファイル（avatars/voices/generated）+ `manifest.json` を同梱。#3375: `manifest.json` に全エントリの SHA-256 + バイト数を記録し、画像含む同梱バイナリの**偶発的破損**を import 前に照合可能にする（既存 `data.json` checksum は論理内容のみを保護）。`itemCounts`（主要エンティティ件数）も記録し **#3386 で import 側が data.json 実件数と照合**（部分欠損検出）。`dataVersion` は将来用メタデータ（復元 migration dispatch 未実装）。`manifest` は未署名のため意図的改竄の防止は対象外（将来スコープ）。圧縮は per-entry 制御（既圧縮画像=store / 構造化=deflate） | owner/parent |
 | POST | /api/v1/import | データインポート（JSON / ZIP、静的ファイル復元）。#3375: ZIP に `manifest.json` があれば SHA-256 / サイズ / 存在を復元前に照合し、**偶発的破損（SHA-256/バイト数/存在の不一致）と manifest 記載ファイルの欠落、manifest 記載外ファイルの混入（注入）、#3386: itemCounts と data.json 実件数の不一致（部分欠損）を明示エラー化**（記載外ファイル・件数不一致は fail-closed で復元拒否）。#3386 / ADR-0062: エラー文言は内部 reason コード / 生パスを露出せず `labels.ts` 汎用文言を返す（内部詳細は logger のみ）。#3382: 設定値は allowlist キーでも import 時に値域/型/enum/制御文字を検証し不正値は skip。`manifest` は未署名のため**意図的改竄の防止は対象外**（manifest 再計算 / manifest 削除での downgrade が可能、将来スコープ）。`manifest.json` 無しの旧 ZIP / 旧 JSON は検証スキップで後方互換 | owner/parent |
 | GET | /api/v1/export/cloud | クラウドエクスポート一覧取得 | owner/parent |
@@ -785,11 +784,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `category`: `もの` | `たいけん` | `おこづかい` | `とくべつ`
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - Gemini API が利用不可の場合はキーワード＋プリセットマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/cheer/suggest
 
-子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。ファミリープラン限定（#2273）。
+子供のがんばり出来事テキストから応援内容（理由要約・カテゴリ・応援 P・アイコン）を AI で推定する。プレミアムプラン限定（#2273）。
 
 **リクエストボディ:**
 ```json
@@ -814,11 +813,11 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `source`: `gemini`（Gemini API 推定）| `fallback`（キーワードマッチング）
 - 既存 LLM 連携機構 (special-rewards/suggest と同基盤) を再利用、プロンプト/出力スキーマのみ別
 - Gemini API が利用不可の場合はキーワードマッチングにフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 #### POST /api/v1/checklists/suggest
 
-テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。ファミリープラン限定（#720, #722）。
+テキスト入力からチェックリストのテンプレート名・アイコン・アイテム一覧を AI で推定する。プレミアムプラン限定（#720, #722）。
 
 **リクエストボディ:**
 ```json
@@ -844,17 +843,20 @@ Cognito OAuth コールバック。認可コードを受け取り、トークン
 - `items[].direction`: `bring`（持参）| `return`（持帰）| `both`（往復）
 - `source`: `gemini`（AI 推定）| `fallback`（プリセット/キーワードマッチング）
 - Bedrock API が利用不可の場合は 5 種のプリセット（がっこう/たいいく/プール/えんそく/おとまり）＋キーワード分割にフォールバック
-- ファミリープラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
+- プレミアムプラン以外では `403 PLAN_LIMIT_EXCEEDED` を返す
 
 ### 3.10 画像・エクスポート
 
 #### GET /api/v1/images
 
-S3 からの画像取得プロキシ。`key` クエリパラメータで対象を指定。
+favicon の現在パスを返す（`?type=favicon`）。生成済み favicon があればそのパス、無ければ静的アイコン
+`/icon-character.png`、いずれも無ければ `null`。`type` が `favicon` 以外なら 400。
 
-#### POST /api/v1/images
+アバター画像のアップロードは `POST /api/v1/children/[id]/avatar` が担う。
 
-画像をアップロードする（S3 へ保存）。
+**アバター / favicon の AI 生成（旧 `POST /api/v1/images`）は #4397 で廃止した。** 子供のニックネームと
+年齢を運営者の環境の外にある生成 AI（Gemini）へ送る配線であり、プライバシーポリシー第 3 条 / 第 10 条の
+開示と食い違っていたため、機能ごと撤去している。アバターの設定手段は写真アップロードのみ。
 
 #### GET /api/v1/export
 
@@ -1020,7 +1022,17 @@ S3 からの画像取得プロキシ。`key` クエリパラメータで対象�
 
 レシート画像を OCR で読み取り、金額を抽出する。
 
-**AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。Bedrock 未利用時は `NO_API_KEY` エラーを返す。
+**AIモデル:** AWS Bedrock Claude Haiku（画像入力 + tool_use）— レシート画像をマルチモーダル入力し、金額とテキストを構造化出力で抽出。provider は `AI_PROVIDER` で切替（`bedrock` 既定 / `gemini`）。
+
+**失敗理由の区別（#4366）:** 顧客に伝える内容が変わるため、AI 側の事情と画像側の事情を混ぜない。
+
+| 状況 | HTTP | `error.code` | 顧客向けの意味 |
+|---|---|---|---|
+| AI が設定されていない（`BEDROCK_MODEL_ID` / `GEMINI_API_KEY` 未配布、`BEDROCK_DISABLED=true`） | 503 | `AI_UNAVAILABLE` | 撮り直しを促さず手入力へ誘導する |
+| AI 呼び出しが権限・資格情報・モデル未存在で失敗（`AccessDeniedException` 等） | 503 | `AI_UNAVAILABLE` | 同上（顧客の画像は無関係） |
+| 画像から金額を読み取れなかった / 一時的失敗 | 422 | `OCR_FAILED` | 撮り直すか手入力する |
+
+内部例外メッセージはレスポンスに載せない（ADR-0062 §2）。可用性の判定契約は `AiProvider.isAvailable()`（`src/lib/server/ai/provider.ts`）を参照。`false` は「呼んでも無駄」の確定、`true` は「設定が配られている」までの保証で、権限の有無は呼ぶまで確定しない。
 
 **画像サイズ上限（#3694、Function URL 6MB request cap 整合）:** 画像は base64 JSON body で送信するため、AWS（aws-prod）では base64 化（デコード後 × 4/3）が Function URL 6MB request cap を超えると edge で沈黙拒否される。デコード後上限を runtime 実効値（約 4.14MB、`resolveMaxBase64DecodedBytes`、SSOT: `src/lib/server/services/function-url-limit.ts`）に下方整合し、超過は 400 VALIDATION_ERROR で明示する。NUC / local は Function URL 制約が無いため従来 5MB を維持する。受理上限の元定数は `RECEIPT_MAX_IMAGE_BYTES`（`src/lib/server/services/receipt-ocr-service.ts`、5MB）を SSOT とし、route の reject 判定と撮影ボタン note の表示値を同一値から導出する。
 
@@ -1184,7 +1196,7 @@ PINコードを使って他テナントのクラウドエクスポートデー�
 |--------|-------------------|------|
 | Free | 1 | owner のみ（招待不可） |
 | Standard | 4 | owner + 3人（核家族想定） |
-| Family | null（無制限） | 制限なし |
+| Premium | null（無制限） | 制限なし |
 
 上限超過時は `403` を返す:
 
@@ -1247,6 +1259,7 @@ Stripe Checkout セッションを作成し、リダイレクト URL を返す�
 - **`getPlans().priceId`（env var 直読）を line_item に使わない**: 直読すると `USE_LOOKUP_KEY` がどの経路にも効かず、price env を注入しない配備で購入が必ず失敗する。`tests/unit/architecture/stripe-price-resolution-single-entrypoint.test.ts` が呼び出し構造を固定する
 - **エラーコード**: `STRIPE_DISABLED` / `TENANT_NOT_FOUND` (404) / `ALREADY_SUBSCRIBED` (409) / `INVALID_PLAN` (400) / **`PRICE_UNRESOLVED` (503)**
   - `PRICE_UNRESOLVED` が **503** なのは、**配備の設定不備であって顧客の入力誤りではない**ため。4xx で返すと顧客側の操作ミスに見え、原因が運用側にあることが隠れる
+  - `STRIPE_DISABLED`（決済機能自体が無効な配備）と `PRICE_UNRESOLVED`（lookup_key / env 双方から Price ID を解決できない設定不備）は **同一 503 だが文言を分ける**（#4286）。同一文言だと顧客が原因を区別できず離脱していたため。`PRICE_UNRESOLVED` の文言は `SUBSCRIPTION_PAGE_LABELS.checkoutErrorPriceUnresolved`（`src/lib/domain/labels.ts`、DESIGN.md §6 SSOT）を参照する。エラーレスポンス body は `{ message }` のみで機械可読なエラーコードは含まないため、両エラーは HTTP ステータス単体では判別できず、文言（または呼び出し元でのログ相関）でのみ判別できる
 
 #### POST /api/stripe/portal
 
@@ -1312,7 +1325,7 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 
 テキスト入力から活動名・カテゴリを AI で推定する。
 
-**AIモデル:** AWS Bedrock Claude Haiku (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
+**AIモデル:** AWS Bedrock Claude Haiku (`anthropic.claude-haiku-4-5-20251001-v1:0`) — tool_use（構造化出力）で確実にJSONスキーマ準拠のレスポンスを返す。Bedrock 未利用時はキーワードベースのフォールバック。
 
 **リクエストボディ:**
 ```json
@@ -1434,8 +1447,13 @@ readiness probe（shallow、#3657）。**プロセスが HTTP を受けられる
 
 ### 3.16 運営管理ダッシュボード（#0176 / #820 / ADR-0033）
 
-> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820 / ADR-0033）。
-> 非メンバーは 403 Forbidden。実装は `src/routes/ops/+layout.server.ts` が `isOpsMember(locals.identity)` で判定する。
+> `/ops` 配下は **Cognito User Pool の `ops` group メンバーのみがアクセス可能**（#820。MFA 追加要求は #4266 で導入し #4363 のオーナー決裁で撤去。判定と再評価トリガーは `docs/design/14-セキュリティ設計書.md` §5.2.9）。
+> 非メンバーは 403 Forbidden。判定は `src/lib/server/auth/ops-authz.ts` の `requireOpsAccess(locals)` に集約する。
+>
+> **API endpoint（`+server.ts`）は自分で `requireOpsAccess(locals)` を呼ぶこと（#4309）**。`+layout.server.ts` の gate は
+> page の load にしか適用されず `+server.ts` には走らないため、呼ばない endpoint は**認可ゼロで外部公開される**
+> （実害: `GET /ops/export?type=sales` が未認証で 200 + 売上台帳 CSV を返していた）。適用範囲は
+> `tests/unit/architecture/ops-route-auth-fitness.test.ts` が FS 列挙で機械強制する。詳細は 14-セキュリティ設計書 §5.2.9。
 >
 > 旧 `OPS_SECRET_KEY` Bearer token / `ops_token` Cookie / URL token 認証はすべて廃止済み。
 > なお `/api/cron/retention-cleanup` / `/api/cron/license-expire` は EventBridge から呼ばれる別経路のため、独自の shared secret
@@ -2069,16 +2087,20 @@ Push 通知の購読解除。
 ```json
 {
   "rewardId": 42,
-  "childId": 7
+  "childId": 7,
+  "quantity": 4
 }
 ```
 
+`quantity` は 1 申請が表す個数（#4407、省略時 1）。単位量のごほうび（「ゲーム時間 +30分」等）を「単価 × 個数」で消費するための値で、値域は domain 層 SSOT `REDEMPTION_QUANTITY_MIN`(1) / `REDEMPTION_QUANTITY_MAX`(99)（ADR-0066）。在庫・購入上限ではない（実効的な購入可能量は残高が決める）。
+
 **処理:**
 1. `reward_id` の `special_rewards` が `child_id` に紐付くか検証
-2. `child.points >= special_rewards.requiredPoints` を確認（不足時は `400 INSUFFICIENT_POINTS`）
-3. 同一 `(child_id, reward_id)` で `status = 'pending_parent_approval'` が存在しないか確認（重複時は `409 ALREADY_PENDING`）
-4. `reward_redemption_requests` レコードを作成（repo は常に `status: 'pending_parent_approval'`, `requested_at: now()` で作成）
-5. **即時交換分岐（#3339）**: 家庭設定 settings KVS `reward_auto_approve === 'true'` のとき（後述）、その場で承認確定（`approved` + ポイント減算）まで進め `instant: true` を返す。OFF（既定）なら申請は pending のまま据え置き、ポイントは減算しない
+2. `quantity` が値域内の整数か検証（範囲外 / 小数 / NaN は `400 INVALID_QUANTITY`）
+3. 残高 >= `単価 × 個数` を確認（不足時は `400 INSUFFICIENT_POINTS`）
+4. 同一 `(child_id, reward_id)` の pending 既存 / 直近 approved 窓に当たらないか確認（当たれば pending 実在時 `409 ALREADY_PENDING` / 直近 approved 由来なら `409 RECENTLY_EXCHANGED`。#4407: 即時交換 ON の家庭では pending が存在しないため「既に申請中」は事実と異なる）
+5. `reward_redemption_requests` レコードを作成（repo は常に `status: 'pending_parent_approval'`, `requested_at: now()` で作成）
+6. **即時交換分岐（#3339）**: 家庭設定 settings KVS `reward_auto_approve === 'true'` のとき（後述）、その場で承認確定（`approved` + ポイント減算）まで進め `instant: true` を返す。OFF（既定）なら申請は pending のまま据え置き、ポイントは減算しない
 
 **レスポンス (201):**
 ```json
@@ -2086,6 +2108,7 @@ Push 通知の購読解除。
   "id": 101,
   "rewardId": 42,
   "childId": 7,
+  "quantity": 4,
   "status": "pending_parent_approval",
   "requestedAt": 1714000000
 }
@@ -2094,8 +2117,10 @@ Push 通知の購読解除。
 **エラー:**
 | コード | HTTP | 説明 |
 |--------|------|------|
-| `INSUFFICIENT_POINTS` | 400 | ポイント不足 |
+| `INSUFFICIENT_POINTS` | 400 | ポイント不足（判定は `単価 × 個数`） |
 | `ALREADY_PENDING` | 409 | 同一報酬の申請が既に pending |
+| `RECENTLY_EXCHANGED` | 409 | 直近 10 秒以内に同一報酬を交換済（連打 / 再送 dedup 窓、#3356 / #4407） |
+| `INVALID_QUANTITY` | 400 | 個数が値域外（0 / 負 / 小数 / 上限超過、#4407） |
 | `REWARD_NOT_FOUND` | 404 | 報酬が存在しない / 子供に属さない |
 
 #### 即時交換モード（settings KVS `reward_auto_approve`、#3339 / #3347）
@@ -2601,9 +2626,10 @@ if (authError) return authError;
 |------|---------|------|
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
-| `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` は 02:00 JST で定義するが AWS 側は EventBridge Rule 未作成のため未駆動で、現状は NUC scheduler のみが起動する (#4033) |
+| `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。`scheduleRegistry` の 02:00 JST 定義に従い、AWS は EventBridge Rule `ganbari-quest-cron-grace-period-deletion`、NUC は scheduler が駆動する。**`dryRun=true` は 1 件も削除しないが、`tenantsProcessed` / `tenantsRemaining` は定数ではなく実行時と同じ打ち切り条件（`limit` / 時間予算）から算出した予測値を返す**（#4373。実績値である `tenantsDeleted` / `tenantsFailed` は削除を行わないため 0）|
+| `/api/cron/deletion-warning-emails` | POST / GET | アカウント削除予告メールの日次バッチ（#2399, `deletion-warning-service.ts`）。EventBridge cron `cron(0 1 * * ? *)` (UTC) = 毎日 10:00 JST 実行。soft-delete 済テナントを走査し、物理削除予定日までの残日数（JST 暦日）がしきい値以下になった**保護者ロール (owner/parent) 全員**へ、削除予定日と復元導線を含むメールをそれぞれ送る（#4325 follow-up、オーナー決裁 2026-08-06。owner 1 名固定だと owner 不在 / アドレス失効時に予告が単一障害点で届かないため。`child` ロールは対象外、同一メールアドレスが複数ロールに登録されていれば 1 通にまとめる）。しきい値は family = 14 日 / standard = 1 日 / **free = 送信なし（猶予 0 日 = 即時物理削除のため予告する時間が存在しない）**。重複送信は `deletion_warning_sent_at` settings KV で防止し（1 通以上の送信成功でセット、復元 / 再予約時にクリア）、対象保護者が 1 件も見つからない場合は `skippedNoRecipients++`（削除自体は止めずログで観測可能にする）。全宛先で送信に失敗した場合のみ再試行対象（`errors++`、sent_at 未設定）。法務通知扱いのため `marketing-email-counter`（年 6 回上限）を経由せず List-Unsubscribe も付けない（購読解除で止まらない）。件数上限 + 時間予算（#3695）で 30 秒制約に収め、残件は `tenantsRemaining` で報告 |
 | `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
-| `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる |
+| `/api/cron/export-build` | POST / GET | クラウドエクスポート非同期 build バッチ（#3504, async-backup-export.md §3.2）。EventBridge cron `cron(0/5 * * * ? *)` (UTC) = 5 分毎実行 (AWS cron-dispatcher / NUC scheduler container 双方が同一 endpoint を駆動)。`status='pending'` の `cloud_exports` レコードを拾い `building` → `buildFullBackupZip` → storage 保存 → `ready`（失敗時 `failed` + `failureReason`）に遷移させる。**`dryRun=true` と `GET`（ヘルスチェック）は build も status 書き換えも行わないが、`processed` は定数ではなく pending の実数を返す**（#4373。write を伴う stale reclaim は dryRun では実行しないため `reclaimed` は返さない）|
 | `/api/cron/pglite-backup` | POST | **NUC 専用** PGlite 本番データの日次バックアップ（#3950）。NUC ローカルの crond（`docker-compose.yml` backup profile、03:00 JST）が `scripts/backup-nuc.cjs` 経由で起動する。`runPgliteBackup()` が PGlite 公式 `dumpDataDir()` でダウンタイム 0 の整合スナップショットを取得し、**取得物を別インスタンスへ実際に復元して検証**（V1 全テーブル `count(*)` / V2 `__drizzle_migrations` 非空 / V3 journal ↔ 適用実績の突合）した上で確定、3 世代へローテーションする。`DATA_SOURCE != pglite` では 409 を返す（AWS は DSQL のため対象外）。EventBridge / `scheduleRegistry` には登録しない（NUC 専用のため）。運用手順は `docs/runbooks/pglite-restore-drill.md` |
 | `/api/v1/admin/tenant-cleanup` | POST | テナントクリーンアップ |
 | `/api/v1/admin/cleanup-orphans` | POST | 孤立データクリーンアップ |

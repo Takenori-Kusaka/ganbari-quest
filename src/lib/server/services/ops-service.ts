@@ -4,7 +4,7 @@
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
-import { monthStartJST } from '$lib/domain/date-utils';
+import { jstDateOfIso, monthStartJST, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -164,7 +164,7 @@ export async function getRevenueData(from: Date, to: Date): Promise<RevenueData>
 		const monthMap = new Map<string, MonthlyRevenue>();
 		for (const row of rows) {
 			if (!row.paidAt) continue;
-			const month = row.paidAt.slice(0, 7); // YYYY-MM
+			const month = utcMonthKey(new Date(row.paidAt)); // ops 集計は UTC 月で揃える (#3449)
 			const existing = monthMap.get(month) ?? { month, revenue: 0, invoiceCount: 0, stripeFees: 0 };
 			existing.revenue += row.amount;
 			existing.invoiceCount += 1;
@@ -301,7 +301,7 @@ export async function getAWSCostData(year: number, month: number): Promise<AWSCo
 export function generateSalesLedgerCsv(invoices: InvoiceRow[]): string {
 	const header = '取引日,顧客ID（匿名化）,摘要,金額(税込),消費税,金額(税抜),備考';
 	const rows = invoices.map((inv) => {
-		const date = inv.paidAt ? inv.paidAt.slice(0, 10) : '';
+		const date = inv.paidAt ? jstDateOfIso(inv.paidAt) : '';
 		const custId = `${inv.customerId.slice(0, 12)}...`;
 		return `${date},${custId},${inv.planDescription},${inv.amount},0,${inv.amount},Stripe ${inv.id}`;
 	});

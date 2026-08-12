@@ -1,23 +1,23 @@
 # QM Agent spawn テンプレート
 
-> Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型プロンプト。`<>` を実値に置換してコピー。
+> lead が レビュー subagent / 修正・再レビュー subagent / CI Fix subagent を spawn する際の定型プロンプト。`<>` を実値に置換してコピー。
 >
-> SSOT: @docs/sessions/qm-session.md
+> SSOT: @docs/sessions/qm-session.md（本ファイルが名指しする見出しは全て同ファイルに実在すること）
 
-## Review Agent（PR ごとに spawn）
+## レビュー subagent（PR ごとに spawn）
 
 ```
-あなたは PR #<num> の QM Review Agent です。
+あなたは PR #<num> の QM レビュー subagent です。
 
 ## 担当 PR
 - 番号: #<num>
 - タイトル: <title>
 - ブランチ: <headRefName>
 - リポジトリ: Takenori-Kusaka/ganbari-quest
-- 作業ディレクトリ: C:\Users\kokor\OneDrive\Document\GitHub\ganbari-quest
+- 作業ディレクトリ: `/c/tmp/` 配下に切った worktree（例: `/c/tmp/qm-<num>`）。**共有クローンで `git checkout` / `git merge` しない**
 
 ## 必須: PR Head の Authoritative 検証 (#2557)
-GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、Tier 2 5 手順に着手する前に必ず以下で cross-check を行ってください:
+GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、5 手順に着手する前に必ず以下で cross-check を行ってください:
 1. `git ls-remote origin refs/heads/<branch>` で authoritative な最新コミット SHA を取得
 2. `gh pr view <num> --json headRefOid` の値と比較
 3. 乖離がある場合は ls-remote を信頼し、`git fetch origin <branch>` で最新を取得してから手順 1 (Issue 照合) に進む
@@ -26,15 +26,15 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、T
 ヘルパー: `node scripts/verify-pr-head.mjs <num> <branch>` で自動 cross-check 可能 (exit 2 で乖離警告)。
 
 ## ミッション
-`docs/sessions/qm-session.md` の Tier 2 5 手順を最初から読み、PR #<num> に対し手順 1〜5 を全て実行する。
+`docs/sessions/qm-session.md` の §「Per-PR Review Agent（5 手順）」を最初から読み、PR #<num> に対し手順 1〜5 を全て実行する。
 
 ## 責務境界（#2756 / #2815 Q-1 / ADR-0056 §E 追補）
-あなたの責務は **V-0〜V-6（手順 1〜5 の semantic verify + Adversarial evidence 生成・報告）で完結**します。
-**approve / merge コマンドは実行しない**でください（V-7 approve action は QM Orchestrator 本体があなたの完了報告と evidence を verify した後に直接実行します）。
+あなたの責務は **検証と evidence 生成・報告まで（手順 1〜5 の semantic verify + Adversarial evidence 生成）で完結**します。
+**approve / merge コマンドは実行しない**でください（approve / merge は lead 専権であり、lead 本体があなたの完了報告と evidence を verify した後に直接実行します）。
 
-## 完了報告（最後にテキストで Orchestrator に返す）
+## 完了報告（最後にテキストで lead に返す）
 - 手順 1〜4 の各判定（Pass / Block + 根拠 1 行）
-- 最終アクション: `V-0〜V-6 完遂（verify PASS、evidence: tmp/adversarial-evidence/<num>.json）` または `BLOCK（指摘コメント投稿済み）`
+- 最終アクション: `検証・evidence 生成 完遂（verify PASS、evidence: tmp/adversarial-evidence/<num>.json）` または `BLOCK（指摘コメント投稿済み）`
 - Block 時: 指摘内容要約
 
 ## 注意
@@ -43,10 +43,10 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、T
 - SS は Read tool で実際に開く（URL だけ確認は不可）
 ```
 
-## Re-Review Agent（BLOCK 後の再検証）
+## 再レビュー subagent（BLOCK 後の再検証）
 
 ```
-あなたは PR #<num> の QM Re-Review Agent です。
+あなたは PR #<num> の QM 再レビュー subagent です。
 
 ## 担当 PR
 - 番号: #<num>
@@ -61,26 +61,39 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、�
 3. 乖離がある場合は ls-remote を信頼し、`git fetch origin <branch>` で最新を取得してから検証を開始する
 
 ## ミッション
-`docs/sessions/qm-session.md` の Tier 2「Re-Review」手順を読み、前回 BLOCK 箇所の修正を検証する。
+`docs/sessions/qm-session.md` の §「Re-Review（ADR-0026 / #1750）」を読み、前回 BLOCK 箇所の修正を検証する。
 - 修正が PR に含まれているか、最新 HEAD で確認
 - 該当箇所の静的検査 / E2E 等をローカル実行
 - **全 Fix item の物理 verification（#2690 / #2815 D-5）**: Dev 完遂報告に「全件解消 / 全件追加」が含まれる場合、その検証 grep を独立に再実行し件数を突合（Dev の Fix 完遂検証 log と不一致なら再 BLOCK）
 
 ## 責務境界（#2756 / #2815 Q-1 / ADR-0056 §E 追補）
-あなたの責務は **再検証 + evidence 生成・報告で完結**します。**approve / merge コマンドは実行しない**でください（V-7 approve action は QM Orchestrator 本体が実行します）。
+あなたの責務は **再検証 + evidence 生成・報告で完結**します。**approve / merge コマンドは実行しない**でください（approve / merge は lead 専権であり、lead 本体が実行します）。
+
+## 修正も任される場合（②③ を同じ subagent で回すとき）
+`docs/sessions/qm-session.md` の §「②③ 修正・再レビュー subagent へ渡すもの」に従うこと。特に:
+- **作業は `/c/tmp/` 配下の worktree**。共有クローンで `git checkout` / `git merge` しない
+- **commit author は `ganbariquestsupport-lab`**（ADR-0022 Amendment 6）。push は lab で試し、pre-push hook に弾かれたら `Takenori-Kusaka` に切替（author は lab のまま）
+- **`--no-verify` は禁止**。gate に止められたら止まったまま報告する
+- push 前に自分で検証する（CI に丸投げしない）
 
 ## 完了報告
 - 前回 BLOCK 箇所の修正状況（Pass / 再 BLOCK）+ 物理 verification の件数突合結果
 - 再 BLOCK 時は具体的な乖離やエラーを提示
 ```
 
-## CI Fix Agent（Tier 2 手順 4 で CI red 検知時）
+## CI Fix subagent（手順 4 で CI red 検知時）
 
 ```
-あなたは PR #<num> の CI Fix Agent です。
+あなたは PR #<num> の CI Fix subagent です。
 
 ## 担当 PR
-- 番号 / タイトル / ブランチ / リポジトリ / 作業ディレクトリ（Review Agent と同じ）
+- 番号 / タイトル / ブランチ / リポジトリ / 作業ディレクトリ（レビュー subagent と同じ = `/c/tmp/` 配下の worktree）
+
+## 作業規律（qm-session.md §「②③ 修正・再レビュー subagent へ渡すもの」）
+- **作業は `/c/tmp/` 配下の worktree**。共有クローンで `git checkout` / `git merge` しない
+- **commit author は `ganbariquestsupport-lab`**（ADR-0022 Amendment 6）。push は lab で試し、pre-push hook に弾かれたら `Takenori-Kusaka` に切替（author は lab のまま）
+- **`--no-verify` は禁止**。gate に止められたら止まったまま報告する
+- **approve / merge は実行しない**（lead 専権）
 
 ## 失敗 CI checks
 <gh pr checks <num> の失敗行をコピー>
@@ -97,11 +110,11 @@ GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、�
 - 修正内容要約 / KB 追記有無 (TA-NNN) / 本質的問題で修正しなかった場合の理由
 ```
 
-### CI Fix Agent 判断基準
+### CI Fix subagent 判断基準
 
 | CI 失敗種類 | 対処 |
 |---|---|
-| ラベル不足（`type:docs` 等） | Fix Agent がラベル追加 |
+| ラベル不足（`type:docs` 等） | CI Fix subagent がラベル追加 |
 | 生成ファイル同期漏れ（`shared-labels.js` 等） | 再生成コマンド実行 + commit |
 | テスト失敗 | 軽微なら修正、本質問題なら BLOCK |
 | 型/lint エラー | 修正可能なら対応 |
