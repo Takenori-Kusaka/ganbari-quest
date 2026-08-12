@@ -58,9 +58,9 @@ vi.mock('$lib/runtime/env', () => ({
 import { PLAN_FULL_TERMS, PLAN_RETENTION_TERMS } from '$lib/domain/terms';
 import * as emailService from '$lib/server/services/email-service';
 import {
+	sendTrialEndedTodayEmail,
 	sendTrialEnding1DayEmail,
 	sendTrialEnding3DaysEmail,
-	sendTrialEndedTodayEmail,
 } from '$lib/server/services/trial-notification-service';
 
 // ============================================================
@@ -95,6 +95,7 @@ interface CapturedEmail {
 function takeSentEmail(): CapturedEmail {
 	expect(sesCommands).toHaveLength(1);
 	const sent = sesCommands[0];
+	if (!sent) throw new Error('メールが 1 通も送られていません');
 	if (sent.type === 'simple') {
 		const message = sent.params.Message as {
 			Subject: { Data: string };

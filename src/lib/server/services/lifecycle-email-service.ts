@@ -44,6 +44,16 @@ export const DORMANT_THRESHOLD_DAYS = 90;
 const DORMANT_SENT_KEY = DORMANT_REACTIVATION_SENT_KEY;
 const UNSUBSCRIBED_KEY = MARKETING_UNSUBSCRIBED_KEY;
 
+/**
+ * #4507: 支払い失敗通知の送信済マーカー (settings KV キー)。
+ *
+ * marketing 系の抑止キー (marketing-suppression-keys.ts) とは**別物**。あちらは
+ * 「顧客が止めたい意思」を保持するので退会処理でも消してはならないキーだが、こちらは
+ * 単なる重複送信よけであり、消えても次の送信で書き直されるだけで害が無い。
+ * 混ぜると「退会後も残すキー」の意味が薄まるため、本 service 側に置く。
+ */
+const DUNNING_NOTICE_SENT_KEY = 'dunning_notice_sent_marker';
+
 // ============================================================
 // 型
 // ============================================================
@@ -156,7 +166,22 @@ async function sendDunningNotice(
 	ctx: TenantContext,
 	daysRemaining: number,
 	dryRun: boolean,
-): Promise<'payment-failed-sent' | 'error'> {
+): Promise<'payment-failed-sent' | 'skipped-already-sent' | 'error'> {
+	// 年 6 回上限を外した以上、重複送信を止めるものが他に無い (#4507)。
+	// cron-dispatcher は retry を内蔵しており (本 runbook §2)、同じ日に 2 度走ると
+	// 同じ残日数で同じ文面がもう 1 通届く。marketing 便は上限がいずれ頭打ちにしたが、
+	// トランザクション便にはその頭打ちが無いので、送信済フラグを自前で持つ。
+	//
+	// 値に「どの猶予期限の・残り何日」を入れるのが要点:
+	//   - 同一サイクル内の 7 日目 → 1 日目 は値が変わるので両方送れる
+	//   - 同じ日の再実行は値が一致するので 2 通目が止まる
+	//   - 次に支払いが失敗すると planExpiresAt が変わるので自動的に再武装される
+	//     (解除処理を別に持たなくてよい = 解除し忘れで無音になる経路を作らない)
+	const repos = getRepos();
+	const marker = `${ctx.planExpiresAt ?? ''}:${daysRemaining}`;
+	const lastSent = await repos.settings.getSetting(DUNNING_NOTICE_SENT_KEY, ctx.tenantId);
+	if (lastSent === marker) return 'skipped-already-sent';
+
 	if (dryRun) {
 		logger.info('[lifecycle-email] dryRun would send', {
 			context: { tenantId: ctx.tenantId, target: 'payment-failed', daysRemaining },
@@ -170,7 +195,10 @@ async function sendDunningNotice(
 		graceDeadline: formatExpiresAt(ctx.planExpiresAt as string),
 		daysRemaining,
 	});
-	return ok ? 'payment-failed-sent' : 'error';
+	if (!ok) return 'error';
+	// 送信成功後にだけ印を付ける (失敗を「送信済」にすると次回実行で救済されない)
+	await repos.settings.setSetting(DUNNING_NOTICE_SENT_KEY, marker, ctx.tenantId);
+	return 'payment-failed-sent';
 }
 
 /**

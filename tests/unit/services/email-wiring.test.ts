@@ -126,6 +126,56 @@ describe('支払い失敗 (dunning) の通知経路 (#4507 監査 #2)', () => {
 		expect(result.skippedRateLimit).toBe(0);
 	});
 
+	// #4507: 年 6 回上限を外した = 重複送信を止めるものが他に無い。cron-dispatcher は
+	// retry を内蔵しているため、同日 2 回実行で同じ文面が 2 通届く経路が実在する。
+	it('同じ日に cron が 2 回走っても支払い失敗の通知は 1 通しか送らない', async () => {
+		seedTenant(SUBSCRIPTION_STATUS.GRACE_PERIOD);
+
+		await runLifecycleEmails({ now: NOW });
+		await runLifecycleEmails({ now: NOW });
+
+		expect(mockSendPaymentFailed).toHaveBeenCalledTimes(1);
+	});
+
+	it('同じ猶予期間でも残日数が変われば送る (残り7日 → 残り1日)', async () => {
+		seedTenant(SUBSCRIPTION_STATUS.GRACE_PERIOD);
+
+		await runLifecycleEmails({ now: NOW });
+		// 残り 1 日の cron 実行日まで進める
+		await runLifecycleEmails({ now: new Date('2026-09-29T00:00:00.000Z') });
+
+		expect(mockSendPaymentFailed).toHaveBeenCalledTimes(2);
+		const daysSent = mockSendPaymentFailed.mock.calls.map(
+			(c) => (c[0] as { daysRemaining: number } | undefined)?.daysRemaining,
+		);
+		expect(daysSent).toEqual([7, 1]);
+	});
+
+	it('送信に失敗した回は送信済にせず、次の実行で送り直す', async () => {
+		seedTenant(SUBSCRIPTION_STATUS.GRACE_PERIOD);
+		mockSendPaymentFailed.mockResolvedValueOnce(false);
+
+		const first = await runLifecycleEmails({ now: NOW });
+		const second = await runLifecycleEmails({ now: NOW });
+
+		expect(first.errors).toBe(1);
+		expect(second.paymentFailedSent).toBe(1);
+		expect(mockSendPaymentFailed).toHaveBeenCalledTimes(2);
+	});
+
+	it('次の支払い失敗 (猶予期限が変わる) では再び送る', async () => {
+		seedTenant(SUBSCRIPTION_STATUS.GRACE_PERIOD);
+		await runLifecycleEmails({ now: NOW });
+
+		// 新しい dunning サイクル: planExpiresAt が書き換わる
+		const seeded = tenants[0];
+		if (!seeded) throw new Error('テナントが seed されていません');
+		seeded.planExpiresAt = '2026-12-30T00:00:00.000Z';
+		await runLifecycleEmails({ now: new Date('2026-12-23T00:00:00.000Z') });
+
+		expect(mockSendPaymentFailed).toHaveBeenCalledTimes(2);
+	});
+
 	it('通常の active テナントには従来どおり期限前リマインド (marketing 便) を送る', async () => {
 		seedTenant(SUBSCRIPTION_STATUS.ACTIVE);
 
@@ -165,7 +215,7 @@ describe('退会予約の通知経路 (#4507 監査 #3)', () => {
 
 		expect(result.requiresImmediateDeletion).toBe(false);
 		expect(mockSendDeletionReserved).toHaveBeenCalledTimes(1);
-		const params = mockSendDeletionReserved.mock.calls[0][0] as Record<string, unknown>;
+		const params = mockSendDeletionReserved.mock.calls[0]?.[0] as Record<string, unknown>;
 		expect(params.email).toBe('owner@example.com');
 		expect(params.graceDays).toBe(result.gracePeriodDays);
 	});
