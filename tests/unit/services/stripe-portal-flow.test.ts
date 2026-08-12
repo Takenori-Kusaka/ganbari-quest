@@ -239,7 +239,97 @@ describe('#4166 AC2 subscription を持たないなら home にフォールバ�
 			lastArgs().flow_data,
 			'subscription 無しで flow を付けると Stripe が 400 を返し導線ごと死ぬ',
 		).toBeUndefined();
-		// **落とさずに portal へは入れる**こと（fallback の意味）
+		// **落とさずに portal へは入れる**こと（fallback の意味）。
+		// #4537: 同時に「直行できていない」を呼び出し元へ伝える (下の describe が固定する)。
+		expect(result).toEqual({
+			url: 'https://billing.stripe.com/session_1',
+			flowFallback: true,
+		});
+	});
+});
+
+describe('#4537 subscription が無くて flow を組めなかったことを黙って通さない', () => {
+	// ## 実害
+	//
+	// `stripeCustomerId` はあるが `stripeSubscriptionId` が null の顧客は、flow_data 無しで
+	// session を作るので Stripe API は**成功する**。旧実装は `{ url }` だけを返し、呼び出し元は
+	// 「直行できた」と解釈して素通ししていた。顧客は「解約手続きへ進む」を押したのに
+	// portal ホームへ放り出され、**説明が一切出ない**。
+	//
+	// DB の stripeSubscriptionId が null なのに Stripe 側にサブスクが生きているドリフトがあれば、
+	// これは「押したのに課金が続く」(#4498) と同じ結果になる。
+	it.each([
+		'subscription_update',
+		'subscription_cancel',
+	] as const)('%s: subscription が無ければ flowFallback を立てる', async (kind) => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, { kind });
+
+		expect(
+			'flowFallback' in result && result.flowFallback,
+			'立てないと呼び出し元は素通しし、顧客は説明なく portal ホームへ落ちる',
+		).toBe(true);
+	});
+
+	it('undefined の subscription (列自体が無い) でも flowFallback を立てる', async () => {
+		// `?? null` の正規化を経由しない実データ形状でも判定が効くこと
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: undefined }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect('flowFallback' in result && result.flowFallback).toBe(true);
+	});
+
+	it('空文字の subscription でも flowFallback を立てる (flow_data を組めていない事実は同じ)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: '' }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(lastArgs().flow_data).toBeUndefined();
+		expect('flowFallback' in result && result.flowFallback).toBe(true);
+	});
+
+	// AC2: home は「ホームに着く」のが期待どおりの着地。ここまで案内を出すと、請求書確認 /
+	// 支払い方法変更をしに来た顧客に「手続きは完了していません」が出てしまう。
+	it('home 要求時は subscription が無くても flowFallback を立てない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL, { kind: 'home' });
+
 		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('flow 未指定 (home 相当) も同様に立てない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+
+		const result = await createPortalSession('t-test', RETURN_URL);
+
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('subscription があって直行できたときは立てない (通常経路の回帰防止)', async () => {
+		mockFindTenantById.mockResolvedValue(tenant());
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(result).toEqual({ url: 'https://billing.stripe.com/session_1' });
+	});
+
+	it('subscription 無しで session 作成も失敗したら成功として返さない', async () => {
+		mockFindTenantById.mockResolvedValue(tenant({ stripeSubscriptionId: null }));
+		mockPortalCreate.mockRejectedValue(new Error('Stripe API down'));
+
+		const result = await createPortalSession('t-test', RETURN_URL, {
+			kind: 'subscription_cancel',
+		});
+
+		expect(result).toEqual({ error: 'PORTAL_CREATE_FAILED' });
 	});
 });
