@@ -15,6 +15,7 @@
 //   AC3: 親が却下（ポイント変動なし確認）
 //   AC4: ポイント不足時は交換ボタンが disabled
 
+import { CHILD_SHOP_LABELS } from '../../src/lib/domain/labels';
 import { expect, test } from './fixtures';
 import { dismissOverlays, selectKinderChild } from './helpers';
 
@@ -224,6 +225,18 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		// ダイアログが閉じるのを待つ
 		await expect(confirmYes).not.toBeVisible();
+
+		// #4449: 既定 (承認必須) では作られるのは申請だけでポイントは 1 も減っていない。
+		// 「何を / 返事待ち」が文字で出て、祝福 (紙吹雪) は出ないことを実ブラウザで固定する。
+		await expect(page.getByText(CHILD_SHOP_LABELS.exchangeRequestedToastTitle)).toBeVisible({
+			timeout: 10000,
+		});
+		// canvas-confetti は body 直下に <canvas> を追加する。Toast が出た時点で演出の発火
+		// タイミングは過ぎているが、動的 import の解決ぶんだけ余裕を取ってから 0 件を確認する。
+		await page.waitForTimeout(500);
+		expect(await page.locator('canvas').count(), '減っていないポイントを祝う紙吹雪を出さない').toBe(
+			0,
+		);
 
 		// 申請後は「申請中」バッジが表示されるか、交換ボタンが非表示になる
 		// どちらかの状態になることを確認（UIの実装に応じて）
@@ -595,6 +608,11 @@ test.describe('#3339: ごほうび即時交換オプション', () => {
 		await expect(confirmYes).toBeVisible({ timeout: 10000 });
 		await confirmYes.click();
 		await expect(confirmYes).not.toBeVisible();
+
+		// #4449: 即時交換は実際にポイントが減って成立しているので、こちらは祝福してよい。
+		await expect(page.getByText(CHILD_SHOP_LABELS.exchangeSuccessToastTitle)).toBeVisible({
+			timeout: 10000,
+		});
 
 		// 即時交換 = 親承認をスキップして approved 化。invalidateAll 後にカードへ
 		// 「こうかん済み」(statusApproved) が出て、「うけとりまち」(承認待ち) は出ない。
