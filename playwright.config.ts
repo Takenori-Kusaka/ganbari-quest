@@ -25,6 +25,13 @@ const BASE_TEST_IGNORE = [
 	'**/trial-flow.spec.ts',
 	// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）
 	'**/ops-license.spec.ts',
+	// #4309: /ops/export 認可回帰 E2E も cognito-dev モード専用。
+	// test.use({ storageState: 'playwright/.auth/free.json' / 'ops.json' }) を使い、
+	// auth.setup.ts が cognito-dev config の setup project でのみ走るため local config では
+	// fixture 不在 ENOENT で必ず落ちる（stripe-checkout-labels と同 class）。
+	// 全 8 test は playwright.cognito-dev.config.ts の testMatch に含まれており、
+	// 本除外でカバレッジは失われない（e2e-cognito-dev job が実行する）。
+	'**/ops-export-authz.spec.ts',
 	'**/ops-license-issue.spec.ts',
 	// #2484: /ops/license/legacy-count endpoint E2E も同様 cognito-dev モード専用
 	'**/ops-license-legacy-count.spec.ts',
