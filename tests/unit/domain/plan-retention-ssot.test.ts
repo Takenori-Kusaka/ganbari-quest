@@ -18,9 +18,14 @@ import {
 	PLAN_HISTORY_RETENTION_DAYS,
 } from '../../../src/lib/domain/constants/plan-retention';
 import {
+	DELETION_EXPORT_NOTE_LABELS,
+	DOWNGRADE_RESOURCE_SELECTOR_LABELS,
+	FEATURES_LABELS,
 	LP_PAMPHLET_PHASEB_LABELS,
 	LP_PRICING_LABELS,
 	LP_PRICING_PHASEB_LABELS,
+	SUBSCRIPTION_PAGE_LABELS,
+	TRIAL_EMAIL_LABELS,
 } from '../../../src/lib/domain/labels';
 import { PRICING_PAGE_FEATURES } from '../../../src/lib/domain/plan-features';
 import { PLAN_RETENTION_TERMS } from '../../../src/lib/domain/terms';
@@ -96,6 +101,56 @@ describe('plan retention days SSOT (#4477)', () => {
 			expect(LP_PRICING_LABELS.trialDataReassureLine2Suffix).toContain(`保持期間（${spaced}）`);
 			expect(LP_PRICING_LABELS.faqAfterTrialA).toContain(`保持期間（${spaced}）`);
 			expect(LP_PRICING_LABELS.faqCancelVsDeleteA).toContain(`保持期間（${spaced}）`);
+		});
+	});
+
+	// #4482: 値が SSOT でも「整形」が独自だと、365 の倍数にした瞬間に
+	// 料金表は「1年」・こちらは「365日」と食い違う。整形経路も SSOT に寄せる。
+	describe('日数を表示する経路は formatRetentionPeriod を経由する (変異試験の対象)', () => {
+		const free = PLAN_HISTORY_RETENTION_DAYS.free;
+		const standard = PLAN_HISTORY_RETENTION_DAYS.standard;
+
+		it('/admin/subscription プランカードの「データ保持」', () => {
+			expect(FEATURES_LABELS.planStatusCard.retentionDays(free)).toBe(
+				`${formatRetentionPeriod(free)}間`,
+			);
+			expect(FEATURES_LABELS.planStatusCard.retentionDays(standard)).toBe(
+				`${formatRetentionPeriod(standard)}間`,
+			);
+		});
+
+		it('解約時に失うものの一覧', () => {
+			expect(SUBSCRIPTION_PAGE_LABELS.churnLostRetentionDays(free)).toBe(
+				`${formatRetentionPeriod(free)}以前のデータへのアクセス`,
+			);
+		});
+
+		it('ダウングレード確認ダイアログの保持期間短縮警告', () => {
+			const warning = DOWNGRADE_RESOURCE_SELECTOR_LABELS.retentionWarning(standard, free);
+			// 現プラン / 移行先の両方が SSOT 整形で述べられる
+			expect(warning).toContain(formatRetentionPeriod(standard));
+			expect(warning).toContain(formatRetentionPeriod(free));
+			// 生の日数 (「365日」「90日」) が混ざらない
+			expect(warning).not.toMatch(new RegExp(`${standard}日`));
+
+			// 現プラン無制限のケースも整形が壊れない
+			expect(DOWNGRADE_RESOURCE_SELECTOR_LABELS.retentionWarning(null, free)).toContain(
+				`データ保持期間が無制限から${formatRetentionPeriod(free)}に`,
+			);
+		});
+
+		it('退会エクスポート JSON の保存期間但し書き (#4473)', () => {
+			expect(DELETION_EXPORT_NOTE_LABELS.retentionLimited(free)).toContain(
+				`記録の保存期間は${formatRetentionPeriod(free)}間です`,
+			);
+		});
+
+		it('トライアル終了予告メールの保持期間行', () => {
+			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(free)).toBe(
+				`データ保持期間: ${formatRetentionPeriod(free)}`,
+			);
+			// null (無期限) を「null日」と穴埋めしない
+			expect(TRIAL_EMAIL_LABELS.freeRetentionLine(null)).toBe('データ保持期間: 無期限');
 		});
 	});
 

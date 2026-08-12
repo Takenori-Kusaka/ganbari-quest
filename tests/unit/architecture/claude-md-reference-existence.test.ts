@@ -147,6 +147,35 @@ describe('CLAUDE.md が言及する script / workflow は実在する', () => {
 		).toEqual([]);
 	});
 
+	it('src/ の comment が言及する検査 script も実在する (#4482)', () => {
+		// なぜ src/ も見るか: CLAUDE.md 側の死んだ参照は本 test 導入時に一掃したが、
+		// 同じ嘘は **src/ の JSDoc / comment** にも書ける。実際 #4477 は
+		// 「複製は scripts/check-hardcoded-strings.mjs が検出する」と plan-retention.ts の
+		// JSDoc に書いたが、当該 script は #4322 で撤去済だった (CLAUDE.md からは消えていたのに
+		// src/ には新しく書かれた)。読者は「機械強制がある」と信じて検査に頼る。
+		//
+		// 対象を `scripts/` 参照に限るのは、src/ の comment が挙げる path の中で
+		// 「安全網の保証」として読まれるのが検査 script だからである。
+		const srcFiles = tracked.filter((p) => p.startsWith('src/') && /\.(ts|svelte)$/.test(p));
+		expect(srcFiles.length).toBeGreaterThan(0);
+
+		const srcRefs = srcFiles
+			.flatMap((f) => extractReferences(f, readFileSync(resolve(REPO_ROOT, f), 'utf8')))
+			.filter((r) => r.kind === 'script' || (r.kind === 'path' && r.ref.startsWith('scripts/')));
+		expect(srcRefs.length).toBeGreaterThan(0);
+
+		const missing = resolveMissing(srcRefs, tracked);
+		const report = missing.map((m) => `  ${m.file}:${m.line}  [${m.kind}] ${m.ref}`).join('\n');
+		expect(
+			missing,
+			missing.length === 0
+				? ''
+				: `src/ の comment が実在しない検査 script を参照している:\n${report}\n\n` +
+						'撤去済みの検査なら「機械強制は無い (レビューで担保)」と書く。' +
+						'実在するが当の複製を検出しない script 名に差し替えるのは、嘘が残るだけなので不可。',
+		).toEqual([]);
+	});
+
 	it('判定ロジックが不在 path を検出できる (検出側の生存確認)', () => {
 		const fixture = [
 			'`scripts/check-no-plan-literals.mjs` は実在する',
