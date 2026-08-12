@@ -36,6 +36,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/reason-declaration.mjs
             # #4285 の story 実在確認 (storyFileExists) は src/ を走査する。
             # sparse-checkout に src が無いと **実在する story を書いても必ず false** になり、
@@ -195,6 +196,7 @@ jobs:
             scripts/pr-lane.mjs
             scripts/check-pr-screenshot.mjs
             scripts/lib/is-main.mjs
+            scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/reason-declaration.mjs
           sparse-checkout-cone-mode: false
 
@@ -249,6 +251,7 @@ jobs:
             actions/pr-lane
             scripts/pr-lane.mjs
             scripts/check-ss-blob-sha-uniqueness.mjs
+            scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/reason-declaration.mjs
             scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false
@@ -300,6 +303,7 @@ jobs:
         with:
           sparse-checkout: |
             scripts/check-ss-render-health.mjs
+            scripts/lib/ci/pr-input.mjs
             scripts/lib/ci/screenshot-helpers.mjs
             scripts/lib/is-main.mjs
           sparse-checkout-cone-mode: false

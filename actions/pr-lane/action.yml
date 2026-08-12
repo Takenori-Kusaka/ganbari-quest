@@ -90,13 +90,19 @@ runs:
         fi
         # 非マージ commit (parents=1) のみ対象。login 未解決 (bot 判定に使えない) は空文字として残し
         # scripts/pr-lane.mjs 側で「人間扱い (fail-closed)」させる。
-        authors="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
-          --jq '[.[] | select((.parents | length) == 1) | (.author.login // "")] | join(",")' 2>/dev/null)"
-        if [ $? -ne 0 ]; then
+        #
+        # gh api の失敗は `if <cmd>; then` の条件部で受ける (#4518)。
+        # GitHub の composite step は既定 shell が `bash --noprofile --norc -e -o pipefail` であり、
+        # `-e` は run 冒頭の `set -uo pipefail` では解除されない。裸の代入
+        # (`authors="$(gh api ...)"`) にすると gh が非 0 で終了した瞬間に step 全体が中断し、
+        # 直後の `if [ $? -ne 0 ]` fail-open 分岐へ到達しない (= fail-open が死んでいた)。
+        # 条件部のコマンドは `-e` の対象外なので、この形なら失敗しても必ず else へ落ちる。
+        if authors="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+          --jq '[.[] | select((.parents | length) == 1) | (.author.login // "")] | join(",")' 2>/dev/null)"; then
+          echo "authors=${authors}" >> "${GITHUB_OUTPUT}"
+        else
           echo "::warning::[actions/pr-lane] commit author 取得に失敗しました。actor のみで判定します (fail-open)。"
           echo "authors=" >> "${GITHUB_OUTPUT}"
-        else
-          echo "authors=${authors}" >> "${GITHUB_OUTPUT}"
         fi
 
     - name: Classify PR lane (scripts/pr-lane.mjs SSOT)

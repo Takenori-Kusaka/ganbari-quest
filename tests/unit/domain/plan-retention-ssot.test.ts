@@ -130,7 +130,7 @@ describe('plan retention days SSOT (#4477)', () => {
 
 		it('解約時に失うものの一覧', () => {
 			expect(SUBSCRIPTION_PAGE_LABELS.churnLostRetentionDays(free)).toBe(
-				`${formatRetentionPeriod(free)}以前のデータへのアクセス`,
+				`${formatRetentionPeriod(free)}以前の記録（削除され、復元できません）`,
 			);
 		});
 

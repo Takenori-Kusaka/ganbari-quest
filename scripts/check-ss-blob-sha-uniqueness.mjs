@@ -1,6 +1,26 @@
 #!/usr/bin/env node
+/**
+ * scripts/check-ss-blob-sha-uniqueness.mjs
+ *
+ * Before/After SS の Blob SHA 一致 (= 完全同一画像 = 偽装) を検出する gate (#2063 / #4084)。
+ *
+ * 入力:
+ *   node scripts/check-ss-blob-sha-uniqueness.mjs --pr <N>              # gh で PR を引く
+ *   PR_BODY="$(gh pr view <N> --json body -q .body)" node scripts/...   # CI (workflow) 経路
+ *
+ * `--pr` を黙殺して空 body を検査し SKIP (exit 0) していたのを #4348 で是正した。
+ * 入力解決は `scripts/lib/ci/pr-input.mjs` (SSOT) に委譲する。
+ */
+import {
+	formatPrInputUsage,
+	isHelpRequested,
+	PrInputError,
+	resolvePrInput,
+} from './lib/ci/pr-input.mjs';
 import { MIN_REASON_LENGTH, parseReasonDeclaration } from './lib/ci/reason-declaration.mjs';
 import { isMain as isMainModule } from './lib/is-main.mjs';
+
+const SCRIPT_NAME = 'scripts/check-ss-blob-sha-uniqueness.mjs';
 
 const MODE = (process.env.CHECK_MODE || 'warn').toLowerCase();
 // #2946 (Phase A/A-4): lane は SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由で渡される。
@@ -8,11 +28,6 @@ const MODE = (process.env.CHECK_MODE || 'warn').toLowerCase();
 // integration lane (統合 PR、複数機能バッチで before/after ペアを持たない) で false positive が
 // 出ないことを log で可視化するに留め、検証ロジック (checkSsBlobShaUniqueness) は lane 非依存に保つ。
 const PR_LANE = (process.env.PR_LANE || 'feature').trim().toLowerCase();
-const PR_BODY = process.env.PR_BODY || '';
-const PR_LABELS = (process.env.PR_LABELS || '')
-	.split(',')
-	.map((s) => s.trim())
-	.filter(Boolean);
 
 // ---------------------------------------------------------------------------
 // Pure functions (named exports for vitest)
@@ -398,10 +413,37 @@ export async function checkSsBlobShaUniqueness({ body, labels, fetcher = fetch }
 async function main() {
 	// CHECK_MODE は warn / error の二値運用 (将来の段階適用フラグ)
 	const isError = MODE === 'error';
+	const argv = process.argv.slice(2);
+
+	if (isHelpRequested(argv)) {
+		console.log(
+			[
+				`${SCRIPT_NAME} — Before/After SS の Blob SHA 一致 (偽装) を検出します (#2063 / #4084)。`,
+				'',
+				'入力 (いずれか。無指定は失敗します — #4348):',
+				formatPrInputUsage(SCRIPT_NAME, 'body'),
+				'',
+				'(help を表示しただけで、検査は実行していません)',
+			].join('\n'),
+		);
+		return 0;
+	}
+
+	// #4348: 入力ゼロ (`--pr` 黙殺 / PR_BODY 未設定) を SKIP=exit 0 にしない。
+	let input;
+	try {
+		input = resolvePrInput({ argv, env: process.env, need: 'body', scriptName: SCRIPT_NAME });
+	} catch (err) {
+		if (err instanceof PrInputError) {
+			console.error(`[ss-blob-sha-uniqueness] INPUT ERROR — ${err.message}`);
+			return 2;
+		}
+		throw err;
+	}
 
 	let result;
 	try {
-		result = await checkSsBlobShaUniqueness({ body: PR_BODY, labels: PR_LABELS });
+		result = await checkSsBlobShaUniqueness({ body: input.body, labels: input.labels });
 	} catch (err) {
 		console.error(
 			'[ss-blob-sha-uniqueness] internal error:',

@@ -195,6 +195,10 @@ export const REPO_SCAN_TEST_REGISTRY = {
 	},
 
 	// --- scope: bounded (走査 API を使うが入力が有界。追加要求なし) ---
+	'tests/unit/architecture/ci-shell-fail-open-guard.test.ts': {
+		scope: 'bounded',
+		note: '.github/workflows の 1 dir と actions/*/action.yml (composite action は現状 1 本) のみを非再帰 glob で解決し、`$?` で分岐する run ブロックが `set +e` を明示しているかを検査する (#4518)。ツリーは歩かないため file 数に比例しない',
+	},
 	'tests/integration/db/legacy-schema-upgrade.test.ts': {
 		scope: 'bounded',
 		note: 'temp dir に作った DB ファイルのみを読む',

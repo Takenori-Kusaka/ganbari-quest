@@ -6,6 +6,7 @@
 
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
+import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getErrorMessage } from '$lib/domain/errors';
@@ -192,6 +193,17 @@ async function handleFullDelete() {
 // #4472: 退会前エクスポートのスコープ表示に使う (未解決時は最小スコープ扱い)
 const exportPlanTier = $derived(($page.data.planTier as PlanTier | null) ?? 'free');
 
+// #4496: 退会 (アカウント削除) の猶予はプラン別で、無料プランは 0 日 = 申請と同時に物理削除。
+// 手続き前にこれを述べないと、無料プランの顧客は取り消せないことを知らないまま申し込む。
+//
+// exportPlanTier の `?? 'free'` フォールバックをここに流用しない: プランが未解決のときに
+// 「猶予なし・取り消し不可」という最も強い警告を有料プランの親に見せると、事実と異なる
+// 誤誘導になる。未解決時は猶予の断定を出さない (持ち出し導線は従来どおり出す)。
+const deletionGracePlanTier = $derived($page.data.planTier as PlanTier | null);
+const deletionGraceDays = $derived(
+	deletionGracePlanTier === null ? null : DELETION_GRACE_PERIOD_DAYS[deletionGracePlanTier],
+);
+
 const canConfirmDelete = $derived(
 	deleteConfirmText === 'アカウントを削除します' && deleteAgreeChecked,
 );
@@ -370,6 +382,16 @@ const canConfirmDelete = $derived(
 				{/if}
 
 				{#if $page.data.userRole === 'owner'}
+					<!-- #4496: プラン別の猶予期間を手続き **前** に述べる (無料プランは猶予なし) -->
+					{#if deletionGraceDays !== null}
+						<p
+							class="text-sm text-[var(--color-feedback-error-text)] font-medium mb-4"
+							data-testid="account-delete-grace-notice"
+						>
+							{SETTINGS_LABELS.accountDeleteGraceNotice(deletionGraceDays)}
+						</p>
+					{/if}
+
 					<!-- #4472: 退会を実行する前にデータを持ち出せるようにする (無料プランを含む全プラン) -->
 					<AccountDeletionExportPanel planTier={exportPlanTier} />
 				{/if}
