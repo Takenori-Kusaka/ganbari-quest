@@ -51,6 +51,7 @@ import {
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
 import PlanStatusCard from '$lib/features/admin/components/PlanStatusCard.svelte';
+import { shouldOpenDowngradeSelector } from '$lib/features/admin/downgrade-dialog-policy';
 import ChurnPreventionModal from '$lib/features/loyalty/ChurnPreventionModal.svelte';
 import LoyaltyBadge from '$lib/features/loyalty/LoyaltyBadge.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -437,7 +438,11 @@ async function requestPortal() {
 
 	if (planTier !== 'free') {
 		const preview = await fetchDowngradePreview();
-		if (preview?.hasExcess) {
+		// #4530: 判定は `hasExcess` だけを見ていたため、超過リソースが無く保持期間だけが
+		//   縮む顧客は警告を 1 つも見ないまま Stripe の確認へ直行し、物理削除に至っていた。
+		//   「失うものがあるなら必ず開く」判定は shouldOpenDowngradeSelector が SSOT
+		//   (4 条件の組み合わせと分岐の到達可能性を unit test が固定する)。
+		if (shouldOpenDowngradeSelector(preview)) {
 			downgradePreview = preview;
 			showDowngradeSelector = true;
 			return;

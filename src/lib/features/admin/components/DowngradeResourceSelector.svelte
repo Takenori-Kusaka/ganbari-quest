@@ -123,14 +123,9 @@ function handleConfirm() {
 				<p class="text-[var(--color-text-secondary)] font-medium">
 					{getPlanLabel(preview.targetTier)}{L.targetTierSuffix}
 				</p>
-				{#if !preview.hasExcess && !preview.retentionChange.willLoseHistory}
-					<p class="text-[var(--color-text-muted)] mt-1">
-						{L.noExcessNote}
-					</p>
-				{/if}
 			</div>
 
-			<!-- 超過がない場合の履歴警告のみ表示 -->
+			<!-- 超過がない場合の履歴警告のみ表示 (#4530: caller がこの状態でも開く) -->
 			{#if !preview.hasExcess && preview.retentionChange.willLoseHistory}
 				<Alert variant="warning">
 					{#snippet children()}

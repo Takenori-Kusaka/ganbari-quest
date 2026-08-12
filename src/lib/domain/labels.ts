@@ -5547,7 +5547,6 @@ export const ADMIN_HOME_LABELS = {
 export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	dialogTitle: 'ダウングレードの確認',
 	targetTierSuffix: 'へのダウングレード',
-	noExcessNote: '現在のリソース数はダウングレード先の上限以内です。そのままプラン変更に進めます。',
 	retentionUnlimited: '無制限',
 	/**
 	 * 保持期間短縮の警告文 (#4482)。
