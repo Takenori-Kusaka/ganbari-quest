@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { resolve } from '$app/paths';
 import { APP_LABELS, CONSENT_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -197,20 +198,18 @@ const previousConsentLines = $derived(
 							class="text-sm text-[var(--color-text-link)] inline-block mb-3"
 						>{CONSENT_LABELS.crossBorderReadLink}</a>
 						<FormField label="">
-							{#snippet children()}
-								<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
-									<input
-										type="checkbox"
-										name="agreedCrossBorder"
-										bind:checked={agreedCrossBorder}
-										data-testid="consent-cross-border-checkbox"
-										class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
-									/>
-									<span>
-										{CONSENT_LABELS.crossBorderCheckLabel}
-									</span>
-								</label>
-							{/snippet}
+							<label class="flex items-start gap-2 cursor-pointer text-sm text-[var(--color-text-primary)]">
+								<input
+									type="checkbox"
+									name="agreedCrossBorder"
+									bind:checked={agreedCrossBorder}
+									data-testid="consent-cross-border-checkbox"
+									class="mt-0.5 w-[18px] h-[18px] shrink-0 accent-[var(--color-action-primary)]"
+								/>
+								<span>
+									{CONSENT_LABELS.crossBorderCheckLabel}
+								</span>
+							</label>
 						</FormField>
 					</div>
 				{:else}
@@ -227,7 +226,7 @@ const previousConsentLines = $derived(
 				<h2 class="text-sm font-semibold text-[var(--color-text)] mb-1">{CONSENT_LABELS.declineHeading}</h2>
 				<p class="text-xs text-[var(--color-text-muted)] leading-relaxed mb-2">{CONSENT_LABELS.declineDescription}</p>
 				<a
-					href="/auth/logout"
+					href={resolve('/auth/logout')}
 					class="text-sm text-[var(--color-text-link)] underline"
 					data-testid="consent-decline-logout"
 				>{CONSENT_LABELS.declineLogoutLink}</a>
