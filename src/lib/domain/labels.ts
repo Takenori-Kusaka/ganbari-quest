@@ -55,6 +55,7 @@ import {
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
+	OSS_LICENSE_TERMS,
 	OVERFLOW_MENU_TERMS,
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
@@ -8239,7 +8240,9 @@ export const LP_SELFHOST_LABELS = {
 	text20: ' 完全無料。月額料金なし、機能制限なし。',
 	text21: ' カスタマイズ自由。ソースコードを自由に改変できます。',
 	text22: ' オフライン利用可能。インターネット接続なしでも LAN 内で動作します。',
-	text23: ' オープンソース（MIT License）。商用利用も可能です。',
+	// #4499: 実ライセンス AGPL-3.0-only (LICENSE / package.json) に合わせて修正。
+	// 旧「MIT License」表記は虚偽表示だった (GAMMA-SELFHOST-01)。
+	text23: ` オープンソース（${OSS_LICENSE_TERMS.name}）。${OSS_LICENSE_TERMS.commercialUseCondition}。`,
 	text24: '&#x1F4CA; SaaS版との比較',
 	text25: '項目',
 	text26: 'SaaS版',
