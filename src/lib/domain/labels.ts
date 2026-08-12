@@ -8964,6 +8964,19 @@ export const STORYBOOK_LABELS = {
 	saasLicensePanel: {
 		tenantName: 'たろう家',
 	},
+	// #4528: DowngradeResourceSelector story の mock 表示テキスト。
+	// ダウングレード確認ダイアログは有料契約 (tenant の stripeSubscriptionId) が無いと開かず、
+	// local backend は tenants を持たないため撮影できない (ss-render-impossible)。
+	// 保持期間短縮警告の見た目は story で固定する。
+	downgradeResourceSelector: {
+		childOne: 'たろう',
+		childTwo: 'はなこ',
+		childThree: 'じろう',
+		activityOne: '歯みがき',
+		activityTwo: 'お手伝い',
+		activityThree: '音読',
+		activityFour: 'ストレッチ',
+	},
 } as const;
 
 // ============================================================
