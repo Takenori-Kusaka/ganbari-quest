@@ -48,6 +48,7 @@
 //
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a) / Issue #4477
 
+import { DELETION_GRACE_PERIOD_DAYS, formatDeletionGracePeriod } from './constants/deletion-grace';
 import { formatRetentionPeriod, PLAN_HISTORY_RETENTION_DAYS } from './constants/plan-retention';
 
 // ============================================================
@@ -1169,4 +1170,34 @@ export const PLAN_RETENTION_TERMS = {
 	standard: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard),
 	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「1 年」) */
 	standardSpaced: formatRetentionPeriod(PLAN_HISTORY_RETENTION_DAYS.standard, { spaced: true }),
+} as const;
+
+// ============================================================
+// DELETION_GRACE_TERMS — 退会 (アカウント削除) のプラン別猶予期間 atom (#4496)
+// ============================================================
+//
+// 値の SSOT は `constants/deletion-grace.ts` の DELETION_GRACE_PERIOD_DAYS
+// (server 側 grace-period-service.ts も同じ定数を re-export する)。
+// 本 atom は「表示用に整形しただけ」で、数値そのものは持たない。
+//
+// **この猶予は「退会」にだけ存在する**。解約 (サブスクリプションの自動更新停止) では
+// データは削除されず、猶予期間も発生しない (#3991 期末解約モデル)。本 atom を
+// 解約の説明に使ってはならない — その取り違えが #4496 (LP・特商法・アプリ内 FAQ の
+// 「解約するとデータが削除される」系文言) の根本原因である。
+//
+// LP 側 (site/shared-labels.js) は scripts/generate-lp-labels.mjs が同じ値 SSOT から
+// 同名 namespace を組み立てて template literal を解決する。両者が一致することは
+// tests/unit/domain/cancel-vs-deletion-terminology.test.ts が機械検証する。
+
+export const DELETION_GRACE_TERMS = {
+	/** 無料プランの退会猶予 (例: 「即時」= 申請と同時に削除) */
+	free: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.free),
+	/** スタンダードプランの退会猶予 (例: 「7日」) */
+	standard: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.standard),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「7 日」) */
+	standardSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.standard, { spaced: true }),
+	/** プレミアムプランの退会猶予 (例: 「30日」) */
+	premium: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family),
+	/** 同上・LP 本文の組版に合わせた半角スペース入り (例: 「30 日」) */
+	premiumSpaced: formatDeletionGracePeriod(DELETION_GRACE_PERIOD_DAYS.family, { spaced: true }),
 } as const;
