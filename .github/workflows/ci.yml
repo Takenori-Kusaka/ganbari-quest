@@ -1375,9 +1375,18 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))")
+          # 失敗しうるコマンドの結果は `if <cmd>; then` の条件部で受ける (#4518)。
+          # run の既定 shell は `bash -e {0}` で、`set -uo pipefail` では -e が解除されない。
+          # 裸の代入にすると evidence.json 欠落時に step ごと中断し、下の $GITHUB_STEP_SUMMARY
+          # にも ::warning:: にも到達しない (advisory が「黙って何も言わない」状態になる)。
+          if ! ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))"); then
+            echo "::warning::integration-evidence/evidence.json を読めないため advisory 評価を skip しました。"
+            exit 0
+          fi
           echo "advisory: $ADVISORY"
-          PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)")
+          if ! PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)"); then
+            PASS=false
+          fi
           {
             echo '## マージ判定 advisory (#2876、非 block / required 未登録)';
             echo '';
