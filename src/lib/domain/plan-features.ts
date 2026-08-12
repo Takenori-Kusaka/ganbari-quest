@@ -21,7 +21,7 @@
 
 import type { PlanKey } from './labels';
 import { ACTION_LABELS, TRIAL_LABELS } from './labels';
-import { PLAN_TERMS } from './terms';
+import { PLAN_RETENTION_TERMS, PLAN_TERMS } from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -40,7 +40,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		'毎日のごほうび・続けるごほうび',
 		// #1710 R3-C: 持ち物純化（毎日 must は活動 priority 属性へ移管）
 		'持ち物チェックリスト 3個/子まで',
-		'90日間の履歴保持',
+		`${PLAN_RETENTION_TERMS.free}間の履歴保持`,
 		// #1654 R48: footer / tokushoho.html / sla.html がサポートメールを全プラン提示しているため SSOT 補完
 		'メールサポート（標準）',
 	],
@@ -54,7 +54,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #1912 (F-8): 「クラウド保管枠」→「家族のデータ預かり枠（自分でダウンロード可）」へ日本語化
 		'家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）',
 		'データのダウンロード',
-		'1年間の履歴保持',
+		`${PLAN_RETENTION_TERMS.standard}間の履歴保持`,
 		'メールサポート',
 	],
 	family: [
