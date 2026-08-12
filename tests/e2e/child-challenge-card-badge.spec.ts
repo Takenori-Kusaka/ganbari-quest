@@ -11,7 +11,14 @@
 //        (auto:weekly はホーム load で冪等生成されるため demo fixture でも 1 件は存在する)
 // - AC3: バッジは flow inline（モーダル禁止、ADR-0012 anti-engagement）
 
-import { expect, test } from '@playwright/test';
+// #4489: `@playwright/test` を直接 import すると config 既定の baseURL (port 5190 = worker DB 0)
+// に固定され、**どの worker で走っても DB 0 を見る**。本 spec は「完了済チャレンジが無い」
+// negative gating を assert するが、`child-challenge-claim-flow` / `-celebration-once` /
+// `child-celebration-click-intercept` は completed=1 の sentinel 行を seed → afterEach で除去する。
+// それらが worker 0 で seed 中に、本 spec が worker 1 から DB 0 を覗くと受取カードが 1 件見えて落ちる
+// (統合 PR #4484 で実際に発生)。`./fixtures` 経由なら自 worker の DB / server に閉じ、
+// worker 内のテストは直列なので sentinel が生きている最中に観測することがなくなる。
+import { expect, test } from './fixtures';
 import {
 	expandAllCategories,
 	selectBabyChild,
