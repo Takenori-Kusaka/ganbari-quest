@@ -175,6 +175,13 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 			}
 		});
 
+		it('汎用の削除警告は猶予の有無を断定しない (無料プランと矛盾させない)', () => {
+			// 直下に並ぶ accountDeleteGraceNotice が「猶予期間がありません」と述べる無料プランで、
+			// 汎用警告が「猶予期間の経過後は」と書いていると同一画面で自己矛盾する (#4496 自己レビュー)。
+			expect(SETTINGS_LABELS.accountDeleteOwnerWarning).not.toContain('猶予期間');
+			expect(SETTINGS_LABELS.accountDeleteOwnerWarning).toContain('復旧できません');
+		});
+
 		it('退会画面はプラン別猶予を手続き前に述べる (無料は猶予なし)', () => {
 			expect(SETTINGS_LABELS.accountDeleteGraceNotice(0)).toContain('猶予期間がありません');
 			expect(SETTINGS_LABELS.accountDeleteGraceNotice(0)).toContain('取り消しはできません');
