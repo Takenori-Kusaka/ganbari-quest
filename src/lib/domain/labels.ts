@@ -5552,13 +5552,21 @@ export const DOWNGRADE_RESOURCE_SELECTOR_LABELS = {
 	 * `PlanLimits.historyRetentionDays` は `number | null` なので両引数とも null を受ける
 	 * (null の整形は formatRetentionPeriod が「無期限」として担う)。
 	 *
+	 * #4528: 後段は「閲覧できなくなります」と述べていたが、実装
+	 * (`server/services/retention-cleanup-service.ts`) は `recorded_date < cutoffDate` の
+	 * 活動ログ・ポイント台帳・ステータス履歴を**行ごと削除する**。復元手段は無く、
+	 * 上位プランに戻しても戻らない。ダウングレード確認画面は顧客が不可逆な結果を
+	 * 自分の操作で確定させる直前の地点なので、婉曲化すると「あとで戻せば見られる」と
+	 * 誤解したままデータを失う。#4496 (LP・特商法) / #4507 (メール) で確定した強さ
+	 * 「削除され、復元できません（再契約でも戻りません）」と同一表現で述べ切る。
+	 *
 	 * @param currentDays 現プランの保持日数 (null = 無制限)
 	 * @param targetDays  ダウングレード先の保持日数 (null = 無期限)
 	 */
 	retentionWarning: (currentDays: number | null, targetDays: number | null) => {
 		const current = currentDays === null ? '無制限' : formatRetentionPeriod(currentDays);
 		const target = formatRetentionPeriod(targetDays);
-		return `データ保持期間が${current}から${target}に短縮されます。${target}以前のデータは閲覧できなくなります。`;
+		return `データ保持期間が${current}から${target}に短縮されます。${target}を超えた記録は削除され、復元できません（再契約でも戻りません）。`;
 	},
 	excessTitlePrefix: '現在のリソースが',
 	excessTitleSuffix: 'の上限を超えています',
@@ -9006,6 +9014,19 @@ export const STORYBOOK_LABELS = {
 	// (ss-render-impossible)、story の play で見た目を固定する (#4166)。
 	saasLicensePanel: {
 		tenantName: 'たろう家',
+	},
+	// #4528: DowngradeResourceSelector story の mock 表示テキスト。
+	// ダウングレード確認ダイアログは有料契約 (tenant の stripeSubscriptionId) が無いと開かず、
+	// local backend は tenants を持たないため撮影できない (ss-render-impossible)。
+	// 保持期間短縮警告の見た目は story で固定する。
+	downgradeResourceSelector: {
+		childOne: 'たろう',
+		childTwo: 'はなこ',
+		childThree: 'じろう',
+		activityOne: '歯みがき',
+		activityTwo: 'お手伝い',
+		activityThree: '音読',
+		activityFour: 'ストレッチ',
 	},
 } as const;
 
