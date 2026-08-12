@@ -17,9 +17,16 @@
  *     --actions scripts/capture-specs/flows/cancel-vs-deletion-4496.mjs \
  *     --server-mode cognito --presets desktop,mobile
  *
- * 注: notice の出し分けは `data.isPaidPlan` に従う。DEV_USERS の owner は有料プラン相当の
- * ため撮れるのは paidPlanNotice 側で、無料プラン文言 (freePlanNotice) は unit test
+ * 注: notice の出し分けは `data.isPaidPlan` に従うが、その実体は
+ * `!!license?.stripeSubscriptionId` (cancel/+page.server.ts) である。ローカルの DEV_USERS は
+ * Stripe subscription を持たないため、プラン badge が「スタンダードプラン」(= license.plan)
+ * を表示していても `isPaidPlan` は false になり、撮れるのは **freePlanNotice 側**である。
+ * 有料プラン文言 (paidPlanNotice) は unit test
  * (tests/unit/domain/cancel-vs-deletion-terminology.test.ts) が担保する。
+ *
+ * この plan badge と notice の不一致 (同一 load が plan=standard と isPaidPlan=false を同時に
+ * 返す) は本 flow の撮影結果にもそのまま現れる。本 PR 以前からある挙動で、Stripe 未連携の
+ * 有料プラン tenant では本番でも起こりうるため、別 Issue で追う。
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';

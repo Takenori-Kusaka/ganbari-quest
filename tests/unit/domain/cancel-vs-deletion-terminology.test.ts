@@ -233,7 +233,16 @@ describe('解約 / 退会 の用語分離 (#4496)', () => {
 
 	describe('site/*.html の顧客可視テキストに「解約 = データ削除」が残らない', () => {
 		// fallback テキスト (SEO / JS 失敗時に表示される) も labels と同じ事実を述べる必要がある。
-		const pages = ['index.html', 'pricing.html', 'faq.html', 'tokushoho.html', 'pamphlet.html'];
+		// terms.html (利用規約) も対象に含める: 第7条 (解約) / 第13条 (退会の猶予) を本 PR で
+		// 書き換えており、同じ混同が最も法的拘束力のある文書で再発しうるため。
+		const pages = [
+			'index.html',
+			'pricing.html',
+			'faq.html',
+			'tokushoho.html',
+			'pamphlet.html',
+			'terms.html',
+		];
 
 		it.each(pages)('%s に解約とデータ削除を結びつける文が無い', (page) => {
 			const html = repoFile(`site/${page}`);
