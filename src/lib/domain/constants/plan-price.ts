@@ -27,6 +27,14 @@ import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from './subscription-plan';
  *
  * **この 5 つの数値がプロダクト全体の SSOT**。集計側にも表示側にも数値を複製しないこと。
  * Stripe に登録されている実 Price と同額でなければならない (`stripe/config.ts` が本定数を引く)。
+ * ただし実際の請求は Stripe の Price ID が行うため、**本定数と Stripe 実 Price の一致を検証する機構は無い**
+ * (料金改定時は Stripe 側の Price 作成と本定数の更新を必ず同じ作業で行う)。
+ *
+ * **本定数は「現行の定価」であり、過去に請求された額の記録ではない** (#4533)。
+ * 料金改定を行うと、旧価格で契約した既存テナントの MRR も新価格で再計算される
+ * (`stripe-metrics-service` の historical yearly 換算を含む)。過去契約者を旧価格で
+ * 評価し続ける必要が出た時点で、本定数に有効期間付きの価格履歴を持たせること。
+ * 現時点では料金改定が一度も発生しておらず、定価 = 全契約者の請求額であるため単一値で足りる。
  */
 export const PLAN_PRICE_YEN: Record<SubscriptionPlan, number> = {
 	[SUBSCRIPTION_PLAN.MONTHLY]: 500,
