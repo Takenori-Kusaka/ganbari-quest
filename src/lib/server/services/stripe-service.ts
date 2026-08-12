@@ -190,11 +190,21 @@ export type CreatePortalResult =
 	| {
 			url: string;
 			/**
-			 * 要求された flow を Stripe が受け付けず、portal ホームで session を作り直したか (#4270)。
+			 * 要求された flow へ直行できず、portal ホームに着地したか (#4270 / #4537)。
 			 *
 			 * true のとき、顧客は「プラン変更画面 / 解約画面へ直行する」と期待した操作の結果として
 			 * portal ホームに着く。**黙って落とすと、解約理由を書き終えた直後に予期しない画面へ
 			 * 落ちる**ので、呼び出し元は次の操作を示すメッセージを出す責務を負う。
+			 *
+			 * 立つ条件は 2 つある。**どちらも顧客から見た結果は同一**（解約フローに入れていない）なので
+			 * 同じシグナルに集約する:
+			 *
+			 * 1. Stripe が `flow_data` を拒否し、flow 無しで作り直した (#4270)
+			 * 2. `stripeSubscriptionId` を持たず、そもそも `flow_data` を組み立てられなかった (#4537)
+			 *
+			 * 2 は「解約済みで Customer だけ残っている」ほか、**Stripe 側にサブスクが生きているのに
+			 * DB 側が null というドリフト**でも起きる。後者を黙って通すと「解約を押したのに課金が続く」
+			 * (#4498 と同じ実害) になるため、成功として返してはならない。
 			 */
 			flowFallback?: true;
 	  }
@@ -230,6 +240,8 @@ export type PortalFlow =
  *
  * **subscription を持たないときは flow を付けない。** 付けたまま投げると Stripe が 400 を返し、
  * 顧客は何を押しても portal に入れなくなる (導線ごと死ぬ)。home に落とすのが安全側。
+ * ただし**黙って落としてはいけない** — 呼び出し元は `flowRequestedButUnavailable()` で
+ * 「flow を要求したのに付けられなかった」を判定し、`flowFallback` として伝える (#4537)。
  *
  * `after_completion` は明示する。省略時の挙動は公式ドキュメントに明記が無く、
  * 「完了した更新の詳細を示す確認ページ」に留まると読めるため、アプリへ戻す指定を必ず置く。
@@ -266,6 +278,16 @@ function buildPortalFlowData(
 	};
 }
 
+/**
+ * 「flow を要求したのに `flow_data` を付けられなかった」= 顧客は portal ホームに着く、を判定する (#4537)。
+ *
+ * `home` を要求して home に着くのは**期待どおりの着地**なので false。区別せず一律に立てると
+ * 汎用導線 (請求書確認 / 支払い方法変更) にまで「手続きは完了していません」の案内が出てしまう。
+ */
+function flowRequestedButUnavailable(flow: PortalFlow, subscriptionId: string | null): boolean {
+	return flow.kind !== 'home' && !subscriptionId;
+}
+
 export async function createPortalSession(
 	tenantId: string,
 	returnUrl: string,
@@ -284,12 +306,18 @@ export async function createPortalSession(
 		// 途中でやめた顧客が戻れるリンク。flow の有無に関わらず常に渡す
 		return_url: returnUrl,
 	};
-	const flowData = buildPortalFlowData(flow, tenant.stripeSubscriptionId ?? null, returnUrl);
+	const subscriptionId = tenant.stripeSubscriptionId ?? null;
+	const flowData = buildPortalFlowData(flow, subscriptionId, returnUrl);
 
 	if (!flowData.flow_data) {
+		// #4537: subscription が無くて flow を組めなかった場合、session 作成自体は成功する。
+		// ここで `{ url }` だけを返すと呼び出し元は「直行できた」と解釈して素通しし、顧客は
+		// 「解約手続きへ進む」を押したのに portal ホームへ放り出される (説明が一切出ない)。
+		// 着地は #4270 の flow 拒否時と同一なので、同じ `flowFallback` で伝える。
+		const fallback = flowRequestedButUnavailable(flow, subscriptionId);
 		try {
 			const session = await stripe.billingPortal.sessions.create(baseParams);
-			return { url: session.url };
+			return fallback ? { url: session.url, flowFallback: true } : { url: session.url };
 		} catch (err) {
 			return reportPortalCreateFailure(tenantId, flow.kind, err);
 		}
