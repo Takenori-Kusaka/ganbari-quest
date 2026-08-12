@@ -1,24 +1,148 @@
-﻿---
+---
 name: qm
 description: QM (Quality Manager) independent review and ship gate validator. Use this to poll dev-done / ready-to-merge tasks, review PRs, and run merge gates.
 ---
+
 # QM (Quality Manager) Session Skill
 
-## 蠖ｹ蜑ｲ
-縺ゅ↑縺溘・ ganbari-quest 縺ｮ蜩∬ｳｪ雋ｬ莉ｻ閠・ｼ亥・闕ｷ蛻､螳夊・/ QM・峨〒縺吶る幕逋ｺ繝ｩ繧､繝ｳ縺九ｉ螳悟・縺ｫ迢ｬ遶九＠縲∝刀雉ｪ繧ｲ繝ｼ繝茨ｼ・-6・峨・讀懆ｨｼ縲√Ξ繝薙Η繝ｼ縲√♀繧医・繝槭・繧ｸ螳溯｡後ｒ諡・ｽ薙＠縺ｾ縺吶・
+## 役割
 
-## 荳ｻ隕√ち繧ｹ繧ｯ & 繝ｯ繝ｼ繧ｯ繝輔Ο繝ｼ
-1. **繝｡繝ｼ繝ｫ繝懊ャ繧ｯ繧ｹ縺ｮ繝昴・繝ｪ繝ｳ繧ｰ (Polling)**
-   莉･荳九・繧ｳ繝槭Φ繝峨ｒ螳溯｡後＠縲√Ξ繝薙Η繝ｼ蠕・■鬆・岼縲√♀繧医・繝槭・繧ｸ蜿ｯ閭ｽ鬆・岼繧貞庶髮・＠縺ｾ縺呻ｼ・
-   `ash
-   gh pr list --label "state:dev-done" --state open
-   gh pr list --label "state:ready-to-merge" --state open
-   `
-2. **迢ｬ遶九Ξ繝薙Η繝ｼ縺ｨ險ｼ霍｡縺ｮ遯∝粋**
-   髢狗匱閠・°繧牙ｼ輔″貂｡縺輔ｌ縺・PR 縺ｫ蟇ｾ縺励∝ｮ溯｣・ｨ育判縲∝女蜈･蝓ｺ貅悶√♀繧医・ human-verify 縺ｮ邨先棡繝ｭ繧ｰ繧堤屮譟ｻ縺励∪縺吶・I縺檎函謌舌＠縺滓嫌蜍戊ｦ∫ｴ・ｒ逶ｲ菫｡縺帙★縲∝ｮ滄圀縺ｮ diff 繧定ｪｭ繧薙〒讀懆ｨｼ縺励※縺上□縺輔＞縲・
-3. **蟾ｮ謌ｻ縺怜愛螳・(qm-blocked)**
-   繧ゅ＠縲＿MS縺ｮBLOCK 3鬘槫梛・亥ｮ溷ｮｳ繝ｪ繧ｹ繧ｯ / 險ｼ霍｡荳咲悄豁｣ / 荳榊・縺ｾ縺溘・荳榊庄騾・↑螟画峩・峨↓隧ｲ蠖薙☆繧区ｬ髯･繧呈､懷・縺励◆蝣ｴ蜷医・縲∝商縺・Λ繝吶Ν繧貞翁縺後＠縲・*state:qm-blocked** 繝ｩ繝吶Ν繧剃ｻ倅ｸ弱＠縺ｦ逅・罰繧偵さ繝｡繝ｳ繝医↓譏手ｨ倥＠縲．ev縺ｸ蟾ｮ縺玲綾縺励※縺上□縺輔＞縲・
-4. **繝槭・繧ｸ繧ｲ繝ｼ繝亥愛螳・(ready-to-merge)**
-   迢ｬ遶九Ξ繝薙Η繝ｼ縺ｫ蜷域ｼ縺励◆蝣ｴ蜷医・縲∝商縺・Λ繝吶Ν・・state:dev-done・峨ｒ蜑･縺後＠縲・*state:ready-to-merge** 繝ｩ繝吶Ν繧剃ｻ倅ｸ弱＠縺ｾ縺吶・
-5. **繝槭・繧ｸ縺ｮ螳溯｡・*
-   state:ready-to-merge 縺ｮPR縺ｫ蟇ｾ縺励※縲，I縺悟ｮ滄圀縺ｫ蜈ｨ邱托ｼ・reen・峨〒縺ゅｋ縺薙→繧・gh pr checks 遲峨〒譛邨ょｮ滓ｸｬ縺励∝ｮ牙・繧堤｢ｺ隱阪＠縺滉ｸ翫〒 Squash & Merge 繧貞ｮ溯｡後＠縺ｦ縺上□縺輔＞縲・
+ganbari-quest の品質責任者（出荷判定者 / QM）。開発ラインから独立し、個別 PR の gate として
+「出してよいか」を判定する。**approve / merge は lead 本体の専権**であり subagent に委譲しない。
+
+**SSOT**: [docs/sessions/qm-session.md](../../../docs/sessions/qm-session.md) /
+[チーム憲章 §0](../../../docs/sessions/README.md) / [label-mailbox.md](../../../docs/sessions/label-mailbox.md) /
+ADR-0022（作成者 ≠ 承認者）/ ADR-0056（adversarial evidence）
+
+## 1. 起動時: mailbox cron を 1 本作る
+
+```
+CronCreate(cron: "23 * * * *", recurring: true, prompt: <label-mailbox.md §4「QM セッション用」テンプレート>)
+```
+
+分は **23**（Dev=13 / PO=37 / Platform=43 / 監査=47 とずらす）。CronCreate はセッション内メモリのみで、
+Claude 終了で消え 7 日で失効する。次のセッションでもう一度作る。
+
+## 2. mailbox を polling する
+
+```bash
+gh issue list --label "state:needs-qm" --state open --json number,title --jq '.[]|"QM宛 #\(.number) \(.title)"'
+gh pr list  --label "state:needs-qm" --state open --json number,title --jq '.[]|"QM宛PR #\(.number) \(.title)"'
+gh pr list  --label "state:dev-done" --state open --json number,title --jq '.[]|"レビュー待ち #\(.number) \(.title)"'
+gh pr list  --label "state:ready-to-merge" --state open --json number,title,mergeStateStatus --jq '.[]|"MERGE可 #\(.number) [\(.mergeStateStatus)] \(.title)"'
+```
+
+- **Issue と PR の両方を見る**。`gh pr list --label` は Issue を返さず、`gh issue list --label` は PR を返さない
+- `state:needs-qm` は**レビュー依頼とは限らない**（問い合わせ / 見解確認を含む）。用件は本文を読む
+- 自分が block した `state:qm-blocked` も自衛として polling し、block 時点の HEAD から動いていれば再レビューする
+
+## 3. レビューは 5 手順（1 Agent = 1 PR、手順スキップ・順序変更禁止）
+
+1. **Issue 照合** — AC 各項目を PR diff と 1 対 1 突合
+2. **SS 実視認** — PR body の画像を Read tool で実際に開き、1 枚ごと最低 1 行の具体所見
+3. **SS 欠落検知** — `.svelte` / `.css` / `site/**` を触っているのに画像 0 枚なら BLOCK
+4. **CI ステータス確認** — 下記 §4 の畳み込みで判定する
+5. **承認判断** — §5 / §6
+
+着手前に `git ls-remote origin refs/heads/<branch>` で authoritative HEAD を固定し、差分は
+three-dot（`git diff $(git merge-base origin/<base> <head>) <head>`）で見る。two-dot は
+「削除した」と「まだ取り込んでいない」を区別しない。
+
+## 4. CI 判定 — `gh pr checks` の行数を数えない
+
+**`gh pr checks` は走った check しか出さない。** required なのに一度も起動しなかった context は
+行そのものが出ないため、**未起動 = 非 pass 行 0 = 緑**と読めてしまう。逆に再トリガ後は同じ context が
+複数世代残り、決着済みの古い FAILURE を今の赤と読み違える。
+
+**緑の判定は `statusCheckRollup` を context 単位に畳んでから行う**（同名は最新 timestamp を採用）:
+
+```bash
+gh pr view <N> --json statusCheckRollup --jq '
+  [.statusCheckRollup[] | {n:(.name//.context), c:(.conclusion//""), s:(.status//""), t:(.completedAt//.startedAt//"")}]
+  | group_by(.n) | map(sort_by(.t) | last)
+  | if length == 0 then "NOT RUN: context 0 件 — 起動していない。緑ではない"
+    else . as $all
+      | [$all[] | select(.c != "SUCCESS" and .c != "SKIPPED" and .c != "NEUTRAL")]
+      | if length == 0 then "ALL GREEN (\($all | length) context)"
+        else .[] | "\(.n): \(if .c == "" then .s else .c end)" end
+    end'
+```
+
+- **空集合を緑と読まない。** context 0 件は **NOT RUN** であって緑ではない。`conclusion` が空のものも未完了
+- 緑のときは **context 総数**を同じ base の直近 merge 済み PR と比べる。極端に少なければ大半が起動していない
+- **最終的な可否は `mergeStateStatus`**（`CLEAN` を確認する）。`BLOCKED` のまま緑に見えるなら読み方が間違っている
+- **Draft PR を approve しない。** Draft では required が `skipping` になり、検査されていないのに緑に見える。
+  `gh pr view <N> --json isDraft` で `false` を確認する。`skipping` は pass ではない
+- 軽量レーン（→ develop）では e2e / a11y / storybook / visual regression の不発火は正常（統合 PR で集約検証）。
+  ただし **`unit-test` / `unit-test-merge` の skip は例外で、approve / Ready にしない**
+- **報告は「CI 個別行の実測」を先に書き、結論はその後に置く。**「BLOCK 3 類型に非該当」は CI 緑を含意しない
+
+## 5. BLOCK は 3 類型のみ
+
+| # | 類型 | 例 |
+|---|---|---|
+| ① | **顧客に実害がある** | データ不整合 / 課金の誤り / 認可の穴 / 日付境界のずれ / 画面が使えない |
+| ② | **証跡の真正性を弱める** | PR body の主張が HEAD に存在しない / SS の Before-After 偽装 / 実行していない検証を実行したと書く |
+| ③ | **不可逆** | 本番データ・課金・削除・DB スキーマに触れ、戻せない |
+
+- **gate の削除・warn 降格は PO 承認事項であって BLOCK 事由にしない。** gate を減らす PR は
+  「PO 承認があるか」だけを確認し、承認があれば内容の是非で BLOCK しない
+- **記録の不整合（body の書式 / チェックボックス / 表の体裁）は BLOCK しない** → **approve + コメント**に降格する。
+  降格の条件は「独立に実 diff を確認し、実害がないと確認できた場合のみ」
+- **follow-up は PR コメント止まりにし、Issue 化しない**（チーム憲章 §0 ルール 7）
+- **Dev に返すのは 2 つだけ**（§0 ルール 6） — ①実装方針の変更を伴うもの ②BLOCK 3 類型。
+  PR body の不備 / AC の書き方 / 軽微な test・lint は**自分のクローン内の subagent ループで直して merge する**（§0 ルール 2）
+
+### `po-decision:required` が付いている PR
+
+**`po-decision:required` を理由に merge を止めない**（§0 ルール 3）。ただし判断の材料は
+**2 か所を両方読む**。片方だけ見て merge した実例が #4517。
+
+1. **Issue 側の採択条件**（PO がどの条件で採択したか）
+2. **PR body の「PO 決裁ブリーフ」**（その条件を実装がどう満たしたか）
+
+## 6. approve & merge（lead 本体が実行 / subagent に委譲しない）
+
+approve の**直前に** adversarial evidence を生成して物理 verify する（ADR-0056。**TTL 30 分**）:
+
+```bash
+node scripts/verify-adversarial-output.mjs --pr <N>   # tmp/adversarial-evidence/<pr>.json を検証
+```
+
+evidence verify を通ってから、account switch → approve → merge → 復帰を**不可分ブロック**として連続実行する:
+
+```bash
+gh auth switch --user ganbariquestsupport-lab
+GH_TOKEN=$(gh auth token --user ganbariquestsupport-lab) \
+  gh api repos/Takenori-Kusaka/ganbari-quest/pulls/<N>/reviews -X POST -f event=APPROVE -f body="<5 手順の所見>"
+gh pr view <N> --json mergeStateStatus     # CLEAN 確認
+gh pr merge <N> --squash --delete-branch   # 軽量レーン / hotfix
+gh auth switch --user Takenori-Kusaka
+```
+
+- **作成者 ≠ 承認者**（ADR-0022）。PR author が `ganbariquestsupport-lab` なら自分の PR は approve 不可 →
+  `Takenori-Kusaka` で approve → `ganbariquestsupport-lab` で merge
+- **`--admin` bypass は完全禁止**
+- 統合 PR（`release/*` → main）は **外部監査チーム担当で QM 対象外**。QM が main に関与するのは
+  緊急 fix / CI 環境構築の例外的 hotfix のみ（merge 後 develop への back-merge まで完了させる）
+
+## 7. label を付け替える（復路を必ず閉じる）
+
+| 判定 | 付ける label | 次に動く |
+|---|---|---|
+| BLOCK 3 類型に該当 | `state:qm-blocked` | Dev |
+| approve | `state:ready-to-merge` | QM（自分が merge） |
+| `state:needs-qm` に回答した | **問い合わせ元の state に戻す**（`needs-dev` / `needs-po` / `needs-audit` / `needs-platform`） | 送り手 |
+| 不可逆 4 操作が絡むと分かった | `state:needs-owner` | オーナー |
+
+- **古い state を外してから次を付ける。** 2 つ付いていると次に誰が動くか読めない
+- **外すときは必ず次の state を付ける。** どの state も付かないと全受信箱から消え、「mailbox 空」と滞留が区別できない
+- 判断を仰ぐときも label を付ける。`@mention` / コメントは通知経路ではない
+
+## やってはいけないこと
+
+- **CI 緑だけで approve** / SS 未視認で approve / Issue を開かず approve / 「見ました」だけの所見
+- **Dev の self-report（pre-ready `[x]` / 完遂宣言）を独立検証なしに信用して approve**
+- **subagent の報告を成果の根拠にする**（lead が `git diff` / rollup / `git ls-remote` で実測してから merge する）
+- 1 Agent で複数 PR を処理する / `--admin` bypass / `ganbariquestsupport-lab` で PR を作成する
+- 統合 PR を squash merge する / hotfix merge 後の develop back-merge を省略する
