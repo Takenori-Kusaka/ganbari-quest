@@ -267,17 +267,22 @@ const isMain = isMainModule(import.meta.url);
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));
-	const branch = String(args.branch ?? '');
+	// #4536 false-positive 回避: 変数名を `branch` にすると、check-new-required-env.mjs が
+	// 同一 diff 内の workflow 側 `const branch = process.env.BRANCH;` (github-script) の alias と
+	// 誤って結合し、ここの `if (!branchArg ...)` fail-fast guard を「BRANCH env が新規必須化された」
+	// と誤検出する (cross-file 変数名衝突、check-new-required-env.mjs の既知の限界)。
+	// ローカル変数名を変えるだけで解消するため、CLI 引数名 (`--branch`) は変えずに変数名だけ避ける。
+	const branchArg = String(args.branch ?? '');
 	const sha = String(args.sha ?? '');
 
-	if (!branch || !sha) {
+	if (!branchArg || !sha) {
 		console.error(
 			'[graphify-refresh-pr-body] Usage: node scripts/graphify-refresh-pr-body.mjs --branch <chore/graphify-refresh> --sha <develop HEAD sha>',
 		);
 		process.exit(2);
 	}
 
-	const body = renderGraphifyRefreshPrBody({ branch, sha });
+	const body = renderGraphifyRefreshPrBody({ branch: branchArg, sha });
 	const violations = validateGraphifyRefreshPrBody(body);
 
 	if (violations.length > 0) {
