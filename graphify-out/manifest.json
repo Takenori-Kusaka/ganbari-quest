@@ -9665,8 +9665,8 @@
     "semantic_hash": ""
   },
   "tests/unit/routes/admin-role-mutation-authz.test.ts": {
-    "mtime": 1786539132.7196496,
-    "ast_hash": "93885da0e6277ed61605a7f137cab5e1",
+    "mtime": 1786547756.0178137,
+    "ast_hash": "0d8edcc8e3571bc8efe1ae440c08cfe1",
     "semantic_hash": ""
   },
   "tests/unit/routes/admin-settings-export-gate.test.ts": {
