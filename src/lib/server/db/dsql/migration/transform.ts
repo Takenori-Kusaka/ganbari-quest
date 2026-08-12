@@ -160,6 +160,54 @@ function assertNoSerial(stmt: string): void {
 	}
 }
 
+/**
+ * `ALTER TABLE … ADD COLUMN` に列制約が付いていないことを検証する (責務 7、#4488)。
+ *
+ * DSQL が受ける ADD COLUMN は `column_name data_type [STORAGE …]` のみ。DEFAULT / NOT NULL /
+ * CHECK / UNIQUE / PRIMARY KEY / REFERENCES / GENERATED はいずれも
+ * 0A000 `ALTER TABLE ADD COLUMN with constraint not supported` になる。
+ *
+ * 検出したら変換せず throw する (自動分割しない理由は呼び出し側のコメント参照)。
+ *
+ * @throws 列制約付きの ADD COLUMN を検出したとき。
+ */
+function assertAddColumnHasNoConstraint(stmt: string): void {
+	// 識別子 (`"default"` 等の列名) / 文字列リテラルを潰し、構造だけを見る。
+	const structural = stripLiteralsAndIdents(stmt);
+	const offenders = [
+		['DEFAULT', /\bDEFAULT\b/i],
+		['NOT NULL', /\bNOT\s+NULL\b/i],
+		['NULL', /\bNULL\b/i],
+		['CHECK', /\bCHECK\b/i],
+		['UNIQUE', /\bUNIQUE\b/i],
+		['PRIMARY KEY', /\bPRIMARY\s+KEY\b/i],
+		['REFERENCES', /\bREFERENCES\b/i],
+		['GENERATED', /\bGENERATED\b/i],
+		['COLLATE', /\bCOLLATE\b/i],
+	] as const;
+
+	// `IF NOT EXISTS` の NOT は制約ではないので先に除く (残りに NULL 系が出たら本物)。
+	const withoutIfNotExists = structural.replace(/\bIF\s+NOT\s+EXISTS\b/gi, ' ');
+	const found = offenders.filter(([, re]) => re.test(withoutIfNotExists)).map(([label]) => label);
+	if (found.length === 0) return;
+
+	throw new Error(
+		`[dsql-migration] unsupported column constraint on ADD COLUMN: ${found.join(' / ')}. ` +
+			'DSQL の ADD COLUMN 文法は `column_name data_type [STORAGE …]` のみで、列制約を取れない ' +
+			'(実測: 0A000 `ALTER TABLE ADD COLUMN with constraint not supported`、#4488)。\n' +
+			'migration を DSQL 互換の手順に分解して書き直すこと:\n' +
+			'  1. ALTER TABLE t ADD COLUMN IF NOT EXISTS c <type>;            -- 素の追加\n' +
+			'  2. ALTER TABLE t ALTER COLUMN c SET DEFAULT <expr>;            -- 既定値 (メタデータのみ)\n' +
+			'  3. UPDATE t SET c = <expr> WHERE c IS NULL;                    -- 既存行の backfill\n' +
+			'     ⚠️ DSQL は 1 txn あたり 3,000 行まで。超える規模ではバッチ分割すること。\n' +
+			'NOT NULL は DSQL では表現しない (`ALTER COLUMN … SET NOT NULL` はサポート action に無い)。\n' +
+			'非 NULL は Drizzle schema の .notNull() と app 層で担保する (FK を app 層へ倒す責務 1 と同型)。\n' +
+			'DB 層で強制したい場合のみ `ADD CONSTRAINT … CHECK (…) NOT VALID` + ' +
+			'`ALTER TABLE ASYNC … VALIDATE CONSTRAINT` を検討する (runner に constraint job poll の実装が要る)。\n' +
+			`offending statement: ${stmt.slice(0, 160)}…`,
+	);
+}
+
 /** CREATE SEQUENCE の CACHE 準拠を検証する (責務 5)。非準拠は throw。 */
 function assertSequenceCacheCompliant(stmt: string): void {
 	const m = stmt.match(/\bCACHE\s+(\d+)\b/i);
@@ -260,6 +308,25 @@ export function transformDrizzleSqlToDsql(sqlText: string): DsqlMigrationPlan {
 					'UNIQUE は CREATE UNIQUE INDEX ASYNC へ表現し直すこと。 ' +
 					`offending statement: ${stmt.slice(0, 120)}…`,
 			);
+		}
+
+		// ── 責務 7: ADD COLUMN の列制約を fail-close する (#4488) ──
+		// DSQL の ADD COLUMN 文法は
+		//   ADD [COLUMN] [IF NOT EXISTS] column_name data_type [STORAGE …]
+		// だけで、列制約 (DEFAULT / NOT NULL / CHECK / UNIQUE / REFERENCES / GENERATED) を
+		// 一切取れない (実測: 0A000 `ALTER TABLE ADD COLUMN with constraint not supported`)。
+		//
+		// **自動分割はしない**。正しい分解は「素の ADD COLUMN → SET DEFAULT → backfill UPDATE」で、
+		// backfill は行数に依存し DSQL の 3,000 行/txn 上限を超えるとバッチ分割が要る。純変換層が
+		// 安全に生成できる対象ではない (小規模では通り、育つと本番で落ちる = 最悪の壊れ方)。
+		// NOT NULL を黙って落とすのも意味論の変更であり、本モジュール冒頭の
+		// 「silent 誤変換で fail-open しない」原則に反する。よって書き手に投げ返す。
+		// ADD CONSTRAINT は上で処理済みなので、ここに残る `ALTER TABLE … ADD` は ADD COLUMN
+		// (PostgreSQL は COLUMN キーワードを省略できる。drizzle-kit は常に付けるが両形を受ける)。
+		if (startsWith(stmt, 'ALTER\\s+TABLE') && /\bADD\b/i.test(stripLiteralsAndIdents(stmt))) {
+			assertAddColumnHasNoConstraint(stmt);
+			pushDdl({ sql: stmt });
+			continue;
 		}
 
 		// 責務 6: DML (seed) は別リストへ。
