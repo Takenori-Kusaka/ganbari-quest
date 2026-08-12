@@ -6,7 +6,6 @@
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
 import { planMrrUnitYen } from '$lib/domain/constants/plan-price';
-import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { isChurnedContract, SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { shiftMonthKey, utcMonthKey } from '$lib/domain/date-utils';
 import type { Tenant } from '$lib/server/auth/entities';
