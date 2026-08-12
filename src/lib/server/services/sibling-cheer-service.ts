@@ -2,6 +2,7 @@ import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/services/sibling-cheer-service.ts
 // きょうだい間おうえんスタンプ
 
+import { resolveSiblingDisplayName } from '$lib/features/child-home/sibling-display-name';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import {
 	countTodayCheersFrom,
@@ -65,7 +66,6 @@ export async function getUnshownCheers(
 	if (cheers.length === 0) return [];
 
 	const children = await findAllChildren(tenantId);
-	const childMap = new Map(children.map((c) => [c.id, c.nickname]));
 
 	return cheers.map((c) => {
 		const stamp = getStampByCode(c.stampCode);
@@ -73,7 +73,9 @@ export async function getUnshownCheers(
 			...c,
 			stampLabel: stamp?.label ?? c.stampCode,
 			stampEmoji: stamp?.emoji ?? '💌',
-			fromName: childMap.get(c.fromChildId) ?? `#${c.fromChildId}`,
+			// #4509 ⑤: おうえんオーバーレイは子供画面。名前が引けない回に内部 ID を出さない
+			// (DESIGN.md §6「内部コード露出禁止」、過去事例 #498 / #573)。
+			fromName: resolveSiblingDisplayName(children, c.fromChildId),
 		};
 	});
 }

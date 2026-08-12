@@ -130,6 +130,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		familyTemplates,
 		today,
 		isPremium,
+		// #4506: AI 提案パネルの UI プランゲート (premium 限定) の導出元。
+		// 従来は page load が返しておらず (parent)/admin/+layout.server.ts の値で解決していたため、
+		// この page だけを読むと「常に undefined」と誤読された (#2902 / #4506 で 2 度)。
+		// 値は layout と同一 (resolveFullPlanTier)。参照元を page 内で追えるようにするための明示返却。
+		planTier: tier,
 		checklistTemplateMax,
 		importPresetId,
 		importPresetInvalid,

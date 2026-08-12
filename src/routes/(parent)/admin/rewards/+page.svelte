@@ -11,6 +11,7 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { isAiSuggestUnlocked } from '$lib/domain/ai-suggest-gate';
 import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import { asChildId, type ChildId } from '$lib/domain/ids';
 import {
@@ -973,7 +974,8 @@ async function handleCopyFromChild() {
 	>
 		{#if addMode === 'ai'}
 			<!-- AI Suggest Reward Panel (#719)。採用したら manual フォームに切替えて内容確認 → 追加。 -->
-			<AiSuggestRewardPanel onaccept={acceptAiRewardThenSwitch} isFamily={data.planTier === 'family'} />
+			<!-- #4506: 対照実装 (正) だった導出式を共有述語に置換。判定値は不変 (planTier === 'family')。 -->
+			<AiSuggestRewardPanel onaccept={acceptAiRewardThenSwitch} isFamily={isAiSuggestUnlocked(data.planTier)} />
 		{:else if addMode === 'manual'}
 			<div class="space-y-4">
 				<!-- プリセットを選択 → フォームに prefill -->
