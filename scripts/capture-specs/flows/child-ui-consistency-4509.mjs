@@ -121,9 +121,11 @@ async function open(page, path, anchor) {
 	}
 	// 撮影は viewport 単位なので、演出や overlay でスクロールが動いていたら先頭に戻す
 	await page.evaluate(() => window.scrollTo(0, 0));
-	await page.waitForFunction(() => document.fonts?.status === 'loaded', undefined, {
-		timeout: 10_000,
-	}).catch(() => {});
+	await page
+		.waitForFunction(() => document.fonts?.status === 'loaded', undefined, {
+			timeout: 10_000,
+		})
+		.catch(() => {});
 }
 
 /**
