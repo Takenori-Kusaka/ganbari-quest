@@ -1,15 +1,16 @@
 // tests/unit/routes/admin-checklists-ai-suggest-gate.test.ts
 // #4506 (EPIC #4495 / GAMMA2-ADM1-01): /admin/checklists の AI 提案パネル UI プランゲート。
 //
-// ## 何が壊れていたか
+// ## 経緯 (Issue 本文の前提は実測で否定された)
 //
-// `+page.svelte` は `isFamily={data.planTier === 'family'}` を渡していたが、`+page.server.ts`
-// の load は `planTier` を返していなかった (返すのは `isPremium` のみ)。結果、式は常に
-// `undefined === 'family'` = **false** に評価され、**プレミアム加入者にも「プレミアム限定」
-// ロックとアップグレード CTA が表示され、購入済み機能が使えなかった** (money/high)。
+// #4506 は「`+page.server.ts` が planTier を返さないので `data.planTier === 'family'` は常に
+// false、プレミアム加入者もロックされる (money/high)」と報告していた。**再現しない。**
+// `data` は祖先 layout の戻り値をマージしたものであり、`(parent)/admin/+layout.server.ts` が
+// planTier を返しているため解決していた (premium account の実機で非ロックを実測)。
 //
-// server gate (`suggest-plan-gate.ts`) は premium 限定で正しく、実害は「表示の嘘」として
-// 顧客に出ていた。#2902 が activities で是正した同一 class の未横展開である。
+// 本 PR の変更は **判定値を変えない SSOT 統一 + 参照元の明示** である。page load でも planTier を
+// 返すのは、この page だけを読んで「常に undefined」と誤読する事故 (#2902 / #4506 の 2 回) を
+// 止めるため。
 //
 // ## 本 test が固定する契約
 //

@@ -6,7 +6,8 @@
 // AI 提案の enforcement は server (`suggest-plan-gate.ts`) が premium 限定で行う。UI が
 // それと違う状態を見せると、顧客には 2 方向の実害が出る。
 //
-// - server 許可 / UI ロック → **購入済み機能が使えない** (money。checklists で発生 = #4506 本丸)
+// - server 許可 / UI ロック → **購入済み機能が使えない** (money。#4506 が checklists で起きていると
+//   報告したが実測では再現せず = false positive)
 // - server 拒否 / UI 解放 → **含まれない機能を含まれるかのように提示** (legal。activities で発生中)
 //
 // 個々のパネルの単体挙動は `ai-suggest-panel-plan-gate.test.ts` (#722) が既に見ているので、
@@ -120,7 +121,7 @@ describe('AI 提案パネル プラン × 画面 表示状態マトリクス (#4
 	// #4506 本丸: プレミアム加入者が checklists でロックされない
 	// ============================================================
 
-	it('プレミアム加入者の checklists AI 提案はロックされない (回帰: 購入済み機能の不可視)', () => {
+	it('プレミアム加入者の checklists AI 提案はロックされない (購入済み機能の不可視を将来にわたり排除)', () => {
 		const checklists = SCREENS.find((s) => s.component === AiSuggestChecklistPanel);
 		if (!checklists) throw new Error('checklists の行がマトリクスにありません');
 		expect(renderLockState(checklists, 'family')).toBe(false);

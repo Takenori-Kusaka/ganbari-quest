@@ -8,11 +8,11 @@
 // 「server は拒否するのに UI は解放表示」「server は許可するのに UI はロック表示」という
 // 表示の嘘が 3 画面で三様に発生した (#2902 → #4506 で same-class 3 現場目)。
 //
-// | 画面 | 旧導出 | 実害 |
+// | 画面 | 旧導出 | 状態 |
 // |---|---|---|
-// | checklists | `data.planTier === 'family'` だが load が planTier を返さない | 常に false → **プレミアム加入者が購入済み機能を使えない** (money) |
-// | activities | `data.isPremium` (= 有料なら true、standard も含む) | standard に解放表示 → 実行時 403 (有利誤認 / legal) |
-// | rewards | `data.planTier === 'family'` (load が planTier 返却) | 正 |
+// | checklists | `data.planTier === 'family'` | **判定は正しかった** (`data.planTier` は `(parent)/admin/+layout.server.ts` が供給。premium 非ロックを実機実測)。ただし参照元が page load に見えないため「常に false」と 2 度誤読された |
+// | activities | `data.isPremium` (= 有料なら true、standard も含む) | **誤り**。standard に解放表示 → 実行時 403 (有利誤認 / legal)。#2902 が上記の誤読で「修正」した結果として入った |
+// | rewards | `data.planTier === 'family'` (page load も planTier 返却) | 正 |
 //
 // enforcement (server) と表示 (UI) が同じ述語を import することで、片側だけがずれる状態を
 // 構造的に作れなくする。callsite の網羅は

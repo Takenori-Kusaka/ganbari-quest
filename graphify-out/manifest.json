@@ -5535,13 +5535,13 @@
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/+page.server.ts": {
-    "mtime": 1786541551.7016802,
+    "mtime": 1786543210.6395407,
     "ast_hash": "6006317f6fc270dfa06c878568ec35ae",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/+page.svelte": {
-    "mtime": 1786541923.8708754,
-    "ast_hash": "0b0e78546ad800dd598f53977dafef5d",
+    "mtime": 1786543252.7885566,
+    "ast_hash": "3e4a165e4a6e88493a79c87c4e186347",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/checklists/_guide.ts": {
@@ -12130,8 +12130,8 @@
     "semantic_hash": ""
   },
   "docs/design/06-UI\u8a2d\u8a08\u66f8.md": {
-    "mtime": 1786542268.6151993,
-    "ast_hash": "9a7f2dd5196279762f6133ba13440c4b",
+    "mtime": 1786543244.7236247,
+    "ast_hash": "a20a28fc5b8bc17a406eef38b5ae74d5",
     "semantic_hash": ""
   },
   "docs/design/07-API\u8a2d\u8a08\u66f8.md": {
@@ -14540,8 +14540,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/ai-suggest-gate.ts": {
-    "mtime": 1786541526.397137,
-    "ast_hash": "2592cd8498830d7079f42f1887b00926",
+    "mtime": 1786543251.8937333,
+    "ast_hash": "d95c0d8180be2698c57aaf75b734ba3c",
     "semantic_hash": ""
   },
   "src/lib/domain/constants/plan-retention.ts": {
@@ -14565,8 +14565,8 @@
     "semantic_hash": ""
   },
   "tests/unit/architecture/ai-suggest-gate-derivation.test.ts": {
-    "mtime": 1786542110.9981723,
-    "ast_hash": "8db437da6949ada437a49499e5e171d0",
+    "mtime": 1786543120.1989894,
+    "ast_hash": "3ea416b0d0c2de55d48f7bd6bd6e195b",
     "semantic_hash": ""
   },
   "tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts": {
@@ -14610,8 +14610,8 @@
     "semantic_hash": ""
   },
   "tests/unit/routes/admin-checklists-ai-suggest-gate.test.ts": {
-    "mtime": 1786542111.6989748,
-    "ast_hash": "554a114f8fda4494def6b045b8e9a6b2",
+    "mtime": 1786543253.871791,
+    "ast_hash": "d768b68e2d76605157da167624e9650f",
     "semantic_hash": ""
   },
   "tests/unit/routes/avatar-upload-old-file-deletion.test.ts": {

@@ -1321,10 +1321,11 @@ function getChildName(childId: ChildId): string {
      機能名 (AI チェックリスト提案) 込みで担う (#2901 contextual paywall 整合、AC2)。 -->
 <Dialog bind:open={aiDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addDialogTitleAi} testid="checklists-ai-dialog">
 	<!-- #4506: gate 導出は $lib/domain/ai-suggest-gate の述語 1 本に集約 (server enforcement と同一)。
-	     旧 `data.planTier === 'family'` は load が planTier を返しておらず常に false に潰れ、
-	     プレミアム加入者にもロックが出ていた。planTier 欠落は型では検出できない (PageData は
-	     Record<string, any> を含む) ため、load 返却との対応は
-	     tests/unit/architecture/ai-suggest-gate-derivation.test.ts が機械検査する。 -->
+	     判定値は旧 `data.planTier === 'family'` と同一 (顧客に見える変化なし)。
+	     旧式は「page load が planTier を返さないので常に false」と 2 度誤読された (#2902 / #4506) が、
+	     実際は (parent)/admin/+layout.server.ts が供給しており解決していた。
+	     参照元を追える状態にするため page load でも planTier を明示返却し、
+	     load 連鎖との対応は tests/unit/architecture/ai-suggest-gate-derivation.test.ts が機械検査する。 -->
 	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={isAiSuggestUnlocked(data.planTier)} />
 </Dialog>
 

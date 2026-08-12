@@ -5,18 +5,21 @@
 //
 // ## なぜ機械 guard にしたか
 //
-// 同じ class の欠陥が 3 現場目である。
+// 「導出式が callsite ごとに手書きされている」ことが原因の混乱が 3 回起きている。
 //
-// - 1 現場目 #2902: activities が `data.planTier === 'family'` を渡すが load が planTier 未返却
-//   → 常に false。**当時は「その画面だけ」直した (isPremium を渡す)。**
-// - 2 現場目 #4506 GAMMA2-ADM1-01: checklists がまったく同じ状態のまま残っていた
-//   → プレミアム加入者が購入済み機能を使えない (money)。
-// - 3 現場目 #4506 GAMMA2-ADM1-02: activities の暫定策 (isPremium) が今度は standard に
-//   解放表示を出す (legal、有利誤認)。
+// - #2902: activities の `data.planTier === 'family'` を「load が planTier を返さないので常に
+//   false」と読んで `data.isPremium` に変えた。**この読みは誤りだった** —
+//   `(parent)/admin/+layout.server.ts` が planTier を返しており、`data` は layout の戻り値を
+//   マージするため解決していた。結果、**動いていた式を壊し** standard に解放表示を出す状態
+//   (有利誤認 / legal) を作った。
+// - #4506 GAMMA2-ADM1-01: checklists について同じ誤読が再演された (「常にロック」と報告されたが、
+//   premium account の実機で非ロックを実測。false positive)。
+// - #4506 GAMMA2-ADM1-02: #2902 が作った activities の実欠陥が改めて検出された。
 //
-// 3 回とも「導出式が callsite ごとに手書きされている」ことが原因で、レビューでは 3 回とも
-// 通ってしまった。式の正しさを人が毎回読む運用をやめ、**callsite が共有述語を経由していること**
-// を機械が見る。
+// つまり「式を人が読んで正しさを判定する」運用が 3 回連続で失敗している。判定を人手から外し、
+// **callsite が共有述語を経由していること** と **参照 field が load 連鎖で供給されていること**
+// を機械が見る。特に検査 2 は #2902 / #4506 の誤読そのものを機械化しないよう、
+// layout の寄与を必ず数える (`loadFilesFor` の doc)。
 //
 // ## 何を検査するか
 //
@@ -24,16 +27,17 @@
 //    `isAiSuggestUnlocked(` を経由していること。経由しない callsite は
 //    `DEFERRED_DERIVATIONS` に **理由付きで** 登録されていなければ fail する。
 //    「あとで直す」を無言で置けないようにするための登録であって、免除の入口ではない。
-// 2. callsite が読む `data.<field>` を、**同じディレクトリの `+page.server.ts` の load が実際に
-//    返している**こと。
+// 2. callsite が読む `data.<field>` を、**load 連鎖 (`+page.server.ts` + 祖先の
+//    `+layout(.server).ts`) のどこかが実際に返している**こと。SvelteKit の `data` は layout の
+//    戻り値がマージされたものなので、page load だけを見ると誤読する (#4506 の Issue 本文が
+//    その誤読だった。詳細は loadFilesFor の doc)。
 //
 // ## 2 が要る理由 (型では守れないため)
 //
-// #4506 の根本原因は「参照先の無い `data.planTier` が静かに undefined になる」ことだが、
-// **これは型検査では捕まらない**。SvelteKit が生成する `PageData` は `OutputDataShape` 経由で
-// `Record<string, any>` を含むため、`data.<存在しない field>` は `any` に解決され、
-// svelte-check / tsc は error を出さない (現に元の欠陥は CI の svelte-check を通過して出荷された。
-// PR #4506 で planTier 返却を外す mutation を当てて 0 errors を実測確認している)。
+// 「参照先の無い `data.<field>` が静かに undefined になる」class は **型検査では捕まらない**。
+// SvelteKit が生成する `PageData` は `OutputDataShape` 経由で `Record<string, any>` を含むため、
+// `data.<存在しない field>` は `any` に解決され、svelte-check / tsc は error を出さない
+// (PR #4523 で存在しない field を参照する mutation を当てて 0 errors を実測確認済)。
 //
 // したがって「述語を関数にしたから型で守られる」とは **言えない**。型で守られるのは
 // `+page.server.ts` 側 (`isAiSuggestUnlocked(tier)` の引数が `PlanTier`) までで、
@@ -60,7 +64,7 @@ const CALLSITE_PATTERN = /<AiSuggest(\w*)Panel\b[^>]*?isFamily=\{([^}]*)\}/gs;
  */
 const DEFERRED_DERIVATIONS: Record<string, string> = {
 	'src/routes/(parent)/admin/activities/+page.svelte':
-		'#4506 で checklists (顧客救済側) のみ先行させた。activities を共有述語に移すと standard 加入者の表示が解放 → ロックに変わるが、この引き締めは PO の順序制約により #4501 (プレミアムのトライアル化) と同 wave か後に実施する。LP が「全機能お試し」を約束している間に先に締めると、見込み客に対する新たな誤認を作るため',
+		'#4506 では checklists の SSOT 統一のみ先行させた。activities を共有述語に移すと standard 加入者の表示が解放 → ロックに変わる (= 実欠陥 GAMMA2-ADM1-02 の是正そのもの) が、この引き締めは PO の順序制約により #4501 (プレミアムのトライアル化) と同 wave か後に実施する。LP が「全機能お試し」を約束している間に先に締めると、見込み客に対する新たな誤認を作るため',
 };
 
 function listPageSvelte(dir: string): string[] {
@@ -95,6 +99,36 @@ const callsites: Callsite[] = listPageSvelte(join(repoRoot, 'src', 'routes')).fl
 		expression: (m[2] ?? '').trim(),
 	}));
 });
+
+/**
+ * ある `+page.svelte` の `data` に寄与しうる load file を、**祖先 layout まで遡って**列挙する。
+ *
+ * SvelteKit の `data` は `+page.server.ts` の戻り値だけではなく、**祖先の `+layout(.server).ts`
+ * の戻り値がマージされたもの**である。この事実を落とすと「page load が返していない = 常に
+ * undefined」と誤読する。#4506 の Issue 本文がまさにその誤読で、`data.planTier` は
+ * `src/routes/(parent)/admin/+layout.server.ts` が返しているため実際には解決していた
+ * (premium account の実機で `data-plan-locked="false"` = 非ロックを実測)。
+ * 本検査が同じ誤読を機械化しないよう、layout も provider として数える。
+ */
+function loadFilesFor(pageSveltePath: string): Array<{ rel: string; absolute: string }> {
+	const out: Array<{ rel: string; absolute: string }> = [];
+	const segments = pageSveltePath.split('/');
+	segments.pop(); // '+page.svelte'
+	// 自分の dir → 祖先 dir へ遡る (src/routes = 深さ 2 まで)
+	for (let depth = segments.length; depth >= 2; depth--) {
+		const dir = segments.slice(0, depth).join('/');
+		const candidates =
+			depth === segments.length
+				? ['+page.server.ts', '+page.ts', '+layout.server.ts', '+layout.ts']
+				: ['+layout.server.ts', '+layout.ts'];
+		for (const candidate of candidates) {
+			const rel = `${dir}/${candidate}`;
+			const absolute = join(repoRoot, rel);
+			if (existsSync(absolute)) out.push({ rel, absolute });
+		}
+	}
+	return out;
+}
 
 // repo 走査 test の区分宣言 (#4085、SSOT = scripts/lib/ci/repo-scan-test-registry.mjs)。
 // src/routes 全体を walk するため、並列 worker との CPU / FS 競合で既定 5s を超えうる。
@@ -134,29 +168,29 @@ describe('AI 提案パネル isFamily 導出の単一実装 (#4506 AC5)', { time
 		}
 	});
 
-	it('callsite が読む data.<field> を同ディレクトリの load が実際に返している (silent undefined の排除)', () => {
+	it('callsite が読む data.<field> を load 連鎖のどこかが実際に返している (silent undefined の排除)', () => {
 		const missing: string[] = [];
 
 		for (const callsite of callsites) {
 			// `isAiSuggestUnlocked(data.planTier)` / `data.isPremium` 等から参照 field を取り出す
-			const fields = [...callsite.expression.matchAll(/\bdata\.(\w+)/g)].map((m) => m[1]);
+			const fields = [...callsite.expression.matchAll(/\bdata\.(\w+)/g)].map((m) => m[1] ?? '');
 			if (fields.length === 0) continue;
 
-			const serverPath = callsite.path.replace(/\+page\.svelte$/, '+page.server.ts');
-			const absolute = join(repoRoot, serverPath);
-			if (!existsSync(absolute)) {
-				missing.push(`${callsite.path}: 対応する +page.server.ts がありません (${serverPath})`);
+			const providers = loadFilesFor(callsite.path);
+			if (providers.length === 0) {
+				missing.push(`${callsite.path}: load file が 1 つも見つかりません`);
 				continue;
 			}
-			const serverSource = readFileSync(absolute, 'utf-8');
 
 			for (const field of fields) {
 				// load の返却 object literal での出現。`field,` (shorthand) / `field: expr` の双方を見る。
-				const returned = new RegExp(`(^|[\\s{,])${field}\\s*[,:]`, 'm').test(serverSource);
-				if (!returned) {
+				const pattern = new RegExp(`(^|[\\s{,])${field}\\s*[,:]`, 'm');
+				const provided = providers.some((f) => pattern.test(readFileSync(f.absolute, 'utf-8')));
+				if (!provided) {
 					missing.push(
-						`${callsite.path} が data.${field} を読んでいますが、${serverPath} の load が ` +
-							`${field} を返していません (常に undefined = 静かに false になります)`,
+						`${callsite.path} が data.${field} を読んでいますが、load 連鎖 ` +
+							`(${providers.map((f) => f.rel).join(' / ')}) のどこも ${field} を返していません ` +
+							`(常に undefined = 静かに false になります)`,
 					);
 				}
 			}
