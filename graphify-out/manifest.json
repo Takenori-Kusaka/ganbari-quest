@@ -5475,8 +5475,8 @@
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/activities/+page.svelte": {
-    "mtime": 1786541601.2196767,
-    "ast_hash": "b08b7d696c62619b560f1af7b571032b",
+    "mtime": 1786546956.455936,
+    "ast_hash": "5b0ad898abf404641eb9a14a92087f93",
     "semantic_hash": ""
   },
   "src/routes/(parent)/admin/activities/[id]/edit/+page.server.ts": {
@@ -14540,8 +14540,8 @@
     "semantic_hash": ""
   },
   "src/lib/domain/ai-suggest-gate.ts": {
-    "mtime": 1786546547.2986536,
-    "ast_hash": "670e0a6f55455a06da283d9a01f11cab",
+    "mtime": 1786546955.8669837,
+    "ast_hash": "9d075ef25e5068c35c3c48d0f28e5130",
     "semantic_hash": ""
   },
   "src/lib/domain/constants/plan-retention.ts": {
