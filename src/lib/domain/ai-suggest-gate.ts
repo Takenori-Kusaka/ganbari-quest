@@ -18,12 +18,19 @@
 // 構造的に作れなくする。callsite の網羅は
 // `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` (fitness function) が固定する。
 //
-// # 型で silent false を排除する
+// # silent false をどこで止めるか (型では止まらない)
 //
-// 引数は `PlanTier` (optional でない) を要求する。load が `planTier` を返し忘れると callsite が
-// `undefined` を渡すことになり、tsc / svelte-check が **型エラーで落ちる**。
-// 旧実装の `data.planTier === 'family'` は比較式なので、参照先が存在しなくても静かに false へ
-// 潰れて誰にも気づかれなかった (#4506 の根本原因)。述語を関数にすること自体が対策である。
+// 引数は `PlanTier` (optional でない) を要求するので、**server 側の導出は型で守られる**
+// (`+page.server.ts` の `tier` は実型を持つ)。
+//
+// 一方 **page 側は型で守れない**。SvelteKit が生成する `PageData` は `OutputDataShape` 経由で
+// `Record<string, any>` を含むため、`data.<存在しない field>` は `any` に解決され、svelte-check /
+// tsc は何も言わない。現に #4506 の欠陥 (`data.planTier` が undefined) は CI の svelte-check を
+// 通過して出荷されており、planTier 返却を外す mutation を当てても 0 errors であることを実測した。
+//
+// したがって page ↔ load の対応は機械検査で担保する:
+// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` が、callsite が読む `data.<field>` を
+// 同ディレクトリの load が実際に返しているかを検査する (mutation で検出を実測済)。
 
 import type { PlanTier } from '$lib/domain/constants/plan-tier';
 

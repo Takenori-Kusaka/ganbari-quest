@@ -18,9 +18,12 @@
 // 2. free / standard / premium(family) の 3 tier について、load 出力から導出した表示状態が
 //    server gate (premium のみ許可) と一致すること。
 //
-// 導出は `isAiSuggestUnlocked()` (SSOT) 経由で行う。引数型が `PlanTier` (optional でない) なので、
-// load が planTier を返さなくなった場合は svelte-check / tsc が callsite で型エラーにする
-// (= 型でも silent false を排除している)。表示状態そのものの検証は
+// 導出は `isAiSuggestUnlocked()` (SSOT) 経由で行う。**型では守れない**ことに注意 — 生成される
+// `PageData` は `Record<string, any>` を含むため、load が planTier を返さなくなっても
+// svelte-check / tsc は error を出さない (実測済)。よって silent false の排除は
+// 本 file (load 出力の実行時 assert) と
+// `tests/unit/architecture/ai-suggest-gate-derivation.test.ts` (page ↔ load 対応の静的検査) の
+// 2 層で行う。表示状態そのものの検証は
 // `tests/unit/components/ai-suggest-gate-display-matrix.test.ts` が担う。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';

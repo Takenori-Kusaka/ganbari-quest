@@ -20,12 +20,26 @@
 //
 // ## 何を検査するか
 //
-// `src/routes/**/+page.svelte` の `<AiSuggest*Panel ... isFamily={...} />` 全 callsite が
-// `isAiSuggestUnlocked(` を経由していること。経由しない callsite は
-// `DEFERRED_DERIVATIONS` に **理由付きで** 登録されていなければ fail する。
-// 「あとで直す」を無言で置けないようにするための登録であって、免除の入口ではない。
+// 1. `src/routes/**/+page.svelte` の `<AiSuggest*Panel ... isFamily={...} />` 全 callsite が
+//    `isAiSuggestUnlocked(` を経由していること。経由しない callsite は
+//    `DEFERRED_DERIVATIONS` に **理由付きで** 登録されていなければ fail する。
+//    「あとで直す」を無言で置けないようにするための登録であって、免除の入口ではない。
+// 2. callsite が読む `data.<field>` を、**同じディレクトリの `+page.server.ts` の load が実際に
+//    返している**こと。
+//
+// ## 2 が要る理由 (型では守れないため)
+//
+// #4506 の根本原因は「参照先の無い `data.planTier` が静かに undefined になる」ことだが、
+// **これは型検査では捕まらない**。SvelteKit が生成する `PageData` は `OutputDataShape` 経由で
+// `Record<string, any>` を含むため、`data.<存在しない field>` は `any` に解決され、
+// svelte-check / tsc は error を出さない (現に元の欠陥は CI の svelte-check を通過して出荷された。
+// PR #4506 で planTier 返却を外す mutation を当てて 0 errors を実測確認している)。
+//
+// したがって「述語を関数にしたから型で守られる」とは **言えない**。型で守られるのは
+// `+page.server.ts` 側 (`isAiSuggestUnlocked(tier)` の引数が `PlanTier`) までで、
+// page ↔ load の対応は本 file が機械で見る。
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { findReasonDefect } from '../../../scripts/lib/ci/exclusion-reason.mjs';
@@ -118,6 +132,37 @@ describe('AI 提案パネル isFamily 導出の単一実装 (#4506 AC5)', { time
 				`${path} は共有述語へ移行済みです。DEFERRED_DERIVATIONS から削除してください`,
 			).toBe(true);
 		}
+	});
+
+	it('callsite が読む data.<field> を同ディレクトリの load が実際に返している (silent undefined の排除)', () => {
+		const missing: string[] = [];
+
+		for (const callsite of callsites) {
+			// `isAiSuggestUnlocked(data.planTier)` / `data.isPremium` 等から参照 field を取り出す
+			const fields = [...callsite.expression.matchAll(/\bdata\.(\w+)/g)].map((m) => m[1]);
+			if (fields.length === 0) continue;
+
+			const serverPath = callsite.path.replace(/\+page\.svelte$/, '+page.server.ts');
+			const absolute = join(repoRoot, serverPath);
+			if (!existsSync(absolute)) {
+				missing.push(`${callsite.path}: 対応する +page.server.ts がありません (${serverPath})`);
+				continue;
+			}
+			const serverSource = readFileSync(absolute, 'utf-8');
+
+			for (const field of fields) {
+				// load の返却 object literal での出現。`field,` (shorthand) / `field: expr` の双方を見る。
+				const returned = new RegExp(`(^|[\\s{,])${field}\\s*[,:]`, 'm').test(serverSource);
+				if (!returned) {
+					missing.push(
+						`${callsite.path} が data.${field} を読んでいますが、${serverPath} の load が ` +
+							`${field} を返していません (常に undefined = 静かに false になります)`,
+					);
+				}
+			}
+		}
+
+		expect(missing, missing.join('\n')).toEqual([]);
 	});
 
 	it('除外登録の理由が成立している (空 / stub / Issue 番号なしを弾く)', () => {

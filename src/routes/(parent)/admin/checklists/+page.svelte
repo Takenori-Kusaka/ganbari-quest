@@ -1322,7 +1322,9 @@ function getChildName(childId: ChildId): string {
 <Dialog bind:open={aiDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addDialogTitleAi} testid="checklists-ai-dialog">
 	<!-- #4506: gate 導出は $lib/domain/ai-suggest-gate の述語 1 本に集約 (server enforcement と同一)。
 	     旧 `data.planTier === 'family'` は load が planTier を返しておらず常に false に潰れ、
-	     プレミアム加入者にもロックが出ていた。関数化により planTier 欠落は型エラーになる。 -->
+	     プレミアム加入者にもロックが出ていた。planTier 欠落は型では検出できない (PageData は
+	     Record<string, any> を含む) ため、load 返却との対応は
+	     tests/unit/architecture/ai-suggest-gate-derivation.test.ts が機械検査する。 -->
 	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={isAiSuggestUnlocked(data.planTier)} />
 </Dialog>
 
