@@ -136,6 +136,7 @@ import {
 	getOwnerDeletionInfo,
 	transferOwnershipAndLeave,
 } from '$lib/server/services/account-deletion-service';
+import { sendDeletionCompleteEmail } from '$lib/server/services/email-service';
 
 /** #4338: 削除記録ログの文脈 (経路 + プラン)。本 test の関心外なので固定値。 */
 const AUDIT = { route: 'grace-expiry', planTier: 'standard' } as const;
@@ -222,6 +223,42 @@ describe('account-deletion-service', () => {
 			await expect(deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT)).rejects.toThrow(
 				'他のメンバーが存在します',
 			);
+		});
+
+		// #4507: 旧実装では削除完了メールが production 呼び出しゼロの dead code で、
+		// 無料プランの退会 (猶予 0 日 = 即時物理削除) は通知 0 通でデータが消えていた。
+		it('#4507: 削除完了をオーナーへ通知する', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findUserById.mockResolvedValue({
+				userId: OWNER_ID,
+				email: 'owner@example.com',
+			});
+
+			await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT);
+
+			expect(sendDeletionCompleteEmail).toHaveBeenCalledWith('owner@example.com');
+			// 宛先は削除前に控える必要がある (削除後は users 行ごと消えて引けない)
+			const resolveOrder = mockAuthRepo.findUserById.mock.invocationCallOrder[0] ?? Infinity;
+			const deleteUserOrder = mockAuthRepo.deleteUser.mock.invocationCallOrder[0] ?? -Infinity;
+			expect(resolveOrder).toBeLessThan(deleteUserOrder);
+		});
+
+		it('#4507: 通知の宛先が引けなくても削除は完了する', async () => {
+			mockAuthRepo.findTenantMembers.mockResolvedValue([
+				{ userId: OWNER_ID, tenantId: TENANT_ID, role: 'owner' },
+			]);
+			mockChildRepo.findAllChildren.mockResolvedValue([]);
+			mockAuthRepo.findTenantInvites.mockResolvedValue([]);
+			mockAuthRepo.findUserById.mockResolvedValue(null);
+
+			const result = await deleteOwnerOnlyAccount(TENANT_ID, OWNER_ID, AUDIT);
+
+			expect(result.success).toBe(true);
+			expect(sendDeletionCompleteEmail).not.toHaveBeenCalled();
 		});
 
 		// #741: Stripe subscription cancellation integration

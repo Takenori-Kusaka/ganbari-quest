@@ -10,6 +10,7 @@
 //   family:   30日間
 
 import { DELETION_GRACE_PERIOD_DAYS } from '$lib/domain/constants/deletion-grace';
+import { formatJSTDate, toJSTDateString } from '$lib/domain/date-utils';
 import { env } from '$lib/runtime/env';
 import { createTimeBudget, type TimeBudget } from '$lib/server/cron/time-budget';
 import { getRepos } from '$lib/server/db/factory';
@@ -102,6 +103,55 @@ export interface RestoreResult {
 // ============================================================
 
 /**
+ * 退会予約の受付をオーナーへ通知する (#4507)。
+ *
+ * 送信可否で予約処理を止めないため、失敗は例外にせずログに残すだけにする
+ * (宛先不明・SES 障害で「退会できない」を作らない)。
+ */
+async function notifyDeletionReserved(
+	tenantId: string,
+	physicalDeletionDate: string,
+	graceDays: number,
+): Promise<void> {
+	try {
+		const repos = getRepos();
+		const members = await repos.auth.findTenantMembers(tenantId);
+		const owner = members.find((m) => m.role === 'owner');
+		if (!owner) {
+			logger.warn('[grace-period] no owner found; deletion reserved without notification', {
+				context: { tenantId },
+			});
+			return;
+		}
+		const user = await repos.auth.findUserById(owner.userId);
+		if (!user?.email) {
+			logger.warn('[grace-period] owner has no email; deletion reserved without notification', {
+				context: { tenantId },
+			});
+			return;
+		}
+		const tenant = await repos.auth.findTenantById(tenantId);
+		const { sendDeletionReservedEmail } = await import('./email-service');
+		const ok = await sendDeletionReservedEmail({
+			email: user.email,
+			ownerName: user.displayName || tenant?.name || '',
+			deletionDate: formatJSTDate(toJSTDateString(new Date(physicalDeletionDate))),
+			graceDays,
+		});
+		if (!ok) {
+			logger.error('[grace-period] deletion reserved email send failed', {
+				context: { tenantId },
+			});
+		}
+	} catch (err) {
+		logger.error('[grace-period] deletion reserved email failed', {
+			error: String(err),
+			context: { tenantId },
+		});
+	}
+}
+
+/**
  * テナントをソフトデリートする。
  *
  * プランに応じたグレースピリオドを計算し、テナントに soft_deleted_at を記録する。
@@ -162,6 +212,13 @@ export async function softDeleteTenant(
 	logger.info('[grace-period] Tenant soft deleted', {
 		context: { tenantId, planTier, graceDays, physicalDeletionDate },
 	});
+
+	// #4507: 予約を受け付けたことをオーナーへ通知する。
+	//   sentinel (soft_deleted_at) を書いた**後**に送る。先に送ると、後続の書き込みが
+	//   失敗して soft-delete が成立しなかったときに「予約しました」だけが届く。
+	//   送信失敗で予約自体を巻き戻さない (削除の受付は成立しており、猶予期限も止まらない)。
+	//   届かなかったことは下の logger.error と、猶予中の削除予告メール (#2399) で補う。
+	await notifyDeletionReserved(tenantId, physicalDeletionDate, graceDays);
 
 	return {
 		success: true,

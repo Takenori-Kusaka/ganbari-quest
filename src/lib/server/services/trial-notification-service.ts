@@ -4,6 +4,7 @@
 // - トライアル終了後の初回ログイン時モーダルフラグ管理
 
 import { getPlanLabel, TRIAL_EMAIL_LABELS } from '$lib/domain/labels';
+import { PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getPlanLimits } from '$lib/server/services/plan-limit-service';
@@ -98,24 +99,26 @@ export async function sendTrialEnding3DaysEmail(
 ): Promise<boolean> {
 	const tierLabel = getPlanLabel(trialTier);
 	const freeLimits = getPlanLimits('free');
+	const retentionDays = freeLimits.historyRetentionDays;
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が残り3日です',
 		htmlBody: wrapTrialEmailTemplate(`
       <h2>トライアル期間が残り3日です</h2>
-      <p>現在ご利用中の<strong>${tierLabel}プラン</strong>のトライアル期間は <strong>${trialEndDate}</strong> に終了します。</p>
-      <p>トライアル終了後は、フリープランに切り替わります。フリープランでは以下の制限があります:</p>
+      <p>現在ご利用中の<strong>${tierLabel}</strong>のトライアル期間は <strong>${trialEndDate}</strong> に終了します。</p>
+      <p>トライアル終了後は、${PLAN_FULL_TERMS.free}に切り替わります。${PLAN_FULL_TERMS.free}では以下の制限があります:</p>
       <ul>
         <li>登録できる子供の数: ${freeLimits.maxChildren}人まで</li>
         <li>カスタム活動数: ${freeLimits.maxActivities}個まで</li>
-        <li>${TRIAL_EMAIL_LABELS.freeRetentionLine(freeLimits.historyRetentionDays)}</li>
+        <li>${TRIAL_EMAIL_LABELS.freeRetentionLine(retentionDays)}</li>
       </ul>
+      <p><strong>${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}</strong></p>
       <p>引き続きすべての機能をご利用いただくには、本契約へのお申し込みをお願いいたします。</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="https://ganbari-quest.com/admin/subscription" class="button">プランを確認する</a>
       </p>
     `),
-		textBody: `トライアル期間が残り3日です\n\n${tierLabel}プランのトライアル期間は ${trialEndDate} に終了します。\n引き続きご利用いただくには、本契約へのお申し込みをお願いいたします。\n\nプラン確認: https://ganbari-quest.com/admin/subscription`,
+		textBody: `トライアル期間が残り3日です\n\n${tierLabel}のトライアル期間は ${trialEndDate} に終了します。\n終了後は${PLAN_FULL_TERMS.free}に切り替わります。\n${TRIAL_EMAIL_LABELS.freeRetentionLine(retentionDays)}\n${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}\n\n引き続きご利用いただくには、本契約へのお申し込みをお願いいたします。\n\nプラン確認: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 
@@ -128,19 +131,20 @@ export async function sendTrialEnding1DayEmail(
 	trialTier: TrialTier,
 ): Promise<boolean> {
 	const tierLabel = getPlanLabel(trialTier);
+	const retentionDays = getPlanLimits('free').historyRetentionDays;
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアルが明日終了します',
 		htmlBody: wrapTrialEmailTemplate(`
       <h2>トライアルが明日終了します</h2>
-      <p><strong>${tierLabel}プラン</strong>のトライアル期間は <strong>明日（${trialEndDate}）</strong> に終了します。</p>
-      <p>トライアル終了後、フリープランの上限を超えるリソース（子供・活動など）は自動的にアーカイブされます。</p>
-      <p><strong>データは削除されません。</strong>アップグレードすればいつでも復元できます。</p>
+      <p><strong>${tierLabel}</strong>のトライアル期間は <strong>明日（${trialEndDate}）</strong> に終了します。終了後は${PLAN_FULL_TERMS.free}に切り替わります。</p>
+      <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
+      <p><strong>${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}</strong></p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/subscription" class="button">今すぐアップグレード</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">プランを確認する</a>
       </p>
     `),
-		textBody: `トライアルが明日終了します\n\n${tierLabel}プランのトライアル期間は明日（${trialEndDate}）に終了します。\nアップグレード: https://ganbari-quest.com/admin/subscription`,
+		textBody: `トライアルが明日終了します\n\n${tierLabel}のトライアル期間は明日（${trialEndDate}）に終了します。\n終了後は${PLAN_FULL_TERMS.free}に切り替わります。\n${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}\n${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}\n\nプラン確認: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 
@@ -152,19 +156,20 @@ export async function sendTrialEndedTodayEmail(
 	trialTier: TrialTier,
 ): Promise<boolean> {
 	const tierLabel = getPlanLabel(trialTier);
+	const retentionDays = getPlanLimits('free').historyRetentionDays;
 	return sendEmail({
 		to: email,
 		subject: '【がんばりクエスト】トライアル期間が終了しました',
 		htmlBody: wrapTrialEmailTemplate(`
       <h2>トライアル期間が終了しました</h2>
-      <p><strong>${tierLabel}プラン</strong>のトライアル期間が終了しました。現在はフリープランでご利用いただいています。</p>
-      <p>フリープランの上限を超えるリソースはアーカイブされています。データは安全に保管されており、アップグレードすれば復元できます。</p>
+      <p><strong>${tierLabel}</strong>のトライアル期間が終了しました。現在は${PLAN_FULL_TERMS.free}でご利用いただいています。</p>
+      <p>${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}</p>
+      <p><strong>${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}</strong></p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/subscription" class="button">プランをアップグレード</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">プランを確認する</a>
       </p>
-      <p style="font-size: 12px; color: #999;">アーカイブされたデータは、アップグレード後にすべて復元されます。</p>
     `),
-		textBody: `トライアル期間が終了しました\n\n${tierLabel}プランのトライアル期間が終了しました。\nフリープランでのご利用となります。\n\nアップグレード: https://ganbari-quest.com/admin/subscription`,
+		textBody: `トライアル期間が終了しました\n\n${tierLabel}のトライアル期間が終了しました。\n現在は${PLAN_FULL_TERMS.free}でのご利用となります。\n${TRIAL_EMAIL_LABELS.archiveRestorableLine(PLAN_FULL_TERMS.free)}\n${TRIAL_EMAIL_LABELS.retentionIrreversibleLine(retentionDays)}\n\nプラン確認: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 
