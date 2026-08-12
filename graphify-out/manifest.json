@@ -1405,8 +1405,8 @@
     "semantic_hash": ""
   },
   "scripts/lib/ci/repo-scan-test-registry.mjs": {
-    "mtime": 1786541892.1205955,
-    "ast_hash": "b18b9ca94d3b79f69508d05854ce68cd",
+    "mtime": 1786546612.8528657,
+    "ast_hash": "563643796ea528b8d91818e8cf7baec4",
     "semantic_hash": ""
   },
   "scripts/lib/ci/resolve-base-branch.mjs": {
@@ -14570,8 +14570,8 @@
     "semantic_hash": ""
   },
   "tests/unit/architecture/child-ui-display-integrity.test.ts": {
-    "mtime": 1786544006.4244175,
-    "ast_hash": "6a6c4bc283bf97fb18f893308e6dc3cb",
+    "mtime": 1786546620.0954263,
+    "ast_hash": "5ac74663425afa4e7e86228218091b16",
     "semantic_hash": ""
   },
   "tests/unit/architecture/e2e-worker-db-fixture-ratchet.test.ts": {
@@ -14657,6 +14657,11 @@
   "tests/unit/routes/switch-parent-gate-scroll-lock.test.ts": {
     "mtime": 1786541897.5811937,
     "ast_hash": "472bee45a332f09c7c5afae34b550e03",
+    "semantic_hash": ""
+  },
+  "scripts/capture-specs/flows/child-ui-consistency-4509.mjs": {
+    "mtime": 1786546765.5440736,
+    "ast_hash": "99cd9bfa0a085a87e49d23c451745c3a",
     "semantic_hash": ""
   }
 }
